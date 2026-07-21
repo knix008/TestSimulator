@@ -583,6 +583,11 @@ code {
   stroke-width: 4px;
 }
 
+.edge .edge-label {
+  cursor: move;
+  user-select: none;
+}
+
 .arrow-marker,
 .hollow-arrow-marker {
   stroke: var(--node-stroke);

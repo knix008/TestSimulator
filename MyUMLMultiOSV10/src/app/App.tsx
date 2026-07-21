@@ -47,8 +47,30 @@ import { GIFEncoder, applyPalette, quantize } from 'gifenc';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { diagramDefinitions, getDiagramDefinition, type ConnectorTool, type DiagramKind, type PaletteTool, type RelationshipKind, type UmlElementKind } from '../uml/diagramRegistry.js';
 import { addOwnedElement, addPaletteNode, connectNodes, createDiagramDocument, moveNode, renameEdge, renameEdgeSequenceNumber, renameNode, renameOwnedElement, updateEdgeAnchor, updateEdgeMultiplicity, updateEdgeRelationship, updateEdgeRoute, updateOwnedElementKind, type EdgeAnchor, type EdgeRoute, type UmlDiagramDocument, type UmlEdge, type UmlNode, type UmlOwnedElement, type UmlOwnedElementKind } from '../uml/editorModel.js';
+import {
+  attachInterfaceToComponent,
+  attachInterfaceToPort,
+  createInterfaceOnComponent,
+  dragInterfaceOnComponent,
+  findComponentForInterface,
+  INTERFACE_GLYPH_RADIUS,
+  interfaceAttachmentSide,
+  interfaceEdgeOffset,
+  interfaceGlyphCenter,
+  interfaceStemLength,
+  isAssemblyPair,
+  isInterfaceKind,
+  isInterfaceNode,
+  layoutInterfaceOnComponent,
+  reflowInterfaceAfterComponentChange,
+  replaceNode,
+  resizeInterfaceStem,
+  resolveInterfacePortAttachment,
+  sideAndOffsetFromPoint
+} from '../uml/componentInterface.js';
 import { getUmlConnectorNotation, isInteractionMessageKind } from '../uml/umlNotation.js';
 import { renderActivityDiagramNode } from './diagrams/activityDiagram.js';
+import { assemblyConnectorEndpoints, renderProvidedInterfaceNode, renderRequiredInterfaceNode } from './diagrams/componentInterfaces.js';
 import { renderUseCaseDiagramNode } from './diagrams/useCaseDiagram.js';
 import { communicationDiagramLabels, connectorLabels, diagramLabels, diagramScopes, messages, notationHints, type Locale, toolLabels } from './i18n.js';
 
@@ -87,9 +109,46 @@ interface SavedProjectFile {
   activeDocumentId: string;
 }
 
-interface ProjectOpenEvent extends Event {
-  detail?: SavedProjectFile;
+interface ProjectOpenDetail {
+  project?: SavedProjectFile;
+  filePath?: string;
+  format?: 'my-uml-multi-os-project';
+  version?: 1;
+  projectName?: string;
+  documents?: UmlDiagramDocument[];
+  activeDocumentId?: string;
 }
+
+interface ProjectOpenEvent extends Event {
+  detail?: ProjectOpenDetail | SavedProjectFile;
+}
+
+interface ProjectFileHandle {
+  createWritable: () => Promise<{ write: (contents: string) => Promise<void>; close: () => Promise<void> }>;
+}
+
+type SaveFilePickerWindow = typeof globalThis & {
+  showSaveFilePicker?: (options: {
+    suggestedName?: string;
+    startIn?: FileSystemHandle | 'desktop' | 'documents' | 'downloads';
+    types?: Array<{ description: string; accept: Record<string, string[]> }>;
+  }) => Promise<ProjectFileHandle & { getParent?: () => Promise<FileSystemHandle> }>;
+  showOpenFilePicker?: (options: {
+    multiple?: boolean;
+    startIn?: FileSystemHandle | 'desktop' | 'documents' | 'downloads';
+    types?: Array<{ description: string; accept: Record<string, string[]> }>;
+  }) => Promise<Array<ProjectFileHandle & { getFile: () => Promise<File> }>>;
+  myUmlDesktop?: {
+    openProject: () => Promise<{ filePath: string; contents: string } | null>;
+    saveProject: (payload: {
+      suggestedName: string;
+      contents: string;
+      existingPath?: string;
+    }) => Promise<{ filePath: string } | null>;
+  };
+};
+
+const lastProjectDirectoryStorageKey = 'my-uml-multi-os.last-project-directory';
 
 interface ProjectSnapshot {
   projectName: string;
@@ -130,6 +189,7 @@ export function App() {
   const [collapsedDiagramIds, setCollapsedDiagramIds] = useState<Set<string>>(() => new Set());
   const [connectorPreviewPoint, setConnectorPreviewPoint] = useState<Point | undefined>();
   const [canvasZooms, setCanvasZooms] = useState<Record<string, number>>({});
+  const [canvasPans, setCanvasPans] = useState<Record<string, Point>>({});
   const [locale, setLocale] = useState<Locale>('ko');
   const [theme, setTheme] = useState<Theme>('light');
   const [aboutOpen, setAboutOpen] = useState(false);
@@ -141,15 +201,38 @@ export function App() {
   const [contextMenu, setContextMenu] = useState<ContextMenuState | undefined>();
   const [inspectorSplit, setInspectorSplit] = useState(0.5);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const projectFileHandleRef = useRef<ProjectFileHandle | undefined>(undefined);
+  const projectFilePathRef = useRef<string | undefined>(undefined);
   const canvasRef = useRef<SVGSVGElement>(null);
   const inspectorRef = useRef<HTMLElement>(null);
   const [selectedNodeIds, setSelectedNodeIds] = useState<ReadonlySet<string>>(new Set());
   const [boxSelectRect, setBoxSelectRect] = useState<{ x: number; y: number; width: number; height: number } | undefined>();
-  const dragStateRef = useRef<{ nodeId: string; startClientX: number; startClientY: number; startX: number; startY: number; startWidth: number; startHeight: number; moved: boolean; coMovedNodes?: { id: string; startX: number; startY: number }[] } | undefined>(undefined);
+  const dragStateRef = useRef<{
+    nodeId: string;
+    startClientX: number;
+    startClientY: number;
+    startX: number;
+    startY: number;
+    startWidth: number;
+    startHeight: number;
+    moved: boolean;
+    attachmentSide?: EdgeAnchor;
+    interfaceDrag?: {
+      pointerX: number;
+      pointerY: number;
+      stemLength: number;
+      edgeOffset: number;
+      side: EdgeAnchor;
+      componentId: string;
+    };
+    coMovedNodes?: { id: string; startX: number; startY: number }[];
+  } | undefined>(undefined);
   const boxSelectRef = useRef<{ startClientX: number; startClientY: number; startCanvasX: number; startCanvasY: number; moved: boolean } | undefined>(undefined);
   const resizeStateRef = useRef<{ nodeId: string; nodeKind: UmlElementKind; startClientX: number; startClientY: number; startWidth: number; startHeight: number; minWidth: number; minHeight: number } | undefined>(undefined);
   const connectorDragStateRef = useRef<{ sourceId: string; startClientX: number; startClientY: number; moved: boolean; sequenceY?: number; startedFromLine?: boolean } | undefined>(undefined);
   const messageReorderStateRef = useRef<{ edgeId: string; startClientY: number; startSequenceY: number } | undefined>(undefined);
+  const communicationEdgeDragStateRef = useRef<{ edgeId: string; startClientX: number; startClientY: number; startOffset: number; normalX: number; normalY: number } | undefined>(undefined);
+  const edgeLabelDragStateRef = useRef<{ edgeId: string; startClientX: number; startClientY: number; startOffsetX: number; startOffsetY: number } | undefined>(undefined);
   const pendingConnectorRef = useRef<ConnectorTool | undefined>(undefined);
   const pendingSourceNodeIdRef = useRef<string | undefined>(undefined);
 
@@ -165,11 +248,12 @@ export function App() {
   const selectedDiagram = diagramSelectedId ? documents.find((candidate) => candidate.id === diagramSelectedId) : undefined;
   const openDocuments = openDocumentIds.map((documentId) => documents.find((candidate) => candidate.id === documentId)).filter((candidate): candidate is UmlDiagramDocument => Boolean(candidate));
   const canvasZoom = document ? canvasZooms[document.id] ?? 1 : 1;
+  const canvasPan = document ? canvasPans[document.id] ?? { x: 0, y: 0 } : { x: 0, y: 0 };
   const effectiveImageExportFormat = imageExportTransparent && !transparentImageExportFormats.includes(imageExportFormat) ? 'png' : imageExportFormat;
   const canDeleteDiagram = documents.length > 0;
   const canDeleteSelectedDiagram = canDeleteDiagram && Boolean(diagramSelectedId);
-  const canUndo = undoStack.length > 0;
-  const canRedo = redoStack.length > 0;
+  const canUndo = undoStack.some((snapshot) => snapshot.activeDocumentId === activeDocumentId);
+  const canRedo = redoStack.some((snapshot) => snapshot.activeDocumentId === activeDocumentId);
   const activeConnector = selectedConnector ?? pendingConnectorRef.current;
   const activeMode = activeConnector ? connectorToolLabel(locale, activeConnector, document.kind) : selectedTool ? paletteToolLabel(locale, selectedTool, document.kind) : text.pointer;
   const canvasClassName = activeConnector ? 'canvas connector-mode' : 'canvas';
@@ -211,6 +295,12 @@ export function App() {
       if ((event.ctrlKey || event.metaKey) && (event.key.toLowerCase() === 'y' || (event.shiftKey && event.key.toLowerCase() === 'z'))) {
         event.preventDefault();
         redoProjectChange();
+        return;
+      }
+
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
+        event.preventDefault();
+        void saveProject();
       }
     }
 
@@ -220,13 +310,18 @@ export function App() {
 
   useEffect(() => {
     function handleProjectOpen(event: ProjectOpenEvent) {
-      const parsed = event.detail;
-
-      if (!parsed || parsed.format !== 'my-uml-multi-os-project' || parsed.version !== 1) {
+      const detail = event.detail;
+      if (!detail) {
         return;
       }
 
-      applyProjectFile(parsed);
+      const project = 'project' in detail && detail.project ? detail.project : detail as SavedProjectFile;
+      if (project.format !== 'my-uml-multi-os-project' || project.version !== 1) {
+        return;
+      }
+
+      const filePath = 'filePath' in detail && typeof detail.filePath === 'string' ? detail.filePath : undefined;
+      applyProjectFile(project, filePath);
     }
 
     globalThis.addEventListener('my-uml-open-project', handleProjectOpen as EventListener);
@@ -266,7 +361,8 @@ export function App() {
 
   function undoProjectChange() {
     setUndoStack((current) => {
-      const previous = current[current.length - 1];
+      const snapshotIndex = findScopedSnapshotIndex(current, activeDocumentId);
+      const previous = snapshotIndex >= 0 ? current[snapshotIndex] : undefined;
 
       if (!previous) {
         return current;
@@ -274,13 +370,14 @@ export function App() {
 
       setRedoStack((redoCurrent) => [...redoCurrent.slice(-99), { projectName, documents, activeDocumentId }]);
       restoreProjectSnapshot(previous);
-      return current.slice(0, -1);
+      return current.filter((_, index) => index !== snapshotIndex);
     });
   }
 
   function redoProjectChange() {
     setRedoStack((current) => {
-      const next = current[current.length - 1];
+      const snapshotIndex = findScopedSnapshotIndex(current, activeDocumentId);
+      const next = snapshotIndex >= 0 ? current[snapshotIndex] : undefined;
 
       if (!next) {
         return current;
@@ -288,7 +385,7 @@ export function App() {
 
       setUndoStack((undoCurrent) => [...undoCurrent.slice(-99), { projectName, documents, activeDocumentId }]);
       restoreProjectSnapshot(next);
-      return current.slice(0, -1);
+      return current.filter((_, index) => index !== snapshotIndex);
     });
   }
 
@@ -358,6 +455,8 @@ export function App() {
     pendingSourceNodeIdRef.current = undefined;
     connectorDragStateRef.current = undefined;
     messageReorderStateRef.current = undefined;
+    communicationEdgeDragStateRef.current = undefined;
+    edgeLabelDragStateRef.current = undefined;
     setPendingSourceNodeId(undefined);
     setSelectedNodeId(undefined);
     setSelectedEdgeId(undefined);
@@ -377,25 +476,65 @@ export function App() {
     setDocuments(nextProject.documents);
     setActiveDocumentId(undefined);
     setOpenDocumentIds([]);
+    projectFileHandleRef.current = undefined;
+    projectFilePathRef.current = undefined;
     persistProjectFile(nextProject);
     resetSelection();
   }
 
-  function saveProject() {
+  async function saveProject() {
     const projectFile = createProjectFile(documents, activeDocumentId, locale, projectName);
     const serializedProject = JSON.stringify(projectFile, null, 2);
-    const blob = new Blob([serializedProject], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = globalThis.document.createElement('a');
+    const suggestedName = `${sanitizeFileName(projectName || document.name || 'my-uml-project')}.umlprj`;
 
     persistProjectFile(projectFile);
-    link.href = url;
-    link.download = `${document.name || 'my-uml-project'}.umlprj`;
-    link.style.display = 'none';
-    globalThis.document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
+
+    const fileSystemWindow = globalThis as SaveFilePickerWindow;
+    const desktop = fileSystemWindow.myUmlDesktop;
+
+    if (desktop?.saveProject) {
+      try {
+        const result = await desktop.saveProject({
+          suggestedName,
+          contents: serializedProject,
+          existingPath: projectFilePathRef.current
+        });
+        if (result?.filePath) {
+          projectFilePathRef.current = result.filePath;
+          projectFileHandleRef.current = undefined;
+          rememberLastProjectDirectory(result.filePath);
+        }
+      } catch {
+        // ignore dialog / IO failures
+      }
+      return;
+    }
+
+    if (projectFileHandleRef.current) {
+      await writeProjectToFileHandle(projectFileHandleRef.current, serializedProject);
+      return;
+    }
+
+    if (fileSystemWindow.showSaveFilePicker) {
+      try {
+        const fileHandle = await fileSystemWindow.showSaveFilePicker({
+          suggestedName,
+          startIn: await readStoredDirectoryHandle() ?? 'documents',
+          types: [{ description: 'MyUML project', accept: { 'application/json': ['.umlprj', '.json'] } }]
+        });
+
+        await writeProjectToFileHandle(fileHandle, serializedProject);
+        projectFileHandleRef.current = fileHandle;
+        await rememberDirectoryHandleFromFile(fileHandle);
+        return;
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') {
+          return;
+        }
+      }
+    }
+
+    downloadProjectFile(serializedProject, suggestedName);
   }
 
   async function saveDiagramImage() {
@@ -428,7 +567,53 @@ export function App() {
     }
   }
 
-  async function openProject(file: File | undefined) {
+  async function chooseAndOpenProject() {
+    const fileSystemWindow = globalThis as SaveFilePickerWindow;
+    const desktop = fileSystemWindow.myUmlDesktop;
+
+    if (desktop?.openProject) {
+      try {
+        const result = await desktop.openProject();
+        if (!result) {
+          return;
+        }
+        const parsed = JSON.parse(result.contents) as SavedProjectFile;
+        if (parsed.format !== 'my-uml-multi-os-project' || parsed.version !== 1) {
+          throw new Error('Unsupported MyUML project file.');
+        }
+        applyProjectFile(parsed, result.filePath);
+        rememberLastProjectDirectory(result.filePath);
+      } catch (error) {
+        if (error instanceof Error) {
+          globalThis.alert(error.message);
+        }
+      }
+      return;
+    }
+
+    if (fileSystemWindow.showOpenFilePicker) {
+      try {
+        const [fileHandle] = await fileSystemWindow.showOpenFilePicker({
+          multiple: false,
+          startIn: await readStoredDirectoryHandle() ?? 'documents',
+          types: [{ description: 'MyUML project', accept: { 'application/json': ['.umlprj', '.json'] } }]
+        });
+        const file = await fileHandle.getFile();
+        projectFileHandleRef.current = fileHandle;
+        await rememberDirectoryHandleFromFile(fileHandle);
+        await openProject(file, undefined);
+        return;
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') {
+          return;
+        }
+      }
+    }
+
+    fileInputRef.current?.click();
+  }
+
+  async function openProject(file: File | undefined, filePath?: string) {
     if (!file) {
       return;
     }
@@ -439,10 +624,10 @@ export function App() {
       throw new Error('Unsupported MyUML project file.');
     }
 
-    applyProjectFile(parsed);
+    applyProjectFile(parsed, filePath);
   }
 
-  function applyProjectFile(projectFile: SavedProjectFile) {
+  function applyProjectFile(projectFile: SavedProjectFile, filePath?: string) {
     const normalizedProject = normalizeProjectFile(projectFile, locale);
 
     pushUndoSnapshot();
@@ -450,6 +635,11 @@ export function App() {
     setDocuments(normalizedProject.documents);
     setActiveDocumentId(normalizedProject.activeDocumentId || undefined);
     setOpenDocumentIds(normalizedProject.activeDocumentId ? [normalizedProject.activeDocumentId] : []);
+    projectFileHandleRef.current = filePath ? undefined : projectFileHandleRef.current;
+    projectFilePathRef.current = filePath;
+    if (filePath) {
+      rememberLastProjectDirectory(filePath);
+    }
     persistProjectFile(normalizedProject);
     resetSelection();
   }
@@ -505,12 +695,17 @@ export function App() {
     if (selectedTool || selectedConnector || pendingConnectorRef.current || !canvasRef.current) {
       return;
     }
-    const bounds = canvasRef.current.getBoundingClientRect();
+    const point = clientToCanvasPoint(event.clientX, event.clientY);
+
+    if (!point) {
+      return;
+    }
+
     boxSelectRef.current = {
       startClientX: event.clientX,
       startClientY: event.clientY,
-      startCanvasX: (event.clientX - bounds.left) / canvasZoom,
-      startCanvasY: (event.clientY - bounds.top) / canvasZoom,
+      startCanvasX: point.x,
+      startCanvasY: point.y,
       moved: false
     };
   }
@@ -527,9 +722,14 @@ export function App() {
       return;
     }
 
-    const bounds = event.currentTarget.getBoundingClientRect();
-    const x = Math.round((event.clientX - bounds.left) / canvasZoom - 70);
-    const y = Math.round((event.clientY - bounds.top) / canvasZoom - 32);
+    const point = clientToCanvasPoint(event.clientX, event.clientY);
+
+    if (!point) {
+      return;
+    }
+
+    const x = Math.round(point.x - 70);
+    const y = Math.round(point.y - 32);
     const nextDocument = attachComponentSurfaceNode(addPaletteNode(document, selectedTool, Math.max(24, x), Math.max(24, y)));
 
     updateActiveDocument(() => nextDocument);
@@ -559,12 +759,45 @@ export function App() {
     }
 
     const count = document.nodes.filter((node) => node.kind === kind).length;
-    const x = component.x + component.width - 8;
-    const y = component.y + 48 + count * 36;
-    const nextDocument = attachComponentSurfaceNode(addPaletteNode(document, tool, x, y));
+    const withNode = addPaletteNode(document, tool, component.x + component.width, component.y + 48 + count * 36);
+    const created = withNode.nodes[withNode.nodes.length - 1];
+    const nextDocument = isInterfaceKind(kind)
+      ? replaceNode(withNode, createInterfaceOnComponent(created, component, 'right', 48 + count * 36))
+      : attachComponentSurfaceNode(withNode);
 
     updateActiveDocument(() => nextDocument);
     setSelectedNodeId(nextDocument.nodes[nextDocument.nodes.length - 1].id);
+    setSelectedEdgeId(undefined);
+    setSelectedOwnedElement(undefined);
+    setContextMenu(undefined);
+  }
+
+  function addInterfaceToPortFromContext(portId: string, kind: 'providedInterface' | 'requiredInterface') {
+    const port = document.nodes.find((node) => node.id === portId && node.kind === 'port');
+    const tool = componentSurfaceTool(kind);
+
+    if (!port || !tool) {
+      setContextMenu(undefined);
+      return;
+    }
+
+    const component = findComponentForInterface(document.nodes, port)
+      ?? (port.parentComponentId
+        ? document.nodes.find((node) => node.id === port.parentComponentId && node.kind === 'component')
+        : undefined);
+
+    if (!component) {
+      setContextMenu(undefined);
+      return;
+    }
+
+    const withNode = addPaletteNode(document, tool, component.x + component.width, component.y + 48);
+    const created = withNode.nodes[withNode.nodes.length - 1];
+    const placed = attachInterfaceToPort(created, component, port);
+    const nextDocument = replaceNode(withNode, placed);
+
+    updateActiveDocument(() => nextDocument);
+    setSelectedNodeId(placed.id);
     setSelectedEdgeId(undefined);
     setSelectedOwnedElement(undefined);
     setContextMenu(undefined);
@@ -609,9 +842,14 @@ export function App() {
       return;
     }
 
-    const bounds = event.currentTarget.getBoundingClientRect();
-    const x = Math.round((event.clientX - bounds.left) / canvasZoom - 62);
-    const y = Math.round((event.clientY - bounds.top) / canvasZoom - 22);
+    const point = clientToCanvasPoint(event.clientX, event.clientY);
+
+    if (!point) {
+      return;
+    }
+
+    const x = Math.round(point.x - 62);
+    const y = Math.round(point.y - 22);
     const withLifeline = addPaletteNode(document, lifelineTool, Math.max(24, x), Math.max(24, y));
     const createdNode = withLifeline.nodes[withLifeline.nodes.length - 1];
     const nextDocument = renameNode(withLifeline, createdNode.id, payload.name);
@@ -661,6 +899,12 @@ export function App() {
 
     if (document.kind === 'communication' && connector.kind === 'connector' && !isCommunicationParticipant(target?.kind)) {
       return;
+    }
+
+    if (connector.kind === 'assemblyConnector') {
+      if (!source || !target || !isAssemblyPair(source, target)) {
+        return;
+      }
     }
 
     const requestedSequenceY = connectorDragStateRef.current?.sequenceY ?? connectorPreviewPoint?.y ?? (source && target ? Math.max(source.y, target.y) + 72 : undefined);
@@ -1024,8 +1268,8 @@ export function App() {
       target: 'canvas',
       x: event.clientX,
       y: event.clientY,
-      canvasX: (event.clientX - bounds.left) / canvasZoom,
-      canvasY: (event.clientY - bounds.top) / canvasZoom
+      canvasX: (event.clientX - bounds.left - canvasPan.x) / canvasZoom,
+      canvasY: (event.clientY - bounds.top - canvasPan.y) / canvasZoom
     });
   }
 
@@ -1105,6 +1349,23 @@ export function App() {
           .filter((n): n is { id: string; startX: number; startY: number } => n !== null)
       : undefined;
 
+    const attachmentSide = isInterfaceNode(node)
+      ? interfaceAttachmentSide(node)
+      : undefined;
+    const parentComponent = isInterfaceNode(node) ? findComponentForInterface(document.nodes, node) : undefined;
+    const startPoint = pointerToCanvasPoint(event);
+    const interfaceDrag = isInterfaceNode(node) && parentComponent && startPoint
+      ? {
+          pointerX: startPoint.x,
+          pointerY: startPoint.y,
+          stemLength: interfaceStemLength(node),
+          edgeOffset: interfaceEdgeOffset(node, parentComponent),
+          side: attachmentSide ?? 'right',
+          componentId: parentComponent.id
+        }
+      : undefined;
+
+    pushUndoSnapshot();
     dragStateRef.current = {
       nodeId: node.id,
       startClientX: event.clientX,
@@ -1114,6 +1375,8 @@ export function App() {
       startWidth: node.width,
       startHeight: node.height,
       moved: false,
+      attachmentSide,
+      interfaceDrag,
       coMovedNodes
     };
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -1145,6 +1408,29 @@ export function App() {
       return;
     }
 
+    const communicationEdgeDragState = communicationEdgeDragStateRef.current;
+
+    if (communicationEdgeDragState) {
+      const deltaX = (event.clientX - communicationEdgeDragState.startClientX) / canvasZoom;
+      const deltaY = (event.clientY - communicationEdgeDragState.startClientY) / canvasZoom;
+      const nextOffset = communicationEdgeDragState.startOffset + deltaX * communicationEdgeDragState.normalX + deltaY * communicationEdgeDragState.normalY;
+
+      updateActiveDocumentLive((current) => moveCommunicationEdgeOffset(current, communicationEdgeDragState.edgeId, nextOffset));
+      return;
+    }
+
+    const edgeLabelDragState = edgeLabelDragStateRef.current;
+
+    if (edgeLabelDragState) {
+      updateActiveDocumentLive((current) => moveEdgeLabelOffset(
+        current,
+        edgeLabelDragState.edgeId,
+        edgeLabelDragState.startOffsetX + (event.clientX - edgeLabelDragState.startClientX) / canvasZoom,
+        edgeLabelDragState.startOffsetY + (event.clientY - edgeLabelDragState.startClientY) / canvasZoom
+      ));
+      return;
+    }
+
     const dragState = dragStateRef.current;
 
     if (!dragState) {
@@ -1154,9 +1440,14 @@ export function App() {
         const dy = event.clientY - boxSelect.startClientY;
         if (Math.hypot(dx, dy) > 5) {
           boxSelect.moved = true;
-          const bounds = canvasRef.current.getBoundingClientRect();
-          const curX = (event.clientX - bounds.left) / canvasZoom;
-          const curY = (event.clientY - bounds.top) / canvasZoom;
+          const point = clientToCanvasPoint(event.clientX, event.clientY);
+
+          if (!point) {
+            return;
+          }
+
+          const curX = point.x;
+          const curY = point.y;
           setBoxSelectRect({
             x: Math.min(boxSelect.startCanvasX, curX),
             y: Math.min(boxSelect.startCanvasY, curY),
@@ -1168,21 +1459,25 @@ export function App() {
       }
 
       if ((selectedConnector || pendingConnectorRef.current) && pendingSourceNodeIdRef.current && canvasRef.current) {
-        const bounds = canvasRef.current.getBoundingClientRect();
+        const point = clientToCanvasPoint(event.clientX, event.clientY);
         const connectorDragState = connectorDragStateRef.current;
 
         if (connectorDragState && Math.hypot(event.clientX - connectorDragState.startClientX, event.clientY - connectorDragState.startClientY) > 5) {
           connectorDragState.moved = true;
         }
 
-        const previewY = (event.clientY - bounds.top) / canvasZoom;
+        if (!point) {
+          return;
+        }
+
+        const previewY = point.y;
 
         if (connectorDragState) {
           connectorDragState.sequenceY = previewY;
         }
 
         setConnectorPreviewPoint({
-          x: (event.clientX - bounds.left) / canvasZoom,
+          x: point.x,
           y: previewY
         });
       }
@@ -1199,25 +1494,28 @@ export function App() {
 
     const nextX = Math.max(0, Math.round(dragState.startX + deltaX / canvasZoom));
     const nextY = Math.max(0, Math.round(dragState.startY + deltaY / canvasZoom));
-    if (dragState.coMovedNodes && dragState.coMovedNodes.length > 0) {
-      const moveDX = nextX - dragState.startX;
-      const moveDY = nextY - dragState.startY;
-      updateActiveDocument((current) => {
-        let result = moveComponentDiagramNode(current, dragState.nodeId, nextX, nextY, {
-          startWidth: dragState.startWidth,
-          startHeight: dragState.startHeight
-        });
-        for (const coNode of dragState.coMovedNodes!) {
+    const pointer = clientToCanvasPoint(event.clientX, event.clientY);
+
+    const applyMove = (current: UmlDiagramDocument) => {
+      if (dragState.interfaceDrag && pointer) {
+        return moveInterfaceDiagramNode(current, dragState.nodeId, pointer, dragState.interfaceDrag);
+      }
+
+      if (dragState.coMovedNodes && dragState.coMovedNodes.length > 0) {
+        const moveDX = nextX - dragState.startX;
+        const moveDY = nextY - dragState.startY;
+        let result = moveComponentDiagramNode(current, dragState.nodeId, nextX, nextY);
+        for (const coNode of dragState.coMovedNodes) {
           result = moveComponentDiagramNode(result, coNode.id, Math.max(0, coNode.startX + moveDX), Math.max(0, coNode.startY + moveDY));
         }
         return result;
-      });
-    } else {
-      updateActiveDocument((current) => moveComponentDiagramNode(current, dragState.nodeId, nextX, nextY, {
-        startWidth: dragState.startWidth,
-        startHeight: dragState.startHeight
-      }));
-    }
+      }
+
+      return moveComponentDiagramNode(current, dragState.nodeId, nextX, nextY);
+    };
+
+    // Live updates during drag; undo snapshot was taken on pointer-down.
+    updateActiveDocumentLive(applyMove);
   }
 
   function pointerToCanvasPoint(event: React.PointerEvent<SVGElement>): Point | undefined {
@@ -1225,11 +1523,19 @@ export function App() {
       return undefined;
     }
 
+    return clientToCanvasPoint(event.clientX, event.clientY);
+  }
+
+  function clientToCanvasPoint(clientX: number, clientY: number): Point | undefined {
+    if (!canvasRef.current) {
+      return undefined;
+    }
+
     const bounds = canvasRef.current.getBoundingClientRect();
 
     return {
-      x: (event.clientX - bounds.left) / canvasZoom,
-      y: (event.clientY - bounds.top) / canvasZoom
+      x: (clientX - bounds.left - canvasPan.x) / canvasZoom,
+      y: (clientY - bounds.top - canvasPan.y) / canvasZoom
     };
   }
 
@@ -1298,6 +1604,8 @@ export function App() {
     dragStateRef.current = undefined;
     resizeStateRef.current = undefined;
     messageReorderStateRef.current = undefined;
+    communicationEdgeDragStateRef.current = undefined;
+    edgeLabelDragStateRef.current = undefined;
 
     const boxSelect = boxSelectRef.current;
     if (boxSelect?.moved) {
@@ -1421,7 +1729,33 @@ export function App() {
   }
 
   function startMessageReorder(event: React.PointerEvent<SVGGElement>, edge: UmlEdge) {
-    if (document.kind !== 'sequence' || edge.kind !== 'message' || selectedConnector) {
+    if (selectedConnector) {
+      return;
+    }
+
+    if (document.kind === 'communication' && (isInteractionMessageKind(edge.kind) || edge.kind === 'connector')) {
+      const drag = communicationEdgeDragBasis(document, edge, event.clientX, event.clientY);
+
+      if (!drag) {
+        return;
+      }
+
+      event.stopPropagation();
+      setContextMenu(undefined);
+      pendingSourceNodeIdRef.current = undefined;
+      connectorDragStateRef.current = undefined;
+      setPendingSourceNodeId(undefined);
+      setConnectorPreviewPoint(undefined);
+      setSelectedNodeId(undefined);
+      setSelectedEdgeId(edge.id);
+      setSelectedOwnedElement(undefined);
+      communicationEdgeDragStateRef.current = drag;
+      pushUndoSnapshot();
+      event.currentTarget.setPointerCapture(event.pointerId);
+      return;
+    }
+
+    if (document.kind !== 'sequence' || edge.kind !== 'message') {
       return;
     }
 
@@ -1442,6 +1776,31 @@ export function App() {
     event.currentTarget.setPointerCapture(event.pointerId);
   }
 
+  function startEdgeLabelDrag(event: React.PointerEvent<SVGTextElement>, edge: UmlEdge) {
+    if (selectedConnector) {
+      return;
+    }
+
+    event.stopPropagation();
+    setContextMenu(undefined);
+    pendingSourceNodeIdRef.current = undefined;
+    connectorDragStateRef.current = undefined;
+    setPendingSourceNodeId(undefined);
+    setConnectorPreviewPoint(undefined);
+    setSelectedNodeId(undefined);
+    setSelectedEdgeId(edge.id);
+    setSelectedOwnedElement(undefined);
+    pushUndoSnapshot();
+    edgeLabelDragStateRef.current = {
+      edgeId: edge.id,
+      startClientX: event.clientX,
+      startClientY: event.clientY,
+      startOffsetX: edge.labelOffset?.x ?? 0,
+      startOffsetY: edge.labelOffset?.y ?? 0
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+
   function updateCanvasZoom(delta: number) {
     setCanvasZooms((current) => ({
       ...current,
@@ -1451,6 +1810,7 @@ export function App() {
 
   function resetCanvasZoom() {
     setCanvasZooms((current) => ({ ...current, [document.id]: 1 }));
+    setCanvasPans((current) => ({ ...current, [document.id]: centeredCanvasPan(document, canvasRef.current) }));
   }
 
   function refreshApplication() {
@@ -1466,12 +1826,12 @@ export function App() {
       <header className="topbar">
         {text.eyebrow ? <div><span className="eyebrow">{text.eyebrow}</span></div> : null}
         <div className="top-actions" aria-label={text.projectActions}>
-          <input ref={fileInputRef} className="file-input" type="file" accept=".umlprj,.json,application/json" onChange={(event) => { void openProject(event.currentTarget.files?.[0]); event.currentTarget.value = ''; }} />
+          <input ref={fileInputRef} className="file-input" type="file" accept=".umlprj,.json,application/json" onChange={(event) => { void openProject(event.currentTarget.files?.[0]).catch((error) => { if (error instanceof Error) globalThis.alert(error.message); }); event.currentTarget.value = ''; }} />
           <button type="button" title={text.newProject} aria-label={text.newProject} onClick={createNewProject} className="text-button">
             <FilePlus2 size={18} />
             <span>{text.newProject}</span>
           </button>
-          <button type="button" title={text.openProject} aria-label={text.openProject} onClick={() => fileInputRef.current?.click()} className="text-button">
+          <button type="button" title={text.openProject} aria-label={text.openProject} onClick={() => { void chooseAndOpenProject(); }} className="text-button">
             <FolderOpen size={18} />
             <span>{text.openProject}</span>
           </button>
@@ -1597,13 +1957,13 @@ export function App() {
                   </marker>
                 </defs>
                 <rect width="100%" height="100%" fill="url(#grid)" />
-                <g transform={`scale(${canvasZoom})`}>
+                <g transform={`translate(${canvasPan.x} ${canvasPan.y}) scale(${canvasZoom})`}>
                   {document.edges.map((edge, edgeIndex) => (
-                    <DiagramEdge key={edge.id} edge={edge} edgeIndex={document.kind === 'sequence' && edge.kind === 'message' ? document.edges.slice(0, edgeIndex).filter((candidate) => candidate.kind === 'message').length : edgeIndex} diagramKind={document.kind} nodes={document.nodes} edges={document.edges} selected={edge.id === selectedEdgeId} onSelect={() => selectEdge(edge.id)} onPointerDown={(event) => startMessageReorder(event, edge)} onContextMenu={(event: React.MouseEvent<SVGGElement>) => openEdgeContextMenu(event, edge.id)} />
+                    <DiagramEdge key={edge.id} edge={edge} edgeIndex={document.kind === 'sequence' && edge.kind === 'message' ? document.edges.slice(0, edgeIndex).filter((candidate) => candidate.kind === 'message').length : edgeIndex} diagramKind={document.kind} nodes={document.nodes} edges={document.edges} selected={edge.id === selectedEdgeId} onSelect={() => selectEdge(edge.id)} onPointerDown={(event) => startMessageReorder(event, edge)} onLabelPointerDown={(event) => startEdgeLabelDrag(event, edge)} onContextMenu={(event: React.MouseEvent<SVGGElement>) => openEdgeContextMenu(event, edge.id)} />
                   ))}
                   {activeConnector && pendingSourceNodeId && connectorPreviewPoint ? <ConnectorPreview source={document.nodes.find((node) => node.id === pendingSourceNodeId)} target={connectorPreviewPoint} connector={activeConnector} diagramKind={document.kind} /> : null}
                   {document.nodes.map((node) => (
-                    <DiagramNode key={node.id} node={node} selected={node.id === selectedNodeId || node.id === pendingSourceNodeId || selectedNodeIds.has(node.id)} selectedOwnedElementId={selectedOwnedElement?.nodeId === node.id ? selectedOwnedElement.elementId : undefined} showMessageStartLine={document.kind === 'sequence' && node.kind === 'lifeline' && activeConnector?.kind === 'message'} surfaceAttachment={(node.kind === 'providedInterface' || node.kind === 'requiredInterface') ? computeInterfaceAttachmentSide(node, document.nodes) : undefined} diagramKind={document.kind} onMessageStartLine={(event) => beginMessageFromLifelineLine(event, node)} onPointerDown={(event) => handleNodePointerDown(event, node)} onPointerMove={handleCanvasPointerMove} onPointerUp={(event) => handleNodePointerUp(event, node)} onResizeStart={(event) => startNodeResize(event, node)} onOwnedElementSelect={(elementId) => selectOwnedElement(node.id, elementId)} onContextMenu={(event: React.MouseEvent<SVGGElement>) => openNodeContextMenu(event, node.id)} />
+                    <DiagramNode key={node.id} node={node} selected={node.id === selectedNodeId || node.id === pendingSourceNodeId || selectedNodeIds.has(node.id)} selectedOwnedElementId={selectedOwnedElement?.nodeId === node.id ? selectedOwnedElement.elementId : undefined} showMessageStartLine={document.kind === 'sequence' && node.kind === 'lifeline' && activeConnector?.kind === 'message'} surfaceAttachment={isInterfaceNode(node) ? interfaceAttachmentSide(node) : undefined} diagramKind={document.kind} onMessageStartLine={(event) => beginMessageFromLifelineLine(event, node)} onPointerDown={(event) => handleNodePointerDown(event, node)} onPointerMove={handleCanvasPointerMove} onPointerUp={(event) => handleNodePointerUp(event, node)} onResizeStart={(event) => startNodeResize(event, node)} onOwnedElementSelect={(elementId) => selectOwnedElement(node.id, elementId)} onContextMenu={(event: React.MouseEvent<SVGGElement>) => openNodeContextMenu(event, node.id)} />
                   ))}
                   {boxSelectRect ? (
                     <rect className="box-select" x={boxSelectRect.x} y={boxSelectRect.y} width={boxSelectRect.width} height={boxSelectRect.height} pointerEvents="none" />
@@ -1862,10 +2222,36 @@ export function App() {
                   })}
                 </>
               ) : null}
-              <div className="context-menu-heading">{text.ownedElements}</div>
-              {ownedElementKindsForNode(document.nodes.find((node) => node.id === contextMenu.nodeId) ?? document.nodes[0]).map((kind) => (
-                <button key={`owned-${kind}`} type="button" role="menuitem" onClick={() => addElementToNode(contextMenu.nodeId, kind)}>{ownedElementLabels[locale][kind]}</button>
-              ))}
+              {document.kind === 'component' && document.nodes.find((node) => node.id === contextMenu.nodeId)?.kind === 'port' ? (
+                <>
+                  <div className="context-menu-heading">{text.addElement}</div>
+                  {(['providedInterface', 'requiredInterface'] as const).map((kind) => {
+                    const tool = componentSurfaceTool(kind);
+
+                    return tool ? (
+                      <button key={`port-interface-${kind}`} type="button" role="menuitem" onClick={() => addInterfaceToPortFromContext(contextMenu.nodeId, kind)}>
+                        <ToolIcon kind={tool.kind} label={tool.label} size={14} />
+                        <span>{paletteToolLabel(locale, tool)}</span>
+                      </button>
+                    ) : null;
+                  })}
+                </>
+              ) : null}
+              {(() => {
+                const contextNode = document.nodes.find((node) => node.id === contextMenu.nodeId) ?? document.nodes[0];
+                const ownedKinds = ownedElementKindsForNode(contextNode);
+                if (ownedKinds.length === 0) {
+                  return null;
+                }
+                return (
+                  <>
+                    <div className="context-menu-heading">{text.ownedElements}</div>
+                    {ownedKinds.map((kind) => (
+                      <button key={`owned-${kind}`} type="button" role="menuitem" onClick={() => addElementToNode(contextMenu.nodeId, kind)}>{ownedElementLabels[locale][kind]}</button>
+                    ))}
+                  </>
+                );
+              })()}
               <button type="button" role="menuitem" className="danger-menu-item" onClick={() => {
                 if (selectedNodeIds.has(contextMenu.nodeId) && selectedNodeIds.size > 1) {
                   deleteMultipleNodes(selectedNodeIds);
@@ -2035,13 +2421,31 @@ function normalizeDiagramDocument(document: UmlDiagramDocument, locale: Locale, 
     .map((edge, edgeIndex) => normalizeEdge(edge, definition.connectors, edgeIndex))
     .filter((edge): edge is UmlEdge => edge !== undefined && nodeIds.has(edge.sourceId) && nodeIds.has(edge.targetId));
 
-  return {
+  const normalized: UmlDiagramDocument = {
     id: nonEmptyString(document.id, `diagram-${index + 1}`),
     kind: document.kind,
     name: nonEmptyString(document.name, diagramLabels[locale][document.kind]),
     nodes,
     edges
   };
+
+  return document.kind === 'component' ? migrateComponentInterfaces(normalized) : normalized;
+}
+
+/** Glue PI/RI stems to component faces and backfill attachmentSide/edgeOffset. */
+function migrateComponentInterfaces(document: UmlDiagramDocument): UmlDiagramDocument {
+  let next = ensureSurfaceNodeOwnership(document);
+  for (const node of next.nodes) {
+    if (!isInterfaceNode(node)) {
+      continue;
+    }
+    const component = findComponentForInterface(next.nodes, node);
+    if (!component) {
+      continue;
+    }
+    next = replaceNode(next, attachInterfaceToComponent(node, component, node.attachmentSide));
+  }
+  return next;
 }
 
 function normalizeNode(node: UmlNode, palette: PaletteTool[], index: number, diagramKind: DiagramKind): UmlNode {
@@ -2063,7 +2467,11 @@ function normalizeNode(node: UmlNode, palette: PaletteTool[], index: number, dia
     x: finiteNumber(node.x, 24),
     y: finiteNumber(node.y, 24),
     width,
-    height
+    height,
+    parentComponentId: typeof node.parentComponentId === 'string' && node.parentComponentId ? node.parentComponentId : undefined,
+    parentPortId: typeof node.parentPortId === 'string' && node.parentPortId ? node.parentPortId : undefined,
+    attachmentSide: isEdgeAnchor(node.attachmentSide) ? node.attachmentSide : undefined,
+    edgeOffset: typeof node.edgeOffset === 'number' && Number.isFinite(node.edgeOffset) ? node.edgeOffset : undefined
   };
 }
 
@@ -2076,6 +2484,15 @@ function normalizeOwnedElement(element: { id?: string; kind?: UmlOwnedElementKin
     name: nonEmptyString(element.name, `${kind}${index + 1}`),
     umlType: nonEmptyString(element.umlType, defaultSavedOwnedElementType(kind))
   };
+}
+
+function isPointLike(value: unknown): value is Point {
+  return typeof value === 'object'
+    && value !== null
+    && typeof (value as Point).x === 'number'
+    && Number.isFinite((value as Point).x)
+    && typeof (value as Point).y === 'number'
+    && Number.isFinite((value as Point).y);
 }
 
 function normalizeEdge(edge: UmlEdge, connectors: ConnectorTool[], index: number): UmlEdge | undefined {
@@ -2099,6 +2516,8 @@ function normalizeEdge(edge: UmlEdge, connectors: ConnectorTool[], index: number
     sourceMultiplicity: typeof edge.sourceMultiplicity === 'string' ? edge.sourceMultiplicity : defaultSavedMultiplicity(connector.kind),
     targetMultiplicity: typeof edge.targetMultiplicity === 'string' ? edge.targetMultiplicity : defaultSavedMultiplicity(connector.kind),
     sequenceY: typeof edge.sequenceY === 'number' && Number.isFinite(edge.sequenceY) ? edge.sequenceY : undefined,
+    offset: typeof edge.offset === 'number' && Number.isFinite(edge.offset) ? edge.offset : undefined,
+    labelOffset: isPointLike(edge.labelOffset) ? { x: edge.labelOffset.x, y: edge.labelOffset.y } : undefined,
     sequenceNumber: typeof edge.sequenceNumber === 'string' && edge.sequenceNumber.trim() ? edge.sequenceNumber.trim() : undefined
   };
 }
@@ -2108,11 +2527,8 @@ function attachComponentSurfaceNode(document: UmlDiagramDocument, nodeId?: strin
 }
 
 function attachComponentSurfaceNodeWithOptions(document: UmlDiagramDocument, nodeId?: string, options: {
-  skipPortSnap?: boolean;
   pinnedComponentId?: string;
-  stemMode?: 'flush' | 'stretch';
   preferredSide?: EdgeAnchor;
-  previousNode?: UmlNode;
 } = {}): UmlDiagramDocument {
   if (document.kind !== 'component') {
     return document;
@@ -2124,68 +2540,53 @@ function attachComponentSurfaceNodeWithOptions(document: UmlDiagramDocument, nod
     return document;
   }
 
-  const stemMode = options.stemMode ?? 'flush';
-  const pinnedComponentId = options.pinnedComponentId ?? targetNode.parentComponentId;
-  const portSearchNodes = pinnedComponentId
-    ? document.nodes.filter((n) => n.kind !== 'port' || n.parentComponentId === pinnedComponentId || !n.parentComponentId && nearestComponentForSurfaceNode(document.nodes, n)?.id === pinnedComponentId)
-    : document.nodes;
+  if (isInterfaceNode(targetNode)) {
+    const component = options.pinnedComponentId
+      ? document.nodes.find((node) => node.id === options.pinnedComponentId && node.kind === 'component')
+      : findComponentForInterface(document.nodes, targetNode);
 
-  const component = pinnedComponentId
-    ? document.nodes.find((n) => n.id === pinnedComponentId && n.kind === 'component')
-    : nearestComponentForSurfaceNode(document.nodes, targetNode);
-
-  const preferredSide = options.preferredSide
-    ?? (component && options.previousNode ? preferredInterfaceAttachmentSide(options.previousNode, targetNode, component) : undefined)
-    ?? (component ? nearestComponentSide(targetNode, component) : undefined);
-
-  const port = !options.skipPortSnap && (targetNode.kind === 'providedInterface' || targetNode.kind === 'requiredInterface')
-    ? nearestPortForInterface(portSearchNodes, targetNode, preferredSide, component)
-    : undefined;
-
-  if (port) {
-    const portComponent = component ?? nearestComponentForSurfaceNode(document.nodes, port);
-    const side = preferredSide ?? (portComponent ? nearestComponentSide(port, portComponent) : 'right');
-    const attachedNode = snapInterfaceToPortOnSide(targetNode, port, side, stemMode);
-    const withParent = portComponent ? { ...attachedNode, parentComponentId: portComponent.id } : attachedNode;
-
-    if (interfacePlacementUnchanged(targetNode, withParent)) {
+    if (!component) {
       return document;
     }
 
-    return {
-      ...document,
-      nodes: document.nodes.map((node) => (node.id === targetNode.id ? withParent : node))
-    };
+    return replaceNode(document, attachInterfaceToComponent(targetNode, component, options.preferredSide));
   }
+
+  const component = options.pinnedComponentId
+    ? document.nodes.find((node) => node.id === options.pinnedComponentId && node.kind === 'component')
+    : nearestComponentForSurfaceNode(document.nodes, targetNode);
 
   if (!component) {
     return document;
   }
 
-  const side = preferredSide ?? nearestComponentSide(targetNode, component);
-  const attachedNode = {
-    ...(targetNode.kind === 'providedInterface' || targetNode.kind === 'requiredInterface'
-      ? snapInterfaceToComponentEdge(targetNode, component, side, stemMode)
-      : snapNodeToComponentSurface(targetNode, component)),
-    parentComponentId: component.id
-  };
+  const withPort = replaceNode(document, { ...snapPortToComponentSurface(targetNode, component), parentComponentId: component.id });
+  return reflowInterfacesForPort(withPort, targetNode.id);
+}
 
-  if (interfacePlacementUnchanged(targetNode, attachedNode)) {
+function reflowInterfacesForPort(document: UmlDiagramDocument, portId: string): UmlDiagramDocument {
+  const port = document.nodes.find((node) => node.id === portId && node.kind === 'port');
+  if (!port) {
     return document;
   }
 
-  return {
-    ...document,
-    nodes: document.nodes.map((node) => (node.id === targetNode.id ? attachedNode : node))
-  };
-}
+  const component = findComponentForInterface(document.nodes, port)
+    ?? (port.parentComponentId
+      ? document.nodes.find((node) => node.id === port.parentComponentId && node.kind === 'component')
+      : undefined);
+  if (!component) {
+    return document;
+  }
 
-function interfacePlacementUnchanged(before: UmlNode, after: UmlNode): boolean {
-  return before.x === after.x
-    && before.y === after.y
-    && before.width === after.width
-    && before.height === after.height
-    && before.parentComponentId === after.parentComponentId;
+  let next = document;
+  for (const node of document.nodes) {
+    if (!isInterfaceNode(node) || node.parentPortId !== portId) {
+      continue;
+    }
+    next = replaceNode(next, attachInterfaceToPort(node, component, port));
+  }
+
+  return next;
 }
 
 function isComponentSurfaceNode(kind: UmlElementKind): boolean {
@@ -2193,8 +2594,7 @@ function isComponentSurfaceNode(kind: UmlElementKind): boolean {
 }
 
 function ensureSurfaceNodeOwnership(document: UmlDiagramDocument): UmlDiagramDocument {
-  const needsParent = document.nodes.some((n) => isComponentSurfaceNode(n.kind) && !n.parentComponentId);
-
+  const needsParent = document.nodes.some((node) => isComponentSurfaceNode(node.kind) && !node.parentComponentId);
   if (!needsParent) {
     return document;
   }
@@ -2205,128 +2605,118 @@ function ensureSurfaceNodeOwnership(document: UmlDiagramDocument): UmlDiagramDoc
       if (!isComponentSurfaceNode(node.kind) || node.parentComponentId) {
         return node;
       }
-
       const component = nearestComponentForSurfaceNode(document.nodes, node);
-
       return component ? { ...node, parentComponentId: component.id } : node;
     })
   };
 }
 
-function moveComponentDiagramNode(
+function moveInterfaceDiagramNode(
   document: UmlDiagramDocument,
   nodeId: string,
-  x: number,
-  y: number,
-  dragOrigin?: { startWidth: number; startHeight: number }
+  pointer: Point,
+  dragStart: { pointerX: number; pointerY: number; stemLength: number; edgeOffset: number; side: EdgeAnchor; componentId: string }
 ): UmlDiagramDocument {
+  const node = document.nodes.find((candidate) => candidate.id === nodeId);
+  const component = document.nodes.find((candidate) => candidate.id === dragStart.componentId && candidate.kind === 'component');
+  if (!node || !isInterfaceNode(node) || !component) {
+    return document;
+  }
+
+  const moved = dragInterfaceOnComponent(node, component, pointer, dragStart);
+  return replaceNode(document, resolveInterfacePortAttachment(moved, component, document.nodes, pointer));
+}
+
+function moveComponentDiagramNode(document: UmlDiagramDocument, nodeId: string, x: number, y: number): UmlDiagramDocument {
   if (document.kind !== 'component') {
     return moveNode(document, nodeId, x, y);
   }
 
   const document0 = ensureSurfaceNodeOwnership(document);
   const movingNode = document0.nodes.find((node) => node.id === nodeId);
-
   if (!movingNode) {
     return document0;
   }
 
+  if (isInterfaceNode(movingNode)) {
+    const component = findComponentForInterface(document0.nodes, movingNode);
+    if (!component) {
+      return moveNode(document0, nodeId, x, y);
+    }
+    const attached = attachInterfaceToComponent({ ...movingNode, x, y }, component);
+    return replaceNode(document0, resolveInterfacePortAttachment(attached, component, document0.nodes));
+  }
+
   const deltaX = x - movingNode.x;
   const deltaY = y - movingNode.y;
-  let movedDocument: UmlDiagramDocument;
-  const movedSurfaceNodeIds: string[] = [];
 
   if (movingNode.kind === 'component') {
-    movedDocument = {
+    const movedSurfaceNodeIds: string[] = [];
+    const movedDocument = {
       ...document0,
       nodes: document0.nodes.map((node) => {
         if (node.id === nodeId) {
           return { ...node, x, y };
         }
-
-        if (isComponentSurfaceNode(node.kind) && distanceToRect(nodeCenterPoint(node), movingNode) <= 88) {
-          const ownsThisNode = node.parentComponentId
-            ? node.parentComponentId === nodeId
-            : nearestComponentForSurfaceNode(document0.nodes, node)?.id === nodeId;
-          if (!ownsThisNode) {
-            return node;
-          }
+        if (isComponentSurfaceNode(node.kind) && node.parentComponentId === nodeId) {
           movedSurfaceNodeIds.push(node.id);
           return { ...node, x: Math.max(0, Math.round(node.x + deltaX)), y: Math.max(0, Math.round(node.y + deltaY)) };
         }
-
         return node;
       })
     };
 
-    return movedSurfaceNodeIds.reduce(
-      (doc, id) => attachComponentSurfaceNodeWithOptions(doc, id, { pinnedComponentId: nodeId }),
-      movedDocument
-    );
-  } else if (movingNode.kind === 'port') {
-    const portCenter = nodeCenterPoint(movingNode);
-
-    movedDocument = {
-      ...document0,
-      nodes: document0.nodes.map((node) => {
-        if (node.id === nodeId) {
-          return { ...node, x, y };
-        }
-
-        if ((node.kind === 'providedInterface' || node.kind === 'requiredInterface') && distanceBetween(nodeCenterPoint(node), portCenter) <= 80) {
-          const ownsThisNode = node.parentComponentId
-            ? node.parentComponentId === movingNode.parentComponentId
-            : true;
-          if (!ownsThisNode) {
-            return node;
+    const reflowed = movedSurfaceNodeIds.reduce((doc, id) => {
+      const surface = doc.nodes.find((node) => node.id === id);
+      const component = doc.nodes.find((node) => node.id === nodeId && node.kind === 'component');
+      if (!surface || !component) {
+        return doc;
+      }
+      if (isInterfaceNode(surface)) {
+        if (surface.parentPortId) {
+          const port = doc.nodes.find((candidate) => candidate.id === surface.parentPortId && candidate.kind === 'port');
+          if (port) {
+            return replaceNode(doc, attachInterfaceToPort(surface, component, port));
           }
-          movedSurfaceNodeIds.push(node.id);
-          return { ...node, x: Math.max(0, Math.round(node.x + deltaX)), y: Math.max(0, Math.round(node.y + deltaY)) };
         }
+        return replaceNode(doc, layoutInterfaceOnComponent(surface, component));
+      }
+      return attachComponentSurfaceNodeWithOptions(doc, id, { pinnedComponentId: nodeId });
+    }, movedDocument);
 
-        return node;
-      })
-    };
-
-    return movedSurfaceNodeIds.reduce(
-      (doc, id) => attachComponentSurfaceNodeWithOptions(doc, id),
-      movedDocument
-    );
-  } else if (movingNode.kind === 'providedInterface' || movingNode.kind === 'requiredInterface') {
-    const dragSized = dragOrigin
-      ? { ...movingNode, x, y, width: dragOrigin.startWidth, height: dragOrigin.startHeight }
-      : { ...movingNode, x, y };
-    const withDragSize = {
-      ...document0,
-      nodes: document0.nodes.map((node) => (node.id === nodeId ? dragSized : node))
-    };
-
-    return attachComponentSurfaceNodeWithOptions(withDragSize, nodeId, {
-      stemMode: 'stretch',
-      pinnedComponentId: movingNode.parentComponentId,
-      previousNode: movingNode
-    });
-  } else {
-    return moveNode(document0, nodeId, x, y);
+    return reflowed;
   }
+
+  if (movingNode.kind === 'port') {
+    const movedDocument = {
+      ...document0,
+      nodes: document0.nodes.map((node) => (node.id === nodeId ? { ...node, x, y } : node))
+    };
+    return attachComponentSurfaceNodeWithOptions(movedDocument, nodeId);
+  }
+
+  return moveNode(document0, nodeId, x, y);
 }
 
-function resizeComponentDiagramNode(document: UmlDiagramDocument, nodeId: string, startWidth: number, startHeight: number, width: number, height: number): UmlDiagramDocument {
+function resizeComponentDiagramNode(document: UmlDiagramDocument, nodeId: string, _startWidth: number, _startHeight: number, width: number, height: number): UmlDiagramDocument {
   const resizingNode = document.nodes.find((node) => node.id === nodeId);
-
   if (!resizingNode) {
     return document;
   }
-  if (document.kind === 'component' && (resizingNode.kind === 'providedInterface' || resizingNode.kind === 'requiredInterface')) {
-    const resizedDocument = {
-      ...document,
-      nodes: document.nodes.map((node) => (node.id === nodeId ? { ...node, width, height } : node))
-    };
 
-    return attachComponentSurfaceNodeWithOptions(resizedDocument, nodeId, {
-      stemMode: 'flush',
-      pinnedComponentId: resizingNode.parentComponentId
-    });
+  if (document.kind === 'component' && isInterfaceNode(resizingNode)) {
+    const component = findComponentForInterface(document.nodes, resizingNode);
+    if (!component) {
+      return document;
+    }
+    const resized = resizeInterfaceStem(resizingNode, component, width, height);
+    if (resized.parentPortId) {
+      const port = document.nodes.find((node) => node.id === resized.parentPortId && node.kind === 'port');
+      if (port) {
+        return replaceNode(document, attachInterfaceToPort(resized, component, port));
+      }
+    }
+    return replaceNode(document, resized);
   }
 
   if (document.kind !== 'component' || resizingNode.kind !== 'component') {
@@ -2341,220 +2731,54 @@ function resizeComponentDiagramNode(document: UmlDiagramDocument, nodeId: string
     if (node.id === nodeId) {
       return resizedComponent;
     }
-
-    if (!isComponentSurfaceNode(node.kind) || distanceToRect(nodeCenterPoint(node), resizingNode) > 88) {
+    if (!isComponentSurfaceNode(node.kind) || node.parentComponentId !== nodeId) {
       return node;
     }
-
-    const ownsThisNode = node.parentComponentId
-      ? node.parentComponentId === nodeId
-      : nearestComponentForSurfaceNode(document.nodes, node)?.id === nodeId;
-    if (!ownsThisNode) {
-      return node;
+    if (isInterfaceNode(node)) {
+      return reflowInterfaceAfterComponentChange(node, resizingNode, resizedComponent);
     }
-
-    return resizeComponentSurfaceNode(node, resizingNode, resizedComponent);
+    return snapPortToComponentSurface(node, resizedComponent);
   });
 
-  return {
-    ...document,
-    nodes: resizedNodes.map((node) => {
-      if (node.kind !== 'providedInterface' && node.kind !== 'requiredInterface') {
-        return node;
-      }
-
-      const port = nearestPortForInterface(resizedNodes, node);
-      if (!port) return node;
-      const side = nearestComponentSide(port, resizedComponent);
-      return snapInterfaceToPortOnSide(node, port, side);
-    })
-  };
+  const withResized = { ...document, nodes: resizedNodes };
+  return resizedNodes
+    .filter((node) => node.kind === 'port' && node.parentComponentId === nodeId)
+    .reduce((doc, port) => reflowInterfacesForPort(doc, port.id), withResized);
 }
 
 function reorderNodeLayer(document: UmlDiagramDocument, nodeId: string, direction: 'front' | 'back'): UmlDiagramDocument {
   const nodeIndex = document.nodes.findIndex((node) => node.id === nodeId);
-
   if (nodeIndex < 0) {
     return document;
   }
-
   const nodes = [...document.nodes];
   const [node] = nodes.splice(nodeIndex, 1);
-
   if (direction === 'front') {
     nodes.push(node);
   } else {
     nodes.unshift(node);
   }
-
   return { ...document, nodes };
 }
 
-function resizeComponentSurfaceNode(node: UmlNode, startComponent: UmlNode, resizedComponent: UmlNode): UmlNode {
-  const center = nodeCenterPoint(node);
-  const relativeY = startComponent.height > 0 ? (center.y - startComponent.y) / startComponent.height : 0.5;
-  const nextCenterY = resizedComponent.y + clamp(relativeY, 0, 1) * resizedComponent.height;
-  const leftDistance = Math.abs(center.x - startComponent.x);
-  const rightDistance = Math.abs(center.x - (startComponent.x + startComponent.width));
-  const topDistance = Math.abs(center.y - startComponent.y);
-  const bottomDistance = Math.abs(center.y - (startComponent.y + startComponent.height));
-  const nearestSide = [
-    { side: 'left' as const, distance: leftDistance },
-    { side: 'right' as const, distance: rightDistance },
-    { side: 'top' as const, distance: topDistance },
-    { side: 'bottom' as const, distance: bottomDistance }
-  ].sort((left, right) => left.distance - right.distance)[0].side;
-
-  if (node.kind === 'providedInterface' || node.kind === 'requiredInterface') {
-    return snapInterfaceToComponentEdge(node, resizedComponent, nearestSide);
-  }
-
-  if (nearestSide === 'left' || nearestSide === 'right') {
-    return {
-      ...node,
-      x: Math.round(nearestSide === 'left' ? resizedComponent.x - node.width / 2 : resizedComponent.x + resizedComponent.width - node.width / 2),
-      y: Math.round(clamp(nextCenterY - node.height / 2, resizedComponent.y, resizedComponent.y + resizedComponent.height - node.height))
-    };
-  }
-
-  const relativeX = startComponent.width > 0 ? (center.x - startComponent.x) / startComponent.width : 0.5;
-  const nextCenterX = resizedComponent.x + clamp(relativeX, 0, 1) * resizedComponent.width;
-
-  return {
-    ...node,
-    x: Math.round(clamp(nextCenterX - node.width / 2, resizedComponent.x, resizedComponent.x + resizedComponent.width - node.width)),
-    y: Math.round(nearestSide === 'top' ? resizedComponent.y - node.height / 2 : resizedComponent.y + resizedComponent.height - node.height / 2)
-  };
-}
-
-function computeInterfaceAttachmentSide(node: UmlNode, allNodes: UmlNode[]): EdgeAnchor {
-  const ownedPortNodes = node.parentComponentId
-    ? allNodes.filter((n) => n.kind !== 'port' || n.parentComponentId === node.parentComponentId || !n.parentComponentId)
-    : allNodes;
-  const port = nearestPortForInterface(ownedPortNodes, node);
-  const referenceNode = port ?? node;
-  const pinnedComponentId = referenceNode.parentComponentId ?? node.parentComponentId;
-  const component = pinnedComponentId
-    ? allNodes.find((n) => n.id === pinnedComponentId && n.kind === 'component')
-    : nearestComponentForSurfaceNode(allNodes, referenceNode);
-
-  if (!component) {
-    return 'right';
-  }
-
-  return nearestComponentSide(referenceNode, component);
-}
-
-function attachAllComponentSurfaceNodes(document: UmlDiagramDocument, preferredNodeId?: string): UmlDiagramDocument {
-  const surfaceNodeIds = document.nodes
-    .filter((node) => isComponentSurfaceNode(node.kind))
-    .map((node) => node.id)
-    .sort((left, right) => (left === preferredNodeId ? -1 : right === preferredNodeId ? 1 : 0));
-
-  return surfaceNodeIds.reduce((current, surfaceNodeId) => attachComponentSurfaceNodeWithOptions(current, surfaceNodeId, { skipPortSnap: surfaceNodeId === preferredNodeId }), document);
-}
-
-function nearestPortForInterface(nodes: UmlNode[], node: UmlNode, side?: EdgeAnchor, component?: UmlNode): UmlNode | undefined {
-  const probe = side
-    ? interfacePortProbePoint(node, side, component)
-    : nodeCenterPoint(node);
-  let nearest: { node: UmlNode; distance: number } | undefined;
-
-  for (const candidate of nodes) {
-    if (candidate.kind !== 'port' || candidate.id === node.id) {
-      continue;
-    }
-
-    const candidateCenter = nodeCenterPoint(candidate);
-    const distance = Math.hypot(probe.x - candidateCenter.x, probe.y - candidateCenter.y);
-
-    if (distance > 120) {
-      continue;
-    }
-
-    if (!nearest || distance < nearest.distance) {
-      nearest = { node: candidate, distance };
-    }
-  }
-
-  return nearest?.node;
-}
-
-/** Probe near the component/port attachment, not the dragged outer glyph. */
-function interfacePortProbePoint(node: UmlNode, side: EdgeAnchor, component?: UmlNode): Point {
-  const midX = node.x + node.width / 2;
-  const midY = node.y + node.height / 2;
-
-  if (!component) {
-    switch (side) {
-      case 'right':
-        return { x: node.x, y: midY };
-      case 'left':
-        return { x: node.x + node.width, y: midY };
-      case 'bottom':
-        return { x: midX, y: node.y };
-      case 'top':
-        return { x: midX, y: node.y + node.height };
-    }
-  }
-
-  switch (side) {
-    case 'right':
-      return { x: component.x + component.width, y: midY };
-    case 'left':
-      return { x: component.x, y: midY };
-    case 'bottom':
-      return { x: midX, y: component.y + component.height };
-    case 'top':
-      return { x: midX, y: component.y };
-  }
-}
-
 function nearestComponentForSurfaceNode(nodes: UmlNode[], node: UmlNode): UmlNode | undefined {
-  const nodeCenter = nodeCenterPoint(node);
-  let nearest: { node: UmlNode; distance: number } | undefined;
-
-  for (const candidate of nodes) {
-    if (candidate.kind !== 'component' || candidate.id === node.id) {
-      continue;
-    }
-
-    const distance = distanceToRect(nodeCenter, candidate);
-
-    if (node.kind === 'port' && distance > 96) {
-      continue;
-    }
-
-    if ((node.kind === 'providedInterface' || node.kind === 'requiredInterface') && distance > 160) {
-      continue;
-    }
-
-    if (!nearest || distance < nearest.distance) {
-      nearest = { node: candidate, distance };
-    }
-  }
-
-  return nearest?.node;
+  return findComponentForInterface(nodes, node);
 }
 
-function snapNodeToComponentSurface(node: UmlNode, component: UmlNode): UmlNode {
-  if (node.kind === 'providedInterface' || node.kind === 'requiredInterface') {
-    return snapInterfaceToComponentEdge(node, component, nearestComponentSide(node, component));
-  }
-
-  const nodeCenter = nodeCenterPoint(node);
+function snapPortToComponentSurface(node: UmlNode, component: UmlNode): UmlNode {
+  const nodeCenter = { x: node.x + node.width / 2, y: node.y + node.height / 2 };
   const distances = [
     { edge: 'left' as const, value: Math.abs(nodeCenter.x - component.x) },
     { edge: 'right' as const, value: Math.abs(nodeCenter.x - (component.x + component.width)) },
     { edge: 'top' as const, value: Math.abs(nodeCenter.y - component.y) },
     { edge: 'bottom' as const, value: Math.abs(nodeCenter.y - (component.y + component.height)) }
   ].sort((left, right) => left.value - right.value);
-
   const edge = distances[0].edge;
 
   if (edge === 'left' || edge === 'right') {
     return {
       ...node,
+      parentComponentId: component.id,
       x: Math.round(edge === 'left' ? component.x - node.width / 2 : component.x + component.width - node.width / 2),
       y: Math.round(clamp(node.y, component.y, component.y + component.height - node.height))
     };
@@ -2562,157 +2786,9 @@ function snapNodeToComponentSurface(node: UmlNode, component: UmlNode): UmlNode 
 
   return {
     ...node,
+    parentComponentId: component.id,
     x: Math.round(clamp(node.x, component.x, component.x + component.width - node.width)),
     y: Math.round(edge === 'top' ? component.y - node.height / 2 : component.y + component.height - node.height / 2)
-  };
-}
-
-function nearestComponentSide(node: UmlNode, component: UmlNode): EdgeAnchor {
-  const center = nodeCenterPoint(node);
-
-  return [
-    { side: 'left' as const, dist: Math.abs(center.x - component.x) },
-    { side: 'right' as const, dist: Math.abs(center.x - (component.x + component.width)) },
-    { side: 'top' as const, dist: Math.abs(center.y - component.y) },
-    { side: 'bottom' as const, dist: Math.abs(center.y - (component.y + component.height)) }
-  ].sort((a, b) => a.dist - b.dist)[0].side;
-}
-
-const INTERFACE_MIN_STEM = 36;
-const INTERFACE_MIN_CROSS = 24;
-const INTERFACE_MAX_STEM = 480;
-
-function preferredInterfaceAttachmentSide(before: UmlNode, after: UmlNode, component: UmlNode): EdgeAnchor {
-  const previousSide = nearestComponentSide(before, component);
-  const nextSide = nearestComponentSide(after, component);
-
-  if (previousSide === nextSide) {
-    return previousSide;
-  }
-
-  const center = nodeCenterPoint(after);
-  const previousDistance = distanceToComponentSide(center, component, previousSide);
-  const nextDistance = distanceToComponentSide(center, component, nextSide);
-
-  return nextDistance < previousDistance - 24 ? nextSide : previousSide;
-}
-
-function distanceToComponentSide(point: Point, component: UmlNode, side: EdgeAnchor): number {
-  switch (side) {
-    case 'left':
-      return Math.abs(point.x - component.x);
-    case 'right':
-      return Math.abs(point.x - (component.x + component.width));
-    case 'top':
-      return Math.abs(point.y - component.y);
-    case 'bottom':
-      return Math.abs(point.y - (component.y + component.height));
-  }
-}
-
-function snapInterfaceToPortOnSide(node: UmlNode, port: UmlNode, side: EdgeAnchor, stemMode: 'flush' | 'stretch' = 'flush'): UmlNode {
-  const portCenter = nodeCenterPoint(port);
-
-  if (stemMode === 'stretch') {
-    return stretchInterfaceToAttachment(node, portCenter.x, portCenter.y, side, false);
-  }
-
-  switch (side) {
-    case 'right':
-      return { ...node, x: Math.round(portCenter.x), y: Math.round(portCenter.y - node.height / 2) };
-    case 'left':
-      return { ...node, x: Math.round(portCenter.x - node.width), y: Math.round(portCenter.y - node.height / 2) };
-    case 'top':
-      return { ...node, x: Math.round(portCenter.x - node.width / 2), y: Math.round(portCenter.y - node.height) };
-    case 'bottom':
-      return { ...node, x: Math.round(portCenter.x - node.width / 2), y: Math.round(portCenter.y) };
-  }
-}
-
-function snapInterfaceToComponentEdge(node: UmlNode, component: UmlNode, edge: EdgeAnchor, stemMode: 'flush' | 'stretch' = 'flush'): UmlNode {
-  if (stemMode === 'stretch') {
-    const attachmentX = edge === 'left' ? component.x : edge === 'right' ? component.x + component.width : component.x + component.width / 2;
-    const attachmentY = edge === 'top' ? component.y : edge === 'bottom' ? component.y + component.height : component.y + component.height / 2;
-    const stretched = stretchInterfaceToAttachment(node, attachmentX, attachmentY, edge, true);
-
-    if (edge === 'left' || edge === 'right') {
-      return {
-        ...stretched,
-        y: Math.round(clamp(stretched.y, component.y + 8, component.y + component.height - stretched.height - 8))
-      };
-    }
-
-    return {
-      ...stretched,
-      x: Math.round(clamp(stretched.x, component.x + 8, component.x + component.width - stretched.width - 8))
-    };
-  }
-
-  if (edge === 'left' || edge === 'right') {
-    return {
-      ...node,
-      x: Math.round(edge === 'left' ? component.x - node.width : component.x + component.width),
-      y: Math.round(clamp(node.y, component.y + 8, component.y + component.height - node.height - 8))
-    };
-  }
-
-  return {
-    ...node,
-    x: Math.round(clamp(node.x, component.x + 8, component.x + component.width - node.width - 8)),
-    y: Math.round(edge === 'top' ? component.y - node.height : component.y + component.height)
-  };
-}
-
-/** Stretch stem length from a fixed attachment point using the dragged node box as the intended outer extent. */
-function stretchInterfaceToAttachment(node: UmlNode, attachmentX: number, attachmentY: number, side: EdgeAnchor, clampCrossAxis: boolean): UmlNode {
-  if (side === 'right') {
-    const outer = node.x + node.width;
-    const width = clamp(Math.round(outer - attachmentX), INTERFACE_MIN_STEM, INTERFACE_MAX_STEM);
-    const height = Math.max(INTERFACE_MIN_CROSS, node.height);
-    return {
-      ...node,
-      x: Math.round(attachmentX),
-      y: Math.round(clampCrossAxis ? node.y : attachmentY - height / 2),
-      width,
-      height
-    };
-  }
-
-  if (side === 'left') {
-    const outer = node.x;
-    const width = clamp(Math.round(attachmentX - outer), INTERFACE_MIN_STEM, INTERFACE_MAX_STEM);
-    const height = Math.max(INTERFACE_MIN_CROSS, node.height);
-    return {
-      ...node,
-      x: Math.round(attachmentX - width),
-      y: Math.round(clampCrossAxis ? node.y : attachmentY - height / 2),
-      width,
-      height
-    };
-  }
-
-  if (side === 'bottom') {
-    const outer = node.y + node.height;
-    const height = clamp(Math.round(outer - attachmentY), INTERFACE_MIN_STEM, INTERFACE_MAX_STEM);
-    const width = Math.max(INTERFACE_MIN_CROSS, node.width);
-    return {
-      ...node,
-      x: Math.round(clampCrossAxis ? node.x : attachmentX - width / 2),
-      y: Math.round(attachmentY),
-      width,
-      height
-    };
-  }
-
-  const outer = node.y;
-  const height = clamp(Math.round(attachmentY - outer), INTERFACE_MIN_STEM, INTERFACE_MAX_STEM);
-  const width = Math.max(INTERFACE_MIN_CROSS, node.width);
-  return {
-    ...node,
-    x: Math.round(clampCrossAxis ? node.x : attachmentX - width / 2),
-    y: Math.round(attachmentY - height),
-    width,
-    height
   };
 }
 
@@ -2723,7 +2799,6 @@ function nodeCenterPoint(node: UmlNode): Point {
 function distanceToRect(point: Point, rect: UmlNode): number {
   const dx = Math.max(rect.x - point.x, 0, point.x - (rect.x + rect.width));
   const dy = Math.max(rect.y - point.y, 0, point.y - (rect.y + rect.height));
-
   return Math.hypot(dx, dy);
 }
 
@@ -2739,7 +2814,6 @@ function isTextEditingTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) {
     return false;
   }
-
   return target.isContentEditable || target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement;
 }
 
@@ -2802,7 +2876,7 @@ function defaultSavedNodeSize(kind: UmlElementKind): { width: number; height: nu
       return { width: 26, height: 26 };
     case 'providedInterface':
     case 'requiredInterface':
-      return { width: 56, height: 32 };
+      return { width: 56, height: 24 };
     case 'subject':
       return { width: 420, height: 280 };
     case 'lifeline':
@@ -2850,7 +2924,7 @@ function minimumResizableNodeSize(kind: UmlElementKind, ownedElements: UmlOwnedE
       return { width: 32, height: 32 };
     case 'providedInterface':
     case 'requiredInterface':
-      return { width: 36, height: 24 };
+      return { width: 24, height: 24 };
     case 'lifeline':
       if (diagramKind === 'communication') {
         return { width: 64, height: 32 };
@@ -2885,21 +2959,8 @@ function resizeNodeSize(kind: UmlElementKind, startWidth: number, startHeight: n
   const requestedHeight = startHeight + deltaHeight;
 
   if (isSquareResizableNode(kind)) {
-    const side = Math.max(minimumSize.width, minimumSize.height, Math.round(Math.max(requestedWidth, requestedHeight)));
-    return { width: side, height: side };
-  }
-
-  if (kind === 'actor') {
-    const aspect = 88 / 132;
-    const scale = Math.max(requestedWidth / 88, requestedHeight / 132, minimumSize.width / 88, minimumSize.height / 132);
-    return { width: Math.round(88 * scale), height: Math.round(132 * scale) };
-  }
-
-  if (kind === 'forkNode' || kind === 'joinNode') {
-    return {
-      width: Math.max(minimumSize.width, Math.round(requestedWidth)),
-      height: clamp(Math.round(requestedHeight), minimumSize.height, 32)
-    };
+    const size = Math.max(minimumSize.width, minimumSize.height, Math.round(Math.max(requestedWidth, requestedHeight)));
+    return { width: size, height: size };
   }
 
   return {
@@ -2909,28 +2970,15 @@ function resizeNodeSize(kind: UmlElementKind, startWidth: number, startHeight: n
 }
 
 function isSquareResizableNode(kind: UmlElementKind): boolean {
-  switch (kind) {
-    case 'port':
-    case 'initialNode':
-    case 'finalNode':
-    case 'flowFinalNode':
-    case 'pseudostate':
-    case 'decisionNode':
-    case 'mergeNode':
-      return true;
-    default:
-      return false;
-  }
+  return kind === 'initialNode' || kind === 'finalNode' || kind === 'flowFinalNode' || kind === 'pseudostate' || kind === 'decisionNode' || kind === 'mergeNode' || kind === 'port';
 }
 
 function compartmentMinimumHeight(ownedElements: UmlOwnedElement[]): number {
   if (ownedElements.length === 0) {
     return 72;
   }
-
   const attributeCount = ownedElements.filter((element) => element.kind !== 'operation').length;
   const methodCount = ownedElements.filter((element) => element.kind === 'operation').length;
-
   return classCompartmentHeight(attributeCount, methodCount);
 }
 
@@ -3160,6 +3208,97 @@ function downloadBlob(blob: Blob, filename: string) {
   link.click();
   link.remove();
   URL.revokeObjectURL(url);
+}
+
+async function writeProjectToFileHandle(fileHandle: ProjectFileHandle, serializedProject: string) {
+  const writable = await fileHandle.createWritable();
+
+  await writable.write(serializedProject);
+  await writable.close();
+}
+
+function rememberLastProjectDirectory(filePath: string) {
+  const index = Math.max(filePath.lastIndexOf('/'), filePath.lastIndexOf('\\'));
+  if (index <= 0) {
+    return;
+  }
+  try {
+    globalThis.localStorage?.setItem(lastProjectDirectoryStorageKey, filePath.slice(0, index));
+  } catch {
+    // ignore
+  }
+}
+
+const directoryHandleDbName = 'my-uml-multi-os-fs';
+const directoryHandleStore = 'handles';
+const directoryHandleKey = 'last-project-directory';
+
+async function openDirectoryHandleDb(): Promise<IDBDatabase | undefined> {
+  if (!globalThis.indexedDB) {
+    return undefined;
+  }
+
+  return new Promise((resolve, reject) => {
+    const request = globalThis.indexedDB.open(directoryHandleDbName, 1);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(directoryHandleStore)) {
+        db.createObjectStore(directoryHandleStore);
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+async function readStoredDirectoryHandle(): Promise<FileSystemHandle | undefined> {
+  try {
+    const db = await openDirectoryHandleDb();
+    if (!db) {
+      return undefined;
+    }
+    return await new Promise((resolve, reject) => {
+      const transaction = db.transaction(directoryHandleStore, 'readonly');
+      const request = transaction.objectStore(directoryHandleStore).get(directoryHandleKey);
+      request.onsuccess = () => resolve(request.result as FileSystemHandle | undefined);
+      request.onerror = () => reject(request.error);
+    });
+  } catch {
+    return undefined;
+  }
+}
+
+async function writeStoredDirectoryHandle(handle: FileSystemHandle) {
+  try {
+    const db = await openDirectoryHandleDb();
+    if (!db) {
+      return;
+    }
+    await new Promise<void>((resolve, reject) => {
+      const transaction = db.transaction(directoryHandleStore, 'readwrite');
+      transaction.objectStore(directoryHandleStore).put(handle, directoryHandleKey);
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+    });
+  } catch {
+    // ignore
+  }
+}
+
+async function rememberDirectoryHandleFromFile(fileHandle: ProjectFileHandle & { getParent?: () => Promise<FileSystemHandle> }) {
+  if (typeof fileHandle.getParent !== 'function') {
+    return;
+  }
+  try {
+    const parent = await fileHandle.getParent();
+    await writeStoredDirectoryHandle(parent);
+  } catch {
+    // ignore
+  }
+}
+
+function downloadProjectFile(serializedProject: string, filename: string) {
+  downloadBlob(new Blob([serializedProject], { type: 'application/json' }), filename);
 }
 
 function sanitizeFileName(value: string): string {
@@ -3496,49 +3635,18 @@ function ObjectFlowToken({ source, target }: { source: Point; target: Point }) {
   return <rect className="object-flow-token" x={centerX - 5} y={centerY - 5} width="10" height="10" transform={`rotate(45 ${centerX} ${centerY})`} />;
 }
 
-function AssemblyConnectorGlyph({ source, target }: { source: Point; target: Point }) {
-  const centerX = (source.x + target.x) / 2;
-  const centerY = (source.y + target.y) / 2;
-  const angle = Math.atan2(target.y - source.y, target.x - source.x) * 180 / Math.PI;
 
-  return (
-    <g className="assembly-connector-glyph" transform={`translate(${centerX} ${centerY}) rotate(${angle})`}>
-      <path d="M -10 -6 A 6 6 0 0 1 -10 6" />
-      <line x1="-10" y1="0" x2="4" y2="0" />
-      <circle cx="10" cy="0" r="6" />
-    </g>
-  );
+function interfaceGlyphRadius(): number {
+  return INTERFACE_GLYPH_RADIUS;
 }
 
-
-function interfaceGlyphCenter(node: UmlNode, side: EdgeAnchor): Point {
-  const isVertical = side === 'top' || side === 'bottom';
-  const r = isVertical
-    ? Math.max(4, Math.min(node.width / 2 - 5, node.height / 3))
-    : Math.max(4, Math.min(node.height / 2 - 5, node.width / 3));
-  switch (side) {
-    case 'right': return { x: node.x + node.width - r - 4, y: node.y + node.height / 2 };
-    case 'left': return { x: node.x + r + 4, y: node.y + node.height / 2 };
-    case 'bottom': return { x: node.x + node.width / 2, y: node.y + node.height - r - 4 };
-    default: return { x: node.x + node.width / 2, y: node.y + r + 4 };
-  }
-}
-
-function interfaceGlyphRadius(node: UmlNode, side: EdgeAnchor): number {
-  const isVertical = side === 'top' || side === 'bottom';
-  return isVertical
-    ? Math.max(4, Math.min(node.width / 2 - 5, node.height / 3))
-    : Math.max(4, Math.min(node.height / 2 - 5, node.width / 3));
-}
-
-function interfaceNodeConnectionPoint(node: UmlNode, toward: Point, allNodes: UmlNode[]): Point {
-  const side = computeInterfaceAttachmentSide(node, allNodes);
-  const glyphCenter = interfaceGlyphCenter(node, side);
+function interfaceNodeConnectionPoint(node: UmlNode, toward: Point, _allNodes: UmlNode[]): Point {
+  const glyphCenter = interfaceGlyphCenter(node);
   if (node.kind === 'requiredInterface') {
     return glyphCenter;
   }
   // providedInterface: point on ball surface facing toward
-  const r = interfaceGlyphRadius(node, side);
+  const r = interfaceGlyphRadius();
   const dx = toward.x - glyphCenter.x;
   const dy = toward.y - glyphCenter.y;
   const dist = Math.hypot(dx, dy);
@@ -3555,7 +3663,7 @@ function nodeIntersectsRect(node: UmlNode, rect: { x: number; y: number; width: 
   );
 }
 
-function DiagramEdge({ edge, edgeIndex, diagramKind, nodes, edges, selected, onSelect, onPointerDown, onContextMenu }: { edge: UmlEdge; edgeIndex: number; diagramKind: DiagramKind; nodes: UmlNode[]; edges?: UmlEdge[]; selected: boolean; onSelect: () => void; onPointerDown: (event: React.PointerEvent<SVGGElement>) => void; onContextMenu: (event: React.MouseEvent<SVGGElement>) => void }) {
+function DiagramEdge({ edge, edgeIndex, diagramKind, nodes, edges, selected, onSelect, onPointerDown, onLabelPointerDown, onContextMenu }: { edge: UmlEdge; edgeIndex: number; diagramKind: DiagramKind; nodes: UmlNode[]; edges?: UmlEdge[]; selected: boolean; onSelect: () => void; onPointerDown: (event: React.PointerEvent<SVGGElement>) => void; onLabelPointerDown: (event: React.PointerEvent<SVGTextElement>) => void; onContextMenu: (event: React.MouseEvent<SVGGElement>) => void }) {
   const source = nodes.find((node) => node.id === edge.sourceId);
   const target = nodes.find((node) => node.id === edge.targetId);
 
@@ -3568,9 +3676,9 @@ function DiagramEdge({ edge, edgeIndex, diagramKind, nodes, edges, selected, onS
   const className = selected ? 'edge selected' : 'edge';
   const notation = getUmlConnectorNotation(edge.kind);
   const sequenceMessagePoints = getSequenceMessagePoints(diagramKind, edge, source, target, edgeIndex);
-  const peerIndex = edges ? communicationMessagePeerIndex(edges, edge) : edgeIndex;
+  const peerPosition = edges ? communicationMessagePeerPosition(edges, edge) : { index: edgeIndex, count: 1 };
   const communicationMessagePoints = !sequenceMessagePoints && diagramKind === 'communication' && isInteractionMessageKind(edge.kind)
-    ? getCommunicationMessagePoints(edge, source, target, peerIndex)
+    ? getCommunicationMessagePoints(edge, source, target, peerPosition)
     : undefined;
   const sourceAnchor = edge.route === 'orthogonal' ? edge.sourceAnchor ?? connectionSideToward(source, targetCenter) : edge.sourceAnchor;
   const targetAnchor = edge.route === 'orthogonal' ? edge.targetAnchor ?? connectionSideToward(target, sourceCenter) : edge.targetAnchor;
@@ -3578,7 +3686,7 @@ function DiagramEdge({ edge, edgeIndex, diagramKind, nodes, edges, selected, onS
   let targetPoint = sequenceMessagePoints?.target ?? communicationMessagePoints?.target ?? connectionPoint(target, sourceCenter, targetAnchor);
 
   // For PI/RI nodes on regular (non-sequence) edges, snap to glyph geometry.
-  if (!sequenceMessagePoints && !communicationMessagePoints) {
+  if (!sequenceMessagePoints && !communicationMessagePoints && edge.kind !== 'assemblyConnector') {
     if (source.kind === 'providedInterface' || source.kind === 'requiredInterface') {
       sourcePoint = interfaceNodeConnectionPoint(source, targetCenter, nodes);
     }
@@ -3587,16 +3695,21 @@ function DiagramEdge({ edge, edgeIndex, diagramKind, nodes, edges, selected, onS
     }
   }
 
-  // Assembly connector: connect PI ball center to RI socket center so each glyph
-  // rendered on top appears to sit naturally on the line (lollipop-socket notation).
+  // Assembly connector is a separate link between PI and RI — does not redraw their glyphs.
   let effectiveSrc = sourcePoint;
   let effectiveTgt = targetPoint;
+  let showAssemblyLink = true;
+  let assemblyLinkPath: string | undefined;
   if (edge.kind === 'assemblyConnector') {
-    if (source.kind === 'providedInterface' || source.kind === 'requiredInterface') {
-      effectiveSrc = interfaceGlyphCenter(source, computeInterfaceAttachmentSide(source, nodes));
-    }
-    if (target.kind === 'providedInterface' || target.kind === 'requiredInterface') {
-      effectiveTgt = interfaceGlyphCenter(target, computeInterfaceAttachmentSide(target, nodes));
+    const assembly = assemblyConnectorEndpoints(source, target);
+    if (assembly) {
+      // Hit-test between glyph centers; visible link stops at ball/socket rims.
+      effectiveSrc = interfaceGlyphCenter(source);
+      effectiveTgt = interfaceGlyphCenter(target);
+      showAssemblyLink = assembly.showLink;
+      if (assembly.showLink) {
+        assemblyLinkPath = `M ${assembly.source.x} ${assembly.source.y} L ${assembly.target.x} ${assembly.target.y}`;
+      }
     }
   }
 
@@ -3627,14 +3740,18 @@ function DiagramEdge({ edge, edgeIndex, diagramKind, nodes, edges, selected, onS
     ? { x: sequenceMessagePoints.source.x + 42, y: sequenceMessagePoints.source.y - 8 }
     : communicationMessagePoints?.labelPoint
       ?? { x: (effectiveSrc.x + effectiveTgt.x) / 2, y: (effectiveSrc.y + effectiveTgt.y) / 2 - 8 };
+  const effectiveLabelPoint = {
+    x: labelPoint.x + (edge.labelOffset?.x ?? 0),
+    y: labelPoint.y + (edge.labelOffset?.y ?? 0)
+  };
 
   return (
     <g className={className} onPointerDown={onPointerDown} onClick={(event) => { event.stopPropagation(); onSelect(); }} onContextMenu={onContextMenu}>
       {activation ? <rect className="activation-bar" x={activation.x} y={activation.y} width={activation.width} height={activation.height} rx="2" /> : null}
       <path d={pathData} markerEnd={markerEnd} strokeDasharray={notation.dashed ? '8 5' : undefined} className={edge.kind === 'assemblyConnector' ? 'assembly-hit' : undefined} />
-      {edge.kind === 'assemblyConnector' ? <path className="assembly-line" d={pathData} pointerEvents="none" /> : null}
+      {edge.kind === 'assemblyConnector' && showAssemblyLink && assemblyLinkPath ? <path className="assembly-line" d={assemblyLinkPath} pointerEvents="none" /> : null}
       {notation.objectToken ? <ObjectFlowToken source={sourcePoint} target={targetPoint} /> : null}
-      <text x={labelPoint.x} y={labelPoint.y} textAnchor="middle">{label}</text>
+      <text className="edge-label" x={effectiveLabelPoint.x} y={effectiveLabelPoint.y} textAnchor="middle" onPointerDown={onLabelPointerDown}>{label}</text>
       {showMultiplicity && edge.sourceMultiplicity ? <text className="multiplicity" x={sourceMultiplicityPoint.x} y={sourceMultiplicityPoint.y} textAnchor="middle">{edge.sourceMultiplicity}</text> : null}
       {showMultiplicity && edge.targetMultiplicity ? <text className="multiplicity" x={targetMultiplicityPoint.x} y={targetMultiplicityPoint.y} textAnchor="middle">{edge.targetMultiplicity}</text> : null}
     </g>
@@ -3653,7 +3770,7 @@ function communicationMessageLabel(edge: UmlEdge): string {
   return name || edge.name;
 }
 
-function communicationMessagePeerIndex(edges: UmlEdge[], edge: UmlEdge): number {
+function communicationMessagePeerPosition(edges: UmlEdge[], edge: UmlEdge): { index: number; count: number } {
   const peers = edges.filter((candidate) =>
     isInteractionMessageKind(candidate.kind)
     && (
@@ -3661,18 +3778,19 @@ function communicationMessagePeerIndex(edges: UmlEdge[], edge: UmlEdge): number 
       || (candidate.sourceId === edge.targetId && candidate.targetId === edge.sourceId)
     )
   );
+  const index = peers.findIndex((candidate) => candidate.id === edge.id);
 
-  return Math.max(0, peers.findIndex((candidate) => candidate.id === edge.id));
+  return { index: Math.max(0, index), count: Math.max(1, peers.length) };
 }
 
-function getCommunicationMessagePoints(_edge: UmlEdge, source: UmlNode, target: UmlNode, peerIndex: number): {
+function getCommunicationMessagePoints(edge: UmlEdge, source: UmlNode, target: UmlNode, peerPosition: { index: number; count: number }): {
   source: Point;
   target: Point;
   selfCall: boolean;
   path?: string;
   labelPoint?: Point;
 } {
-  const offset = peerIndex === 0 ? 0 : (peerIndex % 2 === 0 ? 1 : -1) * Math.ceil(peerIndex / 2) * 12;
+  const offset = communicationMessageParallelOffset(peerPosition.index, peerPosition.count) + (edge.offset ?? 0);
 
   if (source.id === target.id) {
     const baseX = source.x + source.width;
@@ -3694,7 +3812,7 @@ function getCommunicationMessagePoints(_edge: UmlEdge, source: UmlNode, target: 
   const rawSource = connectionPoint(source, targetCenter);
   const rawTarget = connectionPoint(target, sourceCenter);
   const shiftedSource = offsetPointAlong(rawSource, rawTarget, offset);
-  const shiftedTarget = offsetPointAlong(rawTarget, rawSource, offset);
+  const shiftedTarget = offsetPointAlong(rawTarget, rawSource, -offset);
 
   return {
     source: shiftedSource,
@@ -3704,6 +3822,56 @@ function getCommunicationMessagePoints(_edge: UmlEdge, source: UmlNode, target: 
       x: (shiftedSource.x + shiftedTarget.x) / 2,
       y: (shiftedSource.y + shiftedTarget.y) / 2 - 10 - Math.abs(offset) * 0.15
     }
+  };
+}
+
+function communicationMessageParallelOffset(peerIndex: number, peerCount: number): number {
+  if (peerCount <= 1) {
+    return 0;
+  }
+
+  return (peerIndex - (peerCount - 1) / 2) * 28;
+}
+
+function communicationEdgeDragBasis(document: UmlDiagramDocument, edge: UmlEdge, clientX: number, clientY: number): { edgeId: string; startClientX: number; startClientY: number; startOffset: number; normalX: number; normalY: number } | undefined {
+  const source = document.nodes.find((node) => node.id === edge.sourceId);
+  const target = document.nodes.find((node) => node.id === edge.targetId);
+
+  if (!source || !target) {
+    return undefined;
+  }
+
+  const sourceCenter = centerOf(source);
+  const targetCenter = centerOf(target);
+  const dx = targetCenter.x - sourceCenter.x;
+  const dy = targetCenter.y - sourceCenter.y;
+  const length = Math.hypot(dx, dy) || 1;
+
+  return {
+    edgeId: edge.id,
+    startClientX: clientX,
+    startClientY: clientY,
+    startOffset: edge.offset ?? 0,
+    normalX: -dy / length,
+    normalY: dx / length
+  };
+}
+
+function moveCommunicationEdgeOffset(document: UmlDiagramDocument, edgeId: string, offset: number): UmlDiagramDocument {
+  if (document.kind !== 'communication') {
+    return document;
+  }
+
+  return {
+    ...document,
+    edges: document.edges.map((edge) => (edge.id === edgeId ? { ...edge, offset: clamp(Math.round(offset), -220, 220) } : edge))
+  };
+}
+
+function moveEdgeLabelOffset(document: UmlDiagramDocument, edgeId: string, x: number, y: number): UmlDiagramDocument {
+  return {
+    ...document,
+    edges: document.edges.map((edge) => (edge.id === edgeId ? { ...edge, labelOffset: { x: Math.round(x), y: Math.round(y) } } : edge))
   };
 }
 
@@ -4305,81 +4473,25 @@ function DiagramNode({ node, selected, selectedOwnedElementId, showMessageStartL
   }
 
   if (node.kind === 'providedInterface') {
-    const side = surfaceAttachment ?? 'right';
-    const isVertical = side === 'top' || side === 'bottom';
-    const cx = node.width / 2;
-    const cy = node.height / 2;
-    const r = isVertical
-      ? Math.max(4, Math.min(node.width / 2 - 5, node.height / 3))
-      : Math.max(4, Math.min(node.height / 2 - 5, node.width / 3));
-
-    let line: { x1: number; y1: number; x2: number; y2: number };
-    let circle: { cx: number; cy: number };
-
-    if (side === 'right') {
-      const ex = node.width - r - 4;
-      line = { x1: 0, y1: cy, x2: ex - r, y2: cy };
-      circle = { cx: ex, cy };
-    } else if (side === 'left') {
-      const ex = r + 4;
-      line = { x1: node.width, y1: cy, x2: ex + r, y2: cy };
-      circle = { cx: ex, cy };
-    } else if (side === 'bottom') {
-      const ey = node.height - r - 4;
-      line = { x1: cx, y1: 0, x2: cx, y2: ey - r };
-      circle = { cx, cy: ey };
-    } else {
-      const ey = r + 4;
-      line = { x1: cx, y1: node.height, x2: cx, y2: ey + r };
-      circle = { cx, cy: ey };
-    }
-
-    return withResizeHandle((
-      <g className={className} transform={`translate(${node.x} ${node.y})`} {...pointerHandlers}>
-        <rect className="node-hit-area" x="-8" y="-8" width={node.width + 16} height={node.height + 16} rx="6" />
-        <line x1={line.x1} y1={line.y1} x2={line.x2} y2={line.y2} />
-        <circle cx={circle.cx} cy={circle.cy} r={r} />
-      </g>
-    ), node, nodeHeight, onResizeStart);
+    return renderProvidedInterfaceNode({
+      node,
+      className,
+      side: surfaceAttachment,
+      pointerHandlers,
+      onResizeStart,
+      withResizeHandle
+    });
   }
 
   if (node.kind === 'requiredInterface') {
-    const side = surfaceAttachment ?? 'right';
-    const isVertical = side === 'top' || side === 'bottom';
-    const cx = node.width / 2;
-    const cy = node.height / 2;
-    const r = isVertical
-      ? Math.max(4, Math.min(node.width / 2 - 5, node.height / 3))
-      : Math.max(4, Math.min(node.height / 2 - 5, node.width / 3));
-
-    let line: { x1: number; y1: number; x2: number; y2: number };
-    let arc: string;
-
-    if (side === 'right') {
-      const sx = node.width - r - 4;
-      line = { x1: 0, y1: cy, x2: sx - r, y2: cy };
-      arc = `M ${sx} ${cy - r} A ${r} ${r} 0 0 0 ${sx} ${cy + r}`;
-    } else if (side === 'left') {
-      const sx = r + 4;
-      line = { x1: node.width, y1: cy, x2: sx + r, y2: cy };
-      arc = `M ${sx} ${cy - r} A ${r} ${r} 0 0 1 ${sx} ${cy + r}`;
-    } else if (side === 'bottom') {
-      const sy = node.height - r - 4;
-      line = { x1: cx, y1: 0, x2: cx, y2: sy - r };
-      arc = `M ${cx - r} ${sy} A ${r} ${r} 0 0 1 ${cx + r} ${sy}`;
-    } else {
-      const sy = r + 4;
-      line = { x1: cx, y1: node.height, x2: cx, y2: sy + r };
-      arc = `M ${cx - r} ${sy} A ${r} ${r} 0 0 0 ${cx + r} ${sy}`;
-    }
-
-    return withResizeHandle((
-      <g className={className} transform={`translate(${node.x} ${node.y})`} {...pointerHandlers}>
-        <rect className="node-hit-area" x="-8" y="-8" width={node.width + 16} height={node.height + 16} rx="6" />
-        <line x1={line.x1} y1={line.y1} x2={line.x2} y2={line.y2} />
-        <path className="required-interface-socket" d={arc} />
-      </g>
-    ), node, nodeHeight, onResizeStart);
+    return renderRequiredInterfaceNode({
+      node,
+      className,
+      side: surfaceAttachment,
+      pointerHandlers,
+      onResizeStart,
+      withResizeHandle
+    });
   }
 
   if (node.kind === 'package') {
@@ -4577,6 +4689,33 @@ function clampZoom(value: number): number {
   return Math.min(maximumZoom, Math.max(minimumZoom, Number(value.toFixed(2))));
 }
 
+function findScopedSnapshotIndex(snapshots: ProjectSnapshot[], documentId: string | undefined): number {
+  for (let index = snapshots.length - 1; index >= 0; index -= 1) {
+    if (snapshots[index].activeDocumentId === documentId) {
+      return index;
+    }
+  }
+
+  return -1;
+}
+
+function centeredCanvasPan(document: UmlDiagramDocument, canvas: SVGSVGElement | null): Point {
+  if (!canvas || document.nodes.length === 0) {
+    return { x: 0, y: 0 };
+  }
+
+  const bounds = canvas.getBoundingClientRect();
+  const minX = Math.min(...document.nodes.map((node) => node.x));
+  const minY = Math.min(...document.nodes.map((node) => node.y));
+  const maxX = Math.max(...document.nodes.map((node) => node.x + node.width));
+  const maxY = Math.max(...document.nodes.map((node) => node.y + node.height));
+
+  return {
+    x: Math.round(bounds.width / 2 - (minX + maxX) / 2),
+    y: Math.round(bounds.height / 2 - (minY + maxY) / 2)
+  };
+}
+
 function ownedElementKindsForNode(node: UmlNode): UmlOwnedElementKind[] {
   switch (node.kind) {
     case 'class':
@@ -4597,6 +4736,10 @@ function ownedElementKindsForNode(node: UmlNode): UmlOwnedElementKind[] {
     case 'package':
     case 'profile':
       return ['part'];
+    case 'port':
+    case 'providedInterface':
+    case 'requiredInterface':
+      return [];
     default:
       return ['attribute', 'operation'];
   }

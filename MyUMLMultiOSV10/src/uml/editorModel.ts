@@ -12,6 +12,12 @@ export interface UmlNode {
   width: number;
   height: number;
   parentComponentId?: string;
+  /** Component-diagram interface: port this interface is attached to, if any. */
+  parentPortId?: string;
+  /** Component-diagram interface: which face the stem is glued to. */
+  attachmentSide?: EdgeAnchor;
+  /** Component-diagram interface: stem centerline offset along that face from the component origin. */
+  edgeOffset?: number;
 }
 
 export type UmlOwnedElementKind = 'attribute' | 'operation' | 'literal' | 'slot' | 'port' | 'part' | 'region' | 'entry' | 'exit';
@@ -37,6 +43,10 @@ export interface UmlEdge {
   sourceMultiplicity?: string;
   targetMultiplicity?: string;
   sequenceY?: number;
+  /** Manual perpendicular offset for communication diagram links/messages. */
+  offset?: number;
+  /** Manual label offset from the computed edge label position. */
+  labelOffset?: { x: number; y: number };
   /** Decimal sequence expression for communication diagram messages (e.g. "1", "1.1"). */
   sequenceNumber?: string;
 }

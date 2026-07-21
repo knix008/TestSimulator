@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, shell } = require('electron');
+const { app, BrowserWindow, Menu, shell, dialog, ipcMain } = require('electron');
 const fs = require('node:fs');
 const path = require('node:path');
 
@@ -12,12 +12,53 @@ app.setAppUserModelId('com.shkwon.myumlmultios');
 
 const appIconPath = path.join(__dirname, '..', 'assets', process.platform === 'win32' ? 'app-icon.ico' : 'app-icon.svg');
 const appHtmlPath = path.join(__dirname, '..', 'dist', 'app', 'index.html');
+const settingsPath = () => path.join(app.getPath('userData'), 'settings.json');
 
 let mainWindow;
 let pendingProjectPath = findProjectPath(process.argv);
 
 function findProjectPath(argv) {
   return argv.find((argument) => argument.toLowerCase().endsWith('.umlprj'));
+}
+
+function readSettings() {
+  try {
+    return JSON.parse(fs.readFileSync(settingsPath(), 'utf8'));
+  } catch {
+    return {};
+  }
+}
+
+function writeSettings(settings) {
+  fs.mkdirSync(path.dirname(settingsPath()), { recursive: true });
+  fs.writeFileSync(settingsPath(), JSON.stringify(settings, null, 2), 'utf8');
+}
+
+function rememberProjectDirectory(filePath) {
+  if (!filePath || typeof filePath !== 'string') {
+    return;
+  }
+
+  try {
+    const directory = path.dirname(filePath);
+    if (!directory) {
+      return;
+    }
+    const settings = readSettings();
+    settings.lastProjectDirectory = directory;
+    writeSettings(settings);
+  } catch {
+    // ignore persistence failures
+  }
+}
+
+function lastProjectDirectory() {
+  const settings = readSettings();
+  const directory = typeof settings.lastProjectDirectory === 'string' ? settings.lastProjectDirectory : undefined;
+  if (directory && fs.existsSync(directory)) {
+    return directory;
+  }
+  return app.getPath('documents');
 }
 
 function sendProjectToRenderer(filePath) {
@@ -27,7 +68,12 @@ function sendProjectToRenderer(filePath) {
 
   try {
     const projectData = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-    const serialized = JSON.stringify(projectData).replaceAll('<', '\\u003c');
+    rememberProjectDirectory(filePath);
+    const detail = {
+      project: projectData,
+      filePath
+    };
+    const serialized = JSON.stringify(detail).replaceAll('<', '\\u003c');
 
     mainWindow.webContents.executeJavaScript(`window.dispatchEvent(new CustomEvent('my-uml-open-project', { detail: ${serialized} }));`).catch(() => undefined);
   } catch {
@@ -54,6 +100,7 @@ function createMainWindow() {
     backgroundColor: '#f2f0e7',
     icon: appIconPath,
     webPreferences: {
+      preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true
@@ -70,6 +117,72 @@ function createMainWindow() {
     return { action: 'deny' };
   });
 }
+
+ipcMain.handle('project:open', async () => {
+  if (!mainWindow) {
+    return null;
+  }
+
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: 'Open project',
+    defaultPath: lastProjectDirectory(),
+    filters: [
+      { name: 'MyUML project', extensions: ['umlprj', 'json'] },
+      { name: 'All files', extensions: ['*'] }
+    ],
+    properties: ['openFile']
+  });
+
+  if (result.canceled || !result.filePaths[0]) {
+    return null;
+  }
+
+  const filePath = result.filePaths[0];
+  rememberProjectDirectory(filePath);
+
+  return {
+    filePath,
+    contents: fs.readFileSync(filePath, 'utf8')
+  };
+});
+
+ipcMain.handle('project:save', async (_event, payload = {}) => {
+  if (!mainWindow) {
+    return null;
+  }
+
+  const suggestedName = typeof payload.suggestedName === 'string' && payload.suggestedName.trim()
+    ? payload.suggestedName.trim()
+    : 'my-uml-project.umlprj';
+  const contents = typeof payload.contents === 'string' ? payload.contents : '';
+  let targetPath = typeof payload.existingPath === 'string' && payload.existingPath.trim()
+    ? payload.existingPath.trim()
+    : undefined;
+
+  if (!targetPath) {
+    const result = await dialog.showSaveDialog(mainWindow, {
+      title: 'Save project',
+      defaultPath: path.join(lastProjectDirectory(), suggestedName),
+      filters: [
+        { name: 'MyUML project', extensions: ['umlprj', 'json'] },
+        { name: 'All files', extensions: ['*'] }
+      ]
+    });
+
+    if (result.canceled || !result.filePath) {
+      return null;
+    }
+
+    targetPath = result.filePath.endsWith('.umlprj') || result.filePath.endsWith('.json')
+      ? result.filePath
+      : `${result.filePath}.umlprj`;
+  }
+
+  fs.writeFileSync(targetPath, contents, 'utf8');
+  rememberProjectDirectory(targetPath);
+
+  return { filePath: targetPath };
+});
 
 const singleInstanceLock = app.requestSingleInstanceLock();
 
