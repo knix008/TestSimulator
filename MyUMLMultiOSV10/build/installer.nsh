@@ -12,10 +12,12 @@
 !macroend
 !define isDeleteAppData `"" isDeleteAppData ""`
 
-Var CreateDesktopShortcutChoice
-Var CreateStartMenuShortcutChoice
-Var DesktopShortcutCheckbox
-Var StartMenuShortcutCheckbox
+!ifndef BUILD_UNINSTALLER
+  Var CreateDesktopShortcutChoice
+  Var CreateStartMenuShortcutChoice
+  Var DesktopShortcutCheckbox
+  Var StartMenuShortcutCheckbox
+!endif
 
 !macro RemoveAppDataFolders
   ; Electron stores userData under %APPDATA%\<name>
@@ -41,9 +43,11 @@ Var StartMenuShortcutCheckbox
 !macroend
 
 !macro customInit
-  ; Default: create both shortcuts (used when page is skipped / silent install).
-  StrCpy $CreateDesktopShortcutChoice ${BST_CHECKED}
-  StrCpy $CreateStartMenuShortcutChoice ${BST_CHECKED}
+  !ifndef BUILD_UNINSTALLER
+    ; Default: create both shortcuts (used when page is skipped / silent install).
+    StrCpy $CreateDesktopShortcutChoice ${BST_CHECKED}
+    StrCpy $CreateStartMenuShortcutChoice ${BST_CHECKED}
+  !endif
 
   ; Remove orphaned install folders from renamed product builds (same appId).
   RMDir /r "$LOCALAPPDATA\Programs\My UML Multi OS"
@@ -51,59 +55,75 @@ Var StartMenuShortcutCheckbox
   RMDir /r "$PROGRAMFILES64\My UML Multi OS"
 !macroend
 
-Function ShortcutOptionsPage
-  ${If} ${Silent}
-    Abort
-  ${EndIf}
-  ${If} ${isUpdated}
-    Abort
-  ${EndIf}
+!ifndef BUILD_UNINSTALLER
+  Function ShortcutOptionsPage
+    ${If} ${Silent}
+      Abort
+    ${EndIf}
 
-  nsDialogs::Create 1018
-  Pop $0
-  ${If} $0 == error
-    Abort
-  ${EndIf}
+    nsDialogs::Create 1018
+    Pop $0
+    ${If} $0 == error
+      Abort
+    ${EndIf}
 
-  ${NSD_CreateLabel} 0 0 100% 24u "Choose which shortcuts to create:"
-  Pop $0
+    ${NSD_CreateLabel} 0 0 100% 24u "Choose which shortcuts to create:"
+    Pop $0
 
-  ${NSD_CreateCheckbox} 0 40u 100% 12u "Create a Start Menu shortcut"
-  Pop $StartMenuShortcutCheckbox
-  ${If} $CreateStartMenuShortcutChoice == ${BST_CHECKED}
-    ${NSD_Check} $StartMenuShortcutCheckbox
-  ${EndIf}
+    ${NSD_CreateCheckbox} 0 40u 100% 12u "Create a Start Menu shortcut"
+    Pop $StartMenuShortcutCheckbox
+    ${If} $CreateStartMenuShortcutChoice == ${BST_CHECKED}
+      ${NSD_Check} $StartMenuShortcutCheckbox
+    ${EndIf}
 
-  ${NSD_CreateCheckbox} 0 60u 100% 12u "Create a Desktop shortcut"
-  Pop $DesktopShortcutCheckbox
-  ${If} $CreateDesktopShortcutChoice == ${BST_CHECKED}
-    ${NSD_Check} $DesktopShortcutCheckbox
-  ${EndIf}
+    ${NSD_CreateCheckbox} 0 60u 100% 12u "Create a Desktop shortcut"
+    Pop $DesktopShortcutCheckbox
+    ${If} $CreateDesktopShortcutChoice == ${BST_CHECKED}
+      ${NSD_Check} $DesktopShortcutCheckbox
+    ${EndIf}
 
-  nsDialogs::Show
-FunctionEnd
+    nsDialogs::Show
+  FunctionEnd
 
-Function ShortcutOptionsPageLeave
-  ${NSD_GetState} $StartMenuShortcutCheckbox $CreateStartMenuShortcutChoice
-  ${NSD_GetState} $DesktopShortcutCheckbox $CreateDesktopShortcutChoice
-FunctionEnd
+  Function ShortcutOptionsPageLeave
+    ${NSD_GetState} $StartMenuShortcutCheckbox $CreateStartMenuShortcutChoice
+    ${NSD_GetState} $DesktopShortcutCheckbox $CreateDesktopShortcutChoice
+  FunctionEnd
 
-!macro customPageAfterChangeDir
-  Page custom ShortcutOptionsPage ShortcutOptionsPageLeave
-!macroend
+  !macro customPageAfterChangeDir
+    Page custom ShortcutOptionsPage ShortcutOptionsPageLeave
+  !macroend
+!endif
 
 !macro customInstall
   !insertmacro RemoveAppDataFolders
 
-  ; electron-builder creates shortcuts before customInstall; remove those the user declined.
-  ${If} $CreateStartMenuShortcutChoice == ${BST_UNCHECKED}
+  ${If} $CreateStartMenuShortcutChoice == ${BST_CHECKED}
+    !insertmacro cleanupOldMenuDirectory
+    !insertmacro createMenuDirectory
+    CreateShortCut "$newStartMenuLink" "$appExe" "" "$appExe" 0 "" "" "${APP_DESCRIPTION}"
+    ClearErrors
+    WinShell::SetLnkAUMI "$newStartMenuLink" "${APP_ID}"
+  ${Else}
     WinShell::UninstShortcut "$newStartMenuLink"
     Delete "$newStartMenuLink"
+    ${If} "$oldStartMenuLink" != "$newStartMenuLink"
+      WinShell::UninstShortcut "$oldStartMenuLink"
+      Delete "$oldStartMenuLink"
+    ${EndIf}
   ${EndIf}
 
-  ${If} $CreateDesktopShortcutChoice == ${BST_UNCHECKED}
+  ${If} $CreateDesktopShortcutChoice == ${BST_CHECKED}
+    CreateShortCut "$newDesktopLink" "$appExe" "" "$appExe" 0 "" "" "${APP_DESCRIPTION}"
+    ClearErrors
+    WinShell::SetLnkAUMI "$newDesktopLink" "${APP_ID}"
+  ${Else}
     WinShell::UninstShortcut "$newDesktopLink"
     Delete "$newDesktopLink"
+    ${If} "$oldDesktopLink" != "$newDesktopLink"
+      WinShell::UninstShortcut "$oldDesktopLink"
+      Delete "$oldDesktopLink"
+    ${EndIf}
   ${EndIf}
 
   ; Ensure .umlprj uses the project icon (ProgId must not contain spaces).
