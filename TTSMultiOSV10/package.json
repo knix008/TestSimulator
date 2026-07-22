@@ -5,7 +5,7 @@
   "author": "SHKWON <knix008@naver.com>",
   "private": true,
   "type": "module",
-  "main": "electron/main.js",
+  "main": "electron/bootstrap.cjs",
   "scripts": {
     "start": "electron .",
     "postinstall": "electron-builder install-app-deps",
@@ -105,6 +105,7 @@
   "dependencies": {
     "@breezystack/lamejs": "^1.2.7",
     "@piper-plus/g2p": "^0.4.1",
+    "korean-pronunciation": "^1.0.1",
     "onnxruntime-node": "^1.27.0",
     "phonemizer": "^1.2.1",
     "sherpa-onnx-node": "^1.13.4",

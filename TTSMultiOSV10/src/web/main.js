@@ -572,6 +572,9 @@ function startTransportAnimation() {
 }
 
 // ── Download progress display ────────────────────────────────────────────────
+/** When false, ignore late `download` IPC events after invoke already finished. */
+let downloadUiActive = false;
+
 function setDownloadPhase(active) {
   if (dlInfoPill) dlInfoPill.hidden = !active;
 }
@@ -582,6 +585,23 @@ function updateDlPanel(percent, _fileName, receivedMB, totalMB) {
     dlSize.textContent = totalMB
       ? `${receivedMB} / ${totalMB} MB`
       : receivedMB ? `${receivedMB} MB` : '';
+  }
+}
+
+function markDownloadUiComplete(label, { freshlyDownloaded = true } = {}) {
+  downloadUiActive = false;
+  showProgress(100);
+  updateDlPanel(100, '', null, null);
+  setDownloadPhase(false);
+  if (freshlyDownloaded) {
+    setPhase('done');
+    showStatus(`${label} 다운로드 완료`);
+    setTimeout(() => {
+      if (!downloadUiActive) setPhase('idle');
+    }, 2500);
+  } else {
+    setPhase('idle');
+    showStatus(`${label}이 이미 다운로드되어 있습니다.`);
   }
 }
 
@@ -622,6 +642,7 @@ if (typeof bridge.onModelDownloadProgress === 'function') {
     if (!progress) return;
 
     if (progress.phase === 'start') {
+      downloadUiActive = true;
       setPhase('downloading');
       setDownloadPhase(true);
       updateDlPanel(0, '', null, null);
@@ -631,6 +652,9 @@ if (typeof bridge.onModelDownloadProgress === 'function') {
     }
 
     if (progress.phase === 'download') {
+      // Invoke reply can arrive before the last progress IPC — ignore stale updates.
+      if (!downloadUiActive) return;
+
       const label      = progress.model?.label || '모델';
       const percent    = Number.isFinite(progress.percent) ? progress.percent : 0;
       const receivedMB = progress.receivedBytes ? (progress.receivedBytes / 1024 / 1024).toFixed(1) : null;
@@ -646,16 +670,9 @@ if (typeof bridge.onModelDownloadProgress === 'function') {
     }
 
     if (progress.phase === 'done') {
-      showProgress(100);
-      setDownloadPhase(false);
-      if (progress.downloaded) {
-        setPhase('done');
-        showStatus(`${progress.model?.label || '모델'} 다운로드 완료`);
-        setTimeout(() => setPhase('idle'), 2500);
-      } else {
-        setPhase('idle');
-        showStatus(`${progress.model?.label || '모델'}이 이미 다운로드되어 있습니다.`);
-      }
+      markDownloadUiComplete(progress.model?.label || '모델', {
+        freshlyDownloaded: !!progress.downloaded,
+      });
     }
   });
 }
@@ -1105,33 +1122,21 @@ function detectSynthesisLanguage(text) {
 }
 
 /**
- * Set synthesis language from input text. Switches model only when its language
- * no longer matches the detected language (keeps user's Korean model choice).
+ * Update synthesis language from input text (or keep manual override).
+ * Never switches the selected model.
  */
 function applyLanguageFromText(text = textInput?.value, { quiet = false } = {}) {
   const detected = detectSynthesisLanguage(text);
   if (!detected || !languageSelect) return false;
 
   const languageChanged = languageSelect.value !== detected;
+  if (!languageChanged) return false;
+
   languageSelect.value = detected;
-  if (languageChanged) updateStatusBarLanguage();
-
-  const currentModel = state.models.find((m) => m.id === modelSelect?.value) || null;
-  if (currentModel?.language === detected) {
-    return languageChanged;
-  }
-
-  const next = getPreferredModelForLanguage(detected);
-  if (!next) return languageChanged;
-
-  modelSelect.value = next.id;
-  updateStatusBarModel(next);
-  updateDownloadButtonState();
-  refreshVoiceList();
-  warmSelectedModel();
+  updateStatusBarLanguage();
   if (!quiet) {
     const langLabel = detected === 'ko-KR' ? '한국어' : 'English';
-    showStatus(`입력 언어 감지: ${langLabel} → ${next.label}`);
+    showStatus(`입력 언어 감지: ${langLabel} (모델: ${modelSelect?.selectedOptions?.[0]?.textContent || '-'})`);
   }
   return true;
 }
@@ -1201,8 +1206,9 @@ function currentSynthKey() {
   const text = textInput?.value ?? '';
   const modelId = modelSelect?.value || '';
   const voiceId = voiceSelect?.value || '';
+  const lang = languageSelect?.value || '';
   // Speed/pitch are playback params — not part of synthesis key
-  return `${modelId}|${voiceId}|${text}`;
+  return `${modelId}|${voiceId}|${lang}|${text}`;
 }
 
 // ── Speak / synthesize ───────────────────────────────────────────────────────
@@ -1212,6 +1218,7 @@ async function synthesizeCurrentText() {
     throw new Error('읽을 텍스트를 입력하세요.');
   }
 
+  // Hint language from text for the model; keep the currently selected model.
   applyLanguageFromText(text, { quiet: true });
 
   const lang    = languageSelect?.value ?? 'ko-KR';
@@ -1255,7 +1262,7 @@ async function synthesizeCurrentText() {
       modelId,
       voiceId: voiceId || undefined,
       speed: rate,
-      language: activeModel.language || lang,
+      language: lang,
       noiseScale:     pcm.noiseScale / 100,
       noiseW:         pcm.noiseW / 100,
       normalize:      pcm.normalize,
@@ -1612,25 +1619,21 @@ async function downloadSelectedModel() {
   }
   updateDownloadButtonState({ downloading: true });
   try {
+    downloadUiActive = true;
     setPhase('downloading');
     setDownloadPhase(true);
     updateDlPanel(0, '', null, null);
     showProgress(0);
     showStatus(`${model.label} 다운로드를 준비하는 중입니다...`);
     const result = await bridge.downloadAndPrepareModel(model.id);
-    setDownloadPhase(false);
-    if (result?.downloaded) {
-      setPhase('done');
-      showStatus(`${model.label} 다운로드 완료.`);
-      setTimeout(() => setPhase('idle'), 2500);
-    } else {
-      showStatus(`${model.label}은 이미 설치되어 있습니다.`);
-    }
+    // Invoke can resolve before the last progress IPC; force a consistent 100% UI.
+    markDownloadUiComplete(model.label, { freshlyDownloaded: !!result?.downloaded });
     await refreshModels();
     await warmSelectedModel();
     const refreshed = state.models.find((m) => m.id === model.id);
     return !!refreshed?.downloaded;
   } catch (error) {
+    downloadUiActive = false;
     setPhase('error');
     setDownloadPhase(false);
     showProgress(0);
@@ -1676,12 +1679,9 @@ document.getElementById('saveAudio')?.addEventListener('click', () => saveAudio(
 updateTransportButtons();
 
 languageSelect.addEventListener('change', () => {
-  const model = getPreferredModelForLanguage(languageSelect.value);
-  if (model) { modelSelect.value = model.id; updateStatusBarModel(model); }
+  // Manual override — do not switch models.
   updateStatusBarLanguage();
-  updateDownloadButtonState();
-  refreshVoiceList();
-  warmSelectedModel();
+  showStatus(`합성 언어: ${languageSelect.value === 'ko-KR' ? '한국어' : 'English'}`);
 });
 
 async function warmSelectedModel() {
@@ -1698,10 +1698,7 @@ async function warmSelectedModel() {
 
 modelSelect.addEventListener('change', () => {
   const model = state.models.find((m) => m.id === modelSelect.value);
-  if (model?.language && languageSelect && languageSelect.value !== model.language) {
-    languageSelect.value = model.language;
-    updateStatusBarLanguage();
-  }
+  // Keep synthesis language independent of model (text/manual selection decides).
   updateStatusBarModel(model || null);
   updateDownloadButtonState();
   if (model && !model.downloaded) {
@@ -1714,7 +1711,6 @@ modelSelect.addEventListener('change', () => {
 
 textInput?.addEventListener('input', scheduleLanguageFromText);
 textInput?.addEventListener('paste', () => {
-  // Paste updates value after the event; detect on next tick.
   setTimeout(scheduleLanguageFromText, 0);
 });
 

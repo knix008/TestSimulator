@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
-import { createWriteStream } from 'node:fs';
+import { createWriteStream, createReadStream } from 'node:fs';
 import path from 'node:path';
+import crypto from 'node:crypto';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { fileURLToPath } from 'node:url';
@@ -115,7 +116,7 @@ function shouldSkipFile(filePath) {
   const lower = filePath.toLowerCase();
   const skipExts = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg',
     '.md', '.txt.bz2', '.flac', '.mp3', '.wav', '.ogg',
-    '.safetensors', '.msgpack'];
+    '.safetensors', '.msgpack', '.tar.gz', '.tar.bz2', '.tar.xz', '.zip'];
   return skipExts.some((ext) => lower.endsWith(ext));
 }
 
@@ -178,6 +179,57 @@ async function readManifest(manifestPath) {
   }
 }
 
+async function sha256File(filePath) {
+  return new Promise((resolve, reject) => {
+    const hash = crypto.createHash('sha256');
+    const stream = createReadStream(filePath);
+    stream.on('data', (chunk) => hash.update(chunk));
+    stream.on('error', reject);
+    stream.on('end', () => resolve(hash.digest('hex')));
+  });
+}
+
+/**
+ * Read optional repo-side integrity map (e.g. MeloTTS manifest.json resources).
+ * Returns Map<pathInRepo, { size?, sha256? }>.
+ */
+async function loadRepoIntegrityMap(modelRoot) {
+  const map = new Map();
+  const candidates = ['manifest.json', 'integrity.json'];
+  for (const name of candidates) {
+    const p = path.join(modelRoot, name);
+    if (!(await fileExists(p))) continue;
+    try {
+      const raw = JSON.parse(await fs.readFile(p, 'utf8'));
+      const resources = raw?.resources;
+      if (!resources || typeof resources !== 'object') continue;
+      for (const [key, meta] of Object.entries(resources)) {
+        if (!meta || typeof meta !== 'object') continue;
+        const rel = meta.path_in_repo || key;
+        const sha256 = typeof meta.sha256 === 'string' ? meta.sha256.toLowerCase() : null;
+        const size = Number(meta.size_bytes || meta.size || 0) || 0;
+        if (sha256 || size > 0) map.set(rel.replace(/\\/g, '/'), { sha256, size });
+      }
+    } catch {
+      /* ignore malformed integrity files */
+    }
+  }
+  return map;
+}
+
+async function verifyFileIntegrity(filePath, expected) {
+  if (!expected) return true;
+  if (expected.size > 0) {
+    const size = await fileSizeOrZero(filePath);
+    if (size !== expected.size) return false;
+  }
+  if (expected.sha256) {
+    const digest = await sha256File(filePath);
+    if (digest !== expected.sha256) return false;
+  }
+  return true;
+}
+
 /** True when cache manifest matches the catalog source repo / package variant. */
 async function isCachedModelCurrent(model, cacheRoot) {
   const manifest = await readManifest(getManifestPath(cacheRoot, model));
@@ -189,6 +241,36 @@ async function isCachedModelCurrent(model, cacheRoot) {
   const expectedPkg = model.source?.packageId;
   if (expectedPkg && manifest.packageId !== expectedPkg) {
     return false;
+  }
+
+  // Prefer stored hashes; then catalog pins; then repo integrity map.
+  const modelRoot = getModelRoot(cacheRoot, model);
+  const storedHashes = manifest.fileHashes || {};
+  const catalogHashes = model.source?.fileHashes || {};
+  const integrity = (Object.keys(storedHashes).length || Object.keys(catalogHashes).length)
+    ? null
+    : await loadRepoIntegrityMap(modelRoot);
+
+  const checkPaths = [
+    ...(model.source?.preferOnnx || []),
+    ...Object.keys(storedHashes),
+    ...Object.keys(catalogHashes),
+  ];
+  const seen = new Set();
+  for (const rel of checkPaths) {
+    if (!rel || seen.has(rel)) continue;
+    seen.add(rel);
+    const abs = path.join(modelRoot, rel);
+    if (!(await fileExists(abs))) return false;
+    const expected = storedHashes[rel]
+      ? { sha256: String(storedHashes[rel]).toLowerCase() }
+      : (catalogHashes[rel]
+        ? { sha256: String(catalogHashes[rel]).toLowerCase() }
+        : integrity?.get(rel.replace(/\\/g, '/')));
+    if (expected && !(await verifyFileIntegrity(abs, expected))) {
+      console.warn(`[Download] 무결성 실패(캐시): ${model.id}/${rel}`);
+      return false;
+    }
   }
   return true;
 }
@@ -247,21 +329,35 @@ async function listRepoTree(repoId) {
   return files;
 }
 
-function emitProgress(onProgress, progressState, extra = {}) {
+function computeDownloadPercent(progressState) {
   const total = progressState.totalBytes;
   const current = progressState.completedBytes + (progressState.fileReceived || 0);
-  let percent = 0;
+  const allFilesDone = progressState.totalFiles > 0
+    && progressState.completedFiles >= progressState.totalFiles
+    && !(progressState.fileReceived > 0);
+
   if (total > 0) {
-    percent = Math.min(99, Math.round((current / total) * 100));
-  } else if (progressState.totalFiles > 0) {
-    percent = Math.min(
+    const raw = Math.round((current / total) * 100);
+    // Reserve 100% for fully finished transfers; mid-download never reports 100.
+    if (raw >= 100) return allFilesDone ? 100 : 99;
+    return Math.max(0, Math.min(99, raw));
+  }
+  if (progressState.totalFiles > 0) {
+    if (allFilesDone) return 100;
+    return Math.min(
       99,
       Math.round(((progressState.completedFiles + 0.5) / progressState.totalFiles) * 100),
     );
   }
+  return 0;
+}
+
+function emitProgress(onProgress, progressState, extra = {}) {
+  const total = progressState.totalBytes;
+  const current = progressState.completedBytes + (progressState.fileReceived || 0);
   onProgress?.({
     phase: 'download',
-    percent,
+    percent: computeDownloadPercent(progressState),
     receivedBytes: current,
     totalBytes: total,
     modelId: progressState.modelId,
@@ -281,19 +377,55 @@ async function fileSizeOrZero(filePath) {
   }
 }
 
-async function downloadFileOnce(fileUrl, targetPath, onProgress, progressState, knownSize = 0) {
+/** Probe HF/Xet headers for size + sha256 (X-Linked-ETag). */
+async function probeRemoteFile(fileUrl) {
+  try {
+    const response = await fetchWithRetry(fileUrl, { method: 'HEAD' }, {
+      attempts: 3,
+      label: `head:${fileUrl}`,
+    });
+    if (!(response.ok || response.status === 302 || response.status === 301)) {
+      return { size: 0, sha256: null };
+    }
+    const size = Number(
+      response.headers.get('x-linked-size')
+      || response.headers.get('content-length')
+      || 0,
+    ) || 0;
+    let sha256 = String(response.headers.get('x-linked-etag') || '')
+      .replace(/"/g, '')
+      .toLowerCase();
+    if (!/^[a-f0-9]{64}$/.test(sha256)) sha256 = null;
+    return { size, sha256 };
+  } catch {
+    return { size: 0, sha256: null };
+  }
+}
+
+async function downloadFileOnce(fileUrl, targetPath, onProgress, progressState, knownSize = 0, knownSha256 = null) {
   await fs.mkdir(path.dirname(targetPath), { recursive: true });
 
   const partPath = `${targetPath}.part`;
   let startAt = await fileSizeOrZero(partPath);
-  // If a finished file already has the expected size, treat as done.
   const existing = await fileSizeOrZero(targetPath);
-  if (existing > 0 && (knownSize <= 0 || existing === knownSize)) {
-    progressState.completedBytes += existing;
-    progressState.completedFiles += 1;
-    progressState.fileReceived = 0;
-    emitProgress(onProgress, progressState);
-    return existing;
+  if (existing > 0) {
+    const expected = {
+      size: knownSize > 0 ? knownSize : 0,
+      sha256: knownSha256 || null,
+    };
+    // With sha256: require hash match. Without: size match is enough for resume skip.
+    const canSkip = knownSha256
+      ? await verifyFileIntegrity(targetPath, expected)
+      : (knownSize <= 0 || existing === knownSize);
+    if (canSkip) {
+      progressState.completedBytes += existing;
+      progressState.completedFiles += 1;
+      progressState.fileReceived = 0;
+      emitProgress(onProgress, progressState);
+      return existing;
+    }
+    // Stale/corrupt finished file — remove and re-fetch.
+    await fs.rm(targetPath, { force: true }).catch(() => {});
   }
 
   const headers = {};
@@ -339,9 +471,7 @@ async function downloadFileOnce(fileUrl, targetPath, onProgress, progressState, 
 
   const maybeEmit = () => {
     const now = Date.now();
-    const total = progressState.totalBytes;
-    const current = progressState.completedBytes + progressState.fileReceived;
-    const percent = total > 0 ? Math.min(99, Math.round((current / total) * 100)) : 0;
+    const percent = computeDownloadPercent(progressState);
     if (now - lastEmitAt < 250 && percent === lastEmitPercent) return;
     lastEmitAt = now;
     lastEmitPercent = percent;
@@ -394,15 +524,36 @@ async function downloadFileOnce(fileUrl, targetPath, onProgress, progressState, 
   return written;
 }
 
-async function downloadFile(fileUrl, targetPath, onProgress, progressState, knownSize = 0) {
+async function downloadFile(fileUrl, targetPath, onProgress, progressState, knownSize = 0, knownSha256 = null) {
   let lastError = null;
   for (let attempt = 1; attempt <= DOWNLOAD_MAX_ATTEMPTS; attempt += 1) {
     try {
-      return await downloadFileOnce(fileUrl, targetPath, onProgress, progressState, knownSize);
+      const written = await downloadFileOnce(
+        fileUrl,
+        targetPath,
+        onProgress,
+        progressState,
+        knownSize,
+        knownSha256,
+      );
+      if (knownSha256 || knownSize > 0) {
+        const ok = await verifyFileIntegrity(targetPath, {
+          size: knownSize > 0 ? knownSize : 0,
+          sha256: knownSha256,
+        });
+        if (!ok) {
+          await fs.rm(targetPath, { force: true }).catch(() => {});
+          await fs.rm(`${targetPath}.part`, { force: true }).catch(() => {});
+          throw new Error(
+            `다운로드 파일 무결성 검증 실패 (sha256/size mismatch)\nURL: ${fileUrl}`,
+          );
+        }
+      }
+      return written;
     } catch (error) {
       lastError = error;
       const retryable = isRetryableNetworkError(error)
-        || /끊겼|ECONNRESET|fetch failed|aborted/i.test(String(error?.message || error));
+        || /끊겼|ECONNRESET|fetch failed|aborted|무결성/i.test(String(error?.message || error));
       if (!retryable || attempt >= DOWNLOAD_MAX_ATTEMPTS) break;
       const delay = Math.min(12000, 800 * (2 ** (attempt - 1)));
       console.warn(
@@ -411,13 +562,7 @@ async function downloadFile(fileUrl, targetPath, onProgress, progressState, know
       );
       onProgress?.({
         phase: 'download',
-        percent: Math.min(
-          99,
-          progressState.totalBytes > 0
-            ? Math.round(((progressState.completedBytes + (progressState.fileReceived || 0))
-              / progressState.totalBytes) * 100)
-            : 0,
-        ),
+        percent: computeDownloadPercent(progressState),
         receivedBytes: progressState.completedBytes + (progressState.fileReceived || 0),
         totalBytes: progressState.totalBytes,
         modelId: progressState.modelId,
@@ -511,20 +656,81 @@ async function downloadRepoModel(model, cacheRoot, onProgress) {
 
   await fs.mkdir(modelRoot, { recursive: true });
 
-  for (const entry of files) {
+  // Small metadata first so integrity map is available before large ONNX files.
+  const ordered = [...files].sort((a, b) => {
+    const aMeta = /\.(json|yaml|yml|txt)$/i.test(a.filePath) ? 0 : 1;
+    const bMeta = /\.(json|yaml|yml|txt)$/i.test(b.filePath) ? 0 : 1;
+    return aMeta - bMeta;
+  });
+
+  const fileHashesAccum = {};
+
+  for (const entry of ordered) {
     const targetPath = path.join(modelRoot, entry.filePath);
     progressState.fileName = entry.filePath;
+    const integrity = await loadRepoIntegrityMap(modelRoot);
+    const catalogHash = model.source?.fileHashes?.[entry.filePath]
+      || model.source?.fileHashes?.[entry.filePath.replace(/\\/g, '/')];
+    let expected = integrity.get(entry.filePath.replace(/\\/g, '/'))
+      || (catalogHash ? { sha256: String(catalogHash).toLowerCase() } : null)
+      || (entry.size > 0 ? { size: entry.size } : null);
+
+    // For ONNX (and other large binaries), prefer HF X-Linked-ETag sha256.
+    if (/\.(onnx|bin)$/i.test(entry.filePath) && !expected?.sha256) {
+      const probe = await probeRemoteFile(entry.fileUrl);
+      if (probe.sha256 || probe.size > 0) {
+        expected = {
+          size: probe.size || entry.size || expected?.size || 0,
+          sha256: probe.sha256 || expected?.sha256 || null,
+        };
+        if (probe.size > 0) entry.size = probe.size;
+        if (probe.sha256) {
+          console.log(`[Download] 원격 해시: ${entry.filePath} ${probe.sha256.slice(0, 12)}…`);
+        }
+      }
+    }
+
     const existing = await fileSizeOrZero(targetPath);
-    if (existing > 0 && (entry.size <= 0 || existing === entry.size)) {
+    if (existing > 0 && (await verifyFileIntegrity(targetPath, expected))) {
       console.log(`[Download] 스킵(완료): ${entry.filePath}`);
       progressState.completedBytes += existing;
       progressState.completedFiles += 1;
       progressState.fileReceived = 0;
       emitProgress(onProgress, progressState);
+      if (expected?.sha256) fileHashesAccum[entry.filePath] = expected.sha256;
       continue;
     }
+    if (existing > 0) {
+      console.warn(`[Download] 손상 파일 재다운로드: ${entry.filePath}`);
+      await fs.rm(targetPath, { force: true }).catch(() => {});
+      await fs.rm(`${targetPath}.part`, { force: true }).catch(() => {});
+    }
+
     console.log(`[Download] 받는 중: ${entry.filePath}`);
-    await downloadFile(entry.fileUrl, targetPath, onProgress, progressState, entry.size);
+    await downloadFile(
+      entry.fileUrl,
+      targetPath,
+      onProgress,
+      progressState,
+      entry.size || expected?.size || 0,
+      expected?.sha256 || null,
+    );
+
+    if (expected && !(await verifyFileIntegrity(targetPath, expected))) {
+      await fs.rm(targetPath, { force: true }).catch(() => {});
+      throw new Error(
+        `다운로드 파일 무결성 검증 실패: ${entry.filePath}\n`
+        + `크기/해시가 HuggingFace 원본과 다릅니다. 네트워크를 확인한 뒤 다시 시도하세요.`,
+      );
+    }
+    if (expected?.sha256) fileHashesAccum[entry.filePath] = expected.sha256;
+  }
+
+  const integrityFinal = await loadRepoIntegrityMap(modelRoot);
+  const fileHashes = { ...fileHashesAccum };
+  for (const entry of files) {
+    const expected = integrityFinal.get(entry.filePath.replace(/\\/g, '/'));
+    if (expected?.sha256) fileHashes[entry.filePath] = expected.sha256;
   }
 
   await fs.writeFile(manifestPath, JSON.stringify({
@@ -533,6 +739,7 @@ async function downloadRepoModel(model, cacheRoot, onProgress) {
     packageId: model.source.packageId || null,
     downloadedAt: new Date().toISOString(),
     files: files.map((f) => f.filePath),
+    fileHashes,
     totalBytes: progressState.completedBytes || totalBytes,
   }, null, 2));
 

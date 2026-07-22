@@ -7,6 +7,7 @@ import { ensureOrtNativePath } from './ortNative.js';
 import {
   createChildOrtSession,
   isElectronProcess,
+  terminateOrtChild,
 } from './ortChildClient.js';
 
 const require = createRequire(import.meta.url);
@@ -157,6 +158,7 @@ const sessionCache = new Map();
 const sherpaCache = new Map();
 const voiceBinCache = new Map();
 const vocabCache = new Map();
+const meloTtsSymbolsCache = new Map();
 let phonemizeFnPromise = null;
 let phonemizerWarmed = false;
 let ortPromise = null;
@@ -245,38 +247,48 @@ async function getOrtSession(cacheKey, onnxPath, { preferGpu = true } = {}) {
   );
 
   let entry;
-  if (runtime.kind === 'child') {
-    try {
-      entry = await createChildOrtSession(fullKey, onnxPath, options);
-    } catch (error) {
-      if (options.executionProviders.includes('dml')) {
-        console.warn(`[TTS] child DML 실패, CPU로 재시도: ${error?.message || error}`);
-        entry = await createChildOrtSession(fullKey, onnxPath, {
-          ...options,
-          executionProviders: ['cpu'],
-        });
-        entry.usedGpu = false;
-      } else {
-        throw error;
+  try {
+    if (runtime.kind === 'child') {
+      try {
+        entry = await createChildOrtSession(fullKey, onnxPath, options);
+      } catch (error) {
+        if (options.executionProviders.includes('dml')) {
+          console.warn(`[TTS] child DML 실패, CPU로 재시도: ${error?.message || error}`);
+          entry = await createChildOrtSession(fullKey, onnxPath, {
+            ...options,
+            executionProviders: ['cpu'],
+          });
+          entry.usedGpu = false;
+        } else {
+          throw error;
+        }
       }
-    }
-  } else {
-    const ort = runtime.ort;
-    let session;
-    let usedGpu = options.executionProviders.includes('dml');
-    try {
-      session = await ort.InferenceSession.create(onnxPath, options);
-    } catch (error) {
-      if (usedGpu) {
-        console.warn(`[TTS] DML 세션 실패, CPU로 재시도: ${error?.message || error}`);
-        usedGpu = false;
-        const cpuOpts = buildSessionOptions(ort, { preferGpu: false });
-        session = await ort.InferenceSession.create(onnxPath, cpuOpts);
-      } else {
-        throw error;
+    } else {
+      const ort = runtime.ort;
+      let session;
+      let usedGpu = options.executionProviders.includes('dml');
+      try {
+        session = await ort.InferenceSession.create(onnxPath, options);
+      } catch (error) {
+        if (usedGpu) {
+          console.warn(`[TTS] DML 세션 실패, CPU로 재시도: ${error?.message || error}`);
+          usedGpu = false;
+          const cpuOpts = buildSessionOptions(ort, { preferGpu: false });
+          session = await ort.InferenceSession.create(onnxPath, cpuOpts);
+        } else {
+          throw error;
+        }
       }
+      entry = { session, ort, backend: ortBackend, usedGpu };
     }
-    entry = { session, ort, backend: ortBackend, usedGpu };
+  } catch (error) {
+    if (isCorruptOnnxError(error)) {
+      const wrapped = new Error(error?.message || String(error));
+      wrapped.code = 'CORRUPT_ONNX';
+      wrapped.onnxPath = onnxPath;
+      throw wrapped;
+    }
+    throw error;
   }
 
   console.log(
@@ -285,6 +297,33 @@ async function getOrtSession(cacheKey, onnxPath, { preferGpu = true } = {}) {
   );
   sessionCache.set(fullKey, entry);
   return entry;
+}
+
+function isCorruptOnnxError(error) {
+  const text = String(error?.message || error || '');
+  return /Protobuf parsing failed|InvalidProtobuf|Load model from .* failed/i.test(text);
+}
+
+function clearSessionsForModel(modelId, onnxPath = '') {
+  const base = onnxPath ? path.basename(onnxPath) : '';
+  for (const key of [...sessionCache.keys()]) {
+    if (key.includes(modelId) || (base && key.includes(base))) {
+      sessionCache.delete(key);
+    }
+  }
+}
+
+/** Delete a corrupt ONNX + package marker, then re-download. */
+async function repairCorruptOnnx(store, modelId, onnxPath) {
+  console.warn(`[TTS] 손상된 ONNX 감지 → 재다운로드: ${onnxPath}`);
+  clearSessionsForModel(modelId, onnxPath);
+  await terminateOrtChild().catch(() => {});
+  await fs.rm(onnxPath, { force: true }).catch(() => {});
+  await fs.rm(path.join(path.dirname(onnxPath), '.download-manifest.json'), { force: true }).catch(() => {});
+  if (typeof store?.deleteModel === 'function') {
+    await store.deleteModel(modelId).catch(() => {});
+  }
+  return store.ensureModelAvailable(modelId, null);
 }
 
 function kokoroOnnxCandidates({ forGpu = false } = {}) {
@@ -661,33 +700,47 @@ function concatFloat32(chunks) {
 }
 
 async function synthesizeKokoro(text, modelId, modelDir, opts = {}) {
-  const { voiceId = 'af_heart', speed = 1 } = opts;
-  let { onnxPath, preferGpu } = await resolveKokoroOnnxPath(modelDir);
-  if (!onnxPath) throw new Error(`Kokoro ONNX 파일 없음: ${modelDir}`);
+  const { voiceId = 'af_heart', speed = 1, store = null } = opts;
+  let resolvedDir = modelDir;
+  let { onnxPath, preferGpu } = await resolveKokoroOnnxPath(resolvedDir);
+  if (!onnxPath) throw new Error(`Kokoro ONNX 파일 없음: ${resolvedDir}`);
 
-  const vocab = await loadVocab(modelDir);
-  if (!vocab) throw new Error(`Kokoro tokenizer 없음: ${modelDir}`);
+  const vocab = await loadVocab(resolvedDir);
+  if (!vocab) throw new Error(`Kokoro tokenizer 없음: ${resolvedDir}`);
 
   const t0 = performance.now();
   const chunks = await splitKokoroByTokenLimit(text, vocab, 510);
   if (!chunks.length) throw new Error('Kokoro 토큰 ID 없음');
 
   const voiceName = String(voiceId || 'af_heart').replace(/\.bin$/i, '');
-  let voicePath = path.join(modelDir, 'voices', `${voiceName}.bin`);
+  let voicePath = path.join(resolvedDir, 'voices', `${voiceName}.bin`);
   try {
     await fs.access(voicePath);
   } catch {
-    voicePath = path.join(modelDir, 'voices', 'af_heart.bin');
+    voicePath = path.join(resolvedDir, 'voices', 'af_heart.bin');
   }
 
   const voices = await loadVoiceBin(voicePath);
   const styleDim = 256;
   const frames = Math.floor(voices.length / styleDim);
 
-  let entry = await getOrtSession(`${modelId}:${onnxPath}`, onnxPath, { preferGpu });
+  let entry;
+  try {
+    entry = await getOrtSession(`${modelId}:${onnxPath}`, onnxPath, { preferGpu });
+  } catch (error) {
+    if (error?.code === 'CORRUPT_ONNX' && store) {
+      const repaired = await repairCorruptOnnx(store, modelId, onnxPath);
+      resolvedDir = repaired.modelPath;
+      ({ onnxPath, preferGpu } = await resolveKokoroOnnxPath(resolvedDir));
+      if (!onnxPath) throw error;
+      entry = await getOrtSession(`${modelId}:${onnxPath}`, onnxPath, { preferGpu });
+    } else {
+      throw error;
+    }
+  }
   // If DML session fell back to CPU while we loaded an FP16 graph, switch to a CPU-optimized ONNX.
   if (preferGpu && entry.usedGpu === false) {
-    const cpuPath = await findOnnxFile(modelDir, kokoroOnnxCandidates({ forGpu: false }));
+    const cpuPath = await findOnnxFile(resolvedDir, kokoroOnnxCandidates({ forGpu: false }));
     if (cpuPath && cpuPath !== onnxPath) {
       console.log(`[TTS] Kokoro CPU 폴백 모델로 전환: ${path.basename(cpuPath)}`);
       onnxPath = cpuPath;
@@ -741,6 +794,201 @@ async function synthesizeKokoro(text, modelId, modelDir, opts = {}) {
   return toResult(audio, 24000, opts);
 }
 
+// ── MeloTTS (한국어/영어 VITS, gnyong/melotts-kr-onnx) ──────────────────────
+
+// language_id_map from myshell-ai/MeloTTS melo/text/symbols.py
+const MELOTTS_LANG_IDS = { ZH: 0, JP: 1, EN: 2, ZH_MIX_EN: 3, KR: 4, ES: 5, FR: 6 };
+
+async function loadMeloTtsSymbols(modelDir) {
+  if (meloTtsSymbolsCache.has(modelDir)) return meloTtsSymbolsCache.get(modelDir);
+
+  // Prefer melotts_kr_config.json symbols — they match the ONNX embedding table.
+  // symbols.json in the HF package can drift (IPA rows shift) and break Korean jamo IDs.
+  const configPath = path.join(modelDir, 'melotts_kr_config.json');
+  const symbolsPath = path.join(modelDir, 'symbols.json');
+
+  let symbols = [];
+  let langToneStartMap = { KR: 11, EN: 7 };
+  let languageIdMap = { ...MELOTTS_LANG_IDS };
+
+  try {
+    const cfg = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    if (Array.isArray(cfg.symbols) && cfg.symbols.length) symbols = cfg.symbols;
+  } catch {
+    /* fall through */
+  }
+
+  try {
+    const raw = JSON.parse(await fs.readFile(symbolsPath, 'utf-8'));
+    if (!symbols.length && Array.isArray(raw.symbols)) symbols = raw.symbols;
+    if (raw.language_tone_start_map) langToneStartMap = raw.language_tone_start_map;
+    if (raw.language_id_map) languageIdMap = raw.language_id_map;
+  } catch {
+    /* optional maps */
+  }
+
+  if (!symbols.length) throw new Error(`MeloTTS symbols 없음: ${modelDir}`);
+
+  const symbolToId = {};
+  symbols.forEach((sym, idx) => { symbolToId[sym] = idx; });
+
+  const entry = {
+    symbolToId,
+    blankId: symbolToId['_'] ?? 0,
+    langToneStartMap,
+    languageIdMap,
+  };
+  meloTtsSymbolsCache.set(modelDir, entry);
+  return entry;
+}
+
+/**
+ * Official MeloTTS KR front-end:
+ *   normalize → g2pkk → hangul_to_jamo → ['_']+phones+['_'] → intersperse(blank)
+ *   tones all 0 then + language_tone_start_map.KR
+ *   language ids intersperse with 0 (blanks are lang 0, not KR)
+ */
+async function tokenizeMeloTts(
+  text, symbolToId, blankId, langToneStartMap, modelDir = '', languageIdMap = null, preferredLanguage = 'ko',
+) {
+  const { koreanTextToPhonemes, intersperse } = await import('./meloKoreanG2p.js');
+
+  const langIds = languageIdMap || MELOTTS_LANG_IDS;
+  const KR_LANG = langIds.KR ?? MELOTTS_LANG_IDS.KR;
+  const EN_LANG = langIds.EN ?? MELOTTS_LANG_IDS.EN;
+  const KR_TONE_START = langToneStartMap.KR ?? 11;
+  const EN_TONE_START = langToneStartMap.EN ?? 7;
+  const preferEn = String(preferredLanguage || 'ko').toLowerCase().startsWith('en');
+
+  // Split into Hangul-dominant vs Latin runs so English IPA still works.
+  const segments = [];
+  let buf = '';
+  let mode = null; // 'ko' | 'en' | 'other'
+  const flush = () => {
+    if (!buf) return;
+    segments.push({ mode, text: buf });
+    buf = '';
+  };
+
+  for (const ch of text) {
+    const code = ch.charCodeAt(0);
+    const isHangul = code >= 0xAC00 && code <= 0xD7A3;
+    const isLatin = (code >= 0x41 && code <= 0x5A) || (code >= 0x61 && code <= 0x7A) || ch === "'";
+    const next = isHangul ? 'ko' : (isLatin ? 'en' : 'other');
+    if (mode && next !== mode && !(next === 'other' && (ch === ' ' || ch === '.' || ch === ',' || ch === '!' || ch === '?'))) {
+      flush();
+    }
+    if (!mode) mode = next === 'other' ? (preferEn ? 'en' : 'ko') : next;
+    if (next !== 'other') mode = next;
+    buf += ch;
+  }
+  flush();
+
+  const phoneSyms = [];
+  for (const seg of segments) {
+    const useEn = seg.mode === 'en' && /[A-Za-z]/.test(seg.text);
+    // Preferred language forces Latin-only segments to English IPA when set to EN.
+    if (useEn || (preferEn && seg.mode === 'en')) {
+      const ipa = await phonemizeEnglish(seg.text.trim());
+      for (const ch of ipa) {
+        if (symbolToId[ch] !== undefined) phoneSyms.push({ sym: ch, lang: EN_LANG, tone: EN_TONE_START });
+      }
+    } else {
+      const jamos = koreanTextToPhonemes(seg.text, modelDir);
+      for (const j of jamos) {
+        if (symbolToId[j] !== undefined) {
+          phoneSyms.push({ sym: j, lang: KR_LANG, tone: KR_TONE_START });
+        }
+      }
+    }
+  }
+
+  const defaultLang = preferEn ? EN_LANG : KR_LANG;
+  const defaultTone = preferEn ? EN_TONE_START : KR_TONE_START;
+
+  // ['_'] + phones + ['_'] then intersperse blanks — matches MeloTTS commons.intersperse
+  const phones = [blankId, ...phoneSyms.map((p) => symbolToId[p.sym]), blankId];
+  const tones  = [defaultTone, ...phoneSyms.map((p) => p.tone), defaultTone];
+  const langs  = [defaultLang, ...phoneSyms.map((p) => p.lang), defaultLang];
+
+  return {
+    tokenIds: intersperse(phones, blankId),
+    toneIds:  intersperse(tones, 0),
+    langIds:  intersperse(langs, 0),
+  };
+}
+
+async function synthesizeMeloTts(text, modelId, modelDir, opts = {}) {
+  const { voiceId = '0', speed = 1, store = null, language = 'ko' } = opts;
+
+  let onnxPath = await findOnnxFile(modelDir, [
+    'melotts_kr_int8.onnx', 'melotts_kr_fp16.onnx', 'melotts_kr_fp32.onnx',
+  ]);
+  if (!onnxPath) throw new Error(`MeloTTS ONNX 없음: ${modelDir}`);
+
+  const { symbolToId, blankId, langToneStartMap, languageIdMap } = await loadMeloTtsSymbols(modelDir);
+
+  const t0 = performance.now();
+  const { tokenIds, langIds, toneIds } = await tokenizeMeloTts(
+    text.trim(), symbolToId, blankId, langToneStartMap, modelDir, languageIdMap, language,
+  );
+  if (!tokenIds.length) throw new Error('MeloTTS 토큰 없음');
+
+  const T = tokenIds.length;
+  const sid = BigInt(Math.max(0, Number(voiceId) || 0));
+  const lengthScale = 1.0 / Math.max(0.25, Math.min(4, speed));
+
+  let sessionEntry;
+  try {
+    sessionEntry = await getOrtSession(`${modelId}:${onnxPath}`, onnxPath);
+  } catch (error) {
+    if (error?.code === 'CORRUPT_ONNX' && store) {
+      const repaired = await repairCorruptOnnx(store, modelId, onnxPath);
+      onnxPath = await findOnnxFile(repaired.modelPath, [
+        'melotts_kr_int8.onnx', 'melotts_kr_fp16.onnx', 'melotts_kr_fp32.onnx',
+      ]);
+      if (!onnxPath) throw error;
+      sessionEntry = await getOrtSession(`${modelId}:${onnxPath}`, onnxPath);
+    } else {
+      throw error;
+    }
+  }
+  const { session, ort } = sessionEntry;
+  const t1 = performance.now();
+
+  const feeds = {
+    x:             new ort.Tensor('int64',   BigInt64Array.from(tokenIds.map(BigInt)), [1, T]),
+    x_lengths:     new ort.Tensor('int64',   BigInt64Array.from([BigInt(T)]),           [1]),
+    sid:           new ort.Tensor('int64',   BigInt64Array.from([sid]),                 [1]),
+    tone:          new ort.Tensor('int64',   BigInt64Array.from(toneIds.map(BigInt)),   [1, T]),
+    language:      new ort.Tensor('int64',   BigInt64Array.from(langIds.map(BigInt)),   [1, T]),
+    noise_scale:   new ort.Tensor('float32', Float32Array.of(0.6),                      [1]),
+    length_scale:  new ort.Tensor('float32', Float32Array.of(lengthScale),              [1]),
+    noise_scale_w: new ort.Tensor('float32', Float32Array.of(0.8),                      [1]),
+    sdp_ratio:     new ort.Tensor('float32', Float32Array.of(0.2),                      [1]),
+  };
+
+  if (session.inputNames.includes('bert')) {
+    feeds.bert    = new ort.Tensor('float32', new Float32Array(1024 * T), [1, 1024, T]);
+  }
+  if (session.inputNames.includes('ja_bert')) {
+    feeds.ja_bert = new ort.Tensor('float32', new Float32Array(768  * T), [1, 768,  T]);
+  }
+
+  console.log(`[TTS] MeloTTS 추론: tokens=${T} model=${path.basename(onnxPath)}`);
+  const results = await session.run(feeds);
+  const audio = Float32Array.from(results[session.outputNames[0]].data);
+
+  const t2 = performance.now();
+  const audioSec = audio.length / 44100;
+  console.log(
+    `[TTS] MeloTTS 완료: tokens=${T} g2p=${(t1 - t0).toFixed(0)}ms `
+    + `infer=${(t2 - t1).toFixed(0)}ms audio=${audioSec.toFixed(2)}s`,
+  );
+
+  return toResult(audio, 44100, opts);
+}
+
 // ── Voice listing helpers (used by UI via IPC) ───────────────────────────────
 export async function listModelVoices(modelId, store) {
   const catalog = await store.listModels();
@@ -750,6 +998,10 @@ export async function listModelVoices(modelId, store) {
   try {
     const available = await store.ensureModelAvailable(modelId, null);
     const modelDir = available.modelPath;
+
+    if (model.runtime === 'melotts') {
+      return [{ id: '0', label: 'KR' }];
+    }
 
     if (model.runtime === 'sherpa-onnx' || modelId === 'ko-supertonic-int8') {
       try {
@@ -794,15 +1046,52 @@ export async function warmModel(modelId, store) {
   const model = catalog.find((m) => m.id === modelId);
   const runtime = model?.runtime || 'unknown';
 
-  if (modelId === 'en-kokoro' || runtime === 'onnx') {
-    const { onnxPath, preferGpu } = await resolveKokoroOnnxPath(modelDir);
+  if (runtime === 'melotts') {
+    let onnxPath = await findOnnxFile(modelDir, [
+      'melotts_kr_int8.onnx', 'melotts_kr_fp16.onnx', 'melotts_kr_fp32.onnx',
+    ]);
     if (onnxPath) {
-      const entry = await getOrtSession(`${modelId}:${onnxPath}`, onnxPath, { preferGpu });
-      // Warm the CPU-optimized graph too when DML init fell back.
-      if (preferGpu && entry.usedGpu === false) {
-        const cpuPath = await findOnnxFile(modelDir, kokoroOnnxCandidates({ forGpu: false }));
-        if (cpuPath && cpuPath !== onnxPath) {
-          await getOrtSession(`${modelId}:${cpuPath}`, cpuPath, { preferGpu: false });
+      try {
+        await getOrtSession(`${modelId}:${onnxPath}`, onnxPath);
+      } catch (error) {
+        if (error?.code === 'CORRUPT_ONNX' && store) {
+          const repaired = await repairCorruptOnnx(store, modelId, onnxPath);
+          onnxPath = await findOnnxFile(repaired.modelPath, [
+            'melotts_kr_int8.onnx', 'melotts_kr_fp16.onnx', 'melotts_kr_fp32.onnx',
+          ]);
+          if (onnxPath) await getOrtSession(`${modelId}:${onnxPath}`, onnxPath);
+        } else {
+          throw error;
+        }
+      }
+    }
+    await loadMeloTtsSymbols(modelDir).catch(() => null);
+    if (!phonemizerWarmed) {
+      await phonemizeEnglish('Hello.');
+      phonemizerWarmed = true;
+    }
+    console.log(`[TTS] MeloTTS warm complete: ${modelId}`);
+    return { warmed: true, modelId };
+  }
+
+  if (modelId === 'en-kokoro' || modelId === 'ko-en-kokoro' || runtime === 'onnx') {
+    let { onnxPath, preferGpu } = await resolveKokoroOnnxPath(modelDir);
+    if (onnxPath) {
+      try {
+        const entry = await getOrtSession(`${modelId}:${onnxPath}`, onnxPath, { preferGpu });
+        if (preferGpu && entry.usedGpu === false) {
+          const cpuPath = await findOnnxFile(modelDir, kokoroOnnxCandidates({ forGpu: false }));
+          if (cpuPath && cpuPath !== onnxPath) {
+            await getOrtSession(`${modelId}:${cpuPath}`, cpuPath, { preferGpu: false });
+          }
+        }
+      } catch (error) {
+        if (error?.code === 'CORRUPT_ONNX' && store) {
+          const repaired = await repairCorruptOnnx(store, modelId, onnxPath);
+          ({ onnxPath, preferGpu } = await resolveKokoroOnnxPath(repaired.modelPath));
+          if (onnxPath) await getOrtSession(`${modelId}:${onnxPath}`, onnxPath, { preferGpu });
+        } else {
+          throw error;
         }
       }
     }
@@ -862,6 +1151,7 @@ export async function synthesizeText({ text, modelId, store, onProgress, voiceId
       noiseW:     Number.isFinite(Number(noiseW))     ? Number(noiseW)     : undefined,
       normalize:  normalize !== false,
       normalizeLevel: Number.isFinite(Number(normalizeLevel)) ? Math.max(0.05, Math.min(1, Number(normalizeLevel))) : 0.9,
+      store,
     };
 
     if (modelId === 'ko-piper-kss' || runtime === 'piper-onnx') {
@@ -873,8 +1163,11 @@ export async function synthesizeText({ text, modelId, store, onProgress, voiceId
     if (modelId === 'ko-mms-tts' || runtime === 'transformers-js') {
       return await synthesizeMmsTts(text, modelId, modelDir, opts);
     }
-    if (modelId === 'en-kokoro' || runtime === 'onnx') {
+    if (modelId === 'en-kokoro' || modelId === 'ko-en-kokoro' || runtime === 'onnx') {
       return await synthesizeKokoro(text, modelId, modelDir, opts);
+    }
+    if (runtime === 'melotts') {
+      return await synthesizeMeloTts(text, modelId, modelDir, opts);
     }
 
     throw new Error(`지원하지 않는 모델/런타임: ${modelId} (${runtime})`);

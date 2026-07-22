@@ -64,6 +64,47 @@ const defaultCatalog = [
       ],
     },
   },
+  {
+    id: 'ko-en-melotts',
+    label: 'MeloTTS KR/EN',
+    language: 'ko-KR',
+    sizeHint: '~55 MB',
+    runtime: 'melotts',
+    description: 'MeloTTS · 한국어/영어 · INT8 ONNX · 44.1 kHz',
+    source: {
+      type: 'repo',
+      repoId: 'gnyong/melotts-kr-onnx',
+      packageId: 'int8-v1',
+      preferOnnx: [
+        'melotts_kr_int8.onnx',
+      ],
+      fileHashes: {
+        'melotts_kr_int8.onnx': '421b94ce7e803fdd0126c7d39d90192b64878794619668cf3ec12611fc860f88',
+      },
+    },
+  },
+  {
+    id: 'ko-en-kokoro',
+    label: 'Kokoro 82M KO/EN',
+    language: 'ko-KR',
+    sizeHint: '~84 MB',
+    runtime: 'onnx',
+    description: 'Kokoro 82M · 한국어(로마자 변환)/영어 · 다중 음성 (ONNX q8f16)',
+    source: {
+      type: 'repo',
+      repoId: 'onnx-community/Kokoro-82M-v1.0-ONNX',
+      packageId: 'q8f16-multi-voice-v1',
+      preferOnnx: [
+        'onnx/model_q8f16.onnx',
+      ],
+      preferVoices: [
+        'af_heart', 'af_bella', 'am_michael', 'am_adam',
+      ],
+      fileHashes: {
+        'onnx/model_q8f16.onnx': '04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0',
+      },
+    },
+  },
 ];
 
 export function getPreferredModelId(language) {
