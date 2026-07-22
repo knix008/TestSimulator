@@ -39,6 +39,12 @@
       "assets/project-icon.svg",
       "package.json"
     ],
+    "extraResources": [
+      {
+        "from": "assets/project-icon.ico",
+        "to": "project-icon.ico"
+      }
+    ],
     "extraMetadata": {
       "main": "electron/main.cjs"
     },
@@ -51,7 +57,7 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": "always",
+      "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "UML Editor",
       "installerIcon": "app-icon.ico",
@@ -79,7 +85,7 @@
     "fileAssociations": [
       {
         "ext": "umlprj",
-        "name": "MyUML Project",
+        "name": "UMLEditor.Project",
         "description": "MyUML project file",
         "role": "Editor",
         "icon": "project-icon.ico"

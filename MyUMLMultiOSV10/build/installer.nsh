@@ -1,5 +1,9 @@
 ; Force a clean reinstall: when an older copy is present, uninstall it with
 ; --delete-app-data (instead of --updated), then wipe leftover app data folders.
+; Also offer Start Menu / Desktop shortcut checkboxes on assisted install.
+
+!include "nsDialogs.nsh"
+!include "LogicLib.nsh"
 
 !macroundef _isDeleteAppData
 !undef isDeleteAppData
@@ -7,6 +11,11 @@
   StrCmp "1" "1" `${_t}` `${_f}`
 !macroend
 !define isDeleteAppData `"" isDeleteAppData ""`
+
+Var CreateDesktopShortcutChoice
+Var CreateStartMenuShortcutChoice
+Var DesktopShortcutCheckbox
+Var StartMenuShortcutCheckbox
 
 !macro RemoveAppDataFolders
   ; Electron stores userData under %APPDATA%\<name>
@@ -32,14 +41,88 @@
 !macroend
 
 !macro customInit
+  ; Default: create both shortcuts (used when page is skipped / silent install).
+  StrCpy $CreateDesktopShortcutChoice ${BST_CHECKED}
+  StrCpy $CreateStartMenuShortcutChoice ${BST_CHECKED}
+
   ; Remove orphaned install folders from renamed product builds (same appId).
   RMDir /r "$LOCALAPPDATA\Programs\My UML Multi OS"
   RMDir /r "$PROGRAMFILES\My UML Multi OS"
   RMDir /r "$PROGRAMFILES64\My UML Multi OS"
 !macroend
 
+Function ShortcutOptionsPage
+  ${If} ${Silent}
+    Abort
+  ${EndIf}
+  ${If} ${isUpdated}
+    Abort
+  ${EndIf}
+
+  nsDialogs::Create 1018
+  Pop $0
+  ${If} $0 == error
+    Abort
+  ${EndIf}
+
+  ${NSD_CreateLabel} 0 0 100% 24u "Choose which shortcuts to create:"
+  Pop $0
+
+  ${NSD_CreateCheckbox} 0 40u 100% 12u "Create a Start Menu shortcut"
+  Pop $StartMenuShortcutCheckbox
+  ${If} $CreateStartMenuShortcutChoice == ${BST_CHECKED}
+    ${NSD_Check} $StartMenuShortcutCheckbox
+  ${EndIf}
+
+  ${NSD_CreateCheckbox} 0 60u 100% 12u "Create a Desktop shortcut"
+  Pop $DesktopShortcutCheckbox
+  ${If} $CreateDesktopShortcutChoice == ${BST_CHECKED}
+    ${NSD_Check} $DesktopShortcutCheckbox
+  ${EndIf}
+
+  nsDialogs::Show
+FunctionEnd
+
+Function ShortcutOptionsPageLeave
+  ${NSD_GetState} $StartMenuShortcutCheckbox $CreateStartMenuShortcutChoice
+  ${NSD_GetState} $DesktopShortcutCheckbox $CreateDesktopShortcutChoice
+FunctionEnd
+
+!macro customPageAfterChangeDir
+  Page custom ShortcutOptionsPage ShortcutOptionsPageLeave
+!macroend
+
 !macro customInstall
   !insertmacro RemoveAppDataFolders
+
+  ; electron-builder creates shortcuts before customInstall; remove those the user declined.
+  ${If} $CreateStartMenuShortcutChoice == ${BST_UNCHECKED}
+    WinShell::UninstShortcut "$newStartMenuLink"
+    Delete "$newStartMenuLink"
+  ${EndIf}
+
+  ${If} $CreateDesktopShortcutChoice == ${BST_UNCHECKED}
+    WinShell::UninstShortcut "$newDesktopLink"
+    Delete "$newDesktopLink"
+  ${EndIf}
+
+  ; Ensure .umlprj uses the project icon (ProgId must not contain spaces).
+  ; Icon is shipped via extraResources (+ electron-builder APP_ASSOCIATE copy).
+  CreateDirectory "$INSTDIR\resources"
+  WriteRegStr SHELL_CONTEXT "Software\Classes\.umlprj" "" "UMLEditor.Project"
+  WriteRegNone SHELL_CONTEXT "Software\Classes\.umlprj\OpenWithProgids" "UMLEditor.Project"
+  WriteRegStr SHELL_CONTEXT "Software\Classes\UMLEditor.Project" "" "MyUML project file"
+  WriteRegStr SHELL_CONTEXT "Software\Classes\UMLEditor.Project\DefaultIcon" "" "$INSTDIR\resources\project-icon.ico,0"
+  WriteRegStr SHELL_CONTEXT "Software\Classes\UMLEditor.Project\shell" "" "open"
+  WriteRegStr SHELL_CONTEXT "Software\Classes\UMLEditor.Project\shell\open" "" "Open with UML Editor"
+  WriteRegStr SHELL_CONTEXT "Software\Classes\UMLEditor.Project\shell\open\command" "" '"$INSTDIR\${APP_EXECUTABLE_FILENAME}" "%1"'
+
+  ; Remove legacy ProgId that used a space (invalid / unreliable on Windows).
+  DeleteRegKey SHELL_CONTEXT "Software\Classes\MyUML Project"
+  DeleteRegValue SHELL_CONTEXT "Software\Classes\.umlprj\OpenWithProgids" "MyUML Project"
+
+  ; Refresh Explorer so .umlprj icons update immediately.
+  System::Call 'Shell32::SHChangeNotify(i 0x8000000, i 0x1000, i 0, i 0)'
 !macroend
 
 !macro customUnInstall
