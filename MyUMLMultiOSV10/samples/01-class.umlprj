@@ -1,0 +1,303 @@
+{
+  "format": "my-uml-multi-os-project",
+  "version": 1,
+  "projectName": "Sample — Class Diagram",
+  "documents": [
+    {
+      "id": "diagram-class",
+      "kind": "class",
+      "name": "Class Diagram",
+      "nodes": [
+        {
+          "id": "pkg-domain",
+          "kind": "package",
+          "name": "orders",
+          "umlType": "uml:Package",
+          "ownedElements": [],
+          "x": 40,
+          "y": 40,
+          "width": 780,
+          "height": 500
+        },
+        {
+          "id": "class-customer",
+          "kind": "class",
+          "name": "Customer",
+          "umlType": "uml:Class",
+          "ownedElements": [
+            {
+              "id": "a1",
+              "kind": "attribute",
+              "name": "-id: String",
+              "umlType": "uml:Property"
+            },
+            {
+              "id": "a2",
+              "kind": "attribute",
+              "name": "-email: String",
+              "umlType": "uml:Property"
+            },
+            {
+              "id": "o1",
+              "kind": "operation",
+              "name": "+placeOrder(): Order",
+              "umlType": "uml:Operation"
+            }
+          ],
+          "x": 70,
+          "y": 100,
+          "width": 170,
+          "height": 130
+        },
+        {
+          "id": "class-order",
+          "kind": "class",
+          "name": "Order",
+          "umlType": "uml:Class",
+          "ownedElements": [
+            {
+              "id": "a3",
+              "kind": "attribute",
+              "name": "-id: String",
+              "umlType": "uml:Property"
+            },
+            {
+              "id": "a4",
+              "kind": "attribute",
+              "name": "-total: Money",
+              "umlType": "uml:Property"
+            },
+            {
+              "id": "o2",
+              "kind": "operation",
+              "name": "+confirm(): void",
+              "umlType": "uml:Operation"
+            }
+          ],
+          "x": 310,
+          "y": 100,
+          "width": 170,
+          "height": 130
+        },
+        {
+          "id": "class-item",
+          "kind": "class",
+          "name": "OrderItem",
+          "umlType": "uml:Class",
+          "ownedElements": [
+            {
+              "id": "a5",
+              "kind": "attribute",
+              "name": "-quantity: Integer",
+              "umlType": "uml:Property"
+            },
+            {
+              "id": "a8",
+              "kind": "attribute",
+              "name": "-unitPrice: Money",
+              "umlType": "uml:Property"
+            }
+          ],
+          "x": 560,
+          "y": 100,
+          "width": 170,
+          "height": 120
+        },
+        {
+          "id": "class-online-order",
+          "kind": "class",
+          "name": "OnlineOrder",
+          "umlType": "uml:Class",
+          "ownedElements": [],
+          "x": 310,
+          "y": 280,
+          "width": 170,
+          "height": 70
+        },
+        {
+          "id": "enum-status",
+          "kind": "enumeration",
+          "name": "OrderStatus",
+          "umlType": "uml:Enumeration",
+          "ownedElements": [
+            {
+              "id": "l1",
+              "kind": "literal",
+              "name": "New",
+              "umlType": "uml:EnumerationLiteral"
+            },
+            {
+              "id": "l2",
+              "kind": "literal",
+              "name": "Paid",
+              "umlType": "uml:EnumerationLiteral"
+            },
+            {
+              "id": "l3",
+              "kind": "literal",
+              "name": "Shipped",
+              "umlType": "uml:EnumerationLiteral"
+            }
+          ],
+          "x": 560,
+          "y": 270,
+          "width": 160,
+          "height": 120
+        },
+        {
+          "id": "iface-payable",
+          "kind": "interface",
+          "name": "Payable",
+          "umlType": "uml:Interface",
+          "ownedElements": [
+            {
+              "id": "o3",
+              "kind": "operation",
+              "name": "+pay(amount: Money): Boolean",
+              "umlType": "uml:Operation"
+            }
+          ],
+          "x": 70,
+          "y": 280,
+          "width": 170,
+          "height": 90
+        },
+        {
+          "id": "class-payment",
+          "kind": "class",
+          "name": "Payment",
+          "umlType": "uml:Class",
+          "ownedElements": [
+            {
+              "id": "a6",
+              "kind": "attribute",
+              "name": "-amount: Money",
+              "umlType": "uml:Property"
+            },
+            {
+              "id": "o4",
+              "kind": "operation",
+              "name": "+capture(): Boolean",
+              "umlType": "uml:Operation"
+            }
+          ],
+          "x": 70,
+          "y": 400,
+          "width": 170,
+          "height": 110
+        },
+        {
+          "id": "dt-money",
+          "kind": "dataType",
+          "name": "Money",
+          "umlType": "uml:DataType",
+          "ownedElements": [
+            {
+              "id": "a7",
+              "kind": "attribute",
+              "name": "amount: Decimal",
+              "umlType": "uml:Property"
+            }
+          ],
+          "x": 310,
+          "y": 420,
+          "width": 170,
+          "height": 80
+        }
+      ],
+      "edges": [
+        {
+          "id": "e1",
+          "kind": "association",
+          "name": "places",
+          "umlType": "uml:Association",
+          "sourceId": "class-customer",
+          "targetId": "class-order",
+          "directed": false,
+          "route": "straight",
+          "sourceAnchor": "right",
+          "targetAnchor": "left",
+          "sourceMultiplicity": "1",
+          "targetMultiplicity": "0..*"
+        },
+        {
+          "id": "e2",
+          "kind": "association",
+          "name": "contains",
+          "umlType": "uml:Association",
+          "sourceId": "class-order",
+          "targetId": "class-item",
+          "directed": false,
+          "route": "straight",
+          "sourceAnchor": "right",
+          "targetAnchor": "left",
+          "sourceMultiplicity": "1",
+          "targetMultiplicity": "1..*"
+        },
+        {
+          "id": "e3",
+          "kind": "generalization",
+          "name": "",
+          "umlType": "uml:Generalization",
+          "sourceId": "class-online-order",
+          "targetId": "class-order",
+          "directed": true,
+          "route": "straight",
+          "sourceAnchor": "top",
+          "targetAnchor": "bottom"
+        },
+        {
+          "id": "e4",
+          "kind": "association",
+          "name": "paidBy",
+          "umlType": "uml:Association",
+          "sourceId": "class-order",
+          "targetId": "class-payment",
+          "directed": false,
+          "route": "orthogonal",
+          "sourceAnchor": "left",
+          "targetAnchor": "top",
+          "sourceMultiplicity": "1",
+          "targetMultiplicity": "0..1"
+        },
+        {
+          "id": "e5",
+          "kind": "realization",
+          "name": "",
+          "umlType": "uml:InterfaceRealization",
+          "sourceId": "class-payment",
+          "targetId": "iface-payable",
+          "directed": true,
+          "route": "straight",
+          "sourceAnchor": "top",
+          "targetAnchor": "bottom"
+        },
+        {
+          "id": "e6",
+          "kind": "dependency",
+          "name": "",
+          "umlType": "uml:Dependency",
+          "sourceId": "class-item",
+          "targetId": "enum-status",
+          "directed": true,
+          "route": "straight",
+          "sourceAnchor": "bottom",
+          "targetAnchor": "top"
+        },
+        {
+          "id": "e7",
+          "kind": "dependency",
+          "name": "",
+          "umlType": "uml:Dependency",
+          "sourceId": "class-payment",
+          "targetId": "dt-money",
+          "directed": true,
+          "route": "straight",
+          "sourceAnchor": "right",
+          "targetAnchor": "left"
+        }
+      ]
+    }
+  ],
+  "activeDocumentId": "diagram-class"
+}

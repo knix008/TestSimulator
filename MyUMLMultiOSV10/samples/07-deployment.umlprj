@@ -1,0 +1,120 @@
+{
+  "format": "my-uml-multi-os-project",
+  "version": 1,
+  "projectName": "Sample — Deployment Diagram",
+  "documents": [
+    {
+      "id": "diagram-deployment",
+      "kind": "deployment",
+      "name": "Deployment Diagram",
+      "nodes": [
+        {
+          "id": "dev-server",
+          "kind": "device",
+          "name": "AppServer",
+          "umlType": "uml:Device",
+          "ownedElements": [],
+          "x": 60,
+          "y": 60,
+          "width": 220,
+          "height": 160
+        },
+        {
+          "id": "node-db",
+          "kind": "node",
+          "name": "DBHost",
+          "umlType": "uml:Node",
+          "ownedElements": [],
+          "x": 360,
+          "y": 60,
+          "width": 200,
+          "height": 140
+        },
+        {
+          "id": "ee-jvm",
+          "kind": "executionEnvironment",
+          "name": "JVM",
+          "umlType": "uml:ExecutionEnvironment",
+          "ownedElements": [],
+          "x": 80,
+          "y": 260,
+          "width": 200,
+          "height": 120
+        },
+        {
+          "id": "art-app",
+          "kind": "artifact",
+          "name": "shop.ear",
+          "umlType": "uml:Artifact",
+          "ownedElements": [],
+          "x": 360,
+          "y": 260,
+          "width": 160,
+          "height": 90
+        },
+        {
+          "id": "art-schema",
+          "kind": "artifact",
+          "name": "schema.sql",
+          "umlType": "uml:Artifact",
+          "ownedElements": [],
+          "x": 560,
+          "y": 80,
+          "width": 150,
+          "height": 80
+        }
+      ],
+      "edges": [
+        {
+          "id": "d1",
+          "kind": "deployment",
+          "name": "",
+          "umlType": "uml:Deployment",
+          "sourceId": "art-app",
+          "targetId": "ee-jvm",
+          "directed": true,
+          "route": "straight",
+          "sourceAnchor": "left",
+          "targetAnchor": "right"
+        },
+        {
+          "id": "d2",
+          "kind": "deployment",
+          "name": "",
+          "umlType": "uml:Deployment",
+          "sourceId": "art-schema",
+          "targetId": "node-db",
+          "directed": true,
+          "route": "straight",
+          "sourceAnchor": "left",
+          "targetAnchor": "right"
+        },
+        {
+          "id": "d3",
+          "kind": "dependency",
+          "name": "",
+          "umlType": "uml:Dependency",
+          "sourceId": "ee-jvm",
+          "targetId": "dev-server",
+          "directed": true,
+          "route": "orthogonal",
+          "sourceAnchor": "top",
+          "targetAnchor": "bottom"
+        },
+        {
+          "id": "d4",
+          "kind": "dependency",
+          "name": "",
+          "umlType": "uml:Dependency",
+          "sourceId": "ee-jvm",
+          "targetId": "node-db",
+          "directed": true,
+          "route": "orthogonal",
+          "sourceAnchor": "right",
+          "targetAnchor": "bottom"
+        }
+      ]
+    }
+  ],
+  "activeDocumentId": "diagram-deployment"
+}

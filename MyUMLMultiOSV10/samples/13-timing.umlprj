@@ -1,0 +1,152 @@
+{
+  "format": "my-uml-multi-os-project",
+  "version": 1,
+  "projectName": "Sample — Timing Diagram",
+  "documents": [
+    {
+      "id": "diagram-timing",
+      "kind": "timing",
+      "name": "Timing Diagram",
+      "nodes": [
+        {
+          "id": "tl-order",
+          "kind": "lifeline",
+          "name": "order",
+          "umlType": "uml:Lifeline",
+          "ownedElements": [],
+          "x": 60,
+          "y": 60,
+          "width": 520,
+          "height": 80
+        },
+        {
+          "id": "tl-payment",
+          "kind": "lifeline",
+          "name": "payment",
+          "umlType": "uml:Lifeline",
+          "ownedElements": [],
+          "x": 60,
+          "y": 180,
+          "width": 520,
+          "height": 80
+        },
+        {
+          "id": "inv-new",
+          "kind": "stateInvariant",
+          "name": "New",
+          "umlType": "uml:StateInvariant",
+          "ownedElements": [],
+          "x": 120,
+          "y": 70,
+          "width": 100,
+          "height": 48
+        },
+        {
+          "id": "inv-paid",
+          "kind": "stateInvariant",
+          "name": "Paid",
+          "umlType": "uml:StateInvariant",
+          "ownedElements": [],
+          "x": 280,
+          "y": 70,
+          "width": 100,
+          "height": 48
+        },
+        {
+          "id": "inv-shipped",
+          "kind": "stateInvariant",
+          "name": "Shipped",
+          "umlType": "uml:StateInvariant",
+          "ownedElements": [],
+          "x": 440,
+          "y": 70,
+          "width": 110,
+          "height": 48
+        },
+        {
+          "id": "inv-auth",
+          "kind": "stateInvariant",
+          "name": "Authorizing",
+          "umlType": "uml:StateInvariant",
+          "ownedElements": [],
+          "x": 200,
+          "y": 190,
+          "width": 120,
+          "height": 48
+        },
+        {
+          "id": "inv-ok",
+          "kind": "stateInvariant",
+          "name": "Authorized",
+          "umlType": "uml:StateInvariant",
+          "ownedElements": [],
+          "x": 380,
+          "y": 190,
+          "width": 120,
+          "height": 48
+        },
+        {
+          "id": "obs-t1",
+          "kind": "timeObservation",
+          "name": "t1",
+          "umlType": "uml:TimeObservation",
+          "ownedElements": [],
+          "x": 260,
+          "y": 300,
+          "width": 80,
+          "height": 40
+        },
+        {
+          "id": "obs-t2",
+          "kind": "timeObservation",
+          "name": "t2",
+          "umlType": "uml:TimeObservation",
+          "ownedElements": [],
+          "x": 420,
+          "y": 300,
+          "width": 80,
+          "height": 40
+        }
+      ],
+      "edges": [
+        {
+          "id": "tm1",
+          "kind": "message",
+          "name": "authorize",
+          "umlType": "uml:Message",
+          "sourceId": "tl-order",
+          "targetId": "tl-payment",
+          "directed": true,
+          "route": "straight",
+          "sourceAnchor": "bottom",
+          "targetAnchor": "top"
+        },
+        {
+          "id": "tm2",
+          "kind": "message",
+          "name": "ok",
+          "umlType": "uml:Message",
+          "sourceId": "tl-payment",
+          "targetId": "tl-order",
+          "directed": true,
+          "route": "orthogonal",
+          "sourceAnchor": "top",
+          "targetAnchor": "bottom"
+        },
+        {
+          "id": "tm3",
+          "kind": "durationConstraint",
+          "name": "{d < 2s}",
+          "umlType": "uml:DurationConstraint",
+          "sourceId": "obs-t1",
+          "targetId": "obs-t2",
+          "directed": false,
+          "route": "straight",
+          "sourceAnchor": "right",
+          "targetAnchor": "left"
+        }
+      ]
+    }
+  ],
+  "activeDocumentId": "diagram-timing"
+}

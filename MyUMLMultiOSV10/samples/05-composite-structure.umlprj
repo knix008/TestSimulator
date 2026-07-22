@@ -1,0 +1,113 @@
+{
+  "format": "my-uml-multi-os-project",
+  "version": 1,
+  "projectName": "Sample — Composite Structure",
+  "documents": [
+    {
+      "id": "diagram-composite",
+      "kind": "compositeStructure",
+      "name": "Composite Structure",
+      "nodes": [
+        {
+          "id": "sc-car",
+          "kind": "class",
+          "name": "Car",
+          "umlType": "uml:Class",
+          "ownedElements": [
+            {
+              "id": "part-engine",
+              "kind": "part",
+              "name": "engine:Engine",
+              "umlType": "uml:Property"
+            },
+            {
+              "id": "part-wheel",
+              "kind": "part",
+              "name": "wheels:Wheel[4]",
+              "umlType": "uml:Property"
+            }
+          ],
+          "x": 80,
+          "y": 60,
+          "width": 420,
+          "height": 260
+        },
+        {
+          "id": "pt-engine",
+          "kind": "interface",
+          "name": "Engine",
+          "umlType": "uml:Interface",
+          "ownedElements": [
+            {
+              "id": "op-start",
+              "kind": "operation",
+              "name": "+start(): void",
+              "umlType": "uml:Operation"
+            }
+          ],
+          "x": 560,
+          "y": 80,
+          "width": 160,
+          "height": 100
+        },
+        {
+          "id": "pt-wheel",
+          "kind": "interface",
+          "name": "Wheel",
+          "umlType": "uml:Interface",
+          "ownedElements": [
+            {
+              "id": "op-spin",
+              "kind": "operation",
+              "name": "+spin(): void",
+              "umlType": "uml:Operation"
+            }
+          ],
+          "x": 560,
+          "y": 220,
+          "width": 160,
+          "height": 100
+        }
+      ],
+      "edges": [
+        {
+          "id": "c1",
+          "kind": "connector",
+          "name": "enginePort",
+          "umlType": "uml:Connector",
+          "sourceId": "sc-car",
+          "targetId": "pt-engine",
+          "directed": false,
+          "route": "straight",
+          "sourceAnchor": "right",
+          "targetAnchor": "left"
+        },
+        {
+          "id": "c2",
+          "kind": "connector",
+          "name": "wheelPort",
+          "umlType": "uml:Connector",
+          "sourceId": "sc-car",
+          "targetId": "pt-wheel",
+          "directed": false,
+          "route": "orthogonal",
+          "sourceAnchor": "right",
+          "targetAnchor": "left"
+        },
+        {
+          "id": "c3",
+          "kind": "dependency",
+          "name": "",
+          "umlType": "uml:Dependency",
+          "sourceId": "pt-wheel",
+          "targetId": "pt-engine",
+          "directed": true,
+          "route": "orthogonal",
+          "sourceAnchor": "top",
+          "targetAnchor": "bottom"
+        }
+      ]
+    }
+  ],
+  "activeDocumentId": "diagram-composite"
+}

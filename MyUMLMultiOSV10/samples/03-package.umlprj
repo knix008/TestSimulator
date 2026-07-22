@@ -1,0 +1,108 @@
+{
+  "format": "my-uml-multi-os-project",
+  "version": 1,
+  "projectName": "Sample — Package Diagram",
+  "documents": [
+    {
+      "id": "diagram-package",
+      "kind": "package",
+      "name": "Package Diagram",
+      "nodes": [
+        {
+          "id": "pkg-app",
+          "kind": "package",
+          "name": "application",
+          "umlType": "uml:Package",
+          "ownedElements": [],
+          "x": 60,
+          "y": 60,
+          "width": 200,
+          "height": 120
+        },
+        {
+          "id": "pkg-domain",
+          "kind": "package",
+          "name": "domain",
+          "umlType": "uml:Package",
+          "ownedElements": [],
+          "x": 340,
+          "y": 60,
+          "width": 200,
+          "height": 120
+        },
+        {
+          "id": "pkg-infra",
+          "kind": "package",
+          "name": "infrastructure",
+          "umlType": "uml:Package",
+          "ownedElements": [],
+          "x": 200,
+          "y": 240,
+          "width": 200,
+          "height": 120
+        },
+        {
+          "id": "class-facade",
+          "kind": "class",
+          "name": "AppFacade",
+          "umlType": "uml:Class",
+          "ownedElements": [],
+          "x": 80,
+          "y": 200,
+          "width": 148,
+          "height": 100
+        },
+        {
+          "id": "iface-repo",
+          "kind": "interface",
+          "name": "OrderRepository",
+          "umlType": "uml:Interface",
+          "ownedElements": [],
+          "x": 360,
+          "y": 220,
+          "width": 160,
+          "height": 100
+        }
+      ],
+      "edges": [
+        {
+          "id": "k1",
+          "kind": "dependency",
+          "name": "",
+          "umlType": "uml:Dependency",
+          "sourceId": "pkg-app",
+          "targetId": "pkg-domain",
+          "directed": true,
+          "route": "straight",
+          "sourceAnchor": "right",
+          "targetAnchor": "left"
+        },
+        {
+          "id": "k2",
+          "kind": "dependency",
+          "name": "",
+          "umlType": "uml:Dependency",
+          "sourceId": "pkg-infra",
+          "targetId": "pkg-domain",
+          "directed": true,
+          "route": "orthogonal",
+          "sourceAnchor": "top",
+          "targetAnchor": "bottom"
+        },
+        {
+          "id": "k3",
+          "kind": "packageImport",
+          "name": "",
+          "umlType": "uml:PackageImport",
+          "sourceId": "pkg-app",
+          "targetId": "pkg-infra",
+          "directed": true,
+          "route": "orthogonal",
+          "sourceAnchor": "bottom",
+          "targetAnchor": "left"
+        }
+      ]
+    }
+  ],
+  "activeDocumentId": "diagram-package"
+}

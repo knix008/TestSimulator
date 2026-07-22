@@ -1,0 +1,116 @@
+{
+  "format": "my-uml-multi-os-project",
+  "version": 1,
+  "projectName": "Sample — Sequence Diagram",
+  "documents": [
+    {
+      "id": "diagram-sequence",
+      "kind": "sequence",
+      "name": "Sequence Diagram",
+      "nodes": [
+        {
+          "id": "life-customer",
+          "kind": "lifeline",
+          "name": "customer",
+          "umlType": "uml:Lifeline",
+          "ownedElements": [],
+          "x": 80,
+          "y": 40,
+          "width": 120,
+          "height": 420
+        },
+        {
+          "id": "life-order",
+          "kind": "lifeline",
+          "name": "orderService",
+          "umlType": "uml:Lifeline",
+          "ownedElements": [],
+          "x": 280,
+          "y": 40,
+          "width": 120,
+          "height": 420
+        },
+        {
+          "id": "life-payment",
+          "kind": "lifeline",
+          "name": "paymentGateway",
+          "umlType": "uml:Lifeline",
+          "ownedElements": [],
+          "x": 480,
+          "y": 40,
+          "width": 140,
+          "height": 420
+        },
+        {
+          "id": "frag-alt",
+          "kind": "combinedFragment",
+          "name": "alt",
+          "umlType": "uml:CombinedFragment",
+          "ownedElements": [],
+          "x": 250,
+          "y": 220,
+          "width": 400,
+          "height": 160
+        }
+      ],
+      "edges": [
+        {
+          "id": "m1",
+          "kind": "message",
+          "name": "checkout()",
+          "umlType": "uml:Message",
+          "sourceId": "life-customer",
+          "targetId": "life-order",
+          "directed": true,
+          "route": "straight",
+          "sequenceY": 110
+        },
+        {
+          "id": "m2",
+          "kind": "message",
+          "name": "reserveStock()",
+          "umlType": "uml:Message",
+          "sourceId": "life-order",
+          "targetId": "life-order",
+          "directed": true,
+          "route": "straight",
+          "sequenceY": 160
+        },
+        {
+          "id": "m3",
+          "kind": "asyncMessage",
+          "name": "authorize()",
+          "umlType": "uml:Message",
+          "sourceId": "life-order",
+          "targetId": "life-payment",
+          "directed": true,
+          "route": "straight",
+          "sequenceY": 250
+        },
+        {
+          "id": "m4",
+          "kind": "replyMessage",
+          "name": "authorized",
+          "umlType": "uml:Message",
+          "sourceId": "life-payment",
+          "targetId": "life-order",
+          "directed": true,
+          "route": "straight",
+          "sequenceY": 300
+        },
+        {
+          "id": "m5",
+          "kind": "replyMessage",
+          "name": "confirmed",
+          "umlType": "uml:Message",
+          "sourceId": "life-order",
+          "targetId": "life-customer",
+          "directed": true,
+          "route": "straight",
+          "sequenceY": 360
+        }
+      ]
+    }
+  ],
+  "activeDocumentId": "diagram-sequence"
+}

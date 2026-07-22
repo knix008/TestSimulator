@@ -60,7 +60,7 @@ describe('UML 2.5.1 diagram registry', () => {
     const componentDefinition = diagramDefinitions.find((diagram) => diagram.kind === 'component');
 
     expect(componentDefinition?.palette.map((tool) => tool.kind)).toEqual(['component', 'port', 'artifact']);
-    expect(componentDefinition?.connectors.map((connector) => connector.kind)).toEqual(['assemblyConnector', 'delegationConnector', 'dependency', 'realization']);
+    expect(componentDefinition?.connectors.map((connector) => connector.kind)).toEqual(['interfacePair', 'assemblyConnector', 'delegationConnector', 'dependency', 'realization']);
   });
 
   it('uses UML communication diagram participants, links, and message sorts', () => {
@@ -68,11 +68,37 @@ describe('UML 2.5.1 diagram registry', () => {
 
     expect(communicationDefinition?.palette.map((tool) => tool.kind)).toEqual(['lifeline', 'actor']);
     expect(communicationDefinition?.connectors.map((connector) => connector.kind)).toEqual([
-      'connector',
+      'link',
       'message',
       'asyncMessage',
       'replyMessage'
     ]);
+  });
+
+  it('uses distinct kinds for profile extension and timing duration constraints', () => {
+    const profile = diagramDefinitions.find((diagram) => diagram.kind === 'profile');
+    const timing = diagramDefinitions.find((diagram) => diagram.kind === 'timing');
+    const object = diagramDefinitions.find((diagram) => diagram.kind === 'object');
+    const sequence = diagramDefinitions.find((diagram) => diagram.kind === 'sequence');
+
+    expect(profile?.connectors.map((connector) => connector.kind)).toEqual(['extension', 'generalization']);
+    expect(profile?.connectors[0]).toMatchObject({ umlType: 'uml:Extension' });
+    expect(timing?.connectors.map((connector) => connector.kind)).toEqual(['message', 'durationConstraint']);
+    expect(object?.connectors.map((connector) => connector.kind)).toEqual(['link', 'dependency']);
+    expect(sequence?.connectors.map((connector) => connector.kind)).toEqual(['message', 'asyncMessage', 'replyMessage']);
+  });
+
+  it('keeps state machine Final and timing StateInvariant as distinct element kinds', () => {
+    const stateMachine = diagramDefinitions.find((diagram) => diagram.kind === 'stateMachine');
+    const timing = diagramDefinitions.find((diagram) => diagram.kind === 'timing');
+    const activity = diagramDefinitions.find((diagram) => diagram.kind === 'activity');
+
+    expect(stateMachine?.palette.map((tool) => tool.kind)).toEqual(['pseudostate', 'state', 'finalState']);
+    expect(stateMachine?.palette[2]).toMatchObject({ umlType: 'uml:FinalState' });
+    expect(timing?.palette.map((tool) => tool.kind)).toEqual(['lifeline', 'stateInvariant', 'timeObservation']);
+    expect(timing?.palette[1]).toMatchObject({ umlType: 'uml:StateInvariant' });
+    expect(activity?.palette.some((tool) => tool.kind === 'finalNode')).toBe(true);
+    expect(activity?.palette.some((tool) => tool.kind === 'finalState')).toBe(false);
   });
 });
 
@@ -157,9 +183,85 @@ describe('UML editor model', () => {
       route: 'orthogonal',
       sourceAnchor: 'bottom',
       targetAnchor: 'top',
-      sourceMultiplicity: '1',
-      targetMultiplicity: '0..*'
+      sourceMultiplicity: undefined,
+      targetMultiplicity: undefined
     });
+
+    const straightened = updateEdgeRoute(generalized, generalized.edges[0].id, 'straight');
+    expect(straightened.edges[0]).toMatchObject({
+      sourceId: withTarget.nodes[0].id,
+      targetId: withTarget.nodes[1].id,
+      route: 'straight',
+      sourceAnchor: undefined,
+      targetAnchor: undefined
+    });
+  });
+
+  it('preserves edge endpoints when editing relationship properties across diagram kinds', () => {
+    const samples: Array<{ kind: typeof diagramDefinitions[number]['kind']; sourceToolIndex?: number; targetToolIndex?: number }> = [
+      { kind: 'class' },
+      { kind: 'package' },
+      { kind: 'useCase' },
+      { kind: 'component' },
+      { kind: 'deployment' },
+      { kind: 'activity' },
+      { kind: 'stateMachine' },
+      { kind: 'object' },
+      { kind: 'profile' },
+      { kind: 'compositeStructure' },
+      { kind: 'timing' },
+      { kind: 'sequence' },
+      { kind: 'communication' }
+    ];
+
+    for (const sample of samples) {
+      const definition = diagramDefinitions.find((diagram) => diagram.kind === sample.kind)!;
+      const sourceTool = definition.palette[sample.sourceToolIndex ?? 0];
+      const targetTool = definition.palette[sample.targetToolIndex ?? Math.min(1, definition.palette.length - 1)];
+      let document = createDiagramDocument(sample.kind);
+      document = addPaletteNode(document, sourceTool, 80, 80);
+      document = addPaletteNode(document, targetTool, 320, 120);
+      const sourceId = document.nodes[0].id;
+      const targetId = document.nodes[1].id;
+      const edgeConnectors = definition.connectors.filter((connector) => connector.kind !== 'interfacePair');
+      document = connectNodes(document, edgeConnectors[0], sourceId, targetId);
+      const edgeId = document.edges[0].id;
+
+      document = updateEdgeAnchor(document, edgeId, 'source', 'left');
+      document = updateEdgeAnchor(document, edgeId, 'target', 'right');
+      document = updateEdgeRoute(document, edgeId, 'orthogonal');
+      if (edgeConnectors.length > 1) {
+        document = updateEdgeRelationship(document, edgeId, edgeConnectors[1]);
+      }
+      document = updateEdgeRoute(document, edgeId, 'curve');
+
+      expect(document.edges[0], sample.kind).toMatchObject({
+        id: edgeId,
+        sourceId,
+        targetId,
+        route: 'curve',
+        sourceAnchor: undefined,
+        targetAnchor: undefined
+      });
+    }
+  });
+
+  it('does not assign multiplicities to deployment relationships', () => {
+    const document = createDiagramDocument('deployment');
+    const definition = diagramDefinitions.find((diagram) => diagram.kind === 'deployment')!;
+    const artifact = definition.palette.find((tool) => tool.kind === 'artifact')!;
+    const node = definition.palette.find((tool) => tool.kind === 'node')!;
+    const withArtifact = addPaletteNode(document, artifact, 80, 80);
+    const withNode = addPaletteNode(withArtifact, node, 280, 80);
+    const connected = connectNodes(withNode, definition.connectors[0], withNode.nodes[0].id, withNode.nodes[1].id);
+
+    expect(connected.edges[0]).toMatchObject({
+      kind: 'deployment',
+      umlType: 'uml:Deployment',
+      sourceMultiplicity: undefined,
+      targetMultiplicity: undefined
+    });
+    expect(getUmlConnectorNotation('deployment').stereotype).toBe('deploy');
   });
 });
 
@@ -171,6 +273,11 @@ describe('UML connector notation', () => {
     expect(getUmlConnectorNotation('realization')).toEqual({ dashed: true, marker: 'hollowTriangle' });
     expect(getUmlConnectorNotation('include')).toEqual({ dashed: true, marker: 'openArrow', stereotype: 'include' });
     expect(getUmlConnectorNotation('extend')).toEqual({ dashed: true, marker: 'openArrow', stereotype: 'extend' });
+    expect(getUmlConnectorNotation('packageImport')).toEqual({ dashed: true, marker: 'openArrow', stereotype: 'import' });
+    expect(getUmlConnectorNotation('deployment')).toEqual({ dashed: true, marker: 'openArrow', stereotype: 'deploy' });
+    expect(getUmlConnectorNotation('extension')).toEqual({ dashed: false, marker: 'filledArrow' });
+    expect(getUmlConnectorNotation('durationConstraint')).toEqual({ dashed: true, marker: 'none', stereotype: 'duration' });
+    expect(getUmlConnectorNotation('link')).toEqual({ dashed: false, marker: 'none' });
     expect(getUmlConnectorNotation('controlFlow')).toEqual({ dashed: false, marker: 'openArrow' });
     expect(getUmlConnectorNotation('objectFlow')).toEqual({ dashed: false, marker: 'openArrow', objectToken: true });
     expect(getUmlConnectorNotation('assemblyConnector')).toEqual({ dashed: false, marker: 'none' });
@@ -194,7 +301,7 @@ describe('UML communication diagram model', () => {
     const withTarget = addPaletteNode(withSource, participant, 320, 80);
     const connected = connectNodes(withTarget, definition.connectors[1], withTarget.nodes[0].id, withTarget.nodes[1].id);
 
-    expect(connected.edges.some((edge) => edge.kind === 'connector')).toBe(true);
+    expect(connected.edges.some((edge) => edge.kind === 'link')).toBe(true);
     const message = connected.edges.find((edge) => edge.kind === 'message');
     expect(message?.sequenceNumber).toBe('1');
     expect(message?.directed).toBe(true);

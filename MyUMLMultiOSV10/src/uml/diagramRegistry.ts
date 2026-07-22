@@ -49,7 +49,9 @@ export type UmlElementKind =
   | 'initialNode'
   | 'finalNode'
   | 'flowFinalNode'
+  | 'finalState'
   | 'state'
+  | 'stateInvariant'
   | 'pseudostate'
   | 'timeObservation';
 
@@ -57,11 +59,14 @@ export type RelationshipKind =
   | 'association'
   | 'generalization'
   | 'dependency'
+  | 'extension'
   | 'packageImport'
   | 'realization'
   | 'include'
   | 'extend'
   | 'connector'
+  | 'link'
+  | 'interfacePair'
   | 'assemblyConnector'
   | 'delegationConnector'
   | 'deployment'
@@ -70,7 +75,8 @@ export type RelationshipKind =
   | 'replyMessage'
   | 'controlFlow'
   | 'objectFlow'
-  | 'transition';
+  | 'transition'
+  | 'durationConstraint';
 
 export interface PaletteTool {
   kind: UmlElementKind;
@@ -120,7 +126,7 @@ export const diagramDefinitions: DiagramDefinition[] = [
     papyrusDiagramId: 'PapyrusUMLProfileDiagram',
     notationHint: 'Profile diagrams persist profile and stereotype elements in UML XMI with extension relations.',
     palette: [tool('profile', 'Profile', 'uml:Profile', 'Profile'), tool('stereotype', 'Stereotype', 'uml:Stereotype', 'Stereotype'), tool('class', 'Metaclass', 'uml:Class', 'Metaclass')],
-    connectors: [connector('dependency', 'Extension', 'uml:Extension', 'Extension', true), connector('generalization', 'Generalization', 'uml:Generalization', 'Generalization', true)]
+    connectors: [connector('extension', 'Extension', 'uml:Extension', 'Extension', true), connector('generalization', 'Generalization', 'uml:Generalization', 'Generalization', true)]
   },
   {
     kind: 'package',
@@ -138,7 +144,7 @@ export const diagramDefinitions: DiagramDefinition[] = [
     papyrusDiagramId: 'PapyrusUMLObjectDiagram',
     notationHint: 'Object diagrams use UML InstanceSpecification elements and notation links.',
     palette: [tool('instanceSpecification', 'Object', 'uml:InstanceSpecification', 'object'), tool('class', 'Classifier', 'uml:Class', 'Classifier')],
-    connectors: [connector('association', 'Link', 'uml:Association', 'Link', false), connector('dependency', 'Dependency', 'uml:Dependency', 'Dependency', true)]
+    connectors: [connector('link', 'Link', 'uml:InstanceSpecification', 'Link', false), connector('dependency', 'Dependency', 'uml:Dependency', 'Dependency', true)]
   },
   {
     kind: 'compositeStructure',
@@ -161,8 +167,9 @@ export const diagramDefinitions: DiagramDefinition[] = [
       tool('artifact', 'Artifact', 'uml:Artifact', 'Artifact')
     ],
     connectors: [
+      connector('interfacePair', 'Interface Pair', 'uml:Interface', 'InterfacePair', false),
       connector('assemblyConnector', 'Assembly Connector', 'uml:Connector', 'AssemblyConnector', false),
-      connector('delegationConnector', 'Delegation Connector', 'uml:Connector', 'DelegationConnector', false),
+      connector('delegationConnector', 'Delegation Connector', 'uml:Connector', 'DelegationConnector', true),
       connector('dependency', 'Dependency', 'uml:Dependency', 'Dependency', true),
       connector('realization', 'Realization', 'uml:InterfaceRealization', 'Realization', true)
     ]
@@ -190,7 +197,11 @@ export const diagramDefinitions: DiagramDefinition[] = [
       tool('combinedFragment', 'Opt', 'uml:CombinedFragment', 'opt'),
       tool('combinedFragment', 'Par', 'uml:CombinedFragment', 'par')
     ],
-    connectors: [connector('message', 'Message', 'uml:Message', 'Message', true)]
+    connectors: [
+      connector('message', 'Sync Message', 'uml:Message', 'Message', true),
+      connector('asyncMessage', 'Async Message', 'uml:Message', 'AsyncMessage', true),
+      connector('replyMessage', 'Reply Message', 'uml:Message', 'Reply', true)
+    ]
   },
   communicationDiagramDefinition,
   activityDiagramDefinition,
@@ -200,7 +211,7 @@ export const diagramDefinitions: DiagramDefinition[] = [
     uml251Scope: 'State machines, regions, states, pseudostates, transitions',
     papyrusDiagramId: 'PapyrusUMLStateMachineDiagram',
     notationHint: 'State machine diagrams persist UML StateMachine/Region contents and transition notation.',
-    palette: [tool('pseudostate', 'Initial', 'uml:Pseudostate', 'Initial'), tool('state', 'State', 'uml:State', 'State'), tool('finalNode', 'Final', 'uml:FinalState', 'Final')],
+    palette: [tool('pseudostate', 'Initial', 'uml:Pseudostate', 'Initial'), tool('state', 'State', 'uml:State', 'State'), tool('finalState', 'Final', 'uml:FinalState', 'Final')],
     connectors: [connector('transition', 'Transition', 'uml:Transition', 'Transition', true)]
   },
   {
@@ -209,8 +220,11 @@ export const diagramDefinitions: DiagramDefinition[] = [
     uml251Scope: 'Lifelines, states over time, time observations, duration constraints',
     papyrusDiagramId: 'PapyrusUMLTimingDiagram',
     notationHint: 'Timing diagrams are Interaction-based diagrams with timeline notation and time observations.',
-    palette: [tool('lifeline', 'Lifeline', 'uml:Lifeline', 'Lifeline'), tool('state', 'State Invariant', 'uml:StateInvariant', 'StateInvariant'), tool('timeObservation', 'Time Observation', 'uml:TimeObservation', 'TimeObservation')],
-    connectors: [connector('message', 'Time Message', 'uml:Message', 'TimeMessage', true), connector('dependency', 'Duration Constraint', 'uml:DurationConstraint', 'DurationConstraint', true)]
+    palette: [tool('lifeline', 'Lifeline', 'uml:Lifeline', 'Lifeline'), tool('stateInvariant', 'State Invariant', 'uml:StateInvariant', 'StateInvariant'), tool('timeObservation', 'Time Observation', 'uml:TimeObservation', 'TimeObservation')],
+    connectors: [
+      connector('message', 'Time Message', 'uml:Message', 'TimeMessage', true),
+      connector('durationConstraint', 'Duration Constraint', 'uml:DurationConstraint', 'DurationConstraint', true)
+    ]
   }
 ];
 

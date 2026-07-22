@@ -43,6 +43,9 @@ export interface AppMessages {
   connectors: string;
   modelTree: string;
   properties: string;
+  collapsePanel: string;
+  expandPanel: string;
+  swapInterfacePair: string;
   diagram: string;
   papyrusNotation: string;
   name: string;
@@ -125,6 +128,9 @@ export const messages: Record<Locale, AppMessages> = {
     connectors: 'Connectors',
     modelTree: 'Model Tree',
     properties: 'Properties',
+    collapsePanel: 'Collapse panel',
+    expandPanel: 'Expand panel',
+    swapInterfacePair: 'Swap ball / socket',
     diagram: 'Diagram',
     papyrusNotation: 'Papyrus notation',
     name: 'Name',
@@ -205,6 +211,9 @@ export const messages: Record<Locale, AppMessages> = {
     connectors: '연결',
     modelTree: '모델 트리',
     properties: '속성',
+    collapsePanel: '패널 접기',
+    expandPanel: '패널 펼치기',
+    swapInterfacePair: '원/반원 방향 바꾸기',
     diagram: '다이어그램',
     papyrusNotation: 'Papyrus notation',
     name: '이름',
@@ -346,7 +355,9 @@ export const toolLabels: Record<Locale, Partial<Record<UmlElementKind, string>>>
     initialNode: '시작',
     finalNode: '종료',
     flowFinalNode: '흐름 종료',
+    finalState: '최종 상태',
     state: '상태',
+    stateInvariant: '상태 불변식',
     pseudostate: '초기 상태',
     timeObservation: '시간 관찰'
   }
@@ -354,27 +365,37 @@ export const toolLabels: Record<Locale, Partial<Record<UmlElementKind, string>>>
 
 export const connectorLabels: Record<Locale, Partial<Record<RelationshipKind, string>>> = {
   en: {
+    extension: 'Extension',
+    link: 'Link',
+    interfacePair: 'Interface Pair',
+    assemblyConnector: 'Assembly Connector',
     asyncMessage: 'Async Message',
-    replyMessage: 'Reply Message'
+    replyMessage: 'Reply Message',
+    durationConstraint: 'Duration Constraint',
+    message: 'Sync Message'
   },
   ko: {
     association: '연관',
     generalization: '일반화',
     dependency: '의존성',
+    extension: '확장',
     packageImport: '패키지 import',
     realization: '실현',
     include: 'include',
     extend: 'extend',
     connector: '커넥터',
+    link: '링크',
+    interfacePair: '연결',
     assemblyConnector: '어셈블리 커넥터',
     delegationConnector: '위임 커넥터',
     deployment: '배치',
-    message: '메시지',
+    message: '동기 메시지',
     asyncMessage: '비동기 메시지',
     replyMessage: '응답 메시지',
     controlFlow: '제어 흐름',
     objectFlow: '객체 흐름',
-    transition: '전이'
+    transition: '전이',
+    durationConstraint: '지속 시간 제약'
   }
 };
 

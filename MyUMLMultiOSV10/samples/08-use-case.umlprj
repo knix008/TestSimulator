@@ -1,0 +1,154 @@
+{
+  "format": "my-uml-multi-os-project",
+  "version": 1,
+  "projectName": "Sample — Use Case Diagram",
+  "documents": [
+    {
+      "id": "diagram-usecase",
+      "kind": "useCase",
+      "name": "Use Case Diagram",
+      "nodes": [
+        {
+          "id": "actor-customer",
+          "kind": "actor",
+          "name": "Customer",
+          "umlType": "uml:Actor",
+          "ownedElements": [],
+          "x": 40,
+          "y": 120,
+          "width": 88,
+          "height": 132
+        },
+        {
+          "id": "subject-shop",
+          "kind": "subject",
+          "name": "Online Shop",
+          "umlType": "uml:Class",
+          "ownedElements": [],
+          "x": 200,
+          "y": 40,
+          "width": 420,
+          "height": 320
+        },
+        {
+          "id": "uc-browse",
+          "kind": "useCase",
+          "name": "Browse Catalog",
+          "umlType": "uml:UseCase",
+          "ownedElements": [],
+          "x": 260,
+          "y": 80,
+          "width": 140,
+          "height": 60
+        },
+        {
+          "id": "uc-checkout",
+          "kind": "useCase",
+          "name": "Checkout",
+          "umlType": "uml:UseCase",
+          "ownedElements": [],
+          "x": 260,
+          "y": 180,
+          "width": 140,
+          "height": 60
+        },
+        {
+          "id": "uc-pay",
+          "kind": "useCase",
+          "name": "Pay Order",
+          "umlType": "uml:UseCase",
+          "ownedElements": [],
+          "x": 420,
+          "y": 180,
+          "width": 140,
+          "height": 60
+        },
+        {
+          "id": "uc-notify",
+          "kind": "useCase",
+          "name": "Send Receipt",
+          "umlType": "uml:UseCase",
+          "ownedElements": [],
+          "x": 340,
+          "y": 270,
+          "width": 150,
+          "height": 60
+        },
+        {
+          "id": "actor-payment",
+          "kind": "actor",
+          "name": "Payment System",
+          "umlType": "uml:Actor",
+          "ownedElements": [],
+          "x": 680,
+          "y": 160,
+          "width": 88,
+          "height": 132
+        }
+      ],
+      "edges": [
+        {
+          "id": "u1",
+          "kind": "association",
+          "name": "",
+          "umlType": "uml:Association",
+          "sourceId": "actor-customer",
+          "targetId": "uc-browse",
+          "directed": false,
+          "route": "straight",
+          "sourceAnchor": "right",
+          "targetAnchor": "left"
+        },
+        {
+          "id": "u2",
+          "kind": "association",
+          "name": "",
+          "umlType": "uml:Association",
+          "sourceId": "actor-customer",
+          "targetId": "uc-checkout",
+          "directed": false,
+          "route": "straight",
+          "sourceAnchor": "right",
+          "targetAnchor": "left"
+        },
+        {
+          "id": "u3",
+          "kind": "include",
+          "name": "include",
+          "umlType": "uml:Include",
+          "sourceId": "uc-checkout",
+          "targetId": "uc-pay",
+          "directed": true,
+          "route": "straight",
+          "sourceAnchor": "right",
+          "targetAnchor": "left"
+        },
+        {
+          "id": "u4",
+          "kind": "extend",
+          "name": "extend",
+          "umlType": "uml:Extend",
+          "sourceId": "uc-notify",
+          "targetId": "uc-checkout",
+          "directed": true,
+          "route": "orthogonal",
+          "sourceAnchor": "top",
+          "targetAnchor": "bottom"
+        },
+        {
+          "id": "u5",
+          "kind": "association",
+          "name": "",
+          "umlType": "uml:Association",
+          "sourceId": "uc-pay",
+          "targetId": "actor-payment",
+          "directed": false,
+          "route": "straight",
+          "sourceAnchor": "right",
+          "targetAnchor": "left"
+        }
+      ]
+    }
+  ],
+  "activeDocumentId": "diagram-usecase"
+}

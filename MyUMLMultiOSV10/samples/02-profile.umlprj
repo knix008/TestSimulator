@@ -1,0 +1,108 @@
+{
+  "format": "my-uml-multi-os-project",
+  "version": 1,
+  "projectName": "Sample — Profile Diagram",
+  "documents": [
+    {
+      "id": "diagram-profile",
+      "kind": "profile",
+      "name": "Profile Diagram",
+      "nodes": [
+        {
+          "id": "profile-biz",
+          "kind": "profile",
+          "name": "BusinessProfile",
+          "umlType": "uml:Profile",
+          "ownedElements": [],
+          "x": 48,
+          "y": 48,
+          "width": 200,
+          "height": 100
+        },
+        {
+          "id": "stereo-entity",
+          "kind": "stereotype",
+          "name": "Entity",
+          "umlType": "uml:Stereotype",
+          "ownedElements": [],
+          "x": 320,
+          "y": 48,
+          "width": 160,
+          "height": 90
+        },
+        {
+          "id": "stereo-service",
+          "kind": "stereotype",
+          "name": "Service",
+          "umlType": "uml:Stereotype",
+          "ownedElements": [],
+          "x": 320,
+          "y": 180,
+          "width": 160,
+          "height": 90
+        },
+        {
+          "id": "meta-class",
+          "kind": "class",
+          "name": "Class",
+          "umlType": "uml:Class",
+          "ownedElements": [],
+          "x": 560,
+          "y": 48,
+          "width": 148,
+          "height": 100
+        },
+        {
+          "id": "meta-component",
+          "kind": "class",
+          "name": "Component",
+          "umlType": "uml:Class",
+          "ownedElements": [],
+          "x": 560,
+          "y": 180,
+          "width": 148,
+          "height": 100
+        }
+      ],
+      "edges": [
+        {
+          "id": "p1",
+          "kind": "extension",
+          "name": "",
+          "umlType": "uml:Extension",
+          "sourceId": "stereo-entity",
+          "targetId": "meta-class",
+          "directed": true,
+          "route": "straight",
+          "sourceAnchor": "right",
+          "targetAnchor": "left"
+        },
+        {
+          "id": "p2",
+          "kind": "extension",
+          "name": "",
+          "umlType": "uml:Extension",
+          "sourceId": "stereo-service",
+          "targetId": "meta-component",
+          "directed": true,
+          "route": "straight",
+          "sourceAnchor": "right",
+          "targetAnchor": "left"
+        },
+        {
+          "id": "p3",
+          "kind": "generalization",
+          "name": "",
+          "umlType": "uml:Generalization",
+          "sourceId": "stereo-service",
+          "targetId": "stereo-entity",
+          "directed": true,
+          "route": "orthogonal",
+          "sourceAnchor": "top",
+          "targetAnchor": "bottom"
+        }
+      ]
+    }
+  ],
+  "activeDocumentId": "diagram-profile"
+}

@@ -1,0 +1,124 @@
+{
+  "format": "my-uml-multi-os-project",
+  "version": 1,
+  "projectName": "Sample — Object Diagram",
+  "documents": [
+    {
+      "id": "diagram-object",
+      "kind": "object",
+      "name": "Object Diagram",
+      "nodes": [
+        {
+          "id": "cls-order",
+          "kind": "class",
+          "name": "Order",
+          "umlType": "uml:Class",
+          "ownedElements": [],
+          "x": 48,
+          "y": 40,
+          "width": 140,
+          "height": 80
+        },
+        {
+          "id": "obj-o1",
+          "kind": "instanceSpecification",
+          "name": "o1:Order",
+          "umlType": "uml:InstanceSpecification",
+          "ownedElements": [
+            {
+              "id": "s1",
+              "kind": "slot",
+              "name": "id = \"A-100\"",
+              "umlType": "uml:Slot"
+            },
+            {
+              "id": "s2",
+              "kind": "slot",
+              "name": "total = 42.00",
+              "umlType": "uml:Slot"
+            }
+          ],
+          "x": 80,
+          "y": 180,
+          "width": 160,
+          "height": 100
+        },
+        {
+          "id": "obj-c1",
+          "kind": "instanceSpecification",
+          "name": "c1:Customer",
+          "umlType": "uml:InstanceSpecification",
+          "ownedElements": [
+            {
+              "id": "s3",
+              "kind": "slot",
+              "name": "email = \"a@b.com\"",
+              "umlType": "uml:Slot"
+            }
+          ],
+          "x": 320,
+          "y": 180,
+          "width": 180,
+          "height": 100
+        },
+        {
+          "id": "obj-i1",
+          "kind": "instanceSpecification",
+          "name": "i1:OrderItem",
+          "umlType": "uml:InstanceSpecification",
+          "ownedElements": [
+            {
+              "id": "s4",
+              "kind": "slot",
+              "name": "quantity = 2",
+              "umlType": "uml:Slot"
+            }
+          ],
+          "x": 560,
+          "y": 180,
+          "width": 160,
+          "height": 100
+        }
+      ],
+      "edges": [
+        {
+          "id": "l1",
+          "kind": "link",
+          "name": "places",
+          "umlType": "uml:InstanceSpecification",
+          "sourceId": "obj-c1",
+          "targetId": "obj-o1",
+          "directed": false,
+          "route": "straight",
+          "sourceAnchor": "left",
+          "targetAnchor": "right"
+        },
+        {
+          "id": "l2",
+          "kind": "link",
+          "name": "contains",
+          "umlType": "uml:InstanceSpecification",
+          "sourceId": "obj-o1",
+          "targetId": "obj-i1",
+          "directed": false,
+          "route": "straight",
+          "sourceAnchor": "right",
+          "targetAnchor": "left"
+        },
+        {
+          "id": "l3",
+          "kind": "dependency",
+          "name": "",
+          "umlType": "uml:Dependency",
+          "sourceId": "obj-o1",
+          "targetId": "cls-order",
+          "directed": true,
+          "route": "orthogonal",
+          "sourceAnchor": "top",
+          "targetAnchor": "bottom"
+        }
+      ]
+    }
+  ],
+  "activeDocumentId": "diagram-object"
+}

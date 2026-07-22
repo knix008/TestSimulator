@@ -11,6 +11,8 @@ export function getUmlConnectorNotation(kind: RelationshipKind): UmlConnectorNot
   switch (kind) {
     case 'association':
     case 'connector':
+    case 'link':
+    case 'interfacePair':
     case 'assemblyConnector':
       return { dashed: false, marker: 'none' };
     case 'delegationConnector':
@@ -19,14 +21,21 @@ export function getUmlConnectorNotation(kind: RelationshipKind): UmlConnectorNot
       return { dashed: false, marker: 'hollowTriangle' };
     case 'realization':
       return { dashed: true, marker: 'hollowTriangle' };
+    case 'extension':
+      // UML Extension: solid line with filled arrowhead (stereotype → metaclass)
+      return { dashed: false, marker: 'filledArrow' };
     case 'include':
       return { dashed: true, marker: 'openArrow', stereotype: 'include' };
     case 'extend':
       return { dashed: true, marker: 'openArrow', stereotype: 'extend' };
     case 'dependency':
-    case 'packageImport':
-    case 'deployment':
       return { dashed: true, marker: 'openArrow' };
+    case 'packageImport':
+      return { dashed: true, marker: 'openArrow', stereotype: 'import' };
+    case 'deployment':
+      return { dashed: true, marker: 'openArrow', stereotype: 'deploy' };
+    case 'durationConstraint':
+      return { dashed: true, marker: 'none', stereotype: 'duration' };
     case 'message':
       // UML synchCall: solid line with filled arrowhead
       return { dashed: false, marker: 'filledArrow' };
@@ -46,4 +55,9 @@ export function getUmlConnectorNotation(kind: RelationshipKind): UmlConnectorNot
 
 export function isInteractionMessageKind(kind: RelationshipKind): boolean {
   return kind === 'message' || kind === 'asyncMessage' || kind === 'replyMessage';
+}
+
+/** Undirected participant links on communication / object diagrams. */
+export function isInstanceLinkKind(kind: RelationshipKind): boolean {
+  return kind === 'link';
 }

@@ -41,14 +41,19 @@
       "target": [
         "nsis"
       ],
-      "icon": "assets/app-icon.ico"
+      "icon": "app-icon.ico"
     },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": "always",
       "createStartMenuShortcut": true,
-      "shortcutName": "UML Editor"
+      "shortcutName": "UML Editor",
+      "installerIcon": "app-icon.ico",
+      "uninstallerIcon": "app-icon.ico",
+      "installerHeaderIcon": "app-icon.ico",
+      "include": "installer.nsh",
+      "deleteAppDataOnUninstall": true
     },
     "linux": {
       "target": [
@@ -56,14 +61,14 @@
         "deb"
       ],
       "category": "Development",
-      "icon": "assets/app-icon.svg"
+      "icon": "app-icon.svg"
     },
     "mac": {
       "target": [
         "dmg"
       ],
       "category": "public.app-category.developer-tools",
-      "icon": "assets/app-icon.svg"
+      "icon": "app-icon.svg"
     },
     "fileAssociations": [
       {
@@ -71,7 +76,7 @@
         "name": "MyUML Project",
         "description": "MyUML project file",
         "role": "Editor",
-        "icon": "assets/app-icon.ico"
+        "icon": "app-icon.ico"
       }
     ]
   },

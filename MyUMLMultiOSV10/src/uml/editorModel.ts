@@ -18,6 +18,21 @@ export interface UmlNode {
   attachmentSide?: EdgeAnchor;
   /** Component-diagram interface: stem centerline offset along that face from the component origin. */
   edgeOffset?: number;
+  /**
+   * Component-diagram interface: orthogonal run past the glyph (ball/socket),
+   * so the path can bend at the circle / semicircle toward a partner.
+   */
+  interfaceElbow?: { dx: number; dy: number };
+  /** Linked opposite interface created by the "연결" (interface pair) tool. */
+  interfacePartnerId?: string;
+  /** World-space component attach point for free-angle paired stems. */
+  stemAttachX?: number;
+  stemAttachY?: number;
+  /** World-space ball/socket joint shared by a paired provided/required. */
+  jointX?: number;
+  jointY?: number;
+  /** Line style for a paired "연결" (shared by both interfaces). */
+  pairRoute?: EdgeRoute;
 }
 
 export type UmlOwnedElementKind = 'attribute' | 'operation' | 'literal' | 'slot' | 'port' | 'part' | 'region' | 'entry' | 'exit';
@@ -47,6 +62,8 @@ export interface UmlEdge {
   offset?: number;
   /** Manual label offset from the computed edge label position. */
   labelOffset?: { x: number; y: number };
+  /** Orthogonal route: shift middle bend segments from the auto layout (px). */
+  orthogonalElbow?: { dx: number; dy: number };
   /** Decimal sequence expression for communication diagram messages (e.g. "1", "1.1"). */
   sequenceNumber?: string;
 }
@@ -175,6 +192,10 @@ export function updateOwnedElementKind(document: UmlDiagramDocument, nodeId: str
 }
 
 export function connectNodes(document: UmlDiagramDocument, tool: ConnectorTool, sourceId: string, targetId: string, options: { sequenceY?: number } = {}): UmlDiagramDocument {
+  if (tool.kind === 'interfacePair') {
+    return document;
+  }
+
   if (sourceId === targetId && !isInteractionMessageKind(tool.kind)) {
     return document;
   }
@@ -191,17 +212,17 @@ export function connectNodes(document: UmlDiagramDocument, tool: ConnectorTool, 
   // UML communication: messages travel along links — ensure an undirected link exists.
   if (document.kind === 'communication' && isInteractionMessageKind(tool.kind) && sourceId !== targetId) {
     const hasLink = document.edges.some((edge) =>
-      edge.kind === 'connector'
+      isCommunicationLinkKind(edge.kind)
       && ((edge.sourceId === sourceId && edge.targetId === targetId) || (edge.sourceId === targetId && edge.targetId === sourceId))
     );
 
     if (!hasLink) {
-      const linkCount = document.edges.filter((edge) => edge.kind === 'connector').length + 1;
+      const linkCount = document.edges.filter((edge) => isCommunicationLinkKind(edge.kind)).length + 1;
       const linkEdge: UmlEdge = {
-        id: createId('connector'),
-        kind: 'connector',
+        id: createId('link'),
+        kind: 'link',
         name: `Link${linkCount}`,
-        umlType: 'uml:Connector',
+        umlType: 'uml:InstanceSpecification',
         sourceId,
         targetId,
         directed: false,
@@ -212,7 +233,6 @@ export function connectNodes(document: UmlDiagramDocument, tool: ConnectorTool, 
   }
 
   const edgeCount = workingDocument.edges.filter((edge) => edge.kind === tool.kind).length + 1;
-  const skipMultiplicity = document.kind === 'communication' && tool.kind === 'connector';
   const nextEdge: UmlEdge = {
     id: createId(tool.kind),
     kind: tool.kind,
@@ -221,9 +241,9 @@ export function connectNodes(document: UmlDiagramDocument, tool: ConnectorTool, 
     sourceId,
     targetId,
     directed: tool.directed,
-    route: 'straight',
-    sourceMultiplicity: skipMultiplicity ? undefined : defaultMultiplicity(tool.kind),
-    targetMultiplicity: skipMultiplicity ? undefined : defaultMultiplicity(tool.kind),
+    route: tool.kind === 'assemblyConnector' ? 'orthogonal' : 'straight',
+    sourceMultiplicity: defaultMultiplicity(tool.kind),
+    targetMultiplicity: defaultMultiplicity(tool.kind),
     sequenceY: options.sequenceY,
     sequenceNumber: document.kind === 'communication' && isInteractionMessageKind(tool.kind)
       ? allocateCommunicationSequenceNumber(workingDocument)
@@ -270,7 +290,31 @@ export function renameEdge(document: UmlDiagramDocument, edgeId: string, name: s
 export function updateEdgeRoute(document: UmlDiagramDocument, edgeId: string, route: EdgeRoute): UmlDiagramDocument {
   return {
     ...document,
-    edges: document.edges.map((edge) => (edge.id === edgeId ? { ...edge, route } : edge))
+    edges: document.edges.map((edge) => {
+      if (edge.id !== edgeId) {
+        return edge;
+      }
+
+      // Anchors / elbow offsets only apply to orthogonal routing.
+      if (route !== 'orthogonal') {
+        return {
+          ...edge,
+          route,
+          sourceAnchor: undefined,
+          targetAnchor: undefined,
+          orthogonalElbow: undefined
+        };
+      }
+
+      return { ...edge, route };
+    })
+  };
+}
+
+export function updateEdgeOrthogonalElbow(document: UmlDiagramDocument, edgeId: string, elbow: { dx: number; dy: number }): UmlDiagramDocument {
+  return {
+    ...document,
+    edges: document.edges.map((edge) => (edge.id === edgeId ? { ...edge, orthogonalElbow: { dx: elbow.dx, dy: elbow.dy } } : edge))
   };
 }
 
@@ -305,6 +349,10 @@ export function updateEdgeMultiplicity(document: UmlDiagramDocument, edgeId: str
 }
 
 export function updateEdgeRelationship(document: UmlDiagramDocument, edgeId: string, tool: ConnectorTool): UmlDiagramDocument {
+  if (tool.kind === 'interfacePair') {
+    return document;
+  }
+
   return {
     ...document,
     edges: document.edges.map((edge) => {
@@ -319,6 +367,7 @@ export function updateEdgeRelationship(document: UmlDiagramDocument, edgeId: str
         : becomingMessage
           ? edge.sequenceNumber
           : undefined;
+      const multiplicity = defaultMultiplicity(tool.kind);
 
       return {
         ...edge,
@@ -326,9 +375,12 @@ export function updateEdgeRelationship(document: UmlDiagramDocument, edgeId: str
         name: renameGeneratedRelationship(edge.name, tool.defaultName),
         umlType: tool.umlType,
         directed: tool.directed,
+        // Endpoints must never change when only the relationship kind/style is edited.
+        sourceId: edge.sourceId,
+        targetId: edge.targetId,
         sequenceNumber,
-        sourceMultiplicity: document.kind === 'communication' && tool.kind === 'connector' ? undefined : edge.sourceMultiplicity ?? defaultMultiplicity(tool.kind),
-        targetMultiplicity: document.kind === 'communication' && tool.kind === 'connector' ? undefined : edge.targetMultiplicity ?? defaultMultiplicity(tool.kind)
+        sourceMultiplicity: multiplicity === undefined ? undefined : edge.sourceMultiplicity ?? multiplicity,
+        targetMultiplicity: multiplicity === undefined ? undefined : edge.targetMultiplicity ?? multiplicity
       };
     })
   };
@@ -361,8 +413,11 @@ function defaultNodeSize(kind: UmlElementKind): { width: number; height: number 
     case 'initialNode':
     case 'finalNode':
     case 'flowFinalNode':
+    case 'finalState':
     case 'pseudostate':
       return { width: 54, height: 54 };
+    case 'stateInvariant':
+      return { width: 132, height: 48 };
     case 'decisionNode':
     case 'mergeNode':
       return { width: 82, height: 82 };
@@ -438,15 +493,19 @@ function defaultMultiplicity(kind: RelationshipKind): string | undefined {
   switch (kind) {
     case 'association':
     case 'connector':
-    case 'deployment':
       return '1';
     default:
       return undefined;
   }
 }
 
+function isCommunicationLinkKind(kind: RelationshipKind): boolean {
+  // Prefer `link`; accept legacy `connector` on older communication projects.
+  return kind === 'link' || kind === 'connector';
+}
+
 function renameGeneratedRelationship(currentName: string, nextDefaultName: string): string {
-  const match = currentName.match(/^(Association|Generalization|Dependency|Realization|PackageImport|Include|Extend|Connector|AssemblyConnector|DelegationConnector|Deployment|Message|AsyncMessage|ReplyMessage|ControlFlow|ObjectFlow|Transition|Link|Extension|TimeMessage|DurationConstraint|message|asyncMessage|reply)(\d*)$/i);
+  const match = currentName.match(/^(Association|Generalization|Dependency|Extension|Realization|PackageImport|Include|Extend|Connector|Link|AssemblyConnector|DelegationConnector|Deployment|Message|AsyncMessage|ReplyMessage|ControlFlow|ObjectFlow|Transition|TimeMessage|DurationConstraint|message|asyncMessage|reply)(\d*)$/i);
 
   if (!match) {
     return currentName;

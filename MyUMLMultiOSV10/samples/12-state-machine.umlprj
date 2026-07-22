@@ -1,0 +1,188 @@
+{
+  "format": "my-uml-multi-os-project",
+  "version": 1,
+  "projectName": "Sample — State Machine",
+  "documents": [
+    {
+      "id": "diagram-state",
+      "kind": "stateMachine",
+      "name": "State Machine",
+      "nodes": [
+        {
+          "id": "st-init",
+          "kind": "pseudostate",
+          "name": "Initial",
+          "umlType": "uml:Pseudostate",
+          "ownedElements": [],
+          "x": 60,
+          "y": 120,
+          "width": 54,
+          "height": 54
+        },
+        {
+          "id": "st-new",
+          "kind": "state",
+          "name": "New",
+          "umlType": "uml:State",
+          "ownedElements": [
+            {
+              "id": "en1",
+              "kind": "entry",
+              "name": "entry / assignId",
+              "umlType": "uml:Behavior"
+            }
+          ],
+          "x": 180,
+          "y": 100,
+          "width": 140,
+          "height": 90
+        },
+        {
+          "id": "st-paid",
+          "kind": "state",
+          "name": "Paid",
+          "umlType": "uml:State",
+          "ownedElements": [
+            {
+              "id": "en2",
+              "kind": "entry",
+              "name": "entry / capture",
+              "umlType": "uml:Behavior"
+            }
+          ],
+          "x": 380,
+          "y": 100,
+          "width": 140,
+          "height": 90
+        },
+        {
+          "id": "st-shipped",
+          "kind": "state",
+          "name": "Shipped",
+          "umlType": "uml:State",
+          "ownedElements": [],
+          "x": 580,
+          "y": 100,
+          "width": 140,
+          "height": 90
+        },
+        {
+          "id": "st-cancelled",
+          "kind": "state",
+          "name": "Cancelled",
+          "umlType": "uml:State",
+          "ownedElements": [
+            {
+              "id": "ex1",
+              "kind": "exit",
+              "name": "exit / notify",
+              "umlType": "uml:Behavior"
+            }
+          ],
+          "x": 380,
+          "y": 260,
+          "width": 140,
+          "height": 90
+        },
+        {
+          "id": "st-final",
+          "kind": "finalState",
+          "name": "Final",
+          "umlType": "uml:FinalState",
+          "ownedElements": [],
+          "x": 760,
+          "y": 110,
+          "width": 54,
+          "height": 54
+        }
+      ],
+      "edges": [
+        {
+          "id": "t1",
+          "kind": "transition",
+          "name": "",
+          "umlType": "uml:Transition",
+          "sourceId": "st-init",
+          "targetId": "st-new",
+          "directed": true,
+          "route": "straight",
+          "sourceAnchor": "right",
+          "targetAnchor": "left"
+        },
+        {
+          "id": "t2",
+          "kind": "transition",
+          "name": "pay",
+          "umlType": "uml:Transition",
+          "sourceId": "st-new",
+          "targetId": "st-paid",
+          "directed": true,
+          "route": "straight",
+          "sourceAnchor": "right",
+          "targetAnchor": "left"
+        },
+        {
+          "id": "t3",
+          "kind": "transition",
+          "name": "ship",
+          "umlType": "uml:Transition",
+          "sourceId": "st-paid",
+          "targetId": "st-shipped",
+          "directed": true,
+          "route": "straight",
+          "sourceAnchor": "right",
+          "targetAnchor": "left"
+        },
+        {
+          "id": "t4",
+          "kind": "transition",
+          "name": "close",
+          "umlType": "uml:Transition",
+          "sourceId": "st-shipped",
+          "targetId": "st-final",
+          "directed": true,
+          "route": "straight",
+          "sourceAnchor": "right",
+          "targetAnchor": "left"
+        },
+        {
+          "id": "t5",
+          "kind": "transition",
+          "name": "cancel",
+          "umlType": "uml:Transition",
+          "sourceId": "st-new",
+          "targetId": "st-cancelled",
+          "directed": true,
+          "route": "orthogonal",
+          "sourceAnchor": "bottom",
+          "targetAnchor": "top"
+        },
+        {
+          "id": "t6",
+          "kind": "transition",
+          "name": "refund",
+          "umlType": "uml:Transition",
+          "sourceId": "st-paid",
+          "targetId": "st-cancelled",
+          "directed": true,
+          "route": "orthogonal",
+          "sourceAnchor": "bottom",
+          "targetAnchor": "top"
+        },
+        {
+          "id": "t7",
+          "kind": "transition",
+          "name": "",
+          "umlType": "uml:Transition",
+          "sourceId": "st-cancelled",
+          "targetId": "st-final",
+          "directed": true,
+          "route": "orthogonal",
+          "sourceAnchor": "right",
+          "targetAnchor": "bottom"
+        }
+      ]
+    }
+  ],
+  "activeDocumentId": "diagram-state"
+}

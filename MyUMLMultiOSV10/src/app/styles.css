@@ -1,6 +1,6 @@
 :root {
-  color: #1e211c;
-  background: #f2f0e7;
+  color: #1a2433;
+  background: #e8f0f8;
   font-family: Bahnschrift, "Aptos Display", "Segoe UI", sans-serif;
   width: 100%;
   height: 100%;
@@ -34,30 +34,33 @@ select {
 }
 
 .shell {
-  --page: #f2f0e7;
-  --surface: rgba(250, 249, 242, 0.92);
-  --panel: rgba(246, 245, 238, 0.94);
-  --canvas: #fbfaf5;
-  --text: #1e211c;
-  --muted: #556052;
-  --border: #c8c9bd;
-  --button: #fbfaf5;
-  --button-border: #bfc2b5;
-  --accent: #244f46;
+  --page: #e8f0f8;
+  --surface: rgba(244, 249, 255, 0.94);
+  --panel: rgba(236, 244, 252, 0.96);
+  --canvas: #f7fbff;
+  --text: #1a2433;
+  --muted: #4d6178;
+  --border: #b7c7d8;
+  --button: #f7fbff;
+  --button-border: #a9bbd0;
+  --button-hover: #e4eef8;
+  --button-pressed: #d3e3f3;
+  --accent: #1f5f9e;
   --accent-text: #ffffff;
-  --code-bg: #efeadc;
-  --code-text: #44583d;
+  --accent-pressed: #164a7c;
+  --code-bg: #e4eef8;
+  --code-text: #2a4f73;
   --node-fill: #fffdf7;
   --node-stroke: #29312a;
   --selected: #c47a25;
   --selected-fill: #f6e0c2;
-  --grid: #d7d9cf;
-  --field: #fffef8;
+  --grid: #d4e0ec;
+  --field: #fbfdff;
   --danger: #9d2c2c;
-  --modal-backdrop: rgba(18, 20, 18, 0.34);
+  --modal-backdrop: rgba(14, 28, 44, 0.36);
   color: var(--text);
   background:
-    linear-gradient(135deg, rgba(87, 128, 110, 0.16), rgba(221, 201, 139, 0.12)),
+    linear-gradient(135deg, rgba(58, 123, 213, 0.18), rgba(26, 79, 138, 0.1)),
     var(--page);
   min-width: 0;
   width: 100%;
@@ -68,29 +71,32 @@ select {
 }
 
 .shell[data-theme="dark"] {
-  --page: #181b1a;
-  --surface: rgba(31, 36, 35, 0.94);
-  --panel: rgba(35, 40, 38, 0.96);
-  --canvas: #202422;
-  --text: #eef1e9;
-  --muted: #b8c3b5;
-  --border: #46514b;
-  --button: #2a312e;
-  --button-border: #59665f;
-  --accent: #79b8a5;
-  --accent-text: #10201b;
-  --code-bg: #303a35;
-  --code-text: #d2eadf;
+  --page: #121820;
+  --surface: rgba(24, 32, 42, 0.96);
+  --panel: rgba(28, 38, 50, 0.96);
+  --canvas: #1a2430;
+  --text: #e8eef6;
+  --muted: #a7b7c9;
+  --border: #3a4c61;
+  --button: #243141;
+  --button-border: #4a6078;
+  --button-hover: #2d3d50;
+  --button-pressed: #1b2734;
+  --accent: #6eb0ef;
+  --accent-text: #0d1a28;
+  --accent-pressed: #4f93d4;
+  --code-bg: #243141;
+  --code-text: #c5dff7;
   --node-fill: #2d3431;
   --node-stroke: #dbe5dd;
   --selected: #e0a153;
   --selected-fill: #4a3928;
-  --grid: #38413c;
-  --field: #252c29;
+  --grid: #2a3848;
+  --field: #1c2836;
   --danger: #ff9a86;
   --modal-backdrop: rgba(0, 0, 0, 0.58);
   background:
-    linear-gradient(135deg, rgba(121, 184, 165, 0.14), rgba(224, 161, 83, 0.1)),
+    linear-gradient(135deg, rgba(58, 123, 213, 0.16), rgba(26, 79, 138, 0.12)),
     var(--page);
 }
 
@@ -153,11 +159,51 @@ h2 {
 .icon-button,
 .text-button,
 .diagram-tab,
-.tool {
+.document-tab,
+.tool,
+.zoom-value {
   border: 1px solid var(--button-border);
   background: var(--button);
   color: var(--text);
   cursor: pointer;
+  transition:
+    background-color 100ms ease,
+    border-color 100ms ease,
+    color 100ms ease,
+    box-shadow 100ms ease,
+    transform 80ms ease;
+}
+
+.icon-button:hover,
+.text-button:hover,
+.diagram-tab:hover,
+.document-tab:hover,
+.tool:hover,
+.zoom-value:hover {
+  background: var(--button-hover);
+  border-color: var(--muted);
+}
+
+.icon-button:active,
+.text-button:active,
+.diagram-tab:active,
+.document-tab:active,
+.tool:active,
+.zoom-value:active {
+  background: var(--button-pressed);
+  border-color: var(--accent);
+  transform: translateY(1px);
+  box-shadow: inset 0 2px 5px rgba(30, 33, 28, 0.18);
+}
+
+.icon-button:focus-visible,
+.text-button:focus-visible,
+.diagram-tab:focus-visible,
+.document-tab:focus-visible,
+.tool:focus-visible,
+.zoom-value:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
 
 .icon-button,
@@ -224,13 +270,73 @@ h2 {
   background: var(--accent);
   border-color: var(--accent);
   color: var(--accent-text);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+}
+
+.icon-button.active:hover,
+.text-button.active:hover,
+.diagram-tab.active:hover,
+.document-tab.active:hover,
+.tool.active:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+  filter: brightness(1.08);
+}
+
+.icon-button.active:active,
+.text-button.active:active,
+.diagram-tab.active:active,
+.document-tab.active:active,
+.tool.active:active {
+  background: var(--accent-pressed);
+  border-color: var(--accent-pressed);
+  filter: none;
+  transform: translateY(1px);
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.28);
 }
 
 .workspace {
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(170px, 200px) minmax(360px, 1fr) minmax(260px, 320px);
+  grid-template-columns: 200px 6px minmax(0, 1fr) 280px;
   overflow: hidden;
+}
+
+.workspace.workspace-resizing {
+  cursor: col-resize;
+  user-select: none;
+}
+
+.workspace-divider {
+  flex: 0 0 6px;
+  width: 6px;
+  cursor: col-resize;
+  background: var(--border);
+  user-select: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+  z-index: 2;
+}
+
+.workspace-divider::after {
+  content: '';
+  width: 2px;
+  height: 28px;
+  border-radius: 2px;
+  background: var(--muted);
+  pointer-events: none;
+}
+
+.workspace-divider:hover,
+.workspace.workspace-resizing .workspace-divider {
+  background: var(--accent);
+}
+
+.workspace-divider:hover::after,
+.workspace.workspace-resizing .workspace-divider::after {
+  background: var(--accent-text);
 }
 
 .diagram-rail,
@@ -242,6 +348,66 @@ h2 {
   border-right: 1px solid var(--border);
   background: var(--panel);
   overflow: auto;
+}
+
+.palette {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+  border-right: 0;
+  min-width: 0;
+}
+
+.palette-section {
+  min-height: 0;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.palette-section:not(.collapsed) {
+  flex: 1 1 0;
+}
+
+.palette-section.collapsed {
+  flex: 0 0 auto;
+  padding-bottom: 10px;
+}
+
+.palette-section.collapsed .panel-heading {
+  margin-bottom: 0;
+}
+
+.palette-section .panel-scroll-body {
+  min-height: 0;
+  overflow: auto;
+}
+
+.connectors-section:not(.collapsed) {
+  border-top: 1px solid var(--border);
+}
+
+.palette.palette-both-collapsed .panel-heading {
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 0;
+}
+
+.palette.palette-both-collapsed .panel-heading > span,
+.palette.palette-both-collapsed .panel-heading > svg {
+  display: none;
+}
+
+.palette.palette-both-collapsed .palette-section {
+  padding: 8px 6px;
+}
+
+.palette.palette-both-collapsed .connectors-section {
+  border-top: 1px solid var(--border);
 }
 
 .inspector {
@@ -265,6 +431,66 @@ h2 {
 
 .tree-panel {
   min-height: 0;
+}
+
+.tree-panel.collapsed,
+.properties.collapsed {
+  grid-template-rows: auto;
+  padding-bottom: 10px;
+}
+
+.tree-panel.collapsed .panel-heading,
+.properties.collapsed .panel-heading {
+  margin-bottom: 0;
+}
+
+.panel-collapse-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+
+.panel-collapse-toggle:hover {
+  background: var(--button-hover);
+  color: var(--text);
+}
+
+.panel-collapse-toggle:active {
+  background: var(--button-pressed);
+  color: var(--text);
+  transform: translateY(1px);
+}
+
+.inspector-both-collapsed .panel-heading {
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 0;
+}
+
+.inspector-both-collapsed .panel-heading > span,
+.inspector-both-collapsed .panel-heading > svg {
+  display: none;
+}
+
+.inspector-both-collapsed .tree-panel,
+.inspector-both-collapsed .properties {
+  padding: 8px 6px;
+  border: 0;
+}
+
+.inspector-both-collapsed .properties {
+  border-top: 1px solid var(--border);
 }
 
 .inspector-divider {
@@ -327,7 +553,11 @@ h2 {
 }
 
 .connector-heading {
-  margin-top: 18px;
+  margin-top: 0;
+}
+
+.palette-section:not(.connectors-section) + .connectors-section .connector-heading {
+  margin-top: 0;
 }
 
 .mode-hint {
@@ -393,6 +623,12 @@ h2 {
   outline: none;
 }
 
+.document-tab-close:active {
+  background: var(--button-pressed);
+  color: var(--text);
+  transform: translateY(1px);
+}
+
 .connector-glyph {
   flex: 0 0 auto;
 }
@@ -428,11 +664,7 @@ h2 {
 .zoom-value {
   width: 58px;
   height: 38px;
-  border: 1px solid var(--button-border);
   border-radius: 6px;
-  background: var(--button);
-  color: var(--text);
-  cursor: pointer;
   font-size: 12px;
   font-weight: 800;
 }
@@ -507,27 +739,43 @@ code {
   stroke-width: 1.7;
 }
 
-.edge path.assembly-hit {
+/* Invisible hit geometry — must never paint, including when the edge is selected. */
+.edge path.edge-hit,
+.edge path.assembly-hit,
+.edge path.orthogonal-seg-hit,
+.edge.selected path.edge-hit,
+.edge.selected path.assembly-hit,
+.edge.selected path.orthogonal-seg-hit {
+  fill: none;
   stroke: transparent;
   stroke-width: 16;
+  pointer-events: stroke;
 }
 
+.edge path.orthogonal-seg-hit,
+.edge.selected path.orthogonal-seg-hit {
+  stroke-width: 14;
+}
+
+.edge path.orthogonal-seg-vertical {
+  cursor: ew-resize;
+}
+
+.edge path.orthogonal-seg-horizontal {
+  cursor: ns-resize;
+}
+
+.edge .edge-line,
 .edge .assembly-line {
   fill: none;
   stroke: var(--node-stroke);
+  stroke-width: 1.7;
+  pointer-events: none;
+}
+
+.edge .assembly-line {
   stroke-width: 1.5;
   opacity: 0.85;
-}
-
-.edge.selected path.assembly-hit {
-  stroke: transparent;
-  stroke-width: 16;
-}
-
-.edge.selected .assembly-line {
-  stroke: var(--selected);
-  stroke-width: 2.5;
-  opacity: 1;
 }
 
 .box-select {
@@ -538,9 +786,12 @@ code {
   pointer-events: none;
 }
 
-.edge.selected path {
+/* Selection styles only the visible stroke — never hit targets. */
+.edge.selected .edge-line,
+.edge.selected .assembly-line {
   stroke: var(--selected);
   stroke-width: 2.7;
+  opacity: 1;
 }
 
 .edge.selected .activation-bar {
@@ -566,9 +817,11 @@ code {
   opacity: 0.72;
 }
 
+.preview-edge .edge-line,
 .preview-edge path {
   stroke: var(--selected);
   stroke-width: 2.1;
+  fill: none;
 }
 
 .preview-edge .object-flow-token {
@@ -652,12 +905,6 @@ code {
   stroke-width: 2;
 }
 
-.node .node-hit-area {
-  fill: transparent;
-  stroke: none;
-  pointer-events: all;
-}
-
 .node .actor-figure circle,
 .node .actor-figure path {
   fill: none;
@@ -688,17 +935,61 @@ code {
   fill: var(--node-fill);
 }
 
-.node .node-hit-area {
-  fill: transparent;
+/* Hit targets must stay invisible under every selection state. */
+.node .node-hit-area,
+.node.selected .node-hit-area,
+.node.selected > .node-hit-area,
+.node.selected > rect.node-hit-area {
+  fill: none;
   stroke: none;
   pointer-events: all;
 }
 
 .node .required-interface-socket {
   fill: none;
+  stroke: var(--node-stroke);
+  stroke-width: 1.8;
 }
 
-.node .package-shape,
+.node.selected .required-interface-socket,
+.node.selected .paired-assembly-glyph .required-interface-socket {
+  stroke: var(--selected);
+  stroke-width: 2.2;
+}
+
+.node .provided-interface-ball {
+  fill: var(--node-fill);
+  stroke: var(--node-stroke);
+  stroke-width: 1.4;
+}
+
+.node.selected .provided-interface-ball,
+.node.selected .paired-assembly-glyph .provided-interface-ball {
+  fill: var(--selected-fill);
+  stroke: var(--selected);
+  stroke-width: 1.8;
+}
+
+.node .interface-elbow,
+.node .interface-stem {
+  fill: none;
+  stroke: var(--node-stroke);
+  stroke-width: 1.2;
+}
+
+.node.selected .interface-elbow,
+.node.selected .interface-stem {
+  fill: none;
+  stroke: var(--selected);
+  stroke-width: 2;
+}
+
+.node .package-shape {
+  fill: none;
+  stroke: var(--node-stroke);
+  stroke-width: 1.4;
+}
+
 .node .deployment-node-shape {
   fill: var(--node-fill);
 }
@@ -743,11 +1034,49 @@ code {
   cursor: crosshair;
 }
 
-.node.selected > rect,
+/* Fill solid shapes only — never hit targets or stroke-only geometry. */
+.node.selected > rect:not(.node-hit-area):not(.lifeline-message-start-zone),
 .node.selected > ellipse,
-.node.selected > circle,
-.node.selected > path {
+.node.selected > circle:not(.provided-interface-ball):not(.activity-control-marker),
+.node.selected > path.deployment-node-shape,
+.node.selected > path.combined-fragment-operator,
+.node.selected > path:not([class]) {
   fill: var(--selected-fill);
+}
+
+.node.selected > path.package-shape {
+  fill: none;
+  stroke: var(--selected);
+  stroke-width: 2;
+}
+
+.node.selected > path.interface-stem,
+.node.selected > path.interface-elbow,
+.node.selected > path.artifact-fold,
+.node.selected > path.deployment-node-depth,
+.node.selected > path.activity-control-marker,
+.node.selected > path.activity-flow-final,
+.node.selected > path.operand-separator,
+.node.selected > path.required-interface-socket,
+.node.selected > path.combined-fragment-frame,
+.node.selected > line,
+.node.selected .actor-figure circle,
+.node.selected .actor-figure path {
+  fill: none;
+}
+
+.node.selected .actor-figure circle,
+.node.selected .actor-figure path {
+  stroke: var(--selected);
+}
+
+.node.selected .activity-flow-final,
+.node.selected .activity-control-marker {
+  stroke: var(--selected);
+}
+
+.node.selected .combined-fragment-frame {
+  stroke: var(--selected);
 }
 
 .node text {
@@ -844,14 +1173,27 @@ textarea {
 }
 
 .tree-item:hover {
-  background: var(--button);
+  background: var(--button-hover);
   border-color: var(--button-border);
+}
+
+.tree-item:active {
+  background: var(--button-pressed);
+  border-color: var(--accent);
+  transform: translateY(1px);
+  box-shadow: inset 0 1px 3px rgba(30, 33, 28, 0.14);
 }
 
 .tree-item.active {
   background: var(--selected-fill);
   border-color: var(--selected);
   box-shadow: inset 2px 0 0 var(--selected);
+}
+
+.tree-item.active:active {
+  background: var(--selected-fill);
+  filter: brightness(0.96);
+  transform: translateY(1px);
 }
 
 .tree-item.tree-root {
@@ -1061,8 +1403,16 @@ textarea {
 }
 
 .diagram-choice:hover {
+  background: var(--button-hover);
   border-color: var(--accent);
   color: var(--accent);
+}
+
+.diagram-choice:active {
+  background: var(--button-pressed);
+  border-color: var(--accent);
+  transform: translateY(1px);
+  box-shadow: inset 0 2px 5px rgba(30, 33, 28, 0.16);
 }
 
 .context-menu {
@@ -1107,6 +1457,13 @@ textarea {
 .context-menu button:hover {
   background: var(--accent);
   color: var(--accent-text);
+}
+
+.context-menu button:active {
+  background: var(--accent-pressed);
+  color: var(--accent-text);
+  transform: translateY(1px);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.22);
 }
 
 .context-menu .danger-menu-item {

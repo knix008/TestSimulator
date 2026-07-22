@@ -12,7 +12,7 @@ export const communicationDiagramDefinition: DiagramDefinition = {
     { kind: 'actor', label: 'Actor', umlType: 'uml:Actor', defaultName: 'Actor' }
   ],
   connectors: [
-    { kind: 'connector', label: 'Link', umlType: 'uml:Connector', defaultName: 'Link', directed: false },
+    { kind: 'link', label: 'Link', umlType: 'uml:InstanceSpecification', defaultName: 'Link', directed: false },
     { kind: 'message', label: 'Sync Message', umlType: 'uml:Message', defaultName: 'message', directed: true },
     { kind: 'asyncMessage', label: 'Async Message', umlType: 'uml:Message', defaultName: 'asyncMessage', directed: true },
     { kind: 'replyMessage', label: 'Reply Message', umlType: 'uml:Message', defaultName: 'reply', directed: true }

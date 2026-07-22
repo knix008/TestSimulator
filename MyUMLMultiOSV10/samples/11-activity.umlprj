@@ -1,0 +1,316 @@
+{
+  "format": "my-uml-multi-os-project",
+  "version": 1,
+  "projectName": "Sample — Activity Diagram",
+  "documents": [
+    {
+      "id": "diagram-activity",
+      "kind": "activity",
+      "name": "Activity Diagram",
+      "nodes": [
+        {
+          "id": "act-init",
+          "kind": "initialNode",
+          "name": "Initial",
+          "umlType": "uml:InitialNode",
+          "ownedElements": [],
+          "x": 60,
+          "y": 60,
+          "width": 54,
+          "height": 54
+        },
+        {
+          "id": "act-receive",
+          "kind": "action",
+          "name": "Receive Order",
+          "umlType": "uml:OpaqueAction",
+          "ownedElements": [],
+          "x": 160,
+          "y": 60,
+          "width": 150,
+          "height": 62
+        },
+        {
+          "id": "act-decide",
+          "kind": "decisionNode",
+          "name": "Decision",
+          "umlType": "uml:DecisionNode",
+          "ownedElements": [],
+          "x": 380,
+          "y": 50,
+          "width": 82,
+          "height": 82
+        },
+        {
+          "id": "act-reserve",
+          "kind": "action",
+          "name": "Reserve Stock",
+          "umlType": "uml:OpaqueAction",
+          "ownedElements": [],
+          "x": 520,
+          "y": 40,
+          "width": 150,
+          "height": 62
+        },
+        {
+          "id": "act-reject",
+          "kind": "action",
+          "name": "Reject Order",
+          "umlType": "uml:OpaqueAction",
+          "ownedElements": [],
+          "x": 520,
+          "y": 160,
+          "width": 150,
+          "height": 62
+        },
+        {
+          "id": "act-obj",
+          "kind": "objectNode",
+          "name": "Order",
+          "umlType": "uml:CentralBufferNode",
+          "ownedElements": [],
+          "x": 160,
+          "y": 180,
+          "width": 132,
+          "height": 54
+        },
+        {
+          "id": "act-fork",
+          "kind": "forkNode",
+          "name": "Fork",
+          "umlType": "uml:ForkNode",
+          "ownedElements": [],
+          "x": 180,
+          "y": 280,
+          "width": 96,
+          "height": 16
+        },
+        {
+          "id": "act-pay",
+          "kind": "action",
+          "name": "Charge Payment",
+          "umlType": "uml:OpaqueAction",
+          "ownedElements": [],
+          "x": 60,
+          "y": 340,
+          "width": 150,
+          "height": 62
+        },
+        {
+          "id": "act-ship",
+          "kind": "action",
+          "name": "Ship Goods",
+          "umlType": "uml:OpaqueAction",
+          "ownedElements": [],
+          "x": 280,
+          "y": 340,
+          "width": 150,
+          "height": 62
+        },
+        {
+          "id": "act-join",
+          "kind": "joinNode",
+          "name": "Join",
+          "umlType": "uml:JoinNode",
+          "ownedElements": [],
+          "x": 180,
+          "y": 440,
+          "width": 96,
+          "height": 16
+        },
+        {
+          "id": "act-merge",
+          "kind": "mergeNode",
+          "name": "Merge",
+          "umlType": "uml:MergeNode",
+          "ownedElements": [],
+          "x": 380,
+          "y": 200,
+          "width": 82,
+          "height": 82
+        },
+        {
+          "id": "act-final",
+          "kind": "finalNode",
+          "name": "Final",
+          "umlType": "uml:ActivityFinalNode",
+          "ownedElements": [],
+          "x": 400,
+          "y": 430,
+          "width": 54,
+          "height": 54
+        },
+        {
+          "id": "act-flow-final",
+          "kind": "flowFinalNode",
+          "name": "FlowFinal",
+          "umlType": "uml:FlowFinalNode",
+          "ownedElements": [],
+          "x": 700,
+          "y": 160,
+          "width": 54,
+          "height": 54
+        }
+      ],
+      "edges": [
+        {
+          "id": "af1",
+          "kind": "controlFlow",
+          "name": "",
+          "umlType": "uml:ControlFlow",
+          "sourceId": "act-init",
+          "targetId": "act-receive",
+          "directed": true,
+          "route": "straight",
+          "sourceAnchor": "right",
+          "targetAnchor": "left"
+        },
+        {
+          "id": "af2",
+          "kind": "controlFlow",
+          "name": "",
+          "umlType": "uml:ControlFlow",
+          "sourceId": "act-receive",
+          "targetId": "act-decide",
+          "directed": true,
+          "route": "straight",
+          "sourceAnchor": "right",
+          "targetAnchor": "left"
+        },
+        {
+          "id": "af3",
+          "kind": "controlFlow",
+          "name": "[in stock]",
+          "umlType": "uml:ControlFlow",
+          "sourceId": "act-decide",
+          "targetId": "act-reserve",
+          "directed": true,
+          "route": "straight",
+          "sourceAnchor": "right",
+          "targetAnchor": "left"
+        },
+        {
+          "id": "af4",
+          "kind": "controlFlow",
+          "name": "[else]",
+          "umlType": "uml:ControlFlow",
+          "sourceId": "act-decide",
+          "targetId": "act-reject",
+          "directed": true,
+          "route": "orthogonal",
+          "sourceAnchor": "bottom",
+          "targetAnchor": "left"
+        },
+        {
+          "id": "af5",
+          "kind": "objectFlow",
+          "name": "",
+          "umlType": "uml:ObjectFlow",
+          "sourceId": "act-receive",
+          "targetId": "act-obj",
+          "directed": true,
+          "route": "orthogonal",
+          "sourceAnchor": "bottom",
+          "targetAnchor": "top"
+        },
+        {
+          "id": "af6",
+          "kind": "controlFlow",
+          "name": "",
+          "umlType": "uml:ControlFlow",
+          "sourceId": "act-reserve",
+          "targetId": "act-fork",
+          "directed": true,
+          "route": "orthogonal",
+          "sourceAnchor": "bottom",
+          "targetAnchor": "right"
+        },
+        {
+          "id": "af7",
+          "kind": "controlFlow",
+          "name": "",
+          "umlType": "uml:ControlFlow",
+          "sourceId": "act-fork",
+          "targetId": "act-pay",
+          "directed": true,
+          "route": "orthogonal",
+          "sourceAnchor": "left",
+          "targetAnchor": "top"
+        },
+        {
+          "id": "af8",
+          "kind": "controlFlow",
+          "name": "",
+          "umlType": "uml:ControlFlow",
+          "sourceId": "act-fork",
+          "targetId": "act-ship",
+          "directed": true,
+          "route": "orthogonal",
+          "sourceAnchor": "right",
+          "targetAnchor": "top"
+        },
+        {
+          "id": "af9",
+          "kind": "controlFlow",
+          "name": "",
+          "umlType": "uml:ControlFlow",
+          "sourceId": "act-pay",
+          "targetId": "act-join",
+          "directed": true,
+          "route": "orthogonal",
+          "sourceAnchor": "bottom",
+          "targetAnchor": "left"
+        },
+        {
+          "id": "af10",
+          "kind": "controlFlow",
+          "name": "",
+          "umlType": "uml:ControlFlow",
+          "sourceId": "act-ship",
+          "targetId": "act-join",
+          "directed": true,
+          "route": "orthogonal",
+          "sourceAnchor": "bottom",
+          "targetAnchor": "right"
+        },
+        {
+          "id": "af11",
+          "kind": "controlFlow",
+          "name": "",
+          "umlType": "uml:ControlFlow",
+          "sourceId": "act-join",
+          "targetId": "act-final",
+          "directed": true,
+          "route": "straight",
+          "sourceAnchor": "right",
+          "targetAnchor": "left"
+        },
+        {
+          "id": "af12",
+          "kind": "controlFlow",
+          "name": "",
+          "umlType": "uml:ControlFlow",
+          "sourceId": "act-reject",
+          "targetId": "act-flow-final",
+          "directed": true,
+          "route": "straight",
+          "sourceAnchor": "right",
+          "targetAnchor": "left"
+        },
+        {
+          "id": "af13",
+          "kind": "controlFlow",
+          "name": "",
+          "umlType": "uml:ControlFlow",
+          "sourceId": "act-reject",
+          "targetId": "act-merge",
+          "directed": true,
+          "route": "orthogonal",
+          "sourceAnchor": "left",
+          "targetAnchor": "right"
+        }
+      ]
+    }
+  ],
+  "activeDocumentId": "diagram-activity"
+}

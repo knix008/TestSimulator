@@ -23,7 +23,8 @@ export function renderActivityDiagramNode({ node, className, title, pointerHandl
     );
   }
 
-  if (node.kind === 'finalNode') {
+  // Activity Final and FinalState share the UML bullseye notation.
+  if (node.kind === 'finalNode' || node.kind === 'finalState') {
     const radius = Math.min(node.width, node.height) / 2 - 8;
 
     return (
