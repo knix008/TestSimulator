@@ -14,10 +14,10 @@
           "name": "application",
           "umlType": "uml:Package",
           "ownedElements": [],
-          "x": 60,
-          "y": 60,
-          "width": 200,
-          "height": 120
+          "x": 55,
+          "y": 42,
+          "width": 245,
+          "height": 166
         },
         {
           "id": "pkg-domain",
@@ -25,10 +25,10 @@
           "name": "domain",
           "umlType": "uml:Package",
           "ownedElements": [],
-          "x": 340,
-          "y": 60,
-          "width": 200,
-          "height": 120
+          "x": 490,
+          "y": 20,
+          "width": 292,
+          "height": 207
         },
         {
           "id": "pkg-infra",
@@ -36,8 +36,8 @@
           "name": "infrastructure",
           "umlType": "uml:Package",
           "ownedElements": [],
-          "x": 200,
-          "y": 240,
+          "x": 260,
+          "y": 424,
           "width": 200,
           "height": 120
         },
@@ -47,8 +47,8 @@
           "name": "AppFacade",
           "umlType": "uml:Class",
           "ownedElements": [],
-          "x": 80,
-          "y": 200,
+          "x": 98,
+          "y": 84,
           "width": 148,
           "height": 100
         },
@@ -58,8 +58,8 @@
           "name": "OrderRepository",
           "umlType": "uml:Interface",
           "ownedElements": [],
-          "x": 360,
-          "y": 220,
+          "x": 563,
+          "y": 79,
           "width": 160,
           "height": 100
         }
@@ -68,7 +68,7 @@
         {
           "id": "k1",
           "kind": "dependency",
-          "name": "",
+          "name": "Dependency1",
           "umlType": "uml:Dependency",
           "sourceId": "pkg-app",
           "targetId": "pkg-domain",
@@ -80,7 +80,7 @@
         {
           "id": "k2",
           "kind": "dependency",
-          "name": "",
+          "name": "Dependency2",
           "umlType": "uml:Dependency",
           "sourceId": "pkg-infra",
           "targetId": "pkg-domain",
@@ -92,7 +92,7 @@
         {
           "id": "k3",
           "kind": "packageImport",
-          "name": "",
+          "name": "PackageImport3",
           "umlType": "uml:PackageImport",
           "sourceId": "pkg-app",
           "targetId": "pkg-infra",
