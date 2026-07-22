@@ -25,7 +25,11 @@ function collectInstallers(directory) {
     }
 
     // Keep only the current product's installer (ignore leftovers from renamed builds).
-    if (!entry.name.startsWith(`${productName} `) && !entry.name.startsWith(`${productName}-`)) {
+    const isCurrentProduct =
+      entry.name.startsWith(`${productName} `)
+      || entry.name.startsWith(`${productName}-`)
+      || /^UML-Editor-Setup-/i.test(entry.name);
+    if (!isCurrentProduct) {
       return [];
     }
 
@@ -57,8 +61,8 @@ for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
   if (copiedNames.has(entry.name)) {
     continue;
   }
-  // electron-builder NSIS / similar: "<Product> Setup <version>.ext"
-  if (!/ Setup \d/.test(entry.name)) {
+  // electron-builder NSIS / similar: "<Product> Setup <version>.ext" or UML-Editor-Setup-*.ext
+  if (!/ Setup \d/.test(entry.name) && !/^UML-Editor-Setup-/i.test(entry.name)) {
     continue;
   }
   fs.unlinkSync(path.join(root, entry.name));

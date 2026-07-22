@@ -18,6 +18,7 @@
     "run:win": "node scripts/run-win.cjs",
     "start:win": "npm run run:win",
     "preview": "vite preview --host 127.0.0.1",
+    "icons": "node scripts/render-app-icon.mjs",
     "test": "vitest run",
     "check": "npm run build && npm run test"
   },
@@ -31,7 +32,8 @@
     "files": [
       "dist/app/**/*",
       "electron/**/*",
-      "assets/**/*",
+      "assets/app-icon.ico",
+      "assets/app-icon.svg",
       "package.json"
     ],
     "extraMetadata": {
@@ -52,8 +54,9 @@
       "installerIcon": "app-icon.ico",
       "uninstallerIcon": "app-icon.ico",
       "installerHeaderIcon": "app-icon.ico",
-      "include": "installer.nsh",
-      "deleteAppDataOnUninstall": true
+      "include": "build/installer.nsh",
+      "deleteAppDataOnUninstall": true,
+      "artifactName": "UML-Editor-Setup-${version}.${ext}"
     },
     "linux": {
       "target": [

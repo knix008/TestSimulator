@@ -1,5 +1,5 @@
 /**
- * Renders assets/app-icon.svg into a multi-size Windows .ico.
+ * Renders assets/app-icon.svg into a compact multi-size Windows .ico (PNG-compressed).
  * Run: node scripts/render-app-icon.mjs
  */
 import { readFileSync, writeFileSync } from 'fs';
@@ -12,18 +12,18 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const svgPath = join(root, 'assets', 'app-icon.svg');
 const icoPath = join(root, 'assets', 'app-icon.ico');
 
-execSync('npm install --no-save --no-package-lock @resvg/resvg-js png-to-ico', {
+execSync('npm install --no-save --no-package-lock @resvg/resvg-js', {
   cwd: root,
   stdio: 'inherit'
 });
 
 const require = createRequire(import.meta.url);
 const { Resvg } = require(join(root, 'node_modules', '@resvg/resvg-js'));
-const pngToIcoModule = require(join(root, 'node_modules', 'png-to-ico'));
-const pngToIco = typeof pngToIcoModule === 'function' ? pngToIcoModule : pngToIcoModule.default;
 
+/** Windows shell uses 16/32/48; 256 covers jumbo / high-DPI views. */
+const sizes = [16, 32, 48, 256];
 const svg = readFileSync(svgPath);
-const sizes = [16, 32, 48, 64, 128, 256];
+
 const pngBuffers = sizes.map((size) => {
   const resvg = new Resvg(svg, {
     fitTo: { mode: 'width', value: size },
@@ -32,6 +32,42 @@ const pngBuffers = sizes.map((size) => {
   return Buffer.from(resvg.render().asPng());
 });
 
-const ico = await pngToIco(pngBuffers);
+function buildPngIco(pngs) {
+  const count = pngs.length;
+  const headerSize = 6;
+  const entrySize = 16;
+  const dataOffset = headerSize + entrySize * count;
+
+  const header = Buffer.alloc(headerSize);
+  header.writeUInt16LE(0, 0); // reserved
+  header.writeUInt16LE(1, 2); // icon type
+  header.writeUInt16LE(count, 4);
+
+  const entries = [];
+  let offset = dataOffset;
+  for (let i = 0; i < count; i += 1) {
+    const png = pngs[i];
+    const size = sizes[i];
+    const entry = Buffer.alloc(entrySize);
+    entry.writeUInt8(size >= 256 ? 0 : size, 0); // width
+    entry.writeUInt8(size >= 256 ? 0 : size, 1); // height
+    entry.writeUInt8(0, 2); // color palette
+    entry.writeUInt8(0, 3); // reserved
+    entry.writeUInt16LE(1, 4); // planes
+    entry.writeUInt16LE(32, 6); // bit count
+    entry.writeUInt32LE(png.length, 8);
+    entry.writeUInt32LE(offset, 12);
+    entries.push(entry);
+    offset += png.length;
+  }
+
+  return Buffer.concat([header, ...entries, ...pngs]);
+}
+
+const ico = buildPngIco(pngBuffers);
 writeFileSync(icoPath, ico);
-console.log('Wrote', icoPath, `(${ico.length} bytes)`);
+
+const totalPng = pngBuffers.reduce((sum, buf) => sum + buf.length, 0);
+console.log(
+  `Wrote ${icoPath} (${ico.length} bytes; PNG payloads ${totalPng} bytes; sizes ${sizes.join(',')})`
+);
