@@ -34,6 +34,8 @@
       "electron/**/*",
       "assets/app-icon.ico",
       "assets/app-icon.svg",
+      "assets/project-icon.ico",
+      "assets/project-icon.svg",
       "package.json"
     ],
     "extraMetadata": {
@@ -79,7 +81,7 @@
         "name": "MyUML Project",
         "description": "MyUML project file",
         "role": "Editor",
-        "icon": "app-icon.ico"
+        "icon": "project-icon.ico"
       }
     ]
   },

@@ -2,5 +2,15 @@ vendor/
 node_modules/
 dist/
 coverage/
+release/
 *.log
 *.tmp
+
+# Desktop installers / build artifacts (keep out of git)
+*.exe
+*.msi
+*.AppImage
+*.deb
+*.dmg
+*.blockmap
+UML-Editor-Setup-*
