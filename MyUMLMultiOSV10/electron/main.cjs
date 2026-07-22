@@ -34,7 +34,7 @@ function writeSettings(settings) {
   fs.writeFileSync(settingsPath(), JSON.stringify(settings, null, 2), 'utf8');
 }
 
-function rememberProjectDirectory(filePath) {
+function rememberDirectory(filePath, kind = 'project') {
   if (!filePath || typeof filePath !== 'string') {
     return;
   }
@@ -45,20 +45,47 @@ function rememberProjectDirectory(filePath) {
       return;
     }
     const settings = readSettings();
-    settings.lastProjectDirectory = directory;
+    settings.lastDirectory = directory;
+    if (kind === 'image') {
+      settings.lastImageDirectory = directory;
+    } else {
+      settings.lastProjectDirectory = directory;
+    }
     writeSettings(settings);
   } catch {
     // ignore persistence failures
   }
 }
 
-function lastProjectDirectory() {
-  const settings = readSettings();
-  const directory = typeof settings.lastProjectDirectory === 'string' ? settings.lastProjectDirectory : undefined;
-  if (directory && fs.existsSync(directory)) {
-    return directory;
+function rememberProjectDirectory(filePath) {
+  rememberDirectory(filePath, 'project');
+}
+
+function firstExistingDirectory(...candidates) {
+  for (const directory of candidates) {
+    if (typeof directory === 'string' && directory && fs.existsSync(directory)) {
+      return directory;
+    }
   }
   return app.getPath('documents');
+}
+
+function lastProjectDirectory() {
+  const settings = readSettings();
+  return firstExistingDirectory(
+    settings.lastProjectDirectory,
+    settings.lastDirectory,
+    settings.lastImageDirectory
+  );
+}
+
+function lastImageDirectory() {
+  const settings = readSettings();
+  return firstExistingDirectory(
+    settings.lastImageDirectory,
+    settings.lastDirectory,
+    settings.lastProjectDirectory
+  );
 }
 
 function sendProjectToRenderer(filePath) {
@@ -95,7 +122,7 @@ function createMainWindow() {
     title: 'MyUML v0.0.1',
     width: 1440,
     height: 940,
-    minWidth: 1180,
+    minWidth: 1320,
     minHeight: 820,
     backgroundColor: '#f2f0e7',
     icon: appIconPath,
@@ -180,6 +207,57 @@ ipcMain.handle('project:save', async (_event, payload = {}) => {
 
   fs.writeFileSync(targetPath, contents, 'utf8');
   rememberProjectDirectory(targetPath);
+
+  return { filePath: targetPath };
+});
+
+ipcMain.handle('image:save', async (_event, payload = {}) => {
+  if (!mainWindow) {
+    return null;
+  }
+
+  const format = typeof payload.format === 'string' && payload.format.trim()
+    ? payload.format.trim().toLowerCase()
+    : 'png';
+  const extension = format === 'jpeg' ? 'jpg' : format;
+  const suggestedName = typeof payload.suggestedName === 'string' && payload.suggestedName.trim()
+    ? payload.suggestedName.trim()
+    : `diagram.${extension}`;
+  const dataBase64 = typeof payload.dataBase64 === 'string' ? payload.dataBase64 : '';
+  if (!dataBase64) {
+    return null;
+  }
+
+  const filterByFormat = {
+    png: { name: 'PNG image', extensions: ['png'] },
+    jpg: { name: 'JPEG image', extensions: ['jpg', 'jpeg'] },
+    jpeg: { name: 'JPEG image', extensions: ['jpg', 'jpeg'] },
+    gif: { name: 'GIF image', extensions: ['gif'] },
+    webp: { name: 'WebP image', extensions: ['webp'] }
+  };
+  const primaryFilter = filterByFormat[extension] ?? filterByFormat.png;
+
+  const result = await dialog.showSaveDialog(mainWindow, {
+    title: 'Save diagram image',
+    defaultPath: path.join(lastImageDirectory(), suggestedName),
+    filters: [
+      primaryFilter,
+      { name: 'All files', extensions: ['*'] }
+    ]
+  });
+
+  if (result.canceled || !result.filePath) {
+    return null;
+  }
+
+  let targetPath = result.filePath;
+  const lower = targetPath.toLowerCase();
+  if (!primaryFilter.extensions.some((ext) => lower.endsWith(`.${ext}`))) {
+    targetPath = `${targetPath}.${extension}`;
+  }
+
+  fs.writeFileSync(targetPath, Buffer.from(dataBase64, 'base64'));
+  rememberDirectory(targetPath, 'image');
 
   return { filePath: targetPath };
 });

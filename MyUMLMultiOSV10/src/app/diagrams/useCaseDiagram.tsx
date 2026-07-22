@@ -43,10 +43,13 @@ export function renderUseCaseDiagramNode({ node, className, title, pointerHandle
   }
 
   if (node.kind === 'subject') {
+    const titleWidth = Math.min(node.width - 8, Math.max(72, title.length * 8 + 24));
     return (
       <g className={className} transform={`translate(${node.x} ${node.y})`} {...pointerHandlers}>
+        <rect className="group-frame-hit" width={node.width} height={node.height} rx="2" />
         <rect className="subject-boundary" width={node.width} height={node.height} rx="2" />
-        <text x="12" y="24" textAnchor="start">{title}</text>
+        <rect className="group-title-hit" x="4" y="4" width={titleWidth} height="28" rx="2" />
+        <text className="group-title" x="12" y="24" textAnchor="start">{title}</text>
         <g className="resize-handle" transform={`translate(${node.width - 16} ${node.height - 16})`} onPointerDown={onResizeStart}>
           <rect width="16" height="16" rx="2" />
           <path d="M5 12 L12 5 M9 12 L12 9" />

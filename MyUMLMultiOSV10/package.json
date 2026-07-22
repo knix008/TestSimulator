@@ -15,6 +15,7 @@
     "build:mac": "npm run build && electron-builder --mac --publish never && node scripts/copy-installers.cjs",
     "build:all": "npm run build && electron-builder --win --linux --mac --publish never && node scripts/copy-installers.cjs",
     "start": "node scripts/run-win.cjs",
+    "start:rebuild": "node scripts/run-win.cjs --rebuild",
     "run:win": "node scripts/run-win.cjs",
     "start:win": "npm run run:win",
     "preview": "vite preview --host 127.0.0.1",

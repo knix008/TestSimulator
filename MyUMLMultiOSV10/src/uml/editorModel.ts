@@ -33,6 +33,11 @@ export interface UmlNode {
   jointY?: number;
   /** Line style for a paired "연결" (shared by both interfaces). */
   pairRoute?: EdgeRoute;
+  /**
+   * Combined fragment (alt/par): local Y of the operand separator from the fragment top.
+   * Defaults to half the fragment height when unset.
+   */
+  operandSeparatorY?: number;
 }
 
 export type UmlOwnedElementKind = 'attribute' | 'operation' | 'literal' | 'slot' | 'port' | 'part' | 'region' | 'entry' | 'exit';
@@ -58,6 +63,10 @@ export interface UmlEdge {
   sourceMultiplicity?: string;
   targetMultiplicity?: string;
   sequenceY?: number;
+  /** Sequence diagram: execution specification (activation bar) height on the source lifeline. */
+  sourceActivationHeight?: number;
+  /** Sequence diagram: execution specification (activation bar) height on the target lifeline. */
+  targetActivationHeight?: number;
   /** Manual perpendicular offset for communication diagram links/messages. */
   offset?: number;
   /** Manual label offset from the computed edge label position. */

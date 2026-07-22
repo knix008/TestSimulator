@@ -47,10 +47,11 @@
           "name": "alt",
           "umlType": "uml:CombinedFragment",
           "ownedElements": [],
-          "x": 250,
-          "y": 220,
-          "width": 400,
-          "height": 160
+          "x": 209,
+          "y": 221,
+          "width": 476,
+          "height": 158,
+          "operandSeparatorY": 75
         }
       ],
       "edges": [
@@ -85,7 +86,7 @@
           "targetId": "life-payment",
           "directed": true,
           "route": "straight",
-          "sequenceY": 250
+          "sequenceY": 244
         },
         {
           "id": "m4",
@@ -96,7 +97,7 @@
           "targetId": "life-order",
           "directed": true,
           "route": "straight",
-          "sequenceY": 300
+          "sequenceY": 312
         },
         {
           "id": "m5",

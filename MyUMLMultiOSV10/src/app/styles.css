@@ -58,11 +58,13 @@ select {
   --field: #fbfdff;
   --danger: #9d2c2c;
   --modal-backdrop: rgba(14, 28, 44, 0.36);
+  /* Keep room for the full single-line toolbar (ko/en labels). */
+  --app-min-width: 1320px;
   color: var(--text);
   background:
     linear-gradient(135deg, rgba(58, 123, 213, 0.18), rgba(26, 79, 138, 0.1)),
     var(--page);
-  min-width: 0;
+  min-width: var(--app-min-width);
   width: 100%;
   height: 100%;
   overflow: hidden;
@@ -102,17 +104,14 @@ select {
 
 .topbar {
   position: relative;
-  display: grid;
-  grid-template-rows: auto;
-  align-content: start;
+  display: flex;
+  align-items: center;
   gap: 0;
+  min-width: var(--app-min-width);
   padding: 4px 24px;
   border-bottom: 1px solid var(--border);
   background: var(--surface);
-}
-
-.topbar > div:first-child {
-  flex: 0 0 auto;
+  overflow: hidden;
 }
 
 .eyebrow {
@@ -140,16 +139,12 @@ h2 {
 
 .top-actions {
   width: 100%;
-  flex: 0 0 auto;
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  align-content: flex-start;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 6px;
-  row-gap: 4px;
-  padding-right: 0;
-  overflow: visible;
+  overflow: hidden;
 }
 
 .file-input {
@@ -237,7 +232,7 @@ h2 {
 }
 
 .about-toolbar-button {
-  position: static;
+  flex: 0 0 auto;
   margin-left: auto;
 }
 
@@ -298,13 +293,21 @@ h2 {
 .workspace {
   min-height: 0;
   display: grid;
-  grid-template-columns: 200px 6px minmax(0, 1fr) 280px;
+  grid-template-columns: 200px 6px minmax(0, 1fr) 6px 280px;
   overflow: hidden;
 }
 
 .workspace.workspace-resizing {
-  cursor: col-resize;
   user-select: none;
+}
+
+.workspace.workspace-resizing .workspace-divider {
+  cursor: col-resize;
+}
+
+.workspace.workspace-resizing .inspector-divider,
+.workspace.workspace-resizing .palette-divider {
+  cursor: row-resize;
 }
 
 .workspace-divider {
@@ -368,10 +371,6 @@ h2 {
   overflow: hidden;
 }
 
-.palette-section:not(.collapsed) {
-  flex: 1 1 0;
-}
-
 .palette-section.collapsed {
   flex: 0 0 auto;
   padding-bottom: 10px;
@@ -386,8 +385,35 @@ h2 {
   overflow: auto;
 }
 
-.connectors-section:not(.collapsed) {
-  border-top: 1px solid var(--border);
+.palette-divider {
+  flex: 0 0 6px;
+  cursor: row-resize;
+  background: var(--border);
+  user-select: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+  z-index: 2;
+}
+
+.palette-divider::after {
+  content: '';
+  width: 28px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--muted);
+  pointer-events: none;
+}
+
+.palette-divider:hover,
+.workspace.workspace-resizing .palette-divider {
+  background: var(--accent);
+}
+
+.palette-divider:hover::after,
+.workspace.workspace-resizing .palette-divider::after {
+  background: var(--accent-text);
 }
 
 .palette.palette-both-collapsed .panel-heading {
@@ -404,6 +430,14 @@ h2 {
 
 .palette.palette-both-collapsed .palette-section {
   padding: 8px 6px;
+}
+
+.connectors-section {
+  border-top: 1px solid var(--border);
+}
+
+.palette-divider + .connectors-section {
+  border-top: 0;
 }
 
 .palette.palette-both-collapsed .connectors-section {
@@ -502,6 +536,7 @@ h2 {
   align-items: center;
   justify-content: center;
   transition: background 0.15s;
+  z-index: 2;
 }
 
 .inspector-divider::after {
@@ -513,11 +548,13 @@ h2 {
   pointer-events: none;
 }
 
-.inspector-divider:hover {
+.inspector-divider:hover,
+.workspace.workspace-resizing .inspector-divider {
   background: var(--accent);
 }
 
-.inspector-divider:hover::after {
+.inspector-divider:hover::after,
+.workspace.workspace-resizing .inspector-divider::after {
   background: var(--accent-text);
 }
 
@@ -571,7 +608,7 @@ h2 {
   min-width: 0;
   min-height: 0;
   display: grid;
-  grid-template-rows: 42px 82px 1fr;
+  grid-template-rows: 44px 82px 1fr;
   overflow: hidden;
 }
 
@@ -584,6 +621,7 @@ h2 {
   border-bottom: 1px solid var(--border);
   background: var(--panel);
   overflow-x: auto;
+  overflow-y: hidden;
 }
 
 .document-tab,
@@ -731,6 +769,8 @@ code {
   fill: var(--node-fill);
   stroke: var(--node-stroke);
   stroke-width: 1.4;
+  pointer-events: all;
+  cursor: pointer;
 }
 
 .edge .object-flow-token {
@@ -798,6 +838,24 @@ code {
   fill: var(--selected-fill);
   stroke: var(--selected);
   stroke-width: 2;
+}
+
+.edge .activation-resize-handle {
+  cursor: ns-resize;
+  pointer-events: all;
+}
+
+.edge .activation-resize-handle rect {
+  fill: var(--button);
+  stroke: var(--selected);
+  stroke-width: 1.2;
+}
+
+.edge .activation-resize-handle path {
+  fill: none;
+  stroke: var(--selected);
+  stroke-width: 1.4;
+  stroke-linecap: round;
 }
 
 .edge.selected .object-flow-token {
@@ -915,7 +973,10 @@ code {
 }
 
 .node .combined-fragment-frame {
-  fill: rgba(255, 255, 255, 0.01);
+  fill: none;
+  /* Interior must not steal clicks from messages drawn above the frame. */
+  pointer-events: stroke;
+  stroke-width: 1.8;
 }
 
 .node .combined-fragment-operator {
@@ -925,6 +986,41 @@ code {
 .node .operand-separator {
   stroke: var(--node-stroke);
   stroke-width: 1.2;
+  pointer-events: none;
+}
+
+.operand-separator-overlay {
+  cursor: ns-resize;
+  pointer-events: all;
+}
+
+.operand-separator-overlay .operand-separator-hit {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 14;
+  pointer-events: stroke;
+}
+
+.operand-separator-overlay .operand-separator {
+  fill: none;
+  stroke: var(--selected);
+  stroke-width: 1.6;
+  pointer-events: none;
+}
+
+.operand-separator-overlay .operand-separator-handle {
+  fill: var(--button);
+  stroke: var(--selected);
+  stroke-width: 1.2;
+  pointer-events: all;
+}
+
+.operand-separator-overlay .operand-separator-handle-grip {
+  fill: none;
+  stroke: var(--selected);
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  pointer-events: none;
 }
 
 .node .component-icon rect {
@@ -984,10 +1080,31 @@ code {
   stroke-width: 2;
 }
 
-.node .package-shape {
+.node .package-shape,
+.node .subject-boundary {
   fill: none;
   stroke: var(--node-stroke);
   stroke-width: 1.4;
+  pointer-events: stroke;
+}
+
+/* Invisible wide stroke / title pad so group frames are easy to select. */
+.node .group-frame-hit {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 14;
+  pointer-events: stroke;
+}
+
+.node .group-title-hit {
+  fill: transparent;
+  stroke: none;
+  pointer-events: all;
+  cursor: grab;
+}
+
+.node .group-title {
+  pointer-events: none;
 }
 
 .node .deployment-node-shape {
@@ -1010,6 +1127,19 @@ code {
 
 .node.selected + .resize-handle {
   display: inline;
+}
+
+.resize-handle.lifeline-span-handle,
+.resize-handle.lifeline-width-handle {
+  display: inline;
+}
+
+.resize-handle.lifeline-span-handle {
+  cursor: ns-resize;
+}
+
+.resize-handle.lifeline-width-handle {
+  cursor: ew-resize;
 }
 
 .node .resize-handle rect,
@@ -1035,7 +1165,7 @@ code {
 }
 
 /* Fill solid shapes only — never hit targets or stroke-only geometry. */
-.node.selected > rect:not(.node-hit-area):not(.lifeline-message-start-zone),
+.node.selected > rect:not(.node-hit-area):not(.lifeline-message-start-zone):not(.group-title-hit):not(.group-frame-hit):not(.subject-boundary),
 .node.selected > ellipse,
 .node.selected > circle:not(.provided-interface-ball):not(.activity-control-marker),
 .node.selected > path.deployment-node-shape,
@@ -1044,10 +1174,18 @@ code {
   fill: var(--selected-fill);
 }
 
-.node.selected > path.package-shape {
+.node.selected > path.package-shape,
+.node.selected > rect.subject-boundary {
   fill: none;
   stroke: var(--selected);
   stroke-width: 2;
+}
+
+.node.selected > rect.group-title-hit,
+.node.selected > path.group-frame-hit,
+.node.selected > rect.group-frame-hit {
+  fill: none;
+  stroke: transparent;
 }
 
 .node.selected > path.interface-stem,

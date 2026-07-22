@@ -137,7 +137,7 @@ interface ProjectOpenEvent extends Event {
 }
 
 interface ProjectFileHandle {
-  createWritable: () => Promise<{ write: (contents: string) => Promise<void>; close: () => Promise<void> }>;
+  createWritable: () => Promise<{ write: (contents: string | Blob) => Promise<void>; close: () => Promise<void> }>;
 }
 
 type SaveFilePickerWindow = typeof globalThis & {
@@ -158,10 +158,17 @@ type SaveFilePickerWindow = typeof globalThis & {
       contents: string;
       existingPath?: string;
     }) => Promise<{ filePath: string } | null>;
+    saveImage: (payload: {
+      suggestedName: string;
+      format: ImageExportFormat;
+      dataBase64: string;
+    }) => Promise<{ filePath: string } | null>;
   };
 };
 
 const lastProjectDirectoryStorageKey = 'my-uml-multi-os.last-project-directory';
+const lastImageDirectoryStorageKey = 'my-uml-multi-os.last-image-directory';
+const directoryHandleImageKey = 'last-image-directory';
 
 interface ProjectSnapshot {
   projectName: string;
@@ -213,17 +220,20 @@ export function App() {
   const [imageExportError, setImageExportError] = useState<string | undefined>();
   const [contextMenu, setContextMenu] = useState<ContextMenuState | undefined>();
   const [inspectorSplit, setInspectorSplit] = useState(0.5);
+  const [paletteSplit, setPaletteSplit] = useState(0.55);
   const [treePanelCollapsed, setTreePanelCollapsed] = useState(false);
   const [propertiesPanelCollapsed, setPropertiesPanelCollapsed] = useState(false);
   const [paletteToolsCollapsed, setPaletteToolsCollapsed] = useState(false);
   const [connectorsCollapsed, setConnectorsCollapsed] = useState(false);
   const [paletteWidth, setPaletteWidth] = useState(200);
+  const [inspectorWidth, setInspectorWidth] = useState(280);
   const [workspaceResizing, setWorkspaceResizing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const projectFileHandleRef = useRef<ProjectFileHandle | undefined>(undefined);
   const projectFilePathRef = useRef<string | undefined>(undefined);
   const canvasRef = useRef<SVGSVGElement>(null);
   const inspectorRef = useRef<HTMLElement>(null);
+  const paletteRef = useRef<HTMLElement>(null);
   const workspaceRef = useRef<HTMLElement>(null);
   const [selectedNodeIds, setSelectedNodeIds] = useState<ReadonlySet<string>>(new Set());
   const [boxSelectRect, setBoxSelectRect] = useState<{ x: number; y: number; width: number; height: number } | undefined>();
@@ -248,14 +258,17 @@ export function App() {
     coMovedNodes?: { id: string; startX: number; startY: number }[];
   } | undefined>(undefined);
   const boxSelectRef = useRef<{ startClientX: number; startClientY: number; startCanvasX: number; startCanvasY: number; moved: boolean } | undefined>(undefined);
-  const resizeStateRef = useRef<{ nodeId: string; nodeKind: UmlElementKind; startClientX: number; startClientY: number; startWidth: number; startHeight: number; minWidth: number; minHeight: number } | undefined>(undefined);
+  const resizeStateRef = useRef<{ nodeId: string; nodeKind: UmlElementKind; startClientX: number; startClientY: number; startWidth: number; startHeight: number; minWidth: number; minHeight: number; mode?: 'default' | 'lifeline-span' | 'lifeline-width' } | undefined>(undefined);
   const connectorDragStateRef = useRef<{ sourceId: string; startClientX: number; startClientY: number; moved: boolean; sequenceY?: number; startedFromLine?: boolean } | undefined>(undefined);
   const messageReorderStateRef = useRef<{ edgeId: string; startClientY: number; startSequenceY: number } | undefined>(undefined);
+  const activationResizeStateRef = useRef<{ edgeId: string; end: 'source' | 'target'; startClientY: number; startHeight: number } | undefined>(undefined);
+  const operandSeparatorDragStateRef = useRef<{ nodeId: string; startClientY: number; startSeparatorY: number } | undefined>(undefined);
   const communicationEdgeDragStateRef = useRef<{ edgeId: string; startClientX: number; startClientY: number; startOffset: number; normalX: number; normalY: number } | undefined>(undefined);
   const edgeLabelDragStateRef = useRef<{ edgeId: string; startClientX: number; startClientY: number; startOffsetX: number; startOffsetY: number } | undefined>(undefined);
   const orthogonalSegmentDragStateRef = useRef<{ edgeId: string; axis: 'x' | 'y'; startClientX: number; startClientY: number; startDx: number; startDy: number } | undefined>(undefined);
   const pendingConnectorRef = useRef<ConnectorTool | undefined>(undefined);
   const pendingSourceNodeIdRef = useRef<string | undefined>(undefined);
+  const treeRevealRequestRef = useRef<string | undefined>(undefined);
 
   const activeDocument = documents.find((candidate) => candidate.id === activeDocumentId);
   const hasActiveDocument = Boolean(activeDocument);
@@ -273,8 +286,8 @@ export function App() {
   const effectiveImageExportFormat = imageExportTransparent && !transparentImageExportFormats.includes(imageExportFormat) ? 'png' : imageExportFormat;
   const canDeleteDiagram = documents.length > 0;
   const canDeleteSelectedDiagram = canDeleteDiagram && Boolean(diagramSelectedId);
-  const canUndo = undoStack.some((snapshot) => snapshot.activeDocumentId === activeDocumentId);
-  const canRedo = redoStack.some((snapshot) => snapshot.activeDocumentId === activeDocumentId);
+  const canUndo = undoStack.length > 0;
+  const canRedo = redoStack.length > 0;
   const activeConnector = selectedConnector ?? pendingConnectorRef.current;
   const activeMode = activeConnector ? connectorToolLabel(locale, activeConnector, document.kind) : selectedTool ? paletteToolLabel(locale, selectedTool, document.kind) : text.pointer;
   const canvasClassName = activeConnector ? 'canvas connector-mode' : 'canvas';
@@ -349,6 +362,19 @@ export function App() {
     return () => globalThis.removeEventListener('my-uml-open-project', handleProjectOpen as EventListener);
   }, []);
 
+  useEffect(() => {
+    const documentId = treeRevealRequestRef.current;
+    if (!documentId || treePanelCollapsed || diagramSelectedId !== documentId) {
+      return;
+    }
+
+    treeRevealRequestRef.current = undefined;
+    const element = globalThis.document.querySelector(`[data-tree-diagram-id="${CSS.escape(documentId)}"]`);
+    if (element instanceof HTMLElement) {
+      element.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    }
+  }, [diagramSelectedId, treePanelCollapsed, documents]);
+
   function updateActiveDocument(updater: (current: UmlDiagramDocument) => UmlDiagramDocument) {
     if (!document) {
       return;
@@ -372,41 +398,50 @@ export function App() {
   }
 
   function restoreProjectSnapshot(snapshot: ProjectSnapshot) {
+    const restoredIds = new Set(snapshot.documents.map((candidate) => candidate.id));
+
     setProjectName(snapshot.projectName);
     setDocuments(snapshot.documents);
     setActiveDocumentId(snapshot.activeDocumentId);
-    setOpenDocumentIds(snapshot.activeDocumentId ? [snapshot.activeDocumentId] : []);
+    setOpenDocumentIds((current) => {
+      const kept = current.filter((documentId) => restoredIds.has(documentId));
+      if (snapshot.activeDocumentId && !kept.includes(snapshot.activeDocumentId)) {
+        return [...kept, snapshot.activeDocumentId];
+      }
+      return kept;
+    });
     resetSelection();
+    if (snapshot.activeDocumentId) {
+      setDiagramSelectedId(snapshot.activeDocumentId);
+      setTreePanelCollapsed(false);
+      treeRevealRequestRef.current = snapshot.activeDocumentId;
+    }
     persistProjectFile(createProjectFile(snapshot.documents, snapshot.activeDocumentId, locale, snapshot.projectName));
   }
 
   function undoProjectChange() {
     setUndoStack((current) => {
-      const snapshotIndex = findScopedSnapshotIndex(current, activeDocumentId);
-      const previous = snapshotIndex >= 0 ? current[snapshotIndex] : undefined;
-
-      if (!previous) {
+      if (current.length === 0) {
         return current;
       }
 
+      const previous = current[current.length - 1];
       setRedoStack((redoCurrent) => [...redoCurrent.slice(-99), { projectName, documents, activeDocumentId }]);
       restoreProjectSnapshot(previous);
-      return current.filter((_, index) => index !== snapshotIndex);
+      return current.slice(0, -1);
     });
   }
 
   function redoProjectChange() {
     setRedoStack((current) => {
-      const snapshotIndex = findScopedSnapshotIndex(current, activeDocumentId);
-      const next = snapshotIndex >= 0 ? current[snapshotIndex] : undefined;
-
-      if (!next) {
+      if (current.length === 0) {
         return current;
       }
 
+      const next = current[current.length - 1];
       setUndoStack((undoCurrent) => [...undoCurrent.slice(-99), { projectName, documents, activeDocumentId }]);
       restoreProjectSnapshot(next);
-      return current.filter((_, index) => index !== snapshotIndex);
+      return current.slice(0, -1);
     });
   }
 
@@ -419,6 +454,9 @@ export function App() {
     setOpenDocumentIds((current) => [...current.filter((documentId) => documentId !== nextDocument.id), nextDocument.id]);
     setDiagramChooserOpen(false);
     resetSelection();
+    setDiagramSelectedId(nextDocument.id);
+    setTreePanelCollapsed(false);
+    treeRevealRequestRef.current = nextDocument.id;
   }
 
   function activateDocument(documentId: string) {
@@ -426,6 +464,8 @@ export function App() {
     setOpenDocumentIds((current) => (current.includes(documentId) ? current : [...current, documentId]));
     resetSelection();
     setDiagramSelectedId(documentId);
+    setTreePanelCollapsed(false);
+    treeRevealRequestRef.current = documentId;
   }
 
   function deleteActiveDiagram() {
@@ -476,6 +516,8 @@ export function App() {
     pendingSourceNodeIdRef.current = undefined;
     connectorDragStateRef.current = undefined;
     messageReorderStateRef.current = undefined;
+    activationResizeStateRef.current = undefined;
+    operandSeparatorDragStateRef.current = undefined;
     communicationEdgeDragStateRef.current = undefined;
     edgeLabelDragStateRef.current = undefined;
     orthogonalSegmentDragStateRef.current = undefined;
@@ -524,7 +566,7 @@ export function App() {
         if (result?.filePath) {
           projectFilePathRef.current = result.filePath;
           projectFileHandleRef.current = undefined;
-          rememberLastProjectDirectory(result.filePath);
+          rememberLastDirectory(result.filePath, 'project');
         }
       } catch {
         // ignore dialog / IO failures
@@ -541,13 +583,13 @@ export function App() {
       try {
         const fileHandle = await fileSystemWindow.showSaveFilePicker({
           suggestedName,
-          startIn: await readStoredDirectoryHandle() ?? 'documents',
+          startIn: await readStoredDirectoryHandle('project') ?? await readStoredDirectoryHandle('image') ?? 'documents',
           types: [{ description: 'MyUML project', accept: { 'application/json': ['.umlprj', '.json'] } }]
         });
 
         await writeProjectToFileHandle(fileHandle, serializedProject);
         projectFileHandleRef.current = fileHandle;
-        await rememberDirectoryHandleFromFile(fileHandle);
+        await rememberDirectoryHandleFromFile(fileHandle, 'project');
         return;
       } catch (error) {
         if (error instanceof DOMException && error.name === 'AbortError') {
@@ -569,12 +611,50 @@ export function App() {
     try {
       setImageExportError(undefined);
       const format = imageExportTransparent && !transparentImageExportFormats.includes(imageExportFormat) ? 'png' : imageExportFormat;
+      const extension = format === 'jpeg' ? 'jpg' : format;
+      const suggestedName = `${sanitizeFileName(document.name || 'diagram')}.${extension}`;
       const { canvas, backgroundColor } = await rasterizeDiagramSvg(svg, { transparent: imageExportTransparent });
       const blob = format === 'gif'
         ? encodeGif(canvas, imageExportTransparent)
         : await encodeCanvas(canvas, imageExportMimeTypes[format], format === 'jpeg' ? 0.92 : 0.96, backgroundColor);
 
-      downloadBlob(blob, `${sanitizeFileName(document.name || 'diagram')}.${format}`);
+      const fileSystemWindow = globalThis as SaveFilePickerWindow;
+      const desktop = fileSystemWindow.myUmlDesktop;
+
+      if (desktop?.saveImage) {
+        const dataBase64 = await blobToBase64(blob);
+        const result = await desktop.saveImage({ suggestedName, format, dataBase64 });
+        if (result?.filePath) {
+          rememberLastDirectory(result.filePath, 'image');
+          setImageExportOpen(false);
+        }
+        return;
+      }
+
+      if (fileSystemWindow.showSaveFilePicker) {
+        try {
+          const fileHandle = await fileSystemWindow.showSaveFilePicker({
+            suggestedName,
+            startIn: await readStoredDirectoryHandle('image') ?? await readStoredDirectoryHandle('project') ?? 'documents',
+            types: [{
+              description: `${format.toUpperCase()} image`,
+              accept: { [imageExportMimeTypes[format]]: [`.${extension}`] }
+            }]
+          });
+          const writable = await fileHandle.createWritable();
+          await writable.write(blob);
+          await writable.close();
+          await rememberDirectoryHandleFromFile(fileHandle, 'image');
+          setImageExportOpen(false);
+          return;
+        } catch (error) {
+          if (error instanceof DOMException && error.name === 'AbortError') {
+            return;
+          }
+        }
+      }
+
+      downloadBlob(blob, suggestedName);
       setImageExportOpen(false);
     } catch (error) {
       setImageExportError(error instanceof Error ? error.message : text.imageExportFailed);
@@ -604,7 +684,7 @@ export function App() {
           throw new Error('Unsupported MyUML project file.');
         }
         applyProjectFile(parsed, result.filePath);
-        rememberLastProjectDirectory(result.filePath);
+        rememberLastDirectory(result.filePath, 'project');
       } catch (error) {
         if (error instanceof Error) {
           globalThis.alert(error.message);
@@ -617,12 +697,12 @@ export function App() {
       try {
         const [fileHandle] = await fileSystemWindow.showOpenFilePicker({
           multiple: false,
-          startIn: await readStoredDirectoryHandle() ?? 'documents',
+          startIn: await readStoredDirectoryHandle('project') ?? await readStoredDirectoryHandle('image') ?? 'documents',
           types: [{ description: 'MyUML project', accept: { 'application/json': ['.umlprj', '.json'] } }]
         });
         const file = await fileHandle.getFile();
         projectFileHandleRef.current = fileHandle;
-        await rememberDirectoryHandleFromFile(fileHandle);
+        await rememberDirectoryHandleFromFile(fileHandle, 'project');
         await openProject(file, undefined);
         return;
       } catch (error) {
@@ -660,7 +740,7 @@ export function App() {
     projectFileHandleRef.current = filePath ? undefined : projectFileHandleRef.current;
     projectFilePathRef.current = filePath;
     if (filePath) {
-      rememberLastProjectDirectory(filePath);
+      rememberLastDirectory(filePath, 'project');
     }
     persistProjectFile(normalizedProject);
     resetSelection();
@@ -698,6 +778,8 @@ export function App() {
     pendingSourceNodeIdRef.current = undefined;
     connectorDragStateRef.current = undefined;
     messageReorderStateRef.current = undefined;
+    activationResizeStateRef.current = undefined;
+    operandSeparatorDragStateRef.current = undefined;
     resizeStateRef.current = undefined;
     dragStateRef.current = undefined;
     boxSelectRef.current = undefined;
@@ -1458,6 +1540,32 @@ export function App() {
         }
         return;
       }
+      if (resizeState.mode === 'lifeline-span' && resizeState.nodeKind === 'lifeline') {
+        const minHeight = Math.max(
+          resizeState.minHeight,
+          minimumLifelineSpanHeight(document, resizeState.nodeId)
+        );
+        const nextHeight = Math.max(
+          minHeight,
+          Math.round(resizeState.startHeight + (event.clientY - resizeState.startClientY) / canvasZoom)
+        );
+        updateActiveDocumentLive((current) => ({
+          ...current,
+          nodes: current.nodes.map((node) => (node.id === resizeState.nodeId ? { ...node, height: nextHeight } : node))
+        }));
+        return;
+      }
+      if (resizeState.mode === 'lifeline-width' && resizeState.nodeKind === 'lifeline') {
+        const nextWidth = Math.max(
+          resizeState.minWidth,
+          Math.round(resizeState.startWidth + (event.clientX - resizeState.startClientX) / canvasZoom)
+        );
+        updateActiveDocumentLive((current) => ({
+          ...current,
+          nodes: current.nodes.map((node) => (node.id === resizeState.nodeId ? { ...node, width: nextWidth } : node))
+        }));
+        return;
+      }
       const nextSize = resizeNodeSize(
         resizeState.nodeKind,
         resizeState.startWidth,
@@ -1466,9 +1574,20 @@ export function App() {
         (event.clientY - resizeState.startClientY) / canvasZoom,
         { width: resizeState.minWidth, height: resizeState.minHeight }
       );
-      updateActiveDocumentLive((current) => ({
-        ...resizeComponentDiagramNode(current, resizeState.nodeId, resizeState.startWidth, resizeState.startHeight, nextSize.width, nextSize.height)
-      }));
+      updateActiveDocumentLive((current) => {
+        const resized = resizeComponentDiagramNode(current, resizeState.nodeId, resizeState.startWidth, resizeState.startHeight, nextSize.width, nextSize.height);
+        return clampCombinedFragmentSeparators(resized, resizeState.nodeId);
+      });
+      return;
+    }
+
+    const operandSeparatorDragState = operandSeparatorDragStateRef.current;
+
+    if (operandSeparatorDragState) {
+      const nextY = Math.round(
+        operandSeparatorDragState.startSeparatorY + (event.clientY - operandSeparatorDragState.startClientY) / canvasZoom
+      );
+      updateActiveDocumentLive((current) => moveOperandSeparator(current, operandSeparatorDragState.nodeId, nextY));
       return;
     }
 
@@ -1477,6 +1596,17 @@ export function App() {
     if (messageReorderState) {
       const nextY = messageReorderState.startSequenceY + (event.clientY - messageReorderState.startClientY) / canvasZoom;
       updateActiveDocument((current) => moveSequenceMessage(current, messageReorderState.edgeId, nextY));
+      return;
+    }
+
+    const activationResizeState = activationResizeStateRef.current;
+
+    if (activationResizeState) {
+      const nextHeight = Math.max(
+        20,
+        Math.round(activationResizeState.startHeight + (event.clientY - activationResizeState.startClientY) / canvasZoom)
+      );
+      updateActiveDocumentLive((current) => resizeSequenceActivation(current, activationResizeState.edgeId, activationResizeState.end, nextHeight));
       return;
     }
 
@@ -1728,6 +1858,8 @@ export function App() {
     dragStateRef.current = undefined;
     resizeStateRef.current = undefined;
     messageReorderStateRef.current = undefined;
+    activationResizeStateRef.current = undefined;
+    operandSeparatorDragStateRef.current = undefined;
     communicationEdgeDragStateRef.current = undefined;
     edgeLabelDragStateRef.current = undefined;
     orthogonalSegmentDragStateRef.current = undefined;
@@ -1826,9 +1958,10 @@ export function App() {
     setConnectorPreviewPoint({ x: initialConnectorPreviewPoint(target, document.kind).x, y: point.y });
   }
 
-  function startNodeResize(event: React.PointerEvent<SVGGElement>, node: UmlNode) {
+  function startNodeResize(event: React.PointerEvent<SVGGElement>, node: UmlNode, mode: 'default' | 'lifeline-span' | 'lifeline-width' = 'default') {
     event.preventDefault();
     event.stopPropagation();
+    event.currentTarget.setPointerCapture(event.pointerId);
     dragStateRef.current = undefined;
     connectorDragStateRef.current = undefined;
     pendingConnectorRef.current = undefined;
@@ -1841,6 +1974,9 @@ export function App() {
     setSelectedOwnedElement(undefined);
     pushUndoSnapshot();
     const minSize = minimumResizableNodeSize(node.kind, node.ownedElements, document.kind);
+    const minHeight = mode === 'lifeline-span'
+      ? Math.max(minSize.height, minimumLifelineSpanHeight(document, node.id))
+      : minSize.height;
     resizeStateRef.current = {
       nodeId: node.id,
       nodeKind: node.kind,
@@ -1849,7 +1985,8 @@ export function App() {
       startWidth: node.width,
       startHeight: node.height,
       minWidth: minSize.width,
-      minHeight: minSize.height
+      minHeight,
+      mode
     };
   }
 
@@ -1953,6 +2090,61 @@ export function App() {
     event.currentTarget.setPointerCapture(event.pointerId);
   }
 
+  function startOperandSeparatorDrag(event: React.PointerEvent<SVGGElement>, node: UmlNode) {
+    if (selectedConnector || node.kind !== 'combinedFragment' || !combinedFragmentShowsSeparator(node.name)) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    setContextMenu(undefined);
+    pendingSourceNodeIdRef.current = undefined;
+    connectorDragStateRef.current = undefined;
+    dragStateRef.current = undefined;
+    resizeStateRef.current = undefined;
+    setPendingSourceNodeId(undefined);
+    setConnectorPreviewPoint(undefined);
+    setSelectedNodeId(node.id);
+    setSelectedEdgeId(undefined);
+    setSelectedOwnedElement(undefined);
+    pushUndoSnapshot();
+    operandSeparatorDragStateRef.current = {
+      nodeId: node.id,
+      startClientY: event.clientY,
+      startSeparatorY: operandSeparatorYForNode(node)
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+
+  function startActivationResize(event: React.PointerEvent<SVGGElement>, edge: UmlEdge, end: 'source' | 'target') {
+    if (selectedConnector || document.kind !== 'sequence' || !isInteractionMessageKind(edge.kind)) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    setContextMenu(undefined);
+    pendingSourceNodeIdRef.current = undefined;
+    connectorDragStateRef.current = undefined;
+    messageReorderStateRef.current = undefined;
+    setPendingSourceNodeId(undefined);
+    setConnectorPreviewPoint(undefined);
+    setSelectedNodeId(undefined);
+    setSelectedEdgeId(edge.id);
+    setSelectedOwnedElement(undefined);
+    pushUndoSnapshot();
+    const startHeight = end === 'target' && edge.sourceId === edge.targetId
+      ? Math.max(activationHeightForEdge(edge, 'target'), 54)
+      : activationHeightForEdge(edge, end);
+    activationResizeStateRef.current = {
+      edgeId: edge.id,
+      end,
+      startClientY: event.clientY,
+      startHeight
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+
   function updateCanvasZoom(delta: number) {
     setCanvasZooms((current) => ({
       ...current,
@@ -1976,7 +2168,7 @@ export function App() {
   const paletteBothCollapsed = paletteToolsCollapsed && connectorsCollapsed;
   const inspectorBothCollapsed = treePanelCollapsed && propertiesPanelCollapsed;
   const effectivePaletteWidth = paletteBothCollapsed ? 48 : paletteWidth;
-  const effectiveInspectorWidth = inspectorBothCollapsed ? 48 : 280;
+  const effectiveInspectorWidth = inspectorBothCollapsed ? 48 : inspectorWidth;
 
   function startPaletteResize(event: React.MouseEvent<HTMLDivElement>) {
     event.preventDefault();
@@ -1994,6 +2186,80 @@ export function App() {
         setPaletteToolsCollapsed(false);
         setConnectorsCollapsed(false);
       }
+    };
+    const onUp = () => {
+      setWorkspaceResizing(false);
+      window.document.removeEventListener('mousemove', onMove);
+      window.document.removeEventListener('mouseup', onUp);
+    };
+    window.document.addEventListener('mousemove', onMove);
+    window.document.addEventListener('mouseup', onUp);
+  }
+
+  function startInspectorResize(event: React.MouseEvent<HTMLDivElement>) {
+    event.preventDefault();
+    const workspace = workspaceRef.current;
+    if (!workspace) {
+      return;
+    }
+
+    setWorkspaceResizing(true);
+    const onMove = (moveEvent: MouseEvent) => {
+      const rect = workspace.getBoundingClientRect();
+      const nextWidth = Math.round(rect.right - moveEvent.clientX);
+      setInspectorWidth(Math.max(200, Math.min(520, nextWidth)));
+      if (treePanelCollapsed && propertiesPanelCollapsed) {
+        setTreePanelCollapsed(false);
+        setPropertiesPanelCollapsed(false);
+      }
+    };
+    const onUp = () => {
+      setWorkspaceResizing(false);
+      window.document.removeEventListener('mousemove', onMove);
+      window.document.removeEventListener('mouseup', onUp);
+    };
+    window.document.addEventListener('mousemove', onMove);
+    window.document.addEventListener('mouseup', onUp);
+  }
+
+  function startInspectorSplitResize(event: React.MouseEvent<HTMLDivElement>) {
+    event.preventDefault();
+    const inspector = inspectorRef.current;
+    if (!inspector) {
+      return;
+    }
+
+    setWorkspaceResizing(true);
+    const onMove = (moveEvent: MouseEvent) => {
+      const rect = inspector.getBoundingClientRect();
+      if (rect.height <= 0) {
+        return;
+      }
+      setInspectorSplit(Math.max(0.15, Math.min(0.85, (moveEvent.clientY - rect.top) / rect.height)));
+    };
+    const onUp = () => {
+      setWorkspaceResizing(false);
+      window.document.removeEventListener('mousemove', onMove);
+      window.document.removeEventListener('mouseup', onUp);
+    };
+    window.document.addEventListener('mousemove', onMove);
+    window.document.addEventListener('mouseup', onUp);
+  }
+
+  function startPaletteSplitResize(event: React.MouseEvent<HTMLDivElement>) {
+    event.preventDefault();
+    const palette = paletteRef.current;
+    if (!palette) {
+      return;
+    }
+
+    setWorkspaceResizing(true);
+    const onMove = (moveEvent: MouseEvent) => {
+      const rect = palette.getBoundingClientRect();
+      if (rect.height <= 0) {
+        return;
+      }
+      setPaletteSplit(Math.max(0.2, Math.min(0.8, (moveEvent.clientY - rect.top) / rect.height)));
     };
     const onUp = () => {
       setWorkspaceResizing(false);
@@ -2067,12 +2333,25 @@ export function App() {
       <section
         ref={workspaceRef}
         className={`workspace${paletteBothCollapsed ? ' palette-both-collapsed' : ''}${inspectorBothCollapsed ? ' inspector-both-collapsed' : ''}${workspaceResizing ? ' workspace-resizing' : ''}`}
-        style={{ gridTemplateColumns: `${effectivePaletteWidth}px 6px minmax(0, 1fr) ${effectiveInspectorWidth}px` }}
+        style={{ gridTemplateColumns: `${effectivePaletteWidth}px 6px minmax(0, 1fr) 6px ${effectiveInspectorWidth}px` }}
       >
-        <aside className={`palette${paletteBothCollapsed ? ' palette-both-collapsed' : ''}`} aria-label={text.palette}>
+        <aside
+          ref={paletteRef}
+          className={`palette${paletteBothCollapsed ? ' palette-both-collapsed' : ''}`}
+          aria-label={text.palette}
+        >
           {hasActiveDocument ? (
             <>
-              <section className={`palette-section${paletteToolsCollapsed ? ' collapsed' : ''}`}>
+              <section
+                className={`palette-section${paletteToolsCollapsed ? ' collapsed' : ''}`}
+                style={{
+                  flex: paletteToolsCollapsed
+                    ? '0 0 auto'
+                    : connectorsCollapsed
+                      ? '1 1 0'
+                      : `${paletteSplit} 1 0`
+                }}
+              >
                 <div className="panel-heading">
                   <button
                     type="button"
@@ -2103,7 +2382,26 @@ export function App() {
                 ) : null}
               </section>
 
-              <section className={`palette-section connectors-section${connectorsCollapsed ? ' collapsed' : ''}`}>
+              {!paletteToolsCollapsed && !connectorsCollapsed ? (
+                <div
+                  className="palette-divider"
+                  role="separator"
+                  aria-orientation="horizontal"
+                  aria-label={`${text.palette} / ${text.connectors}`}
+                  onMouseDown={startPaletteSplitResize}
+                />
+              ) : null}
+
+              <section
+                className={`palette-section connectors-section${connectorsCollapsed ? ' collapsed' : ''}`}
+                style={{
+                  flex: connectorsCollapsed
+                    ? '0 0 auto'
+                    : paletteToolsCollapsed
+                      ? '1 1 0'
+                      : `${1 - paletteSplit} 1 0`
+                }}
+              >
                 <div className="panel-heading connector-heading">
                   <button
                     type="button"
@@ -2187,10 +2485,11 @@ export function App() {
                 <rect width="100%" height="100%" fill="url(#grid)" />
                 <g transform={`translate(${canvasPan.x} ${canvasPan.y}) scale(${canvasZoom})`}>
                   {(() => {
-                    // Paint order: background containers → edges → foreground shapes
-                    // so package/subject fills do not cover association lines.
+                    // Paint order: background → underlay (fragments) → edges → foreground
+                    // so package fills and combined-fragment frames do not cover connectors/messages.
                     const backgroundNodes = document.nodes.filter((node) => isDiagramBackgroundNode(node.kind));
-                    const foregroundNodes = document.nodes.filter((node) => !isDiagramBackgroundNode(node.kind));
+                    const underlayNodes = document.nodes.filter((node) => isDiagramUnderlayNode(node.kind));
+                    const foregroundNodes = document.nodes.filter((node) => !isDiagramBackgroundNode(node.kind) && !isDiagramUnderlayNode(node.kind));
                     const renderNode = (node: UmlNode) => {
                       const partnerId = isPairedInterface(node) ? node.interfacePartnerId : undefined;
                       // Paired "연결" is one visual unit: highlight both stems + ball/socket together.
@@ -2216,7 +2515,7 @@ export function App() {
                           onPointerDown={(event) => handleNodePointerDown(event, node)}
                           onPointerMove={handleCanvasPointerMove}
                           onPointerUp={(event) => handleNodePointerUp(event, node)}
-                          onResizeStart={(event) => startNodeResize(event, node)}
+                          onResizeStart={(event, mode) => startNodeResize(event, node, mode)}
                           onOwnedElementSelect={(elementId) => selectOwnedElement(node.id, elementId)}
                           onContextMenu={(event: React.MouseEvent<SVGGElement>) => openNodeContextMenu(event, node.id)}
                         />
@@ -2234,29 +2533,60 @@ export function App() {
                       return [{ id: edge.id, points, endpointNodeIds: [edge.sourceId, edge.targetId] }];
                     });
                     const bridgesByEdgeId = computeBridgeCrossings(edgePolylines);
+                    // Sequence: paint lifelines under messages so activation bars sit above the dashed lifespan and stay selectable.
+                    const sequencePaintOrder = document.kind === 'sequence';
+                    const edgeElements = document.edges.map((edge, edgeIndex) => (
+                      <DiagramEdge
+                        key={edge.id}
+                        edge={edge}
+                        edgeIndex={document.kind === 'sequence' && isInteractionMessageKind(edge.kind) ? document.edges.slice(0, edgeIndex).filter((candidate) => isInteractionMessageKind(candidate.kind)).length : edgeIndex}
+                        diagramKind={document.kind}
+                        nodes={document.nodes}
+                        edges={document.edges}
+                        bridgeCrossings={bridgesByEdgeId.get(edge.id) ?? []}
+                        selected={edge.id === selectedEdgeId}
+                        onSelect={() => selectEdge(edge.id)}
+                        onPointerDown={(event) => startMessageReorder(event, edge)}
+                        onOrthogonalSegmentPointerDown={(event, axis) => startOrthogonalSegmentDrag(event, edge, axis)}
+                        onActivationResizeStart={(event, end) => startActivationResize(event, edge, end)}
+                        onLabelPointerDown={(event) => startEdgeLabelDrag(event, edge)}
+                        onPointerMove={handleCanvasPointerMove}
+                        onPointerUp={(event) => handleCanvasPointerUp(event as React.PointerEvent<SVGSVGElement>)}
+                        onContextMenu={(event: React.MouseEvent<SVGGElement>) => openEdgeContextMenu(event, edge.id)}
+                      />
+                    ));
+                    const connectorPreview = activeConnector && pendingSourceNodeId && connectorPreviewPoint
+                      ? <ConnectorPreview source={document.nodes.find((node) => node.id === pendingSourceNodeId)} target={connectorPreviewPoint} connector={activeConnector} diagramKind={document.kind} />
+                      : null;
 
                     return (
                       <>
                         {backgroundNodes.map(renderNode)}
-                        {document.edges.map((edge, edgeIndex) => (
-                          <DiagramEdge
-                            key={edge.id}
-                            edge={edge}
-                            edgeIndex={document.kind === 'sequence' && isInteractionMessageKind(edge.kind) ? document.edges.slice(0, edgeIndex).filter((candidate) => isInteractionMessageKind(candidate.kind)).length : edgeIndex}
-                            diagramKind={document.kind}
-                            nodes={document.nodes}
-                            edges={document.edges}
-                            bridgeCrossings={bridgesByEdgeId.get(edge.id) ?? []}
-                            selected={edge.id === selectedEdgeId}
-                            onSelect={() => selectEdge(edge.id)}
-                            onPointerDown={(event) => startMessageReorder(event, edge)}
-                            onOrthogonalSegmentPointerDown={(event, axis) => startOrthogonalSegmentDrag(event, edge, axis)}
-                            onLabelPointerDown={(event) => startEdgeLabelDrag(event, edge)}
-                            onContextMenu={(event: React.MouseEvent<SVGGElement>) => openEdgeContextMenu(event, edge.id)}
-                          />
-                        ))}
-                        {activeConnector && pendingSourceNodeId && connectorPreviewPoint ? <ConnectorPreview source={document.nodes.find((node) => node.id === pendingSourceNodeId)} target={connectorPreviewPoint} connector={activeConnector} diagramKind={document.kind} /> : null}
-                        {foregroundNodes.map(renderNode)}
+                        {underlayNodes.map(renderNode)}
+                        {sequencePaintOrder ? foregroundNodes.map(renderNode) : null}
+                        {edgeElements}
+                        {connectorPreview}
+                        {sequencePaintOrder ? null : foregroundNodes.map(renderNode)}
+                        {document.nodes
+                          .filter((node) => node.kind === 'combinedFragment' && node.id === selectedNodeId && combinedFragmentShowsSeparator(node.name))
+                          .map((node) => {
+                            const separatorY = operandSeparatorYForNode(node);
+                            return (
+                              <g
+                                key={`operand-separator-${node.id}`}
+                                className="operand-separator-overlay"
+                                transform={`translate(${node.x} ${node.y + separatorY})`}
+                                onPointerDown={(event) => startOperandSeparatorDrag(event, node)}
+                                onPointerMove={handleCanvasPointerMove}
+                                onPointerUp={(event) => handleCanvasPointerUp(event as React.PointerEvent<SVGSVGElement>)}
+                              >
+                                <line className="operand-separator-hit" x1="0" y1="0" x2={node.width} y2="0" />
+                                <line className="operand-separator" x1="0" y1="0" x2={node.width} y2="0" strokeDasharray="8 5" />
+                                <rect className="operand-separator-handle" x={node.width / 2 - 12} y="-7" width="24" height="14" rx="3" />
+                                <path className="operand-separator-handle-grip" d={`M ${node.width / 2 - 6} -3 H ${node.width / 2 + 6} M ${node.width / 2 - 6} 3 H ${node.width / 2 + 6}`} />
+                              </g>
+                            );
+                          })}
                       </>
                     );
                   })()}
@@ -2268,6 +2598,14 @@ export function App() {
             </>
           ) : <div className="empty-canvas" />}
         </section>
+
+        <div
+          className="workspace-divider"
+          role="separator"
+          aria-orientation="vertical"
+          aria-label={text.modelTree}
+          onMouseDown={startInspectorResize}
+        />
 
         <aside className={`inspector${treePanelCollapsed && propertiesPanelCollapsed ? ' inspector-both-collapsed' : ''}`} aria-label={text.properties} ref={inspectorRef}>
           <section
@@ -2306,7 +2644,7 @@ export function App() {
 
                 return (
                 <div key={candidate.id} className="tree-branch">
-                  <button type="button" className={diagramSelectedId === candidate.id ? 'tree-item tree-level-1 active' : 'tree-item tree-level-1'} onClick={() => selectDiagramFromTree(candidate.id)} onContextMenu={(event) => openDiagramContextMenu(event, candidate.id)}>
+                  <button type="button" data-tree-diagram-id={candidate.id} className={diagramSelectedId === candidate.id ? 'tree-item tree-level-1 active' : 'tree-item tree-level-1'} onClick={() => selectDiagramFromTree(candidate.id)} onContextMenu={(event) => openDiagramContextMenu(event, candidate.id)}>
                     <span role="button" tabIndex={0} aria-label={collapsed ? 'Expand diagram' : 'Collapse diagram'} className="tree-toggle" onClick={(event) => { event.stopPropagation(); toggleDiagramTree(candidate.id); }} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); event.stopPropagation(); toggleDiagramTree(candidate.id); } }}>
                       {collapsed ? <ChevronRight size={13} /> : <ChevronDown size={13} />}
                     </span>
@@ -2314,23 +2652,20 @@ export function App() {
                     <span>{candidate.name}</span>
                   </button>
                   {!collapsed ? (
-                    <>
-                      <div className="tree-group tree-level-2">{text.nodes}</div>
-                      {candidate.nodes.map((node) => (
-                        <div key={node.id}>
-                          <button type="button" draggable={node.kind === 'class'} className={activeDocument?.id === candidate.id && selectedNodeId === node.id && !selectedOwnedElementValue ? 'tree-item tree-level-2 active' : 'tree-item tree-level-2'} onClick={() => selectNodeFromTree(candidate.id, node.id)} onContextMenu={(event) => openTreeNodeContextMenu(event, candidate.id, node.id)} onDragStart={(event) => startClassifierDrag(event, node)}>
-                            <ToolIcon kind={node.kind} label={node.name} size={15} />
-                            <span>{node.name}</span>
+                    candidate.nodes.map((node) => (
+                      <div key={node.id}>
+                        <button type="button" draggable={node.kind === 'class'} className={activeDocument?.id === candidate.id && selectedNodeId === node.id && !selectedOwnedElementValue ? 'tree-item tree-level-2 active' : 'tree-item tree-level-2'} onClick={() => selectNodeFromTree(candidate.id, node.id)} onContextMenu={(event) => openTreeNodeContextMenu(event, candidate.id, node.id)} onDragStart={(event) => startClassifierDrag(event, node)}>
+                          <ToolIcon kind={node.kind} label={node.name} size={15} />
+                          <span>{node.name}</span>
+                        </button>
+                        {(node.ownedElements ?? []).map((element) => (
+                          <button key={element.id} type="button" className={activeDocument?.id === candidate.id && selectedOwnedElement?.nodeId === node.id && selectedOwnedElement.elementId === element.id ? 'tree-item tree-level-3 active' : 'tree-item tree-level-3'} onClick={() => selectOwnedElementFromTree(candidate.id, node.id, element.id)} onContextMenu={(event) => openOwnedElementContextMenu(event, candidate.id, node.id, element.id)}>
+                            <Braces size={14} />
+                            <span>{element.name}</span>
                           </button>
-                          {(node.ownedElements ?? []).map((element) => (
-                            <button key={element.id} type="button" className={activeDocument?.id === candidate.id && selectedOwnedElement?.nodeId === node.id && selectedOwnedElement.elementId === element.id ? 'tree-item tree-level-3 active' : 'tree-item tree-level-3'} onClick={() => selectOwnedElementFromTree(candidate.id, node.id, element.id)} onContextMenu={(event) => openOwnedElementContextMenu(event, candidate.id, node.id, element.id)}>
-                              <Braces size={14} />
-                              <span>{element.name}</span>
-                            </button>
-                          ))}
-                        </div>
-                      ))}
-                    </>
+                        ))}
+                      </div>
+                    ))
                   ) : null}
                 </div>
                 );
@@ -2344,21 +2679,8 @@ export function App() {
             className="inspector-divider"
             role="separator"
             aria-orientation="horizontal"
-            onMouseDown={(e) => {
-              e.preventDefault();
-              const inspector = inspectorRef.current;
-              if (!inspector) return;
-              const onMove = (ev: MouseEvent) => {
-                const rect = inspector.getBoundingClientRect();
-                setInspectorSplit(Math.max(0.15, Math.min(0.85, (ev.clientY - rect.top) / rect.height)));
-              };
-              const onUp = () => {
-                window.document.removeEventListener('mousemove', onMove);
-                window.document.removeEventListener('mouseup', onUp);
-              };
-              window.document.addEventListener('mousemove', onMove);
-              window.document.addEventListener('mouseup', onUp);
-            }}
+            aria-label={`${text.modelTree} / ${text.properties}`}
+            onMouseDown={startInspectorSplitResize}
           />
           ) : null}
 
@@ -2885,7 +3207,10 @@ function normalizeNode(node: UmlNode, palette: PaletteTool[], index: number, dia
     stemAttachY: typeof node.stemAttachY === 'number' && Number.isFinite(node.stemAttachY) ? node.stemAttachY : undefined,
     jointX: typeof node.jointX === 'number' && Number.isFinite(node.jointX) ? node.jointX : undefined,
     jointY: typeof node.jointY === 'number' && Number.isFinite(node.jointY) ? node.jointY : undefined,
-    pairRoute: isEdgeRoute(node.pairRoute) ? node.pairRoute : undefined
+    pairRoute: isEdgeRoute(node.pairRoute) ? node.pairRoute : undefined,
+    operandSeparatorY: typeof node.operandSeparatorY === 'number' && Number.isFinite(node.operandSeparatorY)
+      ? Math.round(node.operandSeparatorY)
+      : undefined
   };
 }
 
@@ -2963,6 +3288,12 @@ function normalizeEdge(edge: UmlEdge, connectors: ConnectorTool[], index: number
     sourceMultiplicity,
     targetMultiplicity,
     sequenceY: typeof edge.sequenceY === 'number' && Number.isFinite(edge.sequenceY) ? edge.sequenceY : undefined,
+    sourceActivationHeight: typeof edge.sourceActivationHeight === 'number' && Number.isFinite(edge.sourceActivationHeight)
+      ? Math.max(20, Math.round(edge.sourceActivationHeight))
+      : undefined,
+    targetActivationHeight: typeof edge.targetActivationHeight === 'number' && Number.isFinite(edge.targetActivationHeight)
+      ? Math.max(20, Math.round(edge.targetActivationHeight))
+      : undefined,
     offset: typeof edge.offset === 'number' && Number.isFinite(edge.offset) ? edge.offset : undefined,
     labelOffset: isPointLike(edge.labelOffset) ? { x: edge.labelOffset.x, y: edge.labelOffset.y } : undefined,
     orthogonalElbow: isOrthogonalElbow(edge.orthogonalElbow) ? { dx: edge.orthogonalElbow.dx, dy: edge.orthogonalElbow.dy } : undefined,
@@ -3346,6 +3677,11 @@ function isDiagramBackgroundNode(kind: UmlElementKind): boolean {
   return kind === 'package' || kind === 'subject';
 }
 
+/** Combined fragments frame messages; paint under edges so messages stay selectable. */
+function isDiagramUnderlayNode(kind: UmlElementKind): boolean {
+  return kind === 'combinedFragment';
+}
+
 function isDiagramKind(kind: string): kind is DiagramKind {
   return diagramDefinitions.some((definition) => definition.kind === kind);
 }
@@ -3539,14 +3875,22 @@ function capitalize(value: string): string {
   return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
+/** Fixed print colors for image export — independent of the UI theme. */
+const DIAGRAM_EXPORT_COLORS = {
+  canvas: '#ffffff',
+  nodeFill: '#ffffff',
+  nodeStroke: '#111111',
+  text: '#111111',
+  muted: '#555555',
+  grid: '#e6e6e6'
+} as const;
+
 async function rasterizeDiagramSvg(svg: SVGSVGElement, options: { transparent: boolean }): Promise<{ canvas: HTMLCanvasElement; backgroundColor: string }> {
   const crop = getDiagramExportBounds(svg);
   const width = Math.max(1, Math.ceil(crop.width));
   const height = Math.max(1, Math.ceil(crop.height));
   const scale = 2;
-  const shell = svg.closest('.shell') ?? globalThis.document.documentElement;
-  const shellStyle = globalThis.getComputedStyle(shell);
-  const backgroundColor = cssVariable(shellStyle, '--canvas', '#ffffff');
+  const backgroundColor = DIAGRAM_EXPORT_COLORS.canvas;
   const clone = prepareDiagramSvgCloneForExport(svg);
   const defs = clone.querySelector('defs');
   const gridRect = clone.querySelector('rect[fill="url(#grid)"]');
@@ -3556,7 +3900,7 @@ async function rasterizeDiagramSvg(svg: SVGSVGElement, options: { transparent: b
   clone.setAttribute('width', String(width));
   clone.setAttribute('height', String(height));
   clone.setAttribute('viewBox', `${crop.x} ${crop.y} ${width} ${height}`);
-  style.textContent = createExportSvgCss(shellStyle, options.transparent ? 'transparent' : backgroundColor);
+  style.textContent = createExportSvgCss(options.transparent ? 'transparent' : backgroundColor);
 
   if (defs) {
     defs.after(style);
@@ -3622,7 +3966,11 @@ function prepareDiagramSvgCloneForExport(svg: SVGSVGElement): SVGSVGElement {
     '.orthogonal-seg-hit',
     '.assembly-hit',
     '.edge-hit',
-    '.lifeline-message-start-zone'
+    '.lifeline-message-start-zone',
+    '.operand-separator-overlay',
+    '.activation-resize-handle',
+    '.group-frame-hit',
+    '.group-title-hit'
   ];
 
   clone.querySelectorAll(removeSelectors.join(',')).forEach((element) => {
@@ -3651,7 +3999,9 @@ function getDiagramExportBounds(svg: SVGSVGElement): { x: number; y: number; wid
             && !className.includes('orthogonal-seg-hit')
             && !className.includes('assembly-hit')
             && !className.includes('edge-hit')
-            && !className.includes('lifeline-message-start-zone');
+            && !className.includes('lifeline-message-start-zone')
+            && !className.includes('group-frame-hit')
+            && !className.includes('group-title-hit');
         });
       const rects = (visual.length > 0 ? visual : [element])
         .map((candidate) => candidate.getBoundingClientRect())
@@ -3686,18 +4036,12 @@ function getDiagramExportBounds(svg: SVGSVGElement): { x: number; y: number; wid
   };
 }
 
-function createExportSvgCss(shellStyle: CSSStyleDeclaration, backgroundColor: string): string {
-  const canvas = backgroundColor === 'transparent'
-    ? cssVariable(shellStyle, '--canvas', '#ffffff')
-    : backgroundColor;
-  const nodeFill = cssVariable(shellStyle, '--node-fill', '#ffffff');
-  const nodeStroke = cssVariable(shellStyle, '--node-stroke', '#111111');
-  const text = cssVariable(shellStyle, '--text', '#111111');
-  const muted = cssVariable(shellStyle, '--muted', '#666666');
-  const grid = cssVariable(shellStyle, '--grid', '#dddddd');
+function createExportSvgCss(backgroundColor: string): string {
+  const canvas = backgroundColor === 'transparent' ? DIAGRAM_EXPORT_COLORS.canvas : backgroundColor;
+  const { nodeFill, nodeStroke, text, muted, grid } = DIAGRAM_EXPORT_COLORS;
   const font = "Bahnschrift, 'Aptos Display', 'Segoe UI', sans-serif";
 
-  // Keep in sync with styles.css visual rules (resolved colors; no editor chrome).
+  // Print-style diagram colors only — never the UI theme.
   return `
     .grid-line { stroke: ${grid}; fill: none; }
     .node rect, .node ellipse, .node circle, .node path { fill: ${nodeFill}; stroke: ${nodeStroke}; stroke-width: 1.4; }
@@ -3714,7 +4058,8 @@ function createExportSvgCss(shellStyle: CSSStyleDeclaration, backgroundColor: st
     .node .required-interface-socket { fill: none; stroke: ${nodeStroke}; stroke-width: 1.8; }
     .node .provided-interface-ball { fill: ${nodeFill}; stroke: ${nodeStroke}; stroke-width: 1.4; }
     .node .interface-elbow, .node .interface-stem { fill: none; stroke: ${nodeStroke}; stroke-width: 1.2; }
-    .node .package-shape { fill: none; stroke: ${nodeStroke}; stroke-width: 1.4; }
+    .node .package-shape, .node .subject-boundary { fill: none; stroke: ${nodeStroke}; stroke-width: 1.4; }
+    .node .group-frame-hit, .node .group-title-hit { fill: none; stroke: none; }
     .node .deployment-node-shape { fill: ${nodeFill}; }
     .node .deployment-node-depth, .node .artifact-fold { fill: none; }
     .node text { fill: ${text}; font-family: ${font}; font-size: 13px; }
@@ -3729,10 +4074,6 @@ function createExportSvgCss(shellStyle: CSSStyleDeclaration, backgroundColor: st
     .filled-arrow-marker { fill: ${nodeStroke}; stroke: ${nodeStroke}; stroke-width: 1.4; }
     .hollow-arrow-marker { fill: ${canvas}; stroke: ${nodeStroke}; stroke-width: 1.4; }
   `;
-}
-
-function cssVariable(style: CSSStyleDeclaration, name: string, fallback: string): string {
-  return style.getPropertyValue(name).trim() || fallback;
 }
 
 async function loadImage(url: string): Promise<HTMLImageElement> {
@@ -3816,13 +4157,15 @@ async function writeProjectToFileHandle(fileHandle: ProjectFileHandle, serialize
   await writable.close();
 }
 
-function rememberLastProjectDirectory(filePath: string) {
+function rememberLastDirectory(filePath: string, kind: 'project' | 'image' = 'project') {
   const index = Math.max(filePath.lastIndexOf('/'), filePath.lastIndexOf('\\'));
   if (index <= 0) {
     return;
   }
   try {
-    globalThis.localStorage?.setItem(lastProjectDirectoryStorageKey, filePath.slice(0, index));
+    const directory = filePath.slice(0, index);
+    const key = kind === 'image' ? lastImageDirectoryStorageKey : lastProjectDirectoryStorageKey;
+    globalThis.localStorage?.setItem(key, directory);
   } catch {
     // ignore
   }
@@ -3830,7 +4173,7 @@ function rememberLastProjectDirectory(filePath: string) {
 
 const directoryHandleDbName = 'my-uml-multi-os-fs';
 const directoryHandleStore = 'handles';
-const directoryHandleKey = 'last-project-directory';
+const directoryHandleProjectKey = 'last-project-directory';
 
 async function openDirectoryHandleDb(): Promise<IDBDatabase | undefined> {
   if (!globalThis.indexedDB) {
@@ -3850,7 +4193,11 @@ async function openDirectoryHandleDb(): Promise<IDBDatabase | undefined> {
   });
 }
 
-async function readStoredDirectoryHandle(): Promise<FileSystemHandle | undefined> {
+function directoryHandleStorageKey(kind: 'project' | 'image'): string {
+  return kind === 'image' ? directoryHandleImageKey : directoryHandleProjectKey;
+}
+
+async function readStoredDirectoryHandle(kind: 'project' | 'image' = 'project'): Promise<FileSystemHandle | undefined> {
   try {
     const db = await openDirectoryHandleDb();
     if (!db) {
@@ -3858,7 +4205,7 @@ async function readStoredDirectoryHandle(): Promise<FileSystemHandle | undefined
     }
     return await new Promise((resolve, reject) => {
       const transaction = db.transaction(directoryHandleStore, 'readonly');
-      const request = transaction.objectStore(directoryHandleStore).get(directoryHandleKey);
+      const request = transaction.objectStore(directoryHandleStore).get(directoryHandleStorageKey(kind));
       request.onsuccess = () => resolve(request.result as FileSystemHandle | undefined);
       request.onerror = () => reject(request.error);
     });
@@ -3867,7 +4214,7 @@ async function readStoredDirectoryHandle(): Promise<FileSystemHandle | undefined
   }
 }
 
-async function writeStoredDirectoryHandle(handle: FileSystemHandle) {
+async function writeStoredDirectoryHandle(handle: FileSystemHandle, kind: 'project' | 'image' = 'project') {
   try {
     const db = await openDirectoryHandleDb();
     if (!db) {
@@ -3875,7 +4222,7 @@ async function writeStoredDirectoryHandle(handle: FileSystemHandle) {
     }
     await new Promise<void>((resolve, reject) => {
       const transaction = db.transaction(directoryHandleStore, 'readwrite');
-      transaction.objectStore(directoryHandleStore).put(handle, directoryHandleKey);
+      transaction.objectStore(directoryHandleStore).put(handle, directoryHandleStorageKey(kind));
       transaction.oncomplete = () => resolve();
       transaction.onerror = () => reject(transaction.error);
     });
@@ -3884,16 +4231,30 @@ async function writeStoredDirectoryHandle(handle: FileSystemHandle) {
   }
 }
 
-async function rememberDirectoryHandleFromFile(fileHandle: ProjectFileHandle & { getParent?: () => Promise<FileSystemHandle> }) {
+async function rememberDirectoryHandleFromFile(
+  fileHandle: ProjectFileHandle & { getParent?: () => Promise<FileSystemHandle> },
+  kind: 'project' | 'image' = 'project'
+) {
   if (typeof fileHandle.getParent !== 'function') {
     return;
   }
   try {
     const parent = await fileHandle.getParent();
-    await writeStoredDirectoryHandle(parent);
+    await writeStoredDirectoryHandle(parent, kind);
   } catch {
     // ignore
   }
+}
+
+async function blobToBase64(blob: Blob): Promise<string> {
+  const buffer = await blob.arrayBuffer();
+  const bytes = new Uint8Array(buffer);
+  const chunkSize = 0x8000;
+  let binary = '';
+  for (let index = 0; index < bytes.length; index += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize));
+  }
+  return globalThis.btoa(binary);
 }
 
 function downloadProjectFile(serializedProject: string, filename: string) {
@@ -4053,6 +4414,62 @@ function combinedFragmentOperator(label: string | undefined): 'loop' | 'alt' | '
   }
 
   return undefined;
+}
+
+/** Fragments that draw a dashed operand divider (alt / par). */
+function combinedFragmentShowsSeparator(name: string | undefined): boolean {
+  const operator = combinedFragmentOperator(name);
+  return operator === 'alt' || operator === 'par';
+}
+
+const OPERAND_SEPARATOR_TOP_MARGIN = 40;
+const OPERAND_SEPARATOR_BOTTOM_MARGIN = 20;
+
+function operandSeparatorBounds(height: number): { min: number; max: number } {
+  const min = OPERAND_SEPARATOR_TOP_MARGIN;
+  const max = Math.max(min, height - OPERAND_SEPARATOR_BOTTOM_MARGIN);
+  return { min, max };
+}
+
+function operandSeparatorYForNode(node: UmlNode): number {
+  const { min, max } = operandSeparatorBounds(node.height);
+  const fallback = Math.round(node.height / 2);
+  const raw = typeof node.operandSeparatorY === 'number' && Number.isFinite(node.operandSeparatorY)
+    ? node.operandSeparatorY
+    : fallback;
+  return clamp(Math.round(raw), min, max);
+}
+
+function moveOperandSeparator(document: UmlDiagramDocument, nodeId: string, separatorY: number): UmlDiagramDocument {
+  return {
+    ...document,
+    nodes: document.nodes.map((node) => {
+      if (node.id !== nodeId || node.kind !== 'combinedFragment') {
+        return node;
+      }
+      const { min, max } = operandSeparatorBounds(node.height);
+      return { ...node, operandSeparatorY: clamp(Math.round(separatorY), min, max) };
+    })
+  };
+}
+
+function clampCombinedFragmentSeparators(document: UmlDiagramDocument, nodeId?: string): UmlDiagramDocument {
+  return {
+    ...document,
+    nodes: document.nodes.map((node) => {
+      if (node.kind !== 'combinedFragment') {
+        return node;
+      }
+      if (nodeId && node.id !== nodeId) {
+        return node;
+      }
+      if (!combinedFragmentShowsSeparator(node.name) || node.operandSeparatorY === undefined) {
+        return node;
+      }
+      const nextY = operandSeparatorYForNode(node);
+      return nextY === node.operandSeparatorY ? node : { ...node, operandSeparatorY: nextY };
+    })
+  };
 }
 
 function CombinedFragmentIcon({ operator, size }: { operator?: 'loop' | 'alt' | 'opt' | 'par'; size: number }) {
@@ -4408,7 +4825,7 @@ function resolveEdgeGeometry(
   };
 }
 
-function DiagramEdge({ edge, edgeIndex, diagramKind, nodes, edges, bridgeCrossings, selected, onSelect, onPointerDown, onOrthogonalSegmentPointerDown, onLabelPointerDown, onContextMenu }: { edge: UmlEdge; edgeIndex: number; diagramKind: DiagramKind; nodes: UmlNode[]; edges?: UmlEdge[]; bridgeCrossings: Point[]; selected: boolean; onSelect: () => void; onPointerDown: (event: React.PointerEvent<SVGGElement>) => void; onOrthogonalSegmentPointerDown: (event: React.PointerEvent<SVGGElement>, axis: 'x' | 'y') => void; onLabelPointerDown: (event: React.PointerEvent<SVGTextElement>) => void; onContextMenu: (event: React.MouseEvent<SVGGElement>) => void }) {
+function DiagramEdge({ edge, edgeIndex, diagramKind, nodes, edges, bridgeCrossings, selected, onSelect, onPointerDown, onOrthogonalSegmentPointerDown, onActivationResizeStart, onLabelPointerDown, onPointerMove, onPointerUp, onContextMenu }: { edge: UmlEdge; edgeIndex: number; diagramKind: DiagramKind; nodes: UmlNode[]; edges?: UmlEdge[]; bridgeCrossings: Point[]; selected: boolean; onSelect: () => void; onPointerDown: (event: React.PointerEvent<SVGGElement>) => void; onOrthogonalSegmentPointerDown: (event: React.PointerEvent<SVGGElement>, axis: 'x' | 'y') => void; onActivationResizeStart: (event: React.PointerEvent<SVGGElement>, end: 'source' | 'target') => void; onLabelPointerDown: (event: React.PointerEvent<SVGTextElement>) => void; onPointerMove: (event: React.PointerEvent<SVGElement>) => void; onPointerUp: (event: React.PointerEvent<SVGGElement>) => void; onContextMenu: (event: React.MouseEvent<SVGGElement>) => void }) {
   const source = nodes.find((node) => node.id === edge.sourceId);
   const target = nodes.find((node) => node.id === edge.targetId);
 
@@ -4454,7 +4871,22 @@ function DiagramEdge({ edge, edgeIndex, diagramKind, nodes, edges, bridgeCrossin
         : edge.name;
   const sourceMultiplicityPoint = pointBetween(effectiveSrc, effectiveTgt, 0.18, -12);
   const targetMultiplicityPoint = pointBetween(effectiveSrc, effectiveTgt, 0.82, -12);
-  const activation = sequenceMessagePoints ? getSequenceActivationRect(target, sequenceMessagePoints.target) : undefined;
+  const sourceActivation = sequenceMessagePoints && !sequenceMessagePoints.selfCall
+    ? getSequenceActivationRect(source, sequenceMessagePoints.source, activationHeightForEdge(edge, 'source'))
+    : undefined;
+  const targetActivationHeight = sequenceMessagePoints?.selfCall
+    ? Math.max(
+      activationHeightForEdge(edge, 'target'),
+      Math.round(sequenceMessagePoints.target.y - sequenceMessagePoints.source.y) + 20
+    )
+    : activationHeightForEdge(edge, 'target');
+  const targetActivation = sequenceMessagePoints
+    ? getSequenceActivationRect(
+      target,
+      sequenceMessagePoints.selfCall ? sequenceMessagePoints.source : sequenceMessagePoints.target,
+      targetActivationHeight
+    )
+    : undefined;
   const polylinePoints = resolveEdgePolylinePoints(edge, edgeIndex, diagramKind, nodes, edges ?? []);
   const basePathData = (
     sequenceMessagePoints?.selfCall
@@ -4482,7 +4914,8 @@ function DiagramEdge({ edge, edgeIndex, diagramKind, nodes, edges, bridgeCrossin
 
   return (
     <g className={className} onPointerDown={onPointerDown} onClick={(event) => { event.stopPropagation(); onSelect(); }} onContextMenu={onContextMenu}>
-      {activation ? <rect className="activation-bar" x={activation.x} y={activation.y} width={activation.width} height={activation.height} rx="2" /> : null}
+      {sourceActivation ? <rect className="activation-bar" x={sourceActivation.x} y={sourceActivation.y} width={sourceActivation.width} height={sourceActivation.height} rx="2" /> : null}
+      {targetActivation ? <rect className="activation-bar" x={targetActivation.x} y={targetActivation.y} width={targetActivation.width} height={targetActivation.height} rx="2" /> : null}
       {/* Wide invisible hit stroke — never painted when selected. */}
       <path className={edge.kind === 'assemblyConnector' ? 'assembly-hit edge-hit' : 'edge-hit'} d={pathData} />
       {edge.kind === 'assemblyConnector'
@@ -4496,6 +4929,30 @@ function DiagramEdge({ edge, edgeIndex, diagramKind, nodes, edges, bridgeCrossin
           onPointerDown={(event) => onOrthogonalSegmentPointerDown(event, segment.axis)}
         />
       ))}
+      {selected && sourceActivation ? (
+        <g
+          className="activation-resize-handle"
+          transform={`translate(${sourceActivation.x + sourceActivation.width / 2 - 8} ${sourceActivation.y + sourceActivation.height - 6})`}
+          onPointerDown={(event) => onActivationResizeStart(event, 'source')}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+        >
+          <rect width="16" height="10" rx="2" />
+          <path d="M4 3 H12 M4 7 H12" />
+        </g>
+      ) : null}
+      {selected && targetActivation ? (
+        <g
+          className="activation-resize-handle"
+          transform={`translate(${targetActivation.x + targetActivation.width / 2 - 8} ${targetActivation.y + targetActivation.height - 6})`}
+          onPointerDown={(event) => onActivationResizeStart(event, 'target')}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+        >
+          <rect width="16" height="10" rx="2" />
+          <path d="M4 3 H12 M4 7 H12" />
+        </g>
+      ) : null}
       {notation.objectToken ? <ObjectFlowToken source={sourcePoint} target={targetPoint} /> : null}
       <text className="edge-label" x={effectiveLabelPoint.x} y={effectiveLabelPoint.y} textAnchor="middle" onPointerDown={onLabelPointerDown}>{label}</text>
       {showMultiplicity && edge.sourceMultiplicity ? <text className="multiplicity" x={sourceMultiplicityPoint.x} y={sourceMultiplicityPoint.y} textAnchor="middle">{edge.sourceMultiplicity}</text> : null}
@@ -4844,21 +5301,111 @@ function clampLifelineMessageY(source: UmlNode, target: UmlNode, y: number): num
   return Math.max(top, Math.min(bottom, Math.round(y)));
 }
 
+/** Shortest sequence lifeline height that still covers its messages. */
+function minimumLifelineSpanHeight(document: UmlDiagramDocument, lifelineId: string): number {
+  const lifeline = document.nodes.find((node) => node.id === lifelineId && node.kind === 'lifeline');
+  if (!lifeline) {
+    return 96;
+  }
+
+  let lowest = lifeline.y + 96;
+  for (const edge of document.edges) {
+    if (!isInteractionMessageKind(edge.kind)) {
+      continue;
+    }
+    if (edge.sourceId !== lifelineId && edge.targetId !== lifelineId) {
+      continue;
+    }
+    const messageY = sequenceYForEdge(document, edge);
+    const sourceExtent = messageY + activationHeightForEdge(edge, 'source');
+    const targetExtent = messageY + activationHeightForEdge(edge, 'target');
+    const extent = edge.sourceId === edge.targetId
+      ? Math.max(messageY + 48, targetExtent)
+      : Math.max(
+        edge.sourceId === lifelineId ? sourceExtent : messageY + 28,
+        edge.targetId === lifelineId ? targetExtent : messageY + 28
+      );
+    lowest = Math.max(lowest, extent);
+  }
+
+  return Math.max(96, Math.round(lowest - lifeline.y));
+}
+
 function selfMessagePath(source: Point, target: Point): string {
   const loopX = source.x + 58;
 
   return `M ${source.x} ${source.y} L ${loopX} ${source.y} L ${loopX} ${target.y} L ${target.x} ${target.y}`;
 }
 
-function getSequenceActivationRect(lifeline: UmlNode, messageTarget: Point): { x: number; y: number; width: number; height: number } {
+const DEFAULT_ACTIVATION_HEIGHT = 40;
+
+function activationHeightForEdge(edge: UmlEdge, end: 'source' | 'target'): number {
+  const stored = end === 'source' ? edge.sourceActivationHeight : edge.targetActivationHeight;
+  if (typeof stored === 'number' && Number.isFinite(stored)) {
+    return Math.max(20, Math.round(stored));
+  }
+  return DEFAULT_ACTIVATION_HEIGHT;
+}
+
+function getSequenceActivationRect(lifeline: UmlNode, messagePoint: Point, height: number): { x: number; y: number; width: number; height: number } {
   const width = 14;
-  const y = Math.max(lifeline.y + 44, messageTarget.y);
+  const y = Math.max(lifeline.y + 44, messagePoint.y);
+  const maxHeight = Math.max(20, lifeline.y + lifeline.height - y);
 
   return {
-    x: messageTarget.x - width / 2,
+    x: messagePoint.x - width / 2,
     y,
     width,
-    height: Math.min(54, Math.max(34, lifeline.y + lifeline.height - y))
+    height: Math.min(Math.max(20, Math.round(height)), maxHeight)
+  };
+}
+
+function resizeSequenceActivation(
+  document: UmlDiagramDocument,
+  edgeId: string,
+  end: 'source' | 'target',
+  height: number
+): UmlDiagramDocument {
+  if (document.kind !== 'sequence') {
+    return document;
+  }
+
+  const edge = document.edges.find((candidate) => candidate.id === edgeId);
+  if (!edge || !isInteractionMessageKind(edge.kind)) {
+    return document;
+  }
+
+  const lifelineId = end === 'source' ? edge.sourceId : edge.targetId;
+  const lifeline = document.nodes.find((node) => node.id === lifelineId && node.kind === 'lifeline');
+  if (!lifeline) {
+    return document;
+  }
+
+  const messageY = sequenceYForEdge(document, edge);
+  const topY = Math.max(lifeline.y + 44, messageY);
+  const nextHeight = Math.max(20, Math.round(height));
+  const requiredBottom = topY + nextHeight;
+  const withHeight = {
+    ...document,
+    edges: document.edges.map((candidate) => (
+      candidate.id === edgeId
+        ? {
+          ...candidate,
+          ...(end === 'source'
+            ? { sourceActivationHeight: nextHeight }
+            : { targetActivationHeight: nextHeight })
+        }
+        : candidate
+    ))
+  };
+
+  return {
+    ...withHeight,
+    nodes: withHeight.nodes.map((node) => (
+      node.id === lifelineId
+        ? { ...node, height: Math.max(node.height, Math.round(requiredBottom - node.y + 8)) }
+        : node
+    ))
   };
 }
 
@@ -5133,7 +5680,7 @@ function isCommunicationLinkEdge(kind: RelationshipKind): boolean {
   return kind === 'link' || kind === 'connector';
 }
 
-function DiagramNode({ node, partnerNode, selected, selectedOwnedElementId, showMessageStartLine, surfaceAttachment, diagramKind, onMessageStartLine, onPointerDown, onPointerMove, onPointerUp, onResizeStart, onOwnedElementSelect, onContextMenu }: { node: UmlNode; partnerNode?: UmlNode; selected: boolean; selectedOwnedElementId: string | undefined; showMessageStartLine?: boolean; surfaceAttachment?: EdgeAnchor; diagramKind?: DiagramKind; onMessageStartLine?: (event: React.PointerEvent<SVGElement>) => void; onPointerDown: (event: React.PointerEvent<SVGGElement>) => void; onPointerMove: (event: React.PointerEvent<SVGElement>) => void; onPointerUp: (event: React.PointerEvent<SVGGElement>) => void; onResizeStart: (event: React.PointerEvent<SVGGElement>) => void; onOwnedElementSelect: (elementId: string) => void; onContextMenu: (event: React.MouseEvent<SVGGElement>) => void }) {
+function DiagramNode({ node, partnerNode, selected, selectedOwnedElementId, showMessageStartLine, surfaceAttachment, diagramKind, onMessageStartLine, onPointerDown, onPointerMove, onPointerUp, onResizeStart, onOwnedElementSelect, onContextMenu }: { node: UmlNode; partnerNode?: UmlNode; selected: boolean; selectedOwnedElementId: string | undefined; showMessageStartLine?: boolean; surfaceAttachment?: EdgeAnchor; diagramKind?: DiagramKind; onMessageStartLine?: (event: React.PointerEvent<SVGElement>) => void; onPointerDown: (event: React.PointerEvent<SVGGElement>) => void; onPointerMove: (event: React.PointerEvent<SVGElement>) => void; onPointerUp: (event: React.PointerEvent<SVGGElement>) => void; onResizeStart: (event: React.PointerEvent<SVGGElement>, mode?: 'default' | 'lifeline-span' | 'lifeline-width') => void; onOwnedElementSelect: (elementId: string) => void; onContextMenu: (event: React.MouseEvent<SVGGElement>) => void }) {
   const className = selected ? 'node selected' : 'node';
   const ownedElements = node.ownedElements ?? [];
   const attributeElements = ownedElements.filter((element) => element.kind !== 'operation');
@@ -5155,13 +5702,13 @@ function DiagramNode({ node, partnerNode, selected, selectedOwnedElementId, show
   const useCaseNode = renderUseCaseDiagramNode({ node, className, title, pointerHandlers, onResizeStart });
 
   if (useCaseNode) {
-    return withResizeHandle(useCaseNode, node, nodeHeight, onResizeStart);
+    return withResizeHandle(useCaseNode, node, nodeHeight, onResizeStart, diagramKind, onPointerMove, onPointerUp);
   }
 
   const activityNode = renderActivityDiagramNode({ node, className, title, pointerHandlers });
 
   if (activityNode) {
-    return withResizeHandle(activityNode, node, nodeHeight, onResizeStart);
+    return withResizeHandle(activityNode, node, nodeHeight, onResizeStart, diagramKind, onPointerMove, onPointerUp);
   }
 
   if (node.kind === 'initialNode' || node.kind === 'pseudostate') {
@@ -5171,7 +5718,7 @@ function DiagramNode({ node, partnerNode, selected, selectedOwnedElementId, show
       <g className={className} transform={`translate(${node.x} ${node.y})`} {...pointerHandlers}>
         <circle cx={node.width / 2} cy={node.height / 2} r={radius} className="filled" />
       </g>
-    ), node, nodeHeight, onResizeStart);
+    ), node, nodeHeight, onResizeStart, diagramKind, onPointerMove, onPointerUp);
   }
 
   if (node.kind === 'decisionNode') {
@@ -5180,7 +5727,7 @@ function DiagramNode({ node, partnerNode, selected, selectedOwnedElementId, show
         <path d={`M ${node.width / 2} 2 L ${node.width - 2} ${node.height / 2} L ${node.width / 2} ${node.height - 2} L 2 ${node.height / 2} Z`} />
         <text x={node.width / 2} y={node.height / 2 + 5} textAnchor="middle">{title}</text>
       </g>
-    ), node, nodeHeight, onResizeStart);
+    ), node, nodeHeight, onResizeStart, diagramKind, onPointerMove, onPointerUp);
   }
 
   if (node.kind === 'lifeline') {
@@ -5190,30 +5737,58 @@ function DiagramNode({ node, partnerNode, selected, selectedOwnedElementId, show
           <rect width={node.width} height={nodeHeight} rx="4" />
           <text x={node.width / 2} y={nodeHeight / 2 + 5} textAnchor="middle">{title}</text>
         </g>
-      ), node, nodeHeight, onResizeStart, diagramKind);
+      ), node, nodeHeight, onResizeStart, diagramKind, onPointerMove, onPointerUp);
     }
-    return withResizeHandle((
-      <g className={className} transform={`translate(${node.x} ${node.y})`} {...pointerHandlers}>
-        <rect width={node.width} height="44" rx="4" />
-        <line x1={node.width / 2} y1="44" x2={node.width / 2} y2={node.height} strokeDasharray="6 6" />
-        {showMessageStartLine && onMessageStartLine ? <rect className="lifeline-message-start-zone" x={node.width / 2 - 10} y="44" width="20" height={Math.max(1, node.height - 44)} onPointerDown={onMessageStartLine} /> : null}
-        <text x={node.width / 2} y="28" textAnchor="middle">{title}</text>
-      </g>
-    ), node, nodeHeight, onResizeStart);
+    const spanLength = Math.max(1, node.height - 44);
+    return (
+      <>
+        <g className={className} transform={`translate(${node.x} ${node.y})`} {...pointerHandlers}>
+          <rect width={node.width} height="44" rx="4" />
+          <line x1={node.width / 2} y1="44" x2={node.width / 2} y2={node.height} strokeDasharray="6 6" pointerEvents="none" />
+          {showMessageStartLine && onMessageStartLine ? <rect className="lifeline-message-start-zone" x={node.width / 2 - 10} y="44" width="20" height={spanLength} onPointerDown={onMessageStartLine} /> : null}
+          <text x={node.width / 2} y="28" textAnchor="middle">{title}</text>
+        </g>
+        {selected ? (
+          <>
+            <g
+              className="resize-handle lifeline-width-handle"
+              transform={`translate(${node.x + node.width - 16} ${node.y + 28})`}
+              onPointerDown={(event) => onResizeStart(event, 'lifeline-width')}
+              onPointerMove={onPointerMove}
+              onPointerUp={onPointerUp}
+            >
+              <rect width="16" height="16" rx="2" />
+              <path d="M5 12 L12 5 M9 12 L12 9" />
+            </g>
+            <g
+              className="resize-handle lifeline-span-handle"
+              transform={`translate(${node.x + node.width / 2 - 12} ${node.y + node.height - 8})`}
+              onPointerDown={(event) => onResizeStart(event, 'lifeline-span')}
+              onPointerMove={onPointerMove}
+              onPointerUp={onPointerUp}
+            >
+              <rect width="24" height="14" rx="3" />
+              <path d="M6 5 H18 M6 9 H18" />
+            </g>
+          </>
+        ) : null}
+      </>
+    );
   }
 
   if (node.kind === 'combinedFragment') {
     const operator = title.replace(/\d+$/, '') || 'loop';
-    const showSeparator = /^alt|par$/i.test(operator);
+    const showSeparator = combinedFragmentShowsSeparator(node.name);
+    const separatorY = operandSeparatorYForNode(node);
 
     return withResizeHandle((
       <g className={className} transform={`translate(${node.x} ${node.y})`} {...pointerHandlers}>
         <rect className="combined-fragment-frame" width={node.width} height={node.height} rx="2" />
         <path className="combined-fragment-operator" d="M0 0 H72 L92 20 V34 H0 Z" />
         <text x="12" y="22" textAnchor="start">{operator}</text>
-        {showSeparator ? <line className="operand-separator" x1="0" y1={node.height / 2} x2={node.width} y2={node.height / 2} strokeDasharray="8 5" /> : null}
+        {showSeparator ? <line className="operand-separator" x1="0" y1={separatorY} x2={node.width} y2={separatorY} strokeDasharray="8 5" /> : null}
       </g>
-    ), node, nodeHeight, onResizeStart);
+    ), node, nodeHeight, onResizeStart, diagramKind, onPointerMove, onPointerUp);
   }
 
   if (node.kind === 'component') {
@@ -5231,7 +5806,7 @@ function DiagramNode({ node, partnerNode, selected, selectedOwnedElementId, show
           <OwnedElementText key={element.id} element={element} y={74 + index * 18} nodeWidth={node.width} selected={selectedOwnedElementId === element.id} onSelect={() => onOwnedElementSelect(element.id)} />
         ))}
       </g>
-    ), node, nodeHeight, onResizeStart);
+    ), node, nodeHeight, onResizeStart, diagramKind, onPointerMove, onPointerUp);
   }
 
   if (node.kind === 'port') {
@@ -5240,7 +5815,7 @@ function DiagramNode({ node, partnerNode, selected, selectedOwnedElementId, show
         <rect className="node-hit-area" x="-8" y="-8" width={node.width + 16} height={node.height + 16} rx="6" />
         <rect className="port-node" width={node.width} height={node.height} rx="2" />
       </g>
-    ), node, nodeHeight, onResizeStart);
+    ), node, nodeHeight, onResizeStart, diagramKind, onPointerMove, onPointerUp);
   }
 
   if (node.kind === 'providedInterface') {
@@ -5250,8 +5825,9 @@ function DiagramNode({ node, partnerNode, selected, selectedOwnedElementId, show
       className,
       side: surfaceAttachment,
       pointerHandlers,
-      onResizeStart,
-      withResizeHandle
+      onResizeStart: (event) => onResizeStart(event, 'default'),
+      withResizeHandle: (content, resizeNode, height, resizeStart) =>
+        withResizeHandle(content, resizeNode, height, (event) => resizeStart(event), diagramKind, onPointerMove, onPointerUp)
     });
   }
 
@@ -5262,24 +5838,29 @@ function DiagramNode({ node, partnerNode, selected, selectedOwnedElementId, show
       className,
       side: surfaceAttachment,
       pointerHandlers,
-      onResizeStart,
-      withResizeHandle
+      onResizeStart: (event) => onResizeStart(event, 'default'),
+      withResizeHandle: (content, resizeNode, height, resizeStart) =>
+        withResizeHandle(content, resizeNode, height, (event) => resizeStart(event), diagramKind, onPointerMove, onPointerUp)
     });
   }
 
   if (node.kind === 'package') {
     const tabWidth = Math.min(92, Math.max(54, node.width * 0.42));
     const tabHeight = 22;
+    const packagePath = `M 0 ${tabHeight} V 6 H ${tabWidth} L ${tabWidth + 12} ${tabHeight} H ${node.width} V ${nodeHeight} H 0 Z`;
 
     return withResizeHandle((
       <g className={className} transform={`translate(${node.x} ${node.y})`} {...pointerHandlers}>
-        <path className="package-shape" d={`M 0 ${tabHeight} V 6 H ${tabWidth} L ${tabWidth + 12} ${tabHeight} H ${node.width} V ${nodeHeight} H 0 Z`} />
-        <text x="10" y="19" textAnchor="start">{title}</text>
+        {/* Wide invisible stroke so the package frame is easy to grab without covering nested nodes. */}
+        <path className="group-frame-hit" d={packagePath} />
+        <path className="package-shape" d={packagePath} />
+        <rect className="group-title-hit" x="0" y="0" width={tabWidth + 12} height={tabHeight + 2} rx="2" />
+        <text className="group-title" x="10" y="19" textAnchor="start">{title}</text>
         {ownedElements.map((element, index) => (
           <OwnedElementText key={element.id} element={element} y={52 + index * 18} nodeWidth={node.width} selected={selectedOwnedElementId === element.id} onSelect={() => onOwnedElementSelect(element.id)} />
         ))}
       </g>
-    ), node, nodeHeight, onResizeStart);
+    ), node, nodeHeight, onResizeStart, diagramKind, onPointerMove, onPointerUp);
   }
 
   if (node.kind === 'node' || node.kind === 'device') {
@@ -5296,7 +5877,7 @@ function DiagramNode({ node, partnerNode, selected, selectedOwnedElementId, show
           <OwnedElementText key={element.id} element={element} y={76 + index * 18} nodeWidth={node.width} selected={selectedOwnedElementId === element.id} onSelect={() => onOwnedElementSelect(element.id)} />
         ))}
       </g>
-    ), node, nodeHeight, onResizeStart);
+    ), node, nodeHeight, onResizeStart, diagramKind, onPointerMove, onPointerUp);
   }
 
   if (node.kind === 'executionEnvironment') {
@@ -5309,7 +5890,7 @@ function DiagramNode({ node, partnerNode, selected, selectedOwnedElementId, show
           <OwnedElementText key={element.id} element={element} y={72 + index * 18} nodeWidth={node.width} selected={selectedOwnedElementId === element.id} onSelect={() => onOwnedElementSelect(element.id)} />
         ))}
       </g>
-    ), node, nodeHeight, onResizeStart);
+    ), node, nodeHeight, onResizeStart, diagramKind, onPointerMove, onPointerUp);
   }
 
   if (node.kind === 'state') {
@@ -5322,7 +5903,7 @@ function DiagramNode({ node, partnerNode, selected, selectedOwnedElementId, show
           <OwnedElementText key={element.id} element={element} y={60 + index * 18} nodeWidth={node.width} selected={selectedOwnedElementId === element.id} onSelect={() => onOwnedElementSelect(element.id)} />
         ))}
       </g>
-    ), node, nodeHeight, onResizeStart);
+    ), node, nodeHeight, onResizeStart, diagramKind, onPointerMove, onPointerUp);
   }
 
   if (node.kind === 'stateInvariant') {
@@ -5333,7 +5914,7 @@ function DiagramNode({ node, partnerNode, selected, selectedOwnedElementId, show
         <text className="compartment-label" x={node.width / 2} y="14" textAnchor="middle">«stateInvariant»</text>
         <text x={node.width / 2} y={nodeHeight / 2 + 10} textAnchor="middle">{constraintLabel}</text>
       </g>
-    ), node, nodeHeight, onResizeStart);
+    ), node, nodeHeight, onResizeStart, diagramKind, onPointerMove, onPointerUp);
   }
 
   if (node.kind === 'artifact') {
@@ -5349,7 +5930,7 @@ function DiagramNode({ node, partnerNode, selected, selectedOwnedElementId, show
           <OwnedElementText key={element.id} element={element} y={70 + index * 18} nodeWidth={node.width} selected={selectedOwnedElementId === element.id} onSelect={() => onOwnedElementSelect(element.id)} />
         ))}
       </g>
-    ), node, nodeHeight, onResizeStart);
+    ), node, nodeHeight, onResizeStart, diagramKind, onPointerMove, onPointerUp);
   }
 
   return withResizeHandle((
@@ -5382,10 +5963,18 @@ function DiagramNode({ node, partnerNode, selected, selectedOwnedElementId, show
         ))
       )}
     </g>
-  ), node, nodeHeight, onResizeStart);
+  ), node, nodeHeight, onResizeStart, diagramKind, onPointerMove, onPointerUp);
 }
 
-function withResizeHandle(nodeContent: React.ReactNode, node: UmlNode, nodeHeight: number, onResizeStart: (event: React.PointerEvent<SVGGElement>) => void, diagramKind?: DiagramKind): React.ReactNode {
+function withResizeHandle(
+  nodeContent: React.ReactNode,
+  node: UmlNode,
+  nodeHeight: number,
+  onResizeStart: (event: React.PointerEvent<SVGGElement>, mode?: 'default' | 'lifeline-span' | 'lifeline-width') => void,
+  diagramKind?: DiagramKind,
+  onPointerMove?: (event: React.PointerEvent<SVGElement>) => void,
+  onPointerUp?: (event: React.PointerEvent<SVGGElement>) => void
+): React.ReactNode {
   const handlePosition = resizeHandlePosition(node, nodeHeight, diagramKind);
   const side = isInterfaceNode(node) ? interfaceAttachmentSide(node) : undefined;
   const cursor = side === 'left' || side === 'right' ? 'ew-resize' : side === 'top' || side === 'bottom' ? 'ns-resize' : undefined;
@@ -5393,7 +5982,14 @@ function withResizeHandle(nodeContent: React.ReactNode, node: UmlNode, nodeHeigh
   return (
     <>
       {nodeContent}
-      <g className="resize-handle" style={cursor ? { cursor } : undefined} transform={`translate(${handlePosition.x} ${handlePosition.y})`} onPointerDown={onResizeStart}>
+      <g
+        className="resize-handle"
+        style={cursor ? { cursor } : undefined}
+        transform={`translate(${handlePosition.x} ${handlePosition.y})`}
+        onPointerDown={(event) => onResizeStart(event, 'default')}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+      >
         <rect width="16" height="16" rx="2" />
         <path d="M5 12 L12 5 M9 12 L12 9" />
       </g>
@@ -5477,16 +6073,6 @@ function createLocalizedDiagramDocument(kind: DiagramKind, locale: Locale): UmlD
 
 function clampZoom(value: number): number {
   return Math.min(maximumZoom, Math.max(minimumZoom, Number(value.toFixed(2))));
-}
-
-function findScopedSnapshotIndex(snapshots: ProjectSnapshot[], documentId: string | undefined): number {
-  for (let index = snapshots.length - 1; index >= 0; index -= 1) {
-    if (snapshots[index].activeDocumentId === documentId) {
-      return index;
-    }
-  }
-
-  return -1;
 }
 
 function centeredCanvasPan(document: UmlDiagramDocument, canvas: SVGSVGElement | null): Point {
