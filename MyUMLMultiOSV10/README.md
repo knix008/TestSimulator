@@ -1,103 +1,106 @@
-# My UML Multi OS
+# UML Editor (MyUML Multi OS)
 
-Windows, macOS, Linux에서 실행되는 JavaScript 기반 UML 작성 프로그램을 만들기 위한 워크스페이스입니다.
+Windows, macOS, Linux에서 동작하는 **standalone UML 다이어그램 편집기**입니다.  
+제품 표시 이름은 **UML Editor**, 내부 패키지 이름은 `my-uml-multi-os`입니다.
 
-현재 제품 기준은 다음과 같습니다.
+Java / Eclipse RCP / Papyrus 런타임은 포함하지 않습니다. 현재 기본 저장 형식은 JSON 기반 **`.umlprj`** 입니다. Papyrus의 `.uml` / `.notation` / `.di` 호환은 장기 목표이며, Papyrus 소스는 분석용 참고로만 사용합니다.
 
-- Papyrus와 파일 호환성을 유지한다.
-- Java 런타임과 Eclipse RCP를 제품에 포함하지 않는다.
-- Papyrus 코드는 런타임으로 사용하지 않고, 기능 동작과 저장 포맷을 분석하는 기준 구현으로 활용한다.
-- 구현 언어와 앱 런타임은 JavaScript/TypeScript 계열로 제한한다.
+## 주요 기능
 
-이 기준에서는 Papyrus 플러그인을 직접 실행할 수 없습니다. 대신 Papyrus가 저장하는 `.uml`, `.notation`, `.di` 파일을 읽고 쓰는 호환 계층을 TypeScript로 구현해야 합니다.
+- UML 2.5.1 계열 **13종 다이어그램** 편집
+- 멀티 다이어그램 프로젝트 (`.umlprj`)
+- 컴포넌트 **연결(Interface Pair)**: provided/required 인터페이스 쌍, 포트 스냅, 방향 바꾸기
+- 직선 / 직교 / 곡선 라우팅, 직교 장애물 회피, 교차 브리지(jump)
+- 한국어 / 영어 UI, Light / Dark 테마
+- 실행 취소·다시 실행, 확대·축소, 이미지보내기(PNG/GIF 등)
+- Windows: `.umlprj` 파일 연결 + 프로젝트 전용 아이콘
 
-## 권장 제품 구조
+## 요구 사항
 
-```text
-데스크톱 앱
-	-> Electron 또는 Tauri JavaScript 런타임
-		-> TypeScript UML domain model
-		-> Papyrus file compatibility layer
-		-> Diagram editor
-		-> Import/export and validation tools
-```
+- Node.js **20** 이상
+- npm
 
-Electron은 Node.js와 Chromium을 포함하므로 Java 없이 3개 OS 배포가 쉽습니다. Tauri는 더 작은 패키지를 만들 수 있지만, Rust 빌드 체인이 필요합니다. 이 프로젝트의 초기 MVP는 Electron + TypeScript를 기준으로 잡습니다.
-
-## 실행
-
-현재 GUI는 Vite 기반 개발 서버로 실행합니다.
+## 빠른 시작
 
 ```powershell
 npm install
+npm start
+```
+
+`npm start`는 웹 번들을 빌드한 뒤 Electron 데스크톱 앱으로 실행합니다.
+
+브라우저만 쓰려면:
+
+```powershell
 npm run dev
 ```
 
-브라우저에서 아래 주소를 엽니다.
+주소: `http://127.0.0.1:5173/`
 
-```text
-http://127.0.0.1:5173/
-```
+## npm 스크립트
 
-현재 GUI는 UML 2.5.1 다이어그램 타입을 선택하고, 다이어그램별 palette에서 요소를 만들어 이름과 UML type을 편집할 수 있습니다. 모든 주요 버튼은 아이콘과 레이블을 함께 표시하며, 한국어/영어 전환과 Light/Dark 테마 전환을 지원합니다. Papyrus 호환 저장은 `.uml`, `.notation`, `.di` serializer를 확장하면서 단계적으로 연결합니다.
+| 명령 | 설명 |
+|------|------|
+| `npm start` / `npm run run:win` | 빌드 후 Electron 실행 |
+| `npm run dev` | Vite 개발 서버 |
+| `npm run build` / `build:web` | 웹 번들 (`dist/app`) |
+| `npm run build:win` | Windows NSIS 설치 파일 |
+| `npm run build:linux` | AppImage / deb |
+| `npm run build:mac` | dmg (macOS 호스트 권장) |
+| `npm run build:all` | win + linux + mac |
+| `npm run icons` | `app-icon` / `project-icon` ICO 재생성 |
+| `npm test` | Vitest |
+| `npm run check` | 빌드 + 테스트 |
 
-## 빌드와 설치 파일
-
-웹 배포 파일은 아래 명령으로 생성합니다.
-
-```powershell
-npm run build:web
-```
-
-데스크톱 설치 파일은 Electron Builder로 생성합니다. Windows에서는 아래 명령으로 NSIS 설치 파일을 만들고, 생성된 설치 파일을 프로젝트 루트 폴더로 복사합니다.
+## 설치 파일 (Windows)
 
 ```powershell
 npm run build:win
 ```
 
-Linux와 macOS용 스크립트도 준비되어 있습니다.
+- 산출물: `release/UML-Editor-Setup-<version>.exe`
+- 프로젝트 루트로도 복사됩니다 (`scripts/copy-installers.cjs`)
+- 설치 위치 선택, 바탕화면·시작 메뉴 바로가기 지원
+- 재설치 시 기존 설치본과 앱 데이터를 정리한 뒤 설치 (`build/installer.nsh`)
+
+설치 파일·`release/` 폴더는 git에 올리지 않습니다 (`.gitignore`).
+
+## 프로젝트 파일
+
+- 확장자: **`.umlprj`**
+- 형식: `format: "my-uml-multi-os-project"`, `version: 1`
+- 시스템 등록 이름: **MyUML Project**
+- 파일 아이콘: `assets/project-icon.ico` (앱 아이콘과 별도)
+
+샘플: [`samples/`](samples/) (`01-class` … `13-timing`).  
+재생성: `node --experimental-strip-types scripts/generate-samples.mjs`
+
+## 아이콘
+
+| 파일 | 용도 |
+|------|------|
+| `assets/app-icon.svg` / `.ico` | 앱, 설치 파일, 창 아이콘 |
+| `assets/project-icon.svg` / `.ico` | `.umlprj` 파일 연결 |
 
 ```powershell
-npm run build:linux
-npm run build:mac
+npm run icons
 ```
 
-macOS 설치 파일은 macOS 빌드 호스트에서 만드는 것을 권장합니다. 설치 마법사는 설치 위치 선택을 지원하며, Windows에서는 바탕화면 바로가기와 시작 메뉴 바로가기가 생성되도록 설정되어 있습니다.
+## 문서
 
-프로젝트 저장 파일 확장자는 `.umlprj`입니다. 설치 패키지는 이 확장자를 My UML Multi OS Project로 시스템에 등록하며, `.umlprj` 파일을 더블클릭하면 등록된 My UML Multi OS가 실행되고 해당 프로젝트가 열립니다.
+- [Architecture.md](Architecture.md) — 런타임·모듈 구조
+- [UsersGuide.md](UsersGuide.md) — 사용자 가이드
 
-## Papyrus 소스 활용 방식
+## Papyrus 참고 (선택)
 
-Papyrus 저장소는 아래 목적으로 사용합니다.
-
-- `.uml`, `.notation`, `.di` 저장 구조 확인
-- XMI namespace, element id, diagram notation 구조 확인
-- Papyrus가 생성한 샘플 모델과 round-trip 비교
-- 기능 명세, UI 동작, command 처리, validation rule 분석
-- 분석한 기능을 TypeScript domain model과 editor 기능으로 재구현
-
-Papyrus 코드를 제품에 링크하거나 포함하지 않습니다. Java/Eclipse RCP 번들도 제품에 포함하지 않습니다.
+호환성 분석용으로 Papyrus Desktop 소스를 받을 수 있습니다. 제품에는 포함되지 않습니다.
 
 ```powershell
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 .\scripts\clone-papyrus.ps1
 ```
 
-## 개발 단계
+## 라이선스 / 제약
 
-1. Papyrus가 만든 샘플 프로젝트를 수집합니다.
-2. Papyrus의 각 다이어그램 생성 흐름을 분석해 TypeScript 다이어그램 정의와 palette command로 옮깁니다.
-3. `.uml`, `.notation`, `.di` 파일의 최소 parser/serializer를 TypeScript로 구현합니다.
-4. Class Diagram부터 round-trip 저장을 통과시킵니다.
-5. Papyrus에서 다시 열리는지 검증하는 호환성 테스트를 추가합니다.
-6. Sequence, Activity, State Machine 등 다이어그램 범위를 단계적으로 확장합니다.
-7. OS별 Electron 패키징과 코드 서명을 구성합니다.
-
-## 중요한 제약
-
-- Papyrus 기능 전체를 그대로 재사용하는 것은 Java/Eclipse RCP 없이는 불가능합니다.
-- Papyrus와 같은 수준의 기능을 목표로 하려면 TypeScript로 기능을 재구현해야 합니다.
-- “호환성”의 첫 기준은 Papyrus가 생성한 파일을 손상 없이 읽고, 저장 후 Papyrus에서 다시 열 수 있는 것입니다.
-- Papyrus Desktop은 EPL 2.0입니다. 소스 분석과 코드 재사용 범위에 따라 라이선스 검토가 필요합니다.
-
-자세한 구조는 [docs/architecture.md](docs/architecture.md)를, 파일 호환성 계획은 [docs/papyrus-file-compatibility.md](docs/papyrus-file-compatibility.md)를, Papyrus 코드 참고 방식은 [docs/papyrus-reference-implementation.md](docs/papyrus-reference-implementation.md)를 참고하세요.
+- Papyrus Desktop은 EPL 2.0입니다. 소스 분석·코드 재사용 범위에 따라 라이선스 검토가 필요합니다.
+- 이 제품은 Papyrus 플러그인을 실행하지 않으며, 기능을 TypeScript로 자체 구현합니다.
