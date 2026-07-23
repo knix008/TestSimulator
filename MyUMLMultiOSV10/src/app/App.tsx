@@ -290,8 +290,8 @@ export function App() {
   const canDeleteDiagram = documents.length > 0;
   const hasSelection = Boolean(projectSelected || selectedDiagram || selectedNode || selectedEdge || selectedOwnedElementValue || selectedNodeIds.size > 0);
   const canDeleteSelectedDiagram = canDeleteDiagram && hasSelection;
-  const canUndo = hasSelection && undoStack.length > 0;
-  const canRedo = hasSelection && redoStack.length > 0;
+  const canUndo = undoStack.length > 0;
+  const canRedo = redoStack.length > 0;
   const activeConnector = selectedConnector ?? pendingConnectorRef.current;
   const activeMode = activeConnector ? connectorToolLabel(locale, activeConnector, document.kind) : selectedTool ? paletteToolLabel(locale, selectedTool, document.kind) : text.pointer;
   const canvasClassName = activeConnector ? 'canvas connector-mode' : 'canvas';
@@ -2425,7 +2425,7 @@ export function App() {
           <button type="button" title={text.redo} aria-label={text.redo} onClick={redoProjectChange} className="icon-button" disabled={!canRedo}>
             <Redo2 size={17} />
           </button>
-          <button type="button" title={text.deleteDiagram} aria-label={text.deleteDiagram} onClick={deleteActiveDiagram} className="icon-button" disabled={!canDeleteSelectedDiagram}>
+          <button type="button" title={text.deleteSelected} aria-label={text.deleteSelected} onClick={deleteSelection} className="icon-button" disabled={!canDeleteSelectedDiagram}>
             <Trash2 size={17} />
           </button>
           <button type="button" title={text.saveImage} aria-label={text.saveImage} onClick={() => { setImageExportError(undefined); setImageExportOpen(true); }} className="text-button" disabled={!hasActiveDocument}>

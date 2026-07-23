@@ -16,8 +16,8 @@
           "ownedElements": [],
           "x": 40,
           "y": 40,
-          "width": 780,
-          "height": 500
+          "width": 805,
+          "height": 532
         },
         {
           "id": "class-customer",
@@ -46,7 +46,7 @@
           ],
           "x": 70,
           "y": 100,
-          "width": 170,
+          "width": 201,
           "height": 130
         },
         {
@@ -76,7 +76,7 @@
           ],
           "x": 310,
           "y": 100,
-          "width": 170,
+          "width": 194,
           "height": 130
         },
         {
@@ -100,7 +100,7 @@
           ],
           "x": 560,
           "y": 100,
-          "width": 170,
+          "width": 230,
           "height": 120
         },
         {
@@ -112,7 +112,7 @@
           "x": 310,
           "y": 280,
           "width": 170,
-          "height": 70
+          "height": 72
         },
         {
           "id": "enum-status",
@@ -159,7 +159,7 @@
           ],
           "x": 70,
           "y": 280,
-          "width": 170,
+          "width": 244,
           "height": 90
         },
         {
@@ -181,9 +181,9 @@
               "umlType": "uml:Operation"
             }
           ],
-          "x": 70,
-          "y": 400,
-          "width": 170,
+          "x": 62,
+          "y": 427,
+          "width": 201,
           "height": 110
         },
         {
@@ -199,9 +199,9 @@
               "umlType": "uml:Property"
             }
           ],
-          "x": 310,
-          "y": 420,
-          "width": 170,
+          "x": 512,
+          "y": 441,
+          "width": 208,
           "height": 80
         }
       ],
@@ -237,7 +237,7 @@
         {
           "id": "e3",
           "kind": "generalization",
-          "name": "",
+          "name": "Generalization3",
           "umlType": "uml:Generalization",
           "sourceId": "class-online-order",
           "targetId": "class-order",
@@ -257,13 +257,14 @@
           "route": "orthogonal",
           "sourceAnchor": "left",
           "targetAnchor": "top",
+          "targetAnchorOffset": 0.263681592039801,
           "sourceMultiplicity": "1",
           "targetMultiplicity": "0..1"
         },
         {
           "id": "e5",
           "kind": "realization",
-          "name": "",
+          "name": "Realization5",
           "umlType": "uml:InterfaceRealization",
           "sourceId": "class-payment",
           "targetId": "iface-payable",
@@ -275,7 +276,7 @@
         {
           "id": "e6",
           "kind": "dependency",
-          "name": "",
+          "name": "Dependency6",
           "umlType": "uml:Dependency",
           "sourceId": "class-item",
           "targetId": "enum-status",
@@ -287,7 +288,7 @@
         {
           "id": "e7",
           "kind": "dependency",
-          "name": "",
+          "name": "Dependency7",
           "umlType": "uml:Dependency",
           "sourceId": "class-payment",
           "targetId": "dt-money",
@@ -363,7 +364,7 @@
         {
           "id": "p1",
           "kind": "extension",
-          "name": "",
+          "name": "Extension1",
           "umlType": "uml:Extension",
           "sourceId": "stereo-entity",
           "targetId": "meta-class",
@@ -375,7 +376,7 @@
         {
           "id": "p2",
           "kind": "extension",
-          "name": "",
+          "name": "Extension2",
           "umlType": "uml:Extension",
           "sourceId": "stereo-service",
           "targetId": "meta-component",
@@ -387,7 +388,7 @@
         {
           "id": "p3",
           "kind": "generalization",
-          "name": "",
+          "name": "Generalization3",
           "umlType": "uml:Generalization",
           "sourceId": "stereo-service",
           "targetId": "stereo-entity",
@@ -603,7 +604,7 @@
         {
           "id": "l3",
           "kind": "dependency",
-          "name": "",
+          "name": "Dependency3",
           "umlType": "uml:Dependency",
           "sourceId": "obj-o1",
           "targetId": "cls-order",
@@ -691,7 +692,9 @@
           "directed": false,
           "route": "straight",
           "sourceAnchor": "right",
-          "targetAnchor": "left"
+          "targetAnchor": "left",
+          "sourceMultiplicity": "1",
+          "targetMultiplicity": "1"
         },
         {
           "id": "c2",
@@ -703,12 +706,14 @@
           "directed": false,
           "route": "orthogonal",
           "sourceAnchor": "right",
-          "targetAnchor": "left"
+          "targetAnchor": "left",
+          "sourceMultiplicity": "1",
+          "targetMultiplicity": "1"
         },
         {
           "id": "c3",
           "kind": "dependency",
-          "name": "",
+          "name": "Dependency3",
           "umlType": "uml:Dependency",
           "sourceId": "pt-wheel",
           "targetId": "pt-engine",
@@ -956,7 +961,7 @@
         {
           "id": "dep2",
           "kind": "dependency",
-          "name": "",
+          "name": "Dependency2",
           "umlType": "uml:Dependency",
           "sourceId": "order-service",
           "targetId": "art-war",
@@ -1032,7 +1037,7 @@
         {
           "id": "d1",
           "kind": "deployment",
-          "name": "",
+          "name": "Deployment1",
           "umlType": "uml:Deployment",
           "sourceId": "art-app",
           "targetId": "ee-jvm",
@@ -1044,7 +1049,7 @@
         {
           "id": "d2",
           "kind": "deployment",
-          "name": "",
+          "name": "Deployment2",
           "umlType": "uml:Deployment",
           "sourceId": "art-schema",
           "targetId": "node-db",
@@ -1056,7 +1061,7 @@
         {
           "id": "d3",
           "kind": "dependency",
-          "name": "",
+          "name": "Dependency3",
           "umlType": "uml:Dependency",
           "sourceId": "ee-jvm",
           "targetId": "dev-server",
@@ -1068,7 +1073,7 @@
         {
           "id": "d4",
           "kind": "dependency",
-          "name": "",
+          "name": "Dependency4",
           "umlType": "uml:Dependency",
           "sourceId": "ee-jvm",
           "targetId": "node-db",
@@ -1166,26 +1171,30 @@
         {
           "id": "u1",
           "kind": "association",
-          "name": "",
+          "name": "Association1",
           "umlType": "uml:Association",
           "sourceId": "actor-customer",
           "targetId": "uc-browse",
           "directed": false,
           "route": "straight",
           "sourceAnchor": "right",
-          "targetAnchor": "left"
+          "targetAnchor": "left",
+          "sourceMultiplicity": "1",
+          "targetMultiplicity": "1"
         },
         {
           "id": "u2",
           "kind": "association",
-          "name": "",
+          "name": "Association2",
           "umlType": "uml:Association",
           "sourceId": "actor-customer",
           "targetId": "uc-checkout",
           "directed": false,
           "route": "straight",
           "sourceAnchor": "right",
-          "targetAnchor": "left"
+          "targetAnchor": "left",
+          "sourceMultiplicity": "1",
+          "targetMultiplicity": "1"
         },
         {
           "id": "u3",
@@ -1214,14 +1223,16 @@
         {
           "id": "u5",
           "kind": "association",
-          "name": "",
+          "name": "Association5",
           "umlType": "uml:Association",
           "sourceId": "uc-pay",
           "targetId": "actor-payment",
           "directed": false,
           "route": "straight",
           "sourceAnchor": "right",
-          "targetAnchor": "left"
+          "targetAnchor": "left",
+          "sourceMultiplicity": "1",
+          "targetMultiplicity": "1"
         }
       ]
     },
@@ -1388,7 +1399,7 @@
         {
           "id": "cl1",
           "kind": "link",
-          "name": "",
+          "name": "Link1",
           "umlType": "uml:InstanceSpecification",
           "sourceId": "actor-user",
           "targetId": "part-order",
@@ -1400,7 +1411,7 @@
         {
           "id": "cl2",
           "kind": "link",
-          "name": "",
+          "name": "Link2",
           "umlType": "uml:InstanceSpecification",
           "sourceId": "part-order",
           "targetId": "part-pay",
@@ -1412,7 +1423,7 @@
         {
           "id": "cl3",
           "kind": "link",
-          "name": "",
+          "name": "Link3",
           "umlType": "uml:InstanceSpecification",
           "sourceId": "part-order",
           "targetId": "part-inv",
@@ -1430,8 +1441,8 @@
           "targetId": "part-order",
           "directed": true,
           "route": "straight",
-          "sequenceNumber": "1",
-          "offset": -12
+          "offset": -12,
+          "sequenceNumber": "1"
         },
         {
           "id": "cm2",
@@ -1442,8 +1453,8 @@
           "targetId": "part-inv",
           "directed": true,
           "route": "straight",
-          "sequenceNumber": "1.1",
-          "offset": 10
+          "offset": 10,
+          "sequenceNumber": "1.1"
         },
         {
           "id": "cm3",
@@ -1454,8 +1465,8 @@
           "targetId": "part-pay",
           "directed": true,
           "route": "straight",
-          "sequenceNumber": "1.2",
-          "offset": -8
+          "offset": -8,
+          "sequenceNumber": "1.2"
         },
         {
           "id": "cm4",
@@ -1466,8 +1477,8 @@
           "targetId": "part-order",
           "directed": true,
           "route": "straight",
-          "sequenceNumber": "1.3",
-          "offset": 14
+          "offset": 14,
+          "sequenceNumber": "1.3"
         }
       ]
     },
@@ -1624,7 +1635,7 @@
         {
           "id": "af1",
           "kind": "controlFlow",
-          "name": "",
+          "name": "ControlFlow1",
           "umlType": "uml:ControlFlow",
           "sourceId": "act-init",
           "targetId": "act-receive",
@@ -1636,7 +1647,7 @@
         {
           "id": "af2",
           "kind": "controlFlow",
-          "name": "",
+          "name": "ControlFlow2",
           "umlType": "uml:ControlFlow",
           "sourceId": "act-receive",
           "targetId": "act-decide",
@@ -1672,7 +1683,7 @@
         {
           "id": "af5",
           "kind": "objectFlow",
-          "name": "",
+          "name": "ObjectFlow5",
           "umlType": "uml:ObjectFlow",
           "sourceId": "act-receive",
           "targetId": "act-obj",
@@ -1684,7 +1695,7 @@
         {
           "id": "af6",
           "kind": "controlFlow",
-          "name": "",
+          "name": "ControlFlow6",
           "umlType": "uml:ControlFlow",
           "sourceId": "act-reserve",
           "targetId": "act-fork",
@@ -1696,7 +1707,7 @@
         {
           "id": "af7",
           "kind": "controlFlow",
-          "name": "",
+          "name": "ControlFlow7",
           "umlType": "uml:ControlFlow",
           "sourceId": "act-fork",
           "targetId": "act-pay",
@@ -1708,7 +1719,7 @@
         {
           "id": "af8",
           "kind": "controlFlow",
-          "name": "",
+          "name": "ControlFlow8",
           "umlType": "uml:ControlFlow",
           "sourceId": "act-fork",
           "targetId": "act-ship",
@@ -1720,7 +1731,7 @@
         {
           "id": "af9",
           "kind": "controlFlow",
-          "name": "",
+          "name": "ControlFlow9",
           "umlType": "uml:ControlFlow",
           "sourceId": "act-pay",
           "targetId": "act-join",
@@ -1732,7 +1743,7 @@
         {
           "id": "af10",
           "kind": "controlFlow",
-          "name": "",
+          "name": "ControlFlow10",
           "umlType": "uml:ControlFlow",
           "sourceId": "act-ship",
           "targetId": "act-join",
@@ -1744,7 +1755,7 @@
         {
           "id": "af11",
           "kind": "controlFlow",
-          "name": "",
+          "name": "ControlFlow11",
           "umlType": "uml:ControlFlow",
           "sourceId": "act-join",
           "targetId": "act-final",
@@ -1756,7 +1767,7 @@
         {
           "id": "af12",
           "kind": "controlFlow",
-          "name": "",
+          "name": "ControlFlow12",
           "umlType": "uml:ControlFlow",
           "sourceId": "act-reject",
           "targetId": "act-flow-final",
@@ -1768,7 +1779,7 @@
         {
           "id": "af13",
           "kind": "controlFlow",
-          "name": "",
+          "name": "ControlFlow13",
           "umlType": "uml:ControlFlow",
           "sourceId": "act-reject",
           "targetId": "act-merge",
@@ -1876,7 +1887,7 @@
         {
           "id": "t1",
           "kind": "transition",
-          "name": "",
+          "name": "Transition1",
           "umlType": "uml:Transition",
           "sourceId": "st-init",
           "targetId": "st-new",
@@ -1948,7 +1959,7 @@
         {
           "id": "t7",
           "kind": "transition",
-          "name": "",
+          "name": "Transition7",
           "umlType": "uml:Transition",
           "sourceId": "st-cancelled",
           "targetId": "st-final",
