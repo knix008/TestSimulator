@@ -65,14 +65,15 @@ function binaryThreshold(mag, w, h, ratio) {
 
 /**
  * 노이즈 제거: 5×5 윈도우에서 이웃 엣지 픽셀이 MIN_NEIGHBORS 미만인 픽셀을 제거.
- * 고립된 단일 픽셀·짧은 파편을 없애고 긴 직선 엣지(벽)는 보존.
- * 이후 3×3 팽창(dilation)으로 연속성을 복원.
+ * - 고립된 단일 픽셀·짧은 파편(텍스처, JPEG 아티팩트) 제거
+ * - 긴 직선 엣지(벽)는 보존: 직선 위 픽셀은 양쪽 4개 이상 이웃이 보장됨
+ *
+ * 팽창(dilation)은 하지 않음: 건축 평면도에서 이중 선(벽 안팎)이 팽창으로
+ * 연결되면 Hough가 잘못된 중간 위치를 검출해 벽이 이상하게 배치됨
  */
 function denoiseEdges(edges, w, h) {
   const MIN_NEIGHBORS = 4; // 5×5 윈도우(24이웃) 중 최소 이 수 이상이어야 유지
-
-  // 1단계: 희소 픽셀 제거
-  const sparse = new Uint8Array(w * h);
+  const out = new Uint8Array(w * h);
   for (let y = 2; y < h - 2; y++) {
     for (let x = 2; x < w - 2; x++) {
       if (!edges[y * w + x]) continue;
@@ -83,23 +84,10 @@ function denoiseEdges(edges, w, h) {
           if (edges[(y + dy) * w + (x + dx)]) cnt++;
         }
       }
-      if (cnt >= MIN_NEIGHBORS) sparse[y * w + x] = 1;
+      if (cnt >= MIN_NEIGHBORS) out[y * w + x] = 1;
     }
   }
-
-  // 2단계: 3×3 팽창으로 벽 엣지 연속성 복원
-  const dilated = new Uint8Array(w * h);
-  for (let y = 1; y < h - 1; y++) {
-    for (let x = 1; x < w - 1; x++) {
-      for (let dy = -1; dy <= 1; dy++) {
-        for (let dx = -1; dx <= 1; dx++) {
-          if (sparse[(y + dy) * w + (x + dx)]) { dilated[y * w + x] = 1; break; }
-        }
-        if (dilated[y * w + x]) break;
-      }
-    }
-  }
-  return dilated;
+  return out;
 }
 
 function houghTransform(edges, w, h, minVotes) {
