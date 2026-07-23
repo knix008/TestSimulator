@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { connectorLabels, diagramLabels, messages, notationHints, toolLabels } from '../app/i18n.js';
 import { diagramDefinitions } from './diagramRegistry.js';
 import { getUmlConnectorNotation, isInteractionMessageKind } from './umlNotation.js';
-import { addOwnedElement, addPaletteNode, connectNodes, createDiagramDocument, moveNode, renameNode, renameOwnedElement, updateEdgeAnchor, updateEdgeMultiplicity, updateEdgeRelationship, updateEdgeRoute } from './editorModel.js';
+import { addOwnedElement, addPaletteNode, connectNodes, createDiagramDocument, moveNode, renameNode, renameOwnedElement, updateEdgeAnchor, updateEdgeEndpoint, updateEdgeMultiplicity, updateEdgeRelationship, updateEdgeRoute } from './editorModel.js';
 
 describe('UML 2.5.1 diagram registry', () => {
   it('registers the Papyrus diagram families used by the GUI', () => {
@@ -244,6 +244,28 @@ describe('UML editor model', () => {
         targetAnchor: undefined
       });
     }
+  });
+
+  it('moves edge endpoints to another node in the same diagram', () => {
+    const document = createDiagramDocument('class');
+    const definition = diagramDefinitions[0];
+    const classTool = definition.palette[1];
+    const withSource = addPaletteNode(document, classTool, 80, 80);
+    const withTarget = addPaletteNode(withSource, classTool, 280, 80);
+    const withReplacement = addPaletteNode(withTarget, classTool, 480, 80);
+    const connected = connectNodes(withReplacement, definition.connectors[0], withReplacement.nodes[0].id, withReplacement.nodes[1].id);
+    const edgeId = connected.edges[0].id;
+    const movedTarget = updateEdgeEndpoint(connected, edgeId, 'target', withReplacement.nodes[2].id);
+    const rejectedSelfLoop = updateEdgeEndpoint(movedTarget, edgeId, 'source', withReplacement.nodes[2].id);
+
+    expect(movedTarget.edges[0]).toMatchObject({
+      sourceId: withReplacement.nodes[0].id,
+      targetId: withReplacement.nodes[2].id
+    });
+    expect(rejectedSelfLoop.edges[0]).toMatchObject({
+      sourceId: withReplacement.nodes[0].id,
+      targetId: withReplacement.nodes[2].id
+    });
   });
 
   it('does not assign multiplicities to deployment relationships', () => {

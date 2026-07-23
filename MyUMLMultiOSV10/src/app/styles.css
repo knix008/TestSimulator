@@ -899,6 +899,39 @@ code {
   user-select: none;
 }
 
+.edge .multiplicity {
+  cursor: move;
+  user-select: none;
+}
+
+.edge .edge-endpoint-handle {
+  cursor: grab;
+  pointer-events: all;
+}
+
+.edge .edge-endpoint-handle:active {
+  cursor: grabbing;
+}
+
+.edge .edge-endpoint-handle rect,
+.edge .edge-endpoint-handle circle {
+  fill: transparent;
+  stroke: transparent;
+  stroke-width: 1.4;
+}
+
+.edge .edge-endpoint-handle.visible rect,
+.edge .edge-endpoint-handle.visible circle {
+  fill: var(--button);
+  stroke: var(--selected);
+}
+
+.endpoint-preview-edge path {
+  stroke: var(--selected);
+  stroke-width: 2.7;
+  pointer-events: none;
+}
+
 .arrow-marker,
 .hollow-arrow-marker {
   stroke: var(--node-stroke);
@@ -1251,6 +1284,21 @@ label {
   color: var(--muted);
   font-size: 12px;
   font-weight: 800;
+}
+
+.properties .panel-scroll-body > label {
+  display: grid;
+  grid-template-columns: minmax(86px, max-content) minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.properties .panel-scroll-body > label > input,
+.properties .panel-scroll-body > label > select,
+.properties .panel-scroll-body > label > textarea {
+  min-width: 0;
+  margin-top: 0;
 }
 
 input,

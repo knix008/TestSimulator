@@ -25,7 +25,7 @@ function project(name, documents, activeDocumentId) {
 }
 
 function write(fileName, data) {
-  writeFileSync(`samples/${fileName}`, `${JSON.stringify(data, null, 2)}\n`, 'utf8');
+  writeFileSync(`samples/${fileName}`, `${JSON.stringify(data, null, 2)}\n`.replace(/\n/g, '\r\n'), 'utf8');
   console.log('wrote', fileName);
 }
 
@@ -167,21 +167,21 @@ const packageDoc = {
   kind: 'package',
   name: 'Package Diagram',
   nodes: [
-    node('pkg-app', 'package', 'application', 'uml:Package', 60, 60, 200, 120),
-    node('pkg-domain', 'package', 'domain', 'uml:Package', 340, 60, 200, 120),
-    node('pkg-infra', 'package', 'infrastructure', 'uml:Package', 200, 240, 200, 120),
-    node('class-facade', 'class', 'AppFacade', 'uml:Class', 80, 200, 148, 100),
-    node('iface-repo', 'interface', 'OrderRepository', 'uml:Interface', 360, 220, 160, 100)
+    node('pkg-app', 'package', 'application', 'uml:Package', 55, 42, 245, 166),
+    node('pkg-domain', 'package', 'domain', 'uml:Package', 490, 20, 292, 207),
+    node('pkg-infra', 'package', 'infrastructure', 'uml:Package', 260, 424, 200, 120),
+    node('class-facade', 'class', 'AppFacade', 'uml:Class', 98, 84, 148, 100),
+    node('iface-repo', 'interface', 'OrderRepository', 'uml:Interface', 563, 79, 160, 100)
   ],
   edges: [
     edge('k1', 'dependency', 'pkg-app', 'pkg-domain', {
-      umlType: 'uml:Dependency', sourceAnchor: 'right', targetAnchor: 'left'
+      name: 'Dependency1', umlType: 'uml:Dependency', sourceAnchor: 'right', targetAnchor: 'left'
     }),
     edge('k2', 'dependency', 'pkg-infra', 'pkg-domain', {
-      umlType: 'uml:Dependency', route: 'orthogonal', sourceAnchor: 'top', targetAnchor: 'bottom'
+      name: 'Dependency2', umlType: 'uml:Dependency', route: 'orthogonal', sourceAnchor: 'top', targetAnchor: 'bottom'
     }),
     edge('k3', 'packageImport', 'pkg-app', 'pkg-infra', {
-      umlType: 'uml:PackageImport', route: 'orthogonal', sourceAnchor: 'bottom', targetAnchor: 'left'
+      name: 'PackageImport3', umlType: 'uml:PackageImport', route: 'orthogonal', sourceAnchor: 'bottom', targetAnchor: 'left'
     })
   ]
 };
@@ -416,7 +416,9 @@ const sequenceDoc = {
     node('life-customer', 'lifeline', 'customer', 'uml:Lifeline', 80, 40, 120, 420),
     node('life-order', 'lifeline', 'orderService', 'uml:Lifeline', 280, 40, 120, 420),
     node('life-payment', 'lifeline', 'paymentGateway', 'uml:Lifeline', 480, 40, 140, 420),
-    node('frag-alt', 'combinedFragment', 'alt', 'uml:CombinedFragment', 250, 220, 400, 160)
+    node('frag-alt', 'combinedFragment', 'alt', 'uml:CombinedFragment', 209, 221, 476, 158, [], {
+      operandSeparatorY: 75
+    })
   ],
   edges: [
     edge('m1', 'message', 'life-customer', 'life-order', {
@@ -426,10 +428,10 @@ const sequenceDoc = {
       name: 'reserveStock()', umlType: 'uml:Message', sequenceY: 160
     }),
     edge('m3', 'asyncMessage', 'life-order', 'life-payment', {
-      name: 'authorize()', umlType: 'uml:Message', sequenceY: 250
+      name: 'authorize()', umlType: 'uml:Message', sequenceY: 244
     }),
     edge('m4', 'replyMessage', 'life-payment', 'life-order', {
-      name: 'authorized', umlType: 'uml:Message', sequenceY: 300
+      name: 'authorized', umlType: 'uml:Message', sequenceY: 312
     }),
     edge('m5', 'replyMessage', 'life-order', 'life-customer', {
       name: 'confirmed', umlType: 'uml:Message', sequenceY: 360
@@ -587,4 +589,62 @@ const timingDoc = {
 };
 write('13-timing.umlprj', project('Sample — Timing Diagram', [timingDoc], timingDoc.id));
 
-console.log('done —', 13, 'diagram samples');
+// ---------------------------------------------------------------------------
+// 14 All Diagrams
+// ---------------------------------------------------------------------------
+const allDiagramsTimingDoc = {
+  id: 'diagram-timing',
+  kind: 'timing',
+  name: 'Timing Diagram',
+  nodes: [
+    node('all-tl-user', 'lifeline', 'user', 'uml:Lifeline', 80, 44, 124, 360),
+    node('all-tl-order', 'lifeline', 'order', 'uml:Lifeline', 310, 44, 124, 360),
+    node('all-tl-payment', 'lifeline', 'payment', 'uml:Lifeline', 540, 44, 124, 360),
+    node('all-inv-user-idle', 'stateInvariant', 'Idle', 'uml:StateInvariant', 76, 105, 132, 48),
+    node('all-inv-user-waiting', 'stateInvariant', 'Waiting', 'uml:StateInvariant', 76, 255, 132, 48),
+    node('all-inv-order-new', 'stateInvariant', 'New', 'uml:StateInvariant', 306, 120, 132, 48),
+    node('all-inv-order-paid', 'stateInvariant', 'Paid', 'uml:StateInvariant', 306, 270, 132, 48),
+    node('all-inv-payment-ready', 'stateInvariant', 'Ready', 'uml:StateInvariant', 536, 145, 132, 48),
+    node('all-inv-payment-authorized', 'stateInvariant', 'Authorized', 'uml:StateInvariant', 536, 285, 132, 48),
+    node('all-obs-request', 'timeObservation', 'tRequest', 'uml:TimeObservation', 205, 170, 92, 40),
+    node('all-obs-authorized', 'timeObservation', 'tAuthorized', 'uml:TimeObservation', 445, 330, 104, 40)
+  ],
+  edges: [
+    edge('all-tm1', 'message', 'all-inv-user-idle', 'all-inv-order-new', {
+      name: 'checkout', umlType: 'uml:Message', sourceAnchor: 'right', targetAnchor: 'left'
+    }),
+    edge('all-tm2', 'message', 'all-inv-order-new', 'all-inv-payment-ready', {
+      name: 'authorize', umlType: 'uml:Message', sourceAnchor: 'right', targetAnchor: 'left'
+    }),
+    edge('all-tm3', 'message', 'all-inv-payment-authorized', 'all-inv-order-paid', {
+      name: 'approved', umlType: 'uml:Message', sourceAnchor: 'left', targetAnchor: 'right'
+    }),
+    edge('all-tm4', 'message', 'all-inv-order-paid', 'all-inv-user-waiting', {
+      name: 'confirmed', umlType: 'uml:Message', sourceAnchor: 'left', targetAnchor: 'right'
+    }),
+    edge('all-td1', 'durationConstraint', 'all-obs-request', 'all-obs-authorized', {
+      name: '{authorization < 3s}', umlType: 'uml:DurationConstraint', directed: false,
+      route: 'orthogonal', sourceAnchor: 'right', targetAnchor: 'left'
+    })
+  ]
+};
+
+const allDiagramDocs = [
+  classDoc,
+  profileDoc,
+  packageDoc,
+  objectDoc,
+  compositeDoc,
+  componentDoc,
+  deploymentDoc,
+  useCaseDoc,
+  sequenceDoc,
+  communicationDoc,
+  activityDoc,
+  stateDoc,
+  allDiagramsTimingDoc
+].map((doc) => structuredClone(doc));
+
+write('14-all-diagrams.umlprj', project('Sample — All Diagram Types', allDiagramDocs, classDoc.id));
+
+console.log('done —', 14, 'diagram samples');

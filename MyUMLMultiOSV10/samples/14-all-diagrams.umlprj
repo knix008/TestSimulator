@@ -1,0 +1,2154 @@
+{
+  "format": "my-uml-multi-os-project",
+  "version": 1,
+  "projectName": "Sample — All Diagram Types",
+  "documents": [
+    {
+      "id": "diagram-class",
+      "kind": "class",
+      "name": "Class Diagram",
+      "nodes": [
+        {
+          "id": "pkg-domain",
+          "kind": "package",
+          "name": "orders",
+          "umlType": "uml:Package",
+          "ownedElements": [],
+          "x": 40,
+          "y": 40,
+          "width": 780,
+          "height": 500
+        },
+        {
+          "id": "class-customer",
+          "kind": "class",
+          "name": "Customer",
+          "umlType": "uml:Class",
+          "ownedElements": [
+            {
+              "id": "a1",
+              "kind": "attribute",
+              "name": "-id: String",
+              "umlType": "uml:Property"
+            },
+            {
+              "id": "a2",
+              "kind": "attribute",
+              "name": "-email: String",
+              "umlType": "uml:Property"
+            },
+            {
+              "id": "o1",
+              "kind": "operation",
+              "name": "+placeOrder(): Order",
+              "umlType": "uml:Operation"
+            }
+          ],
+          "x": 70,
+          "y": 100,
+          "width": 170,
+          "height": 130
+        },
+        {
+          "id": "class-order",
+          "kind": "class",
+          "name": "Order",
+          "umlType": "uml:Class",
+          "ownedElements": [
+            {
+              "id": "a3",
+              "kind": "attribute",
+              "name": "-id: String",
+              "umlType": "uml:Property"
+            },
+            {
+              "id": "a4",
+              "kind": "attribute",
+              "name": "-total: Money",
+              "umlType": "uml:Property"
+            },
+            {
+              "id": "o2",
+              "kind": "operation",
+              "name": "+confirm(): void",
+              "umlType": "uml:Operation"
+            }
+          ],
+          "x": 310,
+          "y": 100,
+          "width": 170,
+          "height": 130
+        },
+        {
+          "id": "class-item",
+          "kind": "class",
+          "name": "OrderItem",
+          "umlType": "uml:Class",
+          "ownedElements": [
+            {
+              "id": "a5",
+              "kind": "attribute",
+              "name": "-quantity: Integer",
+              "umlType": "uml:Property"
+            },
+            {
+              "id": "a8",
+              "kind": "attribute",
+              "name": "-unitPrice: Money",
+              "umlType": "uml:Property"
+            }
+          ],
+          "x": 560,
+          "y": 100,
+          "width": 170,
+          "height": 120
+        },
+        {
+          "id": "class-online-order",
+          "kind": "class",
+          "name": "OnlineOrder",
+          "umlType": "uml:Class",
+          "ownedElements": [],
+          "x": 310,
+          "y": 280,
+          "width": 170,
+          "height": 70
+        },
+        {
+          "id": "enum-status",
+          "kind": "enumeration",
+          "name": "OrderStatus",
+          "umlType": "uml:Enumeration",
+          "ownedElements": [
+            {
+              "id": "l1",
+              "kind": "literal",
+              "name": "New",
+              "umlType": "uml:EnumerationLiteral"
+            },
+            {
+              "id": "l2",
+              "kind": "literal",
+              "name": "Paid",
+              "umlType": "uml:EnumerationLiteral"
+            },
+            {
+              "id": "l3",
+              "kind": "literal",
+              "name": "Shipped",
+              "umlType": "uml:EnumerationLiteral"
+            }
+          ],
+          "x": 560,
+          "y": 270,
+          "width": 160,
+          "height": 120
+        },
+        {
+          "id": "iface-payable",
+          "kind": "interface",
+          "name": "Payable",
+          "umlType": "uml:Interface",
+          "ownedElements": [
+            {
+              "id": "o3",
+              "kind": "operation",
+              "name": "+pay(amount: Money): Boolean",
+              "umlType": "uml:Operation"
+            }
+          ],
+          "x": 70,
+          "y": 280,
+          "width": 170,
+          "height": 90
+        },
+        {
+          "id": "class-payment",
+          "kind": "class",
+          "name": "Payment",
+          "umlType": "uml:Class",
+          "ownedElements": [
+            {
+              "id": "a6",
+              "kind": "attribute",
+              "name": "-amount: Money",
+              "umlType": "uml:Property"
+            },
+            {
+              "id": "o4",
+              "kind": "operation",
+              "name": "+capture(): Boolean",
+              "umlType": "uml:Operation"
+            }
+          ],
+          "x": 70,
+          "y": 400,
+          "width": 170,
+          "height": 110
+        },
+        {
+          "id": "dt-money",
+          "kind": "dataType",
+          "name": "Money",
+          "umlType": "uml:DataType",
+          "ownedElements": [
+            {
+              "id": "a7",
+              "kind": "attribute",
+              "name": "amount: Decimal",
+              "umlType": "uml:Property"
+            }
+          ],
+          "x": 310,
+          "y": 420,
+          "width": 170,
+          "height": 80
+        }
+      ],
+      "edges": [
+        {
+          "id": "e1",
+          "kind": "association",
+          "name": "places",
+          "umlType": "uml:Association",
+          "sourceId": "class-customer",
+          "targetId": "class-order",
+          "directed": false,
+          "route": "straight",
+          "sourceAnchor": "right",
+          "targetAnchor": "left",
+          "sourceMultiplicity": "1",
+          "targetMultiplicity": "0..*"
+        },
+        {
+          "id": "e2",
+          "kind": "association",
+          "name": "contains",
+          "umlType": "uml:Association",
+          "sourceId": "class-order",
+          "targetId": "class-item",
+          "directed": false,
+          "route": "straight",
+          "sourceAnchor": "right",
+          "targetAnchor": "left",
+          "sourceMultiplicity": "1",
+          "targetMultiplicity": "1..*"
+        },
+        {
+          "id": "e3",
+          "kind": "generalization",
+          "name": "",
+          "umlType": "uml:Generalization",
+          "sourceId": "class-online-order",
+          "targetId": "class-order",
+          "directed": true,
+          "route": "straight",
+          "sourceAnchor": "top",
+          "targetAnchor": "bottom"
+        },
+        {
+          "id": "e4",
+          "kind": "association",
+          "name": "paidBy",
+          "umlType": "uml:Association",
+          "sourceId": "class-order",
+          "targetId": "class-payment",
+          "directed": false,
+          "route": "orthogonal",
+          "sourceAnchor": "left",
+          "targetAnchor": "top",
+          "sourceMultiplicity": "1",
+          "targetMultiplicity": "0..1"
+        },
+        {
+          "id": "e5",
+          "kind": "realization",
+          "name": "",
+          "umlType": "uml:InterfaceRealization",
+          "sourceId": "class-payment",
+          "targetId": "iface-payable",
+          "directed": true,
+          "route": "straight",
+          "sourceAnchor": "top",
+          "targetAnchor": "bottom"
+        },
+        {
+          "id": "e6",
+          "kind": "dependency",
+          "name": "",
+          "umlType": "uml:Dependency",
+          "sourceId": "class-item",
+          "targetId": "enum-status",
+          "directed": true,
+          "route": "straight",
+          "sourceAnchor": "bottom",
+          "targetAnchor": "top"
+        },
+        {
+          "id": "e7",
+          "kind": "dependency",
+          "name": "",
+          "umlType": "uml:Dependency",
+          "sourceId": "class-payment",
+          "targetId": "dt-money",
+          "directed": true,
+          "route": "straight",
+          "sourceAnchor": "right",
+          "targetAnchor": "left"
+        }
+      ]
+    },
+    {
+      "id": "diagram-profile",
+      "kind": "profile",
+      "name": "Profile Diagram",
+      "nodes": [
+        {
+          "id": "profile-biz",
+          "kind": "profile",
+          "name": "BusinessProfile",
+          "umlType": "uml:Profile",
+          "ownedElements": [],
+          "x": 48,
+          "y": 48,
+          "width": 200,
+          "height": 100
+        },
+        {
+          "id": "stereo-entity",
+          "kind": "stereotype",
+          "name": "Entity",
+          "umlType": "uml:Stereotype",
+          "ownedElements": [],
+          "x": 320,
+          "y": 48,
+          "width": 160,
+          "height": 90
+        },
+        {
+          "id": "stereo-service",
+          "kind": "stereotype",
+          "name": "Service",
+          "umlType": "uml:Stereotype",
+          "ownedElements": [],
+          "x": 320,
+          "y": 180,
+          "width": 160,
+          "height": 90
+        },
+        {
+          "id": "meta-class",
+          "kind": "class",
+          "name": "Class",
+          "umlType": "uml:Class",
+          "ownedElements": [],
+          "x": 560,
+          "y": 48,
+          "width": 148,
+          "height": 100
+        },
+        {
+          "id": "meta-component",
+          "kind": "class",
+          "name": "Component",
+          "umlType": "uml:Class",
+          "ownedElements": [],
+          "x": 560,
+          "y": 180,
+          "width": 148,
+          "height": 100
+        }
+      ],
+      "edges": [
+        {
+          "id": "p1",
+          "kind": "extension",
+          "name": "",
+          "umlType": "uml:Extension",
+          "sourceId": "stereo-entity",
+          "targetId": "meta-class",
+          "directed": true,
+          "route": "straight",
+          "sourceAnchor": "right",
+          "targetAnchor": "left"
+        },
+        {
+          "id": "p2",
+          "kind": "extension",
+          "name": "",
+          "umlType": "uml:Extension",
+          "sourceId": "stereo-service",
+          "targetId": "meta-component",
+          "directed": true,
+          "route": "straight",
+          "sourceAnchor": "right",
+          "targetAnchor": "left"
+        },
+        {
+          "id": "p3",
+          "kind": "generalization",
+          "name": "",
+          "umlType": "uml:Generalization",
+          "sourceId": "stereo-service",
+          "targetId": "stereo-entity",
+          "directed": true,
+          "route": "orthogonal",
+          "sourceAnchor": "top",
+          "targetAnchor": "bottom"
+        }
+      ]
+    },
+    {
+      "id": "diagram-package",
+      "kind": "package",
+      "name": "Package Diagram",
+      "nodes": [
+        {
+          "id": "pkg-app",
+          "kind": "package",
+          "name": "application",
+          "umlType": "uml:Package",
+          "ownedElements": [],
+          "x": 55,
+          "y": 42,
+          "width": 245,
+          "height": 166
+        },
+        {
+          "id": "pkg-domain",
+          "kind": "package",
+          "name": "domain",
+          "umlType": "uml:Package",
+          "ownedElements": [],
+          "x": 490,
+          "y": 20,
+          "width": 292,
+          "height": 207
+        },
+        {
+          "id": "pkg-infra",
+          "kind": "package",
+          "name": "infrastructure",
+          "umlType": "uml:Package",
+          "ownedElements": [],
+          "x": 260,
+          "y": 424,
+          "width": 200,
+          "height": 120
+        },
+        {
+          "id": "class-facade",
+          "kind": "class",
+          "name": "AppFacade",
+          "umlType": "uml:Class",
+          "ownedElements": [],
+          "x": 98,
+          "y": 84,
+          "width": 148,
+          "height": 100
+        },
+        {
+          "id": "iface-repo",
+          "kind": "interface",
+          "name": "OrderRepository",
+          "umlType": "uml:Interface",
+          "ownedElements": [],
+          "x": 563,
+          "y": 79,
+          "width": 160,
+          "height": 100
+        }
+      ],
+      "edges": [
+        {
+          "id": "k1",
+          "kind": "dependency",
+          "name": "Dependency1",
+          "umlType": "uml:Dependency",
+          "sourceId": "pkg-app",
+          "targetId": "pkg-domain",
+          "directed": true,
+          "route": "straight",
+          "sourceAnchor": "right",
+          "targetAnchor": "left"
+        },
+        {
+          "id": "k2",
+          "kind": "dependency",
+          "name": "Dependency2",
+          "umlType": "uml:Dependency",
+          "sourceId": "pkg-infra",
+          "targetId": "pkg-domain",
+          "directed": true,
+          "route": "orthogonal",
+          "sourceAnchor": "top",
+          "targetAnchor": "bottom"
+        },
+        {
+          "id": "k3",
+          "kind": "packageImport",
+          "name": "PackageImport3",
+          "umlType": "uml:PackageImport",
+          "sourceId": "pkg-app",
+          "targetId": "pkg-infra",
+          "directed": true,
+          "route": "orthogonal",
+          "sourceAnchor": "bottom",
+          "targetAnchor": "left"
+        }
+      ]
+    },
+    {
+      "id": "diagram-object",
+      "kind": "object",
+      "name": "Object Diagram",
+      "nodes": [
+        {
+          "id": "cls-order",
+          "kind": "class",
+          "name": "Order",
+          "umlType": "uml:Class",
+          "ownedElements": [],
+          "x": 48,
+          "y": 40,
+          "width": 140,
+          "height": 80
+        },
+        {
+          "id": "obj-o1",
+          "kind": "instanceSpecification",
+          "name": "o1:Order",
+          "umlType": "uml:InstanceSpecification",
+          "ownedElements": [
+            {
+              "id": "s1",
+              "kind": "slot",
+              "name": "id = \"A-100\"",
+              "umlType": "uml:Slot"
+            },
+            {
+              "id": "s2",
+              "kind": "slot",
+              "name": "total = 42.00",
+              "umlType": "uml:Slot"
+            }
+          ],
+          "x": 80,
+          "y": 180,
+          "width": 160,
+          "height": 100
+        },
+        {
+          "id": "obj-c1",
+          "kind": "instanceSpecification",
+          "name": "c1:Customer",
+          "umlType": "uml:InstanceSpecification",
+          "ownedElements": [
+            {
+              "id": "s3",
+              "kind": "slot",
+              "name": "email = \"a@b.com\"",
+              "umlType": "uml:Slot"
+            }
+          ],
+          "x": 320,
+          "y": 180,
+          "width": 180,
+          "height": 100
+        },
+        {
+          "id": "obj-i1",
+          "kind": "instanceSpecification",
+          "name": "i1:OrderItem",
+          "umlType": "uml:InstanceSpecification",
+          "ownedElements": [
+            {
+              "id": "s4",
+              "kind": "slot",
+              "name": "quantity = 2",
+              "umlType": "uml:Slot"
+            }
+          ],
+          "x": 560,
+          "y": 180,
+          "width": 160,
+          "height": 100
+        }
+      ],
+      "edges": [
+        {
+          "id": "l1",
+          "kind": "link",
+          "name": "places",
+          "umlType": "uml:InstanceSpecification",
+          "sourceId": "obj-c1",
+          "targetId": "obj-o1",
+          "directed": false,
+          "route": "straight",
+          "sourceAnchor": "left",
+          "targetAnchor": "right"
+        },
+        {
+          "id": "l2",
+          "kind": "link",
+          "name": "contains",
+          "umlType": "uml:InstanceSpecification",
+          "sourceId": "obj-o1",
+          "targetId": "obj-i1",
+          "directed": false,
+          "route": "straight",
+          "sourceAnchor": "right",
+          "targetAnchor": "left"
+        },
+        {
+          "id": "l3",
+          "kind": "dependency",
+          "name": "",
+          "umlType": "uml:Dependency",
+          "sourceId": "obj-o1",
+          "targetId": "cls-order",
+          "directed": true,
+          "route": "orthogonal",
+          "sourceAnchor": "top",
+          "targetAnchor": "bottom"
+        }
+      ]
+    },
+    {
+      "id": "diagram-composite",
+      "kind": "compositeStructure",
+      "name": "Composite Structure",
+      "nodes": [
+        {
+          "id": "sc-car",
+          "kind": "class",
+          "name": "Car",
+          "umlType": "uml:Class",
+          "ownedElements": [
+            {
+              "id": "part-engine",
+              "kind": "part",
+              "name": "engine:Engine",
+              "umlType": "uml:Property"
+            },
+            {
+              "id": "part-wheel",
+              "kind": "part",
+              "name": "wheels:Wheel[4]",
+              "umlType": "uml:Property"
+            }
+          ],
+          "x": 80,
+          "y": 60,
+          "width": 420,
+          "height": 260
+        },
+        {
+          "id": "pt-engine",
+          "kind": "interface",
+          "name": "Engine",
+          "umlType": "uml:Interface",
+          "ownedElements": [
+            {
+              "id": "op-start",
+              "kind": "operation",
+              "name": "+start(): void",
+              "umlType": "uml:Operation"
+            }
+          ],
+          "x": 560,
+          "y": 80,
+          "width": 160,
+          "height": 100
+        },
+        {
+          "id": "pt-wheel",
+          "kind": "interface",
+          "name": "Wheel",
+          "umlType": "uml:Interface",
+          "ownedElements": [
+            {
+              "id": "op-spin",
+              "kind": "operation",
+              "name": "+spin(): void",
+              "umlType": "uml:Operation"
+            }
+          ],
+          "x": 560,
+          "y": 220,
+          "width": 160,
+          "height": 100
+        }
+      ],
+      "edges": [
+        {
+          "id": "c1",
+          "kind": "connector",
+          "name": "enginePort",
+          "umlType": "uml:Connector",
+          "sourceId": "sc-car",
+          "targetId": "pt-engine",
+          "directed": false,
+          "route": "straight",
+          "sourceAnchor": "right",
+          "targetAnchor": "left"
+        },
+        {
+          "id": "c2",
+          "kind": "connector",
+          "name": "wheelPort",
+          "umlType": "uml:Connector",
+          "sourceId": "sc-car",
+          "targetId": "pt-wheel",
+          "directed": false,
+          "route": "orthogonal",
+          "sourceAnchor": "right",
+          "targetAnchor": "left"
+        },
+        {
+          "id": "c3",
+          "kind": "dependency",
+          "name": "",
+          "umlType": "uml:Dependency",
+          "sourceId": "pt-wheel",
+          "targetId": "pt-engine",
+          "directed": true,
+          "route": "orthogonal",
+          "sourceAnchor": "top",
+          "targetAnchor": "bottom"
+        }
+      ]
+    },
+    {
+      "id": "diagram-component",
+      "kind": "component",
+      "name": "Component Diagram",
+      "nodes": [
+        {
+          "id": "order-service",
+          "kind": "component",
+          "name": "OrderService",
+          "umlType": "uml:Component",
+          "ownedElements": [],
+          "x": 48,
+          "y": 72,
+          "width": 180,
+          "height": 110
+        },
+        {
+          "id": "payment-gateway",
+          "kind": "component",
+          "name": "PaymentGateway",
+          "umlType": "uml:Component",
+          "ownedElements": [],
+          "x": 440,
+          "y": 72,
+          "width": 180,
+          "height": 110
+        },
+        {
+          "id": "inventory",
+          "kind": "component",
+          "name": "Inventory",
+          "umlType": "uml:Component",
+          "ownedElements": [],
+          "x": 48,
+          "y": 280,
+          "width": 180,
+          "height": 110
+        },
+        {
+          "id": "shipping",
+          "kind": "component",
+          "name": "Shipping",
+          "umlType": "uml:Component",
+          "ownedElements": [],
+          "x": 440,
+          "y": 280,
+          "width": 180,
+          "height": 110
+        },
+        {
+          "id": "port-order",
+          "kind": "port",
+          "name": "orders",
+          "umlType": "uml:Port",
+          "ownedElements": [],
+          "x": 215,
+          "y": 114,
+          "width": 26,
+          "height": 26,
+          "parentComponentId": "order-service"
+        },
+        {
+          "id": "port-pay",
+          "kind": "port",
+          "name": "pay",
+          "umlType": "uml:Port",
+          "ownedElements": [],
+          "x": 427,
+          "y": 114,
+          "width": 26,
+          "height": 26,
+          "parentComponentId": "payment-gateway"
+        },
+        {
+          "id": "port-inv",
+          "kind": "port",
+          "name": "stock",
+          "umlType": "uml:Port",
+          "ownedElements": [],
+          "x": 215,
+          "y": 322,
+          "width": 26,
+          "height": 26,
+          "parentComponentId": "inventory"
+        },
+        {
+          "id": "port-ship",
+          "kind": "port",
+          "name": "ship",
+          "umlType": "uml:Port",
+          "ownedElements": [],
+          "x": 427,
+          "y": 322,
+          "width": 26,
+          "height": 26,
+          "parentComponentId": "shipping"
+        },
+        {
+          "id": "art-war",
+          "kind": "artifact",
+          "name": "shop.war",
+          "umlType": "uml:Artifact",
+          "ownedElements": [],
+          "x": 260,
+          "y": 420,
+          "width": 160,
+          "height": 80
+        },
+        {
+          "id": "provided-1",
+          "kind": "providedInterface",
+          "name": "PaymentAPI",
+          "umlType": "uml:Interface",
+          "ownedElements": [],
+          "x": 223,
+          "y": 109,
+          "width": 129,
+          "height": 36,
+          "parentComponentId": "order-service",
+          "parentPortId": "port-order",
+          "interfacePartnerId": "required-1",
+          "stemAttachX": 241,
+          "stemAttachY": 127,
+          "jointX": 334,
+          "jointY": 127,
+          "pairRoute": "orthogonal"
+        },
+        {
+          "id": "required-1",
+          "kind": "requiredInterface",
+          "name": "PaymentClient",
+          "umlType": "uml:Interface",
+          "ownedElements": [],
+          "x": 316,
+          "y": 109,
+          "width": 129,
+          "height": 36,
+          "parentComponentId": "payment-gateway",
+          "parentPortId": "port-pay",
+          "interfacePartnerId": "provided-1",
+          "stemAttachX": 427,
+          "stemAttachY": 127,
+          "jointX": 334,
+          "jointY": 127,
+          "pairRoute": "orthogonal"
+        },
+        {
+          "id": "provided-2",
+          "kind": "providedInterface",
+          "name": "StockAPI",
+          "umlType": "uml:Interface",
+          "ownedElements": [],
+          "x": 120,
+          "y": 164,
+          "width": 36,
+          "height": 85,
+          "parentComponentId": "order-service",
+          "interfacePartnerId": "required-2",
+          "stemAttachX": 138,
+          "stemAttachY": 182,
+          "jointX": 138,
+          "jointY": 231,
+          "pairRoute": "straight"
+        },
+        {
+          "id": "required-2",
+          "kind": "requiredInterface",
+          "name": "StockClient",
+          "umlType": "uml:Interface",
+          "ownedElements": [],
+          "x": 120,
+          "y": 213,
+          "width": 36,
+          "height": 85,
+          "parentComponentId": "inventory",
+          "interfacePartnerId": "provided-2",
+          "stemAttachX": 138,
+          "stemAttachY": 280,
+          "jointX": 138,
+          "jointY": 231,
+          "pairRoute": "straight"
+        },
+        {
+          "id": "provided-3",
+          "kind": "providedInterface",
+          "name": "ShipAPI",
+          "umlType": "uml:Interface",
+          "ownedElements": [],
+          "x": 223,
+          "y": 317,
+          "width": 129,
+          "height": 36,
+          "parentComponentId": "inventory",
+          "parentPortId": "port-inv",
+          "interfacePartnerId": "required-3",
+          "stemAttachX": 241,
+          "stemAttachY": 335,
+          "jointX": 334,
+          "jointY": 335,
+          "pairRoute": "straight"
+        },
+        {
+          "id": "required-3",
+          "kind": "requiredInterface",
+          "name": "ShipClient",
+          "umlType": "uml:Interface",
+          "ownedElements": [],
+          "x": 316,
+          "y": 317,
+          "width": 129,
+          "height": 36,
+          "parentComponentId": "shipping",
+          "parentPortId": "port-ship",
+          "interfacePartnerId": "provided-3",
+          "stemAttachX": 427,
+          "stemAttachY": 335,
+          "jointX": 334,
+          "jointY": 335,
+          "pairRoute": "straight"
+        }
+      ],
+      "edges": [
+        {
+          "id": "dep1",
+          "kind": "dependency",
+          "name": "uses",
+          "umlType": "uml:Dependency",
+          "sourceId": "order-service",
+          "targetId": "shipping",
+          "directed": true,
+          "route": "orthogonal",
+          "sourceAnchor": "right",
+          "targetAnchor": "left"
+        },
+        {
+          "id": "dep2",
+          "kind": "dependency",
+          "name": "",
+          "umlType": "uml:Dependency",
+          "sourceId": "order-service",
+          "targetId": "art-war",
+          "directed": true,
+          "route": "orthogonal",
+          "sourceAnchor": "bottom",
+          "targetAnchor": "top"
+        }
+      ]
+    },
+    {
+      "id": "diagram-deployment",
+      "kind": "deployment",
+      "name": "Deployment Diagram",
+      "nodes": [
+        {
+          "id": "dev-server",
+          "kind": "device",
+          "name": "AppServer",
+          "umlType": "uml:Device",
+          "ownedElements": [],
+          "x": 60,
+          "y": 60,
+          "width": 220,
+          "height": 160
+        },
+        {
+          "id": "node-db",
+          "kind": "node",
+          "name": "DBHost",
+          "umlType": "uml:Node",
+          "ownedElements": [],
+          "x": 360,
+          "y": 60,
+          "width": 200,
+          "height": 140
+        },
+        {
+          "id": "ee-jvm",
+          "kind": "executionEnvironment",
+          "name": "JVM",
+          "umlType": "uml:ExecutionEnvironment",
+          "ownedElements": [],
+          "x": 80,
+          "y": 260,
+          "width": 200,
+          "height": 120
+        },
+        {
+          "id": "art-app",
+          "kind": "artifact",
+          "name": "shop.ear",
+          "umlType": "uml:Artifact",
+          "ownedElements": [],
+          "x": 360,
+          "y": 260,
+          "width": 160,
+          "height": 90
+        },
+        {
+          "id": "art-schema",
+          "kind": "artifact",
+          "name": "schema.sql",
+          "umlType": "uml:Artifact",
+          "ownedElements": [],
+          "x": 560,
+          "y": 80,
+          "width": 150,
+          "height": 80
+        }
+      ],
+      "edges": [
+        {
+          "id": "d1",
+          "kind": "deployment",
+          "name": "",
+          "umlType": "uml:Deployment",
+          "sourceId": "art-app",
+          "targetId": "ee-jvm",
+          "directed": true,
+          "route": "straight",
+          "sourceAnchor": "left",
+          "targetAnchor": "right"
+        },
+        {
+          "id": "d2",
+          "kind": "deployment",
+          "name": "",
+          "umlType": "uml:Deployment",
+          "sourceId": "art-schema",
+          "targetId": "node-db",
+          "directed": true,
+          "route": "straight",
+          "sourceAnchor": "left",
+          "targetAnchor": "right"
+        },
+        {
+          "id": "d3",
+          "kind": "dependency",
+          "name": "",
+          "umlType": "uml:Dependency",
+          "sourceId": "ee-jvm",
+          "targetId": "dev-server",
+          "directed": true,
+          "route": "orthogonal",
+          "sourceAnchor": "top",
+          "targetAnchor": "bottom"
+        },
+        {
+          "id": "d4",
+          "kind": "dependency",
+          "name": "",
+          "umlType": "uml:Dependency",
+          "sourceId": "ee-jvm",
+          "targetId": "node-db",
+          "directed": true,
+          "route": "orthogonal",
+          "sourceAnchor": "right",
+          "targetAnchor": "bottom"
+        }
+      ]
+    },
+    {
+      "id": "diagram-usecase",
+      "kind": "useCase",
+      "name": "Use Case Diagram",
+      "nodes": [
+        {
+          "id": "actor-customer",
+          "kind": "actor",
+          "name": "Customer",
+          "umlType": "uml:Actor",
+          "ownedElements": [],
+          "x": 40,
+          "y": 120,
+          "width": 88,
+          "height": 132
+        },
+        {
+          "id": "subject-shop",
+          "kind": "subject",
+          "name": "Online Shop",
+          "umlType": "uml:Class",
+          "ownedElements": [],
+          "x": 200,
+          "y": 40,
+          "width": 420,
+          "height": 320
+        },
+        {
+          "id": "uc-browse",
+          "kind": "useCase",
+          "name": "Browse Catalog",
+          "umlType": "uml:UseCase",
+          "ownedElements": [],
+          "x": 260,
+          "y": 80,
+          "width": 140,
+          "height": 60
+        },
+        {
+          "id": "uc-checkout",
+          "kind": "useCase",
+          "name": "Checkout",
+          "umlType": "uml:UseCase",
+          "ownedElements": [],
+          "x": 260,
+          "y": 180,
+          "width": 140,
+          "height": 60
+        },
+        {
+          "id": "uc-pay",
+          "kind": "useCase",
+          "name": "Pay Order",
+          "umlType": "uml:UseCase",
+          "ownedElements": [],
+          "x": 420,
+          "y": 180,
+          "width": 140,
+          "height": 60
+        },
+        {
+          "id": "uc-notify",
+          "kind": "useCase",
+          "name": "Send Receipt",
+          "umlType": "uml:UseCase",
+          "ownedElements": [],
+          "x": 340,
+          "y": 270,
+          "width": 150,
+          "height": 60
+        },
+        {
+          "id": "actor-payment",
+          "kind": "actor",
+          "name": "Payment System",
+          "umlType": "uml:Actor",
+          "ownedElements": [],
+          "x": 680,
+          "y": 160,
+          "width": 88,
+          "height": 132
+        }
+      ],
+      "edges": [
+        {
+          "id": "u1",
+          "kind": "association",
+          "name": "",
+          "umlType": "uml:Association",
+          "sourceId": "actor-customer",
+          "targetId": "uc-browse",
+          "directed": false,
+          "route": "straight",
+          "sourceAnchor": "right",
+          "targetAnchor": "left"
+        },
+        {
+          "id": "u2",
+          "kind": "association",
+          "name": "",
+          "umlType": "uml:Association",
+          "sourceId": "actor-customer",
+          "targetId": "uc-checkout",
+          "directed": false,
+          "route": "straight",
+          "sourceAnchor": "right",
+          "targetAnchor": "left"
+        },
+        {
+          "id": "u3",
+          "kind": "include",
+          "name": "include",
+          "umlType": "uml:Include",
+          "sourceId": "uc-checkout",
+          "targetId": "uc-pay",
+          "directed": true,
+          "route": "straight",
+          "sourceAnchor": "right",
+          "targetAnchor": "left"
+        },
+        {
+          "id": "u4",
+          "kind": "extend",
+          "name": "extend",
+          "umlType": "uml:Extend",
+          "sourceId": "uc-notify",
+          "targetId": "uc-checkout",
+          "directed": true,
+          "route": "orthogonal",
+          "sourceAnchor": "top",
+          "targetAnchor": "bottom"
+        },
+        {
+          "id": "u5",
+          "kind": "association",
+          "name": "",
+          "umlType": "uml:Association",
+          "sourceId": "uc-pay",
+          "targetId": "actor-payment",
+          "directed": false,
+          "route": "straight",
+          "sourceAnchor": "right",
+          "targetAnchor": "left"
+        }
+      ]
+    },
+    {
+      "id": "diagram-sequence",
+      "kind": "sequence",
+      "name": "Sequence Diagram",
+      "nodes": [
+        {
+          "id": "life-customer",
+          "kind": "lifeline",
+          "name": "customer",
+          "umlType": "uml:Lifeline",
+          "ownedElements": [],
+          "x": 80,
+          "y": 40,
+          "width": 120,
+          "height": 420
+        },
+        {
+          "id": "life-order",
+          "kind": "lifeline",
+          "name": "orderService",
+          "umlType": "uml:Lifeline",
+          "ownedElements": [],
+          "x": 280,
+          "y": 40,
+          "width": 120,
+          "height": 420
+        },
+        {
+          "id": "life-payment",
+          "kind": "lifeline",
+          "name": "paymentGateway",
+          "umlType": "uml:Lifeline",
+          "ownedElements": [],
+          "x": 480,
+          "y": 40,
+          "width": 140,
+          "height": 420
+        },
+        {
+          "id": "frag-alt",
+          "kind": "combinedFragment",
+          "name": "alt",
+          "umlType": "uml:CombinedFragment",
+          "ownedElements": [],
+          "x": 209,
+          "y": 221,
+          "width": 476,
+          "height": 158,
+          "operandSeparatorY": 75
+        }
+      ],
+      "edges": [
+        {
+          "id": "m1",
+          "kind": "message",
+          "name": "checkout()",
+          "umlType": "uml:Message",
+          "sourceId": "life-customer",
+          "targetId": "life-order",
+          "directed": true,
+          "route": "straight",
+          "sequenceY": 110
+        },
+        {
+          "id": "m2",
+          "kind": "message",
+          "name": "reserveStock()",
+          "umlType": "uml:Message",
+          "sourceId": "life-order",
+          "targetId": "life-order",
+          "directed": true,
+          "route": "straight",
+          "sequenceY": 160
+        },
+        {
+          "id": "m3",
+          "kind": "asyncMessage",
+          "name": "authorize()",
+          "umlType": "uml:Message",
+          "sourceId": "life-order",
+          "targetId": "life-payment",
+          "directed": true,
+          "route": "straight",
+          "sequenceY": 244
+        },
+        {
+          "id": "m4",
+          "kind": "replyMessage",
+          "name": "authorized",
+          "umlType": "uml:Message",
+          "sourceId": "life-payment",
+          "targetId": "life-order",
+          "directed": true,
+          "route": "straight",
+          "sequenceY": 312
+        },
+        {
+          "id": "m5",
+          "kind": "replyMessage",
+          "name": "confirmed",
+          "umlType": "uml:Message",
+          "sourceId": "life-order",
+          "targetId": "life-customer",
+          "directed": true,
+          "route": "straight",
+          "sequenceY": 360
+        }
+      ]
+    },
+    {
+      "id": "diagram-communication",
+      "kind": "communication",
+      "name": "Communication Diagram",
+      "nodes": [
+        {
+          "id": "actor-user",
+          "kind": "actor",
+          "name": "Customer",
+          "umlType": "uml:Actor",
+          "ownedElements": [],
+          "x": 40,
+          "y": 120,
+          "width": 88,
+          "height": 132
+        },
+        {
+          "id": "part-order",
+          "kind": "lifeline",
+          "name": "orderService",
+          "umlType": "uml:Lifeline",
+          "ownedElements": [],
+          "x": 220,
+          "y": 140,
+          "width": 140,
+          "height": 44
+        },
+        {
+          "id": "part-pay",
+          "kind": "lifeline",
+          "name": "paymentGateway",
+          "umlType": "uml:Lifeline",
+          "ownedElements": [],
+          "x": 440,
+          "y": 140,
+          "width": 150,
+          "height": 44
+        },
+        {
+          "id": "part-inv",
+          "kind": "lifeline",
+          "name": "inventory",
+          "umlType": "uml:Lifeline",
+          "ownedElements": [],
+          "x": 320,
+          "y": 300,
+          "width": 140,
+          "height": 44
+        }
+      ],
+      "edges": [
+        {
+          "id": "cl1",
+          "kind": "link",
+          "name": "",
+          "umlType": "uml:InstanceSpecification",
+          "sourceId": "actor-user",
+          "targetId": "part-order",
+          "directed": false,
+          "route": "straight",
+          "sourceAnchor": "right",
+          "targetAnchor": "left"
+        },
+        {
+          "id": "cl2",
+          "kind": "link",
+          "name": "",
+          "umlType": "uml:InstanceSpecification",
+          "sourceId": "part-order",
+          "targetId": "part-pay",
+          "directed": false,
+          "route": "straight",
+          "sourceAnchor": "right",
+          "targetAnchor": "left"
+        },
+        {
+          "id": "cl3",
+          "kind": "link",
+          "name": "",
+          "umlType": "uml:InstanceSpecification",
+          "sourceId": "part-order",
+          "targetId": "part-inv",
+          "directed": false,
+          "route": "orthogonal",
+          "sourceAnchor": "bottom",
+          "targetAnchor": "top"
+        },
+        {
+          "id": "cm1",
+          "kind": "message",
+          "name": "checkout",
+          "umlType": "uml:Message",
+          "sourceId": "actor-user",
+          "targetId": "part-order",
+          "directed": true,
+          "route": "straight",
+          "sequenceNumber": "1",
+          "offset": -12
+        },
+        {
+          "id": "cm2",
+          "kind": "message",
+          "name": "reserve",
+          "umlType": "uml:Message",
+          "sourceId": "part-order",
+          "targetId": "part-inv",
+          "directed": true,
+          "route": "straight",
+          "sequenceNumber": "1.1",
+          "offset": 10
+        },
+        {
+          "id": "cm3",
+          "kind": "asyncMessage",
+          "name": "authorize",
+          "umlType": "uml:Message",
+          "sourceId": "part-order",
+          "targetId": "part-pay",
+          "directed": true,
+          "route": "straight",
+          "sequenceNumber": "1.2",
+          "offset": -8
+        },
+        {
+          "id": "cm4",
+          "kind": "replyMessage",
+          "name": "ok",
+          "umlType": "uml:Message",
+          "sourceId": "part-pay",
+          "targetId": "part-order",
+          "directed": true,
+          "route": "straight",
+          "sequenceNumber": "1.3",
+          "offset": 14
+        }
+      ]
+    },
+    {
+      "id": "diagram-activity",
+      "kind": "activity",
+      "name": "Activity Diagram",
+      "nodes": [
+        {
+          "id": "act-init",
+          "kind": "initialNode",
+          "name": "Initial",
+          "umlType": "uml:InitialNode",
+          "ownedElements": [],
+          "x": 60,
+          "y": 60,
+          "width": 54,
+          "height": 54
+        },
+        {
+          "id": "act-receive",
+          "kind": "action",
+          "name": "Receive Order",
+          "umlType": "uml:OpaqueAction",
+          "ownedElements": [],
+          "x": 160,
+          "y": 60,
+          "width": 150,
+          "height": 62
+        },
+        {
+          "id": "act-decide",
+          "kind": "decisionNode",
+          "name": "Decision",
+          "umlType": "uml:DecisionNode",
+          "ownedElements": [],
+          "x": 380,
+          "y": 50,
+          "width": 82,
+          "height": 82
+        },
+        {
+          "id": "act-reserve",
+          "kind": "action",
+          "name": "Reserve Stock",
+          "umlType": "uml:OpaqueAction",
+          "ownedElements": [],
+          "x": 520,
+          "y": 40,
+          "width": 150,
+          "height": 62
+        },
+        {
+          "id": "act-reject",
+          "kind": "action",
+          "name": "Reject Order",
+          "umlType": "uml:OpaqueAction",
+          "ownedElements": [],
+          "x": 520,
+          "y": 160,
+          "width": 150,
+          "height": 62
+        },
+        {
+          "id": "act-obj",
+          "kind": "objectNode",
+          "name": "Order",
+          "umlType": "uml:CentralBufferNode",
+          "ownedElements": [],
+          "x": 160,
+          "y": 180,
+          "width": 132,
+          "height": 54
+        },
+        {
+          "id": "act-fork",
+          "kind": "forkNode",
+          "name": "Fork",
+          "umlType": "uml:ForkNode",
+          "ownedElements": [],
+          "x": 180,
+          "y": 280,
+          "width": 96,
+          "height": 16
+        },
+        {
+          "id": "act-pay",
+          "kind": "action",
+          "name": "Charge Payment",
+          "umlType": "uml:OpaqueAction",
+          "ownedElements": [],
+          "x": 60,
+          "y": 340,
+          "width": 150,
+          "height": 62
+        },
+        {
+          "id": "act-ship",
+          "kind": "action",
+          "name": "Ship Goods",
+          "umlType": "uml:OpaqueAction",
+          "ownedElements": [],
+          "x": 280,
+          "y": 340,
+          "width": 150,
+          "height": 62
+        },
+        {
+          "id": "act-join",
+          "kind": "joinNode",
+          "name": "Join",
+          "umlType": "uml:JoinNode",
+          "ownedElements": [],
+          "x": 180,
+          "y": 440,
+          "width": 96,
+          "height": 16
+        },
+        {
+          "id": "act-merge",
+          "kind": "mergeNode",
+          "name": "Merge",
+          "umlType": "uml:MergeNode",
+          "ownedElements": [],
+          "x": 380,
+          "y": 200,
+          "width": 82,
+          "height": 82
+        },
+        {
+          "id": "act-final",
+          "kind": "finalNode",
+          "name": "Final",
+          "umlType": "uml:ActivityFinalNode",
+          "ownedElements": [],
+          "x": 400,
+          "y": 430,
+          "width": 54,
+          "height": 54
+        },
+        {
+          "id": "act-flow-final",
+          "kind": "flowFinalNode",
+          "name": "FlowFinal",
+          "umlType": "uml:FlowFinalNode",
+          "ownedElements": [],
+          "x": 700,
+          "y": 160,
+          "width": 54,
+          "height": 54
+        }
+      ],
+      "edges": [
+        {
+          "id": "af1",
+          "kind": "controlFlow",
+          "name": "",
+          "umlType": "uml:ControlFlow",
+          "sourceId": "act-init",
+          "targetId": "act-receive",
+          "directed": true,
+          "route": "straight",
+          "sourceAnchor": "right",
+          "targetAnchor": "left"
+        },
+        {
+          "id": "af2",
+          "kind": "controlFlow",
+          "name": "",
+          "umlType": "uml:ControlFlow",
+          "sourceId": "act-receive",
+          "targetId": "act-decide",
+          "directed": true,
+          "route": "straight",
+          "sourceAnchor": "right",
+          "targetAnchor": "left"
+        },
+        {
+          "id": "af3",
+          "kind": "controlFlow",
+          "name": "[in stock]",
+          "umlType": "uml:ControlFlow",
+          "sourceId": "act-decide",
+          "targetId": "act-reserve",
+          "directed": true,
+          "route": "straight",
+          "sourceAnchor": "right",
+          "targetAnchor": "left"
+        },
+        {
+          "id": "af4",
+          "kind": "controlFlow",
+          "name": "[else]",
+          "umlType": "uml:ControlFlow",
+          "sourceId": "act-decide",
+          "targetId": "act-reject",
+          "directed": true,
+          "route": "orthogonal",
+          "sourceAnchor": "bottom",
+          "targetAnchor": "left"
+        },
+        {
+          "id": "af5",
+          "kind": "objectFlow",
+          "name": "",
+          "umlType": "uml:ObjectFlow",
+          "sourceId": "act-receive",
+          "targetId": "act-obj",
+          "directed": true,
+          "route": "orthogonal",
+          "sourceAnchor": "bottom",
+          "targetAnchor": "top"
+        },
+        {
+          "id": "af6",
+          "kind": "controlFlow",
+          "name": "",
+          "umlType": "uml:ControlFlow",
+          "sourceId": "act-reserve",
+          "targetId": "act-fork",
+          "directed": true,
+          "route": "orthogonal",
+          "sourceAnchor": "bottom",
+          "targetAnchor": "right"
+        },
+        {
+          "id": "af7",
+          "kind": "controlFlow",
+          "name": "",
+          "umlType": "uml:ControlFlow",
+          "sourceId": "act-fork",
+          "targetId": "act-pay",
+          "directed": true,
+          "route": "orthogonal",
+          "sourceAnchor": "left",
+          "targetAnchor": "top"
+        },
+        {
+          "id": "af8",
+          "kind": "controlFlow",
+          "name": "",
+          "umlType": "uml:ControlFlow",
+          "sourceId": "act-fork",
+          "targetId": "act-ship",
+          "directed": true,
+          "route": "orthogonal",
+          "sourceAnchor": "right",
+          "targetAnchor": "top"
+        },
+        {
+          "id": "af9",
+          "kind": "controlFlow",
+          "name": "",
+          "umlType": "uml:ControlFlow",
+          "sourceId": "act-pay",
+          "targetId": "act-join",
+          "directed": true,
+          "route": "orthogonal",
+          "sourceAnchor": "bottom",
+          "targetAnchor": "left"
+        },
+        {
+          "id": "af10",
+          "kind": "controlFlow",
+          "name": "",
+          "umlType": "uml:ControlFlow",
+          "sourceId": "act-ship",
+          "targetId": "act-join",
+          "directed": true,
+          "route": "orthogonal",
+          "sourceAnchor": "bottom",
+          "targetAnchor": "right"
+        },
+        {
+          "id": "af11",
+          "kind": "controlFlow",
+          "name": "",
+          "umlType": "uml:ControlFlow",
+          "sourceId": "act-join",
+          "targetId": "act-final",
+          "directed": true,
+          "route": "straight",
+          "sourceAnchor": "right",
+          "targetAnchor": "left"
+        },
+        {
+          "id": "af12",
+          "kind": "controlFlow",
+          "name": "",
+          "umlType": "uml:ControlFlow",
+          "sourceId": "act-reject",
+          "targetId": "act-flow-final",
+          "directed": true,
+          "route": "straight",
+          "sourceAnchor": "right",
+          "targetAnchor": "left"
+        },
+        {
+          "id": "af13",
+          "kind": "controlFlow",
+          "name": "",
+          "umlType": "uml:ControlFlow",
+          "sourceId": "act-reject",
+          "targetId": "act-merge",
+          "directed": true,
+          "route": "orthogonal",
+          "sourceAnchor": "left",
+          "targetAnchor": "right"
+        }
+      ]
+    },
+    {
+      "id": "diagram-state",
+      "kind": "stateMachine",
+      "name": "State Machine",
+      "nodes": [
+        {
+          "id": "st-init",
+          "kind": "pseudostate",
+          "name": "Initial",
+          "umlType": "uml:Pseudostate",
+          "ownedElements": [],
+          "x": 60,
+          "y": 120,
+          "width": 54,
+          "height": 54
+        },
+        {
+          "id": "st-new",
+          "kind": "state",
+          "name": "New",
+          "umlType": "uml:State",
+          "ownedElements": [
+            {
+              "id": "en1",
+              "kind": "entry",
+              "name": "entry / assignId",
+              "umlType": "uml:Behavior"
+            }
+          ],
+          "x": 180,
+          "y": 100,
+          "width": 140,
+          "height": 90
+        },
+        {
+          "id": "st-paid",
+          "kind": "state",
+          "name": "Paid",
+          "umlType": "uml:State",
+          "ownedElements": [
+            {
+              "id": "en2",
+              "kind": "entry",
+              "name": "entry / capture",
+              "umlType": "uml:Behavior"
+            }
+          ],
+          "x": 380,
+          "y": 100,
+          "width": 140,
+          "height": 90
+        },
+        {
+          "id": "st-shipped",
+          "kind": "state",
+          "name": "Shipped",
+          "umlType": "uml:State",
+          "ownedElements": [],
+          "x": 580,
+          "y": 100,
+          "width": 140,
+          "height": 90
+        },
+        {
+          "id": "st-cancelled",
+          "kind": "state",
+          "name": "Cancelled",
+          "umlType": "uml:State",
+          "ownedElements": [
+            {
+              "id": "ex1",
+              "kind": "exit",
+              "name": "exit / notify",
+              "umlType": "uml:Behavior"
+            }
+          ],
+          "x": 380,
+          "y": 260,
+          "width": 140,
+          "height": 90
+        },
+        {
+          "id": "st-final",
+          "kind": "finalState",
+          "name": "Final",
+          "umlType": "uml:FinalState",
+          "ownedElements": [],
+          "x": 760,
+          "y": 110,
+          "width": 54,
+          "height": 54
+        }
+      ],
+      "edges": [
+        {
+          "id": "t1",
+          "kind": "transition",
+          "name": "",
+          "umlType": "uml:Transition",
+          "sourceId": "st-init",
+          "targetId": "st-new",
+          "directed": true,
+          "route": "straight",
+          "sourceAnchor": "right",
+          "targetAnchor": "left"
+        },
+        {
+          "id": "t2",
+          "kind": "transition",
+          "name": "pay",
+          "umlType": "uml:Transition",
+          "sourceId": "st-new",
+          "targetId": "st-paid",
+          "directed": true,
+          "route": "straight",
+          "sourceAnchor": "right",
+          "targetAnchor": "left"
+        },
+        {
+          "id": "t3",
+          "kind": "transition",
+          "name": "ship",
+          "umlType": "uml:Transition",
+          "sourceId": "st-paid",
+          "targetId": "st-shipped",
+          "directed": true,
+          "route": "straight",
+          "sourceAnchor": "right",
+          "targetAnchor": "left"
+        },
+        {
+          "id": "t4",
+          "kind": "transition",
+          "name": "close",
+          "umlType": "uml:Transition",
+          "sourceId": "st-shipped",
+          "targetId": "st-final",
+          "directed": true,
+          "route": "straight",
+          "sourceAnchor": "right",
+          "targetAnchor": "left"
+        },
+        {
+          "id": "t5",
+          "kind": "transition",
+          "name": "cancel",
+          "umlType": "uml:Transition",
+          "sourceId": "st-new",
+          "targetId": "st-cancelled",
+          "directed": true,
+          "route": "orthogonal",
+          "sourceAnchor": "bottom",
+          "targetAnchor": "top"
+        },
+        {
+          "id": "t6",
+          "kind": "transition",
+          "name": "refund",
+          "umlType": "uml:Transition",
+          "sourceId": "st-paid",
+          "targetId": "st-cancelled",
+          "directed": true,
+          "route": "orthogonal",
+          "sourceAnchor": "bottom",
+          "targetAnchor": "top"
+        },
+        {
+          "id": "t7",
+          "kind": "transition",
+          "name": "",
+          "umlType": "uml:Transition",
+          "sourceId": "st-cancelled",
+          "targetId": "st-final",
+          "directed": true,
+          "route": "orthogonal",
+          "sourceAnchor": "right",
+          "targetAnchor": "bottom"
+        }
+      ]
+    },
+    {
+      "id": "diagram-timing",
+      "kind": "timing",
+      "name": "Timing Diagram",
+      "nodes": [
+        {
+          "id": "all-tl-user",
+          "kind": "lifeline",
+          "name": "user",
+          "umlType": "uml:Lifeline",
+          "ownedElements": [],
+          "x": 80,
+          "y": 44,
+          "width": 124,
+          "height": 360
+        },
+        {
+          "id": "all-tl-order",
+          "kind": "lifeline",
+          "name": "order",
+          "umlType": "uml:Lifeline",
+          "ownedElements": [],
+          "x": 310,
+          "y": 44,
+          "width": 124,
+          "height": 360
+        },
+        {
+          "id": "all-tl-payment",
+          "kind": "lifeline",
+          "name": "payment",
+          "umlType": "uml:Lifeline",
+          "ownedElements": [],
+          "x": 540,
+          "y": 44,
+          "width": 124,
+          "height": 360
+        },
+        {
+          "id": "all-inv-user-idle",
+          "kind": "stateInvariant",
+          "name": "Idle",
+          "umlType": "uml:StateInvariant",
+          "ownedElements": [],
+          "x": 76,
+          "y": 105,
+          "width": 132,
+          "height": 48
+        },
+        {
+          "id": "all-inv-user-waiting",
+          "kind": "stateInvariant",
+          "name": "Waiting",
+          "umlType": "uml:StateInvariant",
+          "ownedElements": [],
+          "x": 76,
+          "y": 255,
+          "width": 132,
+          "height": 48
+        },
+        {
+          "id": "all-inv-order-new",
+          "kind": "stateInvariant",
+          "name": "New",
+          "umlType": "uml:StateInvariant",
+          "ownedElements": [],
+          "x": 306,
+          "y": 120,
+          "width": 132,
+          "height": 48
+        },
+        {
+          "id": "all-inv-order-paid",
+          "kind": "stateInvariant",
+          "name": "Paid",
+          "umlType": "uml:StateInvariant",
+          "ownedElements": [],
+          "x": 306,
+          "y": 270,
+          "width": 132,
+          "height": 48
+        },
+        {
+          "id": "all-inv-payment-ready",
+          "kind": "stateInvariant",
+          "name": "Ready",
+          "umlType": "uml:StateInvariant",
+          "ownedElements": [],
+          "x": 536,
+          "y": 145,
+          "width": 132,
+          "height": 48
+        },
+        {
+          "id": "all-inv-payment-authorized",
+          "kind": "stateInvariant",
+          "name": "Authorized",
+          "umlType": "uml:StateInvariant",
+          "ownedElements": [],
+          "x": 536,
+          "y": 285,
+          "width": 132,
+          "height": 48
+        },
+        {
+          "id": "all-obs-request",
+          "kind": "timeObservation",
+          "name": "tRequest",
+          "umlType": "uml:TimeObservation",
+          "ownedElements": [],
+          "x": 205,
+          "y": 170,
+          "width": 92,
+          "height": 40
+        },
+        {
+          "id": "all-obs-authorized",
+          "kind": "timeObservation",
+          "name": "tAuthorized",
+          "umlType": "uml:TimeObservation",
+          "ownedElements": [],
+          "x": 445,
+          "y": 330,
+          "width": 104,
+          "height": 40
+        }
+      ],
+      "edges": [
+        {
+          "id": "all-tm1",
+          "kind": "message",
+          "name": "checkout",
+          "umlType": "uml:Message",
+          "sourceId": "all-inv-user-idle",
+          "targetId": "all-inv-order-new",
+          "directed": true,
+          "route": "straight",
+          "sourceAnchor": "right",
+          "targetAnchor": "left"
+        },
+        {
+          "id": "all-tm2",
+          "kind": "message",
+          "name": "authorize",
+          "umlType": "uml:Message",
+          "sourceId": "all-inv-order-new",
+          "targetId": "all-inv-payment-ready",
+          "directed": true,
+          "route": "straight",
+          "sourceAnchor": "right",
+          "targetAnchor": "left"
+        },
+        {
+          "id": "all-tm3",
+          "kind": "message",
+          "name": "approved",
+          "umlType": "uml:Message",
+          "sourceId": "all-inv-payment-authorized",
+          "targetId": "all-inv-order-paid",
+          "directed": true,
+          "route": "straight",
+          "sourceAnchor": "left",
+          "targetAnchor": "right"
+        },
+        {
+          "id": "all-tm4",
+          "kind": "message",
+          "name": "confirmed",
+          "umlType": "uml:Message",
+          "sourceId": "all-inv-order-paid",
+          "targetId": "all-inv-user-waiting",
+          "directed": true,
+          "route": "straight",
+          "sourceAnchor": "left",
+          "targetAnchor": "right"
+        },
+        {
+          "id": "all-td1",
+          "kind": "durationConstraint",
+          "name": "{authorization < 3s}",
+          "umlType": "uml:DurationConstraint",
+          "sourceId": "all-obs-request",
+          "targetId": "all-obs-authorized",
+          "directed": false,
+          "route": "orthogonal",
+          "sourceAnchor": "right",
+          "targetAnchor": "left"
+        }
+      ]
+    }
+  ],
+  "activeDocumentId": "diagram-class"
+}

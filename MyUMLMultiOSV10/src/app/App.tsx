@@ -46,7 +46,7 @@ import {
 import { GIFEncoder, applyPalette, quantize } from 'gifenc';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { diagramDefinitions, getDiagramDefinition, type ConnectorTool, type DiagramKind, type PaletteTool, type RelationshipKind, type UmlElementKind } from '../uml/diagramRegistry.js';
-import { addOwnedElement, addPaletteNode, connectNodes, createDiagramDocument, moveNode, renameEdge, renameEdgeSequenceNumber, renameNode, renameOwnedElement, updateEdgeAnchor, updateEdgeMultiplicity, updateEdgeOrthogonalElbow, updateEdgeRelationship, updateEdgeRoute, updateOwnedElementKind, type EdgeAnchor, type EdgeRoute, type UmlDiagramDocument, type UmlEdge, type UmlNode, type UmlOwnedElement, type UmlOwnedElementKind } from '../uml/editorModel.js';
+import { addOwnedElement, addPaletteNode, connectNodes, createDiagramDocument, moveNode, renameEdge, renameEdgeSequenceNumber, renameNode, renameOwnedElement, updateEdgeAnchor, updateEdgeEndpoint, updateEdgeMultiplicity, updateEdgeOrthogonalElbow, updateEdgeRelationship, updateEdgeRoute, updateOwnedElementKind, type EdgeAnchor, type EdgeRoute, type UmlDiagramDocument, type UmlEdge, type UmlNode, type UmlOwnedElement, type UmlOwnedElementKind } from '../uml/editorModel.js';
 import {
   attachInterfaceToComponent,
   attachInterfaceToPort,
@@ -237,6 +237,7 @@ export function App() {
   const workspaceRef = useRef<HTMLElement>(null);
   const [selectedNodeIds, setSelectedNodeIds] = useState<ReadonlySet<string>>(new Set());
   const [boxSelectRect, setBoxSelectRect] = useState<{ x: number; y: number; width: number; height: number } | undefined>();
+  const [edgeEndpointDragPreview, setEdgeEndpointDragPreview] = useState<{ edgeId: string; endpoint: 'source' | 'target'; point: Point } | undefined>();
   const dragStateRef = useRef<{
     nodeId: string;
     startClientX: number;
@@ -264,7 +265,9 @@ export function App() {
   const activationResizeStateRef = useRef<{ edgeId: string; end: 'source' | 'target'; startClientY: number; startHeight: number } | undefined>(undefined);
   const operandSeparatorDragStateRef = useRef<{ nodeId: string; startClientY: number; startSeparatorY: number } | undefined>(undefined);
   const communicationEdgeDragStateRef = useRef<{ edgeId: string; startClientX: number; startClientY: number; startOffset: number; normalX: number; normalY: number } | undefined>(undefined);
+  const edgeEndpointDragStateRef = useRef<{ edgeId: string; endpoint: 'source' | 'target'; startClientX: number; startClientY: number; moved: boolean } | undefined>(undefined);
   const edgeLabelDragStateRef = useRef<{ edgeId: string; startClientX: number; startClientY: number; startOffsetX: number; startOffsetY: number } | undefined>(undefined);
+  const multiplicityLabelDragStateRef = useRef<{ edgeId: string; endpoint: 'source' | 'target'; startClientX: number; startClientY: number; startOffsetX: number; startOffsetY: number } | undefined>(undefined);
   const orthogonalSegmentDragStateRef = useRef<{ edgeId: string; axis: 'x' | 'y'; startClientX: number; startClientY: number; startDx: number; startDy: number } | undefined>(undefined);
   const pendingConnectorRef = useRef<ConnectorTool | undefined>(undefined);
   const pendingSourceNodeIdRef = useRef<string | undefined>(undefined);
@@ -285,9 +288,10 @@ export function App() {
   const canvasPan = document ? canvasPans[document.id] ?? { x: 0, y: 0 } : { x: 0, y: 0 };
   const effectiveImageExportFormat = imageExportTransparent && !transparentImageExportFormats.includes(imageExportFormat) ? 'png' : imageExportFormat;
   const canDeleteDiagram = documents.length > 0;
-  const canDeleteSelectedDiagram = canDeleteDiagram && Boolean(diagramSelectedId);
-  const canUndo = undoStack.length > 0;
-  const canRedo = redoStack.length > 0;
+  const hasSelection = Boolean(projectSelected || selectedDiagram || selectedNode || selectedEdge || selectedOwnedElementValue || selectedNodeIds.size > 0);
+  const canDeleteSelectedDiagram = canDeleteDiagram && hasSelection;
+  const canUndo = hasSelection && undoStack.length > 0;
+  const canRedo = hasSelection && redoStack.length > 0;
   const activeConnector = selectedConnector ?? pendingConnectorRef.current;
   const activeMode = activeConnector ? connectorToolLabel(locale, activeConnector, document.kind) : selectedTool ? paletteToolLabel(locale, selectedTool, document.kind) : text.pointer;
   const canvasClassName = activeConnector ? 'canvas connector-mode' : 'canvas';
@@ -519,8 +523,11 @@ export function App() {
     activationResizeStateRef.current = undefined;
     operandSeparatorDragStateRef.current = undefined;
     communicationEdgeDragStateRef.current = undefined;
+    edgeEndpointDragStateRef.current = undefined;
     edgeLabelDragStateRef.current = undefined;
+    multiplicityLabelDragStateRef.current = undefined;
     orthogonalSegmentDragStateRef.current = undefined;
+    setEdgeEndpointDragPreview(undefined);
     setPendingSourceNodeId(undefined);
     setSelectedNodeId(undefined);
     setSelectedEdgeId(undefined);
@@ -1621,6 +1628,20 @@ export function App() {
       return;
     }
 
+    const edgeEndpointDragState = edgeEndpointDragStateRef.current;
+
+    if (edgeEndpointDragState) {
+      const point = clientToCanvasPoint(event.clientX, event.clientY);
+      if (!point) {
+        return;
+      }
+      if (Math.hypot(event.clientX - edgeEndpointDragState.startClientX, event.clientY - edgeEndpointDragState.startClientY) > 4) {
+        edgeEndpointDragState.moved = true;
+      }
+      setEdgeEndpointDragPreview({ edgeId: edgeEndpointDragState.edgeId, endpoint: edgeEndpointDragState.endpoint, point });
+      return;
+    }
+
     const orthogonalSegmentDragState = orthogonalSegmentDragStateRef.current;
 
     if (orthogonalSegmentDragState) {
@@ -1642,6 +1663,19 @@ export function App() {
         edgeLabelDragState.edgeId,
         edgeLabelDragState.startOffsetX + (event.clientX - edgeLabelDragState.startClientX) / canvasZoom,
         edgeLabelDragState.startOffsetY + (event.clientY - edgeLabelDragState.startClientY) / canvasZoom
+      ));
+      return;
+    }
+
+    const multiplicityLabelDragState = multiplicityLabelDragStateRef.current;
+
+    if (multiplicityLabelDragState) {
+      updateActiveDocumentLive((current) => moveEdgeMultiplicityOffset(
+        current,
+        multiplicityLabelDragState.edgeId,
+        multiplicityLabelDragState.endpoint,
+        multiplicityLabelDragState.startOffsetX + (event.clientX - multiplicityLabelDragState.startClientX) / canvasZoom,
+        multiplicityLabelDragState.startOffsetY + (event.clientY - multiplicityLabelDragState.startClientY) / canvasZoom
       ));
       return;
     }
@@ -1791,6 +1825,33 @@ export function App() {
   }
 
   function handleCanvasPointerUp(event: React.PointerEvent<SVGSVGElement>) {
+    const edgeEndpointDragState = edgeEndpointDragStateRef.current;
+
+    if (edgeEndpointDragState) {
+      const point = pointerToCanvasPoint(event);
+      const edge = document.edges.find((candidate) => candidate.id === edgeEndpointDragState.edgeId);
+      const hit = point && edge ? findEdgeEndpointDropNode(document, edge, edgeEndpointDragState.endpoint, point) : undefined;
+
+      if (hit && edge && point) {
+        const endpointAnchor = edgeAnchorFromNodePoint(hit, point);
+        updateActiveDocument((current) => updateEdgeAnchor(
+          updateEdgeEndpoint(current, edgeEndpointDragState.edgeId, edgeEndpointDragState.endpoint, hit.id),
+          edgeEndpointDragState.edgeId,
+          edgeEndpointDragState.endpoint,
+          endpointAnchor.anchor,
+          endpointAnchor.offset
+        ));
+        setSelectedNodeId(undefined);
+        setSelectedEdgeId(edgeEndpointDragState.edgeId);
+        setSelectedOwnedElement(undefined);
+      }
+
+      edgeEndpointDragStateRef.current = undefined;
+      setEdgeEndpointDragPreview(undefined);
+      stopDragging();
+      return;
+    }
+
     const pendingSourceNodeIdValue = pendingSourceNodeIdRef.current;
     const activeConnector = selectedConnector ?? pendingConnectorRef.current;
 
@@ -1861,8 +1922,10 @@ export function App() {
     activationResizeStateRef.current = undefined;
     operandSeparatorDragStateRef.current = undefined;
     communicationEdgeDragStateRef.current = undefined;
+    edgeEndpointDragStateRef.current = undefined;
     edgeLabelDragStateRef.current = undefined;
     orthogonalSegmentDragStateRef.current = undefined;
+    setEdgeEndpointDragPreview(undefined);
 
     const boxSelect = boxSelectRef.current;
     if (boxSelect?.moved) {
@@ -2090,6 +2153,33 @@ export function App() {
     event.currentTarget.setPointerCapture(event.pointerId);
   }
 
+  function startMultiplicityLabelDrag(event: React.PointerEvent<SVGTextElement>, edge: UmlEdge, endpoint: 'source' | 'target') {
+    if (selectedConnector) {
+      return;
+    }
+
+    event.stopPropagation();
+    setContextMenu(undefined);
+    pendingSourceNodeIdRef.current = undefined;
+    connectorDragStateRef.current = undefined;
+    setPendingSourceNodeId(undefined);
+    setConnectorPreviewPoint(undefined);
+    setSelectedNodeId(undefined);
+    setSelectedEdgeId(edge.id);
+    setSelectedOwnedElement(undefined);
+    pushUndoSnapshot();
+    const startOffset = endpoint === 'source' ? edge.sourceMultiplicityOffset : edge.targetMultiplicityOffset;
+    multiplicityLabelDragStateRef.current = {
+      edgeId: edge.id,
+      endpoint,
+      startClientX: event.clientX,
+      startClientY: event.clientY,
+      startOffsetX: startOffset?.x ?? 0,
+      startOffsetY: startOffset?.y ?? 0
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+
   function startOperandSeparatorDrag(event: React.PointerEvent<SVGGElement>, node: UmlNode) {
     if (selectedConnector || node.kind !== 'combinedFragment' || !combinedFragmentShowsSeparator(node.name)) {
       return;
@@ -2142,6 +2232,38 @@ export function App() {
       startClientY: event.clientY,
       startHeight
     };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+
+  function startEdgeEndpointDrag(event: React.PointerEvent<SVGGElement>, edge: UmlEdge, endpoint: 'source' | 'target') {
+    if (selectedConnector) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    setContextMenu(undefined);
+    pendingSourceNodeIdRef.current = undefined;
+    pendingConnectorRef.current = undefined;
+    connectorDragStateRef.current = undefined;
+    messageReorderStateRef.current = undefined;
+    activationResizeStateRef.current = undefined;
+    setPendingSourceNodeId(undefined);
+    setConnectorPreviewPoint(undefined);
+    setSelectedNodeId(undefined);
+    setSelectedEdgeId(edge.id);
+    setSelectedOwnedElement(undefined);
+    edgeEndpointDragStateRef.current = {
+      edgeId: edge.id,
+      endpoint,
+      startClientX: event.clientX,
+      startClientY: event.clientY,
+      moved: false
+    };
+    const point = pointerToCanvasPoint(event);
+    if (point) {
+      setEdgeEndpointDragPreview({ edgeId: edge.id, endpoint, point });
+    }
     event.currentTarget.setPointerCapture(event.pointerId);
   }
 
@@ -2550,11 +2672,40 @@ export function App() {
                         onOrthogonalSegmentPointerDown={(event, axis) => startOrthogonalSegmentDrag(event, edge, axis)}
                         onActivationResizeStart={(event, end) => startActivationResize(event, edge, end)}
                         onLabelPointerDown={(event) => startEdgeLabelDrag(event, edge)}
+                        onMultiplicityPointerDown={(event, endpoint) => startMultiplicityLabelDrag(event, edge, endpoint)}
                         onPointerMove={handleCanvasPointerMove}
                         onPointerUp={(event) => handleCanvasPointerUp(event as React.PointerEvent<SVGSVGElement>)}
                         onContextMenu={(event: React.MouseEvent<SVGGElement>) => openEdgeContextMenu(event, edge.id)}
                       />
                     ));
+                    const endpointHandleOverlays = document.edges.map((edge, edgeIndex) => {
+                      const effectiveEdgeIndex = document.kind === 'sequence' && isInteractionMessageKind(edge.kind)
+                        ? document.edges.slice(0, edgeIndex).filter((candidate) => isInteractionMessageKind(candidate.kind)).length
+                        : edgeIndex;
+                      return (
+                        <EdgeEndpointHandles
+                          key={`endpoint-handles-${edge.id}`}
+                          edge={edge}
+                          edgeIndex={effectiveEdgeIndex}
+                          diagramKind={document.kind}
+                          nodes={document.nodes}
+                          edges={document.edges}
+                          visible={edge.id === selectedEdgeId || edgeEndpointDragPreview?.edgeId === edge.id}
+                          endpointDragPreview={edgeEndpointDragPreview?.edgeId === edge.id ? edgeEndpointDragPreview : undefined}
+                          onEndpointPointerDown={(event, endpoint) => startEdgeEndpointDrag(event, edge, endpoint)}
+                          onPointerMove={handleCanvasPointerMove}
+                          onPointerUp={(event) => handleCanvasPointerUp(event as React.PointerEvent<SVGSVGElement>)}
+                        />
+                      );
+                    });
+                    const edgeEndpointPreview = edgeEndpointDragPreview ? (
+                      <EdgeEndpointPreview
+                        preview={edgeEndpointDragPreview}
+                        diagramKind={document.kind}
+                        nodes={document.nodes}
+                        edges={document.edges}
+                      />
+                    ) : null;
                     const connectorPreview = activeConnector && pendingSourceNodeId && connectorPreviewPoint
                       ? <ConnectorPreview source={document.nodes.find((node) => node.id === pendingSourceNodeId)} target={connectorPreviewPoint} connector={activeConnector} diagramKind={document.kind} />
                       : null;
@@ -2567,6 +2718,8 @@ export function App() {
                         {edgeElements}
                         {connectorPreview}
                         {sequencePaintOrder ? null : foregroundNodes.map(renderNode)}
+                        {edgeEndpointPreview}
+                        {endpointHandleOverlays}
                         {document.nodes
                           .filter((node) => node.kind === 'combinedFragment' && node.id === selectedNodeId && combinedFragmentShowsSeparator(node.name))
                           .map((node) => {
@@ -2799,11 +2952,19 @@ export function App() {
                 </label>
                 <label>
                   {text.source}
-                  <input value={findNodeName(selectedEdge.sourceId)} readOnly />
+                  <select value={selectedEdge.sourceId} onChange={(event) => updateActiveDocument((current) => updateEdgeEndpoint(current, selectedEdge.id, 'source', event.target.value))}>
+                    {document.nodes.map((node) => (
+                      <option key={node.id} value={node.id} disabled={node.id === selectedEdge.targetId && !isInteractionMessageKind(selectedEdge.kind)}>{node.name}</option>
+                    ))}
+                  </select>
                 </label>
                 <label>
                   {text.target}
-                  <input value={findNodeName(selectedEdge.targetId)} readOnly />
+                  <select value={selectedEdge.targetId} onChange={(event) => updateActiveDocument((current) => updateEdgeEndpoint(current, selectedEdge.id, 'target', event.target.value))}>
+                    {document.nodes.map((node) => (
+                      <option key={node.id} value={node.id} disabled={node.id === selectedEdge.sourceId && !isInteractionMessageKind(selectedEdge.kind)}>{node.name}</option>
+                    ))}
+                  </select>
                 </label>
                 {document.kind === 'communication' && isInteractionMessageKind(selectedEdge.kind) ? (
                   <label>
@@ -3285,8 +3446,12 @@ function normalizeEdge(edge: UmlEdge, connectors: ConnectorTool[], index: number
     route: isEdgeRoute(edge.route) ? edge.route : 'straight',
     sourceAnchor: isEdgeAnchor(edge.sourceAnchor) ? edge.sourceAnchor : undefined,
     targetAnchor: isEdgeAnchor(edge.targetAnchor) ? edge.targetAnchor : undefined,
+    sourceAnchorOffset: normalizeEdgeAnchorOffset(edge.sourceAnchorOffset),
+    targetAnchorOffset: normalizeEdgeAnchorOffset(edge.targetAnchorOffset),
     sourceMultiplicity,
     targetMultiplicity,
+    sourceMultiplicityOffset: isPointLike(edge.sourceMultiplicityOffset) ? { x: edge.sourceMultiplicityOffset.x, y: edge.sourceMultiplicityOffset.y } : undefined,
+    targetMultiplicityOffset: isPointLike(edge.targetMultiplicityOffset) ? { x: edge.targetMultiplicityOffset.x, y: edge.targetMultiplicityOffset.y } : undefined,
     sequenceY: typeof edge.sequenceY === 'number' && Number.isFinite(edge.sequenceY) ? edge.sequenceY : undefined,
     sourceActivationHeight: typeof edge.sourceActivationHeight === 'number' && Number.isFinite(edge.sourceActivationHeight)
       ? Math.max(20, Math.round(edge.sourceActivationHeight))
@@ -3702,6 +3867,10 @@ function isEdgeAnchor(anchor: string | undefined): anchor is EdgeAnchor {
   return anchor === 'left' || anchor === 'right' || anchor === 'top' || anchor === 'bottom';
 }
 
+function normalizeEdgeAnchorOffset(offset: unknown): number | undefined {
+  return typeof offset === 'number' && Number.isFinite(offset) ? clamp(offset, 0, 1) : undefined;
+}
+
 function edgeAnchorFromSelection(anchor: string): EdgeAnchor | undefined {
   return isEdgeAnchor(anchor) ? anchor : undefined;
 }
@@ -3964,6 +4133,7 @@ function prepareDiagramSvgCloneForExport(svg: SVGSVGElement): SVGSVGElement {
     '.node-hit-area',
     '.resize-handle',
     '.orthogonal-seg-hit',
+    '.edge-endpoint-handle',
     '.assembly-hit',
     '.edge-hit',
     '.lifeline-message-start-zone',
@@ -4746,11 +4916,11 @@ function resolveEdgeGeometry(
   const communicationMessagePoints = !sequenceMessagePoints && diagramKind === 'communication' && isInteractionMessageKind(edge.kind)
     ? getCommunicationMessagePoints(edge, source, target, peerPosition)
     : undefined;
-  const useEndpointAnchors = edge.route === 'orthogonal';
-  const sourceAnchor = useEndpointAnchors ? edge.sourceAnchor ?? connectionSideToward(source, targetCenter) : undefined;
-  const targetAnchor = useEndpointAnchors ? edge.targetAnchor ?? connectionSideToward(target, sourceCenter) : undefined;
-  let sourcePoint = sequenceMessagePoints?.source ?? communicationMessagePoints?.source ?? connectionPoint(source, targetCenter, sourceAnchor);
-  let targetPoint = sequenceMessagePoints?.target ?? communicationMessagePoints?.target ?? connectionPoint(target, sourceCenter, targetAnchor);
+  const useEndpointAnchors = edge.route === 'orthogonal' || Boolean(edge.sourceAnchor || edge.targetAnchor);
+  const sourceAnchor = useEndpointAnchors ? edge.sourceAnchor ?? (edge.route === 'orthogonal' ? connectionSideToward(source, targetCenter) : undefined) : undefined;
+  const targetAnchor = useEndpointAnchors ? edge.targetAnchor ?? (edge.route === 'orthogonal' ? connectionSideToward(target, sourceCenter) : undefined) : undefined;
+  let sourcePoint = sequenceMessagePoints?.source ?? communicationMessagePoints?.source ?? connectionPoint(source, targetCenter, sourceAnchor, useEndpointAnchors, edge.sourceAnchorOffset);
+  let targetPoint = sequenceMessagePoints?.target ?? communicationMessagePoints?.target ?? connectionPoint(target, sourceCenter, targetAnchor, useEndpointAnchors, edge.targetAnchorOffset);
 
   if (!sequenceMessagePoints && !communicationMessagePoints && edge.kind !== 'assemblyConnector') {
     if (source.kind === 'providedInterface' || source.kind === 'requiredInterface') {
@@ -4825,7 +4995,7 @@ function resolveEdgeGeometry(
   };
 }
 
-function DiagramEdge({ edge, edgeIndex, diagramKind, nodes, edges, bridgeCrossings, selected, onSelect, onPointerDown, onOrthogonalSegmentPointerDown, onActivationResizeStart, onLabelPointerDown, onPointerMove, onPointerUp, onContextMenu }: { edge: UmlEdge; edgeIndex: number; diagramKind: DiagramKind; nodes: UmlNode[]; edges?: UmlEdge[]; bridgeCrossings: Point[]; selected: boolean; onSelect: () => void; onPointerDown: (event: React.PointerEvent<SVGGElement>) => void; onOrthogonalSegmentPointerDown: (event: React.PointerEvent<SVGGElement>, axis: 'x' | 'y') => void; onActivationResizeStart: (event: React.PointerEvent<SVGGElement>, end: 'source' | 'target') => void; onLabelPointerDown: (event: React.PointerEvent<SVGTextElement>) => void; onPointerMove: (event: React.PointerEvent<SVGElement>) => void; onPointerUp: (event: React.PointerEvent<SVGGElement>) => void; onContextMenu: (event: React.MouseEvent<SVGGElement>) => void }) {
+function DiagramEdge({ edge, edgeIndex, diagramKind, nodes, edges, bridgeCrossings, selected, onSelect, onPointerDown, onOrthogonalSegmentPointerDown, onActivationResizeStart, onLabelPointerDown, onMultiplicityPointerDown, onPointerMove, onPointerUp, onContextMenu }: { edge: UmlEdge; edgeIndex: number; diagramKind: DiagramKind; nodes: UmlNode[]; edges?: UmlEdge[]; bridgeCrossings: Point[]; selected: boolean; onSelect: () => void; onPointerDown: (event: React.PointerEvent<SVGGElement>) => void; onOrthogonalSegmentPointerDown: (event: React.PointerEvent<SVGGElement>, axis: 'x' | 'y') => void; onActivationResizeStart: (event: React.PointerEvent<SVGGElement>, end: 'source' | 'target') => void; onLabelPointerDown: (event: React.PointerEvent<SVGTextElement>) => void; onMultiplicityPointerDown: (event: React.PointerEvent<SVGTextElement>, endpoint: 'source' | 'target') => void; onPointerMove: (event: React.PointerEvent<SVGElement>) => void; onPointerUp: (event: React.PointerEvent<SVGGElement>) => void; onContextMenu: (event: React.MouseEvent<SVGGElement>) => void }) {
   const source = nodes.find((node) => node.id === edge.sourceId);
   const target = nodes.find((node) => node.id === edge.targetId);
 
@@ -4871,6 +5041,14 @@ function DiagramEdge({ edge, edgeIndex, diagramKind, nodes, edges, bridgeCrossin
         : edge.name;
   const sourceMultiplicityPoint = pointBetween(effectiveSrc, effectiveTgt, 0.18, -12);
   const targetMultiplicityPoint = pointBetween(effectiveSrc, effectiveTgt, 0.82, -12);
+  const effectiveSourceMultiplicityPoint = {
+    x: sourceMultiplicityPoint.x + (edge.sourceMultiplicityOffset?.x ?? 0),
+    y: sourceMultiplicityPoint.y + (edge.sourceMultiplicityOffset?.y ?? 0)
+  };
+  const effectiveTargetMultiplicityPoint = {
+    x: targetMultiplicityPoint.x + (edge.targetMultiplicityOffset?.x ?? 0),
+    y: targetMultiplicityPoint.y + (edge.targetMultiplicityOffset?.y ?? 0)
+  };
   const sourceActivation = sequenceMessagePoints && !sequenceMessagePoints.selfCall
     ? getSequenceActivationRect(source, sequenceMessagePoints.source, activationHeightForEdge(edge, 'source'))
     : undefined;
@@ -4955,8 +5133,87 @@ function DiagramEdge({ edge, edgeIndex, diagramKind, nodes, edges, bridgeCrossin
       ) : null}
       {notation.objectToken ? <ObjectFlowToken source={sourcePoint} target={targetPoint} /> : null}
       <text className="edge-label" x={effectiveLabelPoint.x} y={effectiveLabelPoint.y} textAnchor="middle" onPointerDown={onLabelPointerDown}>{label}</text>
-      {showMultiplicity && edge.sourceMultiplicity ? <text className="multiplicity" x={sourceMultiplicityPoint.x} y={sourceMultiplicityPoint.y} textAnchor="middle">{edge.sourceMultiplicity}</text> : null}
-      {showMultiplicity && edge.targetMultiplicity ? <text className="multiplicity" x={targetMultiplicityPoint.x} y={targetMultiplicityPoint.y} textAnchor="middle">{edge.targetMultiplicity}</text> : null}
+      {showMultiplicity && edge.sourceMultiplicity ? <text className="multiplicity" x={effectiveSourceMultiplicityPoint.x} y={effectiveSourceMultiplicityPoint.y} textAnchor="middle" onPointerDown={(event) => onMultiplicityPointerDown(event, 'source')}>{edge.sourceMultiplicity}</text> : null}
+      {showMultiplicity && edge.targetMultiplicity ? <text className="multiplicity" x={effectiveTargetMultiplicityPoint.x} y={effectiveTargetMultiplicityPoint.y} textAnchor="middle" onPointerDown={(event) => onMultiplicityPointerDown(event, 'target')}>{edge.targetMultiplicity}</text> : null}
+    </g>
+  );
+}
+
+function EdgeEndpointPreview({ preview, diagramKind, nodes, edges }: { preview: { edgeId: string; endpoint: 'source' | 'target'; point: Point }; diagramKind: DiagramKind; nodes: UmlNode[]; edges: UmlEdge[] }) {
+  const edge = edges.find((candidate) => candidate.id === preview.edgeId);
+  if (!edge) {
+    return null;
+  }
+
+  const edgeIndex = diagramKind === 'sequence' && isInteractionMessageKind(edge.kind)
+    ? edges.slice(0, edges.findIndex((candidate) => candidate.id === edge.id)).filter((candidate) => isInteractionMessageKind(candidate.kind)).length
+    : edges.findIndex((candidate) => candidate.id === edge.id);
+  const points = resolveEdgePolylinePoints(edge, edgeIndex, diagramKind, nodes, edges);
+  if (!points || points.length < 2) {
+    return null;
+  }
+
+  const previewPoints = [...points];
+  if (preview.endpoint === 'source') {
+    previewPoints[0] = preview.point;
+  } else {
+    previewPoints[previewPoints.length - 1] = preview.point;
+  }
+
+  const notation = getUmlConnectorNotation(edge.kind);
+  const markerEnd = notation.marker === 'hollowTriangle'
+    ? 'url(#triangle-arrow)'
+    : notation.marker === 'filledArrow'
+      ? 'url(#filled-arrow)'
+      : notation.marker === 'openArrow'
+        ? 'url(#line-arrow)'
+        : undefined;
+
+  return (
+    <g className="preview-edge endpoint-preview-edge">
+      <path d={pointsToPath(previewPoints)} markerEnd={markerEnd} strokeDasharray={notation.dashed ? '8 5' : undefined} />
+    </g>
+  );
+}
+
+function EdgeEndpointHandles({ edge, edgeIndex, diagramKind, nodes, edges, visible, endpointDragPreview, onEndpointPointerDown, onPointerMove, onPointerUp }: { edge: UmlEdge; edgeIndex: number; diagramKind: DiagramKind; nodes: UmlNode[]; edges: UmlEdge[]; visible: boolean; endpointDragPreview?: { endpoint: 'source' | 'target'; point: Point }; onEndpointPointerDown: (event: React.PointerEvent<SVGGElement>, endpoint: 'source' | 'target') => void; onPointerMove: (event: React.PointerEvent<SVGElement>) => void; onPointerUp: (event: React.PointerEvent<SVGGElement>) => void }) {
+  const source = nodes.find((node) => node.id === edge.sourceId);
+  const target = nodes.find((node) => node.id === edge.targetId);
+
+  if (!source || !target) {
+    return null;
+  }
+
+  const geometry = resolveEdgeGeometry(edge, edgeIndex, diagramKind, nodes, edges, source, target);
+  if (!geometry) {
+    return null;
+  }
+
+  const sourceHandlePoint = endpointDragPreview?.endpoint === 'source' ? endpointDragPreview.point : geometry.effectiveSrc;
+  const targetHandlePoint = endpointDragPreview?.endpoint === 'target' ? endpointDragPreview.point : geometry.effectiveTgt;
+  const sourceClassName = visible ? 'edge-endpoint-handle source-endpoint-handle visible' : 'edge-endpoint-handle source-endpoint-handle';
+  const targetClassName = visible ? 'edge-endpoint-handle target-endpoint-handle visible' : 'edge-endpoint-handle target-endpoint-handle';
+
+  return (
+    <g className="edge endpoint-overlay">
+      <g
+        className={sourceClassName}
+        transform={`translate(${sourceHandlePoint.x - 9} ${sourceHandlePoint.y - 9})`}
+        onPointerDown={(event) => onEndpointPointerDown(event, 'source')}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+      >
+        <rect width="18" height="18" rx="4" />
+      </g>
+      <g
+        className={targetClassName}
+        transform={`translate(${targetHandlePoint.x - 9} ${targetHandlePoint.y - 9})`}
+        onPointerDown={(event) => onEndpointPointerDown(event, 'target')}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+      >
+        <circle cx="9" cy="9" r="9" />
+      </g>
     </g>
   );
 }
@@ -4984,6 +5241,57 @@ function communicationMessagePeerPosition(edges: UmlEdge[], edge: UmlEdge): { in
   const index = peers.findIndex((candidate) => candidate.id === edge.id);
 
   return { index: Math.max(0, index), count: Math.max(1, peers.length) };
+}
+
+function findEdgeEndpointDropNode(document: UmlDiagramDocument, edge: UmlEdge, endpoint: 'source' | 'target', point: Point): UmlNode | undefined {
+  return [...document.nodes].reverse().find((node) => isValidEdgeEndpointNode(document, edge, endpoint, node) && pointInNodeConnectionBounds(point, node, 8));
+}
+
+function edgeAnchorFromNodePoint(node: UmlNode, point: Point): { anchor: EdgeAnchor; offset: number } {
+  const bounds = connectionBounds(node);
+  const distances: Array<{ anchor: EdgeAnchor; distance: number }> = [
+    { anchor: 'left', distance: Math.abs(point.x - bounds.x) },
+    { anchor: 'right', distance: Math.abs(point.x - (bounds.x + bounds.width)) },
+    { anchor: 'top', distance: Math.abs(point.y - bounds.y) },
+    { anchor: 'bottom', distance: Math.abs(point.y - (bounds.y + bounds.height)) }
+  ];
+  const anchor = distances.reduce((nearest, candidate) => (candidate.distance < nearest.distance ? candidate : nearest)).anchor;
+  const offset = anchor === 'left' || anchor === 'right'
+    ? (point.y - bounds.y) / bounds.height
+    : (point.x - bounds.x) / bounds.width;
+
+  return { anchor, offset: clamp(offset, 0, 1) };
+}
+
+function isValidEdgeEndpointNode(document: UmlDiagramDocument, edge: UmlEdge, endpoint: 'source' | 'target', node: UmlNode): boolean {
+  const otherNodeId = endpoint === 'source' ? edge.targetId : edge.sourceId;
+  const otherNode = document.nodes.find((candidate) => candidate.id === otherNodeId);
+
+  if (node.id === otherNodeId && !isInteractionMessageKind(edge.kind)) {
+    return false;
+  }
+
+  if (document.kind === 'sequence' && isInteractionMessageKind(edge.kind)) {
+    return node.kind === 'lifeline';
+  }
+
+  if (document.kind === 'communication' && (isInteractionMessageKind(edge.kind) || isCommunicationLinkEdge(edge.kind))) {
+    return isCommunicationParticipant(node.kind);
+  }
+
+  if (document.kind === 'component' && edge.kind === 'assemblyConnector') {
+    return Boolean(otherNode && isAssemblyPair(endpoint === 'source' ? node : otherNode, endpoint === 'target' ? node : otherNode, document.nodes));
+  }
+
+  return true;
+}
+
+function pointInNodeConnectionBounds(point: Point, node: UmlNode, padding = 0): boolean {
+  const bounds = connectionBounds(node);
+  return point.x >= bounds.x - padding
+    && point.x <= bounds.x + bounds.width + padding
+    && point.y >= bounds.y - padding
+    && point.y <= bounds.y + bounds.height + padding;
 }
 
 function getCommunicationMessagePoints(edge: UmlEdge, source: UmlNode, target: UmlNode, peerPosition: { index: number; count: number }): {
@@ -5075,6 +5383,21 @@ function moveEdgeLabelOffset(document: UmlDiagramDocument, edgeId: string, x: nu
   return {
     ...document,
     edges: document.edges.map((edge) => (edge.id === edgeId ? { ...edge, labelOffset: { x: Math.round(x), y: Math.round(y) } } : edge))
+  };
+}
+
+function moveEdgeMultiplicityOffset(document: UmlDiagramDocument, edgeId: string, endpoint: 'source' | 'target', x: number, y: number): UmlDiagramDocument {
+  const offset = { x: Math.round(x), y: Math.round(y) };
+
+  return {
+    ...document,
+    edges: document.edges.map((edge) => edge.id === edgeId
+      ? {
+          ...edge,
+          sourceMultiplicityOffset: endpoint === 'source' ? offset : edge.sourceMultiplicityOffset,
+          targetMultiplicityOffset: endpoint === 'target' ? offset : edge.targetMultiplicityOffset
+        }
+      : edge)
   };
 }
 
@@ -5505,12 +5828,12 @@ function initialConnectorPreviewPoint(node: UmlNode, diagramKind?: DiagramKind):
   return { x: center.x + Math.max(48, node.width / 2 + 24), y: center.y };
 }
 
-function connectionPoint(node: UmlNode, toward: Point, anchor?: EdgeAnchor): Point {
+function connectionPoint(node: UmlNode, toward: Point, anchor?: EdgeAnchor, flexibleAnchor = false, anchorOffset?: number): Point {
   if (!anchor) {
     return boundaryPoint(node, toward);
   }
 
-  return anchoredBoundaryPoint(node, anchor);
+  return anchoredBoundaryPoint(node, anchor, flexibleAnchor ? toward : undefined, anchorOffset);
 }
 
 function connectionSideToward(node: UmlNode, toward: Point): EdgeAnchor {
@@ -5526,18 +5849,56 @@ function connectionSideToward(node: UmlNode, toward: Point): EdgeAnchor {
   return deltaY >= 0 ? 'bottom' : 'top';
 }
 
-function anchoredBoundaryPoint(node: UmlNode, anchor: EdgeAnchor): Point {
-  const center = centerOf(node);
+function anchoredBoundaryPoint(node: UmlNode, anchor: EdgeAnchor, toward?: Point, anchorOffset?: number): Point {
+  const bounds = connectionBounds(node);
+  const center = { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 };
+
+  if (anchorOffset !== undefined) {
+    const offset = clamp(anchorOffset, 0, 1);
+    const point = anchor === 'left' || anchor === 'right'
+      ? {
+          x: anchor === 'left' ? bounds.x : bounds.x + bounds.width,
+          y: bounds.y + bounds.height * offset
+        }
+      : {
+          x: bounds.x + bounds.width * offset,
+          y: anchor === 'top' ? bounds.y : bounds.y + bounds.height
+        };
+
+    if (!isEllipseConnectionNode(node) && !isDiamondConnectionNode(node)) {
+      return point;
+    }
+
+    return boundaryPoint(node, point);
+  }
+
+  if (toward) {
+    const point = anchor === 'left' || anchor === 'right'
+      ? {
+          x: anchor === 'left' ? bounds.x : bounds.x + bounds.width,
+          y: clamp(toward.y, bounds.y, bounds.y + bounds.height)
+        }
+      : {
+          x: clamp(toward.x, bounds.x, bounds.x + bounds.width),
+          y: anchor === 'top' ? bounds.y : bounds.y + bounds.height
+        };
+
+    if (!isEllipseConnectionNode(node) && !isDiamondConnectionNode(node)) {
+      return point;
+    }
+
+    return boundaryPoint(node, point);
+  }
 
   switch (anchor) {
     case 'left':
-      return boundaryPoint(node, { x: center.x - node.width, y: center.y });
+      return boundaryPoint(node, { x: center.x - bounds.width, y: center.y });
     case 'right':
-      return boundaryPoint(node, { x: center.x + node.width, y: center.y });
+      return boundaryPoint(node, { x: center.x + bounds.width, y: center.y });
     case 'top':
-      return boundaryPoint(node, { x: center.x, y: center.y - node.height });
+      return boundaryPoint(node, { x: center.x, y: center.y - bounds.height });
     case 'bottom':
-      return boundaryPoint(node, { x: center.x, y: center.y + node.height });
+      return boundaryPoint(node, { x: center.x, y: center.y + bounds.height });
   }
 }
 

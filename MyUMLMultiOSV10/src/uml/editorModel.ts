@@ -60,8 +60,12 @@ export interface UmlEdge {
   route: EdgeRoute;
   sourceAnchor?: EdgeAnchor;
   targetAnchor?: EdgeAnchor;
+  sourceAnchorOffset?: number;
+  targetAnchorOffset?: number;
   sourceMultiplicity?: string;
   targetMultiplicity?: string;
+  sourceMultiplicityOffset?: { x: number; y: number };
+  targetMultiplicityOffset?: { x: number; y: number };
   sequenceY?: number;
   /** Sequence diagram: execution specification (activation bar) height on the source lifeline. */
   sourceActivationHeight?: number;
@@ -327,7 +331,9 @@ export function updateEdgeOrthogonalElbow(document: UmlDiagramDocument, edgeId: 
   };
 }
 
-export function updateEdgeAnchor(document: UmlDiagramDocument, edgeId: string, endpoint: 'source' | 'target', anchor: EdgeAnchor | undefined): UmlDiagramDocument {
+export function updateEdgeAnchor(document: UmlDiagramDocument, edgeId: string, endpoint: 'source' | 'target', anchor: EdgeAnchor | undefined, offset?: number): UmlDiagramDocument {
+  const anchorOffset = typeof offset === 'number' && Number.isFinite(offset) ? Math.max(0, Math.min(1, offset)) : undefined;
+
   return {
     ...document,
     edges: document.edges.map((edge) =>
@@ -335,10 +341,40 @@ export function updateEdgeAnchor(document: UmlDiagramDocument, edgeId: string, e
         ? {
             ...edge,
             sourceAnchor: endpoint === 'source' ? anchor : edge.sourceAnchor,
-            targetAnchor: endpoint === 'target' ? anchor : edge.targetAnchor
+            targetAnchor: endpoint === 'target' ? anchor : edge.targetAnchor,
+            sourceAnchorOffset: endpoint === 'source' ? anchorOffset : edge.sourceAnchorOffset,
+            targetAnchorOffset: endpoint === 'target' ? anchorOffset : edge.targetAnchorOffset
           }
         : edge
     )
+  };
+}
+
+export function updateEdgeEndpoint(document: UmlDiagramDocument, edgeId: string, endpoint: 'source' | 'target', nodeId: string): UmlDiagramDocument {
+  if (!document.nodes.some((node) => node.id === nodeId)) {
+    return document;
+  }
+
+  return {
+    ...document,
+    edges: document.edges.map((edge) => {
+      if (edge.id !== edgeId) {
+        return edge;
+      }
+
+      const nextSourceId = endpoint === 'source' ? nodeId : edge.sourceId;
+      const nextTargetId = endpoint === 'target' ? nodeId : edge.targetId;
+
+      if (nextSourceId === nextTargetId && !isInteractionMessageKind(edge.kind)) {
+        return edge;
+      }
+
+      return {
+        ...edge,
+        sourceId: nextSourceId,
+        targetId: nextTargetId
+      };
+    })
   };
 }
 

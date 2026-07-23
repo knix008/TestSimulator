@@ -90,7 +90,7 @@
     ${NSD_GetState} $DesktopShortcutCheckbox $CreateDesktopShortcutChoice
   FunctionEnd
 
-  !macro customPageAfterChangeDir
+  !macro customWelcomePage
     Page custom ShortcutOptionsPage ShortcutOptionsPageLeave
   !macroend
 !endif
