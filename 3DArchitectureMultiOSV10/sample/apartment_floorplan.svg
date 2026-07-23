@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="800" height="600" viewBox="0 0 800 600"
+     xmlns="http://www.w3.org/2000/svg"
+     style="background:white;">
+
+  <!-- 배경 -->
+  <rect width="800" height="600" fill="white"/>
+
+  <!-- 외벽 (두꺼운 선) -->
+  <rect x="80" y="60" width="640" height="480"
+        fill="none" stroke="black" stroke-width="12"/>
+
+  <!-- 내벽 - 거실/침실 구분 세로 -->
+  <line x1="350" y1="60"  x2="350" y2="360" stroke="black" stroke-width="8"/>
+
+  <!-- 내벽 - 주방/거실 구분 가로 -->
+  <line x1="350" y1="360" x2="720" y2="360" stroke="black" stroke-width="8"/>
+
+  <!-- 내벽 - 침실1/2 구분 가로 -->
+  <line x1="80"  y1="280" x2="350" y2="280" stroke="black" stroke-width="8"/>
+
+  <!-- 욕실 벽 세로 -->
+  <line x1="560" y1="360" x2="560" y2="540" stroke="black" stroke-width="8"/>
+
+  <!-- 현관 구분 가로 -->
+  <line x1="80"  y1="460" x2="210" y2="460" stroke="black" stroke-width="8"/>
+  <line x1="210" y1="460" x2="210" y2="540" stroke="black" stroke-width="8"/>
+
+  <!-- 문 (얇은 실선 + 아크) -->
+  <g stroke="black" stroke-width="3" fill="none">
+    <!-- 현관문 -->
+    <line x1="100" y1="60" x2="160" y2="60"/>
+    <path d="M100,60 A60,60 0 0,1 160,120"/>
+    <!-- 침실1 문 -->
+    <line x1="350" y1="160" x2="350" y2="220"/>
+    <path d="M350,160 A60,60 0 0,0 290,160" transform="rotate(90,320,160)"/>
+    <!-- 침실2 문 -->
+    <line x1="350" y1="380" x2="350" y2="440"/>
+    <path d="M350,380 A60,60 0 0,0 290,380" transform="rotate(90,320,380)"/>
+    <!-- 욕실 문 -->
+    <line x1="560" y1="460" x2="560" y2="520"/>
+    <path d="M560,460 A60,60 0 0,1 620,460" transform="rotate(90,590,490)"/>
+    <!-- 현관→복도 문 -->
+    <line x1="130" y1="460" x2="190" y2="460"/>
+    <path d="M130,460 A60,60 0 0,0 130,400"/>
+  </g>
+
+  <!-- 창문 (얇은 이중선) -->
+  <g stroke="black" fill="none">
+    <!-- 거실 하단 창문 -->
+    <line x1="380" y1="540" x2="540" y2="540" stroke-width="6"/>
+    <line x1="380" y1="534" x2="540" y2="534" stroke-width="2"/>
+    <!-- 침실1 좌측 창문 -->
+    <line x1="80" y1="100" x2="80" y2="230" stroke-width="6"/>
+    <line x1="86" y1="100" x2="86" y2="230" stroke-width="2"/>
+    <!-- 침실2 좌측 창문 -->
+    <line x1="80" y1="300" x2="80" y2="440" stroke-width="6"/>
+    <line x1="86" y1="300" x2="86" y2="440" stroke-width="2"/>
+    <!-- 주방 상단 창문 -->
+    <line x1="500" y1="60" x2="650" y2="60" stroke-width="6"/>
+    <line x1="500" y1="66" x2="650" y2="66" stroke-width="2"/>
+    <!-- 거실 우측 창문 -->
+    <line x1="720" y1="80" x2="720" y2="280" stroke-width="6"/>
+    <line x1="714" y1="80" x2="714" y2="280" stroke-width="2"/>
+  </g>
+
+  <!-- 방 이름 텍스트 -->
+  <g font-family="Arial, sans-serif" text-anchor="middle" fill="#333">
+    <text x="215" y="180" font-size="18" font-weight="bold">침실 1</text>
+    <text x="215" y="200" font-size="12">Bedroom 1</text>
+
+    <text x="215" y="420" font-size="18" font-weight="bold">침실 2</text>
+    <text x="215" y="440" font-size="12">Bedroom 2</text>
+
+    <text x="530" y="210" font-size="20" font-weight="bold">거실</text>
+    <text x="530" y="235" font-size="12">Living Room</text>
+
+    <text x="530" y="435" font-size="16" font-weight="bold">주방</text>
+    <text x="530" y="455" font-size="11">Kitchen</text>
+
+    <text x="630" y="465" font-size="14" font-weight="bold">욕실</text>
+    <text x="630" y="482" font-size="10">Bathroom</text>
+
+    <text x="145" y="512" font-size="13" font-weight="bold">현관</text>
+    <text x="145" y="528" font-size="10">Entrance</text>
+  </g>
+
+  <!-- 치수선 (간략) -->
+  <g stroke="#888" stroke-width="1" fill="#888" font-family="Arial" font-size="11" text-anchor="middle">
+    <!-- 전체 너비 -->
+    <line x1="80" y1="580" x2="720" y2="580"/>
+    <line x1="80" y1="575" x2="80" y2="585"/>
+    <line x1="720" y1="575" x2="720" y2="585"/>
+    <text x="400" y="596">12,000mm</text>
+    <!-- 전체 높이 -->
+    <line x1="760" y1="60" x2="760" y2="540"/>
+    <line x1="755" y1="60" x2="765" y2="60"/>
+    <line x1="755" y1="540" x2="765" y2="540"/>
+    <text x="785" y="305" transform="rotate(90,785,305)">9,000mm</text>
+  </g>
+
+  <!-- 제목 -->
+  <text x="400" y="30" font-family="Arial" font-size="14" font-weight="bold"
+        text-anchor="middle" fill="#555">
+    아파트 평면도 샘플 | Apartment Floor Plan Sample (1:100)
+  </text>
+</svg>

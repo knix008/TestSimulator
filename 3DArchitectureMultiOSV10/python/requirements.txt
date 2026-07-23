@@ -1,0 +1,8 @@
+flask>=3.0.0
+flask-cors>=4.0.0
+onnxruntime>=1.17.0
+Pillow>=10.0.0
+numpy>=1.24.0
+# GUI (optional — server runs headlessly without it)
+PyQt5>=5.15.0
+# Alternatively: PyQt6>=6.4.0
