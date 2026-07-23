@@ -91,12 +91,12 @@ function denoiseEdges(edges, w, h) {
 }
 
 function houghTransform(edges, w, h, minVotes) {
-  const diag  = Math.ceil(Math.sqrt(w*w + h*h));
-  const rhoN  = diag * 2 + 1;
+  const diag   = Math.ceil(Math.sqrt(w*w + h*h));
+  const rhoN   = diag * 2 + 1;
   const thetaN = 180;
-  const acc   = new Int32Array(rhoN * thetaN);
-  const cosT  = new Float32Array(thetaN);
-  const sinT  = new Float32Array(thetaN);
+  const acc    = new Int32Array(rhoN * thetaN);
+  const cosT   = new Float32Array(thetaN);
+  const sinT   = new Float32Array(thetaN);
   for (let t = 0; t < thetaN; t++) {
     const a = (t * Math.PI) / thetaN;
     cosT[t] = Math.cos(a);
@@ -110,31 +110,38 @@ function houghTransform(edges, w, h, minVotes) {
     }
   }
 
-  // 건축 평면도 특성: 수평(θ≈0°/180°)·수직(θ≈90°) 방향만 허용 (±12° 이내)
-  // 대각선 벽은 일반 건물에 드물므로 노이즈로 간주
-  const ANGLE_TOL = 12 * Math.PI / 180; // 12° 허용 범위
+  // 건축 평면도: 수평(θ≈90°)·수직(θ≈0°/180°) 방향만 허용 (±12° 이내)
+  const ANGLE_TOL = 12 * Math.PI / 180;
   function isStructural(theta) {
     const a = theta % Math.PI;
-    return a <= ANGLE_TOL || a >= Math.PI - ANGLE_TOL      // 수직선(θ≈0°)
-        || Math.abs(a - Math.PI / 2) <= ANGLE_TOL;         // 수평선(θ≈90°)
+    return a <= ANGLE_TOL || a >= Math.PI - ANGLE_TOL   // 수직선(θ≈0°)
+        || Math.abs(a - Math.PI / 2) <= ANGLE_TOL;      // 수평선(θ≈90°)
   }
 
-  // NMS: 7×7 윈도우 (중복 억제)
+  // NMS: 7×7 윈도우, theta는 순환(0°=180°) wrap-around 적용
+  // 이전에는 t=6부터 시작해 θ≈0°(수직선)가 통째로 누락됐었음
+  const NMS = 6;
   const lines = [];
-  for (let r = 6; r < rhoN-6; r++) for (let t = 6; t < thetaN-6; t++) {
-    const v = acc[r*thetaN+t];
-    if (v < minVotes) continue;
-    let isMax = true;
-    outer: for (let dr=-6; dr<=6; dr++) for (let dt=-6; dt<=6; dt++) {
-      if (dr===0 && dt===0) continue;
-      if (acc[(r+dr)*thetaN+(t+dt)] > v) { isMax=false; break outer; }
+  for (let r = NMS; r < rhoN - NMS; r++) {
+    for (let t = 0; t < thetaN; t++) {
+      const v = acc[r * thetaN + t];
+      if (v < minVotes) continue;
+      let isMax = true;
+      outer: for (let dr = -NMS; dr <= NMS; dr++) {
+        for (let dt = -NMS; dt <= NMS; dt++) {
+          if (dr === 0 && dt === 0) continue;
+          // theta는 0°~180° 순환 공간 — wrap-around로 수직선(θ≈0°) 경계를 올바르게 처리
+          const tt = ((t + dt) % thetaN + thetaN) % thetaN;
+          if (acc[(r + dr) * thetaN + tt] > v) { isMax = false; break outer; }
+        }
+      }
+      if (!isMax) continue;
+      const theta = (t * Math.PI) / thetaN;
+      if (!isStructural(theta)) continue;
+      lines.push({ rho: r - diag, theta, votes: v });
     }
-    if (!isMax) continue;
-    const theta = (t * Math.PI) / thetaN;
-    if (!isStructural(theta)) continue; // 비수직·비수평 제거
-    lines.push({ rho: r-diag, theta, votes: v });
   }
-  return lines.sort((a,b) => b.votes - a.votes).slice(0, 40);
+  return lines.sort((a, b) => b.votes - a.votes).slice(0, 40);
 }
 
 function linesToSegments(lines, edges, w, h, minLen) {

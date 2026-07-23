@@ -136,10 +136,8 @@ export default function Viewer3D({
     grid.position.y = -0.001;
     scene.add(grid);
 
-    // X/Y/Z 축
-    const axes = new THREE.AxesHelper(6);
-    axes.renderOrder = 999;
-    axes.material.depthTest = false; // 깊이 테스트 끔 → 항상 최상위 렌더 (깜빡임 없음)
+    // X/Y/Z 축 — Z는 건물이 위치한 -Z 방향으로 표시
+    const axes = makeCustomAxes(6);
     scene.add(axes);
 
     // 축 레이블 (CSS2DObject — HTML 오버레이, 깜빡임 없음)
@@ -152,9 +150,9 @@ export default function Viewer3D({
       });
       return new CSS2DObject(div);
     };
-    const xLbl = makeAxisLabel('X', '#ff4444'); xLbl.position.set(7, 0, 0); scene.add(xLbl);
-    const yLbl = makeAxisLabel('Y', '#44ee44'); yLbl.position.set(0, 7, 0); scene.add(yLbl);
-    const zLbl = makeAxisLabel('Z', '#4488ff'); zLbl.position.set(0, 0, 7); scene.add(zLbl);
+    const xLbl = makeAxisLabel('X', '#ff4444'); xLbl.position.set(7, 0, 0);  scene.add(xLbl);
+    const yLbl = makeAxisLabel('Y', '#44ee44'); yLbl.position.set(0, 7, 0);  scene.add(yLbl);
+    const zLbl = makeAxisLabel('Z', '#4488ff'); zLbl.position.set(0, 0, -7); scene.add(zLbl);
 
     // OrbitControls
     const controls = new OrbitControls(camera, renderer.domElement);
@@ -444,16 +442,16 @@ export default function Viewer3D({
       if (!e) return;
       const axisLen = Math.max(maxDim * 1.5, 8);
       e.scene.remove(e.axes);
-      const newAxes = new THREE.AxesHelper(axisLen);
-      newAxes.renderOrder = 999;
-      newAxes.material.depthTest = false;
+      e.axes.geometry?.dispose();
+      e.axes.material?.dispose();
+      const newAxes = makeCustomAxes(axisLen);
       newAxes.visible = showAxesRef.current;
       e.scene.add(newAxes);
       e.axes = newAxes;
       const lp = axisLen + 1;
       e.xLbl.position.set(lp, 0, 0);
       e.yLbl.position.set(0, lp, 0);
-      e.zLbl.position.set(0, 0, lp);
+      e.zLbl.position.set(0, 0, -lp); // -Z: 건물 방향
     };
 
     // 3D 모델 (OBJ / glTF / GLB)
@@ -605,6 +603,30 @@ export default function Viewer3D({
       )}
     </div>
   );
+}
+
+// ── 커스텀 축 헬퍼: Z를 -Z(건물 방향)로 반전 ───────────────
+// Three.js 기본 좌표계에서 건물은 -Z에 위치(이미지 Y↓ → 3D -Z 매핑).
+// AxesHelper는 항상 +Z를 가리키므로 건물 방향과 반대가 됨.
+// 커스텀 라인으로 X(+X), Y(+Y), Z(-Z)를 표시해 사용자에게 직관적으로 전달.
+function makeCustomAxes(len) {
+  const positions = new Float32Array([
+    0, 0, 0,  len, 0, 0,    // +X
+    0, 0, 0,  0, len, 0,    // +Y
+    0, 0, 0,  0, 0, -len,   // -Z (건물 방향)
+  ]);
+  const colors = new Float32Array([
+    1, 0.2, 0.2,  1, 0.2, 0.2,       // X: red
+    0.2, 0.9, 0.2,  0.2, 0.9, 0.2,   // Y: green
+    0.27, 0.53, 1,  0.27, 0.53, 1,   // Z: blue
+  ]);
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geo.setAttribute('color',    new THREE.Float32BufferAttribute(colors, 3));
+  const mat = new THREE.LineBasicMaterial({ vertexColors: true, depthTest: false });
+  const lines = new THREE.LineSegments(geo, mat);
+  lines.renderOrder = 999;
+  return lines;
 }
 
 // ── 이미지를 <img>로 먼저 로드한 뒤 Three.js 텍스처 생성 ──
