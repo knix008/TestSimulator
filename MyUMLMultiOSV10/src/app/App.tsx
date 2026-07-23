@@ -1056,9 +1056,15 @@ export function App() {
       : connectorPreviewPoint?.y;
     const connectedDocument = connectNodes(sequenceDocument, connector, sourceId, targetId, { sequenceY });
     const nextEdge = connectedDocument.edges[connectedDocument.edges.length - 1];
-    const nextDocument = connectedDocument.kind === 'sequence' && nextEdge && isInteractionMessageKind(nextEdge.kind)
-      ? spaceSequenceMessagesAfterInsert(connectedDocument, nextEdge.id)
+    const sourcePoint = connectorDragStateRef.current
+      ? clientToCanvasPoint(connectorDragStateRef.current.startClientX, connectorDragStateRef.current.startClientY)
+      : undefined;
+    const positionedDocument = nextEdge && source && target && !isInteractionMessageKind(nextEdge.kind)
+      ? applyCreatedEdgeEndpointPositions(connectedDocument, nextEdge.id, source, target, sourcePoint, dropPoint ?? connectorPreviewPoint)
       : connectedDocument;
+    const nextDocument = positionedDocument.kind === 'sequence' && nextEdge && isInteractionMessageKind(nextEdge.kind)
+      ? spaceSequenceMessagesAfterInsert(positionedDocument, nextEdge.id)
+      : positionedDocument;
 
     updateActiveDocument(() => nextDocument);
     clearConnectorState();
@@ -5145,18 +5151,33 @@ function EdgeEndpointPreview({ preview, diagramKind, nodes, edges }: { preview: 
     return null;
   }
 
+  const hitNode = [...nodes].reverse().find((node) => pointInNodeConnectionBounds(preview.point, node, 8));
+  const endpointPosition = hitNode ? edgeAnchorFromNodePoint(hitNode, preview.point) : undefined;
+  const previewEdge: UmlEdge = hitNode && endpointPosition
+    ? {
+        ...edge,
+        sourceId: preview.endpoint === 'source' ? hitNode.id : edge.sourceId,
+        targetId: preview.endpoint === 'target' ? hitNode.id : edge.targetId,
+        sourceAnchor: preview.endpoint === 'source' ? endpointPosition.anchor : edge.sourceAnchor,
+        targetAnchor: preview.endpoint === 'target' ? endpointPosition.anchor : edge.targetAnchor,
+        sourceAnchorOffset: preview.endpoint === 'source' ? endpointPosition.offset : edge.sourceAnchorOffset,
+        targetAnchorOffset: preview.endpoint === 'target' ? endpointPosition.offset : edge.targetAnchorOffset
+      }
+    : edge;
+
   const edgeIndex = diagramKind === 'sequence' && isInteractionMessageKind(edge.kind)
     ? edges.slice(0, edges.findIndex((candidate) => candidate.id === edge.id)).filter((candidate) => isInteractionMessageKind(candidate.kind)).length
     : edges.findIndex((candidate) => candidate.id === edge.id);
-  const points = resolveEdgePolylinePoints(edge, edgeIndex, diagramKind, nodes, edges);
+  const previewEdges = edges.map((candidate) => candidate.id === edge.id ? previewEdge : candidate);
+  const points = resolveEdgePolylinePoints(previewEdge, edgeIndex, diagramKind, nodes, previewEdges);
   if (!points || points.length < 2) {
     return null;
   }
 
   const previewPoints = [...points];
-  if (preview.endpoint === 'source') {
+  if (!hitNode && preview.endpoint === 'source') {
     previewPoints[0] = preview.point;
-  } else {
+  } else if (!hitNode) {
     previewPoints[previewPoints.length - 1] = preview.point;
   }
 
@@ -5245,6 +5266,22 @@ function communicationMessagePeerPosition(edges: UmlEdge[], edge: UmlEdge): { in
 
 function findEdgeEndpointDropNode(document: UmlDiagramDocument, edge: UmlEdge, endpoint: 'source' | 'target', point: Point): UmlNode | undefined {
   return [...document.nodes].reverse().find((node) => isValidEdgeEndpointNode(document, edge, endpoint, node) && pointInNodeConnectionBounds(point, node, 8));
+}
+
+function applyCreatedEdgeEndpointPositions(document: UmlDiagramDocument, edgeId: string, source: UmlNode, target: UmlNode, sourcePoint?: Point, targetPoint?: Point): UmlDiagramDocument {
+  let nextDocument = document;
+
+  if (sourcePoint && pointInNodeConnectionBounds(sourcePoint, source, 8)) {
+    const sourceEndpoint = edgeAnchorFromNodePoint(source, sourcePoint);
+    nextDocument = updateEdgeAnchor(nextDocument, edgeId, 'source', sourceEndpoint.anchor, sourceEndpoint.offset);
+  }
+
+  if (targetPoint && pointInNodeConnectionBounds(targetPoint, target, 8)) {
+    const targetEndpoint = edgeAnchorFromNodePoint(target, targetPoint);
+    nextDocument = updateEdgeAnchor(nextDocument, edgeId, 'target', targetEndpoint.anchor, targetEndpoint.offset);
+  }
+
+  return nextDocument;
 }
 
 function edgeAnchorFromNodePoint(node: UmlNode, point: Point): { anchor: EdgeAnchor; offset: number } {

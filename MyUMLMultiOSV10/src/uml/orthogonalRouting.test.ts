@@ -39,4 +39,30 @@ describe('orthogonal obstacle routing', () => {
       expect(inside, `segment ${index} crosses obstacle at ${mid.x},${mid.y}`).toBe(false);
     }
   });
+
+  it('keeps endpoint stubs perpendicular without redundant collinear bends', () => {
+    const source = { x: 100, y: 100 };
+    const target = { x: 220, y: 180 };
+    const points = routeOrthogonalAvoidingObstacles({
+      source,
+      target,
+      sourceAnchor: 'right',
+      targetAnchor: 'top',
+      obstacles: []
+    });
+
+    expect(points[0]).toEqual(source);
+    expect(points[1].y).toBe(source.y);
+    expect(points[1].x).toBeGreaterThan(source.x);
+    expect(points[points.length - 2].x).toBe(target.x);
+    expect(points[points.length - 2].y).toBeLessThan(target.y);
+
+    for (let index = 1; index < points.length - 1; index += 1) {
+      const previous = points[index - 1];
+      const current = points[index];
+      const next = points[index + 1];
+      expect(previous.x === current.x && current.x === next.x).toBe(false);
+      expect(previous.y === current.y && current.y === next.y).toBe(false);
+    }
+  });
 });

@@ -8,7 +8,7 @@ export type EdgePolyline = {
 };
 
 const BRIDGE_RADIUS = 7;
-const ENDPOINT_SKIP = 18;
+const ENDPOINT_SKIP = 42;
 
 /**
  * For each edge, crossings where that edge should draw a bridge (jumps over earlier edges).

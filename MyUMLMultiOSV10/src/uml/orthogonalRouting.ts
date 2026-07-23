@@ -42,7 +42,7 @@ export function routeOrthogonalAvoidingObstacles(options: {
   let bestAny: { points: Point2[]; length: number; crossings: number } | undefined;
 
   for (const points of candidates) {
-    const path = dedupe(points);
+    const path = simplifyOrthogonalPolyline(points);
     if (path.length < 2) {
       continue;
     }
@@ -57,7 +57,7 @@ export function routeOrthogonalAvoidingObstacles(options: {
     }
   }
 
-  return bestClear?.points ?? bestAny?.points ?? dedupe([options.source, sourceStub, targetStub, options.target]);
+  return bestClear?.points ?? bestAny?.points ?? simplifyOrthogonalPolyline([options.source, sourceStub, targetStub, options.target]);
 }
 
 /** True when the straight segment between two points crosses any obstacle (ignoring endpoint nodes). */
@@ -295,6 +295,29 @@ function polylineLength(points: Point2[]): number {
 
 function dedupe(points: Point2[]): Point2[] {
   return points.filter((point, index) => index === 0 || point.x !== points[index - 1].x || point.y !== points[index - 1].y);
+}
+
+function simplifyOrthogonalPolyline(points: Point2[]): Point2[] {
+  const deduped = dedupe(points);
+  if (deduped.length < 3) {
+    return deduped;
+  }
+
+  const simplified: Point2[] = [deduped[0]];
+  for (let index = 1; index < deduped.length - 1; index += 1) {
+    const previous = simplified[simplified.length - 1];
+    const current = deduped[index];
+    const next = deduped[index + 1];
+    const sameVertical = previous.x === current.x && current.x === next.x;
+    const sameHorizontal = previous.y === current.y && current.y === next.y;
+
+    if (!sameVertical && !sameHorizontal) {
+      simplified.push(current);
+    }
+  }
+  simplified.push(deduped[deduped.length - 1]);
+
+  return simplified;
 }
 
 function anchorDirection(anchor: EdgeAnchor): Point2 {

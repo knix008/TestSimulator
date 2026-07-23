@@ -54,6 +54,23 @@ describe('edge bridges', () => {
     expect(bridges.size).toBe(0);
   });
 
+  it('does not create bridge gaps on an endpoint orthogonal stub', () => {
+    const bridges = computeBridgeCrossings([
+      {
+        id: 'a',
+        points: [{ x: 0, y: 0 }, { x: 28, y: 0 }, { x: 28, y: 120 }],
+        endpointNodeIds: ['n1', 'n2']
+      },
+      {
+        id: 'b',
+        points: [{ x: 30, y: -20 }, { x: 30, y: 20 }],
+        endpointNodeIds: ['n3', 'n4']
+      }
+    ]);
+
+    expect(bridges.size).toBe(0);
+  });
+
   it('builds an SVG arc bridge at the crossing', () => {
     const path = polylinePathWithBridges(
       [{ x: 0, y: 50 }, { x: 100, y: 50 }],
