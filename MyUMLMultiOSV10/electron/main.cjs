@@ -143,6 +143,57 @@ function createMainWindow() {
     void shell.openExternal(url);
     return { action: 'deny' };
   });
+
+  mainWindow.on('close', async (event) => {
+    let hasUnsaved = false;
+    try {
+      hasUnsaved = await mainWindow.webContents.executeJavaScript(
+        'typeof window.__myuml_has_unsaved_changes === "function" ? window.__myuml_has_unsaved_changes() : false'
+      );
+    } catch {
+      // renderer not ready — allow close
+    }
+
+    if (!hasUnsaved) {
+      return;
+    }
+
+    event.preventDefault();
+
+    const { response } = await dialog.showMessageBox(mainWindow, {
+      type: 'question',
+      title: 'Unsaved Changes',
+      message: 'Do you want to save changes before closing?',
+      buttons: ['Save', "Don't Save", 'Cancel'],
+      defaultId: 0,
+      cancelId: 2
+    });
+
+    if (response === 2) {
+      // Cancel — do nothing
+      return;
+    }
+
+    if (response === 1) {
+      // Don't Save — close without saving
+      mainWindow.destroy();
+      return;
+    }
+
+    // Save — attempt save then close if successful
+    let saved = false;
+    try {
+      saved = await mainWindow.webContents.executeJavaScript(
+        'typeof window.__myuml_save_project === "function" ? window.__myuml_save_project() : Promise.resolve(false)'
+      );
+    } catch {
+      // ignore
+    }
+
+    if (saved) {
+      mainWindow.destroy();
+    }
+  });
 }
 
 ipcMain.handle('project:open', async () => {

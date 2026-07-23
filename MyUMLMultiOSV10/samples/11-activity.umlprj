@@ -15,7 +15,7 @@
           "umlType": "uml:InitialNode",
           "ownedElements": [],
           "x": 365,
-          "y": 36,
+          "y": 60,
           "width": 54,
           "height": 54
         },
@@ -26,7 +26,7 @@
           "umlType": "uml:OpaqueAction",
           "ownedElements": [],
           "x": 317,
-          "y": 122,
+          "y": 180,
           "width": 150,
           "height": 62
         },
@@ -36,8 +36,8 @@
           "name": "Order Request",
           "umlType": "uml:CentralBufferNode",
           "ownedElements": [],
-          "x": 88,
-          "y": 126,
+          "x": 80,
+          "y": 184,
           "width": 150,
           "height": 54
         },
@@ -48,7 +48,7 @@
           "umlType": "uml:OpaqueAction",
           "ownedElements": [],
           "x": 317,
-          "y": 222,
+          "y": 320,
           "width": 150,
           "height": 62
         },
@@ -59,7 +59,7 @@
           "umlType": "uml:DecisionNode",
           "ownedElements": [],
           "x": 351,
-          "y": 326,
+          "y": 460,
           "width": 82,
           "height": 82
         },
@@ -69,8 +69,8 @@
           "name": "Notify Customer",
           "umlType": "uml:OpaqueAction",
           "ownedElements": [],
-          "x": 92,
-          "y": 431,
+          "x": 60,
+          "y": 620,
           "width": 156,
           "height": 62
         },
@@ -80,8 +80,8 @@
           "name": "FlowFinal",
           "umlType": "uml:FlowFinalNode",
           "ownedElements": [],
-          "x": 143,
-          "y": 540,
+          "x": 111,
+          "y": 760,
           "width": 54,
           "height": 54
         },
@@ -92,7 +92,7 @@
           "umlType": "uml:OpaqueAction",
           "ownedElements": [],
           "x": 317,
-          "y": 456,
+          "y": 620,
           "width": 150,
           "height": 62
         },
@@ -103,7 +103,7 @@
           "umlType": "uml:ForkNode",
           "ownedElements": [],
           "x": 344,
-          "y": 566,
+          "y": 760,
           "width": 96,
           "height": 16
         },
@@ -113,8 +113,8 @@
           "name": "Pick Items",
           "umlType": "uml:OpaqueAction",
           "ownedElements": [],
-          "x": 198,
-          "y": 636,
+          "x": 190,
+          "y": 860,
           "width": 150,
           "height": 62
         },
@@ -124,8 +124,8 @@
           "name": "Charge Payment",
           "umlType": "uml:OpaqueAction",
           "ownedElements": [],
-          "x": 438,
-          "y": 636,
+          "x": 450,
+          "y": 860,
           "width": 150,
           "height": 62
         },
@@ -136,7 +136,7 @@
           "umlType": "uml:JoinNode",
           "ownedElements": [],
           "x": 344,
-          "y": 756,
+          "y": 1000,
           "width": 96,
           "height": 16
         },
@@ -147,7 +147,7 @@
           "umlType": "uml:OpaqueAction",
           "ownedElements": [],
           "x": 317,
-          "y": 826,
+          "y": 1100,
           "width": 150,
           "height": 62
         },
@@ -158,7 +158,7 @@
           "umlType": "uml:MergeNode",
           "ownedElements": [],
           "x": 351,
-          "y": 928,
+          "y": 1240,
           "width": 82,
           "height": 82
         },
@@ -169,7 +169,7 @@
           "umlType": "uml:OpaqueAction",
           "ownedElements": [],
           "x": 317,
-          "y": 1042,
+          "y": 1400,
           "width": 150,
           "height": 62
         },
@@ -180,7 +180,7 @@
           "umlType": "uml:ActivityFinalNode",
           "ownedElements": [],
           "x": 365,
-          "y": 1148,
+          "y": 1540,
           "width": 54,
           "height": 54
         }

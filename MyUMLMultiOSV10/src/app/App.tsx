@@ -198,6 +198,8 @@ export function App() {
   const [openDocumentIds, setOpenDocumentIds] = useState<string[]>(() => initialProject.activeDocumentId ? [initialProject.activeDocumentId] : []);
   const [undoStack, setUndoStack] = useState<ProjectSnapshot[]>([]);
   const [redoStack, setRedoStack] = useState<ProjectSnapshot[]>([]);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const saveProjectRef = useRef<() => Promise<boolean>>(async () => false);
   const [selectedTool, setSelectedTool] = useState<PaletteTool | undefined>();
   const [selectedConnector, setSelectedConnector] = useState<ConnectorTool | undefined>();
   const [pendingSourceNodeId, setPendingSourceNodeId] = useState<string | undefined>();
@@ -206,7 +208,7 @@ export function App() {
   const [selectedOwnedElement, setSelectedOwnedElement] = useState<{ nodeId: string; elementId: string } | undefined>();
   const [projectSelected, setProjectSelected] = useState(false);
   const [diagramSelectedId, setDiagramSelectedId] = useState<string | undefined>(() => initialProject.activeDocumentId || undefined);
-  const [collapsedDiagramIds, setCollapsedDiagramIds] = useState<Set<string>>(() => new Set());
+  const [collapsedDiagramIds, setCollapsedDiagramIds] = useState<Set<string>>(() => new Set(initialProject.documents.map((doc) => doc.id)));
   const [connectorPreviewPoint, setConnectorPreviewPoint] = useState<Point | undefined>();
   const [canvasZooms, setCanvasZooms] = useState<Record<string, number>>({});
   const [canvasPans, setCanvasPans] = useState<Record<string, Point>>({});
@@ -379,6 +381,13 @@ export function App() {
     }
   }, [diagramSelectedId, treePanelCollapsed, documents]);
 
+  saveProjectRef.current = saveProject;
+
+  useEffect(() => {
+    (globalThis as Record<string, unknown>).__myuml_has_unsaved_changes = () => hasUnsavedChanges;
+    (globalThis as Record<string, unknown>).__myuml_save_project = () => saveProjectRef.current();
+  });
+
   function updateActiveDocument(updater: (current: UmlDiagramDocument) => UmlDiagramDocument) {
     if (!document) {
       return;
@@ -399,6 +408,7 @@ export function App() {
   function pushUndoSnapshot() {
     setUndoStack((current) => [...current.slice(-99), { projectName, documents, activeDocumentId }]);
     setRedoStack([]);
+    setHasUnsavedChanges(true);
   }
 
   function restoreProjectSnapshot(snapshot: ProjectSnapshot) {
@@ -551,9 +561,10 @@ export function App() {
     projectFilePathRef.current = undefined;
     persistProjectFile(nextProject);
     resetSelection();
+    setHasUnsavedChanges(false);
   }
 
-  async function saveProject() {
+  async function saveProject(): Promise<boolean> {
     const projectFile = createProjectFile(documents, activeDocumentId, locale, projectName);
     const serializedProject = JSON.stringify(projectFile, null, 2);
     const suggestedName = `${sanitizeFileName(projectName || document.name || 'my-uml-project')}.umlprj`;
@@ -574,16 +585,19 @@ export function App() {
           projectFilePathRef.current = result.filePath;
           projectFileHandleRef.current = undefined;
           rememberLastDirectory(result.filePath, 'project');
+          setHasUnsavedChanges(false);
+          return true;
         }
       } catch {
         // ignore dialog / IO failures
       }
-      return;
+      return false;
     }
 
     if (projectFileHandleRef.current) {
       await writeProjectToFileHandle(projectFileHandleRef.current, serializedProject);
-      return;
+      setHasUnsavedChanges(false);
+      return true;
     }
 
     if (fileSystemWindow.showSaveFilePicker) {
@@ -597,15 +611,18 @@ export function App() {
         await writeProjectToFileHandle(fileHandle, serializedProject);
         projectFileHandleRef.current = fileHandle;
         await rememberDirectoryHandleFromFile(fileHandle, 'project');
-        return;
+        setHasUnsavedChanges(false);
+        return true;
       } catch (error) {
         if (error instanceof DOMException && error.name === 'AbortError') {
-          return;
+          return false;
         }
       }
     }
 
     downloadProjectFile(serializedProject, suggestedName);
+    setHasUnsavedChanges(false);
+    return true;
   }
 
   async function saveDiagramImage() {
@@ -740,10 +757,12 @@ export function App() {
     const normalizedProject = normalizeProjectFile(projectFile, locale);
 
     pushUndoSnapshot();
+    setHasUnsavedChanges(false);
     setProjectName(normalizedProject.projectName ?? 'My UML Project');
     setDocuments(normalizedProject.documents);
     setActiveDocumentId(normalizedProject.activeDocumentId || undefined);
     setOpenDocumentIds(normalizedProject.activeDocumentId ? [normalizedProject.activeDocumentId] : []);
+    setCollapsedDiagramIds(new Set(normalizedProject.documents.map((doc) => doc.id)));
     projectFileHandleRef.current = filePath ? undefined : projectFileHandleRef.current;
     projectFilePathRef.current = filePath;
     if (filePath) {
@@ -2933,17 +2952,6 @@ export function App() {
                       </button>
                     </div>
                   </>
-                ) : null}
-                {ownedElementKindsForNode(selectedNode).length > 0 ? (
-                  <div className="element-actions">
-                    <span>{text.ownedElements}</span>
-                    <select aria-label={text.elementType} onChange={(event) => addElementToSelectedNode(event.target.value as UmlOwnedElementKind)} value="">
-                      <option value="" disabled>{text.addElement}</option>
-                      {ownedElementKindsForNode(selectedNode).map((kind) => (
-                        <option key={kind} value={kind}>{ownedElementLabels[locale][kind]}</option>
-                      ))}
-                    </select>
-                  </div>
                 ) : null}
               </>
             ) : selectedEdge ? (
@@ -5151,7 +5159,7 @@ function EdgeEndpointPreview({ preview, diagramKind, nodes, edges }: { preview: 
     return null;
   }
 
-  const hitNode = [...nodes].reverse().find((node) => pointInNodeConnectionBounds(preview.point, node, 8));
+  const hitNode = [...nodes].reverse().find((node) => node.kind !== 'subject' && pointInNodeConnectionBounds(preview.point, node, 8));
   const endpointPosition = hitNode ? edgeAnchorFromNodePoint(hitNode, preview.point) : undefined;
   const previewEdge: UmlEdge = hitNode && endpointPosition
     ? {
@@ -5301,6 +5309,10 @@ function edgeAnchorFromNodePoint(node: UmlNode, point: Point): { anchor: EdgeAnc
 }
 
 function isValidEdgeEndpointNode(document: UmlDiagramDocument, edge: UmlEdge, endpoint: 'source' | 'target', node: UmlNode): boolean {
+  if (node.kind === 'subject') {
+    return false;
+  }
+
   const otherNodeId = endpoint === 'source' ? edge.targetId : edge.sourceId;
   const otherNode = document.nodes.find((candidate) => candidate.id === otherNodeId);
 
@@ -5791,10 +5803,12 @@ function edgePath(route: EdgeRoute, source: Point, target: Point, sourceAnchor?:
 }
 
 function isRoutingIgnoredNode(node: UmlNode): boolean {
-  // Surface decorations should not force large detours for classifier links.
+  // Surface decorations and background grouping frames should not force detours for edges.
   return node.kind === 'port'
     || node.kind === 'providedInterface'
-    || node.kind === 'requiredInterface';
+    || node.kind === 'requiredInterface'
+    || node.kind === 'subject'
+    || node.kind === 'package';
 }
 
 function movableOrthogonalSegments(points: Point[]): Array<{ start: Point; end: Point; axis: 'x' | 'y' }> {

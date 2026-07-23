@@ -201,6 +201,13 @@ h2 {
   outline-offset: 1px;
 }
 
+.icon-button:disabled,
+.text-button:disabled,
+.tool:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
 .icon-button,
 .text-button {
   width: 38px;
