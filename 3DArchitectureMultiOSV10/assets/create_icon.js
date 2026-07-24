@@ -75,7 +75,7 @@ const S   = SIZE;
 const PAD = Math.round(S * 0.06); // 31
 const R   = 80;
 
-// ── 1단계: 밝은 스카이블루 배경 (좌상단=흰색, 우하단=스카이블루) ──
+// ── 1단계: 파란색 배경 (좌상단=밝은 스카이블루, 우하단=진한 블루) ──
 for (let y = PAD; y < S-PAD; y++) {
   for (let x = PAD; x < S-PAD; x++) {
     const dx = Math.max(PAD+R-x, 0, x-(S-PAD-R));
@@ -83,15 +83,16 @@ for (let y = PAD; y < S-PAD; y++) {
     if (dx*dx+dy*dy <= R*R) {
       const t = ((x - PAD) + (y - PAD)) / ((S - PAD*2) * 2);
       const tr = Math.min(1, Math.max(0, t));
-      const br = Math.round(255 * (1-tr) + 155 * tr);
-      const bg = Math.round(252 * (1-tr) + 215 * tr);
-      const bb = Math.round(255 * (1-tr) + 238 * tr);
+      // 선명한 스카이블루 → 딥 블루 (전체적으로 파란 배경 강화)
+      const br = Math.round(55 * (1-tr) + 20 * tr);
+      const bg = Math.round(145 * (1-tr) + 85 * tr);
+      const bb = Math.round(230 * (1-tr) + 195 * tr);
       sp(x, y, br, bg, bb, 255);
     }
   }
 }
 
-// ── 2단계: 좌측 귀퉁이 빛 반사 (타원형 흰색 글로우) ──────
+// ── 2단계: 좌측 귀퉁이 빛 반사 (연한 블루 글로우) ──────
 const refCX = PAD + 52;
 const refCY = PAD + 52;
 const refRX = 115;
@@ -105,8 +106,8 @@ for (let y = PAD; y < PAD + refRY*2; y++) {
       const fdx = Math.max(PAD+R-x, 0, x-(S-PAD-R));
       const fdy = Math.max(PAD+R-y, 0, y-(S-PAD-R));
       if (fdx*fdx+fdy*fdy <= R*R) {
-        const a = Math.round((1 - dist) * (1 - dist) * 210);
-        sp(x, y, 255, 255, 255, a);
+        const a = Math.round((1 - dist) * (1 - dist) * 70);
+        sp(x, y, 120, 185, 255, a);
       }
     }
   }
@@ -114,7 +115,7 @@ for (let y = PAD; y < PAD + refRY*2; y++) {
 
 // ── 3단계: 좌측 중간 "3D" 텍스트 ───────────────────────
 // 텍스트 색상: 진한 스카이블루 (배경 밝으므로 대비)
-const TC  = [28, 85, 155]; // text color (dark blue)
+const TC  = [245, 250, 255]; // text color (near-white, contrast on blue bg)
 const TA  = 235;           // text alpha
 const LW  = 7;             // stroke width
 const TH  = 106;           // letter height
@@ -172,11 +173,11 @@ const iso = (gx, gy, gz) => ({
 
 const BW = 165, BD = 135, BH = 210;
 
-const colorFront = [55, 140, 195];
-const colorRight = [32, 95, 160];
-const colorTop   = [105, 182, 228];
-const colorGlass     = [195, 232, 255];
-const colorGlassDark = [55,  148, 218];
+const colorFront = [100, 190, 240];
+const colorRight = [40, 115, 195];
+const colorTop   = [165, 220, 250];
+const colorGlass     = [230, 248, 255];
+const colorGlassDark = [110, 195, 245];
 
 // 앞면
 const pA = iso(0,  0, 0),  pB = iso(BW, 0, 0);
@@ -223,7 +224,7 @@ const topGlow = [
 fillQuad(topGlow, 230, 248, 255, 95);
 
 // 외곽선
-const [lr, lg, lb] = [25, 75, 150];
+const [lr, lg, lb] = [15, 55, 130];
 drawLine(pA.x,pA.y, pB.x,pB.y, 2, lr,lg,lb);
 drawLine(pB.x,pB.y, pC.x,pC.y, 2, lr,lg,lb);
 drawLine(pC.x,pC.y, pD.x,pD.y, 2, lr,lg,lb);
@@ -255,3 +256,107 @@ const png = Buffer.concat([
 const out = path.join(__dirname, 'icon.png');
 fs.writeFileSync(out, png);
 console.log(`아이콘 생성 완료: ${out}  (${SIZE}×${SIZE}px RGBA)`);
+
+// ── Windows .ico (BMP 다중 해상도: 16/32/48/256) ─────────
+// electron-builder / NSIS는 단일 512 PNG-in-ICO를 제대로 처리하지 못하는 경우가 많음
+function scaleRgba(src, srcSize, dstSize) {
+  const dst = new Uint8Array(dstSize * dstSize * 4);
+  const scale = srcSize / dstSize;
+  for (let y = 0; y < dstSize; y++) {
+    for (let x = 0; x < dstSize; x++) {
+      // 박스 샘플링으로 축소 품질 확보
+      const x0 = Math.floor(x * scale);
+      const y0 = Math.floor(y * scale);
+      const x1 = Math.min(srcSize, Math.ceil((x + 1) * scale));
+      const y1 = Math.min(srcSize, Math.ceil((y + 1) * scale));
+      let r = 0, g = 0, b = 0, a = 0, n = 0;
+      for (let sy = y0; sy < y1; sy++) {
+        for (let sx = x0; sx < x1; sx++) {
+          const i = (sy * srcSize + sx) * 4;
+          const aa = src[i + 3];
+          r += src[i] * aa;
+          g += src[i + 1] * aa;
+          b += src[i + 2] * aa;
+          a += aa;
+          n++;
+        }
+      }
+      const di = (y * dstSize + x) * 4;
+      if (a > 0) {
+        dst[di]     = Math.round(r / a);
+        dst[di + 1] = Math.round(g / a);
+        dst[di + 2] = Math.round(b / a);
+        dst[di + 3] = Math.round(a / n);
+      }
+    }
+  }
+  return dst;
+}
+
+function rgbaToIcoBmp(rgba, size) {
+  // 32-bit BIP_RGB XOR + 1-bit AND mask (height*2 in BITMAPINFOHEADER)
+  const rowXor = size * 4;
+  const xorSize = rowXor * size;
+  const andRow = Math.ceil(size / 32) * 4;
+  const andSize = andRow * size;
+  const dib = Buffer.alloc(40 + xorSize + andSize);
+
+  dib.writeUInt32LE(40, 0);          // biSize
+  dib.writeInt32LE(size, 4);         // biWidth
+  dib.writeInt32LE(size * 2, 8);     // biHeight (XOR + AND)
+  dib.writeUInt16LE(1, 12);          // biPlanes
+  dib.writeUInt16LE(32, 14);         // biBitCount
+  dib.writeUInt32LE(0, 16);          // biCompression = BI_RGB
+  dib.writeUInt32LE(xorSize + andSize, 20); // biSizeImage
+  // rest zeros
+
+  // XOR bitmap: bottom-up BGRA
+  for (let y = 0; y < size; y++) {
+    const srcY = size - 1 - y;
+    for (let x = 0; x < size; x++) {
+      const si = (srcY * size + x) * 4;
+      const di = 40 + y * rowXor + x * 4;
+      dib[di]     = rgba[si + 2]; // B
+      dib[di + 1] = rgba[si + 1]; // G
+      dib[di + 2] = rgba[si];     // R
+      dib[di + 3] = rgba[si + 3]; // A
+    }
+  }
+  // AND mask: opaque (0) — alpha channel already in XOR
+  // (left zero-filled by Buffer.alloc)
+  return dib;
+}
+
+const icoSizes = [16, 32, 48, 256];
+const images = icoSizes.map((sz) => {
+  const rgba = scaleRgba(px, SIZE, sz);
+  const bmp = rgbaToIcoBmp(rgba, sz);
+  return { size: sz, bmp };
+});
+
+const icoHeader = Buffer.alloc(6);
+icoHeader.writeUInt16LE(0, 0);
+icoHeader.writeUInt16LE(1, 2); // ICON
+icoHeader.writeUInt16LE(images.length, 4);
+
+const entries = [];
+let dataOffset = 6 + 16 * images.length;
+const payloads = [];
+for (const img of images) {
+  const entry = Buffer.alloc(16);
+  entry[0] = img.size >= 256 ? 0 : img.size; // 0 => 256
+  entry[1] = img.size >= 256 ? 0 : img.size;
+  entry[2] = 0;
+  entry[3] = 0;
+  entry.writeUInt16LE(1, 4);   // planes
+  entry.writeUInt16LE(32, 6);  // bit count
+  entry.writeUInt32LE(img.bmp.length, 8);
+  entry.writeUInt32LE(dataOffset, 12);
+  entries.push(entry);
+  payloads.push(img.bmp);
+  dataOffset += img.bmp.length;
+}
+
+const icoOut = path.join(__dirname, 'icon.ico');
+fs.writeFileSync(icoOut, Buffer.concat([icoHeader, ...entries, ...payloads]));
+console.log(`ICO 생성 완료: ${icoOut}  (${icoSizes.join('/')}px BMP)`);

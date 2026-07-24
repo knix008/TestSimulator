@@ -338,9 +338,9 @@ npm run electron:build → electron-builder로 플랫폼별 설치 파일 생성
 
 | 플랫폼 | 형식 | 명령 |
 |--------|------|------|
-| Windows | `.exe` (NSIS 설치 파일) | `npm run electron:build:win` |
-| macOS | `.dmg` | `npm run electron:build:mac` |
-| Linux | `.AppImage` | `npm run electron:build:linux` |
+| Windows | `.exe` (NSIS 설치 파일) | `npm run build:win` |
+| macOS | `.dmg` | `npm run build:mac` |
+| Linux | `.AppImage` | `npm run build:linux` |
 
 ### Python 서버 패키징
 

@@ -75,10 +75,11 @@ npm start
 npm run build
 
 # Electron 설치 파일 (Windows .exe / macOS .dmg / Linux .AppImage)
+# 빌드 후 설치 파일은 프로젝트 루트에 복사됩니다.
 npm run electron:build
-npm run electron:build:win
-npm run electron:build:mac
-npm run electron:build:linux
+npm run build:win
+npm run build:mac
+npm run build:linux
 ```
 
 ---

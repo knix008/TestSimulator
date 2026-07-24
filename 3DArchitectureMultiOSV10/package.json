@@ -9,10 +9,12 @@
     "build": "vite build",
     "preview": "vite preview",
     "electron:dev": "concurrently \"vite --port 5173\" \"wait-on http://localhost:5173 && electron .\"",
-    "electron:build": "vite build && electron-builder",
-    "electron:build:win": "vite build && electron-builder --win",
-    "electron:build:mac": "vite build && electron-builder --mac",
-    "electron:build:linux": "vite build && electron-builder --linux"
+    "electron:build": "node scripts/prepare-win-codesign.js && vite build && electron-builder && node scripts/copy-installer.js",
+    "build:win": "node scripts/prepare-win-codesign.js && vite build && electron-builder --win && node scripts/copy-installer.js",
+    "build:mac": "vite build && electron-builder --mac && node scripts/copy-installer.js",
+    "build:linux": "vite build && electron-builder --linux && node scripts/copy-installer.js",
+    "copy:installer": "node scripts/copy-installer.js",
+    "prepare:win-codesign": "node scripts/prepare-win-codesign.js"
   },
   "dependencies": {
     "dxf-parser": "^1.1.2",
@@ -42,6 +44,7 @@
     ],
     "icon": "assets/icon.png",
     "win": {
+      "icon": "assets/icon.ico",
       "target": [
         {
           "target": "nsis",
@@ -50,6 +53,19 @@
           ]
         }
       ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowElevation": true,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": false,
+      "createStartMenuShortcut": false,
+      "shortcutName": "3D Architecture Viewer",
+      "installerIcon": "assets/icon.ico",
+      "uninstallerIcon": "assets/icon.ico",
+      "installerHeaderIcon": "assets/icon.ico",
+      "deleteAppDataOnUninstall": true,
+      "include": "build/installer.nsh"
     },
     "mac": {
       "target": [
