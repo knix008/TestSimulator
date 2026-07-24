@@ -50,7 +50,7 @@ export function buildArchitectureScene(walls, settings = {}, floorTexture = null
     if (h > 0) {
       const geom = new THREE.BoxGeometry(len + (t > 0 ? t : 0.001), h, t > 0 ? t : 0.001);
       const mesh = new THREE.Mesh(geom, wallMat);
-      mesh.position.set(cx, h / 2, -cy);
+      mesh.position.set(cx, h / 2, cy);
       mesh.rotation.y = -Math.atan2(dy, dx);
       mesh.castShadow = true;
       mesh.receiveShadow = true;
@@ -93,8 +93,8 @@ export function buildArchitectureScene(walls, settings = {}, floorTexture = null
   if (fw != null) {
     if (showFloor) {
       if (floorTexture) {
-        // 이미지 좌표계(Y↓) → Three.js Z축 방향 일치: flipY=false
-        floorTexture.flipY = false;
+        // z=+cy 좌표계: rotation.x=-π/2 후 로컬 +y→월드 -z이므로 flipY=true(기본값)가 올바름
+        floorTexture.flipY = true;
         floorTexture.wrapS = THREE.ClampToEdgeWrapping;
         floorTexture.wrapT = THREE.ClampToEdgeWrapping;
         floorTexture.needsUpdate = true;
@@ -102,7 +102,7 @@ export function buildArchitectureScene(walls, settings = {}, floorTexture = null
       const floorGeom = new THREE.PlaneGeometry(fw, fd);
       const floor = new THREE.Mesh(floorGeom, floorMat);
       floor.rotation.x = -Math.PI / 2;
-      floor.position.set(fcx, 0, -fcy);
+      floor.position.set(fcx, 0, fcy);
       floor.receiveShadow = true;
       floor.userData = { type: 'floor' };
       group.add(floor);
@@ -112,7 +112,7 @@ export function buildArchitectureScene(walls, settings = {}, floorTexture = null
       const ceilGeom = new THREE.PlaneGeometry(fw, fd);
       const ceil = new THREE.Mesh(ceilGeom, ceilMat);
       ceil.rotation.x = Math.PI / 2;
-      ceil.position.set(fcx, h, -fcy);
+      ceil.position.set(fcx, h, fcy);
       group.add(ceil);
     }
   }

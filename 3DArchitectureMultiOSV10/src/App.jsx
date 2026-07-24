@@ -6,6 +6,7 @@ import Viewer3D          from './components/Viewer3D';
 import FileDropZone      from './components/FileDropZone';
 import ModelManagerModal from './components/ModelManagerModal';
 import SettingsModal      from './components/SettingsModal';
+import StatusBar         from './components/StatusBar';
 import { parseDxf }          from './core/dxfParser';
 import { parseIfc }          from './core/ifcParser';
 import { parseImageToWalls } from './core/imageParser';
@@ -17,9 +18,9 @@ import { t }                 from './i18n';
 import './App.css';
 
 const DEFAULT_SETTINGS = {
-  wallHeight: 2.8, wallThickness: 0.15,
+  wallHeight: 2.0, wallThickness: 0.10,
   showFloor: true, showCeiling: false, wireframe: false,
-  pixelsPerMeter: 100, edgeThreshold: 0.12, imageAsFloor: true,
+  pixelsPerMeter: 100, edgeThreshold: 0.18, minNeighbors: 4, imageAsFloor: true,
 };
 
 const MIN_PANEL_W = 160;
@@ -33,8 +34,9 @@ export default function App() {
   const [activeLayers,  setActiveLayers]  = useState(new Set());
   const [imageSrc,      setImageSrc]      = useState(null);
   const [modelData,     setModelData]     = useState(null);
-  const [edgeUrl,       setEdgeUrl]       = useState(null);
-  const [cleanEdgeUrl,  setCleanEdgeUrl]  = useState(null);
+  const [edgeUrl,         setEdgeUrl]         = useState(null);
+  const [denoisedEdgeUrl, setDenoisedEdgeUrl] = useState(null);
+  const [cleanEdgeUrl,    setCleanEdgeUrl]    = useState(null);
   const [detectProg,    setDetectProg]    = useState(null);
   const [settings,      setSettings]      = useState(DEFAULT_SETTINGS);
   const [loading,       setLoading]       = useState(false);
@@ -62,7 +64,8 @@ export default function App() {
   const [leftCollapsed,  setLeftCollapsed]  = useState(false);
   const [rightCollapsed, setRightCollapsed] = useState(false);
 
-  const viewerRef = useRef(null);
+  const viewerRef   = useRef(null);
+  const statusZoomRef = useRef(null); // Viewer3D 애니메이션 루프가 직접 기록하는 카메라 거리 span
   const _ = (key) => t(lang, key);
 
   useEffect(() => {
@@ -74,6 +77,7 @@ export default function App() {
     setError(null);
     setLoading(true);
     setEdgeUrl(null);
+    setDenoisedEdgeUrl(null);
     setCleanEdgeUrl(null);
     setDetectProg(null);
     setSelectedItem(null);
@@ -128,11 +132,12 @@ export default function App() {
     setDetectProg(0); setError(null);
     try {
       const result = await parseImageToWalls(
-        imageSrc, settings.pixelsPerMeter, settings.edgeThreshold,
+        imageSrc, settings.pixelsPerMeter, settings.edgeThreshold, settings.minNeighbors,
         (p) => setDetectProg(p),
       );
       setAllWalls(result.walls);
       setEdgeUrl(result.edgeDataUrl);
+      setDenoisedEdgeUrl(result.denoisedEdgeDataUrl);
       setCleanEdgeUrl(result.cleanEdgeDataUrl);
       setActiveLayers(new Set(['IMAGE_DETECTED']));
       setLayers(['IMAGE_DETECTED']);
@@ -141,7 +146,7 @@ export default function App() {
     } finally {
       setDetectProg(1);
     }
-  }, [imageSrc, settings.pixelsPerMeter, settings.edgeThreshold]);
+  }, [imageSrc, settings.pixelsPerMeter, settings.edgeThreshold, settings.minNeighbors]);
 
   const handleToggleLayer = useCallback((layer, active) => {
     setActiveLayers((prev) => {
@@ -158,7 +163,7 @@ export default function App() {
   const handleClear = useCallback(() => {
     setMode('none'); setFileName(''); setAllWalls([]); setLayers([]);
     setActiveLayers(new Set()); setImageSrc(null); setModelData(null);
-    setEdgeUrl(null); setCleanEdgeUrl(null); setDetectProg(null); setError(null); setSelectedItem(null);
+    setEdgeUrl(null); setDenoisedEdgeUrl(null); setCleanEdgeUrl(null); setDetectProg(null); setError(null); setSelectedItem(null);
   }, []);
 
   // ── 컨텍스트 메뉴에서 AI 추론 실행 ────────────────────────
@@ -279,9 +284,22 @@ export default function App() {
               layers={layers} activeLayers={activeLayers}
               onToggleLayer={handleToggleLayer}
               settings={settings} onSettingChange={handleSettingChange}
+              onResetImageSettings={() => setSettings((prev) => ({
+                ...prev,
+                pixelsPerMeter: DEFAULT_SETTINGS.pixelsPerMeter,
+                edgeThreshold:  DEFAULT_SETTINGS.edgeThreshold,
+                minNeighbors:   DEFAULT_SETTINGS.minNeighbors,
+              }))}
+              onResetWallSettings={() => setSettings((prev) => ({
+                ...prev,
+                wallHeight:    DEFAULT_SETTINGS.wallHeight,
+                wallThickness: DEFAULT_SETTINGS.wallThickness,
+              }))}
               sliderRanges={sliderRanges}
               detectProgress={detectProg} onDetectWalls={handleDetectWalls}
+              originalPreviewUrl={imageSrc}
               edgePreviewUrl={edgeUrl}
+              denoisedEdgePreviewUrl={denoisedEdgeUrl}
               cleanEdgePreviewUrl={cleanEdgeUrl}
               collapsed={leftCollapsed}
               onToggleCollapse={() => setLeftCollapsed((c) => !c)}
@@ -323,6 +341,7 @@ export default function App() {
               canRunInference={!!activeAiModelId && mode === 'image'}
               inferenceRunning={contextInferring}
               onRunInference={handleContextInference}
+              zoomRef={statusZoomRef}
             />
           )}
         </div>
@@ -342,6 +361,18 @@ export default function App() {
             />
           </>
       </div>
+
+      <StatusBar
+        lang={lang}
+        mode={mode}
+        fileName={fileName}
+        wallCount={mode !== 'model' ? visibleWalls.length : null}
+        detectProgress={detectProg}
+        activeModelId={activeAiModelId}
+        selectedItem={selectedItem}
+        loading={loading}
+        zoomRef={statusZoomRef}
+      />
 
       {error && <ErrorModal error={error} lang={lang} onClose={() => setError(null)} />}
       {showInfo && <InfoModal lang={lang} onClose={() => setShowInfo(false)} />}

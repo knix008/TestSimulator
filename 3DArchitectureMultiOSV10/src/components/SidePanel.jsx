@@ -4,10 +4,12 @@ import { t } from '../i18n';
 export default function SidePanel({
   mode, lang,
   layers, activeLayers, onToggleLayer,
-  settings, onSettingChange,
+  settings, onSettingChange, onResetImageSettings, onResetWallSettings,
   sliderRanges,
   detectProgress, onDetectWalls,
+  originalPreviewUrl,
   edgePreviewUrl,
+  denoisedEdgePreviewUrl,
   cleanEdgePreviewUrl,
   collapsed, onToggleCollapse,
   style,
@@ -38,7 +40,16 @@ export default function SidePanel({
       </div>
 
       <section className="panel-section">
-        <h3 className="section-title">{_('options3D')}</h3>
+        <div className="section-title-row">
+          <h3 className="section-title">{_('options3D')}</h3>
+          <button
+            className="btn btn-sm btn-reset"
+            onClick={onResetWallSettings}
+            title={lang === 'ko' ? '3D 옵션 초기화' : 'Reset 3D defaults'}
+          >
+            {lang === 'ko' ? '초기화' : 'Reset'}
+          </button>
+        </div>
 
         <SliderRow label={_('wallHeight')} val={`${settings.wallHeight.toFixed(1)}m`}
           min={ranges.wallHeightMin} max={ranges.wallHeightMax} step={0.1}
@@ -62,7 +73,16 @@ export default function SidePanel({
 
       {mode === 'image' && (
         <section className="panel-section">
-          <h3 className="section-title">{_('imageAnalysis')}</h3>
+          <div className="section-title-row">
+            <h3 className="section-title">{_('imageAnalysis')}</h3>
+            <button
+              className="btn btn-sm btn-reset"
+              onClick={onResetImageSettings}
+              title={_('resetImageDefaults')}
+            >
+              {_('resetImageDefaults')}
+            </button>
+          </div>
 
           <SliderRow label={_('imageScale')} val={`${settings.pixelsPerMeter}px/m`}
             min={20} max={500} step={10} value={settings.pixelsPerMeter}
@@ -71,6 +91,10 @@ export default function SidePanel({
           <SliderRow label={_('edgeSensitivity')} val={`${(settings.edgeThreshold * 100).toFixed(0)}%`}
             min={0.05} max={0.4} step={0.01} value={settings.edgeThreshold}
             onChange={(v) => onSettingChange('edgeThreshold', parseFloat(v))} />
+
+          <SliderRow label={_('noiseRemoval')} val={`${settings.minNeighbors ?? 4}`}
+            min={0} max={12} step={1} value={settings.minNeighbors ?? 4}
+            onChange={(v) => onSettingChange('minNeighbors', parseInt(v))} />
 
           <ToggleRow label={_('imageAsFloor')} checked={settings.imageAsFloor}
             onChange={(v) => onSettingChange('imageAsFloor', v)} />
@@ -92,20 +116,28 @@ export default function SidePanel({
             </div>
           )}
 
+          {originalPreviewUrl && (
+            <div className="edge-preview">
+              <p className="preview-label">
+                {lang === 'ko' ? '① 원본' : '① Original'}
+              </p>
+              <img src={originalPreviewUrl} alt="original" />
+            </div>
+          )}
           {edgePreviewUrl && (
             <div className="edge-preview">
               <p className="preview-label">
-                {lang === 'ko' ? '① 엣지 검출 결과' : '① Edge Detection'}
+                {lang === 'ko' ? '② 엣지 검출' : '② Edge Detection'}
               </p>
               <img src={edgePreviewUrl} alt="edge detection" />
             </div>
           )}
-          {cleanEdgePreviewUrl && (
+          {denoisedEdgePreviewUrl && (
             <div className="edge-preview">
               <p className="preview-label">
-                {lang === 'ko' ? '② 노이즈 제거 결과' : '② After Noise Removal'}
+                {lang === 'ko' ? '③ 노이즈 제거' : '③ Noise Removal'}
               </p>
-              <img src={cleanEdgePreviewUrl} alt="denoised edges" />
+              <img src={denoisedEdgePreviewUrl} alt="denoised edges" />
             </div>
           )}
         </section>

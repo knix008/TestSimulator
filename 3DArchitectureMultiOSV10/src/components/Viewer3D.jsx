@@ -7,16 +7,25 @@ import { CSS2DRenderer, CSS2DObject } from 'three/examples/jsm/renderers/CSS2DRe
 import { TransformControls }          from 'three/examples/jsm/controls/TransformControls.js';
 import { buildArchitectureScene, disposeGroup } from '../core/buildGeometry';
 
+const INITIAL_LIGHT = {
+  ambientIntensity: 0.55,
+  sunIntensity:     1.2,
+  fillIntensity:    0.4,
+  sunColor:         '#fff8e1',
+  ambientColor:     '#ffffff',
+};
+
 export default function Viewer3D({
   walls, settings, imageSrc, modelData, lang, theme,
   onReady, onSelect,
   showAxes = true, showGrid = true, showLightControl = false,
   depthMapSrc = null,
   canRunInference = false, inferenceRunning = false, onRunInference,
+  zoomRef: externalZoomRef = null,
 }) {
-  const mountRef    = useRef(null);
-  const engineRef   = useRef(null);
-  const zoomRef     = useRef(null);
+  const mountRef       = useRef(null);
+  const engineRef      = useRef(null);
+  const zoomRef        = useRef(null);  // 캔버스 내 줌 오버레이 span
   const apiRef      = useRef(null);
   const lastFitRef      = useRef({ imageSrc: undefined, walls: undefined, modelData: undefined });
   const lastModelDataRef = useRef(null); // 마지막으로 로드한 modelData 참조 (OBJ 재로드 방지)
@@ -24,7 +33,11 @@ export default function Viewer3D({
   const showAxesRef = useRef(showAxes);
   const showGridRef = useRef(showGrid);
   const showLightRef = useRef(showLightControl);
-  const [contextMenu, setContextMenu] = useState(null); // { x, y }
+  const [contextMenu,   setContextMenu]   = useState(null); // { x, y }
+  const [lightSettings, setLightSettings] = useState(INITIAL_LIGHT);
+  const [showGizmo,     setShowGizmo]     = useState(true);
+  const [panelPos,      setPanelPos]      = useState(null); // { x, y } — null = CSS 기본 위치
+  const panelRef = useRef(null);
 
   useEffect(() => { showAxesRef.current = showAxes; }, [showAxes]);
   useEffect(() => { showGridRef.current = showGrid; }, [showGrid]);
@@ -152,14 +165,14 @@ export default function Viewer3D({
     };
     const xLbl = makeAxisLabel('X', '#ff4444'); xLbl.position.set(7, 0, 0);  scene.add(xLbl);
     const yLbl = makeAxisLabel('Y', '#44ee44'); yLbl.position.set(0, 7, 0);  scene.add(yLbl);
-    const zLbl = makeAxisLabel('Z', '#4488ff'); zLbl.position.set(0, 0, -7); scene.add(zLbl);
+    const zLbl = makeAxisLabel('Z', '#4488ff'); zLbl.position.set(0, 0,  7); scene.add(zLbl);
 
     // OrbitControls
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = false;
     controls.minDistance   = 0.5;
     controls.maxDistance   = 500;
-    controls.maxPolarAngle = Math.PI / 2 + 0.1;
+    controls.maxPolarAngle = Math.PI;
 
     const modelGroup = new THREE.Group();
     scene.add(modelGroup);
@@ -219,10 +232,10 @@ export default function Viewer3D({
       controls.update();
       renderer.render(scene, camera);
       labelRenderer.render(scene, camera); // CSS2D 축 레이블
-      if (zoomRef.current) {
-        const d = camera.position.distanceTo(controls.target);
-        zoomRef.current.textContent = `${d.toFixed(1)} m`;
-      }
+      const d = camera.position.distanceTo(controls.target);
+      const zoomTxt = `${d.toFixed(1)} m`;
+      if (zoomRef.current) zoomRef.current.textContent = zoomTxt;
+      if (externalZoomRef?.current) externalZoomRef.current.textContent = zoomTxt;
     };
     animate();
 
@@ -239,7 +252,9 @@ export default function Viewer3D({
     renderer.setSize(mount.clientWidth || 1, mount.clientHeight || 1, false);
 
     engineRef.current = {
-      renderer, labelRenderer, scene, camera, controls, modelGroup, sun, grid, axes, xLbl, yLbl, zLbl,
+      renderer, labelRenderer, scene, camera, controls, modelGroup,
+      sun, ambient, fill,
+      grid, axes, xLbl, yLbl, zLbl,
       sunGizmo, lightLine, lightTransform,
     };
 
@@ -327,17 +342,55 @@ export default function Viewer3D({
     eng.grid.visible = showGrid;
   }, [showGrid]);
 
-  // ── 조명 컨트롤 ON/OFF ────────────────────────────────
+  // ── 조명 컨트롤 / 기즈모 ON/OFF ─────────────────────────
+  // showLightControl: 패널 표시 여부 (툴바 토글)
+  // showGizmo: 태양 위치 기즈모 표시 여부 (패널 내 토글)
   useEffect(() => {
     const eng = engineRef.current;
     if (!eng) return;
-    const v = showLightControl;
-    eng.sunGizmo.visible      = v;
-    eng.lightLine.visible     = v;
-    eng.lightTransform.visible = v;
-    eng.lightTransform.enabled = v;
-    if (!v) eng.controls.enabled = true; // 드래그 중 숨겼을 때 OrbitControls 복원
-  }, [showLightControl]);
+    const gizmoOn = showLightControl && showGizmo;
+    eng.sunGizmo.visible       = gizmoOn;
+    eng.lightLine.visible      = gizmoOn;
+    eng.lightTransform.visible = gizmoOn;
+    eng.lightTransform.enabled = gizmoOn;
+    if (!gizmoOn) eng.controls.enabled = true;
+  }, [showLightControl, showGizmo]);
+
+  // ── 조명 패널 드래그 이동 ─────────────────────────────
+  const onPanelDragStart = (e) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const panel = panelRef.current;
+    const mount = mountRef.current;
+    if (!panel || !mount) return;
+    const pr = panel.getBoundingClientRect();
+    const mr = mount.getBoundingClientRect();
+    const origX  = pr.left - mr.left;
+    const origY  = pr.top  - mr.top;
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const onMove = (ev) => {
+      setPanelPos({ x: origX + ev.clientX - startX, y: origY + ev.clientY - startY });
+    };
+    const onUp = () => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup',  onUp);
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup',   onUp);
+  };
+
+  // ── 조명 설정값 → Three.js 실시간 반영 ───────────────
+  useEffect(() => {
+    const eng = engineRef.current;
+    if (!eng) return;
+    eng.ambient.intensity = lightSettings.ambientIntensity;
+    eng.ambient.color.set(lightSettings.ambientColor);
+    eng.sun.intensity = lightSettings.sunIntensity;
+    eng.sun.color.set(lightSettings.sunColor);
+    eng.fill.intensity = lightSettings.fillIntensity;
+  }, [lightSettings]);
 
   // ── AI 깊이 맵 → 3D 하이트맵 ──────────────────────────
   useEffect(() => {
@@ -451,7 +504,7 @@ export default function Viewer3D({
       const lp = axisLen + 1;
       e.xLbl.position.set(lp, 0, 0);
       e.yLbl.position.set(0, lp, 0);
-      e.zLbl.position.set(0, 0, -lp); // -Z: 건물 방향
+      e.zLbl.position.set(0, 0,  lp); // +Z: 건물 방향
     };
 
     // 3D 모델 (OBJ / glTF / GLB)
@@ -469,9 +522,11 @@ export default function Viewer3D({
       return;
     }
 
-    // 콘텐츠(이미지/벽)가 실제로 변경된 경우에만 카메라 피팅
+    // 새 파일 로드 또는 최초 감지 시에만 카메라 피팅 (같은 이미지 재감지 시 유지)
     const lf = lastFitRef.current;
-    const shouldFitCamera = lf.imageSrc !== imageSrc || lf.walls !== walls || lf.modelData !== modelData;
+    const shouldFitCamera = lf.imageSrc !== imageSrc
+      || lf.modelData !== modelData
+      || (!lf.walls?.length && walls?.length > 0);
 
     const fitCamera = (bb) => {
       if (bb.isEmpty()) return;
@@ -481,7 +536,7 @@ export default function Viewer3D({
       updateAxesSize(maxDim);
       if (!shouldFitCamera) return;
       lastFitRef.current = { imageSrc, walls, modelData };
-      camera.position.set(center.x + maxDim * 0.9, center.y + maxDim * 0.7, center.z + maxDim * 0.9);
+      camera.position.set(center.x, center.y + maxDim * 0.7, center.z + maxDim * 1.2);
       camera.lookAt(center);
       controls.target.copy(center);
       controls.update();
@@ -559,6 +614,56 @@ export default function Viewer3D({
         <span className="axis-z">Z</span>
       </div>
 
+      {/* 조명 설정 패널 */}
+      {showLightControl && (
+        <div
+          className="light-control-panel"
+          ref={panelRef}
+          style={panelPos ? { top: panelPos.y, left: panelPos.x, right: 'auto' } : undefined}
+        >
+          <div className="lcp-header" onMouseDown={onPanelDragStart}>
+            <span>{lang === 'ko' ? '조명 설정' : 'Lighting'}</span>
+            <button className="lcp-reset" onClick={() => setLightSettings(INITIAL_LIGHT)}>
+              {lang === 'ko' ? '초기화' : 'Reset'}
+            </button>
+          </div>
+          <LightRow label={lang === 'ko' ? '환경광' : 'Ambient'} min={0} max={2} step={0.05}
+            value={lightSettings.ambientIntensity}
+            onChange={(v) => setLightSettings((s) => ({ ...s, ambientIntensity: v }))} />
+          <LightRow label={lang === 'ko' ? '태양광' : 'Sun'} min={0} max={4} step={0.1}
+            value={lightSettings.sunIntensity}
+            onChange={(v) => setLightSettings((s) => ({ ...s, sunIntensity: v }))} />
+          <LightRow label={lang === 'ko' ? '보조광' : 'Fill'} min={0} max={2} step={0.05}
+            value={lightSettings.fillIntensity}
+            onChange={(v) => setLightSettings((s) => ({ ...s, fillIntensity: v }))} />
+          <div className="lcp-color-row">
+            <span>{lang === 'ko' ? '태양 색상' : 'Sun Color'}</span>
+            <input type="color" value={lightSettings.sunColor}
+              onChange={(e) => setLightSettings((s) => ({ ...s, sunColor: e.target.value }))} />
+          </div>
+          <div className="lcp-color-row">
+            <span>{lang === 'ko' ? '환경광 색상' : 'Ambient Color'}</span>
+            <input type="color" value={lightSettings.ambientColor}
+              onChange={(e) => setLightSettings((s) => ({ ...s, ambientColor: e.target.value }))} />
+          </div>
+          <div className="lcp-divider" />
+          <div className="lcp-color-row">
+            <span>{lang === 'ko' ? '위치 기즈모' : 'Position Gizmo'}</span>
+            <button
+              className={`lcp-toggle-btn ${showGizmo ? 'lcp-toggle-on' : ''}`}
+              onClick={() => setShowGizmo((v) => !v)}
+            >
+              {showGizmo ? 'ON' : 'OFF'}
+            </button>
+          </div>
+          {showGizmo && (
+            <p className="lcp-hint">
+              {lang === 'ko' ? '황금 구체를 드래그해 태양 방향 변경' : 'Drag the gold sphere to reposition sun'}
+            </p>
+          )}
+        </div>
+      )}
+
       {/* AI 추론 중 로딩 오버레이 */}
       {inferenceRunning && (
         <div className="inference-overlay">
@@ -613,7 +718,7 @@ function makeCustomAxes(len) {
   const positions = new Float32Array([
     0, 0, 0,  len, 0, 0,    // +X
     0, 0, 0,  0, len, 0,    // +Y
-    0, 0, 0,  0, 0, -len,   // -Z (건물 방향)
+    0, 0, 0,  0, 0,  len,   // +Z (건물 방향)
   ]);
   const colors = new Float32Array([
     1, 0.2, 0.2,  1, 0.2, 0.2,       // X: red
@@ -639,6 +744,17 @@ function rescaleModelObj(root, settings) {
   if (naturalH === undefined) return;
   const targetH = settings.wallHeight ?? 2.8;
   root.scale.y = (naturalH > 0.001 && targetH > 0) ? targetH / naturalH : 1;
+}
+
+function LightRow({ label, min, max, step, value, onChange }) {
+  return (
+    <div className="lcp-row">
+      <span className="lcp-label">{label}</span>
+      <input type="range" min={min} max={max} step={step} value={value}
+        onChange={(e) => onChange(parseFloat(e.target.value))} />
+      <span className="lcp-val">{value.toFixed(2)}</span>
+    </div>
+  );
 }
 
 function loadImageTexture(src) {
@@ -693,7 +809,7 @@ function loadModel(modelData, modelGroup, camera, controls, sun, onFit, settings
     const size   = bb.getSize(new THREE.Vector3());
     const maxDim = Math.max(size.x, size.y, size.z, 1);
     onFit?.(maxDim);
-    camera.position.set(center.x + maxDim * 0.9, center.y + maxDim * 0.7, center.z + maxDim * 0.9);
+    camera.position.set(center.x, center.y + maxDim * 0.7, center.z + maxDim * 1.2);
     camera.lookAt(center);
     controls.target.copy(center);
     controls.update();
@@ -748,7 +864,7 @@ function setViewMode(camera, controls, group, mode) {
   const d = Math.max(size.x, size.y, size.z, 1);
   const c = center;
   const positions = {
-    perspective: [c.x + d * 0.9, c.y + d * 0.7, c.z + d * 0.9],
+    perspective: [c.x,           c.y + d * 0.7, c.z + d * 1.2],
     top:         [c.x,           c.y + d * 2,    c.z + 0.001],
     front:       [c.x,           c.y + size.y / 2, c.z + d * 1.5],
     right:       [c.x + d * 1.5, c.y + size.y / 2, c.z],

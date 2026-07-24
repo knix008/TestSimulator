@@ -144,20 +144,29 @@ export default function SettingsModal({ lang, sliderRanges, onApply, onClose }) 
   );
 }
 
-function RangeField({ label, value, unit, error, onChange }) {
+function RangeField({ label, value, unit, error, onChange, step = 0.1 }) {
+  const adj = (delta) => {
+    const next = Math.max(0, Math.round((parseFloat(value) + delta) * 1000) / 1000);
+    onChange(String(next));
+  };
+
   return (
-    <div className="sm-field">
-      <label className="sm-field-label">{label}</label>
-      <div className={`sm-input-wrap ${error ? 'sm-input-err' : ''}`}>
-        <input
-          type="number"
-          className="sm-input"
-          value={value}
-          step={0.1}
-          min={0}
-          onChange={(e) => onChange(e.target.value)}
-        />
-        <span className="sm-unit">{unit}</span>
+    <div className="sm-field-wrap">
+      <div className="sm-field">
+        <label className="sm-field-label">{label}</label>
+        <div className={`sm-stepper ${error ? 'sm-input-err' : ''}`}>
+          <button className="sm-step-btn" onClick={() => adj(-step)} tabIndex={-1}>‹</button>
+          <input
+            type="number"
+            className="sm-step-input"
+            value={value}
+            step={step}
+            min={0}
+            onChange={(e) => onChange(e.target.value)}
+          />
+          <span className="sm-unit">{unit}</span>
+          <button className="sm-step-btn" onClick={() => adj(step)} tabIndex={-1}>›</button>
+        </div>
       </div>
       {error && <p className="sm-error">{error}</p>}
     </div>
