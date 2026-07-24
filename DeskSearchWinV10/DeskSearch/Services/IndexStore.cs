@@ -297,6 +297,65 @@ public sealed partial class IndexStore : IDisposable
     }
 
     /// <summary>
+    /// Returns every indexed full path at or under <paramref name="root"/> (the root row itself
+    /// plus all descendants). Used to reconcile a subtree against disk after a watcher buffer
+    /// overflow, where queued delete events were dropped and stale rows must be found and removed.
+    /// </summary>
+    public IReadOnlyList<string> GetPathsUnderRoot(string root)
+    {
+        var normalized = root.TrimEnd('\\');
+        if (string.IsNullOrWhiteSpace(normalized))
+            return [];
+
+        lock (_lock)
+        {
+            using var command = CreateCommand(
+                """
+                SELECT full_path
+                FROM entries
+                WHERE full_path = $exact COLLATE NOCASE
+                   OR full_path LIKE $prefix ESCAPE '\' COLLATE NOCASE
+                """);
+            command.Parameters.AddWithValue("$exact", normalized);
+            command.Parameters.AddWithValue("$prefix", EscapeLikePrefix(normalized + "\\") + "%");
+
+            using var reader = command.ExecuteReader();
+            var results = new List<string>();
+            while (reader.Read())
+                results.Add(reader.GetString(0));
+
+            return results;
+        }
+    }
+
+    /// <summary>
+    /// Deletes the exact rows for the given paths in a single transaction. Callers that need
+    /// directory descendants removed should pass those paths explicitly.
+    /// </summary>
+    public void RemovePaths(IReadOnlyList<string> paths)
+    {
+        if (paths.Count == 0)
+            return;
+
+        lock (_lock)
+        {
+            using var transaction = _connection.BeginTransaction();
+            using var command = CreateCommand(
+                "DELETE FROM entries WHERE full_path = $path COLLATE NOCASE", transaction);
+            var parameter = command.Parameters.Add("$path", SqliteType.Text);
+
+            foreach (var path in paths)
+            {
+                parameter.Value = path.TrimEnd('\\');
+                command.ExecuteNonQuery();
+            }
+
+            transaction.Commit();
+            _cachedCount = -1;
+        }
+    }
+
+    /// <summary>
     /// Rewrites an indexed path (and descendants for directories) from <paramref name="oldPath"/>
     /// to <paramref name="newPath"/>. Used for filesystem renames so child entries are preserved.
     /// </summary>

@@ -983,6 +983,7 @@ public sealed class SystemIndexService : IDisposable
         }
 
         var upserts = new List<FileEntry>(adds.Count);
+        var addedDirectories = new List<string>();
         foreach (var path in adds)
         {
             if (!_inclusion.IsPathInScope(path))
@@ -1001,6 +1002,8 @@ public sealed class SystemIndexService : IDisposable
                 var entry = TryCreateEntry(path, isDirectory: true);
                 if (entry is not null)
                     upserts.Add(entry);
+
+                addedDirectories.Add(path);
             }
         }
 
@@ -1012,12 +1015,105 @@ public sealed class SystemIndexService : IDisposable
             changeCount += upserts.Count;
         }
 
+        // A directory can arrive already populated (drag-drop, copy, or a folder moved into
+        // scope). Windows does not reliably raise a Created event for every descendant of a
+        // bulk copy, and the watcher buffer can overflow and drop them entirely — so index the
+        // subtree explicitly here, mirroring how a directory delete cascades to descendants.
+        foreach (var directory in addedDirectories)
+            changeCount += IndexAddedDirectorySubtree(directory, targets);
+
         if (changeCount > 0)
             Interlocked.Add(ref _incrementalUpdateCount, changeCount);
 
         Interlocked.Exchange(ref _approximateLiveCount, GetLiveEntryCount());
 
         IndexUpdated?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>
+    /// Enumerates the descendants of a newly added directory and upserts them into every live
+    /// search target. Recursion is forced through already-scanned prefixes because the directory
+    /// sits under a root that was indexed earlier, so the normal scanned-prefix skip would stop
+    /// it from descending. Returns the number of entries indexed.
+    /// </summary>
+    private long IndexAddedDirectorySubtree(string directory, IReadOnlyList<IndexStore> targets)
+    {
+        if (!Directory.Exists(directory) || !_inclusion.IsPathInScope(directory))
+            return 0;
+
+        var indexed = 0L;
+        ScanTree(
+            directory,
+            CancellationToken.None,
+            batch =>
+            {
+                foreach (var target in targets)
+                    target.UpsertBatch(batch);
+
+                indexed += batch.Count;
+            },
+            forceRecurseScannedPrefixes: true);
+
+        return indexed;
+    }
+
+    /// <summary>
+    /// Recovers changes dropped when a filesystem watcher's buffer overflows: the OS raises an
+    /// error and discards the queued events, so a targeted subtree reconcile of the affected root
+    /// is the only way to catch adds/renames/deletes that were silently lost. Re-indexes the
+    /// subtree (missed adds) and prunes indexed rows no longer on disk (missed deletes). Runs on
+    /// the indexer thread.
+    /// </summary>
+    public void ResyncWatcherRoot(string root)
+    {
+        if (string.IsNullOrWhiteSpace(root))
+            return;
+
+        _indexWorker.Enqueue(() =>
+        {
+            var targets = GetLiveSearchUpdateTargets();
+            if (targets.Count == 0)
+                return;
+
+            var changed = IndexAddedDirectorySubtree(root, targets);
+            changed += PruneMissingUnderRoot(root, targets);
+            if (changed <= 0)
+                return;
+
+            Interlocked.Add(ref _incrementalUpdateCount, changed);
+            Interlocked.Exchange(ref _approximateLiveCount, GetLiveEntryCount());
+            IndexUpdated?.Invoke(this, EventArgs.Empty);
+        });
+    }
+
+    /// <summary>
+    /// Removes indexed entries at or under <paramref name="root"/> whose paths no longer exist on
+    /// disk. Recovers deletions that were dropped when the watcher buffer overflowed. Returns the
+    /// number of entries removed.
+    /// </summary>
+    private long PruneMissingUnderRoot(string root, IReadOnlyList<IndexStore> targets)
+    {
+        if (string.IsNullOrWhiteSpace(root))
+            return 0;
+
+        var removed = 0L;
+        foreach (var target in targets)
+        {
+            var stale = new List<string>();
+            foreach (var path in target.GetPathsUnderRoot(root))
+            {
+                if (!File.Exists(path) && !Directory.Exists(path))
+                    stale.Add(path);
+            }
+
+            if (stale.Count > 0)
+            {
+                target.RemovePaths(stale);
+                removed += stale.Count;
+            }
+        }
+
+        return removed;
     }
 
     private void RunStartupIndexMaintenance(CancellationToken cancellationToken)
@@ -1614,7 +1710,8 @@ public sealed class SystemIndexService : IDisposable
     private void ScanTree(
         string root,
         CancellationToken cancellationToken,
-        Action<IReadOnlyList<FileEntry>> mergeBatch)
+        Action<IReadOnlyList<FileEntry>> mergeBatch,
+        bool forceRecurseScannedPrefixes = false)
     {
         if (!Directory.Exists(root))
             return;
@@ -1729,7 +1826,7 @@ public sealed class SystemIndexService : IDisposable
                 if (!_inclusion.IsPathInScope(path))
                     return false;
 
-                if (!_disableScannedPrefixSkip && IsUnderScannedSubtree(path))
+                if (!forceRecurseScannedPrefixes && !_disableScannedPrefixSkip && IsUnderScannedSubtree(path))
                     return false;
 
                 var reparseTargetKey = TryGetReparseTargetDirectoryKey(path);

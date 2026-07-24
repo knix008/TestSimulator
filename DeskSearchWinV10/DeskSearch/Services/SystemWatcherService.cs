@@ -103,8 +103,13 @@ public sealed class SystemWatcherService : IDisposable
         }
         catch
         {
-            // best effort; user can run a manual full index if changes were missed
+            // best effort; the subtree resync below is what recovers dropped changes
         }
+
+        // The error (typically a buffer overflow) means queued change events were discarded,
+        // so files added/renamed during the burst are missing from the index. Re-index the
+        // watcher's root subtree to recover them instead of waiting for a manual full index.
+        _indexService.ResyncWatcherRoot(watcher.Path);
     }
 
     private void QueueAdd(string fullPath)

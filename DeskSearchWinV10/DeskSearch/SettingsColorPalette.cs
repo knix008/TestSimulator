@@ -2,35 +2,31 @@ namespace DeskSearch;
 
 internal static class SettingsColorPalette
 {
-    /// <summary>배경·테두리용 추천 색 (밝은 톤 + 다크 톤)</summary>
+    /// <summary>배경·테두리용 추천 색 (색상환 전체를 덮는 파스텔 20색)</summary>
     public static readonly string[] BackgroundSwatches =
     [
-        // Light
-        "#FFFFFF",
-        "#FAFAFA",
-        "#F5F5F5",
-        "#FFF8F0",
-        "#FFFDE7",
-        "#E3F2FD",
-        "#E8F5E9",
-        "#F3E5F5",
-        "#FFE0B2",
-        "#FFCDD2",
-        "#B2DFDB",
-        "#CFD8DC",
-        // Dark
-        "#212121",
-        "#2D2D2D",
-        "#37474F",
-        "#263238",
-        "#1A237E",
-        "#0D47A1",
-        "#1B5E20",
-        "#004D40",
-        "#311B92",
-        "#4A148C",
-        "#3E2723",
-        "#1B1B1E"
+        "#FFB3BA", // pastel red
+        "#FFC5A8", // pastel coral
+        "#FFD8B1", // pastel orange
+        "#FFE8B3", // pastel amber
+        "#FFF5BA", // pastel yellow
+        "#F1F0A8", // pastel lime-yellow
+        "#DCEDC1", // pastel lime
+        "#C1F0C1", // pastel green
+        "#B4F8C8", // pastel mint
+        "#A8E6CF", // pastel teal
+        "#A0E7E5", // pastel cyan
+        "#B5E2FA", // pastel sky
+        "#B3D4FF", // pastel blue
+        "#C7CEEA", // pastel periwinkle
+        "#C3B1E1", // pastel indigo
+        "#D8BFD8", // pastel purple
+        "#E0BBE4", // pastel lavender
+        "#F5C6E0", // pastel magenta
+        "#FFC8DD", // pastel pink
+        "#FFB6C1", // pastel rose
+        "#D7C4A3", // pastel brown
+        "#CBD5D8"  // pastel gray
     ];
 
     /// <summary>글자색용 추천 색 (어두운 톤 + 밝은 톤)</summary>
