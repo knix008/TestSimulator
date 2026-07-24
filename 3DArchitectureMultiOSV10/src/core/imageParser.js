@@ -256,28 +256,39 @@ function linesToSegments(lines, edges, w, h, minLen) {
   const used = new Uint8Array(rawSegs.length);
   const segments = [];
 
+  // 세그먼트 겹침 판정용 gap — 분할 gap(gapH/gapV)보다 작게: 실제 인접·겹침만 연결
+  const joinGapH = Math.round(gapH * 0.4);
+  const joinGapV = Math.round(gapV * 0.4);
+
   for (let i = 0; i < rawSegs.length; i++) {
     if (used[i]) continue;
     const a = rawSegs[i];
     let sx1 = a.horizontal ? a.start.x : a.start.y;
     let sx2 = a.horizontal ? a.end.x   : a.end.y;
 
+    // 중심선 계산을 위해 수직 위치(수평선→y, 수직선→x)의 가중 평균 유지
+    let perpSum  = (a.horizontal ? a.start.y : a.start.x) * (sx2 - sx1 + 1);
+    let perpWt   = sx2 - sx1 + 1;
+
     for (let j = i+1; j < rawSegs.length; j++) {
       if (used[j]) continue;
       const b = rawSegs[j];
       if (b.horizontal !== a.horizontal) continue;
 
-      // 같은 축 위치인지 확인 (수직 거리)
+      // 수직 거리(평행 엣지 간격)가 MERGE_DIST 이내인지 확인
       const da = a.horizontal
         ? Math.abs(a.start.y - b.start.y)
         : Math.abs(a.start.x - b.start.x);
       if (da > MERGE_DIST) continue;
 
-      // 겹치거나 인접한 구간이면 병합
+      // 겹치거나 인접한 구간이면 병합 (joinGap으로 판정)
       const bx1 = b.horizontal ? b.start.x : b.start.y;
       const bx2 = b.horizontal ? b.end.x   : b.end.y;
-      const mergeGap = a.horizontal ? gapH : gapV;
-      if (bx1 <= sx2 + mergeGap && bx2 >= sx1 - mergeGap) {
+      const jg  = a.horizontal ? joinGapH : joinGapV;
+      if (bx1 <= sx2 + jg && bx2 >= sx1 - jg) {
+        const bLen = bx2 - bx1 + 1;
+        perpSum += (b.horizontal ? b.start.y : b.start.x) * bLen;
+        perpWt  += bLen;
         sx1 = Math.min(sx1, bx1);
         sx2 = Math.max(sx2, bx2);
         used[j] = 1;
@@ -285,12 +296,13 @@ function linesToSegments(lines, edges, w, h, minLen) {
     }
     used[i] = 1;
 
-    // 병합 후에도 최소 길이 만족 시 추가
     if (sx2 - sx1 < minLen) continue;
 
+    // 중심선: 병합된 모든 평행 엣지의 길이 가중 평균 위치
+    const perpPos = Math.round(perpSum / perpWt);
     const getXY2 = (p) => a.horizontal
-      ? { x: p, y: a.start.y }
-      : { x: a.start.x, y: p };
+      ? { x: p, y: perpPos }
+      : { x: perpPos, y: p };
     segments.push({ start: getXY2(sx1), end: getXY2(sx2) });
   }
 

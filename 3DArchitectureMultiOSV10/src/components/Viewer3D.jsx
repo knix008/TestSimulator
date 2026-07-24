@@ -13,6 +13,7 @@ const INITIAL_LIGHT = {
   fillIntensity:    0.4,
   sunColor:         '#fff8e1',
   ambientColor:     '#ffffff',
+  sunX: 30, sunY: 50, sunZ: 30,
 };
 
 export default function Viewer3D({
@@ -35,6 +36,8 @@ export default function Viewer3D({
   const showLightRef = useRef(showLightControl);
   const [contextMenu,   setContextMenu]   = useState(null); // { x, y }
   const [lightSettings, setLightSettings] = useState(INITIAL_LIGHT);
+  const lightSetterRef = useRef(null);   // Three.js 이벤트 핸들러에서 state 업데이트용
+  lightSetterRef.current = setLightSettings;
   const [showGizmo,     setShowGizmo]     = useState(true);
   const [panelPos,      setPanelPos]      = useState(null); // { x, y } — null = CSS 기본 위치
   const panelRef = useRef(null);
@@ -121,6 +124,7 @@ export default function Viewer3D({
       const pos = lightLine.geometry.attributes.position;
       pos.setXYZ(0, 30, 50, 30);
       pos.needsUpdate = true;
+      lightSetterRef.current?.((s) => ({ ...s, sunX: 30, sunY: 50, sunZ: 30 }));
     };
 
     // TransformControls: 태양 기즈모 드래그
@@ -139,9 +143,17 @@ export default function Viewer3D({
       pos.setXYZ(0, sunGizmo.position.x, sunGizmo.position.y, sunGizmo.position.z);
       pos.needsUpdate = true;
     });
-    // TransformControls 드래그 중 OrbitControls 비활성화
+    // TransformControls 드래그 중 OrbitControls 비활성화, 드래그 종료 시 슬라이더 동기화
     lightTransform.addEventListener('dragging-changed', (e) => {
       controls.enabled = !e.value;
+      if (!e.value) {
+        lightSetterRef.current?.((s) => ({
+          ...s,
+          sunX: Math.round(sunGizmo.position.x),
+          sunY: Math.round(sunGizmo.position.y),
+          sunZ: Math.round(sunGizmo.position.z),
+        }));
+      }
     });
 
     // 그리드
@@ -391,6 +403,20 @@ export default function Viewer3D({
     eng.sun.color.set(lightSettings.sunColor);
     eng.fill.intensity = lightSettings.fillIntensity;
   }, [lightSettings]);
+
+  // 슬라이더로 sunX/Y/Z 변경 시 Three.js 조명·기즈모 위치 동기화
+  useEffect(() => {
+    const eng = engineRef.current;
+    if (!eng) return;
+    const x = lightSettings.sunX ?? 30;
+    const y = Math.max(0.5, lightSettings.sunY ?? 50);
+    const z = lightSettings.sunZ ?? 30;
+    eng.sun.position.set(x, y, z);
+    eng.sunGizmo.position.set(x, y, z);
+    const pos = eng.lightLine.geometry.attributes.position;
+    pos.setXYZ(0, x, y, z);
+    pos.needsUpdate = true;
+  }, [lightSettings.sunX, lightSettings.sunY, lightSettings.sunZ]);
 
   // ── AI 깊이 맵 → 3D 하이트맵 ──────────────────────────
   useEffect(() => {
@@ -647,8 +673,19 @@ export default function Viewer3D({
               onChange={(e) => setLightSettings((s) => ({ ...s, ambientColor: e.target.value }))} />
           </div>
           <div className="lcp-divider" />
+          <div className="lcp-section-title">{lang === 'ko' ? '태양 위치' : 'Sun Position'}</div>
+          <LightRow label="X" min={-120} max={120} step={1}
+            value={lightSettings.sunX ?? 30}
+            onChange={(v) => setLightSettings((s) => ({ ...s, sunX: v }))} />
+          <LightRow label="Y" min={1} max={150} step={1}
+            value={lightSettings.sunY ?? 50}
+            onChange={(v) => setLightSettings((s) => ({ ...s, sunY: v }))} />
+          <LightRow label="Z" min={-120} max={120} step={1}
+            value={lightSettings.sunZ ?? 30}
+            onChange={(v) => setLightSettings((s) => ({ ...s, sunZ: v }))} />
+          <div className="lcp-divider" />
           <div className="lcp-color-row">
-            <span>{lang === 'ko' ? '위치 기즈모' : 'Position Gizmo'}</span>
+            <span>{lang === 'ko' ? '위치 기즈모' : 'Gizmo'}</span>
             <button
               className={`lcp-toggle-btn ${showGizmo ? 'lcp-toggle-on' : ''}`}
               onClick={() => setShowGizmo((v) => !v)}
@@ -658,7 +695,7 @@ export default function Viewer3D({
           </div>
           {showGizmo && (
             <p className="lcp-hint">
-              {lang === 'ko' ? '황금 구체를 드래그해 태양 방향 변경' : 'Drag the gold sphere to reposition sun'}
+              {lang === 'ko' ? '황금 구체를 드래그해 태양 위치 변경' : 'Drag the gold sphere to reposition sun'}
             </p>
           )}
         </div>
@@ -747,12 +784,13 @@ function rescaleModelObj(root, settings) {
 }
 
 function LightRow({ label, min, max, step, value, onChange }) {
+  const isInt = step >= 1;
   return (
     <div className="lcp-row">
       <span className="lcp-label">{label}</span>
       <input type="range" min={min} max={max} step={step} value={value}
         onChange={(e) => onChange(parseFloat(e.target.value))} />
-      <span className="lcp-val">{value.toFixed(2)}</span>
+      <span className="lcp-val">{isInt ? Math.round(value) : value.toFixed(2)}</span>
     </div>
   );
 }

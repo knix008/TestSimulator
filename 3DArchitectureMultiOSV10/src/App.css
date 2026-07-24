@@ -758,6 +758,14 @@ body {
   margin: 6px 0;
   opacity: 0.5;
 }
+.lcp-section-title {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin: 2px 0 4px;
+}
 .lcp-toggle-btn {
   padding: 2px 9px;
   border: 1px solid var(--border);
