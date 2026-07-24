@@ -13,8 +13,30 @@ const INITIAL_LIGHT = {
   fillIntensity:    0.4,
   sunColor:         '#fff8e1',
   ambientColor:     '#ffffff',
-  sunX: 30, sunY: 50, sunZ: 30,
+  sunAzimuth: 45,  // 방위각 0-360° (Y축 회전)
+  sunPolar:   40,  // 수직각 0-360° (0=위, 90=수평, 180=아래, 270=수평 반대편)
+  sunDist:    65,  // 원점으로부터 거리
 };
+
+// 구면 → 직교 좌표 변환 (극각 사용 → 0~360° 완전 수직 회전 지원)
+function sphericalToCartesian(azDeg, polarDeg, dist) {
+  const az    = azDeg    * Math.PI / 180;
+  const polar = polarDeg * Math.PI / 180;
+  return {
+    x: dist * Math.sin(polar) * Math.sin(az),
+    y: dist * Math.cos(polar),
+    z: dist * Math.sin(polar) * Math.cos(az),
+  };
+}
+
+// 직교 → 구면 좌표 변환 (기즈모 드래그 후 슬라이더 동기화)
+function cartesianToSpherical(x, y, z) {
+  const dist = Math.sqrt(x * x + y * y + z * z);
+  if (dist < 0.001) return { azimuth: 45, polar: 40, dist: 65 };
+  const polar = Math.acos(Math.max(-1, Math.min(1, y / dist))) * 180 / Math.PI;
+  const az    = Math.atan2(x, z) * 180 / Math.PI;
+  return { azimuth: ((az % 360) + 360) % 360, polar, dist };
+}
 
 export default function Viewer3D({
   walls, settings, imageSrc, modelData, lang, theme,
@@ -119,12 +141,13 @@ export default function Viewer3D({
 
     // 태양 리셋 함수
     const resetLight = () => {
-      sun.position.set(30, 50, 30);
-      sunGizmo.position.set(30, 50, 30);
+      const { x, y, z } = sphericalToCartesian(45, 50, 65);
+      sun.position.set(x, y, z);
+      sunGizmo.position.set(x, y, z);
       const pos = lightLine.geometry.attributes.position;
-      pos.setXYZ(0, 30, 50, 30);
+      pos.setXYZ(0, x, y, z);
       pos.needsUpdate = true;
-      lightSetterRef.current?.((s) => ({ ...s, sunX: 30, sunY: 50, sunZ: 30 }));
+      lightSetterRef.current?.((s) => ({ ...s, sunAzimuth: 45, sunPolar: 40, sunDist: 65 }));
     };
 
     // TransformControls: 태양 기즈모 드래그
@@ -147,11 +170,13 @@ export default function Viewer3D({
     lightTransform.addEventListener('dragging-changed', (e) => {
       controls.enabled = !e.value;
       if (!e.value) {
+        const { x, y, z } = sunGizmo.position;
+        const { azimuth, polar, dist } = cartesianToSpherical(x, y, z);
         lightSetterRef.current?.((s) => ({
           ...s,
-          sunX: Math.round(sunGizmo.position.x),
-          sunY: Math.round(sunGizmo.position.y),
-          sunZ: Math.round(sunGizmo.position.z),
+          sunAzimuth: Math.round(azimuth),
+          sunPolar:   Math.round(polar),
+          sunDist:    Math.round(dist),
         }));
       }
     });
@@ -404,19 +429,21 @@ export default function Viewer3D({
     eng.fill.intensity = lightSettings.fillIntensity;
   }, [lightSettings]);
 
-  // 슬라이더로 sunX/Y/Z 변경 시 Three.js 조명·기즈모 위치 동기화
+  // 슬라이더로 방위각/고도각/거리 변경 시 Three.js 조명·기즈모 위치 동기화
   useEffect(() => {
     const eng = engineRef.current;
     if (!eng) return;
-    const x = lightSettings.sunX ?? 30;
-    const y = Math.max(0.5, lightSettings.sunY ?? 50);
-    const z = lightSettings.sunZ ?? 30;
+    const { x, y, z } = sphericalToCartesian(
+      lightSettings.sunAzimuth ?? 45,
+      lightSettings.sunPolar   ?? 40,
+      lightSettings.sunDist    ?? 65,
+    );
     eng.sun.position.set(x, y, z);
     eng.sunGizmo.position.set(x, y, z);
     const pos = eng.lightLine.geometry.attributes.position;
     pos.setXYZ(0, x, y, z);
     pos.needsUpdate = true;
-  }, [lightSettings.sunX, lightSettings.sunY, lightSettings.sunZ]);
+  }, [lightSettings.sunAzimuth, lightSettings.sunPolar, lightSettings.sunDist]);
 
   // ── AI 깊이 맵 → 3D 하이트맵 ──────────────────────────
   useEffect(() => {
@@ -674,15 +701,15 @@ export default function Viewer3D({
           </div>
           <div className="lcp-divider" />
           <div className="lcp-section-title">{lang === 'ko' ? '태양 위치' : 'Sun Position'}</div>
-          <LightRow label="X" min={-120} max={120} step={1}
-            value={lightSettings.sunX ?? 30}
-            onChange={(v) => setLightSettings((s) => ({ ...s, sunX: v }))} />
-          <LightRow label="Y" min={1} max={150} step={1}
-            value={lightSettings.sunY ?? 50}
-            onChange={(v) => setLightSettings((s) => ({ ...s, sunY: v }))} />
-          <LightRow label="Z" min={-120} max={120} step={1}
-            value={lightSettings.sunZ ?? 30}
-            onChange={(v) => setLightSettings((s) => ({ ...s, sunZ: v }))} />
+          <LightRow label={lang === 'ko' ? '방위각' : 'Azimuth'} min={0} max={360} step={1}
+            value={lightSettings.sunAzimuth ?? 45}
+            onChange={(v) => setLightSettings((s) => ({ ...s, sunAzimuth: v }))} />
+          <LightRow label={lang === 'ko' ? '수직각' : 'Vertical'} min={0} max={360} step={1}
+            value={lightSettings.sunPolar ?? 40}
+            onChange={(v) => setLightSettings((s) => ({ ...s, sunPolar: v }))} />
+          <LightRow label={lang === 'ko' ? '거리' : 'Distance'} min={10} max={200} step={1}
+            value={lightSettings.sunDist ?? 65}
+            onChange={(v) => setLightSettings((s) => ({ ...s, sunDist: v }))} />
           <div className="lcp-divider" />
           <div className="lcp-color-row">
             <span>{lang === 'ko' ? '위치 기즈모' : 'Gizmo'}</span>
