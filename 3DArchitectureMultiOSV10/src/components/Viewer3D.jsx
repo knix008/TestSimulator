@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import * as THREE from 'three';
-import { OrbitControls }  from 'three/examples/jsm/controls/OrbitControls.js';
+import { TrackballControls } from 'three/examples/jsm/controls/TrackballControls.js';
 import { OBJLoader }      from 'three/examples/jsm/loaders/OBJLoader.js';
 import { GLTFLoader }     from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { CSS2DRenderer, CSS2DObject } from 'three/examples/jsm/renderers/CSS2DRenderer.js';
@@ -13,12 +13,11 @@ const INITIAL_LIGHT = {
   fillIntensity:    0.4,
   sunColor:         '#fff8e1',
   ambientColor:     '#ffffff',
-  sunAzimuth: 45,  // 방위각 0-360° (Y축 회전)
-  sunPolar:   40,  // 수직각 0-360° (0=위, 90=수평, 180=아래, 270=수평 반대편)
-  sunDist:    65,  // 원점으로부터 거리
+  sunAzimuth: 45,
+  sunPolar:   40,
+  sunDist:    65,
 };
 
-// 구면 → 직교 좌표 변환 (극각 사용 → 0~360° 완전 수직 회전 지원)
 function sphericalToCartesian(azDeg, polarDeg, dist) {
   const az    = azDeg    * Math.PI / 180;
   const polar = polarDeg * Math.PI / 180;
@@ -29,7 +28,6 @@ function sphericalToCartesian(azDeg, polarDeg, dist) {
   };
 }
 
-// 직교 → 구면 좌표 변환 (기즈모 드래그 후 슬라이더 동기화)
 function cartesianToSpherical(x, y, z) {
   const dist = Math.sqrt(x * x + y * y + z * z);
   if (dist < 0.001) return { azimuth: 45, polar: 40, dist: 65 };
@@ -141,7 +139,7 @@ export default function Viewer3D({
 
     // 태양 리셋 함수
     const resetLight = () => {
-      const { x, y, z } = sphericalToCartesian(45, 50, 65);
+      const { x, y, z } = sphericalToCartesian(45, 40, 65);
       sun.position.set(x, y, z);
       sunGizmo.position.set(x, y, z);
       const pos = lightLine.geometry.attributes.position;
@@ -166,7 +164,7 @@ export default function Viewer3D({
       pos.setXYZ(0, sunGizmo.position.x, sunGizmo.position.y, sunGizmo.position.z);
       pos.needsUpdate = true;
     });
-    // TransformControls 드래그 중 OrbitControls 비활성화, 드래그 종료 시 슬라이더 동기화
+    // TransformControls 드래그 중 카메라 컨트롤 비활성화, 드래그 종료 시 슬라이더 동기화
     lightTransform.addEventListener('dragging-changed', (e) => {
       controls.enabled = !e.value;
       if (!e.value) {
@@ -204,12 +202,14 @@ export default function Viewer3D({
     const yLbl = makeAxisLabel('Y', '#44ee44'); yLbl.position.set(0, 7, 0);  scene.add(yLbl);
     const zLbl = makeAxisLabel('Z', '#4488ff'); zLbl.position.set(0, 0,  7); scene.add(zLbl);
 
-    // OrbitControls
-    const controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = false;
-    controls.minDistance   = 0.5;
-    controls.maxDistance   = 500;
-    controls.maxPolarAngle = Math.PI;
+    // TrackballControls — 쿼터니언 기반, X/Y/Z 방향 모두 360° 완전 자유 회전
+    const controls = new TrackballControls(camera, renderer.domElement);
+    controls.rotateSpeed  = 3.0;
+    controls.zoomSpeed    = 1.2;
+    controls.panSpeed     = 0.8;
+    controls.staticMoving = true; // 감쇠 없음
+    controls.minDistance  = 0.5;
+    controls.maxDistance  = 500;
 
     const modelGroup = new THREE.Group();
     scene.add(modelGroup);
@@ -254,12 +254,17 @@ export default function Viewer3D({
     canvas.addEventListener('pointerdown', onPointerDown);
     canvas.addEventListener('click', onClick);
 
-    // 우클릭 컨텍스트 메뉴
+    // 우클릭 컨텍스트 메뉴 (TrackballControls 우클릭 팬과 구분: 드래그 거리 16px² 초과 시 억제)
+    let rightDownX = 0, rightDownY = 0;
+    const onRightDown = (e) => { if (e.button === 2) { rightDownX = e.clientX; rightDownY = e.clientY; } };
     const onCtxMenu = (e) => {
       e.preventDefault();
+      const dx = e.clientX - rightDownX, dy = e.clientY - rightDownY;
+      if (dx * dx + dy * dy > 16) return; // 드래그 후 컨텍스트 메뉴 억제
       const rect = mount.getBoundingClientRect();
       setContextMenu({ x: e.clientX - rect.left, y: e.clientY - rect.top });
     };
+    canvas.addEventListener('pointerdown', onRightDown);
     canvas.addEventListener('contextmenu', onCtxMenu);
 
     // 애니메이션 루프
@@ -314,6 +319,7 @@ export default function Viewer3D({
 
     return () => {
       canvas.removeEventListener('pointerdown', onPointerDown);
+      canvas.removeEventListener('pointerdown', onRightDown);
       canvas.removeEventListener('click', onClick);
       canvas.removeEventListener('contextmenu', onCtxMenu);
       ro.disconnect();
@@ -429,7 +435,7 @@ export default function Viewer3D({
     eng.fill.intensity = lightSettings.fillIntensity;
   }, [lightSettings]);
 
-  // 슬라이더로 방위각/고도각/거리 변경 시 Three.js 조명·기즈모 위치 동기화
+  // 슬라이더로 방위각/수직각/거리 변경 시 Three.js 조명·기즈모 위치 동기화
   useEffect(() => {
     const eng = engineRef.current;
     if (!eng) return;
@@ -704,7 +710,7 @@ export default function Viewer3D({
           <LightRow label={lang === 'ko' ? '방위각' : 'Azimuth'} min={0} max={360} step={1}
             value={lightSettings.sunAzimuth ?? 45}
             onChange={(v) => setLightSettings((s) => ({ ...s, sunAzimuth: v }))} />
-          <LightRow label={lang === 'ko' ? '수직각' : 'Vertical'} min={0} max={360} step={1}
+          <LightRow label={lang === 'ko' ? '수직각' : 'Vertical'} min={0} max={180} step={1}
             value={lightSettings.sunPolar ?? 40}
             onChange={(v) => setLightSettings((s) => ({ ...s, sunPolar: v }))} />
           <LightRow label={lang === 'ko' ? '거리' : 'Distance'} min={10} max={200} step={1}
