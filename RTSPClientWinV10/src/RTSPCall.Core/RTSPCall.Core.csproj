@@ -1,0 +1,20 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <UseWindowsForms>true</UseWindowsForms>
+    <RootNamespace>RTSPCall.Core</RootNamespace>
+    <IsPackable>false</IsPackable>
+    <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
+    <Description>Shared signaling/media helpers for RTSP LAN call client and device simulator (not runnable)</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="LibVLCSharp" Version="3.10.0" />
+    <PackageReference Include="VideoLAN.LibVLC.Windows" Version="3.0.23.1" />
+  </ItemGroup>
+
+</Project>

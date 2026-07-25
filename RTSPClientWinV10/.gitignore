@@ -1,0 +1,77 @@
+## Build outputs
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+artifacts/
+publish/
+*.cache
+*.ilk
+*.log
+*.tlog
+*.pdb
+*.idb
+*.opendb
+*.opensdf
+*.sdf
+*.dbmdl
+*.jfm
+*.tmp
+*.tmp_proj
+
+## Visual Studio / Rider / VS Code
+.vs/
+.vscode/
+.idea/
+*.user
+*.useros
+*.suo
+*.sln.docstates
+*.slnx
+*.VC.db
+*.VC.VC.opendb
+*.rsuser
+_ReSharper*/
+*.[Rr]e[Ss]harper
+*.DotSettings.user
+
+## NuGet
+*.nupkg
+*.snupkg
+**/[Pp]ackages/*
+!**/[Pp]ackages/build/
+project.lock.json
+project.fragment.lock.json
+
+## Test / coverage
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
+*.coverage
+*.coveragexml
+coverage*/
+TestResults/
+
+## OS
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store
+
+## App / secrets
+*.bak
+*.swp
+*~
+.env
+.env.*
+
+## WiX intermediates
+*.wixobj
+*.wixpdb
+
+## Python mock helpers
+device/.venv/
+device/__pycache__/
+*.pyc

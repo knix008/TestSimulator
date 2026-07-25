@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "RTSPDeviceSimWinV10": {
+      "commandName": "Project",
+      "dotnetRunMessages": true
+    }
+  }
+}

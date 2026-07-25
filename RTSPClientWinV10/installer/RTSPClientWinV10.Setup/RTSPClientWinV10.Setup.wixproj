@@ -1,0 +1,39 @@
+<Project Sdk="WixToolset.Sdk/6.0.2">
+
+  <PropertyGroup>
+    <OutputType>Package</OutputType>
+    <OutputName>RTSPClientWinV10</OutputName>
+    <ProductVersion>0.1.0</ProductVersion>
+    <DefineConstants>ProductVersion=$(ProductVersion)</DefineConstants>
+    <SuppressSpecificWarnings>1109</SuppressSpecificWarnings>
+    <InstallerPlatform>x64</InstallerPlatform>
+    <EnableDefaultCompileItems>true</EnableDefaultCompileItems>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <OutputPath>$(MSBuildThisFileDirectory)..\..\artifacts\msi\</OutputPath>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="WixToolset.Heat" Version="6.0.2" />
+    <PackageReference Include="WixToolset.UI.wixext" Version="6.0.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\RTSPClientWinV10\RTSPClientWinV10.csproj"
+                      Publish="true"
+                      Properties="RuntimeIdentifier=win-x64;SelfContained=true;PublishSingleFile=false" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <HarvestDirectory Include="$(IntermediateOutputPath)publish\RTSPClientWinV10">
+      <ComponentGroupName>AppFiles</ComponentGroupName>
+      <DirectoryRefId>INSTALLFOLDER</DirectoryRefId>
+      <SuppressRootDirectory>true</SuppressRootDirectory>
+    </HarvestDirectory>
+    <BindPath Include="$(IntermediateOutputPath)publish\RTSPClientWinV10" />
+  </ItemGroup>
+
+</Project>

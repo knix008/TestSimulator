@@ -1,0 +1,33 @@
+[
+  {
+    "Name": "PC Client",
+    "Projects": [
+      {
+        "Path": "src\\RTSPClientWinV10\\RTSPClientWinV10.csproj",
+        "Action": "Start"
+      }
+    ]
+  },
+  {
+    "Name": "Device Simulator",
+    "Projects": [
+      {
+        "Path": "src\\RTSPDeviceSimWinV10\\RTSPDeviceSimWinV10.csproj",
+        "Action": "Start"
+      }
+    ]
+  },
+  {
+    "Name": "Simulator + Client",
+    "Projects": [
+      {
+        "Path": "src\\RTSPDeviceSimWinV10\\RTSPDeviceSimWinV10.csproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "src\\RTSPClientWinV10\\RTSPClientWinV10.csproj",
+        "Action": "Start"
+      }
+    ]
+  }
+]

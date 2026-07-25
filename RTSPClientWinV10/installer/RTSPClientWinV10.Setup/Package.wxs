@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+
+  <Package Name="RTSP Client Win V10"
+           Manufacturer="SHKWON"
+           Version="$(ProductVersion)"
+           UpgradeCode="A7C3E9B1-4D2F-4A18-9C6E-2B8F0D5E1A73"
+           Scope="perMachine"
+           Language="1033">
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <Icon Id="AppIcon.ico" SourceFile="..\..\assets\app.ico" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon.ico" />
+
+    <Feature Id="Main" Title="RTSPClientWinV10" Level="1">
+      <ComponentGroupRef Id="AppFiles" />
+      <ComponentRef Id="ApplicationShortcut" />
+      <ComponentRef Id="ApplicationShortcutDesktop" />
+    </Feature>
+
+    <ui:WixUI Id="WixUI_InstallDir" InstallDirectory="INSTALLFOLDER" />
+    <WixVariable Id="WixUILicenseRtf" Value="License.rtf" />
+
+  </Package>
+
+  <Fragment>
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="RTSPClientWinV10" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ApplicationProgramsFolder" Name="RTSPClientWinV10" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="DesktopFolder" />
+  </Fragment>
+
+  <Fragment>
+    <Component Id="ApplicationShortcut" Directory="ApplicationProgramsFolder" Guid="B2E8C4D0-1F5A-4B79-8D3C-6A9E0F2B4C81">
+      <Shortcut Id="ApplicationStartMenuShortcut"
+                Name="RTSP Client Win V10"
+                Description="LAN RTSP video call client"
+                Target="[INSTALLFOLDER]RTSPClientWinV10.exe"
+                WorkingDirectory="INSTALLFOLDER"
+                Icon="AppIcon.ico" />
+      <RemoveFolder Id="RemoveApplicationProgramsFolder" On="uninstall" />
+      <RegistryValue Root="HKCU"
+                     Key="Software\SHKWON\RTSPClientWinV10"
+                     Name="installed"
+                     Type="integer"
+                     Value="1"
+                     KeyPath="yes" />
+    </Component>
+
+    <Component Id="ApplicationShortcutDesktop" Directory="DesktopFolder" Guid="C3F9D5E1-2A6B-4C8A-9E4D-7B0F1A3C5D92">
+      <Shortcut Id="ApplicationDesktopShortcut"
+                Name="RTSP Client Win V10"
+                Description="LAN RTSP video call client"
+                Target="[INSTALLFOLDER]RTSPClientWinV10.exe"
+                WorkingDirectory="INSTALLFOLDER"
+                Icon="AppIcon.ico" />
+      <RegistryValue Root="HKCU"
+                     Key="Software\SHKWON\RTSPClientWinV10"
+                     Name="desktop"
+                     Type="integer"
+                     Value="1"
+                     KeyPath="yes" />
+    </Component>
+  </Fragment>
+
+</Wix>

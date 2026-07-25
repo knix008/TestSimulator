@@ -1,0 +1,44 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWindowsForms>true</UseWindowsForms>
+    <UseAppHost>true</UseAppHost>
+    <RootNamespace>RTSPDeviceSimWinV10</RootNamespace>
+    <AssemblyName>RTSPDeviceSimWinV10</AssemblyName>
+    <Version>0.1.0</Version>
+    <Authors>SHKWON</Authors>
+    <Description>Local device simulator for RTSP LAN video-call testing</Description>
+    <ApplicationIcon>..\..\assets\device-sim.ico</ApplicationIcon>
+    <Platforms>AnyCPU;x64</Platforms>
+    <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
+    <EnableWindowsFormsDesigner>true</EnableWindowsFormsDesigner>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Platform)' == 'x64'">
+    <PlatformTarget>x64</PlatformTarget>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Platform)' == 'AnyCPU' or '$(Platform)' == ''">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <Prefer32Bit>false</Prefer32Bit>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="LibVLCSharp.WinForms" Version="3.10.0" />
+    <PackageReference Include="VideoLAN.LibVLC.Windows" Version="3.0.23.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\RTSPCall.Core\RTSPCall.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="..\..\assets\device-sim.ico" Link="assets\device-sim.ico" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\assets\device-sim.png" Link="assets\device-sim.png" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>
