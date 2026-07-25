@@ -81,7 +81,7 @@ partial class MainForm
         panelTop.Location = new Point(0, 0);
         panelTop.Name = "panelTop";
         panelTop.Padding = new Padding(12);
-        panelTop.Size = new Size(1100, 130);
+        panelTop.Size = new Size(1420, 140);
         panelTop.TabIndex = 0;
         //
         // lblDeviceUrl
@@ -288,10 +288,10 @@ partial class MainForm
         panelMain.Controls.Add(panelSide);
         panelMain.Controls.Add(panelVideo);
         panelMain.Dock = DockStyle.Fill;
-        panelMain.Location = new Point(0, 130);
+        panelMain.Location = new Point(0, 140);
         panelMain.Name = "panelMain";
         panelMain.Padding = new Padding(12, 8, 12, 8);
-        panelMain.Size = new Size(1100, 410);
+        panelMain.Size = new Size(1420, 440);
         panelMain.TabIndex = 1;
         //
         // panelVideo
@@ -415,11 +415,11 @@ partial class MainForm
         AutoScaleDimensions = new SizeF(7F, 15F);
         AutoScaleMode = AutoScaleMode.Font;
         BackColor = Color.FromArgb(30, 31, 34);
-        ClientSize = new Size(1320, 740);
+        ClientSize = new Size(1420, 780);
         Controls.Add(panelMain);
         Controls.Add(panelLog);
         Controls.Add(panelTop);
-        MinimumSize = new Size(1200, 640);
+        MinimumSize = new Size(1280, 680);
         Name = "MainForm";
         StartPosition = FormStartPosition.CenterScreen;
         Text = "RTSP Client Win V10 — LAN Video Call";

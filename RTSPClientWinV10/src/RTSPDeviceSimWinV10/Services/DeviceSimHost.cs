@@ -28,6 +28,26 @@ public sealed class DeviceSimHost : IAsyncDisposable
         _signaling.Log += msg => Log?.Invoke(msg);
         _publisher.LogLine += msg => Log?.Invoke("[ffmpeg] " + msg);
         _preview.LogLine += msg => Log?.Invoke("[preview] " + msg);
+        _player.Log += msg => Log?.Invoke(msg);
+        _preview.ExitedUnexpectedly += () =>
+        {
+            // Player may still be pointing at preview after ffmpeg one-shot disconnect.
+            if (IsInCall || string.IsNullOrWhiteSpace(_preview.PlayUrl))
+                return;
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await Task.Delay(700).ConfigureAwait(false);
+                    if (!IsInCall)
+                        await EnsurePreviewPlayingAsync().ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    WriteLog("Preview reconnect failed: " + ex.Message);
+                }
+            });
+        };
         _signaling.OnStartCall = HandleStartAsync;
         _signaling.OnHangup = HandleHangupAsync;
     }
@@ -39,7 +59,9 @@ public sealed class DeviceSimHost : IAsyncDisposable
             throw new InvalidOperationException("Simulator already listening.");
 
         var host = LanAddressHelper.GetPreferredIPv4(settings.PreferLoopback);
-        DeviceRtspUrl = $"rtsp://{host}:{settings.RtspPort}/{settings.RtspMount.Trim().Trim('/')}";
+        DeviceRtspUrl = settings.PreferLoopback
+            ? $"http://127.0.0.1:{settings.RtspPort}/live.ts"
+            : $"rtsp://{host}:{settings.RtspPort}/{settings.RtspMount.Trim().Trim('/')}";
         _signaling.SetDeviceRtspUrl(DeviceRtspUrl);
 
         var profile = new PublishProfile
@@ -67,12 +89,11 @@ public sealed class DeviceSimHost : IAsyncDisposable
 
         try
         {
-            WriteLog("Starting local video preview...");
-            await _preview.StartAsync(profile, udpPort: 18900).ConfigureAwait(false);
-            await Task.Delay(600).ConfigureAwait(false);
-            _player.Play(_preview.PlayUrl);
-            VideoMode = "local preview";
-            WriteLog($"Local preview playing {_preview.PlayUrl}");
+            // Start preview publisher only; UI calls EnsurePreviewPlaying after VideoView HWND is ready.
+            WriteLog("Starting local video preview publisher...");
+            await _preview.StartAsync(profile, tcpPort: FfmpegPreviewPublisher.DefaultPort).ConfigureAwait(false);
+            VideoMode = "preview ready";
+            WriteLog($"Local preview ready at {_preview.PlayUrl}");
         }
         catch (Exception ex)
         {
@@ -97,6 +118,28 @@ public sealed class DeviceSimHost : IAsyncDisposable
         StateChanged?.Invoke();
     }
 
+    /// <summary>
+    /// Play local preview after the WinForms VideoView HWND is ready.
+    /// Safe to call more than once — will not tear down a live one-shot HTTP publisher.
+    /// </summary>
+    public async Task EnsurePreviewPlayingAsync()
+    {
+        if (IsInCall || string.IsNullOrWhiteSpace(_preview.PlayUrl))
+            return;
+
+        // Give ffmpeg a moment to bind before the first LibVLC connect.
+        if (_preview.IsRunning)
+            await Task.Delay(800).ConfigureAwait(false);
+
+        if (IsInCall || !_preview.IsRunning || string.IsNullOrWhiteSpace(_preview.PlayUrl))
+            return;
+
+        _player.Play(_preview.PlayUrl);
+        VideoMode = "local preview";
+        WriteLog($"Local preview playing {_preview.PlayUrl}");
+        StateChanged?.Invoke();
+    }
+
     private async Task<CallSessionResponse> HandleStartAsync(CallOfferRequest offer)
     {
         try
@@ -106,6 +149,8 @@ public sealed class DeviceSimHost : IAsyncDisposable
             var deviceUrl = DeviceRtspUrl ?? _signaling.DeviceRtspUrl;
 
             WriteLog($"Pulling PC stream: {offer.PcRtspUrl}");
+            // Give the PC ffmpeg listen publisher a moment to accept connections.
+            await Task.Delay(900).ConfigureAwait(false);
             _player.Play(offer.PcRtspUrl);
             VideoMode = "remote PC";
 
@@ -146,20 +191,44 @@ public sealed class DeviceSimHost : IAsyncDisposable
         WriteLog("Call ended on device simulator.");
     }
 
-    private Task ResumeLocalPreviewAsync()
+    private async Task ResumeLocalPreviewAsync()
     {
-        if (_preview.IsRunning && !string.IsNullOrWhiteSpace(_preview.PlayUrl))
+        try
         {
-            _player.Play(_preview.PlayUrl);
-            VideoMode = "local preview";
-        }
-        else
-        {
-            _player.Stop();
-            VideoMode = _signaling.IsRunning ? "listening" : "idle";
-        }
+            if (!_preview.IsRunning && _signaling.IsRunning)
+            {
+                var profile = new PublishProfile
+                {
+                    FfmpegPath = _settings.FfmpegPath,
+                    VideoDevice = _settings.VideoDevice,
+                    AudioDevice = _settings.AudioDevice,
+                    Width = _settings.VideoWidth,
+                    Height = _settings.VideoHeight,
+                    VideoBitrateKbps = _settings.VideoBitrateKbps,
+                    AudioBitrateKbps = _settings.AudioBitrateKbps,
+                    RtspPort = _settings.RtspPort,
+                    Mount = _settings.RtspMount
+                };
+                await _preview.StartAsync(profile, tcpPort: FfmpegPreviewPublisher.DefaultPort).ConfigureAwait(false);
+                await Task.Delay(700).ConfigureAwait(false);
+            }
 
-        return Task.CompletedTask;
+            if (_preview.IsRunning && !string.IsNullOrWhiteSpace(_preview.PlayUrl))
+            {
+                _player.Play(_preview.PlayUrl);
+                VideoMode = "local preview";
+            }
+            else
+            {
+                _player.Stop();
+                VideoMode = _signaling.IsRunning ? "listening" : "idle";
+            }
+        }
+        catch (Exception ex)
+        {
+            WriteLog("Preview resume failed: " + ex.Message);
+            VideoMode = "preview unavailable";
+        }
     }
 
     private void WriteLog(string msg) => Log?.Invoke(msg);

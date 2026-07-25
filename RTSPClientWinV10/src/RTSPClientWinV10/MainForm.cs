@@ -64,9 +64,12 @@ public partial class MainForm : Form
 
         _call = new CallSessionController();
         _player = new RtspPlayerService();
-        _remoteVideo = new VideoView { Dock = DockStyle.Fill };
+        _remoteVideo = new VideoView { Dock = DockStyle.Fill, BackColor = Color.Black };
         panelVideo.Controls.Add(_remoteVideo);
+        // Create HWND first, then bind MediaPlayer (LibVLCSharp requirement).
+        _ = _remoteVideo.Handle;
         _remoteVideo.MediaPlayer = _player.Player;
+        _player.AttachHwnd(_remoteVideo.Handle);
         _remoteVideo.BringToFront();
         lblVideoTitle.BringToFront();
 
@@ -78,13 +81,20 @@ public partial class MainForm : Form
         ApplyTheme();
         ApplyLanguage();
         ApplyButtonIcons();
+        Resize += (_, _) =>
+        {
+            if (_runtimeReady)
+                LayoutToolbar();
+        };
 
         _call.Log += msg => BeginInvoke(() => AppendLog(msg));
         _call.StateChanged += () => BeginInvoke(UpdateUiForState);
         _call.Publisher.LogLine += msg => BeginInvoke(() => AppendLog("[ffmpeg] " + msg));
+        _player.Log += msg => BeginInvoke(() => AppendLog(msg));
 
         UpdateUiForState();
         await RefreshDevicesAsync();
+        LayoutToolbar();
     }
 
     private async void MainForm_FormClosed(object? sender, FormClosedEventArgs e)
@@ -208,6 +218,7 @@ public partial class MainForm : Form
         lblPorts.Text = _s.PortsHelp;
         lblLogTitle.Text = _s.Log;
         lblHost.Text = $"{_s.Host}: {LanAddressHelper.GetPreferredIPv4(chkLoopback.Checked)}";
+        LayoutToolbar();
     }
 
     private void ApplyButtonIcons()
@@ -222,26 +233,74 @@ public partial class MainForm : Form
 
         UiButtonIcons.Apply(btnRefresh, UiButtonIcons.Refresh(), _s.RefreshDevices);
         UiButtonIcons.Apply(btnLocalSim, UiButtonIcons.LocalSim(), _s.LocalSim);
-        LayoutTopButtons();
+        LayoutToolbar();
     }
 
-    private void LayoutTopButtons()
+    private void LayoutToolbar()
     {
-        // Keep icon+label buttons on one row without overlapping neighbors.
-        var x = btnLocalSim.Right + 12;
-        lblRtspPort.Left = x;
-        txtLocalPort.Left = lblRtspPort.Right + 6;
-        chkLoopback.Left = txtLocalPort.Right + 12;
-        lblHost.Left = chkLoopback.Right + 12;
+        const int pad = 12;
+        const int gap = 8;
 
-        btnCallToggle.Left = Math.Max(btnCallToggle.Left, ClientSize.Width - btnCallToggle.Width - 16);
-        btnRefresh.Left = btnCallToggle.Left - btnRefresh.Width - 10;
-        if (btnRefresh.Left < lblHost.Right + 16)
+        foreach (var lbl in new[]
+                 {
+                     lblDeviceUrl, lblRtspPort, lblHost, lblCamera, lblMic, lblState, lblTheme, lblLanguage
+                 })
+            lbl.AutoSize = true;
+
+        chkLoopback.AutoSize = true;
+
+        // Row 1 — connection + actions
+        var x = pad;
+        var yLbl = 16;
+        var yCtrl = 12;
+
+        void PlaceLabel(Label label)
         {
-            // Grow window content area preference; nudge call/refresh right of host label.
-            btnRefresh.Left = lblHost.Right + 16;
-            btnCallToggle.Left = btnRefresh.Right + 10;
+            label.Location = new Point(x, yLbl);
+            x = label.Right + 6;
         }
+
+        void Place(Control control)
+        {
+            control.Location = new Point(x, yCtrl);
+            x = control.Right + gap;
+        }
+
+        PlaceLabel(lblDeviceUrl);
+        txtDeviceUrl.Width = 210;
+        Place(txtDeviceUrl);
+        Place(btnLocalSim);
+        PlaceLabel(lblRtspPort);
+        txtLocalPort.Width = 56;
+        Place(txtLocalPort);
+        Place(chkLoopback);
+        PlaceLabel(lblHost);
+        Place(btnRefresh);
+        Place(btnCallToggle);
+
+        // Row 2 — devices + prefs
+        x = pad;
+        yLbl = 56;
+        yCtrl = 52;
+        PlaceLabel(lblCamera);
+        cboVideo.Width = 240;
+        Place(cboVideo);
+        PlaceLabel(lblMic);
+        cboAudio.Width = 200;
+        Place(cboAudio);
+        PlaceLabel(lblState);
+        x += 4;
+        PlaceLabel(lblTheme);
+        cboTheme.Width = 90;
+        Place(cboTheme);
+        PlaceLabel(lblLanguage);
+        cboLanguage.Width = 100;
+        Place(cboLanguage);
+
+        // Row 3 — hint
+        lblHint.AutoSize = false;
+        lblHint.Location = new Point(pad, 92);
+        lblHint.Size = new Size(Math.Max(480, panelTop.ClientSize.Width - pad * 2), 36);
     }
 
     private async void btnLocalSim_Click(object? sender, EventArgs e)
@@ -314,6 +373,13 @@ public partial class MainForm : Form
             if (!string.IsNullOrWhiteSpace(_call.DeviceRtspUrl))
             {
                 AppendLog($"{_s.Playing} {_call.DeviceRtspUrl}");
+                if (_remoteVideo is not null)
+                {
+                    _ = _remoteVideo.Handle;
+                    _remoteVideo.MediaPlayer = _player.Player;
+                    _player.AttachHwnd(_remoteVideo.Handle);
+                }
+                await Task.Delay(1000);
                 _player.Play(_call.DeviceRtspUrl);
             }
 
@@ -437,6 +503,7 @@ public partial class MainForm : Form
         chkLoopback.Enabled = !inProgress;
         btnLocalSim.Enabled = !inProgress;
         ApplyButtonIcons();
+        LayoutToolbar();
     }
 
     private void AppendLog(string message)

@@ -5,7 +5,9 @@ using RTSPCall.Core.Models;
 namespace RTSPCall.Core.Services;
 
 /// <summary>
-/// Publishes camera/mic or lavfi test pattern as RTSP server (ffmpeg -rtsp_flags listen).
+/// Publishes camera/mic or lavfi test pattern.
+/// Loopback/local-sim uses MPEG-TS over TCP listen (reliable A/V with LibVLC).
+/// LAN peers use ffmpeg RTSP listen.
 /// </summary>
 public sealed class FfmpegPublisher : IAsyncDisposable
 {
@@ -45,16 +47,22 @@ public sealed class FfmpegPublisher : IAsyncDisposable
             throw new InvalidOperationException("Video device is not selected.");
 
         var mount = settings.Mount.Trim().Trim('/');
-        ListenUrl = $"rtsp://{bindHost}:{settings.RtspPort}/{mount}";
-        var listenAny = $"rtsp://0.0.0.0:{settings.RtspPort}/{mount}";
+        var host = string.IsNullOrWhiteSpace(bindHost) ? "127.0.0.1" : bindHost;
+        var loopback = host is "127.0.0.1" or "::1" or "localhost";
         var useTest = string.Equals(settings.VideoDevice, CaptureSources.TestPattern, StringComparison.Ordinal);
+        var ffmpegPath = ProcessPortCleanup.ResolveFfmpegPath(settings.FfmpegPath);
+
+        // Local sim: HTTP MPEG-TS listen (LibVLC-friendly). LAN: RTSP listen.
+        if (loopback)
+            ListenUrl = $"http://127.0.0.1:{settings.RtspPort}/live.ts";
+        else
+            ListenUrl = $"rtsp://{host}:{settings.RtspPort}/{mount}";
 
         var args = new StringBuilder();
         args.Append("-hide_banner -loglevel info ");
 
         if (useTest)
         {
-            // Avoid camera contention when two apps run on one PC.
             args.Append($"-f lavfi -i testsrc2=size={settings.Width}x{settings.Height}:rate=30 ");
             args.Append("-f lavfi -i sine=frequency=880:sample_rate=44100 ");
             args.Append("-map 0:v:0 -map 1:a:0 ");
@@ -71,19 +79,40 @@ public sealed class FfmpegPublisher : IAsyncDisposable
 
         args.Append("-c:v libx264 -preset ultrafast -tune zerolatency -profile:v baseline ");
         args.Append($"-b:v {settings.VideoBitrateKbps}k -maxrate {settings.VideoBitrateKbps}k -bufsize {settings.VideoBitrateKbps * 2}k ");
-        args.Append("-g 30 -keyint_min 30 -bf 0 -pix_fmt yuv420p ");
+        args.Append("-g 15 -keyint_min 15 -bf 0 -pix_fmt yuv420p ");
 
         if (useTest || !string.IsNullOrWhiteSpace(settings.AudioDevice))
             args.Append($"-c:a aac -b:a {settings.AudioBitrateKbps}k -ar 44100 -ac 1 ");
         else
             args.Append("-an ");
 
-        args.Append($"-f rtsp -rtsp_transport tcp -rtsp_flags listen \"{listenAny}\"");
+        if (loopback)
+            args.Append($"-listen 1 -f mpegts \"http://127.0.0.1:{settings.RtspPort}/live.ts\"");
+        else
+            args.Append($"-f rtsp -rtsp_transport tcp -rtsp_flags listen \"{ListenUrl}\"");
+
+        _lastArgs = args.ToString();
+        _ffmpegPath = ffmpegPath;
+        _port = settings.RtspPort;
+        _stopping = false;
+
+        StartProcess();
+        return Task.CompletedTask;
+    }
+
+    private string _lastArgs = "";
+    private string _ffmpegPath = "ffmpeg";
+    private int _port;
+    private bool _stopping;
+
+    private void StartProcess()
+    {
+        ProcessPortCleanup.KillFfmpegUsingPort(_port);
 
         var psi = new ProcessStartInfo
         {
-            FileName = settings.FfmpegPath,
-            Arguments = args.ToString(),
+            FileName = _ffmpegPath,
+            Arguments = _lastArgs,
             RedirectStandardError = true,
             RedirectStandardOutput = true,
             UseShellExecute = false,
@@ -95,9 +124,32 @@ public sealed class FfmpegPublisher : IAsyncDisposable
         _process.ErrorDataReceived += (_, e) => AppendLog(e.Data);
         _process.Exited += (_, _) =>
         {
-            var code = _process?.ExitCode ?? -1;
+            var code = 0;
+            try { code = _process?.ExitCode ?? -1; } catch { /* ignore */ }
             AppendLog($"[ffmpeg exited] code={code}");
             Exited?.Invoke(code);
+
+            // HTTP/TCP listen exits when the player disconnects; restart while session is active.
+            if (_stopping || string.IsNullOrEmpty(_lastArgs))
+                return;
+
+            _ = Task.Run(() =>
+            {
+                try
+                {
+                    Thread.Sleep(400);
+                    if (_stopping || string.IsNullOrEmpty(_lastArgs))
+                        return;
+                    if (IsRunning)
+                        return;
+                    AppendLog("[ffmpeg] restarting publisher after disconnect...");
+                    StartProcess();
+                }
+                catch (Exception ex)
+                {
+                    AppendLog("[ffmpeg] restart failed: " + ex.Message);
+                }
+            });
         };
 
         AppendLog($"[start] {psi.FileName} {psi.Arguments}");
@@ -106,11 +158,12 @@ public sealed class FfmpegPublisher : IAsyncDisposable
 
         _process.BeginOutputReadLine();
         _process.BeginErrorReadLine();
-        return Task.CompletedTask;
     }
 
     public async Task StopAsync()
     {
+        _stopping = true;
+        _lastArgs = "";
         var p = _process;
         _process = null;
         if (p is null)
@@ -120,17 +173,14 @@ public sealed class FfmpegPublisher : IAsyncDisposable
         {
             if (!p.HasExited)
             {
-                var exited = await WaitForExitAsync(p, TimeSpan.FromMilliseconds(400)).ConfigureAwait(false);
-                if (!exited && !p.HasExited)
-                {
-                    p.Kill(entireProcessTree: true);
-                    await p.WaitForExitAsync().ConfigureAwait(false);
-                }
+                try { p.Kill(entireProcessTree: true); } catch { /* ignore */ }
+                await p.WaitForExitAsync().ConfigureAwait(false);
             }
         }
         finally
         {
             p.Dispose();
+            _stopping = false;
         }
     }
 
@@ -148,20 +198,6 @@ public sealed class FfmpegPublisher : IAsyncDisposable
     }
 
     private static string EscapeDshow(string name) => name.Replace("\"", "\\\"");
-
-    private static async Task<bool> WaitForExitAsync(Process process, TimeSpan timeout)
-    {
-        using var cts = new CancellationTokenSource(timeout);
-        try
-        {
-            await process.WaitForExitAsync(cts.Token).ConfigureAwait(false);
-            return true;
-        }
-        catch (OperationCanceledException)
-        {
-            return false;
-        }
-    }
 
     public async ValueTask DisposeAsync() => await StopAsync().ConfigureAwait(false);
 }

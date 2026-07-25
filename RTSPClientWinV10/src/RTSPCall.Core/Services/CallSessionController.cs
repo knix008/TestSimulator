@@ -1,3 +1,4 @@
+using System.Net;
 using RTSPCall.Core.Models;
 
 namespace RTSPCall.Core.Services;
@@ -30,7 +31,10 @@ public sealed class CallSessionController : IAsyncDisposable
         try
         {
             var pcHost = LanAddressHelper.GetPreferredIPv4(settings.PreferLoopback);
-            LocalRtspUrl = $"rtsp://{pcHost}:{settings.LocalRtspPort}/{settings.LocalMountPath.Trim().Trim('/')}";
+            // PreferLoopback uses TCP MPEG-TS; LAN keeps RTSP listen URL.
+            LocalRtspUrl = settings.PreferLoopback
+                ? $"http://127.0.0.1:{settings.LocalRtspPort}/live.ts"
+                : $"rtsp://{pcHost}:{settings.LocalRtspPort}/{settings.LocalMountPath.Trim().Trim('/')}";
 
             _signaling?.Dispose();
             _signaling = new SignalingClient(settings.DeviceBaseUrl);
@@ -46,10 +50,17 @@ public sealed class CallSessionController : IAsyncDisposable
                     "2) Press the Start button (green play) so status becomes listening\n" +
                     "3) In this client, use Local sim (http://127.0.0.1:8080) then Start call");
 
+            // Previous failed/aborted calls can leave the simulator in "active".
+            await ClearStaleRemoteCallAsync(ct).ConfigureAwait(false);
+
             SetState(CallState.Publishing);
-            WriteLog("Starting local RTSP publisher (ffmpeg listen)...");
+            WriteLog(settings.PreferLoopback
+                ? $"Starting local HTTP publisher ({LocalRtspUrl})..."
+                : "Starting local RTSP publisher (ffmpeg listen)...");
+            if (_publisher.IsRunning)
+                await _publisher.StopAsync().ConfigureAwait(false);
             await _publisher.StartAsync(settings, pcHost, ct).ConfigureAwait(false);
-            await Task.Delay(800, ct).ConfigureAwait(false);
+            await Task.Delay(settings.PreferLoopback ? 1000 : 1200, ct).ConfigureAwait(false);
 
             var offer = new CallOfferRequest
             {
@@ -62,7 +73,7 @@ public sealed class CallSessionController : IAsyncDisposable
             };
 
             WriteLog($"POST /api/call/start pc_rtsp_url={offer.PcRtspUrl}");
-            var started = await _signaling.StartCallAsync(offer, ct).ConfigureAwait(false);
+            var started = await StartCallWithBusyRetryAsync(offer, ct).ConfigureAwait(false);
             if (!started.Ok)
                 throw new InvalidOperationException(started.Message ?? "Device rejected call start.");
 
@@ -80,10 +91,71 @@ public sealed class CallSessionController : IAsyncDisposable
             LastError = ex.Message;
             WriteLog($"ERROR: {ex.Message}");
             SetState(CallState.Error);
+            await TryHangupRemoteAsync().ConfigureAwait(false);
             await CleanupAsync().ConfigureAwait(false);
             throw;
         }
     }
+
+    private async Task ClearStaleRemoteCallAsync(CancellationToken ct)
+    {
+        if (_signaling is null)
+            return;
+
+        try
+        {
+            var status = await _signaling.GetStatusAsync(ct).ConfigureAwait(false);
+            if (!string.Equals(status.State, "active", StringComparison.OrdinalIgnoreCase))
+                return;
+
+            WriteLog("Device still has an active call; sending hangup to clear...");
+            await _signaling.HangupAsync(ct).ConfigureAwait(false);
+            await Task.Delay(400, ct).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            WriteLog("Stale-call clear warning: " + ex.Message);
+        }
+    }
+
+    private async Task<CallSessionResponse> StartCallWithBusyRetryAsync(CallOfferRequest offer, CancellationToken ct)
+    {
+        try
+        {
+            return await _signaling!.StartCallAsync(offer, ct).ConfigureAwait(false);
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.Conflict)
+        {
+            WriteLog("Device returned 409 (call already active); hangup and retry once...");
+            try
+            {
+                await _signaling!.HangupAsync(ct).ConfigureAwait(false);
+            }
+            catch (Exception hangupEx)
+            {
+                WriteLog("Hangup during 409 retry warning: " + hangupEx.Message);
+            }
+
+            await Task.Delay(400, ct).ConfigureAwait(false);
+            return await _signaling!.StartCallAsync(offer, ct).ConfigureAwait(false);
+        }
+    }
+
+    private async Task TryHangupRemoteAsync()
+    {
+        if (_signaling is null)
+            return;
+
+        try
+        {
+            await _signaling.HangupAsync().ConfigureAwait(false);
+        }
+        catch
+        {
+            // ignore — best effort so the next Start call is not blocked by 409
+        }
+    }
+
 
     public async Task HangupAsync()
     {

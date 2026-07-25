@@ -69,7 +69,7 @@ partial class MainForm
         panelTop.Dock = DockStyle.Top;
         panelTop.Location = new Point(0, 0);
         panelTop.Name = "panelTop";
-        panelTop.Size = new Size(1000, 100);
+        panelTop.Size = new Size(1280, 110);
         panelTop.TabIndex = 0;
         //
         // lblSignaling
@@ -226,10 +226,10 @@ partial class MainForm
         panelMain.Controls.Add(panelSide);
         panelMain.Controls.Add(panelVideo);
         panelMain.Dock = DockStyle.Fill;
-        panelMain.Location = new Point(0, 100);
+        panelMain.Location = new Point(0, 110);
         panelMain.Name = "panelMain";
         panelMain.Padding = new Padding(12, 8, 12, 8);
-        panelMain.Size = new Size(1000, 380);
+        panelMain.Size = new Size(1280, 430);
         panelMain.TabIndex = 1;
         //
         // panelVideo
@@ -343,11 +343,11 @@ partial class MainForm
         AutoScaleDimensions = new SizeF(7F, 15F);
         AutoScaleMode = AutoScaleMode.Font;
         BackColor = Color.FromArgb(26, 35, 50);
-        ClientSize = new Size(1180, 700);
+        ClientSize = new Size(1280, 740);
         Controls.Add(panelMain);
         Controls.Add(panelLog);
         Controls.Add(panelTop);
-        MinimumSize = new Size(1100, 600);
+        MinimumSize = new Size(1180, 640);
         Name = "MainForm";
         StartPosition = FormStartPosition.CenterScreen;
         Text = "RTSP Device Simulator — local peer";

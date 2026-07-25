@@ -61,9 +61,12 @@ public partial class MainForm : Form
         chkLoopback.Checked = _settings.PreferLoopback;
 
         _host = new DeviceSimHost();
-        _remoteVideo = new VideoView { Dock = DockStyle.Fill };
+        _remoteVideo = new VideoView { Dock = DockStyle.Fill, BackColor = Color.Black };
         panelVideo.Controls.Add(_remoteVideo);
+        // Create HWND first, then bind MediaPlayer (LibVLCSharp requirement).
+        _ = _remoteVideo.Handle;
         _remoteVideo.MediaPlayer = _host.Player.Player;
+        _host.Player.AttachHwnd(_remoteVideo.Handle);
         _remoteVideo.BringToFront();
         lblVideoTitle.BringToFront();
 
@@ -71,16 +74,31 @@ public partial class MainForm : Form
         ApplyTheme();
         ApplyLanguage();
         ApplyButtonIcons();
+        Resize += (_, _) =>
+        {
+            if (_runtimeReady)
+                LayoutToolbar();
+        };
 
         _host.Log += msg => BeginInvoke(() => AppendLog(msg));
         _host.StateChanged += () => BeginInvoke(UpdateStatus);
 
         await RefreshDevicesAsync();
         UpdateStatus();
+        LayoutToolbar();
 
         // Auto-start so /api/call/status is reachable without an extra click.
         AppendLog("Auto-starting simulator...");
         await StartSimulatorAsync();
+
+        // LibVLC needs a visible HWND; bind then connect once to the preview publisher.
+        if (_remoteVideo is not null && _host is not null)
+        {
+            _ = _remoteVideo.Handle;
+            _remoteVideo.MediaPlayer = _host.Player.Player;
+            _host.Player.AttachHwnd(_remoteVideo.Handle);
+            await _host.EnsurePreviewPlayingAsync();
+        }
     }
 
     private async void MainForm_FormClosed(object? sender, FormClosedEventArgs e)
@@ -200,6 +218,7 @@ public partial class MainForm : Form
         lblHowTo.Text = _s.HowTo;
         lblHowToBody.Text = _s.HowToBody;
         lblLog.Text = _s.Log;
+        LayoutToolbar();
     }
 
     private void ApplyButtonIcons()
@@ -211,6 +230,58 @@ public partial class MainForm : Form
             UiButtonIcons.Apply(btnStartStop, UiButtonIcons.Play(), _s.StartSimulator);
 
         UiButtonIcons.Apply(btnRefresh, UiButtonIcons.Refresh(), _s.RefreshDevices);
+        LayoutToolbar();
+    }
+
+    private void LayoutToolbar()
+    {
+        const int pad = 12;
+        const int gap = 8;
+
+        foreach (var lbl in new[] { lblSignaling, lblRtsp, lblSource, lblStatus, lblTheme, lblLanguage })
+            lbl.AutoSize = true;
+        chkLoopback.AutoSize = true;
+
+        var x = pad;
+        var yLbl = 16;
+        var yCtrl = 12;
+
+        void PlaceLabel(Label label)
+        {
+            label.Location = new Point(x, yLbl);
+            x = label.Right + 6;
+        }
+
+        void Place(Control control)
+        {
+            control.Location = new Point(x, yCtrl);
+            x = control.Right + gap;
+        }
+
+        PlaceLabel(lblSignaling);
+        txtSignalingPort.Width = 56;
+        Place(txtSignalingPort);
+        PlaceLabel(lblRtsp);
+        txtRtspPort.Width = 56;
+        Place(txtRtspPort);
+        Place(chkLoopback);
+        Place(btnStartStop);
+        Place(btnRefresh);
+
+        x = pad;
+        yLbl = 58;
+        yCtrl = 54;
+        PlaceLabel(lblSource);
+        cboVideo.Width = 260;
+        Place(cboVideo);
+        PlaceLabel(lblStatus);
+        x += 8;
+        PlaceLabel(lblTheme);
+        cboTheme.Width = 90;
+        Place(cboTheme);
+        PlaceLabel(lblLanguage);
+        cboLanguage.Width = 100;
+        Place(cboLanguage);
     }
 
     private async void btnStartStop_Click(object? sender, EventArgs e)
