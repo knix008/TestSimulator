@@ -108,7 +108,7 @@ partial class MainForm
         //
         btnLocalSim.Location = new Point(357, 12);
         btnLocalSim.Name = "btnLocalSim";
-        btnLocalSim.Size = new Size(100, 30);
+        btnLocalSim.Size = new Size(170, 32);
         btnLocalSim.TabIndex = 2;
         btnLocalSim.Text = "Local sim";
         btnLocalSim.UseVisualStyleBackColor = true;
@@ -118,7 +118,7 @@ partial class MainForm
         //
         lblRtspPort.AutoSize = true;
         lblRtspPort.ForeColor = Color.White;
-        lblRtspPort.Location = new Point(468, 18);
+        lblRtspPort.Location = new Point(540, 18);
         lblRtspPort.Name = "lblRtspPort";
         lblRtspPort.Size = new Size(60, 15);
         lblRtspPort.TabIndex = 3;
@@ -128,7 +128,7 @@ partial class MainForm
         //
         txtLocalPort.BackColor = Color.White;
         txtLocalPort.ForeColor = Color.FromArgb(20, 22, 26);
-        txtLocalPort.Location = new Point(534, 15);
+        txtLocalPort.Location = new Point(610, 15);
         txtLocalPort.Name = "txtLocalPort";
         txtLocalPort.Size = new Size(60, 23);
         txtLocalPort.TabIndex = 4;
@@ -140,7 +140,7 @@ partial class MainForm
         chkLoopback.Checked = true;
         chkLoopback.CheckState = CheckState.Checked;
         chkLoopback.ForeColor = Color.White;
-        chkLoopback.Location = new Point(608, 17);
+        chkLoopback.Location = new Point(684, 17);
         chkLoopback.Name = "chkLoopback";
         chkLoopback.Size = new Size(80, 19);
         chkLoopback.TabIndex = 5;
@@ -151,7 +151,7 @@ partial class MainForm
         //
         lblHost.AutoSize = true;
         lblHost.ForeColor = Color.FromArgb(180, 220, 255);
-        lblHost.Location = new Point(694, 18);
+        lblHost.Location = new Point(780, 18);
         lblHost.Name = "lblHost";
         lblHost.Size = new Size(70, 15);
         lblHost.TabIndex = 6;
@@ -159,9 +159,9 @@ partial class MainForm
         //
         // btnRefresh
         //
-        btnRefresh.Location = new Point(820, 12);
+        btnRefresh.Location = new Point(980, 12);
         btnRefresh.Name = "btnRefresh";
-        btnRefresh.Size = new Size(140, 30);
+        btnRefresh.Size = new Size(160, 32);
         btnRefresh.TabIndex = 7;
         btnRefresh.Text = "Refresh devices";
         btnRefresh.UseVisualStyleBackColor = true;
@@ -169,9 +169,9 @@ partial class MainForm
         //
         // btnCallToggle
         //
-        btnCallToggle.Location = new Point(968, 12);
+        btnCallToggle.Location = new Point(1150, 12);
         btnCallToggle.Name = "btnCallToggle";
-        btnCallToggle.Size = new Size(120, 30);
+        btnCallToggle.Size = new Size(140, 32);
         btnCallToggle.TabIndex = 8;
         btnCallToggle.Text = "Start call";
         btnCallToggle.UseVisualStyleBackColor = true;
@@ -234,7 +234,7 @@ partial class MainForm
         //
         lblTheme.AutoSize = true;
         lblTheme.ForeColor = Color.White;
-        lblTheme.Location = new Point(800, 55);
+        lblTheme.Location = new Point(980, 55);
         lblTheme.Name = "lblTheme";
         lblTheme.Size = new Size(42, 15);
         lblTheme.TabIndex = 15;
@@ -246,7 +246,7 @@ partial class MainForm
         cboTheme.DropDownStyle = ComboBoxStyle.DropDownList;
         cboTheme.ForeColor = Color.FromArgb(20, 22, 26);
         cboTheme.FormattingEnabled = true;
-        cboTheme.Location = new Point(848, 52);
+        cboTheme.Location = new Point(1028, 52);
         cboTheme.Name = "cboTheme";
         cboTheme.Size = new Size(80, 23);
         cboTheme.TabIndex = 16;
@@ -256,7 +256,7 @@ partial class MainForm
         //
         lblLanguage.AutoSize = true;
         lblLanguage.ForeColor = Color.White;
-        lblLanguage.Location = new Point(940, 55);
+        lblLanguage.Location = new Point(1120, 55);
         lblLanguage.Name = "lblLanguage";
         lblLanguage.Size = new Size(59, 15);
         lblLanguage.TabIndex = 17;
@@ -268,7 +268,7 @@ partial class MainForm
         cboLanguage.DropDownStyle = ComboBoxStyle.DropDownList;
         cboLanguage.ForeColor = Color.FromArgb(20, 22, 26);
         cboLanguage.FormattingEnabled = true;
-        cboLanguage.Location = new Point(1005, 52);
+        cboLanguage.Location = new Point(1170, 52);
         cboLanguage.Name = "cboLanguage";
         cboLanguage.Size = new Size(82, 23);
         cboLanguage.TabIndex = 18;
@@ -279,7 +279,7 @@ partial class MainForm
         lblHint.ForeColor = Color.Silver;
         lblHint.Location = new Point(15, 88);
         lblHint.Name = "lblHint";
-        lblHint.Size = new Size(1060, 30);
+        lblHint.Size = new Size(1280, 30);
         lblHint.TabIndex = 19;
         lblHint.Text = "Local sim: start RTSPDeviceSimWinV10 first, then Local sim + Start call. Use (test pattern) if only one webcam.";
         //
@@ -415,11 +415,11 @@ partial class MainForm
         AutoScaleDimensions = new SizeF(7F, 15F);
         AutoScaleMode = AutoScaleMode.Font;
         BackColor = Color.FromArgb(30, 31, 34);
-        ClientSize = new Size(1100, 700);
+        ClientSize = new Size(1320, 740);
         Controls.Add(panelMain);
         Controls.Add(panelLog);
         Controls.Add(panelTop);
-        MinimumSize = new Size(900, 560);
+        MinimumSize = new Size(1200, 640);
         Name = "MainForm";
         StartPosition = FormStartPosition.CenterScreen;
         Text = "RTSP Client Win V10 — LAN Video Call";

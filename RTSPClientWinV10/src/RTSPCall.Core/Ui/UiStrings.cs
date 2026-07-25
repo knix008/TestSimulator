@@ -33,16 +33,25 @@ public sealed class UiStrings
         Mic = "Mic",
         State = "State",
         Idle = "Idle",
-        HintClient = "Local sim: start RTSPDeviceSimWinV10 first, then Local sim + Start call. Use (test pattern) if only one webcam.",
+        HintClient = "Local simulator: Start call auto-launches RTSPDeviceSimWinV10 if needed. Keep the simulator window open. Use (test pattern) if only one webcam.",
         VideoRemoteDevice = "Remote (device / simulator)",
         Session = "Session",
         PortsHelp = "Ports (same PC)\r\nPC RTSP: 8554/pc\r\nDevice sim RTSP: 8555/device\r\nSignaling: 8080",
         Log = "Log",
         ClientTitle = "RTSP Client Win V10 — LAN Video Call",
         ConfiguredLocalSim = "Configured for local device simulator.",
+        LaunchingSimulator = "Signaling offline — launching RTSPDeviceSimWinV10...",
+        SimulatorReady = "Device simulator signaling is ready.",
+        SimulatorLaunchFailed = "Could not launch or reach RTSPDeviceSimWinV10.",
         StartingCall = "Starting call...",
         Playing = "Playing",
         CallFailed = "Call failed",
+        SignalingUnreachable =
+            "Device signaling is not reachable.\r\n\r\n" +
+            "The client tried to auto-launch RTSPDeviceSimWinV10.\r\n" +
+            "Please keep that window open (it auto-starts listening),\r\n" +
+            "then press Local simulator and Start call again.\r\n\r\n" +
+            "Expected: http://127.0.0.1:8080/api/call/status",
         CallEnded = "Call ended.",
         HangupError = "Hangup error",
         EnumeratingDevices = "Enumerating capture devices via ffmpeg...",
@@ -85,7 +94,7 @@ public sealed class UiStrings
         Copied = "클립보드에 복사되었습니다.",
         ErrorDetails = "오류 상세",
         DeviceUrl = "장치 URL",
-        LocalSim = "로컬 시뮬",
+        LocalSim = "로컬 시뮬레이터",
         RtspPort = "RTSP 포트",
         Loopback = "루프백",
         Host = "호스트",
@@ -96,16 +105,25 @@ public sealed class UiStrings
         Mic = "마이크",
         State = "상태",
         Idle = "대기",
-        HintClient = "로컬 시뮬: RTSPDeviceSimWinV10을 먼저 실행한 뒤 Local sim + 통화 시작. 웹캠이 하나면 (test pattern)을 사용하세요.",
+        HintClient = "로컬 시뮬레이터: 통화 시작 시 시뮬레이터가 없으면 자동 실행됩니다. 시뮬레이터 창은 닫지 마세요. 웹캠이 하나면 (test pattern)을 사용하세요.",
         VideoRemoteDevice = "원격 (장치 / 시뮬레이터)",
         Session = "세션",
         PortsHelp = "포트 (같은 PC)\r\nPC RTSP: 8554/pc\r\n장치 시뮬 RTSP: 8555/device\r\n시그널링: 8080",
         Log = "로그",
         ClientTitle = "RTSP Client Win V10 — LAN 영상 통화",
         ConfiguredLocalSim = "로컬 장치 시뮬레이터용으로 설정했습니다.",
+        LaunchingSimulator = "시그널링 없음 — RTSPDeviceSimWinV10을 실행합니다...",
+        SimulatorReady = "장치 시뮬레이터 시그널링이 준비되었습니다.",
+        SimulatorLaunchFailed = "RTSPDeviceSimWinV10을 실행하거나 연결하지 못했습니다.",
         StartingCall = "통화 시작 중...",
         Playing = "재생",
         CallFailed = "통화 실패",
+        SignalingUnreachable =
+            "장치 시그널링에 연결할 수 없습니다.\r\n\r\n" +
+            "클라이언트가 RTSPDeviceSimWinV10 자동 실행을 시도했습니다.\r\n" +
+            "시뮬레이터 창을 닫지 마세요(실행 시 listening 자동 시작).\r\n" +
+            "그다음 로컬 시뮬레이터 → 통화 시작을 다시 누르세요.\r\n\r\n" +
+            "확인 URL: http://127.0.0.1:8080/api/call/status",
         CallEnded = "통화가 종료되었습니다.",
         HangupError = "종료 오류",
         EnumeratingDevices = "ffmpeg로 캡처 장치를 나열하는 중...",
@@ -163,9 +181,13 @@ public sealed class UiStrings
     public string Log { get; init; } = "";
     public string ClientTitle { get; init; } = "";
     public string ConfiguredLocalSim { get; init; } = "";
+    public string LaunchingSimulator { get; init; } = "";
+    public string SimulatorReady { get; init; } = "";
+    public string SimulatorLaunchFailed { get; init; } = "";
     public string StartingCall { get; init; } = "";
     public string Playing { get; init; } = "";
     public string CallFailed { get; init; } = "";
+    public string SignalingUnreachable { get; init; } = "";
     public string CallEnded { get; init; } = "";
     public string HangupError { get; init; } = "";
     public string EnumeratingDevices { get; init; } = "";

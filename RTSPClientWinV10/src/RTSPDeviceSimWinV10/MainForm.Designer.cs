@@ -129,7 +129,7 @@ partial class MainForm
         //
         btnStartStop.Location = new Point(490, 12);
         btnStartStop.Name = "btnStartStop";
-        btnStartStop.Size = new Size(150, 30);
+        btnStartStop.Size = new Size(180, 32);
         btnStartStop.TabIndex = 5;
         btnStartStop.Text = "Start simulator";
         btnStartStop.UseVisualStyleBackColor = true;
@@ -169,9 +169,9 @@ partial class MainForm
         //
         // btnRefresh
         //
-        btnRefresh.Location = new Point(650, 12);
+        btnRefresh.Location = new Point(680, 12);
         btnRefresh.Name = "btnRefresh";
-        btnRefresh.Size = new Size(140, 30);
+        btnRefresh.Size = new Size(170, 32);
         btnRefresh.TabIndex = 10;
         btnRefresh.Text = "Refresh devices";
         btnRefresh.UseVisualStyleBackColor = true;
@@ -343,11 +343,11 @@ partial class MainForm
         AutoScaleDimensions = new SizeF(7F, 15F);
         AutoScaleMode = AutoScaleMode.Font;
         BackColor = Color.FromArgb(26, 35, 50);
-        ClientSize = new Size(1000, 640);
+        ClientSize = new Size(1180, 700);
         Controls.Add(panelMain);
         Controls.Add(panelLog);
         Controls.Add(panelTop);
-        MinimumSize = new Size(820, 520);
+        MinimumSize = new Size(1100, 600);
         Name = "MainForm";
         StartPosition = FormStartPosition.CenterScreen;
         Text = "RTSP Device Simulator — local peer";

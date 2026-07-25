@@ -40,7 +40,11 @@ public sealed class CallSessionController : IAsyncDisposable
 
             if (!await _signaling.PingAsync(ct).ConfigureAwait(false))
                 throw new InvalidOperationException(
-                    "Device signaling API is not reachable (GET /api/call/status). Start RTSPDeviceSimWinV10 first for local sim.");
+                    $"Device signaling API is not reachable: GET {settings.DeviceBaseUrl.TrimEnd('/')}/api/call/status\n\n" +
+                    "Fix:\n" +
+                    "1) Launch RTSPDeviceSimWinV10\n" +
+                    "2) Press the Start button (green play) so status becomes listening\n" +
+                    "3) In this client, use Local sim (http://127.0.0.1:8080) then Start call");
 
             SetState(CallState.Publishing);
             WriteLog("Starting local RTSP publisher (ffmpeg listen)...");

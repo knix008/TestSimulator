@@ -77,6 +77,10 @@ public partial class MainForm : Form
 
         await RefreshDevicesAsync();
         UpdateStatus();
+
+        // Auto-start so /api/call/status is reachable without an extra click.
+        AppendLog("Auto-starting simulator...");
+        await StartSimulatorAsync();
     }
 
     private async void MainForm_FormClosed(object? sender, FormClosedEventArgs e)

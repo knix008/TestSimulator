@@ -56,6 +56,12 @@ public sealed class DeviceSimHost : IAsyncDisposable
         };
 
         WriteLog($"Device RTSP will be: {DeviceRtspUrl}");
+
+        // Bring up signaling first so the PC client can ping /api/call/status immediately.
+        WriteLog($"Starting signaling on port {settings.SignalingPort}...");
+        _signaling.Start(settings.SignalingPort);
+        StateChanged?.Invoke();
+
         WriteLog("Starting device RTSP publisher...");
         await _publisher.StartAsync(profile, host).ConfigureAwait(false);
 
@@ -74,10 +80,8 @@ public sealed class DeviceSimHost : IAsyncDisposable
             WriteLog("Local preview failed (RTSP publish still OK): " + ex.Message);
         }
 
-        await Task.Delay(300).ConfigureAwait(false);
-        _signaling.Start(settings.SignalingPort);
         StateChanged?.Invoke();
-        WriteLog("Device simulator ready. Start the PC client and press Start call.");
+        WriteLog("Device simulator ready (signaling listening). Start the PC client and press Start call.");
     }
 
     public async Task StopAsync()

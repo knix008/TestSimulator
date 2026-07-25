@@ -11,10 +11,23 @@ $pc  = "$root\src\RTSPClientWinV10\bin\Debug\net8.0-windows\RTSPClientWinV10.exe
 if (-not (Test-Path $sim)) { throw "Simulator exe not found: $sim" }
 if (-not (Test-Path $pc))  { throw "Client exe not found: $pc" }
 
-Write-Host "Starting Device Simulator..." -ForegroundColor Cyan
+Write-Host "Starting Device Simulator (auto-starts signaling on launch)..." -ForegroundColor Cyan
 Start-Process -FilePath $sim
 
-Start-Sleep -Seconds 1
+# Wait until signaling answers before opening the client.
+$ready = $false
+for ($i = 0; $i -lt 20; $i++) {
+    Start-Sleep -Milliseconds 500
+    try {
+        $r = Invoke-WebRequest -Uri "http://127.0.0.1:8080/api/call/status" -UseBasicParsing -TimeoutSec 1
+        if ($r.StatusCode -eq 200) { $ready = $true; break }
+    } catch { }
+}
+if ($ready) {
+    Write-Host "Signaling OK on http://127.0.0.1:8080" -ForegroundColor Green
+} else {
+    Write-Host "WARNING: signaling not ready yet — check Device Simulator log." -ForegroundColor Yellow
+}
 
 Write-Host "Starting PC Client..." -ForegroundColor Cyan
 Start-Process -FilePath $pc
@@ -22,8 +35,7 @@ Start-Process -FilePath $pc
 Write-Host @"
 
 Next steps:
-  1) In Device Simulator: click 'Start simulator'
-  2) In PC Client: click 'Local sim', then 'Start call'
-  3) Keep '(test pattern)' on at least one side if you have only one webcam
+  1) In PC Client: click 'Local sim', then 'Start call'
+  2) Keep '(test pattern)' on at least one side if you have only one webcam
 
 "@ -ForegroundColor Green

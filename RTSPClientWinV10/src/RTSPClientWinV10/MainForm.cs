@@ -222,15 +222,36 @@ public partial class MainForm : Form
 
         UiButtonIcons.Apply(btnRefresh, UiButtonIcons.Refresh(), _s.RefreshDevices);
         UiButtonIcons.Apply(btnLocalSim, UiButtonIcons.LocalSim(), _s.LocalSim);
+        LayoutTopButtons();
     }
 
-    private void btnLocalSim_Click(object? sender, EventArgs e)
+    private void LayoutTopButtons()
+    {
+        // Keep icon+label buttons on one row without overlapping neighbors.
+        var x = btnLocalSim.Right + 12;
+        lblRtspPort.Left = x;
+        txtLocalPort.Left = lblRtspPort.Right + 6;
+        chkLoopback.Left = txtLocalPort.Right + 12;
+        lblHost.Left = chkLoopback.Right + 12;
+
+        btnCallToggle.Left = Math.Max(btnCallToggle.Left, ClientSize.Width - btnCallToggle.Width - 16);
+        btnRefresh.Left = btnCallToggle.Left - btnRefresh.Width - 10;
+        if (btnRefresh.Left < lblHost.Right + 16)
+        {
+            // Grow window content area preference; nudge call/refresh right of host label.
+            btnRefresh.Left = lblHost.Right + 16;
+            btnCallToggle.Left = btnRefresh.Right + 10;
+        }
+    }
+
+    private async void btnLocalSim_Click(object? sender, EventArgs e)
     {
         txtDeviceUrl.Text = "http://127.0.0.1:8080";
         chkLoopback.Checked = true;
         txtLocalPort.Text = "8554";
         AppendLog(_s.ConfiguredLocalSim);
         lblHost.Text = $"{_s.Host}: {LanAddressHelper.GetPreferredIPv4(true)}";
+        await EnsureSimulatorReadyAsync();
     }
 
     private async void btnRefresh_Click(object? sender, EventArgs e)
@@ -251,6 +272,32 @@ public partial class MainForm : Form
             await StartCallAsync();
     }
 
+    private async Task EnsureSimulatorReadyAsync()
+    {
+        PersistSettingsFromUi();
+        using (var probe = new SignalingClient(_settings.DeviceBaseUrl))
+        {
+            if (await probe.PingAsync())
+            {
+                AppendLog(_s.SimulatorReady);
+                return;
+            }
+        }
+
+        AppendLog(_s.LaunchingSimulator);
+        if (!LocalSimulatorLauncher.TryLaunch(out var path, out var launchError))
+        {
+            AppendLog($"{_s.SimulatorLaunchFailed}: {launchError}");
+            return;
+        }
+
+        AppendLog($"Started: {path}");
+        if (await LocalSimulatorLauncher.WaitUntilReachableAsync(_settings.DeviceBaseUrl, TimeSpan.FromSeconds(20)))
+            AppendLog(_s.SimulatorReady);
+        else
+            AppendLog(_s.SimulatorLaunchFailed);
+    }
+
     private async Task StartCallAsync()
     {
         if (_call is null || _player is null) return;
@@ -260,6 +307,7 @@ public partial class MainForm : Form
         {
             PersistSettingsFromUi();
             SettingsStore.Save(AppFolder, _settings);
+            await EnsureSimulatorReadyAsync();
             AppendLog(_s.StartingCall);
             await _call.StartCallAsync(_settings);
 
@@ -275,7 +323,17 @@ public partial class MainForm : Form
         }
         catch (Exception ex)
         {
-            ErrorDialog.Show(this, _s.CallFailed, ex, _settings.Language);
+            var title = _s.CallFailed;
+            if (ex.Message.Contains("signaling API is not reachable", StringComparison.OrdinalIgnoreCase) ||
+                ex.Message.Contains("Device signaling", StringComparison.OrdinalIgnoreCase))
+            {
+                ErrorDialog.Show(this, title, _s.SignalingUnreachable, ex, _settings.Language);
+            }
+            else
+            {
+                ErrorDialog.Show(this, title, ex, _settings.Language);
+            }
+
             AppendLog($"{_s.CallFailed}: {ex.Message}");
             _player.Stop();
         }

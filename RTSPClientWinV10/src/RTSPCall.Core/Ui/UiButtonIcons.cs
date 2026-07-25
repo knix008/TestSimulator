@@ -90,8 +90,15 @@ public static class UiButtonIcons
         button.Text = " " + text;
         button.TextImageRelation = TextImageRelation.ImageBeforeText;
         button.ImageAlign = ContentAlignment.MiddleLeft;
-        button.TextAlign = ContentAlignment.MiddleLeft;
-        button.Padding = new Padding(6, 0, 8, 0);
+        button.TextAlign = ContentAlignment.MiddleCenter;
+        button.Padding = new Padding(8, 0, 10, 0);
+        button.AutoEllipsis = false;
+        // Keep icon + label on one line; grow width for long localized text.
+        var textSize = TextRenderer.MeasureText(" " + text, button.Font);
+        var needed = 16 + textSize.Width + button.Padding.Horizontal + 18;
+        if (button.Width < needed)
+            button.Width = needed;
+        button.Height = Math.Max(button.Height, 32);
     }
 
     private static Image Draw(int size, Action<Graphics> paint)
