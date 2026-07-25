@@ -27,9 +27,9 @@ const bridge = window.ttsBridge || {
   async getModelCatalog() {
     return [
       {
-        id: 'ko-supertonic-int8', label: 'Supertonic 3 INT8', language: 'ko-KR',
-        sizeHint: '~140 MB', runtime: 'sherpa-onnx',
-        description: 'Supertonic 3 · INT8 · 단어 skip 감소 · 31언어',
+        id: 'ko-supertonic-int8', label: 'Supertonic 2 INT8', language: 'ko-KR',
+        sizeHint: '~100 MB', runtime: 'sherpa-onnx',
+        description: 'Supertonic 2 · INT8 · 한국어 · 31언어',
         preferredOnFirstRun: true
       },
       {

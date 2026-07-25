@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="ko" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      try {
+        var t = localStorage.getItem('isomaker.theme')
+        var l = localStorage.getItem('isomaker.locale')
+        document.documentElement.dataset.theme = t === 'light' ? 'light' : 'dark'
+        document.documentElement.lang = l === 'en' ? 'en' : 'ko'
+      } catch (e) {}
+    </script>
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' ws: wss: http: https:;"
+    />
+    <link rel="icon" type="image/png" href="./icon-32.png" />
+    <link rel="apple-touch-icon" href="./icon-256.png" />
+    <title>ISO Maker</title>
+    <script type="module" crossorigin src="./assets/index-4SfpgHI4.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-BDO7CtJl.css">
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>

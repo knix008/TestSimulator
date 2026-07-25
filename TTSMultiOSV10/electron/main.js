@@ -7,7 +7,7 @@ import { createModelStore } from '../src/core/modelStore.js';
 import { exportWavFile } from '../src/core/wav.js';
 import { exportMp3File } from '../src/core/mp3.js';
 import { synthesizeText, warmModel, listModelVoices } from '../src/core/ttsService.js';
-import { ensureOrtNativePath } from '../src/core/ortNative.js';
+import { ensureSherpaNativePath } from '../src/core/ortNative.js';
 import { terminateOrtChild } from '../src/core/ortChildClient.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -17,8 +17,9 @@ const electronDataRoot = path.join(app.getPath('appData'), 'TTSMultiOSV10');
 app.setPath('userData', path.join(electronDataRoot, 'user-data'));
 app.setPath('sessionData', path.join(electronDataRoot, 'session-data'));
 
-// Windows: make onnxruntime.dll / DirectML.dll discoverable before first require.
-ensureOrtNativePath();
+// Prefer sherpa's DLLs before any OfflineTts load (do not preload onnxruntime-node —
+// its onnxruntime.dll conflicts with sherpa-onnx-win-x64 and can abort the process).
+ensureSherpaNativePath();
 
 const ttsStore = createModelStore();
 let mainWindow;

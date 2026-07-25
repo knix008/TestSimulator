@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
-import { ensureOrtNativePath } from './ortNative.js';
+import { ensureOrtNativePath, ensureSherpaNativePath } from './ortNative.js';
 import {
   createChildOrtSession,
   isElectronProcess,
@@ -382,21 +382,25 @@ const KO_PUA_FALLBACK = {
 
 // ── Piper KSS ────────────────────────────────────────────────────────────────
 async function synthesizePiper(text, modelId, modelDir, opts = {}) {
-  const { speed = 1 } = opts;
-  const onnxPath = await findOnnxFile(modelDir, [
+  const { speed = 1, store = null } = opts;
+  let resolvedDir = modelDir;
+  let onnxPath = await findOnnxFile(resolvedDir, [
     'piper-kss-korean.onnx',
     'model.onnx',
   ]);
-  if (!onnxPath) throw new Error(`Piper ONNX 파일 없음: ${modelDir}`);
+  if (!onnxPath) throw new Error(`Piper ONNX 파일 없음: ${resolvedDir}`);
 
-  const configPath = await findFileByName(modelDir, [
-    'piper-kss-korean.onnx.json',
-    `${path.basename(onnxPath)}.json`,
-    'config.json',
-  ]);
-  if (!configPath) throw new Error(`Piper 설정 파일 없음: ${modelDir}`);
+  const loadConfig = async (dir, onnx) => {
+    const configPath = await findFileByName(dir, [
+      'piper-kss-korean.onnx.json',
+      `${path.basename(onnx)}.json`,
+      'config.json',
+    ]);
+    if (!configPath) throw new Error(`Piper 설정 파일 없음: ${dir}`);
+    return JSON.parse(await fs.readFile(configPath, 'utf-8'));
+  };
 
-  const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+  let config = await loadConfig(resolvedDir, onnxPath);
   const idMap = config.phoneme_id_map || {};
 
   const { KoreanG2P } = await import('@piper-plus/g2p/ko');
@@ -412,7 +416,25 @@ async function synthesizePiper(text, modelId, modelDir, opts = {}) {
   const { phonemeIds } = encoder.encode(tokens);
   if (phonemeIds.length < 3) throw new Error('Piper phoneme ID 생성 실패');
 
-  const { session, ort } = await getOrtSession(`${modelId}:${onnxPath}`, onnxPath);
+  let entry;
+  try {
+    entry = await getOrtSession(`${modelId}:${onnxPath}`, onnxPath);
+  } catch (error) {
+    if (error?.code === 'CORRUPT_ONNX' && store) {
+      const repaired = await repairCorruptOnnx(store, modelId, onnxPath);
+      resolvedDir = repaired.modelPath;
+      onnxPath = await findOnnxFile(resolvedDir, [
+        'piper-kss-korean.onnx',
+        'model.onnx',
+      ]);
+      if (!onnxPath) throw error;
+      config = await loadConfig(resolvedDir, onnxPath);
+      entry = await getOrtSession(`${modelId}:${onnxPath}`, onnxPath);
+    } else {
+      throw error;
+    }
+  }
+  const { session, ort } = entry;
   const lengthScale = Math.max(0.25, Math.min(4, (config.inference?.length_scale ?? 1) / Math.max(0.1, speed)));
   const noiseScale = opts.noiseScale ?? config.inference?.noise_scale ?? 0.667;
   const noiseW     = opts.noiseW     ?? config.inference?.noise_w     ?? 0.8;
@@ -431,6 +453,7 @@ async function synthesizePiper(text, modelId, modelDir, opts = {}) {
 // ── Supertonic (sherpa-onnx) ─────────────────────────────────────────────────
 function getSherpa() {
   // CommonJS native addon — must use require
+  ensureSherpaNativePath();
   return require('sherpa-onnx-node');
 }
 
@@ -458,6 +481,8 @@ function getSherpaTts(modelId, modelDir) {
   };
 
   console.log(`[TTS] Supertonic 엔진 생성: ${modelDir}`);
+  // Supertonic 3 + sherpa 1.13.x can abort the whole process (uncaught Ort::Exception).
+  // Keep construction isolated from unexpected JS throws; native abort is avoided by catalog model choice.
   const tts = new sherpa.OfflineTts({
     ...config,
     // Electron/Worker: avoid sharing ArrayBuffers across isolates

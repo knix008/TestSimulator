@@ -4,6 +4,25 @@ import fs from 'node:fs';
 
 const require = createRequire(import.meta.url);
 
+function prependPathEnv(dir) {
+  if (!dir) return null;
+  if (process.platform === 'win32') {
+    const cur = process.env.PATH || '';
+    const norm = dir.replace(/\//g, '\\').toLowerCase();
+    const parts = cur.split(path.delimiter).map((p) => p.replace(/\//g, '\\').toLowerCase());
+    if (!parts.includes(norm)) {
+      process.env.PATH = `${dir}${path.delimiter}${cur}`;
+    }
+  } else {
+    const key = process.platform === 'darwin' ? 'DYLD_LIBRARY_PATH' : 'LD_LIBRARY_PATH';
+    const cur = process.env[key] || '';
+    if (!cur.split(path.delimiter).includes(dir)) {
+      process.env[key] = cur ? `${dir}${path.delimiter}${cur}` : dir;
+    }
+  }
+  return dir;
+}
+
 /**
  * onnxruntime-node ships sibling DLLs (onnxruntime.dll, DirectML.dll, …).
  * On Windows, Electron Worker/main must see that folder on PATH or dlopen fails
@@ -27,24 +46,33 @@ export function getOrtBindingDir() {
   }
 }
 
-export function ensureOrtNativePath() {
-  const bindingDir = getOrtBindingDir();
-  if (!bindingDir) return null;
-
-  if (process.platform === 'win32') {
-    const cur = process.env.PATH || '';
-    const norm = bindingDir.replace(/\//g, '\\').toLowerCase();
-    const parts = cur.split(path.delimiter).map((p) => p.replace(/\//g, '\\').toLowerCase());
-    if (!parts.includes(norm)) {
-      process.env.PATH = `${bindingDir}${path.delimiter}${cur}`;
-    }
-  } else {
-    // Help dynamic linker find sibling shared libs next to the .node binary.
-    const key = process.platform === 'darwin' ? 'DYLD_LIBRARY_PATH' : 'LD_LIBRARY_PATH';
-    const cur = process.env[key] || '';
-    if (!cur.split(path.delimiter).includes(bindingDir)) {
-      process.env[key] = cur ? `${bindingDir}${path.delimiter}${cur}` : bindingDir;
-    }
+/** Directory containing sherpa-onnx.node + its onnxruntime.dll / c-api DLLs. */
+export function getSherpaNativeDir() {
+  const platform = process.platform === 'win32' ? 'win' : process.platform;
+  const pkgName = `sherpa-onnx-${platform}-${process.arch}`;
+  try {
+    const pkgJson = require.resolve(`${pkgName}/package.json`);
+    const dir = path.dirname(pkgJson);
+    if (fs.existsSync(path.join(dir, 'sherpa-onnx.node'))) return dir;
+  } catch {
+    /* continue */
   }
-  return bindingDir;
+  try {
+    const nodePath = require.resolve(`${pkgName}/sherpa-onnx.node`);
+    return path.dirname(nodePath);
+  } catch {
+    return null;
+  }
+}
+
+export function ensureOrtNativePath() {
+  return prependPathEnv(getOrtBindingDir());
+}
+
+/**
+ * Prefer sherpa's own onnxruntime.dll over onnxruntime-node's — they are
+ * different builds and mixing them can abort OfflineTts construction.
+ */
+export function ensureSherpaNativePath() {
+  return prependPathEnv(getSherpaNativeDir());
 }

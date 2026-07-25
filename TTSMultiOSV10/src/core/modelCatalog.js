@@ -3,14 +3,17 @@
 const defaultCatalog = [
   {
     id: 'ko-supertonic-int8',
-    label: 'Supertonic 3 INT8',
+    // Supertonic 3 vocoder needs ORT ai.onnx.ml opset 5; sherpa-onnx-node 1.13.x
+    // aborts the process on load. Use Supertonic 2 until a newer sherpa ships.
+    label: 'Supertonic 2 INT8',
     language: 'ko-KR',
-    sizeHint: '~140 MB',
+    sizeHint: '~100 MB',
     runtime: 'sherpa-onnx',
-    description: 'Supertonic 3 · INT8 · 한국어 안정성 개선(단어 skip 감소) · 31언어',
+    description: 'Supertonic 2 · INT8 · 한국어 · 31언어',
     source: {
       type: 'repo',
-      repoId: 'csukuangfj2/sherpa-onnx-supertonic-3-tts-int8-2026-05-11'
+      repoId: 'csukuangfj2/sherpa-onnx-supertonic-tts-int8-2026-03-06',
+      packageId: 'supertonic2-2026-03-06',
     },
     preferredOnFirstRun: true
   },
@@ -23,7 +26,16 @@ const defaultCatalog = [
     description: '경량 임베디드 최적 모델 (VITS 기반)',
     source: {
       type: 'repo',
-      repoId: 'neurlang/piper-onnx-kss-korean'
+      repoId: 'neurlang/piper-onnx-kss-korean',
+      // Pin LFS sha256 — size-only checks miss same-length corrupt downloads.
+      packageId: 'piper-kss-sha-v1',
+      preferOnnx: [
+        'piper-kss-korean.onnx',
+      ],
+      fileHashes: {
+        'piper-kss-korean.onnx':
+          '5f8cb6d040294ec2b6a359f644b11f0723413fdfb404e6ba548e63d8862bc887',
+      },
     },
     preferredOnFirstRun: false
   },

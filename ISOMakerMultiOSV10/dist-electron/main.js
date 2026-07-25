@@ -1,2036 +1,1576 @@
-var __defProp = Object.defineProperty;
-var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
-var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
-import { app, Menu, BrowserWindow, ipcMain, dialog, shell, nativeImage } from "electron";
-import fs, { openAsBlob } from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-import os from "node:os";
-import { Readable } from "node:stream";
-import { pipeline } from "node:stream/promises";
-import { spawn, execFileSync, execFile } from "node:child_process";
-import { promisify } from "node:util";
-const SECTOR = 2048;
-async function readBytes(blob, offset, length) {
-  if (length <= 0) return new Uint8Array(0);
-  const end = Math.min(blob.size, offset + length);
-  if (offset >= blob.size) {
+var Yt = Object.defineProperty;
+var Jt = (e, t, n) => t in e ? Yt(e, t, { enumerable: !0, configurable: !0, writable: !0, value: n }) : e[t] = n;
+var W = (e, t, n) => Jt(e, typeof t != "symbol" ? t + "" : t, n);
+import { app as L, Menu as Vt, BrowserWindow as at, ipcMain as y, dialog as T, shell as Ht, nativeImage as $e } from "electron";
+import l, { openAsBlob as ct } from "node:fs";
+import u from "node:path";
+import { fileURLToPath as Fe } from "node:url";
+import X from "node:os";
+import { Readable as Ue } from "node:stream";
+import { pipeline as lt } from "node:stream/promises";
+import { spawn as ut, execFileSync as Xe, execFile as Xt } from "node:child_process";
+import { promisify as Zt } from "node:util";
+const w = 2048;
+async function J(e, t, n) {
+  if (n <= 0) return new Uint8Array(0);
+  const r = Math.min(e.size, t + n);
+  if (t >= e.size)
     throw new Error(
-      `ISO 읽기 범위 초과 (요청 offset ${offset}, ISO 크기 ${blob.size}). 파일이 잘렸거나 손상되었을 수 있습니다.`
+      `ISO 읽기 범위 초과 (요청 offset ${t}, ISO 크기 ${e.size}). 파일이 잘렸거나 손상되었을 수 있습니다.`
     );
+  const o = await e.slice(t, r).arrayBuffer();
+  return new Uint8Array(o);
+}
+async function Qt(e, t) {
+  return J(e, t * w, w);
+}
+function Me(e, t) {
+  return e.getUint8(t);
+}
+function te(e, t, n) {
+  const r = e.getUint32(t, !0), o = e.getUint32(t + 4, !1);
+  if (r === o) return r;
+  const i = n(r), s = n(o);
+  return i && !s ? r : s && !i ? o : r;
+}
+function oe(e) {
+  let t = "";
+  for (let n = 0; n < e.length; n++) {
+    const r = e[n];
+    if (r === 0) break;
+    t += String.fromCharCode(r);
   }
-  const buf = await blob.slice(offset, end).arrayBuffer();
-  return new Uint8Array(buf);
+  return t.trimEnd();
 }
-async function readSector(blob, lba) {
-  return readBytes(blob, lba * SECTOR, SECTOR);
-}
-function readU8(view, offset) {
-  return view.getUint8(offset);
-}
-function readBothU32Pick(view, offset, isValid) {
-  const le = view.getUint32(offset, true);
-  const be = view.getUint32(offset + 4, false);
-  if (le === be) return le;
-  const leOk = isValid(le);
-  const beOk = isValid(be);
-  if (leOk && !beOk) return le;
-  if (beOk && !leOk) return be;
-  return le;
-}
-function decodeAscii(bytes) {
-  let out = "";
-  for (let i = 0; i < bytes.length; i++) {
-    const c = bytes[i];
-    if (c === 0) break;
-    out += String.fromCharCode(c);
+function ft(e) {
+  const t = e.length - e.length % 2, n = [];
+  for (let r = 0; r < t; r += 2) {
+    const o = e[r] << 8 | e[r + 1];
+    if (o === 0) break;
+    n.push(o);
   }
-  return out.trimEnd();
+  return String.fromCharCode(...n).replace(/\0+$/g, "");
 }
-function decodeJoliet(bytes) {
-  const len = bytes.length - bytes.length % 2;
-  const units = [];
-  for (let i = 0; i < len; i += 2) {
-    const code = bytes[i] << 8 | bytes[i + 1];
-    if (code === 0) break;
-    units.push(code);
+function Pt(e) {
+  const t = e.indexOf(";");
+  return t >= 0 ? e.slice(0, t) : e;
+}
+function fe(e, t, n) {
+  e[t] = n & 255;
+}
+function dt(e, t, n) {
+  e[t] = n & 255, e[t + 1] = n >>> 8 & 255;
+}
+function en(e, t, n) {
+  e[t] = n >>> 8 & 255, e[t + 1] = n & 255;
+}
+function q(e, t, n) {
+  dt(e, t, n), en(e, t + 2, n);
+}
+function tn(e, t, n) {
+  e[t] = n & 255, e[t + 1] = n >>> 8 & 255, e[t + 2] = n >>> 16 & 255, e[t + 3] = n >>> 24 & 255;
+}
+function nn(e, t, n) {
+  e[t] = n >>> 24 & 255, e[t + 1] = n >>> 16 & 255, e[t + 2] = n >>> 8 & 255, e[t + 3] = n & 255;
+}
+function V(e, t, n) {
+  tn(e, t, n), nn(e, t + 4, n);
+}
+function mt(e, t, n = 32) {
+  const r = new Uint8Array(t);
+  r.fill(n);
+  const o = e.toUpperCase();
+  for (let i = 0; i < Math.min(o.length, t); i++)
+    r[i] = o.charCodeAt(i) & 127;
+  return r;
+}
+function ve(e) {
+  const t = new Uint8Array(e.length * 2);
+  for (let n = 0; n < e.length; n++) {
+    const r = e.charCodeAt(n);
+    t[n * 2] = r >>> 8 & 255, t[n * 2 + 1] = r & 255;
   }
-  return String.fromCharCode(...units).replace(/\0+$/g, "");
+  return t;
 }
-function stripVersion(name) {
-  const cut = name.indexOf(";");
-  return cut >= 0 ? name.slice(0, cut) : name;
-}
-function writeU8(buf, offset, value) {
-  buf[offset] = value & 255;
-}
-function writeU16LE(buf, offset, value) {
-  buf[offset] = value & 255;
-  buf[offset + 1] = value >>> 8 & 255;
-}
-function writeU16BE(buf, offset, value) {
-  buf[offset] = value >>> 8 & 255;
-  buf[offset + 1] = value & 255;
-}
-function writeBothU16(buf, offset, value) {
-  writeU16LE(buf, offset, value);
-  writeU16BE(buf, offset + 2, value);
-}
-function writeU32LE(buf, offset, value) {
-  buf[offset] = value & 255;
-  buf[offset + 1] = value >>> 8 & 255;
-  buf[offset + 2] = value >>> 16 & 255;
-  buf[offset + 3] = value >>> 24 & 255;
-}
-function writeU32BE(buf, offset, value) {
-  buf[offset] = value >>> 24 & 255;
-  buf[offset + 1] = value >>> 16 & 255;
-  buf[offset + 2] = value >>> 8 & 255;
-  buf[offset + 3] = value & 255;
-}
-function writeBothU32(buf, offset, value) {
-  writeU32LE(buf, offset, value);
-  writeU32BE(buf, offset + 4, value);
-}
-function encodeAsciiPadded(text, length, pad = 32) {
-  const out = new Uint8Array(length);
-  out.fill(pad);
-  const upper = text.toUpperCase();
-  for (let i = 0; i < Math.min(upper.length, length); i++) {
-    out[i] = upper.charCodeAt(i) & 127;
+function Oe(e, t) {
+  if (t) {
+    const a = e.toUpperCase().replace(/[^A-Z0-9_]/g, "_").slice(0, 31);
+    return mt(a, a.length, 0);
   }
-  return out;
+  const n = e.toUpperCase().replace(/[^A-Z0-9_.]/g, "_"), r = n.lastIndexOf(".");
+  let o = n, i = "";
+  r > 0 && (o = n.slice(0, r), i = n.slice(r + 1)), o = o.slice(0, 8), i = i.slice(0, 3);
+  const s = i ? `${o}.${i};1` : `${o}.;1`, c = new Uint8Array(s.length);
+  for (let a = 0; a < s.length; a++) c[a] = s.charCodeAt(a);
+  return c;
 }
-function encodeJolietName(name) {
-  const out = new Uint8Array(name.length * 2);
-  for (let i = 0; i < name.length; i++) {
-    const code = name.charCodeAt(i);
-    out[i * 2] = code >>> 8 & 255;
-    out[i * 2 + 1] = code & 255;
-  }
-  return out;
-}
-function iso9660FileId(name, isDir) {
-  if (isDir) {
-    const upper = name.toUpperCase().replace(/[^A-Z0-9_]/g, "_").slice(0, 31);
-    return encodeAsciiPadded(upper, upper.length, 0);
-  }
-  const cleaned = name.toUpperCase().replace(/[^A-Z0-9_.]/g, "_");
-  const dot = cleaned.lastIndexOf(".");
-  let base = cleaned;
-  let ext = "";
-  if (dot > 0) {
-    base = cleaned.slice(0, dot);
-    ext = cleaned.slice(dot + 1);
-  }
-  base = base.slice(0, 8);
-  ext = ext.slice(0, 3);
-  const id = ext ? `${base}.${ext};1` : `${base}.;1`;
-  const bytes = new Uint8Array(id.length);
-  for (let i = 0; i < id.length; i++) bytes[i] = id.charCodeAt(i);
-  return bytes;
-}
-const FLAG_ASSOCIATED = 4;
-const FLAG_DIRECTORY = 2;
-const FLAG_MULTI_EXTENT = 128;
-async function openIso(iso) {
-  if (iso.size < SECTOR * 17) {
+const rn = 4, on = 2, sn = 128;
+async function pt(e) {
+  if (e.size < w * 17)
     throw new Error("파일이 디스크 이미지로 보기에는 너무 작습니다.");
-  }
-  const baseOffset = await findIsoFilesystemOffset(iso);
-  const image = baseOffset > 0 ? iso.slice(baseOffset) : iso;
-  const volume = await findBestVolume(image);
-  const root = { kind: "dir", name: "", children: /* @__PURE__ */ new Map() };
-  const entries = [];
-  let totalBytes = 0;
-  await walkDirectory(image, volume, root, "", volume.rootLba, volume.rootSize, entries, (n) => {
-    totalBytes += n;
-  });
-  entries.sort((a, b) => a.path.localeCompare(b.path));
-  return {
-    volumeLabel: volume.label || "ISO",
-    root,
-    entries,
-    totalBytes
+  const t = await an(e), n = t > 0 ? e.slice(t) : e, r = await ln(n), o = { kind: "dir", name: "", children: /* @__PURE__ */ new Map() }, i = [];
+  let s = 0;
+  return await ht(n, r, o, "", r.rootLba, r.rootSize, i, (c) => {
+    s += c;
+  }), i.sort((c, a) => c.path.localeCompare(a.path)), {
+    volumeLabel: r.label || "ISO",
+    root: o,
+    entries: i,
+    totalBytes: s
   };
 }
-async function findIsoFilesystemOffset(iso) {
-  const pvdAt = 16 * SECTOR;
-  if (iso.size >= pvdAt + SECTOR) {
-    const probe = await readBytes(iso, pvdAt, SECTOR);
-    if (probe[0] === 1 && decodeAscii(probe.subarray(1, 6)) === "CD001") {
+async function an(e) {
+  const t = 16 * w;
+  if (e.size >= t + w) {
+    const o = await J(e, t, w);
+    if (o[0] === 1 && oe(o.subarray(1, 6)) === "CD001")
       return 0;
-    }
   }
-  const scanLimit = Math.min(iso.size, 64 * 1024 * 1024);
-  const chunkSize = 1024 * 1024;
-  for (let start = 0; start < scanLimit; start += chunkSize) {
-    const len = Math.min(chunkSize + SECTOR, scanLimit - start);
-    if (len < SECTOR) break;
-    const buf = await readBytes(iso, start, len);
-    const last = buf.length - SECTOR;
-    for (let off = 0; off <= last; off += SECTOR) {
-      if (buf[off] !== 1) continue;
-      if (decodeAscii(buf.subarray(off + 1, off + 6)) !== "CD001") continue;
-      const absPvd = start + off;
-      const base = absPvd - 16 * SECTOR;
-      if (base >= 0) return base;
+  const n = Math.min(e.size, 64 * 1024 * 1024), r = 1024 * 1024;
+  for (let o = 0; o < n; o += r) {
+    const i = Math.min(r + w, n - o);
+    if (i < w) break;
+    const s = await J(e, o, i), c = s.length - w;
+    for (let a = 0; a <= c; a += w) {
+      if (s[a] !== 1 || oe(s.subarray(a + 1, a + 6)) !== "CD001") continue;
+      const p = o + a - 16 * w;
+      if (p >= 0) return p;
     }
   }
   return 0;
 }
-async function readIsoFile(iso, extents, blockSize = SECTOR) {
-  if (!extents.length) return new Blob([]);
-  if (extents.length === 1) {
-    const e = extents[0];
-    const data = await readBytes(iso, e.lba * blockSize, e.size);
-    const copy = new Uint8Array(data.byteLength);
-    copy.set(data);
-    return new Blob([copy.buffer]);
+async function cn(e, t, n = w) {
+  if (!t.length) return new Blob([]);
+  if (t.length === 1) {
+    const o = t[0], i = await J(e, o.lba * n, o.size), s = new Uint8Array(i.byteLength);
+    return s.set(i), new Blob([s.buffer]);
   }
-  const parts = [];
-  for (const e of extents) {
-    const data = await readBytes(iso, e.lba * blockSize, e.size);
-    const copy = new Uint8Array(data.byteLength);
-    copy.set(data);
-    parts.push(copy.buffer.slice(copy.byteOffset, copy.byteOffset + copy.byteLength));
+  const r = [];
+  for (const o of t) {
+    const i = await J(e, o.lba * n, o.size), s = new Uint8Array(i.byteLength);
+    s.set(i), r.push(s.buffer.slice(s.byteOffset, s.byteOffset + s.byteLength));
   }
-  return new Blob(parts);
+  return new Blob(r);
 }
-async function findBestVolume(iso) {
-  let primary = null;
-  let joliet = null;
-  for (let lba = 16; lba < 32; lba++) {
-    const sector = await readSector(iso, lba);
-    const type = sector[0];
-    const id = decodeAscii(sector.subarray(1, 6));
-    if (id !== "CD001") continue;
-    if (type === 255) break;
-    const view = new DataView(sector.buffer, sector.byteOffset, sector.byteLength);
-    const maxBlocksByFile = Math.max(1, Math.floor(iso.size / SECTOR));
-    const volumeBlocks = readBothU32Pick(view, 80, (n) => n > 16 && n <= maxBlocksByFile * 4);
-    const blockSize = readBothU16Pick(view, 128, (n) => n === 512 || n === 1024 || n === 2048) || SECTOR;
-    const label = decodeAscii(sector.subarray(40, 72));
-    const rootOffset = 156;
-    const maxDataBlocks = Math.max(1, Math.floor(iso.size / blockSize));
-    const rootLba = readBothU32Pick(
-      view,
-      rootOffset + 2,
-      (n) => n > 0 && n < Math.max(volumeBlocks, maxDataBlocks)
-    );
-    const maxRootSize = Math.max(blockSize, iso.size - rootLba * blockSize);
-    const rootSize = readBothU32Pick(
-      view,
-      rootOffset + 10,
-      (n) => n > 0 && n <= maxRootSize
-    );
-    const choice = {
-      label,
-      rootLba,
-      rootSize,
-      joliet: false,
-      blockSize,
-      volumeBlocks: Math.max(volumeBlocks, maxDataBlocks)
+async function ln(e) {
+  let t = null, n = null;
+  for (let o = 16; o < 32; o++) {
+    const i = await Qt(e, o), s = i[0];
+    if (oe(i.subarray(1, 6)) !== "CD001") continue;
+    if (s === 255) break;
+    const a = new DataView(i.buffer, i.byteOffset, i.byteLength), f = Math.max(1, Math.floor(e.size / w)), p = te(a, 80, (k) => k > 16 && k <= f * 4), v = un(a, 128, (k) => k === 512 || k === 1024 || k === 2048) || w, d = oe(i.subarray(40, 72)), h = 156, m = Math.max(1, Math.floor(e.size / v)), g = te(
+      a,
+      h + 2,
+      (k) => k > 0 && k < Math.max(p, m)
+    ), A = Math.max(v, e.size - g * v), b = te(
+      a,
+      h + 10,
+      (k) => k > 0 && k <= A
+    ), $ = {
+      label: d,
+      rootLba: g,
+      rootSize: b,
+      joliet: !1,
+      blockSize: v,
+      volumeBlocks: Math.max(p, m)
     };
-    if (type === 1) {
-      primary = choice;
-    } else if (type === 2) {
-      const esc = sector.subarray(88, 91);
-      const isJoliet = esc[0] === 37 && esc[1] === 47 && (esc[2] === 64 || esc[2] === 67 || esc[2] === 69);
-      if (isJoliet) {
-        joliet = {
-          ...choice,
-          label: decodeJolietLabel(sector.subarray(40, 72)) || label,
-          joliet: true
-        };
-      }
+    if (s === 1)
+      t = $;
+    else if (s === 2) {
+      const k = i.subarray(88, 91);
+      k[0] === 37 && k[1] === 47 && (k[2] === 64 || k[2] === 67 || k[2] === 69) && (n = {
+        ...$,
+        label: fn(i.subarray(40, 72)) || d,
+        joliet: !0
+      });
     }
   }
-  const chosen = joliet ?? primary;
-  if (!chosen) {
+  const r = n ?? t;
+  if (!r)
     throw new Error("ISO9660 볼륨 디스크립터를 찾지 못했습니다. (ISO/IMG 형식이 아니거나 손상되었을 수 있습니다.)");
-  }
-  return chosen;
+  return r;
 }
-function readBothU16Pick(view, offset, isValid) {
-  const le = view.getUint16(offset, true);
-  const be = view.getUint16(offset + 2, false);
-  if (le === be) return le;
-  const leOk = isValid(le);
-  const beOk = isValid(be);
-  if (leOk && !beOk) return le;
-  if (beOk && !leOk) return be;
-  return le;
+function un(e, t, n) {
+  const r = e.getUint16(t, !0), o = e.getUint16(t + 2, !1);
+  if (r === o) return r;
+  const i = n(r), s = n(o);
+  return i && !s ? r : s && !i ? o : r;
 }
-function decodeJolietLabel(bytes) {
-  return decodeJoliet(bytes).trim();
+function fn(e) {
+  return ft(e).trim();
 }
-function extentFits(lba, size, isoSize, blockSize, volumeBlocks) {
-  if (size < 0) return false;
-  if (size === 0) return lba >= 0;
-  if (lba <= 0 || lba >= volumeBlocks) return false;
-  const start = lba * blockSize;
-  if (start >= isoSize) return false;
-  return start + size <= isoSize;
+function Le(e, t, n, r, o) {
+  if (t < 0) return !1;
+  if (t === 0) return e >= 0;
+  if (e <= 0 || e >= o) return !1;
+  const i = e * r;
+  return i >= n ? !1 : i + t <= n;
 }
-async function walkDirectory(iso, volume, parent, parentPath, lba, size, entries, onFileBytes) {
-  const { blockSize, volumeBlocks } = volume;
-  if (!extentFits(lba, Math.min(size, blockSize), iso.size, blockSize, volumeBlocks) && size > 0) {
+async function ht(e, t, n, r, o, i, s, c) {
+  const { blockSize: a, volumeBlocks: f } = t;
+  if (!Le(o, Math.min(i, a), e.size, a, f) && i > 0)
     return;
-  }
-  const maxBytes = Math.max(0, iso.size - lba * blockSize);
-  const readSize = Math.min(size, maxBytes);
-  if (readSize <= 0) return;
-  const data = await readBytes(iso, lba * blockSize, readSize);
-  let offset = 0;
-  let pending = null;
-  const flushPending = () => {
-    if (!pending) return;
-    commitFile(parent, parentPath, pending.name, pending.extents, iso, volume, entries, onFileBytes);
-    pending = null;
+  const p = Math.max(0, e.size - o * a), v = Math.min(i, p);
+  if (v <= 0) return;
+  const d = await J(e, o * a, v);
+  let h = 0, m = null;
+  const g = () => {
+    m && (Ze(n, r, m.name, m.extents, e, t, s, c), m = null);
   };
-  while (offset < data.length) {
-    const recLen = data[offset] ?? 0;
-    if (recLen === 0) {
-      const next = Math.ceil((offset + 1) / blockSize) * blockSize;
-      if (next <= offset || next >= data.length) break;
-      offset = next;
+  for (; h < d.length; ) {
+    const A = d[h] ?? 0;
+    if (A === 0) {
+      const $ = Math.ceil((h + 1) / a) * a;
+      if ($ <= h || $ >= d.length) break;
+      h = $;
       continue;
     }
-    if (offset + recLen > data.length) break;
-    const record = parseDirRecord(
-      data.subarray(offset, offset + recLen),
-      volume.joliet,
-      iso.size,
-      blockSize,
-      volumeBlocks
+    if (h + A > d.length) break;
+    const b = dn(
+      d.subarray(h, h + A),
+      t.joliet,
+      e.size,
+      a,
+      f
     );
-    offset += recLen;
-    if (!record || record.name === "." || record.name === "..") continue;
-    if (record.associated) continue;
-    if (record.isDir) {
-      flushPending();
-      if (!extentFits(record.lba, Math.min(record.size, blockSize), iso.size, blockSize, volumeBlocks)) {
+    if (h += A, !(!b || b.name === "." || b.name === "..") && !b.associated) {
+      if (b.isDir) {
+        if (g(), !Le(b.lba, Math.min(b.size, a), e.size, a, f))
+          continue;
+        const $ = r ? `${r}/${b.name}` : b.name, k = { kind: "dir", name: b.name, children: /* @__PURE__ */ new Map() };
+        n.children.set(I(b.name), k), s.push({ path: $, name: b.name, isDir: !0, size: 0 }), await ht(e, t, k, $, b.lba, b.size, s, c);
         continue;
       }
-      const path2 = parentPath ? `${parentPath}/${record.name}` : record.name;
-      const child = { kind: "dir", name: record.name, children: /* @__PURE__ */ new Map() };
-      parent.children.set(normalizeKey(record.name), child);
-      entries.push({ path: path2, name: record.name, isDir: true, size: 0 });
-      await walkDirectory(iso, volume, child, path2, record.lba, record.size, entries, onFileBytes);
-      continue;
-    }
-    if (pending && pending.name === record.name) {
-      pending.extents.push({ lba: record.lba, size: record.size });
-      if (!record.multiExtent) flushPending();
-      continue;
-    }
-    flushPending();
-    if (record.multiExtent) {
-      pending = { name: record.name, extents: [{ lba: record.lba, size: record.size }] };
-    } else {
-      commitFile(
-        parent,
-        parentPath,
-        record.name,
-        [{ lba: record.lba, size: record.size }],
-        iso,
-        volume,
-        entries,
-        onFileBytes
+      if (m && m.name === b.name) {
+        m.extents.push({ lba: b.lba, size: b.size }), b.multiExtent || g();
+        continue;
+      }
+      g(), b.multiExtent ? m = { name: b.name, extents: [{ lba: b.lba, size: b.size }] } : Ze(
+        n,
+        r,
+        b.name,
+        [{ lba: b.lba, size: b.size }],
+        e,
+        t,
+        s,
+        c
       );
     }
   }
-  flushPending();
+  g();
 }
-function commitFile(parent, parentPath, name, extents, iso, volume, entries, onFileBytes) {
-  const path2 = parentPath ? `${parentPath}/${name}` : name;
-  const totalSize = extents.reduce((sum, e) => sum + e.size, 0);
-  const readable = extents.every(
-    (e) => extentFits(e.lba, e.size, iso.size, volume.blockSize, volume.volumeBlocks)
-  );
-  const child = readable ? {
+function Ze(e, t, n, r, o, i, s, c) {
+  const a = t ? `${t}/${n}` : n, f = r.reduce((d, h) => d + h.size, 0), p = r.every(
+    (d) => Le(d.lba, d.size, o.size, i.blockSize, i.volumeBlocks)
+  ), v = p ? {
     kind: "file",
-    name,
-    size: totalSize,
+    name: n,
+    size: f,
     source: {
       type: "iso",
-      iso,
-      extents,
-      blockSize: volume.blockSize
+      iso: o,
+      extents: r,
+      blockSize: i.blockSize
     }
   } : {
     kind: "file",
-    name,
-    size: totalSize,
+    name: n,
+    size: f,
     source: {
       type: "unavailable",
-      reason: `ISO 데이터가 잘렸거나 손상되어 읽을 수 없습니다: ${path2}`
+      reason: `ISO 데이터가 잘렸거나 손상되어 읽을 수 없습니다: ${a}`
     }
   };
-  parent.children.set(normalizeKey(name), child);
-  entries.push({ path: path2, name, isDir: false, size: totalSize });
-  if (readable) onFileBytes(totalSize);
+  e.children.set(I(n), v), s.push({ path: a, name: n, isDir: !1, size: f }), p && c(f);
 }
-function parseDirRecord(bytes, joliet, isoSize, blockSize, volumeBlocks) {
-  if (bytes.length < 34) return null;
-  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  const length = readU8(view, 0);
-  if (length < 34) return null;
-  const maxLba = Math.max(1, Math.min(volumeBlocks, Math.floor(isoSize / blockSize) + 1));
-  const lba = readBothU32Pick(view, 2, (n) => n < maxLba);
-  const maxSize = Math.max(0, isoSize);
-  const size = readBothU32Pick(view, 10, (n) => n <= maxSize);
-  const flags = readU8(view, 25);
-  const nameLen = readU8(view, 32);
-  if (33 + nameLen > bytes.length) return null;
-  const nameBytes = bytes.subarray(33, 33 + nameLen);
-  let name;
-  if (nameLen === 1 && nameBytes[0] === 0) name = ".";
-  else if (nameLen === 1 && nameBytes[0] === 1) name = "..";
-  else name = stripVersion(joliet ? decodeJoliet(nameBytes) : decodeAscii(nameBytes));
-  if (!name) return null;
-  return {
-    length,
-    lba,
-    size,
-    flags,
-    name,
-    isDir: (flags & FLAG_DIRECTORY) !== 0,
-    multiExtent: (flags & FLAG_MULTI_EXTENT) !== 0,
-    associated: (flags & FLAG_ASSOCIATED) !== 0
-  };
+function dn(e, t, n, r, o) {
+  if (e.length < 34) return null;
+  const i = new DataView(e.buffer, e.byteOffset, e.byteLength), s = Me(i, 0);
+  if (s < 34) return null;
+  const c = Math.max(1, Math.min(o, Math.floor(n / r) + 1)), a = te(i, 2, (g) => g < c), f = Math.max(0, n), p = te(i, 10, (g) => g <= f), v = Me(i, 25), d = Me(i, 32);
+  if (33 + d > e.length) return null;
+  const h = e.subarray(33, 33 + d);
+  let m;
+  return d === 1 && h[0] === 0 ? m = "." : d === 1 && h[0] === 1 ? m = ".." : m = Pt(t ? ft(h) : oe(h)), m ? {
+    length: s,
+    lba: a,
+    size: p,
+    flags: v,
+    name: m,
+    isDir: (v & on) !== 0,
+    multiExtent: (v & sn) !== 0,
+    associated: (v & rn) !== 0
+  } : null;
 }
-function normalizeKey(name) {
-  return name.toLowerCase();
+function I(e) {
+  return e.toLowerCase();
 }
-function getNodeAtPath(root, path2) {
-  if (!path2 || path2 === "/") return root;
-  const parts = path2.split("/").filter(Boolean);
-  let current = root;
-  for (const part of parts) {
-    if (current.kind !== "dir") return null;
-    const next = current.children.get(normalizeKey(part));
-    if (!next) return null;
-    current = next;
+function z(e, t) {
+  if (!t || t === "/") return e;
+  const n = t.split("/").filter(Boolean);
+  let r = e;
+  for (const o of n) {
+    if (r.kind !== "dir") return null;
+    const i = r.children.get(I(o));
+    if (!i) return null;
+    r = i;
   }
-  return current;
+  return r;
 }
-function listChildren(root, dirPath) {
-  const node = getNodeAtPath(root, dirPath);
-  if (!node || node.kind !== "dir") return [];
-  return [...node.children.values()].map((child) => ({
-    path: dirPath ? `${dirPath}/${child.name}` : child.name,
-    name: child.name,
-    isDir: child.kind === "dir",
-    size: child.kind === "file" ? child.size : 0
-  })).sort((a, b) => Number(b.isDir) - Number(a.isDir) || a.name.localeCompare(b.name));
+function mn(e, t) {
+  const n = z(e, t);
+  return !n || n.kind !== "dir" ? [] : [...n.children.values()].map((r) => ({
+    path: t ? `${t}/${r.name}` : r.name,
+    name: r.name,
+    isDir: r.kind === "dir",
+    size: r.kind === "file" ? r.size : 0
+  })).sort((r, o) => Number(o.isDir) - Number(r.isDir) || r.name.localeCompare(o.name));
 }
-const SQUASHFS_MAGIC = Buffer.from("hsqs", "ascii");
-const ELF_MAGIC = Buffer.from([127, 69, 76, 70]);
-async function detectOpenKind(filePath, hinted) {
-  if (hinted === "iso" || hinted === "img" || hinted === "appimage" || hinted === "docker") {
-    return hinted;
-  }
-  if (await isAppImageFile(filePath)) return "appimage";
-  if (await looksLikeTarArchive(filePath)) return "docker";
-  return "unknown";
+const Qe = Buffer.from("hsqs", "ascii"), pn = Buffer.from([127, 69, 76, 70]);
+async function hn(e, t) {
+  return t === "iso" || t === "img" || t === "appimage" || t === "docker" ? t : await wt(e) ? "appimage" : await yt(e) ? "docker" : "unknown";
 }
-async function isAppImageFile(filePath) {
+async function wt(e) {
   try {
-    const fh = await fs.promises.open(filePath, "r");
+    const t = await l.promises.open(e, "r");
     try {
-      const head = Buffer.alloc(4);
-      const { bytesRead } = await fh.read(head, 0, 4, 0);
-      if (bytesRead < 4 || !head.equals(ELF_MAGIC)) return false;
+      const r = Buffer.alloc(4), { bytesRead: o } = await t.read(r, 0, 4, 0);
+      if (o < 4 || !r.equals(pn)) return !1;
     } finally {
-      await fh.close();
+      await t.close();
     }
-    const offset = await findSquashfsOffset(filePath);
-    return offset >= 0;
+    return await Re(e) >= 0;
   } catch {
-    return false;
+    return !1;
   }
 }
-async function looksLikeTarArchive(filePath) {
+async function yt(e) {
   try {
-    const fh = await fs.promises.open(filePath, "r");
+    const t = await l.promises.open(e, "r");
     try {
-      const head = Buffer.alloc(512);
-      const { bytesRead } = await fh.read(head, 0, 512, 0);
-      if (bytesRead < 265) return false;
-      if (head[0] === 31 && head[1] === 139) return true;
-      const ustar = head.subarray(257, 262).toString("ascii");
-      return ustar === "ustar";
+      const n = Buffer.alloc(512), { bytesRead: r } = await t.read(n, 0, 512, 0);
+      return r < 265 ? !1 : n[0] === 31 && n[1] === 139 ? !0 : n.subarray(257, 262).toString("ascii") === "ustar";
     } finally {
-      await fh.close();
+      await t.close();
     }
   } catch {
-    return false;
+    return !1;
   }
 }
-async function extractArchiveToTemp(filePath, kind) {
-  const extractRoot2 = await fs.promises.mkdtemp(path.join(os.tmpdir(), "isomaker-extract-"));
+async function wn(e, t) {
+  const n = await l.promises.mkdtemp(u.join(X.tmpdir(), "isomaker-extract-"));
   try {
-    if (kind === "appimage") {
-      const { treeRoot, squashfsOffset } = await extractAppImage(filePath, extractRoot2);
-      return { extractRoot: extractRoot2, treeRoot, squashfsOffset };
+    if (t === "appimage") {
+      const { treeRoot: r, squashfsOffset: o } = await Sn(e, n);
+      return { extractRoot: n, treeRoot: r, squashfsOffset: o };
     }
-    await extractTarArchive(filePath, extractRoot2);
-    return { extractRoot: extractRoot2, treeRoot: extractRoot2, squashfsOffset: null };
-  } catch (err) {
+    return await kn(e, n), { extractRoot: n, treeRoot: n, squashfsOffset: null };
+  } catch (r) {
     try {
-      fs.rmSync(extractRoot2, { recursive: true, force: true });
+      l.rmSync(n, { recursive: !0, force: !0 });
     } catch {
     }
-    throw err;
+    throw r;
   }
 }
-async function buildTreeFromDirectory(dirPath) {
-  const root = { kind: "dir", name: "", children: /* @__PURE__ */ new Map() };
-  await walkDir(dirPath, root);
-  return root;
+async function yn(e) {
+  const t = { kind: "dir", name: "", children: /* @__PURE__ */ new Map() };
+  return await bt(e, t), t;
 }
-function volumeLabelFromPath(filePath) {
-  const base = path.basename(filePath);
-  const stem = base.replace(/\.tar\.gz$/i, "").replace(/\.(appimage|tar|tgz|docker|iso|img)$/i, "");
-  const cleaned = stem.replace(/[^A-Za-z0-9_.-]+/g, "_").replace(/^_+|_+$/g, "");
-  return (cleaned || "IMAGE").slice(0, 32).toUpperCase();
+function bn(e) {
+  return (u.basename(e).replace(/\.tar\.gz$/i, "").replace(/\.(appimage|tar|tgz|docker|iso|img)$/i, "").replace(/[^A-Za-z0-9_.-]+/g, "_").replace(/^_+|_+$/g, "") || "IMAGE").slice(0, 32).toUpperCase();
 }
-async function walkDir(absDir, parent) {
-  let names;
+async function bt(e, t) {
+  let n;
   try {
-    names = await fs.promises.readdir(absDir);
+    n = await l.promises.readdir(e);
   } catch {
     return;
   }
-  names.sort((a, b) => a.localeCompare(b));
-  for (const name of names) {
-    if (name === "." || name === "..") continue;
-    const abs = path.join(absDir, name);
-    let st;
+  n.sort((r, o) => r.localeCompare(o));
+  for (const r of n) {
+    if (r === "." || r === "..") continue;
+    const o = u.join(e, r);
+    let i;
     try {
-      st = await fs.promises.lstat(abs);
+      i = await l.promises.lstat(o);
     } catch {
       continue;
     }
-    if (st.isSymbolicLink()) continue;
-    if (st.isDirectory()) {
-      const dirNode = { kind: "dir", name, children: /* @__PURE__ */ new Map() };
-      parent.children.set(normalizeKey(name), dirNode);
-      await walkDir(abs, dirNode);
+    if (i.isSymbolicLink()) continue;
+    if (i.isDirectory()) {
+      const c = { kind: "dir", name: r, children: /* @__PURE__ */ new Map() };
+      t.children.set(I(r), c), await bt(o, c);
       continue;
     }
-    if (!st.isFile()) continue;
-    const fileNode = {
+    if (!i.isFile()) continue;
+    const s = {
       kind: "file",
-      name,
-      size: st.size,
-      source: { type: "path", absolutePath: abs }
+      name: r,
+      size: i.size,
+      source: { type: "path", absolutePath: o }
     };
-    parent.children.set(normalizeKey(name), fileNode);
+    t.children.set(I(r), s);
   }
 }
-async function extractAppImage(filePath, destDir) {
-  const offset = await findSquashfsOffset(filePath);
-  if (offset < 0) {
+async function Sn(e, t) {
+  const n = await Re(e);
+  if (n < 0)
     throw new Error("AppImage에서 squashfs(hsqs) 시그니처를 찾지 못했습니다.");
-  }
-  const unsquashfs = resolveSquashfsTool("unsquashfs");
-  if (unsquashfs) {
-    const outDir = path.join(destDir, "root");
-    await fs.promises.mkdir(outDir, { recursive: true });
-    await runCommand(
-      unsquashfs,
-      ["-f", "-o", String(offset), "-d", outDir, filePath],
-      path.dirname(unsquashfs)
-    );
-    return { treeRoot: outDir, squashfsOffset: offset };
+  const r = kt("unsquashfs");
+  if (r) {
+    const o = u.join(t, "root");
+    return await l.promises.mkdir(o, { recursive: !0 }), await ie(
+      r,
+      ["-f", "-o", String(n), "-d", o, e],
+      u.dirname(r)
+    ), { treeRoot: o, squashfsOffset: n };
   }
   if (process.platform === "linux") {
     try {
-      await fs.promises.chmod(filePath, 493);
+      await l.promises.chmod(e, 493);
     } catch {
     }
-    await runCommand(filePath, ["--appimage-extract"], destDir);
-    const squashRoot = path.join(destDir, "squashfs-root");
-    if (fs.existsSync(squashRoot)) {
-      return { treeRoot: squashRoot, squashfsOffset: offset };
-    }
+    await ie(e, ["--appimage-extract"], t);
+    const o = u.join(t, "squashfs-root");
+    if (l.existsSync(o))
+      return { treeRoot: o, squashfsOffset: n };
   }
   throw new Error(
     "AppImage를 풀 수 없습니다. squashfs-tools(unsquashfs)를 설치한 뒤 다시 시도하세요.\nWindows: MSYS2에서 `pacman -S squashfs-tools`\nmacOS: `brew install squashfs`\nLinux: `sudo apt install squashfs-tools` (또는 AppImage 실행 권한)"
   );
 }
-async function extractTarArchive(filePath, destDir) {
-  const tar = resolveTar();
-  if (!tar) {
+async function kn(e, t) {
+  const n = St();
+  if (!n)
     throw new Error("tar 명령을 찾을 수 없습니다. Docker 저장본(.tar)을 열려면 OS tar가 필요합니다.");
-  }
-  const gzip = isGzipFile(filePath) || /\.(tgz|tar\.gz)$/i.test(filePath);
-  const args = gzip ? ["-xzf", filePath, "-C", destDir] : ["-xf", filePath, "-C", destDir];
-  await runCommand(tar, args, destDir);
+  const o = vn(e) || /\.(tgz|tar\.gz)$/i.test(e) ? ["-xzf", e, "-C", t] : ["-xf", e, "-C", t];
+  await ie(n, o, t);
 }
-function isGzipFile(filePath) {
-  const fd = fs.openSync(filePath, "r");
+function vn(e) {
+  const t = l.openSync(e, "r");
   try {
-    const buf = Buffer.alloc(2);
-    const n = fs.readSync(fd, buf, 0, 2, 0);
-    return n === 2 && buf[0] === 31 && buf[1] === 139;
+    const n = Buffer.alloc(2);
+    return l.readSync(t, n, 0, 2, 0) === 2 && n[0] === 31 && n[1] === 139;
   } finally {
-    fs.closeSync(fd);
+    l.closeSync(t);
   }
 }
-async function findSquashfsOffset(filePath) {
-  const size = (await fs.promises.stat(filePath)).size;
-  const chunkSize = 1024 * 1024;
-  const overlap = SQUASHFS_MAGIC.length - 1;
-  const buf = Buffer.alloc(chunkSize);
-  const fh = await fs.promises.open(filePath, "r");
+async function Re(e) {
+  const t = (await l.promises.stat(e)).size, n = 1024 * 1024, r = Qe.length - 1, o = Buffer.alloc(n), i = await l.promises.open(e, "r");
   try {
-    let offset = 0;
-    while (offset < size) {
-      const { bytesRead } = await fh.read(buf, 0, chunkSize, offset);
-      if (bytesRead <= 0) break;
-      const idx = buf.subarray(0, bytesRead).indexOf(SQUASHFS_MAGIC);
-      if (idx >= 0) return offset + idx;
-      if (bytesRead <= overlap) break;
-      offset += bytesRead - overlap;
+    let s = 0;
+    for (; s < t; ) {
+      const { bytesRead: c } = await i.read(o, 0, n, s);
+      if (c <= 0) break;
+      const a = o.subarray(0, c).indexOf(Qe);
+      if (a >= 0) return s + a;
+      if (c <= r) break;
+      s += c - r;
     }
   } finally {
-    await fh.close();
+    await i.close();
   }
   return -1;
 }
-function resolveMksquashfs() {
-  return resolveSquashfsTool("mksquashfs");
+function gn() {
+  return kt("mksquashfs");
 }
-function resolveTar() {
+function St() {
   if (process.platform === "win32") {
-    const systemTar = path.join(
+    const e = u.join(
       process.env.SystemRoot || "C:\\Windows",
       "System32",
       "tar.exe"
     );
-    if (fs.existsSync(systemTar)) return systemTar;
-    return whichSync("tar.exe") ?? whichSync("tar");
+    return l.existsSync(e) ? e : he("tar.exe") ?? he("tar");
   }
-  return whichSync("tar");
+  return he("tar");
 }
-function runCommand(command, args, cwd) {
-  return new Promise((resolve, reject) => {
-    var _a;
-    const child = spawn(command, args, {
-      cwd,
-      windowsHide: true,
+function ie(e, t, n) {
+  return new Promise((r, o) => {
+    var c;
+    const i = ut(e, t, {
+      cwd: n,
+      windowsHide: !0,
       stdio: ["ignore", "pipe", "pipe"]
     });
-    let stderr = "";
-    (_a = child.stderr) == null ? void 0 : _a.on("data", (chunk) => {
-      stderr += chunk.toString("utf8");
-    });
-    child.on("error", (err) => reject(err));
-    child.on("close", (code) => {
-      if (code === 0) {
-        resolve();
+    let s = "";
+    (c = i.stderr) == null || c.on("data", (a) => {
+      s += a.toString("utf8");
+    }), i.on("error", (a) => o(a)), i.on("close", (a) => {
+      if (a === 0) {
+        r();
         return;
       }
-      const detail = stderr.trim() || `exit ${code}`;
-      reject(new Error(`${path.basename(command)} 실패: ${detail}`));
+      const f = s.trim() || `exit ${a}`;
+      o(new Error(`${u.basename(e)} 실패: ${f}`));
     });
   });
 }
-function resolveSquashfsTool(baseName) {
-  const names = process.platform === "win32" ? [`${baseName}.exe`, baseName] : [baseName];
-  const extras = [];
-  if (process.platform === "win32") {
-    for (const root of [
+function kt(e) {
+  const t = process.platform === "win32" ? [`${e}.exe`, e] : [e], n = [];
+  if (process.platform === "win32")
+    for (const r of [
       process.env.MSYS2_ROOT,
       "C:\\msys64",
       "C:\\msys32",
       process.env.CYGWIN_ROOT,
       "C:\\cygwin64"
-    ].filter((v) => Boolean(v))) {
-      extras.push(path.join(root, "usr", "bin", `${baseName}.exe`));
-      extras.push(path.join(root, "bin", `${baseName}.exe`));
-    }
-  }
-  for (const candidate of extras) {
-    if (fs.existsSync(candidate)) return candidate;
-  }
-  for (const name of names) {
-    const found = whichSync(name);
-    if (found) return found;
+    ].filter((o) => !!o))
+      n.push(u.join(r, "usr", "bin", `${e}.exe`)), n.push(u.join(r, "bin", `${e}.exe`));
+  for (const r of n)
+    if (l.existsSync(r)) return r;
+  for (const r of t) {
+    const o = he(r);
+    if (o) return o;
   }
   return null;
 }
-function whichSync(command) {
+function he(e) {
   try {
-    const result = process.platform === "win32" ? execFileSync("where", [command], { encoding: "utf8", windowsHide: true }) : execFileSync("which", [command], { encoding: "utf8" });
-    const line = String(result).split(/\r?\n/).map((s) => s.trim()).find(Boolean);
-    return line && fs.existsSync(line) ? line : null;
+    const t = process.platform === "win32" ? Xe("where", [e], { encoding: "utf8", windowsHide: !0 }) : Xe("which", [e], { encoding: "utf8" }), n = String(t).split(/\r?\n/).map((r) => r.trim()).find(Boolean);
+    return n && l.existsSync(n) ? n : null;
   } catch {
     return null;
   }
 }
-async function materializeTree(root, destDir, onProgress, signal) {
-  throwIfAborted$2(signal);
-  await fs.promises.mkdir(destDir, { recursive: true });
-  const files = [];
-  collectFilePaths(root, "", files);
-  let done = 0;
-  await walkMaterialize(root, "", destDir, async (entryPath, absOut) => {
-    throwIfAborted$2(signal);
-    const node = getNodeAtPath(root, entryPath);
-    if (!node || node.kind !== "file") return;
-    if (node.source.type === "path") {
-      await fs.promises.copyFile(node.source.absolutePath, absOut);
-    } else if (node.source.type === "blob") {
-      await writeBlobToFile$1(node.source.blob, absOut, signal);
-    } else if (node.source.type === "iso") {
-      const blob = await openIsoBlobFromExtents(node.source);
-      await writeBlobToFile$1(blob, absOut, signal);
-    } else {
-      throw new Error(node.source.reason);
-    }
-    done += 1;
-    const percent = files.length ? Math.min(90, Math.round(done / files.length * 90)) : 90;
-    onProgress == null ? void 0 : onProgress({
+async function vt(e, t, n, r) {
+  M(r), await l.promises.mkdir(t, { recursive: !0 });
+  const o = [];
+  gt(e, "", o);
+  let i = 0;
+  await xt(e, "", t, async (s, c) => {
+    M(r);
+    const a = z(e, s);
+    if (!a || a.kind !== "file") return;
+    if (a.source.type === "path")
+      await l.promises.copyFile(a.source.absolutePath, c);
+    else if (a.source.type === "blob")
+      await et(a.source.blob, c, r);
+    else if (a.source.type === "iso") {
+      const p = await zn(a.source);
+      await et(p, c, r);
+    } else
+      throw new Error(a.source.reason);
+    i += 1;
+    const f = o.length ? Math.min(90, Math.round(i / o.length * 90)) : 90;
+    n == null || n({
       phase: "save",
-      percent,
-      message: `파일 준비 중… (${done}/${files.length})`
+      percent: f,
+      message: `파일 준비 중… (${i}/${o.length})`
     });
   });
 }
-async function packDirectoryAsTar(sourceDir, outputPath, gzip, onProgress, signal) {
-  throwIfAborted$2(signal);
-  const tar = resolveTar();
-  if (!tar) {
+async function xn(e, t, n, r, o) {
+  M(o);
+  const i = St();
+  if (!i)
     throw new Error("tar 명령을 찾을 수 없습니다. Docker/tar로 저장하려면 OS tar가 필요합니다.");
-  }
-  onProgress == null ? void 0 : onProgress({ phase: "save", percent: 92, message: gzip ? "tar.gz 작성 중…" : "tar 작성 중…" });
-  const args = gzip ? ["-czf", outputPath, "-C", sourceDir, "."] : ["-cf", outputPath, "-C", sourceDir, "."];
-  await runCommand(tar, args, path.dirname(outputPath));
-  throwIfAborted$2(signal);
+  r == null || r({ phase: "save", percent: 92, message: n ? "tar.gz 작성 중…" : "tar 작성 중…" }), await ie(i, n ? ["-czf", t, "-C", e, "."] : ["-cf", t, "-C", e, "."], u.dirname(t)), M(o);
 }
-async function packDirectoryAsAppImage(sourceDir, outputPath, runtime, onProgress, signal) {
-  throwIfAborted$2(signal);
-  if (!fs.existsSync(runtime.runtimePath)) {
+async function An(e, t, n, r, o) {
+  if (M(o), !l.existsSync(n.runtimePath))
     throw new Error(
-      `AppImage 런타임을 찾을 수 없습니다: ${runtime.runtimePath}
+      `AppImage 런타임을 찾을 수 없습니다: ${n.runtimePath}
 AppImage로 저장하려면 원본 AppImage를 연 뒤 저장하세요.`
     );
-  }
-  let offset = runtime.squashfsOffset;
-  if (offset <= 0) {
-    offset = await findSquashfsOffset(runtime.runtimePath);
-  }
-  if (offset <= 0) {
+  let i = n.squashfsOffset;
+  if (i <= 0 && (i = await Re(n.runtimePath)), i <= 0)
     throw new Error("AppImage 런타임(squashfs 오프셋)을 확인할 수 없습니다.");
-  }
-  const mksquashfs = resolveMksquashfs();
-  if (!mksquashfs) {
+  const s = gn();
+  if (!s)
     throw new Error(
       "AppImage로 저장하려면 squashfs-tools(mksquashfs)가 필요합니다.\nWindows: MSYS2 `pacman -S squashfs-tools`\nmacOS: `brew install squashfs`\nLinux: `sudo apt install squashfs-tools`"
     );
-  }
-  const work = await fs.promises.mkdtemp(path.join(os.tmpdir(), "isomaker-appimage-"));
-  const squashPath = path.join(work, "payload.squashfs");
+  const c = await l.promises.mkdtemp(u.join(X.tmpdir(), "isomaker-appimage-")), a = u.join(c, "payload.squashfs");
   try {
-    onProgress == null ? void 0 : onProgress({ phase: "save", percent: 92, message: "squashfs 작성 중…" });
-    await runCommand(
-      mksquashfs,
-      [sourceDir, squashPath, "-comp", "gzip", "-noappend", "-all-root"],
-      work
-    );
-    throwIfAborted$2(signal);
-    onProgress == null ? void 0 : onProgress({ phase: "save", percent: 96, message: "AppImage 결합 중…" });
-    await concatRuntimeAndSquash(runtime.runtimePath, offset, squashPath, outputPath, signal);
-    if (process.platform !== "win32") {
+    if (r == null || r({ phase: "save", percent: 92, message: "squashfs 작성 중…" }), await ie(
+      s,
+      [e, a, "-comp", "gzip", "-noappend", "-all-root"],
+      c
+    ), M(o), r == null || r({ phase: "save", percent: 96, message: "AppImage 결합 중…" }), await In(n.runtimePath, i, a, t, o), process.platform !== "win32")
       try {
-        await fs.promises.chmod(outputPath, 493);
+        await l.promises.chmod(t, 493);
       } catch {
       }
-    }
   } finally {
     try {
-      fs.rmSync(work, { recursive: true, force: true });
+      l.rmSync(c, { recursive: !0, force: !0 });
     } catch {
     }
   }
 }
-async function concatRuntimeAndSquash(runtimePath, offset, squashPath, outputPath, signal) {
-  throwIfAborted$2(signal);
-  const out = await fs.promises.open(outputPath, "w");
+async function In(e, t, n, r, o) {
+  M(o);
+  const i = await l.promises.open(r, "w");
   try {
-    const runtime = await fs.promises.open(runtimePath, "r");
+    const s = await l.promises.open(e, "r");
     try {
-      await copyFdRange(runtime, out, 0, offset, signal);
+      await Pe(s, i, 0, t, o);
     } finally {
-      await runtime.close();
+      await s.close();
     }
-    const squash = await fs.promises.open(squashPath, "r");
+    const c = await l.promises.open(n, "r");
     try {
-      const size = (await squash.stat()).size;
-      await copyFdRange(squash, out, 0, size, signal);
+      const a = (await c.stat()).size;
+      await Pe(c, i, 0, a, o);
     } finally {
-      await squash.close();
+      await c.close();
     }
   } finally {
-    await out.close();
+    await i.close();
   }
 }
-async function copyFdRange(src, dest, start, length, signal) {
-  const CHUNK = 8 * 1024 * 1024;
-  const buf = Buffer.allocUnsafe(Math.min(CHUNK, Math.max(length, 1)));
-  let pos = start;
-  let left = length;
-  while (left > 0) {
-    throwIfAborted$2(signal);
-    const n = Math.min(buf.length, left);
-    const { bytesRead } = await src.read(buf, 0, n, pos);
-    if (bytesRead <= 0) break;
-    await dest.write(buf, 0, bytesRead);
-    pos += bytesRead;
-    left -= bytesRead;
+async function Pe(e, t, n, r, o) {
+  const s = Buffer.allocUnsafe(Math.min(8388608, Math.max(r, 1)));
+  let c = n, a = r;
+  for (; a > 0; ) {
+    M(o);
+    const f = Math.min(s.length, a), { bytesRead: p } = await e.read(s, 0, f, c);
+    if (p <= 0) break;
+    await t.write(s, 0, p), c += p, a -= p;
   }
 }
-function collectFilePaths(node, prefix, out) {
-  for (const child of node.children.values()) {
-    const p = prefix ? `${prefix}/${child.name}` : child.name;
-    if (child.kind === "dir") collectFilePaths(child, p, out);
-    else out.push(p);
+function gt(e, t, n) {
+  for (const r of e.children.values()) {
+    const o = t ? `${t}/${r.name}` : r.name;
+    r.kind === "dir" ? gt(r, o, n) : n.push(o);
   }
 }
-async function walkMaterialize(node, prefix, destDir, writeFile) {
-  for (const child of node.children.values()) {
-    const entryPath = prefix ? `${prefix}/${child.name}` : child.name;
-    const abs = path.join(destDir, child.name);
-    if (child.kind === "dir") {
-      await fs.promises.mkdir(abs, { recursive: true });
-      await walkMaterialize(child, entryPath, abs, writeFile);
-    } else {
-      await writeFile(entryPath, abs);
-    }
+async function xt(e, t, n, r) {
+  for (const o of e.children.values()) {
+    const i = t ? `${t}/${o.name}` : o.name, s = u.join(n, o.name);
+    o.kind === "dir" ? (await l.promises.mkdir(s, { recursive: !0 }), await xt(o, i, s, r)) : await r(i, s);
   }
 }
-async function openIsoBlobFromExtents(source) {
-  const block = source.blockSize || 2048;
-  if (source.extents.length === 1) {
-    const e = source.extents[0];
-    return source.iso.slice(e.lba * block, e.lba * block + e.size);
+async function zn(e) {
+  const t = e.blockSize || 2048;
+  if (e.extents.length === 1) {
+    const r = e.extents[0];
+    return e.iso.slice(r.lba * t, r.lba * t + r.size);
   }
-  const parts = [];
-  for (const e of source.extents) {
-    parts.push(source.iso.slice(e.lba * block, e.lba * block + e.size));
-  }
-  return new Blob(parts);
+  const n = [];
+  for (const r of e.extents)
+    n.push(e.iso.slice(r.lba * t, r.lba * t + r.size));
+  return new Blob(n);
 }
-async function writeBlobToFile$1(blob, filePath, signal) {
-  throwIfAborted$2(signal);
-  if (blob.size < 8 * 1024 * 1024) {
-    const buf = Buffer.from(await blob.arrayBuffer());
-    throwIfAborted$2(signal);
-    await fs.promises.writeFile(filePath, buf, { signal });
+async function et(e, t, n) {
+  if (M(n), e.size < 8 * 1024 * 1024) {
+    const o = Buffer.from(await e.arrayBuffer());
+    M(n), await l.promises.writeFile(t, o, { signal: n });
     return;
   }
-  const stream = blob.stream();
-  await pipeline(Readable.fromWeb(stream), fs.createWriteStream(filePath), { signal });
+  const r = e.stream();
+  await lt(Ue.fromWeb(r), l.createWriteStream(t), { signal: n });
 }
-function throwIfAborted$2(signal) {
-  if (signal == null ? void 0 : signal.aborted) throw new Error("JOB_CANCELED");
+function M(e) {
+  if (e != null && e.aborted) throw new Error("JOB_CANCELED");
 }
-async function writeIso(root, volumeLabel, onProgress, signal, readPathFile) {
-  var _a;
-  throwIfAborted$1(signal);
-  const label = sanitizeLabel(volumeLabel);
-  const dirs = [];
-  const files = [];
-  collect(root, "", dirs, files);
-  throwIfAborted$1(signal);
-  let nextLba = 19;
-  for (const dir of dirs) {
-    dir.lba = nextLba;
-    dir.size = estimateDirSize(dir, false);
-    nextLba += sectorsFor(dir.size);
-  }
-  const pathTableSize = 10;
-  const pathTableLba = nextLba;
-  nextLba += 1;
-  const pathTableMLba = nextLba;
-  nextLba += 1;
-  const jolietDirs = dirs.map((d) => ({
-    path: d.path,
-    node: d.node,
+async function En(e, t, n, r, o) {
+  var Ve;
+  K(r);
+  const i = Bn(t), s = [], c = [];
+  At(e, "", s, c), K(r);
+  let a = 19;
+  for (const x of s)
+    x.lba = a, x.size = tt(x, !1), a += de(x.size);
+  const f = 10, p = a;
+  a += 1;
+  const v = a;
+  a += 1;
+  const d = s.map((x) => ({
+    path: x.path,
+    node: x.node,
     lba: 0,
-    size: estimateDirSize(d, true)
+    size: tt(x, !0)
   }));
-  for (const dir of jolietDirs) {
-    dir.lba = nextLba;
-    nextLba += sectorsFor(dir.size);
-  }
-  const jolietPathLba = nextLba;
-  nextLba += 1;
-  const jolietPathMLba = nextLba;
-  nextLba += 1;
-  for (const file of files) {
-    file.lba = nextLba;
-    nextLba += sectorsFor(Math.max(file.size, 1));
-  }
-  const volumeSectors = nextLba;
-  const parts = [];
-  onProgress == null ? void 0 : onProgress({ phase: "write", percent: 5, message: "볼륨 헤더 작성…" });
-  throwIfAborted$1(signal);
-  parts.push(toBlob(new Uint8Array(16 * SECTOR)));
-  const pvd = blankSector();
-  writePrimaryVolume(pvd, label, dirs[0], pathTableLba, pathTableMLba, pathTableSize, volumeSectors);
-  parts.push(toBlob(pvd));
-  const svd = blankSector();
-  writeJolietVolume(svd, label, jolietDirs[0], jolietPathLba, jolietPathMLba, pathTableSize, volumeSectors);
-  parts.push(toBlob(svd));
-  const term = blankSector();
-  term[0] = 255;
-  writeAscii(term, 1, "CD001");
-  term[6] = 1;
-  parts.push(toBlob(term));
-  const metaStart = 19;
-  const filesStart = ((_a = files[0]) == null ? void 0 : _a.lba) ?? volumeSectors;
-  const metaSectors = filesStart - metaStart;
-  const meta = new Uint8Array(metaSectors * SECTOR);
-  writePathTableInto(meta, pathTableLba - metaStart, dirs[0].lba, false);
-  writePathTableInto(meta, pathTableMLba - metaStart, dirs[0].lba, true);
-  writePathTableInto(meta, jolietPathLba - metaStart, jolietDirs[0].lba, false);
-  writePathTableInto(meta, jolietPathMLba - metaStart, jolietDirs[0].lba, true);
-  writeDirectoryRecordsInto(meta, metaStart, dirs, files, false);
-  writeDirectoryRecordsInto(meta, metaStart, jolietDirs, files, true);
-  parts.push(toBlob(meta));
-  onProgress == null ? void 0 : onProgress({ phase: "write", percent: 20, message: "파일 데이터 연결…" });
-  throwIfAborted$1(signal);
-  const totalFiles = Math.max(files.length, 1);
-  for (let i = 0; i < files.length; i++) {
-    throwIfAborted$1(signal);
-    const file = files[i];
-    onProgress == null ? void 0 : onProgress({
+  for (const x of d)
+    x.lba = a, a += de(x.size);
+  const h = a;
+  a += 1;
+  const m = a;
+  a += 1;
+  for (const x of c)
+    x.lba = a, a += de(Math.max(x.size, 1));
+  const g = a, A = [];
+  n == null || n({ phase: "write", percent: 5, message: "볼륨 헤더 작성…" }), K(r), A.push(U(new Uint8Array(16 * w)));
+  const b = Ce();
+  Mn(b, i, s[0], p, v, f, g), A.push(U(b));
+  const $ = Ce();
+  Cn($, i, d[0], h, m, f, g), A.push(U($));
+  const k = Ce();
+  k[0] = 255, R(k, 1, "CD001"), k[6] = 1, A.push(U(k));
+  const O = 19, Wt = (((Ve = c[0]) == null ? void 0 : Ve.lba) ?? g) - O, F = new Uint8Array(Wt * w);
+  me(F, p - O, s[0].lba, !1), me(F, v - O, s[0].lba, !0), me(F, h - O, d[0].lba, !1), me(F, m - O, d[0].lba, !0), nt(F, O, s, c, !1), nt(F, O, d, c, !0), A.push(U(F)), n == null || n({ phase: "write", percent: 20, message: "파일 데이터 연결…" }), K(r);
+  const Kt = Math.max(c.length, 1);
+  for (let x = 0; x < c.length; x++) {
+    K(r);
+    const ee = c[x];
+    n == null || n({
       phase: "write",
-      percent: 20 + Math.round(i / totalFiles * 75),
-      message: `파일 포함: ${file.path}`
-    });
-    parts.push(await filePayload(file, readPathFile));
-    throwIfAborted$1(signal);
-    const padded = sectorsFor(Math.max(file.size, 1)) * SECTOR - Math.max(file.size, 1);
-    if (file.size === 0) {
-      parts.push(toBlob(new Uint8Array(SECTOR)));
-    } else if (padded > 0) {
-      parts.push(toBlob(new Uint8Array(padded)));
-    }
+      percent: 20 + Math.round(x / Kt * 75),
+      message: `파일 포함: ${ee.path}`
+    }), A.push(await $n(ee, o)), K(r);
+    const He = de(Math.max(ee.size, 1)) * w - Math.max(ee.size, 1);
+    ee.size === 0 ? A.push(U(new Uint8Array(w))) : He > 0 && A.push(U(new Uint8Array(He)));
   }
-  onProgress == null ? void 0 : onProgress({ phase: "write", percent: 100, message: "ISO 작성 완료" });
-  return new Blob(parts, { type: "application/x-iso9660-image" });
+  return n == null || n({ phase: "write", percent: 100, message: "ISO 작성 완료" }), new Blob(A, { type: "application/x-iso9660-image" });
 }
-function throwIfAborted$1(signal) {
-  if (signal == null ? void 0 : signal.aborted) throw new Error("JOB_CANCELED");
+function K(e) {
+  if (e != null && e.aborted) throw new Error("JOB_CANCELED");
 }
-async function filePayload(file, readPathFile) {
-  if (file.size === 0) return new Blob([]);
-  const src = file.node.source;
-  if (src.type === "blob") {
-    return src.blob.slice(0, file.size);
+async function $n(e, t) {
+  if (e.size === 0) return new Blob([]);
+  const n = e.node.source;
+  if (n.type === "blob")
+    return n.blob.slice(0, e.size);
+  if (n.type === "unavailable")
+    throw new Error(n.reason);
+  if (n.type === "path") {
+    if (!t)
+      throw new Error(`경로 소스는 데스크톱에서만 저장할 수 있습니다: ${n.absolutePath}`);
+    return (await t(n.absolutePath)).slice(0, e.size);
   }
-  if (src.type === "unavailable") {
-    throw new Error(src.reason);
+  if (n.extents.length === 1) {
+    const i = n.extents[0], s = n.blockSize || w;
+    return n.iso.slice(i.lba * s, i.lba * s + i.size);
   }
-  if (src.type === "path") {
-    if (!readPathFile) {
-      throw new Error(`경로 소스는 데스크톱에서만 저장할 수 있습니다: ${src.absolutePath}`);
-    }
-    const blob = await readPathFile(src.absolutePath);
-    return blob.slice(0, file.size);
-  }
-  if (src.extents.length === 1) {
-    const e = src.extents[0];
-    const block2 = src.blockSize || SECTOR;
-    return src.iso.slice(e.lba * block2, e.lba * block2 + e.size);
-  }
-  const parts = [];
-  const block = src.blockSize || SECTOR;
-  for (const e of src.extents) {
-    parts.push(src.iso.slice(e.lba * block, e.lba * block + e.size));
-  }
-  return new Blob(parts);
+  const r = [], o = n.blockSize || w;
+  for (const i of n.extents)
+    r.push(n.iso.slice(i.lba * o, i.lba * o + i.size));
+  return new Blob(r);
 }
-function toBlob(bytes) {
-  const copy = new Uint8Array(bytes.byteLength);
-  copy.set(bytes);
-  return new Blob([copy.buffer]);
+function U(e) {
+  const t = new Uint8Array(e.byteLength);
+  return t.set(e), new Blob([t.buffer]);
 }
-function collect(node, path2, dirs, files) {
-  dirs.push({ path: path2, node, lba: 0, size: 0 });
-  for (const child of sortedChildren(node)) {
-    const childPath = path2 ? `${path2}/${child.name}` : child.name;
-    if (child.kind === "dir") collect(child, childPath, dirs, files);
-    else files.push({ path: childPath, node: child, lba: 0, size: child.size });
+function At(e, t, n, r) {
+  n.push({ path: t, node: e, lba: 0, size: 0 });
+  for (const o of je(e)) {
+    const i = t ? `${t}/${o.name}` : o.name;
+    o.kind === "dir" ? At(o, i, n, r) : r.push({ path: i, node: o, lba: 0, size: o.size });
   }
 }
-function sortedChildren(node) {
-  return [...node.children.values()].sort((a, b) => a.name.localeCompare(b.name));
+function je(e) {
+  return [...e.children.values()].sort((t, n) => t.name.localeCompare(n.name));
 }
-function estimateDirSize(dir, joliet) {
-  let size = 34 + 34;
-  for (const child of sortedChildren(dir.node)) {
-    const id = joliet ? encodeJolietName(child.name) : iso9660FileId(child.name, child.kind === "dir");
-    let rec = 33 + id.length;
-    if (rec % 2 === 1) rec += 1;
-    size += rec;
+function tt(e, t) {
+  let n = 68;
+  for (const r of je(e.node)) {
+    let i = 33 + (t ? ve(r.name) : Oe(r.name, r.kind === "dir")).length;
+    i % 2 === 1 && (i += 1), n += i;
   }
-  return Math.max(SECTOR, Math.ceil(size / SECTOR) * SECTOR);
+  return Math.max(w, Math.ceil(n / w) * w);
 }
-function sectorsFor(bytes) {
-  return Math.max(1, Math.ceil(bytes / SECTOR));
+function de(e) {
+  return Math.max(1, Math.ceil(e / w));
 }
-function writePrimaryVolume(sector, label, root, pathL, pathM, pathSize, volumeSectors) {
-  sector[0] = 1;
-  writeAscii(sector, 1, "CD001");
-  sector[6] = 1;
-  writeAscii(sector, 8, "ISOMAKER");
-  writeAscii(sector, 40, label.padEnd(32).slice(0, 32));
-  writeBothU32(sector, 80, volumeSectors);
-  writeBothU16(sector, 120, 1);
-  writeBothU16(sector, 124, 1);
-  writeBothU16(sector, 128, SECTOR);
-  writeBothU32(sector, 132, pathSize);
-  writeU32LEOnly(sector, 140, pathL);
-  writeU32LEOnly(sector, 148, pathM);
-  writeDirectoryRecord(sector, 156, root.lba, root.size, 2, new Uint8Array([0]));
-  writeAscii(sector, 881, "ISOMAKER");
+function Mn(e, t, n, r, o, i, s) {
+  e[0] = 1, R(e, 1, "CD001"), e[6] = 1, R(e, 8, "ISOMAKER"), R(e, 40, t.padEnd(32).slice(0, 32)), V(e, 80, s), q(e, 120, 1), q(e, 124, 1), q(e, 128, w), V(e, 132, i), se(e, 140, r), se(e, 148, o), Te(e, 156, n.lba, n.size, 2, new Uint8Array([0])), R(e, 881, "ISOMAKER");
 }
-function writeJolietVolume(sector, label, root, pathL, pathM, pathSize, volumeSectors) {
-  sector[0] = 2;
-  writeAscii(sector, 1, "CD001");
-  sector[6] = 1;
-  writeAscii(sector, 8, "ISOMAKER");
-  const jolietLabel = encodeJolietName(label.slice(0, 16));
-  sector.set(jolietLabel.subarray(0, Math.min(32, jolietLabel.length)), 40);
-  writeBothU32(sector, 80, volumeSectors);
-  sector[88] = 37;
-  sector[89] = 47;
-  sector[90] = 64;
-  writeBothU16(sector, 120, 1);
-  writeBothU16(sector, 124, 1);
-  writeBothU16(sector, 128, SECTOR);
-  writeBothU32(sector, 132, pathSize);
-  writeU32LEOnly(sector, 140, pathL);
-  writeU32LEOnly(sector, 148, pathM);
-  writeDirectoryRecord(sector, 156, root.lba, root.size, 2, new Uint8Array([0]));
+function Cn(e, t, n, r, o, i, s) {
+  e[0] = 2, R(e, 1, "CD001"), e[6] = 1, R(e, 8, "ISOMAKER");
+  const c = ve(t.slice(0, 16));
+  e.set(c.subarray(0, Math.min(32, c.length)), 40), V(e, 80, s), e[88] = 37, e[89] = 47, e[90] = 64, q(e, 120, 1), q(e, 124, 1), q(e, 128, w), V(e, 132, i), se(e, 140, r), se(e, 148, o), Te(e, 156, n.lba, n.size, 2, new Uint8Array([0]));
 }
-function writePathTableInto(meta, sectorIndex, rootDirLba, msb) {
-  const buf = meta.subarray(sectorIndex * SECTOR, sectorIndex * SECTOR + SECTOR);
-  buf[0] = 1;
-  buf[1] = 0;
-  if (msb) {
-    buf[2] = rootDirLba >>> 24 & 255;
-    buf[3] = rootDirLba >>> 16 & 255;
-    buf[4] = rootDirLba >>> 8 & 255;
-    buf[5] = rootDirLba & 255;
-    buf[6] = 0;
-    buf[7] = 1;
-  } else {
-    writeU32LEOnly(buf, 2, rootDirLba);
-    writeU16LE(buf, 6, 1);
-  }
-  buf[8] = 0;
+function me(e, t, n, r) {
+  const o = e.subarray(t * w, t * w + w);
+  o[0] = 1, o[1] = 0, r ? (o[2] = n >>> 24 & 255, o[3] = n >>> 16 & 255, o[4] = n >>> 8 & 255, o[5] = n & 255, o[6] = 0, o[7] = 1) : (se(o, 2, n), dt(o, 6, 1)), o[8] = 0;
 }
-function writeDirectoryRecordsInto(meta, metaStartLba, dirs, files, joliet) {
-  const byPath = new Map(dirs.map((d) => [d.path, d]));
-  for (const dir of dirs) {
-    const local = (dir.lba - metaStartLba) * SECTOR;
-    const buf = meta.subarray(local, local + dir.size);
-    let offset = 0;
-    const parentPath = parentOf(dir.path);
-    const parent = parentPath === null ? dir : byPath.get(parentPath) ?? dir;
-    offset = putDirRecord(buf, offset, dir.lba, dir.size, 2, new Uint8Array([0]));
-    offset = putDirRecord(buf, offset, parent.lba, parent.size, 2, new Uint8Array([1]));
-    for (const child of sortedChildren(dir.node)) {
-      const childPath = dir.path ? `${dir.path}/${child.name}` : child.name;
-      if (child.kind === "dir") {
-        const planned = byPath.get(childPath);
-        if (!planned) continue;
-        const id = joliet ? encodeJolietName(child.name) : iso9660FileId(child.name, true);
-        offset = putDirRecord(buf, offset, planned.lba, planned.size, 2, id);
+function nt(e, t, n, r, o) {
+  const i = new Map(n.map((s) => [s.path, s]));
+  for (const s of n) {
+    const c = (s.lba - t) * w, a = e.subarray(c, c + s.size);
+    let f = 0;
+    const p = Dn(s.path), v = p === null ? s : i.get(p) ?? s;
+    f = pe(a, f, s.lba, s.size, 2, new Uint8Array([0])), f = pe(a, f, v.lba, v.size, 2, new Uint8Array([1]));
+    for (const d of je(s.node)) {
+      const h = s.path ? `${s.path}/${d.name}` : d.name;
+      if (d.kind === "dir") {
+        const m = i.get(h);
+        if (!m) continue;
+        const g = o ? ve(d.name) : Oe(d.name, !0);
+        f = pe(a, f, m.lba, m.size, 2, g);
       } else {
-        const planned = files.find((f) => f.path === childPath);
-        if (!planned) continue;
-        const id = joliet ? encodeJolietName(child.name) : iso9660FileId(child.name, false);
-        offset = putDirRecord(buf, offset, planned.lba, planned.size, 0, id);
+        const m = r.find((A) => A.path === h);
+        if (!m) continue;
+        const g = o ? ve(d.name) : Oe(d.name, !1);
+        f = pe(a, f, m.lba, m.size, 0, g);
       }
     }
   }
 }
-function putDirRecord(buf, offset, lba, size, flags, id) {
-  let recLen = 33 + id.length;
-  if (recLen % 2 === 1) recLen += 1;
-  if (offset + recLen > buf.length) return offset;
-  writeDirectoryRecord(buf, offset, lba, size, flags, id);
-  return offset + recLen;
+function pe(e, t, n, r, o, i) {
+  let s = 33 + i.length;
+  return s % 2 === 1 && (s += 1), t + s > e.length ? t : (Te(e, t, n, r, o, i), t + s);
 }
-function writeDirectoryRecord(buf, offset, lba, size, flags, id) {
-  let recLen = 33 + id.length;
-  if (recLen % 2 === 1) recLen += 1;
-  writeU8(buf, offset, recLen);
-  writeU8(buf, offset + 1, 0);
-  writeBothU32(buf, offset + 2, lba);
-  writeBothU32(buf, offset + 10, size);
-  writeU8(buf, offset + 25, flags);
-  writeBothU16(buf, offset + 28, 1);
-  writeU8(buf, offset + 32, id.length);
-  buf.set(id, offset + 33);
+function Te(e, t, n, r, o, i) {
+  let s = 33 + i.length;
+  s % 2 === 1 && (s += 1), fe(e, t, s), fe(e, t + 1, 0), V(e, t + 2, n), V(e, t + 10, r), fe(e, t + 25, o), q(e, t + 28, 1), fe(e, t + 32, i.length), e.set(i, t + 33);
 }
-function blankSector() {
-  return new Uint8Array(SECTOR);
+function Ce() {
+  return new Uint8Array(w);
 }
-function writeAscii(buf, offset, text) {
-  buf.set(encodeAsciiPadded(text, text.length, 0), offset);
+function R(e, t, n) {
+  e.set(mt(n, n.length, 0), t);
 }
-function writeU32LEOnly(buf, offset, value) {
-  buf[offset] = value & 255;
-  buf[offset + 1] = value >>> 8 & 255;
-  buf[offset + 2] = value >>> 16 & 255;
-  buf[offset + 3] = value >>> 24 & 255;
+function se(e, t, n) {
+  e[t] = n & 255, e[t + 1] = n >>> 8 & 255, e[t + 2] = n >>> 16 & 255, e[t + 3] = n >>> 24 & 255;
 }
-function sanitizeLabel(label) {
-  return (label || "ISOMAKER").replace(/[^\w.-]+/g, "_").slice(0, 32);
+function Bn(e) {
+  return (e || "ISOMAKER").replace(/[^\w.-]+/g, "_").slice(0, 32);
 }
-function parentOf(path2) {
-  if (!path2) return null;
-  const idx = path2.lastIndexOf("/");
-  if (idx < 0) return "";
-  return path2.slice(0, idx);
+function Dn(e) {
+  if (!e) return null;
+  const t = e.lastIndexOf("/");
+  return t < 0 ? "" : e.slice(0, t);
 }
-class IsoEditSession {
-  constructor(original, opened) {
-    __publicField(this, "original");
-    __publicField(this, "volumeLabel");
-    __publicField(this, "root");
-    __publicField(this, "dirty", false);
-    __publicField(this, "entriesCache", []);
-    this.original = original;
-    this.volumeLabel = opened.volumeLabel;
-    this.root = cloneTree(opened.root);
-    this.entriesCache = opened.entries;
+class ae {
+  constructor(t, n) {
+    W(this, "original");
+    W(this, "volumeLabel");
+    W(this, "root");
+    W(this, "dirty", !1);
+    W(this, "entriesCache", []);
+    this.original = t, this.volumeLabel = n.volumeLabel, this.root = zt(n.root), this.entriesCache = n.entries;
   }
-  static async open(file) {
-    const opened = await openIso(file);
-    return new IsoEditSession(file, opened);
+  static async open(t) {
+    const n = await pt(t);
+    return new ae(t, n);
   }
   /** Build a session from an already-materialized directory tree (AppImage / Docker extract). */
-  static fromDirectoryTree(root, volumeLabel, original = new Blob([])) {
-    const opened = {
-      volumeLabel,
-      root,
+  static fromDirectoryTree(t, n, r = new Blob([])) {
+    const o = {
+      volumeLabel: n,
+      root: t,
       entries: [],
       totalBytes: 0
-    };
-    const session2 = new IsoEditSession(original, opened);
-    session2.refreshEntries();
-    return session2;
+    }, i = new ae(r, o);
+    return i.refreshEntries(), i;
   }
   get entries() {
     return this.entriesCache;
   }
-  list(dirPath) {
-    return listChildren(this.root, dirPath);
+  list(t) {
+    return mn(this.root, t);
   }
-  async readFile(path2) {
-    const node = getNodeAtPath(this.root, path2);
-    if (!node || node.kind !== "file") {
-      throw new Error(`파일이 없습니다: ${path2}`);
-    }
-    if (node.source.type === "blob") return node.source.blob;
-    if (node.source.type === "unavailable") {
-      throw new Error(node.source.reason);
-    }
-    if (node.source.type === "path") {
+  async readFile(t) {
+    const n = z(this.root, t);
+    if (!n || n.kind !== "file")
+      throw new Error(`파일이 없습니다: ${t}`);
+    if (n.source.type === "blob") return n.source.blob;
+    if (n.source.type === "unavailable")
+      throw new Error(n.source.reason);
+    if (n.source.type === "path")
       throw new Error(
-        `경로 소스는 데스크톱에서만 읽을 수 있습니다: ${node.source.absolutePath}`
+        `경로 소스는 데스크톱에서만 읽을 수 있습니다: ${n.source.absolutePath}`
       );
-    }
-    return readIsoFile(node.source.iso, node.source.extents, node.source.blockSize);
+    return cn(n.source.iso, n.source.extents, n.source.blockSize);
   }
-  remove(path2) {
-    const parts = path2.split("/").filter(Boolean);
-    if (parts.length === 0) throw new Error("루트는 삭제할 수 없습니다.");
-    const name = parts[parts.length - 1];
-    const parentPath = parts.slice(0, -1).join("/");
-    const parent = getNodeAtPath(this.root, parentPath);
-    if (!parent || parent.kind !== "dir") throw new Error(`경로가 없습니다: ${path2}`);
-    if (!parent.children.delete(normalizeKey(name))) {
-      throw new Error(`항목이 없습니다: ${path2}`);
-    }
-    this.dirty = true;
-    this.refreshEntries();
+  remove(t) {
+    const n = t.split("/").filter(Boolean);
+    if (n.length === 0) throw new Error("루트는 삭제할 수 없습니다.");
+    const r = n[n.length - 1], o = n.slice(0, -1).join("/"), i = z(this.root, o);
+    if (!i || i.kind !== "dir") throw new Error(`경로가 없습니다: ${t}`);
+    if (!i.children.delete(I(r)))
+      throw new Error(`항목이 없습니다: ${t}`);
+    this.dirty = !0, this.refreshEntries();
   }
-  async addFiles(dirPath, files) {
-    const parent = getNodeAtPath(this.root, dirPath);
-    if (!parent || parent.kind !== "dir") throw new Error(`폴더가 없습니다: ${dirPath || "/"}`);
-    for (const file of Array.from(files)) {
-      const name = file.name;
-      parent.children.set(normalizeKey(name), {
+  async addFiles(t, n) {
+    const r = z(this.root, t);
+    if (!r || r.kind !== "dir") throw new Error(`폴더가 없습니다: ${t || "/"}`);
+    for (const o of Array.from(n)) {
+      const i = o.name;
+      r.children.set(I(i), {
         kind: "file",
-        name,
-        size: file.size,
-        source: { type: "blob", blob: file }
+        name: i,
+        size: o.size,
+        source: { type: "blob", blob: o }
       });
     }
-    this.dirty = true;
-    this.refreshEntries();
+    this.dirty = !0, this.refreshEntries();
   }
   /** Add a file by absolute disk path (desktop) without loading it into memory. */
-  addFileFromPath(dirPath, name, absolutePath, size) {
-    const parent = getNodeAtPath(this.root, dirPath);
-    if (!parent || parent.kind !== "dir") throw new Error(`폴더가 없습니다: ${dirPath || "/"}`);
-    parent.children.set(normalizeKey(name), {
+  addFileFromPath(t, n, r, o) {
+    const i = z(this.root, t);
+    if (!i || i.kind !== "dir") throw new Error(`폴더가 없습니다: ${t || "/"}`);
+    i.children.set(I(n), {
       kind: "file",
-      name,
-      size,
-      source: { type: "path", absolutePath }
-    });
-    this.dirty = true;
-    this.refreshEntries();
+      name: n,
+      size: o,
+      source: { type: "path", absolutePath: r }
+    }), this.dirty = !0, this.refreshEntries();
   }
-  mkdir(dirPath, name) {
-    const parent = getNodeAtPath(this.root, dirPath);
-    if (!parent || parent.kind !== "dir") throw new Error(`폴더가 없습니다: ${dirPath || "/"}`);
-    if (parent.children.has(normalizeKey(name))) {
-      throw new Error(`이미 존재합니다: ${name}`);
-    }
-    parent.children.set(normalizeKey(name), {
+  mkdir(t, n) {
+    const r = z(this.root, t);
+    if (!r || r.kind !== "dir") throw new Error(`폴더가 없습니다: ${t || "/"}`);
+    if (r.children.has(I(n)))
+      throw new Error(`이미 존재합니다: ${n}`);
+    r.children.set(I(n), {
       kind: "dir",
-      name,
+      name: n,
       children: /* @__PURE__ */ new Map()
-    });
-    this.dirty = true;
-    this.refreshEntries();
+    }), this.dirty = !0, this.refreshEntries();
   }
-  rename(path2, newName) {
-    const parts = path2.split("/").filter(Boolean);
-    if (parts.length === 0) throw new Error("루트 이름은 변경할 수 없습니다.");
-    const oldName = parts[parts.length - 1];
-    const parentPath = parts.slice(0, -1).join("/");
-    const parent = getNodeAtPath(this.root, parentPath);
-    if (!parent || parent.kind !== "dir") throw new Error(`경로가 없습니다: ${path2}`);
-    const node = parent.children.get(normalizeKey(oldName));
-    if (!node) throw new Error(`항목이 없습니다: ${path2}`);
-    if (parent.children.has(normalizeKey(newName))) {
-      throw new Error(`이미 존재합니다: ${newName}`);
-    }
-    parent.children.delete(normalizeKey(oldName));
-    node.name = newName;
-    parent.children.set(normalizeKey(newName), node);
-    this.dirty = true;
-    this.refreshEntries();
+  rename(t, n) {
+    const r = t.split("/").filter(Boolean);
+    if (r.length === 0) throw new Error("루트 이름은 변경할 수 없습니다.");
+    const o = r[r.length - 1], i = r.slice(0, -1).join("/"), s = z(this.root, i);
+    if (!s || s.kind !== "dir") throw new Error(`경로가 없습니다: ${t}`);
+    const c = s.children.get(I(o));
+    if (!c) throw new Error(`항목이 없습니다: ${t}`);
+    if (s.children.has(I(n)))
+      throw new Error(`이미 존재합니다: ${n}`);
+    s.children.delete(I(o)), c.name = n, s.children.set(I(n), c), this.dirty = !0, this.refreshEntries();
   }
-  async exportIso(onProgress, signal, readPathFile) {
-    return writeIso(this.root, this.volumeLabel, onProgress, signal, readPathFile);
+  async exportIso(t, n, r) {
+    return En(this.root, this.volumeLabel, t, n, r);
   }
   refreshEntries() {
-    const entries = [];
-    walk(this.root, "", entries);
-    entries.sort((a, b) => a.path.localeCompare(b.path));
-    this.entriesCache = entries;
+    const t = [];
+    It(this.root, "", t), t.sort((n, r) => n.path.localeCompare(r.path)), this.entriesCache = t;
   }
 }
-function walk(node, path2, entries) {
-  for (const child of node.children.values()) {
-    const childPath = path2 ? `${path2}/${child.name}` : child.name;
-    if (child.kind === "dir") {
-      entries.push({ path: childPath, name: child.name, isDir: true, size: 0 });
-      walk(child, childPath, entries);
-    } else {
-      entries.push({ path: childPath, name: child.name, isDir: false, size: child.size });
-    }
+function It(e, t, n) {
+  for (const r of e.children.values()) {
+    const o = t ? `${t}/${r.name}` : r.name;
+    r.kind === "dir" ? (n.push({ path: o, name: r.name, isDir: !0, size: 0 }), It(r, o, n)) : n.push({ path: o, name: r.name, isDir: !1, size: r.size });
   }
 }
-function cloneTree(node) {
-  const copy = { kind: "dir", name: node.name, children: /* @__PURE__ */ new Map() };
-  for (const [key, child] of node.children) {
-    copy.children.set(key, cloneNode(child));
-  }
-  return copy;
+function zt(e) {
+  const t = { kind: "dir", name: e.name, children: /* @__PURE__ */ new Map() };
+  for (const [n, r] of e.children)
+    t.children.set(n, On(r));
+  return t;
 }
-function cloneNode(node) {
-  if (node.kind === "dir") return cloneTree(node);
-  return {
+function On(e) {
+  return e.kind === "dir" ? zt(e) : {
     kind: "file",
-    name: node.name,
-    size: node.size,
-    source: node.source
+    name: e.name,
+    size: e.size,
+    source: e.source
   };
 }
-const DISC_IMAGE_EXTENSIONS = ["iso", "img"];
-function discImageFileFilters(lang = "ko") {
+const Ln = ["iso", "img"];
+function _n(e = "ko") {
   return [
     {
-      name: lang === "en" ? "Supported images (*.iso, *.img, *.AppImage, *.tar)" : "지원 이미지 (*.iso, *.img, *.AppImage, *.tar)",
+      name: e === "en" ? "Supported images (*.iso, *.img, *.AppImage, *.tar)" : "지원 이미지 (*.iso, *.img, *.AppImage, *.tar)",
       extensions: ["iso", "img", "AppImage", "appimage", "tar", "tgz", "docker"]
     },
     {
       name: "ISO / IMG",
-      extensions: [...DISC_IMAGE_EXTENSIONS]
+      extensions: [...Ln]
     },
     {
       name: "AppImage",
       extensions: ["AppImage", "appimage"]
     },
     {
-      name: lang === "en" ? "Docker save / tar" : "Docker 저장본 / tar",
+      name: e === "en" ? "Docker save / tar" : "Docker 저장본 / tar",
       extensions: ["tar", "tgz", "docker"]
     },
     {
-      name: lang === "en" ? "All files" : "모든 파일",
+      name: e === "en" ? "All files" : "모든 파일",
       extensions: ["*"]
     }
   ];
 }
-function saveImageFileFilters(lang = "ko", preferred) {
-  const iso = { name: "ISO", extensions: ["iso"] };
-  const img = { name: "IMG", extensions: ["img"] };
-  const app2 = {
+function Et(e = "ko", t) {
+  const n = { name: "ISO", extensions: ["iso"] }, r = { name: "IMG", extensions: ["img"] }, o = {
     name: "AppImage",
     extensions: ["AppImage", "appimage"]
-  };
-  const docker = {
-    name: lang === "en" ? "Docker save / tar" : "Docker 저장본 / tar",
+  }, i = {
+    name: e === "en" ? "Docker save / tar" : "Docker 저장본 / tar",
     extensions: ["tar", "tgz", "docker"]
-  };
-  const tgz = {
-    name: lang === "en" ? "Compressed tar (.tgz)" : "압축 tar (.tgz)",
+  }, s = {
+    name: e === "en" ? "Compressed tar (.tgz)" : "압축 tar (.tgz)",
     extensions: ["tgz"]
-  };
-  const all = {
-    name: lang === "en" ? "All files" : "모든 파일",
+  }, c = {
+    name: e === "en" ? "All files" : "모든 파일",
     extensions: ["*"]
   };
-  const byKind = {
-    iso: [iso, img, app2, docker, tgz],
-    img: [img, iso, app2, docker, tgz],
-    appimage: [app2, iso, img, docker, tgz],
-    docker: [docker, tgz, iso, img, app2]
-  };
-  const ordered = preferred && preferred !== "unknown" ? byKind[preferred] : [iso, img, app2, docker, tgz];
-  return [...ordered, all];
+  return [...t && t !== "unknown" ? {
+    iso: [n, r, o, i, s],
+    img: [r, n, o, i, s],
+    appimage: [o, n, r, i, s],
+    docker: [i, s, n, r, o]
+  }[t] : [n, r, o, i, s], c];
 }
-function guessImageKindByName(filePath) {
-  const base = filePath.replace(/^.*[/\\]/, "").toLowerCase();
-  if (base.endsWith(".appimage")) return "appimage";
-  if (base.endsWith(".iso")) return "iso";
-  if (base.endsWith(".img")) return "img";
-  if (base.endsWith(".tar.gz") || base.endsWith(".tgz") || base.endsWith(".tar") || base.endsWith(".docker")) {
-    return "docker";
+function xe(e) {
+  const t = e.replace(/^.*[/\\]/, "").toLowerCase();
+  return t.endsWith(".appimage") ? "appimage" : t.endsWith(".iso") ? "iso" : t.endsWith(".img") ? "img" : t.endsWith(".tar.gz") || t.endsWith(".tgz") || t.endsWith(".tar") || t.endsWith(".docker") ? "docker" : "unknown";
+}
+function Fn(e) {
+  return e === "appimage" || e === "docker";
+}
+function Un(e) {
+  const t = e.replace(/^.*[/\\]/, "");
+  if (/\.tar\.gz$/i.test(t))
+    return `${t.replace(/\.tar\.gz$/i, "") || "image"}-edited.tar.gz`;
+  const n = t.match(/^(.*)\.(iso|img|appimage|tar|tgz|docker)$/i);
+  if (n) {
+    const r = n[2], o = r.toLowerCase() === "appimage" ? "AppImage" : r.toLowerCase();
+    return `${n[1]}-edited.${o}`;
   }
-  return "unknown";
+  return `${t || "image"}-edited.iso`;
 }
-function isArchiveImageKind(kind) {
-  return kind === "appimage" || kind === "docker";
+function Rn(e) {
+  const t = e.toLowerCase();
+  return t.endsWith(".tgz") || t.endsWith(".tar.gz");
 }
-function editedImageName(sourcePathOrName) {
-  const base = sourcePathOrName.replace(/^.*[/\\]/, "");
-  if (/\.tar\.gz$/i.test(base)) {
-    const stem = base.replace(/\.tar\.gz$/i, "") || "image";
-    return `${stem}-edited.tar.gz`;
-  }
-  const m = base.match(/^(.*)\.(iso|img|appimage|tar|tgz|docker)$/i);
-  if (m) {
-    const rawExt = m[2];
-    const ext = rawExt.toLowerCase() === "appimage" ? "AppImage" : rawExt.toLowerCase();
-    return `${m[1]}-edited.${ext}`;
-  }
-  return `${base || "image"}-edited.iso`;
-}
-function isGzipTarPath(filePath) {
-  const lower = filePath.toLowerCase();
-  return lower.endsWith(".tgz") || lower.endsWith(".tar.gz");
-}
-const READ_CHUNK = 64 * 1024 * 1024;
-async function openIsoBlob(filePath) {
-  const size = fs.statSync(filePath).size;
+const jn = 64 * 1024 * 1024;
+async function qe(e) {
+  const t = l.statSync(e).size;
   try {
-    const blob = await openAsBlob(filePath);
-    if (blob.size === size) return blob;
+    const n = await ct(e);
+    if (n.size === t) return n;
   } catch {
   }
-  return createPathBlob(filePath, 0, size);
+  return $t(e, 0, t);
 }
-function createPathBlob(filePath, absStart, absEnd) {
-  const size = Math.max(0, absEnd - absStart);
-  const blob = {
+function $t(e, t, n) {
+  const r = Math.max(0, n - t), o = {
     get size() {
-      return size;
+      return r;
     },
     get type() {
       return "application/x-iso9660-image";
     },
-    slice(start = 0, end = size, _contentType) {
-      const from = absStart + clampIndex(start, size);
-      const to = absStart + clampIndex(end, size);
-      return createPathBlob(filePath, from, Math.max(from, to));
+    slice(i = 0, s = r, c) {
+      const a = t + rt(i, r), f = t + rt(s, r);
+      return $t(e, a, Math.max(a, f));
     },
     async arrayBuffer() {
-      return readRange(filePath, absStart, size);
+      return Tn(e, t, r);
     },
     async bytes() {
-      return new Uint8Array(await blob.arrayBuffer());
+      return new Uint8Array(await o.arrayBuffer());
     },
     async text() {
-      return new TextDecoder().decode(await blob.arrayBuffer());
+      return new TextDecoder().decode(await o.arrayBuffer());
     },
     stream() {
-      const nodeStream = fs.createReadStream(filePath, {
-        start: absStart,
-        end: Math.max(absStart, absEnd - 1)
+      const i = l.createReadStream(e, {
+        start: t,
+        end: Math.max(t, n - 1)
       });
-      return Readable.toWeb(nodeStream);
+      return Ue.toWeb(i);
     }
   };
-  return blob;
+  return o;
 }
-function clampIndex(index, size) {
-  if (!Number.isFinite(index)) return 0;
-  let i = Math.trunc(index);
-  if (i < 0) i = Math.max(0, size + i);
-  return Math.min(size, Math.max(0, i));
+function rt(e, t) {
+  if (!Number.isFinite(e)) return 0;
+  let n = Math.trunc(e);
+  return n < 0 && (n = Math.max(0, t + n)), Math.min(t, Math.max(0, n));
 }
-async function readRange(filePath, offset, length) {
-  if (length <= 0) return new ArrayBuffer(0);
-  const fh = await fs.promises.open(filePath, "r");
+async function Tn(e, t, n) {
+  if (n <= 0) return new ArrayBuffer(0);
+  const r = await l.promises.open(e, "r");
   try {
-    const out = Buffer.allocUnsafe(length);
-    let done = 0;
-    while (done < length) {
-      const toRead = Math.min(READ_CHUNK, length - done);
-      const { bytesRead } = await fh.read(out, done, toRead, offset + done);
-      if (bytesRead <= 0) break;
-      done += bytesRead;
+    const o = Buffer.allocUnsafe(n);
+    let i = 0;
+    for (; i < n; ) {
+      const c = Math.min(jn, n - i), { bytesRead: a } = await r.read(o, i, c, t + i);
+      if (a <= 0) break;
+      i += a;
     }
-    const slice = out.subarray(0, done);
-    return slice.buffer.slice(slice.byteOffset, slice.byteOffset + slice.byteLength);
+    const s = o.subarray(0, i);
+    return s.buffer.slice(s.byteOffset, s.byteOffset + s.byteLength);
   } finally {
-    await fh.close();
+    await r.close();
   }
 }
-function serializeChildren(dir, parentPath) {
-  return [...dir.children.values()].map((child) => serializeNode(child, parentPath)).sort((a, b) => Number(b.isDir) - Number(a.isDir) || a.name.localeCompare(b.name));
+function Ne(e, t) {
+  return [...e.children.values()].map((n) => qn(n, t)).sort((n, r) => Number(r.isDir) - Number(n.isDir) || n.name.localeCompare(r.name));
 }
-function serializeNode(node, parentPath) {
-  const nodePath = parentPath ? `${parentPath}/${node.name}` : node.name;
-  if (node.kind === "dir") {
-    return {
-      name: node.name,
-      path: nodePath,
-      isDir: true,
-      size: 0,
-      children: serializeChildren(node, nodePath)
-    };
-  }
-  return {
-    name: node.name,
-    path: nodePath,
-    isDir: false,
-    size: node.size
+function qn(e, t) {
+  const n = t ? `${t}/${e.name}` : e.name;
+  return e.kind === "dir" ? {
+    name: e.name,
+    path: n,
+    isDir: !0,
+    size: 0,
+    children: Ne(e, n)
+  } : {
+    name: e.name,
+    path: n,
+    isDir: !1,
+    size: e.size
   };
 }
-let session = null;
-let sourcePath = null;
-let sourceKind = "unknown";
-let appImageRuntime = null;
-let extractRoot = null;
-const dragTempFiles = /* @__PURE__ */ new Set();
-const dragCache = /* @__PURE__ */ new Map();
-const dragInflight = /* @__PURE__ */ new Map();
-function isEditDirty() {
-  return Boolean(session == null ? void 0 : session.dirty);
+let E = null, G = null, ce = "unknown", H = null, we = null;
+const ne = /* @__PURE__ */ new Set(), C = /* @__PURE__ */ new Map(), ye = /* @__PURE__ */ new Map();
+function Ge() {
+  return !!(E != null && E.dirty);
 }
-function getEditSourcePath() {
-  return sourcePath;
+function Nn() {
+  return G;
 }
-async function openEditSession(isoPath) {
-  const resolved = path.resolve(isoPath);
-  if (!fs.existsSync(resolved) || !fs.statSync(resolved).isFile()) {
-    throw new Error(`파일을 찾을 수 없습니다: ${resolved}`);
-  }
-  clearDragTemps();
-  clearExtractRoot();
-  appImageRuntime = null;
-  sourceKind = "unknown";
-  const hinted = guessImageKindByName(resolved);
-  const kind = await detectOpenKind(resolved, hinted);
-  if (isArchiveImageKind(kind)) {
-    return openArchiveSession(resolved, kind);
-  }
+async function Gn(e) {
+  const t = u.resolve(e);
+  if (!l.existsSync(t) || !l.statSync(t).isFile())
+    throw new Error(`파일을 찾을 수 없습니다: ${t}`);
+  _t(), Ft(), H = null, ce = "unknown";
+  const n = xe(t), r = await hn(t, n);
+  if (Fn(r))
+    return Be(t, r);
   try {
-    const blob = await openIsoBlob(resolved);
-    session = await IsoEditSession.open(blob);
-    sourcePath = resolved;
-    sourceKind = kind === "img" ? "img" : "iso";
-    return snapshot();
-  } catch (isoErr) {
-    if (await isAppImageFile(resolved)) {
-      return openArchiveSession(resolved, "appimage");
-    }
-    if (await looksLikeTarArchive(resolved)) {
-      return openArchiveSession(resolved, "docker");
-    }
-    throw isoErr;
+    const o = await qe(t);
+    return E = await ae.open(o), G = t, ce = r === "img" ? "img" : "iso", B();
+  } catch (o) {
+    if (await wt(t))
+      return Be(t, "appimage");
+    if (await yt(t))
+      return Be(t, "docker");
+    throw o;
   }
 }
-async function openArchiveSession(resolved, kind) {
-  const { extractRoot: root, treeRoot, squashfsOffset } = await extractArchiveToTemp(
-    resolved,
-    kind
+async function Be(e, t) {
+  const { extractRoot: n, treeRoot: r, squashfsOffset: o } = await wn(
+    e,
+    t
   );
-  extractRoot = root;
-  const tree = await buildTreeFromDirectory(treeRoot);
-  const label = volumeLabelFromPath(resolved);
-  session = IsoEditSession.fromDirectoryTree(tree, label);
-  sourcePath = resolved;
-  sourceKind = kind;
-  if (kind === "appimage" && squashfsOffset != null && squashfsOffset > 0) {
-    appImageRuntime = { runtimePath: resolved, squashfsOffset };
+  we = n;
+  const i = await yn(r), s = bn(e);
+  return E = ae.fromDirectoryTree(i, s), G = e, ce = t, t === "appimage" && o != null && o > 0 && (H = { runtimePath: e, squashfsOffset: o }), B();
+}
+function We() {
+  E = null, G = null, ce = "unknown", H = null, _t(), Ft();
+}
+function Mt() {
+  return !E || !G ? null : B();
+}
+async function Wn(e, t) {
+  const n = D(), r = z(n.root, e);
+  if (!r || r.kind !== "dir")
+    throw new Error(`폴더가 없습니다: ${e || "/"}`);
+  for (const o of t) {
+    const i = u.resolve(o);
+    l.existsSync(i) && await Lt(n, e, i, u.basename(i));
   }
-  return snapshot();
+  return Ae(e), B();
 }
-function closeEditSession() {
-  session = null;
-  sourcePath = null;
-  sourceKind = "unknown";
-  appImageRuntime = null;
-  clearDragTemps();
-  clearExtractRoot();
+function Kn(e) {
+  return D().remove(e), Ae(e), B();
 }
-function getEditSnapshot() {
-  if (!session || !sourcePath) return null;
-  return snapshot();
-}
-async function addPathsToSession(destDir, filePaths) {
-  const s = requireSession();
-  const parent = getNodeAtPath(s.root, destDir);
-  if (!parent || parent.kind !== "dir") {
-    throw new Error(`폴더가 없습니다: ${destDir || "/"}`);
-  }
-  for (const filePath of filePaths) {
-    const resolved = path.resolve(filePath);
-    if (!fs.existsSync(resolved)) continue;
-    await addPathRecursive(s, destDir, resolved, path.basename(resolved));
-  }
-  invalidateDragCachePrefix(destDir);
-  return snapshot();
-}
-function removeFromSession(entryPath) {
-  requireSession().remove(entryPath);
-  invalidateDragCachePrefix(entryPath);
-  return snapshot();
-}
-function removeManyFromSession(entryPaths) {
-  const s = requireSession();
-  const sorted = [...new Set(entryPaths)].sort(
-    (a, b) => b.split("/").filter(Boolean).length - a.split("/").filter(Boolean).length
+function Yn(e) {
+  const t = D(), n = [...new Set(e)].sort(
+    (r, o) => o.split("/").filter(Boolean).length - r.split("/").filter(Boolean).length
   );
-  for (const entryPath of sorted) {
+  for (const r of n)
     try {
-      s.remove(entryPath);
-      invalidateDragCachePrefix(entryPath);
+      t.remove(r), Ae(r);
     } catch {
     }
-  }
-  return snapshot();
+  return B();
 }
-function mkdirInSession(dirPath, name) {
-  requireSession().mkdir(dirPath, name);
-  return snapshot();
+function Jn(e, t) {
+  return D().mkdir(e, t), B();
 }
-function renameInSession(entryPath, newName) {
-  requireSession().rename(entryPath, newName);
-  invalidateDragCachePrefix(entryPath);
-  return snapshot();
+function Vn(e, t) {
+  return D().rename(e, t), Ae(e), B();
 }
-async function exportFileFromSession(entryPath, outputPath) {
-  const s = requireSession();
-  const node = getNodeAtPath(s.root, entryPath);
-  if (!node || node.kind !== "file") {
-    throw new Error(`파일이 없습니다: ${entryPath}`);
+async function Ct(e, t) {
+  const n = D(), r = z(n.root, e);
+  if (!r || r.kind !== "file")
+    throw new Error(`파일이 없습니다: ${e}`);
+  const o = u.resolve(t);
+  if (l.mkdirSync(u.dirname(o), { recursive: !0 }), r.source.type === "path")
+    await l.promises.copyFile(r.source.absolutePath, o);
+  else {
+    const i = await Ot(n, e);
+    await Ke(i, o);
   }
-  const resolved = path.resolve(outputPath);
-  fs.mkdirSync(path.dirname(resolved), { recursive: true });
-  if (node.source.type === "path") {
-    await fs.promises.copyFile(node.source.absolutePath, resolved);
-  } else {
-    const blob = await readSessionFile(s, entryPath);
-    await writeBlobToFile(blob, resolved);
-  }
-  return { ok: true, outputPath: resolved };
+  return { ok: !0, outputPath: o };
 }
-async function exportFilesToDirectory(entryPaths, outputDir) {
-  const dir = path.resolve(outputDir);
-  fs.mkdirSync(dir, { recursive: true });
-  let count = 0;
-  for (const entryPath of entryPaths) {
-    const s = requireSession();
-    const node = getNodeAtPath(s.root, entryPath);
-    if (!node || node.kind !== "file") continue;
-    const dest = uniqueDestPath(dir, node.name);
-    await exportFileFromSession(entryPath, dest);
-    count += 1;
+async function Hn(e, t) {
+  const n = u.resolve(t);
+  l.mkdirSync(n, { recursive: !0 });
+  let r = 0;
+  for (const o of e) {
+    const i = D(), s = z(i.root, o);
+    if (!s || s.kind !== "file") continue;
+    const c = tr(n, s.name);
+    await Ct(o, c), r += 1;
   }
-  return { ok: true, count, outputDir: dir };
+  return { ok: !0, count: r, outputDir: n };
 }
-async function prepareDragOutFiles(entryPaths) {
-  const tempPaths = [];
-  const names = [];
-  for (const entryPath of entryPaths) {
-    const prepared = await prepareDragOutFile(entryPath);
-    tempPaths.push(prepared.tempPath);
-    names.push(prepared.name);
+async function Xn(e) {
+  const t = [], n = [];
+  for (const r of e) {
+    const o = await Bt(r);
+    t.push(o.tempPath), n.push(o.name);
   }
-  return { tempPaths, names };
+  return { tempPaths: t, names: n };
 }
-async function prepareDragOutFile(entryPath) {
-  const cached = dragCache.get(entryPath);
-  if (cached && fs.existsSync(cached.tempPath)) {
-    return { tempPath: cached.tempPath, name: cached.name };
-  }
-  const inflight = dragInflight.get(entryPath);
-  if (inflight) return inflight;
-  const job = (async () => {
-    const s = requireSession();
-    const node = getNodeAtPath(s.root, entryPath);
-    if (!node || node.kind !== "file") {
-      throw new Error(`파일이 없습니다: ${entryPath}`);
+async function Bt(e) {
+  if (!E)
+    return { tempPath: "", name: "" };
+  const t = C.get(e);
+  if (t && l.existsSync(t.tempPath))
+    return { tempPath: t.tempPath, name: t.name };
+  const n = ye.get(e);
+  if (n) return n;
+  const r = (async () => {
+    if (!E)
+      return { tempPath: "", name: "" };
+    const o = E, i = z(o.root, e);
+    if (!i || i.kind !== "file")
+      throw new Error(`파일이 없습니다: ${e}`);
+    const s = i.name;
+    if (i.source.type === "path" && l.existsSync(i.source.absolutePath)) {
+      const p = { tempPath: i.source.absolutePath, name: s, owned: !1 };
+      return C.set(e, p), { tempPath: p.tempPath, name: p.name };
     }
-    const name = node.name;
-    if (node.source.type === "path" && fs.existsSync(node.source.absolutePath)) {
-      const result2 = { tempPath: node.source.absolutePath, name, owned: false };
-      dragCache.set(entryPath, result2);
-      return { tempPath: result2.tempPath, name: result2.name };
-    }
-    const blob = await readSessionFile(s, entryPath);
-    const tempPath = path.join(
-      os.tmpdir(),
-      `isomaker-drag-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${safeName(name)}`
+    const c = await Ot(o, e);
+    if (!E)
+      return { tempPath: "", name: "" };
+    const a = u.join(
+      X.tmpdir(),
+      `isomaker-drag-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${er(s)}`
     );
-    await writeBlobToFile(blob, tempPath);
-    if (!fs.existsSync(tempPath)) {
-      throw new Error(`임시 파일 생성 실패: ${name}`);
-    }
-    const result = { tempPath, name, owned: true };
-    dragTempFiles.add(tempPath);
-    dragCache.set(entryPath, result);
-    return { tempPath, name };
+    if (await Ke(c, a), !l.existsSync(a))
+      throw new Error(`임시 파일 생성 실패: ${s}`);
+    const f = { tempPath: a, name: s, owned: !0 };
+    return ne.add(a), C.set(e, f), { tempPath: a, name: s };
   })();
-  dragInflight.set(entryPath, job);
+  ye.set(e, r);
   try {
-    return await job;
+    return await r;
   } finally {
-    dragInflight.delete(entryPath);
+    ye.delete(e);
   }
 }
-async function saveEditSession(outputPath, onProgress, signal) {
-  const s = requireSession();
-  const resolved = path.resolve(outputPath);
-  fs.mkdirSync(path.dirname(resolved), { recursive: true });
-  throwIfAborted(signal);
-  const outKind = guessImageKindByName(resolved);
-  const kind = outKind === "unknown" ? "iso" : outKind;
-  if (kind === "iso" || kind === "img") {
-    onProgress == null ? void 0 : onProgress({ phase: "save", percent: 0, message: "ISO/IMG 작성 중…" });
-    const blob = await s.exportIso(
-      (p) => {
-        onProgress == null ? void 0 : onProgress({ phase: "save", percent: p.percent, message: p.message });
+async function Dt(e, t, n) {
+  const r = D(), o = u.resolve(e);
+  l.mkdirSync(u.dirname(o), { recursive: !0 }), re(n);
+  const i = xe(o), s = i === "unknown" ? "iso" : i;
+  if (s === "iso" || s === "img") {
+    t == null || t({ phase: "save", percent: 0, message: "ISO/IMG 작성 중…" });
+    const c = await r.exportIso(
+      (a) => {
+        t == null || t({ phase: "save", percent: a.percent, message: a.message });
       },
-      signal,
-      openIsoBlob
+      n,
+      qe
     );
-    throwIfAborted(signal);
-    await writeBlobToFile(blob, resolved, signal);
-  } else if (kind === "docker") {
-    await saveAsTarArchive(s, resolved, isGzipTarPath(resolved), onProgress, signal);
-  } else if (kind === "appimage") {
-    await saveAsAppImage(s, resolved, onProgress, signal);
-  } else {
-    throw new Error(`지원하지 않는 저장 형식: ${path.basename(resolved)}`);
-  }
-  throwIfAborted(signal);
-  s.dirty = false;
-  onProgress == null ? void 0 : onProgress({ phase: "save", percent: 100, message: "저장 완료" });
-  return snapshot();
+    re(n), await Ke(c, o, n);
+  } else if (s === "docker")
+    await Zn(r, o, Rn(o), t, n);
+  else if (s === "appimage")
+    await Qn(r, o, t, n);
+  else
+    throw new Error(`지원하지 않는 저장 형식: ${u.basename(o)}`);
+  return re(n), r.dirty = !1, t == null || t({ phase: "save", percent: 100, message: "저장 완료" }), B();
 }
-async function saveAsTarArchive(s, outputPath, gzip, onProgress, signal) {
-  const work = await fs.promises.mkdtemp(path.join(os.tmpdir(), "isomaker-save-tar-"));
+async function Zn(e, t, n, r, o) {
+  const i = await l.promises.mkdtemp(u.join(X.tmpdir(), "isomaker-save-tar-"));
   try {
-    onProgress == null ? void 0 : onProgress({ phase: "save", percent: 0, message: "트리 준비 중…" });
-    await materializeTree(s.root, work, onProgress, signal);
-    await packDirectoryAsTar(work, outputPath, gzip, onProgress, signal);
+    r == null || r({ phase: "save", percent: 0, message: "트리 준비 중…" }), await vt(e.root, i, r, o), await xn(i, t, n, r, o);
   } finally {
     try {
-      fs.rmSync(work, { recursive: true, force: true });
+      l.rmSync(i, { recursive: !0, force: !0 });
     } catch {
     }
   }
 }
-async function saveAsAppImage(s, outputPath, onProgress, signal) {
-  if (!appImageRuntime) {
+async function Qn(e, t, n, r) {
+  if (!H)
     throw new Error(
-      "AppImage로 저장하려면 원본 AppImage를 연 상태에서 저장해야 합니다.\n(런타임 ELF가 필요하며, ISO/IMG/tar에서 AppImage로 변환은 지원하지 않습니다.)\n대신 .iso / .img / .tar 로 저장할 수 있습니다."
+      `AppImage로 저장하려면 원본 AppImage를 연 상태에서 저장해야 합니다.
+(런타임 ELF가 필요하며, ISO/IMG/tar에서 AppImage로 변환은 지원하지 않습니다.)
+대신 .iso / .img / .tar 로 저장할 수 있습니다.`
     );
-  }
-  const work = await fs.promises.mkdtemp(path.join(os.tmpdir(), "isomaker-save-app-"));
+  const o = await l.promises.mkdtemp(u.join(X.tmpdir(), "isomaker-save-app-"));
   try {
-    onProgress == null ? void 0 : onProgress({ phase: "save", percent: 0, message: "트리 준비 중…" });
-    await materializeTree(s.root, work, onProgress, signal);
-    await packDirectoryAsAppImage(work, outputPath, appImageRuntime, onProgress, signal);
+    n == null || n({ phase: "save", percent: 0, message: "트리 준비 중…" }), await vt(e.root, o, n, r), await An(o, t, H, n, r);
   } finally {
     try {
-      fs.rmSync(work, { recursive: true, force: true });
+      l.rmSync(o, { recursive: !0, force: !0 });
     } catch {
     }
   }
 }
-function throwIfAborted(signal) {
-  if (signal == null ? void 0 : signal.aborted) throw new Error("JOB_CANCELED");
+function re(e) {
+  if (e != null && e.aborted) throw new Error("JOB_CANCELED");
 }
-async function readSessionFile(s, entryPath) {
-  const node = getNodeAtPath(s.root, entryPath);
-  if ((node == null ? void 0 : node.kind) === "file" && node.source.type === "path") {
-    return openIsoBlob(node.source.absolutePath);
-  }
-  return s.readFile(entryPath);
+async function Ot(e, t) {
+  const n = z(e.root, t);
+  return (n == null ? void 0 : n.kind) === "file" && n.source.type === "path" ? qe(n.source.absolutePath) : e.readFile(t);
 }
-function snapshot() {
-  const s = requireSession();
-  if (!sourcePath) throw new Error("No ISO session");
-  let totalBytes = 0;
-  for (const e of s.entries) {
-    if (!e.isDir) totalBytes += e.size;
-  }
+function B() {
+  const e = D();
+  if (!G) throw new Error("No ISO session");
+  let t = 0;
+  for (const n of e.entries)
+    n.isDir || (t += n.size);
   return {
-    sourcePath,
-    sourceKind,
-    dirty: s.dirty,
-    canSaveAppImage: Boolean(appImageRuntime),
-    volumeLabel: s.volumeLabel,
-    totalBytes,
-    entryCount: s.entries.length,
-    root: serializeChildren(s.root, "")
+    sourcePath: G,
+    sourceKind: ce,
+    dirty: e.dirty,
+    canSaveAppImage: !!H,
+    volumeLabel: e.volumeLabel,
+    totalBytes: t,
+    entryCount: e.entries.length,
+    root: Ne(e.root, "")
   };
 }
-function requireSession() {
-  if (!session) throw new Error("열린 ISO가 없습니다.");
-  return session;
+function D() {
+  if (!E) throw new Error("열린 ISO가 없습니다.");
+  return E;
 }
-async function addPathRecursive(s, destDir, srcPath, name) {
-  const st = await fs.promises.stat(srcPath);
-  if (st.isDirectory()) {
-    ensureDir(s, destDir, name);
-    const nextDir = destDir ? `${destDir}/${name}` : name;
-    const children = await fs.promises.readdir(srcPath);
-    for (const child of children) {
-      await addPathRecursive(s, nextDir, path.join(srcPath, child), child);
-    }
+async function Lt(e, t, n, r) {
+  const o = await l.promises.stat(n);
+  if (o.isDirectory()) {
+    Pn(e, t, r);
+    const i = t ? `${t}/${r}` : r, s = await l.promises.readdir(n);
+    for (const c of s)
+      await Lt(e, i, u.join(n, c), c);
     return;
   }
-  s.addFileFromPath(destDir, name, srcPath, st.size);
+  e.addFileFromPath(t, r, n, o.size);
 }
-function ensureDir(s, parentPath, name) {
-  const parent = getNodeAtPath(s.root, parentPath);
-  if (!parent || parent.kind !== "dir") {
-    throw new Error(`폴더가 없습니다: ${parentPath || "/"}`);
+function Pn(e, t, n) {
+  const r = z(e.root, t);
+  if (!r || r.kind !== "dir")
+    throw new Error(`폴더가 없습니다: ${t || "/"}`);
+  if (r.children.has(I(n))) {
+    const o = r.children.get(I(n));
+    if ((o == null ? void 0 : o.kind) === "dir") return;
+    throw new Error(`이미 파일이 있습니다: ${n}`);
   }
-  if (parent.children.has(normalizeKey(name))) {
-    const existing = parent.children.get(normalizeKey(name));
-    if ((existing == null ? void 0 : existing.kind) === "dir") return;
-    throw new Error(`이미 파일이 있습니다: ${name}`);
-  }
-  s.mkdir(parentPath, name);
+  e.mkdir(t, n);
 }
-async function writeBlobToFile(blob, filePath, signal) {
-  throwIfAborted(signal);
-  if (blob.size < 8 * 1024 * 1024) {
-    const buf = Buffer.from(await blob.arrayBuffer());
-    throwIfAborted(signal);
-    await fs.promises.writeFile(filePath, buf, { signal });
+async function Ke(e, t, n) {
+  if (re(n), e.size < 8 * 1024 * 1024) {
+    const o = Buffer.from(await e.arrayBuffer());
+    re(n), await l.promises.writeFile(t, o, { signal: n });
     return;
   }
-  const stream = blob.stream();
-  await pipeline(Readable.fromWeb(stream), fs.createWriteStream(filePath), { signal });
+  const r = e.stream();
+  await lt(Ue.fromWeb(r), l.createWriteStream(t), { signal: n });
 }
-function safeName(name) {
-  const cleaned = name.replace(/[<>:"/\\|?*\u0000-\u001f]/g, "_").replace(/\.+$/g, "");
-  return cleaned || "file.bin";
+function er(e) {
+  return e.replace(/[<>:"/\\|?*\u0000-\u001f]/g, "_").replace(/\.+$/g, "") || "file.bin";
 }
-function uniqueDestPath(dir, fileName) {
-  let dest = path.join(dir, fileName);
-  if (!fs.existsSync(dest)) return dest;
-  const ext = path.extname(fileName);
-  const base = path.basename(fileName, ext);
+function tr(e, t) {
+  let n = u.join(e, t);
+  if (!l.existsSync(n)) return n;
+  const r = u.extname(t), o = u.basename(t, r);
   let i = 2;
-  while (fs.existsSync(dest)) {
-    dest = path.join(dir, `${base} (${i})${ext}`);
-    i += 1;
-  }
-  return dest;
+  for (; l.existsSync(n); )
+    n = u.join(e, `${o} (${i})${r}`), i += 1;
+  return n;
 }
-function invalidateDragCachePrefix(prefix) {
-  const keys = [...dragCache.keys()];
-  for (const key of keys) {
-    if (!prefix || key === prefix || key.startsWith(prefix + "/")) {
-      const cached = dragCache.get(key);
-      dragCache.delete(key);
-      if (cached == null ? void 0 : cached.owned) {
+function Ae(e) {
+  const t = [...C.keys()];
+  for (const n of t)
+    if (!e || n === e || n.startsWith(e + "/")) {
+      const r = C.get(n);
+      if (C.delete(n), r != null && r.owned) {
         try {
-          fs.unlinkSync(cached.tempPath);
+          l.unlinkSync(r.tempPath);
         } catch {
         }
-        dragTempFiles.delete(cached.tempPath);
+        ne.delete(r.tempPath);
       }
     }
-  }
 }
-function clearDragTemps() {
-  dragInflight.clear();
-  for (const [key, cached] of dragCache) {
-    dragCache.delete(key);
-    if (!cached.owned) continue;
+function _t() {
+  ye.clear();
+  for (const [e, t] of C)
+    if (C.delete(e), !!t.owned) {
+      try {
+        l.unlinkSync(t.tempPath);
+      } catch {
+      }
+      ne.delete(t.tempPath);
+    }
+  C.clear();
+  for (const e of ne)
     try {
-      fs.unlinkSync(cached.tempPath);
+      l.unlinkSync(e);
     } catch {
     }
-    dragTempFiles.delete(cached.tempPath);
-  }
-  dragCache.clear();
-  for (const file of dragTempFiles) {
-    try {
-      fs.unlinkSync(file);
-    } catch {
-    }
-  }
-  dragTempFiles.clear();
+  ne.clear();
 }
-function clearExtractRoot() {
-  if (!extractRoot) return;
-  const dir = extractRoot;
-  extractRoot = null;
+function Ft() {
+  if (!we) return;
+  const e = we;
+  we = null;
   try {
-    fs.rmSync(dir, { recursive: true, force: true });
+    l.rmSync(e, { recursive: !0, force: !0 });
   } catch {
   }
 }
-const moduleDir = path.dirname(fileURLToPath(import.meta.url));
-function resourceRoots() {
-  var _a;
-  const roots = [];
-  if (((_a = app) == null ? void 0 : _a.isPackaged) && process.resourcesPath) {
-    roots.push(process.resourcesPath);
-  }
-  roots.push(process.cwd());
-  roots.push(path.join(moduleDir, ".."));
-  roots.push(path.join(moduleDir, "..", ".."));
-  return [...new Set(roots)];
+const ot = u.dirname(Fe(import.meta.url));
+function Ut() {
+  var t;
+  const e = [];
+  return (t = L) != null && t.isPackaged && process.resourcesPath && e.push(process.resourcesPath), e.push(process.cwd()), e.push(u.join(ot, "..")), e.push(u.join(ot, "..", "..")), [...new Set(e)];
 }
-function resolveResource(...parts) {
-  for (const root of resourceRoots()) {
-    const candidate = path.join(root, ...parts);
-    if (fs.existsSync(candidate)) return candidate;
+function Ye(...e) {
+  for (const t of Ut()) {
+    const n = u.join(t, ...e);
+    if (l.existsSync(n)) return n;
   }
   return null;
 }
-const __dirname$2 = path.dirname(fileURLToPath(import.meta.url));
-function vendorBinaryName() {
-  if (process.platform === "win32") return "xorriso.exe";
-  return "xorriso";
+const it = u.dirname(Fe(import.meta.url));
+function nr() {
+  return process.platform === "win32" ? "xorriso.exe" : "xorriso";
 }
-function windowsExtraCandidates() {
+function rr() {
   if (process.platform !== "win32") return [];
-  const roots = [
+  const e = [
     process.env.MSYS2_ROOT,
     "C:\\msys64",
     "C:\\msys32",
     process.env.CYGWIN_ROOT,
     "C:\\cygwin64",
     "C:\\cygwin"
-  ].filter((v) => Boolean(v));
-  const out = [];
-  for (const root of roots) {
-    out.push(path.join(root, "usr", "bin", "xorriso.exe"));
-    out.push(path.join(root, "bin", "xorriso.exe"));
-    out.push(path.join(root, "mingw64", "bin", "xorriso.exe"));
-  }
-  return out;
+  ].filter((n) => !!n), t = [];
+  for (const n of e)
+    t.push(u.join(n, "usr", "bin", "xorriso.exe")), t.push(u.join(n, "bin", "xorriso.exe")), t.push(u.join(n, "mingw64", "bin", "xorriso.exe"));
+  return t;
 }
-function resolveXorrisoPath() {
-  const vendorRel = ["vendor", "xorriso", process.platform, vendorBinaryName()];
-  const candidates = [
+function Rt() {
+  const e = ["vendor", "xorriso", process.platform, nr()], t = [
     // Prefer full installs (DLL path is next to the exe / on PATH)
-    ...windowsExtraCandidates(),
-    ...resourceRoots().map((root) => path.join(root, ...vendorRel)),
-    resolveResource(...vendorRel) ?? "",
-    path.join(__dirname$2, "..", "..", ...vendorRel),
-    path.join(__dirname$2, "..", "..", "..", ...vendorRel)
+    ...rr(),
+    ...Ut().map((n) => u.join(n, ...e)),
+    Ye(...e) ?? "",
+    u.join(it, "..", "..", ...e),
+    u.join(it, "..", "..", "..", ...e)
   ].filter(Boolean);
-  for (const candidate of candidates) {
-    if (fs.existsSync(candidate)) return candidate;
-  }
+  for (const n of t)
+    if (l.existsSync(n)) return n;
   return process.platform === "win32" ? "xorriso.exe" : "xorriso";
 }
-function usesPosixPaths(binary) {
-  if (process.platform !== "win32") return false;
-  if (!path.isAbsolute(binary)) return false;
-  const n = binary.replace(/\\/g, "/").toLowerCase();
-  if (n.includes("/msys") || n.includes("/cygwin") || n.includes("/usr/bin/")) return true;
-  const dir = path.dirname(binary);
-  return fs.existsSync(path.join(dir, "msys-2.0.dll")) || fs.existsSync(path.join(dir, "cygwin1.dll"));
+function or(e) {
+  if (process.platform !== "win32" || !u.isAbsolute(e)) return !1;
+  const t = e.replace(/\\/g, "/").toLowerCase();
+  if (t.includes("/msys") || t.includes("/cygwin") || t.includes("/usr/bin/")) return !0;
+  const n = u.dirname(e);
+  return l.existsSync(u.join(n, "msys-2.0.dll")) || l.existsSync(u.join(n, "cygwin1.dll"));
 }
-function toXorrisoPath(filePath) {
-  if (process.platform !== "win32") return filePath;
-  let p = filePath;
-  if (p.startsWith("\\\\?\\")) p = p.slice(4);
-  const resolved = path.resolve(p);
-  const match = /^([a-zA-Z]):[\\/](.*)$/.exec(resolved);
-  if (!match) return resolved.replace(/\\/g, "/");
-  const drive = match[1].toLowerCase();
-  const rest = match[2].replace(/\\/g, "/");
-  return rest ? `/${drive}/${rest}` : `/${drive}`;
+function ir(e) {
+  if (process.platform !== "win32") return e;
+  let t = e;
+  t.startsWith("\\\\?\\") && (t = t.slice(4));
+  const n = u.resolve(t), r = /^([a-zA-Z]):[\\/](.*)$/.exec(n);
+  if (!r) return n.replace(/\\/g, "/");
+  const o = r[1].toLowerCase(), i = r[2].replace(/\\/g, "/");
+  return i ? `/${o}/${i}` : `/${o}`;
 }
-function adaptArgsForXorriso(binary, args) {
-  if (!usesPosixPaths(binary)) return args;
-  return args.map((arg) => {
-    if (/^[a-zA-Z]:[\\/]/.test(arg) || arg.startsWith("\\\\?\\")) {
-      return toXorrisoPath(arg);
-    }
-    return arg;
-  });
+function sr(e, t) {
+  return or(e) ? t.map((n) => /^[a-zA-Z]:[\\/]/.test(n) || n.startsWith("\\\\?\\") ? ir(n) : n) : t;
 }
-function runXorriso(args, onProgress, signal) {
-  const binary = resolveXorrisoPath();
-  if (!binary) {
+function Ie(e, t, n) {
+  const r = Rt();
+  if (!r)
     return Promise.reject(new Error("xorriso binary not found"));
+  if (n != null && n.aborted)
+    return Promise.reject(De());
+  const o = { ...process.env };
+  if (process.platform === "win32" && u.isAbsolute(r)) {
+    const s = u.dirname(r);
+    o.PATH = `${s};${o.PATH ?? ""}`, o.MSYS2_ARG_CONV_EXCL = "*", o.MSYS_NO_PATHCONV = "1";
   }
-  if (signal == null ? void 0 : signal.aborted) {
-    return Promise.reject(createAbortError());
-  }
-  const env = { ...process.env };
-  if (process.platform === "win32" && path.isAbsolute(binary)) {
-    const binDir = path.dirname(binary);
-    env.PATH = `${binDir};${env.PATH ?? ""}`;
-    env.MSYS2_ARG_CONV_EXCL = "*";
-    env.MSYS_NO_PATHCONV = "1";
-  }
-  const adaptedArgs = adaptArgsForXorriso(binary, args);
-  return new Promise((resolve, reject) => {
-    let settled = false;
-    const child = spawn(binary, adaptedArgs, {
-      windowsHide: true,
+  const i = sr(r, e);
+  return new Promise((s, c) => {
+    let a = !1;
+    const f = ut(r, i, {
+      windowsHide: !0,
       stdio: ["ignore", "pipe", "pipe"],
-      env
-    });
-    const abort = () => {
-      if (settled) return;
-      child.kill();
+      env: o
+    }), p = () => {
+      a || f.kill();
     };
-    signal == null ? void 0 : signal.addEventListener("abort", abort, { once: true });
-    let stdout = "";
-    let stderr = "";
-    child.stdout.on("data", (chunk) => {
-      const text = chunk.toString();
-      stdout += text;
-      onProgress == null ? void 0 : onProgress({
+    n == null || n.addEventListener("abort", p, { once: !0 });
+    let v = "", d = "";
+    f.stdout.on("data", (h) => {
+      const m = h.toString();
+      v += m, t == null || t({
         phase: "running",
         percent: null,
-        message: text.trim()
+        message: m.trim()
       });
-    });
-    child.stderr.on("data", (chunk) => {
-      const text = chunk.toString();
-      stderr += text;
-      onProgress == null ? void 0 : onProgress({
+    }), f.stderr.on("data", (h) => {
+      const m = h.toString();
+      d += m, t == null || t({
         phase: "running",
-        percent: parsePercent(text),
-        message: text.trim()
+        percent: ar(m),
+        message: m.trim()
       });
-    });
-    child.on("error", (err) => {
-      if (settled) return;
-      settled = true;
-      signal == null ? void 0 : signal.removeEventListener("abort", abort);
-      if (signal == null ? void 0 : signal.aborted) {
-        reject(createAbortError());
-        return;
+    }), f.on("error", (h) => {
+      if (!a) {
+        if (a = !0, n == null || n.removeEventListener("abort", p), n != null && n.aborted) {
+          c(De());
+          return;
+        }
+        c(
+          new Error(
+            `Failed to start xorriso (${r}): ${h.message}. Install xorriso or place a binary under vendor/xorriso/${process.platform}/`
+          )
+        );
       }
-      reject(
-        new Error(
-          `Failed to start xorriso (${binary}): ${err.message}. Install xorriso or place a binary under vendor/xorriso/${process.platform}/`
-        )
-      );
-    });
-    child.on("close", (code) => {
-      if (settled) return;
-      settled = true;
-      signal == null ? void 0 : signal.removeEventListener("abort", abort);
-      if (signal == null ? void 0 : signal.aborted) {
-        reject(createAbortError());
-        return;
+    }), f.on("close", (h) => {
+      if (!a) {
+        if (a = !0, n == null || n.removeEventListener("abort", p), n != null && n.aborted) {
+          c(De());
+          return;
+        }
+        s({ code: h ?? 1, stdout: v, stderr: d });
       }
-      resolve({ code: code ?? 1, stdout, stderr });
     });
   });
 }
-function createAbortError() {
+function De() {
   return new Error("JOB_CANCELED");
 }
-function parsePercent(text) {
-  const match = text.match(/(\d+(?:\.\d+)?)\s*%/);
-  if (!match) return null;
-  return Math.min(100, Math.max(0, Number(match[1])));
+function ar(e) {
+  const t = e.match(/(\d+(?:\.\d+)?)\s*%/);
+  return t ? Math.min(100, Math.max(0, Number(t[1]))) : null;
 }
-async function getEngineInfo() {
-  const binaryPath = resolveXorrisoPath();
-  const hint = process.platform === "win32" ? "MSYS2: pacman -S xorriso  (또는 vendor/xorriso/win32/xorriso.exe 에 복사)" : process.platform === "darwin" ? "Install with: brew install xorriso — or copy binary to vendor/xorriso/darwin/" : "Install with: sudo apt install xorriso — or copy binary to vendor/xorriso/linux/";
-  if (!binaryPath) {
+async function cr() {
+  const e = Rt(), t = process.platform === "win32" ? "MSYS2: pacman -S xorriso  (또는 vendor/xorriso/win32/xorriso.exe 에 복사)" : process.platform === "darwin" ? "Install with: brew install xorriso — or copy binary to vendor/xorriso/darwin/" : "Install with: sudo apt install xorriso — or copy binary to vendor/xorriso/linux/";
+  if (!e)
     return {
-      available: false,
+      available: !1,
       binaryPath: null,
       version: null,
       platform: process.platform,
-      hint
+      hint: t
     };
-  }
-  const looksAbsolute = path.isAbsolute(binaryPath);
+  const n = u.isAbsolute(e);
   try {
-    const result = await runXorriso(["-version"]);
-    const combined = `${result.stdout}
-${result.stderr}`;
-    const versionMatch = combined.match(/xorriso\s+version\s+([\d.]+)/i) || combined.match(/GNU xorriso\s+([\d.]+)/i);
-    const available = result.code === 0 || /xorriso/i.test(combined);
+    const r = await Ie(["-version"]), o = `${r.stdout}
+${r.stderr}`, i = o.match(/xorriso\s+version\s+([\d.]+)/i) || o.match(/GNU xorriso\s+([\d.]+)/i), s = r.code === 0 || /xorriso/i.test(o);
     return {
-      available,
-      binaryPath,
-      version: (versionMatch == null ? void 0 : versionMatch[1]) ?? (available ? "unknown" : null),
+      available: s,
+      binaryPath: e,
+      version: (i == null ? void 0 : i[1]) ?? (s ? "unknown" : null),
       platform: process.platform,
-      hint: available ? "xorriso ready" : hint
+      hint: s ? "xorriso ready" : t
     };
   } catch {
     return {
-      available: false,
-      binaryPath: looksAbsolute ? binaryPath : null,
+      available: !1,
+      binaryPath: n ? e : null,
       version: null,
       platform: process.platform,
-      hint
+      hint: t
     };
   }
 }
-async function extractIso(options, onProgress, signal) {
-  const isoPath = path.resolve(options.isoPath);
-  const outputDir = path.resolve(options.outputDir);
-  assertFile(isoPath, "ISO file");
-  fs.mkdirSync(outputDir, { recursive: true });
-  onProgress == null ? void 0 : onProgress({ phase: "extract", percent: 0, message: "Extracting ISO…" });
-  const winExtractFlags = process.platform === "win32" ? [
+async function lr(e, t, n) {
+  const r = u.resolve(e.isoPath), o = u.resolve(e.outputDir);
+  be(r, "ISO file"), l.mkdirSync(o, { recursive: !0 }), t == null || t({ phase: "extract", percent: 0, message: "Extracting ISO…" });
+  const i = process.platform === "win32" ? [
     "-abort_on",
     "NEVER",
     "-return_with",
@@ -2041,43 +1581,39 @@ async function extractIso(options, onProgress, signal) {
     "best_effort",
     "-hardlinks",
     "discard_extract"
-  ] : [];
-  const result = await runXorriso(
+  ] : [], s = await Ie(
     [
-      ...winExtractFlags,
+      ...i,
       "-osirrox",
       "on",
       "-indev",
-      isoPath,
+      r,
       "-extract",
       "/",
-      outputDir
+      o
     ],
-    onProgress,
-    signal
+    t,
+    n
   );
-  if (result.code !== 0) {
-    throw new Error(formatXorrisoError("extract", result.stderr || result.stdout));
-  }
-  const skippedLinks = countSkippedSymlinks(result.stderr || result.stdout);
-  onProgress == null ? void 0 : onProgress({
+  if (s.code !== 0)
+    throw new Error(Je("extract", s.stderr || s.stdout));
+  const c = ur(s.stderr || s.stdout);
+  t == null || t({
     phase: "extract",
     percent: 100,
-    message: skippedLinks > 0 ? `Extraction complete (${skippedLinks} symlink(s) skipped on Windows)` : "Extraction complete"
+    message: c > 0 ? `Extraction complete (${c} symlink(s) skipped on Windows)` : "Extraction complete"
   });
 }
-function countSkippedSymlinks(log) {
-  const matches = log.match(/Cannot restore symbolic link/gi);
-  return (matches == null ? void 0 : matches.length) ?? 0;
+function ur(e) {
+  const t = e.match(/Cannot restore symbolic link/gi);
+  return (t == null ? void 0 : t.length) ?? 0;
 }
-async function createIso(options, onProgress, signal) {
-  const sourceDir = path.resolve(options.sourceDir);
-  const outputIso = path.resolve(options.outputIso);
-  assertDir(sourceDir, "Source directory");
-  fs.mkdirSync(path.dirname(outputIso), { recursive: true });
-  const volumeLabel = sanitizeVolumeLabel(options.volumeLabel ?? "ISOMAKER");
-  onProgress == null ? void 0 : onProgress({ phase: "create", percent: 0, message: "Creating ISO…" });
-  const result = await runXorriso(
+async function fr(e, t, n) {
+  const r = u.resolve(e.sourceDir), o = u.resolve(e.outputIso);
+  jt(r, "Source directory"), l.mkdirSync(u.dirname(o), { recursive: !0 });
+  const i = Tt(e.volumeLabel ?? "ISOMAKER");
+  t == null || t({ phase: "create", percent: 0, message: "Creating ISO…" });
+  const s = await Ie(
     [
       "-as",
       "mkisofs",
@@ -2085,40 +1621,32 @@ async function createIso(options, onProgress, signal) {
       "-J",
       "-joliet-long",
       "-V",
-      volumeLabel,
+      i,
       "-o",
-      outputIso,
-      sourceDir
+      o,
+      r
     ],
-    onProgress,
-    signal
+    t,
+    n
   );
-  if (result.code !== 0) {
-    throw new Error(formatXorrisoError("create", result.stderr || result.stdout));
-  }
-  onProgress == null ? void 0 : onProgress({ phase: "create", percent: 100, message: "ISO created" });
+  if (s.code !== 0)
+    throw new Error(Je("create", s.stderr || s.stdout));
+  t == null || t({ phase: "create", percent: 100, message: "ISO created" });
 }
-async function createBootableIso(options, onProgress, signal) {
-  const sourceDir = path.resolve(options.sourceDir);
-  const outputIso = path.resolve(options.outputIso);
-  assertDir(sourceDir, "Source directory");
-  fs.mkdirSync(path.dirname(outputIso), { recursive: true });
-  if (!options.biosBootImage && !options.efiBootImage) {
+async function dr(e, t, n) {
+  const r = u.resolve(e.sourceDir), o = u.resolve(e.outputIso);
+  if (jt(r, "Source directory"), l.mkdirSync(u.dirname(o), { recursive: !0 }), !e.biosBootImage && !e.efiBootImage)
     throw new Error("At least one of biosBootImage or efiBootImage is required for a bootable ISO");
+  const s = ["-as", "mkisofs", "-r", "-J", "-joliet-long", "-V", Tt(e.volumeLabel ?? "BOOTISO")];
+  if (e.isohybridMbr) {
+    const a = u.join(r, e.isohybridMbr);
+    be(a, "isohybrid MBR"), s.push("-isohybrid-mbr", a);
   }
-  const volumeLabel = sanitizeVolumeLabel(options.volumeLabel ?? "BOOTISO");
-  const args = ["-as", "mkisofs", "-r", "-J", "-joliet-long", "-V", volumeLabel];
-  if (options.isohybridMbr) {
-    const mbr = path.join(sourceDir, options.isohybridMbr);
-    assertFile(mbr, "isohybrid MBR");
-    args.push("-isohybrid-mbr", mbr);
-  }
-  if (options.biosBootImage) {
-    const bios = path.join(sourceDir, options.biosBootImage);
-    assertFile(bios, "BIOS boot image");
-    args.push(
+  if (e.biosBootImage) {
+    const a = u.join(r, e.biosBootImage);
+    be(a, "BIOS boot image"), s.push(
       "-b",
-      options.biosBootImage,
+      e.biosBootImage,
       "-c",
       "boot.catalog",
       "-no-emul-boot",
@@ -2127,593 +1655,447 @@ async function createBootableIso(options, onProgress, signal) {
       "-boot-info-table"
     );
   }
-  if (options.efiBootImage) {
-    const efi = path.join(sourceDir, options.efiBootImage);
-    assertFile(efi, "EFI boot image");
-    args.push("-eltorito-alt-boot", "-e", options.efiBootImage, "-no-emul-boot");
-    if (!options.isohybridMbr) {
-      args.push("-isohybrid-gpt-basdat");
-    }
+  if (e.efiBootImage) {
+    const a = u.join(r, e.efiBootImage);
+    be(a, "EFI boot image"), s.push("-eltorito-alt-boot", "-e", e.efiBootImage, "-no-emul-boot"), e.isohybridMbr || s.push("-isohybrid-gpt-basdat");
   }
-  args.push("-o", outputIso, sourceDir);
-  onProgress == null ? void 0 : onProgress({ phase: "bootable", percent: 0, message: "Creating bootable ISO…" });
-  const result = await runXorriso(args, onProgress, signal);
-  if (result.code !== 0) {
-    throw new Error(formatXorrisoError("bootable create", result.stderr || result.stdout));
-  }
-  onProgress == null ? void 0 : onProgress({ phase: "bootable", percent: 100, message: "Bootable ISO created" });
+  s.push("-o", o, r), t == null || t({ phase: "bootable", percent: 0, message: "Creating bootable ISO…" });
+  const c = await Ie(s, t, n);
+  if (c.code !== 0)
+    throw new Error(Je("bootable create", c.stderr || c.stdout));
+  t == null || t({ phase: "bootable", percent: 100, message: "Bootable ISO created" });
 }
-function assertFile(filePath, label) {
-  if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
-    throw new Error(`${label} not found: ${filePath}`);
-  }
+function be(e, t) {
+  if (!l.existsSync(e) || !l.statSync(e).isFile())
+    throw new Error(`${t} not found: ${e}`);
 }
-function assertDir(dirPath, label) {
-  if (!fs.existsSync(dirPath) || !fs.statSync(dirPath).isDirectory()) {
-    throw new Error(`${label} not found: ${dirPath}`);
-  }
+function jt(e, t) {
+  if (!l.existsSync(e) || !l.statSync(e).isDirectory())
+    throw new Error(`${t} not found: ${e}`);
 }
-function sanitizeVolumeLabel(label) {
-  return label.replace(/[^A-Za-z0-9_.-]/g, "_").slice(0, 32) || "ISOMAKER";
+function Tt(e) {
+  return e.replace(/[^A-Za-z0-9_.-]/g, "_").slice(0, 32) || "ISOMAKER";
 }
-function formatXorrisoError(action, detail) {
-  const trimmed = detail.trim().slice(-2e3);
-  return `xorriso ${action} failed:
-${trimmed || "Unknown error"}`;
+function Je(e, t) {
+  const n = t.trim().slice(-2e3);
+  return `xorriso ${e} failed:
+${n || "Unknown error"}`;
 }
-async function listIsoTree(isoPath) {
-  const resolved = path.resolve(isoPath);
-  if (!fs.existsSync(resolved) || !fs.statSync(resolved).isFile()) {
-    throw new Error(`ISO file not found: ${resolved}`);
-  }
-  const blob = await openAsBlob(resolved);
-  const opened = await openIso(blob);
-  const root = serializeChildren(opened.root, "");
+async function mr(e) {
+  const t = u.resolve(e);
+  if (!l.existsSync(t) || !l.statSync(t).isFile())
+    throw new Error(`ISO file not found: ${t}`);
+  const n = await ct(t), r = await pt(n), o = Ne(r.root, "");
   return {
-    volumeLabel: opened.volumeLabel,
-    totalBytes: opened.totalBytes,
-    entryCount: opened.entries.length,
-    root
+    volumeLabel: r.volumeLabel,
+    totalBytes: r.totalBytes,
+    entryCount: r.entries.length,
+    root: o
   };
 }
-function storePath() {
-  return path.join(app.getPath("userData"), "isomaker-paths.json");
+function _e() {
+  return u.join(L.getPath("userData"), "isomaker-paths.json");
 }
-function readStore() {
+function pr() {
   try {
-    const raw = fs.readFileSync(storePath(), "utf8");
-    const parsed = JSON.parse(raw);
+    const e = l.readFileSync(_e(), "utf8"), t = JSON.parse(e);
     return {
-      lastDirectory: typeof parsed.lastDirectory === "string" && parsed.lastDirectory ? parsed.lastDirectory : null
+      lastDirectory: typeof t.lastDirectory == "string" && t.lastDirectory ? t.lastDirectory : null
     };
   } catch {
     return { lastDirectory: null };
   }
 }
-function writeStore(store) {
+function hr(e) {
   try {
-    fs.mkdirSync(path.dirname(storePath()), { recursive: true });
-    fs.writeFileSync(storePath(), JSON.stringify(store, null, 2), "utf8");
+    l.mkdirSync(u.dirname(_e()), { recursive: !0 }), l.writeFileSync(_e(), JSON.stringify(e, null, 2), "utf8");
   } catch {
   }
 }
-function getLastDirectory() {
-  const dir = readStore().lastDirectory;
-  if (dir && fs.existsSync(dir) && fs.statSync(dir).isDirectory()) return dir;
-  return null;
+function wr() {
+  const e = pr().lastDirectory;
+  return e && l.existsSync(e) && l.statSync(e).isDirectory() ? e : null;
 }
-function rememberPath(selectedPath) {
+function Z(e) {
   try {
-    const stat = fs.statSync(selectedPath);
-    const dir = stat.isDirectory() ? selectedPath : path.dirname(selectedPath);
-    if (dir && fs.existsSync(dir)) {
-      writeStore({ lastDirectory: dir });
-    }
+    const n = l.statSync(e).isDirectory() ? e : u.dirname(e);
+    n && l.existsSync(n) && hr({ lastDirectory: n });
   } catch {
   }
 }
-function dialogDefaultPath(hintPath, fileName) {
-  const fromHint = directoryFromHint(hintPath);
-  const last = getLastDirectory();
-  const base = fromHint ?? last;
-  if (fileName) {
-    if (base) return path.join(base, path.basename(fileName));
-    return fileName;
-  }
-  return base ?? void 0;
+function le(e, t) {
+  const n = yr(e), r = wr(), o = n ?? r;
+  return t ? o ? u.join(o, u.basename(t)) : t : o ?? void 0;
 }
-function directoryFromHint(hintPath) {
-  if (!hintPath) return null;
+function yr(e) {
+  if (!e) return null;
   try {
-    if (fs.existsSync(hintPath)) {
-      const stat = fs.statSync(hintPath);
-      const dir = stat.isDirectory() ? hintPath : path.dirname(hintPath);
-      return fs.existsSync(dir) ? dir : null;
+    if (l.existsSync(e)) {
+      const r = l.statSync(e).isDirectory() ? e : u.dirname(e);
+      return l.existsSync(r) ? r : null;
     }
-    const parent = path.dirname(hintPath);
-    if (parent && parent !== hintPath && fs.existsSync(parent)) return parent;
+    const t = u.dirname(e);
+    if (t && t !== e && l.existsSync(t)) return t;
   } catch {
   }
   return null;
 }
-const execFileAsync = promisify(execFile);
-async function mountIso(isoPath) {
-  if (!fs.existsSync(isoPath)) {
-    return { mounted: false, message: `Image not found: ${isoPath}` };
-  }
+const _ = Zt(Xt);
+async function br(e) {
+  if (!l.existsSync(e))
+    return { mounted: !1, message: `Image not found: ${e}` };
   switch (process.platform) {
     case "win32":
-      return mountWindows(isoPath);
+      return kr(e);
     case "darwin":
-      return mountMac(isoPath);
+      return gr(e);
     case "linux":
-      return mountLinux(isoPath);
+      return Ar(e);
     default:
-      return { mounted: false, message: `Mount not supported on ${process.platform}` };
+      return { mounted: !1, message: `Mount not supported on ${process.platform}` };
   }
 }
-async function unmountIso(mountPointOrIso) {
+async function Sr(e) {
   switch (process.platform) {
     case "win32":
-      return unmountWindows(mountPointOrIso);
+      return vr(e);
     case "darwin":
-      return unmountMac(mountPointOrIso);
+      return xr(e);
     case "linux":
-      return unmountLinux(mountPointOrIso);
+      return Ir(e);
     default:
-      return { mounted: false, message: `Unmount not supported on ${process.platform}` };
+      return { mounted: !1, message: `Unmount not supported on ${process.platform}` };
   }
 }
-async function mountWindows(isoPath) {
-  const script = `
+async function kr(e) {
+  const t = `
 $ErrorActionPreference = 'Stop'
-$img = Mount-DiskImage -ImagePath '${escapePs(isoPath)}' -PassThru
+$img = Mount-DiskImage -ImagePath '${qt(e)}' -PassThru
 $vol = $img | Get-Volume
 if (-not $vol.DriveLetter) { throw 'No drive letter assigned' }
 Write-Output ($vol.DriveLetter + ':\\')
 `;
   try {
-    const { stdout } = await execFileAsync(
+    const { stdout: n } = await _(
       "powershell.exe",
-      ["-NoProfile", "-Command", script],
-      { windowsHide: true }
-    );
-    const mountPoint = stdout.trim();
-    return { mounted: true, mountPoint, message: `Mounted at ${mountPoint}` };
-  } catch (err) {
-    return { mounted: false, message: errorMessage(err) };
+      ["-NoProfile", "-Command", t],
+      { windowsHide: !0 }
+    ), r = n.trim();
+    return { mounted: !0, mountPoint: r, message: `Mounted at ${r}` };
+  } catch (n) {
+    return { mounted: !1, message: Q(n) };
   }
 }
-async function unmountWindows(isoPath) {
-  const script = `
+async function vr(e) {
+  const t = `
 $ErrorActionPreference = 'Stop'
-Dismount-DiskImage -ImagePath '${escapePs(isoPath)}'
+Dismount-DiskImage -ImagePath '${qt(e)}'
 `;
   try {
-    await execFileAsync("powershell.exe", ["-NoProfile", "-Command", script], {
-      windowsHide: true
-    });
-    return { mounted: false, message: "Unmounted" };
-  } catch (err) {
-    return { mounted: true, message: errorMessage(err) };
+    return await _("powershell.exe", ["-NoProfile", "-Command", t], {
+      windowsHide: !0
+    }), { mounted: !1, message: "Unmounted" };
+  } catch (n) {
+    return { mounted: !0, message: Q(n) };
   }
 }
-async function mountMac(isoPath) {
+async function gr(e) {
   try {
-    const { stdout } = await execFileAsync("hdiutil", ["attach", "-readonly", isoPath]);
-    const lines = stdout.trim().split("\n");
-    const last = lines[lines.length - 1] ?? "";
-    const parts = last.split(/\s{2,}|\t+/).filter(Boolean);
-    const mountPoint = parts.find((p) => p.startsWith("/Volumes/")) ?? parts[parts.length - 1];
+    const { stdout: t } = await _("hdiutil", ["attach", "-readonly", e]), n = t.trim().split(`
+`), o = (n[n.length - 1] ?? "").split(/\s{2,}|\t+/).filter(Boolean), i = o.find((s) => s.startsWith("/Volumes/")) ?? o[o.length - 1];
     return {
-      mounted: true,
-      mountPoint,
-      message: mountPoint ? `Mounted at ${mountPoint}` : "Mounted"
+      mounted: !0,
+      mountPoint: i,
+      message: i ? `Mounted at ${i}` : "Mounted"
     };
-  } catch (err) {
-    return { mounted: false, message: errorMessage(err) };
+  } catch (t) {
+    return { mounted: !1, message: Q(t) };
   }
 }
-async function unmountMac(mountPoint) {
+async function xr(e) {
   try {
-    await execFileAsync("hdiutil", ["detach", mountPoint]);
-    return { mounted: false, message: "Unmounted" };
-  } catch (err) {
-    return { mounted: true, message: errorMessage(err) };
+    return await _("hdiutil", ["detach", e]), { mounted: !1, message: "Unmounted" };
+  } catch (t) {
+    return { mounted: !0, message: Q(t) };
   }
 }
-async function mountLinux(isoPath) {
-  const mountPoint = path.join(os.tmpdir(), `isomaker-mnt-${Date.now()}`);
-  fs.mkdirSync(mountPoint, { recursive: true });
+async function Ar(e) {
+  const t = u.join(X.tmpdir(), `isomaker-mnt-${Date.now()}`);
+  l.mkdirSync(t, { recursive: !0 });
   try {
-    await execFileAsync("mount", ["-o", "loop,ro", isoPath, mountPoint]);
-    return { mounted: true, mountPoint, message: `Mounted at ${mountPoint}` };
-  } catch (err) {
+    return await _("mount", ["-o", "loop,ro", e, t]), { mounted: !0, mountPoint: t, message: `Mounted at ${t}` };
+  } catch (n) {
     try {
-      await execFileAsync("fuseiso", [isoPath, mountPoint]);
-      return { mounted: true, mountPoint, message: `Mounted via fuseiso at ${mountPoint}` };
+      return await _("fuseiso", [e, t]), { mounted: !0, mountPoint: t, message: `Mounted via fuseiso at ${t}` };
     } catch {
       try {
-        fs.rmdirSync(mountPoint);
+        l.rmdirSync(t);
       } catch {
       }
       return {
-        mounted: false,
-        message: `${errorMessage(err)} (tip: run with privileges or install fuseiso)`
+        mounted: !1,
+        message: `${Q(n)} (tip: run with privileges or install fuseiso)`
       };
     }
   }
 }
-async function unmountLinux(mountPoint) {
+async function Ir(e) {
   try {
-    await execFileAsync("umount", [mountPoint]);
+    await _("umount", [e]);
     try {
-      fs.rmdirSync(mountPoint);
+      l.rmdirSync(e);
     } catch {
     }
-    return { mounted: false, message: "Unmounted" };
-  } catch (err) {
+    return { mounted: !1, message: "Unmounted" };
+  } catch (t) {
     try {
-      await execFileAsync("fusermount", ["-u", mountPoint]);
-      return { mounted: false, message: "Unmounted (fuse)" };
+      return await _("fusermount", ["-u", e]), { mounted: !1, message: "Unmounted (fuse)" };
     } catch {
-      return { mounted: true, message: errorMessage(err) };
+      return { mounted: !0, message: Q(t) };
     }
   }
 }
-function escapePs(value) {
-  return value.replace(/'/g, "''");
+function qt(e) {
+  return e.replace(/'/g, "''");
 }
-function errorMessage(err) {
-  if (err && typeof err === "object" && "stderr" in err) {
-    const stderr = String(err.stderr ?? "");
-    if (stderr.trim()) return stderr.trim();
+function Q(e) {
+  if (e && typeof e == "object" && "stderr" in e) {
+    const t = String(e.stderr ?? "");
+    if (t.trim()) return t.trim();
   }
-  return err instanceof Error ? err.message : String(err);
+  return e instanceof Error ? e.message : String(e);
 }
-const __dirname$1 = path.dirname(fileURLToPath(import.meta.url));
-app.setAppUserModelId("com.shkwon.isomaker");
-let mainWindow = null;
-let allowClose = false;
-let closePromptOpen = false;
-let closeFallbackTimer = null;
-let currentJobAbort = null;
-let appLocale = "ko";
-function isKo() {
-  return appLocale === "ko";
+const Se = u.dirname(Fe(import.meta.url));
+L.setAppUserModelId("com.shkwon.isomaker");
+let S = null, ge = !1, ke = !1, N = null, Y = null, ze = "ko";
+function ue() {
+  return ze === "ko";
 }
-function resolvePreloadPath() {
-  const candidates = [
+function zr() {
+  const e = [
     // Dev: source file next to this repo (most reliable with "type": "module")
-    path.join(process.cwd(), "electron", "preload.cjs"),
+    u.join(process.cwd(), "electron", "preload.cjs"),
     // Packaged / built next to main or project electron/
-    path.join(__dirname$1, "preload.cjs"),
-    path.join(__dirname$1, "..", "electron", "preload.cjs"),
-    path.join(__dirname$1, "preload.js")
+    u.join(Se, "preload.cjs"),
+    u.join(Se, "..", "electron", "preload.cjs"),
+    u.join(Se, "preload.js")
   ];
-  for (const candidate of candidates) {
-    if (fs.existsSync(candidate)) return candidate;
-  }
-  return candidates[0];
+  for (const t of e)
+    if (l.existsSync(t)) return t;
+  return e[0];
 }
-function resolveAppIcon() {
-  const file = process.platform === "win32" ? "icon.ico" : process.platform === "darwin" ? "icon.png" : "icon.png";
-  return resolveResource("assets", file) ?? void 0;
+function Er() {
+  const e = process.platform === "win32" ? "icon.ico" : (process.platform === "darwin", "icon.png");
+  return Ye("assets", e) ?? void 0;
 }
-function createWindow() {
-  const preloadPath = resolvePreloadPath();
-  const icon = resolveAppIcon();
-  allowClose = false;
-  mainWindow = new BrowserWindow({
+function st() {
+  const e = zr(), t = Er();
+  ge = !1, S = new at({
     width: 1480,
     height: 900,
     minWidth: 1480,
     minHeight: 700,
     title: "ISO Maker",
-    autoHideMenuBar: true,
-    ...icon ? { icon } : {},
+    autoHideMenuBar: !0,
+    ...t ? { icon: t } : {},
     webPreferences: {
-      preload: preloadPath,
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: false,
-      devTools: false
+      preload: e,
+      contextIsolation: !0,
+      nodeIntegration: !1,
+      sandbox: !1,
+      devTools: !1
     }
-  });
-  mainWindow.webContents.closeDevTools();
-  mainWindow.webContents.on("devtools-opened", () => {
-    mainWindow == null ? void 0 : mainWindow.webContents.closeDevTools();
-  });
-  mainWindow.webContents.on("did-fail-load", (_e, code, desc, url) => {
-    console.error("[iso-maker] did-fail-load", { code, desc, url });
-  });
-  mainWindow.webContents.on("preload-error", (_e, preload, error) => {
-    console.error("[iso-maker] preload-error", preload, error);
-  });
-  mainWindow.on("close", (event) => {
-    if (allowClose || !isEditDirty()) {
-      clearClosePrompt();
-      closeEditSession();
+  }), S.webContents.closeDevTools(), S.webContents.on("devtools-opened", () => {
+    S == null || S.webContents.closeDevTools();
+  }), S.webContents.on("did-fail-load", (r, o, i, s) => {
+    console.error("[iso-maker] did-fail-load", { code: o, desc: i, url: s });
+  }), S.webContents.on("preload-error", (r, o, i) => {
+    console.error("[iso-maker] preload-error", o, i);
+  }), S.on("close", (r) => {
+    if (ge || !Ge()) {
+      j(), We();
       return;
     }
-    event.preventDefault();
-    requestCloseConfirmation();
+    r.preventDefault(), Nt();
   });
-  const devUrl = process.env.VITE_DEV_SERVER_URL;
-  if (devUrl) {
-    void mainWindow.loadURL(devUrl);
-  } else {
-    void mainWindow.loadFile(path.join(__dirname$1, "../dist/index.html"));
-  }
+  const n = process.env.VITE_DEV_SERVER_URL;
+  n ? S.loadURL(n) : S.loadFile(u.join(Se, "../dist/index.html"));
 }
-function clearClosePrompt() {
-  closePromptOpen = false;
-  if (closeFallbackTimer) {
-    clearTimeout(closeFallbackTimer);
-    closeFallbackTimer = null;
-  }
+function j() {
+  ke = !1, N && (clearTimeout(N), N = null);
 }
-function requestCloseConfirmation() {
-  if (!mainWindow || closePromptOpen) return;
-  closePromptOpen = true;
-  mainWindow.webContents.send("app:close-request");
-  closeFallbackTimer = setTimeout(() => {
-    if (!closePromptOpen) return;
-    void confirmCloseWithNativeDialog();
-  }, 1500);
+function Nt() {
+  !S || ke || (ke = !0, S.webContents.send("app:close-request"), N = setTimeout(() => {
+    ke && $r();
+  }, 1500));
 }
-function forceCloseWindow() {
-  clearClosePrompt();
-  allowClose = true;
-  closeEditSession();
-  mainWindow == null ? void 0 : mainWindow.close();
+function Gt() {
+  j(), ge = !0, We(), S == null || S.close();
 }
-async function confirmCloseWithNativeDialog() {
-  if (!mainWindow) {
-    clearClosePrompt();
+async function $r() {
+  if (!S) {
+    j();
     return;
   }
-  const ko = isKo();
-  const result = await dialog.showMessageBox(mainWindow, {
+  const e = ue(), t = await T.showMessageBox(S, {
     type: "question",
-    buttons: ko ? ["저장 후 종료", "저장 안 함", "취소"] : ["Save & quit", "Don't save", "Cancel"],
+    buttons: e ? ["저장 후 종료", "저장 안 함", "취소"] : ["Save & quit", "Don't save", "Cancel"],
     defaultId: 0,
     cancelId: 2,
-    title: ko ? "저장하지 않은 변경" : "Unsaved changes",
-    message: ko ? "내용이 변경되었습니다. 종료하기 전에 저장할까요?" : "Contents have been modified. Save before quitting?",
-    detail: ko ? "저장 형식(ISO/IMG/AppImage/tar)을 선택할 수 있습니다." : "You can choose the save format (ISO/IMG/AppImage/tar)."
+    title: e ? "저장하지 않은 변경" : "Unsaved changes",
+    message: e ? "내용이 변경되었습니다. 종료하기 전에 저장할까요?" : "Contents have been modified. Save before quitting?",
+    detail: e ? "저장 형식(ISO/IMG/AppImage/tar)을 선택할 수 있습니다." : "You can choose the save format (ISO/IMG/AppImage/tar)."
   });
-  if (result.response === 2) {
-    clearClosePrompt();
+  if (t.response === 2) {
+    j();
     return;
   }
-  if (result.response === 0) {
-    const src = getEditSourcePath();
-    const base = src ? editedImageName(src) : "edited.iso";
-    const preferred = src ? guessImageKindByName(src) : "iso";
-    const save = await dialog.showSaveDialog(mainWindow, {
-      title: ko ? "변경 내용 저장" : "Save changes",
-      defaultPath: dialogDefaultPath(src ?? void 0, base),
-      filters: saveImageFileFilters(ko ? "ko" : "en", preferred)
+  if (t.response === 0) {
+    const n = Nn(), r = n ? Un(n) : "edited.iso", o = n ? xe(n) : "iso", i = await T.showSaveDialog(S, {
+      title: e ? "변경 내용 저장" : "Save changes",
+      defaultPath: le(n ?? void 0, r),
+      filters: Et(e ? "ko" : "en", o)
     });
-    if (save.canceled || !save.filePath) {
-      clearClosePrompt();
+    if (i.canceled || !i.filePath) {
+      j();
       return;
     }
     try {
-      await saveEditSession(save.filePath, sendProgress);
-      rememberPath(save.filePath);
-      mainWindow.webContents.send("session:updated", getEditSnapshot());
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      await dialog.showMessageBox(mainWindow, {
+      await Dt(i.filePath, P), Z(i.filePath), S.webContents.send("session:updated", Mt());
+    } catch (s) {
+      const c = s instanceof Error ? s.message : String(s);
+      await T.showMessageBox(S, {
         type: "error",
-        message: ko ? "저장 실패" : "Save failed",
-        detail: message
-      });
-      clearClosePrompt();
+        message: e ? "저장 실패" : "Save failed",
+        detail: c
+      }), j();
       return;
     }
   }
-  forceCloseWindow();
+  Gt();
 }
-function sendProgress(progress) {
-  mainWindow == null ? void 0 : mainWindow.webContents.send("job:progress", progress);
+function P(e) {
+  S == null || S.webContents.send("job:progress", e);
 }
-async function runCancelableJob(fn) {
-  if (currentJobAbort) throw new Error("A job is already running");
-  const controller = new AbortController();
-  currentJobAbort = controller;
+async function Ee(e) {
+  if (Y) throw new Error("A job is already running");
+  const t = new AbortController();
+  Y = t;
   try {
-    return await fn(controller.signal);
+    return await e(t.signal);
   } finally {
-    if (currentJobAbort === controller) currentJobAbort = null;
+    Y === t && (Y = null);
   }
 }
-app.whenReady().then(() => {
-  Menu.setApplicationMenu(null);
-  createWindow();
-  app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+L.whenReady().then(() => {
+  Vt.setApplicationMenu(null), st(), L.on("activate", () => {
+    at.getAllWindows().length === 0 && st();
   });
 });
-app.on("before-quit", (event) => {
-  if (allowClose || !isEditDirty()) return;
-  event.preventDefault();
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.close();
-  } else {
-    requestCloseConfirmation();
-  }
+L.on("before-quit", (e) => {
+  ge || !Ge() || (e.preventDefault(), S && !S.isDestroyed() ? S.close() : Nt());
 });
-app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") app.quit();
+L.on("window-all-closed", () => {
+  process.platform !== "darwin" && L.quit();
 });
-ipcMain.handle("app:close-ack", async () => {
-  if (closeFallbackTimer) {
-    clearTimeout(closeFallbackTimer);
-    closeFallbackTimer = null;
-  }
-  return { ok: true };
-});
-ipcMain.handle("app:close-decision", async (_event, decision) => {
-  if (decision === "cancel") {
-    clearClosePrompt();
-    return { ok: true };
-  }
-  forceCloseWindow();
-  return { ok: true };
-});
-ipcMain.handle("engine:info", async () => getEngineInfo());
-ipcMain.handle(
+y.handle("app:close-ack", async () => (N && (clearTimeout(N), N = null), { ok: !0 }));
+y.handle("app:close-decision", async (e, t) => t === "cancel" ? (j(), { ok: !0 }) : (Gt(), { ok: !0 }));
+y.handle("engine:info", async () => cr());
+y.handle(
   "dialog:openFile",
-  async (_event, filters, hintPath, title) => {
-    const result = await dialog.showOpenDialog({
-      title: title || (isKo() ? "이미지 열기" : "Open image"),
+  async (e, t, n, r) => {
+    const o = await T.showOpenDialog({
+      title: r || (ue() ? "이미지 열기" : "Open image"),
       properties: ["openFile"],
-      filters: filters ?? discImageFileFilters(appLocale),
-      defaultPath: dialogDefaultPath(hintPath)
-    });
-    const selected = result.canceled ? null : result.filePaths[0] ?? null;
-    if (selected) rememberPath(selected);
-    return selected;
+      filters: t ?? _n(ze),
+      defaultPath: le(n)
+    }), i = o.canceled ? null : o.filePaths[0] ?? null;
+    return i && Z(i), i;
   }
 );
-ipcMain.handle(
+y.handle(
   "dialog:openFiles",
-  async (_event, filters, hintPath, title) => {
-    const result = await dialog.showOpenDialog({
-      title: title || (isKo() ? "파일 선택" : "Select files"),
+  async (e, t, n, r) => {
+    const o = await T.showOpenDialog({
+      title: r || (ue() ? "파일 선택" : "Select files"),
       properties: ["openFile", "multiSelections"],
-      ...(filters == null ? void 0 : filters.length) ? { filters } : {},
-      defaultPath: dialogDefaultPath(hintPath)
+      ...t != null && t.length ? { filters: t } : {},
+      defaultPath: le(n)
     });
-    if (result.canceled || !result.filePaths.length) return [];
-    rememberPath(result.filePaths[0]);
-    return result.filePaths;
+    return o.canceled || !o.filePaths.length ? [] : (Z(o.filePaths[0]), o.filePaths);
   }
 );
-ipcMain.handle(
+y.handle(
   "dialog:openDirectory",
-  async (_event, hintPath, title) => {
-    const result = await dialog.showOpenDialog({
-      title: title || (isKo() ? "디렉터리 선택" : "Select directory"),
+  async (e, t, n) => {
+    const r = await T.showOpenDialog({
+      title: n || (ue() ? "디렉터리 선택" : "Select directory"),
       properties: ["openDirectory", "createDirectory"],
-      defaultPath: dialogDefaultPath(hintPath)
-    });
-    const selected = result.canceled ? null : result.filePaths[0] ?? null;
-    if (selected) rememberPath(selected);
-    return selected;
+      defaultPath: le(t)
+    }), o = r.canceled ? null : r.filePaths[0] ?? null;
+    return o && Z(o), o;
   }
 );
-ipcMain.handle(
+y.handle(
   "dialog:saveFile",
-  async (_event, defaultPath, hintPath, title, filters) => {
-    const fileName = defaultPath || "output.iso";
-    const preferred = guessImageKindByName(fileName);
-    const result = await dialog.showSaveDialog({
-      title: title || (isKo() ? "이미지 저장" : "Save image"),
-      defaultPath: dialogDefaultPath(hintPath ?? defaultPath, fileName),
-      filters: (filters == null ? void 0 : filters.length) ? filters : saveImageFileFilters(appLocale, preferred)
-    });
-    const selected = result.canceled ? null : result.filePath ?? null;
-    if (selected) rememberPath(selected);
-    return selected;
+  async (e, t, n, r, o) => {
+    const i = t || "output.iso", s = xe(i), c = await T.showSaveDialog({
+      title: r || (ue() ? "이미지 저장" : "Save image"),
+      defaultPath: le(n ?? t, i),
+      filters: o != null && o.length ? o : Et(ze, s)
+    }), a = c.canceled ? null : c.filePath ?? null;
+    return a && Z(a), a;
   }
 );
-ipcMain.handle("shell:openPath", async (_event, targetPath) => {
-  return shell.openPath(targetPath);
-});
-ipcMain.handle("iso:extract", async (_event, options) => {
-  await runCancelableJob((signal) => extractIso(options, sendProgress, signal));
-  return { ok: true };
-});
-ipcMain.handle("iso:create", async (_event, options) => {
-  await runCancelableJob((signal) => createIso(options, sendProgress, signal));
-  return { ok: true };
-});
-ipcMain.handle("iso:createBootable", async (_event, options) => {
-  await runCancelableJob((signal) => createBootableIso(options, sendProgress, signal));
-  return { ok: true };
-});
-ipcMain.handle("iso:cancel", async () => {
-  if (!currentJobAbort) return { ok: true, canceled: false };
-  currentJobAbort.abort();
-  sendProgress({ phase: "cancel", percent: null, message: "Canceling job…" });
-  return { ok: true, canceled: true };
-});
-ipcMain.handle("iso:mount", async (_event, isoPath) => mountIso(isoPath));
-ipcMain.handle("iso:unmount", async (_event, target) => unmountIso(target));
-ipcMain.handle("iso:listTree", async (_event, isoPath) => listIsoTree(isoPath));
-ipcMain.handle("session:open", async (_event, isoPath) => {
-  const snap = await openEditSession(isoPath);
-  return snap;
-});
-ipcMain.handle("session:get", async () => getEditSnapshot());
-ipcMain.handle("session:close", async () => {
-  closeEditSession();
-  return { ok: true };
-});
-ipcMain.handle("session:addPaths", async (_event, destDir, filePaths) => {
-  return addPathsToSession(destDir, filePaths);
-});
-ipcMain.handle("session:remove", async (_event, entryPath) => removeFromSession(entryPath));
-ipcMain.handle("session:removeMany", async (_event, entryPaths) => {
-  return removeManyFromSession(entryPaths);
-});
-ipcMain.handle("session:mkdir", async (_event, dirPath, name) => {
-  return mkdirInSession(dirPath, name);
-});
-ipcMain.handle("session:rename", async (_event, entryPath, newName) => {
-  return renameInSession(entryPath, newName);
-});
-ipcMain.handle(
+y.handle("shell:openPath", async (e, t) => Ht.openPath(t));
+y.handle("iso:extract", async (e, t) => (await Ee((n) => lr(t, P, n)), { ok: !0 }));
+y.handle("iso:create", async (e, t) => (await Ee((n) => fr(t, P, n)), { ok: !0 }));
+y.handle("iso:createBootable", async (e, t) => (await Ee((n) => dr(t, P, n)), { ok: !0 }));
+y.handle("iso:cancel", async () => Y ? (Y.abort(), P({ phase: "cancel", percent: null, message: "Canceling job…" }), { ok: !0, canceled: !0 }) : { ok: !0, canceled: !1 });
+y.handle("iso:mount", async (e, t) => br(t));
+y.handle("iso:unmount", async (e, t) => Sr(t));
+y.handle("iso:listTree", async (e, t) => mr(t));
+y.handle("session:open", async (e, t) => await Gn(t));
+y.handle("session:get", async () => Mt());
+y.handle("session:close", async () => (We(), { ok: !0 }));
+y.handle("session:addPaths", async (e, t, n) => Wn(t, n));
+y.handle("session:remove", async (e, t) => Kn(t));
+y.handle("session:removeMany", async (e, t) => Yn(t));
+y.handle("session:mkdir", async (e, t, n) => Jn(t, n));
+y.handle("session:rename", async (e, t, n) => Vn(t, n));
+y.handle(
   "session:exportFile",
-  async (_event, entryPath, outputPath) => {
-    return exportFileFromSession(entryPath, outputPath);
-  }
+  async (e, t, n) => Ct(t, n)
 );
-ipcMain.handle(
+y.handle(
   "session:exportFilesToDir",
-  async (_event, entryPaths, outputDir) => {
-    return exportFilesToDirectory(entryPaths, outputDir);
-  }
+  async (e, t, n) => Hn(t, n)
 );
-ipcMain.handle("session:prepareDragOut", async (_event, entryPath) => {
-  return prepareDragOutFile(entryPath);
+y.handle("session:prepareDragOut", async (e, t) => Bt(t));
+y.handle("session:prepareDragOutMany", async (e, t) => Xn(t));
+y.handle("session:save", async (e, t) => {
+  const n = await Ee((r) => Dt(t, P, r));
+  return Z(t), n;
 });
-ipcMain.handle("session:prepareDragOutMany", async (_event, entryPaths) => {
-  return prepareDragOutFiles(entryPaths);
-});
-ipcMain.handle("session:save", async (_event, outputPath) => {
-  const snap = await runCancelableJob((signal) => saveEditSession(outputPath, sendProgress, signal));
-  rememberPath(outputPath);
-  return snap;
-});
-ipcMain.handle("session:isDirty", async () => ({ dirty: isEditDirty() }));
-ipcMain.on("ondragstart", (event, filePathOrPaths) => {
-  const list = (Array.isArray(filePathOrPaths) ? filePathOrPaths : [filePathOrPaths]).filter(
-    (p) => typeof p === "string" && fs.existsSync(p)
+y.handle("session:isDirty", async () => ({ dirty: Ge() }));
+y.on("ondragstart", (e, t) => {
+  const n = (Array.isArray(t) ? t : [t]).filter(
+    (i) => typeof i == "string" && l.existsSync(i)
   );
-  if (!list.length) return;
-  const iconPath = resolveResource("assets", "icon-32.png");
-  let icon = iconPath ? nativeImage.createFromPath(iconPath) : nativeImage.createEmpty();
-  if (icon.isEmpty()) {
-    icon = nativeImage.createFromDataURL(
-      "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAKElEQVQ4T2NkYGD4z0ABYBzVMKoBBkYGBgYGRkZGRgYGBgYGBgYGAAB/QAGH0b6bUQAAAABJRU5ErkJggg=="
-    );
-  }
+  if (!n.length) return;
+  const r = Ye("assets", "icon-32.png");
+  let o = r ? $e.createFromPath(r) : $e.createEmpty();
+  o.isEmpty() && (o = $e.createFromDataURL(
+    "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAKElEQVQ4T2NkYGD4z0ABYBzVMKoBBkYGBgYGRkZGRgYGBgYGBgYGAAB/QAGH0b6bUQAAAABJRU5ErkJggg=="
+  ));
   try {
-    event.sender.startDrag({
-      file: list[0],
-      files: list.length > 1 ? list : void 0,
-      icon
+    e.sender.startDrag({
+      file: n[0],
+      files: n.length > 1 ? n : void 0,
+      icon: o
     });
-  } catch (err) {
-    console.error("[iso-maker] startDrag failed", list, err);
+  } catch (i) {
+    console.error("[iso-maker] startDrag failed", n, i);
   }
 });
-ipcMain.handle("prefs:setLocale", async (_event, locale) => {
-  if (locale === "ko" || locale === "en") appLocale = locale;
-  return { ok: true };
-});
+y.handle("prefs:setLocale", async (e, t) => ((t === "ko" || t === "en") && (ze = t), { ok: !0 }));
