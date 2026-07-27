@@ -1,0 +1,68 @@
+appId: com.floorplanto3d.multios
+productName: FloorPlanTo3D
+copyright: Copyright © FloorPlanTo3D Multi-OS
+artifactName: ${productName}-${version}-${os}-${arch}.${ext}
+directories:
+  output: release
+  buildResources: build
+files:
+  - dist/**/*
+  - electron/**/*
+  - assets/icon.png
+  - package.json
+asar: true
+electronLanguages:
+  - en
+  - ko
+
+win:
+  icon: assets/icon.png
+  target:
+    - target: nsis
+      arch:
+        - x64
+    - target: portable
+      arch:
+        - x64
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  # Defaults on; installer.nsh lets the user opt out per shortcut on a custom page.
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: FloorPlanTo3D
+  include: installer.nsh
+  artifactName: ${productName}-${version}-Setup-${os}-${arch}.${ext}
+
+portable:
+  artifactName: ${productName}-${version}-portable-${os}-${arch}.${ext}
+
+mac:
+  icon: assets/icon.png
+  category: public.app-category.graphics-design
+  target:
+    - target: dmg
+      arch:
+        - x64
+        - arm64
+    - target: zip
+      arch:
+        - x64
+        - arm64
+
+linux:
+  icon: assets/icon.png
+  category: Graphics
+  synopsis: 2D floor plan to 3D converter
+  target:
+    - target: AppImage
+      arch:
+        - x64
+    - target: deb
+      arch:
+        - x64
+    - target: tar.gz
+      arch:
+        - x64
+

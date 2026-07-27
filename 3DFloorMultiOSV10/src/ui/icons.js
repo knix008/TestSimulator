@@ -1,0 +1,21 @@
+/** Inline SVG icons for the app toolbar */
+export const icons = {
+  open: `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M10 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8l-2-2Zm-6 4h16v10H4V8Z"/></svg>`,
+  image: `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M19 5H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2Zm0 12H5V7h14v10ZM8.5 10.5A1.5 1.5 0 1 0 8.5 7a1.5 1.5 0 0 0 0 3.5ZM6 15l3.2-3.2 2.3 2.3L15 10l3 3v2H6Z"/></svg>`,
+  model: `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2 3 7v10l9 5 9-5V7l-9-5Zm0 2.2 6.5 3.6L12 11.5 5.5 7.8 12 4.2ZM5 9.1l6 3.3v7.3l-6-3.3V9.1Zm8 10.6v-7.3l6-3.3v7.3l-6 3.3Z"/></svg>`,
+  convert: `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2 4 6v6c0 5 3.4 9.4 8 10.7C16.6 21.4 20 17 20 12V6l-8-4Zm0 2.2 6 3V12c0 3.7-2.4 7-6 8.2-3.6-1.2-6-4.5-6-8.2V7.2l6-3ZM8 11h3V8h2v3h3v2h-3v3h-2v-3H8v-2Z"/></svg>`,
+  save: `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M17 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7l-4-4Zm0 16H5V5h11.2L19 7.8V19ZM12 12a3 3 0 1 0 0 6 3 3 0 0 0 0-6Zm-5-6h8v3H7V6Z"/></svg>`,
+  move: `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M10 9V5.4L8.2 7.2 6.8 5.8 12 0.6l5.2 5.2-1.4 1.4L14 5.4V9h-4Zm4 6v3.6l1.8-1.8 1.4 1.4L12 23.4l-5.2-5.2 1.4-1.4L10 18.6V15h4ZM5.4 14H9v-4H5.4l1.8-1.8-1.4-1.4L0.6 12l5.2 5.2 1.4-1.4L5.4 14Zm13.2 0-1.8 1.8 1.4 1.4L23.4 12l-5.2-5.2-1.4 1.4L18.6 10H15v4h3.6Z"/></svg>`,
+  rotate: `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 6V3L8 7l4 4V8c2.8 0 5 2.2 5 5a5 5 0 0 1-8.9 3.1l-1.5 1.4A7 7 0 1 0 12 6Z"/></svg>`,
+  scale: `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 3h7v2H5v5H3V3Zm11 0h7v7h-2V5h-5V3ZM3 14h2v5h5v2H3v-7Zm16 0h2v7h-7v-2h5v-5Z"/></svg>`,
+  axes: `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M11 3h2v8h8v2h-8v8h-2v-8H3v-2h8V3Zm7.5 1L21 6.5 14.5 13 12 10.5 18.5 4ZM6.5 14 13 20.5 10.5 23 4 16.5 6.5 14Z"/></svg>`,
+  grid: `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 3h8v8H3V3Zm10 0h8v8h-8V3ZM3 13h8v8H3v-8Zm10 0h8v8h-8v-8Z"/></svg>`,
+  light: `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a7 7 0 0 0-4 12.7V18h8v-3.3A7 7 0 0 0 12 2Zm-2 18h4v1a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-1Zm1-2v-1.1l-.6-.4A5 5 0 1 1 13.6 16.5l-.6.4V18h-2Z"/></svg>`,
+  lightPos: `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a6 6 0 0 0-3.5 10.9V15h7v-2.1A6 6 0 0 0 12 2Zm-1.5 15h3v1.2a1.5 1.5 0 0 1-3 0V17ZM12 18.5c-3.5 0-6 2.1-6 3.2V23h12v-1.3c0-1.1-2.5-3.2-6-3.2Zm0 1.5c1.6 0 2.9.5 3.5 1H8.5c.6-.5 1.9-1 3.5-1Z"/></svg>`,
+  reset: `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 6V3L8 7l4 4V8a5 5 0 1 1-4.9 6H5a7 7 0 1 0 7-8Z"/></svg>`,
+  panel: `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 4h18v16H3V4Zm2 2v12h5V6H5Zm7 0v12h7V6h-7Z"/></svg>`,
+  sun: `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10Zm0-5h2v3h-2V2Zm0 17h2v3h-2v-3ZM2 11h3v2H2v-2Zm17 0h3v2h-3v-2ZM4.2 4.2l2.1 2.1-1.4 1.4-2.1-2.1 1.4-1.4Zm14.1 14.1 2.1 2.1-1.4 1.4-2.1-2.1 1.4-1.4Zm0-14.1 1.4 1.4-2.1 2.1-1.4-1.4 2.1-2.1ZM5.9 16.9l1.4 1.4-2.1 2.1-1.4-1.4 2.1-2.1Z"/></svg>`,
+  moon: `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12.5 2a8.5 8.5 0 0 0-.5 17 8.5 8.5 0 0 0 8.3-6.6A7 7 0 0 1 12.5 2Z"/></svg>`,
+  lang: `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm7.4 9h-3.1a15 15 0 0 0-1.3-5.2A8 8 0 0 1 19.4 11ZM12 4c.9 1.4 1.7 3.4 2.1 5.5H9.9C10.3 7.4 11.1 5.4 12 4ZM4.6 13h3.1c.3 1.9.9 3.7 1.8 5.2A8 8 0 0 1 4.6 13Zm3.1-2H4.6a8 8 0 0 1 4.9-5.2A15 15 0 0 0 7.7 11Zm1.2 2h6.2c-.4 2.1-1.2 4.1-2.1 5.5-.9-1.4-1.7-3.4-2.1-5.5Zm7.4 0h3.1a8 8 0 0 1-4.9 5.2c.9-1.5 1.5-3.3 1.8-5.2Z"/></svg>`,
+  info: `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm0 4.2a1.4 1.4 0 1 1 0 2.8 1.4 1.4 0 0 1 0-2.8ZM10.5 10h3v8h-3v-8Z"/></svg>`,
+};

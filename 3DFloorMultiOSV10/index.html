@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" href="/icon.png" />
+    <link rel="apple-touch-icon" href="/icon.png" />
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FloorPlanTo3D — Multi OS</title>
+    <script>
+      (() => {
+        try {
+          const themeSaved = localStorage.getItem('fp3d-theme');
+          const theme =
+            themeSaved === 'light' || themeSaved === 'dark'
+              ? themeSaved
+              : window.matchMedia('(prefers-color-scheme: light)').matches
+                ? 'light'
+                : 'dark';
+          document.documentElement.dataset.theme = theme;
+
+          const localeSaved = localStorage.getItem('fp3d-locale');
+          const locale =
+            localeSaved === 'ko' || localeSaved === 'en'
+              ? localeSaved
+              : (navigator.language || 'en').toLowerCase().startsWith('ko')
+                ? 'ko'
+                : 'en';
+          document.documentElement.lang = locale;
+        } catch {
+          document.documentElement.dataset.theme = 'dark';
+          document.documentElement.lang = 'ko';
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="app">
+      <!-- toolbar mounted by src/ui/toolbar.js -->
+      <aside class="panel" id="sidePanel">
+        <header class="brand">
+          <h1>FloorPlanTo3D</h1>
+          <p data-i18n="brand.subtitle">2D 도면 → 3D 모델 (Web / Multi-OS)</p>
+        </header>
+
+        <!-- Hidden file inputs (browser fallback; desktop uses native dialogs) -->
+        <input id="imageInput" type="file" accept="image/*" hidden />
+        <input
+          id="modelInput"
+          type="file"
+          accept=".glb,.gltf,.obj,.mtl,.stl,.fbx,.ply,.dae,.3ds,.3mf,.amf,.pcd,.xyz,.wrl,.vrml,.gcode,.usdz,.usd,.usda,.usdc,.vox,.vtk,.vtp,.kmz"
+          multiple
+          hidden
+        />
+        <input
+          id="openInput"
+          type="file"
+          accept=".glb,.gltf,.obj,.mtl,.stl,.fbx,.ply,.dae,.3ds,.3mf,.amf,.pcd,.xyz,.wrl,.vrml,.gcode,.usdz,.usd,.usda,.usdc,.vox,.vtk,.vtp,.kmz,image/*"
+          multiple
+          hidden
+        />
+
+        <section class="section">
+          <h2 data-i18n="section.analysis">분석 방식</h2>
+          <p class="hint" data-i18n="hint.toolbarInput">이미지는 상단 툴바의 「이미지 선택」으로 엽니다.</p>
+          <label class="field">
+            <span data-i18n="label.mode">모드</span>
+            <select id="modeSelect">
+              <option value="heuristic" data-i18n="mode.heuristic" selected>로컬 휴리스틱 (오프라인)</option>
+              <option value="dreamspace" data-i18n="mode.dreamspace">DreamSpaceAI (오프라인)</option>
+              <option value="api" data-i18n="mode.api">Mask R-CNN API</option>
+              <option value="demo" data-i18n="mode.demo">데모 데이터</option>
+            </select>
+          </label>
+          <p class="hint hidden" id="dreamspaceHint" data-i18n="hint.dreamspace">
+            이미지가 있으면 그 도면에서 벽을 검출합니다. 이미지 없이 변환하면 샘플 아파트 레이아웃을 사용합니다.
+          </p>
+          <label class="field hidden" id="apiUrlField">
+            <span data-i18n="label.apiUrl">API URL</span>
+            <input id="apiUrl" type="url" value="http://127.0.0.1:5000/" />
+            <small class="hint" data-i18n="hint.apiMode">Mask R-CNN API는 별도 서버가 필요합니다. 오프라인이면「로컬 휴리스틱」을 사용하세요.</small>
+          </label>
+          <button id="convertBtn" class="primary" type="button" data-i18n="btn.convert">3D로 변환</button>
+        </section>
+
+        <section class="section">
+          <h2 data-i18n="section.customize">커스터마이즈</h2>
+          <label class="field">
+            <span data-i18n="label.scale">스케일</span>
+            <input id="scaleRange" type="range" min="0.2" max="3" step="0.05" value="1" />
+          </label>
+          <label class="field value-field">
+            <span data-i18n="label.wallHeight">벽 높이</span>
+            <div class="range-with-value">
+              <input id="wallHeight" type="range" min="1" max="5" step="0.05" value="2.5" />
+              <output id="wallHeightValue" for="wallHeight">2.50 m</output>
+            </div>
+          </label>
+          <label class="field value-field">
+            <span data-i18n="label.wallThickness">벽 두께</span>
+            <div class="range-with-value">
+              <input id="wallThickness" type="range" min="0.05" max="0.8" step="0.01" value="0.15" />
+              <output id="wallThicknessValue" for="wallThickness">0.15 m</output>
+            </div>
+          </label>
+          <label class="field">
+            <span data-i18n="label.wallColor">벽 색상</span>
+            <input id="wallColor" type="color" value="#d8d2c4" />
+          </label>
+          <label class="field">
+            <span data-i18n="label.floorColor">바닥 색상</span>
+            <input id="floorColor" type="color" value="#8b7355" />
+          </label>
+        </section>
+
+        <!-- Axes/grid state for toolbar toggles (no side-panel transform UI) -->
+        <input id="showAxes" type="checkbox" checked hidden />
+        <input id="showGrid" type="checkbox" checked hidden />
+
+        <footer class="footer">
+          <small>
+            <span data-i18n="footer.inspired">참고 프로젝트</span>
+            <a href="https://github.com/fadyazizz/FloorPlanTo3D-unityClient" target="_blank" rel="noreferrer">
+              FloorPlanTo3D-unityClient
+            </a>
+            ·
+            <a href="https://github.com/jevintanjh/DreamSpaceAI" target="_blank" rel="noreferrer">
+              DreamSpaceAI
+            </a>
+          </small>
+        </footer>
+      </aside>
+      <main id="viewport">
+        <div id="dropOverlay" class="drop-overlay hidden" data-i18n="hint.dropFiles">
+          이미지 또는 3D 파일을 여기에 놓으세요
+        </div>
+        <aside id="lightHud" class="light-hud" data-i18n-aria="lightHud.aria" aria-label="조명 제어">
+          <header class="light-hud__head" id="lightHudDrag" data-i18n-title="lightHud.dragTitle" title="드래그하여 이동">
+            <strong data-i18n="lightHud.title">조명</strong>
+          </header>
+          <label class="light-hud__row">
+            <span data-i18n="label.mainIntensity">주광 강도</span>
+            <input id="mainIntensity" type="range" min="0" max="3" step="0.05" value="1.35" />
+          </label>
+          <label class="light-hud__row">
+            <span data-i18n="label.fillIntensity">보조광</span>
+            <input id="fillIntensity" type="range" min="0" max="2" step="0.05" value="0.45" />
+          </label>
+          <label class="light-hud__row">
+            <span data-i18n="label.hemiIntensity">환경광</span>
+            <input id="hemiIntensity" type="range" min="0" max="2" step="0.05" value="0.55" />
+          </label>
+          <label class="light-hud__row light-hud__row--inline">
+            <span data-i18n="label.lightColor">색</span>
+            <input id="lightColor" type="color" value="#fff2dd" />
+            <label class="light-hud__check">
+              <input id="castShadow" type="checkbox" checked />
+              <span data-i18n="label.castShadow">그림자</span>
+            </label>
+          </label>
+          <div class="light-hud__position">
+            <span class="light-hud__position-title" data-i18n="label.position">위치</span>
+            <label class="light-hud__axis">
+              <span>X</span>
+              <input id="lightXRange" type="range" min="-50" max="50" step="0.5" value="8" />
+              <input id="lightX" type="number" step="0.5" value="8" />
+            </label>
+            <label class="light-hud__axis">
+              <span>Y</span>
+              <input id="lightYRange" type="range" min="0" max="60" step="0.5" value="14" />
+              <input id="lightY" type="number" step="0.5" value="14" />
+            </label>
+            <label class="light-hud__axis">
+              <span>Z</span>
+              <input id="lightZRange" type="range" min="-50" max="50" step="0.5" value="6" />
+              <input id="lightZ" type="number" step="0.5" value="6" />
+            </label>
+          </div>
+          <p class="light-hud__hint" data-i18n="lightHud.hint">제목을 드래그해 패널을 옮기세요. 위치는 아래 X/Y/Z 또는 툴바「광원 표시」</p>
+          <input id="lightGizmo" type="checkbox" checked hidden />
+        </aside>
+      </main>
+      <footer id="statusBar" class="statusbar" role="status" aria-live="polite" data-i18n-aria="statusbar.aria" aria-label="상태 표시줄">
+        <div class="statusbar-msg">
+          <span class="statusbar-dot" id="statusDot" aria-hidden="true"></span>
+          <span id="status" class="statusbar-text"></span>
+        </div>
+        <div class="statusbar-meta">
+          <span class="statusbar-item" id="sbContent" title=""></span>
+          <span class="statusbar-sep" aria-hidden="true"></span>
+          <span class="statusbar-item" id="sbMode"></span>
+          <span class="statusbar-sep" aria-hidden="true"></span>
+          <span class="statusbar-item" id="sbTool"></span>
+          <span class="statusbar-sep" aria-hidden="true"></span>
+          <span class="statusbar-item" id="sbSegments"></span>
+          <span class="statusbar-sep" aria-hidden="true"></span>
+          <span class="statusbar-item" id="sbTheme"></span>
+          <span class="statusbar-sep" aria-hidden="true"></span>
+          <span class="statusbar-item" id="sbLocale"></span>
+        </div>
+      </footer>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

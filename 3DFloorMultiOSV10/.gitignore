@@ -1,0 +1,36 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+DreamSpaceAI/node_modules
+DreamSpaceAI/.next
+dist
+dist-ssr
+*.local
+out
+release/*
+!release/README.md
+!release/INSTALLERS.md
+installers
+build/icon.png
+electron/icon.png
+public/icon.png
+# opaque master kept as assets/icon-src.png; assets/icon.png is the transparent export
+samples/_source/
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
