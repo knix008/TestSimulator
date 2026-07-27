@@ -10,6 +10,7 @@ const releaseDir = path.join(root, 'release', 'web');
 const version = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).version;
 const zipName = `FloorPlanTo3D-${version}-web.zip`;
 const zipPath = path.join(releaseDir, zipName);
+const rootZipPath = path.join(root, zipName);
 
 if (!fs.existsSync(distDir)) {
   console.error('dist/ not found. Run "npm run build" first.');
@@ -64,4 +65,6 @@ if (isWin) {
 }
 
 fs.writeFileSync(path.join(releaseDir, 'README.md'), readme);
+fs.copyFileSync(zipPath, rootZipPath);
 console.log(`Web package created: ${zipPath}`);
+console.log(`Copied ${zipName} -> project root`);

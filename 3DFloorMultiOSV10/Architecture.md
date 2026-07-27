@@ -2,77 +2,97 @@
 
 FloorPlanTo3D Multi-OS client architecture.
 
-Inspired by [FloorPlanTo3D-unityClient](https://github.com/fadyazizz/FloorPlanTo3D-unityClient), this project replaces the Unity client with a **Vite + Three.js** web app and an optional **Electron** shell for desktop.
+Inspired by [FloorPlanTo3D-unityClient](https://github.com/fadyazizz/FloorPlanTo3D-unityClient), this project replaces the Unity client with a **Vite + Three.js** app and an optional **Electron** shell.
+
+**Author:** SHKWON \<knix008@naver.com\> · **Version:** 1.0.0
 
 ## Goals
 
-- Convert 2D floor-plan images into editable 3D scenes
-- Run on Windows / macOS / Linux via browser or Electron
-- Support offline demo/heuristic modes and optional Mask R-CNN API
-- Provide transform, lighting, theme, locale, and error-reporting UX
+- Convert **selected** 2D floor-plan images into editable 3D scenes
+- Run on Windows / macOS / Linux (browser or Electron)
+- Offline heuristic / DreamSpace modes + optional Mask R-CNN API
+- Light helpers, free-axis viewing, multi-format load/export, i18n, theming
 
 ## High-level flow
 
 ```text
-[Image / Sample / Demo]
+[Image / 3D model file]
         │
-        ▼
- ┌────────────────┐      ┌──────────────────┐
- │ Detection      │─────▶│ Detection JSON   │
- │ demo /         │      │ points[],        │
- │ heuristic /    │      │ classes[],       │
- │ API            │      │ Width, Height…   │
- └────────────────┘      └────────┬─────────┘
-                                  │
-                                  ▼
-                       ┌──────────────────────┐
-                       │ FloorPlanBuilder     │
-                       │ walls / doors /      │
-                       │ windows / floor      │
-                       └──────────┬───────────┘
-                                  │
-                                  ▼
-                       ┌──────────────────────┐
-                       │ SceneApp (Three.js)  │
-                       │ orbit / walk /       │
-                       │ gizmo / lights / axes│
-                       └──────────────────────┘
+        ├─ model file ──▶ modelLoader ──▶ SceneApp.externalRoot
+        │
+        ▼ (convert)
+ ┌────────────────────┐      ┌──────────────────┐
+ │ Detection          │─────▶│ Detection JSON   │
+ │ heuristic /        │      │ points[],        │
+ │ dreamspace /       │      │ classes[],       │
+ │ API / demo         │      │ Width, Height…   │
+ └────────────────────┘      └────────┬─────────┘
+                                      │
+                                      ▼
+                           ┌──────────────────────┐
+                           │ FloorPlanBuilder     │
+                           │ walls / doors /      │
+                           │ windows / floor      │
+                           └──────────┬───────────┘
+                                      │
+                                      ▼
+                           ┌──────────────────────┐
+                           │ SceneApp (Three.js)  │
+                           │ Trackball / gizmo /  │
+                           │ lights / ray / save  │
+                           └──────────────────────┘
 ```
+
+### Convert policy
+
+| Mode | Selected image present | No image |
+|---|---|---|
+| Heuristic | Detect from image | Error |
+| DreamSpaceAI | Detect from image (heuristic CV) | Mock apartment layout |
+| Mask R-CNN API | POST image to API | Error |
+| Demo | Detect from image (heuristic) | Built-in `demoFloorPlan` |
 
 ## Runtime options
 
 | Runtime | Entry | Notes |
 |---|---|---|
-| Browser (dev) | `npm run dev` | Vite HMR on port `5173` |
-| Browser (prod) | `npm run build` → `dist/` | Static assets, `base: './'` |
-| Web package | `npm run dist:web` | Zips `dist/` into `release/web/` |
-| Electron (dev) | `npm run electron:dev` | Loads Vite URL, no default app menu |
-| Desktop installers | `npm run dist:win/mac/linux` | electron-builder → `release/` |
+| Browser (dev) | `npm run dev` | Vite HMR (~5173) |
+| Browser (prod) | `npm run build` → `dist/` | Static, `base: './'` |
+| Web package | `npm run dist:web` | Zip → **project root** + `release/web/` |
+| Electron (dev) | `npm start` | Vite URL, no default app menu |
+| Desktop installers | `npm run dist:win/mac/linux` | electron-builder → **project root** + `release/` |
 
-Electron main process: `electron/main.cjs`  
-- `Menu.setApplicationMenu(null)` disables File/Edit/View menus  
-- UI actions are exposed through the in-app toolbar instead
+Packaging stages under a temp dir, then copies installers to the root (and `release/`) to avoid IDE file locks. See `scripts/dist-desktop.mjs`, `scripts/package-web.mjs`.
+
+Electron: `electron/main.cjs` + `electron/preload.cjs`  
+- `Menu.setApplicationMenu(null)`  
+- IPC for open/save dialogs
 
 ## Directory map
 
 ```text
 3DFloorMultiOSV10/
-├── electron/main.cjs          # Electron shell (no default menu)
-├── index.html                 # App shell + side panel markup
+├── electron/                  # Main + preload
+├── index.html
 ├── vite.config.js
-├── samples/                   # Example 2D floor plans (project root)
+├── electron-builder.yml
+├── samples/                   # Example plans / models
+├── scripts/                   # icons, dist-desktop, package-web/all
 ├── src/
-│   ├── main.js                # UI wiring, convert pipeline, status
-│   ├── style.css              # Theme tokens + layout
-│   ├── api/client.js          # FloorPlanTo3D-API client
-│   ├── detect/heuristic.js    # Offline wall-line heuristic
-│   ├── data/demoFloorPlan.js  # Built-in detection payload
-│   ├── loaders/modelLoader.js # Multi-format 3D file open (glTF, OBJ, STL, …)
+│   ├── main.js                # UI, convert, save, status
+│   ├── api/client.js
+│   ├── detect/
+│   │   ├── heuristic.js
+│   │   └── dreamspace.js
+│   ├── data/demoFloorPlan.js
 │   ├── builder/FloorPlanBuilder.js
-│   ├── scene/SceneApp.js      # Three.js scene / controls / helpers
-│   ├── i18n/                  # ko / en messages + locale helpers
-│   └── ui/                    # toolbar, theme, icons, error dialog
-├── assets/icon.png            # master app / installer icon (light 3D)
+│   ├── scene/SceneApp.js
+│   ├── loaders/modelLoader.js
+│   ├── exporters/modelExport.js
+│   ├── desktop/bridge.js
+│   ├── i18n/
+│   └── ui/                    # toolbar, theme, dialogs, save
+├── assets/                    # icon-src.png (master), generated icons ignored
 ├── Architecture.md
 ├── UsersGuide.md
 └── README.md
@@ -82,23 +102,22 @@ Electron main process: `electron/main.cjs`
 
 ### `main.js`
 
-Application controller:
+- Toolbar / panel wiring
+- Convert pipeline (mode-aware; image preferred over mock data)
+- Rebuild on scale / wall / color changes
+- Light HUD sync, save dialog, open image/model
+- Theme / locale / error reporting
 
-- Mounts toolbar and binds panel controls
-- Runs convert pipeline (`demo` / `heuristic` / `api`)
-- Rebuilds the 3D scene when scale, wall height/thickness, or colors change
-- Routes serious errors to the modal dialog
-- Syncs theme / locale / toolbar active states
-
-### Detection layer
+### Detection
 
 | Mode | Module | Behavior |
 |---|---|---|
-| Demo | `data/demoFloorPlan.js` | Fixed sample geometry, no image required |
-| Heuristic | `detect/heuristic.js` | Canvas threshold + horizontal/vertical run extraction |
-| API | `api/client.js` | `POST multipart/form-data` field `image` to Mask R-CNN server |
+| Heuristic | `detect/heuristic.js` | Ink mask + H/V runs → wall/door/window boxes |
+| DreamSpace | `detect/dreamspace.js` | Image → heuristic; else mock rooms → boxes |
+| API | `api/client.js` | Multipart `image` → Mask R-CNN JSON |
+| Demo | `data/demoFloorPlan.js` | Fixed payload when no image |
 
-Common detection payload (compatible with upstream API):
+Payload shape (API-compatible):
 
 ```json
 {
@@ -114,80 +133,78 @@ Common detection payload (compatible with upstream API):
 
 ### `FloorPlanBuilder`
 
-Ports Unity `Builder.cs` / `WallMesh.cs` ideas to Three.js:
+Unity `Builder` / `WallMesh` ideas in Three.js:
 
-- Converts axis-aligned boxes into `BoxGeometry` segments
-- Centers the plan using image `Width` / `Height`
-- Maps pixels to meters using `averageDoor` (default door ≈ 0.9 m)
-- Applies user options:
-  - `scale`
-  - `wallHeight`
-  - `wallThickness`
-  - wall / floor colors
+- Axis-aligned boxes → `BoxGeometry` segments
+- Pixel → meter via `averageDoor` (~0.9 m)
+- Options: `scale`, `wallHeight`, `wallThickness`, colors, optional floor texture (plan image)
 
 ### `SceneApp`
 
-Three.js runtime:
+- `TrackballControls` (full tumble; no polar lock)
+- `TransformControls` (model rotate/scale in world space; light translate)
+- Content modes: `plan2d` / `floorplan` / `model`
+- Lights: directional main + fill + hemisphere; shadow map refresh on move
+- Light helpers: marker, dashed ray from world origin `(0,0,0)` to light (toggled with **광원 표시**)
+- Axes / grid; theme-aware clear color
+- Transparent PNG capture (helpers hidden)
 
-- Perspective camera + `OrbitControls`
-- First-person walk mode (WASD + drag look)
-- `TransformControls` gizmo (translate / rotate / scale)
-- Axes helper + X/Y/Z sprite labels
-- Grid helper
-- Main / fill / hemisphere lights + light helper/gizmo
-- Theme-aware background, fog, and grid colors
-
-### UI layer
+### Load / export
 
 | Module | Role |
 |---|---|
-| `ui/toolbar.js` | Icon toolbar (open, convert, transform, camera, toggles, theme, language, panel) |
-| `ui/theme.js` | Light / Dark theme (`localStorage`: `fp3d-theme`) |
-| `ui/errorDialog.js` | Serious-error modal with copyable report |
-| `i18n/*` | Korean / English (`localStorage`: `fp3d-locale`) |
+| `loaders/modelLoader.js` | Multi-format import; promote unlit materials so lights affect shading |
+| `exporters/modelExport.js` | GLB/GLTF/OBJ/STL/PLY/USDZ (+ PNG via SceneApp) |
+| `ui/saveDialog.js` | Format picker |
+| `desktop/bridge.js` | Electron save/open IPC |
 
-## Cross-cutting concerns
+### UI
+
+| Module | Role |
+|---|---|
+| `ui/toolbar.js` | Image, model, convert, save, transform, helpers, light, reset, theme, lang, info |
+| `ui/theme.js` | Light/Dark (`fp3d-theme`) |
+| `ui/infoDialog.js` / `errorDialog.js` | About / serious errors (i18n + theme) |
+| `i18n/*` | KO/EN (`fp3d-locale`) |
+
+## Cross-cutting
 
 ### Theming
 
-CSS custom properties switch under `html[data-theme="light|dark"]`.  
-`SceneApp.setTheme()` updates 3D background/fog/grid to match.
+CSS variables under `html[data-theme="light|dark"]`. Scene background/fog/grid follow theme.
 
-### Internationalization
+### i18n
 
-- Message tables: `src/i18n/messages.js`
-- DOM nodes use `data-i18n` / `data-i18n-title` / `data-i18n-aria`
-- Runtime status/errors use `t(key)` / `i18nError(key, vars)`
+- Tables: `src/i18n/messages.js`
+- DOM: `data-i18n` / `data-i18n-title` / `data-i18n-aria`
+- Runtime: `t(key)` / `i18nError(key, vars)`
 
-### Error handling
+### Errors
 
-- Soft validation (missing image/API URL) → status line only
-- Serious failures (API/heuristic/sample/unexpected) → modal with:
-  - summary
-  - timestamp, locale, theme, URL, user agent
-  - context + stack
-  - clipboard copy
-- Global handlers cover `window.error` and `unhandledrejection`
+- Soft validation → status bar  
+- Serious → modal with report + copy  
+- `window.error` / `unhandledrejection` covered  
 
 ## Mapping from Unity reference
 
-| Unity / API original | This project |
+| Unity / API | This project |
 |---|---|
-| Unity Client | Vite web app (+ Electron) |
+| Unity Client | Vite + Three.js (+ Electron) |
 | `Builder.cs` | `FloorPlanBuilder.js` |
-| `WallMesh.cs` | Box segment meshing in builder |
-| Flask Mask R-CNN API | Same JSON contract via `api/client.js` |
+| `WallMesh.cs` | Box segment meshing |
+| Flask Mask R-CNN API | `api/client.js` + offline fallbacks |
 | Native Unity UI | HTML panel + icon toolbar |
 
 ## Extension points
 
-- Add new detection backends that emit the same JSON shape
-- Extend builder classes (furniture, room labels, materials)
-- Add loaders in `loaders/modelLoader.js` for additional 3D formats
-- Package Electron with an installer (`electron-builder` / similar)
-- Persist scene transforms / wall settings per project file
+- New detectors emitting the same JSON shape
+- Richer builder (furniture, room labels, materials)
+- Additional loaders / exporters
+- Signed installers / auto-update via electron-builder
+- Persist scene + wall settings as project files
 
 ## Related docs
 
-- User-facing guide: [UsersGuide.md](./UsersGuide.md)
-- Quick start / API notes: [README.md](./README.md)
+- [UsersGuide.md](./UsersGuide.md)
+- [README.md](./README.md)
+- [release/README.md](./release/README.md)

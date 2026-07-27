@@ -1,17 +1,18 @@
 # User's Guide
 
-FloorPlanTo3D Multi-OS — how to install, convert floor plans, and use the 3D viewer.
+FloorPlanTo3D Multi-OS — install, convert floor plans, view/edit 3D, and export.
 
-한국어 UI와 English UI를 모두 지원합니다. 툴바의 **언어(KO/EN)** 버튼으로 전환하세요.
+UI: **한국어 / English** (toolbar **Lang**). Theme: **Light / Dark**.
+
+**Author:** SHKWON \<knix008@naver.com\> · **Version:** 1.0.0
 
 ---
 
 ## 1. Requirements
 
-- Node.js 18+ (recommended)
-- Modern browser (Chrome / Edge / Firefox / Safari), **or**
-- Electron desktop run (Windows / macOS / Linux)
-- Optional: [FloorPlanTo3D-API](https://github.com/fadyazizz/FloorPlanTo3D-API) for Mask R-CNN detection
+- Node.js 18+
+- Electron desktop (Windows / macOS / Linux), **or** a modern browser
+- Optional: [FloorPlanTo3D-API](https://github.com/fadyazizz/FloorPlanTo3D-API) for Mask R-CNN
 
 ## 2. Install & run
 
@@ -20,7 +21,7 @@ npm install
 npm start
 ```
 
-`npm start` launches the **desktop app** (Electron + Vite) on Windows / macOS / Linux.
+`npm start` launches the **desktop app** (Electron + Vite).
 
 ### Browser only
 
@@ -32,9 +33,9 @@ Open the URL shown in the terminal (default `http://localhost:5173/`).
 
 ### Electron notes
 
-- `npm start` and `npm run electron:dev` are the same
-- `npm run electron:build` builds `dist/` then opens Electron without the Vite server
-- Electron’s default File/Edit/View menu is disabled. Use the **icon toolbar** at the top.
+- `npm start` ≡ `npm run electron:dev`
+- `npm run electron:build` — build `dist/` then open Electron without Vite
+- Default File/Edit/View menu is disabled; use the **icon toolbar**
 
 ### Production build
 
@@ -43,24 +44,25 @@ npm run build
 npm run preview          # browser
 ```
 
-### Installer packages (Windows / macOS / Linux / Web)
+### Installer packages
 
 ```bash
-npm run dist:web      # release/web/*.zip
-npm run dist:win      # Windows NSIS Setup + portable exe
-npm run dist:mac      # macOS dmg/zip (build on a Mac)
-npm run dist:linux    # Linux AppImage + deb
-npm run dist:all      # host-capable desktop targets + web zip
+npm run dist:web      # FloorPlanTo3D-*-web.zip
+npm run dist:win      # Setup + portable .exe
+npm run dist:mac      # dmg/zip (build on macOS)
+npm run dist:linux    # AppImage / deb / tar.gz
+npm run dist:all      # host-capable desktop + web
 ```
 
-Artifacts are written to `release/`. See [release/README.md](./release/README.md).
+Artifacts are copied to the **project root** and kept under `release/`.  
+See [release/README.md](./release/README.md).
 
-| Platform | Installer type |
+| Platform | Files (project root) |
 |---|---|
-| Windows | `.exe` Setup (NSIS; Desktop/Start Menu shortcuts optional), portable `.exe` |
-| macOS | `.dmg`, `.zip` (build on macOS) |
-| Linux | `.tar.gz` portable; `.AppImage` / `.deb` (build on Linux) |
-| Web | `.zip` static site package |
+| Windows | `FloorPlanTo3D-*-Setup-win-x64.exe`, `*-portable-win-x64.exe` |
+| macOS | `*.dmg`, `*.zip` |
+| Linux | `*.tar.gz`; `*.AppImage` / `*.deb` (on Linux) |
+| Web | `FloorPlanTo3D-*-web.zip` |
 
 ---
 
@@ -71,98 +73,80 @@ Artifacts are written to `release/`. See [release/README.md](./release/README.md
 │ Toolbar (icons)                              │
 ├──────────────┬───────────────────────────────┤
 │ Side panel   │  3D viewport                  │
-│ - image      │                               │
 │ - analysis   │                               │
 │ - customize  │                               │
-│ - transform  │                               │
-│ - lights     │                               │
-│ - explore    │                               │
+│ - lights HUD │                               │
 └──────────────┴───────────────────────────────┘
 ```
 
-- **Toolbar**: quick actions (open, convert, move/rotate/scale, camera, axes, theme, language…)
-- **Side panel**: detailed settings
-- **Viewport**: interactive 3D scene
+### Toolbar (main actions)
 
-Use the **Panel** toolbar button to collapse/expand the side panel.
+| Button | Action |
+|---|---|
+| **이미지** | Open floor-plan image |
+| **모델** | Open 3D model file |
+| **변환** | Convert selected image → 3D |
+| **저장** | Export PNG (transparent) or 3D formats |
+| **회전 / 스케일** | Model transform tools (`R` / `S`) |
+| **축 / 그리드** | Toggle helpers |
+| **광원 표시** | Show/hide light marker, origin→light line, gizmo |
+| **초기화** | Reset model transform, light pose, and camera view |
+| **테마 / 언어 / 정보** | Theme, locale, about |
 
 ---
 
 ## 4. Convert a floor plan to 3D
 
-### Step A — Choose an image
+### A — Choose an image
 
-1. Click **Open** (toolbar) or **Choose image** (panel), **or**
-2. Click one of the built-in **samples** in the panel, **or**
-3. Drag and drop an image onto the viewport
+1. Toolbar **이미지**, or drag-and-drop an image onto the viewport  
+2. The plan appears as a **2D preview** until you convert
 
-### Open a 3D model (view only)
-
-You can also open common 3D formats directly (no convert step):
-
-- Toolbar **Open**, panel **Open 3D model**, or drag-and-drop onto the viewport
-- Supported: **GLB/GLTF, OBJ(+MTL), STL, FBX, PLY, DAE, 3DS, 3MF, AMF, PCD, XYZ, VRML, GCode**
-
-The model appears in the viewport; transform / lights / camera tools still apply. Use **Convert** again to return to a floor-plan build.
-
-### Step B — Choose analysis mode
+### B — Choose analysis mode
 
 | Mode | When to use |
 |---|---|
-| **Demo data** | Instant preview without an image/API |
-| **Local heuristic (offline)** | High-contrast line drawings, no server |
-| **Mask R-CNN API** | Best detection quality with the Python API |
+| **Local heuristic (offline)** | High-contrast drawings, no server (**default**) |
+| **DreamSpaceAI (offline)** | With image → detect from that image; without → sample apartment |
+| **Mask R-CNN API** | Best quality with the Python API running |
+| **Demo data** | Instant layout without an image (if an image is selected, heuristic is used instead) |
 
-### Step C — Convert
+> When an image is selected, convert **always** builds from that image (not a fixed default box layout).
 
-Click **Convert** (toolbar) or **Convert to 3D** (panel).
+### C — Convert
 
-The 3D model appears in the viewport. Status text under the convert button shows progress/result.
+Click **변환**. Walls / doors / windows extrude in the viewport. Status text shows the result.
+
+### Open a 3D model (view / edit)
+
+Toolbar **모델** or drop a model file:
+
+- Supported: **GLB/GLTF, OBJ(+MTL), STL, FBX, PLY, DAE, 3DS, 3MF, USDZ/USD, VOX, VTK, KMZ**, and more  
+- Transform, lights, camera, and **저장** still apply  
+- Run **변환** again after selecting a floor-plan image to return to a plan build
 
 ---
 
-## 5. Customize the model
-
-In **Customize**:
+## 5. Customize
 
 | Control | Effect |
 |---|---|
 | Scale | Overall plan size |
-| Wall height | Wall extrusion height (m) |
-| Wall thickness | Thin-axis thickness of walls (m) |
-| Wall color / Floor color | Materials |
+| Wall height / thickness | Extrusion (m) |
+| Wall / floor color | Materials |
 
-Changes apply immediately to the current detection result.
+Changes apply immediately to the current detection.
 
 ---
 
-## 6. Axes & transform (X Y Z)
+## 6. Transform & camera
 
-### Visibility
-
-- **Axes helper**: classic RGB world axes (X red, Y green, Z blue)
-- **Grid**: ground grid
-- Individual **X / Y / Z** overlays (optional)
-
-### Gizmo modes
-
-The model stays centered (no move/translate). Use the camera to look around it.
-
-| Mode | Shortcut | Action |
-|---|---|---|
-| Rotate | `R` | Rotate with mouse drag, gizmo rings, or 0–360° sliders |
-| Scale | `S` | Scale model |
-
-Also available:
-
-- World / Local space
-- Rotation (0–360° sliders), scale
-- **Reset transform**
-
-**Mouse**
-
-- **Orbit camera**: left-drag to orbit, scroll to zoom, right-drag to pan
-- **Rotate tool (`R`)**: left-drag spins the model; right-drag orbits the camera; gizmo rings for axis-locked rotation
+- The model stays centered (no translate). Orbit/trackball the **camera** around it.
+- **Rotate (`R`)**: mouse drag (world X/Y; Shift → Z), gizmo rings, or HUD angles — full 360° on all axes  
+- **Scale (`S`)**: gizmo / mouse  
+- **Trackball** camera: tumble freely (no orbit pole lock); scroll zoom; right-drag pan  
+- While rotate tool is on: `X` / `Y` / `Z` locks drag to that world axis  
+- **초기화**: model pose + light default + camera framing
 
 ---
 
@@ -170,82 +154,69 @@ Also available:
 
 | Control | Effect |
 |---|---|
-| Main / Fill / Ambient intensity | Brightness |
-| Light color | Main directional light color |
-| Light position X/Y/Z | Main light location |
-| Light helper | Visual helper in the scene |
-| Shadows | Enable/disable shadow casting |
-| Light gizmo | Drag the main light in the viewport |
+| Main / Fill / Ambient | Intensities |
+| Color | Main light (+ marker / line tint) |
+| Position X/Y/Z | Sliders + numbers (sync with gizmo) |
+| Shadows | Cast shadows on/off |
+| **광원 표시** | Marker, dashed line from `(0,0,0)` to the light, drag gizmo |
+
+Moving the light updates shading/shadows on the floor plan and loaded models.
 
 ---
 
-## 8. Camera / explore
+## 8. Save / export
 
-| Mode | How to use |
+Toolbar **저장** opens a format dialog:
+
+| Format | Notes |
 |---|---|
-| **Orbit camera** | Drag to orbit, scroll to zoom |
-| **First-person tour** | `W A S D` move, drag to look |
+| **PNG** | Transparent background (helpers/gizmos hidden) |
+| **GLB / GLTF / OBJ / STL / PLY / USDZ** | Current 3D content |
 
-Switch modes from the toolbar (**Orbit** / **Walk**) or the Explore section.
+Desktop builds use a native save dialog; the browser downloads the file.
 
 ---
 
 ## 9. Theme & language
 
-| Toolbar button | Behavior |
+| Control | Behavior |
 |---|---|
-| **Theme** | Toggle Light / Dark (saved in `localStorage`) |
-| **Lang (KO/EN)** | Toggle Korean / English (saved in `localStorage`) |
+| **Theme** | Label shows the *target* theme (Dark mode → “Light”) |
+| **Lang** | Toggle KO / EN |
 
-Defaults:
-
-- Theme → OS preference if unset
-- Language → browser language (`ko*` → Korean, otherwise English)
+Defaults: OS theme preference; browser language (`ko*` → Korean).
 
 ---
 
-## 10. Samples
+## 10. Optional Mask R-CNN API
 
-Built-in images live in root `samples/` — **2D floor plans only**.
-
-Click a thumbnail to load it. For heuristic/API conversion, switch away from Demo mode (the app may auto-switch to heuristic when a sample is selected).
-
-> Heuristic quality varies; API mode works best on clean 2D plans.
-
----
-
-## 11. Optional Mask R-CNN API
-
-1. Clone and run [FloorPlanTo3D-API](https://github.com/fadyazizz/FloorPlanTo3D-API)
-2. Place model weights in that repo’s `weights/` folder
-3. Start the server (`python application.py`, usually `http://127.0.0.1:5000/`)
-4. In this app: set mode to **Mask R-CNN API**, confirm API URL, open an image, convert
+1. Run [FloorPlanTo3D-API](https://github.com/fadyazizz/FloorPlanTo3D-API)
+2. Put weights in `weights/`
+3. `python application.py` → usually `http://127.0.0.1:5000/`
+4. Mode **Mask R-CNN API** → set URL → open image → convert
 
 ---
 
-## 12. Errors
+## 11. Errors
 
-- Simple validation (no image selected, empty API URL) appears in the status line.
-- Serious errors open a **popup** with:
-  - summary
-  - detailed report (time, locale, URL, stack, context)
-  - **Copy** button for clipboard
-
-Close with **Close**, `Esc`, or by clicking outside the dialog.
+- Soft validation (no image, etc.) → status line  
+- Serious errors → dialog with summary, report, and **Copy**  
+- Close with **Close**, `Esc`, or outside click  
 
 ---
 
-## 13. Tips
+## 12. Tips
 
-- Prefer high-contrast black-on-white drawings for **heuristic** mode
-- Use **Demo** to learn controls without an image
-- If the model is too large/small, adjust **Scale** or door-based sizing via API `averageDoor`
-- Use **Reset transform** if the model moves out of view
-- Collapse the panel for a larger viewport on smaller screens
+- Prefer high-contrast black-on-white plans for **heuristic**
+- Use **Demo** only to learn controls without an image
+- Adjust **Scale** if the plan feels too large/small
+- Turn **광원 표시** off for a clean view; use **저장** for exports
+- Collapse the side panel for a larger viewport
 
 ---
 
-## 14. Related docs
+## 13. Related docs
 
-- System design: [Architecture.md](./Architecture.md)
-- Project overview: [README.md](./README.md)
+- Design: [Architecture.md](./Architecture.md)
+- Overview: [README.md](./README.md)
+- Installers: [release/README.md](./release/README.md)

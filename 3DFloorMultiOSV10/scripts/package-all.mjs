@@ -47,21 +47,23 @@ const manifest = `# FloorPlanTo3D installers
 Generated on: ${new Date().toISOString()}
 Host platform: ${process.platform}
 
-## Artifacts currently in \`release/\`
+## Artifacts
+
+Installer files are copied to the **project root** and also kept under \`release/\`.
 
 ${files.length ? files.map((f) => `- \`${f}\``).join('\n') : '- (none yet)'}
 
 ## Expected matrix
 
-| Platform | Command | Typical files |
+| Platform | Command | Typical files (project root) |
 |---|---|---|
 | Windows | \`npm run dist:win\` | \`FloorPlanTo3D-*-Setup-win-x64.exe\`, \`FloorPlanTo3D-*-portable-win-x64.exe\` |
 | macOS | \`npm run dist:mac\` | \`FloorPlanTo3D-*-mac-*.dmg\`, \`*.zip\` (build on macOS) |
 | Linux | \`npm run dist:linux\` | \`FloorPlanTo3D-*-linux-*.AppImage\`, \`*.deb\` |
-| Web | \`npm run dist:web\` | \`web/FloorPlanTo3D-*-web.zip\` |
+| Web | \`npm run dist:web\` | \`FloorPlanTo3D-*-web.zip\` |
 
 ## Notes
-- Desktop builds stage in a temp directory then copy into \`release/\` (avoids file-lock issues under some IDEs).
+- Desktop builds stage in a temp directory, then copy into the project root and \`release/\` (avoids file-lock issues under some IDEs).
 - macOS installers must be built on a Mac.
 - Unsigned builds may show OS security prompts on first launch.
 ${failures.length ? `\n## Warnings\n${failures.map((f) => `- ${f}`).join('\n')}\n` : ''}

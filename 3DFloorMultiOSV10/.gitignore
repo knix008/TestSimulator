@@ -7,21 +7,48 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Dependencies
 node_modules
 DreamSpaceAI/node_modules
 DreamSpaceAI/.next
+
+# Build outputs
 dist
 dist-ssr
 *.local
 out
+
+# Desktop packaging (electron-builder staging / leftovers)
+installers
+builder-effective-config.yaml
+builder-debug.yml
+*.blockmap
+
+# Installer artifacts in project root (also mirrored under release/)
+FloorPlanTo3D-*.exe
+FloorPlanTo3D-*.dmg
+FloorPlanTo3D-*.zip
+FloorPlanTo3D-*.AppImage
+FloorPlanTo3D-*.deb
+FloorPlanTo3D-*.rpm
+FloorPlanTo3D-*.tar.gz
+FloorPlanTo3D-*.yml
+latest*.yml
+
+# release/ keep docs only
 release/*
 !release/README.md
 !release/INSTALLERS.md
-installers
+!release/web/
+release/web/*
+!release/web/README.md
+
+# Generated icons (sources stay in assets/)
 build/icon.png
 electron/icon.png
 public/icon.png
-# opaque master kept as assets/icon-src.png; assets/icon.png is the transparent export
+assets/icon.png
+# opaque master: assets/icon-src.png; bright variant: assets/icon-bright.png
 samples/_source/
 
 # Editor directories and files

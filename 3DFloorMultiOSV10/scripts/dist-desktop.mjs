@@ -24,13 +24,21 @@ function copyArtifacts() {
   const entries = fs.readdirSync(stagingDir, { withFileTypes: true });
   for (const entry of entries) {
     if (entry.isDirectory()) continue;
-    if (entry.name.endsWith('.blockmap') || entry.name.endsWith('.yml') || entry.name === 'builder-debug.yml') {
+    if (
+      entry.name.endsWith('.blockmap')
+      || entry.name.endsWith('.yml')
+      || entry.name.endsWith('.yaml')
+      || entry.name === 'builder-debug.yml'
+    ) {
       continue;
     }
     const from = path.join(stagingDir, entry.name);
-    const to = path.join(releaseDir, entry.name);
-    fs.copyFileSync(from, to);
-    console.log(`Copied ${entry.name} -> release/`);
+    // Installer artifacts must land in the project root (and a release/ copy)
+    const toRoot = path.join(root, entry.name);
+    const toRelease = path.join(releaseDir, entry.name);
+    fs.copyFileSync(from, toRoot);
+    fs.copyFileSync(from, toRelease);
+    console.log(`Copied ${entry.name} -> ./ and release/`);
   }
 }
 
@@ -67,4 +75,4 @@ const args = [
 run('npx', args);
 copyArtifacts();
 
-console.log(`\nDesktop package(s) ready in ${releaseDir}`);
+console.log(`\nDesktop package(s) ready in project root and ${releaseDir}`);
