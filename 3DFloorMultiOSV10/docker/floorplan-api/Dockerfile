@@ -34,6 +34,8 @@ RUN pip install --no-cache-dir \
     "Cython==0.29.23"
 
 COPY mrcnn ./mrcnn
+# Prefer patched application.py (no double mold_image; EXIF). Build helper
+# copies docker/floorplan-api/application.py into the context before `docker build`.
 COPY application.py ./
 RUN mkdir -p ./weights
 

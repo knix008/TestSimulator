@@ -40,7 +40,7 @@ _graph = None
 cfg = None
 
 DEFAULT_PARAMS = {
-    'minConfidence': 0.55,
+    'minConfidence': 0.4,
     'maxDetections': 120,
     'minBoxSidePx': 10,
     'doorFallbackRatio': 0.045,
@@ -56,8 +56,8 @@ class PredictionConfig(Config):
     NUM_CLASSES = 1 + 3
     GPU_COUNT = 1
     IMAGES_PER_GPU = 1
-    DETECTION_MIN_CONFIDENCE = 0.55
-    DETECTION_MAX_INSTANCES = 120
+    DETECTION_MIN_CONFIDENCE = 0.4
+    DETECTION_MAX_INSTANCES = 180
 
 
 def load_model():

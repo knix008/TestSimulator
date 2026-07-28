@@ -6,8 +6,17 @@ import {
 } from '../data/floorPatterns.js';
 
 /**
- * Ports Unity Builder.cs + WallMesh.cs logic into Three.js meshes.
- * API boxes (x1,y1,x2,y2) become extruded wall/door/window volumes.
+ * Build extruded wall/door/window volumes from detection boxes.
+ *
+ * Coordinate convention (image pixel space → Three.js):
+ *   - Image origin: top-left, x right, y down (API / heuristic / DreamSpace)
+ *   - worldX = x * s − Width*s/2
+ *   - worldZ = y * s − Height*s/2   (image +y → world +Z)
+ *   - Floor: PlaneGeometry(W*s, H*s) + rotation.x = −π/2 + texture.flipY
+ *     so image top lands on world −Z, matching walls at y≈0.
+ *
+ * Note: Unity WallMesh uses (worldX, worldZ) = (imageY, imageX). We intentionally
+ * do NOT swap axes so walls stay registered to the plan floor texture.
  */
 export class FloorPlanBuilder {
   constructor() {
@@ -67,16 +76,20 @@ export class FloorPlanBuilder {
     this.options = { ...this.options, ...options };
     this.clear();
 
-    const { Width, Height, averageDoor } = detection;
-    const unity = detection.unityParams || this.options.unityParams || {};
+    const aligned = this._alignDetectionToFloorTexture(
+      detection,
+      options.floorTexture || null,
+    );
+    const { Width, Height, averageDoor } = aligned;
+    const unity = aligned.unityParams || this.options.unityParams || {};
     const doorWidthM = Number(unity.doorWidthM) > 0 ? Number(unity.doorWidthM) : 0.9;
     const doorFallbackRatio = Number(unity.doorFallbackRatio) > 0
       ? Number(unity.doorFallbackRatio)
       : 0.045;
     // Collapse double-line walls and cut wall boxes under doors/windows
     const { points, classes } = this._prepareSegments(
-      detection.points || [],
-      detection.classes || [],
+      aligned.points || [],
+      aligned.classes || [],
       Width || 0,
       Height || 0,
       {
@@ -105,9 +118,8 @@ export class FloorPlanBuilder {
     for (let i = 0; i < points.length; i += 1) {
       const p = points[i];
       const className = (classes[i]?.name || 'wall').toLowerCase();
-      const mesh = this._createSegmentMesh(p, className, s, wallH, wallT, cx, cz);
-      if (mesh) this.group.add(mesh);
-      if (className === 'wall') {
+      // Treat window/door plates as wall footprint for junction filling
+      if (className === 'wall' || className === 'window' || className === 'door') {
         const x1 = p.x1 * s;
         const x2 = p.x2 * s;
         const z1 = p.y1 * s;
@@ -124,10 +136,21 @@ export class FloorPlanBuilder {
           horiz: maxX - minX >= maxZ - minZ,
         });
       }
+      const mesh = this._createSegmentMesh(p, className, s, wallH, wallT, cx, cz);
+      if (mesh) this.group.add(mesh);
     }
 
-    // Fill corner gaps with a single post (avoids overlapping wall boxes)
+    // Bridge small collinear gaps + fill L/T junctions so walls read as continuous
     if (wallH > 0) {
+      for (const bridge of this._collinearBridges(wallSegs, wallT)) {
+        const geometry = new THREE.BoxGeometry(bridge.w, wallH, bridge.d);
+        const mesh = new THREE.Mesh(geometry, this._materials.wall);
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        mesh.position.set(bridge.x - cx, wallH / 2, bridge.z - cz);
+        mesh.name = 'wallBridge';
+        this.group.add(mesh);
+      }
       for (const post of this._cornerPosts(wallSegs, wallT)) {
         const geometry = new THREE.BoxGeometry(wallT, wallH, wallT);
         const mesh = new THREE.Mesh(geometry, this._materials.wall);
@@ -147,6 +170,35 @@ export class FloorPlanBuilder {
     this.group.add(floor);
 
     return this.group;
+  }
+
+  /**
+   * Map detection pixel space onto the floor texture pixel space when they differ
+   * (e.g. API EXIF-rotated dims vs client texture). Prefer texture size for the floor.
+   */
+  _alignDetectionToFloorTexture(detection, floorTexture) {
+    if (!detection || !floorTexture?.image) return detection;
+    const img = floorTexture.image;
+    const tw = Math.max(0, Number(img.width || img.videoWidth) || 0);
+    const th = Math.max(0, Number(img.height || img.videoHeight) || 0);
+    const dw = Math.max(0, Number(detection.Width) || 0);
+    const dh = Math.max(0, Number(detection.Height) || 0);
+    if (!(tw > 0 && th > 0 && dw > 0 && dh > 0)) return detection;
+    if (Math.abs(tw - dw) < 0.5 && Math.abs(th - dh) < 0.5) return detection;
+
+    const sx = tw / dw;
+    const sy = th / dh;
+    return {
+      ...detection,
+      Width: tw,
+      Height: th,
+      points: (detection.points || []).map((p) => ({
+        x1: (Number(p.x1) || 0) * sx,
+        y1: (Number(p.y1) || 0) * sy,
+        x2: (Number(p.x2) || 0) * sx,
+        y2: (Number(p.y2) || 0) * sy,
+      })),
+    };
   }
 
   /**
@@ -194,10 +246,10 @@ export class FloorPlanBuilder {
       return { ...w, horiz: width >= height };
     });
     const gapRatio = Number(parallelGapRatio) > 0 ? Number(parallelGapRatio) : 0.015;
-    // Allow only a small clear gap between strokes, not room-scale spacing
-    const absGap = Math.max(
-      8,
-      Math.min(widthPx || 512, heightPx || 512) * gapRatio,
+    // Cap hard — never scale with bbox thickness (that slid walls into room centers)
+    const maxFaceGap = Math.max(
+      4,
+      Math.min(14, Math.min(widthPx || 512, heightPx || 512) * gapRatio),
     );
 
     let changed = true;
@@ -218,17 +270,20 @@ export class FloorPlanBuilder {
             const a1 = Math.max(a.y1, a.y2);
             const b0 = Math.min(b.y1, b.y2);
             const b1 = Math.max(b.y1, b.y2);
-            const edgeGap = Math.max(0, Math.max(a0, b0) - Math.min(a1, b1));
-            const maxEdgeGap = Math.max(absGap, Math.max(ta, tb) * 1.8);
+            // Only true double-lines: faces nearly touch
+            const faceGap = Math.max(0, Math.max(a0, b0) - Math.min(a1, b1));
+            if (faceGap > maxFaceGap) continue;
             const overlap = Math.min(Math.max(a.x1, a.x2), Math.max(b.x1, b.x2))
               - Math.max(Math.min(a.x1, a.x2), Math.min(b.x1, b.x2));
             const minLen = Math.min(Math.abs(a.x2 - a.x1), Math.abs(b.x2 - b.x1));
-            if (edgeGap > maxEdgeGap || overlap < minLen * 0.4) continue;
+            if (overlap < minLen * 0.45) continue;
 
             const nx1 = Math.min(a.x1, a.x2, b.x1, b.x2);
             const nx2 = Math.max(a.x1, a.x2, b.x1, b.x2);
-            const cy = (ay + by) / 2;
-            const t = Math.max(ta, tb);
+            const y1 = Math.min(a0, b0);
+            const y2 = Math.max(a1, b1);
+            const t = Math.min(Math.max(y2 - y1, Math.max(ta, tb)), Math.max(ta, tb) * 1.35 + faceGap);
+            const cy = (y1 + y2) / 2;
             items[i] = {
               x1: nx1,
               y1: cy - t / 2,
@@ -246,17 +301,19 @@ export class FloorPlanBuilder {
             const a1 = Math.max(a.x1, a.x2);
             const b0 = Math.min(b.x1, b.x2);
             const b1 = Math.max(b.x1, b.x2);
-            const edgeGap = Math.max(0, Math.max(a0, b0) - Math.min(a1, b1));
-            const maxEdgeGap = Math.max(absGap, Math.max(ta, tb) * 1.8);
+            const faceGap = Math.max(0, Math.max(a0, b0) - Math.min(a1, b1));
+            if (faceGap > maxFaceGap) continue;
             const overlap = Math.min(Math.max(a.y1, a.y2), Math.max(b.y1, b.y2))
               - Math.max(Math.min(a.y1, a.y2), Math.min(b.y1, b.y2));
             const minLen = Math.min(Math.abs(a.y2 - a.y1), Math.abs(b.y2 - b.y1));
-            if (edgeGap > maxEdgeGap || overlap < minLen * 0.4) continue;
+            if (overlap < minLen * 0.45) continue;
 
             const ny1 = Math.min(a.y1, a.y2, b.y1, b.y2);
             const ny2 = Math.max(a.y1, a.y2, b.y1, b.y2);
-            const cx = (ax + bx) / 2;
-            const t = Math.max(ta, tb);
+            const x1 = Math.min(a0, b0);
+            const x2 = Math.max(a1, b1);
+            const t = Math.min(Math.max(x2 - x1, Math.max(ta, tb)), Math.max(ta, tb) * 1.35 + faceGap);
+            const cx = (x1 + x2) / 2;
             items[i] = {
               x1: cx - t / 2,
               y1: ny1,
@@ -286,6 +343,9 @@ export class FloorPlanBuilder {
     const result = [];
     for (const wall of walls) {
       const horiz = Math.abs(wall.x2 - wall.x1) >= Math.abs(wall.y2 - wall.y1);
+      const wallThin = horiz
+        ? Math.max(2, Math.abs(wall.y2 - wall.y1))
+        : Math.max(2, Math.abs(wall.x2 - wall.x1));
       /** @type {[number, number][]} */
       const cuts = [];
 
@@ -293,7 +353,8 @@ export class FloorPlanBuilder {
         if (horiz) {
           const wy = (wall.y1 + wall.y2) / 2;
           const oy = (op.y1 + op.y2) / 2;
-          const band = Math.max(Math.abs(wall.y2 - wall.y1), Math.abs(op.y2 - op.y1), 2) * bandScale;
+          // Band from wall thickness only — fat door/window boxes must not steal neighboring walls
+          const band = wallThin * bandScale;
           if (Math.abs(wy - oy) > band) continue;
           const wx1 = Math.min(wall.x1, wall.x2);
           const wx2 = Math.max(wall.x1, wall.x2);
@@ -305,7 +366,7 @@ export class FloorPlanBuilder {
         } else {
           const wx = (wall.x1 + wall.x2) / 2;
           const ox = (op.x1 + op.x2) / 2;
-          const band = Math.max(Math.abs(wall.x2 - wall.x1), Math.abs(op.x2 - op.x1), 2) * bandScale;
+          const band = wallThin * bandScale;
           if (Math.abs(wx - ox) > band) continue;
           const wy1 = Math.min(wall.y1, wall.y2);
           const wy2 = Math.max(wall.y1, wall.y2);
@@ -336,7 +397,7 @@ export class FloorPlanBuilder {
         const y2 = Math.max(wall.y1, wall.y2);
         let cursor = Math.min(wall.x1, wall.x2);
         const end = Math.max(wall.x1, wall.x2);
-        const minStub = Math.max(2, Math.abs(y2 - y1) * 0.5);
+        const minStub = Math.max(2, Math.min(8, wallThin * 0.25));
         for (const [c1, c2] of merged) {
           if (c1 - cursor >= minStub) {
             result.push({ x1: cursor, y1, x2: c1, y2, className: 'wall' });
@@ -351,7 +412,7 @@ export class FloorPlanBuilder {
         const x2 = Math.max(wall.x1, wall.x2);
         let cursor = Math.min(wall.y1, wall.y2);
         const end = Math.max(wall.y1, wall.y2);
-        const minStub = Math.max(2, Math.abs(x2 - x1) * 0.5);
+        const minStub = Math.max(2, Math.min(8, wallThin * 0.25));
         for (const [c1, c2] of merged) {
           if (c1 - cursor >= minStub) {
             result.push({ x1, y1: cursor, x2, y2: c1, className: 'wall' });
@@ -386,28 +447,97 @@ export class FloorPlanBuilder {
   }
 
   /**
-   * Find L/T junctions where a horizontal and vertical wall endpoint meet,
-   * and return one post center per unique corner (in plan meters).
+   * Fill small gaps between nearly-collinear wall segments (plan meters).
+   * @returns {{ x: number, z: number, w: number, d: number }[]}
+   */
+  _collinearBridges(segs, wallT) {
+    const maxGap = Math.max(wallT * 2.5, 0.08);
+    const alignTol = Math.max(wallT * 0.85, 0.05);
+    /** @type {{ x: number, z: number, w: number, d: number }[]} */
+    const bridges = [];
+    const seen = new Set();
+    const keyOf = (x, z) => `${x.toFixed(3)},${z.toFixed(3)}`;
+
+    for (let i = 0; i < segs.length; i += 1) {
+      for (let j = i + 1; j < segs.length; j += 1) {
+        const a = segs[i];
+        const b = segs[j];
+        if (a.horiz !== b.horiz) continue;
+
+        if (a.horiz) {
+          const za = (a.minZ + a.maxZ) / 2;
+          const zb = (b.minZ + b.maxZ) / 2;
+          if (Math.abs(za - zb) > alignTol) continue;
+          const gap = Math.max(0, Math.max(a.minX, b.minX) - Math.min(a.maxX, b.maxX));
+          if (gap <= 0.001 || gap > maxGap) continue;
+          const x1 = Math.min(a.maxX, b.maxX);
+          const x2 = Math.max(a.minX, b.minX);
+          const x = (x1 + x2) / 2;
+          const z = (za + zb) / 2;
+          const key = keyOf(x, z);
+          if (seen.has(key)) continue;
+          seen.add(key);
+          bridges.push({
+            x,
+            z,
+            w: Math.max(wallT * 0.5, gap + wallT * 0.15),
+            d: wallT,
+          });
+        } else {
+          const xa = (a.minX + a.maxX) / 2;
+          const xb = (b.minX + b.maxX) / 2;
+          if (Math.abs(xa - xb) > alignTol) continue;
+          const gap = Math.max(0, Math.max(a.minZ, b.minZ) - Math.min(a.maxZ, b.maxZ));
+          if (gap <= 0.001 || gap > maxGap) continue;
+          const z1 = Math.min(a.maxZ, b.maxZ);
+          const z2 = Math.max(a.minZ, b.minZ);
+          const x = (xa + xb) / 2;
+          const z = (z1 + z2) / 2;
+          const key = keyOf(x, z);
+          if (seen.has(key)) continue;
+          seen.add(key);
+          bridges.push({
+            x,
+            z,
+            w: wallT,
+            d: Math.max(wallT * 0.5, gap + wallT * 0.15),
+          });
+        }
+      }
+    }
+    return bridges;
+  }
+
+  /**
+   * L / T junctions: endpoint↔endpoint and endpoint↔body of a perpendicular wall.
+   * @returns {{ x: number, z: number }[]}
    */
   _cornerPosts(segs, wallT) {
-    const tol = Math.max(wallT * 1.25, 0.04);
+    const tol = Math.max(wallT * 2.25, 0.08);
     const posts = [];
     const seen = new Set();
 
-    const keyOf = (x, z) => `${(Math.round(x / (tol * 0.5)) * (tol * 0.5)).toFixed(3)},${(Math.round(z / (tol * 0.5)) * (tol * 0.5)).toFixed(3)}`;
+    const keyOf = (x, z) => `${(Math.round(x / (tol * 0.4)) * (tol * 0.4)).toFixed(3)},${(Math.round(z / (tol * 0.4)) * (tol * 0.4)).toFixed(3)}`;
+
+    const add = (x, z) => {
+      const key = keyOf(x, z);
+      if (seen.has(key)) return;
+      seen.add(key);
+      posts.push({ x, z });
+    };
 
     const ends = (seg) => {
       if (seg.horiz) {
         const z = (seg.minZ + seg.maxZ) / 2;
         return [
-          { x: seg.minX, z, horiz: true },
-          { x: seg.maxX, z, horiz: true },
+          { x: seg.minX, z },
+          { x: seg.maxX, z },
         ];
       }
       const x = (seg.minX + seg.maxX) / 2;
       return [
-        { x, z: seg.minZ, horiz: false },
-        { x, z: seg.maxZ, horiz: false },
+        { x, z: seg.minZ },
+        { x, z: seg.maxZ },
       ];
     };
 
@@ -418,16 +548,29 @@ export class FloorPlanBuilder {
         if (a.horiz === b.horiz) continue;
         const h = a.horiz ? a : b;
         const v = a.horiz ? b : a;
+        const hz = (h.minZ + h.maxZ) / 2;
+        const vx = (v.minX + v.maxX) / 2;
+
+        // Classic L: both endpoints near each other
         for (const he of ends(h)) {
           for (const ve of ends(v)) {
-            if (Math.abs(he.x - ve.x) > tol || Math.abs(he.z - ve.z) > tol) continue;
-            const x = (he.x + ve.x) / 2;
-            const z = (he.z + ve.z) / 2;
-            const key = keyOf(x, z);
-            if (seen.has(key)) continue;
-            seen.add(key);
-            posts.push({ x, z });
+            if (Math.abs(he.x - ve.x) <= tol && Math.abs(he.z - ve.z) <= tol) {
+              add((he.x + ve.x) / 2, (he.z + ve.z) / 2);
+            }
           }
+        }
+
+        // T: horizontal end meets vertical body
+        for (const he of ends(h)) {
+          if (Math.abs(he.x - vx) > tol) continue;
+          if (he.z < v.minZ - tol || he.z > v.maxZ + tol) continue;
+          add(vx, Math.min(v.maxZ, Math.max(v.minZ, he.z)));
+        }
+        // T: vertical end meets horizontal body
+        for (const ve of ends(v)) {
+          if (Math.abs(ve.z - hz) > tol) continue;
+          if (ve.x < h.minX - tol || ve.x > h.maxX + tol) continue;
+          add(Math.min(h.maxX, Math.max(h.minX, ve.x)), hz);
         }
       }
     }
@@ -435,8 +578,8 @@ export class FloorPlanBuilder {
   }
 
   /**
-   * Unity WallMesh placed vertices as (y, height, x) with bbox corners.
-   * Here we build a BoxGeometry aligned to the bbox in XZ, Y = height.
+   * BoxGeometry in XZ from image bbox; Y = height.
+   * Pixel (x,y) → world (x*s − cx, …, y*s − cz).
    */
   _createSegmentMesh(point, className, s, wallH, wallT, cx, cz) {
     if (!(wallH > 0)) return null;
@@ -467,8 +610,26 @@ export class FloorPlanBuilder {
     const pz = (minZ + maxZ) / 2 - cz;
 
     if (className === 'window') {
-      // Glass mid-wall; keep wall sill + lintel so the opening isn't floating
-      applyThickness(Math.max(0.02, wallT * 0.7));
+      // Glass mid-wall; sill + lintel use full wall thickness and extend to meet
+      // adjacent wall stubs (those are end-trimmed by wallT/2 for corner posts).
+      const horiz = width >= depth;
+      const wallThick = Math.max(0.02, wallT);
+      const glassThick = Math.max(0.02, wallT * 0.55);
+      const join = wallThick; // cover half-trim on each side of the opening
+      let plateW = width;
+      let plateD = depth;
+      let glassW = width;
+      let glassD = depth;
+      if (horiz) {
+        plateD = wallThick;
+        plateW = width + join;
+        glassD = glassThick;
+      } else {
+        plateW = wallThick;
+        plateD = depth + join;
+        glassW = glassThick;
+      }
+
       const winH = wallH * 0.45;
       const winY = wallH * 0.55;
       const winBottom = winY - winH / 2;
@@ -481,7 +642,7 @@ export class FloorPlanBuilder {
       group.userData.className = 'window';
 
       const sill = new THREE.Mesh(
-        new THREE.BoxGeometry(width, sillH, depth),
+        new THREE.BoxGeometry(plateW, sillH, plateD),
         this._materials.wall,
       );
       sill.castShadow = true;
@@ -491,7 +652,7 @@ export class FloorPlanBuilder {
       group.add(sill);
 
       const glass = new THREE.Mesh(
-        new THREE.BoxGeometry(width, winH, depth),
+        new THREE.BoxGeometry(glassW, winH, glassD),
         this._materials.window,
       );
       glass.castShadow = true;
@@ -501,7 +662,7 @@ export class FloorPlanBuilder {
       group.add(glass);
 
       const lintel = new THREE.Mesh(
-        new THREE.BoxGeometry(width, lintelH, depth),
+        new THREE.BoxGeometry(plateW, lintelH, plateD),
         this._materials.wall,
       );
       lintel.castShadow = true;
@@ -517,14 +678,30 @@ export class FloorPlanBuilder {
       height = wallH * 0.85;
       yCenter = height / 2;
       material = this._materials.door;
-      applyThickness(Math.max(0.02, wallT * 0.85));
+      const horiz = width >= depth;
+      const wallThick = Math.max(0.02, wallT);
+      const doorThick = Math.max(0.02, wallT * 0.85);
+      const join = wallThick;
+      let doorW = width;
+      let doorD = depth;
+      let plateW = width;
+      let plateD = depth;
+      if (horiz) {
+        doorD = doorThick;
+        plateD = wallThick;
+        plateW = width + join;
+      } else {
+        doorW = doorThick;
+        plateW = wallThick;
+        plateD = depth + join;
+      }
       const lintelH = Math.max(0.02, wallH - height);
       const group = new THREE.Group();
       group.name = 'door';
       group.userData.className = 'door';
 
       const door = new THREE.Mesh(
-        new THREE.BoxGeometry(width, height, depth),
+        new THREE.BoxGeometry(doorW, height, doorD),
         material,
       );
       door.castShadow = true;
@@ -534,7 +711,7 @@ export class FloorPlanBuilder {
       group.add(door);
 
       const lintel = new THREE.Mesh(
-        new THREE.BoxGeometry(width, lintelH, depth),
+        new THREE.BoxGeometry(plateW, lintelH, plateD),
         this._materials.wall,
       );
       lintel.castShadow = true;
@@ -547,10 +724,10 @@ export class FloorPlanBuilder {
     }
 
     applyThickness(wallT);
-    // Leave half-thickness at each end for a dedicated corner post (no box overlap)
-    const trim = wallT * 0.5;
-    if (width >= depth) width = Math.max(wallT * 0.25, width - 2 * trim);
-    else depth = Math.max(wallT * 0.25, depth - 2 * trim);
+    // Slight end overlap so corners meet even when detection boxes don't touch
+    const pad = wallT * 0.35;
+    if (width >= depth) width = Math.max(wallT, width + pad);
+    else depth = Math.max(wallT, depth + pad);
 
     const geometry = new THREE.BoxGeometry(width, height, depth);
     const mesh = new THREE.Mesh(geometry, material);

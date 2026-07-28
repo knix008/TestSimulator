@@ -100,7 +100,8 @@ function normalizeUnityDetection(data, params) {
     };
     const longSide = Math.max(Math.abs(box.x2 - box.x1), Math.abs(box.y2 - box.y1));
     if (longSide < params.minBoxSidePx) continue;
-    if (scores[i] != null && scores[i] < params.minConfidence) continue;
+    // Soft client gate only — API already filters; keep a small margin so UI tweaks still apply
+    if (scores[i] != null && scores[i] + 1e-6 < params.minConfidence) continue;
 
     points.push(box);
     classes.push({ name: className });

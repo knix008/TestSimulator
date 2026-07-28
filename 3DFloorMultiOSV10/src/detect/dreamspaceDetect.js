@@ -1,4 +1,5 @@
 import { i18nError } from '../i18n/index.js';
+import { loadOrientedPlanBitmap } from '../util/loadPlanImage.js';
 import { normalizeDreamspaceParams } from './dreamspaceParams.js';
 
 /**
@@ -15,6 +16,12 @@ import { normalizeDreamspaceParams } from './dreamspaceParams.js';
  */
 
 const WALL_THICKNESS_M = 0.15;
+/** Max short-axis thickness kept for wall boxes (working image px). */
+const MAX_WALL_THICK_PX = 36;
+/** Short side above this + low aspect → reject as filled hatch / room blob. */
+const BLOB_SHORT_SIDE_PX = 48;
+/** Cap for parallel double-line collapse (must not grow with wall thickness). */
+const MAX_PARALLEL_CENTER_GAP_PX = 18;
 
 /**
  * Process an image into DreamSpace FloorPlanData (meter space).
@@ -23,7 +30,7 @@ const WALL_THICKNESS_M = 0.15;
  */
 export async function processFloorPlanFromImage(file, options = {}) {
   const params = normalizeDreamspaceParams(options);
-  const bitmap = await createImageBitmap(file);
+  const bitmap = await loadOrientedPlanBitmap(file);
   const srcW = bitmap.width;
   const srcH = bitmap.height;
   const maxSide = params.maxSide;
@@ -66,10 +73,16 @@ export async function processFloorPlanFromImage(file, options = {}) {
   ];
 
   const mergeGap = Math.max(3, Math.round(minSide * params.mergeGapRatio));
-  const parallelGap = Math.max(6, Math.round(minSide * params.parallelGapRatio));
+  // Cap parallel collapse — thick walls must not merge across rooms
+  const parallelGap = Math.min(
+    MAX_PARALLEL_CENTER_GAP_PX,
+    Math.max(6, Math.round(minSide * params.parallelGapRatio)),
+  );
   const vCenterTol = Math.max(4, Math.round(Math.max(3, minSide * 0.008) * params.verticalMergeScale));
 
+  const hCenterTol = Math.max(4, Math.round(minSide * 0.008));
   segs = consolidateNearby(segs, 'v', vCenterTol);
+  segs = consolidateNearby(segs, 'h', hCenterTol);
   segs = mergeCollinearPx(segs, mergeGap, params.verticalMergeScale);
   segs = collapseParallelPx(segs, parallelGap);
   segs = segs
@@ -214,13 +227,18 @@ function extractScanlineWalls(binary, width, height, axis, minRun) {
         while (x < width && binary[y * width + x]) x += 1;
         if (x - start < runMin) continue;
         const mid = (start + x) >> 1;
-        const t = clampThickness(thicknessAt(binary, width, height, mid, y, 'v'));
+        // Emit only on the stroke centerline so thick walls don't flood merges
+        const band = thicknessBand(binary, width, height, mid, y, 'v');
+        if (!band || y !== band.mid) continue;
+        // Skip filled regions (furniture / solid rooms), keep wall strokes
+        if (band.t > MAX_WALL_THICK_PX * 1.75) continue;
+        const t = clampThickness(band.t);
         out.push({
           axis: 'h',
           x1: start,
           x2: x,
-          y1: Math.max(0, y - t / 2),
-          y2: Math.min(height, y + t / 2),
+          y1: Math.max(0, band.mid - t / 2),
+          y2: Math.min(height, band.mid + t / 2),
         });
       }
     }
@@ -233,11 +251,14 @@ function extractScanlineWalls(binary, width, height, axis, minRun) {
         while (y < height && binary[y * width + x]) y += 1;
         if (y - start < runMin) continue;
         const mid = (start + y) >> 1;
-        const t = clampThickness(thicknessAt(binary, width, height, x, mid, 'h'));
+        const band = thicknessBand(binary, width, height, x, mid, 'h');
+        if (!band || x !== band.mid) continue;
+        if (band.t > MAX_WALL_THICK_PX * 1.75) continue;
+        const t = clampThickness(band.t);
         out.push({
           axis: 'v',
-          x1: Math.max(0, x - t / 2),
-          x2: Math.min(width, x + t / 2),
+          x1: Math.max(0, band.mid - t / 2),
+          x2: Math.min(width, band.mid + t / 2),
           y1: start,
           y2: y,
         });
@@ -261,13 +282,20 @@ function consolidateNearby(segs, axis, centerTol) {
         if (axis === 'v') {
           const ax = (a.x1 + a.x2) / 2;
           const bx = (b.x1 + b.x2) / 2;
+          const ta = Math.max(1, a.x2 - a.x1);
+          const tb = Math.max(1, b.x2 - b.x1);
           const overlap = Math.min(a.y2, b.y2) - Math.max(a.y1, b.y1);
           const gap = Math.max(0, Math.max(a.y1, b.y1) - Math.min(a.y2, b.y2));
-          if (Math.abs(ax - bx) > centerTol) continue;
+          const bandOverlap = Math.min(a.x2, b.x2) - Math.max(a.x1, b.x1);
+          const sameBand = bandOverlap >= Math.min(ta, tb) * 0.7;
+          const nearCenter = Math.abs(ax - bx) <= centerTol;
+          if (!sameBand && !nearCenter) continue;
           // Only bridge tiny ink breaks — keep door/window gaps for opening join.
           if (gap > Math.max(4, centerTol * 0.75) && overlap < 0) continue;
-          const cx = (ax + bx) / 2;
-          const t = Math.max(a.x2 - a.x1, b.x2 - b.x1);
+          const x1 = Math.min(a.x1, b.x1);
+          const x2 = Math.max(a.x2, b.x2);
+          const t = Math.min(MAX_WALL_THICK_PX, x2 - x1);
+          const cx = (x1 + x2) / 2;
           items[i] = {
             axis: 'v',
             x1: cx - t / 2,
@@ -278,12 +306,19 @@ function consolidateNearby(segs, axis, centerTol) {
         } else {
           const ay = (a.y1 + a.y2) / 2;
           const by = (b.y1 + b.y2) / 2;
+          const ta = Math.max(1, a.y2 - a.y1);
+          const tb = Math.max(1, b.y2 - b.y1);
           const overlap = Math.min(a.x2, b.x2) - Math.max(a.x1, b.x1);
           const gap = Math.max(0, Math.max(a.x1, b.x1) - Math.min(a.x2, b.x2));
-          if (Math.abs(ay - by) > centerTol) continue;
+          const bandOverlap = Math.min(a.y2, b.y2) - Math.max(a.y1, b.y1);
+          const sameBand = bandOverlap >= Math.min(ta, tb) * 0.7;
+          const nearCenter = Math.abs(ay - by) <= centerTol;
+          if (!sameBand && !nearCenter) continue;
           if (gap > Math.max(4, centerTol * 0.75) && overlap < 0) continue;
-          const cy = (ay + by) / 2;
-          const t = Math.max(a.y2 - a.y1, b.y2 - b.y1);
+          const y1 = Math.min(a.y1, b.y1);
+          const y2 = Math.max(a.y2, b.y2);
+          const t = Math.min(MAX_WALL_THICK_PX, y2 - y1);
+          const cy = (y1 + y2) / 2;
           items[i] = {
             axis: 'h',
             x1: Math.min(a.x1, b.x1),
@@ -303,23 +338,29 @@ function consolidateNearby(segs, axis, centerTol) {
 }
 
 function clampThickness(t) {
-  return Math.max(2, Math.min(14, t || 0));
+  return Math.max(2, Math.min(MAX_WALL_THICK_PX, t || 0));
 }
 
 function thicknessAt(binary, width, height, x, y, dir) {
-  if (y < 0 || y >= height || x < 0 || x >= width || !binary[y * width + x]) return 0;
+  const band = thicknessBand(binary, width, height, x, y, dir);
+  return band ? band.t : 0;
+}
+
+/** Full ink band through (x,y) and its integer centerline. */
+function thicknessBand(binary, width, height, x, y, dir) {
+  if (y < 0 || y >= height || x < 0 || x >= width || !binary[y * width + x]) return null;
   if (dir === 'v') {
     let y0 = y;
     let y1 = y;
     while (y0 > 0 && binary[(y0 - 1) * width + x]) y0 -= 1;
     while (y1 < height - 1 && binary[(y1 + 1) * width + x]) y1 += 1;
-    return y1 - y0 + 1;
+    return { t: y1 - y0 + 1, mid: (y0 + y1) >> 1, a: y0, b: y1 };
   }
   let x0 = x;
   let x1 = x;
   while (x0 > 0 && binary[y * width + (x0 - 1)]) x0 -= 1;
   while (x1 < width - 1 && binary[y * width + (x1 + 1)]) x1 += 1;
-  return x1 - x0 + 1;
+  return { t: x1 - x0 + 1, mid: (x0 + x1) >> 1, a: x0, b: x1 };
 }
 
 function snapWallThickness(seg) {
@@ -350,13 +391,15 @@ function isWallLikePx(seg, width, height, params = {}) {
   if (shortSide < 1.4) return false;
   // Reject filled hatch / room-sized blobs (slightly looser for vertical)
   const aspectCut = seg.axis === 'v' ? 1.7 : 2.0;
-  if (shortSide > 16 && longSide / shortSide < aspectCut) return false;
+  if (shortSide > BLOB_SHORT_SIDE_PX && longSide / shortSide < aspectCut) return false;
   if (w * h < 24) return false;
   return true;
 }
 
 function mergeCollinearPx(segs, gapTol, verticalMergeScale = 1.6) {
   const items = segs.map((s) => ({ ...s }));
+  // Cap how far centers may differ when thickness is large (avoid merging across rooms).
+  const centerCap = Math.max(6, 8 * Math.min(2.2, Number(verticalMergeScale) || 1.6));
   let changed = true;
   while (changed) {
     changed = false;
@@ -368,14 +411,21 @@ function mergeCollinearPx(segs, gapTol, verticalMergeScale = 1.6) {
         if (a.axis === 'h') {
           const ay = (a.y1 + a.y2) / 2;
           const by = (b.y1 + b.y2) / 2;
-          const ta = a.y2 - a.y1;
-          const tb = b.y2 - b.y1;
+          const ta = Math.max(1, a.y2 - a.y1);
+          const tb = Math.max(1, b.y2 - b.y1);
           const gap = Math.max(0, Math.max(a.x1, b.x1) - Math.min(a.x2, b.x2));
-          const overlap = Math.min(a.x2, b.x2) - Math.max(a.x1, b.x1);
-          if (Math.abs(ay - by) > Math.max(3, Math.max(ta, tb))) continue;
-          if (gap > gapTol && overlap < 0) continue;
-          const cy = (ay + by) / 2;
-          const t = Math.max(ta, tb);
+          const overlapX = Math.min(a.x2, b.x2) - Math.max(a.x1, b.x1);
+          // Require thickness bands to overlap (same wall), not merely nearby parallels.
+          const bandOverlap = Math.min(a.y2, b.y2) - Math.max(a.y1, b.y1);
+          const centerTol = Math.min(centerCap, Math.max(3, Math.min(ta, tb) * 0.35));
+          const sameBand = bandOverlap >= Math.min(ta, tb) * 0.7;
+          const nearCenter = Math.abs(ay - by) <= centerTol;
+          if (!sameBand && !nearCenter) continue;
+          if (gap > gapTol && overlapX < 0) continue;
+          const y1 = Math.min(a.y1, b.y1);
+          const y2 = Math.max(a.y2, b.y2);
+          const t = Math.min(MAX_WALL_THICK_PX, y2 - y1);
+          const cy = (y1 + y2) / 2;
           items[i] = {
             axis: 'h',
             x1: Math.min(a.x1, b.x1),
@@ -386,16 +436,23 @@ function mergeCollinearPx(segs, gapTol, verticalMergeScale = 1.6) {
         } else {
           const ax = (a.x1 + a.x2) / 2;
           const bx = (b.x1 + b.x2) / 2;
-          const ta = a.x2 - a.x1;
-          const tb = b.x2 - b.x1;
+          const ta = Math.max(1, a.x2 - a.x1);
+          const tb = Math.max(1, b.x2 - b.x1);
           const gap = Math.max(0, Math.max(a.y1, b.y1) - Math.min(a.y2, b.y2));
-          const overlap = Math.min(a.y2, b.y2) - Math.max(a.y1, b.y1);
-          // Wider X tolerance for vertical walls (thin strokes often jitter by a few px).
-          const centerTol = Math.max(3, Math.max(ta, tb)) * verticalMergeScale;
-          if (Math.abs(ax - bx) > centerTol) continue;
-          if (gap > gapTol && overlap < 0) continue;
-          const cx = (ax + bx) / 2;
-          const t = Math.max(ta, tb);
+          const overlapY = Math.min(a.y2, b.y2) - Math.max(a.y1, b.y1);
+          const bandOverlap = Math.min(a.x2, b.x2) - Math.max(a.x1, b.x1);
+          const centerTol = Math.min(
+            centerCap * Math.min(2, Number(verticalMergeScale) || 1.6),
+            Math.max(3, Math.min(ta, tb) * 0.35) * Math.min(2, Number(verticalMergeScale) || 1.6),
+          );
+          const sameBand = bandOverlap >= Math.min(ta, tb) * 0.7;
+          const nearCenter = Math.abs(ax - bx) <= centerTol;
+          if (!sameBand && !nearCenter) continue;
+          if (gap > gapTol && overlapY < 0) continue;
+          const x1 = Math.min(a.x1, b.x1);
+          const x2 = Math.max(a.x2, b.x2);
+          const t = Math.min(MAX_WALL_THICK_PX, x2 - x1);
+          const cx = (x1 + x2) / 2;
           items[i] = {
             axis: 'v',
             x1: cx - t / 2,
@@ -416,6 +473,7 @@ function mergeCollinearPx(segs, gapTol, verticalMergeScale = 1.6) {
 
 function collapseParallelPx(segs, maxGap) {
   const items = segs.map((s) => ({ ...s }));
+  const gapLimit = Math.max(6, Math.min(MAX_PARALLEL_CENTER_GAP_PX, maxGap || MAX_PARALLEL_CENTER_GAP_PX));
   let changed = true;
   while (changed) {
     changed = false;
@@ -427,11 +485,19 @@ function collapseParallelPx(segs, maxGap) {
         if (a.axis === 'h') {
           const ay = (a.y1 + a.y2) / 2;
           const by = (b.y1 + b.y2) / 2;
+          const ta = Math.max(1, a.y2 - a.y1);
+          const tb = Math.max(1, b.y2 - b.y1);
+          // Double-line only: faces nearly touch (do not use thickness as center budget)
+          const faceGap = Math.abs(ay - by) - (ta + tb) / 2;
+          if (faceGap > Math.max(2, gapLimit * 0.35)) continue;
           const overlap = Math.min(a.x2, b.x2) - Math.max(a.x1, b.x1);
           const minLen = Math.min(a.x2 - a.x1, b.x2 - b.x1);
-          if (Math.abs(ay - by) > maxGap || overlap < minLen * 0.45) continue;
+          if (overlap < minLen * 0.45) continue;
           const cy = (ay + by) / 2;
-          const t = Math.min(14, Math.max(a.y2 - a.y1, b.y2 - b.y1));
+          const t = Math.min(
+            MAX_WALL_THICK_PX,
+            Math.max(ta, tb, Math.abs(ay - by) + Math.min(ta, tb)),
+          );
           items[i] = {
             axis: 'h',
             x1: Math.min(a.x1, b.x1),
@@ -442,11 +508,18 @@ function collapseParallelPx(segs, maxGap) {
         } else {
           const ax = (a.x1 + a.x2) / 2;
           const bx = (b.x1 + b.x2) / 2;
+          const ta = Math.max(1, a.x2 - a.x1);
+          const tb = Math.max(1, b.x2 - b.x1);
+          const faceGap = Math.abs(ax - bx) - (ta + tb) / 2;
+          if (faceGap > Math.max(2, gapLimit * 0.35)) continue;
           const overlap = Math.min(a.y2, b.y2) - Math.max(a.y1, b.y1);
           const minLen = Math.min(a.y2 - a.y1, b.y2 - b.y1);
-          if (Math.abs(ax - bx) > maxGap || overlap < minLen * 0.45) continue;
+          if (overlap < minLen * 0.45) continue;
           const cx = (ax + bx) / 2;
-          const t = Math.min(14, Math.max(a.x2 - a.x1, b.x2 - b.x1));
+          const t = Math.min(
+            MAX_WALL_THICK_PX,
+            Math.max(ta, tb, Math.abs(ax - bx) + Math.min(ta, tb)),
+          );
           items[i] = {
             axis: 'v',
             x1: cx - t / 2,

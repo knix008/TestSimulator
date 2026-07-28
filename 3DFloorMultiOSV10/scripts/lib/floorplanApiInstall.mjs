@@ -734,6 +734,12 @@ function dockerBuildImage(contextDir, image, signal, onProgress) {
     return Promise.reject(new Error(`Dockerfile not found: ${dockerfile}`));
   }
 
+  // Overlay patched entrypoint (no double mold_image; EXIF-aware) into build context
+  const patchedApp = path.join(path.dirname(DOCKERFILE_APP), 'application.py');
+  if (fs.existsSync(patchedApp)) {
+    fs.copyFileSync(patchedApp, path.join(contextDir, 'application.py'));
+  }
+
   return new Promise((resolve, reject) => {
     const args = ['build', '-t', image, '-f', dockerfile, contextDir];
     const child = spawn('docker', args, {

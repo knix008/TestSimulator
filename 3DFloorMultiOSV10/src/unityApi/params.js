@@ -3,17 +3,17 @@
  * Sent to the Mask R-CNN API and applied during client-side normalize/build.
  */
 
-export const UNITY_PARAMS_STORAGE_KEY = 'fp3d.unity.params.v1';
+export const UNITY_PARAMS_STORAGE_KEY = 'fp3d.unity.params.v2';
 
 /** @typedef {typeof DEFAULT_UNITY_PARAMS} UnityParams */
 
 export const DEFAULT_UNITY_PARAMS = Object.freeze({
   /** Mask R-CNN score threshold (lower → more detections). */
-  minConfidence: 0.55,
+  minConfidence: 0.4,
   /** Cap instances returned by the model. */
-  maxDetections: 120,
+  maxDetections: 180,
   /** Drop boxes smaller than this (px on longer side). */
-  minBoxSidePx: 10,
+  minBoxSidePx: 8,
   /** Nominal door width (m) for meters-per-pixel scale. */
   doorWidthM: 0.9,
   /** When no doors: averageDoor ≈ max(24, min(W,H) * ratio). */

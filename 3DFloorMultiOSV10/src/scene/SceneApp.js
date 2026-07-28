@@ -232,6 +232,7 @@ export class SceneApp {
 
   /**
    * Load a floor-plan image onto the canvas (2D plane) before conversion.
+   * Uses EXIF-oriented decode so preview matches detection / API coords.
    * @param {File | Blob} file
    */
   async showPlanImage(file) {
@@ -241,19 +242,8 @@ export class SceneApp {
     this._clearExternalModel();
     this._disposePlanTexture();
 
-    const objectUrl = URL.createObjectURL(file);
-    this._planObjectUrl = objectUrl;
-
-    const texture = await new Promise((resolve, reject) => {
-      const loader = new THREE.TextureLoader();
-      loader.load(
-        objectUrl,
-        (tex) => resolve(tex),
-        undefined,
-        (err) => reject(err || new Error('Failed to load plan image')),
-      );
-    });
-    texture.colorSpace = THREE.SRGBColorSpace;
+    const { loadOrientedPlanTexture } = await import('../util/loadPlanImage.js');
+    const texture = await loadOrientedPlanTexture(file);
     texture.anisotropy = Math.min(8, this.renderer.capabilities.getMaxAnisotropy?.() || 1);
     this._planTexture = texture;
 
