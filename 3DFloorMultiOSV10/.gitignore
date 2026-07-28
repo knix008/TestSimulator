@@ -6,14 +6,25 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
+api_stdout.log
+api_stderr.log
 
 # Dependencies
 node_modules
 DreamSpaceAI/node_modules
 DreamSpaceAI/.next
 
-# Auto-cloned Mask R-CNN API (large weights / venv)
+# Auto-cloned / local Mask R-CNN API (large weights / venv / pip caches)
 FloorPlanTo3D-API/
+FloorPlanTo3D-API.old-*/
+
+# Python / tooling leftovers (if created outside FloorPlanTo3D-API/)
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
 
 # Build outputs
 dist
@@ -66,3 +77,13 @@ samples/_source/
 *.njsproj
 *.sln
 *.sw?
+Thumbs.db
+Desktop.ini
+
+# OS / local env
+.env
+.env.*
+!.env.example
+*.tmp
+*.temp
+.cache/

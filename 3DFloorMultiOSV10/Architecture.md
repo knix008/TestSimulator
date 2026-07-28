@@ -10,7 +10,8 @@ Inspired by [FloorPlanTo3D-unityClient](https://github.com/fadyazizz/FloorPlanTo
 
 - Convert **selected** 2D floor-plan images into editable 3D scenes
 - Run on Windows / macOS / Linux (browser or Electron)
-- Offline heuristic / DreamSpace detection modes
+- Offline heuristic / DreamSpace detection, plus Unity Mask R-CNN API
+- API runtime choice: **local Python venv (TF2)** or **Docker (TF 1.15)**
 - Light helpers, free-axis viewing, multi-format load/export, i18n, theming
 
 ## High-level flow
@@ -21,26 +22,26 @@ Inspired by [FloorPlanTo3D-unityClient](https://github.com/fadyazizz/FloorPlanTo
         ├─ model file ──▶ modelLoader ──▶ SceneApp.externalRoot
         │
         ▼ (convert)
- ┌────────────────────┐      ┌──────────────────┐
- │ Detection          │─────▶│ Detection JSON   │
- │ heuristic /        │      │ points[],        │
- │ dreamspace         │      │ classes[],       │
- │                    │      │ Width, Height…   │
- └────────────────────┘      └────────┬─────────┘
-                                      │
-                                      ▼
-                           ┌──────────────────────┐
-                           │ FloorPlanBuilder     │
-                           │ walls / doors /      │
-                           │ windows / floor      │
-                           └──────────┬───────────┘
-                                      │
-                                      ▼
-                           ┌──────────────────────┐
-                           │ SceneApp (Three.js)  │
-                           │ Trackball / gizmo /  │
-                           │ lights / ray / save  │
-                           └──────────────────────┘
+ ┌────────────────────────┐     ┌──────────────────┐
+ │ Detection              │────▶│ Detection JSON   │
+ │ heuristic /            │     │ points[],        │
+ │ dreamspace /           │     │ classes[],       │
+ │ unity API (venv|docker)│     │ Width, Height…   │
+ └────────────────────────┘     └────────┬─────────┘
+                                         │
+                                         ▼
+                              ┌──────────────────────┐
+                              │ FloorPlanBuilder     │
+                              │ walls / doors /      │
+                              │ windows / floor      │
+                              └──────────┬───────────┘
+                                         │
+                                         ▼
+                              ┌──────────────────────┐
+                              │ SceneApp (Three.js)  │
+                              │ Trackball / gizmo /  │
+                              │ lights / ray / save  │
+                              └──────────────────────┘
 ```
 
 ### Convert policy
@@ -48,13 +49,24 @@ Inspired by [FloorPlanTo3D-unityClient](https://github.com/fadyazizz/FloorPlanTo
 | Mode | Selected image present | No image |
 |---|---|---|
 | Heuristic | Detect from image | File dialog → then detect |
-| DreamSpaceAI | Dedicated offline detector | File dialog → then detect |
+| DreamSpaceAI | Offline scanline detector (+ UI params) | File dialog → then detect |
+| FloorPlanTo3D (Unity/API) | Ensure API → POST image (+ params) | File dialog → then API |
+
+### Rebuild / camera policy
+
+| Trigger | `fresh` | Camera |
+|---|---|---|
+| New convert | `true` | Reframe (`_frameCamera`) |
+| Scale / wall height / thickness / floor pattern / Unity merge options | `false` | **Keep** current orbit/camera |
+| Wall / floor color only | n/a (`applyColors`) | Unchanged |
+
+Model transform is restored across non-fresh rebuilds via `getModelTransform` / `setModelTransform`.
 
 ## Runtime options
 
 | Runtime | Entry | Notes |
 |---|---|---|
-| Browser (dev) | `npm run dev` | Vite HMR (~5173) |
+| Browser (dev) | `npm run dev` | Vite HMR (~5173); SSE install middleware |
 | Browser (prod) | `npm run build` → `dist/` | Static, `base: './'` |
 | Web package | `npm run dist:web` | Zip → **project root** + `release/web/` |
 | Electron (dev) | `npm start` | Vite URL, no default app menu |
@@ -64,7 +76,35 @@ Packaging stages under a temp dir, then copies installers to the root (and `rele
 
 Electron: `electron/main.cjs` + `electron/preload.cjs`  
 - `Menu.setApplicationMenu(null)`  
-- IPC for open/save dialogs
+- IPC: open/save, DreamSpace ensure, FloorPlan API ensure/status/cancel (+ progress events)
+
+## FloorPlanTo3D-API integration
+
+Shared installer/runner: `scripts/lib/floorplanApiInstall.mjs`  
+Used by Electron IPC and Vite middleware (`/__fp3d/floorplan-api/*`).
+
+| Path | Role |
+|---|---|
+| `src/unityApi/ensure.js` | Renderer bridge (desktop IPC or Vite SSE) |
+| `src/unityApi/params.js` | Detection params + `localStorage` |
+| `src/api/client.js` | `POST` multipart image + `params` JSON |
+| `scripts/lib/floorplanApiTf2/` | Modern Flask + TF2 Mask R-CNN bundle |
+| `docker/floorplan-api/Dockerfile` | TF 1.15 CPU image (weights mounted at run) |
+| `docker-compose.floorplan-api.yml` | Compose helper for CLI |
+
+### API runtimes
+
+| Runtime | Stack | How it starts |
+|---|---|---|
+| `venv` (default) | Python 3.10–3.12, TF 2.16, patched `application.py` | Create `.venv`, pip, spawn `application.py` |
+| `docker` | TF 1.15 image `floorplan-api:1.15` | `docker start` / `docker run -p 5000:5000 -v weights:/app/weights` |
+
+UI select `#apiRuntime` → persisted as `fp3d.apiRuntime` → passed into `ensureFloorplanApiReady({ runtime })`.
+
+Health check: HTTP GET `http://127.0.0.1:5000/` (any response = up).  
+Weights: `maskrcnn_15_epochs.h5` under project or sibling `../FloorPlanTo3D-API/weights`.
+
+Docker build context preference: `FP3D_API_DOCKER_CONTEXT` → sibling `../FloorPlanTo3D-API` → local `FloorPlanTo3D-API/`.
 
 ## Directory map
 
@@ -74,34 +114,50 @@ Electron: `electron/main.cjs` + `electron/preload.cjs`
 ├── index.html
 ├── vite.config.js
 ├── electron-builder.yml
-├── samples/                   # Example plans / models
-├── scripts/                   # icons, dist-desktop, package-web/all
+├── docker/
+│   └── floorplan-api/Dockerfile
+├── docker-compose.floorplan-api.yml
+├── samples/
+├── scripts/
+│   ├── lib/floorplanApiInstall.mjs
+│   ├── lib/floorplanApiTf2/
+│   ├── dist-desktop.mjs
+│   └── …
 ├── src/
-│   ├── main.js                # UI, convert, save, status
+│   ├── main.js
+│   ├── api/client.js
 │   ├── detect/
 │   │   ├── heuristic.js
 │   │   ├── dreamspace.js
-│   │   └── dreamspaceDetect.js
+│   │   ├── dreamspaceDetect.js
+│   │   └── dreamspaceParams.js
+│   ├── unityApi/
+│   │   ├── ensure.js
+│   │   └── params.js
 │   ├── builder/FloorPlanBuilder.js
 │   ├── scene/SceneApp.js
 │   ├── loaders/modelLoader.js
 │   ├── exporters/modelExport.js
 │   ├── desktop/bridge.js
+│   ├── data/floorPatterns.js
 │   ├── i18n/
-│   └── ui/                    # toolbar, theme, dialogs, save
-├── assets/                    # icon-src.png (master), generated icons ignored
+│   └── ui/                    # toolbar, theme, progress, dialogs, save
+├── assets/
 ├── Architecture.md
 ├── UsersGuide.md
 └── README.md
 ```
+
+`FloorPlanTo3D-API/` (auto-cloned under the project) is gitignored.
 
 ## Module responsibilities
 
 ### `main.js`
 
 - Toolbar / panel wiring
-- Convert pipeline (mode-aware; image preferred over mock data)
-- Rebuild on scale / wall / color changes
+- Convert pipeline (mode-aware; image required)
+- Rebuild on scale / wall / floor pattern; colors via `applyAppearance`
+- Unity/DreamSpace param UI; API runtime preference
 - Light HUD sync, save dialog, open image/model
 - Theme / locale / error reporting
 
@@ -110,7 +166,8 @@ Electron: `electron/main.cjs` + `electron/preload.cjs`
 | Mode | Module | Behavior |
 |---|---|---|
 | Heuristic | `detect/heuristic.js` | Ink mask + H/V runs → wall/door/window boxes |
-| DreamSpace | `detect/dreamspaceDetect.js` | Centerline walls + double-line merge |
+| DreamSpace | `detect/dreamspaceDetect.js` + `dreamspaceParams.js` | H/V scanlines, openings, tunable sensitivity |
+| Unity/API | `api/client.js` + `unityApi/*` | Mask R-CNN boxes; client-side filters + builder carve/merge |
 
 Payload shape (detection JSON):
 
@@ -131,16 +188,19 @@ Payload shape (detection JSON):
 Unity `Builder` / `WallMesh` ideas in Three.js:
 
 - Axis-aligned boxes → `BoxGeometry` segments
-- Pixel → meter via `averageDoor` (~0.9 m)
-- Options: `scale`, `wallHeight`, `wallThickness`, colors, optional floor texture (plan image)
+- Pixel → meter via `averageDoor` / Unity `doorWidthM` (~0.9 m)
+- Optional parallel-wall merge + opening carve (doors/windows)
+- Windows: glass mid-wall + wall **sill** + **lintel**; doors: leaf + lintel
+- Options: `scale`, `wallHeight` (0–5 m), `wallThickness`, colors, floor image/pattern, `unityParams`
 
 ### `SceneApp`
 
 - `TrackballControls` (full tumble; no polar lock)
-- `TransformControls` (model rotate/scale in world space; light translate)
-- Content modes: `plan2d` / `floorplan` / `model`
+- `TransformControls` (model rotate/scale; light translate)
+- Content modes: `plan2d` / `floorplan` / `model` / `empty`
+- `rebuild({ fresh })`: restore transform when not fresh; frame camera only when fresh
 - Lights: directional main + fill + hemisphere; shadow map refresh on move
-- Light helpers: marker, dashed ray from world origin `(0,0,0)` to light (toggled with **광원 표시**)
+- Light helpers: marker, dashed ray from `(0,0,0)`, gizmo (**광원 표시**)
 - Axes / grid; theme-aware clear color
 - Transparent PNG capture (helpers hidden)
 
@@ -148,7 +208,7 @@ Unity `Builder` / `WallMesh` ideas in Three.js:
 
 | Module | Role |
 |---|---|
-| `loaders/modelLoader.js` | Multi-format import; promote unlit materials so lights affect shading |
+| `loaders/modelLoader.js` | Multi-format import; promote unlit materials for lighting |
 | `exporters/modelExport.js` | GLB/GLTF/OBJ/STL/PLY/USDZ (+ PNG via SceneApp) |
 | `ui/saveDialog.js` | Format picker |
 | `desktop/bridge.js` | Electron save/open IPC |
@@ -159,7 +219,8 @@ Unity `Builder` / `WallMesh` ideas in Three.js:
 |---|---|
 | `ui/toolbar.js` | Image, model, convert, save, transform, helpers, light, reset, theme, lang, info |
 | `ui/theme.js` | Light/Dark (`fp3d-theme`) |
-| `ui/infoDialog.js` / `errorDialog.js` | About / serious errors (i18n + theme) |
+| `ui/progressDialog.js` | Install / API call progress (%, cancel) |
+| `ui/infoDialog.js` / `errorDialog.js` | About / serious errors |
 | `i18n/*` | KO/EN (`fp3d-locale`) |
 
 ## Cross-cutting
@@ -186,14 +247,15 @@ CSS variables under `html[data-theme="light|dark"]`. Scene background/fog/grid f
 |---|---|
 | Unity Client | Vite + Three.js (+ Electron) |
 | `Builder.cs` | `FloorPlanBuilder.js` |
-| `WallMesh.cs` | Box segment meshing |
-| Flask Mask R-CNN API | Offline heuristic / DreamSpace detectors |
+| `WallMesh.cs` | Box segment meshing (+ sill/lintel) |
+| Flask Mask R-CNN API | venv TF2 auto-install **or** Docker TF 1.15 |
 | Native Unity UI | HTML panel + icon toolbar |
 
 ## Extension points
 
 - New detectors emitting the same JSON shape
 - Richer builder (furniture, room labels, materials)
+- TF2 Docker image aligned with `floorplanApiTf2`
 - Additional loaders / exporters
 - Signed installers / auto-update via electron-builder
 - Persist scene + wall settings as project files
