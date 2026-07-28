@@ -88,9 +88,10 @@ function resolveSummary(options) {
   return options.summary || t('errorDialog.unexpected');
 }
 
-function applyLocaleToChrome() {
+function applyLocaleToChrome(titleKey = '') {
   const els = ensureDialog();
-  els.title.textContent = t('errorDialog.title');
+  const key = titleKey || els.overlay?.dataset?.titleKey || 'errorDialog.title';
+  els.title.textContent = t(key);
   els.detailsLabel.textContent = t('errorDialog.details');
   els.copyBtn.textContent = t('errorDialog.copy');
   els.okBtn.textContent = t('errorDialog.close');
@@ -99,7 +100,7 @@ function applyLocaleToChrome() {
 
 export function refreshErrorDialogLocale() {
   if (!dialogEls) return;
-  applyLocaleToChrome();
+  applyLocaleToChrome(lastOptions?.titleKey || '');
   if (open && lastOptions) {
     const summary = resolveSummary(lastOptions);
     lastOptions.summary = summary;
@@ -132,6 +133,7 @@ export function hideErrorDialog() {
  * @param {{
  *   summary?: string,
  *   summaryKey?: string,
+ *   titleKey?: string,
  *   details?: string,
  *   error?: unknown,
  *   context?: Record<string, unknown>
@@ -140,6 +142,7 @@ export function hideErrorDialog() {
 export function showErrorDialog({
   summary = '',
   summaryKey = '',
+  titleKey = 'errorDialog.title',
   details = '',
   error = null,
   context = {},
@@ -147,7 +150,8 @@ export function showErrorDialog({
   const els = ensureDialog();
   if (!open) previousFocus = document.activeElement;
 
-  lastOptions = { summary, summaryKey, details, error, context };
+  lastOptions = { summary, summaryKey, titleKey, details, error, context };
+  els.overlay.dataset.titleKey = titleKey || 'errorDialog.title';
   const resolved = resolveSummary(lastOptions);
   lastOptions.summary = resolved;
 
@@ -159,7 +163,7 @@ export function showErrorDialog({
   });
   lastDetailText = detailText;
 
-  applyLocaleToChrome();
+  applyLocaleToChrome(titleKey);
   els.summary.textContent = resolved;
   els.details.value = detailText;
   els.copyStatus.textContent = '';
@@ -241,12 +245,12 @@ function stringifyValue(value) {
 /** Soft validation tips stay inline; everything else is treated as serious. */
 const SOFT_ERROR_KEYS = new Set([
   'error.selectImage',
-  'error.apiUrl',
-  'error.apiUnreachable',
-  'error.apiHttp',
   'error.dreamspaceEmpty',
   'error.unknownMode',
   'error.heuristicEmpty',
+  'error.apiUrl',
+  'error.apiUnreachable',
+  'error.apiHttp',
 ]);
 
 export function isSeriousError(error) {

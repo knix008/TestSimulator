@@ -2,9 +2,18 @@ import { defineConfig } from 'vite';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  getDreamspaceStatus,
+  ensureDreamspaceInstalled,
+} from './scripts/lib/dreamspaceInstall.mjs';
+import {
+  getFloorplanApiStatus,
+  ensureFloorplanApiReady,
+} from './scripts/lib/floorplanApiInstall.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const samplesDir = path.resolve(__dirname, 'samples');
+const projectRoot = __dirname;
 
 /** Serve / copy root-level `samples/` as `/samples` (dev + dist). */
 function rootSamplesPlugin() {
@@ -49,6 +58,112 @@ function rootSamplesPlugin() {
   };
 }
 
+/** Dev-only API to install DreamSpaceAI with SSE progress. */
+function dreamspaceInstallPlugin() {
+  return {
+    name: 'dreamspace-install-api',
+    configureServer(server) {
+      server.middlewares.use(async (req, res, next) => {
+        if (!req.url) return next();
+        const urlPath = req.url.split('?')[0];
+
+        if (urlPath === '/__fp3d/dreamspace/status') {
+          res.setHeader('Content-Type', 'application/json; charset=utf-8');
+          res.end(JSON.stringify(getDreamspaceStatus(projectRoot)));
+          return;
+        }
+
+        if (urlPath === '/__fp3d/dreamspace/ensure') {
+          res.writeHead(200, {
+            'Content-Type': 'text/event-stream; charset=utf-8',
+            'Cache-Control': 'no-cache, no-transform',
+            Connection: 'keep-alive',
+          });
+          const ac = new AbortController();
+          req.on('close', () => ac.abort());
+          const send = (payload) => {
+            res.write(`data: ${JSON.stringify(payload)}\n\n`);
+          };
+          try {
+            const result = await ensureDreamspaceInstalled(projectRoot, {
+              signal: ac.signal,
+              onProgress: send,
+            });
+            send({ done: true, ...result });
+          } catch (err) {
+            if (err?.code === 'CANCELED' || ac.signal.aborted) {
+              send({ done: true, ok: false, canceled: true });
+            } else {
+              send({
+                done: true,
+                ok: false,
+                error: err?.message || String(err),
+              });
+            }
+          }
+          res.end();
+          return;
+        }
+
+        return next();
+      });
+    },
+  };
+}
+
+/** Dev-only API to install/start FloorPlanTo3D-API with SSE progress. */
+function floorplanApiInstallPlugin() {
+  return {
+    name: 'floorplan-api-install',
+    configureServer(server) {
+      server.middlewares.use(async (req, res, next) => {
+        if (!req.url) return next();
+        const urlPath = req.url.split('?')[0];
+
+        if (urlPath === '/__fp3d/floorplan-api/status') {
+          res.setHeader('Content-Type', 'application/json; charset=utf-8');
+          res.end(JSON.stringify(await getFloorplanApiStatus(projectRoot)));
+          return;
+        }
+
+        if (urlPath === '/__fp3d/floorplan-api/ensure') {
+          res.writeHead(200, {
+            'Content-Type': 'text/event-stream; charset=utf-8',
+            'Cache-Control': 'no-cache, no-transform',
+            Connection: 'keep-alive',
+          });
+          const ac = new AbortController();
+          req.on('close', () => ac.abort());
+          const send = (payload) => {
+            res.write(`data: ${JSON.stringify(payload)}\n\n`);
+          };
+          try {
+            const result = await ensureFloorplanApiReady(projectRoot, {
+              signal: ac.signal,
+              onProgress: send,
+            });
+            send({ done: true, ...result });
+          } catch (err) {
+            if (err?.code === 'CANCELED' || ac.signal.aborted) {
+              send({ done: true, ok: false, canceled: true });
+            } else {
+              send({
+                done: true,
+                ok: false,
+                error: err?.message || String(err),
+              });
+            }
+          }
+          res.end();
+          return;
+        }
+
+        return next();
+      });
+    },
+  };
+}
+
 export default defineConfig({
   // Relative paths so Electron can load dist/index.html via file://
   base: './',
@@ -56,5 +171,5 @@ export default defineConfig({
     port: 5173,
     strictPort: true,
   },
-  plugins: [rootSamplesPlugin()],
+  plugins: [rootSamplesPlugin(), dreamspaceInstallPlugin(), floorplanApiInstallPlugin()],
 });

@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, '..');
 const iconPath = path.join(root, 'assets', 'icon.png');
+const brightPath = path.join(root, 'assets', 'icon-bright.png');
 
 function crc32(buf) {
   let c = ~0;
@@ -238,7 +239,11 @@ function makeTransparent({ width, height, rgba }) {
 }
 
 const srcPath = path.join(root, 'assets', 'icon-src.png');
-const inputPath = fs.existsSync(srcPath) ? srcPath : iconPath;
+const inputPath = [srcPath, brightPath, iconPath].find((p) => fs.existsSync(p));
+if (!inputPath) {
+  console.error('Missing icon source (assets/icon-src.png, icon-bright.png, or icon.png).');
+  process.exit(1);
+}
 const png = readPngRgba(inputPath);
 
 // If working from master that is already transparent and no src, skip

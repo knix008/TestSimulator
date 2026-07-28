@@ -37,7 +37,7 @@ export async function detectHeuristic(file) {
     ...extractRuns(binary, width, height, 'v'),
   ];
 
-  const merged = mergeCollinear(segments);
+  const merged = mergeParallelWalls(mergeCollinear(segments));
   const filtered = merged
     .map((s) => snapThinAxis(s))
     .filter((s) => isWallLike(s, width, height));
@@ -231,7 +231,7 @@ function mergeCollinear(segments) {
           const ay = (a.y1 + a.y2) / 2;
           const by = (b.y1 + b.y2) / 2;
           const xOverlap = !(a.x2 + 3 < b.x1 || b.x2 + 3 < a.x1);
-          if (Math.abs(ay - by) <= 3 && xOverlap) {
+          if (Math.abs(ay - by) <= 4 && xOverlap) {
             items[i] = {
               axis: 'h',
               x1: Math.min(a.x1, b.x1),
@@ -247,7 +247,7 @@ function mergeCollinear(segments) {
           const ax = (a.x1 + a.x2) / 2;
           const bx = (b.x1 + b.x2) / 2;
           const yOverlap = !(a.y2 + 3 < b.y1 || b.y2 + 3 < a.y1);
-          if (Math.abs(ax - bx) <= 3 && yOverlap) {
+          if (Math.abs(ax - bx) <= 4 && yOverlap) {
             items[i] = {
               axis: 'v',
               x1: Math.min(a.x1, b.x1),
@@ -260,6 +260,69 @@ function mergeCollinear(segments) {
             break;
           }
         }
+      }
+      if (changed) break;
+    }
+  }
+  return items;
+}
+
+/**
+ * Collapse architectural double-line walls (two parallel strokes) into one box.
+ * Wider gap than mergeCollinear — keeps a single centered wall.
+ */
+function mergeParallelWalls(segments) {
+  const items = segments.map((s) => ({ ...s }));
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (let i = 0; i < items.length; i += 1) {
+      for (let j = i + 1; j < items.length; j += 1) {
+        const a = items[i];
+        const b = items[j];
+        if (a.axis !== b.axis) continue;
+
+        if (a.axis === 'h') {
+          const ay = (a.y1 + a.y2) / 2;
+          const by = (b.y1 + b.y2) / 2;
+          const ta = Math.max(1, a.y2 - a.y1);
+          const tb = Math.max(1, b.y2 - b.y1);
+          const maxGap = Math.max(10, Math.max(ta, tb) * 2.8);
+          const overlap = Math.min(a.x2, b.x2) - Math.max(a.x1, b.x1);
+          const minLen = Math.min(a.x2 - a.x1, b.x2 - b.x1);
+          if (Math.abs(ay - by) > maxGap || overlap < minLen * 0.4) continue;
+          const cy = (ay + by) / 2;
+          const t = Math.max(ta, tb);
+          items[i] = {
+            axis: 'h',
+            x1: Math.min(a.x1, b.x1),
+            x2: Math.max(a.x2, b.x2),
+            y1: cy - t / 2,
+            y2: cy + t / 2,
+          };
+        } else {
+          const ax = (a.x1 + a.x2) / 2;
+          const bx = (b.x1 + b.x2) / 2;
+          const ta = Math.max(1, a.x2 - a.x1);
+          const tb = Math.max(1, b.x2 - b.x1);
+          const maxGap = Math.max(10, Math.max(ta, tb) * 2.8);
+          const overlap = Math.min(a.y2, b.y2) - Math.max(a.y1, b.y1);
+          const minLen = Math.min(a.y2 - a.y1, b.y2 - b.y1);
+          if (Math.abs(ax - bx) > maxGap || overlap < minLen * 0.4) continue;
+          const cx = (ax + bx) / 2;
+          const t = Math.max(ta, tb);
+          items[i] = {
+            axis: 'v',
+            x1: cx - t / 2,
+            x2: cx + t / 2,
+            y1: Math.min(a.y1, b.y1),
+            y2: Math.max(a.y2, b.y2),
+          };
+        }
+
+        items.splice(j, 1);
+        changed = true;
+        break;
       }
       if (changed) break;
     }

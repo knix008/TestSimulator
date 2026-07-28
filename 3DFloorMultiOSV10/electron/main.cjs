@@ -1,6 +1,10 @@
-const { app, BrowserWindow, Menu, dialog, ipcMain } = require('electron');
+const { app, BrowserWindow, Menu, dialog, ipcMain, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const { pathToFileURL } = require('url');
+
+let dreamspaceAbort = null;
+let floorplanApiAbort = null;
 
 const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'tif', 'tiff', 'svg'];
 const MODEL_EXTENSIONS = [
@@ -11,9 +15,14 @@ const MODEL_EXTENSIONS = [
 
 function resolveAppIcon() {
   const candidates = [
+    path.join(__dirname, 'icon.ico'),
     path.join(__dirname, 'icon.png'),
-    path.join(__dirname, '..', 'assets', 'icon.png'),
+    path.join(__dirname, '..', 'build', 'icon.ico'),
     path.join(__dirname, '..', 'build', 'icon.png'),
+    path.join(__dirname, '..', 'assets', 'icon.png'),
+    path.join(__dirname, '..', 'assets', 'icon-bright.png'),
+    path.join(__dirname, '..', 'assets', 'icon-src.png'),
+    path.join(__dirname, '..', 'public', 'icon.png'),
   ];
   return candidates.find((p) => fs.existsSync(p));
 }
@@ -136,6 +145,9 @@ function createWindow() {
   Menu.setApplicationMenu(null);
 
   const icon = resolveAppIcon();
+  if (!icon) {
+    console.warn('App icon not found under assets/ or electron/. Run: npm run icons');
+  }
   const win = new BrowserWindow({
     width: 1440,
     height: 900,
@@ -253,6 +265,143 @@ function registerIpc() {
     return { canceled: false, ok: true, path: filePath, name: path.basename(filePath) };
   });
 
+  ipcMain.handle('fp3d:dreamspaceStatus', async () => {
+    const mod = await loadDreamspaceInstallModule();
+    const root = projectRoot();
+    return mod.getDreamspaceStatus(root);
+  });
+
+  ipcMain.handle('fp3d:dreamspaceEnsure', async (event) => {
+    const mod = await loadDreamspaceInstallModule();
+    const root = projectRoot();
+    if (dreamspaceAbort) {
+      try { dreamspaceAbort.abort(); } catch { /* ignore */ }
+    }
+    dreamspaceAbort = new AbortController();
+    const send = (info) => {
+      if (!event.sender.isDestroyed()) {
+        event.sender.send('fp3d:dreamspaceProgress', info);
+      }
+    };
+    try {
+      return await mod.ensureDreamspaceInstalled(root, {
+        onProgress: send,
+        signal: dreamspaceAbort.signal,
+      });
+    } catch (err) {
+      if (err?.code === 'CANCELED' || dreamspaceAbort?.signal?.aborted) {
+        return { ok: false, canceled: true };
+      }
+      send({
+        percent: 0,
+        phase: 'error',
+        message: err?.message || String(err),
+      });
+      return { ok: false, error: err?.message || String(err) };
+    } finally {
+      dreamspaceAbort = null;
+    }
+  });
+
+  ipcMain.handle('fp3d:dreamspaceCancel', async () => {
+    if (dreamspaceAbort) {
+      dreamspaceAbort.abort();
+      dreamspaceAbort = null;
+    }
+    return { ok: true };
+  });
+
+  ipcMain.handle('fp3d:floorplanApiStatus', async () => {
+    const mod = await loadFloorplanApiInstallModule();
+    return mod.getFloorplanApiStatus(projectRoot());
+  });
+
+  ipcMain.handle('fp3d:floorplanApiEnsure', async (event) => {
+    const mod = await loadFloorplanApiInstallModule();
+    const root = projectRoot();
+    if (floorplanApiAbort) {
+      try { floorplanApiAbort.abort(); } catch { /* ignore */ }
+    }
+    floorplanApiAbort = new AbortController();
+    const send = (info) => {
+      if (!event.sender.isDestroyed()) {
+        event.sender.send('fp3d:floorplanApiProgress', info);
+      }
+    };
+    try {
+      const result = await mod.ensureFloorplanApiReady(root, {
+        onProgress: send,
+        signal: floorplanApiAbort.signal,
+      });
+      if (result?.needsManualWeights) {
+        try {
+          if (result.weightsDir) await shell.openPath(result.weightsDir);
+          if (result.weightsUrl) await shell.openExternal(result.weightsUrl);
+        } catch { /* ignore */ }
+      }
+      return result;
+    } catch (err) {
+      if (err?.code === 'CANCELED' || floorplanApiAbort?.signal?.aborted) {
+        return { ok: false, canceled: true };
+      }
+      send({
+        percent: 0,
+        phase: 'error',
+        message: err?.message || String(err),
+      });
+      return { ok: false, error: err?.message || String(err) };
+    } finally {
+      floorplanApiAbort = null;
+    }
+  });
+
+  ipcMain.handle('fp3d:floorplanApiCancel', async () => {
+    if (floorplanApiAbort) {
+      floorplanApiAbort.abort();
+      floorplanApiAbort = null;
+    }
+    try {
+      const mod = await loadFloorplanApiInstallModule();
+      mod.stopFloorplanApi?.();
+    } catch { /* ignore */ }
+    return { ok: true };
+  });
+
+  ipcMain.handle('fp3d:openExternal', async (_event, url) => {
+    if (!url || typeof url !== 'string') return { ok: false };
+    await shell.openExternal(url);
+    return { ok: true };
+  });
+
+  ipcMain.handle('fp3d:openPath', async (_event, targetPath) => {
+    if (!targetPath || typeof targetPath !== 'string') return { ok: false };
+    const result = await shell.openPath(targetPath);
+    return { ok: !result, error: result || '' };
+  });
+}
+
+function projectRoot() {
+  return path.join(__dirname, '..');
+}
+
+async function loadDreamspaceInstallModule() {
+  const filePath = path.join(__dirname, '..', 'scripts', 'lib', 'dreamspaceInstall.mjs');
+  let bust = Date.now();
+  try { bust = fs.statSync(filePath).mtimeMs; } catch { /* ignore */ }
+  return import(`${pathToFileURL(filePath).href}?t=${bust}`);
+}
+
+async function loadFloorplanApiInstallModule() {
+  // Bust Node ESM cache so install script edits apply without full rebuild.
+  const filePath = path.join(__dirname, '..', 'scripts', 'lib', 'floorplanApiInstall.mjs');
+  let bust = Date.now();
+  try { bust = fs.statSync(filePath).mtimeMs; } catch { /* ignore */ }
+  return import(`${pathToFileURL(filePath).href}?t=${bust}`);
+}
+
+// Windows taskbar grouping / pinned shortcut identity (must match electron-builder appId)
+if (process.platform === 'win32') {
+  app.setAppUserModelId('com.floorplanto3d.multios');
 }
 
 app.whenReady().then(() => {
@@ -265,4 +414,11 @@ app.whenReady().then(() => {
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
+});
+
+app.on('before-quit', async () => {
+  try {
+    const mod = await loadFloorplanApiInstallModule();
+    mod.stopFloorplanApi?.();
+  } catch { /* ignore */ }
 });

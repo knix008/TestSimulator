@@ -11,12 +11,14 @@ files:
   - assets/icon.png
   - package.json
 asar: true
+# Synced from assets/ via `npm run icons` / generate-icon.mjs
+icon: build/icon.ico
 electronLanguages:
   - en
   - ko
 
 win:
-  icon: assets/icon.png
+  icon: build/icon.ico
   target:
     - target: nsis
       arch:
@@ -32,6 +34,9 @@ nsis:
   createDesktopShortcut: true
   createStartMenuShortcut: true
   shortcutName: FloorPlanTo3D
+  installerIcon: build/icon.ico
+  uninstallerIcon: build/icon.ico
+  installerHeaderIcon: build/icon.ico
   include: installer.nsh
   artifactName: ${productName}-${version}-Setup-${os}-${arch}.${ext}
 
@@ -39,7 +44,7 @@ portable:
   artifactName: ${productName}-${version}-portable-${os}-${arch}.${ext}
 
 mac:
-  icon: assets/icon.png
+  icon: build/icon.png
   category: public.app-category.graphics-design
   target:
     - target: dmg
@@ -52,7 +57,7 @@ mac:
         - arm64
 
 linux:
-  icon: assets/icon.png
+  icon: build/icon.png
   category: Graphics
   synopsis: 2D floor plan to 3D converter
   target:

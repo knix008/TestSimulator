@@ -1,31 +1,32 @@
 import { i18nError } from '../i18n/index.js';
-import { detectHeuristic } from './heuristic.js';
+import { detectDreamspaceImage, processFloorPlanFromImage } from './dreamspaceDetect.js';
 
 /**
- * DreamSpaceAI layout engine (ported from
- * https://github.com/jevintanjh/DreamSpaceAI floorPlanProcessor).
+ * DreamSpaceAI offline mode — aligned with
+ * https://github.com/jevintanjh/DreamSpaceAI
  *
- * When a floor-plan image is provided, walls are detected from that image
- * (heuristic CV). The upstream mock apartment is used only when no image
- * is selected (offline layout demo).
+ * Data model: FloorPlanData { rooms, walls[{start,end,thickness,hasOpening,opening}] }
+ * Conversion: 3dConversionEngine-style fixed thickness + mid/positioned door openings.
+ *
+ * Separate Next.js UI: npm run dreamspace
  */
 
 const PX_PER_M = 100;
+const DEFAULT_WALL_THICKNESS_M = 0.15;
+const DEFAULT_DOOR_WIDTH_M = 0.9;
 
 /** @typedef {{ x: number, y: number }} Point */
-/** @typedef {{ start: Point, end: Point, thickness: number, hasOpening?: boolean }} Wall */
+/** @typedef {{ start: Point, end: Point, thickness: number, hasOpening?: boolean, opening?: { type?: string, width?: number, height?: number, position?: number } }} Wall */
 /** @typedef {{ id: string, name: string, area: number, walls: Wall[], center: Point }} Room */
 /** @typedef {{ dimensions: { width: number, height: number }, rooms: Room[], walls: Wall[], imageUrl?: string }} FloorPlanData */
 
 /**
  * @param {File | Blob | null} [file]
- * @returns {Promise<{ Width: number, Height: number, averageDoor: number, points: object[], classes: object[] }>}
+ * @param {Partial<import('./dreamspaceParams.js').DreamspaceParams>} [options]
  */
-export async function detectDreamspace(file = null) {
-  // Prefer real image analysis — never ignore a selected floor-plan file
+export async function detectDreamspace(file = null, options = {}) {
   if (file) {
-    const detection = await detectHeuristic(file);
-    return { ...detection, source: 'dreamspace-image' };
+    return detectDreamspaceImage(file, floorPlanToDetection, options);
   }
 
   const plan = await processFloorPlan('');
@@ -36,16 +37,15 @@ export async function detectDreamspace(file = null) {
   return detection;
 }
 
-/**
- * @param {string} imageData
- * @returns {Promise<FloorPlanData>}
- */
+/** @param {string} imageData */
 export async function processFloorPlan(imageData) {
-  // Upstream DreamSpaceAI: mock structural layout (offline, no ML weights)
   return mockProcessFloorPlan(imageData || '');
 }
 
+export { processFloorPlanFromImage };
+
 /**
+ * Upstream sample apartment (floorPlanProcessor mockProcessFloorPlan).
  * @param {string} imageData
  * @returns {FloorPlanData}
  */
@@ -58,7 +58,13 @@ function mockProcessFloorPlan(imageData) {
       walls: [
         { start: { x: 0, y: 0 }, end: { x: 6, y: 0 }, thickness: 0.2 },
         { start: { x: 6, y: 0 }, end: { x: 6, y: 4 }, thickness: 0.2 },
-        { start: { x: 6, y: 4 }, end: { x: 0, y: 4 }, thickness: 0.2, hasOpening: true },
+        {
+          start: { x: 6, y: 4 },
+          end: { x: 0, y: 4 },
+          thickness: 0.2,
+          hasOpening: true,
+          opening: { type: 'door', width: 0.9, height: 2.0, position: 0.5 },
+        },
         { start: { x: 0, y: 4 }, end: { x: 0, y: 0 }, thickness: 0.2 },
       ],
       center: { x: 3, y: 2 },
@@ -71,7 +77,13 @@ function mockProcessFloorPlan(imageData) {
         { start: { x: 6, y: 0 }, end: { x: 10, y: 0 }, thickness: 0.2 },
         { start: { x: 10, y: 0 }, end: { x: 10, y: 3 }, thickness: 0.2 },
         { start: { x: 10, y: 3 }, end: { x: 6, y: 3 }, thickness: 0.2 },
-        { start: { x: 6, y: 3 }, end: { x: 6, y: 0 }, thickness: 0.2, hasOpening: true },
+        {
+          start: { x: 6, y: 3 },
+          end: { x: 6, y: 0 },
+          thickness: 0.2,
+          hasOpening: true,
+          opening: { type: 'door', width: 0.9, height: 2.0, position: 0.5 },
+        },
       ],
       center: { x: 8, y: 1.5 },
     },
@@ -83,7 +95,13 @@ function mockProcessFloorPlan(imageData) {
         { start: { x: 0, y: 4 }, end: { x: 0, y: 8 }, thickness: 0.2 },
         { start: { x: 0, y: 8 }, end: { x: 4, y: 8 }, thickness: 0.2 },
         { start: { x: 4, y: 8 }, end: { x: 4, y: 4 }, thickness: 0.2 },
-        { start: { x: 4, y: 4 }, end: { x: 0, y: 4 }, thickness: 0.2, hasOpening: true },
+        {
+          start: { x: 4, y: 4 },
+          end: { x: 0, y: 4 },
+          thickness: 0.2,
+          hasOpening: true,
+          opening: { type: 'door', width: 0.9, height: 2.0, position: 0.5 },
+        },
       ],
       center: { x: 2, y: 6 },
     },
@@ -92,7 +110,13 @@ function mockProcessFloorPlan(imageData) {
       name: 'Bathroom',
       area: 6,
       walls: [
-        { start: { x: 4, y: 4 }, end: { x: 6, y: 4 }, thickness: 0.2, hasOpening: true },
+        {
+          start: { x: 4, y: 4 },
+          end: { x: 6, y: 4 },
+          thickness: 0.2,
+          hasOpening: true,
+          opening: { type: 'door', width: 0.9, height: 2.0, position: 0.5 },
+        },
         { start: { x: 6, y: 4 }, end: { x: 6, y: 7 }, thickness: 0.2 },
         { start: { x: 6, y: 7 }, end: { x: 4, y: 7 }, thickness: 0.2 },
         { start: { x: 4, y: 7 }, end: { x: 4, y: 4 }, thickness: 0.2 },
@@ -101,17 +125,17 @@ function mockProcessFloorPlan(imageData) {
     },
   ];
 
-  const walls = rooms.flatMap((room) => room.walls);
   return {
     dimensions: { width: 10, height: 8 },
     rooms,
-    walls,
+    walls: rooms.flatMap((room) => room.walls),
     imageUrl: imageData,
   };
 }
 
 /**
- * Convert DreamSpace meter-space walls → FloorPlanTo3D detection boxes.
+ * Convert DreamSpace meter walls → detection boxes
+ * (mirrors 3dConversionEngine: fixed thickness, opening at position).
  * @param {FloorPlanData} data
  */
 export function floorPlanToDetection(data) {
@@ -133,7 +157,8 @@ export function floorPlanToDetection(data) {
     if (seen.has(key)) continue;
     seen.add(key);
 
-    const t = Math.max(0.05, wall.thickness || 0.15) * PX_PER_M;
+    const thickM = Math.max(0.05, wall.thickness || DEFAULT_WALL_THICKNESS_M);
+    const t = thickM * PX_PER_M;
     const x1m = ax * PX_PER_M;
     const y1m = ay * PX_PER_M;
     const x2m = bx * PX_PER_M;
@@ -158,34 +183,42 @@ export function floorPlanToDetection(data) {
       x2 = x + t / 2;
     }
 
-    // Short opening segments along walls marked hasOpening → door class
-    if (wall.hasOpening) {
-      const doorLen = 0.9 * PX_PER_M;
+    if (wall.hasOpening || wall.opening) {
+      const doorLen = Math.max(
+        0.6 * PX_PER_M,
+        (wall.opening?.width ?? DEFAULT_DOOR_WIDTH_M) * PX_PER_M,
+      );
+      const pos = clamp01(wall.opening?.position ?? 0.5);
       if (horiz) {
-        const mid = (x1 + x2) / 2;
-        const half = Math.min(doorLen / 2, (x2 - x1) / 2);
-        points.push({ x1: mid - half, y1, x2: mid + half, y2 });
-        classes.push({ name: 'door' });
-        // Keep wall stubs around the door when the wall is long enough
-        if (mid - half - x1 > t) {
-          points.push({ x1, y1, x2: mid - half, y2 });
+        const span = x2 - x1;
+        const half = Math.min(doorLen / 2, span / 2);
+        const mid = x1 + span * pos;
+        const d1 = Math.max(x1, mid - half);
+        const d2 = Math.min(x2, mid + half);
+        points.push({ x1: d1, y1, x2: d2, y2 });
+        classes.push({ name: wall.opening?.type === 'window' ? 'window' : 'door' });
+        if (d1 - x1 > t) {
+          points.push({ x1, y1, x2: d1, y2 });
           classes.push({ name: 'wall' });
         }
-        if (x2 - (mid + half) > t) {
-          points.push({ x1: mid + half, y1, x2, y2 });
+        if (x2 - d2 > t) {
+          points.push({ x1: d2, y1, x2, y2 });
           classes.push({ name: 'wall' });
         }
       } else {
-        const mid = (y1 + y2) / 2;
-        const half = Math.min(doorLen / 2, (y2 - y1) / 2);
-        points.push({ x1, y1: mid - half, x2, y2: mid + half });
-        classes.push({ name: 'door' });
-        if (mid - half - y1 > t) {
-          points.push({ x1, y1, x2, y2: mid - half });
+        const span = y2 - y1;
+        const half = Math.min(doorLen / 2, span / 2);
+        const mid = y1 + span * pos;
+        const d1 = Math.max(y1, mid - half);
+        const d2 = Math.min(y2, mid + half);
+        points.push({ x1, y1: d1, x2, y2: d2 });
+        classes.push({ name: wall.opening?.type === 'window' ? 'window' : 'door' });
+        if (d1 - y1 > t) {
+          points.push({ x1, y1, x2, y2: d1 });
           classes.push({ name: 'wall' });
         }
-        if (y2 - (mid + half) > t) {
-          points.push({ x1, y1: mid + half, x2, y2 });
+        if (y2 - d2 > t) {
+          points.push({ x1, y1: d2, x2, y2 });
           classes.push({ name: 'wall' });
         }
       }
@@ -201,7 +234,7 @@ export function floorPlanToDetection(data) {
   return {
     Width: widthM * PX_PER_M,
     Height: heightM * PX_PER_M,
-    averageDoor: 0.9 * PX_PER_M,
+    averageDoor: DEFAULT_DOOR_WIDTH_M * PX_PER_M,
     points,
     classes,
     source: 'dreamspace',
@@ -212,4 +245,8 @@ export function floorPlanToDetection(data) {
       center: r.center,
     })),
   };
+}
+
+function clamp01(v) {
+  return Math.max(0.05, Math.min(0.95, Number(v) || 0.5));
 }

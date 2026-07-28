@@ -9,9 +9,11 @@
   "main": "electron/main.cjs",
   "desktopName": "floorplanto3d.desktop",
   "scripts": {
-    "start": "node scripts/start-desktop.mjs",
+    "start": "node scripts/generate-icon.mjs && node scripts/start-desktop.mjs",
     "dev": "vite",
     "build": "node scripts/generate-icon.mjs && vite build",
+    "predist:win": "npm run icons",
+    "predist:desktop": "npm run icons",
     "preview": "vite preview",
     "electron": "electron .",
     "electron:dev": "node scripts/start-desktop.mjs",
@@ -20,8 +22,10 @@
     "samples": "node scripts/prepare-samples.mjs",
     "samples:synthetic": "node scripts/generate-plan-samples.mjs",
     "dreamspace:setup": "node scripts/setup-dreamspace.mjs",
-    "dreamspace": "npm --prefix DreamSpaceAI run dev",
     "dreamspace:install": "npm --prefix DreamSpaceAI install",
+    "dreamspace:prepare": "npm run dreamspace:setup && npm run dreamspace:install",
+    "dreamspace": "npm --prefix DreamSpaceAI run dev",
+    "fp3d-api:status": "node -e \"import('./scripts/lib/floorplanApiInstall.mjs').then(m=>m.getFloorplanApiStatus().then(s=>console.log(JSON.stringify(s,null,2))))\"",
     "dist:web": "npm run build && node scripts/package-web.mjs",
     "dist:win": "node scripts/dist-desktop.mjs win",
     "dist:mac": "node scripts/dist-desktop.mjs mac",
@@ -32,12 +36,16 @@
   "devDependencies": {
     "concurrently": "^9.2.1",
     "cross-env": "^7.0.3",
-    "electron": "^37.2.3",
+    "electron": "^37.10.3",
     "electron-builder": "^26.0.12",
     "vite": "^8.1.1",
     "wait-on": "^8.0.4"
   },
   "dependencies": {
     "three": "^0.185.1"
+  },
+  "allowScripts": {
+    "electron@37.10.3": true,
+    "electron-winstaller@5.4.0": true
   }
 }

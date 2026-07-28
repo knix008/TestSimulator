@@ -10,7 +10,7 @@ Inspired by [FloorPlanTo3D-unityClient](https://github.com/fadyazizz/FloorPlanTo
 
 - Convert **selected** 2D floor-plan images into editable 3D scenes
 - Run on Windows / macOS / Linux (browser or Electron)
-- Offline heuristic / DreamSpace modes + optional Mask R-CNN API
+- Offline heuristic / DreamSpace detection modes
 - Light helpers, free-axis viewing, multi-format load/export, i18n, theming
 
 ## High-level flow
@@ -24,8 +24,8 @@ Inspired by [FloorPlanTo3D-unityClient](https://github.com/fadyazizz/FloorPlanTo
  ┌────────────────────┐      ┌──────────────────┐
  │ Detection          │─────▶│ Detection JSON   │
  │ heuristic /        │      │ points[],        │
- │ dreamspace /       │      │ classes[],       │
- │ API / demo         │      │ Width, Height…   │
+ │ dreamspace         │      │ classes[],       │
+ │                    │      │ Width, Height…   │
  └────────────────────┘      └────────┬─────────┘
                                       │
                                       ▼
@@ -47,10 +47,8 @@ Inspired by [FloorPlanTo3D-unityClient](https://github.com/fadyazizz/FloorPlanTo
 
 | Mode | Selected image present | No image |
 |---|---|---|
-| Heuristic | Detect from image | Error |
-| DreamSpaceAI | Detect from image (heuristic CV) | Mock apartment layout |
-| Mask R-CNN API | POST image to API | Error |
-| Demo | Detect from image (heuristic) | Built-in `demoFloorPlan` |
+| Heuristic | Detect from image | File dialog → then detect |
+| DreamSpaceAI | Dedicated offline detector | File dialog → then detect |
 
 ## Runtime options
 
@@ -80,11 +78,10 @@ Electron: `electron/main.cjs` + `electron/preload.cjs`
 ├── scripts/                   # icons, dist-desktop, package-web/all
 ├── src/
 │   ├── main.js                # UI, convert, save, status
-│   ├── api/client.js
 │   ├── detect/
 │   │   ├── heuristic.js
-│   │   └── dreamspace.js
-│   ├── data/demoFloorPlan.js
+│   │   ├── dreamspace.js
+│   │   └── dreamspaceDetect.js
 │   ├── builder/FloorPlanBuilder.js
 │   ├── scene/SceneApp.js
 │   ├── loaders/modelLoader.js
@@ -113,11 +110,9 @@ Electron: `electron/main.cjs` + `electron/preload.cjs`
 | Mode | Module | Behavior |
 |---|---|---|
 | Heuristic | `detect/heuristic.js` | Ink mask + H/V runs → wall/door/window boxes |
-| DreamSpace | `detect/dreamspace.js` | Image → heuristic; else mock rooms → boxes |
-| API | `api/client.js` | Multipart `image` → Mask R-CNN JSON |
-| Demo | `data/demoFloorPlan.js` | Fixed payload when no image |
+| DreamSpace | `detect/dreamspaceDetect.js` | Centerline walls + double-line merge |
 
-Payload shape (API-compatible):
+Payload shape (detection JSON):
 
 ```json
 {
@@ -192,7 +187,7 @@ CSS variables under `html[data-theme="light|dark"]`. Scene background/fog/grid f
 | Unity Client | Vite + Three.js (+ Electron) |
 | `Builder.cs` | `FloorPlanBuilder.js` |
 | `WallMesh.cs` | Box segment meshing |
-| Flask Mask R-CNN API | `api/client.js` + offline fallbacks |
+| Flask Mask R-CNN API | Offline heuristic / DreamSpace detectors |
 | Native Unity UI | HTML panel + icon toolbar |
 
 ## Extension points

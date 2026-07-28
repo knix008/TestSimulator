@@ -69,7 +69,6 @@ function renderBody() {
       <div><dt>${t('infoDialog.email')}</dt><dd><a href="mailto:${mail}">${mail}</a></dd></div>
       <div><dt>${t('infoDialog.license')}</dt><dd>${APP_INFO.license}</dd></div>
     </dl>
-    <p class="info-dialog__credit">${t('infoDialog.credit')}</p>
   `;
 }
 

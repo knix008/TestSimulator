@@ -1,0 +1,15 @@
+# Runtime deps for FloorPlanTo3D-API on Python 3.10–3.12 (TensorFlow 2.x).
+# Upstream requirements.txt pins TF 1.15 / Python 3.6 and will not install on modern Python.
+tensorflow==2.16.2
+tf_keras==2.16.0
+numpy>=1.26,<2.1
+h5py>=3.10
+Pillow>=10.0
+Flask>=3.0,<3.1
+Flask-Cors>=4.0
+Werkzeug>=3.0
+scikit-image>=0.22
+matplotlib>=3.8
+opencv-python-headless>=4.8
+scipy>=1.11
+packaging>=23.0

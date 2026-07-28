@@ -226,6 +226,68 @@ body,
   color: var(--muted);
 }
 
+.selected-image {
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  gap: 0.65rem;
+  align-items: center;
+  padding: 0.5rem;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: var(--input-bg);
+}
+
+.selected-image-thumb-wrap {
+  position: relative;
+  width: 72px;
+  height: 72px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--surface);
+  border: 1px solid var(--panel-border);
+}
+
+.selected-image-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  background: #fff;
+}
+
+.selected-image-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.35rem;
+  text-align: center;
+  font-size: 0.68rem;
+  line-height: 1.25;
+  color: var(--muted);
+}
+
+.selected-image-meta {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.selected-image-label {
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.selected-image-name {
+  font-size: 0.86rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .field {
   display: grid;
   grid-template-columns: 72px 1fr;
@@ -532,13 +594,44 @@ button.active {
   line-height: 1.35;
 }
 
-.footer {
-  margin-top: auto;
-  color: var(--muted);
+.dreamspace-params {
+  margin: 0.35rem 0 0.6rem;
 }
 
-.footer a {
-  color: var(--accent-hover);
+.dreamspace-params__details {
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  padding: 0.45rem 0.65rem 0.65rem;
+  background: color-mix(in srgb, var(--panel-bg) 92%, var(--input-bg));
+}
+
+.dreamspace-params__details > summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.88rem;
+  margin-bottom: 0.35rem;
+  list-style: disclosure-closed;
+}
+
+.dreamspace-params__details[open] > summary {
+  list-style: disclosure-open;
+  margin-bottom: 0.55rem;
+}
+
+.dreamspace-params .field {
+  margin-top: 0.45rem;
+}
+
+.dreamspace-params .checkbox-field {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.82rem;
+}
+
+.dreamspace-params .ghost {
+  margin-top: 0.55rem;
+  width: 100%;
 }
 
 #viewport {
@@ -771,6 +864,59 @@ button.active {
   width: min(480px, 100%);
 }
 
+.progress-dialog__panel {
+  width: min(420px, 100%);
+}
+
+.progress-dialog__track {
+  width: 100%;
+  height: 12px;
+  border-radius: 999px;
+  background: var(--input-bg);
+  border: 1px solid var(--panel-border);
+  overflow: hidden;
+}
+
+.progress-dialog__bar {
+  height: 100%;
+  width: 0%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 70%, #fff));
+  transition: width 0.15s ease-out;
+}
+
+.progress-dialog--indeterminate .progress-dialog__bar {
+  width: 36% !important;
+  transition: none;
+  animation: progress-dialog-indeterminate 1.15s ease-in-out infinite;
+}
+
+@keyframes progress-dialog-indeterminate {
+  0% { transform: translateX(-120%); }
+  100% { transform: translateX(320%); }
+}
+
+.progress-dialog__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
+.progress-dialog__meta #progressDialogPercent {
+  font-weight: 700;
+  color: var(--text);
+  min-width: 3.5rem;
+}
+
+.progress-dialog__elapsed {
+  flex: 1;
+  text-align: center;
+}
+
 .save-dialog__formats {
   display: flex;
   flex-direction: column;
@@ -937,13 +1083,6 @@ button.active {
 
 .info-dialog__meta a {
   color: var(--accent);
-}
-
-.info-dialog__credit {
-  margin: 0.35rem 0 0;
-  font-size: 0.78rem;
-  color: var(--muted);
-  line-height: 1.4;
 }
 
 @media (max-width: 900px) {

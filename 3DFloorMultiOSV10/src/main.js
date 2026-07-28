@@ -3,7 +3,20 @@ import { SceneApp } from './scene/SceneApp.js';
 import { analyzeFloorPlan } from './api/client.js';
 import { detectHeuristic } from './detect/heuristic.js';
 import { detectDreamspace } from './detect/dreamspace.js';
-import { demoFloorPlan } from './data/demoFloorPlan.js';
+import {
+  DEFAULT_DREAMSPACE_PARAMS,
+  loadDreamspaceParams,
+  saveDreamspaceParams,
+  resetDreamspaceParams,
+  normalizeDreamspaceParams,
+} from './detect/dreamspaceParams.js';
+import {
+  DEFAULT_UNITY_PARAMS,
+  loadUnityParams,
+  saveUnityParams,
+  resetUnityParams,
+  normalizeUnityParams,
+} from './unityApi/params.js';
 import {
   mountToolbar,
   setToolbarActive,
@@ -44,6 +57,10 @@ import {
 } from './desktop/bridge.js';
 import { exportObject, getExportFormat } from './exporters/modelExport.js';
 import { showSaveDialog, refreshSaveDialogLocale } from './ui/saveDialog.js';
+import { refreshProgressDialogLocale, runWithProgressDialog } from './ui/progressDialog.js';
+import { ensureDreamspaceWithUi, getDreamspaceInstallStatus } from './dreamspace/ensure.js';
+import { ensureFloorplanApiWithUi, getFloorplanApiStatus } from './unityApi/ensure.js';
+import { getFloorPattern, normalizeFloorPatternId } from './data/floorPatterns.js';
 
 const appRoot = document.getElementById('app');
 mountToolbar(appRoot);
@@ -75,18 +92,63 @@ document.addEventListener('localechange', (e) => {
   refreshErrorDialogLocale();
   refreshInfoDialogLocale();
   refreshSaveDialogLocale();
+  refreshProgressDialogLocale();
   refreshStatus();
 });
 
-function reportSeriousError({ summary, summaryKey = '', error = null, context = {}, details = '' }) {
+function reportSeriousError({
+  summary,
+  summaryKey = '',
+  titleKey = 'errorDialog.title',
+  error = null,
+  context = {},
+  details = '',
+  statusKey = 'status.seriousError',
+  statusVars = {},
+} = {}) {
   const message = summary || translateError(error) || t('errorDialog.unexpected');
-  setStatus('status.seriousError', 'error');
+  setStatus(statusKey, 'error', statusVars);
   showErrorDialog({
     summary: message,
     summaryKey,
+    titleKey,
     details,
     error,
     context,
+  });
+}
+
+function reportDreamspaceInstallError(errorText, extra = {}) {
+  const details = typeof errorText === 'string' ? errorText : translateError(errorText);
+  const err = errorText instanceof Error ? errorText : new Error(details);
+  reportSeriousError({
+    summary: t('status.dreamspaceInstallFailed', { error: details }),
+    titleKey: 'errorDialog.dreamspaceInstallTitle',
+    statusKey: 'status.dreamspaceInstallFailed',
+    statusVars: { error: details },
+    error: err,
+    details,
+    context: {
+      action: 'dreamspaceInstall',
+      ...extra,
+    },
+  });
+}
+
+function reportUnityApiInstallError(errorText, extra = {}) {
+  const details = typeof errorText === 'string' ? errorText : translateError(errorText);
+  const err = errorText instanceof Error ? errorText : new Error(details);
+  reportSeriousError({
+    summary: t('status.unityApiInstallFailed', { error: details }),
+    titleKey: 'errorDialog.unityApiInstallTitle',
+    statusKey: 'status.unityApiInstallFailed',
+    statusVars: { error: details },
+    error: err,
+    details,
+    context: {
+      action: 'unityApiInstall',
+      ...extra,
+    },
   });
 }
 
@@ -100,9 +162,59 @@ const els = {
   openInput: document.getElementById('openInput'),
   dropOverlay: document.getElementById('dropOverlay'),
   modeSelect: document.getElementById('modeSelect'),
-  apiUrlField: document.getElementById('apiUrlField'),
-  apiUrl: document.getElementById('apiUrl'),
   dreamspaceHint: document.getElementById('dreamspaceHint'),
+  dreamspaceParams: document.getElementById('dreamspaceParams'),
+  dsMaxSide: document.getElementById('dsMaxSide'),
+  dsMaxSideValue: document.getElementById('dsMaxSideValue'),
+  dsInkMeanScale: document.getElementById('dsInkMeanScale'),
+  dsInkMeanScaleValue: document.getElementById('dsInkMeanScaleValue'),
+  dsMinRunRatioH: document.getElementById('dsMinRunRatioH'),
+  dsMinRunRatioHValue: document.getElementById('dsMinRunRatioHValue'),
+  dsMinRunRatioV: document.getElementById('dsMinRunRatioV'),
+  dsMinRunRatioVValue: document.getElementById('dsMinRunRatioVValue'),
+  dsVerticalDilate: document.getElementById('dsVerticalDilate'),
+  dsVerticalDilateValue: document.getElementById('dsVerticalDilateValue'),
+  dsVerticalMergeScale: document.getElementById('dsVerticalMergeScale'),
+  dsVerticalMergeScaleValue: document.getElementById('dsVerticalMergeScaleValue'),
+  dsExtraDilate: document.getElementById('dsExtraDilate'),
+  dsExtraDilateValue: document.getElementById('dsExtraDilateValue'),
+  dsMergeGapRatio: document.getElementById('dsMergeGapRatio'),
+  dsMergeGapRatioValue: document.getElementById('dsMergeGapRatioValue'),
+  dsParallelGapRatio: document.getElementById('dsParallelGapRatio'),
+  dsParallelGapRatioValue: document.getElementById('dsParallelGapRatioValue'),
+  dsDoorWidthM: document.getElementById('dsDoorWidthM'),
+  dsDoorWidthMValue: document.getElementById('dsDoorWidthMValue'),
+  dsWindowWidthM: document.getElementById('dsWindowWidthM'),
+  dsWindowWidthMValue: document.getElementById('dsWindowWidthMValue'),
+  dsMorphOpen: document.getElementById('dsMorphOpen'),
+  dsParamsReset: document.getElementById('dsParamsReset'),
+  apiUrlField: document.getElementById('apiUrlField'),
+  unityParams: document.getElementById('unityParams'),
+  unMinConfidence: document.getElementById('unMinConfidence'),
+  unMinConfidenceValue: document.getElementById('unMinConfidenceValue'),
+  unMaxDetections: document.getElementById('unMaxDetections'),
+  unMaxDetectionsValue: document.getElementById('unMaxDetectionsValue'),
+  unMinBoxSidePx: document.getElementById('unMinBoxSidePx'),
+  unMinBoxSidePxValue: document.getElementById('unMinBoxSidePxValue'),
+  unDoorWidthM: document.getElementById('unDoorWidthM'),
+  unDoorWidthMValue: document.getElementById('unDoorWidthMValue'),
+  unDoorFallbackRatio: document.getElementById('unDoorFallbackRatio'),
+  unDoorFallbackRatioValue: document.getElementById('unDoorFallbackRatioValue'),
+  unCarveBandScale: document.getElementById('unCarveBandScale'),
+  unCarveBandScaleValue: document.getElementById('unCarveBandScaleValue'),
+  unParallelGapRatio: document.getElementById('unParallelGapRatio'),
+  unParallelGapRatioValue: document.getElementById('unParallelGapRatioValue'),
+  unIncludeWalls: document.getElementById('unIncludeWalls'),
+  unIncludeWindows: document.getElementById('unIncludeWindows'),
+  unIncludeDoors: document.getElementById('unIncludeDoors'),
+  unMergeParallel: document.getElementById('unMergeParallel'),
+  unCarveOpenings: document.getElementById('unCarveOpenings'),
+  unParamsReset: document.getElementById('unParamsReset'),
+  apiUrl: document.getElementById('apiUrl'),
+  selectedImageCard: document.getElementById('selectedImageCard'),
+  selectedImageThumb: document.getElementById('selectedImageThumb'),
+  selectedImagePlaceholder: document.getElementById('selectedImagePlaceholder'),
+  selectedImageName: document.getElementById('selectedImageName'),
   convertBtn: document.getElementById('convertBtn'),
   statusBar: document.getElementById('statusBar'),
   status: document.getElementById('status'),
@@ -120,6 +232,7 @@ const els = {
   wallThicknessValue: document.getElementById('wallThicknessValue'),
   wallColor: document.getElementById('wallColor'),
   floorColor: document.getElementById('floorColor'),
+  floorPattern: document.getElementById('floorPattern'),
   showAxes: document.getElementById('showAxes'),
   showGrid: document.getElementById('showGrid'),
   mainIntensity: document.getElementById('mainIntensity'),
@@ -139,10 +252,12 @@ const els = {
 };
 
 let selectedFile = null;
+/** @type {string | null} */
+let selectedImageThumbUrl = null;
 let lastDetection = null;
 let syncingUi = false;
 let lastStatus = { key: 'status.ready', vars: {}, kind: '' };
-/** @type {{ kind: 'empty' | 'demo' | 'floorplan' | 'model', name?: string, format?: string }} */
+/** @type {{ kind: 'empty' | 'floorplan' | 'model', name?: string, format?: string }} */
 let contentInfo = { kind: 'empty', name: '' };
 /** @type {'none' | 'rotate' | 'scale' | 'light'} */
 let activeTool = 'none';
@@ -194,8 +309,6 @@ function refreshStatusBarMeta() {
     contentValue = contentInfo.name
       ? `${t('statusbar.contentFloorplan')} · ${contentInfo.name}`
       : t('statusbar.contentFloorplan');
-  } else if (contentInfo.kind === 'demo') {
-    contentValue = t('statusbar.contentDemo');
   }
   els.sbContent.textContent = metaLabel('statusbar.content', contentValue);
   els.sbContent.title = contentValue;
@@ -234,17 +347,334 @@ function refreshStatusBarMeta() {
 
 function syncModeUi() {
   const mode = els.modeSelect.value;
-  els.apiUrlField?.classList.toggle('hidden', mode !== 'api');
   els.dreamspaceHint?.classList.toggle('hidden', mode !== 'dreamspace');
+  els.dreamspaceParams?.classList.toggle('hidden', mode !== 'dreamspace');
+  els.apiUrlField?.classList.toggle('hidden', mode !== 'unity');
+  els.unityParams?.classList.toggle('hidden', mode !== 'unity');
   refreshStatusBarMeta();
 }
 
+function readDreamspaceParamsFromUi() {
+  return normalizeDreamspaceParams({
+    maxSide: Number(els.dsMaxSide?.value),
+    inkMeanScale: Number(els.dsInkMeanScale?.value),
+    minRunRatioH: Number(els.dsMinRunRatioH?.value),
+    minRunRatioV: Number(els.dsMinRunRatioV?.value),
+    verticalDilate: Number(els.dsVerticalDilate?.value),
+    verticalMergeScale: Number(els.dsVerticalMergeScale?.value),
+    extraDilate: Number(els.dsExtraDilate?.value),
+    mergeGapRatio: Number(els.dsMergeGapRatio?.value),
+    parallelGapRatio: Number(els.dsParallelGapRatio?.value),
+    doorWidthM: Number(els.dsDoorWidthM?.value),
+    windowWidthM: Number(els.dsWindowWidthM?.value),
+    morphOpen: Boolean(els.dsMorphOpen?.checked),
+  });
+}
+
+function applyDreamspaceParamsToUi(params) {
+  const p = normalizeDreamspaceParams(params || DEFAULT_DREAMSPACE_PARAMS);
+  const set = (input, output, value, digits = null) => {
+    if (!input) return;
+    input.value = String(value);
+    if (output) {
+      output.textContent = digits == null ? String(value) : Number(value).toFixed(digits);
+    }
+  };
+  set(els.dsMaxSide, els.dsMaxSideValue, p.maxSide);
+  set(els.dsInkMeanScale, els.dsInkMeanScaleValue, p.inkMeanScale, 2);
+  set(els.dsMinRunRatioH, els.dsMinRunRatioHValue, p.minRunRatioH, 3);
+  set(els.dsMinRunRatioV, els.dsMinRunRatioVValue, p.minRunRatioV, 3);
+  set(els.dsVerticalDilate, els.dsVerticalDilateValue, p.verticalDilate);
+  set(els.dsVerticalMergeScale, els.dsVerticalMergeScaleValue, p.verticalMergeScale, 1);
+  set(els.dsExtraDilate, els.dsExtraDilateValue, p.extraDilate);
+  set(els.dsMergeGapRatio, els.dsMergeGapRatioValue, p.mergeGapRatio, 3);
+  set(els.dsParallelGapRatio, els.dsParallelGapRatioValue, p.parallelGapRatio, 3);
+  set(els.dsDoorWidthM, els.dsDoorWidthMValue, p.doorWidthM, 2);
+  set(els.dsWindowWidthM, els.dsWindowWidthMValue, p.windowWidthM, 2);
+  if (els.dsMorphOpen) els.dsMorphOpen.checked = Boolean(p.morphOpen);
+}
+
+function persistDreamspaceParamsFromUi() {
+  return saveDreamspaceParams(readDreamspaceParamsFromUi());
+}
+
+function bindDreamspaceParamsUi() {
+  const bindings = [
+    [els.dsMaxSide, els.dsMaxSideValue, 0],
+    [els.dsInkMeanScale, els.dsInkMeanScaleValue, 2],
+    [els.dsMinRunRatioH, els.dsMinRunRatioHValue, 3],
+    [els.dsMinRunRatioV, els.dsMinRunRatioVValue, 3],
+    [els.dsVerticalDilate, els.dsVerticalDilateValue, 0],
+    [els.dsVerticalMergeScale, els.dsVerticalMergeScaleValue, 1],
+    [els.dsExtraDilate, els.dsExtraDilateValue, 0],
+    [els.dsMergeGapRatio, els.dsMergeGapRatioValue, 3],
+    [els.dsParallelGapRatio, els.dsParallelGapRatioValue, 3],
+    [els.dsDoorWidthM, els.dsDoorWidthMValue, 2],
+    [els.dsWindowWidthM, els.dsWindowWidthMValue, 2],
+  ];
+  for (const [input, output, digits] of bindings) {
+    if (!input) continue;
+    const sync = () => {
+      if (output) {
+        output.textContent = digits === 0
+          ? String(Math.round(Number(input.value)))
+          : Number(input.value).toFixed(digits);
+      }
+      persistDreamspaceParamsFromUi();
+    };
+    input.addEventListener('input', sync);
+    input.addEventListener('change', sync);
+  }
+  els.dsMorphOpen?.addEventListener('change', () => {
+    persistDreamspaceParamsFromUi();
+  });
+  els.dsParamsReset?.addEventListener('click', () => {
+    const defaults = resetDreamspaceParams();
+    applyDreamspaceParamsToUi(defaults);
+  });
+  applyDreamspaceParamsToUi(loadDreamspaceParams());
+}
+
+function readUnityParamsFromUi() {
+  return normalizeUnityParams({
+    minConfidence: Number(els.unMinConfidence?.value),
+    maxDetections: Number(els.unMaxDetections?.value),
+    minBoxSidePx: Number(els.unMinBoxSidePx?.value),
+    doorWidthM: Number(els.unDoorWidthM?.value),
+    doorFallbackRatio: Number(els.unDoorFallbackRatio?.value),
+    carveBandScale: Number(els.unCarveBandScale?.value),
+    parallelGapRatio: Number(els.unParallelGapRatio?.value),
+    includeWalls: Boolean(els.unIncludeWalls?.checked),
+    includeWindows: Boolean(els.unIncludeWindows?.checked),
+    includeDoors: Boolean(els.unIncludeDoors?.checked),
+    mergeParallel: Boolean(els.unMergeParallel?.checked),
+    carveOpenings: Boolean(els.unCarveOpenings?.checked),
+  });
+}
+
+function applyUnityParamsToUi(params) {
+  const p = normalizeUnityParams(params || DEFAULT_UNITY_PARAMS);
+  const set = (input, output, value, digits = null) => {
+    if (!input) return;
+    input.value = String(value);
+    if (output) {
+      output.textContent = digits == null ? String(value) : Number(value).toFixed(digits);
+    }
+  };
+  set(els.unMinConfidence, els.unMinConfidenceValue, p.minConfidence, 2);
+  set(els.unMaxDetections, els.unMaxDetectionsValue, p.maxDetections);
+  set(els.unMinBoxSidePx, els.unMinBoxSidePxValue, p.minBoxSidePx);
+  set(els.unDoorWidthM, els.unDoorWidthMValue, p.doorWidthM, 2);
+  set(els.unDoorFallbackRatio, els.unDoorFallbackRatioValue, p.doorFallbackRatio, 3);
+  set(els.unCarveBandScale, els.unCarveBandScaleValue, p.carveBandScale, 2);
+  set(els.unParallelGapRatio, els.unParallelGapRatioValue, p.parallelGapRatio, 3);
+  if (els.unIncludeWalls) els.unIncludeWalls.checked = Boolean(p.includeWalls);
+  if (els.unIncludeWindows) els.unIncludeWindows.checked = Boolean(p.includeWindows);
+  if (els.unIncludeDoors) els.unIncludeDoors.checked = Boolean(p.includeDoors);
+  if (els.unMergeParallel) els.unMergeParallel.checked = Boolean(p.mergeParallel);
+  if (els.unCarveOpenings) els.unCarveOpenings.checked = Boolean(p.carveOpenings);
+}
+
+function persistUnityParamsFromUi() {
+  return saveUnityParams(readUnityParamsFromUi());
+}
+
+function bindUnityParamsUi() {
+  const bindings = [
+    [els.unMinConfidence, els.unMinConfidenceValue, 2],
+    [els.unMaxDetections, els.unMaxDetectionsValue, 0],
+    [els.unMinBoxSidePx, els.unMinBoxSidePxValue, 0],
+    [els.unDoorWidthM, els.unDoorWidthMValue, 2],
+    [els.unDoorFallbackRatio, els.unDoorFallbackRatioValue, 3],
+    [els.unCarveBandScale, els.unCarveBandScaleValue, 2],
+    [els.unParallelGapRatio, els.unParallelGapRatioValue, 3],
+  ];
+  const applyLiveBuilderParams = () => {
+    persistUnityParamsFromUi();
+    if (lastDetection?.source === 'unity-api') {
+      lastDetection = {
+        ...lastDetection,
+        unityParams: readUnityParamsFromUi(),
+      };
+      rebuild();
+    }
+  };
+  for (const [input, output, digits] of bindings) {
+    if (!input) continue;
+    const sync = () => {
+      if (output) {
+        output.textContent = digits === 0
+          ? String(Math.round(Number(input.value)))
+          : Number(input.value).toFixed(digits);
+      }
+      // Builder-side params update live; API-side need re-convert.
+      if (
+        input === els.unDoorWidthM
+        || input === els.unDoorFallbackRatio
+        || input === els.unCarveBandScale
+        || input === els.unParallelGapRatio
+      ) {
+        applyLiveBuilderParams();
+      } else {
+        persistUnityParamsFromUi();
+      }
+    };
+    input.addEventListener('input', sync);
+    input.addEventListener('change', sync);
+  }
+  for (const el of [
+    els.unIncludeWalls,
+    els.unIncludeWindows,
+    els.unIncludeDoors,
+    els.unMergeParallel,
+    els.unCarveOpenings,
+  ]) {
+    el?.addEventListener('change', () => {
+      // Class filters need a new API call; merge/carve can rebuild locally.
+      if (el === els.unMergeParallel || el === els.unCarveOpenings) {
+        applyLiveBuilderParams();
+      } else {
+        persistUnityParamsFromUi();
+      }
+    });
+  }
+  els.unParamsReset?.addEventListener('click', () => {
+    const defaults = resetUnityParams();
+    applyUnityParamsToUi(defaults);
+    if (lastDetection?.source === 'unity-api') {
+      lastDetection = { ...lastDetection, unityParams: defaults };
+      rebuild();
+    }
+  });
+  applyUnityParamsToUi(loadUnityParams());
+}
+
+/**
+ * Download DreamSpaceAI from GitHub when missing (progress popup).
+ * Does not block 3D convert — in-app DreamSpace mode uses local detection.
+ * @returns {Promise<boolean>} true when installed (or already present)
+ */
+async function ensureDreamspaceReady({ announce = true, required = false } = {}) {
+  try {
+    const status = await getDreamspaceInstallStatus();
+    if (status.installed) return true;
+
+    if (announce) setStatus('status.dreamspaceDownloading', 'busy');
+    const result = await ensureDreamspaceWithUi();
+    if (result?.canceled) {
+      if (announce) setStatus('status.dreamspaceInstallCanceled', 'error');
+      return !required;
+    }
+    if (result?.ok === false) {
+      const error = result.error || t('progressDialog.dreamspaceFailed');
+      reportDreamspaceInstallError(error, {
+        path: status?.path || '',
+        broken: Boolean(status?.broken),
+      });
+      return !required;
+    }
+    if (announce) setStatus('status.dreamspaceInstalled', 'ok');
+    return true;
+  } catch (err) {
+    reportDreamspaceInstallError(err);
+    // Allow convert to continue — folder install is optional for image→3D
+    return !required;
+  }
+}
+
+/**
+ * Install FloorPlanTo3D-API from GitHub and start application.py (progress popup).
+ * @returns {Promise<boolean>}
+ */
+async function ensureUnityApiReady({ announce = true, required = true } = {}) {
+  try {
+    const status = await getFloorplanApiStatus();
+    if (status.running) {
+      if (announce) setStatus('status.unityApiReady', 'ok');
+      if (status.url && els.apiUrl && !els.apiUrl.value) {
+        els.apiUrl.value = status.url;
+      }
+      return true;
+    }
+
+    if (announce) setStatus('status.unityApiPreparing', 'busy');
+    const result = await ensureFloorplanApiWithUi();
+    if (result?.canceled) {
+      if (announce) setStatus('status.unityApiCanceled', 'error');
+      return !required;
+    }
+    if (result?.ok === false) {
+      if (result.needsManualWeights) {
+        try {
+          if (result.weightsDir && window.fp3dDesktop?.openPath) {
+            await window.fp3dDesktop.openPath(result.weightsDir);
+          }
+          if (result.weightsUrl && window.fp3dDesktop?.openExternal) {
+            await window.fp3dDesktop.openExternal(result.weightsUrl);
+          }
+        } catch { /* ignore */ }
+        if (announce) setStatus('status.unityApiWeightsManual', 'error');
+      }
+      reportUnityApiInstallError(result.error || t('progressDialog.unityApiFailed'), {
+        path: status?.path || result.path || '',
+        hasPython: status?.hasPython,
+        needsManualWeights: Boolean(result.needsManualWeights),
+        weightsDir: result.weightsDir || '',
+        weightsUrl: result.weightsUrl || '',
+      });
+      return !required;
+    }
+    if (result?.url && els.apiUrl) {
+      els.apiUrl.value = result.url;
+    }
+    if (announce) setStatus('status.unityApiReady', 'ok');
+    return true;
+  } catch (err) {
+    reportUnityApiInstallError(err);
+    return !required;
+  }
+}
+
+/** Floor surface: 'image' = 2D plan texture, 'pattern' = Floor pattern fill */
+let floorMode = 'image';
+
+function currentFloorPatternId() {
+  return normalizeFloorPatternId(els.floorPattern?.value || 'wood');
+}
+
 function buildOptions() {
+  const unityParams = readUnityParamsFromUi();
   return {
     scale: Number(els.scaleRange.value),
-    wallHeight: Number(els.wallHeight.value),
+    wallHeight: Math.max(0, Math.min(5, Number(els.wallHeight.value) || 0)),
     wallThickness: Number(els.wallThickness.value),
+    floorMode,
+    floorPattern: currentFloorPatternId(),
+    unityParams,
   };
+}
+
+function setFloorModeUi(mode, { announce = true } = {}) {
+  floorMode = mode === 'pattern' ? 'pattern' : 'image';
+  setToolbarActive('floor', floorMode);
+  if (lastDetection) rebuild();
+  if (announce) {
+    setStatus(floorMode === 'pattern' ? 'status.floorPattern' : 'status.floorImage');
+  }
+}
+
+function applyFloorPatternFromUi({ announce = true } = {}) {
+  const patternId = currentFloorPatternId();
+  // Selecting a pattern implies pattern-floor mode
+  if (floorMode !== 'pattern') {
+    floorMode = 'pattern';
+    setToolbarActive('floor', floorMode);
+  }
+  if (lastDetection) rebuild();
+  if (announce) {
+    const name = t(getFloorPattern(patternId).labelKey);
+    setStatus('status.floorPatternChanged', 'ok', { name });
+  }
 }
 
 function syncWallDimensionLabels() {
@@ -263,11 +693,11 @@ function applyAppearance() {
   });
 }
 
-function rebuild() {
+function rebuild({ fresh = false } = {}) {
   applyAppearance();
   // Keep the 2D plan preview on canvas until a detection exists
   if (!lastDetection) return;
-  app.rebuild(lastDetection, buildOptions());
+  app.rebuild(lastDetection, { ...buildOptions(), fresh });
 }
 
 function applyAxesFromUi() {
@@ -493,74 +923,272 @@ async function saveResult() {
   }
 }
 
+/**
+ * Ensure a floor-plan image is selected. If none, open the image picker dialog.
+ * @returns {Promise<File | null>} null if the user canceled
+ */
+async function ensureImageForConvert() {
+  if (selectedFile) return selectedFile;
+
+  setStatus('status.pickImage', 'busy');
+  const file = await pickImageFile();
+  if (!file) {
+    setStatus('status.pickImageCanceled', '');
+    return null;
+  }
+  await rememberDesktopFiles([file]);
+  await setSelectedImage(file);
+  return selectedFile;
+}
+
+/** @type {((file: File | null) => void) | null} */
+let imagePickWaiter = null;
+
+/** Native / HTML file dialog for a single floor-plan image. */
+async function pickImageFile() {
+  const title = t('dialog.selectImageTitle');
+  if (isDesktopApp()) {
+    const files = await openDesktopFiles({ mode: 'image', multiple: false, title });
+    return files[0] || null;
+  }
+
+  const input = els.imageInput;
+  if (!input) return null;
+
+  return new Promise((resolve) => {
+    let settled = false;
+    let focusTimer = 0;
+    const finish = (file) => {
+      if (settled) return;
+      settled = true;
+      if (focusTimer) window.clearTimeout(focusTimer);
+      if (imagePickWaiter === finish) imagePickWaiter = null;
+      resolve(file);
+    };
+    imagePickWaiter = finish;
+    // After the system dialog closes, focus returns; change may fire just after.
+    const onWindowFocus = () => {
+      focusTimer = window.setTimeout(() => finish(null), 800);
+    };
+    window.addEventListener('focus', onWindowFocus, { once: true });
+    input.click();
+  });
+}
+
+function formatBytes(bytes) {
+  const n = Number(bytes) || 0;
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 async function convert() {
   const mode = els.modeSelect.value;
   els.convertBtn.disabled = true;
-  setStatus('status.converting', 'busy');
 
   try {
-    // When a floor-plan image is selected, always derive walls from that image
-    // using the selected analysis mode — never substitute canned demo geometry.
-    if (mode === 'demo') {
-      if (selectedFile) {
-        lastDetection = await detectHeuristic(selectedFile);
-        contentInfo = { kind: 'floorplan', name: selectedFile.name };
-        setStatus('status.heuristicDone', 'ok', { count: lastDetection.points.length });
-      } else {
-        lastDetection = structuredClone(demoFloorPlan);
-        contentInfo = { kind: 'demo', name: '' };
-        setStatus('status.demoDone', 'ok');
-      }
-    } else if (mode === 'dreamspace') {
-      // With an image: detect from pixels. Without: offline mock apartment layout.
-      lastDetection = await detectDreamspace(selectedFile);
+    const image = await ensureImageForConvert();
+    if (!image) return;
+
+    setStatus('status.converting', 'busy');
+
+    // Wipe previous 3D result (and transform) before building a new one
+    lastDetection = null;
+    app.clearBuiltContent({ restorePlanPreview: true });
+    refreshStatusBarMeta();
+
+    if (mode === 'dreamspace') {
+      // Best-effort folder install (separate Next UI). Image convert does not depend on it.
+      await ensureDreamspaceReady({ announce: true, required: false });
+      // Convert the selected floor-plan image (not the sample apartment demo)
+      lastDetection = await detectDreamspace(image, readDreamspaceParamsFromUi());
       contentInfo = {
-        kind: selectedFile ? 'floorplan' : 'demo',
-        name: selectedFile?.name || 'DreamSpaceAI',
+        kind: 'floorplan',
+        name: image.name,
       };
-      setStatus(
-        selectedFile ? 'status.dreamspaceImageDone' : 'status.dreamspaceDone',
-        'ok',
-        { count: lastDetection.points.length },
-      );
+      setStatus('status.dreamspaceImageDone', 'ok', {
+        count: lastDetection.points.length,
+        rooms: lastDetection.rooms?.length ?? 0,
+      });
     } else if (mode === 'heuristic') {
-      if (!selectedFile) {
-        throw i18nError('error.selectImage');
-      }
-      lastDetection = await detectHeuristic(selectedFile);
-      contentInfo = { kind: 'floorplan', name: selectedFile.name };
+      lastDetection = await detectHeuristic(image);
+      contentInfo = { kind: 'floorplan', name: image.name };
       setStatus('status.heuristicDone', 'ok', { count: lastDetection.points.length });
-    } else if (mode === 'api') {
-      if (!selectedFile) {
-        throw i18nError('error.selectImage');
+    } else if (mode === 'unity') {
+      // Same Mask R-CNN API path as FloorPlanTo3D-unityClient
+      const ready = await ensureUnityApiReady({ announce: true, required: true });
+      if (!ready) return;
+      const apiResult = await runWithProgressDialog({
+        titleKey: 'progressDialog.unityCallTitle',
+        cancelable: true,
+        run: async (update, signal) => {
+          const started = Date.now();
+          let analyzeTimer = 0;
+          const tickElapsed = (extra = {}) => {
+            update({
+              ...extra,
+              elapsedMs: Date.now() - started,
+            });
+          };
+
+          tickElapsed({
+            percent: 0,
+            indeterminate: false,
+            phase: 'upload',
+            message: t('progressDialog.unityCallUploading'),
+          });
+
+          try {
+            return await analyzeFloorPlan(els.apiUrl?.value, image, {
+              signal,
+              params: readUnityParamsFromUi(),
+              onProgress: (info) => {
+                if (info.stage === 'upload') {
+                  if (analyzeTimer) {
+                    clearInterval(analyzeTimer);
+                    analyzeTimer = 0;
+                  }
+                  const ratio = Number.isFinite(info.ratio) ? info.ratio : 0;
+                  // Upload is usually quick; reserve 0–20% for it.
+                  tickElapsed({
+                    indeterminate: false,
+                    percent: Math.round(ratio * 20),
+                    phase: 'upload',
+                    message: t('progressDialog.unityCallUploading'),
+                    detail: Number.isFinite(info.total) && info.total > 0
+                      ? t('progressDialog.bytes', {
+                        loaded: formatBytes(info.loaded || 0),
+                        total: formatBytes(info.total),
+                      })
+                      : '',
+                  });
+                  return;
+                }
+
+                if (info.stage === 'analyze') {
+                  // Server-side Mask R-CNN has no % — show indeterminate + elapsed.
+                  tickElapsed({
+                    indeterminate: true,
+                    phase: 'analyze',
+                    message: t('progressDialog.unityCallAnalyzing'),
+                  });
+                  if (!analyzeTimer) {
+                    analyzeTimer = window.setInterval(() => {
+                      tickElapsed({
+                        indeterminate: true,
+                        phase: 'analyze',
+                        message: t('progressDialog.unityCallAnalyzing'),
+                      });
+                    }, 500);
+                  }
+                  return;
+                }
+
+                if (info.stage === 'download') {
+                  if (analyzeTimer) {
+                    clearInterval(analyzeTimer);
+                    analyzeTimer = 0;
+                  }
+                  const ratio = Number.isFinite(info.ratio) ? info.ratio : 0;
+                  tickElapsed({
+                    indeterminate: false,
+                    percent: 85 + Math.round(ratio * 10),
+                    phase: 'download',
+                    message: t('progressDialog.unityCallDownloading'),
+                  });
+                  return;
+                }
+
+                if (info.stage === 'done') {
+                  if (analyzeTimer) {
+                    clearInterval(analyzeTimer);
+                    analyzeTimer = 0;
+                  }
+                  tickElapsed({
+                    indeterminate: false,
+                    percent: 100,
+                    phase: 'done',
+                    message: t('progressDialog.unityCallDone'),
+                  });
+                }
+              },
+            });
+          } finally {
+            if (analyzeTimer) clearInterval(analyzeTimer);
+          }
+        },
+      });
+      if (apiResult?.canceled) {
+        setStatus('status.unityCallCanceled', 'error');
+        return;
       }
-      lastDetection = await analyzeFloorPlan(els.apiUrl.value, selectedFile);
-      contentInfo = { kind: 'floorplan', name: selectedFile.name };
-      setStatus('status.apiDone', 'ok', { count: lastDetection.points.length });
+      lastDetection = apiResult;
+      contentInfo = { kind: 'floorplan', name: image.name };
+      setStatus('status.unityDone', 'ok', { count: lastDetection.points.length });
     } else {
       throw i18nError('error.unknownMode', { mode });
     }
-    rebuild();
+    rebuild({ fresh: true });
   } catch (err) {
     console.error(err);
     const message = translateError(err);
-    if (isSeriousError(err)) {
-      reportSeriousError({
-        summary: message,
-        error: err,
-        context: {
-          action: 'convert',
-          mode: els.modeSelect.value,
-          apiUrl: els.apiUrl.value,
-          fileName: selectedFile?.name || '',
-        },
-      });
-    } else {
-      setStatus(message, 'error');
-    }
+    reportSeriousError({
+      summary: message,
+      error: err,
+      context: {
+        action: 'convert',
+        mode: els.modeSelect.value,
+        apiUrl: els.apiUrl?.value || '',
+        fileName: selectedFile?.name || '',
+        serious: isSeriousError(err),
+      },
+    });
   } finally {
     els.convertBtn.disabled = false;
   }
+}
+
+function clearSelectedImageUi() {
+  if (selectedImageThumbUrl) {
+    URL.revokeObjectURL(selectedImageThumbUrl);
+    selectedImageThumbUrl = null;
+  }
+  if (els.selectedImageThumb) {
+    els.selectedImageThumb.src = '';
+    els.selectedImageThumb.classList.add('hidden');
+    els.selectedImageThumb.alt = '';
+  }
+  els.selectedImagePlaceholder?.classList.remove('hidden');
+  if (els.selectedImageName) {
+    els.selectedImageName.setAttribute('data-i18n', 'selectedImage.noneName');
+    els.selectedImageName.textContent = t('selectedImage.noneName');
+    els.selectedImageName.title = '';
+  }
+  els.selectedImageCard?.classList.remove('has-image');
+}
+
+function syncSelectedImageUi(file) {
+  if (!file) {
+    clearSelectedImageUi();
+    return;
+  }
+  if (selectedImageThumbUrl) {
+    URL.revokeObjectURL(selectedImageThumbUrl);
+    selectedImageThumbUrl = null;
+  }
+  selectedImageThumbUrl = URL.createObjectURL(file);
+  if (els.selectedImageThumb) {
+    els.selectedImageThumb.src = selectedImageThumbUrl;
+    els.selectedImageThumb.alt = file.name;
+    els.selectedImageThumb.classList.remove('hidden');
+  }
+  els.selectedImagePlaceholder?.classList.add('hidden');
+  if (els.selectedImageName) {
+    els.selectedImageName.textContent = file.name;
+    els.selectedImageName.title = file.name;
+    els.selectedImageName.removeAttribute('data-i18n');
+  }
+  els.selectedImageCard?.classList.add('has-image');
 }
 
 async function setSelectedImage(file) {
@@ -568,6 +1196,8 @@ async function setSelectedImage(file) {
   selectedFile = file;
   lastDetection = null;
   contentInfo = { kind: 'floorplan', name: file.name };
+  syncSelectedImageUi(file);
+  refreshStatusBarMeta();
   setStatus('status.imageLoading', 'busy', { name: file.name });
   try {
     await app.showPlanImage(file);
@@ -580,15 +1210,14 @@ async function setSelectedImage(file) {
 function reportOpenError(err, context = {}) {
   console.error(err);
   const message = translateError(err);
-  if (isSeriousError(err)) {
-    reportSeriousError({
-      summary: message,
-      error: err,
-      context,
-    });
-  } else {
-    setStatus(message, 'error');
-  }
+  reportSeriousError({
+    summary: message,
+    error: err,
+    context: {
+      ...context,
+      serious: isSeriousError(err),
+    },
+  });
 }
 
 async function openModelFiles(fileList) {
@@ -600,6 +1229,7 @@ async function openModelFiles(fileList) {
     const { object, fileName, format } = await loadModelFromFiles(files);
     lastDetection = null;
     selectedFile = null;
+    syncSelectedImageUi(null);
     contentInfo = { kind: 'model', name: fileName, format };
     app.loadExternalModel(object);
     setStatus('status.modelReady', 'ok', { name: fileName, format: format.toUpperCase() });
@@ -663,14 +1293,24 @@ if (els.openInput) els.openInput.accept = ACCEPT_OPEN_FILES;
 if (els.modelInput) els.modelInput.accept = ACCEPT_MODEL_FILES;
 
 els.imageInput?.addEventListener('change', async () => {
-  const file = els.imageInput.files?.[0];
+  const file = els.imageInput.files?.[0] || null;
+  els.imageInput.value = '';
+
+  // Convert (or other) flow waiting on the HTML file dialog
+  if (imagePickWaiter) {
+    const resolve = imagePickWaiter;
+    imagePickWaiter = null;
+    resolve(file);
+    return;
+  }
+
   if (!file) {
     selectedFile = null;
+    syncSelectedImageUi(null);
     return;
   }
   await rememberDesktopFiles([file]);
   await setSelectedImage(file);
-  els.imageInput.value = '';
 });
 
 els.modelInput?.addEventListener('change', async () => {
@@ -723,9 +1363,14 @@ viewport.addEventListener('drop', async (e) => {
   await openFiles(all);
 });
 
-els.modeSelect.addEventListener('change', () => {
+els.modeSelect.addEventListener('change', async () => {
   syncModeUi();
   refreshStatusBarMeta();
+  if (els.modeSelect.value === 'dreamspace') {
+    await ensureDreamspaceReady({ announce: true });
+  } else if (els.modeSelect.value === 'unity') {
+    await ensureUnityApiReady({ announce: true, required: false });
+  }
 });
 els.convertBtn.addEventListener('click', convert);
 
@@ -741,6 +1386,10 @@ for (const el of [els.wallColor, els.floorColor]) {
     applyAppearance();
   });
 }
+
+els.floorPattern?.addEventListener('change', () => {
+  applyFloorPatternFromUi();
+});
 
 for (const el of [els.showAxes, els.showGrid]) {
   el?.addEventListener('change', () => {
@@ -882,6 +1531,12 @@ document.querySelector('.toolbar')?.addEventListener('click', (event) => {
       setToolbarToggle('tbGrid', els.showGrid.checked);
       setStatus(els.showGrid.checked ? 'status.gridOn' : 'status.gridOff');
       break;
+    case 'tbFloorImage':
+      setFloorModeUi('image');
+      break;
+    case 'tbFloorPattern':
+      setFloorModeUi('pattern');
+      break;
     case 'tbLight':
       setLightMoveUi(!els.lightGizmo?.checked);
       break;
@@ -924,6 +1579,8 @@ window.addEventListener('keydown', (e) => {
   }
 });
 
+bindDreamspaceParamsUi();
+bindUnityParamsUi();
 syncModeUi();
 applyAxesFromUi();
 applyLightFromUi();
@@ -933,4 +1590,5 @@ syncLightUi();
 app.setMode('orbit');
 setLightMoveUi(true, { announce: false });
 syncToolbarToggles();
+setToolbarActive('floor', floorMode);
 setStatus('status.ready');

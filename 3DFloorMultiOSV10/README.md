@@ -11,9 +11,8 @@ Windows / macOS / Linux에서 동일하게 동작합니다.
 - 2D 도면 이미지 선택 → **선택한 이미지** 기준으로 3D 변환
 - 분석 모드
   - **로컬 휴리스틱**: 오프라인 벽/개구 검출 (기본)
-  - **DreamSpaceAI**: 이미지 있으면 검출, 없으면 샘플 아파트 레이아웃
-  - **Mask R-CNN API**: [FloorPlanTo3D-API](https://github.com/fadyazizz/FloorPlanTo3D-API) 연동
-  - **데모 데이터**: 이미지 없이 즉시 미리보기 (이미지 선택 시에는 휴리스틱으로 변환)
+  - **DreamSpaceAI**: 전용 오프라인 검출기 (센터라인·이중선 병합)
+  - **FloorPlanTo3D (Unity/API)**: [unityClient](https://github.com/fadyazizz/FloorPlanTo3D-unityClient)와 동일 — 모드 선택 시 [FloorPlanTo3D-API](https://github.com/fadyazizz/FloorPlanTo3D-API)를 GitHub에서 받아 자동 설치·실행(진행률 팝업)
 - 외부 3D 모델 열기 (GLB/GLTF, OBJ, STL, FBX, PLY, USDZ 등)
 - 스케일 / 벽 높이·두께 / 벽·바닥 색상
 - 광원 HUD + **광원 표시** (마커·원점 연결선·기즈모)
@@ -68,28 +67,7 @@ npm run dist:all      # 현재 OS에서 가능한 대상 + Web
 2. 사이드 패널에서 **분석 방식** 선택
 3. **변환** 클릭 → 선택 이미지(또는 선택한 모드)로 벽/문/창 검출 후 3D 생성
 
-이미지가 선택된 상태에서 DreamSpace / 데모를 쓰더라도 **고정 샘플 도형으로 대체하지 않고** 선택 이미지를 분석합니다.
-
-## Mask R-CNN API 연동 (선택)
-
-1. [FloorPlanTo3D-API](https://github.com/fadyazizz/FloorPlanTo3D-API) 클론 및 의존성 설치
-2. 모델 가중치를 `weights/`에 배치
-3. `python application.py` (기본 `http://127.0.0.1:5000/`)
-4. 앱에서 모드를 **Mask R-CNN API** 로 선택 후 변환
-
-API 응답 형식:
-
-```json
-{
-  "points": [{ "x1": 0, "y1": 0, "x2": 10, "y2": 2 }],
-  "classes": [{ "name": "wall" }],
-  "Width": 800,
-  "Height": 600,
-  "averageDoor": 40
-}
-```
-
-`classes.name`은 `wall` | `window` | `door` 입니다.
+선택 이미지를 기준으로 휴리스틱 또는 DreamSpace 검출기로 3D를 생성합니다.
 
 ## 아키텍처 요약
 
@@ -98,11 +76,11 @@ API 응답 형식:
 | Unity Client | Vite + Three.js (+ Electron) |
 | `Builder.cs` | `src/builder/FloorPlanBuilder.js` |
 | `WallMesh.cs` | BoxGeometry 세그먼트 메시 |
-| Flask Mask R-CNN API | 동일 API 호환 + 휴리스틱 / DreamSpace / 데모 |
+| Flask Mask R-CNN API | 로컬 휴리스틱 / DreamSpace 오프라인 검출 |
 
 ```
 도면 이미지
-    → (휴리스틱 / DreamSpace / API / 데모) 검출 JSON
+    → (휴리스틱 / DreamSpace) 검출 JSON
     → FloorPlanBuilder (벽·문·창·바닥)
     → SceneApp (Trackball / 광원 / 기즈모 / 저장)
 ```
@@ -115,10 +93,9 @@ API 응답 형식:
 samples/                     # 예제 도면·모델
 src/
   main.js                    # UI · 변환 파이프라인
-  api/client.js              # FloorPlanTo3D-API
-  detect/heuristic.js        # 오프라인 검출
-  detect/dreamspace.js       # DreamSpaceAI 연동
-  data/demoFloorPlan.js
+  detect/heuristic.js        # 오프라인 휴리스틱 검출
+  detect/dreamspace.js       # DreamSpaceAI 오프라인 검출
+  detect/dreamspaceDetect.js
   builder/FloorPlanBuilder.js
   scene/SceneApp.js
   loaders/modelLoader.js     # 다중 3D 포맷 로드
@@ -132,5 +109,4 @@ scripts/                     # 아이콘·패키징
 ## 참고
 
 - Unity 클라이언트: https://github.com/fadyazizz/FloorPlanTo3D-unityClient
-- 검출 API: https://github.com/fadyazizz/FloorPlanTo3D-API
 - 사용 설명서: [UsersGuide.md](./UsersGuide.md)

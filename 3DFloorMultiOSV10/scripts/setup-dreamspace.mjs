@@ -1,19 +1,68 @@
 /**
  * Scaffold DreamSpaceAI into a runnable Next.js app (local use).
  * Upstream repo ships loose source files without app/ layout.
+ *
+ * If DreamSpaceAI/ is missing or empty, clones
+ * https://github.com/jevintanjh/DreamSpaceAI first.
  */
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { spawnSync } from 'node:child_process';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, '..');
 const ds = path.join(root, 'DreamSpaceAI');
+const UPSTREAM = 'https://github.com/jevintanjh/DreamSpaceAI.git';
 
-if (!fs.existsSync(ds)) {
-  console.error('DreamSpaceAI/ missing. Clone https://github.com/jevintanjh/DreamSpaceAI first.');
-  process.exit(1);
+function hasUpstreamSources() {
+  return (
+    fs.existsSync(path.join(ds, 'floorPlanProcessor.ts'))
+    || fs.existsSync(path.join(ds, 'lib', 'floorPlanProcessor.ts'))
+  );
 }
+
+function ensureUpstreamClone() {
+  if (hasUpstreamSources()) return;
+
+  if (fs.existsSync(ds)) {
+    const entries = fs.readdirSync(ds).filter((n) => n !== '.git');
+    if (entries.length > 0 && !hasUpstreamSources()) {
+      // Broken / partial install (e.g. only node_modules left). Move aside and recloning.
+      const trash = `${ds}.old-${Date.now()}`;
+      console.warn(`DreamSpaceAI/ has no sources — moving aside to ${path.basename(trash)}…`);
+      try {
+        fs.renameSync(ds, trash);
+      } catch (err) {
+        console.error(
+          'DreamSpaceAI/ exists but has no upstream sources, and could not be replaced.\n'
+          + 'Close any DreamSpaceAI / Next.js process, delete DreamSpaceAI/, then retry.\n'
+          + String(err?.message || err),
+        );
+        process.exit(1);
+      }
+    } else if (entries.length === 0) {
+      try {
+        fs.rmSync(ds, { recursive: true, force: true });
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+
+  console.log(`Cloning ${UPSTREAM} …`);
+  const result = spawnSync('git', ['clone', '--depth', '1', UPSTREAM, ds], {
+    cwd: root,
+    stdio: 'inherit',
+    shell: process.platform === 'win32',
+  });
+  if (result.status !== 0 || !hasUpstreamSources()) {
+    console.error('Failed to clone DreamSpaceAI. Check git/network and retry.');
+    process.exit(1);
+  }
+}
+
+ensureUpstreamClone();
 
 function ensureDir(p) {
   fs.mkdirSync(p, { recursive: true });

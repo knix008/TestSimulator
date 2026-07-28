@@ -55,6 +55,18 @@ function waitForUrl(url, timeoutMs = 60000) {
   });
 }
 
+// Ensure window / tray icons exist before Electron launches
+{
+  const iconGen = spawn(
+    process.execPath,
+    [path.join(root, 'scripts', 'generate-icon.mjs')],
+    { cwd: root, stdio: 'inherit' },
+  );
+  await new Promise((resolve) => {
+    iconGen.on('exit', () => resolve());
+  });
+}
+
 const port = await findPort(preferredPort);
 const url = `http://127.0.0.1:${port}/`;
 if (port !== preferredPort) {

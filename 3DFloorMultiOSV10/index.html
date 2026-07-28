@@ -63,23 +63,201 @@
         <section class="section">
           <h2 data-i18n="section.analysis">분석 방식</h2>
           <p class="hint" data-i18n="hint.toolbarInput">이미지는 상단 툴바의 「이미지 선택」으로 엽니다.</p>
+          <div class="selected-image" id="selectedImageCard">
+            <div class="selected-image-thumb-wrap">
+              <img id="selectedImageThumb" alt="" class="selected-image-thumb hidden" />
+              <div id="selectedImagePlaceholder" class="selected-image-placeholder" data-i18n="selectedImage.none">
+                선택된 이미지 없음
+              </div>
+            </div>
+            <div class="selected-image-meta">
+              <span class="selected-image-label" data-i18n="selectedImage.label">선택 이미지</span>
+              <strong id="selectedImageName" class="selected-image-name" data-i18n="selectedImage.noneName">없음</strong>
+            </div>
+          </div>
           <label class="field">
             <span data-i18n="label.mode">모드</span>
             <select id="modeSelect">
               <option value="heuristic" data-i18n="mode.heuristic" selected>로컬 휴리스틱 (오프라인)</option>
               <option value="dreamspace" data-i18n="mode.dreamspace">DreamSpaceAI (오프라인)</option>
-              <option value="api" data-i18n="mode.api">Mask R-CNN API</option>
-              <option value="demo" data-i18n="mode.demo">데모 데이터</option>
+              <option value="unity" data-i18n="mode.unity">FloorPlanTo3D (Unity/API)</option>
             </select>
           </label>
           <p class="hint hidden" id="dreamspaceHint" data-i18n="hint.dreamspace">
-            이미지가 있으면 그 도면에서 벽을 검출합니다. 이미지 없이 변환하면 샘플 아파트 레이아웃을 사용합니다.
+            DreamSpaceAI 스타일: 스캔라인 벽 추출 + 문/창 개구. 휴리스틱과 별개. 별도 UI: npm run dreamspace
           </p>
+          <div id="dreamspaceParams" class="dreamspace-params hidden">
+            <details class="dreamspace-params__details" open>
+              <summary data-i18n="dreamspace.paramsTitle">DreamSpace 검출 설정</summary>
+              <p class="hint" data-i18n="dreamspace.paramsHint">
+                세로 벽이 약하면 「세로 보강」·「세로 최소 길이」를 조정한 뒤 다시 변환하세요.
+              </p>
+              <label class="field value-field">
+                <span data-i18n="dreamspace.param.maxSide">작업 해상도</span>
+                <div class="range-with-value">
+                  <input id="dsMaxSide" type="range" min="480" max="1200" step="40" value="800" />
+                  <output id="dsMaxSideValue" for="dsMaxSide">800</output>
+                </div>
+              </label>
+              <label class="field value-field">
+                <span data-i18n="dreamspace.param.inkMeanScale">잉크 민감도</span>
+                <div class="range-with-value">
+                  <input id="dsInkMeanScale" type="range" min="0.65" max="0.95" step="0.01" value="0.82" />
+                  <output id="dsInkMeanScaleValue" for="dsInkMeanScale">0.82</output>
+                </div>
+              </label>
+              <label class="field value-field">
+                <span data-i18n="dreamspace.param.minRunRatioH">가로 최소 길이</span>
+                <div class="range-with-value">
+                  <input id="dsMinRunRatioH" type="range" min="0.012" max="0.05" step="0.001" value="0.022" />
+                  <output id="dsMinRunRatioHValue" for="dsMinRunRatioH">0.022</output>
+                </div>
+              </label>
+              <label class="field value-field">
+                <span data-i18n="dreamspace.param.minRunRatioV">세로 최소 길이</span>
+                <div class="range-with-value">
+                  <input id="dsMinRunRatioV" type="range" min="0.008" max="0.04" step="0.001" value="0.014" />
+                  <output id="dsMinRunRatioVValue" for="dsMinRunRatioV">0.014</output>
+                </div>
+              </label>
+              <label class="field value-field">
+                <span data-i18n="dreamspace.param.verticalDilate">세로 보강 (가로 팽창)</span>
+                <div class="range-with-value">
+                  <input id="dsVerticalDilate" type="range" min="0" max="3" step="1" value="2" />
+                  <output id="dsVerticalDilateValue" for="dsVerticalDilate">2</output>
+                </div>
+              </label>
+              <label class="field value-field">
+                <span data-i18n="dreamspace.param.verticalMergeScale">세로 병합 허용</span>
+                <div class="range-with-value">
+                  <input id="dsVerticalMergeScale" type="range" min="1" max="2.5" step="0.1" value="1.6" />
+                  <output id="dsVerticalMergeScaleValue" for="dsVerticalMergeScale">1.6</output>
+                </div>
+              </label>
+              <label class="field value-field">
+                <span data-i18n="dreamspace.param.extraDilate">선 연결 팽창</span>
+                <div class="range-with-value">
+                  <input id="dsExtraDilate" type="range" min="0" max="2" step="1" value="1" />
+                  <output id="dsExtraDilateValue" for="dsExtraDilate">1</output>
+                </div>
+              </label>
+              <label class="field value-field">
+                <span data-i18n="dreamspace.param.mergeGapRatio">끊김 병합</span>
+                <div class="range-with-value">
+                  <input id="dsMergeGapRatio" type="range" min="0.006" max="0.03" step="0.001" value="0.014" />
+                  <output id="dsMergeGapRatioValue" for="dsMergeGapRatio">0.014</output>
+                </div>
+              </label>
+              <label class="field value-field">
+                <span data-i18n="dreamspace.param.parallelGapRatio">이중선 병합</span>
+                <div class="range-with-value">
+                  <input id="dsParallelGapRatio" type="range" min="0.015" max="0.06" step="0.001" value="0.032" />
+                  <output id="dsParallelGapRatioValue" for="dsParallelGapRatio">0.032</output>
+                </div>
+              </label>
+              <label class="field value-field">
+                <span data-i18n="dreamspace.param.doorWidthM">기준 문 폭 (m)</span>
+                <div class="range-with-value">
+                  <input id="dsDoorWidthM" type="range" min="0.7" max="1.2" step="0.05" value="0.9" />
+                  <output id="dsDoorWidthMValue" for="dsDoorWidthM">0.90</output>
+                </div>
+              </label>
+              <label class="field value-field">
+                <span data-i18n="dreamspace.param.windowWidthM">기준 창 폭 (m)</span>
+                <div class="range-with-value">
+                  <input id="dsWindowWidthM" type="range" min="0.8" max="2.0" step="0.05" value="1.2" />
+                  <output id="dsWindowWidthMValue" for="dsWindowWidthM">1.20</output>
+                </div>
+              </label>
+              <label class="field checkbox-field">
+                <input id="dsMorphOpen" type="checkbox" checked />
+                <span data-i18n="dreamspace.param.morphOpen">가는 치수선 제거 (열림 연산)</span>
+              </label>
+              <button id="dsParamsReset" type="button" class="ghost" data-i18n="dreamspace.paramsReset">기본값으로</button>
+            </details>
+          </div>
           <label class="field hidden" id="apiUrlField">
             <span data-i18n="label.apiUrl">API URL</span>
             <input id="apiUrl" type="url" value="http://127.0.0.1:5000/" />
-            <small class="hint" data-i18n="hint.apiMode">Mask R-CNN API는 별도 서버가 필요합니다. 오프라인이면「로컬 휴리스틱」을 사용하세요.</small>
           </label>
+          <div id="unityParams" class="dreamspace-params hidden">
+            <details class="dreamspace-params__details" open>
+              <summary data-i18n="unity.paramsTitle">FloorPlanTo3D 검출 설정</summary>
+              <p class="hint" data-i18n="unity.paramsHint">
+                Mask R-CNN 신뢰도·클래스·병합 옵션입니다. 값이 API와 빌더에 전달됩니다.
+              </p>
+              <label class="field value-field">
+                <span data-i18n="unity.param.minConfidence">최소 신뢰도</span>
+                <div class="range-with-value">
+                  <input id="unMinConfidence" type="range" min="0.2" max="0.9" step="0.05" value="0.55" />
+                  <output id="unMinConfidenceValue" for="unMinConfidence">0.55</output>
+                </div>
+              </label>
+              <label class="field value-field">
+                <span data-i18n="unity.param.maxDetections">최대 검출 수</span>
+                <div class="range-with-value">
+                  <input id="unMaxDetections" type="range" min="20" max="300" step="10" value="120" />
+                  <output id="unMaxDetectionsValue" for="unMaxDetections">120</output>
+                </div>
+              </label>
+              <label class="field value-field">
+                <span data-i18n="unity.param.minBoxSidePx">최소 박스 크기 (px)</span>
+                <div class="range-with-value">
+                  <input id="unMinBoxSidePx" type="range" min="4" max="40" step="1" value="10" />
+                  <output id="unMinBoxSidePxValue" for="unMinBoxSidePx">10</output>
+                </div>
+              </label>
+              <label class="field value-field">
+                <span data-i18n="unity.param.doorWidthM">기준 문 폭 (m)</span>
+                <div class="range-with-value">
+                  <input id="unDoorWidthM" type="range" min="0.7" max="1.2" step="0.05" value="0.9" />
+                  <output id="unDoorWidthMValue" for="unDoorWidthM">0.90</output>
+                </div>
+              </label>
+              <label class="field value-field">
+                <span data-i18n="unity.param.doorFallbackRatio">문 없을 때 스케일 비율</span>
+                <div class="range-with-value">
+                  <input id="unDoorFallbackRatio" type="range" min="0.025" max="0.08" step="0.005" value="0.045" />
+                  <output id="unDoorFallbackRatioValue" for="unDoorFallbackRatio">0.045</output>
+                </div>
+              </label>
+              <label class="field value-field">
+                <span data-i18n="unity.param.carveBandScale">개구 절단 밴드</span>
+                <div class="range-with-value">
+                  <input id="unCarveBandScale" type="range" min="1.0" max="2.0" step="0.05" value="1.35" />
+                  <output id="unCarveBandScaleValue" for="unCarveBandScale">1.35</output>
+                </div>
+              </label>
+              <label class="field value-field">
+                <span data-i18n="unity.param.parallelGapRatio">이중선 병합</span>
+                <div class="range-with-value">
+                  <input id="unParallelGapRatio" type="range" min="0.008" max="0.04" step="0.001" value="0.015" />
+                  <output id="unParallelGapRatioValue" for="unParallelGapRatio">0.015</output>
+                </div>
+              </label>
+              <label class="field checkbox-field">
+                <input id="unIncludeWalls" type="checkbox" checked />
+                <span data-i18n="unity.param.includeWalls">벽 포함</span>
+              </label>
+              <label class="field checkbox-field">
+                <input id="unIncludeWindows" type="checkbox" checked />
+                <span data-i18n="unity.param.includeWindows">창 포함</span>
+              </label>
+              <label class="field checkbox-field">
+                <input id="unIncludeDoors" type="checkbox" checked />
+                <span data-i18n="unity.param.includeDoors">문 포함</span>
+              </label>
+              <label class="field checkbox-field">
+                <input id="unMergeParallel" type="checkbox" checked />
+                <span data-i18n="unity.param.mergeParallel">이중 벽선 병합</span>
+              </label>
+              <label class="field checkbox-field">
+                <input id="unCarveOpenings" type="checkbox" checked />
+                <span data-i18n="unity.param.carveOpenings">문/창 구간 벽 절단</span>
+              </label>
+              <button id="unParamsReset" type="button" class="ghost" data-i18n="unity.paramsReset">기본값으로</button>
+            </details>
+          </div>
           <button id="convertBtn" class="primary" type="button" data-i18n="btn.convert">3D로 변환</button>
         </section>
 
@@ -92,7 +270,7 @@
           <label class="field value-field">
             <span data-i18n="label.wallHeight">벽 높이</span>
             <div class="range-with-value">
-              <input id="wallHeight" type="range" min="1" max="5" step="0.05" value="2.5" />
+              <input id="wallHeight" type="range" min="0" max="5" step="0.05" value="2.5" />
               <output id="wallHeightValue" for="wallHeight">2.50 m</output>
             </div>
           </label>
@@ -111,24 +289,25 @@
             <span data-i18n="label.floorColor">바닥 색상</span>
             <input id="floorColor" type="color" value="#8b7355" />
           </label>
+          <label class="field">
+            <span data-i18n="label.floorPattern">바닥 패턴</span>
+            <select id="floorPattern">
+              <option value="wood" data-i18n="floorPattern.wood" selected>나무 플랭크</option>
+              <option value="herringbone" data-i18n="floorPattern.herringbone">헤링본</option>
+              <option value="tile" data-i18n="floorPattern.tile">타일</option>
+              <option value="checker" data-i18n="floorPattern.checker">체커보드</option>
+              <option value="concrete" data-i18n="floorPattern.concrete">콘크리트</option>
+              <option value="carpet" data-i18n="floorPattern.carpet">카펫</option>
+              <option value="solid" data-i18n="floorPattern.solid">단색</option>
+            </select>
+            <small class="hint" data-i18n="hint.floorPattern">「패턴 바닥」툴바 모드에서 적용됩니다.</small>
+          </label>
         </section>
 
         <!-- Axes/grid state for toolbar toggles (no side-panel transform UI) -->
         <input id="showAxes" type="checkbox" checked hidden />
         <input id="showGrid" type="checkbox" checked hidden />
 
-        <footer class="footer">
-          <small>
-            <span data-i18n="footer.inspired">참고 프로젝트</span>
-            <a href="https://github.com/fadyazizz/FloorPlanTo3D-unityClient" target="_blank" rel="noreferrer">
-              FloorPlanTo3D-unityClient
-            </a>
-            ·
-            <a href="https://github.com/jevintanjh/DreamSpaceAI" target="_blank" rel="noreferrer">
-              DreamSpaceAI
-            </a>
-          </small>
-        </footer>
       </aside>
       <main id="viewport">
         <div id="dropOverlay" class="drop-overlay hidden" data-i18n="hint.dropFiles">

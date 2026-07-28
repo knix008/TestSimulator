@@ -12,8 +12,6 @@ UI: **한국어 / English** (toolbar **Lang**). Theme: **Light / Dark**.
 
 - Node.js 18+
 - Electron desktop (Windows / macOS / Linux), **or** a modern browser
-- Optional: [FloorPlanTo3D-API](https://github.com/fadyazizz/FloorPlanTo3D-API) for Mask R-CNN
-
 ## 2. Install & run
 
 ```bash
@@ -106,12 +104,22 @@ See [release/README.md](./release/README.md).
 
 | Mode | When to use |
 |---|---|
-| **Local heuristic (offline)** | High-contrast drawings, no server (**default**) |
-| **DreamSpaceAI (offline)** | With image → detect from that image; without → sample apartment |
-| **Mask R-CNN API** | Best quality with the Python API running |
-| **Demo data** | Instant layout without an image (if an image is selected, heuristic is used instead) |
+| **Local heuristic (offline)** | High-contrast drawings (**default**) |
+| **DreamSpaceAI (offline)** | Dedicated detector (centerline walls + double-line merge) |
+| **FloorPlanTo3D (Unity/API)** | Same as [unityClient](https://github.com/fadyazizz/FloorPlanTo3D-unityClient): Mask R-CNN API + Builder |
 
-> When an image is selected, convert **always** builds from that image (not a fixed default box layout).
+> Convert requires a selected floor-plan image (a file dialog opens if none is selected).
+
+### FloorPlanTo3D API (Unity mode)
+
+1. Choose **FloorPlanTo3D (Unity/API)** — the app shows a progress popup (bar + %), then:
+   - downloads [FloorPlanTo3D-API](https://github.com/fadyazizz/FloorPlanTo3D-API) from GitHub into `FloorPlanTo3D-API/`
+   - creates a Python venv and runs `pip install -r requirements.txt`
+   - downloads Mask R-CNN weights into `weights/`
+   - starts `application.py` on `http://127.0.0.1:5000/`
+2. Open a floor-plan image → **Convert**
+
+Requires a local Python install. Upstream was built for Python 3.6 / older TensorFlow; modern Python may need a matching conda env if pip fails.
 
 ### C — Convert
 
@@ -188,16 +196,7 @@ Defaults: OS theme preference; browser language (`ko*` → Korean).
 
 ---
 
-## 10. Optional Mask R-CNN API
-
-1. Run [FloorPlanTo3D-API](https://github.com/fadyazizz/FloorPlanTo3D-API)
-2. Put weights in `weights/`
-3. `python application.py` → usually `http://127.0.0.1:5000/`
-4. Mode **Mask R-CNN API** → set URL → open image → convert
-
----
-
-## 11. Errors
+## 10. Errors
 
 - Soft validation (no image, etc.) → status line  
 - Serious errors → dialog with summary, report, and **Copy**  
@@ -205,7 +204,7 @@ Defaults: OS theme preference; browser language (`ko*` → Korean).
 
 ---
 
-## 12. Tips
+## 11. Tips
 
 - Prefer high-contrast black-on-white plans for **heuristic**
 - Use **Demo** only to learn controls without an image

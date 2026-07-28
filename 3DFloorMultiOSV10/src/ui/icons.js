@@ -10,6 +10,8 @@ export const icons = {
   scale: `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 3h7v2H5v5H3V3Zm11 0h7v7h-2V5h-5V3ZM3 14h2v5h5v2H3v-7Zm16 0h2v7h-7v-2h5v-5Z"/></svg>`,
   axes: `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M11 3h2v8h8v2h-8v8h-2v-8H3v-2h8V3Zm7.5 1L21 6.5 14.5 13 12 10.5 18.5 4ZM6.5 14 13 20.5 10.5 23 4 16.5 6.5 14Z"/></svg>`,
   grid: `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 3h8v8H3V3Zm10 0h8v8h-8V3ZM3 13h8v8H3v-8Zm10 0h8v8h-8v-8Z"/></svg>`,
+  floorImage: `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4 4h16a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Zm1 2v12h14V6H5Zm2 8.5 2.5-2.5 2 2 3.5-3.5L18 14v2H7v-1.5ZM8 9a1.25 1.25 0 1 0 0-2.5A1.25 1.25 0 0 0 8 9Z"/></svg>`,
+  floorPattern: `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 5h18v14H3V5Zm2 2v4h4V7H5Zm6 0v4h4V7h-4Zm6 0v4h4V7h-4ZM5 13v4h4v-4H5Zm6 0v4h4v-4h-4Zm6 0v4h4v-4h-4Z"/></svg>`,
   light: `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a7 7 0 0 0-4 12.7V18h8v-3.3A7 7 0 0 0 12 2Zm-2 18h4v1a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-1Zm1-2v-1.1l-.6-.4A5 5 0 1 1 13.6 16.5l-.6.4V18h-2Z"/></svg>`,
   lightPos: `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a6 6 0 0 0-3.5 10.9V15h7v-2.1A6 6 0 0 0 12 2Zm-1.5 15h3v1.2a1.5 1.5 0 0 1-3 0V17ZM12 18.5c-3.5 0-6 2.1-6 3.2V23h12v-1.3c0-1.1-2.5-3.2-6-3.2Zm0 1.5c1.6 0 2.9.5 3.5 1H8.5c.6-.5 1.9-1 3.5-1Z"/></svg>`,
   reset: `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 6V3L8 7l4 4V8a5 5 0 1 1-4.9 6H5a7 7 0 1 0 7-8Z"/></svg>`,

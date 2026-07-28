@@ -267,18 +267,27 @@ export class SceneApp {
     this._fitMainLightShadow();
   }
 
-  /** Near top-down framing (slight tilt so Y-orbit / azimuth still works). */
+  /** Look straight down the +Y axis onto the plan (Z points “up” on screen). */
   _frameCameraTopDown() {
     const box = new THREE.Box3().setFromObject(this.contentRoot);
-    if (box.isEmpty()) return;
+    if (box.isEmpty()) {
+      this.camera.up.set(0, 0, -1);
+      this.orbit.target.set(0, 0, 0);
+      this.camera.position.set(0, 14, 0);
+      this.camera.near = 0.05;
+      this.camera.far = 200;
+      this.camera.updateProjectionMatrix();
+      this.orbit.update();
+      return;
+    }
     const size = box.getSize(new THREE.Vector3());
     const center = box.getCenter(new THREE.Vector3());
     const span = Math.max(size.x, size.z, 1);
-    this.orbit.target.set(center.x, 0, center.z);
-    // ~25° from vertical — plan stays readable, full 360° yaw orbit works
-    const elev = span * 1.05;
-    const back = span * 0.48;
-    this.camera.position.set(center.x, elev, center.z + back);
+    const elev = center.y + Math.max(span * 1.35, size.y * 2 + 2);
+    // Camera on +Y above center; world −Z as screen-up avoids lookAt/up singularity
+    this.camera.up.set(0, 0, -1);
+    this.orbit.target.set(center.x, center.y, center.z);
+    this.camera.position.set(center.x, elev, center.z);
     this.camera.near = 0.05;
     this.camera.far = Math.max(200, span * 20);
     this.camera.updateProjectionMatrix();
@@ -827,25 +836,14 @@ export class SceneApp {
     }
   }
 
-  /** Restore camera / trackball to the default framed view for current content. */
+  /** Restore camera to Y-axis top-down view for current content. */
   resetView() {
-    // Stop trackball inertia and restore world-up (tumble may have rolled the camera)
+    // Stop trackball inertia (tumble may have rolled the camera)
     this.orbit._lastAngle = 0;
     this.orbit.state = -1;
-    this.camera.up.set(0, 1, 0);
 
-    if (this._contentMode === 'plan2d') {
-      this._frameCameraTopDown();
-    } else if (this._contentMode === 'floorplan' || this._contentMode === 'model') {
-      this._frameCamera();
-    } else {
-      this.orbit.target.set(0, 0.8, 0);
-      this.camera.position.set(7, 6, 7);
-      this.camera.near = 0.05;
-      this.camera.far = 200;
-      this.camera.updateProjectionMatrix();
-      this.orbit.update();
-    }
+    // Reset always returns to looking down from +Y
+    this._frameCameraTopDown();
 
     // Remember this pose as the trackball "home" for subsequent resets
     this.orbit._target0?.copy(this.orbit.target);
@@ -995,20 +993,60 @@ export class SceneApp {
     this.orbit.update();
   }
 
+  /**
+   * Clear previous 3D / model result before a new convert.
+   * Keeps the loaded plan texture and optionally restores the 2D preview.
+   */
+  clearBuiltContent({ restorePlanPreview = true } = {}) {
+    const wasLightGizmo = this._lightGizmo;
+    this.builder.clear();
+    this._clearExternalModel();
+    this.resetModelTransform();
+    if (restorePlanPreview && this._planTexture) {
+      this._contentMode = 'plan2d';
+      this.builder.showPlanImage(this._planTexture);
+      this._frameCamera();
+    } else {
+      this._contentMode = 'empty';
+    }
+    this.resetLightToDefault();
+    if (wasLightGizmo) this.attachLightGizmo(true);
+    else this.transform.detach();
+  }
+
+  /**
+   * @param {object} detection
+   * @param {object} [options]
+   * @param {boolean} [options.fresh] When true, discard prior transform and rebuild from scratch
+   */
   rebuild(detection, options = {}) {
     if (!detection?.points) {
       this.clearContent();
       return;
     }
-    const prev = this.getModelTransform();
+    const fresh = options.fresh === true;
+    const prev = fresh ? null : this.getModelTransform();
     const wasLightGizmo = this._lightGizmo;
     this._clearExternalModel();
+    if (fresh) this.resetModelTransform();
     this._contentMode = 'floorplan';
+    const floorMode = options.floorMode === 'pattern' ? 'pattern' : 'image';
     this.builder.build(detection, {
       ...options,
-      floorTexture: options.floorTexture ?? this._planTexture ?? null,
+      floorMode,
+      floorPattern: options.floorPattern || 'wood',
+      // Plan image only when in image mode; pattern mode uses a procedural floor fill
+      floorTexture:
+        floorMode === 'image'
+          ? (options.floorTexture ?? this._planTexture ?? null)
+          : null,
     });
-    this.setModelTransform(prev);
+    if (fresh) {
+      this.resetModelTransform();
+      this.resetLightToDefault();
+    } else if (prev) {
+      this.setModelTransform(prev);
+    }
     if (wasLightGizmo) this.attachLightGizmo(true);
     this._frameCamera();
     this._applyLightToContent();

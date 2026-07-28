@@ -12,6 +12,9 @@ node_modules
 DreamSpaceAI/node_modules
 DreamSpaceAI/.next
 
+# Auto-cloned Mask R-CNN API (large weights / venv)
+FloorPlanTo3D-API/
+
 # Build outputs
 dist
 dist-ssr
@@ -45,7 +48,9 @@ release/web/*
 
 # Generated icons (sources stay in assets/)
 build/icon.png
+build/icon.ico
 electron/icon.png
+electron/icon.ico
 public/icon.png
 assets/icon.png
 # opaque master: assets/icon-src.png; bright variant: assets/icon-bright.png
