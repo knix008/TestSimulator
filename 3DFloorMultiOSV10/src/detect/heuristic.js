@@ -30,14 +30,18 @@ export async function detectHeuristic(file) {
 
   // Remove 1px dimension lines / text underlines; keep thicker wall ink
   binary = dilate(erode(binary, width, height), width, height);
-  binary = dilate(binary, width, height);
+  const binaryH = dilateAxis(binary, width, height, 'h');
+  const binaryV = dilateAxis(binary, width, height, 'v');
 
+  const minSide = Math.min(width, height);
   const segments = [
-    ...extractRuns(binary, width, height, 'h'),
-    ...extractRuns(binary, width, height, 'v'),
+    ...extractRuns(binaryH, width, height, 'h', Math.max(10, Math.round(minSide * 0.024))),
+    ...extractRuns(binaryV, width, height, 'v', Math.max(8, Math.round(minSide * 0.018))),
   ];
 
-  const merged = mergeParallelWalls(mergeCollinear(segments));
+  const merged = mergeParallelWalls(
+    consolidateNearby(mergeCollinear(segments), Math.max(4, Math.round(minSide * 0.012))),
+  );
   const filtered = merged
     .map((s) => snapThinAxis(s))
     .filter((s) => isWallLike(s, width, height));
@@ -147,9 +151,29 @@ function dilate(src, width, height) {
   return out;
 }
 
-function extractRuns(binary, width, height, axis) {
+function dilateAxis(src, width, height, axis) {
+  const out = new Uint8Array(src.length);
+  const offsets = axis === 'h'
+    ? [[0, 0], [-1, 0], [1, 0], [0, -1], [0, 1]]
+    : [[0, 0], [0, -1], [0, 1], [-1, 0], [1, 0], [-2, 0], [2, 0]];
+
+  for (let y = 2; y < height - 2; y += 1) {
+    for (let x = 2; x < width - 2; x += 1) {
+      const i = y * width + x;
+      for (const [dx, dy] of offsets) {
+        if (src[(y + dy) * width + (x + dx)]) {
+          out[i] = 1;
+          break;
+        }
+      }
+    }
+  }
+  return out;
+}
+
+function extractRuns(binary, width, height, axis, minRun) {
   const out = [];
-  const minRun = 16;
+  const runMin = Math.max(6, minRun || 16);
 
   if (axis === 'h') {
     for (let y = 0; y < height; y += 1) {
@@ -159,7 +183,7 @@ function extractRuns(binary, width, height, axis) {
         const start = x;
         while (x < width && binary[y * width + x]) x += 1;
         const len = x - start;
-        if (len >= minRun) {
+        if (len >= runMin) {
           // Measure local thickness at mid-run
           const mid = (start + x) >> 1;
           const t = measureThickness(binary, width, height, mid, y, 'v');
@@ -181,7 +205,7 @@ function extractRuns(binary, width, height, axis) {
         const start = y;
         while (y < height && binary[y * width + x]) y += 1;
         const len = y - start;
-        if (len >= minRun) {
+        if (len >= runMin) {
           const mid = (start + y) >> 1;
           const t = measureThickness(binary, width, height, x, mid, 'h');
           out.push({
@@ -260,6 +284,59 @@ function mergeCollinear(segments) {
             break;
           }
         }
+      }
+      if (changed) break;
+    }
+  }
+  return items;
+}
+
+function consolidateNearby(segments, centerTol) {
+  const items = segments.map((s) => ({ ...s }));
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (let i = 0; i < items.length; i += 1) {
+      for (let j = i + 1; j < items.length; j += 1) {
+        const a = items[i];
+        const b = items[j];
+        if (a.axis !== b.axis) continue;
+
+        if (a.axis === 'h') {
+          const ay = (a.y1 + a.y2) / 2;
+          const by = (b.y1 + b.y2) / 2;
+          const gap = Math.max(0, Math.max(a.x1, b.x1) - Math.min(a.x2, b.x2));
+          const overlap = Math.min(a.x2, b.x2) - Math.max(a.x1, b.x1);
+          if (Math.abs(ay - by) > centerTol || (gap > centerTol && overlap < 0)) continue;
+          const cy = (ay + by) / 2;
+          const t = Math.max(a.y2 - a.y1, b.y2 - b.y1);
+          items[i] = {
+            axis: 'h',
+            x1: Math.min(a.x1, b.x1),
+            x2: Math.max(a.x2, b.x2),
+            y1: cy - t / 2,
+            y2: cy + t / 2,
+          };
+        } else {
+          const ax = (a.x1 + a.x2) / 2;
+          const bx = (b.x1 + b.x2) / 2;
+          const gap = Math.max(0, Math.max(a.y1, b.y1) - Math.min(a.y2, b.y2));
+          const overlap = Math.min(a.y2, b.y2) - Math.max(a.y1, b.y1);
+          if (Math.abs(ax - bx) > centerTol * 1.5 || (gap > centerTol && overlap < 0)) continue;
+          const cx = (ax + bx) / 2;
+          const t = Math.max(a.x2 - a.x1, b.x2 - b.x1);
+          items[i] = {
+            axis: 'v',
+            x1: cx - t / 2,
+            x2: cx + t / 2,
+            y1: Math.min(a.y1, b.y1),
+            y2: Math.max(a.y2, b.y2),
+          };
+        }
+
+        items.splice(j, 1);
+        changed = true;
+        break;
       }
       if (changed) break;
     }

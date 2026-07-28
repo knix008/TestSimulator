@@ -9,9 +9,9 @@
   "main": "electron/main.cjs",
   "desktopName": "floorplanto3d.desktop",
   "scripts": {
-    "start": "node scripts/generate-icon.mjs && node scripts/start-desktop.mjs",
+    "start": "node scripts/start-desktop.mjs",
     "dev": "vite",
-    "build": "node scripts/generate-icon.mjs && vite build",
+    "build": "vite build",
     "predist:win": "npm run icons",
     "predist:desktop": "npm run icons",
     "preview": "vite preview",
