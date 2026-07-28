@@ -9,7 +9,8 @@ import { t } from '../i18n/index.js';
  *   hasWeights?: boolean,
  *   path?: string,
  *   url?: string,
- *   hasPython?: boolean
+ *   hasPython?: boolean,
+ *   hasDocker?: boolean,
  * }>}
  */
 export async function getFloorplanApiStatus() {
@@ -28,9 +29,11 @@ export async function getFloorplanApiStatus() {
 /**
  * Ensure FloorPlanTo3D-API is installed, weights present, and server running.
  * Shows progress bar + percent popup.
+ * @param {{ runtime?: 'venv' | 'docker' }} [options]
  * @returns {Promise<{ ok: boolean, canceled?: boolean, alreadyRunning?: boolean, error?: string, url?: string }>}
  */
-export async function ensureFloorplanApiWithUi() {
+export async function ensureFloorplanApiWithUi(options = {}) {
+  const runtime = options.runtime === 'docker' ? 'docker' : 'venv';
   return runWithProgressDialog({
     titleKey: 'progressDialog.unityApiTitle',
     cancelable: true,
@@ -53,7 +56,7 @@ export async function ensureFloorplanApiWithUi() {
           if (signal.aborted) return { canceled: true };
           const abortUnsub = () => window.fp3dDesktop.cancelFloorplanApi?.();
           signal.addEventListener('abort', abortUnsub, { once: true });
-          const result = await window.fp3dDesktop.ensureFloorplanApi();
+          const result = await window.fp3dDesktop.ensureFloorplanApi({ runtime });
           signal.removeEventListener('abort', abortUnsub);
           if (result?.canceled) return { canceled: true };
           if (!result?.ok) {
@@ -69,7 +72,7 @@ export async function ensureFloorplanApiWithUi() {
         }
       }
 
-      return ensureViaDevServer(update, signal);
+      return ensureViaDevServer(update, signal, runtime);
     },
   });
 }
@@ -77,9 +80,11 @@ export async function ensureFloorplanApiWithUi() {
 /**
  * @param {(info: object) => void} update
  * @param {AbortSignal} signal
+ * @param {'venv' | 'docker'} runtime
  */
-async function ensureViaDevServer(update, signal) {
-  const res = await fetch('/__fp3d/floorplan-api/ensure', {
+async function ensureViaDevServer(update, signal, runtime) {
+  const qs = runtime === 'docker' ? '?runtime=docker' : '?runtime=venv';
+  const res = await fetch(`/__fp3d/floorplan-api/ensure${qs}`, {
     method: 'GET',
     headers: { Accept: 'text/event-stream' },
     signal,

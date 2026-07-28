@@ -1044,11 +1044,12 @@ export class SceneApp {
     if (fresh) {
       this.resetModelTransform();
       this.resetLightToDefault();
+      this._frameCamera();
     } else if (prev) {
       this.setModelTransform(prev);
     }
     if (wasLightGizmo) this.attachLightGizmo(true);
-    this._frameCamera();
+    // Keep current orbit/camera when tweaking scale, height, thickness, etc.
     this._applyLightToContent();
   }
 

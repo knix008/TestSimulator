@@ -28,7 +28,7 @@ contextBridge.exposeInMainWorld('fp3dDesktop', {
   },
 
   getFloorplanApiStatus: () => ipcRenderer.invoke('fp3d:floorplanApiStatus'),
-  ensureFloorplanApi: () => ipcRenderer.invoke('fp3d:floorplanApiEnsure'),
+  ensureFloorplanApi: (options) => ipcRenderer.invoke('fp3d:floorplanApiEnsure', options || {}),
   cancelFloorplanApi: () => ipcRenderer.invoke('fp3d:floorplanApiCancel'),
   onFloorplanApiProgress: (callback) => {
     if (typeof callback !== 'function') return () => {};

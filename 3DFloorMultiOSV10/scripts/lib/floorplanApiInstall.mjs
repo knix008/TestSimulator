@@ -28,11 +28,25 @@ const DEPS_MARKER = '.fp3d-deps-ok';
 const DEPS_MARKER_VERSION = 'tf2-2026-07-28';
 const MIN_PYTHON = [3, 10];
 const MAX_PYTHON = [3, 12];
+const DEFAULT_DOCKER_IMAGE = process.env.FP3D_API_DOCKER_IMAGE || 'floorplan-api:1.15';
+const DEFAULT_DOCKER_CONTAINER = process.env.FP3D_API_DOCKER_CONTAINER || 'floorplan-api';
+const DOCKERFILE_APP = path.join(__dirname, '../../docker/floorplan-api/Dockerfile');
 
 /** @type {import('node:child_process').ChildProcess | null} */
 let apiProcess = null;
+/** @type {'venv' | 'docker' | null} */
+let activeRuntime = null;
 /** @type {string} */
 let apiLog = '';
+
+/**
+ * @param {unknown} value
+ * @returns {'venv' | 'docker'}
+ */
+export function normalizeApiRuntime(value) {
+  const r = String(value || process.env.FP3D_API_RUNTIME || 'venv').toLowerCase().trim();
+  return r === 'docker' ? 'docker' : 'venv';
+}
 
 /**
  * @param {string} root
@@ -127,9 +141,11 @@ export function isFloorplanApiRunning(apiUrl = DEFAULT_API_URL) {
 export async function getFloorplanApiStatus(root = DEFAULT_PROJECT_ROOT) {
   const dir = floorplanApiDir(root);
   const installed = isFloorplanApiInstalled(root);
-  const hasWeights = hasFloorplanApiWeights(root);
+  const hasWeights = Boolean(resolveWeightsDir(root));
   const running = await isFloorplanApiRunning(DEFAULT_API_URL);
   const python = findPython();
+  const docker = isDockerAvailable();
+  const dockerImage = DEFAULT_DOCKER_IMAGE;
   return {
     installed,
     hasWeights,
@@ -139,6 +155,14 @@ export async function getFloorplanApiStatus(root = DEFAULT_PROJECT_ROOT) {
     hasPython: Boolean(python),
     python: python ? `${python.cmd} ${python.args.join(' ')}`.trim() : '',
     processAlive: Boolean(apiProcess && !apiProcess.killed),
+    hasDocker: docker,
+    dockerImage,
+    dockerImagePresent: docker ? dockerImageExists(dockerImage) : false,
+    dockerContainer: DEFAULT_DOCKER_CONTAINER,
+    dockerContainerState: docker ? getDockerContainerState(DEFAULT_DOCKER_CONTAINER) : 'missing',
+    activeRuntime,
+    dockerBuildContext: resolveDockerBuildContext(root),
+    weightsDir: resolveWeightsDir(root) || path.join(dir, 'weights'),
   };
 }
 
@@ -297,9 +321,28 @@ function safeRemoveDir(dir) {
 /**
  * Download/install sources, weights, deps; start Flask server.
  * @param {string} root
- * @param {{ onProgress?: Function, signal?: AbortSignal, apiUrl?: string }} [options]
+ * @param {{
+ *   onProgress?: Function,
+ *   signal?: AbortSignal,
+ *   apiUrl?: string,
+ *   runtime?: 'venv' | 'docker',
+ *   dockerImage?: string,
+ *   dockerContainer?: string,
+ * }} [options]
  */
 export async function ensureFloorplanApiReady(root = DEFAULT_PROJECT_ROOT, options = {}) {
+  const runtime = normalizeApiRuntime(options.runtime);
+  if (runtime === 'docker') {
+    return ensureFloorplanApiReadyDocker(root, options);
+  }
+  return ensureFloorplanApiReadyVenv(root, options);
+}
+
+/**
+ * @param {string} root
+ * @param {{ onProgress?: Function, signal?: AbortSignal, apiUrl?: string }} [options]
+ */
+async function ensureFloorplanApiReadyVenv(root = DEFAULT_PROJECT_ROOT, options = {}) {
   const { onProgress, signal, apiUrl = DEFAULT_API_URL } = options;
   const apiDir = floorplanApiDir(root);
 
@@ -313,9 +356,13 @@ export async function ensureFloorplanApiReady(root = DEFAULT_PROJECT_ROOT, optio
       alreadyRunning: true,
       path: apiDir,
       url: apiUrl,
+      runtime: 'venv',
       hasWeights: hasFloorplanApiWeights(root),
     };
   }
+
+  // Avoid port clash with a previous Docker container we started
+  try { stopDockerApiContainer(); } catch { /* ignore */ }
 
   if (!isFloorplanApiInstalled(root)) {
     await installSources(root, onProgress, signal);
@@ -437,10 +484,11 @@ export async function ensureFloorplanApiReady(root = DEFAULT_PROJECT_ROOT, optio
   throwIfAborted(signal);
   report(onProgress, 92, 'start', 'Starting FloorPlanTo3D-API server (loading Mask R-CNN)…');
   await startApiServer(apiDir, runner, signal);
+  activeRuntime = 'venv';
   // Model load from ~250MB weights can take several minutes on CPU.
   const ready = await waitForApi(apiUrl, 300000, signal, (p) => {
     report(onProgress, 92 + p * 7, 'start', 'Waiting for API (model load can take a few minutes)…');
-  });
+  }, { requireProcess: true });
   if (!ready) {
     const tail = apiLog.trim().slice(-1600);
     throw new Error(
@@ -456,8 +504,329 @@ export async function ensureFloorplanApiReady(root = DEFAULT_PROJECT_ROOT, optio
     alreadyRunning: false,
     path: apiDir,
     url: apiUrl,
+    runtime: 'venv',
     hasWeights: hasFloorplanApiWeights(root),
   };
+}
+
+/**
+ * Build/start FloorPlanTo3D-API in Docker (TF 1.15 image).
+ * @param {string} root
+ * @param {{
+ *   onProgress?: Function,
+ *   signal?: AbortSignal,
+ *   apiUrl?: string,
+ *   dockerImage?: string,
+ *   dockerContainer?: string,
+ * }} [options]
+ */
+async function ensureFloorplanApiReadyDocker(root = DEFAULT_PROJECT_ROOT, options = {}) {
+  const { onProgress, signal, apiUrl = DEFAULT_API_URL } = options;
+  const image = String(options.dockerImage || DEFAULT_DOCKER_IMAGE);
+  const container = String(options.dockerContainer || DEFAULT_DOCKER_CONTAINER);
+  const apiDir = floorplanApiDir(root);
+
+  report(onProgress, 1, 'check', 'Checking FloorPlanTo3D-API (Docker)…');
+  throwIfAborted(signal);
+
+  if (await isFloorplanApiRunning(apiUrl)) {
+    report(onProgress, 100, 'done', 'FloorPlanTo3D-API is already running.');
+    return {
+      ok: true,
+      alreadyRunning: true,
+      path: apiDir,
+      url: apiUrl,
+      runtime: 'docker',
+      dockerImage: image,
+      hasWeights: Boolean(resolveWeightsDir(root)),
+    };
+  }
+
+  if (!isDockerAvailable()) {
+    throw new Error(
+      'Docker를 찾을 수 없습니다.\n'
+      + 'Docker Desktop을 설치하고 `docker version`이 동작하는지 확인한 뒤 다시 시도하세요.\n'
+      + 'https://www.docker.com/products/docker-desktop/',
+    );
+  }
+
+  // Free port 5000 if a previous local venv server is still up
+  stopFloorplanApiProcessOnly();
+
+  const weightsDir = resolveWeightsDir(root);
+  if (!weightsDir) {
+    const fallback = path.join(apiDir, 'weights');
+    fs.mkdirSync(fallback, { recursive: true });
+    writeWeightsReadme(fallback);
+    report(onProgress, 0, 'error', 'Weights must be downloaded manually for Docker.');
+    return {
+      ok: false,
+      needsManualWeights: true,
+      weightsDir: fallback,
+      weightsUrl: WEIGHTS_MANUAL_URL,
+      path: apiDir,
+      runtime: 'docker',
+      error:
+        `Docker 실행에 필요한 가중치 파일이 없습니다.\n\n`
+        + `1) ${WEIGHTS_MANUAL_URL}\n`
+        + `2) 파일 이름을 정확히 ${WEIGHTS_FILE} 로 저장\n`
+        + `3) 저장 위치 예:\n   ${fallback}\n`
+        + `   또는 sibling: ${path.join(path.resolve(root, '..', 'FloorPlanTo3D-API'), 'weights')}\n`
+        + '4) 앱에서 FloorPlanTo3D (Unity/API) 모드를 다시 선택',
+    };
+  }
+
+  report(onProgress, 20, 'docker', `Weights: ${weightsDir}`);
+
+  let state = getDockerContainerState(container);
+  if (state === 'running') {
+    report(onProgress, 70, 'start', 'Docker container already running; waiting for API…');
+  } else if (state === 'exited' || state === 'created') {
+    report(onProgress, 40, 'start', `Starting container ${container}…`);
+    await dockerStartContainer(container, signal);
+    state = 'running';
+  } else {
+    if (!dockerImageExists(image)) {
+      const ctx = resolveDockerBuildContext(root);
+      if (!ctx) {
+        throw new Error(
+          `Docker 이미지 ${image} 가 없고 빌드 컨텍스트도 없습니다.\n`
+          + 'sibling 저장소 FloorPlanTo3D-API를 두거나, 먼저 이미지를 빌드하세요:\n'
+          + '  npm run fp3d-api:docker:build',
+        );
+      }
+      report(onProgress, 30, 'build', `Building Docker image ${image}…`);
+      await dockerBuildImage(ctx, image, signal, (p) => {
+        report(onProgress, 30 + p * 35, 'build', `Building Docker image ${image}…`);
+      });
+    } else {
+      report(onProgress, 45, 'docker', `Using existing image ${image}`);
+    }
+
+    report(onProgress, 70, 'start', `Running container ${container}…`);
+    await dockerRunContainer({ container, image, weightsDir, signal });
+  }
+
+  activeRuntime = 'docker';
+  const ready = await waitForApi(apiUrl, 300000, signal, (p) => {
+    report(onProgress, 75 + p * 24, 'start', 'Waiting for Docker API (model load can take a few minutes)…');
+  }, { requireProcess: false });
+
+  if (!ready) {
+    const logs = dockerContainerLogs(container);
+    throw new Error(
+      'Docker container started but API did not become ready on http://127.0.0.1:5000/.\n'
+      + (logs ? `\n--- docker logs ---\n${logs}\n` : '')
+      + `\nTip: docker logs ${container}`,
+    );
+  }
+
+  report(onProgress, 100, 'done', 'FloorPlanTo3D-API (Docker) is running.');
+  return {
+    ok: true,
+    alreadyRunning: false,
+    path: apiDir,
+    url: apiUrl,
+    runtime: 'docker',
+    dockerImage: image,
+    dockerContainer: container,
+    weightsDir,
+    hasWeights: true,
+  };
+}
+
+/** Prefer project weights, then sibling FloorPlanTo3D-API/weights. */
+function resolveWeightsDir(root = DEFAULT_PROJECT_ROOT) {
+  const candidates = [
+    path.join(floorplanApiDir(root), 'weights'),
+    path.join(path.resolve(root, '..', 'FloorPlanTo3D-API'), 'weights'),
+    process.env.FP3D_API_WEIGHTS_DIR,
+  ].filter(Boolean);
+
+  for (const dir of candidates) {
+    const filePath = path.join(dir, WEIGHTS_FILE);
+    try {
+      assertValidWeightsFile(filePath, { deleteInvalid: false });
+      return dir;
+    } catch {
+      /* try next */
+    }
+  }
+  return null;
+}
+
+/**
+ * Source tree used as `docker build` context (needs mrcnn/ + application.py).
+ * Prefers sibling TF1.15 repo over the TF2-patched in-app copy.
+ */
+function resolveDockerBuildContext(root = DEFAULT_PROJECT_ROOT) {
+  if (process.env.FP3D_API_DOCKER_CONTEXT) {
+    const envCtx = path.resolve(process.env.FP3D_API_DOCKER_CONTEXT);
+    if (fs.existsSync(path.join(envCtx, 'application.py')) && fs.existsSync(path.join(envCtx, 'mrcnn'))) {
+      return envCtx;
+    }
+  }
+  const sibling = path.resolve(root, '..', 'FloorPlanTo3D-API');
+  if (fs.existsSync(path.join(sibling, 'application.py')) && fs.existsSync(path.join(sibling, 'mrcnn'))) {
+    return sibling;
+  }
+  const local = floorplanApiDir(root);
+  if (fs.existsSync(path.join(local, 'application.py')) && fs.existsSync(path.join(local, 'mrcnn'))) {
+    return local;
+  }
+  return null;
+}
+
+function isDockerAvailable() {
+  const r = spawnSync('docker', ['version', '--format', '{{.Server.Version}}'], {
+    encoding: 'utf8',
+    shell: process.platform === 'win32',
+    timeout: 8000,
+  });
+  return r.status === 0 && Boolean(String(r.stdout || '').trim());
+}
+
+function dockerImageExists(image) {
+  const r = spawnSync('docker', ['image', 'inspect', image], {
+    encoding: 'utf8',
+    shell: process.platform === 'win32',
+    timeout: 15000,
+  });
+  return r.status === 0;
+}
+
+/**
+ * @returns {'running' | 'exited' | 'created' | 'missing'}
+ */
+function getDockerContainerState(name) {
+  const r = spawnSync(
+    'docker',
+    ['inspect', '-f', '{{.State.Status}}', name],
+    {
+      encoding: 'utf8',
+      shell: process.platform === 'win32',
+      timeout: 8000,
+    },
+  );
+  if (r.status !== 0) return 'missing';
+  const status = String(r.stdout || '').trim().toLowerCase();
+  if (status === 'running') return 'running';
+  if (status === 'created') return 'created';
+  if (status) return 'exited';
+  return 'missing';
+}
+
+function dockerContainerLogs(name) {
+  const r = spawnSync('docker', ['logs', '--tail', '80', name], {
+    encoding: 'utf8',
+    shell: process.platform === 'win32',
+    timeout: 15000,
+  });
+  const text = `${r.stdout || ''}${r.stderr || ''}`.trim();
+  return text.slice(-2000);
+}
+
+function dockerBuildImage(contextDir, image, signal, onProgress) {
+  const dockerfile = fs.existsSync(DOCKERFILE_APP)
+    ? DOCKERFILE_APP
+    : path.join(contextDir, 'Dockerfile');
+  if (!fs.existsSync(dockerfile)) {
+    return Promise.reject(new Error(`Dockerfile not found: ${dockerfile}`));
+  }
+
+  return new Promise((resolve, reject) => {
+    const args = ['build', '-t', image, '-f', dockerfile, contextDir];
+    const child = spawn('docker', args, {
+      shell: process.platform === 'win32',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: process.env,
+    });
+    const onAbort = () => {
+      try { child.kill('SIGTERM'); } catch { /* ignore */ }
+    };
+    signal?.addEventListener('abort', onAbort, { once: true });
+
+    let errText = '';
+    let pulse = 0;
+    const handle = (chunk) => {
+      const text = chunk.toString();
+      errText += text;
+      if (errText.length > 12000) errText = errText.slice(-10000);
+      if (/Step \d+|DONE|exporting|writing image/i.test(text)) {
+        pulse = Math.min(0.95, pulse + 0.04);
+        onProgress?.(pulse);
+      }
+    };
+    child.stdout?.on('data', handle);
+    child.stderr?.on('data', handle);
+    child.on('error', (err) => {
+      signal?.removeEventListener('abort', onAbort);
+      reject(err);
+    });
+    child.on('close', (code) => {
+      signal?.removeEventListener('abort', onAbort);
+      if (signal?.aborted) {
+        const err = new Error('canceled');
+        err.code = 'CANCELED';
+        reject(err);
+        return;
+      }
+      if (code !== 0) {
+        reject(new Error(`docker build failed (${code}): ${errText.slice(-1200)}`));
+        return;
+      }
+      onProgress?.(1);
+      resolve();
+    });
+  });
+}
+
+function dockerStartContainer(container, signal) {
+  return runProcess('docker', ['start', container], process.cwd(), signal);
+}
+
+/**
+ * @param {{ container: string, image: string, weightsDir: string, signal?: AbortSignal }} opts
+ */
+async function dockerRunContainer({ container, image, weightsDir, signal }) {
+  // Replace any leftover container with the same name
+  spawnSync('docker', ['rm', '-f', container], {
+    encoding: 'utf8',
+    shell: process.platform === 'win32',
+    timeout: 20000,
+  });
+
+  const args = [
+    'run',
+    '-d',
+    '--name', container,
+    '-p', '5000:5000',
+    '-v', `${weightsDir}:/app/weights:ro`,
+    '-e', 'TF_CPP_MIN_LOG_LEVEL=2',
+    '--restart', 'unless-stopped',
+    image,
+  ];
+  await runProcess('docker', args, process.cwd(), signal);
+}
+
+function stopDockerApiContainer() {
+  const name = DEFAULT_DOCKER_CONTAINER;
+  if (!isDockerAvailable()) return;
+  const state = getDockerContainerState(name);
+  if (state === 'missing') return;
+  spawnSync('docker', ['stop', name], {
+    encoding: 'utf8',
+    shell: process.platform === 'win32',
+    timeout: 60000,
+  });
+}
+
+function stopFloorplanApiProcessOnly() {
+  if (apiProcess && !apiProcess.killed) {
+    try { apiProcess.kill('SIGTERM'); } catch { /* ignore */ }
+  }
+  apiProcess = null;
+  if (activeRuntime === 'venv') activeRuntime = null;
 }
 
 async function installSources(root, onProgress, signal) {
@@ -884,10 +1253,7 @@ function runProcess(command, args, cwd, signal) {
 
 async function startApiServer(apiDir, runner, signal) {
   throwIfAborted(signal);
-  if (apiProcess && !apiProcess.killed) {
-    try { apiProcess.kill('SIGTERM'); } catch { /* ignore */ }
-    apiProcess = null;
-  }
+  stopFloorplanApiProcessOnly();
   apiLog = '';
 
   apiProcess = spawn(
@@ -906,6 +1272,7 @@ async function startApiServer(apiDir, runner, signal) {
       detached: false,
     },
   );
+  activeRuntime = 'venv';
 
   const appendLog = (chunk) => {
     apiLog += chunk.toString();
@@ -917,6 +1284,7 @@ async function startApiServer(apiDir, runner, signal) {
   apiProcess.on('exit', () => {
     if (apiProcess?.killed || apiProcess?.exitCode != null) {
       apiProcess = null;
+      if (activeRuntime === 'venv') activeRuntime = null;
     }
   });
 
@@ -926,13 +1294,25 @@ async function startApiServer(apiDir, runner, signal) {
 }
 
 export function stopFloorplanApi() {
-  if (apiProcess && !apiProcess.killed) {
-    try { apiProcess.kill('SIGTERM'); } catch { /* ignore */ }
+  const wasDocker = activeRuntime === 'docker';
+  stopFloorplanApiProcessOnly();
+  if (wasDocker) {
+    try {
+      stopDockerApiContainer();
+    } catch { /* ignore */ }
   }
-  apiProcess = null;
+  activeRuntime = null;
 }
 
-async function waitForApi(apiUrl, timeoutMs, signal, onPulse) {
+/**
+ * @param {string} apiUrl
+ * @param {number} timeoutMs
+ * @param {AbortSignal} [signal]
+ * @param {(ratio: number) => void} [onPulse]
+ * @param {{ requireProcess?: boolean }} [opts]
+ */
+async function waitForApi(apiUrl, timeoutMs, signal, onPulse, opts = {}) {
+  const requireProcess = opts.requireProcess !== false;
   const start = Date.now();
   let pulse = 0;
   while (Date.now() - start < timeoutMs) {
@@ -941,8 +1321,14 @@ async function waitForApi(apiUrl, timeoutMs, signal, onPulse) {
       onPulse?.(1);
       return true;
     }
-    if (!apiProcess || apiProcess.exitCode != null) {
+    if (requireProcess && (!apiProcess || apiProcess.exitCode != null)) {
       return false;
+    }
+    if (!requireProcess) {
+      const state = getDockerContainerState(DEFAULT_DOCKER_CONTAINER);
+      if (state === 'exited' || state === 'missing') {
+        return false;
+      }
     }
     pulse = Math.min(0.95, (Date.now() - start) / timeoutMs);
     onPulse?.(pulse);

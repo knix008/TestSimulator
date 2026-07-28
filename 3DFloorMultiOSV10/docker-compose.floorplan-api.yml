@@ -1,0 +1,29 @@
+# FloorPlanTo3D-API via Docker (TF 1.15 Mask R-CNN)
+#
+# Prerequisites:
+#   - Docker Desktop running
+#   - Sibling repo ../FloorPlanTo3D-API (or set FP3D_API_DOCKER_CONTEXT)
+#   - Weights: …/weights/maskrcnn_15_epochs.h5 (or FP3D_API_WEIGHTS_DIR)
+#
+# Usage (from this project root):
+#   npm run fp3d-api:docker:build
+#   npm run fp3d-api:docker:up
+#   npm run fp3d-api:docker:down
+
+services:
+  floorplan-api:
+    image: ${FP3D_API_DOCKER_IMAGE:-floorplan-api:1.15}
+    build:
+      context: ${FP3D_API_DOCKER_CONTEXT:-../FloorPlanTo3D-API}
+      dockerfile: Dockerfile
+    container_name: ${FP3D_API_DOCKER_CONTAINER:-floorplan-api}
+    ports:
+      - "${FP3D_API_PORT:-5000}:5000"
+    volumes:
+      - type: bind
+        source: ${FP3D_API_WEIGHTS_DIR:-../FloorPlanTo3D-API/weights}
+        target: /app/weights
+        read_only: true
+    environment:
+      TF_CPP_MIN_LOG_LEVEL: "2"
+    restart: unless-stopped

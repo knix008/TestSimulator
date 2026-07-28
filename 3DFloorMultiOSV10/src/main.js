@@ -188,6 +188,8 @@ const els = {
   dsWindowWidthMValue: document.getElementById('dsWindowWidthMValue'),
   dsMorphOpen: document.getElementById('dsMorphOpen'),
   dsParamsReset: document.getElementById('dsParamsReset'),
+  apiRuntimeField: document.getElementById('apiRuntimeField'),
+  apiRuntime: document.getElementById('apiRuntime'),
   apiUrlField: document.getElementById('apiUrlField'),
   unityParams: document.getElementById('unityParams'),
   unMinConfidence: document.getElementById('unMinConfidence'),
@@ -345,10 +347,32 @@ function refreshStatusBarMeta() {
   );
 }
 
+const API_RUNTIME_STORAGE_KEY = 'fp3d.apiRuntime';
+
+function currentApiRuntime() {
+  const v = els.apiRuntime?.value;
+  return v === 'docker' ? 'docker' : 'venv';
+}
+
+function loadApiRuntimePreference() {
+  if (!els.apiRuntime) return;
+  try {
+    const saved = localStorage.getItem(API_RUNTIME_STORAGE_KEY);
+    if (saved === 'docker' || saved === 'venv') els.apiRuntime.value = saved;
+  } catch { /* ignore */ }
+}
+
+function saveApiRuntimePreference() {
+  try {
+    localStorage.setItem(API_RUNTIME_STORAGE_KEY, currentApiRuntime());
+  } catch { /* ignore */ }
+}
+
 function syncModeUi() {
   const mode = els.modeSelect.value;
   els.dreamspaceHint?.classList.toggle('hidden', mode !== 'dreamspace');
   els.dreamspaceParams?.classList.toggle('hidden', mode !== 'dreamspace');
+  els.apiRuntimeField?.classList.toggle('hidden', mode !== 'unity');
   els.apiUrlField?.classList.toggle('hidden', mode !== 'unity');
   els.unityParams?.classList.toggle('hidden', mode !== 'unity');
   refreshStatusBarMeta();
@@ -598,7 +622,7 @@ async function ensureUnityApiReady({ announce = true, required = true } = {}) {
     }
 
     if (announce) setStatus('status.unityApiPreparing', 'busy');
-    const result = await ensureFloorplanApiWithUi();
+    const result = await ensureFloorplanApiWithUi({ runtime: currentApiRuntime() });
     if (result?.canceled) {
       if (announce) setStatus('status.unityApiCanceled', 'error');
       return !required;
@@ -1372,6 +1396,14 @@ els.modeSelect.addEventListener('change', async () => {
     await ensureUnityApiReady({ announce: true, required: false });
   }
 });
+
+els.apiRuntime?.addEventListener('change', async () => {
+  saveApiRuntimePreference();
+  if (els.modeSelect?.value === 'unity') {
+    await ensureUnityApiReady({ announce: true, required: false });
+  }
+});
+
 els.convertBtn.addEventListener('click', convert);
 
 for (const el of [els.scaleRange, els.wallHeight, els.wallThickness]) {
@@ -1581,6 +1613,7 @@ window.addEventListener('keydown', (e) => {
 
 bindDreamspaceParamsUi();
 bindUnityParamsUi();
+loadApiRuntimePreference();
 syncModeUi();
 applyAxesFromUi();
 applyLightFromUi();

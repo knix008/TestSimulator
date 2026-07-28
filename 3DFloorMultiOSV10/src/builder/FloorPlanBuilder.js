@@ -463,33 +463,100 @@ export class FloorPlanBuilder {
       else width = thickness;
     };
 
+    const px = (minX + maxX) / 2 - cx;
+    const pz = (minZ + maxZ) / 2 - cz;
+
     if (className === 'window') {
-      height = wallH * 0.45;
-      yCenter = wallH * 0.55;
-      material = this._materials.window;
+      // Glass mid-wall; keep wall sill + lintel so the opening isn't floating
       applyThickness(Math.max(0.02, wallT * 0.7));
-    } else if (className === 'door') {
+      const winH = wallH * 0.45;
+      const winY = wallH * 0.55;
+      const winBottom = winY - winH / 2;
+      const winTop = winY + winH / 2;
+      const sillH = Math.max(0.02, winBottom);
+      const lintelH = Math.max(0.02, wallH - winTop);
+
+      const group = new THREE.Group();
+      group.name = 'window';
+      group.userData.className = 'window';
+
+      const sill = new THREE.Mesh(
+        new THREE.BoxGeometry(width, sillH, depth),
+        this._materials.wall,
+      );
+      sill.castShadow = true;
+      sill.receiveShadow = true;
+      sill.position.set(px, sillH / 2, pz);
+      sill.name = 'windowSill';
+      group.add(sill);
+
+      const glass = new THREE.Mesh(
+        new THREE.BoxGeometry(width, winH, depth),
+        this._materials.window,
+      );
+      glass.castShadow = true;
+      glass.receiveShadow = true;
+      glass.position.set(px, winY, pz);
+      glass.name = 'window';
+      group.add(glass);
+
+      const lintel = new THREE.Mesh(
+        new THREE.BoxGeometry(width, lintelH, depth),
+        this._materials.wall,
+      );
+      lintel.castShadow = true;
+      lintel.receiveShadow = true;
+      lintel.position.set(px, winTop + lintelH / 2, pz);
+      lintel.name = 'windowLintel';
+      group.add(lintel);
+
+      return group;
+    }
+
+    if (className === 'door') {
       height = wallH * 0.85;
       yCenter = height / 2;
       material = this._materials.door;
       applyThickness(Math.max(0.02, wallT * 0.85));
-    } else {
-      applyThickness(wallT);
-      // Leave half-thickness at each end for a dedicated corner post (no box overlap)
-      const trim = wallT * 0.5;
-      if (width >= depth) width = Math.max(wallT * 0.25, width - 2 * trim);
-      else depth = Math.max(wallT * 0.25, depth - 2 * trim);
+      const lintelH = Math.max(0.02, wallH - height);
+      const group = new THREE.Group();
+      group.name = 'door';
+      group.userData.className = 'door';
+
+      const door = new THREE.Mesh(
+        new THREE.BoxGeometry(width, height, depth),
+        material,
+      );
+      door.castShadow = true;
+      door.receiveShadow = true;
+      door.position.set(px, yCenter, pz);
+      door.name = 'door';
+      group.add(door);
+
+      const lintel = new THREE.Mesh(
+        new THREE.BoxGeometry(width, lintelH, depth),
+        this._materials.wall,
+      );
+      lintel.castShadow = true;
+      lintel.receiveShadow = true;
+      lintel.position.set(px, height + lintelH / 2, pz);
+      lintel.name = 'doorLintel';
+      group.add(lintel);
+
+      return group;
     }
+
+    applyThickness(wallT);
+    // Leave half-thickness at each end for a dedicated corner post (no box overlap)
+    const trim = wallT * 0.5;
+    if (width >= depth) width = Math.max(wallT * 0.25, width - 2 * trim);
+    else depth = Math.max(wallT * 0.25, depth - 2 * trim);
 
     const geometry = new THREE.BoxGeometry(width, height, depth);
     const mesh = new THREE.Mesh(geometry, material);
     mesh.castShadow = true;
     mesh.receiveShadow = true;
-    mesh.position.set(
-      (minX + maxX) / 2 - cx,
-      yCenter,
-      (minZ + maxZ) / 2 - cz,
-    );
+    mesh.position.set(px, yCenter, pz);
     mesh.name = className;
     mesh.userData.className = className;
     return mesh;

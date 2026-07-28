@@ -176,6 +176,13 @@
               <button id="dsParamsReset" type="button" class="ghost" data-i18n="dreamspace.paramsReset">기본값으로</button>
             </details>
           </div>
+          <label class="field hidden" id="apiRuntimeField">
+            <span data-i18n="label.apiRuntime">API 실행 방식</span>
+            <select id="apiRuntime">
+              <option value="venv" data-i18n="apiRuntime.venv">로컬 Python</option>
+              <option value="docker" data-i18n="apiRuntime.docker">Docker</option>
+            </select>
+          </label>
           <label class="field hidden" id="apiUrlField">
             <span data-i18n="label.apiUrl">API URL</span>
             <input id="apiUrl" type="url" value="http://127.0.0.1:5000/" />

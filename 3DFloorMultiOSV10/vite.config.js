@@ -137,10 +137,12 @@ function floorplanApiInstallPlugin() {
           const send = (payload) => {
             res.write(`data: ${JSON.stringify(payload)}\n\n`);
           };
+          const runtime = new URL(req.url, 'http://127.0.0.1').searchParams.get('runtime');
           try {
             const result = await ensureFloorplanApiReady(projectRoot, {
               signal: ac.signal,
               onProgress: send,
+              runtime: runtime === 'docker' ? 'docker' : 'venv',
             });
             send({ done: true, ...result });
           } catch (err) {

@@ -316,7 +316,7 @@ function registerIpc() {
     return mod.getFloorplanApiStatus(projectRoot());
   });
 
-  ipcMain.handle('fp3d:floorplanApiEnsure', async (event) => {
+  ipcMain.handle('fp3d:floorplanApiEnsure', async (event, options = {}) => {
     const mod = await loadFloorplanApiInstallModule();
     const root = projectRoot();
     if (floorplanApiAbort) {
@@ -328,10 +328,12 @@ function registerIpc() {
         event.sender.send('fp3d:floorplanApiProgress', info);
       }
     };
+    const runtime = options?.runtime === 'docker' ? 'docker' : 'venv';
     try {
       const result = await mod.ensureFloorplanApiReady(root, {
         onProgress: send,
         signal: floorplanApiAbort.signal,
+        runtime,
       });
       if (result?.needsManualWeights) {
         try {
