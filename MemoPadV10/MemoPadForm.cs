@@ -31,6 +31,8 @@ public partial class MemoPadForm : Form
     // 트레이 아이콘은 앱당 하나만 둡니다(첫 인스턴스가 생성).
     private static NotifyIcon? _trayIcon;
     private static MemoPadForm? _trayOwner;
+    // 트레이 '종료'로만 실제 종료됩니다. 그 외 닫기는 트레이로 숨깁니다.
+    private static bool _exitRequested;
 
     public MemoPadForm()
     {
@@ -70,9 +72,12 @@ public partial class MemoPadForm : Form
 
         ContextMenuStrip menu = new();
         menu.Items.Add(Loc.T("tray.show"), null, (_, _) => RestoreFromTray());
-        menu.Items.Add(Loc.T("tray.exit"), null, (_, _) => Application.Exit());
+        menu.Items.Add(Loc.T("tray.exit"), null, (_, _) => ExitApplication());
         _trayIcon.ContextMenuStrip = menu;
         _trayIcon.DoubleClick += (_, _) => RestoreFromTray();
+
+        // 기본 창의 닫기(X)는 종료가 아니라 트레이로 숨깁니다.
+        FormClosing += PrimaryFormClosing;
 
         Application.ApplicationExit += (_, _) =>
         {
@@ -83,6 +88,23 @@ public partial class MemoPadForm : Form
                 _trayIcon = null;
             }
         };
+    }
+
+    /// <summary>트레이 '종료' 전용: 실제로 앱을 끝냅니다.</summary>
+    private static void ExitApplication()
+    {
+        _exitRequested = true;
+        Application.Exit();
+    }
+
+    private void PrimaryFormClosing(object? sender, FormClosingEventArgs e)
+    {
+        // 트레이 '종료'나 Windows 종료가 아니면, 닫지 않고 트레이로 숨깁니다.
+        if (!_exitRequested && e.CloseReason == CloseReason.UserClosing)
+        {
+            e.Cancel = true;
+            Hide();
+        }
     }
 
     private void RestoreFromTray()
