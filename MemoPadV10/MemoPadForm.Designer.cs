@@ -36,16 +36,16 @@ public partial class MemoPadForm
         // 
         // topBarPanel
         // 
-        topBarPanel.BackColor = Color.FromArgb(165, 245, 225, 125);
+        topBarPanel.BackColor = Color.FromArgb(248, 225, 140);
         topBarPanel.Controls.Add(addMemoIconButton);
         topBarPanel.Controls.Add(saveMemoIconButton);
         topBarPanel.Controls.Add(settingsIconButton);
         topBarPanel.Controls.Add(listIconButton);
         topBarPanel.Controls.Add(closeIconButton);
         topBarPanel.Dock = DockStyle.Top;
-        topBarPanel.Location = new Point(0, 0);
+        topBarPanel.Location = new Point(8, 8);
         topBarPanel.Name = "topBarPanel";
-        topBarPanel.Size = new Size(428, 52);
+        topBarPanel.Size = new Size(412, 43);
         topBarPanel.TabIndex = 0;
         topBarPanel.MouseDown += topBarPanel_MouseDown;
         topBarPanel.MouseMove += topBarPanel_MouseMove;
@@ -53,13 +53,13 @@ public partial class MemoPadForm
         // 
         // addMemoIconButton
         // 
-        addMemoIconButton.Anchor = AnchorStyles.Top | AnchorStyles.Left;
         addMemoIconButton.FlatAppearance.BorderSize = 0;
         addMemoIconButton.FlatStyle = FlatStyle.Flat;
-        addMemoIconButton.Font = new Font("맑은 고딕", 14F, FontStyle.Bold);
-        addMemoIconButton.Location = new Point(8, 8);
+        addMemoIconButton.Font = new Font("맑은 고딕", 18F, FontStyle.Bold);
+        addMemoIconButton.Location = new Point(3, 1);
         addMemoIconButton.Name = "addMemoIconButton";
-        addMemoIconButton.Size = new Size(44, 36);
+        addMemoIconButton.Padding = new Padding(0, 0, 0, 6);
+        addMemoIconButton.Size = new Size(44, 38);
         addMemoIconButton.TabIndex = 0;
         addMemoIconButton.Text = "+";
         addMemoIconButton.UseVisualStyleBackColor = true;
@@ -70,8 +70,8 @@ public partial class MemoPadForm
         saveMemoIconButton.Anchor = AnchorStyles.Top | AnchorStyles.Right;
         saveMemoIconButton.FlatAppearance.BorderSize = 0;
         saveMemoIconButton.FlatStyle = FlatStyle.Flat;
-        saveMemoIconButton.Font = new Font("Segoe UI Symbol", 12F, FontStyle.Bold);
-        saveMemoIconButton.Location = new Point(222, 8);
+        saveMemoIconButton.Font = new Font("Segoe UI Symbol", 15F, FontStyle.Bold);
+        saveMemoIconButton.Location = new Point(218, 4);
         saveMemoIconButton.Name = "saveMemoIconButton";
         saveMemoIconButton.Size = new Size(44, 36);
         saveMemoIconButton.TabIndex = 1;
@@ -84,8 +84,8 @@ public partial class MemoPadForm
         settingsIconButton.Anchor = AnchorStyles.Top | AnchorStyles.Right;
         settingsIconButton.FlatAppearance.BorderSize = 0;
         settingsIconButton.FlatStyle = FlatStyle.Flat;
-        settingsIconButton.Font = new Font("Segoe UI Symbol", 12F, FontStyle.Bold);
-        settingsIconButton.Location = new Point(272, 8);
+        settingsIconButton.Font = new Font("Segoe UI Symbol", 16F, FontStyle.Bold);
+        settingsIconButton.Location = new Point(267, 3);
         settingsIconButton.Name = "settingsIconButton";
         settingsIconButton.Size = new Size(44, 36);
         settingsIconButton.TabIndex = 2;
@@ -98,8 +98,8 @@ public partial class MemoPadForm
         listIconButton.Anchor = AnchorStyles.Top | AnchorStyles.Right;
         listIconButton.FlatAppearance.BorderSize = 0;
         listIconButton.FlatStyle = FlatStyle.Flat;
-        listIconButton.Font = new Font("Segoe UI Symbol", 12F, FontStyle.Bold);
-        listIconButton.Location = new Point(322, 8);
+        listIconButton.Font = new Font("Segoe UI Symbol", 16F, FontStyle.Bold);
+        listIconButton.Location = new Point(317, 4);
         listIconButton.Name = "listIconButton";
         listIconButton.Size = new Size(44, 36);
         listIconButton.TabIndex = 3;
@@ -112,8 +112,8 @@ public partial class MemoPadForm
         closeIconButton.Anchor = AnchorStyles.Top | AnchorStyles.Right;
         closeIconButton.FlatAppearance.BorderSize = 0;
         closeIconButton.FlatStyle = FlatStyle.Flat;
-        closeIconButton.Font = new Font("맑은 고딕", 12F, FontStyle.Bold);
-        closeIconButton.Location = new Point(372, 8);
+        closeIconButton.Font = new Font("맑은 고딕", 15F, FontStyle.Bold);
+        closeIconButton.Location = new Point(365, 4);
         closeIconButton.Name = "closeIconButton";
         closeIconButton.Size = new Size(44, 36);
         closeIconButton.TabIndex = 4;
@@ -127,9 +127,9 @@ public partial class MemoPadForm
         memoEditor.BorderStyle = BorderStyle.None;
         memoEditor.Dock = DockStyle.Fill;
         memoEditor.Font = new Font("맑은 고딕", 12F, FontStyle.Regular, GraphicsUnit.Point, 129);
-        memoEditor.Location = new Point(0, 52);
+        memoEditor.Location = new Point(8, 51);
         memoEditor.Name = "memoEditor";
-        memoEditor.Size = new Size(428, 354);
+        memoEditor.Size = new Size(412, 347);
         memoEditor.TabIndex = 3;
         memoEditor.Text = "";
         memoEditor.KeyDown += memoEditor_KeyDown;

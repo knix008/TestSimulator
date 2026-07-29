@@ -5,7 +5,7 @@
     <UseWindowsForms>true</UseWindowsForms>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <ApplicationIcon>installer\assets\daemon_hammer.ico</ApplicationIcon>
+    <ApplicationIcon>assets\app.ico</ApplicationIcon>
   </PropertyGroup>
 
   <!-- Release 빌드 시 MSI 생성 (Visual Studio 솔루션 빌드 포함). 설치 프로젝트가 메인을 참조할 때는 SkipInstaller로 이 타겟 생략. 비활성: -p:SkipInstaller=true -->
@@ -15,6 +15,11 @@
       Targets="Restore;Build"
       Properties="Configuration=Release;Platform=x64" />
   </Target>
+
+  <ItemGroup>
+    <!-- 실행 중 작업표시줄/Alt-Tab 아이콘으로 사용하기 위해 임베드합니다. -->
+    <EmbeddedResource Include="assets\app.ico" />
+  </ItemGroup>
 
   <ItemGroup>
     <Compile Update="MemoPadForm.cs">

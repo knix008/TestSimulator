@@ -10,12 +10,31 @@ public partial class EditorSettingsForm : Form
     private string _snapshotRtf = string.Empty;
     private Color _snapshotFormBack;
     private Color _snapshotEditorBack;
+    private Color _snapshotToolbarBack;
+    private AppLanguage _snapshotLanguage;
 
     /// <summary>Visual Studio 디자이너에서 사용합니다.</summary>
     public EditorSettingsForm()
     {
         InitializeComponent();
         ApplyStyleButtonFonts();
+    }
+
+    /// <summary>
+    /// 간단한 텍스트 기반 아이콘 비트맵을 생성합니다. 재사용 용도로 public으로 노출합니다.
+    /// </summary>
+    public static Bitmap MakeGlyphIcon(string text, Color foreColor, Color backColor, int size = 16)
+    {
+        Bitmap bmp = new(size, size, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+        using Graphics g = Graphics.FromImage(bmp);
+        g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
+        g.Clear(backColor);
+        float fontSize = Math.Max(8f, size * 0.6f);
+        using Font f = new("Segoe UI", fontSize, FontStyle.Bold, GraphicsUnit.Pixel);
+        SizeF measured = g.MeasureString(text, f);
+        using SolidBrush b = new SolidBrush(foreColor);
+        g.DrawString(text, f, b, (size - measured.Width) / 2f, (size - measured.Height) / 2f);
+        return bmp;
     }
 
     public EditorSettingsForm(RichTextBox editor, Form mainForm) : this()
@@ -25,6 +44,9 @@ public partial class EditorSettingsForm : Form
         _snapshotRtf = editor.Rtf ?? string.Empty;
         _snapshotFormBack = mainForm.BackColor;
         _snapshotEditorBack = editor.BackColor;
+        Control[] bars = mainForm.Controls.Find("topBarPanel", true);
+        _snapshotToolbarBack = bars.Length > 0 ? bars[0].BackColor : mainForm.BackColor;
+        _snapshotLanguage = Loc.Language;
 
         if (_editor.SelectionLength > 0)
         {
@@ -37,6 +59,87 @@ public partial class EditorSettingsForm : Form
 
         UpdatePreviews();
         WireEvents();
+        PopulateEditorBackPalette();
+        InitLanguageUi();
+    }
+
+    private void InitLanguageUi()
+    {
+        _languageCombo.Items.Clear();
+        _languageCombo.Items.Add("한국어");
+        _languageCombo.Items.Add("English");
+        _languageCombo.SelectedIndex = Loc.Language == AppLanguage.English ? 1 : 0;
+        _languageCombo.SelectedIndexChanged += (_, _) =>
+        {
+            Loc.Language = _languageCombo.SelectedIndex == 1 ? AppLanguage.English : AppLanguage.Korean;
+            ApplyLanguage();
+        };
+
+        ApplyLanguage();
+    }
+
+    /// <summary>현재 언어(Loc.Language)에 맞게 설정 창의 모든 텍스트를 갱신합니다.</summary>
+    private void ApplyLanguage()
+    {
+        Text = Loc.T("settings.title");
+        hintLabel.Text = Loc.T("settings.hint");
+        scopeGroupBox.Text = Loc.T("settings.scope");
+        _radioSelection.Text = Loc.T("settings.scope.selection");
+        _radioWhole.Text = Loc.T("settings.scope.whole");
+        _btnFont.Text = Loc.T("settings.font");
+        styleGroupBox.Text = Loc.T("settings.style");
+        btnStyleBold.Text = Loc.T("settings.style.bold");
+        btnStyleItalic.Text = Loc.T("settings.style.italic");
+        btnStyleUnderline.Text = Loc.T("settings.style.underline");
+        btnStyleStrike.Text = Loc.T("settings.style.strike");
+        editorBackGroupBox.Text = Loc.T("settings.back");
+        _btnEditorBack.Text = Loc.T("settings.back.custom");
+        languageGroupBox.Text = Loc.T("settings.language");
+        _btnDefault.Text = Loc.T("settings.default");
+        _btnOk.Text = Loc.T("common.ok");
+        _btnCancel.Text = Loc.T("common.cancel");
+    }
+
+    /// <summary>
+    /// 편집기 배경색으로 선택할 수 있는 파스텔 톤 20색 팔레트를 채웁니다.
+    /// 여기서 고를 수 없는 색은 "사용자 지정 색…" 버튼으로 지정합니다.
+    /// </summary>
+    private void PopulateEditorBackPalette()
+    {
+        if (this._editorBackPalettePanel == null)
+            return;
+
+        string[] hexColors = new[]
+        {
+            "#FFB3BA","#FFDFBA","#FFFFBA","#BAFFC9","#BAE1FF",
+            "#E6B3FF","#B3FFD9","#FFD1DC","#F0E68C","#D8BFD8",
+            "#C1E1C1","#F5DEB3","#E0FFFF","#FFE4E1","#E6E6FA",
+            "#F0FFF0","#FFF0F5","#FAFAD2","#F5F5DC","#DFFFD6"
+        };
+
+        _editorBackPalettePanel.Controls.Clear();
+        foreach (string hx in hexColors)
+        {
+            Color c = ColorTranslator.FromHtml(hx);
+            Panel sw = new Panel()
+            {
+                BackColor = c,
+                Size = new Size(24, 24),
+                Margin = new Padding(4),
+                BorderStyle = BorderStyle.FixedSingle,
+                Tag = c,
+                Cursor = Cursors.Hand
+            };
+
+            sw.Click += (s, e) =>
+            {
+                Color chosen = (Color)((Control)s!).Tag!;
+                ApplyBackColor(chosen);
+                UpdatePreviews();
+            };
+
+            _editorBackPalettePanel.Controls.Add(sw);
+        }
     }
 
     private void ApplyStyleButtonFonts()
@@ -50,7 +153,6 @@ public partial class EditorSettingsForm : Form
         _btnDefault.Click += (_, _) => ResetToDefaults();
         _btnFont.Click += (_, _) => ShowFontDialog();
         _btnEditorBack.Click += (_, _) => PickEditorBackColor();
-        _btnSelectionBack.Click += (_, _) => PickSelectionBackColor();
         btnStyleBold.Click += (_, _) => ToggleStyle(FontStyle.Bold);
         btnStyleItalic.Click += (_, _) => ToggleStyle(FontStyle.Italic);
         btnStyleUnderline.Click += (_, _) => ToggleStyle(FontStyle.Underline);
@@ -92,13 +194,18 @@ public partial class EditorSettingsForm : Form
 
             _mainForm.BackColor = _snapshotFormBack;
             _editor.BackColor = _snapshotEditorBack;
+            foreach (Control bar in _mainForm.Controls.Find("topBarPanel", true))
+            {
+                bar.BackColor = _snapshotToolbarBack;
+            }
+
+            Loc.Language = _snapshotLanguage;
         }
     }
 
     private void UpdatePreviews()
     {
         _previewEditorBack.BackColor = _editor.BackColor;
-        _previewSelBack.BackColor = _editor.SelectionBackColor;
     }
 
     private void ShowFontDialog()
@@ -154,37 +261,18 @@ public partial class EditorSettingsForm : Form
             return;
         }
 
-        _editor.BackColor = dlg.Color;
+        ApplyBackColor(dlg.Color);
         UpdatePreviews();
     }
 
-    private void PickSelectionBackColor()
+    /// <summary>
+    /// 배경색을 편집기와 메인 폼(=어플리케이션 전체 바탕)에 함께 적용합니다.
+    /// 상단 툴바는 반투명 틴트라 폼 배경색을 따라 자동으로 바뀝니다.
+    /// </summary>
+    private void ApplyBackColor(Color color)
     {
-        using ColorDialog dlg = new() { Color = _editor.SelectionBackColor, FullOpen = true };
-        if (dlg.ShowDialog(this) != DialogResult.OK)
-        {
-            return;
-        }
-
-        if (_radioWhole.Checked)
-        {
-            int start = _editor.SelectionStart;
-            int len = _editor.SelectionLength;
-            _editor.SelectAll();
-            _editor.SelectionBackColor = dlg.Color;
-            _editor.Select(start, len);
-        }
-        else
-        {
-            if (_editor.SelectionLength == 0)
-            {
-                MessageBox.Show(this, "글자 배경을 바꾸려면 먼저 텍스트를 선택해 주세요.", "알림", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                return;
-            }
-
-            _editor.SelectionBackColor = dlg.Color;
-        }
-
-        UpdatePreviews();
+        _editor.BackColor = color;
+        _mainForm.BackColor = color;
+        EditorSettings.ApplyToolbarColor(_mainForm, color);
     }
 }

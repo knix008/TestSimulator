@@ -9,14 +9,14 @@
     <MajorUpgrade DowngradeErrorMessage="A newer version of MemoPadV10 is already installed." />
     <MediaTemplate EmbedCab="yes" />
 
-    <Icon Id="AppIcon" SourceFile="..\daemon_hammer.ico" />
+    <Icon Id="AppIcon" SourceFile="..\assets\app.ico" />
     <Property Id="ARPPRODUCTICON" Value="AppIcon" />
 
     <WixVariable Id="WixUILicenseRtf" Value="assets\License.rtf" />
-    <WixVariable Id="WixUIExclamationIco" Value="..\daemon_hammer.ico" />
-    <WixVariable Id="WixUIInfoIco" Value="..\daemon_hammer.ico" />
-    <WixVariable Id="WixUINewIco" Value="..\daemon_hammer.ico" />
-    <WixVariable Id="WixUIUpIco" Value="..\daemon_hammer.ico" />
+    <WixVariable Id="WixUIExclamationIco" Value="..\assets\app.ico" />
+    <WixVariable Id="WixUIInfoIco" Value="..\assets\app.ico" />
+    <WixVariable Id="WixUINewIco" Value="..\assets\app.ico" />
+    <WixVariable Id="WixUIUpIco" Value="..\assets\app.ico" />
 
     <StandardDirectory Id="ProgramFiles6432Folder">
       <Directory Id="INSTALLFOLDER" Name="MemoPadV10" />

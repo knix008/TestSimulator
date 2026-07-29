@@ -19,6 +19,7 @@ internal static class EditorSettings
         public int ForeColorArgb { get; set; } = Color.Black.ToArgb();
         public int EditorBackColorArgb { get; set; } = Color.FromArgb(255, 248, 225, 140).ToArgb();
         public int FormBackColorArgb { get; set; } = Color.FromArgb(255, 248, 225, 140).ToArgb();
+        public string Language { get; set; } = "ko";
     }
 
     public static Data LoadDefaults() => new();
@@ -78,6 +79,26 @@ internal static class EditorSettings
         editor.ForeColor = Color.FromArgb(data.ForeColorArgb);
         editor.BackColor = Color.FromArgb(data.EditorBackColorArgb);
         form.BackColor = Color.FromArgb(data.FormBackColorArgb);
+        ApplyToolbarColor(form, form.BackColor);
+        Loc.Language = Loc.Parse(data.Language);
+    }
+
+    /// <summary>
+    /// 상단 툴바가 배경과 완전히 같은 색(투명도 없이)으로 보이도록,
+    /// 배경색을 불투명하게 그대로 반환합니다.
+    /// </summary>
+    public static Color DeriveToolbarColor(Color baseColor)
+    {
+        return Color.FromArgb(255, baseColor.R, baseColor.G, baseColor.B);
+    }
+
+    /// <summary>메인 폼에서 상단 툴바 패널(topBarPanel)을 찾아 배경색에 맞춘 색으로 칠합니다.</summary>
+    public static void ApplyToolbarColor(Form form, Color baseColor)
+    {
+        foreach (Control c in form.Controls.Find("topBarPanel", true))
+        {
+            c.BackColor = DeriveToolbarColor(baseColor);
+        }
     }
 
     public static Data CaptureFromUi(RichTextBox editor, Form form)
@@ -89,7 +110,8 @@ internal static class EditorSettings
             FontStyle = FontStyleToString(editor.Font.Style),
             ForeColorArgb = editor.ForeColor.ToArgb(),
             EditorBackColorArgb = editor.BackColor.ToArgb(),
-            FormBackColorArgb = form.BackColor.ToArgb()
+            FormBackColorArgb = form.BackColor.ToArgb(),
+            Language = Loc.Code(Loc.Language)
         };
     }
 }
