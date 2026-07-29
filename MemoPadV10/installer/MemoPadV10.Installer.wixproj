@@ -4,7 +4,8 @@
     <Platforms>x64</Platforms>
     <OutputName>MemoPadV10_Setup</OutputName>
     <InstallerPlatform>x64</InstallerPlatform>
-    <SuppressIces>ICE69</SuppressIces>
+    <!-- ICE61: AllowSameVersionUpgrades(동일 버전 재설치 시 기존본 제거) 사용 시 항상 나오는 경고라 억제합니다. -->
+    <SuppressIces>ICE61;ICE69</SuppressIces>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <OutputPath>$(MSBuildThisFileDirectory)..\bin\$(Configuration)\installer\</OutputPath>
     <IntermediateOutputPath>$(MSBuildThisFileDirectory)obj\$(Configuration)\</IntermediateOutputPath>

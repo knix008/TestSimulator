@@ -43,12 +43,19 @@ public partial class EditorSettingsForm
         _editorBackPalettePanel = new FlowLayoutPanel();
         languageGroupBox = new GroupBox();
         _languageCombo = new ComboBox();
+        generalGroupBox = new GroupBox();
+        _autoStartCheck = new CheckBox();
+        aboutGroupBox = new GroupBox();
+        _aboutNameLabel = new Label();
+        _aboutAuthorLabel = new Label();
         clientPanel = new Panel();
         footerPanel.SuspendLayout();
         scopeGroupBox.SuspendLayout();
         styleGroupBox.SuspendLayout();
         editorBackGroupBox.SuspendLayout();
         languageGroupBox.SuspendLayout();
+        generalGroupBox.SuspendLayout();
+        aboutGroupBox.SuspendLayout();
         clientPanel.SuspendLayout();
         SuspendLayout();
         // 
@@ -278,8 +285,56 @@ public partial class EditorSettingsForm
         _languageCombo.Size = new Size(200, 23);
         _languageCombo.TabIndex = 0;
         //
+        // generalGroupBox
+        //
+        generalGroupBox.Controls.Add(_autoStartCheck);
+        generalGroupBox.Location = new Point(3, 458);
+        generalGroupBox.Name = "generalGroupBox";
+        generalGroupBox.Size = new Size(434, 52);
+        generalGroupBox.TabIndex = 7;
+        generalGroupBox.TabStop = false;
+        generalGroupBox.Text = "일반";
+        //
+        // _autoStartCheck
+        //
+        _autoStartCheck.AutoSize = true;
+        _autoStartCheck.Location = new Point(12, 22);
+        _autoStartCheck.Name = "_autoStartCheck";
+        _autoStartCheck.TabIndex = 0;
+        _autoStartCheck.Text = "시스템 시작 시 자동 실행";
+        _autoStartCheck.UseVisualStyleBackColor = true;
+        //
+        // aboutGroupBox
+        //
+        aboutGroupBox.Controls.Add(_aboutNameLabel);
+        aboutGroupBox.Controls.Add(_aboutAuthorLabel);
+        aboutGroupBox.Location = new Point(3, 516);
+        aboutGroupBox.Name = "aboutGroupBox";
+        aboutGroupBox.Size = new Size(434, 76);
+        aboutGroupBox.TabIndex = 8;
+        aboutGroupBox.TabStop = false;
+        aboutGroupBox.Text = "프로그램 정보";
+        //
+        // _aboutNameLabel
+        //
+        _aboutNameLabel.AutoSize = true;
+        _aboutNameLabel.Location = new Point(12, 24);
+        _aboutNameLabel.Name = "_aboutNameLabel";
+        _aboutNameLabel.TabIndex = 0;
+        _aboutNameLabel.Text = "MemoPadV10  v1.0.0";
+        //
+        // _aboutAuthorLabel
+        //
+        _aboutAuthorLabel.AutoSize = true;
+        _aboutAuthorLabel.Location = new Point(12, 48);
+        _aboutAuthorLabel.Name = "_aboutAuthorLabel";
+        _aboutAuthorLabel.TabIndex = 1;
+        _aboutAuthorLabel.Text = "작성자: SHKWON (knix008@naver.com)";
+        //
         // clientPanel
         //
+        clientPanel.Controls.Add(aboutGroupBox);
+        clientPanel.Controls.Add(generalGroupBox);
         clientPanel.Controls.Add(languageGroupBox);
         clientPanel.Controls.Add(editorBackGroupBox);
         clientPanel.Controls.Add(styleGroupBox);
@@ -298,7 +353,7 @@ public partial class EditorSettingsForm
         AutoScaleDimensions = new SizeF(7F, 15F);
         AutoScaleMode = AutoScaleMode.Font;
         CancelButton = _btnCancel;
-        ClientSize = new Size(460, 548);
+        ClientSize = new Size(460, 680);
         Controls.Add(clientPanel);
         Controls.Add(footerPanel);
         Font = new Font("맑은 고딕", 9F);
@@ -316,6 +371,10 @@ public partial class EditorSettingsForm
         styleGroupBox.ResumeLayout(false);
         editorBackGroupBox.ResumeLayout(false);
         languageGroupBox.ResumeLayout(false);
+        generalGroupBox.ResumeLayout(false);
+        generalGroupBox.PerformLayout();
+        aboutGroupBox.ResumeLayout(false);
+        aboutGroupBox.PerformLayout();
         clientPanel.ResumeLayout(false);
         clientPanel.PerformLayout();
         ResumeLayout(false);
@@ -337,5 +396,10 @@ public partial class EditorSettingsForm
     private FlowLayoutPanel _editorBackPalettePanel;
     private GroupBox languageGroupBox;
     private ComboBox _languageCombo;
+    private GroupBox generalGroupBox;
+    private CheckBox _autoStartCheck;
+    private GroupBox aboutGroupBox;
+    private Label _aboutNameLabel;
+    private Label _aboutAuthorLabel;
     private Panel clientPanel;
 }

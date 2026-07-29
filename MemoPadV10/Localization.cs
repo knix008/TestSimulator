@@ -37,6 +37,10 @@ internal static class Loc
         ["settings.back"] = ("배경색", "Background color"),
         ["settings.back.custom"] = ("사용자 지정 색…", "Custom color…"),
         ["settings.language"] = ("언어 (Language)", "Language (언어)"),
+        ["settings.general"] = ("일반", "General"),
+        ["settings.autostart"] = ("시스템 시작 시 자동 실행", "Start automatically when Windows starts"),
+        ["settings.about"] = ("프로그램 정보", "About"),
+        ["settings.author"] = ("작성자", "Author"),
         ["settings.default"] = ("기본값", "Defaults"),
         ["common.ok"] = ("확인", "OK"),
         ["common.cancel"] = ("취소", "Cancel"),
@@ -61,6 +65,11 @@ internal static class Loc
         ["list.confirmDelete"] = ("선택한 메모를 삭제하시겠습니까?", "Delete the selected memo?"),
         ["list.confirmDelete.title"] = ("메모 삭제", "Delete Memo"),
         ["list.loadFailed"] = ("메모 목록 파일을 불러오지 못했습니다.", "Failed to load the memo list file."),
+
+        // 시스템 트레이
+        ["tray.tooltip"] = ("메모 패드", "Memo Pad"),
+        ["tray.show"] = ("열기", "Open"),
+        ["tray.exit"] = ("종료", "Exit"),
 
         // 메인 창 툴바 툴팁
         ["main.add"] = ("새 메모", "New memo"),

@@ -61,6 +61,7 @@ public partial class EditorSettingsForm : Form
         WireEvents();
         PopulateEditorBackPalette();
         InitLanguageUi();
+        _autoStartCheck.Checked = AutoStart.IsEnabled();
     }
 
     private void InitLanguageUi()
@@ -95,6 +96,10 @@ public partial class EditorSettingsForm : Form
         editorBackGroupBox.Text = Loc.T("settings.back");
         _btnEditorBack.Text = Loc.T("settings.back.custom");
         languageGroupBox.Text = Loc.T("settings.language");
+        generalGroupBox.Text = Loc.T("settings.general");
+        _autoStartCheck.Text = Loc.T("settings.autostart");
+        aboutGroupBox.Text = Loc.T("settings.about");
+        _aboutAuthorLabel.Text = $"{Loc.T("settings.author")}: SHKWON (knix008@naver.com)";
         _btnDefault.Text = Loc.T("settings.default");
         _btnOk.Text = Loc.T("common.ok");
         _btnCancel.Text = Loc.T("common.cancel");
@@ -160,6 +165,7 @@ public partial class EditorSettingsForm : Form
         _btnOk.Click += (_, _) =>
         {
             EditorSettings.Save(EditorSettings.CaptureFromUi(_editor, _mainForm));
+            AutoStart.SetEnabled(_autoStartCheck.Checked);
         };
 
         FormClosing += EditorSettingsForm_FormClosing;

@@ -28,6 +28,10 @@ public partial class MemoPadForm : Form
 
     private readonly ToolTip _toolTip = new();
 
+    // 트레이 아이콘은 앱당 하나만 둡니다(첫 인스턴스가 생성).
+    private static NotifyIcon? _trayIcon;
+    private static MemoPadForm? _trayOwner;
+
     public MemoPadForm()
     {
         InitializeComponent();
@@ -45,6 +49,58 @@ public partial class MemoPadForm : Form
         ApplySavedEditorSettings();
         LoadMemos();
         ApplyMainLanguage();
+        SetupTrayIcon();
+    }
+
+    /// <summary>실행 중 시스템 트레이에 앱 아이콘을 표시합니다(앱당 1개).</summary>
+    private void SetupTrayIcon()
+    {
+        if (_trayIcon != null)
+        {
+            return;
+        }
+
+        _trayOwner = this;
+        _trayIcon = new NotifyIcon
+        {
+            Icon = Icon ?? SystemIcons.Application,
+            Text = Loc.T("tray.tooltip"),
+            Visible = true
+        };
+
+        ContextMenuStrip menu = new();
+        menu.Items.Add(Loc.T("tray.show"), null, (_, _) => RestoreFromTray());
+        menu.Items.Add(Loc.T("tray.exit"), null, (_, _) => Application.Exit());
+        _trayIcon.ContextMenuStrip = menu;
+        _trayIcon.DoubleClick += (_, _) => RestoreFromTray();
+
+        Application.ApplicationExit += (_, _) =>
+        {
+            if (_trayIcon != null)
+            {
+                _trayIcon.Visible = false;
+                _trayIcon.Dispose();
+                _trayIcon = null;
+            }
+        };
+    }
+
+    private void RestoreFromTray()
+    {
+        Form target = _trayOwner ?? this;
+        if (target.IsDisposed)
+        {
+            return;
+        }
+
+        target.Show();
+        if (target.WindowState == FormWindowState.Minimized)
+        {
+            target.WindowState = FormWindowState.Normal;
+        }
+
+        target.Activate();
+        target.BringToFront();
     }
 
     /// <summary>임베드된 app.ico를 작업표시줄/Alt-Tab 아이콘으로 설정합니다.</summary>

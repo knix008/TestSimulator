@@ -6,7 +6,11 @@
            UpgradeCode="3B8F1E62-9D4A-4C2B-BE7F-1A2C3D4E5F60"
            Scope="perMachine"
            InstallerVersion="500">
-    <MajorUpgrade DowngradeErrorMessage="A newer version of MemoPadV10 is already installed." />
+    <!-- 기존 설치본이 있으면 새 설치 시작 직후 완전히 제거한 뒤 새로 설치합니다.
+         AllowSameVersionUpgrades로 같은 버전을 다시 설치해도 기존본을 제거합니다. -->
+    <MajorUpgrade Schedule="afterInstallInitialize"
+                  AllowSameVersionUpgrades="yes"
+                  DowngradeErrorMessage="A newer version of MemoPadV10 is already installed." />
     <MediaTemplate EmbedCab="yes" />
 
     <Icon Id="AppIcon" SourceFile="..\assets\app.ico" />
@@ -59,13 +63,26 @@
       </Directory>
     </StandardDirectory>
 
-    <Feature Id="Main" Title="MemoPadV10" Level="1">
+    <Feature Id="Main" Title="MemoPadV10" Level="1" AllowAbsent="no" Display="expand"
+             Description="MemoPadV10 program files (required).">
       <ComponentGroupRef Id="HarvestedApp" />
-      <ComponentRef Id="CmpDesktopShortcut" />
-      <ComponentRef Id="CmpStartMenuShortcut" />
+
+      <!-- 사용자가 설치 마법사의 '사용자 지정'에서 켜고 끌 수 있는 바로가기 기능들 -->
+      <Feature Id="FeatureDesktopShortcut" Level="1"
+               Title="Desktop shortcut"
+               Description="Create a shortcut on the desktop (uses the program icon).">
+        <ComponentRef Id="CmpDesktopShortcut" />
+      </Feature>
+
+      <Feature Id="FeatureStartMenuShortcut" Level="1"
+               Title="Start Menu shortcut"
+               Description="Create a shortcut in the Start Menu (uses the program icon).">
+        <ComponentRef Id="CmpStartMenuShortcut" />
+      </Feature>
     </Feature>
 
-    <ui:WixUI Id="WixUI_InstallDir" />
+    <!-- Mondo: 설치 형식(일반/사용자 지정)에서 바로가기 기능과 설치 위치를 선택할 수 있습니다. -->
+    <ui:WixUI Id="WixUI_Mondo" />
     <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
   </Package>
 
