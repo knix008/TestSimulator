@@ -6,10 +6,7 @@ internal static class EditorSettings
 {
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
 
-    public static string SettingsFilePath { get; } = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "MemoPadV10",
-        "editor_settings.json");
+    public static string SettingsFilePath => AppPaths.Combine("editor_settings.json");
 
     public sealed class Data
     {
@@ -65,6 +62,21 @@ internal static class EditorSettings
 
     public static void ApplyToUi(RichTextBox editor, Form form, Data data)
     {
+        // Font 변경이 RTF 내용을 지울 수 있어 먼저 보존합니다.
+        string? savedRtf = null;
+        string savedText = editor.Text;
+        try
+        {
+            if (!string.IsNullOrEmpty(editor.Rtf))
+            {
+                savedRtf = editor.Rtf;
+            }
+        }
+        catch
+        {
+            savedRtf = null;
+        }
+
         try
         {
             FontStyle st = ParseFontStyle(data.FontStyle);
@@ -81,6 +93,24 @@ internal static class EditorSettings
         form.BackColor = Color.FromArgb(data.FormBackColorArgb);
         ApplyToolbarColor(form, form.BackColor);
         Loc.Language = Loc.Parse(data.Language);
+
+        if (!string.IsNullOrEmpty(savedRtf))
+        {
+            try
+            {
+                editor.Rtf = savedRtf;
+                return;
+            }
+            catch
+            {
+                // fall through
+            }
+        }
+
+        if (!string.IsNullOrEmpty(savedText) && string.IsNullOrEmpty(editor.Text))
+        {
+            editor.Text = savedText;
+        }
     }
 
     /// <summary>

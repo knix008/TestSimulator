@@ -7,6 +7,12 @@ public partial class EditorSettingsForm : Form
 {
     private RichTextBox _editor = null!;
     private Form _mainForm = null!;
+
+    /// <summary>
+    /// 색을 고를 때마다(팔레트·색 대화상자·기본값) 선택한 배경색을 전달합니다.
+    /// 설정창을 연 창이 이를 구독해 모든 창(및 다른 프로세스)에 실시간 반영합니다.
+    /// </summary>
+    public event Action<Color>? PreviewColorChanged;
     private string _snapshotRtf = string.Empty;
     private Color _snapshotFormBack;
     private Color _snapshotEditorBack;
@@ -23,14 +29,16 @@ public partial class EditorSettingsForm : Form
     /// <summary>
     /// 간단한 텍스트 기반 아이콘 비트맵을 생성합니다. 재사용 용도로 public으로 노출합니다.
     /// </summary>
-    public static Bitmap MakeGlyphIcon(string text, Color foreColor, Color backColor, int size = 16)
+    public static Bitmap MakeGlyphIcon(string text, Color foreColor, Color backColor, int size = 16, string fontFamily = "Segoe UI")
     {
         Bitmap bmp = new(size, size, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
         using Graphics g = Graphics.FromImage(bmp);
         g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
         g.Clear(backColor);
         float fontSize = Math.Max(8f, size * 0.6f);
-        using Font f = new("Segoe UI", fontSize, FontStyle.Bold, GraphicsUnit.Pixel);
+        // "Segoe UI"는 폴더·문서 같은 보충문자(이모지) 글리프가 없어 두부 박스로 나옵니다.
+        // 흑백 글리프를 가진 "Segoe UI Symbol"을 넘기면 foreColor 색으로 그려집니다.
+        using Font f = new(fontFamily, fontSize, FontStyle.Bold, GraphicsUnit.Pixel);
         SizeF measured = g.MeasureString(text, f);
         using SolidBrush b = new SolidBrush(foreColor);
         g.DrawString(text, f, b, (size - measured.Width) / 2f, (size - measured.Height) / 2f);
@@ -175,6 +183,7 @@ public partial class EditorSettingsForm : Form
     {
         EditorSettings.Data defaults = EditorSettings.LoadDefaults();
         EditorSettings.ApplyToUi(_editor, _mainForm, defaults);
+        PreviewColorChanged?.Invoke(Color.FromArgb(defaults.EditorBackColorArgb));
         UpdatePreviews();
     }
 
@@ -280,5 +289,6 @@ public partial class EditorSettingsForm : Form
         _editor.BackColor = color;
         _mainForm.BackColor = color;
         EditorSettings.ApplyToolbarColor(_mainForm, color);
+        PreviewColorChanged?.Invoke(color);
     }
 }

@@ -1,11 +1,10 @@
 using System.ComponentModel;
-using System.Text.Json;
 
 namespace MemoPadV10;
 
 public partial class MemoPadForm : Form
 {
-    private const int ResizeBorderThickness = 8;
+    private const int ResizeBorderThickness = 6;
     private const int WmNcHitTest = 0x84;
     private const int HtClient = 0x1;
     private const int HtLeft = 0xA;
@@ -18,15 +17,21 @@ public partial class MemoPadForm : Form
     private const int HtBottomRight = 0x11;
 
     private readonly List<string> _memoItems = [];
-    private readonly string _memoFilePath;
     private bool _dragging;
     private Point _dragStartPoint;
 
     // 목록에서 열어 놓은 메모 창들을 추적해, 같은 메모를 중복해서 열지 않도록 합니다.
     private static readonly List<MemoPadForm> OpenMemoWindows = [];
     private string? _sourceMemo;
+    private int _sourceMemoIndex = -1;
 
     private readonly ToolTip _toolTip = new();
+    private Panel _editorHost = null!;
+    private Panel _editorClip = null!;
+    private Panel _editorScrollRail = null!;
+    private ThemedVScrollBar _editorScrollBar = null!;
+    private bool _syncingEditorScroll;
+    private bool _keepEditorScrolledToTop;
 
     // 트레이 아이콘은 앱당 하나만 둡니다(첫 인스턴스가 생성).
     private static NotifyIcon? _trayIcon;
@@ -40,18 +45,207 @@ public partial class MemoPadForm : Form
         TrySetAppIcon();
         if (LicenseManager.UsageMode == LicenseUsageMode.Designtime)
         {
-            _memoFilePath = string.Empty;
             return;
         }
 
-        _memoFilePath = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "MemoPadV10",
-            "memos.json");
+        SetupThemedEditorScroll();
+        memoEditor.WordWrap = true;
+        memoEditor.DetectUrls = false;
+        memoEditor.HideSelection = false;
         ApplySavedEditorSettings();
+        EnsureEditorReadableColors();
         LoadMemos();
         ApplyMainLanguage();
         SetupTrayIcon();
+        FormClosing += (_, e) =>
+        {
+            if (e.CloseReason == CloseReason.UserClosing)
+            {
+                AppIpc.SuppressActivateHandling(800);
+            }
+        };
+        Activated += MemoPadForm_Activated;
+    }
+
+    /// <summary>
+    /// 메모 창을 선택하면 목록을 같이 보이게만 올립니다(포커스는 메모에 유지).
+    /// </summary>
+    private void MemoPadForm_Activated(object? sender, EventArgs e)
+    {
+        if (AppIpc.ShouldIgnoreActivate() || !Visible)
+        {
+            return;
+        }
+
+        AppIpc.SuppressActivateHandling(500);
+        AppIpc.NotifyBringListToFront();
+    }
+
+    /// <summary>
+    /// 목록과 동일한 옅은 회색 테마 스크롤바.
+    /// RichTextBox는 Vertical을 유지해 첫 줄 표시를 보장하고, 시스템 바만 클립으로 가립니다.
+    /// 테마 바 표시/숨김이 클립 폭을 바꾸지 않도록 오른쪽 레일을 항상 확보합니다.
+    /// </summary>
+    private void SetupThemedEditorScroll()
+    {
+        _editorHost = new Panel
+        {
+            Name = "editorHost",
+            Dock = DockStyle.Fill,
+            BackColor = memoEditor.BackColor
+        };
+        _editorClip = new Panel
+        {
+            Name = "editorClip",
+            Dock = DockStyle.Fill,
+            BackColor = memoEditor.BackColor
+        };
+        // Visible 토글 시 Dock 폭이 바뀌면 RTB가 리플로우되며 첫 줄이 밀리므로 레일은 항상 확보
+        _editorScrollRail = new Panel
+        {
+            Name = "editorScrollRail",
+            Dock = DockStyle.Right,
+            Width = 10,
+            BackColor = memoEditor.BackColor
+        };
+        _editorScrollBar = new ThemedVScrollBar
+        {
+            Dock = DockStyle.Fill,
+            Visible = false
+        };
+        _editorScrollBar.ApplyTheme(memoEditor.BackColor);
+        _editorScrollRail.Controls.Add(_editorScrollBar);
+
+        Controls.Remove(memoEditor);
+        // None이면 첫 줄이 안 보이는 경우가 있어 Vertical 유지
+        memoEditor.ScrollBars = RichTextBoxScrollBars.Vertical;
+        memoEditor.BorderStyle = BorderStyle.None;
+        memoEditor.Dock = DockStyle.None;
+        memoEditor.Location = Point.Empty;
+
+        _editorClip.Controls.Add(memoEditor);
+        _editorHost.Controls.Add(_editorClip);
+        _editorHost.Controls.Add(_editorScrollRail);
+        _editorScrollRail.BringToFront();
+
+        Controls.Add(_editorHost);
+        // Dock.Fill은 z-order상 맨 앞(먼저 처리)일 때만 상단 바가 차지한 공간을 제외한
+        // 나머지만 채웁니다. topBarPanel을 앞에 두면 Fill이 상단 바 뒤까지 채워져 첫 줄이 가려집니다.
+        _editorHost.BringToFront();
+
+        void LayoutEditor()
+        {
+            if (_editorClip.IsDisposed || memoEditor.IsDisposed)
+            {
+                return;
+            }
+
+            // 시스템 세로 스크롤바를 클립 밖으로 밀어 테마 바만 보이게 함
+            int hide = SystemInformation.VerticalScrollBarWidth + 4;
+            memoEditor.SetBounds(
+                0,
+                0,
+                Math.Max(1, _editorClip.ClientSize.Width + hide),
+                Math.Max(1, _editorClip.ClientSize.Height));
+
+            if (_keepEditorScrolledToTop)
+            {
+                RichTextScrollInterop.ScrollToTop(memoEditor);
+            }
+        }
+
+        _editorClip.Resize += (_, _) =>
+        {
+            LayoutEditor();
+            ScheduleEditorScrollSync();
+        };
+        LayoutEditor();
+
+        _editorScrollBar.ValueChanged += EditorScrollBar_ValueChanged;
+        memoEditor.VScroll += (_, _) =>
+        {
+            if (!_keepEditorScrolledToTop)
+            {
+                ScheduleEditorScrollSync();
+            }
+        };
+        memoEditor.ContentsResized += (_, _) => ScheduleEditorScrollSync();
+        memoEditor.TextChanged += (_, _) => ScheduleEditorScrollSync();
+        memoEditor.MouseWheel += (_, _) => ScheduleEditorScrollSync();
+        _editorClip.MouseWheel += (_, _) => ScheduleEditorScrollSync();
+    }
+
+    private void EditorScrollBar_ValueChanged(object? sender, EventArgs e)
+    {
+        if (_syncingEditorScroll)
+        {
+            return;
+        }
+
+        _keepEditorScrolledToTop = false;
+        RichTextScrollInterop.SetVerticalPosition(memoEditor, _editorScrollBar.Value);
+    }
+
+    private void ScheduleEditorScrollSync()
+    {
+        if (IsDisposed || !IsHandleCreated)
+        {
+            return;
+        }
+
+        BeginInvoke(SyncEditorScrollBarFromEditor);
+    }
+
+    private void SyncEditorScrollBarFromEditor()
+    {
+        if (_editorScrollBar is null || _syncingEditorScroll || !memoEditor.IsHandleCreated)
+        {
+            return;
+        }
+
+        if (_keepEditorScrolledToTop)
+        {
+            RichTextScrollInterop.ScrollToTop(memoEditor);
+        }
+
+        _syncingEditorScroll = true;
+        try
+        {
+            _editorHost.BackColor = memoEditor.BackColor;
+            _editorClip.BackColor = memoEditor.BackColor;
+            _editorScrollRail.BackColor = memoEditor.BackColor;
+
+            if (!RichTextScrollInterop.TryReadVertical(memoEditor, out int pos, out int max) || max <= 0)
+            {
+                // 레일 폭은 유지한 채 바만 숨겨, 표시 전환으로 인한 리플로우를 막습니다.
+                _editorScrollBar.Visible = false;
+                _editorScrollBar.Maximum = 0;
+                _editorScrollBar.SetValueSilent(0);
+                return;
+            }
+
+            _editorScrollBar.Visible = true;
+            _editorScrollBar.Maximum = max;
+            _editorScrollBar.SetValueSilent(Math.Clamp(_keepEditorScrolledToTop ? 0 : pos, 0, max));
+            _editorScrollBar.ApplyTheme(memoEditor.BackColor);
+        }
+        finally
+        {
+            _syncingEditorScroll = false;
+        }
+    }
+
+    /// <summary>배경과 글자색 대비가 낮으면 글자를 검정으로 맞춥니다.</summary>
+    private void EnsureEditorReadableColors()
+    {
+        Color back = memoEditor.BackColor;
+        Color fore = memoEditor.ForeColor;
+        int backLuma = (back.R * 299 + back.G * 587 + back.B * 114) / 1000;
+        int foreLuma = (fore.R * 299 + fore.G * 587 + fore.B * 114) / 1000;
+        if (Math.Abs(backLuma - foreLuma) < 60)
+        {
+            memoEditor.ForeColor = backLuma > 140 ? Color.Black : Color.White;
+        }
     }
 
     /// <summary>실행 중 시스템 트레이에 앱 아이콘을 표시합니다(앱당 1개).</summary>
@@ -59,6 +253,13 @@ public partial class MemoPadForm : Form
     {
         if (_trayIcon != null)
         {
+            // 아이콘은 유지하되, 소유 폼이 사라졌으면 현재 폼으로 갱신
+            if (_trayOwner is null || _trayOwner.IsDisposed)
+            {
+                _trayOwner = this;
+                FormClosing += PrimaryFormClosing;
+            }
+
             return;
         }
 
@@ -87,12 +288,15 @@ public partial class MemoPadForm : Form
                 _trayIcon.Dispose();
                 _trayIcon = null;
             }
+
+            _trayOwner = null;
         };
     }
 
-    /// <summary>트레이 '종료' 전용: 실제로 앱을 끝냅니다.</summary>
+    /// <summary>트레이 '종료' 전용: 목록 프로세스와 패드를 함께 종료합니다.</summary>
     private static void ExitApplication()
     {
+        AppIpc.SignalExitList();
         _exitRequested = true;
         Application.Exit();
     }
@@ -103,26 +307,428 @@ public partial class MemoPadForm : Form
         if (!_exitRequested && e.CloseReason == CloseReason.UserClosing)
         {
             e.Cancel = true;
+            // 목록 Activated → 동반 올리기가 숨긴 창을 다시 열지 않도록 잠시 차단
+            AppIpc.SuppressActivateHandling(800);
             Hide();
         }
     }
 
     private void RestoreFromTray()
     {
-        Form target = _trayOwner ?? this;
-        if (target.IsDisposed)
+        // 트레이에서는 메모 목록 앱을 실행/활성화합니다.
+        AppIpc.LaunchOrShowList();
+    }
+
+    /// <summary>목록 앱에서 보낸 메모 열기 요청을 수신합니다.</summary>
+    public static void StartOpenMemoWatcher()
+    {
+        EventWaitHandle openEvent = AppIpc.CreateOpenMemoEvent();
+        Thread watcher = new(() =>
+        {
+            while (true)
+            {
+                openEvent.WaitOne();
+                MemoPadForm? owner = _trayOwner;
+                if (owner is null || owner.IsDisposed)
+                {
+                    continue;
+                }
+
+                try
+                {
+                    // 불러오기/파일 열기를 새 메모보다 우선 — pending-new 잔여물이 내용을 가로채지 않게
+                    if (AppIpc.TryReadPendingOpenFilePath(out string filePath))
+                    {
+                        owner.BeginInvoke(new Action(() => owner.OpenExternalTextFile(filePath)));
+                        continue;
+                    }
+
+                    if (AppIpc.TryReadPendingOpenIndex(out int idx))
+                    {
+                        owner.BeginInvoke(new Action(() => owner.OpenMemoByIndex(idx)));
+                        continue;
+                    }
+
+                    if (AppIpc.TryConsumePendingNewMemo())
+                    {
+                        owner.BeginInvoke(new Action(OpenBlankNewMemo));
+                    }
+                }
+                catch (ObjectDisposedException)
+                {
+                }
+            }
+        })
+        {
+            IsBackground = true,
+            Name = "MemoPadOpenWatcher"
+        };
+        watcher.Start();
+    }
+
+    /// <summary>설정 저장 알림을 받아 열려 있는 모든 메모 창 테마를 갱신합니다.</summary>
+    public static void StartSettingsWatcher()
+    {
+        EventWaitHandle settingsEvent = AppIpc.CreateSettingsChangedPadEvent();
+        Thread watcher = new(() =>
+        {
+            while (true)
+            {
+                settingsEvent.WaitOne();
+                MemoPadForm? owner = _trayOwner;
+                if (owner is null || owner.IsDisposed)
+                {
+                    continue;
+                }
+
+                try
+                {
+                    owner.BeginInvoke(new Action(ApplyThemeToAllOpenPads));
+                }
+                catch (ObjectDisposedException)
+                {
+                }
+            }
+        })
+        {
+            IsBackground = true,
+            Name = "MemoPadSettingsWatcher"
+        };
+        watcher.Start();
+    }
+
+    /// <summary>목록 프로세스의 실시간 색 미리보기를 받아 모든 메모 창에 즉시 반영합니다.</summary>
+    public static void StartThemePreviewWatcher()
+    {
+        EventWaitHandle previewEvent = AppIpc.CreatePreviewThemePadEvent();
+        Thread watcher = new(() =>
+        {
+            while (true)
+            {
+                previewEvent.WaitOne();
+                if (!AppIpc.TryReadPreviewColor(out Color color))
+                {
+                    continue;
+                }
+
+                MemoPadForm? owner = _trayOwner;
+                if (owner is null || owner.IsDisposed)
+                {
+                    continue;
+                }
+
+                try
+                {
+                    owner.BeginInvoke(new Action(() => PreviewBackColorToAllPads(color)));
+                }
+                catch (ObjectDisposedException)
+                {
+                }
+            }
+        })
+        {
+            IsBackground = true,
+            Name = "MemoPadThemePreviewWatcher"
+        };
+        watcher.Start();
+    }
+
+    /// <summary>목록이 보일 때, 이미 열려 있는(Visible) 메모 창만 Z-order로 올립니다. 포커스는 훔치지 않습니다.</summary>
+    public static void StartCompanionForegroundWatcher()
+    {
+        EventWaitHandle bringPadsEvent = AppIpc.CreateBringPadsFrontEvent();
+        Thread watcher = new(() =>
+        {
+            while (true)
+            {
+                bringPadsEvent.WaitOne();
+                MemoPadForm? owner = _trayOwner;
+                if (owner is null || owner.IsDisposed)
+                {
+                    continue;
+                }
+
+                try
+                {
+                    owner.BeginInvoke(new Action(() =>
+                    {
+                        AppIpc.SuppressActivateHandling(500);
+                        RaiseVisiblePadsWithoutStealingFocus();
+                    }));
+                }
+                catch (ObjectDisposedException)
+                {
+                }
+            }
+        })
+        {
+            IsBackground = true,
+            Name = "MemoPadCompanionFgWatcher"
+        };
+        watcher.Start();
+    }
+
+    /// <summary>보이는 메모 창만 앞으로 올립니다. 숨긴 창은 열지 않고, 포커스도 가져가지 않습니다.</summary>
+    private static void RaiseVisiblePadsWithoutStealingFocus()
+    {
+        List<MemoPadForm> pads = [];
+        foreach (Form form in Application.OpenForms)
+        {
+            if (form is MemoPadForm pad && !pad.IsDisposed && pad.Visible)
+            {
+                pads.Add(pad);
+            }
+        }
+
+        // 선택 카드에 해당하는 창이 있으면 그 창을 마지막으로 올려 상대 Z만 맞춤
+        MemoPadForm? preferred = FindPadMatchingListSelection();
+        foreach (MemoPadForm pad in pads)
+        {
+            if (preferred is not null && ReferenceEquals(pad, preferred))
+            {
+                continue;
+            }
+
+            AppIpc.ActivateWindow(pad, setForeground: false, restoreIfHidden: false);
+        }
+
+        if (preferred is { IsDisposed: false, Visible: true })
+        {
+            AppIpc.ActivateWindow(preferred, setForeground: false, restoreIfHidden: false);
+        }
+    }
+
+    /// <summary>목록이 요청한 최근 열기 인덱스와 일치하는 창을 찾습니다(없으면 null).</summary>
+    private static MemoPadForm? FindPadMatchingListSelection()
+    {
+        if (!AppIpc.TryPeekPreferredPadIndex(out int index) || index < 0)
+        {
+            return null;
+        }
+
+        if (_trayOwner is { IsDisposed: false, Visible: true } owner && owner._sourceMemoIndex == index)
+        {
+            return owner;
+        }
+
+        foreach (MemoPadForm existing in OpenMemoWindows)
+        {
+            if (!existing.IsDisposed && existing.Visible && existing._sourceMemoIndex == index)
+            {
+                return existing;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>저장된 설정을 모든 메모 패드 창에 적용합니다.</summary>
+    public static void ApplyThemeToAllOpenPads()
+    {
+        EditorSettings.Data data = EditorSettings.TryLoad() ?? EditorSettings.LoadDefaults();
+        Loc.Language = Loc.Parse(data.Language);
+
+        foreach (Form form in Application.OpenForms)
+        {
+            if (form is not MemoPadForm pad || pad.IsDisposed)
+            {
+                continue;
+            }
+
+            EditorSettings.ApplyToUi(pad.memoEditor, pad, data);
+            pad.StyleMainToolbarButtons();
+            pad.ApplyEditorWrapperColors();
+            pad.ApplyMainLanguage();
+        }
+    }
+
+    /// <summary>설정창의 실시간 색 미리보기를 열린 모든 메모 패드 창에 즉시 반영합니다(저장 없음).</summary>
+    public static void PreviewBackColorToAllPads(Color color)
+    {
+        foreach (Form form in Application.OpenForms)
+        {
+            if (form is MemoPadForm pad && !pad.IsDisposed)
+            {
+                pad.ApplyBackColorPreview(color);
+            }
+        }
+    }
+
+    /// <summary>배경색을 편집기·폼·툴바·에디터 래퍼 패널에 반영합니다(저장 없음).</summary>
+    private void ApplyBackColorPreview(Color color)
+    {
+        memoEditor.BackColor = color;
+        BackColor = color;
+        EditorSettings.ApplyToolbarColor(this, color);
+        StyleMainToolbarButtons();
+        ApplyEditorWrapperColors();
+    }
+
+    /// <summary>테마 스크롤을 감싸는 패널·레일·스크롤바 색을 편집기 배경과 맞춥니다.</summary>
+    private void ApplyEditorWrapperColors()
+    {
+        if (_editorHost != null)
+        {
+            _editorHost.BackColor = memoEditor.BackColor;
+        }
+
+        if (_editorClip != null)
+        {
+            _editorClip.BackColor = memoEditor.BackColor;
+        }
+
+        if (_editorScrollRail != null)
+        {
+            _editorScrollRail.BackColor = memoEditor.BackColor;
+        }
+
+        if (_editorScrollBar != null)
+        {
+            _editorScrollBar.ApplyTheme(memoEditor.BackColor);
+            SyncEditorScrollBarFromEditor();
+        }
+    }
+
+    /// <summary>외부 .txt / .rtf 파일 내용을 메모 창에 엽니다.</summary>
+    public void OpenExternalTextFile(string filePath)
+    {
+        if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
+        {
+            MessageBox.Show(this, Loc.T("list.openFile.missing"), Loc.T("common.error"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
+        string content;
+        try
+        {
+            content = File.ReadAllText(filePath);
+        }
+        catch (Exception)
+        {
+            MessageBox.Show(this, Loc.T("list.openFile.failed"), Loc.T("common.error"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
+        // 기본(트레이) 창이 비어 있으면 그 창에 표시합니다.
+        if (ReferenceEquals(_trayOwner, this)
+            && _sourceMemo is null
+            && string.IsNullOrWhiteSpace(memoEditor.Text))
+        {
+            ApplyExternalContentToEditor(memoEditor, content, filePath);
+            _sourceMemo = null;
+            _sourceMemoIndex = -1;
+            Show();
+            if (WindowState == FormWindowState.Minimized)
+            {
+                WindowState = FormWindowState.Normal;
+            }
+
+            Activate();
+            BringToFront();
+            memoEditor.Focus();
+            memoEditor.SelectionStart = memoEditor.TextLength;
+            return;
+        }
+
+        MemoPadForm newMemoPad = CreateFrontOffsetMemoPad();
+        ApplyExternalContentToEditor(newMemoPad.memoEditor, content, filePath);
+        newMemoPad._sourceMemo = null;
+        newMemoPad._sourceMemoIndex = -1;
+        OpenMemoWindows.Add(newMemoPad);
+        newMemoPad.FormClosed += (_, _) => OpenMemoWindows.Remove(newMemoPad);
+        newMemoPad.Show();
+        newMemoPad.BringToFront();
+        newMemoPad.memoEditor.Focus();
+        newMemoPad.memoEditor.SelectionStart = newMemoPad.memoEditor.TextLength;
+    }
+
+    private static void ApplyExternalContentToEditor(RichTextBox editor, string content, string filePath)
+    {
+        string ext = Path.GetExtension(filePath);
+        if (ext.Equals(".rtf", StringComparison.OrdinalIgnoreCase))
+        {
+            try
+            {
+                editor.Rtf = content;
+                return;
+            }
+            catch (ArgumentException)
+            {
+                // plain text fallback
+            }
+        }
+
+        editor.Text = content;
+    }
+
+    /// <summary>저장된 메모 목록에서 지정 인덱스를 열어 표시합니다.</summary>
+    public void OpenMemoByIndex(int index)
+    {
+        LoadMemos();
+        if (index < 0 || index >= _memoItems.Count)
         {
             return;
         }
 
-        target.Show();
-        if (target.WindowState == FormWindowState.Minimized)
+        string stored = _memoItems[index];
+
+        // 같은 카드를 이미 편집 중인 창이 있으면 그 창만 앞으로 가져옵니다.
+        if (TryActivateOpenMemo(index, stored))
         {
-            target.WindowState = FormWindowState.Normal;
+            return;
         }
 
-        target.Activate();
-        target.BringToFront();
+        // 기존에 열린 창은 그대로 두고 새 창에서 엽니다.
+        OpenMemoInNewPadWindow(index, stored);
+    }
+
+    private static bool TryActivateOpenMemo(int index, string stored)
+    {
+        // 같은 목록 카드(인덱스)를 편집 중인 창만 앞으로 가져옵니다.
+        _ = stored;
+        if (_trayOwner is { IsDisposed: false } owner
+            && owner._sourceMemoIndex == index
+            && index >= 0)
+        {
+            ActivateMemoWindow(owner);
+            return true;
+        }
+
+        foreach (MemoPadForm existing in OpenMemoWindows)
+        {
+            if (existing.IsDisposed || existing._sourceMemoIndex != index || index < 0)
+            {
+                continue;
+            }
+
+            ActivateMemoWindow(existing);
+            return true;
+        }
+
+        return false;
+    }
+
+    private static void ActivateMemoWindow(MemoPadForm form)
+    {
+        AppIpc.SuppressActivateHandling(1000);
+        if (form._sourceMemoIndex >= 0)
+        {
+            AppIpc.RememberPreferredPadIndex(form._sourceMemoIndex);
+        }
+
+        // 목록에서 연 창: 내용이 있는 메모를 최상단+포커스. 목록은 아래에 같이 보이게.
+        AppIpc.NotifyBringListToFront();
+        AppIpc.ActivateWindow(form, setForeground: true, restoreIfHidden: true);
+        form.TopMost = true;
+        form.TopMost = false;
+        AppIpc.ActivateWindow(form, setForeground: true, restoreIfHidden: true);
+        form.memoEditor.Focus();
+    }
+
+    private void BindSourceMemo(int index, string stored)
+    {
+        _sourceMemoIndex = index;
+        _sourceMemo = stored;
     }
 
     /// <summary>임베드된 app.ico를 작업표시줄/Alt-Tab 아이콘으로 설정합니다.</summary>
@@ -163,6 +769,7 @@ public partial class MemoPadForm : Form
     {
         _toolTip.SetToolTip(addMemoIconButton, Loc.T("main.add"));
         _toolTip.SetToolTip(saveMemoIconButton, Loc.T("main.save"));
+        _toolTip.SetToolTip(deleteMemoIconButton, Loc.T("main.delete"));
         _toolTip.SetToolTip(settingsIconButton, Loc.T("main.settings"));
         _toolTip.SetToolTip(listIconButton, Loc.T("main.listBtn"));
         _toolTip.SetToolTip(closeIconButton, Loc.T("main.close"));
@@ -207,6 +814,35 @@ public partial class MemoPadForm : Form
     {
         EditorSettings.Data? data = EditorSettings.TryLoad() ?? EditorSettings.LoadDefaults();
         EditorSettings.ApplyToUi(memoEditor, this, data);
+        StyleMainToolbarButtons();
+        EnsureEditorReadableColors();
+        ApplyEditorWrapperColors();
+    }
+
+    /// <summary>툴바 아이콘에 테두리가 생기지 않도록 flat 스타일을 유지합니다.</summary>
+    private void StyleMainToolbarButtons()
+    {
+        Color bar = topBarPanel.BackColor;
+        Button[] buttons =
+        [
+            addMemoIconButton,
+            saveMemoIconButton,
+            deleteMemoIconButton,
+            settingsIconButton,
+            listIconButton,
+            closeIconButton
+        ];
+
+        foreach (Button button in buttons)
+        {
+            button.FlatStyle = FlatStyle.Flat;
+            button.FlatAppearance.BorderSize = 0;
+            button.FlatAppearance.BorderColor = bar;
+            button.FlatAppearance.MouseOverBackColor = Color.Empty;
+            button.FlatAppearance.MouseDownBackColor = Color.Empty;
+            button.UseVisualStyleBackColor = true;
+            button.TabStop = false;
+        }
     }
 
     private void AddMemo()
@@ -214,64 +850,38 @@ public partial class MemoPadForm : Form
         string text = memoEditor.Text.Trim();
         if (string.IsNullOrWhiteSpace(text))
         {
-            MessageBox.Show(Loc.T("memo.empty"), Loc.T("common.info"), MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show(this, Loc.T("memo.empty"), Loc.T("common.info"), MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
 
-        _memoItems.Add(memoEditor.Rtf ?? string.Empty);
+        LoadMemos();
+        string rtf = memoEditor.Rtf ?? string.Empty;
+        bool updated = MemoEditing.Save(_memoItems, ref _sourceMemoIndex, ref _sourceMemo, rtf);
         SaveMemos();
-        memoEditor.Clear();
-        MessageBox.Show(Loc.T("memo.added"), Loc.T("common.done"), MessageBoxButtons.OK, MessageBoxIcon.Information);
+        AppIpc.NotifyMemosChanged();
+
+        MessageBox.Show(
+            this,
+            Loc.T(updated ? "memo.updated" : "memo.added"),
+            Loc.T("common.done"),
+            MessageBoxButtons.OK,
+            MessageBoxIcon.Information);
     }
 
     private void LoadMemos()
     {
-        try
-        {
-            if (!File.Exists(_memoFilePath))
-            {
-                return;
-            }
-
-            string json = File.ReadAllText(_memoFilePath);
-            List<string>? loaded = JsonSerializer.Deserialize<List<string>>(json);
-            if (loaded is null)
-            {
-                return;
-            }
-
-            _memoItems.Clear();
-            _memoItems.AddRange(loaded.Where(m => !string.IsNullOrWhiteSpace(m)));
-        }
-        catch (Exception)
-        {
-            MessageBox.Show(Loc.T("list.loadFailed"), Loc.T("common.error"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
-        }
+        _memoItems.Clear();
+        _memoItems.AddRange(MemoStore.Load());
     }
 
     private void SaveMemos()
     {
-        try
-        {
-            string? dirPath = Path.GetDirectoryName(_memoFilePath);
-            if (!string.IsNullOrWhiteSpace(dirPath))
-            {
-                Directory.CreateDirectory(dirPath);
-            }
-
-            string json = JsonSerializer.Serialize(_memoItems, new JsonSerializerOptions { WriteIndented = true });
-            File.WriteAllText(_memoFilePath, json);
-        }
-        catch (Exception)
-        {
-            MessageBox.Show(Loc.T("memo.saveFailed"), Loc.T("common.error"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
-        }
+        MemoStore.Save(_memoItems);
     }
 
     private void addMemoIconButton_Click(object sender, EventArgs e)
     {
-        MemoPadForm newMemoPad = CreateOffsetMemoPad();
-        newMemoPad.Show();
+        OpenBlankNewMemo();
     }
 
     private void saveMemoIconButton_Click(object sender, EventArgs e)
@@ -279,12 +889,107 @@ public partial class MemoPadForm : Form
         AddMemo();
     }
 
+    private void deleteMemoIconButton_Click(object sender, EventArgs e)
+    {
+        DeleteCurrentMemo();
+    }
+
+    /// <summary>
+    /// 목록에서 연 메모(_sourceMemo) 또는 현재 편집 내용과 일치하는 저장된 메모를 삭제합니다.
+    /// </summary>
+    private void DeleteCurrentMemo()
+    {
+        LoadMemos();
+
+        int idx = -1;
+        if (_sourceMemo != null)
+        {
+            idx = _memoItems.FindIndex(m => string.Equals(m, _sourceMemo, StringComparison.Ordinal));
+        }
+
+        if (idx < 0 && !string.IsNullOrWhiteSpace(memoEditor.Text))
+        {
+            string current = memoEditor.Rtf ?? string.Empty;
+            idx = _memoItems.FindIndex(m => string.Equals(m, current, StringComparison.Ordinal));
+        }
+
+        if (idx < 0)
+        {
+            MessageBox.Show(this, Loc.T("memo.nothingToDelete"), Loc.T("common.info"), MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        DialogResult confirm = MessageBox.Show(
+            this,
+            Loc.T("memo.confirmDelete"),
+            Loc.T("memo.confirmDelete.title"),
+            MessageBoxButtons.YesNo,
+            MessageBoxIcon.Warning,
+            MessageBoxDefaultButton.Button2);
+        if (confirm != DialogResult.Yes)
+        {
+            return;
+        }
+
+        string deleted = _memoItems[idx];
+        _memoItems.RemoveAt(idx);
+        SaveMemos();
+        AppIpc.NotifyMemosChanged();
+
+        // 같은 메모를 보고 있는 다른 창도 정리합니다.
+        foreach (MemoPadForm open in OpenMemoWindows.ToList())
+        {
+            if (open.IsDisposed || ReferenceEquals(open, this))
+            {
+                continue;
+            }
+
+            bool sameIndex = open._sourceMemoIndex == idx;
+            bool sameContent = string.Equals(open._sourceMemo, deleted, StringComparison.Ordinal);
+            if (!sameIndex && !sameContent)
+            {
+                continue;
+            }
+
+            open.Close();
+        }
+
+        _sourceMemo = null;
+        _sourceMemoIndex = -1;
+        if (OpenMemoWindows.Contains(this))
+        {
+            Close();
+            return;
+        }
+
+        memoEditor.Clear();
+        MessageBox.Show(this, Loc.T("memo.deleted"), Loc.T("common.done"), MessageBoxButtons.OK, MessageBoxIcon.Information);
+    }
+
     private void settingsIconButton_Click(object sender, EventArgs e)
     {
         using EditorSettingsForm dlg = new(memoEditor, this);
-        dlg.ShowDialog(this);
-        // 설정에서 언어가 바뀌었을 수 있으므로 메인 창 텍스트를 갱신합니다.
-        ApplyMainLanguage();
+        // 색을 고를 때마다 열린 모든 메모 창과 목록 프로세스에 실시간 반영합니다.
+        dlg.PreviewColorChanged += color =>
+        {
+            PreviewBackColorToAllPads(color);
+            AppIpc.NotifyListPreviewColor(color);
+        };
+
+        DialogResult result = dlg.ShowDialog(this);
+        if (result == DialogResult.OK)
+        {
+            ApplyThemeToAllOpenPads();
+            AppIpc.NotifyListSettingsChanged();
+        }
+        else
+        {
+            // 미리보기 취소: 이 창의 RTF는 dlg 종료 처리로 복구되고,
+            // 색 미리보기를 받은 다른 창·목록은 저장된 설정으로 되돌립니다.
+            ApplyThemeToAllOpenPads();
+            ApplyMainLanguage();
+            AppIpc.NotifyListSettingsChanged();
+        }
     }
 
     private void memoEditor_KeyDown(object? sender, KeyEventArgs e)
@@ -322,50 +1027,6 @@ public partial class MemoPadForm : Form
         }
     }
 
-    private static string MemoPlainTextForDisplay(string stored)
-    {
-        if (string.IsNullOrEmpty(stored))
-        {
-            return stored;
-        }
-
-        ReadOnlySpan<char> span = stored.AsSpan().TrimStart();
-        if (!span.StartsWith("{\\rtf", StringComparison.OrdinalIgnoreCase))
-        {
-            return stored;
-        }
-
-        using RichTextBox rtb = new();
-        try
-        {
-            rtb.Rtf = stored;
-            return rtb.Text;
-        }
-        catch (ArgumentException)
-        {
-            return stored;
-        }
-    }
-
-    private static void ApplyMemoContentToEditor(RichTextBox editor, string stored)
-    {
-        ReadOnlySpan<char> span = stored.AsSpan().TrimStart();
-        if (span.StartsWith("{\\rtf", StringComparison.OrdinalIgnoreCase))
-        {
-            try
-            {
-                editor.Rtf = stored;
-                return;
-            }
-            catch (ArgumentException)
-            {
-                // Fall through to plain text.
-            }
-        }
-
-        editor.Text = stored;
-    }
-
     private MemoPadForm CreateOffsetMemoPad()
     {
         MemoPadForm newMemoPad = new();
@@ -382,222 +1043,149 @@ public partial class MemoPadForm : Form
         return newMemoPad;
     }
 
-    private void OpenMemoInNewPadWindow(string stored)
+    /// <summary>핸들 생성 후에도 전체 내용·첫 줄이 보이도록 저장된 메모를 에디터에 넣습니다.</summary>
+    private static void ApplyStoredContent(MemoPadForm pad, string stored)
     {
-        // 이미 같은 메모를 보여주는 창이 열려 있으면 새로 열지 않고 그 창을 앞으로 가져옵니다.
+        void Apply()
+        {
+            if (pad.IsDisposed || pad.memoEditor.IsDisposed)
+            {
+                return;
+            }
+
+            pad._keepEditorScrolledToTop = true;
+            MemoStore.ApplyContentToEditor(pad.memoEditor, stored);
+            string text = pad.memoEditor.Text;
+            if (string.IsNullOrWhiteSpace(text) && !string.IsNullOrWhiteSpace(stored))
+            {
+                string plain = MemoStore.PlainTextForDisplay(stored);
+                pad.memoEditor.Text = string.IsNullOrWhiteSpace(plain) ? stored : plain;
+            }
+
+            pad.EnsureEditorReadableColors();
+            RichTextScrollInterop.ScrollToTop(pad.memoEditor);
+            pad.memoEditor.Invalidate();
+            pad.memoEditor.Update();
+            pad.ScheduleEditorScrollSync();
+        }
+
+        if (!pad.IsHandleCreated)
+        {
+            pad.Show();
+        }
+
+        Apply();
+        if (!pad.IsDisposed && pad.IsHandleCreated)
+        {
+            pad.BeginInvoke(new Action(() =>
+            {
+                Apply();
+                // 레이아웃(테마 스크롤 표시) 후에도 첫 줄 유지, 이후 사용자 스크롤 허용
+                System.Windows.Forms.Timer release = new() { Interval = 250 };
+                release.Tick += (_, _) =>
+                {
+                    release.Stop();
+                    release.Dispose();
+                    if (!pad.IsDisposed)
+                    {
+                        pad._keepEditorScrolledToTop = false;
+                    }
+                };
+                release.Start();
+            }));
+        }
+    }
+
+    private void OpenMemoInNewPadWindow(int index, string stored)
+    {
         foreach (MemoPadForm existing in OpenMemoWindows)
         {
-            if (existing.IsDisposed || !string.Equals(existing._sourceMemo, stored, StringComparison.Ordinal))
+            if (existing.IsDisposed || existing._sourceMemoIndex != index || index < 0)
             {
                 continue;
             }
 
-            if (existing.WindowState == FormWindowState.Minimized)
-            {
-                existing.WindowState = FormWindowState.Normal;
-            }
+            existing.BindSourceMemo(index, stored);
+            ApplyStoredContent(existing, stored);
+            ActivateMemoWindow(existing);
+            return;
+        }
 
-            existing.Activate();
-            existing.BringToFront();
-            existing.memoEditor.Focus();
+        AppIpc.SuppressActivateHandling(1000);
+        AppIpc.RememberPreferredPadIndex(index);
+
+        // OpenMemoByIndex를 받은 창이 비어 있으면 그 창에 표시 (정적 _trayOwner 꼬임 방지)
+        if (_sourceMemoIndex < 0 && string.IsNullOrWhiteSpace(memoEditor.Text))
+        {
+            BindSourceMemo(index, stored);
+            ApplyStoredContent(this, stored);
+            ActivateMemoWindow(this);
+            return;
+        }
+
+        if (_trayOwner is { IsDisposed: false } primary
+            && !ReferenceEquals(primary, this)
+            && primary._sourceMemoIndex < 0
+            && string.IsNullOrWhiteSpace(primary.memoEditor.Text))
+        {
+            primary.BindSourceMemo(index, stored);
+            ApplyStoredContent(primary, stored);
+            ActivateMemoWindow(primary);
             return;
         }
 
         MemoPadForm newMemoPad = CreateFrontOffsetMemoPad();
-        ApplyMemoContentToEditor(newMemoPad.memoEditor, stored);
-        newMemoPad._sourceMemo = stored;
+        newMemoPad.BindSourceMemo(index, stored);
         OpenMemoWindows.Add(newMemoPad);
         newMemoPad.FormClosed += (_, _) => OpenMemoWindows.Remove(newMemoPad);
         newMemoPad.Show();
-        newMemoPad.BringToFront();
+        ApplyStoredContent(newMemoPad, stored);
+        ActivateMemoWindow(newMemoPad);
+    }
+
+    /// <summary>빈 새 메모 창을 만들고 맨 위에 표시합니다.</summary>
+    public static void OpenBlankNewMemo()
+    {
+        MemoPadForm? owner = _trayOwner;
+        if (owner is null || owner.IsDisposed)
+        {
+            return;
+        }
+
+        AppIpc.SuppressActivateHandling(1000);
+
+        // 보이는 기본 창이 비어 있을 때만 재사용. 숨겨진 트레이 창 재사용은
+        // 목록 뒤에 가려지거나 포커스가 어긋나 입력이 안 되는 경우가 있어 새 창을 엽니다.
+        if (owner.Visible
+            && owner._sourceMemoIndex < 0
+            && owner._sourceMemo is null
+            && string.IsNullOrWhiteSpace(owner.memoEditor.Text))
+        {
+            owner.memoEditor.Clear();
+            ActivateMemoWindow(owner);
+            owner.memoEditor.Focus();
+            return;
+        }
+
+        MemoPadForm newMemoPad = owner.CreateOffsetMemoPad();
+        newMemoPad._sourceMemo = null;
+        newMemoPad._sourceMemoIndex = -1;
+        newMemoPad.memoEditor.Clear();
+        OpenMemoWindows.Add(newMemoPad);
+        newMemoPad.FormClosed += (_, _) => OpenMemoWindows.Remove(newMemoPad);
+        newMemoPad.Show();
+        ActivateMemoWindow(newMemoPad);
         newMemoPad.memoEditor.Focus();
-        newMemoPad.memoEditor.SelectionStart = newMemoPad.memoEditor.TextLength;
     }
 
     private void listIconButton_Click(object sender, EventArgs e)
     {
-        LoadMemos();
-        string? memoToOpen = null;
-
-        using Form listForm = new()
-        {
-            Text = Loc.T("list.title"),
-            StartPosition = FormStartPosition.CenterParent,
-            ClientSize = new Size(520, 420),
-            MinimizeBox = false,
-            MaximizeBox = false,
-            ShowInTaskbar = false,
-            ShowIcon = false,
-            FormBorderStyle = FormBorderStyle.FixedDialog
-        };
-
-        ListView listView = new()
-        {
-            Dock = DockStyle.Fill,
-            Font = new Font("맑은 고딕", 10f, FontStyle.Regular),
-            View = View.Details,
-            FullRowSelect = true,
-            MultiSelect = false,
-            HideSelection = false
-        };
-        listView.Columns.Add(Loc.T("list.col.no"), 60, HorizontalAlignment.Left);
-        listView.Columns.Add(Loc.T("list.col.preview"), 420, HorizontalAlignment.Left);
-
-        // 마지막(미리보기) 컬럼이 남는 너비를 모두 채우도록 해, 오른쪽에 빈 컬럼처럼 보이는 공간을 없앱니다.
-        void FitPreviewColumn()
-        {
-            int remaining = listView.ClientSize.Width - listView.Columns[0].Width;
-            if (remaining > 60)
-            {
-                listView.Columns[1].Width = remaining;
-            }
-        }
-        listView.Resize += (_, _) => FitPreviewColumn();
-
-        Button loadButton = new()
-        {
-            Text = Loc.T("list.load"),
-            Size = new Size(112, 34),
-            Margin = new Padding(6, 0, 0, 0),
-            Image = new Bitmap(EditorSettingsForm.MakeGlyphIcon("▶", Color.ForestGreen, Color.Transparent, 20), new Size(16, 16)),
-            ImageAlign = ContentAlignment.MiddleRight,
-            TextAlign = ContentAlignment.MiddleLeft,
-            TextImageRelation = TextImageRelation.ImageBeforeText
-        };
-
-        Button deleteButton = new()
-        {
-            Text = Loc.T("list.delete"),
-            Size = new Size(112, 34),
-            Margin = new Padding(6, 0, 0, 0),
-            Image = new Bitmap(EditorSettingsForm.MakeGlyphIcon("✕", Color.Firebrick, Color.Transparent, 20), new Size(16, 16)),
-            ImageAlign = ContentAlignment.MiddleRight,
-            TextAlign = ContentAlignment.MiddleLeft,
-            TextImageRelation = TextImageRelation.ImageBeforeText
-        };
-
-        // 오른쪽 정렬로 [삭제] [불러오기] 순서로 배치합니다.
-        FlowLayoutPanel buttonPanel = new()
-        {
-            Dock = DockStyle.Bottom,
-            Height = 52,
-            FlowDirection = FlowDirection.RightToLeft,
-            Padding = new Padding(10)
-        };
-        buttonPanel.Controls.Add(loadButton);
-        buttonPanel.Controls.Add(deleteButton);
-
-        void RefreshMemoListDisplay()
-        {
-            listView.Items.Clear();
-            if (_memoItems.Count == 0)
-            {
-                listView.Items.Add(new ListViewItem(new[] { "", Loc.T("list.empty") }));
-                listView.Enabled = false;
-                deleteButton.Enabled = false;
-                loadButton.Enabled = false;
-                return;
-            }
-
-            listView.Enabled = true;
-            deleteButton.Enabled = true;
-            loadButton.Enabled = true;
-            for (int i = 0; i < _memoItems.Count; i++)
-            {
-                string preview = MemoPlainTextForDisplay(_memoItems[i]).ReplaceLineEndings(" ");
-                if (preview.Length > 200)
-                {
-                    preview = preview[..200] + "…";
-                }
-
-                var item = new ListViewItem((i + 1).ToString());
-                item.SubItems.Add(preview);
-                listView.Items.Add(item);
-            }
-        }
-
-        RefreshMemoListDisplay();
-
-        void LoadSelectedMemo()
-        {
-            if (listView.SelectedIndices.Count == 0)
-            {
-                return;
-            }
-
-            int idx = listView.SelectedIndices[0];
-            if (idx < 0 || idx >= _memoItems.Count)
-            {
-                return;
-            }
-
-            memoToOpen = _memoItems[idx];
-            listForm.DialogResult = DialogResult.OK;
-            listForm.Close();
-        }
-
-        void DeleteSelectedMemo()
-        {
-            if (_memoItems.Count == 0)
-            {
-                return;
-            }
-
-            if (listView.SelectedIndices.Count == 0)
-            {
-                MessageBox.Show(Loc.T("list.selectToDelete"), Loc.T("common.info"), MessageBoxButtons.OK, MessageBoxIcon.Information);
-                return;
-            }
-
-            if (MessageBox.Show(
-                    Loc.T("list.confirmDelete"),
-                    Loc.T("list.confirmDelete.title"),
-                    MessageBoxButtons.YesNo,
-                    MessageBoxIcon.Question,
-                    MessageBoxDefaultButton.Button2) != DialogResult.Yes)
-            {
-                return;
-            }
-
-            int idxToDelete = listView.SelectedIndices[0];
-            if (idxToDelete < 0 || idxToDelete >= _memoItems.Count)
-            {
-                return;
-            }
-
-            _memoItems.RemoveAt(idxToDelete);
-            SaveMemos();
-            RefreshMemoListDisplay();
-        }
-
-        loadButton.Click += (_, _) => LoadSelectedMemo();
-        deleteButton.Click += (_, _) => DeleteSelectedMemo();
-        listView.DoubleClick += (_, _) => LoadSelectedMemo();
-        listView.KeyDown += (_, e) =>
-        {
-            if (e.KeyCode == Keys.Delete)
-            {
-                DeleteSelectedMemo();
-                e.Handled = true;
-            }
-        };
-
-        // Fill(listView)을 먼저 추가하고 Bottom(buttonPanel)을 나중에 추가해야
-        // 버튼 줄이 하단에 고정되고 목록이 그 위 공간을 채웁니다.
-        listForm.Controls.Add(listView);
-        listForm.Controls.Add(buttonPanel);
-        buttonPanel.BringToFront();
-        listForm.AcceptButton = loadButton;
-        listForm.ShowDialog(this);
-
-        if (!string.IsNullOrEmpty(memoToOpen))
-        {
-            OpenMemoInNewPadWindow(memoToOpen);
-        }
+        AppIpc.LaunchOrShowList();
     }
 
     private void closeIconButton_Click(object sender, EventArgs e)
     {
+        AppIpc.SuppressActivateHandling(800);
         Close();
     }
 
@@ -686,6 +1274,10 @@ public partial class MemoPadForm : Form
                 m.Result = (IntPtr)HtBottom;
                 return;
             }
+
+            // 중앙은 자식 컨트롤(에디터)이 클릭/입력을 받도록 클라이언트 영역으로 둡니다.
+            m.Result = (IntPtr)HtClient;
+            return;
         }
 
         base.WndProc(ref m);

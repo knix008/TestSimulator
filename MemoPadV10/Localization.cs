@@ -49,6 +49,11 @@ internal static class Loc
         ["common.done"] = ("완료", "Done"),
         ["memo.empty"] = ("메모 내용을 입력해 주세요.", "Please enter memo content."),
         ["memo.added"] = ("메모가 추가되었습니다.", "Memo added."),
+        ["memo.updated"] = ("메모가 수정되었습니다.", "Memo updated."),
+        ["memo.deleted"] = ("메모가 삭제되었습니다.", "Memo deleted."),
+        ["memo.confirmDelete"] = ("이 메모를 삭제하시겠습니까?\n삭제하면 복구할 수 없습니다.", "Delete this memo?\nThis cannot be undone."),
+        ["memo.confirmDelete.title"] = ("메모 삭제 확인", "Confirm Delete"),
+        ["memo.nothingToDelete"] = ("삭제할 저장된 메모가 없습니다. 목록(☰)에서 메모를 선택해 열거나 삭제해 주세요.", "No saved memo to delete. Open or delete a memo from the list (☰)."),
         ["memo.saveFailed"] = ("메모 저장에 실패했습니다.", "Failed to save the memo."),
 
         // 선택 안내
@@ -59,21 +64,30 @@ internal static class Loc
         ["list.col.no"] = ("번호", "No."),
         ["list.col.preview"] = ("미리보기", "Preview"),
         ["list.load"] = ("불러오기", "Open"),
+        ["list.load.tip"] = ("텍스트 파일 불러오기", "Open a text file"),
+        ["list.new"] = ("새 메모", "New"),
+        ["list.new.tip"] = ("빈 메모 창 열기", "Open a blank memo"),
+        ["list.openFile.filter"] = ("텍스트 파일 (*.txt;*.rtf)|*.txt;*.rtf|모든 파일 (*.*)|*.*", "Text files (*.txt;*.rtf)|*.txt;*.rtf|All files (*.*)|*.*"),
+        ["list.openFile.missing"] = ("선택한 파일을 찾을 수 없습니다.", "The selected file could not be found."),
+        ["list.openFile.failed"] = ("파일을 불러오지 못했습니다.", "Failed to open the file."),
         ["list.delete"] = ("삭제", "Delete"),
+        ["list.settings"] = ("설정", "Settings"),
         ["list.empty"] = ("저장된 메모가 없습니다.", "No saved memos."),
         ["list.selectToDelete"] = ("삭제할 메모를 목록에서 선택해 주세요.", "Select a memo from the list to delete."),
+        ["list.selectToLoad"] = ("불러올 메모 카드를 선택해 주세요.", "Select a memo card to open."),
         ["list.confirmDelete"] = ("선택한 메모를 삭제하시겠습니까?", "Delete the selected memo?"),
         ["list.confirmDelete.title"] = ("메모 삭제", "Delete Memo"),
         ["list.loadFailed"] = ("메모 목록 파일을 불러오지 못했습니다.", "Failed to load the memo list file."),
 
         // 시스템 트레이
         ["tray.tooltip"] = ("메모 패드", "Memo Pad"),
-        ["tray.show"] = ("열기", "Open"),
+        ["tray.show"] = ("메모 목록 열기", "Open memo list"),
         ["tray.exit"] = ("종료", "Exit"),
 
         // 메인 창 툴바 툴팁
         ["main.add"] = ("새 메모", "New memo"),
         ["main.save"] = ("저장", "Save"),
+        ["main.delete"] = ("삭제", "Delete"),
         ["main.settings"] = ("설정", "Settings"),
         ["main.listBtn"] = ("메모 목록", "Memo list"),
         ["main.close"] = ("닫기", "Close"),

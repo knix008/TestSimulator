@@ -7,6 +7,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MemoPadV10", "MemoPadV10.cs
 EndProject
 Project("{B7DD6F7E-DEF8-4E67-B5B7-07EF123DB6F0}") = "MemoPadV10.Installer", "installer\MemoPadV10.Installer.wixproj", "{C2D4E8F0-1A3B-4C5D-9E6F-708192A3B4C5}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MemoPadV10.Tests", "MemoPadV10.Tests\MemoPadV10.Tests.csproj", "{8B31FD46-9B8C-4E1A-BA0D-62E1DB7F7C65}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -36,6 +38,18 @@ Global
 		{C2D4E8F0-1A3B-4C5D-9E6F-708192A3B4C5}.Release|Any CPU.ActiveCfg = Release|x64
 		{C2D4E8F0-1A3B-4C5D-9E6F-708192A3B4C5}.Release|x64.ActiveCfg = Release|x64
 		{C2D4E8F0-1A3B-4C5D-9E6F-708192A3B4C5}.Release|x86.ActiveCfg = Release|x64
+		{8B31FD46-9B8C-4E1A-BA0D-62E1DB7F7C65}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8B31FD46-9B8C-4E1A-BA0D-62E1DB7F7C65}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8B31FD46-9B8C-4E1A-BA0D-62E1DB7F7C65}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{8B31FD46-9B8C-4E1A-BA0D-62E1DB7F7C65}.Debug|x64.Build.0 = Debug|Any CPU
+		{8B31FD46-9B8C-4E1A-BA0D-62E1DB7F7C65}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{8B31FD46-9B8C-4E1A-BA0D-62E1DB7F7C65}.Debug|x86.Build.0 = Debug|Any CPU
+		{8B31FD46-9B8C-4E1A-BA0D-62E1DB7F7C65}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8B31FD46-9B8C-4E1A-BA0D-62E1DB7F7C65}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8B31FD46-9B8C-4E1A-BA0D-62E1DB7F7C65}.Release|x64.ActiveCfg = Release|Any CPU
+		{8B31FD46-9B8C-4E1A-BA0D-62E1DB7F7C65}.Release|x64.Build.0 = Release|Any CPU
+		{8B31FD46-9B8C-4E1A-BA0D-62E1DB7F7C65}.Release|x86.ActiveCfg = Release|Any CPU
+		{8B31FD46-9B8C-4E1A-BA0D-62E1DB7F7C65}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
