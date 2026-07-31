@@ -157,11 +157,13 @@
     updateMax();
   }
 
-  // language & theme quick-toggle buttons
+  // language & theme quick-toggle buttons — show the TARGET to switch to
   function updateToggleButtons() {
-    const l = $('#langLabel'); if (l) l.textContent = state.language === 'ko' ? '한국어' : 'English';
-    const t = $('#themeLabel'); if (t) t.textContent = T(state.theme === 'dark' ? 'theme_dark' : 'theme_light');
-    const i = $('#themeIco'); if (i) i.textContent = state.theme === 'dark' ? '🌙' : '☀️';
+    // in Korean → offer English; in English → offer 한국어
+    const l = $('#langLabel'); if (l) l.textContent = state.language === 'ko' ? 'English' : '한국어';
+    // in Dark → offer Light; in Light → offer Dark
+    const t = $('#themeLabel'); if (t) t.textContent = T(state.theme === 'dark' ? 'theme_light' : 'theme_dark');
+    const i = $('#themeIco'); if (i) i.textContent = state.theme === 'dark' ? '☀️' : '🌙';
   }
   $('#btnLang').addEventListener('click', async () => {
     const next = state.language === 'ko' ? 'en' : 'ko';
@@ -359,6 +361,59 @@
   }
   function fromLocalInput(v) { return new Date(v).toISOString(); }
 
+  // ---- custom date-time controls (date + hour/min: dropdown + typing + ‹ › steppers) ----
+  function clampInt(v, min, max) { v = parseInt(v, 10); if (isNaN(v)) return min; return Math.max(min, Math.min(max, v)); }
+  function setDT(prefix, iso) {
+    const d = new Date(iso);
+    $('#ev' + prefix + 'Date').value = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    $('#ev' + prefix + 'Hour').value = pad(d.getHours());
+    $('#ev' + prefix + 'Min').value = pad(d.getMinutes());
+  }
+  function readDT(prefix) {
+    const date = $('#ev' + prefix + 'Date').value;
+    if (!date) return null;
+    return { date, h: pad(clampInt($('#ev' + prefix + 'Hour').value, 0, 23)), m: pad(clampInt($('#ev' + prefix + 'Min').value, 0, 59)) };
+  }
+  (function setupDateTimeControls() {
+    const hrs = $('#dlHours'), mins = $('#dlMins');
+    if (hrs) hrs.innerHTML = Array.from({ length: 24 }, (_, i) => `<option value="${pad(i)}">`).join('');
+    if (mins) mins.innerHTML = Array.from({ length: 12 }, (_, i) => `<option value="${pad(i * 5)}">`).join('');
+    document.querySelectorAll('.dt-btn').forEach(btn => btn.addEventListener('click', () => {
+      const inp = document.getElementById(btn.dataset.inp);
+      const max = btn.dataset.part === 'h' ? 23 : 59;
+      let v = clampInt(inp.value, 0, max);
+      v = (v + parseInt(btn.dataset.dir, 10) + (max + 1)) % (max + 1);
+      inp.value = pad(v);
+    }));
+    [['evStartHour', 23], ['evEndHour', 23], ['evStartMin', 59], ['evEndMin', 59]].forEach(([id, max]) => {
+      const el = $('#' + id);
+      if (el) el.addEventListener('blur', () => { el.value = pad(clampInt(el.value, 0, max)); });
+    });
+  })();
+
+  // 20 pastel presets + a "default (calendar color)" option + custom picker
+  const EVENT_PALETTE = [
+    '#FFADAD', '#FFC09F', '#FFD6A5', '#FDFFB6', '#E4F1AB', '#CAFFBF', '#B9FBC0', '#98F5E1',
+    '#8EECF5', '#9BF6FF', '#A0C4FF', '#A3C4F3', '#BDB2FF', '#CFBAF0', '#E0AAFF', '#FFC6FF',
+    '#F1C0E8', '#FBB1BD', '#FDE4CF', '#FBF8CC',
+  ];
+  let selectedEventColor = null; // null = inherit calendar color
+
+  function renderEventColorSwatches() {
+    const box = $('#evColorSwatches');
+    let html = `<span class="ev-swatch default ${selectedEventColor === null ? 'selected' : ''}" data-col="" title="${T('color_default')}"></span>`;
+    html += EVENT_PALETTE.map(c =>
+      `<span class="ev-swatch ${selectedEventColor && selectedEventColor.toUpperCase() === c ? 'selected' : ''}" data-col="${c}" style="background:${c}"></span>`).join('');
+    const isCustom = selectedEventColor && !EVENT_PALETTE.includes(selectedEventColor.toUpperCase());
+    html += `<label class="ev-swatch custom ${isCustom ? 'selected' : ''}" title="${T('color_custom')}"
+      style="${isCustom ? `background:${selectedEventColor}` : ''}">${isCustom ? '' : '+'}
+      <input type="color" id="evCustomColor" value="${selectedEventColor || '#6366f1'}" /></label>`;
+    box.innerHTML = html;
+    box.querySelectorAll('.ev-swatch[data-col]').forEach(s =>
+      s.addEventListener('click', () => { selectedEventColor = s.dataset.col || null; renderEventColorSwatches(); }));
+    $('#evCustomColor').addEventListener('input', (e) => { selectedEventColor = e.target.value; renderEventColorSwatches(); });
+  }
+
   function openEventEditor(ev, presetDate) {
     state.editingId = ev ? ev.id : null;
     $('#eventModalTitle').textContent = ev ? T('title_edit') : T('title_new');
@@ -372,6 +427,7 @@
       $('#evDescription').value = ev.description || '';
       $('#evCalendar').value = ev.calendarId || '';
       $('#evReminder').value = ev.reminderMinutes != null ? String(ev.reminderMinutes) : '';
+      selectedEventColor = ev.color || null;
     } else {
       const base = presetDate || new Date();
       const s = new Date(base);
@@ -380,12 +436,14 @@
       start = s.toISOString(); end = e.toISOString(); allDay = false;
       $('#evTitle').value = ''; $('#evLocation').value = ''; $('#evDescription').value = '';
       $('#evReminder').value = '';
+      selectedEventColor = null;
       const def = state.calendars.find(c => c.is_default) || state.calendars[0];
       if (def) $('#evCalendar').value = def.id;
     }
     $('#evAllDay').checked = !!allDay;
-    $('#evStart').value = toLocalInput(start);
-    $('#evEnd').value = toLocalInput(end);
+    setDT('Start', start);
+    setDT('End', end);
+    renderEventColorSwatches();
     toggleAllDayInputs();
     showModal('#eventModal');
     setTimeout(() => $('#evTitle').focus(), 50);
@@ -393,8 +451,8 @@
 
   function toggleAllDayInputs() {
     const allDay = $('#evAllDay').checked;
-    $('#evStart').type = allDay ? 'date' : 'datetime-local';
-    $('#evEnd').type = allDay ? 'date' : 'datetime-local';
+    $('#evStartTime').style.display = allDay ? 'none' : 'inline-flex';
+    $('#evEndTime').style.display = allDay ? 'none' : 'inline-flex';
   }
   $('#evAllDay').addEventListener('change', toggleAllDayInputs);
 
@@ -403,17 +461,17 @@
     const title = $('#evTitle').value.trim();
     if (!title) return toast(T('t_needTitle'), true);
 
-    let startVal = $('#evStart').value, endVal = $('#evEnd').value;
+    const s = readDT('Start'), e = readDT('End');
+    if (!s || !e) return toast(T('t_endAfterStart'), true);
     let start, end;
     if (allDay) {
-      start = new Date(startVal + 'T00:00:00').toISOString();
+      start = new Date(s.date + 'T00:00:00').toISOString();
       // Google all-day end is exclusive → next day
-      const endBase = endVal || startVal;
-      const ed = new Date(endBase + 'T00:00:00'); ed.setDate(ed.getDate() + 1);
+      const ed = new Date((e.date || s.date) + 'T00:00:00'); ed.setDate(ed.getDate() + 1);
       end = ed.toISOString();
     } else {
-      start = fromLocalInput(startVal);
-      end = fromLocalInput(endVal);
+      start = new Date(`${s.date}T${s.h}:${s.m}:00`).toISOString();
+      end = new Date(`${e.date}T${e.h}:${e.m}:00`).toISOString();
       if (new Date(end) <= new Date(start)) return toast(T('t_endAfterStart'), true);
     }
 
@@ -423,6 +481,7 @@
       location: $('#evLocation').value.trim() || null,
       description: $('#evDescription').value.trim() || null,
       start, end, allDay,
+      color: selectedEventColor,
       reminderMinutes: $('#evReminder').value === '' ? null : parseInt($('#evReminder').value, 10),
     };
     try {

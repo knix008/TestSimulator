@@ -1,11 +1,44 @@
-const { app, BrowserWindow, shell, ipcMain, dialog, Menu } = require('electron');
+const { app, BrowserWindow, shell, ipcMain, dialog, Menu, Tray } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
 let mainWindow;
+let tray = null;
+let isQuitting = false;
 
 // Remove default menu bar
 Menu.setApplicationMenu(null);
+
+function trayIconPath() {
+  return path.join(__dirname, 'assets', process.platform === 'win32' ? 'icon.ico' : 'icons/32x32.png');
+}
+
+function showWindow() {
+  if (!mainWindow) return;
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.show();
+  mainWindow.focus();
+}
+
+function createTray() {
+  if (tray) return;
+  try {
+    tray = new Tray(trayIconPath());
+  } catch (err) {
+    console.warn('트레이 생성 실패:', err.message);
+    return;
+  }
+  tray.setToolTip('MyCalendar');
+  const menu = Menu.buildFromTemplate([
+    { label: '열기 (Show)', click: showWindow },
+    { type: 'separator' },
+    { label: '종료 (Quit)', click: () => { isQuitting = true; app.quit(); } },
+  ]);
+  tray.setContextMenu(menu);
+  // single click (or double-click on Windows) restores the window
+  tray.on('click', showWindow);
+  tray.on('double-click', showWindow);
+}
 
 async function createWindow(port) {
   mainWindow = new BrowserWindow({
@@ -29,6 +62,16 @@ async function createWindow(port) {
 
   mainWindow.once('ready-to-show', () => mainWindow.show());
   mainWindow.on('closed', () => { mainWindow = null; });
+
+  // Closing the window hides it to the system tray instead of quitting.
+  mainWindow.on('close', (event) => {
+    if (!isQuitting) {
+      event.preventDefault();
+      mainWindow.hide();
+    }
+  });
+
+  createTray();
 
   // Keyboard shortcuts forwarded to renderer
   mainWindow.webContents.on('before-input-event', (event, input) => {
@@ -116,12 +159,18 @@ if (!gotLock) {
   });
 }
 
+// Any explicit quit (tray menu, Cmd+Q, etc.) should tear down for real.
+app.on('before-quit', () => { isQuitting = true; });
+
+// With a tray icon the app keeps running when the window is closed/hidden,
+// so don't auto-quit on window-all-closed (the tray "Quit" is the exit path).
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit();
+  // intentionally no-op: use the tray "종료 (Quit)" menu to exit
 });
 
 app.on('activate', () => {
-  if (!mainWindow) {
+  if (mainWindow) showWindow();
+  else {
     const { startServer } = require('./server');
     startServer().then(port => createWindow(port));
   }

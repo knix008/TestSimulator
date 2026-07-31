@@ -106,9 +106,39 @@
           <label class="check"><input type="checkbox" id="evAllDay" /> <span data-i18n="f_allday">하루 종일</span></label>
         </div>
         <div class="row two">
-          <div><label data-i18n="f_start">시작</label><input type="datetime-local" id="evStart" class="input" /></div>
-          <div><label data-i18n="f_end">종료</label><input type="datetime-local" id="evEnd" class="input" /></div>
+          <div>
+            <label data-i18n="f_start">시작</label>
+            <div class="dt-field">
+              <input type="date" class="input dt-date" id="evStartDate" />
+              <div class="dt-time" id="evStartTime">
+                <button type="button" class="dt-btn" data-inp="evStartHour" data-part="h" data-dir="-1" tabindex="-1">‹</button>
+                <input class="dt-num" id="evStartHour" list="dlHours" inputmode="numeric" maxlength="2" />
+                <button type="button" class="dt-btn" data-inp="evStartHour" data-part="h" data-dir="1" tabindex="-1">›</button>
+                <span class="dt-colon">:</span>
+                <button type="button" class="dt-btn" data-inp="evStartMin" data-part="m" data-dir="-1" tabindex="-1">‹</button>
+                <input class="dt-num" id="evStartMin" list="dlMins" inputmode="numeric" maxlength="2" />
+                <button type="button" class="dt-btn" data-inp="evStartMin" data-part="m" data-dir="1" tabindex="-1">›</button>
+              </div>
+            </div>
+          </div>
+          <div>
+            <label data-i18n="f_end">종료</label>
+            <div class="dt-field">
+              <input type="date" class="input dt-date" id="evEndDate" />
+              <div class="dt-time" id="evEndTime">
+                <button type="button" class="dt-btn" data-inp="evEndHour" data-part="h" data-dir="-1" tabindex="-1">‹</button>
+                <input class="dt-num" id="evEndHour" list="dlHours" inputmode="numeric" maxlength="2" />
+                <button type="button" class="dt-btn" data-inp="evEndHour" data-part="h" data-dir="1" tabindex="-1">›</button>
+                <span class="dt-colon">:</span>
+                <button type="button" class="dt-btn" data-inp="evEndMin" data-part="m" data-dir="-1" tabindex="-1">‹</button>
+                <input class="dt-num" id="evEndMin" list="dlMins" inputmode="numeric" maxlength="2" />
+                <button type="button" class="dt-btn" data-inp="evEndMin" data-part="m" data-dir="1" tabindex="-1">›</button>
+              </div>
+            </div>
+          </div>
         </div>
+        <datalist id="dlHours"></datalist>
+        <datalist id="dlMins"></datalist>
         <div class="row two">
           <div>
             <label data-i18n="f_calendar">캘린더</label>
@@ -129,6 +159,10 @@
         </div>
         <input type="text" id="evLocation" class="input" data-i18n-ph="f_location" placeholder="장소" />
         <textarea id="evDescription" class="input" rows="3" data-i18n-ph="f_description" placeholder="설명"></textarea>
+        <div class="row">
+          <label data-i18n="f_color">색상</label>
+          <div class="ev-color-picker" id="evColorSwatches"></div>
+        </div>
       </div>
       <div class="modal-foot">
         <button id="btnDeleteEvent" class="btn btn-danger" style="margin-right:auto" data-i18n="btn_delete">삭제</button>

@@ -73,42 +73,92 @@ const CalendarView = (() => {
     const evs = visibleEvents(state);
 
     const dowNames = DOW();
+    const BAR_H = 20, HEAD_H = 24, MAX_LANES = 4;
     let dow = '<div class="month-dow">';
     for (let i = 0; i < 7; i++) { const wd = (state.weekStart + i) % 7; dow += `<div class="${weekendClass(wd)}">${dowNames[wd]}</div>`; }
     dow += '</div>';
 
-    let body = '<div class="month-body">';
-    for (let i = 0; i < 42; i++) {
-      const day = addDays(start, i);
-      const inMonth = day.getMonth() === state.currentDate.getMonth();
-      const dayEvents = evs.filter(e => {
-        const es = startOfDay(new Date(e.start)), ee = startOfDay(new Date(e.end));
-        return day >= es && day <= (e.allDay ? addDays(ee, -1) : ee);
-      }).sort((a, b) => new Date(a.start) - new Date(b.start));
+    // inclusive last day of an event; "bar" = all-day or spans >1 day
+    const inclEnd = (e) => { const ee = startOfDay(new Date(e.end)); return e.allDay ? addDays(ee, -1) : ee; };
+    const isBar = (e) => { const es = startOfDay(new Date(e.start)); return e.allDay || inclEnd(e).getTime() !== es.getTime(); };
 
-      const cls = ['day-cell'];
-      if (!inMonth) cls.push('other');
-      if (isToday(day)) cls.push('today');
-      if (sameDay(day, state.currentDate)) cls.push('sel');
+    let weeksHtml = '';
+    for (let w = 0; w < 6; w++) {
+      const weekStart = addDays(start, w * 7);
+      const weekEnd = addDays(weekStart, 6);
+      const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
-      let chips = '';
-      dayEvents.slice(0, 3).forEach(e => {
-        const c = colorFor(e, state);
-        const label = e.allDay ? e.title : `${fmtTime(new Date(e.start))} ${e.title}`;
-        chips += `<div class="chip" style="background:${c}" data-ev="${e.id}" title="${escapeHtml(e.title)}">${escapeHtml(label)}</div>`;
+      // continuous bars overlapping this week
+      const bars = evs.filter(e => {
+        if (!isBar(e)) return false;
+        const es = startOfDay(new Date(e.start)), ee = inclEnd(e);
+        return ee >= weekStart && es <= weekEnd;
+      }).map(e => {
+        const es = startOfDay(new Date(e.start)), ee = inclEnd(e);
+        const segS = es < weekStart ? weekStart : es;
+        const segE = ee > weekEnd ? weekEnd : ee;
+        return {
+          e,
+          colStart: Math.round((segS - weekStart) / MS_DAY),
+          colEnd: Math.round((segE - weekStart) / MS_DAY),
+          contL: es < weekStart, contR: ee > weekEnd,
+        };
+      }).sort((a, b) => a.colStart - b.colStart || (b.colEnd - b.colStart) - (a.colEnd - a.colStart));
+
+      // greedy lane packing so bars don't overlap
+      const laneOcc = [];
+      bars.forEach(b => {
+        let lane = 0;
+        while (laneOcc[lane] && laneOcc[lane].some(o => !(b.colEnd < o.colStart || b.colStart > o.colEnd))) lane++;
+        (laneOcc[lane] = laneOcc[lane] || []).push(b);
+        b.lane = lane;
       });
-      if (dayEvents.length > 3) chips += `<div class="more-link" data-day="${day.toISOString()}">+${dayEvents.length - 3} ${T('more')}</div>`;
+      const laneCount = Math.min(laneOcc.length, MAX_LANES);
 
-      body += `<div class="${cls.join(' ')}" data-date="${day.toISOString()}">
-        <span class="day-num ${weekendClass(day.getDay())}">${day.getDate()}</span>${chips}</div>`;
+      // day cells (with timed single-day chips below the bar area)
+      let cells = '';
+      days.forEach(day => {
+        const inMonth = day.getMonth() === state.currentDate.getMonth();
+        const cls = ['day-cell'];
+        if (!inMonth) cls.push('other');
+        if (isToday(day)) cls.push('today');
+        if (sameDay(day, state.currentDate)) cls.push('sel');
+
+        const timed = evs.filter(e => !isBar(e) && sameDay(startOfDay(new Date(e.start)), day))
+          .sort((a, b) => new Date(a.start) - new Date(b.start));
+        let chips = '';
+        timed.slice(0, 2).forEach(e => {
+          const c = colorFor(e, state);
+          chips += `<div class="chip" style="background:${c}" data-ev="${e.id}" title="${escapeHtml(e.title)}"><span class="dot"></span>${fmtTime(new Date(e.start))} ${escapeHtml(e.title)}</div>`;
+        });
+        const extra = timed.length - Math.min(timed.length, 2);
+        if (extra > 0) chips += `<div class="more-link" data-day="${day.toISOString()}">+${extra} ${T('more')}</div>`;
+
+        cells += `<div class="${cls.join(' ')}" data-date="${day.toISOString()}">
+          <span class="day-num ${weekendClass(day.getDay())}">${day.getDate()}</span>
+          <div class="cell-chips" style="margin-top:${laneCount * BAR_H}px">${chips}</div></div>`;
+      });
+
+      // spanning bars overlay
+      let barsHtml = '';
+      bars.filter(b => b.lane < MAX_LANES).forEach(b => {
+        const left = (b.colStart / 7) * 100, width = ((b.colEnd - b.colStart + 1) / 7) * 100;
+        const c = colorFor(b.e, state);
+        const label = b.e.allDay ? b.e.title : `${fmtTime(new Date(b.e.start))} ${b.e.title}`;
+        const cont = `${b.contL ? 'l-open' : ''} ${b.contR ? 'r-open' : ''}`;
+        barsHtml += `<div class="mbar ${cont}" style="left:calc(${left}% + 2px); width:calc(${width}% - 4px); top:${b.lane * BAR_H}px; background:${c}" data-ev="${b.e.id}" title="${escapeHtml(b.e.title)}">${b.contL ? '‹ ' : ''}${escapeHtml(label)}${b.contR ? ' ›' : ''}</div>`;
+      });
+
+      weeksHtml += `<div class="mweek">
+        <div class="mweek-grid">${cells}</div>
+        <div class="mweek-bars" style="top:${HEAD_H}px">${barsHtml}</div>
+      </div>`;
     }
-    body += '</div>';
 
-    root.innerHTML = `<div class="month-grid">${dow}${body}</div>`;
+    root.innerHTML = `<div class="month-grid">${dow}<div class="month-weeks">${weeksHtml}</div></div>`;
     root.querySelectorAll('.day-cell').forEach(cell => {
       cell.addEventListener('click', (e) => {
-        if (e.target.closest('.chip') || e.target.closest('.more-link')) return;
-        // clicking the date number jumps to day view; clicking the cell just selects the day
+        if (e.target.closest('.chip') || e.target.closest('.more-link') || e.target.closest('.mbar')) return;
         if (e.target.closest('.day-num')) { h.onDayNumClick(new Date(cell.dataset.date)); return; }
         h.onDayClick(new Date(cell.dataset.date));
       });
