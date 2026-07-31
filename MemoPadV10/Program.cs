@@ -179,7 +179,7 @@ internal static class Program
             }
             else
             {
-                AppIpc.LaunchOrShowList();
+                AppIpc.RequestNewMemo();
             }
 
             return;

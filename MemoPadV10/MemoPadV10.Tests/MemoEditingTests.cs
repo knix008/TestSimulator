@@ -46,6 +46,36 @@ public class MemoEditingTests
     }
 
     [Fact]
+    public void Save_UpdatesBySourceMemo_WhenSourceIndexIsStale()
+    {
+        List<string> items = ["keep", "match-me"];
+        int sourceIndex = 99;
+        string? sourceMemo = "match-me";
+
+        bool updated = MemoEditing.Save(items, ref sourceIndex, ref sourceMemo, "changed");
+
+        Assert.True(updated);
+        Assert.Equal(["keep", "changed"], items);
+        Assert.Equal(1, sourceIndex);
+        Assert.Equal("changed", sourceMemo);
+    }
+
+    [Fact]
+    public void Save_AppendsNewMemo_WhenSourceDoesNotMatch()
+    {
+        List<string> items = ["keep"];
+        int sourceIndex = -1;
+        string? sourceMemo = "missing";
+
+        bool updated = MemoEditing.Save(items, ref sourceIndex, ref sourceMemo, "new memo");
+
+        Assert.False(updated);
+        Assert.Equal(["keep", "new memo"], items);
+        Assert.Equal(1, sourceIndex);
+        Assert.Equal("new memo", sourceMemo);
+    }
+
+    [Fact]
     public void TryDelete_RemovesByIndex_AndClearsSource()
     {
         List<string> items = ["a", "b", "c"];
@@ -71,5 +101,20 @@ public class MemoEditingTests
 
         Assert.False(deleted);
         Assert.Single(items);
+    }
+
+    [Fact]
+    public void TryDelete_RemovesByCurrentRtf_WhenNoSourceMatches()
+    {
+        List<string> items = ["keep", "current", "also-keep"];
+        int sourceIndex = -1;
+        string? sourceMemo = null;
+
+        bool deleted = MemoEditing.TryDelete(items, ref sourceIndex, ref sourceMemo, currentRtf: "current");
+
+        Assert.True(deleted);
+        Assert.Equal(["keep", "also-keep"], items);
+        Assert.Equal(-1, sourceIndex);
+        Assert.Null(sourceMemo);
     }
 }
