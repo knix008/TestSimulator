@@ -1,0 +1,93 @@
+{
+  "appName": "MyMind",
+  "toolbar": {
+    "new": "New",
+    "open": "Open",
+    "save": "Save",
+    "mindmap": "Mindmap",
+    "fishbone": "Fishbone",
+    "addChild": "Add Child",
+    "addSibling": "Add Sibling",
+    "delete": "Delete",
+    "layout": "Layout",
+    "shape": "Shape",
+    "color": "Color",
+    "line": "Line",
+    "grid": "Grid",
+    "reset": "Center View",
+    "align": "Auto Align",
+    "theme": "Theme",
+    "language": "Language",
+    "about": "About",
+    "minimize": "Minimize",
+    "maximize": "Maximize",
+    "close": "Close"
+  },
+  "layout": {
+    "radial": "Radial",
+    "ltr": "Left → Right",
+    "rtl": "Right → Left"
+  },
+  "shape": {
+    "rounded": "Rounded",
+    "rect": "Rectangle",
+    "ellipse": "Ellipse",
+    "diamond": "Diamond",
+    "parallelogram": "Parallelogram"
+  },
+  "line": {
+    "solid": "Solid",
+    "dashed": "Dashed",
+    "dotted": "Dotted",
+    "curve": "Curve"
+  },
+  "theme": {
+    "light": "Light",
+    "dark": "Dark"
+  },
+  "language": {
+    "ko": "한국어",
+    "en": "English"
+  },
+  "context": {
+    "addChild": "Add Child Node",
+    "addSibling": "Add Sibling Node",
+    "edit": "Edit Text",
+    "delete": "Delete",
+    "changeShape": "Change Shape",
+    "changeColor": "Change Color",
+    "changeLine": "Change Line"
+  },
+  "status": {
+    "ready": "Ready",
+    "nodes": "Nodes",
+    "mode": "Mode",
+    "layout": "Layout",
+    "unsaved": "Unsaved",
+    "saved": "Saved",
+    "zoom": "Zoom",
+    "grid": "Grid",
+    "on": "On",
+    "off": "Off"
+  },
+  "about": {
+    "title": "About",
+    "version": "Version",
+    "developer": "Developer",
+    "email": "Email",
+    "copyright": "Copyright",
+    "platform": "Platform",
+    "close": "Close",
+    "description": "Mindmap and Fishbone diagram editor for Web, Linux, macOS, and Windows"
+  },
+  "dialog": {
+    "confirmNew": "You have unsaved changes. Create a new document?",
+    "untitled": "Untitled"
+  },
+  "canvas": {
+    "centralTopic": "Central Topic",
+    "effect": "Effect",
+    "category": "Category",
+    "cause": "Cause"
+  }
+}

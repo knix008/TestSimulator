@@ -1,0 +1,93 @@
+{
+  "appName": "MyMind",
+  "toolbar": {
+    "new": "새로 만들기",
+    "open": "열기",
+    "save": "저장",
+    "mindmap": "마인드맵",
+    "fishbone": "피쉬본",
+    "addChild": "하위 추가",
+    "addSibling": "형제 추가",
+    "delete": "삭제",
+    "layout": "레이아웃",
+    "shape": "도형",
+    "color": "색상",
+    "line": "선",
+    "grid": "그리드",
+    "reset": "중심 이동",
+    "align": "자동 정렬",
+    "theme": "테마",
+    "language": "언어",
+    "about": "정보",
+    "minimize": "최소화",
+    "maximize": "최대화",
+    "close": "닫기"
+  },
+  "layout": {
+    "radial": "방사형",
+    "ltr": "좌 → 우",
+    "rtl": "우 → 좌"
+  },
+  "shape": {
+    "rounded": "둥근 사각형",
+    "rect": "사각형",
+    "ellipse": "타원",
+    "diamond": "마름모",
+    "parallelogram": "평행사변형"
+  },
+  "line": {
+    "solid": "실선",
+    "dashed": "파선",
+    "dotted": "점선",
+    "curve": "곡선"
+  },
+  "theme": {
+    "light": "라이트",
+    "dark": "다크"
+  },
+  "language": {
+    "ko": "한국어",
+    "en": "English"
+  },
+  "context": {
+    "addChild": "하위 노드 추가",
+    "addSibling": "형제 노드 추가",
+    "edit": "텍스트 편집",
+    "delete": "삭제",
+    "changeShape": "도형 변경",
+    "changeColor": "색상 변경",
+    "changeLine": "선 종류 변경"
+  },
+  "status": {
+    "ready": "준비",
+    "nodes": "노드",
+    "mode": "모드",
+    "layout": "레이아웃",
+    "unsaved": "저장되지 않음",
+    "saved": "저장됨",
+    "zoom": "확대",
+    "grid": "그리드",
+    "on": "켜짐",
+    "off": "꺼짐"
+  },
+  "about": {
+    "title": "프로그램 정보",
+    "version": "버전",
+    "developer": "개발자",
+    "email": "이메일",
+    "copyright": "저작권",
+    "platform": "플랫폼",
+    "close": "닫기",
+    "description": "웹 · Linux · macOS · Windows용 마인드맵 / 피쉬본 다이어그램 편집기"
+  },
+  "dialog": {
+    "confirmNew": "저장하지 않은 변경사항이 있습니다. 새 문서를 만들까요?",
+    "untitled": "제목 없음"
+  },
+  "canvas": {
+    "centralTopic": "중심 주제",
+    "effect": "결과 (Effect)",
+    "category": "원인 분류",
+    "cause": "원인"
+  }
+}

@@ -1,0 +1,108 @@
+{
+  "name": "mymind-multios",
+  "version": "1.0.0",
+  "description": "Cross-platform Mindmap and Fishbone diagram editor",
+  "main": "dist-electron/main.js",
+  "author": "SHKWON <knix008@naver.com>",
+  "license": "UNLICENSED",
+  "private": true,
+  "scripts": {
+    "start": "npm run electron:dev",
+    "dev": "vite",
+    "compile:electron": "tsc -p tsconfig.electron.json",
+    "build": "vite build && npm run compile:electron",
+    "preview": "vite preview",
+    "electron:dev": "npm run compile:electron && concurrently -k \"vite\" \"wait-on http://localhost:5173 && electron .\"",
+    "copy:installer": "node scripts/copy-installer.mjs",
+    "build:win": "npm run build && electron-builder --win && npm run copy:installer",
+    "build:mac": "npm run build && electron-builder --mac && npm run copy:installer",
+    "build:linux": "npm run build && electron-builder --linux && npm run copy:installer",
+    "electron:build": "npm run build && electron-builder && npm run copy:installer",
+    "electron:build:win": "npm run build:win",
+    "electron:build:mac": "npm run build:mac",
+    "electron:build:linux": "npm run build:linux"
+  },
+  "dependencies": {
+    "i18next": "^25.3.2",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-i18next": "^15.6.1",
+    "uuid": "^11.1.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "@types/uuid": "^10.0.0",
+    "@vitejs/plugin-react": "^4.7.0",
+    "concurrently": "^9.2.0",
+    "electron": "^37.2.3",
+    "electron-builder": "^26.0.12",
+    "typescript": "^5.8.3",
+    "vite": "^7.0.5",
+    "vite-plugin-electron": "^0.29.0",
+    "vite-plugin-electron-renderer": "^0.14.6",
+    "wait-on": "^8.0.4"
+  },
+  "build": {
+    "appId": "com.shkwon.mymind",
+    "productName": "MyMind",
+    "copyright": "Copyright © 2026 SHKWON",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "build/icon.*"
+    ],
+    "extraResources": [],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png"
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "icon": "build/icon.png",
+      "category": "public.app-category.productivity"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "icon": "build/icons",
+      "category": "Office"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "allowElevation": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "MyMind",
+      "uninstallDisplayName": "MyMind",
+      "deleteAppDataOnUninstall": true,
+      "runAfterFinish": true,
+      "installerLanguages": [
+        "English",
+        "Korean"
+      ],
+      "language": "1042",
+      "include": "build/installer.nsh"
+    }
+  },
+  "allowScripts": {
+    "electron@37.10.3": true,
+    "esbuild@0.28.1": true,
+    "electron-winstaller@5.4.0": true
+  }
+}
