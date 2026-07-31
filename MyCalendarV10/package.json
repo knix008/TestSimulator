@@ -1,0 +1,115 @@
+{
+  "name": "my-calendar-multi-os",
+  "version": "1.0.0",
+  "buildNumber": "1",
+  "description": "Multi-platform Calendar & Schedule Manager with Google Calendar sync (Electron + Web)",
+  "author": "SHKWON(knix008@naver.com)",
+  "license": "MIT",
+  "main": "main.js",
+  "scripts": {
+    "dev": "node server.js",
+    "start": "electron .",
+    "start:web": "node server.js",
+    "create-icons": "node scripts/create-icons.js",
+    "create-icons:force": "node scripts/create-icons.js --force",
+    "prebuild:win": "node scripts/create-icons.js",
+    "prebuild:linux": "node scripts/create-icons.js",
+    "prebuild:mac": "node scripts/create-icons.js",
+    "build:win": "npm run prebuild:win && electron-builder --win",
+    "build:linux": "npm run prebuild:linux && electron-builder --linux",
+    "build:mac": "npm run prebuild:mac && electron-builder --mac",
+    "build:all": "npm run create-icons && electron-builder -mwl"
+  },
+  "build": {
+    "appId": "com.mycalendar.multios",
+    "productName": "MyCalendar",
+    "copyright": "Copyright © 2026 SHKWON(knix008@naver.com)",
+    "afterAllArtifactBuild": "scripts/copy-installer.js",
+    "npmRebuild": false,
+    "nodeGypRebuild": false,
+    "directories": {
+      "output": "dist",
+      "buildResources": "assets"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "server.js",
+      "assets/**/*",
+      "src/**/*",
+      "!**/*.md",
+      "!**/*.map"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/icon.ico",
+      "signAndEditExecutable": false,
+      "verifyUpdateCodeSignature": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": true,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": false,
+      "createStartMenuShortcut": false,
+      "shortcutName": "MyCalendar",
+      "installerIcon": "assets/installerIcon.ico",
+      "uninstallerIcon": "assets/uninstallerIcon.ico",
+      "installerHeaderIcon": "assets/icon.ico",
+      "include": "build/installer.nsh",
+      "language": "1042",
+      "menuCategory": "MyCalendar",
+      "artifactName": "MyCalendar-Setup-${version}.exe"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "icon": "assets/icons",
+      "category": "Office",
+      "synopsis": "Calendar & Schedule Manager",
+      "desktop": {
+        "Name": "MyCalendar",
+        "Comment": "Calendar & Schedule Manager"
+      }
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "icon": "assets/icon.icns",
+      "category": "public.app-category.productivity"
+    },
+    "dmg": {
+      "title": "MyCalendar ${version}"
+    }
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "googleapis": "^144.0.0",
+    "knex": "^3.1.0",
+    "sqlite3": "^5.1.7",
+    "uuid": "^9.0.0"
+  },
+  "devDependencies": {
+    "electron": "^28.3.3",
+    "electron-builder": "^24.9.1",
+    "png-to-ico": "^2.1.8",
+    "sharp": "^0.33.5"
+  },
+  "allowScripts": {
+    "electron@28.3.3": true,
+    "sharp@0.33.5": true,
+    "sqlite3@5.1.7": true
+  }
+}

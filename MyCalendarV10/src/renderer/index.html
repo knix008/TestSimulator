@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MyCalendar</title>
+  <link rel="icon" href="/assets/icon.png" />
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="brand">
+        <img src="/assets/icon.png" alt="" class="brand-logo" />
+        <span data-i18n="appName">MyCalendar</span>
+      </div>
+
+      <button id="btnNewEvent" class="btn btn-primary btn-new" data-i18n="newEvent">+ 새 일정</button>
+
+      <div class="mini-cal" id="miniCal"></div>
+
+      <div class="cal-list">
+        <div class="cal-list-head">
+          <span data-i18n="myCalendars">내 캘린더</span>
+          <button id="btnAddCal" class="icon-btn" data-i18n-title="addCalendar" title="캘린더 추가">+</button>
+        </div>
+        <ul id="calList"></ul>
+      </div>
+
+      <div class="sidebar-footer">
+        <button id="btnGoogle" class="btn btn-ghost" data-i18n="googleConnect">🔗 Google 연동</button>
+        <button id="btnSettings" class="btn btn-ghost" data-i18n="settings">⚙️ 설정</button>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="main">
+      <header class="toolbar">
+        <div class="toolbar-left">
+          <button id="btnToggleSidebar" class="icon-btn" data-i18n-title="toggleSidebar" title="패널 접기/펼치기">☰</button>
+          <button id="btnToday" class="btn btn-outline" data-i18n="today">오늘</button>
+          <button id="btnPrev" class="icon-btn nav">‹</button>
+          <button id="btnNext" class="icon-btn nav">›</button>
+          <h2 id="periodLabel" class="period-label"></h2>
+        </div>
+        <div class="toolbar-right">
+          <div class="view-switch" id="viewSwitch">
+            <button data-view="month" class="active" data-i18n="view_month">월</button>
+            <button data-view="week" data-i18n="view_week">주</button>
+            <button data-view="day" data-i18n="view_day">일</button>
+            <button data-view="agenda" data-i18n="view_agenda">목록</button>
+          </div>
+          <button id="btnSync" class="btn btn-outline" data-i18n="sync">⟳ 동기화</button>
+        </div>
+      </header>
+
+      <div id="calendarView" class="calendar-view"></div>
+    </main>
+  </div>
+
+  <!-- Event editor modal -->
+  <div id="eventModal" class="modal hidden">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h3 id="eventModalTitle" data-i18n="title_new">새 일정</h3>
+        <button class="icon-btn" data-close>✕</button>
+      </div>
+      <div class="modal-body">
+        <input type="text" id="evTitle" class="input" data-i18n-ph="f_title" placeholder="제목" />
+        <div class="row">
+          <label class="check"><input type="checkbox" id="evAllDay" /> <span data-i18n="f_allday">하루 종일</span></label>
+        </div>
+        <div class="row two">
+          <div><label data-i18n="f_start">시작</label><input type="datetime-local" id="evStart" class="input" /></div>
+          <div><label data-i18n="f_end">종료</label><input type="datetime-local" id="evEnd" class="input" /></div>
+        </div>
+        <div class="row two">
+          <div>
+            <label data-i18n="f_calendar">캘린더</label>
+            <select id="evCalendar" class="input"></select>
+          </div>
+          <div>
+            <label data-i18n="f_reminder">알림</label>
+            <select id="evReminder" class="input">
+              <option value="" data-i18n="rem_none">없음</option>
+              <option value="0" data-i18n="rem_0">시작 시각</option>
+              <option value="5" data-i18n="rem_5">5분 전</option>
+              <option value="10" data-i18n="rem_10">10분 전</option>
+              <option value="30" data-i18n="rem_30">30분 전</option>
+              <option value="60" data-i18n="rem_60">1시간 전</option>
+              <option value="1440" data-i18n="rem_1440">1일 전</option>
+            </select>
+          </div>
+        </div>
+        <input type="text" id="evLocation" class="input" data-i18n-ph="f_location" placeholder="장소" />
+        <textarea id="evDescription" class="input" rows="3" data-i18n-ph="f_description" placeholder="설명"></textarea>
+      </div>
+      <div class="modal-foot">
+        <button id="btnDeleteEvent" class="btn btn-danger" style="margin-right:auto" data-i18n="btn_delete">삭제</button>
+        <button class="btn btn-ghost" data-close data-i18n="btn_cancel">취소</button>
+        <button id="btnSaveEvent" class="btn btn-primary" data-i18n="btn_save">저장</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Google modal -->
+  <div id="googleModal" class="modal hidden">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h3 data-i18n="g_title">Google Calendar 연동</h3>
+        <button class="icon-btn" data-close>✕</button>
+      </div>
+      <div class="modal-body" id="googleBody"></div>
+      <div class="modal-foot">
+        <button class="btn btn-ghost" data-close data-i18n="btn_close">닫기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings modal -->
+  <div id="settingsModal" class="modal hidden">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h3 data-i18n="set_title">설정</h3>
+        <button class="icon-btn" data-close>✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="row two">
+          <div><label data-i18n="set_weekStart">주 시작 요일</label>
+            <select id="setWeekStart" class="input">
+              <option value="0" data-i18n="sun">일요일</option>
+              <option value="1" data-i18n="mon">월요일</option>
+            </select>
+          </div>
+          <div><label data-i18n="set_defaultView">기본 보기</label>
+            <select id="setDefaultView" class="input">
+              <option value="month" data-i18n="view_month">월</option>
+              <option value="week" data-i18n="view_week">주</option>
+              <option value="day" data-i18n="view_day">일</option>
+              <option value="agenda" data-i18n="view_agenda">목록</option>
+            </select>
+          </div>
+        </div>
+        <div class="row two">
+          <div><label data-i18n="set_language">언어</label>
+            <select id="setLanguage" class="input">
+              <option value="ko">한국어</option>
+              <option value="en">English</option>
+            </select>
+          </div>
+          <div><label data-i18n="set_theme">테마</label>
+            <select id="setTheme" class="input">
+              <option value="dark" data-i18n="theme_dark">다크</option>
+              <option value="light" data-i18n="theme_light">라이트</option>
+            </select>
+          </div>
+        </div>
+        <div class="row">
+          <label><span data-i18n="set_bgOpacity">배경 투명도</span> — <span id="bgOpacityVal">100%</span></label>
+          <input type="range" id="setBgOpacity" min="40" max="100" step="1" value="100" class="range" />
+        </div>
+        <button id="btnExportIcs" class="btn btn-outline" style="margin-top:12px" data-i18n="exportIcs">📤 .ics 로 내보내기</button>
+        <p class="muted" id="aboutLine" style="margin-top:16px"></p>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-ghost" data-close data-i18n="btn_cancel">취소</button>
+        <button id="btnSaveSettings" class="btn btn-primary" data-i18n="btn_save">저장</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add / edit calendar modal -->
+  <div id="calendarModal" class="modal hidden">
+    <div class="modal-card" style="width:min(400px,92vw)">
+      <div class="modal-head">
+        <h3 id="calendarModalTitle" data-i18n="addCalendar">캘린더 추가</h3>
+        <button class="icon-btn" data-close>✕</button>
+      </div>
+      <div class="modal-body">
+        <div>
+          <label data-i18n="cal_name">이름</label>
+          <input type="text" id="calName" class="input" data-i18n-ph="cal_namePh" placeholder="캘린더 이름" />
+        </div>
+        <div>
+          <label data-i18n="cal_color">색상</label>
+          <div class="color-swatches" id="calSwatches"></div>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button id="btnDeleteCalendar" class="btn btn-danger" style="margin-right:auto" data-i18n="btn_delete">삭제</button>
+        <button class="btn btn-ghost" data-close data-i18n="btn_cancel">취소</button>
+        <button id="btnSaveCalendar" class="btn btn-primary" data-i18n="btn_save">저장</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="contextMenu" class="context-menu hidden"></div>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="/js/i18n.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/calendar.js"></script>
+  <script src="/js/app.js"></script>
+</body>
+</html>

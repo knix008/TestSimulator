@@ -1,0 +1,62 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Background rounded panel gradient -->
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#818cf8"/>
+      <stop offset="0.55" stop-color="#6366f1"/>
+      <stop offset="1" stop-color="#4338ca"/>
+    </linearGradient>
+    <!-- Calendar body (paper) gradient -->
+    <linearGradient id="paper" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#e2e8f0"/>
+    </linearGradient>
+    <!-- Header band gradient -->
+    <linearGradient id="band" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ef4444"/>
+      <stop offset="1" stop-color="#dc2626"/>
+    </linearGradient>
+    <!-- Glossy top highlight -->
+    <linearGradient id="gloss" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.45"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="ring" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f1f5f9"/>
+      <stop offset="1" stop-color="#94a3b8"/>
+    </linearGradient>
+    <filter id="soft" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="14" stdDeviation="18" flood-color="#1e1b4b" flood-opacity="0.45"/>
+    </filter>
+    <filter id="paperShadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#312e81" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+
+  <!-- App tile background -->
+  <rect x="26" y="26" width="460" height="460" rx="108" fill="url(#bg)" filter="url(#soft)"/>
+  <rect x="26" y="26" width="460" height="230" rx="108" fill="url(#gloss)"/>
+
+  <!-- Calendar sheet (rotated slightly for a 3D feel) -->
+  <g transform="rotate(-6 256 268)" filter="url(#paperShadow)">
+    <rect x="116" y="150" width="280" height="248" rx="34" fill="url(#paper)"/>
+    <!-- header band -->
+    <path d="M116 184 a34 34 0 0 1 34 -34 h212 a34 34 0 0 1 34 34 v34 h-280 z" fill="url(#band)"/>
+    <!-- band gloss -->
+    <path d="M116 184 a34 34 0 0 1 34 -34 h212 a34 34 0 0 1 34 34 v6 h-280 z" fill="#ffffff" opacity="0.18"/>
+    <!-- date number -->
+    <text x="256" y="340" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif"
+          font-size="150" font-weight="800" fill="#1e293b">31</text>
+    <!-- small grid dots -->
+    <g fill="#cbd5e1">
+      <circle cx="168" cy="372" r="7"/><circle cx="212" cy="372" r="7"/>
+      <circle cx="300" cy="372" r="7"/><circle cx="344" cy="372" r="7"/>
+    </g>
+  </g>
+
+  <!-- binder rings (drawn above sheet) -->
+  <g transform="rotate(-6 256 268)">
+    <rect x="176" y="120" width="20" height="54" rx="10" fill="url(#ring)"/>
+    <rect x="316" y="120" width="20" height="54" rx="10" fill="url(#ring)"/>
+  </g>
+</svg>

@@ -1,0 +1,577 @@
+(() => {
+  const IS_ELECTRON = !!window.IS_ELECTRON;
+  const $ = (s) => document.querySelector(s);
+  const pad = CalendarView.pad;
+
+  const state = {
+    currentDate: new Date(),
+    view: 'month',
+    weekStart: 0,
+    theme: 'dark',
+    language: 'ko',
+    bgOpacity: 100,
+    events: [],
+    calendars: [],
+    calMap: {},
+    editingId: null,
+  };
+
+  const root = $('#calendarView');
+  const T = (k) => I18N.t(k);
+
+  // ---------- appearance ----------
+  function applyTheme(theme) {
+    state.theme = theme === 'light' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', state.theme);
+  }
+  function applyLanguage(lang) {
+    state.language = lang === 'en' ? 'en' : 'ko';
+    I18N.setLang(state.language);
+    I18N.applyDom(document);
+  }
+  function applyOpacity(pct) {
+    state.bgOpacity = Math.min(100, Math.max(40, parseInt(pct, 10) || 100));
+    const alpha = state.bgOpacity / 100;
+    // Electron: real OS-level window transparency (reliable). Web: CSS fallback.
+    if (IS_ELECTRON && window.electron.setWindowOpacity) {
+      window.electron.setWindowOpacity(alpha);
+    } else {
+      document.documentElement.style.setProperty('--app-bg-alpha', alpha.toFixed(2));
+    }
+    const label = $('#bgOpacityVal');
+    if (label) label.textContent = state.bgOpacity + '%';
+  }
+
+  // ---------- data ----------
+  async function loadCalendars() {
+    state.calendars = await API.listCalendars();
+    state.calMap = {};
+    state.calendars.forEach(c => { state.calMap[c.id] = { color: c.color, visible: !!c.visible }; });
+    renderCalList();
+    fillCalendarSelect();
+  }
+
+  async function loadEvents() {
+    const { from, to } = CalendarView.rangeFor(state);
+    state.events = await API.listEvents(from.toISOString(), to.toISOString());
+  }
+
+  async function refresh() {
+    await loadEvents();
+    render();
+  }
+
+  function render() {
+    $('#periodLabel').textContent = CalendarView.periodLabel(state);
+    CalendarView.render(root, state, handlers);
+    renderMiniCal();
+  }
+
+  // ---------- calendar handlers ----------
+  const handlers = {
+    onDayClick: (d) => { state.currentDate = d; if (state.view === 'month') { state.view = 'day'; syncViewButtons(); refresh(); } },
+    onDayDblClick: (d) => openEventEditor(null, d),
+    onSlotClick: (d) => openEventEditor(null, d),
+    onEventClick: (id) => { const ev = state.events.find(e => e.id === id); if (ev) openEventEditor(ev); },
+    onMore: (d) => { state.currentDate = d; state.view = 'day'; syncViewButtons(); refresh(); },
+  };
+
+  // ---------- toolbar ----------
+  function step(dir) {
+    const d = state.currentDate;
+    if (state.view === 'month') state.currentDate = new Date(d.getFullYear(), d.getMonth() + dir, 1);
+    else if (state.view === 'week') state.currentDate = CalendarView.addDays(d, 7 * dir);
+    else if (state.view === 'day') state.currentDate = CalendarView.addDays(d, dir);
+    else state.currentDate = CalendarView.addDays(d, 30 * dir);
+    refresh();
+  }
+
+  function syncViewButtons() {
+    document.querySelectorAll('#viewSwitch button').forEach(b =>
+      b.classList.toggle('active', b.dataset.view === state.view));
+  }
+
+  $('#btnToday').addEventListener('click', () => { state.currentDate = new Date(); refresh(); });
+  $('#btnPrev').addEventListener('click', () => step(-1));
+  $('#btnNext').addEventListener('click', () => step(1));
+  document.querySelectorAll('#viewSwitch button').forEach(b =>
+    b.addEventListener('click', () => { state.view = b.dataset.view; syncViewButtons(); refresh(); }));
+
+  // sidebar collapse/expand (persisted in localStorage)
+  const appEl = document.getElementById('app');
+  $('#btnToggleSidebar').addEventListener('click', () => {
+    const collapsed = !appEl.classList.contains('sidebar-collapsed');
+    appEl.classList.toggle('sidebar-collapsed', collapsed);
+    try { localStorage.setItem('sidebarCollapsed', collapsed ? '1' : '0'); } catch {}
+  });
+  try { if (localStorage.getItem('sidebarCollapsed') === '1') appEl.classList.add('sidebar-collapsed'); } catch {}
+
+  // ---------- right-click context menu (icon + label) ----------
+  const ctxMenu = $('#contextMenu');
+  function hideContextMenu() { ctxMenu.classList.add('hidden'); }
+  function showContextMenu(x, y, items) {
+    ctxMenu.innerHTML = items.map((it, i) => it.separator
+      ? '<div class="ctx-sep"></div>'
+      : `<div class="ctx-item ${it.danger ? 'danger' : ''}" data-i="${i}">
+           <span class="ctx-ico">${it.icon}</span><span class="ctx-label">${escapeHtml(it.label)}</span></div>`).join('');
+    ctxMenu.style.left = x + 'px';
+    ctxMenu.style.top = y + 'px';
+    ctxMenu.classList.remove('hidden');
+    // keep the menu on screen
+    const r = ctxMenu.getBoundingClientRect();
+    if (r.right > window.innerWidth) ctxMenu.style.left = Math.max(4, x - r.width) + 'px';
+    if (r.bottom > window.innerHeight) ctxMenu.style.top = Math.max(4, y - r.height) + 'px';
+    ctxMenu.querySelectorAll('.ctx-item').forEach(el =>
+      el.addEventListener('click', () => {
+        const it = items[parseInt(el.dataset.i, 10)];
+        hideContextMenu();
+        if (it && it.action) it.action();
+      }));
+  }
+
+  root.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    const evEl = e.target.closest('[data-ev]');
+    const dayEl = e.target.closest('.day-cell, .tg-day-col');
+    let items;
+    if (evEl) {
+      const id = parseInt(evEl.dataset.ev, 10);
+      const ev = state.events.find(x => x.id === id);
+      items = [
+        { icon: '✏️', label: T('ctx_edit'), action: () => ev && openEventEditor(ev) },
+        { icon: '📄', label: T('ctx_duplicate'), action: () => ev && duplicateEvent(ev) },
+        { separator: true },
+        { icon: '🗑️', label: T('ctx_delete'), danger: true, action: () => quickDelete(id) },
+      ];
+    } else {
+      const presetDate = dayEl && dayEl.dataset.date ? new Date(dayEl.dataset.date) : null;
+      items = [
+        { icon: '➕', label: T('ctx_newEvent'), action: () => openEventEditor(null, presetDate) },
+        { icon: '📅', label: T('ctx_today'), action: () => { state.currentDate = new Date(); refresh(); } },
+        { separator: true },
+        { icon: '🔄', label: T('ctx_sync'), action: doSync },
+        { icon: '⚙️', label: T('ctx_settings'), action: () => $('#btnSettings').click() },
+      ];
+    }
+    showContextMenu(e.clientX, e.clientY, items);
+  });
+
+  document.addEventListener('click', hideContextMenu);
+  document.addEventListener('scroll', hideContextMenu, true);
+  window.addEventListener('blur', hideContextMenu);
+  window.addEventListener('resize', hideContextMenu);
+
+  async function duplicateEvent(ev) {
+    try {
+      await API.createEvent({
+        title: `${ev.title} (${T('copySuffix')})`,
+        calendarId: ev.calendarId, location: ev.location, description: ev.description,
+        start: ev.start, end: ev.end, allDay: ev.allDay, reminderMinutes: ev.reminderMinutes,
+      });
+      await refresh();
+      toast(T('t_saved'));
+    } catch (err) { toast(err.message, true); }
+  }
+  async function quickDelete(id) {
+    if (!confirm(T('c_confirmDelete'))) return;
+    try { await API.deleteEvent(id); await refresh(); toast(T('t_deleted')); }
+    catch (err) { toast(err.message, true); }
+  }
+
+  // ---------- mini calendar ----------
+  function renderMiniCal() {
+    const el = $('#miniCal');
+    const base = state.currentDate;
+    const first = new Date(base.getFullYear(), base.getMonth(), 1);
+    const start = CalendarView.weekStartOf(first, state.weekStart);
+    let html = `<div class="mini-cal-head"><button id="miniPrev">‹</button>
+      <span>${base.getFullYear()}.${pad(base.getMonth() + 1)}</span>
+      <button id="miniNext">›</button></div><div class="mini-grid">`;
+    const dowNames = CalendarView.dowNames();
+    for (let i = 0; i < 7; i++) html += `<div class="dow">${dowNames[(state.weekStart + i) % 7]}</div>`;
+    for (let i = 0; i < 42; i++) {
+      const d = CalendarView.addDays(start, i);
+      const cls = ['cell'];
+      if (d.getMonth() !== base.getMonth()) cls.push('other');
+      if (CalendarView.isToday(d)) cls.push('today');
+      if (CalendarView.sameDay(d, state.currentDate)) cls.push('sel');
+      if (d.getDay() === 0) cls.push('sun'); else if (d.getDay() === 6) cls.push('sat');
+      html += `<div class="${cls.join(' ')}" data-d="${d.toISOString()}">${d.getDate()}</div>`;
+    }
+    html += '</div>';
+    el.innerHTML = html;
+    $('#miniPrev').addEventListener('click', () => { state.currentDate = new Date(base.getFullYear(), base.getMonth() - 1, 1); render(); });
+    $('#miniNext').addEventListener('click', () => { state.currentDate = new Date(base.getFullYear(), base.getMonth() + 1, 1); render(); });
+    el.querySelectorAll('.cell').forEach(c =>
+      c.addEventListener('click', () => { state.currentDate = new Date(c.dataset.d); refresh(); }));
+  }
+
+  // ---------- calendar list ----------
+  function renderCalList() {
+    const ul = $('#calList');
+    ul.innerHTML = '';
+    state.calendars.forEach(c => {
+      const li = document.createElement('li');
+      if (!c.visible) li.classList.add('hidden-cal');
+      li.innerHTML = `<span class="cal-dot" style="background:${c.color}"></span>
+        <span class="cal-name">${escapeHtml(c.name)}</span>
+        <button class="icon-btn cal-edit" title="${T('editCalendar')}">✎</button>`;
+      // click the row (dot/name) toggles visibility
+      li.addEventListener('click', async (e) => {
+        if (e.target.closest('.cal-edit')) return;
+        await API.updateCalendar(c.id, { visible: c.visible ? 0 : 1 });
+        await loadCalendars(); render();
+      });
+      // edit button opens the edit modal
+      li.querySelector('.cal-edit').addEventListener('click', (e) => {
+        e.stopPropagation();
+        openCalendarModal(c);
+      });
+      ul.appendChild(li);
+    });
+  }
+
+  // ---------- calendar add / edit modal ----------
+  const CAL_PALETTE = ['#6366f1', '#3b82f6', '#22d3ee', '#22c55e', '#f59e0b', '#ef4444', '#ec4899', '#a855f7', '#14b8a6', '#64748b'];
+  let editingCalId = null;
+  let selectedCalColor = CAL_PALETTE[0];
+
+  function renderSwatches() {
+    $('#calSwatches').innerHTML = CAL_PALETTE.map(col =>
+      `<span class="swatch ${col === selectedCalColor ? 'selected' : ''}" data-col="${col}" style="background:${col}"></span>`).join('');
+    $('#calSwatches').querySelectorAll('.swatch').forEach(s =>
+      s.addEventListener('click', () => { selectedCalColor = s.dataset.col; renderSwatches(); }));
+  }
+
+  function openCalendarModal(cal) {
+    editingCalId = cal ? cal.id : null;
+    $('#calendarModalTitle').textContent = cal ? T('editCalendar') : T('addCalendar');
+    $('#calName').value = cal ? cal.name : '';
+    selectedCalColor = cal ? cal.color : CAL_PALETTE[0];
+    renderSwatches();
+    // default calendar cannot be deleted; hide delete for "add"
+    $('#btnDeleteCalendar').style.display = (cal && !cal.is_default) ? 'inline-block' : 'none';
+    showModal('#calendarModal');
+    setTimeout(() => $('#calName').focus(), 50);
+  }
+
+  $('#btnSaveCalendar').addEventListener('click', async () => {
+    const name = $('#calName').value.trim();
+    if (!name) return toast(T('t_needTitle'), true);
+    try {
+      if (editingCalId) await API.updateCalendar(editingCalId, { name, color: selectedCalColor });
+      else await API.createCalendar({ name, color: selectedCalColor });
+      hideModal('#calendarModal');
+      await loadCalendars(); render();
+      toast(T('t_saved'));
+    } catch (err) { toast(err.message, true); }
+  });
+
+  $('#btnDeleteCalendar').addEventListener('click', async () => {
+    if (!editingCalId || !confirm(T('c_confirmDeleteCal'))) return;
+    try {
+      await API.deleteCalendar(editingCalId);
+      hideModal('#calendarModal');
+      await loadCalendars(); await refresh();
+      toast(T('t_deleted'));
+    } catch (err) { toast(err.message, true); }
+  });
+
+  function fillCalendarSelect() {
+    const sel = $('#evCalendar');
+    sel.innerHTML = state.calendars.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+  }
+
+  $('#btnAddCal').addEventListener('click', () => openCalendarModal(null));
+
+  // ---------- event editor ----------
+  function toLocalInput(dateStr) {
+    const d = new Date(dateStr);
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+  function fromLocalInput(v) { return new Date(v).toISOString(); }
+
+  function openEventEditor(ev, presetDate) {
+    state.editingId = ev ? ev.id : null;
+    $('#eventModalTitle').textContent = ev ? T('title_edit') : T('title_new');
+    $('#btnDeleteEvent').style.display = ev ? 'inline-block' : 'none';
+
+    let start, end, allDay;
+    if (ev) {
+      start = ev.start; end = ev.end; allDay = ev.allDay;
+      $('#evTitle').value = ev.title || '';
+      $('#evLocation').value = ev.location || '';
+      $('#evDescription').value = ev.description || '';
+      $('#evCalendar').value = ev.calendarId || '';
+      $('#evReminder').value = ev.reminderMinutes != null ? String(ev.reminderMinutes) : '';
+    } else {
+      const base = presetDate || new Date();
+      const s = new Date(base);
+      if (s.getHours() === 0 && s.getMinutes() === 0 && !presetDate) s.setHours(9);
+      const e = new Date(s); e.setHours(s.getHours() + 1);
+      start = s.toISOString(); end = e.toISOString(); allDay = false;
+      $('#evTitle').value = ''; $('#evLocation').value = ''; $('#evDescription').value = '';
+      $('#evReminder').value = '';
+      const def = state.calendars.find(c => c.is_default) || state.calendars[0];
+      if (def) $('#evCalendar').value = def.id;
+    }
+    $('#evAllDay').checked = !!allDay;
+    $('#evStart').value = toLocalInput(start);
+    $('#evEnd').value = toLocalInput(end);
+    toggleAllDayInputs();
+    showModal('#eventModal');
+    setTimeout(() => $('#evTitle').focus(), 50);
+  }
+
+  function toggleAllDayInputs() {
+    const allDay = $('#evAllDay').checked;
+    $('#evStart').type = allDay ? 'date' : 'datetime-local';
+    $('#evEnd').type = allDay ? 'date' : 'datetime-local';
+  }
+  $('#evAllDay').addEventListener('change', toggleAllDayInputs);
+
+  $('#btnSaveEvent').addEventListener('click', async () => {
+    const allDay = $('#evAllDay').checked;
+    const title = $('#evTitle').value.trim();
+    if (!title) return toast(T('t_needTitle'), true);
+
+    let startVal = $('#evStart').value, endVal = $('#evEnd').value;
+    let start, end;
+    if (allDay) {
+      start = new Date(startVal + 'T00:00:00').toISOString();
+      // Google all-day end is exclusive → next day
+      const endBase = endVal || startVal;
+      const ed = new Date(endBase + 'T00:00:00'); ed.setDate(ed.getDate() + 1);
+      end = ed.toISOString();
+    } else {
+      start = fromLocalInput(startVal);
+      end = fromLocalInput(endVal);
+      if (new Date(end) <= new Date(start)) return toast(T('t_endAfterStart'), true);
+    }
+
+    const payload = {
+      title,
+      calendarId: parseInt($('#evCalendar').value, 10) || null,
+      location: $('#evLocation').value.trim() || null,
+      description: $('#evDescription').value.trim() || null,
+      start, end, allDay,
+      reminderMinutes: $('#evReminder').value === '' ? null : parseInt($('#evReminder').value, 10),
+    };
+    try {
+      if (state.editingId) await API.updateEvent(state.editingId, payload);
+      else await API.createEvent(payload);
+      hideModal('#eventModal');
+      await refresh();
+      toast(T('t_saved'));
+    } catch (err) { toast(err.message, true); }
+  });
+
+  $('#btnDeleteEvent').addEventListener('click', async () => {
+    if (!state.editingId || !confirm(T('c_confirmDelete'))) return;
+    try {
+      await API.deleteEvent(state.editingId);
+      hideModal('#eventModal');
+      await refresh();
+      toast(T('t_deleted'));
+    } catch (err) { toast(err.message, true); }
+  });
+
+  $('#btnNewEvent').addEventListener('click', () => openEventEditor(null));
+
+  // ---------- Google modal ----------
+  $('#btnGoogle').addEventListener('click', openGoogleModal);
+  async function openGoogleModal() {
+    showModal('#googleModal');
+    await renderGoogleBody();
+  }
+
+  async function renderGoogleBody() {
+    const body = $('#googleBody');
+    body.innerHTML = `<p class="muted">${T('g_loading')}</p>`;
+    let st;
+    try { st = await API.googleStatus(); } catch (e) { body.innerHTML = `<p class="muted">${e.message}</p>`; return; }
+
+    if (st.connected) {
+      body.innerHTML = `
+        <div class="g-status ok"><strong>${T('g_connected')}</strong><br>${escapeHtml(st.email || '')}
+        ${st.lastSync ? `<br><span class="muted">${T('g_lastSync')}: ${new Date(st.lastSync).toLocaleString(I18N.locale())}</span>` : ''}</div>
+        <button id="gSync" class="btn btn-primary" style="width:100%;margin-bottom:8px">${T('g_syncNow')}</button>
+        <button id="gDisconnect" class="btn btn-outline" style="width:100%">${T('g_disconnect')}</button>`;
+      $('#gSync').addEventListener('click', doSync);
+      $('#gDisconnect').addEventListener('click', async () => {
+        await API.googleDisconnect(); await renderGoogleBody(); toast(T('t_disconnected'));
+      });
+      return;
+    }
+
+    body.innerHTML = `
+      <div class="g-status no">${T('g_notConnected')}</div>
+      <div class="help">
+        <strong>${T('g_step1')}</strong>
+        <ol>
+          <li><a href="#" id="gcLink">Google Cloud Console</a>${T('g_s1')}</li>
+          <li>${T('g_s2')}</li>
+          <li>${T('g_s3')}</li>
+        </ol>
+      </div>
+      <input type="text" id="gClientId" class="input" placeholder="${T('g_clientId')}" style="margin-bottom:8px" />
+      <input type="password" id="gClientSecret" class="input" placeholder="${T('g_clientSecret')}" style="margin-bottom:12px" />
+      <button id="gConnect" class="btn btn-primary" style="width:100%">${T('g_connect')}</button>`;
+
+    $('#gcLink').addEventListener('click', (e) => { e.preventDefault(); openExternal('https://console.cloud.google.com/apis/credentials'); });
+    $('#gConnect').addEventListener('click', async () => {
+      const clientId = $('#gClientId').value.trim(), clientSecret = $('#gClientSecret').value.trim();
+      if (!clientId || !clientSecret) return toast(T('t_needCreds'), true);
+      try {
+        await API.googleSaveCreds({ clientId, clientSecret });
+        const { url } = await API.googleAuthUrl();
+        openExternal(url);
+        body.innerHTML = `<div class="g-status">${T('g_afterLogin')}</div>
+          <button id="gDone" class="btn btn-primary" style="width:100%">${T('g_checkStatus')}</button>`;
+        $('#gDone').addEventListener('click', renderGoogleBody);
+      } catch (err) { toast(err.message, true); }
+    });
+  }
+
+  async function doSync() {
+    const btn = $('#btnSync');
+    const orig = btn.textContent; btn.textContent = T('syncing'); btn.disabled = true;
+    try {
+      const st = await API.googleStatus();
+      if (!st.connected) { openGoogleModal(); return; }
+      const r = await API.googleSync();
+      const s = r.summary;
+      await refresh();
+      if ($('#googleModal').classList.contains('hidden') === false) await renderGoogleBody();
+      toast(`${T('t_syncDone')} · ↑${s.pushedCreated + s.pushedUpdated + s.pushedDeleted} ↓${s.pulledCreated + s.pulledUpdated + s.pulledDeleted}`);
+    } catch (err) { toast(T('t_syncFail') + ': ' + err.message, true); }
+    finally { btn.textContent = T('sync'); btn.disabled = false; }
+  }
+  $('#btnSync').addEventListener('click', doSync);
+
+  // ---------- settings ----------
+  let settingsSnapshot = null;
+  $('#btnSettings').addEventListener('click', async () => {
+    settingsSnapshot = { theme: state.theme, language: state.language, bgOpacity: state.bgOpacity };
+    $('#setWeekStart').value = String(state.weekStart);
+    $('#setDefaultView').value = state.view;
+    $('#setLanguage').value = state.language;
+    $('#setTheme').value = state.theme;
+    $('#setBgOpacity').value = String(state.bgOpacity);
+    $('#bgOpacityVal').textContent = state.bgOpacity + '%';
+    try { const info = await API.appInfo(); $('#aboutLine').textContent = `${info.name} v${info.version} · ${info.author}`; } catch {}
+    showModal('#settingsModal');
+  });
+
+  // live preview while the settings modal is open
+  $('#setTheme').addEventListener('change', (e) => applyTheme(e.target.value));
+  $('#setLanguage').addEventListener('change', (e) => { applyLanguage(e.target.value); render(); });
+  $('#setBgOpacity').addEventListener('input', (e) => applyOpacity(e.target.value));
+
+  // restore preview if the user cancels
+  document.querySelectorAll('#settingsModal [data-close]').forEach(b =>
+    b.addEventListener('click', () => {
+      if (!settingsSnapshot) return;
+      applyTheme(settingsSnapshot.theme);
+      applyLanguage(settingsSnapshot.language);
+      applyOpacity(settingsSnapshot.bgOpacity);
+      render();
+    }));
+
+  $('#btnSaveSettings').addEventListener('click', async () => {
+    state.weekStart = parseInt($('#setWeekStart').value, 10);
+    const defaultView = $('#setDefaultView').value;
+    applyTheme($('#setTheme').value);
+    applyLanguage($('#setLanguage').value);
+    applyOpacity($('#setBgOpacity').value);
+    try {
+      await API.saveSettings({
+        weekStartsOn: state.weekStart, defaultView,
+        theme: state.theme, language: state.language, bgOpacity: state.bgOpacity,
+      });
+    } catch {}
+    settingsSnapshot = null;
+    hideModal('#settingsModal');
+    render();
+    toast(T('t_settingsSaved'));
+  });
+
+  $('#btnExportIcs').addEventListener('click', exportIcs);
+  async function exportIcs() {
+    const { from, to } = { from: new Date(2000, 0, 1), to: new Date(2100, 0, 1) };
+    const all = await API.listEvents(from.toISOString(), to.toISOString());
+    const ics = buildIcs(all);
+    if (IS_ELECTRON && window.electron.saveIcs) {
+      const r = await window.electron.saveIcs('mycalendar', ics);
+      if (r.ok) toast(T('t_exported') + ': ' + r.filePath);
+    } else {
+      const blob = new Blob([ics], { type: 'text/calendar' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob); a.download = 'mycalendar.ics'; a.click();
+      URL.revokeObjectURL(a.href);
+    }
+  }
+  function buildIcs(events) {
+    const dt = (s) => new Date(s).toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+    let out = 'BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//MyCalendar//KO\r\n';
+    events.forEach(e => {
+      out += 'BEGIN:VEVENT\r\n';
+      out += `UID:${e.uid}\r\n`;
+      out += `SUMMARY:${(e.title || '').replace(/\n/g, ' ')}\r\n`;
+      if (e.location) out += `LOCATION:${e.location}\r\n`;
+      if (e.description) out += `DESCRIPTION:${e.description.replace(/\n/g, '\\n')}\r\n`;
+      out += `DTSTART:${dt(e.start)}\r\nDTEND:${dt(e.end)}\r\nEND:VEVENT\r\n`;
+    });
+    out += 'END:VCALENDAR\r\n';
+    return out;
+  }
+
+  // ---------- modal utils ----------
+  function showModal(sel) { $(sel).classList.remove('hidden'); }
+  function hideModal(sel) { $(sel).classList.add('hidden'); }
+  document.querySelectorAll('[data-close]').forEach(b =>
+    b.addEventListener('click', (e) => e.target.closest('.modal').classList.add('hidden')));
+  document.querySelectorAll('.modal').forEach(m =>
+    m.addEventListener('click', (e) => { if (e.target === m) m.classList.add('hidden'); }));
+
+  function openExternal(url) {
+    if (IS_ELECTRON && window.electron.openExternal) window.electron.openExternal(url);
+    else window.open(url, '_blank');
+  }
+
+  // ---------- toast ----------
+  let toastTimer;
+  function toast(msg, isErr) {
+    const t = $('#toast');
+    t.textContent = msg;
+    t.classList.toggle('err', !!isErr);
+    t.classList.remove('hidden');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.add('hidden'), 3000);
+  }
+
+  function escapeHtml(s) {
+    return String(s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  // ---------- keyboard ----------
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') document.querySelectorAll('.modal:not(.hidden)').forEach(m => m.classList.add('hidden'));
+  });
+  if (IS_ELECTRON && window.electron.onNewEventShortcut) window.electron.onNewEventShortcut(() => openEventEditor(null));
+
+  // ---------- init ----------
+  (async function init() {
+    let s = {};
+    try { s = (await API.getSettings()) || {}; } catch {}
+    // language & theme & opacity first so the initial paint is correct
+    applyLanguage(s.language || 'ko');
+    applyTheme(s.theme || 'dark');
+    applyOpacity(s.bgOpacity != null ? s.bgOpacity : 100);
+    if (s.weekStartsOn != null) state.weekStart = parseInt(s.weekStartsOn, 10) || 0;
+    if (s.defaultView) state.view = s.defaultView;
+    syncViewButtons();
+    await loadCalendars();
+    await refresh();
+  })();
+})();

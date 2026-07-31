@@ -1,0 +1,10 @@
+node_modules/
+dist/
+data/
+*.log
+assets/icon.ico
+assets/icon.png
+assets/icon.icns
+assets/icons/
+assets/installerIcon.ico
+assets/uninstallerIcon.ico
