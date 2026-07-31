@@ -5,7 +5,6 @@ public partial class MemoPadForm
     private System.ComponentModel.IContainer components = null!;
     private Panel topBarPanel = null!;
     private Button addMemoIconButton = null!;
-    private Button saveMemoIconButton = null!;
     private Button deleteMemoIconButton = null!;
     private Button settingsIconButton = null!;
     private Button listIconButton = null!;
@@ -27,7 +26,6 @@ public partial class MemoPadForm
         System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(MemoPadForm));
         topBarPanel = new Panel();
         addMemoIconButton = new Button();
-        saveMemoIconButton = new Button();
         deleteMemoIconButton = new Button();
         settingsIconButton = new Button();
         listIconButton = new Button();
@@ -40,7 +38,6 @@ public partial class MemoPadForm
         // 
         topBarPanel.BackColor = Color.FromArgb(248, 225, 140);
         topBarPanel.Controls.Add(addMemoIconButton);
-        topBarPanel.Controls.Add(saveMemoIconButton);
         topBarPanel.Controls.Add(deleteMemoIconButton);
         topBarPanel.Controls.Add(settingsIconButton);
         topBarPanel.Controls.Add(listIconButton);
@@ -70,20 +67,6 @@ public partial class MemoPadForm
         addMemoIconButton.UseVisualStyleBackColor = true;
         addMemoIconButton.Click += addMemoIconButton_Click;
         // 
-        // saveMemoIconButton
-        // 
-        saveMemoIconButton.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-        saveMemoIconButton.FlatAppearance.BorderSize = 0;
-        saveMemoIconButton.FlatStyle = FlatStyle.Flat;
-        saveMemoIconButton.Font = new Font("Segoe UI Symbol", 15F, FontStyle.Bold);
-        saveMemoIconButton.Location = new Point(176, 4);
-        saveMemoIconButton.Name = "saveMemoIconButton";
-        saveMemoIconButton.Size = new Size(44, 36);
-        saveMemoIconButton.TabIndex = 1;
-        saveMemoIconButton.Text = "💾";
-        saveMemoIconButton.UseVisualStyleBackColor = true;
-        saveMemoIconButton.Click += saveMemoIconButton_Click;
-        // 
         // deleteMemoIconButton
         // 
         deleteMemoIconButton.Anchor = AnchorStyles.Top | AnchorStyles.Right;
@@ -94,7 +77,7 @@ public partial class MemoPadForm
         deleteMemoIconButton.Location = new Point(224, 4);
         deleteMemoIconButton.Name = "deleteMemoIconButton";
         deleteMemoIconButton.Size = new Size(42, 36);
-        deleteMemoIconButton.TabIndex = 2;
+        deleteMemoIconButton.TabIndex = 1;
         deleteMemoIconButton.Text = "🗑";
         deleteMemoIconButton.UseVisualStyleBackColor = true;
         deleteMemoIconButton.Click += deleteMemoIconButton_Click;
@@ -108,7 +91,7 @@ public partial class MemoPadForm
         settingsIconButton.Location = new Point(271, 3);
         settingsIconButton.Name = "settingsIconButton";
         settingsIconButton.Size = new Size(44, 36);
-        settingsIconButton.TabIndex = 3;
+        settingsIconButton.TabIndex = 2;
         settingsIconButton.Text = "⚙";
         settingsIconButton.UseVisualStyleBackColor = true;
         settingsIconButton.Click += settingsIconButton_Click;
@@ -122,7 +105,7 @@ public partial class MemoPadForm
         listIconButton.Location = new Point(317, 4);
         listIconButton.Name = "listIconButton";
         listIconButton.Size = new Size(44, 36);
-        listIconButton.TabIndex = 4;
+        listIconButton.TabIndex = 3;
         listIconButton.Text = "☰";
         listIconButton.UseVisualStyleBackColor = true;
         listIconButton.Click += listIconButton_Click;
@@ -136,7 +119,7 @@ public partial class MemoPadForm
         closeIconButton.Location = new Point(365, 4);
         closeIconButton.Name = "closeIconButton";
         closeIconButton.Size = new Size(44, 36);
-        closeIconButton.TabIndex = 5;
+        closeIconButton.TabIndex = 4;
         closeIconButton.Text = "X";
         closeIconButton.UseVisualStyleBackColor = true;
         closeIconButton.Click += closeIconButton_Click;

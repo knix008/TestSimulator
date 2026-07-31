@@ -86,7 +86,6 @@ internal static class Loc
 
         // 메인 창 툴바 툴팁
         ["main.add"] = ("새 메모", "New memo"),
-        ["main.save"] = ("저장", "Save"),
         ["main.delete"] = ("삭제", "Delete"),
         ["main.settings"] = ("설정", "Settings"),
         ["main.listBtn"] = ("메모 목록", "Memo list"),

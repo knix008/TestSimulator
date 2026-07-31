@@ -24,6 +24,7 @@ public partial class MemoPadForm : Form
     private static readonly List<MemoPadForm> OpenMemoWindows = [];
     private string? _sourceMemo;
     private int _sourceMemoIndex = -1;
+    private bool _skipAutoSaveOnClose;
 
     private readonly ToolTip _toolTip = new();
     private Panel _editorHost = null!;
@@ -42,6 +43,7 @@ public partial class MemoPadForm : Form
     public MemoPadForm()
     {
         InitializeComponent();
+        RemoveSaveButtonIfPresent();
         TrySetAppIcon();
         if (LicenseManager.UsageMode == LicenseUsageMode.Designtime)
         {
@@ -56,6 +58,7 @@ public partial class MemoPadForm : Form
         EnsureEditorReadableColors();
         LoadMemos();
         ApplyMainLanguage();
+        FormClosing += AutoSaveBeforeClosing;
         SetupTrayIcon();
         FormClosing += (_, e) =>
         {
@@ -65,6 +68,22 @@ public partial class MemoPadForm : Form
             }
         };
         Activated += MemoPadForm_Activated;
+    }
+
+    private void RemoveSaveButtonIfPresent()
+    {
+        foreach (Button button in topBarPanel.Controls.OfType<Button>().ToList())
+        {
+            bool isSaveButton = button.Name.Contains("save", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(button.Text, "💾", StringComparison.Ordinal);
+            if (!isSaveButton)
+            {
+                continue;
+            }
+
+            topBarPanel.Controls.Remove(button);
+            button.Dispose();
+        }
     }
 
     /// <summary>
@@ -768,7 +787,6 @@ public partial class MemoPadForm : Form
     private void ApplyMainLanguage()
     {
         _toolTip.SetToolTip(addMemoIconButton, Loc.T("main.add"));
-        _toolTip.SetToolTip(saveMemoIconButton, Loc.T("main.save"));
         _toolTip.SetToolTip(deleteMemoIconButton, Loc.T("main.delete"));
         _toolTip.SetToolTip(settingsIconButton, Loc.T("main.settings"));
         _toolTip.SetToolTip(listIconButton, Loc.T("main.listBtn"));
@@ -826,7 +844,6 @@ public partial class MemoPadForm : Form
         Button[] buttons =
         [
             addMemoIconButton,
-            saveMemoIconButton,
             deleteMemoIconButton,
             settingsIconButton,
             listIconButton,
@@ -845,13 +862,17 @@ public partial class MemoPadForm : Form
         }
     }
 
-    private void AddMemo()
+    private bool SaveCurrentMemo(bool showResult)
     {
         string text = memoEditor.Text.Trim();
         if (string.IsNullOrWhiteSpace(text))
         {
-            MessageBox.Show(this, Loc.T("memo.empty"), Loc.T("common.info"), MessageBoxButtons.OK, MessageBoxIcon.Information);
-            return;
+            if (showResult)
+            {
+                MessageBox.Show(this, Loc.T("memo.empty"), Loc.T("common.info"), MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+
+            return false;
         }
 
         LoadMemos();
@@ -860,12 +881,27 @@ public partial class MemoPadForm : Form
         SaveMemos();
         AppIpc.NotifyMemosChanged();
 
-        MessageBox.Show(
-            this,
-            Loc.T(updated ? "memo.updated" : "memo.added"),
-            Loc.T("common.done"),
-            MessageBoxButtons.OK,
-            MessageBoxIcon.Information);
+        if (showResult)
+        {
+            MessageBox.Show(
+                this,
+                Loc.T(updated ? "memo.updated" : "memo.added"),
+                Loc.T("common.done"),
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
+        }
+
+        return true;
+    }
+
+    private void AutoSaveBeforeClosing(object? sender, FormClosingEventArgs e)
+    {
+        if (_skipAutoSaveOnClose)
+        {
+            return;
+        }
+
+        SaveCurrentMemo(showResult: false);
     }
 
     private void LoadMemos()
@@ -881,12 +917,8 @@ public partial class MemoPadForm : Form
 
     private void addMemoIconButton_Click(object sender, EventArgs e)
     {
+        SaveCurrentMemo(showResult: false);
         OpenBlankNewMemo();
-    }
-
-    private void saveMemoIconButton_Click(object sender, EventArgs e)
-    {
-        AddMemo();
     }
 
     private void deleteMemoIconButton_Click(object sender, EventArgs e)
@@ -951,6 +983,7 @@ public partial class MemoPadForm : Form
                 continue;
             }
 
+            open._skipAutoSaveOnClose = true;
             open.Close();
         }
 
@@ -958,6 +991,7 @@ public partial class MemoPadForm : Form
         _sourceMemoIndex = -1;
         if (OpenMemoWindows.Contains(this))
         {
+            _skipAutoSaveOnClose = true;
             Close();
             return;
         }
@@ -1153,6 +1187,7 @@ public partial class MemoPadForm : Form
         }
 
         AppIpc.SuppressActivateHandling(1000);
+        owner.SaveCurrentMemo(showResult: false);
 
         // 보이는 기본 창이 비어 있을 때만 재사용. 숨겨진 트레이 창 재사용은
         // 목록 뒤에 가려지거나 포커스가 어긋나 입력이 안 되는 경우가 있어 새 창을 엽니다.
