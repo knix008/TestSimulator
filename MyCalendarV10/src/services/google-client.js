@@ -1,3 +1,5 @@
+const path = require('path');
+const fs = require('fs');
 const { google } = require('googleapis');
 const { getSetting, setSetting, deleteSetting } = require('../db/settings-store');
 
@@ -9,7 +11,34 @@ const SCOPES = [
   'email',
 ];
 
+// Developer-provided credentials so end users only need to sign in (no per-user setup).
+function getEmbeddedCredentials() {
+  // 1) environment variables
+  if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+    return { clientId: process.env.GOOGLE_CLIENT_ID, clientSecret: process.env.GOOGLE_CLIENT_SECRET };
+  }
+  // 2) bundled config module
+  try {
+    const cfg = require('../config/google-oauth');
+    if (cfg && cfg.clientId && cfg.clientSecret) {
+      return { clientId: cfg.clientId, clientSecret: cfg.clientSecret };
+    }
+  } catch {}
+  // 3) JSON file in the user-data folder (configurable after install, no rebuild)
+  try {
+    const { getDataPath } = require('../db/connection');
+    const p = path.join(getDataPath(), 'google-oauth.json');
+    if (fs.existsSync(p)) {
+      const j = JSON.parse(fs.readFileSync(p, 'utf8'));
+      if (j.clientId && j.clientSecret) return { clientId: j.clientId, clientSecret: j.clientSecret };
+    }
+  } catch {}
+  return null;
+}
+
 async function getCredentials() {
+  const embedded = getEmbeddedCredentials();
+  if (embedded) return { ...embedded, embedded: true };
   return await getSetting('googleCredentials', null); // { clientId, clientSecret }
 }
 

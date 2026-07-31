@@ -23,6 +23,7 @@ router.get('/status', async (req, res, next) => {
     const tokens = await getTokens();
     res.json({
       hasCredentials: !!(creds && creds.clientId && creds.clientSecret),
+      embedded: !!(creds && creds.embedded),
       connected: !!tokens,
       email: await getSetting('googleAccountEmail', null),
       lastSync: await getSetting('googleLastSync', null),

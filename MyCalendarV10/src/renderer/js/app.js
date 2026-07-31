@@ -65,11 +65,41 @@
     $('#periodLabel').textContent = CalendarView.periodLabel(state);
     CalendarView.render(root, state, handlers);
     renderMiniCal();
+    updateStatusBar();
   }
+
+  // ---------- status bar ----------
+  function updateStatusBar() {
+    $('#sbView').textContent = T('view_' + state.view);
+    const n = state.events.length;
+    $('#sbCount').textContent = I18N.getLang() === 'en' ? `${n} ${T('sb_events')}` : `${n}${T('sb_events')}`;
+    try {
+      $('#sbSelected').textContent = new Intl.DateTimeFormat(I18N.locale(), { dateStyle: 'full' }).format(state.currentDate);
+    } catch { $('#sbSelected').textContent = ''; }
+  }
+
+  async function refreshGoogleStatusBar() {
+    const el = $('#sbGoogle');
+    try {
+      const st = await API.googleStatus();
+      if (st.connected) {
+        const time = st.lastSync
+          ? ' · ' + new Date(st.lastSync).toLocaleTimeString(I18N.locale(), { hour: '2-digit', minute: '2-digit' })
+          : '';
+        el.innerHTML = `<span class="sb-dot on"></span>${escapeHtml(st.email || T('g_connected'))}${time}`;
+      } else {
+        el.innerHTML = `<span class="sb-dot off"></span>${T('g_notConnected')}`;
+      }
+    } catch { el.innerHTML = `<span class="sb-dot off"></span>—`; }
+  }
+  $('#sbGoogle').addEventListener('click', openGoogleModal);
 
   // ---------- calendar handlers ----------
   const handlers = {
-    onDayClick: (d) => { state.currentDate = d; if (state.view === 'month') { state.view = 'day'; syncViewButtons(); refresh(); } },
+    // single click selects the day (stays in the current view)
+    onDayClick: (d) => { state.currentDate = d; refresh(); },
+    // clicking the date number jumps to the day view
+    onDayNumClick: (d) => { state.currentDate = d; state.view = 'day'; syncViewButtons(); refresh(); },
     onDayDblClick: (d) => openEventEditor(null, d),
     onSlotClick: (d) => openEventEditor(null, d),
     onEventClick: (id) => { const ev = state.events.find(e => e.id === id); if (ev) openEventEditor(ev); },
@@ -399,11 +429,23 @@
         <button id="gDisconnect" class="btn btn-outline" style="width:100%">${T('g_disconnect')}</button>`;
       $('#gSync').addEventListener('click', doSync);
       $('#gDisconnect').addEventListener('click', async () => {
-        await API.googleDisconnect(); await renderGoogleBody(); toast(T('t_disconnected'));
+        await API.googleDisconnect(); await renderGoogleBody(); refreshGoogleStatusBar(); toast(T('t_disconnected'));
       });
       return;
     }
 
+    // Credentials available (developer-embedded or previously saved) →
+    // the user only needs to sign in and consent in the browser.
+    if (st.hasCredentials) {
+      body.innerHTML = `
+        <div class="g-status no">${T('g_notConnected')}</div>
+        <p class="help">${T('g_signinHelp')}</p>
+        <button id="gSignin" class="btn btn-primary" style="width:100%">${T('g_signin')}</button>`;
+      $('#gSignin').addEventListener('click', startGoogleSignin);
+      return;
+    }
+
+    // No credentials anywhere → fall back to manual entry (developer setup)
     body.innerHTML = `
       <div class="g-status no">${T('g_notConnected')}</div>
       <div class="help">
@@ -433,6 +475,17 @@
     });
   }
 
+  // Launch the Google consent flow (used when credentials are already available).
+  async function startGoogleSignin() {
+    try {
+      const { url } = await API.googleAuthUrl();
+      openExternal(url);
+      $('#googleBody').innerHTML = `<div class="g-status">${T('g_afterLogin')}</div>
+        <button id="gDone" class="btn btn-primary" style="width:100%">${T('g_checkStatus')}</button>`;
+      $('#gDone').addEventListener('click', renderGoogleBody);
+    } catch (err) { toast(err.message, true); }
+  }
+
   async function doSync() {
     const btn = $('#btnSync');
     const orig = btn.textContent; btn.textContent = T('syncing'); btn.disabled = true;
@@ -442,6 +495,7 @@
       const r = await API.googleSync();
       const s = r.summary;
       await refresh();
+      refreshGoogleStatusBar();
       if ($('#googleModal').classList.contains('hidden') === false) await renderGoogleBody();
       toast(`${T('t_syncDone')} · ↑${s.pushedCreated + s.pushedUpdated + s.pushedDeleted} ↓${s.pulledCreated + s.pulledUpdated + s.pulledDeleted}`);
     } catch (err) { toast(T('t_syncFail') + ': ' + err.message, true); }
@@ -526,6 +580,92 @@
     return out;
   }
 
+  // ---------- .ics import (Outlook / Google / any iCalendar) ----------
+  $('#btnImportIcs').addEventListener('click', () => $('#icsFileInput').click());
+  $('#icsFileInput').addEventListener('change', async (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = ''; // allow re-selecting the same file later
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const events = parseIcs(text);
+      if (!events.length) return toast(T('t_importEmpty'), true);
+      let ok = 0;
+      for (const ev of events) {
+        try { await API.createEvent(ev); ok++; } catch {}
+      }
+      await refresh();
+      const msg = I18N.getLang() === 'en' ? `${ok}${T('t_imported')}` : `${ok}${T('t_imported')}`;
+      toast(msg);
+    } catch (err) {
+      toast(T('t_importFail') + ': ' + err.message, true);
+    }
+  });
+
+  function parseIcs(text) {
+    // unfold folded lines (RFC 5545: continuation lines start with space/tab)
+    const unfolded = text.replace(/\r\n[ \t]/g, '').replace(/\n[ \t]/g, '');
+    const lines = unfolded.split(/\r\n|\n|\r/);
+    const events = [];
+    let cur = null;
+    for (const line of lines) {
+      if (line === 'BEGIN:VEVENT') { cur = {}; continue; }
+      if (line === 'END:VEVENT') {
+        if (cur && cur.start && cur.end) {
+          events.push({
+            title: cur.summary || '(제목 없음)',
+            description: cur.description || null,
+            location: cur.location || null,
+            start: cur.start, end: cur.end, allDay: !!cur.allDay,
+          });
+        }
+        cur = null; continue;
+      }
+      if (!cur) continue;
+      const idx = line.indexOf(':');
+      if (idx < 0) continue;
+      const left = line.slice(0, idx);
+      const value = line.slice(idx + 1);
+      const [name, ...paramParts] = left.split(';');
+      const params = paramParts.join(';');
+      switch (name.toUpperCase()) {
+        case 'SUMMARY': cur.summary = unescapeIcs(value); break;
+        case 'DESCRIPTION': cur.description = unescapeIcs(value); break;
+        case 'LOCATION': cur.location = unescapeIcs(value); break;
+        case 'DTSTART': { const d = parseIcsDate(value, params); if (d) { cur.start = d.iso; cur.allDay = d.allDay; } break; }
+        case 'DTEND': { const d = parseIcsDate(value, params); if (d) cur.end = d.iso; break; }
+      }
+    }
+    // fall back to a 1h/1day end if DTEND missing
+    events.forEach(ev => {
+      if (!ev.end) {
+        const s = new Date(ev.start);
+        s.setHours(s.getHours() + (ev.allDay ? 24 : 1));
+        ev.end = s.toISOString();
+      }
+    });
+    return events;
+  }
+
+  function parseIcsDate(val, params) {
+    const isDate = /VALUE=DATE(?!-)/i.test(params || '') || /^\d{8}$/.test(val);
+    if (isDate) {
+      const y = val.slice(0, 4), m = val.slice(4, 6), d = val.slice(6, 8);
+      return { iso: `${y}-${m}-${d}T00:00:00`, allDay: true };
+    }
+    const m = val.match(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})(Z)?$/);
+    if (!m) return null;
+    const [, y, mo, d, h, mi, s, z] = m;
+    const dt = z
+      ? new Date(Date.UTC(+y, +mo - 1, +d, +h, +mi, +s))
+      : new Date(+y, +mo - 1, +d, +h, +mi, +s); // floating/TZID → treat as local
+    return { iso: dt.toISOString(), allDay: false };
+  }
+
+  function unescapeIcs(s) {
+    return String(s).replace(/\\n/gi, '\n').replace(/\\,/g, ',').replace(/\\;/g, ';').replace(/\\\\/g, '\\');
+  }
+
   // ---------- modal utils ----------
   function showModal(sel) { $(sel).classList.remove('hidden'); }
   function hideModal(sel) { $(sel).classList.add('hidden'); }
@@ -573,5 +713,11 @@
     syncViewButtons();
     await loadCalendars();
     await refresh();
+    refreshGoogleStatusBar();
+    try { const info = await API.appInfo(); $('#sbVersion').textContent = 'v' + info.version; } catch {}
   })();
+
+  // keep the status-bar Google indicator fresh when the connect/sign-in modal closes
+  document.querySelectorAll('#googleModal [data-close]').forEach(b =>
+    b.addEventListener('click', () => refreshGoogleStatusBar()));
 })();

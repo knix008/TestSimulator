@@ -9,6 +9,7 @@
 </head>
 <body>
   <div id="app">
+    <div class="app-body">
     <!-- Sidebar -->
     <aside class="sidebar">
       <div class="brand">
@@ -57,6 +58,24 @@
 
       <div id="calendarView" class="calendar-view"></div>
     </main>
+    </div><!-- /app-body -->
+
+    <!-- Status bar -->
+    <footer class="statusbar">
+      <div class="sb-left">
+        <span class="sb-seg" id="sbView"></span>
+        <span class="sb-sep">·</span>
+        <span class="sb-seg" id="sbCount"></span>
+      </div>
+      <div class="sb-center">
+        <span class="sb-seg" id="sbSelected"></span>
+      </div>
+      <div class="sb-right">
+        <span class="sb-seg sb-clickable" id="sbGoogle" title="Google"></span>
+        <span class="sb-sep">·</span>
+        <span class="sb-seg" id="sbVersion"></span>
+      </div>
+    </footer>
   </div>
 
   <!-- Event editor modal -->
@@ -160,7 +179,11 @@
           <label><span data-i18n="set_bgOpacity">배경 투명도</span> — <span id="bgOpacityVal">100%</span></label>
           <input type="range" id="setBgOpacity" min="40" max="100" step="1" value="100" class="range" />
         </div>
-        <button id="btnExportIcs" class="btn btn-outline" style="margin-top:12px" data-i18n="exportIcs">📤 .ics 로 내보내기</button>
+        <div class="row two" style="margin-top:12px">
+          <button id="btnImportIcs" class="btn btn-outline" data-i18n="importIcs">📥 .ics 가져오기</button>
+          <button id="btnExportIcs" class="btn btn-outline" data-i18n="exportIcs">📤 .ics 로 내보내기</button>
+        </div>
+        <input type="file" id="icsFileInput" accept=".ics,text/calendar" style="display:none" />
         <p class="muted" id="aboutLine" style="margin-top:16px"></p>
       </div>
       <div class="modal-foot">

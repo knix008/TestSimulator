@@ -55,14 +55,34 @@ NSIS 설치 마법사의 "바로가기 설정" 단계에서 **바탕화면 / 시
 
 ## Google Calendar 연동 설정
 
+OAuth 2.0 사용자 동의 방식입니다. **개발자가 Client ID 를 한 번 내장**해 두면
+최종 사용자는 **"Google로 로그인" → 동의**만 하면 됩니다.
+
+### 개발자 1회 설정 (Client ID 내장)
+
 1. [Google Cloud Console](https://console.cloud.google.com/apis/credentials) 에서 프로젝트 생성
 2. **Google Calendar API** 활성화
 3. **OAuth 클라이언트 ID** 생성 — 애플리케이션 유형: **데스크톱 앱**
-4. 앱 실행 → 사이드바 **🔗 Google 연동** → Client ID / Secret 입력 → Google 로그인
-5. **⟳ 동기화** 버튼으로 양방향 동기화
+4. 발급된 Client ID / Secret 을 아래 중 한 곳에 넣습니다 (우선순위 순):
+   - 환경변수 `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`
+   - [src/config/google-oauth.js](src/config/google-oauth.js) 의 `clientId` / `clientSecret`
+   - 설치 후 `<userData>/google-oauth.json` (`{ "clientId": "...", "clientSecret": "..." }`) — 재빌드 없이 설정 가능
+
+> 데스크톱 앱 OAuth 클라이언트의 secret 은 Google 정책상 기밀로 취급되지 않으므로 앱에 내장해도 됩니다.
+
+### 최종 사용자
+
+- 사이드바 **🔗 Google 연동** → **Google로 로그인** → 브라우저에서 본인 계정 로그인·동의 → 완료
+- **⟳ 동기화** 버튼으로 양방향 동기화
+
+> Client ID 가 어디에도 없으면, 앱 안에서 사용자가 직접 Client ID/Secret 을 입력하는
+> 화면이 fallback 으로 표시됩니다.
 
 > 로컬에서 만든 일정은 다음 동기화 때 Google 에 업로드되고, Google 의 변경 사항은
 > 앱으로 내려받습니다. 삭제도 양쪽으로 전파됩니다.
+
+> **참고**: 동의 화면이 "테스트" 상태면 본인(및 등록한 테스트 사용자)만 로그인할 수 있고
+> refresh token 이 약 7일마다 만료됩니다. 다수 사용자에게 배포하려면 Google 앱 게시·검증이 필요합니다.
 
 ## 데이터 위치
 

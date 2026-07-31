@@ -46,24 +46,43 @@ body {
 
 /* The app background layer honours the opacity slider (desktop shows through in Electron). */
 #app {
-  display: flex; height: 100vh; overflow: hidden;
+  display: flex; flex-direction: column; height: 100vh; overflow: hidden;
   background: rgba(var(--bg-rgb), var(--app-bg-alpha));
 }
+.app-body { display: flex; flex: 1; overflow: hidden; }
+
+/* ---------- Status bar ---------- */
+.statusbar {
+  flex-shrink: 0; height: 30px;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 14px; gap: 12px;
+  background: linear-gradient(180deg, var(--bg-2), var(--bg));
+  border-top: 1px solid var(--line);
+  font-size: 12px; color: var(--muted); user-select: none;
+}
+.statusbar .sb-left, .statusbar .sb-right { display: flex; align-items: center; gap: 8px; }
+.statusbar .sb-seg { white-space: nowrap; }
+.statusbar .sb-sep { opacity: .4; }
+.sb-clickable { cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.sb-clickable:hover { color: var(--text); }
+.sb-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.sb-dot.on { background: #22c55e; box-shadow: 0 0 6px #22c55e; }
+.sb-dot.off { background: #64748b; }
 
 /* ---------- Sidebar ---------- */
 .sidebar {
-  width: 260px; flex-shrink: 0;
+  flex: 0 0 260px; width: 260px;
   background: linear-gradient(180deg, #111827, #0b1220);
   border-right: 1px solid var(--line);
   display: flex; flex-direction: column;
   padding: 18px 16px; gap: 16px;
   overflow: hidden; white-space: nowrap;
-  transition: width .2s ease, padding .2s ease, opacity .2s ease;
+  transition: margin-left .22s ease, opacity .22s ease;
 }
+/* Slide the sidebar out with a negative margin — reliable with flexbox
+   (a negative margin cancels its 260px track, so .main reclaims the space). */
 #app.sidebar-collapsed .sidebar {
-  /* min-width:0 is required — flex items default to min-width:auto, which would
-     clamp the width back up to the content's minimum and block the collapse. */
-  width: 0; min-width: 0; padding-left: 0; padding-right: 0; border-right: none; opacity: 0;
+  margin-left: -260px; opacity: 0; pointer-events: none;
 }
 .brand { display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 700; }
 .brand-logo { width: 30px; height: 30px; }
@@ -109,6 +128,9 @@ body {
 .icon-btn { background:transparent; border:none; color:var(--muted); cursor:pointer; font-size:16px; width:32px; height:32px; border-radius:8px; }
 .icon-btn:hover { background:var(--bg-2); color:var(--text); }
 .icon-btn.nav { font-size:22px; line-height:1; }
+/* sidebar collapse/expand button — clearly visible in the toolbar */
+#btnToggleSidebar { border:1px solid var(--line); color:var(--text); font-size:18px; }
+#btnToggleSidebar:hover { background:var(--bg-2); }
 
 /* ---------- Main / toolbar ---------- */
 .main { flex:1; display:flex; flex-direction:column; overflow:hidden; }
@@ -131,8 +153,10 @@ body {
 .day-cell.other { background:rgba(0,0,0,.15); }
 .day-cell.other .day-num { color:#475569; }
 .day-cell.today { background:var(--today); }
-.day-num { font-size:12px; font-weight:600; align-self:flex-start; padding:2px 6px; border-radius:50%; }
+.day-num { font-size:12px; font-weight:600; align-self:flex-start; padding:2px 6px; border-radius:50%; cursor:pointer; }
+.day-num:hover { background:var(--bg-3); }
 .day-cell.today .day-num { background:var(--primary); color:#fff; }
+.day-cell.sel { box-shadow: inset 0 0 0 2px var(--primary-2); }
 .chip { font-size:11px; padding:2px 6px; border-radius:6px; color:#fff; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; cursor:pointer; }
 .chip .dot { display:inline-block; width:7px; height:7px; border-radius:50%; margin-right:4px; background:rgba(255,255,255,.9); }
 .more-link { font-size:11px; color:var(--muted); cursor:pointer; padding-left:6px; }
@@ -173,6 +197,18 @@ body {
 .input { width:100%; background:var(--bg); border:1px solid var(--line); border-radius:10px; padding:10px 12px; color:var(--text); font-size:14px; font-family:inherit; }
 .input:focus { outline:none; border-color:var(--primary); }
 textarea.input { resize:vertical; }
+/* native date/time picker icon — make it visible in both themes */
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator,
+input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  cursor: pointer; opacity: 0.9;
+}
+/* dark theme (default): invert the dark glyph to light so it shows on dark inputs */
+html:not([data-theme="light"]) input[type="date"]::-webkit-calendar-picker-indicator,
+html:not([data-theme="light"]) input[type="time"]::-webkit-calendar-picker-indicator,
+html:not([data-theme="light"]) input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  filter: invert(1) brightness(1.4);
+}
 label { font-size:12px; color:var(--muted); display:block; margin-bottom:4px; }
 .row.two { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
 .check { display:flex; align-items:center; gap:8px; color:var(--text); margin:0; }

@@ -89,6 +89,7 @@ const CalendarView = (() => {
       const cls = ['day-cell'];
       if (!inMonth) cls.push('other');
       if (isToday(day)) cls.push('today');
+      if (sameDay(day, state.currentDate)) cls.push('sel');
 
       let chips = '';
       dayEvents.slice(0, 3).forEach(e => {
@@ -107,6 +108,8 @@ const CalendarView = (() => {
     root.querySelectorAll('.day-cell').forEach(cell => {
       cell.addEventListener('click', (e) => {
         if (e.target.closest('.chip') || e.target.closest('.more-link')) return;
+        // clicking the date number jumps to day view; clicking the cell just selects the day
+        if (e.target.closest('.day-num')) { h.onDayNumClick(new Date(cell.dataset.date)); return; }
         h.onDayClick(new Date(cell.dataset.date));
       });
       cell.addEventListener('dblclick', () => h.onDayDblClick(new Date(cell.dataset.date)));
