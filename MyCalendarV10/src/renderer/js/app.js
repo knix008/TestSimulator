@@ -66,6 +66,7 @@
     CalendarView.render(root, state, handlers);
     renderMiniCal();
     updateStatusBar();
+    updateToggleButtons();
   }
 
   // ---------- status bar ----------
@@ -135,6 +136,43 @@
     try { localStorage.setItem('sidebarCollapsed', collapsed ? '1' : '0'); } catch {}
   });
   try { if (localStorage.getItem('sidebarCollapsed') === '1') appEl.classList.add('sidebar-collapsed'); } catch {}
+
+  // frameless window controls (Electron only)
+  if (IS_ELECTRON && window.electron.windowControls) {
+    const wc = window.electron.windowControls;
+    $('#winControls').style.display = 'flex';
+    const updateMax = async () => {
+      const m = await wc.isMaximized();
+      $('#winMax').innerHTML = m ? '&#x2750;' : '&#x25A1;';
+      $('#winMax').title = m ? '이전 크기로' : '최대화';
+    };
+    $('#winMin').addEventListener('click', () => wc.minimize());
+    $('#winMax').addEventListener('click', async () => { await wc.maximizeToggle(); updateMax(); });
+    $('#winClose').addEventListener('click', () => wc.close());
+    // double-clicking the empty toolbar toggles maximize (standard title-bar behavior)
+    document.querySelector('.toolbar').addEventListener('dblclick', async (e) => {
+      if (e.target.closest('button') || e.target.closest('.view-switch')) return;
+      await wc.maximizeToggle(); updateMax();
+    });
+    updateMax();
+  }
+
+  // language & theme quick-toggle buttons
+  function updateToggleButtons() {
+    const l = $('#langLabel'); if (l) l.textContent = state.language === 'ko' ? '한국어' : 'English';
+    const t = $('#themeLabel'); if (t) t.textContent = T(state.theme === 'dark' ? 'theme_dark' : 'theme_light');
+    const i = $('#themeIco'); if (i) i.textContent = state.theme === 'dark' ? '🌙' : '☀️';
+  }
+  $('#btnLang').addEventListener('click', async () => {
+    const next = state.language === 'ko' ? 'en' : 'ko';
+    applyLanguage(next); render();
+    try { await API.saveSettings({ language: next }); } catch {}
+  });
+  $('#btnTheme').addEventListener('click', async () => {
+    const next = state.theme === 'dark' ? 'light' : 'dark';
+    applyTheme(next); updateToggleButtons();
+    try { await API.saveSettings({ theme: next }); } catch {}
+  });
 
   // ---------- right-click context menu (icon + label) ----------
   const ctxMenu = $('#contextMenu');
@@ -488,7 +526,9 @@
 
   async function doSync() {
     const btn = $('#btnSync');
-    const orig = btn.textContent; btn.textContent = T('syncing'); btn.disabled = true;
+    const lbl = btn.querySelector('.lbl');
+    if (lbl) lbl.textContent = T('syncing');
+    btn.disabled = true;
     try {
       const st = await API.googleStatus();
       if (!st.connected) { openGoogleModal(); return; }
@@ -499,7 +539,7 @@
       if ($('#googleModal').classList.contains('hidden') === false) await renderGoogleBody();
       toast(`${T('t_syncDone')} · ↑${s.pushedCreated + s.pushedUpdated + s.pushedDeleted} ↓${s.pulledCreated + s.pulledUpdated + s.pulledDeleted}`);
     } catch (err) { toast(T('t_syncFail') + ': ' + err.message, true); }
-    finally { btn.textContent = T('sync'); btn.disabled = false; }
+    finally { if (lbl) lbl.textContent = T('sync_label'); btn.disabled = false; }
   }
   $('#btnSync').addEventListener('click', doSync);
 
@@ -514,6 +554,7 @@
     $('#setBgOpacity').value = String(state.bgOpacity);
     $('#bgOpacityVal').textContent = state.bgOpacity + '%';
     try { const info = await API.appInfo(); $('#aboutLine').textContent = `${info.name} v${info.version} · ${info.author}`; } catch {}
+    renderSubscriptions();
     showModal('#settingsModal');
   });
 
@@ -548,6 +589,17 @@
     hideModal('#settingsModal');
     render();
     toast(T('t_settingsSaved'));
+  });
+
+  // ---------- About ----------
+  $('#btnAbout').addEventListener('click', async () => {
+    let info = { name: 'MyCalendar', version: '', description: '', author: 'SHKWON(knix008@naver.com)' };
+    try { info = await API.appInfo(); } catch {}
+    $('#aboutName').textContent = info.name;
+    $('#aboutVersion').textContent = info.version ? `v${info.version}` : '';
+    $('#aboutDesc').textContent = info.description || '';
+    $('#aboutCopyright').textContent = `Copyright © 2026 ${info.author}`;
+    showModal('#aboutModal');
   });
 
   $('#btnExportIcs').addEventListener('click', exportIcs);
@@ -665,6 +717,56 @@
   function unescapeIcs(s) {
     return String(s).replace(/\\n/gi, '\n').replace(/\\,/g, ',').replace(/\\;/g, ';').replace(/\\\\/g, '\\');
   }
+
+  // ---------- ICS subscriptions ----------
+  async function renderSubscriptions() {
+    const ul = $('#subList');
+    ul.innerHTML = '';
+    let subs = [];
+    try { subs = await API.listSubscriptions(); } catch { return; }
+    if (!subs.length) {
+      ul.innerHTML = `<li class="muted" style="justify-content:center">${T('sub_none')}</li>`;
+      return;
+    }
+    subs.forEach(s => {
+      const li = document.createElement('li');
+      const last = s.last_fetched ? new Date(s.last_fetched).toLocaleString(I18N.locale()) : T('sub_never');
+      const status = s.last_status === 'error' ? `<span class="err">${T('sub_error')}</span> · ` : '';
+      li.innerHTML = `<div class="sub-info">
+          <div class="sub-name">${escapeHtml(s.name)}</div>
+          <div class="sub-meta">${status}${s.eventCount || 0} · ${T('sub_last')}: ${escapeHtml(last)}</div>
+        </div>
+        <div class="sub-actions">
+          <button class="icon-btn" data-refresh="${s.id}" title="${T('sub_refresh')}">↻</button>
+          <button class="icon-btn" data-del="${s.id}" title="${T('btn_delete')}">🗑️</button>
+        </div>`;
+      li.querySelector('[data-refresh]').addEventListener('click', async () => {
+        try { await API.refreshSubscription(s.id); await renderSubscriptions(); await refresh(); toast(T('t_subRefreshed')); }
+        catch (err) { toast(err.message, true); }
+      });
+      li.querySelector('[data-del]').addEventListener('click', async () => {
+        if (!confirm(T('c_confirmDeleteSub'))) return;
+        try { await API.deleteSubscription(s.id); await renderSubscriptions(); await loadCalendars(); await refresh(); toast(T('t_subDeleted')); }
+        catch (err) { toast(err.message, true); }
+      });
+      ul.appendChild(li);
+    });
+  }
+
+  $('#btnAddSub').addEventListener('click', async () => {
+    const url = $('#subUrl').value.trim();
+    const name = $('#subName').value.trim();
+    if (!url) return toast(T('t_subNeedUrl'), true);
+    const btn = $('#btnAddSub'); btn.disabled = true;
+    try {
+      const r = await API.addSubscription({ url, name });
+      $('#subUrl').value = ''; $('#subName').value = '';
+      await renderSubscriptions(); await loadCalendars(); await refresh();
+      if (r.error) toast(T('t_importFail') + ': ' + r.error, true);
+      else toast(T('t_subAdded'));
+    } catch (err) { toast(err.message, true); }
+    finally { btn.disabled = false; }
+  });
 
   // ---------- modal utils ----------
   function showModal(sel) { $(sel).classList.remove('hidden'); }

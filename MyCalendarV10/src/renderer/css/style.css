@@ -134,11 +134,27 @@ body {
 
 /* ---------- Main / toolbar ---------- */
 .main { flex:1; display:flex; flex-direction:column; overflow:hidden; }
-.toolbar { display:flex; align-items:center; justify-content:space-between; padding:14px 20px; border-bottom:1px solid var(--line); gap:12px; }
+/* toolbar doubles as the draggable title-bar region (frameless window) */
+.toolbar { display:flex; align-items:center; justify-content:space-between; padding:14px 20px; border-bottom:1px solid var(--line); gap:12px; -webkit-app-region: drag; }
+/* interactive elements must opt out of dragging so they stay clickable */
+.toolbar button, .toolbar .view-switch, .toolbar input, .win-controls { -webkit-app-region: no-drag; }
+/* sidebar top (brand) is also draggable so the whole top edge moves the window */
+.brand { -webkit-app-region: drag; }
+.brand button, .btn-new, .mini-cal, .cal-list, .sidebar-footer { -webkit-app-region: no-drag; }
+
+/* custom window controls */
+.win-controls { display:flex; gap:2px; margin-left:6px; }
+.win-btn { width:40px; height:30px; border:none; background:transparent; color:var(--muted); cursor:pointer; border-radius:6px; font-size:13px; line-height:1; }
+.win-btn:hover { background:var(--bg-2); color:var(--text); }
+.win-close:hover { background:#ef4444; color:#fff; }
 .toolbar-left, .toolbar-right { display:flex; align-items:center; gap:8px; }
 .period-label { font-size:20px; font-weight:700; margin:0 4px; }
+/* toolbar buttons: icon + label together */
+.btn.tb { display:inline-flex; align-items:center; gap:6px; padding:8px 12px; }
+.toolbar .ico { font-size:15px; line-height:1; }
+.toolbar .lbl { font-size:13px; }
 .view-switch { display:flex; background:var(--bg-2); border-radius:10px; padding:3px; }
-.view-switch button { border:none; background:transparent; color:var(--muted); padding:6px 14px; border-radius:8px; cursor:pointer; font-weight:600; }
+.view-switch button { display:inline-flex; align-items:center; gap:5px; border:none; background:transparent; color:var(--muted); padding:6px 12px; border-radius:8px; cursor:pointer; font-weight:600; }
 .view-switch button.active { background:var(--primary); color:#fff; }
 
 .calendar-view { flex:1; overflow:auto; }
@@ -215,6 +231,17 @@ label { font-size:12px; color:var(--muted); display:block; margin-bottom:4px; }
 .check input { width:auto; }
 .muted { color:var(--muted); font-size:13px; }
 .range { width:100%; accent-color:var(--primary); margin-top:6px; }
+
+/* ICS subscriptions */
+.sub-section { margin-top:16px; border-top:1px solid var(--line); padding-top:14px; }
+.sub-add { display:grid; grid-template-columns:1fr 120px auto; gap:8px; margin-top:6px; }
+.sub-list { list-style:none; margin:10px 0 0; padding:0; display:flex; flex-direction:column; gap:6px; }
+.sub-list li { display:flex; align-items:center; gap:8px; background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:8px 10px; }
+.sub-info { flex:1; min-width:0; }
+.sub-info .sub-name { font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.sub-info .sub-meta { font-size:11px; color:var(--muted); }
+.sub-meta .err { color:var(--danger); }
+.sub-actions { display:flex; gap:4px; flex-shrink:0; }
 
 /* ---------- Weekend colours (Sun = red, Sat = blue) ---------- */
 :root { --sun: #f87171; --sat: #60a5fa; }

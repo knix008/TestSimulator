@@ -25,6 +25,11 @@ const API = (() => {
     getSettings: () => req('GET', '/api/settings'),
     saveSettings: (s) => req('PUT', '/api/settings', s),
     appInfo: () => req('GET', '/api/app-info'),
+    // subscriptions (ICS URL)
+    listSubscriptions: () => req('GET', '/api/subscriptions'),
+    addSubscription: (s) => req('POST', '/api/subscriptions', s),
+    refreshSubscription: (id) => req('POST', `/api/subscriptions/${id}/refresh`),
+    deleteSubscription: (id) => req('DELETE', `/api/subscriptions/${id}`),
     // google
     googleStatus: () => req('GET', '/api/google/status'),
     googleSaveCreds: (c) => req('POST', '/api/google/credentials', c),

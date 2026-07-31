@@ -38,6 +38,30 @@ npm run start:web
 `npm install` 시 `sqlite3` 네이티브 모듈이 Electron ABI 로 빌드되어야 할 수 있습니다.
 문제가 있으면 `npx electron-rebuild -f -w sqlite3` 를 실행하세요.
 
+## 자동 테스트
+
+외부 의존성 없이 Node 내장 테스트 러너(`node:test`)를 사용합니다.
+
+```bash
+npm test                    # 전체 테스트 실행
+node test/run-tests.js      # 동일 (러너 스크립트 직접 실행)
+node test/run-tests.js events   # 이름에 "events"가 포함된 파일만 실행
+```
+
+시나리오별 테스트 (`test/`):
+
+| 파일 | 검증 내용 |
+|---|---|
+| `ics-parser.test.js` | ICS 파싱 — 시각/종일/TZID/줄접힘/이스케이프/DTEND 누락 |
+| `events.test.js` | 일정 CRUD, 유효성 검사, 범위 필터, 404 |
+| `calendars.test.js` | 캘린더 CRUD, 기본 캘린더 삭제 방지 |
+| `settings.test.js` | 테마/언어/투명도 등 설정 저장·부분 갱신 |
+| `google.test.js` | Google 상태/인증 URL/연결 해제 (내장 자격증명) |
+| `subscriptions.test.js` | ICS 구독 추가·목록·새로고침(멱등)·프루닝·삭제 |
+
+각 테스트는 임시 SQLite DB와 임의 포트로 격리 실행됩니다 (실제 데이터 영향 없음).
+현재 **35개 테스트 전부 통과**합니다.
+
 ## 설치 파일 빌드
 
 ```bash

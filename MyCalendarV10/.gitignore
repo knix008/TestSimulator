@@ -1,6 +1,8 @@
 node_modules/
 dist/
 data/
+data-*/
+testout.txt
 *.log
 assets/icon.ico
 assets/icon.png

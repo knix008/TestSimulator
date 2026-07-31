@@ -44,6 +44,29 @@ async function runMigrations(db) {
     });
   }
 
+  // ICS subscriptions (external calendars, e.g. Outlook "publish" links)
+  if (!(await db.schema.hasTable('subscriptions'))) {
+    await db.schema.createTable('subscriptions', (t) => {
+      t.increments('id').primary();
+      t.string('name', 255).notNullable();
+      t.text('url').notNullable();
+      t.integer('calendar_id').unsigned().references('id').inTable('calendars').onDelete('SET NULL');
+      t.datetime('last_fetched').nullable();
+      t.string('last_status', 20).defaultTo('pending'); // ok | error | pending
+      t.timestamps(true, true);
+    });
+  }
+
+  // Columns linking events to a subscription feed (for upsert/prune on refresh)
+  if (await db.schema.hasTable('events')) {
+    if (!(await db.schema.hasColumn('events', 'subscription_id'))) {
+      await db.schema.alterTable('events', (t) => { t.integer('subscription_id').unsigned().nullable(); });
+    }
+    if (!(await db.schema.hasColumn('events', 'source_uid'))) {
+      await db.schema.alterTable('events', (t) => { t.string('source_uid', 255).nullable(); });
+    }
+  }
+
   // Key/value settings (Google tokens, sync cursor, preferences)
   if (!(await db.schema.hasTable('settings'))) {
     await db.schema.createTable('settings', (t) => {

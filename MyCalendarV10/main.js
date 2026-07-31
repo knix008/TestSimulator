@@ -9,10 +9,10 @@ Menu.setApplicationMenu(null);
 
 async function createWindow(port) {
   mainWindow = new BrowserWindow({
-    width: 1280,
-    height: 860,
-    minWidth: 380,
-    minHeight: 480,
+    width: 1500,
+    height: 900,
+    minWidth: 760,
+    minHeight: 520,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -20,6 +20,7 @@ async function createWindow(port) {
     },
     title: 'MyCalendar',
     show: false,
+    frame: false,            // no OS title bar — custom controls live in the toolbar
     backgroundColor: '#0f172a',
     icon: path.join(__dirname, 'assets', process.platform === 'win32' ? 'icon.ico' : 'icons/512x512.png')
   });
@@ -62,6 +63,16 @@ ipcMain.handle('set-window-opacity', (event, value) => {
 
 // IPC: app version for the About dialog
 ipcMain.handle('get-app-version', () => app.getVersion());
+
+// IPC: custom window controls (frameless window)
+ipcMain.handle('win-minimize', () => { if (mainWindow) mainWindow.minimize(); });
+ipcMain.handle('win-maximize-toggle', () => {
+  if (!mainWindow) return false;
+  if (mainWindow.isMaximized()) { mainWindow.unmaximize(); return false; }
+  mainWindow.maximize(); return true;
+});
+ipcMain.handle('win-close', () => { if (mainWindow) mainWindow.close(); });
+ipcMain.handle('win-is-maximized', () => !!(mainWindow && mainWindow.isMaximized()));
 
 // IPC: export calendar (.ics) via native save dialog
 ipcMain.handle('save-ics-dialog', async (event, defaultName, content) => {

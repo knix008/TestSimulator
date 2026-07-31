@@ -32,6 +32,7 @@
       <div class="sidebar-footer">
         <button id="btnGoogle" class="btn btn-ghost" data-i18n="googleConnect">🔗 Google 연동</button>
         <button id="btnSettings" class="btn btn-ghost" data-i18n="settings">⚙️ 설정</button>
+        <button id="btnAbout" class="btn btn-ghost" data-i18n="menu_about">ℹ️ 정보</button>
       </div>
     </aside>
 
@@ -39,20 +40,34 @@
     <main class="main">
       <header class="toolbar">
         <div class="toolbar-left">
-          <button id="btnToggleSidebar" class="icon-btn" data-i18n-title="toggleSidebar" title="패널 접기/펼치기">☰</button>
-          <button id="btnToday" class="btn btn-outline" data-i18n="today">오늘</button>
-          <button id="btnPrev" class="icon-btn nav">‹</button>
-          <button id="btnNext" class="icon-btn nav">›</button>
+          <button id="btnToggleSidebar" class="btn btn-outline tb" data-i18n-title="toggleSidebar" title="패널 접기/펼치기">
+            <span class="ico">&#9776;</span><span class="lbl" data-i18n="tb_panel">패널</span></button>
+          <button id="btnToday" class="btn btn-outline tb" data-i18n-title="tt_today" title="오늘로 이동">
+            <span class="ico">&#128197;</span><span class="lbl" data-i18n="today">오늘</span></button>
+          <button id="btnPrev" class="btn btn-outline tb" data-i18n-title="tt_prev" title="이전 기간">
+            <span class="ico">&#8249;</span><span class="lbl" data-i18n="tb_prev">이전</span></button>
+          <button id="btnNext" class="btn btn-outline tb" data-i18n-title="tt_next" title="다음 기간">
+            <span class="ico">&#8250;</span><span class="lbl" data-i18n="tb_next">다음</span></button>
           <h2 id="periodLabel" class="period-label"></h2>
         </div>
         <div class="toolbar-right">
           <div class="view-switch" id="viewSwitch">
-            <button data-view="month" class="active" data-i18n="view_month">월</button>
-            <button data-view="week" data-i18n="view_week">주</button>
-            <button data-view="day" data-i18n="view_day">일</button>
-            <button data-view="agenda" data-i18n="view_agenda">목록</button>
+            <button data-view="month" class="active" data-i18n-title="tt_month" title="월 보기"><span class="ico">&#9638;</span><span class="lbl" data-i18n="view_month">월</span></button>
+            <button data-view="week" data-i18n-title="tt_week" title="주 보기"><span class="ico">&#9636;</span><span class="lbl" data-i18n="view_week">주</span></button>
+            <button data-view="day" data-i18n-title="tt_day" title="일 보기"><span class="ico">&#9637;</span><span class="lbl" data-i18n="view_day">일</span></button>
+            <button data-view="agenda" data-i18n-title="tt_agenda" title="목록 보기"><span class="ico">&#8803;</span><span class="lbl" data-i18n="view_agenda">목록</span></button>
           </div>
-          <button id="btnSync" class="btn btn-outline" data-i18n="sync">⟳ 동기화</button>
+          <button id="btnSync" class="btn btn-outline tb" data-i18n-title="tt_sync" title="Google 동기화">
+            <span class="ico">&#10227;</span><span class="lbl" data-i18n="sync_label">동기화</span></button>
+          <button id="btnLang" class="btn btn-outline tb" data-i18n-title="tt_lang" title="언어 전환">
+            <span class="ico">&#127760;</span><span class="lbl" id="langLabel">한국어</span></button>
+          <button id="btnTheme" class="btn btn-outline tb" data-i18n-title="tt_theme" title="테마 전환">
+            <span class="ico" id="themeIco">&#127769;</span><span class="lbl" id="themeLabel">다크</span></button>
+          <div class="win-controls" id="winControls" style="display:none">
+            <button id="winMin" class="win-btn" data-i18n-title="tt_min" title="최소화">&#x2500;</button>
+            <button id="winMax" class="win-btn" data-i18n-title="tt_max" title="최대화">&#x25A1;</button>
+            <button id="winClose" class="win-btn win-close" data-i18n-title="tt_close" title="닫기">&#x2715;</button>
+          </div>
         </div>
       </header>
 
@@ -184,6 +199,17 @@
           <button id="btnExportIcs" class="btn btn-outline" data-i18n="exportIcs">📤 .ics 로 내보내기</button>
         </div>
         <input type="file" id="icsFileInput" accept=".ics,text/calendar" style="display:none" />
+
+        <div class="sub-section">
+          <label data-i18n="sub_title">캘린더 구독 (ICS URL)</label>
+          <div class="sub-add">
+            <input type="text" id="subUrl" class="input" data-i18n-ph="sub_urlPh" placeholder="ICS URL" />
+            <input type="text" id="subName" class="input" data-i18n-ph="sub_namePh" placeholder="이름(선택)" />
+            <button id="btnAddSub" class="btn btn-outline" data-i18n="sub_add">추가</button>
+          </div>
+          <ul id="subList" class="sub-list"></ul>
+        </div>
+
         <p class="muted" id="aboutLine" style="margin-top:16px"></p>
       </div>
       <div class="modal-foot">
@@ -214,6 +240,26 @@
         <button id="btnDeleteCalendar" class="btn btn-danger" style="margin-right:auto" data-i18n="btn_delete">삭제</button>
         <button class="btn btn-ghost" data-close data-i18n="btn_cancel">취소</button>
         <button id="btnSaveCalendar" class="btn btn-primary" data-i18n="btn_save">저장</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- About modal -->
+  <div id="aboutModal" class="modal hidden">
+    <div class="modal-card" style="width:min(420px,92vw)">
+      <div class="modal-head">
+        <h3 data-i18n="about_title">정보</h3>
+        <button class="icon-btn" data-close>✕</button>
+      </div>
+      <div class="modal-body" style="text-align:center; align-items:center">
+        <img src="/assets/icon.png" alt="" style="width:80px;height:80px" />
+        <h2 id="aboutName" style="margin:6px 0 0">MyCalendar</h2>
+        <p class="muted" id="aboutVersion" style="margin:2px 0"></p>
+        <p class="muted" id="aboutDesc" style="margin:8px 0"></p>
+        <p class="muted" id="aboutCopyright" style="margin-top:14px"></p>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-primary" data-close data-i18n="btn_close">닫기</button>
       </div>
     </div>
   </div>

@@ -8,6 +8,7 @@
   "main": "main.js",
   "scripts": {
     "dev": "node server.js",
+    "test": "node test/run-tests.js",
     "start": "electron .",
     "start:web": "node server.js",
     "create-icons": "node scripts/create-icons.js",
