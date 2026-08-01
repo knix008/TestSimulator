@@ -14,6 +14,7 @@
     "preview": "vite preview",
     "electron:dev": "npm run compile:electron && concurrently -k \"vite\" \"wait-on http://localhost:5173 && electron .\"",
     "copy:installer": "node scripts/copy-installer.mjs",
+    "make:file-icon": "node scripts/make-file-icon.mjs",
     "build:win": "npm run build && electron-builder --win && npm run copy:installer",
     "build:mac": "npm run build && electron-builder --mac && npm run copy:installer",
     "build:linux": "npm run build && electron-builder --linux && npm run copy:installer",
@@ -23,10 +24,12 @@
     "electron:build:linux": "npm run build:linux"
   },
   "dependencies": {
+    "gifenc": "^1.0.3",
     "i18next": "^25.3.2",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-i18next": "^15.6.1",
+    "utif": "^3.1.0",
     "uuid": "^11.1.0"
   },
   "devDependencies": {
@@ -50,12 +53,26 @@
     "directories": {
       "output": "release"
     },
+    "afterAllArtifactBuild": "scripts/after-artifact-build.cjs",
     "files": [
       "dist/**/*",
       "dist-electron/**/*",
       "build/icon.*"
     ],
-    "extraResources": [],
+    "extraResources": [
+      {
+        "from": "template",
+        "to": "template"
+      }
+    ],
+    "fileAssociations": [
+      {
+        "ext": "mmap",
+        "name": "MyMind Diagram",
+        "description": "MyMind Mindmap / Fishbone diagram",
+        "role": "Editor"
+      }
+    ],
     "win": {
       "target": [
         {
@@ -93,8 +110,8 @@
       "deleteAppDataOnUninstall": true,
       "runAfterFinish": true,
       "installerLanguages": [
-        "English",
-        "Korean"
+        "en_US",
+        "ko_KR"
       ],
       "language": "1042",
       "include": "build/installer.nsh"

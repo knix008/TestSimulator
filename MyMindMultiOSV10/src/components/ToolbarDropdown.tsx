@@ -55,7 +55,7 @@ export function ToolbarDropdown<T extends string>({
         aria-controls={menuId}
         onClick={() => setOpen((v) => !v)}
       >
-        {icon ? <span className="icon">{icon}</span> : null}
+        {selected?.icon ?? icon ? <span className="icon">{selected?.icon ?? icon}</span> : null}
         <span className="tb-dropdown-text">
           <span className="tb-dropdown-label">{label}</span>
           <span className="tb-dropdown-value">{selected?.label ?? ''}</span>

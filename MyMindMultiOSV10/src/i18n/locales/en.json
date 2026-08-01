@@ -4,6 +4,7 @@
     "new": "New",
     "open": "Open",
     "save": "Save",
+    "export": "Export",
     "mindmap": "Mindmap",
     "fishbone": "Fishbone",
     "addChild": "Add Child",
@@ -26,7 +27,8 @@
   "layout": {
     "radial": "Radial",
     "ltr": "Left → Right",
-    "rtl": "Right → Left"
+    "rtl": "Right → Left",
+    "ttb": "Top → Bottom"
   },
   "shape": {
     "rounded": "Rounded",
@@ -36,10 +38,28 @@
     "parallelogram": "Parallelogram"
   },
   "line": {
+    "curve": "Curve",
+    "straight": "Straight",
+    "elbow": "Elbow",
+    "root": "Root-like"
+  },
+  "linePattern": {
     "solid": "Solid",
     "dashed": "Dashed",
     "dotted": "Dotted",
-    "curve": "Curve"
+    "dashdot": "Dash-dot"
+  },
+  "cap": {
+    "none": "None",
+    "arrow": "Arrow",
+    "dot": "Dot",
+    "diamond": "Diamond"
+  },
+  "font": {
+    "notoSansKr": "Noto Sans KR",
+    "outfit": "Outfit",
+    "serif": "Serif",
+    "mono": "Monospace"
   },
   "theme": {
     "light": "Light",
@@ -53,10 +73,36 @@
     "addChild": "Add Child Node",
     "addSibling": "Add Sibling Node",
     "edit": "Edit Text",
+    "addText": "Add Text",
+    "addTextPrompt": "Enter text to add.",
     "delete": "Delete",
+    "deleteSelected": "Delete {{count}} selected",
+    "selectedCount": "{{count}} selected",
     "changeShape": "Change Shape",
     "changeColor": "Change Color",
     "changeLine": "Change Line"
+  },
+  "panel": {
+    "navigator": "Navigator panel",
+    "document": "Document",
+    "nodes": "Node List",
+    "properties": "Properties",
+    "text": "Text",
+    "memo": "Memo",
+    "memoPlaceholder": "Add a note for this shape.",
+    "textStyle": "Text Style",
+    "font": "Font",
+    "textColor": "Text Color",
+    "textColorAuto": "Auto",
+    "textColorAutoHint": "Use the default text color (black)",
+    "shapeColor": "Shape Color",
+    "lineStyle": "Line Style",
+    "lineShape": "Line Shape",
+    "linePattern": "Connection Pattern",
+    "startCap": "Start Cap",
+    "endCap": "End Cap",
+    "lineColor": "Line Color",
+    "noSelection": "Select a shape to edit its properties."
   },
   "status": {
     "ready": "Ready",

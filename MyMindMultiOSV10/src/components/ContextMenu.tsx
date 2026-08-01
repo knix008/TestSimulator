@@ -1,51 +1,34 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { NODE_COLORS } from '../constants/colors'
-import type { ContextMenuState, LineType, ShapeType } from '../types'
-
-type SubMenu = 'shape' | 'color' | 'line' | null
+import type { ContextMenuState } from '../types'
 
 type Props = {
   menu: ContextMenuState
-  currentShape: ShapeType
-  currentColor: string
-  currentLine: LineType
+  selectedCount: number
   onClose: () => void
+  onAddText: () => void
   onAddChild: () => void
   onAddSibling: () => void
   onEdit: () => void
   onDelete: () => void
-  onShape: (shape: ShapeType) => void
-  onColor: (color: string) => void
-  onLine: (line: LineType) => void
 }
-
-const SHAPES: ShapeType[] = ['rounded', 'rect', 'ellipse', 'diamond', 'parallelogram']
-const LINES: LineType[] = ['solid', 'dashed', 'dotted', 'curve']
 
 export function ContextMenu({
   menu,
-  currentShape,
-  currentColor,
-  currentLine,
+  selectedCount,
   onClose,
+  onAddText,
   onAddChild,
   onAddSibling,
   onEdit,
   onDelete,
-  onShape,
-  onColor,
-  onLine,
 }: Props) {
   const { t } = useTranslation()
-  const [sub, setSub] = useState<SubMenu>(null)
   const hasNode = Boolean(menu.nodeId)
+  const multi = selectedCount > 1
 
   useEffect(() => {
-    if (!menu.visible) {
-      setSub(null)
-      return
-    }
+    if (!menu.visible) return
     const onDoc = (e: MouseEvent) => {
       const target = e.target as HTMLElement | null
       if (target?.closest('.context-menu')) return
@@ -70,8 +53,10 @@ export function ContextMenu({
       style={{ left: menu.x, top: menu.y }}
       onContextMenu={(e) => e.preventDefault()}
     >
+      {multi ? <div className="context-header">{t('context.selectedCount', { count: selectedCount })}</div> : null}
       <button
         type="button"
+        disabled={multi}
         onClick={() => {
           onAddChild()
           onClose()
@@ -81,6 +66,7 @@ export function ContextMenu({
       </button>
       <button
         type="button"
+        disabled={multi}
         onClick={() => {
           onAddSibling()
           onClose()
@@ -88,9 +74,19 @@ export function ContextMenu({
       >
         {t('context.addSibling')}
       </button>
+        <button
+          type="button"
+          disabled={hasNode}
+          onClick={() => {
+            onAddText()
+            onClose()
+          }}
+        >
+          {t('context.addText')}
+        </button>
       <button
         type="button"
-        disabled={!hasNode}
+        disabled={!hasNode || multi}
         onClick={() => {
           onEdit()
           onClose()
@@ -98,93 +94,6 @@ export function ContextMenu({
       >
         {t('context.edit')}
       </button>
-
-      <div className="context-sep" />
-
-      <div className={`context-item has-sub ${sub === 'shape' ? 'open' : ''}`}>
-        <button type="button" disabled={!hasNode} onClick={() => setSub(sub === 'shape' ? null : 'shape')}>
-          {t('context.changeShape')}
-          <span className="context-arrow">▸</span>
-        </button>
-        {sub === 'shape' && hasNode ? (
-          <div className="context-submenu">
-            {SHAPES.map((shape) => (
-              <button
-                key={shape}
-                type="button"
-                className={shape === currentShape ? 'selected' : ''}
-                onClick={() => {
-                  onShape(shape)
-                  onClose()
-                }}
-              >
-                {t(`shape.${shape}`)}
-                {shape === currentShape ? <span className="tb-check">✓</span> : null}
-              </button>
-            ))}
-          </div>
-        ) : null}
-      </div>
-
-      <div className={`context-item has-sub ${sub === 'color' ? 'open' : ''}`}>
-        <button type="button" disabled={!hasNode} onClick={() => setSub(sub === 'color' ? null : 'color')}>
-          {t('context.changeColor')}
-          <span className="color-swatch sm" style={{ background: currentColor, marginLeft: 8 }} />
-          <span className="context-arrow">▸</span>
-        </button>
-        {sub === 'color' && hasNode ? (
-          <div className="context-submenu color-submenu">
-            <div className="color-grid">
-              {NODE_COLORS.map((color) => (
-                <button
-                  key={color}
-                  type="button"
-                  className={`color-chip ${color.toLowerCase() === currentColor.toLowerCase() ? 'selected' : ''}`}
-                  style={{ background: color }}
-                  title={color}
-                  onClick={() => {
-                    onColor(color)
-                    onClose()
-                  }}
-                />
-              ))}
-            </div>
-            <label className="color-custom">
-              <span>{t('toolbar.color')}</span>
-              <input
-                type="color"
-                value={currentColor.startsWith('#') && currentColor.length === 7 ? currentColor : '#3b82f6'}
-                onChange={(e) => onColor(e.target.value)}
-              />
-            </label>
-          </div>
-        ) : null}
-      </div>
-
-      <div className={`context-item has-sub ${sub === 'line' ? 'open' : ''}`}>
-        <button type="button" disabled={!hasNode} onClick={() => setSub(sub === 'line' ? null : 'line')}>
-          {t('context.changeLine')}
-          <span className="context-arrow">▸</span>
-        </button>
-        {sub === 'line' && hasNode ? (
-          <div className="context-submenu">
-            {LINES.map((line) => (
-              <button
-                key={line}
-                type="button"
-                className={line === currentLine ? 'selected' : ''}
-                onClick={() => {
-                  onLine(line)
-                  onClose()
-                }}
-              >
-                {t(`line.${line}`)}
-                {line === currentLine ? <span className="tb-check">✓</span> : null}
-              </button>
-            ))}
-          </div>
-        ) : null}
-      </div>
 
       <div className="context-sep" />
 
@@ -197,7 +106,7 @@ export function ContextMenu({
           onClose()
         }}
       >
-        {t('context.delete')}
+        {multi ? t('context.deleteSelected', { count: selectedCount }) : t('context.delete')}
       </button>
     </div>
   )

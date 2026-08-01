@@ -56,6 +56,14 @@ latest*.yml
 builder-effective-config.yaml
 builder-debug.yml
 
+# Generated file-type icon rasters (source of truth is build/file-icon.svg)
+build/file-icon.ico
+build/file-icon.icns
+build/file-icon.png
+
+# Exported diagram images
+*.export.png
+
 # Local scratch
 tmp/
 temp/

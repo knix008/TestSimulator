@@ -1,0 +1,193 @@
+{
+  "version": 1,
+  "mode": "mindmap",
+  "layout": "radial",
+  "defaultShape": "rounded",
+  "defaultLine": "curve",
+  "defaultLinePattern": "solid",
+  "nodes": [
+    {
+      "id": "mind-root",
+      "parentId": null,
+      "text": "프로젝트 기획",
+      "x": 520,
+      "y": 324,
+      "width": 160,
+      "height": 52,
+      "shape": "rounded",
+      "color": "#93c5fd",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "mind-goals",
+      "parentId": "mind-root",
+      "text": "목표",
+      "x": 530,
+      "y": 118,
+      "width": 140,
+      "height": 44,
+      "shape": "rounded",
+      "color": "#a7f3d0",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "mind-scope",
+      "parentId": "mind-root",
+      "text": "범위",
+      "x": 740,
+      "y": 328,
+      "width": 140,
+      "height": 44,
+      "shape": "ellipse",
+      "color": "#a7f3d0",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "mind-risk",
+      "parentId": "mind-root",
+      "text": "리스크",
+      "x": 530,
+      "y": 538,
+      "width": 140,
+      "height": 44,
+      "shape": "diamond",
+      "color": "#a7f3d0",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "mind-schedule",
+      "parentId": "mind-root",
+      "text": "일정",
+      "x": 320,
+      "y": 328,
+      "width": 140,
+      "height": 44,
+      "shape": "rounded",
+      "color": "#a7f3d0",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "mind-goals-kpi",
+      "parentId": "mind-goals",
+      "text": "성과 지표",
+      "x": 530,
+      "y": -92,
+      "width": 140,
+      "height": 44,
+      "shape": "rect",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "mind-risk-plan",
+      "parentId": "mind-risk",
+      "text": "대응 계획",
+      "x": 530,
+      "y": 748,
+      "width": 140,
+      "height": 44,
+      "shape": "rect",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "mind-edge-goals",
+      "from": "mind-root",
+      "to": "mind-goals",
+      "lineType": "curve",
+      "linePattern": "solid",
+      "color": "#94a3b8"
+    },
+    {
+      "id": "mind-edge-scope",
+      "from": "mind-root",
+      "to": "mind-scope",
+      "lineType": "curve",
+      "linePattern": "solid",
+      "color": "#94a3b8"
+    },
+    {
+      "id": "mind-edge-risk",
+      "from": "mind-root",
+      "to": "mind-risk",
+      "lineType": "root",
+      "linePattern": "solid",
+      "color": "#94a3b8"
+    },
+    {
+      "id": "mind-edge-schedule",
+      "from": "mind-root",
+      "to": "mind-schedule",
+      "lineType": "curve",
+      "linePattern": "solid",
+      "color": "#94a3b8"
+    },
+    {
+      "id": "mind-edge-kpi",
+      "from": "mind-goals",
+      "to": "mind-goals-kpi",
+      "lineType": "elbow",
+      "linePattern": "dashed",
+      "color": "#64748b"
+    },
+    {
+      "id": "mind-edge-risk-plan",
+      "from": "mind-risk",
+      "to": "mind-risk-plan",
+      "lineType": "root",
+      "linePattern": "solid",
+      "color": "#64748b"
+    }
+  ]
+}

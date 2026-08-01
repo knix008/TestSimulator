@@ -1,16 +1,34 @@
 export const NODE_COLORS = [
-  '#3b82f6',
-  '#2563eb',
-  '#06b6d4',
-  '#10b981',
-  '#84cc16',
-  '#f59e0b',
-  '#f97316',
-  '#ef4444',
-  '#ec4899',
-  '#8b5cf6',
-  '#64748b',
-  '#0f172a',
+  '#93c5fd',
+  '#a7f3d0',
+  '#fde68a',
+  '#fca5a5',
+  '#c4b5fd',
+  '#f9a8d4',
+  '#67e8f9',
+  '#bef264',
+  '#fdba74',
+  '#d8b4fe',
+  '#99f6e4',
+  '#fecdd3',
+  '#bfdbfe',
+  '#ddd6fe',
+  '#bbf7d0',
+  '#fed7aa',
+  '#fbcfe8',
+  '#bae6fd',
+  '#e9d5ff',
+  '#d9f99d',
 ] as const
 
 export type NodeColor = (typeof NODE_COLORS)[number]
+
+/** Sentinel meaning "use the default text color" (black, on the light node fills). */
+export const AUTO_TEXT_COLOR = 'auto'
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function resolveTextColor(color: string | undefined, _theme: 'light' | 'dark'): string {
+  // Node fills are light pastel colors in both themes, so black stays readable.
+  if (!color || color === AUTO_TEXT_COLOR) return '#111827'
+  return color
+}

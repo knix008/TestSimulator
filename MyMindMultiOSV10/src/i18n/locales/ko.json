@@ -4,6 +4,7 @@
     "new": "새로 만들기",
     "open": "열기",
     "save": "저장",
+    "export": "내보내기",
     "mindmap": "마인드맵",
     "fishbone": "피쉬본",
     "addChild": "하위 추가",
@@ -26,7 +27,8 @@
   "layout": {
     "radial": "방사형",
     "ltr": "좌 → 우",
-    "rtl": "우 → 좌"
+    "rtl": "우 → 좌",
+    "ttb": "상 → 하"
   },
   "shape": {
     "rounded": "둥근 사각형",
@@ -36,10 +38,28 @@
     "parallelogram": "평행사변형"
   },
   "line": {
+    "curve": "곡선",
+    "straight": "직선",
+    "elbow": "꺾은 선",
+    "root": "나무 뿌리형"
+  },
+  "linePattern": {
     "solid": "실선",
     "dashed": "파선",
     "dotted": "점선",
-    "curve": "곡선"
+    "dashdot": "일점쇄선"
+  },
+  "cap": {
+    "none": "없음",
+    "arrow": "화살표",
+    "dot": "원",
+    "diamond": "마름모"
+  },
+  "font": {
+    "notoSansKr": "Noto Sans KR",
+    "outfit": "Outfit",
+    "serif": "Serif",
+    "mono": "Monospace"
   },
   "theme": {
     "light": "라이트",
@@ -53,10 +73,36 @@
     "addChild": "하위 노드 추가",
     "addSibling": "형제 노드 추가",
     "edit": "텍스트 편집",
+    "addText": "텍스트 추가",
+    "addTextPrompt": "추가할 텍스트를 입력하세요.",
     "delete": "삭제",
+    "deleteSelected": "선택 {{count}}개 삭제",
+    "selectedCount": "{{count}}개 선택됨",
     "changeShape": "도형 변경",
     "changeColor": "색상 변경",
     "changeLine": "선 종류 변경"
+  },
+  "panel": {
+    "navigator": "탐색 패널",
+    "document": "문서",
+    "nodes": "노드 목록",
+    "properties": "속성",
+    "text": "텍스트",
+    "memo": "메모",
+    "memoPlaceholder": "이 도형에 대한 메모를 입력하세요.",
+    "textStyle": "텍스트 스타일",
+    "font": "폰트",
+    "textColor": "글자 색",
+    "textColorAuto": "기본",
+    "textColorAutoHint": "기본 글자색(검정) 사용",
+    "shapeColor": "도형 색",
+    "lineStyle": "선 스타일",
+    "lineShape": "선 모양",
+    "linePattern": "연결 방식",
+    "startCap": "시작 모양",
+    "endCap": "끝 모양",
+    "lineColor": "선 색",
+    "noSelection": "속성을 편집할 도형을 선택하세요."
   },
   "status": {
     "ready": "준비",

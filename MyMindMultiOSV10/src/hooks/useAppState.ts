@@ -1,29 +1,40 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { exportPngDataUrl } from '../utils/exportImage'
 import type {
   AppSettings,
   ContextMenuState,
   DiagramDocument,
+  EndCap,
   LayoutDirection,
+  LinePattern,
   LineType,
   Locale,
   ShapeType,
+  TextStyle,
   ThemeMode,
 } from '../types'
 import {
+  addFreeNode,
   addChild,
   addSibling,
   createMindmapDoc,
-  deleteNode,
+  deleteNodes,
   deserialize,
   moveNode,
+  moveNodesBy,
   relayout,
   serialize,
   setEdgeLine,
-  setLayout,
+  setEdgeColor,
+  setEdgeEndCap,
+  setEdgePattern,
+  setEdgeStartCap,
   setMode,
   setNodeColor,
+  setNodeNote,
   setNodeShape,
+  setNodeTextStyle,
   updateNodeText,
 } from '../store/document'
 
@@ -59,9 +70,28 @@ export function useAppState() {
   const [contextMenu, setContextMenu] = useState<ContextMenuState>({
     x: 0,
     y: 0,
+    canvasX: 0,
+    canvasY: 0,
     nodeId: null,
     visible: false,
   })
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null
+      const isTyping =
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target instanceof HTMLSelectElement ||
+        Boolean(target?.isContentEditable)
+      if (isTyping || (event.key !== 'Delete' && event.key !== 'Backspace')) return
+      if (!doc.selectedId) return
+      event.preventDefault()
+      setDoc((d) => deleteNodes(d, d.selectedIds.length ? d.selectedIds : [d.selectedId!]))
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [doc.selectedId])
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', settings.theme)
@@ -88,7 +118,7 @@ export function useAppState() {
     if (!window.mymind) {
       const input = document.createElement('input')
       input.type = 'file'
-      input.accept = '.mymind,application/json'
+      input.accept = '.mmap,.mymind,application/json'
       input.onchange = async () => {
         const file = input.files?.[0]
         if (!file) return
@@ -109,7 +139,7 @@ export function useAppState() {
       const blob = new Blob([content], { type: 'application/json' })
       const a = document.createElement('a')
       a.href = URL.createObjectURL(blob)
-      a.download = 'diagram.mymind'
+      a.download = 'diagram.mmap'
       a.click()
       URL.revokeObjectURL(a.href)
       setDoc((d) => ({ ...d, dirty: false }))
@@ -117,17 +147,43 @@ export function useAppState() {
     }
     let filePath = doc.filePath
     if (!filePath) {
-      filePath = await window.mymind.saveDialog('diagram.mymind')
+      filePath = await window.mymind.saveDialog('diagram.mmap')
       if (!filePath) return
     }
     await window.mymind.writeFile(filePath, content)
     setDoc((d) => ({ ...d, filePath, dirty: false }))
   }, [doc])
 
-  const selectNode = (id: string | null) => setDoc((d) => ({ ...d, selectedId: id }))
+  const exportImage = useCallback(async () => {
+    const svg = document.querySelector('.canvas-svg') as SVGSVGElement | null
+    if (!svg) return
+    const dataUrl = await exportPngDataUrl(svg, doc.nodes, settings.theme)
+    const base = doc.filePath ? doc.filePath.replace(/\.[^.]+$/, '').split(/[\\/]/).pop() : 'diagram'
+    const name = `${base || 'diagram'}.png`
+    if (window.mymind) {
+      const path = await window.mymind.saveImageDialog(name)
+      if (!path) return
+      await window.mymind.writeBinaryFile(path, dataUrl.split(',')[1])
+    } else {
+      const a = document.createElement('a')
+      a.href = dataUrl
+      a.download = name
+      a.click()
+    }
+  }, [doc.nodes, doc.filePath, settings.theme])
+
+  const selectNode = (id: string | null) =>
+    setDoc((d) => ({ ...d, selectedId: id, selectedIds: id ? [id] : [] }))
+
+  const selectNodes = (ids: string[]) =>
+    setDoc((d) => ({ ...d, selectedId: ids[0] ?? null, selectedIds: ids }))
 
   const onMoveNode = (id: string, x: number, y: number) => {
     setDoc((d) => moveNode(d, id, x, y))
+  }
+
+  const onMoveNodes = (ids: string[], dx: number, dy: number) => {
+    setDoc((d) => moveNodesBy(d, ids, dx, dy))
   }
 
   const onAddChild = () => {
@@ -143,11 +199,25 @@ export function useAppState() {
   }
 
   const onDelete = () => {
-    if (!doc.selectedId) return
-    setDoc((d) => deleteNode(d, d.selectedId!))
+    const ids = doc.selectedIds.length ? doc.selectedIds : doc.selectedId ? [doc.selectedId] : []
+    if (!ids.length) return
+    setDoc((d) => deleteNodes(d, ids))
   }
 
-  const onLayout = (layout: LayoutDirection) => setDoc((d) => setLayout(d, layout))
+  const onLayout = (layout: LayoutDirection) => {
+    // Re-lay out at the real viewport size (not setLayout's fixed 1200x700) so
+    // the effect/head lands at the correct edge, then refit the view — otherwise
+    // a flipped fishbone can shift off-screen and look unchanged.
+    setDoc((d) =>
+      relayout(
+        { ...d, layout, dirty: true },
+        Math.max(800, window.innerWidth),
+        Math.max(500, window.innerHeight - 120),
+      ),
+    )
+    setZoom(1)
+    setViewResetKey((k) => k + 1)
+  }
 
   const resetView = () => {
     setZoom(1)
@@ -174,9 +244,30 @@ export function useAppState() {
     if (!doc.selectedId) return
     setDoc((d) => setNodeColor(d, d.selectedId!, color))
   }
+  const onNote = (id: string, note: string) => setDoc((d) => setNodeNote(d, id, note))
   const onLine = (line: LineType) => {
     if (!doc.selectedId) return
     setDoc((d) => setEdgeLine(d, d.selectedId!, line))
+  }
+  const onLinePattern = (pattern: LinePattern) => {
+    if (!doc.selectedId) return
+    setDoc((d) => setEdgePattern(d, d.selectedId!, pattern))
+  }
+  const onLineColor = (color: string) => {
+    if (!doc.selectedId) return
+    setDoc((d) => setEdgeColor(d, d.selectedId!, color))
+  }
+  const onLineStartCap = (cap: EndCap) => {
+    if (!doc.selectedId) return
+    setDoc((d) => setEdgeStartCap(d, d.selectedId!, cap))
+  }
+  const onLineEndCap = (cap: EndCap) => {
+    if (!doc.selectedId) return
+    setDoc((d) => setEdgeEndCap(d, d.selectedId!, cap))
+  }
+  const onTextStyle = (style: Partial<TextStyle>) => {
+    if (!doc.selectedId) return
+    setDoc((d) => setNodeTextStyle(d, d.selectedId!, style))
   }
 
   const switchMode = (mode: 'mindmap' | 'fishbone') => {
@@ -190,14 +281,22 @@ export function useAppState() {
     )
   }
 
-  const showContext = (x: number, y: number, nodeId: string | null) => {
-    setContextMenu({ x, y, nodeId, visible: true })
-    if (nodeId) selectNode(nodeId)
+  const showContext = (x: number, y: number, nodeId: string | null, canvasX = 0, canvasY = 0) => {
+    setContextMenu({ x, y, canvasX, canvasY, nodeId, visible: true })
+    // Keep the current multi-selection if the right-clicked node is part of it;
+    // otherwise select just that node.
+    if (nodeId && !doc.selectedIds.includes(nodeId)) selectNode(nodeId)
   }
 
   const hideContext = () => setContextMenu((c) => ({ ...c, visible: false }))
 
   const editText = (id: string, text: string) => setDoc((d) => updateNodeText(d, id, text))
+
+  const addTextAtContext = () => {
+    const text = window.prompt(t('context.addTextPrompt'), t('canvas.centralTopic'))?.trim()
+    if (!text) return
+    setDoc((d) => addFreeNode(d, text, contextMenu.canvasX, contextMenu.canvasY))
+  }
 
   return {
     doc,
@@ -222,16 +321,26 @@ export function useAppState() {
     newDoc,
     openDoc,
     saveDoc,
+    exportImage,
     selectNode,
+    selectNodes,
     onMoveNode,
+    onMoveNodes,
     onAddChild,
     onAddSibling,
     onDelete,
     onLayout,
     onShape,
     onColor,
+    onNote,
     onLine,
+    onLinePattern,
+    onLineColor,
+    onLineStartCap,
+    onLineEndCap,
+    onTextStyle,
     switchMode,
     editText,
+    addTextAtContext,
   }
 }

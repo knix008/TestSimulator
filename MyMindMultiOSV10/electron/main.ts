@@ -12,11 +12,16 @@ import fs from 'node:fs'
 const isDev = !app.isPackaged
 let mainWindow: BrowserWindow | null = null
 
+// Bundled sample templates: alongside the source in dev, under resources/ when packaged.
+function templatesDir(): string {
+  return isDev ? path.join(__dirname, '../template') : path.join(process.resourcesPath, 'template')
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 840,
-    minWidth: 900,
+    minWidth: 1120,
     minHeight: 600,
     frame: false,
     titleBarStyle: 'hidden',
@@ -87,16 +92,22 @@ ipcMain.handle('dialog:save', async (_event, defaultName: string) => {
   const result = await dialog.showSaveDialog(mainWindow, {
     title: 'Save Diagram',
     defaultPath: defaultName,
-    filters: [{ name: 'MyMind Diagram', extensions: ['mymind'] }],
+    filters: [{ name: 'MyMind Diagram', extensions: ['mmap', 'mymind'] }],
   })
   return result.canceled ? null : result.filePath
 })
 
 ipcMain.handle('dialog:open', async () => {
   if (!mainWindow) return null
+  const templates = templatesDir()
   const result = await dialog.showOpenDialog(mainWindow, {
     title: 'Open Diagram',
-    filters: [{ name: 'MyMind Diagram', extensions: ['mymind'] }],
+    // Start in the bundled templates folder so samples are visible right away.
+    defaultPath: fs.existsSync(templates) ? templates : undefined,
+    filters: [
+      { name: 'MyMind Diagram', extensions: ['mymind', 'mmap'] },
+      { name: 'All Files', extensions: ['*'] },
+    ],
     properties: ['openFile'],
   })
   if (result.canceled || result.filePaths.length === 0) return null
@@ -107,6 +118,21 @@ ipcMain.handle('dialog:open', async () => {
 
 ipcMain.handle('file:write', async (_event, filePath: string, content: string) => {
   fs.writeFileSync(filePath, content, 'utf-8')
+  return true
+})
+
+ipcMain.handle('dialog:saveImage', async (_event, defaultName: string) => {
+  if (!mainWindow) return null
+  const result = await dialog.showSaveDialog(mainWindow, {
+    title: 'Export Image',
+    defaultPath: defaultName,
+    filters: [{ name: 'PNG Image', extensions: ['png'] }],
+  })
+  return result.canceled ? null : result.filePath
+})
+
+ipcMain.handle('file:writeBinary', async (_event, filePath: string, base64: string) => {
+  fs.writeFileSync(filePath, Buffer.from(base64, 'base64'))
   return true
 })
 

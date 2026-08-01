@@ -27,18 +27,21 @@ Windows / macOS / Linux 설치형 앱과 웹 브라우저에서 동일한 UI로 
 
 | 영역 | 설명 |
 |------|------|
-| **툴바** | 파일, 모드, 편집, 레이아웃/도형/선, 보기, 언어·테마, 정보 |
+| **툴바** | 파일(새로 만들기·열기·저장·**내보내기**), 모드, 보기(중심 이동·자동 정렬·그리드), 언어·테마, 정보 |
+| **좌측 패널** | 문서 정보와 **레이아웃 드롭다운**, 노드 목록 |
+| **우측 패널(속성)** | 텍스트, **메모**, 도형/색, 텍스트 스타일, 선 모양·패턴·**시작/끝 모양**·색 |
 | **캔버스** | 다이어그램 편집 영역 (그리드, 팬, 줌) |
 | **상태 바** | 모드, 레이아웃, 노드 수, 줌, 그리드 ON/OFF, 저장 상태 |
-| **컨텍스트 메뉴** | 우클릭으로 하위/형제 추가, 편집, 삭제 |
+| **컨텍스트 메뉴** | 우클릭으로 하위/형제 추가, 편집, 삭제 (다중 선택 시 함께 삭제) |
 
 ### 4. 기본 작업
 
 #### 4.1 새 문서 / 열기 / 저장
 
 - **새로 만들기**: 마인드맵 문서를 새로 엽니다. 저장하지 않은 변경이 있으면 확인합니다.
-- **열기**: `.mymind` 파일을 엽니다.
-- **저장**: 현재 다이어그램을 `.mymind`로 저장합니다. (웹에서는 파일 다운로드)
+- **열기**: `.mmap` 파일을 엽니다(기존 `.mymind`도 열립니다). 데스크톱 앱에서는 대화상자가 **샘플 템플릿 폴더**에서 시작합니다.
+- **저장**: 현재 다이어그램을 `.mmap`으로 저장합니다. (웹에서는 파일 다운로드)
+- **내보내기**: 현재 다이어그램을 **PNG 이미지**로 저장합니다.
 
 #### 4.2 모드 전환
 
@@ -52,27 +55,30 @@ Windows / macOS / Linux 설치형 앱과 웹 브라우저에서 동일한 UI로 
 | 동작 | 방법 |
 |------|------|
 | 선택 | 노드 클릭 |
-| 이동 | 노드 드래그 |
+| 여러 개 선택 | 빈 공간에서 **드래그(사각형 선택)** 또는 **Shift+클릭**으로 토글 |
+| 이동 | 노드 드래그 (여러 개 선택 시 함께 이동) |
 | 텍스트 편집 | 노드 더블클릭 또는 우클릭 → 텍스트 편집 |
+| 메모 추가 | 노드 선택 후 우측 속성 패널의 **메모**란에 입력 (✎ 배지·툴팁 표시) |
 | 하위 노드 추가 | 툴바 **하위 추가** 또는 우클릭 |
 | 형제 노드 추가 | 툴바 **형제 추가** 또는 우클릭 |
-| 삭제 | 툴바 **삭제** 또는 우클릭 (루트/결과는 삭제되지 않음) |
+| 삭제 | **Delete/Backspace**, 툴바 **삭제**, 또는 우클릭 (루트/결과는 삭제되지 않음; 다중 선택 시 함께 삭제) |
 
 #### 4.4 레이아웃 · 도형 · 선
 
-툴바 드롭다운에서 선택합니다.
+레이아웃은 **좌측 패널**의 드롭다운에서, 도형·선은 **우측 속성 패널**에서 선택합니다.
 
-**레이아웃** (마인드맵만)
+**레이아웃**
 
-- 방사형
-- 좌 → 우
-- 우 → 좌
+- 마인드맵: 방사형 · 좌 → 우 · 우 → 좌 · 위 → 아래
+- 피쉬본: 좌 → 우 · 우 → 좌 (결과/머리 방향)
 
 **도형**: 둥근 사각형, 사각형, 타원, 마름모, 평행사변형  
 
-**선**: 실선, 파선, 점선, 곡선  
+**선 모양**: 곡선, 직선, 꺾은 선, **나무 뿌리형(끝으로 갈수록 가늘어지는 형태)**  
+**선 패턴**: 실선, 파선, 점선, 일점쇄선  
+**시작/끝 모양**: 없음, 화살표, 원, 마름모  
 
-선택한 노드(및 관련 연결선)에 적용됩니다.
+각 선 드롭다운에는 실제 모양 **미리보기**가 함께 표시됩니다. 선택한 노드(및 관련 연결선)에 적용됩니다.
 
 #### 4.5 보기 도구
 
@@ -84,8 +90,9 @@ Windows / macOS / Linux 설치형 앱과 웹 브라우저에서 동일한 UI로 
 
 #### 4.6 캔버스 조작
 
-- **팬(이동)**: 빈 공간을 드래그
-- **줌**: `Ctrl` + 마우스 휠 (macOS: `Cmd` + 휠)
+- **여러 노드 선택**: 빈 공간을 드래그하면 사각형 선택 영역이 나타납니다
+- **팬(이동)**: **마우스 가운데(휠) 버튼**으로 드래그
+- **줌**: 마우스 휠 (10%~400%, 화면 중심 기준). `Ctrl`은 필요 없습니다
 - **선택 해제**: 빈 공간 클릭
 
 #### 4.7 언어 · 테마 · 정보
@@ -105,9 +112,10 @@ Windows / macOS / Linux 설치형 앱과 웹 브라우저에서 동일한 UI로 
 
 ### 6. 파일 형식
 
-- 확장자: `.mymind`
-- 내용: JSON (노드 좌표, 도형, 연결선, 모드/레이아웃 포함)
+- 확장자: `.mmap` (기존 `.mymind` 파일도 열 수 있음)
+- 내용: JSON (노드 좌표·도형·메모, 연결선·선 모양/패턴/시작·끝 모양, 모드/레이아웃 포함)
 - 다른 PC의 MyMind에서도 동일하게 열 수 있습니다.
+- Windows 설치 시 `.mmap` 확장자가 MyMind에 연결됩니다.
 
 ### 7. 문제 해결
 
@@ -145,18 +153,21 @@ It runs as a desktop app (Windows / macOS / Linux) and as a web app with the sam
 
 | Area | Description |
 |------|-------------|
-| **Toolbar** | File, mode, edit, layout/shape/line, view, language/theme, about |
+| **Toolbar** | File (New · Open · Save · **Export**), mode, view (Center · Auto Align · Grid), language/theme, about |
+| **Left panel** | Document info with the **Layout dropdown**, and the node list |
+| **Right panel (properties)** | Text, **memo**, shape/color, text style, line shape/pattern/**start & end caps**/color |
 | **Canvas** | Diagram editing (grid, pan, zoom) |
 | **Status bar** | Mode, layout, node count, zoom, grid, save status |
-| **Context menu** | Right-click to add child/sibling, edit, delete |
+| **Context menu** | Right-click to add child/sibling, edit, delete (multi-selection deletes together) |
 
 ### 4. Basic tasks
 
 #### 4.1 New / Open / Save
 
 - **New**: Creates a mindmap document (confirms if there are unsaved changes).
-- **Open**: Opens a `.mymind` file.
-- **Save**: Saves as `.mymind` (web: downloads a file).
+- **Open**: Opens a `.mmap` file (legacy `.mymind` files also open). On desktop the dialog starts in the bundled **templates** folder.
+- **Save**: Saves as `.mmap` (web: downloads a file).
+- **Export**: Saves the current diagram as a **PNG image**.
 
 #### 4.2 Modes
 
@@ -170,23 +181,27 @@ Switching modes loads a new template (unsaved changes prompt).
 | Action | How |
 |--------|-----|
 | Select | Click a node |
-| Move | Drag a node |
+| Select many | **Drag a marquee** on empty space, or **Shift-click** to toggle |
+| Move | Drag a node (moves the whole selection when multiple are selected) |
 | Edit text | Double-click or context menu → Edit |
+| Add memo | Select a node and type in the **Memo** field of the right panel (shows a ✎ badge + tooltip) |
 | Add child | Toolbar **Add Child** or context menu |
 | Add sibling | Toolbar **Add Sibling** or context menu |
-| Delete | Toolbar **Delete** or context menu (root/effect cannot be deleted) |
+| Delete | **Delete/Backspace**, toolbar **Delete**, or context menu (root/effect cannot be deleted; multi-selection deletes together) |
 
 #### 4.4 Layout, shape, line
 
-Use the toolbar dropdowns.
+Choose the **layout** from the **left panel** dropdown; shapes and lines from the **right (properties) panel**.
 
-**Layout** (mindmap only): Radial · Left → Right · Right → Left  
+**Layout** — Mindmap: Radial · Left → Right · Right → Left · Top → Bottom; Fishbone: Left → Right · Right → Left (head direction)  
 
 **Shape**: Rounded, Rectangle, Ellipse, Diamond, Parallelogram  
 
-**Line**: Solid, Dashed, Dotted, Curve  
+**Line shape**: Curve, Straight, Elbow, **Root-like (tapered)**  
+**Line pattern**: Solid, Dashed, Dotted, Dash-dot  
+**Start / End cap**: None, Arrow, Dot, Diamond  
 
-Applied to the selected node (and related edges).
+Every line dropdown shows a **live preview** of the style. Applied to the selected node (and related edges).
 
 #### 4.5 View tools
 
@@ -198,8 +213,9 @@ Applied to the selected node (and related edges).
 
 #### 4.6 Canvas
 
-- **Pan**: Drag empty space
-- **Zoom**: `Ctrl` + mouse wheel (`Cmd` + wheel on macOS)
+- **Select many**: Drag on empty space to draw a selection rectangle
+- **Pan**: Drag with the **middle (wheel) mouse button**
+- **Zoom**: Mouse wheel (10%–400%, centered on the viewport). No `Ctrl` needed
 - **Deselect**: Click empty space
 
 #### 4.7 Language, theme, about
@@ -219,9 +235,10 @@ Preferences (language, theme, grid) persist in local storage.
 
 ### 6. File format
 
-- Extension: `.mymind`
-- Format: JSON (positions, shapes, edges, mode/layout)
+- Extension: `.mmap` (legacy `.mymind` files also open)
+- Format: JSON (node positions/shapes/memo, edges with line shape/pattern/caps, mode/layout)
 - Portable across MyMind installations
+- The Windows installer associates `.mmap` files with MyMind
 
 ### 7. Troubleshooting
 

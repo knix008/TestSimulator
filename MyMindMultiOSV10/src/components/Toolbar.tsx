@@ -1,26 +1,19 @@
 import { useTranslation } from 'react-i18next'
-import type { DiagramDocument, LayoutDirection, LineType, Locale, ShapeType, ThemeMode } from '../types'
+import type { DiagramDocument, Locale, ThemeMode } from '../types'
 import {
   IconAlign,
-  IconChild,
+  IconExport,
   IconFish,
   IconGrid,
   IconInfo,
   IconLang,
-  IconLayout,
-  IconLine,
   IconMind,
   IconNew,
   IconOpen,
   IconReset,
   IconSave,
-  IconShape,
-  IconSibling,
   IconTheme,
-  IconTrash,
 } from './Icons'
-import { ColorPicker } from './ColorPicker'
-import { ToolbarDropdown } from './ToolbarDropdown'
 
 type Props = {
   doc: DiagramDocument
@@ -31,14 +24,8 @@ type Props = {
   onNew: () => void
   onOpen: () => void
   onSave: () => void
+  onExport: () => void
   onMode: (mode: 'mindmap' | 'fishbone') => void
-  onAddChild: () => void
-  onAddSibling: () => void
-  onDelete: () => void
-  onLayout: (layout: LayoutDirection) => void
-  onShape: (shape: ShapeType) => void
-  onColor: (color: string) => void
-  onLine: (line: LineType) => void
   onTheme: (theme: ThemeMode) => void
   onLocale: (locale: Locale) => void
   onToggleGrid: () => void
@@ -56,14 +43,8 @@ export function Toolbar({
   onNew,
   onOpen,
   onSave,
+  onExport,
   onMode,
-  onAddChild,
-  onAddSibling,
-  onDelete,
-  onLayout,
-  onShape,
-  onColor,
-  onLine,
   onTheme,
   onLocale,
   onToggleGrid,
@@ -72,13 +53,6 @@ export function Toolbar({
   onAbout,
 }: Props) {
   const { t } = useTranslation()
-
-  const selected = doc.nodes.find((n) => n.id === doc.selectedId)
-  const currentShape = selected?.shape ?? doc.defaultShape
-  const currentColor = selected?.color ?? '#3b82f6'
-  const currentLine =
-    doc.edges.find((e) => e.to === doc.selectedId || e.from === doc.selectedId)?.lineType ??
-    doc.defaultLine
 
   return (
     <header className="toolbar">
@@ -99,6 +73,10 @@ export function Toolbar({
         <button type="button" className="tb-btn" onClick={onSave} title={t('toolbar.save')}>
           <span className="icon"><IconSave /></span>
           {t('toolbar.save')}
+        </button>
+        <button type="button" className="tb-btn" onClick={onExport} title={t('toolbar.export')}>
+          <span className="icon"><IconExport /></span>
+          {t('toolbar.export')}
         </button>
       </div>
 
@@ -121,71 +99,6 @@ export function Toolbar({
           <span className="icon"><IconFish /></span>
           {t('toolbar.fishbone')}
         </button>
-      </div>
-
-      <div className="toolbar-sep" />
-
-      <div className="toolbar-group">
-        <button type="button" className="tb-btn" onClick={onAddChild}>
-          <span className="icon"><IconChild /></span>
-          {t('toolbar.addChild')}
-        </button>
-        <button type="button" className="tb-btn" onClick={onAddSibling}>
-          <span className="icon"><IconSibling /></span>
-          {t('toolbar.addSibling')}
-        </button>
-        <button type="button" className="tb-btn danger" onClick={onDelete}>
-          <span className="icon"><IconTrash /></span>
-          {t('toolbar.delete')}
-        </button>
-      </div>
-
-      <div className="toolbar-sep" />
-
-      <div className="toolbar-group">
-        <ToolbarDropdown
-          label={t('toolbar.layout')}
-          icon={<IconLayout />}
-          value={doc.layout}
-          disabled={doc.mode === 'fishbone'}
-          onChange={onLayout}
-          options={[
-            { value: 'radial', label: t('layout.radial') },
-            { value: 'ltr', label: t('layout.ltr') },
-            { value: 'rtl', label: t('layout.rtl') },
-          ]}
-        />
-        <ToolbarDropdown
-          label={t('toolbar.shape')}
-          icon={<IconShape />}
-          value={currentShape}
-          onChange={onShape}
-          options={[
-            { value: 'rounded', label: t('shape.rounded') },
-            { value: 'rect', label: t('shape.rect') },
-            { value: 'ellipse', label: t('shape.ellipse') },
-            { value: 'diamond', label: t('shape.diamond') },
-            { value: 'parallelogram', label: t('shape.parallelogram') },
-          ]}
-        />
-        <ColorPicker
-          label={t('toolbar.color')}
-          value={currentColor}
-          disabled={!doc.selectedId}
-          onChange={onColor}
-        />
-        <ToolbarDropdown
-          label={t('toolbar.line')}
-          icon={<IconLine />}
-          value={currentLine}
-          onChange={onLine}
-          options={[
-            { value: 'solid', label: t('line.solid') },
-            { value: 'dashed', label: t('line.dashed') },
-            { value: 'dotted', label: t('line.dotted') },
-            { value: 'curve', label: t('line.curve') },
-          ]}
-        />
       </div>
 
       <div className="toolbar-sep" />
@@ -224,6 +137,11 @@ export function Toolbar({
           <span className="icon"><IconLang /></span>
           {t(`language.${locale === 'ko' ? 'en' : 'ko'}`)}
         </button>
+      </div>
+
+      <div className="toolbar-spacer" />
+
+      <div className="toolbar-group toolbar-about">
         <button type="button" className="tb-btn" onClick={onAbout}>
           <span className="icon"><IconInfo /></span>
           {t('toolbar.about')}

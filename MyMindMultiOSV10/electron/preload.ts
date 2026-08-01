@@ -23,6 +23,10 @@ const api = {
     ipcRenderer.invoke('dialog:open') as Promise<{ filePath: string; content: string } | null>,
   writeFile: (filePath: string, content: string) =>
     ipcRenderer.invoke('file:write', filePath, content) as Promise<boolean>,
+  saveImageDialog: (defaultName: string) =>
+    ipcRenderer.invoke('dialog:saveImage', defaultName) as Promise<string | null>,
+  writeBinaryFile: (filePath: string, base64: string) =>
+    ipcRenderer.invoke('file:writeBinary', filePath, base64) as Promise<boolean>,
   openExternal: (url: string) => ipcRenderer.invoke('shell:openExternal', url) as Promise<void>,
   getAppInfo: () => ipcRenderer.invoke('app:getInfo') as Promise<AppInfo>,
   isElectron: true as const,

@@ -1,9 +1,21 @@
 export type DiagramMode = 'mindmap' | 'fishbone'
-export type LayoutDirection = 'radial' | 'ltr' | 'rtl'
+export type LayoutDirection = 'radial' | 'ltr' | 'rtl' | 'ttb'
 export type ShapeType = 'rounded' | 'rect' | 'ellipse' | 'diamond' | 'parallelogram'
-export type LineType = 'solid' | 'dashed' | 'dotted' | 'curve'
+export type LineType = 'curve' | 'straight' | 'elbow' | 'root'
+export type LinePattern = 'solid' | 'dashed' | 'dotted' | 'dashdot'
+export type EndCap = 'none' | 'arrow' | 'dot' | 'diamond'
 export type ThemeMode = 'light' | 'dark'
 export type Locale = 'ko' | 'en'
+export type TextFont = 'outfit' | 'notoSansKr' | 'serif' | 'mono'
+
+export interface TextStyle {
+  fontFamily: TextFont
+  color: string
+  bold: boolean
+  italic: boolean
+  underline: boolean
+  strike: boolean
+}
 
 export interface DiagramNode {
   id: string
@@ -15,6 +27,9 @@ export interface DiagramNode {
   height: number
   shape: ShapeType
   color: string
+  textStyle?: TextStyle
+  /** Optional free-form memo attached to the shape. */
+  note?: string
   /** Fishbone: category / cause / effect */
   role?: 'effect' | 'category' | 'cause'
 }
@@ -24,7 +39,10 @@ export interface DiagramEdge {
   from: string
   to: string
   lineType: LineType
+  linePattern: LinePattern
   color: string
+  startCap?: EndCap
+  endCap?: EndCap
 }
 
 export interface DiagramDocument {
@@ -33,9 +51,13 @@ export interface DiagramDocument {
   layout: LayoutDirection
   defaultShape: ShapeType
   defaultLine: LineType
+  defaultLinePattern: LinePattern
   nodes: DiagramNode[]
   edges: DiagramEdge[]
+  /** Primary selection (drives the properties panel). */
   selectedId: string | null
+  /** Full selection set (marquee / multi-select); includes selectedId. */
+  selectedIds: string[]
   filePath: string | null
   dirty: boolean
 }
@@ -49,6 +71,8 @@ export interface AppSettings {
 export interface ContextMenuState {
   x: number
   y: number
+  canvasX: number
+  canvasY: number
   nodeId: string | null
   visible: boolean
 }
