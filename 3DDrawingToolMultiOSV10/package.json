@@ -1,0 +1,128 @@
+{
+  "name": "3d-drawing-tool",
+  "version": "1.0.0",
+  "description": "Cross-platform 3D Drawing Tool for Web, Windows, macOS, and Linux",
+  "author": {
+    "name": "SHKWON",
+    "email": "knix008@naver.com"
+  },
+  "license": "MIT",
+  "main": "electron/main.js",
+  "type": "module",
+  "scripts": {
+    "start": "npm run icons && npm run win:icon && concurrently -k \"vite --mode electron\" \"wait-on tcp:5173 && electron .\"",
+    "dev": "vite",
+    "build": "vite build",
+    "build:web": "vite build",
+    "build:electron": "vite build --mode electron",
+    "icons": "node scripts/generate-icons.mjs",
+    "win:icon": "node scripts/set-electron-win-icon.mjs",
+    "postinstall": "npm run icons && npm run win:icon",
+    "preview": "vite preview",
+    "electron:dev": "npm start",
+    "electron:build": "npm run icons && npm run build:electron && electron-builder",
+    "electron:build:win": "npm run icons && npm run build:electron && electron-builder --win",
+    "electron:build:mac": "npm run icons && npm run build:electron && electron-builder --mac",
+    "electron:build:linux": "npm run icons && npm run build:electron && electron-builder --linux",
+    "electron:build:all": "npm run icons && npm run build:electron && electron-builder -mwl"
+  },
+  "dependencies": {
+    "@react-three/drei": "^10.0.6",
+    "@react-three/fiber": "^9.1.2",
+    "i18next": "^25.0.1",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-i18next": "^15.5.1",
+    "three": "^0.175.0",
+    "uuid": "^11.1.0",
+    "zustand": "^5.0.3"
+  },
+  "devDependencies": {
+    "@types/react": "^19.1.2",
+    "@types/react-dom": "^19.1.2",
+    "@types/three": "^0.175.0",
+    "@types/uuid": "^10.0.0",
+    "@vitejs/plugin-react": "^4.4.1",
+    "concurrently": "^9.1.2",
+    "electron": "^35.1.5",
+    "electron-builder": "^26.0.12",
+    "rcedit": "^5.0.2",
+    "sharp": "^0.34.1",
+    "to-ico": "^1.1.5",
+    "typescript": "^5.8.3",
+    "vite": "^6.3.2",
+    "wait-on": "^8.0.3"
+  },
+  "build": {
+    "appId": "com.shkwon.3ddrawingtool",
+    "productName": "3D Drawing Tool",
+    "copyright": "Copyright © 2026 SHKWON",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "build/icon.ico",
+        "to": "icon.ico"
+      },
+      {
+        "from": "build/icon.png",
+        "to": "icon.png"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "allowElevation": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "3D Drawing Tool",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "installerHeaderIcon": "build/icon.ico",
+      "license": "LICENSE",
+      "runAfterFinish": true,
+      "artifactName": "${productName}-Setup-${version}.${ext}",
+      "installerLanguages": [
+        "en_US",
+        "ko_KR"
+      ],
+      "multiLanguageInstaller": true
+    },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "icon": "build/icon.png",
+      "category": "public.app-category.graphics-design"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "icon": "build/icons",
+      "category": "Graphics",
+      "synopsis": "Cross-platform 3D Drawing Tool",
+      "description": "3D Drawing Tool by SHKWON"
+    }
+  }
+}
