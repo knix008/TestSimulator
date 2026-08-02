@@ -12,6 +12,7 @@
     "axes": "Axes",
     "lights": "Lights panel",
     "templates": "Templates",
+    "exportImage": "Export Image",
     "minimize": "Minimize",
     "maximize": "Maximize",
     "close": "Close"
@@ -32,6 +33,14 @@
     "cone": "Cone",
     "torus": "Torus",
     "plane": "Plane",
+    "capsule": "Capsule",
+    "pyramid": "Pyramid",
+    "dodecahedron": "Dodecahedron",
+    "icosahedron": "Icosahedron",
+    "octahedron": "Octahedron",
+    "tetrahedron": "Tetrahedron",
+    "torusKnot": "Torus Knot",
+    "ring": "Ring",
     "actions": "Actions",
     "duplicate": "Duplicate",
     "delete": "Delete"
@@ -49,6 +58,19 @@
     "rotation": "Rotation",
     "scale": "Scale",
     "color": "Color",
+    "texture": "Texture",
+    "textureNone": "None",
+    "textureCustom": "Custom",
+    "textureRepeat": "Repeat",
+    "textureChecker": "Checker",
+    "textureBricks": "Bricks",
+    "textureWood": "Wood",
+    "textureMetal": "Metal",
+    "textureNoise": "Noise",
+    "textureStripes": "Stripes",
+    "textureDots": "Dots",
+    "textureCarbon": "Carbon",
+    "textureMarble": "Marble",
     "opacity": "Opacity",
     "visible": "Visible",
     "metalness": "Metalness",
@@ -94,6 +116,18 @@
     "loadError": "Failed to load template list.",
     "close": "Close"
   },
+  "exportImage": {
+    "title": "Export Image",
+    "intro": "Save the current 3D viewport as a 2D image file.",
+    "format": "Image format",
+    "includeBackground": "Include background",
+    "transparentHint": "Without a background, the image is saved with transparency (PNG, WEBP, AVIF, GIF, TIFF, ICO).",
+    "noAlphaHint": "{{format}} does not support transparency, so the background will be included.",
+    "quality": "Quality",
+    "export": "Export",
+    "exporting": "Exporting…",
+    "cancel": "Cancel"
+  },
   "lightsPanel": {
     "title": "Lights",
     "close": "Close",
@@ -101,6 +135,7 @@
     "typeAmbient": "Type: Ambient",
     "typeDirectional": "Type: Directional",
     "typePoint": "Type: Point",
-    "ambientNote": "Ambient has no position (global light)."
+    "ambientNote": "Ambient has no position (global light).",
+    "dragHint": "Drag the Dir / Point markers directly in the scene to move them."
   }
 }

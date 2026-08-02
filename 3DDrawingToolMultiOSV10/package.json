@@ -14,18 +14,23 @@
     "dev": "npm run templates && vite",
     "build": "npm run templates && vite build",
     "build:web": "npm run templates && vite build",
-    "build:electron": "npm run templates && vite build --mode electron",
+    "build:electron": "npm run icons && npm run templates && vite build --mode electron",
+    "build:win": "npm run build:electron && electron-builder --win && npm run copy:installers",
+    "build:mac": "npm run build:electron && electron-builder --mac && npm run copy:installers",
+    "build:linux": "npm run build:electron && electron-builder --linux && npm run copy:installers",
+    "build:all": "npm run build:electron && electron-builder -mwl && npm run copy:installers",
+    "copy:installers": "node scripts/copy-installers.mjs",
     "icons": "node scripts/generate-icons.mjs",
     "templates": "node scripts/sync-templates.mjs",
     "win:icon": "node scripts/set-electron-win-icon.mjs",
     "postinstall": "npm run icons && npm run templates && npm run win:icon",
     "preview": "vite preview",
     "electron:dev": "npm start",
-    "electron:build": "npm run icons && npm run build:electron && electron-builder",
-    "electron:build:win": "npm run icons && npm run build:electron && electron-builder --win",
-    "electron:build:mac": "npm run icons && npm run build:electron && electron-builder --mac",
-    "electron:build:linux": "npm run icons && npm run build:electron && electron-builder --linux",
-    "electron:build:all": "npm run icons && npm run build:electron && electron-builder -mwl"
+    "electron:build": "npm run build:all",
+    "electron:build:win": "npm run build:win",
+    "electron:build:mac": "npm run build:mac",
+    "electron:build:linux": "npm run build:linux",
+    "electron:build:all": "npm run build:all"
   },
   "dependencies": {
     "@react-three/drei": "^10.0.6",
@@ -34,7 +39,9 @@
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-i18next": "^15.5.1",
+    "sharp": "^0.34.1",
     "three": "^0.175.0",
+    "to-ico": "^1.1.5",
     "uuid": "^11.1.0",
     "zustand": "^5.0.3"
   },
@@ -48,8 +55,6 @@
     "electron": "^35.1.5",
     "electron-builder": "^26.0.12",
     "rcedit": "^5.0.2",
-    "sharp": "^0.34.1",
-    "to-ico": "^1.1.5",
     "typescript": "^5.8.3",
     "vite": "^6.3.2",
     "wait-on": "^8.0.3"
@@ -62,6 +67,10 @@
       "output": "release",
       "buildResources": "build"
     },
+    "asarUnpack": [
+      "**/node_modules/sharp/**/*",
+      "**/node_modules/@img/**/*"
+    ],
     "files": [
       "dist/**/*",
       "electron/**/*",
@@ -113,7 +122,8 @@
         "zip"
       ],
       "icon": "build/icon.png",
-      "category": "public.app-category.graphics-design"
+      "category": "public.app-category.graphics-design",
+      "artifactName": "${productName}-${version}-mac.${ext}"
     },
     "linux": {
       "target": [
@@ -123,7 +133,8 @@
       "icon": "build/icons",
       "category": "Graphics",
       "synopsis": "Cross-platform 3D Drawing Tool",
-      "description": "3D Drawing Tool by SHKWON"
+      "description": "3D Drawing Tool by SHKWON",
+      "artifactName": "${productName}-${version}-linux.${ext}"
     }
   }
 }

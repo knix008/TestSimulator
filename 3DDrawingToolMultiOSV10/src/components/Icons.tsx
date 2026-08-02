@@ -90,6 +90,78 @@ export function IconPlane(props: IconProps) {
   );
 }
 
+export function IconCapsule(props: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" {...props}>
+      <path d="M8 7a4 4 0 0 1 8 0v10a4 4 0 0 1-8 0V7z" />
+      <path d="M8 12h8" />
+    </svg>
+  );
+}
+
+export function IconPyramid(props: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" {...props}>
+      <path d="M12 3l9 17H3L12 3z" />
+      <path d="M12 3v17" />
+    </svg>
+  );
+}
+
+export function IconDodecahedron(props: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" {...props}>
+      <path d="M12 3l7 4v6l-3 5H8l-3-5V7l7-4z" />
+      <path d="M12 3v6l7 1M12 9L5 10M8 18l4-3 4 3" />
+    </svg>
+  );
+}
+
+export function IconIcosahedron(props: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" {...props}>
+      <path d="M12 3l8 6-3 10H7L4 9l8-6z" />
+      <path d="M12 3v18M4 9h16M7 19l5-7 5 7" />
+    </svg>
+  );
+}
+
+export function IconOctahedron(props: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" {...props}>
+      <path d="M12 2l8 10-8 10L4 12 12 2z" />
+      <path d="M4 12h16" />
+    </svg>
+  );
+}
+
+export function IconTetrahedron(props: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" {...props}>
+      <path d="M12 4l8 14H4L12 4z" />
+      <path d="M12 4l-2 14M12 4l2 14" />
+    </svg>
+  );
+}
+
+export function IconTorusKnot(props: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" {...props}>
+      <path d="M8 8c2-3 6-3 8 0s1 7-2 9-7 1-9-2 0-6 3-7 6 0 7 3" />
+      <circle cx="12" cy="12" r="2.2" />
+    </svg>
+  );
+}
+
+export function IconRing(props: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" {...props}>
+      <circle cx="12" cy="12" r="8" />
+      <circle cx="12" cy="12" r="4" />
+    </svg>
+  );
+}
+
 export function IconGrid(props: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" {...props}>
@@ -213,6 +285,17 @@ export function IconTemplate(props: IconProps) {
       <rect x="13" y="3" width="8" height="8" rx="1.5" />
       <rect x="3" y="13" width="8" height="8" rx="1.5" />
       <path d="M14 16h6M17 13v6" />
+    </svg>
+  );
+}
+
+export function IconExportImage(props: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" {...props}>
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <path d="M3 15l4.5-4.5L12 15l3-3 6 6" />
+      <circle cx="9" cy="9" r="1.5" />
+      <path d="M16 3v6M13 6h6" />
     </svg>
   );
 }

@@ -38,14 +38,28 @@ function createShape(type: PrimitiveType, index: number): SceneObject {
     cone: '#fcc419',
     torus: '#cc5de8',
     plane: '#868e96',
+    capsule: '#20c997',
+    pyramid: '#ff922b',
+    dodecahedron: '#845ef7',
+    icosahedron: '#15aabf',
+    octahedron: '#f06595',
+    tetrahedron: '#fab005',
+    torusKnot: '#7950f2',
+    ring: '#748ffc',
   };
+
+  const label = type.charAt(0).toUpperCase() + type.slice(1);
 
   return {
     id: uuidv4(),
-    name: `${type.charAt(0).toUpperCase() + type.slice(1)} ${index}`,
+    name: `${label} ${index}`,
     type,
-    position: { x: (Math.random() - 0.5) * 4, y: type === 'plane' ? 0 : 0.5, z: (Math.random() - 0.5) * 4 },
-    rotation: { x: 0, y: 0, z: 0 },
+    position: { x: (Math.random() - 0.5) * 4, y: type === 'plane' || type === 'ring' ? 0 : 0.5, z: (Math.random() - 0.5) * 4 },
+    rotation: {
+      x: type === 'ring' ? -Math.PI / 2 : 0,
+      y: 0,
+      z: 0,
+    },
     scale: { x: 1, y: 1, z: 1 },
     color: colors[type],
     opacity: 1,
@@ -55,7 +69,9 @@ function createShape(type: PrimitiveType, index: number): SceneObject {
     wireframe: false,
     emissive: '#000000',
     emissiveIntensity: 0,
-    flatShading: false,
+    flatShading: type === 'tetrahedron' || type === 'pyramid' || type === 'octahedron',
+    textureId: 'none',
+    textureRepeat: 2,
   };
 }
 
@@ -72,6 +88,8 @@ interface AppState {
   showAbout: boolean;
   showLightsPanel: boolean;
   showTemplates: boolean;
+  showExportImage: boolean;
+  viewScale: number;
   shapeCounter: number;
 
   setTheme: (theme: ThemeMode) => void;
@@ -93,6 +111,8 @@ interface AppState {
   setShowAbout: (show: boolean) => void;
   setShowLightsPanel: (show: boolean) => void;
   setShowTemplates: (show: boolean) => void;
+  setShowExportImage: (show: boolean) => void;
+  setViewScale: (scale: number) => void;
   setProjectName: (name: string) => void;
   exportProject: () => ProjectData;
   importProject: (data: ProjectData, filePath?: string | null) => void;
@@ -112,6 +132,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   showAbout: false,
   showLightsPanel: localStorage.getItem('showLightsPanel') !== 'false',
   showTemplates: false,
+  showExportImage: false,
+  viewScale: 100,
   shapeCounter: 1,
 
   setTheme: (theme) => {
@@ -217,6 +239,10 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   setShowTemplates: (show) => set({ showTemplates: show }),
 
+  setShowExportImage: (show) => set({ showExportImage: show }),
+
+  setViewScale: (scale) => set({ viewScale: scale }),
+
   setProjectName: (name) => set({ projectName: name }),
 
   exportProject: () => {
@@ -239,6 +265,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       emissive: '#000000',
       emissiveIntensity: 0,
       flatShading: false,
+      textureId: 'none',
+      textureRepeat: 2,
       ...o,
     }));
     set({

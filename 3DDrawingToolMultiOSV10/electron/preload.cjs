@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   saveProject: (data) => ipcRenderer.invoke('dialog:saveProject', data),
   openProject: () => ipcRenderer.invoke('dialog:openProject'),
   openExternal: (url) => ipcRenderer.invoke('shell:openExternal', url),
+  exportImage: (payload) => ipcRenderer.invoke('dialog:exportImage', payload),
   platform: process.platform,
   isElectron: true,
 });

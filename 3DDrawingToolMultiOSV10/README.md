@@ -57,20 +57,31 @@ npm run dev
 | `npm run electron:dev` | Alias of `npm start` |
 | `npm run dev` | Web only (Vite, browser) |
 | `npm run build` | Production web build → `dist/` |
+| `npm run build:win` | Windows installer → root + `release/` |
+| `npm run build:mac` | macOS installer → root + `release/` |
+| `npm run build:linux` | Linux installer → root + `release/` |
+| `npm run build:all` | All platform installers → root + `release/` |
 | `npm run icons` | Generate PNG/ICO icons from SVG |
-| `npm run electron:build:win` | Windows NSIS installer |
-| `npm run electron:build:mac` | macOS DMG/ZIP |
-| `npm run electron:build:linux` | Linux AppImage / deb |
 
 ## Desktop Installers
 
 ```bash
-npm run electron:build:win    # Windows
-npm run electron:build:mac    # macOS
-npm run electron:build:linux  # Linux
+npm run build:win      # Windows (.exe)
+npm run build:mac      # macOS (.dmg / .zip)
+npm run build:linux    # Linux (.AppImage / .deb)
+npm run build:all      # All platforms (host OS may limit cross-build)
 ```
 
-Artifacts are written to `release/`.
+Build output:
+
+1. Intermediate / full artifacts in `release/`
+2. Installer files are **copied to the project root**
+
+Examples at root:
+
+- `3D Drawing Tool-Setup-1.0.0.exe`
+- `3D Drawing Tool-1.0.0-mac.dmg`
+- `3D Drawing Tool-1.0.0-linux.AppImage`
 
 Windows NSIS (`oneClick: false`) lets the user choose:
 

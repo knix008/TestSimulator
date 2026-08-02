@@ -6,6 +6,7 @@ import RightPanel from './components/RightPanel';
 import Viewport3D from './components/Viewport3D';
 import AboutDialog from './components/AboutDialog';
 import TemplateDialog from './components/TemplateDialog';
+import ExportImageDialog from './components/ExportImageDialog';
 import StatusBar from './components/StatusBar';
 import { useAppStore } from './store/useAppStore';
 
@@ -49,6 +50,7 @@ export default function App() {
       <StatusBar />
       <AboutDialog />
       <TemplateDialog />
+      <ExportImageDialog />
     </div>
   );
 }

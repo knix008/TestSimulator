@@ -1,7 +1,14 @@
-import type { ReactNode } from 'react';
+import { useMemo, useRef, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAppStore } from '../store/useAppStore';
-import type { SceneObject, Vec3 } from '../types';
+import { ALL_PRIMITIVES, type PrimitiveType, type SceneObject, type Vec3 } from '../types';
+import {
+  TEXTURE_PRESETS,
+  getPresetTextureUrl,
+  getTexturePreview,
+  readImageFileAsDataUrl,
+  type TexturePresetId,
+} from '../utils/textures';
 
 const COLOR_PRESETS = [
   '#4f8cff',
@@ -148,11 +155,111 @@ function ColorField({
   );
 }
 
+function TexturePicker({
+  textureId,
+  textureUrl,
+  textureRepeat,
+  onSelectPreset,
+  onCustomUrl,
+  onClear,
+  onRepeat,
+}: {
+  textureId: string;
+  textureUrl?: string;
+  textureRepeat: number;
+  onSelectPreset: (id: string, url?: string) => void;
+  onCustomUrl: (url: string) => void;
+  onClear: () => void;
+  onRepeat: (repeat: number) => void;
+}) {
+  const { t } = useTranslation();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const previews = useMemo(() => {
+    const map: Record<string, string | null> = {};
+    for (const p of TEXTURE_PRESETS) {
+      map[p.id] = getTexturePreview(p.id);
+    }
+    return map;
+  }, []);
+
+  return (
+    <div className="prop-group">
+      <label>{t('properties.texture')}</label>
+      <div className="texture-grid">
+        {TEXTURE_PRESETS.map((p) => {
+          const active = textureId === p.id || (p.id === 'none' && (!textureId || textureId === 'none'));
+          const preview = previews[p.id];
+          return (
+            <button
+              key={p.id}
+              type="button"
+              className={`texture-swatch ${active ? 'active' : ''}`}
+              title={t(p.labelKey)}
+              onClick={() => {
+                if (p.id === 'none') onClear();
+                else onSelectPreset(p.id, getPresetTextureUrl(p.id as TexturePresetId));
+              }}
+            >
+              {preview ? (
+                <img src={preview} alt={p.id} />
+              ) : (
+                <span className="texture-none">{t('properties.textureNone')}</span>
+              )}
+            </button>
+          );
+        })}
+        <button
+          type="button"
+          className={`texture-swatch ${textureId === 'custom' ? 'active' : ''}`}
+          title={t('properties.textureCustom')}
+          onClick={() => fileRef.current?.click()}
+        >
+          {textureId === 'custom' && textureUrl ? (
+            <img src={textureUrl} alt="custom" />
+          ) : (
+            <span className="texture-none">{t('properties.textureCustom')}</span>
+          )}
+        </button>
+      </div>
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/png,image/jpeg,image/jpg,image/webp,image/gif"
+        hidden
+        onChange={async (e) => {
+          const file = e.target.files?.[0];
+          e.target.value = '';
+          if (!file) return;
+          const url = await readImageFileAsDataUrl(file);
+          onCustomUrl(url);
+        }}
+      />
+      {(textureId && textureId !== 'none') || textureUrl ? (
+        <div className="slider-row" style={{ marginTop: 8 }}>
+          <span style={{ fontSize: 11, color: 'var(--text-muted)', minWidth: 48 }}>
+            {t('properties.textureRepeat')}
+          </span>
+          <input
+            type="range"
+            min={0.25}
+            max={8}
+            step={0.25}
+            value={textureRepeat}
+            onChange={(e) => onRepeat(parseFloat(e.target.value))}
+          />
+          <span>{textureRepeat.toFixed(2)}</span>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function ObjectProperties({ obj }: { obj: SceneObject }) {
   const { t } = useTranslation();
   const updateObject = useAppStore((s) => s.updateObject);
 
   const patch = (partial: Partial<SceneObject>) => updateObject(obj.id, partial);
+  const isPrimitive = ALL_PRIMITIVES.includes(obj.type as PrimitiveType);
 
   const rotateAxis = (axis: keyof Vec3, deg = 15) => {
     patch({
@@ -192,6 +299,26 @@ function ObjectProperties({ obj }: { obj: SceneObject }) {
         onChange={(color) => patch({ color })}
         showPresets
       />
+
+      {isPrimitive && (
+        <TexturePicker
+          textureId={obj.textureId || 'none'}
+          textureUrl={obj.textureUrl}
+          textureRepeat={obj.textureRepeat ?? 2}
+          onSelectPreset={(textureId, textureUrl) =>
+            patch({
+              textureId,
+              textureUrl,
+              textureRepeat: obj.textureRepeat ?? 2,
+            })
+          }
+          onCustomUrl={(textureUrl) =>
+            patch({ textureId: 'custom', textureUrl, textureRepeat: obj.textureRepeat ?? 2 })
+          }
+          onClear={() => patch({ textureId: 'none', textureUrl: undefined })}
+          onRepeat={(textureRepeat) => patch({ textureRepeat })}
+        />
+      )}
 
       <div className="prop-group">
         <label>{t('properties.opacity')}</label>

@@ -6,6 +6,17 @@ dist/
 dist-electron/
 release/
 
+# Installers copied to project root
+*.exe
+*.dmg
+*.pkg
+*.AppImage
+*.deb
+*.rpm
+*.snap
+3D Drawing Tool-*.zip
+*.blockmap
+
 # Logs & caches
 *.log
 npm-debug.log*

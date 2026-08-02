@@ -4,6 +4,7 @@ import { openProject, saveProject } from '../utils/projectIO';
 import { pickAndImportModels } from '../utils/modelImport';
 import {
   IconAxes,
+  IconExportImage,
   IconGrid,
   IconImport,
   IconInfo,
@@ -31,6 +32,8 @@ export default function Toolbar() {
   const showLightsPanel = useAppStore((s) => s.showLightsPanel);
   const setShowLightsPanel = useAppStore((s) => s.setShowLightsPanel);
   const setShowTemplates = useAppStore((s) => s.setShowTemplates);
+  const setShowExportImage = useAppStore((s) => s.setShowExportImage);
+  const viewScale = useAppStore((s) => s.viewScale);
   const newProject = useAppStore((s) => s.newProject);
   const projectName = useAppStore((s) => s.projectName);
 
@@ -70,6 +73,9 @@ export default function Toolbar() {
         <button className="tb-btn" title={t('toolbar.templates')} onClick={() => setShowTemplates(true)}>
           <IconTemplate width={16} height={16} />
         </button>
+        <button className="tb-btn" title={t('toolbar.exportImage')} onClick={() => setShowExportImage(true)}>
+          <IconExportImage width={16} height={16} />
+        </button>
       </div>
 
       <div className="toolbar-group">
@@ -94,6 +100,12 @@ export default function Toolbar() {
         >
           <IconLight width={16} height={16} />
         </button>
+      </div>
+
+      <div className="toolbar-group">
+        <span className="toolbar-scale" title={t('status.viewScale')}>
+          {t('status.viewScale')} {viewScale}%
+        </span>
       </div>
 
       <div className="toolbar-spacer" />

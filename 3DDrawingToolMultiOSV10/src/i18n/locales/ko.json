@@ -12,6 +12,7 @@
     "axes": "축",
     "lights": "조명 패널",
     "templates": "템플릿",
+    "exportImage": "이미지로 내보내기",
     "minimize": "최소화",
     "maximize": "최대화",
     "close": "닫기"
@@ -32,6 +33,14 @@
     "cone": "원뿔",
     "torus": "토러스",
     "plane": "평면",
+    "capsule": "캡슐",
+    "pyramid": "피라미드",
+    "dodecahedron": "십이면체",
+    "icosahedron": "이십면체",
+    "octahedron": "팔면체",
+    "tetrahedron": "사면체",
+    "torusKnot": "토러스 노트",
+    "ring": "링",
     "actions": "동작",
     "duplicate": "복제",
     "delete": "삭제"
@@ -49,6 +58,19 @@
     "rotation": "회전",
     "scale": "크기",
     "color": "색상",
+    "texture": "텍스처",
+    "textureNone": "없음",
+    "textureCustom": "직접 선택",
+    "textureRepeat": "반복",
+    "textureChecker": "체커",
+    "textureBricks": "벽돌",
+    "textureWood": "나무",
+    "textureMetal": "금속",
+    "textureNoise": "노이즈",
+    "textureStripes": "줄무늬",
+    "textureDots": "도트",
+    "textureCarbon": "카본",
+    "textureMarble": "대리석",
     "opacity": "불투명도",
     "visible": "표시",
     "metalness": "금속성",
@@ -94,6 +116,18 @@
     "loadError": "템플릿 목록을 불러오지 못했습니다.",
     "close": "닫기"
   },
+  "exportImage": {
+    "title": "이미지로 내보내기",
+    "intro": "현재 3D 뷰포트를 2D 이미지 파일로 저장합니다.",
+    "format": "이미지 형식",
+    "includeBackground": "배경 포함",
+    "transparentHint": "배경을 제외하면 투명 배경으로 저장됩니다 (PNG, WEBP, AVIF, GIF, TIFF, ICO).",
+    "noAlphaHint": "{{format}} 형식은 투명도를 지원하지 않아 배경이 포함됩니다.",
+    "quality": "품질",
+    "export": "내보내기",
+    "exporting": "내보내는 중…",
+    "cancel": "취소"
+  },
   "lightsPanel": {
     "title": "조명",
     "close": "닫기",
@@ -101,6 +135,7 @@
     "typeAmbient": "종류: 환경광",
     "typeDirectional": "종류: 방향광",
     "typePoint": "종류: 포인트",
-    "ambientNote": "환경광은 위치가 없습니다 (전역 조명)."
+    "ambientNote": "환경광은 위치가 없습니다 (전역 조명).",
+    "dragHint": "씬에서 Dir / Point 마커를 직접 드래그해 위치를 옮길 수 있습니다."
   }
 }

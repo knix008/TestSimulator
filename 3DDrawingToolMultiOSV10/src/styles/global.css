@@ -184,6 +184,23 @@ select:focus {
   -webkit-app-region: drag;
 }
 
+.toolbar-scale {
+  display: inline-flex;
+  align-items: center;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+  white-space: nowrap;
+}
+
 .brand {
   display: flex;
   align-items: center;
@@ -267,6 +284,57 @@ select:focus {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 6px;
+}
+
+.tool-grid-dense {
+  grid-template-columns: 1fr 1fr;
+}
+
+.tool-grid-dense .tool-btn {
+  min-height: 52px;
+  padding: 6px 4px;
+  font-size: 10px;
+}
+
+.texture-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+
+.texture-swatch {
+  aspect-ratio: 1;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  padding: 0;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.texture-swatch img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.texture-swatch.active {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+  border-color: var(--accent);
+}
+
+.texture-none {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  font-size: 9px;
+  color: var(--text-dim);
+  padding: 2px;
+  text-align: center;
+  line-height: 1.2;
 }
 
 .tool-btn {
@@ -523,6 +591,41 @@ select:focus {
 
 .template-modal {
   width: min(560px, calc(100vw - 32px));
+}
+
+.export-modal {
+  width: min(440px, calc(100vw - 32px));
+}
+
+.export-intro {
+  margin: 0 0 14px;
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.export-hint {
+  margin: -4px 0 12px;
+  font-size: 11px;
+  color: var(--text-dim);
+  line-height: 1.4;
+}
+
+.export-error {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--danger);
+  line-height: 1.4;
+}
+
+.export-modal select {
+  width: 100%;
+  height: 34px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  color: var(--text);
+  padding: 0 10px;
 }
 
 .template-intro {

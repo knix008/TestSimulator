@@ -4,18 +4,26 @@ import type { PrimitiveType, ToolType } from '../types';
 import { pickAndImportModels } from '../utils/modelImport';
 import {
   IconBox,
+  IconCapsule,
   IconCone,
   IconCylinder,
+  IconDodecahedron,
   IconDuplicate,
+  IconIcosahedron,
   IconImport,
   IconMove,
+  IconOctahedron,
   IconPlane,
+  IconPyramid,
+  IconRing,
   IconRotate,
   IconScale,
   IconSelect,
   IconSphere,
   IconTemplate,
+  IconTetrahedron,
   IconTorus,
+  IconTorusKnot,
   IconTrash,
 } from './Icons';
 
@@ -33,6 +41,14 @@ const primitives: { id: PrimitiveType; icon: typeof IconBox; labelKey: string }[
   { id: 'cone', icon: IconCone, labelKey: 'tools.cone' },
   { id: 'torus', icon: IconTorus, labelKey: 'tools.torus' },
   { id: 'plane', icon: IconPlane, labelKey: 'tools.plane' },
+  { id: 'capsule', icon: IconCapsule, labelKey: 'tools.capsule' },
+  { id: 'pyramid', icon: IconPyramid, labelKey: 'tools.pyramid' },
+  { id: 'dodecahedron', icon: IconDodecahedron, labelKey: 'tools.dodecahedron' },
+  { id: 'icosahedron', icon: IconIcosahedron, labelKey: 'tools.icosahedron' },
+  { id: 'octahedron', icon: IconOctahedron, labelKey: 'tools.octahedron' },
+  { id: 'tetrahedron', icon: IconTetrahedron, labelKey: 'tools.tetrahedron' },
+  { id: 'torusKnot', icon: IconTorusKnot, labelKey: 'tools.torusKnot' },
+  { id: 'ring', icon: IconRing, labelKey: 'tools.ring' },
 ];
 
 export default function LeftPanel() {
@@ -86,7 +102,7 @@ export default function LeftPanel() {
 
         <div className="tool-section">
           <h3>{t('tools.primitives')}</h3>
-          <div className="tool-grid">
+          <div className="tool-grid tool-grid-dense">
             {primitives.map(({ id, icon: Icon, labelKey }) => (
               <button key={id} className="tool-btn" onClick={() => addShape(id)}>
                 <Icon />

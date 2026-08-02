@@ -7,47 +7,47 @@ import {
   TransformControls,
   Text,
   Billboard,
+  useTexture,
 } from '@react-three/drei';
-import { Suspense, useEffect, useMemo, useRef, useState, useCallback, memo } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import type { TransformControls as TransformControlsImpl } from 'three-stdlib';
 import * as THREE from 'three';
 import { useAppStore } from '../store/useAppStore';
-import type { PrimitiveType, SceneObject } from '../types';
+import { ALL_PRIMITIVES, type PrimitiveType, type SceneObject } from '../types';
 import { importModelFiles } from '../utils/modelImport';
+import { registerViewportCapture, unregisterViewportCapture } from '../utils/viewportCapture';
 import ImportedAsset from './ImportedAsset';
 import LightsCanvasPanel from './LightsCanvasPanel';
 
 const AXIS_LENGTH = 3;
-const PRIMITIVES: PrimitiveType[] = ['box', 'sphere', 'cylinder', 'cone', 'torus', 'plane'];
 
-/** Dense grid: minor 0.25u, major 1u — constants avoid remount flicker */
-const GRID_CELL_SIZE = 0.25;
-const GRID_SECTION_SIZE = 1;
+/** Fine fixed world grid — on-screen size grows/shrinks with zoom (배율) */
+const GRID_CELL_SIZE = 0.1;
+const GRID_SECTION_SIZE = 0.5;
 const GRID_ARGS: [number, number] = [40, 40];
 const BASE_CAMERA_DISTANCE = Math.sqrt(6 * 6 + 5 * 5 + 8 * 8);
 
-/** Isolated so light/object updates do not rebuild the grid shader every frame */
-const SceneGrid = memo(function SceneGrid() {
+function SceneGrid() {
   return (
     <Grid
       args={GRID_ARGS}
       position={[0, 0, 0]}
       cellSize={GRID_CELL_SIZE}
-      cellThickness={0.45}
+      cellThickness={0.4}
       cellColor="#334155"
       sectionSize={GRID_SECTION_SIZE}
-      sectionThickness={1.0}
+      sectionThickness={0.95}
       sectionColor="#64748b"
       fadeDistance={50}
       fadeStrength={1}
-      infiniteGrid={false}
+      infiniteGrid
       followCamera={false}
       renderOrder={-1}
     />
   );
-});
+}
 
 function AxisLabels() {
   const labels: { text: string; position: [number, number, number]; color: string }[] = [
@@ -76,18 +76,31 @@ function AxisLabels() {
   );
 }
 
-function CameraScaleReporter({ onScale }: { onScale: (pct: number) => void }) {
+function CameraScaleReporter() {
   const { camera } = useThree();
   const last = useRef(-1);
+  const setViewScale = useAppStore((s) => s.setViewScale);
 
   useFrame(() => {
     const dist = Math.max(0.001, camera.position.length());
     const pct = Math.round((BASE_CAMERA_DISTANCE / dist) * 100);
     if (pct !== last.current) {
       last.current = pct;
-      onScale(pct);
+      setViewScale(pct);
     }
   });
+
+  return null;
+}
+
+function ViewportCaptureBridge() {
+  const { gl, scene, camera } = useThree();
+
+  useEffect(() => {
+    const api = { gl, scene, camera };
+    registerViewportCapture(api);
+    return () => unregisterViewportCapture(api);
+  }, [gl, scene, camera]);
 
   return null;
 }
@@ -106,33 +119,90 @@ function ShapeGeometry({ type }: { type: PrimitiveType }) {
       return <torusGeometry args={[0.55, 0.22, 24, 64]} />;
     case 'plane':
       return <planeGeometry args={[2, 2]} />;
+    case 'capsule':
+      return <capsuleGeometry args={[0.4, 0.9, 8, 24]} />;
+    case 'pyramid':
+      return <coneGeometry args={[0.7, 1.1, 4]} />;
+    case 'dodecahedron':
+      return <dodecahedronGeometry args={[0.7, 0]} />;
+    case 'icosahedron':
+      return <icosahedronGeometry args={[0.7, 0]} />;
+    case 'octahedron':
+      return <octahedronGeometry args={[0.7, 0]} />;
+    case 'tetrahedron':
+      return <tetrahedronGeometry args={[0.85, 0]} />;
+    case 'torusKnot':
+      return <torusKnotGeometry args={[0.45, 0.15, 128, 24]} />;
+    case 'ring':
+      return <ringGeometry args={[0.35, 0.85, 48]} />;
     default:
       return <boxGeometry args={[1, 1, 1]} />;
   }
 }
 
-function PrimitiveContent({ obj, selected }: { obj: SceneObject; selected: boolean }) {
-  const type = obj.type as PrimitiveType;
+function PrimitiveMaterial({
+  obj,
+  selected,
+  map,
+}: {
+  obj: SceneObject;
+  selected: boolean;
+  map?: THREE.Texture | null;
+}) {
   const selectGlow = selected ? 0.12 : 0;
   const emissiveIntensity = Math.max(obj.emissiveIntensity ?? 0, selectGlow);
   const emissive =
     selected && (obj.emissiveIntensity ?? 0) < 0.05 ? obj.color : obj.emissive || '#000000';
+  const doubleSide =
+    obj.type === 'plane' || obj.type === 'ring' || !!obj.wireframe || !!map;
+
+  return (
+    <meshStandardMaterial
+      color={obj.color}
+      map={map ?? undefined}
+      transparent={obj.opacity < 1 || !!obj.wireframe}
+      opacity={obj.opacity}
+      metalness={obj.metalness}
+      roughness={obj.roughness}
+      wireframe={!!obj.wireframe}
+      flatShading={!!obj.flatShading}
+      side={doubleSide ? THREE.DoubleSide : THREE.FrontSide}
+      emissive={emissive}
+      emissiveIntensity={emissiveIntensity}
+    />
+  );
+}
+
+function TexturedPrimitiveMaterial({ obj, selected }: { obj: SceneObject; selected: boolean }) {
+  const url = obj.textureUrl!;
+  const texture = useTexture(url);
+  const repeat = Math.max(0.1, obj.textureRepeat ?? 2);
+
+  useEffect(() => {
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(repeat, repeat);
+    texture.needsUpdate = true;
+  }, [texture, repeat]);
+
+  return <PrimitiveMaterial obj={obj} selected={selected} map={texture} />;
+}
+
+function PrimitiveContent({ obj, selected }: { obj: SceneObject; selected: boolean }) {
+  const type = obj.type as PrimitiveType;
+  const hasTexture = !!obj.textureUrl;
 
   return (
     <mesh castShadow receiveShadow>
       <ShapeGeometry type={type} />
-      <meshStandardMaterial
-        color={obj.color}
-        transparent={obj.opacity < 1 || !!obj.wireframe}
-        opacity={obj.opacity}
-        metalness={obj.metalness}
-        roughness={obj.roughness}
-        wireframe={!!obj.wireframe}
-        flatShading={!!obj.flatShading}
-        side={obj.type === 'plane' || obj.wireframe ? THREE.DoubleSide : THREE.FrontSide}
-        emissive={emissive}
-        emissiveIntensity={emissiveIntensity}
-      />
+      {hasTexture ? (
+        <Suspense fallback={<PrimitiveMaterial obj={obj} selected={selected} />}>
+          <TexturedPrimitiveMaterial key={obj.textureUrl} obj={obj} selected={selected} />
+        </Suspense>
+      ) : (
+        <PrimitiveMaterial obj={obj} selected={selected} />
+      )}
     </mesh>
   );
 }
@@ -145,18 +215,229 @@ function ObjectContent({ obj, selected }: { obj: SceneObject; selected: boolean 
       </Suspense>
     );
   }
-  if (PRIMITIVES.includes(obj.type as PrimitiveType)) {
+  if (ALL_PRIMITIVES.includes(obj.type as PrimitiveType)) {
     return <PrimitiveContent obj={obj} selected={selected} />;
   }
   return null;
 }
 
-function useOrbitLock() {
-  const { controls } = useThree();
-  return (locked: boolean) => {
-    const orbit = controls as OrbitControlsImpl | null;
-    if (orbit) orbit.enabled = !locked;
+/** Always read latest OrbitControls from the R3F store (avoids stale lock after drag). */
+function setOrbitLocked(locked: boolean) {
+  const orbit = useThree.getState().controls as OrbitControlsImpl | null;
+  if (orbit) orbit.enabled = !locked;
+}
+
+const LIGHT_DRAG_THRESHOLD_PX = 4;
+
+type LightKind = 'directional' | 'point';
+
+/**
+ * Light marker: drag the marker body directly (large hit area).
+ * No translate gizmo — its center picker used to block marker drags.
+ */
+function DraggableLightMarker({
+  kind,
+  position,
+  color,
+  label,
+  selected,
+  onSelect,
+}: {
+  kind: LightKind;
+  position: { x: number; y: number; z: number };
+  color: string;
+  label: string;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  const groupRef = useRef<THREE.Group>(null);
+  const visualRef = useRef<THREE.Group>(null);
+  const setLights = useAppStore((s) => s.setLights);
+  const { camera, gl } = useThree();
+
+  const dragRef = useRef({
+    pending: false,
+    active: false,
+    pointerId: -1,
+    startX: 0,
+    startY: 0,
+    plane: new THREE.Plane(),
+    hit: new THREE.Vector3(),
+    offset: new THREE.Vector3(),
+    raycaster: new THREE.Raycaster(),
+    pointer: new THREE.Vector2(),
+  });
+
+  const commit = () => {
+    const g = groupRef.current;
+    if (!g) return;
+    const next = { x: g.position.x, y: g.position.y, z: g.position.z };
+    if (kind === 'directional') setLights({ directionalPosition: next });
+    else setLights({ pointPosition: next });
   };
+
+  const endLightDrag = () => {
+    const d = dragRef.current;
+    const wasDragging = d.active;
+    d.pending = false;
+    d.active = false;
+    d.pointerId = -1;
+    if (wasDragging) commit();
+    setOrbitLocked(false);
+  };
+
+  // Keep marker roughly constant on screen while zooming
+  useFrame(() => {
+    const dist = Math.max(0.001, camera.position.length());
+    const s = dist / BASE_CAMERA_DISTANCE;
+    if (visualRef.current) visualRef.current.scale.setScalar(s);
+  });
+
+  useEffect(() => {
+    const g = groupRef.current;
+    if (!g || dragRef.current.active || dragRef.current.pending) return;
+    g.position.set(position.x, position.y, position.z);
+  }, [position.x, position.y, position.z]);
+
+  useEffect(() => {
+    const beginActiveDrag = (clientX: number, clientY: number) => {
+      const d = dragRef.current;
+      const g = groupRef.current;
+      if (!g) return;
+      d.active = true;
+      d.pending = false;
+      setOrbitLocked(true);
+
+      const normal = camera.getWorldDirection(new THREE.Vector3()).negate();
+      d.plane.setFromNormalAndCoplanarPoint(normal, g.position);
+      const rect = gl.domElement.getBoundingClientRect();
+      d.pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+      d.pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+      d.raycaster.setFromCamera(d.pointer, camera);
+      if (d.raycaster.ray.intersectPlane(d.plane, d.hit)) {
+        d.offset.copy(g.position).sub(d.hit);
+      } else {
+        d.offset.set(0, 0, 0);
+      }
+    };
+
+    const applyPointer = (clientX: number, clientY: number) => {
+      const d = dragRef.current;
+      const g = groupRef.current;
+      if (!d.active || !g) return;
+      const normal = camera.getWorldDirection(new THREE.Vector3()).negate();
+      d.plane.setFromNormalAndCoplanarPoint(normal, g.position);
+      const rect = gl.domElement.getBoundingClientRect();
+      d.pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+      d.pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+      d.raycaster.setFromCamera(d.pointer, camera);
+      if (d.raycaster.ray.intersectPlane(d.plane, d.hit)) {
+        g.position.copy(d.hit).add(d.offset);
+        commit();
+      }
+    };
+
+    const onMove = (e: PointerEvent) => {
+      const d = dragRef.current;
+      if (d.pointerId !== e.pointerId) return;
+
+      if (d.pending && !d.active) {
+        const dx = e.clientX - d.startX;
+        const dy = e.clientY - d.startY;
+        if (dx * dx + dy * dy < LIGHT_DRAG_THRESHOLD_PX * LIGHT_DRAG_THRESHOLD_PX) return;
+        beginActiveDrag(e.clientX, e.clientY);
+      }
+
+      if (d.active) applyPointer(e.clientX, e.clientY);
+    };
+
+    const onUp = (e: PointerEvent) => {
+      const d = dragRef.current;
+      if (!d.pending && !d.active) return;
+      if (d.pointerId !== -1 && d.pointerId !== e.pointerId) return;
+      endLightDrag();
+    };
+
+    const onBlur = () => {
+      if (dragRef.current.pending || dragRef.current.active) endLightDrag();
+      else setOrbitLocked(false);
+    };
+
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
+    window.addEventListener('blur', onBlur);
+    return () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
+      window.removeEventListener('blur', onBlur);
+      dragRef.current.pending = false;
+      dragRef.current.active = false;
+      dragRef.current.pointerId = -1;
+      setOrbitLocked(false);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [camera, gl]);
+
+  const onMarkerPointerDown = (e: ThreeEvent<PointerEvent>) => {
+    e.stopPropagation();
+    onSelect();
+
+    const d = dragRef.current;
+    d.pending = true;
+    d.active = false;
+    d.pointerId = e.pointerId;
+    d.startX = e.clientX;
+    d.startY = e.clientY;
+    // Do not lock orbit until the pointer actually moves (keeps view control responsive)
+  };
+
+  const radius = kind === 'point' ? 0.32 : 0.28;
+  const hitRadius = radius * 1.6;
+
+  return (
+    <group ref={groupRef} position={[position.x, position.y, position.z]}>
+      <group ref={visualRef}>
+        <mesh
+          onPointerDown={onMarkerPointerDown}
+          onClick={(e) => {
+            e.stopPropagation();
+            onSelect();
+          }}
+        >
+          <sphereGeometry args={[hitRadius, 16, 16]} />
+          <meshBasicMaterial transparent opacity={0.001} depthWrite={false} />
+        </mesh>
+        <mesh>
+          <sphereGeometry args={[radius, 20, 20]} />
+          <meshBasicMaterial
+            color={color}
+            transparent
+            opacity={selected ? 1 : 0.9}
+            depthTest
+          />
+        </mesh>
+        {selected && (
+          <mesh>
+            <sphereGeometry args={[radius * 1.4, 20, 20]} />
+            <meshBasicMaterial color={color} wireframe transparent opacity={0.55} />
+          </mesh>
+        )}
+        <Billboard follow position={[0, radius + 0.3, 0]}>
+          <Text
+            fontSize={0.24}
+            color={color}
+            anchorX="center"
+            outlineWidth={0.02}
+            outlineColor="#0a0e14"
+          >
+            {label}
+          </Text>
+        </Billboard>
+      </group>
+    </group>
+  );
 }
 
 /** Drag to move (select/move) or drag to resize (scale tool) */
@@ -174,7 +455,6 @@ function SceneObjectNode({
   const groupRef = useRef<THREE.Group>(null);
   const transformRef = useRef<TransformControlsImpl>(null);
   const updateObject = useAppStore((s) => s.updateObject);
-  const setOrbitLocked = useOrbitLock();
   const { camera, gl } = useThree();
 
   const dragRef = useRef({
@@ -374,13 +654,14 @@ function SceneObjectNode({
   );
 }
 
-function SceneContent({ onViewScale }: { onViewScale: (pct: number) => void }) {
+function SceneContent() {
   const objects = useAppStore((s) => s.objects);
   const selectedId = useAppStore((s) => s.selectedId);
   const setSelectedId = useAppStore((s) => s.setSelectedId);
   const tool = useAppStore((s) => s.tool);
   const lights = useAppStore((s) => s.lights);
   const viewport = useAppStore((s) => s.viewport);
+  const [selectedLight, setSelectedLight] = useState<LightKind | null>(null);
 
   // select + move → translate gizmo; rotate/scale → their gizmos
   const transformMode: 'translate' | 'rotate' | 'scale' | null = useMemo(() => {
@@ -389,6 +670,21 @@ function SceneContent({ onViewScale }: { onViewScale: (pct: number) => void }) {
     if (tool === 'move' || tool === 'select') return 'translate';
     return null;
   }, [tool]);
+
+  const selectObject = (id: string) => {
+    setSelectedLight(null);
+    setSelectedId(id);
+  };
+
+  const selectLight = (kind: LightKind) => {
+    setSelectedId(null);
+    setSelectedLight(kind);
+  };
+
+  const clearSelection = () => {
+    setSelectedId(null);
+    setSelectedLight(null);
+  };
 
   return (
     <>
@@ -412,29 +708,22 @@ function SceneContent({ onViewScale }: { onViewScale: (pct: number) => void }) {
         position={[lights.pointPosition.x, lights.pointPosition.y, lights.pointPosition.z]}
       />
 
-      {/* Light position markers in the scene */}
-      <group position={[lights.directionalPosition.x, lights.directionalPosition.y, lights.directionalPosition.z]}>
-        <mesh>
-          <sphereGeometry args={[0.14, 16, 16]} />
-          <meshBasicMaterial color={lights.directionalColor} />
-        </mesh>
-        <Billboard follow position={[0, 0.35, 0]}>
-          <Text fontSize={0.22} color={lights.directionalColor} anchorX="center" outlineWidth={0.02} outlineColor="#0a0e14">
-            Dir
-          </Text>
-        </Billboard>
-      </group>
-      <group position={[lights.pointPosition.x, lights.pointPosition.y, lights.pointPosition.z]}>
-        <mesh>
-          <sphereGeometry args={[0.2, 16, 16]} />
-          <meshBasicMaterial color={lights.pointColor} transparent opacity={0.95} />
-        </mesh>
-        <Billboard follow position={[0, 0.4, 0]}>
-          <Text fontSize={0.22} color={lights.pointColor} anchorX="center" outlineWidth={0.02} outlineColor="#0a0e14">
-            Point
-          </Text>
-        </Billboard>
-      </group>
+      <DraggableLightMarker
+        kind="directional"
+        position={lights.directionalPosition}
+        color={lights.directionalColor}
+        label="Dir"
+        selected={selectedLight === 'directional'}
+        onSelect={() => selectLight('directional')}
+      />
+      <DraggableLightMarker
+        kind="point"
+        position={lights.pointPosition}
+        color={lights.pointColor}
+        label="Point"
+        selected={selectedLight === 'point'}
+        onSelect={() => selectLight('point')}
+      />
 
       {viewport.showGrid && <SceneGrid />}
 
@@ -449,7 +738,7 @@ function SceneContent({ onViewScale }: { onViewScale: (pct: number) => void }) {
         rotation={[-Math.PI / 2, 0, 0]}
         position={[0, -0.05, 0]}
         receiveShadow
-        onClick={() => setSelectedId(null)}
+        onClick={clearSelection}
       >
         <planeGeometry args={[100, 100]} />
         <shadowMaterial opacity={0.15} depthWrite={false} />
@@ -461,12 +750,13 @@ function SceneContent({ onViewScale }: { onViewScale: (pct: number) => void }) {
           obj={obj}
           selected={selectedId === obj.id}
           transformMode={selectedId === obj.id ? transformMode : null}
-          onSelect={() => setSelectedId(obj.id)}
+          onSelect={() => selectObject(obj.id)}
         />
       ))}
 
       <OrbitControls makeDefault enableDamping dampingFactor={0.08} />
-      <CameraScaleReporter onScale={onViewScale} />
+      <CameraScaleReporter />
+      <ViewportCaptureBridge />
       <GizmoHelper alignment="bottom-right" margin={[72, 72]}>
         <GizmoViewport axisColors={['#ff5c5c', '#5cff8a', '#5c9cff']} labelColor="white" />
       </GizmoHelper>
@@ -478,8 +768,6 @@ export default function Viewport3D() {
   const objects = useAppStore((s) => s.objects);
   const { t } = useTranslation();
   const [dragging, setDragging] = useState(false);
-  const [viewScale, setViewScale] = useState(100);
-  const onViewScale = useCallback((pct: number) => setViewScale(pct), []);
 
   return (
     <div
@@ -503,24 +791,20 @@ export default function Viewport3D() {
     >
       <Canvas
         shadows
+        gl={{ preserveDrawingBuffer: true, alpha: true }}
         camera={{ position: [6, 5, 8], fov: 45, near: 0.1, far: 200 }}
         onPointerMissed={() => {
-          if (!useAppStore.getState().selectedId) return;
-          // only clear when not dragging — pointer missed after drag is ok
           useAppStore.getState().setSelectedId(null);
         }}
       >
         <Suspense fallback={null}>
-          <SceneContent onViewScale={onViewScale} />
+          <SceneContent />
         </Suspense>
       </Canvas>
       <LightsCanvasPanel />
       <div className="viewport-overlay">
         <span className="chip">
           {t('status.objects')}: {objects.length}
-        </span>
-        <span className="chip">
-          {t('status.viewScale')}: {viewScale}%
         </span>
       </div>
       {dragging && (

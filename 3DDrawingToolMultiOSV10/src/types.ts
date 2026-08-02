@@ -1,4 +1,36 @@
-export type PrimitiveType = 'box' | 'sphere' | 'cylinder' | 'cone' | 'torus' | 'plane';
+export type PrimitiveType =
+  | 'box'
+  | 'sphere'
+  | 'cylinder'
+  | 'cone'
+  | 'torus'
+  | 'plane'
+  | 'capsule'
+  | 'pyramid'
+  | 'dodecahedron'
+  | 'icosahedron'
+  | 'octahedron'
+  | 'tetrahedron'
+  | 'torusKnot'
+  | 'ring';
+
+export const ALL_PRIMITIVES: PrimitiveType[] = [
+  'box',
+  'sphere',
+  'cylinder',
+  'cone',
+  'torus',
+  'plane',
+  'capsule',
+  'pyramid',
+  'dodecahedron',
+  'icosahedron',
+  'octahedron',
+  'tetrahedron',
+  'torusKnot',
+  'ring',
+];
+
 export type ModelFormat = 'glb' | 'gltf' | 'obj' | 'stl' | 'fbx' | 'ply' | 'image';
 export type ShapeType = PrimitiveType | 'model' | 'image';
 
@@ -31,6 +63,12 @@ export interface SceneObject {
   emissive: string;
   emissiveIntensity: number;
   flatShading: boolean;
+  /** preset id, 'custom', or 'none' */
+  textureId?: string;
+  /** data URL for color map */
+  textureUrl?: string;
+  /** UV repeat for texture map */
+  textureRepeat?: number;
   /** data URL or blob URL for imported assets */
   modelUrl?: string;
   modelFormat?: ModelFormat;

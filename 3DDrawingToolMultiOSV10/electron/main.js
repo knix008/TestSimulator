@@ -160,3 +160,138 @@ ipcMain.handle('dialog:openProject', async () => {
 ipcMain.handle('shell:openExternal', async (_event, url) => {
   await shell.openExternal(url);
 });
+
+ipcMain.handle('dialog:exportImage', async (_event, payload) => {
+  const {
+    pngBase64,
+    format = 'png',
+    fileName = 'viewport.png',
+    quality = 92,
+    includeBackground = true,
+    backgroundColor = '#ffffff',
+  } = payload || {};
+
+  const ext = String(format).toLowerCase().replace(/^\./, '');
+  const result = await dialog.showSaveDialog(mainWindow, {
+    title: 'Export Image',
+    defaultPath: fileName,
+    filters: [
+      { name: ext.toUpperCase(), extensions: [ext] },
+      {
+        name: 'Images',
+        extensions: ['png', 'jpg', 'jpeg', 'webp', 'avif', 'gif', 'tiff', 'tif', 'ico', 'bmp'],
+      },
+    ],
+  });
+  if (result.canceled || !result.filePath) return { canceled: true };
+
+  const input = Buffer.from(pngBase64, 'base64');
+  const q = Math.min(100, Math.max(1, Number(quality) || 92));
+  let outPath = result.filePath;
+  if (!outPath.toLowerCase().endsWith(`.${ext}`)) {
+    outPath = `${outPath}.${ext}`;
+  }
+
+  try {
+    const sharp = (await import('sharp')).default;
+    let pipeline = sharp(input);
+
+    const opaqueFormats = new Set(['jpg', 'jpeg', 'bmp']);
+    if (opaqueFormats.has(ext)) {
+      pipeline = pipeline.flatten({ background: backgroundColor || '#ffffff' });
+    }
+
+    let buffer;
+    switch (ext) {
+      case 'jpg':
+      case 'jpeg':
+        buffer = await pipeline.jpeg({ quality: q, mozjpeg: true }).toBuffer();
+        break;
+      case 'webp':
+        buffer = await pipeline
+          .webp({ quality: q, alphaQuality: q, lossless: false })
+          .toBuffer();
+        break;
+      case 'avif':
+        buffer = await pipeline.avif({ quality: q }).toBuffer();
+        break;
+      case 'gif':
+        buffer = await pipeline.gif().toBuffer();
+        break;
+      case 'tiff':
+      case 'tif':
+        buffer = await pipeline.tiff({ compression: 'lzw' }).toBuffer();
+        break;
+      case 'bmp':
+        // sharp has limited bmp write — convert via png then raw fallback to png if needed
+        try {
+          buffer = await pipeline.toFormat('png').toBuffer();
+          // Prefer real BMP via raw pixel encode below if png-only
+          const { data, info } = await sharp(buffer)
+            .ensureAlpha()
+            .raw()
+            .toBuffer({ resolveWithObject: true });
+          buffer = encodeBmpBuffer(data, info.width, info.height);
+        } catch {
+          buffer = await sharp(input).png().toBuffer();
+          outPath = outPath.replace(/\.bmp$/i, '.png');
+        }
+        break;
+      case 'ico': {
+        const pngBuf = await pipeline.png().toBuffer();
+        const toIco = (await import('to-ico')).default;
+        // Multi-resolution icons look better in shells
+        const sizes = [16, 32, 48, 256];
+        const pngs = await Promise.all(
+          sizes.map((size) => sharp(pngBuf).resize(size, size, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } }).png().toBuffer())
+        );
+        buffer = await toIco(pngs);
+        break;
+      }
+      case 'png':
+      default:
+        buffer = await pipeline.png().toBuffer();
+        break;
+    }
+
+    fs.writeFileSync(outPath, buffer);
+    return { canceled: false, filePath: outPath };
+  } catch (err) {
+    // Last resort: write original PNG bytes
+    const fallback = outPath.replace(/\.[^.]+$/, '.png');
+    fs.writeFileSync(fallback, input);
+    return {
+      canceled: false,
+      filePath: fallback,
+      warning: err instanceof Error ? err.message : String(err),
+    };
+  }
+});
+
+function encodeBmpBuffer(rgba, width, height) {
+  const rowSize = Math.ceil((width * 3) / 4) * 4;
+  const pixelSize = rowSize * height;
+  const headerSize = 54;
+  const buffer = Buffer.alloc(headerSize + pixelSize);
+  buffer.writeUInt16LE(0x4d42, 0);
+  buffer.writeUInt32LE(headerSize + pixelSize, 2);
+  buffer.writeUInt32LE(headerSize, 10);
+  buffer.writeUInt32LE(40, 14);
+  buffer.writeInt32LE(width, 18);
+  buffer.writeInt32LE(-height, 22);
+  buffer.writeUInt16LE(1, 26);
+  buffer.writeUInt16LE(24, 28);
+
+  let offset = headerSize;
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const i = (y * width + x) * 4;
+      const a = rgba[i + 3] / 255;
+      buffer[offset++] = Math.round(rgba[i + 2] * a + 255 * (1 - a));
+      buffer[offset++] = Math.round(rgba[i + 1] * a + 255 * (1 - a));
+      buffer[offset++] = Math.round(rgba[i] * a + 255 * (1 - a));
+    }
+    offset += rowSize - width * 3;
+  }
+  return buffer;
+}

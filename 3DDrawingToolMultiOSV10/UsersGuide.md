@@ -27,9 +27,19 @@ npm run dev
 
 Browser: `http://localhost:5173`
 
+### Build installers (developers)
+
+```bash
+npm run build:win      # Windows → root *.exe
+npm run build:mac      # macOS → root *.dmg
+npm run build:linux    # Linux → root *.AppImage / *.deb
+```
+
+Installer files are written to `release/` and copied to the **project root**.
+
 ### Desktop installer (Windows)
 
-1. Run `3D Drawing Tool-Setup-1.0.0.exe`
+1. Run `3D Drawing Tool-Setup-1.0.0.exe` (from project root or `release/`)
 2. Choose install folder
 3. Optionally enable **Desktop shortcut** and **Start Menu shortcut**
 4. Finish and launch the app

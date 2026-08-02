@@ -162,6 +162,7 @@ export default function LightsCanvasPanel() {
             />
           </label>
           <p className="light-note">{t('lightsPanel.ambientNote')}</p>
+          <p className="light-note">{t('lightsPanel.dragHint')}</p>
         </div>
 
         <div className="light-card">
