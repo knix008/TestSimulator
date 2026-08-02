@@ -8,6 +8,7 @@ import AboutDialog from './components/AboutDialog';
 import TemplateDialog from './components/TemplateDialog';
 import ExportImageDialog from './components/ExportImageDialog';
 import StatusBar from './components/StatusBar';
+import ContextMenu from './components/ContextMenu';
 import { useAppStore } from './store/useAppStore';
 
 export default function App() {
@@ -29,9 +30,25 @@ export default function App() {
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName;
+      const inField = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+
+      const mod = e.ctrlKey || e.metaKey;
+      if (mod && e.key.toLowerCase() === 'z' && !e.shiftKey) {
+        if (inField) return;
+        e.preventDefault();
+        useAppStore.getState().undo();
+        return;
+      }
+      if (mod && (e.key.toLowerCase() === 'y' || (e.key.toLowerCase() === 'z' && e.shiftKey))) {
+        if (inField) return;
+        e.preventDefault();
+        useAppStore.getState().redo();
+        return;
+      }
+
       if (e.key === 'Delete' || e.key === 'Backspace') {
-        const tag = (e.target as HTMLElement)?.tagName;
-        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+        if (inField) return;
         deleteSelected();
       }
     };
@@ -40,17 +57,20 @@ export default function App() {
   }, [deleteSelected]);
 
   return (
-    <div className="app">
-      <Toolbar />
-      <div className="workspace">
-        <LeftPanel />
-        <Viewport3D />
-        <RightPanel />
+    <>
+      <div className="app">
+        <Toolbar />
+        <div className="workspace">
+          <LeftPanel />
+          <Viewport3D />
+          <RightPanel />
+        </div>
+        <StatusBar />
       </div>
-      <StatusBar />
       <AboutDialog />
       <TemplateDialog />
       <ExportImageDialog />
-    </div>
+      <ContextMenu />
+    </>
   );
 }

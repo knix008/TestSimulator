@@ -5,6 +5,7 @@
     "open": "Open",
     "save": "Save",
     "undo": "Undo",
+    "redo": "Redo",
     "theme": "Theme",
     "language": "Language",
     "about": "About",
@@ -13,6 +14,7 @@
     "lights": "Lights panel",
     "templates": "Templates",
     "exportImage": "Export Image",
+    "exportImageShort": "Export",
     "minimize": "Minimize",
     "maximize": "Maximize",
     "close": "Close"
@@ -101,8 +103,10 @@
     "close": "Close"
   },
   "status": {
+    "project": "Project",
     "objects": "Objects",
     "selected": "Selected",
+    "tool": "Tool",
     "ready": "Ready",
     "viewScale": "Zoom"
   },

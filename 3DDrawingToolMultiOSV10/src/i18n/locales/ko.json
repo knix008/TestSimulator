@@ -5,6 +5,7 @@
     "open": "열기",
     "save": "저장",
     "undo": "실행 취소",
+    "redo": "다시 실행",
     "theme": "테마",
     "language": "언어",
     "about": "정보",
@@ -13,6 +14,7 @@
     "lights": "조명 패널",
     "templates": "템플릿",
     "exportImage": "이미지로 내보내기",
+    "exportImageShort": "내보내기",
     "minimize": "최소화",
     "maximize": "최대화",
     "close": "닫기"
@@ -101,8 +103,10 @@
     "close": "닫기"
   },
   "status": {
+    "project": "프로젝트",
     "objects": "객체",
     "selected": "선택됨",
+    "tool": "도구",
     "ready": "준비됨",
     "viewScale": "배율"
   },

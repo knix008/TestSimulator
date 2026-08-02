@@ -44,6 +44,7 @@ function SceneGrid() {
       fadeStrength={1}
       infiniteGrid
       followCamera={false}
+      side={THREE.DoubleSide}
       renderOrder={-1}
     />
   );
@@ -221,10 +222,22 @@ function ObjectContent({ obj, selected }: { obj: SceneObject; selected: boolean 
   return null;
 }
 
-/** Always read latest OrbitControls from the R3F store (avoids stale lock after drag). */
+/** Latest OrbitControls instance — updated by OrbitLockBridge (useThree.getState is not available). */
+let orbitControlsRef: OrbitControlsImpl | null = null;
+
 function setOrbitLocked(locked: boolean) {
-  const orbit = useThree.getState().controls as OrbitControlsImpl | null;
-  if (orbit) orbit.enabled = !locked;
+  if (orbitControlsRef) orbitControlsRef.enabled = !locked;
+}
+
+function OrbitLockBridge() {
+  const controls = useThree((s) => s.controls) as OrbitControlsImpl | null;
+  useEffect(() => {
+    orbitControlsRef = controls;
+    return () => {
+      if (orbitControlsRef === controls) orbitControlsRef = null;
+    };
+  }, [controls]);
+  return null;
 }
 
 const LIGHT_DRAG_THRESHOLD_PX = 4;
@@ -755,6 +768,7 @@ function SceneContent() {
       ))}
 
       <OrbitControls makeDefault enableDamping dampingFactor={0.08} />
+      <OrbitLockBridge />
       <CameraScaleReporter />
       <ViewportCaptureBridge />
       <GizmoHelper alignment="bottom-right" margin={[72, 72]}>
@@ -791,7 +805,15 @@ export default function Viewport3D() {
     >
       <Canvas
         shadows
-        gl={{ preserveDrawingBuffer: true, alpha: true }}
+        gl={{
+          preserveDrawingBuffer: true,
+          alpha: true,
+          antialias: true,
+        }}
+        onCreated={({ gl }) => {
+          // Keep normal frames opaque; transparent clear is used only during image export
+          gl.setClearColor('#000000', 1);
+        }}
         camera={{ position: [6, 5, 8], fov: 45, near: 0.1, far: 200 }}
         onPointerMissed={() => {
           useAppStore.getState().setSelectedId(null);

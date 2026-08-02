@@ -13,9 +13,11 @@ import {
   IconMoon,
   IconNew,
   IconFolder,
+  IconRedo,
   IconSave,
   IconSun,
   IconTemplate,
+  IconUndo,
 } from './Icons';
 
 const isElectron = Boolean(window.electronAPI?.isElectron);
@@ -36,6 +38,10 @@ export default function Toolbar() {
   const viewScale = useAppStore((s) => s.viewScale);
   const newProject = useAppStore((s) => s.newProject);
   const projectName = useAppStore((s) => s.projectName);
+  const pastLen = useAppStore((s) => s.past.length);
+  const futureLen = useAppStore((s) => s.future.length);
+  const undo = useAppStore((s) => s.undo);
+  const redo = useAppStore((s) => s.redo);
 
   const toggleTheme = () => setTheme(theme === 'dark' ? 'light' : 'dark');
 
@@ -54,27 +60,51 @@ export default function Toolbar() {
       <div className="brand">
         <img src={`${import.meta.env.BASE_URL}icon.svg`} alt="logo" width={22} height={22} />
         <span>{t('appName')}</span>
-        <span style={{ color: 'var(--text-dim)', fontWeight: 500 }}>· {projectName}</span>
+        <span className="brand-project">· {projectName}</span>
       </div>
 
       <div className="toolbar-group">
         <button className="tb-btn" title={t('toolbar.new')} onClick={handleNew}>
           <IconNew width={16} height={16} />
+          <span className="tb-label">{t('toolbar.new')}</span>
         </button>
         <button className="tb-btn" title={t('toolbar.open')} onClick={() => openProject()}>
           <IconFolder width={16} height={16} />
+          <span className="tb-label">{t('toolbar.open')}</span>
         </button>
         <button className="tb-btn" title={t('toolbar.save')} onClick={() => saveProject()}>
           <IconSave width={16} height={16} />
+          <span className="tb-label">{t('toolbar.save')}</span>
+        </button>
+        <button
+          className="tb-btn"
+          title={`${t('toolbar.undo')} (Ctrl+Z)`}
+          disabled={pastLen === 0}
+          onClick={() => undo()}
+        >
+          <IconUndo width={16} height={16} />
+          <span className="tb-label">{t('toolbar.undo')}</span>
+        </button>
+        <button
+          className="tb-btn"
+          title={`${t('toolbar.redo')} (Ctrl+Y)`}
+          disabled={futureLen === 0}
+          onClick={() => redo()}
+        >
+          <IconRedo width={16} height={16} />
+          <span className="tb-label">{t('toolbar.redo')}</span>
         </button>
         <button className="tb-btn" title={t('tools.importModel')} onClick={() => pickAndImportModels()}>
           <IconImport width={16} height={16} />
+          <span className="tb-label">{t('tools.import')}</span>
         </button>
         <button className="tb-btn" title={t('toolbar.templates')} onClick={() => setShowTemplates(true)}>
           <IconTemplate width={16} height={16} />
+          <span className="tb-label">{t('toolbar.templates')}</span>
         </button>
         <button className="tb-btn" title={t('toolbar.exportImage')} onClick={() => setShowExportImage(true)}>
           <IconExportImage width={16} height={16} />
+          <span className="tb-label">{t('toolbar.exportImageShort')}</span>
         </button>
       </div>
 
@@ -85,6 +115,7 @@ export default function Toolbar() {
           onClick={() => setViewport({ showGrid: !viewport.showGrid })}
         >
           <IconGrid width={16} height={16} />
+          <span className="tb-label">{t('toolbar.grid')}</span>
         </button>
         <button
           className={`tb-btn ${viewport.showAxes ? 'active' : ''}`}
@@ -92,6 +123,7 @@ export default function Toolbar() {
           onClick={() => setViewport({ showAxes: !viewport.showAxes })}
         >
           <IconAxes width={16} height={16} />
+          <span className="tb-label">{t('toolbar.axes')}</span>
         </button>
         <button
           className={`tb-btn ${showLightsPanel ? 'active' : ''}`}
@@ -99,6 +131,7 @@ export default function Toolbar() {
           onClick={() => setShowLightsPanel(!showLightsPanel)}
         >
           <IconLight width={16} height={16} />
+          <span className="tb-label">{t('toolbar.lights')}</span>
         </button>
       </div>
 
@@ -113,13 +146,15 @@ export default function Toolbar() {
       <div className="toolbar-group">
         <button className="tb-btn" title={t('toolbar.theme')} onClick={toggleTheme}>
           {theme === 'dark' ? <IconSun width={16} height={16} /> : <IconMoon width={16} height={16} />}
+          <span className="tb-label">{t('toolbar.theme')}</span>
         </button>
         <button className="tb-btn" title={t('toolbar.language')} onClick={toggleLanguage}>
           <IconLang width={16} height={16} />
-          <span style={{ fontSize: 11 }}>{language.toUpperCase()}</span>
+          <span className="tb-label">{language.toUpperCase()}</span>
         </button>
         <button className="tb-btn" title={t('toolbar.about')} onClick={() => setShowAbout(true)}>
           <IconInfo width={16} height={16} />
+          <span className="tb-label">{t('toolbar.about')}</span>
         </button>
       </div>
 

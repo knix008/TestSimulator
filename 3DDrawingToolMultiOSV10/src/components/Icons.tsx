@@ -299,3 +299,21 @@ export function IconExportImage(props: IconProps) {
     </svg>
   );
 }
+
+export function IconUndo(props: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" {...props}>
+      <path d="M9 14H4v-5" />
+      <path d="M4 9a9 9 0 1 1 3.2 6.9" />
+    </svg>
+  );
+}
+
+export function IconRedo(props: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" {...props}>
+      <path d="M15 14h5v-5" />
+      <path d="M20 9a9 9 0 1 0-3.2 6.9" />
+    </svg>
+  );
+}

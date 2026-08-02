@@ -30,6 +30,17 @@ const defaultViewport: ViewportSettings = {
   cameraPosition: { x: 6, y: 5, z: 8 },
 };
 
+const MAX_HISTORY = 60;
+const HISTORY_COALESCE_MS = 400;
+
+type HistorySnapshot = {
+  objects: SceneObject[];
+  selectedId: string | null;
+  lights: LightSettings;
+  shapeCounter: number;
+  projectName: string;
+};
+
 function createShape(type: PrimitiveType, index: number): SceneObject {
   const colors: Record<PrimitiveType, string> = {
     box: '#4f8cff',
@@ -75,6 +86,25 @@ function createShape(type: PrimitiveType, index: number): SceneObject {
   };
 }
 
+function takeSnapshot(state: {
+  objects: SceneObject[];
+  selectedId: string | null;
+  lights: LightSettings;
+  shapeCounter: number;
+  projectName: string;
+}): HistorySnapshot {
+  return {
+    objects: structuredClone(state.objects),
+    selectedId: state.selectedId,
+    lights: structuredClone(state.lights),
+    shapeCounter: state.shapeCounter,
+    projectName: state.projectName,
+  };
+}
+
+let coalesceTimer: ReturnType<typeof setTimeout> | null = null;
+let coalesceOpen = true;
+
 interface AppState {
   theme: ThemeMode;
   language: Language;
@@ -91,6 +121,8 @@ interface AppState {
   showExportImage: boolean;
   viewScale: number;
   shapeCounter: number;
+  past: HistorySnapshot[];
+  future: HistorySnapshot[];
 
   setTheme: (theme: ThemeMode) => void;
   setLanguage: (language: Language) => void;
@@ -117,6 +149,35 @@ interface AppState {
   exportProject: () => ProjectData;
   importProject: (data: ProjectData, filePath?: string | null) => void;
   newProject: () => void;
+  undo: () => void;
+  redo: () => void;
+  canUndo: () => boolean;
+  canRedo: () => boolean;
+}
+
+function pushHistory(get: () => AppState, set: (partial: Partial<AppState>) => void) {
+  const state = get();
+  const snap = takeSnapshot(state);
+  const past = [...state.past, snap].slice(-MAX_HISTORY);
+  set({ past, future: [] });
+  coalesceOpen = false;
+  if (coalesceTimer) clearTimeout(coalesceTimer);
+  coalesceTimer = setTimeout(() => {
+    coalesceOpen = true;
+    coalesceTimer = null;
+  }, HISTORY_COALESCE_MS);
+}
+
+function pushHistoryImmediate(get: () => AppState, set: (partial: Partial<AppState>) => void) {
+  const state = get();
+  const snap = takeSnapshot(state);
+  const past = [...state.past, snap].slice(-MAX_HISTORY);
+  set({ past, future: [] });
+  coalesceOpen = true;
+  if (coalesceTimer) {
+    clearTimeout(coalesceTimer);
+    coalesceTimer = null;
+  }
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -135,6 +196,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   showExportImage: false,
   viewScale: 100,
   shapeCounter: 1,
+  past: [],
+  future: [],
 
   setTheme: (theme) => {
     localStorage.setItem('theme', theme);
@@ -152,6 +215,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   setSelectedId: (id) => set({ selectedId: id }),
 
   addShape: (type) => {
+    pushHistoryImmediate(get, set);
     const counter = get().shapeCounter;
     const obj = createShape(type, counter);
     set({
@@ -163,6 +227,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   addImportedAsset: ({ name, format, dataUrl, sourceFileName }) => {
+    pushHistoryImmediate(get, set);
     const counter = get().shapeCounter;
     const isImage = format === 'image';
     const obj: SceneObject = {
@@ -195,6 +260,15 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   updateObject: (id, patch) => {
+    if (coalesceOpen) pushHistory(get, set);
+    else {
+      // keep coalescing window open while edits continue
+      if (coalesceTimer) clearTimeout(coalesceTimer);
+      coalesceTimer = setTimeout(() => {
+        coalesceOpen = true;
+        coalesceTimer = null;
+      }, HISTORY_COALESCE_MS);
+    }
     set({
       objects: get().objects.map((o) => (o.id === id ? { ...o, ...patch } : o)),
     });
@@ -203,6 +277,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   deleteSelected: () => {
     const { selectedId, objects } = get();
     if (!selectedId) return;
+    pushHistoryImmediate(get, set);
     set({
       objects: objects.filter((o) => o.id !== selectedId),
       selectedId: null,
@@ -213,6 +288,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     const { selectedId, objects } = get();
     const src = objects.find((o) => o.id === selectedId);
     if (!src) return;
+    pushHistoryImmediate(get, set);
     const copy: SceneObject = {
       ...structuredClone(src),
       id: uuidv4(),
@@ -226,7 +302,17 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ objects: [...objects, copy], selectedId: copy.id });
   },
 
-  setLights: (patch) => set({ lights: { ...get().lights, ...patch } }),
+  setLights: (patch) => {
+    if (coalesceOpen) pushHistory(get, set);
+    else {
+      if (coalesceTimer) clearTimeout(coalesceTimer);
+      coalesceTimer = setTimeout(() => {
+        coalesceOpen = true;
+        coalesceTimer = null;
+      }, HISTORY_COALESCE_MS);
+    }
+    set({ lights: { ...get().lights, ...patch } });
+  },
 
   setViewport: (patch) => set({ viewport: { ...get().viewport, ...patch } }),
 
@@ -243,7 +329,11 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   setViewScale: (scale) => set({ viewScale: scale }),
 
-  setProjectName: (name) => set({ projectName: name }),
+  setProjectName: (name) => {
+    if (name === get().projectName) return;
+    pushHistoryImmediate(get, set);
+    set({ projectName: name });
+  },
 
   exportProject: () => {
     const state = get();
@@ -277,7 +367,14 @@ export const useAppStore = create<AppState>((set, get) => ({
       viewport: { ...defaultViewport, ...data.viewport },
       projectPath: filePath,
       shapeCounter: objects.length + 1,
+      past: [],
+      future: [],
     });
+    coalesceOpen = true;
+    if (coalesceTimer) {
+      clearTimeout(coalesceTimer);
+      coalesceTimer = null;
+    }
   },
 
   newProject: () => {
@@ -290,6 +387,64 @@ export const useAppStore = create<AppState>((set, get) => ({
       projectPath: null,
       shapeCounter: 1,
       tool: 'select',
+      past: [],
+      future: [],
     });
+    coalesceOpen = true;
+    if (coalesceTimer) {
+      clearTimeout(coalesceTimer);
+      coalesceTimer = null;
+    }
   },
+
+  undo: () => {
+    const state = get();
+    if (state.past.length === 0) return;
+    const previous = state.past[state.past.length - 1];
+    const current = takeSnapshot(state);
+    const applied = takeSnapshot({
+      objects: previous.objects,
+      selectedId: previous.selectedId,
+      lights: previous.lights,
+      shapeCounter: previous.shapeCounter,
+      projectName: previous.projectName,
+    });
+    set({
+      objects: applied.objects,
+      selectedId: applied.selectedId,
+      lights: applied.lights,
+      shapeCounter: applied.shapeCounter,
+      projectName: applied.projectName,
+      past: state.past.slice(0, -1),
+      future: [current, ...state.future].slice(0, MAX_HISTORY),
+    });
+    coalesceOpen = true;
+  },
+
+  redo: () => {
+    const state = get();
+    if (state.future.length === 0) return;
+    const next = state.future[0];
+    const current = takeSnapshot(state);
+    const applied = takeSnapshot({
+      objects: next.objects,
+      selectedId: next.selectedId,
+      lights: next.lights,
+      shapeCounter: next.shapeCounter,
+      projectName: next.projectName,
+    });
+    set({
+      objects: applied.objects,
+      selectedId: applied.selectedId,
+      lights: applied.lights,
+      shapeCounter: applied.shapeCounter,
+      projectName: applied.projectName,
+      past: [...state.past, current].slice(-MAX_HISTORY),
+      future: state.future.slice(1),
+    });
+    coalesceOpen = true;
+  },
+
+  canUndo: () => get().past.length > 0,
+  canRedo: () => get().future.length > 0,
 }));
