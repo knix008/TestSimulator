@@ -1,0 +1,24 @@
+{
+  "version": "1.0.0",
+  "name": "Empty Scene",
+  "objects": [],
+  "selectedId": null,
+  "lights": {
+    "ambientIntensity": 0.45,
+    "ambientColor": "#ffffff",
+    "directionalIntensity": 1.1,
+    "directionalColor": "#ffffff",
+    "directionalPosition": { "x": 5, "y": 8, "z": 5 },
+    "pointIntensity": 0.35,
+    "pointColor": "#ffd9a0",
+    "pointPosition": { "x": -4, "y": 3, "z": 2 }
+  },
+  "viewport": {
+    "showGrid": true,
+    "showAxes": true,
+    "backgroundColor": "#1a1f26",
+    "cameraPosition": { "x": 6, "y": 5, "z": 8 }
+  },
+  "createdAt": "2026-08-02T00:00:00.000Z",
+  "updatedAt": "2026-08-02T00:00:00.000Z"
+}

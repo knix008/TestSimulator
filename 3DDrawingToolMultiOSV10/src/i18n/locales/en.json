@@ -11,6 +11,7 @@
     "grid": "Grid",
     "axes": "Axes",
     "lights": "Lights panel",
+    "templates": "Templates",
     "minimize": "Minimize",
     "maximize": "Maximize",
     "close": "Close"
@@ -85,6 +86,13 @@
   },
   "confirm": {
     "newProject": "Create a new project? Unsaved changes will be lost."
+  },
+  "templates": {
+    "title": "Templates",
+    "intro": "Choose a starter scene. The current project will be replaced.",
+    "loading": "Loading templates…",
+    "loadError": "Failed to load template list.",
+    "close": "Close"
   },
   "lightsPanel": {
     "title": "Lights",

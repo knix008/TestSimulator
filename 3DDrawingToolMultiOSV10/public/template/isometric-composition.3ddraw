@@ -1,0 +1,93 @@
+{
+  "version": "1.0.0",
+  "name": "Isometric Composition",
+  "objects": [
+    {
+      "id": "tpl-iso-base",
+      "name": "Base",
+      "type": "box",
+      "position": { "x": 0, "y": 0.25, "z": 0 },
+      "rotation": { "x": 0, "y": 0.785, "z": 0 },
+      "scale": { "x": 2.2, "y": 0.5, "z": 2.2 },
+      "color": "#495057",
+      "opacity": 1,
+      "visible": true,
+      "metalness": 0.1,
+      "roughness": 0.65,
+      "wireframe": false,
+      "emissive": "#000000",
+      "emissiveIntensity": 0,
+      "flatShading": false
+    },
+    {
+      "id": "tpl-iso-tower",
+      "name": "Tower",
+      "type": "box",
+      "position": { "x": -0.4, "y": 1.2, "z": 0.2 },
+      "rotation": { "x": 0, "y": 0.785, "z": 0 },
+      "scale": { "x": 0.8, "y": 1.8, "z": 0.8 },
+      "color": "#4f8cff",
+      "opacity": 1,
+      "visible": true,
+      "metalness": 0.2,
+      "roughness": 0.4,
+      "wireframe": false,
+      "emissive": "#000000",
+      "emissiveIntensity": 0,
+      "flatShading": false
+    },
+    {
+      "id": "tpl-iso-sphere",
+      "name": "Accent Sphere",
+      "type": "sphere",
+      "position": { "x": 0.7, "y": 0.95, "z": -0.3 },
+      "rotation": { "x": 0, "y": 0, "z": 0 },
+      "scale": { "x": 0.85, "y": 0.85, "z": 0.85 },
+      "color": "#ff922b",
+      "opacity": 1,
+      "visible": true,
+      "metalness": 0.15,
+      "roughness": 0.35,
+      "wireframe": false,
+      "emissive": "#000000",
+      "emissiveIntensity": 0,
+      "flatShading": false
+    },
+    {
+      "id": "tpl-iso-cone",
+      "name": "Accent Cone",
+      "type": "cone",
+      "position": { "x": 0.2, "y": 1.0, "z": 0.85 },
+      "rotation": { "x": 0, "y": 0.4, "z": 0 },
+      "scale": { "x": 0.7, "y": 0.9, "z": 0.7 },
+      "color": "#63e6be",
+      "opacity": 1,
+      "visible": true,
+      "metalness": 0.1,
+      "roughness": 0.45,
+      "wireframe": false,
+      "emissive": "#000000",
+      "emissiveIntensity": 0,
+      "flatShading": false
+    }
+  ],
+  "selectedId": "tpl-iso-tower",
+  "lights": {
+    "ambientIntensity": 0.4,
+    "ambientColor": "#ffffff",
+    "directionalIntensity": 1.25,
+    "directionalColor": "#fff8e7",
+    "directionalPosition": { "x": 7, "y": 10, "z": 2 },
+    "pointIntensity": 0.35,
+    "pointColor": "#a5d8ff",
+    "pointPosition": { "x": -3, "y": 4, "z": -2 }
+  },
+  "viewport": {
+    "showGrid": true,
+    "showAxes": true,
+    "backgroundColor": "#1a1f26",
+    "cameraPosition": { "x": 6, "y": 5, "z": 6 }
+  },
+  "createdAt": "2026-08-02T00:00:00.000Z",
+  "updatedAt": "2026-08-02T00:00:00.000Z"
+}

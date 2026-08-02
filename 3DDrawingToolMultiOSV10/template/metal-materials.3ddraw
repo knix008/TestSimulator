@@ -1,0 +1,93 @@
+{
+  "version": "1.0.0",
+  "name": "Metal Materials",
+  "objects": [
+    {
+      "id": "tpl-metal-chrome",
+      "name": "Chrome",
+      "type": "sphere",
+      "position": { "x": -2.2, "y": 0.7, "z": 0 },
+      "rotation": { "x": 0, "y": 0, "z": 0 },
+      "scale": { "x": 1.15, "y": 1.15, "z": 1.15 },
+      "color": "#dee2e6",
+      "opacity": 1,
+      "visible": true,
+      "metalness": 1,
+      "roughness": 0.08,
+      "wireframe": false,
+      "emissive": "#000000",
+      "emissiveIntensity": 0,
+      "flatShading": false
+    },
+    {
+      "id": "tpl-metal-brushed",
+      "name": "Brushed Metal",
+      "type": "sphere",
+      "position": { "x": 0, "y": 0.7, "z": 0 },
+      "rotation": { "x": 0, "y": 0, "z": 0 },
+      "scale": { "x": 1.15, "y": 1.15, "z": 1.15 },
+      "color": "#adb5bd",
+      "opacity": 1,
+      "visible": true,
+      "metalness": 0.85,
+      "roughness": 0.35,
+      "wireframe": false,
+      "emissive": "#000000",
+      "emissiveIntensity": 0,
+      "flatShading": false
+    },
+    {
+      "id": "tpl-metal-matte",
+      "name": "Matte Metal",
+      "type": "sphere",
+      "position": { "x": 2.2, "y": 0.7, "z": 0 },
+      "rotation": { "x": 0, "y": 0, "z": 0 },
+      "scale": { "x": 1.15, "y": 1.15, "z": 1.15 },
+      "color": "#868e96",
+      "opacity": 1,
+      "visible": true,
+      "metalness": 0.7,
+      "roughness": 0.7,
+      "wireframe": false,
+      "emissive": "#000000",
+      "emissiveIntensity": 0,
+      "flatShading": false
+    },
+    {
+      "id": "tpl-metal-gold",
+      "name": "Gold Cube",
+      "type": "box",
+      "position": { "x": 0, "y": 0.55, "z": -2.2 },
+      "rotation": { "x": 0, "y": 0.5, "z": 0 },
+      "scale": { "x": 1.1, "y": 1.1, "z": 1.1 },
+      "color": "#fcc419",
+      "opacity": 1,
+      "visible": true,
+      "metalness": 0.95,
+      "roughness": 0.2,
+      "wireframe": false,
+      "emissive": "#000000",
+      "emissiveIntensity": 0,
+      "flatShading": false
+    }
+  ],
+  "selectedId": "tpl-metal-chrome",
+  "lights": {
+    "ambientIntensity": 0.25,
+    "ambientColor": "#ffffff",
+    "directionalIntensity": 1.6,
+    "directionalColor": "#ffffff",
+    "directionalPosition": { "x": 5, "y": 9, "z": 6 },
+    "pointIntensity": 0.8,
+    "pointColor": "#fff4e0",
+    "pointPosition": { "x": -4, "y": 3, "z": 4 }
+  },
+  "viewport": {
+    "showGrid": true,
+    "showAxes": true,
+    "backgroundColor": "#12161c",
+    "cameraPosition": { "x": 5, "y": 4, "z": 7 }
+  },
+  "createdAt": "2026-08-02T00:00:00.000Z",
+  "updatedAt": "2026-08-02T00:00:00.000Z"
+}

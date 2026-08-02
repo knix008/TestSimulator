@@ -14,6 +14,7 @@ import {
   IconFolder,
   IconSave,
   IconSun,
+  IconTemplate,
 } from './Icons';
 
 const isElectron = Boolean(window.electronAPI?.isElectron);
@@ -29,6 +30,7 @@ export default function Toolbar() {
   const setShowAbout = useAppStore((s) => s.setShowAbout);
   const showLightsPanel = useAppStore((s) => s.showLightsPanel);
   const setShowLightsPanel = useAppStore((s) => s.setShowLightsPanel);
+  const setShowTemplates = useAppStore((s) => s.setShowTemplates);
   const newProject = useAppStore((s) => s.newProject);
   const projectName = useAppStore((s) => s.projectName);
 
@@ -64,6 +66,9 @@ export default function Toolbar() {
         </button>
         <button className="tb-btn" title={t('tools.importModel')} onClick={() => pickAndImportModels()}>
           <IconImport width={16} height={16} />
+        </button>
+        <button className="tb-btn" title={t('toolbar.templates')} onClick={() => setShowTemplates(true)}>
+          <IconTemplate width={16} height={16} />
         </button>
       </div>
 

@@ -96,13 +96,18 @@ Windows NSIS (`oneClick: false`) lets the user choose:
 │   ├── i18n/          # KO / EN translations
 │   ├── utils/         # Project & model I/O
 │   └── styles/        # Global theme CSS
-├── public/            # Static assets
+├── template/          # Starter .3ddraw scene templates
+├── public/            # Static assets (+ synced templates)
 ├── build/             # Icon resources for installers
-├── scripts/           # Icon generation
+├── scripts/           # Icons / template sync
 ├── Architecture.md
 ├── UsersGuide.md
 └── package.json
 ```
+
+## Templates
+
+Starter scenes live in [`template/`](./template/). Open them in the app via the **Templates** toolbar button, or load a `.3ddraw` file manually.
 
 ## Project File Format
 

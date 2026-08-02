@@ -8,7 +8,7 @@ import {
   Text,
   Billboard,
 } from '@react-three/drei';
-import { Suspense, useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState, useCallback, memo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import type { TransformControls as TransformControlsImpl } from 'three-stdlib';
@@ -22,10 +22,32 @@ import LightsCanvasPanel from './LightsCanvasPanel';
 const AXIS_LENGTH = 3;
 const PRIMITIVES: PrimitiveType[] = ['box', 'sphere', 'cylinder', 'cone', 'torus', 'plane'];
 
-/** Dense grid: minor 0.25u, major 1u */
+/** Dense grid: minor 0.25u, major 1u — constants avoid remount flicker */
 const GRID_CELL_SIZE = 0.25;
 const GRID_SECTION_SIZE = 1;
+const GRID_ARGS: [number, number] = [40, 40];
 const BASE_CAMERA_DISTANCE = Math.sqrt(6 * 6 + 5 * 5 + 8 * 8);
+
+/** Isolated so light/object updates do not rebuild the grid shader every frame */
+const SceneGrid = memo(function SceneGrid() {
+  return (
+    <Grid
+      args={GRID_ARGS}
+      position={[0, 0, 0]}
+      cellSize={GRID_CELL_SIZE}
+      cellThickness={0.45}
+      cellColor="#334155"
+      sectionSize={GRID_SECTION_SIZE}
+      sectionThickness={1.0}
+      sectionColor="#64748b"
+      fadeDistance={50}
+      fadeStrength={1}
+      infiniteGrid={false}
+      followCamera={false}
+      renderOrder={-1}
+    />
+  );
+});
 
 function AxisLabels() {
   const labels: { text: string; position: [number, number, number]; color: string }[] = [
@@ -414,20 +436,7 @@ function SceneContent({ onViewScale }: { onViewScale: (pct: number) => void }) {
         </Billboard>
       </group>
 
-      {viewport.showGrid && (
-        <Grid
-          args={[40, 40]}
-          cellSize={GRID_CELL_SIZE}
-          cellThickness={0.55}
-          cellColor="#334155"
-          sectionSize={GRID_SECTION_SIZE}
-          sectionThickness={1.15}
-          sectionColor="#64748b"
-          fadeDistance={35}
-          fadeStrength={1.2}
-          infiniteGrid
-        />
-      )}
+      {viewport.showGrid && <SceneGrid />}
 
       {viewport.showAxes && (
         <>
@@ -438,12 +447,12 @@ function SceneContent({ onViewScale }: { onViewScale: (pct: number) => void }) {
 
       <mesh
         rotation={[-Math.PI / 2, 0, 0]}
-        position={[0, -0.001, 0]}
+        position={[0, -0.05, 0]}
         receiveShadow
         onClick={() => setSelectedId(null)}
       >
         <planeGeometry args={[100, 100]} />
-        <shadowMaterial opacity={0.18} />
+        <shadowMaterial opacity={0.15} depthWrite={false} />
       </mesh>
 
       {objects.map((obj) => (

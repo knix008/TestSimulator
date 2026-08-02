@@ -71,6 +71,7 @@ interface AppState {
   projectPath: string | null;
   showAbout: boolean;
   showLightsPanel: boolean;
+  showTemplates: boolean;
   shapeCounter: number;
 
   setTheme: (theme: ThemeMode) => void;
@@ -91,6 +92,7 @@ interface AppState {
   setViewport: (patch: Partial<ViewportSettings>) => void;
   setShowAbout: (show: boolean) => void;
   setShowLightsPanel: (show: boolean) => void;
+  setShowTemplates: (show: boolean) => void;
   setProjectName: (name: string) => void;
   exportProject: () => ProjectData;
   importProject: (data: ProjectData, filePath?: string | null) => void;
@@ -109,6 +111,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   projectPath: null,
   showAbout: false,
   showLightsPanel: localStorage.getItem('showLightsPanel') !== 'false',
+  showTemplates: false,
   shapeCounter: 1,
 
   setTheme: (theme) => {
@@ -211,6 +214,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     localStorage.setItem('showLightsPanel', String(show));
     set({ showLightsPanel: show });
   },
+
+  setShowTemplates: (show) => set({ showTemplates: show }),
 
   setProjectName: (name) => set({ projectName: name }),
 

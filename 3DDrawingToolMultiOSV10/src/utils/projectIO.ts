@@ -1,7 +1,50 @@
-import type { ProjectData } from '../types';
+import type { Language, ProjectData } from '../types';
 import { useAppStore } from '../store/useAppStore';
 
 const isElectron = () => Boolean(window.electronAPI?.isElectron);
+
+export interface TemplateInfo {
+  id: string;
+  file: string;
+  title: { ko: string; en: string };
+  description: { ko: string; en: string };
+}
+
+export interface TemplateCatalog {
+  version: string;
+  templates: TemplateInfo[];
+}
+
+export async function loadTemplateCatalog(): Promise<TemplateCatalog> {
+  const base = import.meta.env.BASE_URL || '/';
+  const res = await fetch(`${base}template/index.json`);
+  if (!res.ok) throw new Error('Failed to load template catalog');
+  return (await res.json()) as TemplateCatalog;
+}
+
+export async function loadTemplate(file: string): Promise<boolean> {
+  try {
+    const base = import.meta.env.BASE_URL || '/';
+    const res = await fetch(`${base}template/${file}`);
+    if (!res.ok) throw new Error(`Template not found: ${file}`);
+    const data = (await res.json()) as ProjectData;
+    useAppStore.getState().importProject(data, file);
+    useAppStore.getState().setProjectName(data.name || file.replace(/\.3ddraw$/i, ''));
+    return true;
+  } catch (err) {
+    console.error(err);
+    alert('Failed to load template.');
+    return false;
+  }
+}
+
+export function templateLabel(info: TemplateInfo, lang: Language): string {
+  return info.title[lang] || info.title.en;
+}
+
+export function templateDescription(info: TemplateInfo, lang: Language): string {
+  return info.description[lang] || info.description.en;
+}
 
 export async function saveProject(): Promise<boolean> {
   const data = useAppStore.getState().exportProject();

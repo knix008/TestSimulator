@@ -4,8 +4,11 @@ import { useAppStore } from '../store/useAppStore';
 import type { Vec3 } from '../types';
 
 const PANEL_W = 280;
-const PANEL_H = 420;
+const PANEL_H = 460;
 const STORAGE_KEY = 'lightsPanelPos';
+const POS_MIN = -20;
+const POS_MAX = 20;
+const POS_STEP = 0.1;
 
 type Pos = { x: number; y: number };
 
@@ -22,7 +25,7 @@ function loadPos(): Pos {
   return { x: 16, y: 16 };
 }
 
-function VecRow({
+function VecSliders({
   value,
   onChange,
 }: {
@@ -32,16 +35,19 @@ function VecRow({
   return (
     <div className="light-vec">
       {(['x', 'y', 'z'] as const).map((axis) => (
-        <label key={axis} className="light-vec-item">
+        <label key={axis} className="light-vec-slider">
           <span className={`axis ${axis}`}>{axis.toUpperCase()}</span>
           <input
-            type="number"
-            step={0.1}
-            value={Number(value[axis].toFixed(2))}
+            type="range"
+            min={POS_MIN}
+            max={POS_MAX}
+            step={POS_STEP}
+            value={value[axis]}
             onChange={(e) =>
-              onChange({ ...value, [axis]: parseFloat(e.target.value) || 0 })
+              onChange({ ...value, [axis]: parseFloat(e.target.value) })
             }
           />
+          <em>{value[axis].toFixed(1)}</em>
         </label>
       ))}
     </div>
@@ -184,7 +190,7 @@ export default function LightsCanvasPanel() {
             />
           </label>
           <div className="light-pos-label">{t('lightsPanel.position')}</div>
-          <VecRow
+          <VecSliders
             value={lights.directionalPosition}
             onChange={(directionalPosition) => setLights({ directionalPosition })}
           />
@@ -216,7 +222,7 @@ export default function LightsCanvasPanel() {
             />
           </label>
           <div className="light-pos-label">{t('lightsPanel.position')}</div>
-          <VecRow
+          <VecSliders
             value={lights.pointPosition}
             onChange={(pointPosition) => setLights({ pointPosition })}
           />

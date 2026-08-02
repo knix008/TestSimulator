@@ -55,6 +55,39 @@ function Vec3Fields({
   );
 }
 
+function Vec3Sliders({
+  value,
+  onChange,
+  min = -20,
+  max = 20,
+  step = 0.1,
+}: {
+  value: Vec3;
+  onChange: (v: Vec3) => void;
+  min?: number;
+  max?: number;
+  step?: number;
+}) {
+  return (
+    <div className="vec3-sliders">
+      {(['x', 'y', 'z'] as const).map((axis) => (
+        <div className="slider-row prop-axis-slider" key={axis}>
+          <span className={`axis ${axis}`}>{axis.toUpperCase()}</span>
+          <input
+            type="range"
+            min={min}
+            max={max}
+            step={step}
+            value={value[axis]}
+            onChange={(e) => onChange({ ...value, [axis]: parseFloat(e.target.value) })}
+          />
+          <span>{value[axis].toFixed(1)}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function SectionTitle({ children }: { children: ReactNode }) {
   return <div className="prop-section-title">{children}</div>;
 }
@@ -373,7 +406,10 @@ function LightingProperties() {
           onChange={(directionalColor) => setLights({ directionalColor })}
         />
         <div style={{ marginTop: 8 }}>
-          <Vec3Fields
+          <label style={{ display: 'block', marginBottom: 6, fontSize: 11, color: 'var(--text-muted)' }}>
+            {t('lightsPanel.position')}
+          </label>
+          <Vec3Sliders
             value={lights.directionalPosition}
             onChange={(directionalPosition) => setLights({ directionalPosition })}
           />
@@ -399,7 +435,10 @@ function LightingProperties() {
           onChange={(pointColor) => setLights({ pointColor })}
         />
         <div style={{ marginTop: 8 }}>
-          <Vec3Fields
+          <label style={{ display: 'block', marginBottom: 6, fontSize: 11, color: 'var(--text-muted)' }}>
+            {t('lightsPanel.position')}
+          </label>
+          <Vec3Sliders
             value={lights.pointPosition}
             onChange={(pointPosition) => setLights({ pointPosition })}
           />

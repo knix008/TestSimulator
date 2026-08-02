@@ -5,6 +5,7 @@ import LeftPanel from './components/LeftPanel';
 import RightPanel from './components/RightPanel';
 import Viewport3D from './components/Viewport3D';
 import AboutDialog from './components/AboutDialog';
+import TemplateDialog from './components/TemplateDialog';
 import StatusBar from './components/StatusBar';
 import { useAppStore } from './store/useAppStore';
 
@@ -47,6 +48,7 @@ export default function App() {
       </div>
       <StatusBar />
       <AboutDialog />
+      <TemplateDialog />
     </div>
   );
 }

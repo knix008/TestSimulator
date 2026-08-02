@@ -14,6 +14,7 @@ import {
   IconScale,
   IconSelect,
   IconSphere,
+  IconTemplate,
   IconTorus,
   IconTrash,
 } from './Icons';
@@ -41,6 +42,7 @@ export default function LeftPanel() {
   const addShape = useAppStore((s) => s.addShape);
   const deleteSelected = useAppStore((s) => s.deleteSelected);
   const duplicateSelected = useAppStore((s) => s.duplicateSelected);
+  const setShowTemplates = useAppStore((s) => s.setShowTemplates);
   const selectedId = useAppStore((s) => s.selectedId);
 
   return (
@@ -68,6 +70,14 @@ export default function LeftPanel() {
           <button className="tool-btn" style={{ width: '100%' }} onClick={() => pickAndImportModels()}>
             <IconImport />
             {t('tools.importModel')}
+          </button>
+          <button
+            className="tool-btn"
+            style={{ width: '100%', marginTop: 6 }}
+            onClick={() => setShowTemplates(true)}
+          >
+            <IconTemplate />
+            {t('toolbar.templates')}
           </button>
           <p style={{ marginTop: 8, fontSize: 11, color: 'var(--text-dim)', lineHeight: 1.4 }}>
             {t('tools.importHint')}
