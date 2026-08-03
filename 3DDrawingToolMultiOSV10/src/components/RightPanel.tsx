@@ -1,7 +1,7 @@
 import { useMemo, useRef, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAppStore } from '../store/useAppStore';
-import { ALL_PRIMITIVES, type PrimitiveType, type SceneObject, type Vec3 } from '../types';
+import { ALL_PRIMITIVES, type PrimitiveType, type SceneObject, type TextFontId, type Vec3 } from '../types';
 import {
   TEXTURE_PRESETS,
   getPresetTextureUrl,
@@ -21,6 +21,14 @@ const COLOR_PRESETS = [
   '#ffffff',
   '#868e96',
   '#212529',
+];
+
+const TEXT_FONT_OPTIONS: { id: TextFontId; labelKey: string }[] = [
+  { id: 'helvetiker', labelKey: 'properties.fontHelvetiker' },
+  { id: 'gentilis', labelKey: 'properties.fontGentilis' },
+  { id: 'optimer', labelKey: 'properties.fontOptimer' },
+  { id: 'droidSans', labelKey: 'properties.fontDroidSans' },
+  { id: 'droidSerif', labelKey: 'properties.fontDroidSerif' },
 ];
 
 function normalizeHex(value: string): string {
@@ -62,35 +70,24 @@ function Vec3Fields({
   );
 }
 
-function Vec3Sliders({
-  value,
-  onChange,
-  min = -20,
-  max = 20,
-  step = 0.1,
-}: {
-  value: Vec3;
-  onChange: (v: Vec3) => void;
-  min?: number;
-  max?: number;
-  step?: number;
-}) {
+function UniformScaleSlider({ value, onChange }: { value: Vec3; onChange: (v: Vec3) => void }) {
+  const current = Math.max(0.05, (value.x + value.y + value.z) / 3);
+  const max = Math.max(5, Math.ceil(current + 1));
+
   return (
-    <div className="vec3-sliders">
-      {(['x', 'y', 'z'] as const).map((axis) => (
-        <div className="slider-row prop-axis-slider" key={axis}>
-          <span className={`axis ${axis}`}>{axis.toUpperCase()}</span>
-          <input
-            type="range"
-            min={min}
-            max={max}
-            step={step}
-            value={value[axis]}
-            onChange={(e) => onChange({ ...value, [axis]: parseFloat(e.target.value) })}
-          />
-          <span>{value[axis].toFixed(1)}</span>
-        </div>
-      ))}
+    <div className="slider-row">
+      <input
+        type="range"
+        min={0.05}
+        max={max}
+        step={0.05}
+        value={current}
+        onChange={(e) => {
+          const scale = parseFloat(e.target.value);
+          onChange({ x: scale, y: scale, z: scale });
+        }}
+      />
+      <span>{current.toFixed(2)}</span>
     </div>
   );
 }
@@ -260,6 +257,7 @@ function ObjectProperties({ obj }: { obj: SceneObject }) {
 
   const patch = (partial: Partial<SceneObject>) => updateObject(obj.id, partial);
   const isPrimitive = ALL_PRIMITIVES.includes(obj.type as PrimitiveType);
+  const isText = obj.type === 'text';
 
   const rotateAxis = (axis: keyof Vec3, deg = 15) => {
     patch({
@@ -294,13 +292,98 @@ function ObjectProperties({ obj }: { obj: SceneObject }) {
 
       <SectionTitle>{t('properties.appearance')}</SectionTitle>
       <ColorField
-        label={t('properties.color')}
+        label={isText ? t('properties.textSurfaceColor') : t('properties.color')}
         value={obj.color}
         onChange={(color) => patch({ color })}
         showPresets
       />
 
-      {isPrimitive && (
+      {isText && (
+        <>
+          <SectionTitle>{t('properties.text')}</SectionTitle>
+          <div className="prop-group">
+            <label>{t('properties.textContent')}</label>
+            <input
+              type="text"
+              value={obj.text || ''}
+              onChange={(e) => patch({ text: e.target.value })}
+            />
+          </div>
+          <ColorField
+            label={t('properties.textOutlineColor')}
+            value={obj.textOutlineColor || '#1f2937'}
+            onChange={(textOutlineColor) => patch({ textOutlineColor })}
+            showPresets
+          />
+          <div className="prop-group">
+            <label>{t('properties.font')}</label>
+            <select
+              value={obj.textFont || 'helvetiker'}
+              onChange={(e) => patch({ textFont: e.target.value as TextFontId })}
+            >
+              {TEXT_FONT_OPTIONS.map((font) => (
+                <option key={font.id} value={font.id}>
+                  {t(font.labelKey)}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="prop-group">
+            <label>{t('properties.textSize')}</label>
+            <div className="slider-row">
+              <input
+                type="range"
+                min={0.1}
+                max={3}
+                step={0.05}
+                value={obj.textSize ?? 0.55}
+                onChange={(e) => patch({ textSize: parseFloat(e.target.value) })}
+              />
+              <span>{(obj.textSize ?? 0.55).toFixed(2)}</span>
+            </div>
+          </div>
+          <div className="prop-group">
+            <label>{t('properties.textDepth')}</label>
+            <div className="slider-row">
+              <input
+                type="range"
+                min={0.01}
+                max={2}
+                step={0.01}
+                value={obj.textDepth ?? 0.08}
+                onChange={(e) => patch({ textDepth: parseFloat(e.target.value) })}
+              />
+              <span>{(obj.textDepth ?? 0.08).toFixed(2)}</span>
+            </div>
+          </div>
+          <div className="toggle-row">
+            <span>{t('properties.bold')}</span>
+            <input
+              type="checkbox"
+              checked={!!obj.textBold}
+              onChange={(e) => patch({ textBold: e.target.checked })}
+            />
+          </div>
+          <div className="toggle-row">
+            <span>{t('properties.italic')}</span>
+            <input
+              type="checkbox"
+              checked={!!obj.textItalic}
+              onChange={(e) => patch({ textItalic: e.target.checked })}
+            />
+          </div>
+          <div className="toggle-row">
+            <span>{t('properties.underline')}</span>
+            <input
+              type="checkbox"
+              checked={!!obj.textUnderline}
+              onChange={(e) => patch({ textUnderline: e.target.checked })}
+            />
+          </div>
+        </>
+      )}
+
+      {(isPrimitive || isText) && (
         <TexturePicker
           textureId={obj.textureId || 'none'}
           textureUrl={obj.textureUrl}
@@ -480,96 +563,7 @@ function ObjectProperties({ obj }: { obj: SceneObject }) {
 
       <div className="prop-group">
         <label>{t('properties.scale')}</label>
-        <Vec3Fields value={obj.scale} onChange={(scale) => patch({ scale })} step={0.05} />
-      </div>
-    </>
-  );
-}
-
-function LightingProperties() {
-  const { t } = useTranslation();
-  const lights = useAppStore((s) => s.lights);
-  const setLights = useAppStore((s) => s.setLights);
-
-  return (
-    <>
-      <SectionTitle>{t('properties.lighting')}</SectionTitle>
-      <div className="prop-group">
-        <label>{t('properties.ambient')}</label>
-        <div className="slider-row">
-          <input
-            type="range"
-            min={0}
-            max={2}
-            step={0.01}
-            value={lights.ambientIntensity}
-            onChange={(e) => setLights({ ambientIntensity: parseFloat(e.target.value) })}
-          />
-          <span>{lights.ambientIntensity.toFixed(2)}</span>
-        </div>
-        <ColorField
-          label={t('properties.color')}
-          value={lights.ambientColor}
-          onChange={(ambientColor) => setLights({ ambientColor })}
-        />
-      </div>
-
-      <div className="prop-group">
-        <label>{t('properties.directional')}</label>
-        <div className="slider-row">
-          <input
-            type="range"
-            min={0}
-            max={3}
-            step={0.01}
-            value={lights.directionalIntensity}
-            onChange={(e) => setLights({ directionalIntensity: parseFloat(e.target.value) })}
-          />
-          <span>{lights.directionalIntensity.toFixed(2)}</span>
-        </div>
-        <ColorField
-          label={t('properties.color')}
-          value={lights.directionalColor}
-          onChange={(directionalColor) => setLights({ directionalColor })}
-        />
-        <div style={{ marginTop: 8 }}>
-          <label style={{ display: 'block', marginBottom: 6, fontSize: 11, color: 'var(--text-muted)' }}>
-            {t('lightsPanel.position')}
-          </label>
-          <Vec3Sliders
-            value={lights.directionalPosition}
-            onChange={(directionalPosition) => setLights({ directionalPosition })}
-          />
-        </div>
-      </div>
-
-      <div className="prop-group">
-        <label>{t('properties.point')}</label>
-        <div className="slider-row">
-          <input
-            type="range"
-            min={0}
-            max={3}
-            step={0.01}
-            value={lights.pointIntensity}
-            onChange={(e) => setLights({ pointIntensity: parseFloat(e.target.value) })}
-          />
-          <span>{lights.pointIntensity.toFixed(2)}</span>
-        </div>
-        <ColorField
-          label={t('properties.color')}
-          value={lights.pointColor}
-          onChange={(pointColor) => setLights({ pointColor })}
-        />
-        <div style={{ marginTop: 8 }}>
-          <label style={{ display: 'block', marginBottom: 6, fontSize: 11, color: 'var(--text-muted)' }}>
-            {t('lightsPanel.position')}
-          </label>
-          <Vec3Sliders
-            value={lights.pointPosition}
-            onChange={(pointPosition) => setLights({ pointPosition })}
-          />
-        </div>
+        <UniformScaleSlider value={obj.scale} onChange={(scale) => patch({ scale })} />
       </div>
     </>
   );
@@ -618,7 +612,6 @@ export default function RightPanel() {
         ) : (
           <div className="empty-state">{t('properties.none')}</div>
         )}
-        <LightingProperties />
         <ViewportProperties />
       </div>
     </aside>

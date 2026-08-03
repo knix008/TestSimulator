@@ -9,22 +9,23 @@
       <stop offset="0.55" stop-color="#3D8BFD"/>
       <stop offset="1" stop-color="#7C5CFF"/>
     </linearGradient>
-    <linearGradient id="accent" x1="70" y1="24" x2="108" y2="70" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#7CFFB2"/>
-      <stop offset="1" stop-color="#3D8BFD"/>
-    </linearGradient>
+    <radialGradient id="cornerLight" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(25 20) rotate(44) scale(72 58)">
+      <stop stop-color="#FFFFFF" stop-opacity="0.85"/>
+      <stop offset="0.34" stop-color="#BEE7FF" stop-opacity="0.34"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
     <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
       <feDropShadow dx="0" dy="6" stdDeviation="6" flood-color="#000" flood-opacity="0.35"/>
     </filter>
   </defs>
   <rect width="128" height="128" rx="28" fill="url(#bg)"/>
+  <rect width="128" height="128" rx="28" fill="url(#cornerLight)"/>
   <g filter="url(#soft)">
     <path d="M64 22L98 40.5V77.5L64 96L30 77.5V40.5L64 22Z" fill="url(#cube)"/>
     <path d="M64 22L98 40.5L64 59L30 40.5L64 22Z" fill="#9EC5FF" fill-opacity="0.55"/>
     <path d="M64 59V96L30 77.5V40.5L64 59Z" fill="#2F5FB8" fill-opacity="0.35"/>
     <path d="M64 59V96L98 77.5V40.5L64 59Z" fill="#1E3A6E" fill-opacity="0.28"/>
-    <path d="M78 34c10 2 18 10 20 20" stroke="url(#accent)" stroke-width="5" stroke-linecap="round"/>
-    <circle cx="98" cy="54" r="5.5" fill="#7CFFB2"/>
   </g>
-  <path d="M40 104h48" stroke="#7C5CFF" stroke-opacity="0.55" stroke-width="4" stroke-linecap="round"/>
+  <text x="64" y="111" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="10" font-weight="700" letter-spacing="0.4" fill="#EAF3FF">3D Drawing</text>
+  <path d="M37 117h54" stroke="#7C5CFF" stroke-opacity="0.65" stroke-width="4" stroke-linecap="round"/>
 </svg>

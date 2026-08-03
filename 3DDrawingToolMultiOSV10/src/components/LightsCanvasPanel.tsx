@@ -3,8 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { useAppStore } from '../store/useAppStore';
 import type { Vec3 } from '../types';
 
-const PANEL_W = 280;
-const PANEL_H = 460;
+const PANEL_W = 300;
+const PANEL_H = 660;
 const STORAGE_KEY = 'lightsPanelPos';
 const POS_MIN = -20;
 const POS_MAX = 20;
@@ -120,7 +120,7 @@ export default function LightsCanvasPanel() {
     <div
       ref={panelRef}
       className="lights-canvas-panel"
-      style={{ left: pos.x, top: pos.y, width: PANEL_W, maxHeight: PANEL_H }}
+      style={{ left: pos.x, top: pos.y, width: PANEL_W, height: PANEL_H, maxHeight: 'calc(100% - 24px)' }}
       onPointerDown={(e) => e.stopPropagation()}
     >
       <div className="lights-panel-header" onPointerDown={startDrag}>
@@ -207,7 +207,7 @@ export default function LightsCanvasPanel() {
             <input
               type="range"
               min={0}
-              max={3}
+              max={8}
               step={0.01}
               value={lights.pointIntensity}
               onChange={(e) => setLights({ pointIntensity: parseFloat(e.target.value) })}

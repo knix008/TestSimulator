@@ -311,6 +311,39 @@ select:focus {
   margin-bottom: 8px;
 }
 
+.section-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  margin-bottom: 8px;
+  color: var(--text-dim);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.section-toggle svg {
+  width: 14px;
+  height: 14px;
+  transition: transform 0.15s;
+}
+
+.tool-section.collapsed .section-toggle svg {
+  transform: rotate(-90deg);
+}
+
+.section-content {
+  animation: section-reveal 0.14s ease-out;
+}
+
+@keyframes section-reveal {
+  from { opacity: 0; transform: translateY(-3px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 .tool-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -872,7 +905,7 @@ select:focus {
 
 .lights-panel-body {
   padding: 10px;
-  overflow: auto;
+  overflow: visible;
   display: flex;
   flex-direction: column;
   gap: 10px;

@@ -10,7 +10,7 @@
   "main": "electron/main.js",
   "type": "module",
   "scripts": {
-    "start": "npm run icons && npm run templates && npm run win:icon && concurrently -k \"vite --mode electron\" \"wait-on tcp:5173 && electron .\"",
+    "start": "npm run electron:ensure && npm run icons && npm run templates && npm run win:icon && concurrently -k \"vite --mode electron\" \"wait-on tcp:5173 && electron .\"",
     "dev": "npm run templates && vite",
     "build": "npm run templates && vite build",
     "build:web": "npm run templates && vite build",
@@ -20,6 +20,7 @@
     "build:linux": "npm run build:electron && electron-builder --linux && npm run copy:installers",
     "build:all": "npm run build:electron && electron-builder -mwl && npm run copy:installers",
     "copy:installers": "node scripts/copy-installers.mjs",
+    "electron:ensure": "node scripts/ensure-electron.mjs",
     "icons": "node scripts/generate-icons.mjs",
     "templates": "node scripts/sync-templates.mjs",
     "win:icon": "node scripts/set-electron-win-icon.mjs",

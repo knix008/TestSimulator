@@ -162,6 +162,23 @@ export function IconRing(props: IconProps) {
   );
 }
 
+export function IconText(props: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" {...props}>
+      <path d="M5 5h14M12 5v14M9 19h6" />
+      <path d="M5 8V5h14v3" />
+    </svg>
+  );
+}
+
+export function IconChevron(props: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}>
+      <path d="M8 10l4 4 4-4" />
+    </svg>
+  );
+}
+
 export function IconGrid(props: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" {...props}>

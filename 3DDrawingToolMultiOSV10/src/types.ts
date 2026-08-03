@@ -12,7 +12,13 @@ export type PrimitiveType =
   | 'octahedron'
   | 'tetrahedron'
   | 'torusKnot'
-  | 'ring';
+  | 'ring'
+  | 'circle'
+  | 'hexPrism'
+  | 'triangularPrism'
+  | 'pipe'
+  | 'halfSphere'
+  | 'truncatedCone';
 
 export const ALL_PRIMITIVES: PrimitiveType[] = [
   'box',
@@ -29,16 +35,24 @@ export const ALL_PRIMITIVES: PrimitiveType[] = [
   'tetrahedron',
   'torusKnot',
   'ring',
+  'circle',
+  'hexPrism',
+  'triangularPrism',
+  'pipe',
+  'halfSphere',
+  'truncatedCone',
 ];
 
 export type ModelFormat = 'glb' | 'gltf' | 'obj' | 'stl' | 'fbx' | 'ply' | 'image';
-export type ShapeType = PrimitiveType | 'model' | 'image';
+export type TextFontId = 'helvetiker' | 'gentilis' | 'optimer' | 'droidSans' | 'droidSerif';
+export type ShapeType = PrimitiveType | 'model' | 'image' | 'text';
 
 export type ToolType =
   | 'select'
   | 'move'
   | 'rotate'
   | 'scale'
+  | 'text'
   | PrimitiveType;
 
 export interface Vec3 {
@@ -73,6 +87,14 @@ export interface SceneObject {
   modelUrl?: string;
   modelFormat?: ModelFormat;
   sourceFileName?: string;
+  text?: string;
+  textFont?: TextFontId;
+  textSize?: number;
+  textDepth?: number;
+  textOutlineColor?: string;
+  textBold?: boolean;
+  textItalic?: boolean;
+  textUnderline?: boolean;
 }
 
 export interface LightSettings {
@@ -89,6 +111,7 @@ export interface LightSettings {
 export interface ViewportSettings {
   showGrid: boolean;
   showAxes: boolean;
+  showLightMarkers: boolean;
   backgroundColor: string;
   cameraPosition: Vec3;
 }

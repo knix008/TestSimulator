@@ -13,12 +13,12 @@ import type {
 } from '../types';
 
 const defaultLights: LightSettings = {
-  ambientIntensity: 0.45,
+  ambientIntensity: 0.32,
   ambientColor: '#ffffff',
-  directionalIntensity: 1.1,
+  directionalIntensity: 1.35,
   directionalColor: '#ffffff',
   directionalPosition: { x: 5, y: 8, z: 5 },
-  pointIntensity: 0.4,
+  pointIntensity: 2.2,
   pointColor: '#ffd9a0',
   pointPosition: { x: -4, y: 3, z: 2 },
 };
@@ -26,6 +26,7 @@ const defaultLights: LightSettings = {
 const defaultViewport: ViewportSettings = {
   showGrid: true,
   showAxes: true,
+  showLightMarkers: true,
   backgroundColor: '#1a1f26',
   cameraPosition: { x: 6, y: 5, z: 8 },
 };
@@ -57,6 +58,12 @@ function createShape(type: PrimitiveType, index: number): SceneObject {
     tetrahedron: '#fab005',
     torusKnot: '#7950f2',
     ring: '#748ffc',
+    circle: '#91a7ff',
+    hexPrism: '#38d9a9',
+    triangularPrism: '#ffa94d',
+    pipe: '#66d9e8',
+    halfSphere: '#ff8787',
+    truncatedCone: '#e599f7',
   };
 
   const label = type.charAt(0).toUpperCase() + type.slice(1);
@@ -65,9 +72,9 @@ function createShape(type: PrimitiveType, index: number): SceneObject {
     id: uuidv4(),
     name: `${label} ${index}`,
     type,
-    position: { x: (Math.random() - 0.5) * 4, y: type === 'plane' || type === 'ring' ? 0 : 0.5, z: (Math.random() - 0.5) * 4 },
+    position: { x: (Math.random() - 0.5) * 4, y: type === 'plane' || type === 'ring' || type === 'circle' ? 0 : 0.5, z: (Math.random() - 0.5) * 4 },
     rotation: {
-      x: type === 'ring' ? -Math.PI / 2 : 0,
+      x: type === 'ring' || type === 'circle' ? -Math.PI / 2 : 0,
       y: 0,
       z: 0,
     },
@@ -80,7 +87,7 @@ function createShape(type: PrimitiveType, index: number): SceneObject {
     wireframe: false,
     emissive: '#000000',
     emissiveIntensity: 0,
-    flatShading: type === 'tetrahedron' || type === 'pyramid' || type === 'octahedron',
+    flatShading: type === 'tetrahedron' || type === 'pyramid' || type === 'octahedron' || type === 'hexPrism' || type === 'triangularPrism',
     textureId: 'none',
     textureRepeat: 2,
   };
@@ -129,6 +136,7 @@ interface AppState {
   setTool: (tool: ToolType) => void;
   setSelectedId: (id: string | null) => void;
   addShape: (type: PrimitiveType) => void;
+  addText: () => void;
   addImportedAsset: (input: {
     name: string;
     format: ModelFormat;
@@ -218,6 +226,42 @@ export const useAppStore = create<AppState>((set, get) => ({
     pushHistoryImmediate(get, set);
     const counter = get().shapeCounter;
     const obj = createShape(type, counter);
+    set({
+      objects: [...get().objects, obj],
+      selectedId: obj.id,
+      tool: 'select',
+      shapeCounter: counter + 1,
+    });
+  },
+
+  addText: () => {
+    pushHistoryImmediate(get, set);
+    const counter = get().shapeCounter;
+    const obj: SceneObject = {
+      id: uuidv4(),
+      name: `Text ${counter}`,
+      type: 'text',
+      position: { x: (Math.random() - 0.5) * 3, y: 0.6, z: (Math.random() - 0.5) * 3 },
+      rotation: { x: 0, y: 0, z: 0 },
+      scale: { x: 1, y: 1, z: 1 },
+      color: '#f8f9fa',
+      opacity: 1,
+      visible: true,
+      metalness: 0.05,
+      roughness: 0.35,
+      wireframe: false,
+      emissive: '#000000',
+      emissiveIntensity: 0,
+      flatShading: false,
+      text: 'Text',
+      textFont: 'helvetiker',
+      textSize: 0.55,
+      textDepth: 0.08,
+      textOutlineColor: '#1f2937',
+      textBold: false,
+      textItalic: false,
+      textUnderline: false,
+    };
     set({
       objects: [...get().objects, obj],
       selectedId: obj.id,
@@ -357,6 +401,13 @@ export const useAppStore = create<AppState>((set, get) => ({
       flatShading: false,
       textureId: 'none',
       textureRepeat: 2,
+      textFont: 'helvetiker',
+      textSize: 0.55,
+      textDepth: 0.08,
+      textOutlineColor: '#1f2937',
+      textBold: false,
+      textItalic: false,
+      textUnderline: false,
       ...o,
     }));
     set({

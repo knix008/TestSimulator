@@ -5,11 +5,21 @@ node_modules/
 dist/
 dist-electron/
 release/
+out/
+*.tsbuildinfo
+
+# Electron Builder / packaging metadata
+builder-debug.yml
+builder-effective-config.yaml
+*.asar
+*.asar.unpacked/
+.electron-gyp/
 
 # Installers copied to project root
 *.exe
 *.dmg
 *.pkg
+*.msi
 *.AppImage
 *.deb
 *.rpm
@@ -25,7 +35,8 @@ yarn-error.log*
 pnpm-debug.log*
 .cache/
 .vite/
-*.tsbuildinfo
+.vite-inspect/
+.rollup.cache/
 
 # Environment
 .env
@@ -49,4 +60,6 @@ coverage/
 *.tmp
 *.temp
 *.local
+tmp/
+temp/
 .turbo/

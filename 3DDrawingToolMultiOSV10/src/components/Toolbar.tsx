@@ -133,6 +133,14 @@ export default function Toolbar() {
           <IconLight width={16} height={16} />
           <span className="tb-label">{t('toolbar.lights')}</span>
         </button>
+        <button
+          className={`tb-btn ${viewport.showLightMarkers ? 'active' : ''}`}
+          title={t('toolbar.lightMarkers')}
+          onClick={() => setViewport({ showLightMarkers: !viewport.showLightMarkers })}
+        >
+          <IconLight width={16} height={16} />
+          <span className="tb-label">{t('toolbar.lightMarkers')}</span>
+        </button>
       </div>
 
       <div className="toolbar-group">
