@@ -32,8 +32,11 @@ export async function loadTemplate(file: string): Promise<boolean> {
     useAppStore.getState().setProjectName(data.name || file.replace(/\.3ddraw$/i, ''));
     return true;
   } catch (err) {
-    console.error(err);
-    alert('Failed to load template.');
+    useAppStore.getState().showError({
+      title: 'Template load failed',
+      message: `Failed to load template: ${file}`,
+      details: err instanceof Error ? [err.name, err.message, err.stack].filter(Boolean).join('\n\n') : String(err),
+    });
     return false;
   }
 }
@@ -78,8 +81,12 @@ export async function openProject(): Promise<boolean> {
       const data = JSON.parse(result.data) as ProjectData;
       useAppStore.getState().importProject(data, result.filePath);
       return true;
-    } catch {
-      alert('Invalid project file.');
+    } catch (err) {
+      useAppStore.getState().showError({
+        title: 'Open failed',
+        message: 'Invalid project file.',
+        details: err instanceof Error ? [err.name, err.message, err.stack].filter(Boolean).join('\n\n') : String(err),
+      });
       return false;
     }
   }
@@ -99,8 +106,12 @@ export async function openProject(): Promise<boolean> {
         const data = JSON.parse(text) as ProjectData;
         useAppStore.getState().importProject(data, file.name);
         resolve(true);
-      } catch {
-        alert('Invalid project file.');
+      } catch (err) {
+        useAppStore.getState().showError({
+          title: 'Open failed',
+          message: 'Invalid project file.',
+          details: err instanceof Error ? [err.name, err.message, err.stack].filter(Boolean).join('\n\n') : String(err),
+        });
         resolve(false);
       }
     };

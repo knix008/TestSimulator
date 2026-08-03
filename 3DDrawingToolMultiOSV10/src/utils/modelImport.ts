@@ -1,8 +1,10 @@
 import type { ModelFormat, SceneObject } from '../types';
 import { useAppStore } from '../store/useAppStore';
 
+export const MODEL_FILE_ACCEPT = '.glb,.gltf,.obj,.stl,.fbx,.ply,model/gltf-binary,model/gltf+json,model/obj,model/stl';
+export const IMAGE_FILE_ACCEPT = '.png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp';
 export const MODEL_ACCEPT =
-  '.glb,.gltf,.obj,.stl,.fbx,.ply,.png,.jpg,.jpeg,.webp,model/gltf-binary,model/gltf+json,model/obj,model/stl,image/png,image/jpeg,image/webp';
+  `${MODEL_FILE_ACCEPT},${IMAGE_FILE_ACCEPT}`;
 
 const EXT_TO_FORMAT: Record<string, ModelFormat> = {
   glb: 'glb',
@@ -38,7 +40,11 @@ export async function importModelFiles(files: FileList | File[]): Promise<SceneO
   for (const file of list) {
     const format = detectFormat(file.name);
     if (!format) {
-      alert(`Unsupported format: ${file.name}`);
+      useAppStore.getState().showError({
+        title: 'Import failed',
+        message: `Unsupported format: ${file.name}`,
+        details: `File: ${file.name}`,
+      });
       continue;
     }
 
@@ -51,19 +57,23 @@ export async function importModelFiles(files: FileList | File[]): Promise<SceneO
         sourceFileName: file.name,
       });
       created.push(obj);
-    } catch {
-      alert(`Failed to load: ${file.name}`);
+    } catch (error) {
+      useAppStore.getState().showError({
+        title: 'Import failed',
+        message: `Failed to load: ${file.name}`,
+        details: error instanceof Error ? [error.name, error.message, error.stack].filter(Boolean).join('\n\n') : String(error),
+      });
     }
   }
 
   return created;
 }
 
-export function pickAndImportModels(): Promise<SceneObject[]> {
+function pickAndImportFiles(accept: string): Promise<SceneObject[]> {
   return new Promise((resolve) => {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = MODEL_ACCEPT;
+    input.accept = accept;
     input.multiple = true;
     input.onchange = async () => {
       if (!input.files?.length) {
@@ -75,4 +85,12 @@ export function pickAndImportModels(): Promise<SceneObject[]> {
     };
     input.click();
   });
+}
+
+export function pickAndImportModels(): Promise<SceneObject[]> {
+  return pickAndImportFiles(MODEL_FILE_ACCEPT);
+}
+
+export function pickAndImportImages(): Promise<SceneObject[]> {
+  return pickAndImportFiles(IMAGE_FILE_ACCEPT);
 }

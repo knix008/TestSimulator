@@ -82,6 +82,51 @@ async function canvasFromPngBlob(png: Blob, flattenColor?: string): Promise<HTML
   return canvas;
 }
 
+async function cropTransparentPng(png: Blob): Promise<Blob> {
+  const canvas = await canvasFromPngBlob(png);
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('2D context unavailable');
+
+  const { width, height } = canvas;
+  const image = ctx.getImageData(0, 0, width, height);
+  let minX = width;
+  let minY = height;
+  let maxX = -1;
+  let maxY = -1;
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const alpha = image.data[(y * width + x) * 4 + 3];
+      if (alpha <= 1) continue;
+      if (x < minX) minX = x;
+      if (y < minY) minY = y;
+      if (x > maxX) maxX = x;
+      if (y > maxY) maxY = y;
+    }
+  }
+
+  if (maxX < minX || maxY < minY) return png;
+
+  const cropped = document.createElement('canvas');
+  cropped.width = maxX - minX + 1;
+  cropped.height = maxY - minY + 1;
+  const croppedCtx = cropped.getContext('2d');
+  if (!croppedCtx) throw new Error('2D context unavailable');
+  croppedCtx.drawImage(
+    canvas,
+    minX,
+    minY,
+    cropped.width,
+    cropped.height,
+    0,
+    0,
+    cropped.width,
+    cropped.height
+  );
+
+  return canvasToBlob(cropped, 'image/png');
+}
+
 function canvasToBlob(canvas: HTMLCanvasElement, type: string, quality?: number): Promise<Blob> {
   return new Promise((resolve, reject) => {
     canvas.toBlob(
@@ -370,10 +415,11 @@ export async function exportViewportImage(options: {
   quality: number;
   fileBaseName: string;
 }): Promise<{ canceled?: boolean; filePath?: string; method: 'electron' | 'browser'; warning?: string }> {
-  const png = await captureViewportPng({
+  const capturedPng = await captureViewportPng({
     includeBackground: options.includeBackground,
     backgroundColor: options.backgroundColor,
   });
+  const png = options.includeBackground ? capturedPng : await cropTransparentPng(capturedPng);
 
   const meta = IMAGE_EXPORT_FORMATS.find((f) => f.id === options.format) || IMAGE_EXPORT_FORMATS[0];
   const filename = `${options.fileBaseName || 'viewport'}.${meta.ext}`;

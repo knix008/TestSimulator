@@ -1,8 +1,8 @@
 import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAppStore } from '../store/useAppStore';
-import type { PrimitiveType, ToolType } from '../types';
-import { pickAndImportModels } from '../utils/modelImport';
+import type { PrimitiveType } from '../types';
+import { pickAndImportImages, pickAndImportModels } from '../utils/modelImport';
 import {
   IconBox,
   IconCapsule,
@@ -10,32 +10,20 @@ import {
   IconCone,
   IconCylinder,
   IconDodecahedron,
-  IconDuplicate,
   IconIcosahedron,
+  IconImage,
   IconImport,
-  IconMove,
   IconOctahedron,
   IconPlane,
   IconPyramid,
   IconRing,
-  IconRotate,
-  IconScale,
-  IconSelect,
   IconSphere,
   IconTemplate,
   IconTetrahedron,
   IconText,
   IconTorus,
   IconTorusKnot,
-  IconTrash,
 } from './Icons';
-
-const transformTools: { id: ToolType; icon: typeof IconSelect; labelKey: string }[] = [
-  { id: 'select', icon: IconSelect, labelKey: 'tools.select' },
-  { id: 'move', icon: IconMove, labelKey: 'tools.move' },
-  { id: 'rotate', icon: IconRotate, labelKey: 'tools.rotate' },
-  { id: 'scale', icon: IconScale, labelKey: 'tools.scale' },
-];
 
 const primitives: { id: PrimitiveType; icon: typeof IconBox; labelKey: string }[] = [
   { id: 'box', icon: IconBox, labelKey: 'tools.box' },
@@ -74,58 +62,52 @@ function ToolSection({ title, children, defaultOpen = true }: { title: string; c
   );
 }
 
-export default function LeftPanel() {
+export default function LeftPanel({
+  collapsed,
+  onToggleCollapsed,
+}: {
+  collapsed: boolean;
+  onToggleCollapsed: () => void;
+}) {
   const { t } = useTranslation();
-  const tool = useAppStore((s) => s.tool);
-  const setTool = useAppStore((s) => s.setTool);
   const addShape = useAppStore((s) => s.addShape);
   const addText = useAppStore((s) => s.addText);
-  const deleteSelected = useAppStore((s) => s.deleteSelected);
-  const duplicateSelected = useAppStore((s) => s.duplicateSelected);
   const setShowTemplates = useAppStore((s) => s.setShowTemplates);
-  const selectedId = useAppStore((s) => s.selectedId);
+  const projectName = useAppStore((s) => s.projectName);
 
   return (
-    <aside className="panel left">
-      <div className="panel-header">{t('tools.title')}</div>
-      <div className="panel-body">
-        <ToolSection title={t('tools.title')}>
-          <div className="tool-grid">
-            {transformTools.map(({ id, icon: Icon, labelKey }) => (
-              <button
-                key={id}
-                className={`tool-btn ${tool === id ? 'active' : ''}`}
-                onClick={() => setTool(id)}
-              >
-                <Icon />
-                {t(labelKey)}
-              </button>
-            ))}
-          </div>
-        </ToolSection>
-
+    <aside className={`panel left ${collapsed ? 'collapsed-panel' : ''}`}>
+      <div className="panel-header">
+        {!collapsed && (
+          <>
+            <span>{t('tools.title')}</span>
+            <span className="panel-project-name">{projectName}</span>
+          </>
+        )}
+        <button className="panel-toggle-btn" title={collapsed ? 'Expand' : 'Collapse'} onClick={onToggleCollapsed}>
+          {collapsed ? '>' : '<'}
+        </button>
+      </div>
+      {!collapsed && <div className="panel-body">
         <ToolSection title={t('tools.addObjects')}>
           <div className="tool-grid">
             <button className="tool-btn" onClick={addText}>
               <IconText />
               {t('tools.text')}
             </button>
+            <button className="tool-btn" onClick={() => pickAndImportModels()}>
+              <IconImport />
+              {t('tools.import3dModel')}
+            </button>
+            <button className="tool-btn" onClick={() => pickAndImportImages()}>
+              <IconImage />
+              {t('tools.importImage')}
+            </button>
+            <button className="tool-btn" onClick={() => setShowTemplates(true)}>
+              <IconTemplate />
+              {t('toolbar.templates')}
+            </button>
           </div>
-        </ToolSection>
-
-        <ToolSection title={t('tools.import')}>
-          <button className="tool-btn" style={{ width: '100%' }} onClick={() => pickAndImportModels()}>
-            <IconImport />
-            {t('tools.importModel')}
-          </button>
-          <button
-            className="tool-btn"
-            style={{ width: '100%', marginTop: 6 }}
-            onClick={() => setShowTemplates(true)}
-          >
-            <IconTemplate />
-            {t('toolbar.templates')}
-          </button>
           <p style={{ marginTop: 8, fontSize: 11, color: 'var(--text-dim)', lineHeight: 1.4 }}>
             {t('tools.importHint')}
           </p>
@@ -141,20 +123,7 @@ export default function LeftPanel() {
             ))}
           </div>
         </ToolSection>
-
-        <ToolSection title={t('tools.actions')}>
-          <div className="tool-grid">
-            <button className="tool-btn" disabled={!selectedId} onClick={duplicateSelected}>
-              <IconDuplicate />
-              {t('tools.duplicate')}
-            </button>
-            <button className="tool-btn" disabled={!selectedId} onClick={deleteSelected}>
-              <IconTrash />
-              {t('tools.delete')}
-            </button>
-          </div>
-        </ToolSection>
-      </div>
+      </div>}
     </aside>
   );
 }

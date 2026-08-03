@@ -20,6 +20,15 @@
     "maximize": "최대화",
     "close": "닫기"
   },
+  "error": {
+    "unexpected": "예기치 않은 오류",
+    "warning": "경고",
+    "exportFailed": "이미지 내보내기 오류",
+    "details": "상세 내용",
+    "copy": "복사",
+    "copied": "복사됨",
+    "close": "닫기"
+  },
   "tools": {
     "title": "도구",
     "select": "선택",
@@ -30,6 +39,8 @@
     "primitives": "기본 도형",
     "import": "가져오기",
     "importModel": "3D 모델 / 이미지",
+    "import3dModel": "3D 모델",
+    "importImage": "이미지",
     "importHint": "GLB, GLTF, OBJ, STL, FBX, PLY, PNG, JPG, WEBP",
     "text": "텍스트",
     "box": "육면체",

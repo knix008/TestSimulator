@@ -1,12 +1,10 @@
 import { useTranslation } from 'react-i18next';
 import { useAppStore } from '../store/useAppStore';
 import { openProject, saveProject } from '../utils/projectIO';
-import { pickAndImportModels } from '../utils/modelImport';
 import {
   IconAxes,
   IconExportImage,
   IconGrid,
-  IconImport,
   IconInfo,
   IconLang,
   IconLight,
@@ -16,7 +14,6 @@ import {
   IconRedo,
   IconSave,
   IconSun,
-  IconTemplate,
   IconUndo,
 } from './Icons';
 
@@ -33,11 +30,9 @@ export default function Toolbar() {
   const setShowAbout = useAppStore((s) => s.setShowAbout);
   const showLightsPanel = useAppStore((s) => s.showLightsPanel);
   const setShowLightsPanel = useAppStore((s) => s.setShowLightsPanel);
-  const setShowTemplates = useAppStore((s) => s.setShowTemplates);
   const setShowExportImage = useAppStore((s) => s.setShowExportImage);
   const viewScale = useAppStore((s) => s.viewScale);
   const newProject = useAppStore((s) => s.newProject);
-  const projectName = useAppStore((s) => s.projectName);
   const pastLen = useAppStore((s) => s.past.length);
   const futureLen = useAppStore((s) => s.future.length);
   const undo = useAppStore((s) => s.undo);
@@ -60,7 +55,6 @@ export default function Toolbar() {
       <div className="brand">
         <img src={`${import.meta.env.BASE_URL}icon.svg`} alt="logo" width={22} height={22} />
         <span>{t('appName')}</span>
-        <span className="brand-project">· {projectName}</span>
       </div>
 
       <div className="toolbar-group">
@@ -93,14 +87,6 @@ export default function Toolbar() {
         >
           <IconRedo width={16} height={16} />
           <span className="tb-label">{t('toolbar.redo')}</span>
-        </button>
-        <button className="tb-btn" title={t('tools.importModel')} onClick={() => pickAndImportModels()}>
-          <IconImport width={16} height={16} />
-          <span className="tb-label">{t('tools.import')}</span>
-        </button>
-        <button className="tb-btn" title={t('toolbar.templates')} onClick={() => setShowTemplates(true)}>
-          <IconTemplate width={16} height={16} />
-          <span className="tb-label">{t('toolbar.templates')}</span>
         </button>
         <button className="tb-btn" title={t('toolbar.exportImage')} onClick={() => setShowExportImage(true)}>
           <IconExportImage width={16} height={16} />

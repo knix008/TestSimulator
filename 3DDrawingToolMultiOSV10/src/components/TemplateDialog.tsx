@@ -13,6 +13,7 @@ export default function TemplateDialog() {
   const { t } = useTranslation();
   const show = useAppStore((s) => s.showTemplates);
   const setShow = useAppStore((s) => s.setShowTemplates);
+  const showError = useAppStore((s) => s.showError);
   const language = useAppStore((s) => s.language);
   const [templates, setTemplates] = useState<TemplateInfo[]>([]);
   const [loading, setLoading] = useState(false);
@@ -24,9 +25,17 @@ export default function TemplateDialog() {
     setError(null);
     loadTemplateCatalog()
       .then((catalog) => setTemplates(catalog.templates || []))
-      .catch(() => setError(t('templates.loadError')))
+      .catch((err) => {
+        const message = t('templates.loadError');
+        setError(message);
+        showError({
+          title: t('error.unexpected'),
+          message,
+          details: err instanceof Error ? [err.name, err.message, err.stack].filter(Boolean).join('\n\n') : String(err),
+        });
+      })
       .finally(() => setLoading(false));
-  }, [show, t]);
+  }, [show, showError, t]);
 
   if (!show) return null;
 

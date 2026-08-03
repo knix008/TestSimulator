@@ -108,6 +108,8 @@ export interface LightSettings {
   pointPosition: Vec3;
 }
 
+export type LightKind = 'directional' | 'point';
+
 export interface ViewportSettings {
   showGrid: boolean;
   showAxes: boolean;
@@ -125,6 +127,12 @@ export interface ProjectData {
   viewport: ViewportSettings;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface AppErrorInfo {
+  title: string;
+  message: string;
+  details?: string;
 }
 
 export type ThemeMode = 'dark' | 'light';

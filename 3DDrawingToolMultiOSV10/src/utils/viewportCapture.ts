@@ -30,6 +30,23 @@ function dataUrlToBlob(dataUrl: string): Blob {
   return new Blob([bytes], { type: mime });
 }
 
+function hideCaptureExcludedObjects(
+  scene: Scene,
+  includeBackground: boolean
+): Array<{ object: THREE.Object3D; visible: boolean }> {
+  const hidden: Array<{ object: THREE.Object3D; visible: boolean }> = [];
+
+  scene.traverse((object) => {
+    const hideAlways = object.userData.hideInViewportCapture;
+    const hideWithoutBackground = object.userData.hideInTransparentViewportCapture && !includeBackground;
+    if (!hideAlways && !hideWithoutBackground) return;
+    hidden.push({ object, visible: object.visible });
+    object.visible = false;
+  });
+
+  return hidden;
+}
+
 /**
  * Capture the 3D viewport as a PNG blob.
  * When includeBackground is false, clear alpha is 0 (transparent).
@@ -46,6 +63,7 @@ export async function captureViewportPng(options: {
   const prevAutoClear = gl.autoClear;
   const prevClearColor = new THREE.Color();
   const prevClearAlpha = gl.getClearAlpha();
+  const hiddenObjects = hideCaptureExcludedObjects(scene, options.includeBackground);
   gl.getClearColor(prevClearColor);
 
   try {
@@ -64,6 +82,7 @@ export async function captureViewportPng(options: {
     const dataUrl = gl.domElement.toDataURL('image/png');
     return dataUrlToBlob(dataUrl);
   } finally {
+    for (const { object, visible } of hiddenObjects) object.visible = visible;
     scene.background = prevBackground;
     gl.setClearColor(prevClearColor, prevClearAlpha);
     gl.autoClear = prevAutoClear;

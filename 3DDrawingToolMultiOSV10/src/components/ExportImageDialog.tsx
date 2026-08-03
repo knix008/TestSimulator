@@ -7,6 +7,7 @@ export default function ExportImageDialog() {
   const { t } = useTranslation();
   const open = useAppStore((s) => s.showExportImage);
   const setOpen = useAppStore((s) => s.setShowExportImage);
+  const showError = useAppStore((s) => s.showError);
   const backgroundColor = useAppStore((s) => s.viewport.backgroundColor);
   const projectName = useAppStore((s) => s.projectName);
 
@@ -14,7 +15,6 @@ export default function ExportImageDialog() {
   const [includeBackground, setIncludeBackground] = useState(true);
   const [quality, setQuality] = useState(92);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   if (!open) return null;
 
@@ -24,7 +24,6 @@ export default function ExportImageDialog() {
 
   const onExport = async () => {
     setBusy(true);
-    setError(null);
     try {
       const result = await exportViewportImage({
         format,
@@ -35,12 +34,20 @@ export default function ExportImageDialog() {
       });
       if (result.canceled) return;
       if (result.warning) {
-        setError(result.warning);
+        showError({
+          title: t('error.warning'),
+          message: result.warning,
+          details: result.warning,
+        });
         return;
       }
       setOpen(false);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      showError({
+        title: t('error.exportFailed'),
+        message: e instanceof Error ? e.message : String(e),
+        details: e instanceof Error ? [e.name, e.message, e.stack].filter(Boolean).join('\n\n') : String(e),
+      });
     } finally {
       setBusy(false);
     }
@@ -106,7 +113,6 @@ export default function ExportImageDialog() {
             </div>
           )}
 
-          {error && <p className="export-error">{error}</p>}
         </div>
         <div className="modal-footer" style={{ gap: 8 }}>
           <button className="tb-btn" disabled={busy} onClick={() => setOpen(false)}>

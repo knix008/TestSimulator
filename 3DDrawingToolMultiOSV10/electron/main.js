@@ -46,9 +46,9 @@ function createWindow() {
   const icon = loadAppIcon();
 
   mainWindow = new BrowserWindow({
-    width: 1640,
+    width: 1400,
     height: 900,
-    minWidth: 1640,
+    minWidth: 1400,
     minHeight: 680,
     frame: false,
     titleBarStyle: 'hidden',

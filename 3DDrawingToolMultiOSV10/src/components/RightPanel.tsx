@@ -1,7 +1,7 @@
 import { useMemo, useRef, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAppStore } from '../store/useAppStore';
-import { ALL_PRIMITIVES, type PrimitiveType, type SceneObject, type TextFontId, type Vec3 } from '../types';
+import { ALL_PRIMITIVES, type LightKind, type PrimitiveType, type SceneObject, type TextFontId, type Vec3 } from '../types';
 import {
   TEXTURE_PRESETS,
   getPresetTextureUrl,
@@ -569,6 +569,64 @@ function ObjectProperties({ obj }: { obj: SceneObject }) {
   );
 }
 
+function LightProperties({ kind }: { kind: LightKind }) {
+  const { t } = useTranslation();
+  const lights = useAppStore((s) => s.lights);
+  const setLights = useAppStore((s) => s.setLights);
+  const isDirectional = kind === 'directional';
+  const label = isDirectional ? t('properties.directional') : t('properties.point');
+  const intensity = isDirectional ? lights.directionalIntensity : lights.pointIntensity;
+  const color = isDirectional ? lights.directionalColor : lights.pointColor;
+  const position = isDirectional ? lights.directionalPosition : lights.pointPosition;
+
+  return (
+    <>
+      <SectionTitle>{t('properties.lighting')}</SectionTitle>
+      <div className="prop-group">
+        <label>{t('properties.type')}</label>
+        <input type="text" value={label} disabled />
+      </div>
+      <div className="prop-group">
+        <label>{t('properties.intensity')}</label>
+        <div className="slider-row">
+          <input
+            type="range"
+            min={0}
+            max={isDirectional ? 5 : 8}
+            step={0.05}
+            value={intensity}
+            onChange={(e) => {
+              const next = parseFloat(e.target.value);
+              if (isDirectional) setLights({ directionalIntensity: next });
+              else setLights({ pointIntensity: next });
+            }}
+          />
+          <span>{intensity.toFixed(2)}</span>
+        </div>
+      </div>
+      <ColorField
+        label={t('properties.color')}
+        value={color}
+        onChange={(next) => {
+          if (isDirectional) setLights({ directionalColor: next });
+          else setLights({ pointColor: next });
+        }}
+        showPresets
+      />
+      <div className="prop-group">
+        <label>{t('properties.position')}</label>
+        <Vec3Fields
+          value={position}
+          onChange={(next) => {
+            if (isDirectional) setLights({ directionalPosition: next });
+            else setLights({ pointPosition: next });
+          }}
+        />
+      </div>
+    </>
+  );
+}
+
 function ViewportProperties() {
   const { t } = useTranslation();
   const viewport = useAppStore((s) => s.viewport);
@@ -597,23 +655,37 @@ function ViewportProperties() {
   );
 }
 
-export default function RightPanel() {
+export default function RightPanel({
+  collapsed,
+  onToggleCollapsed,
+}: {
+  collapsed: boolean;
+  onToggleCollapsed: () => void;
+}) {
   const { t } = useTranslation();
   const objects = useAppStore((s) => s.objects);
   const selectedId = useAppStore((s) => s.selectedId);
+  const selectedLight = useAppStore((s) => s.selectedLight);
   const selected = objects.find((o) => o.id === selectedId) || null;
 
   return (
-    <aside className="panel right">
-      <div className="panel-header">{t('properties.title')}</div>
-      <div className="panel-body">
-        {selected ? (
+    <aside className={`panel right ${collapsed ? 'collapsed-panel' : ''}`}>
+      <div className="panel-header">
+        <button className="panel-toggle-btn" title={collapsed ? 'Expand' : 'Collapse'} onClick={onToggleCollapsed}>
+          {collapsed ? '<' : '>'}
+        </button>
+        {!collapsed && <span>{t('properties.title')}</span>}
+      </div>
+      {!collapsed && <div className="panel-body">
+        {selectedLight ? (
+          <LightProperties kind={selectedLight} />
+        ) : selected ? (
           <ObjectProperties obj={selected} />
         ) : (
           <div className="empty-state">{t('properties.none')}</div>
         )}
         <ViewportProperties />
-      </div>
+      </div>}
     </aside>
   );
 }

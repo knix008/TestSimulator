@@ -27,7 +27,7 @@ import droidSansBoldUrl from 'three/examples/fonts/droid/droid_sans_bold.typefac
 import droidSerifRegularUrl from 'three/examples/fonts/droid/droid_serif_regular.typeface.json?url';
 import droidSerifBoldUrl from 'three/examples/fonts/droid/droid_serif_bold.typeface.json?url';
 import { useAppStore } from '../store/useAppStore';
-import { ALL_PRIMITIVES, type PrimitiveType, type SceneObject, type TextFontId } from '../types';
+import { ALL_PRIMITIVES, type LightKind, type PrimitiveType, type SceneObject, type TextFontId } from '../types';
 import { importModelFiles } from '../utils/modelImport';
 import { registerViewportCapture, unregisterViewportCapture } from '../utils/viewportCapture';
 import ImportedAsset from './ImportedAsset';
@@ -59,22 +59,24 @@ const ITALIC_MATRIX = new THREE.Matrix4().set(
 
 function SceneGrid() {
   return (
-    <Grid
-      args={GRID_ARGS}
-      position={[0, 0, 0]}
-      cellSize={GRID_CELL_SIZE}
-      cellThickness={0.4}
-      cellColor="#334155"
-      sectionSize={GRID_SECTION_SIZE}
-      sectionThickness={0.95}
-      sectionColor="#64748b"
-      fadeDistance={50}
-      fadeStrength={1}
-      infiniteGrid
-      followCamera={false}
-      side={THREE.DoubleSide}
-      renderOrder={-1}
-    />
+    <group userData={{ hideInTransparentViewportCapture: true }}>
+      <Grid
+        args={GRID_ARGS}
+        position={[0, 0, 0]}
+        cellSize={GRID_CELL_SIZE}
+        cellThickness={0.4}
+        cellColor="#334155"
+        sectionSize={GRID_SECTION_SIZE}
+        sectionThickness={0.95}
+        sectionColor="#64748b"
+        fadeDistance={50}
+        fadeStrength={1}
+        infiniteGrid
+        followCamera={false}
+        side={THREE.DoubleSide}
+        renderOrder={-1}
+      />
+    </group>
   );
 }
 
@@ -117,7 +119,7 @@ function AxisLabels({ axisLength }: { axisLength: number }) {
   ];
 
   return (
-    <group>
+    <group userData={{ hideInTransparentViewportCapture: true }}>
       {labels.map(({ text, position, color }) => (
         <AxisLabel key={text} text={text} position={position} color={color} />
       ))}
@@ -129,6 +131,7 @@ function SceneAxes({ axisLength }: { axisLength: number }) {
   const axes = useMemo(() => {
     const helper = new THREE.AxesHelper(axisLength);
     helper.raycast = () => null;
+    helper.userData.hideInTransparentViewportCapture = true;
     return helper;
   }, [axisLength]);
 
@@ -441,7 +444,7 @@ function getObjectHitRadius(obj: SceneObject) {
 
 function ObjectHitTarget({ obj }: { obj: SceneObject }) {
   return (
-    <mesh>
+    <mesh userData={{ hideInViewportCapture: true }}>
       <sphereGeometry args={[getObjectHitRadius(obj), 18, 12]} />
       <meshBasicMaterial transparent opacity={0.001} depthWrite={false} color="#ffffff" />
     </mesh>
@@ -467,8 +470,6 @@ function OrbitLockBridge() {
 }
 
 const LIGHT_DRAG_THRESHOLD_PX = 4;
-
-type LightKind = 'directional' | 'point';
 
 /**
  * Light marker: drag the marker body directly (large hit area).
@@ -636,7 +637,7 @@ function DraggableLightMarker({
   const hitRadius = radius * 1.6;
 
   return (
-    <group ref={groupRef} position={[position.x, position.y, position.z]}>
+    <group ref={groupRef} position={[position.x, position.y, position.z]} userData={{ hideInViewportCapture: true }}>
       <group ref={visualRef}>
         <mesh
           onPointerDown={onMarkerPointerDown}
@@ -895,6 +896,7 @@ function SceneObjectNode({
           mode={transformMode}
           size={transformMode === 'scale' ? 1.05 : 0.85}
           space="world"
+          userData={{ hideInViewportCapture: true }}
         />
       )}
     </>
@@ -905,10 +907,11 @@ function SceneContent() {
   const objects = useAppStore((s) => s.objects);
   const selectedId = useAppStore((s) => s.selectedId);
   const setSelectedId = useAppStore((s) => s.setSelectedId);
+  const selectedLight = useAppStore((s) => s.selectedLight);
+  const setSelectedLight = useAppStore((s) => s.setSelectedLight);
   const tool = useAppStore((s) => s.tool);
   const lights = useAppStore((s) => s.lights);
   const viewport = useAppStore((s) => s.viewport);
-  const [selectedLight, setSelectedLight] = useState<LightKind | null>(null);
   const [objectManipulating, setObjectManipulating] = useState(false);
   const axisLength = WORLD_AXIS_LENGTH;
 
@@ -921,12 +924,10 @@ function SceneContent() {
   }, [tool]);
 
   const selectObject = (id: string) => {
-    setSelectedLight(null);
     setSelectedId(id);
   };
 
   const selectLight = (kind: LightKind) => {
-    setSelectedId(null);
     setSelectedLight(kind);
   };
 
@@ -1007,20 +1008,23 @@ function SceneContent() {
         position={[0, -0.05, 0]}
         receiveShadow
         onClick={clearSelection}
+        userData={{ hideInTransparentViewportCapture: true }}
       >
         <planeGeometry args={[100, 100]} />
         <shadowMaterial opacity={0.32} depthWrite={false} />
       </mesh>
 
-      <ContactShadows
-        position={[0, -0.045, 0]}
-        opacity={0.34}
-        scale={34}
-        blur={2.4}
-        far={12}
-        resolution={1024}
-        color="#05070a"
-      />
+      <group userData={{ hideInTransparentViewportCapture: true }}>
+        <ContactShadows
+          position={[0, -0.045, 0]}
+          opacity={0.34}
+          scale={34}
+          blur={2.4}
+          far={12}
+          resolution={1024}
+          color="#05070a"
+        />
+      </group>
 
       {objects.map((obj) => (
         <SceneObjectNode
@@ -1036,10 +1040,11 @@ function SceneContent() {
       <OrbitControls makeDefault enableDamping dampingFactor={0.08} />
       <OrbitLockBridge />
       <CameraScaleReporter />
-      <ViewportCaptureBridge />
-      <GizmoHelper alignment="bottom-right" margin={[72, 72]}>
-        <GizmoViewport axisColors={['#ff5c5c', '#5cff8a', '#5c9cff']} labelColor="white" />
-      </GizmoHelper>
+      <group userData={{ hideInTransparentViewportCapture: true }}>
+        <GizmoHelper alignment="bottom-right" margin={[72, 72]}>
+          <GizmoViewport axisColors={['#ff5c5c', '#5cff8a', '#5c9cff']} labelColor="white" />
+        </GizmoHelper>
+      </group>
     </>
   );
 }
@@ -1087,8 +1092,10 @@ export default function Viewport3D() {
         camera={{ position: [6, 5, 8], fov: 45, near: 0.1, far: 200 }}
         onPointerMissed={() => {
           useAppStore.getState().setSelectedId(null);
+          useAppStore.getState().setSelectedLight(null);
         }}
       >
+        <ViewportCaptureBridge />
         <Suspense fallback={null}>
           <SceneContent />
         </Suspense>

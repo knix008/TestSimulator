@@ -1,7 +1,9 @@
 import { create } from 'zustand';
 import { v4 as uuidv4 } from 'uuid';
 import type {
+  AppErrorInfo,
   Language,
+  LightKind,
   LightSettings,
   ModelFormat,
   PrimitiveType,
@@ -36,6 +38,7 @@ const HISTORY_COALESCE_MS = 400;
 
 type HistorySnapshot = {
   objects: SceneObject[];
+  copiedObject: SceneObject | null;
   selectedId: string | null;
   lights: LightSettings;
   shapeCounter: number;
@@ -117,7 +120,9 @@ interface AppState {
   language: Language;
   tool: ToolType;
   objects: SceneObject[];
+  copiedObject: SceneObject | null;
   selectedId: string | null;
+  selectedLight: LightKind | null;
   lights: LightSettings;
   viewport: ViewportSettings;
   projectName: string;
@@ -126,6 +131,7 @@ interface AppState {
   showLightsPanel: boolean;
   showTemplates: boolean;
   showExportImage: boolean;
+  errorDialog: AppErrorInfo | null;
   viewScale: number;
   shapeCounter: number;
   past: HistorySnapshot[];
@@ -135,6 +141,7 @@ interface AppState {
   setLanguage: (language: Language) => void;
   setTool: (tool: ToolType) => void;
   setSelectedId: (id: string | null) => void;
+  setSelectedLight: (light: LightKind | null) => void;
   addShape: (type: PrimitiveType) => void;
   addText: () => void;
   addImportedAsset: (input: {
@@ -144,6 +151,8 @@ interface AppState {
     sourceFileName: string;
   }) => SceneObject;
   updateObject: (id: string, patch: Partial<SceneObject>) => void;
+  copySelected: () => void;
+  pasteCopiedObject: () => void;
   deleteSelected: () => void;
   duplicateSelected: () => void;
   setLights: (patch: Partial<LightSettings>) => void;
@@ -152,6 +161,8 @@ interface AppState {
   setShowLightsPanel: (show: boolean) => void;
   setShowTemplates: (show: boolean) => void;
   setShowExportImage: (show: boolean) => void;
+  showError: (error: AppErrorInfo) => void;
+  clearError: () => void;
   setViewScale: (scale: number) => void;
   setProjectName: (name: string) => void;
   exportProject: () => ProjectData;
@@ -193,7 +204,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   language: (localStorage.getItem('language') as Language) || 'ko',
   tool: 'select',
   objects: [],
+  copiedObject: null,
   selectedId: null,
+  selectedLight: null,
   lights: { ...defaultLights },
   viewport: { ...defaultViewport },
   projectName: 'Untitled',
@@ -202,6 +215,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   showLightsPanel: localStorage.getItem('showLightsPanel') !== 'false',
   showTemplates: false,
   showExportImage: false,
+  errorDialog: null,
   viewScale: 100,
   shapeCounter: 1,
   past: [],
@@ -220,7 +234,9 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   setTool: (tool) => set({ tool }),
 
-  setSelectedId: (id) => set({ selectedId: id }),
+  setSelectedId: (id) => set({ selectedId: id, selectedLight: id ? null : get().selectedLight }),
+
+  setSelectedLight: (light) => set({ selectedLight: light, selectedId: light ? null : get().selectedId }),
 
   addShape: (type) => {
     pushHistoryImmediate(get, set);
@@ -229,6 +245,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({
       objects: [...get().objects, obj],
       selectedId: obj.id,
+      selectedLight: null,
       tool: 'select',
       shapeCounter: counter + 1,
     });
@@ -265,6 +282,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({
       objects: [...get().objects, obj],
       selectedId: obj.id,
+      selectedLight: null,
       tool: 'select',
       shapeCounter: counter + 1,
     });
@@ -297,6 +315,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({
       objects: [...get().objects, obj],
       selectedId: obj.id,
+      selectedLight: null,
       tool: 'move',
       shapeCounter: counter + 1,
     });
@@ -316,6 +335,30 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({
       objects: get().objects.map((o) => (o.id === id ? { ...o, ...patch } : o)),
     });
+  },
+
+  copySelected: () => {
+    const { selectedId, objects } = get();
+    const src = objects.find((o) => o.id === selectedId);
+    if (!src) return;
+    set({ copiedObject: structuredClone(src) });
+  },
+
+  pasteCopiedObject: () => {
+    const { copiedObject, objects } = get();
+    if (!copiedObject) return;
+    pushHistoryImmediate(get, set);
+    const copy: SceneObject = {
+      ...structuredClone(copiedObject),
+      id: uuidv4(),
+      name: `${copiedObject.name} Copy`,
+      position: {
+        x: copiedObject.position.x + 0.5,
+        y: copiedObject.position.y,
+        z: copiedObject.position.z + 0.5,
+      },
+    };
+    set({ objects: [...objects, copy], selectedId: copy.id, selectedLight: null });
   },
 
   deleteSelected: () => {
@@ -371,6 +414,10 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   setShowExportImage: (show) => set({ showExportImage: show }),
 
+  showError: (error) => set({ errorDialog: error }),
+
+  clearError: () => set({ errorDialog: null }),
+
   setViewScale: (scale) => set({ viewScale: scale }),
 
   setProjectName: (name) => {
@@ -414,6 +461,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       projectName: data.name || 'Untitled',
       objects,
       selectedId: data.selectedId ?? null,
+      selectedLight: null,
       lights: { ...defaultLights, ...data.lights },
       viewport: { ...defaultViewport, ...data.viewport },
       projectPath: filePath,
@@ -432,6 +480,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({
       objects: [],
       selectedId: null,
+      selectedLight: null,
       lights: { ...defaultLights },
       viewport: { ...defaultViewport },
       projectName: 'Untitled',

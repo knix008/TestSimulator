@@ -295,6 +295,16 @@ export function IconImport(props: IconProps) {
   );
 }
 
+export function IconImage(props: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" {...props}>
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <path d="M3 15l4.5-4.5L12 15l3-3 6 6" />
+      <circle cx="9" cy="9" r="1.5" />
+    </svg>
+  );
+}
+
 export function IconTemplate(props: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" {...props}>

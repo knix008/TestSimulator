@@ -20,6 +20,15 @@
     "maximize": "Maximize",
     "close": "Close"
   },
+  "error": {
+    "unexpected": "Unexpected error",
+    "warning": "Warning",
+    "exportFailed": "Image export error",
+    "details": "Details",
+    "copy": "Copy",
+    "copied": "Copied",
+    "close": "Close"
+  },
   "tools": {
     "title": "Tools",
     "select": "Select",
@@ -30,6 +39,8 @@
     "primitives": "Primitives",
     "import": "Import",
     "importModel": "3D Model / Image",
+    "import3dModel": "3D Model",
+    "importImage": "Image",
     "importHint": "GLB, GLTF, OBJ, STL, FBX, PLY, PNG, JPG, WEBP",
     "text": "Text",
     "box": "Box",
