@@ -18,7 +18,39 @@ export type PrimitiveType =
   | 'triangularPrism'
   | 'pipe'
   | 'halfSphere'
-  | 'truncatedCone';
+  | 'truncatedCone'
+  | 'slab'
+  | 'wall'
+  | 'rod'
+  | 'disk'
+  | 'pentagonalPrism'
+  | 'octagonalPrism'
+  | 'diamond'
+  | 'thinTorus'
+  | 'arc'
+  | 'halfCylinder'
+  | 'table'
+  | 'chair'
+  | 'sofa'
+  | 'bed'
+  | 'door'
+  | 'windowFrame'
+  | 'bookshelf'
+  | 'laptop'
+  | 'cup'
+  | 'bottle'
+  | 'plantPot'
+  | 'deskLamp'
+  | 'networkRouter'
+  | 'networkSwitch'
+  | 'serverRack'
+  | 'firewallAppliance'
+  | 'wifiAccessPoint'
+  | 'modem'
+  | 'nasStorage'
+  | 'patchPanel'
+  | 'antennaTower'
+  | 'networkCable';
 
 export const ALL_PRIMITIVES: PrimitiveType[] = [
   'box',
@@ -41,11 +73,43 @@ export const ALL_PRIMITIVES: PrimitiveType[] = [
   'pipe',
   'halfSphere',
   'truncatedCone',
+  'slab',
+  'wall',
+  'rod',
+  'disk',
+  'pentagonalPrism',
+  'octagonalPrism',
+  'diamond',
+  'thinTorus',
+  'arc',
+  'halfCylinder',
+  'table',
+  'chair',
+  'sofa',
+  'bed',
+  'door',
+  'windowFrame',
+  'bookshelf',
+  'laptop',
+  'cup',
+  'bottle',
+  'plantPot',
+  'deskLamp',
+  'networkRouter',
+  'networkSwitch',
+  'serverRack',
+  'firewallAppliance',
+  'wifiAccessPoint',
+  'modem',
+  'nasStorage',
+  'patchPanel',
+  'antennaTower',
+  'networkCable',
 ];
 
 export type ModelFormat = 'glb' | 'gltf' | 'obj' | 'stl' | 'fbx' | 'ply' | 'image';
 export type TextFontId = 'helvetiker' | 'gentilis' | 'optimer' | 'droidSans' | 'droidSerif';
-export type ShapeType = PrimitiveType | 'model' | 'image' | 'text';
+export type ShapeType = PrimitiveType | 'model' | 'image' | 'text' | 'connection';
 
 export type ToolType =
   | 'select'
@@ -95,14 +159,19 @@ export interface SceneObject {
   textBold?: boolean;
   textItalic?: boolean;
   textUnderline?: boolean;
+  connectionStartId?: string;
+  connectionEndId?: string;
+  lineThickness?: number;
 }
 
 export interface LightSettings {
   ambientIntensity: number;
   ambientColor: string;
+  directionalEnabled: boolean;
   directionalIntensity: number;
   directionalColor: string;
   directionalPosition: Vec3;
+  pointEnabled: boolean;
   pointIntensity: number;
   pointColor: string;
   pointPosition: Vec3;

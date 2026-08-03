@@ -988,6 +988,7 @@ select:focus {
   backdrop-filter: blur(10px);
   overflow: hidden;
   pointer-events: auto;
+  min-height: 0;
 }
 
 .lights-panel-header {
@@ -1010,10 +1011,12 @@ select:focus {
 
 .lights-panel-body {
   padding: 10px;
-  overflow: visible;
+  overflow: auto;
   display: flex;
   flex-direction: column;
   gap: 10px;
+  flex: 1;
+  min-height: 0;
 }
 
 .light-card {

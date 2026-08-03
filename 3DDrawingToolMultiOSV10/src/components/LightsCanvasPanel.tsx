@@ -4,7 +4,7 @@ import { useAppStore } from '../store/useAppStore';
 import type { Vec3 } from '../types';
 
 const PANEL_W = 300;
-const PANEL_H = 660;
+const PANEL_H = 720;
 const STORAGE_KEY = 'lightsPanelPos';
 const POS_MIN = -20;
 const POS_MAX = 20;
@@ -77,7 +77,7 @@ export default function LightsCanvasPanel() {
     const ph = parent?.clientHeight ?? window.innerHeight;
     return {
       x: Math.max(0, Math.min(x, pw - PANEL_W)),
-      y: Math.max(0, Math.min(y, ph - 48)),
+      y: Math.max(0, Math.min(y, Math.max(0, ph - Math.min(PANEL_H, ph - 24)))),
     };
   }, []);
 
@@ -171,9 +171,18 @@ export default function LightsCanvasPanel() {
             <span className="light-type">{t('lightsPanel.typeDirectional')}</span>
           </div>
           <label className="light-row">
+            <span>{t('properties.enabled')}</span>
+            <input
+              type="checkbox"
+              checked={lights.directionalEnabled}
+              onChange={(e) => setLights({ directionalEnabled: e.target.checked })}
+            />
+          </label>
+          <label className="light-row">
             <span>{t('properties.intensity')}</span>
             <input
               type="range"
+              disabled={!lights.directionalEnabled}
               min={0}
               max={3}
               step={0.01}
@@ -186,6 +195,7 @@ export default function LightsCanvasPanel() {
             <span>{t('properties.color')}</span>
             <input
               type="color"
+              disabled={!lights.directionalEnabled}
               value={lights.directionalColor}
               onChange={(e) => setLights({ directionalColor: e.target.value })}
             />
@@ -203,9 +213,18 @@ export default function LightsCanvasPanel() {
             <span className="light-type">{t('lightsPanel.typePoint')}</span>
           </div>
           <label className="light-row">
+            <span>{t('properties.enabled')}</span>
+            <input
+              type="checkbox"
+              checked={lights.pointEnabled}
+              onChange={(e) => setLights({ pointEnabled: e.target.checked })}
+            />
+          </label>
+          <label className="light-row">
             <span>{t('properties.intensity')}</span>
             <input
               type="range"
+              disabled={!lights.pointEnabled}
               min={0}
               max={8}
               step={0.01}
@@ -218,6 +237,7 @@ export default function LightsCanvasPanel() {
             <span>{t('properties.color')}</span>
             <input
               type="color"
+              disabled={!lights.pointEnabled}
               value={lights.pointColor}
               onChange={(e) => setLights({ pointColor: e.target.value })}
             />

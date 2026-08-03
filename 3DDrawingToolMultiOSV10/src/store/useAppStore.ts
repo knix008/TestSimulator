@@ -17,9 +17,11 @@ import type {
 const defaultLights: LightSettings = {
   ambientIntensity: 0.32,
   ambientColor: '#ffffff',
+  directionalEnabled: true,
   directionalIntensity: 1.35,
   directionalColor: '#ffffff',
   directionalPosition: { x: 5, y: 8, z: 5 },
+  pointEnabled: true,
   pointIntensity: 2.2,
   pointColor: '#ffd9a0',
   pointPosition: { x: -4, y: 3, z: 2 },
@@ -67,6 +69,38 @@ function createShape(type: PrimitiveType, index: number): SceneObject {
     pipe: '#66d9e8',
     halfSphere: '#ff8787',
     truncatedCone: '#e599f7',
+    slab: '#adb5bd',
+    wall: '#ced4da',
+    rod: '#69db7c',
+    disk: '#74c0fc',
+    pentagonalPrism: '#ffd43b',
+    octagonalPrism: '#63e6be',
+    diamond: '#91a7ff',
+    thinTorus: '#b197fc',
+    arc: '#ffb3c1',
+    halfCylinder: '#ffa8a8',
+    table: '#b08968',
+    chair: '#8ce99a',
+    sofa: '#74c0fc',
+    bed: '#f783ac',
+    door: '#a66a3f',
+    windowFrame: '#91a7ff',
+    bookshelf: '#c08457',
+    laptop: '#868e96',
+    cup: '#f8f9fa',
+    bottle: '#63e6be',
+    plantPot: '#d9480f',
+    deskLamp: '#ffd43b',
+    networkRouter: '#4dabf7',
+    networkSwitch: '#495057',
+    serverRack: '#343a40',
+    firewallAppliance: '#ff6b35',
+    wifiAccessPoint: '#f1f3f5',
+    modem: '#748ffc',
+    nasStorage: '#5c7cfa',
+    patchPanel: '#adb5bd',
+    antennaTower: '#868e96',
+    networkCable: '#22b8cf',
   };
 
   const label = type.charAt(0).toUpperCase() + type.slice(1);
@@ -75,9 +109,9 @@ function createShape(type: PrimitiveType, index: number): SceneObject {
     id: uuidv4(),
     name: `${label} ${index}`,
     type,
-    position: { x: (Math.random() - 0.5) * 4, y: type === 'plane' || type === 'ring' || type === 'circle' ? 0 : 0.5, z: (Math.random() - 0.5) * 4 },
+    position: { x: (Math.random() - 0.5) * 4, y: type === 'plane' || type === 'ring' || type === 'circle' || type === 'arc' ? 0 : 0.5, z: (Math.random() - 0.5) * 4 },
     rotation: {
-      x: type === 'ring' || type === 'circle' ? -Math.PI / 2 : 0,
+      x: type === 'ring' || type === 'circle' || type === 'arc' ? -Math.PI / 2 : 0,
       y: 0,
       z: 0,
     },
@@ -90,7 +124,7 @@ function createShape(type: PrimitiveType, index: number): SceneObject {
     wireframe: false,
     emissive: '#000000',
     emissiveIntensity: 0,
-    flatShading: type === 'tetrahedron' || type === 'pyramid' || type === 'octahedron' || type === 'hexPrism' || type === 'triangularPrism',
+    flatShading: type === 'tetrahedron' || type === 'pyramid' || type === 'octahedron' || type === 'hexPrism' || type === 'triangularPrism' || type === 'pentagonalPrism' || type === 'octagonalPrism' || type === 'diamond' || type === 'halfCylinder',
     textureId: 'none',
     textureRepeat: 2,
   };
@@ -144,6 +178,7 @@ interface AppState {
   setSelectedLight: (light: LightKind | null) => void;
   addShape: (type: PrimitiveType) => void;
   addText: () => void;
+  addConnection: (startId: string, endId: string) => SceneObject | null;
   addImportedAsset: (input: {
     name: string;
     format: ModelFormat;
@@ -288,6 +323,45 @@ export const useAppStore = create<AppState>((set, get) => ({
     });
   },
 
+  addConnection: (startId, endId) => {
+    if (startId === endId) return null;
+    const objects = get().objects;
+    const start = objects.find((o) => o.id === startId && o.type !== 'connection');
+    const end = objects.find((o) => o.id === endId && o.type !== 'connection');
+    if (!start || !end) return null;
+
+    pushHistoryImmediate(get, set);
+    const counter = get().shapeCounter;
+    const obj: SceneObject = {
+      id: uuidv4(),
+      name: `Connection ${counter}`,
+      type: 'connection',
+      position: { x: 0, y: 0, z: 0 },
+      rotation: { x: 0, y: 0, z: 0 },
+      scale: { x: 1, y: 1, z: 1 },
+      color: '#22b8cf',
+      opacity: 1,
+      visible: true,
+      metalness: 0.05,
+      roughness: 0.35,
+      wireframe: false,
+      emissive: '#000000',
+      emissiveIntensity: 0,
+      flatShading: false,
+      connectionStartId: start.id,
+      connectionEndId: end.id,
+      lineThickness: 0.06,
+    };
+    set({
+      objects: [...objects, obj],
+      selectedId: obj.id,
+      selectedLight: null,
+      tool: 'select',
+      shapeCounter: counter + 1,
+    });
+    return obj;
+  },
+
   addImportedAsset: ({ name, format, dataUrl, sourceFileName }) => {
     pushHistoryImmediate(get, set);
     const counter = get().shapeCounter;
@@ -366,7 +440,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (!selectedId) return;
     pushHistoryImmediate(get, set);
     set({
-      objects: objects.filter((o) => o.id !== selectedId),
+      objects: objects.filter((o) => o.id !== selectedId && o.connectionStartId !== selectedId && o.connectionEndId !== selectedId),
       selectedId: null,
     });
   },
@@ -455,6 +529,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       textBold: false,
       textItalic: false,
       textUnderline: false,
+      lineThickness: 0.06,
       ...o,
     }));
     set({

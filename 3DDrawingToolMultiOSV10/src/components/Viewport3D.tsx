@@ -215,6 +215,26 @@ function ShapeGeometry({ type }: { type: PrimitiveType }) {
       return <sphereGeometry args={[0.72, 48, 24, 0, Math.PI * 2, 0, Math.PI / 2]} />;
     case 'truncatedCone':
       return <cylinderGeometry args={[0.35, 0.72, 1.2, 48]} />;
+    case 'slab':
+      return <boxGeometry args={[1.6, 0.18, 1]} />;
+    case 'wall':
+      return <boxGeometry args={[1.8, 1.1, 0.18]} />;
+    case 'rod':
+      return <cylinderGeometry args={[0.16, 0.16, 1.8, 32]} />;
+    case 'disk':
+      return <cylinderGeometry args={[0.78, 0.78, 0.18, 64]} />;
+    case 'pentagonalPrism':
+      return <cylinderGeometry args={[0.65, 0.65, 1.15, 5]} />;
+    case 'octagonalPrism':
+      return <cylinderGeometry args={[0.65, 0.65, 1.15, 8]} />;
+    case 'diamond':
+      return <octahedronGeometry args={[0.8, 0]} />;
+    case 'thinTorus':
+      return <torusGeometry args={[0.58, 0.08, 16, 72]} />;
+    case 'arc':
+      return <torusGeometry args={[0.65, 0.12, 16, 48, Math.PI * 1.35]} />;
+    case 'halfCylinder':
+      return <cylinderGeometry args={[0.65, 0.65, 1.15, 32, 1, false, 0, Math.PI]} />;
     default:
       return <boxGeometry args={[1, 1, 1]} />;
   }
@@ -234,7 +254,7 @@ function PrimitiveMaterial({
   const emissive =
     selected && (obj.emissiveIntensity ?? 0) < 0.05 ? obj.color : obj.emissive || '#000000';
   const doubleSide =
-    obj.type === 'plane' || obj.type === 'ring' || obj.type === 'circle' || obj.type === 'pipe' || !!obj.wireframe || !!map;
+    obj.type === 'plane' || obj.type === 'ring' || obj.type === 'circle' || obj.type === 'pipe' || obj.type === 'arc' || obj.type === 'halfCylinder' || !!obj.wireframe || !!map;
 
   return (
     <meshStandardMaterial
@@ -269,9 +289,297 @@ function TexturedPrimitiveMaterial({ obj, selected }: { obj: SceneObject; select
   return <PrimitiveMaterial obj={obj} selected={selected} map={texture} />;
 }
 
+const OBJECT_PRIMITIVES = new Set<PrimitiveType>([
+  'table',
+  'chair',
+  'sofa',
+  'bed',
+  'door',
+  'windowFrame',
+  'bookshelf',
+  'laptop',
+  'cup',
+  'bottle',
+  'plantPot',
+  'deskLamp',
+]);
+
+const NETWORK_PRIMITIVES = new Set<PrimitiveType>([
+  'networkRouter',
+  'networkSwitch',
+  'serverRack',
+  'firewallAppliance',
+  'wifiAccessPoint',
+  'modem',
+  'nasStorage',
+  'patchPanel',
+  'antennaTower',
+  'networkCable',
+]);
+
+const COMPOSITE_PRIMITIVES = new Set<PrimitiveType>([
+  ...OBJECT_PRIMITIVES,
+  ...NETWORK_PRIMITIVES,
+]);
+
+function Part({
+  obj,
+  selected,
+  position,
+  scale,
+  rotation = [0, 0, 0],
+  geometry,
+}: {
+  obj: SceneObject;
+  selected: boolean;
+  position: [number, number, number];
+  scale: [number, number, number];
+  rotation?: [number, number, number];
+  geometry: React.ReactNode;
+}) {
+  return (
+    <mesh castShadow receiveShadow position={position} scale={scale} rotation={rotation}>
+      {geometry}
+      <PrimitiveMaterial obj={obj} selected={selected} />
+    </mesh>
+  );
+}
+
+function DetailPart({
+  position,
+  scale,
+  rotation = [0, 0, 0],
+  color,
+  geometry,
+}: {
+  position: [number, number, number];
+  scale: [number, number, number];
+  rotation?: [number, number, number];
+  color: string;
+  geometry: React.ReactNode;
+}) {
+  return (
+    <mesh castShadow receiveShadow position={position} scale={scale} rotation={rotation}>
+      {geometry}
+      <meshStandardMaterial color={color} roughness={0.45} metalness={0.1} />
+    </mesh>
+  );
+}
+
+function ObjectPrimitiveContent({ obj, selected }: { obj: SceneObject; selected: boolean }) {
+  switch (obj.type) {
+    case 'table':
+      return (
+        <group>
+          <Part obj={obj} selected={selected} position={[0, 0.62, 0]} scale={[1.45, 0.12, 0.9]} geometry={<boxGeometry args={[1, 1, 1]} />} />
+          {[-0.58, 0.58].flatMap((x) =>
+            [-0.32, 0.32].map((z) => (
+              <Part key={`${x}-${z}`} obj={obj} selected={selected} position={[x, 0.28, z]} scale={[0.09, 0.58, 0.09]} geometry={<boxGeometry args={[1, 1, 1]} />} />
+            ))
+          )}
+        </group>
+      );
+    case 'chair':
+      return (
+        <group>
+          <Part obj={obj} selected={selected} position={[0, 0.42, 0]} scale={[0.78, 0.12, 0.72]} geometry={<boxGeometry args={[1, 1, 1]} />} />
+          <Part obj={obj} selected={selected} position={[0, 0.9, 0.34]} scale={[0.78, 0.85, 0.12]} geometry={<boxGeometry args={[1, 1, 1]} />} />
+          {[-0.28, 0.28].flatMap((x) =>
+            [-0.22, 0.22].map((z) => (
+              <Part key={`${x}-${z}`} obj={obj} selected={selected} position={[x, 0.18, z]} scale={[0.08, 0.36, 0.08]} geometry={<boxGeometry args={[1, 1, 1]} />} />
+            ))
+          )}
+        </group>
+      );
+    case 'sofa':
+      return (
+        <group>
+          <Part obj={obj} selected={selected} position={[0, 0.32, 0]} scale={[1.7, 0.36, 0.72]} geometry={<boxGeometry args={[1, 1, 1]} />} />
+          <Part obj={obj} selected={selected} position={[0, 0.72, 0.34]} scale={[1.7, 0.72, 0.18]} geometry={<boxGeometry args={[1, 1, 1]} />} />
+          <Part obj={obj} selected={selected} position={[-0.92, 0.48, 0]} scale={[0.18, 0.56, 0.76]} geometry={<boxGeometry args={[1, 1, 1]} />} />
+          <Part obj={obj} selected={selected} position={[0.92, 0.48, 0]} scale={[0.18, 0.56, 0.76]} geometry={<boxGeometry args={[1, 1, 1]} />} />
+        </group>
+      );
+    case 'bed':
+      return (
+        <group>
+          <Part obj={obj} selected={selected} position={[0, 0.28, 0]} scale={[1.8, 0.28, 1.15]} geometry={<boxGeometry args={[1, 1, 1]} />} />
+          <Part obj={obj} selected={selected} position={[0, 0.55, -0.36]} scale={[1.68, 0.16, 0.52]} geometry={<boxGeometry args={[1, 1, 1]} />} />
+          <Part obj={obj} selected={selected} position={[0, 0.62, 0.55]} scale={[1.85, 0.85, 0.14]} geometry={<boxGeometry args={[1, 1, 1]} />} />
+        </group>
+      );
+    case 'door':
+      return (
+        <group>
+          <Part obj={obj} selected={selected} position={[0, 0.85, 0]} scale={[0.75, 1.7, 0.09]} geometry={<boxGeometry args={[1, 1, 1]} />} />
+          <Part obj={obj} selected={selected} position={[0.24, 0.82, -0.06]} scale={[0.055, 0.055, 0.055]} geometry={<sphereGeometry args={[1, 16, 12]} />} />
+        </group>
+      );
+    case 'windowFrame':
+      return (
+        <group>
+          <Part obj={obj} selected={selected} position={[0, 0.82, 0]} scale={[1.2, 0.08, 0.08]} geometry={<boxGeometry args={[1, 1, 1]} />} />
+          <Part obj={obj} selected={selected} position={[0, -0.02, 0]} scale={[1.2, 0.08, 0.08]} geometry={<boxGeometry args={[1, 1, 1]} />} />
+          <Part obj={obj} selected={selected} position={[-0.56, 0.4, 0]} scale={[0.08, 0.92, 0.08]} geometry={<boxGeometry args={[1, 1, 1]} />} />
+          <Part obj={obj} selected={selected} position={[0.56, 0.4, 0]} scale={[0.08, 0.92, 0.08]} geometry={<boxGeometry args={[1, 1, 1]} />} />
+          <Part obj={obj} selected={selected} position={[0, 0.4, 0]} scale={[0.06, 0.88, 0.06]} geometry={<boxGeometry args={[1, 1, 1]} />} />
+          <Part obj={obj} selected={selected} position={[0, 0.4, 0]} scale={[1.08, 0.06, 0.06]} geometry={<boxGeometry args={[1, 1, 1]} />} />
+        </group>
+      );
+    case 'bookshelf':
+      return (
+        <group>
+          <Part obj={obj} selected={selected} position={[0, 0.8, 0]} scale={[1.15, 1.55, 0.22]} geometry={<boxGeometry args={[1, 1, 1]} />} />
+          {[-0.28, 0.18, 0.64].map((y) => (
+            <Part key={y} obj={obj} selected={selected} position={[0, y + 0.8, -0.18]} scale={[1.05, 0.06, 0.18]} geometry={<boxGeometry args={[1, 1, 1]} />} />
+          ))}
+        </group>
+      );
+    case 'laptop':
+      return (
+        <group>
+          <Part obj={obj} selected={selected} position={[0, 0.08, 0]} scale={[1.05, 0.08, 0.68]} geometry={<boxGeometry args={[1, 1, 1]} />} />
+          <Part obj={obj} selected={selected} position={[0, 0.45, 0.32]} scale={[1.05, 0.72, 0.06]} rotation={[-0.25, 0, 0]} geometry={<boxGeometry args={[1, 1, 1]} />} />
+        </group>
+      );
+    case 'cup':
+      return (
+        <group>
+          <Part obj={obj} selected={selected} position={[0, 0.38, 0]} scale={[1, 1, 1]} geometry={<cylinderGeometry args={[0.32, 0.25, 0.72, 36, 1, true]} />} />
+          <Part obj={obj} selected={selected} position={[0.33, 0.38, 0]} scale={[1, 1, 1]} rotation={[0, Math.PI / 2, 0]} geometry={<torusGeometry args={[0.18, 0.035, 12, 24, Math.PI * 1.35]} />} />
+        </group>
+      );
+    case 'bottle':
+      return (
+        <group>
+          <Part obj={obj} selected={selected} position={[0, 0.36, 0]} scale={[1, 1, 1]} geometry={<cylinderGeometry args={[0.25, 0.3, 0.72, 36]} />} />
+          <Part obj={obj} selected={selected} position={[0, 0.86, 0]} scale={[1, 1, 1]} geometry={<cylinderGeometry args={[0.12, 0.16, 0.36, 28]} />} />
+        </group>
+      );
+    case 'plantPot':
+      return (
+        <group>
+          <Part obj={obj} selected={selected} position={[0, 0.26, 0]} scale={[1, 1, 1]} geometry={<cylinderGeometry args={[0.34, 0.24, 0.52, 36]} />} />
+          <Part obj={obj} selected={selected} position={[0, 0.76, 0]} scale={[0.62, 0.42, 0.62]} geometry={<sphereGeometry args={[0.55, 24, 16]} />} />
+        </group>
+      );
+    case 'deskLamp':
+      return (
+        <group>
+          <Part obj={obj} selected={selected} position={[0, 0.05, 0]} scale={[1, 1, 1]} geometry={<cylinderGeometry args={[0.34, 0.34, 0.1, 36]} />} />
+          <Part obj={obj} selected={selected} position={[0, 0.48, 0]} scale={[0.08, 0.8, 0.08]} rotation={[0, 0, -0.35]} geometry={<boxGeometry args={[1, 1, 1]} />} />
+          <Part obj={obj} selected={selected} position={[0.24, 0.9, 0]} scale={[1, 1, 1]} rotation={[0, 0, -0.35]} geometry={<coneGeometry args={[0.28, 0.38, 32]} />} />
+        </group>
+      );
+    case 'networkRouter':
+      return (
+        <group>
+          <Part obj={obj} selected={selected} position={[0, 0.16, 0]} scale={[1.25, 0.22, 0.78]} geometry={<boxGeometry args={[1, 1, 1]} />} />
+          <Part obj={obj} selected={selected} position={[-0.43, 0.58, 0.18]} scale={[0.04, 0.88, 0.04]} rotation={[0.3, 0, -0.22]} geometry={<cylinderGeometry args={[1, 1, 1, 12]} />} />
+          <Part obj={obj} selected={selected} position={[0.43, 0.58, 0.18]} scale={[0.04, 0.88, 0.04]} rotation={[0.3, 0, 0.22]} geometry={<cylinderGeometry args={[1, 1, 1, 12]} />} />
+          {[-0.36, -0.18, 0, 0.18, 0.36].map((x) => (
+            <DetailPart key={x} position={[x, 0.3, -0.41]} scale={[0.08, 0.04, 0.02]} color="#69db7c" geometry={<boxGeometry args={[1, 1, 1]} />} />
+          ))}
+        </group>
+      );
+    case 'networkSwitch':
+      return (
+        <group>
+          <Part obj={obj} selected={selected} position={[0, 0.14, 0]} scale={[1.65, 0.2, 0.62]} geometry={<boxGeometry args={[1, 1, 1]} />} />
+          {Array.from({ length: 8 }, (_, i) => -0.58 + i * 0.17).map((x) => (
+            <DetailPart key={x} position={[x, 0.19, -0.33]} scale={[0.09, 0.06, 0.025]} color="#212529" geometry={<boxGeometry args={[1, 1, 1]} />} />
+          ))}
+          {[-0.72, 0.72].map((x) => (
+            <DetailPart key={x} position={[x, 0.3, -0.33]} scale={[0.06, 0.03, 0.02]} color="#51cf66" geometry={<boxGeometry args={[1, 1, 1]} />} />
+          ))}
+        </group>
+      );
+    case 'serverRack':
+      return (
+        <group>
+          <Part obj={obj} selected={selected} position={[0, 0.85, 0]} scale={[0.95, 1.7, 0.72]} geometry={<boxGeometry args={[1, 1, 1]} />} />
+          {[-0.48, -0.16, 0.16, 0.48].map((y) => (
+            <DetailPart key={y} position={[0, y + 0.85, -0.38]} scale={[0.82, 0.08, 0.03]} color="#111827" geometry={<boxGeometry args={[1, 1, 1]} />} />
+          ))}
+          {[-0.28, 0, 0.28].map((x) => (
+            <DetailPart key={x} position={[x, 1.58, -0.4]} scale={[0.06, 0.06, 0.025]} color="#51cf66" geometry={<boxGeometry args={[1, 1, 1]} />} />
+          ))}
+        </group>
+      );
+    case 'firewallAppliance':
+      return (
+        <group>
+          <Part obj={obj} selected={selected} position={[0, 0.22, 0]} scale={[1.35, 0.32, 0.68]} geometry={<boxGeometry args={[1, 1, 1]} />} />
+          <DetailPart position={[-0.38, 0.43, -0.36]} scale={[0.28, 0.08, 0.03]} color="#fff3bf" geometry={<boxGeometry args={[1, 1, 1]} />} />
+          <DetailPart position={[0.32, 0.43, -0.36]} scale={[0.46, 0.08, 0.03]} color="#212529" geometry={<boxGeometry args={[1, 1, 1]} />} />
+        </group>
+      );
+    case 'wifiAccessPoint':
+      return (
+        <group>
+          <Part obj={obj} selected={selected} position={[0, 0.14, 0]} scale={[1, 1, 1]} geometry={<cylinderGeometry args={[0.52, 0.62, 0.18, 40]} />} />
+          <DetailPart position={[0, 0.25, 0]} scale={[1, 1, 1]} color="#74c0fc" geometry={<torusGeometry args={[0.27, 0.015, 8, 40]} />} />
+          <DetailPart position={[0, 0.27, 0]} scale={[0.06, 0.06, 0.06]} color="#51cf66" geometry={<sphereGeometry args={[1, 16, 12]} />} />
+        </group>
+      );
+    case 'modem':
+      return (
+        <group>
+          <Part obj={obj} selected={selected} position={[0, 0.28, 0]} scale={[0.72, 0.56, 0.9]} geometry={<boxGeometry args={[1, 1, 1]} />} />
+          <Part obj={obj} selected={selected} position={[0.34, 0.82, 0.24]} scale={[0.035, 0.72, 0.035]} rotation={[0.18, 0, 0.16]} geometry={<cylinderGeometry args={[1, 1, 1, 12]} />} />
+          {[-0.2, 0, 0.2].map((x) => (
+            <DetailPart key={x} position={[x, 0.58, -0.47]} scale={[0.05, 0.05, 0.02]} color="#ffd43b" geometry={<boxGeometry args={[1, 1, 1]} />} />
+          ))}
+        </group>
+      );
+    case 'nasStorage':
+      return (
+        <group>
+          <Part obj={obj} selected={selected} position={[0, 0.48, 0]} scale={[0.92, 0.96, 0.7]} geometry={<boxGeometry args={[1, 1, 1]} />} />
+          {[-0.22, 0.22].map((x) => (
+            <DetailPart key={x} position={[x, 0.52, -0.37]} scale={[0.28, 0.72, 0.03]} color="#212529" geometry={<boxGeometry args={[1, 1, 1]} />} />
+          ))}
+          <DetailPart position={[0.34, 0.9, -0.39]} scale={[0.06, 0.06, 0.025]} color="#51cf66" geometry={<boxGeometry args={[1, 1, 1]} />} />
+        </group>
+      );
+    case 'patchPanel':
+      return (
+        <group>
+          <Part obj={obj} selected={selected} position={[0, 0.12, 0]} scale={[1.65, 0.16, 0.36]} geometry={<boxGeometry args={[1, 1, 1]} />} />
+          {Array.from({ length: 12 }, (_, i) => -0.68 + i * 0.125).map((x) => (
+            <DetailPart key={x} position={[x, 0.16, -0.2]} scale={[0.055, 0.045, 0.02]} color="#111827" geometry={<boxGeometry args={[1, 1, 1]} />} />
+          ))}
+        </group>
+      );
+    case 'antennaTower':
+      return (
+        <group>
+          <Part obj={obj} selected={selected} position={[0, 0.88, 0]} scale={[0.05, 1.65, 0.05]} geometry={<cylinderGeometry args={[1, 1, 1, 8]} />} />
+          <Part obj={obj} selected={selected} position={[-0.25, 0.55, 0]} scale={[0.04, 1.05, 0.04]} rotation={[0, 0, -0.28]} geometry={<cylinderGeometry args={[1, 1, 1, 8]} />} />
+          <Part obj={obj} selected={selected} position={[0.25, 0.55, 0]} scale={[0.04, 1.05, 0.04]} rotation={[0, 0, 0.28]} geometry={<cylinderGeometry args={[1, 1, 1, 8]} />} />
+          {[0.48, 0.88, 1.28].map((y) => (
+            <DetailPart key={y} position={[0, y, 0]} scale={[0.72, 0.035, 0.035]} color="#ced4da" geometry={<boxGeometry args={[1, 1, 1]} />} />
+          ))}
+        </group>
+      );
+    case 'networkCable':
+      return (
+        <group>
+          <Part obj={obj} selected={selected} position={[0, 0.16, 0]} scale={[1, 1, 1]} rotation={[Math.PI / 2, 0, 0]} geometry={<torusGeometry args={[0.52, 0.035, 12, 48, Math.PI * 1.45]} />} />
+          <DetailPart position={[-0.5, 0.16, 0.19]} scale={[0.18, 0.09, 0.12]} color="#212529" geometry={<boxGeometry args={[1, 1, 1]} />} />
+          <DetailPart position={[0.5, 0.16, -0.19]} scale={[0.18, 0.09, 0.12]} color="#212529" geometry={<boxGeometry args={[1, 1, 1]} />} />
+        </group>
+      );
+    default:
+      return null;
+  }
+}
+
 function PrimitiveContent({ obj, selected }: { obj: SceneObject; selected: boolean }) {
   const type = obj.type as PrimitiveType;
   const hasTexture = !!obj.textureUrl;
+
+  if (COMPOSITE_PRIMITIVES.has(type)) return <ObjectPrimitiveContent obj={obj} selected={selected} />;
 
   return (
     <mesh castShadow receiveShadow>
@@ -432,6 +740,7 @@ function ObjectContent({ obj, selected }: { obj: SceneObject; selected: boolean 
 }
 
 function getObjectHitRadius(obj: SceneObject) {
+  if (COMPOSITE_PRIMITIVES.has(obj.type as PrimitiveType)) return 1.35;
   if (obj.type === 'plane' || obj.type === 'image') return 1.35;
   if (obj.type === 'model') return 1.25;
   if (obj.type === 'text') {
@@ -442,12 +751,163 @@ function getObjectHitRadius(obj: SceneObject) {
   return 0.95;
 }
 
+function getObjectHitSize(obj: SceneObject): [number, number, number] {
+  switch (obj.type) {
+    case 'table':
+      return [1.75, 0.9, 1.15];
+    case 'chair':
+      return [1.05, 1.45, 1.0];
+    case 'sofa':
+      return [2.15, 1.25, 1.05];
+    case 'bed':
+      return [2.2, 1.25, 1.45];
+    case 'door':
+      return [1.0, 1.95, 0.32];
+    case 'windowFrame':
+      return [1.45, 1.15, 0.32];
+    case 'bookshelf':
+      return [1.45, 1.75, 0.55];
+    case 'laptop':
+      return [1.3, 0.95, 0.95];
+    case 'cup':
+      return [0.95, 0.95, 0.8];
+    case 'bottle':
+      return [0.82, 1.2, 0.82];
+    case 'plantPot':
+      return [1.1, 1.15, 1.1];
+    case 'deskLamp':
+      return [1.0, 1.25, 0.85];
+    case 'networkRouter':
+      return [1.55, 1.15, 1.0];
+    case 'networkSwitch':
+      return [1.9, 0.55, 0.8];
+    case 'serverRack':
+      return [1.2, 1.9, 0.95];
+    case 'firewallAppliance':
+      return [1.6, 0.7, 0.9];
+    case 'wifiAccessPoint':
+      return [1.35, 0.45, 1.35];
+    case 'modem':
+      return [1.0, 1.25, 1.1];
+    case 'nasStorage':
+      return [1.15, 1.15, 0.95];
+    case 'patchPanel':
+      return [1.9, 0.42, 0.55];
+    case 'antennaTower':
+      return [1.0, 1.9, 0.45];
+    case 'networkCable':
+      return [1.35, 0.45, 0.85];
+    default:
+      return [1, 1, 1];
+  }
+}
+
 function ObjectHitTarget({ obj }: { obj: SceneObject }) {
+  if (COMPOSITE_PRIMITIVES.has(obj.type as PrimitiveType)) {
+    const hitSize = getObjectHitSize(obj);
+    return (
+      <mesh position={[0, hitSize[1] / 2, 0]} userData={{ hideInViewportCapture: true }}>
+        <boxGeometry args={hitSize} />
+        <meshBasicMaterial transparent opacity={0.001} depthWrite={false} color="#ffffff" />
+      </mesh>
+    );
+  }
+
   return (
     <mesh userData={{ hideInViewportCapture: true }}>
       <sphereGeometry args={[getObjectHitRadius(obj), 18, 12]} />
       <meshBasicMaterial transparent opacity={0.001} depthWrite={false} color="#ffffff" />
     </mesh>
+  );
+}
+
+function ConnectionObjectNode({
+  obj,
+  objects,
+  selected,
+  onSelect,
+}: {
+  obj: SceneObject;
+  objects: SceneObject[];
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  const start = objects.find((o) => o.id === obj.connectionStartId);
+  const end = objects.find((o) => o.id === obj.connectionEndId);
+
+  const line = useMemo(() => {
+    if (!start || !end) return null;
+    const a = new THREE.Vector3(start.position.x, start.position.y, start.position.z);
+    const b = new THREE.Vector3(end.position.x, end.position.y, end.position.z);
+    const delta = b.clone().sub(a);
+    const length = delta.length();
+    if (length < 0.001) return null;
+    const midpoint = a.clone().add(b).multiplyScalar(0.5);
+    const quaternion = new THREE.Quaternion().setFromUnitVectors(
+      new THREE.Vector3(0, 1, 0),
+      delta.clone().normalize()
+    );
+    return { length, midpoint, quaternion, start: a, end: b };
+  }, [start, end]);
+
+  if (!obj.visible || !line) return null;
+
+  const thickness = Math.max(0.01, obj.lineThickness ?? 0.06);
+  const hitThickness = Math.max(0.12, thickness * 2.2);
+
+  return (
+    <group>
+      <mesh
+        position={line.midpoint}
+        quaternion={line.quaternion}
+        castShadow
+        receiveShadow
+        onPointerDown={(e) => {
+          e.stopPropagation();
+          onSelect();
+        }}
+        onClick={(e) => {
+          e.stopPropagation();
+          onSelect();
+        }}
+      >
+        <cylinderGeometry args={[thickness, thickness, line.length, 24]} />
+        <meshStandardMaterial
+          color={obj.color}
+          opacity={obj.opacity}
+          transparent={obj.opacity < 1}
+          metalness={obj.metalness}
+          roughness={obj.roughness}
+          emissive={obj.emissive || '#000000'}
+          emissiveIntensity={obj.emissiveIntensity ?? 0}
+          wireframe={obj.wireframe}
+        />
+      </mesh>
+      <mesh
+        position={line.midpoint}
+        quaternion={line.quaternion}
+        onPointerDown={(e) => {
+          e.stopPropagation();
+          onSelect();
+        }}
+        userData={{ hideInViewportCapture: true }}
+      >
+        <cylinderGeometry args={[hitThickness, hitThickness, line.length, 16]} />
+        <meshBasicMaterial transparent opacity={0.001} depthWrite={false} />
+      </mesh>
+      {selected && (
+        <>
+          <mesh position={line.start} userData={{ hideInViewportCapture: true }}>
+            <sphereGeometry args={[Math.max(0.09, thickness * 1.8), 16, 12]} />
+            <meshBasicMaterial color="#22b8cf" depthTest={false} />
+          </mesh>
+          <mesh position={line.end} userData={{ hideInViewportCapture: true }}>
+            <sphereGeometry args={[Math.max(0.09, thickness * 1.8), 16, 12]} />
+            <meshBasicMaterial color="#22b8cf" depthTest={false} />
+          </mesh>
+        </>
+      )}
+    </group>
   );
 }
 
@@ -701,12 +1161,14 @@ function SceneObjectNode({
   const dragRef = useRef({
     active: false,
     kind: 'move' as 'move' | 'scale',
+    scaleAxis: 'uniform' as 'uniform' | 'x' | 'y' | 'z',
     pointerId: -1,
     plane: new THREE.Plane(),
     hit: new THREE.Vector3(),
     offset: new THREE.Vector3(),
     raycaster: new THREE.Raycaster(),
     pointer: new THREE.Vector2(),
+    axisScreen: new THREE.Vector2(1, 0),
     startClientX: 0,
     startClientY: 0,
     startScale: new THREE.Vector3(1, 1, 1),
@@ -796,6 +1258,7 @@ function SceneObjectNode({
 
     if (transformMode === 'scale') {
       d.kind = 'scale';
+      d.scaleAxis = 'uniform';
     } else {
       d.kind = 'move';
       d.plane.setFromNormalAndCoplanarPoint(
@@ -818,6 +1281,44 @@ function SceneObjectNode({
     (e.target as Element)?.setPointerCapture?.(e.pointerId);
   };
 
+  const beginScaleDrag = (e: ThreeEvent<PointerEvent>, axis: 'uniform' | 'x' | 'y' | 'z') => {
+    e.stopPropagation();
+    onSelect();
+
+    const g = groupRef.current;
+    if (!g) return;
+
+    const d = dragRef.current;
+    d.active = true;
+    d.kind = 'scale';
+    d.scaleAxis = axis;
+    d.pointerId = e.pointerId;
+    d.startClientX = e.clientX;
+    d.startClientY = e.clientY;
+    d.startScale.copy(g.scale);
+
+    if (axis !== 'uniform') {
+      const rect = gl.domElement.getBoundingClientRect();
+      const origin = g.getWorldPosition(new THREE.Vector3());
+      const rotation = g.getWorldQuaternion(new THREE.Quaternion());
+      const axisVector = new THREE.Vector3(
+        axis === 'x' ? 1 : 0,
+        axis === 'y' ? 1 : 0,
+        axis === 'z' ? 1 : 0
+      ).applyQuaternion(rotation);
+      const a = origin.clone().project(camera);
+      const b = origin.clone().add(axisVector).project(camera);
+      d.axisScreen.set((b.x - a.x) * rect.width, -(b.y - a.y) * rect.height);
+      if (d.axisScreen.lengthSq() < 0.0001) d.axisScreen.set(1, 0);
+      else d.axisScreen.normalize();
+    }
+
+    setOrbitLocked(true);
+    onManipulationChange(true);
+
+    (e.target as Element)?.setPointerCapture?.(e.pointerId);
+  };
+
   const moveDrag = (e: ThreeEvent<PointerEvent>) => {
     const d = dragRef.current;
     if (!d.active || d.pointerId !== e.pointerId) return;
@@ -827,16 +1328,21 @@ function SceneObjectNode({
     if (!g) return;
 
     if (d.kind === 'scale') {
-      // Drag up/right = larger, down/left = smaller (uniform scale)
       const dx = e.clientX - d.startClientX;
       const dy = d.startClientY - e.clientY;
-      const delta = (dx + dy) * 0.01;
+      const delta = d.scaleAxis === 'uniform' ? (dx + dy) * 0.01 : (dx * d.axisScreen.x - dy * d.axisScreen.y) * 0.012;
       const factor = Math.max(0.05, 1 + delta);
-      g.scale.set(
-        Math.max(0.05, d.startScale.x * factor),
-        Math.max(0.05, d.startScale.y * factor),
-        Math.max(0.05, d.startScale.z * factor)
-      );
+
+      if (d.scaleAxis === 'uniform') {
+        g.scale.set(
+          Math.max(0.05, d.startScale.x * factor),
+          Math.max(0.05, d.startScale.y * factor),
+          Math.max(0.05, d.startScale.z * factor)
+        );
+      } else {
+        g.scale.set(d.startScale.x, d.startScale.y, d.startScale.z);
+        g.scale[d.scaleAxis] = Math.max(0.05, d.startScale[d.scaleAxis] * factor);
+      }
       return;
     }
 
@@ -866,6 +1372,19 @@ function SceneObjectNode({
   };
 
   if (!obj.visible) return null;
+  const resizeHandleOffset = getObjectHitRadius(obj) + 0.28;
+  const resizeHandles: Array<{
+    axis: 'x' | 'y' | 'z';
+    position: [number, number, number];
+    color: string;
+  }> = [
+    { axis: 'x', position: [resizeHandleOffset, 0, 0], color: '#ff5c5c' },
+    { axis: 'x', position: [-resizeHandleOffset, 0, 0], color: '#ff5c5c' },
+    { axis: 'y', position: [0, resizeHandleOffset, 0], color: '#5cff8a' },
+    { axis: 'y', position: [0, -resizeHandleOffset, 0], color: '#5cff8a' },
+    { axis: 'z', position: [0, 0, resizeHandleOffset], color: '#5c9cff' },
+    { axis: 'z', position: [0, 0, -resizeHandleOffset], color: '#5c9cff' },
+  ];
 
   return (
     <>
@@ -877,9 +1396,6 @@ function SceneObjectNode({
         onPointerDown={beginDrag}
         onPointerMove={moveDrag}
         onPointerUp={endDrag}
-        onPointerLeave={(e) => {
-          if (dragRef.current.active) endDrag(e);
-        }}
         onClick={(e) => {
           e.stopPropagation();
           onSelect();
@@ -887,6 +1403,33 @@ function SceneObjectNode({
       >
         <ObjectContent obj={obj} selected={selected} />
         <ObjectHitTarget obj={obj} />
+        {selected && (
+          <>
+            {resizeHandles.map((handle) => (
+              <mesh
+                key={`${handle.axis}-${handle.position.join(',')}`}
+                position={handle.position}
+                onPointerDown={(e) => beginScaleDrag(e, handle.axis)}
+                onPointerMove={moveDrag}
+                onPointerUp={endDrag}
+                userData={{ hideInViewportCapture: true }}
+              >
+                <sphereGeometry args={[0.11, 16, 12]} />
+                <meshBasicMaterial color={handle.color} depthTest={false} />
+              </mesh>
+            ))}
+            <mesh
+              position={[resizeHandleOffset, resizeHandleOffset, resizeHandleOffset]}
+              onPointerDown={(e) => beginScaleDrag(e, 'uniform')}
+              onPointerMove={moveDrag}
+              onPointerUp={endDrag}
+              userData={{ hideInViewportCapture: true }}
+            >
+              <boxGeometry args={[0.16, 0.16, 0.16]} />
+              <meshBasicMaterial color="#3d8bfd" depthTest={false} />
+            </mesh>
+          </>
+        )}
       </group>
 
       {selected && transformMode === 'rotate' && (
@@ -942,7 +1485,7 @@ function SceneContent() {
       <ambientLight intensity={lights.ambientIntensity} color={lights.ambientColor} />
       <directionalLight
         castShadow
-        intensity={lights.directionalIntensity}
+        intensity={lights.directionalEnabled ? lights.directionalIntensity : 0}
         color={lights.directionalColor}
         position={[
           lights.directionalPosition.x,
@@ -962,7 +1505,7 @@ function SceneContent() {
       />
       <pointLight
         castShadow
-        intensity={lights.pointIntensity * POINT_LIGHT_RENDER_MULTIPLIER}
+        intensity={lights.pointEnabled ? lights.pointIntensity * POINT_LIGHT_RENDER_MULTIPLIER : 0}
         color={lights.pointColor}
         position={[lights.pointPosition.x, lights.pointPosition.y, lights.pointPosition.z]}
         distance={60}
@@ -1026,16 +1569,26 @@ function SceneContent() {
         />
       </group>
 
-      {objects.map((obj) => (
-        <SceneObjectNode
-          key={obj.id}
-          obj={obj}
-          selected={selectedId === obj.id}
-          transformMode={selectedId === obj.id ? transformMode : null}
-          onSelect={() => selectObject(obj.id)}
-          onManipulationChange={setObjectManipulating}
-        />
-      ))}
+      {objects.map((obj) =>
+        obj.type === 'connection' ? (
+          <ConnectionObjectNode
+            key={obj.id}
+            obj={obj}
+            objects={objects}
+            selected={selectedId === obj.id}
+            onSelect={() => selectObject(obj.id)}
+          />
+        ) : (
+          <SceneObjectNode
+            key={obj.id}
+            obj={obj}
+            selected={selectedId === obj.id}
+            transformMode={selectedId === obj.id ? transformMode : null}
+            onSelect={() => selectObject(obj.id)}
+            onManipulationChange={setObjectManipulating}
+          />
+        )
+      )}
 
       <OrbitControls makeDefault enableDamping dampingFactor={0.08} />
       <OrbitLockBridge />

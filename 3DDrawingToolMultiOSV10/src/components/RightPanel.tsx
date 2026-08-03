@@ -1,4 +1,4 @@
-import { useMemo, useRef, type ReactNode } from 'react';
+import { useMemo, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAppStore } from '../store/useAppStore';
 import { ALL_PRIMITIVES, type LightKind, type PrimitiveType, type SceneObject, type TextFontId, type Vec3 } from '../types';
@@ -253,11 +253,20 @@ function TexturePicker({
 
 function ObjectProperties({ obj }: { obj: SceneObject }) {
   const { t } = useTranslation();
+  const objects = useAppStore((s) => s.objects);
   const updateObject = useAppStore((s) => s.updateObject);
+  const addConnection = useAppStore((s) => s.addConnection);
+  const [connectionTargetId, setConnectionTargetId] = useState('');
 
   const patch = (partial: Partial<SceneObject>) => updateObject(obj.id, partial);
   const isPrimitive = ALL_PRIMITIVES.includes(obj.type as PrimitiveType);
   const isText = obj.type === 'text';
+  const isConnection = obj.type === 'connection';
+  const connectableObjects = objects.filter((candidate) => candidate.type !== 'connection');
+  const targetOptions = connectableObjects.filter((candidate) => candidate.id !== obj.id);
+  const selectedTargetId = targetOptions.some((candidate) => candidate.id === connectionTargetId)
+    ? connectionTargetId
+    : targetOptions[0]?.id || '';
 
   const rotateAxis = (axis: keyof Vec3, deg = 15) => {
     patch({
@@ -288,6 +297,78 @@ function ObjectProperties({ obj }: { obj: SceneObject }) {
           <label>{t('properties.sourceFile')}</label>
           <input type="text" value={obj.sourceFileName} disabled />
         </div>
+      )}
+
+      {isConnection && (
+        <>
+          <SectionTitle>{t('properties.connection')}</SectionTitle>
+          <div className="prop-group">
+            <label>{t('properties.connectionStart')}</label>
+            <select
+              value={obj.connectionStartId || ''}
+              onChange={(e) => patch({ connectionStartId: e.target.value })}
+            >
+              {connectableObjects.map((candidate) => (
+                <option key={candidate.id} value={candidate.id} disabled={candidate.id === obj.connectionEndId}>
+                  {candidate.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="prop-group">
+            <label>{t('properties.connectionEnd')}</label>
+            <select
+              value={obj.connectionEndId || ''}
+              onChange={(e) => patch({ connectionEndId: e.target.value })}
+            >
+              {connectableObjects.map((candidate) => (
+                <option key={candidate.id} value={candidate.id} disabled={candidate.id === obj.connectionStartId}>
+                  {candidate.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="prop-group">
+            <label>{t('properties.lineThickness')}</label>
+            <div className="slider-row">
+              <input
+                type="range"
+                min={0.01}
+                max={0.5}
+                step={0.01}
+                value={obj.lineThickness ?? 0.06}
+                onChange={(e) => patch({ lineThickness: parseFloat(e.target.value) })}
+              />
+              <span>{(obj.lineThickness ?? 0.06).toFixed(2)}</span>
+            </div>
+          </div>
+        </>
+      )}
+
+      {!isConnection && targetOptions.length > 0 && (
+        <>
+          <SectionTitle>{t('properties.connection')}</SectionTitle>
+          <div className="prop-group">
+            <label>{t('properties.connectionTarget')}</label>
+            <select value={selectedTargetId} onChange={(e) => setConnectionTargetId(e.target.value)}>
+              {targetOptions.map((candidate) => (
+                <option key={candidate.id} value={candidate.id}>
+                  {candidate.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <button
+            type="button"
+            className="axis-btn"
+            disabled={!selectedTargetId}
+            onClick={() => {
+              if (selectedTargetId) addConnection(obj.id, selectedTargetId);
+            }}
+          >
+            {t('properties.createConnection')}
+          </button>
+        </>
       )}
 
       <SectionTitle>{t('properties.appearance')}</SectionTitle>
@@ -494,77 +575,81 @@ function ObjectProperties({ obj }: { obj: SceneObject }) {
         />
       </div>
 
-      <SectionTitle>{t('properties.transform')}</SectionTitle>
-      <div className="prop-group">
-        <label>{t('properties.position')}</label>
-        <Vec3Fields value={obj.position} onChange={(position) => patch({ position })} />
-      </div>
+      {!isConnection && (
+        <>
+          <SectionTitle>{t('properties.transform')}</SectionTitle>
+          <div className="prop-group">
+            <label>{t('properties.position')}</label>
+            <Vec3Fields value={obj.position} onChange={(position) => patch({ position })} />
+          </div>
 
-      <div className="prop-group">
-        <label>{t('properties.rotation')} (°)</label>
-        <Vec3Fields
-          value={{
-            x: (obj.rotation.x * 180) / Math.PI,
-            y: (obj.rotation.y * 180) / Math.PI,
-            z: (obj.rotation.z * 180) / Math.PI,
-          }}
-          onChange={(deg) =>
-            patch({
-              rotation: {
-                x: (deg.x * Math.PI) / 180,
-                y: (deg.y * Math.PI) / 180,
-                z: (deg.z * Math.PI) / 180,
-              },
-            })
-          }
-          step={1}
-        />
-      </div>
+          <div className="prop-group">
+            <label>{t('properties.rotation')} (°)</label>
+            <Vec3Fields
+              value={{
+                x: (obj.rotation.x * 180) / Math.PI,
+                y: (obj.rotation.y * 180) / Math.PI,
+                z: (obj.rotation.z * 180) / Math.PI,
+              }}
+              onChange={(deg) =>
+                patch({
+                  rotation: {
+                    x: (deg.x * Math.PI) / 180,
+                    y: (deg.y * Math.PI) / 180,
+                    z: (deg.z * Math.PI) / 180,
+                  },
+                })
+              }
+              step={1}
+            />
+          </div>
 
-      <div className="prop-group">
-        <label>{t('properties.axisRotate')} (0°–360°)</label>
-        {(['x', 'y', 'z'] as const).map((axis) => {
-          const deg = (((obj.rotation[axis] * 180) / Math.PI) % 360 + 360) % 360;
-          return (
-            <div key={axis} style={{ marginBottom: 8 }}>
-              <div className="slider-row">
-                <input
-                  type="range"
-                  min={0}
-                  max={360}
-                  step={1}
-                  value={Math.round(deg)}
-                  onChange={(e) =>
-                    patch({
-                      rotation: {
-                        ...obj.rotation,
-                        [axis]: (parseFloat(e.target.value) * Math.PI) / 180,
-                      },
-                    })
-                  }
-                />
-                <span className={`axis ${axis}`}>{Math.round(deg)}°</span>
-              </div>
+          <div className="prop-group">
+            <label>{t('properties.axisRotate')} (0°-360°)</label>
+            {(['x', 'y', 'z'] as const).map((axis) => {
+              const deg = (((obj.rotation[axis] * 180) / Math.PI) % 360 + 360) % 360;
+              return (
+                <div key={axis} style={{ marginBottom: 8 }}>
+                  <div className="slider-row">
+                    <input
+                      type="range"
+                      min={0}
+                      max={360}
+                      step={1}
+                      value={Math.round(deg)}
+                      onChange={(e) =>
+                        patch({
+                          rotation: {
+                            ...obj.rotation,
+                            [axis]: (parseFloat(e.target.value) * Math.PI) / 180,
+                          },
+                        })
+                      }
+                    />
+                    <span className={`axis ${axis}`}>{Math.round(deg)}°</span>
+                  </div>
+                </div>
+              );
+            })}
+            <div className="axis-rotate-btns">
+              <button className="axis-btn x" onClick={() => rotateAxis('x', 90)}>
+                {t('properties.rotateX')} +90°
+              </button>
+              <button className="axis-btn y" onClick={() => rotateAxis('y', 90)}>
+                {t('properties.rotateY')} +90°
+              </button>
+              <button className="axis-btn z" onClick={() => rotateAxis('z', 90)}>
+                {t('properties.rotateZ')} +90°
+              </button>
             </div>
-          );
-        })}
-        <div className="axis-rotate-btns">
-          <button className="axis-btn x" onClick={() => rotateAxis('x', 90)}>
-            {t('properties.rotateX')} +90°
-          </button>
-          <button className="axis-btn y" onClick={() => rotateAxis('y', 90)}>
-            {t('properties.rotateY')} +90°
-          </button>
-          <button className="axis-btn z" onClick={() => rotateAxis('z', 90)}>
-            {t('properties.rotateZ')} +90°
-          </button>
-        </div>
-      </div>
+          </div>
 
-      <div className="prop-group">
-        <label>{t('properties.scale')}</label>
-        <UniformScaleSlider value={obj.scale} onChange={(scale) => patch({ scale })} />
-      </div>
+          <div className="prop-group">
+            <label>{t('properties.scale')}</label>
+            <UniformScaleSlider value={obj.scale} onChange={(scale) => patch({ scale })} />
+          </div>
+        </>
+      )}
     </>
   );
 }
@@ -575,6 +660,7 @@ function LightProperties({ kind }: { kind: LightKind }) {
   const setLights = useAppStore((s) => s.setLights);
   const isDirectional = kind === 'directional';
   const label = isDirectional ? t('properties.directional') : t('properties.point');
+  const enabled = isDirectional ? lights.directionalEnabled : lights.pointEnabled;
   const intensity = isDirectional ? lights.directionalIntensity : lights.pointIntensity;
   const color = isDirectional ? lights.directionalColor : lights.pointColor;
   const position = isDirectional ? lights.directionalPosition : lights.pointPosition;
@@ -586,11 +672,23 @@ function LightProperties({ kind }: { kind: LightKind }) {
         <label>{t('properties.type')}</label>
         <input type="text" value={label} disabled />
       </div>
+      <div className="toggle-row">
+        <span>{t('properties.enabled')}</span>
+        <input
+          type="checkbox"
+          checked={enabled}
+          onChange={(e) => {
+            if (isDirectional) setLights({ directionalEnabled: e.target.checked });
+            else setLights({ pointEnabled: e.target.checked });
+          }}
+        />
+      </div>
       <div className="prop-group">
         <label>{t('properties.intensity')}</label>
         <div className="slider-row">
           <input
             type="range"
+            disabled={!enabled}
             min={0}
             max={isDirectional ? 5 : 8}
             step={0.05}
