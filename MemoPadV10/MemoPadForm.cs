@@ -33,6 +33,7 @@ public partial class MemoPadForm : Form
     private ThemedVScrollBar _editorScrollBar = null!;
     private bool _syncingEditorScroll;
     private bool _keepEditorScrolledToTop;
+    private int _editorScrollSyncQueued;
 
     // 트레이 아이콘은 앱당 하나만 둡니다(첫 인스턴스가 생성).
     private static NotifyIcon? _trayIcon;
@@ -212,7 +213,32 @@ public partial class MemoPadForm : Form
             return;
         }
 
-        BeginInvoke(SyncEditorScrollBarFromEditor);
+        // 리사이즈/입력 중 BeginInvoke가 쌓여 UI가 멈추지 않도록 한 번만 대기열에 넣습니다.
+        if (Interlocked.Exchange(ref _editorScrollSyncQueued, 1) == 1)
+        {
+            return;
+        }
+
+        try
+        {
+            BeginInvoke(new Action(() =>
+            {
+                Interlocked.Exchange(ref _editorScrollSyncQueued, 0);
+                try
+                {
+                    SyncEditorScrollBarFromEditor();
+                }
+                catch (Exception ex)
+                {
+                    ErrorReport.Report(ex, "EditorScrollSync");
+                }
+            }));
+        }
+        catch (Exception ex)
+        {
+            Interlocked.Exchange(ref _editorScrollSyncQueued, 0);
+            ErrorReport.Report(ex, "EditorScrollSync.Schedule");
+        }
     }
 
     private void SyncEditorScrollBarFromEditor()

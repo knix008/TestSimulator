@@ -5,24 +5,32 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
-        ApplicationConfiguration.Initialize();
-
-        EditorSettings.Data? settings = EditorSettings.TryLoad();
-        if (settings != null)
+        try
         {
-            Loc.Language = Loc.Parse(settings.Language);
-        }
+            ApplicationConfiguration.Initialize();
+            ErrorReport.RegisterGlobalHandlers();
 
-        if (args.Any(a => string.Equals(a, AppIpc.ListArg, StringComparison.OrdinalIgnoreCase)))
+            EditorSettings.Data? settings = EditorSettings.TryLoad();
+            if (settings != null)
+            {
+                Loc.Language = Loc.Parse(settings.Language);
+            }
+
+            if (args.Any(a => string.Equals(a, AppIpc.ListArg, StringComparison.OrdinalIgnoreCase)))
+            {
+                RunListApp();
+                return;
+            }
+
+            string? openFile = ParseOpenFile(args);
+            int openIndex = openFile is null ? ParseOpenIndex(args) : -1;
+            bool openNew = args.Any(a => string.Equals(a, "--new", StringComparison.OrdinalIgnoreCase));
+            RunPadApp(openIndex, openFile, openNew);
+        }
+        catch (Exception ex)
         {
-            RunListApp();
-            return;
+            ErrorReport.Report(ex, "Startup", isTerminating: true);
         }
-
-        string? openFile = ParseOpenFile(args);
-        int openIndex = openFile is null ? ParseOpenIndex(args) : -1;
-        bool openNew = args.Any(a => string.Equals(a, "--new", StringComparison.OrdinalIgnoreCase));
-        RunPadApp(openIndex, openFile, openNew);
     }
 
     private static string? ParseOpenFile(string[] args)

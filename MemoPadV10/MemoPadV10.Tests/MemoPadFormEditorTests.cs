@@ -138,4 +138,41 @@ public class MemoPadFormEditorTests
         Assert.Single(saved);
         Assert.Equal(text.Replace("\r\n", "\n"), MemoStore.PlainTextForDisplay(saved[0]).Trim().Replace("\r\n", "\n"));
     }
+
+    [Fact]
+    public void EditorScrollBar_HidesAfterEnlargeWhenContentFits()
+    {
+        using var isolation = AppDataIsolation.Begin();
+
+        using MemoPadForm form = new();
+        form.Show();
+        form.ClientSize = new Size(360, 220);
+        PumpEvents(20);
+
+        form.memoEditor.Text = string.Join("\n", Enumerable.Range(1, 16).Select(i => $"줄 {i} 스크롤 테스트"));
+        PumpEvents(20);
+
+        Assert.True(
+            RichTextScrollInterop.TryReadVertical(form.memoEditor, out _, out int maxBefore),
+            "스크롤 정보를 읽지 못함");
+        Assert.True(maxBefore > 0, $"축소 상태에서 스크롤이 필요해야 함 (max={maxBefore})");
+
+        ThemedVScrollBar? bar = DescendantsOfType<ThemedVScrollBar>(form).FirstOrDefault();
+        Assert.NotNull(bar);
+        Assert.True(bar!.Visible, "축소 상태에서 테마 스크롤바가 보여야 함");
+
+        form.ClientSize = new Size(360, 720);
+        PumpEvents(30);
+
+        Assert.True(
+            RichTextScrollInterop.TryReadVertical(form.memoEditor, out _, out int maxAfter),
+            "확대 후 스크롤 정보를 읽지 못함");
+        Assert.Equal(0, maxAfter);
+        Assert.True(
+            RichTextScrollInterop.ContentFitsWithoutVerticalScroll(form.memoEditor),
+            "확대 후 내용이 다 보여야 함");
+        Assert.False(bar.Visible, "확대 후 내용이 맞으면 테마 스크롤바가 숨겨져야 함");
+
+        form.Close();
+    }
 }

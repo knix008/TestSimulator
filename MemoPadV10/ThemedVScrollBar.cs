@@ -226,7 +226,6 @@ internal static class RichTextScrollInterop
             return false;
         }
 
-        // Vertical 스크롤바가 있으면 GetScrollInfo가 정확합니다.
         ScrollInfo info = new()
         {
             cbSize = (uint)Marshal.SizeOf<ScrollInfo>(),
@@ -237,6 +236,21 @@ internal static class RichTextScrollInterop
             position = info.nPos;
             int page = (int)Math.Max(1u, info.nPage);
             maximum = Math.Max(0, info.nMax - page + 1);
+
+            if (control is RichTextBox rtbWithBars
+                && rtbWithBars.ScrollBars != RichTextBoxScrollBars.None)
+            {
+                // 확대 후 내용이 다 보여도 nPage가 갱신되지 않아 scrollMax>0으로 남는 경우가 있음.
+                // ScrollBars 토글은 이벤트 루프/정지를 유발할 수 있어, 테마 바 표시만 내용 높이로 보정합니다.
+                if (maximum > 0 && ContentFitsWithoutVerticalScroll(rtbWithBars))
+                {
+                    maximum = 0;
+                    position = 0;
+                }
+
+                return true;
+            }
+
             if (maximum > 0 || control is not RichTextBox)
             {
                 return true;
@@ -250,6 +264,26 @@ internal static class RichTextScrollInterop
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// 내용이 뷰포트에 확실히 들어갈 때만 true.
+    /// 경계 구간에서는 false로 두어 필요한 스크롤바를 숨기지 않습니다.
+    /// </summary>
+    public static bool ContentFitsWithoutVerticalScroll(RichTextBox rtb)
+    {
+        if (!rtb.IsHandleCreated || rtb.TextLength == 0)
+        {
+            return true;
+        }
+
+        Point top = rtb.GetPositionFromCharIndex(0);
+        Point bottom = rtb.GetPositionFromCharIndex(rtb.TextLength);
+        int lineHeight = Math.Max(1, TextRenderer.MeasureText("Ag", rtb.Font).Height);
+        // GetPositionFromCharIndex(TextLength)는 마지막 줄 시작 쪽일 수 있어 한 줄 높이를 더합니다.
+        int contentHeight = bottom.Y - top.Y + lineHeight;
+        // 여유를 둬 측정 오차로 스크롤이 필요한데 맞다고 판정하는 일을 줄입니다.
+        return contentHeight + 8 <= rtb.ClientSize.Height;
     }
 
     private const int EmGetLineCount = 0x00BA;
