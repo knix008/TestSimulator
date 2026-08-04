@@ -3,12 +3,26 @@
   "name": "Warm Night",
   "objects": [
     {
+      "textureId": "none",
+      "textureRepeat": 2,
       "id": "tpl-warm-ground",
       "name": "Ground",
       "type": "plane",
-      "position": { "x": 0, "y": 0, "z": 0 },
-      "rotation": { "x": -1.5708, "y": 0, "z": 0 },
-      "scale": { "x": 5, "y": 5, "z": 1 },
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "rotation": {
+        "x": -1.5708,
+        "y": 0,
+        "z": 0
+      },
+      "scale": {
+        "x": 5,
+        "y": 5,
+        "z": 1
+      },
       "color": "#212529",
       "opacity": 1,
       "visible": true,
@@ -20,12 +34,26 @@
       "flatShading": false
     },
     {
+      "textureId": "none",
+      "textureRepeat": 2,
       "id": "tpl-warm-lamp",
       "name": "Lamp Body",
       "type": "cylinder",
-      "position": { "x": 0, "y": 1.0, "z": 0 },
-      "rotation": { "x": 0, "y": 0, "z": 0 },
-      "scale": { "x": 0.35, "y": 1.6, "z": 0.35 },
+      "position": {
+        "x": 0,
+        "y": 1,
+        "z": 0
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "scale": {
+        "x": 0.35,
+        "y": 1.6,
+        "z": 0.35
+      },
       "color": "#495057",
       "opacity": 1,
       "visible": true,
@@ -37,12 +65,26 @@
       "flatShading": false
     },
     {
+      "textureId": "none",
+      "textureRepeat": 2,
       "id": "tpl-warm-glow",
       "name": "Glow Orb",
       "type": "sphere",
-      "position": { "x": 0, "y": 2.1, "z": 0 },
-      "rotation": { "x": 0, "y": 0, "z": 0 },
-      "scale": { "x": 0.55, "y": 0.55, "z": 0.55 },
+      "position": {
+        "x": 0,
+        "y": 2.1,
+        "z": 0
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "scale": {
+        "x": 0.55,
+        "y": 0.55,
+        "z": 0.55
+      },
       "color": "#ffd43b",
       "opacity": 1,
       "visible": true,
@@ -54,12 +96,26 @@
       "flatShading": false
     },
     {
+      "textureId": "none",
+      "textureRepeat": 2,
       "id": "tpl-warm-box",
       "name": "Side Box",
       "type": "box",
-      "position": { "x": 1.8, "y": 0.45, "z": -0.8 },
-      "rotation": { "x": 0, "y": 0.3, "z": 0 },
-      "scale": { "x": 0.9, "y": 0.9, "z": 0.9 },
+      "position": {
+        "x": 1.8,
+        "y": 0.45,
+        "z": -0.8
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0.3,
+        "z": 0
+      },
+      "scale": {
+        "x": 0.9,
+        "y": 0.9,
+        "z": 0.9
+      },
       "color": "#e67700",
       "opacity": 1,
       "visible": true,
@@ -73,21 +129,36 @@
   ],
   "selectedId": "tpl-warm-glow",
   "lights": {
+    "directionalEnabled": true,
+    "pointEnabled": true,
     "ambientIntensity": 0.12,
     "ambientColor": "#1c2330",
     "directionalIntensity": 0.25,
     "directionalColor": "#748ffc",
-    "directionalPosition": { "x": -3, "y": 8, "z": -4 },
+    "directionalPosition": {
+      "x": -3,
+      "y": 8,
+      "z": -4
+    },
     "pointIntensity": 2.2,
     "pointColor": "#ff922b",
-    "pointPosition": { "x": 0, "y": 2.1, "z": 0 }
+    "pointPosition": {
+      "x": 0,
+      "y": 2.1,
+      "z": 0
+    }
   },
   "viewport": {
+    "showLightMarkers": true,
     "showGrid": true,
     "showAxes": false,
     "backgroundColor": "#0b1020",
-    "cameraPosition": { "x": 4.5, "y": 3.2, "z": 5.5 }
+    "cameraPosition": {
+      "x": 4.5,
+      "y": 3.2,
+      "z": 5.5
+    }
   },
   "createdAt": "2026-08-02T00:00:00.000Z",
-  "updatedAt": "2026-08-02T00:00:00.000Z"
+  "updatedAt": "2026-08-04T00:00:00.000Z"
 }

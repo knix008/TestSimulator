@@ -72,6 +72,24 @@
         "ko": "건물처럼 쌓은 박스 구성의 간단한 건축 장면입니다.",
         "en": "Simple architectural massing with stacked boxes."
       }
+    },
+    {
+      "id": "workspace-interior",
+      "file": "workspace-interior.3ddraw",
+      "title": { "ko": "작업실 인테리어", "en": "Workspace Interior" },
+      "description": {
+        "ko": "책상, 의자, 노트북, 조명, 식물 등 최신 가구 오브젝트를 배치한 장면입니다.",
+        "en": "A compact workspace scene using the latest furniture and decor objects."
+      }
+    },
+    {
+      "id": "network-topology",
+      "file": "network-topology.3ddraw",
+      "title": { "ko": "네트워크 토폴로지", "en": "Network Topology" },
+      "description": {
+        "ko": "라우터, 스위치, 서버 랙, 방화벽, 연결선을 포함한 네트워크 구성 템플릿입니다.",
+        "en": "A network layout with routers, switches, racks, firewall appliances, and connections."
+      }
     }
   ]
 }

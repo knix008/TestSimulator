@@ -3,12 +3,26 @@
   "name": "Primitives Showcase",
   "objects": [
     {
+      "textureId": "none",
+      "textureRepeat": 2,
       "id": "tpl-box-1",
       "name": "Box",
       "type": "box",
-      "position": { "x": -5, "y": 0.5, "z": 0 },
-      "rotation": { "x": 0, "y": 0.4, "z": 0 },
-      "scale": { "x": 1, "y": 1, "z": 1 },
+      "position": {
+        "x": -5,
+        "y": 0.5,
+        "z": 0
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0.4,
+        "z": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      },
       "color": "#4f8cff",
       "opacity": 1,
       "visible": true,
@@ -20,12 +34,26 @@
       "flatShading": false
     },
     {
+      "textureId": "none",
+      "textureRepeat": 2,
       "id": "tpl-sphere-1",
       "name": "Sphere",
       "type": "sphere",
-      "position": { "x": -3, "y": 0.6, "z": 0 },
-      "rotation": { "x": 0, "y": 0, "z": 0 },
-      "scale": { "x": 1, "y": 1, "z": 1 },
+      "position": {
+        "x": -3,
+        "y": 0.6,
+        "z": 0
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      },
       "color": "#ff6b6b",
       "opacity": 1,
       "visible": true,
@@ -37,12 +65,26 @@
       "flatShading": false
     },
     {
+      "textureId": "none",
+      "textureRepeat": 2,
       "id": "tpl-cyl-1",
       "name": "Cylinder",
       "type": "cylinder",
-      "position": { "x": -1, "y": 0.6, "z": 0 },
-      "rotation": { "x": 0, "y": 0, "z": 0 },
-      "scale": { "x": 1, "y": 1, "z": 1 },
+      "position": {
+        "x": -1,
+        "y": 0.6,
+        "z": 0
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      },
       "color": "#51cf66",
       "opacity": 1,
       "visible": true,
@@ -54,12 +96,26 @@
       "flatShading": false
     },
     {
+      "textureId": "none",
+      "textureRepeat": 2,
       "id": "tpl-cone-1",
       "name": "Cone",
       "type": "cone",
-      "position": { "x": 1, "y": 0.6, "z": 0 },
-      "rotation": { "x": 0, "y": 0.2, "z": 0 },
-      "scale": { "x": 1, "y": 1, "z": 1 },
+      "position": {
+        "x": 1,
+        "y": 0.6,
+        "z": 0
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0.2,
+        "z": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      },
       "color": "#fcc419",
       "opacity": 1,
       "visible": true,
@@ -71,12 +127,26 @@
       "flatShading": false
     },
     {
+      "textureId": "none",
+      "textureRepeat": 2,
       "id": "tpl-torus-1",
       "name": "Torus",
       "type": "torus",
-      "position": { "x": 3, "y": 0.55, "z": 0 },
-      "rotation": { "x": 0.6, "y": 0.3, "z": 0 },
-      "scale": { "x": 1, "y": 1, "z": 1 },
+      "position": {
+        "x": 3,
+        "y": 0.55,
+        "z": 0
+      },
+      "rotation": {
+        "x": 0.6,
+        "y": 0.3,
+        "z": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      },
       "color": "#cc5de8",
       "opacity": 1,
       "visible": true,
@@ -88,12 +158,26 @@
       "flatShading": false
     },
     {
+      "textureId": "none",
+      "textureRepeat": 2,
       "id": "tpl-plane-1",
       "name": "Plane",
       "type": "plane",
-      "position": { "x": 5, "y": 0, "z": 0 },
-      "rotation": { "x": -1.5708, "y": 0, "z": 0 },
-      "scale": { "x": 1, "y": 1, "z": 1 },
+      "position": {
+        "x": 5,
+        "y": 0,
+        "z": 0
+      },
+      "rotation": {
+        "x": -1.5708,
+        "y": 0,
+        "z": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      },
       "color": "#868e96",
       "opacity": 1,
       "visible": true,
@@ -107,21 +191,36 @@
   ],
   "selectedId": "tpl-box-1",
   "lights": {
+    "directionalEnabled": true,
+    "pointEnabled": true,
     "ambientIntensity": 0.5,
     "ambientColor": "#ffffff",
     "directionalIntensity": 1.2,
     "directionalColor": "#ffffff",
-    "directionalPosition": { "x": 6, "y": 9, "z": 4 },
+    "directionalPosition": {
+      "x": 6,
+      "y": 9,
+      "z": 4
+    },
     "pointIntensity": 0.45,
     "pointColor": "#ffe8c8",
-    "pointPosition": { "x": -5, "y": 4, "z": 3 }
+    "pointPosition": {
+      "x": -5,
+      "y": 4,
+      "z": 3
+    }
   },
   "viewport": {
+    "showLightMarkers": true,
     "showGrid": true,
     "showAxes": true,
     "backgroundColor": "#1a1f26",
-    "cameraPosition": { "x": 4, "y": 4, "z": 10 }
+    "cameraPosition": {
+      "x": 4,
+      "y": 4,
+      "z": 10
+    }
   },
   "createdAt": "2026-08-02T00:00:00.000Z",
-  "updatedAt": "2026-08-02T00:00:00.000Z"
+  "updatedAt": "2026-08-04T00:00:00.000Z"
 }

@@ -3,12 +3,26 @@
   "name": "Product Studio",
   "objects": [
     {
+      "textureId": "none",
+      "textureRepeat": 2,
       "id": "tpl-studio-floor",
       "name": "Floor",
       "type": "plane",
-      "position": { "x": 0, "y": 0, "z": 0 },
-      "rotation": { "x": -1.5708, "y": 0, "z": 0 },
-      "scale": { "x": 4, "y": 4, "z": 1 },
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "rotation": {
+        "x": -1.5708,
+        "y": 0,
+        "z": 0
+      },
+      "scale": {
+        "x": 4,
+        "y": 4,
+        "z": 1
+      },
       "color": "#e9ecef",
       "opacity": 1,
       "visible": true,
@@ -20,12 +34,26 @@
       "flatShading": false
     },
     {
+      "textureId": "none",
+      "textureRepeat": 2,
       "id": "tpl-studio-pedestal",
       "name": "Pedestal",
       "type": "cylinder",
-      "position": { "x": 0, "y": 0.25, "z": 0 },
-      "rotation": { "x": 0, "y": 0, "z": 0 },
-      "scale": { "x": 1.4, "y": 0.4, "z": 1.4 },
+      "position": {
+        "x": 0,
+        "y": 0.25,
+        "z": 0
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "scale": {
+        "x": 1.4,
+        "y": 0.4,
+        "z": 1.4
+      },
       "color": "#ced4da",
       "opacity": 1,
       "visible": true,
@@ -37,12 +65,26 @@
       "flatShading": false
     },
     {
+      "textureId": "none",
+      "textureRepeat": 2,
       "id": "tpl-studio-product",
       "name": "Product",
       "type": "sphere",
-      "position": { "x": 0, "y": 1.05, "z": 0 },
-      "rotation": { "x": 0, "y": 0, "z": 0 },
-      "scale": { "x": 1.1, "y": 1.1, "z": 1.1 },
+      "position": {
+        "x": 0,
+        "y": 1.05,
+        "z": 0
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "scale": {
+        "x": 1.1,
+        "y": 1.1,
+        "z": 1.1
+      },
       "color": "#74c0fc",
       "opacity": 1,
       "visible": true,
@@ -56,21 +98,36 @@
   ],
   "selectedId": "tpl-studio-product",
   "lights": {
+    "directionalEnabled": true,
+    "pointEnabled": true,
     "ambientIntensity": 0.35,
     "ambientColor": "#f8f9fa",
     "directionalIntensity": 1.4,
     "directionalColor": "#ffffff",
-    "directionalPosition": { "x": 4, "y": 10, "z": 3 },
+    "directionalPosition": {
+      "x": 4,
+      "y": 10,
+      "z": 3
+    },
     "pointIntensity": 0.7,
     "pointColor": "#fff3bf",
-    "pointPosition": { "x": -3, "y": 3.5, "z": 2 }
+    "pointPosition": {
+      "x": -3,
+      "y": 3.5,
+      "z": 2
+    }
   },
   "viewport": {
+    "showLightMarkers": true,
     "showGrid": false,
     "showAxes": false,
     "backgroundColor": "#2b303b",
-    "cameraPosition": { "x": 3.5, "y": 2.8, "z": 5 }
+    "cameraPosition": {
+      "x": 3.5,
+      "y": 2.8,
+      "z": 5
+    }
   },
   "createdAt": "2026-08-02T00:00:00.000Z",
-  "updatedAt": "2026-08-02T00:00:00.000Z"
+  "updatedAt": "2026-08-04T00:00:00.000Z"
 }
