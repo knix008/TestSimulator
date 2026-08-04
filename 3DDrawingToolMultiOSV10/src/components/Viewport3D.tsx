@@ -33,7 +33,8 @@ import { registerViewportCapture, unregisterViewportCapture } from '../utils/vie
 import ImportedAsset from './ImportedAsset';
 import LightsCanvasPanel from './LightsCanvasPanel';
 
-const WORLD_AXIS_LENGTH = 40;
+const EMPTY_AXIS_LENGTH = 1.6;
+const AXIS_PADDING = 0.6;
 
 /** Fine fixed world grid — on-screen size grows/shrinks with zoom (배율) */
 const GRID_CELL_SIZE = 0.1;
@@ -90,10 +91,15 @@ function AxisLabel({
   color: string;
 }) {
   const labelRef = useRef<THREE.Mesh>(null);
+  const { camera } = useThree();
 
   useEffect(() => {
     if (labelRef.current) labelRef.current.raycast = () => null;
   }, []);
+
+  useFrame(() => {
+    if (labelRef.current) labelRef.current.quaternion.copy(camera.quaternion);
+  });
 
   return (
     <Text
@@ -113,9 +119,9 @@ function AxisLabel({
 
 function AxisLabels({ axisLength }: { axisLength: number }) {
   const labels: { text: string; position: [number, number, number]; color: string }[] = [
-    { text: 'X', position: [axisLength + 0.28, 0, 0], color: '#ff5c5c' },
-    { text: 'Y', position: [0, axisLength + 0.28, 0], color: '#5cff8a' },
-    { text: 'Z', position: [0, 0, axisLength + 0.28], color: '#5c9cff' },
+    { text: 'X', position: [axisLength + 0.22, 0, 0], color: '#ff5c5c' },
+    { text: 'Y', position: [0, axisLength + 0.22, 0], color: '#5cff8a' },
+    { text: 'Z', position: [0, 0, axisLength + 0.22], color: '#5c9cff' },
   ];
 
   return (
@@ -129,15 +135,30 @@ function AxisLabels({ axisLength }: { axisLength: number }) {
 
 function SceneAxes({ axisLength }: { axisLength: number }) {
   const axes = useMemo(() => {
-    const helper = new THREE.AxesHelper(axisLength);
-    helper.raycast = () => null;
-    helper.userData.hideInTransparentViewportCapture = true;
-    return helper;
+    const group = new THREE.Group();
+    const addAxis = (end: THREE.Vector3, color: string) => {
+      const geometry = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), end]);
+      const material = new THREE.LineBasicMaterial({ color, toneMapped: false });
+      const line = new THREE.Line(geometry, material);
+      line.raycast = () => null;
+      group.add(line);
+    };
+
+    addAxis(new THREE.Vector3(axisLength, 0, 0), '#ff5c5c');
+    addAxis(new THREE.Vector3(0, axisLength, 0), '#5cff8a');
+    addAxis(new THREE.Vector3(0, 0, axisLength), '#5c9cff');
+    group.userData.hideInTransparentViewportCapture = true;
+    return group;
   }, [axisLength]);
 
   useEffect(() => {
     return () => {
-      axes.dispose();
+      axes.traverse((child) => {
+        const line = child as THREE.Line;
+        line.geometry?.dispose();
+        const material = line.material as THREE.Material | undefined;
+        material?.dispose();
+      });
     };
   }, [axes]);
 
@@ -752,6 +773,15 @@ function getObjectHitRadius(obj: SceneObject) {
 }
 
 function getObjectHitSize(obj: SceneObject): [number, number, number] {
+  if (obj.type === 'image') return [2.2, 1.6, 0.12];
+  if (obj.type === 'model') return [2.2, 2.2, 2.2];
+  if (obj.type === 'text') {
+    const textLength = Math.max(1, obj.text?.length ?? 4);
+    const textSize = obj.textSize ?? 0.55;
+    const width = Math.max(0.8, Math.min(5, textLength * textSize * 0.55));
+    return [width, textSize * 1.4, Math.max(0.1, obj.textDepth ?? 0.04)];
+  }
+
   switch (obj.type) {
     case 'table':
       return [1.75, 0.9, 1.15];
@@ -800,6 +830,40 @@ function getObjectHitSize(obj: SceneObject): [number, number, number] {
     default:
       return [1, 1, 1];
   }
+}
+
+function getDynamicAxisLength(objects: SceneObject[]) {
+  let maxExtent = 0;
+  let hasVisibleContent = false;
+
+  for (const obj of objects) {
+    if (!obj.visible) continue;
+    hasVisibleContent = true;
+
+    if (obj.type === 'connection') {
+      const start = objects.find((o) => o.id === obj.connectionStartId && o.visible);
+      const end = objects.find((o) => o.id === obj.connectionEndId && o.visible);
+      for (const endpoint of [start, end]) {
+        if (!endpoint) continue;
+        maxExtent = Math.max(maxExtent, endpoint.position.x, endpoint.position.y, endpoint.position.z);
+      }
+      continue;
+    }
+
+    const [width, height, depth] = getObjectHitSize(obj);
+    const halfX = Math.abs(width * obj.scale.x) / 2;
+    const halfY = Math.abs(height * obj.scale.y) / 2;
+    const halfZ = Math.abs(depth * obj.scale.z) / 2;
+    maxExtent = Math.max(
+      maxExtent,
+      obj.position.x + halfX,
+      obj.position.y + halfY,
+      obj.position.z + halfZ
+    );
+  }
+
+  if (!hasVisibleContent) return EMPTY_AXIS_LENGTH;
+  return Math.ceil(Math.max(EMPTY_AXIS_LENGTH, maxExtent + AXIS_PADDING) * 2) / 2;
 }
 
 function ObjectHitTarget({ obj }: { obj: SceneObject }) {
@@ -1861,7 +1925,7 @@ function SceneContent() {
   const lights = useAppStore((s) => s.lights);
   const viewport = useAppStore((s) => s.viewport);
   const [objectManipulating, setObjectManipulating] = useState(false);
-  const axisLength = WORLD_AXIS_LENGTH;
+  const axisLength = useMemo(() => getDynamicAxisLength(objects), [objects]);
 
   // select + move → translate gizmo; rotate/scale → their gizmos
   const transformMode: 'translate' | 'rotate' | 'scale' | null = useMemo(() => {
