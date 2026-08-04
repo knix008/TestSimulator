@@ -75,11 +75,26 @@ export default function LightsCanvasPanel() {
     const parent = panelRef.current?.parentElement;
     const pw = parent?.clientWidth ?? window.innerWidth;
     const ph = parent?.clientHeight ?? window.innerHeight;
+    const panelWidth = panelRef.current?.offsetWidth ?? Math.min(PANEL_W, pw);
+    const panelHeight = panelRef.current?.offsetHeight ?? Math.min(PANEL_H, ph);
     return {
-      x: Math.max(0, Math.min(x, pw - PANEL_W)),
-      y: Math.max(0, Math.min(y, Math.max(0, ph - Math.min(PANEL_H, ph - 24)))),
+      x: Math.max(0, Math.min(x, Math.max(0, pw - panelWidth))),
+      y: Math.max(0, Math.min(y, Math.max(0, ph - panelHeight))),
     };
   }, []);
+
+  useEffect(() => {
+    setPos((current) => clampPos(current.x, current.y));
+
+    const parent = panelRef.current?.parentElement;
+    if (!parent || typeof ResizeObserver === 'undefined') return;
+
+    const resizeObserver = new ResizeObserver(() => {
+      setPos((current) => clampPos(current.x, current.y));
+    });
+    resizeObserver.observe(parent);
+    return () => resizeObserver.disconnect();
+  }, [clampPos, showLightsPanel]);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(pos));
