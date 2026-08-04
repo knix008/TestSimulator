@@ -47,6 +47,11 @@ type HistorySnapshot = {
   projectName: string;
 };
 
+type ConnectionEditTarget = {
+  connectionId: string;
+  endpoint: 'start' | 'end';
+};
+
 function createShape(type: PrimitiveType, index: number): SceneObject {
   const colors: Record<PrimitiveType, string> = {
     box: '#4f8cff',
@@ -156,6 +161,8 @@ interface AppState {
   objects: SceneObject[];
   copiedObject: SceneObject | null;
   selectedId: string | null;
+  connectionStartId: string | null;
+  connectionEditTarget: ConnectionEditTarget | null;
   selectedLight: LightKind | null;
   lights: LightSettings;
   viewport: ViewportSettings;
@@ -175,6 +182,8 @@ interface AppState {
   setLanguage: (language: Language) => void;
   setTool: (tool: ToolType) => void;
   setSelectedId: (id: string | null) => void;
+  setConnectionStartId: (id: string | null) => void;
+  setConnectionEditTarget: (target: ConnectionEditTarget | null) => void;
   setSelectedLight: (light: LightKind | null) => void;
   addShape: (type: PrimitiveType) => void;
   addText: () => void;
@@ -241,6 +250,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   objects: [],
   copiedObject: null,
   selectedId: null,
+  connectionStartId: null,
+  connectionEditTarget: null,
   selectedLight: null,
   lights: { ...defaultLights },
   viewport: { ...defaultViewport },
@@ -270,6 +281,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   setTool: (tool) => set({ tool }),
 
   setSelectedId: (id) => set({ selectedId: id, selectedLight: id ? null : get().selectedLight }),
+
+  setConnectionStartId: (id) => set({ connectionStartId: id }),
+
+  setConnectionEditTarget: (target) => set({ connectionEditTarget: target }),
 
   setSelectedLight: (light) => set({ selectedLight: light, selectedId: light ? null : get().selectedId }),
 
@@ -351,10 +366,16 @@ export const useAppStore = create<AppState>((set, get) => ({
       connectionStartId: start.id,
       connectionEndId: end.id,
       lineThickness: 0.06,
+      lineStyle: 'solid',
+      linePathType: 'straight',
+      lineStartEndpoint: 'none',
+      lineEndEndpoint: 'none',
     };
     set({
       objects: [...objects, obj],
       selectedId: obj.id,
+      connectionStartId: null,
+      connectionEditTarget: null,
       selectedLight: null,
       tool: 'select',
       shapeCounter: counter + 1,
@@ -442,6 +463,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({
       objects: objects.filter((o) => o.id !== selectedId && o.connectionStartId !== selectedId && o.connectionEndId !== selectedId),
       selectedId: null,
+      connectionStartId: get().connectionStartId === selectedId ? null : get().connectionStartId,
+      connectionEditTarget: get().connectionEditTarget?.connectionId === selectedId ? null : get().connectionEditTarget,
     });
   },
 
@@ -530,12 +553,18 @@ export const useAppStore = create<AppState>((set, get) => ({
       textItalic: false,
       textUnderline: false,
       lineThickness: 0.06,
+      lineStyle: 'solid',
+      linePathType: 'straight',
+      lineStartEndpoint: 'none',
+      lineEndEndpoint: 'none',
       ...o,
     }));
     set({
       projectName: data.name || 'Untitled',
       objects,
       selectedId: data.selectedId ?? null,
+      connectionStartId: null,
+      connectionEditTarget: null,
       selectedLight: null,
       lights: { ...defaultLights, ...data.lights },
       viewport: { ...defaultViewport, ...data.viewport },
@@ -555,6 +584,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({
       objects: [],
       selectedId: null,
+      connectionStartId: null,
+      connectionEditTarget: null,
       selectedLight: null,
       lights: { ...defaultLights },
       viewport: { ...defaultViewport },

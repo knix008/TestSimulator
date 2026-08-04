@@ -821,6 +821,261 @@ function ObjectHitTarget({ obj }: { obj: SceneObject }) {
   );
 }
 
+const BOX_SURFACE_TYPES = new Set<PrimitiveType>([
+  'box',
+  'plane',
+  'slab',
+  'wall',
+  'door',
+  'windowFrame',
+  'table',
+  'chair',
+  'sofa',
+  'bed',
+  'bookshelf',
+  'laptop',
+  'networkRouter',
+  'networkSwitch',
+  'serverRack',
+  'firewallAppliance',
+  'modem',
+  'nasStorage',
+  'patchPanel',
+]);
+
+function getObjectQuaternion(obj: SceneObject) {
+  return new THREE.Quaternion().setFromEuler(new THREE.Euler(obj.rotation.x, obj.rotation.y, obj.rotation.z));
+}
+
+function scaledHalfExtents(size: [number, number, number], obj: SceneObject) {
+  return new THREE.Vector3(
+    Math.max(0.02, (size[0] * Math.abs(obj.scale.x)) / 2),
+    Math.max(0.02, (size[1] * Math.abs(obj.scale.y)) / 2),
+    Math.max(0.02, (size[2] * Math.abs(obj.scale.z)) / 2)
+  );
+}
+
+function getPrimitiveSurfaceSize(obj: SceneObject): [number, number, number] {
+  switch (obj.type) {
+    case 'box':
+      return [1, 1, 1];
+    case 'sphere':
+      return [1.2, 1.2, 1.2];
+    case 'cylinder':
+      return [1, 1.2, 1];
+    case 'cone':
+      return [1.1, 1.2, 1.1];
+    case 'torus':
+      return [1.54, 0.44, 1.54];
+    case 'plane':
+      return [2, 2, 0.04];
+    case 'capsule':
+      return [0.8, 1.7, 0.8];
+    case 'pyramid':
+      return [1.4, 1.1, 1.4];
+    case 'dodecahedron':
+    case 'icosahedron':
+    case 'octahedron':
+      return [1.4, 1.4, 1.4];
+    case 'tetrahedron':
+      return [1.7, 1.7, 1.7];
+    case 'torusKnot':
+      return [1.2, 1.2, 1.2];
+    case 'ring':
+    case 'circle':
+      return [1.7, 1.7, 0.04];
+    case 'hexPrism':
+      return [1.24, 1.15, 1.24];
+    case 'triangularPrism':
+      return [1.44, 1.15, 1.44];
+    case 'pipe':
+      return [1.24, 1.25, 1.24];
+    case 'halfSphere':
+      return [1.44, 0.72, 1.44];
+    case 'truncatedCone':
+      return [1.44, 1.2, 1.44];
+    case 'slab':
+      return [1.6, 0.18, 1];
+    case 'wall':
+      return [1.8, 1.1, 0.18];
+    case 'rod':
+      return [0.32, 1.8, 0.32];
+    case 'disk':
+      return [1.56, 0.18, 1.56];
+    case 'pentagonalPrism':
+    case 'octagonalPrism':
+      return [1.3, 1.15, 1.3];
+    case 'diamond':
+      return [1.6, 1.6, 1.6];
+    case 'thinTorus':
+      return [1.32, 0.16, 1.32];
+    case 'arc':
+      return [1.54, 0.24, 1.54];
+    case 'halfCylinder':
+      return [1.3, 1.15, 0.65];
+    case 'model':
+      return [2.5, 2.5, 2.5];
+    case 'image':
+      return [2.7, 2.7, 0.04];
+    case 'text': {
+      const textLength = Math.max(1, obj.text?.length ?? 4);
+      const textSize = obj.textSize ?? 0.55;
+      const textDepth = obj.textDepth ?? 0.08;
+      return [Math.max(0.8, textLength * textSize * 0.58), Math.max(0.2, textSize), Math.max(0.04, textDepth)];
+    }
+    default:
+      return [1, 1, 1];
+  }
+}
+
+function getConnectionCenter(obj: SceneObject) {
+  const center = new THREE.Vector3(obj.position.x, obj.position.y, obj.position.z);
+  if (COMPOSITE_PRIMITIVES.has(obj.type as PrimitiveType)) {
+    const offset = new THREE.Vector3(0, (getObjectHitSize(obj)[1] * obj.scale.y) / 2, 0)
+      .applyQuaternion(getObjectQuaternion(obj));
+    center.add(offset);
+  }
+  return center;
+}
+
+function getConnectionHalfExtents(obj: SceneObject) {
+  const size = COMPOSITE_PRIMITIVES.has(obj.type as PrimitiveType)
+    ? getObjectHitSize(obj)
+    : getPrimitiveSurfaceSize(obj);
+  return scaledHalfExtents(size, obj);
+}
+
+function isBoxSurface(obj: SceneObject) {
+  return BOX_SURFACE_TYPES.has(obj.type as PrimitiveType) || obj.type === 'image' || obj.type === 'text';
+}
+
+function getConnectionSurfacePoint(obj: SceneObject, toward: THREE.Vector3) {
+  const center = getConnectionCenter(obj);
+  const worldDirection = toward.clone().sub(center);
+  if (worldDirection.lengthSq() < 0.000001) return center;
+
+  const half = getConnectionHalfExtents(obj);
+  const rotation = getObjectQuaternion(obj);
+  const localDirection = worldDirection.clone().applyQuaternion(rotation.clone().invert()).normalize();
+
+  if (isBoxSurface(obj)) {
+    const candidates = [
+      Math.abs(localDirection.x) > 0.0001 ? half.x / Math.abs(localDirection.x) : Infinity,
+      Math.abs(localDirection.y) > 0.0001 ? half.y / Math.abs(localDirection.y) : Infinity,
+      Math.abs(localDirection.z) > 0.0001 ? half.z / Math.abs(localDirection.z) : Infinity,
+    ];
+    const distance = Math.min(...candidates.filter(Number.isFinite));
+    const localPoint = localDirection.multiplyScalar(Number.isFinite(distance) ? distance : Math.max(half.x, half.y, half.z));
+    return center.add(localPoint.applyQuaternion(rotation));
+  }
+
+  const denominator = Math.sqrt(
+    (localDirection.x * localDirection.x) / (half.x * half.x) +
+      (localDirection.y * localDirection.y) / (half.y * half.y) +
+      (localDirection.z * localDirection.z) / (half.z * half.z)
+  );
+  const localPoint = localDirection.multiplyScalar(denominator > 0 ? 1 / denominator : Math.max(half.x, half.y, half.z));
+  return center.add(localPoint.applyQuaternion(rotation));
+}
+
+function getConnectionPoints(start: SceneObject, end: SceneObject, pathType: SceneObject['linePathType']) {
+  const startCenter = getConnectionCenter(start);
+  const endCenter = getConnectionCenter(end);
+  const a = getConnectionSurfacePoint(start, endCenter);
+  const b = getConnectionSurfacePoint(end, startCenter);
+
+  if (pathType === 'elbow') {
+    return [a, new THREE.Vector3(b.x, a.y, a.z), b];
+  }
+
+  if (pathType === 'curve') {
+    const distance = a.distanceTo(b);
+    const control = a.clone().add(b).multiplyScalar(0.5).add(new THREE.Vector3(0, Math.max(0.35, distance * 0.22), 0));
+    return Array.from({ length: 13 }, (_, index) => {
+      const t = index / 12;
+      return a.clone().multiplyScalar((1 - t) * (1 - t))
+        .add(control.clone().multiplyScalar(2 * (1 - t) * t))
+        .add(b.clone().multiplyScalar(t * t));
+    });
+  }
+
+  return [a, b];
+}
+
+function getSegmentBetween(start: THREE.Vector3, end: THREE.Vector3) {
+  const delta = end.clone().sub(start);
+  const length = delta.length();
+  if (length < 0.001) return null;
+  return {
+    start,
+    end,
+    length,
+    midpoint: start.clone().add(end).multiplyScalar(0.5),
+    direction: delta.clone().normalize(),
+    quaternion: new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), delta.normalize()),
+  };
+}
+
+function ConnectionMaterial({ obj }: { obj: SceneObject }) {
+  return (
+    <meshStandardMaterial
+      color={obj.color}
+      opacity={obj.opacity}
+      transparent={obj.opacity < 1}
+      metalness={obj.metalness}
+      roughness={obj.roughness}
+      emissive={obj.emissive || '#000000'}
+      emissiveIntensity={obj.emissiveIntensity ?? 0}
+      wireframe={obj.wireframe}
+    />
+  );
+}
+
+function ConnectionEndpointMarker({
+  type,
+  position,
+  direction,
+  thickness,
+  obj,
+  onSelect,
+}: {
+  type: SceneObject['lineStartEndpoint'];
+  position: THREE.Vector3;
+  direction: THREE.Vector3;
+  thickness: number;
+  obj: SceneObject;
+  onSelect: () => void;
+}) {
+  if (!type || type === 'none') return null;
+
+  const size = Math.max(0.12, thickness * 2.8);
+  const quaternion = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction.clone().normalize());
+
+  return (
+    <mesh
+      position={position}
+      quaternion={quaternion}
+      castShadow
+      receiveShadow
+      onPointerDown={(e) => {
+        e.stopPropagation();
+        onSelect();
+      }}
+      onClick={(e) => {
+        e.stopPropagation();
+        onSelect();
+      }}
+    >
+      {type === 'arrow' ? (
+        <coneGeometry args={[size * 0.62, size * 1.35, 24]} />
+      ) : (
+        <sphereGeometry args={[size * 0.62, 20, 16]} />
+      )}
+      <ConnectionMaterial obj={obj} />
+    </mesh>
+  );
+}
+
 function ConnectionObjectNode({
   obj,
   objects,
@@ -837,64 +1092,126 @@ function ConnectionObjectNode({
 
   const line = useMemo(() => {
     if (!start || !end) return null;
-    const a = new THREE.Vector3(start.position.x, start.position.y, start.position.z);
-    const b = new THREE.Vector3(end.position.x, end.position.y, end.position.z);
-    const delta = b.clone().sub(a);
-    const length = delta.length();
-    if (length < 0.001) return null;
-    const midpoint = a.clone().add(b).multiplyScalar(0.5);
-    const quaternion = new THREE.Quaternion().setFromUnitVectors(
-      new THREE.Vector3(0, 1, 0),
-      delta.clone().normalize()
-    );
-    return { length, midpoint, quaternion, start: a, end: b };
-  }, [start, end]);
+    const points = getConnectionPoints(start, end, obj.linePathType || 'straight');
+    const segments = points.slice(0, -1)
+      .map((point, index) => getSegmentBetween(point, points[index + 1]))
+      .filter((segment): segment is NonNullable<ReturnType<typeof getSegmentBetween>> => !!segment);
+    if (segments.length === 0) return null;
+    return { points, segments, start: points[0], end: points[points.length - 1] };
+  }, [start, end, obj.linePathType]);
 
   if (!obj.visible || !line) return null;
 
   const thickness = Math.max(0.01, obj.lineThickness ?? 0.06);
   const hitThickness = Math.max(0.12, thickness * 2.2);
+  const lineStyle = obj.lineStyle || 'solid';
+
+  const segmentMeshes = useMemo(() => {
+    if (!line || lineStyle === 'solid') return [];
+    const gap = lineStyle === 'dashed' ? Math.max(thickness * 4, 0.16) : Math.max(thickness * 5, 0.18);
+    const segmentLength = lineStyle === 'dashed' ? Math.max(thickness * 6, 0.28) : 0;
+    const items: Array<{ key: string; position: THREE.Vector3; length: number; quaternion: THREE.Quaternion }> = [];
+
+    line.segments.forEach((segment, segmentIndex) => {
+      let offset = 0;
+      let index = 0;
+      while (offset < segment.length) {
+        const length = lineStyle === 'dashed' ? Math.min(segmentLength, segment.length - offset) : 0;
+        const centerOffset = lineStyle === 'dashed' ? offset + length / 2 : offset;
+        items.push({
+          key: `${lineStyle}-${segmentIndex}-${index}`,
+          position: segment.start.clone().add(segment.direction.clone().multiplyScalar(centerOffset)),
+          length,
+          quaternion: segment.quaternion,
+        });
+        offset += lineStyle === 'dashed' ? segmentLength + gap : gap;
+        index += 1;
+      }
+    });
+
+    return items;
+  }, [line, lineStyle, thickness]);
 
   return (
     <group>
-      <mesh
-        position={line.midpoint}
-        quaternion={line.quaternion}
-        castShadow
-        receiveShadow
-        onPointerDown={(e) => {
-          e.stopPropagation();
-          onSelect();
-        }}
-        onClick={(e) => {
-          e.stopPropagation();
-          onSelect();
-        }}
-      >
-        <cylinderGeometry args={[thickness, thickness, line.length, 24]} />
-        <meshStandardMaterial
-          color={obj.color}
-          opacity={obj.opacity}
-          transparent={obj.opacity < 1}
-          metalness={obj.metalness}
-          roughness={obj.roughness}
-          emissive={obj.emissive || '#000000'}
-          emissiveIntensity={obj.emissiveIntensity ?? 0}
-          wireframe={obj.wireframe}
-        />
-      </mesh>
-      <mesh
-        position={line.midpoint}
-        quaternion={line.quaternion}
-        onPointerDown={(e) => {
-          e.stopPropagation();
-          onSelect();
-        }}
-        userData={{ hideInViewportCapture: true }}
-      >
-        <cylinderGeometry args={[hitThickness, hitThickness, line.length, 16]} />
-        <meshBasicMaterial transparent opacity={0.001} depthWrite={false} />
-      </mesh>
+      {lineStyle === 'solid' ? (
+        line.segments.map((segment, index) => (
+          <mesh
+            key={`solid-${index}`}
+            position={segment.midpoint}
+            quaternion={segment.quaternion}
+            castShadow
+            receiveShadow
+            onPointerDown={(e) => {
+              e.stopPropagation();
+              onSelect();
+            }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onSelect();
+            }}
+          >
+            <cylinderGeometry args={[thickness, thickness, segment.length, 24]} />
+            <ConnectionMaterial obj={obj} />
+          </mesh>
+        ))
+      ) : (
+        segmentMeshes.map((segment) => (
+          <mesh
+            key={segment.key}
+            position={segment.position}
+            quaternion={segment.quaternion}
+            castShadow
+            receiveShadow
+            onPointerDown={(e) => {
+              e.stopPropagation();
+              onSelect();
+            }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onSelect();
+            }}
+          >
+            {lineStyle === 'dashed' ? (
+              <cylinderGeometry args={[thickness, thickness, segment.length, 18]} />
+            ) : (
+              <sphereGeometry args={[Math.max(thickness * 1.35, 0.045), 16, 12]} />
+            )}
+            <ConnectionMaterial obj={obj} />
+          </mesh>
+        ))
+      )}
+      {line.segments.map((segment, index) => (
+        <mesh
+          key={`hit-${index}`}
+          position={segment.midpoint}
+          quaternion={segment.quaternion}
+          onPointerDown={(e) => {
+            e.stopPropagation();
+            onSelect();
+          }}
+          userData={{ hideInViewportCapture: true }}
+        >
+          <cylinderGeometry args={[hitThickness, hitThickness, segment.length, 16]} />
+          <meshBasicMaterial transparent opacity={0.001} depthWrite={false} />
+        </mesh>
+      ))}
+      <ConnectionEndpointMarker
+        type={obj.lineStartEndpoint || 'none'}
+        position={line.start}
+        direction={line.segments[0].direction.clone().negate()}
+        thickness={thickness}
+        obj={obj}
+        onSelect={onSelect}
+      />
+      <ConnectionEndpointMarker
+        type={obj.lineEndEndpoint || 'none'}
+        position={line.end}
+        direction={line.segments[line.segments.length - 1].direction}
+        thickness={thickness}
+        obj={obj}
+        onSelect={onSelect}
+      />
       {selected && (
         <>
           <mesh position={line.start} userData={{ hideInViewportCapture: true }}>
@@ -911,10 +1228,62 @@ function ConnectionObjectNode({
   );
 }
 
+function ConnectionPreviewLine({ start }: { start: SceneObject }) {
+  const { camera, gl } = useThree();
+  const [end, setEnd] = useState(() => getConnectionCenter(start));
+
+  useEffect(() => {
+    const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -start.position.y);
+    const raycaster = new THREE.Raycaster();
+    const pointer = new THREE.Vector2();
+    const hit = new THREE.Vector3();
+
+    const onPointerMove = (event: PointerEvent) => {
+      const rect = gl.domElement.getBoundingClientRect();
+      pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.setFromCamera(pointer, camera);
+      if (raycaster.ray.intersectPlane(plane, hit)) setEnd(hit.clone());
+    };
+
+    gl.domElement.addEventListener('pointermove', onPointerMove);
+    return () => gl.domElement.removeEventListener('pointermove', onPointerMove);
+  }, [camera, gl, start.position.y]);
+
+  const line = useMemo(() => {
+    const a = getConnectionSurfacePoint(start, end);
+    const delta = end.clone().sub(a);
+    const length = delta.length();
+    if (length < 0.001) return null;
+    return {
+      length,
+      midpoint: a.clone().add(end).multiplyScalar(0.5),
+      quaternion: new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), delta.normalize()),
+    };
+  }, [end, start.position.x, start.position.y, start.position.z]);
+
+  if (!line) return null;
+
+  return (
+    <group userData={{ hideInViewportCapture: true }}>
+      <mesh position={line.midpoint} quaternion={line.quaternion}>
+        <cylinderGeometry args={[0.025, 0.025, line.length, 12]} />
+        <meshBasicMaterial color="#22b8cf" transparent opacity={0.75} depthTest={false} />
+      </mesh>
+      <mesh position={[end.x, end.y, end.z]}>
+        <sphereGeometry args={[0.08, 16, 12]} />
+        <meshBasicMaterial color="#22b8cf" transparent opacity={0.85} depthTest={false} />
+      </mesh>
+    </group>
+  );
+}
+
 /** Latest OrbitControls instance — updated by OrbitLockBridge (useThree.getState is not available). */
 let orbitControlsRef: OrbitControlsImpl | null = null;
+let orbitLocked = false;
 
 function setOrbitLocked(locked: boolean) {
+  orbitLocked = locked;
   if (orbitControlsRef) orbitControlsRef.enabled = !locked;
 }
 
@@ -922,6 +1291,7 @@ function OrbitLockBridge() {
   const controls = useThree((s) => s.controls) as OrbitControlsImpl | null;
   useEffect(() => {
     orbitControlsRef = controls;
+    if (orbitControlsRef) orbitControlsRef.enabled = !orbitLocked;
     return () => {
       if (orbitControlsRef === controls) orbitControlsRef = null;
     };
@@ -952,6 +1322,7 @@ function DraggableLightMarker({
 }) {
   const groupRef = useRef<THREE.Group>(null);
   const visualRef = useRef<THREE.Group>(null);
+  const labelRef = useRef<THREE.Mesh>(null);
   const setLights = useAppStore((s) => s.setLights);
   const { camera, gl } = useThree();
 
@@ -991,6 +1362,7 @@ function DraggableLightMarker({
     const dist = Math.max(0.001, camera.position.length());
     const s = dist / BASE_CAMERA_DISTANCE;
     if (visualRef.current) visualRef.current.scale.setScalar(s);
+    if (labelRef.current) labelRef.current.quaternion.copy(camera.quaternion);
   });
 
   useEffect(() => {
@@ -1125,6 +1497,7 @@ function DraggableLightMarker({
           </mesh>
         )}
         <Text
+          ref={labelRef}
           position={[0, radius + 0.3, 0]}
           fontSize={0.24}
           color={color}
@@ -1137,6 +1510,14 @@ function DraggableLightMarker({
       </group>
     </group>
   );
+}
+
+function stopOrbitPointerEvent(e: ThreeEvent<PointerEvent>) {
+  e.stopPropagation();
+  const nativeEvent = (e as unknown as { nativeEvent?: Event; sourceEvent?: Event }).nativeEvent
+    ?? (e as unknown as { nativeEvent?: Event; sourceEvent?: Event }).sourceEvent;
+  nativeEvent?.stopImmediatePropagation?.();
+  nativeEvent?.stopPropagation?.();
 }
 
 /** Drag to move (select/move) or drag to resize (scale tool) */
@@ -1238,10 +1619,20 @@ function SceneObjectNode({
   }, [obj.position, obj.rotation, obj.scale]);
 
   const beginDrag = (e: ThreeEvent<PointerEvent>) => {
+    if (e.button !== 0) {
+      stopOrbitPointerEvent(e);
+      onSelect();
+      return;
+    }
+    if (!transformMode) {
+      stopOrbitPointerEvent(e);
+      onSelect();
+      return;
+    }
     // rotate tool: use gizmo only
     if (transformMode === 'rotate') return;
 
-    e.stopPropagation();
+    stopOrbitPointerEvent(e);
     onSelect();
 
     const g = groupRef.current;
@@ -1282,7 +1673,7 @@ function SceneObjectNode({
   };
 
   const beginScaleDrag = (e: ThreeEvent<PointerEvent>, axis: 'uniform' | 'x' | 'y' | 'z') => {
-    e.stopPropagation();
+    stopOrbitPointerEvent(e);
     onSelect();
 
     const g = groupRef.current;
@@ -1322,7 +1713,7 @@ function SceneObjectNode({
   const moveDrag = (e: ThreeEvent<PointerEvent>) => {
     const d = dragRef.current;
     if (!d.active || d.pointerId !== e.pointerId) return;
-    e.stopPropagation();
+    stopOrbitPointerEvent(e);
 
     const g = groupRef.current;
     if (!g) return;
@@ -1353,12 +1744,16 @@ function SceneObjectNode({
 
     if (d.raycaster.ray.intersectPlane(d.plane, d.hit)) {
       g.position.copy(d.hit).add(d.offset);
+      updateObject(obj.id, {
+        position: { x: g.position.x, y: g.position.y, z: g.position.z },
+      });
     }
   };
 
   const endDrag = (e: ThreeEvent<PointerEvent>) => {
     const d = dragRef.current;
     if (!d.active || (d.pointerId !== -1 && d.pointerId !== e.pointerId)) return;
+    stopOrbitPointerEvent(e);
     d.active = false;
     d.pointerId = -1;
     setOrbitLocked(false);
@@ -1398,6 +1793,9 @@ function SceneObjectNode({
         onPointerUp={endDrag}
         onClick={(e) => {
           e.stopPropagation();
+          onSelect();
+        }}
+        onContextMenu={(e) => {
           onSelect();
         }}
       >
@@ -1453,6 +1851,13 @@ function SceneContent() {
   const selectedLight = useAppStore((s) => s.selectedLight);
   const setSelectedLight = useAppStore((s) => s.setSelectedLight);
   const tool = useAppStore((s) => s.tool);
+  const setTool = useAppStore((s) => s.setTool);
+  const addConnection = useAppStore((s) => s.addConnection);
+  const connectionStartId = useAppStore((s) => s.connectionStartId);
+  const setConnectionStartId = useAppStore((s) => s.setConnectionStartId);
+  const connectionEditTarget = useAppStore((s) => s.connectionEditTarget);
+  const setConnectionEditTarget = useAppStore((s) => s.setConnectionEditTarget);
+  const updateObject = useAppStore((s) => s.updateObject);
   const lights = useAppStore((s) => s.lights);
   const viewport = useAppStore((s) => s.viewport);
   const [objectManipulating, setObjectManipulating] = useState(false);
@@ -1467,6 +1872,64 @@ function SceneContent() {
   }, [tool]);
 
   const selectObject = (id: string) => {
+    const target = objects.find((obj) => obj.id === id);
+
+    if (connectionEditTarget) {
+      const connection = objects.find((obj) => obj.id === connectionEditTarget.connectionId && obj.type === 'connection');
+      if (!connection || !target || target.type === 'connection') {
+        setSelectedId(id);
+        return;
+      }
+
+      const otherId = connectionEditTarget.endpoint === 'start' ? connection.connectionEndId : connection.connectionStartId;
+      if (target.id !== otherId) {
+        updateObject(connection.id, connectionEditTarget.endpoint === 'start'
+          ? { connectionStartId: target.id }
+          : { connectionEndId: target.id });
+        setConnectionEditTarget(null);
+        setSelectedId(connection.id);
+      }
+      return;
+    }
+
+    if (connectionStartId) {
+      if (!target || target.type === 'connection') {
+        setSelectedId(id);
+        return;
+      }
+
+      if (connectionStartId !== id) {
+        const connection = addConnection(connectionStartId, id);
+        if (connection) setSelectedId(connection.id);
+        setConnectionStartId(null);
+        setTool('select');
+      } else {
+        setSelectedId(id);
+      }
+      return;
+    }
+
+    if (tool === 'connection') {
+      if (!target || target.type === 'connection') {
+        setSelectedId(id);
+        return;
+      }
+
+      if (!connectionStartId || connectionStartId === id) {
+        setConnectionStartId(id);
+        setSelectedId(id);
+        return;
+      }
+
+      const connection = addConnection(connectionStartId, id);
+      if (connection) {
+        setSelectedId(connection.id);
+        setConnectionStartId(null);
+        setTool('select');
+      }
+      return;
+    }
+
     setSelectedId(id);
   };
 
@@ -1475,6 +1938,8 @@ function SceneContent() {
   };
 
   const clearSelection = () => {
+    setConnectionStartId(null);
+    setConnectionEditTarget(null);
     setSelectedId(null);
     setSelectedLight(null);
   };
@@ -1582,15 +2047,33 @@ function SceneContent() {
           <SceneObjectNode
             key={obj.id}
             obj={obj}
-            selected={selectedId === obj.id}
-            transformMode={selectedId === obj.id ? transformMode : null}
+            selected={selectedId === obj.id || connectionStartId === obj.id}
+            transformMode={transformMode === 'translate' || selectedId === obj.id ? transformMode : null}
             onSelect={() => selectObject(obj.id)}
             onManipulationChange={setObjectManipulating}
           />
         )
       )}
 
-      <OrbitControls makeDefault enableDamping dampingFactor={0.08} />
+      {connectionStartId && (() => {
+        const start = objects.find((obj) => obj.id === connectionStartId && obj.type !== 'connection');
+        return start ? <ConnectionPreviewLine start={start} /> : null;
+      })()}
+
+      {connectionEditTarget && (() => {
+        const connection = objects.find((obj) => obj.id === connectionEditTarget.connectionId && obj.type === 'connection');
+        if (!connection) return null;
+        const fixedId = connectionEditTarget.endpoint === 'start' ? connection.connectionEndId : connection.connectionStartId;
+        const fixed = objects.find((obj) => obj.id === fixedId && obj.type !== 'connection');
+        return fixed ? <ConnectionPreviewLine start={fixed} /> : null;
+      })()}
+
+      <OrbitControls
+        makeDefault
+        enabled={!objectManipulating}
+        enableDamping={!objectManipulating}
+        dampingFactor={0.08}
+      />
       <OrbitLockBridge />
       <CameraScaleReporter />
       <group userData={{ hideInTransparentViewportCapture: true }}>

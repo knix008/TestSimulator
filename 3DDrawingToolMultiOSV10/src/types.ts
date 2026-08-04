@@ -109,6 +109,9 @@ export const ALL_PRIMITIVES: PrimitiveType[] = [
 
 export type ModelFormat = 'glb' | 'gltf' | 'obj' | 'stl' | 'fbx' | 'ply' | 'image';
 export type TextFontId = 'helvetiker' | 'gentilis' | 'optimer' | 'droidSans' | 'droidSerif';
+export type LineStyle = 'solid' | 'dashed' | 'dotted';
+export type LinePathType = 'straight' | 'elbow' | 'curve';
+export type LineEndpoint = 'none' | 'circle' | 'arrow';
 export type ShapeType = PrimitiveType | 'model' | 'image' | 'text' | 'connection';
 
 export type ToolType =
@@ -116,6 +119,7 @@ export type ToolType =
   | 'move'
   | 'rotate'
   | 'scale'
+  | 'connection'
   | 'text'
   | PrimitiveType;
 
@@ -162,6 +166,10 @@ export interface SceneObject {
   connectionStartId?: string;
   connectionEndId?: string;
   lineThickness?: number;
+  lineStyle?: LineStyle;
+  linePathType?: LinePathType;
+  lineStartEndpoint?: LineEndpoint;
+  lineEndEndpoint?: LineEndpoint;
 }
 
 export interface LightSettings {

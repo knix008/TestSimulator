@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAppStore } from '../store/useAppStore';
-import { ALL_PRIMITIVES, type LightKind, type PrimitiveType, type SceneObject, type TextFontId, type Vec3 } from '../types';
+import { ALL_PRIMITIVES, type LightKind, type LineEndpoint, type LinePathType, type LineStyle, type PrimitiveType, type SceneObject, type TextFontId, type Vec3 } from '../types';
 import {
   TEXTURE_PRESETS,
   getPresetTextureUrl,
@@ -29,6 +29,30 @@ const TEXT_FONT_OPTIONS: { id: TextFontId; labelKey: string }[] = [
   { id: 'optimer', labelKey: 'properties.fontOptimer' },
   { id: 'droidSans', labelKey: 'properties.fontDroidSans' },
   { id: 'droidSerif', labelKey: 'properties.fontDroidSerif' },
+];
+
+const LINE_STYLE_OPTIONS: { id: LineStyle; labelKey: string }[] = [
+  { id: 'solid', labelKey: 'properties.lineStyleSolid' },
+  { id: 'dashed', labelKey: 'properties.lineStyleDashed' },
+  { id: 'dotted', labelKey: 'properties.lineStyleDotted' },
+];
+
+const LINE_PATH_OPTIONS: { id: LinePathType; labelKey: string }[] = [
+  { id: 'straight', labelKey: 'properties.linePathStraight' },
+  { id: 'elbow', labelKey: 'properties.linePathElbow' },
+  { id: 'curve', labelKey: 'properties.linePathCurve' },
+];
+
+const LINE_ENDPOINT_OPTIONS: { id: LineEndpoint; labelKey: string }[] = [
+  { id: 'none', labelKey: 'properties.lineEndpointNone' },
+  { id: 'circle', labelKey: 'properties.lineEndpointCircle' },
+  { id: 'arrow', labelKey: 'properties.lineEndpointArrow' },
+];
+
+const LINE_THICKNESS_OPTIONS = [
+  { id: 'thin', value: 0.03, labelKey: 'properties.lineThicknessThin' },
+  { id: 'medium', value: 0.06, labelKey: 'properties.lineThicknessMedium' },
+  { id: 'thick', value: 0.14, labelKey: 'properties.lineThicknessThick' },
 ];
 
 function normalizeHex(value: string): string {
@@ -148,6 +172,101 @@ function ColorField({
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+function LineStylePicker({ value, onChange }: { value: LineStyle; onChange: (style: LineStyle) => void }) {
+  const { t } = useTranslation();
+
+  return (
+    <div className="line-style-grid">
+      {LINE_STYLE_OPTIONS.map((option) => (
+        <button
+          key={option.id}
+          type="button"
+          className={`line-style-btn ${value === option.id ? 'active' : ''}`}
+          title={t(option.labelKey)}
+          onClick={() => onChange(option.id)}
+        >
+          <span className={`line-style-preview ${option.id}`} aria-hidden>
+            <span />
+          </span>
+          <span>{t(option.labelKey)}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function LinePathPicker({ value, onChange }: { value: LinePathType; onChange: (path: LinePathType) => void }) {
+  const { t } = useTranslation();
+
+  return (
+    <div className="line-style-grid">
+      {LINE_PATH_OPTIONS.map((option) => (
+        <button
+          key={option.id}
+          type="button"
+          className={`line-style-btn ${value === option.id ? 'active' : ''}`}
+          title={t(option.labelKey)}
+          onClick={() => onChange(option.id)}
+        >
+          <span className={`line-path-preview ${option.id}`} aria-hidden>
+            <span />
+          </span>
+          <span>{t(option.labelKey)}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function LineEndpointPicker({ value, onChange }: { value: LineEndpoint; onChange: (endpoint: LineEndpoint) => void }) {
+  const { t } = useTranslation();
+
+  return (
+    <div className="line-style-grid">
+      {LINE_ENDPOINT_OPTIONS.map((option) => (
+        <button
+          key={option.id}
+          type="button"
+          className={`line-style-btn ${value === option.id ? 'active' : ''}`}
+          title={t(option.labelKey)}
+          onClick={() => onChange(option.id)}
+        >
+          <span className={`line-endpoint-preview ${option.id}`} aria-hidden>
+            <span />
+          </span>
+          <span>{t(option.labelKey)}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function LineThicknessPicker({ value, onChange }: { value: number; onChange: (thickness: number) => void }) {
+  const { t } = useTranslation();
+
+  return (
+    <div className="line-style-grid">
+      {LINE_THICKNESS_OPTIONS.map((option) => {
+        const active = Math.abs(value - option.value) < 0.015;
+        return (
+          <button
+            key={option.id}
+            type="button"
+            className={`line-style-btn ${active ? 'active' : ''}`}
+            title={t(option.labelKey)}
+            onClick={() => onChange(option.value)}
+          >
+            <span className={`line-thickness-preview ${option.id}`} aria-hidden>
+              <span />
+            </span>
+            <span>{t(option.labelKey)}</span>
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -329,7 +448,24 @@ function ObjectProperties({ obj }: { obj: SceneObject }) {
             </select>
           </div>
           <div className="prop-group">
+            <label>{t('properties.linePathType')}</label>
+            <LinePathPicker value={obj.linePathType || 'straight'} onChange={(linePathType) => patch({ linePathType })} />
+          </div>
+          <div className="prop-group">
+            <label>{t('properties.lineStyle')}</label>
+            <LineStylePicker value={obj.lineStyle || 'solid'} onChange={(lineStyle) => patch({ lineStyle })} />
+          </div>
+          <div className="prop-group">
+            <label>{t('properties.lineStartEndpoint')}</label>
+            <LineEndpointPicker value={obj.lineStartEndpoint || 'none'} onChange={(lineStartEndpoint) => patch({ lineStartEndpoint })} />
+          </div>
+          <div className="prop-group">
+            <label>{t('properties.lineEndEndpoint')}</label>
+            <LineEndpointPicker value={obj.lineEndEndpoint || 'none'} onChange={(lineEndEndpoint) => patch({ lineEndEndpoint })} />
+          </div>
+          <div className="prop-group">
             <label>{t('properties.lineThickness')}</label>
+            <LineThicknessPicker value={obj.lineThickness ?? 0.06} onChange={(lineThickness) => patch({ lineThickness })} />
             <div className="slider-row">
               <input
                 type="range"

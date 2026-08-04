@@ -7,6 +7,7 @@ import {
   IconBox,
   IconCapsule,
   IconChevron,
+  IconConnection,
   IconCone,
   IconCylinder,
   IconDodecahedron,
@@ -113,6 +114,8 @@ export default function LeftPanel({
   const { t } = useTranslation();
   const addShape = useAppStore((s) => s.addShape);
   const addText = useAppStore((s) => s.addText);
+  const tool = useAppStore((s) => s.tool);
+  const setTool = useAppStore((s) => s.setTool);
   const setShowTemplates = useAppStore((s) => s.setShowTemplates);
   const projectName = useAppStore((s) => s.projectName);
 
@@ -135,6 +138,10 @@ export default function LeftPanel({
             <button className="tool-btn" onClick={addText}>
               <IconText />
               {t('tools.text')}
+            </button>
+            <button className={`tool-btn ${tool === 'connection' ? 'active' : ''}`} onClick={() => setTool('connection')}>
+              <IconConnection />
+              {t('tools.connection')}
             </button>
             <button className="tool-btn" onClick={() => pickAndImportModels()}>
               <IconImport />
