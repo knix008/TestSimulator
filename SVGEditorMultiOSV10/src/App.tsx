@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import {
   AlignCenter,
   BringToFront,
@@ -7,6 +8,7 @@ import {
   Download,
   Eraser,
   FileImage,
+  FolderOpen,
   Grid3X3,
   Hexagon,
   ImagePlus,
@@ -169,6 +171,59 @@ type Shape = {
 
 const defaultCanvasSize = { width: 1200, height: 760 }
 const canvasGrowthPadding = 160
+const documentStorageKey = 'svg-editor-v1-document'
+
+type SavedDocument = { shapes: Shape[]; rasters: RasterLayer[]; canvasSize: { width: number; height: number } }
+
+// The last worked-on document, auto-saved to localStorage. Returns null on first launch (empty canvas).
+function loadDocument(): SavedDocument | null {
+  if (typeof window === 'undefined') {
+    return null
+  }
+  try {
+    const raw = window.localStorage.getItem(documentStorageKey)
+    if (!raw) {
+      return null
+    }
+    const parsed = JSON.parse(raw) as Partial<SavedDocument>
+    if (!Array.isArray(parsed.shapes)) {
+      return null
+    }
+    const canvasSize = parsed.canvasSize && typeof parsed.canvasSize.width === 'number' && typeof parsed.canvasSize.height === 'number' ? parsed.canvasSize : defaultCanvasSize
+    return {
+      shapes: parsed.shapes,
+      rasters: Array.isArray(parsed.rasters) ? parsed.rasters : [],
+      canvasSize,
+    }
+  } catch {
+    return null
+  }
+}
+
+function saveDocument(shapes: Shape[], rasters: RasterLayer[], canvasSize: { width: number; height: number }) {
+  if (typeof window === 'undefined') {
+    return
+  }
+  try {
+    window.localStorage.setItem(documentStorageKey, JSON.stringify({ shapes, rasters, canvasSize }))
+  } catch {
+    // Storage quota exceeded (large embedded images) or unavailable — keep at least the vector shapes.
+    try {
+      window.localStorage.setItem(documentStorageKey, JSON.stringify({ shapes, rasters: [], canvasSize }))
+    } catch {
+      // Give up silently; persistence is best-effort.
+    }
+  }
+}
+
+function readFileAsDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result as string)
+    reader.onerror = () => reject(reader.error ?? new Error('File read failed'))
+    reader.readAsDataURL(file)
+  })
+}
 const fontOptions = ['Arial, sans-serif', 'Segoe UI, sans-serif', 'Georgia, serif', 'Times New Roman, serif', 'Consolas, monospace', 'Courier New, monospace']
 
 const shadowPresets: Record<Exclude<ShadowEffect, 'none'>, { direction: ShadowDirection; distance: number; blur: number; color: string; opacity: number }> = {
@@ -215,10 +270,14 @@ const shadowDirectionLabelKeys: Record<ShadowDirection, string> = {
 const messages = {
   ko: {
     appName: 'SVG Editor V1.0',
+    file: '파일',
     open: '열기',
     add: '추가',
     newFile: '새 파일',
     saveSvg: 'SVG 저장',
+    saveAs: '다른 이름으로 저장',
+    saveAsTitle: '다른 이름으로 저장',
+    fileName: '파일 이름',
     saveChangesTitle: '변경사항 저장',
     saveChangesMessage: '현재 작업 내용에 변경사항이 있습니다. 계속하기 전에 저장하시겠습니까?',
     save: '저장',
@@ -242,7 +301,7 @@ const messages = {
     rect: '사각형',
     square: '정사각형',
     roundRect: '둥근 사각형',
-    ellipse: '타원',
+    ellipse: '원',
     circleShape: '원',
     triangle: '삼각형',
     diamondShape: '마름모',
@@ -350,10 +409,14 @@ const messages = {
   },
   en: {
     appName: 'SVG Editor V1.0',
+    file: 'File',
     open: 'Open',
     add: 'Add',
     newFile: 'New file',
     saveSvg: 'Save SVG',
+    saveAs: 'Save as…',
+    saveAsTitle: 'Save as',
+    fileName: 'File name',
     saveChangesTitle: 'Save changes',
     saveChangesMessage: 'The current document has unsaved changes. Do you want to save before continuing?',
     save: 'Save',
@@ -1345,6 +1408,69 @@ function pathShape(base: Omit<Shape, 'type' | 'x' | 'y' | 'width' | 'height'>, p
   return { ...base, type: 'path', d: pathData, fillRule, matrix: identityMatrix(), pathBounds: localBounds, x: localBounds.x, y: localBounds.y, width: localBounds.width, height: localBounds.height }
 }
 
+// Build an equivalent SVG path `d` for a primitive shape so it can be edited as nodes. Returns null for
+// shapes that have no meaningful node representation (text, connectors).
+function shapeToPathData(shape: Shape): string | null {
+  const { x, y, width, height } = shape
+  if (shape.type === 'ellipse' || shape.type === 'circleShape') {
+    const cx = x + width / 2
+    const cy = y + height / 2
+    const rx = width / 2
+    const ry = height / 2
+    const k = 0.5522847498307936
+    const ox = rx * k
+    const oy = ry * k
+    return `M ${x} ${cy} C ${x} ${cy - oy} ${cx - ox} ${y} ${cx} ${y} C ${cx + ox} ${y} ${x + width} ${cy - oy} ${x + width} ${cy} C ${x + width} ${cy + oy} ${cx + ox} ${y + height} ${cx} ${y + height} C ${cx - ox} ${y + height} ${x} ${cy + oy} ${x} ${cy} Z`
+  }
+  if (shape.type === 'rect' || shape.type === 'square' || shape.type === 'roundRect') {
+    return `M ${x} ${y} L ${x + width} ${y} L ${x + width} ${y + height} L ${x} ${y + height} Z`
+  }
+  const polygonTypes: ShapeType[] = ['triangle', 'diamondShape', 'pentagon', 'hexagon', 'octagon', 'star', 'trapezoid', 'parallelogram', 'chevron', 'crossShape']
+  if (polygonTypes.includes(shape.type)) {
+    const points = polygonPoints(shape)
+    if (points.length === 0) {
+      return null
+    }
+    return `M ${points.map((point) => `${point.x} ${point.y}`).join(' L ')} Z`
+  }
+  if (shape.type === 'line') {
+    return `M ${x} ${y} L ${x + width} ${y + height}`
+  }
+  if (shape.type === 'curve') {
+    return curvePath(shape)
+  }
+  if (shape.type === 'pen' && shape.points?.length) {
+    const body = shape.points.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`).join(' ')
+    return isClosedPointPath(shape.points) ? `${body} Z` : body
+  }
+  return null
+}
+
+// Convert a primitive shape into an editable `path` shape in place (preserving id and styling).
+function shapeToEditablePath(shape: Shape): Shape | null {
+  if (shape.type === 'path') {
+    return shape
+  }
+  const pathData = shapeToPathData(shape)
+  if (!pathData) {
+    return null
+  }
+  const localBounds = getPathBounds(pathData)
+  return {
+    ...shape,
+    type: 'path',
+    d: pathData,
+    fillRule: shape.fillRule ?? 'nonzero',
+    matrix: identityMatrix(),
+    pathBounds: localBounds,
+    x: localBounds.x,
+    y: localBounds.y,
+    width: localBounds.width,
+    height: localBounds.height,
+    points: undefined,
+  }
+}
+
 // Replace a path's geometry (its `d`) while keeping its matrix, recomputing cached bounds.
 function updatePathData(shape: Shape, pathData: string): Shape {
   const matrix = shape.matrix ?? identityMatrix()
@@ -1488,12 +1614,11 @@ function arcToCubics(x0: number, y0: number, rx: number, ry: number, phiDeg: num
   const dy = (y0 - y) / 2
   const x1p = cosPhi * dx + sinPhi * dy
   const y1p = -sinPhi * dx + cosPhi * dy
-  let radiusCheck = (x1p * x1p) / (rx * rx) + (y1p * y1p) / (ry * ry)
+  const radiusCheck = (x1p * x1p) / (rx * rx) + (y1p * y1p) / (ry * ry)
   if (radiusCheck > 1) {
     const scale = Math.sqrt(radiusCheck)
     rx *= scale
     ry *= scale
-    radiusCheck = 1
   }
   const sign = largeArc === sweep ? -1 : 1
   const numerator = rx * rx * ry * ry - rx * rx * y1p * y1p - ry * ry * x1p * x1p
@@ -1603,6 +1728,15 @@ function parsePathToAnchors(pathData: string): PathSubpath[] {
     const type = command.toLowerCase()
     if (type === 'z') {
       if (anchors.length > 0) {
+        // If the path explicitly returns to its start point, merge that duplicate closing anchor into the first.
+        const first = anchors[0]
+        const tail = anchors[anchors.length - 1]
+        if (anchors.length > 1 && Math.hypot(tail.point.x - first.point.x, tail.point.y - first.point.y) < 1e-6) {
+          if (tail.handleIn) {
+            first.handleIn = tail.handleIn
+          }
+          anchors.pop()
+        }
         subpaths.push({ anchors, closed: true })
       }
       anchors = []
@@ -1965,8 +2099,246 @@ function parseSvgShapes(svgText: string) {
   return parsed
 }
 
+// Pastel palette, one distinct hue per swatch (arranged around the color wheel).
+const colorPresets = ['#ffb3b3', '#ffc9b3', '#ffe0b3', '#fff6b3', '#f0ffb3', '#d0ffb3', '#b3ffb9', '#b3ffd0', '#b3ffe6', '#b3f6ff', '#b3d9ff', '#b3c0ff', '#c9b3ff', '#e0b3ff', '#ffb3f0', '#ffb3d0']
+
+function isHexColor(value: string) {
+  return /^#?[0-9a-fA-F]{6}$/.test(value.trim())
+}
+
+function normalizeHexColor(value: string) {
+  return `#${value.trim().replace(/^#/, '').toLowerCase()}`
+}
+
+function hexToRgbColor(hex: string) {
+  const value = hex.replace('#', '')
+  return { r: Number.parseInt(value.slice(0, 2), 16), g: Number.parseInt(value.slice(2, 4), 16), b: Number.parseInt(value.slice(4, 6), 16) }
+}
+
+function rgbColorToHex(r: number, g: number, b: number) {
+  const channel = (n: number) => Math.round(Math.min(255, Math.max(0, n))).toString(16).padStart(2, '0')
+  return `#${channel(r)}${channel(g)}${channel(b)}`
+}
+
+function rgbToHsvColor(r: number, g: number, b: number) {
+  r /= 255
+  g /= 255
+  b /= 255
+  const max = Math.max(r, g, b)
+  const min = Math.min(r, g, b)
+  const delta = max - min
+  let h = 0
+  if (delta) {
+    if (max === r) {
+      h = ((g - b) / delta) % 6
+    } else if (max === g) {
+      h = (b - r) / delta + 2
+    } else {
+      h = (r - g) / delta + 4
+    }
+    h *= 60
+    if (h < 0) {
+      h += 360
+    }
+  }
+  return { h, s: max === 0 ? 0 : delta / max, v: max }
+}
+
+function hsvToRgbColor(h: number, s: number, v: number) {
+  const c = v * s
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1))
+  const m = v - c
+  let r = 0
+  let g = 0
+  let b = 0
+  if (h < 60) {
+    r = c
+    g = x
+  } else if (h < 120) {
+    r = x
+    g = c
+  } else if (h < 180) {
+    g = c
+    b = x
+  } else if (h < 240) {
+    g = x
+    b = c
+  } else if (h < 300) {
+    r = x
+    b = c
+  } else {
+    r = c
+    b = x
+  }
+  return { r: (r + m) * 255, g: (g + m) * 255, b: (b + m) * 255 }
+}
+
+type ColorFieldProps = {
+  value: string
+  onChange: (value: string) => void
+  onBeginChange: () => void
+  allowNone?: boolean
+  noneLabel?: string
+}
+
+// An in-app color picker (saturation/value box + hue slider + hex + swatches) that we fully control,
+// so it closes on outside click / Escape instead of leaving a native OS dialog stuck open.
+function ColorField({ value, onChange, onBeginChange, allowNone, noneLabel }: ColorFieldProps) {
+  const [open, setOpen] = useState(false)
+  const [anchor, setAnchor] = useState<{ left: number; top: number } | null>(null)
+  const [hexDraft, setHexDraft] = useState('')
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const popoverRef = useRef<HTMLDivElement>(null)
+  const svRef = useRef<HTMLDivElement>(null)
+  const hueRef = useRef<HTMLDivElement>(null)
+  const gestureRef = useRef(false)
+  const hexFocusRef = useRef(false)
+
+  const isNone = value === 'transparent'
+  const displayHex = !isNone && isHexColor(value) ? normalizeHexColor(value) : '#ffffff'
+  const rgb = hexToRgbColor(displayHex)
+  const hsv = rgbToHsvColor(rgb.r, rgb.g, rgb.b)
+
+  useEffect(() => {
+    if (!hexFocusRef.current) {
+      setHexDraft(displayHex)
+    }
+  }, [displayHex])
+
+  const endGesture = useCallback(() => {
+    gestureRef.current = false
+  }, [])
+
+  useEffect(() => {
+    if (!open) {
+      return
+    }
+    const handlePointerDown = (event: PointerEvent) => {
+      const node = event.target as Node
+      if (!popoverRef.current?.contains(node) && !triggerRef.current?.contains(node)) {
+        setOpen(false)
+      }
+    }
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setOpen(false)
+      }
+    }
+    document.addEventListener('pointerdown', handlePointerDown)
+    window.addEventListener('keydown', handleKey)
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown)
+      window.removeEventListener('keydown', handleKey)
+    }
+  }, [open])
+
+  useEffect(() => {
+    if (!open) {
+      endGesture()
+      hexFocusRef.current = false
+    }
+  }, [open, endGesture])
+
+  const applyColor = (next: string) => {
+    if (!gestureRef.current) {
+      gestureRef.current = true
+      onBeginChange()
+    }
+    onChange(next)
+  }
+
+  const toggleOpen = () => {
+    if (open) {
+      setOpen(false)
+      return
+    }
+    const rect = triggerRef.current?.getBoundingClientRect()
+    if (rect) {
+      const left = Math.max(8, Math.min(rect.left, window.innerWidth - 236))
+      const top = rect.bottom + 272 > window.innerHeight ? Math.max(8, rect.top - 272) : rect.bottom + 6
+      setAnchor({ left, top })
+    }
+    setHexDraft(displayHex)
+    setOpen(true)
+  }
+
+  const updateSaturationValue = (clientX: number, clientY: number) => {
+    const rect = svRef.current?.getBoundingClientRect()
+    if (!rect) {
+      return
+    }
+    const s = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width))
+    const v = Math.min(1, Math.max(0, 1 - (clientY - rect.top) / rect.height))
+    const next = hsvToRgbColor(hsv.h, s, v)
+    applyColor(rgbColorToHex(next.r, next.g, next.b))
+  }
+
+  const updateHue = (clientX: number) => {
+    const rect = hueRef.current?.getBoundingClientRect()
+    if (!rect) {
+      return
+    }
+    const h = Math.min(360, Math.max(0, ((clientX - rect.left) / rect.width) * 360))
+    const next = hsvToRgbColor(h, hsv.s === 0 ? 1 : hsv.s, hsv.v === 0 ? 1 : hsv.v)
+    applyColor(rgbColorToHex(next.r, next.g, next.b))
+  }
+
+  return (
+    <div className="color-field">
+      <button ref={triggerRef} type="button" className={`color-trigger ${isNone ? 'is-none' : ''}`} style={isNone ? undefined : { background: value }} onClick={toggleOpen} aria-label="color" />
+      {open && anchor && createPortal(
+        <div ref={popoverRef} className="color-popover" style={{ left: anchor.left, top: anchor.top }}>
+          <div
+            ref={svRef}
+            className="sv-area"
+            style={{ background: `hsl(${hsv.h}, 100%, 50%)` }}
+            onPointerDown={(event) => { event.currentTarget.setPointerCapture(event.pointerId); updateSaturationValue(event.clientX, event.clientY) }}
+            onPointerMove={(event) => { if (event.buttons) { updateSaturationValue(event.clientX, event.clientY) } }}
+            onPointerUp={endGesture}
+          >
+            <div className="sv-white" />
+            <div className="sv-black" />
+            <div className="sv-thumb" style={{ left: `${hsv.s * 100}%`, top: `${(1 - hsv.v) * 100}%` }} />
+          </div>
+          <div
+            ref={hueRef}
+            className="hue-slider"
+            onPointerDown={(event) => { event.currentTarget.setPointerCapture(event.pointerId); updateHue(event.clientX) }}
+            onPointerMove={(event) => { if (event.buttons) { updateHue(event.clientX) } }}
+            onPointerUp={endGesture}
+          >
+            <div className="hue-thumb" style={{ left: `${(hsv.h / 360) * 100}%` }} />
+          </div>
+          <div className="color-row">
+            <span className="color-preview" style={{ background: isNone ? 'transparent' : displayHex }} />
+            <input
+              className="hex-input"
+              value={hexDraft}
+              spellCheck={false}
+              onFocus={() => { hexFocusRef.current = true }}
+              onBlur={() => { hexFocusRef.current = false; endGesture(); setHexDraft(displayHex) }}
+              onChange={(event) => {
+                setHexDraft(event.target.value)
+                if (isHexColor(event.target.value)) {
+                  applyColor(normalizeHexColor(event.target.value))
+                }
+              }}
+            />
+            {allowNone && <button type="button" className="color-none" onClick={() => { onBeginChange(); onChange('transparent'); endGesture(); setOpen(false) }}>{noneLabel ?? 'None'}</button>}
+          </div>
+          <div className="preset-row">
+            {colorPresets.map((preset) => <button key={preset} type="button" className="preset-swatch" style={{ background: preset }} onClick={() => { onBeginChange(); onChange(preset); endGesture() }} aria-label={preset} />)}
+          </div>
+        </div>,
+        document.body,
+      )}
+    </div>
+  )
+}
+
 function App() {
   const [initialSettings] = useState(loadSettings)
+  const [initialDocument] = useState(loadDocument)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const stageRef = useRef<HTMLElement | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
@@ -1983,12 +2355,9 @@ function App() {
   const [tool, setTool] = useState<Tool>('select')
   const [zoom, setZoom] = useState(initialSettings.zoom)
   const [showGrid, setShowGrid] = useState(initialSettings.showGrid)
-  const [shapes, setShapes] = useState<Shape[]>([
-    { id: makeId('shape'), type: 'rect', name: 'Panel', x: 180, y: 150, width: 260, height: 150, fill: '#67d5b5', stroke: '#173b46', strokeWidth: 4, opacity: 1 },
-    { id: makeId('shape'), type: 'ellipse', name: 'Glow', x: 500, y: 210, width: 210, height: 150, fill: '#f4c95d', stroke: '#5c4d18', strokeWidth: 3, opacity: 0.9 },
-    { id: makeId('shape'), type: 'text', name: 'Title', x: 260, y: 420, width: 320, height: 48, fill: '#eefaf7', stroke: 'transparent', strokeWidth: 0, opacity: 1, text: 'SVG Editor' },
-  ])
-  const [rasters, setRasters] = useState<RasterLayer[]>([])
+  // First launch starts empty; later launches restore the last auto-saved document.
+  const [shapes, setShapes] = useState<Shape[]>(initialDocument?.shapes ?? [])
+  const [rasters, setRasters] = useState<RasterLayer[]>(initialDocument?.rasters ?? [])
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [selectionBox, setSelectionBox] = useState<SelectionBox | null>(null)
   const [leftWidth, setLeftWidth] = useState(initialSettings.leftWidth)
@@ -1996,6 +2365,11 @@ function App() {
   const [exportFormat, setExportFormat] = useState<ExportFormat>(initialSettings.exportFormat)
   const [removeBackground, setRemoveBackground] = useState(initialSettings.removeBackground)
   const [showExportDialog, setShowExportDialog] = useState(false)
+  const [showFileMenu, setShowFileMenu] = useState(false)
+  const [showSaveAsDialog, setShowSaveAsDialog] = useState(false)
+  const [saveAsName, setSaveAsName] = useState('svg-editor-export')
+  const [saveAsFormat, setSaveAsFormat] = useState<ExportFormat>('svg')
+  const fileMenuRef = useRef<HTMLDivElement | null>(null)
   const [showUnsavedDialog, setShowUnsavedDialog] = useState(false)
   const [showAbout, setShowAbout] = useState(false)
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null)
@@ -2006,7 +2380,7 @@ function App() {
   const [expandedToolGroups, setExpandedToolGroups] = useState<Record<ToolGroupId, boolean>>(initialSettings.expandedToolGroups)
   const [isDirty, setIsDirty] = useState(false)
   const [stageSize, setStageSize] = useState(defaultCanvasSize)
-  const [canvasSize, setCanvasSize] = useState(defaultCanvasSize)
+  const [canvasSize, setCanvasSize] = useState(initialDocument?.canvasSize ?? defaultCanvasSize)
   const [penDraft, setPenDraft] = useState<PenAnchor[]>([])
   const [penCursor, setPenCursor] = useState<Point | null>(null)
   const penDraftRef = useRef<PenAnchor[]>([])
@@ -2014,12 +2388,14 @@ function App() {
   const [nodeEditId, setNodeEditId] = useState<string | null>(null)
   const [nodeSelection, setNodeSelection] = useState<{ sub: number; index: number } | null>(null)
   const nodeDragRef = useRef<{ target: 'point' | 'handleIn' | 'handleOut'; sub: number; index: number } | null>(null)
+  // Content point (in unzoomed canvas units) to keep under the viewport center across a zoom change.
+  const zoomAnchorRef = useRef<Point | null>(null)
 
   const text = messages[language]
   const selectedShape = selectedIds.length === 1 ? shapes.find((shape) => shape.id === selectedIds[0]) : undefined
   const toolGroups = useMemo(() => [
-    { id: 'basic', label: text.basicTools, tools: ['rect', 'square', 'roundRect', 'ellipse', 'circleShape', 'text', 'pen', 'bezierPen'] },
-    { id: 'advanced', label: text.advancedTools, tools: ['triangle', 'diamondShape', 'pentagon', 'hexagon', 'octagon', 'star', 'trapezoid', 'parallelogram', 'chevron', 'crossShape', 'curve'] },
+    { id: 'basic', label: text.basicTools, tools: ['triangle', 'rect', 'roundRect', 'ellipse', 'text', 'pen', 'bezierPen'] },
+    { id: 'advanced', label: text.advancedTools, tools: ['diamondShape', 'pentagon', 'hexagon', 'octagon', 'star', 'trapezoid', 'parallelogram', 'chevron', 'crossShape', 'curve'] },
     { id: 'line', label: text.lineTools, tools: ['line', 'connector'] },
   ] satisfies { id: ToolGroupId; label: string; tools: Tool[] }[], [text.advancedTools, text.basicTools, text.lineTools])
   const canvasView = useMemo(() => computeCanvasView(canvasSize, stageSize, zoom), [canvasSize, stageSize, zoom])
@@ -2162,6 +2538,12 @@ function App() {
     window.localStorage.setItem(settingsStorageKey, JSON.stringify(settings))
   }, [expandedToolGroups, exportFormat, language, leftWidth, removeBackground, rightWidth, showGrid, theme, zoom])
 
+  // Auto-save the current document (debounced) so the next launch restores the last work.
+  useEffect(() => {
+    const timer = setTimeout(() => saveDocument(shapes, rasters, canvasSize), 500)
+    return () => clearTimeout(timer)
+  }, [shapes, rasters, canvasSize])
+
   useEffect(() => {
     const canvas = canvasRef.current
     const context = canvas?.getContext('2d')
@@ -2214,6 +2596,28 @@ function App() {
     window.addEventListener('click', closeMenu)
     return () => window.removeEventListener('click', closeMenu)
   }, [])
+
+  useEffect(() => {
+    if (!showFileMenu) {
+      return
+    }
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!fileMenuRef.current?.contains(event.target as Node)) {
+        setShowFileMenu(false)
+      }
+    }
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setShowFileMenu(false)
+      }
+    }
+    document.addEventListener('pointerdown', handlePointerDown)
+    window.addEventListener('keydown', handleKey)
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown)
+      window.removeEventListener('keydown', handleKey)
+    }
+  }, [showFileMenu])
 
   function getCanvasPoint(event: React.PointerEvent<HTMLCanvasElement> | React.MouseEvent<HTMLCanvasElement>, view = canvasView) {
     const rect = event.currentTarget.getBoundingClientRect()
@@ -2304,15 +2708,6 @@ function App() {
     }
   }, [tool, commitPenDraft])
 
-  // Leave node-editing state behind when switching away from the node-edit tool.
-  useEffect(() => {
-    if (tool !== 'nodeEdit') {
-      nodeDragRef.current = null
-      setNodeEditId(null)
-      setNodeSelection(null)
-    }
-  }, [tool])
-
   // Rewrite the active path's geometry through a mutation on its editable anchors.
   const editActivePath = useCallback((mutate: (subpaths: PathSubpath[]) => void, recordHistory: boolean) => {
     updateShapes((current) => {
@@ -2367,10 +2762,20 @@ function App() {
       nodeDragRef.current = { target: hit.target, sub: hit.sub, index: hit.index }
       return
     }
-    const target = [...shapes].reverse().find((item) => item.type === 'path' && isPointInShape(worldPoint, item))
+    // Any shape with a node representation can be edited; primitives are converted to a path on first pick.
+    const target = [...shapes].reverse().find((item) => item.type !== 'connector' && item.type !== 'text' && isPointInShape(worldPoint, item))
     if (target) {
-      setNodeEditId(target.id)
-      selectShape(target.id)
+      if (target.type === 'path') {
+        setNodeEditId(target.id)
+        selectShape(target.id)
+      } else {
+        const converted = shapeToEditablePath(target)
+        if (converted) {
+          updateShapes((current) => current.map((item) => item.id === target.id ? converted : item))
+          setNodeEditId(target.id)
+          selectShape(target.id)
+        }
+      }
     }
     setNodeSelection(null)
   }
@@ -2707,7 +3112,8 @@ function App() {
           continue
         }
 
-        const src = URL.createObjectURL(file)
+        // Use a data URL (not an object URL) so imported images survive auto-save/restore across launches.
+        const src = await readFileAsDataUrl(file)
         const image = await loadImage(src)
         importedRasters.push(...fitImportedContentToCanvas([], [{ id: makeId('image'), name: file.name, src, x: 0, y: 0, width: image.naturalWidth, height: image.naturalHeight }], visibleCanvasSize).rasters)
       } catch (error) {
@@ -2743,7 +3149,7 @@ function App() {
     }
   }
 
-  function updateSelected(patch: Partial<Shape>) {
+  function updateSelected(patch: Partial<Shape>, recordHistory = true) {
     if (selectedIds.length !== 1) {
       return
     }
@@ -2770,7 +3176,13 @@ function App() {
         return { ...moved, ...rest }
       }
       return { ...shape, ...patch }
-    }))
+    }), recordHistory)
+  }
+
+  // Snapshot history once at the start of a color-picker gesture; live color updates then skip history.
+  function beginColorChange() {
+    remember(shapes)
+    setIsDirty(true)
   }
 
   function duplicateSelected() {
@@ -2817,7 +3229,7 @@ function App() {
         return
       }
       if (event.key === 'Delete') {
-        if (nodeEditId && nodeSelection) {
+        if (tool === 'nodeEdit' && nodeEditId && nodeSelection) {
           event.preventDefault()
           deleteNodeAnchor(nodeSelection.sub, nodeSelection.index)
           return
@@ -2843,7 +3255,7 @@ function App() {
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [commitPenDraft, deleteNodeAnchor, deleteSelected, nodeEditId, nodeSelection, redo, selectedIds.length, undo])
+  }, [commitPenDraft, deleteNodeAnchor, deleteSelected, nodeEditId, nodeSelection, redo, selectedIds.length, tool, undo])
 
   function moveLayer(direction: 'front' | 'back') {
     if (selectedIds.length === 0) {
@@ -2917,9 +3329,10 @@ function App() {
     fileInputRef.current?.click()
   }
 
-  async function exportFile(format: ExportFormat) {
+  async function exportFile(format: ExportFormat, fileName = 'svg-editor-export') {
+    const baseName = fileName.trim() || 'svg-editor-export'
     if (format === 'svg') {
-      downloadBlob(new Blob([buildSvg(shapes, rasters, true, canvasView)], { type: 'image/svg+xml' }), 'svg-editor-export.svg')
+      downloadBlob(new Blob([buildSvg(shapes, rasters, true, canvasView)], { type: 'image/svg+xml' }), `${baseName}.svg`)
       setIsDirty(false)
       return true
     }
@@ -2933,7 +3346,7 @@ function App() {
       const image = context?.getImageData(0, 0, canvas.width, canvas.height)
       if (image) {
         const tiff = UTIF.encodeImage(new Uint8Array(image.data), canvas.width, canvas.height)
-        downloadBlob(new Blob([tiff], { type: 'image/tiff' }), 'svg-editor-export.tiff')
+        downloadBlob(new Blob([tiff], { type: 'image/tiff' }), `${baseName}.tiff`)
         return true
       }
       return false
@@ -2944,15 +3357,26 @@ function App() {
         showError(text.errorTitle, text.exportFallback, new Error(`Requested ${mime}, received ${blob?.type || 'no blob'}.`))
         canvas.toBlob((fallback) => {
           if (fallback) {
-            downloadBlob(fallback, 'svg-editor-export.png')
+            downloadBlob(fallback, `${baseName}.png`)
           }
           resolve(Boolean(fallback))
         }, 'image/png')
         return
       }
-      downloadBlob(blob, `svg-editor-export.${format}`)
+      downloadBlob(blob, `${baseName}.${format}`)
       resolve(true)
     }, mime, 0.92))
+  }
+
+  function openSaveAs() {
+    setShowFileMenu(false)
+    setSaveAsFormat(exportFormat)
+    setShowSaveAsDialog(true)
+  }
+
+  async function runSaveAs() {
+    setShowSaveAsDialog(false)
+    await exportFile(saveAsFormat, saveAsName)
   }
 
   function handlePanelResize(side: 'left' | 'right', event: React.PointerEvent<HTMLDivElement>) {
@@ -2973,6 +3397,40 @@ function App() {
     window.addEventListener('pointermove', onMove)
     window.addEventListener('pointerup', onUp)
   }
+
+  // Change zoom while keeping the current viewport center fixed (records the anchor; scroll is corrected post-render).
+  function zoomTo(next: number | ((current: number) => number)) {
+    const target = Math.min(2.5, Math.max(0.25, typeof next === 'function' ? next(zoom) : next))
+    const stage = stageRef.current
+    const canvas = canvasRef.current
+    if (stage && canvas && target !== zoom) {
+      zoomAnchorRef.current = {
+        x: (stage.scrollLeft + stage.clientWidth / 2 - canvas.offsetLeft) / zoom,
+        y: (stage.scrollTop + stage.clientHeight / 2 - canvas.offsetTop) / zoom,
+      }
+    }
+    setZoom(target)
+  }
+
+  function zoomBy(delta: number) {
+    zoomTo((current) => current + delta)
+  }
+
+  // After a zoom-anchored change, scroll so the anchored content point returns to the viewport center.
+  useLayoutEffect(() => {
+    const anchor = zoomAnchorRef.current
+    if (!anchor) {
+      return
+    }
+    zoomAnchorRef.current = null
+    const stage = stageRef.current
+    const canvas = canvasRef.current
+    if (!stage || !canvas) {
+      return
+    }
+    stage.scrollLeft = anchor.x * zoom - stage.clientWidth / 2 + canvas.offsetLeft
+    stage.scrollTop = anchor.y * zoom - stage.clientHeight / 2 + canvas.offsetTop
+  }, [zoom])
 
   function resetView() {
     const bounds = getSceneBounds(shapes, rasters, canvasView)
@@ -3002,25 +3460,31 @@ function App() {
           <img src="/app-icon.svg" alt="" />
           <span>{text.appName}</span>
         </div>
-        <div className="toolbar-group">
-          <button title={text.newFile} onClick={() => void createNewFile()}><Plus size={18} /><span>{text.newFile}</span></button>
-          <button title={text.open} onClick={() => void openFile()}><ImagePlus size={18} /><span>{text.open}</span></button>
-          <button title={text.add} onClick={addFile}><FileImage size={18} /><span>{text.add}</span></button>
-          <button title={text.saveSvg} onClick={() => void exportFile('svg')}><Save size={18} /><span>{text.save}</span></button>
-          <button title={text.export} onClick={() => setShowExportDialog(true)}><Download size={18} /><span>{text.export}</span></button>
-          <select title={text.format} value={exportFormat} onChange={(event) => setExportFormat(event.target.value as ExportFormat)}>
-            {(['png', 'jpg', 'webp', 'avif', 'gif', 'tiff', 'svg'] as ExportFormat[]).map((format) => <option key={format} value={format}>{format.toUpperCase()}</option>)}
-          </select>
+        <div className="toolbar-group file-toolbar" ref={fileMenuRef}>
+          <button className={showFileMenu ? 'active' : ''} title={text.file} onClick={() => setShowFileMenu((value) => !value)}><FolderOpen size={18} /><span>{text.file}</span></button>
+          {showFileMenu && <div className="file-menu">
+            <button onClick={() => { setShowFileMenu(false); void createNewFile() }}><Plus size={16} /><span>{text.newFile}</span></button>
+            <button onClick={() => { setShowFileMenu(false); void openFile() }}><ImagePlus size={16} /><span>{text.open}</span></button>
+            <button onClick={() => { setShowFileMenu(false); addFile() }}><FileImage size={16} /><span>{text.add}</span></button>
+            <div className="file-menu-separator" />
+            <button onClick={() => { setShowFileMenu(false); void exportFile('svg') }}><Save size={16} /><span>{text.saveSvg}</span></button>
+            <button onClick={openSaveAs}><Save size={16} /><span>{text.saveAs}</span></button>
+            <button onClick={() => { setShowFileMenu(false); setShowExportDialog(true) }}><Download size={16} /><span>{text.export}</span></button>
+            <div className="file-menu-separator" />
+            <label className="file-menu-format">{text.format}<select value={exportFormat} onChange={(event) => setExportFormat(event.target.value as ExportFormat)}>
+              {(['png', 'jpg', 'webp', 'avif', 'gif', 'tiff', 'svg'] as ExportFormat[]).map((format) => <option key={format} value={format}>{format.toUpperCase()}</option>)}
+            </select></label>
+          </div>}
         </div>
         <div className="toolbar-group">
           <button title={text.undo} disabled={!historyStatus.canUndo} onClick={undo}><Undo2 size={18} /><span>{text.undo}</span></button>
           <button title={text.redo} disabled={!historyStatus.canRedo} onClick={redo}><Redo2 size={18} /><span>{text.redo}</span></button>
         </div>
         <div className="toolbar-group">
-          <button title={text.zoomOut} onClick={() => setZoom((value) => Math.max(0.25, value - 0.1))}><Minus size={18} /></button>
-          <button className="zoom-readout" title={text.resetZoom} onClick={() => setZoom(1)}>{Math.round(zoom * 100)}%</button>
+          <button title={text.zoomOut} onClick={() => zoomBy(-0.1)}><Minus size={18} /></button>
+          <button className="zoom-readout" title={text.resetZoom} onClick={() => zoomTo(1)}>{Math.round(zoom * 100)}%</button>
           <button title={text.resetZoom} onClick={resetView}><RotateCcw size={18} /><span>{text.resetView}</span></button>
-          <button title={text.zoomIn} onClick={() => setZoom((value) => Math.min(2.5, value + 0.1))}><Plus size={18} /></button>
+          <button title={text.zoomIn} onClick={() => zoomBy(0.1)}><Plus size={18} /></button>
           <button className={showGrid ? 'active' : ''} title={text.grid} onClick={() => setShowGrid((value) => !value)}><Grid3X3 size={18} /></button>
         </div>
         <div className="toolbar-spacer" />
@@ -3060,7 +3524,7 @@ function App() {
           </div>
         </aside>
         <div className="resize-handle" onPointerDown={(event) => handlePanelResize('left', event)} />
-        <section ref={stageRef} className={`canvas-stage ${showGrid ? 'show-grid' : ''}`} style={{ '--grid-size': gridSize } as React.CSSProperties} aria-label={text.canvas} onWheel={(event) => { setZoom((value) => Math.min(2.5, Math.max(0.25, value - event.deltaY * 0.001))) }}>
+        <section ref={stageRef} className={`canvas-stage ${showGrid ? 'show-grid' : ''}`} style={{ '--grid-size': gridSize } as React.CSSProperties} aria-label={text.canvas} onWheel={(event) => { zoomBy(-event.deltaY * 0.001) }}>
           <canvas ref={canvasRef} style={{ cursor: canvasCursor ?? defaultCanvasCursor }} onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerLeave={handlePointerLeave} onDoubleClick={(event) => { if (tool === 'bezierPen') { commitPenDraft(false) } else if (tool === 'nodeEdit') { handleNodeDoubleClick(getCanvasPoint(event)) } }} onContextMenu={handleCanvasContextMenu} />
           {contextMenu && <div className="context-menu" style={{ left: contextMenu.x, top: contextMenu.y }}>
             <button onClick={duplicateSelected}><AlignCenter size={15} />{text.duplicate}</button>
@@ -3108,11 +3572,8 @@ function App() {
                   </select></label>
                 </div>
               </div>}
-              <label>{text.fill}<span className="fill-field">
-                <input type="color" value={selectedShape.fill === 'transparent' ? '#ffffff' : selectedShape.fill} disabled={selectedShape.fill === 'transparent'} onChange={(event) => updateSelected({ fill: event.target.value })} />
-                <span className="fill-none-toggle"><input type="checkbox" checked={selectedShape.fill === 'transparent'} onChange={(event) => updateSelected({ fill: event.target.checked ? 'transparent' : '#67d5b5' })} />{text.fillNone}</span>
-              </span></label>
-              <label>{text.stroke}<input type="color" value={selectedShape.stroke === 'transparent' ? '#000000' : selectedShape.stroke} onChange={(event) => updateSelected({ stroke: event.target.value })} /></label>
+              <label>{text.fill}<ColorField value={selectedShape.fill} allowNone noneLabel={text.fillNone} onBeginChange={beginColorChange} onChange={(color) => updateSelected({ fill: color }, false)} /></label>
+              <label>{text.stroke}<ColorField value={selectedShape.stroke} allowNone noneLabel={text.none} onBeginChange={beginColorChange} onChange={(color) => updateSelected({ stroke: color }, false)} /></label>
               <label>{text.strokeWidth}<span className="range-field"><input type="range" min="0" max="24" value={selectedShape.strokeWidth} onChange={(event) => updateSelected({ strokeWidth: Number(event.target.value) })} /><span className="range-value">{selectedShape.strokeWidth}px</span></span></label>
               <label>{text.opacity}<span className="range-field"><input type="range" min="0.1" max="1" step="0.05" value={selectedShape.opacity} onChange={(event) => updateSelected({ opacity: Number(event.target.value) })} /><span className="range-value">{Math.round(selectedShape.opacity * 100)}%</span></span></label>
               <label>{text.shadowEffect}<select value={selectedShape.shadowEffect ?? 'none'} onChange={(event) => {
@@ -3128,7 +3589,7 @@ function App() {
                 </select></label>
                 <label>{text.shadowDistance}<span className="range-field"><input type="range" min="0" max="60" value={selectedShape.shadowDistance ?? shadowPresets[selectedShape.shadowEffect as Exclude<ShadowEffect, 'none'>].distance} onChange={(event) => updateSelected({ shadowDistance: Number(event.target.value) })} /><span className="range-value">{selectedShape.shadowDistance ?? shadowPresets[selectedShape.shadowEffect as Exclude<ShadowEffect, 'none'>].distance}px</span></span></label>
                 <label>{text.shadowBlur}<span className="range-field"><input type="range" min="0" max="40" value={selectedShape.shadowBlur ?? shadowPresets[selectedShape.shadowEffect as Exclude<ShadowEffect, 'none'>].blur} onChange={(event) => updateSelected({ shadowBlur: Number(event.target.value) })} /><span className="range-value">{selectedShape.shadowBlur ?? shadowPresets[selectedShape.shadowEffect as Exclude<ShadowEffect, 'none'>].blur}px</span></span></label>
-                <label>{text.shadowColor}<input type="color" value={selectedShape.shadowColor ?? shadowPresets[selectedShape.shadowEffect as Exclude<ShadowEffect, 'none'>].color} onChange={(event) => updateSelected({ shadowColor: event.target.value })} /></label>
+                <label>{text.shadowColor}<ColorField value={selectedShape.shadowColor ?? shadowPresets[selectedShape.shadowEffect as Exclude<ShadowEffect, 'none'>].color} onBeginChange={beginColorChange} onChange={(color) => updateSelected({ shadowColor: color }, false)} /></label>
                 <label>{text.shadowOpacity}<span className="range-field"><input type="range" min="0" max="1" step="0.05" value={selectedShape.shadowOpacity ?? shadowPresets[selectedShape.shadowEffect as Exclude<ShadowEffect, 'none'>].opacity} onChange={(event) => updateSelected({ shadowOpacity: Number(event.target.value) })} /><span className="range-value">{Math.round((selectedShape.shadowOpacity ?? shadowPresets[selectedShape.shadowEffect as Exclude<ShadowEffect, 'none'>].opacity) * 100)}%</span></span></label>
               </div>}
               {selectedShape.type === 'connector' && <div className="connector-dropdowns">
@@ -3186,6 +3647,19 @@ function App() {
           <button onClick={() => resolveUnsavedChoice('cancel')}>{text.cancel}</button>
           <button onClick={() => resolveUnsavedChoice('discard')}>{text.dontSave}</button>
           <button onClick={() => resolveUnsavedChoice('save')}><Save size={16} />{text.save}</button>
+        </div>
+      </dialog>}
+      {showSaveAsDialog && <dialog className="export-dialog" open>
+        <h2>{text.saveAsTitle}</h2>
+        <div className="export-options">
+          <label>{text.fileName}<input value={saveAsName} spellCheck={false} autoFocus onChange={(event) => setSaveAsName(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') { void runSaveAs() } }} /></label>
+          <label>{text.format}<select value={saveAsFormat} onChange={(event) => setSaveAsFormat(event.target.value as ExportFormat)}>
+            {(['svg', 'png', 'jpg', 'webp', 'avif', 'gif', 'tiff'] as ExportFormat[]).map((format) => <option key={format} value={format}>{format.toUpperCase()}</option>)}
+          </select></label>
+        </div>
+        <div className="dialog-actions">
+          <button onClick={() => setShowSaveAsDialog(false)}>{text.cancel}</button>
+          <button onClick={() => void runSaveAs()}><Save size={16} />{text.save}</button>
         </div>
       </dialog>}
       {showExportDialog && <dialog className="export-dialog" open>

@@ -12,11 +12,15 @@ SVG Editor V1.0 lets you draw vector shapes, open and edit existing images, and 
 
 ## Files
 
+All file actions live in the **File** menu on the toolbar (click **File** to open it; click elsewhere or press `Esc` to close):
+
 - **New file** — starts an empty document (prompts to save unsaved changes first).
 - **Open** — replaces the document with the chosen file. Supports `.svg`, `.png`, `.jpg`, `.gif`, `.tif/.tiff`, `.webp`, `.avif`.
 - **Add** — imports a file *into* the current document instead of replacing it.
-- **Save** — downloads the artwork as `.svg`.
+- **Save SVG** — saves the artwork as `.svg` with the default name.
+- **Save as…** — choose a file name and format (SVG / PNG / JPG / WebP / AVIF / GIF / TIFF), then save.
 - **Export** — opens options to export `PNG / JPG / WebP / AVIF / GIF / TIFF / SVG`. Enable **Remove background and trim bounds** to export only the tight bounding box of the artwork.
+- **Format** — the default format used by the Export button.
 
 ### Opening complex SVGs
 
@@ -67,7 +71,7 @@ New pen paths start with no fill (outline only); add a fill from the properties 
 The **Edit nodes** tool lets you reshape any path directly — imported SVG paths as well as ones drawn with the bezier pen — instead of only moving or resizing the whole shape:
 
 1. Pick the **Edit nodes** tool (top of the left panel).
-2. Click a path to activate it. Its anchor points appear as small squares.
+2. Click a shape to activate it. Its anchor points appear as small squares. Primitives (circle, ellipse, rectangle, polygons, line, curve) are automatically converted to an editable path on the first click, so they get editable points too.
 3. **Drag an anchor point** to move it (its curve handles move with it).
 4. Click an anchor to select it — its **bezier handles** appear. Drag a handle to bend the adjacent curve.
 5. **Double-click a segment** to insert a new anchor there (curves are split smoothly); **double-click an anchor** — or select it and press **Delete** — to remove it.
