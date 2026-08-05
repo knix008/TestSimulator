@@ -10,4 +10,10 @@ contextBridge.exposeInMainWorld('electronWindowApi', {
   minimize: () => ipcRenderer.invoke('window:minimize'),
   toggleMaximize: () => ipcRenderer.invoke('window:toggle-maximize'),
   close: () => ipcRenderer.invoke('window:close'),
+  forceClose: () => ipcRenderer.invoke('window:force-close'),
+  onCloseRequest: (callback) => {
+    const listener = () => callback()
+    ipcRenderer.on('window:close-request', listener)
+    return () => ipcRenderer.removeListener('window:close-request', listener)
+  },
 })

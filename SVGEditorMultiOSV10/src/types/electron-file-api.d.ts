@@ -33,5 +33,7 @@ interface Window {
     minimize(): Promise<void>
     toggleMaximize(): Promise<void>
     close(): Promise<void>
+    forceClose(): Promise<void>
+    onCloseRequest(callback: () => void): () => void
   }
 }

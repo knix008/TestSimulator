@@ -35,6 +35,15 @@ function createWindow() {
     return { action: 'deny' }
   })
 
+  // Intercept every close path (title-bar X, Alt+F4, taskbar) so the renderer can ask to save first.
+  mainWindow.on('close', (event) => {
+    if (mainWindow.forceClose) {
+      return
+    }
+    event.preventDefault()
+    mainWindow.webContents.send('window:close-request')
+  })
+
   if (isDev) {
     mainWindow.loadURL('http://127.0.0.1:5173')
   } else {
@@ -135,7 +144,16 @@ ipcMain.handle('window:toggle-maximize', (event) => {
 })
 
 ipcMain.handle('window:close', (event) => {
+  // Routes through the 'close' handler above, which asks the renderer to confirm unsaved changes.
   BrowserWindow.fromWebContents(event.sender)?.close()
+})
+
+ipcMain.handle('window:force-close', (event) => {
+  const window = BrowserWindow.fromWebContents(event.sender)
+  if (window) {
+    window.forceClose = true
+    window.close()
+  }
 })
 
 app.whenReady().then(() => {

@@ -3592,10 +3592,45 @@ function App() {
       return false
     }
     if (choice === 'save') {
-      return exportFile('svg')
+      await saveCurrentDocument()
     }
     return true
   }
+
+  // Keep a fresh close handler so the once-registered IPC listener always sees the latest state.
+  const closeHandlerRef = useRef<() => void>(() => {})
+  useEffect(() => {
+    closeHandlerRef.current = () => {
+      void (async () => {
+        const choice = await askUnsavedChanges()
+        if (choice === 'cancel') {
+          return
+        }
+        if (choice === 'save') {
+          await saveCurrentDocument()
+        }
+        window.electronWindowApi?.forceClose()
+      })()
+    }
+  })
+
+  // Desktop: the main process asks before closing (X button, Alt+F4, taskbar) so we can prompt to save.
+  useEffect(() => window.electronWindowApi?.onCloseRequest(() => closeHandlerRef.current()), [])
+
+  // Browser: warn on tab close/refresh when there are unsaved changes.
+  useEffect(() => {
+    if (window.electronWindowApi) {
+      return
+    }
+    const handler = (event: BeforeUnloadEvent) => {
+      if (isDirty && (shapes.length > 0 || rasters.length > 0)) {
+        event.preventDefault()
+        event.returnValue = ''
+      }
+    }
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [isDirty, shapes.length, rasters.length])
 
   async function createNewFile() {
     if (!await confirmDocumentReplacement()) {
