@@ -1,0 +1,85 @@
+{
+  "name": "svgeditormultiosv10",
+  "productName": "SVG Editor MultiOS",
+  "private": true,
+  "version": "1.0.0",
+  "description": "A cross-platform SVG and raster image editor with export tools.",
+  "author": "SHKWON <knix008@naver.com>",
+  "main": "electron/main.cjs",
+  "type": "module",
+  "scripts": {
+    "start": "npm run electron:dev",
+    "dev": "vite",
+    "electron:dev": "concurrently -k \"npm run dev -- --host 127.0.0.1 --port 5173 --strictPort\" \"wait-on http://127.0.0.1:5173 && electron .\"",
+    "build": "tsc -b && vite build",
+    "build:web": "npm run build",
+    "build:icons": "node scripts/create-icons.cjs",
+    "dist": "npm run build:icons && npm run build && electron-builder",
+    "dist:win": "npm run build:icons && npm run build && electron-builder --win nsis",
+    "dist:mac": "npm run build:icons && npm run build && electron-builder --mac dmg zip",
+    "dist:linux": "npm run build:icons && npm run build && electron-builder --linux AppImage deb rpm",
+    "lint": "eslint .",
+    "preview": "vite preview"
+  },
+  "build": {
+    "appId": "com.shkwon.svgeditormultios",
+    "productName": "SVG Editor MultiOS",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "extraMetadata": {
+      "main": "electron/main.cjs"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.ico"
+    },
+    "mac": {
+      "target": ["dmg", "zip"],
+      "category": "public.app-category.graphics-design"
+    },
+    "linux": {
+      "target": ["AppImage", "deb", "rpm"],
+      "icon": "build/icons",
+      "category": "Graphics"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "SVG Editor MultiOS"
+    }
+  },
+  "dependencies": {
+    "lucide-react": "^1.28.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "utif": "^3.1.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^24.13.3",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.4",
+    "concurrently": "^10.0.4",
+    "electron": "^43.3.0",
+    "electron-builder": "^26.15.3",
+    "eslint": "^10.8.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.3",
+    "globals": "^17.7.0",
+    "typescript": "~6.0.2",
+    "typescript-eslint": "^8.65.0",
+    "vite": "^8.2.0",
+    "wait-on": "^9.1.0"
+  }
+}

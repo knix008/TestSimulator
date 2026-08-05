@@ -1,0 +1,73 @@
+:root {
+  --display-font: Georgia, 'Times New Roman', serif;
+  --ui-font: 'Segoe UI', Tahoma, sans-serif;
+  --control-font-size: 13px;
+  --grid-size: 40px;
+  font: 14px/1.35 var(--ui-font);
+  letter-spacing: 0;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --accent: #67d5b5;
+  --accent-soft: rgba(103, 213, 181, 0.2);
+  --app-bg-a: #0f151b;
+  --app-bg-b: #202722;
+  --border: rgba(227, 245, 238, 0.14);
+  --control-bg: rgba(255, 255, 255, 0.06);
+  --input-bg: rgba(0, 0, 0, 0.18);
+  --menu-bg: #192027;
+  --panel-bg: rgba(16, 23, 29, 0.92);
+  --shine: rgba(255, 230, 127, 0.18);
+  --stage-bg: #10151a;
+  --stage-check: rgba(255, 255, 255, 0.035);
+  --grid-line: rgba(255, 255, 255, 0.12);
+  --text-muted: #a8b8b6;
+  --text-primary: #eefaf7;
+  --toolbar-bg: rgba(14, 20, 26, 0.94);
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+  --accent: #136f63;
+  --accent-soft: rgba(19, 111, 99, 0.16);
+  --app-bg-a: #f4f7f5;
+  --app-bg-b: #dde9e2;
+  --border: rgba(31, 62, 64, 0.16);
+  --control-bg: rgba(255, 255, 255, 0.74);
+  --input-bg: #ffffff;
+  --menu-bg: #ffffff;
+  --panel-bg: rgba(250, 252, 250, 0.92);
+  --shine: rgba(241, 187, 63, 0.28);
+  --stage-bg: #dce5e0;
+  --stage-check: rgba(21, 51, 52, 0.055);
+  --grid-line: rgba(21, 51, 52, 0.16);
+  --text-muted: #526664;
+  --text-primary: #142426;
+  --toolbar-bg: rgba(249, 252, 250, 0.94);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  height: 100vh;
+  margin: 0;
+  min-width: 960px;
+  overflow: hidden;
+}
+
+button,
+input,
+select {
+  font-family: inherit;
+}
+
+#root {
+  height: 100vh;
+  min-height: 0;
+}
