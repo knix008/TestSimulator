@@ -10,10 +10,14 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
-release
 *.local
 
-# Packaged installers copied to the project root
+# Build output
+release
+out
+*.tsbuildinfo
+
+# Packaged installers copied to the project root by scripts/copy-installers.cjs
 /*.exe
 /*.dmg
 /*.AppImage

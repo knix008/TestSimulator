@@ -1,38 +1,39 @@
+// Copy the final packaged installer (the most recently built one) from release/ to the project root.
 const fs = require('node:fs')
 const path = require('node:path')
 
-const rootDir = path.resolve(__dirname, '..')
-const releaseDir = path.join(rootDir, 'release')
-const installerExtensions = new Set(['.exe', '.dmg', '.appimage', '.deb', '.rpm', '.zip'])
+const releaseDir = path.join(__dirname, '..', 'release')
+const rootDir = path.join(__dirname, '..')
+const installerExtensions = new Set(['.exe', '.dmg', '.zip', '.appimage', '.deb', '.rpm'])
 
-function isInstaller(filePath) {
-  const extension = path.extname(filePath).toLowerCase()
-  return installerExtensions.has(extension)
-}
-
-function collectInstallers(directory) {
-  if (!fs.existsSync(directory)) {
-    return []
-  }
-
-  return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
-    const fullPath = path.join(directory, entry.name)
-    if (entry.isDirectory()) {
-      return entry.name.endsWith('-unpacked') || entry.name === 'builder-debug.yml' ? [] : collectInstallers(fullPath)
-    }
-    return entry.isFile() && isInstaller(fullPath) ? [fullPath] : []
-  })
-}
-
-const installers = collectInstallers(releaseDir)
-
-if (installers.length === 0) {
-  console.log('No installer files found in release directory.')
+if (!fs.existsSync(releaseDir)) {
+  console.log('copy-installers: no release/ directory found, nothing to copy.')
   process.exit(0)
 }
 
-for (const installer of installers) {
-  const destination = path.join(rootDir, path.basename(installer))
-  fs.copyFileSync(installer, destination)
-  console.log(`Copied ${path.relative(rootDir, installer)} -> ${path.basename(destination)}`)
+let newest = null
+for (const entry of fs.readdirSync(releaseDir, { withFileTypes: true })) {
+  if (!entry.isFile()) {
+    continue
+  }
+  const name = entry.name
+  // Only final artifacts: skip block maps and electron-builder's intermediate uninstaller.
+  if (name.includes('__uninstaller') || name.endsWith('.blockmap')) {
+    continue
+  }
+  if (!installerExtensions.has(path.extname(name).toLowerCase())) {
+    continue
+  }
+  const stat = fs.statSync(path.join(releaseDir, name))
+  if (!newest || stat.mtimeMs > newest.mtime) {
+    newest = { name, mtime: stat.mtimeMs }
+  }
 }
+
+if (!newest) {
+  console.log('copy-installers: no installer file found in release/.')
+  process.exit(0)
+}
+
+fs.copyFileSync(path.join(releaseDir, newest.name), path.join(rootDir, newest.name))
+console.log(`copy-installers: copied "${newest.name}" to the project root.`)

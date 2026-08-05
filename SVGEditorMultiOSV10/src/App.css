@@ -104,27 +104,20 @@
   background: var(--panel-bg);
   border: 1px solid var(--border);
   border-radius: 8px;
-  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.28);
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.32);
   display: grid;
   gap: 4px;
   left: 0;
-  min-width: 260px;
+  min-width: 220px;
   padding: 8px;
   position: absolute;
-  top: calc(100% + 8px);
-  z-index: 30;
+  top: calc(100% + 6px);
+  z-index: 40;
 }
 
 .file-menu button {
   justify-content: flex-start;
   width: 100%;
-}
-
-.file-menu button kbd {
-  background: transparent;
-  color: var(--text-muted);
-  font: 600 11px / 1 var(--ui-font);
-  margin-left: auto;
 }
 
 .file-menu-separator {
@@ -139,7 +132,7 @@
   font: 600 var(--control-font-size) / 1.25 var(--ui-font);
   gap: 6px;
   grid-template-columns: 1fr auto;
-  padding: 4px 2px;
+  padding: 2px 4px;
 }
 
 .file-menu-format select {
@@ -184,27 +177,6 @@
   display: grid;
   min-height: 0;
   overflow: hidden;
-}
-
-.app-shell.drag-over .canvas-stage {
-  outline: 2px dashed var(--accent);
-  outline-offset: -18px;
-}
-
-.app-shell.drag-over .canvas-stage::after {
-  background: color-mix(in srgb, var(--accent) 16%, transparent);
-  border: 1px solid var(--accent);
-  border-radius: 8px;
-  color: var(--text-primary);
-  content: 'Drop SVG or image files';
-  font: 700 18px / 1.2 var(--ui-font);
-  left: 50%;
-  padding: 14px 18px;
-  pointer-events: none;
-  position: absolute;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  z-index: 5;
 }
 
 .panel {
@@ -323,14 +295,12 @@
 }
 
 .canvas-stage {
-  align-items: center;
+  align-items: stretch;
   background-color: var(--stage-bg);
   display: grid;
-  justify-items: center;
+  justify-items: stretch;
   min-height: 0;
   overflow: auto;
-  padding: 48px;
-  position: relative;
   position: relative;
 }
 
@@ -428,10 +398,195 @@ canvas {
   grid-template-columns: minmax(0, 1fr) 52px;
 }
 
+/* Reset the generic input box styling so the slider track spans the full width end to end. */
+.range-field input[type='range'] {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  margin: 0;
+  min-height: 0;
+  padding: 0;
+  width: 100%;
+}
+
 .range-value {
   color: var(--text-primary);
   font-size: var(--control-font-size);
   text-align: right;
+}
+
+.color-field {
+  position: relative;
+}
+
+.color-trigger {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  height: 30px;
+  padding: 0;
+  width: 100%;
+}
+
+.color-trigger.is-none {
+  background:
+    linear-gradient(45deg, var(--border) 25%, transparent 25%, transparent 75%, var(--border) 75%),
+    linear-gradient(45deg, var(--border) 25%, var(--input-bg) 25%, var(--input-bg) 75%, var(--border) 75%);
+  background-position: 0 0, 6px 6px;
+  background-size: 12px 12px;
+}
+
+.color-popover {
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.34);
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  position: fixed;
+  width: 220px;
+  z-index: 60;
+}
+
+.sv-area {
+  border-radius: 8px;
+  cursor: crosshair;
+  height: 130px;
+  position: relative;
+  touch-action: none;
+  width: 100%;
+}
+
+.sv-white,
+.sv-black {
+  border-radius: 8px;
+  inset: 0;
+  position: absolute;
+}
+
+.sv-white {
+  background: linear-gradient(to right, #ffffff, rgba(255, 255, 255, 0));
+}
+
+.sv-black {
+  background: linear-gradient(to top, #000000, rgba(0, 0, 0, 0));
+}
+
+.sv-thumb {
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5);
+  height: 14px;
+  margin: -7px 0 0 -7px;
+  pointer-events: none;
+  position: absolute;
+  width: 14px;
+}
+
+.hue-slider {
+  background: linear-gradient(to right, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000);
+  border-radius: 6px;
+  cursor: ew-resize;
+  height: 14px;
+  position: relative;
+  touch-action: none;
+}
+
+.hue-thumb {
+  background: #ffffff;
+  border: 2px solid #ffffff;
+  border-radius: 3px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5);
+  height: 18px;
+  margin: -2px 0 0 -4px;
+  pointer-events: none;
+  position: absolute;
+  top: 0;
+  width: 8px;
+}
+
+.color-row {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.color-preview {
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  flex: 0 0 auto;
+  height: 26px;
+  width: 26px;
+}
+
+.hex-input {
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-primary);
+  flex: 1 1 auto;
+  font: 500 var(--control-font-size) / 1.25 var(--ui-font);
+  min-width: 0;
+  padding: 6px 8px;
+}
+
+.color-none {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.preset-row {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(8, 1fr);
+}
+
+.preset-swatch {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+  height: 20px;
+  padding: 0;
+  width: 100%;
+}
+
+.preset-swatch:hover {
+  outline: 2px solid var(--accent);
+}
+
+/* The popover is portaled to <body>, so it needs self-contained button styling. */
+.color-field .color-trigger,
+.color-popover button {
+  min-height: 0;
+}
+
+.color-popover button {
+  align-items: center;
+  background: var(--control-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-primary);
+  cursor: pointer;
+  display: inline-flex;
+  font: 600 var(--control-font-size) / 1.25 var(--ui-font);
+  gap: 6px;
+  justify-content: center;
+  padding: 6px 10px;
+}
+
+.color-popover .preset-swatch {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  height: 20px;
+  padding: 0;
+}
+
+.color-popover button:hover,
+.color-popover .preset-swatch:hover,
+.color-field .color-trigger:hover {
+  border-color: var(--accent);
+  box-shadow: none;
 }
 
 .selected-properties {
@@ -502,6 +657,11 @@ canvas {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.status-saved {
+  color: var(--accent);
+  font-weight: 700;
 }
 
 .connector-gallery {
@@ -599,6 +759,22 @@ canvas {
 .export-options select option {
   background: var(--menu-bg);
   color: var(--text-primary);
+}
+
+/* Keep the checkbox inline with its label (overrides the grid layout of .export-options label). */
+.export-options .check-row {
+  align-items: center;
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.export-options .check-row input {
+  flex: 0 0 auto;
+  height: 16px;
+  margin: 0;
+  width: 16px;
 }
 
 .error-dialog {
