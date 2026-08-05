@@ -13,7 +13,6 @@ import {
   Hexagon,
   ImagePlus,
   Info,
-  Languages,
   Minus,
   Moon,
   MousePointer2,
@@ -49,12 +48,13 @@ type ShapeType = Exclude<DrawableTool, 'bezierPen'> | 'path'
 // One anchor of an in-progress bezier pen path. Absent handles mean a corner (straight segment).
 type PenAnchor = { point: Point; handleIn?: Point; handleOut?: Point }
 type ToolGroupId = 'basic' | 'advanced' | 'line'
-type ExportFormat = 'svg' | 'png' | 'jpg' | 'webp' | 'avif' | 'gif' | 'tiff'
+type ExportFormat = 'svg' | 'png' | 'jpg' | 'webp' | 'avif' | 'gif' | 'tiff' | 'ico'
 type FileAction = 'open' | 'append'
 type UnsavedChoice = 'save' | 'discard' | 'cancel'
 type LineStyle = 'straight' | 'elbow' | 'curve'
 type MarkerStyle = 'none' | 'arrow' | 'circle' | 'diamond'
 type ShadowEffect = 'none' | 'soft' | 'deep' | 'long' | 'glow' | 'emboss'
+type LightEffect = 'none' | 'glossy' | 'spotlight' | 'metallic'
 type ShadowDirection = 'topLeft' | 'top' | 'topRight' | 'left' | 'center' | 'right' | 'bottomLeft' | 'bottom' | 'bottomRight'
 type TextAlign = 'left' | 'center' | 'right'
 
@@ -115,11 +115,11 @@ function loadSettings(): AppSettings {
     return {
       language: parsed.language === 'ko' || parsed.language === 'en' ? parsed.language : defaultSettings.language,
       theme: parsed.theme === 'dark' || parsed.theme === 'light' ? parsed.theme : defaultSettings.theme,
-      zoom: clampNumber(parsed.zoom, 0.25, 2.5, defaultSettings.zoom),
+      zoom: clampNumber(parsed.zoom, 0.05, 4, defaultSettings.zoom),
       showGrid: typeof parsed.showGrid === 'boolean' ? parsed.showGrid : defaultSettings.showGrid,
       leftWidth: clampNumber(parsed.leftWidth, currentLeftPanelWidth, maxLeftPanelWidth, defaultSettings.leftWidth),
       rightWidth: clampNumber(parsed.rightWidth, minRightPanelWidth, maxRightPanelWidth, defaultSettings.rightWidth),
-      exportFormat: parsed.exportFormat && ['svg', 'png', 'jpg', 'webp', 'avif', 'gif', 'tiff'].includes(parsed.exportFormat) ? parsed.exportFormat : defaultSettings.exportFormat,
+      exportFormat: parsed.exportFormat && ['svg', 'png', 'jpg', 'webp', 'avif', 'gif', 'tiff', 'ico'].includes(parsed.exportFormat) ? parsed.exportFormat : defaultSettings.exportFormat,
       removeBackground: typeof parsed.removeBackground === 'boolean' ? parsed.removeBackground : defaultSettings.removeBackground,
       expandedToolGroups: {
         basic: typeof groups.basic === 'boolean' ? groups.basic : defaultSettings.expandedToolGroups.basic,
@@ -167,6 +167,8 @@ type Shape = {
   shadowBlur?: number
   shadowColor?: string
   shadowOpacity?: number
+  lightEffect?: LightEffect
+  lightDirection?: ShadowDirection
 }
 
 const defaultCanvasSize = { width: 1200, height: 760 }
@@ -216,6 +218,26 @@ function saveDocument(shapes: Shape[], rasters: RasterLayer[], canvasSize: { wid
   }
 }
 
+let textMeasureContext: CanvasRenderingContext2D | null = null
+
+// Measure a text shape's rendered size so its selection box and hit-test match the visible glyphs.
+function measureTextSize(shape: Shape) {
+  const fontSize = shape.fontSize ?? 32
+  const height = Math.ceil(fontSize * 1.35)
+  const fallback = { width: Math.max(20, Math.ceil((shape.text ?? '').length * fontSize * 0.6)), height }
+  if (typeof document === 'undefined') {
+    return fallback
+  }
+  if (!textMeasureContext) {
+    textMeasureContext = document.createElement('canvas').getContext('2d')
+  }
+  if (!textMeasureContext) {
+    return fallback
+  }
+  textMeasureContext.font = `${shape.fontStyle ?? 'normal'} ${shape.fontWeight ?? '400'} ${fontSize}px ${shape.fontFamily ?? 'Arial, sans-serif'}`
+  return { width: Math.max(20, Math.ceil(textMeasureContext.measureText(shape.text ?? '').width)), height }
+}
+
 function readFileAsDataUrl(file: File) {
   return new Promise<string>((resolve, reject) => {
     const reader = new FileReader()
@@ -224,7 +246,33 @@ function readFileAsDataUrl(file: File) {
     reader.readAsDataURL(file)
   })
 }
-const fontOptions = ['Arial, sans-serif', 'Segoe UI, sans-serif', 'Georgia, serif', 'Times New Roman, serif', 'Consolas, monospace', 'Courier New, monospace']
+const fontOptions = [
+  'Arial, sans-serif',
+  'Helvetica, Arial, sans-serif',
+  'Segoe UI, sans-serif',
+  'Verdana, sans-serif',
+  'Tahoma, sans-serif',
+  'Trebuchet MS, sans-serif',
+  'Calibri, sans-serif',
+  'Gill Sans, sans-serif',
+  'Impact, sans-serif',
+  'Georgia, serif',
+  'Times New Roman, serif',
+  'Palatino Linotype, serif',
+  'Garamond, serif',
+  'Cambria, serif',
+  'Consolas, monospace',
+  'Courier New, monospace',
+  'Lucida Console, monospace',
+  'Comic Sans MS, cursive',
+  'Brush Script MT, cursive',
+  'Malgun Gothic, sans-serif',
+  'NanumGothic, sans-serif',
+  'NanumMyeongjo, serif',
+  'Batang, serif',
+  'Gulim, sans-serif',
+  'Dotum, sans-serif',
+]
 
 const shadowPresets: Record<Exclude<ShadowEffect, 'none'>, { direction: ShadowDirection; distance: number; blur: number; color: string; opacity: number }> = {
   soft: { direction: 'bottomRight', distance: 10, blur: 14, color: '#000000', opacity: 0.28 },
@@ -235,6 +283,14 @@ const shadowPresets: Record<Exclude<ShadowEffect, 'none'>, { direction: ShadowDi
 }
 
 const shadowOptions: ShadowEffect[] = ['none', 'soft', 'deep', 'long', 'glow', 'emboss']
+const lightOptions: LightEffect[] = ['none', 'glossy', 'spotlight', 'metallic']
+const lightEffectLabelKeys: Record<LightEffect, string> = { none: 'lightNone', glossy: 'lightGlossy', spotlight: 'lightSpotlight', metallic: 'lightMetallic' }
+// Per-preset reflected-light parameters: SVG specular-lighting values plus canvas gloss-gradient stops.
+const lightPresets: Record<Exclude<LightEffect, 'none'>, { surfaceScale: number; specularConstant: number; specularExponent: number; blur: number; color: string; azimuth: number; elevation: number; glossTop: number; glossBottom: number }> = {
+  glossy: { surfaceScale: 3, specularConstant: 0.75, specularExponent: 18, blur: 2, color: '#ffffff', azimuth: 235, elevation: 60, glossTop: 0.5, glossBottom: 0 },
+  spotlight: { surfaceScale: 5, specularConstant: 1, specularExponent: 28, blur: 1.5, color: '#ffffff', azimuth: 235, elevation: 45, glossTop: 0.72, glossBottom: 0 },
+  metallic: { surfaceScale: 6, specularConstant: 1.1, specularExponent: 10, blur: 3, color: '#eaf2ff', azimuth: 220, elevation: 55, glossTop: 0.55, glossBottom: 0.28 },
+}
 const shadowDirections: ShadowDirection[] = ['topLeft', 'top', 'topRight', 'left', 'center', 'right', 'bottomLeft', 'bottom', 'bottomRight']
 const shadowDirectionVectors: Record<ShadowDirection, Point> = {
   topLeft: { x: -1, y: -1 },
@@ -277,6 +333,7 @@ const messages = {
     saveSvg: 'SVG 저장',
     saveAs: '다른 이름으로 저장',
     saveAsTitle: '다른 이름으로 저장',
+    saved: '저장됨',
     fileName: '파일 이름',
     saveChangesTitle: '변경사항 저장',
     saveChangesMessage: '현재 작업 내용에 변경사항이 있습니다. 계속하기 전에 저장하시겠습니까?',
@@ -337,6 +394,12 @@ const messages = {
     strokeWidth: '테두리 두께',
     opacity: '투명도',
     shadowEffect: '3D 그림자',
+    lightEffect: '조명 효과',
+    lightDirection: '조명 위치',
+    lightNone: '없음',
+    lightGlossy: '광택',
+    lightSpotlight: '스포트라이트',
+    lightMetallic: '메탈릭',
     shadowNone: '없음',
     shadowSoft: '부드러운 그림자',
     shadowDeep: '깊은 3D',
@@ -416,6 +479,7 @@ const messages = {
     saveSvg: 'Save SVG',
     saveAs: 'Save as…',
     saveAsTitle: 'Save as',
+    saved: 'Saved',
     fileName: 'File name',
     saveChangesTitle: 'Save changes',
     saveChangesMessage: 'The current document has unsaved changes. Do you want to save before continuing?',
@@ -476,6 +540,12 @@ const messages = {
     strokeWidth: 'Border width',
     opacity: 'Opacity',
     shadowEffect: '3D shadow',
+    lightEffect: 'Lighting',
+    lightDirection: 'Light position',
+    lightNone: 'None',
+    lightGlossy: 'Glossy',
+    lightSpotlight: 'Spotlight',
+    lightMetallic: 'Metallic',
     shadowNone: 'None',
     shadowSoft: 'Soft shadow',
     shadowDeep: 'Deep 3D',
@@ -551,6 +621,15 @@ const messages = {
 function EllipseIcon({ size = 20 }: { size?: number }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
     <ellipse cx="12" cy="12" rx="9" ry="5" />
+  </svg>
+}
+
+// Korean/English language toggle glyph: "한" over "A" with a divider.
+function LanguageToggleIcon({ size = 18 }: { size?: number }) {
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+    <text x="1.5" y="10.5" fontSize="11" fontWeight="700">한</text>
+    <line x1="4" y1="21" x2="20" y2="4" stroke="currentColor" strokeWidth="1.4" />
+    <text x="13" y="22" fontSize="12" fontWeight="700" fontFamily="Arial, sans-serif">A</text>
   </svg>
 }
 
@@ -869,6 +948,13 @@ function resizeShape(shape: Shape, anchor: ResizeAnchor, point: Point) {
     }
   }
 
+  if (shape.type === 'text') {
+    // Text glyphs are sized by fontSize, so scale it with the box height and refit the box to the glyphs.
+    const scale = shape.height === 0 ? 1 : height / shape.height
+    const fontSize = Math.max(8, Math.round((shape.fontSize ?? 32) * scale))
+    return { ...shape, x: next.left, y: next.top, fontSize, ...measureTextSize({ ...shape, fontSize }) }
+  }
+
   return { ...shape, x: next.left, y: next.top, width, height }
 }
 
@@ -981,16 +1067,46 @@ function hexToRgba(hex: string, opacity: number) {
   return `rgba(${red}, ${green}, ${blue}, ${opacity})`
 }
 
-function shadowFilter(shape: Shape) {
-  return effectiveShadow(shape) ? ` filter="url(#shadow-${shape.id})"` : ''
+function effectiveLight(shape: Shape) {
+  if (!shape.lightEffect || shape.lightEffect === 'none') {
+    return null
+  }
+  const preset = lightPresets[shape.lightEffect]
+  const direction = shape.lightDirection ?? 'topLeft'
+  const vector = shadowDirectionVectors[direction]
+  const isCenter = direction === 'center' || (vector.x === 0 && vector.y === 0)
+  // The specular highlight (and canvas gloss) appears toward the light's azimuth direction.
+  const azimuth = isCenter ? 270 : (Math.atan2(vector.y, vector.x) * 180 / Math.PI + 360) % 360
+  const elevation = isCenter ? 85 : preset.elevation
+  return { ...preset, direction, vector, isCenter, azimuth, elevation }
 }
 
-function shadowFilterDefs(shapes: Shape[]) {
-  const filters = shapes.flatMap((shape) => {
+function effectFilter(shape: Shape) {
+  return effectiveShadow(shape) || effectiveLight(shape) ? ` filter="url(#fx-${shape.id})"` : ''
+}
+
+// One combined SVG filter per shape: a reflected-light (specular) pass composited under an optional drop shadow.
+function effectFilterDefs(shapes: Shape[]) {
+  return shapes.flatMap((shape) => {
     const shadow = effectiveShadow(shape)
-    return shadow ? [`<filter id="shadow-${shape.id}" x="-60%" y="-60%" width="220%" height="220%"><feDropShadow dx="${shadow.dx}" dy="${shadow.dy}" stdDeviation="${shadow.blur}" flood-color="${shadow.color}" flood-opacity="${shadow.opacity}"/></filter>`] : []
-  })
-  return filters.join('')
+    const light = effectiveLight(shape)
+    if (!shadow && !light) {
+      return []
+    }
+    let inner = ''
+    let litInput = 'SourceGraphic'
+    if (light) {
+      inner += `<feGaussianBlur in="SourceAlpha" stdDeviation="${light.blur}" result="fxblur"/>`
+      inner += `<feSpecularLighting in="fxblur" surfaceScale="${light.surfaceScale}" specularConstant="${light.specularConstant}" specularExponent="${light.specularExponent}" lighting-color="${light.color}" result="fxspec"><feDistantLight azimuth="${light.azimuth}" elevation="${light.elevation}"/></feSpecularLighting>`
+      inner += `<feComposite in="fxspec" in2="SourceAlpha" operator="in" result="fxspecclip"/>`
+      inner += `<feComposite in="SourceGraphic" in2="fxspecclip" operator="arithmetic" k1="0" k2="1" k3="1" k4="0" result="fxlit"/>`
+      litInput = 'fxlit'
+    }
+    if (shadow) {
+      inner += `<feDropShadow in="${litInput}" dx="${shadow.dx}" dy="${shadow.dy}" stdDeviation="${shadow.blur}" flood-color="${shadow.color}" flood-opacity="${shadow.opacity}"/>`
+    }
+    return [`<filter id="fx-${shape.id}" x="-60%" y="-60%" width="220%" height="220%">${inner}</filter>`]
+  }).join('')
 }
 
 function applyCanvasShadow(context: CanvasRenderingContext2D, shape: Shape) {
@@ -1004,8 +1120,74 @@ function applyCanvasShadow(context: CanvasRenderingContext2D, shape: Shape) {
   context.shadowColor = hexToRgba(shadow.color, shadow.opacity)
 }
 
+// The fillable outline of a shape in world coordinates, used to clip the canvas gloss highlight.
+function shapeFillPath(shape: Shape): Path2D | null {
+  const path = new Path2D()
+  if (shape.type === 'rect' || shape.type === 'square') {
+    path.roundRect(shape.x, shape.y, shape.width, shape.height, 6)
+  } else if (shape.type === 'roundRect') {
+    path.roundRect(shape.x, shape.y, shape.width, shape.height, Math.min(28, Math.abs(shape.width) / 4, Math.abs(shape.height) / 4))
+  } else if (shape.type === 'ellipse' || shape.type === 'circleShape') {
+    path.ellipse(shape.x + shape.width / 2, shape.y + shape.height / 2, Math.abs(shape.width / 2), Math.abs(shape.height / 2), 0, 0, Math.PI * 2)
+  } else if (shape.type === 'triangle' || shape.type === 'diamondShape' || shape.type === 'pentagon' || shape.type === 'hexagon' || shape.type === 'octagon' || shape.type === 'star' || shape.type === 'trapezoid' || shape.type === 'parallelogram' || shape.type === 'chevron' || shape.type === 'crossShape') {
+    const points = polygonPoints(shape)
+    if (points.length === 0) {
+      return null
+    }
+    path.moveTo(points[0].x, points[0].y)
+    points.slice(1).forEach((point) => path.lineTo(point.x, point.y))
+    path.closePath()
+  } else if (shape.type === 'pen' && shape.points?.length && isClosedPointPath(shape.points)) {
+    path.moveTo(shape.points[0].x, shape.points[0].y)
+    shape.points.slice(1).forEach((point) => path.lineTo(point.x, point.y))
+    path.closePath()
+  } else if (shape.type === 'path' && shape.d) {
+    const matrix = shape.matrix ?? identityMatrix()
+    path.addPath(new Path2D(shape.d), { a: matrix.a, b: matrix.b, c: matrix.c, d: matrix.d, e: matrix.e, f: matrix.f })
+  } else {
+    return null
+  }
+  return path
+}
+
+// Paint a reflected-light gloss clipped to the shape (canvas equivalent of the SVG specular filter).
+function applyCanvasLight(context: CanvasRenderingContext2D, shape: Shape) {
+  const light = effectiveLight(shape)
+  if (!light) {
+    return
+  }
+  const path = shapeFillPath(shape)
+  if (!path) {
+    return
+  }
+  context.save()
+  context.shadowColor = 'transparent'
+  context.globalCompositeOperation = 'source-over'
+  context.clip(path, shape.fillRule ?? 'nonzero')
+  const centerX = shape.x + shape.width / 2
+  const centerY = shape.y + shape.height / 2
+  let gradient: CanvasGradient
+  if (light.isCenter) {
+    gradient = context.createRadialGradient(centerX, centerY, 0, centerX, centerY, Math.max(shape.width, shape.height) / 2)
+    gradient.addColorStop(0, `rgba(255, 255, 255, ${light.glossTop})`)
+    gradient.addColorStop(0.6, 'rgba(255, 255, 255, 0)')
+  } else {
+    // Bright at the light side (along the direction vector), fading toward the opposite side.
+    gradient = context.createLinearGradient(centerX + light.vector.x * shape.width / 2, centerY + light.vector.y * shape.height / 2, centerX - light.vector.x * shape.width / 2, centerY - light.vector.y * shape.height / 2)
+    gradient.addColorStop(0, `rgba(255, 255, 255, ${light.glossTop})`)
+    gradient.addColorStop(0.5, 'rgba(255, 255, 255, 0)')
+    if (light.glossBottom > 0) {
+      gradient.addColorStop(0.85, 'rgba(255, 255, 255, 0)')
+      gradient.addColorStop(1, `rgba(255, 255, 255, ${light.glossBottom})`)
+    }
+  }
+  context.fillStyle = gradient
+  context.fillRect(shape.x - 2, shape.y - 2, shape.width + 4, shape.height + 4)
+  context.restore()
+}
+
 function shapeToSvg(shape: Shape, shapes: Shape[]) {
-  const filter = shadowFilter(shape)
+  const filter = effectFilter(shape)
   const common = `fill="${shape.fill}" stroke="${shape.stroke}" stroke-width="${shape.strokeWidth}" opacity="${shape.opacity}"${filter}`
   if (shape.type === 'connector') {
     return `<path d="${connectorPath(shape, shapes).svg}" fill="none" stroke="${shape.stroke}" stroke-width="${shape.strokeWidth}" opacity="${shape.opacity}" stroke-linecap="round" stroke-linejoin="round"${filter}${markerUrl(shape.startMarker, 'start')}${markerUrl(shape.endMarker, 'end')}/>`
@@ -1056,7 +1238,7 @@ function shapeToSvg(shape: Shape, shapes: Shape[]) {
 function buildSvg(shapes: Shape[], rasters: RasterLayer[], removeBackground: boolean, canvasSize: CanvasArea = defaultCanvasSize) {
   const bounds = removeBackground ? getSceneBounds(shapes, rasters, canvasSize) : { x: canvasSize.x ?? 0, y: canvasSize.y ?? 0, width: canvasSize.width, height: canvasSize.height }
   const rasterNodes = rasters.map((raster) => `<image href="${raster.src}" x="${raster.x}" y="${raster.y}" width="${raster.width}" height="${raster.height}"/>`)
-  const defs = `<defs>${shadowFilterDefs(shapes)}<marker id="end-arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="context-stroke"/></marker><marker id="start-arrow" markerWidth="10" markerHeight="10" refX="1" refY="5" orient="auto-start-reverse"><path d="M 0 5 L 10 0 L 10 10 z" fill="context-stroke"/></marker><marker id="end-circle" markerWidth="10" markerHeight="10" refX="5" refY="5"><circle cx="5" cy="5" r="4" fill="context-stroke"/></marker><marker id="start-circle" markerWidth="10" markerHeight="10" refX="5" refY="5"><circle cx="5" cy="5" r="4" fill="context-stroke"/></marker><marker id="end-diamond" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto"><path d="M 6 0 L 12 6 L 6 12 L 0 6 z" fill="context-stroke"/></marker><marker id="start-diamond" markerWidth="12" markerHeight="12" refX="2" refY="6" orient="auto"><path d="M 6 0 L 12 6 L 6 12 L 0 6 z" fill="context-stroke"/></marker></defs>`
+  const defs = `<defs>${effectFilterDefs(shapes)}<marker id="end-arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="context-stroke"/></marker><marker id="start-arrow" markerWidth="10" markerHeight="10" refX="1" refY="5" orient="auto-start-reverse"><path d="M 0 5 L 10 0 L 10 10 z" fill="context-stroke"/></marker><marker id="end-circle" markerWidth="10" markerHeight="10" refX="5" refY="5"><circle cx="5" cy="5" r="4" fill="context-stroke"/></marker><marker id="start-circle" markerWidth="10" markerHeight="10" refX="5" refY="5"><circle cx="5" cy="5" r="4" fill="context-stroke"/></marker><marker id="end-diamond" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto"><path d="M 6 0 L 12 6 L 6 12 L 0 6 z" fill="context-stroke"/></marker><marker id="start-diamond" markerWidth="12" markerHeight="12" refX="2" refY="6" orient="auto"><path d="M 6 0 L 12 6 L 6 12 L 0 6 z" fill="context-stroke"/></marker></defs>`
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${bounds.width}" height="${bounds.height}" viewBox="${bounds.x} ${bounds.y} ${bounds.width} ${bounds.height}">${defs}${rasterNodes.join('')}${shapes.map((shape) => shapeToSvg(shape, shapes)).join('')}</svg>`
 }
 
@@ -1173,6 +1355,7 @@ function drawShape(context: CanvasRenderingContext2D, shape: Shape, selected: bo
     context.fillText(shape.text ?? '', x, shape.y + (shape.fontSize ?? 32))
   }
 
+  applyCanvasLight(context, shape)
   context.restore()
 
   if (selected) {
@@ -1241,6 +1424,70 @@ function downloadBlob(blob: Blob, filename: string) {
   link.download = filename
   link.click()
   URL.revokeObjectURL(url)
+}
+
+// Render the scene fitted and centered into a transparent square canvas of the given size (for icons).
+async function renderSquareCanvas(size: number, shapes: Shape[], rasters: RasterLayer[], canvasSize: CanvasArea) {
+  const bounds = getSceneBounds(shapes, rasters, canvasSize)
+  const scale = Math.min(size / Math.max(1, bounds.width), size / Math.max(1, bounds.height))
+  const drawWidth = bounds.width * scale
+  const drawHeight = bounds.height * scale
+  const canvas = document.createElement('canvas')
+  canvas.width = size
+  canvas.height = size
+  const context = canvas.getContext('2d')
+  if (!context) {
+    throw new Error('Canvas rendering is unavailable.')
+  }
+  context.translate((size - drawWidth) / 2, (size - drawHeight) / 2)
+  context.scale(scale, scale)
+  context.translate(-bounds.x, -bounds.y)
+  for (const raster of rasters) {
+    const image = await loadImage(raster.src)
+    context.drawImage(image, raster.x, raster.y, raster.width, raster.height)
+  }
+  shapes.forEach((shape) => drawShape(context, shape, false, shapes))
+  return canvas
+}
+
+// Assemble a multi-resolution .ico file from PNG-encoded images (PNG-in-ICO, supported by modern Windows).
+function buildIcoFile(images: Array<{ size: number; png: Uint8Array }>) {
+  const count = images.length
+  const headerSize = 6 + 16 * count
+  const total = headerSize + images.reduce((sum, image) => sum + image.png.length, 0)
+  const output = new Uint8Array(total)
+  const view = new DataView(output.buffer)
+  view.setUint16(0, 0, true)
+  view.setUint16(2, 1, true)
+  view.setUint16(4, count, true)
+  let offset = headerSize
+  images.forEach((image, index) => {
+    const entry = 6 + 16 * index
+    output[entry] = image.size >= 256 ? 0 : image.size
+    output[entry + 1] = image.size >= 256 ? 0 : image.size
+    output[entry + 2] = 0
+    output[entry + 3] = 0
+    view.setUint16(entry + 4, 1, true)
+    view.setUint16(entry + 6, 32, true)
+    view.setUint32(entry + 8, image.png.length, true)
+    view.setUint32(entry + 12, offset, true)
+    output.set(image.png, offset)
+    offset += image.png.length
+  })
+  return output
+}
+
+async function exportIco(shapes: Shape[], rasters: RasterLayer[], canvasSize: CanvasArea) {
+  const sizes = [16, 32, 48, 64, 128, 256]
+  const images: Array<{ size: number; png: Uint8Array }> = []
+  for (const size of sizes) {
+    const canvas = await renderSquareCanvas(size, shapes, rasters, canvasSize)
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'))
+    if (blob) {
+      images.push({ size, png: new Uint8Array(await blob.arrayBuffer()) })
+    }
+  }
+  return images.length > 0 ? buildIcoFile(images) : null
 }
 
 function parseSvgStyleRules(documentXml: XMLDocument): SvgStyleRules {
@@ -2366,9 +2613,9 @@ function App() {
   const [removeBackground, setRemoveBackground] = useState(initialSettings.removeBackground)
   const [showExportDialog, setShowExportDialog] = useState(false)
   const [showFileMenu, setShowFileMenu] = useState(false)
-  const [showSaveAsDialog, setShowSaveAsDialog] = useState(false)
-  const [saveAsName, setSaveAsName] = useState('svg-editor-export')
-  const [saveAsFormat, setSaveAsFormat] = useState<ExportFormat>('svg')
+  const [currentFilePath, setCurrentFilePath] = useState<string | null>(null)
+  const [savedNotice, setSavedNotice] = useState<string | null>(null)
+  const savedNoticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const fileMenuRef = useRef<HTMLDivElement | null>(null)
   const [showUnsavedDialog, setShowUnsavedDialog] = useState(false)
   const [showAbout, setShowAbout] = useState(false)
@@ -2498,6 +2745,46 @@ function App() {
     selectShapes([])
     refreshHistoryStatus()
   }, [growCanvasToFit, refreshHistoryStatus, shapes])
+
+  const markSaved = useCallback((filePath: string | null) => {
+    setIsDirty(false)
+    const name = filePath ? filePath.split(/[\\/]/).pop() ?? filePath : null
+    setSavedNotice(name ? `${text.saved}: ${name}` : text.saved)
+    if (savedNoticeTimerRef.current) {
+      clearTimeout(savedNoticeTimerRef.current)
+    }
+    savedNoticeTimerRef.current = setTimeout(() => setSavedNotice(null), 3000)
+  }, [text.saved])
+
+  // Save the document via a native Save dialog (Electron) or a browser download, remembering the chosen path.
+  const saveDocumentAs = useCallback(async (prebuiltSvg?: string) => {
+    const svg = prebuiltSvg ?? buildSvg(shapes, rasters, true, canvasView)
+    const api = window.electronFileApi
+    if (api) {
+      const result = await api.saveFile({ fileName: currentFilePath?.split(/[\\/]/).pop() ?? 'drawing.svg', filters: [{ name: 'SVG', extensions: ['svg'] }], text: svg })
+      if (!result.canceled && result.filePath) {
+        setCurrentFilePath(result.filePath)
+        markSaved(result.filePath)
+      }
+      return
+    }
+    downloadBlob(new Blob([svg], { type: 'image/svg+xml' }), 'svg-editor-export.svg')
+    markSaved(null)
+  }, [shapes, rasters, canvasView, currentFilePath, markSaved])
+
+  // Ctrl+S: overwrite the current file if known, otherwise fall back to Save As.
+  const saveCurrentDocument = useCallback(async () => {
+    const api = window.electronFileApi
+    if (api && currentFilePath) {
+      const svg = buildSvg(shapes, rasters, true, canvasView)
+      const result = await api.writeFile({ filePath: currentFilePath, text: svg })
+      if (!result.canceled) {
+        markSaved(currentFilePath)
+      }
+      return
+    }
+    await saveDocumentAs()
+  }, [shapes, rasters, canvasView, currentFilePath, markSaved, saveDocumentAs])
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme
@@ -2639,7 +2926,8 @@ function App() {
       return { id: makeId('shape'), type: 'pen', name: text.pen, x: start.x, y: start.y, width: 1, height: 1, points: [start, end], fill: 'transparent', stroke: '#f4c95d', strokeWidth: 4, opacity: 1 }
     }
     if (tool === 'text') {
-      return { id: makeId('shape'), type: 'text', name: text.text, x: start.x, y: start.y, width: 260, height: 52, text: language === 'ko' ? '텍스트' : 'Text', fontFamily: 'Arial, sans-serif', fontSize: 32, fontWeight: '400', fontStyle: 'normal', textAlign: 'left', fill: '#eefaf7', stroke: 'transparent', strokeWidth: 0, opacity: 1 }
+      const textShape: Shape = { id: makeId('shape'), type: 'text', name: text.text, x: start.x, y: start.y, width: 260, height: 52, text: language === 'ko' ? '텍스트' : 'Text', fontFamily: 'Arial, sans-serif', fontSize: 32, fontWeight: '400', fontStyle: 'normal', textAlign: 'left', fill: '#eefaf7', stroke: 'transparent', strokeWidth: 0, opacity: 1 }
+      return { ...textShape, ...measureTextSize(textShape) }
     }
     if (tool === 'connector') {
       return { id: makeId('shape'), type: 'connector', name: text.connector, x: start.x, y: start.y, width: end.x - start.x, height: end.y - start.y, fill: 'transparent', stroke: '#67d5b5', strokeWidth: 4, opacity: 1, lineStyle: 'straight', startMarker: 'none', endMarker: 'arrow' }
@@ -3175,7 +3463,12 @@ function App() {
         delete rest.height
         return { ...moved, ...rest }
       }
-      return { ...shape, ...patch }
+      const merged = { ...shape, ...patch }
+      // Keep the text box matched to the rendered glyphs so selection/hit-testing covers the whole text.
+      if (merged.type === 'text' && ('text' in patch || 'fontSize' in patch || 'fontFamily' in patch || 'fontWeight' in patch || 'fontStyle' in patch)) {
+        return { ...merged, ...measureTextSize(merged) }
+      }
+      return merged
     }), recordHistory)
   }
 
@@ -3220,6 +3513,11 @@ function App() {
         setTool('select')
         return
       }
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
+        event.preventDefault()
+        void saveCurrentDocument()
+        return
+      }
       if (target?.matches('input, textarea, select')) {
         return
       }
@@ -3255,7 +3553,7 @@ function App() {
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [commitPenDraft, deleteNodeAnchor, deleteSelected, nodeEditId, nodeSelection, redo, selectedIds.length, tool, undo])
+  }, [commitPenDraft, deleteNodeAnchor, deleteSelected, nodeEditId, nodeSelection, redo, saveCurrentDocument, selectedIds.length, tool, undo])
 
   function moveLayer(direction: 'front' | 'back') {
     if (selectedIds.length === 0) {
@@ -3337,6 +3635,15 @@ function App() {
       return true
     }
 
+    if (format === 'ico') {
+      const ico = await exportIco(shapes, rasters, canvasView)
+      if (ico) {
+        downloadBlob(new Blob([ico], { type: 'image/x-icon' }), `${baseName}.ico`)
+        return true
+      }
+      return false
+    }
+
     const mime = format === 'jpg' ? 'image/jpeg' : format === 'tiff' ? 'image/tiff' : `image/${format}`
     const needsOpaqueBackground = format === 'jpg'
     const canvas = await renderSceneToCanvas(shapes, rasters, true, needsOpaqueBackground ? '#ffffff' : null, canvasView)
@@ -3368,17 +3675,6 @@ function App() {
     }, mime, 0.92))
   }
 
-  function openSaveAs() {
-    setShowFileMenu(false)
-    setSaveAsFormat(exportFormat)
-    setShowSaveAsDialog(true)
-  }
-
-  async function runSaveAs() {
-    setShowSaveAsDialog(false)
-    await exportFile(saveAsFormat, saveAsName)
-  }
-
   function handlePanelResize(side: 'left' | 'right', event: React.PointerEvent<HTMLDivElement>) {
     const startX = event.clientX
     const startWidth = side === 'left' ? leftWidth : rightWidth
@@ -3400,7 +3696,7 @@ function App() {
 
   // Change zoom while keeping the current viewport center fixed (records the anchor; scroll is corrected post-render).
   function zoomTo(next: number | ((current: number) => number)) {
-    const target = Math.min(2.5, Math.max(0.25, typeof next === 'function' ? next(zoom) : next))
+    const target = Math.min(4, Math.max(0.05, typeof next === 'function' ? next(zoom) : next))
     const stage = stageRef.current
     const canvas = canvasRef.current
     if (stage && canvas && target !== zoom) {
@@ -3467,13 +3763,9 @@ function App() {
             <button onClick={() => { setShowFileMenu(false); void openFile() }}><ImagePlus size={16} /><span>{text.open}</span></button>
             <button onClick={() => { setShowFileMenu(false); addFile() }}><FileImage size={16} /><span>{text.add}</span></button>
             <div className="file-menu-separator" />
-            <button onClick={() => { setShowFileMenu(false); void exportFile('svg') }}><Save size={16} /><span>{text.saveSvg}</span></button>
-            <button onClick={openSaveAs}><Save size={16} /><span>{text.saveAs}</span></button>
+            <button onClick={() => { setShowFileMenu(false); void saveCurrentDocument() }}><Save size={16} /><span>{text.saveSvg}</span></button>
+            <button onClick={() => { setShowFileMenu(false); void saveDocumentAs() }}><Save size={16} /><span>{text.saveAs}</span></button>
             <button onClick={() => { setShowFileMenu(false); setShowExportDialog(true) }}><Download size={16} /><span>{text.export}</span></button>
-            <div className="file-menu-separator" />
-            <label className="file-menu-format">{text.format}<select value={exportFormat} onChange={(event) => setExportFormat(event.target.value as ExportFormat)}>
-              {(['png', 'jpg', 'webp', 'avif', 'gif', 'tiff', 'svg'] as ExportFormat[]).map((format) => <option key={format} value={format}>{format.toUpperCase()}</option>)}
-            </select></label>
           </div>}
         </div>
         <div className="toolbar-group">
@@ -3489,7 +3781,7 @@ function App() {
         </div>
         <div className="toolbar-spacer" />
         <div className="toolbar-group">
-          <button title={text.language} onClick={() => setLanguage((value) => value === 'ko' ? 'en' : 'ko')}><Languages size={18} /><span>{language === 'ko' ? '영어' : '한글'}</span></button>
+          <button title={text.language} onClick={() => setLanguage((value) => value === 'ko' ? 'en' : 'ko')}><LanguageToggleIcon size={18} /><span>{language === 'ko' ? 'English' : '한글'}</span></button>
           <button title={text.theme} onClick={() => setTheme((value) => value === 'dark' ? 'light' : 'dark')}>{theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}<span>{theme === 'dark' ? 'Light' : 'Dark'}</span></button>
           <button title={text.about} onClick={() => setShowAbout(true)}><Info size={18} /></button>
         </div>
@@ -3555,7 +3847,7 @@ function App() {
                 <label>{text.fontFamily}<select value={selectedShape.fontFamily ?? 'Arial, sans-serif'} onChange={(event) => updateSelected({ fontFamily: event.target.value })}>
                   {fontOptions.map((font) => <option key={font} value={font}>{font.split(',')[0]}</option>)}
                 </select></label>
-                <label>{text.fontSize}<span className="range-field"><input type="range" min="10" max="96" value={selectedShape.fontSize ?? 32} onChange={(event) => updateSelected({ fontSize: Number(event.target.value), height: Number(event.target.value) + 20 })} /><span className="range-value">{selectedShape.fontSize ?? 32}px</span></span></label>
+                <label>{text.fontSize}<span className="range-field"><input type="range" min="8" max="240" value={selectedShape.fontSize ?? 32} onChange={(event) => updateSelected({ fontSize: Number(event.target.value) })} /><span className="range-value">{selectedShape.fontSize ?? 32}px</span></span></label>
                 <div className="text-style-grid">
                   <label>{text.fontWeight}<select value={selectedShape.fontWeight ?? '400'} onChange={(event) => updateSelected({ fontWeight: event.target.value })}>
                     <option value="400">{text.normal}</option>
@@ -3574,8 +3866,14 @@ function App() {
               </div>}
               <label>{text.fill}<ColorField value={selectedShape.fill} allowNone noneLabel={text.fillNone} onBeginChange={beginColorChange} onChange={(color) => updateSelected({ fill: color }, false)} /></label>
               <label>{text.stroke}<ColorField value={selectedShape.stroke} allowNone noneLabel={text.none} onBeginChange={beginColorChange} onChange={(color) => updateSelected({ stroke: color }, false)} /></label>
-              <label>{text.strokeWidth}<span className="range-field"><input type="range" min="0" max="24" value={selectedShape.strokeWidth} onChange={(event) => updateSelected({ strokeWidth: Number(event.target.value) })} /><span className="range-value">{selectedShape.strokeWidth}px</span></span></label>
-              <label>{text.opacity}<span className="range-field"><input type="range" min="0.1" max="1" step="0.05" value={selectedShape.opacity} onChange={(event) => updateSelected({ opacity: Number(event.target.value) })} /><span className="range-value">{Math.round(selectedShape.opacity * 100)}%</span></span></label>
+              <label>{text.strokeWidth}<span className="range-field"><input type="range" min="1" max="24" value={Math.round(selectedShape.strokeWidth)} onChange={(event) => updateSelected({ strokeWidth: Number(event.target.value) })} /><span className="range-value">{Math.round(selectedShape.strokeWidth)}px</span></span></label>
+              <label>{text.opacity}<span className="range-field"><input type="range" min="0" max="1" step="0.05" value={selectedShape.opacity} onChange={(event) => updateSelected({ opacity: Number(event.target.value) })} /><span className="range-value">{Math.round(selectedShape.opacity * 100)}%</span></span></label>
+              <label>{text.lightEffect}<select value={selectedShape.lightEffect ?? 'none'} onChange={(event) => updateSelected({ lightEffect: event.target.value as LightEffect })}>
+                {lightOptions.map((effect) => <option key={effect} value={effect}>{text[lightEffectLabelKeys[effect] as keyof typeof text]}</option>)}
+              </select></label>
+              {(selectedShape.lightEffect ?? 'none') !== 'none' && <label>{text.lightDirection}<select value={selectedShape.lightDirection ?? 'topLeft'} onChange={(event) => updateSelected({ lightDirection: event.target.value as ShadowDirection })}>
+                {shadowDirections.map((direction) => <option key={direction} value={direction}>{text[shadowDirectionLabelKeys[direction] as keyof typeof text]}</option>)}
+              </select></label>}
               <label>{text.shadowEffect}<select value={selectedShape.shadowEffect ?? 'none'} onChange={(event) => {
                 const effect = event.target.value as ShadowEffect
                 const preset = effect === 'none' ? null : shadowPresets[effect]
@@ -3621,7 +3919,7 @@ function App() {
       </section>
 
       <footer className="status-bar">
-        <span>{text.statusReady}</span>
+        <span className={savedNotice ? 'status-saved' : undefined}>{savedNotice ?? text.statusReady}</span>
         <span>{text.canvasSize}: {Math.round(canvasView.width)} x {Math.round(canvasView.height)}</span>
         <span>{Math.round(zoom * 100)}%</span>
         <span>{text.shapesCount}: {shapes.length}</span>
@@ -3649,24 +3947,11 @@ function App() {
           <button onClick={() => resolveUnsavedChoice('save')}><Save size={16} />{text.save}</button>
         </div>
       </dialog>}
-      {showSaveAsDialog && <dialog className="export-dialog" open>
-        <h2>{text.saveAsTitle}</h2>
-        <div className="export-options">
-          <label>{text.fileName}<input value={saveAsName} spellCheck={false} autoFocus onChange={(event) => setSaveAsName(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') { void runSaveAs() } }} /></label>
-          <label>{text.format}<select value={saveAsFormat} onChange={(event) => setSaveAsFormat(event.target.value as ExportFormat)}>
-            {(['svg', 'png', 'jpg', 'webp', 'avif', 'gif', 'tiff'] as ExportFormat[]).map((format) => <option key={format} value={format}>{format.toUpperCase()}</option>)}
-          </select></label>
-        </div>
-        <div className="dialog-actions">
-          <button onClick={() => setShowSaveAsDialog(false)}>{text.cancel}</button>
-          <button onClick={() => void runSaveAs()}><Save size={16} />{text.save}</button>
-        </div>
-      </dialog>}
       {showExportDialog && <dialog className="export-dialog" open>
         <h2>{text.exportOptions}</h2>
         <div className="export-options">
           <label>{text.format}<select value={exportFormat} onChange={(event) => setExportFormat(event.target.value as ExportFormat)}>
-            {(['png', 'jpg', 'webp', 'avif', 'gif', 'tiff', 'svg'] as ExportFormat[]).map((format) => <option key={format} value={format}>{format.toUpperCase()}</option>)}
+            {(['png', 'jpg', 'webp', 'avif', 'gif', 'tiff', 'ico', 'svg'] as ExportFormat[]).map((format) => <option key={format} value={format}>{format.toUpperCase()}</option>)}
           </select></label>
           <label className="check-row"><input type="checkbox" checked={removeBackground} onChange={(event) => setRemoveBackground(event.target.checked)} />{text.removeBackground}</label>
         </div>

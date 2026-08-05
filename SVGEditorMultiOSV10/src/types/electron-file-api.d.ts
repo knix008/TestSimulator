@@ -27,6 +27,7 @@ interface Window {
   electronFileApi?: {
     openFiles(options?: { defaultPath?: string }): Promise<ElectronOpenResult>
     saveFile(options: { defaultDirectory?: string; fileName: string; filters?: ElectronSaveFilter[]; text?: string; dataUrl?: string }): Promise<ElectronSaveResult>
+    writeFile(options: { filePath: string; text?: string; dataUrl?: string }): Promise<ElectronSaveResult>
   }
   electronWindowApi?: {
     minimize(): Promise<void>

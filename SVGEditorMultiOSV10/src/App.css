@@ -398,6 +398,17 @@ canvas {
   grid-template-columns: minmax(0, 1fr) 52px;
 }
 
+/* Reset the generic input box styling so the slider track spans the full width end to end. */
+.range-field input[type='range'] {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  margin: 0;
+  min-height: 0;
+  padding: 0;
+  width: 100%;
+}
+
 .range-value {
   color: var(--text-primary);
   font-size: var(--control-font-size);
@@ -648,6 +659,11 @@ canvas {
   text-overflow: ellipsis;
 }
 
+.status-saved {
+  color: var(--accent);
+  font-weight: 700;
+}
+
 .connector-gallery {
   display: grid;
   gap: 8px;
@@ -743,6 +759,22 @@ canvas {
 .export-options select option {
   background: var(--menu-bg);
   color: var(--text-primary);
+}
+
+/* Keep the checkbox inline with its label (overrides the grid layout of .export-options label). */
+.export-options .check-row {
+  align-items: center;
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.export-options .check-row input {
+  flex: 0 0 auto;
+  height: 16px;
+  margin: 0;
+  width: 16px;
 }
 
 .error-dialog {
