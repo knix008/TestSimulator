@@ -5,7 +5,7 @@ SVG Editor V1.0 lets you draw vector shapes, open and edit existing images, and 
 ## Layout
 
 - **Top toolbar** — file actions (New, Open, Add, Save, Export + format), Undo/Redo, zoom and grid, language/theme/about, and window controls.
-- **Left panel** — the tool box: Select and Eraser on top, then collapsible groups (Basic, Advanced, Lines / connectors).
+- **Left panel** — the tool box: Select, Edit nodes, and Eraser on top, then collapsible groups (Basic, Advanced, Lines / connectors).
 - **Canvas** — the drawing surface. Scroll to pan, mouse-wheel to zoom, right-click for a context menu.
 - **Right panel** — the live SVG source and the properties of the selected shape.
 - **Status bar** — canvas size, zoom, shape/image counts, grid state, and current selection.
@@ -25,6 +25,7 @@ Imported `<path>` artwork keeps its exact geometry: curves render smoothly and s
 ## Selecting and editing
 
 - **Select tool** — click a shape to select it; drag to move. Drag a corner handle to resize. Drag on empty canvas to marquee-select multiple shapes.
+- **Edit nodes tool** — for fine, point-level editing of paths (see below).
 - **Eraser tool** — click a shape to delete it.
 - **Right-click menu** — Duplicate, Bring forward, Send backward, Delete.
 - **Keyboard** — `Delete` removes the selection, `Ctrl/Cmd+Z` undoes, `Ctrl+Shift+Z` or `Ctrl+Y` redoes, `Esc` cancels the current action and returns to Select.
@@ -60,6 +61,18 @@ The Bezier pen creates a true vector path with smooth curves:
 5. Press **Esc** to cancel the path in progress.
 
 New pen paths start with no fill (outline only); add a fill from the properties panel if you want a filled shape.
+
+### Editing path nodes
+
+The **Edit nodes** tool lets you reshape any path directly — imported SVG paths as well as ones drawn with the bezier pen — instead of only moving or resizing the whole shape:
+
+1. Pick the **Edit nodes** tool (top of the left panel).
+2. Click a path to activate it. Its anchor points appear as small squares.
+3. **Drag an anchor point** to move it (its curve handles move with it).
+4. Click an anchor to select it — its **bezier handles** appear. Drag a handle to bend the adjacent curve.
+5. **Double-click a segment** to insert a new anchor there (curves are split smoothly); **double-click an anchor** — or select it and press **Delete** — to remove it.
+
+Edits apply live and are fully undoable. This works even on complex, curved artwork, so you can refine imported icons point by point.
 
 ## View
 

@@ -80,6 +80,7 @@ Raster export (PNG/JPG/WebP/AVIF/GIF/TIFF) renders the scene to an offscreen can
 - **shape tools** — create a shape and live-update it while dragging (`drawingRef`).
 - **connector** — click two shapes to link them; the connector re-routes from live shape centers.
 - **bezierPen** — a small state machine over `penDraft: PenAnchor[]`: click adds an anchor, dragging pulls symmetric curve handles, and the path is committed (`commitPenDraft`) on start-point click (closed), double-click / Enter (open), or when switching tools. `penAnchorsToPath` serializes anchors to a `d` string.
+- **nodeEdit** — point-level editing of a `path` shape. `parsePathToAnchors` turns the path's `d` into editable sub-paths of anchors with cubic handles (M/L/H/V/C/S/Q/T/A/Z; arcs convert via `arcToCubics`, quadratics elevate to cubics). Anchors are hit-tested/dragged in world space and mapped back to local space with `invertMatrix`; edits re-serialize through `anchorsToPathData` and `updatePathData`. Double-click inserts a point (De Casteljau `splitCubic` keeps curve shape) or deletes one; `drawNodeOverlay` renders anchors and handles.
 
 Keyboard: `Esc` cancels the current gesture/pen draft and returns to Select; `Delete` removes the selection; `Ctrl/Cmd+Z` / `Shift+Z` / `Ctrl+Y` undo/redo; `Enter` finishes an open pen path.
 

@@ -18,6 +18,7 @@ import {
   PenLine,
   PenTool,
   Plus,
+  Spline,
   RectangleHorizontal,
   Save,
   SendToBack,
@@ -39,8 +40,8 @@ import './App.css'
 
 type Language = 'ko' | 'en'
 type Theme = 'dark' | 'light'
-type Tool = 'select' | 'rect' | 'square' | 'roundRect' | 'ellipse' | 'circleShape' | 'triangle' | 'diamondShape' | 'pentagon' | 'hexagon' | 'octagon' | 'star' | 'trapezoid' | 'parallelogram' | 'chevron' | 'crossShape' | 'curve' | 'line' | 'connector' | 'pen' | 'bezierPen' | 'text' | 'eraser'
-type DrawableTool = Exclude<Tool, 'select' | 'eraser'>
+type Tool = 'select' | 'nodeEdit' | 'rect' | 'square' | 'roundRect' | 'ellipse' | 'circleShape' | 'triangle' | 'diamondShape' | 'pentagon' | 'hexagon' | 'octagon' | 'star' | 'trapezoid' | 'parallelogram' | 'chevron' | 'crossShape' | 'curve' | 'line' | 'connector' | 'pen' | 'bezierPen' | 'text' | 'eraser'
+type DrawableTool = Exclude<Tool, 'select' | 'nodeEdit' | 'eraser'>
 // Shapes that can exist on the canvas. `bezierPen` is a drawing mode that produces a `path` shape; `path` is not a tool.
 type ShapeType = Exclude<DrawableTool, 'bezierPen'> | 'path'
 // One anchor of an in-progress bezier pen path. Absent handles mean a corner (straight segment).
@@ -236,6 +237,8 @@ const messages = {
     lineTools: '선/연결',
     properties: '속성',
     select: '선택',
+    nodeEdit: '노드 편집',
+    nodeEditHint: 'path를 클릭해 점을 드래그로 이동, 핸들로 곡선 조절. 더블클릭으로 점 추가/삭제, Delete로 삭제.',
     rect: '사각형',
     square: '정사각형',
     roundRect: '둥근 사각형',
@@ -369,6 +372,8 @@ const messages = {
     lineTools: 'Lines / connectors',
     properties: 'Properties',
     select: 'Select',
+    nodeEdit: 'Edit nodes',
+    nodeEditHint: 'Click a path, drag points to move, drag handles to reshape. Double-click to add/remove a point, Delete to remove.',
     rect: 'Rectangle',
     square: 'Square',
     roundRect: 'Rounded rectangle',
@@ -1340,28 +1345,366 @@ function pathShape(base: Omit<Shape, 'type' | 'x' | 'y' | 'width' | 'height'>, p
   return { ...base, type: 'path', d: pathData, fillRule, matrix: identityMatrix(), pathBounds: localBounds, x: localBounds.x, y: localBounds.y, width: localBounds.width, height: localBounds.height }
 }
 
-// Serialize bezier pen anchors to an SVG path `d`. Segments become C when either endpoint has a handle, else L.
+// Replace a path's geometry (its `d`) while keeping its matrix, recomputing cached bounds.
+function updatePathData(shape: Shape, pathData: string): Shape {
+  const matrix = shape.matrix ?? identityMatrix()
+  const pathBounds = getPathBounds(pathData)
+  const bounds = pathWorldBounds(pathBounds, matrix)
+  return { ...shape, d: pathData, pathBounds, ...bounds }
+}
+
+type WorldAnchor = { sub: number; index: number; point: Point; handleIn: Point | null; handleOut: Point | null }
+
+// Editable anchors of a path expressed in world (canvas) coordinates for hit-testing and overlay drawing.
+function worldAnchors(shape: Shape): WorldAnchor[] {
+  if (!shape.d) {
+    return []
+  }
+  const matrix = shape.matrix ?? identityMatrix()
+  return parsePathToAnchors(shape.d).flatMap((subpath, sub) => subpath.anchors.map((anchor, index) => ({
+    sub,
+    index,
+    point: transformPoint(anchor.point, matrix),
+    handleIn: anchor.handleIn ? transformPoint(anchor.handleIn, matrix) : null,
+    handleOut: anchor.handleOut ? transformPoint(anchor.handleOut, matrix) : null,
+  })))
+}
+
+function drawNodeOverlay(context: CanvasRenderingContext2D, shape: Shape, selected: { sub: number; index: number } | null, zoom: number) {
+  const anchors = worldAnchors(shape)
+  if (anchors.length === 0) {
+    return
+  }
+  const anchorSize = 4.5 / zoom
+  const handleSize = 4 / zoom
+  context.save()
+  context.setLineDash([])
+  for (const anchor of anchors) {
+    const isSelected = selected?.sub === anchor.sub && selected.index === anchor.index
+    if (isSelected) {
+      for (const handle of [anchor.handleIn, anchor.handleOut]) {
+        if (!handle) {
+          continue
+        }
+        context.strokeStyle = 'rgba(125, 211, 252, 0.9)'
+        context.lineWidth = 1 / zoom
+        context.beginPath()
+        context.moveTo(anchor.point.x, anchor.point.y)
+        context.lineTo(handle.x, handle.y)
+        context.stroke()
+        context.fillStyle = '#7dd3fc'
+        context.beginPath()
+        context.arc(handle.x, handle.y, handleSize, 0, Math.PI * 2)
+        context.fill()
+      }
+    }
+    context.fillStyle = isSelected ? '#f4c95d' : '#ffffff'
+    context.strokeStyle = '#0aa6a6'
+    context.lineWidth = 1.5 / zoom
+    context.beginPath()
+    context.rect(anchor.point.x - anchorSize, anchor.point.y - anchorSize, anchorSize * 2, anchorSize * 2)
+    context.fill()
+    context.stroke()
+  }
+  context.restore()
+}
+
+// One editable sub-path: a chain of anchors plus whether it is closed.
+type PathSubpath = { anchors: PenAnchor[]; closed: boolean }
+
+// A segment becomes a cubic C when either endpoint has a handle, otherwise a straight L.
+function pathSegment(from: PenAnchor, to: PenAnchor) {
+  if (from.handleOut || to.handleIn) {
+    const control1 = from.handleOut ?? from.point
+    const control2 = to.handleIn ?? to.point
+    return ` C ${control1.x} ${control1.y} ${control2.x} ${control2.y} ${to.point.x} ${to.point.y}`
+  }
+  return ` L ${to.point.x} ${to.point.y}`
+}
+
+// Serialize bezier pen anchors (one sub-path) to an SVG path `d`.
 function penAnchorsToPath(anchors: PenAnchor[], closed: boolean) {
   if (anchors.length === 0) {
     return ''
   }
-  const segment = (from: PenAnchor, to: PenAnchor) => {
-    if (from.handleOut || to.handleIn) {
-      const control1 = from.handleOut ?? from.point
-      const control2 = to.handleIn ?? to.point
-      return ` C ${control1.x} ${control1.y} ${control2.x} ${control2.y} ${to.point.x} ${to.point.y}`
-    }
-    return ` L ${to.point.x} ${to.point.y}`
-  }
   let d = `M ${anchors[0].point.x} ${anchors[0].point.y}`
   for (let index = 1; index < anchors.length; index += 1) {
-    d += segment(anchors[index - 1], anchors[index])
+    d += pathSegment(anchors[index - 1], anchors[index])
   }
   if (closed && anchors.length > 1) {
-    d += segment(anchors[anchors.length - 1], anchors[0])
+    d += pathSegment(anchors[anchors.length - 1], anchors[0])
     d += ' Z'
   }
   return d
+}
+
+// Serialize a full multi-sub-path anchor model back to an SVG path `d`.
+function anchorsToPathData(subpaths: PathSubpath[]) {
+  return subpaths.map((subpath) => {
+    const anchors = subpath.anchors
+    if (anchors.length === 0) {
+      return ''
+    }
+    let d = `M ${anchors[0].point.x} ${anchors[0].point.y}`
+    for (let index = 1; index < anchors.length; index += 1) {
+      d += pathSegment(anchors[index - 1], anchors[index])
+    }
+    if (subpath.closed && anchors.length > 1) {
+      // A straight close is just Z; a curved close needs the explicit C back to the start.
+      if (anchors[anchors.length - 1].handleOut || anchors[0].handleIn) {
+        d += pathSegment(anchors[anchors.length - 1], anchors[0])
+      }
+      d += ' Z'
+    }
+    return d
+  }).filter(Boolean).join(' ')
+}
+
+function invertMatrix(matrix: SvgMatrix): SvgMatrix {
+  const det = matrix.a * matrix.d - matrix.b * matrix.c
+  if (Math.abs(det) < 1e-12) {
+    return identityMatrix()
+  }
+  const a = matrix.d / det
+  const b = -matrix.b / det
+  const c = -matrix.c / det
+  const d = matrix.a / det
+  return { a, b, c, d, e: -(a * matrix.e + c * matrix.f), f: -(b * matrix.e + d * matrix.f) }
+}
+
+// Convert one endpoint-parameterized SVG arc into a list of cubic bezier segments.
+function arcToCubics(x0: number, y0: number, rx: number, ry: number, phiDeg: number, largeArc: number, sweep: number, x: number, y: number) {
+  const segments: Array<{ control1: Point; control2: Point; end: Point }> = []
+  if (rx === 0 || ry === 0) {
+    segments.push({ control1: { x: x0, y: y0 }, control2: { x, y }, end: { x, y } })
+    return segments
+  }
+  rx = Math.abs(rx)
+  ry = Math.abs(ry)
+  const phi = (phiDeg * Math.PI) / 180
+  const cosPhi = Math.cos(phi)
+  const sinPhi = Math.sin(phi)
+  const dx = (x0 - x) / 2
+  const dy = (y0 - y) / 2
+  const x1p = cosPhi * dx + sinPhi * dy
+  const y1p = -sinPhi * dx + cosPhi * dy
+  let radiusCheck = (x1p * x1p) / (rx * rx) + (y1p * y1p) / (ry * ry)
+  if (radiusCheck > 1) {
+    const scale = Math.sqrt(radiusCheck)
+    rx *= scale
+    ry *= scale
+    radiusCheck = 1
+  }
+  const sign = largeArc === sweep ? -1 : 1
+  const numerator = rx * rx * ry * ry - rx * rx * y1p * y1p - ry * ry * x1p * x1p
+  const coefficient = sign * Math.sqrt(Math.max(0, numerator) / (rx * rx * y1p * y1p + ry * ry * x1p * x1p || 1))
+  const cxp = (coefficient * rx * y1p) / ry
+  const cyp = (-coefficient * ry * x1p) / rx
+  const cx = cosPhi * cxp - sinPhi * cyp + (x0 + x) / 2
+  const cy = sinPhi * cxp + cosPhi * cyp + (y0 + y) / 2
+  const angle = (ux: number, uy: number, vx: number, vy: number) => {
+    const dot = ux * vx + uy * vy
+    const len = Math.sqrt((ux * ux + uy * uy) * (vx * vx + vy * vy)) || 1
+    const value = Math.min(1, Math.max(-1, dot / len))
+    return (ux * vy - uy * vx < 0 ? -1 : 1) * Math.acos(value)
+  }
+  const theta1 = angle(1, 0, (x1p - cxp) / rx, (y1p - cyp) / ry)
+  let deltaTheta = angle((x1p - cxp) / rx, (y1p - cyp) / ry, (-x1p - cxp) / rx, (-y1p - cyp) / ry)
+  if (!sweep && deltaTheta > 0) {
+    deltaTheta -= 2 * Math.PI
+  } else if (sweep && deltaTheta < 0) {
+    deltaTheta += 2 * Math.PI
+  }
+  const count = Math.max(1, Math.ceil(Math.abs(deltaTheta) / (Math.PI / 2)))
+  const delta = deltaTheta / count
+  const t = (4 / 3) * Math.tan(delta / 4)
+  let theta = theta1
+  let startX = x0
+  let startY = y0
+  for (let index = 0; index < count; index += 1) {
+    const nextTheta = theta + delta
+    const cosA = Math.cos(theta)
+    const sinA = Math.sin(theta)
+    const cosB = Math.cos(nextTheta)
+    const sinB = Math.sin(nextTheta)
+    const point = (ct: number, st: number) => ({
+      x: cx + cosPhi * rx * ct - sinPhi * ry * st,
+      y: cy + sinPhi * rx * ct + cosPhi * ry * st,
+    })
+    const endPoint = point(cosB, sinB)
+    // Control points from the ellipse tangent (derivative) at each end of the sub-arc.
+    const d1x = -rx * cosPhi * sinA - ry * sinPhi * cosA
+    const d1y = -rx * sinPhi * sinA + ry * cosPhi * cosA
+    const d2x = -rx * cosPhi * sinB - ry * sinPhi * cosB
+    const d2y = -rx * sinPhi * sinB + ry * cosPhi * cosB
+    const control1 = { x: startX + t * d1x, y: startY + t * d1y }
+    const control2 = { x: endPoint.x - t * d2x, y: endPoint.y - t * d2y }
+    segments.push({ control1, control2, end: endPoint })
+    theta = nextTheta
+    startX = endPoint.x
+    startY = endPoint.y
+  }
+  return segments
+}
+
+function cubicAt(p0: Point, p1: Point, p2: Point, p3: Point, t: number): Point {
+  const mt = 1 - t
+  return {
+    x: mt ** 3 * p0.x + 3 * mt ** 2 * t * p1.x + 3 * mt * t ** 2 * p2.x + t ** 3 * p3.x,
+    y: mt ** 3 * p0.y + 3 * mt ** 2 * t * p1.y + 3 * mt * t ** 2 * p2.y + t ** 3 * p3.y,
+  }
+}
+
+// De Casteljau split of a cubic at t, returning the new handles for both sides plus the on-curve point.
+function splitCubic(p0: Point, p1: Point, p2: Point, p3: Point, t: number) {
+  const lerp = (a: Point, b: Point) => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t })
+  const p01 = lerp(p0, p1)
+  const p12 = lerp(p1, p2)
+  const p23 = lerp(p2, p3)
+  const p012 = lerp(p01, p12)
+  const p123 = lerp(p12, p23)
+  const point = lerp(p012, p123)
+  return { fromHandleOut: p01, newHandleIn: p012, point, newHandleOut: p123, toHandleIn: p23 }
+}
+
+// Parse an SVG path `d` into editable sub-paths of anchors with cubic handles (curves preserved, not flattened).
+function parsePathToAnchors(pathData: string): PathSubpath[] {
+  const tokens = pathData.match(/[a-zA-Z]|-?\d*\.?\d+(?:e[-+]?\d+)?/g) ?? []
+  const subpaths: PathSubpath[] = []
+  let anchors: PenAnchor[] = []
+  let index = 0
+  let command = ''
+  let current: Point = { x: 0, y: 0 }
+  let subStart: Point = { x: 0, y: 0 }
+  let previousCubic: Point | null = null
+  let previousQuad: Point | null = null
+  const read = () => Number(tokens[index++])
+  const isCommand = (token: string | undefined) => Boolean(token && /^[a-zA-Z]$/.test(token))
+  const last = () => anchors[anchors.length - 1]
+  const flush = () => {
+    if (anchors.length > 0) {
+      subpaths.push({ anchors, closed: false })
+    }
+    anchors = []
+  }
+  const curveTo = (control1: Point, control2: Point, end: Point) => {
+    const from = last()
+    if (from) {
+      from.handleOut = control1
+    }
+    anchors.push({ point: end, handleIn: control2 })
+    current = end
+  }
+  while (index < tokens.length) {
+    if (isCommand(tokens[index])) {
+      command = tokens[index++]
+    }
+    const relative = command === command.toLowerCase()
+    const type = command.toLowerCase()
+    if (type === 'z') {
+      if (anchors.length > 0) {
+        subpaths.push({ anchors, closed: true })
+      }
+      anchors = []
+      current = { ...subStart }
+      previousCubic = null
+      previousQuad = null
+      continue
+    }
+    if (type === 'm') {
+      flush()
+      const point = { x: relative ? current.x + read() : read(), y: relative ? current.y + read() : read() }
+      anchors = [{ point }]
+      current = point
+      subStart = point
+      previousCubic = null
+      previousQuad = null
+      command = relative ? 'l' : 'L'
+      continue
+    }
+    if (type === 'l') {
+      const point = { x: relative ? current.x + read() : read(), y: relative ? current.y + read() : read() }
+      anchors.push({ point })
+      current = point
+      previousCubic = null
+      previousQuad = null
+      continue
+    }
+    if (type === 'h') {
+      const value = read()
+      const point = { x: relative ? current.x + value : value, y: current.y }
+      anchors.push({ point })
+      current = point
+      previousCubic = null
+      previousQuad = null
+      continue
+    }
+    if (type === 'v') {
+      const value = read()
+      const point = { x: current.x, y: relative ? current.y + value : value }
+      anchors.push({ point })
+      current = point
+      previousCubic = null
+      previousQuad = null
+      continue
+    }
+    if (type === 'c') {
+      const control1 = { x: relative ? current.x + read() : read(), y: relative ? current.y + read() : read() }
+      const control2 = { x: relative ? current.x + read() : read(), y: relative ? current.y + read() : read() }
+      const end = { x: relative ? current.x + read() : read(), y: relative ? current.y + read() : read() }
+      curveTo(control1, control2, end)
+      previousCubic = control2
+      previousQuad = null
+      continue
+    }
+    if (type === 's') {
+      const control1 = previousCubic ? { x: current.x * 2 - previousCubic.x, y: current.y * 2 - previousCubic.y } : { ...current }
+      const control2 = { x: relative ? current.x + read() : read(), y: relative ? current.y + read() : read() }
+      const end = { x: relative ? current.x + read() : read(), y: relative ? current.y + read() : read() }
+      curveTo(control1, control2, end)
+      previousCubic = control2
+      previousQuad = null
+      continue
+    }
+    if (type === 'q') {
+      const q = { x: relative ? current.x + read() : read(), y: relative ? current.y + read() : read() }
+      const end = { x: relative ? current.x + read() : read(), y: relative ? current.y + read() : read() }
+      const control1 = { x: current.x + (2 / 3) * (q.x - current.x), y: current.y + (2 / 3) * (q.y - current.y) }
+      const control2 = { x: end.x + (2 / 3) * (q.x - end.x), y: end.y + (2 / 3) * (q.y - end.y) }
+      curveTo(control1, control2, end)
+      previousQuad = q
+      previousCubic = null
+      continue
+    }
+    if (type === 't') {
+      const q: Point = previousQuad ? { x: current.x * 2 - previousQuad.x, y: current.y * 2 - previousQuad.y } : { ...current }
+      const end = { x: relative ? current.x + read() : read(), y: relative ? current.y + read() : read() }
+      const control1 = { x: current.x + (2 / 3) * (q.x - current.x), y: current.y + (2 / 3) * (q.y - current.y) }
+      const control2 = { x: end.x + (2 / 3) * (q.x - end.x), y: end.y + (2 / 3) * (q.y - end.y) }
+      curveTo(control1, control2, end)
+      previousQuad = q
+      previousCubic = null
+      continue
+    }
+    if (type === 'a') {
+      const rx = read()
+      const ry = read()
+      const rotation = read()
+      const largeArc = read()
+      const sweep = read()
+      const end = { x: relative ? current.x + read() : read(), y: relative ? current.y + read() : read() }
+      for (const segment of arcToCubics(current.x, current.y, rx, ry, rotation, largeArc, sweep, end.x, end.y)) {
+        curveTo(segment.control1, segment.control2, segment.end)
+      }
+      previousCubic = null
+      previousQuad = null
+      continue
+    }
+    // Unknown command: stop to avoid misreading the stream.
+    break
+  }
+  flush()
+  return subpaths
 }
 
 function drawPenDraft(context: CanvasRenderingContext2D, anchors: PenAnchor[], cursor: Point | null, zoom: number) {
@@ -1668,6 +2011,9 @@ function App() {
   const [penCursor, setPenCursor] = useState<Point | null>(null)
   const penDraftRef = useRef<PenAnchor[]>([])
   const penDragRef = useRef<{ index: number } | null>(null)
+  const [nodeEditId, setNodeEditId] = useState<string | null>(null)
+  const [nodeSelection, setNodeSelection] = useState<{ sub: number; index: number } | null>(null)
+  const nodeDragRef = useRef<{ target: 'point' | 'handleIn' | 'handleOut'; sub: number; index: number } | null>(null)
 
   const text = messages[language]
   const selectedShape = selectedIds.length === 1 ? shapes.find((shape) => shape.id === selectedIds[0]) : undefined
@@ -1681,7 +2027,7 @@ function App() {
   const svgText = useMemo(() => buildSvg(shapes, rasters, true, canvasView), [canvasView, shapes, rasters])
   const statusSelection = selectedIds.length > 1 ? `${selectedIds.length} ${text.selectedCount}` : selectedShape ? `${text.selected}: ${selectedShape.name}` : text.selectedNone
   const gridSize = `${Math.max(8, 40 * zoom)}px`
-  const defaultCanvasCursor = tool === 'select' ? 'default' : tool === 'eraser' ? 'not-allowed' : 'crosshair'
+  const defaultCanvasCursor = tool === 'select' || tool === 'nodeEdit' ? 'default' : tool === 'eraser' ? 'not-allowed' : 'crosshair'
 
   function selectShape(id: string | null) {
     setSelectedIds(id ? [id] : [])
@@ -1852,10 +2198,16 @@ function App() {
       if (tool === 'bezierPen' && penDraft.length > 0) {
         drawPenDraft(context, penDraft, penCursor, zoom)
       }
+      if (tool === 'nodeEdit' && nodeEditId) {
+        const editing = shapes.find((shape) => shape.id === nodeEditId)
+        if (editing && editing.type === 'path') {
+          drawNodeOverlay(context, editing, nodeSelection, zoom)
+        }
+      }
     }
 
     void drawRasters()
-  }, [canvasView, shapes, rasters, selectedIds, selectionBox, zoom, tool, penDraft, penCursor])
+  }, [canvasView, shapes, rasters, selectedIds, selectionBox, zoom, tool, penDraft, penCursor, nodeEditId, nodeSelection])
 
   useEffect(() => {
     const closeMenu = () => setContextMenu(null)
@@ -1952,6 +2304,166 @@ function App() {
     }
   }, [tool, commitPenDraft])
 
+  // Leave node-editing state behind when switching away from the node-edit tool.
+  useEffect(() => {
+    if (tool !== 'nodeEdit') {
+      nodeDragRef.current = null
+      setNodeEditId(null)
+      setNodeSelection(null)
+    }
+  }, [tool])
+
+  // Rewrite the active path's geometry through a mutation on its editable anchors.
+  const editActivePath = useCallback((mutate: (subpaths: PathSubpath[]) => void, recordHistory: boolean) => {
+    updateShapes((current) => {
+      const shape = current.find((item) => item.id === nodeEditId)
+      if (!shape || shape.type !== 'path' || !shape.d) {
+        return current
+      }
+      const subpaths = parsePathToAnchors(shape.d)
+      mutate(subpaths)
+      const nextData = anchorsToPathData(subpaths)
+      return current.map((item) => item.id === shape.id ? updatePathData(item, nextData) : item)
+    }, recordHistory)
+  }, [nodeEditId, updateShapes])
+
+  const deleteNodeAnchor = useCallback((sub: number, index: number) => {
+    editActivePath((subpaths) => {
+      const subpath = subpaths[sub]
+      if (!subpath || subpath.anchors.length <= 2) {
+        return
+      }
+      subpath.anchors.splice(index, 1)
+    }, true)
+    setNodeSelection(null)
+  }, [editActivePath])
+
+  function nodeHitTest(worldPoint: Point): { target: 'point' | 'handleIn' | 'handleOut'; sub: number; index: number } | null {
+    const shape = shapes.find((item) => item.id === nodeEditId)
+    if (!shape || shape.type !== 'path') {
+      return null
+    }
+    const threshold = 9 / zoom
+    const anchors = worldAnchors(shape)
+    const near = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.y - b.y) <= threshold
+    if (nodeSelection) {
+      const selected = anchors.find((anchor) => anchor.sub === nodeSelection.sub && anchor.index === nodeSelection.index)
+      if (selected?.handleIn && near(worldPoint, selected.handleIn)) {
+        return { target: 'handleIn', sub: selected.sub, index: selected.index }
+      }
+      if (selected?.handleOut && near(worldPoint, selected.handleOut)) {
+        return { target: 'handleOut', sub: selected.sub, index: selected.index }
+      }
+    }
+    const hit = anchors.find((anchor) => near(worldPoint, anchor.point))
+    return hit ? { target: 'point', sub: hit.sub, index: hit.index } : null
+  }
+
+  function handleNodePointerDown(worldPoint: Point) {
+    const hit = nodeHitTest(worldPoint)
+    if (hit) {
+      setNodeSelection({ sub: hit.sub, index: hit.index })
+      remember(shapes)
+      nodeDragRef.current = { target: hit.target, sub: hit.sub, index: hit.index }
+      return
+    }
+    const target = [...shapes].reverse().find((item) => item.type === 'path' && isPointInShape(worldPoint, item))
+    if (target) {
+      setNodeEditId(target.id)
+      selectShape(target.id)
+    }
+    setNodeSelection(null)
+  }
+
+  function handleNodePointerMove(worldPoint: Point) {
+    const drag = nodeDragRef.current
+    if (!drag) {
+      setCanvasCursor(nodeHitTest(worldPoint) ? 'pointer' : 'default')
+      return
+    }
+    const shape = shapes.find((item) => item.id === nodeEditId)
+    if (!shape) {
+      return
+    }
+    const local = transformPoint(worldPoint, invertMatrix(shape.matrix ?? identityMatrix()))
+    editActivePath((subpaths) => {
+      const anchor = subpaths[drag.sub]?.anchors[drag.index]
+      if (!anchor) {
+        return
+      }
+      if (drag.target === 'point') {
+        const dx = local.x - anchor.point.x
+        const dy = local.y - anchor.point.y
+        anchor.point = local
+        if (anchor.handleIn) {
+          anchor.handleIn = { x: anchor.handleIn.x + dx, y: anchor.handleIn.y + dy }
+        }
+        if (anchor.handleOut) {
+          anchor.handleOut = { x: anchor.handleOut.x + dx, y: anchor.handleOut.y + dy }
+        }
+      } else if (drag.target === 'handleIn') {
+        anchor.handleIn = local
+      } else {
+        anchor.handleOut = local
+      }
+    }, false)
+  }
+
+  function insertNodeAnchor(worldPoint: Point) {
+    const shape = shapes.find((item) => item.id === nodeEditId)
+    if (!shape || shape.type !== 'path' || !shape.d) {
+      return
+    }
+    const local = transformPoint(worldPoint, invertMatrix(shape.matrix ?? identityMatrix()))
+    editActivePath((subpaths) => {
+      let best: { sub: number; from: number; t: number; distance: number } | null = null
+      for (let sub = 0; sub < subpaths.length; sub += 1) {
+        const subpath = subpaths[sub]
+        const count = subpath.closed ? subpath.anchors.length : subpath.anchors.length - 1
+        for (let from = 0; from < count; from += 1) {
+          const anchorA = subpath.anchors[from]
+          const anchorB = subpath.anchors[(from + 1) % subpath.anchors.length]
+          const p0 = anchorA.point
+          const p1 = anchorA.handleOut ?? anchorA.point
+          const p2 = anchorB.handleIn ?? anchorB.point
+          const p3 = anchorB.point
+          for (let step = 1; step < 16; step += 1) {
+            const t = step / 16
+            const sample = cubicAt(p0, p1, p2, p3, t)
+            const distance = (sample.x - local.x) ** 2 + (sample.y - local.y) ** 2
+            if (!best || distance < best.distance) {
+              best = { sub, from, t, distance }
+            }
+          }
+        }
+      }
+      if (!best) {
+        return
+      }
+      const subpath = subpaths[best.sub]
+      const anchorA = subpath.anchors[best.from]
+      const anchorB = subpath.anchors[(best.from + 1) % subpath.anchors.length]
+      if (anchorA.handleOut || anchorB.handleIn) {
+        const result = splitCubic(anchorA.point, anchorA.handleOut ?? anchorA.point, anchorB.handleIn ?? anchorB.point, anchorB.point, best.t)
+        anchorA.handleOut = result.fromHandleOut
+        anchorB.handleIn = result.toHandleIn
+        subpath.anchors.splice(best.from + 1, 0, { point: result.point, handleIn: result.newHandleIn, handleOut: result.newHandleOut })
+      } else {
+        const point = { x: anchorA.point.x + (anchorB.point.x - anchorA.point.x) * best.t, y: anchorA.point.y + (anchorB.point.y - anchorA.point.y) * best.t }
+        subpath.anchors.splice(best.from + 1, 0, { point })
+      }
+    }, true)
+  }
+
+  function handleNodeDoubleClick(worldPoint: Point) {
+    const hit = nodeHitTest(worldPoint)
+    if (hit && hit.target === 'point') {
+      deleteNodeAnchor(hit.sub, hit.index)
+    } else {
+      insertNodeAnchor(worldPoint)
+    }
+  }
+
   function handlePointerDown(event: React.PointerEvent<HTMLCanvasElement>) {
     event.currentTarget.setPointerCapture(event.pointerId)
     const point = getCanvasPoint(event)
@@ -1959,6 +2471,11 @@ function App() {
 
     if (tool === 'bezierPen') {
       handlePenPointerDown(point)
+      return
+    }
+
+    if (tool === 'nodeEdit') {
+      handleNodePointerDown(point)
       return
     }
 
@@ -2038,6 +2555,10 @@ function App() {
       handlePenPointerMove(getCanvasPoint(event))
       return
     }
+    if (tool === 'nodeEdit') {
+      handleNodePointerMove(getCanvasPoint(event))
+      return
+    }
     const interactionView = dragRef.current?.view ?? resizeRef.current?.view ?? drawingRef.current?.view ?? canvasView
     const point = getCanvasPoint(event, interactionView)
     if (dragRef.current) {
@@ -2106,6 +2627,10 @@ function App() {
   function handlePointerUp() {
     if (tool === 'bezierPen') {
       penDragRef.current = null
+      return
+    }
+    if (tool === 'nodeEdit') {
+      nodeDragRef.current = null
       return
     }
     if (selectionBox) {
@@ -2272,6 +2797,8 @@ function App() {
         penDragRef.current = null
         setPenDraft([])
         setPenCursor(null)
+        nodeDragRef.current = null
+        setNodeSelection(null)
         dragRef.current = null
         resizeRef.current = null
         drawingRef.current = null
@@ -2289,10 +2816,17 @@ function App() {
         commitPenDraft(false)
         return
       }
-      if (event.key === 'Delete' && selectedIds.length > 0) {
-        event.preventDefault()
-        deleteSelected()
-        return
+      if (event.key === 'Delete') {
+        if (nodeEditId && nodeSelection) {
+          event.preventDefault()
+          deleteNodeAnchor(nodeSelection.sub, nodeSelection.index)
+          return
+        }
+        if (selectedIds.length > 0) {
+          event.preventDefault()
+          deleteSelected()
+          return
+        }
       }
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') {
         event.preventDefault()
@@ -2309,7 +2843,7 @@ function App() {
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [commitPenDraft, deleteSelected, redo, selectedIds.length, undo])
+  }, [commitPenDraft, deleteNodeAnchor, deleteSelected, nodeEditId, nodeSelection, redo, selectedIds.length, undo])
 
   function moveLayer(direction: 'front' | 'back') {
     if (selectedIds.length === 0) {
@@ -2507,6 +3041,7 @@ function App() {
           <h2>{text.tools}</h2>
           <div className="primary-tools">
             <button className={`primary-tool ${tool === 'select' ? 'active' : ''}`} title={text.select} onClick={() => setTool('select')}><MousePointer2 size={20} /><span>{text.select}</span></button>
+            <button className={`primary-tool ${tool === 'nodeEdit' ? 'active' : ''}`} title={text.nodeEditHint} onClick={() => setTool('nodeEdit')}><Spline size={20} /><span>{text.nodeEdit}</span></button>
             <button className={`primary-tool ${tool === 'eraser' ? 'active' : ''}`} title={text.eraser} onClick={() => setTool('eraser')}><Eraser size={20} /><span>{text.eraser}</span></button>
           </div>
           <div className="tool-groups">
@@ -2526,7 +3061,7 @@ function App() {
         </aside>
         <div className="resize-handle" onPointerDown={(event) => handlePanelResize('left', event)} />
         <section ref={stageRef} className={`canvas-stage ${showGrid ? 'show-grid' : ''}`} style={{ '--grid-size': gridSize } as React.CSSProperties} aria-label={text.canvas} onWheel={(event) => { setZoom((value) => Math.min(2.5, Math.max(0.25, value - event.deltaY * 0.001))) }}>
-          <canvas ref={canvasRef} style={{ cursor: canvasCursor ?? defaultCanvasCursor }} onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerLeave={handlePointerLeave} onDoubleClick={() => { if (tool === 'bezierPen') commitPenDraft(false) }} onContextMenu={handleCanvasContextMenu} />
+          <canvas ref={canvasRef} style={{ cursor: canvasCursor ?? defaultCanvasCursor }} onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerLeave={handlePointerLeave} onDoubleClick={(event) => { if (tool === 'bezierPen') { commitPenDraft(false) } else if (tool === 'nodeEdit') { handleNodeDoubleClick(getCanvasPoint(event)) } }} onContextMenu={handleCanvasContextMenu} />
           {contextMenu && <div className="context-menu" style={{ left: contextMenu.x, top: contextMenu.y }}>
             <button onClick={duplicateSelected}><AlignCenter size={15} />{text.duplicate}</button>
             <button onClick={() => moveLayer('front')}><BringToFront size={15} />{text.front}</button>
