@@ -95,6 +95,57 @@
   min-width: max-content;
 }
 
+.file-toolbar {
+  position: relative;
+}
+
+.file-menu {
+  -webkit-app-region: no-drag;
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.28);
+  display: grid;
+  gap: 4px;
+  left: 0;
+  min-width: 260px;
+  padding: 8px;
+  position: absolute;
+  top: calc(100% + 8px);
+  z-index: 30;
+}
+
+.file-menu button {
+  justify-content: flex-start;
+  width: 100%;
+}
+
+.file-menu button kbd {
+  background: transparent;
+  color: var(--text-muted);
+  font: 600 11px / 1 var(--ui-font);
+  margin-left: auto;
+}
+
+.file-menu-separator {
+  border-top: 1px solid var(--border);
+  margin: 4px 0;
+}
+
+.file-menu-format {
+  align-items: center;
+  color: var(--text-muted);
+  display: grid;
+  font: 600 var(--control-font-size) / 1.25 var(--ui-font);
+  gap: 6px;
+  grid-template-columns: 1fr auto;
+  padding: 4px 2px;
+}
+
+.file-menu-format select {
+  min-height: 32px;
+}
+
 .toolbar-spacer {
   -webkit-app-region: drag;
   align-self: stretch;
@@ -133,6 +184,27 @@
   display: grid;
   min-height: 0;
   overflow: hidden;
+}
+
+.app-shell.drag-over .canvas-stage {
+  outline: 2px dashed var(--accent);
+  outline-offset: -18px;
+}
+
+.app-shell.drag-over .canvas-stage::after {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  color: var(--text-primary);
+  content: 'Drop SVG or image files';
+  font: 700 18px / 1.2 var(--ui-font);
+  left: 50%;
+  padding: 14px 18px;
+  pointer-events: none;
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 5;
 }
 
 .panel {
@@ -258,6 +330,7 @@
   min-height: 0;
   overflow: auto;
   padding: 48px;
+  position: relative;
   position: relative;
 }
 
