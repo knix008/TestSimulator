@@ -16,6 +16,7 @@ import {
   Moon,
   MousePointer2,
   PenLine,
+  PenTool,
   Plus,
   RectangleHorizontal,
   Save,
@@ -38,8 +39,12 @@ import './App.css'
 
 type Language = 'ko' | 'en'
 type Theme = 'dark' | 'light'
-type Tool = 'select' | 'rect' | 'square' | 'roundRect' | 'ellipse' | 'circleShape' | 'triangle' | 'diamondShape' | 'pentagon' | 'hexagon' | 'octagon' | 'star' | 'trapezoid' | 'parallelogram' | 'chevron' | 'crossShape' | 'curve' | 'line' | 'connector' | 'pen' | 'text' | 'eraser'
+type Tool = 'select' | 'rect' | 'square' | 'roundRect' | 'ellipse' | 'circleShape' | 'triangle' | 'diamondShape' | 'pentagon' | 'hexagon' | 'octagon' | 'star' | 'trapezoid' | 'parallelogram' | 'chevron' | 'crossShape' | 'curve' | 'line' | 'connector' | 'pen' | 'bezierPen' | 'text' | 'eraser'
 type DrawableTool = Exclude<Tool, 'select' | 'eraser'>
+// Shapes that can exist on the canvas. `bezierPen` is a drawing mode that produces a `path` shape; `path` is not a tool.
+type ShapeType = Exclude<DrawableTool, 'bezierPen'> | 'path'
+// One anchor of an in-progress bezier pen path. Absent handles mean a corner (straight segment).
+type PenAnchor = { point: Point; handleIn?: Point; handleOut?: Point }
 type ToolGroupId = 'basic' | 'advanced' | 'line'
 type ExportFormat = 'svg' | 'png' | 'jpg' | 'webp' | 'avif' | 'gif' | 'tiff'
 type FileAction = 'open' | 'append'
@@ -55,6 +60,10 @@ type RasterLayer = { id: string; name: string; src: string; x: number; y: number
 type ResizeAnchor = 'nw' | 'ne' | 'sw' | 'se'
 type ErrorDetails = { title: string; message: string; details: string }
 type SelectionBox = { start: Point; current: Point }
+type CanvasArea = { x?: number; y?: number; width: number; height: number }
+type CanvasView = { x: number; y: number; width: number; height: number }
+type SvgMatrix = { a: number; b: number; c: number; d: number; e: number; f: number }
+type SvgStyleRules = Map<string, Record<string, string>>
 const currentLeftPanelWidth = 220
 const maxLeftPanelWidth = 340
 const minRightPanelWidth = 240
@@ -122,13 +131,18 @@ function loadSettings(): AppSettings {
 
 type Shape = {
   id: string
-  type: DrawableTool
+  type: ShapeType
   name: string
   x: number
   y: number
   width: number
   height: number
   points?: Point[]
+  // Real-path shapes keep the original `d` string plus a transform matrix so curves and holes survive editing.
+  d?: string
+  fillRule?: 'nonzero' | 'evenodd'
+  matrix?: SvgMatrix
+  pathBounds?: { x: number; y: number; width: number; height: number }
   text?: string
   fontFamily?: string
   fontSize?: number
@@ -152,7 +166,8 @@ type Shape = {
   shadowOpacity?: number
 }
 
-const canvasSize = { width: 1200, height: 760 }
+const defaultCanvasSize = { width: 1200, height: 760 }
+const canvasGrowthPadding = 160
 const fontOptions = ['Arial, sans-serif', 'Segoe UI, sans-serif', 'Georgia, serif', 'Times New Roman, serif', 'Consolas, monospace', 'Courier New, monospace']
 
 const shadowPresets: Record<Exclude<ShadowEffect, 'none'>, { direction: ShadowDirection; distance: number; blur: number; color: string; opacity: number }> = {
@@ -239,6 +254,9 @@ const messages = {
     line: '선',
     connector: '연결선',
     pen: '펜',
+    bezierPen: '펜(곡선)',
+    penHint: '클릭으로 점 추가, 드래그로 곡선. 시작점 클릭 또는 더블클릭으로 완성.',
+    fillNone: '채우기 없음',
     text: '텍스트',
     fontFamily: '폰트',
     fontSize: '글자 크기',
@@ -369,6 +387,9 @@ const messages = {
     line: 'Line',
     connector: 'Connector',
     pen: 'Pen',
+    bezierPen: 'Pen (curves)',
+    penHint: 'Click to add points, drag for curves. Click the start point or double-click to finish.',
+    fillNone: 'No fill',
     text: 'Text',
     fontFamily: 'Font',
     fontSize: 'Font size',
@@ -459,12 +480,18 @@ const messages = {
   },
 } satisfies Record<Language, Record<string, string>>
 
+function EllipseIcon({ size = 20 }: { size?: number }) {
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <ellipse cx="12" cy="12" rx="9" ry="5" />
+  </svg>
+}
+
 const toolIcons = {
   select: MousePointer2,
   rect: RectangleHorizontal,
   square: Square,
   roundRect: RectangleHorizontal,
-  ellipse: Circle,
+  ellipse: EllipseIcon,
   circleShape: Circle,
   triangle: Triangle,
   diamondShape: Diamond,
@@ -480,6 +507,7 @@ const toolIcons = {
   line: Slash,
   connector: BringToFront,
   pen: PenLine,
+  bezierPen: PenTool,
   text: Type,
   eraser: Eraser,
 }
@@ -592,6 +620,12 @@ function svgPoints(points: Point[]) {
   return points.map((point) => `${point.x},${point.y}`).join(' ')
 }
 
+function isClosedPointPath(points: Point[]) {
+  const first = points[0]
+  const last = points.at(-1)
+  return Boolean(first && last && Math.abs(first.x - last.x) < 0.001 && Math.abs(first.y - last.y) < 0.001)
+}
+
 function isPointInShape(point: Point, shape: Shape) {
   const padding = Math.max(8, shape.strokeWidth + 4)
   return point.x >= shape.x - padding && point.x <= shape.x + shape.width + padding && point.y >= shape.y - padding && point.y <= shape.y + shape.height + padding
@@ -615,6 +649,47 @@ function shapeBounds(shape: Shape) {
     y: shape.y - pad,
     width: Math.max(1, shape.width + pad * 2),
     height: Math.max(1, shape.height + pad * 2),
+  }
+}
+
+function getContentBounds(shapes: Shape[], rasters: RasterLayer[]) {
+  const bounds = [
+    ...shapes.map(shapeBounds),
+    ...rasters.map((raster) => ({ x: raster.x, y: raster.y, width: raster.width, height: raster.height })),
+  ]
+
+  if (bounds.length === 0) {
+    return null
+  }
+
+  const left = Math.floor(Math.min(...bounds.map((bound) => bound.x)))
+  const top = Math.floor(Math.min(...bounds.map((bound) => bound.y)))
+  const right = Math.ceil(Math.max(...bounds.map((bound) => bound.x + bound.width)))
+  const bottom = Math.ceil(Math.max(...bounds.map((bound) => bound.y + bound.height)))
+
+  return { x: left, y: top, width: Math.max(1, right - left), height: Math.max(1, bottom - top) }
+}
+
+function moveShape(shape: Shape, dx: number, dy: number) {
+  if (shape.type === 'path') {
+    return applyMatrixToPath(shape, { a: 1, b: 0, c: 0, d: 1, e: dx, f: dy }, false)
+  }
+  return {
+    ...shape,
+    x: shape.x + dx,
+    y: shape.y + dy,
+    points: shape.points?.map((point) => ({ x: point.x + dx, y: point.y + dy })),
+  }
+}
+
+function clampMoveDelta(shapes: Shape[], dx: number, dy: number) {
+  const movedBounds = getContentBounds(shapes.map((shape) => moveShape(shape, dx, dy)), [])
+  if (!movedBounds) {
+    return { dx, dy }
+  }
+  return {
+    dx: movedBounds.x < 0 ? dx - movedBounds.x : dx,
+    dy: movedBounds.y < 0 ? dy - movedBounds.y : dy,
   }
 }
 
@@ -704,6 +779,12 @@ function resizeShape(shape: Shape, anchor: ResizeAnchor, point: Point) {
 
   const width = next.right - next.left
   const height = next.bottom - next.top
+  if (shape.type === 'path') {
+    const scaleX = shape.width === 0 ? 1 : width / shape.width
+    const scaleY = shape.height === 0 ? 1 : height / shape.height
+    const world: SvgMatrix = { a: scaleX, b: 0, c: 0, d: scaleY, e: next.left - shape.x * scaleX, f: next.top - shape.y * scaleY }
+    return applyMatrixToPath(shape, world, false)
+  }
   if (shape.points?.length) {
     const scaleX = shape.width === 0 ? 1 : width / shape.width
     const scaleY = shape.height === 0 ? 1 : height / shape.height
@@ -747,22 +828,55 @@ function selectionBounds(box: SelectionBox) {
   return normalizeRect(box.start, box.current)
 }
 
-function getSceneBounds(shapes: Shape[], rasters: RasterLayer[]) {
-  const bounds = [
-    ...shapes.map(shapeBounds),
-    ...rasters.map((raster) => ({ x: raster.x, y: raster.y, width: raster.width, height: raster.height })),
-  ]
-
-  if (bounds.length === 0) {
+function getSceneBounds(shapes: Shape[], rasters: RasterLayer[], canvasSize: CanvasArea = defaultCanvasSize) {
+  const bounds = getContentBounds(shapes, rasters)
+  if (!bounds) {
     return { x: 0, y: 0, width: canvasSize.width, height: canvasSize.height }
   }
+  return bounds
+}
 
-  const left = Math.max(0, Math.floor(Math.min(...bounds.map((bound) => bound.x))))
-  const top = Math.max(0, Math.floor(Math.min(...bounds.map((bound) => bound.y))))
-  const right = Math.min(canvasSize.width, Math.ceil(Math.max(...bounds.map((bound) => bound.x + bound.width))))
-  const bottom = Math.min(canvasSize.height, Math.ceil(Math.max(...bounds.map((bound) => bound.y + bound.height))))
+function computeCanvasView(canvasSize: CanvasArea, stageSize: CanvasArea, zoom: number): CanvasView {
+  const visibleWidth = Math.max(defaultCanvasSize.width, Math.ceil(stageSize.width / Math.max(zoom, 0.01)))
+  const visibleHeight = Math.max(defaultCanvasSize.height, Math.ceil(stageSize.height / Math.max(zoom, 0.01)))
+  return { x: 0, y: 0, width: Math.max(canvasSize.width, visibleWidth), height: Math.max(canvasSize.height, visibleHeight) }
+}
 
-  return { x: left, y: top, width: Math.max(1, right - left), height: Math.max(1, bottom - top) }
+function fitImportedContentToCanvas(shapes: Shape[], rasters: RasterLayer[], canvasSize: CanvasArea) {
+  if (shapes.length === 0 && rasters.length === 0) {
+    return { shapes, rasters }
+  }
+
+  const bounds = getSceneBounds(shapes, rasters, canvasSize)
+  const margin = 32
+  const availableWidth = Math.max(1, canvasSize.width - margin * 2)
+  const availableHeight = Math.max(1, canvasSize.height - margin * 2)
+  const scale = Math.min(availableWidth / bounds.width, availableHeight / bounds.height)
+  const offsetX = (canvasSize.width - bounds.width * scale) / 2 - bounds.x * scale
+  const offsetY = (canvasSize.height - bounds.height * scale) / 2 - bounds.y * scale
+  const transformPoint = (point: Point) => ({ x: point.x * scale + offsetX, y: point.y * scale + offsetY })
+
+  return {
+    shapes: shapes.map((shape) => shape.type === 'path'
+      ? applyMatrixToPath(shape, { a: scale, b: 0, c: 0, d: scale, e: offsetX, f: offsetY }, true)
+      : {
+        ...shape,
+        x: shape.x * scale + offsetX,
+        y: shape.y * scale + offsetY,
+        width: shape.width * scale,
+        height: shape.height * scale,
+        strokeWidth: Math.max(1, shape.strokeWidth * scale),
+        fontSize: shape.fontSize ? Math.max(8, shape.fontSize * scale) : shape.fontSize,
+        points: shape.points?.map(transformPoint),
+      }),
+    rasters: rasters.map((raster) => ({
+      ...raster,
+      x: raster.x * scale + offsetX,
+      y: raster.y * scale + offsetY,
+      width: raster.width * scale,
+      height: raster.height * scale,
+    })),
+  }
 }
 
 function escapeXml(value: string) {
@@ -828,6 +942,15 @@ function shapeToSvg(shape: Shape, shapes: Shape[]) {
   if (shape.type === 'connector') {
     return `<path d="${connectorPath(shape, shapes).svg}" fill="none" stroke="${shape.stroke}" stroke-width="${shape.strokeWidth}" opacity="${shape.opacity}" stroke-linecap="round" stroke-linejoin="round"${filter}${markerUrl(shape.startMarker, 'start')}${markerUrl(shape.endMarker, 'end')}/>`
   }
+  if (shape.type === 'path' && shape.d) {
+    const matrix = shape.matrix ?? identityMatrix()
+    const transform = ` transform="matrix(${matrix.a} ${matrix.b} ${matrix.c} ${matrix.d} ${matrix.e} ${matrix.f})"`
+    // Stroke width is stored in world units; divide by the matrix scale so the transform renders it back to that width.
+    const localStrokeWidth = shape.strokeWidth / matrixScale(matrix)
+    const fillValue = shape.fill === 'transparent' ? 'none' : shape.fill
+    const fillRule = shape.fillRule ? ` fill-rule="${shape.fillRule}"` : ''
+    return `<path d="${shape.d}"${transform} fill="${fillValue}"${fillRule} stroke="${shape.stroke}" stroke-width="${localStrokeWidth}" opacity="${shape.opacity}" stroke-linecap="round" stroke-linejoin="round"${filter}/>`
+  }
   if (shape.type === 'rect' || shape.type === 'square') {
     return `<rect x="${shape.x}" y="${shape.y}" width="${shape.width}" height="${shape.height}" rx="6" ${common}/>`
   }
@@ -847,7 +970,11 @@ function shapeToSvg(shape: Shape, shapes: Shape[]) {
     return `<path d="${curvePath(shape)}" fill="none" stroke="${shape.stroke}" stroke-width="${shape.strokeWidth}" opacity="${shape.opacity}" stroke-linecap="round" stroke-linejoin="round"${filter}/>`
   }
   if (shape.type === 'pen' && shape.points?.length) {
-    return `<polyline points="${shape.points.map((point) => `${point.x},${point.y}`).join(' ')}" fill="none" stroke="${shape.stroke}" stroke-width="${shape.strokeWidth}" opacity="${shape.opacity}" stroke-linecap="round" stroke-linejoin="round"${filter}/>`
+    const points = shape.points.map((point) => `${point.x},${point.y}`).join(' ')
+    if (shape.fill !== 'transparent' && isClosedPointPath(shape.points)) {
+      return `<polygon points="${points}" fill="${shape.fill}" stroke="${shape.stroke}" stroke-width="${shape.strokeWidth}" opacity="${shape.opacity}" stroke-linecap="round" stroke-linejoin="round"${filter}/>`
+    }
+    return `<polyline points="${points}" fill="none" stroke="${shape.stroke}" stroke-width="${shape.strokeWidth}" opacity="${shape.opacity}" stroke-linecap="round" stroke-linejoin="round"${filter}/>`
   }
   if (shape.type === 'text') {
     const align = shape.textAlign ?? 'left'
@@ -858,8 +985,8 @@ function shapeToSvg(shape: Shape, shapes: Shape[]) {
   return ''
 }
 
-function buildSvg(shapes: Shape[], rasters: RasterLayer[], removeBackground: boolean) {
-  const bounds = removeBackground ? getSceneBounds(shapes, rasters) : { x: 0, y: 0, width: canvasSize.width, height: canvasSize.height }
+function buildSvg(shapes: Shape[], rasters: RasterLayer[], removeBackground: boolean, canvasSize: CanvasArea = defaultCanvasSize) {
+  const bounds = removeBackground ? getSceneBounds(shapes, rasters, canvasSize) : { x: canvasSize.x ?? 0, y: canvasSize.y ?? 0, width: canvasSize.width, height: canvasSize.height }
   const rasterNodes = rasters.map((raster) => `<image href="${raster.src}" x="${raster.x}" y="${raster.y}" width="${raster.width}" height="${raster.height}"/>`)
   const defs = `<defs>${shadowFilterDefs(shapes)}<marker id="end-arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="context-stroke"/></marker><marker id="start-arrow" markerWidth="10" markerHeight="10" refX="1" refY="5" orient="auto-start-reverse"><path d="M 0 5 L 10 0 L 10 10 z" fill="context-stroke"/></marker><marker id="end-circle" markerWidth="10" markerHeight="10" refX="5" refY="5"><circle cx="5" cy="5" r="4" fill="context-stroke"/></marker><marker id="start-circle" markerWidth="10" markerHeight="10" refX="5" refY="5"><circle cx="5" cy="5" r="4" fill="context-stroke"/></marker><marker id="end-diamond" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto"><path d="M 6 0 L 12 6 L 6 12 L 0 6 z" fill="context-stroke"/></marker><marker id="start-diamond" markerWidth="12" markerHeight="12" refX="2" refY="6" orient="auto"><path d="M 6 0 L 12 6 L 6 12 L 0 6 z" fill="context-stroke"/></marker></defs>`
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${bounds.width}" height="${bounds.height}" viewBox="${bounds.x} ${bounds.y} ${bounds.width} ${bounds.height}">${defs}${rasterNodes.join('')}${shapes.map((shape) => shapeToSvg(shape, shapes)).join('')}</svg>`
@@ -908,7 +1035,20 @@ function drawShape(context: CanvasRenderingContext2D, shape: Shape, selected: bo
   context.lineJoin = 'round'
   applyCanvasShadow(context, shape)
 
-  if (shape.type === 'connector') {
+  if (shape.type === 'path' && shape.d) {
+    const matrix = shape.matrix ?? identityMatrix()
+    context.save()
+    context.transform(matrix.a, matrix.b, matrix.c, matrix.d, matrix.e, matrix.f)
+    context.lineWidth = shape.strokeWidth / matrixScale(matrix)
+    const path2d = new Path2D(shape.d)
+    if (shape.fill !== 'transparent') {
+      context.fill(path2d, shape.fillRule ?? 'nonzero')
+    }
+    if (shape.stroke !== 'transparent' && shape.strokeWidth > 0) {
+      context.stroke(path2d)
+    }
+    context.restore()
+  } else if (shape.type === 'connector') {
     const path = connectorPath(shape, shapes)
     const path2d = new Path2D(path.svg)
     context.stroke(path2d)
@@ -949,6 +1089,9 @@ function drawShape(context: CanvasRenderingContext2D, shape: Shape, selected: bo
     context.beginPath()
     context.moveTo(shape.points[0].x, shape.points[0].y)
     shape.points.slice(1).forEach((point) => context.lineTo(point.x, point.y))
+    if (shape.fill !== 'transparent' && isClosedPointPath(shape.points)) {
+      context.fill()
+    }
     context.stroke()
   } else if (shape.type === 'text') {
     const align = shape.textAlign ?? 'left'
@@ -999,8 +1142,8 @@ async function loadImage(src: string) {
   return image
 }
 
-async function renderSceneToCanvas(shapes: Shape[], rasters: RasterLayer[], removeBackground: boolean, fillBackground: string | null) {
-  const bounds = removeBackground ? getSceneBounds(shapes, rasters) : { x: 0, y: 0, width: canvasSize.width, height: canvasSize.height }
+async function renderSceneToCanvas(shapes: Shape[], rasters: RasterLayer[], removeBackground: boolean, fillBackground: string | null, canvasSize: CanvasArea = defaultCanvasSize) {
+  const bounds = removeBackground ? getSceneBounds(shapes, rasters, canvasSize) : { x: canvasSize.x ?? 0, y: canvasSize.y ?? 0, width: canvasSize.width, height: canvasSize.height }
   const canvas = document.createElement('canvas')
   canvas.width = bounds.width
   canvas.height = bounds.height
@@ -1032,17 +1175,47 @@ function downloadBlob(blob: Blob, filename: string) {
   URL.revokeObjectURL(url)
 }
 
-function svgAttribute(element: SVGElement, name: string) {
-  const direct = element.getAttribute(name)
-  if (direct !== null) {
-    return direct
-  }
-  const style = element.getAttribute('style')
-  return style?.split(';').map((part) => part.trim()).find((part) => part.startsWith(`${name}:`))?.split(':').slice(1).join(':').trim() ?? null
+function parseSvgStyleRules(documentXml: XMLDocument): SvgStyleRules {
+  const rules: SvgStyleRules = new Map()
+  documentXml.querySelectorAll('style').forEach((styleNode) => {
+    const css = styleNode.textContent ?? ''
+    for (const match of css.matchAll(/\.([\w-]+)\s*\{([^}]*)\}/g)) {
+      const properties = Object.fromEntries(match[2].split(';').map((part) => part.trim()).filter(Boolean).map((part) => {
+        const [key, ...value] = part.split(':')
+        return [key.trim(), value.join(':').trim()]
+      }))
+      rules.set(match[1], properties)
+    }
+  })
+  return rules
 }
 
-function svgNumber(element: SVGElement, name: string, fallback: number) {
-  const value = svgAttribute(element, name)
+function svgAttribute(element: SVGElement, name: string, styleRules: SvgStyleRules = new Map()) {
+  let current: SVGElement | null = element
+  while (current) {
+    const direct = current.getAttribute(name)
+    if (direct !== null) {
+      return direct
+    }
+    const style = current.getAttribute('style')
+    const styled = style?.split(';').map((part) => part.trim()).find((part) => part.startsWith(`${name}:`))?.split(':').slice(1).join(':').trim()
+    if (styled) {
+      return styled
+    }
+    const classNames = current.getAttribute('class')?.split(/\s+/).filter(Boolean) ?? []
+    for (const className of classNames) {
+      const classValue = styleRules.get(className)?.[name]
+      if (classValue) {
+        return classValue
+      }
+    }
+    current = current.parentElement instanceof SVGElement ? current.parentElement : null
+  }
+  return null
+}
+
+function svgNumber(element: SVGElement, name: string, fallback: number, styleRules?: SvgStyleRules) {
+  const value = svgAttribute(element, name, styleRules)
   if (!value) {
     return fallback
   }
@@ -1062,21 +1235,231 @@ function parseSvgPoints(value: string | null) {
   return points
 }
 
-function parsePathPoints(pathData: string | null) {
+function identityMatrix(): SvgMatrix {
+  return { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 }
+}
+
+function multiplyMatrix(first: SvgMatrix, second: SvgMatrix): SvgMatrix {
+  return {
+    a: first.a * second.a + first.c * second.b,
+    b: first.b * second.a + first.d * second.b,
+    c: first.a * second.c + first.c * second.d,
+    d: first.b * second.c + first.d * second.d,
+    e: first.a * second.e + first.c * second.f + first.e,
+    f: first.b * second.e + first.d * second.f + first.f,
+  }
+}
+
+function transformPoint(point: Point, matrix: SvgMatrix) {
+  return { x: point.x * matrix.a + point.y * matrix.c + matrix.e, y: point.x * matrix.b + point.y * matrix.d + matrix.f }
+}
+
+function parseTransform(transform: string | null) {
+  if (!transform) {
+    return identityMatrix()
+  }
+  return [...transform.matchAll(/(matrix|translate|scale|rotate)\(([^)]*)\)/gi)].reduce((matrix, match) => {
+    const command = match[1].toLowerCase()
+    const values = [...match[2].matchAll(/-?\d*\.?\d+(?:e[-+]?\d+)?/gi)].map((item) => Number(item[0]))
+    let next = identityMatrix()
+    if (command === 'matrix' && values.length >= 6) {
+      next = { a: values[0], b: values[1], c: values[2], d: values[3], e: values[4], f: values[5] }
+    } else if (command === 'translate') {
+      next = { ...identityMatrix(), e: values[0] ?? 0, f: values[1] ?? 0 }
+    } else if (command === 'scale') {
+      next = { ...identityMatrix(), a: values[0] ?? 1, d: values[1] ?? values[0] ?? 1 }
+    } else if (command === 'rotate') {
+      const angle = (values[0] ?? 0) * Math.PI / 180
+      const rotation = { a: Math.cos(angle), b: Math.sin(angle), c: -Math.sin(angle), d: Math.cos(angle), e: 0, f: 0 }
+      if (values.length >= 3) {
+        next = multiplyMatrix(multiplyMatrix({ ...identityMatrix(), e: values[1], f: values[2] }, rotation), { ...identityMatrix(), e: -values[1], f: -values[2] })
+      } else {
+        next = rotation
+      }
+    }
+    return multiplyMatrix(matrix, next)
+  }, identityMatrix())
+}
+
+function elementMatrix(element: SVGElement) {
+  const chain: SVGElement[] = []
+  let current: Element | null = element
+  while (current && current instanceof SVGElement) {
+    chain.unshift(current)
+    current = current.parentElement
+  }
+  return chain.reduce((matrix, item) => multiplyMatrix(matrix, parseTransform(item.getAttribute('transform'))), identityMatrix())
+}
+
+function pointBounds(points: Point[]) {
+  const xs = points.map((point) => point.x)
+  const ys = points.map((point) => point.y)
+  return { x: Math.min(...xs), y: Math.min(...ys), width: Math.max(...xs) - Math.min(...xs), height: Math.max(...ys) - Math.min(...ys) }
+}
+
+function matrixScale(matrix: SvgMatrix) {
+  return Math.max(Math.abs(matrix.a), Math.abs(matrix.d), 0.0001)
+}
+
+// Local (untransformed) bounds of a path's `d`, approximated by flattening its curves.
+function getPathBounds(pathData: string) {
+  const points = parsePathSubpaths(pathData).flat()
+  if (points.length === 0) {
+    return { x: 0, y: 0, width: 1, height: 1 }
+  }
+  return pointBounds(points)
+}
+
+// World-space bounding box of a path once its matrix is applied to its local bounds.
+function pathWorldBounds(localBounds: { x: number; y: number; width: number; height: number }, matrix: SvgMatrix) {
+  const corners = [
+    transformPoint({ x: localBounds.x, y: localBounds.y }, matrix),
+    transformPoint({ x: localBounds.x + localBounds.width, y: localBounds.y }, matrix),
+    transformPoint({ x: localBounds.x + localBounds.width, y: localBounds.y + localBounds.height }, matrix),
+    transformPoint({ x: localBounds.x, y: localBounds.y + localBounds.height }, matrix),
+  ]
+  return pointBounds(corners)
+}
+
+// Prepend a world-space transform to a path shape, recomputing its cached bbox. `scaleStroke`
+// scales the stored (world) stroke width, used on import/fit but not on plain move/resize.
+function applyMatrixToPath(shape: Shape, matrix: SvgMatrix, scaleStroke: boolean): Shape {
+  const nextMatrix = multiplyMatrix(matrix, shape.matrix ?? identityMatrix())
+  const localBounds = shape.pathBounds ?? { x: shape.x, y: shape.y, width: shape.width, height: shape.height }
+  const bounds = pathWorldBounds(localBounds, nextMatrix)
+  return {
+    ...shape,
+    matrix: nextMatrix,
+    ...bounds,
+    strokeWidth: scaleStroke ? Math.max(0, shape.strokeWidth * matrixScale(matrix)) : shape.strokeWidth,
+  }
+}
+
+function pathShape(base: Omit<Shape, 'type' | 'x' | 'y' | 'width' | 'height'>, pathData: string, fillRule: 'nonzero' | 'evenodd'): Shape {
+  const localBounds = getPathBounds(pathData)
+  return { ...base, type: 'path', d: pathData, fillRule, matrix: identityMatrix(), pathBounds: localBounds, x: localBounds.x, y: localBounds.y, width: localBounds.width, height: localBounds.height }
+}
+
+// Serialize bezier pen anchors to an SVG path `d`. Segments become C when either endpoint has a handle, else L.
+function penAnchorsToPath(anchors: PenAnchor[], closed: boolean) {
+  if (anchors.length === 0) {
+    return ''
+  }
+  const segment = (from: PenAnchor, to: PenAnchor) => {
+    if (from.handleOut || to.handleIn) {
+      const control1 = from.handleOut ?? from.point
+      const control2 = to.handleIn ?? to.point
+      return ` C ${control1.x} ${control1.y} ${control2.x} ${control2.y} ${to.point.x} ${to.point.y}`
+    }
+    return ` L ${to.point.x} ${to.point.y}`
+  }
+  let d = `M ${anchors[0].point.x} ${anchors[0].point.y}`
+  for (let index = 1; index < anchors.length; index += 1) {
+    d += segment(anchors[index - 1], anchors[index])
+  }
+  if (closed && anchors.length > 1) {
+    d += segment(anchors[anchors.length - 1], anchors[0])
+    d += ' Z'
+  }
+  return d
+}
+
+function drawPenDraft(context: CanvasRenderingContext2D, anchors: PenAnchor[], cursor: Point | null, zoom: number) {
+  if (anchors.length === 0) {
+    return
+  }
+  const handleSize = 4 / zoom
+  const anchorSize = 5 / zoom
+  context.save()
+  context.setLineDash([])
+  context.strokeStyle = '#f4c95d'
+  context.lineWidth = 2 / zoom
+  context.stroke(new Path2D(penAnchorsToPath(anchors, false)))
+
+  if (cursor) {
+    const last = anchors[anchors.length - 1]
+    context.setLineDash([6 / zoom, 4 / zoom])
+    context.strokeStyle = 'rgba(244, 201, 93, 0.6)'
+    context.stroke(new Path2D(penAnchorsToPath([last, { point: cursor }], false)))
+    context.setLineDash([])
+  }
+
+  anchors.forEach((anchor, index) => {
+    for (const handle of [anchor.handleIn, anchor.handleOut]) {
+      if (!handle) {
+        continue
+      }
+      context.strokeStyle = 'rgba(125, 211, 252, 0.85)'
+      context.lineWidth = 1 / zoom
+      context.beginPath()
+      context.moveTo(anchor.point.x, anchor.point.y)
+      context.lineTo(handle.x, handle.y)
+      context.stroke()
+      context.fillStyle = '#7dd3fc'
+      context.beginPath()
+      context.arc(handle.x, handle.y, handleSize, 0, Math.PI * 2)
+      context.fill()
+    }
+    context.fillStyle = index === 0 ? '#67d5b5' : '#ffffff'
+    context.strokeStyle = '#10252a'
+    context.lineWidth = 1.5 / zoom
+    context.beginPath()
+    context.rect(anchor.point.x - anchorSize, anchor.point.y - anchorSize, anchorSize * 2, anchorSize * 2)
+    context.fill()
+    context.stroke()
+  })
+  context.restore()
+}
+
+function transformShape(shape: Shape, matrix: SvgMatrix) {
+  if (shape.type === 'path') {
+    return applyMatrixToPath(shape, matrix, true)
+  }
+  if (shape.points?.length) {
+    const points = shape.points.map((point) => transformPoint(point, matrix))
+    return { ...shape, points, ...pointBounds(points) }
+  }
+  if (shape.type === 'line') {
+    const start = transformPoint({ x: shape.x, y: shape.y }, matrix)
+    const end = transformPoint({ x: shape.x + shape.width, y: shape.y + shape.height }, matrix)
+    return { ...shape, x: start.x, y: start.y, width: end.x - start.x, height: end.y - start.y }
+  }
+  const corners = [
+    transformPoint({ x: shape.x, y: shape.y }, matrix),
+    transformPoint({ x: shape.x + shape.width, y: shape.y }, matrix),
+    transformPoint({ x: shape.x + shape.width, y: shape.y + shape.height }, matrix),
+    transformPoint({ x: shape.x, y: shape.y + shape.height }, matrix),
+  ]
+  const bounds = pointBounds(corners)
+  const scale = Math.max(Math.abs(matrix.a), Math.abs(matrix.d), 0.0001)
+  return { ...shape, ...bounds, strokeWidth: Math.max(1, shape.strokeWidth * scale), fontSize: shape.fontSize ? Math.max(8, shape.fontSize * scale) : shape.fontSize }
+}
+
+function parsePathSubpaths(pathData: string | null) {
   if (!pathData) {
     return []
   }
   const tokens = pathData.match(/[a-zA-Z]|-?\d*\.?\d+(?:e[-+]?\d+)?/g) ?? []
-  const points: Point[] = []
+  const subpaths: Point[][] = []
+  let points: Point[] = []
   let index = 0
   let command = ''
   let current: Point = { x: 0, y: 0 }
+  let subpathStart: Point | null = null
+  let previousCubicControl: Point | null = null
+  let previousQuadraticControl: Point | null = null
 
   const readNumber = () => Number(tokens[index++])
   const isCommand = (token: string | undefined) => Boolean(token && /^[a-zA-Z]$/.test(token))
   const push = (point: Point) => {
     current = point
     points.push(point)
+  }
+  const finishSubpath = () => {
+    if (points.length > 1) {
+      subpaths.push(points)
+    }
+    points = []
   }
 
   while (index < tokens.length) {
@@ -1086,19 +1469,27 @@ function parsePathPoints(pathData: string | null) {
     const relative = command === command.toLowerCase()
     const type = command.toLowerCase()
     if (type === 'z') {
-      if (points[0]) {
-        push({ ...points[0] })
+      if (subpathStart) {
+        push({ ...subpathStart })
       }
+      finishSubpath()
+      subpathStart = null
+      previousCubicControl = null
+      previousQuadraticControl = null
       continue
     }
     if (type === 'h') {
       const x = readNumber()
       push({ x: relative ? current.x + x : x, y: current.y })
+      previousCubicControl = null
+      previousQuadraticControl = null
       continue
     }
     if (type === 'v') {
       const y = readNumber()
       push({ x: current.x, y: relative ? current.y + y : y })
+      previousCubicControl = null
+      previousQuadraticControl = null
       continue
     }
     const coordinateCount = type === 'm' || type === 'l' || type === 't' ? 2 : type === 's' || type === 'q' ? 4 : type === 'c' ? 6 : 0
@@ -1106,15 +1497,74 @@ function parsePathPoints(pathData: string | null) {
       break
     }
     const values = Array.from({ length: coordinateCount }, readNumber)
-    const x = values[values.length - 2]
-    const y = values[values.length - 1]
-    push({ x: relative ? current.x + x : x, y: relative ? current.y + y : y })
     if (type === 'm') {
+      finishSubpath()
+      const point = { x: relative ? current.x + values[0] : values[0], y: relative ? current.y + values[1] : values[1] }
+      current = point
+      subpathStart = point
+      points = [point]
+      previousCubicControl = null
+      previousQuadraticControl = null
       command = relative ? 'l' : 'L'
+      continue
+    }
+    if (type === 'c') {
+      const start = current
+      const control1 = { x: relative ? current.x + values[0] : values[0], y: relative ? current.y + values[1] : values[1] }
+      const control2 = { x: relative ? current.x + values[2] : values[2], y: relative ? current.y + values[3] : values[3] }
+      const end = { x: relative ? current.x + values[4] : values[4], y: relative ? current.y + values[5] : values[5] }
+      for (let step = 1; step <= 12; step += 1) {
+        const t = step / 12
+        const mt = 1 - t
+        push({ x: mt ** 3 * start.x + 3 * mt ** 2 * t * control1.x + 3 * mt * t ** 2 * control2.x + t ** 3 * end.x, y: mt ** 3 * start.y + 3 * mt ** 2 * t * control1.y + 3 * mt * t ** 2 * control2.y + t ** 3 * end.y })
+      }
+      previousCubicControl = control2
+      previousQuadraticControl = null
+    } else if (type === 's') {
+      const start = current
+      const control1 = previousCubicControl ? { x: current.x * 2 - previousCubicControl.x, y: current.y * 2 - previousCubicControl.y } : current
+      const control2 = { x: relative ? current.x + values[0] : values[0], y: relative ? current.y + values[1] : values[1] }
+      const end = { x: relative ? current.x + values[2] : values[2], y: relative ? current.y + values[3] : values[3] }
+      for (let step = 1; step <= 12; step += 1) {
+        const t = step / 12
+        const mt = 1 - t
+        push({ x: mt ** 3 * start.x + 3 * mt ** 2 * t * control1.x + 3 * mt * t ** 2 * control2.x + t ** 3 * end.x, y: mt ** 3 * start.y + 3 * mt ** 2 * t * control1.y + 3 * mt * t ** 2 * control2.y + t ** 3 * end.y })
+      }
+      previousCubicControl = control2
+      previousQuadraticControl = null
+    } else if (type === 'q') {
+      const start = current
+      const control = { x: relative ? current.x + values[0] : values[0], y: relative ? current.y + values[1] : values[1] }
+      const end = { x: relative ? current.x + values[2] : values[2], y: relative ? current.y + values[3] : values[3] }
+      for (let step = 1; step <= 10; step += 1) {
+        const t = step / 10
+        const mt = 1 - t
+        push({ x: mt ** 2 * start.x + 2 * mt * t * control.x + t ** 2 * end.x, y: mt ** 2 * start.y + 2 * mt * t * control.y + t ** 2 * end.y })
+      }
+      previousQuadraticControl = control
+      previousCubicControl = null
+    } else if (type === 't') {
+      const start = current
+      const control: Point = previousQuadraticControl ? { x: current.x * 2 - previousQuadraticControl.x, y: current.y * 2 - previousQuadraticControl.y } : current
+      const end = { x: relative ? current.x + values[0] : values[0], y: relative ? current.y + values[1] : values[1] }
+      for (let step = 1; step <= 10; step += 1) {
+        const t = step / 10
+        const mt = 1 - t
+        push({ x: mt ** 2 * start.x + 2 * mt * t * control.x + t ** 2 * end.x, y: mt ** 2 * start.y + 2 * mt * t * control.y + t ** 2 * end.y })
+      }
+      previousQuadraticControl = control
+      previousCubicControl = null
+    } else {
+      const x = values[values.length - 2]
+      const y = values[values.length - 1]
+      push({ x: relative ? current.x + x : x, y: relative ? current.y + y : y })
+      previousCubicControl = null
+      previousQuadraticControl = null
     }
   }
 
-  return points
+  finishSubpath()
+  return subpaths
 }
 
 function pointsShape(base: Omit<Shape, 'type' | 'x' | 'y' | 'width' | 'height'>, points: Point[]) {
@@ -1125,40 +1575,47 @@ function pointsShape(base: Omit<Shape, 'type' | 'x' | 'y' | 'width' | 'height'>,
 function parseSvgShapes(svgText: string) {
   const parsed: Shape[] = []
   const documentXml = new DOMParser().parseFromString(svgText, 'image/svg+xml')
+  const styleRules = parseSvgStyleRules(documentXml)
   documentXml.querySelectorAll('rect, ellipse, circle, line, text, polyline, polygon, path').forEach((node, index) => {
     const element = node as SVGElement
-    const fill = svgAttribute(element, 'fill') || 'transparent'
-    const stroke = svgAttribute(element, 'stroke') || '#173b46'
-    const strokeWidth = svgNumber(element, 'stroke-width', 2)
-    const opacity = svgNumber(element, 'opacity', 1)
+    const fillAttr = svgAttribute(element, 'fill', styleRules)
+    const fill = !fillAttr || fillAttr === 'none' ? 'transparent' : fillAttr
+    const strokeAttr = svgAttribute(element, 'stroke', styleRules)
+    const stroke = !strokeAttr || strokeAttr === 'none' ? 'transparent' : strokeAttr
+    const strokeWidth = svgNumber(element, 'stroke-width', stroke === 'transparent' ? 0 : 2, styleRules)
+    const opacity = svgNumber(element, 'opacity', 1, styleRules)
     const base = { id: makeId('svg'), name: `${node.nodeName} ${index + 1}`, fill, stroke, strokeWidth, opacity }
 
+    const matrix = elementMatrix(element)
+
     if (node.nodeName === 'rect') {
-      parsed.push({ ...base, type: 'rect', x: svgNumber(element, 'x', 0), y: svgNumber(element, 'y', 0), width: svgNumber(element, 'width', 80), height: svgNumber(element, 'height', 60) })
+      parsed.push(transformShape({ ...base, type: 'rect', x: svgNumber(element, 'x', 0, styleRules), y: svgNumber(element, 'y', 0, styleRules), width: svgNumber(element, 'width', 80, styleRules), height: svgNumber(element, 'height', 60, styleRules) }, matrix))
     } else if (node.nodeName === 'ellipse' || node.nodeName === 'circle') {
-      const cx = svgNumber(element, 'cx', 80)
-      const cy = svgNumber(element, 'cy', 80)
-      const rx = svgNumber(element, 'rx', svgNumber(element, 'r', 40))
-      const ry = svgNumber(element, 'ry', svgNumber(element, 'r', 40))
-      parsed.push({ ...base, type: 'ellipse', x: cx - rx, y: cy - ry, width: rx * 2, height: ry * 2 })
+      const cx = svgNumber(element, 'cx', 80, styleRules)
+      const cy = svgNumber(element, 'cy', 80, styleRules)
+      const rx = svgNumber(element, 'rx', svgNumber(element, 'r', 40, styleRules), styleRules)
+      const ry = svgNumber(element, 'ry', svgNumber(element, 'r', 40, styleRules), styleRules)
+      parsed.push(transformShape({ ...base, type: 'ellipse', x: cx - rx, y: cy - ry, width: rx * 2, height: ry * 2 }, matrix))
     } else if (node.nodeName === 'line') {
-      const x1 = svgNumber(element, 'x1', 0)
-      const y1 = svgNumber(element, 'y1', 0)
-      parsed.push({ ...base, type: 'line', x: x1, y: y1, width: svgNumber(element, 'x2', 100) - x1, height: svgNumber(element, 'y2', 100) - y1, fill: 'transparent' })
+      const x1 = svgNumber(element, 'x1', 0, styleRules)
+      const y1 = svgNumber(element, 'y1', 0, styleRules)
+      parsed.push(transformShape({ ...base, type: 'line', x: x1, y: y1, width: svgNumber(element, 'x2', 100, styleRules) - x1, height: svgNumber(element, 'y2', 100, styleRules) - y1, fill: 'transparent' }, matrix))
     } else if (node.nodeName === 'text') {
-      const fontSize = svgNumber(element, 'font-size', 32)
-      const anchor = svgAttribute(element, 'text-anchor')
+      const fontSize = svgNumber(element, 'font-size', 32, styleRules)
+      const anchor = svgAttribute(element, 'text-anchor', styleRules)
       const textAlign: TextAlign = anchor === 'middle' ? 'center' : anchor === 'end' ? 'right' : 'left'
-      parsed.push({ ...base, type: 'text', x: svgNumber(element, 'x', 0), y: svgNumber(element, 'y', 0) - fontSize, width: 220, height: fontSize + 16, text: element.textContent || 'Text', fontFamily: svgAttribute(element, 'font-family') ?? 'Arial, sans-serif', fontSize, fontWeight: svgAttribute(element, 'font-weight') ?? '400', fontStyle: svgAttribute(element, 'font-style') ?? 'normal', textAlign })
+      parsed.push(transformShape({ ...base, type: 'text', x: svgNumber(element, 'x', 0, styleRules), y: svgNumber(element, 'y', 0, styleRules) - fontSize, width: 220, height: fontSize + 16, text: element.textContent || 'Text', fontFamily: svgAttribute(element, 'font-family', styleRules) ?? 'Arial, sans-serif', fontSize, fontWeight: svgAttribute(element, 'font-weight', styleRules) ?? '400', fontStyle: svgAttribute(element, 'font-style', styleRules) ?? 'normal', textAlign }, matrix))
     } else if (node.nodeName === 'polyline' || node.nodeName === 'polygon') {
       const points = parseSvgPoints(element.getAttribute('points'))
       if (points.length > 1) {
-        parsed.push(pointsShape({ ...base, fill: 'transparent' }, node.nodeName === 'polygon' ? [...points, points[0]] : points))
+        parsed.push(transformShape(pointsShape({ ...base, fill: 'transparent' }, node.nodeName === 'polygon' ? [...points, points[0]] : points), matrix))
       }
     } else if (node.nodeName === 'path') {
-      const points = parsePathPoints(element.getAttribute('d'))
-      if (points.length > 1) {
-        parsed.push(pointsShape({ ...base, fill: 'transparent' }, points))
+      const pathData = element.getAttribute('d')
+      if (pathData && parsePathSubpaths(pathData).some((points) => points.length > 1)) {
+        // Keep the whole path intact so curves stay smooth and compound sub-paths (holes) keep their fill rule.
+        const fillRule = svgAttribute(element, 'fill-rule', styleRules) === 'evenodd' ? 'evenodd' : 'nonzero'
+        parsed.push(transformShape(pathShape(base, pathData, fillRule), matrix))
       }
     }
   })
@@ -1171,9 +1628,9 @@ function App() {
   const stageRef = useRef<HTMLElement | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const fileActionRef = useRef<FileAction>('open')
-  const dragRef = useRef<{ id: string; start: Point; original: Shape } | null>(null)
-  const resizeRef = useRef<{ id: string; anchor: ResizeAnchor } | null>(null)
-  const drawingRef = useRef<{ id: string; start: Point } | null>(null)
+  const dragRef = useRef<{ ids: string[]; start: Point; originals: Shape[]; view: CanvasView } | null>(null)
+  const resizeRef = useRef<{ id: string; anchor: ResizeAnchor; view: CanvasView } | null>(null)
+  const drawingRef = useRef<{ id: string; start: Point; view: CanvasView } | null>(null)
   const connectorStartRef = useRef<string | null>(null)
   const undoStackRef = useRef<Shape[][]>([])
   const redoStackRef = useRef<Shape[][]>([])
@@ -1205,15 +1662,23 @@ function App() {
   const [canvasCursor, setCanvasCursor] = useState<string | null>(null)
   const [expandedToolGroups, setExpandedToolGroups] = useState<Record<ToolGroupId, boolean>>(initialSettings.expandedToolGroups)
   const [isDirty, setIsDirty] = useState(false)
+  const [stageSize, setStageSize] = useState(defaultCanvasSize)
+  const [canvasSize, setCanvasSize] = useState(defaultCanvasSize)
+  const [penDraft, setPenDraft] = useState<PenAnchor[]>([])
+  const [penCursor, setPenCursor] = useState<Point | null>(null)
+  const penDraftRef = useRef<PenAnchor[]>([])
+  const penDragRef = useRef<{ index: number } | null>(null)
 
   const text = messages[language]
   const selectedShape = selectedIds.length === 1 ? shapes.find((shape) => shape.id === selectedIds[0]) : undefined
   const toolGroups = useMemo(() => [
-    { id: 'basic', label: text.basicTools, tools: ['rect', 'square', 'roundRect', 'ellipse', 'circleShape', 'text', 'pen'] },
+    { id: 'basic', label: text.basicTools, tools: ['rect', 'square', 'roundRect', 'ellipse', 'circleShape', 'text', 'pen', 'bezierPen'] },
     { id: 'advanced', label: text.advancedTools, tools: ['triangle', 'diamondShape', 'pentagon', 'hexagon', 'octagon', 'star', 'trapezoid', 'parallelogram', 'chevron', 'crossShape', 'curve'] },
     { id: 'line', label: text.lineTools, tools: ['line', 'connector'] },
   ] satisfies { id: ToolGroupId; label: string; tools: Tool[] }[], [text.advancedTools, text.basicTools, text.lineTools])
-  const svgText = useMemo(() => buildSvg(shapes, rasters, false), [shapes, rasters])
+  const canvasView = useMemo(() => computeCanvasView(canvasSize, stageSize, zoom), [canvasSize, stageSize, zoom])
+  const visibleCanvasSize = useMemo(() => ({ width: Math.max(defaultCanvasSize.width, Math.ceil(stageSize.width / Math.max(zoom, 0.01))), height: Math.max(defaultCanvasSize.height, Math.ceil(stageSize.height / Math.max(zoom, 0.01))) }), [stageSize, zoom])
+  const svgText = useMemo(() => buildSvg(shapes, rasters, true, canvasView), [canvasView, shapes, rasters])
   const statusSelection = selectedIds.length > 1 ? `${selectedIds.length} ${text.selectedCount}` : selectedShape ? `${text.selected}: ${selectedShape.name}` : text.selectedNone
   const gridSize = `${Math.max(8, 40 * zoom)}px`
   const defaultCanvasCursor = tool === 'select' ? 'default' : tool === 'eraser' ? 'not-allowed' : 'crosshair'
@@ -1245,6 +1710,21 @@ function App() {
     setErrorDetails({ title, message, details: formatError(error) })
   }
 
+  const growCanvasToFit = useCallback((nextShapes: Shape[], nextRasters: RasterLayer[] = rasters) => {
+    const contentBounds = getContentBounds(nextShapes, nextRasters)
+    setCanvasSize((current) => {
+      const minimumWidth = Math.max(defaultCanvasSize.width, Math.ceil(stageSize.width / Math.max(zoom, 0.01)))
+      const minimumHeight = Math.max(defaultCanvasSize.height, Math.ceil(stageSize.height / Math.max(zoom, 0.01)))
+      const contentWidth = contentBounds ? Math.ceil(contentBounds.x + contentBounds.width + canvasGrowthPadding) : minimumWidth
+      const contentHeight = contentBounds ? Math.ceil(contentBounds.y + contentBounds.height + canvasGrowthPadding) : minimumHeight
+      const nextSize = {
+        width: Math.max(current.width, minimumWidth, contentWidth),
+        height: Math.max(current.height, minimumHeight, contentHeight),
+      }
+      return current.width === nextSize.width && current.height === nextSize.height ? current : nextSize
+    })
+  }, [rasters, stageSize, zoom])
+
   const refreshHistoryStatus = useCallback(() => {
     setHistoryStatus({ canUndo: undoStackRef.current.length > 0, canRedo: redoStackRef.current.length > 0 })
   }, [])
@@ -1263,9 +1743,11 @@ function App() {
         refreshHistoryStatus()
         setIsDirty(true)
       }
-      return updater(current)
+      const next = updater(current)
+      growCanvasToFit(next)
+      return next
     })
-  }, [refreshHistoryStatus])
+  }, [growCanvasToFit, refreshHistoryStatus])
 
   const undo = useCallback(() => {
     const previous = undoStackRef.current.at(-1)
@@ -1274,10 +1756,12 @@ function App() {
     }
     undoStackRef.current = undoStackRef.current.slice(0, -1)
     redoStackRef.current = [...redoStackRef.current, cloneShapes(shapes)]
-    setShapes(cloneShapes(previous))
+    const previousShapes = cloneShapes(previous)
+    setShapes(previousShapes)
+    growCanvasToFit(previousShapes)
     selectShapes([])
     refreshHistoryStatus()
-  }, [refreshHistoryStatus, shapes])
+  }, [growCanvasToFit, refreshHistoryStatus, shapes])
 
   const redo = useCallback(() => {
     const next = redoStackRef.current.at(-1)
@@ -1286,14 +1770,36 @@ function App() {
     }
     redoStackRef.current = redoStackRef.current.slice(0, -1)
     undoStackRef.current = [...undoStackRef.current, cloneShapes(shapes)]
-    setShapes(cloneShapes(next))
+    const nextShapes = cloneShapes(next)
+    setShapes(nextShapes)
+    growCanvasToFit(nextShapes)
     selectShapes([])
     refreshHistoryStatus()
-  }, [refreshHistoryStatus, shapes])
+  }, [growCanvasToFit, refreshHistoryStatus, shapes])
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme
   }, [theme])
+
+  useEffect(() => {
+    const stage = stageRef.current
+    if (!stage) {
+      return
+    }
+
+    const updateStageSize = () => {
+      const nextSize = {
+        width: Math.max(defaultCanvasSize.width, Math.floor(stage.clientWidth)),
+        height: Math.max(defaultCanvasSize.height, Math.floor(stage.clientHeight)),
+      }
+      setStageSize((current) => current.width === nextSize.width && current.height === nextSize.height ? current : nextSize)
+    }
+
+    updateStageSize()
+    const observer = new ResizeObserver(updateStageSize)
+    observer.observe(stage)
+    return () => observer.disconnect()
+  }, [])
 
   useEffect(() => {
     const settings: AppSettings = {
@@ -1318,12 +1824,13 @@ function App() {
     }
 
     const ratio = window.devicePixelRatio || 1
-    canvas.width = canvasSize.width * ratio
-    canvas.height = canvasSize.height * ratio
-    canvas.style.width = `${canvasSize.width * zoom}px`
-    canvas.style.height = `${canvasSize.height * zoom}px`
+    canvas.width = canvasView.width * ratio
+    canvas.height = canvasView.height * ratio
+    canvas.style.width = `${canvasView.width * zoom}px`
+    canvas.style.height = `${canvasView.height * zoom}px`
     context.setTransform(ratio, 0, 0, ratio, 0, 0)
-    context.clearRect(0, 0, canvasSize.width, canvasSize.height)
+    context.clearRect(0, 0, canvasView.width, canvasView.height)
+    context.translate(-canvasView.x, -canvasView.y)
 
     const drawRasters = async () => {
       for (const raster of rasters) {
@@ -1342,10 +1849,13 @@ function App() {
         context.strokeRect(bounds.x, bounds.y, bounds.width, bounds.height)
         context.restore()
       }
+      if (tool === 'bezierPen' && penDraft.length > 0) {
+        drawPenDraft(context, penDraft, penCursor, zoom)
+      }
     }
 
     void drawRasters()
-  }, [shapes, rasters, selectedIds, selectionBox, zoom])
+  }, [canvasView, shapes, rasters, selectedIds, selectionBox, zoom, tool, penDraft, penCursor])
 
   useEffect(() => {
     const closeMenu = () => setContextMenu(null)
@@ -1353,11 +1863,11 @@ function App() {
     return () => window.removeEventListener('click', closeMenu)
   }, [])
 
-  function getCanvasPoint(event: React.PointerEvent<HTMLCanvasElement> | React.MouseEvent<HTMLCanvasElement>) {
+  function getCanvasPoint(event: React.PointerEvent<HTMLCanvasElement> | React.MouseEvent<HTMLCanvasElement>, view = canvasView) {
     const rect = event.currentTarget.getBoundingClientRect()
     return {
-      x: ((event.clientX - rect.left) / rect.width) * canvasSize.width,
-      y: ((event.clientY - rect.top) / rect.height) * canvasSize.height,
+      x: view.x + ((event.clientX - rect.left) / rect.width) * view.width,
+      y: view.y + ((event.clientY - rect.top) / rect.height) * view.height,
     }
   }
 
@@ -1390,9 +1900,67 @@ function App() {
     return { id: makeId('shape'), type: tool === 'ellipse' ? 'ellipse' : 'rect', name: tool === 'rect' ? text.rect : text.ellipse, ...rect, fill: tool === 'rect' ? '#67d5b5' : '#f4c95d', stroke: '#173b46', strokeWidth: 3, opacity: 1 }
   }
 
+  const commitPenDraft = useCallback((closed: boolean) => {
+    // Drop trailing coincident anchors (e.g. the double-click that finishes the path adds a duplicate point).
+    const anchors = penDraftRef.current.filter((anchor, index, list) => index === 0 || anchor.handleOut || anchor.handleIn || Math.hypot(anchor.point.x - list[index - 1].point.x, anchor.point.y - list[index - 1].point.y) > 0.5)
+    penDraftRef.current = []
+    penDragRef.current = null
+    setPenDraft([])
+    setPenCursor(null)
+    if (anchors.length < 2) {
+      return
+    }
+    const shape = pathShape({ id: makeId('shape'), name: text.bezierPen, fill: 'transparent', stroke: '#f4c95d', strokeWidth: 4, opacity: 1 }, penAnchorsToPath(anchors, closed), 'nonzero')
+    updateShapes((current) => [...current, shape])
+    setSelectedIds([shape.id])
+  }, [text.bezierPen, updateShapes])
+
+  function updatePenDraft(next: PenAnchor[]) {
+    penDraftRef.current = next
+    setPenDraft(next)
+  }
+
+  function handlePenPointerDown(point: Point) {
+    const anchors = penDraftRef.current
+    if (anchors.length >= 2) {
+      const first = anchors[0].point
+      if (Math.hypot(point.x - first.x, point.y - first.y) <= 10 / zoom) {
+        commitPenDraft(true)
+        return
+      }
+    }
+    const next = [...anchors, { point }]
+    penDragRef.current = { index: next.length - 1 }
+    updatePenDraft(next)
+  }
+
+  function handlePenPointerMove(point: Point) {
+    const drag = penDragRef.current
+    if (!drag) {
+      setPenCursor(point)
+      return
+    }
+    updatePenDraft(penDraftRef.current.map((anchor, index) => index === drag.index
+      ? { ...anchor, handleOut: point, handleIn: { x: anchor.point.x * 2 - point.x, y: anchor.point.y * 2 - point.y } }
+      : anchor))
+  }
+
+  // Finish any open pen path when the user switches away from the pen tool.
+  useEffect(() => {
+    if (tool !== 'bezierPen' && penDraftRef.current.length > 0) {
+      commitPenDraft(false)
+    }
+  }, [tool, commitPenDraft])
+
   function handlePointerDown(event: React.PointerEvent<HTMLCanvasElement>) {
+    event.currentTarget.setPointerCapture(event.pointerId)
     const point = getCanvasPoint(event)
     setContextMenu(null)
+
+    if (tool === 'bezierPen') {
+      handlePenPointerDown(point)
+      return
+    }
 
     if (tool === 'connector') {
       const target = [...shapes].reverse().find((shape) => shape.type !== 'connector' && isPointInShape(point, shape))
@@ -1425,13 +1993,15 @@ function App() {
       const selectedResizeAnchor = selectedResizeTarget ? getResizeHandleAt(point, selectedResizeTarget) : null
       if (tool === 'select' && selectedResizeTarget && selectedResizeAnchor) {
         remember(shapes)
-        resizeRef.current = { id: selectedResizeTarget.id, anchor: selectedResizeAnchor }
+        resizeRef.current = { id: selectedResizeTarget.id, anchor: selectedResizeAnchor, view: canvasView }
         return
       }
 
       const target = [...shapes].reverse().find((shape) => isPointInShape(point, shape))
       if (tool === 'eraser' && target) {
-        updateShapes((current) => current.filter((shape) => shape.id !== target.id))
+        const idsToDelete = selectedIds.includes(target.id) ? selectedIds : [target.id]
+        const deleteIds = new Set(idsToDelete)
+        updateShapes((current) => current.filter((shape) => !deleteIds.has(shape.id)))
         selectShapes([])
         return
       }
@@ -1447,11 +2017,12 @@ function App() {
         const resizeAnchor = target.type === 'connector' ? null : getResizeHandleAt(point, target)
         if (resizeAnchor) {
           remember(shapes)
-          resizeRef.current = { id: target.id, anchor: resizeAnchor }
+          resizeRef.current = { id: target.id, anchor: resizeAnchor, view: canvasView }
           return
         }
         remember(shapes)
-        dragRef.current = { id: target.id, start: point, original: target }
+        const dragIds = selectedIds.includes(target.id) ? selectedIds : [target.id]
+        dragRef.current = { ids: dragIds, start: point, originals: shapes.filter((shape) => dragIds.includes(shape.id)), view: canvasView }
       }
       return
     }
@@ -1459,17 +2030,30 @@ function App() {
     const shape = createShape(point, point)
     updateShapes((current) => [...current, shape])
     selectShape(shape.id)
-    drawingRef.current = { id: shape.id, start: point }
+    drawingRef.current = { id: shape.id, start: point, view: canvasView }
   }
 
   function handlePointerMove(event: React.PointerEvent<HTMLCanvasElement>) {
-    const point = getCanvasPoint(event)
+    if (tool === 'bezierPen') {
+      handlePenPointerMove(getCanvasPoint(event))
+      return
+    }
+    const interactionView = dragRef.current?.view ?? resizeRef.current?.view ?? drawingRef.current?.view ?? canvasView
+    const point = getCanvasPoint(event, interactionView)
     if (dragRef.current) {
       setCanvasCursor('grabbing')
-      const { id, start, original } = dragRef.current
+      const { ids, start, originals } = dragRef.current
       const dx = point.x - start.x
       const dy = point.y - start.y
-      updateShapes((current) => current.map((shape) => shape.id === id ? { ...shape, x: original.x + dx, y: original.y + dy, points: original.points?.map((oldPoint) => ({ x: oldPoint.x + dx, y: oldPoint.y + dy })) } : shape), false)
+      const moveDelta = clampMoveDelta(originals, dx, dy)
+      const selectedOriginals = new Map(originals.map((shape) => [shape.id, shape]))
+      updateShapes((current) => current.map((shape) => {
+        if (!ids.includes(shape.id)) {
+          return shape
+        }
+        const original = selectedOriginals.get(shape.id)
+        return original ? moveShape(original, moveDelta.dx, moveDelta.dy) : shape
+      }), false)
     }
 
     if (resizeRef.current) {
@@ -1486,7 +2070,7 @@ function App() {
         }
         if (shape.type === 'pen') {
           const points = [...(shape.points ?? [start]), point]
-          const bounds = getSceneBounds([{ ...shape, points }], [])
+          const bounds = getSceneBounds([{ ...shape, points }], [], canvasView)
           return { ...shape, points, x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height }
         }
         if (shape.type === 'line') {
@@ -1520,6 +2104,10 @@ function App() {
   }
 
   function handlePointerUp() {
+    if (tool === 'bezierPen') {
+      penDragRef.current = null
+      return
+    }
     if (selectionBox) {
       const bounds = selectionBounds(selectionBox)
       const ids = shapes.filter((shape) => rectsIntersect(bounds, shapeBounds(shape))).map((shape) => shape.id)
@@ -1537,7 +2125,9 @@ function App() {
   }
 
   function handlePointerLeave() {
-    handlePointerUp()
+    if (!dragRef.current && !resizeRef.current && !drawingRef.current && !selectionBox) {
+      handlePointerUp()
+    }
     setCanvasCursor(null)
   }
 
@@ -1565,14 +2155,14 @@ function App() {
       try {
         if (file.type === 'image/svg+xml' || file.name.toLowerCase().endsWith('.svg')) {
           const svgText = await file.text()
-          const parsed = parseSvgShapes(svgText)
+          const parsed = fitImportedContentToCanvas(parseSvgShapes(svgText), [], visibleCanvasSize).shapes
           if (parsed.length > 0) {
             importedShapes.push(...parsed)
             continue
           }
 
           const src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgText)}`
-          importedRasters.push({ id: makeId('image'), name: file.name, src, x: 90, y: 90, width: 420, height: 300 })
+          importedRasters.push(...fitImportedContentToCanvas([], [{ id: makeId('image'), name: file.name, src, x: 0, y: 0, width: visibleCanvasSize.width, height: visibleCanvasSize.height }], visibleCanvasSize).rasters)
           continue
         }
 
@@ -1588,13 +2178,13 @@ function App() {
           tempCanvas.width = imageData.width
           tempCanvas.height = imageData.height
           tempCanvas.getContext('2d')?.putImageData(imageData, 0, 0)
-          importedRasters.push({ id: makeId('image'), name: file.name, src: tempCanvas.toDataURL('image/png'), x: 100, y: 100, width: Math.min(520, imageData.width), height: Math.min(360, imageData.height) })
+          importedRasters.push(...fitImportedContentToCanvas([], [{ id: makeId('image'), name: file.name, src: tempCanvas.toDataURL('image/png'), x: 0, y: 0, width: imageData.width, height: imageData.height }], visibleCanvasSize).rasters)
           continue
         }
 
         const src = URL.createObjectURL(file)
         const image = await loadImage(src)
-        importedRasters.push({ id: makeId('image'), name: file.name, src, x: 110, y: 110, width: Math.min(640, image.naturalWidth), height: Math.min(420, image.naturalHeight) })
+        importedRasters.push(...fitImportedContentToCanvas([], [{ id: makeId('image'), name: file.name, src, x: 0, y: 0, width: image.naturalWidth, height: image.naturalHeight }], visibleCanvasSize).rasters)
       } catch (error) {
         showError(text.errorTitle, text.fileReadError, error)
       }
@@ -1605,6 +2195,7 @@ function App() {
       redoStackRef.current = []
       setShapes(importedShapes)
       setRasters(importedRasters)
+      growCanvasToFit(importedShapes, importedRasters)
       selectShapes(importedShapes.map((shape) => shape.id))
       refreshHistoryStatus()
       setIsDirty(false)
@@ -1615,7 +2206,11 @@ function App() {
       updateShapes((current) => [...current, ...importedShapes])
     }
     if (importedRasters.length > 0) {
-      setRasters((current) => [...current, ...importedRasters])
+      setRasters((current) => {
+        const nextRasters = [...current, ...importedRasters]
+        growCanvasToFit([...shapes, ...importedShapes], nextRasters)
+        return nextRasters
+      })
       setIsDirty(true)
     }
     if (importedShapes.length > 0) {
@@ -1627,7 +2222,30 @@ function App() {
     if (selectedIds.length !== 1) {
       return
     }
-    updateShapes((current) => current.map((shape) => shape.id === selectedIds[0] ? { ...shape, ...patch } : shape))
+    const editsGeometry = 'x' in patch || 'y' in patch || 'width' in patch || 'height' in patch
+    updateShapes((current) => current.map((shape) => {
+      if (shape.id !== selectedIds[0]) {
+        return shape
+      }
+      // A path's position/size lives in its matrix, so geometry edits become a translate+scale instead of raw field writes.
+      if (shape.type === 'path' && editsGeometry) {
+        const targetX = patch.x ?? shape.x
+        const targetY = patch.y ?? shape.y
+        const targetWidth = Math.max(1, patch.width ?? shape.width)
+        const targetHeight = Math.max(1, patch.height ?? shape.height)
+        const scaleX = shape.width === 0 ? 1 : targetWidth / shape.width
+        const scaleY = shape.height === 0 ? 1 : targetHeight / shape.height
+        const world: SvgMatrix = { a: scaleX, b: 0, c: 0, d: scaleY, e: targetX - shape.x * scaleX, f: targetY - shape.y * scaleY }
+        const moved = applyMatrixToPath(shape, world, false)
+        const rest: Partial<Shape> = { ...patch }
+        delete rest.x
+        delete rest.y
+        delete rest.width
+        delete rest.height
+        return { ...moved, ...rest }
+      }
+      return { ...shape, ...patch }
+    }))
   }
 
   function duplicateSelected() {
@@ -1635,7 +2253,7 @@ function App() {
     if (selected.length === 0) {
       return
     }
-    const clones = selected.map((shape) => ({ ...shape, id: makeId('shape'), name: `${shape.name} copy`, x: shape.x + 24, y: shape.y + 24, points: shape.points?.map((point) => ({ x: point.x + 24, y: point.y + 24 })) }))
+    const clones = selected.map((shape) => moveShape({ ...shape, id: makeId('shape'), name: `${shape.name} copy` }, 24, 24))
     updateShapes((current) => [...current, ...clones])
     selectShapes(clones.map((shape) => shape.id))
   }
@@ -1650,6 +2268,10 @@ function App() {
     const handleKeyDown = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null
       if (event.key === 'Escape') {
+        penDraftRef.current = []
+        penDragRef.current = null
+        setPenDraft([])
+        setPenCursor(null)
         dragRef.current = null
         resizeRef.current = null
         drawingRef.current = null
@@ -1660,6 +2282,11 @@ function App() {
         return
       }
       if (target?.matches('input, textarea, select')) {
+        return
+      }
+      if (event.key === 'Enter' && penDraftRef.current.length >= 2) {
+        event.preventDefault()
+        commitPenDraft(false)
         return
       }
       if (event.key === 'Delete' && selectedIds.length > 0) {
@@ -1682,7 +2309,7 @@ function App() {
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [deleteSelected, redo, selectedIds.length, undo])
+  }, [commitPenDraft, deleteSelected, redo, selectedIds.length, undo])
 
   function moveLayer(direction: 'front' | 'back') {
     if (selectedIds.length === 0) {
@@ -1734,6 +2361,7 @@ function App() {
     redoStackRef.current = []
     setShapes([])
     setRasters([])
+    setCanvasSize(defaultCanvasSize)
     selectShapes([])
     setSelectionBox(null)
     setContextMenu(null)
@@ -1757,14 +2385,14 @@ function App() {
 
   async function exportFile(format: ExportFormat) {
     if (format === 'svg') {
-      downloadBlob(new Blob([buildSvg(shapes, rasters, removeBackground)], { type: 'image/svg+xml' }), 'svg-editor-export.svg')
+      downloadBlob(new Blob([buildSvg(shapes, rasters, true, canvasView)], { type: 'image/svg+xml' }), 'svg-editor-export.svg')
       setIsDirty(false)
       return true
     }
 
     const mime = format === 'jpg' ? 'image/jpeg' : format === 'tiff' ? 'image/tiff' : `image/${format}`
     const needsOpaqueBackground = format === 'jpg'
-    const canvas = await renderSceneToCanvas(shapes, rasters, removeBackground, needsOpaqueBackground ? '#ffffff' : removeBackground ? null : theme === 'dark' ? '#182129' : '#ffffff')
+    const canvas = await renderSceneToCanvas(shapes, rasters, true, needsOpaqueBackground ? '#ffffff' : null, canvasView)
 
     if (format === 'tiff') {
       const context = canvas.getContext('2d')
@@ -1813,7 +2441,7 @@ function App() {
   }
 
   function resetView() {
-    const bounds = getSceneBounds(shapes, rasters)
+    const bounds = getSceneBounds(shapes, rasters, canvasView)
     const center = { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 }
     setZoom(1)
     requestAnimationFrame(() => {
@@ -1898,7 +2526,7 @@ function App() {
         </aside>
         <div className="resize-handle" onPointerDown={(event) => handlePanelResize('left', event)} />
         <section ref={stageRef} className={`canvas-stage ${showGrid ? 'show-grid' : ''}`} style={{ '--grid-size': gridSize } as React.CSSProperties} aria-label={text.canvas} onWheel={(event) => { setZoom((value) => Math.min(2.5, Math.max(0.25, value - event.deltaY * 0.001))) }}>
-          <canvas ref={canvasRef} style={{ cursor: canvasCursor ?? defaultCanvasCursor }} onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerLeave={handlePointerLeave} onContextMenu={handleCanvasContextMenu} />
+          <canvas ref={canvasRef} style={{ cursor: canvasCursor ?? defaultCanvasCursor }} onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerLeave={handlePointerLeave} onDoubleClick={() => { if (tool === 'bezierPen') commitPenDraft(false) }} onContextMenu={handleCanvasContextMenu} />
           {contextMenu && <div className="context-menu" style={{ left: contextMenu.x, top: contextMenu.y }}>
             <button onClick={duplicateSelected}><AlignCenter size={15} />{text.duplicate}</button>
             <button onClick={() => moveLayer('front')}><BringToFront size={15} />{text.front}</button>
@@ -1945,7 +2573,10 @@ function App() {
                   </select></label>
                 </div>
               </div>}
-              <label>{text.fill}<input type="color" value={selectedShape.fill === 'transparent' ? '#ffffff' : selectedShape.fill} onChange={(event) => updateSelected({ fill: event.target.value })} /></label>
+              <label>{text.fill}<span className="fill-field">
+                <input type="color" value={selectedShape.fill === 'transparent' ? '#ffffff' : selectedShape.fill} disabled={selectedShape.fill === 'transparent'} onChange={(event) => updateSelected({ fill: event.target.value })} />
+                <span className="fill-none-toggle"><input type="checkbox" checked={selectedShape.fill === 'transparent'} onChange={(event) => updateSelected({ fill: event.target.checked ? 'transparent' : '#67d5b5' })} />{text.fillNone}</span>
+              </span></label>
               <label>{text.stroke}<input type="color" value={selectedShape.stroke === 'transparent' ? '#000000' : selectedShape.stroke} onChange={(event) => updateSelected({ stroke: event.target.value })} /></label>
               <label>{text.strokeWidth}<span className="range-field"><input type="range" min="0" max="24" value={selectedShape.strokeWidth} onChange={(event) => updateSelected({ strokeWidth: Number(event.target.value) })} /><span className="range-value">{selectedShape.strokeWidth}px</span></span></label>
               <label>{text.opacity}<span className="range-field"><input type="range" min="0.1" max="1" step="0.05" value={selectedShape.opacity} onChange={(event) => updateSelected({ opacity: Number(event.target.value) })} /><span className="range-value">{Math.round(selectedShape.opacity * 100)}%</span></span></label>
@@ -1995,7 +2626,7 @@ function App() {
 
       <footer className="status-bar">
         <span>{text.statusReady}</span>
-        <span>{text.canvasSize}: {canvasSize.width} x {canvasSize.height}</span>
+        <span>{text.canvasSize}: {Math.round(canvasView.width)} x {Math.round(canvasView.height)}</span>
         <span>{Math.round(zoom * 100)}%</span>
         <span>{text.shapesCount}: {shapes.length}</span>
         <span>{text.imagesCount}: {rasters.length}</span>

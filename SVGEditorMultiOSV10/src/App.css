@@ -251,13 +251,12 @@
 }
 
 .canvas-stage {
-  align-items: center;
+  align-items: stretch;
   background-color: var(--stage-bg);
   display: grid;
-  justify-items: center;
+  justify-items: stretch;
   min-height: 0;
   overflow: auto;
-  padding: 48px;
   position: relative;
 }
 
@@ -359,6 +358,26 @@ canvas {
   color: var(--text-primary);
   font-size: var(--control-font-size);
   text-align: right;
+}
+
+.fill-field {
+  align-items: center;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.fill-none-toggle {
+  align-items: center;
+  color: var(--text-muted);
+  display: flex;
+  gap: 6px;
+  font-size: var(--control-font-size);
+  white-space: nowrap;
+}
+
+.fill-none-toggle input {
+  margin: 0;
 }
 
 .selected-properties {
