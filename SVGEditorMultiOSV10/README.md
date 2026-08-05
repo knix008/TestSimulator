@@ -1,6 +1,6 @@
-# SVG Editor MultiOS
+# SVG Editor V1.0
 
-SVG Editor MultiOS is a Canvas-based SVG and raster image editor built with Vite, React, and Electron.
+SVG Editor V1.0 is a Canvas-based SVG and raster image editor built with Vite, React, and Electron.
 
 ## Features
 
@@ -63,6 +63,6 @@ The Windows NSIS installer is configured as a guided installer with optional des
 
 ## Program Information
 
-- Program: SVG Editor MultiOS
+- Program: SVG Editor V1.0
 - Version: 1.0.0
 - Creator: SHKWON(knix008@naver.com)

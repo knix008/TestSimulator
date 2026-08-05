@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="760" viewBox="0 0 1200 760">
+  <rect x="470" y="80" width="260" height="90" rx="45" fill="#67d5b5" stroke="#173b46" stroke-width="4"/>
+  <text x="548" y="137" fill="#173b46" stroke="transparent" stroke-width="0" font-size="30" font-family="Arial, sans-serif">Start</text>
+  <rect x="430" y="250" width="340" height="110" rx="8" fill="#ffffff" stroke="#173b46" stroke-width="4"/>
+  <text x="500" y="317" fill="#173b46" stroke="transparent" stroke-width="0" font-size="28" font-family="Arial, sans-serif">Process step</text>
+  <rect x="470" y="450" width="260" height="90" rx="45" fill="#f4c95d" stroke="#5c4d18" stroke-width="4"/>
+  <text x="560" y="507" fill="#5c4d18" stroke="transparent" stroke-width="0" font-size="30" font-family="Arial, sans-serif">End</text>
+  <line x1="600" y1="170" x2="600" y2="250" fill="none" stroke="#173b46" stroke-width="5" stroke-linecap="round"/>
+  <line x1="600" y1="360" x2="600" y2="450" fill="none" stroke="#173b46" stroke-width="5" stroke-linecap="round"/>
+</svg>

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="760" viewBox="0 0 1200 760">
+  <ellipse cx="600" cy="360" rx="110" ry="76" fill="#67d5b5" stroke="#173b46" stroke-width="4"/>
+  <text x="545" y="370" fill="#173b46" stroke="transparent" stroke-width="0" font-size="26" font-family="Arial, sans-serif">Core</text>
+  <rect x="160" y="130" width="190" height="100" rx="8" fill="#ffffff" stroke="#173b46" stroke-width="4"/>
+  <rect x="850" y="130" width="190" height="100" rx="8" fill="#ffffff" stroke="#173b46" stroke-width="4"/>
+  <rect x="160" y="500" width="190" height="100" rx="8" fill="#ffffff" stroke="#173b46" stroke-width="4"/>
+  <rect x="850" y="500" width="190" height="100" rx="8" fill="#ffffff" stroke="#173b46" stroke-width="4"/>
+  <line x1="350" y1="180" x2="500" y2="315" fill="none" stroke="#67d5b5" stroke-width="5"/>
+  <line x1="850" y1="180" x2="700" y2="315" fill="none" stroke="#67d5b5" stroke-width="5"/>
+  <line x1="350" y1="550" x2="500" y2="405" fill="none" stroke="#67d5b5" stroke-width="5"/>
+  <line x1="850" y1="550" x2="700" y2="405" fill="none" stroke="#67d5b5" stroke-width="5"/>
+</svg>

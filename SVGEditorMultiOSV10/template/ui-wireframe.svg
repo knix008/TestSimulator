@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="760" viewBox="0 0 1200 760">
+  <rect x="120" y="90" width="960" height="580" rx="10" fill="#ffffff" stroke="#173b46" stroke-width="4"/>
+  <rect x="120" y="90" width="960" height="70" rx="10" fill="#67d5b5" stroke="#173b46" stroke-width="4"/>
+  <rect x="160" y="210" width="260" height="400" rx="8" fill="#f4c95d" stroke="#5c4d18" stroke-width="3" opacity="0.85"/>
+  <rect x="470" y="210" width="560" height="90" rx="8" fill="transparent" stroke="#173b46" stroke-width="3"/>
+  <rect x="470" y="330" width="560" height="280" rx="8" fill="transparent" stroke="#173b46" stroke-width="3"/>
+  <text x="160" y="135" fill="#173b46" stroke="transparent" stroke-width="0" font-size="28" font-family="Arial, sans-serif">Wireframe</text>
+</svg>

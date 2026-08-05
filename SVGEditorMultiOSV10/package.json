@@ -1,6 +1,6 @@
 {
   "name": "svgeditormultiosv10",
-  "productName": "SVG Editor MultiOS",
+  "productName": "SVG Editor V1.0",
   "private": true,
   "version": "1.0.0",
   "description": "A cross-platform SVG and raster image editor with export tools.",
@@ -23,7 +23,7 @@
   },
   "build": {
     "appId": "com.shkwon.svgeditormultios",
-    "productName": "SVG Editor MultiOS",
+    "productName": "SVG Editor V1.0",
     "directories": {
       "output": "release",
       "buildResources": "build"
@@ -31,6 +31,9 @@
     "files": [
       "dist/**/*",
       "electron/**/*",
+      "build/icon.ico",
+      "build/icon.png",
+      "build/icons/**/*",
       "package.json"
     ],
     "extraMetadata": {
@@ -55,7 +58,7 @@
       "perMachine": false,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "SVG Editor MultiOS"
+      "shortcutName": "SVG Editor V1.0"
     }
   },
   "dependencies": {

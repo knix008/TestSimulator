@@ -1,23 +1,23 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
   <defs>
     <linearGradient id="plate" x1="34" y1="28" x2="222" y2="230" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#fff7c4"/>
-      <stop offset="0.18" stop-color="#64d2b8"/>
-      <stop offset="0.58" stop-color="#246a73"/>
-      <stop offset="1" stop-color="#182129"/>
+      <stop stop-color="#effbff"/>
+      <stop offset="0.35" stop-color="#8bdcff"/>
+      <stop offset="0.72" stop-color="#3aa6f2"/>
+      <stop offset="1" stop-color="#1976d2"/>
     </linearGradient>
     <radialGradient id="shine" cx="0" cy="0" r="1" gradientTransform="translate(55 48) rotate(42) scale(96 72)" gradientUnits="userSpaceOnUse">
       <stop stop-color="#ffffff"/>
-      <stop offset="0.32" stop-color="#fff4a2" stop-opacity="0.92"/>
-      <stop offset="1" stop-color="#fff4a2" stop-opacity="0"/>
+      <stop offset="0.32" stop-color="#dff7ff" stop-opacity="0.92"/>
+      <stop offset="1" stop-color="#dff7ff" stop-opacity="0"/>
     </radialGradient>
     <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
       <feDropShadow dx="0" dy="16" stdDeviation="14" flood-color="#061016" flood-opacity="0.36"/>
     </filter>
   </defs>
   <rect x="24" y="24" width="208" height="208" rx="44" fill="url(#plate)" filter="url(#shadow)"/>
-  <path d="M73 155 55 128l18-27M183 101l18 27-18 27" fill="none" stroke="#eafff8" stroke-width="17" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="m116 176 29-96" fill="none" stroke="#ffe27a" stroke-width="17" stroke-linecap="round"/>
+  <path d="M70 148 54 128l16-20M186 108l16 20-16 20" fill="none" stroke="#ffffff" stroke-width="13" stroke-linecap="round" stroke-linejoin="round" opacity="0.95"/>
+  <text x="128" y="147" text-anchor="middle" fill="#ffffff" stroke="#0b4f96" stroke-width="5" paint-order="stroke" font-family="Segoe UI, Arial, sans-serif" font-size="58" font-weight="800" letter-spacing="-2">SVG</text>
   <circle cx="57" cy="49" r="53" fill="url(#shine)"/>
   <path d="M51 30v38M32 49h38" stroke="#ffffff" stroke-width="8" stroke-linecap="round" opacity="0.95"/>
 </svg>

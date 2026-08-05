@@ -3,10 +3,12 @@ import {
   AlignCenter,
   BringToFront,
   Circle,
+  Diamond,
   Download,
   Eraser,
   FileImage,
   Grid3X3,
+  Hexagon,
   ImagePlus,
   Info,
   Languages,
@@ -20,34 +22,104 @@ import {
   SendToBack,
   Settings2,
   Slash,
-  SquarePen,
+  Square,
+  Star,
   Sun,
   Trash2,
+  Triangle,
   Type,
   Undo2,
   Redo2,
   RotateCcw,
+  X,
 } from 'lucide-react'
 import * as UTIF from 'utif'
 import './App.css'
 
 type Language = 'ko' | 'en'
 type Theme = 'dark' | 'light'
-type Tool = 'select' | 'rect' | 'ellipse' | 'line' | 'connector' | 'pen' | 'text' | 'eraser'
+type Tool = 'select' | 'rect' | 'square' | 'roundRect' | 'ellipse' | 'circleShape' | 'triangle' | 'diamondShape' | 'pentagon' | 'hexagon' | 'octagon' | 'star' | 'trapezoid' | 'parallelogram' | 'chevron' | 'crossShape' | 'curve' | 'line' | 'connector' | 'pen' | 'text' | 'eraser'
 type DrawableTool = Exclude<Tool, 'select' | 'eraser'>
-type ToolGroupId = 'basic' | 'line'
+type ToolGroupId = 'basic' | 'advanced' | 'line'
 type ExportFormat = 'svg' | 'png' | 'jpg' | 'webp' | 'avif' | 'gif' | 'tiff'
-type ImportMode = 'append' | 'replace'
+type FileAction = 'open' | 'append'
+type UnsavedChoice = 'save' | 'discard' | 'cancel'
 type LineStyle = 'straight' | 'elbow' | 'curve'
 type MarkerStyle = 'none' | 'arrow' | 'circle' | 'diamond'
 type ShadowEffect = 'none' | 'soft' | 'deep' | 'long' | 'glow' | 'emboss'
 type ShadowDirection = 'topLeft' | 'top' | 'topRight' | 'left' | 'center' | 'right' | 'bottomLeft' | 'bottom' | 'bottomRight'
+type TextAlign = 'left' | 'center' | 'right'
 
 type Point = { x: number; y: number }
 type RasterLayer = { id: string; name: string; src: string; x: number; y: number; width: number; height: number }
 type ResizeAnchor = 'nw' | 'ne' | 'sw' | 'se'
 type ErrorDetails = { title: string; message: string; details: string }
 type SelectionBox = { start: Point; current: Point }
+const currentLeftPanelWidth = 220
+const maxLeftPanelWidth = 340
+const minRightPanelWidth = 240
+const maxRightPanelWidth = 420
+const settingsStorageKey = 'svg-editor-v1-settings'
+
+type AppSettings = {
+  language: Language
+  theme: Theme
+  zoom: number
+  showGrid: boolean
+  leftWidth: number
+  rightWidth: number
+  exportFormat: ExportFormat
+  removeBackground: boolean
+  expandedToolGroups: Record<ToolGroupId, boolean>
+}
+
+const defaultSettings: AppSettings = {
+  language: 'ko',
+  theme: 'dark',
+  zoom: 0.86,
+  showGrid: true,
+  leftWidth: currentLeftPanelWidth,
+  rightWidth: 300,
+  exportFormat: 'png',
+  removeBackground: false,
+  expandedToolGroups: { basic: true, advanced: true, line: true },
+}
+
+function clampNumber(value: unknown, min: number, max: number, fallback: number) {
+  return typeof value === 'number' && Number.isFinite(value) ? Math.min(max, Math.max(min, value)) : fallback
+}
+
+function loadSettings(): AppSettings {
+  if (typeof window === 'undefined') {
+    return defaultSettings
+  }
+  try {
+    const raw = window.localStorage.getItem(settingsStorageKey)
+    if (!raw) {
+      return defaultSettings
+    }
+    const parsed = JSON.parse(raw) as Partial<AppSettings>
+    const groups = parsed.expandedToolGroups ?? defaultSettings.expandedToolGroups
+    return {
+      language: parsed.language === 'ko' || parsed.language === 'en' ? parsed.language : defaultSettings.language,
+      theme: parsed.theme === 'dark' || parsed.theme === 'light' ? parsed.theme : defaultSettings.theme,
+      zoom: clampNumber(parsed.zoom, 0.25, 2.5, defaultSettings.zoom),
+      showGrid: typeof parsed.showGrid === 'boolean' ? parsed.showGrid : defaultSettings.showGrid,
+      leftWidth: clampNumber(parsed.leftWidth, currentLeftPanelWidth, maxLeftPanelWidth, defaultSettings.leftWidth),
+      rightWidth: clampNumber(parsed.rightWidth, minRightPanelWidth, maxRightPanelWidth, defaultSettings.rightWidth),
+      exportFormat: parsed.exportFormat && ['svg', 'png', 'jpg', 'webp', 'avif', 'gif', 'tiff'].includes(parsed.exportFormat) ? parsed.exportFormat : defaultSettings.exportFormat,
+      removeBackground: typeof parsed.removeBackground === 'boolean' ? parsed.removeBackground : defaultSettings.removeBackground,
+      expandedToolGroups: {
+        basic: typeof groups.basic === 'boolean' ? groups.basic : defaultSettings.expandedToolGroups.basic,
+        advanced: typeof groups.advanced === 'boolean' ? groups.advanced : defaultSettings.expandedToolGroups.advanced,
+        line: typeof groups.line === 'boolean' ? groups.line : defaultSettings.expandedToolGroups.line,
+      },
+    }
+  } catch {
+    return defaultSettings
+  }
+}
+
 type Shape = {
   id: string
   type: DrawableTool
@@ -58,6 +130,11 @@ type Shape = {
   height: number
   points?: Point[]
   text?: string
+  fontFamily?: string
+  fontSize?: number
+  fontWeight?: string
+  fontStyle?: string
+  textAlign?: TextAlign
   fill: string
   stroke: string
   strokeWidth: number
@@ -76,6 +153,7 @@ type Shape = {
 }
 
 const canvasSize = { width: 1200, height: 760 }
+const fontOptions = ['Arial, sans-serif', 'Segoe UI, sans-serif', 'Georgia, serif', 'Times New Roman, serif', 'Consolas, monospace', 'Courier New, monospace']
 
 const shadowPresets: Record<Exclude<ShadowEffect, 'none'>, { direction: ShadowDirection; distance: number; blur: number; color: string; opacity: number }> = {
   soft: { direction: 'bottomRight', distance: 10, blur: 14, color: '#000000', opacity: 0.28 },
@@ -120,12 +198,16 @@ const shadowDirectionLabelKeys: Record<ShadowDirection, string> = {
 
 const messages = {
   ko: {
-    appName: 'SVG Editor MultiOS',
+    appName: 'SVG Editor V1.0',
     open: '열기',
-    importMode: '불러오기 방식',
-    importAppend: '추가',
-    importReplace: '새 파일',
+    add: '추가',
+    newFile: '새 파일',
     saveSvg: 'SVG 저장',
+    saveChangesTitle: '변경사항 저장',
+    saveChangesMessage: '현재 작업 내용에 변경사항이 있습니다. 계속하기 전에 저장하시겠습니까?',
+    save: '저장',
+    dontSave: '저장 안 함',
+    cancel: '취소',
     export: '내보내기',
     exportOptions: '내보내기 옵션',
     exportRun: '내보내기',
@@ -135,16 +217,40 @@ const messages = {
     grid: 'Grid',
     tools: '그리기 도구',
     basicTools: '기본',
+    advancedTools: '고급',
     lineTools: '선/연결',
     properties: '속성',
-    layers: '레이어',
     select: '선택',
     rect: '사각형',
+    square: '정사각형',
+    roundRect: '둥근 사각형',
     ellipse: '타원',
+    circleShape: '원',
+    triangle: '삼각형',
+    diamondShape: '마름모',
+    pentagon: '오각형',
+    hexagon: '육각형',
+    octagon: '팔각형',
+    star: '별',
+    trapezoid: '사다리꼴',
+    parallelogram: '평행사변형',
+    chevron: '갈매기',
+    crossShape: '십자',
     line: '선',
     connector: '연결선',
     pen: '펜',
     text: '텍스트',
+    fontFamily: '폰트',
+    fontSize: '글자 크기',
+    fontWeight: '굵기',
+    fontStyle: '기울임',
+    textAlign: '정렬',
+    normal: '보통',
+    bold: '굵게',
+    italic: '기울임',
+    alignLeft: '왼쪽',
+    alignCenter: '가운데',
+    alignRight: '오른쪽',
     eraser: '지우개',
     fill: '채우기',
     stroke: '테두리 색',
@@ -182,6 +288,9 @@ const messages = {
     zoomOut: '축소',
     resetZoom: '배율 초기화',
     resetView: 'Reset',
+    minimize: '최소화',
+    maximize: '최대화',
+    closeWindow: '닫기',
     canvas: '캔버스',
     aboutTitle: '프로그램 정보',
     creator: '제작자',
@@ -219,12 +328,16 @@ const messages = {
     errorMessage: '오류가 발생했습니다.',
   },
   en: {
-    appName: 'SVG Editor MultiOS',
+    appName: 'SVG Editor V1.0',
     open: 'Open',
-    importMode: 'Import mode',
-    importAppend: 'Append',
-    importReplace: 'New file',
+    add: 'Add',
+    newFile: 'New file',
     saveSvg: 'Save SVG',
+    saveChangesTitle: 'Save changes',
+    saveChangesMessage: 'The current document has unsaved changes. Do you want to save before continuing?',
+    save: 'Save',
+    dontSave: "Don't save",
+    cancel: 'Cancel',
     export: 'Export',
     exportOptions: 'Export options',
     exportRun: 'Export',
@@ -234,16 +347,40 @@ const messages = {
     grid: 'Grid',
     tools: 'Drawing tools',
     basicTools: 'Basic',
+    advancedTools: 'Advanced',
     lineTools: 'Lines / connectors',
     properties: 'Properties',
-    layers: 'Layers',
     select: 'Select',
     rect: 'Rectangle',
+    square: 'Square',
+    roundRect: 'Rounded rectangle',
     ellipse: 'Ellipse',
+    circleShape: 'Circle',
+    triangle: 'Triangle',
+    diamondShape: 'Diamond',
+    pentagon: 'Pentagon',
+    hexagon: 'Hexagon',
+    octagon: 'Octagon',
+    star: 'Star',
+    trapezoid: 'Trapezoid',
+    parallelogram: 'Parallelogram',
+    chevron: 'Chevron',
+    crossShape: 'Cross',
     line: 'Line',
     connector: 'Connector',
     pen: 'Pen',
     text: 'Text',
+    fontFamily: 'Font',
+    fontSize: 'Font size',
+    fontWeight: 'Weight',
+    fontStyle: 'Style',
+    textAlign: 'Align',
+    normal: 'Normal',
+    bold: 'Bold',
+    italic: 'Italic',
+    alignLeft: 'Left',
+    alignCenter: 'Center',
+    alignRight: 'Right',
     eraser: 'Eraser',
     fill: 'Fill',
     stroke: 'Border color',
@@ -281,6 +418,9 @@ const messages = {
     zoomOut: 'Zoom out',
     resetZoom: 'Reset zoom',
     resetView: 'Reset',
+    minimize: 'Minimize',
+    maximize: 'Maximize',
+    closeWindow: 'Close',
     canvas: 'Canvas',
     aboutTitle: 'Program information',
     creator: 'Creator',
@@ -322,7 +462,21 @@ const messages = {
 const toolIcons = {
   select: MousePointer2,
   rect: RectangleHorizontal,
+  square: Square,
+  roundRect: RectangleHorizontal,
   ellipse: Circle,
+  circleShape: Circle,
+  triangle: Triangle,
+  diamondShape: Diamond,
+  pentagon: Hexagon,
+  hexagon: Hexagon,
+  octagon: Hexagon,
+  star: Star,
+  trapezoid: Triangle,
+  parallelogram: Slash,
+  chevron: BringToFront,
+  crossShape: Plus,
+  curve: PenLine,
   line: Slash,
   connector: BringToFront,
   pen: PenLine,
@@ -341,6 +495,101 @@ function normalizeRect(start: Point, end: Point) {
     width: Math.abs(end.x - start.x),
     height: Math.abs(end.y - start.y),
   }
+}
+
+function normalizeSquareRect(start: Point, end: Point) {
+  const size = Math.max(Math.abs(end.x - start.x), Math.abs(end.y - start.y))
+  return {
+    x: end.x < start.x ? start.x - size : start.x,
+    y: end.y < start.y ? start.y - size : start.y,
+    width: size,
+    height: size,
+  }
+}
+
+function polygonPoints(shape: Shape) {
+  const left = shape.x
+  const top = shape.y
+  const right = shape.x + shape.width
+  const bottom = shape.y + shape.height
+  const centerX = shape.x + shape.width / 2
+  const centerY = shape.y + shape.height / 2
+
+  if (shape.type === 'triangle') {
+    return [{ x: centerX, y: top }, { x: right, y: bottom }, { x: left, y: bottom }]
+  }
+  if (shape.type === 'diamondShape') {
+    return [{ x: centerX, y: top }, { x: right, y: centerY }, { x: centerX, y: bottom }, { x: left, y: centerY }]
+  }
+  if (shape.type === 'pentagon') {
+    return Array.from({ length: 5 }, (_, index) => {
+      const angle = -Math.PI / 2 + index * Math.PI * 2 / 5
+      return { x: centerX + Math.cos(angle) * shape.width / 2, y: centerY + Math.sin(angle) * shape.height / 2 }
+    })
+  }
+  if (shape.type === 'hexagon') {
+    return [
+      { x: shape.x + shape.width * 0.25, y: top },
+      { x: shape.x + shape.width * 0.75, y: top },
+      { x: right, y: centerY },
+      { x: shape.x + shape.width * 0.75, y: bottom },
+      { x: shape.x + shape.width * 0.25, y: bottom },
+      { x: left, y: centerY },
+    ]
+  }
+  if (shape.type === 'octagon') {
+    const insetX = shape.width * 0.3
+    const insetY = shape.height * 0.3
+    return [
+      { x: left + insetX, y: top },
+      { x: right - insetX, y: top },
+      { x: right, y: top + insetY },
+      { x: right, y: bottom - insetY },
+      { x: right - insetX, y: bottom },
+      { x: left + insetX, y: bottom },
+      { x: left, y: bottom - insetY },
+      { x: left, y: top + insetY },
+    ]
+  }
+  if (shape.type === 'star') {
+    const outerRadius = Math.min(Math.abs(shape.width), Math.abs(shape.height)) / 2
+    const innerRadius = outerRadius * 0.45
+    return Array.from({ length: 10 }, (_, index) => {
+      const angle = -Math.PI / 2 + index * Math.PI / 5
+      const radius = index % 2 === 0 ? outerRadius : innerRadius
+      return { x: centerX + Math.cos(angle) * radius, y: centerY + Math.sin(angle) * radius }
+    })
+  }
+  if (shape.type === 'trapezoid') {
+    return [{ x: left + shape.width * 0.22, y: top }, { x: right - shape.width * 0.22, y: top }, { x: right, y: bottom }, { x: left, y: bottom }]
+  }
+  if (shape.type === 'parallelogram') {
+    return [{ x: left + shape.width * 0.22, y: top }, { x: right, y: top }, { x: right - shape.width * 0.22, y: bottom }, { x: left, y: bottom }]
+  }
+  if (shape.type === 'chevron') {
+    return [{ x: left, y: top }, { x: centerX, y: centerY }, { x: left, y: bottom }, { x: left + shape.width * 0.45, y: bottom }, { x: right, y: centerY }, { x: left + shape.width * 0.45, y: top }]
+  }
+  if (shape.type === 'crossShape') {
+    return [
+      { x: left + shape.width * 0.35, y: top },
+      { x: left + shape.width * 0.65, y: top },
+      { x: left + shape.width * 0.65, y: top + shape.height * 0.35 },
+      { x: right, y: top + shape.height * 0.35 },
+      { x: right, y: top + shape.height * 0.65 },
+      { x: left + shape.width * 0.65, y: top + shape.height * 0.65 },
+      { x: left + shape.width * 0.65, y: bottom },
+      { x: left + shape.width * 0.35, y: bottom },
+      { x: left + shape.width * 0.35, y: top + shape.height * 0.65 },
+      { x: left, y: top + shape.height * 0.65 },
+      { x: left, y: top + shape.height * 0.35 },
+      { x: left + shape.width * 0.35, y: top + shape.height * 0.35 },
+    ]
+  }
+  return []
+}
+
+function svgPoints(points: Point[]) {
+  return points.map((point) => `${point.x},${point.y}`).join(' ')
 }
 
 function isPointInShape(point: Point, shape: Shape) {
@@ -427,6 +676,13 @@ function connectorPath(shape: Shape, shapes: Shape[]) {
     return { start, end, svg: `M ${start.x} ${start.y} C ${controlX} ${start.y}, ${controlX} ${end.y}, ${end.x} ${end.y}` }
   }
   return { start, end, svg: `M ${start.x} ${start.y} L ${end.x} ${end.y}` }
+}
+
+function curvePath(shape: Shape) {
+  const start = { x: shape.x, y: shape.y + shape.height }
+  const end = { x: shape.x + shape.width, y: shape.y }
+  const controlX = shape.x + shape.width / 2
+  return `M ${start.x} ${start.y} C ${controlX} ${start.y}, ${controlX} ${end.y}, ${end.x} ${end.y}`
 }
 
 function resizeShape(shape: Shape, anchor: ResizeAnchor, point: Point) {
@@ -572,20 +828,32 @@ function shapeToSvg(shape: Shape, shapes: Shape[]) {
   if (shape.type === 'connector') {
     return `<path d="${connectorPath(shape, shapes).svg}" fill="none" stroke="${shape.stroke}" stroke-width="${shape.strokeWidth}" opacity="${shape.opacity}" stroke-linecap="round" stroke-linejoin="round"${filter}${markerUrl(shape.startMarker, 'start')}${markerUrl(shape.endMarker, 'end')}/>`
   }
-  if (shape.type === 'rect') {
+  if (shape.type === 'rect' || shape.type === 'square') {
     return `<rect x="${shape.x}" y="${shape.y}" width="${shape.width}" height="${shape.height}" rx="6" ${common}/>`
   }
-  if (shape.type === 'ellipse') {
+  if (shape.type === 'roundRect') {
+    return `<rect x="${shape.x}" y="${shape.y}" width="${shape.width}" height="${shape.height}" rx="${Math.min(28, Math.abs(shape.width) / 4, Math.abs(shape.height) / 4)}" ${common}/>`
+  }
+  if (shape.type === 'ellipse' || shape.type === 'circleShape') {
     return `<ellipse cx="${shape.x + shape.width / 2}" cy="${shape.y + shape.height / 2}" rx="${shape.width / 2}" ry="${shape.height / 2}" ${common}/>`
+  }
+  if (shape.type === 'triangle' || shape.type === 'diamondShape' || shape.type === 'pentagon' || shape.type === 'hexagon' || shape.type === 'octagon' || shape.type === 'star' || shape.type === 'trapezoid' || shape.type === 'parallelogram' || shape.type === 'chevron' || shape.type === 'crossShape') {
+    return `<polygon points="${svgPoints(polygonPoints(shape))}" ${common}/>`
   }
   if (shape.type === 'line') {
     return `<line x1="${shape.x}" y1="${shape.y}" x2="${shape.x + shape.width}" y2="${shape.y + shape.height}" fill="none" stroke="${shape.stroke}" stroke-width="${shape.strokeWidth}" opacity="${shape.opacity}" stroke-linecap="round"${filter}/>`
+  }
+  if (shape.type === 'curve') {
+    return `<path d="${curvePath(shape)}" fill="none" stroke="${shape.stroke}" stroke-width="${shape.strokeWidth}" opacity="${shape.opacity}" stroke-linecap="round" stroke-linejoin="round"${filter}/>`
   }
   if (shape.type === 'pen' && shape.points?.length) {
     return `<polyline points="${shape.points.map((point) => `${point.x},${point.y}`).join(' ')}" fill="none" stroke="${shape.stroke}" stroke-width="${shape.strokeWidth}" opacity="${shape.opacity}" stroke-linecap="round" stroke-linejoin="round"${filter}/>`
   }
   if (shape.type === 'text') {
-    return `<text x="${shape.x}" y="${shape.y + 28}" fill="${shape.fill}" stroke="${shape.stroke}" stroke-width="${shape.strokeWidth}" opacity="${shape.opacity}" font-size="32" font-family="Arial, sans-serif"${filter}>${escapeXml(shape.text ?? '')}</text>`
+    const align = shape.textAlign ?? 'left'
+    const x = align === 'center' ? shape.x + shape.width / 2 : align === 'right' ? shape.x + shape.width : shape.x
+    const anchor = align === 'center' ? 'middle' : align === 'right' ? 'end' : 'start'
+    return `<text x="${x}" y="${shape.y + (shape.fontSize ?? 32)}" fill="${shape.fill}" stroke="${shape.stroke}" stroke-width="${shape.strokeWidth}" opacity="${shape.opacity}" font-size="${shape.fontSize ?? 32}" font-family="${shape.fontFamily ?? 'Arial, sans-serif'}" font-weight="${shape.fontWeight ?? '400'}" font-style="${shape.fontStyle ?? 'normal'}" text-anchor="${anchor}"${filter}>${escapeXml(shape.text ?? '')}</text>`
   }
   return ''
 }
@@ -646,14 +914,27 @@ function drawShape(context: CanvasRenderingContext2D, shape: Shape, selected: bo
     context.stroke(path2d)
     drawMarker(context, shape.startMarker, path.start, path.end, shape.stroke)
     drawMarker(context, shape.endMarker, path.end, path.start, shape.stroke)
-  } else if (shape.type === 'rect') {
+  } else if (shape.type === 'rect' || shape.type === 'square') {
     context.beginPath()
     context.roundRect(shape.x, shape.y, shape.width, shape.height, 6)
     context.fill()
     context.stroke()
-  } else if (shape.type === 'ellipse') {
+  } else if (shape.type === 'roundRect') {
+    context.beginPath()
+    context.roundRect(shape.x, shape.y, shape.width, shape.height, Math.min(28, Math.abs(shape.width) / 4, Math.abs(shape.height) / 4))
+    context.fill()
+    context.stroke()
+  } else if (shape.type === 'ellipse' || shape.type === 'circleShape') {
     context.beginPath()
     context.ellipse(shape.x + shape.width / 2, shape.y + shape.height / 2, Math.abs(shape.width / 2), Math.abs(shape.height / 2), 0, 0, Math.PI * 2)
+    context.fill()
+    context.stroke()
+  } else if (shape.type === 'triangle' || shape.type === 'diamondShape' || shape.type === 'pentagon' || shape.type === 'hexagon' || shape.type === 'octagon' || shape.type === 'star' || shape.type === 'trapezoid' || shape.type === 'parallelogram' || shape.type === 'chevron' || shape.type === 'crossShape') {
+    const points = polygonPoints(shape)
+    context.beginPath()
+    context.moveTo(points[0].x, points[0].y)
+    points.slice(1).forEach((point) => context.lineTo(point.x, point.y))
+    context.closePath()
     context.fill()
     context.stroke()
   } else if (shape.type === 'line') {
@@ -661,17 +942,24 @@ function drawShape(context: CanvasRenderingContext2D, shape: Shape, selected: bo
     context.moveTo(shape.x, shape.y)
     context.lineTo(shape.x + shape.width, shape.y + shape.height)
     context.stroke()
+  } else if (shape.type === 'curve') {
+    const path = new Path2D(curvePath(shape))
+    context.stroke(path)
   } else if (shape.type === 'pen' && shape.points?.length) {
     context.beginPath()
     context.moveTo(shape.points[0].x, shape.points[0].y)
     shape.points.slice(1).forEach((point) => context.lineTo(point.x, point.y))
     context.stroke()
   } else if (shape.type === 'text') {
-    context.font = '32px Arial, sans-serif'
+    const align = shape.textAlign ?? 'left'
+    const x = align === 'center' ? shape.x + shape.width / 2 : align === 'right' ? shape.x + shape.width : shape.x
+    context.font = `${shape.fontStyle ?? 'normal'} ${shape.fontWeight ?? '400'} ${shape.fontSize ?? 32}px ${shape.fontFamily ?? 'Arial, sans-serif'}`
+    context.textAlign = align
+    context.textBaseline = 'alphabetic'
     if (shape.stroke !== 'transparent' && shape.strokeWidth > 0) {
-      context.strokeText(shape.text ?? '', shape.x, shape.y + 32)
+      context.strokeText(shape.text ?? '', x, shape.y + (shape.fontSize ?? 32))
     }
-    context.fillText(shape.text ?? '', shape.x, shape.y + 32)
+    context.fillText(shape.text ?? '', x, shape.y + (shape.fontSize ?? 32))
   }
 
   context.restore()
@@ -858,7 +1146,10 @@ function parseSvgShapes(svgText: string) {
       const y1 = svgNumber(element, 'y1', 0)
       parsed.push({ ...base, type: 'line', x: x1, y: y1, width: svgNumber(element, 'x2', 100) - x1, height: svgNumber(element, 'y2', 100) - y1, fill: 'transparent' })
     } else if (node.nodeName === 'text') {
-      parsed.push({ ...base, type: 'text', x: svgNumber(element, 'x', 0), y: svgNumber(element, 'y', 0), width: 180, height: 42, text: element.textContent || 'Text' })
+      const fontSize = svgNumber(element, 'font-size', 32)
+      const anchor = svgAttribute(element, 'text-anchor')
+      const textAlign: TextAlign = anchor === 'middle' ? 'center' : anchor === 'end' ? 'right' : 'left'
+      parsed.push({ ...base, type: 'text', x: svgNumber(element, 'x', 0), y: svgNumber(element, 'y', 0) - fontSize, width: 220, height: fontSize + 16, text: element.textContent || 'Text', fontFamily: svgAttribute(element, 'font-family') ?? 'Arial, sans-serif', fontSize, fontWeight: svgAttribute(element, 'font-weight') ?? '400', fontStyle: svgAttribute(element, 'font-style') ?? 'normal', textAlign })
     } else if (node.nodeName === 'polyline' || node.nodeName === 'polygon') {
       const points = parseSvgPoints(element.getAttribute('points'))
       if (points.length > 1) {
@@ -875,20 +1166,23 @@ function parseSvgShapes(svgText: string) {
 }
 
 function App() {
+  const [initialSettings] = useState(loadSettings)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const stageRef = useRef<HTMLElement | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const fileActionRef = useRef<FileAction>('open')
   const dragRef = useRef<{ id: string; start: Point; original: Shape } | null>(null)
   const resizeRef = useRef<{ id: string; anchor: ResizeAnchor } | null>(null)
   const drawingRef = useRef<{ id: string; start: Point } | null>(null)
   const connectorStartRef = useRef<string | null>(null)
   const undoStackRef = useRef<Shape[][]>([])
   const redoStackRef = useRef<Shape[][]>([])
-  const [language, setLanguage] = useState<Language>('ko')
-  const [theme, setTheme] = useState<Theme>('dark')
+  const unsavedChoiceRef = useRef<((choice: UnsavedChoice) => void) | null>(null)
+  const [language, setLanguage] = useState<Language>(initialSettings.language)
+  const [theme, setTheme] = useState<Theme>(initialSettings.theme)
   const [tool, setTool] = useState<Tool>('select')
-  const [zoom, setZoom] = useState(0.86)
-  const [showGrid, setShowGrid] = useState(true)
+  const [zoom, setZoom] = useState(initialSettings.zoom)
+  const [showGrid, setShowGrid] = useState(initialSettings.showGrid)
   const [shapes, setShapes] = useState<Shape[]>([
     { id: makeId('shape'), type: 'rect', name: 'Panel', x: 180, y: 150, width: 260, height: 150, fill: '#67d5b5', stroke: '#173b46', strokeWidth: 4, opacity: 1 },
     { id: makeId('shape'), type: 'ellipse', name: 'Glow', x: 500, y: 210, width: 210, height: 150, fill: '#f4c95d', stroke: '#5c4d18', strokeWidth: 3, opacity: 0.9 },
@@ -897,26 +1191,28 @@ function App() {
   const [rasters, setRasters] = useState<RasterLayer[]>([])
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [selectionBox, setSelectionBox] = useState<SelectionBox | null>(null)
-  const [leftWidth, setLeftWidth] = useState(220)
-  const [rightWidth, setRightWidth] = useState(300)
-  const [exportFormat, setExportFormat] = useState<ExportFormat>('png')
-  const [importMode, setImportMode] = useState<ImportMode>('append')
-  const [removeBackground, setRemoveBackground] = useState(false)
+  const [leftWidth, setLeftWidth] = useState(initialSettings.leftWidth)
+  const [rightWidth, setRightWidth] = useState(initialSettings.rightWidth)
+  const [exportFormat, setExportFormat] = useState<ExportFormat>(initialSettings.exportFormat)
+  const [removeBackground, setRemoveBackground] = useState(initialSettings.removeBackground)
   const [showExportDialog, setShowExportDialog] = useState(false)
+  const [showUnsavedDialog, setShowUnsavedDialog] = useState(false)
   const [showAbout, setShowAbout] = useState(false)
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null)
   const [historyStatus, setHistoryStatus] = useState({ canUndo: false, canRedo: false })
   const [errorDetails, setErrorDetails] = useState<ErrorDetails | null>(null)
   const [errorCopied, setErrorCopied] = useState(false)
   const [canvasCursor, setCanvasCursor] = useState<string | null>(null)
-  const [expandedToolGroups, setExpandedToolGroups] = useState<Record<ToolGroupId, boolean>>({ basic: true, line: true })
+  const [expandedToolGroups, setExpandedToolGroups] = useState<Record<ToolGroupId, boolean>>(initialSettings.expandedToolGroups)
+  const [isDirty, setIsDirty] = useState(false)
 
   const text = messages[language]
   const selectedShape = selectedIds.length === 1 ? shapes.find((shape) => shape.id === selectedIds[0]) : undefined
   const toolGroups = useMemo(() => [
-    { id: 'basic', label: text.basicTools, tools: ['select', 'rect', 'ellipse', 'text', 'pen', 'eraser'] },
+    { id: 'basic', label: text.basicTools, tools: ['rect', 'square', 'roundRect', 'ellipse', 'circleShape', 'text', 'pen'] },
+    { id: 'advanced', label: text.advancedTools, tools: ['triangle', 'diamondShape', 'pentagon', 'hexagon', 'octagon', 'star', 'trapezoid', 'parallelogram', 'chevron', 'crossShape', 'curve'] },
     { id: 'line', label: text.lineTools, tools: ['line', 'connector'] },
-  ] satisfies { id: ToolGroupId; label: string; tools: Tool[] }[], [text.basicTools, text.lineTools])
+  ] satisfies { id: ToolGroupId; label: string; tools: Tool[] }[], [text.advancedTools, text.basicTools, text.lineTools])
   const svgText = useMemo(() => buildSvg(shapes, rasters, false), [shapes, rasters])
   const statusSelection = selectedIds.length > 1 ? `${selectedIds.length} ${text.selectedCount}` : selectedShape ? `${text.selected}: ${selectedShape.name}` : text.selectedNone
   const gridSize = `${Math.max(8, 40 * zoom)}px`
@@ -965,6 +1261,7 @@ function App() {
         undoStackRef.current = [...undoStackRef.current.slice(-49), cloneShapes(current)]
         redoStackRef.current = []
         refreshHistoryStatus()
+        setIsDirty(true)
       }
       return updater(current)
     })
@@ -997,6 +1294,21 @@ function App() {
   useEffect(() => {
     document.documentElement.dataset.theme = theme
   }, [theme])
+
+  useEffect(() => {
+    const settings: AppSettings = {
+      language,
+      theme,
+      zoom,
+      showGrid,
+      leftWidth,
+      rightWidth,
+      exportFormat,
+      removeBackground,
+      expandedToolGroups,
+    }
+    window.localStorage.setItem(settingsStorageKey, JSON.stringify(settings))
+  }, [expandedToolGroups, exportFormat, language, leftWidth, removeBackground, rightWidth, showGrid, theme, zoom])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -1054,14 +1366,26 @@ function App() {
     if (tool === 'line') {
       return { id: makeId('shape'), type: 'line', name: text.line, x: start.x, y: start.y, width: end.x - start.x, height: end.y - start.y, fill: 'transparent', stroke: '#67d5b5', strokeWidth: 4, opacity: 1 }
     }
+    if (tool === 'curve') {
+      return { id: makeId('shape'), type: 'curve', name: text.curve, ...rect, fill: 'transparent', stroke: '#7dd3fc', strokeWidth: 4, opacity: 1 }
+    }
     if (tool === 'pen') {
       return { id: makeId('shape'), type: 'pen', name: text.pen, x: start.x, y: start.y, width: 1, height: 1, points: [start, end], fill: 'transparent', stroke: '#f4c95d', strokeWidth: 4, opacity: 1 }
     }
     if (tool === 'text') {
-      return { id: makeId('shape'), type: 'text', name: text.text, x: start.x, y: start.y, width: 200, height: 48, text: language === 'ko' ? '텍스트' : 'Text', fill: '#eefaf7', stroke: 'transparent', strokeWidth: 0, opacity: 1 }
+      return { id: makeId('shape'), type: 'text', name: text.text, x: start.x, y: start.y, width: 260, height: 52, text: language === 'ko' ? '텍스트' : 'Text', fontFamily: 'Arial, sans-serif', fontSize: 32, fontWeight: '400', fontStyle: 'normal', textAlign: 'left', fill: '#eefaf7', stroke: 'transparent', strokeWidth: 0, opacity: 1 }
     }
     if (tool === 'connector') {
       return { id: makeId('shape'), type: 'connector', name: text.connector, x: start.x, y: start.y, width: end.x - start.x, height: end.y - start.y, fill: 'transparent', stroke: '#67d5b5', strokeWidth: 4, opacity: 1, lineStyle: 'straight', startMarker: 'none', endMarker: 'arrow' }
+    }
+    if (tool === 'square' || tool === 'circleShape') {
+      return { id: makeId('shape'), type: tool, name: text[tool], ...normalizeSquareRect(start, end), fill: tool === 'square' ? '#67d5b5' : '#f4c95d', stroke: '#173b46', strokeWidth: 3, opacity: 1 }
+    }
+    if (tool === 'roundRect') {
+      return { id: makeId('shape'), type: tool, name: text[tool], ...rect, fill: '#67d5b5', stroke: '#173b46', strokeWidth: 3, opacity: 1 }
+    }
+    if (tool === 'triangle' || tool === 'diamondShape' || tool === 'pentagon' || tool === 'hexagon' || tool === 'octagon' || tool === 'star' || tool === 'trapezoid' || tool === 'parallelogram' || tool === 'chevron' || tool === 'crossShape') {
+      return { id: makeId('shape'), type: tool, name: text[tool], ...rect, fill: '#7dd3fc', stroke: '#0f3d66', strokeWidth: 3, opacity: 1 }
     }
     return { id: makeId('shape'), type: tool === 'ellipse' ? 'ellipse' : 'rect', name: tool === 'rect' ? text.rect : text.ellipse, ...rect, fill: tool === 'rect' ? '#67d5b5' : '#f4c95d', stroke: '#173b46', strokeWidth: 3, opacity: 1 }
   }
@@ -1091,6 +1415,8 @@ function App() {
       updateShapes((current) => [...current, connector])
       selectShape(connector.id)
       connectorStartRef.current = null
+      setTool('select')
+      setCanvasCursor(null)
       return
     }
 
@@ -1200,9 +1526,14 @@ function App() {
       selectShapes(ids)
       setSelectionBox(null)
     }
+    const finishedDrawing = Boolean(drawingRef.current)
     dragRef.current = null
     resizeRef.current = null
     drawingRef.current = null
+    if (finishedDrawing) {
+      setTool('select')
+      setCanvasCursor(null)
+    }
   }
 
   function handlePointerLeave() {
@@ -1222,10 +1553,13 @@ function App() {
     }
   }
 
-  async function handleFiles(files: FileList | null) {
+  async function handleFiles(files: FileList | null, action: FileAction = fileActionRef.current) {
     if (!files?.length) {
       return
     }
+
+    const importedShapes: Shape[] = []
+    const importedRasters: RasterLayer[] = []
 
     for (const file of Array.from(files)) {
       try {
@@ -1233,31 +1567,12 @@ function App() {
           const svgText = await file.text()
           const parsed = parseSvgShapes(svgText)
           if (parsed.length > 0) {
-            if (importMode === 'replace') {
-              undoStackRef.current = []
-              redoStackRef.current = []
-              setShapes(parsed)
-              setRasters([])
-              refreshHistoryStatus()
-            } else {
-              updateShapes((current) => [...current, ...parsed])
-            }
-            selectShapes(parsed.map((shape) => shape.id))
+            importedShapes.push(...parsed)
             continue
           }
 
           const src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgText)}`
-          const raster = { id: makeId('image'), name: file.name, src, x: 90, y: 90, width: 420, height: 300 }
-          if (importMode === 'replace') {
-            undoStackRef.current = []
-            redoStackRef.current = []
-            setShapes([])
-            setRasters([raster])
-            selectShapes([])
-            refreshHistoryStatus()
-          } else {
-            setRasters((current) => [...current, raster])
-          }
+          importedRasters.push({ id: makeId('image'), name: file.name, src, x: 90, y: 90, width: 420, height: 300 })
           continue
         }
 
@@ -1273,16 +1588,38 @@ function App() {
           tempCanvas.width = imageData.width
           tempCanvas.height = imageData.height
           tempCanvas.getContext('2d')?.putImageData(imageData, 0, 0)
-          setRasters((current) => [...current, { id: makeId('image'), name: file.name, src: tempCanvas.toDataURL('image/png'), x: 100, y: 100, width: Math.min(520, imageData.width), height: Math.min(360, imageData.height) }])
+          importedRasters.push({ id: makeId('image'), name: file.name, src: tempCanvas.toDataURL('image/png'), x: 100, y: 100, width: Math.min(520, imageData.width), height: Math.min(360, imageData.height) })
           continue
         }
 
         const src = URL.createObjectURL(file)
         const image = await loadImage(src)
-        setRasters((current) => [...current, { id: makeId('image'), name: file.name, src, x: 110, y: 110, width: Math.min(640, image.naturalWidth), height: Math.min(420, image.naturalHeight) }])
+        importedRasters.push({ id: makeId('image'), name: file.name, src, x: 110, y: 110, width: Math.min(640, image.naturalWidth), height: Math.min(420, image.naturalHeight) })
       } catch (error) {
         showError(text.errorTitle, text.fileReadError, error)
       }
+    }
+
+    if (action === 'open') {
+      undoStackRef.current = []
+      redoStackRef.current = []
+      setShapes(importedShapes)
+      setRasters(importedRasters)
+      selectShapes(importedShapes.map((shape) => shape.id))
+      refreshHistoryStatus()
+      setIsDirty(false)
+      return
+    }
+
+    if (importedShapes.length > 0) {
+      updateShapes((current) => [...current, ...importedShapes])
+    }
+    if (importedRasters.length > 0) {
+      setRasters((current) => [...current, ...importedRasters])
+      setIsDirty(true)
+    }
+    if (importedShapes.length > 0) {
+      selectShapes(importedShapes.map((shape) => shape.id))
     }
   }
 
@@ -1362,10 +1699,67 @@ function App() {
     })
   }
 
+  function resolveUnsavedChoice(choice: UnsavedChoice) {
+    setShowUnsavedDialog(false)
+    unsavedChoiceRef.current?.(choice)
+    unsavedChoiceRef.current = null
+  }
+
+  function askUnsavedChanges() {
+    if (!isDirty || (shapes.length === 0 && rasters.length === 0)) {
+      return Promise.resolve<UnsavedChoice>('discard')
+    }
+    setShowUnsavedDialog(true)
+    return new Promise<UnsavedChoice>((resolve) => {
+      unsavedChoiceRef.current = resolve
+    })
+  }
+
+  async function confirmDocumentReplacement() {
+    const choice = await askUnsavedChanges()
+    if (choice === 'cancel') {
+      return false
+    }
+    if (choice === 'save') {
+      return exportFile('svg')
+    }
+    return true
+  }
+
+  async function createNewFile() {
+    if (!await confirmDocumentReplacement()) {
+      return
+    }
+    undoStackRef.current = []
+    redoStackRef.current = []
+    setShapes([])
+    setRasters([])
+    selectShapes([])
+    setSelectionBox(null)
+    setContextMenu(null)
+    setTool('select')
+    refreshHistoryStatus()
+    setIsDirty(false)
+  }
+
+  async function openFile() {
+    if (!await confirmDocumentReplacement()) {
+      return
+    }
+    fileActionRef.current = 'open'
+    fileInputRef.current?.click()
+  }
+
+  function addFile() {
+    fileActionRef.current = 'append'
+    fileInputRef.current?.click()
+  }
+
   async function exportFile(format: ExportFormat) {
     if (format === 'svg') {
       downloadBlob(new Blob([buildSvg(shapes, rasters, removeBackground)], { type: 'image/svg+xml' }), 'svg-editor-export.svg')
-      return
+      setIsDirty(false)
+      return true
     }
 
     const mime = format === 'jpg' ? 'image/jpeg' : format === 'tiff' ? 'image/tiff' : `image/${format}`
@@ -1378,18 +1772,25 @@ function App() {
       if (image) {
         const tiff = UTIF.encodeImage(new Uint8Array(image.data), canvas.width, canvas.height)
         downloadBlob(new Blob([tiff], { type: 'image/tiff' }), 'svg-editor-export.tiff')
+        return true
       }
-      return
+      return false
     }
 
-    canvas.toBlob((blob) => {
+    return new Promise<boolean>((resolve) => canvas.toBlob((blob) => {
       if (!blob || (blob.type && blob.type !== mime && format !== 'jpg')) {
         showError(text.errorTitle, text.exportFallback, new Error(`Requested ${mime}, received ${blob?.type || 'no blob'}.`))
-        canvas.toBlob((fallback) => fallback && downloadBlob(fallback, 'svg-editor-export.png'), 'image/png')
+        canvas.toBlob((fallback) => {
+          if (fallback) {
+            downloadBlob(fallback, 'svg-editor-export.png')
+          }
+          resolve(Boolean(fallback))
+        }, 'image/png')
         return
       }
       downloadBlob(blob, `svg-editor-export.${format}`)
-    }, mime, 0.92)
+      resolve(true)
+    }, mime, 0.92))
   }
 
   function handlePanelResize(side: 'left' | 'right', event: React.PointerEvent<HTMLDivElement>) {
@@ -1398,9 +1799,9 @@ function App() {
     const onMove = (moveEvent: PointerEvent) => {
       const delta = moveEvent.clientX - startX
       if (side === 'left') {
-        setLeftWidth(Math.min(340, Math.max(170, startWidth + delta)))
+        setLeftWidth(Math.min(maxLeftPanelWidth, Math.max(currentLeftPanelWidth, startWidth + delta)))
       } else {
-        setRightWidth(Math.min(420, Math.max(240, startWidth - delta)))
+        setRightWidth(Math.min(maxRightPanelWidth, Math.max(minRightPanelWidth, startWidth - delta)))
       }
     }
     const onUp = () => {
@@ -1433,19 +1834,17 @@ function App() {
 
   return (
     <main className="app-shell">
-      <input ref={fileInputRef} className="hidden-input" type="file" multiple accept=".svg,.jpg,.jpeg,.gif,.tif,.tiff,.png,.webp,.avif,image/*" onChange={(event) => void handleFiles(event.target.files)} />
+      <input ref={fileInputRef} className="hidden-input" type="file" multiple accept=".svg,.jpg,.jpeg,.gif,.tif,.tiff,.png,.webp,.avif,image/*" onChange={(event) => { void handleFiles(event.target.files); event.target.value = '' }} />
       <header className="toolbar">
         <div className="brand" title={text.appName}>
           <img src="/app-icon.svg" alt="" />
           <span>{text.appName}</span>
         </div>
         <div className="toolbar-group">
-          <button title={text.open} onClick={() => fileInputRef.current?.click()}><ImagePlus size={18} /><span>{text.open}</span></button>
-          <select title={text.importMode} value={importMode} onChange={(event) => setImportMode(event.target.value as ImportMode)}>
-            <option value="append">{text.importAppend}</option>
-            <option value="replace">{text.importReplace}</option>
-          </select>
-          <button title={text.saveSvg} onClick={() => void exportFile('svg')}><Save size={18} /><span>SVG</span></button>
+          <button title={text.newFile} onClick={() => void createNewFile()}><Plus size={18} /><span>{text.newFile}</span></button>
+          <button title={text.open} onClick={() => void openFile()}><ImagePlus size={18} /><span>{text.open}</span></button>
+          <button title={text.add} onClick={addFile}><FileImage size={18} /><span>{text.add}</span></button>
+          <button title={text.saveSvg} onClick={() => void exportFile('svg')}><Save size={18} /><span>{text.save}</span></button>
           <button title={text.export} onClick={() => setShowExportDialog(true)}><Download size={18} /><span>{text.export}</span></button>
           <select title={text.format} value={exportFormat} onChange={(event) => setExportFormat(event.target.value as ExportFormat)}>
             {(['png', 'jpg', 'webp', 'avif', 'gif', 'tiff', 'svg'] as ExportFormat[]).map((format) => <option key={format} value={format}>{format.toUpperCase()}</option>)}
@@ -1468,14 +1867,23 @@ function App() {
           <button title={text.theme} onClick={() => setTheme((value) => value === 'dark' ? 'light' : 'dark')}>{theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}<span>{theme === 'dark' ? 'Light' : 'Dark'}</span></button>
           <button title={text.about} onClick={() => setShowAbout(true)}><Info size={18} /></button>
         </div>
+        <div className="window-controls" aria-label="Window controls">
+          <button title={text.minimize} onClick={() => void window.electronWindowApi?.minimize()}><Minus size={16} /></button>
+          <button title={text.maximize} onClick={() => void window.electronWindowApi?.toggleMaximize()}><Square size={14} /></button>
+          <button className="window-close" title={text.closeWindow} onClick={() => void window.electronWindowApi?.close()}><X size={16} /></button>
+        </div>
       </header>
 
       <section className="workspace" style={{ gridTemplateColumns: `${leftWidth}px 8px minmax(0, 1fr) 8px ${rightWidth}px` }}>
         <aside className="panel left-panel">
           <h2>{text.tools}</h2>
+          <div className="primary-tools">
+            <button className={`primary-tool ${tool === 'select' ? 'active' : ''}`} title={text.select} onClick={() => setTool('select')}><MousePointer2 size={20} /><span>{text.select}</span></button>
+            <button className={`primary-tool ${tool === 'eraser' ? 'active' : ''}`} title={text.eraser} onClick={() => setTool('eraser')}><Eraser size={20} /><span>{text.eraser}</span></button>
+          </div>
           <div className="tool-groups">
             {toolGroups.map((group) => <section className="tool-group" key={group.id}>
-              <button className="tool-group-toggle" onClick={() => setExpandedToolGroups((current) => ({ ...current, [group.id]: !current[group.id] }))}>
+              <button className="tool-group-title" type="button" aria-expanded={expandedToolGroups[group.id]} onClick={() => setExpandedToolGroups((current) => ({ ...current, [group.id]: !current[group.id] }))}>
                 <span>{expandedToolGroups[group.id] ? '-' : '+'}</span>
                 <span>{group.label}</span>
               </button>
@@ -1487,13 +1895,6 @@ function App() {
               </div>}
             </section>)}
           </div>
-          <section className="layer-list">
-            <h3>{text.layers}</h3>
-            {[...rasters.map((raster) => ({ id: raster.id, name: raster.name, icon: FileImage })), ...shapes.map((shape) => ({ id: shape.id, name: shape.name, icon: SquarePen }))].map((layer) => {
-              const Icon = layer.icon
-              return <button key={layer.id} className={selectedIds.includes(layer.id) ? 'active' : ''} onClick={() => selectShape(layer.id)}><Icon size={16} />{layer.name}</button>
-            })}
-          </section>
         </aside>
         <div className="resize-handle" onPointerDown={(event) => handlePanelResize('left', event)} />
         <section ref={stageRef} className={`canvas-stage ${showGrid ? 'show-grid' : ''}`} style={{ '--grid-size': gridSize } as React.CSSProperties} aria-label={text.canvas} onWheel={(event) => { setZoom((value) => Math.min(2.5, Math.max(0.25, value - event.deltaY * 0.001))) }}>
@@ -1522,7 +1923,28 @@ function App() {
                 <label>W<input type="number" value={Math.round(selectedShape.width)} onChange={(event) => updateSelected({ width: Number(event.target.value) })} /></label>
                 <label>H<input type="number" value={Math.round(selectedShape.height)} onChange={(event) => updateSelected({ height: Number(event.target.value) })} /></label>
               </div>
-              {selectedShape.type === 'text' && <label>{text.text}<input value={selectedShape.text ?? ''} onChange={(event) => updateSelected({ text: event.target.value })} /></label>}
+              {selectedShape.type === 'text' && <div className="text-controls">
+                <label>{text.text}<input value={selectedShape.text ?? ''} onChange={(event) => updateSelected({ text: event.target.value })} /></label>
+                <label>{text.fontFamily}<select value={selectedShape.fontFamily ?? 'Arial, sans-serif'} onChange={(event) => updateSelected({ fontFamily: event.target.value })}>
+                  {fontOptions.map((font) => <option key={font} value={font}>{font.split(',')[0]}</option>)}
+                </select></label>
+                <label>{text.fontSize}<span className="range-field"><input type="range" min="10" max="96" value={selectedShape.fontSize ?? 32} onChange={(event) => updateSelected({ fontSize: Number(event.target.value), height: Number(event.target.value) + 20 })} /><span className="range-value">{selectedShape.fontSize ?? 32}px</span></span></label>
+                <div className="text-style-grid">
+                  <label>{text.fontWeight}<select value={selectedShape.fontWeight ?? '400'} onChange={(event) => updateSelected({ fontWeight: event.target.value })}>
+                    <option value="400">{text.normal}</option>
+                    <option value="700">{text.bold}</option>
+                  </select></label>
+                  <label>{text.fontStyle}<select value={selectedShape.fontStyle ?? 'normal'} onChange={(event) => updateSelected({ fontStyle: event.target.value })}>
+                    <option value="normal">{text.normal}</option>
+                    <option value="italic">{text.italic}</option>
+                  </select></label>
+                  <label>{text.textAlign}<select value={selectedShape.textAlign ?? 'left'} onChange={(event) => updateSelected({ textAlign: event.target.value as TextAlign })}>
+                    <option value="left">{text.alignLeft}</option>
+                    <option value="center">{text.alignCenter}</option>
+                    <option value="right">{text.alignRight}</option>
+                  </select></label>
+                </div>
+              </div>}
               <label>{text.fill}<input type="color" value={selectedShape.fill === 'transparent' ? '#ffffff' : selectedShape.fill} onChange={(event) => updateSelected({ fill: event.target.value })} /></label>
               <label>{text.stroke}<input type="color" value={selectedShape.stroke === 'transparent' ? '#000000' : selectedShape.stroke} onChange={(event) => updateSelected({ stroke: event.target.value })} /></label>
               <label>{text.strokeWidth}<span className="range-field"><input type="range" min="0" max="24" value={selectedShape.strokeWidth} onChange={(event) => updateSelected({ strokeWidth: Number(event.target.value) })} /><span className="range-value">{selectedShape.strokeWidth}px</span></span></label>
@@ -1590,6 +2012,15 @@ function App() {
         <p>{text.supported}</p>
         <p>{text.desktopBuild}</p>
         <button onClick={() => setShowAbout(false)}>{text.close}</button>
+      </dialog>}
+      {showUnsavedDialog && <dialog className="export-dialog" open>
+        <h2>{text.saveChangesTitle}</h2>
+        <p>{text.saveChangesMessage}</p>
+        <div className="dialog-actions">
+          <button onClick={() => resolveUnsavedChoice('cancel')}>{text.cancel}</button>
+          <button onClick={() => resolveUnsavedChoice('discard')}>{text.dontSave}</button>
+          <button onClick={() => resolveUnsavedChoice('save')}><Save size={16} />{text.save}</button>
+        </div>
       </dialog>}
       {showExportDialog && <dialog className="export-dialog" open>
         <h2>{text.exportOptions}</h2>

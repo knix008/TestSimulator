@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="760" viewBox="0 0 1200 760">
+  <rect x="470" y="80" width="260" height="90" rx="8" fill="#f4c95d" stroke="#5c4d18" stroke-width="4"/>
+  <text x="550" y="136" fill="#5c4d18" stroke="transparent" stroke-width="0" font-size="28" font-family="Arial, sans-serif">Lead</text>
+  <rect x="180" y="310" width="230" height="90" rx="8" fill="#67d5b5" stroke="#173b46" stroke-width="4"/>
+  <rect x="485" y="310" width="230" height="90" rx="8" fill="#67d5b5" stroke="#173b46" stroke-width="4"/>
+  <rect x="790" y="310" width="230" height="90" rx="8" fill="#67d5b5" stroke="#173b46" stroke-width="4"/>
+  <line x1="600" y1="170" x2="600" y2="250" fill="none" stroke="#173b46" stroke-width="4"/>
+  <line x1="295" y1="250" x2="905" y2="250" fill="none" stroke="#173b46" stroke-width="4"/>
+  <line x1="295" y1="250" x2="295" y2="310" fill="none" stroke="#173b46" stroke-width="4"/>
+  <line x1="600" y1="250" x2="600" y2="310" fill="none" stroke="#173b46" stroke-width="4"/>
+  <line x1="905" y1="250" x2="905" y2="310" fill="none" stroke="#173b46" stroke-width="4"/>
+</svg>

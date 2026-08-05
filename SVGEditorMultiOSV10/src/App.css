@@ -17,6 +17,7 @@
   border-bottom: 1px solid var(--border);
   display: flex;
   gap: 10px;
+  min-width: 1680px;
   padding: 8px 12px;
   position: relative;
   z-index: 10;
@@ -41,6 +42,7 @@
   gap: 7px;
   min-height: 34px;
   padding: 7px 10px;
+  white-space: nowrap;
 }
 
 .toolbar button span,
@@ -72,10 +74,11 @@
 .brand {
   align-items: center;
   display: flex;
-  font-family: var(--display-font);
+  font-family: var(--ui-font);
   font-size: 17px;
   font-weight: 700;
   gap: 10px;
+  line-height: 1;
   min-width: max-content;
 }
 
@@ -87,11 +90,38 @@
 .toolbar-group {
   align-items: center;
   display: flex;
+  flex: 0 0 auto;
   gap: 6px;
+  min-width: max-content;
 }
 
 .toolbar-spacer {
+  -webkit-app-region: drag;
+  align-self: stretch;
   flex: 1 1 auto;
+  min-width: 24px;
+}
+
+.window-controls {
+  -webkit-app-region: no-drag;
+  align-items: center;
+  display: flex;
+  flex: 0 0 auto;
+  gap: 4px;
+}
+
+.window-controls button {
+  justify-content: center;
+  min-height: 32px;
+  padding: 6px 9px;
+  width: 36px;
+}
+
+.window-controls .window-close:hover {
+  background: #c42b1c;
+  border-color: #c42b1c;
+  box-shadow: none;
+  color: #ffffff;
 }
 
 .zoom-readout {
@@ -126,7 +156,7 @@
 .panel h3 {
   align-items: center;
   display: flex;
-  font-family: var(--display-font);
+  font-family: var(--ui-font);
   gap: 8px;
   letter-spacing: 0;
   margin: 0 0 14px;
@@ -149,33 +179,58 @@
   grid-template-columns: 1fr;
 }
 
+.primary-tools {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.primary-tool {
+  justify-content: flex-start;
+  width: 100%;
+}
+
 .tool-groups {
   display: grid;
   gap: 10px;
 }
 
 .tool-group {
+  border-top: 1px solid var(--border);
   display: grid;
   gap: 8px;
+  padding-top: 10px;
 }
 
-.tool-group-toggle {
+.panel button.tool-group-title {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: inline-flex;
+  font: 600 var(--control-font-size) / 1.25 var(--ui-font);
+  gap: 6px;
   justify-content: flex-start;
+  min-height: 0;
+  padding: 0 0 2px;
   width: 100%;
 }
 
-.tool-group-toggle span:first-child {
-  align-items: center;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  display: inline-flex;
-  height: 18px;
-  justify-content: center;
-  width: 18px;
+.panel button.tool-group-title:hover {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  color: var(--text-primary);
+}
+
+.panel button.tool-group-title span:first-child {
+  color: var(--accent);
+  width: 12px;
 }
 
 .tool-grid button,
-.layer-list button,
 .property-actions button {
   justify-content: flex-start;
   width: 100%;
@@ -188,11 +243,6 @@
   gap: 9px;
   line-height: 1.35;
   margin-top: 18px;
-}
-
-.layer-list {
-  display: grid;
-  gap: 8px;
 }
 
 .resize-handle {
@@ -278,6 +328,24 @@ canvas {
   gap: 0;
   margin-top: 4px;
   padding-top: 10px;
+}
+
+.text-controls {
+  border-top: 1px solid var(--border);
+  display: grid;
+  gap: 0;
+  margin-top: 4px;
+  padding-top: 10px;
+}
+
+.text-style-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.text-style-grid label {
+  min-width: 0;
 }
 
 .range-field {

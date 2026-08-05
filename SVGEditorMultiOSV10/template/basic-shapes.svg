@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="760" viewBox="0 0 1200 760">
+  <rect x="120" y="120" width="240" height="150" rx="8" fill="#67d5b5" stroke="#173b46" stroke-width="4" opacity="1"/>
+  <ellipse cx="560" cy="195" rx="130" ry="76" fill="#f4c95d" stroke="#5c4d18" stroke-width="4" opacity="1"/>
+  <line x1="760" y1="120" x2="1010" y2="270" fill="none" stroke="#67d5b5" stroke-width="6" stroke-linecap="round"/>
+  <text x="120" y="390" fill="#173b46" stroke="#67d5b5" stroke-width="1" font-size="42" font-family="Arial, sans-serif">Basic shapes</text>
+</svg>

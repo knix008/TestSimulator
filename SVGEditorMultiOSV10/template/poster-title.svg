@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="760" viewBox="0 0 1200 760">
+  <rect x="120" y="110" width="960" height="540" rx="16" fill="#173b46" stroke="#67d5b5" stroke-width="6"/>
+  <text x="220" y="300" fill="#f4c95d" stroke="#5c4d18" stroke-width="2" font-size="76" font-family="Arial, sans-serif">Poster Title</text>
+  <text x="225" y="375" fill="#eefaf7" stroke="transparent" stroke-width="0" font-size="34" font-family="Arial, sans-serif">Subtitle or description text</text>
+  <line x1="220" y1="430" x2="980" y2="430" fill="none" stroke="#67d5b5" stroke-width="5"/>
+  <ellipse cx="930" cy="540" rx="80" ry="50" fill="#67d5b5" stroke="#eefaf7" stroke-width="4"/>
+</svg>
