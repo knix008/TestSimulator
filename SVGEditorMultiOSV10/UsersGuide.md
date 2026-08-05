@@ -17,10 +17,11 @@ All file actions live in the **File** menu on the toolbar (click **File** to ope
 - **New file** — starts an empty document (prompts to save unsaved changes first).
 - **Open** — replaces the document with the chosen file. Supports `.svg`, `.png`, `.jpg`, `.gif`, `.tif/.tiff`, `.webp`, `.avif`.
 - **Add** — imports a file *into* the current document instead of replacing it.
-- **Save SVG** — saves the artwork as `.svg` with the default name.
-- **Save as…** — choose a file name and format (SVG / PNG / JPG / WebP / AVIF / GIF / TIFF), then save.
-- **Export** — opens options to export `PNG / JPG / WebP / AVIF / GIF / TIFF / SVG`. Enable **Remove background and trim bounds** to export only the tight bounding box of the artwork.
-- **Format** — the default format used by the Export button.
+- **Save SVG** — saves the document. In the desktop app it writes to the current file (a native Save dialog appears on the first save); in the browser it downloads. **Ctrl/Cmd+S** does the same, and a "Saved" note appears in the status bar.
+- **Save as…** — save to a new file/location.
+- **Export** — opens options to export `PNG / JPG / WebP / AVIF / GIF / TIFF / ICO / SVG`. Choose the format there and enable **Remove background and trim bounds** to export only the tight bounding box of the artwork. **ICO** produces a multi-resolution Windows icon.
+
+Your work is auto-saved: the first launch starts with an empty canvas, and later launches automatically reopen the last document.
 
 ### Opening complex SVGs
 
@@ -34,17 +35,21 @@ Imported `<path>` artwork keeps its exact geometry: curves render smoothly and s
 - **Right-click menu** — Duplicate, Bring forward, Send backward, Delete.
 - **Keyboard** — `Delete` removes the selection, `Ctrl/Cmd+Z` undoes, `Ctrl+Shift+Z` or `Ctrl+Y` redoes, `Esc` cancels the current action and returns to Select.
 
-When one shape is selected, the right panel shows its properties: name, X/Y/W/H, fill (with a **No fill** toggle for transparent), border color/width, opacity, a 3D shadow effect, and — for text — font, size, weight, style, and alignment. Connectors add line-style and end-marker options.
+When one shape is selected, the right panel shows its properties: name, X/Y/W/H, fill, border color/width, opacity, a **Lighting** effect (glossy / spotlight / metallic, with a selectable light position), a **3D shadow** effect, and — for text — font, size, weight, style, and alignment. Text scales its glyphs when you resize it. Connectors add line-style and end-marker options.
+
+### Colors
+
+Click a color swatch (fill, border, or shadow) to open the color picker: drag in the saturation box, pick a hue on the slider, type a hex value, or click a pastel preset. Fill and border also offer a **None** (transparent) option.
 
 ## Drawing tools
 
 ### Basic
 
-Rectangle, Square, Rounded rectangle, Ellipse, Circle, Text, Freehand pen, and the Bezier pen. For most of these, drag on the canvas to define the shape. Text drops an editable text box; edit its content in the right panel.
+Triangle, Rectangle, Rounded rectangle, Ellipse, Text, Freehand pen, and the Bezier pen. Drag on the canvas to define the shape (drag any proportion — a rectangle can be a square, an ellipse can be a circle). Text drops an editable text box; edit its content in the right panel.
 
 ### Advanced
 
-Polygon and curve shapes: Triangle, Diamond, Pentagon, Hexagon, Octagon, Star, Trapezoid, Parallelogram, Chevron, Cross, and Curve. Drag to size them.
+Polygon and curve shapes: Diamond, Pentagon, Hexagon, Octagon, Star, Trapezoid, Parallelogram, Chevron, Cross, and Curve. Drag to size them.
 
 ### Lines / connectors
 
@@ -80,9 +85,10 @@ Edits apply live and are fully undoable. This works even on complex, curved artw
 
 ## View
 
-- **Zoom** — toolbar +/- buttons, the percentage button (reset to 100%), or the mouse wheel. **Reset** re-centers the artwork.
+- **Zoom** — toolbar +/- buttons, the percentage button (reset to 100%), or the mouse wheel. Zoom stays centered on the viewport and ranges from 5% to 400%. **Reset** re-centers the artwork.
 - **Grid** — toggle the alignment grid.
 - **Panels** — drag the separators to resize the left and right panels.
+- **Language / Theme** — toggle Korean/English and dark/light from the top-right of the toolbar.
 
 ## Preferences
 

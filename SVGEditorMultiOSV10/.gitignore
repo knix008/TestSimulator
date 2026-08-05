@@ -17,6 +17,14 @@ release
 out
 *.tsbuildinfo
 
+# Packaged installers copied to the project root by scripts/copy-installers.cjs
+/*.exe
+/*.dmg
+/*.AppImage
+/*.deb
+/*.rpm
+/*.zip
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
