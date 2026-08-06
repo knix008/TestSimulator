@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="LangTrans MultiOS icon">
+  <defs>
+    <linearGradient id="body" x1="42" y1="24" x2="214" y2="232" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#8fd7ff" />
+      <stop offset="0.42" stop-color="#2f7fd1" />
+      <stop offset="1" stop-color="#0b1934" />
+    </linearGradient>
+    <linearGradient id="panel" x1="74" y1="68" x2="186" y2="186" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f2fbff" />
+      <stop offset="1" stop-color="#7fc7ff" />
+    </linearGradient>
+    <radialGradient id="shine" cx="0" cy="0" r="1" gradientTransform="matrix(86 92 -92 86 62 48)" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ffffff" stop-opacity="0.98" />
+      <stop offset="0.26" stop-color="#ffffff" stop-opacity="0.48" />
+      <stop offset="0.54" stop-color="#ffffff" stop-opacity="0" />
+    </radialGradient>
+    <filter id="shadow" x="18" y="18" width="220" height="226" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="14" flood-color="#061329" flood-opacity="0.38" stdDeviation="12" />
+    </filter>
+  </defs>
+  <rect width="256" height="256" fill="none" />
+  <g filter="url(#shadow)">
+    <rect x="34" y="28" width="188" height="198" rx="48" fill="url(#body)" />
+    <rect x="34" y="28" width="188" height="198" rx="48" fill="url(#shine)" />
+    <path d="M78 82h100a18 18 0 0 1 18 18v56a18 18 0 0 1-18 18h-34l-31 28v-28H78a18 18 0 0 1-18-18v-56a18 18 0 0 1 18-18Z" fill="url(#panel)" opacity="0.96" />
+    <path d="M90 119h76M90 142h46" stroke="#0b1934" stroke-width="14" stroke-linecap="round" />
+    <path d="M66 62c16-18 44-26 72-20" stroke="#ffffff" stroke-width="8" stroke-linecap="round" opacity="0.62" />
+    <path d="M164 64l18 18m0-18-18 18" stroke="#f2fbff" stroke-width="8" stroke-linecap="round" opacity="0.9" />
+  </g>
+</svg>

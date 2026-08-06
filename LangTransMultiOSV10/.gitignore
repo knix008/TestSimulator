@@ -1,0 +1,48 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+release
+out
+build
+.vite
+*.local
+
+# Build caches
+node_modules/.cache
+node_modules/.tmp
+*.tsbuildinfo
+
+# Local TTS configuration and model files
+tts-service/config.json
+tts-service/.venv
+tts-service/models
+tts-service/__pycache__
+tts-service/**/*.pyc
+tts-service/**/*.pyo
+tts-service/**/*.wav
+tts-service/**/*.mp3
+
+# Generated user exports
+exports
+*.wav
+*.mp3
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
