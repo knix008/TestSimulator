@@ -21,11 +21,15 @@ public partial class FolderTreeDropdownPanel : Panel
         InitializeComponent();
         if (!AppIconHelper.IsDesignMode(this))
         {
-            BackColor = UiTheme.Surface;
-            treeView.BackColor = UiTheme.Surface;
-            treeView.Font = UiTheme.UiFont;
+            ApplyCurrentTheme();
             WireEvents();
         }
+    }
+
+    public void ApplyCurrentTheme()
+    {
+        BackColor = UiTheme.Border;
+        UiTheme.StyleTreeView(treeView);
     }
 
     private void WireEvents()

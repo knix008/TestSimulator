@@ -11,14 +11,14 @@
     <AssemblyTitle>Command Center</AssemblyTitle>
     <Description>Command Center - dual-pane file manager</Description>
     <Company>Command Center</Company>
-    <ApplicationIcon>daemon_hammer.ico</ApplicationIcon>
+    <ApplicationIcon>app_icon.ico</ApplicationIcon>
     <PlatformTarget>x64</PlatformTarget>
     <!-- Release 빌드 시 MSI 설치 패키지도 함께 생성 -->
     <GenerateMsiOnBuild>true</GenerateMsiOnBuild>
   </PropertyGroup>
 
   <ItemGroup>
-    <Content Include="daemon_hammer.ico">
+    <Content Include="app_icon.ico">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Compile Update="MainForm.cs">

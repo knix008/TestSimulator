@@ -15,7 +15,7 @@ public static class AppIconHelper
         })
         {
             if (string.IsNullOrEmpty(dir)) continue;
-            var path = Path.Combine(dir, "daemon_hammer.ico");
+            var path = Path.Combine(dir, "app_icon.ico");
             if (File.Exists(path))
                 return path;
         }
@@ -30,7 +30,7 @@ public static class AppIconHelper
             var dir = new DirectoryInfo(AppDomain.CurrentDomain.BaseDirectory);
             for (int i = 0; i < 10 && dir != null; i++, dir = dir.Parent)
             {
-                var path = Path.Combine(dir.FullName, "daemon_hammer.ico");
+                var path = Path.Combine(dir.FullName, "app_icon.ico");
                 if (File.Exists(path))
                     return path;
             }

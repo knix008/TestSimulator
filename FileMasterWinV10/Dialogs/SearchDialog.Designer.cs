@@ -9,11 +9,22 @@ partial class SearchDialog
     private TextBox patternBox;
     private CheckBox searchContentCheck;
     private TextBox contentBox;
+    private FlowLayoutPanel optionsPanel;
+    private CheckBox caseSensitiveCheck;
+    private CheckBox regexCheck;
+    private CheckBox includeFoldersCheck;
+    private Label sortLabel;
+    private ComboBox sortCombo;
     private FlowLayoutPanel btnPanel;
     private Button searchBtn;
     private Button clearBtn;
     private Button closeBtn;
-    private ListBox resultList;
+    private ListView resultList;
+    private ColumnHeader colName = null!;
+    private ColumnHeader colPath = null!;
+    private ColumnHeader colSize = null!;
+    private ColumnHeader colType = null!;
+    private ColumnHeader colModified = null!;
     private Label statusLabel;
 
     protected override void Dispose(bool disposing)
@@ -31,13 +42,25 @@ partial class SearchDialog
         patternBox = new TextBox();
         searchContentCheck = new CheckBox();
         contentBox = new TextBox();
+        optionsPanel = new FlowLayoutPanel();
+        caseSensitiveCheck = new CheckBox();
+        regexCheck = new CheckBox();
+        includeFoldersCheck = new CheckBox();
+        sortLabel = new Label();
+        sortCombo = new ComboBox();
         btnPanel = new FlowLayoutPanel();
         searchBtn = new Button();
         clearBtn = new Button();
         closeBtn = new Button();
-        resultList = new ListBox();
+        resultList = new ListView();
+        colName = new ColumnHeader();
+        colPath = new ColumnHeader();
+        colSize = new ColumnHeader();
+        colType = new ColumnHeader();
+        colModified = new ColumnHeader();
         statusLabel = new Label();
         topPanel.SuspendLayout();
+        optionsPanel.SuspendLayout();
         btnPanel.SuspendLayout();
         SuspendLayout();
         //
@@ -100,6 +123,71 @@ partial class SearchDialog
         contentBox.Size = new Size(579, 23);
         contentBox.TabIndex = 3;
         //
+        // optionsPanel
+        //
+        optionsPanel.Controls.Add(caseSensitiveCheck);
+        optionsPanel.Controls.Add(regexCheck);
+        optionsPanel.Controls.Add(includeFoldersCheck);
+        optionsPanel.Controls.Add(sortLabel);
+        optionsPanel.Controls.Add(sortCombo);
+        optionsPanel.Dock = DockStyle.Top;
+        optionsPanel.Location = new Point(0, 88);
+        optionsPanel.Name = "optionsPanel";
+        optionsPanel.Padding = new Padding(12, 4, 12, 4);
+        optionsPanel.Size = new Size(680, 36);
+        optionsPanel.TabIndex = 4;
+        optionsPanel.WrapContents = false;
+        //
+        // caseSensitiveCheck
+        //
+        caseSensitiveCheck.AutoSize = true;
+        caseSensitiveCheck.Location = new Point(12, 8);
+        caseSensitiveCheck.Margin = new Padding(0, 4, 14, 0);
+        caseSensitiveCheck.Name = "caseSensitiveCheck";
+        caseSensitiveCheck.Size = new Size(100, 19);
+        caseSensitiveCheck.TabIndex = 0;
+        caseSensitiveCheck.Text = "대소문자 구분";
+        //
+        // regexCheck
+        //
+        regexCheck.AutoSize = true;
+        regexCheck.Location = new Point(126, 8);
+        regexCheck.Margin = new Padding(0, 4, 14, 0);
+        regexCheck.Name = "regexCheck";
+        regexCheck.Size = new Size(61, 19);
+        regexCheck.TabIndex = 1;
+        regexCheck.Text = "정규식";
+        //
+        // includeFoldersCheck
+        //
+        includeFoldersCheck.AutoSize = true;
+        includeFoldersCheck.Location = new Point(201, 8);
+        includeFoldersCheck.Margin = new Padding(0, 4, 18, 0);
+        includeFoldersCheck.Name = "includeFoldersCheck";
+        includeFoldersCheck.Size = new Size(78, 19);
+        includeFoldersCheck.TabIndex = 2;
+        includeFoldersCheck.Text = "폴더 포함";
+        //
+        // sortLabel
+        //
+        sortLabel.AutoSize = true;
+        sortLabel.Location = new Point(297, 10);
+        sortLabel.Margin = new Padding(0, 6, 6, 0);
+        sortLabel.Name = "sortLabel";
+        sortLabel.Size = new Size(35, 15);
+        sortLabel.TabIndex = 3;
+        sortLabel.Text = "정렬:";
+        //
+        // sortCombo
+        //
+        sortCombo.DropDownStyle = ComboBoxStyle.DropDownList;
+        sortCombo.FormattingEnabled = true;
+        sortCombo.Location = new Point(338, 6);
+        sortCombo.Margin = new Padding(0, 2, 0, 0);
+        sortCombo.Name = "sortCombo";
+        sortCombo.Size = new Size(160, 23);
+        sortCombo.TabIndex = 4;
+        //
         // btnPanel
         //
         btnPanel.Controls.Add(searchBtn);
@@ -107,7 +195,7 @@ partial class SearchDialog
         btnPanel.Controls.Add(closeBtn);
         btnPanel.Dock = DockStyle.Top;
         btnPanel.FlowDirection = FlowDirection.LeftToRight;
-        btnPanel.Location = new Point(0, 88);
+        btnPanel.Location = new Point(0, 124);
         btnPanel.Name = "btnPanel";
         btnPanel.Padding = new Padding(12, 4, 12, 8);
         btnPanel.Size = new Size(680, 44);
@@ -146,14 +234,41 @@ partial class SearchDialog
         // resultList
         //
         resultList.BorderStyle = BorderStyle.None;
+        resultList.Columns.AddRange(new ColumnHeader[] { colName, colPath, colSize, colType, colModified });
         resultList.Dock = DockStyle.Fill;
-        resultList.Font = new Font("Cascadia Mono", 9F);
-        resultList.FormattingEnabled = true;
-        resultList.ItemHeight = 16;
-        resultList.Location = new Point(0, 132);
+        resultList.FullRowSelect = true;
+        resultList.Location = new Point(0, 168);
         resultList.Name = "resultList";
-        resultList.Size = new Size(680, 380);
+        resultList.Size = new Size(680, 344);
         resultList.TabIndex = 0;
+        resultList.UseCompatibleStateImageBehavior = false;
+        resultList.View = View.Details;
+        //
+        // colName
+        //
+        colName.Text = "이름";
+        colName.Width = 190;
+        //
+        // colPath
+        //
+        colPath.Text = "경로";
+        colPath.Width = 250;
+        //
+        // colSize
+        //
+        colSize.Text = "크기";
+        colSize.TextAlign = HorizontalAlignment.Right;
+        colSize.Width = 90;
+        //
+        // colType
+        //
+        colType.Text = "종류";
+        colType.Width = 80;
+        //
+        // colModified
+        //
+        colModified.Text = "수정된 날짜";
+        colModified.Width = 130;
         //
         // statusLabel
         //
@@ -176,6 +291,7 @@ partial class SearchDialog
         Controls.Add(resultList);
         Controls.Add(statusLabel);
         Controls.Add(btnPanel);
+        Controls.Add(optionsPanel);
         Controls.Add(topPanel);
         MinimumSize = new Size(480, 360);
         Name = "SearchDialog";
@@ -183,6 +299,8 @@ partial class SearchDialog
         Text = "파일 검색";
         topPanel.ResumeLayout(false);
         topPanel.PerformLayout();
+        optionsPanel.ResumeLayout(false);
+        optionsPanel.PerformLayout();
         btnPanel.ResumeLayout(false);
         ResumeLayout(false);
     }

@@ -70,10 +70,53 @@ public partial class FilePanel : UserControl
         UiTheme.StyleListView(listView);
         UiTheme.StyleStatusStrip(statusStrip);
         pathBar.BackColor = UiTheme.Surface;
-        driveBar.BackColor = UiTheme.DriveBarBg;
+        UiTheme.StyleScrollableControl(driveBar);
         WireUi();
+        ApplyLocalization();
         PopulateDriveBar();
         SetupDirectoryWatcher();
+    }
+
+    /// <summary>현재 언어에 맞춰 컬럼 헤더·제목·컨텍스트 메뉴·목록을 갱신한다.</summary>
+    public void ApplyLocalization()
+    {
+        columnName.Text = LocalizationService.T("Col_Name");
+        columnSize.Text = LocalizationService.T("Col_Size");
+        columnType.Text = LocalizationService.T("Col_Type");
+        columnModified.Text = LocalizationService.T("Col_Modified");
+
+        ApplyPanelSide();
+        if (!string.IsNullOrEmpty(_currentPath))
+            UpdatePathDisplay();
+
+        // 컨텍스트 메뉴 라벨을 새 언어로 다시 생성한다.
+        if (_contextMenu != null)
+        {
+            listView.ContextMenuStrip = null;
+            _contextMenu.Opening -= OnContextMenuOpening;
+            _contextMenu.Dispose();
+            _contextMenu = BuildContextMenu();
+            _contextMenu.Opening += OnContextMenuOpening;
+            listView.ContextMenuStrip = _contextMenu;
+        }
+
+        // 종류 열/상태 텍스트가 언어에 따라 달라지므로 목록을 다시 로드한다.
+        if (!string.IsNullOrEmpty(_currentPath))
+            Refresh();
+    }
+
+    public void ApplyCurrentTheme()
+    {
+        BackColor = UiTheme.Background;
+        UiTheme.StyleListView(listView);
+        UiTheme.StyleStatusStrip(statusStrip);
+        pathBar.BackColor = UiTheme.Surface;
+        UiTheme.StyleScrollableControl(driveBar);
+        headerLabel.ForeColor = UiTheme.Accent;
+        chevronLabel.ForeColor = UiTheme.TextSecondary;
+        folderTree.BackColor = UiTheme.Surface;
+        folderTree.ApplyCurrentTheme();
+        UiTheme.StyleContextMenu(_contextMenu);
     }
 
     private void SetupDirectoryWatcher()
@@ -109,7 +152,7 @@ public partial class FilePanel : UserControl
 
     private void ApplyPanelSide()
     {
-        _sideTitle = _panelSide == FilePanelSide.Left ? "왼쪽" : "오른쪽";
+        _sideTitle = LocalizationService.T(_panelSide == FilePanelSide.Left ? "Side_Left" : "Side_Right");
         if (headerLabel == null) return;
         headerLabel.Text = string.IsNullOrEmpty(_currentPath)
             ? _sideTitle
@@ -164,46 +207,48 @@ public partial class FilePanel : UserControl
     {
         var cm = new ContextMenuStrip { Font = UiTheme.UiFont };
         var I = MenuIconProvider.Get;
+        var L = LocalizationService.T;
         // idx 0
-        cm.Items.Add(CMI("열기",               I("folder_open"), (_, _) => OpenSelected()));
+        cm.Items.Add(CMI(L("Cm_Open"),        I("folder_open"), (_, _) => OpenSelected()));
         // idx 1
-        cm.Items.Add(CMI("연결 프로그램으로 열기", I("open_with"),  (_, _) => OpenWithDialog()));
+        cm.Items.Add(CMI(L("Cm_OpenWith"),    I("open_with"),  (_, _) => OpenWithDialog()));
         // idx 2
         cm.Items.Add(new ToolStripSeparator());
         // idx 3
-        cm.Items.Add(CMI("압축하기...",          I("zip"),         (_, _) => RequestCompress()));
+        cm.Items.Add(CMI(L("Cm_Compress"),    I("zip"),         (_, _) => RequestCompress()));
         // idx 4
-        cm.Items.Add(CMI("압축 해제...",         I("unzip"),       (_, _) => RequestExtract()));
+        cm.Items.Add(CMI(L("Cm_Extract"),     I("unzip"),       (_, _) => RequestExtract()));
         // idx 5
         cm.Items.Add(new ToolStripSeparator());
         // idx 6
-        cm.Items.Add(CMI("→ 다른 패널로 복사",   I("copy_right"),  (_, _) => CopyToOtherRequested?.Invoke(this, EventArgs.Empty)));
+        cm.Items.Add(CMI(L("Cm_CopyOther"),   I("copy_right"),  (_, _) => CopyToOtherRequested?.Invoke(this, EventArgs.Empty)));
         // idx 7
-        cm.Items.Add(CMI("→ 다른 패널로 이동",   I("move_right"),  (_, _) => MoveToOtherRequested?.Invoke(this, EventArgs.Empty)));
+        cm.Items.Add(CMI(L("Cm_MoveOther"),   I("move_right"),  (_, _) => MoveToOtherRequested?.Invoke(this, EventArgs.Empty)));
         // idx 8
         cm.Items.Add(new ToolStripSeparator());
         // idx 9
-        cm.Items.Add(CMI("잘라내기",             I("cut"),         (_, _) => ClipboardCut()));
+        cm.Items.Add(CMI(L("Cm_Cut"),         I("cut"),         (_, _) => ClipboardCut()));
         // idx 10
-        cm.Items.Add(CMI("복사",                 I("copy"),        (_, _) => ClipboardCopy()));
+        cm.Items.Add(CMI(L("Cm_Copy"),        I("copy"),        (_, _) => ClipboardCopy()));
         // idx 11
-        cm.Items.Add(CMI("붙여넣기",             I("paste"),       (_, _) => ClipboardPaste()));
+        cm.Items.Add(CMI(L("Cm_Paste"),       I("paste"),       (_, _) => ClipboardPaste()));
         // idx 12
         cm.Items.Add(new ToolStripSeparator());
         // idx 13
-        cm.Items.Add(CMI("이름 바꾸기",           I("rename"),      (_, _) => BeginRename()));
+        cm.Items.Add(CMI(L("Cm_Rename"),      I("rename"),      (_, _) => BeginRename()));
         // idx 14
-        cm.Items.Add(CMI("삭제",                  I("delete"),      (_, _) => RequestDelete()));
+        cm.Items.Add(CMI(L("Cm_Delete"),      I("delete"),      (_, _) => RequestDelete()));
         // idx 15
         cm.Items.Add(new ToolStripSeparator());
         // idx 16
-        cm.Items.Add(CMI("새 폴더 만들기",        I("folder_new"),  (_, _) => RequestNewFolder()));
+        cm.Items.Add(CMI(L("Cm_NewFolder"),   I("folder_new"),  (_, _) => RequestNewFolder()));
         // idx 17
-        cm.Items.Add(CMI("새 파일 만들기",        I("file_new"),    (_, _) => RequestNewFile()));
+        cm.Items.Add(CMI(L("Cm_NewFile"),     I("file_new"),    (_, _) => RequestNewFile()));
         // idx 18
         cm.Items.Add(new ToolStripSeparator());
         // idx 19
-        cm.Items.Add(CMI("속성",                  I("properties"),  (_, _) => ShowProperties()));
+        cm.Items.Add(CMI(L("Cm_Properties"),  I("properties"),  (_, _) => ShowProperties()));
+        UiTheme.StyleContextMenu(cm);
         return cm;
     }
 
@@ -262,6 +307,9 @@ public partial class FilePanel : UserControl
             return;
         }
 
+        folderTree.Location = new Point(Padding.Left, pathBar.Bottom);
+        folderTree.Width = ClientSize.Width - Padding.Horizontal;
+        folderTree.BringToFront();
         folderTree.Toggle(_currentPath);
         chevronLabel.Text = folderTree.IsOpen ? "▴" : "▾";
         if (folderTree.IsOpen)
@@ -334,12 +382,12 @@ public partial class FilePanel : UserControl
         }
         catch (UnauthorizedAccessException)
         {
-            SetStatus("접근 권한이 없습니다.");
+            SetStatus(LocalizationService.T("Status_NoAccess"));
             failed = true;
         }
         catch (Exception ex)
         {
-            SetStatus($"오류: {ex.Message}");
+            SetStatus(string.Format(LocalizationService.T("Status_Error"), ex.Message));
             failed = true;
         }
         finally
@@ -367,11 +415,11 @@ public partial class FilePanel : UserControl
         }
         catch (UnauthorizedAccessException)
         {
-            SetStatus("접근 권한이 없습니다.");
+            SetStatus(LocalizationService.T("Status_NoAccess"));
         }
         catch (Exception ex)
         {
-            SetStatus($"오류: {ex.Message}");
+            SetStatus(string.Format(LocalizationService.T("Status_Error"), ex.Message));
         }
     }
 
@@ -437,7 +485,7 @@ public partial class FilePanel : UserControl
                 if (entry.Name == "..")
                 {
                     var upItem = new ListViewItem("..", GetOrAddIcon(entry.FullPath, true)) { Tag = entry };
-                    upItem.SubItems.AddRange(new[] { "", "폴더", "" });
+                    upItem.SubItems.AddRange(new[] { "", LocalizationService.T("Type_Folder"), "" });
                     listView.Items.Add(upItem);
                 }
                 else
@@ -446,15 +494,15 @@ public partial class FilePanel : UserControl
                 }
             }
 
-            SetStatus($"폴더 {scan.DirCount}개, 파일 {scan.FileCount}개  |  합계 {FileEntry.FormatSize(scan.TotalSize)}");
+            SetStatus(string.Format(LocalizationService.T("Status_Summary"), scan.DirCount, scan.FileCount, FileEntry.FormatSize(scan.TotalSize)));
         }
         catch (UnauthorizedAccessException)
         {
-            SetStatus("접근 권한이 없습니다.");
+            SetStatus(LocalizationService.T("Status_NoAccess"));
         }
         catch (Exception ex)
         {
-            SetStatus($"오류: {ex.Message}");
+            SetStatus(string.Format(LocalizationService.T("Status_Error"), ex.Message));
         }
         finally
         {
@@ -496,7 +544,7 @@ public partial class FilePanel : UserControl
             int dirCount = listView.Items.Cast<ListViewItem>().Count(i => i.Tag is FileEntry fe && fe.IsDirectory && fe.Name != "..");
             int fileCount = listView.Items.Cast<ListViewItem>().Count(i => i.Tag is FileEntry fe && !fe.IsDirectory);
             long total = listView.Items.Cast<ListViewItem>().Where(i => i.Tag is FileEntry fe && !fe.IsDirectory).Sum(i => ((FileEntry)i.Tag!).Size);
-            SetStatus($"폴더 {dirCount}개, 파일 {fileCount}개  |  합계 {FileEntry.FormatSize(total)}");
+            SetStatus(string.Format(LocalizationService.T("Status_Summary"), dirCount, fileCount, FileEntry.FormatSize(total)));
         }
         else
         {
@@ -505,9 +553,9 @@ public partial class FilePanel : UserControl
             long selSize = listView.SelectedItems.Cast<ListViewItem>().Where(i => i.Tag is FileEntry fe && !fe.IsDirectory).Sum(i => ((FileEntry)i.Tag!).Size);
 
             var parts = new List<string>();
-            if (selDirs > 0) parts.Add($"폴더 {selDirs}개");
-            if (selFiles > 0) parts.Add($"파일 {selFiles}개");
-            SetStatus($"{string.Join(", ", parts)} 선택됨  |  {FileEntry.FormatSize(selSize)}");
+            if (selDirs > 0) parts.Add(string.Format(LocalizationService.T("Sel_Folders"), selDirs));
+            if (selFiles > 0) parts.Add(string.Format(LocalizationService.T("Sel_Files"), selFiles));
+            SetStatus(string.Format(LocalizationService.T("Status_Selected"), string.Join(", ", parts), FileEntry.FormatSize(selSize)));
         }
     }
 

@@ -1,17 +1,38 @@
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
+
 namespace FileMasterWinV10.Helpers;
 
 public static class UiTheme
 {
-    public static readonly Color Background = Color.FromArgb(245, 246, 248);
-    public static readonly Color Surface = Color.FromArgb(255, 255, 255);
-    public static readonly Color Border = Color.FromArgb(218, 222, 228);
-    public static readonly Color Accent = Color.FromArgb(0, 103, 192);
-    public static readonly Color AccentHover = Color.FromArgb(0, 90, 168);
-    public static readonly Color TextPrimary = Color.FromArgb(30, 30, 30);
-    public static readonly Color TextSecondary = Color.FromArgb(96, 102, 112);
-    public static readonly Color HeaderBg = Color.FromArgb(237, 240, 244);
-    public static readonly Color ListAlternate = Color.FromArgb(248, 249, 251);
-    public static readonly Color DriveBarBg = Color.FromArgb(232, 235, 240);
+    private const int LvmGetHeader = 0x101F;
+
+    private static readonly ConditionalWeakTable<Control, object?> NativeThemeHookedControls = new();
+    private static readonly ConditionalWeakTable<ListView, object?> DrawHookedListViews = new();
+    private static readonly ConditionalWeakTable<ListView, ListViewHeaderFiller> HeaderFillers = new();
+
+    [DllImport("uxtheme.dll", CharSet = CharSet.Unicode)]
+    private static extern int SetWindowTheme(IntPtr hwnd, string? pszSubAppName, string? pszSubIdList);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
+
+    public static AppTheme CurrentTheme { get; set; } = AppTheme.Light;
+
+    public static Color Background => CurrentTheme == AppTheme.Dark ? Color.FromArgb(28, 31, 36) : Color.FromArgb(245, 246, 248);
+    public static Color Surface => CurrentTheme == AppTheme.Dark ? Color.FromArgb(37, 41, 48) : Color.FromArgb(255, 255, 255);
+    public static Color Border => CurrentTheme == AppTheme.Dark ? Color.FromArgb(72, 78, 88) : Color.FromArgb(218, 222, 228);
+    public static Color Accent => CurrentTheme == AppTheme.Dark ? Color.FromArgb(86, 156, 214) : Color.FromArgb(0, 103, 192);
+    public static Color AccentHover => CurrentTheme == AppTheme.Dark ? Color.FromArgb(108, 178, 235) : Color.FromArgb(0, 90, 168);
+    public static Color TextPrimary => CurrentTheme == AppTheme.Dark ? Color.FromArgb(238, 241, 245) : Color.FromArgb(30, 30, 30);
+    public static Color TextSecondary => CurrentTheme == AppTheme.Dark ? Color.FromArgb(176, 184, 194) : Color.FromArgb(96, 102, 112);
+    public static Color HeaderBg => CurrentTheme == AppTheme.Dark ? Color.FromArgb(45, 50, 58) : Color.FromArgb(237, 240, 244);
+    public static Color ListAlternate => CurrentTheme == AppTheme.Dark ? Color.FromArgb(42, 46, 54) : Color.FromArgb(248, 249, 251);
+    public static Color DriveBarBg => CurrentTheme == AppTheme.Dark ? Color.FromArgb(33, 37, 43) : Color.FromArgb(232, 235, 240);
+    public static Color MenuSelection => CurrentTheme == AppTheme.Dark ? Color.FromArgb(57, 66, 78) : Color.FromArgb(226, 239, 255);
+    public static Color MenuImageMargin => CurrentTheme == AppTheme.Dark ? Color.FromArgb(31, 35, 42) : Color.FromArgb(245, 247, 250);
+    public static Color SelectionBg => CurrentTheme == AppTheme.Dark ? Color.FromArgb(0, 76, 132) : Color.FromArgb(204, 232, 255);
+    public static Color SelectionText => CurrentTheme == AppTheme.Dark ? Color.White : Color.FromArgb(20, 40, 60);
 
     public static readonly Font UiFont = new("Segoe UI", 9.25f);
     public static readonly Font UiFontSmall = new("Segoe UI", 8.5f);
@@ -23,6 +44,39 @@ public static class UiTheme
         form.BackColor = Background;
         form.Font = UiFont;
         form.ForeColor = TextPrimary;
+    }
+
+    public static void ApplyControlTree(Control root)
+    {
+        root.BackColor = root is TextBoxBase or ListView or ListBox ? Surface : Background;
+        root.ForeColor = TextPrimary;
+        ApplyNativeTheme(root);
+        foreach (Control child in root.Controls)
+            ApplyControlTree(child);
+    }
+
+    public static void ApplyNativeTheme(Control control)
+    {
+        if (!NativeThemeHookedControls.TryGetValue(control, out _))
+        {
+            NativeThemeHookedControls.Add(control, null);
+            control.HandleCreated += (_, _) => ApplyNativeTheme(control);
+        }
+
+        if (!control.IsHandleCreated) return;
+
+        var themeName = CurrentTheme == AppTheme.Dark ? "DarkMode_Explorer" : "Explorer";
+        try
+        {
+            SetWindowTheme(control.Handle, themeName, null);
+            if (control is ListView)
+            {
+                var headerHandle = SendMessage(control.Handle, LvmGetHeader, IntPtr.Zero, IntPtr.Zero);
+                if (headerHandle != IntPtr.Zero)
+                    SetWindowTheme(headerHandle, themeName, null);
+            }
+        }
+        catch { }
     }
 
     public static void StylePrimaryButton(Button btn)
@@ -65,6 +119,7 @@ public static class UiTheme
         combo.BackColor = Surface;
         combo.ForeColor = TextPrimary;
         combo.Font = UiFont;
+        ApplyNativeTheme(combo);
     }
 
     public static void StyleListView(ListView lv)
@@ -74,6 +129,32 @@ public static class UiTheme
         lv.ForeColor = TextPrimary;
         lv.Font = UiFont;
         lv.GridLines = false;
+        lv.OwnerDraw = true;
+        HookListViewDrawing(lv);
+        HookHeaderFiller(lv);
+        ApplyNativeTheme(lv);
+    }
+
+    private static void HookHeaderFiller(ListView lv)
+    {
+        if (HeaderFillers.TryGetValue(lv, out _)) return;
+        HeaderFillers.Add(lv, new ListViewHeaderFiller(lv));
+    }
+
+    public static void StyleTreeView(TreeView tree)
+    {
+        tree.BorderStyle = BorderStyle.None;
+        tree.BackColor = Surface;
+        tree.ForeColor = TextPrimary;
+        tree.Font = UiFont;
+        ApplyNativeTheme(tree);
+    }
+
+    public static void StyleScrollableControl(ScrollableControl control)
+    {
+        control.BackColor = control is FlowLayoutPanel ? DriveBarBg : Surface;
+        control.ForeColor = TextPrimary;
+        ApplyNativeTheme(control);
     }
 
     public static void StyleStatusStrip(StatusStrip strip)
@@ -86,10 +167,14 @@ public static class UiTheme
 
     public static void StyleMenuAndToolStrip(MenuStrip menu, ToolStrip toolbar)
     {
+        // 전역 렌더러를 지정해 지연 생성되는 드롭다운(하위 메뉴)까지 다크 색을 일관 적용한다.
+        ToolStripManager.Renderer = new ModernMenuRenderer();
+
         menu.BackColor = Surface;
         menu.ForeColor = TextPrimary;
         menu.Font = UiFont;
         menu.Renderer = new ModernMenuRenderer();
+        StyleToolStripItems(menu.Items);
 
         toolbar.BackColor = Surface;
         toolbar.ForeColor = TextPrimary;
@@ -97,17 +182,231 @@ public static class UiTheme
         toolbar.GripStyle = ToolStripGripStyle.Hidden;
         toolbar.Padding = new Padding(6, 4, 6, 4);
         toolbar.Renderer = new ModernToolStripRenderer();
+        StyleToolStripItems(toolbar.Items);
+    }
+
+    public static void StyleContextMenu(ContextMenuStrip menu)
+    {
+        menu.BackColor = Surface;
+        menu.ForeColor = TextPrimary;
+        menu.Font = UiFont;
+        menu.Renderer = new ModernMenuRenderer();
+        StyleToolStripItems(menu.Items);
+    }
+
+    private static void StyleToolStripItems(ToolStripItemCollection items)
+    {
+        foreach (ToolStripItem item in items)
+        {
+            item.ForeColor = item.Enabled ? TextPrimary : TextSecondary;
+            item.BackColor = Surface;
+            item.Font = UiFont;
+
+            if (item is ToolStripMenuItem menuItem)
+            {
+                menuItem.DropDown.BackColor = Surface;
+                menuItem.DropDown.ForeColor = TextPrimary;
+                menuItem.DropDown.Font = UiFont;
+                menuItem.DropDown.Renderer = new ModernMenuRenderer();
+                StyleToolStripItems(menuItem.DropDownItems);
+            }
+        }
+    }
+
+    private static void HookListViewDrawing(ListView lv)
+    {
+        if (DrawHookedListViews.TryGetValue(lv, out _)) return;
+        DrawHookedListViews.Add(lv, null);
+        lv.DrawColumnHeader += OnDrawListViewColumnHeader;
+        lv.DrawItem += OnDrawListViewItem;
+        lv.DrawSubItem += OnDrawListViewSubItem;
+    }
+
+    private static void OnDrawListViewColumnHeader(object? sender, DrawListViewColumnHeaderEventArgs e)
+    {
+        if (e.Header == null) return;
+
+        using var bg = new SolidBrush(HeaderBg);
+        using var border = new Pen(Border);
+        e.Graphics.FillRectangle(bg, e.Bounds);
+        e.Graphics.DrawLine(border, e.Bounds.Right - 1, e.Bounds.Top + 4, e.Bounds.Right - 1, e.Bounds.Bottom - 4);
+        e.Graphics.DrawLine(border, e.Bounds.Left, e.Bounds.Bottom - 1, e.Bounds.Right, e.Bounds.Bottom - 1);
+
+        var flags = TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix;
+        flags |= e.Header.TextAlign switch
+        {
+            HorizontalAlignment.Right => TextFormatFlags.Right,
+            HorizontalAlignment.Center => TextFormatFlags.HorizontalCenter,
+            _ => TextFormatFlags.Left
+        };
+        TextRenderer.DrawText(e.Graphics, e.Header.Text, UiFontSemibold, Rectangle.Inflate(e.Bounds, -8, 0), TextPrimary, flags);
+    }
+
+    private static void OnDrawListViewItem(object? sender, DrawListViewItemEventArgs e)
+    {
+        if (e.Item == null) return;
+        if (e.Item.ListView?.View == View.Details) return;
+        e.DrawBackground();
+        e.DrawText();
+    }
+
+    private static void OnDrawListViewSubItem(object? sender, DrawListViewSubItemEventArgs e)
+    {
+        if (e.Item == null || e.Header == null || e.SubItem == null) return;
+
+        var selected = e.Item.Selected;
+        using var bg = new SolidBrush(selected ? SelectionBg : (e.ItemIndex % 2 == 0 ? Surface : ListAlternate));
+        e.Graphics.FillRectangle(bg, e.Bounds);
+
+        var textBounds = Rectangle.Inflate(e.Bounds, -8, 0);
+        if (e.ColumnIndex == 0 && e.Item.ImageList != null && e.Item.ImageIndex >= 0 && e.Item.ImageIndex < e.Item.ImageList.Images.Count)
+        {
+            var imageY = e.Bounds.Top + Math.Max(0, (e.Bounds.Height - 16) / 2);
+            e.Item.ImageList.Draw(e.Graphics, e.Bounds.Left + 4, imageY, 16, 16, e.Item.ImageIndex);
+            textBounds.X += 20;
+            textBounds.Width -= 20;
+        }
+
+        var flags = TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix;
+        flags |= e.Header.TextAlign switch
+        {
+            HorizontalAlignment.Right => TextFormatFlags.Right,
+            HorizontalAlignment.Center => TextFormatFlags.HorizontalCenter,
+            _ => TextFormatFlags.Left
+        };
+        TextRenderer.DrawText(e.Graphics, e.SubItem.Text, e.Item.ListView?.Font ?? UiFont, textBounds, selected ? SelectionText : TextPrimary, flags);
+    }
+}
+
+/// <summary>
+/// 오너드로우 ListView 헤더에서 마지막 컬럼 오른쪽에 남는 빈 영역을 테마 색으로 채운다.
+/// (헤더 네이티브 컨트롤에 서브클래싱해 WM_PAINT 후 여백을 다시 칠한다.)
+/// </summary>
+internal sealed class ListViewHeaderFiller : NativeWindow
+{
+    private const int WM_PAINT = 0x000F;
+    private const int LvmGetHeader = 0x101F;
+    private const int HdmFirst = 0x1200;
+    private const int HdmGetItemCount = HdmFirst + 0;
+    private const int HdmGetItemRect = HdmFirst + 7;
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct RECT { public int Left, Top, Right, Bottom; }
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, ref RECT lParam);
+
+    [DllImport("user32.dll")]
+    private static extern bool GetClientRect(IntPtr hWnd, out RECT lpRect);
+
+    private readonly ListView _listView;
+
+    public ListViewHeaderFiller(ListView listView)
+    {
+        _listView = listView;
+        _listView.HandleCreated += (_, _) => Attach();
+        _listView.HandleDestroyed += (_, _) => Detach();
+        if (_listView.IsHandleCreated) Attach();
+    }
+
+    private void Attach()
+    {
+        var header = SendMessage(_listView.Handle, LvmGetHeader, IntPtr.Zero, IntPtr.Zero);
+        if (header == IntPtr.Zero) return;
+        if (Handle != IntPtr.Zero) ReleaseHandle();
+        AssignHandle(header);
+    }
+
+    private void Detach()
+    {
+        if (Handle != IntPtr.Zero) ReleaseHandle();
+    }
+
+    protected override void WndProc(ref Message m)
+    {
+        base.WndProc(ref m);
+        if (m.Msg == WM_PAINT) PaintFiller();
+    }
+
+    private void PaintFiller()
+    {
+        if (!GetClientRect(Handle, out var client)) return;
+
+        int right = 0;
+        int count = (int)SendMessage(Handle, HdmGetItemCount, IntPtr.Zero, IntPtr.Zero);
+        for (int i = 0; i < count; i++)
+        {
+            var r = new RECT();
+            SendMessage(Handle, HdmGetItemRect, (IntPtr)i, ref r);
+            if (r.Right > right) right = r.Right;
+        }
+
+        if (right >= client.Right) return;
+
+        using var g = Graphics.FromHwnd(Handle);
+        var fill = new Rectangle(right, client.Top, client.Right - right, client.Bottom - client.Top);
+        using var bg = new SolidBrush(UiTheme.HeaderBg);
+        g.FillRectangle(bg, fill);
+        using var pen = new Pen(UiTheme.Border);
+        g.DrawLine(pen, fill.Left, fill.Bottom - 1, fill.Right, fill.Bottom - 1);
     }
 }
 
 internal sealed class ModernMenuRenderer : ToolStripProfessionalRenderer
 {
     public ModernMenuRenderer() : base(new ModernColorTable()) { }
+
+    protected override void OnRenderMenuItemBackground(ToolStripItemRenderEventArgs e)
+    {
+        var rect = new Rectangle(Point.Empty, e.Item.Size);
+        var color = e.Item.Selected || e.Item.Pressed ? UiTheme.MenuSelection : UiTheme.Surface;
+        using var brush = new SolidBrush(color);
+        e.Graphics.FillRectangle(brush, rect);
+        if (e.Item.Selected || e.Item.Pressed)
+        {
+            using var pen = new Pen(UiTheme.Border);
+            e.Graphics.DrawRectangle(pen, rect.X, rect.Y, rect.Width - 1, rect.Height - 1);
+        }
+    }
+
+    protected override void OnRenderItemText(ToolStripItemTextRenderEventArgs e)
+    {
+        e.TextColor = e.Item.Enabled ? UiTheme.TextPrimary : UiTheme.TextSecondary;
+        base.OnRenderItemText(e);
+    }
+
+    protected override void OnRenderImageMargin(ToolStripRenderEventArgs e)
+    {
+        using var brush = new SolidBrush(UiTheme.MenuImageMargin);
+        e.Graphics.FillRectangle(brush, e.AffectedBounds);
+    }
+
+    protected override void OnRenderSeparator(ToolStripSeparatorRenderEventArgs e)
+    {
+        using var pen = new Pen(UiTheme.Border);
+        var y = e.Item.Height / 2;
+        e.Graphics.DrawLine(pen, 28, y, e.Item.Width - 4, y);
+    }
 }
 
 internal sealed class ModernToolStripRenderer : ToolStripProfessionalRenderer
 {
     public ModernToolStripRenderer() : base(new ModernColorTable()) { }
+
+    protected override void OnRenderToolStripBackground(ToolStripRenderEventArgs e)
+    {
+        // 툴바 전체를 테마 배경색으로 채운다.
+        using var brush = new SolidBrush(UiTheme.Surface);
+        e.Graphics.FillRectangle(brush, e.AffectedBounds);
+    }
+
+    protected override void OnRenderToolStripBorder(ToolStripRenderEventArgs e)
+    {
+        // 기본 렌더러가 그리는 밝은 경계선을 그리지 않는다(다크 테마에서 흰 줄 방지).
+    }
 
     protected override void OnRenderButtonBackground(ToolStripItemRenderEventArgs e)
     {
@@ -139,7 +438,11 @@ internal sealed class ModernColorTable : ProfessionalColorTable
     public override Color MenuItemSelected => UiTheme.HeaderBg;
     public override Color MenuItemSelectedGradientBegin => UiTheme.HeaderBg;
     public override Color MenuItemSelectedGradientEnd => UiTheme.HeaderBg;
+    public override Color MenuItemPressedGradientBegin => UiTheme.MenuSelection;
+    public override Color MenuItemPressedGradientMiddle => UiTheme.MenuSelection;
+    public override Color MenuItemPressedGradientEnd => UiTheme.MenuSelection;
     public override Color MenuItemBorder => UiTheme.Border;
+    public override Color MenuBorder => UiTheme.Border;
     public override Color ToolStripBorder => UiTheme.Border;
     public override Color SeparatorDark => UiTheme.Border;
     public override Color SeparatorLight => UiTheme.Border;

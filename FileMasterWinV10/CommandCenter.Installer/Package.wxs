@@ -13,7 +13,7 @@
     <MajorUpgrade DowngradeErrorMessage="이미 최신 버전의 [ProductName]이(가) 설치되어 있습니다." />
     <MediaTemplate EmbedCab="yes" CompressionLevel="low" />
 
-    <Icon Id="AppIcon.ico" SourceFile="$(var.FileMasterWinV10.ProjectDir)daemon_hammer.ico" />
+    <Icon Id="AppIcon.ico" SourceFile="$(var.FileMasterWinV10.ProjectDir)app_icon.ico" />
     <Property Id="ARPPRODUCTICON" Value="AppIcon.ico" />
     <Property Id="ARPCOMMENTS" Value="Command Center - dual-pane file manager" />
 

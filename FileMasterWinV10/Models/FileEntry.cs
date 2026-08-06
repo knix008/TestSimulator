@@ -1,3 +1,5 @@
+using FileMasterWinV10.Helpers;
+
 namespace FileMasterWinV10.Models;
 
 public class FileEntry
@@ -11,7 +13,11 @@ public class FileEntry
     public FileAttributes Attributes { get; set; }
 
     public string SizeDisplay => IsDirectory ? "<DIR>" : FormatSize(Size);
-    public string TypeDisplay => IsDirectory ? "폴더" : (Extension.Length > 1 ? Extension[1..].ToUpper() + " 파일" : "파일");
+    public string TypeDisplay => IsDirectory
+        ? LocalizationService.T("Type_Folder")
+        : (Extension.Length > 1
+            ? string.Format(LocalizationService.T("Type_FileSuffix"), Extension[1..].ToUpper())
+            : LocalizationService.T("Type_File"));
 
     public static string FormatSize(long bytes)
     {
