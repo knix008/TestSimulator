@@ -606,25 +606,25 @@ function App() {
       </main>
 
       {contextMenu && <div className="context-menu" style={{ left: contextMenu.x, top: contextMenu.y }} onClick={event => event.stopPropagation()}>
-        <button onClick={() => { setContextMenu(null); void openEntry(contextMenu.entry) }}>{t.open}</button>
-        <button onClick={() => { setContextMenu(null); void api?.revealPath(contextMenu.entry.fullPath) }}>{t.reveal}</button>
+        <button onClick={() => { setContextMenu(null); void openEntry(contextMenu.entry) }}><FolderPlus /> {t.open}</button>
+        <button onClick={() => { setContextMenu(null); void api?.revealPath(contextMenu.entry.fullPath) }}><Search /> {t.reveal}</button>
         <hr />
-        <button onClick={() => { setContextMenu(null); void copyActiveToOther() }}>{t.copy} →</button>
-        <button onClick={() => { setContextMenu(null); void moveActiveToOther() }}>{t.move} →</button>
+        <button onClick={() => { setContextMenu(null); void copyActiveToOther() }}><Copy /> {t.copy} →</button>
+        <button onClick={() => { setContextMenu(null); void moveActiveToOther() }}><MoveRight /> {t.move} →</button>
         <hr />
-        <button onClick={() => { setContextMenu(null); void renameActive() }}>{t.rename}</button>
-        <button onClick={() => { setContextMenu(null); void deleteActive() }}>{t.delete}</button>
+        <button onClick={() => { setContextMenu(null); void renameActive() }}><FilePlus2 /> {t.rename}</button>
+        <button onClick={() => { setContextMenu(null); void deleteActive() }}><Trash2 /> {t.delete}</button>
         <hr />
         <button onClick={() => {
           setContextMenu(null)
           if (activePanel.listing) void api!.chooseSaveZip(`${activePanel.listing.path}/archive.zip`).then(target => { if (target) void runAction(t.compress, () => api!.compress({ sources: activePanel.selected, destinationZip: target, splitSizeBytes: 0 })) })
-        }}>{t.compress}</button>
+        }}><Archive /> {t.compress}</button>
         <button onClick={() => {
           setContextMenu(null)
           if (activePanel.listing) void runAction(t.extract, () => api!.extract({ archivePath: contextMenu.entry.fullPath, destinationDir: activePanel.listing!.path }))
-        }}>{t.extract}</button>
+        }}><Archive /> {t.extract}</button>
         <hr />
-        <button onClick={() => { setContextMenu(null); void showProperties() }}>{t.properties}</button>
+        <button onClick={() => { setContextMenu(null); void showProperties() }}><Info /> {t.properties}</button>
       </div>}
 
       {progress && <div className="progress-strip">
