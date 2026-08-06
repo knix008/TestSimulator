@@ -13,9 +13,16 @@
     <Company>Command Center</Company>
     <ApplicationIcon>app_icon.ico</ApplicationIcon>
     <PlatformTarget>x64</PlatformTarget>
+    <Version>1.0.0.0</Version>
+    <!-- 빌드 시각을 어셈블리 메타데이터로 주입해 About 화면에 표시한다(UTC). -->
+    <BuildTimestamp>$([System.DateTime]::UtcNow.ToString(yyyy-MM-dd HH:mm:ss "UTC"))</BuildTimestamp>
     <!-- Release 빌드 시 MSI 설치 패키지도 함께 생성 -->
     <GenerateMsiOnBuild>true</GenerateMsiOnBuild>
   </PropertyGroup>
+
+  <ItemGroup>
+    <AssemblyMetadata Include="BuildTimestamp" Value="$(BuildTimestamp)" />
+  </ItemGroup>
 
   <ItemGroup>
     <Content Include="app_icon.ico">
@@ -71,10 +78,10 @@
   <Target
     Name="BuildInstallerMsi"
     AfterTargets="Build"
-    Condition="'$(Configuration)' == 'Release' and '$(GenerateMsiOnBuild)' == 'true'"
-    Inputs="$(TargetPath);$(TargetDir)**\*;$(MSBuildProjectDirectory)\CommandCenter.Installer\Package.wxs;$(MSBuildProjectDirectory)\CommandCenter.Installer\CommandCenter.Installer.wixproj"
-    Outputs="$(MSBuildProjectDirectory)\CommandCenter.Installer\bin\x64\$(Configuration)\CommandCenterSetup.msi">
+    Condition="'$(Configuration)' == 'Release' and '$(GenerateMsiOnBuild)' == 'true'">
     <Message Importance="high" Text="Building MSI installer (Release)..." />
     <Exec Command="dotnet build &quot;$(MSBuildProjectDirectory)\CommandCenter.Installer\CommandCenter.Installer.wixproj&quot; -c $(Configuration) -p:GenerateMsiOnBuild=false -p:BuildProjectReferences=false" />
+    <Message Importance="high" Text="Building setup bootstrapper .exe (Release)..." />
+    <Exec Command="dotnet build &quot;$(MSBuildProjectDirectory)\CommandCenter.Bootstrapper\CommandCenter.Bootstrapper.wixproj&quot; -c $(Configuration) -p:GenerateMsiOnBuild=false -p:BuildProjectReferences=false" />
   </Target>
 </Project>

@@ -10,7 +10,11 @@
     Codepage="949"
     UpgradeCode="B4E8F2A1-6C3D-4E5F-9A0B-1D2C3E4F5A6B">
 
-    <MajorUpgrade DowngradeErrorMessage="이미 최신 버전의 [ProductName]이(가) 설치되어 있습니다." />
+    <!-- 이미 설치된 경우(같은 버전 포함) 기존 제품을 먼저 완전히 제거한 뒤 새로 설치한다. -->
+    <MajorUpgrade
+      AllowSameVersionUpgrades="yes"
+      Schedule="afterInstallInitialize"
+      DowngradeErrorMessage="이미 최신 버전의 [ProductName]이(가) 설치되어 있습니다." />
     <MediaTemplate EmbedCab="yes" CompressionLevel="low" />
 
     <Icon Id="AppIcon.ico" SourceFile="$(var.FileMasterWinV10.ProjectDir)app_icon.ico" />

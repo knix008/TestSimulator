@@ -12,6 +12,9 @@ public partial class MainForm : Form
     private FilePanel _activePanel = null!;
     private ToolStripStatusLabel _indexStatusLabel = null!;
     private IndexState _lastIndexState = IndexState.NotBuilt;
+    private Panel? _centerBar;
+    private ToolStripButton? _indexToggleBtn;
+    private readonly ToolTip _tips = new();
 
     public MainForm()
     {
@@ -26,6 +29,16 @@ public partial class MainForm : Form
         _preferences.Load();
         LocalizationService.CurrentLanguage = _preferences.Language;
         UiTheme.CurrentTheme = _preferences.Theme;
+
+        // 가운데 스플리터를 잡기 좋은 두께로 하고, 잔상 방지를 위해 이중 버퍼링을 켠다.
+        leftRightSplit.SplitterWidth = 8;
+        mainSplit.SplitterWidth = 8;
+        UiTheme.EnableDoubleBuffered(mainSplit);
+        UiTheme.EnableDoubleBuffered(mainSplit.Panel1);
+        UiTheme.EnableDoubleBuffered(mainSplit.Panel2);
+        UiTheme.EnableDoubleBuffered(leftRightSplit);
+        UiTheme.EnableDoubleBuffered(leftRightSplit.Panel1);
+        UiTheme.EnableDoubleBuffered(leftRightSplit.Panel2);
 
         leftPanel.SetPanelSide(FilePanelSide.Left);
         rightPanel.SetPanelSide(FilePanelSide.Right);
@@ -53,14 +66,10 @@ public partial class MainForm : Form
 
         leftRightSplit.Panel1MinSize = 220;
         leftRightSplit.Panel2MinSize = 220;
-        var maxDist = leftRightSplit.Width - 220 - leftRightSplit.SplitterWidth;
-        if (maxDist >= 220)
-        {
-            var dist = _session.SplitterDistance is int saved && saved >= 220 && saved <= maxDist
-                ? saved
-                : (leftRightSplit.Width - leftRightSplit.SplitterWidth) / 2;
-            leftRightSplit.SplitterDistance = Math.Clamp(dist, 220, maxDist);
-        }
+        // 좌우를 균등하게 분할한다(구분자를 정중앙에).
+        var avail = leftRightSplit.Width - leftRightSplit.SplitterWidth;
+        if (avail >= 440)
+            leftRightSplit.SplitterDistance = avail / 2;
 
         mainSplit.Panel2MinSize = 100;
         if (!mainSplit.Panel2Collapsed)
@@ -85,12 +94,39 @@ public partial class MainForm : Form
             {
                 var svc = SearchIndexService.Instance;
                 UpdateIndexStatusLabel();
+                UpdateIndexToggleUi();
                 if (svc.State == IndexState.Ready && _lastIndexState != IndexState.Ready)
                     ShowMainStatus(string.Format(LocalizationService.T("Index_Ready"), svc.Count));
                 _lastIndexState = svc.State;
             });
         }
         catch (InvalidOperationException) { }
+    }
+
+    // 색인 시작/중지 토글.
+    private void ToggleIndexing()
+    {
+        var svc = SearchIndexService.Instance;
+        if (svc.State == IndexState.Building)
+        {
+            svc.CancelBuild();
+            ShowMainStatus(LocalizationService.T("Index_Stopped"));
+        }
+        else
+        {
+            ShowMainStatus(LocalizationService.T("Index_Building"));
+            _ = svc.RebuildAsync();
+        }
+        UpdateIndexToggleUi();
+    }
+
+    private void UpdateIndexToggleUi()
+    {
+        if (_indexToggleBtn == null) return;
+        bool building = SearchIndexService.Instance.State == IndexState.Building;
+        _indexToggleBtn.Text = LocalizationService.T(building ? "Menu_IndexStop" : "Menu_IndexStart");
+        _indexToggleBtn.ToolTipText = _indexToggleBtn.Text;
+        _indexToggleBtn.Image = MenuIconProvider.Get(building ? "delete" : "refresh");
     }
 
     private void UpdateIndexStatusLabel()
@@ -195,6 +231,27 @@ public partial class MainForm : Form
         settingsMenu.DropDownItems.Add(languageMenu);
         settingsMenu.DropDownItems.Add(themeMenu);
 
+        // 설정 메뉴 안에 검색 인덱스 관련 항목
+        settingsMenu.DropDownItems.Add(new ToolStripSeparator());
+        var indexMenu = new ToolStripMenuItem(LocalizationService.T("Menu_IndexSettings"), I("refresh"));
+        var startStopItem = MI(LocalizationService.T("Menu_IndexStart"), "refresh", (_, _) => ToggleIndexing());
+        indexMenu.DropDownItems.Add(startStopItem);
+        indexMenu.DropDownItems.Add(MI(LocalizationService.T("Menu_Reindex"), "refresh", (_, _) =>
+        {
+            ShowMainStatus(LocalizationService.T("Index_Building"));
+            _ = SearchIndexService.Instance.RebuildAsync();
+        }));
+        indexMenu.DropDownItems.Add(new ToolStripSeparator());
+        var settingsIndexStatus = new ToolStripMenuItem { Enabled = false };
+        indexMenu.DropDownItems.Add(settingsIndexStatus);
+        indexMenu.DropDownOpening += (_, _) =>
+        {
+            bool building = SearchIndexService.Instance.State == IndexState.Building;
+            startStopItem.Text = LocalizationService.T(building ? "Menu_IndexStop" : "Menu_IndexStart");
+            settingsIndexStatus.Text = FormatIndexStatus();
+        };
+        settingsMenu.DropDownItems.Add(indexMenu);
+
         menuStrip.Items.AddRange(new ToolStripItem[] { fileMenu, editMenu, viewMenu, searchMenu, bookmarkMenu, settingsMenu });
     }
 
@@ -247,6 +304,61 @@ public partial class MainForm : Form
         leftPanel.ApplyCurrentTheme();
         rightPanel.ApplyCurrentTheme();
         previewPanel.ApplyCurrentTheme();
+
+        // 스플리터를 테두리 색으로 칠해 눈에 잘 띄고 잡기 쉽게 한다.
+        leftRightSplit.BackColor = UiTheme.Border;
+        mainSplit.BackColor = UiTheme.Border;
+
+        BuildCenterBar();
+    }
+
+    // 오른쪽 패널 왼쪽 가장자리(두 목록 사이)에 이동/복사 버튼 막대를 도킹한다.
+    // 도킹 방식이라 스플리터 드래그 시 잔상이 남지 않는다.
+    private void BuildCenterBar()
+    {
+        var host = leftRightSplit.Panel2;
+        if (_centerBar != null)
+        {
+            host.Controls.Remove(_centerBar);
+            _centerBar.Dispose();
+        }
+
+        var bar = new Panel { Dock = DockStyle.Left, Width = 40, BackColor = UiTheme.DriveBarBg };
+        UiTheme.EnableDoubleBuffered(bar);
+        var stack = new FlowLayoutPanel
+        {
+            FlowDirection = FlowDirection.TopDown,
+            AutoSize = true,
+            WrapContents = false,
+            BackColor = Color.Transparent,
+        };
+
+        void Add(string iconKey, bool flip, string tipKey, Func<Task> action)
+        {
+            var img = MenuIconProvider.Get(iconKey);
+            if (img != null && flip)
+            {
+                img = (Image)img.Clone();
+                img.RotateFlip(RotateFlipType.RotateNoneFlipX);
+            }
+            var b = new Button { Size = new Size(30, 30), Margin = new Padding(2, 3, 2, 3), Image = img, ImageAlign = ContentAlignment.MiddleCenter };
+            UiTheme.StyleSecondaryButton(b);
+            _tips.SetToolTip(b, LocalizationService.T(tipKey));
+            b.Click += async (_, _) => await action();
+            stack.Controls.Add(b);
+        }
+
+        Add("copy_right", false, "Center_CopyRight", () => CopyBetweenPanelsAsync(leftPanel, rightPanel));
+        Add("move_right", false, "Center_MoveRight", () => MoveBetweenPanelsAsync(leftPanel, rightPanel));
+        Add("copy_right", true,  "Center_CopyLeft",  () => CopyBetweenPanelsAsync(rightPanel, leftPanel));
+        Add("move_right", true,  "Center_MoveLeft",  () => MoveBetweenPanelsAsync(rightPanel, leftPanel));
+
+        bar.Controls.Add(stack);
+        void CenterStack() => stack.Location = new Point(Math.Max(0, (bar.Width - stack.Width) / 2), Math.Max(0, (bar.Height - stack.Height) / 2));
+        bar.Resize += (_, _) => CenterStack();
+        host.Controls.Add(bar);
+        _centerBar = bar;
+        CenterStack();
     }
 
     // ToolStripMenuItem factory with icon
@@ -286,8 +398,8 @@ public partial class MainForm : Form
                     if (Directory.Exists(b.Path)) _activePanel.Navigate(b.Path);
                     else
                     {
-                        ShowMainStatus($"경로를 찾을 수 없습니다: {b.Path}");
-                        if (MessageBox.Show($"'{b.Path}' 경로가 없습니다. 즐겨찾기에서 제거할까요?", "경로 없음", MessageBoxButtons.YesNo) == DialogResult.Yes)
+                        ShowMainStatus(string.Format(LocalizationService.T("Status_PathNotFound"), b.Path));
+                        if (ThemedMessageBox.Show(this, string.Format(LocalizationService.T("Dlg_PathMissing_Msg"), b.Path), LocalizationService.T("Dlg_PathMissing_Title"), MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes)
                             _bookmarks.Remove(b.Path);
                     }
                 };
@@ -343,11 +455,42 @@ public partial class MainForm : Form
         AddToolBtn(LocalizationService.T("Refresh"),  "refresh",     LocalizationService.T("Refresh"),
             (_, _) => { leftPanel.Refresh(); rightPanel.Refresh(); ShowMainStatus("새로고침 완료"); });
         AddToolBtn(LocalizationService.T("Search"),      "search",      "F9",              (_, _) => OpenSearch(_activePanel));
+        _indexToggleBtn = AddToolBtn(LocalizationService.T("Menu_IndexStart"), "refresh", LocalizationService.T("Menu_IndexStart"), (_, _) => ToggleIndexing());
+        UpdateIndexToggleUi();
         toolStrip.Items.Add(new ToolStripSeparator());
         AddToolBtn(LocalizationService.T("Preview"),  "preview",     LocalizationService.T("Preview"),               (_, _) => mainSplit.Panel2Collapsed = !mainSplit.Panel2Collapsed);
+
+        // 언어/테마 토글 버튼(전환 '대상'을 라벨로 표시, 항상 보이도록 일반 흐름에 배치)
+        toolStrip.Items.Add(new ToolStripSeparator());
+        bool isKorean = _preferences.Language == AppLanguage.Korean;
+        AddToolBtn(
+            isKorean ? "English" : "한국어",
+            "language", LocalizationService.T("Menu_Language"), (_, _) => ToggleLanguage());
+
+        bool isDark = _preferences.Theme == AppTheme.Dark;
+        AddToolBtn(
+            LocalizationService.T(isDark ? "Menu_Light" : "Menu_Dark"),
+            isDark ? "light" : "dark", LocalizationService.T("Menu_Theme"), (_, _) => ToggleTheme());
+
         // About 버튼은 툴바 우측에 정렬한다.
         var aboutBtn = AddToolBtn(LocalizationService.T("About"), "info", LocalizationService.T("About_Title"), (_, _) => ShowAbout());
         aboutBtn.Alignment = ToolStripItemAlignment.Right;
+    }
+
+    private void ToggleLanguage()
+    {
+        _preferences.Language = _preferences.Language == AppLanguage.Korean ? AppLanguage.English : AppLanguage.Korean;
+        _preferences.Save();
+        LocalizationService.CurrentLanguage = _preferences.Language;
+        RebuildChrome();
+    }
+
+    private void ToggleTheme()
+    {
+        _preferences.Theme = _preferences.Theme == AppTheme.Dark ? AppTheme.Light : AppTheme.Dark;
+        _preferences.Save();
+        UiTheme.CurrentTheme = _preferences.Theme;
+        RebuildChrome();
     }
 
     private ToolStripButton AddToolBtn(string text, string iconKey, string tooltip, EventHandler handler)
@@ -371,13 +514,18 @@ public partial class MainForm : Form
 
     private void ShowAbout()
     {
-        AppIconHelper.TryApplyFormIcon(this);
-        MessageBox.Show(
+        using var appIcon = AppIconHelper.GetAppIconImage(48);
+        ThemedMessageBox.Show(
             this,
-            $"{AppInfo.DisplayName}\n\n{LocalizationService.T("About_Creator")}: SHKWON (knix008@naver.com)\n{LocalizationService.T("About_Copyright")}",
+            $"{AppInfo.DisplayName}\n\n" +
+            $"{LocalizationService.T("About_Version")}: {AppInfo.Version}\n" +
+            $"{LocalizationService.T("About_Build")}: {AppInfo.BuildDate}\n" +
+            $"{LocalizationService.T("About_Creator")}: SHKWON (knix008@naver.com)\n" +
+            $"{LocalizationService.T("About_Copyright")}",
             LocalizationService.T("About_Title"),
             MessageBoxButtons.OK,
-            MessageBoxIcon.Information);
+            MessageBoxIcon.Information,
+            appIcon);
     }
 
     private async void CopyActiveToOther()

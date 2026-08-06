@@ -39,13 +39,28 @@ public static class AppIconHelper
         return null;
     }
 
+    /// <summary>애플리케이션 아이콘을 지정 크기 비트맵으로 반환한다(없으면 null).</summary>
+    public static Image? GetAppIconImage(int size)
+    {
+        try
+        {
+            var path = FindIconPath();
+            if (path == null) return null;
+            using var icon = new Icon(path, new Size(size, size));
+            return icon.ToBitmap();
+        }
+        catch { return null; }
+    }
+
     public static void TryApplyFormIcon(Form form)
     {
         try
         {
             var path = FindIconPath();
             if (path == null) return;
-            form.Icon?.Dispose();
+            // 이전 아이콘을 dispose하지 않는다: 아이콘을 지정하지 않은 폼의 Icon 게터는
+            // WinForms 공유 기본 아이콘을 반환하므로, 이를 dispose하면 이후 다른 폼이
+            // 표시될 때 ObjectDisposedException으로 크래시한다.
             form.Icon = new Icon(path);
         }
         catch

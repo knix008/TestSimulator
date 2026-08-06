@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:bal="http://wixtoolset.org/schemas/v4/wxs/bal">
+
+  <!-- 설치용 실행 파일(.exe). 파일 아이콘으로 애플리케이션 아이콘을 사용한다. -->
+  <Bundle
+    Name="Command Center"
+    Manufacturer="Command Center"
+    Version="1.0.0.0"
+    UpgradeCode="C5F9A3B2-7D4E-4F60-AB1C-2E3D4F5A6B7C"
+    IconSourceFile="$(var.CommandCenter.Installer.ProjectDir)..\app_icon.ico">
+
+    <BootstrapperApplication>
+      <bal:WixStandardBootstrapperApplication
+        Theme="hyperlinkLicense"
+        SuppressOptionsUI="yes"
+        LicenseUrl=""
+        LogoFile="$(var.CommandCenter.Installer.ProjectDir)..\app_icon.ico" />
+    </BootstrapperApplication>
+
+    <Chain>
+      <!-- 앞서 빌드된 MSI를 포함하고, MSI 자체 UI(바로가기 선택)를 그대로 표시한다. -->
+      <MsiPackage
+        SourceFile="$(var.CommandCenter.Installer.TargetPath)"
+        Vital="yes"
+        bal:DisplayInternalUICondition="1" />
+    </Chain>
+  </Bundle>
+</Wix>

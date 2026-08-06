@@ -69,7 +69,7 @@ public partial class SearchDialog : Form
             }
             catch (Exception ex)
             {
-                MessageBox.Show(this, ex.Message, LocalizationService.T("Search_Title"), MessageBoxButtons.OK, MessageBoxIcon.Error);
+                ThemedMessageBox.Show(this, ex.Message, LocalizationService.T("Search_Title"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             FileSelected?.Invoke(this, path);
         }

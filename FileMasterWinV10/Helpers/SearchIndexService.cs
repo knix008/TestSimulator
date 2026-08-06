@@ -24,6 +24,8 @@ public sealed class SearchIndexService : IDisposable
     private CancellationTokenSource? _buildCts;
 
     private int _indexedCount;
+    private volatile bool _dirty;
+    private System.Threading.Timer? _autoSaveTimer;
 
     public IndexState State { get; private set; } = IndexState.NotBuilt;
     public int Count => _entries.Count;
@@ -45,16 +47,32 @@ public sealed class SearchIndexService : IDisposable
     /// <summary>저장된 색인이 있으면 로드하고, 없으면 백그라운드로 새로 만든다. 이후 변경 감시를 시작한다.</summary>
     public void Initialize()
     {
-        if (TryLoad())
+        // 로드/감시 시작을 백그라운드에서 수행해 UI 시작을 막지 않는다.
+        Task.Run(() =>
         {
-            State = IndexState.Ready;
-            RaiseStatus();
-            StartWatching();
-        }
-        else
+            if (TryLoad())
+            {
+                State = IndexState.Ready;
+                RaiseStatus();
+                StartWatching();
+                StartAutoSave();
+            }
+            else
+            {
+                _ = RebuildAsync();
+            }
+        });
+    }
+
+    // 변경분을 주기적으로 백그라운드 저장한다(종료 시 UI를 막지 않기 위함).
+    private void StartAutoSave()
+    {
+        _autoSaveTimer ??= new System.Threading.Timer(_ =>
         {
-            _ = RebuildAsync();
-        }
+            if (!_dirty) return;
+            _dirty = false;
+            TrySave();
+        }, null, TimeSpan.FromSeconds(120), TimeSpan.FromSeconds(120));
     }
 
     /// <summary>전체 드라이브를 다시 스캔하여 색인을 새로 만든다(수동 재색인).</summary>
@@ -93,12 +111,29 @@ public sealed class SearchIndexService : IDisposable
                 foreach (var kv in map) _entries[kv.Key] = kv.Value;
                 LastBuiltUtc = DateTime.UtcNow;
                 State = IndexState.Ready;
+                _dirty = false;
                 TrySave();
                 RaiseStatus();
                 StartWatching();
+                StartAutoSave();
             }
             catch (OperationCanceledException) { }
+            finally
+            {
+                // 취소로 중단된 경우 상태를 되돌린다.
+                if (State == IndexState.Building)
+                {
+                    State = _entries.Count > 0 ? IndexState.Ready : IndexState.NotBuilt;
+                    RaiseStatus();
+                }
+            }
         }, ct);
+    }
+
+    /// <summary>진행 중인 색인 작업을 중지한다.</summary>
+    public void CancelBuild()
+    {
+        lock (_buildLock) _buildCts?.Cancel();
     }
 
     private static void ScanSubtree(string root, ConcurrentDictionary<string, IndexedEntry> map, CancellationToken ct, Action? onItem = null)
@@ -223,6 +258,7 @@ public sealed class SearchIndexService : IDisposable
                 var fi = new FileInfo(path);
                 _entries[path] = new IndexedEntry(path, fi.Name, fi.Length, fi.LastWriteTimeUtc.Ticks, false);
             }
+            _dirty = true;
         }
         catch { }
     }
@@ -236,6 +272,7 @@ public sealed class SearchIndexService : IDisposable
             if (key.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
                 _entries.TryRemove(key, out _);
         }
+        _dirty = true;
     }
 
     // ──────────────────── 영속화 ────────────────────
@@ -304,8 +341,16 @@ public sealed class SearchIndexService : IDisposable
 
     public void Dispose()
     {
+        // 종료를 즉시 처리한다. 저장은 백그라운드로 흘려보내(대기하지 않음),
+        // 미저장분은 주기적 자동저장/다음 재색인으로 복구된다.
         lock (_buildLock) _buildCts?.Cancel();
+        _autoSaveTimer?.Dispose();
+        _autoSaveTimer = null;
         StopWatching();
-        TrySave();
+        if (_dirty)
+        {
+            _dirty = false;
+            Task.Run(() => TrySave());
+        }
     }
 }

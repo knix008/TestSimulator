@@ -10,6 +10,7 @@ public static class UiTheme
     private static readonly ConditionalWeakTable<Control, object?> NativeThemeHookedControls = new();
     private static readonly ConditionalWeakTable<ListView, object?> DrawHookedListViews = new();
     private static readonly ConditionalWeakTable<ListView, ListViewHeaderFiller> HeaderFillers = new();
+    private static readonly ConditionalWeakTable<ListView, ListViewBodyFiller> BodyFillers = new();
 
     [DllImport("uxtheme.dll", CharSet = CharSet.Unicode)]
     private static extern int SetWindowTheme(IntPtr hwnd, string? pszSubAppName, string? pszSubIdList);
@@ -129,16 +130,36 @@ public static class UiTheme
         lv.ForeColor = TextPrimary;
         lv.Font = UiFont;
         lv.GridLines = false;
+        lv.MultiSelect = true;      // Shift/Ctrl 다중 선택
+        lv.FullRowSelect = true;
         lv.OwnerDraw = true;
+        EnableDoubleBuffer(lv);
         HookListViewDrawing(lv);
         HookHeaderFiller(lv);
+        HookBodyFiller(lv);
         ApplyNativeTheme(lv);
+    }
+
+    private static void EnableDoubleBuffer(ListView lv) => EnableDoubleBuffered(lv);
+
+    /// <summary>컨트롤의 이중 버퍼링을 켠다(깜빡임·드래그 잔상 방지).</summary>
+    public static void EnableDoubleBuffered(Control control)
+    {
+        typeof(Control)
+            .GetProperty("DoubleBuffered", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+            ?.SetValue(control, true);
     }
 
     private static void HookHeaderFiller(ListView lv)
     {
         if (HeaderFillers.TryGetValue(lv, out _)) return;
         HeaderFillers.Add(lv, new ListViewHeaderFiller(lv));
+    }
+
+    private static void HookBodyFiller(ListView lv)
+    {
+        if (BodyFillers.TryGetValue(lv, out _)) return;
+        BodyFillers.Add(lv, new ListViewBodyFiller(lv));
     }
 
     public static void StyleTreeView(TreeView tree)
@@ -220,6 +241,10 @@ public static class UiTheme
         lv.DrawColumnHeader += OnDrawListViewColumnHeader;
         lv.DrawItem += OnDrawListViewItem;
         lv.DrawSubItem += OnDrawListViewSubItem;
+        // 선택이 바뀌면 마지막 컬럼 뒤 확장 영역까지 다시 칠하도록 전체를 무효화한다.
+        lv.SelectedIndexChanged += (_, _) => lv.Invalidate();
+        // 크기가 바뀌면(스플리터 이동 등) 행 패턴이 전체 너비로 다시 그려지도록 무효화한다.
+        lv.SizeChanged += (_, _) => lv.Invalidate();
     }
 
     private static void OnDrawListViewColumnHeader(object? sender, DrawListViewColumnHeaderEventArgs e)
@@ -244,19 +269,37 @@ public static class UiTheme
 
     private static void OnDrawListViewItem(object? sender, DrawListViewItemEventArgs e)
     {
-        if (e.Item == null) return;
-        if (e.Item.ListView?.View == View.Details) return;
-        e.DrawBackground();
-        e.DrawText();
+        if (e.Item?.ListView is not ListView lv) return;
+        // Details 뷰에서는 각 셀(DrawSubItem)에서 배경/텍스트를 그린다.
+        if (lv.View != View.Details)
+        {
+            e.DrawBackground();
+            e.DrawText();
+        }
+    }
+
+    private static bool IsLastColumn(ListView lv, int columnIndex)
+    {
+        int maxDisplay = -1, lastIndex = 0;
+        foreach (ColumnHeader c in lv.Columns)
+            if (c.DisplayIndex > maxDisplay) { maxDisplay = c.DisplayIndex; lastIndex = c.Index; }
+        return columnIndex == lastIndex;
     }
 
     private static void OnDrawListViewSubItem(object? sender, DrawListViewSubItemEventArgs e)
     {
-        if (e.Item == null || e.Header == null || e.SubItem == null) return;
+        if (e.Item?.ListView is not ListView lv || e.Header == null || e.SubItem == null) return;
 
         var selected = e.Item.Selected;
-        using var bg = new SolidBrush(selected ? SelectionBg : (e.ItemIndex % 2 == 0 ? Surface : ListAlternate));
-        e.Graphics.FillRectangle(bg, e.Bounds);
+        var rowColor = selected ? SelectionBg : (e.ItemIndex % 2 == 0 ? Surface : ListAlternate);
+
+        // 각 셀 배경을 행 색으로 칠한다. 마지막 컬럼은 컨트롤 오른쪽 끝까지 확장해
+        // 행 전체(마지막 컬럼 뒤 여백 포함)가 선택돼 보이게 한다.
+        var fill = IsLastColumn(lv, e.ColumnIndex)
+            ? new Rectangle(e.Bounds.Left, e.Bounds.Top, lv.ClientSize.Width - e.Bounds.Left, e.Bounds.Height)
+            : e.Bounds;
+        using (var bg = new SolidBrush(rowColor))
+            e.Graphics.FillRectangle(bg, fill);
 
         var textBounds = Rectangle.Inflate(e.Bounds, -8, 0);
         if (e.ColumnIndex == 0 && e.Item.ImageList != null && e.Item.ImageIndex >= 0 && e.Item.ImageIndex < e.Item.ImageList.Images.Count)
@@ -355,6 +398,56 @@ internal sealed class ListViewHeaderFiller : NativeWindow
     }
 }
 
+/// <summary>
+/// 오너드로우 ListView의 마지막 항목 아래 빈 영역까지 교차 줄무늬를 이어 그려,
+/// 목록이 하단에서 끊겨 보이지 않게 한다.
+/// </summary>
+internal sealed class ListViewBodyFiller : NativeWindow
+{
+    private const int WM_PAINT = 0x000F;
+    private readonly ListView _lv;
+
+    public ListViewBodyFiller(ListView lv)
+    {
+        _lv = lv;
+        _lv.HandleCreated += (_, _) => { if (Handle == IntPtr.Zero) AssignHandle(_lv.Handle); };
+        _lv.HandleDestroyed += (_, _) => { if (Handle != IntPtr.Zero) ReleaseHandle(); };
+        if (_lv.IsHandleCreated) AssignHandle(_lv.Handle);
+    }
+
+    protected override void WndProc(ref Message m)
+    {
+        base.WndProc(ref m);
+        if (m.Msg == WM_PAINT) PaintBelowLastItem();
+    }
+
+    private void PaintBelowLastItem()
+    {
+        if (_lv.View != View.Details || _lv.Items.Count == 0) return;
+
+        var last = _lv.Items[_lv.Items.Count - 1].Bounds;
+        int rowH = last.Height;
+        if (rowH <= 0) return;
+
+        var client = _lv.ClientRectangle;
+        if (last.Bottom >= client.Bottom) return;
+
+        using var g = Graphics.FromHwnd(_lv.Handle);
+        using var surface = new SolidBrush(UiTheme.Surface);
+        using var alt = new SolidBrush(UiTheme.ListAlternate);
+
+        int y = last.Bottom;
+        int idx = _lv.Items.Count; // 다음 행의 홀짝을 이어간다.
+        while (y < client.Bottom)
+        {
+            var brush = idx % 2 == 0 ? surface : alt;
+            g.FillRectangle(brush, new Rectangle(client.Left, y, client.Width, rowH));
+            y += rowH;
+            idx++;
+        }
+    }
+}
+
 internal sealed class ModernMenuRenderer : ToolStripProfessionalRenderer
 {
     public ModernMenuRenderer() : base(new ModernColorTable()) { }
@@ -426,6 +519,11 @@ internal sealed class ModernToolStripRenderer : ToolStripProfessionalRenderer
 internal sealed class ModernStatusStripRenderer : ToolStripProfessionalRenderer
 {
     public ModernStatusStripRenderer() : base(new ModernColorTable()) { }
+
+    protected override void OnRenderToolStripBorder(ToolStripRenderEventArgs e)
+    {
+        // 상태 표시줄 위쪽 경계선을 그리지 않는다(요청: 없거나 아주 얇게).
+    }
 }
 
 internal sealed class ModernColorTable : ProfessionalColorTable

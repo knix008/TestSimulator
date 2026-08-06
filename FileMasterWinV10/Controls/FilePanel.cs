@@ -644,7 +644,7 @@ public partial class FilePanel : UserControl
         catch (Exception ex)
         {
             SetStatus($"열기 실패: {ex.Message}");
-            MessageBox.Show(ex.Message, "열기 실패", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            ThemedMessageBox.Show(ex.Message, LocalizationService.T("Dlg_OpenFailed"), MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 
@@ -677,7 +677,7 @@ public partial class FilePanel : UserControl
             catch (Exception ex)
             {
                 SetStatus($"연결 프로그램 열기 실패: {ex.Message}");
-                MessageBox.Show(ex.Message, "연결 프로그램 오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                ThemedMessageBox.Show(ex.Message, LocalizationService.T("Dlg_OpenWithError"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
         SetStatus($"연결 프로그램으로 열기: {Path.GetFileName(path)}");
@@ -690,7 +690,7 @@ public partial class FilePanel : UserControl
         var msg = paths.Length == 1
             ? $"'{Path.GetFileName(paths[0])}'을(를) 삭제하시겠습니까?"
             : $"선택한 {paths.Length}개 항목을 삭제하시겠습니까?";
-        if (MessageBox.Show(msg, "삭제 확인", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes) return;
+        if (ThemedMessageBox.Show(msg, LocalizationService.T("Dlg_DeleteConfirm"), MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes) return;
 
         var owner = FindForm() as Form;
         var (success, error) = await FileOperationRunner.RunAsync(owner, "삭제 중",
@@ -717,7 +717,7 @@ public partial class FilePanel : UserControl
         catch (Exception ex)
         {
             SetStatus($"폴더 생성 실패: {ex.Message}");
-            MessageBox.Show(ex.Message, "오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            ThemedMessageBox.Show(ex.Message, LocalizationService.T("Dlg_Error"), MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 
@@ -734,7 +734,7 @@ public partial class FilePanel : UserControl
         catch (Exception ex)
         {
             SetStatus($"파일 생성 실패: {ex.Message}");
-            MessageBox.Show(ex.Message, "오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            ThemedMessageBox.Show(ex.Message, LocalizationService.T("Dlg_Error"), MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 
@@ -783,7 +783,7 @@ public partial class FilePanel : UserControl
         {
             prog.Close();
             SetStatus($"압축 실패: {ex.Message}");
-            MessageBox.Show(ex.Message, "압축 오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            ThemedMessageBox.Show(ex.Message, LocalizationService.T("Dlg_CompressError"), MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 
@@ -834,7 +834,7 @@ public partial class FilePanel : UserControl
         {
             prog.Close();
             SetStatus($"압축 해제 실패: {ex.Message}");
-            MessageBox.Show(ex.Message, "압축 해제 오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            ThemedMessageBox.Show(ex.Message, LocalizationService.T("Dlg_ExtractError"), MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 
@@ -873,7 +873,7 @@ public partial class FilePanel : UserControl
         {
             e.CancelEdit = true;
             SetStatus($"이름 바꾸기 실패: {ex.Message}");
-            MessageBox.Show(ex.Message, "이름 바꾸기 오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            ThemedMessageBox.Show(ex.Message, LocalizationService.T("Dlg_RenameError"), MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 
@@ -935,11 +935,11 @@ public partial class FilePanel : UserControl
         catch
         {
             var info = entry.IsDirectory ? (FileSystemInfo)new DirectoryInfo(entry.FullPath) : new FileInfo(entry.FullPath);
-            MessageBox.Show(
+            ThemedMessageBox.Show(
                 $"이름: {entry.Name}\n경로: {entry.FullPath}\n" +
                 (entry.IsDirectory ? "" : $"크기: {FileEntry.FormatSize(entry.Size)}\n") +
                 $"수정: {info.LastWriteTime:yyyy-MM-dd HH:mm:ss}\n생성: {info.CreationTime:yyyy-MM-dd HH:mm:ss}\n속성: {entry.Attributes}",
-                "속성", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                LocalizationService.T("Dlg_Properties"), MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
     }
 

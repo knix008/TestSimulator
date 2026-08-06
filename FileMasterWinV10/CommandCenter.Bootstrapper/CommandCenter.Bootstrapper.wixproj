@@ -1,0 +1,15 @@
+<Project Sdk="WixToolset.Sdk/5.0.2">
+  <PropertyGroup>
+    <OutputType>Bundle</OutputType>
+    <OutputName>CommandCenterSetup</OutputName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- MSI 빌드 순서 보장 및 $(var.CommandCenter.Installer.*) 변수 제공 -->
+    <ProjectReference Include="..\CommandCenter.Installer\CommandCenter.Installer.wixproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="WixToolset.Bal.wixext" Version="5.0.2" />
+  </ItemGroup>
+</Project>
