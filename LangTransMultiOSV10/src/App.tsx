@@ -156,6 +156,7 @@ const copy = {
     ready: 'Ready',
     translating: 'Translating...',
     speaking: 'Synthesizing speech...',
+    ttsProgressTitle: 'Voice generation',
     saving: 'Saving audio...',
     saved: 'Audio file saved.',
     outputSaved: 'Output text saved.',
@@ -236,6 +237,7 @@ const copy = {
     ready: '준비됨',
     translating: '번역 중...',
     speaking: '음성 생성 중...',
+    ttsProgressTitle: '음성 생성',
     saving: '음성 저장 중...',
     saved: '음성 파일을 저장했습니다.',
     outputSaved: '출력 텍스트를 저장했습니다.',
@@ -305,6 +307,8 @@ function App() {
   const audioUrlRef = useRef<string | null>(null)
   const animationFrameRef = useRef<number | null>(null)
   const toastTimeoutRef = useRef<number | null>(null)
+  const ttsProgressTimerRef = useRef<number | null>(null)
+  const ttsProgressCloseTimerRef = useRef<number | null>(null)
   const [uiLanguage, setUiLanguage] = useState<UiLanguage>('ko')
   const [theme, setTheme] = useState<Theme>('dark')
   const [sourceLanguage, setSourceLanguage] = useState('auto')
@@ -333,6 +337,8 @@ function App() {
   const [isInfoOpen, setIsInfoOpen] = useState(false)
   const [errorInfo, setErrorInfo] = useState<ErrorInfo | null>(null)
   const [toastMessage, setToastMessage] = useState('')
+  const [ttsProgress, setTtsProgress] = useState(0)
+  const [isTtsProgressOpen, setIsTtsProgressOpen] = useState(false)
   const [isDraggingOver, setIsDraggingOver] = useState(false)
   const [waveform, setWaveform] = useState<number[]>([])
   const [playbackProgress, setPlaybackProgress] = useState(0)
@@ -358,6 +364,12 @@ function App() {
     if (toastTimeoutRef.current !== null) {
       window.clearTimeout(toastTimeoutRef.current)
     }
+    if (ttsProgressTimerRef.current !== null) {
+      window.clearInterval(ttsProgressTimerRef.current)
+    }
+    if (ttsProgressCloseTimerRef.current !== null) {
+      window.clearTimeout(ttsProgressCloseTimerRef.current)
+    }
     audioRef.current?.pause()
     if (audioUrlRef.current) {
       URL.revokeObjectURL(audioUrlRef.current)
@@ -377,6 +389,39 @@ function App() {
       window.clearTimeout(toastTimeoutRef.current)
     }
     toastTimeoutRef.current = window.setTimeout(() => setToastMessage(''), 2000)
+  }
+
+  const startTtsProgress = () => {
+    if (ttsProgressTimerRef.current !== null) {
+      window.clearInterval(ttsProgressTimerRef.current)
+    }
+    if (ttsProgressCloseTimerRef.current !== null) {
+      window.clearTimeout(ttsProgressCloseTimerRef.current)
+    }
+
+    setIsTtsProgressOpen(true)
+    setTtsProgress(3)
+    ttsProgressTimerRef.current = window.setInterval(() => {
+      setTtsProgress((current) => Math.min(90, current + Math.max(1, Math.round((90 - current) * 0.12))))
+    }, 450)
+  }
+
+  const finishTtsProgress = () => {
+    if (ttsProgressTimerRef.current !== null) {
+      window.clearInterval(ttsProgressTimerRef.current)
+      ttsProgressTimerRef.current = null
+    }
+    setTtsProgress(100)
+    ttsProgressCloseTimerRef.current = window.setTimeout(() => setIsTtsProgressOpen(false), 700)
+  }
+
+  const closeTtsProgress = () => {
+    if (ttsProgressTimerRef.current !== null) {
+      window.clearInterval(ttsProgressTimerRef.current)
+      ttsProgressTimerRef.current = null
+    }
+    setIsTtsProgressOpen(false)
+    setTtsProgress(0)
   }
 
   const readErrorResponse = async (response: Response) => {
@@ -781,11 +826,12 @@ function App() {
 
   const speak = async () => {
     setIsSpeaking(true)
-    setStatus(text.speaking)
+    startTtsProgress()
 
     try {
       const audioBlob = await synthesizeAudio('wav')
       if (!audioBlob) {
+        closeTtsProgress()
         return
       }
       if (animationFrameRef.current !== null) {
@@ -808,8 +854,10 @@ function App() {
         setIsAudioPlaying(false)
         setStatus(text.ready)
       }
+      finishTtsProgress()
       await audio.play()
     } catch (error) {
+      closeTtsProgress()
       const detail = describeError(error)
       showError(text.errorTitle, text.ttsUnavailable, `Endpoint: ${ttsUrl}\nVoice: ${targetVoiceId}\nFormat: wav\n${detail}`)
     } finally {
@@ -1227,6 +1275,18 @@ function App() {
               </button>
             </div>
           </section>
+        </div>
+      )}
+
+      {isTtsProgressOpen && (
+        <div className="tts-progress-popup" role="status" aria-live="polite">
+          <div className="tts-progress-header">
+            <span>{text.ttsProgressTitle}</span>
+            <strong>{ttsProgress}%</strong>
+          </div>
+          <div className="tts-progress-track" aria-hidden="true">
+            <div className="tts-progress-fill" style={{ width: `${ttsProgress}%` }} />
+          </div>
         </div>
       )}
 
