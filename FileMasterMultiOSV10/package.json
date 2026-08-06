@@ -1,0 +1,78 @@
+{
+  "name": "commandcenterelectron",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Command Center cross-platform dual-pane file manager",
+  "author": "Command Center",
+  "type": "module",
+  "main": "dist-electron/electron/main.js",
+  "scripts": {
+    "start": "npm run build && electron .",
+    "dev": "concurrently -k \"vite --host 127.0.0.1\" \"tsc -p electron/tsconfig.json --watch\" \"wait-on tcp:5173 file:dist-electron/electron/main.js && cross-env VITE_DEV_SERVER_URL=http://127.0.0.1:5173 electron dist-electron/electron/main.js\"",
+    "dev:web": "vite --host 127.0.0.1",
+    "build": "tsc -b && tsc -p electron/tsconfig.json && vite build",
+    "build:desktop": "npm run build && electron-builder",
+    "package:dir": "npm run build && electron-builder --dir",
+    "package:win": "npm run build && electron-builder --win nsis portable",
+    "package:linux": "npm run build && electron-builder --linux AppImage deb rpm",
+    "package:mac": "npm run build && electron-builder --mac dmg zip",
+    "package:all": "npm run build && electron-builder --win nsis portable --linux AppImage deb rpm --mac dmg zip",
+    "lint": "oxlint",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@electron-toolkit/utils": "^4.0.0",
+    "archiver": "^8.0.0",
+    "chokidar": "^5.0.0",
+    "electron-store": "^11.0.2",
+    "lucide-react": "^1.28.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "unzipper": "^0.12.5"
+  },
+  "devDependencies": {
+    "@types/archiver": "^8.0.0",
+    "@types/node": "^24.13.3",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@types/unzipper": "^0.10.11",
+    "@vitejs/plugin-react": "^6.0.4",
+    "concurrently": "^10.0.4",
+    "cross-env": "^10.1.0",
+    "electron": "^43.3.0",
+    "electron-builder": "^26.15.3",
+    "oxlint": "^1.75.0",
+    "typescript": "~6.0.2",
+    "vite": "^8.2.0",
+    "wait-on": "^9.1.0"
+  },
+  "build": {
+    "appId": "com.commandcenter.filemaster",
+    "productName": "Command Center",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**",
+      "dist-electron/**",
+      "package.json"
+    ],
+    "win": {
+      "target": ["nsis"],
+      "icon": "build/app_icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "CommandCenter"
+    },
+    "mac": {
+      "target": ["dmg", "zip"]
+    },
+    "linux": {
+      "target": ["AppImage", "deb", "rpm"]
+    }
+  }
+}

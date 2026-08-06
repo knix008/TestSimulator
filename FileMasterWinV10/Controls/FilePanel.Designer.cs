@@ -74,7 +74,7 @@ partial class FilePanel
         //
         // folderTree
         //
-        folderTree.Dock = DockStyle.Top;
+        folderTree.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
         folderTree.Location = new Point(1, 37);
         folderTree.Name = "folderTree";
         folderTree.Size = new Size(398, 0);

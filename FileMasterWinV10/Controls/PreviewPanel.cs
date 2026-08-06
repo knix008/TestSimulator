@@ -18,12 +18,27 @@ public partial class PreviewPanel : Panel
     {
         InitializeComponent();
         if (!AppIconHelper.IsDesignMode(this))
-        {
-            BackColor = UiTheme.Surface;
-            textBox.Font = UiTheme.MonoFont;
-            infoLabel.Font = UiTheme.UiFont;
-            infoLabel.ForeColor = UiTheme.TextSecondary;
-        }
+            ApplyCurrentTheme();
+    }
+
+    public void ApplyCurrentTheme()
+    {
+        BackColor = UiTheme.Surface;
+
+        textBox.BackColor = UiTheme.Surface;
+        textBox.ForeColor = UiTheme.TextPrimary;
+        textBox.Font = UiTheme.MonoFont;
+        UiTheme.ApplyNativeTheme(textBox);
+
+        pictureBox.BackColor = UiTheme.Background;
+
+        infoLabel.BackColor = UiTheme.Surface;
+        infoLabel.ForeColor = UiTheme.TextSecondary;
+        infoLabel.Font = UiTheme.UiFont;
+
+        // 미리보기가 비어 있으면 안내 문구를 현재 언어로 갱신한다.
+        if (!pictureBox.Visible && !textBox.Visible)
+            infoLabel.Text = LocalizationService.T("Preview_Empty");
     }
 
     public void Preview(string? path)
@@ -36,7 +51,7 @@ public partial class PreviewPanel : Panel
 
         if (string.IsNullOrEmpty(path) || !File.Exists(path))
         {
-            infoLabel.Text = "파일을 선택하면 미리보기가 표시됩니다.";
+            infoLabel.Text = LocalizationService.T("Preview_Empty");
             return;
         }
 

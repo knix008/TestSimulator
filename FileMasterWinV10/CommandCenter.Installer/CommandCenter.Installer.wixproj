@@ -3,6 +3,8 @@
     <OutputType>Package</OutputType>
     <OutputName>CommandCenterSetup</OutputName>
     <Platform>x64</Platform>
+    <!-- 같은 버전 재설치를 의도적으로 허용하므로 ICE61 검증만 억제한다. -->
+    <SuppressIces>ICE61</SuppressIces>
   </PropertyGroup>
 
   <ItemGroup>
@@ -12,29 +14,6 @@
   <ItemGroup>
     <PackageReference Include="WixToolset.UI.wixext" Version="5.0.2" GeneratePathProperty="true" />
   </ItemGroup>
-
-  <PropertyGroup>
-    <DaemonHammerIcoPath>$(MSBuildThisFileDirectory)..\daemon_hammer.ico</DaemonHammerIcoPath>
-  </PropertyGroup>
-
-  <Target Name="SyncDaemonHammerIconForMsi" BeforeTargets="CoreCompile">
-    <Error
-      Condition="!Exists('$(DaemonHammerIcoPath)')"
-      Text="daemon_hammer.ico not found at $(DaemonHammerIcoPath)" />
-    <PropertyGroup>
-      <_AppOutDir>$(MSBuildThisFileDirectory)..\bin\$(Configuration)\net8.0-windows\</_AppOutDir>
-      <_AppOutDirX64>$(MSBuildThisFileDirectory)..\bin\x64\$(Configuration)\net8.0-windows\</_AppOutDirX64>
-    </PropertyGroup>
-    <Copy
-      SourceFiles="$(DaemonHammerIcoPath)"
-      DestinationFiles="$(_AppOutDir)daemon_hammer.ico"
-      SkipUnchangedFiles="false" />
-    <Copy
-      SourceFiles="$(DaemonHammerIcoPath)"
-      DestinationFiles="$(_AppOutDirX64)daemon_hammer.ico"
-      SkipUnchangedFiles="false"
-      Condition="Exists('$(_AppOutDirX64)')" />
-  </Target>
 
   <Target Name="CopyMsiNextToApplication" AfterTargets="Build">
     <PropertyGroup>

@@ -1,0 +1,35 @@
+{
+  "default_voice_id": "en-piper-onnx",
+  "voices": {
+    "ko-supertonic": {
+      "language": "ko",
+      "display_name": "Supertonic Korean",
+      "engine": "external",
+      "command": [
+        "C:/Tools/Supertonic/supertonic.exe",
+        "--text-file",
+        "{text_file}",
+        "--output",
+        "{output_file}",
+        "--format",
+        "wav"
+      ]
+    },
+    "ko-piper-onnx": {
+      "language": "ko",
+      "display_name": "Korean Piper ONNX",
+      "engine": "piper_onnx",
+      "model_path": "models/ko_KR/voice.onnx",
+      "model_url": "https://huggingface.co/neurlang/piper-onnx-kss-korean/resolve/main/piper-kss-korean.onnx?download=true",
+      "config_url": "https://huggingface.co/neurlang/piper-onnx-kss-korean/resolve/main/piper-kss-korean.onnx.json?download=true"
+    },
+    "en-piper-onnx": {
+      "language": "en",
+      "display_name": "English Piper ONNX",
+      "engine": "piper_onnx",
+      "model_path": "models/en_US/voice.onnx",
+      "model_url": "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/amy/medium/en_US-amy-medium.onnx?download=true",
+      "config_url": "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/amy/medium/en_US-amy-medium.onnx.json?download=true"
+    }
+  }
+}

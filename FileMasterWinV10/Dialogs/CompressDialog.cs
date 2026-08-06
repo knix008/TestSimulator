@@ -1,4 +1,5 @@
 using System.IO.Compression;
+using FileMasterWinV10.Helpers;
 
 namespace FileMasterWinV10.Dialogs;
 
@@ -157,12 +158,12 @@ public class CompressDialog : Form
     {
         if (string.IsNullOrWhiteSpace(_nameBox.Text))
         {
-            MessageBox.Show("압축 파일 이름을 입력하세요.", "알림", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            ThemedMessageBox.Show(this, LocalizationService.T("Dlg_CompressName"), LocalizationService.T("Dlg_Notice"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
         if (!Directory.Exists(_destBox.Text))
         {
-            MessageBox.Show("저장 위치가 올바르지 않습니다.", "알림", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            ThemedMessageBox.Show(this, LocalizationService.T("Dlg_CompressDest"), LocalizationService.T("Dlg_Notice"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
 
@@ -186,7 +187,7 @@ public class CompressDialog : Form
             }
             if (splitBytes < 65536)
             {
-                MessageBox.Show("분할 크기는 최소 64 KB 이상이어야 합니다.", "알림", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                ThemedMessageBox.Show(this, LocalizationService.T("Dlg_CompressSplitMin"), LocalizationService.T("Dlg_Notice"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
         }

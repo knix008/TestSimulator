@@ -1,0 +1,74 @@
+:root {
+  --font-sans: Avenir Next, Aptos, Segoe UI, sans-serif;
+  --text: #eef6ff;
+  --muted: #a7b7cc;
+  --bg: #071322;
+  --panel: #0e2035;
+  --panel-muted: #0a192b;
+  --field: #07182a;
+  --line: #253b57;
+  --line-strong: #3a5d86;
+  --accent: #7fb7ff;
+  --accent-text: #06111f;
+  --focus-ring: rgba(127, 183, 255, 0.24);
+  --mark-bg: linear-gradient(135deg, #173a63, #071322);
+  --shadow-soft: 0 18px 46px rgba(0, 0, 0, 0.22);
+  --tooltip-bg: #eef6ff;
+  --tooltip-text: #0e2035;
+  color-scheme: dark;
+  font-family: var(--font-sans);
+  color: var(--text);
+  background:
+    linear-gradient(135deg, rgba(66, 140, 226, 0.18), transparent 34%),
+    radial-gradient(circle at 84% 0%, rgba(35, 86, 150, 0.4), transparent 30%),
+    var(--bg);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+:root[data-theme='light'] {
+  --text: #122033;
+  --muted: #5c6f88;
+  --bg: #edf4fb;
+  --panel: #fbfdff;
+  --panel-muted: #dce8f5;
+  --field: #f4f8fd;
+  --line: #c5d5e8;
+  --line-strong: #89a8cc;
+  --accent: #256eb8;
+  --accent-text: #ffffff;
+  --focus-ring: rgba(37, 110, 184, 0.2);
+  --mark-bg: linear-gradient(135deg, #d9e8f8, #fbfdff);
+  --shadow-soft: 0 18px 46px rgba(31, 55, 84, 0.12);
+  --tooltip-bg: #122033;
+  --tooltip-text: #fbfdff;
+  background:
+    linear-gradient(135deg, rgba(37, 110, 184, 0.12), transparent 34%),
+    radial-gradient(circle at 84% 0%, rgba(101, 151, 204, 0.32), transparent 30%),
+    var(--bg);
+  color-scheme: light;
+}
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+}
+
+button,
+select,
+input,
+textarea {
+  letter-spacing: 0;
+}
+
+button:hover {
+  filter: brightness(1.04);
+}
+
+button:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 2px;
+}

@@ -45,11 +45,11 @@ public static class MenuIconProvider
 
     static MenuIconProvider()
     {
-        _cache["folder"]      = Stock(SIID_FOLDER);
-        _cache["folder_open"] = Stock(SIID_FOLDEROPEN);
-        _cache["file"]        = Stock(SIID_DOCNOASSOC);
-        _cache["search"]      = Stock(SIID_FIND);
-        _cache["zip"]         = Stock(SIID_ZIPFILE);
+        _cache["folder"]      = DrawFolder();
+        _cache["folder_open"] = DrawFolderOpen();
+        _cache["file"]        = DrawFile();
+        _cache["search"]      = DrawSearch();
+        _cache["zip"]         = DrawZip();
 
         _cache["folder_new"]  = DrawFolderNew();
         _cache["file_new"]    = DrawFileNew();
@@ -68,6 +68,13 @@ public static class MenuIconProvider
         _cache["exit"]        = DrawExit();
         _cache["select_all"]  = DrawSelectAll();
         _cache["open_with"]   = DrawOpenWith();
+        _cache["info"]        = DrawInfo();
+
+        _cache["settings"]    = DrawSettings();
+        _cache["language"]    = DrawLanguage();
+        _cache["theme"]       = DrawTheme();
+        _cache["light"]       = DrawLight();
+        _cache["dark"]        = DrawDark();
     }
 
     public static Image? Get(string key) =>
@@ -118,6 +125,53 @@ public static class MenuIconProvider
     private static SolidBrush Br(Color c) => new(c);
 
     // ── Drawn icons ──────────────────────────────────────────────────────
+
+    private static Image DrawFolder() => B(g =>
+    {
+        using var body = new GraphicsPath();
+        body.AddRectangle(new RectangleF(1, 5, 14, 9));
+        body.AddPolygon(new PointF[] { new(1, 5), new(1, 3), new(6, 3), new(7, 5) });
+        g.FillPath(Br(Gold), body);
+        g.DrawPath(P(DarkGold, 1f), body);
+        g.FillRectangle(Br(Color.FromArgb(255, 210, 80)), new RectangleF(2, 6, 12, 2));
+    });
+
+    private static Image DrawFolderOpen() => B(g =>
+    {
+        g.FillRectangle(Br(Color.FromArgb(255, 200, 54)), new RectangleF(1, 4, 12, 5));
+        g.DrawRectangle(P(DarkGold, 1f), 1, 4, 12, 5);
+        using var front = new GraphicsPath();
+        front.AddPolygon(new PointF[] { new(2, 7), new(15, 7), new(13, 14), new(1, 14) });
+        g.FillPath(Br(Color.FromArgb(255, 188, 33)), front);
+        g.DrawPath(P(DarkGold, 1f), front);
+    });
+
+    private static Image DrawFile() => B(g =>
+    {
+        g.FillRectangle(Br(PageFill), new RectangleF(3, 1, 10, 14));
+        g.DrawRectangle(P(PageBord, 1f), 3, 1, 10, 14);
+        g.FillPolygon(Br(Color.FromArgb(210, 232, 255)), new PointF[] { new(10, 1), new(13, 4), new(10, 4) });
+        g.DrawLine(P(PageBord, 0.9f), 10, 1, 13, 4);
+        g.DrawLine(P(WinBlue, 1f), 5, 7, 11, 7);
+        g.DrawLine(P(WinBlue, 1f), 5, 10, 11, 10);
+    });
+
+    private static Image DrawSearch() => B(g =>
+    {
+        g.FillEllipse(Br(Color.FromArgb(222, 244, 255)), 1, 1, 10, 10);
+        g.DrawEllipse(P(WinBlue, 1.8f), 1, 1, 10, 10);
+        g.DrawLine(P(Color.FromArgb(255, 140, 0), 2.5f), 9.5f, 9.5f, 14, 14);
+    });
+
+    private static Image DrawZip() => B(g =>
+    {
+        g.FillRectangle(Br(Color.FromArgb(232, 244, 255)), new RectangleF(3, 1, 10, 14));
+        g.DrawRectangle(P(WinBlue, 1f), 3, 1, 10, 14);
+        g.FillRectangle(Br(Color.FromArgb(255, 210, 80)), new RectangleF(6, 1, 3, 14));
+        for (int y = 2; y < 14; y += 3)
+            g.FillRectangle(Br(Color.FromArgb(115, 88, 30)), new RectangleF(7, y, 1, 1));
+        g.DrawLine(P(GreenOk, 1.5f), 10, 11, 13, 14);
+    });
 
     // 새 폴더: 노란 폴더 + 녹색 +
     private static Image DrawFolderNew() => B(g =>
@@ -262,6 +316,18 @@ public static class MenuIconProvider
         g.DrawString("i", font, Br(Color.White), new RectangleF(1, 1, 14, 14), sf);
     });
 
+    // 프로그램 정보: 현대적인 정보 원형 아이콘
+    private static Image DrawInfo() => B(g =>
+    {
+        using var ring = P(WinBlue, 1.6f);
+        g.FillEllipse(Br(Color.FromArgb(235, 246, 255)), 1, 1, 14, 14);
+        g.DrawEllipse(ring, 1.5f, 1.5f, 13, 13);
+        using var dot = Br(WinBlue);
+        g.FillEllipse(dot, 7, 4, 2, 2);
+        using var pen = P(WinBlue, 1.8f);
+        g.DrawLine(pen, 8, 8, 8, 12);
+    });
+
     // 압축 해제: 상자 + 아래 화살표
     private static Image DrawUnzip() => B(g =>
     {
@@ -299,6 +365,70 @@ public static class MenuIconProvider
         using var pen = P(RedDel, 2f);
         g.DrawArc(pen, 2, 3, 12, 12, -230, 280);
         g.DrawLine(P(RedDel, 2f), 8, 1, 8, 8);
+    });
+
+    // 설정: 톱니바퀴
+    private static Image DrawSettings() => B(g =>
+    {
+        const float cx = 8f, cy = 8f;
+        for (int i = 0; i < 8; i++)
+        {
+            double a = i * Math.PI / 4;
+            float tx = cx + (float)Math.Cos(a) * 6f - 1.6f;
+            float ty = cy + (float)Math.Sin(a) * 6f - 1.6f;
+            g.FillRectangle(Br(WinBlue), tx, ty, 3.2f, 3.2f);
+        }
+        g.FillEllipse(Br(WinBlue), 3, 3, 10, 10);
+        g.FillEllipse(Br(Color.White), 6, 6, 4, 4);
+    });
+
+    // 언어: 지구본
+    private static Image DrawLanguage() => B(g =>
+    {
+        g.FillEllipse(Br(Color.FromArgb(222, 244, 255)), 1, 1, 14, 14);
+        using var pen = P(WinBlue, 1.2f);
+        g.DrawEllipse(pen, 1, 1, 14, 14);
+        g.DrawEllipse(pen, 5, 1, 6, 14);   // 세로 자오선
+        g.DrawLine(pen, 1.5f, 8, 14.5f, 8); // 적도
+        g.DrawArc(pen, 1.5f, 3, 13, 10, 200, 140); // 위선
+        g.DrawArc(pen, 1.5f, 3, 13, 10, 20, 140);
+    });
+
+    // 테마: 반은 해, 반은 밤(전환)
+    private static Image DrawTheme() => B(g =>
+    {
+        g.FillEllipse(Br(Gold), 2, 2, 12, 12);
+        using var half = new GraphicsPath();
+        half.AddPie(2, 2, 12, 12, -90, 180); // 오른쪽 절반
+        g.FillPath(Br(Color.FromArgb(60, 66, 80)), half);
+        g.DrawEllipse(P(Color.FromArgb(150, 130, 60), 1f), 2, 2, 12, 12);
+    });
+
+    // 밝게: 해
+    private static Image DrawLight() => B(g =>
+    {
+        using var pen = P(Gold, 1.6f);
+        for (int i = 0; i < 8; i++)
+        {
+            double a = i * Math.PI / 4;
+            g.DrawLine(pen,
+                8 + (float)Math.Cos(a) * 5.5f, 8 + (float)Math.Sin(a) * 5.5f,
+                8 + (float)Math.Cos(a) * 7.5f, 8 + (float)Math.Sin(a) * 7.5f);
+        }
+        g.FillEllipse(Br(Gold), 4, 4, 8, 8);
+        g.DrawEllipse(P(DarkGold, 1f), 4, 4, 8, 8);
+    });
+
+    // 어둡게: 초승달
+    private static Image DrawDark() => B(g =>
+    {
+        using var moon = new GraphicsPath();
+        moon.AddEllipse(2, 2, 12, 12);
+        using var cut = new GraphicsPath();
+        cut.AddEllipse(6, 0, 12, 12);
+        using var region = new Region(moon);
+        region.Exclude(cut);
+        g.FillRegion(Br(Color.FromArgb(255, 200, 90)), region);
     });
 
     // ── Star helper ──────────────────────────────────────────────────────

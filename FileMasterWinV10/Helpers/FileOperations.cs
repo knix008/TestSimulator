@@ -177,45 +177,107 @@ public static class FileOperations
 
     public static async Task<List<string>> SearchFilesAsync(
         string rootPath, string pattern, bool searchContent, string? contentPattern,
-        IProgress<string>? progress, CancellationToken cancellationToken)
+        IProgress<string>? progress, CancellationToken cancellationToken,
+        FileSearchOptions? options = null)
     {
-        var results = new List<string>();
-        await Task.Run(() =>
+        options ??= new FileSearchOptions();
+        if (!DesktopSearchHelper.TryCreateQuery(pattern, options, out var query))
+            return [];
+
+        List<SearchMatch> matches;
+        try
         {
-            try { SearchRecursive(rootPath, pattern, searchContent, contentPattern, results, progress, cancellationToken); }
-            catch (OperationCanceledException) { }
-        }, cancellationToken);
+            matches = await Task.Run(
+                () => SearchRecursive(rootPath, query, searchContent, contentPattern, progress, cancellationToken, options),
+                cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            return [];
+        }
+
+        return DesktopSearchHelper.SortMatches(matches, options.SortOrder, options.CaseSensitive)
+            .Select(match => match.FullPath)
+            .ToList();
+    }
+
+    private static List<SearchMatch> SearchRecursive(
+        string rootPath, DesktopSearchQuery query, bool searchContent, string? contentPattern,
+        IProgress<string>? progress, CancellationToken ct, FileSearchOptions options)
+    {
+        var results = new List<SearchMatch>();
+        var pending = new Stack<string>();
+        pending.Push(rootPath);
+
+        while (pending.Count > 0)
+        {
+            ct.ThrowIfCancellationRequested();
+            var dir = pending.Pop();
+
+            IEnumerable<string> subDirs;
+            try { subDirs = Directory.EnumerateDirectories(dir).ToList(); }
+            catch (UnauthorizedAccessException) { continue; }
+            catch (IOException) { continue; }
+
+            foreach (var subDir in subDirs)
+            {
+                ct.ThrowIfCancellationRequested();
+                pending.Push(subDir);
+                if (options.IncludeFolders && !searchContent)
+                    TryAddMatch(subDir, isDirectory: true, query, contentPattern, searchContent, progress, options, results);
+            }
+
+            IEnumerable<string> files;
+            try { files = Directory.EnumerateFiles(dir).ToList(); }
+            catch (UnauthorizedAccessException) { continue; }
+            catch (IOException) { continue; }
+
+            foreach (var file in files)
+            {
+                ct.ThrowIfCancellationRequested();
+                TryAddMatch(file, isDirectory: false, query, contentPattern, searchContent, progress, options, results);
+            }
+        }
+
         return results;
     }
 
-    private static void SearchRecursive(
-        string dir, string pattern, bool searchContent, string? contentPattern,
-        List<string> results, IProgress<string>? progress, CancellationToken ct)
+    private static void TryAddMatch(
+        string path, bool isDirectory, DesktopSearchQuery query, string? contentPattern, bool searchContent,
+        IProgress<string>? progress, FileSearchOptions options, List<SearchMatch> results)
     {
-        ct.ThrowIfCancellationRequested();
+        var name = Path.GetFileName(path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+        var score = DesktopSearchHelper.ScoreName(name, query, options.CaseSensitive);
+        if (score <= 0)
+            return;
+
+        if (searchContent)
+        {
+            if (isDirectory || string.IsNullOrEmpty(contentPattern))
+                return;
+
+            try
+            {
+                var comparison = options.CaseSensitive ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
+                if (!File.ReadAllText(path).Contains(contentPattern, comparison))
+                    return;
+            }
+            catch
+            {
+                return;
+            }
+        }
+
+        progress?.Report(path);
+        var modifiedUtc = 0L;
         try
         {
-            foreach (var file in Directory.GetFiles(dir, pattern))
-            {
-                ct.ThrowIfCancellationRequested();
-                progress?.Report(file);
-                if (!searchContent || string.IsNullOrEmpty(contentPattern))
-                {
-                    results.Add(file);
-                }
-                else
-                {
-                    try
-                    {
-                        if (File.ReadAllText(file).Contains(contentPattern, StringComparison.OrdinalIgnoreCase))
-                            results.Add(file);
-                    }
-                    catch { }
-                }
-            }
-            foreach (var subDir in Directory.GetDirectories(dir))
-                SearchRecursive(subDir, pattern, searchContent, contentPattern, results, progress, ct);
+            modifiedUtc = isDirectory
+                ? new DirectoryInfo(path).LastWriteTimeUtc.Ticks
+                : new FileInfo(path).LastWriteTimeUtc.Ticks;
         }
-        catch (UnauthorizedAccessException) { }
+        catch { }
+
+        results.Add(new SearchMatch(path, name, modifiedUtc, score));
     }
 }

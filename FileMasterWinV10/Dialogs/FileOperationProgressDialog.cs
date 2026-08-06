@@ -111,7 +111,7 @@ public partial class FileOperationProgressDialog : Form
         ApplyLatestProgress();
 
         if (!string.IsNullOrEmpty(_pendingErrorMessage))
-            MessageBox.Show(this, _pendingErrorMessage, Text, MessageBoxButtons.OK, MessageBoxIcon.Error);
+            ThemedMessageBox.Show(this, _pendingErrorMessage, Text, MessageBoxButtons.OK, MessageBoxIcon.Error);
 
         DialogResult = _pendingResult;
         Close();

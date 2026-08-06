@@ -19,7 +19,7 @@ public static class FileOperationRunner
     {
         if (Interlocked.CompareExchange(ref _running, 1, 0) != 0)
         {
-            MessageBox.Show(owner, "다른 파일 작업이 진행 중입니다.", "작업 중",
+            ThemedMessageBox.Show(owner, LocalizationService.T("Dlg_Busy_Msg"), LocalizationService.T("Dlg_Busy_Title"),
                 MessageBoxButtons.OK, MessageBoxIcon.Information);
             return (false, null);
         }

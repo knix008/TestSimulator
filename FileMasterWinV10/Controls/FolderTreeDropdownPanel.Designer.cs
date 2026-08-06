@@ -48,7 +48,6 @@ partial class FolderTreeDropdownPanel
         BackColor = Color.White;
         BorderStyle = BorderStyle.FixedSingle;
         Controls.Add(treeView);
-        Dock = DockStyle.Top;
         Name = "FolderTreeDropdownPanel";
         Padding = new Padding(1);
         Size = new Size(400, 0);
