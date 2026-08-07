@@ -61,15 +61,16 @@ npm run package:dir
 Build Windows packages:
 
 ```powershell
-npm run package:win
+npm run build:win
 ```
 
 Outputs include NSIS installer and portable executable targets.
+The NSIS setup executable is also copied to the project root as the final installer file.
 
 Build Linux packages:
 
 ```powershell
-npm run package:linux
+npm run build:linux
 ```
 
 Outputs include AppImage, deb, and rpm targets.
@@ -77,7 +78,7 @@ Outputs include AppImage, deb, and rpm targets.
 Build macOS packages:
 
 ```powershell
-npm run package:mac
+npm run build:mac
 ```
 
 Outputs include dmg and zip targets. macOS packages should be built on macOS for reliable code signing, notarization, and DMG generation.
@@ -85,10 +86,12 @@ Outputs include dmg and zip targets. macOS packages should be built on macOS for
 Build all configured targets:
 
 ```powershell
-npm run package:all
+npm run build:all
 ```
 
 Cross-platform packaging has host OS limitations. Windows can package Windows targets reliably. Linux targets are best built on Linux or CI with Linux packaging dependencies. macOS targets should be built on macOS.
+
+The older `package:*` script names and `dist:*` aliases are kept for compatibility.
 
 ## Project Structure
 
