@@ -61,6 +61,8 @@ public static class MenuIconProvider
         _cache["rename"]      = DrawRename();
         _cache["delete"]      = DrawDelete();
         _cache["refresh"]     = DrawRefresh();
+        _cache["index"]       = DrawIndex();
+        _cache["stop"]        = DrawStop();
         _cache["bookmark"]    = DrawBookmark();
         _cache["preview"]     = DrawPreview();
         _cache["properties"]  = DrawProperties();
@@ -72,6 +74,8 @@ public static class MenuIconProvider
 
         _cache["settings"]    = DrawSettings();
         _cache["language"]    = DrawLanguage();
+        _cache["lang_ko"]     = DrawGlyph("가", "Malgun Gothic", 11f, WinBlue);
+        _cache["lang_en"]     = DrawGlyph("A", "Segoe UI", 12f, Color.FromArgb(196, 80, 0));
         _cache["theme"]       = DrawTheme();
         _cache["light"]       = DrawLight();
         _cache["dark"]        = DrawDark();
@@ -211,15 +215,19 @@ public static class MenuIconProvider
         g.DrawLine(P(PageBord, 0.8f), 4, 3, 6, 3);
     });
 
-    // 다른 패널로 복사: 페이지 + 오른쪽 화살표
+    // 다른 패널로 복사: 두 겹친 페이지(복사=복제) + 파란 오른쪽 화살표
     private static Image DrawCopyRight() => B(g =>
     {
-        g.FillRectangle(Br(PageFill), new RectangleF(1, 2, 7, 12));
-        g.DrawRectangle(P(PageBord, 1f), 1, 2, 7, 12);
-        using var pen = P(WinBlue, 2.5f);
-        g.DrawLine(pen, 10, 8, 15, 8);
-        var pts = new PointF[] { new(11, 5), new(15, 8), new(11, 11) };
-        g.FillPolygon(Br(WinBlue), pts);
+        // 뒤 페이지
+        g.FillRectangle(Br(Color.FromArgb(200, 210, 230)), new RectangleF(3, 3, 6, 11));
+        g.DrawRectangle(P(PageBord, 1f), 3, 3, 6, 11);
+        // 앞 페이지
+        g.FillRectangle(Br(PageFill), new RectangleF(1, 1, 6, 11));
+        g.DrawRectangle(P(PageBord, 1f), 1, 1, 6, 11);
+        // 파란 화살표
+        using var pen = P(WinBlue, 2.3f);
+        g.DrawLine(pen, 9, 9, 14, 9);
+        g.FillPolygon(Br(WinBlue), new PointF[] { new(11, 6), new(15, 9), new(11, 12) });
     });
 
     // 잘라내기: 가위
@@ -247,14 +255,20 @@ public static class MenuIconProvider
         g.DrawRectangle(P(PageBord, 0.8f), 4, 7, 8, 6);
     });
 
-    // 다른 패널로 이동: 화살표
+    // 다른 패널로 이동: 단일 항목(폴더) + 굵은 주황 화살표(이동). 색·형태를 복사와 달리해 구분.
     private static Image DrawMoveRight() => B(g =>
     {
-        g.FillRectangle(Br(Color.FromArgb(200, 220, 240)), new RectangleF(1, 4, 6, 8));
-        g.DrawRectangle(P(PageBord, 1f), 1, 4, 6, 8);
-        using var pen = P(WinBlue, 2.5f);
-        g.DrawLine(pen, 9, 8, 15, 8);
-        g.FillPolygon(Br(WinBlue), new PointF[] { new(10, 5), new(15, 8), new(10, 11) });
+        var move = Color.FromArgb(230, 120, 0);
+        // 단일 폴더
+        using var body = new GraphicsPath();
+        body.AddRectangle(new RectangleF(1, 5, 6, 7));
+        body.AddPolygon(new PointF[] { new(1, 5), new(1, 3), new(4, 3), new(5, 5) });
+        g.FillPath(Br(Color.FromArgb(255, 214, 140)), body);
+        g.DrawPath(P(DarkGold, 1f), body);
+        // 굵은 주황 화살표
+        using var pen = P(move, 2.8f);
+        g.DrawLine(pen, 8, 8, 15, 8);
+        g.FillPolygon(Br(move), new PointF[] { new(11, 4), new(15, 8), new(11, 12) });
     });
 
     // 이름 바꾸기: 연필
@@ -287,6 +301,38 @@ public static class MenuIconProvider
         g.FillPolygon(Br(WinBlue), new PointF[] { new(12, 2), new(14, 6), new(10, 5) });
         // 화살촉 아래
         g.FillPolygon(Br(WinBlue), new PointF[] { new(4, 14), new(2, 10), new(6, 11) });
+    });
+
+    // 글자 아이콘(언어 구분 등): 16×16 박스 중앙에 한 글자를 그린다.
+    private static Image DrawGlyph(string text, string fontName, float sizePx, Color color) => B(g =>
+    {
+        using var font = new Font(fontName, sizePx, FontStyle.Bold, GraphicsUnit.Pixel);
+        using var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
+        g.DrawString(text, font, Br(color), new RectangleF(0, 0, 16, 16), sf);
+    });
+
+    // 색인: 데이터베이스 실린더(새로고침·검색 아이콘과 구분)
+    private static Image DrawIndex() => B(g =>
+    {
+        var fill = Color.FromArgb(222, 244, 255);
+        using var pen = P(WinBlue, 1.4f);
+        // 몸통
+        g.FillRectangle(Br(fill), new RectangleF(3, 4, 10, 8));
+        g.DrawLine(pen, 3, 4, 3, 12);
+        g.DrawLine(pen, 13, 4, 13, 12);
+        // 아래 테두리(곡선)
+        g.DrawArc(pen, 3, 9, 10, 4, 0, 180);
+        // 중간 띠
+        g.DrawArc(pen, 3, 5, 10, 4, 0, 180);
+        // 상단 타원
+        g.FillEllipse(Br(fill), 3, 2, 10, 4);
+        g.DrawEllipse(pen, 3, 2, 10, 4);
+    });
+
+    // 멈춤: 빨간 정지 사각형
+    private static Image DrawStop() => B(g =>
+    {
+        g.FillRectangle(Br(RedDel), new RectangleF(3, 3, 10, 10));
     });
 
     // 즐겨찾기: 별

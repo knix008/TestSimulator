@@ -12,7 +12,6 @@ public partial class FilePanel : UserControl
 {
     private string _currentPath = "";
     private FilePanelSide _panelSide = FilePanelSide.Left;
-    private string _sideTitle = "왼쪽";
     private ContextMenuStrip _contextMenu = null!;
     private ToolTip _pathTip = null!;
     private Form? _hookedForm;
@@ -20,6 +19,7 @@ public partial class FilePanel : UserControl
     private DirectoryChangeWatcher? _directoryWatcher;
     private bool _loadInProgress;
     private bool _reloadPending;
+    private string? _pendingSelectPath;
 
     public event EventHandler? CopyToOtherRequested;
     public event EventHandler? MoveToOtherRequested;
@@ -70,10 +70,10 @@ public partial class FilePanel : UserControl
         UiTheme.StyleListView(listView);
         UiTheme.StyleStatusStrip(statusStrip);
         pathBar.BackColor = UiTheme.Surface;
-        UiTheme.StyleScrollableControl(driveBar);
+        UiTheme.StyleComboBox(driveCombo);
         WireUi();
         ApplyLocalization();
-        PopulateDriveBar();
+        PopulateDriveCombo();
         SetupDirectoryWatcher();
     }
 
@@ -105,14 +105,32 @@ public partial class FilePanel : UserControl
             Refresh();
     }
 
+    // 활성(선택된) 패널이면 테두리 전체를 강조색으로, 아니면 기본색으로 칠한다.
+    // 자식 컨트롤이 Padding 안쪽을 채우므로 Padding 영역이 곧 테두리처럼 보인다.
+    private bool _isActive;
+    public void SetActive(bool active)
+    {
+        if (_isActive == active) return;
+        _isActive = active;
+        ApplyActiveBorder();
+    }
+
+    private void ApplyActiveBorder()
+    {
+        // 두 패널 모두 항상 전체 테두리를 갖는다. 비활성은 옅은 테두리색, 활성은 강조색으로 더 두껍게.
+        Padding = new Padding(_isActive ? 2 : 1);
+        BackColor = _isActive ? UiTheme.Accent : UiTheme.Border;
+    }
+
     public void ApplyCurrentTheme()
     {
-        BackColor = UiTheme.Background;
+        ApplyActiveBorder();
         UiTheme.StyleListView(listView);
         UiTheme.StyleStatusStrip(statusStrip);
         pathBar.BackColor = UiTheme.Surface;
-        UiTheme.StyleScrollableControl(driveBar);
-        headerLabel.ForeColor = UiTheme.Accent;
+        UiTheme.StyleComboBox(driveCombo);
+        dirBox.BackColor = UiTheme.Surface;
+        pathLabel.ForeColor = UiTheme.TextPrimary;
         chevronLabel.ForeColor = UiTheme.TextSecondary;
         folderTree.BackColor = UiTheme.Surface;
         folderTree.ApplyCurrentTheme();
@@ -152,32 +170,36 @@ public partial class FilePanel : UserControl
 
     private void ApplyPanelSide()
     {
-        _sideTitle = LocalizationService.T(_panelSide == FilePanelSide.Left ? "Side_Left" : "Side_Right");
-        if (headerLabel == null) return;
-        headerLabel.Text = string.IsNullOrEmpty(_currentPath)
-            ? _sideTitle
-            : $"{_sideTitle}  ·  {_currentPath}";
+        // 좌/우 구분 레이블은 제거됨. PanelSide는 내부 로직(복사/이동 방향)에만 사용된다.
     }
 
     private void WireUi()
     {
         _pathTip = new ToolTip(components);
         _pathTip.SetToolTip(pathBar, "클릭하여 폴더 목록을 펼치고 이동할 위치를 선택합니다.");
-        _pathTip.SetToolTip(headerLabel, _pathTip.GetToolTip(pathBar));
+        _pathTip.SetToolTip(pathLabel, _pathTip.GetToolTip(pathBar));
         _pathTip.SetToolTip(chevronLabel, _pathTip.GetToolTip(pathBar));
 
-        pathBar.MouseEnter += (_, _) => pathBar.BackColor = UiTheme.HeaderBg;
-        pathBar.MouseLeave += (_, _) => pathBar.BackColor = UiTheme.Surface;
-        headerLabel.MouseEnter += (_, _) => pathBar.BackColor = UiTheme.HeaderBg;
-        headerLabel.MouseLeave += (_, _) => pathBar.BackColor = UiTheme.Surface;
-        chevronLabel.MouseEnter += (_, _) => pathBar.BackColor = UiTheme.HeaderBg;
-        chevronLabel.MouseLeave += (_, _) => pathBar.BackColor = UiTheme.Surface;
+        void HoverIn(object? s, EventArgs e) => pathBar.BackColor = UiTheme.HeaderBg;
+        void HoverOut(object? s, EventArgs e) => pathBar.BackColor = UiTheme.Surface;
+        pathBar.MouseEnter += HoverIn;   pathBar.MouseLeave += HoverOut;
+        pathLabel.MouseEnter += HoverIn; pathLabel.MouseLeave += HoverOut;
+        chevronLabel.MouseEnter += HoverIn; chevronLabel.MouseLeave += HoverOut;
 
+        // 현재 디렉토리 표시 영역(경로 레이블 + ▾)을 누르면 폴더 트리를 펼친다.
+        // '왼쪽/오른쪽' 제목과 드라이브 드롭다운은 트리를 열지 않는다.
         pathBar.Click += (_, _) => ToggleFolderTree();
-        headerLabel.Click += (_, _) => ToggleFolderTree();
+        pathLabel.Click += (_, _) => ToggleFolderTree();
         chevronLabel.Click += (_, _) => ToggleFolderTree();
 
         folderTree.FolderSelected += (_, path) => Navigate(path);
+
+        // 헤더 옆 드라이브 드롭다운: 사용자가 직접 고른 경우에만 항해한다.
+        driveCombo.SelectionChangeCommitted += (_, _) =>
+        {
+            if (driveCombo.SelectedItem is DriveItem di && Directory.Exists(di.Root))
+                Navigate(di.Root);
+        };
 
         _contextMenu = BuildContextMenu();
         listView.ContextMenuStrip = _contextMenu;
@@ -188,6 +210,7 @@ public partial class FilePanel : UserControl
         listView.ColumnClick += OnColumnClick;
         listView.ItemDrag += OnItemDrag;
         listView.DragEnter += OnDragEnter;
+        listView.DragOver += OnDragOver;
         listView.DragDrop += OnDragDrop;
         listView.GotFocus += (_, _) => GotFocused?.Invoke(this, EventArgs.Empty);
         listView.AfterLabelEdit += OnAfterLabelEdit;
@@ -207,7 +230,7 @@ public partial class FilePanel : UserControl
     {
         var cm = new ContextMenuStrip { Font = UiTheme.UiFont };
         var I = MenuIconProvider.Get;
-        var L = LocalizationService.T;
+        Func<string, string> L = LocalizationService.T;
         // idx 0
         cm.Items.Add(CMI(L("Cm_Open"),        I("folder_open"), (_, _) => OpenSelected()));
         // idx 1
@@ -296,8 +319,11 @@ public partial class FilePanel : UserControl
         PathChanged?.Invoke(this, path);
     }
 
-    private void UpdatePathDisplay() =>
-        headerLabel.Text = $"{_sideTitle}  ·  {_currentPath}";
+    private void UpdatePathDisplay()
+    {
+        pathLabel.Text = _currentPath;
+        SyncDriveCombo();
+    }
 
     private void ToggleFolderTree()
     {
@@ -508,6 +534,40 @@ public partial class FilePanel : UserControl
         {
             listView.EndUpdate();
         }
+        SelectPendingFile();
+    }
+
+    // 검색 결과 등에서 지정한 파일이 목록에 로드되면 선택·포커스한다.
+    private void SelectPendingFile()
+    {
+        if (_pendingSelectPath == null) return;
+        var target = _pendingSelectPath;
+        _pendingSelectPath = null;
+        foreach (ListViewItem item in listView.Items)
+        {
+            if (item.Tag is FileEntry fe && string.Equals(fe.FullPath, target, StringComparison.OrdinalIgnoreCase))
+            {
+                listView.SelectedItems.Clear();
+                item.Selected = true;
+                item.Focused = true;
+                item.EnsureVisible();
+                listView.Select();
+                break;
+            }
+        }
+    }
+
+    /// <summary>파일이 있는 폴더로 이동한 뒤 그 파일을 목록에서 선택해 보여준다.</summary>
+    public void RevealFile(string fullPath)
+    {
+        string? dir = Path.GetDirectoryName(fullPath);
+        if (string.IsNullOrEmpty(dir) || !Directory.Exists(dir)) return;
+
+        _pendingSelectPath = fullPath;
+        if (string.Equals(_currentPath, dir, StringComparison.OrdinalIgnoreCase))
+            SelectPendingFile();        // 이미 그 폴더면 바로 선택
+        else
+            Navigate(dir);              // 이동 후 로드 완료 시 SelectPendingFile이 선택
     }
 
     private sealed record DirectoryScanResult(
@@ -600,24 +660,46 @@ public partial class FilePanel : UserControl
         listView.DoDragDrop(data, DragDropEffects.Copy | DragDropEffects.Move);
     }
 
-    private void OnDragEnter(object? sender, DragEventArgs e) =>
-        e.Effect = e.Data?.GetDataPresent(DataFormats.FileDrop) == true ? DragDropEffects.Copy : DragDropEffects.None;
+    // Shift를 누르고 드롭하면 이동, 그 외에는 복사. (KeyState 비트 4 = Shift)
+    private static DragDropEffects EffectFor(DragEventArgs e) =>
+        e.Data?.GetDataPresent(DataFormats.FileDrop) == true
+            ? ((e.KeyState & 4) == 4 ? DragDropEffects.Move : DragDropEffects.Copy)
+            : DragDropEffects.None;
+
+    private void OnDragEnter(object? sender, DragEventArgs e) => e.Effect = EffectFor(e);
+
+    private void OnDragOver(object? sender, DragEventArgs e) => e.Effect = EffectFor(e);
 
     private async void OnDragDrop(object? sender, DragEventArgs e)
     {
         var paths = (string[]?)e.Data?.GetData(DataFormats.FileDrop);
-        if (paths == null) return;
+        if (paths == null || paths.Length == 0) return;
+
+        bool move = e.Effect == DragDropEffects.Move;
+
+        // 원본이 이미 이 폴더에 있으면(같은 폴더 내 드롭) 아무 것도 하지 않는다.
+        paths = paths.Where(p =>
+            !string.Equals(Path.GetDirectoryName(p.TrimEnd(Path.DirectorySeparatorChar)),
+                           _currentPath, StringComparison.OrdinalIgnoreCase)).ToArray();
+        if (paths.Length == 0) { SetStatus("같은 폴더입니다. 작업하지 않았습니다."); return; }
 
         var owner = FindForm() as Form;
-        var (success, error) = await FileOperationRunner.RunAsync(owner, "복사 중",
-            (progress, ct) => FileOperations.CopyFiles(paths, _currentPath, progress, ct));
+        string title = move ? "이동 중" : "복사 중";
+        var target = paths;
+        var (success, error) = await FileOperationRunner.RunAsync(owner, title,
+            (progress, ct) =>
+            {
+                if (move) FileOperations.MoveFiles(target, _currentPath, progress, ct);
+                else FileOperations.CopyFiles(target, _currentPath, progress, ct);
+            });
 
+        string verb = move ? "이동" : "복사";
         if (success)
-            SetStatus($"{paths.Length}개 항목을 복사했습니다.");
+            SetStatus($"{paths.Length}개 항목을 {verb}했습니다.");
         else if (error != null)
-            SetStatus($"복사 실패: {error.Message}");
+            SetStatus($"{verb} 실패: {error.Message}");
         else
-            SetStatus("복사가 취소되었습니다. 목록을 새로고침했습니다.");
+            SetStatus($"{verb}가 취소되었습니다. 목록을 새로고침했습니다.");
     }
 
     private void OpenSelected()
@@ -688,16 +770,16 @@ public partial class FilePanel : UserControl
         var paths = SelectedPaths;
         if (paths.Length == 0) { SetStatus("삭제할 항목이 선택되지 않았습니다."); return; }
         var msg = paths.Length == 1
-            ? $"'{Path.GetFileName(paths[0])}'을(를) 삭제하시겠습니까?"
-            : $"선택한 {paths.Length}개 항목을 삭제하시겠습니까?";
+            ? $"'{Path.GetFileName(paths[0])}'을(를) 휴지통으로 이동하시겠습니까?"
+            : $"선택한 {paths.Length}개 항목을 휴지통으로 이동하시겠습니까?";
         if (ThemedMessageBox.Show(msg, LocalizationService.T("Dlg_DeleteConfirm"), MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes) return;
 
         var owner = FindForm() as Form;
-        var (success, error) = await FileOperationRunner.RunAsync(owner, "삭제 중",
+        var (success, error) = await FileOperationRunner.RunAsync(owner, "휴지통으로 이동 중",
             (progress, ct) => FileOperations.DeleteFiles(paths, progress, ct));
 
         if (success)
-            SetStatus($"{paths.Length}개 항목을 삭제했습니다.");
+            SetStatus($"{paths.Length}개 항목을 휴지통으로 이동했습니다.");
         else if (error != null)
             SetStatus($"삭제 실패: {error.Message}");
         else
@@ -943,23 +1025,42 @@ public partial class FilePanel : UserControl
         }
     }
 
-    private void PopulateDriveBar()
+    // 헤더 옆 드롭다운에 드라이브 목록을 채운다(드라이브는 동적이라 런타임에 채운다).
+    private sealed class DriveItem
     {
-        driveBar.Controls.Clear();
+        public string Root { get; init; } = "";
+        public string Display { get; init; } = "";
+        public override string ToString() => Display;
+    }
+
+    private void PopulateDriveCombo()
+    {
+        driveCombo.BeginUpdate();
+        driveCombo.Items.Clear();
         foreach (var drive in DriveInfo.GetDrives())
         {
-            var d = drive;
-            var btn = new Button
+            string label = drive.IsReady && !string.IsNullOrEmpty(drive.VolumeLabel)
+                ? $"{drive.Name.Replace("\\", "")} {drive.VolumeLabel}"
+                : drive.Name.Replace("\\", "");
+            driveCombo.Items.Add(new DriveItem { Root = drive.Name, Display = label });
+        }
+        driveCombo.EndUpdate();
+        SyncDriveCombo();
+    }
+
+    // 현재 경로가 속한 드라이브를 드롭다운에 반영한다(SelectionChangeCommitted만 항해를 유발하므로 안전).
+    private void SyncDriveCombo()
+    {
+        if (driveCombo == null || string.IsNullOrEmpty(_currentPath)) return;
+        string? root = Path.GetPathRoot(_currentPath);
+        if (string.IsNullOrEmpty(root)) return;
+        foreach (var obj in driveCombo.Items)
+        {
+            if (obj is DriveItem di && string.Equals(di.Root, root, StringComparison.OrdinalIgnoreCase))
             {
-                Text = d.Name.Replace("\\", ""),
-                AutoSize = true,
-                MinimumSize = new Size(36, 24),
-                Margin = new Padding(0, 0, 4, 0),
-            };
-            UiTheme.StyleSecondaryButton(btn);
-            new ToolTip(components).SetToolTip(btn, $"{d.Name} ({(d.IsReady ? d.DriveType.ToString() : "준비 안됨")})");
-            btn.Click += (_, _) => Navigate(d.Name);
-            driveBar.Controls.Add(btn);
+                driveCombo.SelectedItem = obj;
+                return;
+            }
         }
     }
 

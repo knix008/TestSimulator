@@ -1,0 +1,66 @@
+# ─────────────────────────────────────────────
+# .NET / Visual Studio build artifacts
+# ─────────────────────────────────────────────
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Ww][Ii][Nn]32/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+build/
+bld/
+[Oo]ut/
+[Ll]og/
+[Ll]ogs/
+
+# Visual Studio / Rider / VS Code
+.vs/
+.vscode/
+.idea/
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.userprefs
+
+# Build results / packages
+*.dll
+*.exe
+*.pdb
+*.cache
+*.msi
+*.msix
+*.msm
+*.wixpdb
+*.wixobj
+
+# NuGet
+*.nupkg
+*.snupkg
+.nuget/
+packages/
+project.lock.json
+project.assets.json
+*.nuget.props
+*.nuget.targets
+
+# Test / coverage
+[Tt]est[Rr]esult*/
+coverage*.json
+coverage*.xml
+*.coverage
+*.coveragexml
+
+# OS files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store
+
+# App runtime data is stored under %LocalAppData%\CommandCenter (search-index.bin,
+# preferences, session, bookmarks) — outside the repo — so nothing to ignore here.

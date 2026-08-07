@@ -159,8 +159,11 @@ public static class LocalizationService
 
     public static AppLanguage CurrentLanguage { get; set; } = AppLanguage.Korean;
 
-    public static string T(string key) =>
+    public static string T(string key) => T(key, CurrentLanguage);
+
+    /// <summary>지정한 언어로 문자열을 반환한다(레이아웃 폭 측정 등에서 사용).</summary>
+    public static string T(string key, AppLanguage lang) =>
         Strings.TryGetValue(key, out var value)
-            ? CurrentLanguage == AppLanguage.English ? value.En : value.Ko
+            ? lang == AppLanguage.English ? value.En : value.Ko
             : key;
 }

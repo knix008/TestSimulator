@@ -81,11 +81,11 @@ partial class MainForm
         statusLabel.Spring = true;
         statusLabel.Text = "Command Center 준비 완료";
         statusLabel.TextAlign = ContentAlignment.MiddleLeft;
-        // 
+        //
         // mainSplit
         // 
         mainSplit.Dock = DockStyle.Fill;
-        mainSplit.Location = new Point(0, 49);
+        mainSplit.Location = new Point(0, 83);
         mainSplit.Name = "mainSplit";
         mainSplit.Orientation = Orientation.Horizontal;
         // 
@@ -97,7 +97,7 @@ partial class MainForm
         // 
         mainSplit.Panel2.Controls.Add(previewPanel);
         mainSplit.Panel2Collapsed = true;
-        mainSplit.Size = new Size(1280, 709);
+        mainSplit.Size = new Size(1280, 675);
         mainSplit.SplitterDistance = 500;
         mainSplit.TabIndex = 0;
         // 
@@ -114,7 +114,7 @@ partial class MainForm
         // leftRightSplit.Panel2
         // 
         leftRightSplit.Panel2.Controls.Add(rightPanel);
-        leftRightSplit.Size = new Size(1280, 709);
+        leftRightSplit.Size = new Size(1280, 675);
         leftRightSplit.SplitterDistance = 640;
         leftRightSplit.TabIndex = 0;
         // 
@@ -126,7 +126,7 @@ partial class MainForm
         leftPanel.Location = new Point(0, 0);
         leftPanel.Name = "leftPanel";
         leftPanel.Padding = new Padding(1);
-        leftPanel.Size = new Size(640, 709);
+        leftPanel.Size = new Size(640, 675);
         leftPanel.TabIndex = 0;
         // 
         // rightPanel
@@ -138,8 +138,9 @@ partial class MainForm
         rightPanel.Name = "rightPanel";
         rightPanel.Padding = new Padding(1);
         rightPanel.PanelSide = FilePanelSide.Right;
-        rightPanel.Size = new Size(636, 709);
+        rightPanel.Size = new Size(636, 675);
         rightPanel.TabIndex = 0;
+        rightPanel.Load += rightPanel_Load;
         // 
         // previewPanel
         // 
@@ -155,14 +156,14 @@ partial class MainForm
         // 
         AutoScaleDimensions = new SizeF(96F, 96F);
         AutoScaleMode = AutoScaleMode.Dpi;
-        ClientSize = new Size(1280, 780);
+        ClientSize = new Size(1400, 800);
         Controls.Add(mainSplit);
         Controls.Add(toolStrip);
         Controls.Add(menuStrip);
         Controls.Add(statusStrip);
         Icon = (Icon)resources.GetObject("$this.Icon");
         MainMenuStrip = menuStrip;
-        MinimumSize = new Size(900, 560);
+        MinimumSize = new Size(1140, 560);
         Name = "MainForm";
         StartPosition = FormStartPosition.CenterScreen;
         Text = "Command Center";

@@ -5,10 +5,11 @@ partial class FilePanel
     private System.ComponentModel.IContainer components = null!;
 
     private Panel pathBar;
-    private Label headerLabel;
+    private Panel dirBox;
+    private Label pathLabel;
     private Label chevronLabel;
+    private ComboBox driveCombo;
     private FolderTreeDropdownPanel folderTree;
-    private FlowLayoutPanel driveBar;
     private ListView listView;
     private ImageList imageListSmall;
     private StatusStrip statusStrip;
@@ -22,42 +23,54 @@ partial class FilePanel
         columnType = new ColumnHeader();
         columnModified = new ColumnHeader();
         pathBar = new Panel();
-        headerLabel = new Label();
+        dirBox = new Panel();
+        pathLabel = new Label();
         chevronLabel = new Label();
+        driveCombo = new ComboBox();
         folderTree = new FolderTreeDropdownPanel();
-        driveBar = new FlowLayoutPanel();
         listView = new ListView();
         imageListSmall = new ImageList(components);
         statusStrip = new StatusStrip();
         statusLabel = new ToolStripStatusLabel();
         pathBar.SuspendLayout();
+        dirBox.SuspendLayout();
         statusStrip.SuspendLayout();
         SuspendLayout();
         //
         // pathBar
         //
-        pathBar.Controls.Add(headerLabel);
-        pathBar.Controls.Add(chevronLabel);
+        pathBar.Controls.Add(dirBox);
+        pathBar.Controls.Add(driveCombo);
         pathBar.Cursor = Cursors.Hand;
         pathBar.Dock = DockStyle.Top;
         pathBar.Location = new Point(1, 1);
         pathBar.Name = "pathBar";
-        pathBar.Padding = new Padding(8, 4, 8, 4);
-        pathBar.Size = new Size(398, 36);
+        pathBar.Padding = new Padding(8, 6, 8, 6);
+        pathBar.Size = new Size(398, 38);
         pathBar.TabIndex = 3;
         //
-        // headerLabel
+        // dirBox
         //
-        headerLabel.Cursor = Cursors.Hand;
-        headerLabel.Dock = DockStyle.Fill;
-        headerLabel.Font = new Font("Segoe UI Semibold", 9.25F, FontStyle.Bold);
-        headerLabel.ForeColor = Color.FromArgb(0, 103, 192);
-        headerLabel.Location = new Point(8, 4);
-        headerLabel.Name = "headerLabel";
-        headerLabel.Size = new Size(358, 28);
-        headerLabel.TabIndex = 0;
-        headerLabel.Text = "왼쪽";
-        headerLabel.TextAlign = ContentAlignment.MiddleLeft;
+        dirBox.Controls.Add(pathLabel);
+        dirBox.Controls.Add(chevronLabel);
+        dirBox.BorderStyle = BorderStyle.FixedSingle;
+        dirBox.Cursor = Cursors.Hand;
+        dirBox.Dock = DockStyle.Fill;
+        dirBox.Name = "dirBox";
+        dirBox.TabIndex = 2;
+        //
+        // pathLabel
+        //
+        pathLabel.Cursor = Cursors.Hand;
+        pathLabel.Dock = DockStyle.Fill;
+        pathLabel.Font = new Font("Segoe UI", 9.25F);
+        pathLabel.ForeColor = Color.FromArgb(30, 30, 30);
+        pathLabel.Name = "pathLabel";
+        pathLabel.Padding = new Padding(8, 0, 0, 0);
+        pathLabel.TabIndex = 0;
+        pathLabel.Text = "";
+        pathLabel.TextAlign = ContentAlignment.MiddleLeft;
+        pathLabel.AutoEllipsis = true;
         //
         // chevronLabel
         //
@@ -65,9 +78,8 @@ partial class FilePanel
         chevronLabel.Dock = DockStyle.Right;
         chevronLabel.Font = new Font("Segoe UI", 9.25F);
         chevronLabel.ForeColor = Color.FromArgb(96, 102, 112);
-        chevronLabel.Location = new Point(366, 4);
         chevronLabel.Name = "chevronLabel";
-        chevronLabel.Size = new Size(24, 28);
+        chevronLabel.Size = new Size(26, 24);
         chevronLabel.TabIndex = 1;
         chevronLabel.Text = "▾";
         chevronLabel.TextAlign = ContentAlignment.MiddleCenter;
@@ -81,17 +93,14 @@ partial class FilePanel
         folderTree.TabIndex = 2;
         folderTree.Visible = false;
         //
-        // driveBar
+        // driveCombo
         //
-        driveBar.AutoScroll = true;
-        driveBar.Dock = DockStyle.Top;
-        driveBar.FlowDirection = FlowDirection.LeftToRight;
-        driveBar.Location = new Point(1, 37);
-        driveBar.Name = "driveBar";
-        driveBar.Padding = new Padding(6, 4, 6, 4);
-        driveBar.Size = new Size(398, 34);
-        driveBar.TabIndex = 1;
-        driveBar.WrapContents = false;
+        driveCombo.DropDownStyle = ComboBoxStyle.DropDownList;
+        driveCombo.Dock = DockStyle.Left;
+        driveCombo.FlatStyle = FlatStyle.Flat;
+        driveCombo.Name = "driveCombo";
+        driveCombo.Size = new Size(88, 23);
+        driveCombo.TabIndex = 1;
         //
         // listView
         //
@@ -168,13 +177,13 @@ partial class FilePanel
         BackColor = Color.FromArgb(245, 246, 248);
         Controls.Add(listView);
         Controls.Add(statusStrip);
-        Controls.Add(driveBar);
         Controls.Add(folderTree);
         Controls.Add(pathBar);
         Font = new Font("Segoe UI", 9.25F);
         Name = "FilePanel";
         Padding = new Padding(1);
         Size = new Size(400, 400);
+        dirBox.ResumeLayout(false);
         pathBar.ResumeLayout(false);
         statusStrip.ResumeLayout(false);
         statusStrip.PerformLayout();

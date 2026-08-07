@@ -147,6 +147,23 @@ public partial class SearchDialog : Form
         sortCombo.SelectedIndex = 0;
     }
 
+    /// <summary>툴바 아래 검색 패널에서 넘어온 검색어로 즉시 검색을 실행한다.</summary>
+    public void RunQuery(string term, bool contentSearch)
+    {
+        if (contentSearch)
+        {
+            patternBox.Text = "*.*";
+            searchContentCheck.Checked = true;
+            contentBox.Text = term;
+        }
+        else
+        {
+            patternBox.Text = term;
+            searchContentCheck.Checked = false;
+        }
+        OnSearch(this, EventArgs.Empty);
+    }
+
     private async void OnSearch(object? sender, EventArgs e)
     {
         _cts?.Cancel();

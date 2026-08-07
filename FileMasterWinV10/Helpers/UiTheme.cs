@@ -18,6 +18,13 @@ public static class UiTheme
     [DllImport("user32.dll")]
     private static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
 
+    [DllImport("dwmapi.dll")]
+    private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int value, int size);
+
+    private const int DWMWA_USE_IMMERSIVE_DARK_MODE = 20; // Win10 2004+/Win11
+    private const int DWMWA_CAPTION_COLOR = 35;           // Win11
+    private const int DWMWA_TEXT_COLOR = 36;              // Win11
+
     public static AppTheme CurrentTheme { get; set; } = AppTheme.Light;
 
     public static Color Background => CurrentTheme == AppTheme.Dark ? Color.FromArgb(28, 31, 36) : Color.FromArgb(245, 246, 248);
@@ -45,7 +52,27 @@ public static class UiTheme
         form.BackColor = Background;
         form.Font = UiFont;
         form.ForeColor = TextPrimary;
+        ApplyTitleBar(form);
     }
+
+    /// <summary>제목 표시줄(캡션) 색을 현재 테마에 맞춘다. 창 핸들이 필요하므로 표시 이후에도 다시 호출한다.</summary>
+    public static void ApplyTitleBar(Form form)
+    {
+        if (!form.IsHandleCreated) return;
+        bool dark = CurrentTheme == AppTheme.Dark;
+
+        int useDark = dark ? 1 : 0;
+        try { DwmSetWindowAttribute(form.Handle, DWMWA_USE_IMMERSIVE_DARK_MODE, ref useDark, sizeof(int)); } catch { }
+
+        // Windows 11에서는 캡션/텍스트 색을 직접 지정한다(구버전에서는 무시됨).
+        int caption = ToColorRef(dark ? Background : Surface);
+        int text = ToColorRef(dark ? TextPrimary : TextPrimary);
+        try { DwmSetWindowAttribute(form.Handle, DWMWA_CAPTION_COLOR, ref caption, sizeof(int)); } catch { }
+        try { DwmSetWindowAttribute(form.Handle, DWMWA_TEXT_COLOR, ref text, sizeof(int)); } catch { }
+    }
+
+    // Color → Win32 COLORREF(0x00BBGGRR)
+    private static int ToColorRef(Color c) => c.R | (c.G << 8) | (c.B << 16);
 
     public static void ApplyControlTree(Control root)
     {

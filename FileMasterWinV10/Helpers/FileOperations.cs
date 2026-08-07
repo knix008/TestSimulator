@@ -1,4 +1,5 @@
 using FileMasterWinV10.Models;
+using Microsoft.VisualBasic.FileIO;
 
 namespace FileMasterWinV10.Helpers;
 
@@ -80,15 +81,15 @@ public static class FileOperations
         IProgress<FileOperationProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
-        progress?.Report(new FileOperationProgress { CurrentPath = "삭제 준비 중...", Completed = 0, Total = 0 });
-
-        var workItems = CollectDeleteWorkItems(paths);
-        int total = Math.Max(workItems.Count, 1);
+        // 삭제 기본 동작은 '휴지통으로 이동'이다(영구 삭제가 아님).
+        // 휴지통 이동은 폴더를 통째로 처리하므로 최상위 경로 단위로 진행한다.
+        var list = paths.ToList();
+        int total = Math.Max(list.Count, 1);
         int completed = 0;
 
-        progress?.Report(new FileOperationProgress { CurrentPath = "삭제 시작...", Completed = 0, Total = total });
+        progress?.Report(new FileOperationProgress { CurrentPath = "휴지통으로 이동 시작...", Completed = 0, Total = total });
 
-        foreach (var path in workItems)
+        foreach (var path in list)
         {
             cancellationToken.ThrowIfCancellationRequested();
             completed++;
@@ -99,9 +100,9 @@ public static class FileOperations
                 Total = total
             });
             if (File.Exists(path))
-                File.Delete(path);
+                FileSystem.DeleteFile(path, UIOption.OnlyErrorDialogs, RecycleOption.SendToRecycleBin);
             else if (Directory.Exists(path))
-                Directory.Delete(path, false);
+                FileSystem.DeleteDirectory(path, UIOption.OnlyErrorDialogs, RecycleOption.SendToRecycleBin);
         }
     }
 
