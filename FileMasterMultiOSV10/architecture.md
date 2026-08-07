@@ -29,9 +29,13 @@ The renderer owns UI state and user interaction:
 
 - Dual-pane file list layout
 - Active panel and selected files
+- Current-directory dropdowns and root-location tree overlays
 - Search controls and preview display
-- Toolbar, context menu, bookmarks, theme, and language state
+- Toolbar, context menu, theme, and language state
+- Keyboard shortcuts and internal clipboard state
+- Drag-over, drop-target, and native drag-start interaction state
 - Operation progress and index status display
+- Directory loading and error dialogs
 
 The renderer does not directly use Node.js file-system APIs.
 
@@ -49,13 +53,15 @@ Key API groups:
 - Search and index search
 - Archive compression/extraction
 - Dialogs and folder watching
+- Dropped-file path lookup through Electron `webUtils`
+- Native file drag start through IPC
 - Progress and index status subscriptions
 
 ### Main Process
 
 Location: `electron/main.ts`
 
-The main process creates the Electron window, loads either the Vite development server or built renderer, and registers IPC handlers.
+The main process creates the Electron window, stores a module-level `BrowserWindow` reference for the app lifetime, loads either the Vite development server or built renderer, and registers IPC handlers.
 
 It coordinates:
 
@@ -63,6 +69,7 @@ It coordinates:
 - Archive operation calls
 - Search index control
 - Dialog ownership
+- Native drag-out through `webContents.startDrag`
 - Progress event forwarding
 - Persistent preferences through `electron-store`
 
@@ -147,6 +154,44 @@ sequenceDiagram
   Main-->>UI: final OperationProgress
 ```
 
+### External Drop Into a Panel
+
+```mermaid
+sequenceDiagram
+  participant OS as Operating System
+  participant UI as Renderer
+  participant Bridge as Preload
+  participant Main as Main Process
+  participant FS as File System Service
+
+  OS->>UI: drop File objects on panel
+  UI->>Bridge: getDroppedFilePath(file)
+  Bridge-->>UI: absolute source path
+  UI->>Main: copy sources to panel listing path
+  Main->>FS: copyPaths(request)
+  FS-->>UI: operation progress events
+```
+
+### Native Drag Out
+
+```mermaid
+sequenceDiagram
+  participant UI as Renderer
+  participant Bridge as Preload
+  participant Main as Main Process
+  participant OS as Operating System
+
+  UI->>Bridge: startDrag(selected paths)
+  Bridge->>Main: fs:start-drag
+  Main->>OS: webContents.startDrag()
+```
+
+## Error Handling
+
+Renderer-controlled actions route failures to a modal error dialog. The dialog shows the user-facing message and exposes copyable diagnostics including time, app version, platform, active panel, current paths, stack trace, and raw error details where available.
+
+Unhandled renderer errors and unhandled Promise rejections are also captured and routed to the same dialog.
+
 ## Web Mode
 
 When the app runs in a normal browser without `window.commandCenter`, it enters limited web mode. The UI still renders, but full disk access and desktop-only operations are disabled because browsers cannot safely expose arbitrary local file-system access.
@@ -161,6 +206,8 @@ Configured targets:
 - Linux: AppImage, deb, rpm
 - macOS: dmg, zip
 
+Windows installer filenames use the package version. The current version is `1.0.0`, so the setup artifact is `Command Center Setup 1.0.0.exe`.
+
 macOS artifacts should be produced on macOS for signing, notarization, and DMG reliability.
 
 ## Security Notes
@@ -170,3 +217,4 @@ macOS artifacts should be produced on macOS for signing, notarization, and DMG r
 - Renderer access to privileged APIs is limited to the preload bridge.
 - ZIP extraction validates target paths and skips entries that escape the selected destination.
 - File-system access is local and user initiated.
+- Drag/drop uses Electron APIs to convert user-provided `File` objects into local paths and to start OS-native drags.

@@ -8,6 +8,8 @@ pnpm-debug.log*
 lerna-debug.log*
 
 node_modules
+
+# Build output
 dist
 dist-electron
 dist-ssr
@@ -16,17 +18,24 @@ out
 coverage
 .vite
 .turbo
+*.tsbuildinfo
+
+# Local environment
 *.local
 .env
 .env.*
 !.env.example
 
 # Electron/package-manager caches
-*.tsbuildinfo
 node_modules/.cache
 npm-cache
 *.asar
 *.blockmap
+GPUCache
+DawnCache
+Code Cache
+Cache
+Crashpad
 
 # Generated archives/installers
 *.AppImage
