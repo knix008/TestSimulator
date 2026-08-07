@@ -638,7 +638,6 @@ function App() {
             <button title={`${t.copy} (F5)`} onClick={() => void copyActiveToOther()} disabled={!api || activePanel.selected.length === 0 || !otherPanel.listing}><Copy /></button>
             <button title={t.paste} onClick={() => void pasteClipboard()} disabled={!api || !clipboard}><ChevronUp /></button>
             <button title={`${t.delete} (F8)`} onClick={() => void deleteActive()} disabled={!api || activePanel.selected.length === 0}><Trash2 /></button>
-            <button title={`${t.rename} (F2)`} onClick={() => void renameActive()} disabled={!api || activePanel.selected.length !== 1}>F2</button>
             <button title={t.compress} onClick={() => activePanel.selected.length > 0 && activePanel.listing && void api!.chooseSaveZip(`${activePanel.listing.path}/archive.zip`).then(target => { if (target) void runAction(t.compress, () => api!.compress({ sources: activePanel.selected, destinationZip: target, splitSizeBytes: 0 })) })} disabled={!api || activePanel.selected.length === 0}><Archive /></button>
             <button title={t.extract} onClick={() => activePanel.selected[0] && activePanel.listing && void runAction(t.extract, () => api!.extract({ archivePath: activePanel.selected[0], destinationDir: activePanel.listing!.path }))} disabled={!api || activePanel.selected.length !== 1}><Archive /></button>
             <button title={`${t.theme}: ${preferences.theme === 'light' ? t.lightTheme : t.darkTheme}`} onClick={switchTheme}>{preferences.theme === 'light' ? <Moon /> : <Sun />}</button>
