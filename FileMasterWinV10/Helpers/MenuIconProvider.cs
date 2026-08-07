@@ -58,6 +58,8 @@ public static class MenuIconProvider
         _cache["cut"]         = DrawCut();
         _cache["paste"]       = DrawPaste();
         _cache["move_right"]  = DrawMoveRight();
+        _cache["center_copy"] = DrawCenterCopy();
+        _cache["center_move"] = DrawCenterMove();
         _cache["rename"]      = DrawRename();
         _cache["delete"]      = DrawDelete();
         _cache["refresh"]     = DrawRefresh();
@@ -269,6 +271,35 @@ public static class MenuIconProvider
         using var pen = P(move, 2.8f);
         g.DrawLine(pen, 8, 8, 15, 8);
         g.FillPolygon(Br(move), new PointF[] { new(11, 4), new(15, 8), new(11, 12) });
+    });
+
+    // 센터 바 전용: 방향을 크고 명확하게 보이도록 24×24 굵은 꺾쇠로 그린다.
+    // 복사=홑꺾쇠 '>'(파랑), 이동=겹꺾쇠 '>>'(주황). 왼쪽 버튼은 호출부에서 좌우 반전한다.
+    private static Bitmap B24(Action<Graphics> draw)
+    {
+        var bmp = new Bitmap(24, 24, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+        using var g = Graphics.FromImage(bmp);
+        g.SmoothingMode = SmoothingMode.AntiAlias;
+        g.PixelOffsetMode = PixelOffsetMode.HighQuality;
+        g.Clear(Color.Transparent);
+        draw(g);
+        return bmp;
+    }
+
+    // 꺾쇠 하나: (backX,mid±h) → (tipX,mid) → (backX,mid∓h)
+    private static void Chevron(Graphics g, Color c, float w, float tipX, float backX, float midY, float h)
+    {
+        using var pen = P(c, w);
+        g.DrawLines(pen, new PointF[] { new(backX, midY - h), new(tipX, midY), new(backX, midY + h) });
+    }
+
+    private static Image DrawCenterCopy() => B24(g => Chevron(g, WinBlue, 3.4f, 16, 8, 12, 7));
+
+    private static Image DrawCenterMove() => B24(g =>
+    {
+        var move = Color.FromArgb(230, 120, 0);
+        Chevron(g, move, 3.2f, 13, 6, 12, 7);
+        Chevron(g, move, 3.2f, 19, 12, 12, 7);
     });
 
     // 이름 바꾸기: 연필

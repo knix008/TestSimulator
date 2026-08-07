@@ -445,10 +445,10 @@ public partial class MainForm : Form
             stack.Controls.Add(b);
         }
 
-        Add("copy_right", false, "Center_CopyRight", () => CopyBetweenPanelsAsync(leftPanel, rightPanel));
-        Add("move_right", false, "Center_MoveRight", () => MoveBetweenPanelsAsync(leftPanel, rightPanel));
-        Add("copy_right", true, "Center_CopyLeft", () => CopyBetweenPanelsAsync(rightPanel, leftPanel));
-        Add("move_right", true, "Center_MoveLeft", () => MoveBetweenPanelsAsync(rightPanel, leftPanel));
+        Add("center_copy", false, "Center_CopyRight", () => CopyBetweenPanelsAsync(leftPanel, rightPanel));
+        Add("center_move", false, "Center_MoveRight", () => MoveBetweenPanelsAsync(leftPanel, rightPanel));
+        Add("center_copy", true, "Center_CopyLeft", () => CopyBetweenPanelsAsync(rightPanel, leftPanel));
+        Add("center_move", true, "Center_MoveLeft", () => MoveBetweenPanelsAsync(rightPanel, leftPanel));
 
         bar.Controls.Add(stack);
         // 막대 크기가 바뀔 때마다 버튼 묶음을 수직·수평 중앙에 놓는다.

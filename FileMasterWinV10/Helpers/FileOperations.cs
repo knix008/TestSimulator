@@ -69,11 +69,60 @@ public static class FileOperations
                 Total = total
             });
             string dest = Path.Combine(destDir, Path.GetFileName(src));
-            if (Directory.Exists(src))
+            MoveOne(src, dest, cancellationToken);
+        }
+    }
+
+    // 원본 삭제 권한 부족·볼륨 경계(예: C: → D:, 네트워크 드라이브)에서는
+    // Directory.Move / File.Move 가 접근 거부/예외를 낸다.
+    // 그럴 때는 '복사 후 원본 삭제'로 폴백한다.
+    private static void MoveOne(string src, string dest, CancellationToken cancellationToken)
+    {
+        bool isDir = Directory.Exists(src);
+        try
+        {
+            if (isDir)
                 Directory.Move(src, dest);
             else
+            {
+                ClearReadOnly(src);
                 File.Move(src, dest, true);
+            }
         }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // 폴백: 복사 → 원본 삭제. 삭제까지 실패하면 예외를 그대로 전파한다.
+            if (isDir)
+            {
+                CopyDirectory(src, dest, _ => { }, cancellationToken);
+                DeleteDirectoryForce(src);
+            }
+            else
+            {
+                File.Copy(src, dest, true);
+                ClearReadOnly(src);
+                File.Delete(src);
+            }
+        }
+    }
+
+    private static void ClearReadOnly(string path)
+    {
+        var attrs = File.GetAttributes(path);
+        if ((attrs & FileAttributes.ReadOnly) != 0)
+            File.SetAttributes(path, attrs & ~FileAttributes.ReadOnly);
+    }
+
+    private static void DeleteDirectoryForce(string dir)
+    {
+        foreach (var file in Directory.GetFiles(dir))
+        {
+            ClearReadOnly(file);
+            File.Delete(file);
+        }
+        foreach (var sub in Directory.GetDirectories(dir))
+            DeleteDirectoryForce(sub);
+        Directory.Delete(dir);
     }
 
     public static void DeleteFiles(
