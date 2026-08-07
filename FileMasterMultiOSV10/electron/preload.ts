@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type { CommandCenterApi, CompressRequest, ExtractRequest, FileOperationRequest, IndexStatus, OperationProgress, Preferences, SearchOptions } from '../src/shared.js'
 
 const api: CommandCenterApi = {
@@ -19,6 +19,8 @@ const api: CommandCenterApi = {
   extract: (request: ExtractRequest) => ipcRenderer.invoke('archive:extract', request),
   chooseDirectory: () => ipcRenderer.invoke('dialog:directory'),
   chooseSaveZip: (defaultPath: string) => ipcRenderer.invoke('dialog:save-zip', defaultPath),
+  getDroppedFilePath: (file: File) => webUtils.getPathForFile(file),
+  startDrag: (paths: string[]) => ipcRenderer.send('fs:start-drag', paths),
   watchDirectory: (path: string) => ipcRenderer.invoke('fs:watch', path),
   getIndexStatus: () => ipcRenderer.invoke('index:status'),
   rebuildIndex: () => ipcRenderer.invoke('index:rebuild'),

@@ -5,6 +5,7 @@
   background: var(--bg);
   color: var(--text);
   overflow: hidden;
+  box-shadow: inset 0 0 0 1px var(--border);
 }
 
 .topbar,
@@ -254,11 +255,6 @@ label {
   overflow: hidden;
 }
 
-.file-panel.active {
-  outline: 1px solid var(--accent-soft);
-  outline-offset: -1px;
-}
-
 .file-panel header {
   position: relative;
   display: grid;
@@ -274,13 +270,84 @@ label {
   justify-content: flex-start;
 }
 
+.current-path {
+  min-width: 0;
+  justify-content: flex-start;
+  border: 0;
+  background: transparent;
+  padding-inline: 0;
+  color: var(--muted);
+  font-size: 12px;
+  text-align: left;
+}
+
+.current-path:hover:not(:disabled) {
+  background: transparent;
+  border-color: transparent;
+  color: var(--text-strong);
+}
+
+.current-path,
 .file-panel header span {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.file-panel header span {
   color: var(--muted);
   font-size: 12px;
+}
+
+.path-dropdown {
+  position: absolute;
+  z-index: 13;
+  top: calc(100% - 1px);
+  left: 96px;
+  right: 10px;
+  max-height: 46vh;
+  overflow: auto;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--panel);
+  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.24);
+}
+
+.path-dropdown p {
+  margin: 0;
+  padding: 10px 8px;
+  color: var(--muted);
+}
+
+.path-dropdown button {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) 90px;
+  justify-content: stretch;
+  gap: 8px;
+  border: 0;
+  background: transparent;
+  text-align: left;
+}
+
+.path-dropdown button:hover {
+  background: var(--selection);
+}
+
+.path-dropdown span,
+.path-dropdown strong,
+.path-dropdown small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.path-dropdown small {
+  color: var(--muted);
+  text-align: right;
 }
 
 .directory-tree {
@@ -368,6 +435,12 @@ label {
 .file-panel.active .file-list {
   outline: 1px solid var(--accent-soft);
   outline-offset: -1px;
+}
+
+.file-panel.drop-target .file-list {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  background: var(--selection);
 }
 
 .file-row {
@@ -584,13 +657,66 @@ label {
 }
 
 .progress-strip {
+  position: fixed;
+  right: 16px;
+  bottom: 44px;
+  z-index: 24;
+  width: min(680px, calc(100vw - 32px));
   display: grid;
   grid-template-columns: auto minmax(140px, 260px) auto minmax(0, 1fr);
   align-items: center;
   gap: 10px;
   padding: 7px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
   background: var(--surface);
+  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.22);
   font-size: 12px;
+}
+
+.loading-popup {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  z-index: 24;
+  width: min(320px, calc(100vw - 32px));
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.28);
+  transform: translate(-50%, -50%);
+}
+
+.loading-popup strong {
+  color: var(--text-strong);
+}
+
+.loading-popup small {
+  color: var(--muted);
+}
+
+.loading-track {
+  height: 7px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--row-border);
+}
+
+.loading-track span {
+  display: block;
+  width: 42%;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  animation: loading-slide 900ms ease-in-out infinite;
+}
+
+@keyframes loading-slide {
+  0% { transform: translateX(-110%); }
+  100% { transform: translateX(250%); }
 }
 
 .progress-track {

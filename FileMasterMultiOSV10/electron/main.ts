@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, ipcMain } from 'electron'
+import { app, BrowserWindow, Menu, ipcMain, nativeImage } from 'electron'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 import Store from 'electron-store'
 import path from 'node:path'
@@ -13,9 +13,10 @@ const store = new Store<Preferences>({
   defaults: { language: 'ko', theme: 'light', bookmarks: [] },
 })
 const searchIndex = new SearchIndexService(getRoots)
+let mainWindow: BrowserWindow | null = null
 
 function createWindow() {
-  const mainWindow = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     width: 1320,
     height: 860,
     minWidth: 1220,
@@ -32,10 +33,14 @@ function createWindow() {
       nodeIntegration: false,
     },
   })
+  const window = mainWindow
 
-  mainWindow.once('ready-to-show', () => mainWindow.show())
-  if (process.env.VITE_DEV_SERVER_URL) mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL)
-  else mainWindow.loadFile(path.join(__dirname, '../../dist/index.html'))
+  window.once('ready-to-show', () => window.show())
+  window.on('closed', () => {
+    mainWindow = null
+  })
+  if (process.env.VITE_DEV_SERVER_URL) window.loadURL(process.env.VITE_DEV_SERVER_URL)
+  else window.loadFile(path.join(__dirname, '../../dist/index.html'))
 }
 
 function registerIpc() {
@@ -57,6 +62,14 @@ function registerIpc() {
   ipcMain.handle('fs:copy', (event, request: FileOperationRequest) => copyPaths(request, progress => sendProgress(event.sender, progress)))
   ipcMain.handle('fs:move', (event, request: FileOperationRequest) => movePaths(request, progress => sendProgress(event.sender, progress)))
   ipcMain.handle('fs:delete', (event, paths: string[]) => deletePaths(paths, progress => sendProgress(event.sender, progress)))
+  ipcMain.on('fs:start-drag', (event, paths: string[]) => {
+    const files = paths.filter(Boolean)
+    if (files.length === 0) return
+
+    const iconPath = path.resolve(__dirname, '../../build/app_icon.ico')
+    const icon = nativeImage.createFromPath(iconPath)
+    event.sender.startDrag({ file: files[0], files, icon: icon.isEmpty() ? iconPath : icon })
+  })
   ipcMain.handle('fs:search', (_event, options: SearchOptions) => searchFiles(options))
   ipcMain.handle('index:status', () => searchIndex.getStatus())
   ipcMain.handle('index:rebuild', () => searchIndex.rebuild(broadcastIndexStatus))

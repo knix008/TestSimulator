@@ -102,6 +102,8 @@ export type CommandCenterApi = {
   extract(request: ExtractRequest): Promise<void>
   chooseDirectory(): Promise<string | null>
   chooseSaveZip(defaultPath: string): Promise<string | null>
+  getDroppedFilePath(file: File): string
+  startDrag(paths: string[]): void
   watchDirectory(path: string): Promise<void>
   getIndexStatus(): Promise<IndexStatus>
   rebuildIndex(): Promise<void>
