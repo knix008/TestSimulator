@@ -1,0 +1,83 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "productName": "My Music Station",
+  "version": "0.1.0",
+  "identifier": "com.mymusicstation.player",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:5173",
+    "beforeBuildCommand": "npm run build:web",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "My Music Station",
+        "width": 960,
+        "height": 560,
+        "minWidth": 960,
+        "minHeight": 560,
+        "maxWidth": 960,
+        "maxHeight": 560,
+        "resizable": false,
+        "decorations": false,
+        "center": true
+      }
+    ],
+    "security": {
+      "csp": null,
+      "assetProtocol": {
+        "enable": true,
+        "scope": [
+          "$HOME/**",
+          "$AUDIO/**",
+          "$DOCUMENT/**",
+          "$DOWNLOAD/**"
+        ]
+      }
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "resources": [
+      "playlist-icons/icon.ico"
+    ],
+    "publisher": "My Music Station",
+    "category": "Music",
+    "fileAssociations": [
+      {
+        "ext": [
+          "mmspl"
+        ],
+        "name": "My Music Station Playlist",
+        "description": "My Music Station playlist file",
+        "role": "Editor",
+        "mimeType": "application/vnd.mymusicstation.playlist+json",
+        "exportedType": {
+          "identifier": "com.mymusicstation.playlist",
+          "conformsTo": [
+            "public.json"
+          ]
+        }
+      }
+    ],
+    "windows": {
+      "allowDowngrades": false,
+      "nsis": {
+        "installMode": "both",
+        "installerIcon": "icons/icon.ico",
+        "uninstallerIcon": "icons/icon.ico",
+        "startMenuFolder": "My Music Station",
+        "installerHooks": "windows/nsis-hooks.nsh"
+      }
+    }
+  }
+}

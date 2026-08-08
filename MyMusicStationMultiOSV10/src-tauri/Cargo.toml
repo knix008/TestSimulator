@@ -1,0 +1,18 @@
+[package]
+name = "my_music_station"
+version = "0.1.0"
+description = "A multi-platform music player with themes and spectrum visualization."
+authors = ["My Music Station"]
+edition = "2021"
+
+[lib]
+name = "my_music_station_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["protocol-asset", "tray-icon"] }
+tauri-plugin-dialog = "2"
+tauri-plugin-fs = "2"
