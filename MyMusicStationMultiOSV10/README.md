@@ -1,27 +1,29 @@
 # My Music Station
 
-React, Vite, Tauri 기반의 웹/데스크톱 음악 플레이어입니다. 로컬 음악 파일과 원격 오디오 URL을 재생하고, Web Audio API 기반 스펙트럼 시각화와 분리된 테마 선택을 제공합니다.
+React, Vite, TypeScript, Tauri 기반의 멀티 OS 음악 플레이어입니다. 로컬 음악 파일과 원격 오디오 URL을 재생하고, Web Audio API 기반 스펙트럼 시각화와 테마/언어 전환을 제공합니다.
 
 ## 주요 기능
 
-- 웹 브라우저 실행 및 Windows/macOS/Linux 데스크톱 패키징 지원
-- MP3, FLAC, WAV, OGG, AAC, M4A, WebM 등 브라우저가 지원하는 오디오 포맷 재생
-- 로컬 파일 다중 추가 및 원격 오디오 URL 추가
-- 음악 폴더 열기 및 마지막으로 연 폴더 기억 후 다시 열기
-- `.mmspl` 플레이리스트 파일 저장/불러오기
+- Windows / macOS / Linux 데스크톱 패키징 (Tauri 2)
+- MP3, FLAC, WAV, OGG, AAC, M4A, WebM, OPUS 등 WebView가 지원하는 오디오 포맷 재생
+- 네이티브 다이얼로그로 파일/폴더 추가 (경로 보존 → 플레이리스트 저장 가능)
+- 음악 폴더 열기 및 마지막 폴더 기억 후 다시 열기
+- `.mplist` 플레이리스트 저장/불러오기
 - 재생, 일시정지, 정지, 이전/다음 트랙, 탐색, 볼륨 제어
-- 실시간 스펙트럼 시각화
-- 고정 960x560 크기, 스크롤 없는 컴팩트 GUI, 프레임리스 창, 커스텀 툴바
-- Dark, Modern, Classic, Fancy 및 사용자 추가 테마 선택
-- 한국어/영어 UI 전환
-- Windows 설치 시 `.mmspl` 파일 형식 등록, 시작 메뉴 폴더, 설치 전 기존 앱 제거 훅 지원
-- 데스크톱 앱 종료 버튼은 창을 숨기고, 실제 종료는 시스템 트레이 메뉴에서 수행
+- 실시간 스펙트럼 시각화 (왼쪽 파랑 → 오른쪽 빨강)
+- 앨범 아트·메타데이터 표시 (`music-metadata`)
+- 고정 960×520 프레임리스 창, 커스텀 툴바
+- Dark / Modern / Classic / Fancy 및 사용자 추가 테마
+- 한국어 / 영어 UI 전환
+- 시스템 트레이 아이콘 (창 닫기 = 숨김, 종료는 트레이 Quit)
+- Windows 설치 시 `.mplist` 연결, 시작 메뉴 등록, 설치 전 기존 앱 완전 제거
 
 ## 문서
 
 - [Architecture.md](Architecture.md): 앱 구조와 런타임 흐름
 - [UsersGuide.md](UsersGuide.md): 사용자 기능 안내
-- [music](music): 테스트 또는 배포 전 음악 파일을 둘 수 있는 로컬 폴더
+- [asset](asset): 앱 / 플레이리스트 / 트레이 아이콘 SVG 원본
+- [music](music): 로컬 테스트용 음악 폴더 (내용은 git 제외)
 
 ## 프로그램 실행
 
@@ -29,61 +31,47 @@ React, Vite, Tauri 기반의 웹/데스크톱 음악 플레이어입니다. 로�
 npm start
 ```
 
-이미 빌드된 데스크톱 앱을 바로 실행합니다. 빌드 산출물이 없으면 먼저 `npm run build:win`, `npm run build:mac`, `npm run build:linux` 중 현재 OS에 맞는 명령을 한 번 실행하세요.
+`src-tauri/target/release`의 릴리스 EXE를 실행합니다. 소스가 EXE보다 새우면 **설치 패키지까지 같은 빌드**로 다시 만든 뒤 실행합니다 (`build:win`과 동일 경로).
 
-개발 모드로 Tauri 앱을 실행하려면 다음 명령을 사용합니다.
+개발 모드 (핫 리로드):
 
 ```bash
 npm run desktop:dev
 ```
 
-## 웹 개발 서버
+## 웹 개발 / 빌드
 
 ```bash
 npm run dev
-```
-
-## 웹 빌드
-
-```bash
 npm run build:web
 ```
 
-빌드 결과는 `dist` 폴더에 생성됩니다.
+웹 빌드 결과는 `dist`에 생성됩니다.
 
-## Windows 설치 파일 생성
+## 설치 파일 생성 (npm start와 동일 바이너리)
 
-```bash
-npm run build:win
-```
-
-생성 결과는 다음 위치에 있습니다.
-
-- `src-tauri/target/release/bundle/msi/My Music Station_0.1.0_x64_en-US.msi`
-- `src-tauri/target/release/bundle/nsis/My Music Station_0.1.0_x64-setup.exe`
-
-## macOS 설치 파일 생성
+`npm start`와 설치본은 **같은 release 바이너리**에서 나옵니다. `scripts/build-desktop.mjs`가 `CARGO_TARGET_DIR`을 저장소 로컬 `src-tauri/target`으로 고정한 뒤 번들을 만들고 루트로 복사합니다.
 
 ```bash
-npm run build:mac
+npm run build:win     # Windows NSIS + MSI → 프로젝트 루트 복사
+npm run build:mac     # macOS .app + .dmg
+npm run build:linux   # AppImage + DEB + RPM
+npm run copy:installers   # bundle 산출물만 루트로 다시 복사
 ```
 
-macOS에서 실행하면 `.app`과 `.dmg` 번들을 생성합니다.
+Windows 예시 (루트에 복사됨):
 
-## Linux 설치 파일 생성
+- `My Music Station_0.1.0_x64-setup.exe`
+- `My Music Station_0.1.0_x64_en-US.msi`
+
+원본 번들 경로: `src-tauri/target/release/bundle/`
+
+이미 설치한 앱을 최신과 맞추려면, 루트의 setup.exe로 **다시 설치**하세요. `npm start`만으로는 Program Files의 기존 설치본을 덮어쓰지 않습니다.
+
+## 기타 명령
 
 ```bash
-npm run build:linux
+npm run build           # = build:web
+npm run desktop:build   # OS 기본 번들로 build-desktop
+npm run lint
 ```
-
-Linux에서 실행하면 AppImage, DEB, RPM 번들을 생성합니다.
-
-## 호환 명령어
-
-```bash
-npm run build
-npm run desktop:dev
-npm run desktop:build
-```
-
-기존 명령어도 유지되어 있습니다. `npm run build`는 `npm run build:web`과 같습니다.

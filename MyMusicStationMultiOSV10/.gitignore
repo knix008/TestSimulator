@@ -7,13 +7,24 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Dependencies and build output
 node_modules
 dist
 dist-ssr
 src-tauri/target
+*.local
+
+# Local music samples (keep folder via .gitkeep)
 music/*
 !music/.gitkeep
-*.local
+
+# Root copies of packaged installers
+/*.msi
+/*-setup.exe
+/*.dmg
+/*.AppImage
+/*.deb
+/*.rpm
 
 # Editor directories and files
 .vscode/*
@@ -25,3 +36,5 @@ music/*
 *.njsproj
 *.sln
 *.sw?
+Thumbs.db
+Desktop.ini

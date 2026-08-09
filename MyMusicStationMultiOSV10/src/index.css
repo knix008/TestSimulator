@@ -92,14 +92,14 @@ html,
 body,
 #root {
   width: 960px;
-  height: 560px;
+  height: 520px;
   margin: 0;
   overflow: hidden;
 }
 
 body {
   min-width: 960px;
-  min-height: 560px;
+  min-height: 520px;
 }
 
 button,

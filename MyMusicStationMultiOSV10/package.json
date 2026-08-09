@@ -8,19 +8,21 @@
     "dev": "vite",
     "build": "npm run build:web",
     "build:web": "tsc -b && vite build",
-    "build:win": "tauri build --bundles nsis,msi",
-    "build:mac": "tauri build --bundles app,dmg",
-    "build:linux": "tauri build --bundles appimage,deb,rpm",
+    "build:win": "node scripts/build-desktop.mjs nsis,msi",
+    "build:mac": "node scripts/build-desktop.mjs app,dmg",
+    "build:linux": "node scripts/build-desktop.mjs appimage,deb,rpm",
+    "copy:installers": "node scripts/copy-installers.mjs",
     "lint": "oxlint",
     "preview": "vite preview",
     "desktop:dev": "tauri dev",
-    "desktop:build": "tauri build"
+    "desktop:build": "node scripts/build-desktop.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.11.1",
     "@tauri-apps/plugin-dialog": "^2.7.2",
     "@tauri-apps/plugin-fs": "^2.5.1",
     "lucide-react": "^1.30.0",
+    "music-metadata": "^11.14.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
   },

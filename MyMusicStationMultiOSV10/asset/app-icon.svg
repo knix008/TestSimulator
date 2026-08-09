@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="blue-bg" x1="86" y1="64" x2="426" y2="448" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#4db5ff" />
+      <stop offset="0.48" stop-color="#1459c8" />
+      <stop offset="1" stop-color="#09225f" />
+    </linearGradient>
+    <radialGradient id="corner-light" cx="0" cy="0" r="1" gradientTransform="matrix(210 186 -186 210 108 82)" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.92" />
+      <stop offset="0.34" stop-color="#dff4ff" stop-opacity="0.48" />
+      <stop offset="1" stop-color="#dff4ff" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="note-shine" x1="152" y1="122" x2="366" y2="352" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff" />
+      <stop offset="1" stop-color="#b8e5ff" />
+    </linearGradient>
+  </defs>
+  <rect x="40" y="40" width="432" height="432" rx="34" fill="url(#blue-bg)" />
+  <rect x="40" y="40" width="432" height="432" rx="34" fill="url(#corner-light)" />
+  <path d="M74 40h216L40 290V74c0-19 15-34 34-34z" fill="#ffffff" opacity="0.18" />
+  <path d="M104 40h134L40 238V104c0-35 29-64 64-64z" fill="#ffffff" opacity="0.22" />
+  <circle cx="256" cy="260" r="172" fill="#06173d" opacity="0.44" />
+  <circle cx="256" cy="260" r="158" fill="#eef8ff" opacity="0.96" />
+  <path d="M210 332V156l158-34v178" fill="none" stroke="#061a4f" stroke-width="46" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M222 172l134-28" fill="none" stroke="#57d7ff" stroke-width="16" stroke-linecap="round" opacity="0.95" />
+  <circle cx="178" cy="336" r="54" fill="#061a4f" />
+  <circle cx="338" cy="304" r="54" fill="#061a4f" />
+  <circle cx="164" cy="320" r="16" fill="#57d7ff" opacity="0.9" />
+  <circle cx="324" cy="288" r="16" fill="#57d7ff" opacity="0.9" />
+  <path d="M118 214h52M342 214h52M96 260h74M342 260h74" stroke="#25bfff" stroke-width="24" stroke-linecap="round" />
+  <rect x="40" y="40" width="432" height="432" rx="34" fill="none" stroke="#8bd7ff" stroke-opacity="0.42" stroke-width="16" />
+</svg>

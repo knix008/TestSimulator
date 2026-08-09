@@ -6,17 +6,41 @@
   "permissions": [
     "core:default",
     "core:window:allow-hide",
+    "core:window:allow-show",
+    "core:window:allow-set-focus",
+    "core:window:allow-unminimize",
     "core:window:allow-minimize",
+    "core:window:allow-close",
+    "core:window:allow-destroy",
     "core:window:allow-start-dragging",
+    "core:tray:allow-set-visible",
     "dialog:allow-open",
+    "dialog:allow-save",
+    "fs:allow-read",
     "fs:allow-read-dir",
+    "fs:allow-read-text-file",
+    "fs:allow-write-text-file",
+    "fs:allow-create",
+    "fs:allow-exists",
+    "fs:allow-mkdir",
     {
       "identifier": "fs:scope",
       "allow": [
         { "path": "$HOME/**" },
         { "path": "$AUDIO/**" },
+        { "path": "$DESKTOP/**" },
         { "path": "$DOCUMENT/**" },
-        { "path": "$DOWNLOAD/**" }
+        { "path": "$DOWNLOAD/**" },
+        { "path": "$APPDATA/**" },
+        { "path": "$RESOURCE/**" },
+        { "path": "D:/Home/**" },
+        { "path": "D:\\Home\\**" },
+        { "path": "C:/**" },
+        { "path": "D:/**" },
+        { "path": "E:/**" },
+        { "path": "F:/**" },
+        { "path": "G:/**" },
+        { "path": "H:/**" }
       ]
     }
   ]
