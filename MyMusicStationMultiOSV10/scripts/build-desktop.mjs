@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, writeFileSync, statSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, writeFileSync, statSync } from 'node:fs'
 import { platform } from 'node:os'
 import { join } from 'node:path'
 import { execFileSync, spawnSync } from 'node:child_process'
@@ -39,6 +39,15 @@ if (!bundlesArg) {
 mkdirSync(releaseDir, { recursive: true })
 stopRunningInstances()
 
+const fetchFfmpeg = spawnSync(process.execPath, [join(root, 'scripts', 'fetch-ffmpeg.mjs')], {
+  cwd: root,
+  stdio: 'inherit',
+})
+
+if (fetchFfmpeg.status !== 0) {
+  console.warn('[build] fetch-ffmpeg failed; convert may rely on PATH ffmpeg only.')
+}
+
 console.log(`[build] CARGO_TARGET_DIR=${localTargetDir}`)
 console.log(`[build] tauri build --bundles ${bundlesArg}`)
 
@@ -54,6 +63,23 @@ const result = spawnSync('npx', ['tauri', 'build', '--bundles', bundlesArg], {
 
 if (result.status !== 0) {
   process.exit(result.status ?? 1)
+}
+
+const bundledFfmpeg = join(
+  root,
+  'src-tauri',
+  'ffmpeg',
+  platform() === 'win32' ? 'ffmpeg.exe' : 'ffmpeg',
+)
+const releaseFfmpeg = join(releaseDir, platform() === 'win32' ? 'ffmpeg.exe' : 'ffmpeg')
+
+if (existsSync(bundledFfmpeg)) {
+  try {
+    copyFileSync(bundledFfmpeg, releaseFfmpeg)
+    console.log(`[build] copied ffmpeg beside release binary → ${releaseFfmpeg}`)
+  } catch (error) {
+    console.warn(`[build] could not copy ffmpeg beside release binary: ${error}`)
+  }
 }
 
 const copyResult = spawnSync(process.execPath, [join(root, 'scripts', 'copy-installers.mjs')], {

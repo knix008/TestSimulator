@@ -7,7 +7,7 @@ My Music Station is a compact cross-platform music player built with React, Vite
 - **React UI**: fixed-size player shell, custom toolbar, transport controls, spectrum canvas, playlist side panel, language switcher, theme manager, about dialog.
 - **Web Audio API**: HTML `<audio>` element connected through `MediaElementSource → Analyser → Gain → destination` for playback and spectrum bars.
 - **Metadata**: `music-metadata` parses tags and embedded artwork when local files are loaded.
-- **Tauri shell**: frameless 960×520 window, system tray, file associations, NSIS/MSI (and macOS/Linux) packaging.
+- **Tauri shell**: frameless 1100×544 window with status bar, system tray, file associations, NSIS/MSI (and macOS/Linux) packaging.
 - **Tauri plugins**: `@tauri-apps/plugin-dialog` and `@tauri-apps/plugin-fs` for native open/save dialogs and filesystem access.
 
 ## Runtime Flow
@@ -52,8 +52,9 @@ Release builds use `windows_subsystem = "windows"` so no extra console window ap
 
 ## Window & Tray
 
-- Fixed size: **960×520**, non-resizable, undecorated.
+- Fixed size: **1100×544**, non-resizable, undecorated, with a bottom status bar for playback and app feedback.
 - Toolbar Settings dialog persists preferences in `localStorage` (`myMusicStation.appSettings`).
 - System tray usage is optional; Rust commands `get_shell_settings` / `set_use_system_tray` sync tray visibility and close behavior (`shell-settings.json` under the app config dir).
+- Audio convert/save uses the `convert_audio` command with `ffmpeg` from PATH or beside the app EXE (`scripts/fetch-ffmpeg.mjs` prepares `src-tauri/ffmpeg/` at build time when a full binary is available).
 - When tray is enabled, close hides the window; when disabled, close exits the app.
 - Tray icon is built in `setup` and stored in managed state; left-click (and tray menu **Settings**) shows the window and emits `open-settings`; menu: Show / Settings / Quit.

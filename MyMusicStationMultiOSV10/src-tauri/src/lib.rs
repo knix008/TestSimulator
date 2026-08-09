@@ -1,3 +1,6 @@
+mod audio_convert;
+mod wallpaper;
+
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
@@ -6,8 +9,8 @@ use tauri::menu::{Menu, MenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent};
 use tauri::{image::Image, AppHandle, Emitter, LogicalSize, Manager, RunEvent, Size, State, WindowEvent};
 
-const WINDOW_WIDTH: f64 = 960.0;
-const WINDOW_HEIGHT: f64 = 520.0;
+const WINDOW_WIDTH: f64 = 1100.0;
+const WINDOW_HEIGHT: f64 = 680.0;
 
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -51,6 +54,10 @@ fn open_settings_from_tray(app: &AppHandle) {
 
 fn settings_file_path(app: &AppHandle) -> Option<PathBuf> {
     app.path().app_config_dir().ok().map(|dir| dir.join("shell-settings.json"))
+}
+
+fn ui_settings_file_path(app: &AppHandle) -> Option<PathBuf> {
+    app.path().app_config_dir().ok().map(|dir| dir.join("app-settings.json"))
 }
 
 fn load_shell_settings(app: &AppHandle) -> ShellSettings {
@@ -113,12 +120,53 @@ fn set_use_system_tray(app: AppHandle, enabled: bool) -> Result<(), String> {
     Ok(())
 }
 
+#[tauri::command]
+fn load_ui_settings(app: AppHandle) -> Option<serde_json::Value> {
+    let path = ui_settings_file_path(&app)?;
+    let raw = fs::read_to_string(path).ok()?;
+    serde_json::from_str(&raw).ok()
+}
+
+#[tauri::command]
+fn save_ui_settings(app: AppHandle, settings: serde_json::Value) -> Result<(), String> {
+    let path = ui_settings_file_path(&app).ok_or_else(|| "app config directory unavailable".to_string())?;
+
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+    }
+
+    let raw = serde_json::to_string_pretty(&settings).map_err(|error| error.to_string())?;
+    fs::write(path, raw).map_err(|error| error.to_string())?;
+
+    if let Some(use_system_tray) = settings.get("useSystemTray").and_then(|value| value.as_bool()) {
+        let state = app.state::<AppState>();
+        {
+            let mut shell = state
+                .settings
+                .lock()
+                .map_err(|_| "settings lock poisoned".to_string())?;
+            shell.use_system_tray = use_system_tray;
+            persist_shell_settings(&app, &shell);
+        }
+        apply_tray_visibility(&state.tray, use_system_tray);
+    }
+
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
-        .invoke_handler(tauri::generate_handler![get_shell_settings, set_use_system_tray])
+        .invoke_handler(tauri::generate_handler![
+            get_shell_settings,
+            set_use_system_tray,
+            load_ui_settings,
+            save_ui_settings,
+            audio_convert::convert_audio,
+            wallpaper::load_wallpaper_image
+        ])
         .setup(|app| {
             if let Some(window) = app.get_webview_window("main") {
                 apply_fixed_window_size(&window);
@@ -128,7 +176,13 @@ pub fn run() {
                 }
             }
 
-            let shell_settings = load_shell_settings(app.handle());
+            let mut shell_settings = load_shell_settings(app.handle());
+            if let Some(ui_settings) = load_ui_settings(app.handle().clone()) {
+                if let Some(use_system_tray) = ui_settings.get("useSystemTray").and_then(|value| value.as_bool()) {
+                    shell_settings.use_system_tray = use_system_tray;
+                    persist_shell_settings(app.handle(), &shell_settings);
+                }
+            }
 
             let show = MenuItem::with_id(app, "show", "Show My Music Station", true, None::<&str>)?;
             let settings = MenuItem::with_id(app, "settings", "Settings", true, None::<&str>)?;

@@ -12,6 +12,8 @@ node_modules
 dist
 dist-ssr
 src-tauri/target
+src-tauri/ffmpeg/*
+!src-tauri/ffmpeg/.gitkeep
 *.local
 
 # Local music samples (keep folder via .gitkeep)

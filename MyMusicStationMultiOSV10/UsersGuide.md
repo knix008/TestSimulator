@@ -38,6 +38,7 @@ Hover a button to see its tooltip.
 | Reopen | Reload the last remembered music folder. |
 | Add files | Add audio files via the native file dialog (paths are kept for playlist save). |
 | Save (플레이리스트 저장) | Save the current playlist as a `.mplist` file. |
+| Convert (형식 변환 저장) | Convert the current track to MP3/WAV/FLAC/OGG/M4A and save it. Requires ffmpeg. |
 | Open | Open a `.mplist` playlist and/or audio files. |
 | Language | Switch between Korean and English. |
 | Settings | Open app settings (language, theme, system tray, playback). |
@@ -45,6 +46,18 @@ Hover a button to see its tooltip.
 | Theme | Pick a built-in or custom theme. |
 | Minimize | Minimize the window. |
 | Close | Hide to tray when system tray is enabled; otherwise quit the app. |
+
+## Status Bar
+
+The bottom status bar shows:
+
+- Playback state (Ready / Playing / Paused / Stopped) or temporary feedback (save, convert, theme, errors)
+- Current track title
+- Theme name, tray on/off, wallpaper on/off, and volume percent
+
+Success/info messages clear after a few seconds; errors stay until the next status update.
+
+When an error occurs, a popup shows the full details. You can select the text or use **Copy details**. Click the red status-bar message to reopen the error dialog.
 
 ## Playback
 
@@ -72,12 +85,18 @@ Paste an HTTP(S) audio URL in the side panel and add it. When possible the app f
 
 Open the theme menu to select Dark, Modern, Classic, Fancy, or a custom theme. Enter a name, pick an accent color, and add a custom theme. Built-in themes cannot be deleted.
 
+Theme files are plain `.json`. From the theme menu:
+
+- **Save theme file**: export the current theme colors to a `.json` file
+- **Open theme file**: import a theme `.json` file as a custom theme and apply it
+
 ## Settings
 
 Open **Settings** from the toolbar gear icon. Options are saved locally and apply to both `npm start` and the installed app:
 
 - **General**: language, theme
 - **Window / System**: use system tray (on by default)
+- **Background**: wallpaper image for the whole app, dim level
 - **Playback**: remember volume, show spectrum, open last folder on start, volume
 
 ## System Tray
