@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://s.ytimg.com; style-src 'self' 'unsafe-inline'; media-src 'self' blob: file: https: localmedia:; img-src 'self' data: blob: https://i.ytimg.com https://*.googleusercontent.com; frame-src https://www.youtube.com https://www.youtube-nocookie.com; connect-src 'self' blob: https://www.youtube.com https://*.googlevideo.com https://*.google.com localmedia:; font-src 'self' data:;" />
+  <title>MyVideoPlayer</title>
+  <link rel="icon" type="image/png" href="favicon.png" />
+  <link rel="stylesheet" href="styles/themes.css" />
+  <link rel="stylesheet" href="styles/main.css" />
+</head>
+<body>
+  <div id="app" class="app">
+    <!-- Toolbar: brand | actions | drag | tools + opacity | window controls -->
+    <nav class="toolbar" id="toolbar" role="toolbar" aria-label="Player toolbar" data-i18n-aria="toolbar">
+      <div class="toolbar-left">
+        <div class="toolbar-brand toolbar-drag-region" id="toolbarBrand" title="MyVideo">
+          <img class="toolbar-brand-icon" src="favicon.png" width="20" height="20" alt="" draggable="false" />
+          <span class="toolbar-brand-text" id="toolbarBrandText">MyVideo V1.0.0</span>
+        </div>
+        <div class="toolbar-actions">
+          <button type="button" class="tool-btn" id="btnOpen" data-i18n-tooltip="openTip" data-i18n-aria="open">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2h8.5A1.5 1.5 0 0 1 21 8.5v9A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5v-11Z"/></svg>
+          </button>
+          <div class="recent-wrap">
+            <button type="button" class="tool-btn" id="btnRecent" data-i18n-tooltip="recentTip" data-i18n-aria="recent" aria-haspopup="menu" aria-expanded="false">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4a8 8 0 1 0 8 8h-2a6 6 0 1 1-1.76-4.24L14 10h6V4l-2.24 2.24A7.96 7.96 0 0 0 12 4Zm-1 3h2v5.2l3.4 2-1 1.7-4.4-2.6V7Z"/></svg>
+            </button>
+            <div class="recent-menu" id="recentMenu" role="menu" hidden>
+              <div class="recent-menu-header">
+                <span data-i18n="recentTitle">Recent (max 10)</span>
+                <button type="button" class="recent-clear" id="btnClearRecent" data-i18n="recentClear">Clear</button>
+              </div>
+              <ul class="recent-list" id="recentList"></ul>
+              <div class="recent-empty" id="recentEmpty" data-i18n="recentEmpty">No recent items</div>
+            </div>
+          </div>
+          <button type="button" class="tool-btn" id="btnOpenSub" data-i18n-tooltip="openSubTip" data-i18n-aria="openSub">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Zm2 4v2h4V9H6Zm6 0v2h6V9h-6Zm-6 4v2h8v-2H6Zm10 0v2h2v-2h-2Z"/></svg>
+          </button>
+          <button type="button" class="tool-btn" id="btnYouTube" data-i18n-tooltip="youtubeTip" data-i18n-aria="youtube">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.6A3 3 0 0 0 .5 6.2 31.6 31.6 0 0 0 0 12a31.6 31.6 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.6 9.4.6 9.4.6s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1A31.6 31.6 0 0 0 24 12a31.6 31.6 0 0 0-.5-5.8ZM9.75 15.02V8.98L15.5 12l-5.75 3.02Z"/></svg>
+          </button>
+          <button type="button" class="tool-btn" id="btnSaveYt" data-i18n-tooltip="saveYtTip" data-i18n-aria="saveYt" disabled>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20h14v-2H5v2Zm7-18-5.5 5.5h3.5V15h4V7.5H17.5L12 2Z"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="toolbar-spacer toolbar-drag-region" id="toolbarDrag" aria-hidden="true"></div>
+
+      <div class="toolbar-right">
+        <button type="button" class="tool-btn" id="btnSpectrum" data-i18n-tooltip="spectrumTip" data-i18n-aria="spectrum" aria-pressed="true">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18h2V8H4v10Zm4 0h2V4H8v14Zm4 0h2v-7h-2v7Zm4 0h2V9h-2v9Zm4 0h2V6h-2v12Z"/></svg>
+        </button>
+        <button type="button" class="tool-btn" id="btnFullscreen" data-i18n-tooltip="fullscreenTip" data-i18n-aria="fullscreen">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5v2H6v3H4Zm10-5h5v5h-2V6h-3V4ZM4 15h2v3h3v2H4v-5Zm16 5h-5v-2h3v-3h2v5Z"/></svg>
+        </button>
+        <div class="toolbar-opacity electron-only" id="toolbarOpacity" title="Window opacity">
+          <svg class="toolbar-opacity-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 1 0 0 20V2Zm0 18a8 8 0 0 1 0-16v16Z"/></svg>
+          <input type="range" class="opacity-bar" id="toolbarOpacityBar" min="20" max="100" step="1" value="100" style="--fill: 100%" data-i18n-tooltip="opacityTip" data-i18n-aria="opacity" />
+          <span class="toolbar-opacity-value" id="toolbarOpacityValue">100%</span>
+        </div>
+        <button type="button" class="tool-btn tool-btn-labeled" id="btnLocale" data-i18n-tooltip="languageTip" data-i18n-aria="language">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm0 2c.7 0 2.1 1.7 2.8 5H9.2C9.9 5.7 11.3 4 12 4Zm-3.1 7a14.5 14.5 0 0 0 0 2h6.2a14.5 14.5 0 0 0 0-2H8.9Zm.3 4h5.6c-.7 3.3-2.1 5-2.8 5s-2.1-1.7-2.8-5Zm7.3-9.1A7.96 7.96 0 0 1 19.9 11h-3.05c-.15-1.5-.5-2.85-1-3.95l.65-.15ZM7.15 7.05c-.5 1.1-.85 2.45-1 3.95H3.1a7.96 7.96 0 0 1 3.4-5.05l.65.1ZM3.1 13h3.05c.15 1.5.5 2.85 1 3.95l-.65.15A7.96 7.96 0 0 1 3.1 13Zm13.75 4.1c.5-1.1.85-2.45 1-3.95H20.9a7.96 7.96 0 0 1-3.4 5.05l-.65-.1Z"/></svg>
+          <span class="tool-btn-label" id="localeBtnLabel">한글</span>
+        </button>
+        <div class="popup-wrap theme-wrap">
+          <button type="button" class="tool-btn" id="btnTheme" data-i18n-tooltip="themeTip" data-i18n-aria="theme" aria-haspopup="menu" aria-expanded="false">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 0 0 0 18c.8 0 1.5-.7 1.5-1.5 0-.4-.15-.75-.4-1-.25-.25-.4-.6-.4-1 0-.8.7-1.5 1.5-1.5H15a5 5 0 0 0 0-10h-3Zm-5.5 9a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm3-4a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm2.5 4.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Z"/></svg>
+          </button>
+          <div class="popup-menu popup-menu-end" id="themeMenu" role="menu" hidden>
+            <div class="popup-menu-header">
+              <span data-i18n="theme">Theme</span>
+            </div>
+            <ul class="popup-list" id="themeList"></ul>
+            <div class="popup-menu-footer">
+              <button type="button" class="popup-action" id="btnToolbarEditTheme" data-i18n="customize">Customize…</button>
+            </div>
+          </div>
+        </div>
+        <button type="button" class="tool-btn" id="btnSettings" data-i18n-tooltip="settingsTip" data-i18n-aria="settings">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.14 12.94c.04-.31.06-.63.06-.94s-.02-.63-.06-.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.03 7.03 0 0 0-1.63-.94l-.36-2.54A.5.5 0 0 0 13.9 2h-3.8a.5.5 0 0 0-.5.42l-.36 2.54c-.58.23-1.12.54-1.63.94l-2.39-.96a.5.5 0 0 0-.6.22L2.7 8.48a.5.5 0 0 0 .12.64l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94L2.82 14.16a.5.5 0 0 0-.12.64l1.92 3.32c.13.23.4.32.64.22l2.39-.96c.5.4 1.05.72 1.63.94l.36 2.54c.05.24.26.42.5.42h3.8c.24 0 .45-.18.5-.42l.36-2.54c.58-.22 1.13-.54 1.63-.94l2.39.96c.24.1.51 0 .64-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58ZM12 15.5A3.5 3.5 0 1 1 12 8.5a3.5 3.5 0 0 1 0 7Z"/></svg>
+        </button>
+        <button type="button" class="tool-btn" id="btnAbout" data-i18n-tooltip="aboutTip" data-i18n-aria="about">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm1 15h-2v-6h2v6Zm0-8h-2V7h2v2Z"/></svg>
+        </button>
+      </div>
+
+      <!-- Own grid column so caption buttons are never clipped by crowded tools -->
+      <div class="window-controls" id="windowControls" aria-label="Window">
+        <button type="button" class="win-btn" id="btnMinimize" data-i18n-tooltip="minimize" data-i18n-aria="minimize">─</button>
+        <button type="button" class="win-btn" id="btnMaximize" data-i18n-tooltip="maximize" data-i18n-aria="maximize">□</button>
+        <button type="button" class="win-btn win-close" id="btnClose" data-i18n-tooltip="close" data-i18n-aria="close">✕</button>
+      </div>
+    </nav>
+
+    <!-- Main stage -->
+    <main class="stage" id="stage">
+      <div class="video-wrap" id="videoWrap">
+        <video id="media" playsinline></video>
+        <div id="youtubeContainer" class="youtube-container hidden" data-i18n-aria="youtubePlayer"></div>
+        <div class="subtitle-overlay" id="subtitleOverlay" aria-live="polite"></div>
+        <div class="playback-overlay" id="playbackOverlay" hidden aria-live="polite">
+          <div class="playback-overlay-card" data-mode="play">
+            <div class="playback-overlay-icon" aria-hidden="true">
+              <svg class="ov-play" viewBox="0 0 24 24"><path d="M8 5v14l11-7L8 5Z"/></svg>
+              <svg class="ov-pause" viewBox="0 0 24 24"><path d="M7 5h3v14H7V5Zm7 0h3v14h-3V5Z"/></svg>
+              <svg class="ov-stop" viewBox="0 0 24 24"><path d="M6 6h12v12H6V6Z"/></svg>
+            </div>
+            <div class="playback-overlay-label" id="playbackOverlayLabel" data-i18n="overlayPlay">Playing</div>
+          </div>
+        </div>
+        <div class="drop-hint" id="dropHint">
+          <div class="drop-hint-inner">
+            <p class="drop-title" data-i18n="dropTitle">Open a media file or YouTube link</p>
+            <p class="drop-sub" data-i18n="dropSub">Drop files here, use Open, or paste a YouTube URL · MP4, WebM, H.264, H.265*, MP3, AAC and more</p>
+          </div>
+        </div>
+        <div class="spectrum-popup" id="spectrumPopup" hidden>
+          <header class="spectrum-popup-titlebar" id="spectrumPopupDrag">
+            <div class="spectrum-popup-titles">
+              <span class="spectrum-popup-label" data-i18n="spectrumLabel">Spectrum</span>
+              <span class="spectrum-popup-style" id="spectrumStyleName">Rainbow</span>
+            </div>
+            <div class="spectrum-popup-actions">
+              <button type="button" class="spectrum-popup-btn" id="btnSpectrumPrev" data-i18n-tooltip="spectrumPrevTip" aria-label="Previous style">‹</button>
+              <button type="button" class="spectrum-popup-btn" id="btnSpectrumNext" data-i18n-tooltip="spectrumNextTip" aria-label="Next style">›</button>
+              <button type="button" class="spectrum-popup-btn spectrum-popup-close" id="btnSpectrumPopupClose" data-i18n-tooltip="close" data-i18n-aria="close" aria-label="Close">✕</button>
+            </div>
+          </header>
+          <canvas id="spectrumCanvas" class="spectrum-popup-canvas"></canvas>
+        </div>
+      </div>
+    </main>
+
+    <!-- Playback / volume controls under video -->
+    <section class="control-bar" id="controlBar" role="toolbar" data-i18n-aria="controls">
+      <div class="control-bar-row seek-row">
+        <span class="time-label" id="timeCurrent">00:00</span>
+        <input type="range" class="seek-bar" id="seekBar" min="0" max="1000" value="0" step="1" style="--fill: 0%" data-i18n-tooltip="seekTip" data-i18n-aria="seek" />
+        <span class="time-label" id="timeDuration">00:00</span>
+      </div>
+      <div class="control-bar-row transport-row">
+        <div class="toolbar-group">
+          <button type="button" class="tool-btn" id="btnPrev" data-i18n-tooltip="seekBackTip" data-i18n-aria="seekBack">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 12 18 7v10l-7-5Zm-1 5V7H8v10h2Z"/></svg>
+          </button>
+          <button type="button" class="tool-btn tool-btn-primary" id="btnPlay" data-i18n-tooltip="playTip" data-i18n-aria="play">
+            <svg class="icon-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7L8 5Z"/></svg>
+            <svg class="icon-pause hidden" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h3v14H7V5Zm7 0h3v14h-3V5Z"/></svg>
+          </button>
+          <button type="button" class="tool-btn tool-btn-stop" id="btnStop" data-i18n-tooltip="stopTip" data-i18n-aria="stop">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6h12v12H6V6Z"/></svg>
+          </button>
+          <button type="button" class="tool-btn" id="btnNext" data-i18n-tooltip="seekFwdTip" data-i18n-aria="seekFwd">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 12 6 7v10l7-5Zm1-5v10h2V7h-2Z"/></svg>
+          </button>
+        </div>
+
+        <div class="toolbar-sep"></div>
+
+        <div class="toolbar-group volume-group">
+          <button type="button" class="tool-btn" id="btnMute" data-i18n-tooltip="muteTip" data-i18n-aria="mute">
+            <svg class="icon-vol" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10v4h3l4 3V7L7 10H4Zm11.5 2a3.5 3.5 0 0 0-1.8-3.05v6.1A3.5 3.5 0 0 0 15.5 12Zm0-7.7v2.06A6.5 6.5 0 0 1 19 12a6.5 6.5 0 0 1-3.5 5.64v2.06A8.5 8.5 0 0 0 21 12a8.5 8.5 0 0 0-5.5-7.7Z"/></svg>
+            <svg class="icon-muted hidden" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10v4h3l4 3V7L7 10H4Zm12.6-3.4 1.4 1.4L16.4 10l1.6 1.6-1.4 1.4L15 11.4l-1.6 1.6-1.4-1.4L13.6 10l-1.6-1.6 1.4-1.4L15 8.6l1.6-1.6ZM16 16.5A6.5 6.5 0 0 0 19 12h-2a4.5 4.5 0 0 1-1.7 3.5l.7 1Z"/></svg>
+          </button>
+          <div class="volume-slider" role="group" aria-label="Volume">
+            <span class="volume-scale" aria-hidden="true">0</span>
+            <input type="range" class="volume-bar" id="volumeBar" min="0" max="100" value="80" step="1" style="--fill: 80%" data-i18n-tooltip="volumeTip" data-i18n-aria="volume" aria-valuemin="0" aria-valuemax="100" aria-valuenow="80" aria-valuetext="80%" />
+            <span class="volume-scale" aria-hidden="true">100</span>
+            <output class="volume-value" id="volumeValue" for="volumeBar">80%</output>
+          </div>
+        </div>
+
+        <div class="toolbar-sep"></div>
+
+        <div class="toolbar-group rate-group">
+          <button type="button" class="tool-btn" id="btnRateDown" data-i18n-tooltip="slowerTip" data-i18n-aria="slower">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 11h10v2H7v-2Z"/></svg>
+          </button>
+          <select id="rateSelect" class="rate-select" data-i18n-tooltip="speedTip" data-i18n-aria="speed">
+            <option value="0.25">0.25×</option>
+            <option value="0.5">0.5×</option>
+            <option value="0.75">0.75×</option>
+            <option value="1" selected>1×</option>
+            <option value="1.25">1.25×</option>
+            <option value="1.5">1.5×</option>
+            <option value="1.75">1.75×</option>
+            <option value="2">2×</option>
+            <option value="2.5">2.5×</option>
+            <option value="3">3×</option>
+          </select>
+          <button type="button" class="tool-btn" id="btnRateUp" data-i18n-tooltip="fasterTip" data-i18n-aria="faster">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 7h2v4h4v2h-4v4h-2v-4H7v-2h4V7Z"/></svg>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Status bar -->
+    <footer class="statusbar" id="statusBar" role="status">
+      <span class="status-item" id="statusFile">Ready</span>
+      <span class="status-sep">|</span>
+      <span class="status-item" id="statusFormat">—</span>
+      <span class="status-sep">|</span>
+      <span class="status-item" id="statusSubtitle">No subtitle</span>
+      <span class="status-sep">|</span>
+      <span class="status-item" id="statusState">Idle</span>
+      <span class="status-sep">|</span>
+      <span class="status-item" id="statusRate">Speed: 1×</span>
+      <span class="status-sep">|</span>
+      <span class="status-item" id="statusTheme">Theme: Dark</span>
+      <span class="status-sep">|</span>
+      <span class="status-item" id="statusPlatform">Web</span>
+    </footer>
+  </div>
+
+  <!-- Settings modal -->
+  <dialog class="modal" id="settingsModal">
+    <form method="dialog" class="modal-card settings-card" id="settingsForm">
+      <header class="modal-header">
+        <h2 data-i18n="settingsTitle">Settings</h2>
+        <button type="submit" class="modal-close" value="cancel" data-i18n-aria="close">✕</button>
+      </header>
+      <div class="modal-body settings-body">
+        <section class="settings-section">
+          <h3 class="settings-section-title" data-i18n="settingsAppearance">Appearance</h3>
+          <div class="settings-grid">
+            <label class="field">
+              <span class="field-label">
+                <svg class="field-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm0 2c.7 0 2.1 1.7 2.8 5H9.2C9.9 5.7 11.3 4 12 4Zm-3.1 7a14.5 14.5 0 0 0 0 2h6.2a14.5 14.5 0 0 0 0-2H8.9Zm.3 4h5.6c-.7 3.3-2.1 5-2.8 5s-2.1-1.7-2.8-5Zm7.3-9.1A7.96 7.96 0 0 1 19.9 11h-3.05c-.15-1.5-.5-2.85-1-3.95l.65-.15ZM7.15 7.05c-.5 1.1-.85 2.45-1 3.95H3.1a7.96 7.96 0 0 1 3.4-5.05l.65.1ZM3.1 13h3.05c.15 1.5.5 2.85 1 3.95l-.65.15A7.96 7.96 0 0 1 3.1 13Zm13.75 4.1c.5-1.1.85-2.45 1-3.95H20.9a7.96 7.96 0 0 1-3.4 5.05l-.65-.1Z"/></svg>
+                <span data-i18n="language">Language</span>
+              </span>
+              <select id="settingLocale" name="locale">
+                <option value="en">English</option>
+                <option value="ko">한국어</option>
+              </select>
+            </label>
+            <div class="field field-theme">
+              <span class="field-label">
+                <svg class="field-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 0 0 0 18c.8 0 1.5-.7 1.5-1.5 0-.4-.15-.75-.4-1-.25-.25-.4-.6-.4-1 0-.8.7-1.5 1.5-1.5H15a5 5 0 0 0 0-10h-3Zm-5.5 9a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm3-4a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm2.5 4.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Z"/></svg>
+                <span data-i18n="theme">Theme</span>
+              </span>
+              <div class="theme-field-row">
+                <select id="settingTheme" name="theme"></select>
+                <div class="theme-actions">
+                  <button type="button" class="btn secondary" id="btnEditTheme" data-i18n="customize">Customize…</button>
+                  <button type="button" class="btn secondary" id="btnDeleteTheme" hidden data-i18n="deleteCustom">Delete custom</button>
+                </div>
+              </div>
+            </div>
+            <div class="field field-range electron-only" id="settingOpacityField" role="group" aria-labelledby="settingOpacityLabel" hidden>
+              <span class="field-label" id="settingOpacityLabel">
+                <svg class="field-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 1 0 0 20V2Zm0 18a8 8 0 0 1 0-16v16Z"/></svg>
+                <span data-i18n="windowOpacity">Window opacity</span>
+              </span>
+              <div class="settings-range-control">
+                <input type="range" class="opacity-bar" id="settingOpacity" name="windowOpacity" min="20" max="100" step="1" value="100" style="--fill: 100%" aria-valuetext="100%" />
+                <output class="settings-range-value" id="settingOpacityValue" for="settingOpacity">100%</output>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="settings-section">
+          <h3 class="settings-section-title" data-i18n="settingsPlayback">Playback</h3>
+          <div class="settings-grid">
+            <label class="field">
+              <span class="field-label">
+                <svg class="field-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4a8 8 0 1 0 8 8h-2a6 6 0 1 1-1.76-4.24L14 10h6V4l-2.24 2.24A7.96 7.96 0 0 0 12 4Zm-1 3h2v5.2l3.4 2-1 1.7-4.4-2.6V7Z"/></svg>
+                <span data-i18n="playbackRate">Playback rate</span>
+              </span>
+              <select id="settingRate" name="rate">
+                <option value="0.25">0.25×</option>
+                <option value="0.5">0.5×</option>
+                <option value="0.75">0.75×</option>
+                <option value="1" selected>1×</option>
+                <option value="1.25">1.25×</option>
+                <option value="1.5">1.5×</option>
+                <option value="1.75">1.75×</option>
+                <option value="2">2×</option>
+                <option value="2.5">2.5×</option>
+                <option value="3">3×</option>
+              </select>
+            </label>
+            <label class="field">
+              <span class="field-label">
+                <svg class="field-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 12 18 7v10l-7-5Zm-1 5V7H8v10h2Zm10 0V7h-2v10h2Z"/><path d="M4 12h3v2H4v-2Z" opacity=".85"/></svg>
+                <span data-i18n="seekStep">Seek step (seconds)</span>
+              </span>
+              <input type="number" id="settingSeekStep" name="seekStep" min="1" max="60" value="10" />
+            </label>
+            <div class="field field-range" role="group" aria-labelledby="settingStartVolumeLabel">
+              <span class="field-label" id="settingStartVolumeLabel">
+                <svg class="field-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10v4h3l4 3V7L7 10H4Zm11.5 2a3.5 3.5 0 0 0-1.8-3.05v6.1A3.5 3.5 0 0 0 15.5 12Zm0-7.7v2.06A6.5 6.5 0 0 1 19 12a6.5 6.5 0 0 1-3.5 5.64v2.06A8.5 8.5 0 0 0 21 12a8.5 8.5 0 0 0-5.5-7.7Z"/></svg>
+                <span data-i18n="startVolume">Volume on start (%)</span>
+              </span>
+              <div class="settings-range-control">
+                <input type="range" id="settingStartVolume" name="startVolume" min="0" max="100" step="1" value="80" aria-valuetext="80%" />
+                <output class="settings-range-value" id="settingStartVolumeValue" for="settingStartVolume">80%</output>
+              </div>
+            </div>
+          </div>
+          <div class="settings-check-grid">
+            <label class="field checkbox">
+              <input type="checkbox" id="settingAutoplay" name="autoplay" checked />
+              <span class="field-label">
+                <svg class="field-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 1 0 .01 20.01A10 10 0 0 0 12 2Zm-1.5 5.5 7 4.5-7 4.5v-9Z"/></svg>
+                <span data-i18n="autoplay">Autoplay after opening file</span>
+              </span>
+            </label>
+            <label class="field checkbox">
+              <input type="checkbox" id="settingLoop" name="loop" />
+              <span class="field-label">
+                <svg class="field-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h8.5l-1.8-1.8L15 4l4.5 4.5L15 13l-1.3-1.2L15.5 10H7a3 3 0 0 0-3 3v1H2v-1a5 5 0 0 1 5-5Zm10 10H8.5l1.8 1.8L9 20l-4.5-4.5L9 11l1.3 1.2L8.5 14H17a3 3 0 0 0 3-3v-1h2v1a5 5 0 0 1-5 5Z"/></svg>
+                <span data-i18n="loop">Loop playback</span>
+              </span>
+            </label>
+          </div>
+        </section>
+
+        <section class="settings-section">
+          <h3 class="settings-section-title" data-i18n="settingsDisplay">Display</h3>
+          <div class="settings-grid">
+            <div class="field field-range" role="group" aria-labelledby="settingSubSizeLabel">
+              <span class="field-label" id="settingSubSizeLabel">
+                <svg class="field-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v2H4V6Zm2 4h5.2v10H9.5V12.5H6.7V10Zm7.3 0H20v1.8h-2.1V20h-1.7v-8.2H13.3V10Z"/></svg>
+                <span data-i18n="subSize">Subtitle font size</span>
+              </span>
+              <div class="settings-range-control">
+                <input type="range" id="settingSubSize" name="subSize" min="14" max="48" value="28" aria-valuetext="28px" />
+                <output class="settings-range-value" id="settingSubSizeValue" for="settingSubSize">28px</output>
+              </div>
+            </div>
+            <label class="field">
+              <span class="field-label">
+                <svg class="field-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18h2V8H4v10Zm4 0h2V4H8v14Zm4 0h2v-7h-2v7Zm4 0h2V9h-2v9Zm4 0h2V6h-2v12Z"/></svg>
+                <span data-i18n="spectrumStyle">Spectrum style</span>
+              </span>
+              <select id="settingSpectrumStyle" name="spectrumStyle"></select>
+            </label>
+          </div>
+          <div class="settings-check-grid">
+            <label class="field checkbox">
+              <input type="checkbox" id="settingShowSubtitles" name="showSubtitles" checked />
+              <span class="field-label">
+                <svg class="field-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Zm2 4v2h4V9H6Zm6 0v2h6V9h-6Zm-6 4v2h8v-2H6Zm10 0v2h2v-2h-2Z"/></svg>
+                <span data-i18n="showSubtitles">Show subtitles (auto-load SMI/SRT)</span>
+              </span>
+            </label>
+            <label class="field checkbox">
+              <input type="checkbox" id="settingShowSpectrum" name="showSpectrum" checked />
+              <span class="field-label">
+                <svg class="field-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18h2V8H4v10Zm4 0h2V4H8v14Zm4 0h2v-7h-2v7Zm4 0h2V9h-2v9Zm4 0h2V6h-2v12Z"/></svg>
+                <span data-i18n="showSpectrum">Show spectrum when audio is present</span>
+              </span>
+            </label>
+          </div>
+        </section>
+      </div>
+      <footer class="modal-footer">
+        <button type="button" class="btn secondary" id="btnResetSettings" data-i18n="resetDefaults">Reset defaults</button>
+        <button type="submit" class="btn primary" value="save" id="btnSaveSettings" data-i18n="save">Save</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <!-- Custom theme editor -->
+  <dialog class="modal" id="themeEditorModal">
+    <form method="dialog" class="modal-card theme-editor-card" id="themeEditorForm">
+      <header class="modal-header">
+        <h2 data-i18n="themeEditor">Custom Theme</h2>
+        <button type="button" class="modal-close" id="btnCloseThemeEditor" data-i18n-aria="close">✕</button>
+      </header>
+      <div class="modal-body">
+        <label class="field">
+          <span data-i18n="themeName">Theme name</span>
+          <input type="text" id="themeNameInput" maxlength="40" data-i18n-placeholder="themeNamePh" placeholder="My Theme" autocomplete="off" />
+        </label>
+        <label class="field">
+          <span data-i18n="themeScheme">Base / color scheme</span>
+          <select id="themeSchemeSelect">
+            <option value="dark" data-i18n="themeDarkBase">Dark base</option>
+            <option value="light" data-i18n="themeLightBase">Light base</option>
+          </select>
+        </label>
+        <div class="theme-color-grid" id="themeColorGrid"></div>
+        <p class="field-hint" data-i18n="themeSaveHint">Save to keep this theme in the Theme list.</p>
+      </div>
+      <footer class="modal-footer">
+        <button type="button" class="btn secondary" id="btnThemeSaveAs" data-i18n="saveAsNew">Save as new</button>
+        <button type="button" class="btn primary" id="btnThemeSave" data-i18n="save">Save</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <!-- YouTube modal -->
+  <dialog class="modal" id="youtubeModal">
+    <form method="dialog" class="modal-card" id="youtubeForm">
+      <header class="modal-header">
+        <h2 data-i18n="youtubeTitle">YouTube</h2>
+        <button type="submit" class="modal-close" value="cancel" data-i18n-aria="close">✕</button>
+      </header>
+      <div class="modal-body">
+        <label class="field">
+          <span data-i18n="youtubeUrl">YouTube URL or video ID</span>
+          <input type="url" id="youtubeUrlInput" name="url" data-i18n-placeholder="youtubeUrlPh" placeholder="https://www.youtube.com/watch?v=..." autocomplete="off" />
+        </label>
+        <p class="field-hint" id="youtubeHint" data-i18n="youtubeHintDesktop">After playback, use Save to download locally. (Desktop app)</p>
+        <p class="field-error hidden" id="youtubeError"></p>
+      </div>
+      <footer class="modal-footer">
+        <button type="button" class="btn secondary" id="btnYtSaveFromDialog" data-i18n="saveEllipsis">Save…</button>
+        <button type="button" class="btn primary" id="btnYtPlay" data-i18n="playAction">Play</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <!-- Error detail modal -->
+  <dialog class="modal" id="errorModal">
+    <form method="dialog" class="modal-card error-card" id="errorForm">
+      <header class="modal-header">
+        <h2 id="errorTitle" data-i18n="errorDefaultTitle">Error</h2>
+        <button type="button" class="modal-close" id="btnCloseError" data-i18n-aria="close">✕</button>
+      </header>
+      <div class="modal-body">
+        <p class="error-summary" id="errorMessage"></p>
+        <label class="field">
+          <span data-i18n="errorDetails">Details</span>
+          <textarea id="errorDetail" class="error-detail" readonly rows="12" spellcheck="false"></textarea>
+        </label>
+        <p class="field-hint error-copied" id="errorCopied" hidden></p>
+      </div>
+      <footer class="modal-footer">
+        <button type="button" class="btn secondary" id="btnCopyError" data-i18n="errorCopy">Copy</button>
+        <button type="submit" class="btn primary" value="ok" data-i18n="ok">OK</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <!-- About modal -->
+  <dialog class="modal" id="aboutModal">
+    <form method="dialog" class="modal-card about-card">
+      <header class="modal-header">
+        <h2 data-i18n="aboutTitle">About</h2>
+        <button type="submit" class="modal-close" value="cancel" data-i18n-aria="close">✕</button>
+      </header>
+      <div class="modal-body about-body">
+        <div class="about-logo" aria-hidden="true">▶</div>
+        <h3 id="aboutName">MyVideoPlayer</h3>
+        <p id="aboutVersion">Version 1.0.0</p>
+        <p class="about-desc" data-i18n-html="aboutDesc">Cross-platform media player for Web, Windows, macOS, and Linux.<br />Formats: H.264, H.265*, MP4, WebM, MP3, AAC, YouTube links, and more.</p>
+        <p class="about-author"><span data-i18n="aboutAuthor">Author:</span> <strong>SHKWON</strong></p>
+        <p class="about-email"><a href="mailto:knix008@naver.com" id="aboutEmail">knix008@naver.com</a></p>
+        <p class="about-note" data-i18n="aboutNote">* H.265/HEVC depends on OS/hardware codec support.</p>
+      </div>
+      <footer class="modal-footer">
+        <button type="submit" class="btn primary" value="ok" data-i18n="ok">OK</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <!-- Hidden file inputs for web mode -->
+  <input type="file" id="webMediaInput" class="hidden-input" accept="video/*,audio/*,.mp4,.mkv,.webm,.mov,.avi,.mp3,.aac,.m4a,.wav,.flac,.opus,.ogg,.hevc,.h265" />
+  <input type="file" id="webSubInput" class="hidden-input" accept=".smi,.srt,.vtt,text/plain" />
+
+  <div class="tooltip" id="tooltip" role="tooltip" hidden></div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

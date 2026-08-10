@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self' data:;" />
+  <title>Spectrum — MyVideoPlayer</title>
+  <link rel="icon" type="image/png" href="favicon.png" />
+  <link rel="stylesheet" href="styles/themes.css" />
+  <link rel="stylesheet" href="styles/spectrum-window.css" />
+</head>
+<body class="spectrum-window-body">
+  <div class="spectrum-window" id="spectrumWindow">
+    <header class="spectrum-titlebar" id="spectrumTitlebar">
+      <span class="spectrum-title" id="spectrumTitle">Spectrum</span>
+      <button type="button" class="spectrum-win-close" id="btnSpectrumWinClose" aria-label="Close">✕</button>
+    </header>
+    <canvas id="spectrumCanvas"></canvas>
+    <footer class="spectrum-footer">
+      <button type="button" class="spectrum-style-btn" id="btnSpectrumPrev" aria-label="Previous style">‹</button>
+      <div class="spectrum-style-meta">
+        <span class="spectrum-label" id="spectrumLabel">Spectrum</span>
+        <span class="spectrum-style-name" id="spectrumStyleName">Rainbow</span>
+      </div>
+      <button type="button" class="spectrum-style-btn" id="btnSpectrumNext" aria-label="Next style">›</button>
+    </footer>
+  </div>
+  <script type="module" src="js/spectrum-window-app.js"></script>
+</body>
+</html>

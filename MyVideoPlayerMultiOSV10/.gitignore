@@ -1,0 +1,44 @@
+# Dependencies & build
+node_modules/
+dist/
+out/
+*.asar
+*.log
+
+# Local / sample media (large binaries)
+video/
+*.mp4
+*.mkv
+*.webm
+*.avi
+*.mov
+*.m4v
+*.wmv
+*.flv
+*.mp3
+*.flac
+*.wav
+*.aac
+*.smi
+*.srt
+*.vtt
+
+# OS / editor
+.DS_Store
+Thumbs.db
+Desktop.ini
+.vscode/
+.idea/
+.cursor/
+*.swp
+*~
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# Temp / caches
+*.tmp
+*.temp
+.cache/

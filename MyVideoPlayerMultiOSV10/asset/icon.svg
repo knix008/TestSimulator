@@ -1,0 +1,85 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img" aria-label="MyVideoPlayer">
+  <!-- Canvas background is transparent (no full-bleed fill). -->
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#2a2f38"/>
+      <stop offset="55%" stop-color="#14181f"/>
+      <stop offset="100%" stop-color="#0a0c10"/>
+    </linearGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#6a7384"/>
+      <stop offset="40%" stop-color="#2c3340"/>
+      <stop offset="100%" stop-color="#10141a"/>
+    </linearGradient>
+    <radialGradient id="lens" cx="50%" cy="45%" r="55%">
+      <stop offset="0%" stop-color="#3a4250"/>
+      <stop offset="55%" stop-color="#1a1f28"/>
+      <stop offset="100%" stop-color="#07090c"/>
+    </radialGradient>
+    <radialGradient id="glow" cx="50%" cy="48%" r="42%">
+      <stop offset="0%" stop-color="#ff8a3d" stop-opacity="0.85"/>
+      <stop offset="45%" stop-color="#ff3b2f" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#ff3b2f" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="playBody" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ff5a4a"/>
+      <stop offset="45%" stop-color="#e11d2e"/>
+      <stop offset="100%" stop-color="#9a0618"/>
+    </linearGradient>
+    <linearGradient id="playEdge" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ffd08a"/>
+      <stop offset="40%" stop-color="#ff8a3a"/>
+      <stop offset="100%" stop-color="#c2410c"/>
+    </linearGradient>
+    <linearGradient id="sheen" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.75"/>
+      <stop offset="40%" stop-color="#ffffff" stop-opacity="0.12"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="softShadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="28" stdDeviation="28" flood-color="#000000" flood-opacity="0.55"/>
+    </filter>
+    <filter id="playShadow" x="-40%" y="-40%" width="180%" height="180%">
+      <feDropShadow dx="0" dy="18" stdDeviation="16" flood-color="#7f1d1d" flood-opacity="0.65"/>
+    </filter>
+  </defs>
+
+  <!-- App tile -->
+  <rect x="48" y="48" width="928" height="928" rx="214" fill="url(#rim)"/>
+  <rect x="72" y="72" width="880" height="880" rx="196" fill="url(#tile)" filter="url(#softShadow)"/>
+
+  <!-- Lens well -->
+  <circle cx="512" cy="512" r="318" fill="url(#lens)"/>
+  <circle cx="512" cy="512" r="318" fill="none" stroke="#5b6575" stroke-opacity="0.35" stroke-width="10"/>
+  <circle cx="512" cy="512" r="250" fill="none" stroke="#2b3340" stroke-width="18"/>
+  <circle cx="512" cy="512" r="188" fill="none" stroke="#4b5565" stroke-opacity="0.45" stroke-width="8"/>
+  <circle cx="512" cy="512" r="280" fill="url(#glow)"/>
+
+  <!-- Film strip -->
+  <g opacity="0.92">
+    <rect x="168" y="430" width="688" height="164" rx="28" fill="#12151b" stroke="#3a4250" stroke-width="6"/>
+    <g fill="#2a313c">
+      <rect x="196" y="448" width="28" height="36" rx="6"/>
+      <rect x="196" y="540" width="28" height="36" rx="6"/>
+      <rect x="268" y="448" width="28" height="36" rx="6"/>
+      <rect x="268" y="540" width="28" height="36" rx="6"/>
+      <rect x="728" y="448" width="28" height="36" rx="6"/>
+      <rect x="728" y="540" width="28" height="36" rx="6"/>
+      <rect x="800" y="448" width="28" height="36" rx="6"/>
+      <rect x="800" y="540" width="28" height="36" rx="6"/>
+    </g>
+    <rect x="330" y="462" width="120" height="100" rx="14" fill="#1c222c" stroke="#3d4654" stroke-width="4"/>
+    <rect x="470" y="462" width="120" height="100" rx="14" fill="#1c222c" stroke="#3d4654" stroke-width="4"/>
+    <rect x="610" y="462" width="90" height="100" rx="14" fill="#1c222c" stroke="#3d4654" stroke-width="4"/>
+  </g>
+
+  <!-- 3D play button -->
+  <g filter="url(#playShadow)">
+    <path d="M410 318 L710 512 L410 706 Z" fill="url(#playEdge)"/>
+    <path d="M430 352 L662 512 L430 672 Z" fill="url(#playBody)"/>
+    <path d="M430 352 L662 512 L430 672 Z" fill="url(#sheen)"/>
+  </g>
+
+  <!-- Top specular on tile -->
+  <path d="M180 150 Q512 70 844 150" fill="none" stroke="#ffffff" stroke-opacity="0.16" stroke-width="18" stroke-linecap="round"/>
+</svg>

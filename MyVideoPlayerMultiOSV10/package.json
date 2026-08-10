@@ -1,0 +1,118 @@
+{
+  "name": "my-video-player-multios",
+  "version": "1.0.0",
+  "description": "Cross-platform video/audio player (Web, Windows, macOS, Linux)",
+  "main": "electron/main.js",
+  "author": "SHKWON <knix008@naver.com>",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "web": "npx --yes serve src -p 5173",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder",
+    "dist:win": "electron-builder --win",
+    "dist:mac": "electron-builder --mac",
+    "dist:linux": "electron-builder --linux"
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.shkwon.myvideoplayer",
+    "productName": "MyVideoPlayer",
+    "copyright": "Copyright © 2026 SHKWON",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "electron/**/*",
+      "src/**/*",
+      "asset/icon.png",
+      "asset/icon.ico",
+      "asset/icon-256.png",
+      "package.json"
+    ],
+    "asarUnpack": [
+      "**/node_modules/ffmpeg-static/**"
+    ],
+    "extraResources": [],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "asset/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "allowElevation": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "MyVideoPlayer",
+      "include": "build/installer.nsh",
+      "installerIcon": "asset/icon.ico",
+      "uninstallerIcon": "asset/icon.ico",
+      "installerHeaderIcon": "asset/icon.ico",
+      "installerLanguages": [
+        "en_US",
+        "ko_KR"
+      ],
+      "language": "1042",
+      "runAfterFinish": true,
+      "deleteAppDataOnUninstall": true,
+      "artifactName": "${productName}-Setup-${version}.${ext}"
+    },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "category": "public.app-category.entertainment",
+      "icon": "asset/icon-1024.png",
+      "darkModeSupport": true
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "AudioVideo",
+      "icon": "asset/icons",
+      "desktop": {
+        "Name": "MyVideoPlayer",
+        "Comment": "Multi-format video and audio player",
+        "Categories": "AudioVideo;Player;"
+      }
+    },
+    "dmg": {
+      "contents": [
+        {
+          "x": 130,
+          "y": 220
+        },
+        {
+          "x": 410,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
+    }
+  },
+  "allowScripts": {
+    "electron@33.4.11": true,
+    "ffmpeg-static@5.3.0": true
+  },
+  "dependencies": {
+    "ffmpeg-static": "^5.3.0",
+    "youtubei.js": "^17.2.0"
+  }
+}
