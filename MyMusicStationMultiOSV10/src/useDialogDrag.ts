@@ -1,5 +1,5 @@
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from 'react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 type Offset = { x: number; y: number }
 
@@ -18,11 +18,8 @@ export function useDialogDrag(open: boolean) {
 
   offsetRef.current = offset
 
-  useEffect(() => {
-    if (!open) {
-      return
-    }
-
+  // Reset before paint so reopening always starts at the flex-centered origin.
+  useLayoutEffect(() => {
     setOffset({ x: 0, y: 0 })
     offsetRef.current = { x: 0, y: 0 }
     dragRef.current = null

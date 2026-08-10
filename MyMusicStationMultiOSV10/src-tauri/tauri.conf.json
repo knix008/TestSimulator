@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "My Music Station",
-  "version": "0.1.0",
+  "productName": "My Music Station V1.0.0",
+  "version": "1.0.0",
   "identifier": "com.mymusicstation.player",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "My Music Station",
+        "title": "My Music Station V1.0.0",
         "width": 1100,
         "height": 680,
         "minWidth": 1100,
@@ -87,7 +87,7 @@
         "installMode": "both",
         "installerIcon": "icons/icon.ico",
         "uninstallerIcon": "icons/icon.ico",
-        "startMenuFolder": "My Music Station",
+        "startMenuFolder": "My Music Station V1.0.0",
         "installerHooks": "windows/nsis-hooks.nsh"
       }
     }

@@ -157,6 +157,10 @@ fn save_ui_settings(app: AppHandle, settings: serde_json::Value) -> Result<(), S
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        // Must be registered first so a second launch exits before other plugins run.
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            show_main_window(app);
+        }))
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .invoke_handler(tauri::generate_handler![
@@ -184,7 +188,7 @@ pub fn run() {
                 }
             }
 
-            let show = MenuItem::with_id(app, "show", "Show My Music Station", true, None::<&str>)?;
+            let show = MenuItem::with_id(app, "show", "Show My Music Station V1.0.0", true, None::<&str>)?;
             let settings = MenuItem::with_id(app, "settings", "Settings", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&show, &settings, &quit])?;
@@ -198,7 +202,7 @@ pub fn run() {
             // Keep it in managed state for the lifetime of the app.
             let tray = TrayIconBuilder::with_id("main-tray")
                 .menu(&menu)
-                .tooltip("My Music Station")
+                .tooltip("My Music Station V1.0.0")
                 .icon(tray_image)
                 .icon_as_template(false)
                 .show_menu_on_left_click(false)

@@ -4,7 +4,7 @@ import { convertFileSrc, invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { join, tempDir } from '@tauri-apps/api/path'
 import { getCurrentWindow } from '@tauri-apps/api/window'
-import { message, open, save } from '@tauri-apps/plugin-dialog'
+import { open, save } from '@tauri-apps/plugin-dialog'
 import { readDir, readFile, readTextFile, remove, writeFile, writeTextFile } from '@tauri-apps/plugin-fs'
 import {
   ArrowLeftRight,
@@ -14,7 +14,6 @@ import {
   Copy,
   Download,
   FileAudio,
-  FileInput,
   FolderOpen,
   ImagePlus,
   Info,
@@ -106,12 +105,12 @@ type StatusKind = 'info' | 'success' | 'error' | 'busy'
 const customThemesKey = 'myMusicStation.customThemes'
 const lastMusicFolderKey = 'myMusicStation.lastMusicFolder'
 const defaultMusicFolder = 'D:\\Home\\Music'
-const appVersion = '0.0.0'
+const appVersion = '1.0.0'
 const buildDate = '2026-08-08'
 
 const text = {
   ko: {
-    appName: 'My Music Station',
+    appName: 'My Music Station V1.0.0',
     title: '멀티 OS 플레이어',
     addFiles: '파일 추가',
     addFilesShort: '추가',
@@ -168,6 +167,14 @@ const text = {
     spectrumStyleRadial: '원형',
     spectrumStyleDots: '도트',
     spectrumStyleBlocks: '블록',
+    spectrumStyleRidge: '능선',
+    spectrumStyleRing: '링',
+    spectrumStyleNeedle: '니들',
+    spectrumStylePulse: '펄스',
+    spectrumStyleStripe: '스트라이프',
+    spectrumStyleSpark: '스파크',
+    spectrumStyleAurora: '오로라',
+    spectrumStyleMatrix: '매트릭스',
     convertSave: '형식 변환 저장',
     convertSaveShort: '변환',
     languageShortEn: 'EN',
@@ -186,6 +193,7 @@ const text = {
     theme: '테마',
     minimize: '최소화',
     close: '닫기',
+    confirm: '확인',
     quitApp: '종료',
     previous: '이전 곡',
     play: '재생',
@@ -228,14 +236,13 @@ const text = {
     copyError: '내용 복사',
     copied: '복사됨',
     copyFailed: '클립보드에 복사하지 못했습니다',
-    openFiles: '파일 열기',
     version: '버전',
     build: '빌드',
     author: '작성자',
     copyright: 'Copyright',
   },
   en: {
-    appName: 'My Music Station',
+    appName: 'My Music Station V1.0.0',
     title: 'Multi OS Player',
     addFiles: 'Add files',
     addFilesShort: 'Add',
@@ -292,6 +299,14 @@ const text = {
     spectrumStyleRadial: 'Radial',
     spectrumStyleDots: 'Dots',
     spectrumStyleBlocks: 'Blocks',
+    spectrumStyleRidge: 'Ridge',
+    spectrumStyleRing: 'Rings',
+    spectrumStyleNeedle: 'Needles',
+    spectrumStylePulse: 'Pulse',
+    spectrumStyleStripe: 'Stripes',
+    spectrumStyleSpark: 'Sparks',
+    spectrumStyleAurora: 'Aurora',
+    spectrumStyleMatrix: 'Matrix',
     convertSave: 'Convert & save',
     convertSaveShort: 'Convert',
     languageShortEn: 'EN',
@@ -310,6 +325,7 @@ const text = {
     theme: 'Theme',
     minimize: 'Minimize',
     close: 'Close',
+    confirm: 'OK',
     quitApp: 'Quit',
     previous: 'Previous track',
     play: 'Play',
@@ -352,7 +368,6 @@ const text = {
     copyError: 'Copy details',
     copied: 'Copied',
     copyFailed: 'Could not copy to the clipboard',
-    openFiles: 'Open files',
     version: 'Version',
     build: 'Build',
     author: 'Author',
@@ -505,13 +520,15 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
   const [showAppInfo, setShowAppInfo] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [showConvertDialog, setShowConvertDialog] = useState(false)
+  const [convertFormat, setConvertFormat] = useState<ConvertFormat>('mp3')
+  const [isConverting, setIsConverting] = useState(false)
+  const [convertMessage, setConvertMessage] = useState('')
+  const [alertDialog, setAlertDialog] = useState<{ title: string; message: string } | null>(null)
   const settingsDialogDrag = useDialogDrag(showSettings)
   const convertDialogDrag = useDialogDrag(showConvertDialog)
   const appInfoDialogDrag = useDialogDrag(showAppInfo)
   const errorDialogDrag = useDialogDrag(Boolean(errorDialogMessage))
-  const [convertFormat, setConvertFormat] = useState<ConvertFormat>('mp3')
-  const [isConverting, setIsConverting] = useState(false)
-  const [convertMessage, setConvertMessage] = useState('')
+  const alertDialogDrag = useDialogDrag(Boolean(alertDialog))
   const [themeMessage, setThemeMessage] = useState('')
   const [useSystemTray, setUseSystemTray] = useState(initialSettings.useSystemTray)
   const [rememberVolume, setRememberVolume] = useState(initialSettings.rememberVolume)
@@ -537,6 +554,14 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
     radial: labels.spectrumStyleRadial,
     dots: labels.spectrumStyleDots,
     blocks: labels.spectrumStyleBlocks,
+    ridge: labels.spectrumStyleRidge,
+    ring: labels.spectrumStyleRing,
+    needle: labels.spectrumStyleNeedle,
+    pulse: labels.spectrumStylePulse,
+    stripe: labels.spectrumStyleStripe,
+    spark: labels.spectrumStyleSpark,
+    aurora: labels.spectrumStyleAurora,
+    matrix: labels.spectrumStyleMatrix,
   }
   const currentTrack = tracks.find((track) => track.id === currentTrackId)
   const selectedTheme = availableThemes.find((theme) => theme.id === themeId) ?? availableThemes[0]
@@ -1279,6 +1304,7 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
       title: labels.addFiles,
       filters: [
         { name: labels.formats, extensions: audioExtensions.map((extension) => extension.slice(1)) },
+        { name: labels.playlist, extensions: ['mplist'] },
       ],
     })
 
@@ -1288,13 +1314,24 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
       return
     }
 
+    const playlistPaths = paths.filter((path) => path.toLowerCase().endsWith('.mplist'))
+    const audioPaths = paths.filter((path) => !path.toLowerCase().endsWith('.mplist'))
+
+    for (const playlistPath of playlistPaths) {
+      await loadPlaylistFromPath(playlistPath)
+    }
+
+    if (!audioPaths.length) {
+      return
+    }
+
     const existingPaths = new Set(
       tracksRef.current
         .map((track) => track.filePath)
         .filter((value): value is string => Boolean(value))
         .map(normalizePathKey),
     )
-    const pathsToLoad = paths.filter((path) => !existingPaths.has(normalizePathKey(path)))
+    const pathsToLoad = audioPaths.filter((path) => !existingPaths.has(normalizePathKey(path)))
 
     if (!pathsToLoad.length) {
       pushStatus(labels.tracksAlreadyLoaded, 'info')
@@ -1306,7 +1343,7 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
     )
     const added = addTracks(newTracks.filter((track) => track.source))
 
-    if (added < paths.length) {
+    if (added < audioPaths.length) {
       pushStatus(labels.tracksAlreadyLoaded, 'info')
     }
   }
@@ -1558,40 +1595,6 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
     clearStatus()
   }
 
-  const openFiles = async () => {
-    const selected = await open({
-      multiple: true,
-      directory: false,
-      defaultPath: lastMusicFolder || undefined,
-      title: labels.openFiles,
-      filters: [
-        { name: labels.openFiles, extensions: [...audioExtensions.map((extension) => extension.slice(1)), 'mplist'] },
-        { name: labels.playlist, extensions: ['mplist'] },
-        { name: labels.formats, extensions: audioExtensions.map((extension) => extension.slice(1)) },
-      ],
-    })
-
-    const paths = Array.isArray(selected) ? selected : typeof selected === 'string' ? [selected] : []
-
-    if (!paths.length) {
-      return
-    }
-
-    const playlistPaths = paths.filter((path) => path.toLowerCase().endsWith('.mplist'))
-    const audioPaths = paths.filter((path) => !path.toLowerCase().endsWith('.mplist'))
-
-    for (const playlistPath of playlistPaths) {
-      await loadPlaylistFromPath(playlistPath)
-    }
-
-    if (audioPaths.length) {
-      const newTracks = await Promise.all(
-        audioPaths.map((path) => createTrackFromPath(path, fileNameFromPath(path))),
-      )
-      addTracks(newTracks.filter((track) => track.source))
-    }
-  }
-
   const sanitizeFileStem = (value: string) =>
     value
       .replace(/[<>:"/\\|?*\u0000-\u001f]/g, ' ')
@@ -1742,24 +1745,20 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
     }
   }
 
-  const notifySelectTrackForConvert = async () => {
-    pushStatus(labels.convertNoTrack, 'info')
+  const showThemedAlert = (title: string, messageText: string) => {
+    setAlertDialog({ title, message: messageText })
+  }
 
-    try {
-      await message(labels.convertNoTrack, {
-        title: labels.convertSave,
-        kind: 'info',
-      })
-    } catch (dialogError) {
-      console.warn('[convert] select-track dialog failed', dialogError)
-    }
+  const notifySelectTrackForConvert = () => {
+    pushStatus(labels.convertNoTrack, 'info')
+    showThemedAlert(labels.convertSave, labels.convertNoTrack)
   }
 
   const openConvertDialog = () => {
     setActiveToolbarMenu(null)
 
     if (!currentTrack) {
-      void notifySelectTrackForConvert()
+      notifySelectTrackForConvert()
       return
     }
 
@@ -1770,7 +1769,7 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
   const runConvertSave = async () => {
     if (!currentTrack) {
       setConvertMessage(labels.convertNoTrack)
-      void notifySelectTrackForConvert()
+      notifySelectTrackForConvert()
       return
     }
 
@@ -1829,15 +1828,7 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
       setIsConverting(false)
       setConvertMessage('')
       setShowConvertDialog(false)
-
-      try {
-        await message(`${labels.convertSuccess}\n${outputPath}`, {
-          title: labels.convertSave,
-          kind: 'info',
-        })
-      } catch (dialogError) {
-        console.warn('[convert] completion dialog failed', dialogError)
-      }
+      showThemedAlert(labels.convertSave, `${labels.convertSuccess}\n${outputPath}`)
 
       return
     } catch (error) {
@@ -2070,8 +2061,8 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
         onTimeUpdate={(event) => setCurrentTime(event.currentTarget.currentTime)}
       />
 
-      <header className="title-toolbar">
-        <div className="brand-block" onPointerDown={startWindowDrag}>
+      <header className="title-toolbar" onPointerDown={startWindowDrag}>
+        <div className="brand-block">
           <strong>{labels.appName}</strong>
         </div>
 
@@ -2095,9 +2086,6 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
           <button className="tool-button tool-button-labeled" type="button" data-tooltip={labels.convertSave} aria-label={labels.convertSave} onClick={openConvertDialog}>
             <FileAudio size={14} aria-hidden="true" />
             <span className="tool-button-label" style={{ whiteSpace: 'nowrap' }}>{labels.convertSaveShort}</span>
-          </button>
-          <button className="tool-button icon-only" type="button" data-tooltip={labels.openFiles} aria-label={labels.openFiles} onClick={openFiles}>
-            <FileInput size={14} />
           </button>
           <button className="tool-button tool-button-labeled language-toggle" type="button" data-tooltip={labels.language} aria-label={labels.language} onClick={toggleLanguage}>
             <Languages size={14} aria-hidden="true" />
@@ -2178,7 +2166,7 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
           </button>
         </div>
 
-        <div className="toolbar-drag-space" onPointerDown={startWindowDrag} />
+        <div className="toolbar-drag-space" />
 
         <div className="window-actions">
           <button type="button" data-tooltip={labels.minimize} aria-label={labels.minimize} onClick={minimizeWindow}>
@@ -2340,7 +2328,7 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
           }}
         >
           <section
-            className="settings-dialog convert-dialog"
+            className="settings-dialog convert-dialog themed-dialog"
             role="dialog"
             aria-modal="true"
             aria-label={labels.convertSave}
@@ -2709,10 +2697,32 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
         </div>
       )}
 
+      {alertDialog && (
+        <div className="modal-backdrop alert-backdrop" role="presentation" onMouseDown={() => setAlertDialog(null)}>
+          <section
+            className="alert-dialog themed-dialog"
+            role="alertdialog"
+            aria-modal="true"
+            aria-label={alertDialog.title}
+            style={alertDialogDrag.style}
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <header className="alert-dialog-header dialog-drag-handle" onPointerDown={alertDialogDrag.onHeaderPointerDown}>
+              <Info size={18} />
+              <h2>{alertDialog.title}</h2>
+            </header>
+            <p className="alert-dialog-message">{alertDialog.message}</p>
+            <button type="button" className="primary-action" aria-label={labels.confirm} onClick={() => setAlertDialog(null)}>
+              {labels.confirm}
+            </button>
+          </section>
+        </div>
+      )}
+
       {errorDialogMessage && (
         <div className="modal-backdrop error-backdrop" role="presentation" onMouseDown={closeErrorDialog}>
           <section
-            className="error-dialog"
+            className="error-dialog themed-dialog"
             role="alertdialog"
             aria-modal="true"
             aria-label={labels.errorDialog}
