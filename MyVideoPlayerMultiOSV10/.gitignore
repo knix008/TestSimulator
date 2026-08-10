@@ -15,29 +15,6 @@ MyVideoPlayer_*.deb
 MyVideoPlayer-*-mac.zip
 MyVideoPlayer-*-win.zip
 
-# Local / sample media (large binaries)
-video/
-*.mp4
-*.mkv
-*.webm
-*.avi
-*.mov
-*.m4v
-*.wmv
-*.flv
-*.ts
-*.m3u8
-*.mp3
-*.flac
-*.wav
-*.aac
-*.opus
-*.ogg
-*.m4a
-*.smi
-*.srt
-*.vtt
-
 # Incomplete / temp downloads
 *.part
 *.ytdl
