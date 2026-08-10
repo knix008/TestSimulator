@@ -164,6 +164,8 @@ let saveProgressMode = null;
 let saveProgressCloseTimer = 0;
 /** Abort flag for in-flight YouTube/RTSP open. */
 let openStreamCancelled = false;
+/** Prevents double Play/Connect while YouTube/RTSP open is running. */
+let openStreamInFlight = false;
 let overlayTimer = 0;
 /** @type {'paused' | 'stopped' | null} */
 let holdOverlayMode = null;
@@ -1454,11 +1456,11 @@ function showSaveProgress({ mode, title, name }) {
   els.progressTrack?.classList.remove('hidden');
   els.progressMeta?.classList.remove('hidden');
   if (els.progressFill) els.progressFill.style.width = '0%';
-  const indeterminate =
-    mode === 'rtsp' || mode === 'youtube' || isOpenProgressMode(mode);
+  // Open (YouTube/RTSP) uses staged %; save/record may be indeterminate.
+  const indeterminate = mode === 'rtsp' || mode === 'youtube';
   els.progressTrack?.classList.toggle('is-indeterminate', indeterminate);
   if (els.progressValue) {
-    els.progressValue.textContent = mode === 'rtsp' ? '00:00' : isOpenProgressMode(mode) ? '…' : '0%';
+    els.progressValue.textContent = mode === 'rtsp' ? '00:00' : isOpenProgressMode(mode) ? '8%' : '0%';
   }
   if (els.progressDetail) els.progressDetail.textContent = '';
   // Save: Stop keeps content. Open: Cancel aborts connect/load.
@@ -1476,18 +1478,63 @@ function showSaveProgress({ mode, title, name }) {
   els.progressModal.hidden = false;
 }
 
-function showOpenProgress({ kind, name = '', detail = '' } = {}) {
+function setUrlDialogBusy(busy) {
+  const play = $('btnYtPlay');
+  const save = $('btnYtSaveFromDialog');
+  if (play) {
+    play.disabled = busy;
+    play.textContent = busy ? t('progressConnecting') : t('playAction');
+  }
+  if (save) save.disabled = busy;
+  if (els.youtubeUrlInput) els.youtubeUrlInput.readOnly = busy;
+}
+
+/**
+ * Close the URL modal so the floating progress popup is visible, then show stages.
+ * (showModal() dialogs sit above the stage and previously hid open progress.)
+ */
+function beginOpenStreamProgress({ kind, name = '', detail = '' } = {}) {
   openStreamCancelled = false;
+  setUrlDialogBusy(true);
+  try {
+    if (els.youtubeModal?.open) els.youtubeModal.close();
+  } catch {
+    /* ignore */
+  }
   const mode = kind === 'rtsp' ? 'open-rtsp' : 'open-youtube';
   showSaveProgress({
     mode,
     title: kind === 'rtsp' ? t('progressOpeningRtsp') : t('progressOpeningYoutube'),
     name
   });
+  // Determinate steps so the bar moves even when the backend has no byte %.
   updateSaveProgress({
+    percent: 8,
     detail: detail || t('progressOpening'),
-    indeterminate: true
+    indeterminate: false
   });
+}
+
+function updateOpenProgressStage(step, total, detail) {
+  const safeTotal = Math.max(1, Number(total) || 1);
+  const pct = Math.max(8, Math.min(96, Math.round((step / safeTotal) * 100)));
+  updateSaveProgress({
+    percent: pct,
+    detail: detail || '',
+    indeterminate: false
+  });
+}
+
+function endOpenStreamInFlight() {
+  openStreamInFlight = false;
+  setUrlDialogBusy(false);
+}
+
+function reopenUrlDialogAfterOpenFailure(url, message) {
+  endOpenStreamInFlight();
+  closeSaveProgress();
+  openYouTubeDialog(url || '');
+  if (message) showYoutubeError(message);
 }
 
 function finishOpenProgress({ ok = true, message = '', autoCloseMs = 900 } = {}) {
@@ -2468,7 +2515,12 @@ async function playRtspFromInput(rawInput) {
     showYoutubeError(t('rtspDesktopOnly'));
     return false;
   }
+  if (openStreamInFlight) {
+    setStatus({ state: statusKey('statusOpenInProgress') });
+    return false;
+  }
 
+  openStreamInFlight = true;
   showYoutubeError('');
   exitYouTubeMode();
   if (rtspRecording && currentRtspUrl && currentRtspUrl !== url) {
@@ -2486,7 +2538,7 @@ async function playRtspFromInput(rawInput) {
   els.dropHint.classList.add('hidden');
 
   const label = rtspDisplayName(url);
-  showOpenProgress({
+  beginOpenStreamProgress({
     kind: 'rtsp',
     name: url,
     detail: t('statusRtspConnecting')
@@ -2498,51 +2550,54 @@ async function playRtspFromInput(rawInput) {
     subtitle: statusKey('statusNoSubtitle')
   });
 
-  const result = await window.desktopAPI.openRtsp(url);
-  if (openStreamCancelled) {
-    finishOpenProgress({ ok: true, message: '', autoCloseMs: 0 });
-    closeSaveProgress();
-    return false;
-  }
-  if (!result?.ok) {
-    const errMsg = result?.error || t('statusRtspFailed');
-    showYoutubeError(errMsg);
-    finishOpenProgress({ ok: false, message: errMsg });
-    showAppError({
-      title: t('errorRtspTitle'),
-      message: errMsg,
-      detail: result?.error || '',
-      context: { url }
-    });
-    return false;
-  }
+  try {
+    updateOpenProgressStage(1, 3, t('statusRtspConnecting'));
+    const result = await window.desktopAPI.openRtsp(url);
+    if (openStreamCancelled) {
+      closeSaveProgress();
+      return false;
+    }
+    if (!result?.ok) {
+      const errMsg = result?.error || t('statusRtspFailed');
+      reopenUrlDialogAfterOpenFailure(url, errMsg);
+      showAppError({
+        title: t('errorRtspTitle'),
+        message: errMsg,
+        detail: result?.error || '',
+        context: { url }
+      });
+      return false;
+    }
 
-  updateSaveProgress({ detail: t('progressStartingStream'), indeterminate: true });
-  currentRtspUrl = url;
-  await loadMedia({
-    url: result.playUrl,
-    name: url,
-    path: null,
-    ext: 'rtsp',
-    skipRecent: true,
-    isRtsp: true,
-    rtspUrl: url
-  });
-  if (openStreamCancelled) {
-    await stopRtspBridge();
-    closeSaveProgress();
-    return false;
+    updateOpenProgressStage(2, 3, t('progressStartingStream'));
+    currentRtspUrl = url;
+    await loadMedia({
+      url: result.playUrl,
+      name: url,
+      path: null,
+      ext: 'rtsp',
+      skipRecent: true,
+      isRtsp: true,
+      rtspUrl: url
+    });
+    if (openStreamCancelled) {
+      await stopRtspBridge();
+      closeSaveProgress();
+      return false;
+    }
+    rememberRecentRtsp({ url, title: label });
+    updateSaveButton();
+    setStatus({
+      file: url,
+      format: 'RTSP',
+      state: statusKey('statusRtspLive')
+    });
+    updateOpenProgressStage(3, 3, t('statusRtspLive'));
+    finishOpenProgress({ ok: true, message: t('statusRtspLive') });
+    return true;
+  } finally {
+    endOpenStreamInFlight();
   }
-  rememberRecentRtsp({ url, title: label });
-  updateSaveButton();
-  els.youtubeModal.close();
-  setStatus({
-    file: url,
-    format: 'RTSP',
-    state: statusKey('statusRtspLive')
-  });
-  finishOpenProgress({ ok: true, message: t('statusRtspLive') });
-  return true;
 }
 
 async function playNetworkFromInput(rawInput) {
@@ -2559,7 +2614,13 @@ async function playYouTubeFromInput(rawInput) {
     showYoutubeError(t('youtubeInvalid'));
     return false;
   }
+  if (openStreamInFlight) {
+    setStatus({ state: statusKey('statusOpenInProgress') });
+    return false;
+  }
+
   const url = `https://www.youtube.com/watch?v=${id}`;
+  openStreamInFlight = true;
   showYoutubeError('');
 
   // Stop local / RTSP media
@@ -2577,7 +2638,7 @@ async function playYouTubeFromInput(rawInput) {
   stopRequested = false;
   hidePlaybackOverlay(true);
   els.dropHint.classList.add('hidden');
-  showOpenProgress({
+  beginOpenStreamProgress({
     kind: 'youtube',
     name: url,
     detail: t('progressFetchingInfo')
@@ -2590,78 +2651,82 @@ async function playYouTubeFromInput(rawInput) {
   });
 
   try {
-    if (isElectron) {
-      updateSaveProgress({ detail: t('progressFetchingInfo'), indeterminate: true });
-      const res = await window.desktopAPI.getYouTubeInfo(url);
-      if (openStreamCancelled) {
-        closeSaveProgress();
-        return false;
+    updateOpenProgressStage(1, 3, t('progressFetchingInfo'));
+    try {
+      if (isElectron) {
+        const res = await window.desktopAPI.getYouTubeInfo(url);
+        if (openStreamCancelled) {
+          closeSaveProgress();
+          return false;
+        }
+        if (res?.ok && res.info?.title) {
+          currentYouTube.title = res.info.title;
+          setStatus({ file: res.info.title });
+          if (els.progressName) els.progressName.textContent = res.info.title;
+        }
       }
-      if (res?.ok && res.info?.title) {
-        currentYouTube.title = res.info.title;
-        setStatus({ file: res.info.title });
-        if (els.progressName) els.progressName.textContent = res.info.title;
-      }
+    } catch {
+      /* optional metadata */
     }
-  } catch {
-    /* optional metadata */
-  }
 
-  if (openStreamCancelled) {
-    closeSaveProgress();
-    return false;
-  }
-
-  updateSaveProgress({ detail: t('progressLoadingPlayer'), indeterminate: true });
-  ytErrorDialogShown = false;
-  try {
-    await ytPlayer.load(id, {
-      autoplay: Boolean(settings.autoplay),
-      startVolume: Number(settings.startVolume) || 80
-    });
-  } catch (err) {
     if (openStreamCancelled) {
       closeSaveProgress();
       return false;
     }
-    const errMsg = err?.message || t('statusPlaybackError');
-    finishOpenProgress({ ok: false, message: errMsg });
-    if (!ytErrorDialogShown) {
-      showAppError({
-        title: t('errorYoutubeTitle'),
-        message: errMsg,
-        error: err,
-        context: { videoId: id, url }
-      });
-    }
-    return false;
-  }
-  if (openStreamCancelled) {
+
+    updateOpenProgressStage(2, 3, t('progressLoadingPlayer'));
+    ytErrorDialogShown = false;
     try {
-      ytPlayer?.stop?.();
-    } catch {
-      /* ignore */
+      await ytPlayer.load(id, {
+        autoplay: Boolean(settings.autoplay),
+        startVolume: Number(settings.startVolume) || 80
+      });
+    } catch (err) {
+      if (openStreamCancelled) {
+        closeSaveProgress();
+        return false;
+      }
+      const errMsg = err?.message || t('statusPlaybackError');
+      reopenUrlDialogAfterOpenFailure(url, errMsg);
+      if (!ytErrorDialogShown) {
+        showAppError({
+          title: t('errorYoutubeTitle'),
+          message: errMsg,
+          error: err,
+          context: { videoId: id, url }
+        });
+      }
+      return false;
     }
-    exitYouTubeMode();
-    closeSaveProgress();
-    return false;
+    if (openStreamCancelled) {
+      try {
+        ytPlayer?.stop?.();
+      } catch {
+        /* ignore */
+      }
+      exitYouTubeMode();
+      closeSaveProgress();
+      return false;
+    }
+    if (ytPlayer.title) currentYouTube.title = ytPlayer.title;
+    setPlaybackRate(settings.rate, { persist: false });
+    els.volumeBar.value = String(Number(settings.startVolume) || 80);
+    updateMuteIcons();
+    updateSaveButton();
+    rememberRecentYouTube({
+      id,
+      url,
+      title: currentYouTube.title || ytPlayer.title || id
+    });
+    updateOpenProgressStage(3, 3, currentYouTube.title || id);
+    finishOpenProgress({
+      ok: true,
+      message: currentYouTube.title || id
+    });
+    return true;
+  } finally {
+    endOpenStreamInFlight();
   }
-  if (ytPlayer.title) currentYouTube.title = ytPlayer.title;
-  setPlaybackRate(settings.rate, { persist: false });
-  els.volumeBar.value = String(Number(settings.startVolume) || 80);
-  updateMuteIcons();
-  updateSaveButton();
-  rememberRecentYouTube({
-    id,
-    url,
-    title: currentYouTube.title || ytPlayer.title || id
-  });
-  els.youtubeModal.close();
-  finishOpenProgress({
-    ok: true,
-    message: currentYouTube.title || id
-  });
-  return true;
 }
 
 async function stopCurrentRtspRecord({ playAfter = false } = {}) {
@@ -2752,6 +2817,7 @@ async function cancelSaveProgress() {
       exitYouTubeMode();
     }
     closeSaveProgress();
+    endOpenStreamInFlight();
     setStatus({ state: statusKey('progressCancelled') });
     return;
   }
@@ -3328,7 +3394,16 @@ function bindToolbar() {
   els.webSubInput.addEventListener('change', onWebSubChosen);
 
   $('btnYtPlay').addEventListener('click', async () => {
-    await playNetworkFromInput(els.youtubeUrlInput.value);
+    if (openStreamInFlight) {
+      setStatus({ state: statusKey('statusOpenInProgress') });
+      return;
+    }
+    setUrlDialogBusy(true);
+    try {
+      await playNetworkFromInput(els.youtubeUrlInput.value);
+    } finally {
+      if (!openStreamInFlight) setUrlDialogBusy(false);
+    }
   });
   $('btnYtSaveFromDialog').addEventListener('click', async () => {
     const input = els.youtubeUrlInput.value.trim();
@@ -3362,6 +3437,10 @@ function bindToolbar() {
   els.youtubeUrlInput.addEventListener('keydown', async (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
+      if (openStreamInFlight) {
+        setStatus({ state: statusKey('statusOpenInProgress') });
+        return;
+      }
       await playNetworkFromInput(els.youtubeUrlInput.value);
     }
   });
