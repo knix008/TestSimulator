@@ -14,8 +14,17 @@ export const DEFAULT_SETTINGS = {
   showSubtitles: true,
   subSize: 28,
   startVolume: 80,
-  windowOpacity: 100
+  windowOpacity: 100,
+  showHistoryPanel: false,
+  /** @type {'contain' | 'cover' | 'actual'} */
+  videoFit: 'contain'
 };
+
+const VIDEO_FIT_MODES = new Set(['contain', 'cover', 'actual']);
+
+export function normalizeVideoFit(mode) {
+  return VIDEO_FIT_MODES.has(mode) ? mode : DEFAULT_SETTINGS.videoFit;
+}
 
 export function loadSettings() {
   try {
@@ -24,6 +33,7 @@ export function loadSettings() {
     const merged = { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
     if (!merged.spectrumStyle) merged.spectrumStyle = DEFAULT_SETTINGS.spectrumStyle;
     if (merged.windowOpacity == null) merged.windowOpacity = DEFAULT_SETTINGS.windowOpacity;
+    merged.videoFit = normalizeVideoFit(merged.videoFit);
     return merged;
   } catch {
     return { ...DEFAULT_SETTINGS };

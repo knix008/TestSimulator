@@ -4,12 +4,16 @@ dist/
 out/
 *.asar
 *.log
+npm-debug.log*
+yarn-error.log*
 
 # Final installers copied to project root after build
 MyVideoPlayer-Setup-*.exe
 MyVideoPlayer-*.dmg
 MyVideoPlayer-*.AppImage
 MyVideoPlayer_*.deb
+MyVideoPlayer-*-mac.zip
+MyVideoPlayer-*-win.zip
 
 # Local / sample media (large binaries)
 video/
@@ -21,13 +25,23 @@ video/
 *.m4v
 *.wmv
 *.flv
+*.ts
+*.m3u8
 *.mp3
 *.flac
 *.wav
 *.aac
+*.opus
+*.ogg
+*.m4a
 *.smi
 *.srt
 *.vtt
+
+# Incomplete / temp downloads
+*.part
+*.ytdl
+*.download
 
 # OS / editor
 .DS_Store
@@ -43,8 +57,21 @@ Desktop.ini
 .env
 .env.*
 !.env.example
+*cookies*.txt
+cookies.sqlite
 
 # Temp / caches
 *.tmp
 *.temp
 .cache/
+.turbo/
+
+# Bundled tool binaries (fetched by scripts/ensure-yt-dlp.js / postinstall)
+vendor/yt-dlp/yt-dlp
+vendor/yt-dlp/yt-dlp.exe
+vendor/yt-dlp/*.download
+vendor/yt-dlp/*.tmp
+
+# Electron / local crash dumps
+*.dmp
+crashpad/

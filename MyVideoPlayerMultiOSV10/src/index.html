@@ -28,13 +28,16 @@
             </button>
             <div class="recent-menu" id="recentMenu" role="menu" hidden>
               <div class="recent-menu-header">
-                <span data-i18n="recentTitle">Recent (max 10)</span>
+                <span data-i18n="recentTitle">Recent</span>
                 <button type="button" class="recent-clear" id="btnClearRecent" data-i18n="recentClear">Clear</button>
               </div>
               <ul class="recent-list" id="recentList"></ul>
               <div class="recent-empty" id="recentEmpty" data-i18n="recentEmpty">No recent items</div>
             </div>
           </div>
+          <button type="button" class="tool-btn" id="btnHistory" data-i18n-tooltip="historyTip" data-i18n-aria="history" aria-pressed="false">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v2H4V5Zm0 6h16v2H4v-2Zm0 6h10v2H4v-2Zm13.5-.5 1.5 1.5L22 15l-1.4-1.4-1.6 1.6-1.1-1.2-1.4 1.4 2.5 2.1Z"/></svg>
+          </button>
           <button type="button" class="tool-btn" id="btnOpenSub" data-i18n-tooltip="openSubTip" data-i18n-aria="openSub">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Zm2 4v2h4V9H6Zm6 0v2h6V9h-6Zm-6 4v2h8v-2H6Zm10 0v2h2v-2h-2Z"/></svg>
           </button>
@@ -50,6 +53,36 @@
       <div class="toolbar-spacer toolbar-drag-region" id="toolbarDrag" aria-hidden="true"></div>
 
       <div class="toolbar-right">
+        <div class="popup-wrap fit-wrap">
+          <button type="button" class="tool-btn" id="btnFit" data-i18n-tooltip="fitTip" data-i18n-aria="fit" aria-haspopup="menu" aria-expanded="false">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v12H4V6Zm2 2v8h12V8H6Zm3 2h6v4H9v-4Z"/></svg>
+          </button>
+          <div class="popup-menu popup-menu-end" id="fitMenu" role="menu" hidden>
+            <div class="popup-menu-header">
+              <span data-i18n="fitTitle">Display size</span>
+            </div>
+            <ul class="popup-list" id="fitList">
+              <li>
+                <button type="button" class="popup-item" data-fit="cover" role="menuitemradio" aria-checked="false">
+                  <span data-i18n="fitCover">Fill screen</span>
+                  <span class="popup-item-check" aria-hidden="true"></span>
+                </button>
+              </li>
+              <li>
+                <button type="button" class="popup-item" data-fit="contain" role="menuitemradio" aria-checked="true">
+                  <span data-i18n="fitContain">Keep aspect ratio</span>
+                  <span class="popup-item-check" aria-hidden="true"></span>
+                </button>
+              </li>
+              <li>
+                <button type="button" class="popup-item" data-fit="actual" role="menuitemradio" aria-checked="false">
+                  <span data-i18n="fitActual">Original size</span>
+                  <span class="popup-item-check" aria-hidden="true"></span>
+                </button>
+              </li>
+            </ul>
+          </div>
+        </div>
         <button type="button" class="tool-btn" id="btnSpectrum" data-i18n-tooltip="spectrumTip" data-i18n-aria="spectrum" aria-pressed="true">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18h2V8H4v10Zm4 0h2V4H8v14Zm4 0h2v-7h-2v7Zm4 0h2V9h-2v9Zm4 0h2V6h-2v12Z"/></svg>
         </button>
@@ -131,7 +164,62 @@
           </header>
           <canvas id="spectrumCanvas" class="spectrum-popup-canvas"></canvas>
         </div>
+        <!-- Non-modal save progress: keeps the video visible while saving -->
+        <aside class="save-progress-popup" id="progressModal" hidden aria-live="polite">
+          <header class="save-progress-header">
+            <h2 id="progressTitle" data-i18n="progressSaving">Saving…</h2>
+          </header>
+          <div class="save-progress-body">
+            <p class="progress-name" id="progressName"></p>
+            <div class="progress-track" id="progressTrack" aria-hidden="true">
+              <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <div class="progress-meta" id="progressMeta">
+              <span class="progress-value" id="progressValue">0%</span>
+              <span class="progress-detail" id="progressDetail"></span>
+            </div>
+            <dl class="progress-saved hidden" id="progressSaved">
+              <div class="progress-saved-row">
+                <dt data-i18n="progressSavedName">Name</dt>
+                <dd id="progressSavedName"></dd>
+              </div>
+              <div class="progress-saved-row">
+                <dt data-i18n="progressSavedPath">Path</dt>
+                <dd id="progressSavedPath"></dd>
+              </div>
+              <div class="progress-saved-row" id="progressSavedSizeRow">
+                <dt data-i18n="progressSavedSize">Size</dt>
+                <dd id="progressSavedSize"></dd>
+              </div>
+              <div class="progress-saved-row hidden" id="progressSavedElapsedRow">
+                <dt data-i18n="progressSavedElapsed">Duration</dt>
+                <dd id="progressSavedElapsed"></dd>
+              </div>
+            </dl>
+          </div>
+          <footer class="save-progress-footer">
+            <button type="button" class="btn secondary hidden" id="btnProgressCancel" data-i18n="progressStopSave">Stop</button>
+            <button type="button" class="btn primary hidden" id="btnProgressClose" data-i18n="ok">OK</button>
+          </footer>
+        </aside>
       </div>
+
+      <aside class="history-panel" id="historyPanel" hidden aria-label="Play history">
+        <header class="history-panel-header">
+          <div class="history-panel-titles">
+            <h2 data-i18n="historyTitle">Play list</h2>
+            <span class="history-panel-count" id="historyCount"></span>
+          </div>
+          <div class="history-panel-actions">
+            <button type="button" class="history-panel-btn" id="btnHistoryClear" data-i18n="recentClear">Clear</button>
+            <button type="button" class="history-panel-btn history-panel-close" id="btnHistoryClose" data-i18n-tooltip="close" data-i18n-aria="close" aria-label="Close">✕</button>
+          </div>
+        </header>
+        <div class="history-panel-body">
+          <ul class="history-list" id="historyList"></ul>
+          <div class="history-empty" id="historyEmpty" data-i18n="historyEmpty">No played items yet</div>
+        </div>
+      </aside>
     </main>
 
     <!-- Playback / volume controls under video -->
@@ -395,19 +483,19 @@
     </form>
   </dialog>
 
-  <!-- YouTube modal -->
+  <!-- YouTube / RTSP modal -->
   <dialog class="modal" id="youtubeModal">
     <form method="dialog" class="modal-card" id="youtubeForm">
       <header class="modal-header">
-        <h2 data-i18n="youtubeTitle">YouTube</h2>
+        <h2 data-i18n="youtubeTitle">Open URL</h2>
         <button type="submit" class="modal-close" value="cancel" data-i18n-aria="close">✕</button>
       </header>
       <div class="modal-body">
         <label class="field">
-          <span data-i18n="youtubeUrl">YouTube URL or video ID</span>
-          <input type="url" id="youtubeUrlInput" name="url" data-i18n-placeholder="youtubeUrlPh" placeholder="https://www.youtube.com/watch?v=..." autocomplete="off" />
+          <span data-i18n="youtubeUrl">YouTube or RTSP URL</span>
+          <input type="text" id="youtubeUrlInput" name="url" data-i18n-placeholder="youtubeUrlPh" placeholder="https://youtube.com/... or rtsp://..." autocomplete="off" spellcheck="false" />
         </label>
-        <p class="field-hint" id="youtubeHint" data-i18n="youtubeHintDesktop">After playback, use Save to download locally. (Desktop app)</p>
+        <p class="field-hint" id="youtubeHint" data-i18n="youtubeHintDesktop">YouTube: Save after play. RTSP: live stream via FFmpeg (desktop).</p>
         <p class="field-error hidden" id="youtubeError"></p>
       </div>
       <footer class="modal-footer">

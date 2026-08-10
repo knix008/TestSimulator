@@ -708,6 +708,204 @@ body.is-electron .toolbar-opacity {
   position: relative;
 }
 
+.stage.has-history-panel {
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
+}
+
+/* Right play-history panel */
+.history-panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  border-left: 1px solid var(--border);
+  background: var(--bg-panel);
+  color: var(--text);
+  z-index: 4;
+}
+
+.history-panel[hidden] {
+  display: none !important;
+}
+
+.history-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  flex: 0 0 auto;
+}
+
+.history-panel-titles {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
+.history-panel-titles h2 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.history-panel-count {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.history-panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+}
+
+.history-panel-btn {
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.history-panel-btn:hover {
+  background: var(--bg-hover, rgba(255, 255, 255, 0.06));
+  color: var(--text);
+}
+
+.history-panel-close {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  display: inline-grid;
+  place-items: center;
+}
+
+.history-panel-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 8px;
+}
+
+.history-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.history-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-stage);
+}
+
+.history-item-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+}
+
+.history-item-main:hover .history-item-title {
+  color: var(--accent, #6cb6ff);
+}
+
+.history-item-text {
+  min-width: 0;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.history-item-title {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.3;
+  word-break: break-word;
+}
+
+.history-item-path {
+  font-size: 11px;
+  color: var(--text-muted);
+  word-break: break-all;
+  line-height: 1.35;
+}
+
+.history-item-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.history-item-footer {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.history-item-delete {
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.history-item-delete:hover {
+  color: var(--danger, #ff7b7b);
+  background: var(--bg-hover, rgba(255, 255, 255, 0.06));
+}
+
+.history-empty {
+  display: none;
+  padding: 24px 12px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.history-panel.is-empty .history-list {
+  display: none;
+}
+
+.history-panel.is-empty .history-empty {
+  display: block;
+}
+
+.tool-btn.is-active,
+.tool-btn[aria-pressed='true'] {
+  background: var(--bg-hover, rgba(255, 255, 255, 0.08));
+  color: var(--accent, #6cb6ff);
+}
+
 
 .video-wrap {
   position: relative;
@@ -719,6 +917,8 @@ body.is-electron .toolbar-opacity {
   background: var(--bg-stage);
   overflow: hidden;
   outline: none;
+  /* Keep HTML overlays (spectrum, subtitles, …) above the video compositor plane. */
+  isolation: isolate;
 }
 
 .video-wrap:focus,
@@ -727,12 +927,60 @@ body.is-electron .toolbar-opacity {
 }
 
 #media {
+  position: relative;
+  z-index: 0;
   width: 100%;
   height: 100%;
+  max-width: 100%;
   max-height: 100%;
   object-fit: contain;
   background: var(--bg-stage);
   outline: none;
+}
+
+/* Video display fit modes */
+.video-wrap.fit-contain #media {
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.video-wrap.fit-cover #media {
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: cover;
+}
+
+.video-wrap.fit-actual #media {
+  width: auto;
+  height: auto;
+  max-width: none;
+  max-height: none;
+  object-fit: none;
+}
+
+.video-wrap.fit-cover .youtube-container {
+  /* Approximate fill: scale past letterboxed iframe edges */
+  overflow: hidden;
+}
+
+.video-wrap.fit-cover.youtube-mode .youtube-container iframe,
+.video-wrap.fit-cover.youtube-mode .youtube-container > div {
+  transform: scale(1.18);
+  transform-origin: center center;
+}
+
+.video-wrap.fit-actual.youtube-mode .youtube-container {
+  inset: unset;
+  top: 50%;
+  left: 50%;
+  width: min(100%, 854px);
+  height: min(100%, 480px);
+  transform: translate(-50%, -50%);
 }
 
 .youtube-container {
@@ -1089,6 +1337,16 @@ body.is-electron .toolbar-opacity {
   color: var(--bg-primary);
 }
 
+.recent-badge.rtsp {
+  background: rgba(46, 184, 138, 0.16);
+  color: #2eb88a;
+}
+
+#btnSaveYt.is-recording {
+  color: #e85d5d;
+  box-shadow: inset 0 0 0 1px rgba(232, 93, 93, 0.45);
+}
+
 .recent-title {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1137,7 +1395,7 @@ body.is-electron .toolbar-opacity {
   position: absolute;
   left: 50%;
   bottom: 8%;
-  transform: translateX(-50%);
+  transform: translate3d(-50%, 0, 0);
   max-width: min(90%, 900px);
   padding: 0.35em 0.8em;
   border-radius: 6px;
@@ -1162,7 +1420,7 @@ body.is-electron .toolbar-opacity {
   position: absolute;
   right: 14px;
   bottom: 14px;
-  z-index: 6;
+  z-index: 8;
   width: min(320px, calc(100% - 24px));
   height: min(210px, calc(100% - 24px));
   min-width: 200px;
@@ -1177,6 +1435,8 @@ body.is-electron .toolbar-opacity {
   backdrop-filter: blur(8px);
   resize: both;
   pointer-events: auto;
+  /* Promote above hardware-decoded <video> layers (esp. object-fit: cover). */
+  transform: translateZ(0);
 }
 
 .spectrum-popup[hidden] {
@@ -1272,6 +1532,7 @@ body.is-electron .toolbar-opacity {
   background: transparent;
   opacity: 0;
   transition: opacity 0.18s ease;
+  transform: translateZ(0);
 }
 
 .playback-overlay[hidden] {
@@ -1483,6 +1744,26 @@ body.is-electron .toolbar-opacity {
   background: color-mix(in srgb, var(--bg-app) 55%, #000 45%);
 }
 
+/*
+ * Non-blocking dialogs use dialog.show() so media under the UI keeps playing
+ * (showModal() marks the page inert and Chromium pauses video).
+ * ::backdrop only exists for modal dialogs — paint a full-viewport scrim instead.
+ */
+.modal[open][data-blocking="false"] {
+  position: fixed;
+  inset: 0;
+  width: auto;
+  height: auto;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  background: color-mix(in srgb, var(--bg-app) 55%, #000 45%);
+}
+
 .modal-card {
   width: min(440px, calc(100vw - 32px));
   background: var(--bg-modal);
@@ -1495,6 +1776,167 @@ body.is-electron .toolbar-opacity {
 
 .settings-card {
   width: min(640px, calc(100vw - 32px));
+}
+
+/* Floating save progress — non-modal so playback stays visible */
+.save-progress-popup {
+  position: absolute;
+  left: 14px;
+  bottom: 14px;
+  z-index: 9;
+  width: min(380px, calc(100% - 28px));
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--bg-modal) 92%, transparent);
+  box-shadow: var(--shadow);
+  color: var(--text);
+  overflow: hidden;
+  pointer-events: auto;
+  transform: translateZ(0);
+}
+
+.save-progress-popup[hidden] {
+  display: none !important;
+}
+
+.save-progress-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg-toolbar) 88%, transparent);
+}
+
+.save-progress-header h2 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.save-progress-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+}
+
+.save-progress-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 8px 12px 10px;
+  border-top: 1px solid var(--border);
+}
+
+.save-progress-footer:not(:has(button:not(.hidden))) {
+  display: none;
+}
+
+.progress-name {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text);
+  word-break: break-all;
+  line-height: 1.35;
+  max-height: 2.7em;
+  overflow: hidden;
+}
+
+.progress-track {
+  position: relative;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--bg-control);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: inherit;
+  background: var(--bg-primary);
+  transition: width 0.18s ease-out;
+}
+
+.progress-track.is-indeterminate .progress-fill {
+  width: 36%;
+  transition: none;
+  animation: progress-indeterminate 1.15s ease-in-out infinite;
+}
+
+@keyframes progress-indeterminate {
+  0% { transform: translateX(-120%); }
+  100% { transform: translateX(320%); }
+}
+
+.progress-meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.progress-value {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--text);
+  min-width: 3.5em;
+}
+
+.progress-detail {
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.progress-saved {
+  margin: 2px 0 0;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--bg-control) 70%, transparent);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.progress-saved.hidden {
+  display: none !important;
+}
+
+.progress-saved-row {
+  display: grid;
+  grid-template-columns: 40px 1fr;
+  gap: 8px;
+  align-items: start;
+  margin: 0;
+}
+
+.progress-saved-row.hidden {
+  display: none !important;
+}
+
+.progress-saved-row dt {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.progress-saved-row dd {
+  margin: 0;
+  font-size: 11px;
+  color: var(--text);
+  word-break: break-all;
+  line-height: 1.35;
 }
 
 .modal-header,
@@ -1936,6 +2378,10 @@ body.is-fullscreen .statusbar {
 
 body.is-fullscreen .stage {
   grid-template-columns: 1fr !important;
+}
+
+body.is-fullscreen .history-panel {
+  display: none !important;
 }
 
 body.is-fullscreen .app {

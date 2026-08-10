@@ -37,6 +37,22 @@ contextBridge.exposeInMainWorld('desktopAPI', {
   parseYouTube: (input) => ipcRenderer.invoke('youtube:parse', input),
   getYouTubeInfo: (input) => ipcRenderer.invoke('youtube:info', input),
   downloadYouTube: (payload) => ipcRenderer.invoke('youtube:download', payload),
+  cancelYouTubeDownload: (options) =>
+    ipcRenderer.invoke('youtube:cancelDownload', options || { discard: true }),
+  stopYouTubeDownload: (options) =>
+    ipcRenderer.invoke('youtube:cancelDownload', options || { discard: false }),
+  openRtsp: (input) => ipcRenderer.invoke('rtsp:open', input),
+  stopRtsp: () => ipcRenderer.invoke('rtsp:stop'),
+  getActiveRtsp: () => ipcRenderer.invoke('rtsp:getActive'),
+  isRtspUrl: (input) => ipcRenderer.invoke('rtsp:isUrl', input),
+  startRtspRecord: (payload) => ipcRenderer.invoke('rtsp:startRecord', payload || {}),
+  stopRtspRecord: (options) => ipcRenderer.invoke('rtsp:stopRecord', options || {}),
+  getRtspRecording: () => ipcRenderer.invoke('rtsp:getRecording'),
+  onRtspRecordProgress: (callback) => {
+    const handler = (_event, progress) => callback(progress);
+    ipcRenderer.on('rtsp:recordProgress', handler);
+    return () => ipcRenderer.removeListener('rtsp:recordProgress', handler);
+  },
   /** Durable key/value store in Electron userData (survives random UI port). */
   persistGetItem: (key) => ipcRenderer.sendSync('persist:getItem', key),
   persistSetItem: (key, value) => ipcRenderer.sendSync('persist:setItem', key, value),

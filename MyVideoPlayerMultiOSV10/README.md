@@ -7,9 +7,9 @@ Cross-platform video/audio player for **Web**, **Windows**, **macOS**, and **Lin
 | **Version** | 1.0.0 |
 | **Author** | SHKWON \<knix008@naver.com\> |
 | **License** | MIT |
-| **Stack** | Electron 33 · HTML/CSS/ES modules · youtubei.js · ffmpeg-static |
+| **Stack** | Electron 33 · HTML/CSS/ES modules · youtubei.js · ffmpeg-static · bundled yt-dlp |
 
-멀티 OS 미디어 플레이어입니다. 로컬 파일은 HTTP Range(`/__media/…`)로 스트리밍하고, 재생 실패 시 FFmpeg로 호환 변환(소프트 리먹스 → H.264)을 시도합니다. YouTube 재생·저장, 자막(SMI/SRT/VTT), 테마, 한글·영어 UI, 스펙트럼 팝업, 창 투명도, 단축키를 지원합니다.
+멀티 OS 미디어 플레이어입니다. 로컬 파일은 HTTP Range(`/__media/…`)로 스트리밍하고, 재생 실패 시 FFmpeg로 호환 변환(소프트 리먹스 → H.264)을 시도합니다. YouTube·RTSP 재생, YouTube/RTSP 저장(녹화), 자막(SMI/SRT/VTT), 테마, 한글·영어 UI, 화면 맞춤, 재생 목록 패널, 스펙트럼 팝업, 창 투명도, 단축키를 지원합니다.
 
 자세한 구조·IPC·모듈 설명은 [Architecture.md](Architecture.md)를 참고하세요.
 
@@ -19,15 +19,19 @@ Cross-platform video/audio player for **Web**, **Windows**, **macOS**, and **Lin
 
 - Local media playback with same-origin HTTP Range streaming (`/__media/<token>`)
 - Automatic compatibility conversion via FFmpeg (`media-compat.js`, cache under `userData/compat-cache`)
-- YouTube playback (IFrame API) and desktop download/save (`yt-dlp` preferred, `youtubei.js` fallback)
+- YouTube playback (IFrame API) and desktop download/save (bundled `yt-dlp` preferred, `youtubei.js` fallback; optional sign-in cookies)
+- RTSP / RTSPS live view and MP4 recording (desktop; stop keeps the file and can play it back)
 - Auto subtitle load (SMI / SRT / VTT beside the media file)
-- Recent plays (up to 10); last open/save folders remembered (desktop)
+- Recent plays (up to 30) + right-side **play history** panel (`Ctrl+L`); last open/save folders remembered (desktop)
+- Display fit modes: fill screen / keep aspect ratio / original size (toolbar menu; persisted)
 - Built-in themes (Dark, Light, Ocean, Forest) + custom theme editor; stage uses `--bg-stage`
 - UI language toggle: toolbar shows **ENG** / **한글** (target language); status bar re-translates on switch
 - Draggable in-player spectrum popup (Web Audio analyzer + multiple painter styles)
+- Settings / About / theme editor open as non-blocking dialogs so playback continues
 - Frameless desktop window: brand bar, IPC drag (not `-webkit-app-region`), opacity, caption buttons
 - Minimum window width keeps toolbar controls visible
 - Settings / recent / dialog dirs in Electron `userData/persist.json` (web: `localStorage`)
+- Quiet Chromium console by default (`MYVIDEOPLAYER_VERBOSE=1` to enable debug logs)
 - Keyboard shortcuts (Space = play/pause, and more)
 - Per-OS installers via `npm run build:*` (NSIS / DMG / AppImage+deb)
 
@@ -37,30 +41,39 @@ Cross-platform video/audio player for **Web**, **Windows**, **macOS**, and **Lin
 
 ```bash
 npm install
-npm start          # Electron desktop app
+npm start          # Electron desktop app (also ensures vendor/yt-dlp)
 npm run web        # Browser UI at http://localhost:5173
 ```
 
 Run **one** Electron instance at a time (multiple instances can lock the Chromium disk cache).
 
+Optional verbose Chromium logs:
+
+```bash
+# Windows PowerShell
+$env:MYVIDEOPLAYER_VERBOSE=1; npm start
+```
+
 ### Build installers
 
 ```bash
-npm run build:win      # Windows NSIS → dist/MyVideoPlayer-Setup-*.exe
+npm run build:win      # Windows NSIS → dist/ + copy to project root
 npm run build:mac      # macOS DMG + zip  (build on macOS)
 npm run build:linux    # AppImage + deb   (build on Linux)
 npm run build          # Current host targets from package.json
 npm run pack           # Unpackaged app directory only
+npm run ensure:yt-dlp  # Re-fetch bundled yt-dlp only
 ```
 
 | Command | Target | Output |
 |---------|--------|--------|
-| `npm run build:win` | Windows x64 | `dist/MyVideoPlayer-Setup-{version}.exe` |
+| `npm run build:win` | Windows x64 | `dist/MyVideoPlayer-Setup-{version}.exe` (also copied to repo root) |
 | `npm run build:mac` | macOS | DMG + zip under `dist/` |
 | `npm run build:linux` | Linux | AppImage + deb under `dist/` |
 
 > macOS/Linux packages should be built on that OS (or CI). `dist:*` scripts are aliases of `build:*`.  
-> `ffmpeg-static` is unpacked from asar so the main process can spawn FFmpeg.
+> `ffmpeg-static` is unpacked from asar so the main process can spawn FFmpeg.  
+> Bundled `yt-dlp` is fetched into `vendor/yt-dlp/` (`postinstall` / `npm start`) and shipped as `extraResources`.
 
 Icons: [`asset/`](asset/) (`icon.ico`, `icon-1024.png`, `icons/`, `icon-256.png`).
 
@@ -70,7 +83,7 @@ Icons: [`asset/`](asset/) (`icon.ico`, `icon-1024.png`, `icons/`, `icon-256.png`
 
 | Document | Description |
 |----------|-------------|
-| [Architecture.md](Architecture.md) | Processes, `/__media`, persist, themes, IPC, packaging |
+| [Architecture.md](Architecture.md) | Processes, `/__media`, RTSP, YouTube, persist, themes, IPC, packaging |
 | [UsersGuide.md](UsersGuide.md) | End-user manual (Korean) |
 | [.gitignore](.gitignore) | Ignored paths (see below) |
 
@@ -80,10 +93,12 @@ Icons: [`asset/`](asset/) (`icon.ico`, `icon-1024.png`, `icons/`, `icon-256.png`
 
 ```
 MyVideoPlayerMultiOSV10/
-├── electron/          # main, preload, youtube, media-compat, persist-store
+├── electron/          # main, preload, youtube(+auth), rtsp-stream, media-compat, persist-store
 ├── src/               # Renderer / web UI (no bundler; ES modules)
+├── scripts/           # ensure-yt-dlp, Windows build helpers, installer copy
 ├── asset/             # App & installer icons
 ├── build/             # electron-builder resources (installer.nsh, …)
+├── vendor/yt-dlp/     # Bundled yt-dlp binary (gitignored; fetched locally)
 ├── video/             # Local sample media (gitignored)
 ├── dist/              # Build output (gitignored)
 ├── Architecture.md
@@ -99,9 +114,12 @@ From [`.gitignore`](.gitignore):
 | Pattern | Why |
 |---------|-----|
 | `node_modules/`, `dist/`, `out/`, `*.asar` | Dependencies & build artifacts |
+| `MyVideoPlayer-Setup-*.exe` (and other installers at repo root) | Copied build products |
 | `video/`, `*.mp4`, `*.mkv`, …, `*.smi`/`*.srt`/`*.vtt` | Large local/sample media & sidecars |
+| `*.part`, `*.ytdl`, `*.download` | Incomplete downloads |
+| `vendor/yt-dlp/yt-dlp(.exe)` | Fetched binary (not committed) |
+| `*cookies*.txt`, `.env*` | Secrets / session data |
 | `.vscode/`, `.idea/`, `.cursor/`, `.DS_Store` | Editor / OS junk |
-| `.env`, `.env.*` | Secrets |
 | `*.tmp`, `.cache/` | Temp files |
 
 Put test videos under `video/` locally; they are not committed.
@@ -112,12 +130,12 @@ Put test videos under `video/` locally; they are not committed.
 
 | Platform | How to run / ship | Notes |
 |----------|-------------------|--------|
-| Web | `npm run web` | No native dialogs, YouTube save, FFmpeg compat, or window opacity/chrome |
-| Windows | `npm run build:win` → NSIS | Clean reinstall via `build/installer.nsh` |
+| Web | `npm run web` | No native dialogs, YouTube/RTSP save, FFmpeg compat, or window opacity/chrome |
+| Windows | `npm run build:win` → NSIS | Clean reinstall via `build/installer.nsh`; ships bundled yt-dlp |
 | macOS | `npm run build:mac` | DMG + zip |
 | Linux | `npm run build:linux` | AppImage + deb |
 
-Optional: install [`yt-dlp`](https://github.com/yt-dlp/yt-dlp) on `PATH` for better YouTube downloads.
+System `yt-dlp` on `PATH` is optional; the app prefers the bundled binary under `vendor/yt-dlp/` (or installer `resources/yt-dlp`).
 
 ---
 

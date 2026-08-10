@@ -246,7 +246,7 @@ export function syncThemeToOverlays(root = document.documentElement) {
     (themeId === 'light' ? 'light' : 'dark');
 
   const overlays = document.querySelectorAll(
-    'dialog.modal, dialog.modal .modal-card, .recent-menu, .popup-menu, .tooltip'
+    'dialog.modal, dialog.modal .modal-card, .recent-menu, .popup-menu, .tooltip, .save-progress-popup, .spectrum-popup'
   );
 
   // Hard fallbacks keep dialog/tooltip labels readable if a var is missing.

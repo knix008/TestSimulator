@@ -1,4 +1,4 @@
-import { loadSettings, saveSettings, resetSettings } from './settings.js';
+import { loadSettings, saveSettings, resetSettings, normalizeVideoFit } from './settings.js';
 import { parseSubtitle, SubtitleRenderer, findSubtitleInFileList } from './subtitles.js';
 import { SpectrumAnalyzer, SpectrumPainter, SPECTRUM_STYLES, normalizeSpectrumStyle } from './spectrum.js';
 import { initTooltips } from './tooltip.js';
@@ -49,6 +49,23 @@ const els = {
   youtubeModal: $('youtubeModal'),
   youtubeUrlInput: $('youtubeUrlInput'),
   youtubeError: $('youtubeError'),
+  progressModal: $('progressModal'),
+  progressTitle: $('progressTitle'),
+  progressName: $('progressName'),
+  progressTrack: $('progressTrack'),
+  progressFill: $('progressFill'),
+  progressValue: $('progressValue'),
+  progressDetail: $('progressDetail'),
+  progressMeta: $('progressMeta'),
+  progressSaved: $('progressSaved'),
+  progressSavedName: $('progressSavedName'),
+  progressSavedPath: $('progressSavedPath'),
+  progressSavedSize: $('progressSavedSize'),
+  progressSavedSizeRow: $('progressSavedSizeRow'),
+  progressSavedElapsed: $('progressSavedElapsed'),
+  progressSavedElapsedRow: $('progressSavedElapsedRow'),
+  btnProgressCancel: $('btnProgressCancel'),
+  btnProgressClose: $('btnProgressClose'),
   statusFile: $('statusFile'),
   statusFormat: $('statusFormat'),
   statusSubtitle: $('statusSubtitle'),
@@ -64,12 +81,22 @@ const els = {
   recentMenu: $('recentMenu'),
   recentList: $('recentList'),
   btnClearRecent: $('btnClearRecent'),
+  btnHistory: $('btnHistory'),
+  historyPanel: $('historyPanel'),
+  historyList: $('historyList'),
+  historyEmpty: $('historyEmpty'),
+  historyCount: $('historyCount'),
+  btnHistoryClear: $('btnHistoryClear'),
+  btnHistoryClose: $('btnHistoryClose'),
   btnLocale: $('btnLocale'),
   localeBtnLabel: $('localeBtnLabel'),
   btnTheme: $('btnTheme'),
   themeMenu: $('themeMenu'),
   themeList: $('themeList'),
   btnToolbarEditTheme: $('btnToolbarEditTheme'),
+  btnFit: $('btnFit'),
+  fitMenu: $('fitMenu'),
+  fitList: $('fitList'),
   errorModal: $('errorModal'),
   errorTitle: $('errorTitle'),
   errorMessage: $('errorMessage'),
@@ -129,6 +156,14 @@ let seekWatchdog = 0;
 let appInfo = null;
 let youtubeMode = false;
 let currentYouTube = null; // { id, url, title }
+/** @type {string|null} */
+let currentRtspUrl = null;
+let rtspRecording = false;
+/** @type {'youtube' | 'rtsp' | 'open-youtube' | 'open-rtsp' | null} */
+let saveProgressMode = null;
+let saveProgressCloseTimer = 0;
+/** Abort flag for in-flight YouTube/RTSP open. */
+let openStreamCancelled = false;
 let overlayTimer = 0;
 /** @type {'paused' | 'stopped' | null} */
 let holdOverlayMode = null;
@@ -464,8 +499,18 @@ const ytPlayer = new YouTubePlayerController(els.youtubeContainer, {
 });
 
 function updateSaveButton() {
-  const canSave = Boolean(youtubeMode && currentYouTube?.url && isElectron);
+  const canSave = Boolean(
+    isElectron &&
+      ((youtubeMode && currentYouTube?.url) || currentRtspUrl || rtspRecording)
+  );
   els.btnSaveYt.disabled = !canSave;
+  if (els.btnSaveYt) {
+    els.btnSaveYt.setAttribute(
+      'data-tooltip',
+      rtspRecording ? t('rtspStopRecordTip') : currentRtspUrl ? t('rtspSaveTip') : t('saveYtTip')
+    );
+    els.btnSaveYt.classList.toggle('is-recording', rtspRecording);
+  }
 }
 
 function formatRecentTime(ts) {
@@ -481,7 +526,7 @@ function formatRecentTime(ts) {
   }
 }
 
-function rememberRecentFile({ path: filePath, name, title, ext }) {
+function rememberRecentFile({ path: filePath, name, title, ext, size }) {
   if (!filePath) return;
   addRecent({
     type: 'file',
@@ -489,9 +534,10 @@ function rememberRecentFile({ path: filePath, name, title, ext }) {
     path: filePath,
     name: name || filePath,
     title: title || name || filePath,
-    ext: ext || ''
+    ext: ext || '',
+    size
   });
-  renderRecentMenu();
+  renderPlayHistory();
 }
 
 function rememberRecentYouTube({ id, url, title }) {
@@ -503,7 +549,210 @@ function rememberRecentYouTube({ id, url, title }) {
     name: title || id,
     title: title || id
   });
+  renderPlayHistory();
+}
+
+function isRtspUrl(input) {
+  return /^rtsps?:\/\//i.test(String(input || '').trim());
+}
+
+function rtspDisplayName(url) {
+  try {
+    const u = new URL(url);
+    return u.host || url;
+  } catch {
+    return url;
+  }
+}
+
+function rememberRecentRtsp({ url, title }) {
+  if (!url) return;
+  addRecent({
+    type: 'rtsp',
+    id: `rtsp:${url}`,
+    url,
+    name: title || rtspDisplayName(url),
+    title: title || rtspDisplayName(url)
+  });
+  renderPlayHistory();
+}
+
+function historyTypeLabel(type) {
+  if (type === 'youtube') return t('historyTypeYoutube');
+  if (type === 'rtsp') return t('historyTypeRtsp');
+  return t('historyTypeFile');
+}
+
+function formatHistoryDate(ts) {
+  if (!ts) return '—';
+  try {
+    return new Date(ts).toLocaleString(getLocaleSafe() === 'ko' ? 'ko-KR' : 'en-US', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  } catch {
+    return formatRecentTime(ts);
+  }
+}
+
+function renderHistoryPanel() {
+  const items = loadRecent();
+  const list = els.historyList;
+  const panel = els.historyPanel;
+  if (!list || !panel) return;
+
+  list.innerHTML = '';
+  panel.classList.toggle('is-empty', items.length === 0);
+  if (els.historyCount) {
+    els.historyCount.textContent = items.length ? t('historyCount', { n: items.length }) : '';
+  }
+
+  for (const item of items) {
+    const li = document.createElement('li');
+    li.className = 'history-item';
+
+    const openBtn = document.createElement('button');
+    openBtn.type = 'button';
+    openBtn.className = 'history-item-main';
+    openBtn.title = item.type === 'file' ? item.path || item.title : item.url || item.title;
+
+    const badgeClass =
+      item.type === 'youtube' ? 'yt' : item.type === 'rtsp' ? 'rtsp' : 'file';
+    const badgeLabel =
+      item.type === 'youtube' ? 'YT' : item.type === 'rtsp' ? 'RTSP' : 'FILE';
+    const location = item.type === 'file' ? item.path || '' : item.url || '';
+    const formatLabel =
+      item.type === 'youtube'
+        ? 'YouTube'
+        : item.type === 'rtsp'
+          ? 'RTSP'
+          : (item.ext || '').replace(/^\./, '').toUpperCase() || 'MEDIA';
+
+    openBtn.innerHTML = `
+      <span class="recent-badge ${badgeClass}">${badgeLabel}</span>
+      <span class="history-item-text">
+        <span class="history-item-title"></span>
+        <span class="history-item-path"></span>
+        <span class="history-item-meta"></span>
+      </span>
+    `;
+    openBtn.querySelector('.history-item-title').textContent = item.title || item.name || '—';
+    openBtn.querySelector('.history-item-path').textContent = location || '—';
+    const metaBits = [
+      historyTypeLabel(item.type),
+      formatLabel,
+      item.size > 0 ? formatBytes(item.size) : '',
+      formatHistoryDate(item.playedAt)
+    ].filter(Boolean);
+    openBtn.querySelector('.history-item-meta').textContent = metaBits.join(' · ');
+    openBtn.addEventListener('click', () => {
+      void playRecentItem(item);
+    });
+
+    const footer = document.createElement('div');
+    footer.className = 'history-item-footer';
+    const del = document.createElement('button');
+    del.type = 'button';
+    del.className = 'history-item-delete';
+    del.textContent = t('historyRemove');
+    del.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      removeRecent(item.id);
+      renderPlayHistory();
+      setStatus({ state: statusKey('statusRecentRemoved') });
+    });
+    footer.appendChild(del);
+
+    li.appendChild(openBtn);
+    li.appendChild(footer);
+    list.appendChild(li);
+  }
+}
+
+function setHistoryPanelOpen(open) {
+  const panel = els.historyPanel;
+  if (!panel || !els.stage) return;
+  const next = Boolean(open);
+  panel.hidden = !next;
+  els.stage.classList.toggle('has-history-panel', next);
+  els.btnHistory?.setAttribute('aria-pressed', next ? 'true' : 'false');
+  els.btnHistory?.classList.toggle('is-active', next);
+  if (settings.showHistoryPanel !== next) {
+    settings.showHistoryPanel = next;
+    saveSettings(settings);
+  }
+  if (next) {
+    renderHistoryPanel();
+    syncThemeToOverlays();
+  }
+  syncWindowMinWidth();
+}
+
+function toggleHistoryPanel() {
+  setHistoryPanelOpen(Boolean(els.historyPanel?.hidden));
+}
+
+function renderPlayHistory() {
   renderRecentMenu();
+  if (els.historyPanel && !els.historyPanel.hidden) {
+    renderHistoryPanel();
+  }
+}
+
+async function finalizeRtspRecordIfAny() {
+  if (!isElectron || !window.desktopAPI?.stopRtspRecord) {
+    rtspRecording = false;
+    updateSaveButton();
+    return null;
+  }
+  if (!rtspRecording) {
+    try {
+      const active = await window.desktopAPI.getRtspRecording?.();
+      if (!active) return null;
+    } catch {
+      return null;
+    }
+  }
+  try {
+    const result = await window.desktopAPI.stopRtspRecord({ discard: false });
+    rtspRecording = false;
+    updateSaveButton();
+    return result;
+  } catch {
+    rtspRecording = false;
+    updateSaveButton();
+    return null;
+  }
+}
+
+async function stopRtspBridge({ finalizeRecord = false } = {}) {
+  if (finalizeRecord) {
+    const recorded = await finalizeRtspRecordIfAny();
+    if (recorded?.ok && recorded.path) {
+      setStatus({
+        state: statusKey('statusRtspRecordSaved'),
+        file: recorded.path
+      });
+    }
+  }
+  if (!currentRtspUrl && !(isElectron && window.desktopAPI?.stopRtsp)) {
+    currentRtspUrl = null;
+    updateSaveButton();
+    return;
+  }
+  currentRtspUrl = null;
+  if (isElectron && window.desktopAPI?.stopRtsp) {
+    try {
+      await window.desktopAPI.stopRtsp();
+    } catch {
+      /* ignore */
+    }
+  }
+  updateSaveButton();
 }
 
 function renderRecentMenu() {
@@ -529,8 +778,12 @@ function renderRecentMenu() {
     btn.setAttribute('role', 'menuitem');
     btn.dataset.id = item.id;
     btn.title = item.type === 'file' ? (item.path || item.title) : (item.url || item.title);
+    const badgeClass =
+      item.type === 'youtube' ? 'yt' : item.type === 'rtsp' ? 'rtsp' : 'file';
+    const badgeLabel =
+      item.type === 'youtube' ? 'YT' : item.type === 'rtsp' ? 'RTSP' : 'FILE';
     btn.innerHTML = `
-      <span class="recent-badge ${item.type === 'youtube' ? 'yt' : 'file'}">${item.type === 'youtube' ? 'YT' : 'FILE'}</span>
+      <span class="recent-badge ${badgeClass}">${badgeLabel}</span>
       <span class="recent-title"></span>
       <span class="recent-meta"></span>
     `;
@@ -551,7 +804,7 @@ function renderRecentMenu() {
       e.preventDefault();
       e.stopPropagation();
       removeRecent(item.id);
-      renderRecentMenu();
+      renderPlayHistory();
       setStatus({ state: statusKey('statusRecentRemoved') });
     });
 
@@ -583,6 +836,83 @@ function toggleRecentMenu() {
 function closeToolbarMenus({ except = null } = {}) {
   if (except !== 'recent') closeRecentMenu();
   if (except !== 'theme') closeThemeMenu();
+  if (except !== 'fit') closeFitMenu();
+}
+
+function fitLabelKey(mode) {
+  if (mode === 'cover') return 'fitCover';
+  if (mode === 'actual') return 'fitActual';
+  return 'fitContain';
+}
+
+function fitStatusKey(mode) {
+  if (mode === 'cover') return 'statusFitCover';
+  if (mode === 'actual') return 'statusFitActual';
+  return 'statusFitContain';
+}
+
+function updateActualMediaSize() {
+  if (!els.media) return;
+  if (normalizeVideoFit(settings.videoFit) !== 'actual' || youtubeMode) {
+    els.media.style.width = '';
+    els.media.style.height = '';
+    return;
+  }
+  const w = els.media.videoWidth;
+  const h = els.media.videoHeight;
+  if (w > 0 && h > 0) {
+    els.media.style.width = `${w}px`;
+    els.media.style.height = `${h}px`;
+  }
+}
+
+function updateFitMenuSelection() {
+  const current = normalizeVideoFit(settings.videoFit);
+  els.fitList?.querySelectorAll('[data-fit]').forEach((btn) => {
+    const active = btn.dataset.fit === current;
+    btn.classList.toggle('is-active', active);
+    btn.setAttribute('aria-checked', String(active));
+    const check = btn.querySelector('.popup-item-check');
+    if (check) check.textContent = active ? '✓' : '';
+  });
+}
+
+function updateFitToolbarButton() {
+  const current = normalizeVideoFit(settings.videoFit);
+  const label = t(fitLabelKey(current));
+  els.btnFit?.setAttribute('data-tooltip', `${t('fitTip')}: ${label}`);
+  els.btnFit?.setAttribute('aria-label', `${t('fit')}: ${label}`);
+}
+
+function applyVideoFit(mode, { persist = true, announce = false } = {}) {
+  const next = normalizeVideoFit(mode);
+  settings.videoFit = next;
+  if (persist) saveSettings(settings);
+  els.videoWrap?.classList.remove('fit-contain', 'fit-cover', 'fit-actual');
+  els.videoWrap?.classList.add(`fit-${next}`);
+  updateActualMediaSize();
+  updateFitMenuSelection();
+  updateFitToolbarButton();
+  if (announce) setStatus({ state: statusKey(fitStatusKey(next)) });
+}
+
+function openFitMenu() {
+  closeToolbarMenus({ except: 'fit' });
+  updateFitMenuSelection();
+  syncThemeToOverlays();
+  if (els.fitMenu) els.fitMenu.hidden = false;
+  els.btnFit?.setAttribute('aria-expanded', 'true');
+}
+
+function closeFitMenu() {
+  if (!els.fitMenu) return;
+  els.fitMenu.hidden = true;
+  els.btnFit?.setAttribute('aria-expanded', 'false');
+}
+
+function toggleFitMenu() {
+  if (els.fitMenu?.hidden) openFitMenu();
+  else closeFitMenu();
 }
 
 function updateLocaleToolbarButton() {
@@ -712,6 +1042,10 @@ async function playRecentItem(item) {
   if (!item) return;
   if (item.type === 'youtube') {
     await playYouTubeFromInput(item.url || item.id.replace(/^youtube:/, ''));
+    return;
+  }
+  if (item.type === 'rtsp') {
+    await playRtspFromInput(item.url || item.id.replace(/^rtsp:/, ''));
     return;
   }
   if (item.type === 'file') {
@@ -932,6 +1266,7 @@ function updateMuteIcons() {
 function enterYouTubeMode() {
   youtubeMode = true;
   els.videoWrap.classList.add('youtube-mode');
+  updateActualMediaSize();
   updateSpectrumVisibility();
   updateSaveButton();
 }
@@ -942,6 +1277,8 @@ function exitYouTubeMode() {
   youtubeMode = false;
   currentYouTube = null;
   els.videoWrap.classList.remove('youtube-mode');
+  updateActualMediaSize();
+  updateSpectrumVisibility();
   updateSaveButton();
 }
 
@@ -1032,11 +1369,247 @@ async function applyTheme(themeSetting) {
   return def;
 }
 
-function openThemedDialog(dialogEl) {
+/**
+ * Open a themed dialog.
+ * Use modal:false (default) so Chromium does not mark the page inert and pause media.
+ * Pass modal:true only when the flow should block the app (e.g. URL entry, errors).
+ */
+function openThemedDialog(dialogEl, { modal = false } = {}) {
   if (!dialogEl) return;
   syncThemeToOverlays();
-  if (typeof dialogEl.showModal === 'function') dialogEl.showModal();
+  dialogEl.dataset.blocking = modal ? 'true' : 'false';
+  if (modal) {
+    if (typeof dialogEl.showModal === 'function') dialogEl.showModal();
+    else dialogEl.setAttribute('open', '');
+    return;
+  }
+  if (typeof dialogEl.show === 'function') dialogEl.show();
   else dialogEl.setAttribute('open', '');
+}
+
+function closeTopNonblockingDialog() {
+  const open = [...document.querySelectorAll('dialog.modal[open][data-blocking="false"]')];
+  const top = open[open.length - 1];
+  if (!top) return false;
+  if (typeof top.close === 'function') top.close();
+  else top.removeAttribute('open');
+  return true;
+}
+
+function clearSaveProgressCloseTimer() {
+  if (saveProgressCloseTimer) {
+    clearTimeout(saveProgressCloseTimer);
+    saveProgressCloseTimer = 0;
+  }
+}
+
+function isSaveProgressVisible() {
+  return Boolean(els.progressModal && !els.progressModal.hidden);
+}
+
+function hideSavedInfo() {
+  els.progressSaved?.classList.add('hidden');
+  if (els.progressSavedName) els.progressSavedName.textContent = '';
+  if (els.progressSavedPath) els.progressSavedPath.textContent = '';
+  if (els.progressSavedSize) els.progressSavedSize.textContent = '';
+  if (els.progressSavedElapsed) els.progressSavedElapsed.textContent = '';
+  els.progressSavedSizeRow?.classList.add('hidden');
+  els.progressSavedElapsedRow?.classList.add('hidden');
+}
+
+function showSavedInfo({ name = '', path: filePath = '', size = 0, elapsed = '' } = {}) {
+  if (!els.progressSaved) return;
+  const baseName = name || (filePath ? filePath.split(/[/\\]/).pop() : '') || '—';
+  if (els.progressSavedName) els.progressSavedName.textContent = baseName;
+  if (els.progressSavedPath) els.progressSavedPath.textContent = filePath || '—';
+  if (size > 0) {
+    els.progressSavedSizeRow?.classList.remove('hidden');
+    if (els.progressSavedSize) els.progressSavedSize.textContent = formatBytes(size);
+  } else {
+    els.progressSavedSizeRow?.classList.add('hidden');
+  }
+  if (elapsed) {
+    els.progressSavedElapsedRow?.classList.remove('hidden');
+    if (els.progressSavedElapsed) els.progressSavedElapsed.textContent = elapsed;
+  } else {
+    els.progressSavedElapsedRow?.classList.add('hidden');
+  }
+  els.progressSaved.classList.remove('hidden');
+}
+
+function isOpenProgressMode(mode = saveProgressMode) {
+  return mode === 'open-youtube' || mode === 'open-rtsp';
+}
+
+function showSaveProgress({ mode, title, name }) {
+  if (!els.progressModal) return;
+  clearSaveProgressCloseTimer();
+  saveProgressMode = mode;
+  hideSavedInfo();
+  if (els.progressTitle) els.progressTitle.textContent = title || t('progressSaving');
+  if (els.progressName) {
+    els.progressName.textContent = name || '';
+    els.progressName.classList.remove('hidden');
+  }
+  els.progressTrack?.classList.remove('hidden');
+  els.progressMeta?.classList.remove('hidden');
+  if (els.progressFill) els.progressFill.style.width = '0%';
+  const indeterminate =
+    mode === 'rtsp' || mode === 'youtube' || isOpenProgressMode(mode);
+  els.progressTrack?.classList.toggle('is-indeterminate', indeterminate);
+  if (els.progressValue) {
+    els.progressValue.textContent = mode === 'rtsp' ? '00:00' : isOpenProgressMode(mode) ? '…' : '0%';
+  }
+  if (els.progressDetail) els.progressDetail.textContent = '';
+  // Save: Stop keeps content. Open: Cancel aborts connect/load.
+  if (els.btnProgressCancel) {
+    els.btnProgressCancel.hidden = false;
+    els.btnProgressCancel.classList.remove('hidden');
+    els.btnProgressCancel.disabled = false;
+    els.btnProgressCancel.textContent = isOpenProgressMode(mode)
+      ? t('progressCancelOpen')
+      : t('progressStopSave');
+  }
+  els.btnProgressClose?.classList.add('hidden');
+  if (els.btnProgressClose) els.btnProgressClose.hidden = true;
+  syncThemeToOverlays();
+  els.progressModal.hidden = false;
+}
+
+function showOpenProgress({ kind, name = '', detail = '' } = {}) {
+  openStreamCancelled = false;
+  const mode = kind === 'rtsp' ? 'open-rtsp' : 'open-youtube';
+  showSaveProgress({
+    mode,
+    title: kind === 'rtsp' ? t('progressOpeningRtsp') : t('progressOpeningYoutube'),
+    name
+  });
+  updateSaveProgress({
+    detail: detail || t('progressOpening'),
+    indeterminate: true
+  });
+}
+
+function finishOpenProgress({ ok = true, message = '', autoCloseMs = 900 } = {}) {
+  if (!isSaveProgressVisible() || !isOpenProgressMode()) {
+    if (!ok && message) {
+      /* open UI already gone */
+    }
+    return;
+  }
+  clearSaveProgressCloseTimer();
+  els.progressTrack?.classList.remove('is-indeterminate');
+  els.btnProgressCancel?.classList.add('hidden');
+  if (els.btnProgressCancel) els.btnProgressCancel.hidden = true;
+
+  if (!ok) {
+    if (els.progressTitle) els.progressTitle.textContent = t('progressOpenFailed');
+    hideSavedInfo();
+    if (els.progressValue) els.progressValue.textContent = '—';
+    if (message && els.progressDetail) els.progressDetail.textContent = message;
+    els.btnProgressClose?.classList.remove('hidden');
+    if (els.btnProgressClose) {
+      els.btnProgressClose.hidden = false;
+      els.btnProgressClose.textContent = t('ok');
+    }
+    saveProgressMode = null;
+    return;
+  }
+
+  if (els.progressFill) els.progressFill.style.width = '100%';
+  if (els.progressValue) els.progressValue.textContent = '100%';
+  if (els.progressTitle) els.progressTitle.textContent = t('progressOpenReady');
+  if (els.progressDetail) els.progressDetail.textContent = message || '';
+  hideSavedInfo();
+  els.btnProgressClose?.classList.add('hidden');
+  if (els.btnProgressClose) els.btnProgressClose.hidden = true;
+  saveProgressMode = null;
+  if (autoCloseMs > 0) {
+    saveProgressCloseTimer = setTimeout(() => closeSaveProgress(), autoCloseMs);
+  } else {
+    closeSaveProgress();
+  }
+}
+
+function updateSaveProgress({ percent = null, elapsed = null, detail = '', indeterminate = null } = {}) {
+  if (!isSaveProgressVisible()) return;
+
+  const useIndeterminate =
+    indeterminate != null
+      ? indeterminate
+      : saveProgressMode === 'rtsp' ||
+        isOpenProgressMode() ||
+        (saveProgressMode === 'youtube' && percent == null);
+  els.progressTrack?.classList.toggle('is-indeterminate', useIndeterminate);
+
+  if (percent != null && Number.isFinite(percent)) {
+    const pct = Math.max(0, Math.min(100, percent));
+    if (els.progressFill) els.progressFill.style.width = `${pct}%`;
+    if (els.progressValue) els.progressValue.textContent = `${Math.round(pct)}%`;
+  } else if (elapsed) {
+    if (els.progressValue) els.progressValue.textContent = elapsed;
+  }
+
+  if (detail != null && els.progressDetail) {
+    els.progressDetail.textContent = detail;
+  }
+}
+
+function finishSaveProgress({
+  ok = true,
+  message = '',
+  value = null,
+  cancelled = false,
+  saved = null
+} = {}) {
+  if (!els.progressModal) return;
+  clearSaveProgressCloseTimer();
+  els.progressModal.hidden = false;
+  els.progressTrack?.classList.remove('is-indeterminate');
+  if (cancelled) {
+    closeSaveProgress();
+    setStatus({ state: statusKey('progressCancelled') });
+    return;
+  }
+  if (ok) {
+    if (els.progressFill) els.progressFill.style.width = '100%';
+    if (els.progressValue) els.progressValue.textContent = '100%';
+    if (els.progressTitle) els.progressTitle.textContent = t('progressDone');
+    const info = saved || {};
+    const filePath = info.path || message || '';
+    const fileName = info.name || (filePath ? filePath.split(/[/\\]/).pop() : '') || '';
+    if (els.progressName) {
+      els.progressName.textContent = fileName;
+      els.progressName.classList.add('hidden');
+    }
+    if (els.progressDetail) {
+      els.progressDetail.textContent = info.size ? formatBytes(info.size) : '';
+    }
+    showSavedInfo({
+      name: fileName,
+      path: filePath,
+      size: Number(info.size) || 0,
+      elapsed: info.elapsed || (value && value !== '100%' ? value : '') || ''
+    });
+  } else {
+    if (els.progressTitle) els.progressTitle.textContent = t('progressFailed');
+    hideSavedInfo();
+    if (message && els.progressDetail) els.progressDetail.textContent = message;
+  }
+  els.btnProgressCancel?.classList.add('hidden');
+  if (els.btnProgressCancel) els.btnProgressCancel.hidden = true;
+  els.btnProgressClose?.classList.remove('hidden');
+  if (els.btnProgressClose) {
+    els.btnProgressClose.hidden = false;
+    els.btnProgressClose.textContent = t('ok');
+  }
+  saveProgressMode = null;
+}
+
+function closeSaveProgress() {
+  clearSaveProgressCloseTimer();
+  saveProgressMode = null;
+  if (els.progressModal) els.progressModal.hidden = true;
 }
 
 function renderThemeColorGrid(vars) {
@@ -1156,6 +1729,8 @@ function applyLocale(locale, { persist = true } = {}) {
   populateThemeSelect(settings.theme);
   fillSpectrumStyleSelect();
   updateLocaleToolbarButton();
+  updateFitToolbarButton();
+  updateFitMenuSelection();
   applySpectrumStyle(settings.spectrumStyle, { persist: false });
   const playing = youtubeMode
     ? ytPlayer.isPlaying()
@@ -1169,7 +1744,7 @@ function applyLocale(locale, { persist = true } = {}) {
   if (appInfo) {
     $('aboutVersion').textContent = t('aboutVersion', { n: appInfo.version });
   }
-  renderRecentMenu();
+  renderPlayHistory();
   syncWindowMinWidth();
   return next;
 }
@@ -1186,6 +1761,7 @@ function applySettingsToPlayer({ applyVolume = false } = {}) {
   subtitles.setEnabled(Boolean(settings.showSubtitles));
   subtitles.setFontSize(Number(settings.subSize) || 28);
   applySpectrumStyle(settings.spectrumStyle, { persist: false });
+  applyVideoFit(settings.videoFit, { persist: false });
   updateMuteIcons();
   updateSpectrumVisibility();
   void applyWindowOpacity(settings.windowOpacity, { persist: false });
@@ -1351,23 +1927,31 @@ async function loadMedia({
   size = null,
   ext = '',
   subtitle = null,
-  skipRecent = false
+  skipRecent = false,
+  isRtsp = false,
+  rtspUrl = null
 } = {}) {
   exitYouTubeMode();
+  if (!isRtsp) {
+    await stopRtspBridge({ finalizeRecord: true });
+  }
   revokeObjectUrl();
   stopRequested = false;
   hidePlaybackOverlay(true);
   currentMediaPath = path;
   currentMediaName = name;
+  currentRtspUrl = isRtsp ? (rtspUrl || name || null) : null;
   els.dropHint.classList.add('hidden');
   els.media.src = url;
   els.media.load();
 
-  const extLabel = (ext || (name.includes('.') ? name.slice(name.lastIndexOf('.')) : '')).toUpperCase().replace('.', '') || 'MEDIA';
+  const extLabel = isRtsp
+    ? 'RTSP'
+    : (ext || (name.includes('.') ? name.slice(name.lastIndexOf('.')) : '')).toUpperCase().replace('.', '') || 'MEDIA';
   setStatus({
     file: size ? `${name} (${formatBytes(size)})` : name,
     format: extLabel,
-    state: statusKey('statusLoading'),
+    state: statusKey(isRtsp ? 'statusRtspConnecting' : 'statusLoading'),
     subtitle: statusKey('statusNoSubtitle')
   });
 
@@ -1381,8 +1965,10 @@ async function loadMedia({
   }
 
   if (path && !skipRecent) {
-    rememberRecentFile({ path, name, title: name, ext });
+    rememberRecentFile({ path, name, title: name, ext, size });
   }
+
+  updateSpectrumVisibility();
 
   if (settings.autoplay) {
     try {
@@ -1413,6 +1999,19 @@ async function handleMediaElementError() {
   const err = els.media.error;
   const detail = mediaErrorDetail(err) || t('statusPlaybackError');
   const msg = err ? `${t('statusPlaybackError')} (${err.code})` : t('statusPlaybackError');
+
+  if (currentRtspUrl) {
+    setStatus({ state: statusKey('statusRtspFailed'), format: 'RTSP' });
+    showAppError({
+      title: t('errorRtspTitle'),
+      message: msg,
+      detail,
+      context: { url: currentRtspUrl }
+    });
+    await stopRtspBridge();
+    return;
+  }
+
   const decodeLike =
     err?.code === 3 ||
     err?.code === 4 ||
@@ -1585,6 +2184,11 @@ function togglePlay() {
 }
 
 function stopPlayback() {
+  // During RTSP recording, Stop finalizes the file and plays it.
+  if (rtspRecording) {
+    void stopCurrentRtspRecord({ playAfter: true });
+    return;
+  }
   stopRequested = true;
   if (youtubeMode) {
     ytPlayer.stop();
@@ -1596,11 +2200,49 @@ function stopPlayback() {
   if (!els.media.src) return;
   // pause/ended handlers also observe stopRequested — notify once here only.
   els.media.pause();
-  els.media.currentTime = 0;
+  if (currentRtspUrl) {
+    void stopRtspBridge();
+    els.media.removeAttribute('src');
+    els.media.load();
+  } else {
+    els.media.currentTime = 0;
+  }
   updatePlayIcons(false);
   setStatus({ state: statusKey('statusStopped') });
   subtitles.clear();
   notifyStopped();
+}
+
+async function playSavedLocalFile(filePath) {
+  if (!isElectron || !filePath || !window.desktopAPI?.openMediaPath) return false;
+  const result = await window.desktopAPI.openMediaPath(filePath);
+  if (!result?.ok) {
+    showAppError({
+      title: t('errorFileTitle'),
+      message: result?.error || t('statusFileOpenFail'),
+      detail: result?.error || '',
+      context: { path: filePath }
+    });
+    return false;
+  }
+  await loadMedia({
+    url: result.url,
+    name: result.name,
+    path: result.path,
+    size: result.size,
+    ext: result.ext,
+    subtitle: result.subtitle
+  });
+  // Always play after RTSP stop-save, even if autoplay setting is off.
+  try {
+    await els.media.play();
+    updatePlayIcons(true);
+    setStatus({ state: statusKey('statusPlaying') });
+    notifyPlaying();
+  } catch {
+    setStatus({ state: statusKey('statusReadyPlay') });
+  }
+  return true;
 }
 
 function seekBy(delta) {
@@ -1661,7 +2303,15 @@ function toggleMute() {
 function toggleSpectrumPanel() {
   settings.showSpectrum = !settings.showSpectrum;
   saveSettings(settings);
+  if ($('settingShowSpectrum')) {
+    $('settingShowSpectrum').checked = settings.showSpectrum;
+  }
   updateSpectrumVisibility();
+  // One-click open: if spectrum was off only because no media name yet, keep the
+  // preference; when media is already loaded, ensure the popup is actually shown.
+  if (settings.showSpectrum && currentMediaName && !youtubeMode) {
+    openSpectrumPopup();
+  }
 }
 
 function spectrumStyleLabel(styleId) {
@@ -1801,11 +2451,106 @@ function beginSeekBar(e) {
 function openYouTubeDialog(prefill = '') {
   showYoutubeError('');
   els.youtubeUrlInput.value = prefill || currentYouTube?.url || '';
-  openThemedDialog(els.youtubeModal);
+  openThemedDialog(els.youtubeModal, { modal: true });
   queueMicrotask(() => {
     els.youtubeUrlInput.focus();
     els.youtubeUrlInput.select();
   });
+}
+
+async function playRtspFromInput(rawInput) {
+  const url = String(rawInput || '').trim();
+  if (!isRtspUrl(url)) {
+    showYoutubeError(t('rtspInvalid'));
+    return false;
+  }
+  if (!isElectron || !window.desktopAPI?.openRtsp) {
+    showYoutubeError(t('rtspDesktopOnly'));
+    return false;
+  }
+
+  showYoutubeError('');
+  exitYouTubeMode();
+  if (rtspRecording && currentRtspUrl && currentRtspUrl !== url) {
+    await finalizeRtspRecordIfAny();
+  }
+  els.media.pause();
+  els.media.removeAttribute('src');
+  els.media.load();
+  revokeObjectUrl();
+  currentMediaPath = null;
+  currentMediaName = null;
+  subtitles.setCues([]);
+  stopRequested = false;
+  hidePlaybackOverlay(true);
+  els.dropHint.classList.add('hidden');
+
+  const label = rtspDisplayName(url);
+  showOpenProgress({
+    kind: 'rtsp',
+    name: url,
+    detail: t('statusRtspConnecting')
+  });
+  setStatus({
+    file: url,
+    format: 'RTSP',
+    state: statusKey('statusRtspConnecting'),
+    subtitle: statusKey('statusNoSubtitle')
+  });
+
+  const result = await window.desktopAPI.openRtsp(url);
+  if (openStreamCancelled) {
+    finishOpenProgress({ ok: true, message: '', autoCloseMs: 0 });
+    closeSaveProgress();
+    return false;
+  }
+  if (!result?.ok) {
+    const errMsg = result?.error || t('statusRtspFailed');
+    showYoutubeError(errMsg);
+    finishOpenProgress({ ok: false, message: errMsg });
+    showAppError({
+      title: t('errorRtspTitle'),
+      message: errMsg,
+      detail: result?.error || '',
+      context: { url }
+    });
+    return false;
+  }
+
+  updateSaveProgress({ detail: t('progressStartingStream'), indeterminate: true });
+  currentRtspUrl = url;
+  await loadMedia({
+    url: result.playUrl,
+    name: url,
+    path: null,
+    ext: 'rtsp',
+    skipRecent: true,
+    isRtsp: true,
+    rtspUrl: url
+  });
+  if (openStreamCancelled) {
+    await stopRtspBridge();
+    closeSaveProgress();
+    return false;
+  }
+  rememberRecentRtsp({ url, title: label });
+  updateSaveButton();
+  els.youtubeModal.close();
+  setStatus({
+    file: url,
+    format: 'RTSP',
+    state: statusKey('statusRtspLive')
+  });
+  finishOpenProgress({ ok: true, message: t('statusRtspLive') });
+  return true;
+}
+
+async function playNetworkFromInput(rawInput) {
+  const input = String(rawInput || '').trim();
+  if (isRtspUrl(input)) {
+    return playRtspFromInput(input);
+  }
+  return playYouTubeFromInput(input);
 }
 
 async function playYouTubeFromInput(rawInput) {
@@ -1817,7 +2562,8 @@ async function playYouTubeFromInput(rawInput) {
   const url = `https://www.youtube.com/watch?v=${id}`;
   showYoutubeError('');
 
-  // Stop local media
+  // Stop local / RTSP media
+  await stopRtspBridge({ finalizeRecord: true });
   els.media.pause();
   els.media.removeAttribute('src');
   els.media.load();
@@ -1831,6 +2577,11 @@ async function playYouTubeFromInput(rawInput) {
   stopRequested = false;
   hidePlaybackOverlay(true);
   els.dropHint.classList.add('hidden');
+  showOpenProgress({
+    kind: 'youtube',
+    name: url,
+    detail: t('progressFetchingInfo')
+  });
   setStatus({
     file: `YouTube: ${id}`,
     format: 'YouTube',
@@ -1840,16 +2591,28 @@ async function playYouTubeFromInput(rawInput) {
 
   try {
     if (isElectron) {
+      updateSaveProgress({ detail: t('progressFetchingInfo'), indeterminate: true });
       const res = await window.desktopAPI.getYouTubeInfo(url);
+      if (openStreamCancelled) {
+        closeSaveProgress();
+        return false;
+      }
       if (res?.ok && res.info?.title) {
         currentYouTube.title = res.info.title;
         setStatus({ file: res.info.title });
+        if (els.progressName) els.progressName.textContent = res.info.title;
       }
     }
   } catch {
     /* optional metadata */
   }
 
+  if (openStreamCancelled) {
+    closeSaveProgress();
+    return false;
+  }
+
+  updateSaveProgress({ detail: t('progressLoadingPlayer'), indeterminate: true });
   ytErrorDialogShown = false;
   try {
     await ytPlayer.load(id, {
@@ -1857,14 +2620,30 @@ async function playYouTubeFromInput(rawInput) {
       startVolume: Number(settings.startVolume) || 80
     });
   } catch (err) {
+    if (openStreamCancelled) {
+      closeSaveProgress();
+      return false;
+    }
+    const errMsg = err?.message || t('statusPlaybackError');
+    finishOpenProgress({ ok: false, message: errMsg });
     if (!ytErrorDialogShown) {
       showAppError({
         title: t('errorYoutubeTitle'),
-        message: err?.message || t('statusPlaybackError'),
+        message: errMsg,
         error: err,
         context: { videoId: id, url }
       });
     }
+    return false;
+  }
+  if (openStreamCancelled) {
+    try {
+      ytPlayer?.stop?.();
+    } catch {
+      /* ignore */
+    }
+    exitYouTubeMode();
+    closeSaveProgress();
     return false;
   }
   if (ytPlayer.title) currentYouTube.title = ytPlayer.title;
@@ -1878,7 +2657,198 @@ async function playYouTubeFromInput(rawInput) {
     title: currentYouTube.title || ytPlayer.title || id
   });
   els.youtubeModal.close();
+  finishOpenProgress({
+    ok: true,
+    message: currentYouTube.title || id
+  });
   return true;
+}
+
+async function stopCurrentRtspRecord({ playAfter = false } = {}) {
+  if (!isElectron || !window.desktopAPI?.stopRtspRecord) return null;
+  setStatus({ state: statusKey('statusRtspRecordStopping') });
+  updateSaveProgress({ detail: t('statusRtspRecordStopping'), indeterminate: true });
+  els.btnSaveYt.disabled = true;
+  if (els.btnProgressCancel) els.btnProgressCancel.disabled = true;
+  try {
+    // Finalize (keep file). Never discard here — "멈춤" must save up to now.
+    const result = await window.desktopAPI.stopRtspRecord({ discard: false });
+    rtspRecording = false;
+    if (result?.cancelled) {
+      finishSaveProgress({ cancelled: true });
+      return result;
+    }
+    if (!result?.ok) {
+      finishSaveProgress({
+        ok: false,
+        message: result?.error || t('statusRtspRecordFailed'),
+        value: result?.elapsed || null
+      });
+      showAppError({
+        title: t('errorRtspTitle'),
+        message: result?.error || t('statusRtspRecordFailed'),
+        detail: result?.error || '',
+        context: { url: currentRtspUrl || '', path: result?.path || '' }
+      });
+      return result;
+    }
+    setStatus({
+      state: statusKey('statusRtspRecordSaved'),
+      file: result.path,
+      format: 'RTSP'
+    });
+    finishSaveProgress({
+      ok: true,
+      value: '100%',
+      saved: {
+        path: result.path || '',
+        name: result.name || '',
+        size: result.size || 0,
+        elapsed: result.elapsed || ''
+      }
+    });
+    if (playAfter && result.path) {
+      await playSavedLocalFile(result.path);
+    }
+    return result;
+  } catch (err) {
+    rtspRecording = false;
+    finishSaveProgress({ ok: false, message: err?.message || t('statusRtspRecordFailed') });
+    showAppError({
+      title: t('errorRtspTitle'),
+      message: err?.message || t('statusRtspRecordFailed'),
+      error: err,
+      context: { url: currentRtspUrl || '' }
+    });
+    return null;
+  } finally {
+    if (els.btnProgressCancel) els.btnProgressCancel.disabled = false;
+    updateSaveButton();
+  }
+}
+
+async function cancelSaveProgress() {
+  if (!isSaveProgressVisible()) return;
+  if (els.btnProgressCancel) els.btnProgressCancel.disabled = true;
+
+  // Opening YouTube / RTSP for playback — cancel connect/load.
+  if (isOpenProgressMode()) {
+    openStreamCancelled = true;
+    if (saveProgressMode === 'open-rtsp') {
+      try {
+        await stopRtspBridge();
+      } catch {
+        /* ignore */
+      }
+      els.media.removeAttribute('src');
+      els.media.load();
+    }
+    if (saveProgressMode === 'open-youtube') {
+      try {
+        ytPlayer?.stop?.();
+      } catch {
+        /* ignore */
+      }
+      exitYouTubeMode();
+    }
+    closeSaveProgress();
+    setStatus({ state: statusKey('progressCancelled') });
+    return;
+  }
+
+  // RTSP "멈춤" → save what was recorded and play it.
+  if (saveProgressMode === 'rtsp' || rtspRecording) {
+    await stopCurrentRtspRecord({ playAfter: true });
+    return;
+  }
+
+  // YouTube "멈춤" → keep downloaded portion, finalize, then play (handled by saveCurrentYouTube).
+  if (saveProgressMode === 'youtube') {
+    updateSaveProgress({ detail: t('statusDownloadStopping'), indeterminate: true });
+    setStatus({ state: statusKey('statusDownloadStopping') });
+    try {
+      await window.desktopAPI.stopYouTubeDownload?.({ discard: false });
+    } catch {
+      try {
+        await window.desktopAPI.cancelYouTubeDownload?.({ discard: false });
+      } catch {
+        /* download promise will settle */
+      }
+    }
+  }
+}
+
+async function startCurrentRtspRecord(url = currentRtspUrl) {
+  if (!url || !isRtspUrl(url)) {
+    openYouTubeDialog(url || '');
+    return;
+  }
+  if (!isElectron || !window.desktopAPI?.startRtspRecord) {
+    setStatus({ state: statusKey('rtspDesktopOnly') });
+    return;
+  }
+  if (rtspRecording) {
+    await stopCurrentRtspRecord();
+    return;
+  }
+
+  setStatus({ state: statusKey('statusRtspRecordStarting') });
+  els.btnSaveYt.disabled = true;
+  try {
+    const result = await window.desktopAPI.startRtspRecord({ url });
+    if (result?.cancelled) {
+      setStatus({ state: statusKey('statusDownloadCancelled') });
+      return;
+    }
+    if (!result?.ok) {
+      showAppError({
+        title: t('errorRtspTitle'),
+        message: result?.error || t('statusRtspRecordFailed'),
+        detail: result?.error || '',
+        context: { url }
+      });
+      return;
+    }
+    rtspRecording = true;
+    showSaveProgress({
+      mode: 'rtsp',
+      title: t('progressRecording'),
+      name: result.path || url
+    });
+    updateSaveProgress({
+      elapsed: '00:00',
+      detail: t('progressElapsed', { time: '00:00' }),
+      indeterminate: true
+    });
+    setStatus({
+      state: statusKey('statusRtspRecording', { time: '00:00' }),
+      file: result.path || url,
+      format: 'RTSP'
+    });
+  } catch (err) {
+    rtspRecording = false;
+    showAppError({
+      title: t('errorRtspTitle'),
+      message: err?.message || t('statusRtspRecordFailed'),
+      error: err,
+      context: { url }
+    });
+  } finally {
+    updateSaveButton();
+  }
+}
+
+async function saveCurrentMedia() {
+  if (rtspRecording) {
+    // Toolbar Save / Ctrl+S while recording → 멈춤: keep file and play it.
+    await stopCurrentRtspRecord({ playAfter: true });
+    return;
+  }
+  if (currentRtspUrl) {
+    await startCurrentRtspRecord(currentRtspUrl);
+    return;
+  }
+  await saveCurrentYouTube();
 }
 
 async function saveCurrentYouTube() {
@@ -1893,16 +2863,30 @@ async function saveCurrentYouTube() {
 
   setStatus({ state: statusKey('statusDownloading') });
   els.btnSaveYt.disabled = true;
+  const displayName = currentYouTube.title || currentYouTube.id || currentYouTube.url;
   try {
+    // Progress popup opens from downloadProgress after the native Save dialog.
     const result = await window.desktopAPI.downloadYouTube({
       url: currentYouTube.url,
       title: currentYouTube.title
     });
     if (result?.cancelled) {
+      finishSaveProgress({ cancelled: true });
       setStatus({ state: statusKey('statusDownloadCancelled') });
       return;
     }
     if (!result?.ok) {
+      if (!isSaveProgressVisible()) {
+        showSaveProgress({
+          mode: 'youtube',
+          title: t('progressDownloading'),
+          name: displayName
+        });
+      }
+      finishSaveProgress({
+        ok: false,
+        message: result?.error || t('statusDownloadFailed')
+      });
       showAppError({
         title: t('errorDownloadTitle'),
         message: result?.error || t('statusDownloadFailed'),
@@ -1914,11 +2898,38 @@ async function saveCurrentYouTube() {
       });
       return;
     }
+    if (!isSaveProgressVisible()) {
+      showSaveProgress({
+        mode: 'youtube',
+        title: t('progressDownloading'),
+        name: displayName
+      });
+    }
     setStatus({
-      state: statusKey('statusSaved'),
-      file: `${currentYouTube.title || currentYouTube.id} → ${result.path}`
+      state: statusKey(result.stopped ? 'statusDownloadStoppedSaved' : 'statusSaved'),
+      file: `${displayName} → ${result.path}`
     });
+    finishSaveProgress({
+      ok: true,
+      value: '100%',
+      saved: {
+        path: result.path || '',
+        name: result.name || displayName,
+        size: result.size || 0
+      }
+    });
+    if (result.stopped && result.path) {
+      await playSavedLocalFile(result.path);
+    }
   } catch (err) {
+    if (!isSaveProgressVisible()) {
+      showSaveProgress({
+        mode: 'youtube',
+        title: t('progressDownloading'),
+        name: displayName
+      });
+    }
+    finishSaveProgress({ ok: false, message: err?.message || t('statusDownloadFailed') });
     showAppError({
       title: t('errorDownloadTitle'),
       message: err?.message || t('statusDownloadFailed'),
@@ -2076,8 +3087,8 @@ function bindDragDrop() {
   wrap.addEventListener('drop', async (e) => {
     wrap.classList.remove('dragover');
     const text = e.dataTransfer?.getData('text') || e.dataTransfer?.getData('text/uri-list') || '';
-    if (text && isYouTubeUrl(text)) {
-      await playYouTubeFromInput(text.trim());
+    if (text && (isYouTubeUrl(text) || isRtspUrl(text))) {
+      await playNetworkFromInput(text.trim());
       return;
     }
     const files = [...(e.dataTransfer?.files || [])];
@@ -2119,6 +3130,7 @@ function bindMediaEvents() {
   els.media.addEventListener('loadedmetadata', () => {
     els.timeDuration.textContent = formatTime(els.media.duration);
     els.media.playbackRate = nearestPlaybackRate(settings.rate);
+    updateActualMediaSize();
     setStatus({ state: statusKey('statusReady') });
     spectrum.hasAudio = detectHasAudioTrack();
     updateSpectrumVisibility();
@@ -2202,7 +3214,18 @@ function bindToolbar() {
   $('btnClearRecent').addEventListener('click', (e) => {
     e.stopPropagation();
     clearRecent();
-    renderRecentMenu();
+    renderPlayHistory();
+    setStatus({ state: statusKey('statusRecentCleared') });
+  });
+  els.btnHistory?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    closeToolbarMenus();
+    toggleHistoryPanel();
+  });
+  els.btnHistoryClose?.addEventListener('click', () => setHistoryPanelOpen(false));
+  els.btnHistoryClear?.addEventListener('click', () => {
+    clearRecent();
+    renderPlayHistory();
     setStatus({ state: statusKey('statusRecentCleared') });
   });
   els.btnLocale?.addEventListener('click', () => {
@@ -2218,8 +3241,19 @@ function bindToolbar() {
     fillSettingsForm();
     openThemeEditor();
   });
+  els.btnFit?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleFitMenu();
+  });
+  els.fitList?.addEventListener('click', (e) => {
+    const btn = e.target.closest?.('[data-fit]');
+    if (!btn) return;
+    e.stopPropagation();
+    closeFitMenu();
+    applyVideoFit(btn.dataset.fit, { announce: true });
+  });
   document.addEventListener('click', (e) => {
-    if (e.target.closest?.('.recent-wrap, .theme-wrap')) return;
+    if (e.target.closest?.('.recent-wrap, .theme-wrap, .fit-wrap')) return;
     closeToolbarMenus();
   });
   document.addEventListener('keydown', (e) => {
@@ -2227,7 +3261,11 @@ function bindToolbar() {
   });
   $('btnOpenSub').addEventListener('click', openSubtitle);
   $('btnYouTube').addEventListener('click', () => openYouTubeDialog());
-  $('btnSaveYt').addEventListener('click', () => saveCurrentYouTube());
+  $('btnSaveYt').addEventListener('click', () => saveCurrentMedia());
+  els.btnProgressCancel?.addEventListener('click', () => {
+    void cancelSaveProgress();
+  });
+  els.btnProgressClose?.addEventListener('click', () => closeSaveProgress());
   $('btnPlay').addEventListener('click', togglePlay);
   $('btnStop').addEventListener('click', stopPlayback);
   $('btnPrev').addEventListener('click', () => seekBy(-(Number(settings.seekStep) || 10)));
@@ -2290,10 +3328,26 @@ function bindToolbar() {
   els.webSubInput.addEventListener('change', onWebSubChosen);
 
   $('btnYtPlay').addEventListener('click', async () => {
-    await playYouTubeFromInput(els.youtubeUrlInput.value);
+    await playNetworkFromInput(els.youtubeUrlInput.value);
   });
   $('btnYtSaveFromDialog').addEventListener('click', async () => {
     const input = els.youtubeUrlInput.value.trim();
+    if (isRtspUrl(input)) {
+      showYoutubeError('');
+      if (rtspRecording && currentRtspUrl === input) {
+        els.youtubeModal.close();
+        await stopCurrentRtspRecord({ playAfter: true });
+        return;
+      }
+      if (currentRtspUrl !== input) {
+        const ok = await playRtspFromInput(input);
+        if (!ok) return;
+      } else {
+        els.youtubeModal.close();
+      }
+      await startCurrentRtspRecord(input);
+      return;
+    }
     const id = extractYouTubeId(input);
     if (!id) {
       showYoutubeError(t('youtubeSaveNeedUrl'));
@@ -2308,7 +3362,7 @@ function bindToolbar() {
   els.youtubeUrlInput.addEventListener('keydown', async (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      await playYouTubeFromInput(els.youtubeUrlInput.value);
+      await playNetworkFromInput(els.youtubeUrlInput.value);
     }
   });
 
@@ -2347,7 +3401,13 @@ function bindToolbar() {
 
   $('btnSaveSettings').addEventListener('click', async (e) => {
     e.preventDefault();
-    settings = readSettingsForm();
+    settings = {
+      ...settings,
+      ...readSettingsForm(),
+      // Preserve fields not present on the settings form.
+      videoFit: normalizeVideoFit(settings.videoFit),
+      showHistoryPanel: Boolean(settings.showHistoryPanel)
+    };
     saveSettings(settings);
     applyLocale(settings.locale, { persist: false });
     await applyTheme(settings.theme);
@@ -2418,9 +3478,13 @@ function bindKeyboard() {
           document.exitFullscreen?.();
           return;
         }
-        if (!els.recentMenu?.hidden || !els.themeMenu?.hidden) {
+        if (!els.recentMenu?.hidden || !els.themeMenu?.hidden || !els.fitMenu?.hidden) {
           e.preventDefault();
           closeToolbarMenus();
+          return;
+        }
+        if (closeTopNonblockingDialog()) {
+          e.preventDefault();
           return;
         }
         return;
@@ -2483,14 +3547,19 @@ function bindKeyboard() {
           toggleRecentMenu();
           return;
         }
+        if (k === 'l') {
+          e.preventDefault();
+          toggleHistoryPanel();
+          return;
+        }
         if (k === 'y') {
           e.preventDefault();
           openYouTubeDialog();
           return;
         }
-        if (k === 's' && youtubeMode) {
+        if (k === 's' && (youtubeMode || currentRtspUrl || rtspRecording)) {
           e.preventDefault();
-          saveCurrentYouTube();
+          saveCurrentMedia();
           return;
         }
         if (k === ',' || code === 'Comma') {
@@ -2655,10 +3724,111 @@ async function init() {
       state: statusKey('statusIdle')
     });
     window.desktopAPI.onYouTubeDownloadProgress?.((progress) => {
-      if (progress?.percent != null) {
-        setStatus({ state: statusKey('statusDownloadingPct', { n: Math.round(progress.percent) }) });
-      } else if (progress?.message) {
+      if (!progress) return;
+      const name = currentYouTube?.title || currentYouTube?.id || currentYouTube?.url || '';
+      if (!isSaveProgressVisible() || saveProgressMode !== 'youtube') {
+        showSaveProgress({
+          mode: 'youtube',
+          title: t('progressDownloading'),
+          name
+        });
+      }
+
+      if (progress.percent != null && Number.isFinite(progress.percent)) {
+        const pct = Math.round(progress.percent);
+        setStatus({ state: statusKey('statusDownloadingPct', { n: pct }) });
+        updateSaveProgress({
+          percent: pct,
+          detail: progress.message || t('statusDownloadingPct', { n: pct }),
+          indeterminate: false
+        });
+        return;
+      }
+
+      let detail = progress.message || t('statusDownloading');
+      if (progress.bytes != null && Number.isFinite(progress.bytes)) {
+        const mb = Math.round((progress.bytes / 1024 / 1024) * 10) / 10;
+        detail = t('progressBytes', { n: mb });
+        setStatus({ state: detail });
+      } else if (progress.message) {
         setStatus({ state: progress.message });
+      }
+      updateSaveProgress({ detail, indeterminate: true });
+    });
+    window.desktopAPI.onRtspRecordProgress?.((progress) => {
+      if (!progress) return;
+      if (progress.phase === 'recording' || progress.phase === 'started') {
+        rtspRecording = true;
+        updateSaveButton();
+        if (!isSaveProgressVisible() || saveProgressMode !== 'rtsp') {
+          showSaveProgress({
+            mode: 'rtsp',
+            title: t('progressRecording'),
+            name: progress.path || currentRtspUrl || ''
+          });
+        }
+        updateSaveProgress({
+          elapsed: progress.elapsed || '00:00',
+          detail: t('progressElapsed', { time: progress.elapsed || '00:00' }),
+          indeterminate: true
+        });
+        setStatus({
+          state: statusKey('statusRtspRecording', { time: progress.elapsed || '00:00' }),
+          file: progress.path || currentRtspUrl || undefined,
+          format: 'RTSP'
+        });
+        return;
+      }
+      if (progress.phase === 'stopping') {
+        setStatus({ state: statusKey('statusRtspRecordStopping') });
+        updateSaveProgress({ detail: t('statusRtspRecordStopping'), indeterminate: true });
+        return;
+      }
+      if (progress.phase === 'cancelled') {
+        rtspRecording = false;
+        updateSaveButton();
+        finishSaveProgress({ cancelled: true });
+        return;
+      }
+      if (progress.phase === 'done') {
+        rtspRecording = false;
+        updateSaveButton();
+        if (progress.path) {
+          setStatus({
+            state: statusKey('statusRtspRecordSaved'),
+            file: progress.path,
+            format: 'RTSP'
+          });
+        }
+        if (isSaveProgressVisible()) {
+          finishSaveProgress({
+            ok: true,
+            value: '100%',
+            saved: {
+              path: progress.path || '',
+              name: progress.name || '',
+              size: progress.size || 0,
+              elapsed: progress.elapsed || ''
+            }
+          });
+        }
+        return;
+      }
+      if (progress.phase === 'error') {
+        rtspRecording = false;
+        updateSaveButton();
+        if (isSaveProgressVisible()) {
+          finishSaveProgress({
+            ok: false,
+            message: progress.error || t('statusRtspRecordFailed')
+          });
+        }
+        showAppError({
+          title: t('errorRtspTitle'),
+          message: progress.error || t('statusRtspRecordFailed'),
+          detail: progress.error || '',
+          context: { url: currentRtspUrl || '', path: progress.path || '' }
+        });
       }
     });
   } else {
@@ -2667,7 +3837,8 @@ async function init() {
   }
 
   updateSaveButton();
-  renderRecentMenu();
+  renderPlayHistory();
+  setHistoryPanelOpen(Boolean(settings.showHistoryPanel));
   syncWindowMinWidth();
 
   // OS file association / "Open with" / second-instance handoff
@@ -2690,14 +3861,14 @@ async function init() {
     }
   });
 
-  // Paste YouTube URL anywhere (except inputs)
+  // Paste YouTube / RTSP URL anywhere (except inputs)
   window.addEventListener('paste', async (e) => {
     const tag = (e.target?.tagName || '').toLowerCase();
     if (tag === 'input' || tag === 'textarea') return;
     const text = e.clipboardData?.getData('text') || '';
-    if (isYouTubeUrl(text)) {
+    if (isYouTubeUrl(text) || isRtspUrl(text)) {
       e.preventDefault();
-      await playYouTubeFromInput(text.trim());
+      await playNetworkFromInput(text.trim());
     }
   });
 

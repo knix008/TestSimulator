@@ -1,9 +1,50 @@
 const { app, BrowserWindow, ipcMain, dialog, shell, Menu, nativeTheme, protocol, net, screen } = require('electron');
+
+// Keep the terminal quiet unless explicitly debugging (MYVIDEOPLAYER_VERBOSE=1).
+// Chromium otherwise prints benign decoder noise like "Unsupported pixel format: -1".
+const VERBOSE_LOGS = ['1', 'true', 'yes'].includes(
+  String(process.env.MYVIDEOPLAYER_VERBOSE || '').toLowerCase()
+);
+if (!VERBOSE_LOGS) {
+  app.commandLine.appendSwitch('disable-logging');
+  app.commandLine.appendSwitch('log-level', '3'); // FATAL only
+  const noisyChromiumLog =
+    /(?:ERROR|WARNING):(?:ffmpeg_common|gpu_|gl_|viz_|desktop_capture|allocation_tracker|console)\.cc|\bUnsupported pixel format\b/i;
+  const wrapStd = (stream) => {
+    const write = stream.write.bind(stream);
+    stream.write = (chunk, encoding, cb) => {
+      const text = typeof chunk === 'string' ? chunk : chunk?.toString?.(encoding || 'utf8') || '';
+      if (text && noisyChromiumLog.test(text)) {
+        if (typeof encoding === 'function') encoding();
+        else if (typeof cb === 'function') cb();
+        return true;
+      }
+      return write(chunk, encoding, cb);
+    };
+  };
+  wrapStd(process.stderr);
+  wrapStd(process.stdout);
+}
+
+const {
+  ensureYoutubeCookies,
+  writeYoutubeCookiesFile
+} = require('./youtube-auth');
 const path = require('path');
 const fs = require('fs');
 const http = require('http');
 const { Readable } = require('stream');
 const { pathToFileURL } = require('url');
+const {
+  openRtspStream,
+  stopRtspStream,
+  getActiveRtsp,
+  serveRtspHttp,
+  isRtspUrl,
+  startRtspRecord,
+  stopRtspRecord,
+  getRtspRecording
+} = require('./rtsp-stream');
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -192,7 +233,8 @@ const {
   normalizeWatchUrl,
   sanitizeFilename,
   getYouTubeInfo,
-  downloadYouTube
+  downloadYouTube,
+  stopYouTubeDownload
 } = require('./youtube');
 const persistStore = require('./persist-store');
 const { makeChromiumCompatible } = require('./media-compat');
@@ -331,6 +373,18 @@ function startUiServer() {
             return;
           }
           serveMediaFileHttp(req, res, mediaPath);
+          return;
+        }
+
+        // Live RTSP → fMP4 bridge (ffmpeg). Token = stream session id.
+        if (pathname.startsWith('/__rtsp/')) {
+          const streamId = pathname.slice('/__rtsp/'.length);
+          if (!streamId) {
+            res.writeHead(400);
+            res.end('Bad RTSP stream id');
+            return;
+          }
+          serveRtspHttp(req, res, streamId);
           return;
         }
 
@@ -575,6 +629,16 @@ app.on('window-all-closed', () => {
 });
 
 app.on('before-quit', () => {
+  try {
+    void stopRtspRecord();
+  } catch {
+    /* ignore */
+  }
+  try {
+    stopRtspStream();
+  } catch {
+    /* ignore */
+  }
   try {
     uiServer?.close();
   } catch {
@@ -839,6 +903,106 @@ ipcMain.handle('theme:setSource', (_evt, source) => {
   return nativeTheme.shouldUseDarkColors ? 'dark' : 'light';
 });
 
+ipcMain.handle('rtsp:open', (_evt, input) => {
+  const result = openRtspStream(input);
+  if (!result.ok) return result;
+  if (!uiServerPort) {
+    stopRtspStream();
+    return { ok: false, error: 'UI server is not ready' };
+  }
+  return {
+    ok: true,
+    id: result.id,
+    url: result.url,
+    name: result.name,
+    playUrl: `http://127.0.0.1:${uiServerPort}${result.path}`,
+    isRtsp: true
+  };
+});
+
+ipcMain.handle('rtsp:stop', () => stopRtspStream());
+
+ipcMain.handle('rtsp:getActive', () => getActiveRtsp());
+
+ipcMain.handle('rtsp:isUrl', (_evt, input) => isRtspUrl(input));
+
+ipcMain.handle('rtsp:getRecording', () => getRtspRecording());
+
+ipcMain.handle('rtsp:startRecord', async (_evt, payload) => {
+  const input = payload?.url || payload?.input;
+  const url = String(input || '').trim();
+  if (!isRtspUrl(url)) {
+    return { ok: false, error: '유효한 RTSP 링크가 아닙니다.' };
+  }
+  if (getRtspRecording()) {
+    return { ok: false, error: '이미 RTSP 녹화가 진행 중입니다.', recording: getRtspRecording() };
+  }
+
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  let host = 'rtsp';
+  try {
+    host = new URL(url).hostname || host;
+  } catch {
+    /* keep fallback */
+  }
+  const suggestedName = sanitizeFilename(`rtsp-${host}-${stamp}`) + '.mp4';
+
+  const save = await dialog.showSaveDialog(mainWindow, {
+    title: 'Save RTSP Stream',
+    defaultPath: path.join(getRememberedDir(DIALOG_SAVE_DIR_KEY), suggestedName),
+    filters: [
+      { name: 'MP4 Video', extensions: ['mp4'] },
+      { name: 'All Files', extensions: ['*'] }
+    ]
+  });
+  if (save.canceled || !save.filePath) return { ok: false, cancelled: true };
+  rememberDirFromFile(DIALOG_SAVE_DIR_KEY, save.filePath);
+
+  const result = startRtspRecord(url, save.filePath, (progress) => {
+    mainWindow?.webContents.send('rtsp:recordProgress', progress);
+  });
+  return result;
+});
+
+ipcMain.handle('rtsp:stopRecord', async (_evt, options = {}) => {
+  const result = await stopRtspRecord(options || {});
+  if (result?.cancelled) {
+    mainWindow?.webContents.send('rtsp:recordProgress', {
+      phase: 'cancelled',
+      elapsed: result.elapsed,
+      elapsedMs: result.elapsedMs
+    });
+    return result;
+  }
+  if (result?.ok) {
+    let size = 0;
+    let name = '';
+    try {
+      if (result.path && fs.existsSync(result.path)) {
+        size = fs.statSync(result.path).size;
+        name = path.basename(result.path);
+      }
+    } catch {
+      /* ignore */
+    }
+    const payload = {
+      ...result,
+      name: name || (result.path ? path.basename(result.path) : ''),
+      size
+    };
+    mainWindow?.webContents.send('rtsp:recordProgress', {
+      phase: 'done',
+      path: payload.path,
+      name: payload.name,
+      size: payload.size,
+      elapsed: payload.elapsed,
+      elapsedMs: payload.elapsedMs
+    });
+    return payload;
+  }
+  return result;
+});
+
 ipcMain.handle('youtube:parse', (_evt, input) => {
   const id = extractVideoId(input);
   const url = normalizeWatchUrl(input);
@@ -888,14 +1052,77 @@ ipcMain.handle('youtube:download', async (_evt, payload) => {
     message: 'Starting download…'
   });
 
+  const runDownload = async (cookiesPath, opts = {}) =>
+    downloadYouTube(
+      url,
+      save.filePath,
+      (progress) => {
+        mainWindow?.webContents.send('youtube:downloadProgress', progress);
+      },
+      { cookiesPath, ...opts }
+    );
+
   try {
-    const result = await downloadYouTube(url, save.filePath, (progress) => {
-      mainWindow?.webContents.send('youtube:downloadProgress', progress);
-    });
-    return { ok: true, path: result.path, engine: result.engine };
+    let cookies = null;
+    try {
+      cookies = await writeYoutubeCookiesFile();
+    } catch {
+      cookies = null;
+    }
+
+    let result;
+    try {
+      // Prefer adaptive DASH via yt-dlp (works for most public videos without login).
+      result = await runDownload(cookies?.authenticated ? cookies.path : null, {
+        skipInnertubeFallback: true
+      });
+    } catch (err) {
+      if (err?.cancelled) throw err;
+      // Some videos need a signed-in session (age-gate / bot check). Prompt once.
+      mainWindow?.webContents.send('youtube:downloadProgress', {
+        percent: null,
+        message: 'Sign in to YouTube required for this download…'
+      });
+      const signedIn = await ensureYoutubeCookies({
+        parentWindow: mainWindow,
+        forcePrompt: true
+      });
+      if (!signedIn?.authenticated || !signedIn.path) throw err;
+      mainWindow?.webContents.send('youtube:downloadProgress', {
+        percent: null,
+        message: 'Continuing download with signed-in session…'
+      });
+      result = await runDownload(signedIn.path, { skipInnertubeFallback: true });
+    }
+
+    let size = 0;
+    try {
+      if (result.path && fs.existsSync(result.path)) {
+        size = fs.statSync(result.path).size;
+      }
+    } catch {
+      /* ignore */
+    }
+    const finalSize = result.size != null ? result.size : size;
+    return {
+      ok: true,
+      path: result.path,
+      name: result.name || path.basename(result.path || save.filePath),
+      size: finalSize,
+      engine: result.engine,
+      stopped: Boolean(result.stopped),
+      partial: Boolean(result.partial)
+    };
   } catch (err) {
+    if (err?.cancelled) {
+      return { ok: false, cancelled: true };
+    }
     return { ok: false, error: err.message || String(err) };
   } finally {
     downloadInProgress = false;
   }
 });
+
+ipcMain.handle('youtube:cancelDownload', (_event, options) =>
+  stopYouTubeDownload(options || { discard: true })
+);

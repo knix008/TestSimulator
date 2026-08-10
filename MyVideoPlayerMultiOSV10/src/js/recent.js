@@ -1,20 +1,25 @@
 import { persistGetItem, persistSetItem } from './persist.js';
 
 const STORAGE_KEY = 'myvideoplayer.recent.v1';
-export const RECENT_LIMIT = 10;
+export const RECENT_LIMIT = 30;
 
 /**
  * @typedef {{
  *  id: string,
- *  type: 'file' | 'youtube',
+ *  type: 'file' | 'youtube' | 'rtsp',
  *  title: string,
  *  name: string,
  *  path?: string,
  *  url?: string,
  *  ext?: string,
+ *  size?: number,
  *  playedAt: number
  * }} RecentItem
  */
+
+function isRecentType(type) {
+  return type === 'file' || type === 'youtube' || type === 'rtsp';
+}
 
 /** @returns {RecentItem[]} */
 export function loadRecent() {
@@ -24,7 +29,7 @@ export function loadRecent() {
     const list = JSON.parse(raw);
     if (!Array.isArray(list)) return [];
     return list
-      .filter((item) => item && (item.type === 'file' || item.type === 'youtube') && item.id)
+      .filter((item) => item && isRecentType(item.type) && item.id)
       .slice(0, RECENT_LIMIT);
   } catch {
     return [];
@@ -53,12 +58,13 @@ export function addRecent(item) {
     path: item.path || undefined,
     url: item.url || undefined,
     ext: item.ext || undefined,
+    size: Number.isFinite(item.size) ? item.size : undefined,
     playedAt: Date.now()
   };
 
   // Files without a real path can't be reopened later (web blob) — skip.
   if (next.type === 'file' && !next.path) return loadRecent();
-  if (next.type === 'youtube' && !next.url) return loadRecent();
+  if ((next.type === 'youtube' || next.type === 'rtsp') && !next.url) return loadRecent();
 
   const list = loadRecent().filter((r) => r.id !== next.id);
   list.unshift(next);

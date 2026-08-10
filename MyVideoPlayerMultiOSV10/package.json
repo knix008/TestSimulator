@@ -6,11 +6,13 @@
   "author": "SHKWON <knix008@naver.com>",
   "license": "MIT",
   "scripts": {
-    "start": "electron .",
+    "postinstall": "node scripts/ensure-yt-dlp.js",
+    "ensure:yt-dlp": "node scripts/ensure-yt-dlp.js",
+    "start": "node scripts/ensure-yt-dlp.js && electron .",
     "web": "npx --yes serve src -p 5173",
     "pack": "electron-builder --dir",
     "build": "electron-builder && node scripts/copy-installer-to-root.js",
-    "build:win": "node scripts/ensure-wincodesign.js && electron-builder --win && node scripts/copy-installer-to-root.js",
+    "build:win": "node scripts/build-win.js",
     "build:mac": "electron-builder --mac && node scripts/copy-installer-to-root.js",
     "build:linux": "electron-builder --linux && node scripts/copy-installer-to-root.js",
     "dist": "npm run build",
@@ -30,6 +32,7 @@
       "output": "dist",
       "buildResources": "build"
     },
+    "afterPack": "scripts/after-pack-win.js",
     "files": [
       "electron/**/*",
       "src/**/*",
@@ -41,7 +44,15 @@
     "asarUnpack": [
       "**/node_modules/ffmpeg-static/**"
     ],
-    "extraResources": [],
+    "extraResources": [
+      {
+        "from": "vendor/yt-dlp",
+        "to": "yt-dlp",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
     "fileAssociations": [
       {
         "ext": ["mp4", "m4v", "webm", "mkv", "mov", "avi", "ogv", "hevc", "h265"],
@@ -70,7 +81,11 @@
         }
       ],
       "icon": "asset/icon.ico",
-      "signAndEditExecutable": true
+      "signAndEditExecutable": false,
+      "verifyUpdateCodeSignature": false,
+      "signtoolOptions": {
+        "sign": "./scripts/skip-win-sign.js"
+      }
     },
     "nsis": {
       "oneClick": false,
