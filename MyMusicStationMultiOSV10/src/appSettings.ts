@@ -1,4 +1,4 @@
-import { invoke } from '@tauri-apps/api/core'
+import { invoke, isTauri } from '@tauri-apps/api/core'
 import {
   defaultSpectrumStyle,
   isSpectrumStyle,
@@ -146,6 +146,11 @@ export const saveAppSettingsDurable = async (settings: AppSettings): Promise<voi
     saveAppSettings(normalized)
   } catch (error) {
     throw error instanceof Error ? error : new Error(String(error))
+  }
+
+  // Browser: localStorage is enough. Skip Tauri IPC so Save doesn't fail in web.
+  if (!isTauri()) {
+    return
   }
 
   try {

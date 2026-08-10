@@ -81,9 +81,13 @@ export function useDialogDrag(open: boolean) {
   }
 
   return {
-    style: {
-      transform: `translate(${offset.x}px, ${offset.y}px)`,
-    } as CSSProperties,
+    style: (
+      offset.x === 0 && offset.y === 0
+        ? undefined
+        : ({
+            transform: `translate(${offset.x}px, ${offset.y}px)`,
+          } as CSSProperties)
+    ),
     onHeaderPointerDown,
   }
 }

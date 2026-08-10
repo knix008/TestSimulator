@@ -44,11 +44,7 @@ import {
   type SpectrumColorOrder,
   type SpectrumStyle,
 } from './appSettings'
-import {
-  drawSpectrumFrame,
-  nextSpectrumStyle,
-  spectrumStyles,
-} from './spectrumModes'
+import { drawSpectrumFrame, nextSpectrumStyle } from './spectrumModes'
 import {
   buildThemeFile,
   captureThemeVars,
@@ -71,6 +67,7 @@ import {
 import { useDialogDrag } from './useDialogDrag'
 import appIconUrl from '../asset/app-icon.svg'
 import './App.css'
+
 type Track = {
   id: string
   title: string
@@ -526,13 +523,12 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
   const [alertDialog, setAlertDialog] = useState<{ title: string; message: string } | null>(null)
   const settingsDialogDrag = useDialogDrag(showSettings)
   const convertDialogDrag = useDialogDrag(showConvertDialog)
-  const appInfoDialogDrag = useDialogDrag(showAppInfo)
   const errorDialogDrag = useDialogDrag(Boolean(errorDialogMessage))
   const alertDialogDrag = useDialogDrag(Boolean(alertDialog))
   const [themeMessage, setThemeMessage] = useState('')
   const [useSystemTray, setUseSystemTray] = useState(initialSettings.useSystemTray)
-  const [rememberVolume, setRememberVolume] = useState(initialSettings.rememberVolume)
-  const [showSpectrum, setShowSpectrum] = useState(initialSettings.showSpectrum)
+  const [rememberVolume] = useState(initialSettings.rememberVolume)
+  const [showSpectrum] = useState(initialSettings.showSpectrum)
   const [spectrumColorOrder, setSpectrumColorOrder] = useState<SpectrumColorOrder>(initialSettings.spectrumColorOrder)
   const [spectrumStyle, setSpectrumStyle] = useState<SpectrumStyle>(initialSettings.spectrumStyle)
   const [reopenLastFolderOnStart, setReopenLastFolderOnStart] = useState(initialSettings.reopenLastFolderOnStart)
@@ -1736,15 +1732,6 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
     }
   }
 
-  const selectSpectrumStyle = (nextStyle: SpectrumStyle) => {
-    spectrumStyleRef.current = nextStyle
-    setSpectrumStyle(nextStyle)
-
-    if (showSpectrum && isPlaying) {
-      drawSpectrum()
-    }
-  }
-
   const showThemedAlert = (title: string, messageText: string) => {
     setAlertDialog({ title, message: messageText })
   }
@@ -2066,30 +2053,26 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
           <strong>{labels.appName}</strong>
         </div>
 
+        <div className="toolbar-drag-space" />
+
         <div className="toolbar-actions">
-          <button className="tool-button tool-button-labeled" type="button" data-tooltip={labels.openFolder} aria-label={labels.openFolder} onClick={openMusicFolder}>
+          <button className="tool-button icon-only" type="button" data-tooltip={labels.openFolder} aria-label={labels.openFolder} onPointerDown={(event) => event.stopPropagation()} onClick={openMusicFolder}>
             <FolderOpen size={14} aria-hidden="true" />
-            <span className="tool-button-label" style={{ whiteSpace: 'nowrap' }}>{labels.openFolderShort}</span>
           </button>
-          <button className="tool-button tool-button-labeled" type="button" data-tooltip={labels.reopenFolder} aria-label={labels.reopenFolder} onClick={reopenMusicFolder}>
+          <button className="tool-button icon-only" type="button" data-tooltip={labels.reopenFolder} aria-label={labels.reopenFolder} onPointerDown={(event) => event.stopPropagation()} onClick={reopenMusicFolder}>
             <RotateCcw size={14} aria-hidden="true" />
-            <span className="tool-button-label" style={{ whiteSpace: 'nowrap' }}>{labels.reopenFolderShort}</span>
           </button>
-          <button className="tool-button tool-button-labeled" type="button" data-tooltip={labels.addFiles} aria-label={labels.addFiles} onClick={openAudioFiles}>
+          <button className="tool-button icon-only" type="button" data-tooltip={labels.addFiles} aria-label={labels.addFiles} onPointerDown={(event) => event.stopPropagation()} onClick={openAudioFiles}>
             <Plus size={14} aria-hidden="true" />
-            <span className="tool-button-label" style={{ whiteSpace: 'nowrap' }}>{labels.addFilesShort}</span>
           </button>
-          <button className="tool-button tool-button-labeled" type="button" data-tooltip={labels.savePlaylist} aria-label={labels.savePlaylist} onClick={savePlaylist}>
+          <button className="tool-button icon-only" type="button" data-tooltip={labels.savePlaylist} aria-label={labels.savePlaylist} onPointerDown={(event) => event.stopPropagation()} onClick={savePlaylist}>
             <Save size={14} aria-hidden="true" />
-            <span className="tool-button-label" style={{ whiteSpace: 'nowrap' }}>{labels.savePlaylistShort}</span>
           </button>
-          <button className="tool-button tool-button-labeled" type="button" data-tooltip={labels.convertSave} aria-label={labels.convertSave} onClick={openConvertDialog}>
+          <button className="tool-button icon-only" type="button" data-tooltip={labels.convertSave} aria-label={labels.convertSave} onPointerDown={(event) => event.stopPropagation()} onClick={openConvertDialog}>
             <FileAudio size={14} aria-hidden="true" />
-            <span className="tool-button-label" style={{ whiteSpace: 'nowrap' }}>{labels.convertSaveShort}</span>
           </button>
-          <button className="tool-button tool-button-labeled language-toggle" type="button" data-tooltip={labels.language} aria-label={labels.language} onClick={toggleLanguage}>
+          <button className="tool-button icon-only language-toggle" type="button" data-tooltip={labels.language} aria-label={labels.language} onPointerDown={(event) => event.stopPropagation()} onClick={toggleLanguage}>
             <Languages size={14} aria-hidden="true" />
-            <span className="tool-button-label" style={{ whiteSpace: 'nowrap' }}>{language === 'ko' ? labels.languageShortEn : labels.languageShortKo}</span>
           </button>
           <button
             className={`tool-button icon-only${spectrumColorOrder === 'red-blue' ? ' active-toggle' : ''}`}
@@ -2098,6 +2081,7 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
             aria-label={labels.flipSpectrumColors}
             aria-pressed={spectrumColorOrder === 'red-blue'}
             disabled={!showSpectrum}
+            onPointerDown={(event) => event.stopPropagation()}
             onClick={flipSpectrumColors}
           >
             <ArrowLeftRight size={14} />
@@ -2108,11 +2092,25 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
             data-tooltip={`${labels.cycleSpectrumStyle}: ${spectrumStyleLabels[spectrumStyle]}`}
             aria-label={labels.cycleSpectrumStyle}
             disabled={!showSpectrum}
+            onPointerDown={(event) => event.stopPropagation()}
             onClick={cycleSpectrumStyle}
           >
             <ChartColumn size={14} />
           </button>
-          <button className="tool-button icon-only" type="button" data-tooltip={labels.settings} aria-label={labels.settings} onClick={() => setShowSettings(true)}>
+          <button
+            className="tool-button icon-only"
+            type="button"
+            data-tooltip={labels.settings}
+            aria-label={labels.settings}
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={(event) => {
+              event.stopPropagation()
+              setActiveToolbarMenu(null)
+              setShowAppInfo(false)
+              setShowConvertDialog(false)
+              setShowSettings(true)
+            }}
+          >
             <Settings size={14} />
           </button>
           <div className="toolbar-menu">
@@ -2121,12 +2119,18 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
               type="button"
               data-tooltip={labels.theme}
               aria-label={labels.theme}
-              onClick={() => setActiveToolbarMenu((menu) => (menu === 'theme' ? null : 'theme'))}
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={(event) => {
+                event.stopPropagation()
+                setShowAppInfo(false)
+                setShowSettings(false)
+                setActiveToolbarMenu((menu) => (menu === 'theme' ? null : 'theme'))
+              }}
             >
               <Palette size={14} />
             </button>
             {activeToolbarMenu === 'theme' && (
-              <div className="toolbar-popover theme-popover">
+              <div className="toolbar-popover theme-popover" onPointerDown={(event) => event.stopPropagation()}>
                 <div className="theme-list">
                   {availableThemes.map((theme) => (
                     <button
@@ -2161,15 +2165,26 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
               </div>
             )}
           </div>
-          <button className="tool-button icon-only" type="button" data-tooltip={labels.appInfo} aria-label={labels.appInfo} onClick={() => setShowAppInfo(true)}>
+          <button
+            className="tool-button icon-only"
+            type="button"
+            data-tooltip={labels.appInfo}
+            aria-label={labels.appInfo}
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={(event) => {
+              event.stopPropagation()
+              setActiveToolbarMenu(null)
+              setShowSettings(false)
+              setShowConvertDialog(false)
+              setShowAppInfo(true)
+            }}
+          >
             <Info size={14} />
           </button>
         </div>
 
-        <div className="toolbar-drag-space" />
-
         <div className="window-actions">
-          <button type="button" data-tooltip={labels.minimize} aria-label={labels.minimize} onClick={minimizeWindow}>
+          <button type="button" data-tooltip={labels.minimize} aria-label={labels.minimize} onPointerDown={(event) => event.stopPropagation()} onClick={minimizeWindow}>
             <Minus size={14} />
           </button>
           <button
@@ -2177,6 +2192,7 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
             className="close-button"
             data-tooltip={useSystemTray ? labels.close : labels.quitApp}
             aria-label={useSystemTray ? labels.close : labels.quitApp}
+            onPointerDown={(event) => event.stopPropagation()}
             onClick={closeWindow}
           >
             <X size={14} />
@@ -2203,7 +2219,7 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
 
           <div className="spectrum-stage">
             {showSpectrum ? (
-              <canvas ref={canvasRef} className="spectrum" width="620" height="192" aria-label="Spectrum" />
+              <canvas ref={canvasRef} className="spectrum" width="500" height="192" aria-label="Spectrum" />
             ) : (
               <div className="spectrum spectrum-disabled" aria-hidden="true" />
             )}
@@ -2219,19 +2235,18 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
             )}
           </div>
           <div className="transport-bar">
-            <div className="transport-bar-spacer" aria-hidden="true" />
             <div className="transport">
               <button type="button" data-tooltip={labels.previous} aria-label={labels.previous} onClick={() => playRelativeTrack(-1)}>
-                <SkipBack size={17} />
+                <SkipBack size={13} />
               </button>
               <button type="button" className="primary" data-tooltip={isPlaying ? labels.pause : labels.play} aria-label={isPlaying ? labels.pause : labels.play} onClick={isPlaying ? pause : play}>
-                {isPlaying ? <Pause size={20} /> : <Play size={20} />}
+                {isPlaying ? <Pause size={13} /> : <Play size={13} />}
               </button>
               <button type="button" className="stop-button" data-tooltip={labels.stop} aria-label={labels.stop} onClick={stop}>
-                <Square size={15} />
+                <Square size={13} />
               </button>
               <button type="button" data-tooltip={labels.next} aria-label={labels.next} onClick={() => playRelativeTrack(1)}>
-                <SkipForward size={17} />
+                <SkipForward size={13} />
               </button>
             </div>
 
@@ -2244,7 +2259,7 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
                 aria-pressed={!isMuted}
                 onClick={toggleMute}
               >
-                {isMuted ? <VolumeX size={17} /> : <Volume2 size={17} />}
+                {isMuted ? <VolumeX size={13} /> : <Volume2 size={13} />}
               </button>
               <span className="volume-bound">0%</span>
               <input
@@ -2321,7 +2336,7 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
         <div
           className="modal-backdrop"
           role="presentation"
-          onMouseDown={() => {
+          onClick={() => {
             if (!isConverting) {
               setShowConvertDialog(false)
             }
@@ -2333,7 +2348,7 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
             aria-modal="true"
             aria-label={labels.convertSave}
             style={convertDialogDrag.style}
-            onMouseDown={(event) => event.stopPropagation()}
+            onClick={(event) => event.stopPropagation()}
           >
             <header className="settings-header dialog-drag-handle" onPointerDown={convertDialogDrag.onHeaderPointerDown}>
               <FileAudio size={18} />
@@ -2382,49 +2397,28 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
       )}
 
       {showSettings && (
-        <div className="modal-backdrop" role="presentation" onMouseDown={() => setShowSettings(false)}>
+        <div
+          className="modal-backdrop"
+          role="presentation"
+          onClick={() => setShowSettings(false)}
+        >
           <section
             className="settings-dialog"
             role="dialog"
             aria-modal="true"
             aria-label={labels.settings}
             style={settingsDialogDrag.style}
-            onMouseDown={(event) => event.stopPropagation()}
+            onClick={(event) => event.stopPropagation()}
           >
             <header className="settings-header dialog-drag-handle" onPointerDown={settingsDialogDrag.onHeaderPointerDown}>
-              <Settings size={18} />
+              <Settings size={16} />
               <h2>{labels.settings}</h2>
             </header>
 
             <div className="settings-body">
               <section className="settings-section">
-                <h3>{labels.settingsGeneral}</h3>
-                <label className="settings-row">
-                  <span>{labels.language}</span>
-                  <select
-                    value={language}
-                    onChange={(event) => setLanguage(event.target.value as Language)}
-                    aria-label={labels.language}
-                  >
-                    <option value="ko">한국어</option>
-                    <option value="en">English</option>
-                  </select>
-                </label>
-                <label className="settings-row">
-                  <span>{labels.theme}</span>
-                  <select value={themeId} onChange={(event) => selectTheme(event.target.value)} aria-label={labels.theme}>
-                    {availableThemes.map((theme) => (
-                      <option key={theme.id} value={theme.id}>
-                        {theme.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </section>
-
-              <section className="settings-section">
                 <h3>{labels.settingsWindow}</h3>
-                <label className="settings-toggle">
+                <label className="settings-toggle" title={labels.useSystemTrayHint}>
                   <input
                     type="checkbox"
                     checked={useSystemTray}
@@ -2435,11 +2429,21 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
                     <small>{labels.useSystemTrayHint}</small>
                   </span>
                 </label>
+                <label className="settings-toggle">
+                  <input
+                    type="checkbox"
+                    checked={reopenLastFolderOnStart}
+                    onChange={(event) => setReopenLastFolderOnStart(event.target.checked)}
+                  />
+                  <span>
+                    <strong>{labels.reopenLastFolderOnStart}</strong>
+                  </span>
+                </label>
               </section>
 
               <section className="settings-section">
                 <h3>{labels.settingsAppearance}</h3>
-                <label className="settings-toggle">
+                <label className="settings-toggle" title={labels.wallpaperEnabledHint}>
                   <input
                     type="checkbox"
                     checked={wallpaperEnabled}
@@ -2480,7 +2484,6 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
                   </div>
                 )}
                 <div className="settings-row wallpaper-path-row">
-                  <span>{labels.settingsAppearance}</span>
                   <small className="wallpaper-path" title={wallpaperPath || labels.wallpaperNone}>
                     {wallpaperPath
                       ? isBuiltInWallpaperId(wallpaperPath)
@@ -2488,20 +2491,20 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
                         : `${labels.wallpaperCustom}: ${wallpaperDisplayName(wallpaperPath)}`
                       : labels.wallpaperNone}
                   </small>
-                </div>
-                <div className="convert-actions">
-                  <button type="button" aria-label={labels.wallpaperChoose} onClick={() => void chooseWallpaper()}>
-                    <ImagePlus size={14} />
-                    {labels.wallpaperChoose}
-                  </button>
-                  <button
-                    type="button"
-                    aria-label={labels.wallpaperClear}
-                    disabled={!wallpaperPath && !defaultBuiltInWallpaperId}
-                    onClick={clearWallpaper}
-                  >
-                    {labels.wallpaperClear}
-                  </button>
+                  <div className="convert-actions">
+                    <button type="button" aria-label={labels.wallpaperChoose} onClick={() => void chooseWallpaper()}>
+                      <ImagePlus size={12} />
+                      {labels.wallpaperChoose}
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={labels.wallpaperClear}
+                      disabled={!wallpaperPath && !defaultBuiltInWallpaperId}
+                      onClick={clearWallpaper}
+                    >
+                      {labels.wallpaperClear}
+                    </button>
+                  </div>
                 </div>
                 <label className="settings-row">
                   <span>{labels.wallpaperDim}</span>
@@ -2516,7 +2519,7 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
                     onChange={(event) => setWallpaperDim(Number(event.target.value))}
                   />
                 </label>
-                <label className="settings-row">
+                <label className="settings-row" title={labels.panelOpacityHint}>
                   <span>
                     {labels.panelOpacity}
                     <small className="settings-inline-hint"> ({Math.round(panelOpacity * 100)}%)</small>
@@ -2531,110 +2534,6 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
                     disabled={!wallpaperEnabled || !wallpaperPath}
                     onChange={(event) => setPanelOpacity(Number(event.target.value))}
                   />
-                </label>
-                <p className="settings-hint">{labels.panelOpacityHint}</p>
-              </section>
-
-              <section className="settings-section">
-                <h3>{labels.settingsPlayback}</h3>
-                <label className="settings-toggle">
-                  <input
-                    type="checkbox"
-                    checked={rememberVolume}
-                    onChange={(event) => setRememberVolume(event.target.checked)}
-                  />
-                  <span>
-                    <strong>{labels.rememberVolume}</strong>
-                  </span>
-                </label>
-                <label className="settings-toggle">
-                  <input
-                    type="checkbox"
-                    checked={showSpectrum}
-                    onChange={(event) => {
-                      const enabled = event.target.checked
-                      setShowSpectrum(enabled)
-
-                      if (!enabled) {
-                        stopSpectrum()
-                      } else if (isPlaying) {
-                        drawSpectrum()
-                      }
-                    }}
-                  />
-                  <span>
-                    <strong>{labels.showSpectrum}</strong>
-                  </span>
-                </label>
-                <label className="settings-row">
-                  <span>{labels.spectrumStyle}</span>
-                  <select
-                    value={spectrumStyle}
-                    aria-label={labels.spectrumStyle}
-                    disabled={!showSpectrum}
-                    onChange={(event) => selectSpectrumStyle(event.target.value as SpectrumStyle)}
-                  >
-                    {spectrumStyles.map((style) => (
-                      <option key={style} value={style}>
-                        {spectrumStyleLabels[style]}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="settings-row">
-                  <span>{labels.spectrumColorOrder}</span>
-                  <select
-                    value={spectrumColorOrder}
-                    aria-label={labels.spectrumColorOrder}
-                    disabled={!showSpectrum}
-                    onChange={(event) => {
-                      const nextOrder = event.target.value as SpectrumColorOrder
-                      spectrumColorOrderRef.current = nextOrder
-                      setSpectrumColorOrder(nextOrder)
-                    }}
-                  >
-                    <option value="blue-red">{labels.spectrumBlueRed}</option>
-                    <option value="red-blue">{labels.spectrumRedBlue}</option>
-                  </select>
-                </label>
-                <label className="settings-toggle">
-                  <input
-                    type="checkbox"
-                    checked={reopenLastFolderOnStart}
-                    onChange={(event) => setReopenLastFolderOnStart(event.target.checked)}
-                  />
-                  <span>
-                    <strong>{labels.reopenLastFolderOnStart}</strong>
-                  </span>
-                </label>
-                <label className="settings-row volume-settings-row">
-                  <span>{labels.volume}</span>
-                  <div className={`volume-slider-wrap${isMuted ? ' is-inactive' : ' is-active'}`}>
-                    <button
-                      type="button"
-                      className={`volume-mute-button${isMuted ? ' is-inactive' : ' is-active'}`}
-                      aria-label={isMuted ? labels.unmute : labels.mute}
-                      aria-pressed={!isMuted}
-                      onClick={toggleMute}
-                    >
-                      {isMuted ? <VolumeX size={17} /> : <Volume2 size={17} />}
-                    </button>
-                    <span className="volume-bound">0%</span>
-                    <input
-                      type="range"
-                      min="0"
-                      max="1"
-                      step="0.01"
-                      value={volume}
-                      aria-label={labels.volume}
-                      aria-valuetext={`${volumePercent}%`}
-                      onChange={(event) => changeVolume(Number(event.target.value))}
-                    />
-                    <span className="volume-bound">100%</span>
-                    <span className="volume-value" aria-live="polite">
-                      {volumePercent}%
-                    </span>
-                  </div>
                 </label>
               </section>
             </div>
@@ -2658,16 +2557,15 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
       )}
 
       {showAppInfo && (
-        <div className="modal-backdrop" role="presentation" onMouseDown={() => setShowAppInfo(false)}>
+        <div className="modal-backdrop" role="presentation" onClick={() => setShowAppInfo(false)}>
           <section
             className="app-info-dialog"
             role="dialog"
             aria-modal="true"
             aria-label={labels.appInfo}
-            style={appInfoDialogDrag.style}
-            onMouseDown={(event) => event.stopPropagation()}
+            onClick={(event) => event.stopPropagation()}
           >
-            <div className="app-info-header dialog-drag-handle" onPointerDown={appInfoDialogDrag.onHeaderPointerDown}>
+            <div className="app-info-header">
               <img src={appIconUrl} alt="" />
               <div>
                 <h2>{labels.appName}</h2>
@@ -2692,20 +2590,22 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
                 <dd>Copyright (c) 2026 SHKWON. All rights reserved.</dd>
               </div>
             </dl>
-            <button type="button" aria-label={labels.close} onClick={() => setShowAppInfo(false)}>{labels.close}</button>
+            <button type="button" aria-label={labels.close} onClick={() => setShowAppInfo(false)}>
+              {labels.close}
+            </button>
           </section>
         </div>
       )}
 
       {alertDialog && (
-        <div className="modal-backdrop alert-backdrop" role="presentation" onMouseDown={() => setAlertDialog(null)}>
+        <div className="modal-backdrop alert-backdrop" role="presentation" onClick={() => setAlertDialog(null)}>
           <section
             className="alert-dialog themed-dialog"
             role="alertdialog"
             aria-modal="true"
             aria-label={alertDialog.title}
             style={alertDialogDrag.style}
-            onMouseDown={(event) => event.stopPropagation()}
+            onClick={(event) => event.stopPropagation()}
           >
             <header className="alert-dialog-header dialog-drag-handle" onPointerDown={alertDialogDrag.onHeaderPointerDown}>
               <Info size={18} />
@@ -2720,14 +2620,14 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
       )}
 
       {errorDialogMessage && (
-        <div className="modal-backdrop error-backdrop" role="presentation" onMouseDown={closeErrorDialog}>
+        <div className="modal-backdrop error-backdrop" role="presentation" onClick={closeErrorDialog}>
           <section
             className="error-dialog themed-dialog"
             role="alertdialog"
             aria-modal="true"
             aria-label={labels.errorDialog}
             style={errorDialogDrag.style}
-            onMouseDown={(event) => event.stopPropagation()}
+            onClick={(event) => event.stopPropagation()}
           >
             <header className="error-dialog-header dialog-drag-handle" onPointerDown={errorDialogDrag.onHeaderPointerDown}>
               <CircleAlert size={18} />

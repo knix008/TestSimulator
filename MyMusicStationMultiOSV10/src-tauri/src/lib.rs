@@ -9,8 +9,8 @@ use tauri::menu::{Menu, MenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent};
 use tauri::{image::Image, AppHandle, Emitter, LogicalSize, Manager, RunEvent, Size, State, WindowEvent};
 
-const WINDOW_WIDTH: f64 = 1100.0;
-const WINDOW_HEIGHT: f64 = 680.0;
+const WINDOW_WIDTH: f64 = 835.0;
+const WINDOW_HEIGHT: f64 = 496.0;
 
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
