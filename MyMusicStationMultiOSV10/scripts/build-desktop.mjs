@@ -23,10 +23,11 @@ const stopRunningInstances = () => {
   }
 }
 
+// One final distributor image per platform (copied to project root).
 const defaultBundles = {
-  win32: 'nsis,msi',
-  darwin: 'app,dmg',
-  linux: 'appimage,deb,rpm',
+  win32: 'nsis',
+  darwin: 'dmg',
+  linux: 'appimage',
 }
 
 const bundlesArg = process.argv[2] || defaultBundles[platform()]
@@ -110,4 +111,4 @@ const manifest = {
 
 writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8')
 console.log(`[build] manifest → ${manifestPath}`)
-console.log('[build] npm start and the root installers now share this same release binary.')
+console.log('[build] npm start and the single root installer now share this same release binary.')

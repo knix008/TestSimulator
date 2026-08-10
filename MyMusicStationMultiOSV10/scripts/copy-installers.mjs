@@ -1,5 +1,6 @@
-import { copyFileSync, existsSync, readdirSync, statSync } from 'node:fs'
+import { copyFileSync, existsSync, readdirSync, rmSync, statSync } from 'node:fs'
 import { join, extname } from 'node:path'
+import { platform } from 'node:os'
 
 const root = process.cwd()
 const installerExtensions = new Set(['.exe', '.msi', '.dmg', '.appimage', '.deb', '.rpm'])
@@ -39,6 +40,11 @@ const collectInstallers = (directory, found = []) => {
       continue
     }
 
+    // Never treat the app binary itself as an installer.
+    if (entry.name.toLowerCase() === 'my_music_station.exe' || entry.name.toLowerCase() === 'my_music_station') {
+      continue
+    }
+
     found.push({
       name: entry.name,
       path: fullPath,
@@ -47,6 +53,44 @@ const collectInstallers = (directory, found = []) => {
   }
 
   return found
+}
+
+/** Prefer one final distributor image per platform. */
+const scoreInstaller = (installer) => {
+  const name = installer.name.toLowerCase()
+  const extension = extname(name)
+
+  if (platform() === 'win32') {
+    if (name.includes('-setup.exe') || name.endsWith('setup.exe')) {
+      return 100
+    }
+    if (extension === '.exe') {
+      return 80
+    }
+    if (extension === '.msi') {
+      return 40
+    }
+    return 0
+  }
+
+  if (platform() === 'darwin') {
+    if (extension === '.dmg') {
+      return 100
+    }
+    return 0
+  }
+
+  if (extension === '.appimage') {
+    return 100
+  }
+  if (extension === '.deb') {
+    return 60
+  }
+  if (extension === '.rpm') {
+    return 50
+  }
+
+  return 0
 }
 
 const installersByName = new Map()
@@ -61,7 +105,15 @@ for (const bundleRoot of bundleRoots) {
   }
 }
 
-const installers = [...installersByName.values()].sort((left, right) => right.modifiedMs - left.modifiedMs)
+const installers = [...installersByName.values()]
+  .filter((installer) => scoreInstaller(installer) > 0)
+  .sort((left, right) => {
+    const scoreDiff = scoreInstaller(right) - scoreInstaller(left)
+    if (scoreDiff !== 0) {
+      return scoreDiff
+    }
+    return right.modifiedMs - left.modifiedMs
+  })
 
 if (!installers.length) {
   console.warn('[copy-installers] No installer files found under release/bundle.')
@@ -69,11 +121,34 @@ if (!installers.length) {
   process.exit(0)
 }
 
-for (const installer of installers) {
-  const destination = join(root, installer.name)
-  copyFileSync(installer.path, destination)
-  const sizeMb = (statSync(destination).size / (1024 * 1024)).toFixed(1)
-  console.log(`[copy-installers] ${installer.name} → ./ (${sizeMb} MB)`)
+const selected = installers[0]
+
+// Remove previous root installers so only the latest final image remains.
+for (const entry of readdirSync(root, { withFileTypes: true })) {
+  if (!entry.isFile()) {
+    continue
+  }
+
+  const extension = extname(entry.name).toLowerCase()
+  if (!installerExtensions.has(extension)) {
+    continue
+  }
+
+  if (entry.name.toLowerCase() === 'my_music_station.exe') {
+    continue
+  }
+
+  const stalePath = join(root, entry.name)
+  if (entry.name === selected.name) {
+    continue
+  }
+
+  rmSync(stalePath, { force: true })
+  console.log(`[copy-installers] removed old root installer: ${entry.name}`)
 }
 
-console.log(`[copy-installers] Copied ${installers.length} installer(s) to project root.`)
+const destination = join(root, selected.name)
+copyFileSync(selected.path, destination)
+const sizeMb = (statSync(destination).size / (1024 * 1024)).toFixed(1)
+console.log(`[copy-installers] ${selected.name} → ./ (${sizeMb} MB)`)
+console.log('[copy-installers] Copied 1 final installer to project root.')
