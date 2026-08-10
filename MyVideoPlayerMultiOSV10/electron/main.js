@@ -241,6 +241,58 @@ function rememberDirFromFile(key, filePath) {
   }
 }
 
+const OPENABLE_MEDIA_EXTS = new Set([
+  '.mp4', '.m4v', '.webm', '.mkv', '.mov', '.avi', '.ogv', '.hevc', '.h265',
+  '.mp3', '.aac', '.m4a', '.wav', '.flac', '.opus', '.ogg', '.wma'
+]);
+
+function extractMediaPathsFromArgv(argv) {
+  return (argv || [])
+    .slice(1)
+    .filter((arg) => {
+      if (!arg || typeof arg !== 'string') return false;
+      if (arg.startsWith('-')) return false;
+      // Ignore electron/app entry paths
+      if (/electron\.exe$/i.test(arg) || /[\\/]electron([\\/]|$)/i.test(arg)) return false;
+      if (/\.(js|mjs|cjs|json|html)$/i.test(arg) && !OPENABLE_MEDIA_EXTS.has(path.extname(arg).toLowerCase())) {
+        return false;
+      }
+      const ext = path.extname(arg).toLowerCase();
+      if (!OPENABLE_MEDIA_EXTS.has(ext)) return false;
+      try {
+        return fs.existsSync(arg) && fs.statSync(arg).isFile();
+      } catch {
+        return false;
+      }
+    })
+    .map((arg) => path.resolve(arg));
+}
+
+function sendOpenMediaPaths(paths) {
+  if (!paths?.length || !mainWindow || mainWindow.isDestroyed()) return;
+  mainWindow.webContents.send('app:openMediaPaths', paths);
+}
+
+/** @type {string[]} */
+let pendingOpenFiles = extractMediaPathsFromArgv(process.argv);
+
+const gotSingleInstanceLock = app.requestSingleInstanceLock();
+if (!gotSingleInstanceLock) {
+  app.quit();
+} else {
+  app.on('second-instance', (_event, argv) => {
+    const files = extractMediaPathsFromArgv(argv);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.show();
+      mainWindow.focus();
+      if (files.length) sendOpenMediaPaths(files);
+    } else if (files.length) {
+      pendingOpenFiles.push(...files);
+    }
+  });
+}
+
 /** @type {BrowserWindow | null} */
 let mainWindow = null;
 /** @type {BrowserWindow | null} */
@@ -366,6 +418,15 @@ function createWindow() {
     mainWindow.show();
   });
 
+  mainWindow.webContents.on('did-finish-load', () => {
+    if (pendingOpenFiles.length) {
+      const files = pendingOpenFiles.slice();
+      pendingOpenFiles = [];
+      // Slight delay so renderer listeners are bound.
+      setTimeout(() => sendOpenMediaPaths(files), 250);
+    }
+  });
+
   mainWindow.on('maximize', () => {
     mainWindow.webContents.send('window:state', { maximized: true });
   });
@@ -475,6 +536,8 @@ async function readSubtitleNearMedia(mediaPath) {
 }
 
 app.whenReady().then(async () => {
+  if (!gotSingleInstanceLock) return;
+
   protocol.handle('localmedia', (request) => {
     try {
       return serveLocalMediaRequest(request);
@@ -495,6 +558,16 @@ app.whenReady().then(async () => {
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
+});
+
+// macOS: open file from Finder
+app.on('open-file', (event, filePath) => {
+  event.preventDefault();
+  if (!filePath) return;
+  const ext = path.extname(filePath).toLowerCase();
+  if (!OPENABLE_MEDIA_EXTS.has(ext)) return;
+  if (mainWindow && !mainWindow.isDestroyed()) sendOpenMediaPaths([path.resolve(filePath)]);
+  else pendingOpenFiles.push(path.resolve(filePath));
 });
 
 app.on('window-all-closed', () => {

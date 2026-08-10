@@ -162,11 +162,14 @@ Settings live per-profile (browser / Electron userData), not inside the install 
 
 ### electron-builder (`package.json` → `build`)
 
-| Target | Artifact |
-|--------|----------|
-| Windows | NSIS x64 → `MyVideoPlayer-Setup-{version}.exe` |
-| macOS | DMG + zip |
-| Linux | AppImage + deb |
+| Command | Target | Artifact |
+|---------|--------|----------|
+| `npm run build:win` | Windows | NSIS x64 → `dist/MyVideoPlayer-Setup-{version}.exe` |
+| `npm run build:mac` | macOS | DMG + zip |
+| `npm run build:linux` | Linux | AppImage + deb |
+| `npm run build` | Host defaults | Per `package.json` `build` targets |
+
+(`dist:*` scripts alias the same `build:*` commands.)
 
 `ffmpeg-static` is unpacked from asar (`asarUnpack`) so the main process can spawn FFmpeg for compat conversion.
 

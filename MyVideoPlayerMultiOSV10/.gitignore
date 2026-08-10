@@ -5,6 +5,12 @@ out/
 *.asar
 *.log
 
+# Final installers copied to project root after build
+MyVideoPlayer-Setup-*.exe
+MyVideoPlayer-*.dmg
+MyVideoPlayer-*.AppImage
+MyVideoPlayer_*.deb
+
 # Local / sample media (large binaries)
 video/
 *.mp4

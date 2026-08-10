@@ -65,5 +65,10 @@ contextBridge.exposeInMainWorld('desktopAPI', {
     const handler = (_event, state) => callback(state);
     ipcRenderer.on('window:state', handler);
     return () => ipcRenderer.removeListener('window:state', handler);
+  },
+  onOpenMediaPaths: (callback) => {
+    const handler = (_event, paths) => callback(paths);
+    ipcRenderer.on('app:openMediaPaths', handler);
+    return () => ipcRenderer.removeListener('app:openMediaPaths', handler);
   }
 });

@@ -2,6 +2,12 @@
 ; When the Setup runs (not an in-app --updated upgrade), completely remove any
 ; previous installation (files, shortcuts, registry, app data) before installing.
 
+; Included early by electron-builder — pull LogicLib before any ${if} usage.
+!include LogicLib.nsh
+!include FileFunc.nsh
+!insertmacro GetParameters
+!insertmacro GetOptions
+
 ; Same keys as multiUser.nsh — needed here because this file is compiled earlier.
 !define /ifndef INSTALL_REGISTRY_KEY "Software\${APP_GUID}"
 !define /ifndef UNINSTALL_REGISTRY_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${UNINSTALL_APP_KEY}"
@@ -37,6 +43,33 @@
     StrCpy $R0 $R0 $R2
 
     mvp_giq_done:
+      Pop $R3
+      Pop $R2
+      Pop $R1
+      Exch $R0
+  FunctionEnd
+
+  ; Parent directory of a file path (no StdUtils — plugin is unavailable this early).
+  Function mvpGetParentPath
+    Exch $R0
+    Push $R1
+    Push $R2
+    Push $R3
+
+    StrCpy $R1 0
+    StrLen $R2 $R0
+
+    mvp_gpp_loop:
+      IntOp $R1 $R1 - 1
+      IntCmp $R1 -$R2 mvp_gpp_done mvp_gpp_done 0
+      StrCpy $R3 $R0 1 $R1
+      StrCmp $R3 "\" mvp_gpp_found
+      Goto mvp_gpp_loop
+
+    mvp_gpp_found:
+      StrCpy $R0 $R0 $R1
+
+    mvp_gpp_done:
       Pop $R3
       Pop $R2
       Pop $R1
@@ -87,7 +120,9 @@
     ${if} $R1 == ""
     ${andIf} $R2 != ""
       ; Derive install dir from uninstaller path
-      ${StdUtils.GetParentPath} $R1 "$R2"
+      Push $R2
+      Call mvpGetParentPath
+      Pop $R1
     ${endif}
 
     ${if} $R2 != ""
@@ -151,14 +186,8 @@
       RMDir "$SMPROGRAMS\${MENU_FILENAME}"
     !endif
 
-    ; Restore shell context for the selected install mode
-    ${if} $installMode == "all"
-      SetShellVarContext all
-    ${else}
-      SetShellVarContext current
-    ${endif}
-
     ; Electron / Chromium user data & caches (always per-user)
+    ; Do not reference $installMode here — it is declared later by multiUser.nsh.
     SetShellVarContext current
     RMDir /r "$APPDATA\${APP_FILENAME}"
     RMDir /r "$APPDATA\${PRODUCT_FILENAME}"
@@ -169,12 +198,6 @@
     RMDir /r "$LOCALAPPDATA\${PRODUCT_NAME}"
     RMDir /r "$LOCALAPPDATA\${APP_PACKAGE_NAME}"
 
-    ${if} $installMode == "all"
-      SetShellVarContext all
-    ${else}
-      SetShellVarContext current
-    ${endif}
-
     System::Call 'shell32::SHChangeNotify(i, i, i, i) v (0x08000000, 0, 0, 0)'
   FunctionEnd
 
@@ -182,7 +205,8 @@
     DetailPrint "Removing previous ${PRODUCT_NAME} installation..."
 
     ; Close a running instance so files can be deleted
-    nsExec::Exec `"$SYSDIR\cmd.exe" /c taskkill /F /IM "${APP_EXECUTABLE_FILENAME}" /T`
+    ; APP_EXECUTABLE_FILENAME is defined later in common.nsh — use PRODUCT_FILENAME here.
+    nsExec::Exec `"$SYSDIR\cmd.exe" /c taskkill /F /IM "${PRODUCT_FILENAME}.exe" /T`
     Pop $R9
     Sleep 500
 
@@ -211,7 +235,11 @@
 
   Function mvpForceCleanPage
     ; Preserve in-app auto-update behavior (--updated keeps user data).
-    ${if} ${isUpdated}
+    ; Do not use ${isUpdated} here — StdUtils is unavailable when this file is compiled.
+    ${GetParameters} $R8
+    ClearErrors
+    ${GetOptions} $R8 "--updated" $R9
+    ${ifNot} ${errors}
       Abort
     ${endif}
 
@@ -221,12 +249,62 @@
 
 !endif
 
+; Register one extension for Default Apps / Open with.
+!macro mvpRegisterAssoc EXT PROGID DESCRIPTION
+  WriteRegStr SHCTX "Software\Classes\.${EXT}\OpenWithProgids" "${PROGID}" ""
+  WriteRegStr SHCTX "Software\Classes\${PROGID}" "" "${DESCRIPTION}"
+  WriteRegStr SHCTX "Software\Classes\${PROGID}\DefaultIcon" "" "$INSTDIR\${APP_EXECUTABLE_FILENAME},0"
+  WriteRegStr SHCTX "Software\Classes\${PROGID}\shell" "" "open"
+  WriteRegStr SHCTX "Software\Classes\${PROGID}\shell\open\command" "" '"$INSTDIR\${APP_EXECUTABLE_FILENAME}" "%1"'
+  WriteRegStr SHCTX "Software\${PRODUCT_FILENAME}\Capabilities\FileAssociations" ".${EXT}" "${PROGID}"
+!macroend
+
+!macro mvpUnregisterAssoc EXT PROGID
+  DeleteRegValue SHCTX "Software\Classes\.${EXT}\OpenWithProgids" "${PROGID}"
+  DeleteRegKey SHCTX "Software\Classes\${PROGID}"
+!macroend
+
 !macro customInstall
-  ; Intentionally empty — cleanup runs in customPageAfterChangeDir.
+  ; Cleanup of older installs runs in customPageAfterChangeDir.
+  DetailPrint "Registering ${PRODUCT_NAME} as a media player..."
+
+  ; Appear under Settings → Default apps (Windows 10/11).
+  WriteRegStr SHCTX "Software\${PRODUCT_FILENAME}\Capabilities" "ApplicationName" "${PRODUCT_NAME}"
+  WriteRegStr SHCTX "Software\${PRODUCT_FILENAME}\Capabilities" "ApplicationDescription" "Play video and audio files with ${PRODUCT_NAME}"
+  WriteRegStr SHCTX "Software\RegisteredApplications" "${PRODUCT_NAME}" "Software\${PRODUCT_FILENAME}\Capabilities"
+
+  WriteRegStr SHCTX "Software\Classes\Applications\${APP_EXECUTABLE_FILENAME}\shell\open\command" "" '"$INSTDIR\${APP_EXECUTABLE_FILENAME}" "%1"'
+  WriteRegStr SHCTX "Software\Classes\Applications\${APP_EXECUTABLE_FILENAME}" "FriendlyAppName" "${PRODUCT_NAME}"
+
+  ; Video
+  !insertmacro mvpRegisterAssoc "mp4"  "MyVideoPlayer.mp4"  "MP4 Video"
+  !insertmacro mvpRegisterAssoc "m4v"  "MyVideoPlayer.m4v"  "M4V Video"
+  !insertmacro mvpRegisterAssoc "webm" "MyVideoPlayer.webm" "WebM Video"
+  !insertmacro mvpRegisterAssoc "mkv"  "MyVideoPlayer.mkv"  "MKV Video"
+  !insertmacro mvpRegisterAssoc "mov"  "MyVideoPlayer.mov"  "QuickTime Video"
+  !insertmacro mvpRegisterAssoc "avi"  "MyVideoPlayer.avi"  "AVI Video"
+  !insertmacro mvpRegisterAssoc "ogv"  "MyVideoPlayer.ogv"  "Ogg Video"
+  !insertmacro mvpRegisterAssoc "hevc" "MyVideoPlayer.hevc" "HEVC Video"
+  !insertmacro mvpRegisterAssoc "h265" "MyVideoPlayer.h265" "H.265 Video"
+  ; Audio
+  !insertmacro mvpRegisterAssoc "mp3"  "MyVideoPlayer.mp3"  "MP3 Audio"
+  !insertmacro mvpRegisterAssoc "aac"  "MyVideoPlayer.aac"  "AAC Audio"
+  !insertmacro mvpRegisterAssoc "m4a"  "MyVideoPlayer.m4a"  "M4A Audio"
+  !insertmacro mvpRegisterAssoc "wav"  "MyVideoPlayer.wav"  "WAV Audio"
+  !insertmacro mvpRegisterAssoc "flac" "MyVideoPlayer.flac" "FLAC Audio"
+  !insertmacro mvpRegisterAssoc "opus" "MyVideoPlayer.opus" "Opus Audio"
+  !insertmacro mvpRegisterAssoc "ogg"  "MyVideoPlayer.ogg"  "Ogg Audio"
+  !insertmacro mvpRegisterAssoc "wma"  "MyVideoPlayer.wma"  "WMA Audio"
+
+  System::Call 'shell32::SHChangeNotify(i, i, i, i) v (0x08000000, 0, 0, 0)'
 !macroend
 
 !macro customUnInstall
-  ${ifNot} ${isUpdated}
+  ; Skip association cleanup during in-app updates (--updated).
+  ${GetParameters} $R8
+  ClearErrors
+  ${GetOptions} $R8 "--updated" $R9
+  ${if} ${errors}
     ; Extra cleanup when the user uninstalls from Apps & features
     SetShellVarContext current
     RMDir /r "$APPDATA\${APP_FILENAME}"
@@ -237,5 +315,30 @@
     RMDir /r "$LOCALAPPDATA\${PRODUCT_FILENAME}"
     RMDir /r "$LOCALAPPDATA\${PRODUCT_NAME}"
     RMDir /r "$LOCALAPPDATA\${APP_PACKAGE_NAME}"
-  ${endIf}
+
+    DeleteRegValue SHCTX "Software\RegisteredApplications" "${PRODUCT_NAME}"
+    DeleteRegKey SHCTX "Software\${PRODUCT_FILENAME}\Capabilities"
+    DeleteRegKey SHCTX "Software\${PRODUCT_FILENAME}"
+    DeleteRegKey SHCTX "Software\Classes\Applications\${APP_EXECUTABLE_FILENAME}"
+
+    !insertmacro mvpUnregisterAssoc "mp4"  "MyVideoPlayer.mp4"
+    !insertmacro mvpUnregisterAssoc "m4v"  "MyVideoPlayer.m4v"
+    !insertmacro mvpUnregisterAssoc "webm" "MyVideoPlayer.webm"
+    !insertmacro mvpUnregisterAssoc "mkv"  "MyVideoPlayer.mkv"
+    !insertmacro mvpUnregisterAssoc "mov"  "MyVideoPlayer.mov"
+    !insertmacro mvpUnregisterAssoc "avi"  "MyVideoPlayer.avi"
+    !insertmacro mvpUnregisterAssoc "ogv"  "MyVideoPlayer.ogv"
+    !insertmacro mvpUnregisterAssoc "hevc" "MyVideoPlayer.hevc"
+    !insertmacro mvpUnregisterAssoc "h265" "MyVideoPlayer.h265"
+    !insertmacro mvpUnregisterAssoc "mp3"  "MyVideoPlayer.mp3"
+    !insertmacro mvpUnregisterAssoc "aac"  "MyVideoPlayer.aac"
+    !insertmacro mvpUnregisterAssoc "m4a"  "MyVideoPlayer.m4a"
+    !insertmacro mvpUnregisterAssoc "wav"  "MyVideoPlayer.wav"
+    !insertmacro mvpUnregisterAssoc "flac" "MyVideoPlayer.flac"
+    !insertmacro mvpUnregisterAssoc "opus" "MyVideoPlayer.opus"
+    !insertmacro mvpUnregisterAssoc "ogg"  "MyVideoPlayer.ogg"
+    !insertmacro mvpUnregisterAssoc "wma"  "MyVideoPlayer.wma"
+
+    System::Call 'shell32::SHChangeNotify(i, i, i, i) v (0x08000000, 0, 0, 0)'
+  ${endif}
 !macroend

@@ -9,10 +9,14 @@
     "start": "electron .",
     "web": "npx --yes serve src -p 5173",
     "pack": "electron-builder --dir",
-    "dist": "electron-builder",
-    "dist:win": "electron-builder --win",
-    "dist:mac": "electron-builder --mac",
-    "dist:linux": "electron-builder --linux"
+    "build": "electron-builder && node scripts/copy-installer-to-root.js",
+    "build:win": "node scripts/ensure-wincodesign.js && electron-builder --win && node scripts/copy-installer-to-root.js",
+    "build:mac": "electron-builder --mac && node scripts/copy-installer-to-root.js",
+    "build:linux": "electron-builder --linux && node scripts/copy-installer-to-root.js",
+    "dist": "npm run build",
+    "dist:win": "npm run build:win",
+    "dist:mac": "npm run build:mac",
+    "dist:linux": "npm run build:linux"
   },
   "devDependencies": {
     "electron": "^33.2.0",
@@ -38,6 +42,24 @@
       "**/node_modules/ffmpeg-static/**"
     ],
     "extraResources": [],
+    "fileAssociations": [
+      {
+        "ext": ["mp4", "m4v", "webm", "mkv", "mov", "avi", "ogv", "hevc", "h265"],
+        "name": "MyVideoPlayer Video",
+        "description": "Video file",
+        "mimeType": "video/mp4",
+        "role": "Viewer",
+        "icon": "asset/icon.ico"
+      },
+      {
+        "ext": ["mp3", "aac", "m4a", "wav", "flac", "opus", "ogg", "wma"],
+        "name": "MyVideoPlayer Audio",
+        "description": "Audio file",
+        "mimeType": "audio/mpeg",
+        "role": "Viewer",
+        "icon": "asset/icon.ico"
+      }
+    ],
     "win": {
       "target": [
         {
@@ -47,7 +69,8 @@
           ]
         }
       ],
-      "icon": "asset/icon.ico"
+      "icon": "asset/icon.ico",
+      "signAndEditExecutable": true
     },
     "nsis": {
       "oneClick": false,

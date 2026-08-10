@@ -2670,6 +2670,26 @@ async function init() {
   renderRecentMenu();
   syncWindowMinWidth();
 
+  // OS file association / "Open with" / second-instance handoff
+  window.desktopAPI?.onOpenMediaPaths?.(async (paths) => {
+    const list = Array.isArray(paths) ? paths : [];
+    for (const filePath of list) {
+      if (!filePath || !isElectron) continue;
+      const result = await window.desktopAPI.openMediaPath(filePath);
+      if (result?.ok) {
+        await loadMedia({
+          url: result.url,
+          name: result.name,
+          path: result.path,
+          size: result.size,
+          ext: result.ext,
+          subtitle: result.subtitle
+        });
+        break;
+      }
+    }
+  });
+
   // Paste YouTube URL anywhere (except inputs)
   window.addEventListener('paste', async (e) => {
     const tag = (e.target?.tagName || '').toLowerCase();
