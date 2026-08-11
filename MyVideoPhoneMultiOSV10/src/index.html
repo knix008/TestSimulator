@@ -334,6 +334,13 @@
         </label>
         <p class="field-error hidden" id="connectError"></p>
         <button type="button" class="btn primary connect-submit" id="btnConnect" data-i18n="connectAction">Connect</button>
+        <div class="connect-recent" id="connectRecent" hidden>
+          <div class="connect-recent-head">
+            <span class="connect-recent-title" data-i18n="recentCallsTitle">Recent</span>
+            <button type="button" class="connect-recent-clear" id="btnClearRecent" data-i18n="recentClearAll">Clear all</button>
+          </div>
+          <ul class="connect-recent-list" id="connectRecentList"></ul>
+        </div>
       </div>
     </form>
   </dialog>

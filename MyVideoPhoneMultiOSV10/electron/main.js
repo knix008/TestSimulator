@@ -18,8 +18,10 @@ const {
 // Allow multiple processes for local testing:
 // - unpackaged (`npm start`) always
 // - packaged / any mode with `--multi` or MyVideoPhone_MULTI=1
+// Single instance is the default everywhere (a second process would fight over
+// the camera device and the fixed phone port). Multi-instance stays available
+// for deliberate local testing via --multi or MyVideoPhone_MULTI=1.
 const allowMultipleInstances =
-  !app.isPackaged ||
   process.argv.includes('--multi') ||
   ['1', 'true', 'yes'].includes(String(process.env.MyVideoPhone_MULTI || '').toLowerCase());
 

@@ -171,16 +171,53 @@ async function waitForPublisherInit(timeoutMs = 6000) {
 }
 
 /**
+ * Kill a child and resolve once it has actually exited. The camera is an
+ * exclusive device on Windows (dshow), so a new encoder must not spawn until the
+ * old process has fully released the handle — otherwise the new ffmpeg fails to
+ * open the camera and emits no frames (peer sees a "start timeout").
+ */
+function killProcessAsync(child, timeoutMs = 3000) {
+  return new Promise((resolve) => {
+    if (!child || child.exitCode !== null || child.signalCode) {
+      resolve();
+      return;
+    }
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      // Small grace for the camera driver to release the device handle.
+      setTimeout(resolve, 150);
+    };
+    child.once('exit', finish);
+    child.once('close', finish);
+    killProcess(child);
+    setTimeout(finish, timeoutMs);
+  });
+}
+
+/**
  * Start a brand-new camera encode at call-connect time.
  * Warm preview publishers must not feed “old” timeline into a peer call.
  */
 async function prepareFreshPublisherForCall() {
   if (!session) session = createEmptySession();
+
+  // Reuse an already-warm call publisher instead of thrashing it. A reconnecting
+  // or late-joining peer (e.g. after a brief drop or a retry) must not kill the
+  // encoder that is still warming up — that turns one slow start into an endless
+  // restart loop. Only a genuinely stale/warm-preview publisher gets replaced.
+  const hasRemoteClient = [...clientMeta.values()].some((m) => m?.isRemote);
+  const recentlyStarted = Boolean(session.process) && Date.now() - session.startedAt < 8000;
+  if (session.process && (hasRemoteClient || recentlyStarted)) {
+    return;
+  }
+
   closeClients({ localClose: true });
   if (session.process) {
     const old = session.process;
     session.process = null;
-    killProcess(old);
+    await killProcessAsync(old);
   }
   session.initReady = false;
   session.initSegment = Buffer.alloc(0);
@@ -544,17 +581,48 @@ function listDevicesStderr() {
   });
 }
 
+/**
+ * Parse `ffmpeg -list_devices` dshow output into video / audio device names.
+ * Robust across ffmpeg versions: newer builds tag each line with (video)/(audio)
+ * and may drop the "DirectShow audio devices" section header that the old split
+ * relied on — missing that header silently dropped the mic (audio-less publish).
+ * @param {string} stderr
+ * @returns {{ video: string[], audio: string[] }}
+ */
+function parseDshowDevices(stderr) {
+  const video = [];
+  const audio = [];
+  let section = '';
+  for (const line of String(stderr || '').split(/\r?\n/)) {
+    if (/DirectShow video devices/i.test(line)) {
+      section = 'video';
+      continue;
+    }
+    if (/DirectShow audio devices/i.test(line)) {
+      section = 'audio';
+      continue;
+    }
+    // "Alternative name" lines hold the @device_... path, not a friendly name.
+    if (/Alternative name/i.test(line)) continue;
+    const m = line.match(/"([^"]+)"/);
+    if (!m) continue;
+    const name = m[1];
+    if (/\(audio\)/i.test(line)) audio.push(name);
+    else if (/\(video\)/i.test(line)) video.push(name);
+    else if (section === 'audio') audio.push(name);
+    else if (section === 'video') video.push(name);
+  }
+  return { video, audio };
+}
+
 async function resolveCameraInputArgs() {
   if (cachedDeviceInputArgs) return cachedDeviceInputArgs;
 
   if (process.platform === 'win32') {
     const stderr = await listDevicesStderr();
-    const videoSection = stderr.split(/DirectShow audio devices/i)[0] || stderr;
-    const audioSection = stderr.split(/DirectShow audio devices/i)[1] || '';
-    const vMatch = videoSection.match(/"([^"]+)"\s*(?:\(video\))?/i);
-    const aMatch = audioSection.match(/"([^"]+)"/);
-    const cam = vMatch?.[1] ? `video=${vMatch[1]}` : 'video=0';
-    const mic = aMatch?.[1] ? `audio=${aMatch[1]}` : '';
+    const { video, audio } = parseDshowDevices(stderr);
+    const cam = video[0] ? `video=${video[0]}` : 'video=0';
+    const mic = audio[0] ? `audio=${audio[0]}` : '';
     const device = mic ? `${cam}:${mic}` : cam;
     publishHasAudioInput = Boolean(mic);
     cachedDeviceInputArgs = ['-f', 'dshow', '-framerate', '30', '-i', device];

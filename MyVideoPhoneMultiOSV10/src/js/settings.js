@@ -15,8 +15,30 @@ export const DEFAULT_SETTINGS = {
   windowOpacity: 100,
   showLocalPreview: true,
   /** @type {'contain' | 'cover' | 'actual'} */
-  videoFit: 'cover'
+  videoFit: 'cover',
+  /** Recently dialed addresses (most-recent first, max 10). @type {string[]} */
+  recentCalls: []
 };
+
+/** Max entries kept in the recent-calls history. */
+export const MAX_RECENT_CALLS = 10;
+
+/** Sanitize a persisted recent-calls list: strings only, trimmed, deduped, capped. */
+export function normalizeRecentCalls(list) {
+  if (!Array.isArray(list)) return [];
+  const seen = new Set();
+  const out = [];
+  for (const item of list) {
+    const s = String(item || '').trim();
+    if (!s) continue;
+    const key = s.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(s);
+    if (out.length >= MAX_RECENT_CALLS) break;
+  }
+  return out;
+}
 
 const VIDEO_FIT_MODES = new Set(['contain', 'cover', 'actual']);
 
@@ -33,6 +55,7 @@ export function loadSettings() {
     if (merged.micVolume == null) merged.micVolume = DEFAULT_SETTINGS.micVolume;
     merged.micVolume = Math.min(100, Math.max(0, Math.round(Number(merged.micVolume) || 100)));
     merged.videoFit = normalizeVideoFit(merged.videoFit);
+    merged.recentCalls = normalizeRecentCalls(merged.recentCalls);
     // uiPort was removed from user settings — ignore legacy persisted values.
     delete merged.uiPort;
     return merged;

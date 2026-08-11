@@ -1993,6 +1993,101 @@ body.is-call-recording .call-badge-dot {
   font-weight: 600;
 }
 
+/* Recent-calls history in the connect dialog */
+.connect-recent {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+  border-top: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+  padding-top: 10px;
+}
+
+.connect-recent-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.connect-recent-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted, rgba(255, 255, 255, 0.6));
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.connect-recent-clear {
+  border: 0;
+  background: transparent;
+  color: var(--muted, rgba(255, 255, 255, 0.6));
+  font-size: 12px;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 6px;
+}
+
+.connect-recent-clear:hover {
+  color: var(--text);
+  background: var(--surface-2, rgba(255, 255, 255, 0.08));
+}
+
+.connect-recent-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.connect-recent-item {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+}
+
+.connect-recent-pick {
+  flex: 1 1 auto;
+  min-width: 0;
+  text-align: left;
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+  background: var(--surface-2, rgba(255, 255, 255, 0.04));
+  color: var(--text);
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.connect-recent-pick:hover {
+  background: var(--surface-3, rgba(255, 255, 255, 0.1));
+  border-color: var(--accent, #4a9eff);
+}
+
+.connect-recent-del {
+  flex: 0 0 auto;
+  width: 34px;
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+  background: var(--surface-2, rgba(255, 255, 255, 0.04));
+  color: var(--muted, rgba(255, 255, 255, 0.6));
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+}
+
+.connect-recent-del:hover {
+  color: #fff;
+  background: var(--danger, #e5484d);
+  border-color: var(--danger, #e5484d);
+}
+
 /* Floating save progress — non-modal so playback stays visible */
 .save-progress-popup {
   position: absolute;

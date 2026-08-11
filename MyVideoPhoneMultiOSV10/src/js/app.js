@@ -1,4 +1,11 @@
-import { loadSettings, saveSettings, resetSettings, normalizeVideoFit } from './settings.js';
+import {
+  loadSettings,
+  saveSettings,
+  resetSettings,
+  normalizeVideoFit,
+  normalizeRecentCalls,
+  MAX_RECENT_CALLS
+} from './settings.js';
 import { initTooltips } from './tooltip.js';
 import {
   BUILTIN_THEMES,
@@ -41,6 +48,9 @@ const els = {
   connectModal: $('connectModal'),
   connectUrlInput: $('connectUrlInput'),
   connectError: $('connectError'),
+  connectRecent: $('connectRecent'),
+  connectRecentList: $('connectRecentList'),
+  btnClearRecent: $('btnClearRecent'),
   progressModal: $('progressModal'),
   progressTitle: $('progressTitle'),
   progressName: $('progressName'),
@@ -306,11 +316,37 @@ function startCallWatch() {
  * Live HTTP/MSE glitched — reconnect only.
  * Call ends solely via the hang-up button (or peer /bye), never because video hiccuped.
  */
+/**
+ * Blank the peer video stage so a dropped stream does not leave a frozen last
+ * frame. Does NOT end the call (hang-up is the call button); if the stream
+ * recovers, playback repopulates the element.
+ */
+async function clearPhoneVideoSurface() {
+  try {
+    await liveMse.stop();
+  } catch {
+    /* ignore */
+  }
+  try {
+    els.media.pause();
+    els.media.removeAttribute('src');
+    els.media.load();
+  } catch {
+    /* ignore */
+  }
+  hidePlaybackOverlay(true);
+}
+
 async function handlePhoneStreamLost() {
   if (hangUpInFlight || phoneRecoverInFlight) return;
   if (!phoneSessionActive && !currentPhoneUrl) return;
   const url = currentPhoneUrl;
-  if (!url || phoneRecoverTries >= 3) return;
+  if (!url || phoneRecoverTries >= 3) {
+    // Reconnection exhausted (or nothing to reconnect to) — clear the frozen
+    // last frame instead of leaving it on screen.
+    await clearPhoneVideoSurface();
+    return;
+  }
   phoneRecoverInFlight = true;
   phoneRecoverTries += 1;
   try {
@@ -2554,10 +2590,82 @@ function updateConnectMyIpHint() {
   el.textContent = t('connectMyIp', { ip: hints.join(', ') });
 }
 
+/** Record a just-connected address at the top of the recent-calls history. */
+function recordRecentCall(rawInput) {
+  const addr = String(rawInput || '').trim();
+  if (!addr) return;
+  const next = normalizeRecentCalls([addr, ...(settings.recentCalls || [])]);
+  settings.recentCalls = next;
+  saveSettings(settings);
+  renderRecentCalls();
+}
+
+/** Remove a single address from the recent-calls history. */
+function removeRecentCall(addr) {
+  const key = String(addr || '').trim().toLowerCase();
+  if (!key) return;
+  settings.recentCalls = (settings.recentCalls || []).filter(
+    (a) => String(a).trim().toLowerCase() !== key
+  );
+  saveSettings(settings);
+  renderRecentCalls();
+}
+
+/** Clear the entire recent-calls history. */
+function clearRecentCalls() {
+  settings.recentCalls = [];
+  saveSettings(settings);
+  renderRecentCalls();
+}
+
+/** Render the recent-calls list inside the connect dialog. */
+function renderRecentCalls() {
+  const list = els.connectRecentList;
+  const wrap = els.connectRecent;
+  if (!list || !wrap) return;
+  const items = normalizeRecentCalls(settings.recentCalls);
+  list.textContent = '';
+  if (items.length === 0) {
+    wrap.hidden = true;
+    return;
+  }
+  wrap.hidden = false;
+  for (const addr of items) {
+    const li = document.createElement('li');
+    li.className = 'connect-recent-item';
+
+    const pick = document.createElement('button');
+    pick.type = 'button';
+    pick.className = 'connect-recent-pick';
+    pick.textContent = addr;
+    pick.title = addr;
+    pick.addEventListener('click', () => {
+      els.connectUrlInput.value = addr;
+      showConnectError('');
+      els.connectUrlInput.focus();
+    });
+
+    const del = document.createElement('button');
+    del.type = 'button';
+    del.className = 'connect-recent-del';
+    del.textContent = '✕';
+    del.setAttribute('aria-label', t('recentDelete'));
+    del.title = t('recentDelete');
+    del.addEventListener('click', (e) => {
+      e.stopPropagation();
+      removeRecentCall(addr);
+    });
+
+    li.append(pick, del);
+    list.append(li);
+  }
+}
+
 function openConnectDialog(prefill = '') {
   showConnectError('');
   els.connectUrlInput.value = prefill || currentPhoneUrl || currentRtspUrl || '';
   updateConnectMyIpHint();
+  renderRecentCalls();
   openThemedDialog(els.connectModal, { modal: true });
   queueMicrotask(() => {
     els.connectUrlInput.focus();
@@ -2882,15 +2990,19 @@ async function playNetworkFromInput(rawInput) {
     setStatus({ state: t('rtspOrIpInvalid') });
     return false;
   }
+  let ok = false;
   if (isRtspUrl(normalized)) {
-    return playRtspFromInput(normalized);
+    ok = await playRtspFromInput(normalized);
+  } else if (isHttpUrl(normalized)) {
+    ok = await playPhoneFromInput(normalized);
+  } else {
+    showConnectError(t('rtspOrIpInvalid'));
+    setStatus({ state: t('rtspOrIpInvalid') });
+    return false;
   }
-  if (isHttpUrl(normalized)) {
-    return playPhoneFromInput(normalized);
-  }
-  showConnectError(t('rtspOrIpInvalid'));
-  setStatus({ state: t('rtspOrIpInvalid') });
-  return false;
+  // Remember the address as typed once the call actually connects.
+  if (ok) recordRecentCall(rawInput);
+  return ok;
 }
 
 async function stopCurrentRtspRecord({ playAfter = false } = {}) {
@@ -3472,6 +3584,7 @@ function bindToolbar() {
       await playNetworkFromInput(els.connectUrlInput.value);
     }
   });
+  els.btnClearRecent?.addEventListener('click', () => clearRecentCalls());
 
   $('settingLocale')?.addEventListener('change', () => {
     applyLocale($('settingLocale').value);
