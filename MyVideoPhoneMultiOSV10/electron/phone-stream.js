@@ -80,9 +80,9 @@ let publishCaptureHandler = null;
 /** Monotonic id so late/stale renderer chunks are dropped after a restart. */
 let publishGeneration = 0;
 /** Whether the renderer's publish stream carries an audio (mic) track. */
-let publishStreamHasAudio = true;
+let publishStreamHasAudio = false;
 /** MediaRecorder mime the renderer is using (for reference/diagnostics). */
-let publishMimeType = 'video/webm;codecs=vp8,opus';
+let publishMimeType = 'video/webm;codecs=vp8';
 /** Last capture status the renderer reported (traces getUserMedia/MediaRecorder). */
 /** @type {null | { at: number, status: string }} */
 let lastCaptureStatus = null;
@@ -90,6 +90,10 @@ let lastCaptureStatus = null;
 let publishBytesIn = 0;
 /** Bytes of fMP4 written OUT to /live clients since the last publisher (re)start. */
 let publishBytesOut = 0;
+/** Webm chunks that arrived before ffmpeg stdin was ready (header + early clusters). */
+/** @type {Buffer[]} */
+let prePublishBuf = [];
+let prePublishGen = 0;
 
 /** @type {null | {
  *   process: import('child_process').ChildProcess | null,
@@ -751,7 +755,7 @@ function buildPublishArgs(inputArgs) {
     '-movflags',
     'frag_keyframe+empty_moov+default_base_moof+omit_tfhd_offset',
     '-frag_duration',
-    '500000',
+    '200000',
     '-flush_packets',
     '1',
     '-muxdelay',
@@ -769,12 +773,20 @@ function buildPublishArgs(inputArgs) {
  * IMPORTANT: never add `-fflags nobuffer` on this input — it truncates webm
  * packets and breaks vp8 decoding (verified). `+genpts` stabilizes the live
  * timestamps MediaRecorder emits.
+ *
+ * Audio is optional: mapping a missing audio stream makes ffmpeg emit moov then
+ * stall waiting for A/V sync (LAN symptom: init=true, segs=0, ~1KB).
  */
 function buildPublishArgsFromPipe() {
   const gain = micLinearGain();
-  const audioArgs = publishStreamHasAudio
+  // Only mux audio when the webm actually advertises an audio codec. Mapping a
+  // missing/late audio stream yields moov then zero fragments (segs=0 timeout).
+  const wantAudio =
+    Boolean(publishStreamHasAudio) && /opus|vorbis/i.test(String(publishMimeType || ''));
+  const audioArgs = wantAudio
     ? ['-c:a', 'aac', '-b:a', '64k', '-ac', '1', '-ar', '16000', '-af', `volume=${gain.toFixed(3)}`]
     : ['-an'];
+  const mapArgs = wantAudio ? ['-map', '0:v:0', '-map', '0:a:0?'] : ['-map', '0:v:0'];
 
   return [
     '-hide_banner',
@@ -782,12 +794,15 @@ function buildPublishArgsFromPipe() {
     'warning',
     '-fflags',
     '+genpts',
+    '-probesize',
+    '32k',
+    '-analyzeduration',
+    '0',
+    '-f',
+    'webm',
     '-i',
     'pipe:0',
-    '-map',
-    '0:v:0?',
-    '-map',
-    '0:a:0?',
+    ...mapArgs,
     '-c:v',
     'libx264',
     '-preset',
@@ -804,8 +819,10 @@ function buildPublishArgsFromPipe() {
     '15',
     '-bf',
     '0',
+    '-force_key_frames',
+    'expr:gte(t,n_forced*0.5)',
     '-x264-params',
-    'scenecut=0:bframes=0',
+    'scenecut=0:bframes=0:keyint=15:min-keyint=15',
     ...audioArgs,
     '-flags',
     'low_delay',
@@ -813,11 +830,11 @@ function buildPublishArgsFromPipe() {
     'mp4',
     '-movflags',
     'frag_keyframe+empty_moov+default_base_moof+omit_tfhd_offset',
+    // 200ms fragments so peers see moof/mdat quickly after moov.
     '-frag_duration',
-    '500000',
+    '200000',
     '-flush_packets',
     '1',
-    // Low-latency muxing so fragments are emitted immediately, not buffered.
     '-muxdelay',
     '0',
     '-muxpreload',
@@ -849,19 +866,28 @@ function getPublishMimeType() {
 
 /** Feed one webm chunk from the renderer into the current ffmpeg publisher. */
 function feedPublishChunk(generation, chunk) {
-  if (!session || !session.process) return;
-  // Drop chunks from a previous recorder generation (after a restart).
-  if (generation != null && session.generation !== generation) return;
   if (!chunk) return;
+  // Drop chunks from a previous recorder generation (after a restart).
+  if (generation != null && session?.generation != null && session.generation !== generation) {
+    if (generation !== prePublishGen) return;
+  }
   const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
-  const stdin = session.process.stdin;
+  publishBytesIn += buf.length;
+
+  const stdin = session?.process?.stdin;
   if (stdin && !stdin.destroyed) {
     try {
       stdin.write(buf);
-      publishBytesIn += buf.length;
     } catch {
       /* ffmpeg may have exited; close handler will clean up */
     }
+    return;
+  }
+
+  // Capture often starts before ffmpeg stdin exists — keep the webm header.
+  if (generation == null || generation === prePublishGen || generation === publishGeneration) {
+    prePublishBuf.push(buf);
+    while (prePublishBuf.length > 80) prePublishBuf.shift();
   }
 }
 
@@ -902,35 +928,28 @@ function setPhoneMic(opts = {}) {
   };
 }
 
-async function ensurePublisher() {
-  if (!publishEnabled) return false;
-  if (session?.process) return true;
-
-  const ffmpeg = resolveFfmpegPath();
-  const args = buildPublishArgsFromPipe();
-
-  const clients = session?.clients || new Set();
-  session = createEmptySession(clients);
-  session.generation = ++publishGeneration;
-  const myGen = session.generation;
-  publishBytesIn = 0;
-  publishBytesOut = 0;
-
-  const child = spawn(ffmpeg, args, {
-    windowsHide: true,
-    stdio: ['pipe', 'pipe', 'pipe']
-  });
+/**
+ * Attach stdout/stderr/close handlers shared by device and pipe publishers.
+ * @param {import('child_process').ChildProcess} child
+ * @param {number} myGen
+ * @param {'device' | 'pipe'} mode
+ */
+function attachPublisherProcess(child, myGen, mode) {
+  if (!session) return;
   session.process = child;
-  // Writing to a dead ffmpeg stdin must never crash the process.
-  child.stdin.on('error', () => {});
+  session.publishMode = mode;
+
+  if (child.stdin) {
+    child.stdin.on('error', () => {});
+  }
 
   child.stdout.on('data', (chunk) => {
     if (!session || session.process !== child) return;
+    publishBytesOut += chunk.length;
 
     let live = chunk;
     if (!session.initReady) {
       session.parseBuf = Buffer.concat([session.parseBuf, chunk]);
-      // Cap parse buffer if camera/ffmpeg never emits moov (avoid RAM blow-up).
       if (session.parseBuf.length > 512 * 1024) {
         session.stderr += '\nfMP4 init (ftyp/moov) not found in first 512KB';
         session.parseBuf = session.parseBuf.subarray(session.parseBuf.length - 64 * 1024);
@@ -945,7 +964,6 @@ async function ensurePublisher() {
       live = parsed.rest;
     }
 
-    // Broadcast only the live edge — never retain moof/mdat for replay.
     writeLiveToClients(live);
   });
 
@@ -961,21 +979,19 @@ async function ensurePublisher() {
   });
 
   child.on('close', (code, signal) => {
-    // Soft mic restart nulls process / swaps child first — keep /live clients.
     if (!session || session.process !== child) return;
-    // Preserve why the publisher died so /status can explain it after teardown.
     lastPublish = {
       at: Date.now(),
       code,
       signal,
       initReady: Boolean(session.initReady),
-      device: `pipe:0 ${publishMimeType}`,
+      device: mode === 'pipe' ? `pipe:0 ${publishMimeType}` : 'dshow/avfoundation/v4l2',
+      mode,
       bytesIn: publishBytesIn,
       bytesOut: publishBytesOut,
       stderr: String(session.stderr || '').slice(-1500)
     };
     session.process = null;
-    // Stop the renderer feeding a dead generation.
     try {
       publishCaptureHandler?.('stop', myGen);
     } catch {
@@ -983,16 +999,123 @@ async function ensurePublisher() {
     }
     closeClients({ localClose: true });
   });
+}
 
-  // Ask the renderer to (re)start MediaRecorder and stream webm for this
-  // generation. The first chunk carries the webm header so ffmpeg can decode.
+/**
+ * Preferred path: ffmpeg opens the OS camera directly and emits real fMP4
+ * fragments. The MediaRecorder→webm→pipe path often stops after moov (segs=0).
+ */
+async function startDevicePublisher(clients) {
+  session = createEmptySession(clients);
+  session.generation = ++publishGeneration;
+  const myGen = session.generation;
+  publishBytesIn = 0;
+  publishBytesOut = 0;
+  prePublishBuf = [];
+  prePublishGen = myGen;
+
+  // Renderer getUserMedia holds the camera exclusively on Windows — release it.
+  try {
+    publishCaptureHandler?.('release', myGen);
+  } catch {
+    /* ignore */
+  }
+  await sleep(350);
+
+  const inputArgs = await resolveCameraInputArgs();
+  const ffmpeg = resolveFfmpegPath();
+  const args = buildPublishArgs(inputArgs);
+  setPublishCaptureStatus(`device-publish ${inputArgs.join(' ')}`);
+
+  const child = spawn(ffmpeg, args, {
+    windowsHide: true,
+    stdio: ['ignore', 'pipe', 'pipe']
+  });
+  attachPublisherProcess(child, myGen, 'device');
+
+  const ok = await waitForPublisherInit(6000);
+  if (ok) {
+    setPublishCaptureStatus('device-publish init-ready');
+    return true;
+  }
+
+  // Device path failed — tear down before pipe fallback.
+  setPublishCaptureStatus(
+    `device-publish failed init stderr=${String(session?.stderr || '').slice(-200)}`
+  );
+  try {
+    session.process = null;
+    await killProcessAsync(child);
+  } catch {
+    /* ignore */
+  }
+  session.initReady = false;
+  session.initSegment = Buffer.alloc(0);
+  session.parseBuf = Buffer.alloc(0);
+  return false;
+}
+
+/** Fallback: renderer MediaRecorder webm → ffmpeg stdin → fMP4. */
+async function startPipePublisher(clients) {
+  session = createEmptySession(clients);
+  session.generation = ++publishGeneration;
+  const myGen = session.generation;
+  prePublishGen = myGen;
+  prePublishBuf = [];
+  publishBytesIn = 0;
+  publishBytesOut = 0;
+
   try {
     publishCaptureHandler?.('start', myGen);
   } catch {
     /* ignore */
   }
 
+  const waitStart = Date.now();
+  while (prePublishBuf.length === 0 && Date.now() - waitStart < 2500) {
+    await sleep(40);
+  }
+
+  const ffmpeg = resolveFfmpegPath();
+  // Force video-only mux for pipe reliability (A/V wait was causing segs=0).
+  const prevAudio = publishStreamHasAudio;
+  const prevMime = publishMimeType;
+  publishStreamHasAudio = false;
+  publishMimeType = 'video/webm;codecs=vp8';
+  const args = buildPublishArgsFromPipe();
+  publishStreamHasAudio = prevAudio;
+  publishMimeType = prevMime;
+
+  const child = spawn(ffmpeg, args, {
+    windowsHide: true,
+    stdio: ['pipe', 'pipe', 'pipe']
+  });
+  attachPublisherProcess(child, myGen, 'pipe');
+
+  for (const buf of prePublishBuf) {
+    try {
+      child.stdin.write(buf);
+    } catch {
+      /* ignore */
+    }
+  }
+  prePublishBuf = [];
+  setPublishCaptureStatus(`pipe-publish buffered=${publishBytesIn}B`);
   return true;
+}
+
+async function ensurePublisher() {
+  if (!publishEnabled) return false;
+  if (session?.process) return true;
+
+  const clients = session?.clients || new Set();
+
+  // 1) OS camera via ffmpeg (produces moof/mdat reliably on Win/macOS).
+  const deviceOk = await startDevicePublisher(clients);
+  if (deviceOk) return true;
+
+  // 2) Fallback for MIPI / sensors that DirectShow cannot open.
+  return startPipePublisher(clients);
 }
 
 async function servePhoneLive(req, res) {
@@ -1103,26 +1226,23 @@ async function servePhoneLive(req, res) {
  * (e.g. camera in use by the local preview) by opening http://<ip>:<port>/status.
  */
 function getPublishDiag() {
+  const mode = session?.publishMode || (session?.process ? 'unknown' : 'idle');
   return {
     publishEnabled,
-    // Capture source is now the renderer (getUserMedia → webm → ffmpeg stdin).
-    source: 'renderer-webm',
+    // Prefer OS camera (dshow/avfoundation); pipe = MediaRecorder fallback.
+    source: mode === 'pipe' ? 'renderer-webm' : mode === 'device' ? 'ffmpeg-device' : mode,
+    publishMode: mode,
     captureHandler: Boolean(publishCaptureHandler),
     hasProcess: Boolean(session?.process),
     initReady: Boolean(session?.initReady),
     clients: session ? session.clients.size : 0,
     generation: session?.generation ?? publishGeneration,
     mimeType: publishMimeType,
-    hasAudioInput: publishStreamHasAudio,
-    // Webm bytes fed to ffmpeg / fMP4 bytes written out to clients.
+    hasAudioInput: mode === 'device' ? publishHasAudioInput : publishStreamHasAudio,
     bytesIn: publishBytesIn,
     bytesOut: publishBytesOut,
-    // Last capture step the renderer reported (getUserMedia / MediaRecorder).
     lastCaptureStatus,
-    // Live ffmpeg stderr (empty once the session is torn down).
     ffmpegStderrTail: session?.stderr ? String(session.stderr).slice(-800) : '',
-    // Why the LAST publisher died — survives teardown so a failed call is
-    // still diagnosable.
     lastPublish
   };
 }

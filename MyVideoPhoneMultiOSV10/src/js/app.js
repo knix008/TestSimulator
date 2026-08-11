@@ -211,13 +211,15 @@ let publishGeneration = 0;
 /** Idle timer to release the camera after a call fully ends (not brief restarts). */
 let publishReleaseTimer = 0;
 
-function pickPublishMime() {
-  const candidates = [
+function pickPublishMime(hasAudio = true) {
+  const withAudio = [
     'video/webm;codecs=vp8,opus',
     'video/webm;codecs=vp9,opus',
     'video/webm;codecs=vp8',
     'video/webm'
   ];
+  const videoOnly = ['video/webm;codecs=vp8', 'video/webm;codecs=vp9', 'video/webm'];
+  const candidates = hasAudio ? withAudio : videoOnly;
   for (const m of candidates) {
     try {
       if (window.MediaRecorder?.isTypeSupported?.(m)) return m;
@@ -329,12 +331,13 @@ async function startPublishCapture(generation) {
     const stream = await ensurePublishStream();
     if (publishGeneration !== generation) return; // superseded while awaiting
     const vCount = stream.getVideoTracks().length;
-    const hasAudio = stream.getAudioTracks().length > 0;
+    const hasAudio = stream.getAudioTracks().some((t) => t.readyState === 'live');
     reportPublishStatus(`stream video=${vCount} audio=${hasAudio}`);
     stopPublishRecorder();
-    const mimeType = pickPublishMime();
+    const mimeType = pickPublishMime(hasAudio);
     try {
-      void window.desktopAPI?.phonePublishConfig?.({ hasAudio, mimeType });
+      // Await so main's ffmpeg spawn (after first chunk) sees the real A/V config.
+      await window.desktopAPI?.phonePublishConfig?.({ hasAudio, mimeType });
     } catch {
       /* ignore */
     }
@@ -355,7 +358,7 @@ async function startPublishCapture(generation) {
         window.desktopAPI?.phonePublishChunk?.(generation, buf);
         if (firstChunk) {
           firstChunk = false;
-          reportPublishStatus(`first-chunk ${buf.length}B`);
+          reportPublishStatus(`first-chunk ${buf.length}B mime=${mimeType}`);
         }
       } catch {
         /* ignore */
@@ -364,8 +367,8 @@ async function startPublishCapture(generation) {
     recorder.onerror = (ev) => {
       reportPublishStatus(`recorder error: ${ev?.error?.name || 'unknown'}`);
     };
-    // 200ms timeslice: first blob carries the webm header, then live clusters.
-    recorder.start(200);
+    // 100ms timeslice: faster first clusters so ffmpeg emits moof after moov.
+    recorder.start(100);
     reportPublishStatus(`recording mime=${mimeType}`);
   } catch (err) {
     // Camera/mic unavailable — the publisher gets no data and the peer will see
@@ -3719,8 +3722,49 @@ function bindToolbar() {
   });
   // Main asks us to start/stop capturing our camera for the outgoing publish.
   window.desktopAPI?.onPhonePublishSignal?.((action, generation) => {
-    if (action === 'start') void startPublishCapture(generation);
-    else if (action === 'stop') stopPublishCapture();
+    if (action === 'start') {
+      void startPublishCapture(generation);
+      return;
+    }
+    if (action === 'stop') {
+      stopPublishCapture();
+      return;
+    }
+    // DirectShow/ffmpeg needs exclusive camera access — drop getUserMedia holds.
+    if (action === 'release') {
+      stopPublishRecorder();
+      if (publishReleaseTimer) {
+        clearTimeout(publishReleaseTimer);
+        publishReleaseTimer = 0;
+      }
+      releasePublishStream();
+      if (localCameraStream) {
+        for (const track of localCameraStream.getTracks()) {
+          try {
+            track.stop();
+          } catch {
+            /* ignore */
+          }
+        }
+        localCameraStream = null;
+      }
+      if (els.localPreviewVideo) {
+        try {
+          els.localPreviewVideo.pause();
+        } catch {
+          /* ignore */
+        }
+        els.localPreviewVideo.srcObject = null;
+        els.localPreviewVideo.removeAttribute('src');
+      }
+      reportPublishStatus(`released gen=${generation}`);
+      // PIP can follow the LAN publisher once it is up (loopback /live).
+      if (settings.showLocalPreview) {
+        window.setTimeout(() => {
+          void startLocalCameraViaPhoneHttp();
+        }, 800);
+      }
+    }
   });
   window.desktopAPI?.onPhonePeerLeft?.((info) => {
     // Only explicit peer hang-up (/bye) ends the call.

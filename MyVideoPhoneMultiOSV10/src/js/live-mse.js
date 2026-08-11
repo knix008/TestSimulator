@@ -497,6 +497,9 @@ export function createLiveMsePlayer(getVideo, options = {}) {
             enqueue(init);
             haveInit = true;
             initParts = [];
+            // Init means the publisher is live — do not fail the call while
+            // waiting for the first moof (ffmpeg may need another 1–2 GOPs).
+            resolveReady();
           }
           continue;
         }
