@@ -538,7 +538,10 @@ export function createLiveMsePlayer(getVideo, options = {}) {
       }
     })();
 
-    const timeout = sleep(8000).then(() => {
+    // Cold-start budget: peer may enumerate the camera device (~4s on Windows
+    // dshow) + warm it up + emit the first keyframe. 8s was too tight and timed
+    // out on the first call after launch; 15s covers a cold publisher start.
+    const timeout = sleep(15000).then(() => {
       if (!ready) throw new Error('Live stream start timeout');
     });
     await Promise.race([readyPromise, timeout]);

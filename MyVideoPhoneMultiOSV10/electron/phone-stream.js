@@ -947,6 +947,15 @@ async function startPhoneServer() {
     throw lastErr;
   }
 
+  // Warm the camera device resolution now (up to ~4s of dshow enumeration on
+  // Windows) so it is cached before the first /live call — keeps the cold-start
+  // publisher off the peer's start-timeout critical path.
+  if (publishEnabled) {
+    void resolveCameraInputArgs().catch(() => {
+      /* enumeration is best-effort; ensurePublisher will retry lazily */
+    });
+  }
+
   return {
     ok: true,
     port: listenPort,
