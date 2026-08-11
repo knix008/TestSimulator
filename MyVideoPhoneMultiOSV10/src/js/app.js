@@ -16,7 +16,7 @@ import {
 } from './themes.js';
 import { t, setLocale, applyI18n, resolveInitialLocale } from './i18n.js';
 import { createErrorDialogController, mediaErrorDetail } from './error-dialog.js';
-import { isEditableTarget, isModalOpen, isSpaceKey } from './hotkeys.js';
+import { isEditableTarget, isModalOpen } from './hotkeys.js';
 
 const isElectron = Boolean(window.desktopAPI?.isElectron);
 if (isElectron) {
@@ -36,11 +36,10 @@ const els = {
   videoWrap: $('videoWrap'),
   settingsModal: $('settingsModal'),
   aboutModal: $('aboutModal'),
-  doorOpenModal: $('doorOpenModal'),
   incomingCallModal: $('incomingCallModal'),
-  youtubeModal: $('youtubeModal'),
-  youtubeUrlInput: $('youtubeUrlInput'),
-  youtubeError: $('youtubeError'),
+  connectModal: $('connectModal'),
+  connectUrlInput: $('connectUrlInput'),
+  connectError: $('connectError'),
   progressModal: $('progressModal'),
   progressTitle: $('progressTitle'),
   progressName: $('progressName'),
@@ -157,6 +156,14 @@ let localMicEnabled = true;
 let localMicStream = null;
 /** @type {null | { callId: string, fromIp: string, fromLabel: string }} */
 let pendingIncomingCall = null;
+/** True after we Accept an incoming call (even if peer video fails to load). */
+let phoneSessionActive = false;
+/** Keep progressive fMP4 playback near the live edge (no VOD-style lag). */
+let liveEdgeSyncTimer = 0;
+/** Prevent re-entrant hang-up while tearing down a call. */
+let hangUpInFlight = false;
+/** Stall watchdog while watching a peer phone stream. */
+let phoneStallTimer = 0;
 
 function clearOverlayTimer() {
   if (overlayTimer) {
@@ -256,13 +263,11 @@ function notifyOverlayOnce(mode, options) {
 function notifyPlaying() {
   stopRequested = false;
   holdOverlayMode = null;
-  notifyOverlayOnce('play', { hold: false });
+  // Video phone: no play/pause chrome.
 }
 
 function notifyPaused() {
-  if (stopRequested) return;
-  // Keep pause icon visible until play / stop / new media.
-  notifyOverlayOnce('paused', { hold: true });
+  // Video phone: no play/pause chrome.
 }
 
 function notifyStopped() {
@@ -343,7 +348,7 @@ async function toggleLocalMic() {
 }
 
 function isLiveCall() {
-  return Boolean(currentRtspUrl || currentPhoneUrl);
+  return Boolean(currentRtspUrl || currentPhoneUrl || phoneSessionActive);
 }
 
 function notifyDesktop(title, body, { silent = false } = {}) {
@@ -372,8 +377,8 @@ function syncControlCallButton() {
   btn.classList.toggle('is-hangup', hangup);
   btn.querySelector('.icon-call-connect')?.classList.toggle('hidden', hangup);
   btn.querySelector('.icon-call-hangup')?.classList.toggle('hidden', !hangup);
-  const tipKey = hangup ? 'hangupTip' : 'youtubeTip';
-  const ariaKey = hangup ? 'hangup' : 'youtube';
+  const tipKey = hangup ? 'hangupTip' : 'connectTip';
+  const ariaKey = hangup ? 'hangup' : 'connect';
   btn.setAttribute('data-i18n-tooltip', tipKey);
   btn.setAttribute('data-tooltip', t(tipKey));
   btn.setAttribute('data-i18n-aria', ariaKey);
@@ -385,7 +390,7 @@ function onControlCallClick() {
     void hangUpCall();
     return;
   }
-  openYouTubeDialog();
+  openConnectDialog();
 }
 
 function updateCallChrome() {
@@ -568,39 +573,124 @@ async function toggleLocalCamera() {
   await startLocalCamera({ announce: true });
 }
 
-async function hangUpCall() {
-  if (openStreamInFlight) {
-    openStreamCancelled = true;
+function stopLiveEdgeSync() {
+  if (liveEdgeSyncTimer) {
+    clearInterval(liveEdgeSyncTimer);
+    liveEdgeSyncTimer = 0;
   }
-  if (rtspRecording) {
-    await finalizeRtspRecordIfAny();
-  }
-  await stopRtspBridge({ finalizeRecord: false });
-  currentPhoneUrl = null;
+}
+
+/**
+ * Progressive live fMP4 can drift behind the buffer end; chase the live edge.
+ * @param {HTMLMediaElement | null | undefined} video
+ */
+function chaseLiveEdge(video) {
+  if (!video || video.paused || video.readyState < 2) return;
+  const buf = video.buffered;
+  if (!buf || buf.length === 0) return;
   try {
-    await window.desktopAPI?.phoneClearSessions?.();
+    const liveEdge = buf.end(buf.length - 1);
+    const lag = liveEdge - video.currentTime;
+    if (lag > 1.0) {
+      video.currentTime = Math.max(0, liveEdge - 0.2);
+    }
   } catch {
-    /* ignore */
+    /* ignore seek errors while stream is updating */
   }
-  els.media.pause();
-  els.media.removeAttribute('src');
-  els.media.load();
-  revokeObjectUrl();
-  currentMediaPath = null;
-  currentMediaName = null;
-  stopRequested = false;
-  hidePlaybackOverlay(true);
-  els.dropHint?.classList.remove('hidden');
-  setStatus({
-    file: statusKey('statusReady'),
-    format: '—',
-    state: statusKey('statusIdle')
-  });
-  updateCallChrome();
-  notifyDesktop(t('appTitle'), t('notifyCallEnded'));
-  if (settings.showLocalPreview) {
-    localCameraWanted = true;
-    void startLocalCamera();
+}
+
+function startLiveEdgeSync() {
+  stopLiveEdgeSync();
+  liveEdgeSyncTimer = window.setInterval(() => {
+    if (!currentPhoneUrl && !currentRtspUrl) {
+      stopLiveEdgeSync();
+      return;
+    }
+    chaseLiveEdge(els.media);
+    // HTTP local PIP (not getUserMedia) also needs live chase.
+    if (els.localPreviewVideo && !els.localPreviewVideo.srcObject) {
+      chaseLiveEdge(els.localPreviewVideo);
+    }
+  }, 750);
+}
+
+function clearPhoneStallWatch() {
+  if (phoneStallTimer) {
+    clearTimeout(phoneStallTimer);
+    phoneStallTimer = 0;
+  }
+}
+
+function armPhoneStallWatch() {
+  clearPhoneStallWatch();
+  if (!currentPhoneUrl && !phoneSessionActive) return;
+  phoneStallTimer = window.setTimeout(() => {
+    phoneStallTimer = 0;
+    if (!currentPhoneUrl && !phoneSessionActive) return;
+    void endCallFromRemote();
+  }, 8000);
+}
+
+/**
+ * Peer hung up or their live stream died — release local call state quietly.
+ */
+async function endCallFromRemote() {
+  if (hangUpInFlight) return;
+  if (!phoneSessionActive && !currentPhoneUrl && !openStreamInFlight) return;
+  await hangUpCall({ remote: true });
+}
+
+/**
+ * @param {{ remote?: boolean }} [options]
+ */
+async function hangUpCall(options = {}) {
+  const remote = Boolean(options.remote);
+  if (hangUpInFlight) return;
+  const wasLive = Boolean(phoneSessionActive || currentPhoneUrl || openStreamInFlight || currentRtspUrl);
+  if (!wasLive && !rtspRecording) return;
+  hangUpInFlight = true;
+  try {
+    if (openStreamInFlight) {
+      openStreamCancelled = true;
+    }
+    if (rtspRecording) {
+      await finalizeRtspRecordIfAny();
+    }
+    await stopRtspBridge({ finalizeRecord: false });
+    stopLiveEdgeSync();
+    clearPhoneStallWatch();
+    currentPhoneUrl = null;
+    phoneSessionActive = false;
+    try {
+      await window.desktopAPI?.phoneClearSessions?.();
+    } catch {
+      /* ignore */
+    }
+    stopRequested = true;
+    els.media.pause();
+    els.media.removeAttribute('src');
+    els.media.load();
+    revokeObjectUrl();
+    currentMediaPath = null;
+    currentMediaName = null;
+    hidePlaybackOverlay(true);
+    els.dropHint?.classList.remove('hidden');
+    setStatus({
+      file: statusKey('statusReady'),
+      format: '—',
+      state: statusKey(remote ? 'statusRemoteHangup' : 'statusIdle')
+    });
+    updateCallChrome();
+    if (wasLive) {
+      notifyDesktop(t('appTitle'), remote ? t('notifyRemoteHangup') : t('notifyCallEnded'));
+    }
+    if (settings.showLocalPreview) {
+      localCameraWanted = true;
+      void startLocalCamera();
+    }
+  } finally {
+    stopRequested = false;
+    hangUpInFlight = false;
   }
 }
 
@@ -889,6 +979,8 @@ function updateLocaleToolbarButton() {
 
 /** Last applied content min-width (avoid redundant IPC). */
 let appliedWindowMinWidth = 0;
+/** Resize to measured min once after first toolbar layout. */
+let didFitInitialWindow = false;
 
 /**
  * Intrinsic toolbar width: all visible controls/labels, spacer at its CSS min-width.
@@ -924,9 +1016,14 @@ function syncWindowMinWidth() {
   const apply = () => {
     const minW = Math.max(360, measureToolbarMinWidth());
     const minH = 640;
-    if (Math.abs(minW - appliedWindowMinWidth) < 1) return;
+    const fitInitial = !didFitInitialWindow;
+    if (!fitInitial && Math.abs(minW - appliedWindowMinWidth) < 1) return;
     appliedWindowMinWidth = minW;
-    void window.desktopAPI.setMinimumSize(minW, minH);
+    didFitInitialWindow = true;
+    void window.desktopAPI.setMinimumSize(minW, minH, {
+      fitInitial,
+      initialHeight: 780
+    });
   };
   // Wait a frame so locale labels / electron-only controls have finished layout.
   requestAnimationFrame(apply);
@@ -1113,14 +1210,14 @@ function updateMuteIcons() {
   syncVolumeBarFill();
 }
 
-function showYoutubeError(msg) {
+function showConnectError(msg) {
   if (!msg) {
-    els.youtubeError.classList.add('hidden');
-    els.youtubeError.textContent = '';
+    els.connectError.classList.add('hidden');
+    els.connectError.textContent = '';
     return;
   }
-  els.youtubeError.textContent = msg;
-  els.youtubeError.classList.remove('hidden');
+  els.connectError.textContent = msg;
+  els.connectError.classList.remove('hidden');
 }
 
 function fillLocaleSelect() {
@@ -1311,12 +1408,12 @@ function showSaveProgress({ mode, title, name }) {
 }
 
 function setUrlDialogBusy(busy) {
-  const play = $('btnYtPlay');
+  const play = $('btnConnect');
   if (play) {
     play.disabled = busy;
     play.textContent = busy ? t('progressConnecting') : t('connectAction');
   }
-  if (els.youtubeUrlInput) els.youtubeUrlInput.readOnly = busy;
+  if (els.connectUrlInput) els.connectUrlInput.readOnly = busy;
 }
 
 /**
@@ -1327,7 +1424,7 @@ function beginOpenStreamProgress({ name = '', detail = '' } = {}) {
   openStreamCancelled = false;
   setUrlDialogBusy(true);
   try {
-    if (els.youtubeModal?.open) els.youtubeModal.close();
+    if (els.connectModal?.open) els.connectModal.close();
   } catch {
     /* ignore */
   }
@@ -1364,8 +1461,8 @@ function endOpenStreamInFlight() {
 function reopenUrlDialogAfterOpenFailure(url, message) {
   endOpenStreamInFlight();
   closeSaveProgress();
-  openYouTubeDialog(url || '');
-  if (message) showYoutubeError(message);
+  openConnectDialog(url || '');
+  if (message) showConnectError(message);
 }
 
 function finishOpenProgress({ ok = true, message = '', autoCloseMs = 900 } = {}) {
@@ -1611,8 +1708,8 @@ function applyLocale(locale, { persist = true } = {}) {
   updatePlayIcons(playing);
   setPlaybackRate(settings.rate, { persist: false, announce: true });
   paintStatusBar();
-  if ($('youtubeHint')) {
-    $('youtubeHint').textContent = isElectron ? t('youtubeHintDesktop') : t('youtubeHintWeb');
+  if ($('connectHint')) {
+    $('connectHint').textContent = isElectron ? t('connectHintDesktop') : t('connectHintWeb');
   }
   updateConnectMyIpHint();
   if (appInfo) {
@@ -1752,6 +1849,12 @@ async function loadMedia({
   if ((isRtsp || isPhone) && settings.showLocalPreview) {
     void startLocalCamera();
   }
+  if (isRtsp || isPhone) {
+    startLiveEdgeSync();
+  } else {
+    stopLiveEdgeSync();
+  }
+  clearPhoneStallWatch();
 
   if (settings.autoplay) {
     try {
@@ -1783,11 +1886,17 @@ async function handleMediaElementError() {
   const detail = mediaErrorDetail(err) || t('statusPlaybackError');
   const msg = err ? `${t('statusPlaybackError')} (${err.code})` : t('statusPlaybackError');
 
-  if (currentRtspUrl || currentPhoneUrl) {
-    const url = currentRtspUrl || currentPhoneUrl;
+  // Peer closed /live — end the call instead of showing a decode dialog.
+  if (currentPhoneUrl || phoneSessionActive) {
+    await endCallFromRemote();
+    return;
+  }
+
+  if (currentRtspUrl) {
+    const url = currentRtspUrl;
     setStatus({
       state: statusKey('statusRtspFailed'),
-      format: currentPhoneUrl ? 'PHONE' : 'RTSP'
+      format: 'RTSP'
     });
     showAppError({
       title: t('errorRtspTitle'),
@@ -1796,7 +1905,6 @@ async function handleMediaElementError() {
       context: { url }
     });
     await stopRtspBridge();
-    currentPhoneUrl = null;
     return;
   }
 
@@ -1924,9 +2032,7 @@ async function onWebMediaChosen(e) {
 }
 
 function togglePlay() {
-  if (!els.media.src) return;
-  if (els.media.paused) els.media.play().catch(() => {});
-  else els.media.pause();
+  // Play / pause is not used — live calls stay streaming.
 }
 
 function stopPlayback() {
@@ -2059,25 +2165,25 @@ function updateConnectMyIpHint() {
   el.textContent = t('connectMyIp', { ip: hints.join(', ') });
 }
 
-function openYouTubeDialog(prefill = '') {
-  showYoutubeError('');
-  els.youtubeUrlInput.value = prefill || currentPhoneUrl || currentRtspUrl || '';
+function openConnectDialog(prefill = '') {
+  showConnectError('');
+  els.connectUrlInput.value = prefill || currentPhoneUrl || currentRtspUrl || '';
   updateConnectMyIpHint();
-  openThemedDialog(els.youtubeModal, { modal: true });
+  openThemedDialog(els.connectModal, { modal: true });
   queueMicrotask(() => {
-    els.youtubeUrlInput.focus();
-    els.youtubeUrlInput.select();
+    els.connectUrlInput.focus();
+    els.connectUrlInput.select();
   });
 }
 
 async function playRtspFromInput(rawInput) {
   const url = String(rawInput || '').trim();
   if (!isRtspUrl(url)) {
-    showYoutubeError(t('rtspInvalid'));
+    showConnectError(t('rtspInvalid'));
     return false;
   }
   if (!isElectron || !window.desktopAPI?.openRtsp) {
-    showYoutubeError(t('rtspDesktopOnly'));
+    showConnectError(t('rtspDesktopOnly'));
     return false;
   }
   if (openStreamInFlight) {
@@ -2086,7 +2192,7 @@ async function playRtspFromInput(rawInput) {
   }
 
   openStreamInFlight = true;
-  showYoutubeError('');
+  showConnectError('');
   if (rtspRecording && currentRtspUrl && currentRtspUrl !== url) {
     await finalizeRtspRecordIfAny();
   }
@@ -2207,13 +2313,28 @@ async function respondIncomingCall(accepted) {
 
   const result = await window.desktopAPI.phoneRespond(pending.callId, accepted);
   if (!accepted) {
+    phoneSessionActive = false;
     setStatus({ state: statusKey('statusCallRejected') });
+    updateCallChrome();
     return;
   }
   if (!result?.ok) {
+    phoneSessionActive = false;
     setStatus({ state: statusKey('statusCallRejected') });
+    updateCallChrome();
     return;
   }
+
+  // Accept grants the caller a /live token — treat as an active call so Hang up works
+  // even if we cannot load the caller's video (missing IP, callback fail, etc.).
+  phoneSessionActive = true;
+  setStatus({
+    file: pending.fromLabel || pending.fromIp || t('appTitle'),
+    format: 'PHONE',
+    state: statusKey('statusRtspLive')
+  });
+  els.dropHint?.classList.add('hidden');
+  updateCallChrome();
 
   // After Accept, pull the caller's video (they already allowed callback while ringing).
   const hostRaw = pending.fromLabel && /^\d{1,3}(\.\d{1,3}){3}$/.test(pending.fromLabel)
@@ -2223,8 +2344,6 @@ async function respondIncomingCall(accepted) {
   if (host && !/^127\./.test(host)) {
     const liveUrl = `http://${host}:${phonePort()}/live`;
     void playPhoneFromInput(liveUrl, { skipRing: true });
-  } else {
-    setStatus({ state: statusKey('statusRtspLive') });
   }
 }
 
@@ -2236,11 +2355,11 @@ async function playPhoneFromInput(rawUrl, options = {}) {
   const skipRing = Boolean(options.skipRing);
   const url = String(rawUrl || '').trim();
   if (!isHttpUrl(url)) {
-    showYoutubeError(t('rtspOrIpInvalid'));
+    showConnectError(t('rtspOrIpInvalid'));
     return false;
   }
   if (!isElectron) {
-    showYoutubeError(t('rtspDesktopOnly'));
+    showConnectError(t('rtspDesktopOnly'));
     return false;
   }
   if (openStreamInFlight) {
@@ -2249,7 +2368,7 @@ async function playPhoneFromInput(rawUrl, options = {}) {
   }
 
   openStreamInFlight = true;
-  showYoutubeError('');
+  showConnectError('');
   if (rtspRecording) await finalizeRtspRecordIfAny();
   await stopRtspBridge({ finalizeRecord: false });
   els.media.pause();
@@ -2357,7 +2476,7 @@ async function playPhoneFromInput(rawUrl, options = {}) {
 async function playNetworkFromInput(rawInput) {
   const normalized = normalizeConnectAddress(rawInput);
   if (!normalized) {
-    showYoutubeError(t('rtspOrIpInvalid'));
+    showConnectError(t('rtspOrIpInvalid'));
     setStatus({ state: t('rtspOrIpInvalid') });
     return false;
   }
@@ -2367,7 +2486,7 @@ async function playNetworkFromInput(rawInput) {
   if (isHttpUrl(normalized)) {
     return playPhoneFromInput(normalized);
   }
-  showYoutubeError(t('rtspOrIpInvalid'));
+  showConnectError(t('rtspOrIpInvalid'));
   setStatus({ state: t('rtspOrIpInvalid') });
   return false;
 }
@@ -2464,7 +2583,7 @@ async function cancelSaveProgress() {
 
 async function startCurrentRtspRecord(url = currentRtspUrl) {
   if (!url || !isRtspUrl(url)) {
-    openYouTubeDialog(url || '');
+    openConnectDialog(url || '');
     return;
   }
   if (!isElectron || !window.desktopAPI?.startRtspRecord) {
@@ -2532,7 +2651,7 @@ async function saveCurrentMedia() {
     await startCurrentRtspRecord(currentRtspUrl);
     return;
   }
-  openYouTubeDialog();
+  openConnectDialog();
 }
 
 function syncMaximizeButton(maximized) {
@@ -2760,29 +2879,61 @@ function bindMediaEvents() {
   });
   els.media.addEventListener('play', () => {
     updatePlayIcons(true);
-    setStatus({ state: statusKey('statusPlaying') });
     notifyPlaying();
+    if (currentPhoneUrl || currentRtspUrl) {
+      setStatus({ state: statusKey('statusRtspLive') });
+      return;
+    }
+    setStatus({ state: statusKey('statusPlaying') });
   });
   els.media.addEventListener('pause', () => {
     updatePlayIcons(false);
     if (els.media.ended) return;
-    if (stopRequested) {
-      // stopPlayback() owns the stopped overlay — avoid a second flash.
+    if (stopRequested || hangUpInFlight) {
       setStatus({ state: statusKey('statusStopped') });
       return;
     }
+    // Live stream: resume immediately — pause is not a user action.
+    if (currentPhoneUrl || currentRtspUrl || phoneSessionActive) {
+      els.media.play().catch(() => {});
+      return;
+    }
     setStatus({ state: statusKey('statusPaused') });
-    notifyPaused();
   });
   els.media.addEventListener('ended', () => {
     updatePlayIcons(false);
+    if (hangUpInFlight) return;
+    // Peer closed the live HTTP stream.
+    if (currentPhoneUrl || phoneSessionActive) {
+      void endCallFromRemote();
+      return;
+    }
+    if (currentRtspUrl) {
+      els.media.play().catch(() => {});
+      return;
+    }
     setStatus({ state: statusKey('statusEnded') });
     notifyOverlayOnce('stopped', { hold: false, label: t('overlayEnded') });
   });
-  els.media.addEventListener('waiting', () => setStatus({ state: statusKey('statusBuffering') }));
+  els.media.addEventListener('waiting', () => {
+    setStatus({ state: statusKey('statusBuffering') });
+    if (currentPhoneUrl || phoneSessionActive) armPhoneStallWatch();
+  });
   els.media.addEventListener('playing', () => {
-    setStatus({ state: statusKey('statusPlaying') });
     stopRequested = false;
+    if (currentPhoneUrl || phoneSessionActive) {
+      clearPhoneStallWatch();
+      setStatus({ state: statusKey('statusRtspLive') });
+      return;
+    }
+    if (currentRtspUrl) {
+      setStatus({ state: statusKey('statusRtspLive') });
+      return;
+    }
+    setStatus({ state: statusKey('statusPlaying') });
+  });
+  els.media.addEventListener('timeupdate', () => {
+    if (currentPhoneUrl || phoneSessionActive) clearPhoneStallWatch();
   });
   els.media.addEventListener('error', () => {
     void handleMediaElementError();
@@ -2797,16 +2948,6 @@ function bindMediaEvents() {
   els.media.addEventListener('volumechange', () => {
     if (!seeking) els.volumeBar.value = String(Math.round((els.media.muted ? 0 : els.media.volume) * 100));
     updateMuteIcons();
-  });
-  // One stage click path only — stopPropagation prevents media+wrap double toggle.
-  els.media.addEventListener('click', (e) => {
-    e.stopPropagation();
-    togglePlay();
-  });
-  els.videoWrap?.addEventListener('click', (e) => {
-    if (e.target.closest?.('.drop-hint, .local-preview, .call-badge')) return;
-    if (e.target.closest?.('button, a, input, select, textarea')) return;
-    togglePlay();
   });
 }
 
@@ -2838,7 +2979,7 @@ function bindToolbar() {
   });
   els.btnDropConnect?.addEventListener('click', (e) => {
     e.stopPropagation();
-    openYouTubeDialog();
+    openConnectDialog();
   });
   els.btnMic?.addEventListener('click', () => {
     void toggleLocalMic();
@@ -2858,6 +2999,9 @@ function bindToolbar() {
   });
   window.desktopAPI?.onIncomingCall?.((info) => {
     showIncomingCallDialog(info || {});
+  });
+  window.desktopAPI?.onPhonePeerLeft?.(() => {
+    void endCallFromRemote();
   });
   els.btnProgressCancel?.addEventListener('click', () => {
     void cancelSaveProgress();
@@ -2889,26 +3033,26 @@ function bindToolbar() {
 
   els.webMediaInput.addEventListener('change', onWebMediaChosen);
 
-  $('btnYtPlay').addEventListener('click', async () => {
+  $('btnConnect').addEventListener('click', async () => {
     if (openStreamInFlight) {
       setStatus({ state: statusKey('statusOpenInProgress') });
       return;
     }
     setUrlDialogBusy(true);
     try {
-      await playNetworkFromInput(els.youtubeUrlInput.value);
+      await playNetworkFromInput(els.connectUrlInput.value);
     } finally {
       if (!openStreamInFlight) setUrlDialogBusy(false);
     }
   });
-  els.youtubeUrlInput.addEventListener('keydown', async (e) => {
+  els.connectUrlInput.addEventListener('keydown', async (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
       if (openStreamInFlight) {
         setStatus({ state: statusKey('statusOpenInProgress') });
         return;
       }
-      await playNetworkFromInput(els.youtubeUrlInput.value);
+      await playNetworkFromInput(els.connectUrlInput.value);
     }
   });
 
@@ -3000,16 +3144,6 @@ function bindKeyboard() {
   document.addEventListener(
     'keydown',
     (e) => {
-      // Space Bar: pause / resume — highest priority media control.
-      if (isSpaceKey(e) && !e.ctrlKey && !e.metaKey && !e.altKey) {
-        if (isEditableTarget(e.target) || isModalOpen()) return;
-        e.preventDefault();
-        e.stopPropagation();
-        togglePlay();
-        focusPlaybackSurface();
-        return;
-      }
-
       // Always allow Escape to dismiss overlays even when typing in non-modal UI.
       if (e.key === 'Escape') {
         if (!els.fitMenu?.hidden) {
@@ -3021,7 +3155,7 @@ function bindKeyboard() {
           e.preventDefault();
           return;
         }
-        if (isLiveCall() || rtspRecording || openStreamInFlight) {
+        if (canHangUpCall()) {
           e.preventDefault();
           void hangUpCall();
           return;
@@ -3037,15 +3171,15 @@ function bindKeyboard() {
       const key = e.key;
       const code = e.code;
 
-      // Media keys (keyboards / headsets)
+      // Media keys (keyboards / headsets) — no play/pause for video phone.
       if (key === 'MediaPlayPause') {
         e.preventDefault();
-        togglePlay();
         return;
       }
       if (key === 'MediaStop') {
         e.preventDefault();
-        stopPlayback();
+        if (canHangUpCall()) void hangUpCall();
+        else stopPlayback();
         return;
       }
       if (key === 'MediaTrackPrevious' || key === 'MediaRewind') {
@@ -3078,7 +3212,7 @@ function bindKeyboard() {
         const k = key.toLowerCase();
         if (k === 'y') {
           e.preventDefault();
-          openYouTubeDialog();
+          openConnectDialog();
           return;
         }
         if (k === 's' && (currentRtspUrl || rtspRecording)) {
@@ -3103,16 +3237,12 @@ function bindKeyboard() {
       }
 
       switch (key) {
-        case 'k':
-        case 'K':
-          e.preventDefault();
-          togglePlay();
-          break;
         case 's':
         case 'S':
         case '.':
           e.preventDefault();
-          stopPlayback();
+          if (canHangUpCall()) void hangUpCall();
+          else stopPlayback();
           break;
         case 'ArrowLeft':
         case 'j':

@@ -88,7 +88,7 @@ MyVideoPhoneMultiOSV10/
 ├── src/               # Renderer / web UI (no bundler; ES modules)
 ├── scripts/           # Windows build helpers, icon generator, installer copy
 ├── asset/             # App & installer icons (icon.svg → ico/png)
-├── build/             # electron-builder resources (installer.nsh, …)
+├── build/             # electron-builder resources (installer.nsh)
 ├── video/             # Local sample media (gitignored)
 ├── dist/              # Build output (gitignored)
 ├── Architecture.md
@@ -105,9 +105,8 @@ MyVideoPhoneMultiOSV10/
 | `MyVideoPhone-Setup-*.exe` (and other installers at repo root) | Copied build products |
 | `video/`, common media/subtitle extensions | Large local samples & recordings |
 | `*.part`, `*.download` | Incomplete downloads |
-| `.env*`, `*cookies*` | Secrets / session data |
+| `.env*` | Secrets |
 | `.vscode/`, `.idea/`, `.cursor/`, `.DS_Store` | Editor / OS junk |
-| `vendor/yt-dlp/` | Legacy path (unused) |
 
 ---
 

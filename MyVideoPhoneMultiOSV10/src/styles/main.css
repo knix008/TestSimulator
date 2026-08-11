@@ -746,6 +746,13 @@ body.is-electron .toolbar-opacity {
   fill: currentColor;
 }
 
+/* Classic downward handset reads clearly as Hang up in the round control. */
+.control-bar .tool-btn.control-open-btn .icon-call-hangup {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+}
+
 /* Play triangle is optically left-heavy — nudge so it matches stop/skip icons */
 .control-bar #btnPlay .icon-play {
   transform: translateX(1px);
@@ -964,6 +971,8 @@ body.is-electron .toolbar-opacity {
   object-fit: contain;
   background: var(--bg-stage);
   outline: none;
+  /* Live call surface — no click-to-pause. */
+  pointer-events: none;
 }
 
 /* Video display fit modes */
@@ -1433,7 +1442,7 @@ body.is-electron .toolbar-opacity {
   display: none;
 }
 
-#youtubeUrlInput {
+#connectUrlInput {
   padding: 8px 10px;
   border-radius: 6px;
   border: 1px solid var(--border);
@@ -1776,7 +1785,7 @@ body.is-call-recording .call-badge-dot {
   right: 16px;
   bottom: 16px;
   z-index: 6;
-  width: min(220px, 28vw);
+  width: 220px;
   aspect-ratio: 4 / 3;
   border-radius: 12px;
   overflow: hidden;
@@ -2615,103 +2624,17 @@ body.is-call-recording .call-badge-dot {
   margin-top: 6px !important;
 }
 
-/* Portrait video-phone: do not hide toolbar labels/controls when narrow —
-   Electron min-width is measured from full toolbar content instead. */
+/* Narrow window: keep chrome icon/preview sizes fixed; only fit dialogs to viewport. */
 @media (max-width: 560px) {
-  .control-bar {
-    padding: 6px 8px 8px;
-    gap: 4px;
-  }
-
   .control-bar .transport-row {
     flex-wrap: wrap;
     gap: 8px 10px;
     width: 100%;
   }
 
-  .control-bar .volume-bar {
-    width: 72px;
-  }
-
   .control-bar .seek-row {
     width: 100%;
     min-width: 0;
-  }
-
-  .control-bar .tool-btn,
-  .control-bar .tool-btn-primary,
-  .control-bar .tool-btn-stop {
-    width: 30px;
-    height: 30px;
-    min-width: 30px;
-    min-height: 30px;
-    max-width: 30px;
-    max-height: 30px;
-    flex: 0 0 30px;
-  }
-
-  .control-bar .tool-btn svg,
-  .control-bar .tool-btn-primary svg,
-  .control-bar .tool-btn-stop svg {
-    width: 15px;
-    height: 15px;
-  }
-
-  .control-bar .tool-btn.control-open-btn {
-    width: 56px;
-    height: 56px;
-    min-width: 56px;
-    min-height: 56px;
-    max-width: 56px;
-    max-height: 56px;
-    flex: 0 0 56px;
-    border-radius: 50%;
-  }
-
-  .control-bar .tool-btn.control-open-btn svg {
-    width: 26px;
-    height: 26px;
-    flex: 0 0 26px;
-  }
-
-  .rate-select {
-    max-width: 64px;
-  }
-
-  .statusbar {
-    flex-wrap: wrap;
-    gap: 2px 4px;
-    padding: 3px 6px;
-    font-size: 10px;
-    max-height: 36px;
-    overflow: hidden;
-  }
-
-  .statusbar .status-sep {
-    display: none;
-  }
-
-  .drop-title {
-    font-size: 18px;
-  }
-
-  .drop-sub {
-    font-size: 12px;
-    max-width: 280px;
-  }
-
-  .local-preview {
-    width: min(132px, 34vw);
-    right: 10px;
-    bottom: 10px;
-    border-radius: 10px;
-  }
-
-  .call-badge {
-    top: 10px;
-    left: 10px;
-    font-size: 11px;
-    padding: 5px 10px;
   }
 
   .modal-card,
@@ -2724,66 +2647,5 @@ body.is-call-recording .call-badge-dot {
     width: min(100vw - 16px, 400px);
     max-width: calc(100vw - 16px);
     max-height: calc(100vh - 24px);
-  }
-}
-
-/* Intermediate widths only — portrait rules above own the ≤560px phone chrome */
-@media (min-width: 561px) and (max-width: 900px) {
-  .control-bar .volume-bar {
-    width: 56px;
-  }
-
-  .control-bar .tool-btn,
-  .control-bar .tool-btn-primary,
-  .control-bar .tool-btn-stop {
-    width: 28px;
-    height: 28px;
-    min-width: 28px;
-    min-height: 28px;
-    max-width: 28px;
-    max-height: 28px;
-    flex: 0 0 28px;
-  }
-
-  .control-bar .tool-btn svg,
-  .control-bar .tool-btn-primary svg,
-  .control-bar .tool-btn-stop svg {
-    width: 14px;
-    height: 14px;
-  }
-
-  .control-bar .tool-btn.control-open-btn {
-    width: 64px;
-    height: 64px;
-    min-width: 64px;
-    min-height: 64px;
-    max-width: 64px;
-    max-height: 64px;
-    flex: 0 0 64px;
-    border-radius: 50%;
-  }
-
-  .control-bar .tool-btn.control-open-btn svg {
-    width: 30px;
-    height: 30px;
-    flex: 0 0 30px;
-  }
-
-  .toolbar .tool-btn {
-    width: 24px;
-    height: 22px;
-  }
-
-  .toolbar .tool-btn svg {
-    width: 13px;
-    height: 13px;
-  }
-
-  .toolbar-brand-text {
-    font-size: 11px;
-  }
-
-  .toolbar .opacity-bar {
-    width: 48px;
   }
 }

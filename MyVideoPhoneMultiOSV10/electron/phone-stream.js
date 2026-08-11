@@ -19,6 +19,10 @@ let publishEnabled = true;
 
 /** @type {null | ((info: object) => void)} */
 let incomingCallHandler = null;
+/** @type {null | ((info: object) => void)} */
+let peerDisconnectHandler = null;
+/** @type {Map<import('http').ServerResponse, { remoteIp: string, isRemote: boolean, localClose: boolean }>} */
+const clientMeta = new Map();
 
 /** @type {Map<string, {
  *   callId: string,
@@ -40,11 +44,67 @@ const callbackAllowIps = new Map();
 /** @type {null | {
  *   process: import('child_process').ChildProcess | null,
  *   clients: Set<import('http').ServerResponse>,
- *   initBuffer: Buffer,
+ *   initSegment: Buffer,
+ *   initReady: boolean,
+ *   parseBuf: Buffer,
  *   stderr: string,
  *   startedAt: number
  * }} */
 let session = null;
+
+/**
+ * Pull complete ftyp+moov boxes from the head of an fMP4 byte stream.
+ * Later moof/mdat (past video) must not be replayed to late joiners.
+ * @param {Buffer} buffer
+ * @returns {{ done: boolean, init: Buffer | null, rest: Buffer }}
+ */
+function consumeFmp4Init(buffer) {
+  let offset = 0;
+  let hasFtyp = false;
+  let hasMoov = false;
+  while (offset + 8 <= buffer.length) {
+    const size = buffer.readUInt32BE(offset);
+    if (!Number.isFinite(size) || size < 8) {
+      return { done: false, init: null, rest: buffer };
+    }
+    if (offset + size > buffer.length) break;
+    const type = buffer.toString('ascii', offset + 4, offset + 8);
+    offset += size;
+    if (type === 'ftyp') hasFtyp = true;
+    if (type === 'moov') hasMoov = true;
+    if (hasFtyp && hasMoov) {
+      return {
+        done: true,
+        init: buffer.subarray(0, offset),
+        rest: buffer.subarray(offset)
+      };
+    }
+  }
+  return { done: false, init: null, rest: buffer };
+}
+
+function createEmptySession(clients = new Set()) {
+  return {
+    process: null,
+    clients,
+    initSegment: Buffer.alloc(0),
+    initReady: false,
+    parseBuf: Buffer.alloc(0),
+    stderr: '',
+    startedAt: Date.now()
+  };
+}
+
+function writeToClients(data) {
+  if (!session || !data?.length) return;
+  for (const res of session.clients) {
+    try {
+      res.write(data);
+    } catch {
+      session.clients.delete(res);
+    }
+  }
+}
 
 /** @type {string[] | null} */
 let cachedDeviceInputArgs = null;
@@ -81,6 +141,18 @@ function setIncomingCallHandler(handler) {
   incomingCallHandler = typeof handler === 'function' ? handler : null;
 }
 
+function setPeerDisconnectHandler(handler) {
+  peerDisconnectHandler = typeof handler === 'function' ? handler : null;
+}
+
+function notifyPeerViewerLeft(info) {
+  try {
+    peerDisconnectHandler?.(info || {});
+  } catch {
+    /* ignore UI errors */
+  }
+}
+
 function pruneAcceptedTokens() {
   const now = Date.now();
   for (const [token, meta] of acceptedTokens) {
@@ -91,6 +163,9 @@ function pruneAcceptedTokens() {
 function clearAcceptedSessions() {
   acceptedTokens.clear();
   callbackAllowIps.clear();
+  // Drop active /live viewers so Hang up ends the call for the peer immediately.
+  // Mark localClose so our own hang-up does not look like the peer left.
+  closeClients({ localClose: true });
 }
 
 function allowCallbackFrom(ip, ttlMs = 120000) {
@@ -252,9 +327,12 @@ function killProcess(child) {
   }
 }
 
-function closeClients() {
+function closeClients({ localClose = false } = {}) {
   if (!session) return;
-  for (const res of session.clients) {
+  for (const res of [...session.clients]) {
+    const meta = clientMeta.get(res);
+    if (meta) meta.localClose = Boolean(localClose) || meta.localClose;
+    else if (localClose) clientMeta.set(res, { remoteIp: '', isRemote: false, localClose: true });
     try {
       res.end();
     } catch {
@@ -268,8 +346,9 @@ function stopPublisher() {
   if (!session) return;
   killProcess(session.process);
   session.process = null;
-  closeClients();
+  closeClients({ localClose: true });
   session = null;
+  clientMeta.clear();
 }
 
 function listDevicesStderr() {
@@ -322,10 +401,20 @@ async function resolveCameraInputArgs() {
 }
 
 function buildPublishArgs(inputArgs) {
+  // Low-latency live fMP4: short GOP, no B-frames, flush every packet.
+  // Past fragments are discarded server-side; viewers only get init + live.
   return [
     '-hide_banner',
     '-loglevel',
     'warning',
+    '-fflags',
+    'nobuffer',
+    '-flags',
+    'low_delay',
+    '-probesize',
+    '32k',
+    '-analyzeduration',
+    '0',
     ...inputArgs,
     '-an',
     '-c:v',
@@ -337,11 +426,21 @@ function buildPublishArgs(inputArgs) {
     '-pix_fmt',
     'yuv420p',
     '-g',
-    '30',
+    '15',
+    '-keyint_min',
+    '15',
+    '-bf',
+    '0',
     '-f',
     'mp4',
     '-movflags',
-    'frag_keyframe+empty_moov+default_base_moof',
+    'frag_keyframe+empty_moov+default_base_moof+separate_moof',
+    '-flush_packets',
+    '1',
+    '-muxdelay',
+    '0',
+    '-muxpreload',
+    '0',
     'pipe:1'
   ];
 }
@@ -354,13 +453,7 @@ async function ensurePublisher() {
   const ffmpeg = resolveFfmpegPath();
   const args = buildPublishArgs(inputArgs);
 
-  session = {
-    process: null,
-    clients: session?.clients || new Set(),
-    initBuffer: Buffer.alloc(0),
-    stderr: '',
-    startedAt: Date.now()
-  };
+  session = createEmptySession(session?.clients || new Set());
 
   const child = spawn(ffmpeg, args, {
     windowsHide: true,
@@ -370,19 +463,28 @@ async function ensurePublisher() {
 
   child.stdout.on('data', (chunk) => {
     if (!session || session.process !== child) return;
-    if (session.initBuffer.length < 256 * 1024) {
-      session.initBuffer = Buffer.concat([session.initBuffer, chunk]);
-    }
-    for (const res of session.clients) {
-      try {
-        res.write(chunk);
-      } catch {
-        session.clients.delete(res);
+
+    let live = chunk;
+    if (!session.initReady) {
+      session.parseBuf = Buffer.concat([session.parseBuf, chunk]);
+      // Cap parse buffer if camera/ffmpeg never emits moov (avoid RAM blow-up).
+      if (session.parseBuf.length > 512 * 1024) {
+        session.stderr += '\nfMP4 init (ftyp/moov) not found in first 512KB';
+        session.parseBuf = session.parseBuf.subarray(session.parseBuf.length - 64 * 1024);
+        return;
       }
+      const parsed = consumeFmp4Init(session.parseBuf);
+      if (!parsed.done || !parsed.init) return;
+      session.initSegment = Buffer.from(parsed.init);
+      session.initReady = true;
+      session.parseBuf = Buffer.alloc(0);
+      // Late-joined waiters need init before any media fragment.
+      writeToClients(session.initSegment);
+      live = parsed.rest;
     }
-    if (session.clients.size === 0) {
-      // Keep publisher warm briefly while local preview reconnects.
-    }
+
+    // Broadcast only the live edge — do not retain moof/mdat for replay.
+    writeToClients(live);
   });
 
   child.stderr.on('data', (chunk) => {
@@ -436,34 +538,41 @@ async function servePhoneLive(req, res) {
   }
 
   if (!session) {
-    session = {
-      process: null,
-      clients: new Set(),
-      initBuffer: Buffer.alloc(0),
-      stderr: '',
-      startedAt: Date.now()
-    };
+    session = createEmptySession();
   }
 
-  if (session.initBuffer.length > 0) {
+  // Only the demux header — never buffered past video.
+  if (session.initReady && session.initSegment.length > 0) {
     try {
-      res.write(session.initBuffer);
+      res.write(session.initSegment);
     } catch {
       res.end();
       return;
     }
   }
 
+  const remoteIp = normalizeRemoteIp(req.socket?.remoteAddress);
+  const isRemote = Boolean(remoteIp) && !isLoopbackIp(remoteIp);
+  clientMeta.set(res, { remoteIp, isRemote, localClose: false });
   session.clients.add(res);
   await ensurePublisher();
 
+  let cleaned = false;
   const cleanup = () => {
+    if (cleaned) return;
+    cleaned = true;
+    const meta = clientMeta.get(res);
+    clientMeta.delete(res);
     if (!session) return;
     session.clients.delete(res);
     try {
       if (!res.writableEnded) res.end();
     } catch {
       /* ignore */
+    }
+    // Peer stopped pulling our camera → treat as remote hang-up (ignore loopback PIP).
+    if (meta?.isRemote && !meta.localClose) {
+      notifyPeerViewerLeft({ reason: 'viewer-left', fromIp: meta.remoteIp || '' });
     }
     // Stop capture when nobody is watching (saves camera / LED).
     if (session.clients.size === 0) {
@@ -477,6 +586,7 @@ async function servePhoneLive(req, res) {
   };
 
   req.on('close', cleanup);
+  res.on('close', cleanup);
   res.on('error', cleanup);
 }
 
@@ -630,6 +740,7 @@ module.exports = {
   getLanIpv4Addresses,
   getPhonePort,
   setIncomingCallHandler,
+  setPeerDisconnectHandler,
   respondToCall,
   clearAcceptedSessions,
   allowCallbackFrom

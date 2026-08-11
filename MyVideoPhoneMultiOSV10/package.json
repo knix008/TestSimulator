@@ -1,7 +1,7 @@
 {
   "name": "my-video-phone-multios",
   "version": "1.0.0",
-  "description": "RTSP-based video phone for Windows, macOS, and Linux (Electron)",
+  "description": "LAN IP video phone for Windows, macOS, and Linux (Electron)",
   "main": "electron/main.js",
   "author": "SHKWON <knix008@naver.com>",
   "license": "MIT",

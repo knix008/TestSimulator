@@ -47,13 +47,9 @@ const BASE_VARS = {
     '--danger-hover': '#f07070',
     '--seek-track': '#2f3747',
     '--seek-fill': '#3d8bfd',
-    '--subtitle-bg': 'rgba(0, 0, 0, 0.55)',
-    '--subtitle-text': '#ffffff',
     '--shadow': '0 12px 40px rgba(0, 0, 0, 0.45)',
     '--tooltip-bg': '#2a3140',
-    '--tooltip-text': '#f2f5fa',
-    '--spectrum-bar': '#5ab0ff',
-    '--spectrum-glow': 'rgba(90, 176, 255, 0.35)'
+    '--tooltip-text': '#f2f5fa'
   },
   light: {
     '--bg-app': '#eceff4',
@@ -76,13 +72,9 @@ const BASE_VARS = {
     '--danger-hover': '#e04a4a',
     '--seek-track': '#c5cedc',
     '--seek-fill': '#1f6feb',
-    '--subtitle-bg': 'rgba(0, 0, 0, 0.62)',
-    '--subtitle-text': '#ffffff',
     '--shadow': '0 12px 36px rgba(30, 40, 60, 0.18)',
     '--tooltip-bg': '#1f2937',
-    '--tooltip-text': '#f8fafc',
-    '--spectrum-bar': '#1f6feb',
-    '--spectrum-glow': 'rgba(31, 111, 235, 0.28)'
+    '--tooltip-text': '#f8fafc'
   },
   ocean: {
     '--bg-app': '#0b171c',
@@ -105,13 +97,9 @@ const BASE_VARS = {
     '--danger-hover': '#ef8585',
     '--seek-track': '#243f4a',
     '--seek-fill': '#2bb8a8',
-    '--subtitle-bg': 'rgba(0, 0, 0, 0.55)',
-    '--subtitle-text': '#ffffff',
     '--shadow': '0 12px 40px rgba(0, 0, 0, 0.5)',
     '--tooltip-bg': '#1d3a45',
-    '--tooltip-text': '#e4f4f2',
-    '--spectrum-bar': '#3dcebd',
-    '--spectrum-glow': 'rgba(43, 184, 168, 0.35)'
+    '--tooltip-text': '#e4f4f2'
   },
   forest: {
     '--bg-app': '#12160f',
@@ -134,13 +122,9 @@ const BASE_VARS = {
     '--danger-hover': '#e78376',
     '--seek-track': '#2f3b28',
     '--seek-fill': '#6faf4e',
-    '--subtitle-bg': 'rgba(0, 0, 0, 0.55)',
-    '--subtitle-text': '#ffffff',
     '--shadow': '0 12px 40px rgba(0, 0, 0, 0.48)',
     '--tooltip-bg': '#2a3524',
-    '--tooltip-text': '#eaf0e4',
-    '--spectrum-bar': '#84c462',
-    '--spectrum-glow': 'rgba(111, 175, 78, 0.35)'
+    '--tooltip-text': '#eaf0e4'
   }
 };
 

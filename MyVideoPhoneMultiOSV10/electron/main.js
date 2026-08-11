@@ -93,6 +93,7 @@ const {
   setPhonePublishEnabled,
   getPhoneInfo,
   setIncomingCallHandler,
+  setPeerDisconnectHandler,
   respondToCall,
   clearAcceptedSessions,
   allowCallbackFrom
@@ -915,6 +916,15 @@ app.whenReady().then(async () => {
         : `Incoming call: ${info?.fromLabel || info?.fromIp || ''}`
     });
   });
+  setPeerDisconnectHandler((info) => {
+    try {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('phone:peerLeft', info || {});
+      }
+    } catch {
+      /* ignore */
+    }
+  });
   createTray();
   createWindow();
 
@@ -1097,7 +1107,7 @@ ipcMain.handle('phone:ring', async (_event, payload = {}) => {
   });
 });
 
-// Sync persist so renderer modules can load settings/recent before async init.
+// Sync persist so renderer modules can load settings before async init.
 ipcMain.on('persist:getItem', (event, key) => {
   event.returnValue = persistStore.getItem(key);
 });
@@ -1155,13 +1165,19 @@ ipcMain.handle('app:quit', () => {
 
 ipcMain.handle('window:isMaximized', () => mainWindow?.isMaximized() ?? false);
 
-ipcMain.handle('window:setMinimumSize', (_evt, width, height) => {
+ipcMain.handle('window:setMinimumSize', (_evt, width, height, options = {}) => {
   if (!mainWindow || mainWindow.isDestroyed()) return false;
   // Width comes from measured toolbar content so controls/labels never clip.
   const minW = Math.max(360, Math.round(Number(width) || 420));
   const minH = Math.max(560, Math.round(Number(height) || 640));
   mainWindow.setMinimumSize(minW, minH);
   const [cw, ch] = mainWindow.getSize();
+  // First layout: open at content-fit minimum (fixed brand/chrome, no shrink-to-fit fonts).
+  if (options?.fitInitial) {
+    const nextH = Math.max(minH, Math.round(Number(options.initialHeight) || ch || 780));
+    mainWindow.setSize(minW, nextH);
+    return true;
+  }
   if (cw < minW || ch < minH) {
     mainWindow.setSize(Math.max(cw, minW), Math.max(ch, minH));
   }

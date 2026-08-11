@@ -15,7 +15,8 @@ contextBridge.exposeInMainWorld('desktopAPI', {
   /** Quit the app process (also available from the tray menu). */
   quitApp: () => ipcRenderer.invoke('app:quit'),
   isMaximized: () => ipcRenderer.invoke('window:isMaximized'),
-  setMinimumSize: (width, height) => ipcRenderer.invoke('window:setMinimumSize', width, height),
+  setMinimumSize: (width, height, options) =>
+    ipcRenderer.invoke('window:setMinimumSize', width, height, options || {}),
   setWindowOpacity: (opacity) => ipcRenderer.invoke('window:setOpacity', opacity),
   getWindowOpacity: () => ipcRenderer.invoke('window:getOpacity'),
   beginWindowDrag: () => ipcRenderer.send('window:beginDrag'),
@@ -80,6 +81,12 @@ contextBridge.exposeInMainWorld('desktopAPI', {
     const handler = (_event, info) => callback(info);
     ipcRenderer.on('phone:incoming', handler);
     return () => ipcRenderer.removeListener('phone:incoming', handler);
+  },
+  /** Peer stopped watching our /live (typical remote hang-up). */
+  onPhonePeerLeft: (callback) => {
+    const handler = (_event, info) => callback(info);
+    ipcRenderer.on('phone:peerLeft', handler);
+    return () => ipcRenderer.removeListener('phone:peerLeft', handler);
   },
   onOpenMediaPaths: (callback) => {
     const handler = (_event, paths) => callback(paths);

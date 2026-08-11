@@ -15,7 +15,7 @@ MyVideoPhone_*.deb
 MyVideoPhone-*-mac.zip
 MyVideoPhone-*-win.zip
 
-# Local sample / recorded media (keep folder locally; do not commit large files)
+# Local sample / recorded media
 video/
 *.mp4
 *.mkv
@@ -37,7 +37,6 @@ video/
 
 # Incomplete / temp downloads
 *.part
-*.ytdl
 *.download
 
 # OS / editor
@@ -54,8 +53,6 @@ Desktop.ini
 .env
 .env.*
 !.env.example
-*cookies*.txt
-cookies.sqlite
 
 # Temp / caches
 *.tmp
@@ -66,6 +63,3 @@ cookies.sqlite
 # Electron / local crash dumps
 *.dmp
 crashpad/
-
-# Obsolete vendor binaries (legacy yt-dlp path; keep ignored if present)
-vendor/yt-dlp/

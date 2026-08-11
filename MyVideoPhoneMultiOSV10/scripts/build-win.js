@@ -38,7 +38,6 @@ function run(label, command, args) {
 }
 
 run('prepare', process.execPath, [path.join('scripts', 'prepare-win-build.js')]);
-run('ensure-yt-dlp', process.execPath, [path.join('scripts', 'ensure-yt-dlp.js')]);
 run('ensure-wincodesign', process.execPath, [path.join('scripts', 'ensure-wincodesign.js')]);
 run('electron-builder', process.execPath, [
   path.join('scripts', 'run-electron-builder-win.js')
