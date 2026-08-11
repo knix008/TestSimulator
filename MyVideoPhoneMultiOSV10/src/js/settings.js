@@ -13,7 +13,8 @@ export const DEFAULT_SETTINGS = {
   /** Outgoing microphone level (0–100). */
   micVolume: 100,
   windowOpacity: 100,
-  showLocalPreview: true,
+  /** Local PIP preview removed — keep false so older saved settings stay off. */
+  showLocalPreview: false,
   /** @type {'contain' | 'cover' | 'actual'} */
   videoFit: 'cover',
   /** Recently dialed addresses (most-recent first, max 10). @type {string[]} */
@@ -56,6 +57,8 @@ export function loadSettings() {
     merged.micVolume = Math.min(100, Math.max(0, Math.round(Number(merged.micVolume) || 100)));
     merged.videoFit = normalizeVideoFit(merged.videoFit);
     merged.recentCalls = normalizeRecentCalls(merged.recentCalls);
+    // Local PIP preview removed — ignore legacy persisted values.
+    merged.showLocalPreview = false;
     // uiPort was removed from user settings — ignore legacy persisted values.
     delete merged.uiPort;
     return merged;

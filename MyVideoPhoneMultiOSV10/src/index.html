@@ -23,7 +23,7 @@
           <svg class="icon-mic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v5a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.9V21h2v-3.1A7 7 0 0 0 19 11h-2Z"/></svg>
           <svg class="icon-mic-off hidden" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 11h-1.7c0 .7-.1 1.3-.4 1.9l1.2 1.2A7 7 0 0 0 19 11Zm-7 3c.4 0 .8-.1 1.1-.2l-1.5-1.5c-.2 0-.4-.1-.6-.1a3 3 0 0 1-3-3V7.8L4.3 4.1 3 5.4l3.2 3.2V11a5 5 0 0 0 4.8 5 4.9 4.9 0 0 0 2.3-.6l1.5 1.5A6.9 6.9 0 0 1 12 18.9V21h2v-2.1a8.8 8.8 0 0 0 3.2-1.3l2.5 2.5 1.3-1.3L8.1 5.9 19 16.8ZM12 4a2 2 0 0 1 2 2v1.2l-4-4H12Z"/></svg>
         </button>
-        <button type="button" class="tool-btn" id="btnLocalCamera" data-i18n-tooltip="localCameraTip" data-i18n-aria="localCamera" aria-pressed="false">
+        <button type="button" class="tool-btn" id="btnLocalCamera" hidden data-i18n-tooltip="localCameraTip" data-i18n-aria="localCamera" aria-pressed="false">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17 10.5V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-3.5l4 4v-11l-4 4Z"/></svg>
         </button>
       </div>
@@ -243,18 +243,6 @@
           </div>
         </section>
 
-        <section class="settings-section">
-          <h3 class="settings-section-title" data-i18n="settingsDisplay">Display</h3>
-          <div class="settings-check-grid">
-            <label class="field checkbox">
-              <input type="checkbox" id="settingShowLocalPreview" name="showLocalPreview" checked />
-              <span class="field-label">
-                <svg class="field-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M17 10.5V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-3.5l4 4v-11l-4 4Z"/></svg>
-                <span data-i18n="showLocalPreview">Show local camera preview during calls</span>
-              </span>
-            </label>
-          </div>
-        </section>
 
         <section class="settings-section">
           <h3 class="settings-section-title" data-i18n="settingsAudio">Audio</h3>
