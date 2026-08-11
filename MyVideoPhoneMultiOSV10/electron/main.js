@@ -104,6 +104,7 @@ const {
   setPhoneMic,
   setPublishCaptureHandler,
   setPublishConfig,
+  setPublishCaptureStatus,
   feedPublishChunk
 } = require('./phone-stream');
 
@@ -1160,6 +1161,14 @@ ipcMain.on('phone:publishChunk', (_event, generation, chunk) => {
     feedPublishChunk(generation, chunk);
   } catch {
     /* ignore — publisher may have torn down */
+  }
+});
+
+ipcMain.on('phone:publishStatus', (_event, status) => {
+  try {
+    setPublishCaptureStatus(status);
+  } catch {
+    /* ignore */
   }
 });
 

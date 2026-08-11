@@ -82,6 +82,11 @@ let publishGeneration = 0;
 let publishStreamHasAudio = true;
 /** MediaRecorder mime the renderer is using (for reference/diagnostics). */
 let publishMimeType = 'video/webm;codecs=vp8,opus';
+/** Last capture status the renderer reported (traces getUserMedia/MediaRecorder). */
+/** @type {null | { at: number, status: string }} */
+let lastCaptureStatus = null;
+/** Bytes of webm chunks fed to ffmpeg since the last publisher (re)start. */
+let publishBytesIn = 0;
 
 /** @type {null | {
  *   process: import('child_process').ChildProcess | null,
@@ -565,6 +570,19 @@ function closeClients({ localClose = false } = {}) {
 
 function stopPublisher() {
   if (!session) return;
+  // Preserve the last publisher's diagnostics before teardown so a post-call
+  // /status still explains a failed start (bytes fed, whether init was reached).
+  if (session.process) {
+    lastPublish = {
+      at: Date.now(),
+      code: null,
+      signal: 'stopped',
+      initReady: Boolean(session.initReady),
+      device: `pipe:0 ${publishMimeType}`,
+      bytesIn: publishBytesIn,
+      stderr: String(session.stderr || '').slice(-1500)
+    };
+  }
   // Tell the renderer to stop capturing before we tear the pipe down.
   try {
     publishCaptureHandler?.('stop', session.generation);
@@ -806,6 +824,11 @@ function setPublishConfig({ hasAudio, mimeType } = {}) {
   return { ok: true, hasAudio: publishStreamHasAudio, mimeType: publishMimeType };
 }
 
+/** Renderer traces its capture progress here so /status can show where it stalls. */
+function setPublishCaptureStatus(status) {
+  lastCaptureStatus = { at: Date.now(), status: String(status || '') };
+}
+
 function getPublishMimeType() {
   return publishMimeType;
 }
@@ -821,6 +844,7 @@ function feedPublishChunk(generation, chunk) {
   if (stdin && !stdin.destroyed) {
     try {
       stdin.write(buf);
+      publishBytesIn += buf.length;
     } catch {
       /* ffmpeg may have exited; close handler will clean up */
     }
@@ -875,6 +899,7 @@ async function ensurePublisher() {
   session = createEmptySession(clients);
   session.generation = ++publishGeneration;
   const myGen = session.generation;
+  publishBytesIn = 0;
 
   const child = spawn(ffmpeg, args, {
     windowsHide: true,
@@ -930,6 +955,7 @@ async function ensurePublisher() {
       signal,
       initReady: Boolean(session.initReady),
       device: `pipe:0 ${publishMimeType}`,
+      bytesIn: publishBytesIn,
       stderr: String(session.stderr || '').slice(-1500)
     };
     session.process = null;
@@ -1072,6 +1098,10 @@ function getPublishDiag() {
     generation: session?.generation ?? publishGeneration,
     mimeType: publishMimeType,
     hasAudioInput: publishStreamHasAudio,
+    // Webm bytes fed to ffmpeg for the current/last generation.
+    bytesIn: publishBytesIn,
+    // Last capture step the renderer reported (getUserMedia / MediaRecorder).
+    lastCaptureStatus,
     // Live ffmpeg stderr (empty once the session is torn down).
     ffmpegStderrTail: session?.stderr ? String(session.stderr).slice(-800) : '',
     // Why the LAST publisher died — survives teardown so a failed call is
@@ -1257,6 +1287,7 @@ module.exports = {
   setPhoneMic,
   setPublishCaptureHandler,
   setPublishConfig,
+  setPublishCaptureStatus,
   getPublishMimeType,
   feedPublishChunk
 };

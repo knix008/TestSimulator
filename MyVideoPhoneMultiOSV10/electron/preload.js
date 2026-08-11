@@ -85,6 +85,8 @@ contextBridge.exposeInMainWorld('desktopAPI', {
   /** Stream one webm chunk from MediaRecorder into the main-process publisher. */
   phonePublishChunk: (generation, chunk) =>
     ipcRenderer.send('phone:publishChunk', generation, chunk),
+  /** Renderer traces capture progress (getUserMedia / MediaRecorder) for /status. */
+  phonePublishStatus: (status) => ipcRenderer.send('phone:publishStatus', String(status || '')),
   /** Main asks the renderer to start/stop MediaRecorder capture for a generation. */
   onPhonePublishSignal: (callback) => {
     const handler = (_event, action, generation) => callback(action, generation);

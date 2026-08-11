@@ -263,44 +263,71 @@ function stopPublishRecorder() {
   }
 }
 
+function reportPublishStatus(status) {
+  try {
+    window.desktopAPI?.phonePublishStatus?.(status);
+  } catch {
+    /* ignore */
+  }
+}
+
 async function startPublishCapture(generation) {
   if (publishReleaseTimer) {
     clearTimeout(publishReleaseTimer);
     publishReleaseTimer = 0;
   }
   publishGeneration = generation;
-  if (!window.MediaRecorder || !navigator.mediaDevices?.getUserMedia) return;
+  reportPublishStatus(`signal gen=${generation}`);
+  if (!window.MediaRecorder || !navigator.mediaDevices?.getUserMedia) {
+    reportPublishStatus('no MediaRecorder/getUserMedia');
+    return;
+  }
   try {
     const stream = await ensurePublishStream();
     if (publishGeneration !== generation) return; // superseded while awaiting
+    const vCount = stream.getVideoTracks().length;
+    const hasAudio = stream.getAudioTracks().length > 0;
+    reportPublishStatus(`stream video=${vCount} audio=${hasAudio}`);
     stopPublishRecorder();
     const mimeType = pickPublishMime();
-    const hasAudio = stream.getAudioTracks().length > 0;
     try {
       void window.desktopAPI?.phonePublishConfig?.({ hasAudio, mimeType });
     } catch {
       /* ignore */
     }
-    const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 1_200_000 });
+    let recorder;
+    try {
+      recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 1_200_000 });
+    } catch (recErr) {
+      reportPublishStatus(`MediaRecorder ctor failed: ${recErr?.name || recErr}`);
+      return;
+    }
     publishRecorder = recorder;
+    let firstChunk = true;
     recorder.ondataavailable = async (e) => {
       if (!e.data || e.data.size === 0) return;
       if (publishGeneration !== generation) return; // stale generation
       try {
         const buf = new Uint8Array(await e.data.arrayBuffer());
         window.desktopAPI?.phonePublishChunk?.(generation, buf);
+        if (firstChunk) {
+          firstChunk = false;
+          reportPublishStatus(`first-chunk ${buf.length}B`);
+        }
       } catch {
         /* ignore */
       }
     };
-    recorder.onerror = () => {
-      /* keep call alive; main will time out / retry if needed */
+    recorder.onerror = (ev) => {
+      reportPublishStatus(`recorder error: ${ev?.error?.name || 'unknown'}`);
     };
     // 200ms timeslice: first blob carries the webm header, then live clusters.
     recorder.start(200);
-  } catch {
+    reportPublishStatus(`recording mime=${mimeType}`);
+  } catch (err) {
     // Camera/mic unavailable — the publisher gets no data and the peer will see
     // a connect error rather than a frozen call.
+    reportPublishStatus(`getUserMedia failed: ${err?.name || err}`);
   }
 }
 
