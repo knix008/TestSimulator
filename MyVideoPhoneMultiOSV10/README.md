@@ -1,6 +1,6 @@
 # MyVideoPhone
 
-RTSP-based **video phone** for **Windows**, **macOS**, and **Linux** (Electron). Web UI remains available for helper playback.
+LAN **IP video phone** for **Windows**, **macOS**, and **Linux** (Electron). Optional RTSP camera view and local media helper remain available.
 
 | | |
 |---|---|
@@ -9,33 +9,26 @@ RTSP-based **video phone** for **Windows**, **macOS**, and **Linux** (Electron).
 | **License** | MIT |
 | **Stack** | Electron 33 · HTML/CSS/ES modules · ffmpeg-static |
 
-RTSP/RTSPS 라이브 스트림에 연결하는 영상 전화 앱입니다. 통화 연결·끊기·녹화, 로컬 카메라 미리보기(PIP), 최근 통화를 중심으로 동작합니다. 로컬 파일 열기는 보조 기능입니다.
+Peer-to-peer video calls over the local network: enter the other person’s IP, accept/reject the ring, talk with mic + camera PIP, hang up from the large control button. Default phone port is **8765**.
 
-자세한 구조·IPC·모듈 설명은 [Architecture.md](Architecture.md)를 참고하세요.
+Details: [Architecture.md](Architecture.md) · End-user guide (KO): [UsersGuide.md](UsersGuide.md)
 
 ---
 
 ## Features
 
-- **RTSP / RTSPS video phone**: Connect / Hang up / Record call to MP4 (desktop FFmpeg bridge)
-- **System tray**: close button hides to tray; quit only from the tray menu; desktop notifications
-- Local camera PIP preview during idle & calls (permission required)
-- Call badge + live-call chrome (seek/rate disabled while connected)
-- Recent calls dropdown (`Ctrl+R`)
-- Local media playback with same-origin HTTP Range streaming (`/__media/<token>`) — helper
-- Automatic compatibility conversion via FFmpeg (`media-compat.js`)
-- Optional subtitle load (SMI / SRT / VTT beside the media file)
-- Display fit modes: fill screen / keep aspect ratio / original size (toolbar menu; persisted)
-- Built-in themes (Dark, Light, Ocean, Forest) + custom theme editor; stage uses `--bg-stage`
-- UI language toggle: toolbar shows **ENG** / **한글** (target language); status bar re-translates on switch
-- Draggable in-player spectrum popup (Web Audio analyzer + multiple painter styles)
-- Settings / About / theme editor open as non-blocking dialogs so playback continues
-- Frameless desktop window: brand bar, IPC drag (not `-webkit-app-region`), opacity, caption buttons
-- Minimum window width keeps toolbar controls visible
-- Settings / recent / dialog dirs in Electron `userData/persist.json` (web: `localStorage`)
-- Quiet Chromium console by default (`MyVideoPhone_VERBOSE=1` to enable debug logs)
-- Keyboard shortcuts (Space = play/pause, and more)
-- Per-OS installers via `npm run build:*` (NSIS / DMG / AppImage+deb)
+- **IP video phone** — dial by IP, incoming Accept/Reject, hang up; LAN publish on port **8765**
+- **Call control** — one large button: connect when idle, end call when live (`Ctrl+Y` / `Esc`)
+- **Mic / camera** — toolbar mic mute and local camera PIP preview
+- **System tray** — caption ✕ hides to tray (camera/mic released); Quit only from tray menu
+- **Desktop notifications** — connected, ended, incoming call, recording
+- Optional **RTSP/RTSPS** live view + MP4 call recording (desktop FFmpeg bridge)
+- Local media helper with same-origin `/__media/<token>` Range streaming + FFmpeg compat convert
+- Display fit modes, themes (+ custom editor), Korean/English UI
+- Frameless window: IPC drag on empty toolbar chrome, opacity, min width from toolbar measure
+- Settings / About as themed dialogs; error report with **Copy** (Electron clipboard IPC)
+- App icon set in [`asset/`](asset/) — regenerate with `npm run icons`
+- Installers via `npm run build:*` (NSIS / DMG / AppImage+deb)
 
 ---
 
@@ -43,13 +36,12 @@ RTSP/RTSPS 라이브 스트림에 연결하는 영상 전화 앱입니다. 통�
 
 ```bash
 npm install
-npm start          # Electron desktop app
-npm run web        # Browser UI at http://localhost:5173
+npm start              # Electron desktop app
+npm run start:multi    # Allow a second process (separate userData) for two-PC / two-instance tests
+npm run web            # Browser UI helper at http://localhost:5173 (no phone/RTSP)
 ```
 
-Run **one** Electron instance at a time (multiple instances can lock the Chromium disk cache).
-
-Optional verbose Chromium logs:
+Verbose Chromium logs (optional):
 
 ```bash
 # Windows PowerShell
@@ -64,18 +56,17 @@ npm run build:mac      # macOS DMG + zip  (build on macOS)
 npm run build:linux    # AppImage + deb   (build on Linux)
 npm run build          # Current host targets from package.json
 npm run pack           # Unpackaged app directory only
+npm run icons          # Rebuild icon.ico / PNGs / favicon from asset/icon.svg
 ```
 
 | Command | Target | Output |
 |---------|--------|--------|
-| `npm run build:win` | Windows x64 | `dist/MyVideoPhone-Setup-{version}.exe` (also copied to repo root) |
+| `npm run build:win` | Windows x64 | `dist/MyVideoPhone-Setup-{version}.exe` (+ repo root copy) |
 | `npm run build:mac` | macOS | DMG + zip under `dist/` |
 | `npm run build:linux` | Linux | AppImage + deb under `dist/` |
 
-> macOS/Linux packages should be built on that OS (or CI). `dist:*` scripts are aliases of `build:*`.  
+> macOS/Linux packages should be built on that OS (or CI). `dist:*` aliases `build:*`.  
 > `ffmpeg-static` is unpacked from asar so the main process can spawn FFmpeg.
-
-Icons: [`asset/`](asset/) (`icon.ico`, `icon-1024.png`, `icons/`, `icon-256.png`).
 
 ---
 
@@ -83,9 +74,9 @@ Icons: [`asset/`](asset/) (`icon.ico`, `icon-1024.png`, `icons/`, `icon-256.png`
 
 | Document | Description |
 |----------|-------------|
-| [Architecture.md](Architecture.md) | Processes, `/__media`, RTSP, persist, themes, IPC, packaging |
+| [Architecture.md](Architecture.md) | Processes, phone server, `/__phone/live` proxy, RTSP, IPC, packaging |
 | [UsersGuide.md](UsersGuide.md) | End-user manual (Korean) |
-| [.gitignore](.gitignore) | Ignored paths (see below) |
+| [.gitignore](.gitignore) | Ignored paths (summary below) |
 
 ---
 
@@ -93,10 +84,10 @@ Icons: [`asset/`](asset/) (`icon.ico`, `icon-1024.png`, `icons/`, `icon-256.png`
 
 ```
 MyVideoPhoneMultiOSV10/
-├── electron/          # main, preload, rtsp-stream, media-compat, persist-store
+├── electron/          # main, preload, phone-stream, rtsp-stream, media-compat, persist-store
 ├── src/               # Renderer / web UI (no bundler; ES modules)
-├── scripts/           # Windows build helpers, installer copy
-├── asset/             # App & installer icons
+├── scripts/           # Windows build helpers, icon generator, installer copy
+├── asset/             # App & installer icons (icon.svg → ico/png)
 ├── build/             # electron-builder resources (installer.nsh, …)
 ├── video/             # Local sample media (gitignored)
 ├── dist/              # Build output (gitignored)
@@ -108,19 +99,15 @@ MyVideoPhoneMultiOSV10/
 
 ### What Git ignores (summary)
 
-From [`.gitignore`](.gitignore):
-
 | Pattern | Why |
 |---------|-----|
 | `node_modules/`, `dist/`, `out/`, `*.asar` | Dependencies & build artifacts |
 | `MyVideoPhone-Setup-*.exe` (and other installers at repo root) | Copied build products |
-| `video/`, `*.mp4`, `*.mkv`, …, `*.smi`/`*.srt`/`*.vtt` | Large local/sample media & sidecars |
-| `*.part`, `*.ytdl`, `*.download` | Incomplete downloads |
-| `*cookies*.txt`, `.env*` | Secrets / session data |
+| `video/`, common media/subtitle extensions | Large local samples & recordings |
+| `*.part`, `*.download` | Incomplete downloads |
+| `.env*`, `*cookies*` | Secrets / session data |
 | `.vscode/`, `.idea/`, `.cursor/`, `.DS_Store` | Editor / OS junk |
-| `*.tmp`, `.cache/` | Temp files |
-
-Put test videos under `video/` locally; they are not committed.
+| `vendor/yt-dlp/` | Legacy path (unused) |
 
 ---
 
@@ -128,10 +115,13 @@ Put test videos under `video/` locally; they are not committed.
 
 | Platform | How to run / ship | Notes |
 |----------|-------------------|--------|
-| Web | `npm run web` | No native dialogs, RTSP, FFmpeg compat, or window opacity/chrome |
+| Desktop | `npm start` / installers | Full IP phone, RTSP, tray, mic/camera |
+| Web | `npm run web` | UI shell only — no LAN phone or RTSP |
 | Windows | `npm run build:win` → NSIS | Clean reinstall via `build/installer.nsh` |
 | macOS | `npm run build:mac` | DMG + zip |
 | Linux | `npm run build:linux` | AppImage + deb |
+
+**Webcam note:** On Windows a physical camera is usually exclusive to one process. Two apps (or two MyVideoPhone instances) often cannot open the same webcam at once; use two machines, a second camera, or a virtual camera for dual testing.
 
 ---
 

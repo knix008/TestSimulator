@@ -15,6 +15,26 @@ MyVideoPhone_*.deb
 MyVideoPhone-*-mac.zip
 MyVideoPhone-*-win.zip
 
+# Local sample / recorded media (keep folder locally; do not commit large files)
+video/
+*.mp4
+*.mkv
+*.webm
+*.mov
+*.avi
+*.m4v
+*.mp3
+*.aac
+*.m4a
+*.wav
+*.flac
+*.opus
+*.ogg
+*.wma
+*.smi
+*.srt
+*.vtt
+
 # Incomplete / temp downloads
 *.part
 *.ytdl
@@ -43,12 +63,9 @@ cookies.sqlite
 .cache/
 .turbo/
 
-# Bundled tool binaries (fetched by scripts/ensure-yt-dlp.js / postinstall)
-vendor/yt-dlp/yt-dlp
-vendor/yt-dlp/yt-dlp.exe
-vendor/yt-dlp/*.download
-vendor/yt-dlp/*.tmp
-
 # Electron / local crash dumps
 *.dmp
 crashpad/
+
+# Obsolete vendor binaries (legacy yt-dlp path; keep ignored if present)
+vendor/yt-dlp/
