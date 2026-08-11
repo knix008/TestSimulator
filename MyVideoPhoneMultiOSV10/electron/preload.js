@@ -80,6 +80,17 @@ contextBridge.exposeInMainWorld('desktopAPI', {
   setPhoneCallActive: (active) => ipcRenderer.invoke('phone:setCallActive', Boolean(active)),
   /** Outgoing mic on/off + volume for LAN publish. */
   setPhoneMic: (payload) => ipcRenderer.invoke('phone:setMic', payload || {}),
+  /** Renderer reports its capture capabilities (mic present, MediaRecorder mime). */
+  phonePublishConfig: (config) => ipcRenderer.invoke('phone:publishConfig', config || {}),
+  /** Stream one webm chunk from MediaRecorder into the main-process publisher. */
+  phonePublishChunk: (generation, chunk) =>
+    ipcRenderer.send('phone:publishChunk', generation, chunk),
+  /** Main asks the renderer to start/stop MediaRecorder capture for a generation. */
+  onPhonePublishSignal: (callback) => {
+    const handler = (_event, action, generation) => callback(action, generation);
+    ipcRenderer.on('phone:publishSignal', handler);
+    return () => ipcRenderer.removeListener('phone:publishSignal', handler);
+  },
   /** Notify peer that we ended the call. */
   phoneBye: (host, port) => ipcRenderer.invoke('phone:bye', { host, port }),
   /** Probe peer call status (detect missed hang-up). */

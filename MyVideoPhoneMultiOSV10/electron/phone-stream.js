@@ -69,6 +69,20 @@ let micVolumePercent = 100;
 /** @type {null | { at: number, code: number|null, signal: string|null, initReady: boolean, device: string|null, stderr: string }} */
 let lastPublish = null;
 
+/**
+ * Camera capture now happens in the renderer (getUserMedia → MediaRecorder), so
+ * ffmpeg transcodes a webm stream from stdin instead of opening the OS camera.
+ * This works with MIPI/sensor cameras that DirectShow cannot open at all.
+ */
+/** @type {null | ((action: 'start' | 'stop', generation: number) => void)} */
+let publishCaptureHandler = null;
+/** Monotonic id so late/stale renderer chunks are dropped after a restart. */
+let publishGeneration = 0;
+/** Whether the renderer's publish stream carries an audio (mic) track. */
+let publishStreamHasAudio = true;
+/** MediaRecorder mime the renderer is using (for reference/diagnostics). */
+let publishMimeType = 'video/webm;codecs=vp8,opus';
+
 /** @type {null | {
  *   process: import('child_process').ChildProcess | null,
  *   clients: Set<import('http').ServerResponse>,
@@ -551,6 +565,18 @@ function closeClients({ localClose = false } = {}) {
 
 function stopPublisher() {
   if (!session) return;
+  // Tell the renderer to stop capturing before we tear the pipe down.
+  try {
+    publishCaptureHandler?.('stop', session.generation);
+  } catch {
+    /* ignore */
+  }
+  try {
+    const stdin = session.process?.stdin;
+    if (stdin && !stdin.destroyed) stdin.end();
+  } catch {
+    /* ignore */
+  }
   killProcess(session.process);
   session.process = null;
   closeClients({ localClose: true });
@@ -710,6 +736,98 @@ function buildPublishArgs(inputArgs) {
 }
 
 /**
+ * ffmpeg args to transcode the renderer's webm (vp8/opus) stdin stream into the
+ * low-latency fMP4 the peer MSE player expects.
+ *
+ * IMPORTANT: never add `-fflags nobuffer` on this input — it truncates webm
+ * packets and breaks vp8 decoding (verified). `+genpts` stabilizes the live
+ * timestamps MediaRecorder emits.
+ */
+function buildPublishArgsFromPipe() {
+  const gain = micLinearGain();
+  const audioArgs = publishStreamHasAudio
+    ? ['-c:a', 'aac', '-b:a', '64k', '-ac', '1', '-ar', '16000', '-af', `volume=${gain.toFixed(3)}`]
+    : ['-an'];
+
+  return [
+    '-hide_banner',
+    '-loglevel',
+    'warning',
+    '-fflags',
+    '+genpts',
+    '-i',
+    'pipe:0',
+    '-map',
+    '0:v:0?',
+    '-map',
+    '0:a:0?',
+    '-c:v',
+    'libx264',
+    '-preset',
+    'ultrafast',
+    '-tune',
+    'zerolatency',
+    '-pix_fmt',
+    'yuv420p',
+    '-r',
+    '30',
+    '-g',
+    '15',
+    '-keyint_min',
+    '15',
+    '-bf',
+    '0',
+    '-x264-params',
+    'scenecut=0:bframes=0',
+    ...audioArgs,
+    '-flags',
+    'low_delay',
+    '-f',
+    'mp4',
+    '-movflags',
+    'frag_keyframe+empty_moov+default_base_moof+omit_tfhd_offset',
+    '-frag_duration',
+    '500000',
+    '-flush_packets',
+    '1',
+    'pipe:1'
+  ];
+}
+
+/** Injected by main: signal the renderer to start/stop MediaRecorder capture. */
+function setPublishCaptureHandler(fn) {
+  publishCaptureHandler = typeof fn === 'function' ? fn : null;
+}
+
+/** Renderer reports its capture capabilities (mic present, chosen mime). */
+function setPublishConfig({ hasAudio, mimeType } = {}) {
+  if (hasAudio != null) publishStreamHasAudio = Boolean(hasAudio);
+  if (mimeType) publishMimeType = String(mimeType);
+  return { ok: true, hasAudio: publishStreamHasAudio, mimeType: publishMimeType };
+}
+
+function getPublishMimeType() {
+  return publishMimeType;
+}
+
+/** Feed one webm chunk from the renderer into the current ffmpeg publisher. */
+function feedPublishChunk(generation, chunk) {
+  if (!session || !session.process) return;
+  // Drop chunks from a previous recorder generation (after a restart).
+  if (generation != null && session.generation !== generation) return;
+  if (!chunk) return;
+  const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+  const stdin = session.process.stdin;
+  if (stdin && !stdin.destroyed) {
+    try {
+      stdin.write(buf);
+    } catch {
+      /* ffmpeg may have exited; close handler will clean up */
+    }
+  }
+}
+
+/**
  * Update mic publish settings. Restarts publisher if live so volume applies.
  * Soft-restart keeps /live HTTP clients open (mic mute must not end the call).
  * @param {{ enabled?: boolean, volume?: number, restart?: boolean }} [opts]
@@ -750,18 +868,21 @@ async function ensurePublisher() {
   if (!publishEnabled) return false;
   if (session?.process) return true;
 
-  const inputArgs = await resolveCameraInputArgs();
   const ffmpeg = resolveFfmpegPath();
-  const args = buildPublishArgs(inputArgs);
+  const args = buildPublishArgsFromPipe();
 
   const clients = session?.clients || new Set();
   session = createEmptySession(clients);
+  session.generation = ++publishGeneration;
+  const myGen = session.generation;
 
   const child = spawn(ffmpeg, args, {
     windowsHide: true,
-    stdio: ['ignore', 'pipe', 'pipe']
+    stdio: ['pipe', 'pipe', 'pipe']
   });
   session.process = child;
+  // Writing to a dead ffmpeg stdin must never crash the process.
+  child.stdin.on('error', () => {});
 
   child.stdout.on('data', (chunk) => {
     if (!session || session.process !== child) return;
@@ -802,19 +923,32 @@ async function ensurePublisher() {
   child.on('close', (code, signal) => {
     // Soft mic restart nulls process / swaps child first — keep /live clients.
     if (!session || session.process !== child) return;
-    // Preserve why the publisher died so /status can explain it after teardown
-    // (e.g. a MIPI/IPU sensor camera that dshow lists but cannot actually open).
+    // Preserve why the publisher died so /status can explain it after teardown.
     lastPublish = {
       at: Date.now(),
       code,
       signal,
       initReady: Boolean(session.initReady),
-      device: cachedDeviceInputArgs ? cachedDeviceInputArgs.join(' ') : null,
+      device: `pipe:0 ${publishMimeType}`,
       stderr: String(session.stderr || '').slice(-1500)
     };
     session.process = null;
+    // Stop the renderer feeding a dead generation.
+    try {
+      publishCaptureHandler?.('stop', myGen);
+    } catch {
+      /* ignore */
+    }
     closeClients({ localClose: true });
   });
+
+  // Ask the renderer to (re)start MediaRecorder and stream webm for this
+  // generation. The first chunk carries the webm header so ffmpeg can decode.
+  try {
+    publishCaptureHandler?.('start', myGen);
+  } catch {
+    /* ignore */
+  }
 
   return true;
 }
@@ -929,15 +1063,19 @@ async function servePhoneLive(req, res) {
 function getPublishDiag() {
   return {
     publishEnabled,
+    // Capture source is now the renderer (getUserMedia → webm → ffmpeg stdin).
+    source: 'renderer-webm',
+    captureHandler: Boolean(publishCaptureHandler),
     hasProcess: Boolean(session?.process),
     initReady: Boolean(session?.initReady),
     clients: session ? session.clients.size : 0,
-    device: cachedDeviceInputArgs ? cachedDeviceInputArgs.join(' ') : null,
-    hasAudioInput: publishHasAudioInput,
+    generation: session?.generation ?? publishGeneration,
+    mimeType: publishMimeType,
+    hasAudioInput: publishStreamHasAudio,
     // Live ffmpeg stderr (empty once the session is torn down).
     ffmpegStderrTail: session?.stderr ? String(session.stderr).slice(-800) : '',
     // Why the LAST publisher died — survives teardown so a failed call is
-    // still diagnosable. code!==0 with initReady:false ⇒ camera never opened.
+    // still diagnosable.
     lastPublish
   };
 }
@@ -1055,15 +1193,6 @@ async function startPhoneServer() {
     throw lastErr;
   }
 
-  // Warm the camera device resolution now (up to ~4s of dshow enumeration on
-  // Windows) so it is cached before the first /live call — keeps the cold-start
-  // publisher off the peer's start-timeout critical path.
-  if (publishEnabled) {
-    void resolveCameraInputArgs().catch(() => {
-      /* enumeration is best-effort; ensurePublisher will retry lazily */
-    });
-  }
-
   return {
     ok: true,
     port: listenPort,
@@ -1125,5 +1254,9 @@ module.exports = {
   setLanCallActive,
   isLanCallActive,
   getCallPeerIps,
-  setPhoneMic
+  setPhoneMic,
+  setPublishCaptureHandler,
+  setPublishConfig,
+  getPublishMimeType,
+  feedPublishChunk
 };

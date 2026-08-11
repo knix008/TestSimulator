@@ -198,6 +198,123 @@ const liveMse = createLiveMsePlayer(() => els.media, {
   }
 });
 
+// --- Outgoing publish -------------------------------------------------------
+// The camera is captured HERE (getUserMedia), not by ffmpeg, so sensor/MIPI
+// cameras that DirectShow cannot open still work. We record webm and stream the
+// chunks to main, which transcodes them to fMP4 for peers. main drives the
+// lifecycle via 'phone:publishSignal' (start/stop) keyed by a generation id.
+/** @type {MediaStream | null} */
+let publishStream = null;
+/** @type {MediaRecorder | null} */
+let publishRecorder = null;
+let publishGeneration = 0;
+/** Idle timer to release the camera after a call fully ends (not brief restarts). */
+let publishReleaseTimer = 0;
+
+function pickPublishMime() {
+  const candidates = [
+    'video/webm;codecs=vp8,opus',
+    'video/webm;codecs=vp9,opus',
+    'video/webm;codecs=vp8',
+    'video/webm'
+  ];
+  for (const m of candidates) {
+    try {
+      if (window.MediaRecorder?.isTypeSupported?.(m)) return m;
+    } catch {
+      /* ignore */
+    }
+  }
+  return 'video/webm';
+}
+
+function releasePublishStream() {
+  if (publishStream) {
+    for (const track of publishStream.getTracks()) {
+      try {
+        track.stop();
+      } catch {
+        /* ignore */
+      }
+    }
+    publishStream = null;
+  }
+}
+
+async function ensurePublishStream() {
+  const live = publishStream && publishStream.getVideoTracks().some((t) => t.readyState === 'live');
+  if (live) return publishStream;
+  releasePublishStream();
+  publishStream = await navigator.mediaDevices.getUserMedia({
+    video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30 } },
+    audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+  });
+  return publishStream;
+}
+
+function stopPublishRecorder() {
+  if (publishRecorder) {
+    try {
+      if (publishRecorder.state !== 'inactive') publishRecorder.stop();
+    } catch {
+      /* ignore */
+    }
+    publishRecorder = null;
+  }
+}
+
+async function startPublishCapture(generation) {
+  if (publishReleaseTimer) {
+    clearTimeout(publishReleaseTimer);
+    publishReleaseTimer = 0;
+  }
+  publishGeneration = generation;
+  if (!window.MediaRecorder || !navigator.mediaDevices?.getUserMedia) return;
+  try {
+    const stream = await ensurePublishStream();
+    if (publishGeneration !== generation) return; // superseded while awaiting
+    stopPublishRecorder();
+    const mimeType = pickPublishMime();
+    const hasAudio = stream.getAudioTracks().length > 0;
+    try {
+      void window.desktopAPI?.phonePublishConfig?.({ hasAudio, mimeType });
+    } catch {
+      /* ignore */
+    }
+    const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 1_200_000 });
+    publishRecorder = recorder;
+    recorder.ondataavailable = async (e) => {
+      if (!e.data || e.data.size === 0) return;
+      if (publishGeneration !== generation) return; // stale generation
+      try {
+        const buf = new Uint8Array(await e.data.arrayBuffer());
+        window.desktopAPI?.phonePublishChunk?.(generation, buf);
+      } catch {
+        /* ignore */
+      }
+    };
+    recorder.onerror = () => {
+      /* keep call alive; main will time out / retry if needed */
+    };
+    // 200ms timeslice: first blob carries the webm header, then live clusters.
+    recorder.start(200);
+  } catch {
+    // Camera/mic unavailable — the publisher gets no data and the peer will see
+    // a connect error rather than a frozen call.
+  }
+}
+
+function stopPublishCapture() {
+  stopPublishRecorder();
+  // Don't drop the camera on brief restarts (mic toggle / reconnect send
+  // stop→start within a moment). Release only after a real idle gap.
+  if (publishReleaseTimer) clearTimeout(publishReleaseTimer);
+  publishReleaseTimer = window.setTimeout(() => {
+    publishReleaseTimer = 0;
+    releasePublishStream();
+  }, 4000);
+}
+
 function setActivePeer(host, port) {
   const h = canonicalizeLoopbackHost(host);
   const p = Number(port) || phonePort();
@@ -3518,6 +3635,11 @@ function bindToolbar() {
   });
   window.desktopAPI?.onIncomingCall?.((info) => {
     showIncomingCallDialog(info || {});
+  });
+  // Main asks us to start/stop capturing our camera for the outgoing publish.
+  window.desktopAPI?.onPhonePublishSignal?.((action, generation) => {
+    if (action === 'start') void startPublishCapture(generation);
+    else if (action === 'stop') stopPublishCapture();
   });
   window.desktopAPI?.onPhonePeerLeft?.((info) => {
     // Only explicit peer hang-up (/bye) ends the call.

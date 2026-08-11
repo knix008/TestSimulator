@@ -101,7 +101,10 @@ const {
   setLanCallActive,
   getCallPeerIps,
   getPhonePort,
-  setPhoneMic
+  setPhoneMic,
+  setPublishCaptureHandler,
+  setPublishConfig,
+  feedPublishChunk
 } = require('./phone-stream');
 
 protocol.registerSchemesAsPrivileged([
@@ -1015,6 +1018,17 @@ app.whenReady().then(async () => {
       /* ignore */
     }
   });
+  // The publisher (main) asks the renderer to start/stop camera capture; the
+  // renderer streams webm chunks back over 'phone:publishChunk'.
+  setPublishCaptureHandler((action, generation) => {
+    try {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('phone:publishSignal', action, generation);
+      }
+    } catch {
+      /* ignore */
+    }
+  });
   createTray();
   createWindow();
 
@@ -1135,6 +1149,19 @@ ipcMain.handle('phone:setMic', (_event, payload = {}) =>
     restart: payload?.restart
   })
 );
+
+ipcMain.handle('phone:publishConfig', (_event, config = {}) =>
+  setPublishConfig({ hasAudio: config?.hasAudio, mimeType: config?.mimeType })
+);
+
+// High-frequency webm chunks from the renderer's MediaRecorder → ffmpeg stdin.
+ipcMain.on('phone:publishChunk', (_event, generation, chunk) => {
+  try {
+    feedPublishChunk(generation, chunk);
+  } catch {
+    /* ignore — publisher may have torn down */
+  }
+});
 
 function phoneHttpJson(method, host, port, pathName, bodyObj, timeoutMs = 2000) {
   return new Promise((resolve) => {
