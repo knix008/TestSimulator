@@ -890,7 +890,9 @@ async function servePhoneLive(req, res) {
     res.on('error', cleanup);
 
     await ensurePublisher();
-    const ready = await waitForPublisherInit(6000);
+    // Wait close to (but under) the peer's 15s client-side start budget. A cold
+    // or contended camera (dshow) can take several seconds to emit ftyp/moov.
+    const ready = await waitForPublisherInit(12000);
     if (!ready) {
       cleanup();
       try {
@@ -903,6 +905,24 @@ async function servePhoneLive(req, res) {
 
     writeInitToClient(res);
   });
+}
+
+/**
+ * Snapshot of why the local camera publisher may be failing. Exposed on /status
+ * so a peer stuck on "Live stream start timeout" can read the real ffmpeg error
+ * (e.g. camera in use by the local preview) by opening http://<ip>:<port>/status.
+ */
+function getPublishDiag() {
+  return {
+    publishEnabled,
+    hasProcess: Boolean(session?.process),
+    initReady: Boolean(session?.initReady),
+    clients: session ? session.clients.size : 0,
+    device: cachedDeviceInputArgs ? cachedDeviceInputArgs.join(' ') : null,
+    hasAudioInput: publishHasAudioInput,
+    // Last chunk of ffmpeg stderr (device-open errors show up here).
+    ffmpegStderrTail: session?.stderr ? String(session.stderr).slice(-800) : ''
+  };
 }
 
 function setPhonePublishEnabled(enabled) {
@@ -985,7 +1005,10 @@ async function startPhoneServer() {
           port: listenPort || PHONE_PORT,
           pending: pendingCalls.size > 0,
           // Only the explicit call flag — avoids false “in call” from warm tokens.
-          inCall: Boolean(lanCallActive)
+          inCall: Boolean(lanCallActive),
+          // Publisher diagnostics — open this URL in a browser to see why a peer
+          // gets "Live stream start timeout" (usually the camera won't open).
+          diag: getPublishDiag()
         });
         return;
       }
