@@ -87,6 +87,8 @@ let publishMimeType = 'video/webm;codecs=vp8,opus';
 let lastCaptureStatus = null;
 /** Bytes of webm chunks fed to ffmpeg since the last publisher (re)start. */
 let publishBytesIn = 0;
+/** Bytes of fMP4 written OUT to /live clients since the last publisher (re)start. */
+let publishBytesOut = 0;
 
 /** @type {null | {
  *   process: import('child_process').ChildProcess | null,
@@ -174,6 +176,7 @@ function writeLiveToClients(data) {
     }
     try {
       res.write(data);
+      publishBytesOut += data.length;
     } catch {
       session.clients.delete(res);
       clientMeta.delete(res);
@@ -580,6 +583,7 @@ function stopPublisher() {
       initReady: Boolean(session.initReady),
       device: `pipe:0 ${publishMimeType}`,
       bytesIn: publishBytesIn,
+      bytesOut: publishBytesOut,
       stderr: String(session.stderr || '').slice(-1500)
     };
   }
@@ -808,6 +812,11 @@ function buildPublishArgsFromPipe() {
     '500000',
     '-flush_packets',
     '1',
+    // Low-latency muxing so fragments are emitted immediately, not buffered.
+    '-muxdelay',
+    '0',
+    '-muxpreload',
+    '0',
     'pipe:1'
   ];
 }
@@ -900,6 +909,7 @@ async function ensurePublisher() {
   session.generation = ++publishGeneration;
   const myGen = session.generation;
   publishBytesIn = 0;
+  publishBytesOut = 0;
 
   const child = spawn(ffmpeg, args, {
     windowsHide: true,
@@ -956,6 +966,7 @@ async function ensurePublisher() {
       initReady: Boolean(session.initReady),
       device: `pipe:0 ${publishMimeType}`,
       bytesIn: publishBytesIn,
+      bytesOut: publishBytesOut,
       stderr: String(session.stderr || '').slice(-1500)
     };
     session.process = null;
@@ -1098,8 +1109,9 @@ function getPublishDiag() {
     generation: session?.generation ?? publishGeneration,
     mimeType: publishMimeType,
     hasAudioInput: publishStreamHasAudio,
-    // Webm bytes fed to ffmpeg for the current/last generation.
+    // Webm bytes fed to ffmpeg / fMP4 bytes written out to clients.
     bytesIn: publishBytesIn,
+    bytesOut: publishBytesOut,
     // Last capture step the renderer reported (getUserMedia / MediaRecorder).
     lastCaptureStatus,
     // Live ffmpeg stderr (empty once the session is torn down).

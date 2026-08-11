@@ -429,6 +429,10 @@ export function createLiveMsePlayer(getVideo, options = {}) {
     /** @type {Uint8Array | null} */
     let pendingMoof = null;
     let ready = false;
+    // Diagnostics surfaced in the start-timeout error so a failed call is
+    // explainable from the user's error report alone.
+    let totalBytes = 0;
+    const seenBoxTypes = new Set();
 
     /** @type {() => void} */
     let resolveReady = () => {};
@@ -475,6 +479,7 @@ export function createLiveMsePlayer(getVideo, options = {}) {
 
     const onBoxes = (boxes) => {
       for (const box of boxes) {
+        seenBoxTypes.add(box.type);
         if (!haveInit) {
           if (box.type === 'ftyp' || box.type === 'moov') {
             initParts.push(box.bytes);
@@ -514,6 +519,7 @@ export function createLiveMsePlayer(getVideo, options = {}) {
           const { done, value } = await reader.read();
           if (done) break;
           if (!value?.byteLength) continue;
+          totalBytes += value.byteLength;
           pending = concatBytes(pending, value);
           const { boxes, rest } = takeCompleteBoxes(pending);
           pending = rest;
@@ -542,7 +548,12 @@ export function createLiveMsePlayer(getVideo, options = {}) {
     // dshow) + warm it up + emit the first keyframe. 8s was too tight and timed
     // out on the first call after launch; 15s covers a cold publisher start.
     const timeout = sleep(15000).then(() => {
-      if (!ready) throw new Error('Live stream start timeout');
+      if (!ready) {
+        const boxes = [...seenBoxTypes].join(',') || 'none';
+        throw new Error(
+          `Live stream start timeout (bytes=${totalBytes} init=${haveInit} boxes=${boxes} segs=${segmentCount})`
+        );
+      }
     });
     await Promise.race([readyPromise, timeout]);
     if (!haveInit) throw new Error('Live stream missing init segment');
