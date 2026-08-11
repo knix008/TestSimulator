@@ -93,6 +93,7 @@ const {
   stopPhoneServer,
   setPhonePublishEnabled,
   getPhoneInfo,
+  warmPublisher,
   setIncomingCallHandler,
   setPeerDisconnectHandler,
   respondToCall,
@@ -1274,6 +1275,10 @@ ipcMain.handle('phone:ring', async (_event, payload = {}) => {
   // Peer may pull our camera after they Accept — token + IP allow (backup).
   const callbackToken = grantLiveToken(host, RING_TIMEOUT_MS + 120000);
   allowCallbackFrom(host, RING_TIMEOUT_MS + 120000);
+  setLanCallActive(true);
+  // Open the camera encoder while ringing so the callee gets video immediately
+  // on Accept (avoids a cold DirectShow start racing the callback pull).
+  void warmPublisher();
 
   return new Promise((resolve) => {
     let settled = false;
@@ -1304,6 +1309,7 @@ ipcMain.handle('phone:ring', async (_event, payload = {}) => {
             const parsed = data ? JSON.parse(data) : {};
             const token = parsed?.token || '';
             const accepted = Boolean(parsed?.accepted);
+            if (!accepted) setLanCallActive(false);
             finish({
               ok: Boolean(parsed?.ok ?? res.statusCode === 200),
               accepted,
@@ -1317,6 +1323,7 @@ ipcMain.handle('phone:ring', async (_event, payload = {}) => {
               statusCode: res.statusCode
             });
           } catch {
+            setLanCallActive(false);
             finish({
               ok: false,
               accepted: false,
@@ -1334,9 +1341,11 @@ ipcMain.handle('phone:ring', async (_event, payload = {}) => {
       } catch {
         /* ignore */
       }
+      setLanCallActive(false);
       finish({ ok: false, accepted: false, error: 'timeout' });
     });
     req.on('error', (err) => {
+      setLanCallActive(false);
       finish({ ok: false, accepted: false, error: String(err?.message || err) });
     });
     req.write(body);

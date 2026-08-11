@@ -198,6 +198,17 @@ const liveMse = createLiveMsePlayer(() => els.media, {
   }
 });
 
+/** Local PIP while ffmpeg/DirectShow owns the camera (progressive <video src> cannot play live fMP4). */
+const previewMse = createLiveMsePlayer(() => els.localPreviewVideo, {
+  onStreamEnded: () => {
+    if (!localCameraWanted || !settings.showLocalPreview || hangUpInFlight) return;
+    if (localCameraStream) return;
+    window.setTimeout(() => {
+      void startLocalCameraViaPhoneHttp();
+    }, 600);
+  }
+});
+
 // --- Outgoing publish -------------------------------------------------------
 // The camera is captured HERE (getUserMedia), not by ffmpeg, so sensor/MIPI
 // cameras that DirectShow cannot open still work. We record webm and stream the
@@ -942,10 +953,13 @@ function updateCallChrome() {
 
 function isLocalPreviewLive() {
   if (localCameraStream) return true;
+  if (previewMse.active) return true;
   const video = els.localPreviewVideo;
   if (!video) return false;
   if (video.srcObject) return true;
-  return Boolean(video.getAttribute('src'));
+  if (video.videoWidth > 0 && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) return true;
+  const src = video.currentSrc || video.getAttribute('src') || '';
+  return Boolean(src);
 }
 
 function syncLocalPreviewVisibility() {
@@ -953,10 +967,11 @@ function syncLocalPreviewVisibility() {
   const video = els.localPreviewVideo;
   if (!wrap || !video) return;
   const hasFeed = isLocalPreviewLive();
+  // During a call, keep the PIP shell visible while MSE preview is connecting.
   const shouldShow =
     Boolean(settings.showLocalPreview) &&
     localCameraWanted &&
-    hasFeed &&
+    (hasFeed || isLiveCall()) &&
     (isLiveCall() || Boolean(els.dropHint && !els.dropHint.classList.contains('hidden')));
   wrap.hidden = !shouldShow;
   els.btnLocalCamera?.setAttribute('aria-pressed', String(localCameraWanted && Boolean(settings.showLocalPreview)));
@@ -965,25 +980,56 @@ function syncLocalPreviewVisibility() {
 
 async function startLocalCameraViaPhoneHttp() {
   if (!isElectron || !window.desktopAPI?.setPhonePublish) return false;
-  await window.desktopAPI.setPhonePublish(true);
-  const info = (await window.desktopAPI.getPhoneInfo?.()) || {};
-  const liveUrl = info.localLiveUrl || appInfo?.phoneLiveUrl || '';
-  if (!els.localPreviewVideo || !liveUrl) return false;
-  els.localPreviewVideo.srcObject = null;
-  if (els.localPreviewVideo.getAttribute('src') !== liveUrl) {
-    els.localPreviewVideo.src = liveUrl;
-  }
+  if (!els.localPreviewVideo) return false;
   try {
-    await els.localPreviewVideo.play();
+    await window.desktopAPI.setPhonePublish(true);
   } catch {
-    /* autoplay may be blocked briefly */
+    /* ignore */
   }
-  // Wait briefly for the live fMP4 to become ready; otherwise treat as failure.
-  await new Promise((r) => setTimeout(r, 400));
-  if (els.localPreviewVideo.readyState < 2 && els.localPreviewVideo.error) {
-    return false;
+  // Same-origin UI proxy — required for MSE (direct :8765/live is cross-origin).
+  let liveUrl = String(appInfo?.phoneLiveUrl || '').trim();
+  if (!liveUrl) {
+    try {
+      const info = (await window.desktopAPI.getPhoneInfo?.()) || {};
+      const port = Number(info.port || phonePort()) || phonePort();
+      liveUrl = toUiPhonePlayUrl('127.0.0.1', port, '');
+    } catch {
+      liveUrl = '';
+    }
   }
-  return true;
+  if (!liveUrl) return false;
+
+  localCameraWanted = true;
+  els.localPreviewVideo.srcObject = null;
+  els.localPreviewVideo.removeAttribute('src');
+  syncLocalPreviewVisibility();
+
+  try {
+    await previewMse.stop();
+  } catch {
+    /* ignore */
+  }
+
+  // Publisher may still be warming after DirectShow open — retry a few times.
+  let lastErr = null;
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    try {
+      await previewMse.start(liveUrl);
+      try {
+        await els.localPreviewVideo.play();
+      } catch {
+        /* ignore */
+      }
+      syncLocalPreviewVisibility();
+      return true;
+    } catch (err) {
+      lastErr = err;
+      await new Promise((r) => setTimeout(r, 500 + attempt * 400));
+    }
+  }
+  console.warn('[preview] MSE start failed', lastErr);
+  syncLocalPreviewVisibility();
+  return false;
 }
 
 async function startLocalCamera({ announce = false } = {}) {
@@ -994,6 +1040,27 @@ async function startLocalCamera({ announce = false } = {}) {
     } catch {
       /* ignore */
     }
+  }
+
+  // During a call ffmpeg/DirectShow owns the webcam. Opening getUserMedia here
+  // steals the device and kills the outbound publish — the callee then sees no video.
+  let cameraHeld = phoneSessionActive || Boolean(currentPhoneUrl) || openStreamInFlight;
+  if (!cameraHeld && isElectron && window.desktopAPI?.getPhoneInfo) {
+    try {
+      const info = await window.desktopAPI.getPhoneInfo();
+      cameraHeld = Boolean(info?.cameraHeldByPublisher || info?.publishMode === 'device');
+    } catch {
+      /* ignore */
+    }
+  }
+  if (cameraHeld) {
+    localCameraWanted = true;
+    const ok = await startLocalCameraViaPhoneHttp();
+    if (announce) {
+      setStatus({ state: statusKey(ok ? 'statusLocalCameraOn' : 'statusLocalCameraDenied') });
+    }
+    syncLocalPreviewVisibility();
+    return ok;
   }
 
   if (localCameraStream) {
@@ -1012,9 +1079,14 @@ async function startLocalCamera({ announce = false } = {}) {
     return true;
   }
 
-  // Prefer getUserMedia for a reliable local PIP preview.
+  // Prefer getUserMedia when the OS camera is free (idle / after hang-up).
   if (navigator.mediaDevices?.getUserMedia) {
     try {
+      try {
+        await previewMse.stop();
+      } catch {
+        /* ignore */
+      }
       localCameraStream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'user' },
         audio: false
@@ -1058,6 +1130,11 @@ async function startLocalCamera({ announce = false } = {}) {
 
 function stopLocalCamera({ announce = false } = {}) {
   localCameraWanted = false;
+  try {
+    void previewMse.stop();
+  } catch {
+    /* ignore */
+  }
   if (els.localPreviewVideo) {
     try {
       els.localPreviewVideo.pause();
@@ -2988,6 +3065,35 @@ function showIncomingCallDialog(info) {
   openThemedDialog(els.incomingCallModal || $('incomingCallModal'), { modal: true });
 }
 
+/**
+ * After Accept, pull the caller's live video. Retries hosts/ports because the
+ * advertised label can differ from the TCP fromIp (multi-NIC / VPN).
+ * @param {{ hosts: string[], port: number, token: string }} opts
+ */
+async function pullPeerPhoneVideo(opts) {
+  const token = String(opts.token || '').trim();
+  const port = Number(opts.port) || phonePort();
+  const hosts = [...new Set((opts.hosts || []).map((h) => canonicalizeLoopbackHost(h)).filter(Boolean))];
+
+  // Wait out any in-flight open so we do not silently no-op.
+  const waitStart = Date.now();
+  while (openStreamInFlight && Date.now() - waitStart < 15000) {
+    await new Promise((r) => setTimeout(r, 150));
+  }
+
+  for (const host of hosts) {
+    if (!host || /^127\./.test(host)) continue;
+    const q = token ? `?token=${encodeURIComponent(token)}` : '';
+    const liveUrl = `http://${host}:${port}/live${q}`;
+    setActivePeer(host, port);
+    const ok = await playPhoneFromInput(liveUrl, { skipRing: true, quiet: true });
+    if (ok) return true;
+    // Brief pause before trying the next candidate address.
+    await new Promise((r) => setTimeout(r, 400));
+  }
+  return false;
+}
+
 async function respondIncomingCall(accepted) {
   const pending = pendingIncomingCall;
   pendingIncomingCall = null;
@@ -3018,55 +3124,85 @@ async function respondIncomingCall(accepted) {
   // Accept grants the caller a /live token — treat as an active call so Hang up works
   // even if we cannot load the caller's video (missing IP, callback fail, etc.).
   phoneSessionActive = true;
-  // Prefer advertised LAN label (may be host:port); fall back to socket fromIp.
   const label = String(pending.fromLabel || '').trim();
   const labelHostPort = (() => {
     const m = label.match(/^(\d{1,3}(?:\.\d{1,3}){3})(?::(\d{1,5}))?$/);
     if (!m) return null;
     return { host: m[1], port: m[2] ? Number(m[2]) : phonePort() };
   })();
-  const hostRaw = labelHostPort?.host || pending.fromIp || '';
+  // Socket fromIp is who actually reached us — prefer it over an advertised label.
   const peerPort = labelHostPort?.port || phonePort();
-  const host = canonicalizeLoopbackHost(hostRaw);
+  const hostCandidates = [pending.fromIp, labelHostPort?.host].filter(Boolean);
+  const host = canonicalizeLoopbackHost(hostCandidates[0] || '');
   setActivePeer(host, peerPort);
   markPhoneCallActive(true);
   startCallWatch();
   setStatus({
     file: pending.fromLabel || pending.fromIp || t('appTitle'),
     format: 'PHONE',
-    state: statusKey('statusRtspLive')
+    state: statusKey('statusRtspConnecting')
   });
   els.dropHint?.classList.add('hidden');
   updateCallChrome();
 
-  // Pull caller's video with the callback token minted at dial time (LAN-safe).
   const callbackToken =
     pending.callbackToken || String(result?.callbackToken || '');
-  const playHost = host;
-  if (playHost && !/^127\./.test(playHost)) {
-    const q = callbackToken ? `?token=${encodeURIComponent(callbackToken)}` : '';
-    const liveUrl = `http://${playHost}:${peerPort}/live${q}`;
-    void playPhoneFromInput(liveUrl, { skipRing: true });
+  // Warm our publisher so the caller can pull us while we pull them.
+  try {
+    await window.desktopAPI?.setPhonePublish?.(true);
+  } catch {
+    /* ignore */
   }
+  if (settings.showLocalPreview) {
+    localCameraWanted = true;
+    void startLocalCameraViaPhoneHttp();
+  }
+
+  void (async () => {
+    // Give the caller a moment — they warm the encoder while ringing.
+    await new Promise((r) => setTimeout(r, 700));
+    if (!phoneSessionActive) return;
+    const ok = await pullPeerPhoneVideo({
+      hosts: hostCandidates,
+      port: peerPort,
+      token: callbackToken
+    });
+    if (ok) {
+      setStatus({
+        file: pending.fromLabel || pending.fromIp || t('appTitle'),
+        format: 'PHONE',
+        state: statusKey('statusRtspLive')
+      });
+    } else if (phoneSessionActive) {
+      setStatus({
+        file: pending.fromLabel || pending.fromIp || t('appTitle'),
+        format: 'PHONE',
+        state: statusKey('statusRtspFailed')
+      });
+      showConnectError(t('statusRtspFailed'));
+    }
+    updateCallChrome();
+  })();
 }
 
 /**
  * @param {string} rawUrl
- * @param {{ skipRing?: boolean }} [options]
+ * @param {{ skipRing?: boolean, quiet?: boolean }} [options]
  */
 async function playPhoneFromInput(rawUrl, options = {}) {
   const skipRing = Boolean(options.skipRing);
+  const quiet = Boolean(options.quiet);
   const url = String(rawUrl || '').trim();
   if (!isHttpUrl(url)) {
-    showConnectError(t('rtspOrIpInvalid'));
+    if (!quiet) showConnectError(t('rtspOrIpInvalid'));
     return false;
   }
   if (!isElectron) {
-    showConnectError(t('rtspDesktopOnly'));
+    if (!quiet) showConnectError(t('rtspDesktopOnly'));
     return false;
   }
   if (openStreamInFlight) {
-    setStatus({ state: statusKey('statusOpenInProgress') });
+    if (!quiet) setStatus({ state: statusKey('statusOpenInProgress') });
     return false;
   }
 
@@ -3144,13 +3280,26 @@ async function playPhoneFromInput(rawUrl, options = {}) {
     }
 
     updateOpenProgressStage(2, 3, t('progressStartingStream'));
-    await loadMedia({
-      url: playUrl,
-      name: label,
-      path: null,
-      ext: 'phone',
-      isPhone: true
-    });
+    try {
+      await loadMedia({
+        url: playUrl,
+        name: label,
+        path: null,
+        ext: 'phone',
+        isPhone: true
+      });
+    } catch (firstErr) {
+      // Peer publisher may still be opening DirectShow after Accept — one retry.
+      await new Promise((r) => setTimeout(r, 1200));
+      if (openStreamCancelled) throw firstErr;
+      await loadMedia({
+        url: playUrl,
+        name: label,
+        path: null,
+        ext: 'phone',
+        isPhone: true
+      });
+    }
     if (openStreamCancelled) {
       closeSaveProgress();
       return false;
@@ -3170,13 +3319,16 @@ async function playPhoneFromInput(rawUrl, options = {}) {
     return true;
   } catch (err) {
     const errMsg = String(err?.message || err || t('statusRtspFailed'));
-    reopenUrlDialogAfterOpenFailure(url, errMsg);
-    showAppError({
-      title: t('errorRtspTitle'),
-      message: errMsg,
-      detail: errMsg,
-      context: { url }
-    });
+    finishOpenProgress({ ok: false, message: errMsg });
+    if (!quiet) {
+      reopenUrlDialogAfterOpenFailure(url, errMsg);
+      showAppError({
+        title: t('errorRtspTitle'),
+        message: errMsg,
+        detail: errMsg,
+        context: { url }
+      });
+    }
     return false;
   } finally {
     endOpenStreamInFlight();
@@ -3758,11 +3910,13 @@ function bindToolbar() {
         els.localPreviewVideo.removeAttribute('src');
       }
       reportPublishStatus(`released gen=${generation}`);
-      // PIP can follow the LAN publisher once it is up (loopback /live).
+      // PIP watches our own published fMP4 via MSE (camera is held by ffmpeg).
       if (settings.showLocalPreview) {
+        localCameraWanted = true;
+        syncLocalPreviewVisibility();
         window.setTimeout(() => {
           void startLocalCameraViaPhoneHttp();
-        }, 800);
+        }, 1000);
       }
     }
   });

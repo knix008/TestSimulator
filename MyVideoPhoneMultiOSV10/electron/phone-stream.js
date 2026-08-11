@@ -1392,6 +1392,7 @@ function stopPhoneServer() {
 function getPhoneInfo() {
   const port = getPhonePort();
   const lanAddresses = getLanIpv4Addresses();
+  const publishMode = session?.publishMode || (session?.process ? 'unknown' : 'idle');
   return {
     port,
     defaultPort: PHONE_PORT,
@@ -1399,8 +1400,23 @@ function getPhoneInfo() {
     lanAddresses,
     localLiveUrl: port ? `http://127.0.0.1:${port}/live` : '',
     /** Address peers should type — IP only when using the default port. */
-    peerHints: lanAddresses.map((ip) => (port === PHONE_PORT ? ip : `${ip}:${port}`))
+    peerHints: lanAddresses.map((ip) => (port === PHONE_PORT ? ip : `${ip}:${port}`)),
+    publishMode,
+    /** True when ffmpeg holds the webcam — renderer must not open getUserMedia. */
+    cameraHeldByPublisher: Boolean(session?.process && publishMode === 'device'),
+    initReady: Boolean(session?.initReady)
   };
+}
+
+/** Start encoding early (e.g. while ringing) so Accept can pull video immediately. */
+async function warmPublisher() {
+  if (!publishEnabled) return { ok: false, error: 'publish disabled' };
+  try {
+    const ok = await ensurePublisher();
+    return { ok: Boolean(ok), initReady: Boolean(session?.initReady) };
+  } catch (err) {
+    return { ok: false, error: String(err?.message || err) };
+  }
 }
 
 module.exports = {
@@ -1413,6 +1429,7 @@ module.exports = {
   getPhoneInfo,
   getLanIpv4Addresses,
   getPhonePort,
+  warmPublisher,
   setIncomingCallHandler,
   setPeerDisconnectHandler,
   respondToCall,
