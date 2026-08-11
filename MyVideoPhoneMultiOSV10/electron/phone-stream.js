@@ -69,6 +69,11 @@ let micVolumePercent = 100;
 let appliedMicGain = null;
 /** Skip idle publisher teardown while peers reconnect after a mic soft-restart. */
 let suppressIdleStopUntil = 0;
+/**
+ * Local PIP holds the outgoing publisher open (loopback /live). Without this,
+ * MSE reconnect gaps hit clients=0 and idle-stop kills ffmpeg mid-start.
+ */
+let publisherHold = false;
 
 /** Why the most recent publisher ffmpeg exited (persists after teardown for /status). */
 /** @type {null | { at: number, code: number|null, signal: string|null, initReady: boolean, device: string|null, stderr: string }} */
@@ -1037,9 +1042,10 @@ function attachPublisherProcess(child, myGen, mode) {
  * fragments. The MediaRecorder→webm→pipe path often stops after moov (segs=0).
  */
 async function startDevicePublisher(clients, opts = {}) {
-  session = createEmptySession(clients);
-  session.generation = ++publishGeneration;
-  const myGen = session.generation;
+  const local = createEmptySession(clients);
+  session = local;
+  local.generation = ++publishGeneration;
+  const myGen = local.generation;
   publishBytesIn = 0;
   publishBytesOut = 0;
   prePublishBuf = [];
@@ -1060,7 +1066,14 @@ async function startDevicePublisher(clients, opts = {}) {
     await sleep(350);
   }
 
+  // Idle-stop / mic restart may have replaced or cleared the session while we slept.
+  if (session !== local) {
+    setPublishCaptureStatus('device-publish superseded before spawn');
+    return false;
+  }
+
   const inputArgs = await resolveCameraInputArgs();
+  if (session !== local) return false;
   const ffmpeg = resolveFfmpegPath();
   const args = buildPublishArgs(inputArgs);
   setPublishCaptureStatus(`device-publish ${inputArgs.join(' ')}`);
@@ -1069,9 +1082,25 @@ async function startDevicePublisher(clients, opts = {}) {
     windowsHide: true,
     stdio: ['ignore', 'pipe', 'pipe']
   });
+  if (session !== local) {
+    try {
+      await killProcessAsync(child);
+    } catch {
+      /* ignore */
+    }
+    return false;
+  }
   attachPublisherProcess(child, myGen, 'device');
 
   const ok = await waitForPublisherInit(opts.softMicRestart ? 8000 : 6000);
+  if (session !== local) {
+    try {
+      await killProcessAsync(child);
+    } catch {
+      /* ignore */
+    }
+    return false;
+  }
   if (ok) {
     appliedMicGain = micLinearGain();
     setPublishCaptureStatus('device-publish init-ready');
@@ -1080,17 +1109,19 @@ async function startDevicePublisher(clients, opts = {}) {
 
   // Device path failed — tear down before pipe fallback.
   setPublishCaptureStatus(
-    `device-publish failed init stderr=${String(session?.stderr || '').slice(-200)}`
+    `device-publish failed init stderr=${String(local.stderr || '').slice(-200)}`
   );
   try {
-    session.process = null;
+    if (session === local) local.process = null;
     await killProcessAsync(child);
   } catch {
     /* ignore */
   }
-  session.initReady = false;
-  session.initSegment = Buffer.alloc(0);
-  session.parseBuf = Buffer.alloc(0);
+  if (session === local) {
+    local.initReady = false;
+    local.initSegment = Buffer.alloc(0);
+    local.parseBuf = Buffer.alloc(0);
+  }
   appliedMicGain = null;
   return false;
 }
@@ -1239,9 +1270,9 @@ async function servePhoneLive(req, res) {
       if (session.clients.size === 0) {
         const idle = session;
         setTimeout(() => {
-          // Keep the encoder warm during an active call / mic soft-restart so the
-          // peer can reconnect without racing a teardown.
-          if (lanCallActive || Date.now() < suppressIdleStopUntil) return;
+          // Keep the encoder warm during an active call, local PIP hold, or
+          // mic soft-restart so reconnects do not race a teardown.
+          if (publisherHold || lanCallActive || Date.now() < suppressIdleStopUntil) return;
           if (session === idle && session.clients.size === 0) {
             stopPublisher();
           }
@@ -1463,11 +1494,21 @@ function getPhoneInfo() {
 async function warmPublisher() {
   if (!publishEnabled) return { ok: false, error: 'publish disabled' };
   try {
-    const ok = await ensurePublisher();
+    const ok = await withPublisherGate(() => ensurePublisher());
     return { ok: Boolean(ok), initReady: Boolean(session?.initReady) };
   } catch (err) {
     return { ok: false, error: String(err?.message || err) };
   }
+}
+
+/**
+ * Hold the camera publisher open for local PIP (publish-mirror preview).
+ * @param {boolean} hold
+ */
+function setPublisherHold(hold) {
+  publisherHold = Boolean(hold);
+  if (publisherHold) suppressIdleStopUntil = Date.now() + 24 * 60 * 60 * 1000;
+  return { ok: true, hold: publisherHold };
 }
 
 module.exports = {
@@ -1481,6 +1522,7 @@ module.exports = {
   getLanIpv4Addresses,
   getPhonePort,
   warmPublisher,
+  setPublisherHold,
   setIncomingCallHandler,
   setPeerDisconnectHandler,
   respondToCall,

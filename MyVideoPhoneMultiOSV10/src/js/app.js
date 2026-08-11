@@ -420,7 +420,9 @@ function forceReleasePhoneCallUi(remote = false) {
   stopLiveEdgeSync();
   clearPhoneStallWatch();
   document.body.classList.remove('is-live-call');
-  els.dropHint?.classList.remove('hidden');
+  // After a call: black stage + local PIP only (no connect overlay / frozen peer frame).
+  els.dropHint?.classList.add('hidden');
+  void clearPhoneVideoSurface();
   setStatus({
     file: statusKey('statusReady'),
     format: '—',
@@ -526,6 +528,10 @@ async function clearPhoneVideoSurface() {
     /* ignore */
   }
   hidePlaybackOverlay(true);
+  // Ensure no last peer frame remains over the idle black stage.
+  if (els.media) {
+    els.media.style.background = '#000';
+  }
 }
 
 async function handlePhoneStreamLost() {
@@ -963,7 +969,8 @@ function updateCallChrome() {
   document.body.classList.toggle('is-call-recording', rtspRecording);
 
   if (els.callBadge) {
-    const show = live || connecting || rtspRecording || Boolean(els.dropHint && !els.dropHint.classList.contains('hidden'));
+    // Badge only while connecting / in call / recording — not on the idle black stage.
+    const show = live || connecting || rtspRecording;
     els.callBadge.hidden = !show;
   }
   if (els.callBadgeText) {
@@ -1028,6 +1035,11 @@ async function pauseLocalPreviewForBackground() {
     localPreviewRestartTimer = 0;
   }
   try {
+    await window.desktopAPI?.setPhonePublisherHold?.(false);
+  } catch {
+    /* ignore */
+  }
+  try {
     await localPreviewMse.stop();
   } catch {
     /* ignore */
@@ -1065,15 +1077,38 @@ async function startLocalPreviewFromPublish() {
     syncLocalPreviewVisibility();
     return false;
   }
-  if (localPreviewStartInFlight) return false;
+  if (localPreviewStartInFlight) {
+    scheduleLocalPreviewRestart(600);
+    return false;
+  }
   localPreviewStartInFlight = true;
   syncLocalPreviewVisibility();
   try {
+    // Hold ffmpeg open across MSE reconnect gaps (otherwise idle-stop races PIP).
+    try {
+      await window.desktopAPI?.setPhonePublisherHold?.(true);
+    } catch {
+      /* ignore */
+    }
+    try {
+      const warm = await window.desktopAPI?.warmPhonePublisher?.();
+      if (warm && warm.ok === false) {
+        throw new Error(warm.error || 'Publisher warm failed');
+      }
+    } catch (err) {
+      throw err instanceof Error ? err : new Error(String(err?.message || err));
+    }
+
     const url = localPreviewPlayUrl();
+    if (!url || !appInfo?.uiPort) {
+      throw new Error('UI phone proxy is not ready');
+    }
     await localPreviewMse.start(url);
     const v = els.localPreviewVideo;
     if (v) {
       v.muted = true;
+      v.defaultMuted = true;
+      v.volume = 0;
       v.playsInline = true;
       try {
         await v.play();
@@ -1084,8 +1119,9 @@ async function startLocalPreviewFromPublish() {
     startPreviewEdgeSync();
     syncLocalPreviewVisibility();
     return true;
-  } catch {
-    // Publisher may still be warming after mic soft-restart — retry once.
+  } catch (err) {
+    console.warn('[local-preview]', err?.message || err);
+    // Publisher may still be warming after mic soft-restart — retry.
     scheduleLocalPreviewRestart(900);
     return false;
   } finally {
@@ -1104,6 +1140,11 @@ async function stopLocalCamera() {
   if (localPreviewRestartTimer) {
     clearTimeout(localPreviewRestartTimer);
     localPreviewRestartTimer = 0;
+  }
+  try {
+    await window.desktopAPI?.setPhonePublisherHold?.(false);
+  } catch {
+    /* ignore */
   }
   try {
     await localPreviewMse.stop();
@@ -1304,20 +1345,11 @@ async function hangUpCall(options = {}) {
       await finalizeRtspRecordIfAny();
     }
     await stopRtspBridge({ finalizeRecord: false });
-    try {
-      await liveMse.stop();
-    } catch {
-      /* ignore */
-    }
     stopRequested = true;
-    els.media.pause();
-    els.media.removeAttribute('src');
-    els.media.load();
     revokeObjectUrl();
     currentMediaPath = null;
     currentMediaName = null;
-    hidePlaybackOverlay(true);
-    els.dropHint?.classList.remove('hidden');
+    // Black stage (peer surface cleared); keep local PIP if it was on.
     forceReleasePhoneCallUi(remote);
     if (wasLive) {
       notifyDesktop(t('appTitle'), remote ? t('notifyRemoteHangup') : t('notifyCallEnded'));

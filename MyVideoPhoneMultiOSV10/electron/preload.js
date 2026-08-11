@@ -80,6 +80,10 @@ contextBridge.exposeInMainWorld('desktopAPI', {
   setPhoneCallActive: (active) => ipcRenderer.invoke('phone:setCallActive', Boolean(active)),
   /** Outgoing mic on/off + volume for LAN publish. */
   setPhoneMic: (payload) => ipcRenderer.invoke('phone:setMic', payload || {}),
+  /** Warm ffmpeg device publisher before local PIP / peer pull. */
+  warmPhonePublisher: () => ipcRenderer.invoke('phone:warmPublisher'),
+  /** Keep publisher alive while local PIP mirrors the outgoing /live stream. */
+  setPhonePublisherHold: (hold) => ipcRenderer.invoke('phone:setPublisherHold', Boolean(hold)),
   /** Renderer reports its capture capabilities (mic present, MediaRecorder mime). */
   phonePublishConfig: (config) => ipcRenderer.invoke('phone:publishConfig', config || {}),
   /** Stream one webm chunk from MediaRecorder into the main-process publisher. */

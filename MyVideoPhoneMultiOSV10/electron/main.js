@@ -94,6 +94,7 @@ const {
   setPhonePublishEnabled,
   getPhoneInfo,
   warmPublisher,
+  setPublisherHold,
   setIncomingCallHandler,
   setPeerDisconnectHandler,
   respondToCall,
@@ -1152,6 +1153,10 @@ ipcMain.handle('phone:setMic', async (_event, payload = {}) =>
     restart: payload?.restart
   })
 );
+
+ipcMain.handle('phone:warmPublisher', async () => warmPublisher());
+
+ipcMain.handle('phone:setPublisherHold', (_event, hold) => setPublisherHold(Boolean(hold)));
 
 ipcMain.handle('phone:publishConfig', (_event, config = {}) =>
   setPublishConfig({ hasAudio: config?.hasAudio, mimeType: config?.mimeType })
