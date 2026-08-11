@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img" aria-label="MyVideoPhone">
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1a3a4a"/>
+      <stop offset="45%" stop-color="#0f2430"/>
+      <stop offset="100%" stop-color="#071018"/>
+    </linearGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#5a8fa3"/>
+      <stop offset="45%" stop-color="#1e4558"/>
+      <stop offset="100%" stop-color="#0a1820"/>
+    </linearGradient>
+    <linearGradient id="phoneBody" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f2f8fb"/>
+      <stop offset="40%" stop-color="#d5e8f0"/>
+      <stop offset="100%" stop-color="#9fc0d0"/>
+    </linearGradient>
+    <linearGradient id="phoneEdge" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.55"/>
+      <stop offset="50%" stop-color="#ffffff" stop-opacity="0.08"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0.18"/>
+    </linearGradient>
+    <linearGradient id="screen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0b2a36"/>
+      <stop offset="100%" stop-color="#041018"/>
+    </linearGradient>
+    <linearGradient id="live" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#5eead4"/>
+      <stop offset="45%" stop-color="#22d3ee"/>
+      <stop offset="100%" stop-color="#0891b2"/>
+    </linearGradient>
+    <linearGradient id="call" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#a5f3fc"/>
+      <stop offset="100%" stop-color="#06b6d4"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="42%" r="50%">
+      <stop offset="0%" stop-color="#22d3ee" stop-opacity="0.5"/>
+      <stop offset="55%" stop-color="#0891b2" stop-opacity="0.16"/>
+      <stop offset="100%" stop-color="#0891b2" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="softShadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="28" stdDeviation="28" flood-color="#000000" flood-opacity="0.55"/>
+    </filter>
+    <filter id="phoneShadow" x="-40%" y="-40%" width="180%" height="180%">
+      <feDropShadow dx="0" dy="22" stdDeviation="20" flood-color="#022c3a" flood-opacity="0.7"/>
+    </filter>
+  </defs>
+
+  <!-- App tile -->
+  <rect x="48" y="48" width="928" height="928" rx="214" fill="url(#rim)"/>
+  <rect x="72" y="72" width="880" height="880" rx="196" fill="url(#tile)" filter="url(#softShadow)"/>
+  <circle cx="512" cy="470" r="300" fill="url(#glow)"/>
+
+  <!-- Portrait video phone -->
+  <g filter="url(#phoneShadow)">
+    <rect x="318" y="168" width="388" height="620" rx="78" fill="url(#phoneBody)"/>
+    <rect x="318" y="168" width="388" height="620" rx="78" fill="url(#phoneEdge)"/>
+    <rect x="352" y="220" width="320" height="480" rx="42" fill="url(#screen)"/>
+    <!-- Caller silhouette on live screen -->
+    <circle cx="512" cy="392" r="68" fill="url(#live)"/>
+    <path d="M392 568 C392 500 446 464 512 464 C578 464 632 500 632 568 L632 652 L392 652 Z" fill="url(#live)"/>
+    <circle cx="512" cy="196" r="10" fill="#1e4558" opacity="0.55"/>
+    <rect x="470" y="730" width="84" height="18" rx="9" fill="#1e4558" opacity="0.45"/>
+  </g>
+
+  <!-- Call badge (classic handset — readable at small sizes) -->
+  <g transform="translate(640 580)">
+    <circle cx="96" cy="96" r="108" fill="#082029"/>
+    <circle cx="96" cy="96" r="108" fill="none" stroke="#67e8f9" stroke-opacity="0.55" stroke-width="10"/>
+    <g transform="translate(36 34) scale(5)" fill="url(#call)">
+      <path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/>
+    </g>
+  </g>
+
+  <!-- Top specular -->
+  <path d="M180 150 Q512 70 844 150" fill="none" stroke="#ffffff" stroke-opacity="0.16" stroke-width="18" stroke-linecap="round"/>
+</svg>

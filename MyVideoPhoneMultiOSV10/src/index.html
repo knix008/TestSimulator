@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; media-src 'self' blob: file: https: localmedia:; img-src 'self' data: blob:; connect-src 'self' blob: localmedia:; font-src 'self' data:;" />
+  <title>MyVideoPhone</title>
+  <link rel="icon" type="image/png" href="favicon.png" />
+  <link rel="stylesheet" href="styles/themes.css" />
+  <link rel="stylesheet" href="styles/main.css" />
+</head>
+<body>
+  <div id="app" class="app">
+    <!-- Single-row toolbar: brand | call tools | drag | utils | window controls -->
+    <nav class="toolbar" id="toolbar" role="toolbar" aria-label="Video phone toolbar" data-i18n-aria="toolbar">
+      <div class="toolbar-brand toolbar-drag-region" id="toolbarBrand" title="MyVideoPhone">
+        <img class="toolbar-brand-icon" src="favicon.png" width="20" height="20" alt="" draggable="false" />
+        <span class="toolbar-brand-text" id="toolbarBrandText">MyVideoPhone</span>
+      </div>
+
+      <div class="toolbar-actions">
+        <button type="button" class="tool-btn" id="btnMic" data-i18n-tooltip="micTip" data-i18n-aria="mic" aria-pressed="true">
+          <svg class="icon-mic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v5a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.9V21h2v-3.1A7 7 0 0 0 19 11h-2Z"/></svg>
+          <svg class="icon-mic-off hidden" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 11h-1.7c0 .7-.1 1.3-.4 1.9l1.2 1.2A7 7 0 0 0 19 11Zm-7 3c.4 0 .8-.1 1.1-.2l-1.5-1.5c-.2 0-.4-.1-.6-.1a3 3 0 0 1-3-3V7.8L4.3 4.1 3 5.4l3.2 3.2V11a5 5 0 0 0 4.8 5 4.9 4.9 0 0 0 2.3-.6l1.5 1.5A6.9 6.9 0 0 1 12 18.9V21h2v-2.1a8.8 8.8 0 0 0 3.2-1.3l2.5 2.5 1.3-1.3L8.1 5.9 19 16.8ZM12 4a2 2 0 0 1 2 2v1.2l-4-4H12Z"/></svg>
+        </button>
+        <button type="button" class="tool-btn" id="btnLocalCamera" data-i18n-tooltip="localCameraTip" data-i18n-aria="localCamera" aria-pressed="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17 10.5V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-3.5l4 4v-11l-4 4Z"/></svg>
+        </button>
+      </div>
+
+      <div class="toolbar-spacer toolbar-drag-region" id="toolbarDrag" aria-hidden="true"></div>
+
+      <div class="toolbar-right">
+        <div class="popup-wrap fit-wrap">
+          <button type="button" class="tool-btn" id="btnFit" data-i18n-tooltip="fitTip" data-i18n-aria="fit" aria-haspopup="menu" aria-expanded="false">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v12H4V6Zm2 2v8h12V8H6Zm3 2h6v4H9v-4Z"/></svg>
+          </button>
+          <div class="popup-menu" id="fitMenu" role="menu" hidden>
+            <div class="popup-menu-header">
+              <span data-i18n="fitTitle">Display size</span>
+            </div>
+            <ul class="popup-list" id="fitList">
+              <li>
+                <button type="button" class="popup-item" data-fit="cover" role="menuitemradio" aria-checked="false">
+                  <span data-i18n="fitCover">Fill screen</span>
+                  <span class="popup-item-check" aria-hidden="true"></span>
+                </button>
+              </li>
+              <li>
+                <button type="button" class="popup-item" data-fit="contain" role="menuitemradio" aria-checked="true">
+                  <span data-i18n="fitContain">Keep aspect ratio</span>
+                  <span class="popup-item-check" aria-hidden="true"></span>
+                </button>
+              </li>
+              <li>
+                <button type="button" class="popup-item" data-fit="actual" role="menuitemradio" aria-checked="false">
+                  <span data-i18n="fitActual">Original size</span>
+                  <span class="popup-item-check" aria-hidden="true"></span>
+                </button>
+              </li>
+            </ul>
+          </div>
+        </div>
+        <div class="toolbar-opacity electron-only" id="toolbarOpacity" title="Window opacity">
+          <svg class="toolbar-opacity-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 1 0 0 20V2Zm0 18a8 8 0 0 1 0-16v16Z"/></svg>
+          <input type="range" class="opacity-bar" id="toolbarOpacityBar" min="20" max="100" step="1" value="100" style="--fill: 100%" data-i18n-tooltip="opacityTip" data-i18n-aria="opacity" />
+          <span class="toolbar-opacity-value" id="toolbarOpacityValue">100%</span>
+        </div>
+        <button type="button" class="tool-btn tool-btn-labeled" id="btnLocale" data-i18n-tooltip="languageTip" data-i18n-aria="language">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm0 2c.7 0 2.1 1.7 2.8 5H9.2C9.9 5.7 11.3 4 12 4Zm-3.1 7a14.5 14.5 0 0 0 0 2h6.2a14.5 14.5 0 0 0 0-2H8.9Zm.3 4h5.6c-.7 3.3-2.1 5-2.8 5s-2.1-1.7-2.8-5Zm7.3-9.1A7.96 7.96 0 0 1 19.9 11h-3.05c-.15-1.5-.5-2.85-1-3.95l.65-.15ZM7.15 7.05c-.5 1.1-.85 2.45-1 3.95H3.1a7.96 7.96 0 0 1 3.4-5.05l.65.1ZM3.1 13h3.05c.15 1.5.5 2.85 1 3.95l-.65.15A7.96 7.96 0 0 1 3.1 13Zm13.75 4.1c.5-1.1.85-2.45 1-3.95H20.9a7.96 7.96 0 0 1-3.4 5.05l-.65-.1Z"/></svg>
+          <span class="tool-btn-label" id="localeBtnLabel">한글</span>
+        </button>
+        <button type="button" class="tool-btn" id="btnSettings" data-i18n-tooltip="settingsTip" data-i18n-aria="settings">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.14 12.94c.04-.31.06-.63.06-.94s-.02-.63-.06-.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54A.5.5 0 0 0 13.9 2h-3.84a.5.5 0 0 0-.48.41l-.36 2.54c-.59.24-1.13.56-1.62.94l-2.39-.96a.5.5 0 0 0-.6.22L2.7 8.48a.5.5 0 0 0 .12.64l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32c.12.22.37.3.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.04.24.24.41.48.41h3.84c.24 0 .44-.17.48-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58ZM12 15.6A3.6 3.6 0 1 1 12 8.4a3.6 3.6 0 0 1 0 7.2Z"/></svg>
+        </button>
+      </div>
+
+      <button type="button" class="tool-btn toolbar-about" id="btnAbout" data-i18n-tooltip="aboutTip" data-i18n-aria="about">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm1 15h-2v-6h2v6Zm0-8h-2V7h2v2Z"/></svg>
+      </button>
+
+      <div class="window-controls" id="windowControls" aria-label="Window">
+        <button type="button" class="win-btn" id="btnMinimize" data-i18n-tooltip="minimize" data-i18n-aria="minimize">─</button>
+        <button type="button" class="win-btn" id="btnMaximize" data-i18n-tooltip="maximize" data-i18n-aria="maximize">□</button>
+        <button type="button" class="win-btn win-close" id="btnClose" data-i18n-tooltip="close" data-i18n-aria="close">✕</button>
+      </div>
+    </nav>
+
+    <!-- Main stage -->
+    <main class="stage" id="stage">
+      <div class="video-wrap" id="videoWrap">
+        <video id="media" playsinline></video>
+        <div class="call-badge" id="callBadge" hidden>
+          <span class="call-badge-dot" aria-hidden="true"></span>
+          <span class="call-badge-text" id="callBadgeText" data-i18n="callBadgeIdle">Ready to connect</span>
+        </div>
+        <div class="local-preview" id="localPreview" hidden>
+          <video id="localPreviewVideo" class="local-preview-video" playsinline muted autoplay></video>
+          <span class="local-preview-label" data-i18n="localPreviewLabel">You</span>
+        </div>
+        <div class="playback-overlay" id="playbackOverlay" hidden aria-live="polite">
+          <div class="playback-overlay-card" data-mode="play">
+            <div class="playback-overlay-icon" aria-hidden="true">
+              <svg class="ov-play" viewBox="0 0 24 24"><path d="M8 5v14l11-7L8 5Z"/></svg>
+              <svg class="ov-pause" viewBox="0 0 24 24"><path d="M7 5h3v14H7V5Zm7 0h3v14h-3V5Z"/></svg>
+              <svg class="ov-stop" viewBox="0 0 24 24"><path d="M6 6h12v12H6V6Z"/></svg>
+            </div>
+            <div class="playback-overlay-label" id="playbackOverlayLabel" data-i18n="overlayPlay">Playing</div>
+          </div>
+        </div>
+        <div class="drop-hint" id="dropHint">
+          <div class="drop-hint-inner">
+            <p class="drop-title" data-i18n="dropTitle">Connect a video call</p>
+            <p class="drop-sub" data-i18n="dropSub">Enter the other person’s IP address to connect</p>
+            <button type="button" class="btn primary drop-connect-btn" id="btnDropConnect" data-i18n="connectAction">연결하기</button>
+          </div>
+        </div>
+        <!-- Non-modal save progress: keeps the video visible while saving -->
+        <aside class="save-progress-popup" id="progressModal" hidden aria-live="polite">
+          <header class="save-progress-header">
+            <h2 id="progressTitle" data-i18n="progressSaving">Saving…</h2>
+          </header>
+          <div class="save-progress-body">
+            <p class="progress-name" id="progressName"></p>
+            <div class="progress-track" id="progressTrack" aria-hidden="true">
+              <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <div class="progress-meta" id="progressMeta">
+              <span class="progress-value" id="progressValue">0%</span>
+              <span class="progress-detail" id="progressDetail"></span>
+            </div>
+            <dl class="progress-saved hidden" id="progressSaved">
+              <div class="progress-saved-row">
+                <dt data-i18n="progressSavedName">Name</dt>
+                <dd id="progressSavedName"></dd>
+              </div>
+              <div class="progress-saved-row">
+                <dt data-i18n="progressSavedPath">Path</dt>
+                <dd id="progressSavedPath"></dd>
+              </div>
+              <div class="progress-saved-row" id="progressSavedSizeRow">
+                <dt data-i18n="progressSavedSize">Size</dt>
+                <dd id="progressSavedSize"></dd>
+              </div>
+              <div class="progress-saved-row hidden" id="progressSavedElapsedRow">
+                <dt data-i18n="progressSavedElapsed">Duration</dt>
+                <dd id="progressSavedElapsed"></dd>
+              </div>
+            </dl>
+          </div>
+          <footer class="save-progress-footer">
+            <button type="button" class="btn secondary hidden" id="btnProgressCancel" data-i18n="progressStopSave">Stop</button>
+            <button type="button" class="btn primary hidden" id="btnProgressClose" data-i18n="ok">OK</button>
+          </footer>
+        </aside>
+      </div>
+    </main>
+
+    <!-- Open + volume under video -->
+    <section class="control-bar" id="controlBar" role="toolbar" data-i18n-aria="controls">
+      <div class="control-bar-row open-row">
+        <button type="button" class="tool-btn tool-btn-primary control-open-btn" id="btnControlOpen" data-i18n-tooltip="youtubeTip" data-i18n-aria="youtube">
+          <svg class="icon-call-connect" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1.1-.2 1.2.4 2.5.6 3.8.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1C10.8 21 3 13.2 3 3c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.6.6 3.8.1.4 0 .8-.2 1.1L6.6 10.8Z"/></svg>
+          <svg class="icon-call-hangup hidden" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 9c-1.7 0-3.3.3-4.8.9l1.7 1.7c.9-.3 1.9-.5 3.1-.5s2.2.2 3.1.5l1.7-1.7C15.3 9.3 13.7 9 12 9Zm7.1.9-1.7 1.7c1.1.9 2 2 2.6 3.3l1.8-.9c-.8-1.6-1.9-3-3.7-4.1ZM4.2 10.9C2.4 12 1.3 13.4.5 15l1.8.9c.6-1.3 1.5-2.4 2.6-3.3L4.2 10.9ZM21 17h-6c0 1.1-.9 2-2 2h-2c-1.1 0-2-.9-2-2H3v2c0 1.7 1.3 3 3 3h12c1.7 0 3-1.3 3-3v-2Z"/></svg>
+        </button>
+      </div>
+      <div class="control-bar-row volume-row">
+        <div class="toolbar-group volume-group">
+          <button type="button" class="tool-btn" id="btnMute" data-i18n-tooltip="muteTip" data-i18n-aria="mute">
+            <svg class="icon-vol" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10v4h3l4 3V7L7 10H4Zm11.5 2a3.5 3.5 0 0 0-1.8-3.05v6.1A3.5 3.5 0 0 0 15.5 12Zm0-7.7v2.06A6.5 6.5 0 0 1 19 12a6.5 6.5 0 0 1-3.5 5.64v2.06A8.5 8.5 0 0 0 21 12a8.5 8.5 0 0 0-5.5-7.7Z"/></svg>
+            <svg class="icon-muted hidden" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10v4h3l4 3V7L7 10H4Zm12.6-3.4 1.4 1.4L16.4 10l1.6 1.6-1.4 1.4L15 11.4l-1.6 1.6-1.4-1.4L13.6 10l-1.6-1.6 1.4-1.4L15 8.6l1.6-1.6ZM16 16.5A6.5 6.5 0 0 0 19 12h-2a4.5 4.5 0 0 1-1.7 3.5l.7 1Z"/></svg>
+          </button>
+          <div class="volume-slider" role="group" aria-label="Volume">
+            <span class="volume-scale" aria-hidden="true">0</span>
+            <input type="range" class="volume-bar" id="volumeBar" min="0" max="100" value="80" step="1" style="--fill: 80%" data-i18n-tooltip="volumeTip" data-i18n-aria="volume" aria-valuemin="0" aria-valuemax="100" aria-valuenow="80" aria-valuetext="80%" />
+            <span class="volume-scale" aria-hidden="true">100</span>
+            <output class="volume-value" id="volumeValue" for="volumeBar">80%</output>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Status bar -->
+    <footer class="statusbar" id="statusBar" role="status">
+      <span class="status-item" id="statusFile">Ready</span>
+      <span class="status-sep">|</span>
+      <span class="status-item" id="statusFormat">—</span>
+      <span class="status-sep">|</span>
+      <span class="status-item" id="statusState">Idle</span>
+      <span class="status-sep">|</span>
+      <span class="status-item" id="statusTheme">Theme: Dark</span>
+      <span class="status-sep">|</span>
+      <span class="status-item" id="statusPlatform">Web</span>
+    </footer>
+  </div>
+
+  <!-- Settings modal -->
+  <dialog class="modal" id="settingsModal">
+    <form method="dialog" class="modal-card settings-card" id="settingsForm">
+      <header class="modal-header">
+        <h2 data-i18n="settingsTitle">Settings</h2>
+        <button type="submit" class="modal-close" value="cancel" data-i18n-aria="close">✕</button>
+      </header>
+      <div class="modal-body settings-body">
+        <section class="settings-section">
+          <h3 class="settings-section-title" data-i18n="settingsAppearance">Appearance</h3>
+          <div class="settings-grid">
+            <label class="field">
+              <span class="field-label">
+                <svg class="field-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm0 2c.7 0 2.1 1.7 2.8 5H9.2C9.9 5.7 11.3 4 12 4Zm-3.1 7a14.5 14.5 0 0 0 0 2h6.2a14.5 14.5 0 0 0 0-2H8.9Zm.3 4h5.6c-.7 3.3-2.1 5-2.8 5s-2.1-1.7-2.8-5Zm7.3-9.1A7.96 7.96 0 0 1 19.9 11h-3.05c-.15-1.5-.5-2.85-1-3.95l.65-.15ZM7.15 7.05c-.5 1.1-.85 2.45-1 3.95H3.1a7.96 7.96 0 0 1 3.4-5.05l.65.1ZM3.1 13h3.05c.15 1.5.5 2.85 1 3.95l-.65.15A7.96 7.96 0 0 1 3.1 13Zm13.75 4.1c.5-1.1.85-2.45 1-3.95H20.9a7.96 7.96 0 0 1-3.4 5.05l-.65-.1Z"/></svg>
+                <span data-i18n="language">Language</span>
+              </span>
+              <select id="settingLocale" name="locale">
+                <option value="en">English</option>
+                <option value="ko">한국어</option>
+              </select>
+            </label>
+            <div class="field field-theme">
+              <span class="field-label">
+                <svg class="field-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 0 0 0 18c.8 0 1.5-.7 1.5-1.5 0-.4-.15-.75-.4-1-.25-.25-.4-.6-.4-1 0-.8.7-1.5 1.5-1.5H15a5 5 0 0 0 0-10h-3Zm-5.5 9a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm3-4a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm2.5 4.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Z"/></svg>
+                <span data-i18n="theme">Theme</span>
+              </span>
+              <div class="theme-field-row">
+                <select id="settingTheme" name="theme"></select>
+                <div class="theme-actions">
+                  <button type="button" class="btn secondary" id="btnEditTheme" data-i18n="customize">Customize…</button>
+                  <button type="button" class="btn secondary" id="btnDeleteTheme" hidden data-i18n="deleteCustom">Delete custom</button>
+                </div>
+              </div>
+            </div>
+            <div class="field field-range electron-only" id="settingOpacityField" role="group" aria-labelledby="settingOpacityLabel" hidden>
+              <span class="field-label" id="settingOpacityLabel">
+                <svg class="field-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 1 0 0 20V2Zm0 18a8 8 0 0 1 0-16v16Z"/></svg>
+                <span data-i18n="windowOpacity">Window opacity</span>
+              </span>
+              <div class="settings-range-control">
+                <input type="range" class="opacity-bar" id="settingOpacity" name="windowOpacity" min="20" max="100" step="1" value="100" style="--fill: 100%" aria-valuetext="100%" />
+                <output class="settings-range-value" id="settingOpacityValue" for="settingOpacity">100%</output>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="settings-section">
+          <h3 class="settings-section-title" data-i18n="settingsDisplay">Display</h3>
+          <div class="settings-check-grid">
+            <label class="field checkbox">
+              <input type="checkbox" id="settingShowLocalPreview" name="showLocalPreview" checked />
+              <span class="field-label">
+                <svg class="field-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M17 10.5V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-3.5l4 4v-11l-4 4Z"/></svg>
+                <span data-i18n="showLocalPreview">Show local camera preview during calls</span>
+              </span>
+            </label>
+          </div>
+        </section>
+      </div>
+      <footer class="modal-footer">
+        <button type="button" class="btn secondary" id="btnResetSettings" data-i18n="resetDefaults">Reset defaults</button>
+        <button type="submit" class="btn primary" value="save" id="btnSaveSettings" data-i18n="save">Save</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <!-- Custom theme editor -->
+  <dialog class="modal" id="themeEditorModal">
+    <form method="dialog" class="modal-card theme-editor-card" id="themeEditorForm">
+      <header class="modal-header">
+        <h2 data-i18n="themeEditor">Custom Theme</h2>
+        <button type="button" class="modal-close" id="btnCloseThemeEditor" data-i18n-aria="close">✕</button>
+      </header>
+      <div class="modal-body">
+        <label class="field">
+          <span data-i18n="themeName">Theme name</span>
+          <input type="text" id="themeNameInput" maxlength="40" data-i18n-placeholder="themeNamePh" placeholder="My Theme" autocomplete="off" />
+        </label>
+        <label class="field">
+          <span data-i18n="themeScheme">Base / color scheme</span>
+          <select id="themeSchemeSelect">
+            <option value="dark" data-i18n="themeDarkBase">Dark base</option>
+            <option value="light" data-i18n="themeLightBase">Light base</option>
+          </select>
+        </label>
+        <div class="theme-color-grid" id="themeColorGrid"></div>
+        <p class="field-hint" data-i18n="themeSaveHint">Save to keep this theme in the Theme list.</p>
+      </div>
+      <footer class="modal-footer">
+        <button type="button" class="btn secondary" id="btnThemeSaveAs" data-i18n="saveAsNew">Save as new</button>
+        <button type="button" class="btn primary" id="btnThemeSave" data-i18n="save">Save</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <!-- Connect modal -->
+  <dialog class="modal" id="youtubeModal">
+    <form method="dialog" class="modal-card connect-card" id="youtubeForm">
+      <header class="modal-header">
+        <h2 data-i18n="youtubeTitle">Connect</h2>
+        <button type="submit" class="modal-close" value="cancel" data-i18n-aria="close">✕</button>
+      </header>
+      <div class="modal-body connect-body">
+        <p class="field-hint connect-hint" id="youtubeHint" data-i18n="youtubeHintDesktop">Enter the other person's IP address and connect.</p>
+        <p class="field-hint connect-my-ip" id="connectMyIpHint" hidden></p>
+        <label class="field connect-address-field">
+          <span class="field-label" data-i18n="youtubeUrl">IP address</span>
+          <input type="text" id="youtubeUrlInput" name="url" data-i18n-placeholder="youtubeUrlPh" placeholder="e.g. 192.168.0.10" autocomplete="off" spellcheck="false" />
+        </label>
+        <p class="field-error hidden" id="youtubeError"></p>
+        <button type="button" class="btn primary connect-submit" id="btnYtPlay" data-i18n="connectAction">Connect</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Error detail modal -->
+  <dialog class="modal" id="errorModal">
+    <form method="dialog" class="modal-card error-card" id="errorForm">
+      <header class="modal-header">
+        <h2 id="errorTitle" data-i18n="errorDefaultTitle">Error</h2>
+        <button type="button" class="modal-close" id="btnCloseError" data-i18n-aria="close">✕</button>
+      </header>
+      <div class="modal-body">
+        <p class="error-summary" id="errorMessage"></p>
+        <label class="field">
+          <span data-i18n="errorDetails">Details</span>
+          <textarea id="errorDetail" class="error-detail" readonly rows="12" spellcheck="false"></textarea>
+        </label>
+        <p class="field-hint error-copied" id="errorCopied" hidden></p>
+      </div>
+      <footer class="modal-footer">
+        <button type="button" class="btn secondary" id="btnCopyError" data-i18n="errorCopy">Copy</button>
+        <button type="submit" class="btn primary" value="ok" data-i18n="ok">OK</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <!-- Door open notice -->
+  <dialog class="modal" id="doorOpenModal">
+    <form method="dialog" class="modal-card door-open-card">
+      <header class="modal-header">
+        <h2 class="door-open-title">
+          <span class="door-open-title-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm-1.1 5.2h2.2v7.1h-2.2V7.2Zm0 9.1h2.2V18h-2.2v-1.7Z"/></svg>
+          </span>
+          <span data-i18n="doorOpenTitle">Notice</span>
+        </h2>
+        <button type="submit" class="modal-close" value="cancel" data-i18n-aria="close">✕</button>
+      </header>
+      <div class="modal-body door-open-body">
+        <div class="door-open-content">
+          <span class="door-open-msg-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path fill-rule="evenodd" d="M4 2h9a1.5 1.5 0 0 1 1.5 1.5V21H2.5V3.5A1.5 1.5 0 0 1 4 2Zm7.25 11.4a1.4 1.4 0 1 0 0-2.8 1.4 1.4 0 0 0 0 2.8Z"/><path d="M15.2 4.1 21.8 6v12l-6.6 1.9V4.1Z"/></svg>
+          </span>
+          <p class="door-open-message" id="doorOpenMessage" data-i18n="doorOpenMessage">The entrance door has been opened.</p>
+        </div>
+      </div>
+      <footer class="modal-footer">
+        <button type="submit" class="btn primary" value="ok" data-i18n="ok">OK</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <!-- Incoming call request -->
+  <dialog class="modal" id="incomingCallModal">
+    <form method="dialog" class="modal-card incoming-call-card" id="incomingCallForm">
+      <header class="modal-header">
+        <h2 data-i18n="incomingCallTitle">Incoming call</h2>
+      </header>
+      <div class="modal-body incoming-call-body">
+        <p class="incoming-call-message" id="incomingCallMessage" data-i18n="incomingCallMessage">Someone is requesting a video call.</p>
+        <p class="incoming-call-from" id="incomingCallFrom"></p>
+      </div>
+      <footer class="modal-footer incoming-call-footer">
+        <button type="button" class="btn secondary" id="btnIncomingReject" data-i18n="incomingCallReject">Reject</button>
+        <button type="button" class="btn primary" id="btnIncomingAccept" data-i18n="incomingCallAccept">Accept</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <!-- About modal -->
+  <dialog class="modal" id="aboutModal">
+    <form method="dialog" class="modal-card about-card">
+      <header class="modal-header">
+        <h2 data-i18n="aboutTitle">About</h2>
+        <button type="submit" class="modal-close" value="cancel" data-i18n-aria="close">✕</button>
+      </header>
+      <div class="modal-body about-body">
+        <div class="about-logo" aria-hidden="true">☎</div>
+        <h3 id="aboutName">MyVideoPhone</h3>
+        <p id="aboutVersion">Version 1.0.0</p>
+        <p class="about-desc" data-i18n-html="aboutDesc">RTSP-based video phone for Windows, macOS, and Linux (Electron).<br />Connect to RTSP/RTSPS cameras or intercoms, show a local camera preview, and record calls to MP4.</p>
+        <p class="about-author"><span data-i18n="aboutAuthor">Author:</span> <strong>SHKWON</strong></p>
+        <p class="about-email"><a href="mailto:knix008@naver.com" id="aboutEmail">knix008@naver.com</a></p>
+        <p class="about-note" data-i18n="aboutNote">* Live RTSP requires the desktop app. Local files remain available as a helper.</p>
+      </div>
+      <footer class="modal-footer">
+        <button type="submit" class="btn primary" value="ok" data-i18n="ok">OK</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <!-- Hidden file inputs for web mode -->
+  <input type="file" id="webMediaInput" class="hidden-input" accept="video/*,audio/*,.mp4,.mkv,.webm,.mov,.avi,.mp3,.aac,.m4a,.wav,.flac,.opus,.ogg,.hevc,.h265" />
+
+  <div class="tooltip" id="tooltip" role="tooltip" hidden></div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

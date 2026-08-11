@@ -1,0 +1,54 @@
+# Dependencies & build
+node_modules/
+dist/
+out/
+*.asar
+*.log
+npm-debug.log*
+yarn-error.log*
+
+# Final installers copied to project root after build
+MyVideoPhone-Setup-*.exe
+MyVideoPhone-*.dmg
+MyVideoPhone-*.AppImage
+MyVideoPhone_*.deb
+MyVideoPhone-*-mac.zip
+MyVideoPhone-*-win.zip
+
+# Incomplete / temp downloads
+*.part
+*.ytdl
+*.download
+
+# OS / editor
+.DS_Store
+Thumbs.db
+Desktop.ini
+.vscode/
+.idea/
+.cursor/
+*.swp
+*~
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+*cookies*.txt
+cookies.sqlite
+
+# Temp / caches
+*.tmp
+*.temp
+.cache/
+.turbo/
+
+# Bundled tool binaries (fetched by scripts/ensure-yt-dlp.js / postinstall)
+vendor/yt-dlp/yt-dlp
+vendor/yt-dlp/yt-dlp.exe
+vendor/yt-dlp/*.download
+vendor/yt-dlp/*.tmp
+
+# Electron / local crash dumps
+*.dmp
+crashpad/

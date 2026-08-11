@@ -1,0 +1,167 @@
+{
+  "name": "my-video-phone-multios",
+  "version": "1.0.0",
+  "description": "RTSP-based video phone for Windows, macOS, and Linux (Electron)",
+  "main": "electron/main.js",
+  "author": "SHKWON <knix008@naver.com>",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "start:multi": "electron . --multi",
+    "web": "npx --yes serve src -p 5173",
+    "pack": "electron-builder --dir",
+    "build": "electron-builder && node scripts/copy-installer-to-root.js",
+    "build:win": "node scripts/build-win.js",
+    "build:mac": "electron-builder --mac && node scripts/copy-installer-to-root.js",
+    "build:linux": "electron-builder --linux && node scripts/copy-installer-to-root.js",
+    "dist": "npm run build",
+    "dist:win": "npm run build:win",
+    "dist:mac": "npm run build:mac",
+    "dist:linux": "npm run build:linux",
+    "icons": "node scripts/generate-icons.js"
+  },
+  "devDependencies": {
+    "@resvg/resvg-js": "^2.6.2",
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8",
+    "to-ico": "^1.1.5"
+  },
+  "build": {
+    "appId": "com.shkwon.myvideophone",
+    "productName": "MyVideoPhone",
+    "copyright": "Copyright © 2026 SHKWON",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "afterPack": "scripts/after-pack-win.js",
+    "files": [
+      "electron/**/*",
+      "src/**/*",
+      "asset/icon.png",
+      "asset/icon.ico",
+      "asset/icon-256.png",
+      "package.json"
+    ],
+    "asarUnpack": [
+      "**/node_modules/ffmpeg-static/**"
+    ],
+    "fileAssociations": [
+      {
+        "ext": [
+          "mp4",
+          "m4v",
+          "webm",
+          "mkv",
+          "mov",
+          "avi",
+          "ogv",
+          "hevc",
+          "h265"
+        ],
+        "name": "MyVideoPhone Video",
+        "description": "Video file",
+        "mimeType": "video/mp4",
+        "role": "Viewer",
+        "icon": "asset/icon.ico"
+      },
+      {
+        "ext": [
+          "mp3",
+          "aac",
+          "m4a",
+          "wav",
+          "flac",
+          "opus",
+          "ogg",
+          "wma"
+        ],
+        "name": "MyVideoPhone Audio",
+        "description": "Audio file",
+        "mimeType": "audio/mpeg",
+        "role": "Viewer",
+        "icon": "asset/icon.ico"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "asset/icon.ico",
+      "signAndEditExecutable": false,
+      "verifyUpdateCodeSignature": false,
+      "signtoolOptions": {
+        "sign": "./scripts/skip-win-sign.js"
+      }
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "allowElevation": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "MyVideoPhone",
+      "include": "build/installer.nsh",
+      "installerIcon": "asset/icon.ico",
+      "uninstallerIcon": "asset/icon.ico",
+      "installerHeaderIcon": "asset/icon.ico",
+      "installerLanguages": [
+        "en_US",
+        "ko_KR"
+      ],
+      "language": "1042",
+      "runAfterFinish": true,
+      "deleteAppDataOnUninstall": true,
+      "artifactName": "${productName}-Setup-${version}.${ext}"
+    },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "category": "public.app-category.entertainment",
+      "icon": "asset/icon-1024.png",
+      "darkModeSupport": true
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "AudioVideo",
+      "icon": "asset/icons",
+      "desktop": {
+        "Name": "MyVideoPhone",
+        "Comment": "RTSP video phone — live view, local preview, and call recording",
+        "Categories": "AudioVideo;Network;Player;"
+      }
+    },
+    "dmg": {
+      "contents": [
+        {
+          "x": 130,
+          "y": 220
+        },
+        {
+          "x": 410,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
+    }
+  },
+  "allowScripts": {
+    "electron@33.4.11": true,
+    "ffmpeg-static@5.3.0": true
+  },
+  "dependencies": {
+    "ffmpeg-static": "^5.3.0"
+  }
+}
