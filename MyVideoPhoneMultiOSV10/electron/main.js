@@ -1145,7 +1145,7 @@ ipcMain.handle('phone:clearSessions', async () => {
 
 ipcMain.handle('phone:setCallActive', (_event, active) => setLanCallActive(Boolean(active)));
 
-ipcMain.handle('phone:setMic', (_event, payload = {}) =>
+ipcMain.handle('phone:setMic', async (_event, payload = {}) =>
   setPhoneMic({
     enabled: payload?.enabled,
     volume: payload?.volume,

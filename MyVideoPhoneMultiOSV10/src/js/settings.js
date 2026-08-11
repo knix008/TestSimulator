@@ -13,8 +13,13 @@ export const DEFAULT_SETTINGS = {
   /** Outgoing microphone level (0–100). */
   micVolume: 100,
   windowOpacity: 100,
-  /** Local PIP preview removed — keep false so older saved settings stay off. */
-  showLocalPreview: false,
+  /**
+   * Local PIP shows the outgoing publish stream (same fMP4 as peers),
+   * not a second getUserMedia camera open.
+   */
+  showLocalPreview: true,
+  /** Marks stream-mirror preview (migrates legacy forced-off getUserMedia PIP). */
+  previewSource: 'publish',
   /** @type {'contain' | 'cover' | 'actual'} */
   videoFit: 'cover',
   /** Recently dialed addresses (most-recent first, max 10). @type {string[]} */
@@ -57,10 +62,19 @@ export function loadSettings() {
     merged.micVolume = Math.min(100, Math.max(0, Math.round(Number(merged.micVolume) || 100)));
     merged.videoFit = normalizeVideoFit(merged.videoFit);
     merged.recentCalls = normalizeRecentCalls(merged.recentCalls);
-    // Local PIP preview removed — ignore legacy persisted values.
-    merged.showLocalPreview = false;
+    // Older builds forced showLocalPreview=false (getUserMedia PIP stole the camera).
+    // One-time migrate to the publish-mirror preview default, then persist the marker.
+    let migrated = false;
+    if (merged.previewSource !== 'publish') {
+      merged.showLocalPreview = DEFAULT_SETTINGS.showLocalPreview;
+      merged.previewSource = 'publish';
+      migrated = true;
+    } else {
+      merged.showLocalPreview = merged.showLocalPreview !== false;
+    }
     // uiPort was removed from user settings — ignore legacy persisted values.
     delete merged.uiPort;
+    if (migrated) saveSettings(merged);
     return merged;
   } catch {
     return { ...DEFAULT_SETTINGS };

@@ -75,8 +75,8 @@ const els = {
   statusPlatform: $('statusPlatform'),
   webMediaInput: $('webMediaInput'),
   btnMic: $('btnMic'),
-  btnControlOpen: $('btnControlOpen'),
   btnLocalCamera: $('btnLocalCamera'),
+  btnControlOpen: $('btnControlOpen'),
   btnDropConnect: $('btnDropConnect'),
   localPreview: $('localPreview'),
   localPreviewVideo: $('localPreviewVideo'),
@@ -197,6 +197,22 @@ const liveMse = createLiveMsePlayer(() => els.media, {
     }
   }
 });
+
+/**
+ * Local PIP plays the same outgoing /live publish stream peers receive.
+ * Never opens getUserMedia for the camera (avoids stealing dshow/ffmpeg).
+ */
+const localPreviewMse = createLiveMsePlayer(() => els.localPreviewVideo, {
+  onStreamEnded: () => {
+    if (!localCameraWanted || hangUpInFlight || localPreviewSuspended) return;
+    scheduleLocalPreviewRestart(500);
+  }
+});
+/** @type {ReturnType<typeof setTimeout> | 0} */
+let localPreviewRestartTimer = 0;
+let localPreviewStartInFlight = false;
+/** True while the window is in the tray — do not keep a /live pull alive. */
+let localPreviewSuspended = false;
 
 // --- Outgoing publish -------------------------------------------------------
 // The camera is captured HERE (getUserMedia), not by ffmpeg, so sensor/MIPI
@@ -516,7 +532,9 @@ async function handlePhoneStreamLost() {
   if (hangUpInFlight || phoneRecoverInFlight) return;
   if (!phoneSessionActive && !currentPhoneUrl) return;
   const url = currentPhoneUrl;
-  if (!url || phoneRecoverTries >= 3) {
+  // Mic mute soft-restarts the peer publisher; allow enough reconnect attempts.
+  const maxTries = phoneSessionActive ? 12 : 3;
+  if (!url || phoneRecoverTries >= maxTries) {
     // Reconnection exhausted (or nothing to reconnect to) — clear the frozen
     // last frame instead of leaving it on screen.
     await clearPhoneVideoSurface();
@@ -667,6 +685,7 @@ function updateMicButton() {
 function updateSaveButton() {
   // Call recording remains available via Ctrl+S; toolbar button is microphone.
   updateMicButton();
+  updateLocalCameraButton();
   updateCallChrome();
 }
 
@@ -773,10 +792,21 @@ async function ensureMicAudioGraph() {
   }
 }
 
+let syncPhoneMicTimer = 0;
+
 async function syncPhoneMicToMain() {
   if (!isElectron || !window.desktopAPI?.setPhoneMic) return;
-  // Publisher soft-restarts to apply mute/volume — peer may briefly stall.
-  phoneRecoverTries = 0;
+  // Debounce rapid mute/volume toggles so ffmpeg is not thrashed.
+  if (syncPhoneMicTimer) {
+    window.clearTimeout(syncPhoneMicTimer);
+    syncPhoneMicTimer = 0;
+  }
+  await new Promise((resolve) => {
+    syncPhoneMicTimer = window.setTimeout(resolve, 120);
+  });
+  syncPhoneMicTimer = 0;
+  // Peer will briefly reconnect after soft-restart — reset local recover budget
+  // only for our inbound stream stalls, not required here; keep tries as-is.
   try {
     await window.desktopAPI.setPhoneMic({
       enabled: localMicEnabled,
@@ -786,6 +816,8 @@ async function syncPhoneMicToMain() {
   } catch {
     /* ignore */
   }
+  // Mic soft-restart closes /live clients — reconnect PIP from the new publish.
+  if (localCameraWanted) scheduleLocalPreviewRestart(350);
 }
 
 async function applyMicVolume(percent, { persist = true, syncPhone = true } = {}) {
@@ -796,9 +828,38 @@ async function applyMicVolume(percent, { persist = true, syncPhone = true } = {}
   if (syncPhone) await syncPhoneMicToMain();
 }
 
+/** Release renderer mic capture so ffmpeg can own the device during a call. */
+function releaseLocalMicCapture() {
+  if (!localMicStream) {
+    teardownMicAudioGraph();
+    return;
+  }
+  for (const track of localMicStream.getTracks()) {
+    try {
+      track.stop();
+    } catch {
+      /* ignore */
+    }
+  }
+  localMicStream = null;
+  teardownMicAudioGraph();
+}
+
 async function setLocalMicEnabled(on, { announce = false } = {}) {
   const want = Boolean(on);
+  // During a LAN phone call ffmpeg (dshow/avfoundation) owns the mic.
+  // Opening getUserMedia here steals the device and drops peer video.
+  const phoneOwnsMic = Boolean(phoneSessionActive || currentPhoneUrl);
+
   if (want) {
+    if (phoneOwnsMic) {
+      releaseLocalMicCapture();
+      localMicEnabled = true;
+      updateMicButton();
+      await syncPhoneMicToMain();
+      if (announce) setStatus({ state: statusKey('statusMicOn') });
+      return true;
+    }
     if (!navigator.mediaDevices?.getUserMedia) {
       localMicEnabled = false;
       updateMicButton();
@@ -837,17 +898,7 @@ async function setLocalMicEnabled(on, { announce = false } = {}) {
 
   localMicEnabled = false;
   applyLocalMicGain();
-  if (localMicStream) {
-    for (const track of localMicStream.getTracks()) {
-      try {
-        track.stop();
-      } catch {
-        /* ignore */
-      }
-    }
-    localMicStream = null;
-  }
-  teardownMicAudioGraph();
+  releaseLocalMicCapture();
   updateMicButton();
   await syncPhoneMicToMain();
   if (announce) setStatus({ state: statusKey('statusMicOff') });
@@ -925,28 +976,140 @@ function updateCallChrome() {
   syncLocalPreviewVisibility();
 }
 
-/** Local PIP preview is disabled — keep the stage focused on peer A/V. */
+/** Local PIP URL — loopback pull of our own phone publisher (no new camera open). */
+function localPreviewPlayUrl() {
+  return toUiPhonePlayUrl('127.0.0.1', phonePort(), '');
+}
+
 function isLocalPreviewLive() {
-  return false;
+  return Boolean(localCameraWanted && localPreviewMse.active);
+}
+
+function updateLocalCameraButton() {
+  const btn = els.btnLocalCamera;
+  if (!btn) return;
+  const on = Boolean(localCameraWanted);
+  btn.disabled = !isElectron;
+  btn.setAttribute('aria-pressed', String(on));
+  btn.classList.toggle('is-cam-off', !on);
+  btn.classList.toggle('is-active', on);
+  btn.setAttribute('data-tooltip', t('localCameraTip'));
+  btn.setAttribute('aria-label', t('localCamera'));
+  btn.querySelector('.icon-cam')?.classList.toggle('hidden', !on);
+  btn.querySelector('.icon-cam-off')?.classList.toggle('hidden', on);
 }
 
 function syncLocalPreviewVisibility() {
-  if (els.localPreview) els.localPreview.hidden = true;
-  if (els.btnLocalCamera) els.btnLocalCamera.hidden = true;
-  localCameraWanted = false;
+  if (!els.localPreview) return;
+  const show = Boolean(localCameraWanted && isElectron);
+  els.localPreview.hidden = !show;
+  updateLocalCameraButton();
 }
 
-async function startLocalCameraViaPhoneHttp() {
-  return false;
+function scheduleLocalPreviewRestart(delayMs = 400) {
+  if (localPreviewRestartTimer) {
+    clearTimeout(localPreviewRestartTimer);
+    localPreviewRestartTimer = 0;
+  }
+  localPreviewRestartTimer = window.setTimeout(() => {
+    localPreviewRestartTimer = 0;
+    if (localCameraWanted) void startLocalPreviewFromPublish();
+  }, Math.max(0, delayMs));
+}
+
+/**
+ * Show PIP by MSE-playing the outgoing fMP4 publish stream.
+ * Does not call getUserMedia — ffmpeg already owns the camera.
+ */
+async function pauseLocalPreviewForBackground() {
+  localPreviewSuspended = true;
+  if (localPreviewRestartTimer) {
+    clearTimeout(localPreviewRestartTimer);
+    localPreviewRestartTimer = 0;
+  }
+  try {
+    await localPreviewMse.stop();
+  } catch {
+    /* ignore */
+  }
+  if (els.localPreviewVideo) {
+    try {
+      els.localPreviewVideo.pause();
+    } catch {
+      /* ignore */
+    }
+    els.localPreviewVideo.removeAttribute('src');
+    try {
+      els.localPreviewVideo.load();
+    } catch {
+      /* ignore */
+    }
+  }
+  if (els.localPreview) els.localPreview.hidden = true;
+  updateLocalCameraButton();
+}
+
+async function resumeLocalPreviewIfWanted() {
+  localPreviewSuspended = false;
+  if (!settings.showLocalPreview || !isElectron) {
+    localCameraWanted = false;
+    syncLocalPreviewVisibility();
+    return;
+  }
+  localCameraWanted = true;
+  await startLocalPreviewFromPublish();
+}
+
+async function startLocalPreviewFromPublish() {
+  if (!isElectron || !localCameraWanted || localPreviewSuspended) {
+    syncLocalPreviewVisibility();
+    return false;
+  }
+  if (localPreviewStartInFlight) return false;
+  localPreviewStartInFlight = true;
+  syncLocalPreviewVisibility();
+  try {
+    const url = localPreviewPlayUrl();
+    await localPreviewMse.start(url);
+    const v = els.localPreviewVideo;
+    if (v) {
+      v.muted = true;
+      v.playsInline = true;
+      try {
+        await v.play();
+      } catch {
+        /* autoplay */
+      }
+    }
+    startPreviewEdgeSync();
+    syncLocalPreviewVisibility();
+    return true;
+  } catch {
+    // Publisher may still be warming after mic soft-restart — retry once.
+    scheduleLocalPreviewRestart(900);
+    return false;
+  } finally {
+    localPreviewStartInFlight = false;
+  }
 }
 
 async function startLocalCamera() {
-  syncLocalPreviewVisibility();
-  return false;
+  localCameraWanted = true;
+  settings.showLocalPreview = true;
+  return startLocalPreviewFromPublish();
 }
 
-function stopLocalCamera() {
+async function stopLocalCamera() {
   localCameraWanted = false;
+  if (localPreviewRestartTimer) {
+    clearTimeout(localPreviewRestartTimer);
+    localPreviewRestartTimer = 0;
+  }
+  try {
+    await localPreviewMse.stop();
+  } catch {
+    /* ignore */
+  }
   if (localCameraStream) {
     for (const track of localCameraStream.getTracks()) {
       if (publishStream?.getTracks?.().includes(track)) continue;
@@ -964,14 +1127,32 @@ function stopLocalCamera() {
     } catch {
       /* ignore */
     }
-    els.localPreviewVideo.srcObject = null;
     els.localPreviewVideo.removeAttribute('src');
+    try {
+      els.localPreviewVideo.load();
+    } catch {
+      /* ignore */
+    }
   }
   syncLocalPreviewVisibility();
 }
 
 async function toggleLocalCamera() {
-  /* preview removed */
+  if (!isElectron) return;
+  if (localCameraWanted) {
+    settings.showLocalPreview = false;
+    saveSettings(settings);
+    await stopLocalCamera();
+    setStatus({ state: statusKey('statusLocalCameraOff') });
+    return;
+  }
+  settings.showLocalPreview = true;
+  saveSettings(settings);
+  localCameraWanted = true;
+  const ok = await startLocalPreviewFromPublish();
+  setStatus({
+    state: statusKey(ok ? 'statusLocalCameraOn' : 'statusLocalCameraDenied')
+  });
 }
 
 function stopLiveEdgeSync() {
@@ -1009,7 +1190,22 @@ function startLiveEdgeSync() {
       return;
     }
     chaseLiveEdge(els.media);
+    if (localCameraWanted) chaseLiveEdge(els.localPreviewVideo);
   }, 250);
+}
+
+/** Keep PIP near the live edge even when not in a peer call. */
+let previewEdgeTimer = 0;
+function startPreviewEdgeSync() {
+  if (previewEdgeTimer) return;
+  previewEdgeTimer = window.setInterval(() => {
+    if (!localCameraWanted || localPreviewSuspended) {
+      clearInterval(previewEdgeTimer);
+      previewEdgeTimer = 0;
+      return;
+    }
+    chaseLiveEdge(els.localPreviewVideo);
+  }, 400);
 }
 
 function clearPhoneStallWatch() {
@@ -1126,7 +1322,8 @@ async function hangUpCall(options = {}) {
     if (wasLive) {
       notifyDesktop(t('appTitle'), remote ? t('notifyRemoteHangup') : t('notifyCallEnded'));
     }
-    stopLocalCamera();
+    // Keep PIP if the user left it on — it mirrors the outgoing publisher, not the peer.
+    if (localCameraWanted) scheduleLocalPreviewRestart(400);
   } finally {
     stopRequested = false;
     hangUpInFlight = false;
@@ -2173,8 +2370,14 @@ function applySettingsToPlayer({ applyVolume = false } = {}) {
   applyVideoFit(settings.videoFit, { persist: false });
   updateMuteIcons();
   void applyWindowOpacity(settings.windowOpacity, { persist: false });
-  stopLocalCamera();
-  settings.showLocalPreview = false;
+  if (settings.showLocalPreview) {
+    localCameraWanted = true;
+    // Need UI proxy port (appInfo) before pulling /live — otherwise CSP blocks :8765.
+    if (appInfo?.uiPort) void startLocalPreviewFromPublish();
+    else syncLocalPreviewVisibility();
+  } else {
+    void stopLocalCamera();
+  }
   updateCallChrome();
 }
 
@@ -2191,6 +2394,8 @@ function fillSettingsForm() {
   updateOpacityUi(settings.windowOpacity);
   updateMicVolumeUi(settings.micVolume);
   updateStartVolumeUi(settings.startVolume);
+  const previewCheck = $('settingShowLocalPreview');
+  if (previewCheck) previewCheck.checked = Boolean(settings.showLocalPreview);
 }
 
 function clampWindowOpacity(value) {
@@ -2233,7 +2438,7 @@ function readSettingsForm() {
   return {
     locale: $('settingLocale')?.value === 'ko' ? 'ko' : 'en',
     theme: $('settingTheme').value,
-    showLocalPreview: false,
+    showLocalPreview: Boolean($('settingShowLocalPreview')?.checked),
     windowOpacity: clampWindowOpacity($('settingOpacity')?.value ?? settings.windowOpacity),
     micVolume: clampMicVolume($('settingMicVolume')?.value ?? settings.micVolume),
     startVolume: clampStartVolume($('settingStartVolume')?.value ?? settings.startVolume)
@@ -2899,6 +3104,7 @@ async function respondIncomingCall(accepted) {
   // Accept grants the caller a /live token — treat as an active call so Hang up works
   // even if we cannot load the caller's video (missing IP, callback fail, etc.).
   phoneSessionActive = true;
+  releaseLocalMicCapture();
   const label = String(pending.fromLabel || '').trim();
   const labelHostPort = (() => {
     const m = label.match(/^(\d{1,3}(?:\.\d{1,3}){3})(?::(\d{1,5}))?$/);
@@ -3037,6 +3243,7 @@ async function playPhoneFromInput(rawUrl, options = {}) {
         toUiPhonePlayUrl(target.host, target.port, ring.token || '');
       setActivePeer(target.host, target.port);
       phoneSessionActive = true;
+      releaseLocalMicCapture();
       markPhoneCallActive(true);
       startCallWatch();
     } else if (target) {
@@ -3045,6 +3252,7 @@ async function playPhoneFromInput(rawUrl, options = {}) {
       playUrl = toUiPhonePlayUrl(target.host, target.port, token);
       if (!activePeer) setActivePeer(target.host, target.port);
       phoneSessionActive = true;
+      releaseLocalMicCapture();
       markPhoneCallActive(true);
       startCallWatch();
     }
@@ -3390,14 +3598,14 @@ function bindWindowControls() {
     syncMaximizeButton(maximized);
   });
   $('btnClose')?.addEventListener('click', () => {
-    // Turn off webcam immediately when hiding to the system tray.
-    stopLocalCamera();
+    // Stop the publish pull while hidden (tray) — preference stays in settings.
+    void pauseLocalPreviewForBackground();
     window.desktopAPI.close();
   });
 
   window.desktopAPI.onWindowVisibility?.((state) => {
     if (!state?.visible) {
-      stopLocalCamera();
+      void pauseLocalPreviewForBackground();
       // Release mic hardware in tray; keep the on/off preference.
       if (localMicStream) {
         for (const track of localMicStream.getTracks()) {
@@ -3412,6 +3620,7 @@ function bindWindowControls() {
       updateMicButton();
       return;
     }
+    void resumeLocalPreviewIfWanted();
     if (localMicEnabled) {
       void setLocalMicEnabled(true);
     }
@@ -3606,13 +3815,15 @@ function bindToolbar() {
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') closeToolbarMenus();
   });
-  // Local camera preview button removed from the toolbar.
   els.btnDropConnect?.addEventListener('click', (e) => {
     e.stopPropagation();
     openConnectDialog();
   });
   els.btnMic?.addEventListener('click', () => {
     void toggleLocalMic();
+  });
+  els.btnLocalCamera?.addEventListener('click', () => {
+    void toggleLocalCamera();
   });
   $('btnIncomingAccept')?.addEventListener('click', (e) => {
     e.preventDefault();
@@ -4057,7 +4268,6 @@ async function init() {
     } catch {
       /* ignore */
     }
-    stopLocalCamera();
     $('aboutName').textContent = appInfo.name;
     $('aboutVersion').textContent = t('aboutVersion', { n: appInfo.version });
     setStatus({
@@ -4157,8 +4367,12 @@ async function init() {
     void document.fonts.ready.then(() => syncWindowMinWidth());
   }
   updateCallChrome();
-  settings.showLocalPreview = false;
-  stopLocalCamera();
+  if (settings.showLocalPreview && isElectron) {
+    localCameraWanted = true;
+    void startLocalPreviewFromPublish();
+  } else {
+    syncLocalPreviewVisibility();
+  }
 
   // OS file association / "Open with" / second-instance handoff
   window.desktopAPI?.onOpenMediaPaths?.(async (paths) => {

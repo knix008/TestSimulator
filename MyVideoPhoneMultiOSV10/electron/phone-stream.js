@@ -65,6 +65,10 @@ let lanCallActive = false;
 /** Outgoing mic into the phone publish path (ffmpeg). */
 let micPublishEnabled = true;
 let micVolumePercent = 100;
+/** Last gain baked into the running ffmpeg filter (null = unknown / not running). */
+let appliedMicGain = null;
+/** Skip idle publisher teardown while peers reconnect after a mic soft-restart. */
+let suppressIdleStopUntil = 0;
 
 /** Why the most recent publisher ffmpeg exited (persists after teardown for /status). */
 /** @type {null | { at: number, code: number|null, signal: string|null, initReady: boolean, device: string|null, stderr: string }} */
@@ -582,6 +586,7 @@ function closeClients({ localClose = false } = {}) {
 
 function stopPublisher() {
   if (!session) return;
+  appliedMicGain = null;
   // Preserve the last publisher's diagnostics before teardown so a post-call
   // /status still explains a failed start (bytes fed, whether init was reached).
   if (session.process) {
@@ -892,40 +897,66 @@ function feedPublishChunk(generation, chunk) {
 }
 
 /**
- * Update mic publish settings. Restarts publisher if live so volume applies.
- * Soft-restart keeps /live HTTP clients open (mic mute must not end the call).
+ * Update mic publish settings. Soft-restarts the publisher when live so
+ * volume=/mute applies. Peers are disconnected (localClose) so MSE can reload
+ * a fresh ftyp/moov — rewriting init on an open HTTP body blacks the video.
  * @param {{ enabled?: boolean, volume?: number, restart?: boolean }} [opts]
  */
 function setPhoneMic(opts = {}) {
-  if (opts.enabled != null) micPublishEnabled = Boolean(opts.enabled);
-  if (opts.volume != null) {
-    const n = Math.round(Number(opts.volume));
-    if (Number.isFinite(n)) micVolumePercent = Math.min(100, Math.max(0, n));
-  }
-  const shouldRestart = opts.restart !== false && Boolean(session?.process);
-  if (shouldRestart) {
-    const clients = session.clients;
+  // Serialize with /live publisher start so rapid mute/unmute cannot race.
+  return withPublisherGate(async () => {
+    if (opts.enabled != null) micPublishEnabled = Boolean(opts.enabled);
+    if (opts.volume != null) {
+      const n = Math.round(Number(opts.volume));
+      if (Number.isFinite(n)) micVolumePercent = Math.min(100, Math.max(0, n));
+    }
+
+    const nextGain = micLinearGain();
+    const shouldRestart = opts.restart !== false && Boolean(session?.process);
+    if (!shouldRestart) {
+      return {
+        ok: true,
+        enabled: micPublishEnabled,
+        volume: micVolumePercent,
+        restarted: false
+      };
+    }
+
+    // Same baked gain — no ffmpeg restart (avoids needless peer video drop).
+    if (appliedMicGain != null && Math.abs(appliedMicGain - nextGain) < 0.0005) {
+      return {
+        ok: true,
+        enabled: micPublishEnabled,
+        volume: micVolumePercent,
+        restarted: false
+      };
+    }
+
     const oldProc = session.process;
+    // Detach before kill so the close handler does not tear down a successor.
     session.process = null;
     session.initReady = false;
     session.initSegment = Buffer.alloc(0);
     session.parseBuf = Buffer.alloc(0);
-    for (const meta of clientMeta.values()) {
-      if (meta) meta.initSent = false;
-    }
-    session.clients = clients;
-    try {
-      killProcess(oldProc);
-    } catch {
-      /* ignore */
-    }
-    void ensurePublisher();
-  }
-  return {
-    ok: true,
-    enabled: micPublishEnabled,
-    volume: micVolumePercent
-  };
+    appliedMicGain = null;
+
+    // Force peer MSE reconnect; mid-stream init rewrite leaves a black frame.
+    closeClients({ localClose: true });
+    suppressIdleStopUntil = Date.now() + 10000;
+
+    await killProcessAsync(oldProc, 4000);
+    await sleep(300);
+
+    const ok = await ensurePublisher({ softMicRestart: true });
+    if (ok) appliedMicGain = micLinearGain();
+    return {
+      ok: true,
+      enabled: micPublishEnabled,
+      volume: micVolumePercent,
+      restarted: true,
+      publisherOk: Boolean(ok)
+    };
+  });
 }
 
 /**
@@ -1005,7 +1036,7 @@ function attachPublisherProcess(child, myGen, mode) {
  * Preferred path: ffmpeg opens the OS camera directly and emits real fMP4
  * fragments. The MediaRecorder→webm→pipe path often stops after moov (segs=0).
  */
-async function startDevicePublisher(clients) {
+async function startDevicePublisher(clients, opts = {}) {
   session = createEmptySession(clients);
   session.generation = ++publishGeneration;
   const myGen = session.generation;
@@ -1013,14 +1044,21 @@ async function startDevicePublisher(clients) {
   publishBytesOut = 0;
   prePublishBuf = [];
   prePublishGen = myGen;
+  appliedMicGain = null;
 
-  // Renderer getUserMedia holds the camera exclusively on Windows — release it.
-  try {
-    publishCaptureHandler?.('release', myGen);
-  } catch {
-    /* ignore */
+  if (opts.softMicRestart) {
+    // Camera was just released by the killed ffmpeg — avoid a second "release"
+    // (getUserMedia) that can steal the device mid-call.
+    await sleep(450);
+  } else {
+    // Renderer getUserMedia holds the camera exclusively on Windows — release it.
+    try {
+      publishCaptureHandler?.('release', myGen);
+    } catch {
+      /* ignore */
+    }
+    await sleep(350);
   }
-  await sleep(350);
 
   const inputArgs = await resolveCameraInputArgs();
   const ffmpeg = resolveFfmpegPath();
@@ -1033,8 +1071,9 @@ async function startDevicePublisher(clients) {
   });
   attachPublisherProcess(child, myGen, 'device');
 
-  const ok = await waitForPublisherInit(6000);
+  const ok = await waitForPublisherInit(opts.softMicRestart ? 8000 : 6000);
   if (ok) {
+    appliedMicGain = micLinearGain();
     setPublishCaptureStatus('device-publish init-ready');
     return true;
   }
@@ -1052,6 +1091,7 @@ async function startDevicePublisher(clients) {
   session.initReady = false;
   session.initSegment = Buffer.alloc(0);
   session.parseBuf = Buffer.alloc(0);
+  appliedMicGain = null;
   return false;
 }
 
@@ -1064,6 +1104,7 @@ async function startPipePublisher(clients) {
   prePublishBuf = [];
   publishBytesIn = 0;
   publishBytesOut = 0;
+  appliedMicGain = null;
 
   try {
     publishCaptureHandler?.('start', myGen);
@@ -1104,15 +1145,22 @@ async function startPipePublisher(clients) {
   return true;
 }
 
-async function ensurePublisher() {
+async function ensurePublisher(opts = {}) {
   if (!publishEnabled) return false;
   if (session?.process) return true;
 
   const clients = session?.clients || new Set();
 
   // 1) OS camera via ffmpeg (produces moof/mdat reliably on Win/macOS).
-  const deviceOk = await startDevicePublisher(clients);
+  const deviceOk = await startDevicePublisher(clients, opts);
   if (deviceOk) return true;
+
+  // Mic soft-restart mid-call: retry device once — do not fall back to pipe
+  // (pipe needs renderer capture and drops the peer into a different codec path).
+  if (opts.softMicRestart) {
+    await sleep(500);
+    return startDevicePublisher(clients, opts);
+  }
 
   // 2) Fallback for MIPI / sensors that DirectShow cannot open.
   return startPipePublisher(clients);
@@ -1191,6 +1239,9 @@ async function servePhoneLive(req, res) {
       if (session.clients.size === 0) {
         const idle = session;
         setTimeout(() => {
+          // Keep the encoder warm during an active call / mic soft-restart so the
+          // peer can reconnect without racing a teardown.
+          if (lanCallActive || Date.now() < suppressIdleStopUntil) return;
           if (session === idle && session.clients.size === 0) {
             stopPublisher();
           }
