@@ -45,6 +45,7 @@ function withPublisherGate(fn) {
  *   callId: string,
  *   fromIp: string,
  *   fromLabel: string,
+ *   callbackToken: string,
  *   resolve: (result: object) => void,
  *   timer: ReturnType<typeof setTimeout>
  * }>} */
@@ -223,33 +224,26 @@ function killProcessAsync(child, timeoutMs = 3000) {
 }
 
 /**
- * Start a brand-new camera encode at call-connect time.
- * Warm preview publishers must not feed “old” timeline into a peer call.
+ * Ensure a publisher session exists before a remote peer joins /live.
+ *
+ * IMPORTANT: Do NOT kill a warming/live encoder here. LAN two-machine calls
+ * previously restarted ffmpeg+MediaRecorder on every remote join, which raced
+ * the local PIP camera (exclusive device) and produced bytes=0 / connect errors
+ * on both sides. Late joiners already receive ftyp+moov via writeInitToClient.
  */
 async function prepareFreshPublisherForCall() {
   if (!session) session = createEmptySession();
+}
 
-  // Reuse an already-warm call publisher instead of thrashing it. A reconnecting
-  // or late-joining peer (e.g. after a brief drop or a retry) must not kill the
-  // encoder that is still warming up — that turns one slow start into an endless
-  // restart loop. Only a genuinely stale/warm-preview publisher gets replaced.
-  const hasRemoteClient = [...clientMeta.values()].some((m) => m?.isRemote);
-  const recentlyStarted = Boolean(session.process) && Date.now() - session.startedAt < 8000;
-  if (session.process && (hasRemoteClient || recentlyStarted)) {
-    return;
-  }
-
-  closeClients({ localClose: true });
-  if (session.process) {
-    const old = session.process;
-    session.process = null;
-    await killProcessAsync(old);
-  }
-  session.initReady = false;
-  session.initSegment = Buffer.alloc(0);
-  session.parseBuf = Buffer.alloc(0);
-  session.stderr = '';
-  session.startedAt = Date.now();
+/** Grant a /live token (used for Accept and for caller→callee callback). */
+function grantLiveToken(fromIp = '', ttlMs = 2 * 60 * 60 * 1000) {
+  pruneAcceptedTokens();
+  const token = crypto.randomBytes(16).toString('hex');
+  acceptedTokens.set(token, {
+    fromIp: normalizeRemoteIp(fromIp) || '',
+    expires: Date.now() + Math.max(5000, ttlMs)
+  });
+  return token;
 }
 
 /** @type {string[] | null} */
@@ -416,12 +410,9 @@ function respondToCall(callId, accepted) {
 
   let token = '';
   if (accepted) {
-    pruneAcceptedTokens();
-    token = crypto.randomBytes(16).toString('hex');
-    acceptedTokens.set(token, {
-      fromIp: pending.fromIp,
-      expires: Date.now() + 2 * 60 * 60 * 1000
-    });
+    token = grantLiveToken(pending.fromIp, 2 * 60 * 60 * 1000);
+    // Caller may re-pull us after glitches — keep IP allow as a backup.
+    if (pending.fromIp) allowCallbackFrom(pending.fromIp, 2 * 60 * 60 * 1000);
     lanCallActive = true;
   }
 
@@ -429,9 +420,11 @@ function respondToCall(callId, accepted) {
     ok: true,
     accepted: Boolean(accepted),
     token,
-    livePath: token ? `/live?token=${token}` : ''
+    livePath: token ? `/live?token=${token}` : '',
+    // Echo so the callee UI can pull the caller's /live with a real token.
+    callbackToken: pending.callbackToken || ''
   });
-  return { ok: true, accepted: Boolean(accepted) };
+  return { ok: true, accepted: Boolean(accepted), callbackToken: pending.callbackToken || '' };
 }
 
 function readJsonBody(req) {
@@ -487,19 +480,30 @@ async function handleRingRequest(req, res) {
   const body = await readJsonBody(req);
   const fromIp = normalizeRemoteIp(req.socket?.remoteAddress);
   const fromLabel = String(body?.from || body?.label || fromIp || 'unknown').trim() || fromIp;
+  // Caller mints a token on their side and sends it here so we can pull their
+  // /live after Accept without relying on IP allow-list alone.
+  const callbackToken = String(body?.callbackToken || '').trim();
   const callId = crypto.randomBytes(8).toString('hex');
 
   const result = await new Promise((resolve) => {
     const timer = setTimeout(() => {
       if (!pendingCalls.has(callId)) return;
       pendingCalls.delete(callId);
-      resolve({ ok: true, accepted: false, error: 'timeout', token: '', livePath: '' });
+      resolve({
+        ok: true,
+        accepted: false,
+        error: 'timeout',
+        token: '',
+        livePath: '',
+        callbackToken: ''
+      });
     }, RING_TIMEOUT_MS);
 
     pendingCalls.set(callId, {
       callId,
       fromIp,
       fromLabel,
+      callbackToken,
       resolve,
       timer
     });
@@ -509,6 +513,7 @@ async function handleRingRequest(req, res) {
         callId,
         fromIp,
         fromLabel,
+        callbackToken,
         timeoutMs: RING_TIMEOUT_MS
       });
     } catch {
@@ -1293,6 +1298,7 @@ module.exports = {
   respondToCall,
   clearAcceptedSessions,
   allowCallbackFrom,
+  grantLiveToken,
   setLanCallActive,
   isLanCallActive,
   getCallPeerIps,

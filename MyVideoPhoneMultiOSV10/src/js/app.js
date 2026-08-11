@@ -228,27 +228,70 @@ function pickPublishMime() {
   return 'video/webm';
 }
 
-function releasePublishStream() {
-  if (publishStream) {
-    for (const track of publishStream.getTracks()) {
-      try {
-        track.stop();
-      } catch {
-        /* ignore */
-      }
-    }
-    publishStream = null;
-  }
+function trackIsLive(track) {
+  return Boolean(track && track.readyState === 'live');
 }
 
+function releasePublishStream() {
+  if (!publishStream) return;
+  // Tracks may be shared with the local PIP — only stop exclusive ones.
+  for (const track of publishStream.getTracks()) {
+    const shared = Boolean(localCameraStream?.getTracks?.().includes(track));
+    if (shared) continue;
+    try {
+      track.stop();
+    } catch {
+      /* ignore */
+    }
+  }
+  publishStream = null;
+}
+
+/**
+ * One camera for PIP + LAN publish. Opening the device twice fails on many
+ * Windows webcams and was the main “both PCs: no video / connect error” cause.
+ */
 async function ensurePublishStream() {
-  const live = publishStream && publishStream.getVideoTracks().some((t) => t.readyState === 'live');
-  if (live) return publishStream;
+  if (publishStream?.getVideoTracks?.().some(trackIsLive)) return publishStream;
+
+  const previewLive = localCameraStream?.getVideoTracks?.().some(trackIsLive);
+  if (previewLive) {
+    const videoTrack = localCameraStream.getVideoTracks().find(trackIsLive);
+    /** @type {MediaStreamTrack[]} */
+    let audioTracks = [];
+    try {
+      const mic = await navigator.mediaDevices.getUserMedia({
+        video: false,
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+      });
+      audioTracks = mic.getAudioTracks();
+    } catch {
+      /* mic optional for video-only publish */
+    }
+    publishStream = new MediaStream([videoTrack, ...audioTracks].filter(Boolean));
+    return publishStream;
+  }
+
   releasePublishStream();
   publishStream = await navigator.mediaDevices.getUserMedia({
     video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30 } },
     audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
   });
+  // Drive PIP from the same capture so a later preview open does not steal the device.
+  if (!localCameraStream?.getVideoTracks?.().some(trackIsLive)) {
+    localCameraStream = publishStream;
+    localCameraWanted = true;
+    if (els.localPreviewVideo) {
+      els.localPreviewVideo.removeAttribute('src');
+      els.localPreviewVideo.srcObject = localCameraStream;
+      try {
+        await els.localPreviewVideo.play();
+      } catch {
+        /* ignore */
+      }
+    }
+    syncLocalPreviewVisibility();
+  }
   return publishStream;
 }
 
@@ -1028,6 +1071,8 @@ function stopLocalCamera({ announce = false } = {}) {
   }
   if (localCameraStream) {
     for (const track of localCameraStream.getTracks()) {
+      // Keep tracks still used by the LAN publisher.
+      if (publishStream?.getTracks?.().includes(track)) continue;
       try {
         track.stop();
       } catch {
@@ -2927,7 +2972,8 @@ function showIncomingCallDialog(info) {
   pendingIncomingCall = {
     callId: String(info?.callId || ''),
     fromIp: String(info?.fromIp || ''),
-    fromLabel: String(info?.fromLabel || info?.fromIp || '')
+    fromLabel: String(info?.fromLabel || info?.fromIp || ''),
+    callbackToken: String(info?.callbackToken || '')
   };
   const fromEl = $('incomingCallFrom');
   if (fromEl) {
@@ -2969,12 +3015,17 @@ async function respondIncomingCall(accepted) {
   // Accept grants the caller a /live token — treat as an active call so Hang up works
   // even if we cannot load the caller's video (missing IP, callback fail, etc.).
   phoneSessionActive = true;
-  // Prefer socket fromIp (who dialed us). Fall back to advertised IPv4 label.
-  const labelIp =
-    pending.fromLabel && /^\d{1,3}(\.\d{1,3}){3}$/.test(pending.fromLabel) ? pending.fromLabel : '';
-  const hostRaw = pending.fromIp || labelIp;
+  // Prefer advertised LAN label (may be host:port); fall back to socket fromIp.
+  const label = String(pending.fromLabel || '').trim();
+  const labelHostPort = (() => {
+    const m = label.match(/^(\d{1,3}(?:\.\d{1,3}){3})(?::(\d{1,5}))?$/);
+    if (!m) return null;
+    return { host: m[1], port: m[2] ? Number(m[2]) : phonePort() };
+  })();
+  const hostRaw = labelHostPort?.host || pending.fromIp || '';
+  const peerPort = labelHostPort?.port || phonePort();
   const host = canonicalizeLoopbackHost(hostRaw);
-  setActivePeer(host, phonePort());
+  setActivePeer(host, peerPort);
   markPhoneCallActive(true);
   startCallWatch();
   setStatus({
@@ -2985,10 +3036,13 @@ async function respondIncomingCall(accepted) {
   els.dropHint?.classList.add('hidden');
   updateCallChrome();
 
-  // After Accept, pull the caller's video (they already allowed callback while ringing).
-  const playHost = labelIp || host;
+  // Pull caller's video with the callback token minted at dial time (LAN-safe).
+  const callbackToken =
+    pending.callbackToken || String(result?.callbackToken || '');
+  const playHost = host;
   if (playHost && !/^127\./.test(playHost)) {
-    const liveUrl = `http://${playHost}:${phonePort()}/live`;
+    const q = callbackToken ? `?token=${encodeURIComponent(callbackToken)}` : '';
+    const liveUrl = `http://${playHost}:${peerPort}/live${q}`;
     void playPhoneFromInput(liveUrl, { skipRing: true });
   }
 }

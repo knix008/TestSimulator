@@ -98,6 +98,7 @@ const {
   respondToCall,
   clearAcceptedSessions,
   allowCallbackFrom,
+  grantLiveToken,
   setLanCallActive,
   getCallPeerIps,
   getPhonePort,
@@ -1270,8 +1271,9 @@ ipcMain.handle('phone:ring', async (_event, payload = {}) => {
   const phone = getPhoneInfo();
   const fromLabel = phone.peerHints?.[0] || phone.lanAddresses?.[0] || '';
   const url = `http://${host}:${port}/ring`;
-  // Peer may pull our camera after they Accept — allow without a second ring.
-  allowCallbackFrom(host, RING_TIMEOUT_MS + 60000);
+  // Peer may pull our camera after they Accept — token + IP allow (backup).
+  const callbackToken = grantLiveToken(host, RING_TIMEOUT_MS + 120000);
+  allowCallbackFrom(host, RING_TIMEOUT_MS + 120000);
 
   return new Promise((resolve) => {
     let settled = false;
@@ -1281,7 +1283,7 @@ ipcMain.handle('phone:ring', async (_event, payload = {}) => {
       resolve(result);
     };
 
-    const body = JSON.stringify({ from: fromLabel, app: APP_NAME });
+    const body = JSON.stringify({ from: fromLabel, app: APP_NAME, callbackToken });
     const req = http.request(
       url,
       {
@@ -1306,6 +1308,7 @@ ipcMain.handle('phone:ring', async (_event, payload = {}) => {
               ok: Boolean(parsed?.ok ?? res.statusCode === 200),
               accepted,
               token,
+              callbackToken: parsed?.callbackToken || callbackToken,
               livePath: parsed?.livePath || '',
               playUrl: accepted
                 ? buildUiPhonePlayUrl({ host, port, token })
