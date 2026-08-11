@@ -65,6 +65,10 @@ let lanCallActive = false;
 let micPublishEnabled = true;
 let micVolumePercent = 100;
 
+/** Why the most recent publisher ffmpeg exited (persists after teardown for /status). */
+/** @type {null | { at: number, code: number|null, signal: string|null, initReady: boolean, device: string|null, stderr: string }} */
+let lastPublish = null;
+
 /** @type {null | {
  *   process: import('child_process').ChildProcess | null,
  *   clients: Set<import('http').ServerResponse>,
@@ -795,9 +799,19 @@ async function ensurePublisher() {
     session.stderr += `\nffmpeg spawn error: ${err.message}`;
   });
 
-  child.on('close', () => {
+  child.on('close', (code, signal) => {
     // Soft mic restart nulls process / swaps child first — keep /live clients.
     if (!session || session.process !== child) return;
+    // Preserve why the publisher died so /status can explain it after teardown
+    // (e.g. a MIPI/IPU sensor camera that dshow lists but cannot actually open).
+    lastPublish = {
+      at: Date.now(),
+      code,
+      signal,
+      initReady: Boolean(session.initReady),
+      device: cachedDeviceInputArgs ? cachedDeviceInputArgs.join(' ') : null,
+      stderr: String(session.stderr || '').slice(-1500)
+    };
     session.process = null;
     closeClients({ localClose: true });
   });
@@ -920,8 +934,11 @@ function getPublishDiag() {
     clients: session ? session.clients.size : 0,
     device: cachedDeviceInputArgs ? cachedDeviceInputArgs.join(' ') : null,
     hasAudioInput: publishHasAudioInput,
-    // Last chunk of ffmpeg stderr (device-open errors show up here).
-    ffmpegStderrTail: session?.stderr ? String(session.stderr).slice(-800) : ''
+    // Live ffmpeg stderr (empty once the session is torn down).
+    ffmpegStderrTail: session?.stderr ? String(session.stderr).slice(-800) : '',
+    // Why the LAST publisher died — survives teardown so a failed call is
+    // still diagnosable. code!==0 with initReady:false ⇒ camera never opened.
+    lastPublish
   };
 }
 
