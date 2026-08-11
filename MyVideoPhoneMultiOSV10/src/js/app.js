@@ -17,6 +17,7 @@ import {
 import { t, setLocale, applyI18n, resolveInitialLocale } from './i18n.js';
 import { createErrorDialogController, mediaErrorDetail } from './error-dialog.js';
 import { isEditableTarget, isModalOpen } from './hotkeys.js';
+import { createLiveMsePlayer } from './live-mse.js';
 
 const isElectron = Boolean(window.desktopAPI?.isElectron);
 if (isElectron) {
@@ -154,16 +155,179 @@ let localCameraWanted = false;
 let localMicEnabled = true;
 /** @type {MediaStream | null} */
 let localMicStream = null;
+/** @type {AudioContext | null} */
+let micAudioCtx = null;
+/** @type {GainNode | null} */
+let micGainNode = null;
+/** @type {MediaStreamAudioSourceNode | null} */
+let micSourceNode = null;
 /** @type {null | { callId: string, fromIp: string, fromLabel: string }} */
 let pendingIncomingCall = null;
 /** True after we Accept an incoming call (even if peer video fails to load). */
 let phoneSessionActive = false;
+/** Active remote peer for hang-up signaling ({ host, port }). */
+let activePeer = null;
 /** Keep progressive fMP4 playback near the live edge (no VOD-style lag). */
 let liveEdgeSyncTimer = 0;
 /** Prevent re-entrant hang-up while tearing down a call. */
 let hangUpInFlight = false;
 /** Stall watchdog while watching a peer phone stream. */
 let phoneStallTimer = 0;
+/** Periodic check that a phone call is still alive. */
+let callWatchTimer = 0;
+/** Reconnect attempts after a live glitch (e.g. peer muted mic → publisher restart). */
+let phoneRecoverTries = 0;
+let phoneRecoverInFlight = false;
+/** True live fMP4 via MSE (not progressive <video src>). */
+const liveMse = createLiveMsePlayer(() => els.media, {
+  onStreamEnded: () => {
+    if (hangUpInFlight) return;
+    if (currentPhoneUrl || phoneSessionActive) {
+      void handlePhoneStreamLost();
+    }
+  }
+});
+
+function setActivePeer(host, port) {
+  const h = canonicalizeLoopbackHost(host);
+  const p = Number(port) || phonePort();
+  if (!h || /^127\./.test(h)) {
+    activePeer = null;
+    return;
+  }
+  activePeer = { host: h, port: p };
+}
+
+function clearActivePeer() {
+  activePeer = null;
+}
+
+function markPhoneCallActive(active) {
+  try {
+    void window.desktopAPI?.setPhoneCallActive?.(Boolean(active));
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Synchronously clear “통화 중” chrome (safe to call even during hang-up). */
+function forceReleasePhoneCallUi(remote = false) {
+  phoneSessionActive = false;
+  currentPhoneUrl = null;
+  clearActivePeer();
+  stopCallWatch();
+  stopLiveEdgeSync();
+  clearPhoneStallWatch();
+  document.body.classList.remove('is-live-call');
+  els.dropHint?.classList.remove('hidden');
+  setStatus({
+    file: statusKey('statusReady'),
+    format: '—',
+    state: statusKey(remote ? 'statusRemoteHangup' : 'statusIdle')
+  });
+  updateCallChrome();
+}
+
+function stopCallWatch() {
+  if (callWatchTimer) {
+    clearInterval(callWatchTimer);
+    callWatchTimer = 0;
+  }
+}
+
+/** True while the main stage still has peer video to show (do not auto-end). */
+function isPhoneVideoPresenting() {
+  if (!(currentPhoneUrl || phoneSessionActive)) return false;
+  const v = els.media;
+  if (!v) return false;
+  try {
+    if (v.videoWidth > 0 && v.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) return true;
+    if (v.buffered && v.buffered.length > 0) {
+      const end = v.buffered.end(v.buffered.length - 1);
+      if (end > 0) return true;
+    }
+  } catch {
+    /* ignore */
+  }
+  return false;
+}
+
+function startCallWatch() {
+  stopCallWatch();
+  let idleTicks = 0;
+  let lastSeg = -1;
+  let missStatus = 0;
+  callWatchTimer = window.setInterval(() => {
+    if (hangUpInFlight) return;
+    if (!phoneSessionActive && !currentPhoneUrl && !activePeer) {
+      stopCallWatch();
+      return;
+    }
+
+    // Peer /status: only as a fallback when video is already gone (missed /bye).
+    // Never end while peer video is still on screen — hang-up is the call button.
+    if (activePeer?.host && window.desktopAPI?.phonePeerStatus) {
+      void window.desktopAPI.phonePeerStatus(activePeer.host, activePeer.port).then((st) => {
+        if (hangUpInFlight) return;
+        if (!phoneSessionActive && !currentPhoneUrl && !activePeer) return;
+        if (isPhoneVideoPresenting()) {
+          missStatus = 0;
+          return;
+        }
+        if (!st?.reachable) {
+          missStatus += 1;
+          if (missStatus >= 4) void endCallFromRemote();
+          return;
+        }
+        missStatus = 0;
+        if (st.inCall === false) void endCallFromRemote();
+      });
+    }
+
+    // Stream stalled — reconnect only; do not hang up.
+    if (currentPhoneUrl && liveMse.active) {
+      const seg = liveMse.segments || 0;
+      if (seg > lastSeg) {
+        lastSeg = seg;
+        idleTicks = 0;
+        phoneRecoverTries = 0;
+      } else {
+        idleTicks += 1;
+      }
+      if (idleTicks >= 6 && lastSeg > 0) {
+        idleTicks = 0;
+        void handlePhoneStreamLost();
+      }
+    }
+  }, 1000);
+}
+
+/**
+ * Live HTTP/MSE glitched — reconnect only.
+ * Call ends solely via the hang-up button (or peer /bye), never because video hiccuped.
+ */
+async function handlePhoneStreamLost() {
+  if (hangUpInFlight || phoneRecoverInFlight) return;
+  if (!phoneSessionActive && !currentPhoneUrl) return;
+  const url = currentPhoneUrl;
+  if (!url || phoneRecoverTries >= 3) return;
+  phoneRecoverInFlight = true;
+  phoneRecoverTries += 1;
+  try {
+    await liveMse.start(url);
+    try {
+      await els.media.play();
+    } catch {
+      /* ignore */
+    }
+  } catch {
+    window.setTimeout(() => {
+      void handlePhoneStreamLost();
+    }, 700);
+  } finally {
+    phoneRecoverInFlight = false;
+  }
+}
 
 function clearOverlayTimer() {
   if (overlayTimer) {
@@ -295,6 +459,132 @@ function updateSaveButton() {
   updateCallChrome();
 }
 
+function clampMicVolume(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 100;
+  return Math.min(100, Math.max(0, Math.round(n)));
+}
+
+function clampStartVolume(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 80;
+  return Math.min(100, Math.max(0, Math.round(n)));
+}
+
+function updateMicVolumeUi(percent) {
+  const value = clampMicVolume(percent);
+  const input = $('settingMicVolume');
+  const out = $('settingMicVolumeValue');
+  if (input) {
+    input.value = String(value);
+    syncRangeFill(input);
+    input.setAttribute('aria-valuetext', `${value}%`);
+  }
+  if (out) out.textContent = `${value}%`;
+}
+
+function updateStartVolumeUi(percent) {
+  const value = clampStartVolume(percent);
+  const input = $('settingStartVolume');
+  const out = $('settingStartVolumeValue');
+  if (input) {
+    input.value = String(value);
+    syncRangeFill(input);
+    input.setAttribute('aria-valuetext', `${value}%`);
+  }
+  if (out) out.textContent = `${value}%`;
+}
+
+function teardownMicAudioGraph() {
+  try {
+    micSourceNode?.disconnect();
+  } catch {
+    /* ignore */
+  }
+  try {
+    micGainNode?.disconnect();
+  } catch {
+    /* ignore */
+  }
+  micSourceNode = null;
+  micGainNode = null;
+  if (micAudioCtx) {
+    try {
+      void micAudioCtx.close();
+    } catch {
+      /* ignore */
+    }
+    micAudioCtx = null;
+  }
+}
+
+function applyLocalMicGain() {
+  const linear = localMicEnabled ? clampMicVolume(settings.micVolume) / 100 : 0;
+  if (micGainNode) {
+    try {
+      micGainNode.gain.value = linear;
+    } catch {
+      /* ignore */
+    }
+  }
+  if (localMicStream) {
+    for (const track of localMicStream.getAudioTracks()) {
+      track.enabled = localMicEnabled && linear > 0;
+    }
+  }
+}
+
+async function ensureMicAudioGraph() {
+  if (!localMicStream) return;
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    if (!micAudioCtx) micAudioCtx = new Ctx();
+    if (micAudioCtx.state === 'suspended') {
+      try {
+        await micAudioCtx.resume();
+      } catch {
+        /* ignore */
+      }
+    }
+    if (!micGainNode) {
+      micGainNode = micAudioCtx.createGain();
+    }
+    if (!micSourceNode) {
+      micSourceNode = micAudioCtx.createMediaStreamSource(localMicStream);
+      micSourceNode.connect(micGainNode);
+      // Keep graph alive without monitoring (avoids echo).
+      micGainNode.connect(micAudioCtx.createMediaStreamDestination());
+    }
+    applyLocalMicGain();
+  } catch {
+    /* ignore — gain is best-effort for local capture path */
+  }
+}
+
+async function syncPhoneMicToMain() {
+  if (!isElectron || !window.desktopAPI?.setPhoneMic) return;
+  // Publisher soft-restarts to apply mute/volume — peer may briefly stall.
+  phoneRecoverTries = 0;
+  try {
+    await window.desktopAPI.setPhoneMic({
+      enabled: localMicEnabled,
+      volume: clampMicVolume(settings.micVolume),
+      restart: true
+    });
+  } catch {
+    /* ignore */
+  }
+}
+
+async function applyMicVolume(percent, { persist = true, syncPhone = true } = {}) {
+  settings.micVolume = clampMicVolume(percent);
+  updateMicVolumeUi(settings.micVolume);
+  if (persist) saveSettings(settings);
+  applyLocalMicGain();
+  if (syncPhone) await syncPhoneMicToMain();
+}
+
 async function setLocalMicEnabled(on, { announce = false } = {}) {
   const want = Boolean(on);
   if (want) {
@@ -302,32 +592,40 @@ async function setLocalMicEnabled(on, { announce = false } = {}) {
       localMicEnabled = false;
       updateMicButton();
       if (announce) setStatus({ state: statusKey('statusMicDenied') });
+      await syncPhoneMicToMain();
       return false;
     }
     try {
       if (!localMicStream) {
         localMicStream = await navigator.mediaDevices.getUserMedia({
-          audio: true,
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true
+          },
           video: false
         });
-      }
-      for (const track of localMicStream.getAudioTracks()) {
-        track.enabled = true;
+        await ensureMicAudioGraph();
       }
       localMicEnabled = true;
+      applyLocalMicGain();
       updateMicButton();
+      await syncPhoneMicToMain();
       if (announce) setStatus({ state: statusKey('statusMicOn') });
       return true;
     } catch {
       localMicEnabled = false;
+      teardownMicAudioGraph();
       localMicStream = null;
       updateMicButton();
+      await syncPhoneMicToMain();
       if (announce) setStatus({ state: statusKey('statusMicDenied') });
       return false;
     }
   }
 
   localMicEnabled = false;
+  applyLocalMicGain();
   if (localMicStream) {
     for (const track of localMicStream.getTracks()) {
       try {
@@ -338,7 +636,9 @@ async function setLocalMicEnabled(on, { announce = false } = {}) {
     }
     localMicStream = null;
   }
+  teardownMicAudioGraph();
   updateMicButton();
+  await syncPhoneMicToMain();
   if (announce) setStatus({ state: statusKey('statusMicOff') });
   return false;
 }
@@ -581,7 +881,7 @@ function stopLiveEdgeSync() {
 }
 
 /**
- * Progressive live fMP4 can drift behind the buffer end; chase the live edge.
+ * Progressive live fMP4 buffers ahead; keep playback on the live edge.
  * @param {HTMLMediaElement | null | undefined} video
  */
 function chaseLiveEdge(video) {
@@ -591,8 +891,9 @@ function chaseLiveEdge(video) {
   try {
     const liveEdge = buf.end(buf.length - 1);
     const lag = liveEdge - video.currentTime;
-    if (lag > 1.0) {
-      video.currentTime = Math.max(0, liveEdge - 0.2);
+    // Stay near real-time — call video is never VOD scrubbing.
+    if (lag > 0.35) {
+      video.currentTime = Math.max(0, liveEdge - 0.05);
     }
   } catch {
     /* ignore seek errors while stream is updating */
@@ -611,7 +912,7 @@ function startLiveEdgeSync() {
     if (els.localPreviewVideo && !els.localPreviewVideo.srcObject) {
       chaseLiveEdge(els.localPreviewVideo);
     }
-  }, 750);
+  }, 250);
 }
 
 function clearPhoneStallWatch() {
@@ -627,7 +928,7 @@ function armPhoneStallWatch() {
   phoneStallTimer = window.setTimeout(() => {
     phoneStallTimer = 0;
     if (!currentPhoneUrl && !phoneSessionActive) return;
-    void endCallFromRemote();
+    void handlePhoneStreamLost();
   }, 8000);
 }
 
@@ -635,34 +936,83 @@ function armPhoneStallWatch() {
  * Peer hung up or their live stream died — release local call state quietly.
  */
 async function endCallFromRemote() {
-  if (hangUpInFlight) return;
-  if (!phoneSessionActive && !currentPhoneUrl && !openStreamInFlight) return;
-  await hangUpCall({ remote: true });
+  // Always clear “통화 중” UI first (even if a hang-up is already in flight).
+  const hadCall = Boolean(phoneSessionActive || currentPhoneUrl || activePeer || openStreamInFlight);
+  forceReleasePhoneCallUi(true);
+  markPhoneCallActive(false);
+  if (!hadCall && !rtspRecording) return;
+  if (hangUpInFlight) {
+    try {
+      await liveMse.stop();
+    } catch {
+      /* ignore */
+    }
+    return;
+  }
+  await hangUpCall({ remote: true, force: true });
 }
 
 /**
- * @param {{ remote?: boolean }} [options]
+ * @param {{ remote?: boolean, force?: boolean }} [options]
  */
 async function hangUpCall(options = {}) {
   const remote = Boolean(options.remote);
-  if (hangUpInFlight) return;
-  const wasLive = Boolean(phoneSessionActive || currentPhoneUrl || openStreamInFlight || currentRtspUrl);
+  const force = Boolean(options.force);
+  if (hangUpInFlight) {
+    forceReleasePhoneCallUi(remote);
+    markPhoneCallActive(false);
+    return;
+  }
+  const wasLive = Boolean(
+    force ||
+      phoneSessionActive ||
+      currentPhoneUrl ||
+      openStreamInFlight ||
+      currentRtspUrl ||
+      activePeer
+  );
   if (!wasLive && !rtspRecording) return;
   hangUpInFlight = true;
+
+  // Drop “통화 중” immediately so UI never sticks after peer is gone.
+  const peer = activePeer;
+  forceReleasePhoneCallUi(remote);
+  // Keep peer IP maps until clearSessions so main can /bye every known peer.
+
   try {
     if (openStreamInFlight) {
       openStreamCancelled = true;
+    }
+    // Local hang-up: notify peer(s) first, then tear down publish/view.
+    if (!remote) {
+      if (peer?.host && window.desktopAPI?.phoneBye) {
+        try {
+          await window.desktopAPI.phoneBye(peer.host, peer.port);
+        } catch {
+          /* ignore */
+        }
+      }
+      // clearSessions also POSTs /bye to callback/token/viewer IPs (caller→callee).
+      try {
+        await window.desktopAPI?.phoneClearSessions?.();
+      } catch {
+        /* ignore */
+      }
+      markPhoneCallActive(false);
+    } else {
+      markPhoneCallActive(false);
+      try {
+        await window.desktopAPI?.phoneClearSessions?.();
+      } catch {
+        /* ignore */
+      }
     }
     if (rtspRecording) {
       await finalizeRtspRecordIfAny();
     }
     await stopRtspBridge({ finalizeRecord: false });
-    stopLiveEdgeSync();
-    clearPhoneStallWatch();
-    currentPhoneUrl = null;
-    phoneSessionActive = false;
     try {
-      await window.desktopAPI?.phoneClearSessions?.();
+      await liveMse.stop();
     } catch {
       /* ignore */
     }
@@ -675,12 +1025,7 @@ async function hangUpCall(options = {}) {
     currentMediaName = null;
     hidePlaybackOverlay(true);
     els.dropHint?.classList.remove('hidden');
-    setStatus({
-      file: statusKey('statusReady'),
-      format: '—',
-      state: statusKey(remote ? 'statusRemoteHangup' : 'statusIdle')
-    });
-    updateCallChrome();
+    forceReleasePhoneCallUi(remote);
     if (wasLive) {
       notifyDesktop(t('appTitle'), remote ? t('notifyRemoteHangup') : t('notifyCallEnded'));
     }
@@ -691,6 +1036,8 @@ async function hangUpCall(options = {}) {
   } finally {
     stopRequested = false;
     hangUpInFlight = false;
+    markPhoneCallActive(false);
+    forceReleasePhoneCallUi(remote);
   }
 }
 
@@ -1756,6 +2103,8 @@ function fillSettingsForm() {
     $('settingShowLocalPreview').checked = Boolean(settings.showLocalPreview);
   }
   updateOpacityUi(settings.windowOpacity);
+  updateMicVolumeUi(settings.micVolume);
+  updateStartVolumeUi(settings.startVolume);
 }
 
 function clampWindowOpacity(value) {
@@ -1799,7 +2148,9 @@ function readSettingsForm() {
     locale: $('settingLocale')?.value === 'ko' ? 'ko' : 'en',
     theme: $('settingTheme').value,
     showLocalPreview: Boolean($('settingShowLocalPreview')?.checked),
-    windowOpacity: clampWindowOpacity($('settingOpacity')?.value ?? settings.windowOpacity)
+    windowOpacity: clampWindowOpacity($('settingOpacity')?.value ?? settings.windowOpacity),
+    micVolume: clampMicVolume($('settingMicVolume')?.value ?? settings.micVolume),
+    startVolume: clampStartVolume($('settingStartVolume')?.value ?? settings.startVolume)
   };
 }
 
@@ -1831,8 +2182,6 @@ async function loadMedia({
   currentRtspUrl = isRtsp ? (rtspUrl || name || null) : null;
   currentPhoneUrl = isPhone ? (url || name || null) : null;
   els.dropHint.classList.add('hidden');
-  els.media.src = url;
-  els.media.load();
 
   const extLabel = isRtsp
     ? 'RTSP'
@@ -1849,12 +2198,52 @@ async function loadMedia({
   if ((isRtsp || isPhone) && settings.showLocalPreview) {
     void startLocalCamera();
   }
-  if (isRtsp || isPhone) {
-    startLiveEdgeSync();
-  } else {
-    stopLiveEdgeSync();
-  }
   clearPhoneStallWatch();
+
+  // Phone / RTSP live: MSE append of fMP4 fragments (true streaming).
+  // Progressive <video src> buffers like a file and is not live.
+  if (isPhone || isRtsp) {
+    stopLiveEdgeSync();
+    try {
+      await liveMse.stop();
+    } catch {
+      /* ignore */
+    }
+    try {
+      await liveMse.start(url);
+      try {
+        await els.media.play();
+      } catch {
+        /* autoplay may need a gesture; MSE keeps appending */
+      }
+      setStatus({
+        file: size ? `${name} (${formatBytes(size)})` : name,
+        format: extLabel,
+        state: statusKey('statusRtspLive')
+      });
+      updateCallChrome();
+    } catch (err) {
+      try {
+        await liveMse.stop();
+      } catch {
+        /* ignore */
+      }
+      if (isPhone) currentPhoneUrl = null;
+      if (isRtsp) currentRtspUrl = null;
+      updateCallChrome();
+      throw err;
+    }
+    return;
+  }
+
+  try {
+    await liveMse.stop();
+  } catch {
+    /* ignore */
+  }
+  stopLiveEdgeSync();
+  els.media.src = url;
+  els.media.load();
 
   if (settings.autoplay) {
     try {
@@ -1886,9 +2275,9 @@ async function handleMediaElementError() {
   const detail = mediaErrorDetail(err) || t('statusPlaybackError');
   const msg = err ? `${t('statusPlaybackError')} (${err.code})` : t('statusPlaybackError');
 
-  // Peer closed /live — end the call instead of showing a decode dialog.
+  // During a call: try to recover the stream — never auto-hang-up (use call button).
   if (currentPhoneUrl || phoneSessionActive) {
-    await endCallFromRemote();
+    void handlePhoneStreamLost();
     return;
   }
 
@@ -2328,6 +2717,14 @@ async function respondIncomingCall(accepted) {
   // Accept grants the caller a /live token — treat as an active call so Hang up works
   // even if we cannot load the caller's video (missing IP, callback fail, etc.).
   phoneSessionActive = true;
+  // Prefer socket fromIp (who dialed us). Fall back to advertised IPv4 label.
+  const labelIp =
+    pending.fromLabel && /^\d{1,3}(\.\d{1,3}){3}$/.test(pending.fromLabel) ? pending.fromLabel : '';
+  const hostRaw = pending.fromIp || labelIp;
+  const host = canonicalizeLoopbackHost(hostRaw);
+  setActivePeer(host, phonePort());
+  markPhoneCallActive(true);
+  startCallWatch();
   setStatus({
     file: pending.fromLabel || pending.fromIp || t('appTitle'),
     format: 'PHONE',
@@ -2337,12 +2734,9 @@ async function respondIncomingCall(accepted) {
   updateCallChrome();
 
   // After Accept, pull the caller's video (they already allowed callback while ringing).
-  const hostRaw = pending.fromLabel && /^\d{1,3}(\.\d{1,3}){3}$/.test(pending.fromLabel)
-    ? pending.fromLabel
-    : pending.fromIp;
-  const host = canonicalizeLoopbackHost(hostRaw);
-  if (host && !/^127\./.test(host)) {
-    const liveUrl = `http://${host}:${phonePort()}/live`;
+  const playHost = labelIp || host;
+  if (playHost && !/^127\./.test(playHost)) {
+    const liveUrl = `http://${playHost}:${phonePort()}/live`;
     void playPhoneFromInput(liveUrl, { skipRing: true });
   }
 }
@@ -2426,10 +2820,18 @@ async function playPhoneFromInput(rawUrl, options = {}) {
       playUrl =
         ring.playUrl ||
         toUiPhonePlayUrl(target.host, target.port, ring.token || '');
+      setActivePeer(target.host, target.port);
+      phoneSessionActive = true;
+      markPhoneCallActive(true);
+      startCallWatch();
     } else if (target) {
       // Callback after Accept (or direct play): still use same-origin UI proxy.
       const token = target.url?.searchParams?.get('token') || '';
       playUrl = toUiPhonePlayUrl(target.host, target.port, token);
+      if (!activePeer) setActivePeer(target.host, target.port);
+      phoneSessionActive = true;
+      markPhoneCallActive(true);
+      startCallWatch();
     }
 
     updateOpenProgressStage(2, 3, t('progressStartingStream'));
@@ -2903,9 +3305,9 @@ function bindMediaEvents() {
   els.media.addEventListener('ended', () => {
     updatePlayIcons(false);
     if (hangUpInFlight) return;
-    // Peer closed the live HTTP stream.
+    // Peer closed the live HTTP stream (or publisher soft-restarted for mic).
     if (currentPhoneUrl || phoneSessionActive) {
-      void endCallFromRemote();
+      void handlePhoneStreamLost();
       return;
     }
     if (currentRtspUrl) {
@@ -2923,14 +3325,19 @@ function bindMediaEvents() {
     stopRequested = false;
     if (currentPhoneUrl || phoneSessionActive) {
       clearPhoneStallWatch();
+      chaseLiveEdge(els.media);
       setStatus({ state: statusKey('statusRtspLive') });
       return;
     }
     if (currentRtspUrl) {
+      chaseLiveEdge(els.media);
       setStatus({ state: statusKey('statusRtspLive') });
       return;
     }
     setStatus({ state: statusKey('statusPlaying') });
+  });
+  els.media.addEventListener('progress', () => {
+    if (currentPhoneUrl || currentRtspUrl) chaseLiveEdge(els.media);
   });
   els.media.addEventListener('timeupdate', () => {
     if (currentPhoneUrl || phoneSessionActive) clearPhoneStallWatch();
@@ -3000,7 +3407,17 @@ function bindToolbar() {
   window.desktopAPI?.onIncomingCall?.((info) => {
     showIncomingCallDialog(info || {});
   });
-  window.desktopAPI?.onPhonePeerLeft?.(() => {
+  window.desktopAPI?.onPhonePeerLeft?.((info) => {
+    // Only explicit peer hang-up (/bye) ends the call.
+    // viewer-left (mic mute / brief reconnect) must not — especially while video shows.
+    if (info?.reason === 'bye') {
+      forceReleasePhoneCallUi(true);
+      void endCallFromRemote();
+      return;
+    }
+    if (isPhoneVideoPresenting()) return;
+    // No video and peer stopped watching — treat as remote end.
+    forceReleasePhoneCallUi(true);
     void endCallFromRemote();
   });
   els.btnProgressCancel?.addEventListener('click', () => {
@@ -3083,6 +3500,19 @@ function bindToolbar() {
     closeThemeEditor(true);
   });
 
+  const onMicVolumeInput = () => {
+    const value = clampMicVolume($('settingMicVolume')?.value);
+    updateMicVolumeUi(value);
+    settings.micVolume = value;
+    applyLocalMicGain();
+  };
+  const onStartVolumeInput = () => {
+    const value = clampStartVolume($('settingStartVolume')?.value);
+    updateStartVolumeUi(value);
+  };
+  $('settingMicVolume')?.addEventListener('input', onMicVolumeInput);
+  $('settingStartVolume')?.addEventListener('input', onStartVolumeInput);
+
   $('btnSaveSettings').addEventListener('click', async (e) => {
     e.preventDefault();
     settings = {
@@ -3095,6 +3525,7 @@ function bindToolbar() {
     applyLocale(settings.locale, { persist: false });
     await applyTheme(settings.theme);
     applySettingsToPlayer({ applyVolume: true });
+    await applyMicVolume(settings.micVolume, { persist: false, syncPhone: true });
     els.settingsModal.close();
     setStatus({ state: statusKey('statusSettingsSaved') });
   });
@@ -3107,6 +3538,7 @@ function bindToolbar() {
     fillSettingsForm();
     await applyTheme(settings.theme);
     applySettingsToPlayer({ applyVolume: true });
+    await applyMicVolume(settings.micVolume, { persist: false, syncPhone: true });
     setStatus({ state: statusKey('statusSettingsReset') });
   });
 
@@ -3345,12 +3777,15 @@ async function init() {
   populateThemeSelect(settings.theme);
   await applyTheme(settings.theme);
   applySettingsToPlayer({ applyVolume: true });
+  updateMicVolumeUi(settings.micVolume);
+  updateStartVolumeUi(settings.startVolume);
   updatePlayIcons(false);
 
   if (isElectron) {
     appInfo = await window.desktopAPI.getAppInfo();
     updateConnectMyIpHint();
     updateToolbarBrand(appInfo);
+    await syncPhoneMicToMain();
     // Publish camera on the fixed LAN port so peers can dial with IP only.
     try {
       await window.desktopAPI.setPhonePublish?.(true);

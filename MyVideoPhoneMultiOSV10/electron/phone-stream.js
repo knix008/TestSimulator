@@ -21,8 +21,25 @@ let publishEnabled = true;
 let incomingCallHandler = null;
 /** @type {null | ((info: object) => void)} */
 let peerDisconnectHandler = null;
-/** @type {Map<import('http').ServerResponse, { remoteIp: string, isRemote: boolean, localClose: boolean }>} */
+/** @type {Map<import('http').ServerResponse, {
+ *   remoteIp: string,
+ *   isRemote: boolean,
+ *   localClose: boolean,
+ *   initSent: boolean
+ * }>} */
 const clientMeta = new Map();
+
+/** Serialize publisher restart / spawn so call join stays deterministic. */
+let publisherGate = Promise.resolve();
+
+function withPublisherGate(fn) {
+  const run = publisherGate.then(fn, fn);
+  publisherGate = run.then(
+    () => undefined,
+    () => undefined
+  );
+  return run;
+}
 
 /** @type {Map<string, {
  *   callId: string,
@@ -40,6 +57,13 @@ const acceptedTokens = new Map();
 /** While dialing a peer, allow that peer to pull our /live without a second ring. */
 /** @type {Map<string, number>} ip -> expires */
 const callbackAllowIps = new Map();
+
+/** Explicit LAN call flag for /status probes (peer hang-up detection). */
+let lanCallActive = false;
+
+/** Outgoing mic into the phone publish path (ffmpeg). */
+let micPublishEnabled = true;
+let micVolumePercent = 100;
 
 /** @type {null | {
  *   process: import('child_process').ChildProcess | null,
@@ -95,19 +119,80 @@ function createEmptySession(clients = new Set()) {
   };
 }
 
-function writeToClients(data) {
+function writeInitToClient(res) {
+  if (!session?.initReady || !session.initSegment?.length) return false;
+  const meta = clientMeta.get(res);
+  if (!meta || meta.initSent) return Boolean(meta?.initSent);
+  try {
+    res.write(session.initSegment);
+    meta.initSent = true;
+    return true;
+  } catch {
+    session.clients.delete(res);
+    clientMeta.delete(res);
+    return false;
+  }
+}
+
+function writeInitToAllClients() {
+  if (!session) return;
+  for (const res of [...session.clients]) {
+    writeInitToClient(res);
+  }
+}
+
+function writeLiveToClients(data) {
   if (!session || !data?.length) return;
-  for (const res of session.clients) {
+  for (const res of [...session.clients]) {
+    const meta = clientMeta.get(res);
+    // Never send media before ftyp/moov — avoids “past” decode from a warm encoder.
+    if (!meta?.initSent) {
+      if (!writeInitToClient(res)) continue;
+    }
     try {
       res.write(data);
     } catch {
       session.clients.delete(res);
+      clientMeta.delete(res);
     }
   }
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function waitForPublisherInit(timeoutMs = 6000) {
+  const start = Date.now();
+  while (session && !session.initReady && Date.now() - start < timeoutMs) {
+    await sleep(40);
+  }
+  return Boolean(session?.initReady);
+}
+
+/**
+ * Start a brand-new camera encode at call-connect time.
+ * Warm preview publishers must not feed “old” timeline into a peer call.
+ */
+async function prepareFreshPublisherForCall() {
+  if (!session) session = createEmptySession();
+  closeClients({ localClose: true });
+  if (session.process) {
+    const old = session.process;
+    session.process = null;
+    killProcess(old);
+  }
+  session.initReady = false;
+  session.initSegment = Buffer.alloc(0);
+  session.parseBuf = Buffer.alloc(0);
+  session.stderr = '';
+  session.startedAt = Date.now();
+}
+
 /** @type {string[] | null} */
 let cachedDeviceInputArgs = null;
+/** Whether the resolved capture graph includes a microphone. */
+let publishHasAudioInput = false;
 
 function getPhonePort() {
   return listenPort || PHONE_PORT;
@@ -145,7 +230,53 @@ function setPeerDisconnectHandler(handler) {
   peerDisconnectHandler = typeof handler === 'function' ? handler : null;
 }
 
+/** @type {Map<string, ReturnType<typeof setTimeout>>} */
+const viewerLeftDebounce = new Map();
+
+function clearViewerLeftDebounce(ip) {
+  const n = normalizeRemoteIp(ip);
+  if (!n) return;
+  const t = viewerLeftDebounce.get(n);
+  if (t) {
+    clearTimeout(t);
+    viewerLeftDebounce.delete(n);
+  }
+}
+
 function notifyPeerViewerLeft(info) {
+  const reason = String(info?.reason || '');
+  const fromIp = normalizeRemoteIp(info?.fromIp);
+
+  // Explicit hang-up must end the call immediately.
+  if (reason === 'bye') {
+    if (fromIp) clearViewerLeftDebounce(fromIp);
+    try {
+      peerDisconnectHandler?.(info || {});
+    } catch {
+      /* ignore UI errors */
+    }
+    return;
+  }
+
+  // Mic mute restarts the publisher; the peer briefly drops /live and reconnects.
+  // Debounce so a short reconnect is not treated as “peer left”.
+  if (fromIp) {
+    clearViewerLeftDebounce(fromIp);
+    const timer = setTimeout(() => {
+      viewerLeftDebounce.delete(fromIp);
+      for (const meta of clientMeta.values()) {
+        if (meta?.isRemote && normalizeRemoteIp(meta.remoteIp) === fromIp) return;
+      }
+      try {
+        peerDisconnectHandler?.(info || {});
+      } catch {
+        /* ignore UI errors */
+      }
+    }, 2800);
+    viewerLeftDebounce.set(fromIp, timer);
+    return;
+  }
+
   try {
     peerDisconnectHandler?.(info || {});
   } catch {
@@ -160,7 +291,39 @@ function pruneAcceptedTokens() {
   }
 }
 
+function setLanCallActive(active) {
+  // Flag only — do not wipe peer IPs here. Hang-up must read them to send /bye first.
+  lanCallActive = Boolean(active);
+  return { ok: true, active: lanCallActive };
+}
+
+function isLanCallActive() {
+  return Boolean(lanCallActive);
+}
+
+/** IPs of the other party in the current call (caller and/or viewers). */
+function getCallPeerIps() {
+  pruneAcceptedTokens();
+  pruneCallbackAllows();
+  const peers = new Set();
+  for (const ip of callbackAllowIps.keys()) {
+    const n = normalizeRemoteIp(ip);
+    if (n && !isLoopbackIp(n)) peers.add(n);
+  }
+  for (const meta of acceptedTokens.values()) {
+    const n = normalizeRemoteIp(meta?.fromIp);
+    if (n && !isLoopbackIp(n)) peers.add(n);
+  }
+  for (const meta of clientMeta.values()) {
+    if (!meta?.isRemote) continue;
+    const n = normalizeRemoteIp(meta.remoteIp);
+    if (n && !isLoopbackIp(n)) peers.add(n);
+  }
+  return [...peers];
+}
+
 function clearAcceptedSessions() {
+  lanCallActive = false;
   acceptedTokens.clear();
   callbackAllowIps.clear();
   // Drop active /live viewers so Hang up ends the call for the peer immediately.
@@ -196,6 +359,7 @@ function respondToCall(callId, accepted) {
       fromIp: pending.fromIp,
       expires: Date.now() + 2 * 60 * 60 * 1000
     });
+    lanCallActive = true;
   }
 
   pending.resolve({
@@ -332,7 +496,9 @@ function closeClients({ localClose = false } = {}) {
   for (const res of [...session.clients]) {
     const meta = clientMeta.get(res);
     if (meta) meta.localClose = Boolean(localClose) || meta.localClose;
-    else if (localClose) clientMeta.set(res, { remoteIp: '', isRemote: false, localClose: true });
+    else if (localClose) {
+      clientMeta.set(res, { remoteIp: '', isRemote: false, localClose: true, initSent: true });
+    }
     try {
       res.end();
     } catch {
@@ -384,31 +550,48 @@ async function resolveCameraInputArgs() {
   if (process.platform === 'win32') {
     const stderr = await listDevicesStderr();
     const videoSection = stderr.split(/DirectShow audio devices/i)[0] || stderr;
-    const match = videoSection.match(/"([^"]+)"\s*(?:\(video\))?/i);
-    const name = match?.[1] || '';
-    if (!name) {
-      cachedDeviceInputArgs = ['-f', 'dshow', '-i', 'video=0'];
-    } else {
-      cachedDeviceInputArgs = ['-f', 'dshow', '-i', `video=${name}`];
-    }
+    const audioSection = stderr.split(/DirectShow audio devices/i)[1] || '';
+    const vMatch = videoSection.match(/"([^"]+)"\s*(?:\(video\))?/i);
+    const aMatch = audioSection.match(/"([^"]+)"/);
+    const cam = vMatch?.[1] ? `video=${vMatch[1]}` : 'video=0';
+    const mic = aMatch?.[1] ? `audio=${aMatch[1]}` : '';
+    const device = mic ? `${cam}:${mic}` : cam;
+    publishHasAudioInput = Boolean(mic);
+    cachedDeviceInputArgs = ['-f', 'dshow', '-framerate', '30', '-i', device];
   } else if (process.platform === 'darwin') {
-    cachedDeviceInputArgs = ['-f', 'avfoundation', '-framerate', '30', '-i', '0:none'];
+    // 0:0 = first video + first audio.
+    publishHasAudioInput = true;
+    cachedDeviceInputArgs = ['-f', 'avfoundation', '-framerate', '30', '-i', '0:0'];
   } else {
+    publishHasAudioInput = false;
     cachedDeviceInputArgs = ['-f', 'v4l2', '-framerate', '30', '-i', '/dev/video0'];
   }
 
   return cachedDeviceInputArgs;
 }
 
+function micLinearGain() {
+  if (!micPublishEnabled) return 0;
+  const pct = Math.min(100, Math.max(0, Number(micVolumePercent) || 0));
+  return pct / 100;
+}
+
 function buildPublishArgs(inputArgs) {
   // Low-latency live fMP4: short GOP, no B-frames, flush every packet.
-  // Past fragments are discarded server-side; viewers only get init + live.
+  // Call join restarts the encoder so media timeline begins at connect time.
+  // Keep an AAC track whenever a mic device exists — mute uses volume=0 so the
+  // stream codecs stay stable (toggling -an would break the peer MSE session).
+  const gain = micLinearGain();
+  const audioArgs = publishHasAudioInput
+    ? ['-c:a', 'aac', '-b:a', '64k', '-ac', '1', '-ar', '16000', '-af', `volume=${gain.toFixed(3)}`]
+    : ['-an'];
+
   return [
     '-hide_banner',
     '-loglevel',
     'warning',
     '-fflags',
-    'nobuffer',
+    'nobuffer+flush_packets',
     '-flags',
     'low_delay',
     '-probesize',
@@ -416,7 +599,6 @@ function buildPublishArgs(inputArgs) {
     '-analyzeduration',
     '0',
     ...inputArgs,
-    '-an',
     '-c:v',
     'libx264',
     '-preset',
@@ -425,16 +607,26 @@ function buildPublishArgs(inputArgs) {
     'zerolatency',
     '-pix_fmt',
     'yuv420p',
+    '-r',
+    '30',
     '-g',
     '15',
     '-keyint_min',
     '15',
     '-bf',
     '0',
+    '-force_key_frames',
+    'expr:gte(t,n_forced*0.5)',
+    '-x264-params',
+    'scenecut=0:bframes=0:force-cfr=1',
+    ...audioArgs,
     '-f',
     'mp4',
+    // CMAF-friendly fMP4 for Chromium MSE (sequence mode).
     '-movflags',
-    'frag_keyframe+empty_moov+default_base_moof+separate_moof',
+    'frag_keyframe+empty_moov+default_base_moof+omit_tfhd_offset',
+    '-frag_duration',
+    '500000',
     '-flush_packets',
     '1',
     '-muxdelay',
@@ -445,6 +637,43 @@ function buildPublishArgs(inputArgs) {
   ];
 }
 
+/**
+ * Update mic publish settings. Restarts publisher if live so volume applies.
+ * Soft-restart keeps /live HTTP clients open (mic mute must not end the call).
+ * @param {{ enabled?: boolean, volume?: number, restart?: boolean }} [opts]
+ */
+function setPhoneMic(opts = {}) {
+  if (opts.enabled != null) micPublishEnabled = Boolean(opts.enabled);
+  if (opts.volume != null) {
+    const n = Math.round(Number(opts.volume));
+    if (Number.isFinite(n)) micVolumePercent = Math.min(100, Math.max(0, n));
+  }
+  const shouldRestart = opts.restart !== false && Boolean(session?.process);
+  if (shouldRestart) {
+    const clients = session.clients;
+    const oldProc = session.process;
+    session.process = null;
+    session.initReady = false;
+    session.initSegment = Buffer.alloc(0);
+    session.parseBuf = Buffer.alloc(0);
+    for (const meta of clientMeta.values()) {
+      if (meta) meta.initSent = false;
+    }
+    session.clients = clients;
+    try {
+      killProcess(oldProc);
+    } catch {
+      /* ignore */
+    }
+    void ensurePublisher();
+  }
+  return {
+    ok: true,
+    enabled: micPublishEnabled,
+    volume: micVolumePercent
+  };
+}
+
 async function ensurePublisher() {
   if (!publishEnabled) return false;
   if (session?.process) return true;
@@ -453,7 +682,8 @@ async function ensurePublisher() {
   const ffmpeg = resolveFfmpegPath();
   const args = buildPublishArgs(inputArgs);
 
-  session = createEmptySession(session?.clients || new Set());
+  const clients = session?.clients || new Set();
+  session = createEmptySession(clients);
 
   const child = spawn(ffmpeg, args, {
     windowsHide: true,
@@ -478,13 +708,12 @@ async function ensurePublisher() {
       session.initSegment = Buffer.from(parsed.init);
       session.initReady = true;
       session.parseBuf = Buffer.alloc(0);
-      // Late-joined waiters need init before any media fragment.
-      writeToClients(session.initSegment);
+      writeInitToAllClients();
       live = parsed.rest;
     }
 
-    // Broadcast only the live edge — do not retain moof/mdat for replay.
-    writeToClients(live);
+    // Broadcast only the live edge — never retain moof/mdat for replay.
+    writeLiveToClients(live);
   });
 
   child.stderr.on('data', (chunk) => {
@@ -499,9 +728,10 @@ async function ensurePublisher() {
   });
 
   child.on('close', () => {
+    // Soft mic restart nulls process / swaps child first — keep /live clients.
     if (!session || session.process !== child) return;
     session.process = null;
-    closeClients();
+    closeClients({ localClose: true });
   });
 
   return true;
@@ -537,57 +767,74 @@ async function servePhoneLive(req, res) {
     return;
   }
 
-  if (!session) {
-    session = createEmptySession();
-  }
-
-  // Only the demux header — never buffered past video.
-  if (session.initReady && session.initSegment.length > 0) {
-    try {
-      res.write(session.initSegment);
-    } catch {
-      res.end();
-      return;
-    }
-  }
-
   const remoteIp = normalizeRemoteIp(req.socket?.remoteAddress);
   const isRemote = Boolean(remoteIp) && !isLoopbackIp(remoteIp);
-  clientMeta.set(res, { remoteIp, isRemote, localClose: false });
-  session.clients.add(res);
-  await ensurePublisher();
 
-  let cleaned = false;
-  const cleanup = () => {
-    if (cleaned) return;
-    cleaned = true;
-    const meta = clientMeta.get(res);
-    clientMeta.delete(res);
-    if (!session) return;
-    session.clients.delete(res);
-    try {
-      if (!res.writableEnded) res.end();
-    } catch {
-      /* ignore */
+  await withPublisherGate(async () => {
+    if (!session) {
+      session = createEmptySession();
     }
-    // Peer stopped pulling our camera → treat as remote hang-up (ignore loopback PIP).
-    if (meta?.isRemote && !meta.localClose) {
-      notifyPeerViewerLeft({ reason: 'viewer-left', fromIp: meta.remoteIp || '' });
-    }
-    // Stop capture when nobody is watching (saves camera / LED).
-    if (session.clients.size === 0) {
-      const idle = session;
-      setTimeout(() => {
-        if (session === idle && session.clients.size === 0) {
-          stopPublisher();
-        }
-      }, 1500);
-    }
-  };
 
-  req.on('close', cleanup);
-  res.on('close', cleanup);
-  res.on('error', cleanup);
+    // Peer call: restart encode at connect so the timeline is “now”, not a warm preview.
+    if (isRemote) {
+      await prepareFreshPublisherForCall();
+    }
+
+    if (isRemote && remoteIp) clearViewerLeftDebounce(remoteIp);
+
+    clientMeta.set(res, {
+      remoteIp,
+      isRemote,
+      localClose: false,
+      initSent: false
+    });
+    session.clients.add(res);
+
+    // Attach cleanup before awaiting publisher so abort during start is handled.
+    let cleaned = false;
+    const cleanup = () => {
+      if (cleaned) return;
+      cleaned = true;
+      const meta = clientMeta.get(res);
+      clientMeta.delete(res);
+      if (!session) return;
+      session.clients.delete(res);
+      try {
+        if (!res.writableEnded) res.end();
+      } catch {
+        /* ignore */
+      }
+      if (meta?.isRemote && !meta.localClose) {
+        notifyPeerViewerLeft({ reason: 'viewer-left', fromIp: meta.remoteIp || '' });
+      }
+      if (session.clients.size === 0) {
+        const idle = session;
+        setTimeout(() => {
+          if (session === idle && session.clients.size === 0) {
+            stopPublisher();
+          }
+        }, 1500);
+      }
+    };
+
+    req.on('close', cleanup);
+    res.on('close', cleanup);
+    res.on('error', cleanup);
+
+    await ensurePublisher();
+    const ready = await waitForPublisherInit(6000);
+    if (!ready) {
+      cleanup();
+      try {
+        if (!res.writableEnded) res.end();
+      } catch {
+        /* ignore */
+      }
+      return;
+    }
+
+    writeInitToClient(res);
+  });
 }
 
 function setPhonePublishEnabled(enabled) {
@@ -646,6 +893,18 @@ async function startPhoneServer() {
         return;
       }
 
+      // Peer hang-up signal — always end the local call UI.
+      if (pathname === '/bye' && req.method === 'POST') {
+        void (async () => {
+          await readJsonBody(req);
+          const fromIp = normalizeRemoteIp(req.socket?.remoteAddress);
+          lanCallActive = false;
+          writeCorsJson(res, 200, { ok: true });
+          notifyPeerViewerLeft({ reason: 'bye', fromIp });
+        })();
+        return;
+      }
+
       if (pathname === '/live' || pathname === '/__phone/live') {
         void servePhoneLive(req, res);
         return;
@@ -656,7 +915,9 @@ async function startPhoneServer() {
           app: 'MyVideoPhone',
           publish: publishEnabled,
           port: listenPort || PHONE_PORT,
-          pending: pendingCalls.size > 0
+          pending: pendingCalls.size > 0,
+          // Only the explicit call flag — avoids false “in call” from warm tokens.
+          inCall: Boolean(lanCallActive)
         });
         return;
       }
@@ -743,5 +1004,9 @@ module.exports = {
   setPeerDisconnectHandler,
   respondToCall,
   clearAcceptedSessions,
-  allowCallbackFrom
+  allowCallbackFrom,
+  setLanCallActive,
+  isLanCallActive,
+  getCallPeerIps,
+  setPhoneMic
 };

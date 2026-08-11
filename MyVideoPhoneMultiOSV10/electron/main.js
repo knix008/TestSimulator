@@ -24,18 +24,17 @@ const allowMultipleInstances =
   ['1', 'true', 'yes'].includes(String(process.env.MyVideoPhone_MULTI || '').toLowerCase());
 
 let gotSingleInstanceLock = true;
+// Stable AUMID is required for Windows toast notifications (Start Menu shortcut).
+// Do not use a per-pid id — toasts are silently dropped without a matching shortcut.
+if (process.platform === 'win32') {
+  app.setAppUserModelId('com.shkwon.myvideophone');
+}
 if (allowMultipleInstances) {
   // Separate storage/cache per process so two test instances do not collide.
   const baseUserData = app.getPath('userData');
   app.setPath('userData', `${baseUserData}-pid-${process.pid}`);
-  if (process.platform === 'win32') {
-    app.setAppUserModelId(`com.shkwon.myvideophone.pid${process.pid}`);
-  }
 } else {
   // Production default: one running process; second launch focuses the first.
-  if (process.platform === 'win32') {
-    app.setAppUserModelId('com.shkwon.myvideophone');
-  }
   gotSingleInstanceLock = app.requestSingleInstanceLock();
   if (!gotSingleInstanceLock) {
     // Immediate hard exit — do not create a second window / tray.
@@ -96,7 +95,11 @@ const {
   setPeerDisconnectHandler,
   respondToCall,
   clearAcceptedSessions,
-  allowCallbackFrom
+  allowCallbackFrom,
+  setLanCallActive,
+  getCallPeerIps,
+  getPhonePort,
+  setPhoneMic
 } = require('./phone-stream');
 
 protocol.registerSchemesAsPrivileged([
@@ -468,10 +471,29 @@ function proxyPhoneLiveHttp(req, res, reqUrl) {
       const headers = {
         'Content-Type': up.headers['content-type'] || 'video/mp4',
         'Cache-Control': 'no-store, no-cache, must-revalidate',
-        Connection: 'keep-alive'
+        Connection: 'keep-alive',
+        'X-Accel-Buffering': 'no'
       };
       res.writeHead(status, headers);
-      up.pipe(res);
+      // Stream chunk-by-chunk (avoid pipe buffering that stalls live MSE).
+      up.on('data', (chunk) => {
+        try {
+          if (!res.writableEnded) res.write(chunk);
+        } catch {
+          try {
+            up.destroy();
+          } catch {
+            /* ignore */
+          }
+        }
+      });
+      up.on('end', () => {
+        try {
+          if (!res.writableEnded) res.end();
+        } catch {
+          /* ignore */
+        }
+      });
       up.on('error', () => {
         try {
           if (!res.writableEnded) res.end();
@@ -649,17 +671,60 @@ function getTrayIconPath() {
   return path.join(root, 'icon.png');
 }
 
-function showAppNotification({ title, body, silent = false } = {}) {
+/**
+ * Windows toast notifications need a Start Menu .lnk whose AppUserModelID matches
+ * app.setAppUserModelId. Unpackaged `npm start` has no installer shortcut — create one.
+ */
+function ensureWindowsNotificationShortcut() {
+  if (process.platform !== 'win32') return;
+  try {
+    const programs = path.join(
+      app.getPath('appData'),
+      'Microsoft',
+      'Windows',
+      'Start Menu',
+      'Programs'
+    );
+    fs.mkdirSync(programs, { recursive: true });
+    const shortcutPath = path.join(programs, `${APP_NAME}.lnk`);
+    const iconPath = getAppIconPath();
+    const shortcut = {
+      target: process.execPath,
+      cwd: path.dirname(process.execPath),
+      description: APP_NAME,
+      appUserModelId: 'com.shkwon.myvideophone',
+      icon: iconPath,
+      iconIndex: 0
+    };
+    if (!app.isPackaged) {
+      shortcut.args = `"${app.getAppPath()}"`;
+      shortcut.cwd = app.getAppPath();
+    }
+    // Refresh link so AUMID stays correct after upgrades / path changes.
+    shell.writeShortcutLink(shortcutPath, fs.existsSync(shortcutPath) ? 'update' : 'create', shortcut);
+  } catch (err) {
+    if (VERBOSE_LOGS) console.warn('[notify] shortcut:', err?.message || err);
+  }
+}
+
+function showAppNotification({ title, body, silent = false, sticky = false } = {}) {
   if (!Notification.isSupported()) {
     return { ok: false, error: 'Notifications are not supported on this system.' };
   }
   try {
-    const notification = new Notification({
+    /** @type {Electron.NotificationConstructorOptions} */
+    const opts = {
       title: title || APP_NAME,
       body: body || '',
       icon: getAppIconPath(),
-      silent: Boolean(silent)
-    });
+      silent: Boolean(silent),
+      urgency: 'critical'
+    };
+    // Keep incoming-call toasts visible until dismissed (Windows).
+    if (sticky && process.platform === 'win32') {
+      opts.timeoutType = 'never';
+    }
+    const notification = new Notification(opts);
     notification.on('click', () => {
       showMainWindow();
     });
@@ -687,6 +752,11 @@ function showMainWindow() {
   if (mainWindow.isMinimized()) mainWindow.restore();
   mainWindow.show();
   mainWindow.focus();
+  try {
+    mainWindow.flashFrame(false);
+  } catch {
+    /* ignore */
+  }
   // Resume LAN camera publish when the window is visible again.
   setPhonePublishEnabled(true);
   notifyWindowVisibility({ visible: true });
@@ -875,6 +945,8 @@ app.whenReady().then(async () => {
     return;
   }
 
+  ensureWindowsNotificationShortcut();
+
   protocol.handle('localmedia', (request) => {
     try {
       return serveLocalMediaRequest(request);
@@ -896,7 +968,30 @@ app.whenReady().then(async () => {
     console.error('[phone] failed to start LAN phone server:', err);
   }
   setIncomingCallHandler((info) => {
+    const ko = isKoreanLocale();
+    const from = String(info?.fromLabel || info?.fromIp || '').trim();
+    // Toast BEFORE focusing the window — Windows suppresses notifications for the
+    // foreground app, so showMainWindow() first would hide the incoming-call toast.
+    showAppNotification({
+      title: ko ? '수신 요청' : 'Incoming call',
+      body: from
+        ? ko
+          ? `${from} 에서 영상 전화를 요청했습니다.`
+          : `${from} is requesting a video call.`
+        : ko
+          ? '영상 전화 수신 요청'
+          : 'Incoming video call request',
+      sticky: true
+    });
+
     try {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        try {
+          mainWindow.flashFrame(true);
+        } catch {
+          /* ignore */
+        }
+      }
       showMainWindow();
     } catch {
       /* ignore */
@@ -908,13 +1003,6 @@ app.whenReady().then(async () => {
     } catch {
       /* ignore */
     }
-    const ko = isKoreanLocale();
-    showAppNotification({
-      title: APP_NAME,
-      body: ko
-        ? `수신 요청: ${info?.fromLabel || info?.fromIp || ''}`
-        : `Incoming call: ${info?.fromLabel || info?.fromIp || ''}`
-    });
   });
   setPeerDisconnectHandler((info) => {
     try {
@@ -1020,9 +1108,117 @@ ipcMain.handle('phone:respond', (_event, payload = {}) => {
   return respondToCall(callId, accepted);
 });
 
-ipcMain.handle('phone:clearSessions', () => {
+ipcMain.handle('phone:clearSessions', async () => {
+  // Caller hang-up: notify every known peer BEFORE wiping session state.
+  // (Renderer activePeer alone is not enough — Accept side uses socket IP.)
+  const peers = getCallPeerIps();
+  const port = getPhonePort() || PHONE_PORT;
+  await Promise.all(
+    peers.map((host) =>
+      phoneHttpJson('POST', host, port, '/bye', { app: APP_NAME, reason: 'hangup' }, 1200).catch(() => ({
+        ok: false
+      }))
+    )
+  );
   clearAcceptedSessions();
-  return { ok: true };
+  return { ok: true, notified: peers };
+});
+
+ipcMain.handle('phone:setCallActive', (_event, active) => setLanCallActive(Boolean(active)));
+
+ipcMain.handle('phone:setMic', (_event, payload = {}) =>
+  setPhoneMic({
+    enabled: payload?.enabled,
+    volume: payload?.volume,
+    restart: payload?.restart
+  })
+);
+
+function phoneHttpJson(method, host, port, pathName, bodyObj, timeoutMs = 2000) {
+  return new Promise((resolve) => {
+    const body = bodyObj ? JSON.stringify(bodyObj) : '';
+    const req = http.request(
+      {
+        hostname: host,
+        port,
+        path: pathName,
+        method,
+        headers: body
+          ? {
+              'Content-Type': 'application/json',
+              'Content-Length': Buffer.byteLength(body)
+            }
+          : { Accept: 'application/json' },
+        timeout: timeoutMs
+      },
+      (res) => {
+        let data = '';
+        res.on('data', (c) => {
+          data += c;
+        });
+        res.on('end', () => {
+          let json = null;
+          try {
+            json = data ? JSON.parse(data) : null;
+          } catch {
+            json = null;
+          }
+          resolve({
+            ok: res.statusCode >= 200 && res.statusCode < 300,
+            statusCode: res.statusCode,
+            json
+          });
+        });
+      }
+    );
+    req.on('timeout', () => {
+      try {
+        req.destroy();
+      } catch {
+        /* ignore */
+      }
+      resolve({ ok: false, error: 'timeout', reachable: false });
+    });
+    req.on('error', (err) => {
+      resolve({ ok: false, error: String(err?.message || err), reachable: false });
+    });
+    if (body) req.write(body);
+    req.end();
+  });
+}
+
+/** Tell peer we hung up so their UI leaves “in call” immediately. */
+ipcMain.handle('phone:bye', async (_event, payload = {}) => {
+  const host = canonicalizeLoopbackHost(payload?.host || '');
+  const port = Math.trunc(Number(payload?.port) || PHONE_PORT);
+  if (!host || !Number.isFinite(port) || port < 1 || port > 65535) {
+    return { ok: false, error: 'invalid target' };
+  }
+  // Retry once — UDP-like loss on busy LAN / sleeping NICs.
+  let last = await phoneHttpJson('POST', host, port, '/bye', { app: APP_NAME, reason: 'hangup' }, 1500);
+  if (!last.ok) {
+    last = await phoneHttpJson('POST', host, port, '/bye', { app: APP_NAME, reason: 'hangup' }, 1500);
+  }
+  return last;
+});
+
+/** Probe peer /status — used to clear stuck “in call” when /bye was missed. */
+ipcMain.handle('phone:peerStatus', async (_event, payload = {}) => {
+  const host = canonicalizeLoopbackHost(payload?.host || '');
+  const port = Math.trunc(Number(payload?.port) || PHONE_PORT);
+  if (!host || !Number.isFinite(port) || port < 1 || port > 65535) {
+    return { ok: false, reachable: false, inCall: false };
+  }
+  const result = await phoneHttpJson('GET', host, port, '/status', null, 1500);
+  if (!result.ok) {
+    return { ok: false, reachable: false, inCall: false, error: result.error };
+  }
+  return {
+    ok: true,
+    reachable: true,
+    inCall: Boolean(result.json?.inCall),
+    statusCode: result.statusCode
+  };
 });
 
 /** Dial peer: POST /ring and wait for Accept / Reject / timeout. */

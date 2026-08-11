@@ -77,6 +77,13 @@ contextBridge.exposeInMainWorld('desktopAPI', {
   phoneRespond: (callId, accepted) =>
     ipcRenderer.invoke('phone:respond', { callId, accepted: Boolean(accepted) }),
   phoneClearSessions: () => ipcRenderer.invoke('phone:clearSessions'),
+  setPhoneCallActive: (active) => ipcRenderer.invoke('phone:setCallActive', Boolean(active)),
+  /** Outgoing mic on/off + volume for LAN publish. */
+  setPhoneMic: (payload) => ipcRenderer.invoke('phone:setMic', payload || {}),
+  /** Notify peer that we ended the call. */
+  phoneBye: (host, port) => ipcRenderer.invoke('phone:bye', { host, port }),
+  /** Probe peer call status (detect missed hang-up). */
+  phonePeerStatus: (host, port) => ipcRenderer.invoke('phone:peerStatus', { host, port }),
   onIncomingCall: (callback) => {
     const handler = (_event, info) => callback(info);
     ipcRenderer.on('phone:incoming', handler);

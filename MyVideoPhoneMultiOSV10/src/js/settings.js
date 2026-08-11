@@ -10,6 +10,8 @@ export const DEFAULT_SETTINGS = {
   autoplay: true,
   loop: false,
   startVolume: 80,
+  /** Outgoing microphone level (0–100). */
+  micVolume: 100,
   windowOpacity: 100,
   showLocalPreview: true,
   /** @type {'contain' | 'cover' | 'actual'} */
@@ -28,6 +30,8 @@ export function loadSettings() {
     if (!raw) return { ...DEFAULT_SETTINGS };
     const merged = { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
     if (merged.windowOpacity == null) merged.windowOpacity = DEFAULT_SETTINGS.windowOpacity;
+    if (merged.micVolume == null) merged.micVolume = DEFAULT_SETTINGS.micVolume;
+    merged.micVolume = Math.min(100, Math.max(0, Math.round(Number(merged.micVolume) || 100)));
     merged.videoFit = normalizeVideoFit(merged.videoFit);
     // uiPort was removed from user settings — ignore legacy persisted values.
     delete merged.uiPort;

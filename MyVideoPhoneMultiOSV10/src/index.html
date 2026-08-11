@@ -62,7 +62,7 @@
           </div>
         </div>
         <div class="toolbar-opacity electron-only" id="toolbarOpacity" title="Window opacity">
-          <svg class="toolbar-opacity-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 1 0 0 20V2Zm0 18a8 8 0 0 1 0-16v16Z"/></svg>
+          <svg class="toolbar-opacity-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5 5.6 9.3a7.2 7.2 0 1 0 12.8 0L12 2.5Z"/></svg>
           <input type="range" class="opacity-bar" id="toolbarOpacityBar" min="20" max="100" step="1" value="100" style="--fill: 100%" data-i18n-tooltip="opacityTip" data-i18n-aria="opacity" />
           <span class="toolbar-opacity-value" id="toolbarOpacityValue">100%</span>
         </div>
@@ -224,13 +224,15 @@
                 <select id="settingTheme" name="theme"></select>
                 <div class="theme-actions">
                   <button type="button" class="btn secondary" id="btnEditTheme" data-i18n="customize">Customize…</button>
-                  <button type="button" class="btn secondary" id="btnDeleteTheme" hidden data-i18n="deleteCustom">Delete custom</button>
+                  <button type="button" class="btn secondary btn-icon" id="btnDeleteTheme" hidden data-i18n-aria="deleteCustom" data-i18n-tooltip="deleteCustom" title="Delete custom">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12ZM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4Z"/></svg>
+                  </button>
                 </div>
               </div>
             </div>
             <div class="field field-range electron-only" id="settingOpacityField" role="group" aria-labelledby="settingOpacityLabel" hidden>
               <span class="field-label" id="settingOpacityLabel">
-                <svg class="field-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 1 0 0 20V2Zm0 18a8 8 0 0 1 0-16v16Z"/></svg>
+                <svg class="field-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5 5.6 9.3a7.2 7.2 0 1 0 12.8 0L12 2.5Z"/></svg>
                 <span data-i18n="windowOpacity">Window opacity</span>
               </span>
               <div class="settings-range-control">
@@ -251,6 +253,32 @@
                 <span data-i18n="showLocalPreview">Show local camera preview during calls</span>
               </span>
             </label>
+          </div>
+        </section>
+
+        <section class="settings-section">
+          <h3 class="settings-section-title" data-i18n="settingsAudio">Audio</h3>
+          <div class="settings-grid">
+            <div class="field field-range" id="settingMicVolumeField" role="group" aria-labelledby="settingMicVolumeLabel">
+              <span class="field-label" id="settingMicVolumeLabel">
+                <svg class="field-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v5a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.9V21h2v-3.1A7 7 0 0 0 19 11h-2Z"/></svg>
+                <span data-i18n="micVolume">Microphone volume</span>
+              </span>
+              <div class="settings-range-control">
+                <input type="range" class="opacity-bar" id="settingMicVolume" name="micVolume" min="0" max="100" step="1" value="100" style="--fill: 100%" aria-valuetext="100%" />
+                <output class="settings-range-value" id="settingMicVolumeValue" for="settingMicVolume">100%</output>
+              </div>
+            </div>
+            <div class="field field-range" id="settingStartVolumeField" role="group" aria-labelledby="settingStartVolumeLabel">
+              <span class="field-label" id="settingStartVolumeLabel">
+                <svg class="field-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10v4h3l4 3V7L7 10H4Zm11.5 2a3.5 3.5 0 0 0-1.8-3.05v6.1A3.5 3.5 0 0 0 15.5 12Zm0-7.7v2.06A6.5 6.5 0 0 1 19 12a6.5 6.5 0 0 1-3.5 5.64v2.06A8.5 8.5 0 0 0 21 12a8.5 8.5 0 0 0-5.5-7.7Z"/></svg>
+                <span data-i18n="startVolume">Speaker volume on start</span>
+              </span>
+              <div class="settings-range-control">
+                <input type="range" class="opacity-bar" id="settingStartVolume" name="startVolume" min="0" max="100" step="1" value="80" style="--fill: 80%" aria-valuetext="80%" />
+                <output class="settings-range-value" id="settingStartVolumeValue" for="settingStartVolume">80%</output>
+              </div>
+            </div>
           </div>
         </section>
       </div>
