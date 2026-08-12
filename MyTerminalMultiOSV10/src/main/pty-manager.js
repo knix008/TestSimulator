@@ -205,7 +205,17 @@ function setPromptTemplate(payload) {
   for (const session of sessions.values()) {
     if (session.type !== 'local' || !session.shell) continue;
     if (template) session.shell.setPromptTemplate(lastOptions.promptTemplate);
-    if (gitMode != null) session.shell.setPromptGitMode(gitMode);
+    if (gitMode != null) {
+      session.shell.setPromptGitMode(gitMode);
+      // Git-only toggle: redraw the prompt without restarting the shell.
+      if (!template && typeof session.shell.prompt === 'function') {
+        try {
+          session.shell.prompt();
+        } catch (_) {
+          /* ignore */
+        }
+      }
+    }
   }
 
   return {

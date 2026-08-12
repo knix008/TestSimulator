@@ -127,6 +127,8 @@ const state = {
   backgroundFit: DEFAULT_BG_FIT,
   promptTemplate: DEFAULT_PROMPT,
   promptGitMode: DEFAULT_PROMPT_GIT_MODE,
+  /** Last non-off mode so the toolbar toggle can restore it. */
+  promptGitModeOn: DEFAULT_PROMPT_GIT_MODE,
   promptPresetId: 'default',
   lsDirectoryColor: DEFAULT_LS_DIRECTORY_COLOR,
   lsFileColor: DEFAULT_LS_FILE_COLOR,
@@ -171,6 +173,7 @@ async function persist() {
     backgroundFit: state.backgroundFit,
     promptTemplate: state.promptTemplate,
     promptGitMode: state.promptGitMode,
+    promptGitModeOn: state.promptGitModeOn || DEFAULT_PROMPT_GIT_MODE,
     promptPresetId: state.promptPresetId || '',
     lsDirectoryColor: state.lsDirectoryColor,
     lsFileColor: state.lsFileColor,
@@ -304,6 +307,38 @@ function updateRemoteButton() {
   btn.dataset.tooltip = text;
   btn.classList.toggle('tb-active', connected);
   updateStatusBar();
+}
+
+function updateGitStatusButton() {
+  const btn = document.getElementById('btn-git-status');
+  if (!btn) return;
+  const on = state.promptGitMode !== 'off';
+  const key = on ? 'toolbar.gitStatusOn' : 'toolbar.gitStatusOff';
+  const text = i18n.t(key);
+  btn.setAttribute('title', text);
+  btn.setAttribute('aria-label', text);
+  btn.dataset.tooltip = text;
+  btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+  btn.classList.toggle('tb-active', on);
+}
+
+/** Apply git prompt mode, persist, and refresh the active local prompt. */
+async function applyPromptGitMode(mode) {
+  state.promptGitMode = normalizePromptGitMode(mode);
+  if (state.promptGitMode !== 'off') {
+    state.promptGitModeOn = state.promptGitMode;
+  }
+  if (api.setPrompt) {
+    await api.setPrompt({
+      template: state.promptTemplate,
+      gitMode: state.promptGitMode,
+      presetId: state.promptPresetId,
+    });
+  }
+  await persist();
+  updateGitStatusButton();
+  const pane = activePane();
+  if (pane && pane.mode !== 'ssh') pane.clear();
 }
 
 function applyStatusBarVisibility() {
@@ -482,6 +517,7 @@ async function applyLanguage(lang) {
     sessions.renderTabs();
   }
   updateRemoteButton();
+  updateGitStatusButton();
   updateStatusBar();
   updateBgFitUi();
   updateLangUi();
@@ -764,6 +800,9 @@ function bindToolbar() {
             : state.promptGitMode;
         state.promptTemplate = asciiSafePromptGlyphs(value || DEFAULT_PROMPT);
         state.promptGitMode = normalizePromptGitMode(gitMode);
+        if (state.promptGitMode !== 'off') {
+          state.promptGitModeOn = state.promptGitMode;
+        }
         state.promptPresetId =
           findPromptPresetId(state.promptTemplate, presets) || 'custom';
         if (api.setPrompt) {
@@ -774,10 +813,20 @@ function bindToolbar() {
           });
         }
         await persist();
+        updateGitStatusButton();
         const pane = activePane();
         if (pane && pane.mode !== 'ssh') await pane.start();
       },
     });
+  });
+
+  on('btn-git-status', async () => {
+    if (state.promptGitMode === 'off') {
+      await applyPromptGitMode(state.promptGitModeOn || DEFAULT_PROMPT_GIT_MODE);
+    } else {
+      state.promptGitModeOn = state.promptGitMode;
+      await applyPromptGitMode('off');
+    }
   });
 
   on('btn-clear', () => activePane()?.clear());
@@ -1129,6 +1178,14 @@ async function boot() {
   state.promptGitMode = normalizePromptGitMode(
     saved.promptGitMode || DEFAULT_PROMPT_GIT_MODE
   );
+  if (state.promptGitMode !== 'off') {
+    state.promptGitModeOn = state.promptGitMode;
+  } else if (
+    typeof saved.promptGitModeOn === 'string' &&
+    saved.promptGitModeOn !== 'off'
+  ) {
+    state.promptGitModeOn = normalizePromptGitMode(saved.promptGitModeOn);
+  }
   state.promptPresetId =
     typeof saved.promptPresetId === 'string' ? saved.promptPresetId : '';
   {

@@ -293,17 +293,17 @@ function gitTokens(cwd, mode = DEFAULT_PROMPT_GIT_MODE) {
     gitMode === 'status' && dirty ? ` ${COLORS.yellow}x${COLORS.reset}` : '';
   const info = ` ${COLORS.bold}${COLORS.blue}git:(${COLORS.red}${repo.branch}${COLORS.blue})${COLORS.reset}${dirtyMark}`;
   // Agnoster segment colors (status mode):
-  //   dirty  → bright red (same black-on-color path as green — dark red + white
-  //            tip AA used to read as a short bottom edge)
+  //   dirty  → bright red
   //   clean but unpushed (ahead) → bright magenta
-  //   clean and pushed / in sync → green
+  //   clean and pushed / in sync → bright green
+  // Bright backgrounds keep tip glyphs readable on wallpaper (same black text).
   let segmentBase;
   if (dirty) {
     segmentBase = `${COLORS.bg_bright_red}${COLORS.black} ${repo.branch} x `;
   } else if (ahead > 0) {
     segmentBase = `${COLORS.bg_bright_magenta}${COLORS.black} ${repo.branch} `;
   } else {
-    segmentBase = `${COLORS.bg_green}${COLORS.black} ${repo.branch} `;
+    segmentBase = `${COLORS.bg_bright_green}${COLORS.black} ${repo.branch} `;
   }
 
   return {
@@ -346,27 +346,18 @@ function isBgCode(code) {
  */
 const SEGMENT_TIP = '\uE0B0';
 
-/** Parse #RRGGBB into `R;G;B` for truecolor SGR, or null if invalid. */
-function parseHexRgb(hex) {
-  const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(String(hex || '').trim());
-  if (!m) return null;
-  return `${parseInt(m[1], 16)};${parseInt(m[2], 16)};${parseInt(m[3], 16)}`;
-}
-
 /**
  * After any painted (background) segment, append a powerline tip cell.
  *
  * Mid tips: next segment ANSI bg + previous-color glyph (wedges = next color).
- * End tips: prefer opaque truecolor theme bg + segment-colored  (same full-cell
- * height path as mid tips). When no endTipBg is available (wallpaper /
- * transparency), keep the segment ANSI bg and segment fg so the bar stays full
- * height — a white/black contrast tip AA-fringes darker red/magenta bars.
+ * End tips: always default/transparent bg + segment-colored  so the bar ends
+ * in a visible triangle. An opaque endTipBg fills the whole tip cell and reads
+ * as a square (especially on green after a clean push).
  */
-function applyPowerlineEnds(text, endTipBg) {
+function applyPowerlineEnds(text, _endTipBg) {
   const src = String(text ?? '');
   if (!/\x1b\[[0-9;]*m/.test(src)) return src;
 
-  const endTipRgb = parseHexRgb(endTipBg);
   let out = '';
   let i = 0;
   let currentBg = null;
@@ -406,13 +397,23 @@ function applyPowerlineEnds(text, endTipBg) {
     if (toBg != null) {
       // Join: next segment paints the full cell; tip is previous color.
       out += `\x1b[${toBg};${prevFg}m${SEGMENT_TIP}`;
-    } else if (endTipRgb) {
-      // Opaque theme bg fills the cell (full height);  is the segment color.
-      out += `\x1b[48;2;${endTipRgb}m\x1b[${prevFg}m${SEGMENT_TIP}\x1b[0m`;
     } else {
-      // Wallpaper / no endTipBg: keep segment bg+fg so red/magenta stay full
-      // height (contrast tips AA into a short-looking bottom edge).
-      out += `\x1b[${fromBg};${prevFg}m${SEGMENT_TIP}\x1b[0m`;
+      // End tip: keep the segment ANSI background so the git/cwd bar fills the
+      // same full cell height as blue/yellow (a fg-only tip sits ~1px high).
+      // Use a dark tip on light/bright segments (and light on dark) so  stays
+      // a visible triangle instead of blending into a square bar end.
+      const tipFg =
+        fromBg === 42 ||
+        fromBg === 43 ||
+        fromBg === 47 ||
+        fromBg === 102 ||
+        fromBg === 103 ||
+        fromBg === 107 ||
+        fromBg === 101 ||
+        fromBg === 105
+          ? 30
+          : 37;
+      out += `\x1b[${fromBg};${tipFg}m${SEGMENT_TIP}\x1b[0m`;
     }
   };
 
