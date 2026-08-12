@@ -504,6 +504,8 @@ body.statusbar-hidden .status-bar {
   padding: 0;
   display: none;
   overflow: hidden;
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
 }
 
 .terminal-pane.active {
@@ -514,16 +516,56 @@ body.statusbar-hidden .status-bar {
   height: 100%;
   width: 100%;
   padding: 0;
+  /* Allow xterm's mouse selection (body uses user-select: none). */
+  user-select: text;
+  -webkit-user-select: text;
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+  cursor: text;
 }
 
+.terminal-pane .xterm .xterm-helper-textarea {
+  /* Keep helper textarea out of the way of drag selection. */
+  pointer-events: none;
+}
+
+.term-context-menu {
+  position: fixed;
+  z-index: 12000;
+  min-width: 168px;
+  padding: 4px;
+  background: var(--toolbar-bg);
+  color: var(--toolbar-fg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
+.term-context-sep {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--border);
+}
+
+.term-context-item.disabled,
+.term-context-item:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* Hidden until the pane has real scrollback (xterm scroll-area is often 1px taller). */
 .terminal-pane .xterm-viewport {
-  overflow-y: scroll !important;
-  scrollbar-gutter: stable;
+  overflow-y: hidden !important;
   scrollbar-width: thin;
   scrollbar-color: color-mix(in srgb, var(--fg) 45%, transparent) color-mix(in srgb, var(--bg) 80%, var(--border));
 }
 
-/* Keep a classic vertical scrollbar always painted (Chromium/Electron). */
+.terminal-pane.has-vscroll .xterm-viewport {
+  overflow-y: auto !important;
+}
+
 .terminal-pane .xterm-viewport::-webkit-scrollbar {
   width: 10px;
 }

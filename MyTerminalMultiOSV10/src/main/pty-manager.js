@@ -10,6 +10,10 @@ const {
   asciiSafePromptGlyphs,
   findPromptPresetId,
 } = require('./prompt');
+const {
+  getLastWorkingDirectory,
+  getCommandHistory,
+} = require('./shell-memory');
 
 let nextId = 1;
 /** @type {Map<string, { type: 'local'|'ssh', shell?: any, ssh?: any, win?: any }>} */
@@ -66,10 +70,15 @@ function loadDirectoryPrefsFromSettings(settings = {}) {
 }
 
 function preferredStartDirectory(optionsCwd) {
+  // Explicit non-empty cwd from caller wins.
   if (optionsCwd !== undefined && optionsCwd !== null) {
-    return String(optionsCwd).trim();
+    const trimmed = String(optionsCwd).trim();
+    if (trimmed) return trimmed;
   }
-  return lastOptions.startDirectory || '';
+  // Settings → Terminal start directory.
+  if (lastOptions.startDirectory) return lastOptions.startDirectory;
+  // Otherwise restore the last directory the user worked in.
+  return getLastWorkingDirectory() || '';
 }
 
 function bindWin(target, win) {
@@ -108,6 +117,7 @@ function createPty(win, options = {}) {
     rows: options.rows || lastOptions.rows || 24,
     promptTemplate: lastOptions.promptTemplate,
     promptGitMode: lastOptions.promptGitMode,
+    history: getCommandHistory(),
   });
   sessions.set(sessionId, { type: 'local', shell, win });
   shell.start();
@@ -262,11 +272,12 @@ async function connectSsh(win, config = {}) {
   } catch (err) {
     const shell = new MyShell(win, {
       sessionId,
-      cwd: resolveStartDirectory(lastOptions.startDirectory),
+      cwd: resolveStartDirectory(preferredStartDirectory(null)),
       cols: config.cols || lastOptions.cols || 80,
       rows: config.rows || lastOptions.rows || 24,
       promptTemplate: lastOptions.promptTemplate,
       promptGitMode: lastOptions.promptGitMode,
+      history: getCommandHistory(),
     });
     sessions.set(sessionId, { type: 'local', shell, win });
     shell.writeln(`\x1b[31m[ssh]\x1b[0m connect failed: ${err.message || err}`);
@@ -292,11 +303,12 @@ function disconnectSsh(payload = {}) {
     }
     const shell = new MyShell(win, {
       sessionId: id,
-      cwd: resolveStartDirectory(lastOptions.startDirectory),
+      cwd: resolveStartDirectory(preferredStartDirectory(null)),
       cols: lastOptions.cols || 80,
       rows: lastOptions.rows || 24,
       promptTemplate: lastOptions.promptTemplate,
       promptGitMode: lastOptions.promptGitMode,
+      history: getCommandHistory(),
     });
     sessions.set(id, { type: 'local', shell, win });
     shell.start();

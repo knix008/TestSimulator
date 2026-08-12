@@ -1,7 +1,8 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { spawn } = require('child_process');
+const { spawn, execFileSync } = require('child_process');
+const { TextDecoder } = require('util');
 const {
   DEFAULT_PROMPT,
   DEFAULT_PROMPT_GIT_MODE,
@@ -9,9 +10,150 @@ const {
   asciiSafePromptGlyphs,
   renderPrompt,
 } = require('./prompt');
+const {
+  rememberWorkingDirectory,
+  rememberPath,
+  rememberCommand,
+  getRecentPaths,
+} = require('./shell-memory');
 
 const VERSION = '1.0.0';
 const AUTHOR = 'SHKWON <knix008@naver.com>';
+
+/** Cached Windows OEM / console output encoding label for TextDecoder. */
+let cachedWindowsConsoleEncoding = null;
+
+function getWindowsConsoleEncoding() {
+  if (cachedWindowsConsoleEncoding) return cachedWindowsConsoleEncoding;
+  if (process.platform !== 'win32') {
+    cachedWindowsConsoleEncoding = 'utf-8';
+    return cachedWindowsConsoleEncoding;
+  }
+  try {
+    const out = execFileSync('cmd.exe', ['/d', '/s', '/c', 'chcp'], {
+      encoding: 'ascii',
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+    const match = String(out).match(/:\s*(\d+)/);
+    const cp = match ? match[1] : '';
+    if (cp === '65001') cachedWindowsConsoleEncoding = 'utf-8';
+    else if (cp) cachedWindowsConsoleEncoding = `windows-${cp}`;
+    else cachedWindowsConsoleEncoding = 'windows-949';
+  } catch (_) {
+    cachedWindowsConsoleEncoding = 'windows-949';
+  }
+  // Verify the label is supported; fall back to common East-Asian OEM pages.
+  try {
+    // eslint-disable-next-line no-new
+    new TextDecoder(cachedWindowsConsoleEncoding);
+  } catch (_) {
+    cachedWindowsConsoleEncoding = 'windows-949';
+    try {
+      // eslint-disable-next-line no-new
+      new TextDecoder(cachedWindowsConsoleEncoding);
+    } catch (_) {
+      cachedWindowsConsoleEncoding = 'utf-8';
+    }
+  }
+  return cachedWindowsConsoleEncoding;
+}
+
+function bufferIsValidUtf8(buf) {
+  try {
+    // eslint-disable-next-line no-new
+    new TextDecoder('utf-8', { fatal: true }).decode(buf);
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+function bufferHasHighBit(buf) {
+  for (let i = 0; i < buf.length; i += 1) {
+    if (buf[i] >= 0x80) return true;
+  }
+  return false;
+}
+
+/**
+ * Decode child-process stdout/stderr for the terminal.
+ * GUI language must not affect this — use the OS console code page on Windows
+ * when the bytes are not valid UTF-8 (e.g. ipconfig → CP949).
+ */
+function createChildOutputDecoder() {
+  const oem = getWindowsConsoleEncoding();
+  let decoder = null;
+  let pending = Buffer.alloc(0);
+
+  const pickEncoding = (buf) => {
+    if (process.platform !== 'win32' || oem === 'utf-8') return 'utf-8';
+    if (!bufferHasHighBit(buf)) return 'utf-8';
+    if (bufferIsValidUtf8(buf)) return 'utf-8';
+    return oem;
+  };
+
+  const ensureDecoder = (buf) => {
+    if (decoder) return;
+    let encoding = pickEncoding(buf);
+    try {
+      decoder = new TextDecoder(encoding);
+    } catch (_) {
+      decoder = new TextDecoder('utf-8');
+    }
+  };
+
+  return {
+    push(chunk) {
+      const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+      if (!decoder) {
+        pending = Buffer.concat([pending, buf]);
+        // Incomplete leading multibyte: wait a few bytes before classifying.
+        if (
+          pending.length < 4 &&
+          bufferHasHighBit(pending) &&
+          !bufferIsValidUtf8(pending)
+        ) {
+          // Already invalid as UTF-8 → OEM (typical for CP949 ipconfig).
+          ensureDecoder(pending);
+        } else if (pending.length < 4 && bufferHasHighBit(pending)) {
+          return '';
+        } else {
+          ensureDecoder(pending);
+        }
+        const text = decoder.decode(pending, { stream: true });
+        pending = Buffer.alloc(0);
+        return text;
+      }
+      return decoder.decode(buf, { stream: true });
+    },
+    end() {
+      if (!decoder) {
+        if (!pending.length) return '';
+        ensureDecoder(pending);
+        const text = decoder.decode(pending);
+        pending = Buffer.alloc(0);
+        return text;
+      }
+      if (pending.length) {
+        const text = decoder.decode(pending, { stream: true });
+        pending = Buffer.alloc(0);
+        return text + decoder.decode(Buffer.alloc(0));
+      }
+      return decoder.decode(Buffer.alloc(0));
+    },
+  };
+}
+
+/** Env for external programs: OS locale only — never GUI i18n language. */
+function childProcessEnv(baseEnv) {
+  const env = { ...(baseEnv || process.env) };
+  // Strip Chromium/Electron UI locale hints so `ipconfig` etc. keep OS language.
+  delete env.ELECTRON_FORCE_LOCALE;
+  delete env.LANGUAGE;
+  // Keep LANG/LC_* from the real process environment (user/OS), not app UI.
+  return env;
+}
 
 const BUILTIN_COMMANDS = [
   'help',
@@ -42,6 +184,7 @@ const BUILTIN_COMMANDS = [
   'env',
   'printenv',
   'history',
+  'recent',
   'which',
   'where',
   'open',
@@ -197,7 +340,9 @@ class MyShell {
     this.cols = options.cols || 80;
     this.rows = options.rows || 24;
     this.lineBuffer = '';
-    this.history = [];
+    this.history = Array.isArray(options.history)
+      ? options.history.filter((line) => typeof line === 'string' && line.trim())
+      : [];
     this.historyIndex = -1;
     this.busy = false;
     this.child = null;
@@ -274,9 +419,10 @@ class MyShell {
   }
 
   start() {
+    rememberWorkingDirectory(this.cwd);
     this.writeln(`\x1b[1mMyTerminal Shell\x1b[0m v${VERSION}`);
     this.writeln(`Built-in shell by ${AUTHOR}`);
-    this.writeln(`Type \x1b[32mhelp\x1b[0m for commands. Use \x1b[32mrun\x1b[0m to launch system programs.`);
+    this.writeln(`Type \x1b[32mhelp\x1b[0m for commands. Unknown names run as system programs.`);
     this.writeln('');
     this.prompt();
   }
@@ -602,6 +748,7 @@ class MyShell {
       this.history.push(trimmed);
       if (this.history.length > 200) this.history.shift();
     }
+    rememberCommand(trimmed);
 
     const tokens = tokenize(trimmed);
     const cmd = (tokens[0] || '').toLowerCase();
@@ -686,6 +833,9 @@ class MyShell {
       case 'history':
         this.history.forEach((h, i) => this.writeln(`${String(i + 1).padStart(4)}  ${h}`));
         break;
+      case 'recent':
+        await this.cmdRecent(args);
+        break;
       case 'which':
       case 'where':
         this.cmdWhich(args[0]);
@@ -717,8 +867,8 @@ class MyShell {
         await this.cmdRun(args);
         break;
       default:
-        this.writeln(`\x1b[31munknown command:\x1b[0m ${cmd}`);
-        this.writeln(`Type \x1b[32mhelp\x1b[0m for built-in commands, or \x1b[32mrun ${raw}\x1b[0m to execute a system program.`);
+        // Fall through to PATH / local executables (no `run` prefix required).
+        await this.cmdRun([cmd, ...args]);
         break;
     }
   }
@@ -742,15 +892,18 @@ class MyShell {
       '  date                 Current date/time',
       '  uname, sysinfo       System information',
       '  env [name]           Environment variables',
-      '  history              Command history',
+      '  history              Command history (persisted across restarts)',
+      '  recent [n|open n|cd n]  Recently used files/folders',
       '  which, where <name>  Locate executable',
       '  open, start <path>   Open file/folder',
       '  about                About this shell',
       '  prompt [show|set|reset]  View/change prompt template',
-      '  run, exec <cmd...>   Run a system program (quote paths with spaces)',
+      '  run, exec <cmd...>   Explicit external run (optional; bare names also work)',
       '  exit, quit           End session',
       '',
-      'Tips: Tab autocomplete, ↑/↓ history, Ctrl+C cancel, Ctrl+L clear',
+      'Tips: Type a program name directly (e.g. ipconfig, git status, notepad).',
+      '      Last folder, recent paths, and ↑/↓ history are restored on restart.',
+      '      Tab autocomplete, Ctrl+C cancel, Ctrl+L clear',
       'Remote SSH: use the toolbar Remote button',
     ];
     lines.forEach((l) => this.writeln(l));
@@ -788,6 +941,8 @@ class MyShell {
       throw new Error(`no such directory: ${target || next}`);
     }
     this.cwd = next;
+    rememberWorkingDirectory(this.cwd);
+    rememberPath(this.cwd, 'dir');
   }
 
   cmdLs(args, cmdName = 'ls') {
@@ -939,6 +1094,7 @@ class MyShell {
     const st = fs.statSync(full);
     if (st.isDirectory()) throw new Error(`is a directory: ${file}`);
     if (st.size > 2 * 1024 * 1024) throw new Error('file too large (>2MB)');
+    rememberPath(full, 'file');
     const text = fs.readFileSync(full, 'utf8');
     // Preserve file newlines via toTerminalText; avoid double blank at EOF.
     const normalized = toTerminalText(text).replace(/(?:\r\n)+$/g, '');
@@ -1044,15 +1200,68 @@ class MyShell {
   async cmdOpen(target) {
     if (!target) throw new Error('usage: open <path>');
     const full = this.resolve(target);
+    if (!fs.existsSync(full)) throw new Error(`no such path: ${target}`);
     const { shell } = require('electron');
     await shell.openPath(full);
+    rememberPath(full);
+    try {
+      if (fs.statSync(full).isDirectory()) rememberWorkingDirectory(full);
+    } catch (_) {
+      /* ignore */
+    }
     this.writeln(`opened: ${full}`);
+  }
+
+  async cmdRecent(args) {
+    const items = getRecentPaths();
+    if (!items.length) {
+      this.writeln('No recent files or folders yet.');
+      return;
+    }
+
+    const sub = (args[0] || '').toLowerCase();
+    const pickIndex = (raw) => {
+      const n = Number.parseInt(raw, 10);
+      if (!Number.isFinite(n) || n < 1 || n > items.length) {
+        throw new Error('usage: recent [n|cd n|open n]');
+      }
+      return n - 1;
+    };
+
+    if (sub === 'cd' || sub === 'open') {
+      const item = items[pickIndex(args[1])];
+      if (sub === 'cd') {
+        if (item.kind !== 'dir') throw new Error(`not a directory: ${item.path}`);
+        this.cmdCd(item.path);
+        this.writeln(item.path);
+        return;
+      }
+      await this.cmdOpen(item.path);
+      return;
+    }
+
+    if (sub && /^\d+$/.test(sub)) {
+      const item = items[pickIndex(sub)];
+      if (item.kind === 'dir') {
+        this.cmdCd(item.path);
+        this.writeln(item.path);
+      } else {
+        await this.cmdOpen(item.path);
+      }
+      return;
+    }
+
+    items.forEach((item, i) => {
+      const mark = item.kind === 'dir' ? 'dir ' : 'file';
+      this.writeln(`${String(i + 1).padStart(3)}  [${mark}]  ${item.path}`);
+    });
+    this.writeln('Use: recent <n> | recent cd <n> | recent open <n>');
   }
 
   cmdRun(args) {
     return new Promise((resolve) => {
       this.busy = true;
-      // Explicit opt-in to system programs (not the default shell).
+      // Launch a system program (also used for unknown built-in names).
       // Re-quote each token so paths with spaces survive shell:true.
       let program = args[0];
       const rest = args.slice(1);
@@ -1066,21 +1275,32 @@ class MyShell {
       const cmdline = [program, ...rest].map(quoteForShell).join(' ');
       const child = spawn(cmdline, {
         cwd: this.cwd,
-        env: this.env,
+        env: childProcessEnv(this.env),
         shell: true,
         windowsHide: true,
       });
       this.child = child;
 
-      child.stdout.on('data', (d) => this.send(d.toString('utf8')));
-      child.stderr.on('data', (d) => this.send(d.toString('utf8')));
+      const outDec = createChildOutputDecoder();
+      const errDec = createChildOutputDecoder();
+      const flush = (dec, chunk) => {
+        const text = chunk != null ? dec.push(chunk) : dec.end();
+        if (text) this.send(text);
+      };
+
+      child.stdout.on('data', (d) => flush(outDec, d));
+      child.stderr.on('data', (d) => flush(errDec, d));
       child.on('error', (err) => {
+        flush(outDec);
+        flush(errDec);
         this.writeln(`\x1b[31mfailed:\x1b[0m ${err.message}`);
         this.busy = false;
         this.child = null;
         resolve();
       });
       child.on('close', (code) => {
+        flush(outDec);
+        flush(errDec);
         this.ensureNewline();
         if (code) this.writeln(`\x1b[90m[exit ${code}]\x1b[0m`);
         this.busy = false;

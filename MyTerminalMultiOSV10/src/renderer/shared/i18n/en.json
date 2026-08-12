@@ -55,7 +55,7 @@
     "scrollback": "Scrollback lines",
     "scrollbackHint": "Number of lines kept for scrolling (100–100000).",
     "startDirectory": "Start directory",
-    "startDirectoryHint": "Folder used when a new local session starts. Leave empty for the home folder. If the folder is missing, home is used. Supports ~.",
+    "startDirectoryHint": "Folder used when a new local session starts. Leave empty to reuse the last working folder (or home if none). Missing folders fall back to home. Supports ~.",
     "startDirectoryPick": "Browse…",
     "startDirectoryPlaceholder": "Home folder",
     "statusBar": "Show status bar",
@@ -108,6 +108,12 @@
     "welcome": "MyTerminal Shell — built-in shell by SHKWON",
     "webNotice": "Web mode: built-in shell with virtual filesystem. Type help for commands.",
     "restarted": "Session restarted."
+  },
+  "contextMenu": {
+    "copy": "Copy",
+    "paste": "Paste",
+    "selectAll": "Select All",
+    "clear": "Clear"
   },
   "prompt": {
     "title": "Shell Prompt",

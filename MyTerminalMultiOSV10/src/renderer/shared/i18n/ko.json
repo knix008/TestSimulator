@@ -55,7 +55,7 @@
     "scrollback": "스크롤 기억 줄 수",
     "scrollbackHint": "스크롤로 되돌릴 수 있도록 기억할 줄 수입니다 (100–100000).",
     "startDirectory": "시작 디렉터리",
-    "startDirectoryHint": "새 로컬 세션이 시작될 폴더입니다. 비우거나 폴더가 없으면 홈 폴더를 사용합니다. ~ 사용 가능.",
+    "startDirectoryHint": "새 로컬 세션이 시작될 폴더입니다. 비우면 마지막으로 작업한 폴더(없으면 홈)를 사용합니다. 폴더가 없으면 홈으로 갑니다. ~ 사용 가능.",
     "startDirectoryPick": "찾아보기…",
     "startDirectoryPlaceholder": "홈 폴더",
     "statusBar": "상태바 표시",
@@ -108,6 +108,12 @@
     "welcome": "MyTerminal Shell — SHKWON 자체 구현 셸",
     "webNotice": "웹 모드: 가상 파일시스템을 쓰는 자체 셸입니다. help로 명령을 확인하세요.",
     "restarted": "세션이 다시 시작되었습니다."
+  },
+  "contextMenu": {
+    "copy": "복사",
+    "paste": "붙여넣기",
+    "selectAll": "모두 선택",
+    "clear": "지우기"
   },
   "prompt": {
     "title": "셸 프롬프트",

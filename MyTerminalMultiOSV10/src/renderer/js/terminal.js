@@ -5,6 +5,22 @@ import { SerializeAddon } from '@xterm/addon-serialize';
 import { toXtermTheme } from './themes.js';
 import { WebShell } from './web-shell.js';
 
+/** @type {HTMLElement | null} */
+let sharedContextMenu = null;
+/** @type {(() => void) | null} */
+let sharedContextMenuCloser = null;
+
+function closeTerminalContextMenu() {
+  if (sharedContextMenuCloser) {
+    sharedContextMenuCloser();
+    sharedContextMenuCloser = null;
+  }
+  if (sharedContextMenu) {
+    sharedContextMenu.remove();
+    sharedContextMenu = null;
+  }
+}
+
 export class TerminalPane {
   constructor({
     sessionId,
@@ -43,6 +59,8 @@ export class TerminalPane {
       fontSize: this.fontSize,
       scrollback: this.scrollback,
       allowProposedApi: true,
+      // Keep mouse drag selection enabled (not application mouse mode).
+      rightClickSelectsWord: false,
       theme: toXtermTheme(getTheme(), !!this.getHasBackgroundImage()),
     });
 
@@ -60,6 +78,30 @@ export class TerminalPane {
     this.term.open(host);
     this.term.onData((data) => this.writeInput(data));
     this.term.attachCustomKeyEventHandler((ev) => this.handleClipboardKeys(ev));
+    this.term.onScroll(() => this.syncScrollbarVisibility());
+    this.term.onWriteParsed(() => this.syncScrollbarVisibility());
+    this.term.onResize(() => this.syncScrollbarVisibility());
+    this.syncScrollbarVisibility();
+
+    // Capture phase so we override xterm's default contextmenu/textarea hop.
+    const onContextMenu = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.openContextMenu(e.clientX, e.clientY);
+    };
+    host.addEventListener('contextmenu', onContextMenu, true);
+    this.disposers.push(() => host.removeEventListener('contextmenu', onContextMenu, true));
+  }
+
+  /** Show the vertical scrollbar only when the buffer has scrollable history. */
+  syncScrollbarVisibility() {
+    try {
+      const buf = this.term.buffer.active;
+      const canScroll = buf.baseY > 0;
+      this.host.classList.toggle('has-vscroll', canScroll);
+    } catch (_) {
+      this.host.classList.remove('has-vscroll');
+    }
   }
 
   handleClipboardKeys(ev) {
@@ -170,7 +212,7 @@ export class TerminalPane {
   }
 
   handleData(data) {
-    this.term.write(data);
+    this.term.write(data, () => this.syncScrollbarVisibility());
   }
 
   handleExit() {
@@ -196,6 +238,7 @@ export class TerminalPane {
       } else {
         this.webShell?.resize(this.term.cols, this.term.rows);
       }
+      this.syncScrollbarVisibility();
       this.onFit?.(this);
     } catch (_) {
       /* ignore */
@@ -210,13 +253,16 @@ export class TerminalPane {
     // Route through shell (Ctrl+L) so the configured prompt is redrawn.
     if (this.api?.isElectron) {
       this.writeInput('\u000c');
+      queueMicrotask(() => this.syncScrollbarVisibility());
       return;
     }
     if (this.webShell) {
       this.webShell.write('\u000c');
+      queueMicrotask(() => this.syncScrollbarVisibility());
       return;
     }
     this.term.clear();
+    this.syncScrollbarVisibility();
     this.term.write('\x1b[2J\x1b[H');
   }
 
@@ -251,6 +297,113 @@ export class TerminalPane {
     } catch (_) {
       return false;
     }
+  }
+
+  selectAll() {
+    try {
+      this.term.selectAll();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  openContextMenu(clientX, clientY) {
+    closeTerminalContextMenu();
+    this.term.focus();
+
+    const menu = document.createElement('div');
+    menu.className = 'term-context-menu';
+    menu.setAttribute('role', 'menu');
+
+    const hasSelection = this.term.hasSelection();
+    const items = [
+      {
+        id: 'copy',
+        label: this.i18n.t('contextMenu.copy', this.i18n.t('toolbar.copy')),
+        disabled: !hasSelection,
+        action: () => this.copy(),
+      },
+      {
+        id: 'paste',
+        label: this.i18n.t('contextMenu.paste', this.i18n.t('toolbar.paste')),
+        action: () => this.paste(),
+      },
+      { type: 'sep' },
+      {
+        id: 'selectAll',
+        label: this.i18n.t('contextMenu.selectAll', 'Select All'),
+        action: () => this.selectAll(),
+      },
+      {
+        id: 'clear',
+        label: this.i18n.t('contextMenu.clear', this.i18n.t('toolbar.clear')),
+        action: () => this.clear(),
+      },
+    ];
+
+    for (const item of items) {
+      if (item.type === 'sep') {
+        const sep = document.createElement('div');
+        sep.className = 'term-context-sep';
+        sep.setAttribute('role', 'separator');
+        menu.appendChild(sep);
+        continue;
+      }
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'menu-item term-context-item';
+      btn.setAttribute('role', 'menuitem');
+      btn.textContent = item.label;
+      if (item.disabled) {
+        btn.disabled = true;
+        btn.classList.add('disabled');
+      } else {
+        btn.addEventListener('click', async () => {
+          closeTerminalContextMenu();
+          await item.action();
+          this.term.focus();
+        });
+      }
+      menu.appendChild(btn);
+    }
+
+    document.body.appendChild(menu);
+    sharedContextMenu = menu;
+
+    const pad = 8;
+    const rect = menu.getBoundingClientRect();
+    let left = clientX;
+    let top = clientY;
+    if (left + rect.width > window.innerWidth - pad) {
+      left = Math.max(pad, window.innerWidth - rect.width - pad);
+    }
+    if (top + rect.height > window.innerHeight - pad) {
+      top = Math.max(pad, window.innerHeight - rect.height - pad);
+    }
+    menu.style.left = `${left}px`;
+    menu.style.top = `${top}px`;
+
+    const onDoc = (ev) => {
+      if (menu.contains(ev.target)) return;
+      closeTerminalContextMenu();
+    };
+    const onKey = (ev) => {
+      if (ev.key === 'Escape') closeTerminalContextMenu();
+    };
+    // Next tick so the opening click/contextmenu does not immediately close it.
+    queueMicrotask(() => {
+      document.addEventListener('mousedown', onDoc, true);
+      document.addEventListener('keydown', onKey, true);
+      window.addEventListener('blur', closeTerminalContextMenu);
+      window.addEventListener('resize', closeTerminalContextMenu);
+    });
+    sharedContextMenuCloser = () => {
+      document.removeEventListener('mousedown', onDoc, true);
+      document.removeEventListener('keydown', onKey, true);
+      window.removeEventListener('blur', closeTerminalContextMenu);
+      window.removeEventListener('resize', closeTerminalContextMenu);
+    };
   }
 
   setFontSize(size) {
@@ -295,6 +448,7 @@ export class TerminalPane {
   }
 
   dispose({ killBackend = true } = {}) {
+    closeTerminalContextMenu();
     this.disposers.forEach((d) => d());
     if (killBackend && this.api?.ptyKill) this.api.ptyKill(this.sessionId);
     if (killBackend) this.webShell?.kill();
