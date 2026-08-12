@@ -1,3 +1,41 @@
+const WEB_BUILTINS = [
+  'help',
+  'clear',
+  'cls',
+  'echo',
+  'pwd',
+  'cd',
+  'ls',
+  'dir',
+  'cat',
+  'type',
+  'mkdir',
+  'md',
+  'whoami',
+  'date',
+  'uname',
+  'sysinfo',
+  'about',
+  'history',
+  'run',
+  'exec',
+  'exit',
+  'quit',
+];
+
+function longestCommonPrefix(items) {
+  if (!items.length) return '';
+  let prefix = items[0];
+  for (let i = 1; i < items.length; i += 1) {
+    const s = items[i];
+    let j = 0;
+    while (j < prefix.length && j < s.length && prefix[j] === s[j]) j += 1;
+    prefix = prefix.slice(0, j);
+    if (!prefix) break;
+  }
+  return prefix;
+}
+
 /**
  * Browser-side built-in shell (virtual FS), mirroring MyShell branding/commands.
  */
@@ -11,6 +49,7 @@ export class WebShell {
     this.history = [];
     this.historyIndex = -1;
     this.escape = '';
+    this.completionKey = '';
     this.promptTemplate =
       promptTemplate || '{cyan}myterm{reset}:{yellow}{cwd:short}{reset}> ';
     this.fs = {
@@ -55,18 +94,30 @@ export class WebShell {
     const colors = {
       reset: '\x1b[0m',
       bold: '\x1b[1m',
+      dim: '\x1b[2m',
       red: '\x1b[31m',
       green: '\x1b[32m',
       yellow: '\x1b[33m',
       blue: '\x1b[34m',
       magenta: '\x1b[35m',
       cyan: '\x1b[36m',
+      white: '\x1b[37m',
+      black: '\x1b[30m',
+      bg_blue: '\x1b[44m',
+      bg_yellow: '\x1b[43m',
+      bg_magenta: '\x1b[45m',
     };
+    const short = this.cwd.replace(/^\/home\/user/, '~');
+    const tail = this.cwd === '/home/user' ? '~' : this.cwd.split('/').filter(Boolean).pop() || short;
     const values = {
       user: 'webuser',
       host: 'web',
       cwd: this.cwd,
-      'cwd:short': this.cwd.replace(/^\/home\/user/, '~'),
+      'cwd:short': short,
+      'cwd:tail': tail,
+      'git:branch': '',
+      'git:info': '',
+      'git:segment': '',
       time: new Date().toLocaleTimeString(),
       date: new Date().toLocaleDateString(),
       shell: 'MyShell',
@@ -110,6 +161,7 @@ export class WebShell {
         this.run(this.buffer);
         this.buffer = '';
         this.historyIndex = -1;
+        this.completionKey = '';
       } else if (ch === '\u007f' || ch === '\b') {
         if (this.buffer.length) {
           this.buffer = this.buffer.slice(0, -1);
@@ -122,11 +174,88 @@ export class WebShell {
       } else if (ch === '\u000c') {
         this.onData('\x1b[2J\x1b[H');
         this.prompt();
+      } else if (ch === '\t') {
+        this.autocomplete();
       } else if (ch >= ' ') {
         this.buffer += ch;
         this.onData(ch);
+        this.completionKey = '';
       }
     }
+  }
+
+  getCompletionContext(line) {
+    let i = line.length - 1;
+    while (i >= 0 && line[i] !== ' ' && line[i] !== '\t') i -= 1;
+    const tokenStart = i + 1;
+    const token = line.slice(tokenStart);
+    const before = line.slice(0, tokenStart).trim();
+    return { token, tokenStart, isCommand: before.length === 0 };
+  }
+
+  completeCommands(token) {
+    const needle = String(token || '').toLowerCase();
+    return WEB_BUILTINS.filter((name) => name.startsWith(needle));
+  }
+
+  completePaths(token) {
+    const raw = String(token || '');
+    const slash = raw.lastIndexOf('/');
+    const dirPart = slash >= 0 ? raw.slice(0, slash + 1) : '';
+    const basePart = slash >= 0 ? raw.slice(slash + 1) : raw;
+    const searchDir = dirPart
+      ? this.resolve(dirPart === '~/' ? '~' : dirPart.replace(/\/+$/, '') || '.')
+      : this.cwd;
+    const names = this.listDir(searchDir);
+    const needle = basePart.toLowerCase();
+    return names
+      .filter((name) => name.toLowerCase().startsWith(needle))
+      .map((name) => {
+        const full = `${searchDir}/${name}`.replace(/\/+/g, '/');
+        const isDir = this.fs[full]?.type === 'dir' || this.listDir(full).length > 0;
+        return `${dirPart}${name}${isDir ? '/' : ''}`;
+      });
+  }
+
+  applyCompletion(tokenStart, completion) {
+    const oldToken = this.buffer.slice(tokenStart);
+    for (let i = 0; i < oldToken.length; i += 1) this.onData('\b \b');
+    this.buffer = this.buffer.slice(0, tokenStart) + completion;
+    this.onData(completion);
+  }
+
+  autocomplete() {
+    const line = this.buffer;
+    const { token, tokenStart, isCommand } = this.getCompletionContext(line);
+    const matches = isCommand ? this.completeCommands(token) : this.completePaths(token);
+    if (!matches.length) {
+      this.onData('\x07');
+      this.completionKey = '';
+      return;
+    }
+    if (matches.length === 1) {
+      let next = matches[0];
+      if (!next.endsWith('/')) next += ' ';
+      this.applyCompletion(tokenStart, next);
+      this.completionKey = '';
+      return;
+    }
+    const common = longestCommonPrefix(matches);
+    if (common.length > token.length) {
+      this.applyCompletion(tokenStart, common);
+      this.completionKey = this.buffer;
+      return;
+    }
+    if (this.completionKey === line) {
+      this.writeLine('');
+      this.writeLine(matches.join('  '));
+      this.prompt();
+      if (this.buffer) this.onData(this.buffer);
+      this.completionKey = '';
+      return;
+    }
+    this.completionKey = line;
+    this.onData('\x07');
   }
 
   historyNav(dir) {
@@ -195,6 +324,7 @@ export class WebShell {
       case 'help':
       case '?':
         this.writeLine('Built-in: help, clear, echo, pwd, cd, ls, cat, mkdir, whoami, date, uname, about, history, exit');
+        this.writeLine('Tips: Tab autocomplete, ↑/↓ history, Ctrl+C cancel, Ctrl+L clear');
         this.writeLine('Web mode uses a virtual filesystem (desktop app uses real FS + MyShell).');
         break;
       case 'clear':

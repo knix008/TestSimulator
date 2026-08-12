@@ -1,7 +1,15 @@
+const fs = require('fs');
 const os = require('os');
+const path = require('path');
 const { MyShell } = require('./myshell');
 const { SshSession } = require('./ssh-session');
-const { DEFAULT_PROMPT } = require('./prompt');
+const {
+  DEFAULT_PROMPT,
+  DEFAULT_PROMPT_GIT_MODE,
+  normalizePromptGitMode,
+  asciiSafePromptGlyphs,
+  findPromptPresetId,
+} = require('./prompt');
 
 let nextId = 1;
 /** @type {Map<string, { type: 'local'|'ssh', shell?: any, ssh?: any, win?: any }>} */
@@ -10,9 +18,59 @@ const sessions = new Map();
 const pendingAdopts = new Map();
 let lastOptions = {
   promptTemplate: DEFAULT_PROMPT,
+  promptGitMode: DEFAULT_PROMPT_GIT_MODE,
   cols: 80,
   rows: 24,
+  /** Raw configured start directory (empty = home). */
+  startDirectory: '',
 };
+
+function resolveStartDirectory(cwd) {
+  const home = os.homedir();
+  let dir = typeof cwd === 'string' ? cwd.trim() : '';
+  if (!dir || dir === '~') return home;
+  if (dir.startsWith('~/') || dir.startsWith('~\\')) {
+    dir = path.join(home, dir.slice(2));
+  }
+  try {
+    dir = path.resolve(dir);
+    if (fs.existsSync(dir) && fs.statSync(dir).isDirectory()) return dir;
+  } catch (_) {
+    /* fall through */
+  }
+  // Missing / invalid configured path → default home directory.
+  return home;
+}
+
+function setStartDirectoryPreference(dir) {
+  lastOptions.startDirectory = typeof dir === 'string' ? dir.trim() : '';
+  return lastOptions.startDirectory;
+}
+
+/** Load directory + prompt prefs from settings.json into runtime options. */
+function loadDirectoryPrefsFromSettings(settings = {}) {
+  if (typeof settings.startDirectory === 'string') {
+    lastOptions.startDirectory = settings.startDirectory.trim();
+  }
+  if (typeof settings.promptTemplate === 'string' && settings.promptTemplate.length) {
+    lastOptions.promptTemplate = asciiSafePromptGlyphs(settings.promptTemplate);
+  }
+  if (settings.promptGitMode != null) {
+    lastOptions.promptGitMode = normalizePromptGitMode(settings.promptGitMode);
+  }
+  return {
+    startDirectory: lastOptions.startDirectory,
+    promptTemplate: lastOptions.promptTemplate,
+    promptGitMode: lastOptions.promptGitMode,
+  };
+}
+
+function preferredStartDirectory(optionsCwd) {
+  if (optionsCwd !== undefined && optionsCwd !== null) {
+    return String(optionsCwd).trim();
+  }
+  return lastOptions.startDirectory || '';
+}
 
 function bindWin(target, win) {
   if (!target) return;
@@ -20,11 +78,18 @@ function bindWin(target, win) {
 }
 
 function createPty(win, options = {}) {
-  lastOptions = {
-    ...lastOptions,
-    ...options,
-    promptTemplate: options.promptTemplate || lastOptions.promptTemplate || DEFAULT_PROMPT,
-  };
+  const requested = preferredStartDirectory(
+    options.cwd !== undefined && options.cwd !== null ? options.cwd : undefined
+  );
+  const cwd = resolveStartDirectory(requested);
+  if (options.cols > 0) lastOptions.cols = options.cols;
+  if (options.rows > 0) lastOptions.rows = options.rows;
+  if (typeof options.promptTemplate === 'string' && options.promptTemplate.length) {
+    lastOptions.promptTemplate = asciiSafePromptGlyphs(options.promptTemplate);
+  }
+  if (options.promptGitMode != null) {
+    lastOptions.promptGitMode = normalizePromptGitMode(options.promptGitMode);
+  }
 
   let sessionId;
   if (options.sessionId != null) {
@@ -38,26 +103,58 @@ function createPty(win, options = {}) {
 
   const shell = new MyShell(win, {
     sessionId,
-    cwd: options.cwd || os.homedir(),
+    cwd,
     cols: options.cols || lastOptions.cols || 80,
     rows: options.rows || lastOptions.rows || 24,
     promptTemplate: lastOptions.promptTemplate,
+    promptGitMode: lastOptions.promptGitMode,
   });
   sessions.set(sessionId, { type: 'local', shell, win });
   shell.start();
   return { ok: true, mode: 'myshell', sessionId };
 }
 
-function setPromptTemplate(template) {
-  if (typeof template === 'string' && template.length) {
+function setPromptTemplate(payload) {
+  const templateRaw =
+    typeof payload === 'string'
+      ? payload
+      : payload && typeof payload.template === 'string'
+        ? payload.template
+        : null;
+  const template =
+    typeof templateRaw === 'string' && templateRaw.length
+      ? asciiSafePromptGlyphs(templateRaw)
+      : null;
+  const gitMode =
+    payload && typeof payload === 'object' && payload.gitMode != null
+      ? normalizePromptGitMode(payload.gitMode)
+      : null;
+  const presetId =
+    payload && typeof payload === 'object' && typeof payload.presetId === 'string'
+      ? payload.presetId
+      : template
+        ? findPromptPresetId(template)
+        : '';
+
+  if (template) {
     lastOptions.promptTemplate = template;
-    for (const session of sessions.values()) {
-      if (session.type === 'local' && session.shell) {
-        session.shell.setPromptTemplate(template);
-      }
-    }
   }
-  return { ok: true, template: lastOptions.promptTemplate };
+  if (gitMode != null) {
+    lastOptions.promptGitMode = gitMode;
+  }
+
+  for (const session of sessions.values()) {
+    if (session.type !== 'local' || !session.shell) continue;
+    if (template) session.shell.setPromptTemplate(template);
+    if (gitMode != null) session.shell.setPromptGitMode(gitMode);
+  }
+
+  return {
+    ok: true,
+    template: lastOptions.promptTemplate,
+    gitMode: lastOptions.promptGitMode,
+    presetId,
+  };
 }
 
 function writePty(payload) {
@@ -165,10 +262,11 @@ async function connectSsh(win, config = {}) {
   } catch (err) {
     const shell = new MyShell(win, {
       sessionId,
-      cwd: os.homedir(),
+      cwd: resolveStartDirectory(lastOptions.startDirectory),
       cols: config.cols || lastOptions.cols || 80,
       rows: config.rows || lastOptions.rows || 24,
       promptTemplate: lastOptions.promptTemplate,
+      promptGitMode: lastOptions.promptGitMode,
     });
     sessions.set(sessionId, { type: 'local', shell, win });
     shell.writeln(`\x1b[31m[ssh]\x1b[0m connect failed: ${err.message || err}`);
@@ -194,10 +292,11 @@ function disconnectSsh(payload = {}) {
     }
     const shell = new MyShell(win, {
       sessionId: id,
-      cwd: os.homedir(),
+      cwd: resolveStartDirectory(lastOptions.startDirectory),
       cols: lastOptions.cols || 80,
       rows: lastOptions.rows || 24,
       promptTemplate: lastOptions.promptTemplate,
+      promptGitMode: lastOptions.promptGitMode,
     });
     sessions.set(id, { type: 'local', shell, win });
     shell.start();
@@ -238,6 +337,8 @@ module.exports = {
   resizePty,
   killPty,
   setPromptTemplate,
+  setStartDirectoryPreference,
+  loadDirectoryPrefsFromSettings,
   connectSsh,
   disconnectSsh,
   getSessionInfo,

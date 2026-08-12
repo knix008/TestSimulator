@@ -20,6 +20,8 @@ contextBridge.exposeInMainWorld('myTerminal', {
   getSettings: () => ipcRenderer.invoke('settings:get'),
   setSettings: (settings) => ipcRenderer.invoke('settings:set', settings),
   openExternal: (url) => ipcRenderer.invoke('shell:openExternal', url),
+  clipboardWriteText: (text) => ipcRenderer.invoke('clipboard:writeText', text),
+  clipboardReadText: () => ipcRenderer.invoke('clipboard:readText'),
   onOpenSettings: (cb) => {
     const handler = () => cb();
     ipcRenderer.on('tray:openSettings', handler);
@@ -42,8 +44,12 @@ contextBridge.exposeInMainWorld('myTerminal', {
     return () => ipcRenderer.removeListener('popup:message', handler);
   },
   pickBackgroundImage: () => ipcRenderer.invoke('background:pick'),
+  listBackgroundImages: () => ipcRenderer.invoke('background:list'),
+  selectBackgroundImage: (id) => ipcRenderer.invoke('background:select', id),
+  removeBackgroundImage: (id) => ipcRenderer.invoke('background:remove', id),
   loadBackgroundImage: () => ipcRenderer.invoke('background:load'),
   clearBackgroundImage: () => ipcRenderer.invoke('background:clear'),
+  pickDirectory: (options) => ipcRenderer.invoke('dialog:pickDirectory', options || {}),
 
   ptyStart: (options) => ipcRenderer.invoke('pty:start', options),
   ptyWrite: (sessionId, data) => ipcRenderer.invoke('pty:write', { sessionId, data }),

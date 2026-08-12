@@ -17,6 +17,7 @@ const closeBtn = document.getElementById('popup-close');
 
 let popupId = null;
 let currentClose = () => {};
+let autoFitEnabled = true;
 
 function applyThemeVars(themeId, custom, themes, transparency = 0) {
   const theme = resolveTheme(themes, themeId || 'dark', custom);
@@ -26,7 +27,7 @@ function applyThemeVars(themeId, custom, themes, transparency = 0) {
 }
 
 async function fitToContent() {
-  if (!popupId || !api.fitPopup) return;
+  if (!autoFitEnabled || !popupId || !api.fitPopup) return;
   const app = document.getElementById('popup-app');
   // Measure intrinsic content size (ignore stretched window height).
   const prevHeight = app.style.height;
@@ -59,6 +60,10 @@ async function mount(message) {
   clearView();
   const { kind, payload = {} } = message;
   await i18n.setLanguage(payload.lang || 'en');
+
+  // Settings keeps a fixed window size; content scrolls inside.
+  autoFitEnabled = payload.autoFit !== false && kind !== 'settings';
+  document.body.classList.toggle('popup-fixed', !autoFitEnabled);
 
   if (payload.themes) {
     applyThemeVars(
@@ -94,7 +99,7 @@ async function mount(message) {
     bodyEl.innerHTML = payload.bodyHtml || '';
   }
 
-  requestAnimationFrame(() => fitToContent());
+  if (autoFitEnabled) requestAnimationFrame(() => fitToContent());
 }
 
 async function boot() {

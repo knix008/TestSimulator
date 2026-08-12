@@ -1,4 +1,14 @@
-const { app, BrowserWindow, ipcMain, shell, Menu, screen, dialog, nativeImage } = require('electron');
+const {
+  app,
+  BrowserWindow,
+  ipcMain,
+  shell,
+  Menu,
+  screen,
+  dialog,
+  nativeImage,
+  clipboard,
+} = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -9,6 +19,7 @@ const {
   resizePty,
   killPty,
   setPromptTemplate,
+  loadDirectoryPrefsFromSettings,
   connectSsh,
   disconnectSsh,
   getSessionInfo,
@@ -17,7 +28,14 @@ const {
   stashAdopt,
   takeAdopt,
 } = require('./pty-manager');
-const { PROMPT_PRESETS, DEFAULT_PROMPT } = require('./prompt');
+const {
+  PROMPT_PRESETS,
+  DEFAULT_PROMPT,
+  DEFAULT_PROMPT_GIT_MODE,
+  normalizePromptGitMode,
+  asciiSafePromptGlyphs,
+  findPromptPresetId,
+} = require('./prompt');
 const {
   createTray,
   destroyTray,
@@ -34,9 +52,10 @@ const {
 
 const windows = new Set();
 
-/** Fallback until renderer measures the real toolbar width. */
-const TOOLBAR_MIN_WIDTH = 1080;
+/** Fallback until renderer measures the real toolbar content width. */
+const TOOLBAR_MIN_WIDTH = 1100;
 const WINDOW_MIN_HEIGHT = 420;
+const TOOLBAR_MIN_WIDTH_CAP = 1800;
 
 function getIconPath() {
   const candidates = [
@@ -83,7 +102,7 @@ function updateSettings(patch = {}) {
 function ensureBoundsOnScreen(bounds) {
   const width = Math.max(
     TOOLBAR_MIN_WIDTH,
-    Math.min(Math.round(bounds.width) || 1100, 10000)
+    Math.min(Math.round(bounds.width) || TOOLBAR_MIN_WIDTH, TOOLBAR_MIN_WIDTH_CAP)
   );
   const height = Math.max(
     WINDOW_MIN_HEIGHT,
@@ -181,9 +200,11 @@ function createWindow(options = {}) {
   const hasExplicitPos =
     Number.isFinite(options.x) || Number.isFinite(options.y);
 
+  // Width starts at the toolbar minimum; renderer refines via setMinSize(resizeToMin).
+  // Ignore restored.width so a previously runaway size cannot reopen ultra-wide.
   const width = Math.max(
     TOOLBAR_MIN_WIDTH,
-    Math.round(options.width || restored.width || 1100)
+    Math.round(options.width || TOOLBAR_MIN_WIDTH)
   );
   const height = Math.max(
     WINDOW_MIN_HEIGHT,
@@ -319,6 +340,7 @@ app.whenReady().then(() => {
   registerPopupIpc();
   registerDetachPreviewIpc();
   const settings = bootstrapSettings();
+  loadDirectoryPrefsFromSettings(settings);
   applyTrayFromSettings(settings);
   createWindow();
 
@@ -371,9 +393,10 @@ ipcMain.handle('window:getBounds', (event) => {
 ipcMain.handle('window:setMinSize', (event, payload = {}) => {
   const win = winFromEvent(event);
   if (!win) return null;
-  const minWidth = Math.max(
-    TOOLBAR_MIN_WIDTH,
-    Math.ceil(Number(payload.width) || TOOLBAR_MIN_WIDTH)
+  const rawW = Math.ceil(Number(payload.width) || TOOLBAR_MIN_WIDTH);
+  const minWidth = Math.min(
+    TOOLBAR_MIN_WIDTH_CAP,
+    Math.max(900, rawW || TOOLBAR_MIN_WIDTH)
   );
   const minHeight = Math.max(
     WINDOW_MIN_HEIGHT,
@@ -381,7 +404,10 @@ ipcMain.handle('window:setMinSize', (event, payload = {}) => {
   );
   win.setMinimumSize(minWidth, minHeight);
   const [cw, ch] = win.getSize();
-  if (cw < minWidth || ch < minHeight) {
+  if (payload.resizeToMin) {
+    // Start (or snap) at the toolbar-fit minimum width; keep height.
+    win.setSize(minWidth, Math.max(ch, minHeight));
+  } else if (cw < minWidth || ch < minHeight) {
     win.setSize(Math.max(cw, minWidth), Math.max(ch, minHeight));
   }
   return { minWidth, minHeight };
@@ -404,7 +430,31 @@ ipcMain.handle('app:getInfo', () => ({
 ipcMain.handle('settings:get', () => readSettings());
 ipcMain.handle('settings:set', (_e, settings) => {
   // Merge so windowBounds / windowMaximized persisted by main are kept.
-  const next = updateSettings(settings || {});
+  const patch = { ...(settings || {}) };
+  // Always persist directory-related fields explicitly (including empty clear).
+  if ('startDirectory' in patch) {
+    patch.startDirectory =
+      typeof patch.startDirectory === 'string' ? patch.startDirectory.trim() : '';
+  }
+  if ('backgroundImageDir' in patch) {
+    patch.backgroundImageDir =
+      typeof patch.backgroundImageDir === 'string' ? patch.backgroundImageDir : '';
+  }
+  if ('promptTemplate' in patch) {
+    patch.promptTemplate =
+      typeof patch.promptTemplate === 'string' && patch.promptTemplate.length
+        ? asciiSafePromptGlyphs(patch.promptTemplate)
+        : DEFAULT_PROMPT;
+  }
+  if ('promptGitMode' in patch) {
+    patch.promptGitMode = normalizePromptGitMode(patch.promptGitMode);
+  }
+  if ('promptPresetId' in patch) {
+    patch.promptPresetId =
+      typeof patch.promptPresetId === 'string' ? patch.promptPresetId : '';
+  }
+  const next = updateSettings(patch);
+  loadDirectoryPrefsFromSettings(next);
   applyTrayFromSettings(next);
   return true;
 });
@@ -463,6 +513,134 @@ function backgroundDir() {
   return path.join(app.getPath('userData'), 'backgrounds');
 }
 
+function libraryMetaPath() {
+  return path.join(backgroundDir(), 'library.json');
+}
+
+function newBackgroundId() {
+  return `bg_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function fileToDataUrl(filePath) {
+  const buf = fs.readFileSync(filePath);
+  const mime = BG_MIME[path.extname(filePath).toLowerCase()] || 'image/png';
+  return `data:${mime};base64,${buf.toString('base64')}`;
+}
+
+function defaultLibrary() {
+  return { items: [], activeId: '' };
+}
+
+function migrateLegacyWallpaper(lib) {
+  const dir = backgroundDir();
+  if (!fs.existsSync(dir)) return lib;
+  const legacy = fs
+    .readdirSync(dir)
+    .find((name) => /^wallpaper\./i.test(name) && BG_MIME[path.extname(name).toLowerCase()]);
+  if (!legacy) return lib;
+  if (lib.items.some((item) => item.file === legacy)) return lib;
+  const id = newBackgroundId();
+  lib.items.unshift({
+    id,
+    file: legacy,
+    name: 'Wallpaper',
+    addedAt: Date.now(),
+  });
+  if (!lib.activeId) lib.activeId = id;
+  return lib;
+}
+
+function readLibrary() {
+  const dir = backgroundDir();
+  fs.mkdirSync(dir, { recursive: true });
+  let lib = defaultLibrary();
+  const meta = libraryMetaPath();
+  if (fs.existsSync(meta)) {
+    try {
+      const parsed = JSON.parse(fs.readFileSync(meta, 'utf8'));
+      if (parsed && Array.isArray(parsed.items)) {
+        lib = {
+          items: parsed.items
+            .filter((item) => item && item.id && item.file)
+            .map((item) => ({
+              id: String(item.id),
+              file: String(item.file),
+              name: String(item.name || item.file),
+              addedAt: Number(item.addedAt) || 0,
+            })),
+          activeId: typeof parsed.activeId === 'string' ? parsed.activeId : '',
+        };
+      }
+    } catch (_) {
+      lib = defaultLibrary();
+    }
+  }
+  lib = migrateLegacyWallpaper(lib);
+  // Drop missing files.
+  lib.items = lib.items.filter((item) => fs.existsSync(path.join(dir, item.file)));
+  if (lib.activeId && !lib.items.some((item) => item.id === lib.activeId)) {
+    lib.activeId = '';
+  }
+  writeLibrary(lib);
+  return lib;
+}
+
+function writeLibrary(lib) {
+  const dir = backgroundDir();
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(
+    libraryMetaPath(),
+    JSON.stringify(
+      {
+        items: lib.items || [],
+        activeId: lib.activeId || '',
+      },
+      null,
+      2
+    ),
+    'utf8'
+  );
+}
+
+function listBackgroundLibrary() {
+  const dir = backgroundDir();
+  const lib = readLibrary();
+  const items = lib.items.map((item) => {
+    const filePath = path.join(dir, item.file);
+    let dataUrl = '';
+    try {
+      dataUrl = fileToDataUrl(filePath);
+    } catch (_) {
+      dataUrl = '';
+    }
+    return {
+      id: item.id,
+      name: item.name,
+      dataUrl,
+    };
+  });
+  return {
+    ok: true,
+    items: items.filter((item) => item.dataUrl),
+    activeId: lib.activeId || '',
+  };
+}
+
+function getActiveBackgroundDataUrl() {
+  const dir = backgroundDir();
+  const lib = readLibrary();
+  if (!lib.activeId) return null;
+  const item = lib.items.find((entry) => entry.id === lib.activeId);
+  if (!item) return null;
+  const filePath = path.join(dir, item.file);
+  if (!fs.existsSync(filePath)) return null;
+  try {
+    return fileToDataUrl(filePath);
+  } catch (_) {
+    return null;
+  }
+}
+
 function clearBackgroundFiles() {
   const dir = backgroundDir();
   if (!fs.existsSync(dir)) return;
@@ -475,18 +653,32 @@ function clearBackgroundFiles() {
   }
 }
 
-function readStoredBackground() {
-  const dir = backgroundDir();
-  if (!fs.existsSync(dir)) return null;
-  const file = fs
-    .readdirSync(dir)
-    .find((name) => BG_MIME[path.extname(name).toLowerCase()]);
-  if (!file) return null;
-  const filePath = path.join(dir, file);
-  const buf = fs.readFileSync(filePath);
-  const mime = BG_MIME[path.extname(file).toLowerCase()] || 'image/png';
-  return `data:${mime};base64,${buf.toString('base64')}`;
-}
+ipcMain.handle('dialog:pickDirectory', async (event, options = {}) => {
+  const win = winFromEvent(event);
+  const settings = readSettings();
+  const remembered =
+    typeof options?.defaultPath === 'string' && options.defaultPath.trim()
+      ? options.defaultPath.trim()
+      : typeof settings.startDirectory === 'string'
+        ? settings.startDirectory.trim()
+        : '';
+  let defaultPath;
+  if (remembered) {
+    const expanded = remembered.replace(/^~(?=[\\/]|$)/, os.homedir());
+    if (fs.existsSync(expanded)) {
+      defaultPath = fs.statSync(expanded).isDirectory() ? expanded : path.dirname(expanded);
+    }
+  }
+  const result = await dialog.showOpenDialog(win || undefined, {
+    title: options?.title || 'Select start directory',
+    defaultPath,
+    properties: ['openDirectory', 'createDirectory'],
+  });
+  if (result.canceled || !result.filePaths?.[0]) {
+    return { ok: false, canceled: true };
+  }
+  return { ok: true, path: result.filePaths[0] };
+});
 
 ipcMain.handle('background:pick', async (event) => {
   const win = winFromEvent(event);
@@ -556,35 +748,130 @@ ipcMain.handle('background:pick', async (event) => {
   const { buf: outBuf, ext, mime } = prepared;
   const dir = backgroundDir();
   fs.mkdirSync(dir, { recursive: true });
-  clearBackgroundFiles();
-  fs.writeFileSync(path.join(dir, `wallpaper${ext}`), outBuf);
+  const lib = readLibrary();
+  const id = newBackgroundId();
+  const baseName = path.basename(src, path.extname(src)) || 'Wallpaper';
+  const file = `${id}${ext}`;
+  fs.writeFileSync(path.join(dir, file), outBuf);
+  lib.items.unshift({
+    id,
+    file,
+    name: baseName,
+    addedAt: Date.now(),
+  });
+  lib.activeId = id;
+  writeLibrary(lib);
 
   const chosenDir = path.dirname(src);
   try {
-    updateSettings({ backgroundImageDir: chosenDir });
+    updateSettings({
+      backgroundImageDir: chosenDir,
+      backgroundImage: 'file',
+      backgroundImageId: id,
+    });
   } catch (_) {
     /* ignore */
   }
 
+  const listed = listBackgroundLibrary();
   return {
     ok: true,
+    id,
     dataUrl: `data:${mime};base64,${outBuf.toString('base64')}`,
     directory: chosenDir,
+    items: listed.items,
+    activeId: listed.activeId,
   };
+});
+
+ipcMain.handle('background:list', () => {
+  try {
+    return listBackgroundLibrary();
+  } catch (err) {
+    return { ok: false, error: err.message || 'list_failed', items: [], activeId: '' };
+  }
+});
+
+ipcMain.handle('background:select', (_e, id) => {
+  try {
+    const lib = readLibrary();
+    const nextId = id == null ? '' : String(id);
+    if (nextId && !lib.items.some((item) => item.id === nextId)) {
+      return { ok: false, error: 'not_found', ...listBackgroundLibrary() };
+    }
+    lib.activeId = nextId;
+    writeLibrary(lib);
+    const dataUrl = nextId ? getActiveBackgroundDataUrl() : null;
+    updateSettings({
+      backgroundImage: dataUrl ? 'file' : '',
+      backgroundImageId: nextId,
+    });
+    return {
+      ok: true,
+      id: nextId,
+      dataUrl: dataUrl || '',
+      ...listBackgroundLibrary(),
+    };
+  } catch (err) {
+    return { ok: false, error: err.message || 'select_failed' };
+  }
+});
+
+ipcMain.handle('background:remove', (_e, id) => {
+  try {
+    const targetId = String(id || '');
+    if (!targetId) return { ok: false, error: 'missing_id' };
+    const dir = backgroundDir();
+    const lib = readLibrary();
+    const item = lib.items.find((entry) => entry.id === targetId);
+    if (!item) return { ok: false, error: 'not_found', ...listBackgroundLibrary() };
+    try {
+      fs.unlinkSync(path.join(dir, item.file));
+    } catch (_) {
+      /* ignore missing file */
+    }
+    lib.items = lib.items.filter((entry) => entry.id !== targetId);
+    if (lib.activeId === targetId) lib.activeId = '';
+    writeLibrary(lib);
+    const dataUrl = getActiveBackgroundDataUrl();
+    updateSettings({
+      backgroundImage: dataUrl ? 'file' : '',
+      backgroundImageId: lib.activeId || '',
+    });
+    return {
+      ok: true,
+      removedId: targetId,
+      dataUrl: dataUrl || '',
+      activeId: lib.activeId || '',
+      ...listBackgroundLibrary(),
+    };
+  } catch (err) {
+    return { ok: false, error: err.message || 'remove_failed' };
+  }
 });
 
 ipcMain.handle('background:load', () => {
   try {
-    const dataUrl = readStoredBackground();
-    return dataUrl ? { ok: true, dataUrl } : { ok: false };
+    const dataUrl = getActiveBackgroundDataUrl();
+    const lib = readLibrary();
+    return dataUrl
+      ? { ok: true, dataUrl, activeId: lib.activeId || '' }
+      : { ok: false, activeId: '' };
   } catch (err) {
     return { ok: false, error: err.message || 'load_failed' };
   }
 });
 
 ipcMain.handle('background:clear', () => {
-  clearBackgroundFiles();
-  return true;
+  const lib = readLibrary();
+  lib.activeId = '';
+  writeLibrary(lib);
+  try {
+    updateSettings({ backgroundImage: '', backgroundImageId: '' });
+  } catch (_) {
+    /* ignore */
+  }
+  return { ok: true, ...listBackgroundLibrary() };
 });
 
 ipcMain.handle('shell:openExternal', (_e, url) => {
@@ -593,6 +880,16 @@ ipcMain.handle('shell:openExternal', (_e, url) => {
   }
   return false;
 });
+
+ipcMain.handle('clipboard:writeText', (_e, text) => {
+  clipboard.writeText(String(text ?? ''));
+  return { ok: true };
+});
+
+ipcMain.handle('clipboard:readText', () => ({
+  ok: true,
+  text: clipboard.readText(),
+}));
 
 ipcMain.handle('pty:start', (event, options) => {
   const win = winFromEvent(event);
@@ -621,7 +918,20 @@ ipcMain.handle('prompt:getPresets', () => ({
   presets: PROMPT_PRESETS,
 }));
 
-ipcMain.handle('prompt:set', (_e, template) => setPromptTemplate(template));
+ipcMain.handle('prompt:set', (_e, payload) => {
+  const result = setPromptTemplate(payload);
+  const presetId =
+    result.presetId ||
+    findPromptPresetId(result.template) ||
+    (typeof payload === 'object' && payload?.presetId) ||
+    '';
+  updateSettings({
+    promptTemplate: result.template || DEFAULT_PROMPT,
+    promptGitMode: result.gitMode || DEFAULT_PROMPT_GIT_MODE,
+    promptPresetId: presetId,
+  });
+  return { ...result, presetId };
+});
 
 ipcMain.handle('ssh:connect', async (event, config) => {
   const win = winFromEvent(event);

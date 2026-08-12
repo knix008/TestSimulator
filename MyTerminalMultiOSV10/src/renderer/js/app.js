@@ -25,6 +25,39 @@ import {
 
 const DEFAULT_PROMPT = '{cyan}myterm{reset}:{yellow}{cwd:short}{reset}> ';
 const DEFAULT_SCROLLBACK = 1000;
+const DEFAULT_PROMPT_GIT_MODE = 'status';
+
+function normalizePromptGitMode(mode) {
+  const value = String(mode || '').toLowerCase();
+  return value === 'off' || value === 'branch' || value === 'status'
+    ? value
+    : DEFAULT_PROMPT_GIT_MODE;
+}
+
+/** Keep saved Oh My glyphs readable on common terminal fonts. */
+function asciiSafePromptGlyphs(text) {
+  return String(text ?? '')
+    .replace(/➜/g, '>')
+    .replace(/➤/g, '>')
+    .replace(/→/g, '>')
+    .replace(/»/g, '>')
+    .replace(/λ/g, '>')
+    .replace(/✗/g, 'x')
+    .replace(/✓/g, '*')
+    .replace(/☁/g, '~')
+    .replace(/╭─/g, '+--')
+    .replace(/╰─/g, '+--')
+    .replace(/╭/g, '+')
+    .replace(/╰/g, '+');
+}
+
+function findPromptPresetId(template, presets) {
+  const normalized = asciiSafePromptGlyphs(template || '');
+  for (const [id, preset] of Object.entries(presets || {})) {
+    if (asciiSafePromptGlyphs(preset?.template) === normalized) return id;
+  }
+  return '';
+}
 
 function clampScrollback(value) {
   const n = Number.parseInt(value, 10);
@@ -78,13 +111,18 @@ const state = {
   fontSize: 14,
   fontId: DEFAULT_FONT_ID,
   scrollback: DEFAULT_SCROLLBACK,
+  startDirectory: '',
   showStatusBar: true,
   showTrayIcon: false,
   bgTransparency: 0,
   backgroundImage: '',
+  backgroundImageId: '',
+  backgroundLibrary: [],
   backgroundImageDir: '',
   backgroundFit: DEFAULT_BG_FIT,
   promptTemplate: DEFAULT_PROMPT,
+  promptGitMode: DEFAULT_PROMPT_GIT_MODE,
+  promptPresetId: 'default',
   ssh: null,
   promptPresets: null,
 };
@@ -102,25 +140,29 @@ function activePane() {
 }
 
 async function persist() {
-  await api.setSettings({
+  const payload = {
     themeId: state.themeId,
     custom: state.custom,
     lang: state.lang,
     fontSize: state.fontSize,
     fontId: state.fontId,
     scrollback: state.scrollback,
+    startDirectory: state.startDirectory || '',
     showStatusBar: state.showStatusBar,
     showTrayIcon: state.showTrayIcon,
     bgTransparency: state.bgTransparency,
-    // Electron keeps the image file under userData; web stores the data URL.
+    // Electron keeps image files under userData; web stores data URLs in settings.
     backgroundImage: api.isElectron
       ? state.backgroundImage
         ? 'file'
         : ''
       : state.backgroundImage || '',
+    backgroundImageId: state.backgroundImageId || '',
     backgroundImageDir: state.backgroundImageDir || '',
     backgroundFit: state.backgroundFit,
     promptTemplate: state.promptTemplate,
+    promptGitMode: state.promptGitMode,
+    promptPresetId: state.promptPresetId || '',
     ssh: state.ssh
       ? {
           host: state.ssh.host,
@@ -129,7 +171,15 @@ async function persist() {
           privateKey: state.ssh.privateKey || '',
         }
       : null,
-  });
+  };
+  if (!api.isElectron) {
+    payload.backgroundLibrary = (state.backgroundLibrary || []).map((item) => ({
+      id: item.id,
+      name: item.name,
+      dataUrl: item.dataUrl,
+    }));
+  }
+  await api.setSettings(payload);
 }
 
 function updateRemoteButton() {
@@ -217,12 +267,10 @@ function updateFontUi() {
 function updateTextColorUi() {
   const input = document.getElementById('fg-color');
   const btn = document.getElementById('btn-fg-color');
-  const swatch = document.getElementById('fg-color-swatch');
   const color = currentTheme().foreground || '#d4d4d4';
   if (input && input.value.toLowerCase() !== String(color).toLowerCase()) {
     input.value = color;
   }
-  if (swatch) swatch.style.background = color;
   if (btn) {
     const tip = `${i18n.t('toolbar.textColor')}: ${color}`;
     btn.setAttribute('title', tip);
@@ -334,10 +382,13 @@ async function applyLanguage(lang) {
   syncToolbarMinWidth();
 }
 
-/** Measure toolbar content and lock the Electron window min width to fit it. */
+/**
+ * Intrinsic toolbar content width (never use toolbar.scrollWidth — that tracks
+ * the window width and caused unbounded growth via setMinSize feedback).
+ */
 function measureToolbarMinWidth() {
   const toolbar = document.getElementById('toolbar');
-  if (!toolbar) return 780;
+  if (!toolbar) return 1100;
 
   const brand = toolbar.querySelector('.toolbar-brand');
   const actions = document.getElementById('toolbar-actions');
@@ -353,19 +404,38 @@ function measureToolbarMinWidth() {
     const cs = getComputedStyle(el);
     return cs.display !== 'none' && cs.visibility !== 'hidden';
   });
-  // spacer is always present between actions and about
-  const sectionCount = sections.length + 1;
+
+  // Sum only non-stretching sections + minimum spacer.
   const spacerMin = 16;
-  const contentWidth = sections.reduce((sum, el) => sum + el.scrollWidth, 0);
+  const sectionCount = sections.length + 1;
   const gaps = Math.max(0, sectionCount - 1) * gap;
-  // Small buffer for sub-pixel / DPI rounding.
-  return Math.ceil(pad + contentWidth + spacerMin + gaps + 12);
+  let contentWidth = 0;
+  for (const el of sections) {
+    // scrollWidth of flex:0 0 auto children = content size, not window size.
+    contentWidth += el.scrollWidth;
+  }
+  const measured = Math.ceil(pad + contentWidth + spacerMin + gaps + 8);
+  return Math.min(1800, Math.max(900, measured));
 }
 
-function syncToolbarMinWidth() {
+/** @param {{ resizeToMin?: boolean }} [opts] */
+function syncToolbarMinWidth(opts = {}) {
   if (!api.isElectron || !api.setMinSize) return;
   const width = measureToolbarMinWidth();
-  api.setMinSize({ width, height: 420 }).catch?.(() => {});
+  api
+    .setMinSize({
+      width,
+      height: 420,
+      resizeToMin: !!opts.resizeToMin,
+    })
+    .catch?.(() => {});
+}
+
+function updateBrandTitle(version) {
+  const el = document.getElementById('brand-title');
+  if (!el) return;
+  const ver = String(version || '1.0.0').replace(/^v/i, '');
+  el.textContent = `MyTerminal V${ver}`;
 }
 
 function closeMenus() {
@@ -515,34 +585,70 @@ function bindToolbar() {
     }
     if (!presets) {
       presets = {
-        default: { id: 'default', template: DEFAULT_PROMPT },
+        default: { id: 'default', group: 'basic', template: DEFAULT_PROMPT },
         classic: {
           id: 'classic',
+          group: 'basic',
           template: '{green}{user}{reset}@{host}:{blue}{cwd:short}{reset}$ ',
         },
         power: {
           id: 'power',
+          group: 'basic',
           template:
             '{bold}{magenta}{user}{reset}@{cyan}{host}{reset} {yellow}{cwd:short}{reset}> ',
         },
-        path: { id: 'path', template: '{cwd}> ' },
-        minimal: { id: 'minimal', template: '> ' },
+        path: { id: 'path', group: 'basic', template: '{cwd}> ' },
+        minimal: { id: 'minimal', group: 'basic', template: '> ' },
         remote: {
           id: 'remote',
+          group: 'basic',
           template: '{red}{user}{reset}@{yellow}{host}{reset}:{cyan}{cwd:short}{reset}# ',
+        },
+        ohmyzsh_robbyrussell: {
+          id: 'ohmyzsh_robbyrussell',
+          group: 'ohmyzsh',
+          template: '{bold}{green}>{reset}  {cyan}{cwd:tail}{reset}{git:info} ',
+        },
+        ohmyzsh_cloud: {
+          id: 'ohmyzsh_cloud',
+          group: 'ohmyzsh',
+          template:
+            '{cyan}{user}{reset}@{green}{host}{reset} {yellow}{cwd:short}{reset} {magenta}~{reset} ',
+        },
+        ohmyzsh_arrow: {
+          id: 'ohmyzsh_arrow',
+          group: 'ohmyzsh',
+          template: '{bold}{yellow}>{reset} {cyan}{cwd:tail}{reset}{git:info} ',
         },
       };
     }
     openPromptModal({
       i18n,
       template: state.promptTemplate,
+      gitMode: state.promptGitMode,
+      presetId: state.promptPresetId,
       presets,
       themes: state.themes,
       themeId: state.themeId,
       custom: state.custom,
-      onApply: async (value) => {
-        state.promptTemplate = value || DEFAULT_PROMPT;
-        if (api.setPrompt) await api.setPrompt(state.promptTemplate);
+      onApply: async (payload) => {
+        const value =
+          typeof payload === 'string' ? payload : payload?.template;
+        const gitMode =
+          typeof payload === 'object' && payload
+            ? payload.gitMode
+            : state.promptGitMode;
+        state.promptTemplate = asciiSafePromptGlyphs(value || DEFAULT_PROMPT);
+        state.promptGitMode = normalizePromptGitMode(gitMode);
+        state.promptPresetId =
+          findPromptPresetId(state.promptTemplate, presets) || 'custom';
+        if (api.setPrompt) {
+          await api.setPrompt({
+            template: state.promptTemplate,
+            gitMode: state.promptGitMode,
+            presetId: state.promptPresetId,
+          });
+        }
         await persist();
         const pane = activePane();
         if (pane && pane.mode !== 'ssh') await pane.start();
@@ -675,10 +781,13 @@ function bindToolbar() {
       i18n,
       custom: state.custom,
       scrollback: state.scrollback,
+      startDirectory: state.startDirectory,
       showStatusBar: state.showStatusBar,
       showTrayIcon: state.showTrayIcon,
       allowTray: !!api.isElectron,
       backgroundImage: state.backgroundImage,
+      backgroundImageId: state.backgroundImageId,
+      backgroundLibrary: state.backgroundLibrary,
       backgroundFit: state.backgroundFit,
       bgFitModes: BG_FIT_MODES,
       themes: state.themes,
@@ -697,18 +806,30 @@ function bindToolbar() {
             if (result?.ok && result.directory) {
               state.backgroundImageDir = result.directory;
             }
+            if (result?.ok && Array.isArray(result.items)) {
+              state.backgroundLibrary = result.items;
+              state.backgroundImageId = result.activeId || result.id || '';
+            }
             return result;
           }
         : null,
       onClearBackground: api.clearBackgroundImage
-        ? () => api.clearBackgroundImage()
+        ? async () => {
+            const result = await api.clearBackgroundImage();
+            if (result?.items) state.backgroundLibrary = result.items;
+            state.backgroundImageId = '';
+            return result;
+          }
         : null,
       onChange: async ({
         custom,
         scrollback,
+        startDirectory,
         showStatusBar,
         showTrayIcon,
         backgroundImage,
+        backgroundImageId,
+        backgroundLibrary,
         backgroundFit,
         themeTouched,
         fontId,
@@ -717,6 +838,10 @@ function bindToolbar() {
         state.custom = custom;
         if (themeTouched) state.themeId = 'custom';
         state.scrollback = clampScrollback(scrollback);
+        // Only update when provided, so other settings events cannot wipe it.
+        if (typeof startDirectory === 'string') {
+          state.startDirectory = startDirectory.trim();
+        }
         state.showStatusBar = !!showStatusBar;
         state.showTrayIcon = !!showTrayIcon;
         if (fontId) state.fontId = getFontById(fontId).id;
@@ -727,6 +852,11 @@ function bindToolbar() {
         const nextImage = backgroundImage || '';
         const imageChanged = nextImage !== state.backgroundImage;
         state.backgroundImage = nextImage;
+        state.backgroundImageId =
+          typeof backgroundImageId === 'string' ? backgroundImageId : state.backgroundImageId;
+        if (Array.isArray(backgroundLibrary)) {
+          state.backgroundLibrary = backgroundLibrary;
+        }
         state.backgroundFit = normalizeBgFit(backgroundFit || state.backgroundFit);
         // New wallpaper: show it fully (0% image transparency).
         if (imageChanged && nextImage) {
@@ -811,6 +941,13 @@ async function boot() {
   initTooltips();
   state.themes = await loadThemes();
 
+  try {
+    const info = await api.getAppInfo?.();
+    updateBrandTitle(info?.version || '1.0.0');
+  } catch (_) {
+    updateBrandTitle('1.0.0');
+  }
+
   const saved = (await api.getSettings()) || {};
   state.themeId = saved.themeId || 'dark';
   state.custom = saved.custom || null;
@@ -818,24 +955,82 @@ async function boot() {
   state.fontSize = saved.fontSize || 14;
   state.fontId = saved.fontId || DEFAULT_FONT_ID;
   state.scrollback = clampScrollback(saved.scrollback ?? DEFAULT_SCROLLBACK);
+  state.startDirectory =
+    typeof saved.startDirectory === 'string' ? saved.startDirectory.trim() : '';
+  // Re-write directory prefs so main process runtime options stay in sync.
+  if (state.startDirectory || saved.backgroundImageDir) {
+    await api.setSettings({
+      startDirectory: state.startDirectory,
+      backgroundImageDir:
+        typeof saved.backgroundImageDir === 'string' ? saved.backgroundImageDir : '',
+    });
+  }
   state.showStatusBar = saved.showStatusBar !== false;
   state.showTrayIcon = !!saved.showTrayIcon;
   state.bgTransparency = clampTransparency(saved.bgTransparency ?? 0);
   state.backgroundImage = '';
-  if (api.isElectron && api.loadBackgroundImage && saved.backgroundImage === 'file') {
+  state.backgroundImageId =
+    typeof saved.backgroundImageId === 'string' ? saved.backgroundImageId : '';
+  state.backgroundLibrary = Array.isArray(saved.backgroundLibrary)
+    ? saved.backgroundLibrary.filter((item) => item?.id && item?.dataUrl)
+    : [];
+  if (api.isElectron && api.listBackgroundImages) {
+    try {
+      const listed = await api.listBackgroundImages();
+      if (listed?.ok) {
+        state.backgroundLibrary = listed.items || [];
+        state.backgroundImageId = listed.activeId || '';
+        const active = state.backgroundLibrary.find(
+          (item) => item.id === state.backgroundImageId
+        );
+        state.backgroundImage = active?.dataUrl || '';
+      }
+    } catch (_) {
+      /* ignore */
+    }
+  } else if (api.isElectron && api.loadBackgroundImage && saved.backgroundImage === 'file') {
     try {
       const loaded = await api.loadBackgroundImage();
-      if (loaded?.ok && loaded.dataUrl) state.backgroundImage = loaded.dataUrl;
+      if (loaded?.ok && loaded.dataUrl) {
+        state.backgroundImage = loaded.dataUrl;
+        state.backgroundImageId = loaded.activeId || state.backgroundImageId;
+      }
     } catch (_) {
       /* ignore */
     }
   } else if (typeof saved.backgroundImage === 'string' && saved.backgroundImage.startsWith('data:')) {
     state.backgroundImage = saved.backgroundImage;
+    if (!state.backgroundLibrary.length) {
+      state.backgroundImageId = state.backgroundImageId || 'bg_web_1';
+      state.backgroundLibrary = [
+        {
+          id: state.backgroundImageId,
+          name: 'Wallpaper',
+          dataUrl: state.backgroundImage,
+        },
+      ];
+    } else {
+      const active = state.backgroundLibrary.find((item) => item.id === state.backgroundImageId);
+      if (active?.dataUrl) state.backgroundImage = active.dataUrl;
+    }
+  } else if (state.backgroundLibrary.length) {
+    const active =
+      state.backgroundLibrary.find((item) => item.id === state.backgroundImageId) ||
+      state.backgroundLibrary[0];
+    state.backgroundImageId = active.id;
+    state.backgroundImage = active.dataUrl || '';
   }
   state.backgroundImageDir =
     typeof saved.backgroundImageDir === 'string' ? saved.backgroundImageDir : '';
   state.backgroundFit = normalizeBgFit(saved.backgroundFit || DEFAULT_BG_FIT);
-  state.promptTemplate = saved.promptTemplate || DEFAULT_PROMPT;
+  state.promptTemplate = asciiSafePromptGlyphs(
+    saved.promptTemplate || DEFAULT_PROMPT
+  );
+  state.promptGitMode = normalizePromptGitMode(
+    saved.promptGitMode || DEFAULT_PROMPT_GIT_MODE
+  );
+  state.promptPresetId =
+    typeof saved.promptPresetId === 'string' ? saved.promptPresetId : '';
   state.ssh = saved.ssh || null;
 
   if (api.getPromptPresets) {
@@ -845,6 +1040,10 @@ async function boot() {
     } catch (_) {
       /* ignore */
     }
+  }
+  if (!state.promptPresetId) {
+    state.promptPresetId =
+      findPromptPresetId(state.promptTemplate, state.promptPresets) || 'custom';
   }
 
   await applyLanguage(state.lang);
@@ -860,6 +1059,8 @@ async function boot() {
     getTheme: currentTheme,
     getHasBackgroundImage: () => !!state.backgroundImage,
     getPromptTemplate: () => state.promptTemplate,
+    getPromptGitMode: () => state.promptGitMode,
+    getStartDirectory: () => state.startDirectory || '',
     getNewSessionOptions: () => ({
       fontSize: state.fontSize,
       fontFamily: getFontById(state.fontId).family,
@@ -872,7 +1073,19 @@ async function boot() {
     onPaneFit: () => updateStatusBar(),
   });
 
-  if (api.setPrompt) await api.setPrompt(state.promptTemplate);
+  // Sync prompt prefs into settings + main runtime before the first shell starts.
+  await api.setSettings({
+    promptTemplate: state.promptTemplate,
+    promptGitMode: state.promptGitMode,
+    promptPresetId: state.promptPresetId,
+  });
+  if (api.setPrompt) {
+    await api.setPrompt({
+      template: state.promptTemplate,
+      gitMode: state.promptGitMode,
+      presetId: state.promptPresetId,
+    });
+  }
 
   const adoptId = new URLSearchParams(window.location.search).get('adopt');
   if (adoptId && api.takeAdopt) {
@@ -905,7 +1118,10 @@ async function boot() {
   updateStatusBar();
 
   bindToolbar();
-  requestAnimationFrame(() => syncToolbarMinWidth());
+  // After labels paint: lock min width to toolbar content and start at that size.
+  requestAnimationFrame(() => {
+    syncToolbarMinWidth({ resizeToMin: true });
+  });
 
   window.addEventListener('resize', () => {
     requestAnimationFrame(() => updateStatusBar());

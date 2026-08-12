@@ -9,6 +9,8 @@ export class SessionManager {
     getTheme,
     getHasBackgroundImage,
     getPromptTemplate,
+    getPromptGitMode,
+    getStartDirectory,
     getNewSessionOptions,
     onActiveChange,
     onPaneFit,
@@ -20,6 +22,8 @@ export class SessionManager {
     this.getTheme = getTheme;
     this.getHasBackgroundImage = getHasBackgroundImage || (() => false);
     this.getPromptTemplate = getPromptTemplate;
+    this.getPromptGitMode = getPromptGitMode || (() => 'status');
+    this.getStartDirectory = getStartDirectory || (() => '');
     this.getNewSessionOptions = getNewSessionOptions || (() => ({}));
     this.onActiveChange = onActiveChange || (() => {});
     this.onPaneFit = onPaneFit || (() => {});
@@ -120,6 +124,8 @@ export class SessionManager {
       getTheme: this.getTheme,
       getHasBackgroundImage: this.getHasBackgroundImage,
       getPromptTemplate: this.getPromptTemplate,
+      getPromptGitMode: this.getPromptGitMode,
+      getStartDirectory: this.getStartDirectory,
       title,
     });
 

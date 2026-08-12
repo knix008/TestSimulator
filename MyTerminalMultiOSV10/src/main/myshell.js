@@ -2,10 +2,70 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { spawn } = require('child_process');
-const { DEFAULT_PROMPT, renderPrompt } = require('./prompt');
+const {
+  DEFAULT_PROMPT,
+  DEFAULT_PROMPT_GIT_MODE,
+  normalizePromptGitMode,
+  asciiSafePromptGlyphs,
+  renderPrompt,
+} = require('./prompt');
 
 const VERSION = '1.0.0';
 const AUTHOR = 'SHKWON <knix008@naver.com>';
+
+const BUILTIN_COMMANDS = [
+  'help',
+  'clear',
+  'cls',
+  'echo',
+  'pwd',
+  'cd',
+  'ls',
+  'dir',
+  'cat',
+  'type',
+  'mkdir',
+  'md',
+  'rm',
+  'del',
+  'remove',
+  'touch',
+  'cp',
+  'copy',
+  'mv',
+  'move',
+  'ren',
+  'whoami',
+  'date',
+  'uname',
+  'sysinfo',
+  'env',
+  'printenv',
+  'history',
+  'which',
+  'where',
+  'open',
+  'start',
+  'about',
+  'prompt',
+  'run',
+  'exec',
+  'exit',
+  'quit',
+];
+
+function longestCommonPrefix(items) {
+  if (!items.length) return '';
+  let prefix = items[0];
+  for (let i = 1; i < items.length; i += 1) {
+    const s = items[i];
+    let j = 0;
+    while (j < prefix.length && j < s.length && prefix[j] === s[j]) j += 1;
+    prefix = prefix.slice(0, j);
+    if (!prefix) break;
+  }
+  return prefix;
+}
 
 function tokenize(line) {
   const tokens = [];
@@ -33,6 +93,30 @@ function tokenize(line) {
   }
   if (cur) tokens.push(cur);
   return tokens;
+}
+
+/** Quote an argument for cmd.exe / sh when spawning with shell:true. */
+function quoteForShell(arg) {
+  const s = String(arg ?? '');
+  if (process.platform === 'win32') {
+    if (!/[ \t"&<>|^%]/.test(s)) return s;
+    return `"${s.replace(/"/g, '""')}"`;
+  }
+  if (!/[^a-zA-Z0-9_./:@%+=,-]/.test(s)) return s;
+  return `'${s.replace(/'/g, `'\\''`)}'`;
+}
+
+function needsShellQuotes(value) {
+  return /[\s"']/.test(String(value ?? ''));
+}
+
+/** Wrap a completion token in quotes when it contains spaces. */
+function formatCompletionToken(value, { trailingSpace = false } = {}) {
+  let body = String(value ?? '');
+  if (needsShellQuotes(body)) {
+    body = `"${body.replace(/"/g, '')}"`;
+  }
+  return trailingSpace ? `${body} ` : body;
 }
 
 function formatSize(n) {
@@ -92,11 +176,24 @@ function unescapeShellText(text) {
     .replace(/\\\\/g, '\\');
 }
 
+function resolveExistingDirectory(dir) {
+  const home = os.homedir();
+  let next = typeof dir === 'string' ? dir.trim() : '';
+  if (!next) return home;
+  try {
+    next = path.resolve(next);
+    if (fs.existsSync(next) && fs.statSync(next).isDirectory()) return next;
+  } catch (_) {
+    /* fall through */
+  }
+  return home;
+}
+
 class MyShell {
   constructor(win, options = {}) {
     this.win = win;
     this.sessionId = options.sessionId || '1';
-    this.cwd = options.cwd || os.homedir();
+    this.cwd = resolveExistingDirectory(options.cwd || os.homedir());
     this.cols = options.cols || 80;
     this.rows = options.rows || 24;
     this.lineBuffer = '';
@@ -108,7 +205,13 @@ class MyShell {
     this.env = { ...process.env };
     this.escape = '';
     this.atLineStart = true;
-    this.promptTemplate = options.promptTemplate || DEFAULT_PROMPT;
+    this.completionKey = '';
+    this.promptTemplate = asciiSafePromptGlyphs(
+      options.promptTemplate || DEFAULT_PROMPT
+    );
+    this.promptGitMode = normalizePromptGitMode(
+      options.promptGitMode || DEFAULT_PROMPT_GIT_MODE
+    );
     this.promptContext = {
       user: os.userInfo().username,
       host: os.hostname(),
@@ -120,8 +223,12 @@ class MyShell {
 
   setPromptTemplate(template) {
     if (typeof template === 'string' && template.length) {
-      this.promptTemplate = template;
+      this.promptTemplate = asciiSafePromptGlyphs(template);
     }
+  }
+
+  setPromptGitMode(mode) {
+    this.promptGitMode = normalizePromptGitMode(mode);
   }
 
   emit(channel, payload) {
@@ -160,6 +267,7 @@ class MyShell {
     const text = renderPrompt(this.promptTemplate, {
       ...this.promptContext,
       cwd: this.cwd,
+      gitMode: this.promptGitMode,
     });
     this.sendRaw(toTerminalText(text));
     this.atLineStart = false;
@@ -231,6 +339,7 @@ class MyShell {
         const line = this.lineBuffer;
         this.lineBuffer = '';
         this.historyIndex = -1;
+        this.completionKey = '';
         this.runLine(line);
         continue;
       }
@@ -259,12 +368,187 @@ class MyShell {
         continue;
       }
 
-      if (!this.busy && (ch >= ' ' || ch === '\t')) {
+      if (ch === '\t') {
+        if (!this.busy) this.autocomplete();
+        continue;
+      }
+
+      if (!this.busy && ch >= ' ') {
         this.lineBuffer += ch;
         this.sendRaw(ch);
         this.atLineStart = false;
+        this.completionKey = '';
       }
     }
+  }
+
+  getCompletionContext(line) {
+    let quote = null;
+    let tokenStart = 0;
+    let raw = '';
+    let inToken = false;
+
+    for (let i = 0; i < line.length; i += 1) {
+      const ch = line[i];
+      if (quote) {
+        raw += ch;
+        if (ch === quote) quote = null;
+        continue;
+      }
+      if (ch === '"' || ch === "'") {
+        if (!inToken) {
+          tokenStart = i;
+          inToken = true;
+          raw = '';
+        }
+        quote = ch;
+        raw += ch;
+        continue;
+      }
+      if (/\s/.test(ch)) {
+        inToken = false;
+        raw = '';
+        tokenStart = i + 1;
+        continue;
+      }
+      if (!inToken) {
+        tokenStart = i;
+        inToken = true;
+        raw = '';
+      }
+      raw += ch;
+    }
+
+    let token = raw;
+    let quoteChar = null;
+    if (token.startsWith('"') || token.startsWith("'")) {
+      quoteChar = token[0];
+      const closed = !quote && token.length >= 2 && token.endsWith(quoteChar);
+      token = closed ? token.slice(1, -1) : token.slice(1);
+    }
+
+    const before = line.slice(0, tokenStart).trim();
+    return {
+      token,
+      tokenStart,
+      quoteChar,
+      isCommand: before.length === 0,
+    };
+  }
+
+  completeCommands(token) {
+    const needle = String(token || '').toLowerCase();
+    return BUILTIN_COMMANDS.filter((name) => name.startsWith(needle));
+  }
+
+  completePaths(token) {
+    const raw = String(token || '');
+    const slash = Math.max(raw.lastIndexOf('/'), raw.lastIndexOf('\\'));
+    const dirPart = slash >= 0 ? raw.slice(0, slash + 1) : '';
+    const basePart = slash >= 0 ? raw.slice(slash + 1) : raw;
+    const useBackslash =
+      process.platform === 'win32' && (dirPart.includes('\\') || !dirPart.includes('/'));
+    const sep = useBackslash ? '\\' : '/';
+
+    let searchDir = this.cwd;
+    if (dirPart) {
+      if (dirPart === '~/' || dirPart === '~\\') searchDir = os.homedir();
+      else searchDir = this.resolve(dirPart);
+    }
+
+    let entries = [];
+    try {
+      entries = fs.readdirSync(searchDir, { withFileTypes: true });
+    } catch (_) {
+      return [];
+    }
+
+    const needle = basePart.toLowerCase();
+    return entries
+      .filter((entry) => {
+        if (!entry.name.toLowerCase().startsWith(needle)) return false;
+        if (entry.name.startsWith('.') && !basePart.startsWith('.')) return false;
+        return true;
+      })
+      .map((entry) => {
+        const name = `${dirPart}${entry.name}`;
+        return entry.isDirectory() ? `${name}${sep}` : name;
+      })
+      .sort((a, b) => a.localeCompare(b));
+  }
+
+  applyCompletion(tokenStart, completion) {
+    const oldToken = this.lineBuffer.slice(tokenStart);
+    for (let i = 0; i < oldToken.length; i += 1) this.sendRaw('\b \b');
+    this.lineBuffer = this.lineBuffer.slice(0, tokenStart) + completion;
+    this.sendRaw(completion);
+    this.atLineStart = false;
+  }
+
+  printCompletionColumns(items) {
+    if (!items.length) return;
+    const width = Math.max(1, this.cols || 80);
+    const maxLen = items.reduce((m, s) => Math.max(m, s.length), 0) + 2;
+    const cols = Math.max(1, Math.floor(width / Math.max(maxLen, 8)));
+    const rows = Math.ceil(items.length / cols);
+    for (let r = 0; r < rows; r += 1) {
+      let line = '';
+      for (let c = 0; c < cols; c += 1) {
+        const idx = c * rows + r;
+        if (idx >= items.length) break;
+        line += pad(items[idx], maxLen);
+      }
+      this.writeln(line.replace(/\s+$/, ''));
+    }
+  }
+
+  autocomplete() {
+    const line = this.lineBuffer;
+    const { token, tokenStart, isCommand, quoteChar } = this.getCompletionContext(line);
+    const matches = isCommand ? this.completeCommands(token) : this.completePaths(token);
+
+    if (!matches.length) {
+      this.sendRaw('\x07');
+      this.completionKey = '';
+      return;
+    }
+
+    const wrap = (value, trailingSpace) => {
+      if (isCommand) return trailingSpace ? `${value} ` : value;
+      if (quoteChar) {
+        const body = `${quoteChar}${value}${quoteChar}`;
+        return trailingSpace ? `${body} ` : body;
+      }
+      return formatCompletionToken(value, { trailingSpace });
+    };
+
+    if (matches.length === 1) {
+      const only = matches[0];
+      const isDir = /[\\/]$/.test(only);
+      this.applyCompletion(tokenStart, wrap(only, !isDir));
+      this.completionKey = '';
+      return;
+    }
+
+    const common = longestCommonPrefix(matches);
+    if (common.length > token.length) {
+      this.applyCompletion(tokenStart, wrap(common, false));
+      this.completionKey = this.lineBuffer;
+      return;
+    }
+
+    // Second Tab on the same incomplete token: list candidates.
+    if (this.completionKey === line) {
+      this.writeln('');
+      this.printCompletionColumns(matches);
+      this.prompt();
+      if (this.lineBuffer) this.sendRaw(this.lineBuffer);
+      this.completionKey = '';
+      return;
+    }
+
+    this.completionKey = line;
+    this.sendRaw('\x07');
   }
 
   replaceLine(next) {
@@ -427,7 +711,7 @@ class MyShell {
       case 'run':
       case 'exec':
         if (!args.length) {
-          this.writeln('usage: run <program> [args...]');
+          this.writeln('usage: run "<program with spaces>" [args...]');
           break;
         }
         await this.cmdRun(args);
@@ -463,10 +747,10 @@ class MyShell {
       '  open, start <path>   Open file/folder',
       '  about                About this shell',
       '  prompt [show|set|reset]  View/change prompt template',
-      '  run, exec <cmd...>   Run a system program',
+      '  run, exec <cmd...>   Run a system program (quote paths with spaces)',
       '  exit, quit           End session',
       '',
-      'Tips: ↑/↓ history, Ctrl+C cancel, Ctrl+L clear',
+      'Tips: Tab autocomplete, ↑/↓ history, Ctrl+C cancel, Ctrl+L clear',
       'Remote SSH: use the toolbar Remote button',
     ];
     lines.forEach((l) => this.writeln(l));
@@ -769,7 +1053,18 @@ class MyShell {
     return new Promise((resolve) => {
       this.busy = true;
       // Explicit opt-in to system programs (not the default shell).
-      const child = spawn(args.join(' '), {
+      // Re-quote each token so paths with spaces survive shell:true.
+      let program = args[0];
+      const rest = args.slice(1);
+      const looksLikePath = /[\\/]/.test(program) || /^[A-Za-z]:/.test(program);
+      if (looksLikePath) {
+        program = this.resolve(program);
+      } else {
+        const local = this.resolve(program);
+        if (fs.existsSync(local) && fs.statSync(local).isFile()) program = local;
+      }
+      const cmdline = [program, ...rest].map(quoteForShell).join(' ');
+      const child = spawn(cmdline, {
         cwd: this.cwd,
         env: this.env,
         shell: true,

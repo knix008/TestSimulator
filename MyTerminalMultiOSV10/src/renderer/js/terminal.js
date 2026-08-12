@@ -14,6 +14,8 @@ export class TerminalPane {
     getTheme,
     getHasBackgroundImage,
     getPromptTemplate,
+    getPromptGitMode,
+    getStartDirectory,
     title = '',
   }) {
     this.sessionId = sessionId;
@@ -23,6 +25,8 @@ export class TerminalPane {
     this.getTheme = getTheme;
     this.getHasBackgroundImage = getHasBackgroundImage || (() => false);
     this.getPromptTemplate = getPromptTemplate || (() => null);
+    this.getPromptGitMode = getPromptGitMode || (() => 'status');
+    this.getStartDirectory = getStartDirectory || (() => '');
     this.title = title;
     this.mode = 'local';
     this.fontSize = 14;
@@ -55,6 +59,37 @@ export class TerminalPane {
 
     this.term.open(host);
     this.term.onData((data) => this.writeInput(data));
+    this.term.attachCustomKeyEventHandler((ev) => this.handleClipboardKeys(ev));
+  }
+
+  handleClipboardKeys(ev) {
+    if (ev.type !== 'keydown') return true;
+    const key = ev.key;
+    const mod = ev.ctrlKey || ev.metaKey;
+
+    // Copy: Ctrl/Cmd+Shift+C, Ctrl+Insert, or Ctrl/Cmd+C when text is selected
+    if (
+      (mod && ev.shiftKey && (key === 'C' || key === 'c')) ||
+      (ev.ctrlKey && !ev.altKey && !ev.metaKey && key === 'Insert') ||
+      (mod && !ev.shiftKey && !ev.altKey && (key === 'C' || key === 'c') && this.term.hasSelection())
+    ) {
+      ev.preventDefault();
+      this.copy();
+      return false;
+    }
+
+    // Paste: Ctrl/Cmd+Shift+V, Ctrl/Cmd+V, Shift+Insert
+    if (
+      (mod && ev.shiftKey && (key === 'V' || key === 'v')) ||
+      (mod && !ev.shiftKey && !ev.altKey && (key === 'V' || key === 'v')) ||
+      (ev.shiftKey && !mod && !ev.altKey && key === 'Insert')
+    ) {
+      ev.preventDefault();
+      this.paste();
+      return false;
+    }
+
+    return true;
   }
 
   setActive(active) {
@@ -78,6 +113,8 @@ export class TerminalPane {
         cols,
         rows,
         promptTemplate: this.getPromptTemplate(),
+        promptGitMode: this.getPromptGitMode(),
+        cwd: this.getStartDirectory(),
       });
       if (!result?.ok) {
         this.term.writeln(`\r\nFailed to start shell: ${result?.error || 'unknown'}`);
@@ -185,16 +222,34 @@ export class TerminalPane {
 
   async copy() {
     const sel = this.term.getSelection();
-    if (!sel) return;
-    await navigator.clipboard.writeText(sel);
+    if (!sel) return false;
+    try {
+      if (this.api?.clipboardWriteText) {
+        await this.api.clipboardWriteText(sel);
+      } else if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(sel);
+      } else {
+        return false;
+      }
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 
   async paste() {
     try {
-      const text = await navigator.clipboard.readText();
+      let text = '';
+      if (this.api?.clipboardReadText) {
+        const result = await this.api.clipboardReadText();
+        text = result?.text || '';
+      } else if (navigator.clipboard?.readText) {
+        text = await navigator.clipboard.readText();
+      }
       if (text) this.writeInput(text);
+      return !!text;
     } catch (_) {
-      /* clipboard denied */
+      return false;
     }
   }
 
