@@ -1,0 +1,129 @@
+{
+  "name": "my-terminal-multios",
+  "version": "1.0.0",
+  "description": "Cross-platform modern terminal for Windows, Linux, macOS, and Web",
+  "main": "src/main/main.js",
+  "author": {
+    "name": "SHKWON",
+    "email": "knix008@naver.com"
+  },
+  "license": "MIT",
+  "scripts": {
+    "prestart": "node scripts/build-renderer.js",
+    "start": "electron .",
+    "build:renderer": "node scripts/build-renderer.js",
+    "icons": "node scripts/prepare-icons.js",
+    "web": "node scripts/serve-web.js",
+    "build:web": "node scripts/build-web.js",
+    "prebuild:win": "npm run icons && npm run build:renderer",
+    "prebuild:mac": "npm run icons && npm run build:renderer",
+    "prebuild:linux": "npm run icons && npm run build:renderer",
+    "prebuild:all": "npm run icons && npm run build:renderer",
+    "build:win": "electron-builder --win && node scripts/copy-installer.js",
+    "build:mac": "electron-builder --mac",
+    "build:linux": "electron-builder --linux",
+    "build:all": "electron-builder -mwl && node scripts/copy-installer.js",
+    "copy:installer": "node scripts/copy-installer.js",
+    "pack": "npm run icons && npm run build:renderer && electron-builder --dir",
+    "dist": "npm run build:all",
+    "dist:win": "npm run build:win",
+    "dist:mac": "npm run build:mac",
+    "dist:linux": "npm run build:linux",
+    "dist:all": "npm run build:all"
+  },
+  "dependencies": {
+    "@xterm/addon-fit": "^0.10.0",
+    "@xterm/addon-serialize": "^0.13.0",
+    "@xterm/addon-web-links": "^0.11.0",
+    "@xterm/xterm": "^5.5.0",
+    "ssh2": "^1.17.0"
+  },
+  "devDependencies": {
+    "electron": "^33.4.11",
+    "electron-builder": "^25.1.8",
+    "esbuild": "^0.24.2",
+    "fs-extra": "^11.2.0",
+    "png-to-ico": "^2.1.8"
+  },
+  "build": {
+    "appId": "com.shkwon.myterminal",
+    "productName": "MyTerminal",
+    "copyright": "Copyright © 2026 SHKWON",
+    "npmRebuild": false,
+    "nodeGypRebuild": false,
+    "buildDependenciesFromSource": false,
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "src/**/*",
+      "assets/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "assets/icons",
+        "to": "icons"
+      }
+    ],
+    "win": {
+      "icon": "build/icon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "allowElevation": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "MyTerminal",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "installerHeaderIcon": "build/icon.ico",
+      "artifactName": "MyTerminal-Setup-${version}.${ext}",
+      "license": "build/license.txt",
+      "include": "build/installer.nsh",
+      "runAfterFinish": true,
+      "deleteAppDataOnUninstall": false,
+      "warningsAsErrors": false
+    },
+    "mac": {
+      "icon": "build/icon.png",
+      "category": "public.app-category.developer-tools",
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "hardenedRuntime": false
+    },
+    "linux": {
+      "icon": "build/icons",
+      "category": "TerminalEmulator",
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "synopsis": "Modern cross-platform terminal",
+      "description": "MyTerminal by SHKWON — terminal for Windows, Linux, macOS, and Web."
+    }
+  },
+  "allowScripts": {
+    "electron@33.4.11": true,
+    "esbuild@0.24.2": true
+  }
+}

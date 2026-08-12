@@ -1,0 +1,61 @@
+{
+  "appName": "MyTerminal",
+  "toolbar": {
+    "newSession": "New Session",
+    "clear": "Clear Terminal",
+    "copy": "Copy Selection",
+    "paste": "Paste",
+    "fontDecrease": "Decrease Font",
+    "fontIncrease": "Increase Font",
+    "fontFamily": "Font Family",
+    "theme": "Themes",
+    "language": "Language",
+    "settings": "Customize Theme",
+    "about": "About MyTerminal",
+    "minimize": "Minimize",
+    "maximize": "Maximize",
+    "restore": "Restore",
+    "close": "Close"
+  },
+  "themes": {
+    "dark": "Dark",
+    "light": "Light",
+    "midnight": "Midnight",
+    "forest": "Forest",
+    "sunset": "Sunset",
+    "ocean": "Ocean",
+    "custom": "Custom"
+  },
+  "language": {
+    "en": "English",
+    "ko": "한국어"
+  },
+  "settings": {
+    "title": "Theme Customization",
+    "background": "Background",
+    "foreground": "Foreground",
+    "cursor": "Cursor",
+    "selection": "Selection",
+    "accent": "Accent",
+    "toolbarBg": "Toolbar Background",
+    "apply": "Apply",
+    "reset": "Reset Custom",
+    "save": "Save",
+    "close": "Close"
+  },
+  "about": {
+    "title": "About MyTerminal",
+    "description": "A modern cross-platform terminal for Windows, Linux, macOS, and Web. Features theming, bilingual UI, and a frameless toolbar experience.",
+    "author": "Author",
+    "email": "Email",
+    "version": "Version",
+    "platform": "Platform",
+    "runtime": "Runtime",
+    "close": "Close"
+  },
+  "terminal": {
+    "welcome": "Welcome to MyTerminal",
+    "webNotice": "Web mode: limited command simulator (help, clear, echo, date, whoami, uname, ls, pwd, cd).",
+    "restarted": "Session restarted."
+  }
+}

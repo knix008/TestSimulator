@@ -1,0 +1,61 @@
+{
+  "appName": "MyTerminal",
+  "toolbar": {
+    "newSession": "새 세션",
+    "clear": "화면 지우기",
+    "copy": "선택 복사",
+    "paste": "붙여넣기",
+    "fontDecrease": "글꼴 작게",
+    "fontIncrease": "글꼴 크게",
+    "fontFamily": "글꼴 종류",
+    "theme": "테마",
+    "language": "언어",
+    "settings": "테마 사용자 지정",
+    "about": "프로그램 정보",
+    "minimize": "최소화",
+    "maximize": "최대화",
+    "restore": "이전 크기",
+    "close": "닫기"
+  },
+  "themes": {
+    "dark": "다크",
+    "light": "라이트",
+    "midnight": "미드나이트",
+    "forest": "포레스트",
+    "sunset": "선셋",
+    "ocean": "오션",
+    "custom": "사용자 지정"
+  },
+  "language": {
+    "en": "English",
+    "ko": "한국어"
+  },
+  "settings": {
+    "title": "테마 사용자 지정",
+    "background": "배경색",
+    "foreground": "글자색",
+    "cursor": "커서",
+    "selection": "선택 영역",
+    "accent": "강조색",
+    "toolbarBg": "툴바 배경",
+    "apply": "적용",
+    "reset": "초기화",
+    "save": "저장",
+    "close": "닫기"
+  },
+  "about": {
+    "title": "MyTerminal 정보",
+    "description": "Windows, Linux, macOS, Web을 지원하는 모던 크로스플랫폼 터미널입니다. 다양한 테마, 한글/영어 UI, 타이틀바 없는 툴바 중심 인터페이스를 제공합니다.",
+    "author": "작성자",
+    "email": "이메일",
+    "version": "버전",
+    "platform": "플랫폼",
+    "runtime": "런타임",
+    "close": "닫기"
+  },
+  "terminal": {
+    "welcome": "MyTerminal에 오신 것을 환영합니다",
+    "webNotice": "웹 모드: 제한된 명령 시뮬레이터입니다 (help, clear, echo, date, whoami, uname, ls, pwd, cd).",
+    "restarted": "세션이 다시 시작되었습니다."
+  }
+}

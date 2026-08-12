@@ -1,0 +1,139 @@
+{
+  "appName": "MyTerminal",
+  "toolbar": {
+    "newSession": "New Session",
+    "remote": "Remote SSH",
+    "remoteDisconnect": "Disconnect SSH",
+    "prompt": "Shell Prompt",
+    "clear": "Clear Terminal",
+    "copy": "Copy Selection",
+    "paste": "Paste",
+    "fontDecrease": "Decrease Font",
+    "fontIncrease": "Increase Font",
+    "fontFamily": "Font Family",
+    "theme": "Themes",
+    "language": "Language",
+    "transparency": "Transparency",
+    "transparencyCurrent": "{value}%",
+    "bgFit": "Background fit",
+    "settings": "Settings",
+    "bgFitModes": {
+      "cover": "Fill",
+      "contain": "Fit",
+      "stretch": "Stretch",
+      "center": "Center",
+      "tile": "Pattern"
+    },
+    "about": "About MyTerminal",
+    "minimize": "Minimize",
+    "maximize": "Maximize",
+    "restore": "Restore",
+    "close": "Close"
+  },
+  "themes": {
+    "dark": "Dark",
+    "light": "Light",
+    "midnight": "Midnight",
+    "forest": "Forest",
+    "sunset": "Sunset",
+    "ocean": "Ocean",
+    "custom": "Custom"
+  },
+  "language": {
+    "en": "English",
+    "ko": "한국어"
+  },
+  "settings": {
+    "title": "Settings",
+    "terminalSection": "Terminal",
+    "themeSection": "Theme Colors",
+    "scrollback": "Scrollback lines",
+    "scrollbackHint": "Number of lines kept for scrolling (100–100000).",
+    "statusBar": "Show status bar",
+    "statusBarHint": "Display session info at the bottom of the window.",
+    "trayIcon": "Show system tray icon",
+    "trayIconHint": "Keep MyTerminal in the system tray. Click the icon to open Settings. (Desktop app only)",
+    "statusLocal": "Local",
+    "statusRemote": "SSH",
+    "background": "Terminal background",
+    "backgroundHint": "Window/terminal background color. Adjust transparency from the toolbar slider (0–100%).",
+    "backgroundImage": "Background image",
+    "backgroundImageHint": "Choose an image wallpaper for the terminal area. Raise transparency on the toolbar to see it clearly.",
+    "backgroundImagePick": "Choose image…",
+    "backgroundImageClear": "Remove",
+    "backgroundImageNone": "No image",
+    "backgroundImageTooLarge": "Image must be 5MB or smaller.",
+    "backgroundImageFailed": "Could not load the image.",
+    "backgroundFit": "Display mode",
+    "backgroundFitHint": "How the background image is placed in the terminal area.",
+    "bgFitModes": {
+      "cover": "Fill",
+      "contain": "Fit",
+      "stretch": "Stretch",
+      "center": "Center",
+      "tile": "Pattern"
+    },
+    "foreground": "Foreground",
+    "cursor": "Cursor",
+    "selection": "Selection",
+    "accent": "Accent",
+    "toolbarBg": "Toolbar Background",
+    "apply": "Apply",
+    "reset": "Reset Custom",
+    "save": "Save",
+    "close": "Close"
+  },
+  "about": {
+    "title": "About MyTerminal",
+    "description": "A modern cross-platform terminal for Windows, Linux, macOS, and Web. Features theming, bilingual UI, and a frameless toolbar experience.",
+    "author": "Author",
+    "email": "Email",
+    "version": "Version",
+    "platform": "Platform",
+    "runtime": "Runtime",
+    "close": "Close"
+  },
+  "terminal": {
+    "welcome": "MyTerminal Shell — built-in shell by SHKWON",
+    "webNotice": "Web mode: built-in shell with virtual filesystem. Type help for commands.",
+    "restarted": "Session restarted."
+  },
+  "prompt": {
+    "title": "Shell Prompt",
+    "template": "Prompt template",
+    "hint": "Customize the local shell prompt. Colors and tokens are supported.",
+    "tokens": "Tokens: {user} {host} {cwd} {cwd:short} {time} {date} {shell} {remote} {cyan} {yellow} {green} {red} {blue} {magenta} {bold} {reset}",
+    "apply": "Apply",
+    "close": "Close",
+    "presets": {
+      "default": "Default",
+      "classic": "Classic",
+      "power": "Power",
+      "path": "Path",
+      "minimal": "Minimal",
+      "remote": "Remote style"
+    }
+  },
+  "tabs": {
+    "session": "Session",
+    "close": "Close tab",
+    "dragHint": "Drag outside to open in a new window",
+    "detachedNotice": "Session moved to this window."
+  },
+  "ssh": {
+    "title": "Remote SSH",
+    "host": "Host",
+    "port": "Port",
+    "username": "Username",
+    "password": "Password",
+    "privateKey": "Private key path",
+    "passphrase": "Key passphrase",
+    "hint": "Use password or a private key file. Remote shell replaces the local session until you disconnect.",
+    "connect": "Connect",
+    "cancel": "Cancel",
+    "failed": "SSH connection failed",
+    "webOnly": "SSH remote terminal is available in the desktop app.",
+    "connected": "SSH connected",
+    "disconnected": "SSH disconnected"
+  }
+}

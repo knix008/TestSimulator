@@ -1,0 +1,139 @@
+{
+  "appName": "MyTerminal",
+  "toolbar": {
+    "newSession": "새 세션",
+    "remote": "원격 SSH",
+    "remoteDisconnect": "SSH 연결 해제",
+    "prompt": "셸 프롬프트",
+    "clear": "화면 지우기",
+    "copy": "선택 복사",
+    "paste": "붙여넣기",
+    "fontDecrease": "글꼴 작게",
+    "fontIncrease": "글꼴 크게",
+    "fontFamily": "글꼴 종류",
+    "theme": "테마",
+    "language": "언어",
+    "transparency": "투명도",
+    "transparencyCurrent": "{value}%",
+    "bgFit": "배경 표시",
+    "settings": "설정",
+    "bgFitModes": {
+      "cover": "가득채움",
+      "contain": "맞춤",
+      "stretch": "늘이기",
+      "center": "가운데",
+      "tile": "패턴"
+    },
+    "about": "프로그램 정보",
+    "minimize": "최소화",
+    "maximize": "최대화",
+    "restore": "이전 크기",
+    "close": "닫기"
+  },
+  "themes": {
+    "dark": "다크",
+    "light": "라이트",
+    "midnight": "미드나이트",
+    "forest": "포레스트",
+    "sunset": "선셋",
+    "ocean": "오션",
+    "custom": "사용자 지정"
+  },
+  "language": {
+    "en": "English",
+    "ko": "한국어"
+  },
+  "settings": {
+    "title": "설정",
+    "terminalSection": "터미널",
+    "themeSection": "테마 색상",
+    "scrollback": "스크롤 기억 줄 수",
+    "scrollbackHint": "스크롤로 되돌릴 수 있도록 기억할 줄 수입니다 (100–100000).",
+    "statusBar": "상태바 표시",
+    "statusBarHint": "창 하단에 세션 정보를 표시합니다.",
+    "trayIcon": "시스템 트레이 아이콘 표시",
+    "trayIconHint": "시스템 트레이에 MyTerminal 아이콘을 둡니다. 아이콘을 누르면 설정이 열립니다. (데스크톱 앱 전용)",
+    "statusLocal": "로컬",
+    "statusRemote": "SSH",
+    "background": "터미널 배경색",
+    "backgroundHint": "터미널 창 배경색입니다. 투명도는 툴바 슬라이더(0–100%)로 조절하세요.",
+    "backgroundImage": "배경 이미지",
+    "backgroundImageHint": "터미널 영역에 표시할 배경 이미지를 선택하세요. 잘 보이게 하려면 툴바에서 투명도를 높이세요.",
+    "backgroundImagePick": "이미지 선택…",
+    "backgroundImageClear": "제거",
+    "backgroundImageNone": "이미지 없음",
+    "backgroundImageTooLarge": "이미지는 5MB 이하여야 합니다.",
+    "backgroundImageFailed": "이미지를 불러오지 못했습니다.",
+    "backgroundFit": "표시 방법",
+    "backgroundFitHint": "배경 이미지를 터미널 영역에 어떻게 배치할지 선택합니다.",
+    "bgFitModes": {
+      "cover": "가득채움",
+      "contain": "맞춤",
+      "stretch": "늘이기",
+      "center": "가운데",
+      "tile": "패턴"
+    },
+    "foreground": "글자색",
+    "cursor": "커서",
+    "selection": "선택 영역",
+    "accent": "강조색",
+    "toolbarBg": "툴바 배경",
+    "apply": "적용",
+    "reset": "초기화",
+    "save": "저장",
+    "close": "닫기"
+  },
+  "about": {
+    "title": "MyTerminal 정보",
+    "description": "Windows, Linux, macOS, Web을 지원하는 모던 크로스플랫폼 터미널입니다. 다양한 테마, 한글/영어 UI, 타이틀바 없는 툴바 중심 인터페이스를 제공합니다.",
+    "author": "작성자",
+    "email": "이메일",
+    "version": "버전",
+    "platform": "플랫폼",
+    "runtime": "런타임",
+    "close": "닫기"
+  },
+  "terminal": {
+    "welcome": "MyTerminal Shell — SHKWON 자체 구현 셸",
+    "webNotice": "웹 모드: 가상 파일시스템을 쓰는 자체 셸입니다. help로 명령을 확인하세요.",
+    "restarted": "세션이 다시 시작되었습니다."
+  },
+  "prompt": {
+    "title": "셸 프롬프트",
+    "template": "프롬프트 템플릿",
+    "hint": "로컬 셸 프롬프트를 사용자 지정합니다. 색상과 토큰을 사용할 수 있습니다.",
+    "tokens": "토큰: {user} {host} {cwd} {cwd:short} {time} {date} {shell} {remote} {cyan} {yellow} {green} {red} {blue} {magenta} {bold} {reset}",
+    "apply": "적용",
+    "close": "닫기",
+    "presets": {
+      "default": "기본",
+      "classic": "클래식",
+      "power": "파워",
+      "path": "경로",
+      "minimal": "미니멀",
+      "remote": "원격 스타일"
+    }
+  },
+  "tabs": {
+    "session": "세션",
+    "close": "탭 닫기",
+    "dragHint": "창 밖으로 드래그하면 새 창으로 분리됩니다",
+    "detachedNotice": "세션이 이 창으로 이동되었습니다."
+  },
+  "ssh": {
+    "title": "원격 SSH",
+    "host": "호스트",
+    "port": "포트",
+    "username": "사용자",
+    "password": "비밀번호",
+    "privateKey": "개인키 경로",
+    "passphrase": "키 암호",
+    "hint": "비밀번호 또는 개인키 파일을 사용하세요. 연결 중에는 원격 셸이 로컬 세션을 대체합니다.",
+    "connect": "연결",
+    "cancel": "취소",
+    "failed": "SSH 연결 실패",
+    "webOnly": "SSH 원격 터미널은 데스크톱 앱에서 사용할 수 있습니다.",
+    "connected": "SSH 연결됨",
+    "disconnected": "SSH 연결 해제됨"
+  }
+}

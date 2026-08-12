@@ -1,0 +1,799 @@
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const { spawn } = require('child_process');
+const { DEFAULT_PROMPT, renderPrompt } = require('./prompt');
+
+const VERSION = '1.0.0';
+const AUTHOR = 'SHKWON <knix008@naver.com>';
+
+function tokenize(line) {
+  const tokens = [];
+  let cur = '';
+  let quote = null;
+  for (let i = 0; i < line.length; i += 1) {
+    const ch = line[i];
+    if (quote) {
+      if (ch === quote) quote = null;
+      else cur += ch;
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      quote = ch;
+      continue;
+    }
+    if (/\s/.test(ch)) {
+      if (cur) {
+        tokens.push(cur);
+        cur = '';
+      }
+      continue;
+    }
+    cur += ch;
+  }
+  if (cur) tokens.push(cur);
+  return tokens;
+}
+
+function formatSize(n) {
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  if (n < 1024 * 1024 * 1024) return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(n / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+}
+
+function pad(str, len) {
+  const s = String(str);
+  return s.length >= len ? s : s + ' '.repeat(len - s.length);
+}
+
+function padLeft(str, len) {
+  const s = String(str);
+  return s.length >= len ? s : ' '.repeat(len - s.length) + s;
+}
+
+function formatDirDate(date) {
+  const d = date instanceof Date ? date : new Date(date);
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  const yyyy = d.getFullYear();
+  let h = d.getHours();
+  const m = String(d.getMinutes()).padStart(2, '0');
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  h = h % 12;
+  if (h === 0) h = 12;
+  return `${yyyy}-${mm}-${dd}  ${String(h).padStart(2, ' ')}:${m} ${ampm}`;
+}
+
+function makeEntryFromStat(name, stat, fullPath) {
+  return {
+    name,
+    fullPath,
+    stat,
+    isDirectory: () => stat.isDirectory(),
+  };
+}
+
+/** Normalize any newline style to terminal CRLF (\r\n). */
+function toTerminalText(text) {
+  return String(text ?? '')
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    .replace(/\n/g, '\r\n');
+}
+
+/** Expand common escape sequences used in shell arguments (echo, etc.). */
+function unescapeShellText(text) {
+  return String(text ?? '')
+    .replace(/\\n/g, '\n')
+    .replace(/\\r/g, '\r')
+    .replace(/\\t/g, '\t')
+    .replace(/\\e/g, '\x1b')
+    .replace(/\\\\/g, '\\');
+}
+
+class MyShell {
+  constructor(win, options = {}) {
+    this.win = win;
+    this.sessionId = options.sessionId || '1';
+    this.cwd = options.cwd || os.homedir();
+    this.cols = options.cols || 80;
+    this.rows = options.rows || 24;
+    this.lineBuffer = '';
+    this.history = [];
+    this.historyIndex = -1;
+    this.busy = false;
+    this.child = null;
+    this.alive = true;
+    this.env = { ...process.env };
+    this.escape = '';
+    this.atLineStart = true;
+    this.promptTemplate = options.promptTemplate || DEFAULT_PROMPT;
+    this.promptContext = {
+      user: os.userInfo().username,
+      host: os.hostname(),
+      shell: 'MyShell',
+      remote: false,
+      ...(options.promptContext || {}),
+    };
+  }
+
+  setPromptTemplate(template) {
+    if (typeof template === 'string' && template.length) {
+      this.promptTemplate = template;
+    }
+  }
+
+  emit(channel, payload) {
+    if (this.win && !this.win.isDestroyed()) {
+      this.win.webContents.send(channel, payload);
+    }
+  }
+
+  send(text) {
+    if (text == null || text === '') return;
+    const out = toTerminalText(text);
+    this.emit('pty:data', { sessionId: this.sessionId, data: out });
+    this.atLineStart = /\r\n$/.test(out) || out.endsWith('\n');
+  }
+
+  /** Write raw already-normalized terminal bytes (skip double conversion). */
+  sendRaw(text) {
+    if (text == null || text === '') return;
+    this.emit('pty:data', { sessionId: this.sessionId, data: text });
+    this.atLineStart = /\r\n$/.test(text) || text.endsWith('\n');
+  }
+
+  writeln(text = '') {
+    // Real \n/\r in the string become terminal line breaks; trailing EOL is normalized.
+    const body = toTerminalText(text).replace(/(?:\r\n)+$/g, '');
+    if (body) this.sendRaw(body);
+    this.sendRaw('\r\n');
+  }
+
+  ensureNewline() {
+    if (!this.atLineStart) this.sendRaw('\r\n');
+  }
+
+  prompt() {
+    this.ensureNewline();
+    const text = renderPrompt(this.promptTemplate, {
+      ...this.promptContext,
+      cwd: this.cwd,
+    });
+    this.sendRaw(toTerminalText(text));
+    this.atLineStart = false;
+  }
+
+  start() {
+    this.writeln(`\x1b[1mMyTerminal Shell\x1b[0m v${VERSION}`);
+    this.writeln(`Built-in shell by ${AUTHOR}`);
+    this.writeln(`Type \x1b[32mhelp\x1b[0m for commands. Use \x1b[32mrun\x1b[0m to launch system programs.`);
+    this.writeln('');
+    this.prompt();
+  }
+
+  resize(cols, rows) {
+    if (cols > 0) this.cols = cols;
+    if (rows > 0) this.rows = rows;
+  }
+
+  kill() {
+    this.alive = false;
+    this.killChild();
+  }
+
+  killChild() {
+    if (!this.child) return;
+    try {
+      if (process.platform === 'win32') {
+        spawn('taskkill', ['/pid', String(this.child.pid), '/f', '/t'], { windowsHide: true });
+      } else {
+        this.child.kill('SIGTERM');
+      }
+    } catch (_) {
+      /* ignore */
+    }
+    this.child = null;
+    this.busy = false;
+  }
+
+  write(data) {
+    if (!this.alive) return;
+
+    for (const ch of data) {
+      if (this.escape) {
+        this.escape += ch;
+        if (/^[\x1b]$/.test(this.escape)) continue;
+        if (this.escape === '\x1b[') continue;
+        if (this.escape === '\x1b[A') {
+          this.escape = '';
+          this.historyUp();
+          continue;
+        }
+        if (this.escape === '\x1b[B') {
+          this.escape = '';
+          this.historyDown();
+          continue;
+        }
+        if (this.escape.length >= 3) this.escape = '';
+        continue;
+      }
+
+      if (ch === '\x1b') {
+        this.escape = '\x1b';
+        continue;
+      }
+
+      if (ch === '\r' || ch === '\n') {
+        if (this.busy) continue;
+        this.sendRaw('\r\n');
+        const line = this.lineBuffer;
+        this.lineBuffer = '';
+        this.historyIndex = -1;
+        this.runLine(line);
+        continue;
+      }
+
+      if (ch === '\u007f' || ch === '\b') {
+        if (!this.busy && this.lineBuffer.length) {
+          this.lineBuffer = this.lineBuffer.slice(0, -1);
+          this.sendRaw('\b \b');
+        }
+        continue;
+      }
+
+      if (ch === '\u0003') {
+        this.sendRaw('^C\r\n');
+        this.lineBuffer = '';
+        this.historyIndex = -1;
+        if (this.child) this.killChild();
+        this.prompt();
+        continue;
+      }
+
+      if (ch === '\u000c') {
+        this.sendRaw('\x1b[2J\x1b[H');
+        this.atLineStart = true;
+        this.prompt();
+        continue;
+      }
+
+      if (!this.busy && (ch >= ' ' || ch === '\t')) {
+        this.lineBuffer += ch;
+        this.sendRaw(ch);
+        this.atLineStart = false;
+      }
+    }
+  }
+
+  replaceLine(next) {
+    while (this.lineBuffer.length) {
+      this.lineBuffer = this.lineBuffer.slice(0, -1);
+      this.sendRaw('\b \b');
+    }
+    this.lineBuffer = next;
+    if (next) {
+      this.sendRaw(next);
+      this.atLineStart = false;
+    }
+  }
+
+  historyUp() {
+    if (!this.history.length || this.busy) return;
+    if (this.historyIndex < 0) this.historyIndex = this.history.length;
+    if (this.historyIndex <= 0) return;
+    this.historyIndex -= 1;
+    this.replaceLine(this.history[this.historyIndex]);
+  }
+
+  historyDown() {
+    if (this.historyIndex < 0 || this.busy) return;
+    this.historyIndex += 1;
+    if (this.historyIndex >= this.history.length) {
+      this.historyIndex = -1;
+      this.replaceLine('');
+      return;
+    }
+    this.replaceLine(this.history[this.historyIndex]);
+  }
+
+  resolve(p) {
+    if (!p) return this.cwd;
+    if (p === '~') return os.homedir();
+    if (p.startsWith('~/') || p.startsWith('~\\')) {
+      return path.join(os.homedir(), p.slice(2));
+    }
+    return path.isAbsolute(p) ? path.normalize(p) : path.resolve(this.cwd, p);
+  }
+
+  async runLine(line) {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      this.prompt();
+      return;
+    }
+
+    if (!this.history.length || this.history[this.history.length - 1] !== trimmed) {
+      this.history.push(trimmed);
+      if (this.history.length > 200) this.history.shift();
+    }
+
+    const tokens = tokenize(trimmed);
+    const cmd = (tokens[0] || '').toLowerCase();
+    const args = tokens.slice(1);
+
+    let prompted = false;
+    try {
+      prompted = (await this.dispatch(cmd, args, trimmed)) === true;
+    } catch (err) {
+      this.writeln(`\x1b[31merror:\x1b[0m ${err.message || err}`);
+    }
+
+    if (this.alive && !this.busy && !prompted) this.prompt();
+  }
+
+  async dispatch(cmd, args, raw) {
+    switch (cmd) {
+      case 'help':
+      case '?':
+        this.cmdHelp();
+        break;
+      case 'clear':
+      case 'cls':
+        this.sendRaw('\x1b[2J\x1b[H');
+        this.atLineStart = true;
+        this.lineBuffer = '';
+        this.prompt();
+        return true;
+      case 'echo':
+        // Supports: echo hello\nworld  → real line break
+        this.writeln(unescapeShellText(args.join(' ')));
+        break;
+      case 'pwd':
+        this.writeln(this.cwd);
+        break;
+      case 'cd':
+        this.cmdCd(args[0]);
+        break;
+      case 'ls':
+      case 'dir':
+        this.cmdLs(args, cmd);
+        break;
+      case 'cat':
+      case 'type':
+        this.cmdCat(args[0]);
+        break;
+      case 'mkdir':
+      case 'md':
+        this.cmdMkdir(args);
+        break;
+      case 'rm':
+      case 'del':
+      case 'remove':
+        this.cmdRm(args);
+        break;
+      case 'touch':
+        this.cmdTouch(args[0]);
+        break;
+      case 'cp':
+      case 'copy':
+        this.cmdCp(args);
+        break;
+      case 'mv':
+      case 'move':
+      case 'ren':
+        this.cmdMv(args);
+        break;
+      case 'whoami':
+        this.writeln(os.userInfo().username);
+        break;
+      case 'date':
+        this.writeln(new Date().toString());
+        break;
+      case 'uname':
+      case 'sysinfo':
+        this.cmdUname();
+        break;
+      case 'env':
+      case 'printenv':
+        this.cmdEnv(args[0]);
+        break;
+      case 'history':
+        this.history.forEach((h, i) => this.writeln(`${String(i + 1).padStart(4)}  ${h}`));
+        break;
+      case 'which':
+      case 'where':
+        this.cmdWhich(args[0]);
+        break;
+      case 'open':
+      case 'start':
+        await this.cmdOpen(args[0]);
+        break;
+      case 'about':
+        this.writeln(`MyTerminal Shell v${VERSION}`);
+        this.writeln(`Author: ${AUTHOR}`);
+        this.writeln('A built-in cross-platform shell (not a wrapper around cmd/bash).');
+        break;
+      case 'prompt':
+        this.cmdPrompt(args);
+        break;
+      case 'exit':
+      case 'quit':
+        this.writeln('Bye.');
+        this.alive = false;
+        this.emit('pty:exit', { sessionId: this.sessionId, code: 0 });
+        break;
+      case 'run':
+      case 'exec':
+        if (!args.length) {
+          this.writeln('usage: run <program> [args...]');
+          break;
+        }
+        await this.cmdRun(args);
+        break;
+      default:
+        this.writeln(`\x1b[31munknown command:\x1b[0m ${cmd}`);
+        this.writeln(`Type \x1b[32mhelp\x1b[0m for built-in commands, or \x1b[32mrun ${raw}\x1b[0m to execute a system program.`);
+        break;
+    }
+  }
+
+  cmdHelp() {
+    const lines = [
+      'Built-in commands:',
+      '  help                 Show this help',
+      '  clear, cls           Clear screen',
+      '  echo <text>          Print text',
+      '  pwd                  Print working directory',
+      '  cd [path]            Change directory',
+      '  ls, dir [path]       List directory',
+      '  cat, type <file>     Show file contents',
+      '  mkdir, md <dir>      Create directory',
+      '  rm, del <path>       Remove file/directory',
+      '  touch <file>         Create empty file',
+      '  cp, copy <a> <b>     Copy file',
+      '  mv, move <a> <b>     Move/rename',
+      '  whoami               Current user',
+      '  date                 Current date/time',
+      '  uname, sysinfo       System information',
+      '  env [name]           Environment variables',
+      '  history              Command history',
+      '  which, where <name>  Locate executable',
+      '  open, start <path>   Open file/folder',
+      '  about                About this shell',
+      '  prompt [show|set|reset]  View/change prompt template',
+      '  run, exec <cmd...>   Run a system program',
+      '  exit, quit           End session',
+      '',
+      'Tips: ↑/↓ history, Ctrl+C cancel, Ctrl+L clear',
+      'Remote SSH: use the toolbar Remote button',
+    ];
+    lines.forEach((l) => this.writeln(l));
+  }
+
+  cmdPrompt(args) {
+    const sub = (args[0] || 'show').toLowerCase();
+    if (sub === 'show' || sub === 'get') {
+      this.writeln(this.promptTemplate);
+      return;
+    }
+    if (sub === 'reset') {
+      this.setPromptTemplate(DEFAULT_PROMPT);
+      this.writeln('prompt reset to default');
+      return;
+    }
+    if (sub === 'set') {
+      const template = args.slice(1).join(' ');
+      if (!template) {
+        this.writeln('usage: prompt set <template>');
+        return;
+      }
+      this.setPromptTemplate(unescapeShellText(template));
+      this.writeln('prompt updated');
+      return;
+    }
+    // Treat whole args as template: prompt {user}@{host}$
+    this.setPromptTemplate(unescapeShellText(args.join(' ')));
+    this.writeln('prompt updated');
+  }
+
+  cmdCd(target) {
+    const next = this.resolve(target || os.homedir());
+    if (!fs.existsSync(next) || !fs.statSync(next).isDirectory()) {
+      throw new Error(`no such directory: ${target || next}`);
+    }
+    this.cwd = next;
+  }
+
+  cmdLs(args, cmdName = 'ls') {
+    let longFmt = false;
+    let all = false;
+    let wide = false;
+    let targetArg = null;
+    args.forEach((a) => {
+      if (a === '-l' || a === '--long') longFmt = true;
+      else if (a === '-la' || a === '-al') {
+        longFmt = true;
+        all = true;
+      } else if (a === '-a' || a === '--all' || a === '/a') all = true;
+      else if (a === '/w') wide = true;
+      else if (!a.startsWith('-') && !a.startsWith('/')) targetArg = a;
+    });
+
+    // `dir` defaults to Windows-style detailed list; `ls` defaults to columns.
+    const asDir = cmdName === 'dir';
+    if (asDir && !wide && !longFmt) {
+      longFmt = true;
+    }
+    if (wide) longFmt = false;
+
+    const target = this.resolve(targetArg || '.');
+    const st = fs.statSync(target);
+
+    if (st.isFile()) {
+      if (asDir || longFmt) {
+        this.printDirLong(
+          [makeEntryFromStat(path.basename(target), st, target)],
+          path.dirname(target),
+          asDir
+        );
+      } else this.writeln(path.basename(target));
+      return;
+    }
+
+    let entries = fs.readdirSync(target, { withFileTypes: true });
+    if (!all) {
+      entries = entries.filter((ent) => !ent.name.startsWith('.'));
+    }
+    entries.sort((a, b) => {
+      if (a.isDirectory() !== b.isDirectory()) return a.isDirectory() ? -1 : 1;
+      return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+    });
+
+    if (!entries.length) {
+      if (asDir) {
+        this.writeln(` Directory of ${target}`);
+        this.writeln('');
+        this.writeln('               0 File(s)              0 bytes');
+        this.writeln('               0 Dir(s)');
+      }
+      return;
+    }
+
+    if (asDir || longFmt) {
+      this.printDirLong(entries, target, asDir);
+      return;
+    }
+
+    // Classic `ls`: multi-column names (directories in blue with trailing /).
+    const names = entries.map((ent) =>
+      ent.isDirectory() ? `\x1b[34m${ent.name}/\x1b[0m` : ent.name
+    );
+    this.printColumns(names);
+  }
+
+  printColumns(names) {
+    const cols = Math.max(40, this.cols || 80);
+    // Visible width ignores ANSI color codes.
+    const visibleLen = (s) => s.replace(/\x1b\[[0-9;]*m/g, '').length;
+    const maxLen = names.reduce((m, n) => Math.max(m, visibleLen(n)), 1);
+    const colWidth = maxLen + 2;
+    const numCols = Math.max(1, Math.floor(cols / colWidth));
+    const numRows = Math.ceil(names.length / numCols);
+
+    for (let r = 0; r < numRows; r += 1) {
+      let line = '';
+      for (let c = 0; c < numCols; c += 1) {
+        const idx = c * numRows + r;
+        if (idx >= names.length) break;
+        const name = names[idx];
+        const padCount = colWidth - visibleLen(name);
+        line += name + (c < numCols - 1 ? ' '.repeat(Math.max(1, padCount)) : '');
+      }
+      this.writeln(line.replace(/\s+$/g, ''));
+    }
+  }
+
+  printDirLong(entries, target, windowsStyle = true) {
+    if (windowsStyle) {
+      this.writeln(` Directory of ${target}`);
+      this.writeln('');
+    }
+
+    let fileCount = 0;
+    let dirCount = 0;
+    let totalBytes = 0;
+
+    entries.forEach((ent) => {
+      const full = ent.fullPath || path.join(target, ent.name);
+      let stat;
+      try {
+        stat = ent.stat || fs.statSync(full);
+      } catch {
+        this.writeln(`?????? ?? ?? ${ent.name}`);
+        return;
+      }
+
+      const mtime = stat.mtime || new Date();
+      const date = formatDirDate(mtime);
+      if (ent.isDirectory ? ent.isDirectory() : stat.isDirectory()) {
+        dirCount += 1;
+        if (windowsStyle) {
+          this.writeln(`${date}    <DIR>          \x1b[34m${ent.name}\x1b[0m`);
+        } else {
+          this.writeln(
+            `drwxr-xr-x  1 ${pad(formatSize(0), 10)} ${date} \x1b[34m${ent.name}\x1b[0m`
+          );
+        }
+      } else {
+        fileCount += 1;
+        totalBytes += stat.size || 0;
+        const sizeStr = String(stat.size || 0).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+        if (windowsStyle) {
+          this.writeln(`${date} ${padLeft(sizeStr, 16)} ${ent.name}`);
+        } else {
+          this.writeln(
+            `-rw-r--r--  1 ${pad(formatSize(stat.size || 0), 10)} ${date} ${ent.name}`
+          );
+        }
+      }
+    });
+
+    if (windowsStyle) {
+      const bytes = String(totalBytes).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+      this.writeln(
+        `${padLeft(String(fileCount), 16)} File(s) ${padLeft(bytes, 14)} bytes`
+      );
+      this.writeln(`${padLeft(String(dirCount), 16)} Dir(s)`);
+    }
+  }
+
+  cmdCat(file) {
+    if (!file) throw new Error('usage: cat <file>');
+    const full = this.resolve(file);
+    const st = fs.statSync(full);
+    if (st.isDirectory()) throw new Error(`is a directory: ${file}`);
+    if (st.size > 2 * 1024 * 1024) throw new Error('file too large (>2MB)');
+    const text = fs.readFileSync(full, 'utf8');
+    // Preserve file newlines via toTerminalText; avoid double blank at EOF.
+    const normalized = toTerminalText(text).replace(/(?:\r\n)+$/g, '');
+    if (normalized) this.sendRaw(normalized);
+    this.sendRaw('\r\n');
+  }
+
+  cmdMkdir(args) {
+    if (!args.length) throw new Error('usage: mkdir <dir>');
+    args.forEach((a) => {
+      fs.mkdirSync(this.resolve(a), { recursive: true });
+      this.writeln(`created: ${this.resolve(a)}`);
+    });
+  }
+
+  cmdRm(args) {
+    const recursive = args.includes('-r') || args.includes('-rf') || args.includes('/s');
+    const targets = args.filter((a) => !a.startsWith('-') && a !== '/s');
+    if (!targets.length) throw new Error('usage: rm [-r] <path>');
+    targets.forEach((t) => {
+      const full = this.resolve(t);
+      const st = fs.statSync(full);
+      if (st.isDirectory()) {
+        if (!recursive) throw new Error(`is a directory (use rm -r): ${t}`);
+        fs.rmSync(full, { recursive: true, force: true });
+      } else {
+        fs.unlinkSync(full);
+      }
+      this.writeln(`removed: ${full}`);
+    });
+  }
+
+  cmdTouch(file) {
+    if (!file) throw new Error('usage: touch <file>');
+    const full = this.resolve(file);
+    fs.closeSync(fs.openSync(full, 'a'));
+    this.writeln(`touched: ${full}`);
+  }
+
+  cmdCp(args) {
+    if (args.length < 2) throw new Error('usage: cp <src> <dest>');
+    const src = this.resolve(args[0]);
+    const dest = this.resolve(args[1]);
+    fs.copyFileSync(src, dest);
+    this.writeln(`copied: ${src} -> ${dest}`);
+  }
+
+  cmdMv(args) {
+    if (args.length < 2) throw new Error('usage: mv <src> <dest>');
+    const src = this.resolve(args[0]);
+    const dest = this.resolve(args[1]);
+    fs.renameSync(src, dest);
+    this.writeln(`moved: ${src} -> ${dest}`);
+  }
+
+  cmdUname() {
+    this.writeln(`MyTerminal ${VERSION}`);
+    this.writeln(`OS: ${os.type()} ${os.release()} (${os.platform()} ${os.arch()})`);
+    this.writeln(`Host: ${os.hostname()}`);
+    this.writeln(`CPU: ${os.cpus()[0]?.model || 'unknown'} x${os.cpus().length}`);
+    this.writeln(`Memory: ${formatSize(os.totalmem())} total, ${formatSize(os.freemem())} free`);
+    this.writeln(`Home: ${os.homedir()}`);
+    this.writeln(`Shell: MyShell (built-in)`);
+  }
+
+  cmdEnv(name) {
+    if (name) {
+      this.writeln(this.env[name] != null ? `${name}=${this.env[name]}` : '');
+      return;
+    }
+    Object.keys(this.env)
+      .sort()
+      .forEach((k) => this.writeln(`${k}=${this.env[k]}`));
+  }
+
+  cmdWhich(name) {
+    if (!name) throw new Error('usage: which <name>');
+    const pathKey = process.platform === 'win32' ? 'Path' : 'PATH';
+    const pathVal = this.env[pathKey] || this.env.PATH || '';
+    const parts = pathVal.split(path.delimiter);
+    const exts =
+      process.platform === 'win32'
+        ? (this.env.PATHEXT || '.EXE;.CMD;.BAT;.COM').split(';')
+        : [''];
+
+    for (const dir of parts) {
+      for (const ext of exts) {
+        const candidate = path.join(dir, name + (process.platform === 'win32' && !path.extname(name) ? ext : ''));
+        if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) {
+          this.writeln(candidate);
+          return;
+        }
+      }
+      const direct = path.join(dir, name);
+      if (fs.existsSync(direct) && fs.statSync(direct).isFile()) {
+        this.writeln(direct);
+        return;
+      }
+    }
+    this.writeln(`${name} not found`);
+  }
+
+  async cmdOpen(target) {
+    if (!target) throw new Error('usage: open <path>');
+    const full = this.resolve(target);
+    const { shell } = require('electron');
+    await shell.openPath(full);
+    this.writeln(`opened: ${full}`);
+  }
+
+  cmdRun(args) {
+    return new Promise((resolve) => {
+      this.busy = true;
+      // Explicit opt-in to system programs (not the default shell).
+      const child = spawn(args.join(' '), {
+        cwd: this.cwd,
+        env: this.env,
+        shell: true,
+        windowsHide: true,
+      });
+      this.child = child;
+
+      child.stdout.on('data', (d) => this.send(d.toString('utf8')));
+      child.stderr.on('data', (d) => this.send(d.toString('utf8')));
+      child.on('error', (err) => {
+        this.writeln(`\x1b[31mfailed:\x1b[0m ${err.message}`);
+        this.busy = false;
+        this.child = null;
+        resolve();
+      });
+      child.on('close', (code) => {
+        this.ensureNewline();
+        if (code) this.writeln(`\x1b[90m[exit ${code}]\x1b[0m`);
+        this.busy = false;
+        this.child = null;
+        resolve();
+      });
+    });
+  }
+}
+
+module.exports = { MyShell, toTerminalText, unescapeShellText };
