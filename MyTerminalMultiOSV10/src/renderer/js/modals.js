@@ -227,13 +227,38 @@ function textAppearanceSectionHtml(
   `;
 }
 
+/**
+ * Inline SVG icons for footer buttons, keyed by semantic role. Stroke uses
+ * currentColor so they inherit the button's text color (incl. primary white).
+ */
+const FOOTER_BTN_ICONS = {
+  apply:
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l4 4L19 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  close:
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
+  connect:
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h11M12 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  reset:
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4v5h5M20 20v-5h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M19 9a7 7 0 00-12-3L4 9m1 6a7 7 0 0012 3l3-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+};
+
+/** Pick a button icon: explicit btn.icon name, else infer from role/primary. */
+function footerBtnIconMarkup(btn) {
+  const name = btn.icon || (btn.primary ? 'apply' : 'close');
+  return FOOTER_BTN_ICONS[name] || '';
+}
+
 function addFooterButtons(footerEl, buttons, { modal, close }) {
   footerEl.innerHTML = '';
   buttons.forEach((btn) => {
     const el = document.createElement('button');
     el.type = 'button';
     el.className = `modal-btn${btn.primary ? ' primary' : ''}`;
-    el.textContent = btn.label;
+    // Icon + label together (icon inherits currentColor via the SVG stroke).
+    const label = document.createElement('span');
+    label.textContent = btn.label;
+    el.innerHTML = footerBtnIconMarkup(btn);
+    el.appendChild(label);
     el.addEventListener('click', async () => {
       if (btn.onClick) await btn.onClick({ close, modal });
       if (btn.closeOnClick !== false) close();
@@ -586,6 +611,7 @@ export function mountSshView(ctx, payload) {
     [
       {
         label: i18n.t('ssh.connect'),
+        icon: 'connect',
         primary: true,
         closeOnClick: false,
         onClick: async () => {
@@ -695,6 +721,7 @@ export async function openSshModal({
     buttons: [
       {
         label: i18n.t('ssh.connect'),
+        icon: 'connect',
         primary: true,
         closeOnClick: false,
         onClick: async ({ modal, close }) => {
@@ -1059,6 +1086,7 @@ export function mountSettingsView(ctx, payload) {
     [
       {
         label: i18n.t('settings.reset'),
+        icon: 'reset',
         closeOnClick: false,
         onClick: () => send({ type: 'settings:reset' }),
       },
@@ -1233,6 +1261,7 @@ export async function openSettingsModal({
     buttons: [
       {
         label: i18n.t('settings.reset'),
+        icon: 'reset',
         closeOnClick: false,
         onClick: ({ modal: m }) => {
           const next = onReset() || {};

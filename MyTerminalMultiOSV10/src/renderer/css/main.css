@@ -741,6 +741,15 @@ body.theme-light .tooltip {
   padding: 8px 12px;
   cursor: pointer;
   font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.modal-btn > svg {
+  width: 15px;
+  height: 15px;
+  flex: none;
 }
 
 .modal-btn.primary {

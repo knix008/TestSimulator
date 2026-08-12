@@ -131,7 +131,7 @@ export class TerminalPane {
         this.loadCanvasRenderer();
       });
       this.term.loadAddon(webgl);
-      this.rendererKind = 'webgl';
+      this.setRendererKind('webgl');
       return;
     } catch (_) {
       /* WebGL unavailable (blocklisted GPU, headless) — fall back. */
@@ -143,10 +143,20 @@ export class TerminalPane {
   loadCanvasRenderer() {
     try {
       this.term.loadAddon(new CanvasAddon());
-      this.rendererKind = 'canvas';
+      this.setRendererKind('canvas');
     } catch (_) {
       // Keep the DOM renderer; powerline glyphs may show as tofu but text works.
-      this.rendererKind = 'dom';
+      this.setRendererKind('dom');
+    }
+  }
+
+  /** Record the active renderer (inspectable via the host's data-renderer). */
+  setRendererKind(kind) {
+    this.rendererKind = kind;
+    try {
+      this.host.dataset.renderer = kind;
+    } catch (_) {
+      /* host not ready */
     }
   }
 

@@ -988,9 +988,10 @@ function bindToolbar() {
         const imageChanged = nextImage !== state.backgroundImage;
         state.backgroundImage = nextImage;
         state.backgroundFit = normalizeBgFit(backgroundFit || state.backgroundFit);
-        // New wallpaper: show it fully (0% image transparency).
+        // New wallpaper: default to 50% image transparency so terminal text
+        // stays readable over the image out of the box (user can still adjust).
         if (imageChanged && nextImage) {
-          state.bgTransparency = 0;
+          state.bgTransparency = 50;
           updateTransparencyUi();
         }
         if (lsDirectoryColor != null || lsFileColor != null) {
