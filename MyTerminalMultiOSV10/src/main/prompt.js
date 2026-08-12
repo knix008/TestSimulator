@@ -350,9 +350,8 @@ const SEGMENT_TIP = '\uE0B0';
  * After any painted (background) segment, append a powerline tip cell.
  *
  * Mid tips: next segment ANSI bg + previous-color glyph (wedges = next color).
- * End tips: always default/transparent bg + segment-colored  so the bar ends
- * in a visible triangle. An opaque endTipBg fills the whole tip cell and reads
- * as a square (especially on green after a clean push).
+ * End tips: default/transparent bg + segment-colored  — the filled color
+ * itself is the triangle tapering into the void (not a square bar with a cut).
  */
 function applyPowerlineEnds(text, _endTipBg) {
   const src = String(text ?? '');
@@ -398,22 +397,9 @@ function applyPowerlineEnds(text, _endTipBg) {
       // Join: next segment paints the full cell; tip is previous color.
       out += `\x1b[${toBg};${prevFg}m${SEGMENT_TIP}`;
     } else {
-      // End tip: keep the segment ANSI background so the git/cwd bar fills the
-      // same full cell height as blue/yellow (a fg-only tip sits ~1px high).
-      // Use a dark tip on light/bright segments (and light on dark) so  stays
-      // a visible triangle instead of blending into a square bar end.
-      const tipFg =
-        fromBg === 42 ||
-        fromBg === 43 ||
-        fromBg === 47 ||
-        fromBg === 102 ||
-        fromBg === 103 ||
-        fromBg === 107 ||
-        fromBg === 101 ||
-        fromBg === 105
-          ? 30
-          : 37;
-      out += `\x1b[${fromBg};${tipFg}m${SEGMENT_TIP}\x1b[0m`;
+      // End: segment-colored triangle on transparent/default bg (agnoster).
+      // Same fg+bg or contrast tip on segment bg paints a square cell instead.
+      out += `\x1b[0;${prevFg}m${SEGMENT_TIP}\x1b[0m`;
     }
   };
 
