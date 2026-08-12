@@ -57,7 +57,7 @@ npm run build:renderer
 npm run icons
 
 # 플랫폼별 설치 파일 (icons + renderer 자동 선행)
-npm run build:win      # Windows — NSIS 설치본 + portable → dist/
+npm run build:win      # Windows — NSIS 설치본 + portable → dist/ (재설치 시 기존 완전 삭제)
 npm run build:mac      # macOS — dmg + zip → dist/
 npm run build:linux    # Linux — AppImage + deb → dist/
 npm run build:all      # Windows + macOS + Linux

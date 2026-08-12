@@ -100,7 +100,7 @@
       "license": "build/license.txt",
       "include": "build/installer.nsh",
       "runAfterFinish": true,
-      "deleteAppDataOnUninstall": false,
+      "deleteAppDataOnUninstall": true,
       "warningsAsErrors": false
     },
     "mac": {
