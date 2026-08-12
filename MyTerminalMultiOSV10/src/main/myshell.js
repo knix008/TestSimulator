@@ -319,6 +319,68 @@ function unescapeShellText(text) {
     .replace(/\\\\/g, '\\');
 }
 
+/** Terminal cell width for a code point (simplified wcwidth). */
+function codePointWidth(code) {
+  if (code == null || code < 32) return 0;
+  if (code >= 0x7f && code < 0xa0) return 0;
+  // Combining marks
+  if (code >= 0x0300 && code <= 0x036f) return 0;
+  if (code >= 0x1ab0 && code <= 0x1aff) return 0;
+  if (code >= 0x1dc0 && code <= 0x1dff) return 0;
+  if (code >= 0x20d0 && code <= 0x20ff) return 0;
+  if (code >= 0xfe20 && code <= 0xfe2f) return 0;
+  // Wide / fullwidth (Hangul, CJK, etc.)
+  if (
+    (code >= 0x1100 && code <= 0x115f) ||
+    code === 0x2329 ||
+    code === 0x232a ||
+    (code >= 0x2e80 && code <= 0xa4cf) ||
+    (code >= 0xac00 && code <= 0xd7a3) ||
+    (code >= 0xf900 && code <= 0xfaff) ||
+    (code >= 0xfe10 && code <= 0xfe19) ||
+    (code >= 0xfe30 && code <= 0xfe6f) ||
+    (code >= 0xff01 && code <= 0xff60) ||
+    (code >= 0xffe0 && code <= 0xffe6) ||
+    (code >= 0x1f300 && code <= 0x1faff) ||
+    (code >= 0x20000 && code <= 0x3fffd)
+  ) {
+    return 2;
+  }
+  return 1;
+}
+
+function displayWidth(text) {
+  let width = 0;
+  for (const ch of String(text ?? '')) {
+    width += codePointWidth(ch.codePointAt(0));
+  }
+  return width;
+}
+
+/** Pop the last grapheme (or code point) from a string. */
+function popLastGrapheme(str) {
+  const s = String(str ?? '');
+  if (!s) return { rest: '', grapheme: '' };
+  try {
+    if (typeof Intl !== 'undefined' && Intl.Segmenter) {
+      const parts = [...new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(s)];
+      if (!parts.length) return { rest: '', grapheme: '' };
+      const last = parts[parts.length - 1].segment;
+      return { rest: s.slice(0, s.length - last.length), grapheme: last };
+    }
+  } catch (_) {
+    /* fall through */
+  }
+  const chars = [...s];
+  const last = chars.pop() || '';
+  return { rest: chars.join(''), grapheme: last };
+}
+
+function eraseDisplayCells(sendRaw, width) {
+  const n = Math.max(0, width | 0);
+  for (let i = 0; i < n; i += 1) sendRaw('\b \b');
+}
+
 function resolveExistingDirectory(dir) {
   const home = os.homedir();
   let next = typeof dir === 'string' ? dir.trim() : '';
@@ -455,7 +517,12 @@ class MyShell {
   write(data) {
     if (!this.alive) return;
 
-    for (const ch of data) {
+    // Strip bracketed-paste wrappers from xterm / terminals.
+    let input = String(data ?? '')
+      .replace(/\x1b\[200~/g, '')
+      .replace(/\x1b\[201~/g, '');
+
+    for (const ch of input) {
       if (this.escape) {
         this.escape += ch;
         if (/^[\x1b]$/.test(this.escape)) continue;
@@ -470,7 +537,10 @@ class MyShell {
           this.historyDown();
           continue;
         }
-        if (this.escape.length >= 3) this.escape = '';
+        // Ignore other CSI sequences (incl. leftover paste/mouse codes).
+        if (/^[\x1b]\[[0-9;?]*[A-Za-z~]$/.test(this.escape) || this.escape.length > 16) {
+          this.escape = '';
+        }
         continue;
       }
 
@@ -491,10 +561,7 @@ class MyShell {
       }
 
       if (ch === '\u007f' || ch === '\b') {
-        if (!this.busy && this.lineBuffer.length) {
-          this.lineBuffer = this.lineBuffer.slice(0, -1);
-          this.sendRaw('\b \b');
-        }
+        if (!this.busy) this.backspaceOnce();
         continue;
       }
 
@@ -508,9 +575,8 @@ class MyShell {
       }
 
       if (ch === '\u000c') {
-        this.sendRaw('\x1b[2J\x1b[H');
-        this.atLineStart = true;
-        this.prompt();
+        // CSI 3J clears scrollback; 2J clears the viewport; H homes the cursor.
+        this.clearScreen({ keepPrompt: true });
         continue;
       }
 
@@ -526,6 +592,26 @@ class MyShell {
         this.completionKey = '';
       }
     }
+  }
+
+  /** Clear viewport + scrollback buffer, optionally redraw the prompt. */
+  clearScreen({ keepPrompt = true } = {}) {
+    // ESC[3J = erase saved lines (scrollback); ESC[2J = erase display; ESC[H = home.
+    this.sendRaw('\x1b[3J\x1b[2J\x1b[H');
+    this.atLineStart = true;
+    this.lineBuffer = '';
+    this.historyIndex = -1;
+    this.completionKey = '';
+    if (keepPrompt) this.prompt();
+  }
+
+  /** Remove one grapheme from the line and erase matching terminal cells. */
+  backspaceOnce() {
+    if (!this.lineBuffer) return;
+    const { rest, grapheme } = popLastGrapheme(this.lineBuffer);
+    if (!grapheme) return;
+    this.lineBuffer = rest;
+    eraseDisplayCells((s) => this.sendRaw(s), displayWidth(grapheme) || 1);
   }
 
   getCompletionContext(line) {
@@ -625,7 +711,7 @@ class MyShell {
 
   applyCompletion(tokenStart, completion) {
     const oldToken = this.lineBuffer.slice(tokenStart);
-    for (let i = 0; i < oldToken.length; i += 1) this.sendRaw('\b \b');
+    eraseDisplayCells((s) => this.sendRaw(s), displayWidth(oldToken));
     this.lineBuffer = this.lineBuffer.slice(0, tokenStart) + completion;
     this.sendRaw(completion);
     this.atLineStart = false;
@@ -698,11 +784,8 @@ class MyShell {
   }
 
   replaceLine(next) {
-    while (this.lineBuffer.length) {
-      this.lineBuffer = this.lineBuffer.slice(0, -1);
-      this.sendRaw('\b \b');
-    }
-    this.lineBuffer = next;
+    eraseDisplayCells((s) => this.sendRaw(s), displayWidth(this.lineBuffer));
+    this.lineBuffer = next || '';
     if (next) {
       this.sendRaw(next);
       this.atLineStart = false;
@@ -772,10 +855,7 @@ class MyShell {
         break;
       case 'clear':
       case 'cls':
-        this.sendRaw('\x1b[2J\x1b[H');
-        this.atLineStart = true;
-        this.lineBuffer = '';
-        this.prompt();
+        this.clearScreen({ keepPrompt: true });
         return true;
       case 'echo':
         // Supports: echo hello\nworld  → real line break

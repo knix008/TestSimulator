@@ -390,19 +390,19 @@ function promptGitModeOptionsHtml(i18n, selected = 'status') {
 function promptBodyHtml(i18n, { template, presets, gitMode, presetId }) {
   return `
     <p class="form-hint">${i18n.t('prompt.hint')}</p>
+    ${promptPresetsHtml(i18n, presets, presetId || '')}
     <p class="form-hint">${i18n.t('prompt.ohmyzshHint')}</p>
     <div class="form-grid">
-      <label for="prompt-template">${i18n.t('prompt.template')}</label>
-      <textarea id="prompt-template" class="form-input form-textarea" rows="3">${escapeHtml(
-        template || ''
-      )}</textarea>
       <label for="prompt-git-mode">${i18n.t('prompt.gitMode')}</label>
       <select id="prompt-git-mode" class="settings-select">
         ${promptGitModeOptionsHtml(i18n, gitMode || 'status')}
       </select>
+      <label for="prompt-template">${i18n.t('prompt.template')}</label>
+      <textarea id="prompt-template" class="form-input form-textarea" rows="3">${escapeHtml(
+        template || ''
+      )}</textarea>
     </div>
     <p class="form-hint">${i18n.t('prompt.gitModeHint')}</p>
-    ${promptPresetsHtml(i18n, presets, presetId || '')}
     <p class="form-hint mono">${i18n.t('prompt.tokens')}</p>
   `;
 }

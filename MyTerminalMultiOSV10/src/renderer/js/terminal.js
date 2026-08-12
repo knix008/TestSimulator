@@ -2,6 +2,7 @@ import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import { SerializeAddon } from '@xterm/addon-serialize';
+import { CanvasAddon } from '@xterm/addon-canvas';
 import { toXtermTheme } from './themes.js';
 import { WebShell } from './web-shell.js';
 
@@ -59,6 +60,10 @@ export class TerminalPane {
       fontSize: this.fontSize,
       scrollback: this.scrollback,
       allowProposedApi: true,
+      // Needed so wallpaper can show through rgba(0,0,0,0) terminal background.
+      allowTransparency: true,
+      // Canvas renderer draws Powerline  as a filled triangle (agnoster tips).
+      customGlyphs: true,
       // Keep mouse drag selection enabled (not application mouse mode).
       rightClickSelectsWord: false,
       theme: toXtermTheme(getTheme(), !!this.getHasBackgroundImage()),
@@ -76,6 +81,12 @@ export class TerminalPane {
     );
 
     this.term.open(host);
+    // DOM renderer cannot draw powerline custom glyphs; canvas can.
+    try {
+      this.term.loadAddon(new CanvasAddon());
+    } catch (_) {
+      /* keep DOM fallback */
+    }
     this.term.onData((data) => this.writeInput(data));
     this.term.attachCustomKeyEventHandler((ev) => this.handleClipboardKeys(ev));
     this.term.onScroll(() => this.syncScrollbarVisibility());
@@ -250,7 +261,7 @@ export class TerminalPane {
   }
 
   clear() {
-    // Route through shell (Ctrl+L) so the configured prompt is redrawn.
+    // Route through shell (Ctrl+L) so scrollback is wiped and the prompt is redrawn.
     if (this.api?.isElectron) {
       this.writeInput('\u000c');
       queueMicrotask(() => this.syncScrollbarVisibility());
@@ -261,9 +272,10 @@ export class TerminalPane {
       queueMicrotask(() => this.syncScrollbarVisibility());
       return;
     }
+    // Fallback: xterm.clear() drops scrollback; CSI also resets the viewport.
     this.term.clear();
+    this.term.write('\x1b[3J\x1b[2J\x1b[H');
     this.syncScrollbarVisibility();
-    this.term.write('\x1b[2J\x1b[H');
   }
 
   async copy() {
@@ -292,6 +304,13 @@ export class TerminalPane {
       } else if (navigator.clipboard?.readText) {
         text = await navigator.clipboard.readText();
       }
+      if (!text) return false;
+      // Line-oriented shell: don't auto-submit on paste; keep as one editable line.
+      text = String(text)
+        .replace(/\r\n/g, '\n')
+        .replace(/\r/g, '\n')
+        .replace(/\n+$/g, '')
+        .replace(/\n/g, ' ');
       if (text) this.writeInput(text);
       return !!text;
     } catch (_) {

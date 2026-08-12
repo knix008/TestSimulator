@@ -172,7 +172,8 @@ export class WebShell {
         this.buffer = '';
         this.prompt();
       } else if (ch === '\u000c') {
-        this.onData('\x1b[2J\x1b[H');
+        this.onData('\x1b[3J\x1b[2J\x1b[H');
+        this.buffer = '';
         this.prompt();
       } else if (ch === '\t') {
         this.autocomplete();
@@ -329,7 +330,8 @@ export class WebShell {
         break;
       case 'clear':
       case 'cls':
-        this.onData('\x1b[2J\x1b[H');
+        // Clear scrollback (3J) and viewport (2J), then home cursor.
+        this.onData('\x1b[3J\x1b[2J\x1b[H');
         this.buffer = '';
         this.prompt();
         return;

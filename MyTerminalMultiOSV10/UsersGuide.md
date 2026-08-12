@@ -160,15 +160,15 @@ npm run web
 | `run` / `exec` | 외부 프로그램 명시 실행 (선택). 내장 명령이 아니면 이름만 입력해도 PATH에서 실행됩니다 |
 | `uname` / `sysinfo` | 시스템 정보 |
 
-`prompt` 토큰 예: `{user}` `{host}` `{cwd}` `{cwd:short}` `{cwd:tail}` `{git:info}` `{git:branch}` `{time}` `{date}` `{cyan}` `{yellow}` `{reset}` 등.
+`prompt` 토큰 예: `{user}` `{host}` `{cwd}` `{cwd:short}` `{cwd:tail}` `{git:info}` `{git:branch}` `{git:segment}` `{time}` `{date}` `{cyan}` `{yellow}` `{reset}` 등.
 
-툴바 **프롬프트**에서 [Oh My Zsh](https://ohmyz.sh/) 스타일(robbyrussell, cloud, arrow, agnoster 등)을 고를 수 있습니다. MyShell용 테마 재현이며, 시스템에 Zsh/Oh My Zsh를 설치하는 것은 아닙니다.
+툴바 **프롬프트**에서 [Oh My Zsh](https://ohmyz.sh/) 스타일(robbyrussell, cloud, arrow, agnoster 등)을 고를 수 있습니다. MyShell용 테마 재현이며, 시스템에 Zsh/Oh My Zsh를 설치하는 것은 아닙니다. agnoster 세그먼트 끝은 Powerline 삼각형(``)으로 그려집니다.
 
 **Git 상태** 옵션:
 - 끄기
 - 브랜치만 → `git:(main)`
 - 브랜치 + 변경 → 수정 파일이 있으면 `x` 표시  
-템플릿에 `{git:info}`가 없어도 옵션이 켜져 있으면 프롬프트에 자동으로 붙습니다.  
+템플릿에 `{git:info}` / `{git:segment}`가 없어도 옵션이 켜져 있으면 `{git:info}`가 자동으로 붙습니다.  
 적용한 프롬프트 템플릿·Git 표시 옵션·선택한 프리셋은 설정에 저장되며, 앱을 다시 실행해도 복원됩니다.
 
 **Tab 자동완성:** 명령어 이름과 파일/폴더 경로를 보완합니다. 후보가 여러 개면 한 번 더 Tab을 눌러 목록을 볼 수 있습니다.

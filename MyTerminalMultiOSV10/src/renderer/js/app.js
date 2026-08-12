@@ -140,6 +140,7 @@ function activePane() {
 }
 
 async function persist() {
+  const hasWallpaper = !!(state.backgroundImageId || state.backgroundImage);
   const payload = {
     themeId: state.themeId,
     custom: state.custom,
@@ -151,13 +152,6 @@ async function persist() {
     showStatusBar: state.showStatusBar,
     showTrayIcon: state.showTrayIcon,
     bgTransparency: state.bgTransparency,
-    // Electron keeps image files under userData; web stores data URLs in settings.
-    backgroundImage: api.isElectron
-      ? state.backgroundImage
-        ? 'file'
-        : ''
-      : state.backgroundImage || '',
-    backgroundImageId: state.backgroundImageId || '',
     backgroundImageDir: state.backgroundImageDir || '',
     backgroundFit: state.backgroundFit,
     promptTemplate: state.promptTemplate,
@@ -172,7 +166,15 @@ async function persist() {
         }
       : null,
   };
-  if (!api.isElectron) {
+  if (api.isElectron) {
+    // Files live in userData/backgrounds; settings only keep markers + prefs.
+    // Keep the marker whenever an id is known so a transient empty dataUrl
+    // cannot wipe wallpaper selection on the next launch.
+    payload.backgroundImage = hasWallpaper ? 'file' : '';
+    payload.backgroundImageId = state.backgroundImageId || '';
+  } else {
+    payload.backgroundImage = state.backgroundImage || '';
+    payload.backgroundImageId = state.backgroundImageId || '';
     payload.backgroundLibrary = (state.backgroundLibrary || []).map((item) => ({
       id: item.id,
       name: item.name,
@@ -180,6 +182,95 @@ async function persist() {
     }));
   }
   await api.setSettings(payload);
+}
+
+/** Restore wallpaper + transparency prefs from settings / background library. */
+async function restoreBackgroundFromSettings(saved = {}) {
+  state.bgTransparency = clampTransparency(saved.bgTransparency ?? 0);
+  state.backgroundFit = normalizeBgFit(saved.backgroundFit || DEFAULT_BG_FIT);
+  state.backgroundImageDir =
+    typeof saved.backgroundImageDir === 'string' ? saved.backgroundImageDir : '';
+  state.backgroundImage = '';
+  state.backgroundImageId =
+    typeof saved.backgroundImageId === 'string' ? saved.backgroundImageId : '';
+  state.backgroundLibrary = Array.isArray(saved.backgroundLibrary)
+    ? saved.backgroundLibrary.filter((item) => item?.id && item?.dataUrl)
+    : [];
+
+  const savedId = state.backgroundImageId;
+  const wantsFile = saved.backgroundImage === 'file' || !!savedId;
+
+  if (api.isElectron && api.listBackgroundImages) {
+    try {
+      const listed = await api.listBackgroundImages();
+      if (listed?.ok) {
+        state.backgroundLibrary = listed.items || [];
+        let activeId = listed.activeId || savedId || '';
+        let active = state.backgroundLibrary.find((item) => item.id === activeId);
+        if (!active && wantsFile && state.backgroundLibrary.length) {
+          active = state.backgroundLibrary[0];
+          activeId = active.id;
+        }
+        state.backgroundImageId = active?.id || '';
+        state.backgroundImage = active?.dataUrl || '';
+        // Re-align library activeId with settings after a partial wipe.
+        if (
+          state.backgroundImageId &&
+          state.backgroundImageId !== listed.activeId &&
+          api.selectBackgroundImage
+        ) {
+          try {
+            await api.selectBackgroundImage(state.backgroundImageId);
+          } catch (_) {
+            /* ignore */
+          }
+        }
+      }
+    } catch (_) {
+      /* fall through */
+    }
+  }
+
+  if (!state.backgroundImage && api.isElectron && api.loadBackgroundImage && wantsFile) {
+    try {
+      const loaded = await api.loadBackgroundImage();
+      if (loaded?.ok && loaded.dataUrl) {
+        state.backgroundImage = loaded.dataUrl;
+        state.backgroundImageId = loaded.activeId || state.backgroundImageId;
+      }
+    } catch (_) {
+      /* ignore */
+    }
+  }
+
+  if (
+    !state.backgroundImage &&
+    typeof saved.backgroundImage === 'string' &&
+    saved.backgroundImage.startsWith('data:')
+  ) {
+    state.backgroundImage = saved.backgroundImage;
+    if (!state.backgroundLibrary.length) {
+      state.backgroundImageId = state.backgroundImageId || 'bg_web_1';
+      state.backgroundLibrary = [
+        {
+          id: state.backgroundImageId,
+          name: 'Wallpaper',
+          dataUrl: state.backgroundImage,
+        },
+      ];
+    } else {
+      const active = state.backgroundLibrary.find(
+        (item) => item.id === state.backgroundImageId
+      );
+      if (active?.dataUrl) state.backgroundImage = active.dataUrl;
+    }
+  } else if (!state.backgroundImage && state.backgroundLibrary.length) {
+    const active =
+      state.backgroundLibrary.find((item) => item.id === state.backgroundImageId) ||
+      state.backgroundLibrary[0];
+    state.backgroundImageId = active.id;
+    state.backgroundImage = active.dataUrl || '';
+  }
 }
 
 function updateRemoteButton() {
@@ -584,6 +675,7 @@ function bindToolbar() {
       state.promptPresets = presets;
     }
     if (!presets) {
+      // Offline/web fallback — main process normally supplies the full list.
       presets = {
         default: { id: 'default', group: 'basic', template: DEFAULT_PROMPT },
         classic: {
@@ -613,12 +705,18 @@ function bindToolbar() {
           id: 'ohmyzsh_cloud',
           group: 'ohmyzsh',
           template:
-            '{cyan}{user}{reset}@{green}{host}{reset} {yellow}{cwd:short}{reset} {magenta}~{reset} ',
+            '{cyan}{user}{reset}@{green}{host}{reset} {yellow}{cwd:short}{reset}{git:info} {magenta}~{reset} ',
         },
         ohmyzsh_arrow: {
           id: 'ohmyzsh_arrow',
           group: 'ohmyzsh',
           template: '{bold}{yellow}>{reset} {cyan}{cwd:tail}{reset}{git:info} ',
+        },
+        ohmyzsh_agnoster: {
+          id: 'ohmyzsh_agnoster',
+          group: 'ohmyzsh',
+          template:
+            '{bg_blue}{white} {user}@{host} {bg_yellow}{black} {cwd:short} {git:segment}',
         },
       };
     }
@@ -849,14 +947,21 @@ function bindToolbar() {
           state.fontSize = Math.max(10, Math.min(28, Number.parseInt(fontSize, 10) || state.fontSize));
           sessions?.setFontSize(state.fontSize);
         }
-        const nextImage = backgroundImage || '';
-        const imageChanged = nextImage !== state.backgroundImage;
-        state.backgroundImage = nextImage;
-        state.backgroundImageId =
-          typeof backgroundImageId === 'string' ? backgroundImageId : state.backgroundImageId;
         if (Array.isArray(backgroundLibrary)) {
           state.backgroundLibrary = backgroundLibrary;
         }
+        if (typeof backgroundImageId === 'string') {
+          state.backgroundImageId = backgroundImageId;
+        }
+        // Prefer explicit image; otherwise resolve from library id (avoid wiping on '').
+        let nextImage = typeof backgroundImage === 'string' ? backgroundImage : state.backgroundImage;
+        if (!nextImage && state.backgroundImageId) {
+          nextImage =
+            state.backgroundLibrary.find((item) => item.id === state.backgroundImageId)
+              ?.dataUrl || '';
+        }
+        const imageChanged = nextImage !== state.backgroundImage;
+        state.backgroundImage = nextImage;
         state.backgroundFit = normalizeBgFit(backgroundFit || state.backgroundFit);
         // New wallpaper: show it fully (0% image transparency).
         if (imageChanged && nextImage) {
@@ -967,62 +1072,7 @@ async function boot() {
   }
   state.showStatusBar = saved.showStatusBar !== false;
   state.showTrayIcon = !!saved.showTrayIcon;
-  state.bgTransparency = clampTransparency(saved.bgTransparency ?? 0);
-  state.backgroundImage = '';
-  state.backgroundImageId =
-    typeof saved.backgroundImageId === 'string' ? saved.backgroundImageId : '';
-  state.backgroundLibrary = Array.isArray(saved.backgroundLibrary)
-    ? saved.backgroundLibrary.filter((item) => item?.id && item?.dataUrl)
-    : [];
-  if (api.isElectron && api.listBackgroundImages) {
-    try {
-      const listed = await api.listBackgroundImages();
-      if (listed?.ok) {
-        state.backgroundLibrary = listed.items || [];
-        state.backgroundImageId = listed.activeId || '';
-        const active = state.backgroundLibrary.find(
-          (item) => item.id === state.backgroundImageId
-        );
-        state.backgroundImage = active?.dataUrl || '';
-      }
-    } catch (_) {
-      /* ignore */
-    }
-  } else if (api.isElectron && api.loadBackgroundImage && saved.backgroundImage === 'file') {
-    try {
-      const loaded = await api.loadBackgroundImage();
-      if (loaded?.ok && loaded.dataUrl) {
-        state.backgroundImage = loaded.dataUrl;
-        state.backgroundImageId = loaded.activeId || state.backgroundImageId;
-      }
-    } catch (_) {
-      /* ignore */
-    }
-  } else if (typeof saved.backgroundImage === 'string' && saved.backgroundImage.startsWith('data:')) {
-    state.backgroundImage = saved.backgroundImage;
-    if (!state.backgroundLibrary.length) {
-      state.backgroundImageId = state.backgroundImageId || 'bg_web_1';
-      state.backgroundLibrary = [
-        {
-          id: state.backgroundImageId,
-          name: 'Wallpaper',
-          dataUrl: state.backgroundImage,
-        },
-      ];
-    } else {
-      const active = state.backgroundLibrary.find((item) => item.id === state.backgroundImageId);
-      if (active?.dataUrl) state.backgroundImage = active.dataUrl;
-    }
-  } else if (state.backgroundLibrary.length) {
-    const active =
-      state.backgroundLibrary.find((item) => item.id === state.backgroundImageId) ||
-      state.backgroundLibrary[0];
-    state.backgroundImageId = active.id;
-    state.backgroundImage = active.dataUrl || '';
-  }
-  state.backgroundImageDir =
-    typeof saved.backgroundImageDir === 'string' ? saved.backgroundImageDir : '';
-  state.backgroundFit = normalizeBgFit(saved.backgroundFit || DEFAULT_BG_FIT);
+  await restoreBackgroundFromSettings(saved);
   state.promptTemplate = asciiSafePromptGlyphs(
     saved.promptTemplate || DEFAULT_PROMPT
   );
@@ -1044,6 +1094,11 @@ async function boot() {
   if (!state.promptPresetId) {
     state.promptPresetId =
       findPromptPresetId(state.promptTemplate, state.promptPresets) || 'custom';
+  }
+  // Refresh any built-in preset from main so OMZ theme fixes replace stale settings.
+  const builtinTemplate = state.promptPresets?.[state.promptPresetId]?.template;
+  if (builtinTemplate) {
+    state.promptTemplate = builtinTemplate;
   }
 
   await applyLanguage(state.lang);
@@ -1111,11 +1166,16 @@ async function boot() {
       scrollback: state.scrollback,
     });
   }
+  // Re-apply after panes exist so wallpaper transparency hits xterm + CSS together.
+  updateTransparencyUi();
+  applyTheme();
   applyFont();
   applyScrollback();
   updateFontUi();
   updateTextColorUi();
   updateStatusBar();
+  // Persist restored visual prefs so markers stay aligned with the library.
+  await persist();
 
   bindToolbar();
   // After labels paint: lock min width to toolbar content and start at that size.

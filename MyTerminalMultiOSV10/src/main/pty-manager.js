@@ -6,6 +6,8 @@ const { SshSession } = require('./ssh-session');
 const {
   DEFAULT_PROMPT,
   DEFAULT_PROMPT_GIT_MODE,
+  PROMPT_PRESETS,
+  syncBuiltinPromptTemplate,
   normalizePromptGitMode,
   asciiSafePromptGlyphs,
   findPromptPresetId,
@@ -58,6 +60,13 @@ function loadDirectoryPrefsFromSettings(settings = {}) {
   }
   if (typeof settings.promptTemplate === 'string' && settings.promptTemplate.length) {
     lastOptions.promptTemplate = asciiSafePromptGlyphs(settings.promptTemplate);
+  }
+  // Built-in presets always refresh from prompt.js so OMZ theme fixes ship on upgrade.
+  if (typeof settings.promptPresetId === 'string' && settings.promptPresetId) {
+    lastOptions.promptTemplate = syncBuiltinPromptTemplate(
+      settings.promptPresetId,
+      lastOptions.promptTemplate
+    );
   }
   if (settings.promptGitMode != null) {
     lastOptions.promptGitMode = normalizePromptGitMode(settings.promptGitMode);
@@ -147,7 +156,7 @@ function setPromptTemplate(payload) {
         : '';
 
   if (template) {
-    lastOptions.promptTemplate = template;
+    lastOptions.promptTemplate = syncBuiltinPromptTemplate(presetId, template);
   }
   if (gitMode != null) {
     lastOptions.promptGitMode = gitMode;
@@ -155,7 +164,7 @@ function setPromptTemplate(payload) {
 
   for (const session of sessions.values()) {
     if (session.type !== 'local' || !session.shell) continue;
-    if (template) session.shell.setPromptTemplate(template);
+    if (template) session.shell.setPromptTemplate(lastOptions.promptTemplate);
     if (gitMode != null) session.shell.setPromptGitMode(gitMode);
   }
 

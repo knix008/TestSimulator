@@ -76,8 +76,7 @@ const PROMPT_PRESETS = {
     group: 'basic',
     template: '{red}{user}{reset}@{yellow}{host}{reset}:{cyan}{cwd:short}{reset}# ',
   },
-  // Oh My Zsh-inspired themes (MyShell templates; not a real zsh/OMZ install).
-  // Use ASCII glyphs so Consolas / Courier New do not show tofu boxes.
+  // Oh My Zsh-inspired themes (MyShell approximations; ASCII-safe glyphs).
   // See https://ohmyz.sh/
   ohmyzsh_robbyrussell: {
     id: 'ohmyzsh_robbyrussell',
@@ -87,7 +86,8 @@ const PROMPT_PRESETS = {
   ohmyzsh_cloud: {
     id: 'ohmyzsh_cloud',
     group: 'ohmyzsh',
-    template: '{cyan}{user}{reset}@{green}{host}{reset} {yellow}{cwd:short}{reset} {magenta}~{reset} ',
+    template:
+      '{cyan}{user}{reset}@{green}{host}{reset} {yellow}{cwd:short}{reset}{git:info} {magenta}~{reset} ',
   },
   ohmyzsh_arrow: {
     id: 'ohmyzsh_arrow',
@@ -120,20 +120,22 @@ const PROMPT_PRESETS = {
   ohmyzsh_agnoster: {
     id: 'ohmyzsh_agnoster',
     group: 'ohmyzsh',
+    // Blue / yellow (and git) segments; right-edge  triangles via applyPowerlineEnds().
+    // Requires xterm canvas renderer + customGlyphs (see terminal.js).
     template:
-      '{bg_blue}{white} {user}@{host} {reset}{bg_yellow}{black} {cwd:short} {reset}{git:segment}{reset} ',
+      '{bg_blue}{white} {user}@{host} {bg_yellow}{black} {cwd:short} {git:segment}',
   },
   ohmyzsh_dallas: {
     id: 'ohmyzsh_dallas',
     group: 'ohmyzsh',
     template:
-      '{bold}{magenta}[{time}]{reset} {cyan}{user}{reset}@{green}{host}{reset} {yellow}{cwd:short}{reset}{git:info}\n{red}$${reset} ',
+      '{bold}{magenta}[{time}]{reset} {cyan}{user}{reset}@{green}{host}{reset} {yellow}{cwd:short}{reset}{git:info}\n{red}${reset} ',
   },
   ohmyzsh_ys: {
     id: 'ohmyzsh_ys',
     group: 'ohmyzsh',
     template:
-      '{blue}#{reset} {cyan}{user}{reset} {blue}in{reset} {yellow}{cwd:short}{reset}{git:info} {blue}[{time}]{reset}\n{red}$${reset} ',
+      '{blue}#{reset} {cyan}{user}{reset} {blue}in{reset} {yellow}{cwd:short}{reset}{git:info} {blue}[{time}]{reset}\n{red}${reset} ',
   },
 };
 
@@ -167,8 +169,9 @@ const emptyGitTokens = Object.freeze({
   'git:dirty': '',
   'git:clean': '',
   'git:info': '',
-  'git:segment': '',
   'git:status': '',
+  // Close open bg segment (powerline tip added by applyPowerlineEnds).
+  'git:segment': `${COLORS.reset} `,
 });
 
 /** @type {Map<string, { at: number, root: string, branch: string }>} */
@@ -261,8 +264,8 @@ function gitTokens(cwd, mode = DEFAULT_PROMPT_GIT_MODE) {
     gitMode === 'status' && dirty ? ` ${COLORS.yellow}x${COLORS.reset}` : '';
   const info = ` ${COLORS.bold}${COLORS.blue}git:(${COLORS.red}${repo.branch}${COLORS.blue})${COLORS.reset}${dirtyMark}`;
   const segmentBase = dirty
-    ? `${COLORS.bg_red}${COLORS.white} ${repo.branch} x ${COLORS.reset}`
-    : `${COLORS.bg_magenta}${COLORS.white} ${repo.branch} ${COLORS.reset}`;
+    ? `${COLORS.bg_red}${COLORS.white} ${repo.branch} x ${COLORS.reset} `
+    : `${COLORS.bg_magenta}${COLORS.white} ${repo.branch} ${COLORS.reset} `;
 
   return {
     'git:branch': repo.branch,
@@ -272,6 +275,130 @@ function gitTokens(cwd, mode = DEFAULT_PROMPT_GIT_MODE) {
     'git:status': info,
     'git:segment': segmentBase,
   };
+}
+
+/** Map ANSI background color code → matching foreground code. */
+const BG_TO_FG = {
+  40: 30,
+  41: 31,
+  42: 32,
+  43: 33,
+  44: 34,
+  45: 35,
+  46: 36,
+  47: 37,
+  100: 90,
+  101: 91,
+  102: 92,
+  103: 93,
+  104: 94,
+  105: 95,
+  106: 96,
+  107: 97,
+};
+
+function isBgCode(code) {
+  return (code >= 40 && code <= 47) || (code >= 100 && code <= 107);
+}
+
+/** Powerline right hard divider (xterm draws this as a filled triangle). */
+const POWERLINE_RIGHT = '\uE0B0';
+
+/**
+ * After any painted (background) segment, append a powerline divider so the
+ * colored block itself ends in a ">" shape (not a literal ASCII ">").
+ * Applies to every prompt that uses {bg_*} — each segment color gets a tip.
+ */
+function applyPowerlineEnds(text) {
+  const src = String(text ?? '');
+  if (!/\x1b\[[0-9;]*m/.test(src)) return src;
+
+  let out = '';
+  let i = 0;
+  let currentBg = null;
+
+  const readSgr = (from) => {
+    if (src[from] !== '\x1b' || src[from + 1] !== '[') return null;
+    const end = src.indexOf('m', from + 2);
+    if (end === -1) return null;
+    const params = src
+      .slice(from + 2, end)
+      .split(';')
+      .filter((p) => p !== '')
+      .map((p) => Number(p));
+    return { end, params, seq: src.slice(from, end + 1) };
+  };
+
+  const isTipChar = (ch) => ch === POWERLINE_RIGHT || ch === '>';
+
+  /** True if upcoming codes are only fg/style then an existing tip glyph. */
+  const tipAhead = (from) => {
+    let j = from;
+    while (j < src.length) {
+      const sgr = readSgr(j);
+      if (sgr) {
+        if (sgr.params.some((p) => p === 0 || isBgCode(p))) return false;
+        j = sgr.end + 1;
+        continue;
+      }
+      return isTipChar(src[j]);
+    }
+    return false;
+  };
+
+  /**
+   * Divider cell: triangle filled with previous segment color.
+   * Next segment color is the cell background (classic agnoster/powerline).
+   */
+  const writeTip = (fromBg, toBg) => {
+    const fg = BG_TO_FG[fromBg];
+    if (fg == null) return;
+    if (toBg != null) {
+      // e.g. blue block → yellow block: yellow bg + blue-filled 
+      out += `\x1b[0m\x1b[${toBg}m\x1b[${fg}m${POWERLINE_RIGHT}`;
+    } else {
+      // Last segment → default:  in previous color, then reset.
+      out += `\x1b[0m\x1b[${fg}m${POWERLINE_RIGHT}\x1b[0m`;
+    }
+  };
+
+  while (i < src.length) {
+    const sgr = readSgr(i);
+    if (!sgr) {
+      out += src[i];
+      i += 1;
+      continue;
+    }
+
+    let nextBg = currentBg;
+    let sawReset = false;
+    let sawBg = false;
+    for (const p of sgr.params) {
+      if (p === 0) {
+        sawReset = true;
+        nextBg = null;
+      } else if (isBgCode(p)) {
+        sawBg = true;
+        nextBg = p;
+      }
+    }
+
+    if (currentBg != null && nextBg !== currentBg && (sawReset || sawBg)) {
+      if (!tipAhead(sgr.end + 1)) {
+        writeTip(currentBg, nextBg);
+      }
+    }
+
+    out += sgr.seq;
+    currentBg = nextBg;
+    i = sgr.end + 1;
+  }
+
+  if (currentBg != null) {
+    writeTip(currentBg, null);
+  }
+
+  return out;
 }
 
 /** Map fancy OMZ glyphs to ASCII so common terminal fonts render them. */
@@ -330,7 +457,9 @@ function renderPrompt(template, ctx = {}) {
     .replace(/\\r/g, '\r')
     .replace(/\\e/g, '\x1b')
     .replace(/\\033/g, '\x1b');
-  return out;
+
+  // Any background-painted segment ends with a powerline triangle tip.
+  return applyPowerlineEnds(out);
 }
 
 /** Resolve a preset id from a template string (exact match after ASCII normalize). */
@@ -342,6 +471,21 @@ function findPromptPresetId(template, presets = PROMPT_PRESETS) {
   return '';
 }
 
+/** Built-in preset template, or '' if id is unknown/custom. */
+function builtinPresetTemplate(presetId) {
+  const preset = PROMPT_PRESETS[presetId];
+  return preset?.template ? String(preset.template) : '';
+}
+
+/**
+ * When a known built-in preset is selected, always use the current built-in
+ * template so theme fixes ship on upgrade without stale settings.json text.
+ */
+function syncBuiltinPromptTemplate(presetId, currentTemplate) {
+  const builtin = builtinPresetTemplate(presetId);
+  return builtin || currentTemplate;
+}
+
 module.exports = {
   COLORS,
   DEFAULT_PROMPT,
@@ -351,6 +495,8 @@ module.exports = {
   normalizePromptGitMode,
   asciiSafePromptGlyphs,
   findPromptPresetId,
+  builtinPresetTemplate,
+  syncBuiltinPromptTemplate,
   renderPrompt,
   shortCwd,
   cwdTail,

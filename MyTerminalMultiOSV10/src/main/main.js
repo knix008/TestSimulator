@@ -340,8 +340,9 @@ app.whenReady().then(() => {
   registerPopupIpc();
   registerDetachPreviewIpc();
   const settings = bootstrapSettings();
-  loadDirectoryPrefsFromSettings(settings);
-  applyTrayFromSettings(settings);
+  syncBackgroundSelectionFromSettings(settings);
+  loadDirectoryPrefsFromSettings(readSettings());
+  applyTrayFromSettings(readSettings());
   createWindow();
 
   app.on('activate', () => {
@@ -638,6 +639,43 @@ function getActiveBackgroundDataUrl() {
     return fileToDataUrl(filePath);
   } catch (_) {
     return null;
+  }
+}
+
+/** Keep library activeId and settings wallpaper markers in sync across restarts. */
+function syncBackgroundSelectionFromSettings(settings = {}) {
+  try {
+    const lib = readLibrary();
+    const settingsId =
+      typeof settings.backgroundImageId === 'string' ? settings.backgroundImageId : '';
+    const wantsFile = settings.backgroundImage === 'file' || !!settingsId;
+    let activeId = lib.activeId || '';
+    if (settingsId && lib.items.some((item) => item.id === settingsId)) {
+      activeId = settingsId;
+    } else if (!activeId && wantsFile && lib.items.length) {
+      activeId = lib.items[0].id;
+    }
+    if (activeId !== lib.activeId) {
+      lib.activeId = activeId;
+      writeLibrary(lib);
+    }
+    const hasImage = !!(activeId && lib.items.some((item) => item.id === activeId));
+    const patch = {
+      backgroundImage: hasImage ? 'file' : '',
+      backgroundImageId: hasImage ? activeId : '',
+    };
+    if (settings.bgTransparency != null) {
+      patch.bgTransparency = Math.max(
+        0,
+        Math.min(100, Number(settings.bgTransparency) || 0)
+      );
+    }
+    if (typeof settings.backgroundFit === 'string' && settings.backgroundFit) {
+      patch.backgroundFit = settings.backgroundFit;
+    }
+    updateSettings(patch);
+  } catch (_) {
+    /* ignore */
   }
 }
 

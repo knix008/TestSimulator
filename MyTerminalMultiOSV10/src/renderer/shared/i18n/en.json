@@ -127,7 +127,7 @@
       "branch": "Branch only",
       "status": "Branch + changes"
     },
-    "tokens": "Tokens: {user} {host} {cwd} {cwd:short} {cwd:tail} {git:branch} {git:info} {git:dirty} {git:clean} {time} {date} {shell} {remote} {cyan} {yellow} {green} {red} {blue} {magenta} {bold} {reset}",
+    "tokens": "Tokens: {user} {host} {cwd} {cwd:short} {cwd:tail} {git:branch} {git:info} {git:segment} {time} {date} {cyan} {yellow} {green} {red} {blue} {magenta} {bg_blue} {bg_yellow} {bold} {reset}",
     "apply": "Apply",
     "close": "Close",
     "groups": {
