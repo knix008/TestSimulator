@@ -292,11 +292,11 @@ function gitTokens(cwd, mode = DEFAULT_PROMPT_GIT_MODE) {
   const dirtyMark =
     gitMode === 'status' && dirty ? ` ${COLORS.yellow}x${COLORS.reset}` : '';
   const info = ` ${COLORS.bold}${COLORS.blue}git:(${COLORS.red}${repo.branch}${COLORS.blue})${COLORS.reset}${dirtyMark}`;
-  // Agnoster segment colors (status mode):
-  //   dirty  → bright red
-  //   clean but unpushed (ahead) → bright magenta
-  //   clean and pushed / in sync → bright green
-  // Bright backgrounds keep tip glyphs readable on wallpaper (same black text).
+  // Agnoster segment colors (status mode) — same paint path for all three:
+  // bright ANSI bg + black text + end tip `0;<brightFg>m` (see applyPowerlineEnds).
+  //   dirty  → bright red (101 / tip 91)
+  //   ahead  → bright magenta (105 / tip 95)
+  //   clean  → bright green (102 / tip 92)
   let segmentBase;
   if (dirty) {
     segmentBase = `${COLORS.bg_bright_red}${COLORS.black} ${repo.branch} x `;
@@ -350,8 +350,8 @@ const SEGMENT_TIP = '\uE0B0';
  * After any painted (background) segment, append a powerline tip cell.
  *
  * Mid tips: next segment ANSI bg + previous-color glyph (wedges = next color).
- * End tips: default/transparent bg + segment-colored  — the filled color
- * itself is the triangle tapering into the void (not a square bar with a cut).
+ * End tips: default/transparent bg + segment-colored  (agnoster taper).
+ * Red / magenta / green all use this same ANSI path — no truecolor special case.
  */
 function applyPowerlineEnds(text, _endTipBg) {
   const src = String(text ?? '');
@@ -394,11 +394,8 @@ function applyPowerlineEnds(text, _endTipBg) {
     const prevFg = BG_TO_FG[fromBg];
     if (prevFg == null) return;
     if (toBg != null) {
-      // Join: next segment paints the full cell; tip is previous color.
       out += `\x1b[${toBg};${prevFg}m${SEGMENT_TIP}`;
     } else {
-      // End: segment-colored triangle on transparent/default bg (agnoster).
-      // Same fg+bg or contrast tip on segment bg paints a square cell instead.
       out += `\x1b[0;${prevFg}m${SEGMENT_TIP}\x1b[0m`;
     }
   };
