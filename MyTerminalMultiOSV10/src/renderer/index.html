@@ -62,6 +62,7 @@
               <path d="M19 9 v6" />
             </svg>
           </button>
+          <span class="tb-font-size" id="font-size-label" aria-live="polite">14px</span>
           <div class="tb-menu-wrap">
             <button class="tb-btn" id="btn-font" data-i18n-title="toolbar.fontFamily" type="button" aria-haspopup="true">
               <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -70,7 +71,6 @@
                 <path d="M13 18 L16 9 L19 18" />
                 <path d="M14.1 15 h3.8" />
               </svg>
-              <span class="tb-font-label" id="font-label"></span>
             </button>
             <div class="tb-menu tb-menu-fonts" id="font-menu" hidden></div>
           </div>
@@ -103,8 +103,13 @@
             id="bg-transparency-wrap"
             data-i18n-title="toolbar.transparency"
             title="Transparency"
+            role="group"
+            aria-label="Transparency"
           >
-            <span class="tb-opacity-name" data-i18n="toolbar.transparency">Transparency</span>
+            <svg class="tb-opacity-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="12" r="8" />
+              <path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor" stroke="none" />
+            </svg>
             <span class="tb-opacity-bound">0%</span>
             <input
               id="bg-transparency"
@@ -123,17 +128,16 @@
           <div class="tb-menu-wrap">
             <button class="tb-btn" id="btn-bg-fit" data-i18n-title="toolbar.bgFit" type="button" aria-haspopup="true">
               <svg viewBox="0 0 24 24" aria-hidden="true">
-                <rect x="4" y="4" width="16" height="16" rx="2"/>
-                <path d="M4 14h16M10 4v16"/>
+                <rect x="3.5" y="5" width="17" height="14" rx="2"/>
+                <circle cx="9" cy="10" r="1.6"/>
+                <path d="M5.5 16.5l4.2-4.2 2.8 2.8 3.2-3.8 3.3 5.2"/>
               </svg>
-              <span class="tb-bg-fit-label" id="bg-fit-label"></span>
             </button>
             <div class="tb-menu" id="bg-fit-menu" hidden></div>
           </div>
           <div class="tb-menu-wrap">
             <button class="tb-btn" id="btn-lang" data-i18n-title="toolbar.language" type="button" aria-haspopup="true">
               <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3.5 3 14.5 0 18M12 3c-3 3.5-3 14.5 0 18"/></svg>
-              <span class="tb-lang-label" id="lang-label"></span>
             </button>
             <div class="tb-menu" id="lang-menu" hidden></div>
           </div>

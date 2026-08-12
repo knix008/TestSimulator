@@ -16,6 +16,12 @@ const {
   rememberCommand,
   getRecentPaths,
 } = require('./shell-memory');
+const {
+  DEFAULT_LS_DIRECTORY_COLOR,
+  DEFAULT_LS_FILE_COLOR,
+  normalizeLsColors,
+  colorizeLsName,
+} = require('./ls-colors');
 
 const VERSION = '1.0.0';
 const AUTHOR = 'SHKWON <knix008@naver.com>';
@@ -426,6 +432,14 @@ class MyShell {
       remote: false,
       ...(options.promptContext || {}),
     };
+    this.lsColors = normalizeLsColors({
+      directory: options.lsDirectoryColor || DEFAULT_LS_DIRECTORY_COLOR,
+      file: options.lsFileColor || DEFAULT_LS_FILE_COLOR,
+    });
+    this.endTipBg =
+      typeof options.endTipBg === 'string' && options.endTipBg
+        ? options.endTipBg
+        : '#1E1E1E';
   }
 
   setPromptTemplate(template) {
@@ -436,6 +450,25 @@ class MyShell {
 
   setPromptGitMode(mode) {
     this.promptGitMode = normalizePromptGitMode(mode);
+  }
+
+  setLsColors(colors = {}) {
+    this.lsColors = normalizeLsColors({
+      directory: colors.directory ?? colors.lsDirectoryColor,
+      file: colors.file ?? colors.lsFileColor,
+    });
+  }
+
+  setEndTipBg(hex) {
+    if (typeof hex === 'string' && hex.trim()) this.endTipBg = hex.trim();
+  }
+
+  formatLsEntry(name, isDirectory, { trailingSlash = false } = {}) {
+    const label =
+      isDirectory && trailingSlash && !String(name).endsWith('/')
+        ? `${name}/`
+        : name;
+    return colorizeLsName(label, !!isDirectory, this.lsColors);
   }
 
   emit(channel, payload) {
@@ -475,6 +508,7 @@ class MyShell {
       ...this.promptContext,
       cwd: this.cwd,
       gitMode: this.promptGitMode,
+      endTipBg: this.endTipBg,
     });
     this.sendRaw(toTerminalText(text));
     this.atLineStart = false;
@@ -1057,7 +1091,7 @@ class MyShell {
           path.dirname(target),
           asDir
         );
-      } else this.writeln(path.basename(target));
+      } else this.writeln(this.formatLsEntry(path.basename(target), false));
       return;
     }
 
@@ -1085,9 +1119,9 @@ class MyShell {
       return;
     }
 
-    // Classic `ls`: multi-column names (directories in blue with trailing /).
+    // Classic `ls`: multi-column names (dirs with trailing /).
     const names = entries.map((ent) =>
-      ent.isDirectory() ? `\x1b[34m${ent.name}/\x1b[0m` : ent.name
+      this.formatLsEntry(ent.name, ent.isDirectory(), { trailingSlash: true })
     );
     this.printColumns(names);
   }
@@ -1138,22 +1172,24 @@ class MyShell {
       const date = formatDirDate(mtime);
       if (ent.isDirectory ? ent.isDirectory() : stat.isDirectory()) {
         dirCount += 1;
+        const name = this.formatLsEntry(ent.name, true);
         if (windowsStyle) {
-          this.writeln(`${date}    <DIR>          \x1b[34m${ent.name}\x1b[0m`);
+          this.writeln(`${date}    <DIR>          ${name}`);
         } else {
           this.writeln(
-            `drwxr-xr-x  1 ${pad(formatSize(0), 10)} ${date} \x1b[34m${ent.name}\x1b[0m`
+            `drwxr-xr-x  1 ${pad(formatSize(0), 10)} ${date} ${name}`
           );
         }
       } else {
         fileCount += 1;
         totalBytes += stat.size || 0;
         const sizeStr = String(stat.size || 0).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+        const name = this.formatLsEntry(ent.name, false);
         if (windowsStyle) {
-          this.writeln(`${date} ${padLeft(sizeStr, 16)} ${ent.name}`);
+          this.writeln(`${date} ${padLeft(sizeStr, 16)} ${name}`);
         } else {
           this.writeln(
-            `-rw-r--r--  1 ${pad(formatSize(stat.size || 0), 10)} ${date} ${ent.name}`
+            `-rw-r--r--  1 ${pad(formatSize(stat.size || 0), 10)} ${date} ${name}`
           );
         }
       }

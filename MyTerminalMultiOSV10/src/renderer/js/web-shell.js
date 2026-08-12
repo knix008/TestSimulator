@@ -1,3 +1,5 @@
+import { colorizeLsName, normalizeLsColors } from './ls-colors.js';
+
 const WEB_BUILTINS = [
   'help',
   'clear',
@@ -40,7 +42,7 @@ function longestCommonPrefix(items) {
  * Browser-side built-in shell (virtual FS), mirroring MyShell branding/commands.
  */
 export class WebShell {
-  constructor({ onData, onExit, promptTemplate }) {
+  constructor({ onData, onExit, promptTemplate, lsColors }) {
     this.onData = onData;
     this.onExit = onExit;
     this.cwd = '/home/user';
@@ -52,6 +54,7 @@ export class WebShell {
     this.completionKey = '';
     this.promptTemplate =
       promptTemplate || '{cyan}myterm{reset}:{yellow}{cwd:short}{reset}> ';
+    this.lsColors = normalizeLsColors(lsColors || {});
     this.fs = {
       '/home/user': { type: 'dir' },
       '/home/user/Documents': { type: 'dir' },
@@ -67,6 +70,13 @@ export class WebShell {
   start(welcomeLines = []) {
     welcomeLines.forEach((line) => this.writeLine(line));
     this.prompt();
+  }
+
+  setLsColors(colors = {}) {
+    this.lsColors = normalizeLsColors({
+      directory: colors.directory ?? colors.lsDirectoryColor,
+      file: colors.file ?? colors.lsFileColor,
+    });
   }
 
   toTerminalText(text) {
@@ -355,10 +365,17 @@ export class WebShell {
       case 'dir': {
         const target = this.resolve(args[0] || '.');
         const names = this.listDir(target);
-        this.writeLine(names.length ? names.map((n) => {
-          const full = `${target}/${n}`.replace(/\/+/g, '/');
-          return this.fs[full]?.type === 'dir' ? `\x1b[34m${n}/\x1b[0m` : n;
-        }).join('  ') : '(empty)');
+        this.writeLine(
+          names.length
+            ? names
+                .map((n) => {
+                  const full = `${target}/${n}`.replace(/\/+/g, '/');
+                  const isDir = this.fs[full]?.type === 'dir';
+                  return colorizeLsName(isDir ? `${n}/` : n, isDir, this.lsColors);
+                })
+                .join('  ')
+            : '(empty)'
+        );
         break;
       }
       case 'cat':

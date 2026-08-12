@@ -1,7 +1,7 @@
 {
   "appName": "MyTerminal",
   "toolbar": {
-    "newSession": "New Session",
+    "newSession": "New Terminal",
     "clear": "Clear Terminal",
     "copy": "Copy Selection",
     "paste": "Paste",

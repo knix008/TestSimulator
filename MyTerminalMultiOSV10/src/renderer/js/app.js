@@ -10,6 +10,11 @@ import {
 } from './themes.js';
 import { SessionManager } from './session-manager.js';
 import {
+  DEFAULT_LS_DIRECTORY_COLOR,
+  DEFAULT_LS_FILE_COLOR,
+  normalizeLsColors,
+} from './ls-colors.js';
+import {
   openAboutModal,
   openSettingsModal,
   openPromptModal,
@@ -123,6 +128,8 @@ const state = {
   promptTemplate: DEFAULT_PROMPT,
   promptGitMode: DEFAULT_PROMPT_GIT_MODE,
   promptPresetId: 'default',
+  lsDirectoryColor: DEFAULT_LS_DIRECTORY_COLOR,
+  lsFileColor: DEFAULT_LS_FILE_COLOR,
   ssh: null,
   promptPresets: null,
 };
@@ -157,6 +164,10 @@ async function persist() {
     promptTemplate: state.promptTemplate,
     promptGitMode: state.promptGitMode,
     promptPresetId: state.promptPresetId || '',
+    lsDirectoryColor: state.lsDirectoryColor,
+    lsFileColor: state.lsFileColor,
+    // Opaque theme bg for agnoster end tips (same height as mid tips; no black fringe).
+    promptEndTipBg: currentTheme().background || '#1E1E1E',
     ssh: state.ssh
       ? {
           host: state.ssh.host,
@@ -343,9 +354,9 @@ function applyTheme() {
 }
 
 function updateFontUi() {
-  const label = document.getElementById('font-label');
   const font = getFontById(state.fontId);
-  if (label) label.textContent = font.label;
+  const sizeLabel = document.getElementById('font-size-label');
+  if (sizeLabel) sizeLabel.textContent = `${state.fontSize}px`;
   const btn = document.getElementById('btn-font');
   if (btn) {
     const tip = `${i18n.t('toolbar.fontFamily')}: ${font.label}`;
@@ -382,8 +393,6 @@ function bgFitLabel(id = state.backgroundFit) {
 }
 
 function updateBgFitUi() {
-  const label = document.getElementById('bg-fit-label');
-  if (label) label.textContent = bgFitLabel();
   const btn = document.getElementById('btn-bg-fit');
   if (btn) {
     const tip = `${i18n.t('toolbar.bgFit')}: ${bgFitLabel()}`;
@@ -396,6 +405,7 @@ function updateBgFitUi() {
 function applyBackgroundFit(fitId, { persistSettings = true } = {}) {
   state.backgroundFit = normalizeBgFit(fitId);
   applyTheme();
+  syncToolbarMinWidth();
   if (persistSettings) persist();
 }
 
@@ -425,6 +435,7 @@ function applyFont() {
   const font = getFontById(state.fontId);
   sessions?.setFontFamily(font.family);
   updateFontUi();
+  syncToolbarMinWidth();
 }
 
 function applyScrollback() {
@@ -437,8 +448,6 @@ function langLabel(lang = state.lang) {
 }
 
 function updateLangUi() {
-  const label = document.getElementById('lang-label');
-  if (label) label.textContent = langLabel();
   const btn = document.getElementById('btn-lang');
   if (btn) {
     const tip = `${i18n.t('toolbar.language')}: ${langLabel()}`;
@@ -473,40 +482,48 @@ async function applyLanguage(lang) {
   syncToolbarMinWidth();
 }
 
+/** Fallback / floor until layout is measured (brand + actions + opacity + win btns). */
+const TOOLBAR_MIN_WIDTH_FLOOR = 920;
+const TOOLBAR_MIN_WIDTH_CAP = 1800;
+
 /**
  * Intrinsic toolbar content width (never use toolbar.scrollWidth — that tracks
  * the window width and caused unbounded growth via setMinSize feedback).
+ * Includes flex gap, horizontal margins, and spacer min-width so the close (X)
+ * control is never clipped when the window is at minimum size.
  */
 function measureToolbarMinWidth() {
   const toolbar = document.getElementById('toolbar');
-  if (!toolbar) return 1100;
+  if (!toolbar) return TOOLBAR_MIN_WIDTH_FLOOR;
 
-  const brand = toolbar.querySelector('.toolbar-brand');
-  const actions = document.getElementById('toolbar-actions');
-  const about = document.getElementById('btn-about');
-  const controls = document.getElementById('window-controls');
   const styles = getComputedStyle(toolbar);
   const pad =
     (parseFloat(styles.paddingLeft) || 0) + (parseFloat(styles.paddingRight) || 0);
   const gap = parseFloat(styles.columnGap || styles.gap) || 0;
 
-  const sections = [brand, actions, about, controls].filter((el) => {
-    if (!el) return false;
+  const kids = Array.from(toolbar.children).filter((el) => {
     const cs = getComputedStyle(el);
     return cs.display !== 'none' && cs.visibility !== 'hidden';
   });
 
-  // Sum only non-stretching sections + minimum spacer.
-  const spacerMin = 16;
-  const sectionCount = sections.length + 1;
-  const gaps = Math.max(0, sectionCount - 1) * gap;
   let contentWidth = 0;
-  for (const el of sections) {
-    // scrollWidth of flex:0 0 auto children = content size, not window size.
-    contentWidth += el.scrollWidth;
-  }
-  const measured = Math.ceil(pad + contentWidth + spacerMin + gaps + 8);
-  return Math.min(1800, Math.max(900, measured));
+  kids.forEach((el, idx) => {
+    if (idx > 0) contentWidth += gap;
+    const cs = getComputedStyle(el);
+    contentWidth += (parseFloat(cs.marginLeft) || 0) + (parseFloat(cs.marginRight) || 0);
+    if (el.classList.contains('toolbar-spacer')) {
+      // Spacer shrinks; reserve only its minimum so min-width stays stable.
+      contentWidth += parseFloat(cs.minWidth) || 16;
+      return;
+    }
+    // scrollWidth = intrinsic content; rect width helps when fonts just painted.
+    const rectW = el.getBoundingClientRect().width;
+    contentWidth += Math.max(el.scrollWidth, Math.ceil(rectW));
+  });
+
+  // DPI / resize-border safety so the X button stays fully inside the client area.
+  const measured = Math.ceil(pad + contentWidth + 20);
+  return Math.min(TOOLBAR_MIN_WIDTH_CAP, Math.max(TOOLBAR_MIN_WIDTH_FLOOR, measured));
 }
 
 /** @param {{ resizeToMin?: boolean }} [opts] */
@@ -716,7 +733,7 @@ function bindToolbar() {
           id: 'ohmyzsh_agnoster',
           group: 'ohmyzsh',
           template:
-            '{bg_blue}{white} {user}@{host} {bg_yellow}{black} {cwd:short} {git:segment}',
+            '{bg_blue}{white} {user}@{host} {bg_yellow}{black} {cwd:short} {git:segment}{reset} ',
         },
       };
     }
@@ -759,12 +776,16 @@ function bindToolbar() {
   on('btn-paste', () => activePane()?.paste());
   on('btn-font-dec', async () => {
     state.fontSize = sessions.changeFont(-1) || state.fontSize;
+    updateFontUi();
     updateStatusBar();
+    syncToolbarMinWidth();
     await persist();
   });
   on('btn-font-inc', async () => {
     state.fontSize = sessions.changeFont(1) || state.fontSize;
+    updateFontUi();
     updateStatusBar();
+    syncToolbarMinWidth();
     await persist();
   });
 
@@ -893,6 +914,8 @@ function bindToolbar() {
       fonts: FONTS,
       fontId: state.fontId,
       fontSize: state.fontSize,
+      lsDirectoryColor: state.lsDirectoryColor,
+      lsFileColor: state.lsFileColor,
       onBgDir: async (directory) => {
         if (!directory) return;
         state.backgroundImageDir = directory;
@@ -932,6 +955,8 @@ function bindToolbar() {
         themeTouched,
         fontId,
         fontSize,
+        lsDirectoryColor,
+        lsFileColor,
       }) => {
         state.custom = custom;
         if (themeTouched) state.themeId = 'custom';
@@ -968,6 +993,15 @@ function bindToolbar() {
           state.bgTransparency = 0;
           updateTransparencyUi();
         }
+        if (lsDirectoryColor != null || lsFileColor != null) {
+          const colors = normalizeLsColors({
+            directory: lsDirectoryColor ?? state.lsDirectoryColor,
+            file: lsFileColor ?? state.lsFileColor,
+          });
+          state.lsDirectoryColor = colors.directory;
+          state.lsFileColor = colors.file;
+          sessions?.setLsColors?.(colors);
+        }
         applyFont();
         applyTheme();
         applyScrollback();
@@ -977,7 +1011,13 @@ function bindToolbar() {
       },
       onReset: () => {
         state.custom = defaultCustomFrom(state.themes.dark);
-        return state.custom;
+        state.lsDirectoryColor = DEFAULT_LS_DIRECTORY_COLOR;
+        state.lsFileColor = DEFAULT_LS_FILE_COLOR;
+        return {
+          custom: state.custom,
+          lsDirectoryColor: state.lsDirectoryColor,
+          lsFileColor: state.lsFileColor,
+        };
       },
     });
   }
@@ -1081,6 +1121,14 @@ async function boot() {
   );
   state.promptPresetId =
     typeof saved.promptPresetId === 'string' ? saved.promptPresetId : '';
+  {
+    const colors = normalizeLsColors({
+      directory: saved.lsDirectoryColor,
+      file: saved.lsFileColor,
+    });
+    state.lsDirectoryColor = colors.directory;
+    state.lsFileColor = colors.file;
+  }
   state.ssh = saved.ssh || null;
 
   if (api.getPromptPresets) {
@@ -1112,10 +1160,15 @@ async function boot() {
     api,
     i18n,
     getTheme: currentTheme,
-    getHasBackgroundImage: () => !!state.backgroundImage,
+    getHasBackgroundImage: () =>
+      !!state.backgroundImage && state.backgroundFit !== 'none',
     getPromptTemplate: () => state.promptTemplate,
     getPromptGitMode: () => state.promptGitMode,
     getStartDirectory: () => state.startDirectory || '',
+    getLsColors: () => ({
+      directory: state.lsDirectoryColor,
+      file: state.lsFileColor,
+    }),
     getNewSessionOptions: () => ({
       fontSize: state.fontSize,
       fontFamily: getFontById(state.fontId).family,
@@ -1133,6 +1186,9 @@ async function boot() {
     promptTemplate: state.promptTemplate,
     promptGitMode: state.promptGitMode,
     promptPresetId: state.promptPresetId,
+    lsDirectoryColor: state.lsDirectoryColor,
+    lsFileColor: state.lsFileColor,
+    promptEndTipBg: currentTheme().background || '#1E1E1E',
   });
   if (api.setPrompt) {
     await api.setPrompt({
@@ -1178,9 +1234,11 @@ async function boot() {
   await persist();
 
   bindToolbar();
-  // After labels paint: lock min width to toolbar content and start at that size.
+  // After labels/fonts paint: lock min width to toolbar content and start at that size.
   requestAnimationFrame(() => {
-    syncToolbarMinWidth({ resizeToMin: true });
+    requestAnimationFrame(() => {
+      syncToolbarMinWidth({ resizeToMin: true });
+    });
   });
 
   window.addEventListener('resize', () => {

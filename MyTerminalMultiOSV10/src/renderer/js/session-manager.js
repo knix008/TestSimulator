@@ -11,6 +11,7 @@ export class SessionManager {
     getPromptTemplate,
     getPromptGitMode,
     getStartDirectory,
+    getLsColors,
     getNewSessionOptions,
     onActiveChange,
     onPaneFit,
@@ -24,6 +25,7 @@ export class SessionManager {
     this.getPromptTemplate = getPromptTemplate;
     this.getPromptGitMode = getPromptGitMode || (() => 'status');
     this.getStartDirectory = getStartDirectory || (() => '');
+    this.getLsColors = getLsColors || (() => ({}));
     this.getNewSessionOptions = getNewSessionOptions || (() => ({}));
     this.onActiveChange = onActiveChange || (() => {});
     this.onPaneFit = onPaneFit || (() => {});
@@ -126,6 +128,7 @@ export class SessionManager {
       getPromptTemplate: this.getPromptTemplate,
       getPromptGitMode: this.getPromptGitMode,
       getStartDirectory: this.getStartDirectory,
+      getLsColors: this.getLsColors,
       title,
     });
 
@@ -387,6 +390,10 @@ export class SessionManager {
 
   setFontSize(size) {
     for (const pane of this.panes.values()) pane.setFontSize(size);
+  }
+
+  setLsColors(colors) {
+    for (const pane of this.panes.values()) pane.setLsColors?.(colors);
   }
 
   changeFont(delta) {

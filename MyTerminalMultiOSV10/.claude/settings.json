@@ -1,0 +1,33 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -e ' *)",
+      "Bash(node -e 'require\\(\"./src/main/prompt.js\"\\); console.log\\(\"prompt.js loads OK\"\\)')",
+      "Bash(grep -oiE \"isPowerlineGlyph\\\\\\)\\\\\\(h\\\\.charCodeAt.{0,900}\" node_modules/@xterm/addon-canvas/lib/addon-canvas.js)",
+      "Bash(grep -oiE \"_drawToCache\\\\\\([a-z,]*\\\\\\)\\\\{.{0,700}\" node_modules/@xterm/addon-canvas/lib/addon-canvas.js)",
+      "Bash(grep -oiE \".{0,30}clearRect\\\\\\(0,0.{0,120}\" node_modules/@xterm/addon-canvas/lib/addon-canvas.js)",
+      "Bash(grep -oiE \"_tmpCtx\\\\.\\(clearRect|fillRect|globalCompositeOperation|save|restore\\)[^;]{0,60}\" node_modules/@xterm/addon-canvas/lib/addon-canvas.js)",
+      "Bash(grep -oiE \".{260}globalCompositeOperation=\\\\\"copy\\\\\",this\\\\._tmpCtx\\\\.fillStyle=y\\\\.css.{0,200}\" node_modules/@xterm/addon-canvas/lib/addon-canvas.js)",
+      "Bash(grep -oiE \"NULL_COLOR=[^;]{0,120}\" node_modules/@xterm/xterm/lib/xterm.js)",
+      "Bash(grep -oiE \"NULL_COLOR:[^,}]{0,120}\" node_modules/@xterm/xterm/lib/xterm.js)",
+      "Bash(npm view *)",
+      "Bash(node -e \"console.log\\(require\\('@xterm/xterm/package.json'\\).version\\)\")",
+      "Bash(node scripts/build-renderer.js)",
+      "Bash(node -e 'const m=require\\(\"@xterm/addon-webgl\"\\); console.log\\(\"WebglAddon export:\", typeof m.WebglAddon\\);')",
+      "Bash(grep -oiE \".{20}clearColor\\\\\\([^;]{0,60}\" node_modules/@xterm/addon-webgl/lib/addon-webgl.js)",
+      "Bash(grep -oiE \"getContext\\\\\\(\\\\\"webgl2?\\\\\"[^\\)]{0,80}\" node_modules/@xterm/addon-webgl/lib/addon-webgl.js)",
+      "Bash(grep -oiE \"getContext\\\\\\(\\\\\"webgl2\\\\\",[A-Za-z]{1,3}\\\\\\)\" node_modules/@xterm/addon-webgl/lib/addon-webgl.js)",
+      "Bash(grep -oiE \"premultipliedAlpha|alpha:[^,}]{0,20}|preserveDrawingBuffer\" node_modules/@xterm/addon-webgl/lib/addon-webgl.js)",
+      "Bash(grep -oiE \"_alpha=[^;,]{0,40}|this\\\\._alpha\" node_modules/@xterm/addon-webgl/lib/addon-webgl.js)",
+      "Bash(grep -oiE \".{40}this\\\\._alpha=[^;]{0,60}\" node_modules/@xterm/addon-webgl/lib/addon-webgl.js)",
+      "Bash(grep -oiE \"constructor\\\\\\([^\\)]*\\\\\\)\\\\{[^}]{0,120}alpha\" node_modules/@xterm/addon-webgl/lib/addon-webgl.js)",
+      "Bash(grep -oiE \"new [A-Za-z]+\\\\\\([^\\)]*allowTransparency[^\\)]*\\\\\\)|allowTransparency\\\\\\)[,;]|Renderer\\\\\\([^\\)]{0,120}\" node_modules/@xterm/addon-webgl/lib/addon-webgl.js)",
+      "Bash(grep -oiE \"getContext\\\\\\(\\\\\"webgl2\\\\\",\\\\{[^}]{0,120}\\\\}\" node_modules/@xterm/addon-webgl/lib/addon-webgl.js)",
+      "Bash(grep -oiE \".{80}alpha:this\\\\._config\\\\.allowTransparency.{0,40}\" node_modules/@xterm/addon-webgl/lib/addon-webgl.js)",
+      "Bash(grep -oiE \"alpha:[a-zA-Z0-9._!]{1,40},\\(depth|antialias|premultipliedAlpha|preserveDrawingBuffer\\)[^}]{0,120}\" node_modules/@xterm/addon-webgl/lib/addon-webgl.js)",
+      "Bash(grep -oiE \".{0,90}getContext\\\\\\(\\\\\"webgl2\\\\\",[a-zA-Z]\\\\\\)\" node_modules/@xterm/addon-webgl/lib/addon-webgl.js)",
+      "Bash(grep -oiE \"\\\\{antialias:[^}]{0,120}\\\\}\" node_modules/@xterm/addon-webgl/lib/addon-webgl.js)",
+      "Bash(node -e 'const p=require\\(\"./src/main/prompt.js\"\\);const o=p.renderPrompt\\(p.PROMPT_PRESETS.ohmyzsh_agnoster.template,{user:\"me\",host:\"pc\",cwd:\"C:\\\\\\\\repo\",gitMode:\"status\"}\\);console.log\\(JSON.stringify\\(o.slice\\(o.lastIndexOf\\(\"main\"\\)\\).replace\\(/\\\\x1b/g,\"\\\\\\\\e\"\\)\\)\\)')"
+    ]
+  }
+}

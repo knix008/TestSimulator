@@ -130,14 +130,6 @@ body {
   transition: background 0.15s ease, color 0.15s ease;
 }
 
-#btn-bg-fit,
-#btn-font,
-#btn-lang {
-  width: auto;
-  min-width: 32px;
-  padding: 0 6px;
-  gap: 4px;
-}
 
 .tb-color-input-hidden {
   position: absolute;
@@ -393,7 +385,7 @@ body.has-bg-image .terminal-pane .xterm-viewport {
   align-items: center;
   gap: 6px;
   height: 28px;
-  padding: 0 8px;
+  padding: 0 8px 0 6px;
   margin-left: 2px;
   border-radius: 6px;
   flex: 0 0 auto;
@@ -403,10 +395,16 @@ body.has-bg-image .terminal-pane .xterm-viewport {
   background: var(--button-hover);
 }
 
-.tb-opacity-name {
-  font-size: 11px;
-  font-weight: 600;
-  white-space: nowrap;
+.tb-opacity-icon {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.95;
 }
 
 .tb-opacity-bound {
@@ -432,16 +430,22 @@ body.has-bg-image .terminal-pane .xterm-viewport {
   cursor: pointer;
 }
 
-.tb-bg-fit-label,
-.tb-lang-label,
-.tb-font-label {
-  max-width: 88px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.tb-font-size {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  height: 28px;
+  padding: 0 4px;
+  margin: 0 2px 0 0;
   font-size: 11px;
-  font-weight: 600;
-  margin-left: 2px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+  white-space: nowrap;
+  flex: 0 0 auto;
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
 }
 
 .settings-select {

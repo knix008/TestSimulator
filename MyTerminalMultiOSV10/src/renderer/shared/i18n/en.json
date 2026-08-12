@@ -1,7 +1,7 @@
 {
   "appName": "MyTerminal",
   "toolbar": {
-    "newSession": "New Session",
+    "newSession": "New Terminal",
     "remote": "Remote SSH",
     "remoteDisconnect": "Disconnect SSH",
     "prompt": "Shell Prompt",
@@ -19,6 +19,7 @@
     "bgFit": "Background fit",
     "settings": "Settings",
     "bgFitModes": {
+      "none": "Hidden",
       "cover": "Fill",
       "contain": "Fit",
       "stretch": "Stretch",
@@ -78,6 +79,7 @@
     "backgroundFit": "Display mode",
     "backgroundFitHint": "How the background image is placed in the terminal area.",
     "bgFitModes": {
+      "none": "Hidden",
       "cover": "Fill",
       "contain": "Fit",
       "stretch": "Stretch",
@@ -85,6 +87,10 @@
       "tile": "Pattern"
     },
     "foreground": "Text color",
+    "lsColorsSection": "File list colors",
+    "lsColorsHint": "Colors used for directory and regular file names in ls / dir. Change these if a background image makes them hard to read.",
+    "lsDirectoryColor": "Directory color",
+    "lsFileColor": "Regular file color",
     "cursor": "Cursor",
     "selection": "Selection",
     "accent": "Accent",
@@ -155,8 +161,8 @@
     }
   },
   "tabs": {
-    "session": "Session",
-    "new": "New Session",
+    "session": "Terminal",
+    "new": "New Terminal",
     "close": "Close tab",
     "dragHint": "Drag outside to open in a new window",
     "detachPreviewHint": "Release to open in a new window",

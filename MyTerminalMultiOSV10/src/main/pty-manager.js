@@ -16,6 +16,11 @@ const {
   getLastWorkingDirectory,
   getCommandHistory,
 } = require('./shell-memory');
+const {
+  DEFAULT_LS_DIRECTORY_COLOR,
+  DEFAULT_LS_FILE_COLOR,
+  normalizeLsColors,
+} = require('./ls-colors');
 
 let nextId = 1;
 /** @type {Map<string, { type: 'local'|'ssh', shell?: any, ssh?: any, win?: any }>} */
@@ -29,6 +34,10 @@ let lastOptions = {
   rows: 24,
   /** Raw configured start directory (empty = home). */
   startDirectory: '',
+  lsDirectoryColor: DEFAULT_LS_DIRECTORY_COLOR,
+  lsFileColor: DEFAULT_LS_FILE_COLOR,
+  /** Opaque theme background used for agnoster end tips (not transparent). */
+  endTipBg: '#1E1E1E',
 };
 
 function resolveStartDirectory(cwd) {
@@ -71,10 +80,38 @@ function loadDirectoryPrefsFromSettings(settings = {}) {
   if (settings.promptGitMode != null) {
     lastOptions.promptGitMode = normalizePromptGitMode(settings.promptGitMode);
   }
+  if (
+    settings.lsDirectoryColor != null ||
+    settings.lsFileColor != null ||
+    settings.lsColors
+  ) {
+    const colors = normalizeLsColors({
+      directory: settings.lsDirectoryColor ?? settings.lsColors?.directory,
+      file: settings.lsFileColor ?? settings.lsColors?.file,
+    });
+    lastOptions.lsDirectoryColor = colors.directory;
+    lastOptions.lsFileColor = colors.file;
+    for (const session of sessions.values()) {
+      if (session.type === 'local' && session.shell?.setLsColors) {
+        session.shell.setLsColors(colors);
+      }
+    }
+  }
+  if (typeof settings.promptEndTipBg === 'string' && settings.promptEndTipBg) {
+    lastOptions.endTipBg = settings.promptEndTipBg;
+    for (const session of sessions.values()) {
+      if (session.type === 'local' && session.shell?.setEndTipBg) {
+        session.shell.setEndTipBg(lastOptions.endTipBg);
+      }
+    }
+  }
   return {
     startDirectory: lastOptions.startDirectory,
     promptTemplate: lastOptions.promptTemplate,
     promptGitMode: lastOptions.promptGitMode,
+    lsDirectoryColor: lastOptions.lsDirectoryColor,
+    lsFileColor: lastOptions.lsFileColor,
+    endTipBg: lastOptions.endTipBg,
   };
 }
 
@@ -126,6 +163,9 @@ function createPty(win, options = {}) {
     rows: options.rows || lastOptions.rows || 24,
     promptTemplate: lastOptions.promptTemplate,
     promptGitMode: lastOptions.promptGitMode,
+    lsDirectoryColor: lastOptions.lsDirectoryColor,
+    lsFileColor: lastOptions.lsFileColor,
+    endTipBg: lastOptions.endTipBg,
     history: getCommandHistory(),
   });
   sessions.set(sessionId, { type: 'local', shell, win });

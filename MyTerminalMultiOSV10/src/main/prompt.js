@@ -120,10 +120,10 @@ const PROMPT_PRESETS = {
   ohmyzsh_agnoster: {
     id: 'ohmyzsh_agnoster',
     group: 'ohmyzsh',
-    // Blue / yellow (and git) segments; right-edge  triangles via applyPowerlineEnds().
-    // Requires xterm canvas renderer + customGlyphs (see terminal.js).
+    // Blue / yellow / git segments; right-edge  via applyPowerlineEnds().
+    // Trailing {reset} closes the last open bg (cwd or git) with a tip.
     template:
-      '{bg_blue}{white} {user}@{host} {bg_yellow}{black} {cwd:short} {git:segment}',
+      '{bg_blue}{white} {user}@{host} {bg_yellow}{black} {cwd:short} {git:segment}{reset} ',
   },
   ohmyzsh_dallas: {
     id: 'ohmyzsh_dallas',
@@ -170,14 +170,16 @@ const emptyGitTokens = Object.freeze({
   'git:clean': '',
   'git:info': '',
   'git:status': '',
-  // Close open bg segment (powerline tip added by applyPowerlineEnds).
-  'git:segment': `${COLORS.reset} `,
+  // Agnoster: empty means no git segment (caller closes with {reset}).
+  'git:segment': '',
 });
 
 /** @type {Map<string, { at: number, root: string, branch: string }>} */
 const gitRootCache = new Map();
 /** @type {Map<string, { at: number, dirty: boolean }>} */
 const gitDirtyCache = new Map();
+/** @type {Map<string, { at: number, ahead: number }>} */
+const gitAheadCache = new Map();
 
 function findGitRepo(cwd) {
   const start = path.resolve(cwd || process.cwd());
@@ -252,6 +254,29 @@ function isGitDirty(repoRoot) {
   return dirty;
 }
 
+/** Commits on HEAD not yet on upstream (0 if no upstream / synced). */
+function gitAheadCount(repoRoot) {
+  if (!repoRoot) return 0;
+  const cached = gitAheadCache.get(repoRoot);
+  if (cached && Date.now() - cached.at < 1500) return cached.ahead;
+  let ahead = 0;
+  try {
+    const out = execFileSync('git', ['rev-list', '--count', '@{upstream}..HEAD'], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+      timeout: 700,
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+    ahead = Math.max(0, Number.parseInt(String(out || '').trim(), 10) || 0);
+  } catch (_) {
+    // No upstream configured — treat as nothing left to push.
+    ahead = 0;
+  }
+  gitAheadCache.set(repoRoot, { at: Date.now(), ahead });
+  return ahead;
+}
+
 function gitTokens(cwd, mode = DEFAULT_PROMPT_GIT_MODE) {
   const gitMode = normalizePromptGitMode(mode);
   if (gitMode === 'off') return { ...emptyGitTokens };
@@ -260,12 +285,22 @@ function gitTokens(cwd, mode = DEFAULT_PROMPT_GIT_MODE) {
   if (!repo?.branch) return { ...emptyGitTokens };
 
   const dirty = gitMode === 'status' ? isGitDirty(repo.root) : false;
+  const ahead = gitMode === 'status' ? gitAheadCount(repo.root) : 0;
   const dirtyMark =
     gitMode === 'status' && dirty ? ` ${COLORS.yellow}x${COLORS.reset}` : '';
   const info = ` ${COLORS.bold}${COLORS.blue}git:(${COLORS.red}${repo.branch}${COLORS.blue})${COLORS.reset}${dirtyMark}`;
-  const segmentBase = dirty
-    ? `${COLORS.bg_red}${COLORS.white} ${repo.branch} x ${COLORS.reset} `
-    : `${COLORS.bg_magenta}${COLORS.white} ${repo.branch} ${COLORS.reset} `;
+  // Agnoster segment colors (status mode):
+  //   dirty  → red
+  //   clean but unpushed (ahead) → magenta
+  //   clean and pushed / in sync → green
+  let segmentBase;
+  if (dirty) {
+    segmentBase = `${COLORS.bg_red}${COLORS.white} ${repo.branch} x `;
+  } else if (ahead > 0) {
+    segmentBase = `${COLORS.bg_magenta}${COLORS.white} ${repo.branch} `;
+  } else {
+    segmentBase = `${COLORS.bg_green}${COLORS.black} ${repo.branch} `;
+  }
 
   return {
     'git:branch': repo.branch,
@@ -301,13 +336,18 @@ function isBgCode(code) {
   return (code >= 40 && code <= 47) || (code >= 100 && code <= 107);
 }
 
-/** Powerline right hard divider (xterm draws this as a filled triangle). */
-const POWERLINE_RIGHT = '\uE0B0';
+/**
+ * Powerline right tip (U+E0B0). Drawn by xterm customGlyphs.
+ * Do not use ASCII ">" or ▶.
+ */
+const SEGMENT_TIP = '\uE0B0';
 
 /**
- * After any painted (background) segment, append a powerline divider so the
- * colored block itself ends in a ">" shape (not a literal ASCII ">").
- * Applies to every prompt that uses {bg_*} — each segment color gets a tip.
+ * After any painted (background) segment, append a powerline tip cell.
+ *
+ * Mid tips: next segment ANSI bg + previous-color glyph (wedges = next color).
+ * End tips: default/transparent bg + the segment color as glyph fg, so the
+ * segment tapers to a same-colored triangle over the terminal/wallpaper.
  */
 function applyPowerlineEnds(text) {
   const src = String(text ?? '');
@@ -329,7 +369,7 @@ function applyPowerlineEnds(text) {
     return { end, params, seq: src.slice(from, end + 1) };
   };
 
-  const isTipChar = (ch) => ch === POWERLINE_RIGHT || ch === '>';
+  const isTipChar = (ch) => ch === SEGMENT_TIP || ch === '\u25B6';
 
   /** True if upcoming codes are only fg/style then an existing tip glyph. */
   const tipAhead = (from) => {
@@ -346,19 +386,22 @@ function applyPowerlineEnds(text) {
     return false;
   };
 
-  /**
-   * Divider cell: triangle filled with previous segment color.
-   * Next segment color is the cell background (classic agnoster/powerline).
-   */
   const writeTip = (fromBg, toBg) => {
-    const fg = BG_TO_FG[fromBg];
-    if (fg == null) return;
+    const prevFg = BG_TO_FG[fromBg];
+    if (prevFg == null) return;
     if (toBg != null) {
-      // e.g. blue block → yellow block: yellow bg + blue-filled 
-      out += `\x1b[0m\x1b[${toBg}m\x1b[${fg}m${POWERLINE_RIGHT}`;
+      // Join: next segment paints the full cell; tip is previous color.
+      out += `\x1b[${toBg};${prevFg}m${SEGMENT_TIP}`;
     } else {
-      // Last segment → default:  in previous color, then reset.
-      out += `\x1b[0m\x1b[${fg}m${POWERLINE_RIGHT}\x1b[0m`;
+      // End: default (transparent) tip bg + the segment color as fg. xterm fills
+      // the cell bg, then paints the powerline triangle in the fg — so the
+      // segment tapers to a point in its own color and the trailing wedges stay
+      // transparent (wallpaper / bg transparency shows through). fg MUST be the
+      // segment color; the inherited fg is usually {black} → a black triangle.
+      //
+      // Do NOT paint an opaque bg here (e.g. the theme bg hex): with wallpaper
+      // or background transparency that draws a solid box around the triangle.
+      out += `\x1b[49;${prevFg}m${SEGMENT_TIP}\x1b[0m`;
     }
   };
 
@@ -386,6 +429,13 @@ function applyPowerlineEnds(text) {
     if (currentBg != null && nextBg !== currentBg && (sawReset || sawBg)) {
       if (!tipAhead(sgr.end + 1)) {
         writeTip(currentBg, nextBg);
+      }
+      // Skip emitting a bare reset that only existed to close a bg segment;
+      // writeTip already reset when ending the prompt.
+      if (sawReset && nextBg == null && sgr.params.every((p) => p === 0)) {
+        currentBg = null;
+        i = sgr.end + 1;
+        continue;
       }
     }
 

@@ -2,8 +2,8 @@
 export const FONTS = [
   {
     id: 'cascadia',
-    label: 'Cascadia Mono',
-    family: '"Cascadia Mono", "Cascadia Code", Consolas, monospace',
+    label: 'Cascadia Code',
+    family: '"Cascadia Code", "Cascadia Mono", Consolas, monospace',
   },
   {
     id: 'consolas',

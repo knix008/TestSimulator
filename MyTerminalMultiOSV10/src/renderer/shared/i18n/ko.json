@@ -1,7 +1,7 @@
 {
   "appName": "MyTerminal",
   "toolbar": {
-    "newSession": "새 세션",
+    "newSession": "새 터미널",
     "remote": "원격 SSH",
     "remoteDisconnect": "SSH 연결 해제",
     "prompt": "셸 프롬프트",
@@ -19,6 +19,7 @@
     "bgFit": "배경 표시",
     "settings": "설정",
     "bgFitModes": {
+      "none": "표시 안함",
       "cover": "가득채움",
       "contain": "맞춤",
       "stretch": "늘이기",
@@ -78,6 +79,7 @@
     "backgroundFit": "표시 방법",
     "backgroundFitHint": "배경 이미지를 터미널 영역에 어떻게 배치할지 선택합니다.",
     "bgFitModes": {
+      "none": "표시 안함",
       "cover": "가득채움",
       "contain": "맞춤",
       "stretch": "늘이기",
@@ -85,6 +87,10 @@
       "tile": "패턴"
     },
     "foreground": "글자색",
+    "lsColorsSection": "파일 목록 색",
+    "lsColorsHint": "ls / dir 에서 디렉터리와 일반 파일 이름에 쓰는 글자색입니다. 배경 이미지 때문에 잘 안 보일 때 바꿔 주세요.",
+    "lsDirectoryColor": "디렉터리 글자색",
+    "lsFileColor": "일반 파일 글자색",
     "cursor": "커서",
     "selection": "선택 영역",
     "accent": "강조색",
@@ -155,8 +161,8 @@
     }
   },
   "tabs": {
-    "session": "세션",
-    "new": "새 세션",
+    "session": "터미널",
+    "new": "새 터미널",
     "close": "탭 닫기",
     "dragHint": "창 밖으로 드래그하면 새 창으로 분리됩니다",
     "detachPreviewHint": "놓으면 새 창으로 열립니다",

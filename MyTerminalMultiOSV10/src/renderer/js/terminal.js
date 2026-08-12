@@ -3,6 +3,7 @@ import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import { SerializeAddon } from '@xterm/addon-serialize';
 import { CanvasAddon } from '@xterm/addon-canvas';
+import { WebglAddon } from '@xterm/addon-webgl';
 import { toXtermTheme } from './themes.js';
 import { WebShell } from './web-shell.js';
 
@@ -33,6 +34,7 @@ export class TerminalPane {
     getPromptTemplate,
     getPromptGitMode,
     getStartDirectory,
+    getLsColors,
     title = '',
   }) {
     this.sessionId = sessionId;
@@ -44,6 +46,7 @@ export class TerminalPane {
     this.getPromptTemplate = getPromptTemplate || (() => null);
     this.getPromptGitMode = getPromptGitMode || (() => 'status');
     this.getStartDirectory = getStartDirectory || (() => '');
+    this.getLsColors = getLsColors || (() => ({}));
     this.title = title;
     this.mode = 'local';
     this.fontSize = 14;
@@ -62,8 +65,12 @@ export class TerminalPane {
       allowProposedApi: true,
       // Needed so wallpaper can show through rgba(0,0,0,0) terminal background.
       allowTransparency: true,
-      // Canvas renderer draws Powerline  as a filled triangle (agnoster tips).
+      // On: xterm draws Powerline  as a filled triangle (no tofu / private-use junk).
       customGlyphs: true,
+      lineHeight: 1,
+      letterSpacing: 0,
+      // Avoid contrast tweaks that darken powerline tip edges into a black fringe.
+      minimumContrastRatio: 1,
       // Keep mouse drag selection enabled (not application mouse mode).
       rightClickSelectsWord: false,
       theme: toXtermTheme(getTheme(), !!this.getHasBackgroundImage()),
@@ -81,12 +88,13 @@ export class TerminalPane {
     );
 
     this.term.open(host);
-    // DOM renderer cannot draw powerline custom glyphs; canvas can.
-    try {
-      this.term.loadAddon(new CanvasAddon());
-    } catch (_) {
-      /* keep DOM fallback */
-    }
+    // Renderer priority: WebGL → Canvas → DOM. The DOM renderer cannot draw
+    // powerline custom glyphs, and the Canvas renderer leaves a 1px unpainted
+    // strip at the bottom of colored cells (fractional device cell height) plus
+    // dark fringes on transparent powerline tips. WebGL paints exact cell-height
+    // background quads and composites transparency correctly, so agnoster
+    // segments keep a uniform height and the tip taper shows the wallpaper.
+    this.loadPreferredRenderer();
     this.term.onData((data) => this.writeInput(data));
     this.term.attachCustomKeyEventHandler((ev) => this.handleClipboardKeys(ev));
     this.term.onScroll(() => this.syncScrollbarVisibility());
@@ -102,6 +110,44 @@ export class TerminalPane {
     };
     host.addEventListener('contextmenu', onContextMenu, true);
     this.disposers.push(() => host.removeEventListener('contextmenu', onContextMenu, true));
+  }
+
+  /**
+   * Load the best available GPU/canvas renderer. WebGL first (uniform cell-height
+   * backgrounds + correct transparency for powerline tips); fall back to Canvas
+   * if the WebGL context is unavailable or lost, and to the built-in DOM renderer
+   * if even Canvas fails. Loading a renderer addon is a no-op-safe try/catch.
+   */
+  loadPreferredRenderer() {
+    try {
+      const webgl = new WebglAddon();
+      // A lost GPU context would otherwise freeze rendering — drop to Canvas.
+      webgl.onContextLoss(() => {
+        try {
+          webgl.dispose();
+        } catch (_) {
+          /* already gone */
+        }
+        this.loadCanvasRenderer();
+      });
+      this.term.loadAddon(webgl);
+      this.rendererKind = 'webgl';
+      return;
+    } catch (_) {
+      /* WebGL unavailable (blocklisted GPU, headless) — fall back. */
+    }
+    this.loadCanvasRenderer();
+  }
+
+  /** Canvas fallback renderer (still draws powerline custom glyphs). */
+  loadCanvasRenderer() {
+    try {
+      this.term.loadAddon(new CanvasAddon());
+      this.rendererKind = 'canvas';
+    } catch (_) {
+      // Keep the DOM renderer; powerline glyphs may show as tofu but text works.
+      this.rendererKind = 'dom';
+    }
   }
 
   /** Show the vertical scrollbar only when the buffer has scrollable history. */
@@ -186,6 +232,7 @@ export class TerminalPane {
         this.start();
       },
       promptTemplate: this.getPromptTemplate(),
+      lsColors: this.getLsColors(),
     });
     this.term.clear();
     this.webShell.start([
@@ -258,6 +305,7 @@ export class TerminalPane {
 
   applyTheme(theme) {
     this.term.options.theme = toXtermTheme(theme, !!this.getHasBackgroundImage());
+    this.term.options.customGlyphs = true;
   }
 
   clear() {
@@ -434,6 +482,10 @@ export class TerminalPane {
 
   changeFont(delta) {
     this.setFontSize(this.fontSize + delta);
+  }
+
+  setLsColors(colors) {
+    this.webShell?.setLsColors?.(colors);
   }
 
   setFontFamily(family) {

@@ -1,6 +1,12 @@
 /** How the terminal background image is painted. */
 export const BG_FIT_MODES = [
   {
+    id: 'none',
+    size: 'cover',
+    position: 'center',
+    repeat: 'no-repeat',
+  },
+  {
     id: 'cover',
     size: 'cover',
     position: 'center',
@@ -35,7 +41,11 @@ export const BG_FIT_MODES = [
 export const DEFAULT_BG_FIT = 'cover';
 
 export function getBgFitById(id) {
-  return BG_FIT_MODES.find((m) => m.id === id) || BG_FIT_MODES[0];
+  return (
+    BG_FIT_MODES.find((m) => m.id === id) ||
+    BG_FIT_MODES.find((m) => m.id === DEFAULT_BG_FIT) ||
+    BG_FIT_MODES[0]
+  );
 }
 
 export function normalizeBgFit(id) {

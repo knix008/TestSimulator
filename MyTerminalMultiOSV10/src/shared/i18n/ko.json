@@ -1,7 +1,7 @@
 {
   "appName": "MyTerminal",
   "toolbar": {
-    "newSession": "새 세션",
+    "newSession": "새 터미널",
     "clear": "화면 지우기",
     "copy": "선택 복사",
     "paste": "붙여넣기",

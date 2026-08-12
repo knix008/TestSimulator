@@ -165,11 +165,12 @@ export function applyThemeToDocument(
   const root = document.documentElement;
   const imageOpacity = transparencyToImageOpacity(imageTransparency);
   const solidBg = theme.background;
+  const showImage = !!backgroundImage && backgroundFit?.id !== 'none';
 
   root.style.setProperty('--bg', solidBg);
   root.style.setProperty('--bg-solid', solidBg);
-  root.style.setProperty('--bg-image', cssUrl(backgroundImage));
-  root.style.setProperty('--bg-image-opacity', String(imageOpacity));
+  root.style.setProperty('--bg-image', showImage ? cssUrl(backgroundImage) : 'none');
+  root.style.setProperty('--bg-image-opacity', String(showImage ? imageOpacity : 0));
   root.style.setProperty('--fg', theme.foreground);
   root.style.setProperty('--accent', theme.accent);
   root.style.setProperty('--toolbar-bg', theme.toolbarBg);
@@ -178,7 +179,7 @@ export function applyThemeToDocument(
   root.style.setProperty('--button-hover', theme.buttonHover);
   root.style.setProperty('--danger', theme.danger);
   root.style.setProperty('--bg-transparency', String(clampTransparency(imageTransparency)));
-  document.body.classList.toggle('has-bg-image', !!backgroundImage);
+  document.body.classList.toggle('has-bg-image', showImage);
 
   if (backgroundFit) {
     root.style.setProperty('--bg-size', backgroundFit.size);

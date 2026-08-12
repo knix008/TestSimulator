@@ -110,7 +110,13 @@ async function boot() {
     if (msg?.type === 'init') mount(msg);
     if (msg?.type === 'settings:reset-result') {
       document.dispatchEvent(
-        new CustomEvent('popup-settings-reset', { detail: msg.custom })
+        new CustomEvent('popup-settings-reset', {
+          detail: {
+            custom: msg.custom,
+            lsDirectoryColor: msg.lsDirectoryColor,
+            lsFileColor: msg.lsFileColor,
+          },
+        })
       );
     }
     if (msg?.type === 'ssh:result') {

@@ -36,6 +36,7 @@ const {
   asciiSafePromptGlyphs,
   findPromptPresetId,
 } = require('./prompt');
+const { normalizeLsColors } = require('./ls-colors');
 const {
   createTray,
   destroyTray,
@@ -53,7 +54,7 @@ const {
 const windows = new Set();
 
 /** Fallback until renderer measures the real toolbar content width. */
-const TOOLBAR_MIN_WIDTH = 1100;
+const TOOLBAR_MIN_WIDTH = 920;
 const WINDOW_MIN_HEIGHT = 420;
 const TOOLBAR_MIN_WIDTH_CAP = 1800;
 
@@ -395,9 +396,10 @@ ipcMain.handle('window:setMinSize', (event, payload = {}) => {
   const win = winFromEvent(event);
   if (!win) return null;
   const rawW = Math.ceil(Number(payload.width) || TOOLBAR_MIN_WIDTH);
+  // Trust renderer measurement; only clamp to a modest floor/cap.
   const minWidth = Math.min(
     TOOLBAR_MIN_WIDTH_CAP,
-    Math.max(900, rawW || TOOLBAR_MIN_WIDTH)
+    Math.max(TOOLBAR_MIN_WIDTH, rawW || TOOLBAR_MIN_WIDTH)
   );
   const minHeight = Math.max(
     WINDOW_MIN_HEIGHT,
@@ -453,6 +455,18 @@ ipcMain.handle('settings:set', (_e, settings) => {
   if ('promptPresetId' in patch) {
     patch.promptPresetId =
       typeof patch.promptPresetId === 'string' ? patch.promptPresetId : '';
+  }
+  if ('lsDirectoryColor' in patch || 'lsFileColor' in patch) {
+    const current = readSettings();
+    const colors = normalizeLsColors({
+      directory:
+        'lsDirectoryColor' in patch
+          ? patch.lsDirectoryColor
+          : current.lsDirectoryColor,
+      file: 'lsFileColor' in patch ? patch.lsFileColor : current.lsFileColor,
+    });
+    patch.lsDirectoryColor = colors.directory;
+    patch.lsFileColor = colors.file;
   }
   const next = updateSettings(patch);
   loadDirectoryPrefsFromSettings(next);
@@ -989,7 +1003,7 @@ ipcMain.handle('session:detach', (event, payload = {}) => {
   if (!info.exists) return { ok: false, error: 'Session not found' };
 
   stashAdopt(sessionId, {
-    title: payload.title || info.title || `Session ${sessionId}`,
+    title: payload.title || info.title || `Terminal ${sessionId}`,
     mode: payload.mode || info.mode || 'local',
     serialized: payload.serialized || '',
     fontSize: payload.fontSize || 14,

@@ -171,8 +171,13 @@ function wireStartDirectoryControls(root, { api, sendChange, fit } = {}) {
   });
 }
 
-function textAppearanceSectionHtml(i18n, { fonts, fontId, fontSize, foreground }) {
+function textAppearanceSectionHtml(
+  i18n,
+  { fonts, fontId, fontSize, foreground, lsDirectoryColor, lsFileColor }
+) {
   const fg = foreground || '#d4d4d4';
+  const dirColor = lsDirectoryColor || '#569CD6';
+  const fileColor = lsFileColor || '#D4D4D4';
   return `
     <div class="settings-section">
       <h3 class="settings-section-title">${i18n.t('settings.textSection')}</h3>
@@ -197,6 +202,26 @@ function textAppearanceSectionHtml(i18n, { fonts, fontId, fontSize, foreground }
         <input id="color-foreground" type="color" value="${escapeHtml(
           fg
         )}" data-key="foreground" />
+      </div>
+    </div>
+    <div class="settings-section">
+      <h3 class="settings-section-title">${i18n.t('settings.lsColorsSection')}</h3>
+      <p class="settings-hint">${i18n.t('settings.lsColorsHint')}</p>
+      <div class="settings-grid">
+        <label for="color-ls-directory">${i18n.t('settings.lsDirectoryColor')}</label>
+        <input
+          id="color-ls-directory"
+          type="color"
+          value="${escapeHtml(dirColor)}"
+          data-ls-color="directory"
+        />
+        <label for="color-ls-file">${i18n.t('settings.lsFileColor')}</label>
+        <input
+          id="color-ls-file"
+          type="color"
+          value="${escapeHtml(fileColor)}"
+          data-ls-color="file"
+        />
       </div>
     </div>
   `;
@@ -770,6 +795,8 @@ export function mountSettingsView(ctx, payload) {
       fontId,
       fontSize,
       foreground: custom.foreground,
+      lsDirectoryColor: payload.lsDirectoryColor,
+      lsFileColor: payload.lsFileColor,
     })}
     <div class="settings-section">
       <h3 class="settings-section-title">${i18n.t('settings.themeSection')}</h3>
@@ -819,7 +846,7 @@ export function mountSettingsView(ctx, payload) {
 
   function readValues() {
     const next = { ...custom };
-    bodyEl.querySelectorAll('input[type="color"]').forEach((input) => {
+    bodyEl.querySelectorAll('input[type="color"][data-key]').forEach((input) => {
       next[input.dataset.key] = input.value;
     });
     const selectedFont = bodyEl.querySelector('#setting-font')?.value || fontId;
@@ -837,6 +864,9 @@ export function mountSettingsView(ctx, payload) {
       backgroundFit: currentBgFit,
       fontId: getFontById(selectedFont).id,
       fontSize: clampFontSize(bodyEl.querySelector('#setting-font-size')?.value),
+      lsDirectoryColor:
+        bodyEl.querySelector('#color-ls-directory')?.value || payload.lsDirectoryColor,
+      lsFileColor: bodyEl.querySelector('#color-ls-file')?.value || payload.lsFileColor,
     };
   }
 
@@ -845,8 +875,11 @@ export function mountSettingsView(ctx, payload) {
   }
 
   let scrollTimer = null;
-  bodyEl.querySelectorAll('input[type="color"]').forEach((input) => {
+  bodyEl.querySelectorAll('input[type="color"][data-key]').forEach((input) => {
     input.addEventListener('input', () => emitChange({ themeTouched: true }));
+  });
+  bodyEl.querySelectorAll('input[type="color"][data-ls-color]').forEach((input) => {
+    input.addEventListener('input', () => emitChange({ themeTouched: false }));
   });
   bodyEl.querySelector('#setting-font')?.addEventListener('change', () => {
     emitChange({ themeTouched: false });
@@ -1001,7 +1034,8 @@ export function mountSettingsView(ctx, payload) {
   })();
 
   document.addEventListener('popup-settings-reset', (e) => {
-    const next = e.detail || {};
+    const detail = e.detail || {};
+    const next = detail.custom || detail;
     [...fields.map(([key]) => key), 'foreground'].forEach((key) => {
       const input = bodyEl.querySelector(`#color-${key}`);
       if (input && next[key]) {
@@ -1009,6 +1043,14 @@ export function mountSettingsView(ctx, payload) {
         custom[key] = next[key];
       }
     });
+    if (detail.lsDirectoryColor) {
+      const input = bodyEl.querySelector('#color-ls-directory');
+      if (input) input.value = detail.lsDirectoryColor;
+    }
+    if (detail.lsFileColor) {
+      const input = bodyEl.querySelector('#color-ls-file');
+      if (input) input.value = detail.lsFileColor;
+    }
     emitChange({ themeTouched: true });
   });
 
@@ -1045,6 +1087,8 @@ export async function openSettingsModal({
   fonts = FONTS,
   fontId = DEFAULT_FONT_ID,
   fontSize = 14,
+  lsDirectoryColor = '#569CD6',
+  lsFileColor = '#D4D4D4',
   onChange,
   onReset,
   onPickBackground,
@@ -1062,8 +1106,8 @@ export async function openSettingsModal({
     host.onEvent(async (ev) => {
       if (ev.type === 'settings:change') await onChange?.(ev.data);
       if (ev.type === 'settings:reset') {
-        const next = onReset?.();
-        host.send({ type: 'settings:reset-result', custom: next });
+        const next = onReset?.() || {};
+        host.send({ type: 'settings:reset-result', ...next });
       }
       if (ev.type === 'settings:bg-dir' && onBgDir) onBgDir(ev.directory);
     });
@@ -1089,6 +1133,8 @@ export async function openSettingsModal({
         fonts,
         fontId,
         fontSize,
+        lsDirectoryColor,
+        lsFileColor,
       },
     });
     return host;
@@ -1151,6 +1197,8 @@ export async function openSettingsModal({
       fontId,
       fontSize,
       foreground: custom?.foreground,
+      lsDirectoryColor,
+      lsFileColor,
     })}
     <div class="settings-section">
       <h3 class="settings-section-title">${i18n.t('settings.themeSection')}</h3>
@@ -1187,11 +1235,20 @@ export async function openSettingsModal({
         label: i18n.t('settings.reset'),
         closeOnClick: false,
         onClick: ({ modal: m }) => {
-          const next = onReset();
+          const next = onReset() || {};
+          const customNext = next.custom || next;
           [...fields.map(([key]) => key), 'foreground'].forEach((key) => {
             const input = m.querySelector(`#color-${key}`);
-            if (input && next[key]) input.value = next[key];
+            if (input && customNext[key]) input.value = customNext[key];
           });
+          if (next.lsDirectoryColor) {
+            const input = m.querySelector('#color-ls-directory');
+            if (input) input.value = next.lsDirectoryColor;
+          }
+          if (next.lsFileColor) {
+            const input = m.querySelector('#color-ls-file');
+            if (input) input.value = next.lsFileColor;
+          }
           emitChange(m, { themeTouched: true });
         },
       },
@@ -1223,7 +1280,7 @@ export async function openSettingsModal({
 
   function readValues(m) {
     const next = { ...custom };
-    m.querySelectorAll('input[type="color"]').forEach((input) => {
+    m.querySelectorAll('input[type="color"][data-key]').forEach((input) => {
       next[input.dataset.key] = input.value;
     });
     const selectedFont = m.querySelector('#setting-font')?.value || fontId;
@@ -1241,6 +1298,9 @@ export async function openSettingsModal({
       backgroundFit: currentBgFit,
       fontId: getFontById(selectedFont).id,
       fontSize: clampFontSize(m.querySelector('#setting-font-size')?.value),
+      lsDirectoryColor:
+        m.querySelector('#color-ls-directory')?.value || lsDirectoryColor,
+      lsFileColor: m.querySelector('#color-ls-file')?.value || lsFileColor,
     };
   }
 
@@ -1249,8 +1309,11 @@ export async function openSettingsModal({
   }
 
   let scrollTimer = null;
-  modal.querySelectorAll('input[type="color"]').forEach((input) => {
+  modal.querySelectorAll('input[type="color"][data-key]').forEach((input) => {
     input.addEventListener('input', () => emitChange(modal, { themeTouched: true }));
+  });
+  modal.querySelectorAll('input[type="color"][data-ls-color]').forEach((input) => {
+    input.addEventListener('input', () => emitChange(modal, { themeTouched: false }));
   });
   modal.querySelector('#setting-font')?.addEventListener('change', () => {
     emitChange(modal, { themeTouched: false });
