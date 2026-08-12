@@ -3,10 +3,8 @@ const path = require('path');
 
 const watch = process.argv.includes('--watch');
 
-const options = {
-  entryPoints: [path.join(__dirname, '../src/renderer/js/app.js')],
+const shared = {
   bundle: true,
-  outfile: path.join(__dirname, '../src/renderer/js/app.bundle.js'),
   format: 'iife',
   platform: 'browser',
   target: ['chrome120'],
@@ -14,14 +12,27 @@ const options = {
   logLevel: 'info',
 };
 
+const builds = [
+  {
+    ...shared,
+    entryPoints: [path.join(__dirname, '../src/renderer/js/app.js')],
+    outfile: path.join(__dirname, '../src/renderer/js/app.bundle.js'),
+  },
+  {
+    ...shared,
+    entryPoints: [path.join(__dirname, '../src/renderer/js/popup-app.js')],
+    outfile: path.join(__dirname, '../src/renderer/js/popup.bundle.js'),
+  },
+];
+
 async function run() {
   if (watch) {
-    const ctx = await esbuild.context(options);
-    await ctx.watch();
-    console.log('Watching renderer bundle...');
+    const contexts = await Promise.all(builds.map((opts) => esbuild.context(opts)));
+    await Promise.all(contexts.map((ctx) => ctx.watch()));
+    console.log('Watching renderer bundles (app + popup)...');
   } else {
-    await esbuild.build(options);
-    console.log('Renderer bundle built.');
+    await Promise.all(builds.map((opts) => esbuild.build(opts)));
+    console.log('Renderer bundles built (app + popup).');
   }
 }
 

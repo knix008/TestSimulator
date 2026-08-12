@@ -144,11 +144,15 @@ async function runTests() {
   await evalInPage(`__click('btn-copy')`);
   record('copy button clickable', true);
 
-  // 8) New session creates a tab
-  const tabsBefore = await evalInPage(`document.querySelectorAll('.tab-item').length`);
-  await evalInPage(`__click('btn-new')`);
+  // 8) New session creates a tab (via tab-bar +)
+  const tabsBefore = await evalInPage(
+    `document.querySelectorAll('.tab-item:not(.tab-new)').length`
+  );
+  await evalInPage(`document.querySelector('[data-new-tab]')?.click()`);
   await new Promise((r) => setTimeout(r, 400));
-  const tabsAfter = await evalInPage(`document.querySelectorAll('.tab-item').length`);
+  const tabsAfter = await evalInPage(
+    `document.querySelectorAll('.tab-item:not(.tab-new)').length`
+  );
   record('new session tab', tabsAfter > tabsBefore, `${tabsBefore} -> ${tabsAfter}`);
 
   // 9) Window controls

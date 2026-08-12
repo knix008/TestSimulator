@@ -7,8 +7,9 @@ export class SessionManager {
     api,
     i18n,
     getTheme,
-    getTransparency,
+    getHasBackgroundImage,
     getPromptTemplate,
+    getNewSessionOptions,
     onActiveChange,
     onPaneFit,
   }) {
@@ -17,8 +18,9 @@ export class SessionManager {
     this.api = api;
     this.i18n = i18n;
     this.getTheme = getTheme;
-    this.getTransparency = getTransparency || (() => 0);
+    this.getHasBackgroundImage = getHasBackgroundImage || (() => false);
     this.getPromptTemplate = getPromptTemplate;
+    this.getNewSessionOptions = getNewSessionOptions || (() => ({}));
     this.onActiveChange = onActiveChange || (() => {});
     this.onPaneFit = onPaneFit || (() => {});
     this.panes = new Map();
@@ -58,6 +60,14 @@ export class SessionManager {
 
     this.tabBar.addEventListener('click', (e) => {
       if (Date.now() < this.suppressClickUntil) return;
+      const newBtn = e.target.closest('[data-new-tab]');
+      if (newBtn) {
+        e.stopPropagation();
+        this.create(this.getNewSessionOptions()).then(() => {
+          this.onActiveChange(this.active);
+        });
+        return;
+      }
       const closeBtn = e.target.closest('[data-close-tab]');
       if (closeBtn) {
         e.stopPropagation();
@@ -108,7 +118,7 @@ export class SessionManager {
       api: this.api,
       i18n: this.i18n,
       getTheme: this.getTheme,
-      getTransparency: this.getTransparency,
+      getHasBackgroundImage: this.getHasBackgroundImage,
       getPromptTemplate: this.getPromptTemplate,
       title,
     });
@@ -186,7 +196,7 @@ export class SessionManager {
   }
 
   renderTabs() {
-    const html = [...this.panes.values()]
+    const tabs = [...this.panes.values()]
       .map((pane) => {
         const active = pane.sessionId === this.activeId ? ' active' : '';
         const remote = pane.mode === 'ssh' ? ' remote' : '';
@@ -203,22 +213,103 @@ export class SessionManager {
         `;
       })
       .join('');
-    this.tabBar.innerHTML = html;
+    const newLabel = this.i18n.t('tabs.new', this.i18n.t('toolbar.newSession', 'New Session'));
+    const newTab = `
+      <button
+        type="button"
+        class="tab-item tab-new"
+        data-new-tab="1"
+        title="${escapeAttr(newLabel)}"
+        aria-label="${escapeAttr(newLabel)}"
+      >
+        <span class="tab-new-icon" aria-hidden="true">+</span>
+      </button>
+    `;
+    this.tabBar.innerHTML = tabs + newTab;
   }
 
-  onTabPointerDown(e) {
+  detachPreviewSize(bounds) {
+    return {
+      width: Math.max(800, (bounds?.width || 1000) - 40),
+      height: Math.max(500, (bounds?.height || 680) - 40),
+    };
+  }
+
+  isDetachZone(screenX, screenY, bounds) {
+    if (!bounds) return false;
+    const outside =
+      screenX < bounds.x - 8 ||
+      screenY < bounds.y - 8 ||
+      screenX > bounds.x + bounds.width + 8 ||
+      screenY > bounds.y + bounds.height + 8;
+    const pulledOut = screenY > bounds.y + 80;
+    return outside || pulledOut;
+  }
+
+  previewPosition(screenX, screenY) {
+    return {
+      x: Math.round(screenX - 80),
+      y: Math.round(screenY - 20),
+    };
+  }
+
+  async updateDetachPreview(screenX, screenY) {
+    const drag = this.dragState;
+    if (!drag?.moved || !drag.bounds) return;
+
+    const canDetach = this.isDetachZone(screenX, screenY, drag.bounds);
+    const hint = this.i18n.t('tabs.detachPreviewHint');
+    document.body.dataset.detachHint = hint;
+
+    if (canDetach) {
+      document.body.classList.add('tab-detach-ready');
+      const size = this.detachPreviewSize(drag.bounds);
+      const pos = this.previewPosition(screenX, screenY);
+      if (!drag.previewShown && this.api.showDetachPreview) {
+        await this.api.showDetachPreview({
+          ...size,
+          ...pos,
+          hint,
+        });
+        drag.previewShown = true;
+      } else if (drag.previewShown && this.api.moveDetachPreview) {
+        this.api.moveDetachPreview(pos);
+      }
+    } else {
+      document.body.classList.remove('tab-detach-ready');
+      if (drag.previewShown) {
+        drag.previewShown = false;
+        this.api.hideDetachPreview?.();
+      }
+    }
+  }
+
+  clearDetachPreview() {
+    document.body.classList.remove('tab-detach-ready');
+    delete document.body.dataset.detachHint;
+    if (this.dragState?.previewShown) {
+      this.dragState.previewShown = false;
+    }
+    this.api.hideDetachPreview?.();
+  }
+
+  async onTabPointerDown(e) {
     if (e.button !== 0) return;
     if (e.target.closest('[data-close-tab]')) return;
+    if (e.target.closest('[data-new-tab]')) return;
     if (!this.api?.isElectron || !this.api.detachSession) return;
     const tab = e.target.closest('[data-tab-id]');
     if (!tab) return;
 
+    const bounds = (await this.api.getWindowBounds?.()) || null;
     this.dragState = {
       sessionId: tab.dataset.tabId,
       startX: e.screenX,
       startY: e.screenY,
       moved: false,
       tabEl: tab,
+      bounds,
+      previewShown: false,
     };
     tab.classList.add('dragging');
     tab.setPointerCapture?.(e.pointerId);
@@ -232,6 +323,9 @@ export class SessionManager {
       this.dragState.moved = true;
       document.body.classList.add('tab-dragging');
     }
+    if (this.dragState.moved) {
+      this.updateDetachPreview(e.screenX, e.screenY);
+    }
   }
 
   async onTabPointerUp(e) {
@@ -242,31 +336,25 @@ export class SessionManager {
     tabEl?.classList.remove('dragging');
     document.body.classList.remove('tab-dragging');
 
+    const canDetach =
+      drag.moved && this.isDetachZone(e.screenX, e.screenY, drag.bounds);
     const movedFar =
       drag.moved &&
       (Math.abs(e.screenX - drag.startX) > 24 || Math.abs(e.screenY - drag.startY) > 24);
+
+    this.clearDetachPreview();
     this.dragState = null;
     if (movedFar) this.suppressClickUntil = Date.now() + 400;
 
-    if (!movedFar || !this.api?.detachSession) return;
+    if (!canDetach || !this.api?.detachSession) return;
 
-    const bounds = await this.api.getWindowBounds?.();
+    const bounds = drag.bounds || (await this.api.getWindowBounds?.());
     if (!bounds) return;
-
-    const outside =
-      e.screenX < bounds.x - 8 ||
-      e.screenY < bounds.y - 8 ||
-      e.screenX > bounds.x + bounds.width + 8 ||
-      e.screenY > bounds.y + bounds.height + 8;
-
-    // Also allow detach when dragged downward out of the tab bar significantly.
-    const pulledOut = drag.moved && e.screenY > bounds.y + 80;
-
-    if (!outside && !pulledOut) return;
 
     const pane = this.panes.get(String(drag.sessionId));
     if (!pane) return;
 
+    const size = this.detachPreviewSize(bounds);
     await this.api.detachSession({
       sessionId: pane.sessionId,
       title: pane.title,
@@ -274,8 +362,8 @@ export class SessionManager {
       serialized: pane.serialize(),
       fontSize: pane.fontSize,
       fontFamily: pane.fontFamily,
-      width: Math.max(800, bounds.width - 40),
-      height: Math.max(500, bounds.height - 40),
+      width: size.width,
+      height: size.height,
     });
     // Source UI removal is handled by session:detached event.
   }
@@ -283,11 +371,12 @@ export class SessionManager {
   resetDrag() {
     if (this.dragState?.tabEl) this.dragState.tabEl.classList.remove('dragging');
     document.body.classList.remove('tab-dragging');
+    this.clearDetachPreview();
     this.dragState = null;
   }
 
-  applyTheme(theme, transparency = 0) {
-    for (const pane of this.panes.values()) pane.applyTheme(theme, transparency);
+  applyTheme(theme) {
+    for (const pane of this.panes.values()) pane.applyTheme(theme);
   }
 
   setFontSize(size) {

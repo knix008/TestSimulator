@@ -1,0 +1,85 @@
+html,
+body.popup-body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--toolbar-bg, #252526);
+  color: var(--toolbar-fg, #ccc);
+  font-family: "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+  user-select: none;
+}
+
+.popup-app {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-height: 100%;
+  box-sizing: border-box;
+  background: var(--toolbar-bg);
+  color: var(--toolbar-fg);
+  border: 1px solid var(--border);
+}
+
+.popup-titlebar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  -webkit-app-region: drag;
+  app-region: drag;
+  cursor: move;
+}
+
+.popup-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 650;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.popup-close {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
+.popup-body-content {
+  flex: 0 0 auto;
+  padding: 16px;
+  font-size: 13px;
+  line-height: 1.55;
+  overflow: hidden;
+}
+
+.popup-footer {
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 16px 16px;
+  border-top: 1px solid var(--border);
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
+.popup-footer .modal-btn,
+.popup-body-content button,
+.popup-body-content input,
+.popup-body-content select,
+.popup-body-content textarea,
+.popup-body-content a {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
+.popup-body-content .form-textarea,
+.popup-body-content textarea {
+  resize: vertical;
+  max-height: 160px;
+}

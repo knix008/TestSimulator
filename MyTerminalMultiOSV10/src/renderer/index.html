@@ -21,9 +21,6 @@
         </div>
 
         <div class="toolbar-actions" id="toolbar-actions">
-          <button class="tb-btn" id="btn-new" data-i18n-title="toolbar.newSession" type="button">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
-          </button>
           <button class="tb-btn" id="btn-remote" data-i18n-title="toolbar.remote" type="button">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <circle cx="6" cy="12" r="2.5"/>
@@ -73,9 +70,24 @@
                 <path d="M13 18 L16 9 L19 18" />
                 <path d="M14.1 15 h3.8" />
               </svg>
+              <span class="tb-font-label" id="font-label"></span>
             </button>
             <div class="tb-menu tb-menu-fonts" id="font-menu" hidden></div>
           </div>
+          <button
+            class="tb-btn tb-btn-fg"
+            id="btn-fg-color"
+            data-i18n-title="toolbar.textColor"
+            type="button"
+            title="Text color"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M6 18 L12 4 L18 18" />
+              <path d="M8.2 13 h7.6" />
+            </svg>
+            <span class="tb-fg-swatch" id="fg-color-swatch" aria-hidden="true"></span>
+          </button>
+          <input id="fg-color" class="tb-color-input-hidden" type="color" value="#d4d4d4" tabindex="-1" aria-hidden="true" />
           <span class="tb-sep" aria-hidden="true"></span>
           <div class="tb-menu-wrap">
             <button class="tb-btn" id="btn-theme" data-i18n-title="toolbar.theme" type="button" aria-haspopup="true">
@@ -118,6 +130,7 @@
           <div class="tb-menu-wrap">
             <button class="tb-btn" id="btn-lang" data-i18n-title="toolbar.language" type="button" aria-haspopup="true">
               <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3.5 3 14.5 0 18M12 3c-3 3.5-3 14.5 0 18"/></svg>
+              <span class="tb-lang-label" id="lang-label"></span>
             </button>
             <div class="tb-menu" id="lang-menu" hidden></div>
           </div>

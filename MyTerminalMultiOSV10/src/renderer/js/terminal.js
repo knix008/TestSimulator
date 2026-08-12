@@ -12,7 +12,7 @@ export class TerminalPane {
     api,
     i18n,
     getTheme,
-    getTransparency,
+    getHasBackgroundImage,
     getPromptTemplate,
     title = '',
   }) {
@@ -21,7 +21,7 @@ export class TerminalPane {
     this.api = api;
     this.i18n = i18n;
     this.getTheme = getTheme;
-    this.getTransparency = getTransparency || (() => 0);
+    this.getHasBackgroundImage = getHasBackgroundImage || (() => false);
     this.getPromptTemplate = getPromptTemplate || (() => null);
     this.title = title;
     this.mode = 'local';
@@ -39,7 +39,7 @@ export class TerminalPane {
       fontSize: this.fontSize,
       scrollback: this.scrollback,
       allowProposedApi: true,
-      theme: toXtermTheme(getTheme(), this.getTransparency()),
+      theme: toXtermTheme(getTheme(), !!this.getHasBackgroundImage()),
     });
 
     this.fitAddon = new FitAddon();
@@ -68,7 +68,7 @@ export class TerminalPane {
   }
 
   async start() {
-    this.applyTheme(this.getTheme(), this.getTransparency());
+    this.applyTheme(this.getTheme());
     this.fit();
 
     if (this.api?.isElectron) {
@@ -113,7 +113,7 @@ export class TerminalPane {
     this.mode = mode === 'ssh' ? 'ssh' : 'local';
     if (fontSize) this.setFontSize(fontSize);
     if (fontFamily) this.setFontFamily(fontFamily);
-    this.applyTheme(this.getTheme(), this.getTransparency());
+    this.applyTheme(this.getTheme());
     this.fit();
     if (serialized) {
       this.term.write(serialized);
@@ -165,8 +165,8 @@ export class TerminalPane {
     }
   }
 
-  applyTheme(theme, transparency = 0) {
-    this.term.options.theme = toXtermTheme(theme, transparency);
+  applyTheme(theme) {
+    this.term.options.theme = toXtermTheme(theme, !!this.getHasBackgroundImage());
   }
 
   clear() {

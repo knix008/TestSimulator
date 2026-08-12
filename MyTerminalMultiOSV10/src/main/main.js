@@ -1,7 +1,8 @@
-const { app, BrowserWindow, ipcMain, shell, Menu, screen, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, Menu, screen, dialog, nativeImage } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
+const UTIF = require('utif');
 const {
   createPty,
   writePty,
@@ -25,6 +26,11 @@ const {
   setQuitting,
   getIsQuitting,
 } = require('./tray');
+const { registerPopupIpc } = require('./popup');
+const {
+  registerDetachPreviewIpc,
+  destroyDetachPreview,
+} = require('./detach-preview');
 
 const windows = new Set();
 
@@ -45,14 +51,160 @@ function winFromEvent(event) {
   return BrowserWindow.fromWebContents(event.sender);
 }
 
+function getUserDataPath() {
+  return path.join(app.getPath('userData'), 'settings.json');
+}
+
+function readSettings() {
+  try {
+    const p = getUserDataPath();
+    if (fs.existsSync(p)) {
+      return JSON.parse(fs.readFileSync(p, 'utf8'));
+    }
+  } catch (_) {
+    /* ignore */
+  }
+  return {};
+}
+
+function writeSettings(settings) {
+  const p = getUserDataPath();
+  fs.mkdirSync(path.dirname(p), { recursive: true });
+  fs.writeFileSync(p, JSON.stringify(settings, null, 2), 'utf8');
+}
+
+/** Merge patch into settings.json so renderer updates cannot wipe window state. */
+function updateSettings(patch = {}) {
+  const next = { ...readSettings(), ...(patch || {}) };
+  writeSettings(next);
+  return next;
+}
+
+function ensureBoundsOnScreen(bounds) {
+  const width = Math.max(
+    TOOLBAR_MIN_WIDTH,
+    Math.min(Math.round(bounds.width) || 1100, 10000)
+  );
+  const height = Math.max(
+    WINDOW_MIN_HEIGHT,
+    Math.min(Math.round(bounds.height) || 720, 10000)
+  );
+  let x = Number.isFinite(bounds.x) ? Math.round(bounds.x) : undefined;
+  let y = Number.isFinite(bounds.y) ? Math.round(bounds.y) : undefined;
+
+  const displays = screen.getAllDisplays();
+  if (!displays.length) {
+    return { width, height, x, y };
+  }
+
+  const intersects = (area) => {
+    if (x === undefined || y === undefined) return false;
+    const right = x + width;
+    const bottom = y + height;
+    return (
+      right > area.x + 40 &&
+      x < area.x + area.width - 40 &&
+      bottom > area.y + 40 &&
+      y < area.y + area.height - 40
+    );
+  };
+
+  const onScreen = displays.some((d) => intersects(d.workArea));
+  if (onScreen) return { width, height, x, y };
+
+  const primary = screen.getPrimaryDisplay().workArea;
+  const w = Math.min(width, primary.width);
+  const h = Math.min(height, primary.height);
+  return {
+    width: w,
+    height: h,
+    x: Math.round(primary.x + (primary.width - w) / 2),
+    y: Math.round(primary.y + (primary.height - h) / 2),
+  };
+}
+
+function getRestoredWindowOptions() {
+  const settings = readSettings();
+  const saved = settings.windowBounds;
+  const defaults = { width: 1100, height: 720 };
+  if (!saved || typeof saved !== 'object') {
+    return { ...defaults, maximized: !!settings.windowMaximized };
+  }
+  const restored = ensureBoundsOnScreen({
+    x: saved.x,
+    y: saved.y,
+    width: saved.width || defaults.width,
+    height: saved.height || defaults.height,
+  });
+  return { ...restored, maximized: !!settings.windowMaximized };
+}
+
+const windowStateTimers = new WeakMap();
+
+function saveWindowState(win) {
+  if (!win || win.isDestroyed()) return;
+  try {
+    const maximized = win.isMaximized();
+    const bounds = typeof win.getNormalBounds === 'function' && maximized
+      ? win.getNormalBounds()
+      : win.getBounds();
+    updateSettings({
+      windowBounds: {
+        x: bounds.x,
+        y: bounds.y,
+        width: bounds.width,
+        height: bounds.height,
+      },
+      windowMaximized: maximized,
+    });
+  } catch (_) {
+    /* ignore */
+  }
+}
+
+function scheduleSaveWindowState(win) {
+  const prev = windowStateTimers.get(win);
+  if (prev) clearTimeout(prev);
+  const timer = setTimeout(() => {
+    windowStateTimers.delete(win);
+    saveWindowState(win);
+  }, 250);
+  windowStateTimers.set(win, timer);
+}
+
 function createWindow(options = {}) {
   Menu.setApplicationMenu(null);
 
+  const restored = getRestoredWindowOptions();
+  const hasExplicitSize =
+    Number.isFinite(options.width) || Number.isFinite(options.height);
+  const hasExplicitPos =
+    Number.isFinite(options.x) || Number.isFinite(options.y);
+
+  const width = Math.max(
+    TOOLBAR_MIN_WIDTH,
+    Math.round(options.width || restored.width || 1100)
+  );
+  const height = Math.max(
+    WINDOW_MIN_HEIGHT,
+    Math.round(options.height || restored.height || 720)
+  );
+  const x = hasExplicitPos
+    ? Number.isFinite(options.x)
+      ? Math.round(options.x)
+      : undefined
+    : restored.x;
+  const y = hasExplicitPos
+    ? Number.isFinite(options.y)
+      ? Math.round(options.y)
+      : undefined
+    : restored.y;
+
   const win = new BrowserWindow({
-    width: options.width || 1100,
-    height: options.height || 720,
-    x: options.x,
-    y: options.y,
+    width,
+    height,
+    x,
+    y,
     minWidth: TOOLBAR_MIN_WIDTH,
     minHeight: WINDOW_MIN_HEIGHT,
     frame: false,
@@ -78,20 +230,29 @@ function createWindow(options = {}) {
   }
   win.loadFile(path.join(__dirname, '../renderer/index.html'), loadOpts);
 
+  const shouldMaximize =
+    !hasExplicitSize && !options.adoptSessionId && restored.maximized;
+
   win.once('ready-to-show', () => {
+    if (shouldMaximize && !win.isDestroyed()) win.maximize();
     win.show();
     if (options.focus !== false) win.focus();
   });
 
   win.on('maximize', () => {
     if (!win.isDestroyed()) win.webContents.send('window:maximized', true);
+    scheduleSaveWindowState(win);
   });
   win.on('unmaximize', () => {
     if (!win.isDestroyed()) win.webContents.send('window:maximized', false);
+    scheduleSaveWindowState(win);
   });
+  win.on('resize', () => scheduleSaveWindowState(win));
+  win.on('move', () => scheduleSaveWindowState(win));
 
   // With tray enabled, close hides to tray instead of quitting.
   win.on('close', (e) => {
+    saveWindowState(win);
     if (isTrayActive() && !getIsQuitting()) {
       e.preventDefault();
       win.hide();
@@ -99,33 +260,14 @@ function createWindow(options = {}) {
   });
 
   win.on('closed', () => {
+    const timer = windowStateTimers.get(win);
+    if (timer) clearTimeout(timer);
+    windowStateTimers.delete(win);
     killSessionsForWindow(win);
     windows.delete(win);
   });
 
   return win;
-}
-
-function getUserDataPath() {
-  return path.join(app.getPath('userData'), 'settings.json');
-}
-
-function readSettings() {
-  try {
-    const p = getUserDataPath();
-    if (fs.existsSync(p)) {
-      return JSON.parse(fs.readFileSync(p, 'utf8'));
-    }
-  } catch (_) {
-    /* ignore */
-  }
-  return {};
-}
-
-function writeSettings(settings) {
-  const p = getUserDataPath();
-  fs.mkdirSync(path.dirname(p), { recursive: true });
-  fs.writeFileSync(p, JSON.stringify(settings, null, 2), 'utf8');
 }
 
 function readInstallerOptions() {
@@ -152,13 +294,11 @@ function bootstrapSettings() {
   if (typeof settings.showTrayIcon === 'boolean') return settings;
 
   const installer = readInstallerOptions();
-  if (installer && typeof installer.showTrayIcon === 'boolean') {
-    settings.showTrayIcon = installer.showTrayIcon;
-  } else {
-    settings.showTrayIcon = false;
-  }
-  writeSettings(settings);
-  return settings;
+  const showTrayIcon =
+    installer && typeof installer.showTrayIcon === 'boolean'
+      ? installer.showTrayIcon
+      : false;
+  return updateSettings({ showTrayIcon });
 }
 
 function applyTrayFromSettings(settings = {}) {
@@ -176,6 +316,8 @@ function applyTrayFromSettings(settings = {}) {
 }
 
 app.whenReady().then(() => {
+  registerPopupIpc();
+  registerDetachPreviewIpc();
   const settings = bootstrapSettings();
   applyTrayFromSettings(settings);
   createWindow();
@@ -186,6 +328,8 @@ app.whenReady().then(() => {
 });
 
 app.on('before-quit', () => {
+  for (const win of windows) saveWindowState(win);
+  destroyDetachPreview();
   setQuitting(true);
   destroyTray();
   killPty();
@@ -259,8 +403,8 @@ ipcMain.handle('app:getInfo', () => ({
 
 ipcMain.handle('settings:get', () => readSettings());
 ipcMain.handle('settings:set', (_e, settings) => {
-  const next = settings || {};
-  writeSettings(next);
+  // Merge so windowBounds / windowMaximized persisted by main are kept.
+  const next = updateSettings(settings || {});
   applyTrayFromSettings(next);
   return true;
 });
@@ -272,10 +416,48 @@ const BG_MIME = {
   '.png': 'image/png',
   '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg',
+  '.jfif': 'image/jpeg',
   '.webp': 'image/webp',
   '.gif': 'image/gif',
   '.bmp': 'image/bmp',
+  '.avif': 'image/avif',
+  '.tif': 'image/tiff',
+  '.tiff': 'image/tiff',
+  '.svg': 'image/svg+xml',
+  '.ico': 'image/x-icon',
 };
+const BG_EXTENSIONS = Object.keys(BG_MIME).map((ext) => ext.slice(1));
+
+/** Chromium cannot paint TIFF as CSS backgrounds; convert to PNG. */
+function tiffToPngBuffer(buf) {
+  const ifds = UTIF.decode(buf);
+  if (!ifds?.length) throw new Error('invalid_tiff');
+  UTIF.decodeImage(buf, ifds[0]);
+  const rgba = Buffer.from(UTIF.toRGBA8(ifds[0]));
+  const width = ifds[0].width;
+  const height = ifds[0].height;
+  if (!width || !height || rgba.length < width * height * 4) {
+    throw new Error('invalid_tiff');
+  }
+  // Electron createFromBitmap expects BGRA on little-endian.
+  for (let i = 0; i < rgba.length; i += 4) {
+    const r = rgba[i];
+    rgba[i] = rgba[i + 2];
+    rgba[i + 2] = r;
+  }
+  const img = nativeImage.createFromBitmap(rgba, { width, height });
+  if (img.isEmpty()) throw new Error('tiff_decode_failed');
+  return img.toPNG();
+}
+
+function prepareBackgroundBytes(buf, ext) {
+  if (ext === '.tif' || ext === '.tiff') {
+    return { buf: tiffToPngBuffer(buf), ext: '.png', mime: 'image/png' };
+  }
+  const mime = BG_MIME[ext];
+  if (!mime) return { error: 'unsupported_type' };
+  return { buf, ext, mime };
+}
 
 function backgroundDir() {
   return path.join(app.getPath('userData'), 'backgrounds');
@@ -320,7 +502,23 @@ ipcMain.handle('background:pick', async (event) => {
     filters: [
       {
         name: 'Images',
-        extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp'],
+        extensions: BG_EXTENSIONS,
+      },
+      {
+        name: 'JPEG',
+        extensions: ['jpg', 'jpeg', 'jfif'],
+      },
+      {
+        name: 'PNG / WebP / AVIF / GIF',
+        extensions: ['png', 'webp', 'avif', 'gif'],
+      },
+      {
+        name: 'TIFF',
+        extensions: ['tif', 'tiff'],
+      },
+      {
+        name: 'Other',
+        extensions: ['bmp', 'svg', 'ico'],
       },
     ],
     properties: ['openFile'],
@@ -330,6 +528,11 @@ ipcMain.handle('background:pick', async (event) => {
   }
 
   const src = result.filePaths[0];
+  const srcExt = path.extname(src).toLowerCase();
+  if (!BG_MIME[srcExt]) {
+    return { ok: false, error: 'unsupported_type' };
+  }
+
   let buf;
   try {
     buf = fs.readFileSync(src);
@@ -340,23 +543,32 @@ ipcMain.handle('background:pick', async (event) => {
     return { ok: false, error: 'too_large' };
   }
 
-  const ext = path.extname(src).toLowerCase() || '.png';
-  const mime = BG_MIME[ext] || 'image/png';
+  let prepared;
+  try {
+    prepared = prepareBackgroundBytes(buf, srcExt);
+  } catch (err) {
+    return { ok: false, error: err.message || 'decode_failed' };
+  }
+  if (prepared.error) {
+    return { ok: false, error: prepared.error };
+  }
+
+  const { buf: outBuf, ext, mime } = prepared;
   const dir = backgroundDir();
   fs.mkdirSync(dir, { recursive: true });
   clearBackgroundFiles();
-  fs.writeFileSync(path.join(dir, `wallpaper${ext}`), buf);
+  fs.writeFileSync(path.join(dir, `wallpaper${ext}`), outBuf);
 
   const chosenDir = path.dirname(src);
   try {
-    writeSettings({ ...settings, backgroundImageDir: chosenDir });
+    updateSettings({ backgroundImageDir: chosenDir });
   } catch (_) {
     /* ignore */
   }
 
   return {
     ok: true,
-    dataUrl: `data:${mime};base64,${buf.toString('base64')}`,
+    dataUrl: `data:${mime};base64,${outBuf.toString('base64')}`,
     directory: chosenDir,
   };
 });

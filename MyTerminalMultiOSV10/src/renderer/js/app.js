@@ -53,7 +53,16 @@ const api = window.myTerminal || {
     }
   },
   async setSettings(settings) {
-    localStorage.setItem('myterminal.settings', JSON.stringify(settings || {}));
+    let prev = {};
+    try {
+      prev = JSON.parse(localStorage.getItem('myterminal.settings') || '{}');
+    } catch {
+      prev = {};
+    }
+    localStorage.setItem(
+      'myterminal.settings',
+      JSON.stringify({ ...prev, ...(settings || {}) })
+    );
     return true;
   },
   openExternal(url) {
@@ -142,8 +151,17 @@ function applyStatusBarVisibility() {
   document.body.classList.toggle('statusbar-hidden', !visible);
   if (bar) bar.hidden = !visible;
   updateStatusBar();
-  // Layout change needs a terminal reflow.
-  requestAnimationFrame(() => sessions?.active?.fit());
+  // Wait for flex layout to settle, then refit every pane so the last row
+  // is not clipped by the status bar.
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      if (!sessions?.panes) {
+        sessions?.active?.fit();
+        return;
+      }
+      for (const pane of sessions.panes.values()) pane.fit();
+    });
+  });
 }
 
 function updateStatusBar() {
@@ -178,8 +196,46 @@ function applyTheme() {
     state.backgroundImage,
     getBgFitById(state.backgroundFit)
   );
-  sessions?.applyTheme(theme, state.bgTransparency);
+  sessions?.applyTheme(theme);
   updateBgFitUi();
+  updateTextColorUi();
+}
+
+function updateFontUi() {
+  const label = document.getElementById('font-label');
+  const font = getFontById(state.fontId);
+  if (label) label.textContent = font.label;
+  const btn = document.getElementById('btn-font');
+  if (btn) {
+    const tip = `${i18n.t('toolbar.fontFamily')}: ${font.label}`;
+    btn.setAttribute('title', tip);
+    btn.setAttribute('aria-label', tip);
+    btn.dataset.tooltip = tip;
+  }
+}
+
+function updateTextColorUi() {
+  const input = document.getElementById('fg-color');
+  const btn = document.getElementById('btn-fg-color');
+  const swatch = document.getElementById('fg-color-swatch');
+  const color = currentTheme().foreground || '#d4d4d4';
+  if (input && input.value.toLowerCase() !== String(color).toLowerCase()) {
+    input.value = color;
+  }
+  if (swatch) swatch.style.background = color;
+  if (btn) {
+    const tip = `${i18n.t('toolbar.textColor')}: ${color}`;
+    btn.setAttribute('title', tip);
+    btn.setAttribute('aria-label', tip);
+    btn.dataset.tooltip = tip;
+  }
+}
+
+function applyTextColor(color) {
+  if (!state.custom) state.custom = defaultCustomFrom(currentTheme());
+  state.custom = { ...state.custom, foreground: color };
+  state.themeId = 'custom';
+  applyTheme();
 }
 
 function bgFitLabel(id = state.backgroundFit) {
@@ -229,14 +285,33 @@ function applyBackgroundTransparency(value, { persistSettings = true } = {}) {
 function applyFont() {
   const font = getFontById(state.fontId);
   sessions?.setFontFamily(font.family);
+  updateFontUi();
 }
 
 function applyScrollback() {
   sessions?.setScrollback(state.scrollback);
 }
 
+function langLabel(lang = state.lang) {
+  const id = lang === 'ko' ? 'ko' : 'en';
+  return i18n.t(`language.${id}`, id.toUpperCase());
+}
+
+function updateLangUi() {
+  const label = document.getElementById('lang-label');
+  if (label) label.textContent = langLabel();
+  const btn = document.getElementById('btn-lang');
+  if (btn) {
+    const tip = `${i18n.t('toolbar.language')}: ${langLabel()}`;
+    btn.setAttribute('title', tip);
+    btn.setAttribute('aria-label', tip);
+    btn.dataset.tooltip = tip;
+  }
+}
+
 async function applyLanguage(lang) {
-  await i18n.setLanguage(lang);
+  state.lang = lang === 'ko' ? 'ko' : 'en';
+  await i18n.setLanguage(state.lang);
   // Open dialogs keep old strings; close them so reopen uses the new language.
   const modalRoot = document.getElementById('modal-root');
   if (modalRoot) modalRoot.innerHTML = '';
@@ -252,6 +327,9 @@ async function applyLanguage(lang) {
   updateRemoteButton();
   updateStatusBar();
   updateBgFitUi();
+  updateLangUi();
+  updateFontUi();
+  updateTextColorUi();
   updateMaxButton(await (api.isMaximized?.() ?? false));
   syncToolbarMinWidth();
 }
@@ -382,15 +460,6 @@ function populateBgFitMenu() {
 function bindToolbar() {
   const on = (id, handler) => document.getElementById(id).addEventListener('click', handler);
 
-  on('btn-new', async () => {
-    await sessions.create({
-      fontSize: state.fontSize,
-      fontFamily: getFontById(state.fontId).family,
-      scrollback: state.scrollback,
-    });
-    updateRemoteButton();
-  });
-
   on('btn-remote', async () => {
     if (!api.isElectron || !api.sshConnect) {
       alert(i18n.t('ssh.webOnly'));
@@ -410,6 +479,9 @@ function bindToolbar() {
     openSshModal({
       i18n,
       defaults: state.ssh || {},
+      themes: state.themes,
+      themeId: state.themeId,
+      custom: state.custom,
       onConnect: async (config) => {
         const result = await api.sshConnect({
           ...config,
@@ -465,6 +537,9 @@ function bindToolbar() {
       i18n,
       template: state.promptTemplate,
       presets,
+      themes: state.themes,
+      themeId: state.themeId,
+      custom: state.custom,
       onApply: async (value) => {
         state.promptTemplate = value || DEFAULT_PROMPT;
         if (api.setPrompt) await api.setPrompt(state.promptTemplate);
@@ -505,6 +580,32 @@ function bindToolbar() {
     await persist();
     closeMenus();
   });
+
+  const fgColor = document.getElementById('fg-color');
+  const fgBtn = document.getElementById('btn-fg-color');
+  if (fgBtn && fgColor) {
+    on('btn-fg-color', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      closeMenus();
+      // Show native color picker near the toolbar button.
+      if (typeof fgColor.showPicker === 'function') {
+        try {
+          fgColor.showPicker();
+          return;
+        } catch (_) {
+          /* fall through */
+        }
+      }
+      fgColor.click();
+    });
+    fgColor.addEventListener('input', (e) => {
+      applyTextColor(e.target.value);
+    });
+    fgColor.addEventListener('change', async () => {
+      await persist();
+    });
+  }
 
   on('btn-theme', (e) => {
     e.preventDefault();
@@ -566,7 +667,10 @@ function bindToolbar() {
   }
 
   function openSettings() {
-    if (!state.custom) state.custom = defaultCustomFrom(currentTheme());
+    // Color pickers should reflect the active theme (or saved custom colors).
+    if (state.themeId !== 'custom' || !state.custom) {
+      state.custom = defaultCustomFrom(currentTheme());
+    }
     openSettingsModal({
       i18n,
       custom: state.custom,
@@ -577,6 +681,16 @@ function bindToolbar() {
       backgroundImage: state.backgroundImage,
       backgroundFit: state.backgroundFit,
       bgFitModes: BG_FIT_MODES,
+      themes: state.themes,
+      themeId: state.themeId,
+      fonts: FONTS,
+      fontId: state.fontId,
+      fontSize: state.fontSize,
+      onBgDir: async (directory) => {
+        if (!directory) return;
+        state.backgroundImageDir = directory;
+        await persist();
+      },
       onPickBackground: api.pickBackgroundImage
         ? async () => {
             const result = await api.pickBackgroundImage();
@@ -597,24 +711,33 @@ function bindToolbar() {
         backgroundImage,
         backgroundFit,
         themeTouched,
+        fontId,
+        fontSize,
       }) => {
         state.custom = custom;
         if (themeTouched) state.themeId = 'custom';
         state.scrollback = clampScrollback(scrollback);
         state.showStatusBar = !!showStatusBar;
         state.showTrayIcon = !!showTrayIcon;
+        if (fontId) state.fontId = getFontById(fontId).id;
+        if (fontSize != null) {
+          state.fontSize = Math.max(10, Math.min(28, Number.parseInt(fontSize, 10) || state.fontSize));
+          sessions?.setFontSize(state.fontSize);
+        }
         const nextImage = backgroundImage || '';
         const imageChanged = nextImage !== state.backgroundImage;
         state.backgroundImage = nextImage;
         state.backgroundFit = normalizeBgFit(backgroundFit || state.backgroundFit);
-        // Make a newly chosen wallpaper visible right away.
-        if (imageChanged && nextImage && state.bgTransparency < 35) {
-          state.bgTransparency = 35;
+        // New wallpaper: show it fully (0% image transparency).
+        if (imageChanged && nextImage) {
+          state.bgTransparency = 0;
           updateTransparencyUi();
         }
+        applyFont();
         applyTheme();
         applyScrollback();
         applyStatusBarVisibility();
+        updateStatusBar();
         await persist();
       },
       onReset: () => {
@@ -633,11 +756,22 @@ function bindToolbar() {
       i18n,
       info,
       iconSrc: document.querySelector('link[rel="icon"]')?.href || './assets/icons/icon.png',
+      themes: state.themes,
+      themeId: state.themeId,
+      custom: state.custom,
     });
   });
 
   document.addEventListener('click', (e) => {
     if (e.target.closest('.tb-menu-wrap') || e.target.closest('.tb-menu')) return;
+    closeMenus();
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    const open = document.querySelector('.tb-menu.tb-menu-open, .tb-menu:not([hidden])');
+    if (!open || open.hidden) return;
+    e.preventDefault();
     closeMenus();
   });
 
@@ -724,8 +858,13 @@ async function boot() {
     api,
     i18n,
     getTheme: currentTheme,
-    getTransparency: () => state.bgTransparency,
+    getHasBackgroundImage: () => !!state.backgroundImage,
     getPromptTemplate: () => state.promptTemplate,
+    getNewSessionOptions: () => ({
+      fontSize: state.fontSize,
+      fontFamily: getFontById(state.fontId).family,
+      scrollback: state.scrollback,
+    }),
     onActiveChange: () => {
       updateRemoteButton();
       updateStatusBar();
@@ -761,6 +900,8 @@ async function boot() {
   }
   applyFont();
   applyScrollback();
+  updateFontUi();
+  updateTextColorUi();
   updateStatusBar();
 
   bindToolbar();

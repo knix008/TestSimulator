@@ -1,5 +1,9 @@
 let themes = null;
 
+const DARK_FG = '#1f1f1f';
+const DARK_TOOLBAR_FG = '#222222';
+const DARK_CURSOR = '#000000';
+
 export async function loadThemes() {
   if (themes) return themes;
   const res = await fetch('./shared/themes/themes.json');
@@ -11,11 +15,96 @@ export function getThemeList(themesMap) {
   return Object.keys(themesMap);
 }
 
-export function resolveTheme(themesMap, themeId, custom) {
-  if (themeId === 'custom' && custom) {
-    return { ...themesMap.dark, ...custom, id: 'custom' };
+function parseRgb(color) {
+  const raw = String(color || '').trim();
+  if (!raw) return null;
+  if (raw.startsWith('rgba(') || raw.startsWith('rgb(')) {
+    const parts = raw
+      .replace(/^rgba?\(/, '')
+      .replace(/\)$/, '')
+      .split(',')
+      .map((p) => Number.parseFloat(p.trim()));
+    if (parts.length >= 3 && parts.slice(0, 3).every(Number.isFinite)) {
+      return { r: parts[0], g: parts[1], b: parts[2] };
+    }
+    return null;
   }
-  return themesMap[themeId] || themesMap.dark;
+  let hex = raw.replace('#', '');
+  if (hex.length === 3) {
+    hex = hex
+      .split('')
+      .map((c) => c + c)
+      .join('');
+  }
+  if (hex.length < 6) return null;
+  const r = Number.parseInt(hex.slice(0, 2), 16);
+  const g = Number.parseInt(hex.slice(2, 4), 16);
+  const b = Number.parseInt(hex.slice(4, 6), 16);
+  if (![r, g, b].every(Number.isFinite)) return null;
+  return { r, g, b };
+}
+
+/** Relative luminance 0..1 (WCAG). */
+export function relativeLuminance(color) {
+  const rgb = parseRgb(color);
+  if (!rgb) return 0;
+  const lin = [rgb.r, rgb.g, rgb.b].map((c) => {
+    const s = c / 255;
+    return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2];
+}
+
+export function isLightColor(color, threshold = 0.55) {
+  return relativeLuminance(color) >= threshold;
+}
+
+export function isLightTheme(theme) {
+  if (!theme) return false;
+  if (theme.id === 'light') return true;
+  return isLightColor(theme.background) || isLightColor(theme.toolbarBg);
+}
+
+/**
+ * On light backgrounds, force dark text/cursor/toolbar labels so content stays readable.
+ */
+export function ensureReadableTheme(theme) {
+  const t = {
+    ...theme,
+    terminal: { ...(theme.terminal || {}) },
+  };
+  const lightBg = isLightColor(t.background);
+  const lightToolbar = isLightColor(t.toolbarBg);
+
+  if (lightBg) {
+    if (isLightColor(t.foreground, 0.48)) t.foreground = DARK_FG;
+    if (isLightColor(t.cursor, 0.48)) t.cursor = DARK_CURSOR;
+    if (isLightColor(t.terminal.white, 0.55)) t.terminal.white = '#444444';
+    if (isLightColor(t.terminal.brightWhite, 0.65)) t.terminal.brightWhite = '#333333';
+  }
+
+  if (lightToolbar && isLightColor(t.toolbarFg, 0.48)) {
+    t.toolbarFg =
+      t.foreground && !isLightColor(t.foreground, 0.48) ? t.foreground : DARK_TOOLBAR_FG;
+  }
+
+  return t;
+}
+
+export function resolveTheme(themesMap, themeId, custom) {
+  let theme;
+  if (themeId === 'custom' && custom) {
+    const base = themesMap.dark || {};
+    theme = {
+      ...base,
+      ...custom,
+      id: 'custom',
+      terminal: { ...(base.terminal || {}), ...(custom.terminal || {}) },
+    };
+  } else {
+    theme = themesMap[themeId] || themesMap.dark;
+  }
+  return ensureReadableTheme(theme);
 }
 
 export function clampTransparency(value) {
@@ -24,8 +113,8 @@ export function clampTransparency(value) {
   return Math.max(0, Math.min(100, n));
 }
 
-/** transparency 0 = opaque, 100 = fully transparent */
-export function transparencyToAlpha(transparency) {
+/** Image transparency 0 = fully visible, 100 = invisible. */
+export function transparencyToImageOpacity(transparency) {
   return (100 - clampTransparency(transparency)) / 100;
 }
 
@@ -69,18 +158,18 @@ function cssUrl(value) {
 
 export function applyThemeToDocument(
   theme,
-  transparency = 0,
+  imageTransparency = 0,
   backgroundImage = '',
   backgroundFit = null
 ) {
   const root = document.documentElement;
-  const alpha = transparencyToAlpha(transparency);
+  const imageOpacity = transparencyToImageOpacity(imageTransparency);
   const solidBg = theme.background;
-  const glassBg = colorWithAlpha(theme.background, alpha);
 
-  root.style.setProperty('--bg', glassBg);
+  root.style.setProperty('--bg', solidBg);
   root.style.setProperty('--bg-solid', solidBg);
   root.style.setProperty('--bg-image', cssUrl(backgroundImage));
+  root.style.setProperty('--bg-image-opacity', String(imageOpacity));
   root.style.setProperty('--fg', theme.foreground);
   root.style.setProperty('--accent', theme.accent);
   root.style.setProperty('--toolbar-bg', theme.toolbarBg);
@@ -88,7 +177,7 @@ export function applyThemeToDocument(
   root.style.setProperty('--border', theme.border);
   root.style.setProperty('--button-hover', theme.buttonHover);
   root.style.setProperty('--danger', theme.danger);
-  root.style.setProperty('--bg-transparency', String(clampTransparency(transparency)));
+  root.style.setProperty('--bg-transparency', String(clampTransparency(imageTransparency)));
   document.body.classList.toggle('has-bg-image', !!backgroundImage);
 
   if (backgroundFit) {
@@ -98,15 +187,17 @@ export function applyThemeToDocument(
     document.body.dataset.bgFit = backgroundFit.id;
   }
 
-  document.body.classList.toggle('theme-light', theme.id === 'light');
+  const light = isLightTheme(theme);
+  document.body.classList.toggle('theme-light', light);
+  root.style.setProperty('color-scheme', light ? 'light' : 'dark');
   document.documentElement.style.background = 'transparent';
   document.body.style.background = 'transparent';
 }
 
-export function toXtermTheme(theme, transparency = 0) {
+export function toXtermTheme(theme, hasBackgroundImage = false) {
   const t = theme.terminal || {};
-  const alpha = transparencyToAlpha(transparency);
-  const background = colorWithAlpha(theme.background, alpha);
+  // When a wallpaper is present, keep the terminal canvas clear so the image shows.
+  const background = hasBackgroundImage ? 'rgba(0, 0, 0, 0)' : theme.background;
   return {
     background,
     foreground: theme.foreground,
