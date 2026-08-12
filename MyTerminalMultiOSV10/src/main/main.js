@@ -392,6 +392,45 @@ ipcMain.handle('window:getBounds', (event) => {
   return win ? win.getBounds() : null;
 });
 
+/** Other MyTerminal window under a screen point (for tab merge drag). */
+function findWindowAtPoint(screenX, screenY, excludeWin) {
+  const x = Math.round(Number(screenX));
+  const y = Math.round(Number(screenY));
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+
+  const hits = [];
+  for (const win of windows) {
+    if (!win || win.isDestroyed() || !win.isVisible()) continue;
+    if (excludeWin && win.id === excludeWin.id) continue;
+    const b = win.getBounds();
+    if (
+      x >= b.x &&
+      x < b.x + b.width &&
+      y >= b.y &&
+      y < b.y + b.height
+    ) {
+      hits.push(win);
+    }
+  }
+  if (!hits.length) return null;
+  return hits.find((w) => w.isFocused()) || hits[hits.length - 1];
+}
+
+ipcMain.handle('window:findAtPoint', (event, payload = {}) => {
+  const source = winFromEvent(event);
+  const win = findWindowAtPoint(payload.x, payload.y, source);
+  if (!win) return null;
+  return { id: win.id, bounds: win.getBounds() };
+});
+
+/** Destroy this window after its last tab was merged away (skip tray-hide). */
+ipcMain.handle('window:destroyEmpty', (event) => {
+  const win = winFromEvent(event);
+  if (!win || win.isDestroyed()) return false;
+  win.destroy();
+  return true;
+});
+
 ipcMain.handle('window:setMinSize', (event, payload = {}) => {
   const win = winFromEvent(event);
   if (!win) return null;
@@ -1043,6 +1082,50 @@ ipcMain.handle('session:detach', (event, payload = {}) => {
   }
 
   return { ok: true, sessionId };
+});
+
+/** Move a session into an existing window as a new tab (merge). */
+ipcMain.handle('session:attach', (event, payload = {}) => {
+  const source = winFromEvent(event);
+  const sessionId = String(payload.sessionId || '');
+  const targetId = Number(payload.targetWindowId);
+  const target =
+    Number.isFinite(targetId) && targetId > 0
+      ? BrowserWindow.fromId(targetId)
+      : null;
+
+  if (!source || !sessionId) return { ok: false, error: 'Invalid attach request' };
+  if (!target || target.isDestroyed() || !windows.has(target)) {
+    return { ok: false, error: 'Target window not found' };
+  }
+  if (target.id === source.id) return { ok: false, error: 'Same window' };
+
+  const info = getSessionInfo({ sessionId });
+  if (!info.exists) return { ok: false, error: 'Session not found' };
+
+  const meta = {
+    title: payload.title || info.title || `Terminal ${sessionId}`,
+    mode: payload.mode || info.mode || 'local',
+    serialized: payload.serialized || '',
+    fontSize: payload.fontSize || 14,
+    fontFamily: payload.fontFamily || '',
+  };
+
+  stashAdopt(sessionId, meta);
+  reattachSession(sessionId, target);
+
+  if (!target.isDestroyed()) {
+    target.focus();
+    target.webContents.send('session:adopt', { sessionId, ...meta });
+  }
+  if (!source.isDestroyed()) {
+    source.webContents.send('session:detached', {
+      sessionId,
+      closeIfEmpty: true,
+    });
+  }
+
+  return { ok: true, sessionId, targetWindowId: target.id };
 });
 
 ipcMain.handle('session:takeAdopt', (_e, sessionId) => takeAdopt(sessionId));

@@ -167,8 +167,9 @@
     "session": "Terminal",
     "new": "New Terminal",
     "close": "Close tab",
-    "dragHint": "Drag outside to open in a new window",
+    "dragHint": "Drag outside for a new window, or onto another MyTerminal window to merge",
     "detachPreviewHint": "Release to open in a new window",
+    "mergePreviewHint": "Release to merge as a tab in that window",
     "detachedNotice": "Session moved to this window."
   },
   "ssh": {

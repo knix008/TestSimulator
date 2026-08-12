@@ -167,8 +167,9 @@
     "session": "터미널",
     "new": "새 터미널",
     "close": "탭 닫기",
-    "dragHint": "창 밖으로 드래그하면 새 창으로 분리됩니다",
+    "dragHint": "창 밖이면 새 창으로 분리, 다른 MyTerminal 창 위면 탭으로 합칩니다",
     "detachPreviewHint": "놓으면 새 창으로 열립니다",
+    "mergePreviewHint": "놓으면 해당 창의 탭으로 합쳐집니다",
     "detachedNotice": "세션이 이 창으로 이동되었습니다."
   },
   "ssh": {

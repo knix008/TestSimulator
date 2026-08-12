@@ -268,7 +268,14 @@ body.tab-detach-ready .tab-item.dragging {
   opacity: 0.75;
 }
 
-body.tab-detach-ready::after {
+body.tab-merge-ready .tab-item.dragging {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  opacity: 0.85;
+}
+
+body.tab-detach-ready::after,
+body.tab-merge-ready::after {
   content: attr(data-detach-hint);
   position: fixed;
   left: 50%;
@@ -284,6 +291,10 @@ body.tab-detach-ready::after {
   background: color-mix(in srgb, var(--accent) 88%, #000);
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
   white-space: nowrap;
+}
+
+body.tab-merge-ready::after {
+  background: color-mix(in srgb, var(--ok, #3d9a5f) 88%, #000);
 }
 
 .tab-item:hover {

@@ -80,11 +80,19 @@ contextBridge.exposeInMainWorld('myTerminal', {
   },
 
   detachSession: (payload) => ipcRenderer.invoke('session:detach', payload),
+  attachSession: (payload) => ipcRenderer.invoke('session:attach', payload),
   takeAdopt: (sessionId) => ipcRenderer.invoke('session:takeAdopt', sessionId),
+  findWindowAtPoint: (point) => ipcRenderer.invoke('window:findAtPoint', point || {}),
+  destroyEmptyWindow: () => ipcRenderer.invoke('window:destroyEmpty'),
   onSessionDetached: (cb) => {
     const handler = (_e, payload) => cb(payload);
     ipcRenderer.on('session:detached', handler);
     return () => ipcRenderer.removeListener('session:detached', handler);
+  },
+  onSessionAdopt: (cb) => {
+    const handler = (_e, payload) => cb(payload);
+    ipcRenderer.on('session:adopt', handler);
+    return () => ipcRenderer.removeListener('session:adopt', handler);
   },
 
   showDetachPreview: (options) => ipcRenderer.invoke('detachPreview:show', options || {}),

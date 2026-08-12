@@ -59,7 +59,16 @@ export class SessionManager {
     if (api?.onSessionDetached) {
       this.disposers.push(
         api.onSessionDetached(async (payload) => {
-          await this.detachLocalUi(payload?.sessionId);
+          await this.detachLocalUi(payload?.sessionId, {
+            closeIfEmpty: Boolean(payload?.closeIfEmpty),
+          });
+        })
+      );
+    }
+    if (api?.onSessionAdopt) {
+      this.disposers.push(
+        api.onSessionAdopt(async (payload) => {
+          await this.adoptIncoming(payload);
         })
       );
     }
@@ -182,7 +191,7 @@ export class SessionManager {
   }
 
   /** Remove tab UI after backend was moved to another window. */
-  async detachLocalUi(sessionId) {
+  async detachLocalUi(sessionId, options = {}) {
     const id = String(sessionId);
     const pane = this.panes.get(id);
     if (!pane) return;
@@ -193,6 +202,10 @@ export class SessionManager {
     this.panes.delete(id);
 
     if (this.panes.size === 0) {
+      if (options.closeIfEmpty && this.api.destroyEmptyWindow) {
+        await this.api.destroyEmptyWindow();
+        return;
+      }
       // Keep the source window usable with a fresh session.
       await this.create();
       return;
@@ -202,6 +215,43 @@ export class SessionManager {
     if (this.activeId === id) this.activate(nextId);
     else this.renderTabs();
     this.onActiveChange(this.active);
+  }
+
+  /** Accept a session moved from another window (merge). */
+  async adoptIncoming(payload = {}) {
+    const sessionId = String(payload.sessionId || '');
+    if (!sessionId) return;
+    if (this.panes.has(sessionId)) {
+      this.activate(sessionId);
+      return;
+    }
+
+    let meta = {
+      title: payload.title,
+      mode: payload.mode,
+      serialized: payload.serialized,
+      fontSize: payload.fontSize,
+      fontFamily: payload.fontFamily,
+    };
+    if (!meta.serialized && this.api.takeAdopt) {
+      const stashed = await this.api.takeAdopt(sessionId);
+      if (stashed) meta = { ...meta, ...stashed };
+    } else if (this.api.takeAdopt) {
+      // Clear stash so a later boot adopt cannot double-load.
+      await this.api.takeAdopt(sessionId);
+    }
+
+    await this.create({
+      sessionId,
+      title: meta.title,
+      adopt: {
+        title: meta.title,
+        mode: meta.mode || 'local',
+        serialized: meta.serialized || '',
+        fontSize: meta.fontSize,
+        fontFamily: meta.fontFamily,
+      },
+    });
   }
 
   renderTabs() {
@@ -266,6 +316,25 @@ export class SessionManager {
     const drag = this.dragState;
     if (!drag?.moved || !drag.bounds) return;
 
+    const mergeTarget =
+      (this.api.findWindowAtPoint &&
+        (await this.api.findWindowAtPoint({ x: screenX, y: screenY }))) ||
+      null;
+    drag.mergeTargetId = mergeTarget?.id || null;
+
+    if (mergeTarget) {
+      document.body.classList.remove('tab-detach-ready');
+      document.body.classList.add('tab-merge-ready');
+      document.body.dataset.detachHint = this.i18n.t('tabs.mergePreviewHint');
+      if (drag.previewShown) {
+        drag.previewShown = false;
+        this.api.hideDetachPreview?.();
+      }
+      return;
+    }
+
+    document.body.classList.remove('tab-merge-ready');
+
     const canDetach = this.isDetachZone(screenX, screenY, drag.bounds);
     const hint = this.i18n.t('tabs.detachPreviewHint');
     document.body.dataset.detachHint = hint;
@@ -295,6 +364,7 @@ export class SessionManager {
 
   clearDetachPreview() {
     document.body.classList.remove('tab-detach-ready');
+    document.body.classList.remove('tab-merge-ready');
     delete document.body.dataset.detachHint;
     if (this.dragState?.previewShown) {
       this.dragState.previewShown = false;
@@ -319,6 +389,7 @@ export class SessionManager {
       tabEl: tab,
       bounds,
       previewShown: false,
+      mergeTargetId: null,
     };
     tab.classList.add('dragging');
     tab.setPointerCapture?.(e.pointerId);
@@ -345,23 +416,47 @@ export class SessionManager {
     tabEl?.classList.remove('dragging');
     document.body.classList.remove('tab-dragging');
 
+    const mergeTarget =
+      (drag.moved &&
+        this.api.findWindowAtPoint &&
+        (await this.api.findWindowAtPoint({
+          x: e.screenX,
+          y: e.screenY,
+        }))) ||
+      null;
     const canDetach =
-      drag.moved && this.isDetachZone(e.screenX, e.screenY, drag.bounds);
+      !mergeTarget &&
+      drag.moved &&
+      this.isDetachZone(e.screenX, e.screenY, drag.bounds);
     const movedFar =
       drag.moved &&
-      (Math.abs(e.screenX - drag.startX) > 24 || Math.abs(e.screenY - drag.startY) > 24);
+      (Math.abs(e.screenX - drag.startX) > 24 ||
+        Math.abs(e.screenY - drag.startY) > 24);
 
     this.clearDetachPreview();
     this.dragState = null;
     if (movedFar) this.suppressClickUntil = Date.now() + 400;
 
+    const pane = this.panes.get(String(drag.sessionId));
+    if (!pane) return;
+
+    if (mergeTarget && this.api.attachSession) {
+      await this.api.attachSession({
+        sessionId: pane.sessionId,
+        title: pane.title,
+        mode: pane.mode,
+        serialized: pane.serialize(),
+        fontSize: pane.fontSize,
+        fontFamily: pane.fontFamily,
+        targetWindowId: mergeTarget.id,
+      });
+      return;
+    }
+
     if (!canDetach || !this.api?.detachSession) return;
 
     const bounds = drag.bounds || (await this.api.getWindowBounds?.());
     if (!bounds) return;
-
-    const pane = this.panes.get(String(drag.sessionId));
-    if (!pane) return;
 
     const size = this.detachPreviewSize(bounds);
     await this.api.detachSession({

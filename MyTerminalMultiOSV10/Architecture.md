@@ -121,12 +121,10 @@ SessionManager
 
 - Main PTY 없이 `WebShell`이 가상 파일시스템/명령 일부를 제공
 
-### 창 분리 (Detach)
+### 창 분리 (Detach) / 합치기 (Merge)
 
-1. 탭을 창 밖으로 드래그
-2. Renderer가 화면 serialize + `detachSession`
-3. Main이 세션 소유권을 새 `BrowserWindow`로 이전
-4. 새 창 `?adopt=<sessionId>`로 로드 후 UI만 재부착
+1. **분리**: 탭을 창 밖으로 드래그 → `session:detach` → 새 창 + `?adopt=`
+2. **합치기**: 탭을 다른 MyTerminal 창 위로 드래그 → `session:attach` → 대상 창에 `session:adopt` 탭 추가 (마지막 탭이면 원본 창 닫힘)
 
 ## 5. 설정·테마 데이터
 
