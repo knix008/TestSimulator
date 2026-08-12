@@ -27,7 +27,16 @@
       "Bash(grep -oiE \"alpha:[a-zA-Z0-9._!]{1,40},\\(depth|antialias|premultipliedAlpha|preserveDrawingBuffer\\)[^}]{0,120}\" node_modules/@xterm/addon-webgl/lib/addon-webgl.js)",
       "Bash(grep -oiE \".{0,90}getContext\\\\\\(\\\\\"webgl2\\\\\",[a-zA-Z]\\\\\\)\" node_modules/@xterm/addon-webgl/lib/addon-webgl.js)",
       "Bash(grep -oiE \"\\\\{antialias:[^}]{0,120}\\\\}\" node_modules/@xterm/addon-webgl/lib/addon-webgl.js)",
-      "Bash(node -e 'const p=require\\(\"./src/main/prompt.js\"\\);const o=p.renderPrompt\\(p.PROMPT_PRESETS.ohmyzsh_agnoster.template,{user:\"me\",host:\"pc\",cwd:\"C:\\\\\\\\repo\",gitMode:\"status\"}\\);console.log\\(JSON.stringify\\(o.slice\\(o.lastIndexOf\\(\"main\"\\)\\).replace\\(/\\\\x1b/g,\"\\\\\\\\e\"\\)\\)\\)')"
+      "Bash(node -e 'const p=require\\(\"./src/main/prompt.js\"\\);const o=p.renderPrompt\\(p.PROMPT_PRESETS.ohmyzsh_agnoster.template,{user:\"me\",host:\"pc\",cwd:\"C:\\\\\\\\repo\",gitMode:\"status\"}\\);console.log\\(JSON.stringify\\(o.slice\\(o.lastIndexOf\\(\"main\"\\)\\).replace\\(/\\\\x1b/g,\"\\\\\\\\e\"\\)\\)\\)')",
+      "Bash(node -e \"try{require.resolve\\('playwright'\\);console.log\\('playwright yes'\\)}catch\\(e\\){console.log\\('no playwright'\\)}; try{require.resolve\\('puppeteer'\\);console.log\\('puppeteer yes'\\)}catch\\(e\\){console.log\\('no puppeteer'\\)}\")",
+      "Bash(unset ELECTRON_RUN_AS_NODE)",
+      "Bash(timeout 40 ./node_modules/.bin/electron scripts/_el-test.js)",
+      "Bash(echo \"rc=$?\")",
+      "Bash(sed -i \"s/fontSize: 14,/fontSize: 44,/; s/cols: 60, rows: 6,/cols: 22, rows: 5,/\" scripts/_cap/cap-src.js)",
+      "Bash(sed -i \"s#const base = '\\\\[44m\\\\[37m me@pc \\\\[43;34m\\\\[43m\\\\[30m C:\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\repo ';#const base = '';#\" scripts/_cap/cap-src.js)",
+      "Bash(node -e \"for\\(const m of ['pngjs','sharp','jimp','upng-js']\\){try{require.resolve\\(m\\);console.log\\(m,'YES'\\)}catch\\(e\\){console.log\\(m,'no'\\)}}\")",
+      "Bash(perl -0pi -e \"s/lines\\\\.join\\\\\\('\\\\\\\\\\\\\\\\r\\\\\\\\\\\\\\\\n'\\\\\\)/lines.join\\('\\\\\\\\\\\\\\\\r\\\\\\\\\\\\\\\\n\\\\\\\\\\\\\\\\r\\\\\\\\\\\\\\\\n'\\)/\" scripts/_cap/cap-src.js)",
+      "Bash(python3 -)"
     ]
   }
 }

@@ -142,6 +142,14 @@ function currentTheme() {
   return resolveTheme(state.themes, state.themeId, state.custom);
 }
 
+/** Opaque tip bg when the terminal canvas is solid; empty with wallpaper. */
+function promptEndTipBg() {
+  const showWallpaper =
+    !!state.backgroundImage && state.backgroundFit !== 'none';
+  if (showWallpaper) return '';
+  return currentTheme().background || '#1E1E1E';
+}
+
 function activePane() {
   return sessions?.active || null;
 }
@@ -166,8 +174,9 @@ async function persist() {
     promptPresetId: state.promptPresetId || '',
     lsDirectoryColor: state.lsDirectoryColor,
     lsFileColor: state.lsFileColor,
-    // Opaque theme bg for agnoster end tips (same height as mid tips; no black fringe).
-    promptEndTipBg: currentTheme().background || '#1E1E1E',
+    // Solid theme bg for end tips when there is no wallpaper; empty with wallpaper
+    // so red/magenta tips keep segment bg (full height, no contrast-tip AA fringe).
+    promptEndTipBg: promptEndTipBg(),
     ssh: state.ssh
       ? {
           host: state.ssh.host,
@@ -1189,7 +1198,7 @@ async function boot() {
     promptPresetId: state.promptPresetId,
     lsDirectoryColor: state.lsDirectoryColor,
     lsFileColor: state.lsFileColor,
-    promptEndTipBg: currentTheme().background || '#1E1E1E',
+    promptEndTipBg: promptEndTipBg(),
   });
   if (api.setPrompt) {
     await api.setPrompt({

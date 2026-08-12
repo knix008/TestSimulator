@@ -460,7 +460,8 @@ class MyShell {
   }
 
   setEndTipBg(hex) {
-    if (typeof hex === 'string' && hex.trim()) this.endTipBg = hex.trim();
+    // Empty string clears the tip bg (wallpaper mode → segment-colored tip cell).
+    if (typeof hex === 'string') this.endTipBg = hex.trim();
   }
 
   formatLsEntry(name, isDirectory, { trailingSlash = false } = {}) {

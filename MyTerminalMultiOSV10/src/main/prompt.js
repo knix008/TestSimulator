@@ -40,6 +40,9 @@ const COLORS = {
   bg_magenta: '\x1b[45m',
   bg_cyan: '\x1b[46m',
   bg_white: '\x1b[47m',
+  bg_bright_red: '\x1b[101m',
+  bg_bright_green: '\x1b[102m',
+  bg_bright_magenta: '\x1b[105m',
 };
 
 const DEFAULT_PROMPT =
@@ -290,14 +293,15 @@ function gitTokens(cwd, mode = DEFAULT_PROMPT_GIT_MODE) {
     gitMode === 'status' && dirty ? ` ${COLORS.yellow}x${COLORS.reset}` : '';
   const info = ` ${COLORS.bold}${COLORS.blue}git:(${COLORS.red}${repo.branch}${COLORS.blue})${COLORS.reset}${dirtyMark}`;
   // Agnoster segment colors (status mode):
-  //   dirty  → red
-  //   clean but unpushed (ahead) → magenta
+  //   dirty  → bright red (same black-on-color path as green — dark red + white
+  //            tip AA used to read as a short bottom edge)
+  //   clean but unpushed (ahead) → bright magenta
   //   clean and pushed / in sync → green
   let segmentBase;
   if (dirty) {
-    segmentBase = `${COLORS.bg_red}${COLORS.white} ${repo.branch} x `;
+    segmentBase = `${COLORS.bg_bright_red}${COLORS.black} ${repo.branch} x `;
   } else if (ahead > 0) {
-    segmentBase = `${COLORS.bg_magenta}${COLORS.white} ${repo.branch} `;
+    segmentBase = `${COLORS.bg_bright_magenta}${COLORS.black} ${repo.branch} `;
   } else {
     segmentBase = `${COLORS.bg_green}${COLORS.black} ${repo.branch} `;
   }
@@ -342,17 +346,27 @@ function isBgCode(code) {
  */
 const SEGMENT_TIP = '\uE0B0';
 
+/** Parse #RRGGBB into `R;G;B` for truecolor SGR, or null if invalid. */
+function parseHexRgb(hex) {
+  const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(String(hex || '').trim());
+  if (!m) return null;
+  return `${parseInt(m[1], 16)};${parseInt(m[2], 16)};${parseInt(m[3], 16)}`;
+}
+
 /**
  * After any painted (background) segment, append a powerline tip cell.
  *
  * Mid tips: next segment ANSI bg + previous-color glyph (wedges = next color).
- * End tips: default/transparent bg + the segment color as glyph fg, so the
- * segment tapers to a same-colored triangle over the terminal/wallpaper.
+ * End tips: prefer opaque truecolor theme bg + segment-colored  (same full-cell
+ * height path as mid tips). When no endTipBg is available (wallpaper /
+ * transparency), keep the segment ANSI bg and segment fg so the bar stays full
+ * height — a white/black contrast tip AA-fringes darker red/magenta bars.
  */
-function applyPowerlineEnds(text) {
+function applyPowerlineEnds(text, endTipBg) {
   const src = String(text ?? '');
   if (!/\x1b\[[0-9;]*m/.test(src)) return src;
 
+  const endTipRgb = parseHexRgb(endTipBg);
   let out = '';
   let i = 0;
   let currentBg = null;
@@ -392,16 +406,13 @@ function applyPowerlineEnds(text) {
     if (toBg != null) {
       // Join: next segment paints the full cell; tip is previous color.
       out += `\x1b[${toBg};${prevFg}m${SEGMENT_TIP}`;
+    } else if (endTipRgb) {
+      // Opaque theme bg fills the cell (full height);  is the segment color.
+      out += `\x1b[48;2;${endTipRgb}m\x1b[${prevFg}m${SEGMENT_TIP}\x1b[0m`;
     } else {
-      // End: default (transparent) tip bg + the segment color as fg. xterm fills
-      // the cell bg, then paints the powerline triangle in the fg — so the
-      // segment tapers to a point in its own color and the trailing wedges stay
-      // transparent (wallpaper / bg transparency shows through). fg MUST be the
-      // segment color; the inherited fg is usually {black} → a black triangle.
-      //
-      // Do NOT paint an opaque bg here (e.g. the theme bg hex): with wallpaper
-      // or background transparency that draws a solid box around the triangle.
-      out += `\x1b[49;${prevFg}m${SEGMENT_TIP}\x1b[0m`;
+      // Wallpaper / no endTipBg: keep segment bg+fg so red/magenta stay full
+      // height (contrast tips AA into a short-looking bottom edge).
+      out += `\x1b[${fromBg};${prevFg}m${SEGMENT_TIP}\x1b[0m`;
     }
   };
 
@@ -509,7 +520,7 @@ function renderPrompt(template, ctx = {}) {
     .replace(/\\033/g, '\x1b');
 
   // Any background-painted segment ends with a powerline triangle tip.
-  return applyPowerlineEnds(out);
+  return applyPowerlineEnds(out, ctx.endTipBg);
 }
 
 /** Resolve a preset id from a template string (exact match after ASCII normalize). */

@@ -97,7 +97,7 @@ function loadDirectoryPrefsFromSettings(settings = {}) {
       }
     }
   }
-  if (typeof settings.promptEndTipBg === 'string' && settings.promptEndTipBg) {
+  if (typeof settings.promptEndTipBg === 'string') {
     lastOptions.endTipBg = settings.promptEndTipBg;
     for (const session of sessions.values()) {
       if (session.type === 'local' && session.shell?.setEndTipBg) {
