@@ -35,6 +35,9 @@ export class SessionManager {
     this.disposers = [];
     this.dragState = null;
     this.suppressClickUntil = 0;
+    this.mergeGhost = null;
+    this.mergeDropSlots = null;
+    this._previewSeq = 0;
 
     if (api?.onPtyData) {
       this.disposers.push(
@@ -72,8 +75,22 @@ export class SessionManager {
         })
       );
     }
+    if (api?.onMergePreview) {
+      this.disposers.push(
+        api.onMergePreview((payload) => this.showMergeGhost(payload || {}))
+      );
+    }
+    if (api?.onMergePreviewClear) {
+      this.disposers.push(api.onMergePreviewClear(() => this.clearMergeGhost()));
+    }
 
     this.tabBar.addEventListener('click', (e) => {
+      const closeBtn = e.target.closest('[data-close-tab]');
+      if (closeBtn) {
+        e.stopPropagation();
+        this.close(closeBtn.dataset.closeTab);
+        return;
+      }
       if (Date.now() < this.suppressClickUntil) return;
       const newBtn = e.target.closest('[data-new-tab]');
       if (newBtn) {
@@ -83,20 +100,15 @@ export class SessionManager {
         });
         return;
       }
-      const closeBtn = e.target.closest('[data-close-tab]');
-      if (closeBtn) {
-        e.stopPropagation();
-        this.close(closeBtn.dataset.closeTab);
-        return;
-      }
       const tab = e.target.closest('[data-tab-id]');
       if (tab) this.activate(tab.dataset.tabId);
     });
 
     this.tabBar.addEventListener('pointerdown', (e) => this.onTabPointerDown(e));
-    window.addEventListener('pointermove', (e) => this.onTabPointerMove(e));
-    window.addEventListener('pointerup', (e) => this.onTabPointerUp(e));
-    window.addEventListener('pointercancel', () => this.resetDrag());
+    const onUp = (e) => this.onTabPointerUp(e);
+    window.addEventListener('pointermove', (e) => this.onTabPointerMove(e), true);
+    window.addEventListener('pointerup', onUp, true);
+    window.addEventListener('pointercancel', onUp, true);
 
     window.addEventListener('resize', () => this.active?.fit());
   }
@@ -146,7 +158,7 @@ export class SessionManager {
     if (options.scrollback != null) pane.setScrollback(options.scrollback);
     pane.onFit = () => this.onPaneFit(pane);
 
-    this.panes.set(sessionId, pane);
+    this.placePaneInOrder(sessionId, pane, options.insertIndex);
 
     if (options.adopt) {
       await pane.adopt(options.adopt);
@@ -172,6 +184,7 @@ export class SessionManager {
 
   async close(sessionId) {
     const id = String(sessionId);
+    if (this.mergeGhost) this.clearMergeGhost();
     const pane = this.panes.get(id);
     if (!pane) return;
     if (this.panes.size <= 1) {
@@ -202,11 +215,11 @@ export class SessionManager {
     this.panes.delete(id);
 
     if (this.panes.size === 0) {
-      if (options.closeIfEmpty && this.api.destroyEmptyWindow) {
+      if (this.api.destroyEmptyWindow) {
         await this.api.destroyEmptyWindow();
         return;
       }
-      // Keep the source window usable with a fresh session.
+      if (options.closeIfEmpty) return;
       await this.create();
       return;
     }
@@ -222,6 +235,7 @@ export class SessionManager {
     const sessionId = String(payload.sessionId || '');
     if (!sessionId) return;
     if (this.panes.has(sessionId)) {
+      this.clearMergeGhost();
       this.activate(sessionId);
       return;
     }
@@ -241,9 +255,13 @@ export class SessionManager {
       await this.api.takeAdopt(sessionId);
     }
 
+    const insertIndex = this.resolveAdoptInsertIndex(payload);
+    this.clearMergeGhost();
+
     await this.create({
       sessionId,
       title: meta.title,
+      insertIndex,
       adopt: {
         title: meta.title,
         mode: meta.mode || 'local',
@@ -285,6 +303,136 @@ export class SessionManager {
       </button>
     `;
     this.tabBar.innerHTML = tabs + newTab;
+    if (this.mergeGhost) this.mountMergeGhost();
+  }
+
+  placePaneInOrder(sessionId, pane, insertIndex) {
+    const id = String(sessionId);
+    if (insertIndex == null || !Number.isFinite(insertIndex)) {
+      this.panes.set(id, pane);
+      return;
+    }
+    const entries = [...this.panes.entries()].filter(([pid]) => pid !== id);
+    const idx = Math.max(0, Math.min(Math.round(insertIndex), entries.length));
+    entries.splice(idx, 0, [id, pane]);
+    this.panes = new Map(entries);
+  }
+
+  resolveAdoptInsertIndex(payload = {}) {
+    if (Number.isFinite(payload.screenX)) {
+      return this.getInsertIndexFromScreenX(payload.screenX);
+    }
+    if (
+      this.mergeGhost &&
+      this.mergeGhost.sessionId === String(payload.sessionId || '')
+    ) {
+      return this.mergeGhost.insertIndex;
+    }
+    if (Number.isFinite(payload.insertIndex)) return payload.insertIndex;
+    return this.panes.size;
+  }
+
+  viewportXFromScreen(screenX) {
+    const dip = Number(screenX);
+    if (!Number.isFinite(dip)) return 0;
+    return dip - window.screenX;
+  }
+
+  measureDropSlots() {
+    const items = [
+      ...this.tabBar.querySelectorAll('.tab-item:not(.tab-new):not(.tab-ghost)'),
+    ];
+    return items.map((el) => {
+      const r = el.getBoundingClientRect();
+      return { left: r.left, mid: r.left + r.width / 2, right: r.right };
+    });
+  }
+
+  getInsertIndexFromScreenX(screenX) {
+    const slots = this.mergeDropSlots || this.measureDropSlots();
+    const x = this.viewportXFromScreen(screenX);
+    for (let i = 0; i < slots.length; i++) {
+      if (x < slots[i].mid) return i;
+    }
+    return slots.length;
+  }
+
+  showMergeGhost(payload = {}) {
+    const sessionId = String(payload.sessionId || '');
+    if (this.panes.has(sessionId)) {
+      this.clearMergeGhost();
+      return;
+    }
+    const title =
+      payload.title || `${this.i18n.t('tabs.session')} ${sessionId}`.trim();
+    if (!this.mergeDropSlots) this.mergeDropSlots = this.measureDropSlots();
+    const insertIndex = this.getInsertIndexFromScreenX(payload.screenX);
+    const next = {
+      sessionId,
+      title,
+      mode: payload.mode || 'local',
+      insertIndex,
+    };
+    const same =
+      this.mergeGhost &&
+      this.mergeGhost.sessionId === next.sessionId &&
+      this.mergeGhost.title === next.title &&
+      this.mergeGhost.mode === next.mode &&
+      this.mergeGhost.insertIndex === next.insertIndex;
+    this.mergeGhost = next;
+    if (same && this.tabBar.querySelector('.tab-ghost')) return;
+    this.mountMergeGhost();
+  }
+
+  mountMergeGhost() {
+    const ghost = this.mergeGhost;
+    if (!ghost) return;
+    this.tabBar.classList.add('merge-drop-target');
+    document.body.classList.add('tab-merge-target');
+    document.body.dataset.mergeHint = this.i18n.t('tabs.mergePreviewHint');
+
+    let el = this.tabBar.querySelector('.tab-ghost');
+    const created = !el;
+    if (!el) {
+      el = document.createElement('button');
+      el.type = 'button';
+      el.className = 'tab-item tab-ghost';
+      el.disabled = true;
+      el.tabIndex = -1;
+      el.setAttribute('aria-hidden', 'true');
+      el.innerHTML = '<span class="tab-label"></span>';
+    }
+    el.classList.toggle('remote', ghost.mode === 'ssh');
+    el.querySelector('.tab-label').textContent =
+      ghost.title || this.i18n.t('tabs.session');
+    el.title = this.i18n.t('tabs.mergePreviewHint');
+
+    const items = [
+      ...this.tabBar.querySelectorAll('.tab-item:not(.tab-new):not(.tab-ghost)'),
+    ];
+    const newBtn = this.tabBar.querySelector('[data-new-tab]');
+    const idx = Math.max(0, Math.min(ghost.insertIndex, items.length));
+    const ref = items[idx] || newBtn;
+    if (el.parentNode !== this.tabBar || el.nextSibling !== ref) {
+      this.tabBar.insertBefore(el, ref || null);
+    }
+    if (created) {
+      el.classList.add('tab-ghost-enter');
+      el.addEventListener(
+        'animationend',
+        () => el.classList.remove('tab-ghost-enter'),
+        { once: true }
+      );
+    }
+  }
+
+  clearMergeGhost() {
+    this.mergeGhost = null;
+    this.mergeDropSlots = null;
+    this.tabBar?.classList.remove('merge-drop-target');
+    document.body.classList.remove('tab-merge-target');
+    delete document.body.dataset.mergeHint;
+    this.tabBar?.querySelector('.tab-ghost')?.remove();
   }
 
   detachPreviewSize(bounds) {
@@ -296,13 +444,18 @@ export class SessionManager {
 
   isDetachZone(screenX, screenY, bounds) {
     if (!bounds) return false;
-    const outside =
+    const pulledOut = screenY > bounds.y + 80;
+    return this.isOutsideWindow(screenX, screenY, bounds) || pulledOut;
+  }
+
+  isOutsideWindow(screenX, screenY, bounds) {
+    if (!bounds) return false;
+    return (
       screenX < bounds.x - 8 ||
       screenY < bounds.y - 8 ||
       screenX > bounds.x + bounds.width + 8 ||
-      screenY > bounds.y + bounds.height + 8;
-    const pulledOut = screenY > bounds.y + 80;
-    return outside || pulledOut;
+      screenY > bounds.y + bounds.height + 8
+    );
   }
 
   previewPosition(screenX, screenY) {
@@ -315,11 +468,14 @@ export class SessionManager {
   async updateDetachPreview(screenX, screenY) {
     const drag = this.dragState;
     if (!drag?.moved || !drag.bounds) return;
+    const seq = ++this._previewSeq;
 
     const mergeTarget =
       (this.api.findWindowAtPoint &&
         (await this.api.findWindowAtPoint({ x: screenX, y: screenY }))) ||
       null;
+    if (!this.dragState || seq !== this._previewSeq) return;
+
     drag.mergeTargetId = mergeTarget?.id || null;
 
     if (mergeTarget) {
@@ -330,9 +486,14 @@ export class SessionManager {
         drag.previewShown = false;
         this.api.hideDetachPreview?.();
       }
+      this.sendMergePreview(mergeTarget, screenX, screenY);
       return;
     }
 
+    if (drag.mergePreviewTargetId) {
+      drag.mergePreviewTargetId = null;
+      this.api.clearMergePreview?.();
+    }
     document.body.classList.remove('tab-merge-ready');
 
     const canDetach = this.isDetachZone(screenX, screenY, drag.bounds);
@@ -362,7 +523,26 @@ export class SessionManager {
     }
   }
 
-  clearDetachPreview() {
+  sendMergePreview(mergeTarget, screenX, screenY) {
+    const drag = this.dragState;
+    if (!drag || !mergeTarget || !this.api.showMergePreview) return;
+    const pane = this.panes.get(String(drag.sessionId));
+    const now = Date.now();
+    const sameTarget = drag.mergePreviewTargetId === mergeTarget.id;
+    if (sameTarget && now - (drag.lastMergePreviewAt || 0) < 32) return;
+    drag.mergePreviewTargetId = mergeTarget.id;
+    drag.lastMergePreviewAt = now;
+    this.api.showMergePreview({
+      targetWindowId: mergeTarget.id,
+      sessionId: drag.sessionId,
+      title: pane?.title || '',
+      mode: pane?.mode || 'local',
+      screenX,
+      screenY,
+    });
+  }
+
+  clearDetachPreview(options = {}) {
     document.body.classList.remove('tab-detach-ready');
     document.body.classList.remove('tab-merge-ready');
     delete document.body.dataset.detachHint;
@@ -370,6 +550,10 @@ export class SessionManager {
       this.dragState.previewShown = false;
     }
     this.api.hideDetachPreview?.();
+    if (!options.keepMergeGhost) {
+      if (this.dragState) this.dragState.mergePreviewTargetId = null;
+      this.api.clearMergePreview?.();
+    }
   }
 
   async onTabPointerDown(e) {
@@ -390,6 +574,8 @@ export class SessionManager {
       bounds,
       previewShown: false,
       mergeTargetId: null,
+      mergePreviewTargetId: null,
+      lastMergePreviewAt: 0,
     };
     tab.classList.add('dragging');
     tab.setPointerCapture?.(e.pointerId);
@@ -397,6 +583,8 @@ export class SessionManager {
 
   onTabPointerMove(e) {
     if (!this.dragState) return;
+    this.dragState.lastScreenX = e.screenX;
+    this.dragState.lastScreenY = e.screenY;
     const dx = e.screenX - this.dragState.startX;
     const dy = e.screenY - this.dragState.startY;
     if (!this.dragState.moved && (Math.abs(dx) > 6 || Math.abs(dy) > 6)) {
@@ -411,37 +599,47 @@ export class SessionManager {
   async onTabPointerUp(e) {
     const drag = this.dragState;
     if (!drag) return;
+    // pointerup + pointercancel can both fire; finish only once.
+    this.dragState = null;
 
     const tabEl = drag.tabEl;
     tabEl?.classList.remove('dragging');
     document.body.classList.remove('tab-dragging');
 
-    const mergeTarget =
-      (drag.moved &&
-        this.api.findWindowAtPoint &&
+    const screenX = Number.isFinite(e?.screenX) ? e.screenX : drag.lastScreenX;
+    const screenY = Number.isFinite(e?.screenY) ? e.screenY : drag.lastScreenY;
+
+    let mergeTarget = drag.moved && drag.mergeTargetId
+      ? { id: drag.mergeTargetId }
+      : null;
+    if (!mergeTarget && drag.moved && this.api.findWindowAtPoint) {
+      mergeTarget =
         (await this.api.findWindowAtPoint({
-          x: e.screenX,
-          y: e.screenY,
-        }))) ||
-      null;
+          x: screenX,
+          y: screenY,
+        })) || null;
+    }
     const canDetach =
       !mergeTarget &&
       drag.moved &&
-      this.isDetachZone(e.screenX, e.screenY, drag.bounds);
+      this.isDetachZone(screenX, screenY, drag.bounds);
     const movedFar =
       drag.moved &&
-      (Math.abs(e.screenX - drag.startX) > 24 ||
-        Math.abs(e.screenY - drag.startY) > 24);
+      (Math.abs(screenX - drag.startX) > 24 ||
+        Math.abs(screenY - drag.startY) > 24);
 
-    this.clearDetachPreview();
-    this.dragState = null;
-    if (movedFar) this.suppressClickUntil = Date.now() + 400;
+    const merging = Boolean(mergeTarget && this.api.attachSession);
+    this.clearDetachPreview({ keepMergeGhost: merging });
+    if (movedFar && !merging) this.suppressClickUntil = Date.now() + 400;
 
     const pane = this.panes.get(String(drag.sessionId));
-    if (!pane) return;
+    if (!pane) {
+      if (merging) this.api.clearMergePreview?.();
+      return;
+    }
 
-    if (mergeTarget && this.api.attachSession) {
-      await this.api.attachSession({
+    if (merging) {
+      const result = await this.api.attachSession({
         sessionId: pane.sessionId,
         title: pane.title,
         mode: pane.mode,
@@ -449,7 +647,14 @@ export class SessionManager {
         fontSize: pane.fontSize,
         fontFamily: pane.fontFamily,
         targetWindowId: mergeTarget.id,
+        screenX,
+        screenY,
       });
+      if (!result?.ok) {
+        this.api.clearMergePreview?.();
+        return;
+      }
+      await this.detachLocalUi(pane.sessionId, { closeIfEmpty: true });
       return;
     }
 
@@ -459,7 +664,7 @@ export class SessionManager {
     if (!bounds) return;
 
     const size = this.detachPreviewSize(bounds);
-    await this.api.detachSession({
+    const detached = await this.api.detachSession({
       sessionId: pane.sessionId,
       title: pane.title,
       mode: pane.mode,
@@ -469,7 +674,10 @@ export class SessionManager {
       width: size.width,
       height: size.height,
     });
-    // Source UI removal is handled by session:detached event.
+    // Remove the tab here as well — do not wait only on session:detached.
+    if (detached?.ok) {
+      await this.detachLocalUi(pane.sessionId, { closeIfEmpty: true });
+    }
   }
 
   resetDrag() {
@@ -511,6 +719,7 @@ export class SessionManager {
   }
 
   dispose() {
+    this.clearMergeGhost();
     this.disposers.forEach((d) => d());
     for (const pane of this.panes.values()) pane.dispose({ killBackend: true });
     this.panes.clear();

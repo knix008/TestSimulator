@@ -59,7 +59,7 @@
     "scrollback": "스크롤 기억 줄 수",
     "scrollbackHint": "스크롤로 되돌릴 수 있도록 기억할 줄 수입니다 (100–100000).",
     "startDirectory": "시작 디렉터리",
-    "startDirectoryHint": "새 로컬 세션이 시작될 폴더입니다. 비우면 마지막으로 작업한 폴더(없으면 홈)를 사용합니다. 폴더가 없으면 홈으로 갑니다. ~ 사용 가능.",
+    "startDirectoryHint": "새 탭이 시작될 폴더입니다. 비우면 홈 폴더를 사용합니다. 폴더가 없으면 홈으로 갑니다. ~ 사용 가능.",
     "startDirectoryPick": "찾아보기…",
     "startDirectoryPlaceholder": "홈 폴더",
     "statusBar": "상태바 표시",
@@ -169,7 +169,7 @@
     "close": "탭 닫기",
     "dragHint": "창 밖이면 새 창으로 분리, 다른 MyTerminal 창 위면 탭으로 합칩니다",
     "detachPreviewHint": "놓으면 새 창으로 열립니다",
-    "mergePreviewHint": "놓으면 해당 창의 탭으로 합쳐집니다",
+    "mergePreviewHint": "놓으면 탭으로 합쳐집니다",
     "detachedNotice": "세션이 이 창으로 이동되었습니다."
   },
   "ssh": {

@@ -20,6 +20,7 @@ const {
   killPty,
   setPromptTemplate,
   loadDirectoryPrefsFromSettings,
+  setStartDirectoryPreference,
   connectSsh,
   disconnectSsh,
   getSessionInfo,
@@ -27,6 +28,7 @@ const {
   reattachSession,
   stashAdopt,
   takeAdopt,
+  countSessionsForWindow,
 } = require('./pty-manager');
 const {
   PROMPT_PRESETS,
@@ -52,6 +54,10 @@ const {
 } = require('./detach-preview');
 
 const windows = new Set();
+const windowFocusOrder = new WeakMap();
+let windowFocusSeq = 0;
+/** Last window that was showing a merge-drop ghost tab. */
+let lastMergePreviewTargetId = null;
 
 /** Fallback until renderer measures the real toolbar content width. */
 const TOOLBAR_MIN_WIDTH = 920;
@@ -245,6 +251,9 @@ function createWindow(options = {}) {
   });
 
   windows.add(win);
+  win.on('focus', () => {
+    windowFocusOrder.set(win, ++windowFocusSeq);
+  });
 
   const loadOpts = {};
   if (options.adoptSessionId) {
@@ -401,6 +410,7 @@ function findWindowAtPoint(screenX, screenY, excludeWin) {
   const hits = [];
   for (const win of windows) {
     if (!win || win.isDestroyed() || !win.isVisible()) continue;
+    if (typeof win.isMinimized === 'function' && win.isMinimized()) continue;
     if (excludeWin && win.id === excludeWin.id) continue;
     const b = win.getBounds();
     if (
@@ -413,14 +423,74 @@ function findWindowAtPoint(screenX, screenY, excludeWin) {
     }
   }
   if (!hits.length) return null;
-  return hits.find((w) => w.isFocused()) || hits[hits.length - 1];
+  hits.sort(
+    (a, b) => (windowFocusOrder.get(b) || 0) - (windowFocusOrder.get(a) || 0)
+  );
+  return hits.find((w) => w.isFocused()) || hits[0];
+}
+
+function clearMergePreviewExcept(keepWin) {
+  for (const win of windows) {
+    if (!win || win.isDestroyed()) continue;
+    if (keepWin && win.id === keepWin.id) continue;
+    try {
+      win.webContents.send('session:mergePreviewClear');
+    } catch (_) {
+      /* ignore */
+    }
+  }
+}
+
+function sendMergePreview(source, payload = {}) {
+  const targetId = Number(payload.targetWindowId);
+  const target =
+    Number.isFinite(targetId) && targetId > 0
+      ? BrowserWindow.fromId(targetId)
+      : null;
+  if (
+    !target ||
+    target.isDestroyed() ||
+    !windows.has(target) ||
+    (source && target.id === source.id)
+  ) {
+    clearMergePreviewExcept(null);
+    lastMergePreviewTargetId = null;
+    return false;
+  }
+
+  if (lastMergePreviewTargetId !== target.id) {
+    clearMergePreviewExcept(target);
+    lastMergePreviewTargetId = target.id;
+  }
+
+  target.webContents.send('session:mergePreview', {
+    sessionId: String(payload.sessionId || ''),
+    title: payload.title || '',
+    mode: payload.mode || 'local',
+    screenX: payload.screenX,
+    screenY: payload.screenY,
+  });
+  return true;
 }
 
 ipcMain.handle('window:findAtPoint', (event, payload = {}) => {
   const source = winFromEvent(event);
-  const win = findWindowAtPoint(payload.x, payload.y, source);
+  const cursor = screen.getCursorScreenPoint();
+  const x = Number.isFinite(Number(payload.x)) ? Number(payload.x) : cursor.x;
+  const y = Number.isFinite(Number(payload.y)) ? Number(payload.y) : cursor.y;
+  const win = findWindowAtPoint(cursor.x, cursor.y, source) ||
+    findWindowAtPoint(x, y, source);
   if (!win) return null;
   return { id: win.id, bounds: win.getBounds() };
+});
+
+ipcMain.on('session:mergePreview', (event, payload = {}) => {
+  sendMergePreview(winFromEvent(event), payload || {});
+});
+
+ipcMain.on('session:mergePreviewClear', () => {
+  clearMergePreviewExcept(null);
+  lastMergePreviewTargetId = null;
 });
 
 /** Destroy this window after its last tab was merged away (skip tray-hide). */
@@ -475,8 +545,10 @@ ipcMain.handle('settings:set', (_e, settings) => {
   const patch = { ...(settings || {}) };
   // Always persist directory-related fields explicitly (including empty clear).
   if ('startDirectory' in patch) {
-    patch.startDirectory =
-      typeof patch.startDirectory === 'string' ? patch.startDirectory.trim() : '';
+    patch.startDirectory = setStartDirectoryPreference(
+      typeof patch.startDirectory === 'string' ? patch.startDirectory : '',
+      { applyToSessions: true }
+    );
   }
   if ('backgroundImageDir' in patch) {
     patch.backgroundImageDir =
@@ -745,7 +817,13 @@ function clearBackgroundFiles() {
 }
 
 ipcMain.handle('dialog:pickDirectory', async (event, options = {}) => {
-  const win = winFromEvent(event);
+  const senderWin = winFromEvent(event);
+  const win =
+    (senderWin && windows.has(senderWin) && !senderWin.isDestroyed()
+      ? senderWin
+      : null) ||
+    [...windows].find((w) => w && !w.isDestroyed() && w.isVisible()) ||
+    senderWin;
   const settings = readSettings();
   const remembered =
     typeof options?.defaultPath === 'string' && options.defaultPath.trim()
@@ -757,9 +835,12 @@ ipcMain.handle('dialog:pickDirectory', async (event, options = {}) => {
   if (remembered) {
     const expanded = remembered.replace(/^~(?=[\\/]|$)/, os.homedir());
     if (fs.existsSync(expanded)) {
-      defaultPath = fs.statSync(expanded).isDirectory() ? expanded : path.dirname(expanded);
+      defaultPath = fs.statSync(expanded).isDirectory()
+        ? expanded
+        : path.dirname(expanded);
     }
   }
+  if (!defaultPath) defaultPath = os.homedir();
   const result = await dialog.showOpenDialog(win || undefined, {
     title: options?.title || 'Select start directory',
     defaultPath,
@@ -1078,7 +1159,10 @@ ipcMain.handle('session:detach', (event, payload = {}) => {
   });
 
   if (!source.isDestroyed()) {
-    source.webContents.send('session:detached', { sessionId });
+    source.webContents.send('session:detached', {
+      sessionId,
+      closeIfEmpty: true,
+    });
   }
 
   return { ok: true, sessionId };
@@ -1090,12 +1174,13 @@ ipcMain.handle('session:attach', (event, payload = {}) => {
   const sessionId = String(payload.sessionId || '');
   const targetId = Number(payload.targetWindowId);
   const target =
-    Number.isFinite(targetId) && targetId > 0
+    [...windows].find((w) => !w.isDestroyed() && w.id === targetId) ||
+    (Number.isFinite(targetId) && targetId > 0
       ? BrowserWindow.fromId(targetId)
-      : null;
+      : null);
 
   if (!source || !sessionId) return { ok: false, error: 'Invalid attach request' };
-  if (!target || target.isDestroyed() || !windows.has(target)) {
+  if (!target || target.isDestroyed()) {
     return { ok: false, error: 'Target window not found' };
   }
   if (target.id === source.id) return { ok: false, error: 'Same window' };
@@ -1113,12 +1198,26 @@ ipcMain.handle('session:attach', (event, payload = {}) => {
 
   stashAdopt(sessionId, meta);
   reattachSession(sessionId, target);
+  clearMergePreviewExcept(null);
+  lastMergePreviewTargetId = null;
 
   if (!target.isDestroyed()) {
     target.focus();
-    target.webContents.send('session:adopt', { sessionId, ...meta });
+    target.webContents.send('session:adopt', {
+      sessionId,
+      insertIndex: payload.insertIndex,
+      screenX: payload.screenX,
+      screenY: payload.screenY,
+      ...meta,
+    });
   }
-  if (!source.isDestroyed()) {
+
+  const sourceEmpty = countSessionsForWindow(source) === 0;
+  if (sourceEmpty) {
+    setImmediate(() => {
+      if (!source.isDestroyed()) source.destroy();
+    });
+  } else if (!source.isDestroyed()) {
     source.webContents.send('session:detached', {
       sessionId,
       closeIfEmpty: true,

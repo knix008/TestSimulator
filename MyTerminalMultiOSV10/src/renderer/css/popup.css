@@ -81,6 +81,11 @@ body.popup-fixed .popup-body-content {
   app-region: no-drag;
 }
 
+.popup-body-content input,
+.popup-body-content textarea {
+  user-select: text;
+}
+
 .popup-footer .modal-btn,
 .popup-body-content button,
 .popup-body-content input,

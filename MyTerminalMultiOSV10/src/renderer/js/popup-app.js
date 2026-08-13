@@ -18,6 +18,7 @@ const closeBtn = document.getElementById('popup-close');
 let popupId = null;
 let currentClose = () => {};
 let autoFitEnabled = true;
+let beforeCloseHook = async () => {};
 
 function applyThemeVars(themeId, custom, themes, transparency = 0) {
   const theme = resolveTheme(themes, themeId || 'dark', custom);
@@ -42,8 +43,8 @@ async function fitToContent() {
 }
 
 function send(message) {
-  if (!popupId) return;
-  api.popupSend(popupId, message);
+  if (!popupId) return Promise.resolve();
+  return api.popupSend(popupId, message);
 }
 
 function setTitle(text) {
@@ -74,7 +75,15 @@ async function mount(message) {
     );
   }
 
-  currentClose = () => {
+  beforeCloseHook = async () => {};
+  currentClose = async () => {
+    const hook = beforeCloseHook;
+    beforeCloseHook = async () => {};
+    try {
+      await hook();
+    } catch (_) {
+      /* still close */
+    }
     send({ type: 'closed-request' });
     api.closePopup(popupId);
   };
@@ -88,6 +97,9 @@ async function mount(message) {
     close: () => currentClose(),
     send,
     fit: fitToContent,
+    setBeforeClose: (fn) => {
+      beforeCloseHook = typeof fn === 'function' ? fn : async () => {};
+    },
   };
 
   if (kind === 'about') mountAboutView(ctx, payload);

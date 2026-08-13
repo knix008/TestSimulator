@@ -459,6 +459,18 @@ class MyShell {
     });
   }
 
+  setStartDirectory(dir) {
+    const next = resolveExistingDirectory(dir);
+    if (path.resolve(this.cwd) === path.resolve(next)) return this.cwd;
+    this.cwd = next;
+    rememberWorkingDirectory(this.cwd);
+    if (this.busy || this.lineBuffer) return this.cwd;
+    this.ensureNewline();
+    this.writeln(`\x1b[90m${this.cwd}\x1b[0m`);
+    this.prompt();
+    return this.cwd;
+  }
+
   setEndTipBg(hex) {
     // Empty string clears the tip bg (wallpaper mode → segment-colored tip cell).
     if (typeof hex === 'string') this.endTipBg = hex.trim();

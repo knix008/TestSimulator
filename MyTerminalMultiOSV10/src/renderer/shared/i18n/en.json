@@ -59,7 +59,7 @@
     "scrollback": "Scrollback lines",
     "scrollbackHint": "Number of lines kept for scrolling (100–100000).",
     "startDirectory": "Start directory",
-    "startDirectoryHint": "Folder used when a new local session starts. Leave empty to reuse the last working folder (or home if none). Missing folders fall back to home. Supports ~.",
+    "startDirectoryHint": "Folder used when a new tab starts. Leave empty to use the home folder. Missing folders fall back to home. Supports ~.",
     "startDirectoryPick": "Browse…",
     "startDirectoryPlaceholder": "Home folder",
     "statusBar": "Show status bar",
@@ -167,9 +167,9 @@
     "session": "Terminal",
     "new": "New Terminal",
     "close": "Close tab",
-    "dragHint": "Drag outside for a new window, or onto another MyTerminal window to merge",
+    "dragHint": "Drag outside for a new window, or onto another MyTerminal window to merge as a tab",
     "detachPreviewHint": "Release to open in a new window",
-    "mergePreviewHint": "Release to merge as a tab in that window",
+    "mergePreviewHint": "Release to merge as a tab",
     "detachedNotice": "Session moved to this window."
   },
   "ssh": {

@@ -84,6 +84,18 @@ contextBridge.exposeInMainWorld('myTerminal', {
   takeAdopt: (sessionId) => ipcRenderer.invoke('session:takeAdopt', sessionId),
   findWindowAtPoint: (point) => ipcRenderer.invoke('window:findAtPoint', point || {}),
   destroyEmptyWindow: () => ipcRenderer.invoke('window:destroyEmpty'),
+  showMergePreview: (payload) => ipcRenderer.send('session:mergePreview', payload || {}),
+  clearMergePreview: () => ipcRenderer.send('session:mergePreviewClear'),
+  onMergePreview: (cb) => {
+    const handler = (_e, payload) => cb(payload);
+    ipcRenderer.on('session:mergePreview', handler);
+    return () => ipcRenderer.removeListener('session:mergePreview', handler);
+  },
+  onMergePreviewClear: (cb) => {
+    const handler = (_e, payload) => cb(payload);
+    ipcRenderer.on('session:mergePreviewClear', handler);
+    return () => ipcRenderer.removeListener('session:mergePreviewClear', handler);
+  },
   onSessionDetached: (cb) => {
     const handler = (_e, payload) => cb(payload);
     ipcRenderer.on('session:detached', handler);

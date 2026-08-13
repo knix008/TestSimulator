@@ -13,7 +13,6 @@ const {
   findPromptPresetId,
 } = require('./prompt');
 const {
-  getLastWorkingDirectory,
   getCommandHistory,
 } = require('./shell-memory');
 const {
@@ -40,9 +39,20 @@ let lastOptions = {
   endTipBg: '#1E1E1E',
 };
 
+function sanitizeStartDirectory(dir) {
+  let next = typeof dir === 'string' ? dir.trim() : '';
+  if (
+    (next.startsWith('"') && next.endsWith('"') && next.length >= 2) ||
+    (next.startsWith("'") && next.endsWith("'") && next.length >= 2)
+  ) {
+    next = next.slice(1, -1).trim();
+  }
+  return next;
+}
+
 function resolveStartDirectory(cwd) {
   const home = os.homedir();
-  let dir = typeof cwd === 'string' ? cwd.trim() : '';
+  let dir = sanitizeStartDirectory(cwd);
   if (!dir || dir === '~') return home;
   if (dir.startsWith('~/') || dir.startsWith('~\\')) {
     dir = path.join(home, dir.slice(2));
@@ -57,15 +67,29 @@ function resolveStartDirectory(cwd) {
   return home;
 }
 
-function setStartDirectoryPreference(dir) {
-  lastOptions.startDirectory = typeof dir === 'string' ? dir.trim() : '';
+function applyStartDirectoryToSessions(dir) {
+  const cwd = resolveStartDirectory(dir);
+  for (const session of sessions.values()) {
+    if (session.type === 'local' && session.shell?.setStartDirectory) {
+      session.shell.setStartDirectory(cwd);
+    }
+  }
+  return cwd;
+}
+
+function setStartDirectoryPreference(dir, { applyToSessions = false } = {}) {
+  const prev = lastOptions.startDirectory;
+  lastOptions.startDirectory = sanitizeStartDirectory(dir);
+  if (applyToSessions && lastOptions.startDirectory && lastOptions.startDirectory !== prev) {
+    applyStartDirectoryToSessions(lastOptions.startDirectory);
+  }
   return lastOptions.startDirectory;
 }
 
 /** Load directory + prompt prefs from settings.json into runtime options. */
 function loadDirectoryPrefsFromSettings(settings = {}) {
   if (typeof settings.startDirectory === 'string') {
-    lastOptions.startDirectory = settings.startDirectory.trim();
+    lastOptions.startDirectory = sanitizeStartDirectory(settings.startDirectory);
   }
   if (typeof settings.promptTemplate === 'string' && settings.promptTemplate.length) {
     lastOptions.promptTemplate = asciiSafePromptGlyphs(settings.promptTemplate);
@@ -116,15 +140,12 @@ function loadDirectoryPrefsFromSettings(settings = {}) {
 }
 
 function preferredStartDirectory(optionsCwd) {
-  // Explicit non-empty cwd from caller wins.
-  if (optionsCwd !== undefined && optionsCwd !== null) {
-    const trimmed = String(optionsCwd).trim();
-    if (trimmed) return trimmed;
-  }
-  // Settings → Terminal start directory.
-  if (lastOptions.startDirectory) return lastOptions.startDirectory;
-  // Otherwise restore the last directory the user worked in.
-  return getLastWorkingDirectory() || '';
+  // New tabs always start in the configured default directory.
+  const fromSettings = sanitizeStartDirectory(lastOptions.startDirectory);
+  if (fromSettings) return fromSettings;
+  const fromCaller = sanitizeStartDirectory(optionsCwd);
+  if (fromCaller) return fromCaller;
+  return '';
 }
 
 function bindWin(target, win) {
@@ -288,6 +309,15 @@ function reattachSession(sessionId, win) {
   return true;
 }
 
+function countSessionsForWindow(win) {
+  if (!win) return 0;
+  let n = 0;
+  for (const session of sessions.values()) {
+    if (session.win === win) n++;
+  }
+  return n;
+}
+
 function getSessionOwner(sessionId) {
   return sessions.get(String(sessionId))?.win || null;
 }
@@ -417,6 +447,7 @@ module.exports = {
   killSessionsForWindow,
   reattachSession,
   getSessionOwner,
+  countSessionsForWindow,
   stashAdopt,
   takeAdopt,
 };

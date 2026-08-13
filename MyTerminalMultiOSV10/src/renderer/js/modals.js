@@ -28,6 +28,17 @@ function fontOptionsHtml(fonts, fontId) {
     .join('');
 }
 
+function normalizeStartDirectoryInput(value) {
+  let s = String(value || '').trim();
+  if (
+    (s.startsWith('"') && s.endsWith('"') && s.length >= 2) ||
+    (s.startsWith("'") && s.endsWith("'") && s.length >= 2)
+  ) {
+    s = s.slice(1, -1).trim();
+  }
+  return s;
+}
+
 function startDirectoryControlsHtml(i18n, startDirectory = '', { allowBrowse = true } = {}) {
   const value = escapeHtml(startDirectory || '');
   const placeholder = escapeHtml(i18n.t('settings.startDirectoryPlaceholder'));
@@ -147,9 +158,13 @@ function wireStartDirectoryControls(root, { api, sendChange, fit } = {}) {
   const emit = () => sendChange?.();
   input.addEventListener('input', () => {
     clearTimeout(timer);
-    timer = setTimeout(emit, 250);
+    timer = setTimeout(emit, 150);
   });
   input.addEventListener('change', () => {
+    clearTimeout(timer);
+    emit();
+  });
+  input.addEventListener('blur', () => {
     clearTimeout(timer);
     emit();
   });
@@ -161,12 +176,11 @@ function wireStartDirectoryControls(root, { api, sendChange, fit } = {}) {
       });
       if (!result?.ok || !result.path) return;
       input.value = result.path;
-      // Persist immediately so a restart right after browse still restores the path.
       clearTimeout(timer);
-      emit();
+      await emit();
       fit?.();
-    } catch (_) {
-      /* ignore */
+    } catch (err) {
+      input.title = String(err?.message || err || 'Failed to pick folder');
     }
   });
 }
@@ -751,7 +765,7 @@ export async function openSshModal({
 /* ---------------- Settings ---------------- */
 
 export function mountSettingsView(ctx, payload) {
-  const { i18n, api, bodyEl, footerEl, setTitle, close, send, fit } = ctx;
+  const { i18n, api, bodyEl, footerEl, setTitle, close, send, fit, setBeforeClose } = ctx;
   const fields = [
     ['background', 'settings.background'],
     ['cursor', 'settings.cursor'],
@@ -880,7 +894,9 @@ export function mountSettingsView(ctx, payload) {
     return {
       custom: next,
       scrollback: Number.parseInt(bodyEl.querySelector('#setting-scrollback')?.value, 10),
-      startDirectory: String(bodyEl.querySelector('#setting-start-dir')?.value || '').trim(),
+      startDirectory: normalizeStartDirectoryInput(
+        bodyEl.querySelector('#setting-start-dir')?.value
+      ),
       showStatusBar: !!bodyEl.querySelector('#setting-statusbar')?.checked,
       showTrayIcon: allowTray
         ? !!bodyEl.querySelector('#setting-tray')?.checked
@@ -898,8 +914,12 @@ export function mountSettingsView(ctx, payload) {
   }
 
   function emitChange({ themeTouched = false } = {}) {
-    send({ type: 'settings:change', data: { ...readValues(), themeTouched } });
+    return send({ type: 'settings:change', data: { ...readValues(), themeTouched } });
   }
+
+  setBeforeClose?.(async () => {
+    await emitChange({ themeTouched: false });
+  });
 
   let scrollTimer = null;
   bodyEl.querySelectorAll('input[type="color"][data-key]').forEach((input) => {
@@ -1281,7 +1301,13 @@ export async function openSettingsModal({
           emitChange(m, { themeTouched: true });
         },
       },
-      { label: i18n.t('settings.close'), primary: true },
+      {
+        label: i18n.t('settings.close'),
+        primary: true,
+        onClick: async ({ modal: m }) => {
+          await emitChange(m, { themeTouched: false });
+        },
+      },
     ],
   });
 
@@ -1316,7 +1342,9 @@ export async function openSettingsModal({
     return {
       custom: next,
       scrollback: Number.parseInt(m.querySelector('#setting-scrollback')?.value, 10),
-      startDirectory: String(m.querySelector('#setting-start-dir')?.value || '').trim(),
+      startDirectory: normalizeStartDirectoryInput(
+        m.querySelector('#setting-start-dir')?.value
+      ),
       showStatusBar: !!m.querySelector('#setting-statusbar')?.checked,
       showTrayIcon: allowTray
         ? !!m.querySelector('#setting-tray')?.checked
@@ -1334,7 +1362,7 @@ export async function openSettingsModal({
   }
 
   function emitChange(m, { themeTouched = false } = {}) {
-    onChange?.({ ...readValues(m), themeTouched });
+    return onChange?.({ ...readValues(m), themeTouched });
   }
 
   let scrollTimer = null;

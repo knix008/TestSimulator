@@ -1161,14 +1161,12 @@ async function boot() {
   state.scrollback = clampScrollback(saved.scrollback ?? DEFAULT_SCROLLBACK);
   state.startDirectory =
     typeof saved.startDirectory === 'string' ? saved.startDirectory.trim() : '';
-  // Re-write directory prefs so main process runtime options stay in sync.
-  if (state.startDirectory || saved.backgroundImageDir) {
-    await api.setSettings({
-      startDirectory: state.startDirectory,
-      backgroundImageDir:
-        typeof saved.backgroundImageDir === 'string' ? saved.backgroundImageDir : '',
-    });
-  }
+  // Keep main-process start-directory prefs in sync before the first shell starts.
+  await api.setSettings({
+    startDirectory: state.startDirectory || '',
+    backgroundImageDir:
+      typeof saved.backgroundImageDir === 'string' ? saved.backgroundImageDir : '',
+  });
   state.showStatusBar = saved.showStatusBar !== false;
   state.showTrayIcon = !!saved.showTrayIcon;
   await restoreBackgroundFromSettings(saved);

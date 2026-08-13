@@ -124,7 +124,7 @@ SessionManager
 ### 창 분리 (Detach) / 합치기 (Merge)
 
 1. **분리**: 탭을 창 밖으로 드래그 → `session:detach` → 새 창 + `?adopt=`
-2. **합치기**: 탭을 다른 MyTerminal 창 위로 드래그 → `session:attach` → 대상 창에 `session:adopt` 탭 추가 (마지막 탭이면 원본 창 닫힘)
+2. **합치기**: 탭을 다른 MyTerminal 창 위로 드래그 → 대상 탭 바에 가상 탭 미리보기 → `session:attach` → 대상 창에 `session:adopt` 탭 추가 (마지막 탭이면 원본 창 닫힘)
 
 ## 5. 설정·테마 데이터
 

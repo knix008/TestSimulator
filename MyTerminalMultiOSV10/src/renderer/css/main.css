@@ -297,6 +297,56 @@ body.tab-merge-ready::after {
   background: color-mix(in srgb, var(--ok, #3d9a5f) 88%, #000);
 }
 
+.tab-bar.merge-drop-target {
+  background: color-mix(in srgb, var(--ok, #3d9a5f) 18%, var(--toolbar-bg));
+  box-shadow: inset 0 -2px 0 var(--ok, #3d9a5f);
+}
+
+body.tab-merge-target::after {
+  content: attr(data-merge-hint);
+  position: fixed;
+  left: 50%;
+  top: 52px;
+  transform: translateX(-50%);
+  z-index: 80;
+  pointer-events: none;
+  padding: 7px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 650;
+  color: #fff;
+  background: color-mix(in srgb, var(--ok, #3d9a5f) 88%, #000);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
+  white-space: nowrap;
+}
+
+.tab-item.tab-ghost {
+  pointer-events: none;
+  cursor: default;
+  opacity: 0.92;
+  border: 1px dashed var(--ok, #3d9a5f);
+  border-bottom: none;
+  background: color-mix(in srgb, var(--ok, #3d9a5f) 28%, var(--bg));
+  color: var(--fg);
+  font-weight: 650;
+  font-style: italic;
+}
+
+.tab-item.tab-ghost.tab-ghost-enter {
+  animation: tab-ghost-in 0.18s ease-out;
+}
+
+@keyframes tab-ghost-in {
+  from {
+    transform: translateY(8px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 0.92;
+  }
+}
+
 .tab-item:hover {
   background: var(--button-hover);
 }
