@@ -1,0 +1,167 @@
+{
+  "name": "image-viewer-multios",
+  "version": "1.0.2",
+  "description": "Multi-platform image viewer and editor with dark/light themes and Korean/English support",
+  "author": "SHKWON",
+  "main": "main.js",
+  "scripts": {
+    "start": "node scripts/start-dev.js",
+    "web": "node server.js",
+    "postinstall": "node scripts/patch-electron-icon.js",
+    "patch:icon": "node scripts/patch-electron-icon.js --force",
+    "create-icons": "node scripts/create-icons.js",
+    "build:win": "electron-builder --win && node scripts/copy-dist.js win",
+    "build:mac": "electron-builder --mac && node scripts/copy-dist.js mac",
+    "build:linux": "electron-builder --linux && node scripts/copy-dist.js linux",
+    "build:all": "electron-builder --win --mac --linux && node scripts/copy-dist.js",
+    "copy-dist": "node scripts/copy-dist.js"
+  },
+  "devDependencies": {
+    "electron": "^28.3.3",
+    "electron-builder": "^24.13.3",
+    "express": "^4.22.2",
+    "rcedit": "^5.0.2"
+  },
+  "build": {
+    "appId": "com.shkwon.imageviewer",
+    "productName": "Image Viewer",
+    "copyright": "Copyright © 2024–2026 SHKWON",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "src/**/*",
+      "package.json"
+    ],
+    "asarUnpack": [
+      "src/assets/icon.ico",
+      "src/assets/icon.png",
+      "src/assets/icon_512.png"
+    ],
+    "afterPack": "scripts/after-pack.js",
+    "afterAllArtifactBuild": "scripts/copy-dist.js",
+    "fileAssociations": [
+      { "ext": ["jpg", "jpeg"], "name": "ImageViewer.jpeg", "description": "JPEG Image", "mimeType": "image/jpeg", "role": "Editor", "rank": "Default" },
+      { "ext": "png", "name": "ImageViewer.png", "description": "PNG Image", "mimeType": "image/png", "role": "Editor", "rank": "Default" },
+      { "ext": "gif", "name": "ImageViewer.gif", "description": "GIF Image", "mimeType": "image/gif", "role": "Editor", "rank": "Default" },
+      { "ext": "bmp", "name": "ImageViewer.bmp", "description": "BMP Image", "mimeType": "image/bmp", "role": "Editor", "rank": "Default" },
+      { "ext": "webp", "name": "ImageViewer.webp", "description": "WebP Image", "mimeType": "image/webp", "role": "Editor", "rank": "Default" },
+      { "ext": "avif", "name": "ImageViewer.avif", "description": "AVIF Image", "mimeType": "image/avif", "role": "Editor", "rank": "Default" },
+      { "ext": "svg", "name": "ImageViewer.svg", "description": "SVG Image", "mimeType": "image/svg+xml", "role": "Editor", "rank": "Default" },
+      { "ext": "ico", "name": "ImageViewer.ico", "description": "Windows Icon", "mimeType": "image/x-icon", "role": "Editor", "rank": "Default" },
+      { "ext": ["tif", "tiff"], "name": "ImageViewer.tiff", "description": "TIFF Image", "mimeType": "image/tiff", "role": "Editor", "rank": "Default" },
+      { "ext": ["heic", "heif", "hif"], "name": "ImageViewer.heic", "description": "HEIC Image", "mimeType": "image/heic", "role": "Editor", "rank": "Default" },
+      { "ext": ["dcm", "dicom"], "name": "ImageViewer.dcm", "description": "DICOM Image", "mimeType": "application/dicom", "role": "Editor", "rank": "Owner" }
+    ],
+    "win": {
+      "artifactName": "ImageViewer-${version}.${ext}",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "src/assets/icon.ico",
+      "signAndEditExecutable": false
+    },
+    "portable": {
+      "artifactName": "ImageViewer-Portable-${version}.${ext}"
+    },
+    "nsis": {
+      "artifactName": "ImageViewer-Setup-${version}.${ext}",
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "allowElevation": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Image Viewer",
+      "installerIcon": "src/assets/icon.ico",
+      "uninstallerIcon": "src/assets/icon.ico",
+      "installerHeaderIcon": "src/assets/icon.ico",
+      "deleteAppDataOnUninstall": true,
+      "include": "build/installer.nsh",
+      "menuCategory": "Image Tools",
+      "differentialPackage": false,
+      "perMachine": true,
+      "warningsAsErrors": false,
+      "installerLanguages": ["en_US", "ko_KR"]
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "icon": "src/assets/icon_512.png",
+      "category": "public.app-category.graphics-design"
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "deb",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "src/assets/icon_512.png",
+      "category": "Graphics",
+      "mimeTypes": [
+        "image/jpeg",
+        "image/png",
+        "image/gif",
+        "image/bmp",
+        "image/webp",
+        "image/avif",
+        "image/svg+xml",
+        "image/x-icon",
+        "image/tiff",
+        "image/heic",
+        "image/heif",
+        "application/dicom"
+      ]
+    },
+    "dmg": {
+      "title": "Image Viewer ${version}",
+      "background": "src/assets/dmg-background.png",
+      "contents": [
+        {
+          "x": 130,
+          "y": 220
+        },
+        {
+          "x": 410,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
+    }
+  },
+  "dependencies": {
+    "exifr": "^7.1.3",
+    "heic-convert": "^2.1.0",
+    "heic-decode": "^2.1.0",
+    "sharp": "^0.35.3"
+  }
+}

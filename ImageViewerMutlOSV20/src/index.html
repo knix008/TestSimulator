@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy"
+    content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: file:; media-src 'self' data: blob: file:; connect-src 'self' blob: file: data:;">
+  <title>Image Viewer</title>
+  <link rel="icon" type="image/png" href="./assets/icon.png">
+  <link rel="shortcut icon" href="./assets/icon.ico">
+  <link rel="stylesheet" href="./styles/main.css">
+</head>
+<body>
+  <div id="app">
+
+    <!-- ═══ Toolbar ═══ -->
+    <div id="toolbar">
+      <div id="app-brand" class="app-brand">
+        <img src="./assets/icon.png" alt="" draggable="false">
+        <span class="app-brand-name" data-i18n="app.title">Image Viewer</span>
+        <span class="app-brand-ver">V1.0.2</span>
+      </div>
+      <div id="win-ctrl-gutter"></div>
+      <div id="zoom-input-wrap">
+        <input id="zoom-display" type="text" value="100%" title="Zoom level">
+      </div>
+    </div>
+
+    <div id="window-controls">
+      <button type="button" id="win-min" title="Minimize" aria-label="Minimize">
+        <svg viewBox="0 0 12 12"><rect x="1" y="5.5" width="10" height="1.2" rx="0.4"/></svg>
+      </button>
+      <button type="button" id="win-max" title="Maximize" aria-label="Maximize">
+        <svg class="win-max-icon" viewBox="0 0 12 12" aria-hidden="true">
+          <rect x="2" y="2" width="8" height="8" rx="0.2" fill="none" stroke="currentColor" stroke-width="1.15"/>
+        </svg>
+        <svg class="win-restore-icon" viewBox="0 0 12 12" aria-hidden="true">
+          <path d="M3.5 4.2V2.6h5.9V8.5H7.8" fill="none" stroke="currentColor" stroke-width="1.15"/>
+          <rect x="2.2" y="4.2" width="5.9" height="5.9" fill="none" stroke="currentColor" stroke-width="1.15"/>
+        </svg>
+      </button>
+      <button type="button" id="win-close" title="Close" aria-label="Close">
+        <svg viewBox="0 0 12 12"><path d="M2.2 2.2l7.6 7.6M9.8 2.2L2.2 9.8" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+
+    <!-- ═══ Main Area ═══ -->
+    <div id="main-area">
+
+      <!-- ── Sidebar ── -->
+      <div id="sidebar">
+
+        <!-- File Tree Panel -->
+        <div id="file-tree-panel">
+          <div class="panel-header">
+            <span class="panel-title" data-i18n="tree.title">EXPLORER</span>
+            <button class="panel-btn" id="panel-open-folder" data-i18n-title="toolbar.openFolder">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 20H4c-1.11 0-2-.9-2-2V6c0-1.11.89-2 2-2h6l2 2h7c1.11 0 2 .9 2 2H4v10l2.14-8H21l-2.14 8c-.3 1.11-1.37 2-2.5 2z"/></svg>
+            </button>
+          </div>
+          <div id="tree-path-bar" hidden title=""></div>
+          <div id="file-tree-scroll">
+            <div id="file-tree-empty">
+              <div data-i18n="tree.noDir">No folder opened</div>
+              <span class="open-folder-link" id="ft-open-link" data-i18n="tree.openFolder">Open Folder</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Vertical resize handle -->
+        <div id="sidebar-v-resize"></div>
+
+        <!-- Info Panel -->
+        <div id="info-panel">
+          <div class="panel-header">
+            <span class="panel-title" data-i18n="info.title">FILE INFO</span>
+          </div>
+          <div id="info-content">
+            <div class="info-no-file" data-i18n="info.noFile">No file selected</div>
+          </div>
+        </div>
+
+        <!-- Horizontal resize handle -->
+        <div id="sidebar-resize-handle"></div>
+      </div>
+
+      <!-- ── Viewer Area ── -->
+      <div id="viewer-area">
+
+        <!-- Image/Canvas viewer -->
+        <div id="viewer-container">
+          <!-- Placeholder -->
+          <div id="image-placeholder">
+            <svg viewBox="0 0 24 24"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>
+            <p data-i18n="status.noImage">No image loaded</p>
+            <p style="font-size:12px;opacity:0.5" data-i18n="placeholder.hint">Open a file or folder to begin</p>
+          </div>
+
+          <!-- Loading overlay -->
+          <div id="loading-overlay" data-i18n="status.loading">Loading...</div>
+
+          <!-- Image wrapper (canvas elements) -->
+          <div id="image-wrapper">
+            <div style="position:relative;">
+              <canvas id="display-canvas" style="display:none;"></canvas>
+              <canvas id="sel-canvas" style="display:none;position:absolute;top:0;left:0;pointer-events:auto;"></canvas>
+            </div>
+          </div>
+
+          <!-- Video player -->
+          <video id="video-player"
+            style="display:none;position:absolute;top:0;left:0;width:100%;height:100%;object-fit:contain;outline:none;background:#000;"
+            controls
+            preload="metadata">
+          </video>
+
+          <!-- Audio player -->
+          <div id="audio-player-wrap" style="display:none;position:absolute;top:0;left:0;width:100%;height:100%;display:none;flex-direction:column;align-items:center;justify-content:center;gap:20px;">
+            <svg style="width:80px;height:80px;opacity:0.4;" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v9.28a4.39 4.39 0 0 0-1.5-.28C8.01 12 6 14.01 6 16.5S8.01 21 10.5 21c2.31 0 4.2-1.75 4.45-4H15V6h4V3h-7z"/></svg>
+            <audio id="audio-player" controls style="width:80%;max-width:500px;"></audio>
+            <div id="audio-filename" style="font-size:14px;opacity:0.7;text-align:center;"></div>
+          </div>
+        </div>
+
+        <!-- Effects Panel (slides in from right) -->
+        <div id="effects-panel">
+          <div class="panel-header">
+            <span class="panel-title" data-i18n="effects.title">ADJUSTMENTS</span>
+            <button class="panel-btn" id="effects-close-btn" data-i18n-title="effects.close">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+            </button>
+          </div>
+          <div id="effects-content">
+            <!-- Populated by app.js -->
+          </div>
+          <div class="effects-actions">
+            <button id="effects-reset-btn" data-i18n="effects.reset">Reset</button>
+            <button id="effects-apply-btn" class="primary" data-i18n="effects.close">Close</button>
+          </div>
+        </div>
+
+      </div><!-- /viewer-area -->
+    </div><!-- /main-area -->
+
+    <!-- ═══ Status Bar ═══ -->
+    <div id="status-bar">
+      <div class="status-item" id="status-zoom">Zoom: 100%</div>
+      <div class="status-sep"></div>
+      <div class="status-item" id="status-dims">—</div>
+      <div class="status-sep"></div>
+      <div class="status-item" id="status-format">—</div>
+      <div class="status-sep"></div>
+      <div class="status-item" id="status-idx"></div>
+      <div id="status-spacer"></div>
+      <div class="status-item" id="status-msg"></div>
+    </div>
+
+  </div><!-- /app -->
+
+  <!-- ═══ Custom Context Menu ═══ -->
+  <div id="context-menu"></div>
+
+  <!-- ═══ Tooltip ═══ -->
+  <div id="tooltip" class="tooltip"></div>
+
+  <!-- ═══ Error Dialog ═══ -->
+  <div id="error-overlay" class="dialog-overlay" style="display:none;">
+    <div class="dialog-box" style="min-width:480px;max-width:640px;">
+      <div class="dialog-header error-header">
+        <span id="error-title" data-i18n="error.title">Error</span>
+        <button class="dialog-close-btn" id="error-close-btn">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </div>
+      <div class="dialog-body">
+        <div class="error-icon-row">
+          <svg class="error-icon-svg" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+          </svg>
+          <p id="error-message" class="error-message"></p>
+        </div>
+        <div id="error-detail-wrap" class="error-detail-wrap" style="display:none;">
+          <div class="error-detail-label" data-i18n="error.detail">Details:</div>
+          <textarea id="error-detail" class="error-detail-text" readonly rows="6"></textarea>
+        </div>
+      </div>
+      <div class="dialog-footer">
+        <button class="btn-icon" id="error-copy-btn" style="display:none;">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+          <span data-i18n="error.copy">Copy</span>
+        </button>
+        <button class="btn-icon primary" id="error-ok-btn">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+          <span data-i18n="error.ok">OK</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ Progress Dialog ═══ -->
+  <div id="progress-overlay" class="dialog-overlay progress-overlay" style="display:none;" aria-busy="true" aria-live="polite">
+    <div class="dialog-box progress-dialog-box">
+      <div class="dialog-header">
+        <span id="progress-title" data-i18n="progress.title">Working…</span>
+      </div>
+      <div class="dialog-body progress-dialog-body">
+        <p id="progress-message" class="progress-message"></p>
+        <div class="progress-bar-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="progress-bar">
+          <div id="progress-bar-fill" class="progress-bar-fill"></div>
+        </div>
+        <div class="progress-percent-row">
+          <span id="progress-percent" class="progress-percent">0%</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ About Dialog ═══ -->
+  <div id="about-overlay" class="dialog-overlay" style="display:none;">
+    <div class="dialog-box" style="min-width:400px;max-width:480px;">
+      <div class="dialog-header">
+        <span data-i18n="about.title">About Image Viewer</span>
+        <button class="dialog-close-btn" data-close-dialog>
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </div>
+      <div class="dialog-body">
+        <div class="about-logo">
+          <img id="about-app-icon" src="./assets/icon.png" alt="App Icon" style="width:48px;height:48px;border-radius:8px;" onerror="this.style.display='none'">
+          <div class="about-logo-text">
+            <h2 data-i18n="app.title">Image Viewer</h2>
+            <p><span data-i18n="about.version">Version</span> 1.0.2</p>
+          </div>
+        </div>
+        <p class="about-desc" data-i18n="about.desc">A multi-platform image viewer and editor.</p>
+        <div class="about-formats" data-i18n="about.formats">
+          Supported: JPEG, PNG, GIF, BMP, WebP, SVG, ICO, TIFF, HEIC/HEIF, DICOM (DCM),<br>
+          Video: MP4, WebM, MOV, MKV, AVI and more
+        </div>
+        <div class="about-copyright">
+          <p data-i18n="about.copyright">Copyright © 2024–2026 SHKWON</p>
+          <p><a href="#" id="about-email-link" data-i18n="about.contact">knix008@naver.com</a></p>
+        </div>
+      </div>
+      <div class="dialog-footer">
+        <button class="btn-icon primary" data-close-dialog>
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+          <span data-i18n="about.close">Close</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ Edit Window ═══ -->
+  <div id="edit-window">
+    <!-- Title bar / toolbar -->
+    <div id="edit-window-titlebar">
+      <div class="app-brand ew-brand" id="ew-brand">
+        <img src="./assets/icon.png" alt="" draggable="false">
+      </div>
+      <span id="edit-window-title" data-i18n="editWindow.title">Edit Image</span>
+
+      <div class="ew-toolbar">
+        <!-- Selection tools -->
+        <div class="ew-group" role="group">
+          <button class="ew-btn active" id="ew-tool-pointer"  data-i18n-title="toolbar.toolPointer"></button>
+          <button class="ew-btn"        id="ew-tool-rect"     data-i18n-title="toolbar.toolRect"></button>
+          <button class="ew-btn"        id="ew-tool-lasso"    data-i18n-title="toolbar.toolLasso"></button>
+          <button class="ew-btn"        id="ew-tool-polygon"  data-i18n-title="toolbar.toolPolygon"></button>
+          <button class="ew-btn"        id="ew-tool-magic"    data-i18n-title="toolbar.toolMagic"></button>
+          <div class="ew-tolerance-wrap" id="ew-tolerance-wrap" style="display:none;">
+            <label data-i18n="editWindow.tolerance">Tol:</label>
+            <input class="ew-tolerance-input" id="ew-tolerance" type="number" min="1" max="255" value="32">
+          </div>
+        </div>
+
+        <div class="ew-sep"></div>
+
+        <!-- Edit actions -->
+        <div class="ew-group" role="group">
+          <button class="ew-btn" id="ew-cut"        data-i18n-title="context.cut"       disabled></button>
+          <button class="ew-btn" id="ew-copy"       data-i18n-title="context.copy"      disabled></button>
+          <select id="ew-bg-algo" class="ew-select" data-i18n-title="toolbar.bgAlgo"></select>
+          <button class="ew-btn" id="ew-bg-remove"  data-i18n-title="toolbar.bgRemove"></button>
+          <button class="ew-btn" id="ew-crop-sel"   data-i18n-title="editWindow.cropSel" disabled></button>
+          <button class="ew-btn" id="ew-clear-sel"  data-i18n-title="editWindow.clearSel" disabled></button>
+        </div>
+
+        <div class="ew-sep"></div>
+
+        <!-- Transform -->
+        <div class="ew-group" role="group">
+          <button class="ew-btn" id="ew-rotate-l" data-i18n-title="toolbar.rotateLeft"></button>
+          <button class="ew-btn" id="ew-rotate-r" data-i18n-title="toolbar.rotateRight"></button>
+          <button class="ew-btn" id="ew-flip-h"   data-i18n-title="toolbar.flipH"></button>
+          <button class="ew-btn" id="ew-flip-v"   data-i18n-title="toolbar.flipV"></button>
+        </div>
+
+        <div class="ew-sep"></div>
+
+        <!-- Undo / Redo -->
+        <div class="ew-group" role="group">
+          <button class="ew-btn" id="ew-undo" data-i18n-title="editWindow.undo" disabled></button>
+          <button class="ew-btn" id="ew-redo" data-i18n-title="editWindow.redo" disabled></button>
+        </div>
+
+        <div class="ew-sep"></div>
+
+        <!-- Zoom -->
+        <div class="ew-group" role="group">
+          <button class="ew-btn" id="ew-zoom-in"  data-i18n-title="toolbar.zoomIn"></button>
+          <button class="ew-btn" id="ew-zoom-out" data-i18n-title="toolbar.zoomOut"></button>
+          <button class="ew-btn" id="ew-fit"      data-i18n-title="toolbar.fitWindow"></button>
+        </div>
+
+        <div class="ew-sep"></div>
+
+        <!-- Theme / Language -->
+        <div class="ew-group" role="group">
+          <button class="ew-btn" id="ew-theme" data-i18n-title="toolbar.theme"></button>
+          <button class="ew-btn ew-lang-btn" id="ew-lang" data-i18n-title="toolbar.lang"><span class="lang-text">한글</span></button>
+        </div>
+      </div>
+
+      <!-- Save / Apply / Cancel -->
+      <div class="ew-actions">
+        <button class="ew-action-btn" id="ew-save" data-i18n="editWindow.save" data-i18n-title="context.saveEdited">Save</button>
+        <button class="ew-action-btn danger"   id="ew-cancel" data-i18n="editWindow.cancel">Cancel</button>
+        <button class="ew-action-btn primary"  id="ew-apply"  data-i18n="editWindow.apply">Apply</button>
+      </div>
+    </div>
+
+    <!-- Body: canvas area + effects panel -->
+    <div id="edit-window-body">
+      <div id="edit-canvas-area">
+        <!-- The shared image-wrapper is moved here during edit mode -->
+      </div>
+      <div id="edit-effects-panel">
+        <div class="panel-header">
+          <span class="panel-title" data-i18n="effects.title">ADJUSTMENTS</span>
+        </div>
+        <div id="edit-effects-content"></div>
+        <div class="effects-actions">
+          <button id="edit-effects-reset-btn" data-i18n="effects.reset">Reset</button>
+        </div>
+      </div>
+    </div>
+  </div><!-- /edit-window -->
+
+  <!-- ═══ Shortcuts Dialog ═══ -->
+  <div id="shortcuts-overlay" class="dialog-overlay" style="display:none;">
+    <div class="dialog-box" style="min-width:440px;">
+      <div class="dialog-header">
+        <span data-i18n="shortcuts.title">Keyboard Shortcuts</span>
+        <button class="dialog-close-btn" data-close-dialog>
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </div>
+      <div class="dialog-body">
+        <table class="shortcuts-table">
+          <tr><td>Open File</td><td><kbd>Ctrl</kbd>+<kbd>O</kbd></td></tr>
+          <tr><td>Open Folder</td><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>O</kbd></td></tr>
+          <tr><td>Save As</td><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd></td></tr>
+          <tr><td>Edit Image</td><td><kbd>Ctrl</kbd>+<kbd>E</kbd></td></tr>
+          <tr><td>Zoom In</td><td><kbd>Ctrl</kbd>+<kbd>+</kbd></td></tr>
+          <tr><td>Zoom Out</td><td><kbd>Ctrl</kbd>+<kbd>-</kbd></td></tr>
+          <tr><td>Fit to Window</td><td><kbd>Ctrl</kbd>+<kbd>0</kbd></td></tr>
+          <tr><td>Actual Size</td><td><kbd>Ctrl</kbd>+<kbd>1</kbd></td></tr>
+          <tr><td>Rotate Left</td><td><kbd>Ctrl</kbd>+<kbd>[</kbd></td></tr>
+          <tr><td>Rotate Right</td><td><kbd>Ctrl</kbd>+<kbd>]</kbd></td></tr>
+          <tr><td>Previous Image</td><td><kbd>←</kbd></td></tr>
+          <tr><td>Next Image</td><td><kbd>→</kbd></td></tr>
+          <tr><td>Undo</td><td><kbd>Ctrl</kbd>+<kbd>Z</kbd></td></tr>
+          <tr><td>Redo</td><td><kbd>Ctrl</kbd>+<kbd>Y</kbd></td></tr>
+          <tr><td>Copy</td><td><kbd>Ctrl</kbd>+<kbd>C</kbd></td></tr>
+          <tr><td>Clear Selection / Cancel</td><td><kbd>Esc</kbd></td></tr>
+          <tr><td>Fullscreen</td><td><kbd>F11</kbd></td></tr>
+        </table>
+      </div>
+      <div class="dialog-footer">
+        <button class="btn-icon primary" data-close-dialog>
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+          <span data-i18n="shortcuts.close">Close</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ Scripts ═══ -->
+  <!-- Vendor (optional – TIFF/HEIC support in web mode) -->
+  <!-- <script src="./vendor/UTIF.js"></script> -->
+  <!-- <script src="./vendor/heic2any.min.js"></script> -->
+
+  <script>
+    // Web mode: Electron preload is absent → load browser API shim
+    window.__IS_WEB__ = typeof window.electronAPI === 'undefined';
+  </script>
+  <script src="./js/icons.js"></script>
+  <script src="./js/i18n.js"></script>
+  <script src="./js/dicomDecoder.js"></script>
+  <script src="./js/formatSupport.js"></script>
+  <script src="./js/fileRegistry.js"></script>
+  <script src="./js/webAPI.js"></script>
+  <script src="./js/tooltip.js"></script>
+  <script src="./js/contextMenu.js"></script>
+  <script src="./js/editor.js"></script>
+  <script src="./js/fileTree.js"></script>
+  <script src="./js/app.js"></script>
+
+  <script>
+    // Wire up panel open-folder button
+    document.getElementById('panel-open-folder')?.addEventListener('click', () => {
+      window.electronAPI.openFolderDialog();
+    });
+    document.getElementById('ft-open-link')?.addEventListener('click', () => {
+      window.electronAPI.openFolderDialog();
+    });
+  </script>
+</body>
+</html>

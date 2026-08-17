@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <defs>
+    <!-- Deeper sky-blue app-tile background -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%"   stop-color="#5eb8e8"/>
+      <stop offset="45%"  stop-color="#3a9fd4"/>
+      <stop offset="100%" stop-color="#2b7eb8"/>
+    </linearGradient>
+    <!-- Soft sky inside the photo frame -->
+    <linearGradient id="skyGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%"   stop-color="#7ec8f5"/>
+      <stop offset="55%"  stop-color="#b8e4ff"/>
+      <stop offset="100%" stop-color="#eaf6ff"/>
+    </linearGradient>
+    <linearGradient id="mountFar" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%"   stop-color="#5a9bc8"/>
+      <stop offset="100%" stop-color="#3d7eab"/>
+    </linearGradient>
+    <linearGradient id="mountNear" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%"   stop-color="#2f8f6a"/>
+      <stop offset="100%" stop-color="#1f6b4e"/>
+    </linearGradient>
+    <radialGradient id="sunGrad" cx="50%" cy="50%" r="50%">
+      <stop offset="0%"   stop-color="#fff6a8"/>
+      <stop offset="55%"  stop-color="#ffcc4d"/>
+      <stop offset="100%" stop-color="#f0a020"/>
+    </radialGradient>
+    <linearGradient id="frameGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%"   stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#e8f4fc"/>
+    </linearGradient>
+    <filter id="shadow" x="-12%" y="-12%" width="124%" height="124%">
+      <feDropShadow dx="0" dy="3" stdDeviation="5" flood-color="#0a3a5a" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+
+  <!-- Rounded sky-blue tile -->
+  <rect x="8" y="8" width="240" height="240" rx="48" ry="48" fill="url(#bgGrad)" filter="url(#shadow)"/>
+  <rect x="8" y="8" width="240" height="240" rx="48" ry="48"
+        fill="none" stroke="#1e6a9a" stroke-width="2" opacity="0.55"/>
+
+  <!-- Photo frame (white card) -->
+  <rect x="36" y="52" width="184" height="152" rx="16" ry="16" fill="url(#frameGrad)"
+        stroke="#ffffff" stroke-width="3"/>
+
+  <clipPath id="frameClip">
+    <rect x="46" y="62" width="164" height="116" rx="10" ry="10"/>
+  </clipPath>
+
+  <!-- Sky -->
+  <rect x="46" y="62" width="164" height="116" rx="10" ry="10" fill="url(#skyGrad)" clip-path="url(#frameClip)"/>
+
+  <!-- Sun -->
+  <circle cx="168" cy="88" r="22" fill="url(#sunGrad)" clip-path="url(#frameClip)"/>
+  <circle cx="168" cy="88" r="30" fill="#ffe080" opacity="0.28" clip-path="url(#frameClip)"/>
+
+  <!-- Mountains -->
+  <polygon points="46,178 92,108 138,178" fill="url(#mountFar)" clip-path="url(#frameClip)" opacity="0.9"/>
+  <polygon points="100,178 152,98 210,178" fill="url(#mountNear)" clip-path="url(#frameClip)"/>
+  <polygon points="170,178 210,128 210,178" fill="#256b90" clip-path="url(#frameClip)" opacity="0.75"/>
+
+  <!-- Water band -->
+  <rect x="46" y="162" width="164" height="16" fill="#4aa0c8" clip-path="url(#frameClip)" opacity="0.55"/>
+  <rect x="46" y="166" width="120" height="2" fill="#ffffff" clip-path="url(#frameClip)" opacity="0.45"/>
+
+  <!-- Lens ring accent (image-viewer cue) -->
+  <circle cx="128" cy="120" r="46" fill="none" stroke="#2f7eb0" stroke-width="2.5" opacity="0.35"/>
+  <circle cx="128" cy="120" r="34" fill="none" stroke="#2f7eb0" stroke-width="1.5" opacity="0.22"/>
+
+  <!-- Soft highlight on tile -->
+  <ellipse cx="72" cy="48" rx="70" ry="42" fill="#ffffff" opacity="0.28"/>
+</svg>
