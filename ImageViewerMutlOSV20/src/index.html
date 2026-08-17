@@ -26,24 +26,6 @@
       </div>
     </div>
 
-    <div id="window-controls">
-      <button type="button" id="win-min" title="Minimize" aria-label="Minimize">
-        <svg viewBox="0 0 12 12"><rect x="1" y="5.5" width="10" height="1.2" rx="0.4"/></svg>
-      </button>
-      <button type="button" id="win-max" title="Maximize" aria-label="Maximize">
-        <svg class="win-max-icon" viewBox="0 0 12 12" aria-hidden="true">
-          <rect x="2" y="2" width="8" height="8" rx="0.2" fill="none" stroke="currentColor" stroke-width="1.15"/>
-        </svg>
-        <svg class="win-restore-icon" viewBox="0 0 12 12" aria-hidden="true">
-          <path d="M3.5 4.2V2.6h5.9V8.5H7.8" fill="none" stroke="currentColor" stroke-width="1.15"/>
-          <rect x="2.2" y="4.2" width="5.9" height="5.9" fill="none" stroke="currentColor" stroke-width="1.15"/>
-        </svg>
-      </button>
-      <button type="button" id="win-close" title="Close" aria-label="Close">
-        <svg viewBox="0 0 12 12"><path d="M2.2 2.2l7.6 7.6M9.8 2.2L2.2 9.8" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
-      </button>
-    </div>
-
     <!-- ═══ Main Area ═══ -->
     <div id="main-area">
 
@@ -113,6 +95,11 @@
             controls
             preload="metadata">
           </video>
+
+          <!-- Play / pause / stop cue overlay -->
+          <div id="media-cue" class="media-cue" aria-hidden="true">
+            <div class="media-cue-badge" id="media-cue-badge"></div>
+          </div>
 
           <!-- Audio player -->
           <div id="audio-player-wrap" style="display:none;position:absolute;top:0;left:0;width:100%;height:100%;display:none;flex-direction:column;align-items:center;justify-content:center;gap:20px;">
@@ -226,7 +213,7 @@
       </div>
       <div class="dialog-body">
         <div class="about-logo">
-          <img id="about-app-icon" src="./assets/icon.png" alt="App Icon" style="width:48px;height:48px;border-radius:8px;" onerror="this.style.display='none'">
+          <img id="about-app-icon" src="./assets/icon.png" alt="App Icon" style="width:48px;height:48px;" onerror="this.style.display='none'">
           <div class="about-logo-text">
             <h2 data-i18n="app.title">Image Viewer</h2>
             <p><span data-i18n="about.version">Version</span> 1.0.2</p>
@@ -278,12 +265,13 @@
 
         <!-- Edit actions -->
         <div class="ew-group" role="group">
-          <button class="ew-btn" id="ew-cut"        data-i18n-title="context.cut"       disabled></button>
-          <button class="ew-btn" id="ew-copy"       data-i18n-title="context.copy"      disabled></button>
+          <button class="ew-btn is-disabled" id="ew-cut"        data-i18n-title="context.cut"       aria-disabled="true"></button>
+          <button class="ew-btn is-disabled" id="ew-copy"       data-i18n-title="context.copy"      aria-disabled="true"></button>
           <select id="ew-bg-algo" class="ew-select" data-i18n-title="toolbar.bgAlgo"></select>
           <button class="ew-btn" id="ew-bg-remove"  data-i18n-title="toolbar.bgRemove"></button>
-          <button class="ew-btn" id="ew-crop-sel"   data-i18n-title="editWindow.cropSel" disabled></button>
-          <button class="ew-btn" id="ew-clear-sel"  data-i18n-title="editWindow.clearSel" disabled></button>
+          <button class="ew-btn is-disabled" id="ew-crop-sel"   data-i18n-title="editWindow.cropSel" aria-disabled="true"></button>
+          <button class="ew-btn is-disabled" id="ew-clear-sel"  data-i18n-title="editWindow.clearSel" aria-disabled="true"></button>
+          <button class="ew-btn" id="ew-save-new"   data-i18n-title="editWindow.saveNew"></button>
         </div>
 
         <div class="ew-sep"></div>
@@ -300,8 +288,8 @@
 
         <!-- Undo / Redo -->
         <div class="ew-group" role="group">
-          <button class="ew-btn" id="ew-undo" data-i18n-title="editWindow.undo" disabled></button>
-          <button class="ew-btn" id="ew-redo" data-i18n-title="editWindow.redo" disabled></button>
+          <button class="ew-btn is-disabled" id="ew-undo" data-i18n-title="editWindow.undo" aria-disabled="true"></button>
+          <button class="ew-btn is-disabled" id="ew-redo" data-i18n-title="editWindow.redo" aria-disabled="true"></button>
         </div>
 
         <div class="ew-sep"></div>
@@ -324,28 +312,55 @@
 
       <!-- Save / Apply / Cancel -->
       <div class="ew-actions">
-        <button class="ew-action-btn" id="ew-save" data-i18n="editWindow.save" data-i18n-title="context.saveEdited">Save</button>
-        <button class="ew-action-btn danger"   id="ew-cancel" data-i18n="editWindow.cancel">Cancel</button>
-        <button class="ew-action-btn primary"  id="ew-apply"  data-i18n="editWindow.apply">Apply</button>
+        <button type="button" class="ew-action-btn" id="ew-save" data-i18n="editWindow.saveNew" data-i18n-title="editWindow.saveNew">Save as new file</button>
+        <button type="button" class="ew-action-btn danger" id="ew-cancel" data-i18n="editWindow.cancel">Cancel</button>
+        <button type="button" class="ew-action-btn primary" id="ew-apply" data-i18n="editWindow.apply">Apply</button>
       </div>
+      <div id="ew-win-gutter"></div>
     </div>
 
-    <!-- Body: canvas area + effects panel -->
+    <!-- Body: presets (left) + canvas + adjustments (right) -->
     <div id="edit-window-body">
+      <div id="edit-effects-panel">
+        <div class="panel-header">
+          <span class="panel-title" data-i18n="effects.presets">PRESETS</span>
+        </div>
+        <div id="edit-effects-content"></div>
+        <div id="edit-effects-resize"></div>
+      </div>
       <div id="edit-canvas-area">
         <!-- The shared image-wrapper is moved here during edit mode -->
       </div>
-      <div id="edit-effects-panel">
+      <div id="edit-adjust-panel">
         <div class="panel-header">
           <span class="panel-title" data-i18n="effects.title">ADJUSTMENTS</span>
         </div>
-        <div id="edit-effects-content"></div>
+        <div id="edit-adjust-content"></div>
         <div class="effects-actions">
           <button id="edit-effects-reset-btn" data-i18n="effects.reset">Reset</button>
         </div>
+        <div id="edit-adjust-resize"></div>
       </div>
     </div>
   </div><!-- /edit-window -->
+
+  <div id="window-controls">
+    <button type="button" id="win-min" title="Minimize" aria-label="Minimize">
+      <svg viewBox="0 0 12 12"><rect x="1" y="5.5" width="10" height="1.2" rx="0.4"/></svg>
+    </button>
+    <button type="button" id="win-max" title="Maximize" aria-label="Maximize">
+      <svg class="win-max-icon" viewBox="0 0 12 12" aria-hidden="true">
+        <rect x="2" y="2" width="8" height="8" rx="0.2" fill="none" stroke="currentColor" stroke-width="1.15"/>
+      </svg>
+      <svg class="win-restore-icon" viewBox="0 0 12 12" aria-hidden="true">
+        <path d="M3.5 4.2V2.6h5.9V8.5H7.8" fill="none" stroke="currentColor" stroke-width="1.15"/>
+        <rect x="2.2" y="4.2" width="5.9" height="5.9" fill="none" stroke="currentColor" stroke-width="1.15"/>
+      </svg>
+    </button>
+    <button type="button" id="win-close" title="Close" aria-label="Close">
+      <svg viewBox="0 0 12 12"><path d="M2.2 2.2l7.6 7.6M9.8 2.2L2.2 9.8" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+    </button>
+  </div>
 
   <!-- ═══ Shortcuts Dialog ═══ -->
   <div id="shortcuts-overlay" class="dialog-overlay" style="display:none;">
@@ -386,7 +401,36 @@
     </div>
   </div>
 
-  <!-- ═══ Scripts ═══ -->
+  <!-- ═══ File / Folder / Save Dialog ═══ -->
+  <div id="file-dialog-overlay" class="dialog-overlay" style="display:none;">
+    <div class="dialog-box file-dialog-box">
+      <div class="dialog-header">
+        <span id="fd-title">Open File</span>
+        <button class="dialog-close-btn" id="fd-close" type="button">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </div>
+      <div class="fd-nav">
+        <button type="button" class="fd-nav-btn" id="fd-up" title="Up"></button>
+        <button type="button" class="fd-nav-btn" id="fd-home" title="Home"></button>
+        <input id="fd-path" class="fd-path" type="text" spellcheck="false">
+      </div>
+      <div class="fd-split">
+        <div id="fd-drives" class="fd-drives"></div>
+        <div id="fd-list" class="fd-list"></div>
+      </div>
+      <div class="fd-name-row" id="fd-name-row">
+        <label for="fd-name" id="fd-name-label" data-i18n="fd.fileName">File name</label>
+        <input id="fd-name" type="text" spellcheck="false">
+        <select id="fd-filter"></select>
+      </div>
+      <div class="dialog-footer">
+        <button type="button" id="fd-cancel" data-i18n="dialog.unsaved.cancel">Cancel</button>
+        <button type="button" class="primary" id="fd-ok"><span id="fd-ok-label">Open</span></button>
+      </div>
+    </div>
+  </div>
+
   <!-- Vendor (optional – TIFF/HEIC support in web mode) -->
   <!-- <script src="./vendor/UTIF.js"></script> -->
   <!-- <script src="./vendor/heic2any.min.js"></script> -->
@@ -403,6 +447,7 @@
   <script src="./js/webAPI.js"></script>
   <script src="./js/tooltip.js"></script>
   <script src="./js/contextMenu.js"></script>
+  <script src="./js/fileDialog.js"></script>
   <script src="./js/editor.js"></script>
   <script src="./js/fileTree.js"></script>
   <script src="./js/app.js"></script>
@@ -410,10 +455,14 @@
   <script>
     // Wire up panel open-folder button
     document.getElementById('panel-open-folder')?.addEventListener('click', () => {
-      window.electronAPI.openFolderDialog();
+      window.FileDialog?.openFolder().then((r) => {
+        if (r && !r.canceled && r.filePath) window.dispatchEvent(new CustomEvent('app-open-folder', { detail: r.filePath }));
+      });
     });
     document.getElementById('ft-open-link')?.addEventListener('click', () => {
-      window.electronAPI.openFolderDialog();
+      window.FileDialog?.openFolder().then((r) => {
+        if (r && !r.canceled && r.filePath) window.dispatchEvent(new CustomEvent('app-open-folder', { detail: r.filePath }));
+      });
     });
   </script>
 </body>

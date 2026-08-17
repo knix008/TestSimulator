@@ -3,6 +3,7 @@ window.Icons = {
   openFile: `<svg viewBox="0 0 24 24"><path d="M20 6h-8l-2-2H4c-1.11 0-2 .89-2 2v12c0 1.1.89 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2z"/></svg>`,
   openFolder: `<svg viewBox="0 0 24 24"><path d="M19 20H4c-1.11 0-2-.9-2-2V6c0-1.11.89-2 2-2h6l2 2h7c1.11 0 2 .9 2 2H4v10l2.14-8H21l-2.14 8c-.3 1.11-1.37 2-2.5 2z"/></svg>`,
   save: `<svg viewBox="0 0 24 24"><path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm2 16H5V5h11.17L19 7.83V19zm-7-7c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3zM6 6h9v4H6z"/></svg>`,
+  saveAs: `<svg viewBox="0 0 24 24"><path d="M14 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h8v-2H5V5h8.17L16 7.83V11h2V7l-4-4zM6 6h7v3H6z"/><path d="M19 13v3h-3v2h3v3h2v-3h3v-2h-3v-3z"/></svg>`,
   zoomIn: `<svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14zm.5-7H9v2H7v1h2v2h1v-2h2V9h-2z"/></svg>`,
   zoomOut: `<svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14zM7 9h5v1H7z"/></svg>`,
   fitWindow: `<svg viewBox="0 0 24 24"><path d="M3 3h7v2H5v5H3zm11 0h7v7h-2V5h-5zm-9 11H3v7h7v-2H5zm14 5h-5v2h7v-7h-2z"/></svg>`,
@@ -62,6 +63,10 @@ window.Icons = {
   fmtMp3: `<svg viewBox="0 0 24 24"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/><circle cx="10" cy="17" r="2.2"/></svg>`,
   fmtWav: `<svg viewBox="0 0 24 24"><path d="M4 12h2v4H4zm3-3h2v10H7zm3-3h2v16h-2zm3 5h2v6h-2zm3-4h2v14h-2zm3 2h2v10h-2z"/></svg>`,
   fmtFlac: `<svg viewBox="0 0 24 24"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/><path d="M5 8h1.5v8H5zm2.5 2H9v4H7.5z" opacity=".7"/></svg>`,
+
+  mediaPlay: `<svg viewBox="0 0 24 24"><path d="M8 5.14v13.72L19.5 12 8 5.14z"/></svg>`,
+  mediaPause: `<svg viewBox="0 0 24 24"><path d="M6 5h4.2v14H6zm7.8 0H18v14h-4.2z"/></svg>`,
+  mediaStop: `<svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1.6"/></svg>`,
 
   /**
    * Pick a tree-view icon + CSS class for a file extension.

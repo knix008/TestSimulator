@@ -122,7 +122,9 @@ async function patch() {
   }
 
   const hash = iconHash(iconPath);
-  const brandedName = `ImageViewer-${hash}.exe`;
+  const pkg = require(path.join(projectRoot, 'package.json'));
+  const ver = String(pkg.version || '0').replace(/[^0-9]/g, '');
+  const brandedName = `ImageViewer-${hash}-v${ver}.exe`;
   const brandedExe = path.join(distDir, brandedName);
 
   const iconStat = fs.statSync(iconPath);

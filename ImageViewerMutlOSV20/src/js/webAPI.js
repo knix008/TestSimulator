@@ -227,6 +227,9 @@
       }
     },
 
+    onOpenProgress: () => () => {},
+    onRembgProgress: () => () => {},
+
     saveFile: async ({ defaultPath, dataUrl }) => {
       const name = (defaultPath || 'image.png').split(/[/\\]/).pop();
       return downloadDataUrl(dataUrl, name);
@@ -290,8 +293,9 @@
     },
 
     setLastOpenDir: async (dirPath) => {
-      lastOpenDir = dirPath || '/';
-      localStorage.setItem('webLastOpenDir', lastOpenDir);
+      lastOpenDir = dirPath || '';
+      if (lastOpenDir) localStorage.setItem('webLastOpenDir', lastOpenDir);
+      else localStorage.removeItem('webLastOpenDir');
       return lastOpenDir;
     },
     getLastOpenDir: async () => lastOpenDir,
@@ -316,6 +320,8 @@
     windowMinimize: async () => {},
     windowMaximize: async () => false,
     windowSetMinSize: async () => {},
+    windowGetBounds: async () => null,
+    windowApplySize: async () => {},
     windowClose: async () => { window.close(); },
     windowIsMaximized: async () => false,
     toggleFullscreen: async () => {

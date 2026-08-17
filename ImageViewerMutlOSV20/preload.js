@@ -32,6 +32,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('rembg-progress', handler);
     return () => ipcRenderer.removeListener('rembg-progress', handler);
   },
+  onOpenProgress: (cb) => {
+    const handler = (_, data) => cb(data);
+    ipcRenderer.on('open-progress', handler);
+    return () => ipcRenderer.removeListener('open-progress', handler);
+  },
   decodeDicom:  (filePath) => ipcRenderer.invoke('decode-dicom', filePath),
   saveFile: (data) => ipcRenderer.invoke('save-file', data),
   showSaveDialog: (data) => ipcRenderer.invoke('show-save-dialog', data),
@@ -57,6 +62,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   windowMinimize: () => ipcRenderer.invoke('window-minimize'),
   windowMaximize: () => ipcRenderer.invoke('window-maximize'),
   windowSetMinSize: (width, height) => ipcRenderer.invoke('window-set-min-size', width, height),
+  windowGetBounds: () => ipcRenderer.invoke('window-get-bounds'),
+  windowApplySize: (opts) => ipcRenderer.invoke('window-apply-size', opts),
   windowClose: () => ipcRenderer.invoke('window-close'),
   windowIsMaximized: () => ipcRenderer.invoke('window-is-maximized'),
   toggleFullscreen: () => ipcRenderer.invoke('window-toggle-fullscreen'),

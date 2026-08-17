@@ -49,6 +49,8 @@
   const displayCanvas    = document.getElementById('display-canvas');
   const selCanvas        = document.getElementById('sel-canvas');
   const videoEl          = document.getElementById('video-player');
+  const mediaCue         = document.getElementById('media-cue');
+  const mediaCueBadge    = document.getElementById('media-cue-badge');
   const audioWrap        = document.getElementById('audio-player-wrap');
   const audioEl          = document.getElementById('audio-player');
   const audioLabel       = document.getElementById('audio-filename');
@@ -61,6 +63,9 @@
   let _ignoreWatchUntil = 0;     // ignore fs.watch noise right after open/watch
   let _watchedDir  = null;
   let _watchedFile = null;
+  let _mediaCueTimer = null;
+  const RECENT_DIRS_KEY = 'recentOpenedDirs';
+  const RECENT_DIRS_MAX = 10;
   const statusDims       = document.getElementById('status-dims');
   const statusIdx        = document.getElementById('status-idx');
   const statusFmt        = document.getElementById('status-format');
@@ -81,10 +86,12 @@
   /* ─── File Tree init ─── */
   FileTree.init(fileTreeScroll, {
     onSelect: (p) => _openFile(p),
-    onDirOpen: (p) => {
-      localStorage.setItem('lastOpenedDir', p);
-      window.electronAPI.setLastOpenDir(p);
+    onDirOpen: (p, info = {}) => {
+      _rememberRecentDir(p);
       _watchDir(p);
+      if (info.activate !== false) {
+        _openFirstInDir(p);
+      }
     },
     onContextMenu: (entry, x, y) => _showTreeContextMenu(entry, x, y),
     onImport: (info) => {
@@ -132,6 +139,14 @@
   /* ─── Tooltip: toolbar buttons ─── */
   _buildToolbar();
   _initWindowChrome();
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest?.('button.is-disabled, button[aria-disabled="true"]');
+    if (!btn) return;
+    if (btn.classList.contains('toolbar-btn') || btn.classList.contains('ew-btn')) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  }, true);
 
   /* ─── Effects panel sliders ─── */
   let _ewEffectsBuilt = false;
@@ -140,12 +155,15 @@
   /* ─── Sidebar / Info resize ─── */
   _initSidebarResize();
   _initVerticalResize();
+  _initEditEffectsResize();
+  _initEditAdjustResize();
 
   /* ─── Viewer pan / zoom ─── */
   _initViewerInteraction();
 
   /* ─── Keyboard shortcuts ─── */
   _initKeyboard();
+  _initMediaCues();
 
   /* ─── Context menu ─── */
   viewerContainer.addEventListener('contextmenu', (e) => {
@@ -202,9 +220,9 @@
           const p = FileRegistry.registerFile(f, '/');
           await FileTree.loadDrives();
           await FileTree.revealPath('/');
-          await _openFile(p);
+          await _openFile(p, { center: true });
           await FileTree.refresh();
-          FileTree.setSelected(p);
+          FileTree.setSelected(p, { center: true });
           return;
         }
       }
@@ -212,9 +230,9 @@
         const p = FileRegistry.registerFile(files[0], '/');
         await FileTree.loadDrives();
         await FileTree.revealPath('/');
-        await _openFile(p);
+        await _openFile(p, { center: true });
         await FileTree.refresh();
-        FileTree.setSelected(p);
+        FileTree.setSelected(p, { center: true });
       }
       return;
     }
@@ -238,10 +256,10 @@
       const ext = FormatSupport.getExtension(f.name);
       if (FormatSupport.IMAGE_EXTS.has(ext) || FormatSupport.VIDEO_EXTS.has(ext) || FormatSupport.AUDIO_EXTS.has(ext)) {
         const dir = await window.electronAPI.pathDirname(p);
-        await _openFile(p);
+        await _openFile(p, { center: true });
         await FileTree.revealPath(dir);
         await FileTree.refresh();
-        FileTree.setSelected(p);
+        FileTree.setSelected(p, { center: true });
         return;
       }
     }
@@ -250,10 +268,10 @@
       const p = _dropPath(files[0]);
       if (!p) return;
       const dir = await window.electronAPI.pathDirname(p);
-      await _openFile(p);
+      await _openFile(p, { center: true });
       await FileTree.revealPath(dir);
       await FileTree.refresh();
-      FileTree.setSelected(p);
+      FileTree.setSelected(p, { center: true });
     }
   });
 
@@ -261,17 +279,23 @@
   window.electronAPI.onOpenFile(async (p) => {
     try {
       const dir = await window.electronAPI.pathDirname(p);
-      await _openFile(p);
+      await _openFile(p, { center: true });
       await FileTree.revealPath(dir);
       await FileTree.refresh();
-      FileTree.setSelected(p);
+      FileTree.setSelected(p, { center: true });
     } catch (_) {
-      await _openFile(p);
+      await _openFile(p, { center: true });
       await FileTree.refresh();
-      FileTree.setSelected(p);
+      FileTree.setSelected(p, { center: true });
     }
   });
   window.electronAPI.onOpenFolder(async (p) => {
+    await _openFolder(p);
+    await FileTree.refresh();
+  });
+  window.addEventListener('app-open-folder', async (e) => {
+    const p = e.detail;
+    if (!p) return;
     await _openFolder(p);
     await FileTree.refresh();
   });
@@ -309,6 +333,7 @@
 
   /* ─── Initial viewer state ─── */
   _showPlaceholder(true);
+  _showLoading(false);
   _setTool('pointer');
   viewerContainer.classList.add('drag-mode');
   selCanvas.style.cursor = 'grab';
@@ -323,26 +348,29 @@
     if (launchFile) {
       try {
         const dir = await window.electronAPI.pathDirname(launchFile);
-        await _openFile(launchFile);
         await FileTree.revealPath(dir);
         await FileTree.refresh();
-        FileTree.setSelected(launchFile);
-      } catch (e) {
-        await _openFile(launchFile);
-      }
+        FileTree.setSelected(launchFile, { center: true });
+      } catch (_) { /* folder may be gone */ }
+      _openFile(launchFile, { center: true }).catch(() => {});
     } else {
       const lastDir = localStorage.getItem('lastOpenedDir');
       if (lastDir) {
         try {
           const stats = await window.electronAPI.getFileStats(lastDir);
           if (stats && !stats.error && stats.isDirectory) {
-            await _openFolder(lastDir);
+            await _openFolder(lastDir, { openFirst: false });
             const lastFile = localStorage.getItem('lastOpenedFile');
+            let restoredFile = false;
             if (lastFile) {
               const fileStats = await window.electronAPI.getFileStats(lastFile);
               if (fileStats && !fileStats.error && !fileStats.isDirectory) {
-                await _openFile(lastFile);
+                restoredFile = true;
+                _openFile(lastFile, { center: true }).catch(() => {});
               }
+            }
+            if (!restoredFile) {
+              _openFirstInDir(lastDir).catch(() => {});
             }
           }
         } catch (e) {
@@ -360,8 +388,8 @@
   ════════════════════════════════════════════ */
   function _buildToolbar() {
     const buttons = [
-      { id:'btn-open-file',   icon:'openFile',   tip:'toolbar.openFile',   action: () => window.electronAPI.openFileDialog() },
-      { id:'btn-open-folder', icon:'openFolder', tip:'toolbar.openFolder', action: () => window.electronAPI.openFolderDialog() },
+      { id:'btn-open-file',   icon:'openFile',   tip:'toolbar.openFile',   action: () => _pickOpenFile() },
+      { id:'btn-open-folder', icon:'openFolder', tip:'toolbar.openFolder', action: (e) => { e?.stopPropagation?.(); _showRecentFoldersMenu(e?.currentTarget); } },
       { id:'btn-save',        icon:'save',       tip:'toolbar.save',       action: _saveAs, disabled: true },
       { separator: true },
       { id:'btn-undo',        icon:'undo',       tip:'toolbar.undo',       action: () => { Editor.undo(); _updateUndoRedoBtns(); }, disabled: true },
@@ -408,10 +436,13 @@
         continue;
       }
 
+      const hit = document.createElement('div');
+      hit.className = 'toolbar-hit';
+
       const btn = document.createElement('button');
       btn.className = 'toolbar-btn';
       btn.id = b.id;
-      if (b.disabled) btn.disabled = true;
+      if (b.disabled) _setChromeBtn(btn, false);
 
       if (b.langBtn) {
         btn.classList.add('lang-btn');
@@ -427,9 +458,16 @@
         if (b.id === 'btn-tool-pointer') btn.classList.add('active');
       }
 
-      btn.addEventListener('click', b.action);
+      btn.addEventListener('click', (e) => {
+        if (btn.classList.contains('is-disabled') || btn.getAttribute('aria-disabled') === 'true') {
+          e.preventDefault();
+          return;
+        }
+        b.action(e);
+      });
       Tooltip.attach(btn, () => I18n.t(b.tip));
-      toolbar.appendChild(btn);
+      hit.appendChild(btn);
+      toolbar.appendChild(hit);
     }
 
     // Re-insert zoom display
@@ -447,6 +485,8 @@
 
     _updateZoomDisplay();
     _lockBarScroll(toolbar);
+    _updateToolbarForMedia();
+    _updateNavButtons();
     requestAnimationFrame(() => _syncWindowMinSize());
   }
 
@@ -464,12 +504,23 @@
     const style = getComputedStyle(el);
     const gap = parseFloat(style.columnGap || style.gap) || 0;
     let w = (parseFloat(style.paddingLeft) || 0) + (parseFloat(style.paddingRight) || 0);
-    const kids = [...el.children];
+    const kids = [...el.children].filter((child) => {
+      const cs = getComputedStyle(child);
+      return cs.display !== 'none';
+    });
     kids.forEach((child, i) => {
       if (growClass && child.classList.contains(growClass)) {
         w += parseFloat(getComputedStyle(child).minWidth) || 8;
+      } else if (child.id === 'edit-window-title') {
+        w += parseFloat(getComputedStyle(child).maxWidth) || 168;
+      } else if (child.classList.contains('ew-toolbar') || child.classList.contains('ew-group')) {
+        // Do not use the clipped box — sum the real button widths
+        w += _measureFlexContentWidth(child);
       } else {
-        w += child.getBoundingClientRect().width;
+        const cs = getComputedStyle(child);
+        const minW = parseFloat(cs.minWidth) || 0;
+        const cssW = parseFloat(cs.width) || 0;
+        w += Math.max(child.scrollWidth, child.getBoundingClientRect().width, minW, cssW);
       }
       if (i < kids.length - 1) w += gap;
     });
@@ -489,13 +540,22 @@
   }
 
   let _appliedMinWidth = 0;
-  function _syncWindowMinSize() {
-    const mainW = _measureFlexContentWidth(toolbar, 'toolbar-spacer');
-    const editW = _measureEditTitlebarWidth();
-    const width = Math.max(mainW, editW, 1100);
-    if (width === _appliedMinWidth) return;
+  let _ewFitW = 0, _ewFitH = 0;
+  let _savedMainBounds = null;
+
+  function _mainMinWidth() {
+    return Math.max(_measureFlexContentWidth(toolbar, 'toolbar-spacer'), 1100) + 12;
+  }
+
+  function _editMinWidth() {
+    return Math.max(_measureEditTitlebarWidth(), 1100) + 12;
+  }
+
+  function _syncWindowMinSize(opts = {}) {
+    const force = !!opts.force;
+    const width = state.editMode ? _editMinWidth() : _mainMinWidth();
+    if (!force && _appliedMinWidth && Math.abs(width - _appliedMinWidth) < 8) return;
     _appliedMinWidth = width;
-    document.documentElement.style.minWidth = `${width}px`;
     if (window.electronAPI.windowSetMinSize) {
       window.electronAPI.windowSetMinSize(width, 600);
     }
@@ -514,7 +574,10 @@
     maxBtn?.addEventListener('click', () => {
       window.electronAPI.windowMaximize();
     });
-    closeBtn?.addEventListener('click', () => window.electronAPI.windowClose());
+    closeBtn?.addEventListener('click', () => {
+      if (state.editMode) _requestCloseEditWindow(false);
+      else window.electronAPI.windowClose();
+    });
     window.electronAPI.onMaximizeChange?.((maximized) => _setMaximizedUi(!!maximized));
     window.electronAPI.windowIsMaximized?.().then((m) => _setMaximizedUi(!!m));
     requestAnimationFrame(() => _syncWindowMinSize());
@@ -526,6 +589,18 @@
     if (!maxBtn) return;
     maxBtn.title = maximized ? 'Restore' : 'Maximize';
     maxBtn.setAttribute('aria-label', maximized ? 'Restore' : 'Maximize');
+  }
+
+  /**
+   * Do not use HTML disabled= inside a -webkit-app-region: drag bar.
+   * Chromium ignores no-drag on disabled controls, so clicks become window-drag
+   * and can block dialogs/overlays as well.
+   */
+  function _setChromeBtn(el, on) {
+    if (!el) return;
+    if (el.disabled) el.disabled = false;
+    el.classList.toggle('is-disabled', !on);
+    el.setAttribute('aria-disabled', on ? 'false' : 'true');
   }
 
   function _setToolbarEnabled(enabled) {
@@ -546,22 +621,20 @@
             : 'none'
     );
 
-    const set = (id, on) => {
-      const el = document.getElementById(id);
-      if (el) el.disabled = !on;
-    };
+    const set = (id, on) => _setChromeBtn(document.getElementById(id), on);
 
     const hasMedia = k !== 'none';
     const isImage = k === 'image';
-    const canNav = hasMedia && state.fileList.length > 1;
+    const canPrev = hasMedia && state.fileIndex > 0;
+    const canNext = hasMedia && state.fileIndex >= 0 && state.fileIndex < state.fileList.length - 1;
 
     // Navigation / view (available for images; limited for A/V)
     set('btn-zoom-in', isImage || k === 'video');
     set('btn-zoom-out', isImage || k === 'video');
     set('btn-fit', isImage || k === 'video');
     set('btn-actual', isImage);
-    set('btn-prev', canNav);
-    set('btn-next', canNav);
+    set('btn-prev', canPrev);
+    set('btn-next', canNext);
 
     // Image editing only
     set('btn-save', isImage);
@@ -589,14 +662,10 @@
   function _updateUndoRedoBtns() {
     const canUndo = Editor.canUndo();
     const canRedo = Editor.canRedo();
-    const undoBtn = document.getElementById('btn-undo');
-    const redoBtn = document.getElementById('btn-redo');
-    if (undoBtn) undoBtn.disabled = !canUndo;
-    if (redoBtn) redoBtn.disabled = !canRedo;
-    const ewUndo = document.getElementById('ew-undo');
-    const ewRedo = document.getElementById('ew-redo');
-    if (ewUndo) ewUndo.disabled = !canUndo;
-    if (ewRedo) ewRedo.disabled = !canRedo;
+    _setChromeBtn(document.getElementById('btn-undo'), canUndo);
+    _setChromeBtn(document.getElementById('btn-redo'), canRedo);
+    _setChromeBtn(document.getElementById('ew-undo'), canUndo);
+    _setChromeBtn(document.getElementById('ew-redo'), canRedo);
   }
 
   function _onHistoryChange() {
@@ -604,26 +673,94 @@
     _syncSlidersFromEffects('eff');
     _syncSlidersFromEffects('ew-eff');
     if (_isEditableImage()) _updateStatus({ dims: true });
+    if (state.editMode) {
+      const { w, h } = Editor.getDimensions();
+      if (w !== _ewFitW || h !== _ewFitH) {
+        requestAnimationFrame(() => _ewFit());
+      } else {
+        _ewApplyTransform();
+      }
+    } else {
+      _applyTransform();
+    }
   }
 
   /* ════════════════════════════════════════════
      Open / Load
   ════════════════════════════════════════════ */
-  async function _openFile(filePath) {
+  function _pd() {
+    return window._ProgressDialog || null;
+  }
+
+  function _openProgressLabel(key, fileName) {
+    if (key === 'opening') {
+      return (I18n.t('progress.opening') || 'Opening {file}…').replace('{file}', fileName || '');
+    }
+    const mapped = I18n.t(`progress.${key}`);
+    if (mapped && mapped !== `progress.${key}`) return mapped;
+    return key || '';
+  }
+
+  function _isSlowOpen(filePath) {
+    return !!(filePath && (
+      FormatSupport.isHeic(filePath) || FormatSupport.isTiff(filePath) || FormatSupport.isDcm(filePath)
+    ));
+  }
+
+  async function _openFile(filePath, { center = false } = {}) {
     if (!filePath) return;
     // Prevent overlapping opens (Windows fs.watch often fires when we read the file)
     if (_openingFile && _openingFile === filePath) return;
+    if (state.editMode) {
+      const same = state.currentFile &&
+        String(state.currentFile).replace(/\\/g, '/').toLowerCase() ===
+        String(filePath).replace(/\\/g, '/').toLowerCase();
+      if (same) return;
+      const closed = await _requestCloseEditWindow(false);
+      if (!closed) return;
+    }
     _openingFile = filePath;
-    _showLoading(true);
+    const fileName = filePath.split(/[/\\]/).pop();
+    let progressShown = false;
+    const showOpenProgress = (percent, messageKey) => {
+      const dlg = _pd();
+      if (!dlg) return;
+      if (!progressShown) {
+        progressShown = true;
+        _showLoading(false);
+        dlg.show({
+          title: I18n.t('progress.openTitle') || I18n.t('progress.title') || 'Opening file',
+          message: _openProgressLabel(messageKey || 'opening', fileName),
+          percent: percent != null ? percent : 6,
+        });
+        dlg.startCreep(88);
+        return;
+      }
+      dlg.set(percent != null ? percent : 0, _openProgressLabel(messageKey || 'opening', fileName));
+      if (percent >= 90) dlg.stopCreep();
+    };
+    const progressTimer = setTimeout(
+      () => showOpenProgress(8, 'opening'),
+      _isSlowOpen(filePath) ? 50 : 400
+    );
+    const unsubProgress = window.electronAPI.onOpenProgress
+      ? window.electronAPI.onOpenProgress(({ percent, message }) => {
+          showOpenProgress(percent, message);
+        })
+      : null;
 
     try {
-      const result = await FormatSupport.loadImageFile(filePath);
+      const result = await _withTimeout(
+        FormatSupport.loadImageFile(filePath),
+        25000,
+        I18n.t('error.openFile') || 'Opening this file took too long'
+      );
 
       if (result.type === 'error') {
         _showPlaceholder(true);
         _updateStatus({ msg: result.message });
         _showError(
-          `${I18n.t('error.openFile') || 'Failed to open file'}: ${filePath.split(/[/\\]/).pop()}`,
+          `${I18n.t('error.openFile') || 'Failed to open file'}: ${fileName}`,
           result.message
         );
         return;
@@ -633,57 +770,72 @@
       state.isVideo     = result.type === 'video';
       state.isAudio     = result.type === 'audio';
       localStorage.setItem('lastOpenedFile', filePath);
-      FileTree.setSelected(filePath);
 
-      // Build file list for prev/next
-      const dir = await window.electronAPI.pathDirname(filePath);
-      localStorage.setItem('lastOpenedDir', dir);
-      window.electronAPI.setLastOpenDir(dir);
-      _watchDir(dir);
-      state.fileList  = await FileTree.getImageFilesInDir(dir);
-      state.fileIndex = FileTree.indexOfPath
-        ? FileTree.indexOfPath(state.fileList, filePath)
-        : state.fileList.indexOf(filePath);
-
+      let mediaKind = 'none';
       if (state.isVideo) {
         _showAudioPlayer(null);
         _showVideoPlayer(filePath);
+        mediaKind = 'video';
       } else if (state.isAudio) {
         _showVideoPlayer(null);
         _showAudioPlayer(filePath);
+        mediaKind = 'audio';
       } else {
         _showVideoPlayer(null);
         _showAudioPlayer(null);
         if (!result.dataUrl) {
           _showPlaceholder(true);
+          _updateToolbarForMedia('none');
           _showError(
-            `${I18n.t('error.openFile') || 'Failed to open file'}: ${filePath.split(/[/\\]/).pop()}`,
+            `${I18n.t('error.openFile') || 'Failed to open file'}: ${fileName}`,
             'Empty image data'
           );
           return;
         }
+        if (progressShown) showOpenProgress(94, 'displaying');
         await _loadImageDataUrl(result.dataUrl, filePath, result.dicomMeta);
+        mediaKind = _isEditableImage() ? 'image' : 'none';
       }
 
-      // Ignore spurious watch events caused by our own read
+      _updateToolbarForMedia(mediaKind);
+      _showLoading(false);
+      if (progressShown) {
+        const dlg = _pd();
+        dlg?.stopCreep();
+        dlg?.set(100, I18n.t('progress.done') || 'Done');
+        await dlg?.yieldFrame(90);
+      }
+
+      FileTree.setSelected(filePath, { center });
+      const dir = await window.electronAPI.pathDirname(filePath);
+      _rememberRecentDir(dir);
+      _watchDir(dir);
+      state.fileList  = await FileTree.getImageFilesInDir(dir);
+      state.fileIndex = FileTree.indexOfPath
+        ? FileTree.indexOfPath(state.fileList, filePath)
+        : state.fileList.indexOf(filePath);
+      _updateNavButtons();
+
       _ignoreWatchUntil = Date.now() + 800;
       _watchCurrentFile(filePath);
-
-      // Clear dirty AFTER loadImage so the render triggered by loadImage doesn't persist dirty
       _clearDirty();
-      await _updateInfoPanel(filePath, result.dicomMeta ?? null);
-      _updateNavButtons();
-      if (state.isVideo) _updateToolbarForMedia('video');
-      else if (state.isAudio) _updateToolbarForMedia('audio');
-      else _updateToolbarForMedia('image');
+      try {
+        await _updateInfoPanel(filePath, result.dicomMeta ?? null);
+        _refreshBorderCaption();
+      } catch (metaErr) {
+        console.warn('Info panel after open failed:', metaErr);
+      }
       _prefetchConvertedNeighbors();
     } catch (e) {
       console.error('Error opening file:', e);
       _showError(
-        `${I18n.t('error.openFile') || 'Failed to open file'}: ${filePath.split(/[/\\]/).pop()}`,
+        `${I18n.t('error.openFile') || 'Failed to open file'}: ${fileName}`,
         e
       );
     } finally {
+      clearTimeout(progressTimer);
+      if (typeof unsubProgress === 'function') unsubProgress();
+      _pd()?.hide();
       if (_openingFile === filePath) _openingFile = null;
       _showLoading(false);
     }
@@ -747,11 +899,59 @@
       window.electronAPI.getFileUrl(filePath).then(url => {
         videoEl.src = url;
         videoEl.load();
+        _showMediaCue('pause', true);
       });
     } else {
+      _hideMediaCue();
       videoEl.style.display = 'none';
       videoEl.src = '';
     }
+  }
+
+  function _videoCueActive() {
+    return !!(state.isVideo && videoEl && videoEl.style.display !== 'none');
+  }
+
+  function _showMediaCue(kind, persist) {
+    if (!mediaCue || !mediaCueBadge) return;
+    const icons = { play: Icons.mediaPlay, pause: Icons.mediaPause, stop: Icons.mediaStop };
+    mediaCueBadge.innerHTML = icons[kind] || icons.pause;
+    mediaCue.classList.remove('is-on', 'is-flash', 'is-persist', 'is-play', 'is-pause', 'is-stop');
+    void mediaCue.offsetWidth;
+    mediaCue.classList.add('is-on', persist ? 'is-persist' : 'is-flash', `is-${kind}`);
+    clearTimeout(_mediaCueTimer);
+    if (persist) return;
+    _mediaCueTimer = setTimeout(() => _hideMediaCue(), 900);
+  }
+
+  function _hideMediaCue() {
+    clearTimeout(_mediaCueTimer);
+    _mediaCueTimer = null;
+    if (!mediaCue) return;
+    mediaCue.classList.remove('is-on', 'is-flash', 'is-persist', 'is-play', 'is-pause', 'is-stop');
+  }
+
+  function _initMediaCues() {
+    if (!videoEl) return;
+    videoEl.addEventListener('play', () => {
+      if (!_videoCueActive()) return;
+      _showMediaCue('play', false);
+    });
+    videoEl.addEventListener('pause', () => {
+      if (!_videoCueActive()) {
+        _hideMediaCue();
+        return;
+      }
+      if (videoEl.ended) {
+        _showMediaCue('stop', false);
+        return;
+      }
+      _showMediaCue('pause', true);
+    });
+    videoEl.addEventListener('ended', () => {
+      if (!_videoCueActive()) return;
+      _showMediaCue('stop', false);
+    });
   }
 
   function _showAudioPlayer(filePath) {
@@ -778,18 +978,165 @@
     }
   }
 
-  async function _openFolder(dirPath) {
-    state.currentFile = null;
-    _showPlaceholder(true);
-    _updateInfoPanel(null);
-    _setToolbarEnabled(false);
+  async function _openFirstInDir(dirPath) {
+    if (!dirPath) return false;
+    try {
+      const files = await FileTree.getImageFilesInDir(dirPath);
+      if (!files.length) return false;
+      if (state.currentFile && FileTree.indexOfPath(files, state.currentFile) === 0) {
+        return true;
+      }
+      await _openFile(files[0], { center: true });
+      return true;
+    } catch (e) {
+      console.warn('open first in dir:', e);
+      return false;
+    }
+  }
+
+  function _normDirKey(p) {
+    return String(p || '').replace(/[\\/]+$/, '').replace(/\\/g, '/').toLowerCase();
+  }
+
+  function _dirBaseName(p) {
+    const cleaned = String(p || '').replace(/[\\/]+$/, '');
+    const parts = cleaned.split(/[/\\]/).filter(Boolean);
+    return parts.pop() || cleaned || p;
+  }
+
+  function _getRecentDirs() {
+    const stored = localStorage.getItem(RECENT_DIRS_KEY);
+    if (stored !== null) {
+      try {
+        const raw = JSON.parse(stored);
+        return Array.isArray(raw) ? raw.filter(Boolean).slice(0, RECENT_DIRS_MAX) : [];
+      } catch { return []; }
+    }
+    const last = localStorage.getItem('lastOpenedDir');
+    return last ? [last] : [];
+  }
+
+  function _rememberRecentDir(dirPath) {
+    if (!dirPath) return;
+    const list = _getRecentDirs();
+    const key = _normDirKey(dirPath);
+    if (list.length && _normDirKey(list[0]) === key) {
+      localStorage.setItem('lastOpenedDir', dirPath);
+      window.electronAPI.setLastOpenDir(dirPath);
+      return;
+    }
+    const next = [dirPath, ...list.filter((p) => _normDirKey(p) !== key)].slice(0, RECENT_DIRS_MAX);
+    localStorage.setItem(RECENT_DIRS_KEY, JSON.stringify(next));
     localStorage.setItem('lastOpenedDir', dirPath);
     window.electronAPI.setLastOpenDir(dirPath);
+  }
+
+  async function _clearRecentFolderHistory() {
+    const t = I18n.t.bind(I18n);
+    const result = await window.electronAPI.showMessageBox({
+      type: 'warning',
+      title: t('toolbar.clearRecentFolders') || 'Clear recent folders',
+      message: t('toolbar.clearRecentFoldersConfirm') || 'Delete all recent folder history?',
+      buttons: [
+        t('toolbar.clearRecentFoldersYes') || 'Clear',
+        t('dialog.unsaved.cancel') || 'Cancel',
+      ],
+      defaultId: 1,
+      cancelId: 1,
+    });
+    if (result.response !== 0) return;
+    localStorage.setItem(RECENT_DIRS_KEY, '[]');
+    localStorage.removeItem('lastOpenedDir');
+    window.electronAPI.setLastOpenDir('');
+  }
+
+  async function _showRecentFoldersMenu(anchorEl) {
+    const raw = _getRecentDirs();
+    const existing = [];
+    for (const p of raw) {
+      try {
+        const stats = await window.electronAPI.getFileStats(p);
+        if (stats && !stats.error && stats.isDirectory) existing.push(p);
+      } catch { /* gone */ }
+    }
+    if (existing.length !== raw.length) {
+      localStorage.setItem(RECENT_DIRS_KEY, JSON.stringify(existing));
+    }
+
+    const items = existing.map((p) => ({
+      icon: Icons.folder,
+      label: _dirBaseName(p),
+      detail: p,
+      title: p,
+      action: () => _openFolder(p),
+    }));
+    if (items.length) items.push({ separator: true });
+    items.push({
+      icon: Icons.openFolder,
+      label: I18n.t('toolbar.openFolderBrowse') || I18n.t('menu.openFolder'),
+      action: () => _pickOpenFolder(),
+    });
+    if (existing.length) {
+      items.push({ separator: true });
+      items.push({
+        icon: Icons.delete,
+        label: I18n.t('toolbar.clearRecentFolders') || 'Clear recent folders',
+        danger: true,
+        action: () => _clearRecentFolderHistory(),
+      });
+    }
+
+    const el = anchorEl || document.getElementById('btn-open-folder');
+    const r = el?.getBoundingClientRect?.();
+    const x = r ? r.left : 8;
+    const y = r ? r.bottom + 4 : 40;
+    ContextMenu.show(x, y, items);
+  }
+
+  function _isFileDialogOpen() {
+    const el = document.getElementById('file-dialog-overlay');
+    return !!(el && (el.style.display === 'flex' || el.classList.contains('visible')));
+  }
+
+  async function _pickOpenFile() {
+    if (!window.FileDialog) return;
+    const r = await window.FileDialog.openFile();
+    if (!r || r.canceled || !r.filePath) return;
+    const p = r.filePath;
+    try {
+      const dir = await window.electronAPI.pathDirname(p);
+      await _openFile(p, { center: true });
+      await FileTree.revealPath(dir);
+      await FileTree.refresh();
+      FileTree.setSelected(p, { center: true });
+    } catch (_) {
+      await _openFile(p, { center: true });
+    }
+  }
+
+  async function _pickOpenFolder() {
+    if (!window.FileDialog) return;
+    const r = await window.FileDialog.openFolder();
+    if (!r || r.canceled || !r.filePath) return;
+    await _openFolder(r.filePath);
+    await FileTree.refresh();
+  }
+
+  async function _openFolder(dirPath, { openFirst = true } = {}) {
+    _rememberRecentDir(dirPath);
     if (window.electronAPI.platform === 'web') {
       await FileTree.loadDrives();
     }
     await FileTree.revealPath(dirPath);
     _watchDir(dirPath);
+    if (!openFirst) return;
+    const opened = await _openFirstInDir(dirPath);
+    if (!opened) {
+      state.currentFile = null;
+      _showPlaceholder(true);
+      _updateInfoPanel(null);
+      _setToolbarEnabled(false);
+    }
   }
 
   /* ════════════════════════════════════════════
@@ -797,6 +1144,7 @@
   ════════════════════════════════════════════ */
   function _zoom(factor, cx, cy) {
     if (!Editor.isLoaded() && !state.isVideo) return;
+    _wantFit = false;
     const newZoom = Math.min(Math.max(state.zoom * factor, 0.02), 32);
     const ratio   = newZoom / state.zoom;
 
@@ -812,20 +1160,35 @@
   }
 
   function _setZoom(z) {
+    _wantFit = false;
     state.zoom = Math.min(Math.max(z, 0.02), 32);
     _applyTransform();
     _updateZoomDisplay();
     _updateStatus({ zoom: true });
   }
 
+  let _wantFit = true;
+  function _fitZoomFor(container, w, h) {
+    if (!container || !w || !h) return 1;
+    const cw = Math.max(1, container.clientWidth  - 16);
+    const ch = Math.max(1, container.clientHeight - 16);
+    const z = Math.min(cw / w, ch / h);
+    if (!Number.isFinite(z) || z <= 0) return 1;
+    return Math.min(Math.max(z, 0.02), 32);
+  }
+
   function _fitToWindow() {
     if (!Editor.isLoaded() && !state.isVideo) return;
+    if (state.editMode) {
+      _ewFit();
+      return;
+    }
     const { w, h } = Editor.isLoaded() ? Editor.getDimensions()
       : { w: videoEl.videoWidth || 640, h: videoEl.videoHeight || 360 };
-    const cw = viewerContainer.clientWidth  - 20;
-    const ch = viewerContainer.clientHeight - 20;
-    const z  = Math.min(cw / w, ch / h, 1);
-    state.zoom = z; state.panX = 0; state.panY = 0;
+    if (!w || !h) return;
+    _wantFit = true;
+    state.zoom = _fitZoomFor(viewerContainer, w, h);
+    state.panX = 0; state.panY = 0;
     _applyTransform();
     _updateZoomDisplay();
     _updateStatus({ zoom: true });
@@ -833,10 +1196,24 @@
 
   function _actualSize() {
     if (!Editor.isLoaded() && !state.isVideo) return;
+    _wantFit = false;
     state.zoom = 1; state.panX = 0; state.panY = 0;
     _applyTransform();
     _updateZoomDisplay();
     _updateStatus({ zoom: true });
+  }
+
+  function _placeImageWrapper(container, panX, panY, zoom, dims) {
+    if (!imageWrapper || !container) return;
+    const cw = container.clientWidth;
+    const ch = container.clientHeight;
+    const w = dims.w || 0;
+    const h = dims.h || 0;
+    const left = Math.round(cw / 2 + panX - (w * zoom) / 2);
+    const top = Math.round(ch / 2 + panY - (h * zoom) / 2);
+    imageWrapper.style.left = `${left}px`;
+    imageWrapper.style.top = `${top}px`;
+    imageWrapper.style.transform = `scale(${zoom})`;
   }
 
   function _applyTransform() {
@@ -867,8 +1244,7 @@
       }
     }
 
-    imageWrapper.style.transform =
-      `translate(calc(-50% + ${state.panX}px), calc(-50% + ${state.panY}px)) scale(${state.zoom})`;
+    _placeImageWrapper(viewerContainer, state.panX, state.panY, state.zoom, dims);
   }
 
   function _updateZoomDisplay() {
@@ -1020,8 +1396,8 @@
     const btn = document.getElementById('ew-bg-remove');
     const sel = document.getElementById('ew-bg-algo');
     _rembgBusy = true;
-    if (btn) btn.disabled = true;
-    if (sel) sel.disabled = true;
+    _setChromeBtn(btn, false);
+    _setChromeBtn(sel, false);
 
     ProgressDialog.show({
       title: I18n.t('progress.title') || 'Progress',
@@ -1072,8 +1448,8 @@
       ProgressDialog.stopCreep();
       ProgressDialog.hide();
       _rembgBusy = false;
-      if (btn) btn.disabled = false;
-      if (sel) sel.disabled = false;
+      _setChromeBtn(btn, true);
+      _setChromeBtn(sel, true);
       _ewUpdateSelBtns();
     }
   }
@@ -1132,25 +1508,30 @@
   /* ════════════════════════════════════════════
      Navigation (prev / next)
   ════════════════════════════════════════════ */
-  function _prevImage() {
-    if (state.fileIndex > 0) {
-      state.fileIndex--;
-      _openFile(state.fileList[state.fileIndex]);
+  async function _prevImage() {
+    if (state.fileIndex <= 0) return;
+    if (state.editMode) {
+      const closed = await _requestCloseEditWindow(false);
+      if (!closed) return;
     }
+    state.fileIndex--;
+    _openFile(state.fileList[state.fileIndex]);
   }
 
-  function _nextImage() {
-    if (state.fileIndex < state.fileList.length - 1) {
-      state.fileIndex++;
-      _openFile(state.fileList[state.fileIndex]);
+  async function _nextImage() {
+    if (state.fileIndex >= state.fileList.length - 1) return;
+    if (state.editMode) {
+      const closed = await _requestCloseEditWindow(false);
+      if (!closed) return;
     }
+    state.fileIndex++;
+    _openFile(state.fileList[state.fileIndex]);
   }
 
   function _updateNavButtons() {
-    const prevBtn = document.getElementById('btn-prev');
-    const nextBtn = document.getElementById('btn-next');
-    if (prevBtn) prevBtn.disabled = state.fileIndex <= 0;
-    if (nextBtn) nextBtn.disabled = state.fileIndex >= state.fileList.length - 1;
+    _setChromeBtn(document.getElementById('btn-prev'), state.fileIndex > 0);
+    _setChromeBtn(document.getElementById('btn-next'),
+      state.fileIndex >= 0 && state.fileIndex < state.fileList.length - 1);
   }
 
   /* ════════════════════════════════════════════
@@ -1159,12 +1540,21 @@
   function _buildEffectsPanel() {
     _buildEffectsPanelIn('effects-content', 'eff');
     if (document.getElementById('edit-effects-content')) {
-      _buildEffectsPanelIn('edit-effects-content', 'ew-eff');
+      _buildEffectsPanelIn('edit-effects-content', 'ew-eff', 'presets');
+      _buildEffectsPanelIn('edit-adjust-content', 'ew-eff', 'adjust');
       _ewEffectsBuilt = true;
     }
   }
 
-  function _buildEffectsPanelIn(containerId, idPrefix) {
+  function _presetRoot(idPrefix) {
+    return document.getElementById(idPrefix === 'ew-eff' ? 'edit-effects-content' : 'effects-content');
+  }
+
+  function _clearPresetActive(idPrefix) {
+    _presetRoot(idPrefix)?.querySelectorAll('.preset-btn').forEach((b) => b.classList.remove('active'));
+  }
+
+  function _buildEffectsPanelIn(containerId, idPrefix, mode = 'all') {
     const content = document.getElementById(containerId);
     if (!content) return;
 
@@ -1176,6 +1566,8 @@
       { key:'blur',       label:'effects.blur',       min:0,   max:20,  step:0.5,def:0 },
       { key:'sharpen',    label:'effects.sharpen',    min:0,   max:100, step:1,  def:0 },
       { key:'vignette',   label:'effects.vignette',   min:0,   max:100, step:1,  def:0 },
+      { key:'grain',      label:'effects.grain',      min:0,   max:100, step:1,  def:0 },
+      { key:'posterize',  label:'effects.posterize',  min:0,   max:8,   step:1,  def:0 },
       { key:'warmth',     label:'effects.warmth',     min:-100,max:100, step:1,  def:0 },
       { key:'grayscale',  label:'effects.grayscale',  min:0,   max:100, step:1,  def:0 },
       { key:'sepia',      label:'effects.sepia',      min:0,   max:100, step:1,  def:0 },
@@ -1188,16 +1580,27 @@
       const el = document.getElementById(`${idPrefix}-${s.key}`);
       if (el) prevValues[s.key] = el.value;
     }
+    for (const key of ['borderWidth', 'borderShadow', 'borderShadowStyle', 'borderShadowDir', 'borderCaptionText']) {
+      const el = document.getElementById(`${idPrefix}-${key}`);
+      if (el) prevValues[key] = el.value;
+    }
     const activePreset = content.querySelector('.preset-btn.active')?.dataset?.preset || null;
 
     content.innerHTML = '';
 
+    if (mode === 'adjust') {
+      _appendAdjustControls(content, idPrefix, sliders, prevValues);
+      return;
+    }
+
     // Presets
-    const presetsLabel = document.createElement('div');
-    presetsLabel.style.cssText = 'font-size:11px;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;font-weight:700;';
-    presetsLabel.setAttribute('data-i18n', 'effects.presets');
-    presetsLabel.textContent = I18n.t('effects.presets');
-    content.appendChild(presetsLabel);
+    if (mode !== 'presets') {
+      const presetsLabel = document.createElement('div');
+      presetsLabel.style.cssText = 'font-size:11px;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;font-weight:700;';
+      presetsLabel.setAttribute('data-i18n', 'effects.presets');
+      presetsLabel.textContent = I18n.t('effects.presets');
+      content.appendChild(presetsLabel);
+    }
 
     const presets = [
       { id: 'grayscale',    label: 'effects.grayscale' },
@@ -1211,19 +1614,44 @@
       { id: 'pastel',       label: 'effects.pastel' },
       { id: 'matte',        label: 'effects.matte' },
       { id: 'vintage',      label: 'effects.vintage' },
+      { id: 'filmcamera',   label: 'effects.filmcamera' },
+      { id: 'disposable',   label: 'effects.disposable' },
+      { id: 'kodachrome',   label: 'effects.kodachrome' },
+      { id: 'velvia',       label: 'effects.velvia' },
+      { id: 'portra',       label: 'effects.portra' },
+      { id: 'trix',         label: 'effects.trix' },
+      { id: 'expired',      label: 'effects.expired' },
+      { id: 'cinestill',    label: 'effects.cinestill' },
+      { id: 'redscale',     label: 'effects.redscale' },
+      { id: 'holga',        label: 'effects.holga' },
+      { id: 'slide',        label: 'effects.slide' },
       { id: 'polaroid',     label: 'effects.polaroid' },
       { id: 'lomo',         label: 'effects.lomo' },
       { id: 'dramatic',     label: 'effects.dramatic' },
       { id: 'warm',         label: 'effects.warmPreset' },
       { id: 'golden',       label: 'effects.golden' },
       { id: 'sunset',       label: 'effects.sunset' },
+      { id: 'autumn',       label: 'effects.autumn' },
+      { id: 'spring',       label: 'effects.spring' },
+      { id: 'dusk',         label: 'effects.dusk' },
       { id: 'cool',         label: 'effects.cool' },
       { id: 'arctic',       label: 'effects.arctic' },
       { id: 'moonlight',    label: 'effects.moonlight' },
+      { id: 'fog',          label: 'effects.fog' },
+      { id: 'dream',        label: 'effects.dream' },
+      { id: 'orton',        label: 'effects.orton' },
       { id: 'cyanotype',    label: 'effects.cyanotype' },
       { id: 'tealorange',   label: 'effects.tealorange' },
       { id: 'crossprocess', label: 'effects.crossprocess' },
       { id: 'neon',         label: 'effects.neon' },
+      { id: 'chrome',       label: 'effects.chrome' },
+      { id: 'hdr',          label: 'effects.hdr' },
+      { id: 'infrared',     label: 'effects.infrared' },
+      { id: 'nightvision',  label: 'effects.nightvision' },
+      { id: 'tungsten',     label: 'effects.tungsten' },
+      { id: 'fluorescent',  label: 'effects.fluorescent' },
+      { id: 'retro70',      label: 'effects.retro70' },
+      { id: 'retro80',      label: 'effects.retro80' },
       { id: 'soft',         label: 'effects.soft' },
       { id: 'haze',         label: 'effects.haze' },
       { id: 'crisp',        label: 'effects.crisp' },
@@ -1232,6 +1660,10 @@
       { id: 'highkey',      label: 'effects.highkey' },
       { id: 'lowkey',       label: 'effects.lowkey' },
       { id: 'documentary',  label: 'effects.documentary' },
+      { id: 'newspaper',    label: 'effects.newspaper' },
+      { id: 'sketch',       label: 'effects.sketch' },
+      { id: 'comic',        label: 'effects.comic' },
+      { id: 'xray',         label: 'effects.xray' },
       { id: 'emboss',       label: 'effects.emboss' },
       { id: 'edge',         label: 'effects.edge' },
     ];
@@ -1246,7 +1678,7 @@
       btn.dataset.preset = p.id;
       if (activePreset === p.id) btn.classList.add('active');
       btn.addEventListener('click', () => {
-        presetWrap.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+        _clearPresetActive(idPrefix);
         btn.classList.add('active');
         Editor.applyPreset(p.id);
         _syncSlidersFromEffects(idPrefix);
@@ -1255,10 +1687,16 @@
     });
     content.appendChild(presetWrap);
 
+    if (mode === 'presets') return;
+
     const divEl = document.createElement('hr');
     divEl.style.cssText = 'border:none;border-top:1px solid var(--border);margin:8px 0';
     content.appendChild(divEl);
 
+    _appendAdjustControls(content, idPrefix, sliders, prevValues);
+  }
+
+  function _appendAdjustControls(content, idPrefix, sliders, prevValues) {
     const efx = Editor.getEffects?.() || {};
     for (const s of sliders) {
       const group = document.createElement('div');
@@ -1297,13 +1735,322 @@
         const v = parseFloat(slider.value);
         valSpan.textContent = v;
         Editor.setEffect(s.key, v);
-        presetWrap.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+        _clearPresetActive(idPrefix);
       });
 
       group.appendChild(row);
       group.appendChild(slider);
       content.appendChild(group);
     }
+
+    _appendBorderControls(content, idPrefix, efx, prevValues);
+  }
+
+  function _captionGps(tags) {
+    const signedLat = _pickTag(tags, ['latitude', 'Latitude']);
+    const signedLon = _pickTag(tags, ['longitude', 'Longitude']);
+    const lat = signedLat != null
+      ? _toDecimalGps(signedLat)
+      : _toDecimalGps(_pickTag(tags, ['GPSLatitude']), _pickTag(tags, ['GPSLatitudeRef']));
+    const lon = signedLon != null
+      ? _toDecimalGps(signedLon)
+      : _toDecimalGps(_pickTag(tags, ['GPSLongitude']), _pickTag(tags, ['GPSLongitudeRef']));
+    return _fmtGps(lat, lon) || '';
+  }
+
+  function _borderCaptionValues() {
+    const filePath = state.currentFile;
+    const name = filePath ? filePath.split(/[/\\]/).pop() : '';
+    const dims = Editor.getPhotoDimensions ? Editor.getPhotoDimensions() : Editor.getDimensions();
+    const w = dims.w || 0;
+    const h = dims.h || 0;
+    const ext = filePath ? FormatSupport.getExtension(filePath).toUpperCase() : '';
+    const tags = (state.imageMeta && state.imageMeta.tags) || {};
+    const iso = _fmtIso(_pickTag(tags, ['PhotographicSensitivity', 'ISO', 'ISOSpeedRatings']));
+    const exposure = _fmtExposureTime(_pickTag(tags, ['ExposureTime', 'ShutterSpeedValue'])) || '';
+    const aperture = _fmtAperture(_pickTag(tags, ['FNumber', 'ApertureValue'])) || '';
+    const isoText = iso ? `ISO ${iso}` : '';
+    const shot = [exposure, aperture, isoText].filter(Boolean).join('  ');
+    const city = _fmtMetaScalar(_pickTag(tags, ['City', 'Location', 'SubLocation'])) || '';
+    const country = _fmtMetaScalar(_pickTag(tags, ['Country', 'CountryName', 'CountryCode'])) || '';
+    const place = [city, country].filter(Boolean).join(', ');
+    return {
+      file: name,
+      size: (w && h) ? `${w} × ${h}` : '',
+      format: ext,
+      date: _fmtMetaDate(_pickTag(tags, ['DateTimeOriginal', 'CreateDate', 'DateTime'])) || '',
+      camera: _fmtCamera(tags) || '',
+      lens: _fmtMetaScalar(_pickTag(tags, ['LensModel', 'LensMake', 'LensID', 'LensInfo'])) || '',
+      exposure,
+      aperture,
+      iso: isoText,
+      focal: _fmtFocalMm(_pickTag(tags, ['FocalLength'])) || '',
+      shot,
+      gps: _captionGps(tags),
+      altitude: _fmtAltitude(_pickTag(tags, ['GPSAltitude'])) || '',
+      city: place,
+      flash: _fmtMetaScalar(_pickTag(tags, ['Flash'])) || '',
+      artist: _fmtMetaScalar(_pickTag(tags, ['Artist', 'Creator', 'OwnerName'])) || '',
+      copyright: _fmtMetaScalar(_pickTag(tags, ['Copyright'])) || '',
+    };
+  }
+
+  function _defaultCaptionTemplate() {
+    return '{file}  ·  {size}  ·  {format}  ·  {date}  ·  {camera}  ·  {shot}  ·  {gps}';
+  }
+
+  function _refreshBorderCaption() {
+    const values = _borderCaptionValues();
+    if (Editor.setCaptionValues) Editor.setCaptionValues(values);
+    if (Editor.setCaptionLines) {
+      Editor.setCaptionLines([values.file, values.size, values.format, values.date].filter(Boolean));
+    }
+    document.querySelectorAll('.effect-token[data-token]').forEach((btn) => {
+      btn.disabled = !values[btn.dataset.token];
+    });
+  }
+
+  function _appendBorderControls(content, idPrefix, efx, prevValues) {
+    const hr = document.createElement('hr');
+    hr.style.cssText = 'border:none;border-top:1px solid var(--border);margin:10px 0 8px';
+    content.appendChild(hr);
+
+    const heading = document.createElement('div');
+    heading.className = 'effect-section-title';
+    heading.setAttribute('data-i18n', 'effects.border');
+    heading.textContent = I18n.t('effects.border');
+    content.appendChild(heading);
+
+    const widthDef = prevValues.borderWidth != null ? prevValues.borderWidth : (efx.borderWidth ?? 0);
+    const shadowDef = prevValues.borderShadow != null ? prevValues.borderShadow : (efx.borderShadow ?? 0);
+    const styleDef = prevValues.borderShadowStyle || efx.borderShadowStyle || 'soft';
+    const dirDef = prevValues.borderShadowDir || efx.borderShadowDir || 'br';
+    const colorDef = efx.borderColor || '#ffffff';
+    const capDef = !!efx.borderCaption;
+    const posDef = efx.borderCaptionPos || 'bl';
+    const textDef = prevValues.borderCaptionText != null
+      ? prevValues.borderCaptionText
+      : (efx.borderCaptionText || _defaultCaptionTemplate());
+
+    const addSlider = (key, labelKey, min, max, step, initial) => {
+      const group = document.createElement('div');
+      group.className = 'effect-group';
+      const row = document.createElement('div');
+      row.className = 'effect-label-row';
+      const lbl = document.createElement('span');
+      lbl.className = 'effect-label';
+      lbl.setAttribute('data-i18n', labelKey);
+      lbl.textContent = I18n.t(labelKey);
+      const valSpan = document.createElement('span');
+      valSpan.className = 'effect-value';
+      valSpan.id = `${idPrefix}-val-${key}`;
+      valSpan.textContent = initial;
+      row.appendChild(lbl);
+      row.appendChild(valSpan);
+      const slider = document.createElement('input');
+      slider.type = 'range';
+      slider.className = 'effect-slider';
+      slider.id = `${idPrefix}-${key}`;
+      slider.min = min; slider.max = max; slider.step = step;
+      slider.value = initial;
+      slider.addEventListener('input', () => { valSpan.textContent = parseFloat(slider.value); });
+      slider.addEventListener('change', () => {
+        const v = parseFloat(slider.value);
+        valSpan.textContent = v;
+        Editor.setEffect(key, v);
+        _refreshBorderCaption();
+        if (state.editMode) requestAnimationFrame(() => _ewFit());
+      });
+      group.appendChild(row);
+      group.appendChild(slider);
+      content.appendChild(group);
+    };
+
+    const addSelect = (key, labelKey, options, initial, onChange) => {
+      const row = document.createElement('div');
+      row.className = 'effect-label-row effect-extra-row';
+      const lbl = document.createElement('span');
+      lbl.className = 'effect-label';
+      lbl.setAttribute('data-i18n', labelKey);
+      lbl.textContent = I18n.t(labelKey);
+      const sel = document.createElement('select');
+      sel.className = 'effect-select';
+      sel.id = `${idPrefix}-${key}`;
+      options.forEach(([val, i18nKey]) => {
+        const opt = document.createElement('option');
+        opt.value = val;
+        opt.setAttribute('data-i18n', i18nKey);
+        opt.textContent = I18n.t(i18nKey);
+        if (val === initial) opt.selected = true;
+        sel.appendChild(opt);
+      });
+      sel.addEventListener('change', () => onChange(sel));
+      row.appendChild(lbl);
+      row.appendChild(sel);
+      content.appendChild(row);
+      return sel;
+    };
+
+    addSlider('borderWidth', 'effects.borderWidth', 0, 160, 1, widthDef);
+
+    const colorRow = document.createElement('div');
+    colorRow.className = 'effect-label-row effect-extra-row';
+    const colorLbl = document.createElement('span');
+    colorLbl.className = 'effect-label';
+    colorLbl.setAttribute('data-i18n', 'effects.borderColor');
+    colorLbl.textContent = I18n.t('effects.borderColor');
+    const colorInp = document.createElement('input');
+    colorInp.type = 'color';
+    colorInp.className = 'effect-color';
+    colorInp.id = `${idPrefix}-borderColor`;
+    colorInp.value = /^#[0-9a-f]{6}$/i.test(colorDef) ? colorDef : '#ffffff';
+    colorInp.addEventListener('input', () => {
+      Editor.setEffect('borderColor', colorInp.value);
+    });
+    colorRow.appendChild(colorLbl);
+    colorRow.appendChild(colorInp);
+    content.appendChild(colorRow);
+
+    addSelect('borderShadowStyle', 'effects.borderShadowStyle', [
+      ['soft', 'effects.shadow.soft'],
+      ['inset', 'effects.shadow.inset'],
+      ['raised', 'effects.shadow.raised'],
+      ['bevel', 'effects.shadow.bevel'],
+      ['groove', 'effects.shadow.groove'],
+      ['line', 'effects.shadow.line'],
+      ['glow', 'effects.shadow.glow'],
+      ['double', 'effects.shadow.double'],
+    ], styleDef, (sel) => {
+      Editor.setEffect('borderShadowStyle', sel.value);
+    });
+    addSelect('borderShadowDir', 'effects.borderShadowDir', [
+      ['br', 'effects.shadowDir.br'],
+      ['b', 'effects.shadowDir.b'],
+      ['bl', 'effects.shadowDir.bl'],
+      ['r', 'effects.shadowDir.r'],
+      ['l', 'effects.shadowDir.l'],
+      ['tr', 'effects.shadowDir.tr'],
+      ['t', 'effects.shadowDir.t'],
+      ['tl', 'effects.shadowDir.tl'],
+      ['c', 'effects.shadowDir.c'],
+    ], dirDef, (sel) => {
+      Editor.setEffect('borderShadowDir', sel.value);
+    });
+    addSlider('borderShadow', 'effects.borderShadow', 0, 48, 1, shadowDef);
+
+    const capRow = document.createElement('label');
+    capRow.className = 'effect-check-row';
+    const capInp = document.createElement('input');
+    capInp.type = 'checkbox';
+    capInp.id = `${idPrefix}-borderCaption`;
+    capInp.checked = capDef;
+    capInp.addEventListener('change', () => {
+      _refreshBorderCaption();
+      if (capInp.checked && !String(Editor.getEffects().borderCaptionText || '').trim()) {
+        Editor.setEffect('borderCaptionText', _defaultCaptionTemplate(), false);
+        const ta = document.getElementById(`${idPrefix}-borderCaptionText`);
+        if (ta) ta.value = _defaultCaptionTemplate();
+      }
+      Editor.setEffect('borderCaption', capInp.checked);
+      if (state.editMode) requestAnimationFrame(() => _ewFit());
+    });
+    const capLbl = document.createElement('span');
+    capLbl.setAttribute('data-i18n', 'effects.borderCaption');
+    capLbl.textContent = I18n.t('effects.borderCaption');
+    capRow.appendChild(capInp);
+    capRow.appendChild(capLbl);
+    content.appendChild(capRow);
+
+    addSelect('borderCaptionPos', 'effects.borderCaptionPos', [
+      ['tl', 'effects.pos.tl'], ['tc', 'effects.pos.tc'], ['tr', 'effects.pos.tr'],
+      ['l', 'effects.pos.l'], ['r', 'effects.pos.r'],
+      ['bl', 'effects.pos.bl'], ['bc', 'effects.pos.bc'], ['br', 'effects.pos.br'],
+    ], posDef, (sel) => {
+      Editor.setEffect('borderCaptionPos', sel.value);
+    });
+
+    const fieldsLbl = document.createElement('div');
+    fieldsLbl.className = 'effect-caption-hint';
+    fieldsLbl.setAttribute('data-i18n', 'effects.borderCaptionFields');
+    fieldsLbl.textContent = I18n.t('effects.borderCaptionFields');
+    content.appendChild(fieldsLbl);
+
+    const tokens = document.createElement('div');
+    tokens.className = 'effect-token-row';
+    const values = _borderCaptionValues();
+    [
+      ['file', 'effects.token.file'],
+      ['size', 'effects.token.size'],
+      ['format', 'effects.token.format'],
+      ['date', 'effects.token.date'],
+      ['camera', 'effects.token.camera'],
+      ['lens', 'effects.token.lens'],
+      ['shot', 'effects.token.shot'],
+      ['exposure', 'effects.token.exposure'],
+      ['aperture', 'effects.token.aperture'],
+      ['iso', 'effects.token.iso'],
+      ['focal', 'effects.token.focal'],
+      ['gps', 'effects.token.gps'],
+      ['altitude', 'effects.token.altitude'],
+      ['city', 'effects.token.city'],
+      ['flash', 'effects.token.flash'],
+      ['artist', 'effects.token.artist'],
+      ['copyright', 'effects.token.copyright'],
+    ].forEach(([key, i18nKey]) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'effect-token';
+      btn.setAttribute('data-i18n', i18nKey);
+      btn.dataset.token = key;
+      btn.textContent = I18n.t(i18nKey);
+      btn.disabled = !values[key];
+      btn.addEventListener('click', () => {
+        const ta = document.getElementById(`${idPrefix}-borderCaptionText`);
+        if (!ta) return;
+        const insert = `{${key}}`;
+        const start = ta.selectionStart ?? ta.value.length;
+        const end = ta.selectionEnd ?? start;
+        const before = ta.value.slice(0, start);
+        const after = ta.value.slice(end);
+        const needSep = before && !/\s$/.test(before) && !/·\s*$/.test(before);
+        const chunk = `${needSep ? '  ·  ' : ''}${insert}`;
+        ta.value = `${before}${chunk}${after}`;
+        const caret = before.length + chunk.length;
+        ta.focus();
+        ta.setSelectionRange(caret, caret);
+        Editor.setEffect('borderCaptionText', ta.value, false);
+        Editor.setEffect('borderCaption', true, false);
+        capInp.checked = true;
+        _refreshBorderCaption();
+      });
+      tokens.appendChild(btn);
+    });
+    content.appendChild(tokens);
+
+    const textLbl = document.createElement('div');
+    textLbl.className = 'effect-caption-hint';
+    textLbl.setAttribute('data-i18n', 'effects.borderCaptionText');
+    textLbl.textContent = I18n.t('effects.borderCaptionText');
+    content.appendChild(textLbl);
+
+    const ta = document.createElement('textarea');
+    ta.className = 'effect-caption-text';
+    ta.id = `${idPrefix}-borderCaptionText`;
+    ta.rows = 3;
+    ta.value = textDef;
+    ta.addEventListener('input', () => {
+      Editor.setEffect('borderCaptionText', ta.value, false);
+      if (ta.value.trim() && !capInp.checked) {
+        capInp.checked = true;
+        Editor.setEffect('borderCaption', true, false);
+        if (state.editMode) requestAnimationFrame(() => _ewFit());
+      }
+      _refreshBorderCaption();
+    });
+    ta.addEventListener('change', () => {
+      Editor.setEffect('borderCaptionText', ta.value);
+    });
+    content.appendChild(ta);
   }
 
   function _syncSlidersFromEffects(idPrefix = 'eff') {
@@ -1311,8 +2058,22 @@
     for (const key in efx) {
       const slider = document.getElementById(`${idPrefix}-${key}`);
       const valEl  = document.getElementById(`${idPrefix}-val-${key}`);
-      if (slider) slider.value = efx[key];
+      if (slider && slider.type === 'range') slider.value = efx[key];
       if (valEl)  valEl.textContent = efx[key];
+    }
+    const color = document.getElementById(`${idPrefix}-borderColor`);
+    if (color && efx.borderColor) color.value = efx.borderColor;
+    const style = document.getElementById(`${idPrefix}-borderShadowStyle`);
+    if (style && efx.borderShadowStyle) style.value = efx.borderShadowStyle;
+    const dir = document.getElementById(`${idPrefix}-borderShadowDir`);
+    if (dir && efx.borderShadowDir) dir.value = efx.borderShadowDir;
+    const cap = document.getElementById(`${idPrefix}-borderCaption`);
+    if (cap) cap.checked = !!efx.borderCaption;
+    const pos = document.getElementById(`${idPrefix}-borderCaptionPos`);
+    if (pos && efx.borderCaptionPos) pos.value = efx.borderCaptionPos;
+    const text = document.getElementById(`${idPrefix}-borderCaptionText`);
+    if (text && efx.borderCaptionText != null && document.activeElement !== text) {
+      text.value = efx.borderCaptionText;
     }
   }
 
@@ -1343,9 +2104,14 @@
   const editWindow     = document.getElementById('edit-window');
   const editCanvasArea = document.getElementById('edit-canvas-area');
 
-  function _openEditWindow() {
+  async function _openEditWindow() {
     if (!_isEditableImage()) return;
     if (state.editMode) return;
+
+    if (window.electronAPI.windowGetBounds) {
+      try { _savedMainBounds = await window.electronAPI.windowGetBounds(); }
+      catch { _savedMainBounds = null; }
+    }
 
     // Build the effects panel inside the edit window (first time)
     _buildEditEffectsPanel();
@@ -1365,17 +2131,77 @@
     _ewSetTool('pointer');
     _ewUpdateSelBtns();
     _updateUndoRedoBtns();
+    _refreshBorderCaption();
     state._editDirtyAtOpen = state.isDirty;
     Editor.beginEditSession();
 
     // Wire icons on first open
     _initEditWindowOnce();
 
-    // Fit image after layout is ready
     requestAnimationFrame(() => {
-      _syncWindowMinSize();
-      _ewFit();
+      requestAnimationFrame(async () => {
+        const minW = _editMinWidth();
+        _appliedMinWidth = minW;
+        try {
+          const height = Math.max(600, _savedMainBounds?.height || 600);
+          if (window.electronAPI.windowApplySize) {
+            await window.electronAPI.windowApplySize({
+              width: minW,
+              height,
+              minWidth: minW,
+              minHeight: 600,
+            });
+          } else {
+            window.electronAPI.windowSetMinSize?.(minW, 600);
+          }
+        } catch (e) {
+          console.warn('edit window size:', e);
+        }
+        _ewFit();
+      });
     });
+  }
+
+  let _editClosePrompting = false;
+
+  async function _requestCloseEditWindow(apply) {
+    if (!state.editMode && !editWindow.classList.contains('visible')) {
+      _closeEditWindow(apply);
+      return true;
+    }
+    const changed = !!(state.isDirty && Editor.hasEditSessionChanges && Editor.hasEditSessionChanges());
+    if (!changed) {
+      _closeEditWindow(apply);
+      return true;
+    }
+    if (_editClosePrompting) return false;
+    _editClosePrompting = true;
+    try {
+      const t = I18n.t.bind(I18n);
+      const result = await window.electronAPI.showMessageBox({
+        type: 'question',
+        title: t('dialog.unsaved.title') || 'Unsaved Changes',
+        message: t('dialog.unsaved.message') || 'You have unsaved changes.\nDo you want to save before closing?',
+        buttons: [
+          t('dialog.unsaved.save') || 'Save',
+          t('dialog.unsaved.dontSave') || "Don't Save",
+          t('dialog.unsaved.cancel') || 'Cancel',
+        ],
+        defaultId: 0,
+        cancelId: 2,
+      });
+      if (result.response === 2 || result.canceled) return false;
+      if (result.response === 0) {
+        const saved = await _saveAs(false, { useChangedName: true });
+        if (!saved) return false;
+        _closeEditWindow(true);
+        return true;
+      }
+      _closeEditWindow(apply);
+      return true;
+    } finally {
+      _editClosePrompting = false;
+    }
   }
 
   function _closeEditWindow(apply) {
@@ -1412,7 +2238,27 @@
 
     // Fit image in main viewer
     if (_isEditableImage()) _fitToWindow();
+    _updateToolbarForMedia();
+    _updateNavButtons();
     _updateUndoRedoBtns();
+
+    const saved = _savedMainBounds;
+    _savedMainBounds = null;
+    requestAnimationFrame(() => {
+      const minW = _mainMinWidth();
+      _appliedMinWidth = minW;
+      if (saved && !saved.maximized && window.electronAPI.windowApplySize) {
+        window.electronAPI.windowApplySize({
+          width: saved.width,
+          height: saved.height,
+          minWidth: minW,
+          minHeight: 600,
+        });
+      } else {
+        window.electronAPI.windowSetMinSize?.(minW, 600);
+      }
+      if (_isEditableImage()) _fitToWindow();
+    });
   }
 
   let _ewInitDone = false;
@@ -1432,6 +2278,7 @@
     ['ew-bg-remove', 'bgRemove',    'toolbar.bgRemove',     () => { _removeBackground(); }],
     ['ew-crop-sel',  'fitWindow',   'editWindow.cropSel',   () => { Editor.cropToSelection(); _ewUpdateSelBtns(); _updateUndoRedoBtns(); _ewFit(); }],
     ['ew-clear-sel', 'close',       'editWindow.clearSel',  () => { Editor.clearSelection(); _ewUpdateSelBtns(); }],
+    ['ew-save-new',  'saveAs',      'editWindow.saveNew',   () => { _saveAsNewFile(); }],
     ['ew-rotate-l',  'rotateLeft',  'toolbar.rotateLeft',   () => { Editor.rotate(-90); _ewFit(); _updateUndoRedoBtns(); }],
     ['ew-rotate-r',  'rotateRight', 'toolbar.rotateRight',  () => { Editor.rotate(90);  _ewFit(); _updateUndoRedoBtns(); }],
     ['ew-flip-h',    'flipH',       'toolbar.flipH',        () => { Editor.flip('h'); _updateUndoRedoBtns(); }],
@@ -1470,7 +2317,13 @@
     _ewActionIconMap.forEach(([id, , tip, action]) => {
       const btn = document.getElementById(id);
       if (!btn) return;
-      btn.addEventListener('click', action);
+      btn.addEventListener('click', (e) => {
+        if (btn.classList.contains('is-disabled') || btn.getAttribute('aria-disabled') === 'true') {
+          e.preventDefault();
+          return;
+        }
+        action();
+      });
       Tooltip.attach(btn, () => I18n.t(tip));
     });
 
@@ -1486,10 +2339,10 @@
     });
 
     // Apply / Cancel
-    document.getElementById('ew-save')?.addEventListener('click', () => { _saveEditedAs(); });
-    Tooltip.attach(document.getElementById('ew-save'), () => I18n.t('context.saveEdited'));
-    document.getElementById('ew-apply')?.addEventListener('click', () => _closeEditWindow(true));
-    document.getElementById('ew-cancel')?.addEventListener('click', () => _closeEditWindow(false));
+    document.getElementById('ew-save')?.addEventListener('click', () => { _saveAsNewFile(); });
+    Tooltip.attach(document.getElementById('ew-save'), () => I18n.t('editWindow.saveNew'));
+    document.getElementById('ew-apply')?.addEventListener('click', () => _requestCloseEditWindow(true));
+    document.getElementById('ew-cancel')?.addEventListener('click', () => _requestCloseEditWindow(false));
 
     // Magic wand tolerance
     const tolInput = document.getElementById('ew-tolerance');
@@ -1562,35 +2415,54 @@
   function _ewUpdateSelBtns() {
     const hasSel = Editor.hasSelection();
     ['ew-cut','ew-copy','ew-crop-sel','ew-clear-sel'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.disabled = !hasSel;
+      _setChromeBtn(document.getElementById(id), hasSel);
     });
   }
 
   function _ewFit() {
     const { w, h } = Editor.getDimensions();
-    const cw = editCanvasArea.clientWidth  - 20;
-    const ch = editCanvasArea.clientHeight - 20;
-    _ewZoom = Math.min(cw / w, ch / h, 1);
+    if (!w || !h) return;
+    _wantFit = true;
+    _ewZoom = _fitZoomFor(editCanvasArea, w, h);
+    state.zoom = _ewZoom;
     _ewPanX = 0; _ewPanY = 0;
+    _ewFitW = w; _ewFitH = h;
     _ewApplyTransform();
+    _updateZoomDisplay();
+    _updateStatus({ zoom: true });
   }
 
   function _ewZoomBy(factor) {
+    _wantFit = false;
     _ewZoom = Math.min(Math.max(_ewZoom * factor, 0.02), 32);
     _ewApplyTransform();
   }
 
   function _ewApplyTransform() {
-    const { w, h } = Editor.getDimensions();
+    const dims = Editor.getDimensions();
+    const { w, h } = dims;
     const cw = editCanvasArea.clientWidth, ch = editCanvasArea.clientHeight;
     const scaledW = w * _ewZoom, scaledH = h * _ewZoom;
     if (scaledW <= cw) _ewPanX = 0;
     else { const m=(scaledW-cw)/2; _ewPanX=Math.max(-m,Math.min(m,_ewPanX)); }
     if (scaledH <= ch) _ewPanY = 0;
     else { const m=(scaledH-ch)/2; _ewPanY=Math.max(-m,Math.min(m,_ewPanY)); }
-    imageWrapper.style.transform =
-      `translate(calc(-50% + ${_ewPanX}px), calc(-50% + ${_ewPanY}px)) scale(${_ewZoom})`;
+    _placeImageWrapper(editCanvasArea, _ewPanX, _ewPanY, _ewZoom, dims);
+  }
+
+  if (typeof ResizeObserver !== 'undefined') {
+    const _viewRo = new ResizeObserver(() => {
+      if (_wantFit) {
+        if (state.editMode) _ewFit();
+        else _fitToWindow();
+      } else if (state.editMode) {
+        _ewApplyTransform();
+      } else {
+        _applyTransform();
+      }
+    });
+    if (viewerContainer) _viewRo.observe(viewerContainer);
+    if (editCanvasArea) _viewRo.observe(editCanvasArea);
   }
 
   async function _ewCut() {
@@ -1621,7 +2493,7 @@
     const hasSel = Editor.hasSelection();
     const t = I18n.t.bind(I18n);
     ContextMenu.show(x, y, [
-      { icon: Icons.save,     label: t('context.saveEdited'), action: () => { _saveEditedAs(); } },
+      { icon: Icons.saveAs || Icons.save, label: t('editWindow.saveNew'), action: () => { _saveAsNewFile(); } },
       { separator: true },
       { icon: Icons.cut,      label: t('context.cut'),      disabled: !hasSel, action: _ewCut },
       { icon: Icons.copy,     label: t('context.copy'),     disabled: !hasSel, action: _ewCopy },
@@ -1643,7 +2515,8 @@
   }
 
   function _buildEditEffectsPanel() {
-    _buildEffectsPanelIn('edit-effects-content', 'ew-eff');
+    _buildEffectsPanelIn('edit-effects-content', 'ew-eff', 'presets');
+    _buildEffectsPanelIn('edit-adjust-content', 'ew-eff', 'adjust');
     _ewEffectsBuilt = true;
   }
 
@@ -1687,6 +2560,17 @@
 
   async function _saveEditedAs(andClose = false) {
     return _saveAs(andClose, { useChangedName: true });
+  }
+
+  async function _saveAsNewFile() {
+    if (!_isEditableImage()) return false;
+    if (Editor.hasSelection && Editor.hasSelection()) {
+      Editor.cropToSelection();
+      _ewUpdateSelBtns();
+      _updateUndoRedoBtns();
+      if (state.editMode) _ewFit();
+    }
+    return _saveAs(false, { useChangedName: true });
   }
 
   /**
@@ -1735,9 +2619,8 @@
       defaultPath = isHeicSrc ? `${stem}.jpg` : `${stem}.png`;
     }
 
-    // Native save dialog — suggested name is editable by the user
-    const dlgResult = await window.electronAPI.showSaveDialog({ defaultPath });
-    if (!dlgResult || dlgResult.canceled) return false;
+    const dlgResult = await window.FileDialog.save({ defaultPath });
+    if (!dlgResult || dlgResult.canceled || !dlgResult.filePath) return false;
 
     const savePath = dlgResult.filePath;
     const ext = savePath.split('.').pop().toLowerCase();
@@ -1756,6 +2639,7 @@
       _clearDirty();
       const msg = I18n.t('status.saved') || `Saved: ${savePath.split(/[/\\]/).pop()}`;
       _updateStatus({ msg });
+      try { await FileTree.refresh(); } catch (_) { /* ignore */ }
       await window.electronAPI.showMessageBox({
         type: 'info',
         title: I18n.t('dialog.save.title') || 'Saved',
@@ -2193,8 +3077,18 @@
   }
 
   function _showLoading(show) {
+    if (!loadingOverlay) return;
+    loadingOverlay.classList.toggle('is-on', !!show);
     loadingOverlay.style.display = show ? 'flex' : 'none';
-    loadingOverlay.textContent   = I18n.t('status.loading');
+    if (show) loadingOverlay.textContent = I18n.t('status.loading') || 'Loading...';
+  }
+
+  function _withTimeout(promise, ms, message) {
+    let timer;
+    const timeout = new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error(message || 'Timed out')), ms);
+    });
+    return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
   }
 
   /* ════════════════════════════════════════════
@@ -2289,6 +3183,7 @@
     let _percent = 0;
     let _creepTimer = null;
     let _creepCap = 90;
+    let _visible = false;
 
     function _els() {
       return {
@@ -2315,6 +3210,7 @@
       if (!e.overlay) return;
       stopCreep();
       _percent = 0;
+      _visible = true;
       if (e.title) e.title.textContent = title || I18n.t('progress.title') || 'Progress';
       if (e.message) e.message.textContent = message || '';
       set(percent != null ? percent : 0, message, true);
@@ -2331,6 +3227,7 @@
 
     function hide() {
       stopCreep();
+      _visible = false;
       const e = _els();
       if (!e.overlay) return;
       e.overlay.classList.remove('visible');
@@ -2368,8 +3265,9 @@
       });
     }
 
-    return { show, set, hide, startCreep, stopCreep, yieldFrame };
+    return { show, set, hide, startCreep, stopCreep, yieldFrame, isVisible: () => _visible };
   })();
+  window._ProgressDialog = ProgressDialog;
 
   // Expose globally so formatSupport.js and other modules can use it
   window._showAppError = _showError;
@@ -2380,14 +3278,15 @@
   async function _exportSelectionToFolder(paths, mode) {
     const t = I18n.t.bind(I18n);
     if (!paths?.length) return;
-    const picked = await window.electronAPI.pickDirectory({
+    const picked = await window.FileDialog.openFolder({
       title: mode === 'move' ? t('dialog.moveToFolder') : t('dialog.copyToFolder'),
     });
-    if (picked.canceled || !picked.path) return;
+    if (!picked || picked.canceled || !picked.filePath) return;
+    const destDir = picked.filePath;
 
     const result = await window.electronAPI.transferIntoDir({
       sources: paths,
-      destDir: picked.path,
+      destDir,
       mode: mode === 'move' ? 'move' : 'copy',
     });
 
@@ -2577,8 +3476,8 @@
     const isAv = state.isVideo || state.isAudio;
 
     ContextMenu.show(x, y, [
-      { icon: Icons.openFile,   label: t('context.openFile'),   action: () => window.electronAPI.openFileDialog() },
-      { icon: Icons.openFolder, label: t('context.openFolder'), action: () => window.electronAPI.openFolderDialog() },
+      { icon: Icons.openFile,   label: t('context.openFile'),   action: () => _pickOpenFile() },
+      { icon: Icons.openFolder, label: t('context.openFolder'), action: () => _pickOpenFolder() },
       { separator: true },
       hasImg && { icon: Icons.edit, label: t('toolbar.edit'), shortcut: 'Ctrl+E', action: _openEditWindow },
       hasImg && { icon: Icons.save,   label: t('context.saveAs'), action: _saveAs },
@@ -2707,10 +3606,11 @@
   ════════════════════════════════════════════ */
   function _initKeyboard() {
     document.addEventListener('keydown', (e) => {
+      if (_isFileDialogOpen()) return;
       const ctrl = e.ctrlKey || e.metaKey;
 
-      if (ctrl && e.key === 'o') { e.preventDefault(); window.electronAPI.openFileDialog(); return; }
-      if (ctrl && e.shiftKey && e.key === 'O') { e.preventDefault(); window.electronAPI.openFolderDialog(); return; }
+      if (ctrl && e.shiftKey && (e.key === 'o' || e.key === 'O')) { e.preventDefault(); _pickOpenFolder(); return; }
+      if (ctrl && (e.key === 'o' || e.key === 'O')) { e.preventDefault(); _pickOpenFile(); return; }
       if (ctrl && (e.key === '=' || e.key === '+')) { e.preventDefault(); _zoom(1.25); return; }
       if (ctrl && e.key === '-') { e.preventDefault(); _zoom(0.8); return; }
       if (ctrl && e.key === '0') { e.preventDefault(); _fitToWindow(); return; }
@@ -2720,7 +3620,7 @@
       if (ctrl && e.key === 'e') { e.preventDefault(); _openEditWindow(); return; }
       if (ctrl && e.key === 's') {
         e.preventDefault();
-        if (state.editMode) _saveEditedAs();
+        if (state.editMode) _saveAsNewFile();
         return;
       }
       if (ctrl && e.shiftKey && e.key === 'S') { e.preventDefault(); _saveAs(); return; }
@@ -2745,9 +3645,18 @@
       if (e.key === 'ArrowLeft')  { e.preventDefault(); _prevImage(); return; }
       if (e.key === 'ArrowRight') { e.preventDefault(); _nextImage(); return; }
       if (e.key === 'Escape') {
+        const openDlg = [...document.querySelectorAll('.dialog-overlay')].find((el) => {
+          if (el.id === 'progress-overlay' || el.id === 'file-dialog-overlay') return false;
+          return el.classList.contains('visible') || el.style.display === 'flex';
+        });
+        if (openDlg) {
+          e.preventDefault();
+          _hideDialogEl(openDlg);
+          return;
+        }
         if (state.editMode) {
           e.preventDefault();
-          _closeEditWindow(false);
+          _requestCloseEditWindow(false);
           return;
         }
         Editor.clearSelection();
@@ -2775,6 +3684,8 @@
     if (imageOnly.has(action) && !_isEditableImage()) return;
 
     const map = {
+      'open-file':     _pickOpenFile,
+      'open-folder':   _pickOpenFolder,
       'zoom-in':       () => _zoom(1.25),
       'zoom-out':      () => _zoom(0.8),
       'fit-window':    _fitToWindow,
@@ -2829,24 +3740,41 @@
   ════════════════════════════════════════════ */
   function _showDialog(id) {
     const el = document.getElementById(id);
-    if (el) { el.style.display = 'flex'; el.classList.add('visible'); }
+    if (!el) return;
+    el.style.display = 'flex';
+    el.classList.add('visible');
   }
 
   function _hideDialog(id) {
-    const el = document.getElementById(id);
-    if (el) { el.style.display = 'none'; el.classList.remove('visible'); }
+    const el = typeof id === 'string' ? document.getElementById(id) : id;
+    if (!el) return;
+    el.style.display = 'none';
+    el.classList.remove('visible');
+  }
+
+  function _hideDialogEl(overlay) {
+    if (!overlay) return;
+    overlay.style.display = 'none';
+    overlay.classList.remove('visible');
   }
 
   document.querySelectorAll('[data-close-dialog]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const target = btn.closest('.dialog-overlay');
-      if (target) { target.style.display = 'none'; target.classList.remove('visible'); }
-    });
+    const close = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      _hideDialogEl(btn.closest('.dialog-overlay'));
+    };
+    btn.addEventListener('click', close);
+    btn.addEventListener('pointerup', close);
   });
 
   document.querySelectorAll('.dialog-overlay').forEach(overlay => {
+    if (overlay.id === 'progress-overlay' || overlay.id === 'file-dialog-overlay') return;
     overlay.addEventListener('click', (e) => {
-      if (e.target === overlay) { overlay.style.display = 'none'; overlay.classList.remove('visible'); }
+      if (e.target === overlay) _hideDialogEl(overlay);
+    });
+    overlay.addEventListener('pointerup', (e) => {
+      if (e.target === overlay) _hideDialogEl(overlay);
     });
   });
 
@@ -2947,6 +3875,88 @@
       if (tree.style.flex === 'none' && tree.style.height) {
         _applySplit(parseInt(tree.style.height, 10) || tree.getBoundingClientRect().height);
       }
+    });
+  }
+
+  function _initEditEffectsResize() {
+    const panel = document.getElementById('edit-effects-panel');
+    const handle = document.getElementById('edit-effects-resize');
+    if (!panel || !handle) return;
+
+    const MIN_W = 200;
+    const MAX_W = 480;
+
+    const saved = parseInt(localStorage.getItem('editEffectsPanelWidth') || '', 10);
+    if (saved >= MIN_W && saved <= MAX_W) {
+      panel.style.width = `${saved}px`;
+    }
+
+    handle.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const startX = e.clientX;
+      const startW = panel.getBoundingClientRect().width;
+      handle.classList.add('resizing');
+      document.body.classList.add('resizing-col');
+
+      const onMove = (ev) => {
+        const w = Math.min(Math.max(startW + (ev.clientX - startX), MIN_W), MAX_W);
+        panel.style.width = `${Math.round(w)}px`;
+      };
+      const onUp = () => {
+        handle.classList.remove('resizing');
+        document.body.classList.remove('resizing-col');
+        window.removeEventListener('mousemove', onMove);
+        window.removeEventListener('mouseup', onUp);
+        localStorage.setItem(
+          'editEffectsPanelWidth',
+          String(Math.round(panel.getBoundingClientRect().width))
+        );
+        if (state.editMode) _ewFit();
+      };
+      window.addEventListener('mousemove', onMove);
+      window.addEventListener('mouseup', onUp);
+    });
+  }
+
+  function _initEditAdjustResize() {
+    const panel = document.getElementById('edit-adjust-panel');
+    const handle = document.getElementById('edit-adjust-resize');
+    if (!panel || !handle) return;
+
+    const MIN_W = 200;
+    const MAX_W = 480;
+
+    const saved = parseInt(localStorage.getItem('editAdjustPanelWidth') || '', 10);
+    if (saved >= MIN_W && saved <= MAX_W) {
+      panel.style.width = `${saved}px`;
+    }
+
+    handle.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const startX = e.clientX;
+      const startW = panel.getBoundingClientRect().width;
+      handle.classList.add('resizing');
+      document.body.classList.add('resizing-col');
+
+      const onMove = (ev) => {
+        const w = Math.min(Math.max(startW + (startX - ev.clientX), MIN_W), MAX_W);
+        panel.style.width = `${Math.round(w)}px`;
+      };
+      const onUp = () => {
+        handle.classList.remove('resizing');
+        document.body.classList.remove('resizing-col');
+        window.removeEventListener('mousemove', onMove);
+        window.removeEventListener('mouseup', onUp);
+        localStorage.setItem(
+          'editAdjustPanelWidth',
+          String(Math.round(panel.getBoundingClientRect().width))
+        );
+        if (state.editMode) _ewFit();
+      };
+      window.addEventListener('mousemove', onMove);
+      window.addEventListener('mouseup', onUp);
     });
   }
 

@@ -126,8 +126,15 @@ function _loadUiConfig() {
 }
 
 function _saveLastOpenDir(dir) {
-  if (!dir) return;
   try {
+    if (!dir) {
+      lastOpenDir = null;
+      let cfg = {};
+      try { cfg = JSON.parse(fs.readFileSync(_getUiConfigPath(), 'utf8')); } catch {}
+      delete cfg.lastOpenDir;
+      fs.writeFileSync(_getUiConfigPath(), JSON.stringify(cfg), 'utf8');
+      return;
+    }
     const resolved = fs.existsSync(dir) && fs.statSync(dir).isDirectory()
       ? dir
       : path.dirname(dir);
@@ -169,16 +176,36 @@ function _getAppIconPath() {
 }
 
 /**
+ * Copy the ICO to a unique temp path so Windows Shell does not keep showing
+ * a cached icon from the previous src/assets/icon.ico contents.
+ */
+function _shellIconPath() {
+  const ico = _resolveAsset('src', 'assets', 'icon.ico');
+  if (!fs.existsSync(ico)) return _getAppIconPath();
+  try {
+    const buf = fs.readFileSync(ico);
+    const hash = crypto.createHash('md5').update(buf).digest('hex').slice(0, 10);
+    const dest = path.join(os.tmpdir(), `imageviewer-icon-${hash}.ico`);
+    if (!fs.existsSync(dest) || fs.statSync(dest).size !== buf.length) {
+      fs.writeFileSync(dest, buf);
+    }
+    return dest;
+  } catch {
+    return ico;
+  }
+}
+
+/**
  * Path Windows Shell can load for the taskbar / Jump List.
  * Always prefer a real .ico on disk — more reliable than the .exe for setAppDetails.
  */
 function _getTaskbarIconPath() {
-  const ico = _resolveAsset('src', 'assets', 'icon.ico');
-  if (fs.existsSync(ico) && !ico.includes(`${path.sep}app.asar${path.sep}`)) {
-    return ico;
-  }
-  if (process.platform === 'win32' && app.isPackaged) {
-    return process.execPath;
+  if (process.platform === 'win32') {
+    const ico = _shellIconPath();
+    if (ico && fs.existsSync(ico) && !ico.includes(`${path.sep}app.asar${path.sep}`)) {
+      return ico;
+    }
+    if (app.isPackaged) return process.execPath;
   }
   return _getAppIconPath();
 }
@@ -210,11 +237,11 @@ function _loadAppIcon() {
 function createWindow() {
   const { iconPath, image: appIcon } = _loadAppIcon();
   const taskbarIconPath = _getTaskbarIconPath();
-  // Window chrome prefers a real .ico / PNG path (not the .exe)
+  // Window chrome prefers a unique .ico path so Windows does not reuse a cached icon
   const windowIconPath = (() => {
     if (process.platform === 'win32') {
-      const ico = _resolveAsset('src', 'assets', 'icon.ico');
-      if (fs.existsSync(ico)) return ico;
+      const ico = _shellIconPath();
+      if (ico && fs.existsSync(ico)) return ico;
     }
     return appIcon || iconPath;
   })();
@@ -355,12 +382,12 @@ function buildMenu(translations) {
         {
           label: t('menu.openFile'),
           accelerator: 'CmdOrCtrl+O',
-          click: () => handleOpenFile(),
+          click: () => mainWindow && mainWindow.webContents.send('menu-action', 'open-file'),
         },
         {
           label: t('menu.openFolder'),
           accelerator: 'CmdOrCtrl+Shift+O',
-          click: () => handleOpenFolder(),
+          click: () => mainWindow && mainWindow.webContents.send('menu-action', 'open-folder'),
         },
         { type: 'separator' },
         {
@@ -827,28 +854,31 @@ ipcMain.handle('read-image-meta', async (event, filePath) => {
   } catch {}
   try {
     const exifr = require('exifr');
-    const parsed = await exifr.parse(filePath, {
-      tiff: true,
-      xmp: true,
-      icc: true,
-      iptc: true,
-      jfif: true,
-      ihdr: true,
-      ifd0: true,
-      ifd1: false,
-      exif: true,
-      gps: true,
-      interop: true,
-      makerNote: false,
-      userComment: true,
-      multiSegment: true,
-      translateKeys: true,
-      translateValues: true,
-      reviveValues: true,
-      mergeOutput: false,
-      sanitize: false,
-      silentErrors: true,
-    });
+    const parsed = await Promise.race([
+      exifr.parse(filePath, {
+        tiff: true,
+        xmp: true,
+        icc: true,
+        iptc: true,
+        jfif: true,
+        ihdr: true,
+        ifd0: true,
+        ifd1: false,
+        exif: true,
+        gps: true,
+        interop: true,
+        makerNote: false,
+        userComment: true,
+        multiSegment: false,
+        translateKeys: true,
+        translateValues: true,
+        reviveValues: true,
+        mergeOutput: false,
+        sanitize: false,
+        silentErrors: true,
+      }),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('exif timeout')), 4000)),
+    ]);
     if (parsed && typeof parsed === 'object') {
       _flattenMeta(parsed, '', out.all);
       for (const [k, v] of Object.entries(out.all)) {
@@ -929,15 +959,28 @@ function _jpegDataUrl(buf) {
   return `data:image/jpeg;base64,${buf.toString('base64')}`;
 }
 
+function _sendOpenProgress(event, percent, message) {
+  try {
+    if (event?.sender && !event.sender.isDestroyed()) {
+      event.sender.send('open-progress', { percent, message: message || '' });
+    }
+  } catch (_) {}
+}
+
 /**
  * Decode HEIC/HEIF to a displayable JPEG (cached).
  * Prefer heic-convert (libheif-js) — prebuilt sharp on Windows often lacks HEVC.
  */
-async function _convertHeicToDataUrl(filePath) {
+async function _convertHeicToDataUrl(filePath, onProgress) {
+  const note = (p, m) => { try { onProgress?.(p, m); } catch {} };
+  note(8, 'reading');
   const stat = await fs.promises.stat(filePath);
   const key = _heicCacheKey(filePath, stat);
   const hit = _heicMemCache.get(key);
-  if (hit) return hit;
+  if (hit) {
+    note(92, 'displaying');
+    return hit;
+  }
 
   const pending = _heicInflight.get(key);
   if (pending) return pending;
@@ -950,21 +993,27 @@ async function _convertHeicToDataUrl(filePath) {
       if (cached && cached.length) {
         const cachedUrl = _jpegDataUrl(cached);
         _rememberHeic(key, cachedUrl);
+        note(90, 'displaying');
         return cachedUrl;
       }
     } catch { /* convert */ }
 
+    note(18, 'reading');
     const inputBuf = await fs.promises.readFile(filePath);
     const errors = [];
     let jpegBuf = null;
 
+    note(28, 'decoding');
     try {
       const heicConvert = require('heic-convert');
-      jpegBuf = Buffer.from(await heicConvert({
-        buffer: inputBuf,
-        format: 'JPEG',
-        quality: 0.88,
-      }));
+      jpegBuf = Buffer.from(await Promise.race([
+        heicConvert({
+          buffer: inputBuf,
+          format: 'JPEG',
+          quality: 0.88,
+        }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('HEIC convert timeout')), 18000)),
+      ]));
     } catch (e) {
       errors.push(`heic-convert: ${e.message}`);
     }
@@ -998,10 +1047,12 @@ async function _convertHeicToDataUrl(filePath) {
 
     if (!jpegBuf) throw new Error(errors.join(' | '));
 
+    note(78, 'caching');
     await fs.promises.writeFile(cacheFile, jpegBuf);
     _pruneHeicCache();
     const displayUrl = _jpegDataUrl(jpegBuf);
     _rememberHeic(key, displayUrl);
+    note(94, 'displaying');
     return displayUrl;
   })();
 
@@ -1014,17 +1065,21 @@ async function _convertHeicToDataUrl(filePath) {
 }
 
 ipcMain.handle('convert-to-png', async (event, filePath) => {
+  const note = (p, m) => _sendOpenProgress(event, p, m);
   const ext = path.extname(filePath).toLowerCase();
   try {
     if (ext === '.heic' || ext === '.heif' || ext === '.hif') {
-      return await _convertHeicToDataUrl(filePath);
+      return await _convertHeicToDataUrl(filePath, note);
     }
+    note(12, 'reading');
     const sharp = require('sharp');
+    note(40, 'converting');
     const buf = await sharp(filePath)
       .rotate()
       .toColorspace('srgb')
       .png()
       .toBuffer();
+    note(92, 'displaying');
     return `data:image/png;base64,${buf.toString('base64')}`;
   } catch (err) {
     return { error: err.message };
@@ -1131,8 +1186,11 @@ ipcMain.handle('rembg-remove', async (event, { dataUrl, model }) => {
 });
 
 ipcMain.handle('decode-dicom', async (event, filePath) => {
+  const note = (p, m) => _sendOpenProgress(event, p, m);
   try {
+    note(10, 'reading');
     const data = await fs.promises.readFile(filePath);
+    note(35, 'decoding');
     const decoded = DicomDecoder.decode(data);
     if (decoded.error) return { error: decoded.error };
 
@@ -1145,6 +1203,7 @@ ipcMain.handle('decode-dicom', async (event, filePath) => {
     };
 
     if (decoded.jpegBytes) {
+      note(92, 'displaying');
       return {
         dataUrl: `data:image/jpeg;base64,${Buffer.from(decoded.jpegBytes).toString('base64')}`,
         meta,
@@ -1155,10 +1214,12 @@ ipcMain.handle('decode-dicom', async (event, filePath) => {
       return { error: 'Could not render DICOM pixels' };
     }
 
+    note(70, 'converting');
     const sharp = require('sharp');
     const pngBuf = await sharp(Buffer.from(decoded.rgba), {
       raw: { width: decoded.width, height: decoded.height, channels: 4 },
     }).png().toBuffer();
+    note(92, 'displaying');
     return { dataUrl: `data:image/png;base64,${pngBuf.toString('base64')}`, meta };
   } catch (err) {
     return { error: err.message };
@@ -1221,13 +1282,21 @@ ipcMain.handle('write-file', async (event, { filePath, dataUrl }) => {
   }
 });
 
-ipcMain.handle('open-file-dialog', async () => handleOpenFile());
+ipcMain.handle('open-file-dialog', async () => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('menu-action', 'open-file');
+  }
+});
 ipcMain.handle('get-launch-file', () => {
   const filePath = pendingOpenPath;
   pendingOpenPath = null;
   return filePath;
 });
-ipcMain.handle('open-folder-dialog', async () => handleOpenFolder());
+ipcMain.handle('open-folder-dialog', async () => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('menu-action', 'open-folder');
+  }
+});
 ipcMain.handle('set-last-open-dir', async (event, dirPath) => {
   _saveLastOpenDir(dirPath);
   return lastOpenDir;
@@ -1251,7 +1320,35 @@ ipcMain.handle('window-set-min-size', (_event, width, height) => {
   const h = Math.max(500, Math.round(Number(height) || 0));
   const [cw, ch] = mainWindow.getMinimumSize();
   if (cw === w && ch === h) return;
+  const bounds = mainWindow.getBounds();
+  const wasMax = _isWindowMaximized();
   mainWindow.setMinimumSize(w, h);
+  if (wasMax) return;
+  // setMinimumSize can nudge the window on Windows; keep the user's size
+  if (bounds.width >= w && bounds.height >= h) {
+    const after = mainWindow.getBounds();
+    if (after.width !== bounds.width || after.height !== bounds.height
+        || after.x !== bounds.x || after.y !== bounds.y) {
+      mainWindow.setBounds(bounds);
+    }
+  }
+});
+ipcMain.handle('window-get-bounds', () => {
+  if (!mainWindow || mainWindow.isDestroyed()) return null;
+  const b = mainWindow.getBounds();
+  return { x: b.x, y: b.y, width: b.width, height: b.height, maximized: _isWindowMaximized() };
+});
+ipcMain.handle('window-apply-size', (_event, opts = {}) => {
+  if (!mainWindow || mainWindow.isDestroyed()) return null;
+  const minW = Math.max(800, Math.round(Number(opts.minWidth || opts.width) || 0));
+  const minH = Math.max(500, Math.round(Number(opts.minHeight || opts.height) || 0));
+  const w = Math.max(minW, Math.round(Number(opts.width) || minW));
+  const h = Math.max(minH, Math.round(Number(opts.height) || minH));
+  mainWindow.setMinimumSize(minW, minH);
+  if (_isWindowMaximized()) return { ...mainWindow.getBounds(), maximized: true };
+  const b = mainWindow.getBounds();
+  mainWindow.setBounds({ x: b.x, y: b.y, width: w, height: h });
+  return { ...mainWindow.getBounds(), maximized: false };
 });
 ipcMain.handle('window-minimize', () => {
   if (mainWindow) mainWindow.minimize();

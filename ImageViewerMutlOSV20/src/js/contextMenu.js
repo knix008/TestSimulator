@@ -42,9 +42,20 @@ window.ContextMenu = (() => {
         el.appendChild(spacer);
       }
 
+      const textWrap = document.createElement('div');
+      textWrap.className = 'ctx-text';
       const label = document.createElement('span');
+      label.className = 'ctx-label';
       label.textContent = item.label;
-      el.appendChild(label);
+      textWrap.appendChild(label);
+      if (item.detail) {
+        const detail = document.createElement('span');
+        detail.className = 'ctx-detail';
+        detail.textContent = item.detail;
+        textWrap.appendChild(detail);
+      }
+      el.appendChild(textWrap);
+      if (item.title) el.title = item.title;
 
       if (item.shortcut) {
         const sc = document.createElement('span');
