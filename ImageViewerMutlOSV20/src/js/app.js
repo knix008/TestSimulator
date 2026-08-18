@@ -2007,6 +2007,7 @@
       { key:'saturation', label:'effects.saturation', min:0,   max:200, step:1,  def:100 },
       { key:'hue',        label:'effects.hue',        min:-180,max:180, step:1,  def:0 },
       { key:'blur',       label:'effects.blur',       min:0,   max:20,  step:0.5,def:0 },
+      { key:'tiltShift',  label:'effects.miniatureDepth',  min:0,   max:100, step:1,  def:0 },
       { key:'sharpen',    label:'effects.sharpen',    min:0,   max:100, step:1,  def:0 },
       { key:'vignette',   label:'effects.vignette',   min:0,   max:100, step:1,  def:0 },
       { key:'grain',      label:'effects.grain',      min:0,   max:100, step:1,  def:0 },
@@ -2157,6 +2158,7 @@
       { id: 'pull',         label: 'effects.pull' },
       { id: 'midcentury',   label: 'effects.midcentury' },
       { id: 'horror',       label: 'effects.horror' },
+      { id: 'miniature',    label: 'effects.miniature' },
     ];
 
     const presetWrap = document.createElement('div');
@@ -2681,46 +2683,16 @@
     });
   }
 
-  let _editClosePrompting = false;
-
   async function _requestCloseEditWindow(apply) {
     if (!state.editMode && !editWindow.classList.contains('visible')) {
       _closeEditWindow(apply);
       return true;
     }
-    const changed = !!(state.isDirty && Editor.hasEditSessionChanges && Editor.hasEditSessionChanges());
-    if (!changed) {
-      _closeEditWindow(apply);
-      return true;
-    }
-    if (_editClosePrompting) return false;
-    _editClosePrompting = true;
-    try {
-      const t = I18n.t.bind(I18n);
-      const result = await window.electronAPI.showMessageBox({
-        type: 'question',
-        title: t('dialog.unsaved.title') || 'Unsaved Changes',
-        message: t('dialog.unsaved.message') || 'You have unsaved changes.\nDo you want to save before closing?',
-        buttons: [
-          t('dialog.unsaved.save') || 'Save',
-          t('dialog.unsaved.dontSave') || "Don't Save",
-          t('dialog.unsaved.cancel') || 'Cancel',
-        ],
-        defaultId: 0,
-        cancelId: 2,
-      });
-      if (result.response === 2 || result.canceled) return false;
-      if (result.response === 0) {
-        const saved = await _saveAs(false, { useChangedName: true });
-        if (!saved) return false;
-        _closeEditWindow(true);
-        return true;
-      }
-      _closeEditWindow(apply);
-      return true;
-    } finally {
-      _editClosePrompting = false;
-    }
+    // Cancel / Esc: discard the edit session quietly.
+    // Apply: bake into the viewer; file-save prompt only happens later on app quit if still dirty.
+    // (Unapplied edit previews are not treated as unsaved file changes.)
+    _closeEditWindow(!!apply);
+    return true;
   }
 
   function _closeEditWindow(apply) {
@@ -2732,6 +2704,8 @@
       return;
     }
 
+    const hadSessionChanges = !!(Editor.hasEditSessionChanges && Editor.hasEditSessionChanges());
+
     editWindow.classList.remove('visible');
     state.editMode = false;
     document.body.classList.remove('edit-mode');
@@ -2741,6 +2715,8 @@
 
     if (apply) {
       Editor.commitEditSession();
+      // Only now is the main image considered changed (prompt on app quit if not saved)
+      if (hadSessionChanges) _markDirty();
       // Edits bake a still frame — stop treating as live animation
       if (state.isAnimated) {
         state.isAnimated = false;
@@ -3069,6 +3045,8 @@
      Dirty (unsaved changes) tracking
   ════════════════════════════════════════════ */
   function _markDirty() {
+    // Edit-window previews are session-local until Apply — don't flag the file unsaved yet
+    if (state.editMode) return;
     if (!state.isDirty) {
       state.isDirty = true;
       window.electronAPI.setUnsavedChanges(true);

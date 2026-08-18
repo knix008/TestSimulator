@@ -16,7 +16,7 @@ window.Editor = (() => {
     brightness: 100, contrast: 100, saturation: 100,
     hue: 0, blur: 0, grayscale: 0, sepia: 0, invert: 0,
     sharpen: 0, emboss: false, edge: false, vignette: 0, warmth: 0, grain: 0, posterize: 0,
-    solarize: 0,
+    solarize: 0, tiltShift: 0,
     borderWidth: 0, borderColor: '#ffffff', borderShadow: 0,
     borderShadowStyle: 'soft', borderShadowDir: 'br',
     borderCaption: false, borderCaptionPos: 'bl', borderCaptionText: '',
@@ -186,6 +186,7 @@ window.Editor = (() => {
       pc.clearRect(0, 0, w, h);
       pc.drawImage(tmp, 0, 0);
     }
+    if (effects.tiltShift > 0) _applyMiniatureDof(pc, w, h, effects.tiltShift);
     if (effects.vignette > 0) _applyVignetteOverlay(pc, w, h, effects.vignette);
     if (effects.posterize > 1) {
       const p = _applyPosterize(pc.getImageData(0, 0, w, h), effects.posterize);
@@ -200,6 +201,125 @@ window.Editor = (() => {
       pc.putImageData(g, 0, 0);
     }
     return photo;
+  }
+
+  function _smoothstep(edge0, edge1, x) {
+    if (edge1 <= edge0) return x < edge0 ? 0 : 1;
+    const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
+    return t * t * (3 - 2 * t);
+  }
+
+  /**
+   * Miniature / diorama (tilt-shift style).
+   * Soft horizontal plane of focus + toy-model color — strong enough to read as
+   * a model set, but not a hard strip or a smudged-glass vignette.
+   */
+  function _applyMiniatureDof(pc, w, h, amount) {
+    const a = Math.max(0, Math.min(100, Number(amount) || 0));
+    if (a <= 0 || w < 2 || h < 2) return;
+
+    const t = a / 100;
+    // Mid-ground focus (works for looking-down city / tabletop scenes)
+    const focusY = 0.52;
+    // Readable sharp band — narrows with amount, never a razor strip
+    const sharpHalf = 0.10 + (1 - t) * 0.08; // ~10–18% of height each side
+    // Long feather so falloff feels like lens DOF, not a cutout
+    const feather = 0.16 + (1 - t) * 0.10;   // ~16–26%
+
+    const src = document.createElement('canvas');
+    src.width = w;
+    src.height = h;
+    const sc = src.getContext('2d');
+    sc.drawImage(pc.canvas, 0, 0);
+
+    // Moderate macro blur (too strong destroys the miniature read)
+    const down = Math.max(0.14, 0.32 - t * 0.14); // 0.32 → 0.18
+    const dw = Math.max(12, Math.round(w * down));
+    const dh = Math.max(12, Math.round(h * down));
+    const small = document.createElement('canvas');
+    small.width = dw;
+    small.height = dh;
+    const smc = small.getContext('2d');
+    smc.imageSmoothingEnabled = true;
+    smc.imageSmoothingQuality = 'high';
+    smc.drawImage(src, 0, 0, dw, dh);
+
+    const soft = document.createElement('canvas');
+    soft.width = w;
+    soft.height = h;
+    const sfc = soft.getContext('2d');
+    sfc.imageSmoothingEnabled = true;
+    sfc.imageSmoothingQuality = 'high';
+    sfc.drawImage(small, 0, 0, w, h);
+    const extraPx = Math.max(1.5, Math.min(h * 0.018, 2 + t * 10));
+    if (extraPx > 1.2) {
+      const cream = document.createElement('canvas');
+      cream.width = w;
+      cream.height = h;
+      const crc = cream.getContext('2d');
+      crc.filter = `blur(${extraPx.toFixed(1)}px)`;
+      crc.drawImage(soft, 0, 0);
+      crc.filter = 'none';
+      sfc.clearRect(0, 0, w, h);
+      sfc.drawImage(cream, 0, 0);
+    }
+
+    // 1px column mask → stretch (smooth Y falloff)
+    const mask = document.createElement('canvas');
+    mask.width = 1;
+    mask.height = h;
+    const mc = mask.getContext('2d');
+    for (let y = 0; y < h; y++) {
+      const ny = y / (h - 1 || 1);
+      const dist = Math.abs(ny - focusY);
+      // Slightly stronger blur toward near foreground (bottom) — tabletop cue
+      const bias = ny > focusY ? 1.08 : 0.95;
+      const blurAmt = _smoothstep(sharpHalf, sharpHalf + feather, dist * bias);
+      const alpha = Math.max(0, Math.min(1, blurAmt));
+      if (alpha <= 0.002) continue;
+      mc.fillStyle = `rgba(0,0,0,${alpha})`;
+      mc.fillRect(0, y, 1, 1);
+    }
+    const maskFull = document.createElement('canvas');
+    maskFull.width = w;
+    maskFull.height = h;
+    const mfc = maskFull.getContext('2d');
+    mfc.imageSmoothingEnabled = false;
+    mfc.drawImage(mask, 0, 0, w, h);
+
+    const layer = document.createElement('canvas');
+    layer.width = w;
+    layer.height = h;
+    const lc = layer.getContext('2d');
+    lc.drawImage(soft, 0, 0);
+    lc.globalCompositeOperation = 'destination-in';
+    lc.drawImage(maskFull, 0, 0);
+
+    pc.clearRect(0, 0, w, h);
+    pc.drawImage(src, 0, 0);
+    pc.drawImage(layer, 0, 0);
+
+    // Toy-model grade (painted plastics / miniature world)
+    const sat = 1.20 + t * 0.45;  // 1.20–1.65
+    const con = 1.10 + t * 0.22;  // 1.10–1.32
+    const bri = 1.03 + t * 0.05;
+    const graded = document.createElement('canvas');
+    graded.width = w;
+    graded.height = h;
+    const gc = graded.getContext('2d');
+    gc.filter = `saturate(${sat.toFixed(2)}) contrast(${con.toFixed(2)}) brightness(${bri.toFixed(2)})`;
+    gc.drawImage(pc.canvas, 0, 0);
+    gc.filter = 'none';
+    pc.clearRect(0, 0, w, h);
+    pc.drawImage(graded, 0, 0);
+
+    // Warm model-light wash
+    pc.save();
+    pc.globalCompositeOperation = 'soft-light';
+    pc.globalAlpha = 0.14 + t * 0.18;
+    pc.fillStyle = '#ffb068';
+    pc.fillRect(0, 0, w, h);
+    pc.restore();
   }
 
   function _clipToMat(ctx, frame) {
@@ -561,7 +681,8 @@ window.Editor = (() => {
       effects.sharpen > 0 || effects.emboss || effects.edge
       || effects.grain > 0 || effects.posterize > 1 || effects.warmth !== 0
       || effects.solarize > 0;
-    const cssHeavy = effects.blur > 0 || _buildFilterString() !== 'none' || effects.vignette > 0;
+    const cssHeavy = effects.blur > 0 || effects.tiltShift > 0
+      || _buildFilterString() !== 'none' || effects.vignette > 0;
     if (kernel) return px >= 250000;           // ~0.25MP+
     if (cssHeavy) return px >= 800000;         // ~0.8MP+
     return px >= 2000000;                     // plain redraw ~2MP+
@@ -832,7 +953,7 @@ window.Editor = (() => {
     effects.sepia = 0; effects.invert = 0; effects.sharpen = 0;
     effects.emboss = false; effects.edge = false;
     effects.vignette = 0; effects.warmth = 0; effects.grain = 0; effects.posterize = 0;
-    effects.solarize = 0;
+    effects.solarize = 0; effects.tiltShift = 0;
     effects.borderWidth = 0; effects.borderColor = '#ffffff'; effects.borderShadow = 0;
     effects.borderShadowStyle = 'soft';
     effects.borderShadowDir = 'br';
@@ -845,6 +966,7 @@ window.Editor = (() => {
       || effects.sepia !== 0 || effects.invert !== 0 || effects.sharpen !== 0
       || effects.emboss || effects.edge || effects.vignette !== 0 || effects.warmth !== 0
       || effects.grain !== 0 || effects.posterize !== 0 || effects.solarize !== 0
+      || effects.tiltShift !== 0
       || effects.borderWidth !== 0 || effects.borderShadow !== 0
       || (effects.borderShadowStyle && effects.borderShadowStyle !== 'soft')
       || (effects.borderShadowDir && effects.borderShadowDir !== 'br')
@@ -860,116 +982,127 @@ window.Editor = (() => {
 
   const PRESETS = {
     grayscale:  { grayscale: 100 },
-    sepia:      { sepia: 100, saturation: 60 },
+    sepia:      { sepia: 100, saturation: 55 },
     invert:     { invert: 100 },
-    vivid:      { saturation: 160, contrast: 115 },
-    fade:       { brightness: 120, saturation: 60, contrast: 85 },
-    cool:       { hue: -20, saturation: 90 },
-    warm:       { warmth: 60, saturation: 110 },
-    vintage:    { sepia: 40, saturation: 70, contrast: 90, vignette: 50 },
-    dramatic:   { contrast: 150, grayscale: 30, vignette: 40 },
+    vivid:      { saturation: 168, contrast: 118, sharpen: 12 },
+    fade:       { brightness: 125, saturation: 45, contrast: 78, warmth: -8 },
+    cool:       { hue: -28, warmth: -35, saturation: 88 },
+    warm:       { warmth: 72, saturation: 118, hue: 8 },
+    vintage:    { sepia: 48, saturation: 62, contrast: 88, vignette: 55, grain: 28 },
+    dramatic:   { contrast: 160, grayscale: 35, vignette: 48, brightness: 92 },
     emboss:     { emboss: true, grayscale: 100 },
-    edge:       { edge: true, grayscale: 100, contrast: 130 },
-    noir:       { grayscale: 100, contrast: 145, brightness: 90, vignette: 55 },
-    soft:       { blur: 1.5, brightness: 112, contrast: 90, saturation: 85 },
-    crisp:      { sharpen: 55, contrast: 118, saturation: 110 },
-    sunset:     { warmth: 80, hue: 12, saturation: 130, contrast: 110, vignette: 25 },
-    arctic:     { hue: -35, warmth: -50, saturation: 85, brightness: 108, contrast: 105 },
-    pastel:     { brightness: 118, contrast: 80, saturation: 70, warmth: 15 },
-    matte:      { brightness: 112, contrast: 78, saturation: 88, vignette: 15 },
-    neon:       { saturation: 180, contrast: 125, hue: 25, sharpen: 20 },
-    moonlight:  { hue: -40, warmth: -40, saturation: 55, brightness: 85, contrast: 120, vignette: 45 },
-    golden:     { warmth: 90, saturation: 120, brightness: 108, contrast: 105 },
-    bleach:     { brightness: 135, saturation: 25, contrast: 95 },
-    pop:        { saturation: 175, contrast: 130, sharpen: 25 },
-    crossprocess: { hue: -15, saturation: 140, contrast: 125, warmth: -20 },
-    documentary:{ saturation: 55, contrast: 120, brightness: 98, vignette: 20 },
-    highkey:    { brightness: 140, contrast: 75, saturation: 90 },
-    lowkey:     { brightness: 72, contrast: 140, saturation: 80, vignette: 60 },
-    silver:     { grayscale: 100, contrast: 115, brightness: 105 },
-    polaroid:   { sepia: 25, brightness: 115, contrast: 88, saturation: 75, vignette: 35 },
-    lomo:       { saturation: 140, contrast: 130, vignette: 70, warmth: 25 },
+    edge:       { edge: true, grayscale: 100, contrast: 140 },
+    noir:       { grayscale: 100, contrast: 155, brightness: 82, vignette: 62 },
+    soft:       { blur: 2.0, brightness: 115, contrast: 88, saturation: 80 },
+    crisp:      { sharpen: 52, contrast: 132, saturation: 122, brightness: 104, vignette: 0 },
+    sunset:     { warmth: 92, hue: 20, saturation: 125, contrast: 108, vignette: 35, brightness: 95, sepia: 10 },
+    arctic:     { hue: -48, warmth: -62, saturation: 70, brightness: 118, contrast: 108 },
+    pastel:     { brightness: 122, contrast: 72, saturation: 78, warmth: 28, hue: 12, blur: 0.4 },
+    matte:      { brightness: 108, contrast: 70, saturation: 72, vignette: 28, warmth: -6 },
+    neon:       { saturation: 190, contrast: 132, hue: 48, sharpen: 28, brightness: 96 },
+    moonlight:  { hue: -58, warmth: -30, saturation: 42, brightness: 92, contrast: 118, vignette: 38, blur: 0.5 },
+    golden:     { warmth: 88, saturation: 140, brightness: 118, contrast: 112, hue: 8, sharpen: 14 },
+    bleach:     { brightness: 142, saturation: 18, contrast: 92 },
+    pop:        { saturation: 162, contrast: 142, sharpen: 38, brightness: 108, warmth: 5 },
+    crossprocess: { hue: 22, saturation: 148, contrast: 132, warmth: -35, vignette: 16 },
+    documentary:{ saturation: 48, contrast: 125, brightness: 96, vignette: 22, grain: 20, warmth: -12 },
+    highkey:    { brightness: 155, contrast: 68, saturation: 85, warmth: 10 },
+    lowkey:     { brightness: 58, contrast: 148, saturation: 70, vignette: 68 },
+    silver:     { grayscale: 100, contrast: 112, brightness: 110, sharpen: 6 },
+    polaroid:   { sepia: 28, brightness: 118, contrast: 85, saturation: 70, vignette: 40, warmth: 20 },
+    lomo:       { saturation: 148, contrast: 135, vignette: 78, warmth: 32, hue: 6 },
     filmcamera: { warmth: 40, sepia: 16, contrast: 92, brightness: 106, saturation: 90, hue: 6, vignette: 34, grain: 42, sharpen: 10 },
     disposable: { brightness: 118, contrast: 108, saturation: 85, warmth: 22, hue: 8, vignette: 48, grain: 55, sharpen: 6 },
     kodachrome: { saturation: 145, contrast: 128, warmth: 28, hue: 8, sharpen: 22, vignette: 16 },
-    velvia:     { saturation: 170, contrast: 138, warmth: 12, hue: -8, sharpen: 28, vignette: 14 },
+    velvia:     { saturation: 178, contrast: 145, warmth: 6, hue: -14, sharpen: 34, vignette: 10, contrast: 108 },
     portra:     { warmth: 30, saturation: 96, contrast: 88, brightness: 108, hue: 4, grain: 22, vignette: 16 },
     trix:       { grayscale: 100, contrast: 138, brightness: 98, grain: 64, vignette: 28, sharpen: 18 },
     expired:    { hue: 22, saturation: 68, contrast: 76, brightness: 114, warmth: 18, grain: 52, vignette: 24, sepia: 12 },
     cinestill:  { warmth: 58, saturation: 118, contrast: 110, brightness: 102, blur: 0.7, grain: 26, vignette: 18, hue: 8 },
-    redscale:   { hue: 30, warmth: 92, saturation: 132, contrast: 118, brightness: 94, vignette: 32 },
+    redscale:   { hue: 42, warmth: 100, saturation: 145, contrast: 125, brightness: 88, vignette: 38, contrast: 20 },
     holga:      { contrast: 122, saturation: 78, brightness: 112, vignette: 80, grain: 42, blur: 0.8, warmth: 22 },
-    slide:      { saturation: 152, contrast: 130, brightness: 96, warmth: 12, sharpen: 20, vignette: 12 },
-    autumn:     { warmth: 72, hue: 18, saturation: 128, contrast: 110, brightness: 102 },
-    spring:     { hue: -18, saturation: 122, brightness: 112, contrast: 94, warmth: -12 },
-    dusk:       { hue: -6, warmth: 48, saturation: 88, brightness: 80, contrast: 122, vignette: 42 },
-    fog:        { brightness: 128, contrast: 60, saturation: 52, blur: 1.3, warmth: -10 },
-    dream:      { blur: 2.2, brightness: 120, contrast: 80, saturation: 78, warmth: 22, vignette: 22 },
-    hdr:        { contrast: 158, saturation: 142, sharpen: 48, brightness: 106, vignette: 14 },
+    slide:      { saturation: 145, contrast: 148, brightness: 88, warmth: -5, sharpen: 34, vignette: 4, hue: -16 },
+    autumn:     { warmth: 78, hue: 28, saturation: 118, contrast: 115, brightness: 96, vignette: 18 },
+    spring:     { hue: -22, saturation: 132, brightness: 116, contrast: 90, warmth: -18 },
+    dusk:       { hue: -10, warmth: 55, saturation: 78, brightness: 72, contrast: 128, vignette: 48 },
+    fog:        { brightness: 132, contrast: 52, saturation: 40, blur: 1.8, warmth: -18 },
+    dream:      { blur: 3.0, brightness: 124, contrast: 74, saturation: 70, warmth: 30, vignette: 28, hue: 8 },
+    hdr:        { contrast: 175, saturation: 155, sharpen: 60, brightness: 110, vignette: 4 },
     infrared:   { hue: -82, saturation: 145, brightness: 122, contrast: 112, grayscale: 12 },
     nightvision:{ hue: -72, grayscale: 38, saturation: 165, brightness: 96, contrast: 132, grain: 22 },
     newspaper:  { grayscale: 100, contrast: 142, grain: 48, sharpen: 32, brightness: 110 },
     sketch:     { edge: true, grayscale: 100, invert: 100, contrast: 118 },
     retro70:    { sepia: 32, hue: 12, saturation: 82, contrast: 94, warmth: 42, vignette: 32, grain: 28 },
-    retro80:    { saturation: 158, contrast: 122, hue: -28, warmth: -18, vignette: 18 },
-    tungsten:   { warmth: 88, hue: 10, saturation: 108, brightness: 102 },
-    fluorescent:{ hue: -32, warmth: -38, saturation: 112, contrast: 110 },
-    chrome:     { saturation: 138, contrast: 142, sharpen: 32, brightness: 102, vignette: 12 },
-    orton:      { blur: 2.6, brightness: 126, contrast: 84, saturation: 112, warmth: 16 },
+    retro80:    { saturation: 168, contrast: 118, hue: -42, warmth: -28, vignette: 12, sharpen: 10 },
+    tungsten:   { warmth: 98, hue: 18, saturation: 92, brightness: 96, contrast: 112, sepia: 12 },
+    fluorescent:{ hue: -38, warmth: -48, saturation: 120, contrast: 118, brightness: 108 },
+    chrome:     { saturation: 118, contrast: 155, sharpen: 48, brightness: 98, vignette: 4, hue: -10, grayscale: 12 },
+    orton:      { blur: 3.4, brightness: 132, contrast: 76, saturation: 120, warmth: 22, hue: 6 },
     comic:      { posterize: 4, saturation: 155, contrast: 142, sharpen: 18 },
     xray:       { invert: 100, grayscale: 85, contrast: 122, hue: -48, brightness: 108 },
-    clarity:    { sharpen: 70, contrast: 112, saturation: 105 },
-    haze:       { brightness: 122, contrast: 70, saturation: 70, blur: 0.8 },
+    clarity:    { sharpen: 78, contrast: 105, saturation: 98, brightness: 102 },
+    haze:       { brightness: 128, contrast: 58, saturation: 55, blur: 1.4, warmth: 8 },
     cyanotype:  { grayscale: 70, hue: -50, warmth: -60, contrast: 115, saturation: 80 },
-    tealorange: { hue: -12, warmth: 35, saturation: 135, contrast: 118 },
+    tealorange: { hue: -18, warmth: 48, saturation: 145, contrast: 125, brightness: 100 },
     /* ── additional distinct looks ── */
-    underwater: { hue: -48, warmth: -55, saturation: 95, brightness: 88, contrast: 118, blur: 0.4 },
-    desert:     { warmth: 78, hue: 22, saturation: 72, contrast: 108, brightness: 112, vignette: 22 },
-    forest:     { hue: -28, warmth: -18, saturation: 118, contrast: 122, brightness: 94, vignette: 18 },
-    lavender:   { hue: -62, warmth: -8, saturation: 88, brightness: 116, contrast: 86, blur: 0.5 },
-    candy:      { hue: 42, saturation: 155, brightness: 118, contrast: 92, warmth: 28 },
-    midnight:   { hue: -55, warmth: -45, brightness: 62, contrast: 138, saturation: 70, vignette: 58 },
+    underwater: { hue: -55, warmth: -68, saturation: 88, brightness: 82, contrast: 122, blur: 0.8 },
+    desert:     { warmth: 88, hue: 26, saturation: 58, contrast: 112, brightness: 118, vignette: 26, grain: 12 },
+    forest:     { hue: -32, warmth: -22, saturation: 128, contrast: 128, brightness: 90, vignette: 22 },
+    lavender:   { hue: -72, warmth: 5, saturation: 95, brightness: 120, contrast: 80, blur: 0.8, vignette: 12 },
+    candy:      { hue: 48, saturation: 168, brightness: 122, contrast: 88, warmth: 35 },
+    midnight:   { hue: -62, warmth: -55, brightness: 52, contrast: 148, saturation: 58, vignette: 70 },
     thermal:    { posterize: 5, hue: 48, saturation: 170, contrast: 135, brightness: 105 },
     blueprint:  { grayscale: 100, hue: -70, warmth: -80, contrast: 132, brightness: 98, invert: 0 },
-    selenium:   { grayscale: 100, hue: -18, warmth: -25, contrast: 120, brightness: 102, vignette: 12 },
-    platinum:   { grayscale: 100, brightness: 118, contrast: 88, vignette: 8, sharpen: 8 },
+    selenium:   { grayscale: 100, hue: -32, warmth: -40, contrast: 128, brightness: 98, vignette: 20, saturation: 35 },
+    platinum:   { grayscale: 100, brightness: 125, contrast: 78, vignette: 4, sharpen: 2, warmth: 12 },
     lith:       { grayscale: 100, contrast: 175, brightness: 92, grain: 58, vignette: 35, sharpen: 28 },
-    washout:    { brightness: 148, contrast: 68, saturation: 55, warmth: 35, vignette: 10 },
-    muted:      { saturation: 42, contrast: 95, brightness: 104, warmth: -8, vignette: 10 },
+    washout:    { brightness: 152, contrast: 60, saturation: 42, warmth: 42, vignette: 8 },
+    muted:      { saturation: 32, contrast: 92, brightness: 102, warmth: -15, vignette: 14, hue: -6 },
     cyberpunk:  { hue: -55, saturation: 168, contrast: 145, brightness: 96, warmth: -30, vignette: 28, sharpen: 22 },
-    vaporwave:  { hue: -75, saturation: 150, contrast: 110, brightness: 112, warmth: -15, vignette: 20 },
-    charcoal:   { grayscale: 100, contrast: 108, brightness: 96, grain: 72, blur: 0.4, vignette: 20 },
-    ink:        { grayscale: 100, contrast: 160, brightness: 88, vignette: 30, sharpen: 40 },
-    dayfornight:{ hue: -42, warmth: -50, brightness: 70, contrast: 128, saturation: 65, vignette: 40 },
-    bloom:      { blur: 1.8, brightness: 128, contrast: 82, saturation: 105, warmth: 18 },
-    punch:      { contrast: 135, saturation: 148, sharpen: 35, brightness: 102 },
-    flat:       { contrast: 72, saturation: 88, brightness: 108, vignette: 0 },
-    winter:     { hue: -30, warmth: -42, brightness: 110, contrast: 112, saturation: 78, sharpen: 15 },
-    summer:     { warmth: 45, hue: 8, saturation: 132, brightness: 114, contrast: 108 },
+    vaporwave:  { hue: -78, saturation: 158, contrast: 105, brightness: 118, warmth: -8, vignette: 16 },
+    charcoal:   { grayscale: 100, contrast: 105, brightness: 94, grain: 80, blur: 0.6, vignette: 24 },
+    ink:        { grayscale: 100, contrast: 168, brightness: 82, vignette: 35, sharpen: 48 },
+    dayfornight:{ hue: -35, warmth: -65, brightness: 60, contrast: 138, saturation: 78, vignette: 45, grain: 14 },
+    bloom:      { blur: 1.2, brightness: 138, contrast: 88, saturation: 95, warmth: 12, vignette: 6 },
+    punch:      { contrast: 152, saturation: 170, sharpen: 12, brightness: 106, warmth: 20, hue: 10 },
+    flat:       { contrast: 55, saturation: 100, brightness: 110, vignette: 0, warmth: 0 },
+    winter:     { hue: -22, warmth: -50, brightness: 115, contrast: 118, saturation: 62, sharpen: 20, vignette: 12 },
+    summer:     { warmth: 32, hue: 2, saturation: 145, brightness: 120, contrast: 102 },
     rainy:      { hue: -22, warmth: -28, saturation: 58, contrast: 95, brightness: 98, blur: 0.6, grain: 18 },
-    peach:      { warmth: 55, hue: 18, saturation: 95, brightness: 116, contrast: 88 },
-    coral:      { hue: 28, warmth: 62, saturation: 140, contrast: 112, brightness: 108 },
-    emerald:    { hue: -40, warmth: -20, saturation: 145, contrast: 125, brightness: 98 },
+    peach:      { warmth: 62, hue: 22, saturation: 88, brightness: 120, contrast: 82 },
+    coral:      { hue: 36, warmth: 55, saturation: 155, contrast: 118, brightness: 110, vignette: 10 },
+    emerald:    { hue: -45, warmth: -28, saturation: 155, contrast: 132, brightness: 94, vignette: 14 },
     amethyst:   { hue: -70, saturation: 130, contrast: 115, brightness: 105, warmth: -10 },
-    copper:     { warmth: 85, hue: 16, saturation: 110, contrast: 120, brightness: 100, vignette: 18 },
-    denim:      { hue: -38, warmth: -35, saturation: 70, contrast: 118, brightness: 100 },
-    olive:      { hue: -8, warmth: 12, saturation: 55, contrast: 110, brightness: 98, vignette: 14 },
+    copper:     { warmth: 70, hue: 8, saturation: 95, contrast: 132, brightness: 92, vignette: 28, sepia: 18, grain: 16 },
+    denim:      { hue: -45, warmth: -42, saturation: 55, contrast: 125, brightness: 96, vignette: 16 },
+    olive:      { hue: -4, warmth: 22, saturation: 48, contrast: 105, brightness: 100, vignette: 18, sepia: 10 },
     gothic:     { brightness: 68, contrast: 145, saturation: 45, vignette: 65, hue: -8, warmth: -15 },
-    romance:    { warmth: 48, hue: 14, saturation: 92, brightness: 118, contrast: 86, blur: 0.7, vignette: 18 },
+    romance:    { warmth: 40, hue: 10, saturation: 100, brightness: 122, contrast: 78, blur: 1.4, vignette: 24, sepia: 8 },
     solarize:   { solarize: 62, contrast: 125, saturation: 110 },
     duotone:    { grayscale: 55, hue: -85, saturation: 140, contrast: 128, brightness: 102 },
     glitch:     { posterize: 3, hue: 55, saturation: 160, contrast: 150, invert: 15, sharpen: 20 },
-    watercolor: { blur: 1.4, contrast: 78, saturation: 85, brightness: 114, warmth: 12, vignette: 12 },
-    anime:      { saturation: 148, contrast: 118, brightness: 112, sharpen: 25, warmth: 10 },
+    watercolor: { blur: 2.2, contrast: 68, saturation: 92, brightness: 118, warmth: 25, vignette: 20, hue: 14, grain: 10 },
+    anime:      { saturation: 160, contrast: 108, brightness: 120, sharpen: 35, warmth: 0, hue: -8 },
     silhouette: { brightness: 48, contrast: 170, saturation: 30, vignette: 70 },
-    amber:      { warmth: 95, hue: 20, saturation: 105, contrast: 115, brightness: 104, vignette: 16 },
-    mint:       { hue: -55, warmth: -25, saturation: 100, brightness: 118, contrast: 95 },
+    amber:      { warmth: 118, hue: 36, saturation: 108, contrast: 100, brightness: 108, vignette: 14, sepia: 22 },
+    mint:       { hue: -48, warmth: -32, saturation: 115, brightness: 122, contrast: 100 },
     mustard:    { hue: 32, warmth: 40, saturation: 90, contrast: 108, brightness: 106 },
     steel:      { grayscale: 70, hue: -25, warmth: -40, contrast: 130, saturation: 40, sharpen: 30 },
-    push:       { contrast: 145, saturation: 125, grain: 38, brightness: 96, vignette: 22 },
-    pull:       { contrast: 82, saturation: 78, brightness: 112, grain: 16 },
-    midcentury: { sepia: 22, warmth: 35, saturation: 75, contrast: 105, brightness: 108, vignette: 28 },
+    push:       { contrast: 152, saturation: 132, grain: 48, brightness: 90, vignette: 28 },
+    pull:       { contrast: 88, saturation: 68, brightness: 118, grain: 10, warmth: 12, blur: 0.3 },
+    midcentury: { sepia: 34, warmth: 45, saturation: 60, contrast: 98, brightness: 112, vignette: 36 },
     horror:     { hue: -15, warmth: -20, brightness: 78, contrast: 155, saturation: 50, vignette: 55, grain: 30 },
+    // Miniature diorama: elliptical macro DOF + toy color (grade also inside tiltShift)
+    miniature:  {
+      tiltShift: 30,
+      saturation: 138,
+      contrast: 128,
+      brightness: 106,
+      warmth: 22,
+      hue: 5,
+      sharpen: 28,
+      vignette: 26,
+    },
   };
 
   function applyPreset(name) {
