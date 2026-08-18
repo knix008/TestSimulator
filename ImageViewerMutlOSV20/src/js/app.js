@@ -2065,17 +2065,70 @@
       { id: 'vintage',      label: 'effects.vintage' },
       { id: 'filmcamera',   label: 'effects.filmcamera' },
       { id: 'disposable',   label: 'effects.disposable' },
-      { id: 'kodachrome',   label: 'effects.kodachrome' },
-      { id: 'velvia',       label: 'effects.velvia' },
+      /* Color negative */
       { id: 'portra',       label: 'effects.portra' },
-      { id: 'trix',         label: 'effects.trix' },
-      { id: 'expired',      label: 'effects.expired' },
-      { id: 'cinestill',    label: 'effects.cinestill' },
-      { id: 'redscale',     label: 'effects.redscale' },
-      { id: 'holga',        label: 'effects.holga' },
+      { id: 'portra160',    label: 'effects.portra160' },
+      { id: 'portra400',    label: 'effects.portra400' },
+      { id: 'portra800',    label: 'effects.portra800' },
+      { id: 'ektar',        label: 'effects.ektar' },
+      { id: 'gold200',      label: 'effects.gold200' },
+      { id: 'ultramax',     label: 'effects.ultramax' },
+      { id: 'colorplus',    label: 'effects.colorplus' },
+      { id: 'fuji400h',     label: 'effects.fuji400h' },
+      { id: 'pro400h',      label: 'effects.pro400h' },
+      { id: 'superia',      label: 'effects.superia' },
+      { id: 'agfacolor',    label: 'effects.agfacolor' },
+      { id: 'lomochrome',   label: 'effects.lomochrome' },
+      /* Slide */
+      { id: 'kodachrome',   label: 'effects.kodachrome' },
+      { id: 'kodachrome25', label: 'effects.kodachrome25' },
+      { id: 'kodachrome64', label: 'effects.kodachrome64' },
+      { id: 'ektachrome',   label: 'effects.ektachrome' },
+      { id: 'velvia',       label: 'effects.velvia' },
+      { id: 'velvia50',     label: 'effects.velvia50' },
+      { id: 'velvia100',    label: 'effects.velvia100' },
+      { id: 'provia',       label: 'effects.provia' },
+      { id: 'sensia',       label: 'effects.sensia' },
+      { id: 'astia',        label: 'effects.astia' },
       { id: 'slide',        label: 'effects.slide' },
+      /* B&W */
+      { id: 'trix',         label: 'effects.trix' },
+      { id: 'trix400',      label: 'effects.trix400' },
+      { id: 'hp5',          label: 'effects.hp5' },
+      { id: 'delta100',     label: 'effects.delta100' },
+      { id: 'delta3200',    label: 'effects.delta3200' },
+      { id: 'panf',         label: 'effects.panf' },
+      { id: 'neopan',       label: 'effects.neopan' },
+      { id: 'tmax100',      label: 'effects.tmax100' },
+      { id: 'tmax400',      label: 'effects.tmax400' },
+      { id: 'xp2',          label: 'effects.xp2' },
+      { id: 'plusx',        label: 'effects.plusx' },
+      { id: 'fomapan',      label: 'effects.fomapan' },
+      /* Instant / toy */
       { id: 'polaroid',     label: 'effects.polaroid' },
+      { id: 'sx70',         label: 'effects.sx70' },
+      { id: 'instax',       label: 'effects.instax' },
+      { id: 'holga',        label: 'effects.holga' },
+      { id: 'diana',        label: 'effects.diana' },
       { id: 'lomo',         label: 'effects.lomo' },
+      { id: 'sprocket',     label: 'effects.sprocket' },
+      /* Cinema */
+      { id: 'cinestill',    label: 'effects.cinestill' },
+      { id: 'cinestill800t', label: 'effects.cinestill800t' },
+      { id: 'vision3500t',  label: 'effects.vision3500t' },
+      { id: 'vision3250d',  label: 'effects.vision3250d' },
+      /* Process */
+      { id: 'expired',      label: 'effects.expired' },
+      { id: 'expiredcool',  label: 'effects.expiredcool' },
+      { id: 'redscale',     label: 'effects.redscale' },
+      { id: 'crossprocess', label: 'effects.crossprocess' },
+      { id: 'crossfuji',    label: 'effects.crossfuji' },
+      { id: 'bleachbypass', label: 'effects.bleachbypass' },
+      { id: 'filmPush2',    label: 'effects.filmPush2' },
+      { id: 'filmPull1',    label: 'effects.filmPull1' },
+      { id: 'nightflash',   label: 'effects.nightflash' },
+      { id: 'halfFrame',    label: 'effects.halfFrame' },
+      { id: 'doubleExp',    label: 'effects.doubleExp' },
       { id: 'dramatic',     label: 'effects.dramatic' },
       { id: 'warm',         label: 'effects.warmPreset' },
       { id: 'golden',       label: 'effects.golden' },
@@ -2091,7 +2144,6 @@
       { id: 'orton',        label: 'effects.orton' },
       { id: 'cyanotype',    label: 'effects.cyanotype' },
       { id: 'tealorange',   label: 'effects.tealorange' },
-      { id: 'crossprocess', label: 'effects.crossprocess' },
       { id: 'neon',         label: 'effects.neon' },
       { id: 'chrome',       label: 'effects.chrome' },
       { id: 'hdr',          label: 'effects.hdr' },
@@ -2323,6 +2375,131 @@
     });
   }
 
+  function _captionFontGroupLabel(group) {
+    const map = {
+      kr: 'effects.fontGroup.kr',
+      sans: 'effects.fontGroup.sans',
+      serif: 'effects.fontGroup.serif',
+      mono: 'effects.fontGroup.mono',
+      display: 'effects.fontGroup.display',
+      script: 'effects.fontGroup.script',
+      system: 'effects.fontGroup.system',
+    };
+    const key = map[group];
+    return key ? I18n.t(key) : group;
+  }
+
+  function _fillCaptionFontSelect(sel, selectedId) {
+    if (!sel) return;
+    const fonts = (typeof Editor !== 'undefined' && Editor.getCaptionFonts)
+      ? Editor.getCaptionFonts()
+      : [];
+    const order = ['kr', 'sans', 'serif', 'mono', 'display', 'script', 'system'];
+    const byGroup = new Map();
+    fonts.forEach((f) => {
+      const g = f.group || 'sans';
+      if (!byGroup.has(g)) byGroup.set(g, []);
+      byGroup.get(g).push(f);
+    });
+    sel.innerHTML = '';
+    const want = String(selectedId || 'Segoe UI');
+    let found = false;
+    order.forEach((g) => {
+      const list = byGroup.get(g);
+      if (!list || !list.length) return;
+      const og = document.createElement('optgroup');
+      og.label = _captionFontGroupLabel(g);
+      og.dataset.group = g;
+      list.forEach((f) => {
+        const opt = document.createElement('option');
+        opt.value = f.id;
+        opt.textContent = f.label || f.id;
+        if (f.id === want) { opt.selected = true; found = true; }
+        og.appendChild(opt);
+      });
+      sel.appendChild(og);
+    });
+    // Preserve a previously chosen system font not in the catalog yet
+    if (!found && want) {
+      let sys = sel.querySelector('optgroup[data-group="system"]');
+      if (!sys) {
+        sys = document.createElement('optgroup');
+        sys.label = _captionFontGroupLabel('system');
+        sys.dataset.group = 'system';
+        sel.appendChild(sys);
+      }
+      const opt = document.createElement('option');
+      opt.value = want;
+      opt.textContent = want;
+      opt.selected = true;
+      sys.appendChild(opt);
+    }
+  }
+
+  function _fontFamilyAvailable(name) {
+    try {
+      if (!document.fonts || typeof document.fonts.check !== 'function') return true;
+      const q = `"${String(name).replace(/"/g, '')}"`;
+      return document.fonts.check(`12px ${q}`) || document.fonts.check(`12px ${name}`);
+    } catch {
+      return true;
+    }
+  }
+
+  async function _enrichCaptionFontSelect(sel, selectedId) {
+    if (!sel) return;
+    const existing = new Set([...sel.querySelectorAll('option')].map((o) => o.value));
+    const extras = [];
+
+    // Probe additional common Korean / CJK names
+    [
+      'HY견고딕', 'HY중고딕', 'HY궁서', 'HY그래픽', 'HY얕은샘물',
+      '새굴림', '휴먼명조', '휴먼고딕', '함초롬돋움', '함초롬바탕',
+      '본고딕', '본명조', 'Spoqa Han Sans Neo', 'KoPubWorldDotum', 'KoPubWorldBatang',
+      'Apple SD Gothic Neo', 'AppleGothic', 'AppleMyungjo',
+      'Hiragino Sans', 'Hiragino Mincho ProN', 'PingFang SC', 'PingFang TC',
+    ].forEach((name) => {
+      if (!existing.has(name) && _fontFamilyAvailable(name)) extras.push(name);
+    });
+
+    // Local font query (Chromium / Electron) when permitted
+    try {
+      if (typeof window.queryLocalFonts === 'function') {
+        const local = await window.queryLocalFonts();
+        const skip = /emoji|symbol|wingding|webding|marlett|mt extra|bookshel|segoe mdl2|fluent icons|math|noto color/i;
+        for (const f of local) {
+          const family = f.family;
+          if (!family || existing.has(family) || skip.test(family)) continue;
+          extras.push(family);
+          existing.add(family);
+        }
+      }
+    } catch {
+      // Permission denied or unsupported — curated list is enough
+    }
+
+    // Unique + sort
+    const uniq = [...new Set(extras)].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+    if (!uniq.length) return;
+
+    let sys = sel.querySelector('optgroup[data-group="system"]');
+    if (!sys) {
+      sys = document.createElement('optgroup');
+      sys.label = _captionFontGroupLabel('system');
+      sys.dataset.group = 'system';
+      sel.appendChild(sys);
+    }
+    const want = String(selectedId || '');
+    uniq.forEach((name) => {
+      if ([...sys.querySelectorAll('option')].some((o) => o.value === name)) return;
+      const opt = document.createElement('option');
+      opt.value = name;
+      opt.textContent = name;
+      if (name === want) opt.selected = true;
+      sys.appendChild(opt);
+    });
+  }
+
   function _appendBorderControls(content, idPrefix, efx, prevValues) {
     const hr = document.createElement('hr');
     hr.style.cssText = 'border:none;border-top:1px solid var(--border);margin:10px 0 8px';
@@ -2508,20 +2685,24 @@
     fontHeading.textContent = I18n.t('effects.borderCaptionFontSection');
     content.appendChild(fontHeading);
 
-    addSelect('borderCaptionFont', 'effects.borderCaptionFont', [
-      ['Segoe UI', null, 'Segoe UI'],
-      ['Malgun Gothic', null, '맑은 고딕'],
-      ['Noto Sans KR', null, 'Noto Sans KR'],
-      ['Arial', null, 'Arial'],
-      ['Verdana', null, 'Verdana'],
-      ['Georgia', null, 'Georgia'],
-      ['Times New Roman', null, 'Times New Roman'],
-      ['Courier New', null, 'Courier New'],
-      ['Impact', null, 'Impact'],
-      ['Comic Sans MS', null, 'Comic Sans MS'],
-    ], fontDef, (sel) => {
-      Editor.setEffect('borderCaptionFont', sel.value);
+    const fontRow = document.createElement('div');
+    fontRow.className = 'effect-label-row effect-extra-row';
+    const fontLbl = document.createElement('span');
+    fontLbl.className = 'effect-label';
+    fontLbl.setAttribute('data-i18n', 'effects.borderCaptionFont');
+    fontLbl.textContent = I18n.t('effects.borderCaptionFont');
+    const fontSel = document.createElement('select');
+    fontSel.className = 'effect-select effect-select-font';
+    fontSel.id = `${idPrefix}-borderCaptionFont`;
+    fontSel.setAttribute('aria-label', I18n.t('effects.borderCaptionFont'));
+    _fillCaptionFontSelect(fontSel, fontDef);
+    fontSel.addEventListener('change', () => {
+      Editor.setEffect('borderCaptionFont', fontSel.value);
     });
+    fontRow.appendChild(fontLbl);
+    fontRow.appendChild(fontSel);
+    content.appendChild(fontRow);
+    _enrichCaptionFontSelect(fontSel, fontDef);
 
     addSlider('borderCaptionFontSize', 'effects.borderCaptionFontSize', 6, 120, 1, fontSizeDef, {
       unit: 'px',

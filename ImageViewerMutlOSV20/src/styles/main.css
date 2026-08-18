@@ -975,6 +975,11 @@ body.resizing-row * {
   border-radius: 4px;
   padding: 0 6px;
 }
+.effect-select-font {
+  max-width: 68%;
+  min-width: 0;
+  height: 26px;
+}
 .effect-caption-hint {
   font-size: 11px;
   color: var(--text-secondary);

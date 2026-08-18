@@ -218,20 +218,18 @@ window.Editor = (() => {
 
   /**
    * Miniature / diorama (tilt-shift style).
-   * Soft horizontal plane of focus + toy-model color — strong enough to read as
-   * a model set, but not a hard strip or a smudged-glass vignette.
+   * Dual-plane DOF (medium + heavy blur) + crisp focus band + toy-model grade.
    */
   function _applyMiniatureDof(pc, w, h, amount) {
     const a = Math.max(0, Math.min(100, Number(amount) || 0));
     if (a <= 0 || w < 2 || h < 2) return;
 
     const t = a / 100;
-    // Mid-ground focus (works for looking-down city / tabletop scenes)
-    const focusY = 0.52;
-    // Readable sharp band — narrows with amount, never a razor strip
-    const sharpHalf = 0.10 + (1 - t) * 0.08; // ~10–18% of height each side
-    // Long feather so falloff feels like lens DOF, not a cutout
-    const feather = 0.16 + (1 - t) * 0.10;   // ~16–26%
+    // Slightly below center — typical looking-down city / tabletop
+    const focusY = 0.54;
+    // Focus island: readable at low amount, selective at high
+    const sharpHalf = 0.08 + (1 - t) * 0.10;  // ~8–18% each side
+    const feather = 0.14 + (1 - t) * 0.12;    // soft lens-like falloff
 
     const src = document.createElement('canvas');
     src.width = w;
@@ -239,77 +237,125 @@ window.Editor = (() => {
     const sc = src.getContext('2d');
     sc.drawImage(pc.canvas, 0, 0);
 
-    // Moderate macro blur (too strong destroys the miniature read)
-    const down = Math.max(0.14, 0.32 - t * 0.14); // 0.32 → 0.18
-    const dw = Math.max(12, Math.round(w * down));
-    const dh = Math.max(12, Math.round(h * down));
-    const small = document.createElement('canvas');
-    small.width = dw;
-    small.height = dh;
-    const smc = small.getContext('2d');
-    smc.imageSmoothingEnabled = true;
-    smc.imageSmoothingQuality = 'high';
-    smc.drawImage(src, 0, 0, dw, dh);
-
-    const soft = document.createElement('canvas');
-    soft.width = w;
-    soft.height = h;
-    const sfc = soft.getContext('2d');
-    sfc.imageSmoothingEnabled = true;
-    sfc.imageSmoothingQuality = 'high';
-    sfc.drawImage(small, 0, 0, w, h);
-    const extraPx = Math.max(1.5, Math.min(h * 0.018, 2 + t * 10));
-    if (extraPx > 1.2) {
-      const cream = document.createElement('canvas');
-      cream.width = w;
-      cream.height = h;
-      const crc = cream.getContext('2d');
-      crc.filter = `blur(${extraPx.toFixed(1)}px)`;
-      crc.drawImage(soft, 0, 0);
-      crc.filter = 'none';
-      sfc.clearRect(0, 0, w, h);
-      sfc.drawImage(cream, 0, 0);
+    // Crisp in-focus plate (toy-detail punch)
+    const sharp = document.createElement('canvas');
+    sharp.width = w;
+    sharp.height = h;
+    const shc = sharp.getContext('2d');
+    const crisp = 1 + t * 0.35;
+    shc.filter = `contrast(${(1.04 + t * 0.08).toFixed(2)}) saturate(${(1.05 + t * 0.12).toFixed(2)})`;
+    shc.drawImage(src, 0, 0);
+    shc.filter = 'none';
+    // Subtle unsharp via overlay of a lightened copy
+    if (t > 0.15) {
+      shc.save();
+      shc.globalCompositeOperation = 'overlay';
+      shc.globalAlpha = 0.08 + t * 0.12;
+      shc.filter = `contrast(${crisp.toFixed(2)})`;
+      shc.drawImage(src, 0, 0);
+      shc.filter = 'none';
+      shc.restore();
     }
 
-    // 1px column mask → stretch (smooth Y falloff)
-    const mask = document.createElement('canvas');
-    mask.width = 1;
-    mask.height = h;
-    const mc = mask.getContext('2d');
+    const makeBlurPlate = (scale, cssBlur) => {
+      const dw = Math.max(8, Math.round(w * scale));
+      const dh = Math.max(8, Math.round(h * scale));
+      const small = document.createElement('canvas');
+      small.width = dw;
+      small.height = dh;
+      const smc = small.getContext('2d');
+      smc.imageSmoothingEnabled = true;
+      smc.imageSmoothingQuality = 'high';
+      smc.drawImage(src, 0, 0, dw, dh);
+      const out = document.createElement('canvas');
+      out.width = w;
+      out.height = h;
+      const oc = out.getContext('2d');
+      oc.imageSmoothingEnabled = true;
+      oc.imageSmoothingQuality = 'high';
+      oc.drawImage(small, 0, 0, w, h);
+      if (cssBlur > 0.8) {
+        const cream = document.createElement('canvas');
+        cream.width = w;
+        cream.height = h;
+        const crc = cream.getContext('2d');
+        crc.filter = `blur(${cssBlur.toFixed(1)}px)`;
+        crc.drawImage(out, 0, 0);
+        crc.filter = 'none';
+        return cream;
+      }
+      return out;
+    };
+
+    // Medium blur (transition zone) + heavy blur (far/near extremes)
+    const midScale = Math.max(0.18, 0.38 - t * 0.14);   // 0.38 → 0.24
+    const farScale = Math.max(0.10, 0.24 - t * 0.10);   // 0.24 → 0.14
+    const midPx = Math.max(1.2, Math.min(h * 0.012, 1.5 + t * 6));
+    const farPx = Math.max(2.5, Math.min(h * 0.028, 4 + t * 14));
+    const blurMid = makeBlurPlate(midScale, midPx);
+    const blurFar = makeBlurPlate(farScale, farPx);
+
+    // Distance masks: mid starts sooner; far ramps harder (power curve)
+    const maskMid = document.createElement('canvas');
+    maskMid.width = 1;
+    maskMid.height = h;
+    const mmc = maskMid.getContext('2d');
+    const maskFar = document.createElement('canvas');
+    maskFar.width = 1;
+    maskFar.height = h;
+    const mfc = maskFar.getContext('2d');
+
     for (let y = 0; y < h; y++) {
       const ny = y / (h - 1 || 1);
       const dist = Math.abs(ny - focusY);
-      // Slightly stronger blur toward near foreground (bottom) — tabletop cue
-      const bias = ny > focusY ? 1.08 : 0.95;
-      const blurAmt = _smoothstep(sharpHalf, sharpHalf + feather, dist * bias);
-      const alpha = Math.max(0, Math.min(1, blurAmt));
-      if (alpha <= 0.002) continue;
-      mc.fillStyle = `rgba(0,0,0,${alpha})`;
-      mc.fillRect(0, y, 1, 1);
+      // Stronger blur toward camera (bottom) — tabletop / aerial cue
+      const bias = ny > focusY ? 1.12 : 0.92;
+      const d = dist * bias;
+      const midAmt = _smoothstep(sharpHalf * 0.85, sharpHalf + feather, d);
+      // Far blur engages later and reaches full sooner at high amounts
+      const farAmt = Math.pow(_smoothstep(sharpHalf + feather * 0.35, sharpHalf + feather * 1.35, d), 0.85);
+      if (midAmt > 0.002) {
+        mmc.fillStyle = `rgba(0,0,0,${Math.min(1, midAmt)})`;
+        mmc.fillRect(0, y, 1, 1);
+      }
+      if (farAmt > 0.002) {
+        mfc.fillStyle = `rgba(0,0,0,${Math.min(1, farAmt)})`;
+        mfc.fillRect(0, y, 1, 1);
+      }
     }
-    const maskFull = document.createElement('canvas');
-    maskFull.width = w;
-    maskFull.height = h;
-    const mfc = maskFull.getContext('2d');
-    mfc.imageSmoothingEnabled = false;
-    mfc.drawImage(mask, 0, 0, w, h);
 
-    const layer = document.createElement('canvas');
-    layer.width = w;
-    layer.height = h;
-    const lc = layer.getContext('2d');
-    lc.drawImage(soft, 0, 0);
-    lc.globalCompositeOperation = 'destination-in';
-    lc.drawImage(maskFull, 0, 0);
+    const stretchMask = (col) => {
+      const full = document.createElement('canvas');
+      full.width = w;
+      full.height = h;
+      const c = full.getContext('2d');
+      c.imageSmoothingEnabled = false;
+      c.drawImage(col, 0, 0, w, h);
+      return full;
+    };
+    const midMaskFull = stretchMask(maskMid);
+    const farMaskFull = stretchMask(maskFar);
+
+    const applyMasked = (blurPlate, maskFull) => {
+      const layer = document.createElement('canvas');
+      layer.width = w;
+      layer.height = h;
+      const lc = layer.getContext('2d');
+      lc.drawImage(blurPlate, 0, 0);
+      lc.globalCompositeOperation = 'destination-in';
+      lc.drawImage(maskFull, 0, 0);
+      return layer;
+    };
 
     pc.clearRect(0, 0, w, h);
-    pc.drawImage(src, 0, 0);
-    pc.drawImage(layer, 0, 0);
+    pc.drawImage(sharp, 0, 0);
+    pc.drawImage(applyMasked(blurMid, midMaskFull), 0, 0);
+    pc.drawImage(applyMasked(blurFar, farMaskFull), 0, 0);
 
-    // Toy-model grade (painted plastics / miniature world)
-    const sat = 1.20 + t * 0.45;  // 1.20–1.65
-    const con = 1.10 + t * 0.22;  // 1.10–1.32
-    const bri = 1.03 + t * 0.05;
+    // Toy / model-paint grade
+    const sat = 1.22 + t * 0.48;  // 1.22–1.70
+    const con = 1.12 + t * 0.26;  // 1.12–1.38
+    const bri = 1.04 + t * 0.05;
     const graded = document.createElement('canvas');
     graded.width = w;
     graded.height = h;
@@ -320,13 +366,29 @@ window.Editor = (() => {
     pc.clearRect(0, 0, w, h);
     pc.drawImage(graded, 0, 0);
 
-    // Warm model-light wash
+    // Warm plastic wash + slight midtone pop (model lighting)
     pc.save();
     pc.globalCompositeOperation = 'soft-light';
-    pc.globalAlpha = 0.14 + t * 0.18;
-    pc.fillStyle = '#ffb068';
+    pc.globalAlpha = 0.16 + t * 0.22;
+    pc.fillStyle = '#ffb060';
     pc.fillRect(0, 0, w, h);
     pc.restore();
+
+    pc.save();
+    pc.globalCompositeOperation = 'overlay';
+    pc.globalAlpha = 0.06 + t * 0.10;
+    pc.fillStyle = '#ffe2b8';
+    pc.fillRect(0, 0, w, h);
+    pc.restore();
+
+    // Soft edge darkening helps the diorama “stage” read
+    if (t > 0.12) {
+      const vg = pc.createRadialGradient(w * 0.5, h * 0.55, Math.min(w, h) * 0.28, w * 0.5, h * 0.5, Math.hypot(w, h) * 0.62);
+      vg.addColorStop(0, 'rgba(0,0,0,0)');
+      vg.addColorStop(1, `rgba(20,10,0,${(0.10 + t * 0.18).toFixed(3)})`);
+      pc.fillStyle = vg;
+      pc.fillRect(0, 0, w, h);
+    }
   }
 
   function _clipToMat(ctx, frame) {
@@ -591,21 +653,221 @@ window.Editor = (() => {
     return lines.slice(0, maxLines);
   }
 
+  /** Caption font catalog — id used as effects.borderCaptionFont */
+  const CAPTION_FONTS = [
+    // Korean
+    { id: 'Malgun Gothic', label: '맑은 고딕', group: 'kr',
+      css: '"Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif' },
+    { id: 'Malgun Gothic Semilight', label: '맑은 고딕 Semilight', group: 'kr',
+      css: '"Malgun Gothic Semilight", "Malgun Gothic", "Noto Sans KR", sans-serif' },
+    { id: 'Gulim', label: '굴림', group: 'kr',
+      css: 'Gulim, "AppleGothic", "Noto Sans KR", sans-serif' },
+    { id: 'Dotum', label: '돋움', group: 'kr',
+      css: 'Dotum, "AppleGothic", "Noto Sans KR", sans-serif' },
+    { id: 'Batang', label: '바탕', group: 'kr',
+      css: 'Batang, "AppleMyungjo", "Noto Serif KR", serif' },
+    { id: 'Gungsuh', label: '궁서', group: 'kr',
+      css: 'Gungsuh, "AppleMyungjo", "Noto Serif KR", serif' },
+    { id: 'Noto Sans KR', label: 'Noto Sans KR', group: 'kr',
+      css: '"Noto Sans KR", "Malgun Gothic", "Segoe UI", sans-serif' },
+    { id: 'Noto Serif KR', label: 'Noto Serif KR', group: 'kr',
+      css: '"Noto Serif KR", Batang, "Times New Roman", serif' },
+    { id: 'NanumGothic', label: '나눔고딕', group: 'kr',
+      css: '"NanumGothic", "Nanum Gothic", "Malgun Gothic", sans-serif' },
+    { id: 'NanumMyeongjo', label: '나눔명조', group: 'kr',
+      css: '"NanumMyeongjo", "Nanum Myeongjo", Batang, serif' },
+    { id: 'NanumBarunGothic', label: '나눔바른고딕', group: 'kr',
+      css: '"NanumBarunGothic", "Nanum Barun Gothic", "Malgun Gothic", sans-serif' },
+    { id: 'NanumPen', label: '나눔손글씨 펜', group: 'kr',
+      css: '"NanumPen", "Nanum Pen Script", "Segoe Print", cursive' },
+    { id: 'NanumBrush', label: '나눔손글씨 붓', group: 'kr',
+      css: '"NanumBrush", "Nanum Brush Script", "Segoe Script", cursive' },
+    { id: 'Pretendard', label: 'Pretendard', group: 'kr',
+      css: 'Pretendard, "Malgun Gothic", "Segoe UI", sans-serif' },
+    { id: 'IBM Plex Sans KR', label: 'IBM Plex Sans KR', group: 'kr',
+      css: '"IBM Plex Sans KR", "Malgun Gothic", sans-serif' },
+    // Sans
+    { id: 'Segoe UI', label: 'Segoe UI', group: 'sans',
+      css: '"Segoe UI", "Malgun Gothic", "Noto Sans KR", sans-serif' },
+    { id: 'Segoe UI Light', label: 'Segoe UI Light', group: 'sans',
+      css: '"Segoe UI Light", "Segoe UI", "Malgun Gothic", sans-serif' },
+    { id: 'Segoe UI Semibold', label: 'Segoe UI Semibold', group: 'sans',
+      css: '"Segoe UI Semibold", "Segoe UI", "Malgun Gothic", sans-serif' },
+    { id: 'Segoe UI Black', label: 'Segoe UI Black', group: 'sans',
+      css: '"Segoe UI Black", "Segoe UI", Impact, sans-serif' },
+    { id: 'Arial', label: 'Arial', group: 'sans',
+      css: 'Arial, Helvetica, "Malgun Gothic", sans-serif' },
+    { id: 'Arial Black', label: 'Arial Black', group: 'sans',
+      css: '"Arial Black", Arial, Impact, sans-serif' },
+    { id: 'Arial Narrow', label: 'Arial Narrow', group: 'sans',
+      css: '"Arial Narrow", Arial, sans-serif' },
+    { id: 'Helvetica', label: 'Helvetica', group: 'sans',
+      css: 'Helvetica, Arial, "Malgun Gothic", sans-serif' },
+    { id: 'Verdana', label: 'Verdana', group: 'sans',
+      css: 'Verdana, Geneva, "Malgun Gothic", sans-serif' },
+    { id: 'Tahoma', label: 'Tahoma', group: 'sans',
+      css: 'Tahoma, Geneva, "Malgun Gothic", sans-serif' },
+    { id: 'Trebuchet MS', label: 'Trebuchet MS', group: 'sans',
+      css: '"Trebuchet MS", Tahoma, sans-serif' },
+    { id: 'Calibri', label: 'Calibri', group: 'sans',
+      css: 'Calibri, "Segoe UI", "Malgun Gothic", sans-serif' },
+    { id: 'Calibri Light', label: 'Calibri Light', group: 'sans',
+      css: '"Calibri Light", Calibri, "Segoe UI", sans-serif' },
+    { id: 'Candara', label: 'Candara', group: 'sans',
+      css: 'Candara, Calibri, "Segoe UI", sans-serif' },
+    { id: 'Corbel', label: 'Corbel', group: 'sans',
+      css: 'Corbel, Calibri, "Segoe UI", sans-serif' },
+    { id: 'Franklin Gothic Medium', label: 'Franklin Gothic', group: 'sans',
+      css: '"Franklin Gothic Medium", "Arial Narrow", Arial, sans-serif' },
+    { id: 'Century Gothic', label: 'Century Gothic', group: 'sans',
+      css: '"Century Gothic", CenturyGothic, AppleGothic, sans-serif' },
+    { id: 'Gill Sans MT', label: 'Gill Sans MT', group: 'sans',
+      css: '"Gill Sans MT", "Gill Sans", Calibri, sans-serif' },
+    { id: 'Microsoft Sans Serif', label: 'Microsoft Sans Serif', group: 'sans',
+      css: '"Microsoft Sans Serif", Tahoma, sans-serif' },
+    { id: 'Yu Gothic', label: 'Yu Gothic', group: 'sans',
+      css: '"Yu Gothic", "Malgun Gothic", "Segoe UI", sans-serif' },
+    { id: 'Yu Gothic UI', label: 'Yu Gothic UI', group: 'sans',
+      css: '"Yu Gothic UI", "Yu Gothic", "Malgun Gothic", sans-serif' },
+    { id: 'Microsoft YaHei', label: 'Microsoft YaHei', group: 'sans',
+      css: '"Microsoft YaHei", "Malgun Gothic", sans-serif' },
+    { id: 'Microsoft JhengHei', label: 'Microsoft JhengHei', group: 'sans',
+      css: '"Microsoft JhengHei", "Malgun Gothic", sans-serif' },
+    { id: 'Roboto', label: 'Roboto', group: 'sans',
+      css: 'Roboto, "Segoe UI", "Malgun Gothic", sans-serif' },
+    { id: 'Bahnschrift', label: 'Bahnschrift', group: 'sans',
+      css: 'Bahnschrift, "Segoe UI", sans-serif' },
+    // Serif
+    { id: 'Times New Roman', label: 'Times New Roman', group: 'serif',
+      css: '"Times New Roman", Times, Batang, serif' },
+    { id: 'Georgia', label: 'Georgia', group: 'serif',
+      css: 'Georgia, "Times New Roman", Batang, serif' },
+    { id: 'Garamond', label: 'Garamond', group: 'serif',
+      css: 'Garamond, "Times New Roman", serif' },
+    { id: 'Palatino Linotype', label: 'Palatino Linotype', group: 'serif',
+      css: '"Palatino Linotype", Palatino, "Book Antiqua", serif' },
+    { id: 'Book Antiqua', label: 'Book Antiqua', group: 'serif',
+      css: '"Book Antiqua", Palatino, serif' },
+    { id: 'Bookman Old Style', label: 'Bookman Old Style', group: 'serif',
+      css: '"Bookman Old Style", "Bookman", Georgia, serif' },
+    { id: 'Cambria', label: 'Cambria', group: 'serif',
+      css: 'Cambria, Georgia, "Times New Roman", serif' },
+    { id: 'Constantia', label: 'Constantia', group: 'serif',
+      css: 'Constantia, Georgia, serif' },
+    { id: 'Century Schoolbook', label: 'Century Schoolbook', group: 'serif',
+      css: '"Century Schoolbook", Century, Georgia, serif' },
+    { id: 'Century', label: 'Century', group: 'serif',
+      css: 'Century, "Century Schoolbook", Georgia, serif' },
+    { id: 'Bodoni MT', label: 'Bodoni MT', group: 'serif',
+      css: '"Bodoni MT", Didot, Georgia, serif' },
+    { id: 'Goudy Old Style', label: 'Goudy Old Style', group: 'serif',
+      css: '"Goudy Old Style", Garamond, serif' },
+    { id: 'Sitka Text', label: 'Sitka Text', group: 'serif',
+      css: '"Sitka Text", Georgia, serif' },
+    { id: 'Rockwell', label: 'Rockwell', group: 'serif',
+      css: 'Rockwell, "Courier New", serif' },
+    // Mono
+    { id: 'Courier New', label: 'Courier New', group: 'mono',
+      css: '"Courier New", Courier, monospace' },
+    { id: 'Consolas', label: 'Consolas', group: 'mono',
+      css: 'Consolas, "Courier New", monospace' },
+    { id: 'Lucida Console', label: 'Lucida Console', group: 'mono',
+      css: '"Lucida Console", Monaco, monospace' },
+    { id: 'Cascadia Code', label: 'Cascadia Code', group: 'mono',
+      css: '"Cascadia Code", Consolas, monospace' },
+    { id: 'Cascadia Mono', label: 'Cascadia Mono', group: 'mono',
+      css: '"Cascadia Mono", Consolas, monospace' },
+    { id: 'MS Gothic', label: 'MS Gothic', group: 'mono',
+      css: '"MS Gothic", "MS PGothic", monospace' },
+    // Display / decorative
+    { id: 'Impact', label: 'Impact', group: 'display',
+      css: 'Impact, Haettenschweiler, "Arial Black", sans-serif' },
+    { id: 'Haettenschweiler', label: 'Haettenschweiler', group: 'display',
+      css: 'Haettenschweiler, Impact, sans-serif' },
+    { id: 'Copperplate Gothic Bold', label: 'Copperplate Gothic', group: 'display',
+      css: '"Copperplate Gothic Bold", "Copperplate Gothic Light", fantasy' },
+    { id: 'Showcard Gothic', label: 'Showcard Gothic', group: 'display',
+      css: '"Showcard Gothic", Impact, fantasy' },
+    { id: 'Stencil', label: 'Stencil', group: 'display',
+      css: 'Stencil, Impact, fantasy' },
+    { id: 'Broadway', label: 'Broadway', group: 'display',
+      css: 'Broadway, Impact, fantasy' },
+    { id: 'Playbill', label: 'Playbill', group: 'display',
+      css: 'Playbill, Impact, fantasy' },
+    { id: 'Wide Latin', label: 'Wide Latin', group: 'display',
+      css: '"Wide Latin", Impact, fantasy' },
+    { id: 'Algerian', label: 'Algerian', group: 'display',
+      css: 'Algerian, "Times New Roman", fantasy' },
+    { id: 'Castellar', label: 'Castellar', group: 'display',
+      css: 'Castellar, "Times New Roman", fantasy' },
+    { id: 'Engravers MT', label: 'Engravers MT', group: 'display',
+      css: '"Engravers MT", "Times New Roman", fantasy' },
+    { id: 'Cooper Black', label: 'Cooper Black', group: 'display',
+      css: '"Cooper Black", Georgia, fantasy' },
+    { id: 'Bauhaus 93', label: 'Bauhaus 93', group: 'display',
+      css: '"Bauhaus 93", Impact, fantasy' },
+    { id: 'Tw Cen MT', label: 'Tw Cen MT', group: 'display',
+      css: '"Tw Cen MT", CenturyGothic, sans-serif' },
+    // Script / handwriting
+    { id: 'Comic Sans MS', label: 'Comic Sans MS', group: 'script',
+      css: '"Comic Sans MS", "Comic Sans", cursive' },
+    { id: 'Segoe Print', label: 'Segoe Print', group: 'script',
+      css: '"Segoe Print", "Comic Sans MS", cursive' },
+    { id: 'Segoe Script', label: 'Segoe Script', group: 'script',
+      css: '"Segoe Script", "Segoe Print", cursive' },
+    { id: 'Brush Script MT', label: 'Brush Script MT', group: 'script',
+      css: '"Brush Script MT", cursive' },
+    { id: 'Lucida Handwriting', label: 'Lucida Handwriting', group: 'script',
+      css: '"Lucida Handwriting", "Segoe Script", cursive' },
+    { id: 'Lucida Calligraphy', label: 'Lucida Calligraphy', group: 'script',
+      css: '"Lucida Calligraphy", "Segoe Script", cursive' },
+    { id: 'Ink Free', label: 'Ink Free', group: 'script',
+      css: '"Ink Free", "Segoe Print", cursive' },
+    { id: 'Freestyle Script', label: 'Freestyle Script', group: 'script',
+      css: '"Freestyle Script", "Segoe Script", cursive' },
+    { id: 'French Script MT', label: 'French Script MT', group: 'script',
+      css: '"French Script MT", "Segoe Script", cursive' },
+    { id: 'Edwardian Script ITC', label: 'Edwardian Script', group: 'script',
+      css: '"Edwardian Script ITC", "Segoe Script", cursive' },
+    { id: 'Vivaldi', label: 'Vivaldi', group: 'script',
+      css: 'Vivaldi, "Segoe Script", cursive' },
+    { id: 'Monotype Corsiva', label: 'Monotype Corsiva', group: 'script',
+      css: '"Monotype Corsiva", "Segoe Script", cursive' },
+    { id: 'Kristen ITC', label: 'Kristen ITC', group: 'script',
+      css: '"Kristen ITC", "Comic Sans MS", cursive' },
+    { id: 'Papyrus', label: 'Papyrus', group: 'script',
+      css: 'Papyrus, fantasy' },
+    { id: 'Gabriola', label: 'Gabriola', group: 'script',
+      css: 'Gabriola, "Segoe Script", cursive' },
+  ];
+
+  const CAPTION_FONT_GROUPS = {
+    kr: 'Korean',
+    sans: 'Sans',
+    serif: 'Serif',
+    mono: 'Mono',
+    display: 'Display',
+    script: 'Script',
+    system: 'System',
+  };
+
+  function getCaptionFonts() {
+    // Deduplicate by id (keep first)
+    const seen = new Set();
+    return CAPTION_FONTS.filter((f) => {
+      if (seen.has(f.id)) return false;
+      seen.add(f.id);
+      return true;
+    });
+  }
+
   function _captionFontCss() {
-    const map = {
-      'Segoe UI': '"Segoe UI", "Malgun Gothic", "Noto Sans KR", sans-serif',
-      'Malgun Gothic': '"Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif',
-      'Noto Sans KR': '"Noto Sans KR", "Malgun Gothic", "Segoe UI", sans-serif',
-      Arial: 'Arial, Helvetica, sans-serif',
-      Georgia: 'Georgia, "Times New Roman", serif',
-      'Times New Roman': '"Times New Roman", Times, serif',
-      'Courier New': '"Courier New", Courier, monospace',
-      Impact: 'Impact, Haettenschweiler, sans-serif',
-      Verdana: 'Verdana, Geneva, sans-serif',
-      'Comic Sans MS': '"Comic Sans MS", "Comic Sans", cursive',
-    };
     const key = String(effects.borderCaptionFont || 'Segoe UI');
-    return map[key] || map['Segoe UI'];
+    const hit = CAPTION_FONTS.find((f) => f.id === key);
+    if (hit) return hit.css;
+    // Unknown / system-detected family — quote safely + KR fallback
+    const safe = key.replace(/\\/g, '').replace(/"/g, '');
+    return `"${safe}", "Malgun Gothic", "Noto Sans KR", "Segoe UI", sans-serif`;
   }
 
   function _captionFillColor(matColor) {
@@ -1101,15 +1363,67 @@ window.Editor = (() => {
     lomo:       { saturation: 148, contrast: 135, vignette: 78, warmth: 32, hue: 6 },
     filmcamera: { warmth: 40, sepia: 16, contrast: 92, brightness: 106, saturation: 90, hue: 6, vignette: 34, grain: 42, sharpen: 10 },
     disposable: { brightness: 118, contrast: 108, saturation: 85, warmth: 22, hue: 8, vignette: 48, grain: 55, sharpen: 6 },
-    kodachrome: { saturation: 145, contrast: 128, warmth: 28, hue: 8, sharpen: 22, vignette: 16 },
-    velvia:     { saturation: 178, contrast: 145, warmth: 6, hue: -14, sharpen: 34, vignette: 10, contrast: 108 },
+    /* Color negative */
     portra:     { warmth: 30, saturation: 96, contrast: 88, brightness: 108, hue: 4, grain: 22, vignette: 16 },
-    trix:       { grayscale: 100, contrast: 138, brightness: 98, grain: 64, vignette: 28, sharpen: 18 },
-    expired:    { hue: 22, saturation: 68, contrast: 76, brightness: 114, warmth: 18, grain: 52, vignette: 24, sepia: 12 },
-    cinestill:  { warmth: 58, saturation: 118, contrast: 110, brightness: 102, blur: 0.7, grain: 26, vignette: 18, hue: 8 },
-    redscale:   { hue: 42, warmth: 100, saturation: 145, contrast: 125, brightness: 88, vignette: 38, contrast: 20 },
-    holga:      { contrast: 122, saturation: 78, brightness: 112, vignette: 80, grain: 42, blur: 0.8, warmth: 22 },
+    portra160:  { warmth: 22, saturation: 92, contrast: 82, brightness: 112, hue: 2, grain: 12, vignette: 10, sharpen: 4 },
+    portra400:  { warmth: 32, saturation: 98, contrast: 90, brightness: 108, hue: 5, grain: 24, vignette: 14 },
+    portra800:  { warmth: 38, saturation: 102, contrast: 96, brightness: 102, hue: 8, grain: 48, vignette: 20, sepia: 8 },
+    ektar:      { saturation: 155, contrast: 128, warmth: 18, hue: -6, sharpen: 28, brightness: 104, vignette: 8, grain: 14 },
+    gold200:    { warmth: 48, hue: 10, saturation: 108, contrast: 100, brightness: 110, grain: 28, vignette: 18, sepia: 8 },
+    ultramax:   { warmth: 42, saturation: 118, contrast: 108, brightness: 106, hue: 8, grain: 36, vignette: 16 },
+    colorplus:  { warmth: 35, saturation: 88, contrast: 94, brightness: 112, hue: 6, grain: 32, vignette: 22, sepia: 6 },
+    fuji400h:   { warmth: 12, hue: -8, saturation: 90, contrast: 86, brightness: 112, grain: 20, vignette: 12 },
+    pro400h:    { warmth: 8, hue: -10, saturation: 86, contrast: 84, brightness: 114, grain: 18, vignette: 10, sharpen: 2 },
+    superia:    { warmth: 28, hue: 4, saturation: 125, contrast: 112, brightness: 106, grain: 30, vignette: 14 },
+    agfacolor:  { warmth: 55, hue: 16, saturation: 95, contrast: 98, brightness: 108, grain: 34, vignette: 24, sepia: 14 },
+    lomochrome: { hue: 18, saturation: 158, contrast: 122, warmth: 40, vignette: 55, grain: 38, brightness: 100 },
+    /* Slide / reversal */
+    kodachrome: { saturation: 145, contrast: 128, warmth: 28, hue: 8, sharpen: 22, vignette: 16 },
+    kodachrome25: { saturation: 138, contrast: 135, warmth: 22, hue: 6, sharpen: 30, vignette: 12, brightness: 98, grain: 8 },
+    kodachrome64: { saturation: 148, contrast: 130, warmth: 32, hue: 10, sharpen: 24, vignette: 14, brightness: 100, grain: 12 },
+    ektachrome: { saturation: 132, contrast: 122, warmth: -8, hue: -18, sharpen: 26, brightness: 102, vignette: 10, grain: 10 },
+    velvia:     { saturation: 178, contrast: 145, warmth: 6, hue: -14, sharpen: 34, vignette: 10, brightness: 108 },
+    velvia50:   { saturation: 188, contrast: 152, warmth: 4, hue: -18, sharpen: 38, vignette: 8, brightness: 106, grain: 6 },
+    velvia100:  { saturation: 172, contrast: 142, warmth: 8, hue: -12, sharpen: 32, vignette: 10, brightness: 108, grain: 10 },
+    provia:     { saturation: 128, contrast: 118, warmth: -4, hue: -10, sharpen: 24, brightness: 106, vignette: 8, grain: 8 },
+    sensia:     { saturation: 118, contrast: 108, warmth: 6, hue: -6, brightness: 110, vignette: 12, grain: 14 },
+    astia:      { saturation: 105, contrast: 98, warmth: 14, hue: 4, brightness: 114, vignette: 10, grain: 10, sharpen: 8 },
     slide:      { saturation: 145, contrast: 148, brightness: 88, warmth: -5, sharpen: 34, vignette: 4, hue: -16 },
+    /* Black & white film */
+    trix:       { grayscale: 100, contrast: 138, brightness: 98, grain: 64, vignette: 28, sharpen: 18 },
+    trix400:    { grayscale: 100, contrast: 142, brightness: 96, grain: 70, vignette: 30, sharpen: 20 },
+    hp5:        { grayscale: 100, contrast: 128, brightness: 102, grain: 58, vignette: 22, sharpen: 14 },
+    delta100:   { grayscale: 100, contrast: 118, brightness: 108, grain: 18, vignette: 10, sharpen: 22 },
+    delta3200:  { grayscale: 100, contrast: 135, brightness: 94, grain: 92, vignette: 32, sharpen: 8, blur: 0.3 },
+    panf:       { grayscale: 100, contrast: 112, brightness: 112, grain: 10, vignette: 6, sharpen: 28 },
+    neopan:     { grayscale: 100, contrast: 145, brightness: 92, grain: 78, vignette: 26, sharpen: 16 },
+    tmax100:    { grayscale: 100, contrast: 122, brightness: 106, grain: 14, vignette: 8, sharpen: 26 },
+    tmax400:    { grayscale: 100, contrast: 130, brightness: 100, grain: 42, vignette: 16, sharpen: 18 },
+    xp2:        { grayscale: 100, contrast: 108, brightness: 112, grain: 22, vignette: 12, sharpen: 10, sepia: 4 },
+    plusx:      { grayscale: 100, contrast: 120, brightness: 104, grain: 36, vignette: 18, sharpen: 16, sepia: 4 },
+    fomapan:    { grayscale: 100, contrast: 132, brightness: 98, grain: 55, vignette: 24, sharpen: 12 },
+    /* Instant / toy */
+    sx70:       { warmth: 45, sepia: 22, saturation: 78, contrast: 82, brightness: 116, vignette: 48, grain: 28, hue: 8, blur: 0.4 },
+    instax:     { warmth: 28, saturation: 112, contrast: 95, brightness: 118, vignette: 35, grain: 16, hue: 4 },
+    diana:      { contrast: 115, saturation: 72, brightness: 114, vignette: 85, grain: 48, blur: 1.1, warmth: 30, hue: 10 },
+    sprocket:   { saturation: 135, contrast: 118, warmth: 25, vignette: 62, grain: 40, hue: 12, brightness: 108, blur: 0.5 },
+    holga:      { contrast: 122, saturation: 78, brightness: 112, vignette: 80, grain: 42, blur: 0.8, warmth: 22 },
+    /* Cinema */
+    cinestill:  { warmth: 58, saturation: 118, contrast: 110, brightness: 102, blur: 0.7, grain: 26, vignette: 18, hue: 8 },
+    cinestill800t: { warmth: 72, hue: 14, saturation: 125, contrast: 118, brightness: 96, blur: 0.9, grain: 32, vignette: 22 },
+    vision3500t: { warmth: -8, hue: -22, saturation: 108, contrast: 122, brightness: 98, grain: 28, vignette: 16 },
+    vision3250d: { warmth: 18, hue: -4, saturation: 115, contrast: 120, brightness: 104, grain: 20, vignette: 12, sharpen: 12 },
+    /* Process / experimental */
+    expired:    { hue: 22, saturation: 68, contrast: 76, brightness: 114, warmth: 18, grain: 52, vignette: 24, sepia: 12 },
+    expiredcool: { hue: -28, saturation: 55, contrast: 72, brightness: 118, warmth: -25, grain: 58, vignette: 28 },
+    redscale:   { hue: 42, warmth: 100, saturation: 145, contrast: 125, brightness: 88, vignette: 38, sepia: 20 },
+    bleachbypass: { saturation: 35, contrast: 155, brightness: 92, grayscale: 25, vignette: 30, sharpen: 24, grain: 20 },
+    crossfuji:  { hue: -35, saturation: 155, contrast: 138, warmth: 25, vignette: 20, grain: 18 },
+    filmPush2:  { contrast: 158, saturation: 140, grain: 62, brightness: 86, vignette: 32, warmth: 15, sharpen: 8 },
+    filmPull1:  { contrast: 78, saturation: 72, brightness: 122, grain: 14, warmth: 8, blur: 0.35, vignette: 10 },
+    nightflash: { brightness: 88, contrast: 135, saturation: 95, warmth: 55, vignette: 58, grain: 40, hue: 12, sharpen: 10 },
+    halfFrame:  { contrast: 118, saturation: 105, warmth: 20, vignette: 45, grain: 38, brightness: 104, hue: 6, sepia: 6 },
+    doubleExp:  { brightness: 128, contrast: 70, saturation: 85, blur: 1.6, warmth: 25, vignette: 30, hue: 8, grain: 22 },
     autumn:     { warmth: 78, hue: 28, saturation: 118, contrast: 115, brightness: 96, vignette: 18 },
     spring:     { hue: -22, saturation: 132, brightness: 116, contrast: 90, warmth: -18 },
     dusk:       { hue: -10, warmth: 55, saturation: 78, brightness: 72, contrast: 128, vignette: 48 },
@@ -1180,16 +1494,16 @@ window.Editor = (() => {
     pull:       { contrast: 88, saturation: 68, brightness: 118, grain: 10, warmth: 12, blur: 0.3 },
     midcentury: { sepia: 34, warmth: 45, saturation: 60, contrast: 98, brightness: 112, vignette: 36 },
     horror:     { hue: -15, warmth: -20, brightness: 78, contrast: 155, saturation: 50, vignette: 55, grain: 30 },
-    // Miniature diorama: elliptical macro DOF + toy color (grade also inside tiltShift)
+    // Miniature diorama: dual-plane DOF + toy color (grade also inside tiltShift)
     miniature:  {
-      tiltShift: 30,
-      saturation: 138,
-      contrast: 128,
-      brightness: 106,
-      warmth: 22,
-      hue: 5,
-      sharpen: 28,
-      vignette: 26,
+      tiltShift: 48,
+      saturation: 142,
+      contrast: 130,
+      brightness: 108,
+      warmth: 24,
+      hue: 4,
+      sharpen: 32,
+      vignette: 22,
     },
   };
 
@@ -2222,7 +2536,7 @@ window.Editor = (() => {
 
   return {
     init, setCallbacks, loadImage,
-    setEffect, getEffects, setCaptionLines, setCaptionValues, resetEffects, applyPreset,
+    setEffect, getEffects, getCaptionFonts, setCaptionLines, setCaptionValues, resetEffects, applyPreset,
     rotate, flip, resetTransform,
     setTool, getTool, clearSelection, hasSelection,
     removeBackground, removeBackgroundAuto, listBgAlgorithms, isRembgAlgorithm, applyFromDataUrl,
