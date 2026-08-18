@@ -1237,7 +1237,8 @@
       window.electronAPI.getFileUrl(filePath).then(url => {
         videoEl.src = url;
         videoEl.load();
-        _showMediaCue('pause', true);
+        // Fresh load is idle (not user-paused) — don't show a pause badge
+        _hideMediaCue();
         _updateMediaControlsVisibility();
         _syncMediaTransportButtons();
       });
