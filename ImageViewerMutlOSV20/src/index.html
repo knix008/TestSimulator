@@ -86,15 +86,35 @@
             <div style="position:relative;">
               <canvas id="display-canvas" style="display:none;"></canvas>
               <canvas id="sel-canvas" style="display:none;position:absolute;top:0;left:0;pointer-events:auto;"></canvas>
+              <img id="animated-image" alt="" draggable="false"
+                style="display:none;max-width:none;max-height:none;image-rendering:auto;pointer-events:none;user-select:none;-webkit-user-drag:none;">
+              <canvas id="animated-freeze" aria-hidden="true"
+                style="display:none;max-width:none;max-height:none;pointer-events:none;"></canvas>
             </div>
           </div>
 
           <!-- Video player -->
           <video id="video-player"
             style="display:none;position:absolute;top:0;left:0;width:100%;height:100%;object-fit:contain;outline:none;background:#000;"
-            controls
             preload="metadata">
           </video>
+
+          <!-- Custom media transport (video / animated GIF) -->
+          <div id="media-controls" class="media-controls" style="display:none;" hidden>
+            <button type="button" class="media-ctrl-btn" id="mc-play" data-i18n-title="toolbar.play" title="Play">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.14v13.72L19.5 12 8 5.14z"/></svg>
+            </button>
+            <button type="button" class="media-ctrl-btn" id="mc-pause" data-i18n-title="toolbar.pause" title="Pause">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5h4.2v14H6zm7.8 0H18v14h-4.2z"/></svg>
+            </button>
+            <button type="button" class="media-ctrl-btn" id="mc-stop" data-i18n-title="toolbar.stop" title="Stop">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="1.2"/></svg>
+            </button>
+            <div class="media-ctrl-seek-wrap">
+              <input type="range" id="mc-seek" class="media-ctrl-seek" min="0" max="1000" value="0" step="1" aria-label="Seek">
+            </div>
+            <span id="mc-time" class="media-ctrl-time">0:00 / 0:00</span>
+          </div>
 
           <!-- Play / pause / stop cue overlay -->
           <div id="media-cue" class="media-cue" aria-hidden="true">

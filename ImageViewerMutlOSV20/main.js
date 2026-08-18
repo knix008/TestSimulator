@@ -891,6 +891,379 @@ ipcMain.handle('read-image-meta', async (event, filePath) => {
   return out;
 });
 
+/** Audio/video container metadata (duration, codecs, dimensions, tags). */
+ipcMain.handle('read-media-meta', async (event, filePath) => {
+  if (!filePath) return null;
+  const out = { basic: {}, tags: {}, all: {} };
+  const ext = path.extname(filePath).toLowerCase().slice(1);
+  let fileSize = null;
+  try {
+    fileSize = (await fs.promises.stat(filePath)).size;
+  } catch {}
+
+  function _applyBasic(basic) {
+    out.basic = {};
+    for (const [k, v] of Object.entries(basic || {})) {
+      if (v == null || v === '') continue;
+      out.basic[k] = v;
+    }
+  }
+
+  function _applyTagMap(tagMap) {
+    for (const [k, v] of Object.entries(tagMap || {})) {
+      if (v == null || v === '') continue;
+      out.tags[k] = v;
+      out.all[k] = v;
+    }
+  }
+
+  function _stripCodecDecor(name) {
+    return String(name || '').replace(/^<|>$/g, '').trim();
+  }
+
+  function _prettyCodec(name) {
+    const raw = _stripCodecDecor(name);
+    if (!raw) return null;
+    const key = raw.toLowerCase();
+    const map = {
+      avc1: 'H.264 (AVC)', avc: 'H.264 (AVC)', h264: 'H.264 (AVC)',
+      hvc1: 'H.265 (HEVC)', hev1: 'H.265 (HEVC)', hevc: 'H.265 (HEVC)', h265: 'H.265 (HEVC)',
+      vp8: 'VP8', vp9: 'VP9', av01: 'AV1', av1: 'AV1',
+      vorbis: 'Vorbis', opus: 'Opus', flac: 'FLAC', pcm: 'PCM',
+      'mpeg-4/aac': 'AAC', aac: 'AAC',
+      'mpeg 1 layer 3': 'MP3', 'mpeg 2 layer 3': 'MP3', mp3: 'MP3',
+      'ieee float': 'IEEE Float',
+    };
+    if (map[key]) return map[key];
+    if (/avc|h\.?264/i.test(raw)) return 'H.264 (AVC)';
+    if (/hvc|hev|h\.?265|hevc/i.test(raw)) return 'H.265 (HEVC)';
+    if (/mpeg-4\s*\/\s*aac|aac/i.test(raw)) return 'AAC';
+    if (/mpeg\s*\d*\s*layer\s*3|mp3/i.test(raw)) return 'MP3';
+    if (/^text$/i.test(raw)) return null;
+    return raw;
+  }
+
+  function _isVideoCodecName(name) {
+    const s = _stripCodecDecor(name);
+    if (!s || /^text$/i.test(s)) return false;
+    // Audio MPEG labels must not count as video (e.g. "MPEG-4/AAC", "MPEG 1 Layer 3")
+    if (/mpeg.*layer|\bmp3\b|mpeg-4\s*\/\s*aac|(^|\/)\s*aac\b|\bvorbis\b|\bopus\b|\bflac\b|\bpcm\b/i.test(s)
+      && !/\b(avc\d*|h\.?26[45]|vp[89]|hevc|hvc1|hev1)\b/i.test(s)) {
+      return false;
+    }
+    return /^(vp[89]|av0?1|avc\d*|h\.?26[45]|hevc|hvc1|hev1|theora|mp4v)/i.test(s)
+      || /\b(vp[89]|h\.?26[45]|avc\d*|hevc|hvc1|hev1|mp4v)\b/i.test(s);
+  }
+
+  function _isAudioCodecName(name) {
+    const s = _stripCodecDecor(name);
+    if (!s || /^text$/i.test(s)) return false;
+    if (_isVideoCodecName(s)) return false;
+    return /^(vorbis|opus|aac|mp3|flac|pcm|ac-?3|e-?ac-?3)/i.test(s)
+      || /MPEG-4\s*\/\s*AAC|MPEG\s+\d+\s+Layer|\bAAC\b|\bVorbis\b|\bOpus\b|\bFLAC\b|\bPCM\b|\bMP3\b/i.test(s)
+      || (/^mpeg/i.test(s) && /aac|layer|audio/i.test(s));
+  }
+
+  function _fmtContainer(container, fileExt) {
+    if (!container) return (fileExt || '').toUpperCase() || null;
+    let s = String(container).replace(/^EBML\//i, '').trim();
+    const low = s.toLowerCase();
+    if (/^(mp4|isom|iso2|mp42|avc1|m4a|m4v)/i.test(low) || /\/(isom|iso2|mp42|avc1)\b/i.test(low)) {
+      return 'MP4';
+    }
+    if (/^webm$/i.test(low)) return 'WebM';
+    if (/^matroska|mkv$/i.test(low)) return 'Matroska';
+    if (/^wave|wav$/i.test(low)) return 'WAVE';
+    if (/^mpeg$/i.test(low)) return 'MPEG';
+    if (/^ogg$/i.test(low)) return 'Ogg';
+    if (/^flac$/i.test(low)) return 'FLAC';
+    return s;
+  }
+
+  /** Lightweight RIFF/WAVE header fallback (PCM and common variants). */
+  async function _parseWavFallback() {
+    if (ext !== 'wav' && ext !== 'wave') return null;
+    const fh = await fs.promises.open(filePath, 'r');
+    try {
+      const head = Buffer.alloc(12);
+      await fh.read(head, 0, 12, 0);
+      if (head.toString('ascii', 0, 4) !== 'RIFF' || head.toString('ascii', 8, 12) !== 'WAVE') {
+        return null;
+      }
+      let offset = 12;
+      const stat = await fh.stat();
+      let fmt = null;
+      let dataSize = null;
+      const infoTags = {};
+      while (offset + 8 <= stat.size) {
+        const chunkHead = Buffer.alloc(8);
+        await fh.read(chunkHead, 0, 8, offset);
+        const id = chunkHead.toString('ascii', 0, 4);
+        const size = chunkHead.readUInt32LE(4);
+        const dataOff = offset + 8;
+        if (id === 'fmt ' && size >= 16) {
+          const fmtBuf = Buffer.alloc(Math.min(size, 40));
+          await fh.read(fmtBuf, 0, fmtBuf.length, dataOff);
+          fmt = {
+            audioFormat: fmtBuf.readUInt16LE(0),
+            channels: fmtBuf.readUInt16LE(2),
+            sampleRate: fmtBuf.readUInt32LE(4),
+            byteRate: fmtBuf.readUInt32LE(8),
+            blockAlign: fmtBuf.readUInt16LE(12),
+            bitsPerSample: fmtBuf.readUInt16LE(14),
+          };
+        } else if (id === 'data') {
+          dataSize = size;
+        } else if (id === 'LIST' && size >= 4) {
+          const listKind = Buffer.alloc(4);
+          await fh.read(listKind, 0, 4, dataOff);
+          if (listKind.toString('ascii') === 'INFO') {
+            let p = dataOff + 4;
+            const end = dataOff + size;
+            while (p + 8 <= end) {
+              const ih = Buffer.alloc(8);
+              await fh.read(ih, 0, 8, p);
+              const iid = ih.toString('ascii', 0, 4);
+              const isize = ih.readUInt32LE(4);
+              const ival = Buffer.alloc(Math.min(isize, 1024));
+              await fh.read(ival, 0, ival.length, p + 8);
+              const text = ival.toString('utf8').replace(/\0+$/, '').trim();
+              if (text) infoTags[iid] = text;
+              p += 8 + isize + (isize % 2); // word-aligned
+            }
+          }
+        }
+        offset += 8 + size + (size % 2);
+        if (offset > stat.size) break;
+      }
+      if (!fmt) return null;
+      const codecMap = {
+        1: 'PCM',
+        3: 'IEEE Float',
+        6: 'A-law',
+        7: 'μ-law',
+        17: 'IMA ADPCM',
+        85: 'MPEG',
+        65534: 'Extensible',
+      };
+      const bytesPerSample = Math.max(1, Math.round(fmt.bitsPerSample / 8));
+      const duration = (dataSize != null && fmt.sampleRate && fmt.channels)
+        ? dataSize / (fmt.sampleRate * fmt.channels * bytesPerSample)
+        : null;
+      const bitrate = fmt.byteRate ? fmt.byteRate * 8 : null;
+      return {
+        basic: {
+          format: 'WAVE',
+          duration: Number.isFinite(duration) ? duration : null,
+          bitrate: Number.isFinite(bitrate) ? bitrate : null,
+          sampleRate: fmt.sampleRate || null,
+          channels: fmt.channels || null,
+          bitsPerSample: fmt.bitsPerSample || null,
+          codec: codecMap[fmt.audioFormat] || `format ${fmt.audioFormat}`,
+          audioCodec: codecMap[fmt.audioFormat] || `format ${fmt.audioFormat}`,
+          lossless: fmt.audioFormat === 1 || fmt.audioFormat === 3,
+          mediaKind: 'audio',
+          blockAlign: fmt.blockAlign || null,
+        },
+        tags: {
+          title: infoTags.INAM || infoTags.TITLE || null,
+          artist: infoTags.IART || infoTags.ARTIST || null,
+          album: infoTags.IPRD || infoTags.ALBUM || null,
+          copyright: infoTags.ICOP || null,
+          comment: infoTags.ICMT || null,
+          genre: infoTags.IGNR || null,
+          date: infoTags.ICRD || null,
+          encoder: infoTags.ISFT || infoTags.ITCH || null,
+          description: infoTags.ISBJ || null,
+        },
+      };
+    } finally {
+      await fh.close();
+    }
+  }
+
+  try {
+    const mm = await import('music-metadata');
+    const metadata = await Promise.race([
+      mm.parseFile(filePath, { duration: true, skipCovers: true }),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('media meta timeout')), 8000)),
+    ]);
+    const fmt = metadata.format || {};
+    const common = metadata.common || {};
+
+    let width = null;
+    let height = null;
+    let videoCodec = null;
+    let audioCodec = null;
+    let frameRate = null;
+    let trackSampleRate = null;
+    let trackChannels = null;
+    let trackBitDepth = null;
+    // music-metadata: format.trackInfo (and sometimes top-level trackInfo)
+    // Note: ISOBMFF/MP4 often mis-labels video tracks (type=2 + bogus audio blob for <avc1>).
+    const trackInfo = Array.isArray(fmt.trackInfo)
+      ? fmt.trackInfo
+      : (Array.isArray(metadata.trackInfo) ? metadata.trackInfo : []);
+    for (const t of trackInfo) {
+      if (!t || typeof t !== 'object') continue;
+      const codecRaw = t.codecName || t.codec || t.codecProfile || null;
+      if (!codecRaw || /^text$/i.test(_stripCodecDecor(codecRaw))) continue;
+      const v = (t.video && typeof t.video === 'object') ? t.video : null;
+      const a = (t.audio && typeof t.audio === 'object') ? t.audio : null;
+      const typeNum = Number(t.type);
+      const typeStr = String(t.type || '').toLowerCase();
+      const byCodecVideo = _isVideoCodecName(codecRaw);
+      const byCodecAudio = _isAudioCodecName(codecRaw);
+      // Prefer codec-name heuristics; Matroska uses type 1=video / 2=audio reliably.
+      const looksVideo = byCodecVideo || !!(v && (v.pixelWidth || v.pixelHeight))
+        || typeNum === 1 || typeStr === 'video' || typeStr.includes('video');
+      const looksAudio = !byCodecVideo && (byCodecAudio
+        || !!(a && ((a.channels > 0) || (a.samplingFrequency >= 1000)))
+        || ((typeNum === 2 || typeStr === 'audio' || typeStr.includes('audio')) && !byCodecVideo));
+
+      if (looksVideo) {
+        const tw = v?.pixelWidth || v?.displayWidth || t.width || t.pixelWidth || null;
+        const th = v?.pixelHeight || v?.displayHeight || t.height || t.pixelHeight || null;
+        if (tw) width = tw;
+        if (th) height = th;
+        const pretty = _prettyCodec(codecRaw);
+        if (pretty) videoCodec = pretty;
+        const fr = v?.frameRate || t.frameRate || t.fps || null;
+        if (fr && Number(fr) > 0) frameRate = Number(fr);
+      }
+      if (looksAudio) {
+        const pretty = _prettyCodec(codecRaw);
+        if (pretty) audioCodec = pretty;
+        const sr = a?.samplingFrequency || a?.outputSamplingFrequency || null;
+        // Reject bogus rates from misclassified video tracks (e.g. 320 Hz on avc1)
+        if (Number.isFinite(sr) && sr >= 1000) trackSampleRate = sr;
+        if (Number.isFinite(a?.channels) && a.channels > 0) trackChannels = a.channels;
+        if (Number.isFinite(a?.bitDepth) && a.bitDepth > 0) trackBitDepth = a.bitDepth;
+      }
+    }
+
+    // Container brand hint when track list omitted video codec (rare)
+    if (!videoCodec && fmt.hasVideo && typeof fmt.container === 'string') {
+      if (/avc1|avc/i.test(fmt.container)) videoCodec = 'H.264 (AVC)';
+      else if (/hvc1|hev1|hevc/i.test(fmt.container)) videoCodec = 'H.265 (HEVC)';
+    }
+
+    const hasVideo = !!(width || height || videoCodec || fmt.hasVideo === true);
+    const sampleRate = Number.isFinite(fmt.sampleRate) && fmt.sampleRate >= 1000
+      ? fmt.sampleRate
+      : (Number.isFinite(trackSampleRate) ? trackSampleRate : null);
+    const channels = Number.isFinite(fmt.numberOfChannels) && fmt.numberOfChannels > 0
+      ? fmt.numberOfChannels
+      : (Number.isFinite(trackChannels) ? trackChannels : null);
+    const bitsPerSample = Number.isFinite(fmt.bitsPerSample) && fmt.bitsPerSample > 0
+      ? fmt.bitsPerSample
+      : (Number.isFinite(trackBitDepth) && trackBitDepth > 0 ? trackBitDepth : null);
+
+    const duration = Number.isFinite(fmt.duration) ? fmt.duration : null;
+    let bitrate = Number.isFinite(fmt.bitrate) && fmt.bitrate > 0 ? fmt.bitrate : null;
+    let bitrateEstimated = false;
+    if (!bitrate && duration > 0 && fileSize > 0) {
+      bitrate = (fileSize * 8) / duration;
+      bitrateEstimated = true;
+    }
+
+    const prettyFmtCodec = _prettyCodec(fmt.codec);
+    if (!audioCodec && !hasVideo && prettyFmtCodec) audioCodec = prettyFmtCodec;
+    if (!audioCodec && hasVideo && prettyFmtCodec && _isAudioCodecName(fmt.codec)) {
+      audioCodec = prettyFmtCodec;
+    }
+
+    const containerLabel = _fmtContainer(fmt.container, ext);
+
+    _applyBasic({
+      width,
+      height,
+      format: containerLabel,
+      duration,
+      bitrate,
+      bitrateEstimated: bitrateEstimated || null,
+      sampleRate,
+      channels,
+      bitsPerSample,
+      numberOfSamples: Number.isFinite(fmt.numberOfSamples) ? fmt.numberOfSamples : null,
+      codec: videoCodec && audioCodec
+        ? `${videoCodec} / ${audioCodec}`
+        : (videoCodec || audioCodec || prettyFmtCodec || null),
+      videoCodec: videoCodec || null,
+      audioCodec: audioCodec || null,
+      frameRate: Number.isFinite(frameRate) ? frameRate : null,
+      lossless: fmt.lossless === true ? true : (fmt.lossless === false ? false : null),
+      hasAudio: fmt.hasAudio === true ? true : (audioCodec ? true : null),
+      hasVideo: hasVideo ? true : (fmt.hasVideo === false ? false : null),
+      mediaKind: hasVideo ? 'video' : 'audio',
+    });
+
+    _applyTagMap({
+      title: common.title,
+      artist: common.artist,
+      album: common.album,
+      albumartist: common.albumartist,
+      year: common.year,
+      genre: Array.isArray(common.genre) ? common.genre.join(', ') : common.genre,
+      comment: Array.isArray(common.comment)
+        ? common.comment.map((c) => (typeof c === 'string' ? c : c?.text)).filter(Boolean).join('; ')
+        : common.comment,
+      track: common.track?.no,
+      disk: common.disk?.no,
+      composer: Array.isArray(common.composer) ? common.composer.join(', ') : common.composer,
+      copyright: common.copyright,
+      encoder: common.encodedby || common.encodersettings,
+      date: common.date,
+      description: common.description,
+    });
+
+    // Keep native dump lean: only into all[], avoid polluting tags with obscure ids
+    if (metadata.native && typeof metadata.native === 'object') {
+      for (const [ns, list] of Object.entries(metadata.native)) {
+        if (!Array.isArray(list)) continue;
+        for (const item of list) {
+          if (!item || item.id == null) continue;
+          const key = `${ns}.${item.id}`;
+          const val = _metaJsonSafe(item.value);
+          if (val == null || val === '' || val === false) continue;
+          if (out.all[key] == null) out.all[key] = val;
+        }
+      }
+    }
+
+    // Fill gaps from WAV header if needed
+    if ((!out.basic.bitsPerSample || !out.basic.duration || !out.basic.sampleRate) && (ext === 'wav' || ext === 'wave')) {
+      const fb = await _parseWavFallback();
+      if (fb?.basic) {
+        for (const [k, v] of Object.entries(fb.basic)) {
+          if (out.basic[k] == null && v != null) out.basic[k] = v;
+        }
+      }
+      if (fb?.tags) {
+        for (const [k, v] of Object.entries(fb.tags)) {
+          if (v == null || v === '') continue;
+          if (out.tags[k] == null) out.tags[k] = v;
+          if (out.all[k] == null) out.all[k] = v;
+        }
+      }
+    }
+  } catch (err) {
+    // Fallback for WAV if ESM/parser fails in Electron
+    try {
+      const fb = await _parseWavFallback();
+      if (fb) {
+        _applyBasic(fb.basic);
+        _applyTagMap(fb.tags);
+      } else {
+        out.basic = { error: err.message || 'media meta failed' };
+      }
+    } catch (err2) {
+      out.basic = { error: err2.message || err.message || 'media meta failed' };
+    }
+  }
+  return out;
+});
+
 ipcMain.handle('get-file-url', async (event, filePath) => {
   try {
     return url.pathToFileURL(filePath).href;

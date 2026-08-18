@@ -33,6 +33,11 @@ window.FormatSupport = (() => {
   function isTiff(filePath)  { return TIFF_EXTS.has(getExtension(filePath)); }
   function isHeic(filePath)  { return HEIC_EXTS.has(getExtension(filePath)); }
   function isDcm(filePath)   { return DCM_EXTS.has(getExtension(filePath)); }
+  /** Formats that should keep frame animation in an <img> (not canvas). */
+  function isAnimatedImage(filePath) {
+    const ext = getExtension(filePath);
+    return ext === 'gif' || ext === 'webp';
+  }
 
   /* ── TIFF decoder using UTIF.js (optional vendor dependency) ── */
   async function decodeTiff(buffer) {
@@ -281,6 +286,7 @@ window.FormatSupport = (() => {
     if (isNativeImage(filePath)) {
       const dataUrl = await window.electronAPI.readFileBase64(filePath);
       if (dataUrl && !dataUrl.error && typeof dataUrl === 'string' && dataUrl.startsWith('data:')) {
+        if (isAnimatedImage(filePath)) return { type: 'animated', dataUrl };
         return { type: 'image', dataUrl };
       }
       if (ext === 'webp' || ext === 'avif') {
@@ -390,7 +396,7 @@ window.FormatSupport = (() => {
 
   return {
     getExtension, isImage, isVideo, isAudio, isSupportedFile,
-    isNativeImage, isTiff, isHeic, isDcm,
+    isNativeImage, isTiff, isHeic, isDcm, isAnimatedImage,
     loadImageFile, formatFileSize, formatDate, decodeDicomBuffer,
     IMAGE_EXTS, VIDEO_EXTS, AUDIO_EXTS,
   };

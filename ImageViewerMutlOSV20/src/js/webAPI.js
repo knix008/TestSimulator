@@ -162,6 +162,7 @@
 
     getFileStats: async (filePath) => R().getStats(filePath),
     readImageMeta: async () => null,
+    readMediaMeta: async () => null,
     getLaunchFile: async () => null,
 
     getFileUrl: async (filePath) => {

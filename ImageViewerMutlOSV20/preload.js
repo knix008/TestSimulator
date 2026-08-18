@@ -23,6 +23,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   pathAncestors: (targetPath) => ipcRenderer.invoke('path-ancestors', targetPath),
   getFileStats: (filePath) => ipcRenderer.invoke('get-file-stats', filePath),
   readImageMeta: (filePath) => ipcRenderer.invoke('read-image-meta', filePath),
+  readMediaMeta: (filePath) => ipcRenderer.invoke('read-media-meta', filePath),
   getFileUrl: (filePath) => ipcRenderer.invoke('get-file-url', filePath),
   readFileBase64: (filePath) => ipcRenderer.invoke('read-file-base64', filePath),
   convertToPng: (filePath) => ipcRenderer.invoke('convert-to-png', filePath),

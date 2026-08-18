@@ -20,6 +20,9 @@
     editMode:     false,  // true while image edit window is open
     isVideo:      false,
     isAudio:      false,
+    isAnimated:   false,
+    animatedDataUrl: null,
+    animPlaying:  false,
     isDirty:      false,
     imageMeta:    null,
     dicomMeta:    null,
@@ -27,7 +30,27 @@
   };
 
   function _isEditableImage() {
-    return Editor.isLoaded() && !state.isVideo && !state.isAudio;
+    return (Editor.isLoaded() || state.isAnimated) && !state.isVideo && !state.isAudio;
+  }
+
+  function _hasViewerVisual() {
+    return Editor.isLoaded() || state.isAnimated || state.isVideo;
+  }
+
+  function _getViewerDims() {
+    if (state.isAnimated) {
+      if (animFreeze && animFreeze.style.display !== 'none' && animFreeze.width && animFreeze.height) {
+        return { w: animFreeze.width, h: animFreeze.height };
+      }
+      if (animImg && (animImg.style.display !== 'none' || state.animatedDataUrl)) {
+        const w = animImg.naturalWidth || 0;
+        const h = animImg.naturalHeight || 0;
+        if (w && h) return { w, h };
+      }
+    }
+    if (Editor.isLoaded()) return Editor.getDimensions();
+    if (state.isVideo) return { w: videoEl.videoWidth || 0, h: videoEl.videoHeight || 0 };
+    return { w: 0, h: 0 };
   }
 
   /* ─── Init ─── */
@@ -48,7 +71,15 @@
   const imageWrapper     = document.getElementById('image-wrapper');
   const displayCanvas    = document.getElementById('display-canvas');
   const selCanvas        = document.getElementById('sel-canvas');
+  const animImg          = document.getElementById('animated-image');
+  const animFreeze       = document.getElementById('animated-freeze');
   const videoEl          = document.getElementById('video-player');
+  const mediaControls    = document.getElementById('media-controls');
+  const mcPlayBtn        = document.getElementById('mc-play');
+  const mcPauseBtn       = document.getElementById('mc-pause');
+  const mcStopBtn        = document.getElementById('mc-stop');
+  const mcSeek           = document.getElementById('mc-seek');
+  const mcTime           = document.getElementById('mc-time');
   const mediaCue         = document.getElementById('media-cue');
   const mediaCueBadge    = document.getElementById('media-cue-badge');
   const audioWrap        = document.getElementById('audio-player-wrap');
@@ -64,6 +95,7 @@
   let _watchedDir  = null;
   let _watchedFile = null;
   let _mediaCueTimer = null;
+  let _mediaCueFollowup = null;
   const RECENT_DIRS_KEY = 'recentOpenedDirs';
   const RECENT_DIRS_MAX = 10;
   const statusDims       = document.getElementById('status-dims');
@@ -166,10 +198,12 @@
   _initMediaCues();
 
   /* ─── Context menu ─── */
+  // Capture phase so Chromium's native <video> menu is suppressed
   viewerContainer.addEventListener('contextmenu', (e) => {
     e.preventDefault();
+    e.stopPropagation();
     _showContextMenu(e.clientX, e.clientY);
-  });
+  }, true);
   fileTreeScroll.addEventListener('contextmenu', (e) => {
     e.preventDefault();
     // future: file-tree context menu
@@ -629,10 +663,10 @@
     const canNext = hasMedia && state.fileIndex >= 0 && state.fileIndex < state.fileList.length - 1;
 
     // Navigation / view (available for images; limited for A/V)
-    set('btn-zoom-in', isImage || k === 'video');
-    set('btn-zoom-out', isImage || k === 'video');
-    set('btn-fit', isImage || k === 'video');
-    set('btn-actual', isImage);
+    set('btn-zoom-in', isImage || k === 'video' || state.isAnimated);
+    set('btn-zoom-out', isImage || k === 'video' || state.isAnimated);
+    set('btn-fit', isImage || k === 'video' || state.isAnimated);
+    set('btn-actual', isImage || state.isAnimated);
     set('btn-prev', canPrev);
     set('btn-next', canNext);
 
@@ -656,7 +690,8 @@
     }
 
     document.body.classList.toggle('media-image', isImage);
-    document.body.classList.toggle('media-av', k === 'video' || k === 'audio');
+    document.body.classList.toggle('media-av', k === 'video' || k === 'audio' || state.isAnimated);
+    _updateMediaControlsVisibility();
   }
 
   function _updateUndoRedoBtns() {
@@ -769,15 +804,18 @@
       state.currentFile = filePath;
       state.isVideo     = result.type === 'video';
       state.isAudio     = result.type === 'audio';
+      state.isAnimated  = result.type === 'animated';
       localStorage.setItem('lastOpenedFile', filePath);
 
       let mediaKind = 'none';
       if (state.isVideo) {
         _showAudioPlayer(null);
+        _hideAnimatedImage();
         _showVideoPlayer(filePath);
         mediaKind = 'video';
       } else if (state.isAudio) {
         _showVideoPlayer(null);
+        _hideAnimatedImage();
         _showAudioPlayer(filePath);
         mediaKind = 'audio';
       } else {
@@ -793,8 +831,14 @@
           return;
         }
         if (progressShown) showOpenProgress(94, 'displaying');
-        await _loadImageDataUrl(result.dataUrl, filePath, result.dicomMeta);
-        mediaKind = _isEditableImage() ? 'image' : 'none';
+        if (result.type === 'animated') {
+          await _loadAnimatedImage(result.dataUrl, filePath);
+          mediaKind = 'image';
+        } else {
+          state.isAnimated = false;
+          await _loadImageDataUrl(result.dataUrl, filePath, result.dicomMeta);
+          mediaKind = _isEditableImage() ? 'image' : 'none';
+        }
       }
 
       _updateToolbarForMedia(mediaKind);
@@ -871,6 +915,7 @@
         _showPlaceholder(false);
         _showVideoPlayer(null);
         _showAudioPlayer(null);
+        _hideAnimatedImage();
         displayCanvas.style.display  = 'block';
         selCanvas.style.display      = 'block';
         videoEl.style.display        = 'none';
@@ -888,10 +933,303 @@
     });
   }
 
+  function _hideAnimatedFreeze() {
+    if (!animFreeze) return;
+    animFreeze.style.display = 'none';
+  }
+
+  function _freezeAnimatedFrame() {
+    if (!animImg || !animFreeze) return false;
+    const w = animImg.naturalWidth || 0;
+    const h = animImg.naturalHeight || 0;
+    if (!w || !h) return false;
+    if (animFreeze.width !== w) animFreeze.width = w;
+    if (animFreeze.height !== h) animFreeze.height = h;
+    try {
+      const ctx = animFreeze.getContext('2d');
+      ctx.clearRect(0, 0, w, h);
+      ctx.drawImage(animImg, 0, 0);
+    } catch {
+      return false;
+    }
+    animFreeze.style.display = 'block';
+    animImg.style.display = 'none';
+    return true;
+  }
+
+  function _hideAnimatedImage() {
+    if (!animImg) return;
+    animImg.style.display = 'none';
+    animImg.removeAttribute('src');
+    _hideAnimatedFreeze();
+    state.animatedDataUrl = null;
+    state.animPlaying = false;
+  }
+
+  async function _loadAnimatedImage(dataUrl, filePath) {
+    return new Promise((resolve) => {
+      if (!animImg || !dataUrl) {
+        _showPlaceholder(true);
+        resolve();
+        return;
+      }
+      const done = () => resolve();
+      const timer = setTimeout(() => {
+        _showPlaceholder(true);
+        done();
+      }, 15000);
+      animImg.onload = () => {
+        clearTimeout(timer);
+        state.isAnimated = true;
+        state.animatedDataUrl = dataUrl;
+        state.animPlaying = true;
+        _showPlaceholder(false);
+        _showVideoPlayer(null);
+        _showAudioPlayer(null);
+        if (Editor.isLoaded()) Editor.clear();
+        displayCanvas.style.display = 'none';
+        selCanvas.style.display = 'none';
+        videoEl.style.display = 'none';
+        _hideAnimatedFreeze();
+        animImg.style.display = 'block';
+        _fitToWindow();
+        _updateStatus({ filePath });
+        _updateMediaControlsVisibility();
+        _syncMediaTransportButtons();
+        done();
+      };
+      animImg.onerror = () => {
+        clearTimeout(timer);
+        _showPlaceholder(true);
+        done();
+      };
+      state.animatedDataUrl = dataUrl;
+      animImg.src = dataUrl;
+    });
+  }
+
+  /** Rasterize current animated frame into the canvas editor (for edit mode). */
+  async function _rasterizeAnimatedToEditor() {
+    const src = state.animatedDataUrl || animImg?.src;
+    if (!state.isAnimated || !src) return false;
+    if (state.animPlaying === false && animFreeze && animFreeze.style.display !== 'none') {
+      // Prefer frozen pixels when paused
+      try {
+        const dataUrl = animFreeze.toDataURL('image/png');
+        return new Promise((resolve) => {
+          const img = new Image();
+          img.onload = () => {
+            Editor.loadImage(img);
+            displayCanvas.style.display = 'block';
+            selCanvas.style.display = 'block';
+            if (animImg) animImg.style.display = 'none';
+            _hideAnimatedFreeze();
+            resolve(true);
+          };
+          img.onerror = () => resolve(false);
+          img.src = dataUrl;
+        });
+      } catch {}
+    }
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        Editor.loadImage(img);
+        displayCanvas.style.display = 'block';
+        selCanvas.style.display = 'block';
+        if (animImg) animImg.style.display = 'none';
+        _hideAnimatedFreeze();
+        resolve(true);
+      };
+      img.onerror = () => resolve(false);
+      img.src = src;
+    });
+  }
+
+  function _restoreAnimatedView() {
+    const src = state.animatedDataUrl || animImg?.src;
+    if (!state.isAnimated || !src || !animImg) return;
+    if (Editor.isLoaded()) Editor.clear();
+    displayCanvas.style.display = 'none';
+    selCanvas.style.display = 'none';
+    _hideAnimatedFreeze();
+    animImg.style.display = 'block';
+    if (animImg.src !== src) animImg.src = src;
+    state.animPlaying = true;
+    _fitToWindow();
+    _syncMediaTransportButtons();
+  }
+
+  function _activeMediaEl() {
+    if (state.isVideo && videoEl && videoEl.style.display !== 'none') return videoEl;
+    if (state.isAudio && audioEl && audioWrap && audioWrap.style.display !== 'none') return audioEl;
+    return null;
+  }
+
+  function _isMediaPlaying() {
+    if (state.isAnimated) return !!state.animPlaying;
+    const el = _activeMediaEl();
+    return !!(el && !el.paused && !el.ended);
+  }
+
+  function _fmtMediaTime(sec) {
+    if (!Number.isFinite(sec) || sec < 0) sec = 0;
+    const s = Math.floor(sec % 60);
+    const m = Math.floor(sec / 60) % 60;
+    const h = Math.floor(sec / 3600);
+    const pad = (n) => String(n).padStart(2, '0');
+    return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`;
+  }
+
+  function _updateMediaControlsVisibility() {
+    if (!mediaControls) return;
+    const show = !state.editMode && (state.isVideo || state.isAnimated);
+    mediaControls.hidden = !show;
+    mediaControls.style.display = show ? 'flex' : 'none';
+    mediaControls.classList.toggle('is-on', show);
+    mediaControls.classList.toggle('is-animated', !!state.isAnimated && !state.isVideo);
+    if (show) _syncMediaTransportButtons();
+  }
+
+  function _setMediaCtrlEnabled(btn, on) {
+    if (!btn) return;
+    btn.disabled = !on;
+    btn.setAttribute('aria-disabled', on ? 'false' : 'true');
+  }
+
+  function _syncMediaTransportButtons() {
+    // Do not call _updateMediaControlsVisibility here — that would recurse.
+    if (!mediaControls || mediaControls.hidden) return;
+
+    const playing = _isMediaPlaying();
+    // Play enabled when not playing; Pause only while playing; Stop always when media loaded
+    _setMediaCtrlEnabled(mcPlayBtn, !playing);
+    _setMediaCtrlEnabled(mcPauseBtn, playing);
+    _setMediaCtrlEnabled(mcStopBtn, true);
+    mcPlayBtn?.classList.toggle('is-active', !playing);
+    mcPauseBtn?.classList.toggle('is-active', playing);
+    mcStopBtn?.classList.toggle('is-active', false);
+
+    if (state.isVideo && videoEl) {
+      _syncMediaSeekUi();
+    }
+  }
+
+  function _syncMediaSeekUi() {
+    if (!mcSeek || !videoEl || !state.isVideo) return;
+    const dur = videoEl.duration;
+    const cur = videoEl.currentTime || 0;
+    if (Number.isFinite(dur) && dur > 0) {
+      mcSeek.max = '1000';
+      if (!_mcSeekDragging) {
+        mcSeek.value = String(Math.round((cur / dur) * 1000));
+      }
+      if (mcTime) mcTime.textContent = `${_fmtMediaTime(cur)} / ${_fmtMediaTime(dur)}`;
+    } else if (mcTime) {
+      mcTime.textContent = `${_fmtMediaTime(cur)} / --:--`;
+    }
+  }
+
+  let _mcSeekDragging = false;
+
+  function _playMedia() {
+    if (state.isAnimated) {
+      _playAnimated();
+      return;
+    }
+    if (!state.isVideo || !videoEl) return;
+    if (videoEl.ended) {
+      try { videoEl.currentTime = 0; } catch {}
+    }
+    const p = videoEl.play();
+    if (p && typeof p.catch === 'function') p.catch(() => {});
+    _syncMediaTransportButtons();
+  }
+
+  function _pauseMedia() {
+    if (state.isAnimated) {
+      _pauseAnimated();
+      return;
+    }
+    if (!state.isVideo || !videoEl || videoEl.paused) return;
+    videoEl.pause();
+    // Pause badge stays while paused (clickable to resume)
+    _showMediaCue('pause', true);
+    _syncMediaTransportButtons();
+  }
+
+  function _stopMedia() {
+    if (state.isAnimated) {
+      _stopAnimated();
+      return;
+    }
+    if (!state.isVideo || !videoEl) return;
+    videoEl.pause();
+    try { videoEl.currentTime = 0; } catch {}
+    // Stop is a brief flash, then leave the persistent pause badge
+    _flashThenPauseCue('stop');
+    _syncMediaTransportButtons();
+    _syncMediaSeekUi();
+  }
+
+  function _toggleMediaPlayback() {
+    if (_isMediaPlaying()) _pauseMedia();
+    else _playMedia();
+  }
+
+  function _playAnimated() {
+    if (!state.isAnimated || !animImg) return;
+    const src = state.animatedDataUrl;
+    _hideAnimatedFreeze();
+    animImg.style.display = 'block';
+    if (src && (!animImg.src || animImg.getAttribute('data-stopped') === '1')) {
+      animImg.removeAttribute('data-stopped');
+      animImg.src = src;
+    }
+    state.animPlaying = true;
+    _showMediaCue('play', false); // brief
+    _syncMediaTransportButtons();
+  }
+
+  function _pauseAnimated() {
+    if (!state.isAnimated || !animImg) return;
+    if (!state.animPlaying) return;
+    if (animImg.style.display === 'none' && state.animatedDataUrl) {
+      animImg.style.display = 'block';
+    }
+    if (_freezeAnimatedFrame()) {
+      state.animPlaying = false;
+      _showMediaCue('pause', true); // stays while paused
+      _syncMediaTransportButtons();
+    }
+  }
+
+  function _stopAnimated() {
+    if (!state.isAnimated || !animImg) return;
+    const src = state.animatedDataUrl;
+    if (!src) return;
+    const onReady = () => {
+      animImg.removeEventListener('load', onReady);
+      requestAnimationFrame(() => {
+        _freezeAnimatedFrame();
+        state.animPlaying = false;
+        animImg.setAttribute('data-stopped', '1');
+        _flashThenPauseCue('stop');
+        _syncMediaTransportButtons();
+      });
+    };
+    _hideAnimatedFreeze();
+    animImg.style.display = 'block';
+    animImg.addEventListener('load', onReady);
+    animImg.src = '';
+    animImg.src = src;
+  }
+
   function _showVideoPlayer(filePath) {
     if (filePath) {
       displayCanvas.style.display = 'none';
       selCanvas.style.display     = 'none';
+      _hideAnimatedImage();
       videoEl.style.display       = 'flex';
       imagePlaceholder.style.display = 'none';
       videoEl.src = '';
@@ -900,26 +1238,57 @@
         videoEl.src = url;
         videoEl.load();
         _showMediaCue('pause', true);
+        _updateMediaControlsVisibility();
+        _syncMediaTransportButtons();
       });
     } else {
       _hideMediaCue();
+      videoEl.pause?.();
       videoEl.style.display = 'none';
       videoEl.src = '';
+      _updateMediaControlsVisibility();
+      _syncMediaTransportButtons();
     }
   }
 
   function _videoCueActive() {
-    return !!(state.isVideo && videoEl && videoEl.style.display !== 'none');
+    return !!(state.isVideo && videoEl && videoEl.style.display !== 'none')
+      || !!(state.isAnimated && !state.editMode);
+  }
+
+  /** Play / stop: brief flash only. Pause: stays while media is paused. */
+  function _flashThenPauseCue(kind) {
+    _showMediaCue(kind, false);
+    // Replace auto-hide with a transition to the persistent pause badge
+    clearTimeout(_mediaCueTimer);
+    _mediaCueTimer = null;
+    clearTimeout(_mediaCueFollowup);
+    _mediaCueFollowup = setTimeout(() => {
+      _mediaCueFollowup = null;
+      if (!_videoCueActive() || _isMediaPlaying()) {
+        _hideMediaCue();
+        return;
+      }
+      _showMediaCue('pause', true);
+    }, 900);
   }
 
   function _showMediaCue(kind, persist) {
     if (!mediaCue || !mediaCueBadge) return;
     const icons = { play: Icons.mediaPlay, pause: Icons.mediaPause, stop: Icons.mediaStop };
+    // Only pause may persist; play/stop are always brief flashes
+    if (kind !== 'pause') persist = false;
     mediaCueBadge.innerHTML = icons[kind] || icons.pause;
     mediaCue.classList.remove('is-on', 'is-flash', 'is-persist', 'is-play', 'is-pause', 'is-stop');
     void mediaCue.offsetWidth;
     mediaCue.classList.add('is-on', persist ? 'is-persist' : 'is-flash', `is-${kind}`);
+    mediaCue.style.pointerEvents = 'none';
+    mediaCueBadge.style.pointerEvents = persist ? 'auto' : 'none';
+    mediaCueBadge.style.cursor = persist ? 'pointer' : '';
+    mediaCue.setAttribute('aria-hidden', persist ? 'false' : 'true');
     clearTimeout(_mediaCueTimer);
+    clearTimeout(_mediaCueFollowup);
+    _mediaCueFollowup = null;
     if (persist) return;
     _mediaCueTimer = setTimeout(() => _hideMediaCue(), 900);
   }
@@ -929,29 +1298,80 @@
     _mediaCueTimer = null;
     if (!mediaCue) return;
     mediaCue.classList.remove('is-on', 'is-flash', 'is-persist', 'is-play', 'is-pause', 'is-stop');
+    mediaCue.style.pointerEvents = 'none';
+    if (mediaCueBadge) {
+      mediaCueBadge.style.pointerEvents = 'none';
+      mediaCueBadge.style.cursor = '';
+    }
+    mediaCue.setAttribute('aria-hidden', 'true');
   }
 
   function _initMediaCues() {
-    if (!videoEl) return;
-    videoEl.addEventListener('play', () => {
-      if (!_videoCueActive()) return;
-      _showMediaCue('play', false);
+    mcPlayBtn?.addEventListener('click', (e) => { e.stopPropagation(); _playMedia(); });
+    mcPauseBtn?.addEventListener('click', (e) => { e.stopPropagation(); _pauseMedia(); });
+    mcStopBtn?.addEventListener('click', (e) => { e.stopPropagation(); _stopMedia(); });
+
+    mcSeek?.addEventListener('pointerdown', () => { _mcSeekDragging = true; });
+    mcSeek?.addEventListener('pointerup', () => { _mcSeekDragging = false; _syncMediaSeekUi(); });
+    mcSeek?.addEventListener('input', () => {
+      if (!state.isVideo || !videoEl) return;
+      const dur = videoEl.duration;
+      if (!Number.isFinite(dur) || dur <= 0) return;
+      const t = (Number(mcSeek.value) / 1000) * dur;
+      try { videoEl.currentTime = t; } catch {}
+      if (mcTime) mcTime.textContent = `${_fmtMediaTime(t)} / ${_fmtMediaTime(dur)}`;
     });
-    videoEl.addEventListener('pause', () => {
-      if (!_videoCueActive()) {
-        _hideMediaCue();
-        return;
+
+    if (videoEl) {
+      // Suppress native Chromium video context menu; use app menu instead
+      videoEl.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        _showContextMenu(e.clientX, e.clientY);
+      });
+      videoEl.addEventListener('play', () => {
+        if (!_videoCueActive()) return;
+        _showMediaCue('play', false);
+        _syncMediaTransportButtons();
+      });
+      videoEl.addEventListener('pause', () => {
+        _syncMediaTransportButtons();
+      });
+      videoEl.addEventListener('ended', () => {
+        if (!(state.isVideo && videoEl.style.display !== 'none')) return;
+        _flashThenPauseCue('stop');
+        _syncMediaTransportButtons();
+      });
+      videoEl.addEventListener('timeupdate', () => {
+        if (state.isVideo) _syncMediaSeekUi();
+      });
+      videoEl.addEventListener('loadedmetadata', () => {
+        if (state.isVideo) {
+          _syncMediaSeekUi();
+          if (state.currentFile) _updateInfoPanel(state.currentFile).catch(() => {});
+          const d = _getViewerDims();
+          if (d.w && d.h && statusDims) {
+            statusDims.textContent = `${d.w} × ${d.h} ${I18n.t('status.dimensions')}`;
+          }
+          if (_wantFit) _fitToWindow();
+        }
+      });
+    }
+
+    audioEl?.addEventListener('loadedmetadata', () => {
+      if (state.isAudio && state.currentFile) {
+        _updateInfoPanel(state.currentFile).catch(() => {});
       }
-      if (videoEl.ended) {
-        _showMediaCue('stop', false);
-        return;
-      }
-      _showMediaCue('pause', true);
     });
-    videoEl.addEventListener('ended', () => {
+
+    mediaCueBadge?.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
       if (!_videoCueActive()) return;
-      _showMediaCue('stop', false);
+      _toggleMediaPlayback();
     });
+
+    _updateMediaControlsVisibility();
   }
 
   function _showAudioPlayer(filePath) {
@@ -1143,7 +1563,7 @@
      Zoom / Pan
   ════════════════════════════════════════════ */
   function _zoom(factor, cx, cy) {
-    if (!Editor.isLoaded() && !state.isVideo) return;
+    if (!_hasViewerVisual()) return;
     _wantFit = false;
     const newZoom = Math.min(Math.max(state.zoom * factor, 0.02), 32);
     const ratio   = newZoom / state.zoom;
@@ -1178,13 +1598,12 @@
   }
 
   function _fitToWindow() {
-    if (!Editor.isLoaded() && !state.isVideo) return;
+    if (!_hasViewerVisual()) return;
     if (state.editMode) {
       _ewFit();
       return;
     }
-    const { w, h } = Editor.isLoaded() ? Editor.getDimensions()
-      : { w: videoEl.videoWidth || 640, h: videoEl.videoHeight || 360 };
+    const { w, h } = _getViewerDims();
     if (!w || !h) return;
     _wantFit = true;
     state.zoom = _fitZoomFor(viewerContainer, w, h);
@@ -1195,7 +1614,7 @@
   }
 
   function _actualSize() {
-    if (!Editor.isLoaded() && !state.isVideo) return;
+    if (!_hasViewerVisual()) return;
     _wantFit = false;
     state.zoom = 1; state.panX = 0; state.panY = 0;
     _applyTransform();
@@ -1217,9 +1636,7 @@
   }
 
   function _applyTransform() {
-    const dims = Editor.isLoaded()
-      ? Editor.getDimensions()
-      : { w: videoEl.videoWidth || 0, h: videoEl.videoHeight || 0 };
+    const dims = _getViewerDims();
 
     if (dims.w && dims.h) {
       const scaledW = dims.w * state.zoom;
@@ -1254,6 +1671,11 @@
   }
 
   function _initViewerInteraction() {
+    let _panDidMove = false;
+    let _panDownX = 0;
+    let _panDownY = 0;
+    const PAN_CLICK_SLOP = 6;
+
     // Wheel zoom
     viewerContainer.addEventListener('wheel', (e) => {
       e.preventDefault();
@@ -1268,7 +1690,12 @@
     viewerContainer.addEventListener('mousedown', (e) => {
       if (state.currentTool !== 'pointer') return;
       if (e.button !== 0 && e.button !== 1) return;
-      if (!Editor.isLoaded() && !state.isVideo) return;
+      // Don't start pan from transport controls
+      if (e.target.closest?.('#media-controls')) return;
+      if (!Editor.isLoaded() && !state.isVideo && !state.isAnimated) return;
+      _panDidMove = false;
+      _panDownX = e.clientX;
+      _panDownY = e.clientY;
       state.isPanning  = true;
       state.panStartX  = e.clientX;
       state.panStartY  = e.clientY;
@@ -1280,6 +1707,11 @@
 
     window.addEventListener('mousemove', (e) => {
       if (!state.isPanning) return;
+      if (!_panDidMove) {
+        const dx = e.clientX - _panDownX;
+        const dy = e.clientY - _panDownY;
+        if ((dx * dx + dy * dy) > (PAN_CLICK_SLOP * PAN_CLICK_SLOP)) _panDidMove = true;
+      }
       state.panX = state.panOriginX + (e.clientX - state.panStartX);
       state.panY = state.panOriginY + (e.clientY - state.panStartY);
       _applyTransform();
@@ -1291,6 +1723,17 @@
         viewerContainer.classList.remove('dragging');
         selCanvas.style.cursor = state.currentTool === 'pointer' ? 'grab' : 'crosshair';
       }
+    });
+
+    // Click video (without drag) → play / pause toggle
+    viewerContainer.addEventListener('click', (e) => {
+      if (state.editMode || !state.isVideo) return;
+      if (e.button != null && e.button !== 0) return;
+      if (_panDidMove) return;
+      if (e.target.closest?.('#media-controls')) return;
+      if (e.target.closest?.('#media-cue-badge')) return;
+      e.preventDefault();
+      _toggleMediaPlayback();
     });
 
     // Zoom display input – delegate via event listener on toolbar
@@ -1568,6 +2011,7 @@
       { key:'vignette',   label:'effects.vignette',   min:0,   max:100, step:1,  def:0 },
       { key:'grain',      label:'effects.grain',      min:0,   max:100, step:1,  def:0 },
       { key:'posterize',  label:'effects.posterize',  min:0,   max:8,   step:1,  def:0 },
+      { key:'solarize',   label:'effects.solarize',   min:0,   max:100, step:1,  def:0 },
       { key:'warmth',     label:'effects.warmth',     min:-100,max:100, step:1,  def:0 },
       { key:'grayscale',  label:'effects.grayscale',  min:0,   max:100, step:1,  def:0 },
       { key:'sepia',      label:'effects.sepia',      min:0,   max:100, step:1,  def:0 },
@@ -1666,6 +2110,53 @@
       { id: 'xray',         label: 'effects.xray' },
       { id: 'emboss',       label: 'effects.emboss' },
       { id: 'edge',         label: 'effects.edge' },
+      { id: 'solarize',     label: 'effects.solarize' },
+      { id: 'underwater',   label: 'effects.underwater' },
+      { id: 'desert',       label: 'effects.desert' },
+      { id: 'forest',       label: 'effects.forest' },
+      { id: 'lavender',     label: 'effects.lavender' },
+      { id: 'candy',        label: 'effects.candy' },
+      { id: 'midnight',     label: 'effects.midnight' },
+      { id: 'thermal',      label: 'effects.thermal' },
+      { id: 'blueprint',    label: 'effects.blueprint' },
+      { id: 'selenium',     label: 'effects.selenium' },
+      { id: 'platinum',     label: 'effects.platinum' },
+      { id: 'lith',         label: 'effects.lith' },
+      { id: 'washout',      label: 'effects.washout' },
+      { id: 'muted',        label: 'effects.muted' },
+      { id: 'cyberpunk',    label: 'effects.cyberpunk' },
+      { id: 'vaporwave',    label: 'effects.vaporwave' },
+      { id: 'charcoal',     label: 'effects.charcoal' },
+      { id: 'ink',          label: 'effects.ink' },
+      { id: 'dayfornight',  label: 'effects.dayfornight' },
+      { id: 'bloom',        label: 'effects.bloom' },
+      { id: 'punch',        label: 'effects.punch' },
+      { id: 'flat',         label: 'effects.flat' },
+      { id: 'winter',       label: 'effects.winter' },
+      { id: 'summer',       label: 'effects.summer' },
+      { id: 'rainy',        label: 'effects.rainy' },
+      { id: 'peach',        label: 'effects.peach' },
+      { id: 'coral',        label: 'effects.coral' },
+      { id: 'emerald',      label: 'effects.emerald' },
+      { id: 'amethyst',     label: 'effects.amethyst' },
+      { id: 'copper',       label: 'effects.copper' },
+      { id: 'denim',        label: 'effects.denim' },
+      { id: 'olive',        label: 'effects.olive' },
+      { id: 'gothic',       label: 'effects.gothic' },
+      { id: 'romance',      label: 'effects.romance' },
+      { id: 'duotone',      label: 'effects.duotone' },
+      { id: 'glitch',       label: 'effects.glitch' },
+      { id: 'watercolor',   label: 'effects.watercolor' },
+      { id: 'anime',        label: 'effects.anime' },
+      { id: 'silhouette',   label: 'effects.silhouette' },
+      { id: 'amber',        label: 'effects.amber' },
+      { id: 'mint',         label: 'effects.mint' },
+      { id: 'mustard',      label: 'effects.mustard' },
+      { id: 'steel',        label: 'effects.steel' },
+      { id: 'push',         label: 'effects.push' },
+      { id: 'pull',         label: 'effects.pull' },
+      { id: 'midcentury',   label: 'effects.midcentury' },
+      { id: 'horror',       label: 'effects.horror' },
     ];
 
     const presetWrap = document.createElement('div');
@@ -1702,24 +2193,15 @@
       const group = document.createElement('div');
       group.className = 'effect-group';
 
-      const row = document.createElement('div');
-      row.className = 'effect-label-row';
-
       const lbl = document.createElement('span');
       lbl.className = 'effect-label';
       lbl.setAttribute('data-i18n', s.label);
       lbl.textContent = I18n.t(s.label);
-      row.appendChild(lbl);
+      lbl.title = I18n.t(s.label);
 
       const initial = prevValues[s.key] != null
         ? prevValues[s.key]
         : (efx[s.key] != null ? efx[s.key] : s.def);
-
-      const valSpan = document.createElement('span');
-      valSpan.className = 'effect-value';
-      valSpan.id = `${idPrefix}-val-${s.key}`;
-      valSpan.textContent = initial;
-      row.appendChild(valSpan);
 
       const slider = document.createElement('input');
       slider.type  = 'range';
@@ -1727,23 +2209,48 @@
       slider.id    = `${idPrefix}-${s.key}`;
       slider.min   = s.min; slider.max = s.max; slider.step = s.step;
       slider.value = initial;
+      slider.setAttribute('aria-label', I18n.t(s.label));
 
+      const valSpan = document.createElement('span');
+      valSpan.className = 'effect-value';
+      valSpan.id = `${idPrefix}-val-${s.key}`;
+      valSpan.textContent = initial;
+
+      // Live preview while dragging — image only, no progress overlay / history
       slider.addEventListener('input', () => {
-        valSpan.textContent = parseFloat(slider.value);
+        const v = parseFloat(slider.value);
+        valSpan.textContent = v;
+        Editor.setEffect(s.key, v, false);
       });
+      // Commit history when the user releases the slider
       slider.addEventListener('change', () => {
         const v = parseFloat(slider.value);
         valSpan.textContent = v;
-        Editor.setEffect(s.key, v);
+        Editor.setEffect(s.key, v, true);
         _clearPresetActive(idPrefix);
       });
+      // Wheel over wide sliders should scroll the panel, not nudge the value
+      _bindEffectSliderWheel(slider);
 
-      group.appendChild(row);
+      group.appendChild(lbl);
       group.appendChild(slider);
+      group.appendChild(valSpan);
       content.appendChild(group);
     }
 
     _appendBorderControls(content, idPrefix, efx, prevValues);
+  }
+
+  /** Prefer scrolling the effects panel over changing range values with the mouse wheel. */
+  function _bindEffectSliderWheel(slider) {
+    if (!slider) return;
+    slider.addEventListener('wheel', (e) => {
+      const scroller = slider.closest('#edit-adjust-content, #edit-effects-content, #effects-content');
+      if (!scroller) return;
+      e.preventDefault();
+      e.stopPropagation();
+      scroller.scrollTop += e.deltaY;
+    }, { passive: false });
   }
 
   function _captionGps(tags) {
@@ -1835,34 +2342,39 @@
     const addSlider = (key, labelKey, min, max, step, initial) => {
       const group = document.createElement('div');
       group.className = 'effect-group';
-      const row = document.createElement('div');
-      row.className = 'effect-label-row';
       const lbl = document.createElement('span');
       lbl.className = 'effect-label';
       lbl.setAttribute('data-i18n', labelKey);
       lbl.textContent = I18n.t(labelKey);
-      const valSpan = document.createElement('span');
-      valSpan.className = 'effect-value';
-      valSpan.id = `${idPrefix}-val-${key}`;
-      valSpan.textContent = initial;
-      row.appendChild(lbl);
-      row.appendChild(valSpan);
+      lbl.title = I18n.t(labelKey);
       const slider = document.createElement('input');
       slider.type = 'range';
       slider.className = 'effect-slider';
       slider.id = `${idPrefix}-${key}`;
       slider.min = min; slider.max = max; slider.step = step;
       slider.value = initial;
-      slider.addEventListener('input', () => { valSpan.textContent = parseFloat(slider.value); });
+      slider.setAttribute('aria-label', I18n.t(labelKey));
+      const valSpan = document.createElement('span');
+      valSpan.className = 'effect-value';
+      valSpan.id = `${idPrefix}-val-${key}`;
+      valSpan.textContent = initial;
+      slider.addEventListener('input', () => {
+        const v = parseFloat(slider.value);
+        valSpan.textContent = v;
+        Editor.setEffect(key, v, false);
+        _refreshBorderCaption();
+      });
       slider.addEventListener('change', () => {
         const v = parseFloat(slider.value);
         valSpan.textContent = v;
-        Editor.setEffect(key, v);
+        Editor.setEffect(key, v, true);
         _refreshBorderCaption();
         if (state.editMode) requestAnimationFrame(() => _ewFit());
       });
-      group.appendChild(row);
+      _bindEffectSliderWheel(slider);
+      group.appendChild(lbl);
       group.appendChild(slider);
+      group.appendChild(valSpan);
       content.appendChild(group);
     };
 
@@ -2108,6 +2620,12 @@
     if (!_isEditableImage()) return;
     if (state.editMode) return;
 
+    // Animated GIF/WebP: freeze current frame into the canvas editor
+    if (state.isAnimated && !Editor.isLoaded()) {
+      const ok = await _rasterizeAnimatedToEditor();
+      if (!ok) return;
+    }
+
     if (window.electronAPI.windowGetBounds) {
       try { _savedMainBounds = await window.electronAPI.windowGetBounds(); }
       catch { _savedMainBounds = null; }
@@ -2122,6 +2640,7 @@
     editWindow.classList.add('visible');
     state.editMode = true;
     document.body.classList.add('edit-mode');
+    _updateMediaControlsVisibility();
     document.getElementById('edit-window-title').textContent =
       (state.currentFile ? state.currentFile.split(/[/\\]/).pop() + ' — ' : '') +
       I18n.t('editWindow.title');
@@ -2222,6 +2741,14 @@
 
     if (apply) {
       Editor.commitEditSession();
+      // Edits bake a still frame — stop treating as live animation
+      if (state.isAnimated) {
+        state.isAnimated = false;
+        state.animatedDataUrl = null;
+        _hideAnimatedImage();
+        displayCanvas.style.display = 'block';
+        selCanvas.style.display = 'block';
+      }
     } else {
       Editor.revertEditSession();
       _syncSlidersFromEffects('eff');
@@ -2229,6 +2756,9 @@
       document.getElementById('effects-content')?.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
       document.getElementById('edit-effects-content')?.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
       if (!state._editDirtyAtOpen) _clearDirty();
+      if (state.isAnimated && FormatSupport.isAnimatedImage(state.currentFile || '')) {
+        _restoreAnimatedView();
+      }
     }
     state._editDirtyAtOpen = undefined;
 
@@ -2435,7 +2965,10 @@
   function _ewZoomBy(factor) {
     _wantFit = false;
     _ewZoom = Math.min(Math.max(_ewZoom * factor, 0.02), 32);
+    state.zoom = _ewZoom;
     _ewApplyTransform();
+    _updateZoomDisplay();
+    _updateStatus({ zoom: true });
   }
 
   function _ewApplyTransform() {
@@ -2787,6 +3320,26 @@
     return `${n.toFixed(1)} m`;
   }
 
+  /** Map sharp/libvips depth names (e.g. uchar) to bit size display. */
+  function _fmtBitDepth(v) {
+    if (v == null || v === '') return null;
+    if (typeof v === 'number' && Number.isFinite(v)) return `${v} bit`;
+    const key = String(v).trim().toLowerCase();
+    const map = {
+      uchar: 8, char: 8,
+      ushort: 16, short: 16,
+      uint: 32, int: 32, float: 32,
+      double: 64, complex: 64,
+      dpcomplex: 128,
+    };
+    if (map[key] != null) return `${map[key]} bit`;
+    const m = key.match(/^(\d+)\s*-?\s*bit/);
+    if (m) return `${m[1]} bit`;
+    const n = Number(key);
+    if (Number.isFinite(n) && n > 0) return `${n} bit`;
+    return null;
+  }
+
   function _fmtMetaDate(v) {
     if (v == null || v === '') return null;
     if (typeof v === 'string') {
@@ -2858,79 +3411,231 @@
     return _fmtMetaScalar(raw);
   }
 
+  function _fmtDuration(sec) {
+    if (sec == null || sec === '') return null;
+    const n = Number(sec);
+    if (!Number.isFinite(n) || n < 0) return _fmtMetaScalar(sec);
+    const total = Math.round(n);
+    const h = Math.floor(total / 3600);
+    const m = Math.floor((total % 3600) / 60);
+    const s = total % 60;
+    const pad = (v) => String(v).padStart(2, '0');
+    const base = h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`;
+    return `${base} (${n.toFixed(n < 10 ? 2 : 1)} s)`;
+  }
+
+  function _fmtBitrate(bps, estimated) {
+    if (bps == null || bps === '') return null;
+    const n = Number(bps);
+    if (!Number.isFinite(n) || n <= 0) return _fmtMetaScalar(bps);
+    let s;
+    if (n >= 1e6) s = `${(n / 1e6).toFixed(2)} Mbps`;
+    else if (n >= 1e3) s = `${Math.round(n / 1e3)} kbps`;
+    else s = `${Math.round(n)} bps`;
+    return estimated ? `${s} (${I18n.t('info.estimated')})` : s;
+  }
+
+  function _fmtSampleRate(hz) {
+    if (hz == null || hz === '') return null;
+    const n = Number(hz);
+    if (!Number.isFinite(n) || n <= 0) return _fmtMetaScalar(hz);
+    if (n >= 1000) return `${(n / 1000).toFixed(n % 1000 === 0 ? 0 : 1)} kHz`;
+    return `${Math.round(n)} Hz`;
+  }
+
+  function _fmtFrameRate(fps) {
+    if (fps == null || fps === '') return null;
+    const n = Number(fps);
+    if (!Number.isFinite(n) || n <= 0) return _fmtMetaScalar(fps);
+    return `${Number.isInteger(n) ? n : n.toFixed(2)} fps`;
+  }
+
+  function _fmtAudioChannels(n) {
+    if (n == null || n === '') return null;
+    const c = Number(n);
+    if (!Number.isFinite(c) || c <= 0) return _fmtMetaScalar(n);
+    if (c === 1) return `1 (${I18n.t('info.mono')})`;
+    if (c === 2) return `2 (${I18n.t('info.stereo')})`;
+    if (c === 6) return '6 (5.1)';
+    if (c === 8) return '8 (7.1)';
+    return String(c);
+  }
+
+  function _fmtContainerLabel(ext, format) {
+    if (!format) return ext;
+    const f = String(format).trim();
+    if (!f) return ext;
+    if (f.toUpperCase() === String(ext).toUpperCase()) return ext;
+    // Avoid "MP4 (MP4)" style after container cleanup
+    if (f.replace(/\s+/g, '').toUpperCase() === String(ext).toUpperCase()) return ext;
+    return `${ext} (${f})`;
+  }
+
+  function _yesNo(v) {
+    if (v === true) return I18n.t('info.yes');
+    if (v === false) return I18n.t('info.no');
+    return null;
+  }
+
+  function _viewerInfoDims(basic) {
+    if (Editor.isLoaded()) {
+      const d = Editor.getDimensions();
+      if (d.w && d.h) return d;
+    }
+    if (state.isAnimated) {
+      const d = _getViewerDims();
+      if (d.w && d.h) return d;
+    }
+    if (state.isVideo && videoEl) {
+      const w = videoEl.videoWidth || 0;
+      const h = videoEl.videoHeight || 0;
+      if (w && h) return { w, h };
+    }
+    return {
+      w: basic.width || 0,
+      h: basic.height || 0,
+    };
+  }
+
   function _collectInfoSections(filePath, stats, meta, dicomMeta) {
     const isDicom = FormatSupport.isDcm(filePath);
+    const isAv = !!(state.isVideo || state.isAudio || FormatSupport.isVideo(filePath) || FormatSupport.isAudio(filePath));
     const tags  = (!isDicom && meta && meta.tags) ? meta.tags : {};
     const basic = (!isDicom && meta && meta.basic) ? meta.basic : {};
     const ext   = FormatSupport.getExtension(filePath).toUpperCase();
     const name  = filePath.split(/[/\\]/).pop();
-    const dims  = Editor.isLoaded() ? Editor.getDimensions() : { w: 0, h: 0 };
+    const dims  = _viewerInfoDims(basic);
     const w = dims.w || basic.width;
     const h = dims.h || basic.height;
+    const shownKeys = new Set(); // keys already presented — skip in "All metadata"
 
     const fileRows = [];
     _pushRow(fileRows, 'info.name', name);
     _pushRow(fileRows, 'info.size', stats && !stats.error
       ? `${FormatSupport.formatFileSize(stats.size)} (${stats.size.toLocaleString()} B)`
       : null);
-    _pushRow(fileRows, 'info.dimensions', w && h ? `${w} × ${h} px` : null);
-    _pushRow(fileRows, 'info.format', basic.format ? `${ext} (${basic.format})` : ext);
+    // Dimensions only for visual media (video / images), not pure audio
+    const isAudioOnly = state.isAudio || (basic.mediaKind === 'audio' && !basic.hasVideo
+      && !(basic.width && basic.height));
+    if (!isAudioOnly) {
+      _pushRow(fileRows, 'info.dimensions', w && h ? `${w} × ${h} px` : null);
+    }
+    _pushRow(fileRows, 'info.format', _fmtContainerLabel(ext, basic.format));
     _pushRow(fileRows, 'info.modified', stats && !stats.error ? FormatSupport.formatDate(stats.modified) : null);
     _pushRow(fileRows, 'info.created', stats && !stats.error ? FormatSupport.formatDate(stats.created) : null);
     _pushRow(fileRows, 'info.accessed', stats && !stats.error && stats.accessed ? FormatSupport.formatDate(stats.accessed) : null);
     _pushRow(fileRows, 'info.changed', stats && !stats.error && stats.changed ? FormatSupport.formatDate(stats.changed) : null);
-    const colorSpace = _fmtMetaScalar(_pickTag(tags, ['ColorSpace'])) || basic.space || null;
-    _pushRow(fileRows, 'info.colorSpace', colorSpace);
-    const dpi = _pickTag(tags, ['XResolution', 'YResolution']);
-    if (dpi) _pushRow(fileRows, 'info.dpi', _fmtMetaScalar(dpi));
-    _pushRow(fileRows, 'info.channels', basic.channels != null ? String(basic.channels) : null);
-    _pushRow(fileRows, 'info.depth', basic.depth || null);
-    _pushRow(fileRows, 'info.alpha', basic.hasAlpha === true ? 'Yes' : null);
-    _pushRow(fileRows, 'info.chroma', basic.chromaSubsampling || null);
-    _pushRow(fileRows, 'info.compression', basic.compression || null);
-    _pushRow(fileRows, 'info.pages', basic.pages != null && basic.pages > 1 ? String(basic.pages) : null);
-    _pushRow(fileRows, 'info.profile', basic.hasProfile === true ? 'Yes' : null);
+
+    const mediaRows = [];
+    const tagRows = [];
+    if (isAv || basic.duration != null || basic.codec || basic.videoCodec || basic.audioCodec
+      || basic.sampleRate != null || basic.bitsPerSample != null) {
+      const duration = basic.duration != null
+        ? basic.duration
+        : (state.isVideo && videoEl && Number.isFinite(videoEl.duration) ? videoEl.duration
+          : (state.isAudio && audioEl && Number.isFinite(audioEl.duration) ? audioEl.duration : null));
+      let bitrate = basic.bitrate;
+      let bitrateEst = !!basic.bitrateEstimated;
+      if ((bitrate == null || !(Number(bitrate) > 0)) && duration > 0 && stats && !stats.error && stats.size > 0) {
+        bitrate = (stats.size * 8) / duration;
+        bitrateEst = true;
+      }
+      _pushRow(mediaRows, 'info.duration', _fmtDuration(duration));
+      _pushRow(mediaRows, 'info.bitrate', _fmtBitrate(bitrate, bitrateEst));
+      if (basic.hasVideo || basic.videoCodec || state.isVideo) {
+        _pushRow(mediaRows, 'info.frameRate', _fmtFrameRate(basic.frameRate));
+        _pushRow(mediaRows, 'info.videoCodec', basic.videoCodec || null);
+      }
+      _pushRow(mediaRows, 'info.audioCodec', basic.audioCodec || null);
+      _pushRow(mediaRows, 'info.codec', (!basic.videoCodec && !basic.audioCodec) ? (basic.codec || null) : null);
+      _pushRow(mediaRows, 'info.sampleRate', _fmtSampleRate(basic.sampleRate));
+      _pushRow(mediaRows, 'info.audioChannels', _fmtAudioChannels(basic.channels));
+      if (basic.bitsPerSample != null && Number(basic.bitsPerSample) > 0) {
+        _pushRow(mediaRows, 'info.depth', `${basic.bitsPerSample} bit`);
+      }
+      _pushRow(mediaRows, 'info.lossless', _yesNo(basic.lossless));
+
+      // Tags belong in their own section for A/V (not under photo Capture)
+      _pushRow(tagRows, 'info.mediaTitle', _fmtMetaScalar(_pickTag(tags, ['title', 'Title'])));
+      _pushRow(tagRows, 'info.mediaArtist', _fmtMetaScalar(_pickTag(tags, ['artist', 'Artist'])));
+      _pushRow(tagRows, 'info.albumArtist', _fmtMetaScalar(_pickTag(tags, ['albumartist', 'AlbumArtist'])));
+      _pushRow(tagRows, 'info.mediaAlbum', _fmtMetaScalar(_pickTag(tags, ['album', 'Album'])));
+      _pushRow(tagRows, 'info.year', _fmtMetaScalar(_pickTag(tags, ['year', 'date', 'Year'])));
+      _pushRow(tagRows, 'info.genre', _fmtMetaScalar(_pickTag(tags, ['genre', 'Genre'])));
+      _pushRow(tagRows, 'info.trackNo', _fmtMetaScalar(_pickTag(tags, ['track', 'Track'])));
+      _pushRow(tagRows, 'info.composer', _fmtMetaScalar(_pickTag(tags, ['composer', 'Composer'])));
+      _pushRow(tagRows, 'info.software', _fmtMetaScalar(_pickTag(tags, ['encoder', 'Encoder', 'Software'])));
+      _pushRow(tagRows, 'info.copyright', _fmtMetaScalar(_pickTag(tags, ['copyright', 'Copyright'])));
+      _pushRow(tagRows, 'info.description', _fmtMetaScalar(_pickTag(tags, ['comment', 'description', 'Description'])));
+
+      [
+        'title', 'artist', 'album', 'albumartist', 'year', 'genre', 'track', 'disk',
+        'composer', 'copyright', 'encoder', 'date', 'description', 'comment',
+        'duration', 'bitrate', 'sampleRate', 'channels', 'bitsPerSample',
+        'codec', 'videoCodec', 'audioCodec', 'frameRate', 'format', 'lossless',
+        'width', 'height', 'mediaKind', 'hasAudio', 'hasVideo', 'bitrateEstimated',
+        'numberOfSamples', 'blockAlign',
+      ].forEach((k) => shownKeys.add(k.toLowerCase()));
+    }
+
+    if (!isAv) {
+      const colorSpace = _fmtMetaScalar(_pickTag(tags, ['ColorSpace'])) || basic.space || null;
+      _pushRow(fileRows, 'info.colorSpace', colorSpace);
+      const dpi = _pickTag(tags, ['XResolution', 'YResolution']);
+      if (dpi) _pushRow(fileRows, 'info.dpi', _fmtMetaScalar(dpi));
+      _pushRow(fileRows, 'info.channels', basic.channels != null ? String(basic.channels) : null);
+      _pushRow(fileRows, 'info.depth', _fmtBitDepth(basic.depth));
+      _pushRow(fileRows, 'info.alpha', basic.hasAlpha === true ? 'Yes' : null);
+      _pushRow(fileRows, 'info.chroma', basic.chromaSubsampling || null);
+      _pushRow(fileRows, 'info.compression', basic.compression || null);
+      _pushRow(fileRows, 'info.pages', basic.pages != null && basic.pages > 1 ? String(basic.pages) : null);
+      _pushRow(fileRows, 'info.profile', basic.hasProfile === true ? 'Yes' : null);
+    }
 
     const captureRows = [];
     const locRows = [];
     const otherRows = [];
     if (!isDicom) {
-      _pushRow(captureRows, 'info.camera', _fmtCamera(tags));
-      _pushRow(captureRows, 'info.lens', _fmtMetaScalar(_pickTag(tags, ['LensModel', 'LensMake', 'LensID', 'LensInfo'])));
-      _pushRow(captureRows, 'info.taken', _fmtMetaDate(_pickTag(tags, ['DateTimeOriginal', 'CreateDate', 'DateTime'])));
-      _pushRow(captureRows, 'info.exposure', _fmtExposureTime(_pickTag(tags, ['ExposureTime', 'ShutterSpeedValue'])));
-      _pushRow(captureRows, 'info.aperture', _fmtAperture(_pickTag(tags, ['FNumber', 'ApertureValue'])));
-      _pushRow(captureRows, 'info.iso', _fmtIso(_pickTag(tags, ['PhotographicSensitivity', 'ISO', 'ISOSpeedRatings'])));
-      _pushRow(captureRows, 'info.focalLength', _fmtFocalMm(_pickTag(tags, ['FocalLength'])));
-      _pushRow(captureRows, 'info.focal35', _fmtFocalMm(_pickTag(tags, ['FocalLengthIn35mmFormat', 'FocalLengthIn35mmFilm'])));
-      _pushRow(captureRows, 'info.exposureBias', _fmtBias(_pickTag(tags, ['ExposureBiasValue', 'ExposureCompensation', 'ExposureBias'])));
-      _pushRow(captureRows, 'info.exposureProgram', _fmtMetaScalar(_pickTag(tags, ['ExposureProgram', 'ExposureMode'])));
-      _pushRow(captureRows, 'info.flash', _fmtMetaScalar(_pickTag(tags, ['Flash'])));
-      _pushRow(captureRows, 'info.whiteBalance', _fmtMetaScalar(_pickTag(tags, ['WhiteBalance'])));
-      _pushRow(captureRows, 'info.metering', _fmtMetaScalar(_pickTag(tags, ['MeteringMode'])));
-      _pushRow(captureRows, 'info.orientation', _fmtMetaScalar(_pickTag(tags, ['Orientation'])));
-      _pushRow(captureRows, 'info.software', _fmtMetaScalar(_pickTag(tags, ['Software'])));
-      _pushRow(captureRows, 'info.artist', _fmtMetaScalar(_pickTag(tags, ['Artist', 'Creator', 'OwnerName'])));
-      _pushRow(captureRows, 'info.copyright', _fmtMetaScalar(_pickTag(tags, ['Copyright'])));
-      _pushRow(captureRows, 'info.description', _fmtMetaScalar(_pickTag(tags, ['ImageDescription', 'Description', 'Caption', 'CaptionAbstract'])));
-      _pushRow(captureRows, 'info.keywords', _fmtMetaScalar(_pickTag(tags, ['Keywords', 'Subject'])));
+      if (!isAv) {
+        _pushRow(captureRows, 'info.camera', _fmtCamera(tags));
+        _pushRow(captureRows, 'info.lens', _fmtMetaScalar(_pickTag(tags, ['LensModel', 'LensMake', 'LensID', 'LensInfo'])));
+        _pushRow(captureRows, 'info.taken', _fmtMetaDate(_pickTag(tags, ['DateTimeOriginal', 'CreateDate', 'DateTime'])));
+        _pushRow(captureRows, 'info.exposure', _fmtExposureTime(_pickTag(tags, ['ExposureTime', 'ShutterSpeedValue'])));
+        _pushRow(captureRows, 'info.aperture', _fmtAperture(_pickTag(tags, ['FNumber', 'ApertureValue'])));
+        _pushRow(captureRows, 'info.iso', _fmtIso(_pickTag(tags, ['PhotographicSensitivity', 'ISO', 'ISOSpeedRatings'])));
+        _pushRow(captureRows, 'info.focalLength', _fmtFocalMm(_pickTag(tags, ['FocalLength'])));
+        _pushRow(captureRows, 'info.focal35', _fmtFocalMm(_pickTag(tags, ['FocalLengthIn35mmFormat', 'FocalLengthIn35mmFilm'])));
+        _pushRow(captureRows, 'info.exposureBias', _fmtBias(_pickTag(tags, ['ExposureBiasValue', 'ExposureCompensation', 'ExposureBias'])));
+        _pushRow(captureRows, 'info.exposureProgram', _fmtMetaScalar(_pickTag(tags, ['ExposureProgram', 'ExposureMode'])));
+        _pushRow(captureRows, 'info.flash', _fmtMetaScalar(_pickTag(tags, ['Flash'])));
+        _pushRow(captureRows, 'info.whiteBalance', _fmtMetaScalar(_pickTag(tags, ['WhiteBalance'])));
+        _pushRow(captureRows, 'info.metering', _fmtMetaScalar(_pickTag(tags, ['MeteringMode'])));
+        _pushRow(captureRows, 'info.orientation', _fmtMetaScalar(_pickTag(tags, ['Orientation'])));
+        _pushRow(captureRows, 'info.software', _fmtMetaScalar(_pickTag(tags, ['Software', 'encoder', 'Encoder'])));
+        _pushRow(captureRows, 'info.artist', _fmtMetaScalar(_pickTag(tags, ['Artist', 'Creator', 'OwnerName', 'artist'])));
+        _pushRow(captureRows, 'info.copyright', _fmtMetaScalar(_pickTag(tags, ['Copyright', 'copyright'])));
+        _pushRow(captureRows, 'info.description', _fmtMetaScalar(_pickTag(tags, ['ImageDescription', 'Description', 'Caption', 'CaptionAbstract', 'description', 'comment'])));
+        _pushRow(captureRows, 'info.keywords', _fmtMetaScalar(_pickTag(tags, ['Keywords', 'Subject', 'genre'])));
 
-      const signedLat = _pickTag(tags, ['latitude', 'Latitude']);
-      const signedLon = _pickTag(tags, ['longitude', 'Longitude']);
-      const lat = signedLat != null
-        ? _toDecimalGps(signedLat)
-        : _toDecimalGps(_pickTag(tags, ['GPSLatitude']), _pickTag(tags, ['GPSLatitudeRef']));
-      const lon = signedLon != null
-        ? _toDecimalGps(signedLon)
-        : _toDecimalGps(_pickTag(tags, ['GPSLongitude']), _pickTag(tags, ['GPSLongitudeRef']));
-      _pushRow(locRows, 'info.gps', _fmtGps(lat, lon));
-      _pushRow(locRows, 'info.altitude', _fmtAltitude(_pickTag(tags, ['GPSAltitude'])));
-      _pushRow(locRows, 'info.city', _fmtMetaScalar(_pickTag(tags, ['City', 'Location', 'SubLocation'])));
-      _pushRow(locRows, 'info.country', _fmtMetaScalar(_pickTag(tags, ['Country', 'CountryName', 'CountryCode'])));
+        const signedLat = _pickTag(tags, ['latitude', 'Latitude']);
+        const signedLon = _pickTag(tags, ['longitude', 'Longitude']);
+        const lat = signedLat != null
+          ? _toDecimalGps(signedLat)
+          : _toDecimalGps(_pickTag(tags, ['GPSLatitude']), _pickTag(tags, ['GPSLatitudeRef']));
+        const lon = signedLon != null
+          ? _toDecimalGps(signedLon)
+          : _toDecimalGps(_pickTag(tags, ['GPSLongitude']), _pickTag(tags, ['GPSLongitudeRef']));
+        _pushRow(locRows, 'info.gps', _fmtGps(lat, lon));
+        _pushRow(locRows, 'info.altitude', _fmtAltitude(_pickTag(tags, ['GPSAltitude'])));
+        _pushRow(locRows, 'info.city', _fmtMetaScalar(_pickTag(tags, ['City', 'Location', 'SubLocation'])));
+        _pushRow(locRows, 'info.country', _fmtMetaScalar(_pickTag(tags, ['Country', 'CountryName', 'CountryCode'])));
+      }
 
       const dump = (meta && meta.all && Object.keys(meta.all).length) ? meta.all : tags;
       for (const [key, raw] of Object.entries(dump)) {
         if (_skipDumpKey(key)) continue;
+        const short = key.includes('.') ? key.slice(key.lastIndexOf('.') + 1) : key;
+        if (isAv && (shownKeys.has(key.toLowerCase()) || shownKeys.has(short.toLowerCase()))) continue;
         const value = _dumpValue(raw);
         if (!value) continue;
         otherRows.push({ label: key, value, full: true });
@@ -2954,6 +3659,8 @@
 
     return [
       { titleKey: 'info.section.file',     rows: fileRows },
+      { titleKey: 'info.section.media',    rows: mediaRows },
+      { titleKey: 'info.section.tags',     rows: tagRows },
       { titleKey: 'info.section.capture',  rows: captureRows },
       { titleKey: 'info.section.location', rows: locRows },
       { titleKey: 'info.section.dicom',    rows: dicomRows },
@@ -2988,12 +3695,45 @@
       state.dicomMeta = null;
     }
     if (!fileChanged) return state.imageMeta;
-    if (state.isVideo || state.isAudio || FormatSupport.isDcm(filePath)) return null;
-    if (!window.electronAPI.readImageMeta) return null;
+    if (FormatSupport.isDcm(filePath)) return null;
+
+    const isAv = state.isVideo || state.isAudio
+      || FormatSupport.isVideo(filePath) || FormatSupport.isAudio(filePath);
     try {
-      state.imageMeta = await window.electronAPI.readImageMeta(filePath);
+      if (isAv) {
+        if (!window.electronAPI.readMediaMeta) {
+          state.imageMeta = null;
+        } else {
+          const mediaMeta = await window.electronAPI.readMediaMeta(filePath);
+          // Drop parser error placeholders from basic
+          if (mediaMeta?.basic?.error) {
+            const { error, ...rest } = mediaMeta.basic;
+            mediaMeta.basic = rest;
+          }
+          state.imageMeta = mediaMeta;
+        }
+      } else if (window.electronAPI.readImageMeta) {
+        state.imageMeta = await window.electronAPI.readImageMeta(filePath);
+      } else {
+        state.imageMeta = null;
+      }
     } catch {
       state.imageMeta = null;
+    }
+
+    // Merge live A/V element metrics when container tags lack them
+    if (state.imageMeta) {
+      const basic = state.imageMeta.basic || (state.imageMeta.basic = {});
+      if (state.isVideo && videoEl) {
+        if (!basic.width && videoEl.videoWidth) basic.width = videoEl.videoWidth;
+        if (!basic.height && videoEl.videoHeight) basic.height = videoEl.videoHeight;
+        if (basic.duration == null && Number.isFinite(videoEl.duration)) basic.duration = videoEl.duration;
+      }
+      if (state.isAudio && audioEl) {
+        if (basic.duration == null && Number.isFinite(audioEl.duration) && audioEl.duration > 0) {
+          basic.duration = audioEl.duration;
+        }
+      }
     }
     return state.imageMeta;
   }
@@ -3010,8 +3750,21 @@
 
     const stats = await window.electronAPI.getFileStats(filePath);
     const meta = await _ensureImageMeta(filePath, dicomMeta);
+    // Always overlay live player metrics for open A/V
+    if (meta) {
+      const basic = meta.basic || (meta.basic = {});
+      if (state.isVideo && videoEl) {
+        if (videoEl.videoWidth) basic.width = videoEl.videoWidth;
+        if (videoEl.videoHeight) basic.height = videoEl.videoHeight;
+        if (Number.isFinite(videoEl.duration) && videoEl.duration > 0) basic.duration = videoEl.duration;
+      }
+      if (state.isAudio && audioEl) {
+        if (Number.isFinite(audioEl.duration) && audioEl.duration > 0) basic.duration = audioEl.duration;
+      }
+    }
     const sections = _collectInfoSections(filePath, stats, meta, state.dicomMeta);
-    infoContent.innerHTML = _renderInfoSections(sections);
+    infoContent.innerHTML = _renderInfoSections(sections)
+      || `<div class="info-no-file" data-i18n="info.noFile">${I18n.t('info.noFile')}</div>`;
   }
 
   async function _showFileInfoDialog() {
@@ -3049,6 +3802,9 @@
     if (Editor.isLoaded()) {
       const d = Editor.getDimensions();
       if (statusDims) statusDims.textContent = `${d.w} × ${d.h} ${I18n.t('status.dimensions')}`;
+    } else if (state.isAnimated || state.isVideo) {
+      const d = _getViewerDims();
+      if (statusDims && d.w && d.h) statusDims.textContent = `${d.w} × ${d.h} ${I18n.t('status.dimensions')}`;
     }
 
     if (statusIdx && state.fileList.length > 0) {
@@ -3068,11 +3824,33 @@
   ════════════════════════════════════════════ */
   function _showPlaceholder(show) {
     imagePlaceholder.style.display = show ? 'flex' : 'none';
-    displayCanvas.style.display  = show ? 'none' : 'block';
-    selCanvas.style.display      = show ? 'none' : 'block';
     if (show) {
+      displayCanvas.style.display = 'none';
+      selCanvas.style.display = 'none';
+      _hideAnimatedImage();
       _showVideoPlayer(null);
       _showAudioPlayer(null);
+      state.isAnimated = false;
+      if (Editor.isLoaded()) Editor.clear();
+      _updateMediaControlsVisibility();
+      return;
+    }
+    if (state.isAnimated) {
+      displayCanvas.style.display = 'none';
+      selCanvas.style.display = 'none';
+      if (state.animPlaying) {
+        _hideAnimatedFreeze();
+        if (animImg) animImg.style.display = 'block';
+      } else if (animFreeze && animFreeze.width) {
+        if (animImg) animImg.style.display = 'none';
+        animFreeze.style.display = 'block';
+      } else if (animImg) {
+        animImg.style.display = 'block';
+      }
+    } else {
+      displayCanvas.style.display = 'block';
+      selCanvas.style.display = 'block';
+      _hideAnimatedFreeze();
     }
   }
 
@@ -3474,8 +4252,16 @@
     const t = I18n.t.bind(I18n);
     const isWeb = window.electronAPI.platform === 'web';
     const isAv = state.isVideo || state.isAudio;
+    const isVideo = !!state.isVideo;
+    const isAnim = !!state.isAnimated && !state.editMode;
+    const canTransport = isVideo || isAnim;
+    const playing = canTransport && _isMediaPlaying();
 
     ContextMenu.show(x, y, [
+      canTransport && { icon: Icons.mediaPlay,  label: t('toolbar.play'),  disabled: playing,  shortcut: 'Space', action: () => _playMedia() },
+      canTransport && { icon: Icons.mediaPause, label: t('toolbar.pause'), disabled: !playing, shortcut: 'Space', action: () => _pauseMedia() },
+      canTransport && { icon: Icons.mediaStop,  label: t('toolbar.stop'),  action: () => _stopMedia() },
+      canTransport && { separator: true },
       { icon: Icons.openFile,   label: t('context.openFile'),   action: () => _pickOpenFile() },
       { icon: Icons.openFolder, label: t('context.openFolder'), action: () => _pickOpenFolder() },
       { separator: true },
@@ -3489,9 +4275,9 @@
       hasImg && { icon: Icons.flipH,       label: t('context.flipH'),       action: () => _flip('h') },
       hasImg && { icon: Icons.flipV,       label: t('context.flipV'),       action: () => _flip('v') },
       hasImg && { separator: true },
-      (hasImg || state.isVideo) && { icon: Icons.zoomIn,    label: t('context.zoomIn'),    shortcut:'Ctrl++', action: () => _zoom(1.25) },
-      (hasImg || state.isVideo) && { icon: Icons.zoomOut,   label: t('context.zoomOut'),   shortcut:'Ctrl+-', action: () => _zoom(0.8) },
-      (hasImg || state.isVideo) && { icon: Icons.fitWindow, label: t('context.fitWindow'), shortcut:'Ctrl+0', action: _fitToWindow },
+      (hasImg || isVideo) && { icon: Icons.zoomIn,    label: t('context.zoomIn'),    shortcut:'Ctrl++', action: () => _zoom(1.25) },
+      (hasImg || isVideo) && { icon: Icons.zoomOut,   label: t('context.zoomOut'),   shortcut:'Ctrl+-', action: () => _zoom(0.8) },
+      (hasImg || isVideo) && { icon: Icons.fitWindow, label: t('context.fitWindow'), shortcut:'Ctrl+0', action: _fitToWindow },
       hasImg && { icon: Icons.actualSize,label: t('context.actualSize'),shortcut:'Ctrl+1', action: _actualSize },
       hasImg && { separator: true },
       hasImg && { icon: Icons.bgRemove, label: t('context.bgRemove'), action: _removeBackground },
@@ -3644,6 +4430,15 @@
 
       if (e.key === 'ArrowLeft')  { e.preventDefault(); _prevImage(); return; }
       if (e.key === 'ArrowRight') { e.preventDefault(); _nextImage(); return; }
+      if (e.key === ' ' || e.code === 'Space') {
+        const tag = (e.target && e.target.tagName) || '';
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target?.isContentEditable) return;
+        if (_activeMediaEl()) {
+          e.preventDefault();
+          _toggleMediaPlayback();
+          return;
+        }
+      }
       if (e.key === 'Escape') {
         const openDlg = [...document.querySelectorAll('.dialog-overlay')].find((el) => {
           if (el.id === 'progress-overlay' || el.id === 'file-dialog-overlay') return false;

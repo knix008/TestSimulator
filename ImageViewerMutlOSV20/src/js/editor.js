@@ -16,6 +16,7 @@ window.Editor = (() => {
     brightness: 100, contrast: 100, saturation: 100,
     hue: 0, blur: 0, grayscale: 0, sepia: 0, invert: 0,
     sharpen: 0, emboss: false, edge: false, vignette: 0, warmth: 0, grain: 0, posterize: 0,
+    solarize: 0,
     borderWidth: 0, borderColor: '#ffffff', borderShadow: 0,
     borderShadowStyle: 'soft', borderShadowDir: 'br',
     borderCaption: false, borderCaptionPos: 'bl', borderCaptionText: '',
@@ -189,6 +190,10 @@ window.Editor = (() => {
     if (effects.posterize > 1) {
       const p = _applyPosterize(pc.getImageData(0, 0, w, h), effects.posterize);
       pc.putImageData(p, 0, 0);
+    }
+    if (effects.solarize > 0) {
+      const s = _applySolarize(pc.getImageData(0, 0, w, h), effects.solarize);
+      pc.putImageData(s, 0, 0);
     }
     if (effects.grain > 0) {
       const g = _applyGrain(pc.getImageData(0, 0, w, h), effects.grain);
@@ -533,6 +538,111 @@ window.Editor = (() => {
     if (onDirtyCallback) onDirtyCallback();
   }
 
+  /* ── Progress-aware effect render (large images / pixel kernels) ── */
+  let _effectRenderBusy = false;
+  let _effectRenderQueued = null; // { wantProgress, saveHist }
+  let _effectProgressOwner = 0;
+  let _effectRenderGen = 0;
+
+  function _tProgress(key, fallback) {
+    try {
+      if (window.I18n && typeof I18n.t === 'function') {
+        const s = I18n.t(key);
+        if (s && s !== key) return s;
+      }
+    } catch {}
+    return fallback;
+  }
+
+  function _isHeavyEffectRender() {
+    if (!workingPixels) return false;
+    const px = workingPixels.width * workingPixels.height;
+    const kernel =
+      effects.sharpen > 0 || effects.emboss || effects.edge
+      || effects.grain > 0 || effects.posterize > 1 || effects.warmth !== 0
+      || effects.solarize > 0;
+    const cssHeavy = effects.blur > 0 || _buildFilterString() !== 'none' || effects.vignette > 0;
+    if (kernel) return px >= 250000;           // ~0.25MP+
+    if (cssHeavy) return px >= 800000;         // ~0.8MP+
+    return px >= 2000000;                     // plain redraw ~2MP+
+  }
+
+  function _progressDialog() {
+    return window._ProgressDialog || null;
+  }
+
+  async function _runEffectRenderPass(wantProgress) {
+    const gen = ++_effectRenderGen;
+    const dlg = _progressDialog();
+    const show = !!(wantProgress && dlg && _isHeavyEffectRender());
+
+    if (show) {
+      _effectProgressOwner = gen;
+      dlg.show({
+        title: _tProgress('progress.effectTitle', _tProgress('progress.title', 'Progress')),
+        message: _tProgress('progress.effectApplying', 'Applying effects…'),
+        percent: 4,
+      });
+      dlg.startCreep(90);
+    }
+
+    try {
+      if (show) {
+        await dlg.yieldFrame();
+        if (gen !== _effectRenderGen) return false;
+        dlg.set(18, _tProgress('progress.effectApplying', 'Applying effects…'));
+        await dlg.yieldFrame();
+        if (gen !== _effectRenderGen) return false;
+      }
+
+      if (gen !== _effectRenderGen) return false;
+      _render();
+
+      if (show && gen === _effectRenderGen && _effectProgressOwner === gen) {
+        dlg.stopCreep();
+        dlg.set(100, _tProgress('progress.done', 'Done'));
+        await dlg.yieldFrame(70);
+      }
+      return gen === _effectRenderGen;
+    } finally {
+      if (show && _effectProgressOwner === gen) {
+        dlg.hide();
+        if (_effectProgressOwner === gen) _effectProgressOwner = 0;
+      }
+    }
+  }
+
+  function _requestEffectRender(wantProgress, saveHist) {
+    const prev = _effectRenderQueued;
+    _effectRenderQueued = {
+      wantProgress: !!(wantProgress || (prev && prev.wantProgress)),
+      saveHist: !!(saveHist || (prev && prev.saveHist)),
+    };
+    if (_effectRenderBusy) {
+      // Abort in-flight pass after its next yield; latest effects win.
+      _effectRenderGen++;
+      return;
+    }
+    _effectRenderBusy = true;
+    (async () => {
+      try {
+        while (_effectRenderQueued) {
+          const job = _effectRenderQueued;
+          _effectRenderQueued = null;
+          const done = await _runEffectRenderPass(job.wantProgress);
+          if (done && job.saveHist) _saveHistory();
+        }
+      } finally {
+        _effectRenderBusy = false;
+        if (_effectRenderQueued) {
+          const again = _effectRenderQueued;
+          _effectRenderQueued = null;
+          _requestEffectRender(again.wantProgress, again.saveHist);
+        }
+      }
+    })();
+  }
+
   function _buildFilterString() {
     const parts = [];
     if (effects.brightness !== 100) parts.push(`brightness(${effects.brightness / 100})`);
@@ -660,27 +770,60 @@ window.Editor = (() => {
     return new ImageData(data, imgData.width, imgData.height);
   }
 
+  /** Partial solarize: invert channels above a luminance threshold. */
+  function _applySolarize(imgData, amount) {
+    const data = new Uint8ClampedArray(imgData.data);
+    const t = 255 - Math.round((Math.max(0, Math.min(100, amount)) / 100) * 180);
+    for (let i = 0; i < data.length; i += 4) {
+      const y = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+      if (y >= t) {
+        data[i]     = 255 - data[i];
+        data[i + 1] = 255 - data[i + 1];
+        data[i + 2] = 255 - data[i + 2];
+      }
+    }
+    return new ImageData(data, imgData.width, imgData.height);
+  }
+
   /* ═══════════════════════════════════════════
      Effects API
   ═══════════════════════════════════════════ */
   function setEffect(key, value, saveHist = true) {
     if (!(key in effects)) return;
-    if (effects[key] === value) return;
-    effects[key] = value;
-    _render();
-    if (saveHist) _saveHistory();
+    const prev = effects[key];
+    const changed = prev !== value;
+    // Same value + no history → nothing to do
+    if (!changed && !saveHist) return;
+    if (changed) effects[key] = value;
+
+    // Live caption typing: sync draw, no modal
+    if (!saveHist && (key === 'borderCaptionText' || key === 'borderCaption'
+      || key === 'borderCaptionPos' || key === 'borderColor'
+      || key === 'borderShadowStyle' || key === 'borderShadowDir')) {
+      if (changed) _render();
+      return;
+    }
+
+    // Value already applied via live input — just commit history
+    if (!changed && saveHist) {
+      _saveHistory();
+      return;
+    }
+
+    // Interactive slider/select: redraw the image only (never full-window progress)
+    _requestEffectRender(false, !!saveHist);
   }
 
   function getEffects() { return { ...effects }; }
 
   function setCaptionLines(lines) {
     captionLines = Array.isArray(lines) ? lines.map((s) => String(s).trim()).filter(Boolean) : [];
-    if (effects.borderCaption) _render();
+    if (effects.borderCaption) _requestEffectRender(false, false);
   }
 
   function setCaptionValues(map) {
     captionValues = map && typeof map === 'object' ? { ...map } : {};
-    if (effects.borderCaption) _render();
+    if (effects.borderCaption) _requestEffectRender(false, false);
   }
 
   function _resetEffects() {
@@ -689,6 +832,7 @@ window.Editor = (() => {
     effects.sepia = 0; effects.invert = 0; effects.sharpen = 0;
     effects.emboss = false; effects.edge = false;
     effects.vignette = 0; effects.warmth = 0; effects.grain = 0; effects.posterize = 0;
+    effects.solarize = 0;
     effects.borderWidth = 0; effects.borderColor = '#ffffff'; effects.borderShadow = 0;
     effects.borderShadowStyle = 'soft';
     effects.borderShadowDir = 'br';
@@ -700,7 +844,7 @@ window.Editor = (() => {
       || effects.hue !== 0 || effects.blur !== 0 || effects.grayscale !== 0
       || effects.sepia !== 0 || effects.invert !== 0 || effects.sharpen !== 0
       || effects.emboss || effects.edge || effects.vignette !== 0 || effects.warmth !== 0
-      || effects.grain !== 0 || effects.posterize !== 0
+      || effects.grain !== 0 || effects.posterize !== 0 || effects.solarize !== 0
       || effects.borderWidth !== 0 || effects.borderShadow !== 0
       || (effects.borderShadowStyle && effects.borderShadowStyle !== 'soft')
       || (effects.borderShadowDir && effects.borderShadowDir !== 'br')
@@ -711,8 +855,7 @@ window.Editor = (() => {
   function resetEffects() {
     if (!_effectsChangedFromDefault()) return;
     _resetEffects();
-    _render();
-    _saveHistory();
+    _requestEffectRender(true, true);
   }
 
   const PRESETS = {
@@ -779,6 +922,54 @@ window.Editor = (() => {
     haze:       { brightness: 122, contrast: 70, saturation: 70, blur: 0.8 },
     cyanotype:  { grayscale: 70, hue: -50, warmth: -60, contrast: 115, saturation: 80 },
     tealorange: { hue: -12, warmth: 35, saturation: 135, contrast: 118 },
+    /* ── additional distinct looks ── */
+    underwater: { hue: -48, warmth: -55, saturation: 95, brightness: 88, contrast: 118, blur: 0.4 },
+    desert:     { warmth: 78, hue: 22, saturation: 72, contrast: 108, brightness: 112, vignette: 22 },
+    forest:     { hue: -28, warmth: -18, saturation: 118, contrast: 122, brightness: 94, vignette: 18 },
+    lavender:   { hue: -62, warmth: -8, saturation: 88, brightness: 116, contrast: 86, blur: 0.5 },
+    candy:      { hue: 42, saturation: 155, brightness: 118, contrast: 92, warmth: 28 },
+    midnight:   { hue: -55, warmth: -45, brightness: 62, contrast: 138, saturation: 70, vignette: 58 },
+    thermal:    { posterize: 5, hue: 48, saturation: 170, contrast: 135, brightness: 105 },
+    blueprint:  { grayscale: 100, hue: -70, warmth: -80, contrast: 132, brightness: 98, invert: 0 },
+    selenium:   { grayscale: 100, hue: -18, warmth: -25, contrast: 120, brightness: 102, vignette: 12 },
+    platinum:   { grayscale: 100, brightness: 118, contrast: 88, vignette: 8, sharpen: 8 },
+    lith:       { grayscale: 100, contrast: 175, brightness: 92, grain: 58, vignette: 35, sharpen: 28 },
+    washout:    { brightness: 148, contrast: 68, saturation: 55, warmth: 35, vignette: 10 },
+    muted:      { saturation: 42, contrast: 95, brightness: 104, warmth: -8, vignette: 10 },
+    cyberpunk:  { hue: -55, saturation: 168, contrast: 145, brightness: 96, warmth: -30, vignette: 28, sharpen: 22 },
+    vaporwave:  { hue: -75, saturation: 150, contrast: 110, brightness: 112, warmth: -15, vignette: 20 },
+    charcoal:   { grayscale: 100, contrast: 108, brightness: 96, grain: 72, blur: 0.4, vignette: 20 },
+    ink:        { grayscale: 100, contrast: 160, brightness: 88, vignette: 30, sharpen: 40 },
+    dayfornight:{ hue: -42, warmth: -50, brightness: 70, contrast: 128, saturation: 65, vignette: 40 },
+    bloom:      { blur: 1.8, brightness: 128, contrast: 82, saturation: 105, warmth: 18 },
+    punch:      { contrast: 135, saturation: 148, sharpen: 35, brightness: 102 },
+    flat:       { contrast: 72, saturation: 88, brightness: 108, vignette: 0 },
+    winter:     { hue: -30, warmth: -42, brightness: 110, contrast: 112, saturation: 78, sharpen: 15 },
+    summer:     { warmth: 45, hue: 8, saturation: 132, brightness: 114, contrast: 108 },
+    rainy:      { hue: -22, warmth: -28, saturation: 58, contrast: 95, brightness: 98, blur: 0.6, grain: 18 },
+    peach:      { warmth: 55, hue: 18, saturation: 95, brightness: 116, contrast: 88 },
+    coral:      { hue: 28, warmth: 62, saturation: 140, contrast: 112, brightness: 108 },
+    emerald:    { hue: -40, warmth: -20, saturation: 145, contrast: 125, brightness: 98 },
+    amethyst:   { hue: -70, saturation: 130, contrast: 115, brightness: 105, warmth: -10 },
+    copper:     { warmth: 85, hue: 16, saturation: 110, contrast: 120, brightness: 100, vignette: 18 },
+    denim:      { hue: -38, warmth: -35, saturation: 70, contrast: 118, brightness: 100 },
+    olive:      { hue: -8, warmth: 12, saturation: 55, contrast: 110, brightness: 98, vignette: 14 },
+    gothic:     { brightness: 68, contrast: 145, saturation: 45, vignette: 65, hue: -8, warmth: -15 },
+    romance:    { warmth: 48, hue: 14, saturation: 92, brightness: 118, contrast: 86, blur: 0.7, vignette: 18 },
+    solarize:   { solarize: 62, contrast: 125, saturation: 110 },
+    duotone:    { grayscale: 55, hue: -85, saturation: 140, contrast: 128, brightness: 102 },
+    glitch:     { posterize: 3, hue: 55, saturation: 160, contrast: 150, invert: 15, sharpen: 20 },
+    watercolor: { blur: 1.4, contrast: 78, saturation: 85, brightness: 114, warmth: 12, vignette: 12 },
+    anime:      { saturation: 148, contrast: 118, brightness: 112, sharpen: 25, warmth: 10 },
+    silhouette: { brightness: 48, contrast: 170, saturation: 30, vignette: 70 },
+    amber:      { warmth: 95, hue: 20, saturation: 105, contrast: 115, brightness: 104, vignette: 16 },
+    mint:       { hue: -55, warmth: -25, saturation: 100, brightness: 118, contrast: 95 },
+    mustard:    { hue: 32, warmth: 40, saturation: 90, contrast: 108, brightness: 106 },
+    steel:      { grayscale: 70, hue: -25, warmth: -40, contrast: 130, saturation: 40, sharpen: 30 },
+    push:       { contrast: 145, saturation: 125, grain: 38, brightness: 96, vignette: 22 },
+    pull:       { contrast: 82, saturation: 78, brightness: 112, grain: 16 },
+    midcentury: { sepia: 22, warmth: 35, saturation: 75, contrast: 105, brightness: 108, vignette: 28 },
+    horror:     { hue: -15, warmth: -20, brightness: 78, contrast: 155, saturation: 50, vignette: 55, grain: 30 },
   };
 
   function applyPreset(name) {
@@ -798,8 +989,7 @@ window.Editor = (() => {
     const preset = PRESETS[name];
     if (preset) Object.assign(effects, preset);
     if (JSON.stringify(effects) === before) return;
-    _render();
-    _saveHistory();
+    _requestEffectRender(true, true);
   }
 
   /* ═══════════════════════════════════════════
@@ -1765,6 +1955,30 @@ window.Editor = (() => {
 
   function isLoaded() { return !!workingPixels; }
 
+  function clear() {
+    originalImg = null;
+    originalPixels = null;
+    workingPixels = null;
+    naturalW = 0;
+    naturalH = 0;
+    rotation = 0;
+    flipH = false;
+    flipV = false;
+    _resetEffects();
+    clearSelection();
+    history.length = 0;
+    histIndex = -1;
+    if (displayCanvas) {
+      displayCanvas.width = 0;
+      displayCanvas.height = 0;
+    }
+    if (selCanvas) {
+      selCanvas.width = 0;
+      selCanvas.height = 0;
+    }
+    if (onHistoryChange) onHistoryChange();
+  }
+
   function getDimensions() {
     if (!displayCanvas) return { w: 0, h: 0 };
     return { w: displayCanvas.width, h: displayCanvas.height };
@@ -1789,7 +2003,7 @@ window.Editor = (() => {
     setMagicTolerance,
     undo, redo, canUndo, canRedo, saveHistory: _saveHistory,
     beginEditSession, revertEditSession, commitEditSession, hasEditSessionChanges,
-    exportAsDataUrl, getCanvasElement, isLoaded,
+    exportAsDataUrl, getCanvasElement, isLoaded, clear,
     getDimensions, getPhotoDimensions, getRotation, getFlipState,
     _applyEdgeDetect,
   };
