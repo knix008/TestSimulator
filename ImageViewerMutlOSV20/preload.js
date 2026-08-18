@@ -77,6 +77,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Events from main process
   onOpenFile: (cb) => ipcRenderer.on('open-file', (_, p) => cb(p)),
   getLaunchFile: () => ipcRenderer.invoke('get-launch-file'),
+  getAppInfo: () => ipcRenderer.invoke('get-app-info'),
   onOpenFolder: (cb) => ipcRenderer.on('open-folder', (_, p) => cb(p)),
   onMenuAction: (cb) => ipcRenderer.on('menu-action', (_, action) => cb(action)),
 

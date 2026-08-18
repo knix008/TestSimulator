@@ -14,7 +14,7 @@ Desktop mode uses Electron’s security model (`contextIsolation: true`, `nodeIn
 │  Mode A: Electron Main (main.js)                             │
 │  ─ Frameless BrowserWindow, IPC dialogs, fs, sharp/heic      │
 │  ─ Single-instance lock, argv / open-file, lastOpenDir       │
-│  ─ Image metadata (exifr + sharp), DICOM decode, rembg       │
+│  ─ Image metadata (exifr + sharp), media meta, DICOM decode, rembg       │
 └────────────────────┬─────────────────────────────────────────┘
                      │  preload.js → window.electronAPI
 ┌────────────────────┼─────────────────────────────────────────┐
@@ -27,8 +27,9 @@ Desktop mode uses Electron’s security model (`contextIsolation: true`, `nodeIn
 │  Renderer (src/)                                              │
 │  index.html → app.js                                          │
 │    ├─ Editor (history = pixels + effects + transforms)        │
+│    ├─ Media transport + cues (video / audio / animated GIF)   │
 │    ├─ FileTree (drive-rooted), FormatSupport, DicomDecoder    │
-│    ├─ Info panel (file / capture / location / all tags)       │
+│    ├─ Info panel (file / capture / media / tags / DICOM)      │
 │    ├─ I18n, ContextMenu, Tooltip, Icons                       │
 │    └─ fileRegistry / webAPI (web mode only)                   │
 └──────────────────────────────────────────────────────────────┘
@@ -44,7 +45,7 @@ Desktop mode uses Electron’s security model (`contextIsolation: true`, `nodeIn
 | API | `preload.js` | `src/js/webAPI.js` |
 | FS | Real paths / drives | Virtual paths via `FileRegistry` |
 | Icons | `src/assets` + rcedit / branded exe (dev) | Favicon from `src/assets` |
-| Metadata | `read-image-meta` (exifr) | File stats only |
+| Metadata | `read-image-meta` / `read-media-meta` | File stats only |
 
 Detection: if `window.electronAPI` is missing at page load, `webAPI.js` installs the shim and sets `platform: 'web'`.
 
@@ -58,7 +59,7 @@ Detection: if `window.electronAPI` is missing at page load, `webAPI.js` installs
 - **Single-instance lock**: a second launch with a file path focuses the existing window and sends `open-file`.
 - Startup file from `process.argv` (Windows/Linux) or `open-file` (macOS); renderer reads it via `get-launch-file`.
 - Persists `lastOpenDir` under userData for open/save dialogs.
-- IPC: directory listing, **list-drives**, path helpers, file read/write, TIFF/HEIC via **sharp** / **heic-convert** / **heic-decode**, DICOM decode, **read-image-meta** (exifr + sharp), dialogs, watchers, drag-out, window min/max/close.
+- IPC: directory listing, **list-drives**, path helpers, file read/write, TIFF/HEIC via **sharp** / **heic-convert** / **heic-decode**, DICOM decode, **read-image-meta** (exifr + sharp), **read-media-meta** (A/V container/codecs/duration/bitrate), dialogs, watchers, drag-out, window min/max/close.
 - Close intercept for unsaved changes (`window-close` vs force close).
 
 ### `preload.js` — Context Bridge
@@ -74,23 +75,28 @@ Detection: if `window.electronAPI` is missing at page load, `webAPI.js` installs
 - `FileRegistry`: maps virtual paths (`/…`) to `File` / `FileSystemDirectoryHandle`.
 - Open file → `<input type="file">`; open folder → `showDirectoryPicker()` or `webkitdirectory`.
 - Save → `showSaveFilePicker()` or `<a download>`.
-- No-ops / errors: `showItemInFolder`, `deleteFile`, `startDrag`, `fs.watch`, `readImageMeta`, `getLaunchFile`.
+- No-ops / errors: `showItemInFolder`, `deleteFile`, `startDrag`, `fs.watch`, `readImageMeta`, `readMediaMeta`, `getLaunchFile`.
 
 ### `src/js/app.js` — Orchestrator
-- State: lang, theme, currentFile, fileList, zoom/pan, dirty flag, cached `imageMeta` / `dicomMeta`.
+- State: lang, theme, currentFile, fileList, zoom/pan, dirty flag, cached `imageMeta` / `mediaMeta` / `dicomMeta`.
 - Custom title bar (`#app-brand`, `#window-controls`); `-webkit-app-region: drag` on the toolbar with `no-drag` on controls.
 - Language button label is the **target** language (`English` when UI is Korean, `한글` when UI is English).
 - Toolbar, viewer, edit window, dirty title (`●`), save-as MIME by extension.
-- Info panel: file / capture / location / DICOM / **all metadata** (HTML-escaped).
+- **Edit session dirty**: previews inside the edit window do not mark the file dirty; **Cancel** / Esc discards with no Save dialog; **Apply** commits the session and marks dirty only if something changed.
+- Info panel: images → file / capture / location / DICOM / all metadata; A/V → **File / Media / Tags** (HTML-escaped).
+- **Media transport** (`#media-controls`): Play / Pause / Stop, seek + time for video; same play/pause/stop for animated GIF. Overlay cues (`#media-cue`): play/stop flash; pause badge persists only while actually paused (not on first open). Video click (without drag) toggles playback; context menu includes Play/Pause/Stop.
 - Sidebar: explorer and info panels `flex: 1 1 0` (equal height); vertical splitter persists `sidebarTreeHeightV2`.
-- Effect sliders: `input` updates the numeric label; `change` (mouse release) calls `Editor.setEffect()`.
+- Effect sliders: `input` → live preview (`setEffect(..., false)`); `change` → history commit. Wheel over a slider scrolls the panel.
+- Border/caption UI: thickness (px, max 480), shadow, caption template tokens, font family/size/color, bold/italic/underline/strikethrough.
 - Desktop: restores last folder/file unless a launch file was passed on the command line.
 - Web: skips path restore; drag-drop registers `File` objects into `FileRegistry`.
 
 ### `src/js/editor.js` — Canvas Editor
 | Concern | Implementation |
 |---|---|
-| Effects | CSS filters + pixel convolution |
+| Effects | CSS filters + pixel convolution + vignette / grain / posterize / solarize |
+| Miniature | `_applyMiniatureDof` — soft horizontal shallow DOF + toy-model color grade (`tiltShift` / diorama depth) |
+| Border | Mat pad up to 480px, shadow styles, caption with configurable typography |
 | Selection | Rect, lasso, polygon, magic wand (BFS) |
 | Overlay | Yellow dashed selection on `#sel-canvas` |
 | BG remove / crop | Mask-guided alpha / off-screen canvas |
@@ -142,6 +148,15 @@ Desktop `read-image-meta`:
 
 The renderer formats a **summary** (camera, exposure as `1/n s`, GPS decimal degrees) and lists **every remaining tag** under “All metadata”. Values are HTML-escaped. Cache key is the current file path so language switches re-render without re-parsing.
 
+## A/V metadata pipeline
+
+Desktop `read-media-meta` (used for video/audio info panel):
+
+1. Probe container / tracks (avoid mislabeling video codec boxes as audio, e.g. `<avc1>` vs AAC).
+2. Normalize codec pretty names and container labels (MP4, WebM, …).
+3. Duration, channels (Mono/Stereo), sample/frame rates where available; **estimated bitrate** when not tagged; `lossless: false` unless known otherwise.
+4. Renderer shows **File / Media / Tags** (not the photo Capture section).
+
 ---
 
 ## IPC / API Surface
@@ -153,6 +168,7 @@ Shared contract (`preload` and `webAPI`):
 | `listDrives` / `readDirectory` / `pathAncestors` | Explorer |
 | `getFileStats` / `getFileUrl` / `readFileBase64` | Load media |
 | `readImageMeta` | EXIF / IPTC / XMP / sharp basic (desktop) |
+| `readMediaMeta` | A/V container / codecs / duration / bitrate (desktop) |
 | `getLaunchFile` | Path passed on process start |
 | `convertToPng` / `decodeDicom` | Special formats |
 | `openFileDialog` / `openFolderDialog` | Open |
@@ -215,7 +231,9 @@ Web mode is not packaged as a separate installer; deploy by serving `src/` (or r
 6. **Dialog `defaultPath`** — Last opened directory persisted in main-process userData (and renderer `localStorage`).
 7. **Equal sidebar split** — Tree and info use `flex: 1 1 0` so content-heavy metadata does not steal height; user split is stored as `sidebarTreeHeightV2`.
 8. **History includes effects** — Undo restores pixels plus rotation/flip/effect values, not pixels alone.
-9. **Effect sliders on `change`** — Avoids re-rendering the canvas on every `input` tick while dragging.
-10. **Image associations only** — Default-app registration covers still images (including DICOM/HEIC), not video/audio.
-11. **Dev icon via rcedit / branded exe** — BrowserWindow `icon` alone does not change the Windows taskbar for stock `electron.exe`.
-12. **`ELECTRON_RUN_AS_NODE`** — If set system-wide, `start-dev.js` unsets it when launching Electron.
+9. **Effect sliders live on `input`** — Preview updates while dragging; history commits on `change` (release). No full-window progress dialog for interactive tweaks. Wheel scrolls the panel instead of nudging the range.
+10. **Edit Apply vs Cancel** — Only Apply can leave the main viewer dirty; Cancel discards the edit session without a save prompt.
+11. **Image associations only** — Default-app registration covers still images (including DICOM/HEIC), not video/audio.
+12. **Dev icon via rcedit / branded exe** — BrowserWindow `icon` alone does not change the Windows taskbar for stock `electron.exe`.
+13. **`ELECTRON_RUN_AS_NODE`** — If set system-wide, `start-dev.js` unsets it when launching Electron.
+14. **Media cues match state** — Pause overlay appears only when media is actually paused by the user (or after stop); opening a video does not show a pause badge.

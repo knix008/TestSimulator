@@ -1665,6 +1665,30 @@ ipcMain.handle('get-launch-file', () => {
   pendingOpenPath = null;
   return filePath;
 });
+ipcMain.handle('get-app-info', () => {
+  let version = app.getVersion() || '0.0.0';
+  let buildNumber = '';
+  try {
+    const pkg = require('./package.json');
+    if (pkg.version) version = String(pkg.version);
+    if (pkg.buildNumber != null && pkg.buildNumber !== '') {
+      buildNumber = String(pkg.buildNumber);
+    }
+  } catch {}
+  if (!buildNumber) {
+    try {
+      const v = JSON.parse(fs.readFileSync(path.join(__dirname, 'src', 'version.json'), 'utf8'));
+      if (v.buildNumber != null) buildNumber = String(v.buildNumber);
+      if (v.version) version = String(v.version);
+    } catch {}
+  }
+  return {
+    version,
+    buildNumber,
+    name: app.getName() || 'Image Viewer',
+    isPackaged: !!app.isPackaged,
+  };
+});
 ipcMain.handle('open-folder-dialog', async () => {
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('menu-action', 'open-folder');

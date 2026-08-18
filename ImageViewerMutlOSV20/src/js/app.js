@@ -2026,7 +2026,10 @@
       const el = document.getElementById(`${idPrefix}-${s.key}`);
       if (el) prevValues[s.key] = el.value;
     }
-    for (const key of ['borderWidth', 'borderShadow', 'borderShadowStyle', 'borderShadowDir', 'borderCaptionText']) {
+    for (const key of [
+      'borderWidth', 'borderShadow', 'borderShadowStyle', 'borderShadowDir',
+      'borderCaptionText', 'borderCaptionFont', 'borderCaptionFontSize', 'borderCaptionColor',
+    ]) {
       const el = document.getElementById(`${idPrefix}-${key}`);
       if (el) prevValues[key] = el.value;
     }
@@ -2341,8 +2344,17 @@
     const textDef = prevValues.borderCaptionText != null
       ? prevValues.borderCaptionText
       : (efx.borderCaptionText || _defaultCaptionTemplate());
+    const fontDef = prevValues.borderCaptionFont || efx.borderCaptionFont || 'Segoe UI';
+    const fontSizeDef = prevValues.borderCaptionFontSize != null
+      ? prevValues.borderCaptionFontSize
+      : (efx.borderCaptionFontSize ?? 12);
+    const fontColorDef = prevValues.borderCaptionColor != null
+      ? prevValues.borderCaptionColor
+      : (efx.borderCaptionColor || '');
 
-    const addSlider = (key, labelKey, min, max, step, initial, { applyOnRelease = false } = {}) => {
+    const fmtPx = (v) => `${v}px`;
+
+    const addSlider = (key, labelKey, min, max, step, initial, { applyOnRelease = false, unit = '' } = {}) => {
       const group = document.createElement('div');
       group.className = 'effect-group';
       const lbl = document.createElement('span');
@@ -2360,19 +2372,18 @@
       const valSpan = document.createElement('span');
       valSpan.className = 'effect-value';
       valSpan.id = `${idPrefix}-val-${key}`;
-      valSpan.textContent = initial;
-      // Border size changes the canvas — apply when the user finishes dragging
-      // so the final frame is not lost to aborted mid-drag renders.
+      valSpan.dataset.unit = unit;
+      valSpan.textContent = unit === 'px' ? fmtPx(initial) : initial;
       slider.addEventListener('input', () => {
         const v = parseFloat(slider.value);
-        valSpan.textContent = v;
+        valSpan.textContent = unit === 'px' ? fmtPx(v) : v;
         if (applyOnRelease) return;
         Editor.setEffect(key, v, false);
         _refreshBorderCaption();
       });
       slider.addEventListener('change', () => {
         const v = parseFloat(slider.value);
-        valSpan.textContent = v;
+        valSpan.textContent = unit === 'px' ? fmtPx(v) : v;
         Editor.setEffect(key, v, true);
         _refreshBorderCaption();
         if (state.editMode) requestAnimationFrame(() => _ewFit());
@@ -2394,11 +2405,15 @@
       const sel = document.createElement('select');
       sel.className = 'effect-select';
       sel.id = `${idPrefix}-${key}`;
-      options.forEach(([val, i18nKey]) => {
+      options.forEach(([val, i18nKey, rawLabel]) => {
         const opt = document.createElement('option');
         opt.value = val;
-        opt.setAttribute('data-i18n', i18nKey);
-        opt.textContent = I18n.t(i18nKey);
+        if (i18nKey) {
+          opt.setAttribute('data-i18n', i18nKey);
+          opt.textContent = I18n.t(i18nKey);
+        } else {
+          opt.textContent = rawLabel || val;
+        }
         if (val === initial) opt.selected = true;
         sel.appendChild(opt);
       });
@@ -2409,7 +2424,7 @@
       return sel;
     };
 
-    addSlider('borderWidth', 'effects.borderWidth', 0, 160, 1, widthDef, { applyOnRelease: true });
+    addSlider('borderWidth', 'effects.borderWidth', 0, 480, 1, widthDef, { applyOnRelease: true, unit: 'px' });
 
     const colorRow = document.createElement('div');
     colorRow.className = 'effect-label-row effect-extra-row';
@@ -2454,7 +2469,7 @@
     ], dirDef, (sel) => {
       Editor.setEffect('borderShadowDir', sel.value);
     });
-    addSlider('borderShadow', 'effects.borderShadow', 0, 48, 1, shadowDef, { applyOnRelease: true });
+    addSlider('borderShadow', 'effects.borderShadow', 0, 48, 1, shadowDef, { applyOnRelease: true, unit: 'px' });
 
     const capRow = document.createElement('label');
     capRow.className = 'effect-check-row';
@@ -2486,6 +2501,109 @@
     ], posDef, (sel) => {
       Editor.setEffect('borderCaptionPos', sel.value);
     });
+
+    const fontHeading = document.createElement('div');
+    fontHeading.className = 'effect-caption-hint';
+    fontHeading.setAttribute('data-i18n', 'effects.borderCaptionFontSection');
+    fontHeading.textContent = I18n.t('effects.borderCaptionFontSection');
+    content.appendChild(fontHeading);
+
+    addSelect('borderCaptionFont', 'effects.borderCaptionFont', [
+      ['Segoe UI', null, 'Segoe UI'],
+      ['Malgun Gothic', null, '맑은 고딕'],
+      ['Noto Sans KR', null, 'Noto Sans KR'],
+      ['Arial', null, 'Arial'],
+      ['Verdana', null, 'Verdana'],
+      ['Georgia', null, 'Georgia'],
+      ['Times New Roman', null, 'Times New Roman'],
+      ['Courier New', null, 'Courier New'],
+      ['Impact', null, 'Impact'],
+      ['Comic Sans MS', null, 'Comic Sans MS'],
+    ], fontDef, (sel) => {
+      Editor.setEffect('borderCaptionFont', sel.value);
+    });
+
+    addSlider('borderCaptionFontSize', 'effects.borderCaptionFontSize', 6, 120, 1, fontSizeDef, {
+      unit: 'px',
+    });
+
+    const fontColorRow = document.createElement('div');
+    fontColorRow.className = 'effect-label-row effect-extra-row';
+    const fontColorLbl = document.createElement('span');
+    fontColorLbl.className = 'effect-label';
+    fontColorLbl.setAttribute('data-i18n', 'effects.borderCaptionColor');
+    fontColorLbl.textContent = I18n.t('effects.borderCaptionColor');
+    const fontColorWrap = document.createElement('div');
+    fontColorWrap.className = 'effect-font-color-wrap';
+    const fontColorAuto = document.createElement('label');
+    fontColorAuto.className = 'effect-mini-check';
+    const autoInp = document.createElement('input');
+    autoInp.type = 'checkbox';
+    autoInp.id = `${idPrefix}-borderCaptionColorAuto`;
+    autoInp.checked = !/^#[0-9a-f]{6}$/i.test(fontColorDef);
+    const autoTxt = document.createElement('span');
+    autoTxt.setAttribute('data-i18n', 'effects.borderCaptionColorAuto');
+    autoTxt.textContent = I18n.t('effects.borderCaptionColorAuto');
+    fontColorAuto.appendChild(autoInp);
+    fontColorAuto.appendChild(autoTxt);
+    const fontColorInp = document.createElement('input');
+    fontColorInp.type = 'color';
+    fontColorInp.className = 'effect-color';
+    fontColorInp.id = `${idPrefix}-borderCaptionColor`;
+    fontColorInp.value = /^#[0-9a-f]{6}$/i.test(fontColorDef) ? fontColorDef : '#222222';
+    fontColorInp.disabled = autoInp.checked;
+    const applyFontColor = () => {
+      if (autoInp.checked) {
+        fontColorInp.disabled = true;
+        Editor.setEffect('borderCaptionColor', '');
+      } else {
+        fontColorInp.disabled = false;
+        Editor.setEffect('borderCaptionColor', fontColorInp.value);
+      }
+    };
+    autoInp.addEventListener('change', applyFontColor);
+    fontColorInp.addEventListener('input', () => {
+      if (!autoInp.checked) Editor.setEffect('borderCaptionColor', fontColorInp.value);
+    });
+    fontColorWrap.appendChild(fontColorAuto);
+    fontColorWrap.appendChild(fontColorInp);
+    fontColorRow.appendChild(fontColorLbl);
+    fontColorRow.appendChild(fontColorWrap);
+    content.appendChild(fontColorRow);
+
+    const styleRow = document.createElement('div');
+    styleRow.className = 'effect-label-row effect-extra-row';
+    const styleLbl = document.createElement('span');
+    styleLbl.className = 'effect-label';
+    styleLbl.setAttribute('data-i18n', 'effects.borderCaptionStyle');
+    styleLbl.textContent = I18n.t('effects.borderCaptionStyle');
+    const styleBtns = document.createElement('div');
+    styleBtns.className = 'effect-font-style-row';
+    [
+      ['borderCaptionBold', 'B', 'effects.borderCaptionBold', 'font-weight:700'],
+      ['borderCaptionItalic', 'I', 'effects.borderCaptionItalic', 'font-style:italic'],
+      ['borderCaptionUnderline', 'U', 'effects.borderCaptionUnderline', 'text-decoration:underline'],
+      ['borderCaptionStrike', 'S', 'effects.borderCaptionStrike', 'text-decoration:line-through'],
+    ].forEach(([key, glyph, i18nKey, cssHint]) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'effect-font-style-btn';
+      btn.id = `${idPrefix}-${key}`;
+      btn.setAttribute('data-i18n-title', i18nKey);
+      btn.title = I18n.t(i18nKey);
+      btn.textContent = glyph;
+      btn.style.cssText = cssHint;
+      if (efx[key]) btn.classList.add('is-on');
+      btn.addEventListener('click', () => {
+        const on = !btn.classList.contains('is-on');
+        btn.classList.toggle('is-on', on);
+        Editor.setEffect(key, on);
+      });
+      styleBtns.appendChild(btn);
+    });
+    styleRow.appendChild(styleLbl);
+    styleRow.appendChild(styleBtns);
+    content.appendChild(styleRow);
 
     const fieldsLbl = document.createElement('div');
     fieldsLbl.className = 'effect-caption-hint';
@@ -2573,11 +2691,15 @@
 
   function _syncSlidersFromEffects(idPrefix = 'eff') {
     const efx = Editor.getEffects();
+    const pxKeys = new Set(['borderWidth', 'borderShadow', 'borderCaptionFontSize']);
     for (const key in efx) {
       const slider = document.getElementById(`${idPrefix}-${key}`);
       const valEl  = document.getElementById(`${idPrefix}-val-${key}`);
       if (slider && slider.type === 'range') slider.value = efx[key];
-      if (valEl)  valEl.textContent = efx[key];
+      if (valEl) {
+        const unit = valEl.dataset.unit || (pxKeys.has(key) ? 'px' : '');
+        valEl.textContent = unit === 'px' ? `${efx[key]}px` : efx[key];
+      }
     }
     const color = document.getElementById(`${idPrefix}-borderColor`);
     if (color && efx.borderColor) color.value = efx.borderColor;
@@ -2589,6 +2711,22 @@
     if (cap) cap.checked = !!efx.borderCaption;
     const pos = document.getElementById(`${idPrefix}-borderCaptionPos`);
     if (pos && efx.borderCaptionPos) pos.value = efx.borderCaptionPos;
+    const font = document.getElementById(`${idPrefix}-borderCaptionFont`);
+    if (font && efx.borderCaptionFont) font.value = efx.borderCaptionFont;
+    const fontColor = document.getElementById(`${idPrefix}-borderCaptionColor`);
+    const fontColorAuto = document.getElementById(`${idPrefix}-borderCaptionColorAuto`);
+    if (fontColorAuto) {
+      const auto = !/^#[0-9a-f]{6}$/i.test(String(efx.borderCaptionColor || ''));
+      fontColorAuto.checked = auto;
+      if (fontColor) {
+        fontColor.disabled = auto;
+        if (!auto) fontColor.value = efx.borderCaptionColor;
+      }
+    }
+    for (const key of ['borderCaptionBold', 'borderCaptionItalic', 'borderCaptionUnderline', 'borderCaptionStrike']) {
+      const btn = document.getElementById(`${idPrefix}-${key}`);
+      if (btn) btn.classList.toggle('is-on', !!efx[key]);
+    }
     const text = document.getElementById(`${idPrefix}-borderCaptionText`);
     if (text && efx.borderCaptionText != null && document.activeElement !== text) {
       text.value = efx.borderCaptionText;
@@ -4520,7 +4658,44 @@
     if (!el) return;
     el.style.display = 'flex';
     el.classList.add('visible');
+    if (id === 'about-overlay') _refreshAboutInfo();
   }
+
+  let _appInfoCache = null;
+
+  async function _loadAppInfo() {
+    if (_appInfoCache) return _appInfoCache;
+    try {
+      if (window.electronAPI?.getAppInfo) {
+        _appInfoCache = await window.electronAPI.getAppInfo();
+      }
+    } catch {}
+    if (!_appInfoCache) {
+      try {
+        const res = await fetch('./version.json', { cache: 'no-store' });
+        if (res.ok) _appInfoCache = await res.json();
+      } catch {}
+    }
+    if (!_appInfoCache) _appInfoCache = { version: '1.0.2', buildNumber: '' };
+    return _appInfoCache;
+  }
+
+  async function _refreshAboutInfo() {
+    const info = await _loadAppInfo();
+    const verEl = document.getElementById('about-version-num');
+    const buildEl = document.getElementById('about-build-num');
+    const brandVer = document.querySelector('.app-brand-ver');
+    const version = String(info.version || '1.0.2');
+    const build = String(info.buildNumber || '').trim();
+    if (verEl) verEl.textContent = version;
+    if (buildEl) buildEl.textContent = build || '—';
+    if (brandVer) {
+      brandVer.textContent = build ? `V${version} (${build})` : `V${version}`;
+    }
+  }
+
+  // Fill version/build as soon as the UI is ready
+  _refreshAboutInfo().catch(() => {});
 
   function _hideDialog(id) {
     const el = typeof id === 'string' ? document.getElementById(id) : id;

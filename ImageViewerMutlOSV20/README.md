@@ -15,11 +15,26 @@ A multi-platform image viewer and editor built with **Electron** and vanilla Jav
   - Selection tools: Rectangle, Lasso, Polygon, Magic Wand
   - Background removal, crop to selection
   - Undo / Redo (`Ctrl+Z` / `Ctrl+Y`) — pixels, effects, and transforms (up to 20 steps)
+  - Edit window: **Cancel** discards the session; **Apply** commits — dirty/save prompt only after Apply with unsaved changes
 
 - **Effects & Adjustments / 효과 및 조정**
-  - Brightness, Contrast, Saturation, Hue, Blur, Sharpen, Vignette, Warmth, Grayscale, Sepia, Invert
-  - Sliders apply when released (not while dragging)
-  - Presets: Vivid, Vintage, Dramatic, Noir, Golden Hour, and more
+  - Brightness, Contrast, Saturation, Hue, Blur, Sharpen, Vignette, Warmth, Grayscale, Sepia, Invert, Grain, Posterize, Solarize
+  - **Miniature** preset + **Diorama depth** (tilt-shift style shallow DOF)
+  - Live preview while dragging sliders; history commits on release
+  - Wheel over sliders scrolls the panel (does not nudge values)
+  - Presets: Vivid, Vintage, Dramatic, Noir, Golden Hour, Miniature, and many more
+
+- **Border / caption / 테두리·여백 글**
+  - Border thickness up to **480px** (values shown in **px**)
+  - Caption font family, size (px), color (auto or custom)
+  - Bold / italic / underline / strikethrough
+  - Field tokens (`{file}`, `{date}`, `{gps}`, …) and editable template
+
+- **Media playback / 미디어 재생**
+  - Video & audio transport: Play / Pause / Stop, seek bar, time display
+  - Click video (without drag) to toggle play/pause; `Space` for play/pause
+  - On-screen cues: play/stop flash briefly; pause badge stays while paused
+  - Animated GIF play / pause / stop via the same controls
 
 - **Explorer / 탐색기**
   - Drive-rooted directory tree (e.g. `C:`, `D:` on Windows)
@@ -28,9 +43,8 @@ A multi-platform image viewer and editor built with **Electron** and vanilla Jav
   - Copy / move by drag-and-drop
 
 - **File information / 파일 정보**
-  - Name, size, dimensions, dates, color space, DPI
-  - Capture metadata: camera, lens, exposure, aperture, ISO, focal length, flash, GPS, and more
-  - Full EXIF / IPTC / XMP / ICC dump when present
+  - Images: name, size, dimensions, dates, color space, DPI; capture / GPS / full EXIF·IPTC·XMP
+  - A/V: File / Media / Tags (container, codecs, duration, channels, estimated bitrate, …)
   - DICOM patient / modality / study date
   - Explorer and info panels share equal height by default (splitter is resizable)
 
@@ -113,7 +127,7 @@ The Windows Setup wizard includes a **file associations** page (checked by defau
 | Show in Explorer / Delete | Yes | Not available |
 | Drag file out to OS | Yes | Not available |
 | Last folder restore | Yes | Folder must be re-opened each session |
-| File metadata (EXIF) | Yes (`exifr` in main) | File stats only |
+| File metadata (EXIF / A/V) | Yes (`exifr` / `read-media-meta` in main) | File stats only |
 | OS default-app registration | Installer | Not applicable |
 
 ## Optional Vendor Libraries / 선택적 외부 라이브러리
@@ -143,6 +157,7 @@ Uncomment the script tags in `src/index.html` after downloading.
 | Previous / Next | `←` / `→` |
 | Undo / Redo | `Ctrl+Z` / `Ctrl+Y` |
 | Edit window | `Ctrl+E` |
+| Play / Pause (video, audio, GIF) | `Space` |
 | Copy | `Ctrl+C` |
 | Clear Selection | `Esc` |
 | Fullscreen | `F11` |
@@ -169,8 +184,8 @@ ImageViewerMutlOSV20/
 │   ├── assets/             # App icons (icon.ico, icon.png, icon_512.png, …)
 │   ├── styles/main.css
 │   ├── js/
-│   │   ├── app.js          # Orchestrator, chrome, info panel
-│   │   ├── editor.js       # Canvas, effects, history
+│   │   ├── app.js          # Orchestrator, chrome, info, media transport
+│   │   ├── editor.js       # Canvas, effects, miniature DOF, border caption
 │   │   ├── fileTree.js     # Drive-rooted explorer
 │   │   ├── formatSupport.js
 │   │   ├── dicomDecoder.js
@@ -182,6 +197,7 @@ ImageViewerMutlOSV20/
 │   │   └── i18n.js
 │   ├── i18n/en.json, ko.json
 │   └── vendor/             # Optional UTIF.js, heic2any
+├── samples/                # Sample images / A/V (see samples/README.md)
 ├── README.md
 ├── UsersGuide.md
 ├── Architecture.md

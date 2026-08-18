@@ -8,6 +8,9 @@
 | `sample.heif` | Real HEIF photo (1280×854, HEVC) — for decoder tests |
 | `sample.dcm` | DICOM |
 | `sample.mp4` / `sample.webm` / `sample.wav` / `sample.mp3` | A/V |
+| `City.webp` | City / aerial sample (useful for miniature / diorama preset) |
 
 > Older `sample.heic` / `sample.heif` were tiny AVIF files mislabeled as HEIC (not real photos). They were replaced with genuine HEVC HEIC/HEIF images.  
 > Older `sample.tiff` was a 512×512 synthetic test image; replaced with a real photographic TIFF.
+
+Generated local previews such as `samples/_*.png` are gitignored.

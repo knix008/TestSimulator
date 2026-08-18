@@ -163,6 +163,21 @@
     getFileStats: async (filePath) => R().getStats(filePath),
     readImageMeta: async () => null,
     readMediaMeta: async () => null,
+    getAppInfo: async () => {
+      try {
+        const res = await fetch('./version.json', { cache: 'no-store' });
+        if (res.ok) {
+          const v = await res.json();
+          return {
+            version: String(v.version || '1.0.2'),
+            buildNumber: String(v.buildNumber || ''),
+            name: 'Image Viewer',
+            isPackaged: false,
+          };
+        }
+      } catch {}
+      return { version: '1.0.2', buildNumber: '', name: 'Image Viewer', isPackaged: false };
+    },
     getLaunchFile: async () => null,
 
     getFileUrl: async (filePath) => {

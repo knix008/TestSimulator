@@ -863,13 +863,54 @@ body.resizing-row * {
 }
 
 .effect-value {
-  flex: 0 0 2.5em;
-  min-width: 2.5em;
+  flex: 0 0 3.25em;
+  min-width: 3.25em;
   font-size: 11px;
   color: var(--text-muted);
   text-align: right;
   font-variant-numeric: tabular-nums;
   line-height: 1.2;
+}
+.effect-font-color-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 58%;
+  justify-content: flex-end;
+}
+.effect-mini-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.effect-mini-check input { accent-color: var(--accent); }
+.effect-font-style-row {
+  display: inline-flex;
+  gap: 4px;
+  max-width: 58%;
+  justify-content: flex-end;
+}
+.effect-font-style-btn {
+  width: 28px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--input-border);
+  border-radius: 4px;
+  background: var(--input-bg);
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+}
+.effect-font-style-btn:hover { background: var(--btn-hover); color: var(--text-primary); }
+.effect-font-style-btn.is-on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
 }
 
 .effect-slider {
@@ -1484,6 +1525,18 @@ body.resizing-row * {
 .about-logo-text p {
   font-size: 12px;
   color: var(--text-secondary);
+  margin: 2px 0;
+}
+.about-version-line,
+.about-build-line {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+}
+.about-version-line #about-version-num,
+.about-build-line #about-build-num {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
 }
 .about-desc {
   font-size: 13px;

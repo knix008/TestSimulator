@@ -20,6 +20,13 @@ window.Editor = (() => {
     borderWidth: 0, borderColor: '#ffffff', borderShadow: 0,
     borderShadowStyle: 'soft', borderShadowDir: 'br',
     borderCaption: false, borderCaptionPos: 'bl', borderCaptionText: '',
+    borderCaptionFont: 'Segoe UI',
+    borderCaptionFontSize: 12,
+    borderCaptionColor: '',
+    borderCaptionBold: false,
+    borderCaptionItalic: false,
+    borderCaptionUnderline: false,
+    borderCaptionStrike: false,
   };
 
   let captionLines = [];
@@ -584,22 +591,81 @@ window.Editor = (() => {
     return lines.slice(0, maxLines);
   }
 
+  function _captionFontCss() {
+    const map = {
+      'Segoe UI': '"Segoe UI", "Malgun Gothic", "Noto Sans KR", sans-serif',
+      'Malgun Gothic': '"Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif',
+      'Noto Sans KR': '"Noto Sans KR", "Malgun Gothic", "Segoe UI", sans-serif',
+      Arial: 'Arial, Helvetica, sans-serif',
+      Georgia: 'Georgia, "Times New Roman", serif',
+      'Times New Roman': '"Times New Roman", Times, serif',
+      'Courier New': '"Courier New", Courier, monospace',
+      Impact: 'Impact, Haettenschweiler, sans-serif',
+      Verdana: 'Verdana, Geneva, sans-serif',
+      'Comic Sans MS': '"Comic Sans MS", "Comic Sans", cursive',
+    };
+    const key = String(effects.borderCaptionFont || 'Segoe UI');
+    return map[key] || map['Segoe UI'];
+  }
+
+  function _captionFillColor(matColor) {
+    const c = String(effects.borderCaptionColor || '').trim();
+    if (/^#[0-9a-f]{6}$/i.test(c)) return c;
+    return _contrastText(matColor);
+  }
+
+  function _drawCaptionDecorations(ctx, text, x, y, align, maxW) {
+    const metrics = ctx.measureText(text);
+    let w = Math.min(metrics.width, maxW || metrics.width);
+    let left = x;
+    if (align === 'center') left = x - w / 2;
+    else if (align === 'right') left = x - w;
+    const size = Math.max(6, Number(effects.borderCaptionFontSize) || 12);
+    const underline = !!effects.borderCaptionUnderline;
+    const strike = !!effects.borderCaptionStrike;
+    if (!underline && !strike) return;
+    ctx.save();
+    ctx.strokeStyle = ctx.fillStyle;
+    ctx.lineWidth = Math.max(1, Math.round(size / 12));
+    if (underline) {
+      const uy = y + size * 0.42;
+      ctx.beginPath();
+      ctx.moveTo(left, uy);
+      ctx.lineTo(left + w, uy);
+      ctx.stroke();
+    }
+    if (strike) {
+      const sy = y + size * 0.08;
+      ctx.beginPath();
+      ctx.moveTo(left, sy);
+      ctx.lineTo(left + w, sy);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
   function _drawCaption(frame) {
     const text = _resolveCaptionText();
     if (!text) return;
     const { pad, photoW, photoH, color, captionPos } = frame;
-    const fontSize = Math.max(6, Math.min(12, pad > 0 ? Math.floor(pad * 0.36) : 8));
-    const lineH = fontSize + 3;
+    const userSize = Math.round(Number(effects.borderCaptionFontSize) || 0);
+    const fontSize = userSize > 0
+      ? Math.max(6, Math.min(200, userSize))
+      : Math.max(6, Math.min(12, pad > 0 ? Math.floor(pad * 0.36) : 8));
+    const lineH = Math.round(fontSize * 1.28);
     const matW = photoW + pad * 2;
     const matH = photoH + pad * 2;
     const edge = Math.max(4, Math.round((pad || 12) * 0.16));
     const pos = captionPos || 'bl';
     const side = pos === 'l' || pos === 'r';
-    const maxH = Math.max(fontSize, pad - 4);
+    const maxH = Math.max(fontSize, pad > 0 ? pad - 4 : fontSize * 3);
     const maxLines = Math.max(1, Math.floor(maxH / lineH));
     const maxW = side
       ? Math.max(20, photoH + pad - edge * 2)
       : Math.max(20, matW - edge * 2);
+
+    const weight = effects.borderCaptionBold ? '700' : '400';
+    const style = effects.borderCaptionItalic ? 'italic' : 'normal';
 
     displayCtx.save();
     displayCtx.beginPath();
@@ -607,8 +673,8 @@ window.Editor = (() => {
     else displayCtx.rect(0, (pos === 'tl' || pos === 'tc' || pos === 'tr') ? 0 : matH - pad, matW, pad);
     displayCtx.clip();
 
-    displayCtx.font = `${fontSize}px "Segoe UI", "Noto Sans KR", sans-serif`;
-    displayCtx.fillStyle = _contrastText(color);
+    displayCtx.font = `${style} ${weight} ${fontSize}px ${_captionFontCss()}`;
+    displayCtx.fillStyle = _captionFillColor(color);
     displayCtx.textBaseline = 'middle';
     const lines = _wrapCaptionLines(displayCtx, text, maxW, maxLines);
 
@@ -619,7 +685,9 @@ window.Editor = (() => {
       displayCtx.rotate(pos === 'l' ? -Math.PI / 2 : Math.PI / 2);
       displayCtx.textAlign = 'center';
       lines.forEach((line, i) => {
-        displayCtx.fillText(line, 0, (i - (lines.length - 1) / 2) * lineH, maxW);
+        const ly = (i - (lines.length - 1) / 2) * lineH;
+        displayCtx.fillText(line, 0, ly, maxW);
+        _drawCaptionDecorations(displayCtx, line, 0, ly, 'center', maxW);
       });
     } else {
       let x = edge;
@@ -629,7 +697,9 @@ window.Editor = (() => {
       const bandY = (pos === 'tl' || pos === 'tc' || pos === 'tr') ? pad / 2 : matH - pad / 2;
       displayCtx.textAlign = align;
       lines.forEach((line, i) => {
-        displayCtx.fillText(line, x, bandY + (i - (lines.length - 1) / 2) * lineH, maxW);
+        const ly = bandY + (i - (lines.length - 1) / 2) * lineH;
+        displayCtx.fillText(line, x, ly, maxW);
+        _drawCaptionDecorations(displayCtx, line, x, ly, align, maxW);
       });
     }
     displayCtx.restore();
@@ -917,10 +987,14 @@ window.Editor = (() => {
     if (!changed && !saveHist) return;
     if (changed) effects[key] = value;
 
-    // Live caption typing: sync draw, no modal
+    // Live caption typing / style: sync draw, no modal
     if (!saveHist && (key === 'borderCaptionText' || key === 'borderCaption'
       || key === 'borderCaptionPos' || key === 'borderColor'
-      || key === 'borderShadowStyle' || key === 'borderShadowDir')) {
+      || key === 'borderShadowStyle' || key === 'borderShadowDir'
+      || key === 'borderCaptionFont' || key === 'borderCaptionFontSize'
+      || key === 'borderCaptionColor' || key === 'borderCaptionBold'
+      || key === 'borderCaptionItalic' || key === 'borderCaptionUnderline'
+      || key === 'borderCaptionStrike')) {
       if (changed) _render();
       return;
     }
@@ -960,6 +1034,13 @@ window.Editor = (() => {
     effects.borderShadowStyle = 'soft';
     effects.borderShadowDir = 'br';
     effects.borderCaption = false; effects.borderCaptionPos = 'bl'; effects.borderCaptionText = '';
+    effects.borderCaptionFont = 'Segoe UI';
+    effects.borderCaptionFontSize = 12;
+    effects.borderCaptionColor = '';
+    effects.borderCaptionBold = false;
+    effects.borderCaptionItalic = false;
+    effects.borderCaptionUnderline = false;
+    effects.borderCaptionStrike = false;
   }
 
   function _effectsChangedFromDefault() {
@@ -973,7 +1054,12 @@ window.Editor = (() => {
       || (effects.borderShadowStyle && effects.borderShadowStyle !== 'soft')
       || (effects.borderShadowDir && effects.borderShadowDir !== 'br')
       || effects.borderCaption || !!(effects.borderCaptionText)
-      || (effects.borderColor && effects.borderColor !== '#ffffff');
+      || (effects.borderColor && effects.borderColor !== '#ffffff')
+      || (effects.borderCaptionFont && effects.borderCaptionFont !== 'Segoe UI')
+      || (effects.borderCaptionFontSize && effects.borderCaptionFontSize !== 12)
+      || !!(effects.borderCaptionColor)
+      || effects.borderCaptionBold || effects.borderCaptionItalic
+      || effects.borderCaptionUnderline || effects.borderCaptionStrike;
   }
 
   function resetEffects() {
@@ -1118,6 +1204,13 @@ window.Editor = (() => {
       borderCaption: effects.borderCaption,
       borderCaptionPos: effects.borderCaptionPos,
       borderCaptionText: effects.borderCaptionText,
+      borderCaptionFont: effects.borderCaptionFont,
+      borderCaptionFontSize: effects.borderCaptionFontSize,
+      borderCaptionColor: effects.borderCaptionColor,
+      borderCaptionBold: effects.borderCaptionBold,
+      borderCaptionItalic: effects.borderCaptionItalic,
+      borderCaptionUnderline: effects.borderCaptionUnderline,
+      borderCaptionStrike: effects.borderCaptionStrike,
     };
     _resetEffects();
     Object.assign(effects, border);

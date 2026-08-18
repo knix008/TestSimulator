@@ -47,8 +47,13 @@ desktop.ini
 # Optional vendor libraries (download separately)
 src/vendor/
 
-# Temp / local
+# Temp / local / generated previews
 *.tmp
 *.bak
 _test_*.js
 .cache/
+samples/_*.png
+samples/_*.jpg
+samples/_*.webp
+*_preview.png
+*_preview.jpg
