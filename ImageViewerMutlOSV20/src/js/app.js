@@ -2342,7 +2342,7 @@
       ? prevValues.borderCaptionText
       : (efx.borderCaptionText || _defaultCaptionTemplate());
 
-    const addSlider = (key, labelKey, min, max, step, initial) => {
+    const addSlider = (key, labelKey, min, max, step, initial, { applyOnRelease = false } = {}) => {
       const group = document.createElement('div');
       group.className = 'effect-group';
       const lbl = document.createElement('span');
@@ -2361,9 +2361,12 @@
       valSpan.className = 'effect-value';
       valSpan.id = `${idPrefix}-val-${key}`;
       valSpan.textContent = initial;
+      // Border size changes the canvas — apply when the user finishes dragging
+      // so the final frame is not lost to aborted mid-drag renders.
       slider.addEventListener('input', () => {
         const v = parseFloat(slider.value);
         valSpan.textContent = v;
+        if (applyOnRelease) return;
         Editor.setEffect(key, v, false);
         _refreshBorderCaption();
       });
@@ -2406,7 +2409,7 @@
       return sel;
     };
 
-    addSlider('borderWidth', 'effects.borderWidth', 0, 160, 1, widthDef);
+    addSlider('borderWidth', 'effects.borderWidth', 0, 160, 1, widthDef, { applyOnRelease: true });
 
     const colorRow = document.createElement('div');
     colorRow.className = 'effect-label-row effect-extra-row';
@@ -2451,7 +2454,7 @@
     ], dirDef, (sel) => {
       Editor.setEffect('borderShadowDir', sel.value);
     });
-    addSlider('borderShadow', 'effects.borderShadow', 0, 48, 1, shadowDef);
+    addSlider('borderShadow', 'effects.borderShadow', 0, 48, 1, shadowDef, { applyOnRelease: true });
 
     const capRow = document.createElement('label');
     capRow.className = 'effect-check-row';

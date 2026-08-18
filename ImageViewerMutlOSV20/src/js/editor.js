@@ -925,9 +925,11 @@ window.Editor = (() => {
       return;
     }
 
-    // Value already applied via live input — just commit history
+    // Value already applied via live input — commit history and ensure a final
+    // paint (live passes can be aborted while the slider is still moving).
     if (!changed && saveHist) {
       _saveHistory();
+      _requestEffectRender(false, false);
       return;
     }
 
