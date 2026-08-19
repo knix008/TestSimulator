@@ -68,7 +68,10 @@ window.ContextMenu = (() => {
         el.addEventListener('click', (e) => {
           e.stopPropagation();
           hide();
-          item.action();
+          // Let the menu unpaint before long-running actions (progress popup, image ops).
+          requestAnimationFrame(() => {
+            try { item.action(); } catch (err) { console.error(err); }
+          });
         });
       }
 
