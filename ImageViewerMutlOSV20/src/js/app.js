@@ -426,8 +426,8 @@
       { id:'btn-open-folder', icon:'openFolder', tip:'toolbar.openFolder', action: (e) => { e?.stopPropagation?.(); _showRecentFoldersMenu(e?.currentTarget); } },
       { id:'btn-save',        icon:'save',       tip:'toolbar.save',       action: _saveAs, disabled: true },
       { separator: true },
-      { id:'btn-undo',        icon:'undo',       tip:'toolbar.undo',       action: () => { Editor.undo(); _updateUndoRedoBtns(); }, disabled: true },
-      { id:'btn-redo',        icon:'redo',       tip:'toolbar.redo',       action: () => { Editor.redo(); _updateUndoRedoBtns(); }, disabled: true },
+      { id:'btn-undo',        icon:'undo',       tip:'toolbar.undo',       action: () => { _undoEdit(); }, disabled: true },
+      { id:'btn-redo',        icon:'redo',       tip:'toolbar.redo',       action: () => { _redoEdit(); }, disabled: true },
       { separator: true },
       { id:'btn-zoom-in',     icon:'zoomIn',     tip:'toolbar.zoomIn',     action: () => _zoom(1.25), disabled: true },
       { id:'btn-zoom-out',    icon:'zoomOut',    tip:'toolbar.zoomOut',    action: () => _zoom(0.8),  disabled: true },
@@ -608,9 +608,12 @@
     maxBtn?.addEventListener('click', () => {
       window.electronAPI.windowMaximize();
     });
-    closeBtn?.addEventListener('click', () => {
-      if (state.editMode) _requestCloseEditWindow(false);
-      else window.electronAPI.windowClose();
+    closeBtn?.addEventListener('click', async () => {
+      if (state.editMode) {
+        await _requestCloseEditWindow(false);
+        return;
+      }
+      window.electronAPI.windowClose();
     });
     window.electronAPI.onMaximizeChange?.((maximized) => _setMaximizedUi(!!maximized));
     window.electronAPI.windowIsMaximized?.().then((m) => _setMaximizedUi(!!m));
@@ -725,6 +728,59 @@
   ════════════════════════════════════════════ */
   function _pd() {
     return window._ProgressDialog || null;
+  }
+
+  async function _runOpWithProgress(work, {
+    titleKey = 'progress.title',
+    messageKey = 'progress.applying',
+    force = false,
+    delayMs = 0,
+    kind = null,
+  } = {}) {
+    const dlg = _pd();
+    const nested = !!(dlg && typeof dlg.isVisible === 'function' && dlg.isVisible());
+    if (nested) return await Promise.resolve(work(dlg));
+
+    const predicted = !!(force || (kind && Editor.shouldShowOpProgress && Editor.shouldShowOpProgress(kind)));
+    let shown = false;
+    let timer = null;
+
+    const showNow = (percent, msg) => {
+      if (!dlg) return;
+      if (!shown) {
+        shown = true;
+        dlg.show({
+          title: I18n.t(titleKey) || I18n.t('progress.title') || 'Progress',
+          message: msg || I18n.t(messageKey) || '',
+          percent: percent != null ? percent : 8,
+        });
+        dlg.startCreep(90);
+      } else {
+        dlg.set(percent != null ? percent : 0, msg);
+      }
+    };
+
+    try {
+      if (predicted && dlg) {
+        showNow(8, I18n.t(messageKey));
+        await dlg.yieldFrame();
+        showNow(18);
+        await dlg.yieldFrame();
+      } else if (dlg && delayMs > 0) {
+        timer = setTimeout(() => showNow(8, I18n.t(messageKey)), delayMs);
+      }
+      const result = await Promise.resolve(work(dlg));
+      if (timer) { clearTimeout(timer); timer = null; }
+      if (shown) {
+        dlg.stopCreep();
+        dlg.set(100, I18n.t('progress.done') || 'Done');
+        await dlg.yieldFrame(60);
+      }
+      return result;
+    } finally {
+      if (timer) clearTimeout(timer);
+      if (shown) dlg.hide();
+    }
   }
 
   function _openProgressLabel(key, fileName) {
@@ -1544,12 +1600,18 @@
   }
 
   async function _openFolder(dirPath, { openFirst = true } = {}) {
-    _rememberRecentDir(dirPath);
-    if (window.electronAPI.platform === 'web') {
-      await FileTree.loadDrives();
-    }
-    await FileTree.revealPath(dirPath);
-    _watchDir(dirPath);
+    await _runOpWithProgress(async () => {
+      _rememberRecentDir(dirPath);
+      if (window.electronAPI.platform === 'web') {
+        await FileTree.loadDrives();
+      }
+      await FileTree.revealPath(dirPath);
+      _watchDir(dirPath);
+    }, {
+      titleKey: 'progress.openTitle',
+      messageKey: 'progress.openingFolder',
+      delayMs: 280,
+    });
     if (!openFirst) return;
     const opened = await _openFirstInDir(dirPath);
     if (!opened) {
@@ -1830,13 +1892,9 @@
       _showError(I18n.t('bgAlgo.rembgUnavailable') || 'AI rembg is only available in the desktop app.');
       return;
     }
-    const dataUrl = Editor.exportAsDataUrl('image/png');
-    if (!dataUrl) return;
-
+    const algoLabel = I18n.t(`bgAlgo.${algo}`) || algo;
     // Capture selection bbox before rembg (applyFromDataUrl clears selection)
     const cropBounds = Editor.getSelectionBounds?.(1) || null;
-
-    const algoLabel = I18n.t(`bgAlgo.${algo}`) || algo;
     const btn = document.getElementById('ew-bg-remove');
     const sel = document.getElementById('ew-bg-algo');
     _rembgBusy = true;
@@ -1849,6 +1907,16 @@
       percent: 0,
     });
     ProgressDialog.startCreep(88);
+    await ProgressDialog.yieldFrame();
+
+    const dataUrl = Editor.exportAsDataUrl('image/png');
+    if (!dataUrl) {
+      ProgressDialog.hide();
+      _rembgBusy = false;
+      _setChromeBtn(btn, true);
+      _setChromeBtn(sel, true);
+      return;
+    }
 
     const unsub = window.electronAPI.onRembgProgress
       ? window.electronAPI.onRembgProgress(({ percent, message }) => {
@@ -1937,16 +2005,40 @@
   /* ════════════════════════════════════════════
      Transform
   ════════════════════════════════════════════ */
-  function _rotate(deg) {
+  async function _rotate(deg) {
     if (!_isEditableImage()) return;
-    Editor.rotate(deg);
-    _fitToWindow();
+    await Editor.rotate(deg);
+    if (state.editMode) _ewFit();
+    else _fitToWindow();
     _updateStatus({ dims: true });
+    _updateUndoRedoBtns();
   }
 
-  function _flip(axis) {
+  async function _flip(axis) {
     if (!_isEditableImage()) return;
-    Editor.flip(axis);
+    await Editor.flip(axis);
+    _updateUndoRedoBtns();
+  }
+
+  async function _undoEdit() {
+    if (!_isEditableImage()) return;
+    await Editor.undo();
+    _updateUndoRedoBtns();
+  }
+
+  async function _redoEdit() {
+    if (!_isEditableImage()) return;
+    await Editor.redo();
+    _updateUndoRedoBtns();
+  }
+
+  async function _cropToSelection() {
+    if (!_isEditableImage() || !Editor.hasSelection()) return;
+    await Editor.cropToSelection();
+    _ewUpdateSelBtns();
+    _updateUndoRedoBtns();
+    if (state.editMode) _ewFit();
+    _updateStatus({ dims: true });
   }
 
   /* ════════════════════════════════════════════
@@ -2052,11 +2144,8 @@
     }
 
     const presets = [
-      { id: 'grayscale',    label: 'effects.grayscale' },
-      { id: 'sepia',        label: 'effects.sepia' },
       { id: 'silver',       label: 'effects.silver' },
       { id: 'noir',         label: 'effects.noir' },
-      { id: 'invert',       label: 'effects.invert' },
       { id: 'vivid',        label: 'effects.vivid' },
       { id: 'pop',          label: 'effects.pop' },
       { id: 'fade',         label: 'effects.fade' },
@@ -2067,33 +2156,24 @@
       { id: 'disposable',   label: 'effects.disposable' },
       /* Color negative */
       { id: 'portra',       label: 'effects.portra' },
-      { id: 'portra160',    label: 'effects.portra160' },
-      { id: 'portra400',    label: 'effects.portra400' },
-      { id: 'portra800',    label: 'effects.portra800' },
       { id: 'ektar',        label: 'effects.ektar' },
       { id: 'gold200',      label: 'effects.gold200' },
       { id: 'ultramax',     label: 'effects.ultramax' },
       { id: 'colorplus',    label: 'effects.colorplus' },
       { id: 'fuji400h',     label: 'effects.fuji400h' },
-      { id: 'pro400h',      label: 'effects.pro400h' },
       { id: 'superia',      label: 'effects.superia' },
       { id: 'agfacolor',    label: 'effects.agfacolor' },
       { id: 'lomochrome',   label: 'effects.lomochrome' },
       /* Slide */
       { id: 'kodachrome',   label: 'effects.kodachrome' },
-      { id: 'kodachrome25', label: 'effects.kodachrome25' },
-      { id: 'kodachrome64', label: 'effects.kodachrome64' },
       { id: 'ektachrome',   label: 'effects.ektachrome' },
       { id: 'velvia',       label: 'effects.velvia' },
-      { id: 'velvia50',     label: 'effects.velvia50' },
-      { id: 'velvia100',    label: 'effects.velvia100' },
       { id: 'provia',       label: 'effects.provia' },
       { id: 'sensia',       label: 'effects.sensia' },
       { id: 'astia',        label: 'effects.astia' },
       { id: 'slide',        label: 'effects.slide' },
       /* B&W */
       { id: 'trix',         label: 'effects.trix' },
-      { id: 'trix400',      label: 'effects.trix400' },
       { id: 'hp5',          label: 'effects.hp5' },
       { id: 'delta100',     label: 'effects.delta100' },
       { id: 'delta3200',    label: 'effects.delta3200' },
@@ -2114,7 +2194,6 @@
       { id: 'sprocket',     label: 'effects.sprocket' },
       /* Cinema */
       { id: 'cinestill',    label: 'effects.cinestill' },
-      { id: 'cinestill800t', label: 'effects.cinestill800t' },
       { id: 'vision3500t',  label: 'effects.vision3500t' },
       { id: 'vision3250d',  label: 'effects.vision3250d' },
       /* Process */
@@ -2124,8 +2203,6 @@
       { id: 'crossprocess', label: 'effects.crossprocess' },
       { id: 'crossfuji',    label: 'effects.crossfuji' },
       { id: 'bleachbypass', label: 'effects.bleachbypass' },
-      { id: 'filmPush2',    label: 'effects.filmPush2' },
-      { id: 'filmPull1',    label: 'effects.filmPull1' },
       { id: 'nightflash',   label: 'effects.nightflash' },
       { id: 'halfFrame',    label: 'effects.halfFrame' },
       { id: 'doubleExp',    label: 'effects.doubleExp' },
@@ -2167,7 +2244,6 @@
       { id: 'xray',         label: 'effects.xray' },
       { id: 'emboss',       label: 'effects.emboss' },
       { id: 'edge',         label: 'effects.edge' },
-      { id: 'solarize',     label: 'effects.solarize' },
       { id: 'underwater',   label: 'effects.underwater' },
       { id: 'desert',       label: 'effects.desert' },
       { id: 'forest',       label: 'effects.forest' },
@@ -2274,13 +2350,9 @@
       valSpan.id = `${idPrefix}-val-${s.key}`;
       valSpan.textContent = initial;
 
-      // Live preview while dragging — image only, no progress overlay / history
       slider.addEventListener('input', () => {
-        const v = parseFloat(slider.value);
-        valSpan.textContent = v;
-        Editor.setEffect(s.key, v, false);
+        valSpan.textContent = parseFloat(slider.value);
       });
-      // Commit history when the user releases the slider
       slider.addEventListener('change', () => {
         const v = parseFloat(slider.value);
         valSpan.textContent = v;
@@ -2524,7 +2596,7 @@
     const fontDef = prevValues.borderCaptionFont || efx.borderCaptionFont || 'Segoe UI';
     const fontSizeDef = prevValues.borderCaptionFontSize != null
       ? prevValues.borderCaptionFontSize
-      : (efx.borderCaptionFontSize ?? 12);
+      : (efx.borderCaptionFontSize ?? 16);
     const fontColorDef = prevValues.borderCaptionColor != null
       ? prevValues.borderCaptionColor
       : (efx.borderCaptionColor || '');
@@ -2614,7 +2686,7 @@
     colorInp.className = 'effect-color';
     colorInp.id = `${idPrefix}-borderColor`;
     colorInp.value = /^#[0-9a-f]{6}$/i.test(colorDef) ? colorDef : '#ffffff';
-    colorInp.addEventListener('input', () => {
+    colorInp.addEventListener('change', () => {
       Editor.setEffect('borderColor', colorInp.value);
     });
     colorRow.appendChild(colorLbl);
@@ -2705,6 +2777,7 @@
     _enrichCaptionFontSelect(fontSel, fontDef);
 
     addSlider('borderCaptionFontSize', 'effects.borderCaptionFontSize', 6, 120, 1, fontSizeDef, {
+      applyOnRelease: true,
       unit: 'px',
     });
 
@@ -2743,7 +2816,7 @@
       }
     };
     autoInp.addEventListener('change', applyFontColor);
-    fontColorInp.addEventListener('input', () => {
+    fontColorInp.addEventListener('change', () => {
       if (!autoInp.checked) Editor.setEffect('borderCaptionColor', fontColorInp.value);
     });
     fontColorWrap.appendChild(fontColorAuto);
@@ -3006,16 +3079,50 @@
     });
   }
 
+  let _editClosePrompting = false;
+
   async function _requestCloseEditWindow(apply) {
     if (!state.editMode && !editWindow.classList.contains('visible')) {
       _closeEditWindow(apply);
       return true;
     }
-    // Cancel / Esc: discard the edit session quietly.
-    // Apply: bake into the viewer; file-save prompt only happens later on app quit if still dirty.
-    // (Unapplied edit previews are not treated as unsaved file changes.)
-    _closeEditWindow(!!apply);
-    return true;
+    if (apply) {
+      _closeEditWindow(true);
+      return true;
+    }
+    const changed = !!(Editor.hasEditSessionChanges && Editor.hasEditSessionChanges());
+    if (!changed) {
+      _closeEditWindow(false);
+      return true;
+    }
+    if (_editClosePrompting) return false;
+    _editClosePrompting = true;
+    try {
+      const t = I18n.t.bind(I18n);
+      const result = await window.electronAPI.showMessageBox({
+        type: 'question',
+        title: t('dialog.unsaved.title') || 'Unsaved Changes',
+        message: t('dialog.unsaved.message') || 'You have unsaved changes.\nDo you want to save before closing?',
+        buttons: [
+          t('dialog.unsaved.save') || 'Save',
+          t('dialog.unsaved.dontSave') || "Don't Save",
+          t('dialog.unsaved.cancel') || 'Cancel',
+        ],
+        defaultId: 0,
+        cancelId: 2,
+      });
+      if (result.response === 2 || result.canceled) return false;
+      if (result.response === 0) {
+        const saved = await _saveAs(false, { useChangedName: true });
+        if (!saved) return false;
+        _closeEditWindow(true);
+        return true;
+      }
+      _closeEditWindow(false);
+      return true;
+    } finally {
+      _editClosePrompting = false;
+    }
   }
 
   function _closeEditWindow(apply) {
@@ -3102,18 +3209,18 @@
     { id:'ew-tool-magic',   tool:'magic-wand', icon:'magicWand',  tip:'toolbar.toolMagic' },
   ];
   const _ewActionIconMap = [
-    ['ew-cut',       'cut',         'context.cut',          () => _ewCut()],
-    ['ew-copy',      'copy',        'context.copy',         () => _ewCopy()],
+    ['ew-cut',       'cut',         'context.cut',          () => { _ewCut(); }],
+    ['ew-copy',      'copy',        'context.copy',         () => { _ewCopy(); }],
     ['ew-bg-remove', 'bgRemove',    'toolbar.bgRemove',     () => { _removeBackground(); }],
-    ['ew-crop-sel',  'fitWindow',   'editWindow.cropSel',   () => { Editor.cropToSelection(); _ewUpdateSelBtns(); _updateUndoRedoBtns(); _ewFit(); }],
+    ['ew-crop-sel',  'fitWindow',   'editWindow.cropSel',   () => { _cropToSelection(); }],
     ['ew-clear-sel', 'close',       'editWindow.clearSel',  () => { Editor.clearSelection(); _ewUpdateSelBtns(); }],
     ['ew-save-new',  'saveAs',      'editWindow.saveNew',   () => { _saveAsNewFile(); }],
-    ['ew-rotate-l',  'rotateLeft',  'toolbar.rotateLeft',   () => { Editor.rotate(-90); _ewFit(); _updateUndoRedoBtns(); }],
-    ['ew-rotate-r',  'rotateRight', 'toolbar.rotateRight',  () => { Editor.rotate(90);  _ewFit(); _updateUndoRedoBtns(); }],
-    ['ew-flip-h',    'flipH',       'toolbar.flipH',        () => { Editor.flip('h'); _updateUndoRedoBtns(); }],
-    ['ew-flip-v',    'flipV',       'toolbar.flipV',        () => { Editor.flip('v'); _updateUndoRedoBtns(); }],
-    ['ew-undo',      'undo',        'editWindow.undo',      () => { Editor.undo(); _updateUndoRedoBtns(); }],
-    ['ew-redo',      'redo',        'editWindow.redo',      () => { Editor.redo(); _updateUndoRedoBtns(); }],
+    ['ew-rotate-l',  'rotateLeft',  'toolbar.rotateLeft',   () => { _rotate(-90); }],
+    ['ew-rotate-r',  'rotateRight', 'toolbar.rotateRight',  () => { _rotate(90); }],
+    ['ew-flip-h',    'flipH',       'toolbar.flipH',        () => { _flip('h'); }],
+    ['ew-flip-v',    'flipV',       'toolbar.flipV',        () => { _flip('v'); }],
+    ['ew-undo',      'undo',        'editWindow.undo',      () => { _undoEdit(); }],
+    ['ew-redo',      'redo',        'editWindow.redo',      () => { _redoEdit(); }],
     ['ew-zoom-in',   'zoomIn',      'toolbar.zoomIn',       () => _ewZoomBy(1.25)],
     ['ew-zoom-out',  'zoomOut',     'toolbar.zoomOut',      () => _ewZoomBy(0.8)],
     ['ew-fit',       'fitWindow',   'toolbar.fitWindow',    () => _ewFit()],
@@ -3298,26 +3405,34 @@
   }
 
   async function _ewCut() {
-    const dataUrl = Editor.cut();
-    _ewUpdateSelBtns();
-    _updateUndoRedoBtns();
-    if (dataUrl) {
-      try {
-        const res = await fetch(dataUrl);
-        const blob = await res.blob();
-        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
-      } catch(e) { _showError(I18n.t('error.clipboardCut') || 'Failed to cut to clipboard.', e); }
+    try {
+      await _runOpWithProgress(async () => {
+        const dataUrl = await Editor.cut();
+        _ewUpdateSelBtns();
+        _updateUndoRedoBtns();
+        if (dataUrl) {
+          const res = await fetch(dataUrl);
+          const blob = await res.blob();
+          await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+        }
+      }, { messageKey: 'progress.copying', kind: 'clipboard' });
+    } catch (e) {
+      _showError(I18n.t('error.clipboardCut') || 'Failed to cut to clipboard.', e);
     }
   }
 
   async function _ewCopy() {
-    const dataUrl = Editor.copySelection();
-    if (dataUrl) {
-      try {
-        const res = await fetch(dataUrl);
-        const blob = await res.blob();
-        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
-      } catch(e) { _showError(I18n.t('error.clipboardCopy') || 'Failed to copy to clipboard.', e); }
+    try {
+      await _runOpWithProgress(async () => {
+        const dataUrl = await Editor.copySelection();
+        if (dataUrl) {
+          const res = await fetch(dataUrl);
+          const blob = await res.blob();
+          await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+        }
+      }, { messageKey: 'progress.copying', kind: 'clipboard' });
+    } catch (e) {
+      _showError(I18n.t('error.clipboardCopy') || 'Failed to copy to clipboard.', e);
     }
   }
 
@@ -3331,16 +3446,16 @@
       { icon: Icons.copy,     label: t('context.copy'),     disabled: !hasSel, action: _ewCopy },
       { separator: true },
       { icon: Icons.bgRemove, label: t('toolbar.bgRemove'), action: () => { _removeBackground(); } },
-      { icon: Icons.fitWindow, label: t('editWindow.cropSel'), disabled: !hasSel, action: () => { Editor.cropToSelection(); _ewUpdateSelBtns(); _updateUndoRedoBtns(); _ewFit(); } },
+      { icon: Icons.fitWindow, label: t('editWindow.cropSel'), disabled: !hasSel, action: () => { _cropToSelection(); } },
       { icon: Icons.close,  label: t('editWindow.clearSel'),disabled: !hasSel, action: () => { Editor.clearSelection(); _ewUpdateSelBtns(); } },
       { separator: true },
-      { icon: Icons.rotateLeft,  label: t('menu.rotateLeft'),  action: () => { Editor.rotate(-90); _ewFit(); _updateUndoRedoBtns(); } },
-      { icon: Icons.rotateRight, label: t('menu.rotateRight'), action: () => { Editor.rotate(90);  _ewFit(); _updateUndoRedoBtns(); } },
-      { icon: Icons.flipH,       label: t('menu.flipHorizontal'), action: () => Editor.flip('h') },
-      { icon: Icons.flipV,       label: t('menu.flipVertical'),   action: () => Editor.flip('v') },
+      { icon: Icons.rotateLeft,  label: t('menu.rotateLeft'),  action: () => { _rotate(-90); } },
+      { icon: Icons.rotateRight, label: t('menu.rotateRight'), action: () => { _rotate(90); } },
+      { icon: Icons.flipH,       label: t('menu.flipHorizontal'), action: () => { _flip('h'); } },
+      { icon: Icons.flipV,       label: t('menu.flipVertical'),   action: () => { _flip('v'); } },
       { separator: true },
-      { icon: Icons.undo, label: t('editWindow.undo'), disabled: !Editor.canUndo(), action: () => { Editor.undo(); _updateUndoRedoBtns(); } },
-      { icon: Icons.redo,  label: t('editWindow.redo'), disabled: !Editor.canRedo(), action: () => { Editor.redo(); _updateUndoRedoBtns(); } },
+      { icon: Icons.undo, label: t('editWindow.undo'), disabled: !Editor.canUndo(), action: () => { _undoEdit(); } },
+      { icon: Icons.redo,  label: t('editWindow.redo'), disabled: !Editor.canRedo(), action: () => { _redoEdit(); } },
       { separator: true },
       { icon: Icons.effects, label: t('effects.reset'), action: () => { Editor.resetEffects(); _syncSlidersFromEffects('ew-eff'); document.getElementById('edit-effects-content')?.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active')); } },
     ]);
@@ -3399,10 +3514,7 @@
   async function _saveAsNewFile() {
     if (!_isEditableImage()) return false;
     if (Editor.hasSelection && Editor.hasSelection()) {
-      Editor.cropToSelection();
-      _ewUpdateSelBtns();
-      _updateUndoRedoBtns();
-      if (state.editMode) _ewFit();
+      await _cropToSelection();
     }
     return _saveAs(false, { useChangedName: true });
   }
@@ -3462,18 +3574,25 @@
     const format  = fmtMap[ext] || 'image/png';
     const quality = (format === 'image/jpeg' || format === 'image/webp') ? 0.92 : undefined;
 
-    const dataUrl = quality !== undefined
-      ? Editor.exportAsDataUrl(format, quality)
-      : Editor.exportAsDataUrl(format);
+    const writeResult = await _runOpWithProgress(async (dlg) => {
+      const dataUrl = quality !== undefined
+        ? Editor.exportAsDataUrl(format, quality)
+        : Editor.exportAsDataUrl(format);
+      if (!dataUrl) return { success: false, error: 'export' };
+      dlg?.set(55, I18n.t('progress.saving') || 'Saving…');
+      const wr = await window.electronAPI.writeFile({ filePath: savePath, dataUrl });
+      if (wr && wr.success) {
+        dlg?.set(90);
+        try { await FileTree.refresh(); } catch (_) { /* ignore */ }
+      }
+      return wr;
+    }, { messageKey: 'progress.saving', kind: 'encode' });
 
-    if (!dataUrl) return false;
-
-    const writeResult = await window.electronAPI.writeFile({ filePath: savePath, dataUrl });
+    if (!writeResult || writeResult.error === 'export') return false;
     if (writeResult && writeResult.success) {
       _clearDirty();
       const msg = I18n.t('status.saved') || `Saved: ${savePath.split(/[/\\]/).pop()}`;
       _updateStatus({ msg });
-      try { await FileTree.refresh(); } catch (_) { /* ignore */ }
       await window.electronAPI.showMessageBox({
         type: 'info',
         title: I18n.t('dialog.save.title') || 'Saved',
@@ -4066,6 +4185,19 @@
     const sections = _collectInfoSections(filePath, stats, meta, state.dicomMeta);
     infoContent.innerHTML = _renderInfoSections(sections)
       || `<div class="info-no-file" data-i18n="info.noFile">${I18n.t('info.noFile')}</div>`;
+    _reflowInfoPanel();
+  }
+
+  function _reflowInfoPanel() {
+    if (!infoContent) return;
+    const panel = document.getElementById('info-panel');
+    requestAnimationFrame(() => {
+      if (panel) void panel.offsetHeight;
+      void infoContent.offsetWidth;
+      const y = infoContent.scrollTop;
+      infoContent.scrollTop = y + 1;
+      infoContent.scrollTop = y;
+    });
   }
 
   async function _showFileInfoDialog() {
@@ -4363,10 +4495,19 @@
     if (!picked || picked.canceled || !picked.filePath) return;
     const destDir = picked.filePath;
 
-    const result = await window.electronAPI.transferIntoDir({
-      sources: paths,
-      destDir,
-      mode: mode === 'move' ? 'move' : 'copy',
+    const result = await _runOpWithProgress(async (dlg) => {
+      const transfer = await window.electronAPI.transferIntoDir({
+        sources: paths,
+        destDir,
+        mode: mode === 'move' ? 'move' : 'copy',
+      });
+      dlg?.set(88, I18n.t('progress.applying') || 'Applying result…');
+      await FileTree.refresh();
+      return transfer;
+    }, {
+      messageKey: mode === 'move' ? 'progress.moving' : 'progress.copyingFiles',
+      delayMs: 200,
+      force: paths.length >= 5,
     });
 
     if (result?.error && !result.results) {
@@ -4391,7 +4532,6 @@
       }
     }
 
-    await FileTree.refresh();
     const key = mode === 'move' ? 'status.moved' : 'status.copied';
     let msg = (t(key) || '{n}').replace('{n}', String(done.length));
     if (result.errors?.length) msg += ` (${result.errors.length} failed)`;
@@ -4495,53 +4635,57 @@
     });
     if (result.response !== 0) return;
 
-    // Stop watching if we delete the watched path
-    if (_watchedFile === filePath) {
-      await window.electronAPI.unwatchFile(filePath);
-      _watchedFile = null;
-    }
-    if (_watchedDir === filePath) {
-      await window.electronAPI.unwatchDirectory(filePath);
-      _watchedDir = null;
-    }
-
-    const res = await window.electronAPI.deleteFile(filePath);
-    if (res && res.error) {
-      _showError(t('context.deleteFile'), res.error);
-      return;
-    }
-
-    FileTree.forgetPath(filePath);
-
-    const underDeleted = (p) => {
-      if (!p) return false;
-      const a = p.replace(/[\\/]+$/, '').toLowerCase();
-      const b = filePath.replace(/[\\/]+$/, '').toLowerCase();
-      return a === b || a.startsWith(b + '\\') || a.startsWith(b + '/');
-    };
-
-    if (underDeleted(state.currentFile)) {
-      state.currentFile = null;
-      _showPlaceholder(true);
-      _clearDirty();
-      state.fileList = [];
-      state.fileIndex = -1;
-      _setToolbarEnabled(false);
-      _updateNavButtons();
-    } else if (state.currentFile) {
-      const dir = await window.electronAPI.pathDirname(state.currentFile);
-      state.fileList = await FileTree.getImageFilesInDir(dir);
-      state.fileIndex = state.fileList.indexOf(state.currentFile);
-      _updateNavButtons();
-    }
-
-    await FileTree.refresh();
-
-    // Keep watching parent of deleted item
     try {
-      const parent = await window.electronAPI.pathDirname(filePath);
-      if (parent) _watchDir(parent);
-    } catch {}
+      await _runOpWithProgress(async () => {
+      // Stop watching if we delete the watched path
+      if (_watchedFile === filePath) {
+        await window.electronAPI.unwatchFile(filePath);
+        _watchedFile = null;
+      }
+      if (_watchedDir === filePath) {
+        await window.electronAPI.unwatchDirectory(filePath);
+        _watchedDir = null;
+      }
+
+      const res = await window.electronAPI.deleteFile(filePath);
+      if (res && res.error) {
+        throw new Error(res.error);
+      }
+
+      FileTree.forgetPath(filePath);
+
+      const underDeleted = (p) => {
+        if (!p) return false;
+        const a = p.replace(/[\\/]+$/, '').toLowerCase();
+        const b = filePath.replace(/[\\/]+$/, '').toLowerCase();
+        return a === b || a.startsWith(b + '\\') || a.startsWith(b + '/');
+      };
+
+      if (underDeleted(state.currentFile)) {
+        state.currentFile = null;
+        _showPlaceholder(true);
+        _clearDirty();
+        state.fileList = [];
+        state.fileIndex = -1;
+        _setToolbarEnabled(false);
+        _updateNavButtons();
+      } else if (state.currentFile) {
+        const dir = await window.electronAPI.pathDirname(state.currentFile);
+        state.fileList = await FileTree.getImageFilesInDir(dir);
+        state.fileIndex = state.fileList.indexOf(state.currentFile);
+        _updateNavButtons();
+      }
+
+      await FileTree.refresh();
+
+      try {
+        const parent = await window.electronAPI.pathDirname(filePath);
+        if (parent) _watchDir(parent);
+      } catch {}
+    }, { messageKey: 'progress.deleting', delayMs: 180 });
+    } catch (err) {
+      _showError(t('context.deleteFile'), err);
+    }
   }
 
   /* ════════════════════════════════════════════
@@ -4600,10 +4744,12 @@
   async function _copyToClipboard() {
     if (!Editor.isLoaded()) return;
     try {
-      const dataUrl = Editor.exportAsDataUrl('image/png');
-      const res = await fetch(dataUrl);
-      const blob = await res.blob();
-      await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+      await _runOpWithProgress(async () => {
+        const dataUrl = Editor.exportAsDataUrl('image/png');
+        const res = await fetch(dataUrl);
+        const blob = await res.blob();
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+      }, { messageKey: 'progress.copying', kind: 'clipboard' });
     } catch (e) {
       _showError(I18n.t('error.clipboardCopy') || 'Failed to copy to clipboard.', e);
     }
@@ -4611,25 +4757,34 @@
 
   async function _cutToClipboard() {
     if (!Editor.hasSelection()) return;
-    const dataUrl = Editor.cut();
-    _updateUndoRedoBtns();
-    if (dataUrl) {
-      try {
-        const res = await fetch(dataUrl);
-        const blob = await res.blob();
-        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
-      } catch (e) {
-        _showError(I18n.t('error.clipboardCut') || 'Failed to cut to clipboard.', e);
-      }
+    try {
+      await _runOpWithProgress(async () => {
+        const dataUrl = await Editor.cut();
+        _updateUndoRedoBtns();
+        if (dataUrl) {
+          const res = await fetch(dataUrl);
+          const blob = await res.blob();
+          await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+        }
+      }, { messageKey: 'progress.copying', kind: 'clipboard' });
+    } catch (e) {
+      _showError(I18n.t('error.clipboardCut') || 'Failed to cut to clipboard.', e);
     }
   }
 
-  function _resetAll() {
+  async function _resetAll() {
     if (!_isEditableImage()) return;
-    Editor.resetTransform();
-    Editor.resetEffects();
+    if (Editor.resetAll) await Editor.resetAll();
+    else {
+      await Editor.resetTransform();
+      Editor.resetEffects();
+    }
     _syncSlidersFromEffects();
-    _fitToWindow();
+    _syncSlidersFromEffects('ew-eff');
+    document.getElementById('effects-content')?.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('edit-effects-content')?.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+    if (state.editMode) _ewFit();
+    else _fitToWindow();
   }
 
   /* ════════════════════════════════════════════
@@ -4713,17 +4868,17 @@
       if (ctrl && e.shiftKey && e.key === 'S') { e.preventDefault(); _saveAs(); return; }
       if (ctrl && e.shiftKey && (e.key === 'z' || e.key === 'Z')) {
         e.preventDefault();
-        if (_isEditableImage()) Editor.redo();
+        _redoEdit();
         return;
       }
       if (ctrl && (e.key === 'z' || e.key === 'Z')) {
         e.preventDefault();
-        if (_isEditableImage()) Editor.undo();
+        _undoEdit();
         return;
       }
       if (ctrl && (e.key === 'y' || e.key === 'Y')) {
         e.preventDefault();
-        if (_isEditableImage()) Editor.redo();
+        _redoEdit();
         return;
       }
       if (ctrl && e.key === 'x') { e.preventDefault(); if (_isEditableImage()) _cutToClipboard(); return; }
@@ -4797,8 +4952,8 @@
       'prev-image':    _prevImage,
       'next-image':    _nextImage,
       'edit-image':    _openEditWindow,
-      'undo':          () => { Editor.undo(); },
-      'redo':          () => { Editor.redo(); },
+      'undo':          _undoEdit,
+      'redo':          _redoEdit,
       'show-effects':  _toggleEffectsPanel,
       'effect-grayscale': () => { if (_isEditableImage()) { _openEditWindow(); Editor.applyPreset('grayscale'); } },
       'effect-sepia':     () => { if (_isEditableImage()) { _openEditWindow(); Editor.applyPreset('sepia'); } },
@@ -4963,6 +5118,7 @@
 
     function _applySplit(treeH) {
       const total = sidebar.getBoundingClientRect().height;
+      if (total < MIN_TREE + HANDLE_H + MIN_INFO) return 0;
       const maxTree = Math.max(MIN_TREE, total - HANDLE_H - MIN_INFO);
       const h = Math.min(Math.max(treeH, MIN_TREE), maxTree);
       const infoH = Math.max(MIN_INFO, total - HANDLE_H - h);
@@ -4971,13 +5127,19 @@
       tree.style.height = `${Math.round(h)}px`;
       info.style.flex = 'none';
       info.style.height = `${Math.round(infoH)}px`;
+      info.style.minHeight = `${MIN_INFO}px`;
       return h;
     }
 
-    // Restore previous split, otherwise keep CSS 50/50 (equal tree and info heights)
+    // Restore previous split after the sidebar has a real height
     const savedTree = parseInt(localStorage.getItem('sidebarTreeHeightV2') || '', 10);
     if (savedTree >= MIN_TREE) {
-      requestAnimationFrame(() => _applySplit(savedTree));
+      let tries = 0;
+      const restore = () => {
+        if (_applySplit(savedTree) || tries++ >= 12) return;
+        requestAnimationFrame(restore);
+      };
+      requestAnimationFrame(restore);
     }
 
     handle.addEventListener('mousedown', (e) => {

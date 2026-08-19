@@ -274,6 +274,12 @@
   "progress.effectTitle": "효과 적용",
   "progress.effectApplying": "효과를 적용하는 중…",
   "progress.done": "완료",
+  "progress.saving": "저장 중…",
+  "progress.copying": "클립보드에 복사 중…",
+  "progress.copyingFiles": "파일을 복사하는 중…",
+  "progress.moving": "파일을 이동하는 중…",
+  "progress.openingFolder": "폴더를 여는 중…",
+  "progress.deleting": "삭제하는 중…",
 
   "context.bgRemove": "배경 제거",
   "context.resetAll": "모두 초기화",

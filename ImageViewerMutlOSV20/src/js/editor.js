@@ -21,7 +21,7 @@ window.Editor = (() => {
     borderShadowStyle: 'soft', borderShadowDir: 'br',
     borderCaption: false, borderCaptionPos: 'bl', borderCaptionText: '',
     borderCaptionFont: 'Segoe UI',
-    borderCaptionFontSize: 12,
+    borderCaptionFontSize: 16,
     borderCaptionColor: '',
     borderCaptionBold: false,
     borderCaptionItalic: false,
@@ -882,7 +882,7 @@ window.Editor = (() => {
     let left = x;
     if (align === 'center') left = x - w / 2;
     else if (align === 'right') left = x - w;
-    const size = Math.max(6, Number(effects.borderCaptionFontSize) || 12);
+    const size = Math.max(6, Number(effects.borderCaptionFontSize) || 16);
     const underline = !!effects.borderCaptionUnderline;
     const strike = !!effects.borderCaptionStrike;
     if (!underline && !strike) return;
@@ -1006,6 +1006,12 @@ window.Editor = (() => {
     return fallback;
   }
 
+  function _pixelCount() {
+    if (workingPixels) return workingPixels.width * workingPixels.height;
+    if (displayCanvas) return displayCanvas.width * displayCanvas.height;
+    return 0;
+  }
+
   function _isHeavyEffectRender() {
     if (!workingPixels) return false;
     const px = workingPixels.width * workingPixels.height;
@@ -1020,14 +1026,63 @@ window.Editor = (() => {
     return px >= 2000000;                     // plain redraw ~2MP+
   }
 
+  function shouldShowOpProgress(kind = 'render') {
+    const px = _pixelCount();
+    if (px <= 0) return false;
+    if (kind === 'encode' || kind === 'clipboard') return px >= 350000;
+    if (kind === 'history') return px >= 400000 || _isHeavyEffectRender();
+    if (_isHeavyEffectRender()) return true;
+    return px >= 500000;
+  }
+
   function _progressDialog() {
     return window._ProgressDialog || null;
+  }
+
+  async function _runSyncWithProgress(work, { messageKey = 'progress.applying', kind = 'render' } = {}) {
+    const dlg = _progressDialog();
+    const nested = !!(dlg && typeof dlg.isVisible === 'function' && dlg.isVisible());
+    const show = !nested && !!(dlg && shouldShowOpProgress(kind));
+    const gen = show ? ++_effectRenderGen : _effectRenderGen;
+
+    if (show) {
+      _effectProgressOwner = gen;
+      dlg.show({
+        title: _tProgress('progress.title', 'Progress'),
+        message: _tProgress(messageKey, 'Working…'),
+        percent: 6,
+      });
+      dlg.startCreep(90);
+    }
+
+    try {
+      if (show) {
+        await dlg.yieldFrame();
+        if (gen !== _effectRenderGen) return undefined;
+        dlg.set(18, _tProgress(messageKey, 'Working…'));
+        await dlg.yieldFrame();
+        if (gen !== _effectRenderGen) return undefined;
+      }
+      const result = work();
+      if (show && gen === _effectRenderGen && _effectProgressOwner === gen) {
+        dlg.stopCreep();
+        dlg.set(100, _tProgress('progress.done', 'Done'));
+        await dlg.yieldFrame(60);
+      }
+      return result;
+    } finally {
+      if (show && _effectProgressOwner === gen) {
+        dlg.hide();
+        if (_effectProgressOwner === gen) _effectProgressOwner = 0;
+      }
+    }
   }
 
   async function _runEffectRenderPass(wantProgress) {
     const gen = ++_effectRenderGen;
     const dlg = _progressDialog();
-    const show = !!(wantProgress && dlg && _isHeavyEffectRender());
+    const nested = !!(dlg && typeof dlg.isVisible === 'function' && dlg.isVisible());
+    const show = !!(wantProgress && dlg && _isHeavyEffectRender() && !nested);
 
     if (show) {
       _effectProgressOwner = gen;
@@ -1261,16 +1316,10 @@ window.Editor = (() => {
       return;
     }
 
-    // Value already applied via live input — commit history and ensure a final
-    // paint (live passes can be aborted while the slider is still moving).
-    if (!changed && saveHist) {
-      _saveHistory();
-      _requestEffectRender(false, false);
-      return;
-    }
+    if (!changed) return;
 
-    // Interactive slider/select: redraw the image only (never full-window progress)
-    _requestEffectRender(false, !!saveHist);
+    // Committed slider / control: show progress when the render is heavy
+    _requestEffectRender(true, true);
   }
 
   function getEffects() { return { ...effects }; }
@@ -1297,7 +1346,7 @@ window.Editor = (() => {
     effects.borderShadowDir = 'br';
     effects.borderCaption = false; effects.borderCaptionPos = 'bl'; effects.borderCaptionText = '';
     effects.borderCaptionFont = 'Segoe UI';
-    effects.borderCaptionFontSize = 12;
+    effects.borderCaptionFontSize = 16;
     effects.borderCaptionColor = '';
     effects.borderCaptionBold = false;
     effects.borderCaptionItalic = false;
@@ -1318,7 +1367,7 @@ window.Editor = (() => {
       || effects.borderCaption || !!(effects.borderCaptionText)
       || (effects.borderColor && effects.borderColor !== '#ffffff')
       || (effects.borderCaptionFont && effects.borderCaptionFont !== 'Segoe UI')
-      || (effects.borderCaptionFontSize && effects.borderCaptionFontSize !== 12)
+      || (effects.borderCaptionFontSize && effects.borderCaptionFontSize !== 16)
       || !!(effects.borderCaptionColor)
       || effects.borderCaptionBold || effects.borderCaptionItalic
       || effects.borderCaptionUnderline || effects.borderCaptionStrike;
@@ -1537,32 +1586,53 @@ window.Editor = (() => {
   /* ═══════════════════════════════════════════
      Transform
   ═══════════════════════════════════════════ */
-  function rotate(deg) {
-    rotation = ((rotation + deg) % 360 + 360) % 360;
-    clearSelection();
-    _resizeCanvases();
-    _drawOriginalToWorking();
-    _render();
-    _saveHistory();
+  async function rotate(deg) {
+    return _runSyncWithProgress(() => {
+      rotation = ((rotation + deg) % 360 + 360) % 360;
+      clearSelection();
+      _resizeCanvases();
+      _drawOriginalToWorking();
+      _render();
+      _saveHistory();
+    }, { kind: 'transform', messageKey: 'progress.applying' });
   }
 
-  function flip(axis) {
-    if (axis === 'h') flipH = !flipH;
-    else              flipV = !flipV;
-    clearSelection();
-    _drawOriginalToWorking();
-    _render();
-    _saveHistory();
+  async function flip(axis) {
+    return _runSyncWithProgress(() => {
+      if (axis === 'h') flipH = !flipH;
+      else              flipV = !flipV;
+      clearSelection();
+      _drawOriginalToWorking();
+      _render();
+      _saveHistory();
+    }, { kind: 'transform', messageKey: 'progress.applying' });
   }
 
-  function resetTransform() {
+  async function resetTransform() {
     if (rotation === 0 && !flipH && !flipV) return;
-    rotation = 0; flipH = false; flipV = false;
-    clearSelection();
-    _resizeCanvases();
-    _drawOriginalToWorking();
-    _render();
-    _saveHistory();
+    return _runSyncWithProgress(() => {
+      rotation = 0; flipH = false; flipV = false;
+      clearSelection();
+      _resizeCanvases();
+      _drawOriginalToWorking();
+      _render();
+      _saveHistory();
+    }, { kind: 'transform', messageKey: 'progress.applying' });
+  }
+
+  async function resetAll() {
+    const needT = !(rotation === 0 && !flipH && !flipV);
+    const needE = _effectsChangedFromDefault();
+    if (!needT && !needE) return;
+    return _runSyncWithProgress(() => {
+      rotation = 0; flipH = false; flipV = false;
+      _resetEffects();
+      clearSelection();
+      _resizeCanvases();
+      _drawOriginalToWorking();
+      _render();
+      _saveHistory();
+    }, { kind: 'transform', messageKey: 'progress.applying' });
   }
 
   /* ═══════════════════════════════════════════
@@ -2299,13 +2369,15 @@ window.Editor = (() => {
     });
   }
 
-  function cropToSelection() {
+  async function cropToSelection() {
     if (!selMask || !workingPixels) return false;
     const bounds = getSelectionBounds(0);
     if (!bounds) return false;
-    const ok = cropToRect(bounds.x, bounds.y, bounds.w, bounds.h, { clearOutsideMask: true });
-    if (ok) _saveHistory();
-    return ok;
+    return _runSyncWithProgress(() => {
+      const ok = cropToRect(bounds.x, bounds.y, bounds.w, bounds.h, { clearOutsideMask: true });
+      if (ok) _saveHistory();
+      return ok;
+    }, { kind: 'transform', messageKey: 'progress.applying' });
   }
 
   function clearSelection() {
@@ -2318,59 +2390,63 @@ window.Editor = (() => {
   function hasSelection() { return selMask !== null; }
 
   /* ─── Cut: copy selection → clipboard data URL, then erase pixels ─── */
-  function cut() {
+  async function cut() {
     if (!selMask || !workingPixels) return null;
 
-    const w = workingPixels.width, h = workingPixels.height;
-    let x1=w, y1=h, x2=0, y2=0;
-    for (let y=0;y<h;y++) for (let x=0;x<w;x++) {
-      if (selMask[y*w+x]) { x1=Math.min(x1,x);y1=Math.min(y1,y);x2=Math.max(x2,x);y2=Math.max(y2,y); }
-    }
-    if (x2<=x1 || y2<=y1) return null;
+    return _runSyncWithProgress(() => {
+      const w = workingPixels.width, h = workingPixels.height;
+      let x1=w, y1=h, x2=0, y2=0;
+      for (let y=0;y<h;y++) for (let x=0;x<w;x++) {
+        if (selMask[y*w+x]) { x1=Math.min(x1,x);y1=Math.min(y1,y);x2=Math.max(x2,x);y2=Math.max(y2,y); }
+      }
+      if (x2<=x1 || y2<=y1) return null;
 
-    const cw=x2-x1, ch=y2-y1;
-    const cutCanvas = document.createElement('canvas');
-    cutCanvas.width=cw; cutCanvas.height=ch;
-    const cc = cutCanvas.getContext('2d');
-    cc.putImageData(workingPixels, -x1, -y1);
-    // Mask out non-selected area in cut canvas
-    const cutData = cc.getImageData(0,0,cw,ch);
-    for (let y=0;y<ch;y++) for (let x=0;x<cw;x++) {
-      if (!selMask[(y+y1)*w+(x+x1)]) cutData.data[(y*cw+x)*4+3]=0;
-    }
-    cc.putImageData(cutData,0,0);
-    const dataUrl = cutCanvas.toDataURL('image/png');
+      const cw=x2-x1, ch=y2-y1;
+      const cutCanvas = document.createElement('canvas');
+      cutCanvas.width=cw; cutCanvas.height=ch;
+      const cc = cutCanvas.getContext('2d');
+      cc.putImageData(workingPixels, -x1, -y1);
+      // Mask out non-selected area in cut canvas
+      const cutData = cc.getImageData(0,0,cw,ch);
+      for (let y=0;y<ch;y++) for (let x=0;x<cw;x++) {
+        if (!selMask[(y+y1)*w+(x+x1)]) cutData.data[(y*cw+x)*4+3]=0;
+      }
+      cc.putImageData(cutData,0,0);
+      const dataUrl = cutCanvas.toDataURL('image/png');
 
-    // Erase selection from working pixels
-    for (let i=0;i<selMask.length;i++) {
-      if (selMask[i]) workingPixels.data[i*4+3]=0;
-    }
+      // Erase selection from working pixels
+      for (let i=0;i<selMask.length;i++) {
+        if (selMask[i]) workingPixels.data[i*4+3]=0;
+      }
 
-    clearSelection();
-    _render();
-    _saveHistory();
-    return dataUrl;
+      clearSelection();
+      _render();
+      _saveHistory();
+      return dataUrl;
+    }, { kind: 'clipboard', messageKey: 'progress.copying' });
   }
 
   /* ─── Copy selection to data URL ─── */
-  function copySelection() {
+  async function copySelection() {
     if (!selMask || !workingPixels) return null;
-    const w = workingPixels.width, h = workingPixels.height;
-    let x1=w, y1=h, x2=0, y2=0;
-    for (let y=0;y<h;y++) for (let x=0;x<w;x++) {
-      if (selMask[y*w+x]) { x1=Math.min(x1,x);y1=Math.min(y1,y);x2=Math.max(x2,x);y2=Math.max(y2,y); }
-    }
-    if (x2<=x1 || y2<=y1) return null;
-    const cw=x2-x1, ch=y2-y1;
-    const c = document.createElement('canvas'); c.width=cw; c.height=ch;
-    const ctx2 = c.getContext('2d');
-    ctx2.putImageData(workingPixels, -x1, -y1);
-    const d = ctx2.getImageData(0,0,cw,ch);
-    for (let y=0;y<ch;y++) for (let x=0;x<cw;x++) {
-      if (!selMask[(y+y1)*w+(x+x1)]) d.data[(y*cw+x)*4+3]=0;
-    }
-    ctx2.putImageData(d,0,0);
-    return c.toDataURL('image/png');
+    return _runSyncWithProgress(() => {
+      const w = workingPixels.width, h = workingPixels.height;
+      let x1=w, y1=h, x2=0, y2=0;
+      for (let y=0;y<h;y++) for (let x=0;x<w;x++) {
+        if (selMask[y*w+x]) { x1=Math.min(x1,x);y1=Math.min(y1,y);x2=Math.max(x2,x);y2=Math.max(y2,y); }
+      }
+      if (x2<=x1 || y2<=y1) return null;
+      const cw=x2-x1, ch=y2-y1;
+      const c = document.createElement('canvas'); c.width=cw; c.height=ch;
+      const ctx2 = c.getContext('2d');
+      ctx2.putImageData(workingPixels, -x1, -y1);
+      const d = ctx2.getImageData(0,0,cw,ch);
+      for (let y=0;y<ch;y++) for (let x=0;x<cw;x++) {
+        if (!selMask[(y+y1)*w+(x+x1)]) d.data[(y*cw+x)*4+3]=0;
+      }
+      ctx2.putImageData(d,0,0);
+      return c.toDataURL('image/png');
+    }, { kind: 'clipboard', messageKey: 'progress.copying' });
   }
 
   /* ═══════════════════════════════════════════
@@ -2407,20 +2483,24 @@ window.Editor = (() => {
     if (onHistoryChange) onHistoryChange();
   }
 
-  function undo() {
+  async function undo() {
     if (histIndex <= 0) return false;
-    histIndex--;
-    _restoreHistoryFrame(history[histIndex]);
-    if (onHistoryChange) onHistoryChange();
-    return true;
+    return _runSyncWithProgress(() => {
+      histIndex--;
+      _restoreHistoryFrame(history[histIndex]);
+      if (onHistoryChange) onHistoryChange();
+      return true;
+    }, { kind: 'history', messageKey: 'progress.applying' });
   }
 
-  function redo() {
+  async function redo() {
     if (histIndex >= history.length - 1) return false;
-    histIndex++;
-    _restoreHistoryFrame(history[histIndex]);
-    if (onHistoryChange) onHistoryChange();
-    return true;
+    return _runSyncWithProgress(() => {
+      histIndex++;
+      _restoreHistoryFrame(history[histIndex]);
+      if (onHistoryChange) onHistoryChange();
+      return true;
+    }, { kind: 'history', messageKey: 'progress.applying' });
   }
 
   function _restoreHistoryFrame(frame) {
@@ -2458,11 +2538,26 @@ window.Editor = (() => {
 
   let _editSession = null;
 
+  function _editFingerprint() {
+    return JSON.stringify({
+      histIndex,
+      rotation,
+      flipH,
+      flipV,
+      nw: naturalW,
+      nh: naturalH,
+      ww: workingPixels ? workingPixels.width : 0,
+      wh: workingPixels ? workingPixels.height : 0,
+      effects,
+    });
+  }
+
   function beginEditSession() {
     _editSession = {
       frame: _snapshot(),
       history: history.slice(),
       histIndex,
+      fingerprint: _editFingerprint(),
     };
   }
 
@@ -2483,7 +2578,7 @@ window.Editor = (() => {
 
   function hasEditSessionChanges() {
     if (!_editSession) return false;
-    return histIndex !== _editSession.histIndex;
+    return _editFingerprint() !== _editSession.fingerprint;
   }
 
   /* ═══════════════════════════════════════════
@@ -2537,7 +2632,7 @@ window.Editor = (() => {
   return {
     init, setCallbacks, loadImage,
     setEffect, getEffects, getCaptionFonts, setCaptionLines, setCaptionValues, resetEffects, applyPreset,
-    rotate, flip, resetTransform,
+    rotate, flip, resetTransform, resetAll, shouldShowOpProgress,
     setTool, getTool, clearSelection, hasSelection,
     removeBackground, removeBackgroundAuto, listBgAlgorithms, isRembgAlgorithm, applyFromDataUrl,
     fillSelection, cropToSelection, cropAfterBackgroundRemove, getSelectionBounds,

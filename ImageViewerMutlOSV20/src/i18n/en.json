@@ -274,6 +274,12 @@
   "progress.effectTitle": "Applying effect",
   "progress.effectApplying": "Applying effects…",
   "progress.done": "Done",
+  "progress.saving": "Saving…",
+  "progress.copying": "Copying to clipboard…",
+  "progress.copyingFiles": "Copying files…",
+  "progress.moving": "Moving files…",
+  "progress.openingFolder": "Opening folder…",
+  "progress.deleting": "Deleting…",
 
   "context.bgRemove": "Remove Background",
   "context.resetAll": "Reset All",
