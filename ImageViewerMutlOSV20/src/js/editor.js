@@ -21,7 +21,7 @@ window.Editor = (() => {
     borderShadowStyle: 'soft', borderShadowDir: 'br',
     borderCaption: false, borderCaptionPos: 'bl', borderCaptionText: '',
     borderCaptionFont: 'Segoe UI',
-    borderCaptionFontSize: 12,
+    borderCaptionFontSize: 16,
     borderCaptionColor: '',
     borderCaptionBold: false,
     borderCaptionItalic: false,
@@ -882,7 +882,7 @@ window.Editor = (() => {
     let left = x;
     if (align === 'center') left = x - w / 2;
     else if (align === 'right') left = x - w;
-    const size = Math.max(6, Number(effects.borderCaptionFontSize) || 12);
+    const size = Math.max(6, Number(effects.borderCaptionFontSize) || 16);
     const underline = !!effects.borderCaptionUnderline;
     const strike = !!effects.borderCaptionStrike;
     if (!underline && !strike) return;
@@ -1261,16 +1261,10 @@ window.Editor = (() => {
       return;
     }
 
-    // Value already applied via live input — commit history and ensure a final
-    // paint (live passes can be aborted while the slider is still moving).
-    if (!changed && saveHist) {
-      _saveHistory();
-      _requestEffectRender(false, false);
-      return;
-    }
+    if (!changed) return;
 
-    // Interactive slider/select: redraw the image only (never full-window progress)
-    _requestEffectRender(false, !!saveHist);
+    // Committed slider / control: show progress when the render is heavy
+    _requestEffectRender(true, true);
   }
 
   function getEffects() { return { ...effects }; }
@@ -1297,7 +1291,7 @@ window.Editor = (() => {
     effects.borderShadowDir = 'br';
     effects.borderCaption = false; effects.borderCaptionPos = 'bl'; effects.borderCaptionText = '';
     effects.borderCaptionFont = 'Segoe UI';
-    effects.borderCaptionFontSize = 12;
+    effects.borderCaptionFontSize = 16;
     effects.borderCaptionColor = '';
     effects.borderCaptionBold = false;
     effects.borderCaptionItalic = false;
@@ -1318,7 +1312,7 @@ window.Editor = (() => {
       || effects.borderCaption || !!(effects.borderCaptionText)
       || (effects.borderColor && effects.borderColor !== '#ffffff')
       || (effects.borderCaptionFont && effects.borderCaptionFont !== 'Segoe UI')
-      || (effects.borderCaptionFontSize && effects.borderCaptionFontSize !== 12)
+      || (effects.borderCaptionFontSize && effects.borderCaptionFontSize !== 16)
       || !!(effects.borderCaptionColor)
       || effects.borderCaptionBold || effects.borderCaptionItalic
       || effects.borderCaptionUnderline || effects.borderCaptionStrike;
@@ -2458,11 +2452,26 @@ window.Editor = (() => {
 
   let _editSession = null;
 
+  function _editFingerprint() {
+    return JSON.stringify({
+      histIndex,
+      rotation,
+      flipH,
+      flipV,
+      nw: naturalW,
+      nh: naturalH,
+      ww: workingPixels ? workingPixels.width : 0,
+      wh: workingPixels ? workingPixels.height : 0,
+      effects,
+    });
+  }
+
   function beginEditSession() {
     _editSession = {
       frame: _snapshot(),
       history: history.slice(),
       histIndex,
+      fingerprint: _editFingerprint(),
     };
   }
 
@@ -2483,7 +2492,7 @@ window.Editor = (() => {
 
   function hasEditSessionChanges() {
     if (!_editSession) return false;
-    return histIndex !== _editSession.histIndex;
+    return _editFingerprint() !== _editSession.fingerprint;
   }
 
   /* ═══════════════════════════════════════════

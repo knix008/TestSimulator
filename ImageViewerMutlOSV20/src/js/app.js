@@ -608,9 +608,12 @@
     maxBtn?.addEventListener('click', () => {
       window.electronAPI.windowMaximize();
     });
-    closeBtn?.addEventListener('click', () => {
-      if (state.editMode) _requestCloseEditWindow(false);
-      else window.electronAPI.windowClose();
+    closeBtn?.addEventListener('click', async () => {
+      if (state.editMode) {
+        await _requestCloseEditWindow(false);
+        return;
+      }
+      window.electronAPI.windowClose();
     });
     window.electronAPI.onMaximizeChange?.((maximized) => _setMaximizedUi(!!maximized));
     window.electronAPI.windowIsMaximized?.().then((m) => _setMaximizedUi(!!m));
@@ -2052,11 +2055,8 @@
     }
 
     const presets = [
-      { id: 'grayscale',    label: 'effects.grayscale' },
-      { id: 'sepia',        label: 'effects.sepia' },
       { id: 'silver',       label: 'effects.silver' },
       { id: 'noir',         label: 'effects.noir' },
-      { id: 'invert',       label: 'effects.invert' },
       { id: 'vivid',        label: 'effects.vivid' },
       { id: 'pop',          label: 'effects.pop' },
       { id: 'fade',         label: 'effects.fade' },
@@ -2067,33 +2067,24 @@
       { id: 'disposable',   label: 'effects.disposable' },
       /* Color negative */
       { id: 'portra',       label: 'effects.portra' },
-      { id: 'portra160',    label: 'effects.portra160' },
-      { id: 'portra400',    label: 'effects.portra400' },
-      { id: 'portra800',    label: 'effects.portra800' },
       { id: 'ektar',        label: 'effects.ektar' },
       { id: 'gold200',      label: 'effects.gold200' },
       { id: 'ultramax',     label: 'effects.ultramax' },
       { id: 'colorplus',    label: 'effects.colorplus' },
       { id: 'fuji400h',     label: 'effects.fuji400h' },
-      { id: 'pro400h',      label: 'effects.pro400h' },
       { id: 'superia',      label: 'effects.superia' },
       { id: 'agfacolor',    label: 'effects.agfacolor' },
       { id: 'lomochrome',   label: 'effects.lomochrome' },
       /* Slide */
       { id: 'kodachrome',   label: 'effects.kodachrome' },
-      { id: 'kodachrome25', label: 'effects.kodachrome25' },
-      { id: 'kodachrome64', label: 'effects.kodachrome64' },
       { id: 'ektachrome',   label: 'effects.ektachrome' },
       { id: 'velvia',       label: 'effects.velvia' },
-      { id: 'velvia50',     label: 'effects.velvia50' },
-      { id: 'velvia100',    label: 'effects.velvia100' },
       { id: 'provia',       label: 'effects.provia' },
       { id: 'sensia',       label: 'effects.sensia' },
       { id: 'astia',        label: 'effects.astia' },
       { id: 'slide',        label: 'effects.slide' },
       /* B&W */
       { id: 'trix',         label: 'effects.trix' },
-      { id: 'trix400',      label: 'effects.trix400' },
       { id: 'hp5',          label: 'effects.hp5' },
       { id: 'delta100',     label: 'effects.delta100' },
       { id: 'delta3200',    label: 'effects.delta3200' },
@@ -2114,7 +2105,6 @@
       { id: 'sprocket',     label: 'effects.sprocket' },
       /* Cinema */
       { id: 'cinestill',    label: 'effects.cinestill' },
-      { id: 'cinestill800t', label: 'effects.cinestill800t' },
       { id: 'vision3500t',  label: 'effects.vision3500t' },
       { id: 'vision3250d',  label: 'effects.vision3250d' },
       /* Process */
@@ -2124,8 +2114,6 @@
       { id: 'crossprocess', label: 'effects.crossprocess' },
       { id: 'crossfuji',    label: 'effects.crossfuji' },
       { id: 'bleachbypass', label: 'effects.bleachbypass' },
-      { id: 'filmPush2',    label: 'effects.filmPush2' },
-      { id: 'filmPull1',    label: 'effects.filmPull1' },
       { id: 'nightflash',   label: 'effects.nightflash' },
       { id: 'halfFrame',    label: 'effects.halfFrame' },
       { id: 'doubleExp',    label: 'effects.doubleExp' },
@@ -2167,7 +2155,6 @@
       { id: 'xray',         label: 'effects.xray' },
       { id: 'emboss',       label: 'effects.emboss' },
       { id: 'edge',         label: 'effects.edge' },
-      { id: 'solarize',     label: 'effects.solarize' },
       { id: 'underwater',   label: 'effects.underwater' },
       { id: 'desert',       label: 'effects.desert' },
       { id: 'forest',       label: 'effects.forest' },
@@ -2274,13 +2261,9 @@
       valSpan.id = `${idPrefix}-val-${s.key}`;
       valSpan.textContent = initial;
 
-      // Live preview while dragging — image only, no progress overlay / history
       slider.addEventListener('input', () => {
-        const v = parseFloat(slider.value);
-        valSpan.textContent = v;
-        Editor.setEffect(s.key, v, false);
+        valSpan.textContent = parseFloat(slider.value);
       });
-      // Commit history when the user releases the slider
       slider.addEventListener('change', () => {
         const v = parseFloat(slider.value);
         valSpan.textContent = v;
@@ -2524,7 +2507,7 @@
     const fontDef = prevValues.borderCaptionFont || efx.borderCaptionFont || 'Segoe UI';
     const fontSizeDef = prevValues.borderCaptionFontSize != null
       ? prevValues.borderCaptionFontSize
-      : (efx.borderCaptionFontSize ?? 12);
+      : (efx.borderCaptionFontSize ?? 16);
     const fontColorDef = prevValues.borderCaptionColor != null
       ? prevValues.borderCaptionColor
       : (efx.borderCaptionColor || '');
@@ -2614,7 +2597,7 @@
     colorInp.className = 'effect-color';
     colorInp.id = `${idPrefix}-borderColor`;
     colorInp.value = /^#[0-9a-f]{6}$/i.test(colorDef) ? colorDef : '#ffffff';
-    colorInp.addEventListener('input', () => {
+    colorInp.addEventListener('change', () => {
       Editor.setEffect('borderColor', colorInp.value);
     });
     colorRow.appendChild(colorLbl);
@@ -2705,6 +2688,7 @@
     _enrichCaptionFontSelect(fontSel, fontDef);
 
     addSlider('borderCaptionFontSize', 'effects.borderCaptionFontSize', 6, 120, 1, fontSizeDef, {
+      applyOnRelease: true,
       unit: 'px',
     });
 
@@ -2743,7 +2727,7 @@
       }
     };
     autoInp.addEventListener('change', applyFontColor);
-    fontColorInp.addEventListener('input', () => {
+    fontColorInp.addEventListener('change', () => {
       if (!autoInp.checked) Editor.setEffect('borderCaptionColor', fontColorInp.value);
     });
     fontColorWrap.appendChild(fontColorAuto);
@@ -3006,16 +2990,50 @@
     });
   }
 
+  let _editClosePrompting = false;
+
   async function _requestCloseEditWindow(apply) {
     if (!state.editMode && !editWindow.classList.contains('visible')) {
       _closeEditWindow(apply);
       return true;
     }
-    // Cancel / Esc: discard the edit session quietly.
-    // Apply: bake into the viewer; file-save prompt only happens later on app quit if still dirty.
-    // (Unapplied edit previews are not treated as unsaved file changes.)
-    _closeEditWindow(!!apply);
-    return true;
+    if (apply) {
+      _closeEditWindow(true);
+      return true;
+    }
+    const changed = !!(Editor.hasEditSessionChanges && Editor.hasEditSessionChanges());
+    if (!changed) {
+      _closeEditWindow(false);
+      return true;
+    }
+    if (_editClosePrompting) return false;
+    _editClosePrompting = true;
+    try {
+      const t = I18n.t.bind(I18n);
+      const result = await window.electronAPI.showMessageBox({
+        type: 'question',
+        title: t('dialog.unsaved.title') || 'Unsaved Changes',
+        message: t('dialog.unsaved.message') || 'You have unsaved changes.\nDo you want to save before closing?',
+        buttons: [
+          t('dialog.unsaved.save') || 'Save',
+          t('dialog.unsaved.dontSave') || "Don't Save",
+          t('dialog.unsaved.cancel') || 'Cancel',
+        ],
+        defaultId: 0,
+        cancelId: 2,
+      });
+      if (result.response === 2 || result.canceled) return false;
+      if (result.response === 0) {
+        const saved = await _saveAs(false, { useChangedName: true });
+        if (!saved) return false;
+        _closeEditWindow(true);
+        return true;
+      }
+      _closeEditWindow(false);
+      return true;
+    } finally {
+      _editClosePrompting = false;
+    }
   }
 
   function _closeEditWindow(apply) {
@@ -4066,6 +4084,19 @@
     const sections = _collectInfoSections(filePath, stats, meta, state.dicomMeta);
     infoContent.innerHTML = _renderInfoSections(sections)
       || `<div class="info-no-file" data-i18n="info.noFile">${I18n.t('info.noFile')}</div>`;
+    _reflowInfoPanel();
+  }
+
+  function _reflowInfoPanel() {
+    if (!infoContent) return;
+    const panel = document.getElementById('info-panel');
+    requestAnimationFrame(() => {
+      if (panel) void panel.offsetHeight;
+      void infoContent.offsetWidth;
+      const y = infoContent.scrollTop;
+      infoContent.scrollTop = y + 1;
+      infoContent.scrollTop = y;
+    });
   }
 
   async function _showFileInfoDialog() {
@@ -4963,6 +4994,7 @@
 
     function _applySplit(treeH) {
       const total = sidebar.getBoundingClientRect().height;
+      if (total < MIN_TREE + HANDLE_H + MIN_INFO) return 0;
       const maxTree = Math.max(MIN_TREE, total - HANDLE_H - MIN_INFO);
       const h = Math.min(Math.max(treeH, MIN_TREE), maxTree);
       const infoH = Math.max(MIN_INFO, total - HANDLE_H - h);
@@ -4971,13 +5003,19 @@
       tree.style.height = `${Math.round(h)}px`;
       info.style.flex = 'none';
       info.style.height = `${Math.round(infoH)}px`;
+      info.style.minHeight = `${MIN_INFO}px`;
       return h;
     }
 
-    // Restore previous split, otherwise keep CSS 50/50 (equal tree and info heights)
+    // Restore previous split after the sidebar has a real height
     const savedTree = parseInt(localStorage.getItem('sidebarTreeHeightV2') || '', 10);
     if (savedTree >= MIN_TREE) {
-      requestAnimationFrame(() => _applySplit(savedTree));
+      let tries = 0;
+      const restore = () => {
+        if (_applySplit(savedTree) || tries++ >= 12) return;
+        requestAnimationFrame(restore);
+      };
+      requestAnimationFrame(restore);
     }
 
     handle.addEventListener('mousedown', (e) => {
