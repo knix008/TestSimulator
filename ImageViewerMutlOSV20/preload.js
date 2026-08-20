@@ -46,6 +46,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Dialogs
   openFileDialog: () => ipcRenderer.invoke('open-file-dialog'),
   openFolderDialog: () => ipcRenderer.invoke('open-folder-dialog'),
+  openSubtitleDialog: (videoPath) => ipcRenderer.invoke('open-subtitle-dialog', videoPath),
   setLastOpenDir: (dirPath) => ipcRenderer.invoke('set-last-open-dir', dirPath),
   getLastOpenDir: () => ipcRenderer.invoke('get-last-open-dir'),
   showMessageBox: (options) => ipcRenderer.invoke('show-message-box', options),

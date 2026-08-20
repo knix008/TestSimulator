@@ -631,6 +631,28 @@ async function handleOpenFolder() {
   }
 }
 
+ipcMain.handle('open-subtitle-dialog', async (event, videoPath) => {
+  if (!mainWindow) return { canceled: true };
+  const defaultPath = (() => {
+    try {
+      if (videoPath && fs.existsSync(videoPath)) return path.dirname(videoPath);
+    } catch {}
+    return _dialogDefaultPath();
+  })();
+  const result = await dialog.showOpenDialog(mainWindow, {
+    defaultPath,
+    properties: ['openFile'],
+    filters: [
+      { name: 'Subtitles', extensions: ['srt', 'smi'] },
+      { name: 'SRT', extensions: ['srt'] },
+      { name: 'SMI', extensions: ['smi'] },
+      { name: 'All Files', extensions: ['*'] },
+    ],
+  });
+  if (result.canceled || !result.filePaths.length) return { canceled: true };
+  return { canceled: false, filePath: result.filePaths[0] };
+});
+
 ipcMain.handle('read-directory', async (event, dirPath) => {
   try {
     const entries = await fs.promises.readdir(dirPath, { withFileTypes: true });
@@ -1283,6 +1305,7 @@ ipcMain.handle('read-file-base64', async (event, filePath) => {
       tiff: 'image/tiff', tif: 'image/tiff',
       heic: 'image/heic', heif: 'image/heif', hif: 'image/heif',
       dcm: 'application/dicom', dicom: 'application/dicom',
+      srt: 'text/plain', smi: 'text/plain',
     };
     const mime = mimeMap[ext] || 'application/octet-stream';
     return `data:${mime};base64,${data.toString('base64')}`;

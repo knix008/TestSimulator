@@ -114,6 +114,22 @@
               <input type="range" id="mc-seek" class="media-ctrl-seek" min="0" max="1000" value="0" step="1" aria-label="Seek">
             </div>
             <span id="mc-time" class="media-ctrl-time">0:00 / 0:00</span>
+            <div class="media-ctrl-subtitle-wrap" id="mc-subtitle-wrap" hidden>
+              <button type="button" class="media-ctrl-btn media-ctrl-subtitle-btn" id="mc-subtitle"
+                data-i18n-title="toolbar.subtitles" title="Subtitles" aria-pressed="true">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M4 5h16c1.1 0 2 .9 2 2v10c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V7c0-1.1.9-2 2-2zm0 2v10h16V7H4zm2 4h5v2H6v-2zm7 0h5v2h-5v-2zm-7 3h8v2H6v-2zm10 0h2v2h-2v-2z"/>
+                </svg>
+              </button>
+              <button type="button" class="media-ctrl-btn media-ctrl-subtitle-file-btn" id="mc-subtitle-file"
+                data-i18n-title="toolbar.chooseSubtitle" title="Choose subtitle file">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M10 4l2 2h8c1.1 0 2 .9 2 2v10c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2L2.01 6c0-1.1.89-2 1.99-2h6zm-6 4v10h16V8H4zm3 3h5v2H7v-2zm7 0h3v2h-3v-2zm-7 3h8v2H7v-2z"/>
+                </svg>
+              </button>
+              <select id="mc-subtitle-lang" class="media-ctrl-subtitle-select"
+                data-i18n-title="toolbar.subtitleLanguage" title="Subtitle language" aria-label="Subtitle language"></select>
+            </div>
             <div class="media-ctrl-vol-wrap" id="mc-vol-wrap">
               <button type="button" class="media-ctrl-btn media-ctrl-vol-btn" id="mc-mute"
                 data-i18n-title="toolbar.mute" title="Mute" aria-pressed="false">

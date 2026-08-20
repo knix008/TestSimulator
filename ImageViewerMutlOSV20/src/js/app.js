@@ -23,6 +23,9 @@
     isAnimated:   false,
     animatedDataUrl: null,
     animPlaying:  false,
+    subtitles:    [],
+    subtitlesEnabled: localStorage.getItem('subtitlesEnabled') !== '0',
+    subtitleLang: localStorage.getItem('subtitleLanguage') || '',
     isDirty:      false,
     imageMeta:    null,
     dicomMeta:    null,
@@ -84,6 +87,10 @@
   const mcMuteBtn        = document.getElementById('mc-mute');
   const mcVolume         = document.getElementById('mc-volume');
   const mcVolLabel       = document.getElementById('mc-vol-label');
+  const mcSubtitleWrap   = document.getElementById('mc-subtitle-wrap');
+  const mcSubtitleBtn    = document.getElementById('mc-subtitle');
+  const mcSubtitleFileBtn = document.getElementById('mc-subtitle-file');
+  const mcSubtitleLang   = document.getElementById('mc-subtitle-lang');
   const mediaCue         = document.getElementById('media-cue');
   const mediaCueBadge    = document.getElementById('media-cue-badge');
   const audioWrap        = document.getElementById('audio-player-wrap');
@@ -100,6 +107,7 @@
   let _watchedFile = null;
   let _mediaCueTimer = null;
   let _mediaCueFromUser = null; // 'pause' | 'stop' | null
+  let _subtitleLoadToken = 0;
   const MEDIA_VOL_KEY = 'mediaVolume';
   const MEDIA_MUTE_KEY = 'mediaMuted';
   let _mediaVolume = (() => {
@@ -1185,6 +1193,7 @@
       _applyMediaVolume();
       _syncMediaSeekUi();
       _syncMediaVolumeUi();
+      _syncSubtitleControls();
     }
   }
 
@@ -1350,6 +1359,278 @@
     animImg.src = src;
   }
 
+  function _clearSubtitleTracks() {
+    state.subtitles.forEach((sub) => {
+      if (sub.url) {
+        try { URL.revokeObjectURL(sub.url); } catch {}
+      }
+    });
+    state.subtitles = [];
+    if (videoEl) {
+      videoEl.querySelectorAll('track[data-app-subtitle="1"]').forEach((track) => track.remove());
+    }
+    _syncSubtitleControls();
+  }
+
+  function _stripExt(filePath) {
+    return String(filePath || '').replace(/\.[^./\\]+$/, '');
+  }
+
+  function _extOf(filePath) {
+    const m = String(filePath || '').match(/\.([^./\\]+)$/);
+    return m ? m[1].toLowerCase() : '';
+  }
+
+  function _subtitleLangFromName(filePath, videoPath, fallback = '') {
+    const subBase = _stripExt(String(filePath || '').split(/[/\\]/).pop() || '');
+    const vidBase = _stripExt(String(videoPath || '').split(/[/\\]/).pop() || '');
+    const suffix = subBase.toLowerCase().startsWith(`${vidBase.toLowerCase()}.`)
+      ? subBase.slice(vidBase.length + 1)
+      : '';
+    const token = (suffix || fallback || '').split(/[._-]/).filter(Boolean).pop() || '';
+    return token ? token.toLowerCase() : 'und';
+  }
+
+  function _subtitleLabel(filePath, lang, fallback = '') {
+    const name = String(filePath || '').split(/[/\\]/).pop() || 'Subtitle';
+    const language = lang && lang !== 'und' ? lang.toUpperCase() : (fallback || I18n.t('toolbar.subtitles'));
+    return `${language} - ${name}`;
+  }
+
+  function _htmlToSubtitleText(html) {
+    const div = document.createElement('div');
+    div.innerHTML = String(html || '')
+      .replace(/<br\s*\/?\s*>/gi, '\n')
+      .replace(/&nbsp;/gi, ' ');
+    return (div.textContent || '').replace(/\r/g, '').replace(/\n{3,}/g, '\n\n').trim();
+  }
+
+  function _vttTime(ms) {
+    const n = Math.max(0, Math.round(Number(ms) || 0));
+    const h = Math.floor(n / 3600000);
+    const m = Math.floor((n % 3600000) / 60000);
+    const s = Math.floor((n % 60000) / 1000);
+    const z = n % 1000;
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}.${String(z).padStart(3, '0')}`;
+  }
+
+  function _srtToVtt(text) {
+    let body = String(text || '').replace(/^\uFEFF/, '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    body = body.replace(/(\d{1,2}:\d{2}:\d{2}),([0-9]{1,3})/g, (_m, t, ms) => `${t}.${ms.padEnd(3, '0')}`);
+    body = body.replace(/\{\\[^}]+\}/g, '').replace(/<\/?font[^>]*>/gi, '');
+    return `WEBVTT\n\n${body.trim()}\n`;
+  }
+
+  function _smiToTracks(text, filePath, videoPath) {
+    const source = String(text || '').replace(/^\uFEFF/, '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    const syncRe = /<sync\s+start\s*=\s*["']?(\d+)["']?[^>]*>([\s\S]*?)(?=<sync\s+start\s*=|<\/body>|<\/sami>|$)/gi;
+    const rows = [];
+    let match;
+    while ((match = syncRe.exec(source))) {
+      const start = Number(match[1]);
+      if (!Number.isFinite(start)) continue;
+      const chunk = match[2] || '';
+      const pRe = /<p\b([^>]*)>([\s\S]*?)(?=<p\b|$)/gi;
+      let pMatch;
+      while ((pMatch = pRe.exec(chunk))) {
+        const attrs = pMatch[1] || '';
+        const classMatch = attrs.match(/class\s*=\s*["']?([^\s"'>]+)/i);
+        const klass = (classMatch ? classMatch[1] : 'default').toLowerCase();
+        const textValue = _htmlToSubtitleText(pMatch[2]);
+        if (!textValue || textValue === '&nbsp;') continue;
+        rows.push({ start, klass, text: textValue });
+      }
+    }
+    const byClass = new Map();
+    rows.forEach((row) => {
+      if (!byClass.has(row.klass)) byClass.set(row.klass, []);
+      byClass.get(row.klass).push(row);
+    });
+    return Array.from(byClass.entries()).map(([klass, items]) => {
+      items.sort((a, b) => a.start - b.start);
+      const cues = items.map((item, idx) => {
+        const next = items[idx + 1];
+        const end = next ? Math.max(item.start + 1, next.start - 1) : item.start + 4000;
+        return `${_vttTime(item.start)} --> ${_vttTime(end)}\n${item.text}`;
+      }).join('\n\n');
+      const lang = _subtitleLangFromName(filePath, videoPath, klass.replace(/cc$/i, ''));
+      return {
+        lang,
+        label: _subtitleLabel(filePath, lang, klass.toUpperCase()),
+        vtt: `WEBVTT\n\n${cues}\n`,
+      };
+    });
+  }
+
+  async function _readSubtitleText(filePath) {
+    const dataUrl = await window.electronAPI.readFileBase64(filePath);
+    if (!dataUrl || dataUrl.error || typeof dataUrl !== 'string') return '';
+    const raw = dataUrl.includes(',') ? dataUrl.split(',')[1] : '';
+    if (!raw) return '';
+    const bin = atob(raw);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    try { return new TextDecoder('utf-8', { fatal: true }).decode(bytes); }
+    catch {}
+    try { return new TextDecoder('euc-kr', { fatal: false }).decode(bytes); }
+    catch { return new TextDecoder('utf-8', { fatal: false }).decode(bytes); }
+  }
+
+  async function _subtitleFileToTracks(filePath, videoPath) {
+    const text = await _readSubtitleText(filePath);
+    if (!text) return [];
+    const ext = _extOf(filePath);
+    if (ext === 'smi') return _smiToTracks(text, filePath, videoPath);
+    if (ext === 'srt') {
+      const lang = _subtitleLangFromName(filePath, videoPath);
+      return [{ lang, label: _subtitleLabel(filePath, lang), vtt: _srtToVtt(text) }];
+    }
+    return [];
+  }
+
+  async function _findAutoSubtitleFiles(videoPath) {
+    const dir = await window.electronAPI.pathDirname(videoPath);
+    const videoName = await window.electronAPI.pathBasename(videoPath);
+    const stem = _stripExt(videoName);
+    const entries = await window.electronAPI.readDirectory(dir);
+    if (!Array.isArray(entries)) return [];
+    const stemLower = stem.toLowerCase();
+    return entries
+      .filter((entry) => !entry.isDirectory)
+      .filter((entry) => {
+        const name = String(entry.name || '').toLowerCase();
+        const ext = _extOf(name);
+        if (ext !== 'srt' && ext !== 'smi') return false;
+        const base = _stripExt(name);
+        return base === stemLower || base.startsWith(`${stemLower}.`);
+      })
+      .map((entry) => entry.path);
+  }
+
+  async function _loadSubtitleFiles(paths, videoPath, { replace = true } = {}) {
+    const token = ++_subtitleLoadToken;
+    if (replace) _clearSubtitleTracks();
+    const loaded = [];
+    for (const filePath of paths) {
+      try {
+        const tracks = await _subtitleFileToTracks(filePath, videoPath);
+        tracks.forEach((track) => loaded.push({ ...track, filePath }));
+      } catch (e) {
+        console.warn('Subtitle load failed:', filePath, e);
+      }
+    }
+    if (token !== _subtitleLoadToken || !videoEl) return [];
+    loaded.forEach((sub, index) => {
+      const blob = new Blob([sub.vtt], { type: 'text/vtt' });
+      const track = document.createElement('track');
+      sub.id = `${Date.now()}-${index}-${Math.random().toString(36).slice(2)}`;
+      sub.url = URL.createObjectURL(blob);
+      track.kind = 'subtitles';
+      track.label = sub.label;
+      track.srclang = sub.lang || 'und';
+      track.src = sub.url;
+      track.dataset.appSubtitle = '1';
+      track.dataset.subtitleId = sub.id;
+      track.addEventListener('load', () => _applySubtitleTrackMode());
+      videoEl.appendChild(track);
+      state.subtitles.push(sub);
+    });
+    _selectInitialSubtitle();
+    _syncSubtitleControls();
+    return loaded;
+  }
+
+  async function _loadAutoSubtitles(videoPath) {
+    try {
+      const files = await _findAutoSubtitleFiles(videoPath);
+      await _loadSubtitleFiles(files, videoPath, { replace: true });
+    } catch (e) {
+      console.warn('Auto subtitle search failed:', e);
+      _clearSubtitleTracks();
+    }
+  }
+
+  function _selectInitialSubtitle() {
+    if (!state.subtitles.length) return;
+    if (state.subtitleLang && state.subtitles.some((sub) => sub.lang === state.subtitleLang)) return;
+    state.subtitleLang = state.subtitles[0].lang || 'und';
+    try { localStorage.setItem('subtitleLanguage', state.subtitleLang); } catch {}
+  }
+
+  function _syncSubtitleControls() {
+    const show = state.isVideo && videoEl && videoEl.style.display !== 'none';
+    const hasTracks = show && state.subtitles.length > 0;
+    if (mcSubtitleWrap) {
+      mcSubtitleWrap.hidden = !show;
+      mcSubtitleWrap.style.display = show ? 'flex' : 'none';
+    }
+    if (mcSubtitleBtn) {
+      mcSubtitleBtn.disabled = !hasTracks;
+      mcSubtitleBtn.classList.toggle('is-active', hasTracks && state.subtitlesEnabled);
+      mcSubtitleBtn.setAttribute('aria-pressed', hasTracks && state.subtitlesEnabled ? 'true' : 'false');
+      mcSubtitleBtn.title = I18n.t(state.subtitlesEnabled ? 'toolbar.subtitlesOff' : 'toolbar.subtitlesOn');
+    }
+    if (mcSubtitleFileBtn) mcSubtitleFileBtn.disabled = !show;
+    if (mcSubtitleLang) {
+      const prev = mcSubtitleLang.value;
+      mcSubtitleLang.innerHTML = '';
+      state.subtitles.forEach((sub) => {
+        const opt = document.createElement('option');
+        opt.value = sub.lang || 'und';
+        opt.textContent = sub.label;
+        mcSubtitleLang.appendChild(opt);
+      });
+      mcSubtitleLang.value = state.subtitles.some((sub) => sub.lang === state.subtitleLang) ? state.subtitleLang : prev;
+      mcSubtitleLang.disabled = !hasTracks || !state.subtitlesEnabled;
+      mcSubtitleLang.style.display = hasTracks ? 'block' : 'none';
+    }
+    _applySubtitleTrackMode();
+  }
+
+  function _applySubtitleTrackMode() {
+    if (!videoEl) return;
+    const wanted = state.subtitlesEnabled ? state.subtitleLang : '';
+    Array.from(videoEl.textTracks || []).forEach((track) => {
+      const el = Array.from(videoEl.querySelectorAll('track[data-app-subtitle="1"]')).find((node) => node.track === track);
+      track.mode = el && wanted && el.srclang === wanted ? 'showing' : 'disabled';
+    });
+  }
+
+  function _toggleSubtitles() {
+    if (!state.subtitles.length) return;
+    state.subtitlesEnabled = !state.subtitlesEnabled;
+    try { localStorage.setItem('subtitlesEnabled', state.subtitlesEnabled ? '1' : '0'); } catch {}
+    _syncSubtitleControls();
+  }
+
+  function _setSubtitleLanguage(lang) {
+    if (!lang || !state.subtitles.some((sub) => sub.lang === lang)) return;
+    state.subtitleLang = lang;
+    state.subtitlesEnabled = true;
+    try {
+      localStorage.setItem('subtitleLanguage', lang);
+      localStorage.setItem('subtitlesEnabled', '1');
+    } catch {}
+    _syncSubtitleControls();
+  }
+
+  async function _chooseSubtitleFile() {
+    if (!state.isVideo || !state.currentFile || !window.electronAPI.openSubtitleDialog) return;
+    const wasPlaying = _isMediaPlaying();
+    if (wasPlaying && videoEl) videoEl.pause();
+    const result = await window.electronAPI.openSubtitleDialog(state.currentFile);
+    if (result && !result.canceled && result.filePath) {
+      await _loadSubtitleFiles([result.filePath], state.currentFile, { replace: true });
+      state.subtitlesEnabled = state.subtitles.length > 0;
+      try { localStorage.setItem('subtitlesEnabled', state.subtitlesEnabled ? '1' : '0'); } catch {}
+      _syncSubtitleControls();
+    }
+    if (wasPlaying && videoEl) {
+      const p = videoEl.play();
+      if (p && typeof p.catch === 'function') p.catch(() => {});
+    }
+  }
+
   function _showVideoPlayer(filePath) {
     if (filePath) {
       displayCanvas.style.display = 'none';
@@ -1357,6 +1638,7 @@
       _hideAnimatedImage();
       videoEl.style.display       = 'flex';
       imagePlaceholder.style.display = 'none';
+      _clearSubtitleTracks();
       videoEl.src = '';
       videoEl.load();
       window.electronAPI.getFileUrl(filePath).then(url => {
@@ -1368,12 +1650,14 @@
         _updateMediaControlsVisibility();
         _syncMediaTransportButtons();
         _syncMediaVolumeUi();
+        _loadAutoSubtitles(filePath);
       });
     } else {
       _hideMediaCue();
       videoEl.pause?.();
       videoEl.style.display = 'none';
       videoEl.src = '';
+      _clearSubtitleTracks();
       _updateMediaControlsVisibility();
       _syncMediaTransportButtons();
     }
@@ -1455,7 +1739,22 @@
       if (!state.isVideo) return;
       _toggleMediaMute();
     });
+    mcSubtitleBtn?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (!state.isVideo) return;
+      _toggleSubtitles();
+    });
+    mcSubtitleFileBtn?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      _chooseSubtitleFile();
+    });
+    mcSubtitleLang?.addEventListener('change', (e) => {
+      e.stopPropagation();
+      if (!state.isVideo) return;
+      _setSubtitleLanguage(mcSubtitleLang.value);
+    });
     _syncMediaVolumeUi();
+    _syncSubtitleControls();
 
     if (videoEl) {
       // Suppress native Chromium video context menu; use app menu instead

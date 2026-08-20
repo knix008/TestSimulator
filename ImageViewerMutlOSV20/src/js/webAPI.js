@@ -27,7 +27,7 @@
     listeners[channel].push(cb);
   }
 
-  function pickFiles({ multiple = false, directory = false } = {}) {
+  function pickFiles({ multiple = false, directory = false, accept = '' } = {}) {
     return new Promise((resolve) => {
       const input = document.createElement('input');
       input.type = 'file';
@@ -35,7 +35,7 @@
         input.setAttribute('webkitdirectory', '');
         input.setAttribute('directory', '');
       } else {
-        input.accept = [
+        input.accept = accept || [
           'image/*', 'video/*', 'audio/*',
           '.dcm', '.dicom', '.heic', '.heif', '.hif', '.tif', '.tiff', '.svg', '.ico', '.webp', '.avif',
         ].join(',');
@@ -306,6 +306,14 @@
     openFolderDialog: async () => {
       await openFolderViaPicker();
       // Refresh drive label after mount
+    },
+    openSubtitleDialog: async () => {
+      const files = await pickFiles({ multiple: false, accept: '.srt,.smi' });
+      const file = (files || []).find((f) => /\.(srt|smi)$/i.test(f.name || '')) || files[0];
+      if (!file) return { canceled: true };
+      if (!/\.(srt|smi)$/i.test(file.name || '')) return { canceled: true };
+      const p = R().registerFile(file, '/');
+      return { canceled: false, filePath: p };
     },
 
     setLastOpenDir: async (dirPath) => {
