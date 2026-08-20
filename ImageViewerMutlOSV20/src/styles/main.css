@@ -2183,8 +2183,52 @@ body.frameless #ew-win-gutter { display: block; }
   min-width: 92px;
   text-align: right;
 }
+.media-ctrl-vol-wrap {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 4px;
+  padding-left: 10px;
+  border-left: 1px solid rgba(255, 255, 255, 0.16);
+}
+.media-ctrl-vol-btn {
+  width: 32px;
+  height: 32px;
+  position: relative;
+}
+.media-ctrl-vol-btn svg {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 18px;
+  height: 18px;
+}
+.media-ctrl-vol-btn.is-muted .mc-vol-icon-on {
+  display: none;
+}
+.media-ctrl-vol-btn.is-muted .mc-vol-icon-off {
+  display: block;
+}
+.media-ctrl-vol-btn .mc-vol-icon-off {
+  display: none;
+}
+.media-ctrl-volume {
+  width: 88px;
+  accent-color: #6cb6ff;
+  cursor: pointer;
+}
+.media-ctrl-vol-label {
+  flex: 0 0 auto;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.9;
+  min-width: 36px;
+  text-align: right;
+}
 .media-controls.is-animated .media-ctrl-seek-wrap,
-.media-controls.is-animated .media-ctrl-time {
+.media-controls.is-animated .media-ctrl-time,
+.media-controls.is-animated .media-ctrl-vol-wrap {
   display: none;
 }
 
@@ -2199,7 +2243,6 @@ body.frameless #ew-win-gutter { display: block; }
   pointer-events: none;
   opacity: 0;
   visibility: hidden;
-  transition: opacity 0.18s ease, visibility 0.18s ease;
 }
 .media-cue.is-on {
   opacity: 1;
@@ -2227,11 +2270,12 @@ body.frameless #ew-win-gutter { display: block; }
 .media-cue.is-play .media-cue-badge svg {
   margin-left: 4px;
 }
+/* `both` applies 0% keyframes immediately — avoids a pre-animation full-opacity flash */
 .media-cue.is-flash .media-cue-badge {
-  animation: media-cue-flash 0.9s ease forwards;
+  animation: media-cue-flash 0.7s ease both;
 }
 .media-cue.is-persist .media-cue-badge {
-  animation: media-cue-in 0.18s ease-out;
+  animation: media-cue-in 0.18s ease-out both;
 }
 @keyframes media-cue-in {
   from { opacity: 0; transform: scale(0.82); }
@@ -2239,7 +2283,7 @@ body.frameless #ew-win-gutter { display: block; }
 }
 @keyframes media-cue-flash {
   0%   { opacity: 0; transform: scale(0.72); }
-  16%  { opacity: 1; transform: scale(1); }
-  62%  { opacity: 1; transform: scale(1); }
-  100% { opacity: 0; transform: scale(1.08); }
+  18%  { opacity: 1; transform: scale(1.04); }
+  55%  { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(0.94); }
 }

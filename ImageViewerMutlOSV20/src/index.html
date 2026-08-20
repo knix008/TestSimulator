@@ -114,6 +114,21 @@
               <input type="range" id="mc-seek" class="media-ctrl-seek" min="0" max="1000" value="0" step="1" aria-label="Seek">
             </div>
             <span id="mc-time" class="media-ctrl-time">0:00 / 0:00</span>
+            <div class="media-ctrl-vol-wrap" id="mc-vol-wrap">
+              <button type="button" class="media-ctrl-btn media-ctrl-vol-btn" id="mc-mute"
+                data-i18n-title="toolbar.mute" title="Mute" aria-pressed="false">
+                <svg class="mc-vol-icon-on" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+                </svg>
+                <svg class="mc-vol-icon-off" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M3 9v6h4l5 5V4L7 9H3z"/>
+                  <path d="M16.34 9.05 15 10.4l2.1 2.1-2.1 2.1 1.34 1.35 2.1-2.1 2.1 2.1 1.35-1.35-2.1-2.1 2.1-2.1L20.54 9.05l-2.1 2.1-2.1-2.1z"/>
+                </svg>
+              </button>
+              <input type="range" id="mc-volume" class="media-ctrl-volume" min="0" max="100" value="100" step="1"
+                data-i18n-title="toolbar.volume" title="Volume" aria-label="Volume">
+              <span id="mc-vol-label" class="media-ctrl-vol-label">100%</span>
+            </div>
           </div>
 
           <!-- Play / pause / stop cue overlay -->

@@ -80,6 +80,10 @@
   const mcStopBtn        = document.getElementById('mc-stop');
   const mcSeek           = document.getElementById('mc-seek');
   const mcTime           = document.getElementById('mc-time');
+  const mcVolWrap        = document.getElementById('mc-vol-wrap');
+  const mcMuteBtn        = document.getElementById('mc-mute');
+  const mcVolume         = document.getElementById('mc-volume');
+  const mcVolLabel       = document.getElementById('mc-vol-label');
   const mediaCue         = document.getElementById('media-cue');
   const mediaCueBadge    = document.getElementById('media-cue-badge');
   const audioWrap        = document.getElementById('audio-player-wrap');
@@ -95,7 +99,18 @@
   let _watchedDir  = null;
   let _watchedFile = null;
   let _mediaCueTimer = null;
-  let _mediaCueFollowup = null;
+  let _mediaCueFromUser = null; // 'pause' | 'stop' | null
+  const MEDIA_VOL_KEY = 'mediaVolume';
+  const MEDIA_MUTE_KEY = 'mediaMuted';
+  let _mediaVolume = (() => {
+    try {
+      const v = parseFloat(localStorage.getItem(MEDIA_VOL_KEY));
+      return Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 1;
+    } catch { return 1; }
+  })();
+  let _mediaMuted = (() => {
+    try { return localStorage.getItem(MEDIA_MUTE_KEY) === '1'; } catch { return false; }
+  })();
   const RECENT_DIRS_KEY = 'recentOpenedDirs';
   const RECENT_DIRS_MAX = 10;
   const statusDims       = document.getElementById('status-dims');
@@ -1167,8 +1182,59 @@
     mcStopBtn?.classList.toggle('is-active', false);
 
     if (state.isVideo && videoEl) {
+      _applyMediaVolume();
       _syncMediaSeekUi();
+      _syncMediaVolumeUi();
     }
+  }
+
+  function _applyMediaVolume() {
+    if (!videoEl) return;
+    videoEl.volume = _mediaVolume;
+    videoEl.muted = _mediaMuted || _mediaVolume <= 0;
+  }
+
+  function _persistMediaVolume() {
+    try {
+      localStorage.setItem(MEDIA_VOL_KEY, String(_mediaVolume));
+      localStorage.setItem(MEDIA_MUTE_KEY, _mediaMuted ? '1' : '0');
+    } catch {}
+  }
+
+  function _syncMediaVolumeUi() {
+    const pct = Math.round(_mediaVolume * 100);
+    if (mcVolume) mcVolume.value = String(pct);
+    if (mcVolLabel) mcVolLabel.textContent = `${pct}%`;
+    const muted = _mediaMuted || _mediaVolume <= 0;
+    mcMuteBtn?.classList.toggle('is-muted', muted);
+    mcMuteBtn?.setAttribute('aria-pressed', muted ? 'true' : 'false');
+    if (mcMuteBtn) {
+      mcMuteBtn.title = I18n.t(muted ? 'toolbar.unmute' : 'toolbar.mute');
+      mcMuteBtn.setAttribute('data-i18n-title', muted ? 'toolbar.unmute' : 'toolbar.mute');
+    }
+    if (mcVolume) mcVolume.title = I18n.t('toolbar.volume');
+  }
+
+  function _setMediaVolume(pct) {
+    const n = Math.min(100, Math.max(0, Math.round(Number(pct) || 0)));
+    _mediaVolume = n / 100;
+    // Moving slider away from 0 unmutes; 0 mutes
+    _mediaMuted = _mediaVolume <= 0;
+    _applyMediaVolume();
+    _persistMediaVolume();
+    _syncMediaVolumeUi();
+  }
+
+  function _toggleMediaMute() {
+    if (_mediaMuted || _mediaVolume <= 0) {
+      _mediaMuted = false;
+      if (_mediaVolume <= 0) _mediaVolume = 1;
+    } else {
+      _mediaMuted = true;
+    }
+    _applyMediaVolume();
+    _persistMediaVolume();
+    _syncMediaVolumeUi();
   }
 
   function _syncMediaSeekUi() {
@@ -1199,6 +1265,7 @@
     }
     const p = videoEl.play();
     if (p && typeof p.catch === 'function') p.catch(() => {});
+    // Cue comes from the 'play' event so we don't double-flash
     _syncMediaTransportButtons();
   }
 
@@ -1208,8 +1275,9 @@
       return;
     }
     if (!state.isVideo || !videoEl || videoEl.paused) return;
+    _mediaCueFromUser = 'pause';
     videoEl.pause();
-    // Pause badge stays while paused (clickable to resume)
+    // Keep pause cue visible until play / stop
     _showMediaCue('pause', true);
     _syncMediaTransportButtons();
   }
@@ -1220,10 +1288,11 @@
       return;
     }
     if (!state.isVideo || !videoEl) return;
+    _mediaCueFromUser = 'stop';
     videoEl.pause();
     try { videoEl.currentTime = 0; } catch {}
-    // Stop is a brief flash, then leave the persistent pause badge
-    _flashThenPauseCue('stop');
+    // Brief stop flash, then clear
+    _showMediaCue('stop', false);
     _syncMediaTransportButtons();
     _syncMediaSeekUi();
   }
@@ -1243,7 +1312,7 @@
       animImg.src = src;
     }
     state.animPlaying = true;
-    _showMediaCue('play', false); // brief
+    _showMediaCue('play', false);
     _syncMediaTransportButtons();
   }
 
@@ -1255,7 +1324,7 @@
     }
     if (_freezeAnimatedFrame()) {
       state.animPlaying = false;
-      _showMediaCue('pause', true); // stays while paused
+      _showMediaCue('pause', true);
       _syncMediaTransportButtons();
     }
   }
@@ -1270,7 +1339,7 @@
         _freezeAnimatedFrame();
         state.animPlaying = false;
         animImg.setAttribute('data-stopped', '1');
-        _flashThenPauseCue('stop');
+        _showMediaCue('stop', false);
         _syncMediaTransportButtons();
       });
     };
@@ -1293,10 +1362,12 @@
       window.electronAPI.getFileUrl(filePath).then(url => {
         videoEl.src = url;
         videoEl.load();
-        // Fresh load is idle (not user-paused) — don't show a pause badge
+        _applyMediaVolume();
+        _mediaCueFromUser = null;
         _hideMediaCue();
         _updateMediaControlsVisibility();
         _syncMediaTransportButtons();
+        _syncMediaVolumeUi();
       });
     } else {
       _hideMediaCue();
@@ -1313,41 +1384,33 @@
       || !!(state.isAnimated && !state.editMode);
   }
 
-  /** Play / stop: brief flash only. Pause: stays while media is paused. */
-  function _flashThenPauseCue(kind) {
-    _showMediaCue(kind, false);
-    // Replace auto-hide with a transition to the persistent pause badge
-    clearTimeout(_mediaCueTimer);
-    _mediaCueTimer = null;
-    clearTimeout(_mediaCueFollowup);
-    _mediaCueFollowup = setTimeout(() => {
-      _mediaCueFollowup = null;
-      if (!_videoCueActive() || _isMediaPlaying()) {
-        _hideMediaCue();
-        return;
-      }
-      _showMediaCue('pause', true);
-    }, 900);
-  }
-
+  /**
+   * @param {'play'|'pause'|'stop'} kind
+   * @param {boolean} persist  true = keep visible (pause while paused)
+   */
   function _showMediaCue(kind, persist) {
     if (!mediaCue || !mediaCueBadge) return;
     const icons = { play: Icons.mediaPlay, pause: Icons.mediaPause, stop: Icons.mediaStop };
-    // Only pause may persist; play/stop are always brief flashes
-    if (kind !== 'pause') persist = false;
+    // Only pause stays on screen; play/stop are brief flashes
+    if (persist && kind !== 'pause') persist = false;
+    if (kind !== 'pause' && kind !== 'play' && kind !== 'stop') kind = 'pause';
+
+    clearTimeout(_mediaCueTimer);
+    _mediaCueTimer = null;
+
     mediaCueBadge.innerHTML = icons[kind] || icons.pause;
     mediaCue.classList.remove('is-on', 'is-flash', 'is-persist', 'is-play', 'is-pause', 'is-stop');
+    // Restart CSS animation cleanly for flashes
     void mediaCue.offsetWidth;
     mediaCue.classList.add('is-on', persist ? 'is-persist' : 'is-flash', `is-${kind}`);
     mediaCue.style.pointerEvents = 'none';
     mediaCueBadge.style.pointerEvents = persist ? 'auto' : 'none';
     mediaCueBadge.style.cursor = persist ? 'pointer' : '';
+    mediaCueBadge.title = persist ? I18n.t('toolbar.play') : '';
     mediaCue.setAttribute('aria-hidden', persist ? 'false' : 'true');
-    clearTimeout(_mediaCueTimer);
-    clearTimeout(_mediaCueFollowup);
-    _mediaCueFollowup = null;
+
     if (persist) return;
-    _mediaCueTimer = setTimeout(() => _hideMediaCue(), 900);
+    _mediaCueTimer = setTimeout(() => _hideMediaCue(), 700);
   }
 
   function _hideMediaCue() {
@@ -1359,6 +1422,7 @@
     if (mediaCueBadge) {
       mediaCueBadge.style.pointerEvents = 'none';
       mediaCueBadge.style.cursor = '';
+      mediaCueBadge.title = '';
     }
     mediaCue.setAttribute('aria-hidden', 'true');
   }
@@ -1379,6 +1443,20 @@
       if (mcTime) mcTime.textContent = `${_fmtMediaTime(t)} / ${_fmtMediaTime(dur)}`;
     });
 
+    mcVolume?.addEventListener('pointerdown', (e) => e.stopPropagation());
+    mcVolume?.addEventListener('click', (e) => e.stopPropagation());
+    mcVolume?.addEventListener('input', (e) => {
+      e.stopPropagation();
+      if (!state.isVideo) return;
+      _setMediaVolume(mcVolume.value);
+    });
+    mcMuteBtn?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (!state.isVideo) return;
+      _toggleMediaMute();
+    });
+    _syncMediaVolumeUi();
+
     if (videoEl) {
       // Suppress native Chromium video context menu; use app menu instead
       videoEl.addEventListener('contextmenu', (e) => {
@@ -1388,15 +1466,23 @@
       });
       videoEl.addEventListener('play', () => {
         if (!_videoCueActive()) return;
+        _mediaCueFromUser = null;
+        // Single brief play cue (driven only from this event — not from _playMedia)
         _showMediaCue('play', false);
         _syncMediaTransportButtons();
       });
       videoEl.addEventListener('pause', () => {
         _syncMediaTransportButtons();
+        // User-driven pause/stop already showed the right cue
+        if (_mediaCueFromUser === 'pause' || _mediaCueFromUser === 'stop') {
+          _mediaCueFromUser = null;
+          return;
+        }
       });
       videoEl.addEventListener('ended', () => {
         if (!(state.isVideo && videoEl.style.display !== 'none')) return;
-        _flashThenPauseCue('stop');
+        _mediaCueFromUser = 'stop';
+        _showMediaCue('stop', false);
         _syncMediaTransportButtons();
       });
       videoEl.addEventListener('timeupdate', () => {
@@ -1405,7 +1491,7 @@
       videoEl.addEventListener('loadedmetadata', () => {
         if (state.isVideo) {
           _syncMediaSeekUi();
-          if (state.currentFile) _updateInfoPanel(state.currentFile).catch(() => {});
+          if (state.currentFile) _updateInfoQueue(state.currentFile).catch(() => {});
           const d = _getViewerDims();
           if (d.w && d.h && statusDims) {
             statusDims.textContent = `${d.w} × ${d.h} ${I18n.t('status.dimensions')}`;
@@ -1417,7 +1503,7 @@
 
     audioEl?.addEventListener('loadedmetadata', () => {
       if (state.isAudio && state.currentFile) {
-        _updateInfoPanel(state.currentFile).catch(() => {});
+        _updateInfoQueue(state.currentFile).catch(() => {});
       }
     });
 
