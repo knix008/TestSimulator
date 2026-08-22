@@ -461,6 +461,7 @@
       { id:'btn-rotate-r',    icon:'rotateRight',tip:'toolbar.rotateRight',action: () => _rotate(90),  disabled: true },
       { id:'btn-flip-h',      icon:'flipH',      tip:'toolbar.flipH',      action: () => _flip('h'),   disabled: true },
       { id:'btn-flip-v',      icon:'flipV',      tip:'toolbar.flipV',      action: () => _flip('v'),   disabled: true },
+      { id:'btn-resize',      icon:'resize',     tip:'toolbar.resize',     action: () => _openResizeDialog(), disabled: true },
       { separator: true },
       { id:'btn-prev',        icon:'prev',       tip:'toolbar.prev',       action: _prevImage, disabled: true },
       { id:'btn-next',        icon:'next',       tip:'toolbar.next',       action: _nextImage, disabled: true },
@@ -702,6 +703,7 @@
     set('btn-rotate-r', isImage);
     set('btn-flip-h', isImage);
     set('btn-flip-v', isImage);
+    set('btn-resize', isImage);
     set('btn-edit', isImage);
     if (!isImage) {
       set('btn-undo', false);
@@ -2427,6 +2429,337 @@
   }
 
   /* ════════════════════════════════════════════
+     Resize dialog
+  ════════════════════════════════════════════ */
+  const _RESIZE_MAX = 16384;
+  const _RESIZE_PRESETS = {
+    percent: [25, 50, 75, 100, 150, 200].map(v => ({ label: `${v}%`, value: v })),
+    pixels:  [640, 800, 1280, 1920, 2560].map(v => ({ label: `${v}px`, value: v })),
+    longest: [640, 1280, 1920, 2560, 3840].map(v => ({ label: `${v}px`, value: v })),
+    fit:     [640, 1280, 1920, 2560].map(v => ({ label: `${v}px`, value: v })),
+  };
+  let _resizeCtx = { srcW: 0, srcH: 0 };
+  let _resizeBound = false;
+
+  function _resizeExtFor(fmt) {
+    return fmt === 'jpg' ? 'jpg' : (fmt === 'webp' ? 'webp' : (fmt === 'bmp' ? 'bmp' : 'png'));
+  }
+
+  function _resizeDefaultFormat() {
+    const ext = state.currentFile ? FormatSupport.getExtension(state.currentFile) : '';
+    if (ext === 'jpg' || ext === 'jpeg') return 'jpg';
+    if (ext === 'webp') return 'webp';
+    if (ext === 'bmp') return 'bmp';
+    return 'png';
+  }
+
+  function _resizeMode() {
+    return document.querySelector('input[name="resize-mode"]:checked')?.value || 'percent';
+  }
+
+  function _resizeComputeTarget() {
+    const { srcW, srcH } = _resizeCtx;
+    let w = srcW, h = srcH;
+    if (!srcW || !srcH) return { w: 1, h: 1 };
+    const num = (id, dflt) => {
+      const v = Number(document.getElementById(id)?.value);
+      return Number.isFinite(v) && v > 0 ? v : dflt;
+    };
+    switch (_resizeMode()) {
+      case 'pixels': {
+        w = num('resize-width', srcW);
+        h = num('resize-height', srcH);
+        break;
+      }
+      case 'longest': {
+        const L = num('resize-longest', Math.max(srcW, srcH));
+        const s = L / Math.max(srcW, srcH);
+        w = srcW * s; h = srcH * s;
+        break;
+      }
+      case 'fit': {
+        const mw = num('resize-max-w', srcW);
+        const mh = num('resize-max-h', srcH);
+        const s = Math.min(mw / srcW, mh / srcH);
+        w = srcW * s; h = srcH * s;
+        break;
+      }
+      default: { // percent
+        const p = num('resize-percent', 100);
+        w = srcW * p / 100; h = srcH * p / 100;
+      }
+    }
+    w = Math.min(_RESIZE_MAX, Math.max(1, Math.round(w)));
+    h = Math.min(_RESIZE_MAX, Math.max(1, Math.round(h)));
+    return { w, h };
+  }
+
+  function _resizeSyncLockedField(changed) {
+    if (_resizeMode() !== 'pixels') return;
+    const lock = document.getElementById('resize-lock');
+    if (!lock || !lock.checked) return;
+    const { srcW, srcH } = _resizeCtx;
+    if (!srcW || !srcH) return;
+    const wEl = document.getElementById('resize-width');
+    const hEl = document.getElementById('resize-height');
+    if (!wEl || !hEl) return;
+    if (changed === 'height') {
+      const hv = Math.max(1, Number(hEl.value) || 0);
+      if (hv) wEl.value = Math.min(_RESIZE_MAX, Math.max(1, Math.round(hv * srcW / srcH)));
+    } else {
+      const wv = Math.max(1, Number(wEl.value) || 0);
+      if (wv) hEl.value = Math.min(_RESIZE_MAX, Math.max(1, Math.round(wv * srcH / srcW)));
+    }
+  }
+
+  function _resizeApplyPreset(mode, value) {
+    if (mode === 'percent') {
+      const el = document.getElementById('resize-percent'); if (el) el.value = value;
+    } else if (mode === 'pixels') {
+      const el = document.getElementById('resize-width'); if (el) el.value = value;
+      _resizeSyncLockedField('width');
+    } else if (mode === 'longest') {
+      const el = document.getElementById('resize-longest'); if (el) el.value = value;
+    } else if (mode === 'fit') {
+      const mw = document.getElementById('resize-max-w'); if (mw) mw.value = value;
+      const mh = document.getElementById('resize-max-h'); if (mh) mh.value = value;
+    }
+  }
+
+  function _resizeRenderPresets() {
+    const cont = document.getElementById('resize-presets');
+    if (!cont) return;
+    const mode = _resizeMode();
+    cont.innerHTML = '';
+    (_RESIZE_PRESETS[mode] || []).forEach(p => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'resize-preset-btn';
+      btn.textContent = p.label;
+      btn.addEventListener('click', () => { _resizeApplyPreset(mode, p.value); _resizeUpdatePreview(); });
+      cont.appendChild(btn);
+    });
+  }
+
+  function _resizeRefreshQualityVisibility() {
+    const fmt = document.getElementById('resize-format')?.value;
+    const wrap = document.getElementById('resize-file-quality-wrap');
+    if (wrap) wrap.style.visibility = (fmt === 'jpg' || fmt === 'webp') ? 'visible' : 'hidden';
+  }
+
+  function _resizeUpdatePreview() {
+    const { w, h } = _resizeComputeTarget();
+    const { srcW, srcH } = _resizeCtx;
+    // Remember the effective target so a mode switch can carry it over.
+    _resizeCtx.curW = w;
+    _resizeCtx.curH = h;
+    const summaryEl = document.getElementById('resize-summary');
+    if (summaryEl) {
+      const mp = ((w * h) / 1e6).toFixed(1);
+      summaryEl.textContent = (I18n.t('resize.summary')
+        || '{srcW} × {srcH} → {dstW} × {dstH}  ({mp} MP)')
+        .replace('{srcW}', srcW).replace('{srcH}', srcH)
+        .replace('{dstW}', w).replace('{dstH}', h)
+        .replace('{mp}', mp);
+    }
+    const cv = document.getElementById('resize-preview');
+    const srcCanvas = Editor.getCanvasElement && Editor.getCanvasElement();
+    if (!cv || !srcCanvas) return;
+    const ctx = cv.getContext('2d');
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    const targetAspect = w / h;
+    let dw = cv.width, dh = cv.width / targetAspect;
+    if (dh > cv.height) { dh = cv.height; dw = cv.height * targetAspect; }
+    const dx = (cv.width - dw) / 2;
+    const dy = (cv.height - dh) / 2;
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    try { ctx.drawImage(srcCanvas, dx, dy, dw, dh); } catch (_) { /* ignore */ }
+  }
+
+  // Fill the given mode's input fields so they represent the target
+  // dimensions (w × h) — used to carry values across a mode switch.
+  function _resizePopulateMode(mode, w, h) {
+    const { srcW, srcH } = _resizeCtx;
+    if (!srcW || !srcH || !Number.isFinite(w) || !Number.isFinite(h) || w < 1 || h < 1) return;
+    const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+    if (mode === 'percent') {
+      setVal('resize-percent', Math.max(1, Math.round((w / srcW) * 100)));
+    } else if (mode === 'pixels') {
+      setVal('resize-width', w);
+      setVal('resize-height', h);
+    } else if (mode === 'longest') {
+      setVal('resize-longest', Math.max(w, h));
+    } else if (mode === 'fit') {
+      setVal('resize-max-w', w);
+      setVal('resize-max-h', h);
+    }
+  }
+
+  function _resizeRefreshFields() {
+    const mode = _resizeMode();
+    // Carry the current target dims (computed under the previous mode) into
+    // the fields of the newly-active mode so the values stay consistent.
+    _resizePopulateMode(mode, _resizeCtx.curW, _resizeCtx.curH);
+    const setHidden = (id, hidden) => { const el = document.getElementById(id); if (el) el.hidden = hidden; };
+    setHidden('resize-fields-percent', mode !== 'percent');
+    setHidden('resize-fields-pixels',  mode !== 'pixels');
+    setHidden('resize-fields-longest', mode !== 'longest');
+    setHidden('resize-fields-fit',     mode !== 'fit');
+    const lockWrap = document.getElementById('resize-lock-wrap');
+    if (lockWrap) lockWrap.style.display = mode === 'pixels' ? '' : 'none';
+    _resizeRenderPresets();
+    _resizeUpdatePreview();
+  }
+
+  async function _resizeConfirm() {
+    const { w, h } = _resizeComputeTarget();
+    if (w < 1 || h < 1) { await _showError(I18n.t('resize.invalidSize')); return; }
+
+    const apply = !!document.getElementById('resize-apply')?.checked;
+    const dir = (document.getElementById('resize-dir')?.value || '').trim();
+    const rawName = (document.getElementById('resize-name')?.value || '').trim();
+    const fmt = document.getElementById('resize-format')?.value || 'png';
+    const interp = document.getElementById('resize-interp')?.value || 'high';
+    const hasPath = !!(dir && rawName && window.electronAPI?.writeFile);
+
+    if (!hasPath && !apply) { await _showError(I18n.t('resize.needPath')); return; }
+
+    const mimeMap = { png: 'image/png', jpg: 'image/jpeg', webp: 'image/webp', bmp: 'image/bmp' };
+    const mime = mimeMap[fmt] || 'image/png';
+    const useQ = (mime === 'image/jpeg' || mime === 'image/webp');
+    const fileQ = useQ ? Math.min(1, Math.max(0.4, (Number(document.getElementById('resize-file-quality')?.value) || 92) / 100)) : 0.92;
+
+    let saved = false;
+    let savePath = '';
+
+    // Save resized copy (exported from the current image, before any in-place apply).
+    if (hasPath) {
+      const extName = _resizeExtFor(fmt);
+      const stem = rawName.replace(/\.[^.]+$/, '') || 'image';
+      const fname = `${stem}.${extName}`;
+      savePath = window.electronAPI?.pathJoin
+        ? await window.electronAPI.pathJoin(dir, fname)
+        : `${dir.replace(/[\\/]+$/, '')}/${fname}`;
+
+      const writeResult = await _runOpWithProgress(async (dlg) => {
+        const dataUrl = Editor.exportResizedDataUrl(w, h, mime, fileQ, interp);
+        if (!dataUrl) return { success: false, error: 'export' };
+        dlg?.set(55, I18n.t('progress.saving') || 'Saving…');
+        return await window.electronAPI.writeFile({ filePath: savePath, dataUrl });
+      }, { messageKey: 'progress.saving', kind: 'encode' });
+
+      if (!writeResult || !writeResult.success) {
+        await _showError(I18n.t('dialog.save.error') || 'Could not save the file.', writeResult?.error || '');
+        return;
+      }
+      saved = true;
+    }
+
+    // Optionally apply the resize to the on-screen image.
+    if (apply) {
+      await Editor.resizeTo(w, h, { quality: interp });
+      if (state.editMode) _ewFit(); else _fitToWindow();
+      _updateStatus({ dims: true });
+      _updateUndoRedoBtns();
+      _markDirty();
+    }
+
+    _hideDialog('resize-overlay');
+
+    if (saved) {
+      try { await FileTree.refresh(); } catch (_) { /* ignore */ }
+      _updateStatus({ msg: I18n.t('status.saved') || 'Saved' });
+      if (window.electronAPI?.showMessageBox) {
+        await window.electronAPI.showMessageBox({
+          type: 'info',
+          title: I18n.t('dialog.save.title') || 'Saved',
+          message: I18n.t('dialog.save.success') || 'File saved successfully.',
+          detail: savePath,
+          buttons: ['OK'],
+        });
+      }
+    }
+  }
+
+  function _resizeBindOnce() {
+    if (_resizeBound) return;
+    _resizeBound = true;
+    document.querySelectorAll('input[name="resize-mode"]').forEach(r =>
+      r.addEventListener('change', _resizeRefreshFields));
+    const bindInput = (id, fn) => { document.getElementById(id)?.addEventListener('input', fn); };
+    bindInput('resize-percent', _resizeUpdatePreview);
+    bindInput('resize-longest', _resizeUpdatePreview);
+    bindInput('resize-max-w', _resizeUpdatePreview);
+    bindInput('resize-max-h', _resizeUpdatePreview);
+    bindInput('resize-width', () => { _resizeSyncLockedField('width'); _resizeUpdatePreview(); });
+    bindInput('resize-height', () => { _resizeSyncLockedField('height'); _resizeUpdatePreview(); });
+    document.getElementById('resize-lock')?.addEventListener('change', () => { _resizeSyncLockedField('width'); _resizeUpdatePreview(); });
+    document.getElementById('resize-format')?.addEventListener('change', _resizeRefreshQualityVisibility);
+    const fq = document.getElementById('resize-file-quality');
+    fq?.addEventListener('input', () => {
+      const v = document.getElementById('resize-file-quality-val');
+      if (v) v.textContent = fq.value;
+    });
+    document.getElementById('resize-browse-dir')?.addEventListener('click', async () => {
+      const r = await window.FileDialog?.openFolder();
+      if (r && !r.canceled && r.filePath) {
+        const el = document.getElementById('resize-dir');
+        if (el) el.value = r.filePath;
+      }
+    });
+    document.getElementById('resize-ok')?.addEventListener('click', _resizeConfirm);
+    document.getElementById('resize-cancel')?.addEventListener('click', () => _hideDialog('resize-overlay'));
+  }
+
+  async function _openResizeDialog() {
+    if (!_isEditableImage()) return;
+    if (Editor.hasSelection && Editor.hasSelection()) Editor.clearSelection?.();
+    const { w, h } = _getViewerDims();
+    if (!w || !h) return;
+    _resizeCtx = { srcW: w, srcH: h, curW: w, curH: h };
+    _resizeBindOnce();
+
+    const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+    const setChecked = (id, v) => { const el = document.getElementById(id); if (el) el.checked = v; };
+
+    const percentRadio = document.querySelector('input[name="resize-mode"][value="percent"]');
+    if (percentRadio) percentRadio.checked = true;
+    setVal('resize-percent', 100);
+    setVal('resize-width', w);
+    setVal('resize-height', h);
+    setVal('resize-longest', Math.max(w, h));
+    setVal('resize-max-w', w);
+    setVal('resize-max-h', h);
+    setChecked('resize-lock', true);
+    setChecked('resize-apply', true);
+    setVal('resize-interp', 'high');
+
+    const fmt = _resizeDefaultFormat();
+    setVal('resize-format', fmt);
+    setVal('resize-file-quality', 92);
+    const fqLabel = document.getElementById('resize-file-quality-val');
+    if (fqLabel) fqLabel.textContent = '92';
+
+    const suffix = (I18n.t('save.resizedSuffix') || 'resized').trim() || 'resized';
+    let stem = 'image';
+    let dir = '';
+    if (state.currentFile) {
+      const base = state.currentFile.split(/[/\\]/).pop();
+      stem = base.replace(/\.[^.]+$/, '') || 'image';
+      if (window.electronAPI?.pathDirname) {
+        try { dir = (await window.electronAPI.pathDirname(state.currentFile)) || ''; } catch (_) { /* ignore */ }
+      }
+    }
+    setVal('resize-name', `${stem}_${suffix}`);
+    setVal('resize-dir', dir);
+
+    _resizeRefreshQualityVisibility();
+    _resizeRefreshFields();
+    _showDialog('resize-overlay');
+  }
+
+  /* ════════════════════════════════════════════
      Navigation (prev / next)
   ════════════════════════════════════════════ */
   async function _prevImage() {
@@ -3599,11 +3932,11 @@
     ['ew-bg-remove', 'bgRemove',    'toolbar.bgRemove',     () => { _removeBackground(); }],
     ['ew-crop-sel',  'fitWindow',   'editWindow.cropSel',   () => { _cropToSelection(); }],
     ['ew-clear-sel', 'close',       'editWindow.clearSel',  () => { Editor.clearSelection(); _ewUpdateSelBtns(); }],
-    ['ew-save-new',  'saveAs',      'editWindow.saveNew',   () => { _saveAsNewFile(); }],
     ['ew-rotate-l',  'rotateLeft',  'toolbar.rotateLeft',   () => { _rotate(-90); }],
     ['ew-rotate-r',  'rotateRight', 'toolbar.rotateRight',  () => { _rotate(90); }],
     ['ew-flip-h',    'flipH',       'toolbar.flipH',        () => { _flip('h'); }],
     ['ew-flip-v',    'flipV',       'toolbar.flipV',        () => { _flip('v'); }],
+    ['ew-resize',    'resize',      'toolbar.resize',       () => { _openResizeDialog(); }],
     ['ew-undo',      'undo',        'editWindow.undo',      () => { _undoEdit(); }],
     ['ew-redo',      'redo',        'editWindow.redo',      () => { _redoEdit(); }],
     ['ew-zoom-in',   'zoomIn',      'toolbar.zoomIn',       () => _ewZoomBy(1.25)],
@@ -3838,6 +4171,7 @@
       { icon: Icons.rotateRight, label: t('menu.rotateRight'), action: () => { _rotate(90); } },
       { icon: Icons.flipH,       label: t('menu.flipHorizontal'), action: () => { _flip('h'); } },
       { icon: Icons.flipV,       label: t('menu.flipVertical'),   action: () => { _flip('v'); } },
+      { icon: Icons.resize,      label: t('context.resize'),      action: () => { _openResizeDialog(); } },
       { separator: true },
       { icon: Icons.undo, label: t('editWindow.undo'), disabled: !Editor.canUndo(), action: () => { _undoEdit(); } },
       { icon: Icons.redo,  label: t('editWindow.redo'), disabled: !Editor.canRedo(), action: () => { _redoEdit(); } },
@@ -5104,6 +5438,7 @@
       hasImg && { icon: Icons.rotateRight, label: t('context.rotateRight'), action: () => _rotate(90) },
       hasImg && { icon: Icons.flipH,       label: t('context.flipH'),       action: () => _flip('h') },
       hasImg && { icon: Icons.flipV,       label: t('context.flipV'),       action: () => _flip('v') },
+      hasImg && { icon: Icons.resize,      label: t('context.resize'),      shortcut: 'Ctrl+Shift+R', action: () => _openResizeDialog() },
       hasImg && { separator: true },
       (hasImg || isVideo) && { icon: Icons.zoomIn,    label: t('context.zoomIn'),    shortcut:'Ctrl++', action: () => _zoom(1.25) },
       (hasImg || isVideo) && { icon: Icons.zoomOut,   label: t('context.zoomOut'),   shortcut:'Ctrl+-', action: () => _zoom(0.8) },
@@ -5244,6 +5579,7 @@
       if (ctrl && e.key === '1') { e.preventDefault(); _actualSize(); return; }
       if (ctrl && e.key === '[') { e.preventDefault(); _rotate(-90); return; }
       if (ctrl && e.key === ']') { e.preventDefault(); _rotate(90); return; }
+      if (ctrl && e.shiftKey && (e.key === 'r' || e.key === 'R')) { e.preventDefault(); if (_isEditableImage()) _openResizeDialog(); return; }
       if (ctrl && e.key === 'e') { e.preventDefault(); _openEditWindow(); return; }
       if (ctrl && e.key === 's') {
         e.preventDefault();

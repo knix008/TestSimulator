@@ -2582,10 +2582,86 @@ window.Editor = (() => {
   }
 
   /* ═══════════════════════════════════════════
-     Export / Save
+     Export / Save / Resize
   ═══════════════════════════════════════════ */
   function exportAsDataUrl(format = 'image/png', quality = 0.95) {
     return displayCanvas ? displayCanvas.toDataURL(format, quality) : null;
+  }
+
+  function _applySmoothing(ctx, quality) {
+    if (quality === 'nearest') {
+      ctx.imageSmoothingEnabled = false;
+      return;
+    }
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = quality === 'medium' ? 'medium' : 'high';
+  }
+
+  function _drawScaled(srcCanvas, dw, dh, quality = 'high') {
+    const outW = Math.max(1, Math.round(dw));
+    const outH = Math.max(1, Math.round(dh));
+    let canvas = srcCanvas;
+    let sw = srcCanvas.width;
+    let sh = srcCanvas.height;
+    if (quality === 'high') {
+      while (sw / 2 >= outW && sh / 2 >= outH && (sw > outW * 1.5 || sh > outH * 1.5)) {
+        const tw = Math.max(outW, Math.round(sw / 2));
+        const th = Math.max(outH, Math.round(sh / 2));
+        const tmp = document.createElement('canvas');
+        tmp.width = tw;
+        tmp.height = th;
+        const tctx = tmp.getContext('2d');
+        tctx.imageSmoothingEnabled = true;
+        tctx.imageSmoothingQuality = 'high';
+        tctx.drawImage(canvas, 0, 0, tw, th);
+        canvas = tmp;
+        sw = tw;
+        sh = th;
+      }
+    }
+    const out = document.createElement('canvas');
+    out.width = outW;
+    out.height = outH;
+    const ctx = out.getContext('2d');
+    _applySmoothing(ctx, quality);
+    ctx.drawImage(canvas, 0, 0, outW, outH);
+    return out;
+  }
+
+  function exportResizedDataUrl(width, height, format = 'image/png', fileQuality = 0.92, interp = 'high') {
+    if (!displayCanvas) return null;
+    const scaled = _drawScaled(displayCanvas, width, height, interp);
+    return scaled.toDataURL(format, fileQuality);
+  }
+
+  async function resizeTo(width, height, { quality = 'high' } = {}) {
+    if (!displayCanvas || !workingPixels) return false;
+    const w = Math.max(1, Math.round(width));
+    const h = Math.max(1, Math.round(height));
+    if (w === displayCanvas.width && h === displayCanvas.height) return true;
+    return _runSyncWithProgress(() => {
+      const scaled = _drawScaled(displayCanvas, w, h, quality);
+      rotation = 0;
+      flipH = false;
+      flipV = false;
+      _resetEffects();
+      naturalW = w;
+      naturalH = h;
+      displayCanvas.width = w;
+      displayCanvas.height = h;
+      if (selCanvas) {
+        selCanvas.width = w;
+        selCanvas.height = h;
+      }
+      displayCtx.clearRect(0, 0, w, h);
+      displayCtx.drawImage(scaled, 0, 0);
+      workingPixels = displayCtx.getImageData(0, 0, w, h);
+      originalPixels = displayCtx.getImageData(0, 0, w, h);
+      clearSelection();
+      _render();
+      _saveHistory();
+      return true;
+    }, { kind: 'transform', messageKey: 'progress.resizing' });
   }
 
   function getCanvasElement() { return displayCanvas; }
@@ -2640,7 +2716,7 @@ window.Editor = (() => {
     setMagicTolerance,
     undo, redo, canUndo, canRedo, saveHistory: _saveHistory,
     beginEditSession, revertEditSession, commitEditSession, hasEditSessionChanges,
-    exportAsDataUrl, getCanvasElement, isLoaded, clear,
+    exportAsDataUrl, exportResizedDataUrl, resizeTo, getCanvasElement, isLoaded, clear,
     getDimensions, getPhotoDimensions, getRotation, getFlipState,
     _applyEdgeDetect,
   };

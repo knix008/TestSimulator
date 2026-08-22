@@ -12,6 +12,7 @@ window.Icons = {
   rotateRight: `<svg viewBox="0 0 24 24"><rect x="6.5" y="12" width="11" height="8" rx="1.3" opacity=".42"/><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M5.5 10.2C5.8 5.8 9.3 3.8 12 3.8c3.6 0 6.4 2.6 6.8 5.8"/><path d="M22.2 9.8L17.3 6.3v7z"/></svg>`,
   flipH: `<svg viewBox="0 0 24 24"><path d="M15 21h2v-2h-2v2zm4-12h2V7h-2v2zm0 4h2v-2h-2v2zm0 4h2v-2h-2v2zm-4-4h2v-2h-2v2zM3 3v18h2V3H3zm8 18h2v-2h-2v2zm4-16h2V3h-2v2zm-4 0h2V3h-2v2zm0 4h2V7h-2v2zm0 8h2v-2h-2v2zm0-4h2v-2h-2v2z"/></svg>`,
   flipV: `<svg viewBox="0 0 24 24"><path d="M3 15v2h2v-2H3zm4 4h2v-2H7v2zm4 2v-2h-2v2h2zm-4-8h2v-2H7v2zM3 3v2h18V3H3zm12 16h2v-2h-2v2zm-4-8h2v-2h-2v2zm4-4h2V5h-2v2zm0 4h2v-2h-2v2zm0 8h2v-2h-2v2z"/></svg>`,
+  resize: `<svg viewBox="0 0 24 24"><path d="M19 12h-2v3h-3v2h5v-5zM7 9h3V7H5v5h2V9zm14-6H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16.01H3V4.99h18v14.02z"/></svg>`,
   prev: `<svg viewBox="0 0 24 24"><path d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6z"/></svg>`,
   next: `<svg viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg>`,
   undo: `<svg viewBox="0 0 24 24"><path d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z"/></svg>`,

@@ -36,7 +36,11 @@ window.I18n = (() => {
     });
     document.querySelectorAll('[data-i18n-title]').forEach(el => {
       const key = el.getAttribute('data-i18n-title');
-      if (key) el.setAttribute('title', t(key));
+      if (!key) return;
+      // Elements with a custom (styled) tooltip must not carry a native `title`,
+      // otherwise the OS tooltip shows on top of the custom one.
+      if (el.dataset.customTip === '1') { el.removeAttribute('title'); return; }
+      el.setAttribute('title', t(key));
     });
     document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
       const key = el.getAttribute('data-i18n-placeholder');

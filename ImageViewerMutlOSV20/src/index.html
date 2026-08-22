@@ -329,7 +329,6 @@
           <button class="ew-btn" id="ew-bg-remove"  data-i18n-title="toolbar.bgRemove"></button>
           <button class="ew-btn is-disabled" id="ew-crop-sel"   data-i18n-title="editWindow.cropSel" aria-disabled="true"></button>
           <button class="ew-btn is-disabled" id="ew-clear-sel"  data-i18n-title="editWindow.clearSel" aria-disabled="true"></button>
-          <button class="ew-btn" id="ew-save-new"   data-i18n-title="editWindow.saveNew"></button>
         </div>
 
         <div class="ew-sep"></div>
@@ -340,6 +339,7 @@
           <button class="ew-btn" id="ew-rotate-r" data-i18n-title="toolbar.rotateRight"></button>
           <button class="ew-btn" id="ew-flip-h"   data-i18n-title="toolbar.flipH"></button>
           <button class="ew-btn" id="ew-flip-v"   data-i18n-title="toolbar.flipV"></button>
+          <button class="ew-btn" id="ew-resize"   data-i18n-title="toolbar.resize"></button>
         </div>
 
         <div class="ew-sep"></div>
@@ -441,6 +441,7 @@
           <tr><td>Actual Size</td><td><kbd>Ctrl</kbd>+<kbd>1</kbd></td></tr>
           <tr><td>Rotate Left</td><td><kbd>Ctrl</kbd>+<kbd>[</kbd></td></tr>
           <tr><td>Rotate Right</td><td><kbd>Ctrl</kbd>+<kbd>]</kbd></td></tr>
+          <tr><td data-i18n="shortcuts.resize">Resize Image</td><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd></td></tr>
           <tr><td>Previous Image</td><td><kbd>←</kbd></td></tr>
           <tr><td>Next Image</td><td><kbd>→</kbd></td></tr>
           <tr><td>Undo</td><td><kbd>Ctrl</kbd>+<kbd>Z</kbd></td></tr>
@@ -455,6 +456,141 @@
           <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
           <span data-i18n="shortcuts.close">Close</span>
         </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ Resize Dialog ═══ -->
+  <div id="resize-overlay" class="dialog-overlay" style="display:none;">
+    <div class="dialog-box resize-dialog-box">
+      <div class="dialog-header">
+        <span data-i18n="resize.title">Resize Image</span>
+        <button class="dialog-close-btn" id="resize-close" type="button" data-close-dialog>
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </div>
+      <div class="dialog-body resize-dialog-body">
+        <div class="resize-preview-col">
+          <div class="resize-preview-frame">
+            <canvas id="resize-preview" width="280" height="200"></canvas>
+          </div>
+          <div class="resize-size-summary" id="resize-summary"></div>
+        </div>
+        <div class="resize-controls-col">
+          <div class="resize-label" data-i18n="resize.method">Resize method</div>
+          <div class="resize-mode-row" role="radiogroup">
+            <label class="resize-chip"><input type="radio" name="resize-mode" value="percent" checked> <span data-i18n="resize.mode.percent">Percent</span></label>
+            <label class="resize-chip"><input type="radio" name="resize-mode" value="pixels"> <span data-i18n="resize.mode.pixels">Pixels</span></label>
+            <label class="resize-chip"><input type="radio" name="resize-mode" value="longest"> <span data-i18n="resize.mode.longest">Longest side</span></label>
+            <label class="resize-chip"><input type="radio" name="resize-mode" value="fit"> <span data-i18n="resize.mode.fit">Fit within</span></label>
+          </div>
+
+          <div class="resize-label" data-i18n="resize.presets">Presets</div>
+          <div class="resize-preset-row" id="resize-presets"></div>
+
+          <div class="resize-fields" id="resize-fields-percent">
+            <label class="resize-field">
+              <span data-i18n="resize.percent">Scale</span>
+              <span class="resize-field-inline">
+                <input id="resize-percent" type="number" min="1" max="400" step="1" value="50">
+                <span>%</span>
+              </span>
+            </label>
+          </div>
+          <div class="resize-fields" id="resize-fields-pixels" hidden>
+            <label class="resize-field">
+              <span data-i18n="resize.width">Width</span>
+              <span class="resize-field-inline">
+                <input id="resize-width" type="number" min="1" max="16384" step="1">
+                <span data-i18n="resize.px">px</span>
+              </span>
+            </label>
+            <label class="resize-field">
+              <span data-i18n="resize.height">Height</span>
+              <span class="resize-field-inline">
+                <input id="resize-height" type="number" min="1" max="16384" step="1">
+                <span data-i18n="resize.px">px</span>
+              </span>
+            </label>
+          </div>
+          <div class="resize-fields" id="resize-fields-longest" hidden>
+            <label class="resize-field">
+              <span data-i18n="resize.longest">Longest side</span>
+              <span class="resize-field-inline">
+                <input id="resize-longest" type="number" min="1" max="16384" step="1">
+                <span data-i18n="resize.px">px</span>
+              </span>
+            </label>
+          </div>
+          <div class="resize-fields" id="resize-fields-fit" hidden>
+            <label class="resize-field">
+              <span data-i18n="resize.maxWidth">Max width</span>
+              <span class="resize-field-inline">
+                <input id="resize-max-w" type="number" min="1" max="16384" step="1">
+                <span data-i18n="resize.px">px</span>
+              </span>
+            </label>
+            <label class="resize-field">
+              <span data-i18n="resize.maxHeight">Max height</span>
+              <span class="resize-field-inline">
+                <input id="resize-max-h" type="number" min="1" max="16384" step="1">
+                <span data-i18n="resize.px">px</span>
+              </span>
+            </label>
+          </div>
+          <label class="resize-check" id="resize-lock-wrap">
+            <input type="checkbox" id="resize-lock" checked>
+            <span data-i18n="resize.lockAspect">Lock aspect ratio</span>
+          </label>
+
+          <div class="resize-label" data-i18n="resize.quality">Resample quality</div>
+          <select id="resize-interp" class="resize-select">
+            <option value="high" data-i18n="resize.quality.high">High (smooth)</option>
+            <option value="medium" data-i18n="resize.quality.medium">Medium</option>
+            <option value="nearest" data-i18n="resize.quality.nearest">Nearest neighbor (pixel)</option>
+          </select>
+
+          <div class="resize-divider"></div>
+
+          <div class="resize-label" data-i18n="resize.saveTo">Save to</div>
+          <label class="resize-field">
+            <span data-i18n="resize.folder">Folder</span>
+            <span class="resize-path-row">
+              <input id="resize-dir" type="text" spellcheck="false">
+              <button type="button" class="resize-browse" id="resize-browse-dir" data-i18n="resize.browse">Browse…</button>
+            </span>
+          </label>
+          <label class="resize-field">
+            <span data-i18n="resize.fileName">File name</span>
+            <input id="resize-name" type="text" spellcheck="false">
+          </label>
+          <div class="resize-format-row">
+            <label class="resize-field">
+              <span data-i18n="resize.format">Format</span>
+              <select id="resize-format" class="resize-select">
+                <option value="png">PNG</option>
+                <option value="jpg">JPEG</option>
+                <option value="webp">WebP</option>
+                <option value="bmp">BMP</option>
+              </select>
+            </label>
+            <label class="resize-field" id="resize-file-quality-wrap">
+              <span data-i18n="resize.fileQuality">File quality</span>
+              <span class="resize-field-inline">
+                <input id="resize-file-quality" type="range" min="40" max="100" step="1" value="92">
+                <span id="resize-file-quality-val">92</span>
+              </span>
+            </label>
+          </div>
+          <label class="resize-check">
+            <input type="checkbox" id="resize-apply" checked>
+            <span data-i18n="resize.applyCurrent">Also apply to the current image</span>
+          </label>
+        </div>
+      </div>
+      <div class="dialog-footer">
+        <button type="button" id="resize-cancel" data-i18n="dialog.unsaved.cancel">Cancel</button>
+        <button type="button" class="primary" id="resize-ok" data-i18n="resize.ok">OK</button>
       </div>
     </div>
   </div>

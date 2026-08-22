@@ -39,6 +39,18 @@ window.Tooltip = (() => {
   }
 
   function attach(element, getText) {
+    if (!element) return;
+    // A custom tooltip replaces the native one. Drop the element's `title`
+    // so the OS (black background / white text) tooltip doesn't show on top
+    // of the styled tooltip. Mark it so i18n won't re-add `title` on language
+    // change. If no text getter was given, fall back to the native title text.
+    if (!getText) {
+      const nativeTitle = element.getAttribute('title');
+      if (nativeTitle) getText = nativeTitle;
+    }
+    element.dataset.customTip = '1';
+    element.removeAttribute('title');
+
     element.addEventListener('mouseenter', (e) => {
       clearTimeout(hideTimer);
       showTimer = setTimeout(() => {
