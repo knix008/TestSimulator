@@ -18,6 +18,13 @@ public partial class EditorSettingsForm : Form
     private Color _snapshotEditorBack;
     private Color _snapshotToolbarBack;
     private AppLanguage _snapshotLanguage;
+    private int _snapshotTransparency;
+    private bool _syncingOpacityUi;
+    private GroupBox _opacityGroupBox = null!;
+    private TrackBar _opacityTrack = null!;
+    private Label _opacityMinLabel = null!;
+    private Label _opacityMaxLabel = null!;
+    private Label _opacityValueLabel = null!;
 
     /// <summary>Visual Studio 디자이너에서 사용합니다.</summary>
     public EditorSettingsForm()
@@ -45,6 +52,25 @@ public partial class EditorSettingsForm : Form
         return bmp;
     }
 
+    /// <summary>정사각형 색 미리보기 아이콘을 만듭니다.</summary>
+    public static Bitmap MakeSquareSwatchIcon(Color fillColor, int size = 16, Color? borderColor = null)
+    {
+        Bitmap bmp = new(size, size, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+        using Graphics g = Graphics.FromImage(bmp);
+        g.Clear(Color.Transparent);
+        g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.None;
+        int inset = 1;
+        Rectangle rect = new(inset, inset, size - inset * 2 - 1, size - inset * 2 - 1);
+        using (SolidBrush fill = new(fillColor))
+        {
+            g.FillRectangle(fill, rect);
+        }
+
+        using Pen border = new(borderColor ?? Color.FromArgb(120, 80, 80, 80));
+        g.DrawRectangle(border, rect);
+        return bmp;
+    }
+
     public EditorSettingsForm(RichTextBox editor, Form mainForm) : this()
     {
         _editor = editor;
@@ -55,6 +81,9 @@ public partial class EditorSettingsForm : Form
         Control[] bars = mainForm.Controls.Find("topBarPanel", true);
         _snapshotToolbarBack = bars.Length > 0 ? bars[0].BackColor : mainForm.BackColor;
         _snapshotLanguage = Loc.Language;
+        _snapshotTransparency = _mainForm is MemoPadForm padSnap
+            ? padSnap.TransparencyPercent
+            : 0;
 
         if (_editor.SelectionLength > 0)
         {
@@ -69,7 +98,15 @@ public partial class EditorSettingsForm : Form
         WireEvents();
         PopulateEditorBackPalette();
         InitLanguageUi();
-        _autoStartCheck.Checked = AutoStart.IsEnabled();
+        SetupOpacityUi();
+        try
+        {
+            _autoStartCheck.Checked = AutoStart.IsEnabled();
+        }
+        catch (Exception)
+        {
+            _autoStartCheck.Checked = false;
+        }
     }
 
     private void InitLanguageUi()
@@ -103,6 +140,12 @@ public partial class EditorSettingsForm : Form
         btnStyleStrike.Text = Loc.T("settings.style.strike");
         editorBackGroupBox.Text = Loc.T("settings.back");
         _btnEditorBack.Text = Loc.T("settings.back.custom");
+        if (_opacityGroupBox != null)
+        {
+            _opacityGroupBox.Text = Loc.T("settings.opacity");
+            _opacityValueLabel.Text = string.Format(Loc.T("settings.opacity.value"), _opacityTrack.Value);
+        }
+
         languageGroupBox.Text = Loc.T("settings.language");
         generalGroupBox.Text = Loc.T("settings.general");
         _autoStartCheck.Text = Loc.T("settings.autostart");
@@ -113,28 +156,114 @@ public partial class EditorSettingsForm : Form
         _btnCancel.Text = Loc.T("common.cancel");
     }
 
+    private void SetupOpacityUi()
+    {
+        _opacityGroupBox = new GroupBox
+        {
+            Name = "opacityGroupBox",
+            Location = new Point(3, 430),
+            Size = new Size(434, 72),
+            TabIndex = 5,
+            Text = Loc.T("settings.opacity")
+        };
+        _opacityMinLabel = new Label
+        {
+            AutoSize = false,
+            TextAlign = ContentAlignment.MiddleRight,
+            Size = new Size(32, 22),
+            Location = new Point(12, 30),
+            Text = "0%"
+        };
+        _opacityTrack = new TrackBar
+        {
+            Minimum = 0,
+            Maximum = 100,
+            TickStyle = TickStyle.None,
+            AutoSize = false,
+            Size = new Size(280, 28),
+            Location = new Point(48, 26),
+            SmallChange = 1,
+            LargeChange = 10
+        };
+        _opacityMaxLabel = new Label
+        {
+            AutoSize = false,
+            TextAlign = ContentAlignment.MiddleLeft,
+            Size = new Size(40, 22),
+            Location = new Point(334, 30),
+            Text = "100%"
+        };
+        _opacityValueLabel = new Label
+        {
+            AutoSize = false,
+            TextAlign = ContentAlignment.MiddleLeft,
+            Size = new Size(48, 22),
+            Location = new Point(378, 30),
+            Font = new Font(Font, FontStyle.Bold)
+        };
+
+        _opacityGroupBox.Controls.Add(_opacityMinLabel);
+        _opacityGroupBox.Controls.Add(_opacityTrack);
+        _opacityGroupBox.Controls.Add(_opacityMaxLabel);
+        _opacityGroupBox.Controls.Add(_opacityValueLabel);
+        clientPanel.Controls.Add(_opacityGroupBox);
+
+        languageGroupBox.Top = 508;
+        generalGroupBox.Top = 568;
+        aboutGroupBox.Top = 626;
+        ClientSize = new Size(ClientSize.Width, Math.Max(ClientSize.Height, 780));
+
+        bool forMemoPad = _mainForm is MemoPadForm;
+        _opacityGroupBox.Visible = forMemoPad;
+        if (!forMemoPad)
+        {
+            languageGroupBox.Top = 430;
+            generalGroupBox.Top = 490;
+            aboutGroupBox.Top = 548;
+            return;
+        }
+
+        MemoPadForm pad = (MemoPadForm)_mainForm;
+        _syncingOpacityUi = true;
+        try
+        {
+            _opacityTrack.Value = EditorSettings.ClampTransparencyPercent(pad.TransparencyPercent);
+            _opacityValueLabel.Text = string.Format(Loc.T("settings.opacity.value"), _opacityTrack.Value);
+        }
+        finally
+        {
+            _syncingOpacityUi = false;
+        }
+
+        _opacityTrack.ValueChanged += (_, _) =>
+        {
+            if (_syncingOpacityUi)
+            {
+                return;
+            }
+
+            int percent = _opacityTrack.Value;
+            _opacityValueLabel.Text = string.Format(Loc.T("settings.opacity.value"), percent);
+            pad.TransparencyPercent = percent;
+        };
+    }
+
     /// <summary>
-    /// 편집기 배경색으로 선택할 수 있는 파스텔 톤 20색 팔레트를 채웁니다.
+    /// 편집기 배경색으로 선택할 수 있는 파스텔 톤 24색 팔레트를 채웁니다.
     /// 여기서 고를 수 없는 색은 "사용자 지정 색…" 버튼으로 지정합니다.
     /// </summary>
     private void PopulateEditorBackPalette()
     {
-        if (this._editorBackPalettePanel == null)
-            return;
-
-        string[] hexColors = new[]
+        if (_editorBackPalettePanel == null)
         {
-            "#FFB3BA","#FFDFBA","#FFFFBA","#BAFFC9","#BAE1FF",
-            "#E6B3FF","#B3FFD9","#FFD1DC","#F0E68C","#D8BFD8",
-            "#C1E1C1","#F5DEB3","#E0FFFF","#FFE4E1","#E6E6FA",
-            "#F0FFF0","#FFF0F5","#FAFAD2","#F5F5DC","#DFFFD6"
-        };
+            return;
+        }
 
         _editorBackPalettePanel.Controls.Clear();
-        foreach (string hx in hexColors)
+        foreach (string hx in PresetEditorBackHexColors)
         {
             Color c = ColorTranslator.FromHtml(hx);
-            Panel sw = new Panel()
+            Panel sw = new()
             {
                 BackColor = c,
                 Size = new Size(24, 24),
@@ -144,7 +273,7 @@ public partial class EditorSettingsForm : Form
                 Cursor = Cursors.Hand
             };
 
-            sw.Click += (s, e) =>
+            sw.Click += (s, _) =>
             {
                 Color chosen = (Color)((Control)s!).Tag!;
                 ApplyBackColor(chosen);
@@ -154,6 +283,16 @@ public partial class EditorSettingsForm : Form
             _editorBackPalettePanel.Controls.Add(sw);
         }
     }
+
+    /// <summary>설정 창 배경색 팔레트(서로 다른 파스텔 24색).</summary>
+    internal static readonly string[] PresetEditorBackHexColors =
+    [
+        "#FFB3BA", "#FFDFBA", "#FFFFBA", "#BAFFC9", "#BAE1FF",
+        "#E6B3FF", "#B3FFD9", "#FFD1DC", "#F0E68C", "#D8BFD8",
+        "#C1E1C1", "#F5DEB3", "#E0FFFF", "#FFE4E1", "#E6E6FA",
+        "#F0FFF0", "#FFF0F5", "#FAFAD2", "#F5F5DC", "#DFFFD6",
+        "#FFCCE5", "#C9E4DE", "#D4E6F1", "#FDEBD0"
+    ];
 
     private void ApplyStyleButtonFonts()
     {
@@ -172,8 +311,15 @@ public partial class EditorSettingsForm : Form
         btnStyleStrike.Click += (_, _) => ToggleStyle(FontStyle.Strikeout);
         _btnOk.Click += (_, _) =>
         {
-            EditorSettings.Save(EditorSettings.CaptureFromUi(_editor, _mainForm));
             AutoStart.SetEnabled(_autoStartCheck.Checked);
+            if (_mainForm is MemoPadForm pad)
+            {
+                pad.SaveSettingsFromDialog();
+            }
+            else
+            {
+                EditorSettings.Save(EditorSettings.CaptureFromUi(_editor, _mainForm));
+            }
         };
 
         FormClosing += EditorSettingsForm_FormClosing;
@@ -182,7 +328,22 @@ public partial class EditorSettingsForm : Form
     private void ResetToDefaults()
     {
         EditorSettings.Data defaults = EditorSettings.LoadDefaults();
-        EditorSettings.ApplyToUi(_editor, _mainForm, defaults);
+        EditorSettings.ApplyToUi(_editor, _mainForm, defaults, applyLanguage: false);
+        if (_mainForm is MemoPadForm pad)
+        {
+            pad.TransparencyPercent = 0;
+            _syncingOpacityUi = true;
+            try
+            {
+                _opacityTrack.Value = 0;
+                _opacityValueLabel.Text = string.Format(Loc.T("settings.opacity.value"), 0);
+            }
+            finally
+            {
+                _syncingOpacityUi = false;
+            }
+        }
+
         PreviewColorChanged?.Invoke(Color.FromArgb(defaults.EditorBackColorArgb));
         UpdatePreviews();
     }
@@ -215,12 +376,18 @@ public partial class EditorSettingsForm : Form
             }
 
             Loc.Language = _snapshotLanguage;
+            if (_mainForm is MemoPadForm pad)
+            {
+                pad.TransparencyPercent = _snapshotTransparency;
+            }
         }
     }
 
     private void UpdatePreviews()
     {
         _previewEditorBack.BackColor = _editor.BackColor;
+        _btnEditorBack.Image?.Dispose();
+        _btnEditorBack.Image = new Bitmap(MakeSquareSwatchIcon(_editor.BackColor, 18), new Size(18, 18));
     }
 
     private void ShowFontDialog()

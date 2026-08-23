@@ -34,6 +34,7 @@ public partial class MemoPadForm : Form
     private bool _syncingEditorScroll;
     private bool _keepEditorScrolledToTop;
     private int _editorScrollSyncQueued;
+    private int _transparencyPercent;
 
     // 트레이 아이콘은 앱당 하나만 둡니다(첫 인스턴스가 생성).
     private static NotifyIcon? _trayIcon;
@@ -149,9 +150,10 @@ public partial class MemoPadForm : Form
         _editorScrollRail.BringToFront();
 
         Controls.Add(_editorHost);
-        // Dock.Fill은 z-order상 맨 앞(먼저 처리)일 때만 상단 바가 차지한 공간을 제외한
-        // 나머지만 채웁니다. topBarPanel을 앞에 두면 Fill이 상단 바 뒤까지 채워져 첫 줄이 가려집니다.
-        _editorHost.BringToFront();
+        // Dock.Top이 Fill보다 먼저 잡히고 툴바가 위에 그려지도록 순서를 고정합니다.
+        // (editorHost를 앞으로 두면 Fill이 전체 영역을 차지해 툴바 하단을 덮습니다.)
+        Controls.SetChildIndex(_editorHost, 0);
+        Controls.SetChildIndex(topBarPanel, Controls.Count - 1);
 
         void LayoutEditor()
         {
@@ -193,6 +195,73 @@ public partial class MemoPadForm : Form
         memoEditor.TextChanged += (_, _) => ScheduleEditorScrollSync();
         memoEditor.MouseWheel += (_, _) => ScheduleEditorScrollSync();
         _editorClip.MouseWheel += (_, _) => ScheduleEditorScrollSync();
+    }
+
+    /// <summary>현재 창 투명도(0=불투명 … 100=최대 투명). 설정 창에서 조절합니다.</summary>
+    internal int TransparencyPercent
+    {
+        get => _transparencyPercent;
+        set
+        {
+            _transparencyPercent = EditorSettings.ClampTransparencyPercent(value);
+            EditorSettings.ApplyWindowTransparency(this, _transparencyPercent);
+        }
+    }
+
+    /// <summary>바인딩된 메모(또는 기본값)의 글꼴·색·투명도를 이 창에 적용합니다.</summary>
+    private void ApplyBoundMemoLook()
+    {
+        MemoLookData look;
+        if (_sourceMemoIndex >= 0)
+        {
+            look = MemoSettingsStore.Get(
+                _sourceMemoIndex,
+                Math.Max(_memoItems.Count, _sourceMemoIndex + 1));
+        }
+        else
+        {
+            look = MemoLookData.FromEditorSettings(EditorSettings.TryLoad() ?? EditorSettings.LoadDefaults());
+        }
+
+        _transparencyPercent = EditorSettings.ClampTransparencyPercent(look.TransparencyPercent);
+        EditorSettings.ApplyLook(memoEditor, this, look);
+        StyleMainToolbarButtons();
+        EnsureEditorReadableColors();
+        ApplyEditorWrapperColors();
+    }
+
+    /// <summary>설정 대화상자 확인 시: 바인딩된 메모면 메모별 저장, 아니면 전역 기본값 저장.</summary>
+    internal void SaveSettingsFromDialog()
+    {
+        MemoLookData look = MemoLookData.Capture(memoEditor, this, TransparencyPercent);
+
+        EditorSettings.Data global = EditorSettings.TryLoad() ?? EditorSettings.LoadDefaults();
+        global.Language = Loc.Code(Loc.Language);
+
+        if (_sourceMemoIndex >= 0)
+        {
+            // 언어만 전역 갱신. 모양은 이 메모에만 저장.
+            EditorSettings.Save(global);
+            int count = Math.Max(_memoItems.Count, _sourceMemoIndex + 1);
+            MemoSettingsStore.Set(_sourceMemoIndex, look, count);
+            ApplyBoundMemoLook();
+            return;
+        }
+
+        // 미저장 창: 새 메모 기본 모양으로 전역 저장
+        global.FontName = look.FontName;
+        global.FontSize = look.FontSize;
+        global.FontStyle = look.FontStyle;
+        global.ForeColorArgb = look.ForeColorArgb;
+        global.EditorBackColorArgb = look.EditorBackColorArgb;
+        global.FormBackColorArgb = look.FormBackColorArgb;
+        global.WindowTransparencyPercent = look.TransparencyPercent;
+        EditorSettings.Save(global);
+        _transparencyPercent = look.TransparencyPercent;
+        EditorSettings.ApplyLook(memoEditor, this, look);
+        StyleMainToolbarButtons();
+        EnsureEditorReadableColors();
+        ApplyEditorWrapperColors();
     }
 
     private void EditorScrollBar_ValueChanged(object? sender, EventArgs e)
@@ -567,7 +636,7 @@ public partial class MemoPadForm : Form
         return null;
     }
 
-    /// <summary>저장된 설정을 모든 메모 패드 창에 적용합니다.</summary>
+    /// <summary>언어 등 전역 설정을 모든 패드에 반영합니다. 메모 모양은 각자 유지합니다.</summary>
     public static void ApplyThemeToAllOpenPads()
     {
         EditorSettings.Data data = EditorSettings.TryLoad() ?? EditorSettings.LoadDefaults();
@@ -580,19 +649,18 @@ public partial class MemoPadForm : Form
                 continue;
             }
 
-            EditorSettings.ApplyToUi(pad.memoEditor, pad, data);
-            pad.StyleMainToolbarButtons();
-            pad.ApplyEditorWrapperColors();
             pad.ApplyMainLanguage();
+            // 모양은 메모별 설정을 다시 적용해 전역 테마로 덮어쓰지 않습니다.
+            pad.ApplyBoundMemoLook();
         }
     }
 
-    /// <summary>설정창의 실시간 색 미리보기를 열린 모든 메모 패드 창에 즉시 반영합니다(저장 없음).</summary>
+    /// <summary>목록/전역 미리보기: 아직 메모에 묶이지 않은 창에만 반영합니다.</summary>
     public static void PreviewBackColorToAllPads(Color color)
     {
         foreach (Form form in Application.OpenForms)
         {
-            if (form is MemoPadForm pad && !pad.IsDisposed)
+            if (form is MemoPadForm pad && !pad.IsDisposed && pad._sourceMemoIndex < 0)
             {
                 pad.ApplyBackColorPreview(color);
             }
@@ -662,6 +730,7 @@ public partial class MemoPadForm : Form
             ApplyExternalContentToEditor(memoEditor, content, filePath);
             _sourceMemo = null;
             _sourceMemoIndex = -1;
+            TransparencyPercent = 0;
             Show();
             if (WindowState == FormWindowState.Minimized)
             {
@@ -679,6 +748,7 @@ public partial class MemoPadForm : Form
         ApplyExternalContentToEditor(newMemoPad.memoEditor, content, filePath);
         newMemoPad._sourceMemo = null;
         newMemoPad._sourceMemoIndex = -1;
+        newMemoPad.TransparencyPercent = 0;
         OpenMemoWindows.Add(newMemoPad);
         newMemoPad.FormClosed += (_, _) => OpenMemoWindows.Remove(newMemoPad);
         newMemoPad.Show();
@@ -774,6 +844,7 @@ public partial class MemoPadForm : Form
     {
         _sourceMemoIndex = index;
         _sourceMemo = stored;
+        ApplyBoundMemoLook();
     }
 
     /// <summary>임베드된 app.ico를 작업표시줄/Alt-Tab 아이콘으로 설정합니다.</summary>
@@ -856,11 +927,9 @@ public partial class MemoPadForm : Form
 
     private void ApplySavedEditorSettings()
     {
-        EditorSettings.Data? data = EditorSettings.TryLoad() ?? EditorSettings.LoadDefaults();
-        EditorSettings.ApplyToUi(memoEditor, this, data);
-        StyleMainToolbarButtons();
-        EnsureEditorReadableColors();
-        ApplyEditorWrapperColors();
+        // 생성 직: 아직 메모가 없으면 전역 기본 모양, 있으면 메모별 모양.
+        ApplyBoundMemoLook();
+        ApplyMainLanguage();
     }
 
     /// <summary>툴바 아이콘에 테두리가 생기지 않도록 flat 스타일을 유지합니다.</summary>
@@ -905,6 +974,14 @@ public partial class MemoPadForm : Form
         string rtf = memoEditor.Rtf ?? string.Empty;
         bool updated = MemoEditing.Save(_memoItems, ref _sourceMemoIndex, ref _sourceMemo, rtf);
         SaveMemos();
+        // 새로 저장되거나 갱신된 메모에 현재 창 모양을 묶습니다.
+        if (_sourceMemoIndex >= 0)
+        {
+            int count = Math.Max(_memoItems.Count, _sourceMemoIndex + 1);
+            MemoLookData look = MemoLookData.Capture(memoEditor, this, TransparencyPercent);
+            MemoSettingsStore.Set(_sourceMemoIndex, look, count);
+        }
+
         AppIpc.NotifyMemosChanged();
 
         if (showResult)
@@ -991,6 +1068,7 @@ public partial class MemoPadForm : Form
 
         string deleted = _memoItems[idx];
         _memoItems.RemoveAt(idx);
+        MemoSettingsStore.RemoveAt(idx);
         SaveMemos();
         AppIpc.NotifyMemosChanged();
 
@@ -1004,13 +1082,17 @@ public partial class MemoPadForm : Form
 
             bool sameIndex = open._sourceMemoIndex == idx;
             bool sameContent = string.Equals(open._sourceMemo, deleted, StringComparison.Ordinal);
-            if (!sameIndex && !sameContent)
+            if (sameIndex || sameContent)
             {
+                open._skipAutoSaveOnClose = true;
+                open.Close();
                 continue;
             }
 
-            open._skipAutoSaveOnClose = true;
-            open.Close();
+            if (open._sourceMemoIndex > idx)
+            {
+                open._sourceMemoIndex--;
+            }
         }
 
         _sourceMemo = null;
@@ -1032,23 +1114,36 @@ public partial class MemoPadForm : Form
         // 색을 고를 때마다 열린 모든 메모 창과 목록 프로세스에 실시간 반영합니다.
         dlg.PreviewColorChanged += color =>
         {
-            PreviewBackColorToAllPads(color);
-            AppIpc.NotifyListPreviewColor(color);
+            ApplyBackColorPreview(color);
         };
 
         DialogResult result = dlg.ShowDialog(this);
         if (result == DialogResult.OK)
         {
-            ApplyThemeToAllOpenPads();
+            ApplyBoundMemoLook();
+            ApplyMainLanguage();
+            // 언어 변경만 다른 창·목록에 알립니다.
+            ApplyLanguageToAllOpenPads();
             AppIpc.NotifyListSettingsChanged();
         }
         else
         {
-            // 미리보기 취소: 이 창의 RTF는 dlg 종료 처리로 복구되고,
-            // 색 미리보기를 받은 다른 창·목록은 저장된 설정으로 되돌립니다.
-            ApplyThemeToAllOpenPads();
+            ApplyBoundMemoLook();
             ApplyMainLanguage();
             AppIpc.NotifyListSettingsChanged();
+        }
+    }
+
+    private static void ApplyLanguageToAllOpenPads()
+    {
+        EditorSettings.Data data = EditorSettings.TryLoad() ?? EditorSettings.LoadDefaults();
+        Loc.Language = Loc.Parse(data.Language);
+        foreach (Form form in Application.OpenForms)
+        {
+            if (form is MemoPadForm pad && !pad.IsDisposed)
+            {
+                pad.ApplyMainLanguage();
+            }
         }
     }
 
@@ -1223,6 +1318,7 @@ public partial class MemoPadForm : Form
             && string.IsNullOrWhiteSpace(owner.memoEditor.Text))
         {
             owner.memoEditor.Clear();
+            owner.TransparencyPercent = 0;
             ActivateMemoWindow(owner);
             owner.memoEditor.Focus();
             return;
@@ -1232,6 +1328,7 @@ public partial class MemoPadForm : Form
         newMemoPad._sourceMemo = null;
         newMemoPad._sourceMemoIndex = -1;
         newMemoPad.memoEditor.Clear();
+        newMemoPad.TransparencyPercent = 0;
         OpenMemoWindows.Add(newMemoPad);
         newMemoPad.FormClosed += (_, _) => OpenMemoWindows.Remove(newMemoPad);
         newMemoPad.Show();

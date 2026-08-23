@@ -23,7 +23,17 @@
     <WixVariable Id="WixUIUpIco" Value="..\assets\app.ico" />
 
     <StandardDirectory Id="ProgramFiles6432Folder">
-      <Directory Id="INSTALLFOLDER" Name="MemoPadV10" />
+      <Directory Id="INSTALLFOLDER" Name="MemoPadV10">
+        <!-- 설치 시 현재 사용자 로그온에 트레이(autostart 인자)로 등록. 제거 시 Run 항목도 삭제됩니다. -->
+        <Component Id="CmpAutoStartTray" Guid="A7C4E91B-2F6D-4B8A-9E1C-5D3A8F0B2C71" Bitness="always64">
+          <RegistryValue Root="HKCU"
+                         Key="Software\Microsoft\Windows\CurrentVersion\Run"
+                         Name="MemoPadV10"
+                         Type="string"
+                         Value="&quot;[INSTALLFOLDER]MemoPadV10.exe&quot; --autostart"
+                         KeyPath="yes" />
+        </Component>
+      </Directory>
     </StandardDirectory>
 
     <StandardDirectory Id="DesktopFolder">
@@ -66,6 +76,7 @@
     <Feature Id="Main" Title="MemoPadV10" Level="1" AllowAbsent="no" Display="expand"
              Description="MemoPadV10 program files (required).">
       <ComponentGroupRef Id="HarvestedApp" />
+      <ComponentRef Id="CmpAutoStartTray" />
 
       <!-- 사용자가 설치 마법사의 '사용자 지정'에서 켜고 끌 수 있는 바로가기 기능들 -->
       <Feature Id="FeatureDesktopShortcut" Level="1"
@@ -80,6 +91,17 @@
         <ComponentRef Id="CmpStartMenuShortcut" />
       </Feature>
     </Feature>
+
+    <!-- 설치 직후 트레이에 아이콘이 보이도록 autostart 인자로 기동합니다(제거 시에는 실행하지 않음). -->
+    <CustomAction Id="LaunchMemoPadTray"
+                  Directory="INSTALLFOLDER"
+                  ExeCommand="MemoPadV10.exe --autostart"
+                  Execute="immediate"
+                  Impersonate="yes"
+                  Return="asyncNoWait" />
+    <InstallExecuteSequence>
+      <Custom Action="LaunchMemoPadTray" After="InstallFinalize" Condition="NOT REMOVE" />
+    </InstallExecuteSequence>
 
     <!-- Mondo: 설치 형식(일반/사용자 지정)에서 바로가기 기능과 설치 위치를 선택할 수 있습니다. -->
     <ui:WixUI Id="WixUI_Mondo" />

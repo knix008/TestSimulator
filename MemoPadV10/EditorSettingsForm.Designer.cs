@@ -234,7 +234,7 @@ public partial class EditorSettingsForm
         editorBackGroupBox.Controls.Add(_editorBackPalettePanel);
         editorBackGroupBox.Location = new Point(3, 260);
         editorBackGroupBox.Name = "editorBackGroupBox";
-        editorBackGroupBox.Size = new Size(434, 132);
+        editorBackGroupBox.Size = new Size(434, 164);
         editorBackGroupBox.TabIndex = 4;
         editorBackGroupBox.TabStop = false;
         editorBackGroupBox.Text = "배경색";
@@ -244,17 +244,17 @@ public partial class EditorSettingsForm
         _previewEditorBack.BorderStyle = BorderStyle.FixedSingle;
         _previewEditorBack.Location = new Point(12, 22);
         _previewEditorBack.Name = "_previewEditorBack";
-        _previewEditorBack.Size = new Size(20, 24);
+        _previewEditorBack.Size = new Size(24, 24);
         _previewEditorBack.TabIndex = 0;
         //
         // _btnEditorBack
         //
-        _btnEditorBack.Location = new Point(38, 22);
+        _btnEditorBack.Location = new Point(42, 22);
         _btnEditorBack.Name = "_btnEditorBack";
         _btnEditorBack.Size = new Size(160, 24);
         _btnEditorBack.TabIndex = 1;
         _btnEditorBack.Text = "사용자 지정 색…";
-        _btnEditorBack.Image = new Bitmap(EditorSettingsForm.MakeGlyphIcon("■", Color.DarkOrange, Color.Transparent, 20), new Size(18,18));
+        _btnEditorBack.Image = new Bitmap(EditorSettingsForm.MakeSquareSwatchIcon(Color.DarkOrange, 18), new Size(18, 18));
         _btnEditorBack.ImageAlign = ContentAlignment.MiddleLeft;
         _btnEditorBack.TextImageRelation = TextImageRelation.ImageBeforeText;
         _btnEditorBack.UseVisualStyleBackColor = true;
@@ -263,14 +263,14 @@ public partial class EditorSettingsForm
         //
         _editorBackPalettePanel.Location = new Point(12, 52);
         _editorBackPalettePanel.Name = "_editorBackPalettePanel";
-        _editorBackPalettePanel.Size = new Size(322, 72);
+        _editorBackPalettePanel.Size = new Size(410, 100);
         _editorBackPalettePanel.TabIndex = 2;
         _editorBackPalettePanel.AutoScroll = false;
         //
         // languageGroupBox
         //
         languageGroupBox.Controls.Add(_languageCombo);
-        languageGroupBox.Location = new Point(3, 398);
+        languageGroupBox.Location = new Point(3, 430);
         languageGroupBox.Name = "languageGroupBox";
         languageGroupBox.Size = new Size(434, 56);
         languageGroupBox.TabIndex = 6;
@@ -288,7 +288,7 @@ public partial class EditorSettingsForm
         // generalGroupBox
         //
         generalGroupBox.Controls.Add(_autoStartCheck);
-        generalGroupBox.Location = new Point(3, 458);
+        generalGroupBox.Location = new Point(3, 490);
         generalGroupBox.Name = "generalGroupBox";
         generalGroupBox.Size = new Size(434, 52);
         generalGroupBox.TabIndex = 7;
@@ -308,7 +308,7 @@ public partial class EditorSettingsForm
         //
         aboutGroupBox.Controls.Add(_aboutNameLabel);
         aboutGroupBox.Controls.Add(_aboutAuthorLabel);
-        aboutGroupBox.Location = new Point(3, 516);
+        aboutGroupBox.Location = new Point(3, 548);
         aboutGroupBox.Name = "aboutGroupBox";
         aboutGroupBox.Size = new Size(434, 76);
         aboutGroupBox.TabIndex = 8;
@@ -353,7 +353,7 @@ public partial class EditorSettingsForm
         AutoScaleDimensions = new SizeF(7F, 15F);
         AutoScaleMode = AutoScaleMode.Font;
         CancelButton = _btnCancel;
-        ClientSize = new Size(460, 680);
+        ClientSize = new Size(460, 712);
         Controls.Add(clientPanel);
         Controls.Add(footerPanel);
         Font = new Font("맑은 고딕", 9F);

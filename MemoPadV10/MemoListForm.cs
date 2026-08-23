@@ -54,8 +54,8 @@ public class MemoListForm : Form
         {
             Name = "topBarPanel",
             Dock = DockStyle.Top,
-            Height = 42,
-            Padding = new Padding(4, 3, 4, 3)
+            Height = 40,
+            Padding = new Padding(4, 0, 4, 0)
         };
         _topBarPanel.MouseDown += TopBar_MouseDown;
         _topBarPanel.MouseMove += TopBar_MouseMove;
@@ -65,9 +65,10 @@ public class MemoListForm : Form
         {
             FlatStyle = FlatStyle.Flat,
             Font = new Font("Segoe UI Symbol", 16F, FontStyle.Bold),
-            Size = new Size(44, 36),
-            Location = new Point(4, 3),
+            Size = new Size(44, 34),
+            Location = new Point(4, 0),
             Text = "⚙",
+            TextAlign = ContentAlignment.MiddleCenter,
             TabStop = false,
             UseVisualStyleBackColor = true
         };
@@ -79,9 +80,10 @@ public class MemoListForm : Form
         {
             FlatStyle = FlatStyle.Flat,
             Font = new Font("맑은 고딕", 15F, FontStyle.Bold),
-            Size = new Size(44, 36),
+            Size = new Size(44, 34),
             Anchor = AnchorStyles.Top | AnchorStyles.Right,
             Text = "X",
+            TextAlign = ContentAlignment.MiddleCenter,
             TabStop = false,
             UseVisualStyleBackColor = true
         };
@@ -93,7 +95,7 @@ public class MemoListForm : Form
         _topBarPanel.Controls.Add(_closeButton);
         _topBarPanel.Resize += (_, _) =>
         {
-            _closeButton.Location = new Point(_topBarPanel.ClientSize.Width - _closeButton.Width - 4, 3);
+            _closeButton.Location = new Point(_topBarPanel.ClientSize.Width - _closeButton.Width - 4, 0);
         };
 
         _cardHost = new FlowLayoutPanel
@@ -726,6 +728,7 @@ public class MemoListForm : Form
         }
 
         _memoItems.RemoveAt(index);
+        MemoSettingsStore.RemoveAt(index);
         MemoStore.Save(_memoItems);
         AppIpc.NotifyMemosChanged();
         if (_selectedIndex >= _memoItems.Count)

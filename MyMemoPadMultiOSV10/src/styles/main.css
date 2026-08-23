@@ -1,0 +1,519 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+:root {
+  --memo-back: #f8e18c;
+  --memo-fore: #000000;
+  --toolbar: #f8e18c;
+  --card-face: #fcebaa;
+  --card-selected: #fff2be;
+  --border: rgba(120, 90, 30, 0.35);
+  --text-muted: #78601e;
+  --danger: #b22222;
+  --shadow: rgba(50, 40, 20, 0.18);
+  --font: "Malgun Gothic", "맑은 고딕", "Segoe UI", "Apple SD Gothic Neo", sans-serif;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  font-family: var(--font);
+  background: var(--memo-back);
+  color: var(--memo-fore);
+}
+
+body.is-electron {
+  user-select: none;
+}
+
+body.is-electron .editor,
+body.is-electron input,
+body.is-electron textarea,
+body.is-electron select {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--memo-back);
+}
+
+.app[hidden] {
+  display: none !important;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 40px;
+  padding: 0 6px;
+  background: var(--toolbar);
+  flex-shrink: 0;
+  -webkit-app-region: no-drag;
+}
+
+.toolbar-drag {
+  flex: 1;
+  align-self: stretch;
+  min-width: 24px;
+  cursor: grab;
+}
+
+.toolbar-title {
+  font-size: 14px;
+  font-weight: 700;
+  padding: 0 8px;
+  white-space: nowrap;
+}
+
+.settings-app {
+  height: auto !important;
+  overflow: hidden;
+}
+
+.settings-form {
+  flex: 0 0 auto;
+  overflow: hidden;
+  padding: 6px 10px 8px;
+}
+
+.tb-btn {
+  width: 44px;
+  height: 34px;
+  border: 0;
+  background: transparent;
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.tb-btn:hover {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.tb-btn.danger {
+  color: var(--danger);
+  font-size: 15px;
+}
+
+.editor-wrap {
+  flex: 1;
+  min-height: 0;
+  padding: 0 8px 8px;
+}
+
+.editor {
+  height: 100%;
+  overflow: auto;
+  outline: none;
+  padding: 4px 6px;
+  line-height: 1.45;
+  word-wrap: break-word;
+  white-space: pre-wrap;
+  background: var(--memo-back);
+  color: var(--memo-fore);
+}
+
+.list-body {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+
+.list-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #696969;
+  font-size: 15px;
+}
+
+.list-empty[hidden] {
+  display: none;
+}
+
+.card-host {
+  height: 100%;
+  overflow: auto;
+  padding: 14px 16px 12px;
+  outline: none;
+}
+
+.memo-card {
+  position: relative;
+  min-height: 112px;
+  margin: 0 0 14px;
+  padding: 10px 36px 12px 12px;
+  background: var(--card-face);
+  border: 1px solid var(--border);
+  box-shadow: 4px 4px 0 var(--shadow);
+  cursor: pointer;
+}
+
+.memo-card.selected {
+  background: var(--card-selected);
+  border-color: rgba(120, 90, 30, 0.55);
+}
+
+.memo-card .card-no {
+  font-size: 12px;
+  font-weight: 700;
+  color: #785a1e;
+  margin-bottom: 6px;
+}
+
+.memo-card .card-preview {
+  font-size: 13px;
+  color: #282828;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  white-space: pre-wrap;
+}
+
+.memo-card .card-delete {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  width: 28px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #b22222;
+  cursor: pointer;
+}
+
+.memo-card .card-delete svg {
+  width: 16px;
+  height: 16px;
+  display: block;
+  margin: 0 auto;
+  fill: currentColor;
+}
+
+.list-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 10px;
+  background: var(--toolbar);
+  border-top: 1px solid var(--border);
+}
+
+.text-btn {
+  min-width: 112px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  background: var(--card-face);
+  color: var(--memo-fore);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.text-btn.primary {
+  background: var(--card-selected);
+  font-weight: 600;
+}
+
+.text-btn:hover {
+  filter: brightness(0.97);
+}
+
+.modal {
+  border: 1px solid #c8b06a;
+  border-radius: 8px;
+  padding: 0;
+  width: min(460px, calc(100vw - 24px));
+  max-height: calc(100vh - 32px);
+  background: #fffaf0;
+  color: #222;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+}
+
+.modal::backdrop {
+  background: rgba(40, 30, 10, 0.28);
+}
+
+.confirm-form,
+.error-form {
+  padding: 16px 18px 14px;
+  overflow: auto;
+  max-height: calc(100vh - 40px);
+}
+
+.settings-form h2,
+.confirm-form h2,
+.error-form h2 {
+  margin: 0 0 8px;
+  font-size: 17px;
+}
+
+.hint {
+  margin: 0 0 12px;
+  color: #666;
+  font-size: 12px;
+}
+
+fieldset {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin: 0 0 10px;
+  padding: 8px 10px 10px;
+  background: var(--card-face);
+}
+
+legend {
+  padding: 0 4px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.row.wrap {
+  flex-wrap: wrap;
+}
+
+.row select,
+.row input[type="number"],
+.settings-form select {
+  height: 30px;
+  background: var(--card-selected);
+  color: var(--memo-fore);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+#font-name {
+  flex: 1;
+}
+
+#font-size {
+  width: 64px;
+}
+
+.style-btn {
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  background: var(--card-selected);
+  color: var(--memo-fore);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.style-btn.italic {
+  font-style: italic;
+}
+
+.style-btn.underline {
+  text-decoration: underline;
+}
+
+.style-btn.strike {
+  text-decoration: line-through;
+}
+
+.palette {
+  display: grid;
+  grid-template-columns: repeat(13, 24px);
+  gap: 6px;
+  margin-bottom: 8px;
+  justify-content: start;
+}
+
+.swatch {
+  width: 24px;
+  height: 24px;
+  border: 1px solid #888;
+  cursor: pointer;
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dialog-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.dialog-actions .spacer {
+  flex: 1;
+}
+
+.dialog-actions button,
+.settings-form button[type="submit"] {
+  min-width: 84px;
+  height: 32px;
+  border: 1px solid var(--border);
+  background: var(--card-face);
+  color: var(--memo-fore);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.dialog-actions button.primary,
+.settings-form button.primary,
+button.primary {
+  background: var(--card-selected);
+  font-weight: 600;
+}
+
+.dialog-actions button.danger {
+  background: #f4c4c4;
+}
+
+#error-detail {
+  width: 100%;
+  min-height: 180px;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 12px;
+  resize: vertical;
+}
+
+.tooltip {
+  position: fixed;
+  z-index: 10000;
+  max-width: 240px;
+  padding: 4px 8px;
+  background: #333;
+  color: #fff;
+  font-size: 12px;
+  border-radius: 4px;
+  pointer-events: none;
+}
+
+body:not(.is-electron) .toolbar-drag {
+  cursor: default;
+}
+
+body.role-web #btn-close,
+body.role-web #list-close {
+  display: none;
+}
+
+body.role-web.web-list #btn-list {
+  display: none;
+}
+
+/* Settings chrome is scoped to #view-settings so memo theme vars never leak in. */
+html.role-settings,
+html.role-settings body,
+body.role-settings {
+  height: auto;
+  min-height: 0;
+  overflow: hidden;
+  background: #f0f0f0 !important;
+  color: #000000;
+}
+
+#view-settings,
+#view-settings .toolbar,
+#view-settings .settings-form {
+  --memo-back: #f0f0f0;
+  --toolbar: #f0f0f0;
+  --card-face: #f0f0f0;
+  --card-selected: #ffffff;
+  --border: #adadad;
+  --memo-fore: #000000;
+  --text-muted: #666666;
+  background: #f0f0f0 !important;
+  color: #000000 !important;
+}
+
+#view-settings {
+  height: auto !important;
+  overflow: hidden;
+}
+
+#view-settings .toolbar {
+  height: 32px;
+  border-bottom: 1px solid #adadad;
+}
+
+#view-settings .tb-btn {
+  height: 28px;
+}
+
+#view-settings .hint {
+  margin: 0 0 6px;
+  color: #666666 !important;
+}
+
+#view-settings fieldset {
+  margin: 0 0 6px;
+  padding: 4px 8px 6px;
+  background: #f0f0f0 !important;
+  border-color: #adadad !important;
+  color: #000000 !important;
+}
+
+#view-settings .row select,
+#view-settings .row input[type="number"],
+#view-settings select {
+  background: #ffffff !important;
+  color: #000000 !important;
+  border-color: #adadad !important;
+}
+
+#view-settings .style-btn,
+#view-settings .dialog-actions button,
+#view-settings button[type="submit"] {
+  background: #e1e1e1 !important;
+  color: #000000 !important;
+  border-color: #adadad !important;
+}
+
+#view-settings .style-btn:hover,
+#view-settings .dialog-actions button:hover,
+#view-settings .tb-btn:hover {
+  background: #e5f1fb !important;
+}
+
+#view-settings .dialog-actions {
+  margin-top: 4px;
+}
+
+#view-settings #about-author,
+#view-settings #about-version {
+  margin: 0 0 2px;
+}
+
+#view-settings .palette {
+  gap: 4px;
+  margin-bottom: 6px;
+}

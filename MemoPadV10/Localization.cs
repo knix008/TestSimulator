@@ -36,6 +36,8 @@ internal static class Loc
         ["settings.style.strike"] = ("취소선", "Strikethrough"),
         ["settings.back"] = ("배경색", "Background color"),
         ["settings.back.custom"] = ("사용자 지정 색…", "Custom color…"),
+        ["settings.opacity"] = ("창 투명도", "Window transparency"),
+        ["settings.opacity.value"] = ("{0}%", "{0}%"),
         ["settings.language"] = ("언어 (Language)", "Language (언어)"),
         ["settings.general"] = ("일반", "General"),
         ["settings.autostart"] = ("시스템 시작 시 자동 실행", "Start automatically when Windows starts"),
@@ -97,6 +99,8 @@ internal static class Loc
         ["main.settings"] = ("설정", "Settings"),
         ["main.listBtn"] = ("메모 목록", "Memo list"),
         ["main.close"] = ("닫기", "Close"),
+        ["main.opacity"] = ("창 투명도", "Window transparency"),
+        ["main.opacity.value"] = ("{0}%", "{0}%"),
     };
 
     public static string T(string key)

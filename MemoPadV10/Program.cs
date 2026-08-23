@@ -9,6 +9,7 @@ internal static class Program
         {
             ApplicationConfiguration.Initialize();
             ErrorReport.RegisterGlobalHandlers();
+            AutoStart.RefreshRegisteredCommandIfEnabled();
 
             EditorSettings.Data? settings = EditorSettings.TryLoad();
             if (settings != null)
@@ -25,7 +26,8 @@ internal static class Program
             string? openFile = ParseOpenFile(args);
             int openIndex = openFile is null ? ParseOpenIndex(args) : -1;
             bool openNew = args.Any(a => string.Equals(a, "--new", StringComparison.OrdinalIgnoreCase));
-            RunPadApp(openIndex, openFile, openNew);
+            bool startInTray = args.Any(a => string.Equals(a, AutoStart.StartupArg, StringComparison.OrdinalIgnoreCase));
+            RunPadApp(openIndex, openFile, openNew, startInTray);
         }
         catch (Exception ex)
         {
@@ -167,11 +169,17 @@ internal static class Program
         Application.Run(context);
     }
 
-    private static void RunPadApp(int openIndex, string? openFile, bool openNew)
+    private static void RunPadApp(int openIndex, string? openFile, bool openNew, bool startInTray)
     {
         using Mutex? mutex = AppIpc.TryAcquirePadMutex(out bool createdNew);
         if (!createdNew || mutex is null)
         {
+            // 자동 시작(트레이)은 이미 실행 중이면 창을 또 열지 않습니다.
+            if (startInTray)
+            {
+                return;
+            }
+
             // 이미 패드가 실행 중이면 열기 요청을 전달하거나 목록을 띄웁니다.
             if (openNew)
             {
@@ -205,10 +213,24 @@ internal static class Program
             }
         };
 
+        if (startInTray)
+        {
+            // 로그온 시 창 깜빡임을 줄이고 트레이만 남깁니다.
+            firstPad.Opacity = 0;
+            firstPad.ShowInTaskbar = false;
+        }
+
         firstPad.Show();
 
-        // 시작 인자가 없으면 이전 실행의 pending 잔여물이 첫 열기를 가로채지 않게 정리
-        if (!openNew && openIndex < 0 && string.IsNullOrWhiteSpace(openFile))
+        if (startInTray)
+        {
+            firstPad.Hide();
+            EditorSettings.ApplyWindowTransparency(firstPad, 0);
+            firstPad.ShowInTaskbar = true;
+        }
+
+        // 시작 인자가 없거나 트레이 시작이면 pending 잔여물이 창을 열지 않게 정리
+        if (startInTray || (!openNew && openIndex < 0 && string.IsNullOrWhiteSpace(openFile)))
         {
             try
             {
@@ -237,6 +259,13 @@ internal static class Program
         MemoPadForm.StartSettingsWatcher();
         MemoPadForm.StartThemePreviewWatcher();
         MemoPadForm.StartCompanionForegroundWatcher();
+
+        // 시스템 시작(트레이)에서는 메모/목록 창을 열지 않습니다.
+        if (startInTray)
+        {
+            Application.Run(appContext);
+            return;
+        }
 
         if (openNew || AppIpc.TryConsumePendingNewMemo())
         {

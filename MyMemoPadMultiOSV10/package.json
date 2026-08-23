@@ -1,0 +1,145 @@
+{
+  "name": "my-memopad-multios",
+  "version": "1.0.0",
+  "description": "Cross-platform sticky memo pad for Windows, Linux, macOS, and Web",
+  "main": "electron/main.js",
+  "author": {
+    "name": "SHKWON",
+    "email": "knix008@naver.com"
+  },
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "web": "node scripts/serve-web.js",
+    "icons": "node scripts/generate-icons.js",
+    "prepack": "npm run icons",
+    "pack": "electron-builder --dir",
+    "prebuild": "npm run icons",
+    "build": "electron-builder && node scripts/copy-installer-to-root.js",
+    "prebuild:win": "npm run icons && node scripts/ensure-wincodesign.js",
+    "build:win": "electron-builder --win && node scripts/copy-installer-to-root.js",
+    "prebuild:mac": "npm run icons",
+    "build:mac": "electron-builder --mac && node scripts/copy-installer-to-root.js",
+    "prebuild:linux": "npm run icons",
+    "build:linux": "electron-builder --linux && node scripts/copy-installer-to-root.js",
+    "dist": "npm run build",
+    "dist:win": "npm run build:win",
+    "dist:mac": "npm run build:mac",
+    "dist:linux": "npm run build:linux"
+  },
+  "devDependencies": {
+    "@resvg/resvg-js": "^2.6.2",
+    "electron": "^33.4.11",
+    "electron-builder": "^25.1.8",
+    "to-ico": "^1.1.5"
+  },
+  "build": {
+    "appId": "com.shkwon.mymemopad",
+    "productName": "MyMemoPad",
+    "copyright": "Copyright © 2026 SHKWON",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "afterPack": "scripts/after-pack-win.js",
+    "files": [
+      "electron/**/*",
+      "src/**/*",
+      "asset/icon.png",
+      "asset/icon.ico",
+      "asset/icon-256.png",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "asset/icons",
+        "to": "icons"
+      },
+      {
+        "from": "asset/icon.ico",
+        "to": "icon.ico"
+      },
+      {
+        "from": "asset/icon.png",
+        "to": "icon.png"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "asset/icon.ico",
+      "signAndEditExecutable": false,
+      "verifyUpdateCodeSignature": false,
+      "signtoolOptions": {
+        "sign": "./scripts/skip-win-sign.js"
+      }
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "allowElevation": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "MyMemoPad",
+      "installerIcon": "asset/icon.ico",
+      "uninstallerIcon": "asset/icon.ico",
+      "installerHeaderIcon": "asset/icon.ico",
+      "installerLanguages": [
+        "en_US",
+        "ko_KR"
+      ],
+      "language": "1042",
+      "runAfterFinish": false,
+      "deleteAppDataOnUninstall": true,
+      "artifactName": "${productName}-Setup-${version}.${ext}",
+      "license": "build/license.txt",
+      "include": "build/installer.nsh"
+    },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "category": "public.app-category.productivity",
+      "icon": "asset/icon-1024.png",
+      "darkModeSupport": true
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Office",
+      "icon": "asset/icons",
+      "desktop": {
+        "Name": "MyMemoPad",
+        "Comment": "Sticky memo pad with tray and auto-start",
+        "Categories": "Office;Utility;"
+      }
+    },
+    "dmg": {
+      "contents": [
+        {
+          "x": 130,
+          "y": 220
+        },
+        {
+          "x": 410,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
+    }
+  },
+  "allowScripts": {
+    "electron@33.4.11": true
+  }
+}

@@ -1,0 +1,40 @@
+appId: com.suhokwon.zipmaster
+productName: ZipMaster
+# 빌드 후 생성된 설치 파일 하나를 프로젝트 루트로 복사
+afterAllArtifactBuild: build/afterBuild.cjs
+directories:
+  output: release
+  buildResources: build
+files:
+  - out/**/*
+  - package.json
+# 7za 네이티브 바이너리를 앱 패키지에 포함(asar 밖으로)
+asarUnpack:
+  - "**/node_modules/7zip-bin/**"
+win:
+  target:
+    - nsis
+  icon: build/icon.ico
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  # 바로 가기는 커스텀 페이지(build/installer.nsh)에서 사용자가 선택하도록 하므로
+  # electron-builder 의 자동 생성은 끈다.
+  createDesktopShortcut: false
+  createStartMenuShortcut: false
+  include: build/installer.nsh
+  installerLanguages:
+    - ko_KR
+    - en_US
+mac:
+  target:
+    - dmg
+  category: public.app-category.utilities
+  icon: build/icon.icns
+linux:
+  target:
+    - AppImage
+    - deb
+  category: Utility
+  icon: build/icon.png

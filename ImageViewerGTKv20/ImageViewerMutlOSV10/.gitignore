@@ -1,0 +1,54 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+out/
+*.exe
+*.dmg
+*.AppImage
+*.deb
+!src/assets/**
+
+# Electron
+.electron-cache/
+node_modules/electron/dist/.icon-patched
+node_modules/electron/dist/ImageViewer.exe
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V7
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# IDE / editor
+.vscode/
+.idea/
+*.suo
+*.user
+*.swp
+*~
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Optional vendor libraries (download separately)
+src/vendor/
+
+# Temp / local
+*.tmp
+*.bak
+_test_*.js
+.cache/

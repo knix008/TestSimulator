@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MyMemoPad</title>
+  <script>
+    (function () {
+      var role = new URLSearchParams(location.search).get('role') || 'pad';
+      document.documentElement.classList.add('role-' + role);
+      document.documentElement.dataset.role = role;
+    })();
+  </script>
+  <link rel="icon" href="favicon.png" />
+  <link rel="stylesheet" href="styles/main.css" />
+</head>
+<body>
+  <div id="view-pad" class="app pad-app" hidden>
+    <header class="toolbar" id="pad-toolbar">
+      <button type="button" class="tb-btn" id="btn-add" data-i18n-tooltip="main.add" aria-label="+">+</button>
+      <span class="toolbar-drag" data-drag="1"></span>
+      <button type="button" class="tb-btn danger" id="btn-delete" data-i18n-tooltip="main.delete">🗑</button>
+      <button type="button" class="tb-btn" id="btn-settings" data-i18n-tooltip="main.settings">⚙</button>
+      <button type="button" class="tb-btn" id="btn-list" data-i18n-tooltip="main.listBtn">☰</button>
+      <button type="button" class="tb-btn" id="btn-close" data-i18n-tooltip="main.close">X</button>
+    </header>
+    <div class="editor-wrap">
+      <div id="memo-editor" class="editor" contenteditable="true" spellcheck="false"></div>
+    </div>
+  </div>
+
+  <div id="view-list" class="app list-app" hidden>
+    <header class="toolbar" id="list-toolbar">
+      <button type="button" class="tb-btn" id="list-settings" data-i18n-tooltip="list.settings">⚙</button>
+      <span class="toolbar-drag" data-drag="1"></span>
+      <button type="button" class="tb-btn" id="list-close" data-i18n-tooltip="main.close">X</button>
+    </header>
+    <div class="list-body">
+      <div id="list-empty" class="list-empty" hidden data-i18n="list.empty"></div>
+      <div id="card-host" class="card-host" tabindex="0"></div>
+    </div>
+    <footer class="list-footer">
+      <button type="button" class="text-btn" id="btn-load" data-i18n="list.load"></button>
+      <button type="button" class="text-btn primary" id="btn-new" data-i18n="list.new"></button>
+    </footer>
+  </div>
+
+  <div id="view-settings" class="app settings-app" hidden>
+    <header class="toolbar" id="settings-toolbar">
+      <span class="toolbar-title" data-i18n="settings.title"></span>
+      <span class="toolbar-drag" data-drag="1"></span>
+      <button type="button" class="tb-btn" id="settings-close" data-i18n-tooltip="main.close">X</button>
+    </header>
+    <form id="settings-form" class="settings-form">
+      <p class="hint" data-i18n="settings.hint"></p>
+
+      <fieldset>
+        <legend data-i18n="settings.scope"></legend>
+        <div class="row wrap">
+          <label><input type="radio" name="scope" value="selection" /> <span data-i18n="settings.scope.selection"></span></label>
+          <label><input type="radio" name="scope" value="whole" checked /> <span data-i18n="settings.scope.whole"></span></label>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend data-i18n="settings.font"></legend>
+        <div class="row">
+          <select id="font-name">
+            <option>Malgun Gothic</option>
+            <option>맑은 고딕</option>
+            <option>Segoe UI</option>
+            <option>Arial</option>
+            <option>Georgia</option>
+            <option>Times New Roman</option>
+            <option>Courier New</option>
+            <option>Consolas</option>
+            <option>Apple SD Gothic Neo</option>
+            <option>Noto Sans KR</option>
+          </select>
+          <input id="font-size" type="number" min="8" max="72" step="1" value="12" />
+          <input id="font-color" type="color" value="#000000" />
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend data-i18n="settings.style"></legend>
+        <div class="row wrap">
+          <button type="button" class="style-btn" id="style-bold" data-i18n="settings.style.bold"></button>
+          <button type="button" class="style-btn italic" id="style-italic" data-i18n="settings.style.italic"></button>
+          <button type="button" class="style-btn underline" id="style-underline" data-i18n="settings.style.underline"></button>
+          <button type="button" class="style-btn strike" id="style-strike" data-i18n="settings.style.strike"></button>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend data-i18n="settings.back"></legend>
+        <div id="color-palette" class="palette"></div>
+        <div class="row">
+          <input id="back-color" type="color" value="#F8E18C" />
+          <span data-i18n="settings.back.custom"></span>
+        </div>
+      </fieldset>
+
+      <fieldset id="opacity-field">
+        <legend data-i18n="settings.opacity"></legend>
+        <div class="row">
+          <span>0%</span>
+          <input id="opacity-range" type="range" min="0" max="100" value="0" />
+          <span>100%</span>
+          <strong id="opacity-value">0%</strong>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend data-i18n="settings.language"></legend>
+        <select id="language-select">
+          <option value="ko">한국어</option>
+          <option value="en">English</option>
+        </select>
+      </fieldset>
+
+      <fieldset>
+        <legend data-i18n="settings.general"></legend>
+        <label class="check">
+          <input type="checkbox" id="autostart-check" />
+          <span data-i18n="settings.autostart"></span>
+        </label>
+        <p id="autostart-web-note" class="hint" hidden data-i18n="settings.autostart.web"></p>
+      </fieldset>
+
+      <fieldset>
+        <legend data-i18n="settings.about"></legend>
+        <p id="about-author"></p>
+        <p id="about-version" class="hint"></p>
+      </fieldset>
+
+      <div class="dialog-actions">
+        <button type="button" id="settings-default" data-i18n="settings.default"></button>
+        <span class="spacer"></span>
+        <button type="button" id="settings-cancel" data-i18n="common.cancel"></button>
+        <button type="submit" class="primary" data-i18n="common.ok"></button>
+      </div>
+    </form>
+  </div>
+
+  <dialog id="confirm-dialog" class="modal">
+    <form method="dialog" class="confirm-form">
+      <h2 id="confirm-title"></h2>
+      <p id="confirm-message"></p>
+      <div class="dialog-actions">
+        <button type="submit" value="no" data-i18n="common.cancel"></button>
+        <button type="submit" value="yes" class="danger" data-i18n="common.ok"></button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="alert-dialog" class="modal">
+    <form method="dialog" class="confirm-form">
+      <h2 id="alert-title"></h2>
+      <p id="alert-message"></p>
+      <div class="dialog-actions">
+        <button type="submit" class="primary" data-i18n="common.ok"></button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="error-dialog" class="modal">
+    <form method="dialog" class="error-form">
+      <h2 data-i18n="error.dialog.title"></h2>
+      <p id="error-hint" class="hint"></p>
+      <textarea id="error-detail" readonly></textarea>
+      <div class="dialog-actions">
+        <span id="error-copied" class="hint" hidden></span>
+        <span class="spacer"></span>
+        <button type="button" id="error-copy" data-i18n="error.dialog.copy"></button>
+        <button type="submit" class="primary" data-i18n="common.ok"></button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="tooltip" class="tooltip" hidden></div>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

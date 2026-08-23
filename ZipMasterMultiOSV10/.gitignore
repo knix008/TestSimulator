@@ -1,0 +1,26 @@
+# 의존성
+node_modules/
+
+# 빌드 산출물
+dist-web/
+out/
+release/
+
+# afterBuild 훅이 루트로 복사한 설치 파일
+/*.exe
+/*.dmg
+/*.AppImage
+/*.deb
+
+# 로그 / 임시
+*.log
+electron-smoke.log
+preview.log
+
+# OS / 에디터
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.suo
+*.user

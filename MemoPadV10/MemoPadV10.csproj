@@ -5,8 +5,9 @@
     <UseWindowsForms>true</UseWindowsForms>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <ApplicationIcon>assets\app.ico</ApplicationIcon>
-    <DefaultItemExcludes>$(DefaultItemExcludes);MemoPadV10.Tests\**;_ScrollDiag\**</DefaultItemExcludes>
+    <DefaultItemExcludes>$(DefaultItemExcludes);MemoPadV10.Tests\**;_ScrollDiag\**;_LayoutDiag\**</DefaultItemExcludes>
   </PropertyGroup>
 
   <!-- Release 빌드 시 MSI 생성 (Visual Studio 솔루션 빌드 포함). 설치 프로젝트가 메인을 참조할 때는 SkipInstaller로 이 타겟 생략. 비활성: -p:SkipInstaller=true -->

@@ -17,6 +17,8 @@ internal static class EditorSettings
         public int EditorBackColorArgb { get; set; } = Color.FromArgb(255, 248, 225, 140).ToArgb();
         public int FormBackColorArgb { get; set; } = Color.FromArgb(255, 248, 225, 140).ToArgb();
         public string Language { get; set; } = "ko";
+        /// <summary>새 메모·미저장 창 기본 투명도(0=불투명 … 100=최대 투명).</summary>
+        public int WindowTransparencyPercent { get; set; }
     }
 
     public static Data LoadDefaults() => new();
@@ -60,7 +62,7 @@ internal static class EditorSettings
 
     public static string FontStyleToString(System.Drawing.FontStyle style) => style.ToString();
 
-    public static void ApplyToUi(RichTextBox editor, Form form, Data data)
+    public static void ApplyToUi(RichTextBox editor, Form form, Data data, bool applyLanguage = true)
     {
         // Font 변경이 RTF 내용을 지울 수 있어 먼저 보존합니다.
         string? savedRtf = null;
@@ -92,7 +94,10 @@ internal static class EditorSettings
         editor.BackColor = Color.FromArgb(data.EditorBackColorArgb);
         form.BackColor = Color.FromArgb(data.FormBackColorArgb);
         ApplyToolbarColor(form, form.BackColor);
-        Loc.Language = Loc.Parse(data.Language);
+        if (applyLanguage)
+        {
+            Loc.Language = Loc.Parse(data.Language);
+        }
 
         if (!string.IsNullOrEmpty(savedRtf))
         {
@@ -113,6 +118,12 @@ internal static class EditorSettings
         }
     }
 
+    public static void ApplyLook(RichTextBox editor, Form form, MemoLookData look)
+    {
+        ApplyToUi(editor, form, look.ToEditorSettings(Loc.Code(Loc.Language)), applyLanguage: false);
+        ApplyWindowTransparency(form, look.TransparencyPercent);
+    }
+
     /// <summary>
     /// 상단 툴바가 배경과 완전히 같은 색(투명도 없이)으로 보이도록,
     /// 배경색을 불투명하게 그대로 반환합니다.
@@ -120,6 +131,42 @@ internal static class EditorSettings
     public static Color DeriveToolbarColor(Color baseColor)
     {
         return Color.FromArgb(255, baseColor.R, baseColor.G, baseColor.B);
+    }
+
+    /// <summary>투명도(0=불투명 … 100=최대 투명)를 WinForms Opacity로 적용합니다.</summary>
+    public static double TransparencyToOpacity(int transparencyPercent)
+    {
+        int t = Math.Clamp(transparencyPercent, 0, 100);
+        // 창을 완전히 잃어버리지 않도록 하한 15% 불투명도를 둡니다.
+        return Math.Clamp(1.0 - (t / 100.0), 0.15, 1.0);
+    }
+
+    public static int ClampTransparencyPercent(int transparencyPercent) =>
+        Math.Clamp(transparencyPercent, 0, 100);
+
+    public static void ApplyWindowTransparency(Form form, int transparencyPercent)
+    {
+        double opacity = TransparencyToOpacity(transparencyPercent);
+        // Opacity < 1 이려면 AllowTransparency가 필요합니다(일부 환경에서 무시되는 경우 방지).
+        if (opacity < 1.0)
+        {
+            form.AllowTransparency = true;
+        }
+
+        form.Opacity = opacity;
+    }
+
+    public static int ReadTransparencyPercent()
+    {
+        EditorSettings.Data data = TryLoad() ?? LoadDefaults();
+        return ClampTransparencyPercent(data.WindowTransparencyPercent);
+    }
+
+    public static void SaveTransparencyPercent(int transparencyPercent)
+    {
+        EditorSettings.Data data = TryLoad() ?? LoadDefaults();
+        data.WindowTransparencyPercent = ClampTransparencyPercent(transparencyPercent);
+        Save(data);
     }
 
     /// <summary>메인 폼에서 상단 툴바 패널(topBarPanel)을 찾아 배경색에 맞춘 색으로 칠합니다.</summary>
