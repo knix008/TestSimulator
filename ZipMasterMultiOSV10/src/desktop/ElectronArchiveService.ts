@@ -36,6 +36,10 @@ export class ElectronArchiveService implements ArchiveService {
     return this.api.pickInputs(kind)
   }
 
+  pickDirectory(): Promise<string | null> {
+    return this.api.pickOutputDir()
+  }
+
   pickArchive(): Promise<InputSource | null> {
     return this.api.pickArchive()
   }

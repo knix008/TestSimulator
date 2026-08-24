@@ -33,6 +33,8 @@ export interface ExtractOptions {
   /** 덮어쓰기 여부. */
   overwrite: boolean
   password?: string
+  /** 지정 시 해당 아카이브 내부 경로들만 선택적으로 해제한다(미지정=전체). */
+  selection?: string[]
 }
 
 /** 아카이브 내 항목 정보. */

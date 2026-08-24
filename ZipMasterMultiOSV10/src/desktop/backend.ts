@@ -18,7 +18,7 @@ import type {
   OperationResult,
   Progress
 } from '@core/types'
-import { detectFormat, parseSplitPart, partName } from '@core/format'
+import { isArchiveName, parseSplitPart, partName } from '@core/format'
 
 // electron-builder asarUnpack 로 풀린 실제 경로 보정
 const path7za = sevenBin.path7za.replace('app.asar', 'app.asar.unpacked')
@@ -54,6 +54,8 @@ function sevenExtract(
     const stream = Seven.extractFull(archivePath, outDir, {
       $bin: path7za,
       $progress: true,
+      // 선택 해제: 지정된 아카이브 내부 경로들만 추출(미지정 시 전체).
+      $cherryPick: opts.selection && opts.selection.length > 0 ? opts.selection : undefined,
       overwrite: opts.overwrite ? 'a' : 's',
       password: opts.password
     })
@@ -265,7 +267,7 @@ export async function listDir(dirPath: string): Promise<DirListing> {
       name: d.name,
       path: full,
       isDirectory: isDir,
-      isArchive: !isDir && detectFormat(d.name) !== null,
+      isArchive: !isDir && isArchiveName(d.name),
       size
     })
   }
@@ -289,7 +291,9 @@ export async function listEntries(archivePath: string): Promise<ArchiveEntry[]> 
     const source = combined ?? archivePath
     return await new Promise<ArchiveEntry[]>((resolve, reject) => {
       const entries: ArchiveEntry[] = []
-      const stream = Seven.list(source, { $bin: path7za })
+      // -sccUTF-8: 7za 콘솔 출력을 UTF-8 로 강제. 미지정 시 Windows 는 OEM 코드페이지(한국어=CP949)로
+      // 파일명을 내보내는데 node-7z 가 이를 UTF-8 로 디코딩해 한글이 깨진다.
+      const stream = Seven.list(source, { $bin: path7za, $raw: ['-sccUTF-8'] })
       stream.on('data', (e: { file: string; size?: number; attributes?: string }) => {
         const isDir = (e.attributes ?? '').includes('D')
         entries.push({ name: e.file, size: Number(e.size ?? 0), isDirectory: isDir })

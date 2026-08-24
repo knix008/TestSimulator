@@ -4,12 +4,15 @@ import { Toolbar } from './Toolbar'
 import { OptionsBar } from './OptionsBar'
 import { FileBrowser } from './FileBrowser'
 import { ArchiveViewer } from './ArchiveViewer'
-import { ProgressBar } from './ProgressBar'
+import { StatusBar } from './StatusBar'
 import { AboutModal } from './AboutModal'
+import { SettingsModal } from './SettingsModal'
+import { ProgressModal } from './ProgressModal'
 import { ErrorModal } from './ErrorModal'
+import { ContextMenuProvider } from './ContextMenu'
 
 function Shell() {
-  const { t, busy, progress, toast } = useStore()
+  const { toast } = useStore()
 
   return (
     <div className="app">
@@ -22,13 +25,12 @@ function Shell() {
         <ArchiveViewer />
       </main>
 
-      <footer className="statusbar">
-        <ProgressBar progress={progress} busy={busy} />
-        {!busy && !progress && <span className="status-ready">{t.ready}</span>}
-      </footer>
+      <StatusBar />
 
       {toast && <div className={`toast ${toast.kind}`}>{toast.msg}</div>}
       <AboutModal />
+      <SettingsModal />
+      <ProgressModal />
       <ErrorModal />
     </div>
   )
@@ -37,7 +39,9 @@ function Shell() {
 export function App() {
   return (
     <StoreProvider>
-      <Shell />
+      <ContextMenuProvider>
+        <Shell />
+      </ContextMenuProvider>
     </StoreProvider>
   )
 }

@@ -14,6 +14,19 @@ export function detectFormat(fileName: string): ArchiveFormat | null {
   return null
 }
 
+/**
+ * 생성은 불가하지만 7za 가 내용 기반으로 열기/해제할 수 있는 확장자들.
+ * (디스크 이미지·기타 컨테이너). 탐색기에서 아카이브로 인식시키는 용도.
+ */
+export const EXTRACT_ONLY_EXTS = ['.dmg', '.appimage', '.img', '.iso', '.xz', '.lzma', '.cab', '.wim', '.z']
+
+/** 파일명이 압축/아카이브(열기 가능)인지 여부. 생성 가능 포맷 + 해제 전용 포맷 포함. */
+export function isArchiveName(fileName: string): boolean {
+  if (detectFormat(fileName) !== null) return true
+  const lower = fileName.toLowerCase()
+  return EXTRACT_ONLY_EXTS.some((ext) => lower.endsWith(ext))
+}
+
 /** 포맷 → 기본 확장자. */
 export function extensionFor(format: ArchiveFormat): string {
   switch (format) {

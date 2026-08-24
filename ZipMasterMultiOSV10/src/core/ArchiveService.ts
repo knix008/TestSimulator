@@ -25,6 +25,9 @@ export interface ArchiveService {
    */
   pickInputs(kind: 'files' | 'folder'): Promise<InputSource[]>
 
+  /** 디렉터리 하나를 선택한다(설정의 기본 폴더 지정 등). 미지원/취소 시 null. */
+  pickDirectory(): Promise<string | null>
+
   /** 해제할 아카이브 파일을 선택한다. 웹은 File 을 InputSource.file 에 담는다. */
   pickArchive(): Promise<InputSource | null>
 

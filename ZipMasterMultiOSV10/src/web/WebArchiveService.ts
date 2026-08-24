@@ -54,6 +54,11 @@ export class WebArchiveService implements ArchiveService {
     return pickFilesViaInput(kind === 'folder', true)
   }
 
+  // 브라우저는 임의 경로를 노출하지 않으므로 기본 폴더 지정을 지원하지 않는다.
+  async pickDirectory(): Promise<string | null> {
+    return null
+  }
+
   async pickArchive(): Promise<InputSource | null> {
     const files = await pickArchiveViaInput()
     if (files.length === 0) return null

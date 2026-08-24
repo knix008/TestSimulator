@@ -13,6 +13,7 @@ export interface Dict {
   tbTheme: string
   tbLang: string
   tbInfo: string
+  tbSettings: string
   tipCompressFiles: string
   tipCompressFolder: string
   tipExtract: string
@@ -20,6 +21,7 @@ export interface Dict {
   tipTheme: string
   tipLang: string
   tipInfo: string
+  tipSettings: string
 
   // 파일 탐색(왼쪽) / 아카이브 보기(오른쪽)
   browserTitle: string
@@ -52,11 +54,14 @@ export interface Dict {
   overwrite: string
   selectedArchive: (name: string) => string
   contents: (n: number) => string
+  extractSelected: (n: number) => string
+  extractSelectHint: string
 
   // 상태
   ready: string
   compressing: string
   extracting: string
+  opening: string
   merging: string
   splitting: string
   doneCompress: string
@@ -70,6 +75,40 @@ export interface Dict {
   createNotSupported: (fmt: string) => string
   webCreateNote: string
   accessWarning: (name: string) => string
+
+  // 설정
+  settingsTitle: string
+  settingsAppearance: string
+  settingsTheme: string
+  settingsLanguage: string
+  settingsThemeDark: string
+  settingsThemeLight: string
+  settingsBrowsing: string
+  settingsDefaultDir: string
+  settingsDefaultDirHint: string
+  settingsRememberLast: string
+  settingsNotSet: string
+  settingsBrowse: string
+  settingsClear: string
+  settingsUseCurrent: string
+  settingsClose: string
+
+  // 상태바
+  statusPath: (path: string) => string
+  statusItems: (n: number) => string
+  statusSelected: (name: string) => string
+  statusDrives: string
+
+  // 컨텍스트 메뉴
+  ctxOpen: string
+  ctxViewContents: string
+  ctxExtract: string
+  ctxSetDefault: string
+  ctxUp: string
+  ctxRefresh: string
+  ctxSelectAll: string
+  ctxClearSelection: string
+  ctxExtractAll: string
 }
 
 const ko: Dict = {
@@ -83,6 +122,7 @@ const ko: Dict = {
   tbTheme: '테마',
   tbLang: 'EN',
   tbInfo: '정보',
+  tbSettings: '설정',
   tipCompressFiles: '파일을 선택해 압축합니다',
   tipCompressFolder: '폴더를 선택해 압축합니다',
   tipExtract: '아카이브를 선택해 압축을 풉니다',
@@ -90,6 +130,7 @@ const ko: Dict = {
   tipTheme: '밝은/어두운 테마 전환',
   tipLang: '언어 전환 (한국어 ↔ English)',
   tipInfo: '프로그램 정보',
+  tipSettings: '프로그램 설정',
 
   browserTitle: '파일 탐색',
   browserUp: '상위 폴더',
@@ -120,10 +161,13 @@ const ko: Dict = {
   overwrite: '기존 파일 덮어쓰기',
   selectedArchive: (name) => `선택된 아카이브: ${name}`,
   contents: (n) => `내용: ${n}개 항목`,
+  extractSelected: (n) => `선택 해제 (${n}개)`,
+  extractSelectHint: 'Ctrl+클릭 또는 Shift+클릭으로 해제할 파일을 여러 개 선택할 수 있습니다.',
 
   ready: '준비',
   compressing: '압축 중…',
   extracting: '압축 해제 중…',
+  opening: '아카이브 여는 중…',
   merging: '분할 조각 병합 중…',
   splitting: '분할 압축 중…',
   doneCompress: '압축 완료',
@@ -135,7 +179,38 @@ const ko: Dict = {
 
   createNotSupported: (fmt) => `현재 플랫폼에서는 ${fmt} 생성을 지원하지 않습니다.`,
   webCreateNote: '웹에서는 7z·bz2 생성이 지원되지 않습니다. 데스크톱 앱을 사용하세요.',
-  accessWarning: (name) => `파일에 접근할 수 없습니다: ${name}`
+  accessWarning: (name) => `파일에 접근할 수 없습니다: ${name}`,
+
+  settingsTitle: '설정',
+  settingsAppearance: '화면',
+  settingsTheme: '테마',
+  settingsLanguage: '언어',
+  settingsThemeDark: '어두운 테마',
+  settingsThemeLight: '밝은 테마',
+  settingsBrowsing: '파일 탐색',
+  settingsDefaultDir: '기본 폴더',
+  settingsDefaultDirHint: '기억된 폴더가 없을 때 시작 시 이 폴더를 엽니다.',
+  settingsRememberLast: '마지막으로 열었던 폴더 기억하기',
+  settingsNotSet: '(설정 안 됨)',
+  settingsBrowse: '찾아보기…',
+  settingsClear: '지우기',
+  settingsUseCurrent: '현재 폴더 사용',
+  settingsClose: '닫기',
+
+  statusPath: (path) => `📁 ${path}`,
+  statusItems: (n) => `${n}개 항목`,
+  statusSelected: (name) => `🗜️ ${name}`,
+  statusDrives: '💽 드라이브 목록',
+
+  ctxOpen: '열기',
+  ctxViewContents: '내용 보기',
+  ctxExtract: '압축 해제',
+  ctxSetDefault: '기본 폴더로 설정',
+  ctxUp: '상위 폴더로',
+  ctxRefresh: '새로 고침',
+  ctxSelectAll: '모두 선택',
+  ctxClearSelection: '선택 해제',
+  ctxExtractAll: '전체 해제'
 }
 
 const en: Dict = {
@@ -149,6 +224,7 @@ const en: Dict = {
   tbTheme: 'Theme',
   tbLang: '한글',
   tbInfo: 'About',
+  tbSettings: 'Settings',
   tipCompressFiles: 'Select files to compress',
   tipCompressFolder: 'Select a folder to compress',
   tipExtract: 'Select an archive to extract',
@@ -156,6 +232,7 @@ const en: Dict = {
   tipTheme: 'Toggle light/dark theme',
   tipLang: 'Switch language (한국어 ↔ English)',
   tipInfo: 'About this program',
+  tipSettings: 'Program settings',
 
   browserTitle: 'Files',
   browserUp: 'Up',
@@ -186,10 +263,13 @@ const en: Dict = {
   overwrite: 'Overwrite existing files',
   selectedArchive: (name) => `Selected archive: ${name}`,
   contents: (n) => `Contents: ${n} items`,
+  extractSelected: (n) => `Extract selected (${n})`,
+  extractSelectHint: 'Use Ctrl+Click or Shift+Click to select multiple files to extract.',
 
   ready: 'Ready',
   compressing: 'Compressing…',
   extracting: 'Extracting…',
+  opening: 'Opening archive…',
   merging: 'Merging split parts…',
   splitting: 'Splitting…',
   doneCompress: 'Compression complete',
@@ -201,7 +281,38 @@ const en: Dict = {
 
   createNotSupported: (fmt) => `Creating ${fmt} is not supported on this platform.`,
   webCreateNote: 'Creating 7z/bz2 is not supported on the web. Use the desktop app.',
-  accessWarning: (name) => `Cannot access file: ${name}`
+  accessWarning: (name) => `Cannot access file: ${name}`,
+
+  settingsTitle: 'Settings',
+  settingsAppearance: 'Appearance',
+  settingsTheme: 'Theme',
+  settingsLanguage: 'Language',
+  settingsThemeDark: 'Dark theme',
+  settingsThemeLight: 'Light theme',
+  settingsBrowsing: 'File browsing',
+  settingsDefaultDir: 'Default folder',
+  settingsDefaultDirHint: 'Opens this folder on startup when no folder is remembered.',
+  settingsRememberLast: 'Remember the last opened folder',
+  settingsNotSet: '(not set)',
+  settingsBrowse: 'Browse…',
+  settingsClear: 'Clear',
+  settingsUseCurrent: 'Use current folder',
+  settingsClose: 'Close',
+
+  statusPath: (path) => `📁 ${path}`,
+  statusItems: (n) => `${n} items`,
+  statusSelected: (name) => `🗜️ ${name}`,
+  statusDrives: '💽 Drives',
+
+  ctxOpen: 'Open',
+  ctxViewContents: 'View contents',
+  ctxExtract: 'Extract',
+  ctxSetDefault: 'Set as default folder',
+  ctxUp: 'Go to parent folder',
+  ctxRefresh: 'Refresh',
+  ctxSelectAll: 'Select all',
+  ctxClearSelection: 'Clear selection',
+  ctxExtractAll: 'Extract all'
 }
 
 export const translations: Record<Lang, Dict> = { ko, en }

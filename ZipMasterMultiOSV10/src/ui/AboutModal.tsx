@@ -19,7 +19,7 @@ export function AboutModal() {
         <ul className="modal-list">
           <li>{ko ? '플랫폼: Web · Windows · macOS · Linux' : 'Platforms: Web · Windows · macOS · Linux'}</li>
           <li>{ko ? '포맷: ZIP(분할) · TAR · GZ · BZ2 · 7z · RAR(해제)' : 'Formats: ZIP(split) · TAR · GZ · BZ2 · 7z · RAR(extract)'}</li>
-          <li>{ko ? '제작: Suho Kwon' : 'Author: Suho Kwon'}</li>
+          <li>{ko ? '제작: SHKWON(knix008@naver.com)' : 'Author: SHKWON(knix008@naver.com)'}</li>
           <li>{ko ? '라이선스: MIT' : 'License: MIT'}</li>
         </ul>
         <button className="primary" onClick={() => setAboutOpen(false)}>

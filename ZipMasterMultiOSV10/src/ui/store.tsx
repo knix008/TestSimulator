@@ -47,6 +47,16 @@ interface Store {
   browseUp: () => Promise<void>
   openFsEntry: (entry: FsEntry) => Promise<void>
 
+  // 설정(기본 폴더 · 마지막 폴더 기억)
+  defaultDir: string
+  setDefaultDir: (path: string) => void
+  pickDefaultDir: () => Promise<void>
+  useCurrentAsDefault: () => void
+  rememberLast: boolean
+  setRememberLast: (b: boolean) => void
+  settingsOpen: boolean
+  setSettingsOpen: (b: boolean) => void
+
   toast: Toast | null
   notify: (msg: string, kind: 'info' | 'error') => void
 
@@ -60,7 +70,7 @@ interface Store {
 
   // 액션 (선택 → 실행, 참고 앱 흐름과 동일)
   doCompress: (kind: 'files' | 'folder') => Promise<void>
-  doExtract: () => Promise<void>
+  doExtract: (selection?: string[], archivePath?: string) => Promise<void>
   doPreview: () => Promise<void>
 
   // 창 제어 (데스크톱)
@@ -116,6 +126,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [errorDetail, setErrorDetail] = useState<string | null>(null)
   const [aboutOpen, setAboutOpen] = useState(false)
   const [appVersion, setAppVersion] = useState('1.0.0')
+  const [defaultDir, setDefaultDirState] = useState<string>(() => readLS('zm.defaultDir', ''))
+  const [rememberLast, setRememberLastState] = useState<boolean>(() => readLS<string>('zm.rememberLast', '1') !== '0')
+  const [settingsOpen, setSettingsOpen] = useState(false)
 
   const win = (typeof window !== 'undefined' ? (window as any).zipmaster : undefined) as
     | undefined
@@ -142,6 +155,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     win?.getVersion?.().then((v) => v && setAppVersion(v))
+  }, [])
+
+  const setDefaultDir = useCallback((path: string) => {
+    setDefaultDirState(path)
+    try {
+      localStorage.setItem('zm.defaultDir', path)
+    } catch {}
+  }, [])
+
+  const setRememberLast = useCallback((b: boolean) => {
+    setRememberLastState(b)
+    try {
+      localStorage.setItem('zm.rememberLast', b ? '1' : '0')
+    } catch {}
   }, [])
 
   const notify = useCallback((msg: string, kind: 'info' | 'error') => {
@@ -182,17 +209,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [caps, format, split, splitSizeMb, svc, t, notify, showError]
   )
 
-  const doExtract = useCallback(async () => {
+  const doExtract = useCallback(async (selection?: string[], archivePath?: string) => {
     try {
-      // 왼쪽에서 아카이브를 선택했다면 그것을 우선 사용, 아니면 다이얼로그로 선택
-      const archive =
-        canBrowse && selectedArchivePath
-          ? { path: selectedArchivePath, entryName: selectedArchivePath.split(/[\\/]/).pop() ?? selectedArchivePath }
-          : await svc.pickArchive()
+      // 우선순위: 명시된 경로 > 왼쪽에서 선택한 아카이브 > 파일 선택 다이얼로그
+      const explicit = archivePath ?? (canBrowse ? selectedArchivePath : null)
+      const archive = explicit
+        ? { path: explicit, entryName: explicit.split(/[\\/]/).pop() ?? explicit }
+        : await svc.pickArchive()
       if (!archive) return
       setBusy(true)
       setProgress({ message: t.extracting, kind: 'marquee' })
-      const res = await svc.extract(archive, { overwrite }, setProgress)
+      const res = await svc.extract(archive, { overwrite, selection }, setProgress)
       if (res.ok) {
         if (res.warnings.length > 0) showError(res.warnings.join('\n'))
         notify(t.doneExtract, 'info')
@@ -212,7 +239,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const archive = await svc.pickArchive()
       if (!archive) return
       setBusy(true)
-      setProgress({ message: t.extracting, kind: 'marquee' })
+      setProgress({ message: t.opening, kind: 'marquee' })
       const entries = await svc.listEntries(archive)
       setPreviewArchive(archive.entryName)
       setPreviewEntries(entries)
@@ -231,14 +258,29 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       try {
         const result = await svc.listDir(path)
         setListing(result)
+        // 마지막으로 열었던 폴더를 기억(빈 경로=드라이브 목록도 저장하여 다음 시작 시 복원)
+        if (rememberLast) {
+          try {
+            localStorage.setItem('zm.lastDir', result.path)
+          } catch {}
+        }
       } catch (e) {
         showError(`${t.error}\n\n${errorText(e)}`)
       } finally {
         setBrowseBusy(false)
       }
     },
-    [canBrowse, svc, t, showError]
+    [canBrowse, svc, t, showError, rememberLast]
   )
+
+  const pickDefaultDir = useCallback(async () => {
+    const dir = await svc.pickDirectory()
+    if (dir) setDefaultDir(dir)
+  }, [svc, setDefaultDir])
+
+  const useCurrentAsDefault = useCallback(() => {
+    if (listing?.path) setDefaultDir(listing.path)
+  }, [listing, setDefaultDir])
 
   const browseUp = useCallback(async () => {
     if (listing?.parent !== undefined && listing?.parent !== null) {
@@ -258,7 +300,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         // 오른쪽 패널에 아카이브 내부 표시
         setSelectedArchivePath(entry.path)
         setBrowseBusy(true)
-        setProgress({ message: t.extracting, kind: 'marquee' })
+        setProgress({ message: t.opening, kind: 'marquee' })
         try {
           const entries = await svc.listEntriesByPath(entry.path)
           setPreviewArchive(entry.name)
@@ -274,9 +316,25 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [browseTo, svc, t, showError]
   )
 
-  // 데스크톱 최초 진입 시 드라이브 목록 로드
+  // 데스크톱 최초 진입: 기억된 마지막 폴더 → 기본 폴더 → 드라이브 목록 순으로 시도
   useEffect(() => {
-    if (canBrowse) browseTo('')
+    if (!canBrowse) return
+    const start = (rememberLast ? readLS('zm.lastDir', '') : '') || defaultDir || ''
+    ;(async () => {
+      if (start) {
+        setBrowseBusy(true)
+        try {
+          const result = await svc.listDir(start)
+          setListing(result)
+          return
+        } catch {
+          // 폴더가 사라졌으면 드라이브 목록으로 폴백
+        } finally {
+          setBrowseBusy(false)
+        }
+      }
+      browseTo('')
+    })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canBrowse])
 
@@ -308,6 +366,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     browseTo,
     browseUp,
     openFsEntry,
+    defaultDir,
+    setDefaultDir,
+    pickDefaultDir,
+    useCurrentAsDefault,
+    rememberLast,
+    setRememberLast,
+    settingsOpen,
+    setSettingsOpen,
     toast,
     notify,
     errorDetail,

@@ -62,7 +62,8 @@ body {
 .app {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  height: 100vh; /* 전체 창은 뷰포트에 고정 — 세로 스크롤은 내부 패널에서만 발생 */
+  overflow: hidden;
   min-width: var(--min-app-width);
 }
 
@@ -74,6 +75,7 @@ body {
   background: var(--caption);
   border-bottom: 1px solid var(--border);
   height: 40px;
+  flex-shrink: 0;
   user-select: none;
 }
 
@@ -150,6 +152,7 @@ body {
   padding: 10px 14px;
   background: var(--bg-card);
   border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
 }
 
 .toolbar-group {
@@ -205,6 +208,7 @@ body {
   padding: 10px 14px;
   background: var(--bg);
   border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
 }
 
 .opt-group {
@@ -376,17 +380,102 @@ button.primary:hover {
   cursor: not-allowed;
 }
 
-.browser-path {
-  color: var(--text-dim);
+.browser-path-select {
+  color: var(--text);
   font-size: 12px;
   margin-bottom: 8px;
   padding: 6px 10px;
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 6px;
+  width: 100%;
+  cursor: pointer;
+}
+
+.browser-path-select:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.browser-path-select:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* 하단: 루트→현재 계보 트리 */
+.fs-tree {
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+}
+
+.tree-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-top: 6px;
+  padding-bottom: 6px;
+  padding-right: 12px;
+  cursor: pointer;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+}
+
+.tree-row:hover {
+  background: var(--hover);
+}
+
+.tree-row.current {
+  font-weight: 600;
+}
+
+.tree-row.current .fs-name {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.tree-twist {
+  flex: 0 0 auto;
+  width: 14px;
+  text-align: center;
+  font-size: 10px;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.tree-twist-empty {
+  cursor: default;
+}
+
+.tree-note {
+  padding-top: 5px;
+  padding-bottom: 5px;
+  color: var(--text-dim);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.tree-row.selected {
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+
+.tree-row.archive .fs-name {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.tree-row.selected.archive .fs-name {
+  color: var(--accent-contrast);
+}
+
+.tree-row.selected .fs-size {
+  color: var(--accent-contrast);
 }
 
 .fs-list,
@@ -485,6 +574,7 @@ button.primary:hover {
   border-top: 1px solid var(--border);
   padding: 10px 20px;
   min-height: 44px;
+  flex-shrink: 0; /* 항상 표시 — 패널이 커져도 상태바가 밀려나지 않음 */
   display: flex;
   align-items: center;
   background: var(--caption);
@@ -655,4 +745,227 @@ button.primary:hover {
 
 .modal-actions button:hover {
   border-color: var(--accent);
+}
+
+/* ---- 상태바 레이아웃(좌: 경로/항목수, 우: 진행률/선택 정보) ---- */
+.statusbar {
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.status-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+
+.status-right {
+  display: flex;
+  align-items: center;
+  min-width: 220px;
+  flex: 1 1 40%;
+  justify-content: flex-end;
+}
+
+.status-item {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 13px;
+}
+
+.status-dim {
+  color: var(--text-dim);
+}
+
+/* ---- 아카이브 내용: 선택(다중) 행 ---- */
+.entries-list li.entry-row {
+  cursor: pointer;
+  user-select: none;
+}
+
+.entries-list li.entry-row:hover {
+  background: var(--hover);
+}
+
+.entries-list li.entry-row.selected {
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+
+.entries-list li.entry-row.selected .fs-size {
+  color: var(--accent-contrast);
+}
+
+.select-hint {
+  font-weight: 400;
+}
+
+/* ---- 설정 모달 ---- */
+.settings-modal {
+  width: min(520px, 92%);
+  text-align: left;
+}
+
+.settings-section {
+  margin: 8px 0 18px;
+}
+
+.settings-section h3 {
+  margin: 0 0 10px;
+  font-size: 14px;
+  color: var(--text-dim);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 6px;
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 8px 0;
+}
+
+.settings-row button {
+  background: var(--bg-input);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 7px 14px;
+  cursor: pointer;
+}
+
+.settings-row button:hover {
+  border-color: var(--accent);
+}
+
+.settings-label {
+  font-size: 14px;
+}
+
+.settings-field {
+  margin: 8px 0;
+}
+
+.settings-path {
+  margin: 6px 0;
+  padding: 8px 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 12px;
+  word-break: break-all;
+  color: var(--text-dim);
+}
+
+.settings-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.settings-actions button {
+  background: var(--bg-input);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 7px 14px;
+  cursor: pointer;
+}
+
+.settings-actions button:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.settings-actions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ---- 진행률 모달(팝업) ---- */
+.progress-overlay {
+  z-index: 120;
+}
+
+.progress-modal {
+  width: min(460px, 92%);
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  text-align: left;
+}
+
+.progress-modal-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.spinner {
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ---- 컨텍스트 메뉴(우클릭) ---- */
+.context-menu {
+  position: fixed;
+  z-index: 200;
+  min-width: 180px;
+  padding: 4px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.4);
+}
+
+.context-menu-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  color: var(--text);
+  border: none;
+  border-radius: 5px;
+  padding: 8px 12px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.context-menu-item:hover:not(:disabled) {
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+
+.context-menu-item:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.context-menu-item.danger {
+  color: var(--error);
+}
+
+.context-menu-item.danger:hover:not(:disabled) {
+  background: var(--error);
+  color: #fff;
+}
+
+.context-menu-sep {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--border);
 }
