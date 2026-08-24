@@ -1,4 +1,4 @@
-import { useEffect, useState, type JSX, type DragEvent, type KeyboardEvent, type MouseEvent } from 'react'
+import { useEffect, useRef, useState, type JSX, type DragEvent, type KeyboardEvent, type MouseEvent } from 'react'
 import { formatBytes, useStore } from './store'
 import { useArchiveService } from './ServiceContext'
 import { useContextMenu, type MenuItem } from './ContextMenu'
@@ -58,6 +58,9 @@ export function FileBrowser() {
   const [selectedPaths, setSelectedPaths] = useState<Set<string>>(new Set())
   const [anchor, setAnchor] = useState<string | null>(null)
   const [dragOver, setDragOver] = useState<string | null>(null)
+  // 시작 시 복원된 현재 폴더를 트리 가운데로 스크롤(최초 1회).
+  const currentRowRef = useRef<HTMLDivElement | null>(null)
+  const didCenter = useRef(false)
 
   const markLoading = (path: string, on: boolean) =>
     setLoading((s) => {
@@ -103,6 +106,16 @@ export function FileBrowser() {
       cancelled = true
     }
   }, [canBrowse, listing?.path, svc])
+
+  // 트리가 현재 폴더까지 펼쳐져 그 행이 렌더된 뒤, 최초 1회만 가운데로 스크롤.
+  useEffect(() => {
+    if (didCenter.current || !listing?.path) return
+    const el = currentRowRef.current
+    if (el) {
+      el.scrollIntoView({ block: 'center' })
+      didCenter.current = true
+    }
+  }, [listing?.path, childrenCache, expanded])
 
   const toggle = async (path: string) => {
     if (expanded.has(path)) {
@@ -307,27 +320,27 @@ export function FileBrowser() {
     const targets = targetPaths(e)
     const items: MenuItem[] = []
     if (e.isDirectory) {
-      items.push({ label: t.ctxOpen, onClick: () => onEntryActivate(e) })
-      items.push({ label: t.ctxCompress, onClick: () => compressEntry(e) })
-      items.push({ label: t.ctxSetDefault, onClick: () => setDefaultDir(e.path) })
+      items.push({ label: t.ctxOpen, icon: '📂', onClick: () => onEntryActivate(e) })
+      items.push({ label: t.ctxCompress, icon: '🗜️', onClick: () => compressEntry(e) })
+      items.push({ label: t.ctxSetDefault, icon: '📌', onClick: () => setDefaultDir(e.path) })
     } else if (e.isArchive) {
-      items.push({ label: t.ctxViewContents, onClick: () => openFsEntry(e) })
-      items.push({ label: t.ctxExtract, onClick: () => doExtract(undefined, e.path) })
-      items.push({ label: t.ctxCompress, onClick: () => compressEntry(e) })
+      items.push({ label: t.ctxViewContents, icon: '👁️', onClick: () => openFsEntry(e) })
+      items.push({ label: t.ctxExtract, icon: '📤', onClick: () => doExtract(undefined, e.path) })
+      items.push({ label: t.ctxCompress, icon: '🗜️', onClick: () => compressEntry(e) })
     } else {
       // 일반 파일: 압축만 가능
-      items.push({ label: t.ctxCompress, onClick: () => compressEntry(e) })
+      items.push({ label: t.ctxCompress, icon: '🗜️', onClick: () => compressEntry(e) })
     }
     items.push({ separator: true })
-    items.push({ label: t.ctxCopy, onClick: () => setClipboard({ paths: targets, mode: 'copy' }) })
-    items.push({ label: t.ctxCut, onClick: () => setClipboard({ paths: targets, mode: 'cut' }) })
+    items.push({ label: t.ctxCopy, icon: '📄', onClick: () => setClipboard({ paths: targets, mode: 'copy' }) })
+    items.push({ label: t.ctxCut, icon: '✂️', onClick: () => setClipboard({ paths: targets, mode: 'cut' }) })
     if (e.isDirectory) {
-      items.push({ label: t.ctxPaste, disabled: !clipboard, onClick: () => pasteInto(e.path) })
+      items.push({ label: t.ctxPaste, icon: '📋', disabled: !clipboard, onClick: () => pasteInto(e.path) })
     }
-    items.push({ label: t.ctxDelete, danger: true, onClick: () => deletePaths(targets) })
+    items.push({ label: t.ctxDelete, icon: '🗑️', danger: true, onClick: () => deletePaths(targets) })
     items.push({ separator: true })
-    items.push({ label: t.ctxUp, onClick: () => browseUp(), disabled: !listing?.path })
-    items.push({ label: t.ctxRefresh, onClick: () => refresh(e.isDirectory ? e.path : listing?.path ?? ROOT) })
+    items.push({ label: t.ctxUp, icon: '⬆️', onClick: () => browseUp(), disabled: !listing?.path })
+    items.push({ label: t.ctxRefresh, icon: '🔄', onClick: () => refresh(e.isDirectory ? e.path : listing?.path ?? ROOT) })
     return items
   }
 
@@ -370,6 +383,7 @@ export function FileBrowser() {
       rows.push(
         <div
           key={e.path}
+          ref={isCurrent ? currentRowRef : undefined}
           className={
             'tree-row' +
             (selectedPaths.has(e.path) ? ' selected' : '') +
@@ -482,10 +496,10 @@ export function FileBrowser() {
         }}
         onContextMenu={(ev) =>
           openMenu(ev, [
-            { label: t.ctxPaste, disabled: !clipboard || atDrives, onClick: () => pasteInto(listing!.path) },
+            { label: t.ctxPaste, icon: '📋', disabled: !clipboard || atDrives, onClick: () => pasteInto(listing!.path) },
             { separator: true },
-            { label: t.ctxUp, onClick: () => browseUp(), disabled: atDrives },
-            { label: t.ctxRefresh, onClick: () => refresh(listing?.path ?? ROOT) }
+            { label: t.ctxUp, icon: '⬆️', onClick: () => browseUp(), disabled: atDrives },
+            { label: t.ctxRefresh, icon: '🔄', onClick: () => refresh(listing?.path ?? ROOT) }
           ])
         }
       >

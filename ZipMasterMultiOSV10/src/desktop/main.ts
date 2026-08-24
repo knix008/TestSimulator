@@ -103,9 +103,10 @@ app.whenReady().then(() => {
     }
   )
 
-  ipcMain.handle('dialog:pickDir', async (): Promise<string | null> => {
+  ipcMain.handle('dialog:pickDir', async (_e, defaultPath?: string): Promise<string | null> => {
     const result = await dialog.showOpenDialog({
       title: '압축을 풀 폴더 선택',
+      defaultPath: defaultPath || undefined,
       properties: ['openDirectory', 'createDirectory']
     })
     return result.canceled || result.filePaths.length === 0 ? null : result.filePaths[0]

@@ -109,8 +109,9 @@ export class WebArchiveService implements ArchiveService {
       data = opts.format === 'gz' ? await this.gzip(tarData) : tarData
     }
 
-    // 다운로드 기본 이름을 선택된 첫 파일 이름에서 유도
-    const baseName = archiveBaseName(files[0].entryName) + extensionFor(opts.format)
+    // 사용자가 지정한 이름을 우선 사용하고, 없으면 선택된 첫 파일 이름에서 유도
+    const stem = opts.baseName?.trim() || archiveBaseName(files[0].entryName)
+    const baseName = stem + extensionFor(opts.format)
 
     if (!opts.split) {
       downloadBlob(new Blob([data as BlobPart]), baseName)

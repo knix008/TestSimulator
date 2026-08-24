@@ -9,6 +9,15 @@ export function ArchiveViewer() {
   const { openMenu } = useContextMenu()
   const has = previewArchive && previewEntries
 
+  // 패널 제목: 아카이브 내용 / 디렉토리 정보 / 파일 정보(빈 상태는 기본 제목).
+  const panelTitle = has
+    ? t.viewerTitle
+    : fileInfo
+      ? fileInfo.isDirectory
+        ? t.dirInfoTitle
+        : t.fileInfoTitle
+      : t.viewerTitle
+
   // 표시 상한(성능) — 선택/해제 모두 이 범위 내에서 동작.
   const shown = previewEntries ? previewEntries.slice(0, 500) : []
 
@@ -67,35 +76,41 @@ export function ArchiveViewer() {
     const items: MenuItem[] = [
       {
         label: t.extractSelected(effective.size),
+        icon: '📤',
         onClick: () => {
           const ns = namesOf(effective)
           if (ns.length > 0) doExtract(ns)
         }
       },
-      { label: t.ctxSelectAll, onClick: selectAll },
-      { label: t.ctxClearSelection, disabled: selected.size === 0, onClick: () => setSelected(new Set()) },
+      { label: t.ctxSelectAll, icon: '☑️', onClick: selectAll },
       { separator: true },
-      { label: t.ctxExtractAll, onClick: () => doExtract() }
+      { label: t.ctxExtractAll, icon: '📦', onClick: () => doExtract() }
     ]
     openMenu(ev, items)
   }
 
   return (
     <section className="card viewer">
-      <h2>{t.viewerTitle}</h2>
+      <h2>{panelTitle}</h2>
 
       {!has && fileInfo && (
         <div className="file-info">
-          <div className="selection-head">{t.fileInfoTitle}</div>
           <dl className="file-info-list">
             <dt>{t.fileInfoName}</dt>
             <dd>{fileInfo.name}</dd>
             <dt>{t.fileInfoType}</dt>
-            <dd>{fileInfo.isArchive ? t.fileTypeArchive : t.fileTypeFile}</dd>
-            <dt>{t.fileInfoSize}</dt>
             <dd>
-              {formatBytes(fileInfo.size)} <span className="status-dim">({fileInfo.size.toLocaleString()} B)</span>
+              {fileInfo.isDirectory ? t.fileTypeDir : fileInfo.isArchive ? t.fileTypeArchive : t.fileTypeFile}
             </dd>
+            {!fileInfo.isDirectory && (
+              <>
+                <dt>{t.fileInfoSize}</dt>
+                <dd>
+                  {formatBytes(fileInfo.size)}{' '}
+                  <span className="status-dim">({fileInfo.size.toLocaleString()} B)</span>
+                </dd>
+              </>
+            )}
             {fileInfo.modified != null && (
               <>
                 <dt>{t.fileInfoModified}</dt>
@@ -149,10 +164,9 @@ export function ArchiveViewer() {
             className="entries-list"
             onContextMenu={(ev) =>
               openMenu(ev, [
-                { label: t.ctxSelectAll, onClick: selectAll },
-                { label: t.ctxClearSelection, disabled: selected.size === 0, onClick: () => setSelected(new Set()) },
+                { label: t.ctxSelectAll, icon: '☑️', onClick: selectAll },
                 { separator: true },
-                { label: t.ctxExtractAll, onClick: () => doExtract() }
+                { label: t.ctxExtractAll, icon: '📦', onClick: () => doExtract() }
               ])
             }
           >

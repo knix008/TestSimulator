@@ -247,7 +247,17 @@ export async function listDir(dirPath: string): Promise<DirListing> {
   }
 
   const entries: FsEntry[] = []
-  const dirents = await fsp.readdir(dirPath, { withFileTypes: true })
+  let dirents
+  try {
+    dirents = await fsp.readdir(dirPath, { withFileTypes: true })
+  } catch (e) {
+    const code = (e as NodeJS.ErrnoException)?.code
+    // 접근 권한이 없거나 사라진 폴더는 렌더러가 알아볼 수 있는 코드로 정규화해서 던진다.
+    if (code === 'EPERM' || code === 'EACCES' || code === 'ENOENT' || code === 'ENOTDIR') {
+      throw new Error(`${code}: ${dirPath}`)
+    }
+    throw e
+  }
   for (const d of dirents) {
     const full = path.join(dirPath, d.name)
     let isDir = d.isDirectory()

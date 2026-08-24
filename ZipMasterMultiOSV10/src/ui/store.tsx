@@ -1,14 +1,23 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
-import type { ArchiveEntry, ArchiveFormat, DirListing, FormatCaps, FsEntry, InputSource, Progress } from '@core/types'
+import type {
+  ArchiveEntry,
+  ArchiveFormat,
+  CompressOptions,
+  DirListing,
+  FormatCaps,
+  FsEntry,
+  InputSource,
+  Progress
+} from '@core/types'
 import { getDict, detectInitialLang, type Dict, type Lang } from '@core/i18n'
-import { FORMAT_LABELS, formatBytes } from '@core/format'
+import { formatBytes } from '@core/format'
 import { useArchiveService } from './ServiceContext'
 
 export type Theme = 'dark' | 'light'
 
 interface Toast {
   msg: string
-  kind: 'info' | 'error'
+  kind: 'info' | 'warn' | 'error'
 }
 
 interface Store {
@@ -54,13 +63,16 @@ interface Store {
   setDefaultDir: (path: string) => void
   pickDefaultDir: () => Promise<void>
   useCurrentAsDefault: () => void
+  /** 직전에 사용한 압축 해제 폴더(다음 해제 시 기본값). */
+  extractDir: string
+  setExtractDir: (path: string) => void
   rememberLast: boolean
   setRememberLast: (b: boolean) => void
   settingsOpen: boolean
   setSettingsOpen: (b: boolean) => void
 
   toast: Toast | null
-  notify: (msg: string, kind: 'info' | 'error') => void
+  notify: (msg: string, kind: 'info' | 'warn' | 'error') => void
 
   // 심각한 오류: 상세 내용을 팝업으로 표시 + 복사 가능
   errorDetail: string | null
@@ -75,6 +87,10 @@ interface Store {
   compressEntry: (entry: FsEntry) => Promise<void>
   doExtract: (selection?: string[], archivePath?: string) => Promise<void>
   doPreview: () => Promise<void>
+  // 압축 옵션 팝업(대상이 정해지면 열림). 확인 시 지정 옵션으로 압축.
+  compressReq: InputSource[] | null
+  confirmCompress: (opts: CompressOptions) => Promise<void>
+  cancelCompress: () => void
 
   // 창 제어 (데스크톱)
   minimize: () => void
@@ -96,6 +112,15 @@ function errorText(e: unknown): string {
   return String(e)
 }
 
+/** 접근 불가/없음 폴더 오류를 친절한 지역화 메시지로 매핑(없으면 null). */
+function fsErrorMessage(e: unknown, t: Dict): string | null {
+  const msg = e instanceof Error ? e.message : String(e)
+  const m = msg.match(/(EPERM|EACCES|ENOENT|ENOTDIR):\s*(.*)$/)
+  if (!m) return null
+  const target = m[2]?.trim()
+  return m[1] === 'ENOENT' ? t.dirNotFound(target) : t.accessDenied(target)
+}
+
 function readLS<T extends string>(key: string, fallback: T): T {
   try {
     return (localStorage.getItem(key) as T) || fallback
@@ -113,10 +138,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<Theme>(() => readLS<Theme>('zm.theme', 'dark'))
   const t = useMemo(() => getDict(lang), [lang])
 
-  const [format, setFormat] = useState<ArchiveFormat>('zip')
-  const [split, setSplit] = useState(false)
-  const [splitSizeMb, setSplitSizeMb] = useState(100) // 참고 앱 기본값
+  // 압축 옵션(마지막 선택을 기억해 다음 압축 팝업의 기본값으로 사용).
+  const [format, setFormatState] = useState<ArchiveFormat>(() => readLS('zm.format', 'zip') as ArchiveFormat)
+  const [split, setSplitState] = useState<boolean>(() => readLS<string>('zm.split', '0') === '1')
+  const [splitSizeMb, setSplitSizeMbState] = useState<number>(() => {
+    const n = Number(readLS<string>('zm.splitSizeMb', '100'))
+    return n >= 1 ? n : 100
+  })
   const [overwrite, setOverwrite] = useState(true)
+  // 압축 옵션 팝업이 대상으로 삼는 입력들(null 이면 팝업 닫힘).
+  const [compressReq, setCompressReq] = useState<InputSource[] | null>(null)
 
   const [busy, setBusy] = useState(false)
   const [progress, setProgress] = useState<Progress | null>(null)
@@ -131,6 +162,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [aboutOpen, setAboutOpen] = useState(false)
   const [appVersion, setAppVersion] = useState('1.0.0')
   const [defaultDir, setDefaultDirState] = useState<string>(() => readLS('zm.defaultDir', ''))
+  const [extractDir, setExtractDirState] = useState<string>(() => readLS('zm.extractDir', ''))
   const [rememberLast, setRememberLastState] = useState<boolean>(() => readLS<string>('zm.rememberLast', '1') !== '0')
   const [settingsOpen, setSettingsOpen] = useState(false)
 
@@ -168,6 +200,34 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     } catch {}
   }, [])
 
+  const setExtractDir = useCallback((path: string) => {
+    setExtractDirState(path)
+    try {
+      localStorage.setItem('zm.extractDir', path)
+    } catch {}
+  }, [])
+
+  const setFormat = useCallback((f: ArchiveFormat) => {
+    setFormatState(f)
+    try {
+      localStorage.setItem('zm.format', f)
+    } catch {}
+  }, [])
+
+  const setSplit = useCallback((b: boolean) => {
+    setSplitState(b)
+    try {
+      localStorage.setItem('zm.split', b ? '1' : '0')
+    } catch {}
+  }, [])
+
+  const setSplitSizeMb = useCallback((n: number) => {
+    setSplitSizeMbState(n)
+    try {
+      localStorage.setItem('zm.splitSizeMb', String(n))
+    } catch {}
+  }, [])
+
   const setRememberLast = useCallback((b: boolean) => {
     setRememberLastState(b)
     try {
@@ -175,7 +235,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     } catch {}
   }, [])
 
-  const notify = useCallback((msg: string, kind: 'info' | 'error') => {
+  const notify = useCallback((msg: string, kind: 'info' | 'warn' | 'error') => {
     setToast({ msg, kind })
     window.clearTimeout((notify as any)._t)
     ;(notify as any)._t = window.setTimeout(() => setToast(null), 5000)
@@ -186,14 +246,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const isCancel = (msg?: string) => msg === '취소되었습니다.' || msg === 'Cancelled.'
 
-  // 공용 압축 실행: 이미 확보된 입력 소스들을 압축(출력 경로/파일 다이얼로그는 서비스가 처리).
+  // 공용 압축 실행: 확보된 입력 소스들을 지정 옵션으로 압축(출력 경로/파일 다이얼로그는 서비스가 처리).
   const runCompress = useCallback(
-    async (inputs: InputSource[]) => {
+    async (inputs: InputSource[], opts: CompressOptions) => {
       if (inputs.length === 0) return
       setBusy(true)
       setProgress({ message: t.compressing, kind: 'marquee' })
       try {
-        const res = await svc.compress(inputs, { format, split, splitSizeMb }, setProgress)
+        const res = await svc.compress(inputs, opts, setProgress)
         if (res.ok) {
           notify(res.partCount ? t.doneCompressSplit(res.partCount) : t.doneCompress, 'info')
         } else if (!isCancel(res.error)) {
@@ -206,32 +266,38 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setProgress(null)
       }
     },
-    [format, split, splitSizeMb, svc, t, notify, showError]
+    [svc, t, notify, showError]
   )
 
+  // 툴바 압축: 대상 선택 후 압축 옵션 팝업을 연다(실제 압축은 confirmCompress).
   const doCompress = useCallback(
     async (kind: 'files' | 'folder') => {
-      if (!caps.create[format]) {
-        notify(t.createNotSupported(FORMAT_LABELS[format]), 'error')
-        return
-      }
       const inputs = await svc.pickInputs(kind)
-      await runCompress(inputs)
+      if (inputs.length > 0) setCompressReq(inputs)
     },
-    [caps, format, svc, runCompress, notify, t]
+    [svc]
   )
 
-  // 탐색기에서 선택한 파일/폴더 하나를 바로 압축(우클릭 메뉴용).
-  const compressEntry = useCallback(
-    async (entry: FsEntry) => {
-      if (!caps.create[format]) {
-        notify(t.createNotSupported(FORMAT_LABELS[format]), 'error')
-        return
-      }
-      await runCompress([{ path: entry.path, entryName: entry.name, isDirectory: entry.isDirectory }])
+  // 탐색기에서 선택한 파일/폴더 하나를 압축(우클릭 메뉴용) — 옵션 팝업을 연다.
+  const compressEntry = useCallback(async (entry: FsEntry) => {
+    setCompressReq([{ path: entry.path, entryName: entry.name, isDirectory: entry.isDirectory }])
+  }, [])
+
+  // 압축 옵션 팝업 확인: 선택 옵션을 기억한 뒤 압축 실행.
+  const confirmCompress = useCallback(
+    async (opts: CompressOptions) => {
+      const inputs = compressReq
+      setCompressReq(null)
+      if (!inputs || inputs.length === 0) return
+      setFormat(opts.format)
+      setSplit(opts.split)
+      setSplitSizeMb(opts.splitSizeMb)
+      await runCompress(inputs, opts)
     },
-    [caps, format, runCompress, notify, t]
+    [compressReq, runCompress, setFormat, setSplit, setSplitSizeMb]
   )
+
+  const cancelCompress = useCallback(() => setCompressReq(null), [])
 
   const doExtract = useCallback(async (selection?: string[], archivePath?: string) => {
     try {
@@ -243,8 +309,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (!archive) return
       setBusy(true)
       setProgress({ message: t.extracting, kind: 'marquee' })
-      const res = await svc.extract(archive, { overwrite, selection }, setProgress)
+      const res = await svc.extract(archive, { overwrite, selection, defaultOutDir: extractDir }, setProgress)
       if (res.ok) {
+        // 실제로 사용한 해제 폴더를 다음 해제의 기본값으로 기억(데스크톱).
+        if (canBrowse && res.outputs[0]) setExtractDir(res.outputs[0])
         if (res.warnings.length > 0) showError(res.warnings.join('\n'))
         notify(t.doneExtract, 'info')
       } else if (!isCancel(res.error)) {
@@ -256,7 +324,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setBusy(false)
       setProgress(null)
     }
-  }, [svc, overwrite, t, notify, showError, canBrowse, selectedArchivePath])
+  }, [svc, overwrite, t, notify, showError, canBrowse, selectedArchivePath, extractDir, setExtractDir])
 
   const doPreview = useCallback(async () => {
     try {
@@ -289,12 +357,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           } catch {}
         }
       } catch (e) {
-        showError(`${t.error}\n\n${errorText(e)}`)
+        const friendly = fsErrorMessage(e, t)
+        // 접근 불가/없음은 정상적으로 발생할 수 있으므로 오류 모달 대신 가벼운 경고 토스트로 표시.
+        if (friendly) notify(friendly, 'warn')
+        else showError(`${t.error}\n\n${errorText(e)}`)
       } finally {
         setBrowseBusy(false)
       }
     },
-    [canBrowse, svc, t, showError, rememberLast]
+    [canBrowse, svc, t, showError, notify, rememberLast]
   )
 
   const pickDefaultDir = useCallback(async () => {
@@ -317,6 +388,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const openFsEntry = useCallback(
     async (entry: FsEntry) => {
       if (entry.isDirectory) {
+        // 오른쪽 패널에 디렉토리 정보를 표시하면서 해당 폴더로 이동.
+        setSelectedArchivePath(null)
+        setPreviewArchive(null)
+        setPreviewEntries(null)
+        setFileInfo(entry)
         await browseTo(entry.path)
         return
       }
@@ -402,6 +478,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setDefaultDir,
     pickDefaultDir,
     useCurrentAsDefault,
+    extractDir,
+    setExtractDir,
     rememberLast,
     setRememberLast,
     settingsOpen,
@@ -417,6 +495,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     compressEntry,
     doExtract,
     doPreview,
+    compressReq,
+    confirmCompress,
+    cancelCompress,
     minimize: () => win?.minimizeWindow?.(),
     maximizeToggle: () => win?.maximizeWindow?.(),
     close: () => win?.closeWindow?.()

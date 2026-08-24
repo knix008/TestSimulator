@@ -13,6 +13,8 @@ export function SettingsModal() {
     setDefaultDir,
     pickDefaultDir,
     useCurrentAsDefault,
+    extractDir,
+    setExtractDir,
     rememberLast,
     setRememberLast,
     settingsOpen,
@@ -68,6 +70,18 @@ export function SettingsModal() {
                 </button>
               </div>
               <p className="hint">{t.settingsDefaultDirHint}</p>
+            </div>
+            <div className="settings-field">
+              <span className="settings-label">{t.settingsExtractDir}</span>
+              <div className="settings-path" title={extractDir || undefined}>
+                {extractDir || t.settingsNotSet}
+              </div>
+              <div className="settings-actions">
+                <button onClick={() => setExtractDir('')} disabled={!extractDir}>
+                  {t.settingsClear}
+                </button>
+              </div>
+              <p className="hint">{t.settingsExtractDirHint}</p>
             </div>
           </div>
         )}

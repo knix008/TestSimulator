@@ -17,7 +17,8 @@ const api = {
   pickArchive: (): Promise<InputSource | null> => ipcRenderer.invoke('dialog:pickArchive'),
   pickSavePath: (format: string, defaultName?: string): Promise<string | null> =>
     ipcRenderer.invoke('dialog:pickSave', { format, defaultName }),
-  pickOutputDir: (): Promise<string | null> => ipcRenderer.invoke('dialog:pickDir'),
+  pickOutputDir: (defaultPath?: string): Promise<string | null> =>
+    ipcRenderer.invoke('dialog:pickDir', defaultPath),
 
   compress: (
     inputs: InputSource[],

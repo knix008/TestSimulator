@@ -50,8 +50,9 @@ export class ElectronArchiveService implements ArchiveService {
     opts: CompressOptions,
     onProgress: ProgressCallback
   ): Promise<OperationResult> {
-    // 기본 저장 이름은 선택된 첫 파일/폴더 이름에서 유도
-    const defaultName = inputs.length > 0 ? archiveBaseName(inputs[0].entryName) : undefined
+    // 사용자가 팝업에서 지정한 이름을 우선 사용하고, 없으면 첫 파일/폴더 이름에서 유도.
+    const derived = inputs.length > 0 ? archiveBaseName(inputs[0].entryName) : undefined
+    const defaultName = opts.baseName?.trim() || derived
     const outPath = await this.api.pickSavePath(opts.format, defaultName)
     if (!outPath) return { ok: false, outputs: [], warnings: [], error: '취소되었습니다.' }
     const unsub = this.api.onProgress(onProgress)
@@ -67,7 +68,7 @@ export class ElectronArchiveService implements ArchiveService {
     opts: ExtractOptions,
     onProgress: ProgressCallback
   ): Promise<OperationResult> {
-    const outDir = await this.api.pickOutputDir()
+    const outDir = await this.api.pickOutputDir(opts.defaultOutDir)
     if (!outDir) return { ok: false, outputs: [], warnings: [], error: '취소되었습니다.' }
     const unsub = this.api.onProgress(onProgress)
     try {

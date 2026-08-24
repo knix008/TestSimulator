@@ -39,6 +39,12 @@ export interface Dict {
   modeSplit: string
   splitSizeLabel: string
   splitHint: string
+  // 압축 옵션 팝업
+  compressTitle: string
+  compressSummary: (n: number) => string
+  compressNameLabel: string
+  compressStart: string
+  compressCancel: string
   pickFiles: string
   pickFolder: string
   startCompress: string
@@ -58,6 +64,8 @@ export interface Dict {
   extractSelectHint: string
   // 파일 정보(일반 파일 선택 시)
   fileInfoTitle: string
+  dirInfoTitle: string
+  fileTypeDir: string
   fileInfoName: string
   fileInfoPath: string
   fileInfoSize: string
@@ -77,6 +85,8 @@ export interface Dict {
   doneCompressSplit: (n: number) => string
   doneExtract: string
   error: string
+  accessDenied: (p: string) => string
+  dirNotFound: (p: string) => string
   noFiles: string
   cancelled: string
 
@@ -95,6 +105,8 @@ export interface Dict {
   settingsBrowsing: string
   settingsDefaultDir: string
   settingsDefaultDirHint: string
+  settingsExtractDir: string
+  settingsExtractDirHint: string
   settingsRememberLast: string
   settingsNotSet: string
   settingsBrowse: string
@@ -117,7 +129,6 @@ export interface Dict {
   ctxUp: string
   ctxRefresh: string
   ctxSelectAll: string
-  ctxClearSelection: string
   ctxExtractAll: string
   ctxCopy: string
   ctxCut: string
@@ -162,6 +173,11 @@ const ko: Dict = {
   modeSplit: '용량 분할 (여러 조각)',
   splitSizeLabel: '분할당 크기 (MB):',
   splitHint: '→ archive.zip.001, .002, … 형식',
+  compressTitle: '압축 옵션',
+  compressSummary: (n) => `${n}개 항목을 압축합니다.`,
+  compressNameLabel: '파일 이름',
+  compressStart: '압축 시작',
+  compressCancel: '취소',
   pickFiles: '파일 선택…',
   pickFolder: '폴더 선택…',
   startCompress: '압축 시작',
@@ -177,9 +193,11 @@ const ko: Dict = {
   overwrite: '기존 파일 덮어쓰기',
   selectedArchive: (name) => `선택된 아카이브: ${name}`,
   contents: (n) => `내용: ${n}개 항목`,
-  extractSelected: (n) => `선택 해제 (${n}개)`,
+  extractSelected: (n) => `선택 항목 압축 해제 (${n}개)`,
   extractSelectHint: 'Ctrl+클릭 또는 Shift+클릭으로 해제할 파일을 여러 개 선택할 수 있습니다.',
   fileInfoTitle: '파일 정보',
+  dirInfoTitle: '디렉토리 정보',
+  fileTypeDir: '폴더',
   fileInfoName: '이름',
   fileInfoPath: '경로',
   fileInfoSize: '크기',
@@ -198,6 +216,8 @@ const ko: Dict = {
   doneCompressSplit: (n) => `분할 압축 완료 (${n}개 조각)`,
   doneExtract: '압축 해제 완료',
   error: '오류',
+  accessDenied: (p) => `이 폴더에 접근할 권한이 없습니다.\n${p}`,
+  dirNotFound: (p) => `폴더를 찾을 수 없습니다.\n${p}`,
   noFiles: '압축할 파일이 없습니다.',
   cancelled: '취소되었습니다.',
 
@@ -214,6 +234,8 @@ const ko: Dict = {
   settingsBrowsing: '파일 탐색',
   settingsDefaultDir: '기본 폴더',
   settingsDefaultDirHint: '기억된 폴더가 없을 때 시작 시 이 폴더를 엽니다.',
+  settingsExtractDir: '기본 해제 폴더',
+  settingsExtractDirHint: '압축 해제 시 이 폴더가 기본으로 선택됩니다. 새 폴더로 해제하면 자동으로 갱신됩니다.',
   settingsRememberLast: '마지막으로 열었던 폴더 기억하기',
   settingsNotSet: '(설정 안 됨)',
   settingsBrowse: '찾아보기…',
@@ -234,7 +256,6 @@ const ko: Dict = {
   ctxUp: '상위 폴더로',
   ctxRefresh: '새로 고침',
   ctxSelectAll: '모두 선택',
-  ctxClearSelection: '선택 해제',
   ctxExtractAll: '전체 해제',
   ctxCopy: '복사',
   ctxCut: '잘라내기',
@@ -279,6 +300,11 @@ const en: Dict = {
   modeSplit: 'Split into parts',
   splitSizeLabel: 'Size per part (MB):',
   splitHint: '→ archive.zip.001, .002, …',
+  compressTitle: 'Compression options',
+  compressSummary: (n) => `Compressing ${n} item(s).`,
+  compressNameLabel: 'File name',
+  compressStart: 'Compress',
+  compressCancel: 'Cancel',
   pickFiles: 'Select files…',
   pickFolder: 'Select folder…',
   startCompress: 'Start compression',
@@ -297,6 +323,8 @@ const en: Dict = {
   extractSelected: (n) => `Extract selected (${n})`,
   extractSelectHint: 'Use Ctrl+Click or Shift+Click to select multiple files to extract.',
   fileInfoTitle: 'File info',
+  dirInfoTitle: 'Directory info',
+  fileTypeDir: 'Folder',
   fileInfoName: 'Name',
   fileInfoPath: 'Path',
   fileInfoSize: 'Size',
@@ -315,6 +343,8 @@ const en: Dict = {
   doneCompressSplit: (n) => `Split compression complete (${n} parts)`,
   doneExtract: 'Extraction complete',
   error: 'Error',
+  accessDenied: (p) => `You do not have permission to access this folder.\n${p}`,
+  dirNotFound: (p) => `Folder not found.\n${p}`,
   noFiles: 'No files to compress.',
   cancelled: 'Cancelled.',
 
@@ -331,6 +361,8 @@ const en: Dict = {
   settingsBrowsing: 'File browsing',
   settingsDefaultDir: 'Default folder',
   settingsDefaultDirHint: 'Opens this folder on startup when no folder is remembered.',
+  settingsExtractDir: 'Default extract folder',
+  settingsExtractDirHint: 'Preselected when extracting. Updates automatically when you extract to a new folder.',
   settingsRememberLast: 'Remember the last opened folder',
   settingsNotSet: '(not set)',
   settingsBrowse: 'Browse…',
@@ -351,7 +383,6 @@ const en: Dict = {
   ctxUp: 'Go to parent folder',
   ctxRefresh: 'Refresh',
   ctxSelectAll: 'Select all',
-  ctxClearSelection: 'Clear selection',
   ctxExtractAll: 'Extract all',
   ctxCopy: 'Copy',
   ctxCut: 'Cut',

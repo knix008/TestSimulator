@@ -13,6 +13,8 @@ import {
 /** 컨텍스트 메뉴 항목. separator=true 면 구분선. */
 export interface MenuItem {
   label?: string
+  /** 라벨 앞에 표시할 아이콘(이모지). */
+  icon?: string
   onClick?: () => void
   disabled?: boolean
   danger?: boolean
@@ -116,7 +118,10 @@ function MenuView({ state, onClose }: { state: MenuState; onClose: () => void })
               onClose()
             }}
           >
-            {item.label}
+            <span className="context-menu-icon" aria-hidden>
+              {item.icon}
+            </span>
+            <span className="context-menu-label">{item.label}</span>
           </button>
         )
       )}

@@ -11,6 +11,7 @@
   --accent-hover: #66b0ff;
   --accent-contrast: #06121f;
   --error: #ff6b6b;
+  --warn: #f0b429;
   --ok: #5bd67a;
   --caption: #212121;
   --hover: #3a3a3a;
@@ -28,6 +29,7 @@
   --accent-hover: #1d4ed8;
   --accent-contrast: #ffffff;
   --error: #d92d20;
+  --warn: #b7791f;
   --ok: #087443;
   --caption: #e9ebef;
   --hover: #e5e7eb;
@@ -691,6 +693,12 @@ button.primary:hover {
   color: var(--ok);
 }
 
+.toast.warn {
+  background: var(--bg-card);
+  border: 1px solid var(--warn);
+  color: var(--warn);
+}
+
 .toast.error {
   background: var(--bg-card);
   border: 1px solid var(--error);
@@ -928,6 +936,67 @@ button.primary:hover {
   cursor: not-allowed;
 }
 
+/* ---- 압축 옵션 팝업 ---- */
+.compress-modal {
+  width: min(460px, 92%);
+  text-align: left;
+}
+
+.compress-modal .settings-row select {
+  min-width: 160px;
+}
+
+.compress-modal .mode-row {
+  justify-content: flex-start;
+}
+
+.compress-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.compress-name-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  background: var(--bg-input);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 14px;
+}
+
+.compress-name-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.compress-name-ext {
+  flex: 0 0 auto;
+  color: var(--text-dim);
+  font-size: 13px;
+  font-family: 'Consolas', 'D2Coding', monospace;
+}
+
+/* modal-actions 안에서도 주요 버튼은 강조색 유지(뒤 정의된 기본 규칙 덮어쓰기) */
+.modal-actions button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-contrast);
+  font-weight: 600;
+}
+
+.modal-actions button.primary:hover {
+  background: var(--accent-hover);
+}
+
+.modal-actions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* ---- 진행률 모달(팝업) ---- */
 .progress-overlay {
   z-index: 120;
@@ -975,7 +1044,9 @@ button.primary:hover {
 }
 
 .context-menu-item {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   width: 100%;
   text-align: left;
   background: transparent;
@@ -985,6 +1056,18 @@ button.primary:hover {
   padding: 8px 12px;
   font-size: 13px;
   cursor: pointer;
+}
+
+.context-menu-icon {
+  flex: 0 0 auto;
+  width: 18px;
+  text-align: center;
+  font-size: 13px;
+  line-height: 1;
+}
+
+.context-menu-label {
+  flex: 1 1 auto;
 }
 
 .context-menu-item:hover:not(:disabled) {

@@ -24,6 +24,8 @@ export interface CompressOptions {
   split: boolean
   /** 분할당 크기(MB). split 이 true 일 때만 사용. */
   splitSizeMb: number
+  /** 사용자가 지정한 압축 파일 기본 이름(확장자 제외). 미지정 시 입력 이름에서 유도. */
+  baseName?: string
   /** 선택적 비밀번호(7z/zip). 미지원 플랫폼에서는 무시. */
   password?: string
 }
@@ -35,6 +37,8 @@ export interface ExtractOptions {
   password?: string
   /** 지정 시 해당 아카이브 내부 경로들만 선택적으로 해제한다(미지정=전체). */
   selection?: string[]
+  /** 해제 폴더 선택 다이얼로그를 열 때 기본으로 표시할 경로(직전에 사용한 폴더). */
+  defaultOutDir?: string
 }
 
 /** 아카이브 내 항목 정보. */

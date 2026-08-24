@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(npm start 2>&1)",
+      "PowerShell(Write-Output \"--- electron path.txt ---\"; if \\(Test-Path node_modules/electron/path.txt\\) { Get-Content node_modules/electron/path.txt } else { Write-Output \"path.txt MISSING\" }; Write-Output \"--- dist folder ---\"; if \\(Test-Path node_modules/electron/dist\\) { Write-Output \"dist EXISTS\" } else { Write-Output \"dist MISSING\" }; Write-Output \"--- electron installed version ---\"; if \\(Test-Path node_modules/electron/package.json\\) { \\(Get-Content node_modules/electron/package.json -Raw | ConvertFrom-Json\\).version } else { Write-Output \"electron package MISSING\" })",
+      "PowerShell(node node_modules/electron/install.js 2>&1)",
+      "PowerShell(Write-Output \"Process env: [$env:ELECTRON_RUN_AS_NODE]\"; Write-Output \"User env: [$\\([Environment]::GetEnvironmentVariable\\('ELECTRON_RUN_AS_NODE','User'\\)\\)]\"; Write-Output \"Machine env: [$\\([Environment]::GetEnvironmentVariable\\('ELECTRON_RUN_AS_NODE','Machine'\\)\\)]\")",
+      "Bash(unset ELECTRON_RUN_AS_NODE)",
+      "PowerShell(npm run typecheck 2>&1)",
+      "PowerShell(npm run typecheck 2>&1 | Select-String -Pattern \"error TS\" | Select-Object -First 20; Write-Output \"=== exit $LASTEXITCODE ===\")",
+      "PowerShell(npm run typecheck 2>&1 | Select-String -Pattern \"error TS\" | Select-Object -First 30; Write-Output \"=== exit $LASTEXITCODE ===\")"
+    ]
+  }
+}
