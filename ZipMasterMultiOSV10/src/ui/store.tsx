@@ -142,8 +142,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [format, setFormatState] = useState<ArchiveFormat>(() => readLS('zm.format', 'zip') as ArchiveFormat)
   const [split, setSplitState] = useState<boolean>(() => readLS<string>('zm.split', '0') === '1')
   const [splitSizeMb, setSplitSizeMbState] = useState<number>(() => {
-    const n = Number(readLS<string>('zm.splitSizeMb', '100'))
-    return n >= 1 ? n : 100
+    const n = Number(readLS<string>('zm.splitSizeMb', '10'))
+    return n >= 1 ? n : 10
   })
   const [overwrite, setOverwrite] = useState(true)
   // 압축 옵션 팝업이 대상으로 삼는 입력들(null 이면 팝업 닫힘).
