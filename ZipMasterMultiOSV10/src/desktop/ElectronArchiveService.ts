@@ -1,3 +1,4 @@
+import { archiveBaseName } from '@core/format'
 import type { ArchiveService } from '@core/ArchiveService'
 import type {
   ArchiveEntry,
@@ -49,7 +50,9 @@ export class ElectronArchiveService implements ArchiveService {
     opts: CompressOptions,
     onProgress: ProgressCallback
   ): Promise<OperationResult> {
-    const outPath = await this.api.pickSavePath(opts.format)
+    // 기본 저장 이름은 선택된 첫 파일/폴더 이름에서 유도
+    const defaultName = inputs.length > 0 ? archiveBaseName(inputs[0].entryName) : undefined
+    const outPath = await this.api.pickSavePath(opts.format, defaultName)
     if (!outPath) return { ok: false, outputs: [], warnings: [], error: '취소되었습니다.' }
     const unsub = this.api.onProgress(onProgress)
     try {

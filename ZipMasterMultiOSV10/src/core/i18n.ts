@@ -124,6 +124,7 @@ export interface Dict {
   ctxPaste: string
   ctxDelete: string
   confirmDelete: (name: string) => string
+  confirmDeleteMany: (n: number) => string
 }
 
 const ko: Dict = {
@@ -239,7 +240,8 @@ const ko: Dict = {
   ctxCut: '잘라내기',
   ctxPaste: '붙여넣기',
   ctxDelete: '삭제',
-  confirmDelete: (name) => `'${name}'을(를) 휴지통으로 보낼까요?`
+  confirmDelete: (name) => `'${name}'을(를) 휴지통으로 보낼까요?`,
+  confirmDeleteMany: (n) => `${n}개 항목을 휴지통으로 보낼까요?`
 }
 
 const en: Dict = {
@@ -355,7 +357,8 @@ const en: Dict = {
   ctxCut: 'Cut',
   ctxPaste: 'Paste',
   ctxDelete: 'Delete',
-  confirmDelete: (name) => `Move '${name}' to the Recycle Bin?`
+  confirmDelete: (name) => `Move '${name}' to the Recycle Bin?`,
+  confirmDeleteMany: (n) => `Move ${n} items to the Recycle Bin?`
 }
 
 export const translations: Record<Lang, Dict> = { ko, en }

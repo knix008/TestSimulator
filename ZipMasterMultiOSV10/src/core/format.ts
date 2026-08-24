@@ -27,6 +27,15 @@ export function isArchiveName(fileName: string): boolean {
   return EXTRACT_ONLY_EXTS.some((ext) => lower.endsWith(ext))
 }
 
+/**
+ * 압축 결과의 기본 파일명(확장자 제외)을 입력 이름에서 유도한다.
+ * 파일이면 마지막 확장자 하나를 떼고, 폴더/확장자 없는 이름/닷파일은 그대로 사용한다.
+ */
+export function archiveBaseName(entryName: string): string {
+  const dot = entryName.lastIndexOf('.')
+  return dot > 0 ? entryName.slice(0, dot) : entryName
+}
+
 /** 포맷 → 기본 확장자. */
 export function extensionFor(format: ArchiveFormat): string {
   switch (format) {

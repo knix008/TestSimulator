@@ -1,4 +1,4 @@
-import { useEffect, useState, type JSX, type DragEvent, type KeyboardEvent } from 'react'
+import { useEffect, useState, type JSX, type DragEvent, type KeyboardEvent, type MouseEvent } from 'react'
 import { formatBytes, useStore } from './store'
 import { useArchiveService } from './ServiceContext'
 import { useContextMenu, type MenuItem } from './ContextMenu'
@@ -38,7 +38,6 @@ export function FileBrowser() {
     canBrowse,
     listing,
     browseBusy,
-    selectedArchivePath,
     browseUp,
     browseTo,
     openFsEntry,
@@ -54,9 +53,10 @@ export function FileBrowser() {
   const [childrenCache, setChildrenCache] = useState<Record<string, FsEntry[]>>({})
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState<Set<string>>(new Set())
-  // 파일 조작용 상태: 클립보드(복사/잘라내기), 키보드/드래그 대상 선택, 드롭 대상 강조.
-  const [clipboard, setClipboard] = useState<{ path: string; mode: 'copy' | 'cut' } | null>(null)
-  const [selected, setSelected] = useState<FsEntry | null>(null)
+  // 파일 조작용 상태: 클립보드(복사/잘라내기), 선택 집합(단일=한 개, Ctrl/Shift=여러 개), 드롭 대상.
+  const [clipboard, setClipboard] = useState<{ paths: string[]; mode: 'copy' | 'cut' } | null>(null)
+  const [selectedPaths, setSelectedPaths] = useState<Set<string>>(new Set())
+  const [anchor, setAnchor] = useState<string | null>(null)
   const [dragOver, setDragOver] = useState<string | null>(null)
 
   const markLoading = (path: string, on: boolean) =>
@@ -117,14 +117,60 @@ export function FileBrowser() {
     }
   }
 
-  const onEntryClick = (e: FsEntry) => {
-    setSelected(e) // 키보드 단축키(Ctrl+C/X/V, Delete) 대상
+  // 항목 활성화(폴더=이동/펼침, 아카이브=내용, 일반 파일=정보). 선택 자체는 onRowClick 이 담당.
+  const onEntryActivate = (e: FsEntry) => {
     if (e.isDirectory) {
       browseTo(e.path) // 드롭다운/상태바 동기화 + 계보 자동 펼침
       if (!expanded.has(e.path)) toggle(e.path)
     } else {
-      openFsEntry(e) // 아카이브면 오른쪽 패널에 내용 표시
+      openFsEntry(e) // 아카이브면 내용, 일반 파일이면 정보 표시
     }
+  }
+
+  // 현재 펼쳐진 상태의 트리를 렌더 순서대로 평탄화(Shift 범위 선택용).
+  const flatEntries = (): FsEntry[] => {
+    const out: FsEntry[] = []
+    const walk = (dir: string) => {
+      const kids = childrenCache[dir]
+      if (!kids) return
+      for (const e of kids) {
+        out.push(e)
+        if (e.isDirectory && expanded.has(e.path)) walk(e.path)
+      }
+    }
+    walk(ROOT)
+    return out
+  }
+
+  // 클릭 = 단일 선택 + 활성화. Ctrl/Meta = 토글(여러 개). Shift = 앵커~클릭 범위.
+  const onRowClick = (e: FsEntry, ev: MouseEvent) => {
+    if (ev.shiftKey && anchor) {
+      const order = flatEntries().map((x) => x.path)
+      const i = order.indexOf(anchor)
+      const j = order.indexOf(e.path)
+      if (i >= 0 && j >= 0) {
+        const [lo, hi] = i <= j ? [i, j] : [j, i]
+        setSelectedPaths(new Set(order.slice(lo, hi + 1)))
+      } else {
+        setSelectedPaths(new Set([e.path]))
+        setAnchor(e.path)
+      }
+      return
+    }
+    if (ev.ctrlKey || ev.metaKey) {
+      setSelectedPaths((s) => {
+        const n = new Set(s)
+        if (n.has(e.path)) n.delete(e.path)
+        else n.add(e.path)
+        return n
+      })
+      setAnchor(e.path)
+      return
+    }
+    // 일반 클릭: 오직 이 항목 하나만 선택하고 활성화
+    setSelectedPaths(new Set([e.path]))
+    setAnchor(e.path)
+    onEntryActivate(e)
   }
 
   const refresh = (dirPath: string) => loadChildren(dirPath).catch(() => {})
@@ -145,38 +191,52 @@ export function FileBrowser() {
     for (const d of uniq) if (childrenCache[d] !== undefined || d === (listing?.path ?? ROOT)) refresh(d)
   }
 
-  // 파일/폴더를 destDir 로 복사 또는 이동(내부 이동/붙여넣기 공용).
-  const transfer = async (src: string, destDir: string, mode: 'copy' | 'cut') => {
-    try {
-      if (mode === 'copy') await svc.copyPath(src, destDir)
-      else await svc.movePath(src, destDir)
-      refreshDirs([destDir, parentOf(src)])
-    } catch (e) {
-      showError(`${t.error}\n\n${e instanceof Error ? e.message : String(e)}`)
+  const baseName = (p: string) => p.replace(/[\\/]+$/, '').split(/[\\/]/).pop() ?? p
+
+  // 여러 경로를 destDir 로 복사 또는 이동.
+  const transferMany = async (srcs: string[], destDir: string, mode: 'copy' | 'cut') => {
+    for (const src of srcs) {
+      if (src === destDir) continue
+      try {
+        if (mode === 'copy') await svc.copyPath(src, destDir)
+        else await svc.movePath(src, destDir)
+      } catch (e) {
+        showError(`${t.error}\n\n${e instanceof Error ? e.message : String(e)}`)
+      }
     }
+    refreshDirs([destDir, ...srcs.map(parentOf)])
   }
 
   const pasteInto = async (destDir: string) => {
     if (!clipboard) return
-    const { path, mode } = clipboard
-    await transfer(path, destDir, mode)
-    if (mode === 'cut') setClipboard(null)
+    await transferMany(clipboard.paths, destDir, clipboard.mode)
+    if (clipboard.mode === 'cut') setClipboard(null)
   }
 
-  const deleteEntry = async (e: FsEntry) => {
-    if (!window.confirm(t.confirmDelete(e.name))) return
-    try {
-      await svc.deletePath(e.path)
-      refreshDirs([parentOf(e.path)])
-      // 현재 보고 있는 폴더(또는 그 상위)가 삭제되면 상위로 이동
-      if (listing?.path && (listing.path === e.path || listing.path.startsWith(e.path + '\\') || listing.path.startsWith(e.path + '/'))) {
-        browseTo(parentOf(e.path))
+  const deletePaths = async (paths: string[]) => {
+    if (paths.length === 0) return
+    const msg = paths.length === 1 ? t.confirmDelete(baseName(paths[0])) : t.confirmDeleteMany(paths.length)
+    if (!window.confirm(msg)) return
+    for (const p of paths) {
+      try {
+        await svc.deletePath(p)
+      } catch (err) {
+        showError(`${t.error}\n\n${err instanceof Error ? err.message : String(err)}`)
       }
-      if (selected?.path === e.path) setSelected(null)
-    } catch (err) {
-      showError(`${t.error}\n\n${err instanceof Error ? err.message : String(err)}`)
     }
+    refreshDirs(paths.map(parentOf))
+    // 현재 보고 있는 폴더(또는 그 상위)가 삭제되면 상위로 이동
+    for (const p of paths) {
+      if (listing?.path && (listing.path === p || listing.path.startsWith(p + '\\') || listing.path.startsWith(p + '/'))) {
+        browseTo(parentOf(p))
+        break
+      }
+    }
+    setSelectedPaths(new Set())
   }
+
+  // 우클릭/단축키 대상: 우클릭한 항목이 선택에 포함되면 선택 전체, 아니면 그 항목만.
+  const targetPaths = (e: FsEntry): string[] => (selectedPaths.has(e.path) ? [...selectedPaths] : [e.path])
 
   // 외부(OS)에서 드롭된 파일들을 destDir 로 복사.
   const dropExternal = async (files: FileList, destDir: string) => {
@@ -200,9 +260,15 @@ export function FileBrowser() {
     ev.preventDefault()
     ev.stopPropagation()
     setDragOver(null)
-    const internal = ev.dataTransfer.getData('application/x-zipmaster-path')
+    const internal = ev.dataTransfer.getData('application/x-zipmaster-paths')
     if (internal) {
-      if (internal !== destDir) transfer(internal, destDir, 'cut') // 내부 드래그 = 이동
+      let paths: string[] = []
+      try {
+        paths = JSON.parse(internal)
+      } catch {
+        paths = []
+      }
+      transferMany(paths.filter((p) => p !== destDir), destDir, 'cut') // 내부 드래그 = 이동
       return
     }
     if (ev.dataTransfer.files && ev.dataTransfer.files.length > 0) {
@@ -212,25 +278,36 @@ export function FileBrowser() {
 
   const onTreeKeyDown = (ev: KeyboardEvent) => {
     const mod = ev.ctrlKey || ev.metaKey
+    const sel = [...selectedPaths]
     if (mod && ev.key.toLowerCase() === 'c') {
-      if (selected) setClipboard({ path: selected.path, mode: 'copy' })
+      if (sel.length) setClipboard({ paths: sel, mode: 'copy' })
     } else if (mod && ev.key.toLowerCase() === 'x') {
-      if (selected) setClipboard({ path: selected.path, mode: 'cut' })
+      if (sel.length) setClipboard({ paths: sel, mode: 'cut' })
     } else if (mod && ev.key.toLowerCase() === 'v') {
-      pasteInto(selected?.isDirectory ? selected.path : listing?.path ?? ROOT)
+      pasteInto(listing?.path ?? ROOT)
     } else if (ev.key === 'Delete') {
-      if (selected) deleteEntry(selected)
+      if (sel.length) deletePaths(sel)
     } else {
       return
     }
     ev.preventDefault()
   }
 
-  // 트리 항목 우클릭 메뉴 구성(폴더/아카이브/일반 파일별로 다름).
+  // 항목 우클릭 시: 선택에 없던 항목이면 그 항목만 단일 선택으로 만든 뒤 메뉴 표시.
+  const onRowContextMenu = (e: FsEntry, ev: MouseEvent) => {
+    if (!selectedPaths.has(e.path)) {
+      setSelectedPaths(new Set([e.path]))
+      setAnchor(e.path)
+    }
+    openMenu(ev, entryMenu(e))
+  }
+
+  // 트리 항목 우클릭 메뉴 구성(폴더/아카이브/일반 파일별로 다름). 복사/삭제는 선택 전체 대상.
   const entryMenu = (e: FsEntry): MenuItem[] => {
+    const targets = targetPaths(e)
     const items: MenuItem[] = []
     if (e.isDirectory) {
-      items.push({ label: t.ctxOpen, onClick: () => onEntryClick(e) })
+      items.push({ label: t.ctxOpen, onClick: () => onEntryActivate(e) })
       items.push({ label: t.ctxCompress, onClick: () => compressEntry(e) })
       items.push({ label: t.ctxSetDefault, onClick: () => setDefaultDir(e.path) })
     } else if (e.isArchive) {
@@ -242,12 +319,12 @@ export function FileBrowser() {
       items.push({ label: t.ctxCompress, onClick: () => compressEntry(e) })
     }
     items.push({ separator: true })
-    items.push({ label: t.ctxCopy, onClick: () => setClipboard({ path: e.path, mode: 'copy' }) })
-    items.push({ label: t.ctxCut, onClick: () => setClipboard({ path: e.path, mode: 'cut' }) })
+    items.push({ label: t.ctxCopy, onClick: () => setClipboard({ paths: targets, mode: 'copy' }) })
+    items.push({ label: t.ctxCut, onClick: () => setClipboard({ paths: targets, mode: 'cut' }) })
     if (e.isDirectory) {
       items.push({ label: t.ctxPaste, disabled: !clipboard, onClick: () => pasteInto(e.path) })
     }
-    items.push({ label: t.ctxDelete, danger: true, onClick: () => deleteEntry(e) })
+    items.push({ label: t.ctxDelete, danger: true, onClick: () => deletePaths(targets) })
     items.push({ separator: true })
     items.push({ label: t.ctxUp, onClick: () => browseUp(), disabled: !listing?.path })
     items.push({ label: t.ctxRefresh, onClick: () => refresh(e.isDirectory ? e.path : listing?.path ?? ROOT) })
@@ -295,26 +372,32 @@ export function FileBrowser() {
           key={e.path}
           className={
             'tree-row' +
-            (e.path === selectedArchivePath || e.path === selected?.path ? ' selected' : '') +
+            (selectedPaths.has(e.path) ? ' selected' : '') +
             (e.isArchive ? ' archive' : '') +
             (e.isDirectory ? ' dir' : '') +
             (isCurrent ? ' current' : '') +
-            (clipboard?.mode === 'cut' && clipboard.path === e.path ? ' cut' : '') +
+            (clipboard?.mode === 'cut' && clipboard.paths.includes(e.path) ? ' cut' : '') +
             (dragOver === e.path ? ' drag-over' : '')
           }
           style={{ paddingLeft: 6 + depth * 16 }}
           title={e.path}
           draggable
-          onContextMenu={(ev) => openMenu(ev, entryMenu(e))}
+          onClick={(ev) => onRowClick(e, ev)}
+          onContextMenu={(ev) => onRowContextMenu(e, ev)}
           onDragStart={(ev) => {
-            setSelected(e)
+            // 드래그 대상: 이미 선택된 항목이면 선택 전체, 아니면 이 항목만
+            const paths = selectedPaths.has(e.path) ? [...selectedPaths] : [e.path]
+            if (!selectedPaths.has(e.path)) {
+              setSelectedPaths(new Set([e.path]))
+              setAnchor(e.path)
+            }
             if (ev.altKey) {
               // Alt+드래그: OS 로 파일 내보내기(네이티브 드래그)
               ev.preventDefault()
               svc.startDrag(e.path)
               return
             }
-            ev.dataTransfer.setData('application/x-zipmaster-path', e.path)
+            ev.dataTransfer.setData('application/x-zipmaster-paths', JSON.stringify(paths))
             ev.dataTransfer.effectAllowed = 'copyMove'
           }}
           onDragOver={
@@ -343,12 +426,10 @@ export function FileBrowser() {
           ) : (
             <span className="tree-twist tree-twist-empty" aria-hidden />
           )}
-          <span className="fs-ico" aria-hidden onClick={() => onEntryClick(e)}>
+          <span className="fs-ico" aria-hidden>
             {e.isDirectory ? (isExp ? '📂' : '📁') : e.isArchive ? '🗜️' : '📄'}
           </span>
-          <span className="fs-name" onClick={() => onEntryClick(e)}>
-            {e.name}
-          </span>
+          <span className="fs-name">{e.name}</span>
           {!e.isDirectory && <span className="fs-size">{formatBytes(e.size)}</span>}
         </div>
       )

@@ -16,7 +16,7 @@ import type {
   OperationResult,
   ProgressCallback
 } from '@core/types'
-import { extensionFor, parseSplitPart, partName } from '@core/format'
+import { archiveBaseName, extensionFor, parseSplitPart, partName } from '@core/format'
 import { getDict } from '@core/i18n'
 
 // 진행률 마이크로 텍스트는 기본(한국어) 사전을 사용한다. UI 라벨/토스트는 store 에서 언어별로 처리.
@@ -109,7 +109,8 @@ export class WebArchiveService implements ArchiveService {
       data = opts.format === 'gz' ? await this.gzip(tarData) : tarData
     }
 
-    const baseName = 'archive' + extensionFor(opts.format)
+    // 다운로드 기본 이름을 선택된 첫 파일 이름에서 유도
+    const baseName = archiveBaseName(files[0].entryName) + extensionFor(opts.format)
 
     if (!opts.split) {
       downloadBlob(new Blob([data as BlobPart]), baseName)

@@ -88,15 +88,20 @@ app.whenReady().then(() => {
     return { path: p, entryName: path.basename(p) }
   })
 
-  ipcMain.handle('dialog:pickSave', async (_e, format: string): Promise<string | null> => {
-    const ext = extensionFor(format as any)
-    const result = await dialog.showSaveDialog({
-      title: '저장할 아카이브 이름',
-      defaultPath: `archive${ext}`,
-      filters: [{ name: format.toUpperCase(), extensions: [ext.replace(/^\./, '')] }]
-    })
-    return result.canceled || !result.filePath ? null : result.filePath
-  })
+  ipcMain.handle(
+    'dialog:pickSave',
+    async (_e, args: { format: string; defaultName?: string }): Promise<string | null> => {
+      const { format, defaultName } = args
+      const ext = extensionFor(format as any)
+      const base = (defaultName ?? '').trim() || 'archive'
+      const result = await dialog.showSaveDialog({
+        title: '저장할 아카이브 이름',
+        defaultPath: `${base}${ext}`,
+        filters: [{ name: format.toUpperCase(), extensions: [ext.replace(/^\./, '')] }]
+      })
+      return result.canceled || !result.filePath ? null : result.filePath
+    }
+  )
 
   ipcMain.handle('dialog:pickDir', async (): Promise<string | null> => {
     const result = await dialog.showOpenDialog({
