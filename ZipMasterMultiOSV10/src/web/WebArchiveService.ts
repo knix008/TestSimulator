@@ -247,16 +247,33 @@ export class WebArchiveService implements ArchiveService {
     throw new Error('지원하지 않습니다.')
   }
 
-  async copyPath(_src: string, _destDir: string): Promise<void> {
+  async copyPath(_src: string, _destDir: string): Promise<string> {
     throw new Error('지원하지 않습니다.')
   }
 
-  async movePath(_src: string, _destDir: string): Promise<void> {
+  async movePath(_src: string, _destDir: string): Promise<string> {
     throw new Error('지원하지 않습니다.')
   }
 
-  startDrag(_path: string): void {
+  startDrag(_paths: string[]): void {
     // no-op
+  }
+
+  copyToClipboard(_paths: string[]): void {
+    // 웹: OS 클립보드 파일 복사 미지원
+  }
+
+  async renamePath(_target: string, _newName: string): Promise<string> {
+    // 웹: 로컬 파일시스템 이름 변경 미지원
+    throw new Error('지원하지 않습니다.')
+  }
+
+  cancel(): void {
+    // 웹: 동기 압축/해제라 취소 미지원
+  }
+
+  async revealPath(_target: string): Promise<void> {
+    // 웹: OS 파일 탐색기 없음
   }
 }
 

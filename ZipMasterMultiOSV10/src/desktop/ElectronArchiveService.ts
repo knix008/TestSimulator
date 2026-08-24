@@ -108,15 +108,31 @@ export class ElectronArchiveService implements ArchiveService {
     return this.api.deletePath(path)
   }
 
-  copyPath(src: string, destDir: string): Promise<void> {
+  copyPath(src: string, destDir: string): Promise<string> {
     return this.api.copyPath(src, destDir)
   }
 
-  movePath(src: string, destDir: string): Promise<void> {
+  movePath(src: string, destDir: string): Promise<string> {
     return this.api.movePath(src, destDir)
   }
 
-  startDrag(path: string): void {
-    this.api.startDrag(path)
+  renamePath(target: string, newName: string): Promise<string> {
+    return this.api.renamePath(target, newName)
+  }
+
+  startDrag(paths: string[]): void {
+    this.api.startDrag(paths)
+  }
+
+  copyToClipboard(paths: string[]): void {
+    this.api.copyFilesToClipboard(paths)
+  }
+
+  cancel(): void {
+    this.api.cancel()
+  }
+
+  revealPath(target: string): Promise<void> {
+    return this.api.revealPath(target)
   }
 }

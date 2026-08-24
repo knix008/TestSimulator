@@ -1,5 +1,16 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, shell, type IpcMainInvokeEvent } from 'electron'
+import {
+  app,
+  BrowserWindow,
+  clipboard,
+  dialog,
+  ipcMain,
+  Menu,
+  nativeImage,
+  shell,
+  type IpcMainInvokeEvent
+} from 'electron'
 import * as path from 'node:path'
+import * as fsp from 'node:fs/promises'
 import type {
   CompressOptions,
   ExtractOptions,
@@ -136,6 +147,26 @@ app.whenReady().then(() => {
 
   ipcMain.handle('archive:list', async (_e, archivePath: string) => backend.listEntries(archivePath))
 
+  // 진행 중인 압축/해제 취소.
+  ipcMain.on('archive:cancel', () => backend.requestCancel())
+
+  // 결과물 위치 열기: 폴더면 그 폴더를, 파일이면 파일이 든 폴더를 연다(파일은 선택 표시도).
+  ipcMain.handle('shell:reveal', async (_e, target: string) => {
+    try {
+      const st = await fsp.stat(target)
+      if (st.isDirectory()) {
+        await shell.openPath(target)
+      } else {
+        // 포함 폴더를 열고(확실히 창이 뜨도록) 파일도 선택 표시.
+        await shell.openPath(path.dirname(target))
+        shell.showItemInFolder(target)
+      }
+    } catch {
+      // stat 실패 시 상위 폴더라도 연다.
+      await shell.openPath(path.dirname(target)).catch(() => {})
+    }
+  })
+
   // 압축 저장 경로 계산(팝업에서 지정한 폴더 + 이름 → 충돌 회피된 전체 경로).
   ipcMain.handle(
     'archive:resolvePath',
@@ -158,6 +189,9 @@ app.whenReady().then(() => {
   ipcMain.handle('fs:move', async (_e, args: { src: string; destDir: string }) =>
     backend.movePath(args.src, args.destDir)
   )
+  ipcMain.handle('fs:rename', async (_e, args: { target: string; newName: string }) =>
+    backend.renamePath(args.target, args.newName)
+  )
 
   // ---- 탐색기 → OS 로 드래그(파일 내보내기) ----
   // startDrag 는 비어있지 않은 아이콘을 요구하므로 1x1 투명 PNG 를 16x16 으로 확대해 사용.
@@ -166,8 +200,33 @@ app.whenReady().then(() => {
       'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR4nGNgAAIAAAUAAen63NgAAAAASUVORK5CYII='
     )
     .resize({ width: 16, height: 16 })
-  ipcMain.on('fs:startDrag', (e, filePath: string) => {
-    e.sender.startDrag({ file: filePath, icon: dragIcon })
+  ipcMain.on('fs:startDrag', (e, filePaths: string[]) => {
+    const files = (Array.isArray(filePaths) ? filePaths : [filePaths]).filter(Boolean)
+    if (files.length === 0) return
+    // file(단일) + files(다중) 을 함께 지정해 여러 항목을 OS 로 내보낼 수 있게 한다.
+    e.sender.startDrag({ file: files[0], files, icon: dragIcon })
+  })
+
+  // 복사한 파일/폴더를 OS 클립보드에 올려 프로그램 밖(탐색기 등)에 붙여넣기 가능하게 한다.
+  // Windows: CF_HDROP(DROPFILES 구조) 형식. 그 외 플랫폼은 경로 텍스트로 폴백.
+  ipcMain.on('clipboard:copyFiles', (_e, paths: string[]) => {
+    const list = (paths ?? []).filter(Boolean)
+    if (list.length === 0) return
+    if (process.platform === 'win32') {
+      // DROPFILES 헤더(20바이트): pFiles=20, pt(0,0), fNC=0, fWide=1
+      const header = Buffer.alloc(20)
+      header.writeUInt32LE(20, 0)
+      header.writeUInt32LE(1, 16)
+      // 파일 경로들을 UTF-16LE, 각 경로 null 종료 + 목록 끝 이중 null
+      const filesBuf = Buffer.from(list.join('\0') + '\0\0', 'ucs2')
+      try {
+        clipboard.writeBuffer('CF_HDROP', Buffer.concat([header, filesBuf]))
+        return
+      } catch {
+        /* 폴백: 텍스트 */
+      }
+    }
+    clipboard.writeText(list.join('\n'))
   })
 
   createWindow()

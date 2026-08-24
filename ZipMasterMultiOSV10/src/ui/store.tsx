@@ -18,6 +18,8 @@ export type Theme = 'dark' | 'light'
 interface Toast {
   msg: string
   kind: 'info' | 'warn' | 'error'
+  /** 선택적 액션 버튼(예: 결과 폴더 열기). */
+  action?: { label: string; onClick: () => void }
 }
 
 interface Store {
@@ -75,7 +77,10 @@ interface Store {
   setSettingsOpen: (b: boolean) => void
 
   toast: Toast | null
-  notify: (msg: string, kind: 'info' | 'warn' | 'error') => void
+  notify: (msg: string, kind: 'info' | 'warn' | 'error', action?: Toast['action']) => void
+  dismissToast: () => void
+  /** 진행 중인 압축/해제 작업 취소. */
+  cancelOperation: () => void
 
   // 심각한 오류: 상세 내용을 팝업으로 표시 + 복사 가능
   errorDetail: string | null
@@ -94,6 +99,13 @@ interface Store {
   compressReq: InputSource[] | null
   confirmCompress: (opts: CompressOptions) => Promise<void>
   cancelCompress: () => void
+
+  // 파일 작업 실행 취소/다시 실행(실제 스택은 FileBrowser 가 관리, 여기로 등록).
+  canUndo: boolean
+  canRedo: boolean
+  undo: () => void
+  redo: () => void
+  setUndoRedo: (v: { undo: () => void; redo: () => void; canUndo: boolean; canRedo: boolean }) => void
 
   // 창 제어 (데스크톱)
   minimize: () => void
@@ -246,11 +258,28 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     } catch {}
   }, [])
 
-  const notify = useCallback((msg: string, kind: 'info' | 'warn' | 'error') => {
-    setToast({ msg, kind })
+  const notify = useCallback((msg: string, kind: 'info' | 'warn' | 'error', action?: Toast['action']) => {
+    setToast({ msg, kind, action })
     window.clearTimeout((notify as any)._t)
-    ;(notify as any)._t = window.setTimeout(() => setToast(null), 5000)
+    // 액션이 있는 토스트는 눌러볼 시간을 위해 더 오래 유지.
+    ;(notify as any)._t = window.setTimeout(() => setToast(null), action ? 9000 : 5000)
   }, [])
+
+  const dismissToast = useCallback(() => {
+    window.clearTimeout((notify as any)._t)
+    setToast(null)
+  }, [notify])
+
+  const cancelOperation = useCallback(() => svc.cancel(), [svc])
+
+  // 실행 취소/다시 실행 핸들러는 FileBrowser 가 스택과 함께 등록한다.
+  const [undoRedo, setUndoRedoState] = useState<{
+    undo: () => void
+    redo: () => void
+    canUndo: boolean
+    canRedo: boolean
+  }>({ undo: () => {}, redo: () => {}, canUndo: false, canRedo: false })
+  const setUndoRedo = useCallback((v: typeof undoRedo) => setUndoRedoState(v), [])
 
   const showError = useCallback((detail: string) => setErrorDetail(detail), [])
   const clearError = useCallback(() => setErrorDetail(null), [])
@@ -266,8 +295,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       try {
         const res = await svc.compress(inputs, opts, setProgress)
         if (res.ok) {
-          notify(res.partCount ? t.doneCompressSplit(res.partCount) : t.doneCompress, 'info')
-        } else if (!isCancel(res.error)) {
+          const msg = res.partCount ? t.doneCompressSplit(res.partCount) : t.doneCompress
+          const out = res.outputs[0]
+          // 데스크톱: 결과물 위치를 바로 열 수 있는 액션 제공.
+          const action = canBrowse && out ? { label: t.openFolder, onClick: () => svc.revealPath(out) } : undefined
+          notify(msg, 'info', action)
+        } else if (isCancel(res.error)) {
+          notify(t.cancelled, 'warn')
+        } else {
           showError(`${t.error}: ${t.compressing}\n\n${res.error ?? t.error}`)
         }
       } catch (e) {
@@ -277,7 +312,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setProgress(null)
       }
     },
-    [svc, t, notify, showError]
+    [svc, t, notify, showError, canBrowse]
   )
 
   // 툴바 압축: 대상 선택 후 압축 옵션 팝업을 연다(실제 압축은 confirmCompress).
@@ -332,8 +367,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const res = await svc.extract(archive, { overwrite, selection, outDir }, setProgress)
       if (res.ok) {
         if (res.warnings.length > 0) showError(res.warnings.join('\n'))
-        notify(t.doneExtract, 'info')
-      } else if (!isCancel(res.error)) {
+        const action = outDir ? { label: t.openFolder, onClick: () => svc.revealPath(outDir!) } : undefined
+        notify(t.doneExtract, 'info', action)
+      } else if (isCancel(res.error)) {
+        notify(t.cancelled, 'warn')
+      } else {
         showError(`${t.error}: ${t.extracting}\n\n${res.error ?? t.error}`)
       }
     } catch (e) {
@@ -506,6 +544,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setSettingsOpen,
     toast,
     notify,
+    dismissToast,
+    cancelOperation,
     errorDetail,
     showError,
     clearError,
@@ -518,6 +558,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     compressReq,
     confirmCompress,
     cancelCompress,
+    canUndo: undoRedo.canUndo,
+    canRedo: undoRedo.canRedo,
+    undo: undoRedo.undo,
+    redo: undoRedo.redo,
+    setUndoRedo,
     minimize: () => win?.minimizeWindow?.(),
     maximizeToggle: () => win?.maximizeWindow?.(),
     close: () => win?.closeWindow?.()

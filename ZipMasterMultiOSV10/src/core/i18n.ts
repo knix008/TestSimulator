@@ -86,6 +86,8 @@ export interface Dict {
   doneCompressSplit: (n: number) => string
   doneExtract: string
   error: string
+  openFolder: string
+  cancel: string
   accessDenied: (p: string) => string
   dirNotFound: (p: string) => string
   noFiles: string
@@ -134,7 +136,14 @@ export interface Dict {
   ctxCopy: string
   ctxCut: string
   ctxPaste: string
+  ctxRename: string
   ctxDelete: string
+  ctxUndo: string
+  ctxRedo: string
+  tbUndo: string
+  tbRedo: string
+  tipUndo: string
+  tipRedo: string
   confirmDelete: (name: string) => string
   confirmDeleteMany: (n: number) => string
 }
@@ -218,6 +227,8 @@ const ko: Dict = {
   doneCompressSplit: (n) => `분할 압축 완료 (${n}개 조각)`,
   doneExtract: '압축 해제 완료',
   error: '오류',
+  openFolder: '폴더 열기',
+  cancel: '취소',
   accessDenied: (p) => `이 폴더에 접근할 권한이 없습니다.\n${p}`,
   dirNotFound: (p) => `폴더를 찾을 수 없습니다.\n${p}`,
   noFiles: '압축할 파일이 없습니다.',
@@ -262,7 +273,14 @@ const ko: Dict = {
   ctxCopy: '복사',
   ctxCut: '잘라내기',
   ctxPaste: '붙여넣기',
+  ctxRename: '이름 변경',
   ctxDelete: '삭제',
+  ctxUndo: '실행 취소',
+  ctxRedo: '다시 실행',
+  tbUndo: '실행 취소',
+  tbRedo: '다시 실행',
+  tipUndo: '마지막 파일 작업 취소 (Ctrl+Z)',
+  tipRedo: '취소한 작업 다시 실행 (Ctrl+Y)',
   confirmDelete: (name) => `'${name}'을(를) 휴지통으로 보낼까요?`,
   confirmDeleteMany: (n) => `${n}개 항목을 휴지통으로 보낼까요?`
 }
@@ -346,6 +364,8 @@ const en: Dict = {
   doneCompressSplit: (n) => `Split compression complete (${n} parts)`,
   doneExtract: 'Extraction complete',
   error: 'Error',
+  openFolder: 'Open folder',
+  cancel: 'Cancel',
   accessDenied: (p) => `You do not have permission to access this folder.\n${p}`,
   dirNotFound: (p) => `Folder not found.\n${p}`,
   noFiles: 'No files to compress.',
@@ -390,7 +410,14 @@ const en: Dict = {
   ctxCopy: 'Copy',
   ctxCut: 'Cut',
   ctxPaste: 'Paste',
+  ctxRename: 'Rename',
   ctxDelete: 'Delete',
+  ctxUndo: 'Undo',
+  ctxRedo: 'Redo',
+  tbUndo: 'Undo',
+  tbRedo: 'Redo',
+  tipUndo: 'Undo last file operation (Ctrl+Z)',
+  tipRedo: 'Redo the undone operation (Ctrl+Y)',
   confirmDelete: (name) => `Move '${name}' to the Recycle Bin?`,
   confirmDeleteMany: (n) => `Move ${n} items to the Recycle Bin?`
 }

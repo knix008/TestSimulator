@@ -12,7 +12,7 @@ import { ErrorModal } from './ErrorModal'
 import { ContextMenuProvider } from './ContextMenu'
 
 function Shell() {
-  const { toast, compressReq } = useStore()
+  const { toast, compressReq, dismissToast } = useStore()
 
   return (
     <div className="app">
@@ -26,7 +26,23 @@ function Shell() {
 
       <StatusBar />
 
-      {toast && <div className={`toast ${toast.kind}`}>{toast.msg}</div>}
+      {toast && (
+        <div className={`toast ${toast.kind}`} role="status" aria-live="polite" onClick={dismissToast}>
+          <span className="toast-msg">{toast.msg}</span>
+          {toast.action && (
+            <button
+              className="toast-action"
+              onClick={(e) => {
+                e.stopPropagation()
+                toast.action!.onClick()
+                dismissToast()
+              }}
+            >
+              {toast.action.label}
+            </button>
+          )}
+        </div>
+      )}
       <AboutModal />
       <SettingsModal />
       {compressReq && <CompressModal />}

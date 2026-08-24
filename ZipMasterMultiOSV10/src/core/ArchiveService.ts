@@ -73,12 +73,24 @@ export interface ArchiveService {
   /** 파일/폴더를 삭제(휴지통으로 이동). */
   deletePath(path: string): Promise<void>
 
-  /** 파일/폴더를 destDir 아래로 복사. */
-  copyPath(src: string, destDir: string): Promise<void>
+  /** 파일/폴더를 destDir 아래로 복사. 생성된 경로 반환. */
+  copyPath(src: string, destDir: string): Promise<string>
 
-  /** 파일/폴더를 destDir 아래로 이동. */
-  movePath(src: string, destDir: string): Promise<void>
+  /** 파일/폴더를 destDir 아래로 이동. 대상 경로 반환. */
+  movePath(src: string, destDir: string): Promise<string>
 
-  /** 탐색기 항목을 OS 로 드래그 내보내기 시작(데스크톱 전용, 웹은 무시). */
-  startDrag(path: string): void
+  /** 같은 폴더 안에서 파일/폴더 이름을 변경. 변경된 경로 반환. */
+  renamePath(target: string, newName: string): Promise<string>
+
+  /** 탐색기 항목들을 OS 로 드래그 내보내기 시작(데스크톱 전용, 웹은 무시). */
+  startDrag(paths: string[]): void
+
+  /** 파일/폴더 경로들을 OS 클립보드에 올려 외부(탐색기)에 붙여넣기 가능하게 한다(웹은 무시). */
+  copyToClipboard(paths: string[]): void
+
+  /** 진행 중인 압축/해제 작업을 취소한다(웹은 무시). */
+  cancel(): void
+
+  /** 결과물(파일/폴더) 위치를 OS 파일 탐색기에서 연다(웹은 무시). */
+  revealPath(target: string): Promise<void>
 }

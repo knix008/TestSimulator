@@ -1,4 +1,5 @@
 import { useStore } from './store'
+import { useEsc } from './useEsc'
 
 /** 프로그램 설정 모달: 화면(테마·언어) + 파일 탐색(기본 폴더·마지막 폴더 기억). */
 export function SettingsModal() {
@@ -21,11 +22,12 @@ export function SettingsModal() {
     setSettingsOpen
   } = useStore()
 
+  useEsc(() => setSettingsOpen(false))
   if (!settingsOpen) return null
 
   return (
     <div className="modal-overlay" onClick={() => setSettingsOpen(false)}>
-      <div className="modal settings-modal" onClick={(e) => e.stopPropagation()}>
+      <div className="modal settings-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
         <h2>{t.settingsTitle}</h2>
 
         {/* 화면 설정 */}

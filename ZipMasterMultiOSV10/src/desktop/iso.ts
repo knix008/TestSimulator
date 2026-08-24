@@ -196,7 +196,8 @@ export async function extractIso(
   filePath: string,
   outDir: string,
   selection: string[] | undefined,
-  onProgress: (p: Progress) => void
+  onProgress: (p: Progress) => void,
+  isCancelled?: () => boolean
 ): Promise<OperationResult> {
   const fh = await fsp.open(filePath, 'r')
   try {
@@ -233,6 +234,7 @@ export async function extractIso(
 
     const total = files.length
     for (let i = 0; i < total; i++) {
+      if (isCancelled?.()) return { ok: false, outputs: [], warnings: [], error: '취소되었습니다.' }
       onProgress({ message: rels[i], kind: 'count', current: i + 1, total })
       const dest = path.join(outDir, rels[i])
       await writeFile(fh, files[i].lba, files[i].size, dest)

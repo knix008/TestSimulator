@@ -3,6 +3,7 @@ import type { ArchiveFormat } from '@core/types'
 import { ALL_FORMATS, FORMAT_LABELS, archiveBaseName, extensionFor } from '@core/format'
 import { useStore } from './store'
 import { useArchiveService } from './ServiceContext'
+import { useEsc } from './useEsc'
 
 /** 분할 크기 프리셋(MB). 사용자 지정 시 직접 입력. */
 const SPLIT_PRESETS = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
@@ -48,10 +49,13 @@ export function CompressModal() {
   // 저장 폴더(데스크톱): 직전 압축 폴더 → 없으면 첫 입력의 상위 폴더.
   const [outDir, setOutDir] = useState<string>(() => compressDir || parentDir(compressReq?.[0]?.path ?? ''))
 
+  useEsc(() => {
+    if (!busy) cancelCompress()
+  })
   if (!compressReq) return null
 
   const chooseDir = async () => {
-    const d = await svc.pickDirectory()
+    const d = await svc.pickDirectory(outDir || undefined)
     if (d) setOutDir(d)
   }
 
@@ -71,7 +75,7 @@ export function CompressModal() {
 
   return (
     <div className="modal-overlay" onClick={cancelCompress}>
-      <div className="modal compress-modal" onClick={(e) => e.stopPropagation()}>
+      <div className="modal compress-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
         <h2>{t.compressTitle}</h2>
         <p className="hint">{t.compressSummary(compressReq.length)}</p>
 

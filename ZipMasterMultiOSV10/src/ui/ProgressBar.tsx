@@ -19,13 +19,19 @@ export function ProgressBar({ progress, busy }: Props) {
 
   return (
     <div className="progress">
-      <div className="progress-track">
+      <div
+        className="progress-track"
+        role="progressbar"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={percent ?? undefined}
+      >
         <div
           className={marquee ? 'progress-fill marquee' : 'progress-fill'}
           style={marquee ? undefined : { width: `${percent ?? 0}%` }}
         />
       </div>
-      <div className="progress-text">
+      <div className="progress-text" aria-live="polite">
         {progress?.message ?? ''}
         {percent !== null ? ` ${percent}%` : ''}
       </div>

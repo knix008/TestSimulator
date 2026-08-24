@@ -31,6 +31,12 @@ function pathAncestors(full: string): Array<{ label: string; path: string }> {
 // 트리 루트(드라이브/루트 목록)를 담는 캐시 키.
 const ROOT = ''
 
+/** 되돌릴 수 있는 파일 작업(삭제는 휴지통 복원이 어려워 제외). */
+type FileOp =
+  | { kind: 'rename'; from: string; to: string }
+  | { kind: 'move'; pairs: { from: string; to: string }[] }
+  | { kind: 'copy'; srcs: string[]; destDir: string; created: string[] }
+
 /** 왼쪽 패널: 상단 경로 드롭다운 + 하단 확장 가능한 디렉터리 트리. */
 export function FileBrowser() {
   const {
@@ -44,7 +50,8 @@ export function FileBrowser() {
     setDefaultDir,
     doExtract,
     compressEntry,
-    showError
+    showError,
+    setUndoRedo
   } = useStore()
   const svc = useArchiveService()
   const { openMenu } = useContextMenu()
@@ -58,9 +65,23 @@ export function FileBrowser() {
   const [selectedPaths, setSelectedPaths] = useState<Set<string>>(new Set())
   const [anchor, setAnchor] = useState<string | null>(null)
   const [dragOver, setDragOver] = useState<string | null>(null)
+  // 인라인 이름 변경 중인 항목 경로와 편집 값.
+  const [renaming, setRenaming] = useState<string | null>(null)
+  const [renameValue, setRenameValue] = useState('')
+  // 시스템 드라이브/루트 목록(상단 빠른 선택 바).
+  const [drives, setDrives] = useState<FsEntry[]>([])
+  // 파일 작업 실행 취소/다시 실행 스택.
+  const [undoStack, setUndoStack] = useState<FileOp[]>([])
+  const [redoStack, setRedoStack] = useState<FileOp[]>([])
   // 시작 시 복원된 현재 폴더를 트리 가운데로 스크롤(최초 1회).
   const currentRowRef = useRef<HTMLDivElement | null>(null)
   const didCenter = useRef(false)
+  // 키보드 탐색 시 포커스 행을 보이도록 스크롤하기 위한 트리 컨테이너 ref.
+  const treeRef = useRef<HTMLDivElement | null>(null)
+  // 현재 드래그 세션에서 트리가 내보낸 경로들(내부 이동/외부 복사 구분용).
+  const dragSrcRef = useRef<string[] | null>(null)
+  // 드라이브 선택 시 해당 행을 트리 최상단으로 스크롤하기 위한 대상 경로.
+  const [scrollTopTarget, setScrollTopTarget] = useState<string | null>(null)
 
   const markLoading = (path: string, on: boolean) =>
     setLoading((s) => {
@@ -186,7 +207,42 @@ export function FileBrowser() {
     onEntryActivate(e)
   }
 
+  // 시작 시 드라이브 목록을 한 번 로드(상단 빠른 선택 바).
+  useEffect(() => {
+    if (!canBrowse) return
+    svc.listDrives().then(setDrives).catch(() => {})
+  }, [canBrowse, svc])
+
+  // 드라이브 선택 후 트리가 펼쳐지면 해당 드라이브 행을 최상단으로 스크롤(1회).
+  useEffect(() => {
+    if (!scrollTopTarget) return
+    const el = treeRef.current?.querySelector(`[data-path="${CSS.escape(scrollTopTarget)}"]`)
+    if (el) {
+      el.scrollIntoView({ block: 'start' })
+      setScrollTopTarget(null)
+    }
+  }, [scrollTopTarget, childrenCache, expanded, listing?.path])
+
   const refresh = (dirPath: string) => loadChildren(dirPath).catch(() => {})
+
+  // 인라인 이름 변경 시작/확정/취소.
+  const startRename = (e: FsEntry) => {
+    setRenaming(e.path)
+    setRenameValue(e.name)
+  }
+  const cancelRename = () => setRenaming(null)
+  const commitRename = async (e: FsEntry) => {
+    const newName = renameValue.trim()
+    setRenaming(null)
+    if (!newName || newName === e.name) return
+    try {
+      const to = await svc.renamePath(e.path, newName)
+      refresh(parentOf(e.path)) // 상위 폴더 다시 로드
+      pushOp({ kind: 'rename', from: e.path, to })
+    } catch (err) {
+      showError(`${t.error}\n\n${err instanceof Error ? err.message : String(err)}`)
+    }
+  }
 
   // 경로의 상위 디렉터리(드라이브 루트는 "D:\" 형태로 보정).
   const parentOf = (p: string): string => {
@@ -206,18 +262,31 @@ export function FileBrowser() {
 
   const baseName = (p: string) => p.replace(/[\\/]+$/, '').split(/[\\/]/).pop() ?? p
 
-  // 여러 경로를 destDir 로 복사 또는 이동.
+  const pushOp = (op: FileOp) => {
+    setUndoStack((s) => [...s, op])
+    setRedoStack([])
+  }
+
+  // 여러 경로를 destDir 로 복사 또는 이동. 결과를 실행 취소 스택에 기록.
   const transferMany = async (srcs: string[], destDir: string, mode: 'copy' | 'cut') => {
+    const pairs: { from: string; to: string }[] = []
     for (const src of srcs) {
       if (src === destDir) continue
       try {
-        if (mode === 'copy') await svc.copyPath(src, destDir)
-        else await svc.movePath(src, destDir)
+        const to = mode === 'copy' ? await svc.copyPath(src, destDir) : await svc.movePath(src, destDir)
+        pairs.push({ from: src, to })
       } catch (e) {
         showError(`${t.error}\n\n${e instanceof Error ? e.message : String(e)}`)
       }
     }
     refreshDirs([destDir, ...srcs.map(parentOf)])
+    if (pairs.length > 0) {
+      if (mode === 'copy') {
+        pushOp({ kind: 'copy', srcs: pairs.map((p) => p.from), destDir, created: pairs.map((p) => p.to) })
+      } else {
+        pushOp({ kind: 'move', pairs })
+      }
+    }
   }
 
   const pasteInto = async (destDir: string) => {
@@ -248,58 +317,175 @@ export function FileBrowser() {
     setSelectedPaths(new Set())
   }
 
+  // 작업을 반대로 되돌린다(실행 취소).
+  const reverseOp = async (op: FileOp) => {
+    if (op.kind === 'rename') {
+      await svc.renamePath(op.to, baseName(op.from))
+      refreshDirs([parentOf(op.from)])
+    } else if (op.kind === 'move') {
+      for (const { from, to } of op.pairs) await svc.movePath(to, parentOf(from))
+      refreshDirs([...op.pairs.map((p) => parentOf(p.from)), ...op.pairs.map((p) => parentOf(p.to))])
+    } else {
+      for (const c of op.created) await svc.deletePath(c)
+      refreshDirs([op.destDir])
+    }
+  }
+
+  // 작업을 다시 실행한다. copy 는 재복사 경로가 달라질 수 있어 갱신된 op 를 반환.
+  const forwardOp = async (op: FileOp): Promise<FileOp> => {
+    if (op.kind === 'rename') {
+      await svc.renamePath(op.from, baseName(op.to))
+      refreshDirs([parentOf(op.to)])
+      return op
+    } else if (op.kind === 'move') {
+      for (const { from, to } of op.pairs) await svc.movePath(from, parentOf(to))
+      refreshDirs([...op.pairs.map((p) => parentOf(p.from)), ...op.pairs.map((p) => parentOf(p.to))])
+      return op
+    } else {
+      const created: string[] = []
+      for (const s of op.srcs) created.push(await svc.copyPath(s, op.destDir))
+      refreshDirs([op.destDir])
+      return { ...op, created }
+    }
+  }
+
+  const doUndo = async () => {
+    const op = undoStack[undoStack.length - 1]
+    if (!op) return
+    try {
+      await reverseOp(op)
+      setUndoStack((s) => s.slice(0, -1))
+      setRedoStack((s) => [...s, op])
+    } catch (e) {
+      showError(`${t.error}\n\n${e instanceof Error ? e.message : String(e)}`)
+    }
+  }
+
+  const doRedo = async () => {
+    const op = redoStack[redoStack.length - 1]
+    if (!op) return
+    try {
+      const updated = await forwardOp(op)
+      setRedoStack((s) => s.slice(0, -1))
+      setUndoStack((s) => [...s, updated])
+    } catch (e) {
+      showError(`${t.error}\n\n${e instanceof Error ? e.message : String(e)}`)
+    }
+  }
+
+  // 실행 취소/다시 실행 핸들러와 가능 여부를 스토어(툴바)에 등록.
+  useEffect(() => {
+    setUndoRedo({ undo: doUndo, redo: doRedo, canUndo: undoStack.length > 0, canRedo: redoStack.length > 0 })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [undoStack, redoStack])
+
   // 우클릭/단축키 대상: 우클릭한 항목이 선택에 포함되면 선택 전체, 아니면 그 항목만.
   const targetPaths = (e: FsEntry): string[] => (selectedPaths.has(e.path) ? [...selectedPaths] : [e.path])
 
-  // 외부(OS)에서 드롭된 파일들을 destDir 로 복사.
-  const dropExternal = async (files: FileList, destDir: string) => {
-    const paths: string[] = []
-    for (let i = 0; i < files.length; i++) {
-      const p = (files[i] as unknown as { path?: string }).path
-      if (p) paths.push(p)
-    }
-    for (const p of paths) {
-      try {
-        await svc.copyPath(p, destDir)
-      } catch (e) {
-        showError(`${t.error}\n\n${e instanceof Error ? e.message : String(e)}`)
-      }
-    }
-    if (paths.length > 0) refreshDirs([destDir])
-  }
-
-  // 드롭 처리(내부 이동 우선, 없으면 외부 파일 복사).
+  // 드롭 처리: 드롭된 경로가 우리 트리에서 시작한 드래그면 이동, 아니면(외부 OS) 복사.
   const handleDrop = (ev: DragEvent, destDir: string) => {
     ev.preventDefault()
     ev.stopPropagation()
     setDragOver(null)
-    const internal = ev.dataTransfer.getData('application/x-zipmaster-paths')
-    if (internal) {
-      let paths: string[] = []
-      try {
-        paths = JSON.parse(internal)
-      } catch {
-        paths = []
+
+    // 네이티브 드래그(내부/외부 공통)로 들어온 실제 파일 경로 수집.
+    const dropped: string[] = []
+    const files = ev.dataTransfer.files
+    for (let i = 0; i < files.length; i++) {
+      const p = (files[i] as unknown as { path?: string }).path
+      if (p) dropped.push(p)
+    }
+    // 폴백: 구형 커스텀 mime(HTML5 내부 드래그)
+    if (dropped.length === 0) {
+      const internal = ev.dataTransfer.getData('application/x-zipmaster-paths')
+      if (internal) {
+        try {
+          dropped.push(...(JSON.parse(internal) as string[]))
+        } catch {
+          /* 무시 */
+        }
       }
-      transferMany(paths.filter((p) => p !== destDir), destDir, 'cut') // 내부 드래그 = 이동
-      return
     }
-    if (ev.dataTransfer.files && ev.dataTransfer.files.length > 0) {
-      dropExternal(ev.dataTransfer.files, destDir)
-    }
+    const src = dragSrcRef.current
+    dragSrcRef.current = null
+    if (dropped.length === 0) return
+
+    // 드래그 시작이 우리 트리였고 드롭 경로가 그 집합이면 내부 이동, 아니면 외부 복사.
+    const isInternal = !!src && dropped.every((p) => src.includes(p))
+    transferMany(
+      dropped.filter((p) => p !== destDir),
+      destDir,
+      isInternal ? 'cut' : 'copy'
+    )
+  }
+
+  // 포커스(anchor) 행을 화면에 보이도록 스크롤.
+  const scrollToPath = (p: string) => {
+    const el = treeRef.current?.querySelector(`[data-path="${CSS.escape(p)}"]`)
+    el?.scrollIntoView({ block: 'nearest' })
+  }
+  const focusRow = (e: FsEntry) => {
+    setSelectedPaths(new Set([e.path]))
+    setAnchor(e.path)
+    scrollToPath(e.path)
   }
 
   const onTreeKeyDown = (ev: KeyboardEvent) => {
     const mod = ev.ctrlKey || ev.metaKey
     const sel = [...selectedPaths]
-    if (mod && ev.key.toLowerCase() === 'c') {
-      if (sel.length) setClipboard({ paths: sel, mode: 'copy' })
-    } else if (mod && ev.key.toLowerCase() === 'x') {
+    const key = ev.key
+    if (mod && key.toLowerCase() === 'z' && !ev.shiftKey) {
+      doUndo()
+    } else if (mod && (key.toLowerCase() === 'y' || (key.toLowerCase() === 'z' && ev.shiftKey))) {
+      doRedo()
+    } else if (mod && key.toLowerCase() === 'c') {
+      if (sel.length) {
+        setClipboard({ paths: sel, mode: 'copy' })
+        svc.copyToClipboard(sel) // 외부(탐색기)에도 붙여넣기 가능하도록 OS 클립보드에 올림
+      }
+    } else if (mod && key.toLowerCase() === 'x') {
       if (sel.length) setClipboard({ paths: sel, mode: 'cut' })
-    } else if (mod && ev.key.toLowerCase() === 'v') {
+    } else if (mod && key.toLowerCase() === 'v') {
       pasteInto(listing?.path ?? ROOT)
-    } else if (ev.key === 'Delete') {
+    } else if (key === 'Delete') {
       if (sel.length) deletePaths(sel)
+    } else if (key === 'ArrowDown' || key === 'ArrowUp' || key === 'Home' || key === 'End') {
+      // 위/아래 이동(펼쳐진 순서 기준).
+      const order = flatEntries()
+      if (order.length === 0) return
+      let i = order.findIndex((e) => e.path === anchor)
+      if (i < 0) i = 0
+      else if (key === 'ArrowDown') i = Math.min(order.length - 1, i + 1)
+      else if (key === 'ArrowUp') i = Math.max(0, i - 1)
+      if (key === 'Home') i = 0
+      if (key === 'End') i = order.length - 1
+      focusRow(order[i])
+    } else if (key === 'ArrowRight') {
+      // 폴더면 펼치기(이미 펼쳐졌으면 첫 자식으로).
+      const e = flatEntries().find((x) => x.path === anchor)
+      if (!e || !e.isDirectory) return
+      if (!expanded.has(e.path)) toggle(e.path)
+      else {
+        const order = flatEntries()
+        const i = order.findIndex((x) => x.path === e.path)
+        if (i >= 0 && i + 1 < order.length) focusRow(order[i + 1])
+      }
+    } else if (key === 'ArrowLeft') {
+      // 펼쳐진 폴더면 접기, 아니면 상위로 이동.
+      const e = flatEntries().find((x) => x.path === anchor)
+      if (!e) return
+      if (e.isDirectory && expanded.has(e.path)) {
+        toggle(e.path)
+      } else {
+        const par = parentOf(e.path)
+        const pe = flatEntries().find((x) => x.path === par)
+        if (pe) focusRow(pe)
+        else return
+      }
+    } else if (key === 'Enter') {
+      const e = flatEntries().find((x) => x.path === anchor)
+      if (!e) return
+      onEntryActivate(e)
     } else {
       return
     }
@@ -332,12 +518,24 @@ export function FileBrowser() {
       items.push({ label: t.ctxCompress, icon: '🗜️', onClick: () => compressEntry(e) })
     }
     items.push({ separator: true })
-    items.push({ label: t.ctxCopy, icon: '📄', onClick: () => setClipboard({ paths: targets, mode: 'copy' }) })
+    items.push({
+      label: t.ctxCopy,
+      icon: '📄',
+      onClick: () => {
+        setClipboard({ paths: targets, mode: 'copy' })
+        svc.copyToClipboard(targets) // 외부(탐색기)에도 붙여넣기 가능
+      }
+    })
     items.push({ label: t.ctxCut, icon: '✂️', onClick: () => setClipboard({ paths: targets, mode: 'cut' }) })
     if (e.isDirectory) {
       items.push({ label: t.ctxPaste, icon: '📋', disabled: !clipboard, onClick: () => pasteInto(e.path) })
     }
+    // 이름 변경은 단일 대상에만 제공.
+    items.push({ label: t.ctxRename, icon: '✏️', onClick: () => startRename(e) })
     items.push({ label: t.ctxDelete, icon: '🗑️', danger: true, onClick: () => deletePaths(targets) })
+    items.push({ separator: true })
+    items.push({ label: t.ctxUndo, icon: '↩️', disabled: undoStack.length === 0, onClick: doUndo })
+    items.push({ label: t.ctxRedo, icon: '↪️', disabled: redoStack.length === 0, onClick: doRedo })
     items.push({ separator: true })
     items.push({ label: t.ctxUp, icon: '⬆️', onClick: () => browseUp(), disabled: !listing?.path })
     items.push({ label: t.ctxRefresh, icon: '🔄', onClick: () => refresh(e.isDirectory ? e.path : listing?.path ?? ROOT) })
@@ -383,6 +581,7 @@ export function FileBrowser() {
       rows.push(
         <div
           key={e.path}
+          data-path={e.path}
           ref={isCurrent ? currentRowRef : undefined}
           className={
             'tree-row' +
@@ -395,7 +594,7 @@ export function FileBrowser() {
           }
           style={{ paddingLeft: 6 + depth * 16 }}
           title={e.path}
-          draggable
+          draggable={renaming !== e.path}
           onClick={(ev) => onRowClick(e, ev)}
           onContextMenu={(ev) => onRowContextMenu(e, ev)}
           onDragStart={(ev) => {
@@ -405,14 +604,14 @@ export function FileBrowser() {
               setSelectedPaths(new Set([e.path]))
               setAnchor(e.path)
             }
-            if (ev.altKey) {
-              // Alt+드래그: OS 로 파일 내보내기(네이티브 드래그)
-              ev.preventDefault()
-              svc.startDrag(e.path)
-              return
-            }
-            ev.dataTransfer.setData('application/x-zipmaster-paths', JSON.stringify(paths))
-            ev.dataTransfer.effectAllowed = 'copyMove'
+            // 네이티브 드래그로 시작 → OS(탐색기/바탕화면)로 내보내기 가능.
+            // 창 안 폴더로 되떨구면 handleDrop 이 dragSrcRef 로 내부 이동을 판별.
+            dragSrcRef.current = paths
+            ev.preventDefault()
+            svc.startDrag(paths)
+          }}
+          onDragEnd={() => {
+            dragSrcRef.current = null
           }}
           onDragOver={
             e.isDirectory
@@ -443,8 +642,25 @@ export function FileBrowser() {
           <span className="fs-ico" aria-hidden>
             {e.isDirectory ? (isExp ? '📂' : '📁') : e.isArchive ? '🗜️' : '📄'}
           </span>
-          <span className="fs-name">{e.name}</span>
-          {!e.isDirectory && <span className="fs-size">{formatBytes(e.size)}</span>}
+          {renaming === e.path ? (
+            <input
+              className="fs-rename-input"
+              value={renameValue}
+              autoFocus
+              spellCheck={false}
+              onClick={(ev) => ev.stopPropagation()}
+              onChange={(ev) => setRenameValue(ev.target.value)}
+              onKeyDown={(ev) => {
+                if (ev.key === 'Enter') commitRename(e)
+                else if (ev.key === 'Escape') cancelRename()
+                ev.stopPropagation()
+              }}
+              onBlur={() => commitRename(e)}
+            />
+          ) : (
+            <span className="fs-name">{e.name}</span>
+          )}
+          {!e.isDirectory && renaming !== e.path && <span className="fs-size">{formatBytes(e.size)}</span>}
         </div>
       )
       if (e.isDirectory && isExp) rows.push(...renderNodes(e.path, depth + 1))
@@ -461,7 +677,27 @@ export function FileBrowser() {
         </button>
       </div>
 
-      {/* 상단: 전체 경로를 드롭다운으로 표시(조상 선택 시 이동) */}
+      {/* 상단: 시스템 드라이브 빠른 선택 바 */}
+      {drives.length > 0 && (
+        <div className="drive-bar">
+          {drives.map((d) => (
+            <button
+              key={d.path}
+              className={'drive-btn' + (listing?.path === d.path ? ' active' : '')}
+              disabled={browseBusy}
+              title={d.path}
+              onClick={() => {
+                browseTo(d.path)
+                setScrollTopTarget(d.path) // 선택한 드라이브를 트리 최상단으로
+              }}
+            >
+              💽 {d.name}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* 전체 경로를 드롭다운으로 표시(조상 선택 시 이동) */}
       <select
         className="browser-path-select"
         value={listing?.path ?? ''}
@@ -485,6 +721,7 @@ export function FileBrowser() {
           - 드롭: 내부 항목은 이동, 외부(OS) 파일은 현재 폴더로 복사 */}
       <div
         className="fs-tree"
+        ref={treeRef}
         tabIndex={0}
         onKeyDown={onTreeKeyDown}
         onDragOver={(ev) => {
@@ -497,6 +734,9 @@ export function FileBrowser() {
         onContextMenu={(ev) =>
           openMenu(ev, [
             { label: t.ctxPaste, icon: '📋', disabled: !clipboard || atDrives, onClick: () => pasteInto(listing!.path) },
+            { separator: true },
+            { label: t.ctxUndo, icon: '↩️', disabled: undoStack.length === 0, onClick: doUndo },
+            { label: t.ctxRedo, icon: '↪️', disabled: redoStack.length === 0, onClick: doRedo },
             { separator: true },
             { label: t.ctxUp, icon: '⬆️', onClick: () => browseUp(), disabled: atDrives },
             { label: t.ctxRefresh, icon: '🔄', onClick: () => refresh(listing?.path ?? ROOT) }

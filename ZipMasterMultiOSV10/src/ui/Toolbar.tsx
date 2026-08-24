@@ -5,8 +5,22 @@ import { useStore } from './store'
  * 창 폭이 줄어도 버튼이 가려지지 않도록 flex-wrap 으로 접힌다.
  */
 export function Toolbar() {
-  const { t, busy, caps, toggleTheme, toggleLang, theme, doCompress, doExtract, setAboutOpen, setSettingsOpen } =
-    useStore()
+  const {
+    t,
+    busy,
+    caps,
+    toggleTheme,
+    toggleLang,
+    theme,
+    doCompress,
+    doExtract,
+    canUndo,
+    canRedo,
+    undo,
+    redo,
+    setAboutOpen,
+    setSettingsOpen
+  } = useStore()
 
   return (
     <div className="toolbar" role="toolbar">
@@ -29,6 +43,17 @@ export function Toolbar() {
         <button className="tool-btn" title={t.tipExtract} disabled={busy} onClick={() => doExtract()}>
           <span className="tool-ico" aria-hidden>📤</span>
           <span className="tool-label">{t.tbExtract}</span>
+        </button>
+      </div>
+
+      <div className="toolbar-group">
+        <button className="tool-btn" title={t.tipUndo} disabled={busy || !canUndo} onClick={undo}>
+          <span className="tool-ico" aria-hidden>↩️</span>
+          <span className="tool-label">{t.tbUndo}</span>
+        </button>
+        <button className="tool-btn" title={t.tipRedo} disabled={busy || !canRedo} onClick={redo}>
+          <span className="tool-ico" aria-hidden>↪️</span>
+          <span className="tool-label">{t.tbRedo}</span>
         </button>
       </div>
 

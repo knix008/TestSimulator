@@ -1,15 +1,17 @@
 import { useStore } from './store'
+import { useEsc } from './useEsc'
 
 /** 프로그램 정보 모달. */
 export function AboutModal() {
   const { aboutOpen, setAboutOpen, appVersion, lang } = useStore()
+  useEsc(() => setAboutOpen(false))
   if (!aboutOpen) return null
 
   const ko = lang === 'ko'
   const shortVer = appVersion.split('.').slice(0, 2).join('.')
   return (
     <div className="modal-overlay" onClick={() => setAboutOpen(false)}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
+      <div className="modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
         <img src="./icon.png" className="modal-icon" alt="" onError={(e) => (e.currentTarget.style.display = 'none')} />
         <h2>ZipMaster v{shortVer}</h2>
         <p className="modal-sub">

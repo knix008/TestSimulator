@@ -31,6 +31,12 @@ const api = {
   extract: (archivePath: string, outDir: string, opts: ExtractOptions): Promise<OperationResult> =>
     ipcRenderer.invoke('archive:extract', { archivePath, outDir, opts }),
 
+  /** 진행 중인 압축/해제 취소. */
+  cancel: (): void => ipcRenderer.send('archive:cancel'),
+
+  /** 결과물(파일/폴더) 위치를 OS 파일 탐색기에서 연다. */
+  revealPath: (target: string): Promise<void> => ipcRenderer.invoke('shell:reveal', target),
+
   listEntries: (archivePath: string): Promise<ArchiveEntry[]> =>
     ipcRenderer.invoke('archive:list', archivePath),
 
@@ -40,9 +46,12 @@ const api = {
 
   // ---- 파일 조작(삭제/복사/이동/드래그 내보내기) ----
   deletePath: (target: string): Promise<void> => ipcRenderer.invoke('fs:delete', target),
-  copyPath: (src: string, destDir: string): Promise<void> => ipcRenderer.invoke('fs:copy', { src, destDir }),
-  movePath: (src: string, destDir: string): Promise<void> => ipcRenderer.invoke('fs:move', { src, destDir }),
-  startDrag: (filePath: string): void => ipcRenderer.send('fs:startDrag', filePath),
+  copyPath: (src: string, destDir: string): Promise<string> => ipcRenderer.invoke('fs:copy', { src, destDir }),
+  movePath: (src: string, destDir: string): Promise<string> => ipcRenderer.invoke('fs:move', { src, destDir }),
+  renamePath: (target: string, newName: string): Promise<string> =>
+    ipcRenderer.invoke('fs:rename', { target, newName }),
+  startDrag: (filePaths: string[]): void => ipcRenderer.send('fs:startDrag', filePaths),
+  copyFilesToClipboard: (paths: string[]): void => ipcRenderer.send('clipboard:copyFiles', paths),
 
   /** 진행률 구독. 반환된 함수로 해제. */
   onProgress: (cb: (p: Progress) => void): (() => void) => {

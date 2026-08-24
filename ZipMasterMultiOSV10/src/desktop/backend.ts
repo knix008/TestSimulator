@@ -29,6 +29,33 @@ type OnProgress = (p: Progress) => void
 
 const CHUNK = 81920 // 참고 앱과 동일한 버퍼 크기
 
+export const CANCEL_MESSAGE = '취소되었습니다.'
+
+// 진행 중인 7za 자식 프로세스와 취소 요청 플래그(압축/해제 취소용).
+let activeChild: import('node:child_process').ChildProcess | null = null
+let cancelRequested = false
+
+/** 렌더러의 취소 요청: 실행 중인 7za 를 종료하고 루프 기반 작업(분할/ISO)에 취소를 알린다. */
+export function requestCancel(): void {
+  cancelRequested = true
+  try {
+    activeChild?.kill()
+  } catch {
+    /* 이미 종료됨 */
+  }
+}
+
+/** 새 작업 시작 시 취소 상태 초기화. */
+function resetCancel(): void {
+  cancelRequested = false
+  activeChild = null
+}
+
+/** node-7z 스트림의 자식 프로세스를 추적해 취소 시 종료할 수 있게 한다. */
+function trackStream(stream: { _childProcess?: import('node:child_process').ChildProcess }): void {
+  activeChild = stream._childProcess ?? null
+}
+
 function tempFile(ext: string): string {
   return path.join(os.tmpdir(), `zipmaster-${Date.now()}-${Math.floor(performance.now())}${ext}`)
 }
@@ -37,6 +64,7 @@ function tempFile(ext: string): string {
 function sevenAdd(archivePath: string, sources: string[], onProgress: OnProgress, message: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const stream = Seven.add(archivePath, sources, { $bin: path7za, $progress: true })
+    trackStream(stream as unknown as { _childProcess?: import('node:child_process').ChildProcess })
     stream.on('progress', (p: { percent: number }) =>
       onProgress({ message, kind: 'bytes', current: p.percent, total: 100 })
     )
@@ -61,6 +89,7 @@ function sevenExtract(
       overwrite: opts.overwrite ? 'a' : 's',
       password: opts.password
     })
+    trackStream(stream as unknown as { _childProcess?: import('node:child_process').ChildProcess })
     stream.on('progress', (p: { percent: number }) =>
       onProgress({ message: '압축 해제 중…', kind: 'bytes', current: p.percent, total: 100 })
     )
@@ -83,6 +112,7 @@ async function splitFile(
   let position = 0
   try {
     while (position < total) {
+      if (cancelRequested) throw new Error(CANCEL_MESSAGE)
       const outPath = partName(outputBase, partIndex)
       const outFd = await fsp.open(outPath, 'w')
       try {
@@ -169,6 +199,7 @@ export async function compress(
   const sources = await expandSources(inputs)
   if (sources.length === 0) return { ok: false, outputs: [], warnings: [], error: '압축할 파일이 없습니다.' }
 
+  resetCancel()
   try {
     // 실제 아카이브를 만들 경로: 분할이면 임시 파일, 아니면 최종 경로
     const buildPath = opts.split ? tempFile(path.extname(outPath) || '.zip') : outPath
@@ -200,6 +231,8 @@ export async function compress(
     await fsp.unlink(buildPath).catch(() => {})
     return { ok: true, outputs: [outPath], partCount, warnings: [] }
   } catch (e) {
+    // 취소로 인한 종료면 취소 메시지로 통일.
+    if (cancelRequested) return { ok: false, outputs: [], warnings: [], error: CANCEL_MESSAGE }
     return { ok: false, outputs: [], warnings: [], error: (e as Error).message }
   }
 }
@@ -211,16 +244,18 @@ export async function extract(
   onProgress: OnProgress
 ): Promise<OperationResult> {
   let combined: string | null = null
+  resetCancel()
   try {
     // ISO9660 은 번들 7za 가 열지 못하므로 자체 리더로 추출.
     if (await isIso(archivePath)) {
-      return await extractIso(archivePath, outDir, opts.selection, onProgress)
+      return await extractIso(archivePath, outDir, opts.selection, onProgress, () => cancelRequested)
     }
     combined = await tryCombineParts(archivePath, onProgress)
     const source = combined ?? archivePath
     await sevenExtract(source, outDir, opts, onProgress)
     return { ok: true, outputs: [outDir], warnings: [] }
   } catch (e) {
+    if (cancelRequested) return { ok: false, outputs: [], warnings: [], error: CANCEL_MESSAGE }
     return { ok: false, outputs: [], warnings: [], error: (e as Error).message }
   } finally {
     if (combined) await fsp.unlink(combined).catch(() => {})
@@ -336,16 +371,33 @@ export async function resolveCompressPath(
   return uniqueDest(dir, `${baseName}${extensionFor(format)}`)
 }
 
-/** 파일/폴더를 destDir 아래로 복사(재귀). 이름 충돌 시 자동으로 " (n)" 을 붙인다. */
-export async function copyPath(src: string, destDir: string): Promise<void> {
-  const dest = await uniqueDest(destDir, path.basename(src))
-  await fsp.cp(src, dest, { recursive: true })
+/** 같은 폴더 안에서 파일/폴더 이름을 변경한다. 잘못된 이름/충돌 시 오류. */
+export async function renamePath(target: string, newName: string): Promise<string> {
+  const name = newName.trim()
+  if (!name) throw new Error('이름을 입력하세요.')
+  // 경로 구분자나 Windows 금지 문자는 허용하지 않음(같은 폴더 내 이름 변경만).
+  if (/[\\/]/.test(name) || /[<>:"|?*]/.test(name)) {
+    throw new Error('이름에 사용할 수 없는 문자가 있습니다.')
+  }
+  const dir = path.dirname(target)
+  const dest = path.join(dir, name)
+  if (path.resolve(dest) === path.resolve(target)) return dest // 변경 없음
+  if (await pathExists(dest)) throw new Error('같은 이름의 항목이 이미 있습니다.')
+  await fsp.rename(target, dest)
+  return dest
 }
 
-/** 파일/폴더를 destDir 아래로 이동. 같은 위치면 무시, 자기 하위로는 금지, 이름 충돌 시 오류. */
-export async function movePath(src: string, destDir: string): Promise<void> {
+/** 파일/폴더를 destDir 아래로 복사(재귀). 이름 충돌 시 자동으로 " (n)" 을 붙인다. 생성 경로 반환. */
+export async function copyPath(src: string, destDir: string): Promise<string> {
+  const dest = await uniqueDest(destDir, path.basename(src))
+  await fsp.cp(src, dest, { recursive: true })
+  return dest
+}
+
+/** 파일/폴더를 destDir 아래로 이동. 같은 위치면 무시, 자기 하위로는 금지, 이름 충돌 시 오류. 대상 경로 반환. */
+export async function movePath(src: string, destDir: string): Promise<string> {
   const dest = path.join(destDir, path.basename(src))
-  if (path.resolve(dest) === path.resolve(src)) return
+  if (path.resolve(dest) === path.resolve(src)) return dest
   const rel = path.relative(src, dest)
   if (rel && !rel.startsWith('..') && !path.isAbsolute(rel)) {
     throw new Error('폴더를 자기 자신의 하위로 이동할 수 없습니다.')
@@ -358,6 +410,7 @@ export async function movePath(src: string, destDir: string): Promise<void> {
     await fsp.cp(src, dest, { recursive: true })
     await fsp.rm(src, { recursive: true, force: true })
   }
+  return dest
 }
 
 export async function listEntries(archivePath: string): Promise<ArchiveEntry[]> {

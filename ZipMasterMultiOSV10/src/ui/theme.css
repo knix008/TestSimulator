@@ -1094,3 +1094,128 @@ button.primary:hover {
   margin: 4px 6px;
   background: var(--border);
 }
+
+/* ---- 키보드 포커스 가시성(마우스 클릭에는 표시하지 않음) ---- */
+button:focus-visible,
+select:focus-visible,
+input:focus-visible,
+a:focus-visible,
+[tabindex]:focus-visible,
+.tool-btn:focus-visible,
+.win-btn:focus-visible,
+.context-menu-item:focus-visible,
+.tree-row:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* compress 이름 입력은 :focus 에서 outline 을 없애므로 키보드 포커스만 링 복원 */
+.compress-name-input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.fs-tree:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* 좌측 상단 드라이브 빠른 선택 바 */
+.drive-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.drive-btn {
+  background: var(--bg-input);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.drive-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.drive-btn.active {
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.drive-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 트리 인라인 이름 변경 입력 */
+.fs-rename-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0 4px;
+  padding: 1px 4px;
+  font: inherit;
+  background: var(--bg-input);
+  color: var(--text);
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+}
+
+.fs-rename-input:focus {
+  outline: none;
+}
+
+/* ---- 토스트: 클릭으로 닫기 + 액션 버튼 ---- */
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  cursor: pointer;
+}
+
+.toast-msg {
+  white-space: pre-line;
+}
+
+.toast-action {
+  flex: 0 0 auto;
+  background: transparent;
+  border: 1px solid currentColor;
+  color: inherit;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.toast-action:hover {
+  background: rgba(127, 127, 127, 0.15);
+}
+
+/* ---- 좁은 화면: 두 패널을 세로로 쌓음 ---- */
+@media (max-width: 760px) {
+  .app {
+    min-width: 0;
+  }
+  .panels {
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr 1fr;
+  }
+}
+
+/* ---- 모션 최소화 선호 시 애니메이션 정지 ---- */
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation: none;
+  }
+  .progress-fill.marquee {
+    animation: none;
+    width: 100%;
+  }
+}
