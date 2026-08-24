@@ -5,10 +5,18 @@ import { createRequire } from 'node:module'
 
 const require = createRequire(import.meta.url)
 
+// 빌드 시각 기반 빌드 번호(YYYYMMDDHHmm) — About 에 표시.
+const pad = (n: number) => String(n).padStart(2, '0')
+const now = new Date()
+const APP_BUILD = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}${pad(now.getHours())}${pad(now.getMinutes())}`
+
 // 순수 웹(브라우저) 빌드 설정. 데스크톱 빌드는 electron.vite.config.ts 를 사용한다.
 export default defineConfig({
   root: resolve(__dirname, 'src/web'),
   base: './',
+  define: {
+    __APP_BUILD__: JSON.stringify(APP_BUILD)
+  },
   plugins: [react()],
   resolve: {
     alias: {

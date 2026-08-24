@@ -10,6 +10,7 @@ import * as path from 'node:path'
 
 import type {
   ArchiveEntry,
+  ArchiveFormat,
   CompressOptions,
   DirListing,
   ExtractOptions,
@@ -18,7 +19,8 @@ import type {
   OperationResult,
   Progress
 } from '@core/types'
-import { isArchiveName, parseSplitPart, partName } from '@core/format'
+import { extensionFor, isArchiveName, parseSplitPart, partName } from '@core/format'
+import { isIso, listIso, extractIso } from './iso'
 
 // electron-builder asarUnpack 로 풀린 실제 경로 보정
 const path7za = sevenBin.path7za.replace('app.asar', 'app.asar.unpacked')
@@ -210,6 +212,10 @@ export async function extract(
 ): Promise<OperationResult> {
   let combined: string | null = null
   try {
+    // ISO9660 은 번들 7za 가 열지 못하므로 자체 리더로 추출.
+    if (await isIso(archivePath)) {
+      return await extractIso(archivePath, outDir, opts.selection, onProgress)
+    }
     combined = await tryCombineParts(archivePath, onProgress)
     const source = combined ?? archivePath
     await sevenExtract(source, outDir, opts, onProgress)
@@ -321,6 +327,15 @@ async function uniqueDest(destDir: string, name: string): Promise<string> {
   return candidate
 }
 
+/** 압축 결과를 저장할 전체 경로(dir/baseName.ext)를 만들고, 충돌 시 " (n)" 으로 회피한다. */
+export async function resolveCompressPath(
+  dir: string,
+  baseName: string,
+  format: ArchiveFormat
+): Promise<string> {
+  return uniqueDest(dir, `${baseName}${extensionFor(format)}`)
+}
+
 /** 파일/폴더를 destDir 아래로 복사(재귀). 이름 충돌 시 자동으로 " (n)" 을 붙인다. */
 export async function copyPath(src: string, destDir: string): Promise<void> {
   const dest = await uniqueDest(destDir, path.basename(src))
@@ -346,6 +361,8 @@ export async function movePath(src: string, destDir: string): Promise<void> {
 }
 
 export async function listEntries(archivePath: string): Promise<ArchiveEntry[]> {
+  // ISO9660 은 번들 7za 가 열지 못하므로 자체 리더로 목록을 만든다.
+  if (await isIso(archivePath)) return listIso(archivePath)
   let combined: string | null = null
   try {
     combined = await tryCombineParts(archivePath, () => {})

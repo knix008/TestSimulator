@@ -6,3 +6,6 @@ declare module '*?url' {
   const url: string
   export default url
 }
+
+// 빌드 시 주입되는 빌드 번호(YYYYMMDDHHmm). vite define 참고.
+declare const __APP_BUILD__: string

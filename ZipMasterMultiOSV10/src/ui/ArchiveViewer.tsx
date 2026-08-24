@@ -148,11 +148,12 @@ export function ArchiveViewer() {
               />
               {t.overwrite}
             </label>
-            <button className="primary" disabled={busy} onClick={() => doExtract()}>
-              {t.pickArchive}
-            </button>
-            <button disabled={busy || selected.size === 0} onClick={extractSelected}>
-              {t.extractSelected(selected.size)}
+            <button
+              className="primary"
+              disabled={busy}
+              onClick={() => (selected.size > 0 ? extractSelected() : doExtract())}
+            >
+              {selected.size > 0 ? t.extractSelected(selected.size) : t.pickArchive}
             </button>
           </div>
 

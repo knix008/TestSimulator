@@ -79,7 +79,12 @@ app.whenReady().then(() => {
       title: '해제할 아카이브 선택',
       properties: ['openFile'],
       filters: [
-        { name: '압축 파일', extensions: ['zip', '7z', 'rar', 'tar', 'gz', 'tgz', 'bz2', 'tbz2', '001'] },
+        {
+          name: '압축 파일',
+          extensions: [
+            'zip', '7z', 'rar', 'tar', 'gz', 'tgz', 'bz2', 'tbz2', 'xz', 'txz', 'lzma', 'cab', 'iso', '001'
+          ]
+        },
         { name: '모든 파일', extensions: ['*'] }
       ]
     })
@@ -130,6 +135,13 @@ app.whenReady().then(() => {
   )
 
   ipcMain.handle('archive:list', async (_e, archivePath: string) => backend.listEntries(archivePath))
+
+  // 압축 저장 경로 계산(팝업에서 지정한 폴더 + 이름 → 충돌 회피된 전체 경로).
+  ipcMain.handle(
+    'archive:resolvePath',
+    async (_e, args: { dir: string; baseName: string; format: string }) =>
+      backend.resolveCompressPath(args.dir, args.baseName, args.format as CompressOptions['format'])
+  )
 
   // ---- 파일 시스템 탐색 ----
   ipcMain.handle('fs:listDrives', async () => backend.listDrives())

@@ -66,6 +66,9 @@ interface Store {
   /** 직전에 사용한 압축 해제 폴더(다음 해제 시 기본값). */
   extractDir: string
   setExtractDir: (path: string) => void
+  /** 직전에 사용한 압축 저장 폴더(다음 압축 팝업의 기본 폴더). */
+  compressDir: string
+  setCompressDir: (path: string) => void
   rememberLast: boolean
   setRememberLast: (b: boolean) => void
   settingsOpen: boolean
@@ -163,6 +166,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [appVersion, setAppVersion] = useState('1.0.0')
   const [defaultDir, setDefaultDirState] = useState<string>(() => readLS('zm.defaultDir', ''))
   const [extractDir, setExtractDirState] = useState<string>(() => readLS('zm.extractDir', ''))
+  const [compressDir, setCompressDirState] = useState<string>(() => readLS('zm.compressDir', ''))
   const [rememberLast, setRememberLastState] = useState<boolean>(() => readLS<string>('zm.rememberLast', '1') !== '0')
   const [settingsOpen, setSettingsOpen] = useState(false)
 
@@ -204,6 +208,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setExtractDirState(path)
     try {
       localStorage.setItem('zm.extractDir', path)
+    } catch {}
+  }, [])
+
+  const setCompressDir = useCallback((path: string) => {
+    setCompressDirState(path)
+    try {
+      localStorage.setItem('zm.compressDir', path)
     } catch {}
   }, [])
 
@@ -292,9 +303,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setFormat(opts.format)
       setSplit(opts.split)
       setSplitSizeMb(opts.splitSizeMb)
+      if (opts.outDir) setCompressDir(opts.outDir)
       await runCompress(inputs, opts)
     },
-    [compressReq, runCompress, setFormat, setSplit, setSplitSizeMb]
+    [compressReq, runCompress, setFormat, setSplit, setSplitSizeMb, setCompressDir]
   )
 
   const cancelCompress = useCallback(() => setCompressReq(null), [])
@@ -307,12 +319,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         ? { path: explicit, entryName: explicit.split(/[\\/]/).pop() ?? explicit }
         : await svc.pickArchive()
       if (!archive) return
+      // 해제 폴더를 먼저 선택(데스크톱). 취소하면 진행 표시 없이 즉시 종료.
+      let outDir: string | undefined
+      if (canBrowse) {
+        const dir = await svc.pickDirectory(extractDir || undefined)
+        if (!dir) return
+        outDir = dir
+        setExtractDir(dir) // 다음 해제의 기본 폴더로 기억
+      }
       setBusy(true)
       setProgress({ message: t.extracting, kind: 'marquee' })
-      const res = await svc.extract(archive, { overwrite, selection, defaultOutDir: extractDir }, setProgress)
+      const res = await svc.extract(archive, { overwrite, selection, outDir }, setProgress)
       if (res.ok) {
-        // 실제로 사용한 해제 폴더를 다음 해제의 기본값으로 기억(데스크톱).
-        if (canBrowse && res.outputs[0]) setExtractDir(res.outputs[0])
         if (res.warnings.length > 0) showError(res.warnings.join('\n'))
         notify(t.doneExtract, 'info')
       } else if (!isCancel(res.error)) {
@@ -480,6 +498,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     useCurrentAsDefault,
     extractDir,
     setExtractDir,
+    compressDir,
+    setCompressDir,
     rememberLast,
     setRememberLast,
     settingsOpen,

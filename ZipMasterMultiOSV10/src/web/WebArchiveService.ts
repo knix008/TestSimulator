@@ -55,7 +55,7 @@ export class WebArchiveService implements ArchiveService {
   }
 
   // 브라우저는 임의 경로를 노출하지 않으므로 기본 폴더 지정을 지원하지 않는다.
-  async pickDirectory(): Promise<string | null> {
+  async pickDirectory(_defaultPath?: string): Promise<string | null> {
     return null
   }
 

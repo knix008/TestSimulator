@@ -37,8 +37,8 @@ export class ElectronArchiveService implements ArchiveService {
     return this.api.pickInputs(kind)
   }
 
-  pickDirectory(): Promise<string | null> {
-    return this.api.pickOutputDir()
+  pickDirectory(defaultPath?: string): Promise<string | null> {
+    return this.api.pickOutputDir(defaultPath)
   }
 
   pickArchive(): Promise<InputSource | null> {
@@ -52,8 +52,13 @@ export class ElectronArchiveService implements ArchiveService {
   ): Promise<OperationResult> {
     // 사용자가 팝업에서 지정한 이름을 우선 사용하고, 없으면 첫 파일/폴더 이름에서 유도.
     const derived = inputs.length > 0 ? archiveBaseName(inputs[0].entryName) : undefined
-    const defaultName = opts.baseName?.trim() || derived
-    const outPath = await this.api.pickSavePath(opts.format, defaultName)
+    const name = opts.baseName?.trim() || derived || 'archive'
+    // 팝업에서 폴더를 지정했으면 그 폴더에 바로 저장(충돌 시 " (n)"), 아니면 저장 다이얼로그.
+    // (구버전 preload 로 실행 중이면 resolveCompressPath 가 없을 수 있어 저장 다이얼로그로 폴백)
+    const outPath =
+      opts.outDir && typeof this.api.resolveCompressPath === 'function'
+        ? await this.api.resolveCompressPath(opts.outDir, name, opts.format)
+        : await this.api.pickSavePath(opts.format, name)
     if (!outPath) return { ok: false, outputs: [], warnings: [], error: '취소되었습니다.' }
     const unsub = this.api.onProgress(onProgress)
     try {
@@ -68,7 +73,8 @@ export class ElectronArchiveService implements ArchiveService {
     opts: ExtractOptions,
     onProgress: ProgressCallback
   ): Promise<OperationResult> {
-    const outDir = await this.api.pickOutputDir(opts.defaultOutDir)
+    // 폴더가 이미 정해졌으면(store 에서 먼저 선택) 다이얼로그 없이 사용.
+    const outDir = opts.outDir || (await this.api.pickOutputDir(opts.defaultOutDir))
     if (!outDir) return { ok: false, outputs: [], warnings: [], error: '취소되었습니다.' }
     const unsub = this.api.onProgress(onProgress)
     try {

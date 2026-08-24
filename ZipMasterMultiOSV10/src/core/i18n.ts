@@ -43,6 +43,7 @@ export interface Dict {
   compressTitle: string
   compressSummary: (n: number) => string
   compressNameLabel: string
+  compressDirLabel: string
   compressStart: string
   compressCancel: string
   pickFiles: string
@@ -176,6 +177,7 @@ const ko: Dict = {
   compressTitle: '압축 옵션',
   compressSummary: (n) => `${n}개 항목을 압축합니다.`,
   compressNameLabel: '파일 이름',
+  compressDirLabel: '저장 폴더',
   compressStart: '압축 시작',
   compressCancel: '취소',
   pickFiles: '파일 선택…',
@@ -303,6 +305,7 @@ const en: Dict = {
   compressTitle: 'Compression options',
   compressSummary: (n) => `Compressing ${n} item(s).`,
   compressNameLabel: 'File name',
+  compressDirLabel: 'Save folder',
   compressStart: 'Compress',
   compressCancel: 'Cancel',
   pickFiles: 'Select files…',

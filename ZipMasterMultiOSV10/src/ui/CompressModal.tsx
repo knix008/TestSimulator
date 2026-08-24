@@ -2,9 +2,19 @@ import { useState } from 'react'
 import type { ArchiveFormat } from '@core/types'
 import { ALL_FORMATS, FORMAT_LABELS, archiveBaseName, extensionFor } from '@core/format'
 import { useStore } from './store'
+import { useArchiveService } from './ServiceContext'
 
 /** 분할 크기 프리셋(MB). 사용자 지정 시 직접 입력. */
 const SPLIT_PRESETS = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
+
+/** 전체 경로에서 상위 폴더를 구한다(Windows/POSIX 겸용). */
+function parentDir(full: string): string {
+  const norm = full.replace(/[\\/]+$/, '')
+  const idx = Math.max(norm.lastIndexOf('\\'), norm.lastIndexOf('/'))
+  if (idx < 0) return ''
+  const parent = norm.slice(0, idx)
+  return /^[a-zA-Z]:$/.test(parent) ? parent + '\\' : parent
+}
 
 /**
  * 압축 옵션 팝업: 대상이 정해지면(compressReq) 열리며,
@@ -14,6 +24,8 @@ export function CompressModal() {
   const {
     t,
     caps,
+    isDesktop,
+    compressDir,
     compressReq,
     confirmCompress,
     cancelCompress,
@@ -21,6 +33,7 @@ export function CompressModal() {
     split: defSplit,
     splitSizeMb: defSize
   } = useStore()
+  const svc = useArchiveService()
 
   const creatable = ALL_FORMATS.filter((f) => caps.create[f])
   const [format, setFormat] = useState<ArchiveFormat>(
@@ -32,14 +45,28 @@ export function CompressModal() {
   const [busy, setBusy] = useState(false)
   // 기본 파일 이름: 첫 입력(파일/폴더) 이름에서 확장자를 뗀 값. 사용자가 수정 가능.
   const [baseName, setBaseName] = useState<string>(() => archiveBaseName(compressReq?.[0]?.entryName ?? ''))
+  // 저장 폴더(데스크톱): 직전 압축 폴더 → 없으면 첫 입력의 상위 폴더.
+  const [outDir, setOutDir] = useState<string>(() => compressDir || parentDir(compressReq?.[0]?.path ?? ''))
 
   if (!compressReq) return null
+
+  const chooseDir = async () => {
+    const d = await svc.pickDirectory()
+    if (d) setOutDir(d)
+  }
 
   const trimmed = baseName.trim()
   const start = async () => {
     if (busy || !trimmed) return
     setBusy(true)
-    await confirmCompress({ format, split, splitSizeMb, baseName: trimmed })
+    await confirmCompress({
+      format,
+      split,
+      splitSizeMb,
+      baseName: trimmed,
+      // 데스크톱에서 폴더가 정해졌으면 그 폴더에 저장. 웹은 무시.
+      outDir: isDesktop && outDir ? outDir : undefined
+    })
   }
 
   return (
@@ -64,6 +91,20 @@ export function CompressModal() {
             <span className="compress-name-ext">{extensionFor(format)}</span>
           </div>
         </div>
+
+        {isDesktop && (
+          <div className="settings-field">
+            <span className="settings-label">{t.compressDirLabel}</span>
+            <div className="settings-path" title={outDir || undefined}>
+              {outDir || t.settingsNotSet}
+            </div>
+            <div className="settings-actions">
+              <button onClick={chooseDir} disabled={busy}>
+                {t.settingsBrowse}
+              </button>
+            </div>
+          </div>
+        )}
 
         <div className="settings-row">
           <span className="settings-label">{t.format}</span>

@@ -19,6 +19,8 @@ const api = {
     ipcRenderer.invoke('dialog:pickSave', { format, defaultName }),
   pickOutputDir: (defaultPath?: string): Promise<string | null> =>
     ipcRenderer.invoke('dialog:pickDir', defaultPath),
+  resolveCompressPath: (dir: string, baseName: string, format: string): Promise<string> =>
+    ipcRenderer.invoke('archive:resolvePath', { dir, baseName, format }),
 
   compress: (
     inputs: InputSource[],
