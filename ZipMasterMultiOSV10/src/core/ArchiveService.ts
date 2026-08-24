@@ -69,4 +69,16 @@ export interface ArchiveService {
 
   /** 경로로부터 아카이브 내용 목록(왼쪽에서 선택된 파일의 내부 보기). */
   listEntriesByPath(path: string): Promise<ArchiveEntry[]>
+
+  /** 파일/폴더를 삭제(휴지통으로 이동). */
+  deletePath(path: string): Promise<void>
+
+  /** 파일/폴더를 destDir 아래로 복사. */
+  copyPath(src: string, destDir: string): Promise<void>
+
+  /** 파일/폴더를 destDir 아래로 이동. */
+  movePath(src: string, destDir: string): Promise<void>
+
+  /** 탐색기 항목을 OS 로 드래그 내보내기 시작(데스크톱 전용, 웹은 무시). */
+  startDrag(path: string): void
 }

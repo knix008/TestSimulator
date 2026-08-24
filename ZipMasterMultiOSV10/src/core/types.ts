@@ -78,6 +78,8 @@ export interface FsEntry {
   /** 압축 파일로 인식되는지 여부. */
   isArchive: boolean
   size: number
+  /** 마지막 수정 시각(epoch ms). 파일 정보 표시에 사용. */
+  modified?: number
 }
 
 /** 디렉터리 목록 결과. */

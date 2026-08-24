@@ -35,6 +35,12 @@ const api = {
   listDrives: (): Promise<FsEntry[]> => ipcRenderer.invoke('fs:listDrives'),
   listDir: (dirPath: string): Promise<DirListing> => ipcRenderer.invoke('fs:listDir', dirPath),
 
+  // ---- 파일 조작(삭제/복사/이동/드래그 내보내기) ----
+  deletePath: (target: string): Promise<void> => ipcRenderer.invoke('fs:delete', target),
+  copyPath: (src: string, destDir: string): Promise<void> => ipcRenderer.invoke('fs:copy', { src, destDir }),
+  movePath: (src: string, destDir: string): Promise<void> => ipcRenderer.invoke('fs:move', { src, destDir }),
+  startDrag: (filePath: string): void => ipcRenderer.send('fs:startDrag', filePath),
+
   /** 진행률 구독. 반환된 함수로 해제. */
   onProgress: (cb: (p: Progress) => void): (() => void) => {
     const listener = (_e: unknown, p: Progress) => cb(p)

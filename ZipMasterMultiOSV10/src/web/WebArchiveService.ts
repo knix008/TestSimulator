@@ -239,6 +239,23 @@ export class WebArchiveService implements ArchiveService {
   async listEntriesByPath(_path: string): Promise<ArchiveEntry[]> {
     return []
   }
+
+  // 브라우저에서는 임의 파일 시스템 조작을 지원하지 않는다.
+  async deletePath(_path: string): Promise<void> {
+    throw new Error('지원하지 않습니다.')
+  }
+
+  async copyPath(_src: string, _destDir: string): Promise<void> {
+    throw new Error('지원하지 않습니다.')
+  }
+
+  async movePath(_src: string, _destDir: string): Promise<void> {
+    throw new Error('지원하지 않습니다.')
+  }
+
+  startDrag(_path: string): void {
+    // no-op
+  }
 }
 
 function concat(chunks: Uint8Array[]): Uint8Array {

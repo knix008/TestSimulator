@@ -4,7 +4,7 @@ import { useContextMenu, type MenuItem } from './ContextMenu'
 
 /** 오른쪽 패널: 왼쪽에서 선택된 아카이브의 내부 내용 표시 + 해제 실행. */
 export function ArchiveViewer() {
-  const { t, busy, overwrite, setOverwrite, previewArchive, previewEntries, doExtract, doPreview, canBrowse } =
+  const { t, busy, overwrite, setOverwrite, previewArchive, previewEntries, fileInfo, doExtract, doPreview, canBrowse } =
     useStore()
   const { openMenu } = useContextMenu()
   const has = previewArchive && previewEntries
@@ -84,7 +84,31 @@ export function ArchiveViewer() {
     <section className="card viewer">
       <h2>{t.viewerTitle}</h2>
 
-      {!has && (
+      {!has && fileInfo && (
+        <div className="file-info">
+          <div className="selection-head">{t.fileInfoTitle}</div>
+          <dl className="file-info-list">
+            <dt>{t.fileInfoName}</dt>
+            <dd>{fileInfo.name}</dd>
+            <dt>{t.fileInfoType}</dt>
+            <dd>{fileInfo.isArchive ? t.fileTypeArchive : t.fileTypeFile}</dd>
+            <dt>{t.fileInfoSize}</dt>
+            <dd>
+              {formatBytes(fileInfo.size)} <span className="status-dim">({fileInfo.size.toLocaleString()} B)</span>
+            </dd>
+            {fileInfo.modified != null && (
+              <>
+                <dt>{t.fileInfoModified}</dt>
+                <dd>{new Date(fileInfo.modified).toLocaleString()}</dd>
+              </>
+            )}
+            <dt>{t.fileInfoPath}</dt>
+            <dd className="file-info-path">{fileInfo.path}</dd>
+          </dl>
+        </div>
+      )}
+
+      {!has && !fileInfo && (
         <div className="viewer-empty">
           <p className="hint">{t.viewerHint}</p>
           {/* 웹 등 탐색 미지원 환경에서는 파일 선택으로 내용 보기 */}

@@ -465,6 +465,18 @@ button.primary:hover {
   color: var(--accent-contrast);
 }
 
+/* 잘라내기 표시(붙여넣기 전까지 흐리게) */
+.tree-row.cut {
+  opacity: 0.5;
+}
+
+/* 드롭 대상 폴더 강조 */
+.tree-row.drag-over {
+  outline: 2px dashed var(--accent);
+  outline-offset: -2px;
+  background: var(--hover);
+}
+
 .tree-row.archive .fs-name {
   color: var(--accent);
   font-weight: 600;
@@ -558,6 +570,36 @@ button.primary:hover {
   flex-direction: column;
   gap: 12px;
   align-items: flex-start;
+}
+
+/* ---- 파일 정보 패널 ---- */
+.file-info {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.file-info-list {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 8px 16px;
+  margin: 8px 0 0;
+  align-items: baseline;
+}
+
+.file-info-list dt {
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
+.file-info-list dd {
+  margin: 0;
+  word-break: break-all;
+}
+
+.file-info-path {
+  font-family: 'Consolas', 'D2Coding', monospace;
+  font-size: 12px;
 }
 
 .viewer-empty button {

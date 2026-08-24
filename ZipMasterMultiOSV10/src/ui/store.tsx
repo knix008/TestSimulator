@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
-import type { ArchiveEntry, ArchiveFormat, DirListing, FormatCaps, FsEntry, Progress } from '@core/types'
+import type { ArchiveEntry, ArchiveFormat, DirListing, FormatCaps, FsEntry, InputSource, Progress } from '@core/types'
 import { getDict, detectInitialLang, type Dict, type Lang } from '@core/i18n'
 import { FORMAT_LABELS, formatBytes } from '@core/format'
 import { useArchiveService } from './ServiceContext'
@@ -37,6 +37,8 @@ interface Store {
 
   previewArchive: string | null
   previewEntries: ArchiveEntry[] | null
+  /** 오른쪽 패널에 표시할 일반 파일 정보(아카이브가 아닐 때). */
+  fileInfo: FsEntry | null
 
   // 파일 시스템 탐색(왼쪽 패널)
   canBrowse: boolean
@@ -70,6 +72,7 @@ interface Store {
 
   // 액션 (선택 → 실행, 참고 앱 흐름과 동일)
   doCompress: (kind: 'files' | 'folder') => Promise<void>
+  compressEntry: (entry: FsEntry) => Promise<void>
   doExtract: (selection?: string[], archivePath?: string) => Promise<void>
   doPreview: () => Promise<void>
 
@@ -119,6 +122,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [progress, setProgress] = useState<Progress | null>(null)
   const [previewArchive, setPreviewArchive] = useState<string | null>(null)
   const [previewEntries, setPreviewEntries] = useState<ArchiveEntry[] | null>(null)
+  const [fileInfo, setFileInfo] = useState<FsEntry | null>(null)
   const [listing, setListing] = useState<DirListing | null>(null)
   const [browseBusy, setBrowseBusy] = useState(false)
   const [selectedArchivePath, setSelectedArchivePath] = useState<string | null>(null)
@@ -182,17 +186,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const isCancel = (msg?: string) => msg === '취소되었습니다.' || msg === 'Cancelled.'
 
-  const doCompress = useCallback(
-    async (kind: 'files' | 'folder') => {
-      if (!caps.create[format]) {
-        notify(t.createNotSupported(FORMAT_LABELS[format]), 'error')
-        return
-      }
+  // 공용 압축 실행: 이미 확보된 입력 소스들을 압축(출력 경로/파일 다이얼로그는 서비스가 처리).
+  const runCompress = useCallback(
+    async (inputs: InputSource[]) => {
+      if (inputs.length === 0) return
+      setBusy(true)
+      setProgress({ message: t.compressing, kind: 'marquee' })
       try {
-        const inputs = await svc.pickInputs(kind)
-        if (inputs.length === 0) return
-        setBusy(true)
-        setProgress({ message: t.compressing, kind: 'marquee' })
         const res = await svc.compress(inputs, { format, split, splitSizeMb }, setProgress)
         if (res.ok) {
           notify(res.partCount ? t.doneCompressSplit(res.partCount) : t.doneCompress, 'info')
@@ -206,7 +206,31 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setProgress(null)
       }
     },
-    [caps, format, split, splitSizeMb, svc, t, notify, showError]
+    [format, split, splitSizeMb, svc, t, notify, showError]
+  )
+
+  const doCompress = useCallback(
+    async (kind: 'files' | 'folder') => {
+      if (!caps.create[format]) {
+        notify(t.createNotSupported(FORMAT_LABELS[format]), 'error')
+        return
+      }
+      const inputs = await svc.pickInputs(kind)
+      await runCompress(inputs)
+    },
+    [caps, format, svc, runCompress, notify, t]
+  )
+
+  // 탐색기에서 선택한 파일/폴더 하나를 바로 압축(우클릭 메뉴용).
+  const compressEntry = useCallback(
+    async (entry: FsEntry) => {
+      if (!caps.create[format]) {
+        notify(t.createNotSupported(FORMAT_LABELS[format]), 'error')
+        return
+      }
+      await runCompress([{ path: entry.path, entryName: entry.name, isDirectory: entry.isDirectory }])
+    },
+    [caps, format, runCompress, notify, t]
   )
 
   const doExtract = useCallback(async (selection?: string[], archivePath?: string) => {
@@ -298,6 +322,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
       if (entry.isArchive) {
         // 오른쪽 패널에 아카이브 내부 표시
+        setFileInfo(null)
         setSelectedArchivePath(entry.path)
         setBrowseBusy(true)
         setProgress({ message: t.opening, kind: 'marquee' })
@@ -311,7 +336,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           setBrowseBusy(false)
           setProgress(null)
         }
+        return
       }
+      // 일반 파일: 오른쪽 패널에 파일 정보 표시
+      setSelectedArchivePath(null)
+      setPreviewArchive(null)
+      setPreviewEntries(null)
+      setFileInfo(entry)
     },
     [browseTo, svc, t, showError]
   )
@@ -359,6 +390,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     progress,
     previewArchive,
     previewEntries,
+    fileInfo,
     canBrowse,
     listing,
     browseBusy,
@@ -382,6 +414,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     aboutOpen,
     setAboutOpen,
     doCompress,
+    compressEntry,
     doExtract,
     doPreview,
     minimize: () => win?.minimizeWindow?.(),

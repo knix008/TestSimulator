@@ -56,6 +56,15 @@ export interface Dict {
   contents: (n: number) => string
   extractSelected: (n: number) => string
   extractSelectHint: string
+  // 파일 정보(일반 파일 선택 시)
+  fileInfoTitle: string
+  fileInfoName: string
+  fileInfoPath: string
+  fileInfoSize: string
+  fileInfoModified: string
+  fileInfoType: string
+  fileTypeArchive: string
+  fileTypeFile: string
 
   // 상태
   ready: string
@@ -102,6 +111,7 @@ export interface Dict {
   // 컨텍스트 메뉴
   ctxOpen: string
   ctxViewContents: string
+  ctxCompress: string
   ctxExtract: string
   ctxSetDefault: string
   ctxUp: string
@@ -109,6 +119,11 @@ export interface Dict {
   ctxSelectAll: string
   ctxClearSelection: string
   ctxExtractAll: string
+  ctxCopy: string
+  ctxCut: string
+  ctxPaste: string
+  ctxDelete: string
+  confirmDelete: (name: string) => string
 }
 
 const ko: Dict = {
@@ -163,6 +178,14 @@ const ko: Dict = {
   contents: (n) => `내용: ${n}개 항목`,
   extractSelected: (n) => `선택 해제 (${n}개)`,
   extractSelectHint: 'Ctrl+클릭 또는 Shift+클릭으로 해제할 파일을 여러 개 선택할 수 있습니다.',
+  fileInfoTitle: '파일 정보',
+  fileInfoName: '이름',
+  fileInfoPath: '경로',
+  fileInfoSize: '크기',
+  fileInfoModified: '수정한 날짜',
+  fileInfoType: '종류',
+  fileTypeArchive: '압축 파일',
+  fileTypeFile: '파일',
 
   ready: '준비',
   compressing: '압축 중…',
@@ -204,13 +227,19 @@ const ko: Dict = {
 
   ctxOpen: '열기',
   ctxViewContents: '내용 보기',
+  ctxCompress: '압축하기',
   ctxExtract: '압축 해제',
   ctxSetDefault: '기본 폴더로 설정',
   ctxUp: '상위 폴더로',
   ctxRefresh: '새로 고침',
   ctxSelectAll: '모두 선택',
   ctxClearSelection: '선택 해제',
-  ctxExtractAll: '전체 해제'
+  ctxExtractAll: '전체 해제',
+  ctxCopy: '복사',
+  ctxCut: '잘라내기',
+  ctxPaste: '붙여넣기',
+  ctxDelete: '삭제',
+  confirmDelete: (name) => `'${name}'을(를) 휴지통으로 보낼까요?`
 }
 
 const en: Dict = {
@@ -265,6 +294,14 @@ const en: Dict = {
   contents: (n) => `Contents: ${n} items`,
   extractSelected: (n) => `Extract selected (${n})`,
   extractSelectHint: 'Use Ctrl+Click or Shift+Click to select multiple files to extract.',
+  fileInfoTitle: 'File info',
+  fileInfoName: 'Name',
+  fileInfoPath: 'Path',
+  fileInfoSize: 'Size',
+  fileInfoModified: 'Modified',
+  fileInfoType: 'Type',
+  fileTypeArchive: 'Archive',
+  fileTypeFile: 'File',
 
   ready: 'Ready',
   compressing: 'Compressing…',
@@ -306,13 +343,19 @@ const en: Dict = {
 
   ctxOpen: 'Open',
   ctxViewContents: 'View contents',
+  ctxCompress: 'Compress',
   ctxExtract: 'Extract',
   ctxSetDefault: 'Set as default folder',
   ctxUp: 'Go to parent folder',
   ctxRefresh: 'Refresh',
   ctxSelectAll: 'Select all',
   ctxClearSelection: 'Clear selection',
-  ctxExtractAll: 'Extract all'
+  ctxExtractAll: 'Extract all',
+  ctxCopy: 'Copy',
+  ctxCut: 'Cut',
+  ctxPaste: 'Paste',
+  ctxDelete: 'Delete',
+  confirmDelete: (name) => `Move '${name}' to the Recycle Bin?`
 }
 
 export const translations: Record<Lang, Dict> = { ko, en }

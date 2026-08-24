@@ -252,13 +252,17 @@ export async function listDir(dirPath: string): Promise<DirListing> {
     const full = path.join(dirPath, d.name)
     let isDir = d.isDirectory()
     let size = 0
+    let modified: number | undefined
     try {
       if (d.isSymbolicLink()) {
         const st = await fsp.stat(full)
         isDir = st.isDirectory()
         size = st.size
+        modified = st.mtimeMs
       } else if (!isDir) {
-        size = (await fsp.stat(full)).size
+        const st = await fsp.stat(full)
+        size = st.size
+        modified = st.mtimeMs
       }
     } catch {
       continue // 접근 불가 항목은 건너뜀
@@ -268,7 +272,8 @@ export async function listDir(dirPath: string): Promise<DirListing> {
       path: full,
       isDirectory: isDir,
       isArchive: !isDir && isArchiveName(d.name),
-      size
+      size,
+      modified
     })
   }
 
@@ -282,6 +287,52 @@ export async function listDir(dirPath: string): Promise<DirListing> {
   const parent = path.dirname(dirPath)
   const atRoot = parent === dirPath
   return { path: dirPath, parent: atRoot ? '' : parent, entries }
+}
+
+async function pathExists(p: string): Promise<boolean> {
+  try {
+    await fsp.access(p)
+    return true
+  } catch {
+    return false
+  }
+}
+
+/** destDir 아래에서 name 이 충돌하면 "name (2)", "name (3)" … 로 비충돌 경로를 만든다. */
+async function uniqueDest(destDir: string, name: string): Promise<string> {
+  const ext = path.extname(name)
+  const stem = ext ? name.slice(0, -ext.length) : name
+  let candidate = path.join(destDir, name)
+  let i = 2
+  while (await pathExists(candidate)) {
+    candidate = path.join(destDir, `${stem} (${i})${ext}`)
+    i++
+  }
+  return candidate
+}
+
+/** 파일/폴더를 destDir 아래로 복사(재귀). 이름 충돌 시 자동으로 " (n)" 을 붙인다. */
+export async function copyPath(src: string, destDir: string): Promise<void> {
+  const dest = await uniqueDest(destDir, path.basename(src))
+  await fsp.cp(src, dest, { recursive: true })
+}
+
+/** 파일/폴더를 destDir 아래로 이동. 같은 위치면 무시, 자기 하위로는 금지, 이름 충돌 시 오류. */
+export async function movePath(src: string, destDir: string): Promise<void> {
+  const dest = path.join(destDir, path.basename(src))
+  if (path.resolve(dest) === path.resolve(src)) return
+  const rel = path.relative(src, dest)
+  if (rel && !rel.startsWith('..') && !path.isAbsolute(rel)) {
+    throw new Error('폴더를 자기 자신의 하위로 이동할 수 없습니다.')
+  }
+  if (await pathExists(dest)) throw new Error('대상 위치에 같은 이름의 항목이 이미 있습니다.')
+  try {
+    await fsp.rename(src, dest)
+  } catch {
+    // 다른 드라이브 등으로 rename 이 실패하면 복사 후 원본 삭제로 대체
+    await fsp.cp(src, dest, { recursive: true })
+    await fsp.rm(src, { recursive: true, force: true })
+  }
 }
 
 export async function listEntries(archivePath: string): Promise<ArchiveEntry[]> {

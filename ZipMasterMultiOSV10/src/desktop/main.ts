@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, type IpcMainInvokeEvent } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, shell, type IpcMainInvokeEvent } from 'electron'
 import * as path from 'node:path'
 import type {
   CompressOptions,
@@ -128,6 +128,29 @@ app.whenReady().then(() => {
   // ---- 파일 시스템 탐색 ----
   ipcMain.handle('fs:listDrives', async () => backend.listDrives())
   ipcMain.handle('fs:listDir', async (_e, dirPath: string) => backend.listDir(dirPath))
+
+  // ---- 파일 조작(삭제/복사/이동) ----
+  // 삭제는 복구 가능하도록 휴지통으로 이동.
+  ipcMain.handle('fs:delete', async (_e, target: string) => {
+    await shell.trashItem(target)
+  })
+  ipcMain.handle('fs:copy', async (_e, args: { src: string; destDir: string }) =>
+    backend.copyPath(args.src, args.destDir)
+  )
+  ipcMain.handle('fs:move', async (_e, args: { src: string; destDir: string }) =>
+    backend.movePath(args.src, args.destDir)
+  )
+
+  // ---- 탐색기 → OS 로 드래그(파일 내보내기) ----
+  // startDrag 는 비어있지 않은 아이콘을 요구하므로 1x1 투명 PNG 를 16x16 으로 확대해 사용.
+  const dragIcon = nativeImage
+    .createFromDataURL(
+      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR4nGNgAAIAAAUAAen63NgAAAAASUVORK5CYII='
+    )
+    .resize({ width: 16, height: 16 })
+  ipcMain.on('fs:startDrag', (e, filePath: string) => {
+    e.sender.startDrag({ file: filePath, icon: dragIcon })
+  })
 
   createWindow()
 
