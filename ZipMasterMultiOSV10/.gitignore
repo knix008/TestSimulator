@@ -3,8 +3,10 @@ node_modules/
 
 # 빌드 산출물
 dist-web/
+dist/
 out/
 release/
+*.tsbuildinfo
 
 # afterBuild 훅이 루트로 복사한 설치 파일
 /*.exe
@@ -14,6 +16,7 @@ release/
 
 # 로그 / 임시
 *.log
+npm-debug.log*
 electron-smoke.log
 preview.log
 
