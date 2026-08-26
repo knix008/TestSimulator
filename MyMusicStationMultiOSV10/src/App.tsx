@@ -110,7 +110,7 @@ const defaultMusicFolder = 'D:\\Home\\Music'
 const appVersion = '1.0.0'
 const buildDate = '2026-08-08'
 const normalWindowSize = { width: 835, height: 496 }
-const miniWindowSize = { width: 340, height: 208 }
+const miniWindowSize = { width: 340, height: 176 }
 
 const text = {
   ko: {
@@ -2223,7 +2223,7 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
       <div className="mini-view" onPointerDown={startWindowDrag}>
         <div className="mini-spectrum-stage">
           {showSpectrum ? (
-            <canvas ref={canvasRef} className="mini-spectrum" width="320" height="96" aria-label="Spectrum" />
+            <canvas ref={canvasRef} className="mini-spectrum" width="320" height="76" aria-label="Spectrum" />
           ) : (
             <div className="mini-spectrum mini-spectrum-disabled" aria-hidden="true" />
           )}
