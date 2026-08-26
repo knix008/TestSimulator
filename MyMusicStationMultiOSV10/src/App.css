@@ -2,8 +2,8 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  width: 835px;
-  height: 496px;
+  width: 100%;
+  height: 100%;
   overflow: hidden;
   border: 1px solid var(--line);
   background: var(--bg);
@@ -1835,6 +1835,129 @@ button:hover,
 .settings-dialog .convert-actions button {
   height: 26px;
   font-size: 10px;
+}
+
+/* Accent the compact-mode toggle so it reads apart from minimize/close. */
+.title-toolbar .window-actions .mini-mode-button {
+  color: var(--primary);
+}
+
+.title-toolbar .window-actions .mini-mode-button:hover {
+  background: color-mix(in srgb, var(--primary) 20%, transparent) !important;
+  border-color: var(--primary-soft) !important;
+  color: var(--primary) !important;
+}
+
+/* --- Compact (minimum size) mode --- */
+.station-shell.mini-mode {
+  width: 100%;
+  height: 100%;
+}
+
+.mini-view {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  padding: 10px;
+  z-index: 1;
+}
+
+.mini-spectrum-stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.mini-spectrum {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background:
+    repeating-linear-gradient(90deg, transparent 0 14px, var(--grid) 14px 15px),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.07), transparent),
+    var(--spectrum);
+}
+
+.mini-spectrum-disabled {
+  background: var(--spectrum);
+}
+
+.mini-actions {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 2;
+  display: flex;
+  gap: 6px;
+}
+
+.mini-button {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--panel) 82%, transparent);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.mini-button:hover {
+  border-color: var(--line-strong);
+  color: var(--text-strong);
+}
+
+.mini-close:hover {
+  border-color: #e5484d;
+  color: #e5484d;
+}
+
+.mini-now-playing {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.mini-transport {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 50%;
+  background: var(--primary);
+  color: var(--primary-text);
+  cursor: pointer;
+}
+
+.mini-track-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.25;
+}
+
+.mini-track-text strong {
+  overflow: hidden;
+  color: var(--text-strong);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mini-track-text small {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .convert-actions button {

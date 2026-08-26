@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx oxlint *)",
+      "Bash(npx tauri *)",
+      "Bash(taskkill //F //IM my_music_station.exe //T)",
+      "Bash(find src-tauri/src background -name \"*.rs\")",
+      "Bash(ls src-tauri/src)"
+    ]
+  }
+}

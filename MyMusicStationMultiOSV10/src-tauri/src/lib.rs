@@ -40,7 +40,9 @@ fn apply_fixed_window_size(window: &tauri::WebviewWindow) {
 
 fn show_main_window(app: &AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
-        apply_fixed_window_size(&window);
+        // Do NOT force the fixed size here: the window may be in compact mode,
+        // and re-showing from the tray must preserve its current size so the
+        // small layout does not reappear inside a full-size window.
         let _ = window.unminimize();
         let _ = window.show();
         let _ = window.set_focus();

@@ -3,7 +3,7 @@ import { useEffect, useEffectEvent, useRef, useState } from 'react'
 import { convertFileSrc, invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { join, tempDir } from '@tauri-apps/api/path'
-import { getCurrentWindow } from '@tauri-apps/api/window'
+import { currentMonitor, getCurrentWindow, LogicalSize, PhysicalPosition } from '@tauri-apps/api/window'
 import { open, save } from '@tauri-apps/plugin-dialog'
 import { readDir, readFile, readTextFile, remove, writeFile, writeTextFile } from '@tauri-apps/plugin-fs'
 import {
@@ -20,6 +20,8 @@ import {
   Info,
   Languages,
   Link,
+  Maximize2,
+  Minimize2,
   Minus,
   Palette,
   PanelRightClose,
@@ -107,6 +109,8 @@ const lastMusicFolderKey = 'myMusicStation.lastMusicFolder'
 const defaultMusicFolder = 'D:\\Home\\Music'
 const appVersion = '1.0.0'
 const buildDate = '2026-08-08'
+const normalWindowSize = { width: 835, height: 496 }
+const miniWindowSize = { width: 340, height: 208 }
 
 const text = {
   ko: {
@@ -196,6 +200,8 @@ const text = {
     folderLoadingTracks: '곡 불러오는 중',
     language: '언어',
     theme: '테마',
+    miniMode: '최소 크기 모드',
+    restoreNormalMode: '정상 모드로 복귀',
     minimize: '최소화',
     close: '닫기',
     confirm: '확인',
@@ -244,7 +250,8 @@ const text = {
     version: '버전',
     build: '빌드',
     author: '작성자',
-    copyright: 'Copyright',
+    copyright: '저작권',
+    copyrightText: 'Copyright (c) 2026 SHKWON. 모든 권리 보유.',
   },
   en: {
     appName: 'My Music Station V1.0.0',
@@ -333,6 +340,8 @@ const text = {
     folderLoadingTracks: 'Loading tracks',
     language: 'Language',
     theme: 'Theme',
+    miniMode: 'Compact mode',
+    restoreNormalMode: 'Back to normal mode',
     minimize: 'Minimize',
     close: 'Close',
     confirm: 'OK',
@@ -382,6 +391,7 @@ const text = {
     build: 'Build',
     author: 'Author',
     copyright: 'Copyright',
+    copyrightText: 'Copyright (c) 2026 SHKWON. All rights reserved.',
   },
 } as const
 
@@ -560,6 +570,7 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
   const [errorDialogMessage, setErrorDialogMessage] = useState('')
   const [errorCopyState, setErrorCopyState] = useState<'idle' | 'copied' | 'failed'>('idle')
   const [showAppInfo, setShowAppInfo] = useState(false)
+  const [miniMode, setMiniMode] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [showConvertDialog, setShowConvertDialog] = useState(false)
   const [convertFormat, setConvertFormat] = useState<ConvertFormat>('mp3')
@@ -2015,6 +2026,79 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
       ].filter(Boolean)
     : []
 
+  const resizeWindowTo = async ({ width, height }: { width: number; height: number }) => {
+    const win = getCurrentWindow()
+    const size = new LogicalSize(width, height)
+
+    // The main window is created non-resizable with min == max locked to the
+    // normal size, so temporarily allow resizing and relax both bounds before
+    // applying the new size, then re-lock so the user cannot drag-resize.
+    try {
+      await win.setResizable(true)
+      await win.setMinSize(size)
+      await win.setMaxSize(size)
+      await win.setSize(size)
+      await win.setResizable(false)
+    } catch (error) {
+      console.warn('[miniMode] failed to resize window', error)
+    }
+  }
+
+  // Snap the (already resized) window to the bottom-right of the current monitor.
+  const moveWindowBottomRight = async ({ width, height }: { width: number; height: number }) => {
+    const win = getCurrentWindow()
+
+    try {
+      const monitor = await currentMonitor()
+
+      if (!monitor) {
+        return
+      }
+
+      const scale = monitor.scaleFactor
+      const rightMargin = 16
+      // Leave room for the Windows taskbar since the monitor size is the full
+      // screen, not the work area.
+      const bottomMargin = 56
+      const x = monitor.position.x + monitor.size.width - Math.round((width + rightMargin) * scale)
+      const y = monitor.position.y + monitor.size.height - Math.round((height + bottomMargin) * scale)
+
+      await win.setPosition(new PhysicalPosition(Math.max(monitor.position.x, x), Math.max(monitor.position.y, y)))
+    } catch (error) {
+      console.warn('[miniMode] failed to move window', error)
+    }
+  }
+
+  const enterMiniMode = async () => {
+    setActiveToolbarMenu(null)
+    setShowAppInfo(false)
+    setShowSettings(false)
+    setShowConvertDialog(false)
+    setMiniMode(true)
+    await resizeWindowTo(miniWindowSize)
+    await moveWindowBottomRight(miniWindowSize)
+  }
+
+  const exitMiniMode = async () => {
+    setMiniMode(false)
+    await resizeWindowTo(normalWindowSize)
+
+    try {
+      await getCurrentWindow().center()
+    } catch (error) {
+      console.warn('[miniMode] failed to recenter window', error)
+    }
+  }
+
+  // Rebind the spectrum loop to the canvas that just mounted for the new layout;
+  // the previous animation frame kept drawing to the now-detached canvas.
+  useEffect(() => {
+    if (isPlaying && showSpectrum && sourceNodeRef.current) {
+      drawSpectrum()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [miniMode])
+
   const minimizeWindow = async () => {
     await getCurrentWindow().minimize()
   }
@@ -2103,7 +2187,7 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
 
   return (
     <main
-      className={`station-shell${wallpaperEnabled && wallpaperUrl ? ' has-wallpaper' : ''}`}
+      className={`station-shell${wallpaperEnabled && wallpaperUrl ? ' has-wallpaper' : ''}${miniMode ? ' mini-mode' : ''}`}
       style={
         {
           '--panel-opacity': String(panelOpacity),
@@ -2135,6 +2219,58 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
         onTimeUpdate={(event) => setCurrentTime(event.currentTarget.currentTime)}
       />
 
+      {miniMode ? (
+      <div className="mini-view" onPointerDown={startWindowDrag}>
+        <div className="mini-spectrum-stage">
+          {showSpectrum ? (
+            <canvas ref={canvasRef} className="mini-spectrum" width="320" height="96" aria-label="Spectrum" />
+          ) : (
+            <div className="mini-spectrum mini-spectrum-disabled" aria-hidden="true" />
+          )}
+          <div className="mini-actions">
+            <button
+              type="button"
+              className="mini-button"
+              data-tooltip={labels.restoreNormalMode}
+              aria-label={labels.restoreNormalMode}
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={() => void exitMiniMode()}
+            >
+              <Maximize2 size={13} />
+            </button>
+            <button
+              type="button"
+              className="mini-button mini-close"
+              data-tooltip={useSystemTray ? labels.close : labels.quitApp}
+              aria-label={useSystemTray ? labels.close : labels.quitApp}
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={closeWindow}
+            >
+              <X size={13} />
+            </button>
+          </div>
+        </div>
+        <div className="mini-now-playing">
+          <button
+            type="button"
+            className="mini-transport"
+            data-tooltip={isPlaying ? labels.pause : labels.play}
+            aria-label={isPlaying ? labels.pause : labels.play}
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={isPlaying ? pause : play}
+          >
+            {isPlaying ? <Pause size={14} /> : <Play size={14} />}
+          </button>
+          <div className="mini-track-text">
+            <strong title={currentTrack?.title ?? labels.noTrack}>{currentTrack?.title ?? labels.noTrack}</strong>
+            <small title={currentTrackDetails.join(' / ')}>
+              {currentTrackDetails.length > 0 ? currentTrackDetails.join(' / ') : ' '}
+            </small>
+          </div>
+        </div>
+      </div>
+      ) : (
+      <>
       <header className="title-toolbar" onPointerDown={startWindowDrag}>
         <div className="brand-block">
           <strong>{labels.appName}</strong>
@@ -2299,6 +2435,16 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
         </div>
 
         <div className="window-actions">
+          <button
+            type="button"
+            className="mini-mode-button"
+            data-tooltip={labels.miniMode}
+            aria-label={labels.miniMode}
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={() => void enterMiniMode()}
+          >
+            <Minimize2 size={14} />
+          </button>
           <button type="button" data-tooltip={labels.minimize} aria-label={labels.minimize} onPointerDown={(event) => event.stopPropagation()} onClick={minimizeWindow}>
             <Minus size={14} />
           </button>
@@ -2703,7 +2849,7 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
               </div>
               <div>
                 <dt>{labels.copyright}</dt>
-                <dd>Copyright (c) 2026 SHKWON. All rights reserved.</dd>
+                <dd>{labels.copyrightText}</dd>
               </div>
             </dl>
             <button type="button" aria-label={labels.close} onClick={() => setShowAppInfo(false)}>
@@ -2849,6 +2995,8 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
           </span>
         </span>
       </footer>
+      </>
+      )}
     </main>
   )
 }
