@@ -29,6 +29,7 @@ export type AppSettings = {
   wallpaperPath: string
   wallpaperDim: number
   panelOpacity: number
+  trackListCollapsed: boolean
 }
 
 export const appSettingsKey = 'myMusicStation.appSettings'
@@ -47,6 +48,7 @@ export const defaultAppSettings: AppSettings = {
   wallpaperPath: defaultBuiltInWallpaperId,
   wallpaperDim: 0.55,
   panelOpacity: 0.82,
+  trackListCollapsed: false,
 }
 
 const isLanguage = (value: unknown): value is Language => value === 'ko' || value === 'en'
@@ -55,7 +57,7 @@ const isSpectrumColorOrder = (value: unknown): value is SpectrumColorOrder =>
   value === 'blue-red' || value === 'red-blue'
 
 const clampDim = (value: number) => Math.min(0.9, Math.max(0.15, value))
-const clampPanelOpacity = (value: number) => Math.min(1, Math.max(0.2, value))
+const clampPanelOpacity = (value: number) => Math.min(1, Math.max(0.1, value))
 
 const resolveWallpaperPath = (value: unknown): string => {
   if (typeof value !== 'string' || !value) {
@@ -103,6 +105,10 @@ export const normalizeAppSettings = (parsed: Partial<AppSettings> | null | undef
     wallpaperPath: resolveWallpaperPath(source.wallpaperPath),
     wallpaperDim,
     panelOpacity,
+    trackListCollapsed:
+      typeof source.trackListCollapsed === 'boolean'
+        ? source.trackListCollapsed
+        : defaultAppSettings.trackListCollapsed,
   }
 }
 

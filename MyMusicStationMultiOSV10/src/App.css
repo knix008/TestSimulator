@@ -441,6 +441,41 @@
   min-width: 280px;
 }
 
+.toolbar-opacity {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  height: 30px;
+  margin: 0 3px;
+  padding: 0 4px;
+  border: 1px solid transparent;
+  color: var(--muted);
+  /* Blend into the toolbar like the icon buttons (no pill background). */
+  background: transparent;
+}
+
+.toolbar-opacity input[type='range'] {
+  width: 74px;
+  margin: 0;
+  cursor: pointer;
+}
+
+.toolbar-opacity-value {
+  min-width: 30px;
+  color: var(--muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.toolbar-opacity:has(input:disabled) {
+  opacity: 0.5;
+}
+
+.toolbar-opacity input:disabled {
+  cursor: not-allowed;
+}
+
 .theme-message {
   margin: 6px 0 0;
   color: var(--muted);
@@ -520,7 +555,7 @@
 
 .content-grid {
   --player-panel-height: calc(
-    120px + 192px + 36px + 28px + (5px * 3) + 7px + 8px + 2px
+    76px + 236px + 36px + 28px + (5px * 3) + 7px + 8px + 2px
   );
   display: grid;
   grid-template-columns: 1fr 286px;
@@ -533,13 +568,21 @@
   background: transparent;
 }
 
+/* Track list collapsed: the player panel expands to the full width. */
+.content-grid.track-list-collapsed {
+  grid-template-columns: 1fr;
+}
+
 .player-panel,
 .side-panel {
   position: relative;
   min-width: 0;
   border: 1px solid var(--line);
   border-radius: 7px;
-  background: var(--panel);
+  /* Honour --panel-opacity even without a wallpaper so the toolbar slider always
+     has an effect: panels blend toward the app background as opacity drops.
+     The .has-wallpaper rules override this with a blurred ::before layer. */
+  background: color-mix(in srgb, var(--panel) calc(var(--panel-opacity, 0.82) * 100%), transparent);
 }
 
 .player-panel {
@@ -553,7 +596,7 @@
 
 .player-panel {
   display: grid;
-  grid-template-rows: 120px 192px 36px 28px;
+  grid-template-rows: 76px 236px 36px 28px;
   align-self: start;
   width: 100%;
   height: var(--player-panel-height);
@@ -568,15 +611,15 @@
   justify-content: space-between;
   gap: 14px;
   min-width: 0;
-  height: 120px;
+  height: 76px;
   overflow: hidden;
 }
 
 .album-art {
   display: grid;
-  flex: 0 0 96px;
-  width: 96px;
-  height: 96px;
+  flex: 0 0 72px;
+  width: 72px;
+  height: 72px;
   overflow: hidden;
   place-items: center;
   border: 1px solid var(--line);
@@ -593,8 +636,8 @@
 .now-playing-meta {
   display: grid;
   flex: 1;
-  grid-template-rows: 16px 32px 20px 18px;
-  gap: 4px;
+  grid-template-rows: 12px 26px 16px 14px;
+  gap: 2px;
   min-width: 0;
   align-content: center;
 }
@@ -610,7 +653,7 @@
 
 .now-playing-meta > span {
   overflow: hidden;
-  line-height: 16px;
+  line-height: 12px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -620,9 +663,9 @@
   margin: 0;
   overflow: hidden;
   color: var(--text-strong);
-  font-size: 26px;
+  font-size: 22px;
   font-weight: 700;
-  line-height: 32px;
+  line-height: 26px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -633,9 +676,9 @@
   margin: 0;
   overflow: hidden;
   color: var(--muted);
-  font-size: 13px;
-  line-height: 20px;
-  min-height: 20px;
+  font-size: 12px;
+  line-height: 16px;
+  min-height: 16px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -643,8 +686,8 @@
 .track-detail-line {
   color: var(--text);
   font-size: 12px;
-  line-height: 18px;
-  min-height: 18px;
+  line-height: 14px;
+  min-height: 14px;
 }
 
 .now-playing small {
@@ -660,7 +703,7 @@
 .spectrum-stage {
   position: relative;
   width: 100%;
-  height: 192px;
+  height: 236px;
   min-width: 0;
   overflow: hidden;
 }
@@ -668,7 +711,7 @@
 .spectrum {
   display: block;
   width: 100%;
-  height: 192px;
+  height: 236px;
   border: 1px solid var(--line);
   border-radius: 6px;
   background:
@@ -1608,6 +1651,71 @@ button:hover,
   color: var(--text);
   background: var(--panel);
   border-color: var(--line-strong);
+}
+
+.folder-progress-dialog {
+  display: grid;
+  gap: 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  padding: 16px 18px;
+  color: var(--text);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.folder-progress-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+  color: var(--text-strong);
+}
+
+.folder-progress-header h2 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.folder-progress-message {
+  margin: 0;
+  color: var(--text);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.folder-progress-bar {
+  position: relative;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--control);
+  overflow: hidden;
+}
+
+.folder-progress-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--primary);
+  transition: width 0.15s ease;
+}
+
+.folder-progress-bar.indeterminate .folder-progress-fill {
+  width: 40%;
+  animation: folder-progress-indeterminate 1.1s ease-in-out infinite;
+}
+
+@keyframes folder-progress-indeterminate {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(320%);
+  }
 }
 
 .convert-message {

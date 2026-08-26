@@ -9,6 +9,7 @@ import { readDir, readFile, readTextFile, remove, writeFile, writeTextFile } fro
 import {
   ArrowLeftRight,
   AudioWaveform,
+  Blend,
   ChartColumn,
   CircleAlert,
   Copy,
@@ -21,6 +22,8 @@ import {
   Link,
   Minus,
   Palette,
+  PanelRightClose,
+  PanelRightOpen,
   Pause,
   Play,
   Plus,
@@ -146,6 +149,8 @@ const text = {
     wallpaperDim: '배경 어둡기',
     panelOpacity: '패널 불투명도',
     panelOpacityHint: '값을 낮출수록 배경이 더 비칩니다.',
+    collapseTrackList: '곡 목록 접기',
+    expandTrackList: '곡 목록 펼치기',
     wallpaperNone: '선택된 이미지 없음',
     wallpaperCustom: '사용자 지정',
     wallpaperFormats: '이미지 파일',
@@ -186,6 +191,9 @@ const text = {
     reopenLastFolderOnStart: '시작 시 마지막 폴더 열기',
     tracksAlreadyLoaded: '이미 목록에 있는 항목은 건너뛰었습니다',
     folderNothingNew: '새 파일이 없어 다시 불러오지 않았습니다',
+    folderProgressTitle: '폴더에서 곡 추가 중',
+    folderScanning: '오디오 파일을 검색하는 중…',
+    folderLoadingTracks: '곡 불러오는 중',
     language: '언어',
     theme: '테마',
     minimize: '최소화',
@@ -277,7 +285,9 @@ const text = {
     wallpaperClear: 'Clear background image',
     wallpaperDim: 'Background dim',
     panelOpacity: 'Panel opacity',
-    panelOpacityHint: 'Lower values reveal more of the wallpaper.',
+    panelOpacityHint: 'Lower values reveal more of the background.',
+    collapseTrackList: 'Collapse track list',
+    expandTrackList: 'Expand track list',
     wallpaperNone: 'No image selected',
     wallpaperCustom: 'Custom',
     wallpaperFormats: 'Image files',
@@ -318,6 +328,9 @@ const text = {
     reopenLastFolderOnStart: 'Open last folder on start',
     tracksAlreadyLoaded: 'Skipped items already in the playlist',
     folderNothingNew: 'No new files to load',
+    folderProgressTitle: 'Adding tracks from folder',
+    folderScanning: 'Scanning for audio files…',
+    folderLoadingTracks: 'Loading tracks',
     language: 'Language',
     theme: 'Theme',
     minimize: 'Minimize',
@@ -448,6 +461,38 @@ const createBlobUrl = (data: Uint8Array, mimeType: string, objectUrls: string[])
   return url
 }
 
+// Read + decode + parse each audio file eagerly, but only a few at a time.
+// An unbounded Promise.all over a large folder loads every file fully into
+// memory at once (hundreds of MB of Uint8Array + blob + metadata parsing on the
+// main thread), which spikes GC/CPU and makes the window stutter while opening.
+const loadConcurrency = 4
+
+const mapWithConcurrency = async <T, R>(
+  items: T[],
+  limit: number,
+  mapper: (item: T, index: number) => Promise<R>,
+): Promise<R[]> => {
+  const results = new Array<R>(items.length)
+  let cursor = 0
+
+  const runWorker = async () => {
+    while (true) {
+      const index = cursor
+      cursor += 1
+
+      if (index >= items.length) {
+        return
+      }
+
+      results[index] = await mapper(items[index], index)
+    }
+  }
+
+  const workerCount = Math.min(Math.max(1, limit), items.length)
+  await Promise.all(Array.from({ length: workerCount }, runWorker))
+  return results
+}
+
 const isSameOriginMediaSrc = (src: string) => src.startsWith('blob:') || src.startsWith('data:')
 
 const fileNameFromPath = (filePath: string) => filePath.split(/[\\/]/).pop() || filePath
@@ -521,6 +566,7 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
   const [isConverting, setIsConverting] = useState(false)
   const [convertMessage, setConvertMessage] = useState('')
   const [alertDialog, setAlertDialog] = useState<{ title: string; message: string } | null>(null)
+  const [folderProgress, setFolderProgress] = useState<{ phase: 'scanning' | 'loading'; loaded: number; total: number } | null>(null)
   const settingsDialogDrag = useDialogDrag(showSettings)
   const convertDialogDrag = useDialogDrag(showConvertDialog)
   const errorDialogDrag = useDialogDrag(Boolean(errorDialogMessage))
@@ -536,6 +582,7 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
   const [wallpaperPath, setWallpaperPath] = useState(initialSettings.wallpaperPath)
   const [wallpaperDim, setWallpaperDim] = useState(initialSettings.wallpaperDim)
   const [panelOpacity, setPanelOpacity] = useState(initialSettings.panelOpacity)
+  const [trackListCollapsed, setTrackListCollapsed] = useState(initialSettings.trackListCollapsed)
   const [wallpaperUrl, setWallpaperUrl] = useState('')
   const wallpaperObjectUrlRef = useRef('')
   spectrumColorOrderRef.current = spectrumColorOrder
@@ -631,6 +678,7 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
     wallpaperPath,
     wallpaperDim,
     panelOpacity,
+    trackListCollapsed,
     ...patch,
   }))
 
@@ -704,6 +752,7 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
     wallpaperPath,
     wallpaperDim,
     panelOpacity,
+    trackListCollapsed,
   ])
 
   useEffect(() => {
@@ -1145,6 +1194,22 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
   }, [])
 
   const play = async () => {
+    const audio = audioRef.current
+
+    // Resume only when the currently loaded track is paused partway through.
+    // Otherwise (fresh start, stopped, or nothing selected) begin at the top of
+    // the list so the play button always starts from the first song.
+    const isResumingCurrent =
+      Boolean(currentTrack) &&
+      audio?.dataset.trackId === currentTrackId &&
+      (audio?.currentTime ?? 0) > 0 &&
+      !audio?.ended
+
+    if (tracks.length > 0 && !isResumingCurrent) {
+      loadAndPlayTrack(tracks[0])
+      return
+    }
+
     await playCurrentAudio()
   }
 
@@ -1334,8 +1399,8 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
       return
     }
 
-    const newTracks = await Promise.all(
-      pathsToLoad.map((path) => createTrackFromPath(path, fileNameFromPath(path))),
+    const newTracks = await mapWithConcurrency(pathsToLoad, loadConcurrency, (path) =>
+      createTrackFromPath(path, fileNameFromPath(path)),
     )
     const added = addTracks(newTracks.filter((track) => track.source))
 
@@ -1368,31 +1433,53 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
       return nestedPaths.flat()
     }
 
-    const audioPaths = await collectAudioPaths(folderPath)
-    const existingPaths = new Set(
-      tracksRef.current
-        .map((track) => track.filePath)
-        .filter((value): value is string => Boolean(value))
-        .map(normalizePathKey),
-    )
-    const pathsToLoad = audioPaths.filter((path) => !existingPaths.has(normalizePathKey(path)))
+    setFolderProgress({ phase: 'scanning', loaded: 0, total: 0 })
 
-    setLastMusicFolder(folderPath)
-    localStorage.setItem(lastMusicFolderKey, folderPath)
+    try {
+      const audioPaths = await collectAudioPaths(folderPath)
+      const existingPaths = new Set(
+        tracksRef.current
+          .map((track) => track.filePath)
+          .filter((value): value is string => Boolean(value))
+          .map(normalizePathKey),
+      )
+      const pathsToLoad = audioPaths.filter((path) => !existingPaths.has(normalizePathKey(path)))
 
-    if (!pathsToLoad.length) {
-      pushStatus(labels.folderNothingNew, 'info')
-      return
-    }
+      setLastMusicFolder(folderPath)
+      localStorage.setItem(lastMusicFolderKey, folderPath)
 
-    const folderTracks = (
-      await Promise.all(pathsToLoad.map((path) => createTrackFromPath(path, fileNameFromPath(path))))
-    ).filter((track) => track.source)
+      if (!pathsToLoad.length) {
+        pushStatus(labels.folderNothingNew, 'info')
+        return
+      }
 
-    const added = addTracks(folderTracks)
+      // Throttle progress renders so a big folder doesn't re-render the app once
+      // per file (~100 updates max) while still showing smooth percentage.
+      const total = pathsToLoad.length
+      const progressStep = Math.max(1, Math.floor(total / 100))
+      let loaded = 0
+      setFolderProgress({ phase: 'loading', loaded, total })
 
-    if (added < audioPaths.length) {
-      pushStatus(labels.tracksAlreadyLoaded, 'info')
+      const folderTracks = (
+        await mapWithConcurrency(pathsToLoad, loadConcurrency, async (path) => {
+          const track = await createTrackFromPath(path, fileNameFromPath(path))
+          loaded += 1
+
+          if (loaded % progressStep === 0 || loaded === total) {
+            setFolderProgress({ phase: 'loading', loaded, total })
+          }
+
+          return track
+        })
+      ).filter((track) => track.source)
+
+      const added = addTracks(folderTracks)
+
+      if (added < audioPaths.length) {
+        pushStatus(labels.tracksAlreadyLoaded, 'info')
+      }
+    } finally {
+      setFolderProgress(null)
     }
   }
 
@@ -1548,7 +1635,7 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
     }
 
     const playlistTracks = playlist.tracks.filter((track) => track.source || track.filePath)
-    const importedTracks = (await Promise.all(playlistTracks.map(async (track, index) => {
+    const importedTracks = (await mapWithConcurrency(playlistTracks, loadConcurrency, async (track, index) => {
       const filePath = track.filePath || (track.origin === 'local' ? track.source : '')
 
       if (track.origin === 'local' && filePath) {
@@ -1578,7 +1665,7 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
         origin: track.origin,
         remoteUrl: track.origin === 'remote' ? remoteSource : undefined,
       }
-    }))).filter((track) => track.source)
+    })).filter((track) => track.source)
 
     if (!importedTracks.length) {
       pushStatus(labels.saveNoPersistable, 'error')
@@ -2071,9 +2158,6 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
           <button className="tool-button icon-only" type="button" data-tooltip={labels.convertSave} aria-label={labels.convertSave} onPointerDown={(event) => event.stopPropagation()} onClick={openConvertDialog}>
             <FileAudio size={14} aria-hidden="true" />
           </button>
-          <button className="tool-button icon-only language-toggle" type="button" data-tooltip={labels.language} aria-label={labels.language} onPointerDown={(event) => event.stopPropagation()} onClick={toggleLanguage}>
-            <Languages size={14} aria-hidden="true" />
-          </button>
           <button
             className={`tool-button icon-only${spectrumColorOrder === 'red-blue' ? ' active-toggle' : ''}`}
             type="button"
@@ -2096,6 +2180,26 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
             onClick={cycleSpectrumStyle}
           >
             <ChartColumn size={14} />
+          </button>
+          <div
+            className="toolbar-opacity"
+            data-tooltip={`${labels.panelOpacity} (${Math.round(panelOpacity * 100)}%)`}
+            onPointerDown={(event) => event.stopPropagation()}
+          >
+            <Blend size={14} aria-hidden="true" />
+            <input
+              type="range"
+              min="0.1"
+              max="1"
+              step="0.01"
+              value={panelOpacity}
+              aria-label={labels.panelOpacity}
+              onChange={(event) => setPanelOpacity(Number(event.target.value))}
+            />
+            <span className="toolbar-opacity-value">{Math.round(panelOpacity * 100)}%</span>
+          </div>
+          <button className="tool-button icon-only language-toggle" type="button" data-tooltip={labels.language} aria-label={labels.language} onPointerDown={(event) => event.stopPropagation()} onClick={toggleLanguage}>
+            <Languages size={14} aria-hidden="true" />
           </button>
           <button
             className="tool-button icon-only"
@@ -2181,6 +2285,17 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
           >
             <Info size={14} />
           </button>
+          <button
+            className={`tool-button icon-only${trackListCollapsed ? ' active-toggle' : ''}`}
+            type="button"
+            data-tooltip={trackListCollapsed ? labels.expandTrackList : labels.collapseTrackList}
+            aria-label={trackListCollapsed ? labels.expandTrackList : labels.collapseTrackList}
+            aria-pressed={trackListCollapsed}
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={() => setTrackListCollapsed((collapsed) => !collapsed)}
+          >
+            {trackListCollapsed ? <PanelRightOpen size={14} /> : <PanelRightClose size={14} />}
+          </button>
         </div>
 
         <div className="window-actions">
@@ -2200,7 +2315,7 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
         </div>
       </header>
 
-      <section className="content-grid">
+      <section className={`content-grid${trackListCollapsed ? ' track-list-collapsed' : ''}`}>
         <section className="player-panel">
           <div className="now-playing">
             <div className="album-art" aria-label={currentTrack?.artworkUrl ? currentTrack.title : labels.noAlbumArt}>
@@ -2219,7 +2334,7 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
 
           <div className="spectrum-stage">
             {showSpectrum ? (
-              <canvas ref={canvasRef} className="spectrum" width="500" height="192" aria-label="Spectrum" />
+              <canvas ref={canvasRef} className="spectrum" width="500" height="236" aria-label="Spectrum" />
             ) : (
               <div className="spectrum spectrum-disabled" aria-hidden="true" />
             )}
@@ -2288,6 +2403,7 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
           </div>
         </section>
 
+        {!trackListCollapsed && (
         <aside className="side-panel">
           <form className="remote-form" onSubmit={addRemoteTrack}>
             <Link size={14} />
@@ -2330,6 +2446,7 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
             ))}
           </div>
         </aside>
+        )}
       </section>
 
       {showConvertDialog && (
@@ -2526,12 +2643,11 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
                   </span>
                   <input
                     type="range"
-                    min="0.2"
+                    min="0.1"
                     max="1"
                     step="0.01"
                     value={panelOpacity}
                     aria-label={labels.panelOpacity}
-                    disabled={!wallpaperEnabled || !wallpaperPath}
                     onChange={(event) => setPanelOpacity(Number(event.target.value))}
                   />
                 </label>
@@ -2656,6 +2772,44 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
               <button type="button" aria-label={labels.close} onClick={closeErrorDialog}>
                 {labels.close}
               </button>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {folderProgress && (
+        <div className="modal-backdrop" role="presentation">
+          <section
+            className="folder-progress-dialog themed-dialog"
+            role="alertdialog"
+            aria-modal="true"
+            aria-busy="true"
+            aria-label={labels.folderProgressTitle}
+          >
+            <header className="folder-progress-header">
+              <FolderOpen size={18} />
+              <h2>{labels.folderProgressTitle}</h2>
+            </header>
+            <p className="folder-progress-message">
+              {folderProgress.phase === 'scanning'
+                ? labels.folderScanning
+                : `${labels.folderLoadingTracks} · ${folderProgress.loaded} / ${folderProgress.total}`}
+            </p>
+            <div
+              className={`folder-progress-bar${folderProgress.phase === 'scanning' ? ' indeterminate' : ''}`}
+              role="progressbar"
+              aria-valuemin={0}
+              aria-valuemax={folderProgress.phase === 'loading' ? folderProgress.total : undefined}
+              aria-valuenow={folderProgress.phase === 'loading' ? folderProgress.loaded : undefined}
+            >
+              <span
+                className="folder-progress-fill"
+                style={
+                  folderProgress.phase === 'loading'
+                    ? { width: `${folderProgress.total ? Math.round((folderProgress.loaded / folderProgress.total) * 100) : 0}%` }
+                    : undefined
+                }
+              />
             </div>
           </section>
         </div>
