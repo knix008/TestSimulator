@@ -246,7 +246,7 @@
   gap: 5px;
   border: 1px solid var(--line);
   border-radius: 5px;
-  color: var(--text);
+  color: var(--icon);
   background: var(--control);
   cursor: pointer;
 }
@@ -743,10 +743,15 @@
   backdrop-filter: blur(6px);
 }
 
+.spectrum-overlay-mini .spectrum-overlay-icon {
+  width: 44px;
+  height: 44px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.28);
+}
+
 .spectrum-overlay-play .spectrum-overlay-icon {
-  color: var(--primary-text);
-  background: color-mix(in srgb, var(--primary) 82%, transparent);
-  border-color: color-mix(in srgb, var(--primary) 70%, white 10%);
+  color: var(--primary);
+  border-color: color-mix(in srgb, var(--primary) 45%, var(--line-strong));
 }
 
 .spectrum-overlay-play .spectrum-overlay-icon svg {
@@ -1858,10 +1863,25 @@ button:hover,
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   min-height: 0;
-  padding: 10px;
+  padding: 8px;
   z-index: 1;
+}
+
+/* Top control row: app + visual buttons on the left, window buttons on the
+   right. Spectrum sits below at full width. */
+.mini-toolbar {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.mini-toolbar-group {
+  display: flex;
+  gap: 5px;
 }
 
 .mini-spectrum-stage {
@@ -1886,15 +1906,6 @@ button:hover,
   background: var(--spectrum);
 }
 
-.mini-actions {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  z-index: 2;
-  display: flex;
-  gap: 6px;
-}
-
 .mini-button {
   display: grid;
   place-items: center;
@@ -1903,7 +1914,7 @@ button:hover,
   border: 1px solid var(--line);
   border-radius: 6px;
   background: color-mix(in srgb, var(--panel) 82%, transparent);
-  color: var(--text);
+  color: var(--icon);
   cursor: pointer;
 }
 
@@ -1917,6 +1928,17 @@ button:hover,
   color: #e5484d;
 }
 
+.mini-button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.mini-button.is-active {
+  border-color: var(--primary-soft);
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 18%, transparent);
+}
+
 .mini-now-playing {
   display: flex;
   flex: 0 0 auto;
@@ -1925,23 +1947,56 @@ button:hover,
 }
 
 .mini-transport {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Same button colors as the normal-mode transport: primary = play/pause,
+   stop-button = stop. */
+.mini-transport-button {
   display: grid;
   place-items: center;
   flex: 0 0 auto;
-  width: 32px;
-  height: 32px;
-  border: none;
-  border-radius: 50%;
-  background: var(--primary);
-  color: var(--primary-text);
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  color: var(--icon);
+  background: var(--control);
   cursor: pointer;
+}
+
+.mini-transport-button.primary {
+  border-color: transparent;
+  color: var(--primary-text);
+  background: var(--primary);
+}
+
+.mini-transport-button.stop-button {
+  border-color: #ff5a4d;
+  color: #fff;
+  background: #ff5a4d;
+}
+
+.mini-transport-button.stop-button:hover {
+  border-color: #ff7469;
+  background: #ff7469;
 }
 
 .mini-track-text {
   display: flex;
   flex-direction: column;
+  justify-content: center;
   min-width: 0;
-  line-height: 1.25;
+  line-height: 1.2;
+}
+
+/* When a track has no extra details the subtitle renders empty; drop it so the
+   title stays vertically centred on the same line as the play icon. */
+.mini-track-text small:empty {
+  display: none;
 }
 
 .mini-track-text strong {

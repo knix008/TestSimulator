@@ -49,7 +49,7 @@ import {
   type SpectrumColorOrder,
   type SpectrumStyle,
 } from './appSettings'
-import { drawSpectrumFrame, nextSpectrumStyle } from './spectrumModes'
+import { buildLogBands, drawSpectrumFrame, nextSpectrumStyle, spectrumBandCount } from './spectrumModes'
 import {
   buildThemeFile,
   captureThemeVars,
@@ -106,11 +106,15 @@ type TransportOverlay = 'play' | 'pause' | 'stop' | 'spectrum'
 type StatusKind = 'info' | 'success' | 'error' | 'busy'
 const customThemesKey = 'myMusicStation.customThemes'
 const lastMusicFolderKey = 'myMusicStation.lastMusicFolder'
+const lastPlaylistKey = 'myMusicStation.lastPlaylist'
+// The working playlist is auto-saved here on every change so the exact list
+// (folders, added files, URLs) is restored on the next launch.
+const sessionPlaylistKey = 'myMusicStation.sessionPlaylist'
 const defaultMusicFolder = 'D:\\Home\\Music'
 const appVersion = '1.0.0'
 const buildDate = '2026-08-08'
 const normalWindowSize = { width: 835, height: 496 }
-const miniWindowSize = { width: 340, height: 176 }
+const miniWindowSize = { width: 340, height: 148 }
 
 const text = {
   ko: {
@@ -527,6 +531,36 @@ const isSameTrackIdentity = (left: Track, right: Track) => {
 
 const trackAlreadyExists = (track: Track, list: Track[]) => list.some((item) => isSameTrackIdentity(item, track))
 
+// Serialize only the tracks we can rebuild from disk/network next launch.
+// Blob-only remote tracks (no persistable URL) are dropped.
+const buildPersistablePlaylist = (tracks: Track[]): PlaylistFile | null => {
+  const persistableTracks = tracks.filter((track) =>
+    track.origin === 'remote'
+      ? Boolean(track.remoteUrl || (track.source && !track.source.startsWith('blob:')))
+      : Boolean(track.filePath),
+  )
+
+  if (!persistableTracks.length) {
+    return null
+  }
+
+  return {
+    format: 'my-music-station-playlist',
+    version: 1,
+    tracks: persistableTracks.map((track) => {
+      const remoteSource = track.remoteUrl || track.source
+
+      return {
+        title: track.title,
+        source: track.origin === 'remote' ? remoteSource : (track.filePath ?? ''),
+        origin: track.origin,
+        filePath: track.filePath,
+        remoteUrl: track.origin === 'remote' ? remoteSource : undefined,
+      }
+    }),
+  }
+}
+
 /** Survives React Strict Mode remounts so startup reopen runs once. */
 let didReopenFolderOnStart = false
 
@@ -541,6 +575,11 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
   const shouldPlayOnTrackLoadRef = useRef(false)
   const objectUrlsRef = useRef<string[]>([])
   const loadMusicFolderRef = useRef<(folderPath: string) => Promise<void>>(async () => {})
+  const loadPlaylistFromPathRef = useRef<(playlistPath: string) => Promise<boolean>>(async () => false)
+  const restoreSessionPlaylistRef = useRef<(raw: string) => Promise<boolean>>(async () => false)
+  // Guards the auto-save effect so it does not overwrite the saved session with
+  // the initial empty list before startup restore has had a chance to run.
+  const sessionReadyRef = useRef(false)
   const tracksRef = useRef<Track[]>([])
   const spectrumColorOrderRef = useRef<SpectrumColorOrder>(initialSettings.spectrumColorOrder)
   const spectrumStyleRef = useRef<SpectrumStyle>(initialSettings.spectrumStyle)
@@ -844,19 +883,76 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
   }, [])
 
   useEffect(() => {
-    if (didReopenFolderOnStart || !reopenLastFolderOnStart) {
-      return
-    }
-
-    const folder = localStorage.getItem(lastMusicFolderKey) ?? defaultMusicFolder
-
-    if (!folder) {
+    if (didReopenFolderOnStart) {
       return
     }
 
     didReopenFolderOnStart = true
-    void loadMusicFolderRef.current(folder)
+
+    void (async () => {
+      try {
+        // 0) Restore the exact working playlist from the last session (folders,
+        // added files and URLs alike). This wins over folder/playlist reopen.
+        const session = localStorage.getItem(sessionPlaylistKey)
+
+        if (session) {
+          const restored = await restoreSessionPlaylistRef.current(session)
+
+          if (restored) {
+            return
+          }
+
+          // Stale/invalid (e.g. every file was moved); drop it and fall back.
+          localStorage.removeItem(sessionPlaylistKey)
+        }
+
+        // 1) If a playlist was in use last session, reopen it as-is.
+        const lastPlaylist = localStorage.getItem(lastPlaylistKey)
+
+        if (lastPlaylist) {
+          const restored = await loadPlaylistFromPathRef.current(lastPlaylist)
+
+          if (restored) {
+            return
+          }
+
+          // The saved playlist file is gone/invalid; forget it and fall back.
+          localStorage.removeItem(lastPlaylistKey)
+        }
+
+        // 2) Otherwise reopen the most recently used music folder.
+        if (!reopenLastFolderOnStart) {
+          return
+        }
+
+        const folder = localStorage.getItem(lastMusicFolderKey) ?? defaultMusicFolder
+
+        if (folder) {
+          await loadMusicFolderRef.current(folder)
+        }
+      } finally {
+        // From now on, track changes are persisted to the session playlist.
+        sessionReadyRef.current = true
+      }
+    })()
   }, [reopenLastFolderOnStart])
+
+  // Auto-save the working playlist so the exact list is restored next launch.
+  // Skipped until startup restore has run (sessionReadyRef) so the initial empty
+  // render can't clobber a saved session.
+  useEffect(() => {
+    if (!sessionReadyRef.current) {
+      return
+    }
+
+    const playlist = buildPersistablePlaylist(tracks)
+
+    if (playlist) {
+      localStorage.setItem(sessionPlaylistKey, JSON.stringify(playlist))
+    } else {
+      localStorage.removeItem(sessionPlaylistKey)
+    }
+  }, [tracks])
 
   useEffect(() => {
     const root = document.documentElement
@@ -1029,7 +1125,10 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
 
     if (!analyserRef.current) {
       analyserRef.current = audioContextRef.current.createAnalyser()
-      analyserRef.current.fftSize = 128
+      // Larger FFT gives fine raw resolution (esp. in the bass); the linear bins
+      // are then resampled onto a log frequency axis via buildLogBands().
+      analyserRef.current.fftSize = 2048
+      analyserRef.current.smoothingTimeConstant = 0.82
     }
 
     if (!gainNodeRef.current) {
@@ -1073,18 +1172,23 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
 
     const freqData = new Uint8Array(analyser.frequencyBinCount)
     const timeData = new Uint8Array(analyser.fftSize)
+    const bandData = new Uint8Array(spectrumBandCount)
+    const sampleRate = analyser.context.sampleRate
 
     stopSpectrum()
 
     const render = () => {
       analyser.getByteFrequencyData(freqData)
       analyser.getByteTimeDomainData(timeData)
+      // Redistribute the linear FFT bins onto a log (perceptual) frequency axis
+      // so the full audible range is shown the way we hear it.
+      buildLogBands(freqData, sampleRate, spectrumBandCount, bandData)
       drawSpectrumFrame(
         context,
         canvas,
         spectrumStyleRef.current,
         spectrumColorOrderRef.current,
-        freqData,
+        bandData,
         timeData,
       )
       animationRef.current = requestAnimationFrame(render)
@@ -1458,6 +1562,9 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
 
       setLastMusicFolder(folderPath)
       localStorage.setItem(lastMusicFolderKey, folderPath)
+      // Browsing a folder makes it the most-recent session target, so drop any
+      // stale "last playlist" pointer that would otherwise win on next launch.
+      localStorage.removeItem(lastPlaylistKey)
 
       if (!pathsToLoad.length) {
         pushStatus(labels.folderNothingNew, 'info')
@@ -1569,32 +1676,14 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
       return
     }
 
-    const persistableTracks = tracks.filter((track) => (
-      track.origin === 'remote'
-        ? Boolean(track.remoteUrl || (track.source && !track.source.startsWith('blob:')))
-        : Boolean(track.filePath)
-    ))
+    const playlist = buildPersistablePlaylist(tracks)
 
-    if (!persistableTracks.length) {
+    if (!playlist) {
       pushStatus(labels.saveNoPersistable, 'error')
       return
     }
 
-    const playlist: PlaylistFile = {
-      format: 'my-music-station-playlist',
-      version: 1,
-      tracks: persistableTracks.map((track) => {
-        const remoteSource = track.remoteUrl || track.source
-
-        return {
-          title: track.title,
-          source: track.origin === 'remote' ? remoteSource : (track.filePath ?? ''),
-          origin: track.origin,
-          filePath: track.filePath,
-          remoteUrl: track.origin === 'remote' ? remoteSource : undefined,
-        }
-      }),
-    }
+    const persistableTracks = playlist.tracks
 
     // The browser <a download> mechanism does not work in the Tauri WebView,
     // so use the native save dialog together with the fs plugin.
@@ -1617,6 +1706,8 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
 
       await writeTextFile(targetPath, JSON.stringify(playlist, null, 2))
       console.log('[save] written', targetPath)
+      // Remember this as the playlist to auto-restore on the next launch.
+      localStorage.setItem(lastPlaylistKey, targetPath)
       pushStatus(
         persistableTracks.length < tracks.length
           ? `${labels.saveSuccess} (${persistableTracks.length}/${tracks.length})`
@@ -1632,17 +1723,11 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
     }
   }
 
-  const loadPlaylistFromPath = async (playlistPath: string) => {
-    let playlist: PlaylistFile
-
-    try {
-      playlist = JSON.parse(await readTextFile(playlistPath)) as PlaylistFile
-    } catch {
-      return
-    }
-
+  // Rebuild live tracks (reading files / fetching URLs) from a parsed playlist
+  // and load them into the player. Shared by file open and session restore.
+  const importPlaylist = async (playlist: PlaylistFile, { silent = false }: { silent?: boolean } = {}): Promise<boolean> => {
     if (playlist.format !== 'my-music-station-playlist' || playlist.version !== 1) {
-      return
+      return false
     }
 
     const playlistTracks = playlist.tracks.filter((track) => track.source || track.filePath)
@@ -1679,15 +1764,54 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
     })).filter((track) => track.source)
 
     if (!importedTracks.length) {
-      pushStatus(labels.saveNoPersistable, 'error')
-      return
+      if (!silent) {
+        pushStatus(labels.saveNoPersistable, 'error')
+      }
+      return false
     }
 
     setTracks(importedTracks)
     setCurrentTrackId(importedTracks[0]?.id ?? '')
     setIsPlaying(false)
     clearStatus()
+    return true
   }
+
+  const loadPlaylistFromPath = async (playlistPath: string): Promise<boolean> => {
+    let playlist: PlaylistFile
+
+    try {
+      playlist = JSON.parse(await readTextFile(playlistPath)) as PlaylistFile
+    } catch {
+      return false
+    }
+
+    if (!(await importPlaylist(playlist))) {
+      return false
+    }
+
+    // Remember this as the playlist to auto-restore on the next launch.
+    localStorage.setItem(lastPlaylistKey, playlistPath)
+    return true
+  }
+
+  loadPlaylistFromPathRef.current = loadPlaylistFromPath
+
+  // Restore the auto-saved working playlist from localStorage (silent: a stale
+  // entry with missing files must not raise a startup error toast).
+  const restoreSessionPlaylist = async (raw: string): Promise<boolean> => {
+    let playlist: PlaylistFile
+
+    try {
+      playlist = JSON.parse(raw) as PlaylistFile
+    } catch {
+      return false
+    }
+
+    return importPlaylist(playlist, { silent: true })
+  }
+
+  restoreSessionPlaylistRef.current = restoreSessionPlaylist
 
   const sanitizeFileStem = (value: string) =>
     value
@@ -1828,6 +1952,15 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
     if (showSpectrum && isPlaying) {
       drawSpectrum()
     }
+  }
+
+  // Mini mode has no room for the theme dropdown, so the theme button cycles
+  // straight to the next available theme instead.
+  const cycleTheme = () => {
+    const index = availableThemes.findIndex((theme) => theme.id === themeId)
+    const nextTheme = availableThemes[(index + 1) % availableThemes.length]
+    selectTheme(nextTheme.id)
+    pushStatus(`${labels.theme}: ${nextTheme.name}`, 'success')
   }
 
   const showThemedAlert = (title: string, messageText: string) => {
@@ -2221,13 +2354,43 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
 
       {miniMode ? (
       <div className="mini-view" onPointerDown={startWindowDrag}>
-        <div className="mini-spectrum-stage">
-          {showSpectrum ? (
-            <canvas ref={canvasRef} className="mini-spectrum" width="320" height="76" aria-label="Spectrum" />
-          ) : (
-            <div className="mini-spectrum mini-spectrum-disabled" aria-hidden="true" />
-          )}
-          <div className="mini-actions">
+        <div className="mini-toolbar">
+          <div className="mini-toolbar-group">
+            <button
+              type="button"
+              className="mini-button"
+              data-tooltip={`${labels.theme}: ${selectedTheme?.name ?? ''}`}
+              aria-label={labels.theme}
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={cycleTheme}
+            >
+              <Palette size={13} />
+            </button>
+            <button
+              type="button"
+              className={`mini-button${spectrumColorOrder === 'red-blue' ? ' is-active' : ''}`}
+              data-tooltip={`${labels.flipSpectrumColors} (${spectrumColorOrder === 'blue-red' ? labels.spectrumBlueRed : labels.spectrumRedBlue})`}
+              aria-label={labels.flipSpectrumColors}
+              aria-pressed={spectrumColorOrder === 'red-blue'}
+              disabled={!showSpectrum}
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={flipSpectrumColors}
+            >
+              <ArrowLeftRight size={13} />
+            </button>
+            <button
+              type="button"
+              className="mini-button mini-style-button"
+              data-tooltip={`${labels.cycleSpectrumStyle}: ${spectrumStyleLabels[spectrumStyle]}`}
+              aria-label={labels.cycleSpectrumStyle}
+              disabled={!showSpectrum}
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={cycleSpectrumStyle}
+            >
+              <ChartColumn size={13} />
+            </button>
+          </div>
+          <div className="mini-toolbar-group">
             <button
               type="button"
               className="mini-button"
@@ -2250,21 +2413,50 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
             </button>
           </div>
         </div>
+        <div className="mini-spectrum-stage">
+          {showSpectrum ? (
+            <canvas ref={canvasRef} className="mini-spectrum" width="320" height="76" aria-label="Spectrum" />
+          ) : (
+            <div className="mini-spectrum mini-spectrum-disabled" aria-hidden="true" />
+          )}
+          {transportOverlay && (
+            <div className={`spectrum-overlay spectrum-overlay-mini spectrum-overlay-${transportOverlay}`} aria-hidden="true">
+              <span className="spectrum-overlay-icon">
+                {transportOverlay === 'spectrum' && <AudioWaveform size={22} />}
+                {transportOverlay === 'play' && <Play size={24} />}
+                {transportOverlay === 'pause' && <Pause size={24} />}
+                {transportOverlay === 'stop' && <Square size={20} />}
+              </span>
+            </div>
+          )}
+        </div>
         <div className="mini-now-playing">
-          <button
-            type="button"
-            className="mini-transport"
-            data-tooltip={isPlaying ? labels.pause : labels.play}
-            aria-label={isPlaying ? labels.pause : labels.play}
-            onPointerDown={(event) => event.stopPropagation()}
-            onClick={isPlaying ? pause : play}
-          >
-            {isPlaying ? <Pause size={14} /> : <Play size={14} />}
-          </button>
+          <div className="mini-transport">
+            <button
+              type="button"
+              className="mini-transport-button primary"
+              data-tooltip={isPlaying ? labels.pause : labels.play}
+              aria-label={isPlaying ? labels.pause : labels.play}
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={isPlaying ? pause : play}
+            >
+              {isPlaying ? <Pause size={13} /> : <Play size={13} />}
+            </button>
+            <button
+              type="button"
+              className="mini-transport-button stop-button"
+              data-tooltip={labels.stop}
+              aria-label={labels.stop}
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={stop}
+            >
+              <Square size={13} />
+            </button>
+          </div>
           <div className="mini-track-text">
             <strong title={currentTrack?.title ?? labels.noTrack}>{currentTrack?.title ?? labels.noTrack}</strong>
             <small title={currentTrackDetails.join(' / ')}>
-              {currentTrackDetails.length > 0 ? currentTrackDetails.join(' / ') : ' '}
+              {currentTrackDetails.length > 0 ? currentTrackDetails.join(' / ') : ''}
             </small>
           </div>
         </div>

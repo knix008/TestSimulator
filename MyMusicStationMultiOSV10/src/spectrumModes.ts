@@ -21,6 +21,68 @@ export type SpectrumStyle = (typeof spectrumStyles)[number]
 
 export const defaultSpectrumStyle: SpectrumStyle = 'bars'
 
+// Number of perceptually-spaced display bands the raw FFT is resampled into.
+export const spectrumBandCount = 96
+
+const spectrumMinHz = 20
+const spectrumMaxHz = 20000
+
+/**
+ * Resample the raw linear FFT magnitudes into log-spaced (perceptual) bands.
+ *
+ * The AnalyserNode always spans 0 Hz .. Nyquist (sampleRate / 2) with linearly
+ * spaced bins, which crams the entire bass region into the first few bins. This
+ * redistributes the energy onto a log frequency axis from ~20 Hz to ~20 kHz so
+ * the audible range is represented the way we hear it. Each output band takes
+ * the peak of the raw bins it covers (max), which keeps transients lively; for
+ * bands narrower than one bin it interpolates between neighbours.
+ */
+export const buildLogBands = (
+  freqData: Uint8Array,
+  sampleRate: number,
+  bandCount: number = spectrumBandCount,
+  out: Uint8Array = new Uint8Array(bandCount),
+): Uint8Array => {
+  const binCount = freqData.length
+  const nyquist = sampleRate / 2 || 22050
+  const hzPerBin = nyquist / binCount
+  const maxHz = Math.min(spectrumMaxHz, nyquist)
+  const logMin = Math.log10(spectrumMinHz)
+  const logMax = Math.log10(maxHz)
+  const logSpan = logMax - logMin
+
+  for (let index = 0; index < bandCount; index += 1) {
+    const f0 = 10 ** (logMin + (logSpan * index) / bandCount)
+    const f1 = 10 ** (logMin + (logSpan * (index + 1)) / bandCount)
+    const rawStart = f0 / hzPerBin
+    const rawEnd = f1 / hzPerBin
+    const startBin = Math.floor(rawStart)
+    const endBin = Math.ceil(rawEnd)
+
+    if (endBin - startBin <= 1) {
+      // Band narrower than a bin: linearly interpolate between neighbours.
+      const center = (rawStart + rawEnd) / 2
+      const lower = Math.max(0, Math.min(binCount - 1, Math.floor(center)))
+      const upper = Math.min(binCount - 1, lower + 1)
+      const frac = center - lower
+      out[index] = Math.round(freqData[lower] * (1 - frac) + freqData[upper] * frac)
+      continue
+    }
+
+    let peak = 0
+    const from = Math.max(0, startBin)
+    const to = Math.min(binCount, endBin)
+    for (let bin = from; bin < to; bin += 1) {
+      if (freqData[bin] > peak) {
+        peak = freqData[bin]
+      }
+    }
+    out[index] = peak
+  }
+
+  return out
+}
+
 export const isSpectrumStyle = (value: unknown): value is SpectrumStyle =>
   typeof value === 'string' && (spectrumStyles as readonly string[]).includes(value)
 
@@ -160,8 +222,9 @@ export const drawSpectrumFrame = (
       const level = value / 255
       const t = index / Math.max(binCount - 1, 1)
       const x = index * barWidth + barWidth / 2
-      const y = height - Math.max(4, level * height)
       const radius = Math.max(1.5, 1.5 + level * 4.5)
+      // Keep the whole dot inside the canvas: never let its top edge clip.
+      const y = Math.max(radius, height - Math.max(4, level * height))
       context.beginPath()
       context.fillStyle = hueFor(t, colorOrder, level)
       context.arc(x, y, radius, 0, Math.PI * 2)
@@ -404,15 +467,18 @@ export const drawSpectrumFrame = (
     const step = width / Math.max(binCount - 1, 1)
 
     for (let layer = 0; layer < layers; layer += 1) {
-      const offset = (layer - (layers - 1) / 2) * 10
-      const scale = 0.55 + layer * 0.12
+      // Anchor each layer near the bottom and cap the amplitude so the peaks
+      // never rise above the canvas top (offset scales with height for mini mode).
+      const offset = (layer - (layers - 1) / 2) * height * 0.03
+      const scale = 0.34 + layer * 0.05
+      const base = height * (0.9 - layer * 0.05)
       context.beginPath()
       freqData.forEach((value, index) => {
         const level = value / 255
         const neighbor = freqData[Math.min(binCount - 1, index + layer + 1)] / 255
         const mixed = level * 0.65 + neighbor * 0.35
         const x = index * step
-        const y = height * (0.62 - layer * 0.08) - mixed * height * scale + offset
+        const y = base - mixed * height * scale + offset
         if (index === 0) {
           context.moveTo(x, y)
         } else {
@@ -458,7 +524,8 @@ export const drawSpectrumFrame = (
       const trail = 8 + Math.floor(level * 10)
       for (let step = 0; step < trail; step += 1) {
         const y = drop.y - step * cell
-        if (y < -cell || y > height) {
+        // Only draw cells that fit fully inside the canvas (no top/bottom spill).
+        if (y < 0 || y > height - cell) {
           continue
         }
         context.globalAlpha = Math.max(0.08, 1 - step / trail) * (0.35 + level * 0.65)

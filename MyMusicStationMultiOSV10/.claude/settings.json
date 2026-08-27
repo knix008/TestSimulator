@@ -5,7 +5,34 @@
       "Bash(npx tauri *)",
       "Bash(taskkill //F //IM my_music_station.exe //T)",
       "Bash(find src-tauri/src background -name \"*.rs\")",
-      "Bash(ls src-tauri/src)"
+      "Bash(ls src-tauri/src)",
+      "Bash(tasklist //FI \"IMAGENAME eq my_music_station.exe\" //NH)",
+      "Bash(cat)",
+      "Bash(node --experimental-strip-types /tmp/test-bands.mjs)",
+      "Bash(sed -i \"s#'/c/Home/Projects/TestSimulator/MyMusicStationMultiOSV10/src/spectrumModes.ts'#'file:///C:/Home/Projects/TestSimulator/MyMusicStationMultiOSV10/src/spectrumModes.ts'#\" /tmp/test-bands.mjs *)",
+      "Read(//c/Program Files/Google/Chrome/Application/**)",
+      "Read(//c/Program Files \\(x86\\)/Microsoft/Edge/Application/**)",
+      "Bash(\"/c/Program Files/Google/Chrome/Application/chrome.exe\" --headless=new --disable-gpu --hide-scrollbars --force-device-scale-factor=2 --window-size=440,220 --screenshot=\"/c/Home/Projects/TestSimulator/MyMusicStationMultiOSV10/mini-current.png\" \"file:///C:/Home/Projects/TestSimulator/MyMusicStationMultiOSV10/mini-preview.html\")",
+      "Bash(\"/c/Program Files/Google/Chrome/Application/chrome.exe\" --headless=new --disable-gpu --hide-scrollbars --force-device-scale-factor=2 --window-size=1180,240 --screenshot=\"/c/Home/Projects/TestSimulator/MyMusicStationMultiOSV10/mini-compare.png\" \"file:///C:/Home/Projects/TestSimulator/MyMusicStationMultiOSV10/mini-preview.html\")",
+      "Bash(perl -0777 -i -pe \"s/            <small title=\\\\{currentTrackDetails\\\\.join\\\\\\(' \\\\/ '\\\\\\)\\\\}>\\\\n              \\\\{currentTrackDetails\\\\.length > 0 \\\\? currentTrackDetails\\\\.join\\\\\\(' \\\\/ '\\\\\\) : '\\\\xc2\\\\xa0'\\\\}\\\\n            <\\\\/small>/            {currentTrackDetails.length > 0 \\\\&\\\\& \\(\\\\n              <small title={currentTrackDetails.join\\(' \\\\/ '\\)}>{currentTrackDetails.join\\(' \\\\/ '\\)}<\\\\/small>\\\\n            \\)}/\" src/App.tsx)",
+      "Bash(node --experimental-strip-types /tmp/clip-test.mjs)",
+      "Bash(echo \"kill attempted \\(exit $?\\)\")",
+      "PowerShell($p = Get-Process my_music_station -ErrorAction SilentlyContinue; if \\($p\\) { $p | Stop-Process -Force; Start-Sleep -Milliseconds 500; \"stopped $\\($p.Count\\) instance\\(s\\)\" } else { \"not running\" })",
+      "PowerShell($p = Get-Process my_music_station -ErrorAction SilentlyContinue; if \\($p\\) { $p | Select-Object Id, StartTime | Format-Table -AutoSize | Out-String } else { \"not running\" }; $f = \"C:\\\\Home\\\\Projects\\\\TestSimulator\\\\MyMusicStationMultiOSV10\\\\src-tauri\\\\target\\\\release\\\\my_music_station.exe\"; try { $s = [IO.File]::Open\\($f,'Open','ReadWrite','None'\\); $s.Close\\(\\); \"exe is UNLOCKED\" } catch { \"exe is LOCKED: $\\($_.Exception.Message\\)\" })",
+      "PowerShell(Get-Process my_music_station -ErrorAction SilentlyContinue | Stop-Process -Force; Start-Sleep -Milliseconds 800; $f = \"C:\\\\Home\\\\Projects\\\\TestSimulator\\\\MyMusicStationMultiOSV10\\\\src-tauri\\\\target\\\\release\\\\my_music_station.exe\"; try { $s = [IO.File]::Open\\($f,'Open','ReadWrite','None'\\); $s.Close\\(\\); \"exe UNLOCKED - ready to build\" } catch { \"still LOCKED\" })",
+      "PowerShell(Get-Process my_music_station -ErrorAction SilentlyContinue)",
+      "PowerShell(\"app stopped \\(if it was running\\)\")",
+      "Bash(powershell -NoProfile -Command \"Get-Process my_music_station -ErrorAction SilentlyContinue | Stop-Process -Force\")",
+      "Bash(\"/c/Program Files/Google/Chrome/Application/chrome.exe\" --headless=new --disable-gpu --hide-scrollbars --force-device-scale-factor=2 --window-size=440,220 --screenshot=\"/c/Home/Projects/TestSimulator/MyMusicStationMultiOSV10/mini-new.png\" \"file:///C:/Home/Projects/TestSimulator/MyMusicStationMultiOSV10/mini-preview.html\")",
+      "Bash(\"/c/Program Files/Google/Chrome/Application/chrome.exe\" --headless=new --disable-gpu --hide-scrollbars --force-device-scale-factor=2 --window-size=800,220 --screenshot=\"/c/Home/Projects/TestSimulator/MyMusicStationMultiOSV10/mini-tp.png\" \"file:///C:/Home/Projects/TestSimulator/MyMusicStationMultiOSV10/mini-preview.html\")",
+      "Bash(\"/c/Program Files/Google/Chrome/Application/chrome.exe\" --headless=new --disable-gpu --hide-scrollbars --force-device-scale-factor=2 --window-size=440,230 --screenshot=\"/c/Home/Projects/TestSimulator/MyMusicStationMultiOSV10/mini-tb.png\" \"file:///C:/Home/Projects/TestSimulator/MyMusicStationMultiOSV10/mini-preview.html\")",
+      "PowerShell(npx tsc -b 2>&1 | Select-Object -First 40; Write-Output \"EXIT: $LASTEXITCODE\")",
+      "PowerShell(npx tauri build --no-bundle 2>&1 | Tee-Object -FilePath c:\\\\tmp\\\\mms-build.log | Select-Object -Last 5; Write-Output \"EXIT: $LASTEXITCODE\")",
+      "PowerShell($exe = \"src-tauri\\\\target\\\\release\\\\my_music_station.exe\"; if \\(Test-Path $exe\\) { $f = Get-Item $exe; Write-Output \"Modified: $\\($f.LastWriteTime\\)  Size: $\\([math]::Round\\($f.Length/1MB,1\\)\\) MB\" } else { Write-Output \"NOT FOUND\" })",
+      "PowerShell(npx tauri build --no-bundle 2>&1 | Tee-Object -FilePath c:\\\\tmp\\\\mms-build.log | Select-Object -Last 4; Write-Output \"EXIT: $LASTEXITCODE\")"
+    ],
+    "additionalDirectories": [
+      "\\tmp"
     ]
   }
 }
