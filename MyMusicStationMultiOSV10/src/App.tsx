@@ -114,7 +114,7 @@ const defaultMusicFolder = 'D:\\Home\\Music'
 const appVersion = '1.0.0'
 const buildDate = '2026-08-08'
 const normalWindowSize = { width: 835, height: 496 }
-const miniWindowSize = { width: 340, height: 148 }
+const miniWindowSize = { width: 340, height: 180 }
 
 const text = {
   ko: {
@@ -2405,6 +2405,7 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
               aria-label={labels.panelOpacity}
               onChange={(event) => setPanelOpacity(Number(event.target.value))}
             />
+            <span className="mini-opacity-value">{Math.round(panelOpacity * 100)}%</span>
           </div>
           <div className="mini-toolbar-group">
             <button
@@ -2447,33 +2448,89 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
           )}
         </div>
         <div className="mini-now-playing">
-          <div className="mini-transport">
-            <button
-              type="button"
-              className="mini-transport-button primary"
-              data-tooltip={isPlaying ? labels.pause : labels.play}
-              aria-label={isPlaying ? labels.pause : labels.play}
+          <div className="mini-control-row">
+            <div className="mini-transport">
+              <button
+                type="button"
+                className="mini-transport-button primary"
+                data-tooltip={isPlaying ? labels.pause : labels.play}
+                aria-label={isPlaying ? labels.pause : labels.play}
+                onPointerDown={(event) => event.stopPropagation()}
+                onClick={isPlaying ? pause : play}
+              >
+                {isPlaying ? <Pause size={13} /> : <Play size={13} />}
+              </button>
+              <button
+                type="button"
+                className="mini-transport-button stop-button"
+                data-tooltip={labels.stop}
+                aria-label={labels.stop}
+                onPointerDown={(event) => event.stopPropagation()}
+                onClick={stop}
+              >
+                <Square size={13} />
+              </button>
+            </div>
+            <div
+              className="mini-progress"
+              data-tooltip={formatTime(Math.min(currentTime, duration || 0))}
               onPointerDown={(event) => event.stopPropagation()}
-              onClick={isPlaying ? pause : play}
             >
-              {isPlaying ? <Pause size={13} /> : <Play size={13} />}
-            </button>
-            <button
-              type="button"
-              className="mini-transport-button stop-button"
-              data-tooltip={labels.stop}
-              aria-label={labels.stop}
+              <span className="mini-time">{formatTime(Math.min(currentTime, duration || 0))}</span>
+              <input
+                className="mini-seek"
+                aria-label={labels.position}
+                aria-valuetext={formatTime(Math.min(currentTime, duration || 0))}
+                type="range"
+                min="0"
+                max={duration || 0}
+                step="0.1"
+                value={Math.min(currentTime, duration || 0)}
+                onChange={seek}
+              />
+              <span className="mini-time">{formatTime(duration)}</span>
+            </div>
+            <div
+              className={`mini-volume${isMuted ? ' is-inactive' : ''}`}
+              data-tooltip={`${labels.volume} (${volumePercent}%)`}
               onPointerDown={(event) => event.stopPropagation()}
-              onClick={stop}
             >
-              <Square size={13} />
-            </button>
+              <button
+                type="button"
+                className="mini-volume-mute"
+                data-tooltip={isMuted ? labels.unmute : labels.mute}
+                aria-label={isMuted ? labels.unmute : labels.mute}
+                aria-pressed={!isMuted}
+                onPointerDown={(event) => event.stopPropagation()}
+                onClick={toggleMute}
+              >
+                {isMuted ? <VolumeX size={13} /> : <Volume2 size={13} />}
+              </button>
+              <input
+                className="mini-seek"
+                type="range"
+                min="0"
+                max="1"
+                step="0.01"
+                value={volume}
+                aria-label={labels.volume}
+                aria-valuetext={`${volumePercent}%`}
+                onChange={(event) => changeVolume(Number(event.target.value))}
+                onInput={(event) => changeVolume(Number(event.currentTarget.value))}
+              />
+              <span className="mini-volume-value">{volumePercent}%</span>
+            </div>
           </div>
-          <div className="mini-track-text">
-            <strong title={currentTrack?.title ?? labels.noTrack}>{currentTrack?.title ?? labels.noTrack}</strong>
-            <small title={currentTrackDetails.join(' / ')}>
-              {currentTrackDetails.length > 0 ? currentTrackDetails.join(' / ') : ''}
-            </small>
+          <div className="mini-track-row">
+            <span className="mini-track-icon" aria-hidden="true">
+              <img src={currentTrack?.artworkUrl ?? appIconUrl} alt="" />
+            </span>
+            <div className="mini-track-text">
+              <strong title={currentTrack?.title ?? labels.noTrack}>{currentTrack?.title ?? labels.noTrack}</strong>
+              <small title={currentTrackDetails.join(' / ')}>
+                {currentTrackDetails.length > 0 ? currentTrackDetails.join(' / ') : ''}
+              </small>
+            </div>
           </div>
         </div>
       </div>

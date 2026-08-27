@@ -59,6 +59,7 @@
       "icons/icon.ico"
     ],
     "resources": [
+      "icons/icon.ico",
       "playlist-icons/icon.ico",
       "tray-icons/32x32.png"
     ],

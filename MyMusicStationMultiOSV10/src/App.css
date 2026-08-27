@@ -1884,23 +1884,106 @@ button:hover,
   gap: 5px;
 }
 
-/* Compact opacity slider: sits between the two toolbar groups and stretches to
-   fill the middle so it stays usable in the tiny window. */
+/* Opacity slider hugs the left toolbar group (margin-right:auto pushes the
+   window buttons to the far right) and shows its % value beside the track. */
 .mini-opacity {
   display: flex;
-  flex: 1 1 auto;
+  flex: 0 0 auto;
+  margin-right: auto;
   align-items: center;
   gap: 5px;
   min-width: 0;
   color: var(--muted);
 }
 
-.mini-opacity input[type='range'] {
+.mini-opacity-value {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Volume sits on the control row, to the right of the progress bar, at a fixed
+   width so the seek bar keeps the bulk of the space. */
+.mini-volume {
+  display: flex;
+  flex: 0 0 114px;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  color: var(--muted);
+}
+
+.mini-volume-value {
+  flex: 0 0 auto;
+  min-width: 2.4em;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* Compact sliders: only in mini mode we drop the native range height and draw a
+   thin track + small thumb so the controls sit low in the tiny toolbar. */
+.mini-opacity input[type='range'],
+.mini-volume input[type='range'] {
   flex: 1 1 auto;
   width: 100%;
   min-width: 0;
+  height: 10px;
   margin: 0;
   cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+}
+
+/* Opacity track has a fixed compact length (the toolbar isn't width-constrained
+   like the volume control, so pin it rather than letting it flex to 100%). */
+.mini-opacity input[type='range'] {
+  flex: 0 0 70px;
+  width: 70px;
+}
+
+.mini-opacity input[type='range']::-webkit-slider-runnable-track,
+.mini-volume input[type='range']::-webkit-slider-runnable-track {
+  height: 3px;
+  border-radius: 2px;
+  background: var(--line);
+}
+
+.mini-opacity input[type='range']::-webkit-slider-thumb,
+.mini-volume input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 9px;
+  height: 9px;
+  margin-top: -3px;
+  border: none;
+  border-radius: 50%;
+  background: var(--primary);
+}
+
+.mini-opacity input[type='range']::-moz-range-track,
+.mini-volume input[type='range']::-moz-range-track {
+  height: 3px;
+  border-radius: 2px;
+  background: var(--line);
+}
+
+.mini-opacity input[type='range']::-moz-range-thumb,
+.mini-volume input[type='range']::-moz-range-thumb {
+  width: 9px;
+  height: 9px;
+  border: none;
+  border-radius: 50%;
+  background: var(--primary);
 }
 
 .mini-opacity input:disabled {
@@ -1908,6 +1991,36 @@ button:hover,
 }
 
 .mini-opacity:has(input:disabled) {
+  opacity: 0.5;
+}
+
+/* Mute toggle inside the mini volume control: a real, tappable button. */
+.mini-volume-mute {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--control) calc(var(--panel-opacity, 0.82) * 100%), transparent);
+  color: var(--icon);
+  cursor: pointer;
+}
+
+.mini-volume-mute:hover {
+  border-color: var(--line-strong);
+  color: var(--text-strong);
+}
+
+/* Muted: flag the button red so the state is obvious even at mini size. */
+.mini-volume.is-inactive .mini-volume-mute {
+  border-color: #e5484d;
+  color: #e5484d;
+}
+
+.mini-volume.is-inactive input[type='range'] {
   opacity: 0.5;
 }
 
@@ -1952,6 +2065,18 @@ button:hover,
 
 .mini-transport [data-tooltip]:hover::after {
   transform: translate(0, 0);
+}
+
+/* Seek position readout floats above the progress bar (not below, where it would
+   cover the track info) and stays visible while dragging. */
+.mini-progress[data-tooltip]::after {
+  top: auto;
+  bottom: calc(100% + 6px);
+  transform: translate(-50%, 4px);
+}
+
+.mini-progress[data-tooltip]:hover::after {
+  transform: translate(-50%, 0);
 }
 
 .mini-spectrum-stage {
@@ -2015,8 +2140,103 @@ button:hover,
 .mini-now-playing {
   display: flex;
   flex: 0 0 auto;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Top row: transport buttons on the left, the whole-track progress bar filling
+   the rest so the seek control sits above the track info. */
+.mini-control-row {
+  display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.mini-progress {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.mini-time {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.mini-seek {
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+  height: 10px;
+  margin: 0;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+}
+
+.mini-seek::-webkit-slider-runnable-track {
+  height: 3px;
+  border-radius: 2px;
+  background: var(--line);
+}
+
+.mini-seek::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 9px;
+  height: 9px;
+  margin-top: -3px;
+  border: none;
+  border-radius: 50%;
+  background: var(--primary);
+}
+
+.mini-seek::-moz-range-track {
+  height: 3px;
+  border-radius: 2px;
+  background: var(--line);
+}
+
+.mini-seek::-moz-range-thumb {
+  width: 9px;
+  height: 9px;
+  border: none;
+  border-radius: 50%;
+  background: var(--primary);
+}
+
+/* Bottom row: small album-art icon next to the track title/details. */
+.mini-track-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.mini-track-icon {
+  display: block;
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--panel) calc(var(--panel-opacity, 0.82) * 100%), transparent);
+}
+
+.mini-track-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .mini-transport {

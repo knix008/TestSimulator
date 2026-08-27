@@ -117,6 +117,30 @@
   DeleteRegKey ${ROOT_KEY} "Software\Clients\Media\My Music Station"
 !macroend
 
+; ---------------------------------------------------------------------------
+; Force the desktop / start-menu shortcuts to use the app icon.ico explicitly.
+; Tauri creates the shortcuts with only the .exe as target (icon = exe,0), which
+; leaves them at the mercy of the Windows icon cache. Re-stamping the shortcut
+; with an explicit icon path guarantees the new icon shows up. We only touch
+; shortcuts that already exist so update / silent / no-shortcut modes are honored.
+; ---------------------------------------------------------------------------
+!macro MMS_SET_SHORTCUT_ICON LNK_PATH
+  ${If} ${FileExists} "${LNK_PATH}"
+    CreateShortcut "${LNK_PATH}" "$INSTDIR\${MAINBINARYNAME}.exe" "" "$INSTDIR\resources\icons\icon.ico" 0
+    !insertmacro SetLnkAppUserModelId "${LNK_PATH}"
+  ${EndIf}
+!macroend
+
+!macro MMS_REFRESH_SHORTCUT_ICONS
+  !if "${STARTMENUFOLDER}" != ""
+    !insertmacro MMS_SET_SHORTCUT_ICON "$SMPROGRAMS\$AppStartMenuFolder\${PRODUCTNAME}.lnk"
+  !else
+    !insertmacro MMS_SET_SHORTCUT_ICON "$SMPROGRAMS\${PRODUCTNAME}.lnk"
+  !endif
+  !insertmacro MMS_SET_SHORTCUT_ICON "$DESKTOP\${PRODUCTNAME}.lnk"
+  System::Call 'shell32::SHChangeNotify(i 0x08000000, i 0, i 0, i 0)'
+!macroend
+
 !macro MMS_REMOVE_LEFTOVERS
   ; Common Tauri / Windows install locations
   RMDir /r "$LOCALAPPDATA\Programs\My Music Station"
@@ -202,6 +226,9 @@
   WriteRegStr SHCTX "Software\Clients\Media\My Music Station\Capabilities\FileAssociations" ".webm" "MyMusicStation.Audio"
   WriteRegStr SHCTX "Software\Clients\Media\My Music Station\Capabilities\FileAssociations" ".opus" "MyMusicStation.Audio"
   WriteRegStr SHCTX "Software\RegisteredApplications" "My Music Station" "Software\Clients\Media\My Music Station\Capabilities"
+
+  ; Stamp the new app icon onto the desktop / start-menu shortcuts.
+  !insertmacro MMS_REFRESH_SHORTCUT_ICONS
 !macroend
 
 !macro NSIS_HOOK_POSTUNINSTALL
