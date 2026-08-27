@@ -52,10 +52,15 @@ if (fetchFfmpeg.status !== 0) {
 console.log(`[build] CARGO_TARGET_DIR=${localTargetDir}`)
 console.log(`[build] tauri build --bundles ${bundlesArg}`)
 
-const result = spawnSync('npx', ['tauri', 'build', '--bundles', bundlesArg], {
+// Run through a shell so Windows can resolve npx.cmd (Node refuses to spawn
+// .cmd/.bat without a shell since the CVE-2024-27980 fix). Pass the whole
+// command as a single string with NO args array: Node's DEP0190 warning only
+// fires when an args array is combined with `shell: true`. bundlesArg is a
+// fixed internal token (nsis/dmg/appimage), so there is nothing to escape.
+const result = spawnSync(`npx tauri build --bundles ${bundlesArg}`, {
   cwd: root,
   stdio: 'inherit',
-  shell: platform() === 'win32',
+  shell: true,
   env: {
     ...process.env,
     CARGO_TARGET_DIR: localTargetDir,

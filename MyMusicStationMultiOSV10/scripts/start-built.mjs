@@ -152,7 +152,12 @@ const rebuildIfStale = () => {
       : '[start] sources changed since last build — rebuilding...',
   )
 
-  const result = spawnSync('npm', ['run', target.buildScript], {
+  // Run through a shell so Windows can resolve npm.cmd (Node refuses to spawn
+  // .cmd/.bat without a shell since the CVE-2024-27980 fix). Pass the whole
+  // command as a single string with NO args array: Node's DEP0190 warning only
+  // fires when an args array is combined with `shell: true`. buildScript is a
+  // fixed internal token (build:win/mac/linux), so there is nothing to escape.
+  const result = spawnSync(`npm run ${target.buildScript}`, {
     stdio: 'inherit',
     shell: true,
     cwd: root,

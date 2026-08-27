@@ -33,7 +33,14 @@
       "PowerShell(taskkill /F /IM my_music_station.exe /T 2>&1)",
       "PowerShell($f = Get-Item \"src-tauri\\\\target\\\\release\\\\my_music_station.exe\"; Write-Output \"Modified: $\\($f.LastWriteTime\\)  Size: $\\([math]::Round\\($f.Length/1MB,1\\)\\) MB\")",
       "PowerShell(\"done\")",
-      "PowerShell(\"ok\")"
+      "PowerShell(\"ok\")",
+      "Bash(node --check scripts/start-built.mjs)",
+      "Bash(node --check scripts/build-desktop.mjs)",
+      "Bash(npm run *)",
+      "Read(//tmp/**)",
+      "Bash(grep -n \"error\\\\|Error\\\\|panic\\\\|failed\\\\|not recognized\\\\|ENOENT\\\\|DEP0190\\\\|tauri build\" /tmp/buildwin.log | head -40; echo \"=== total lines ===\"; wc -l /tmp/buildwin.log)",
+      "PowerShell($names = 'my_music_station','rustc','cargo','link','my_music_station_lib'; foreach \\($n in $names\\) { Get-Process $n -ErrorAction SilentlyContinue | ForEach-Object { \"Killing $\\($_.ProcessName\\) \\($\\($_.Id\\)\\)\"; $_ | Stop-Process -Force -ErrorAction SilentlyContinue } }; \"done\")",
+      "Bash(cd \"c:/Home/Projects/TestSimulator/MyMusicStationMultiOSV10\" && npx tauri build --no-bundle > /tmp/rebuild.log 2>&1; echo \"EXIT=$?\"; echo \"--- errors ---\"; grep -i \"error\\\\|os error 32\\\\|Finished\\\\|Built application\" /tmp/rebuild.log | head -20; echo \"--- tail ---\"; tail -4 /tmp/rebuild.log)"
     ],
     "additionalDirectories": [
       "\\tmp"
