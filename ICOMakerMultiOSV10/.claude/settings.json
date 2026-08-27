@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm --version)",
+      "Bash(timeout 20 npx electron .)",
+      "Bash(echo \"exit=$?\")",
+      "Read(//tmp/**)",
+      "Bash(node node_modules/electron/install.js)",
+      "Bash(timeout 18 ./node_modules/electron/dist/electron.exe .)",
+      "Bash(env -u ELECTRON_RUN_AS_NODE timeout 15 ./node_modules/electron/dist/electron.exe .)",
+      "Bash(cross-env ELECTRON_DEV= timeout 15 node scripts/start-electron.mjs)",
+      "Bash(echo \"exit=$? \\(124=ran full duration OK\\)\")",
+      "Bash(timeout 15 node scripts/start-electron.mjs)",
+      "Bash(timeout 12 node scripts/start-electron.mjs)",
+      "Bash(echo \"exit=$? \\(124=OK\\)\")",
+      "Bash(node scripts/copy-installer.js)",
+      "Bash(cd \"c:/Home/Projects/TestSimulator/ICOMakerMultiOSV10\" && timeout 12 node scripts/start-electron.mjs > /tmp/ico-new.log 2>&1; echo \"exit=$? \\(124=OK\\)\"; grep -iE \"Cannot read|is not defined|SyntaxError|Uncaught|Failed to|TypeError\" /tmp/ico-new.log | head)",
+      "Bash(cd \"c:/Home/Projects/TestSimulator/ICOMakerMultiOSV10\" && timeout 12 node scripts/start-electron.mjs > /tmp/ico-fr.log 2>&1; echo \"exit=$? \\(124=OK\\)\"; grep -iE \"Cannot read|is not defined|SyntaxError|Uncaught|TypeError|Failed to\" /tmp/ico-fr.log | head)",
+      "Bash(timeout 14 node scripts/start-electron.mjs)",
+      "Bash(timeout 8 node scripts/start-electron.mjs)",
+      "Bash(echo \"second exit=$?\")",
+      "Bash(timeout 10 node scripts/start-electron.mjs)",
+      "Bash(rm -f scheck.mjs scheck.png)",
+      "Bash(node -e \"console.log\\(require\\('./package.json'\\).version\\)\")"
+    ]
+  }
+}

@@ -1,0 +1,132 @@
+{
+  "name": "icomaker",
+  "version": "1.0.0",
+  "description": "Cross-platform (Web / Windows / macOS / Linux) icon maker built from arbitrary image files.",
+  "author": {
+    "name": "SHKWON",
+    "email": "knix008@naver.com"
+  },
+  "license": "MIT",
+  "private": true,
+  "main": "electron/main.js",
+  "scripts": {
+    "start": "concurrently -k \"vite --port 5173\" \"wait-on tcp:5173 && cross-env ELECTRON_DEV=1 node scripts/start-electron.mjs\"",
+    "dev": "vite --port 5173",
+    "web": "vite --port 5173",
+    "electron": "cross-env ELECTRON_DEV=1 node scripts/start-electron.mjs",
+    "preview:electron": "node scripts/start-electron.mjs",
+    "generate:icons": "node scripts/generate-icons.mjs",
+    "generate:build-info": "node scripts/generate-build-info.mjs",
+    "build": "npm run generate:build-info && vite build",
+    "prebuild:win": "npm run generate:icons && npm run generate:build-info",
+    "build:win": "vite build && electron-builder --win",
+    "postbuild:win": "node scripts/copy-installer.js",
+    "prebuild:mac": "npm run generate:icons && npm run generate:build-info",
+    "build:mac": "vite build && electron-builder --mac",
+    "postbuild:mac": "node scripts/copy-installer.js",
+    "prebuild:linux": "npm run generate:icons && npm run generate:build-info",
+    "build:linux": "vite build && electron-builder --linux",
+    "postbuild:linux": "node scripts/copy-installer.js",
+    "copy:installer": "node scripts/copy-installer.js",
+    "preview": "vite preview --port 4173"
+  },
+  "dependencies": {
+    "dicom-parser": "^1.8.21",
+    "heic2any": "^0.0.4",
+    "i18next": "^23.11.5",
+    "jszip": "^3.10.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-i18next": "^14.1.2",
+    "utif": "^3.1.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.1",
+    "concurrently": "^8.2.2",
+    "cross-env": "^7.0.3",
+    "electron": "^31.3.1",
+    "electron-builder": "^24.13.3",
+    "sharp": "^0.33.4",
+    "vite": "^5.4.1",
+    "wait-on": "^7.2.0"
+  },
+  "build": {
+    "appId": "com.shkwon.icomaker",
+    "productName": "ICOMaker",
+    "copyright": "Copyright © 2026 SHKWON (knix008@naver.com)",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "asar": true,
+    "icon": "build/icons/icon.png",
+    "win": {
+      "icon": "build/icons/icon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": true,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": false,
+      "createStartMenuShortcut": false,
+      "menuCategory": true,
+      "shortcutName": "ICOMaker",
+      "installerIcon": "build/icons/icon.ico",
+      "uninstallerIcon": "build/icons/icon.ico",
+      "installerHeaderIcon": "build/icons/icon.ico",
+      "deleteAppDataOnUninstall": true,
+      "include": "build/installer.nsh"
+    },
+    "mac": {
+      "icon": "build/icons/icon.icns",
+      "category": "public.app-category.graphics-design",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ]
+    },
+    "linux": {
+      "icon": "build/icons/png",
+      "category": "Graphics",
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "deb",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    }
+  },
+  "allowScripts": {
+    "electron@31.7.7": true,
+    "esbuild@0.21.5": true,
+    "sharp@0.32.6": true,
+    "sharp@0.33.5": true
+  }
+}

@@ -1,0 +1,36 @@
+# ── Dependencies ─────────────────────────────────────────
+node_modules/
+
+# ── Build output ─────────────────────────────────────────
+dist/
+release/
+build/icons/            # generated app icons (scripts/generate-icons.mjs)
+.vite/
+
+# ── Generated at build time ──────────────────────────────
+src/build-info.json     # written by scripts/generate-build-info.mjs
+
+# ── Installer artifacts copied to project root ───────────
+# (scripts/copy-installer.js copies release/* here after build)
+/*.exe
+/*.dmg
+/*.AppImage
+/*.deb
+/*.rpm
+/*.snap
+/*.zip
+
+# ── Logs / misc ──────────────────────────────────────────
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+
+# ── Editor / OS ──────────────────────────────────────────
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
