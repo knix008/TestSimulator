@@ -2390,6 +2390,22 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
               <ChartColumn size={13} />
             </button>
           </div>
+          <div
+            className="mini-opacity"
+            data-tooltip={`${labels.panelOpacity} (${Math.round(panelOpacity * 100)}%)`}
+            onPointerDown={(event) => event.stopPropagation()}
+          >
+            <Blend size={13} aria-hidden="true" />
+            <input
+              type="range"
+              min="0.1"
+              max="1"
+              step="0.01"
+              value={panelOpacity}
+              aria-label={labels.panelOpacity}
+              onChange={(event) => setPanelOpacity(Number(event.target.value))}
+            />
+          </div>
           <div className="mini-toolbar-group">
             <button
               type="button"

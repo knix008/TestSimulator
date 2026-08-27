@@ -1,4 +1,13 @@
-<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+// Generates the app icon in one place: a simple, bright, 3D-looking, and
+// unmistakably-music design (glossy rounded square + one connected white eighth
+// note with a drop shadow). Writes the shared in-app SVG (asset/ + public/) and
+// a 1024 PNG source for `npx tauri icon`.
+import { writeFileSync } from 'node:fs'
+import { join } from 'node:path'
+import sharp from 'sharp'
+
+// viewBox 0 0 1024 1024 — resolution-independent, reused as-is for the in-app SVG.
+const svg = `<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
   <defs>
     <!-- Diagonal body gradient gives the base sense of light-from-top-left -->
     <linearGradient id="body" x1="0.12" y1="0" x2="0.9" y2="1">
@@ -55,3 +64,12 @@
     <ellipse cx="452" cy="676" rx="126" ry="98" transform="rotate(-20 452 676)"/>
   </g>
 </svg>
+`
+
+const root = process.cwd()
+writeFileSync(join(root, 'asset', 'app-icon.svg'), svg)
+writeFileSync(join(root, 'public', 'app-icon.svg'), svg)
+
+const out = join(root, 'scripts', 'app-icon-source.png')
+await sharp(Buffer.from(svg)).resize(1024, 1024).png().toFile(out)
+console.log('wrote asset/app-icon.svg, public/app-icon.svg,', out)

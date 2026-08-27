@@ -1884,6 +1884,76 @@ button:hover,
   gap: 5px;
 }
 
+/* Compact opacity slider: sits between the two toolbar groups and stretches to
+   fill the middle so it stays usable in the tiny window. */
+.mini-opacity {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  color: var(--muted);
+}
+
+.mini-opacity input[type='range'] {
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  cursor: pointer;
+}
+
+.mini-opacity input:disabled {
+  cursor: not-allowed;
+}
+
+.mini-opacity:has(input:disabled) {
+  opacity: 0.5;
+}
+
+/* --- Compact-mode tooltips: keep them inside the 340x148 window ---
+   The shell clips overflow, and centered tooltips on edge buttons spill past
+   the webview and get cut off. Anchor each tooltip to the window edge its
+   button sits against, cap the width, and allow wrapping so text stays inside. */
+.mini-view [data-tooltip]::after {
+  max-width: calc(100vw - 16px);
+  white-space: normal;
+}
+
+/* Left toolbar group hugs the left edge: anchor the tooltip's left edge. */
+.mini-toolbar-group:first-child [data-tooltip]::after {
+  left: 0;
+  transform: translate(0, -4px);
+}
+
+.mini-toolbar-group:first-child [data-tooltip]:hover::after {
+  transform: translate(0, 0);
+}
+
+/* Right toolbar group hugs the right edge: anchor the tooltip's right edge. */
+.mini-toolbar-group:last-child [data-tooltip]::after {
+  left: auto;
+  right: 0;
+  transform: translate(0, -4px);
+}
+
+.mini-toolbar-group:last-child [data-tooltip]:hover::after {
+  transform: translate(0, 0);
+}
+
+/* Transport buttons sit on the bottom row at the left edge: flip the tooltip
+   above the button (so it doesn't drop below the window) and left-anchor it. */
+.mini-transport [data-tooltip]::after {
+  top: auto;
+  bottom: calc(100% + 7px);
+  left: 0;
+  transform: translate(0, 4px);
+}
+
+.mini-transport [data-tooltip]:hover::after {
+  transform: translate(0, 0);
+}
+
 .mini-spectrum-stage {
   position: relative;
   flex: 1 1 auto;
@@ -1896,14 +1966,17 @@ button:hover,
   height: 100%;
   border: 1px solid var(--line);
   border-radius: 6px;
+  /* Base layer honours --panel-opacity so the compact-mode slider blends the
+     spectrum toward transparent (revealing the wallpaper/background behind),
+     matching how normal-mode panels respond to the opacity slider. */
   background:
     repeating-linear-gradient(90deg, transparent 0 14px, var(--grid) 14px 15px),
     linear-gradient(180deg, rgba(255, 255, 255, 0.07), transparent),
-    var(--spectrum);
+    color-mix(in srgb, var(--spectrum) calc(var(--panel-opacity, 0.82) * 100%), transparent);
 }
 
 .mini-spectrum-disabled {
-  background: var(--spectrum);
+  background: color-mix(in srgb, var(--spectrum) calc(var(--panel-opacity, 0.82) * 100%), transparent);
 }
 
 .mini-button {
@@ -1913,7 +1986,7 @@ button:hover,
   height: 26px;
   border: 1px solid var(--line);
   border-radius: 6px;
-  background: color-mix(in srgb, var(--panel) 82%, transparent);
+  background: color-mix(in srgb, var(--panel) calc(var(--panel-opacity, 0.82) * 100%), transparent);
   color: var(--icon);
   cursor: pointer;
 }
@@ -1964,7 +2037,7 @@ button:hover,
   border: 1px solid var(--line);
   border-radius: 5px;
   color: var(--icon);
-  background: var(--control);
+  background: color-mix(in srgb, var(--control) calc(var(--panel-opacity, 0.82) * 100%), transparent);
   cursor: pointer;
 }
 
