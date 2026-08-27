@@ -1910,7 +1910,7 @@ button:hover,
    width so the seek bar keeps the bulk of the space. */
 .mini-volume {
   display: flex;
-  flex: 0 0 114px;
+  flex: 0 0 74px;
   align-items: center;
   gap: 4px;
   min-width: 0;
@@ -1947,8 +1947,8 @@ button:hover,
 /* Opacity track has a fixed compact length (the toolbar isn't width-constrained
    like the volume control, so pin it rather than letting it flex to 100%). */
 .mini-opacity input[type='range'] {
-  flex: 0 0 70px;
-  width: 70px;
+  flex: 0 0 35px;
+  width: 35px;
 }
 
 .mini-opacity input[type='range']::-webkit-slider-runnable-track,
@@ -2243,7 +2243,7 @@ button:hover,
   display: flex;
   flex: 0 0 auto;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
 }
 
 /* Same button colors as the normal-mode transport: primary = play/pause,
@@ -2252,13 +2252,20 @@ button:hover,
   display: grid;
   place-items: center;
   flex: 0 0 auto;
-  width: 30px;
-  height: 30px;
+  width: 20px;
+  height: 20px;
+  padding: 0;
   border: 1px solid var(--line);
-  border-radius: 5px;
+  border-radius: 4px;
   color: var(--icon);
   background: color-mix(in srgb, var(--control) calc(var(--panel-opacity, 0.82) * 100%), transparent);
   cursor: pointer;
+}
+
+/* Render the icon as a block so its inline baseline gap doesn't nudge it off
+   the button's centre; grid place-items then centres it exactly. */
+.mini-transport-button > svg {
+  display: block;
 }
 
 .mini-transport-button.primary {

@@ -31,7 +31,9 @@
       "PowerShell($exe = \"src-tauri\\\\target\\\\release\\\\my_music_station.exe\"; if \\(Test-Path $exe\\) { $f = Get-Item $exe; Write-Output \"Modified: $\\($f.LastWriteTime\\)  Size: $\\([math]::Round\\($f.Length/1MB,1\\)\\) MB\" } else { Write-Output \"NOT FOUND\" })",
       "PowerShell(npx tauri build --no-bundle 2>&1 | Tee-Object -FilePath c:\\\\tmp\\\\mms-build.log | Select-Object -Last 4; Write-Output \"EXIT: $LASTEXITCODE\")",
       "PowerShell(taskkill /F /IM my_music_station.exe /T 2>&1)",
-      "PowerShell($f = Get-Item \"src-tauri\\\\target\\\\release\\\\my_music_station.exe\"; Write-Output \"Modified: $\\($f.LastWriteTime\\)  Size: $\\([math]::Round\\($f.Length/1MB,1\\)\\) MB\")"
+      "PowerShell($f = Get-Item \"src-tauri\\\\target\\\\release\\\\my_music_station.exe\"; Write-Output \"Modified: $\\($f.LastWriteTime\\)  Size: $\\([math]::Round\\($f.Length/1MB,1\\)\\) MB\")",
+      "PowerShell(\"done\")",
+      "PowerShell(\"ok\")"
     ],
     "additionalDirectories": [
       "\\tmp"

@@ -2452,13 +2452,23 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
             <div className="mini-transport">
               <button
                 type="button"
+                className="mini-transport-button mini-skip-button"
+                data-tooltip={labels.previous}
+                aria-label={labels.previous}
+                onPointerDown={(event) => event.stopPropagation()}
+                onClick={() => playRelativeTrack(-1)}
+              >
+                <SkipBack size={11} />
+              </button>
+              <button
+                type="button"
                 className="mini-transport-button primary"
                 data-tooltip={isPlaying ? labels.pause : labels.play}
                 aria-label={isPlaying ? labels.pause : labels.play}
                 onPointerDown={(event) => event.stopPropagation()}
                 onClick={isPlaying ? pause : play}
               >
-                {isPlaying ? <Pause size={13} /> : <Play size={13} />}
+                {isPlaying ? <Pause size={11} /> : <Play size={11} />}
               </button>
               <button
                 type="button"
@@ -2468,7 +2478,17 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
                 onPointerDown={(event) => event.stopPropagation()}
                 onClick={stop}
               >
-                <Square size={13} />
+                <Square size={11} />
+              </button>
+              <button
+                type="button"
+                className="mini-transport-button mini-skip-button"
+                data-tooltip={labels.next}
+                aria-label={labels.next}
+                onPointerDown={(event) => event.stopPropagation()}
+                onClick={() => playRelativeTrack(1)}
+              >
+                <SkipForward size={11} />
               </button>
             </div>
             <div
