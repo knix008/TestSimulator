@@ -11,6 +11,8 @@
 </head>
 <body>
   <div id="app" class="app">
+    <div class="chrome" id="chrome">
+    <div class="chrome-rail" id="chromeRail">
     <!-- Toolbar: brand | actions | drag | tools + opacity | window controls -->
     <nav class="toolbar" id="toolbar" role="toolbar" aria-label="Player toolbar" data-i18n-aria="toolbar">
       <div class="toolbar-left">
@@ -89,9 +91,17 @@
         <button type="button" class="tool-btn" id="btnFullscreen" data-i18n-tooltip="fullscreenTip" data-i18n-aria="fullscreen">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5v2H6v3H4Zm10-5h5v5h-2V6h-3V4ZM4 15h2v3h3v2H4v-5Zm16 5h-5v-2h3v-3h2v5Z"/></svg>
         </button>
+        <button type="button" class="tool-btn" id="btnCompact" data-i18n-tooltip="compactTip" data-i18n-aria="compact" aria-pressed="false">
+          <!-- Enter compact: picture-in-picture / mini window -->
+          <svg class="icon-compact-enter" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h13v11H3V4Zm2 2v7h9V6H5Zm11 5h5v9H9v-3h2v1h8v-5h-2v-2Z"/></svg>
+          <!-- Exit compact: restore full player layout -->
+          <svg class="icon-compact-exit hidden" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h18v3H3V4Zm0 5h18v2H3V9Zm0 4h12v7H3v-7Zm14 0h4v7h-4v-7Z"/></svg>
+        </button>
         <div class="toolbar-opacity electron-only" id="toolbarOpacity" title="Window opacity">
           <svg class="toolbar-opacity-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 1 0 0 20V2Zm0 18a8 8 0 0 1 0-16v16Z"/></svg>
+          <span class="opacity-scale" aria-hidden="true">20</span>
           <input type="range" class="opacity-bar" id="toolbarOpacityBar" min="20" max="100" step="1" value="100" style="--fill: 100%" data-i18n-tooltip="opacityTip" data-i18n-aria="opacity" />
+          <span class="opacity-scale" aria-hidden="true">100</span>
           <span class="toolbar-opacity-value" id="toolbarOpacityValue">100%</span>
         </div>
         <button type="button" class="tool-btn tool-btn-labeled" id="btnLocale" data-i18n-tooltip="languageTip" data-i18n-aria="language">
@@ -127,12 +137,80 @@
         <button type="button" class="win-btn win-close" id="btnClose" data-i18n-tooltip="close" data-i18n-aria="close">✕</button>
       </div>
     </nav>
+    <!-- Playback / volume controls (same chrome row in compact mode) -->
+    <section class="control-bar" id="controlBar" role="toolbar" data-i18n-aria="controls">
+      <div class="control-bar-row seek-row">
+        <span class="time-label" id="timeCurrent">00:00</span>
+        <input type="range" class="seek-bar" id="seekBar" min="0" max="1000" value="0" step="1" style="--fill: 0%" data-i18n-tooltip="seekTip" data-i18n-aria="seek" />
+        <span class="time-label" id="timeDuration">00:00</span>
+      </div>
+      <div class="control-bar-row transport-row">
+        <div class="toolbar-group">
+          <button type="button" class="tool-btn" id="btnPrev" data-i18n-tooltip="seekBackTip" data-i18n-aria="seekBack">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 12 18 7v10l-7-5Zm-1 5V7H8v10h2Z"/></svg>
+          </button>
+          <button type="button" class="tool-btn tool-btn-primary" id="btnPlay" data-i18n-tooltip="playTip" data-i18n-aria="play">
+            <svg class="icon-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7L8 5Z"/></svg>
+            <svg class="icon-pause hidden" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h3v14H7V5Zm7 0h3v14h-3V5Z"/></svg>
+          </button>
+          <button type="button" class="tool-btn tool-btn-stop" id="btnStop" data-i18n-tooltip="stopTip" data-i18n-aria="stop">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6h12v12H6V6Z"/></svg>
+          </button>
+          <button type="button" class="tool-btn" id="btnNext" data-i18n-tooltip="seekFwdTip" data-i18n-aria="seekFwd">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 12 6 7v10l7-5Zm1-5v10h2V7h-2Z"/></svg>
+          </button>
+        </div>
 
-    <!-- Main stage -->
+        <div class="toolbar-sep"></div>
+
+        <div class="toolbar-group volume-group">
+          <button type="button" class="tool-btn" id="btnMute" data-i18n-tooltip="muteTip" data-i18n-aria="mute">
+            <svg class="icon-vol" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10v4h3l4 3V7L7 10H4Zm11.5 2a3.5 3.5 0 0 0-1.8-3.05v6.1A3.5 3.5 0 0 0 15.5 12Zm0-7.7v2.06A6.5 6.5 0 0 1 19 12a6.5 6.5 0 0 1-3.5 5.64v2.06A8.5 8.5 0 0 0 21 12a8.5 8.5 0 0 0-5.5-7.7Z"/></svg>
+            <svg class="icon-muted hidden" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10v4h3l4 3V7L7 10H4Zm12.6-3.4 1.4 1.4L16.4 10l1.6 1.6-1.4 1.4L15 11.4l-1.6 1.6-1.4-1.4L13.6 10l-1.6-1.6 1.4-1.4L15 8.6l1.6-1.6ZM16 16.5A6.5 6.5 0 0 0 19 12h-2a4.5 4.5 0 0 1-1.7 3.5l.7 1Z"/></svg>
+          </button>
+          <div class="volume-slider" role="group" aria-label="Volume">
+            <span class="volume-scale" aria-hidden="true">0</span>
+            <input type="range" class="volume-bar" id="volumeBar" min="0" max="100" value="80" step="1" style="--fill: 80%" data-i18n-tooltip="volumeTip" data-i18n-aria="volume" aria-valuemin="0" aria-valuemax="100" aria-valuenow="80" aria-valuetext="80%" />
+            <span class="volume-scale" aria-hidden="true">100</span>
+            <output class="volume-value" id="volumeValue" for="volumeBar">80%</output>
+          </div>
+        </div>
+
+        <div class="toolbar-sep"></div>
+
+        <div class="toolbar-group rate-group">
+          <button type="button" class="tool-btn" id="btnRateDown" data-i18n-tooltip="slowerTip" data-i18n-aria="slower">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 11h10v2H7v-2Z"/></svg>
+          </button>
+          <select id="rateSelect" class="rate-select" data-i18n-tooltip="speedTip" data-i18n-aria="speed">
+            <option value="0.25">0.25×</option>
+            <option value="0.5">0.5×</option>
+            <option value="0.75">0.75×</option>
+            <option value="1" selected>1×</option>
+            <option value="1.25">1.25×</option>
+            <option value="1.5">1.5×</option>
+            <option value="1.75">1.75×</option>
+            <option value="2">2×</option>
+            <option value="2.5">2.5×</option>
+            <option value="3">3×</option>
+          </select>
+          <button type="button" class="tool-btn" id="btnRateUp" data-i18n-tooltip="fasterTip" data-i18n-aria="faster">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 7h2v4h4v2h-4v4h-2v-4H7v-2h4V7Z"/></svg>
+          </button>
+        </div>
+      </div>
+    </section>
+    </div>
+
     <main class="stage" id="stage">
       <div class="video-wrap" id="videoWrap">
         <video id="media" playsinline></video>
         <div id="youtubeContainer" class="youtube-container hidden" data-i18n-aria="youtubePlayer"></div>
+        <ul class="stage-context-menu" id="stageContextMenu" role="menu" hidden>
+          <li role="none">
+            <button type="button" class="popup-item" id="ctxSaveMedia" role="menuitem" data-i18n="save">Save</button>
+          </li>
+        </ul>
         <div class="subtitle-overlay" id="subtitleOverlay" aria-live="polite"></div>
         <div class="playback-overlay" id="playbackOverlay" hidden aria-live="polite">
           <div class="playback-overlay-card" data-mode="play">
@@ -221,71 +299,7 @@
         </div>
       </aside>
     </main>
-
-    <!-- Playback / volume controls under video -->
-    <section class="control-bar" id="controlBar" role="toolbar" data-i18n-aria="controls">
-      <div class="control-bar-row seek-row">
-        <span class="time-label" id="timeCurrent">00:00</span>
-        <input type="range" class="seek-bar" id="seekBar" min="0" max="1000" value="0" step="1" style="--fill: 0%" data-i18n-tooltip="seekTip" data-i18n-aria="seek" />
-        <span class="time-label" id="timeDuration">00:00</span>
-      </div>
-      <div class="control-bar-row transport-row">
-        <div class="toolbar-group">
-          <button type="button" class="tool-btn" id="btnPrev" data-i18n-tooltip="seekBackTip" data-i18n-aria="seekBack">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 12 18 7v10l-7-5Zm-1 5V7H8v10h2Z"/></svg>
-          </button>
-          <button type="button" class="tool-btn tool-btn-primary" id="btnPlay" data-i18n-tooltip="playTip" data-i18n-aria="play">
-            <svg class="icon-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7L8 5Z"/></svg>
-            <svg class="icon-pause hidden" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h3v14H7V5Zm7 0h3v14h-3V5Z"/></svg>
-          </button>
-          <button type="button" class="tool-btn tool-btn-stop" id="btnStop" data-i18n-tooltip="stopTip" data-i18n-aria="stop">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6h12v12H6V6Z"/></svg>
-          </button>
-          <button type="button" class="tool-btn" id="btnNext" data-i18n-tooltip="seekFwdTip" data-i18n-aria="seekFwd">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 12 6 7v10l7-5Zm1-5v10h2V7h-2Z"/></svg>
-          </button>
-        </div>
-
-        <div class="toolbar-sep"></div>
-
-        <div class="toolbar-group volume-group">
-          <button type="button" class="tool-btn" id="btnMute" data-i18n-tooltip="muteTip" data-i18n-aria="mute">
-            <svg class="icon-vol" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10v4h3l4 3V7L7 10H4Zm11.5 2a3.5 3.5 0 0 0-1.8-3.05v6.1A3.5 3.5 0 0 0 15.5 12Zm0-7.7v2.06A6.5 6.5 0 0 1 19 12a6.5 6.5 0 0 1-3.5 5.64v2.06A8.5 8.5 0 0 0 21 12a8.5 8.5 0 0 0-5.5-7.7Z"/></svg>
-            <svg class="icon-muted hidden" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10v4h3l4 3V7L7 10H4Zm12.6-3.4 1.4 1.4L16.4 10l1.6 1.6-1.4 1.4L15 11.4l-1.6 1.6-1.4-1.4L13.6 10l-1.6-1.6 1.4-1.4L15 8.6l1.6-1.6ZM16 16.5A6.5 6.5 0 0 0 19 12h-2a4.5 4.5 0 0 1-1.7 3.5l.7 1Z"/></svg>
-          </button>
-          <div class="volume-slider" role="group" aria-label="Volume">
-            <span class="volume-scale" aria-hidden="true">0</span>
-            <input type="range" class="volume-bar" id="volumeBar" min="0" max="100" value="80" step="1" style="--fill: 80%" data-i18n-tooltip="volumeTip" data-i18n-aria="volume" aria-valuemin="0" aria-valuemax="100" aria-valuenow="80" aria-valuetext="80%" />
-            <span class="volume-scale" aria-hidden="true">100</span>
-            <output class="volume-value" id="volumeValue" for="volumeBar">80%</output>
-          </div>
-        </div>
-
-        <div class="toolbar-sep"></div>
-
-        <div class="toolbar-group rate-group">
-          <button type="button" class="tool-btn" id="btnRateDown" data-i18n-tooltip="slowerTip" data-i18n-aria="slower">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 11h10v2H7v-2Z"/></svg>
-          </button>
-          <select id="rateSelect" class="rate-select" data-i18n-tooltip="speedTip" data-i18n-aria="speed">
-            <option value="0.25">0.25×</option>
-            <option value="0.5">0.5×</option>
-            <option value="0.75">0.75×</option>
-            <option value="1" selected>1×</option>
-            <option value="1.25">1.25×</option>
-            <option value="1.5">1.5×</option>
-            <option value="1.75">1.75×</option>
-            <option value="2">2×</option>
-            <option value="2.5">2.5×</option>
-            <option value="3">3×</option>
-          </select>
-          <button type="button" class="tool-btn" id="btnRateUp" data-i18n-tooltip="fasterTip" data-i18n-aria="faster">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 7h2v4h4v2h-4v4h-2v-4H7v-2h4V7Z"/></svg>
-          </button>
-        </div>
-      </div>
-    </section>
-
+    </div>
     <!-- Status bar -->
     <footer class="statusbar" id="statusBar" role="status">
       <span class="status-item" id="statusFile">Ready</span>

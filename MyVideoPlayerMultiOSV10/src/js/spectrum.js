@@ -1,4 +1,4 @@
-/** @typedef {'rainbow' | 'mirror' | 'wave' | 'radial' | 'particles' | 'neon' | 'ribbon'} SpectrumStyleId */
+/** @typedef {'rainbow' | 'mirror' | 'wave' | 'radial' | 'particles' | 'neon' | 'ribbon' | 'fire' | 'orbit' | 'tunnel' | 'stars' | 'pulse' | 'blocks' | 'spiral' | 'liquid'} SpectrumStyleId */
 
 export const SPECTRUM_STYLES = [
   { id: 'rainbow', labelKey: 'spectrumStyleRainbow' },
@@ -7,7 +7,15 @@ export const SPECTRUM_STYLES = [
   { id: 'radial', labelKey: 'spectrumStyleRadial' },
   { id: 'particles', labelKey: 'spectrumStyleParticles' },
   { id: 'neon', labelKey: 'spectrumStyleNeon' },
-  { id: 'ribbon', labelKey: 'spectrumStyleRibbon' }
+  { id: 'ribbon', labelKey: 'spectrumStyleRibbon' },
+  { id: 'fire', labelKey: 'spectrumStyleFire' },
+  { id: 'orbit', labelKey: 'spectrumStyleOrbit' },
+  { id: 'tunnel', labelKey: 'spectrumStyleTunnel' },
+  { id: 'stars', labelKey: 'spectrumStyleStars' },
+  { id: 'pulse', labelKey: 'spectrumStylePulse' },
+  { id: 'blocks', labelKey: 'spectrumStyleBlocks' },
+  { id: 'spiral', labelKey: 'spectrumStyleSpiral' },
+  { id: 'liquid', labelKey: 'spectrumStyleLiquid' }
 ];
 
 export function normalizeSpectrumStyle(id) {
@@ -44,13 +52,22 @@ export class SpectrumPainter {
     this._hueShift = 0;
     this._particles = [];
     this._waveHistory = [];
+    this._stars = [];
+    this._pulses = [];
+    this._orbitAngle = 0;
+    this._tunnelZ = 0;
+    this._spiralAngle = 0;
+    this._peakHold = null;
   }
 
   /** @param {string} styleId */
   setStyle(styleId) {
     this.style = normalizeSpectrumStyle(styleId);
-    if (this.style !== 'particles') this._particles = [];
+    if (this.style !== 'particles' && this.style !== 'fire') this._particles = [];
     if (this.style !== 'wave') this._waveHistory = [];
+    if (this.style !== 'stars') this._stars = [];
+    if (this.style !== 'pulse') this._pulses = [];
+    if (this.style !== 'blocks') this._peakHold = null;
   }
 
   setBackground(color) {
@@ -103,6 +120,30 @@ export class SpectrumPainter {
         break;
       case 'ribbon':
         this._drawRibbon(ctx, width, height, data);
+        break;
+      case 'fire':
+        this._drawFire(ctx, width, height, data);
+        break;
+      case 'orbit':
+        this._drawOrbit(ctx, width, height, data);
+        break;
+      case 'tunnel':
+        this._drawTunnel(ctx, width, height, data);
+        break;
+      case 'stars':
+        this._drawStars(ctx, width, height, data);
+        break;
+      case 'pulse':
+        this._drawPulse(ctx, width, height, data);
+        break;
+      case 'blocks':
+        this._drawBlocks(ctx, width, height, data);
+        break;
+      case 'spiral':
+        this._drawSpiral(ctx, width, height, data);
+        break;
+      case 'liquid':
+        this._drawLiquid(ctx, width, height, data);
         break;
       case 'rainbow':
       default:
@@ -352,6 +393,361 @@ export class SpectrumPainter {
     }
     ctx.shadowBlur = 0;
   }
+
+  _drawFire(ctx, width, height, data) {
+    const bands = Math.min(40, data.length);
+    const values = sampleBins(data, bands);
+    const energy = values.reduce((a, b) => a + b, 0) / bands;
+
+    for (let i = 0; i < bands; i++) {
+      if (values[i] > 0.12 && Math.random() < 0.35 + values[i] * 0.55) {
+        this._particles.push({
+          x: ((i + 0.5) / bands) * width + (Math.random() - 0.5) * 8,
+          y: height - 4,
+          vx: (Math.random() - 0.5) * 1.2,
+          vy: -2.2 - values[i] * 7 - Math.random() * 2,
+          life: 0.7 + values[i] * 0.5,
+          size: 3 + values[i] * 10,
+          hue: 10 + values[i] * 45 + Math.random() * 15
+        });
+      }
+    }
+    if (this._particles.length > 280) {
+      this._particles.splice(0, this._particles.length - 280);
+    }
+
+    const glow = ctx.createLinearGradient(0, height * 0.4, 0, height);
+    glow.addColorStop(0, hsl(20, 100, 40, 0));
+    glow.addColorStop(1, hsl(15, 100, 45, 0.12 + energy * 0.28));
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, width, height);
+
+    for (let i = this._particles.length - 1; i >= 0; i--) {
+      const p = this._particles[i];
+      p.x += p.vx + Math.sin(p.y * 0.04 + this._hueShift) * 0.35;
+      p.y += p.vy;
+      p.vy *= 0.985;
+      p.life -= 0.016;
+      p.size *= 0.985;
+      if (p.life <= 0 || p.y < -20) {
+        this._particles.splice(i, 1);
+        continue;
+      }
+      const t = 1 - p.life;
+      const hue = p.hue + t * 40;
+      ctx.beginPath();
+      ctx.fillStyle = hsl(hue, 100, 55 + t * 20, p.life);
+      ctx.shadowColor = hsl(hue, 100, 50, p.life * 0.9);
+      ctx.shadowBlur = 14;
+      ctx.arc(p.x, p.y, Math.max(1, p.size * p.life), 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.shadowBlur = 0;
+  }
+
+  _drawOrbit(ctx, width, height, data) {
+    const rings = Math.min(8, Math.max(5, Math.floor(data.length / 24)));
+    const values = sampleBins(data, rings * 12);
+    const cx = width / 2;
+    const cy = height / 2;
+    const maxR = Math.min(width, height) * 0.46;
+    this._orbitAngle += 0.018 + (values[0] || 0) * 0.04;
+
+    for (let r = 0; r < rings; r++) {
+      const base = (r + 1) / rings;
+      const band = values.slice(r * 12, r * 12 + 12);
+      const avg = band.length ? band.reduce((a, b) => a + b, 0) / band.length : 0;
+      const radius = maxR * base * (0.72 + avg * 0.45);
+      const hue = this._hueShift + r * 42;
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+      ctx.strokeStyle = hsl(hue, 90, 55, 0.2 + avg * 0.55);
+      ctx.lineWidth = 1.5 + avg * 4;
+      ctx.shadowColor = hsl(hue, 100, 60, 0.45);
+      ctx.shadowBlur = 10;
+      ctx.stroke();
+
+      const dots = 10 + r * 2;
+      for (let d = 0; d < dots; d++) {
+        const a = this._orbitAngle * (1 + r * 0.15) + (d / dots) * Math.PI * 2 + r;
+        const v = band[d % band.length] || avg;
+        const rr = radius + v * 18;
+        const x = cx + Math.cos(a) * rr;
+        const y = cy + Math.sin(a) * rr;
+        ctx.beginPath();
+        ctx.fillStyle = hsl(hue + d * 8, 95, 62, 0.55 + v * 0.45);
+        ctx.shadowBlur = 8;
+        ctx.arc(x, y, 1.5 + v * 5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    ctx.shadowBlur = 0;
+  }
+
+  _drawTunnel(ctx, width, height, data) {
+    const layers = 14;
+    const values = sampleBins(data, layers);
+    const cx = width / 2;
+    const cy = height / 2;
+    const energy = values.reduce((a, b) => a + b, 0) / layers;
+    this._tunnelZ = (this._tunnelZ + 0.035 + energy * 0.08) % 1;
+
+    for (let i = layers - 1; i >= 0; i--) {
+      const depth = ((i / layers) + this._tunnelZ) % 1;
+      const scale = 0.08 + depth * 0.92;
+      const v = values[i];
+      const rw = width * scale * (0.55 + v * 0.35);
+      const rh = height * scale * (0.55 + v * 0.35);
+      const hue = this._hueShift + i * 22 + depth * 80;
+      const alpha = 0.15 + (1 - depth) * 0.55;
+      ctx.strokeStyle = hsl(hue, 95, 55, alpha);
+      ctx.lineWidth = 1.5 + v * 3;
+      ctx.shadowColor = hsl(hue, 100, 60, alpha * 0.7);
+      ctx.shadowBlur = 12;
+      ctx.strokeRect(cx - rw / 2, cy - rh / 2, rw, rh);
+
+      if (v > 0.35) {
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        const corner = (i % 4);
+        const ox = corner === 0 || corner === 3 ? -rw / 2 : rw / 2;
+        const oy = corner < 2 ? -rh / 2 : rh / 2;
+        ctx.lineTo(cx + ox, cy + oy);
+        ctx.strokeStyle = hsl(hue + 40, 100, 65, alpha * 0.45);
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+    }
+    ctx.shadowBlur = 0;
+  }
+
+  _drawStars(ctx, width, height, data) {
+    const bands = Math.min(48, data.length);
+    const values = sampleBins(data, bands);
+    const energy = values.reduce((a, b) => a + b, 0) / bands;
+
+    if (this._stars.length < 90) {
+      while (this._stars.length < 90) {
+        this._stars.push({
+          x: Math.random() * width,
+          y: Math.random() * height,
+          z: 0.3 + Math.random() * 0.7,
+          hue: Math.random() * 360,
+          band: Math.floor(Math.random() * bands)
+        });
+      }
+    }
+
+    for (const s of this._stars) {
+      const v = values[s.band % bands] || 0;
+      s.x += (s.x - width / 2) * (0.002 + energy * 0.012);
+      s.y += (s.y - height / 2) * (0.002 + energy * 0.012);
+      if (s.x < -10 || s.x > width + 10 || s.y < -10 || s.y > height + 10) {
+        s.x = width / 2 + (Math.random() - 0.5) * width * 0.2;
+        s.y = height / 2 + (Math.random() - 0.5) * height * 0.2;
+        s.z = 0.3 + Math.random() * 0.7;
+        s.band = Math.floor(Math.random() * bands);
+      }
+      const size = (1 + v * 6) * s.z;
+      const alpha = 0.25 + v * 0.75;
+      ctx.beginPath();
+      ctx.fillStyle = hsl(s.hue + this._hueShift * 0.3, 90, 70, alpha);
+      ctx.shadowColor = hsl(s.hue, 100, 60, alpha);
+      ctx.shadowBlur = 8 + v * 16;
+      ctx.arc(s.x, s.y, size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Soft nebula wash from low frequencies
+    const bass = values.slice(0, 6).reduce((a, b) => a + b, 0) / 6;
+    if (bass > 0.15) {
+      const neb = ctx.createRadialGradient(width / 2, height / 2, 0, width / 2, height / 2, Math.min(width, height) * 0.55);
+      neb.addColorStop(0, hsl(this._hueShift + 200, 90, 55, bass * 0.22));
+      neb.addColorStop(1, hsl(this._hueShift, 90, 40, 0));
+      ctx.fillStyle = neb;
+      ctx.shadowBlur = 0;
+      ctx.fillRect(0, 0, width, height);
+    }
+    ctx.shadowBlur = 0;
+  }
+
+  _drawPulse(ctx, width, height, data) {
+    const bands = Math.min(24, data.length);
+    const values = sampleBins(data, bands);
+    const bass = values.slice(0, 4).reduce((a, b) => a + b, 0) / 4;
+    const mid = values.slice(4, 12).reduce((a, b) => a + b, 0) / 8;
+    const cx = width / 2;
+    const cy = height / 2;
+
+    if (bass > 0.42 && (this._pulses.length === 0 || this._pulses[this._pulses.length - 1].r > 28)) {
+      this._pulses.push({ r: 8, life: 1, hue: this._hueShift + mid * 120 });
+    }
+    if (this._pulses.length > 10) this._pulses.shift();
+
+    for (let i = this._pulses.length - 1; i >= 0; i--) {
+      const p = this._pulses[i];
+      p.r += 3.5 + bass * 6;
+      p.life -= 0.018;
+      if (p.life <= 0) {
+        this._pulses.splice(i, 1);
+        continue;
+      }
+      ctx.beginPath();
+      ctx.arc(cx, cy, p.r, 0, Math.PI * 2);
+      ctx.strokeStyle = hsl(p.hue, 95, 60, p.life * 0.85);
+      ctx.lineWidth = 2 + bass * 5;
+      ctx.shadowColor = hsl(p.hue, 100, 55, p.life);
+      ctx.shadowBlur = 16;
+      ctx.stroke();
+    }
+
+    for (let i = 0; i < bands; i++) {
+      const a0 = (i / bands) * Math.PI * 2 - Math.PI / 2;
+      const a1 = ((i + 1) / bands) * Math.PI * 2 - Math.PI / 2;
+      const v = values[i];
+      const r0 = Math.min(width, height) * 0.12;
+      const r1 = r0 + v * Math.min(width, height) * 0.32;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r1, a0, a1);
+      ctx.arc(cx, cy, r0, a1, a0, true);
+      ctx.closePath();
+      const hue = this._hueShift + (i / bands) * 300;
+      ctx.fillStyle = hsl(hue, 92, 55, 0.35 + v * 0.55);
+      ctx.shadowColor = hsl(hue, 100, 60, 0.4);
+      ctx.shadowBlur = 8;
+      ctx.fill();
+    }
+    ctx.shadowBlur = 0;
+  }
+
+  _drawBlocks(ctx, width, height, data) {
+    const cols = Math.min(28, data.length);
+    const rows = 16;
+    const values = sampleBins(data, cols);
+    if (!this._peakHold || this._peakHold.length !== cols) {
+      this._peakHold = new Float32Array(cols);
+    }
+    const gap = 2 * (window.devicePixelRatio || 1);
+    const cellW = (width - gap * (cols + 1)) / cols;
+    const cellH = (height - gap * (rows + 1)) / rows;
+    const pad = gap;
+
+    for (let c = 0; c < cols; c++) {
+      const v = values[c];
+      this._peakHold[c] = Math.max(v, this._peakHold[c] - 0.012);
+      const lit = Math.round(v * rows);
+      const peakRow = Math.round(this._peakHold[c] * rows);
+      for (let r = 0; r < rows; r++) {
+        const on = r < lit;
+        const isPeak = r === peakRow - 1;
+        if (!on && !isPeak) continue;
+        const x = pad + c * (cellW + gap);
+        const y = height - pad - (r + 1) * (cellH + gap);
+        const t = r / rows;
+        const hue = isPeak ? this._hueShift + 40 : 110 - t * 90 + this._hueShift * 0.2;
+        ctx.fillStyle = isPeak
+          ? hsl(hue, 100, 70, 0.95)
+          : hsl(hue, 90, 45 + t * 25, 0.75 + v * 0.25);
+        ctx.shadowColor = hsl(hue, 100, 55, 0.35);
+        ctx.shadowBlur = isPeak ? 10 : 4;
+        ctx.fillRect(x, y, Math.max(1, cellW), Math.max(1, cellH));
+      }
+    }
+    ctx.shadowBlur = 0;
+  }
+
+  _drawSpiral(ctx, width, height, data) {
+    const points = Math.min(120, data.length);
+    const values = sampleBins(data, points);
+    const cx = width / 2;
+    const cy = height / 2;
+    const maxR = Math.min(width, height) * 0.48;
+    this._spiralAngle += 0.04 + values[0] * 0.05;
+
+    ctx.beginPath();
+    for (let i = 0; i < points; i++) {
+      const t = i / points;
+      const a = this._spiralAngle + t * Math.PI * 6;
+      const v = values[i];
+      const r = t * maxR * (0.55 + v * 0.7);
+      const x = cx + Math.cos(a) * r;
+      const y = cy + Math.sin(a) * r;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, maxR);
+    grad.addColorStop(0, hsl(this._hueShift, 95, 65, 0.9));
+    grad.addColorStop(0.5, hsl(this._hueShift + 120, 95, 55, 0.75));
+    grad.addColorStop(1, hsl(this._hueShift + 240, 95, 50, 0.35));
+    ctx.strokeStyle = grad;
+    ctx.lineWidth = 2.5;
+    ctx.lineJoin = 'round';
+    ctx.shadowColor = hsl(this._hueShift + 80, 100, 60, 0.55);
+    ctx.shadowBlur = 14;
+    ctx.stroke();
+
+    for (let i = 0; i < points; i += 3) {
+      const t = i / points;
+      const a = this._spiralAngle + t * Math.PI * 6;
+      const v = values[i];
+      const r = t * maxR * (0.55 + v * 0.7);
+      const x = cx + Math.cos(a) * r;
+      const y = cy + Math.sin(a) * r;
+      ctx.beginPath();
+      ctx.fillStyle = hsl(this._hueShift + t * 300, 95, 62, 0.4 + v * 0.6);
+      ctx.arc(x, y, 1.5 + v * 5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.shadowBlur = 0;
+  }
+
+  _drawLiquid(ctx, width, height, data) {
+    const points = Math.min(64, data.length);
+    const values = sampleBins(data, points);
+    const pad = 8 * (window.devicePixelRatio || 1);
+    const layers = 3;
+
+    for (let layer = 0; layer < layers; layer++) {
+      const phase = this._hueShift * 0.02 + layer * 1.1;
+      const amp = 0.55 + layer * 0.18;
+      const yBase = height * (0.55 + layer * 0.12);
+      ctx.beginPath();
+      ctx.moveTo(0, height);
+      for (let i = 0; i < points; i++) {
+        const x = (i / (points - 1)) * width;
+        const wobble = Math.sin(i * 0.35 + phase) * 10 + Math.sin(i * 0.12 + phase * 1.7) * 6;
+        const y = yBase - values[i] * (height - pad * 2) * amp - wobble;
+        if (i === 0) ctx.lineTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.lineTo(width, height);
+      ctx.closePath();
+      const hue = this._hueShift + layer * 50;
+      const grad = ctx.createLinearGradient(0, pad, 0, height);
+      grad.addColorStop(0, hsl(hue, 90, 60, 0.15 + layer * 0.08));
+      grad.addColorStop(0.55, hsl(hue + 40, 95, 50, 0.35 + layer * 0.1));
+      grad.addColorStop(1, hsl(hue + 80, 90, 40, 0.55));
+      ctx.fillStyle = grad;
+      ctx.shadowColor = hsl(hue, 100, 55, 0.35);
+      ctx.shadowBlur = 18;
+      ctx.fill();
+    }
+
+    // Specular highlight line on top surface
+    ctx.beginPath();
+    for (let i = 0; i < points; i++) {
+      const x = (i / (points - 1)) * width;
+      const y = height * 0.55 - values[i] * (height - pad * 2) * 0.55
+        - Math.sin(i * 0.35 + this._hueShift * 0.02) * 10;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.strokeStyle = hsl(this._hueShift + 40, 100, 80, 0.55);
+    ctx.lineWidth = 2;
+    ctx.shadowBlur = 8;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+  }
 }
 
 /** Captures frequency data from a media element (no local canvas required). */
@@ -366,11 +762,52 @@ export class SpectrumAnalyzer {
     this.audioCtx = null;
     this.analyser = null;
     this.source = null;
+    /** @type {GainNode | null} */
+    this.gain = null;
     this.raf = 0;
     this.active = false;
     this.hasAudio = false;
     this._connected = false;
     this._bins = null;
+    /** True after at least one live frame was painted (used to hold on pause). */
+    this._hasFrame = false;
+  }
+
+  /** True once MediaElementSource owns output (volume must go through gain). */
+  hasWebAudioOutput() {
+    return Boolean(this._connected && this.gain);
+  }
+
+  /**
+   * Playback loudness 0–1. Analyser stays pre-gain so spectrum is volume-independent.
+   * @param {number} level01
+   */
+  setOutputLevel(level01) {
+    if (!this.gain) return false;
+    const v = Math.min(1, Math.max(0, Number(level01)));
+    this.gain.gain.value = Number.isFinite(v) ? v : 0;
+    return true;
+  }
+
+  getOutputLevel() {
+    if (!this.gain) return null;
+    return this.gain.gain.value;
+  }
+
+  /** Whether the display is holding the last live frame (pause / ended). */
+  isHoldingFrame() {
+    return Boolean(this._hasFrame && this.media && (this.media.paused || this.media.ended));
+  }
+
+  /** Re-paint the last bins (style / resize while paused). */
+  repaintLast() {
+    if (!this._hasFrame || !this._bins) return false;
+    try {
+      this.onFrame?.(this._bins);
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   async ensureGraph() {
@@ -382,9 +819,21 @@ export class SpectrumAnalyzer {
     this.analyser = this.audioCtx.createAnalyser();
     this.analyser.fftSize = 512;
     this.analyser.smoothingTimeConstant = 0.78;
+    this.gain = this.audioCtx.createGain();
+
+    // Capture current element volume into the gain node, then unlock the
+    // element to unity so analysis is independent of the UI volume.
+    const elVol = this.media.muted ? 0 : Math.min(1, Math.max(0, Number(this.media.volume) || 0));
+    this.gain.gain.value = elVol;
+
     this.source = this.audioCtx.createMediaElementSource(this.media);
+    // Parallel: full-level tap for spectrum, gain path for audible output.
     this.source.connect(this.analyser);
-    this.analyser.connect(this.audioCtx.destination);
+    this.source.connect(this.gain);
+    this.gain.connect(this.audioCtx.destination);
+
+    this.media.volume = 1;
+    this.media.muted = false;
     this._connected = true;
   }
 
@@ -395,7 +844,8 @@ export class SpectrumAnalyzer {
       if (this.audioCtx.state === 'suspended') await this.audioCtx.resume();
       this.active = true;
       this.hasAudio = true;
-      this._tick();
+      // Avoid stacking RAF loops when start() is called while already ticking.
+      if (!this.raf) this._tick();
     } catch {
       this.hasAudio = false;
     }
@@ -405,20 +855,30 @@ export class SpectrumAnalyzer {
     this.active = false;
     if (this.raf) cancelAnimationFrame(this.raf);
     this.raf = 0;
+    this._hasFrame = false;
   }
 
   _tick = () => {
     if (!this.active || !this.analyser) return;
+    this.raf = 0;
+
+    const hold = Boolean(this.media?.paused || this.media?.ended);
+    // Keep the last painted frame while paused/stopped — do not sample silence decay.
+    if (hold && this._hasFrame) return;
+
     const len = this.analyser.frequencyBinCount;
     if (!this._bins || this._bins.length !== len) {
       this._bins = new Uint8Array(len);
     }
     this.analyser.getByteFrequencyData(this._bins);
+    this._hasFrame = true;
     try {
       this.onFrame?.(this._bins);
     } catch {
       /* ignore consumer errors */
     }
+
+    if (hold) return;
     this.raf = requestAnimationFrame(this._tick);
   };
 }

@@ -76,6 +76,8 @@ const els = {
   webMediaInput: $('webMediaInput'),
   webSubInput: $('webSubInput'),
   btnSaveYt: $('btnSaveYt'),
+  stageContextMenu: $('stageContextMenu'),
+  ctxSaveMedia: $('ctxSaveMedia'),
   rateSelect: $('rateSelect'),
   btnRecent: $('btnRecent'),
   recentMenu: $('recentMenu'),
@@ -97,6 +99,10 @@ const els = {
   btnFit: $('btnFit'),
   fitMenu: $('fitMenu'),
   fitList: $('fitList'),
+  btnCompact: $('btnCompact'),
+  appRoot: document.getElementById('app'),
+  controlBar: $('controlBar'),
+  statusBar: $('statusBar'),
   errorModal: $('errorModal'),
   errorTitle: $('errorTitle'),
   errorMessage: $('errorMessage'),
@@ -166,6 +172,10 @@ let saveProgressCloseTimer = 0;
 let openStreamCancelled = false;
 /** Prevents double Play/Connect while YouTube/RTSP open is running. */
 let openStreamInFlight = false;
+/** Bounds to restore when leaving compact mode. */
+let compactRestoreBounds = null;
+/** Last non-zero local volume % (for mute toggle with Web Audio gain). */
+let lastAudibleVolumePct = 80;
 let overlayTimer = 0;
 /** @type {'paused' | 'stopped' | null} */
 let holdOverlayMode = null;
@@ -302,6 +312,7 @@ function bindSpectrumPopupChrome() {
       if (!popup.hidden) {
         clampSpectrumPopupPosition();
         spectrumPainter?.resize();
+        if (spectrum.isHoldingFrame()) spectrum.repaintLast();
       }
     });
     ro.observe(popup);
@@ -311,6 +322,7 @@ function bindSpectrumPopupChrome() {
       if (!popup.hidden) {
         clampSpectrumPopupPosition();
         spectrumPainter?.resize();
+        if (spectrum.isHoldingFrame()) spectrum.repaintLast();
       }
     });
   }
@@ -415,12 +427,14 @@ function notifyPlaying() {
   stopRequested = false;
   holdOverlayMode = null;
   notifyOverlayOnce('play', { hold: false });
+  onCompactPlaybackStarted();
 }
 
 function notifyPaused() {
   if (stopRequested) return;
   // Keep pause icon visible until play / stop / new media.
   notifyOverlayOnce('paused', { hold: true });
+  onCompactPlaybackPaused();
 }
 
 function notifyStopped() {
@@ -678,13 +692,13 @@ function renderHistoryPanel() {
 function setHistoryPanelOpen(open) {
   const panel = els.historyPanel;
   if (!panel || !els.stage) return;
-  const next = Boolean(open);
+  const next = Boolean(open) && !settings.compactMode;
   panel.hidden = !next;
   els.stage.classList.toggle('has-history-panel', next);
   els.btnHistory?.setAttribute('aria-pressed', next ? 'true' : 'false');
   els.btnHistory?.classList.toggle('is-active', next);
-  if (settings.showHistoryPanel !== next) {
-    settings.showHistoryPanel = next;
+  if (!settings.compactMode && settings.showHistoryPanel !== Boolean(open)) {
+    settings.showHistoryPanel = Boolean(open);
     saveSettings(settings);
   }
   if (next) {
@@ -839,6 +853,80 @@ function closeToolbarMenus({ except = null } = {}) {
   if (except !== 'recent') closeRecentMenu();
   if (except !== 'theme') closeThemeMenu();
   if (except !== 'fit') closeFitMenu();
+  closeStageContextMenu();
+}
+
+function closeStageContextMenu() {
+  const menu = els.stageContextMenu;
+  if (!menu || menu.hidden) return;
+  menu.hidden = true;
+}
+
+function openStageContextMenu(clientX, clientY) {
+  const menu = els.stageContextMenu;
+  if (!menu) return;
+
+  closeToolbarMenus();
+
+  const scheme = document.documentElement.getAttribute('data-color-scheme') || 'dark';
+  menu.setAttribute('data-color-scheme', scheme);
+
+  const canSave = Boolean(
+    isElectron &&
+      ((youtubeMode && currentYouTube?.url) || currentRtspUrl || rtspRecording)
+  );
+  if (els.ctxSaveMedia) {
+    els.ctxSaveMedia.disabled = !canSave;
+    els.ctxSaveMedia.textContent = t('save');
+  }
+
+  menu.hidden = false;
+  // Measure after show so clamping uses real size.
+  const pad = 8;
+  const rect = menu.getBoundingClientRect();
+  const left = Math.min(Math.max(pad, clientX), window.innerWidth - rect.width - pad);
+  const top = Math.min(Math.max(pad, clientY), window.innerHeight - rect.height - pad);
+  menu.style.left = `${left}px`;
+  menu.style.top = `${top}px`;
+}
+
+function bindStageContextMenu() {
+  const wrap = els.videoWrap;
+  const menu = els.stageContextMenu;
+  if (!wrap || !menu) return;
+
+  wrap.addEventListener('contextmenu', (e) => {
+    if (e.target.closest?.('.spectrum-popup, .save-progress-popup, .history-panel, button, a, input, select, textarea')) {
+      return;
+    }
+    // Custom menu for YouTube playback surface (iframe has pointer-events: none).
+    if (!youtubeMode || !currentYouTube?.url) return;
+    e.preventDefault();
+    e.stopPropagation();
+    openStageContextMenu(e.clientX, e.clientY);
+  });
+
+  els.ctxSaveMedia?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    closeStageContextMenu();
+    void saveCurrentMedia();
+  });
+
+  menu.addEventListener('click', (e) => e.stopPropagation());
+  menu.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  });
+
+  document.addEventListener(
+    'pointerdown',
+    (e) => {
+      if (menu.hidden) return;
+      if (menu.contains(e.target)) return;
+      closeStageContextMenu();
+    },
+    true
+  );
 }
 
 function fitLabelKey(mode) {
@@ -929,6 +1017,12 @@ function updateLocaleToolbarButton() {
 /** Keep the frameless window wide enough that toolbar controls stay visible. */
 function syncWindowMinWidth() {
   if (!isElectron || !window.desktopAPI?.setMinimumSize) return;
+
+  if (settings.compactMode) {
+    void window.desktopAPI.setMinimumSize(420, 200);
+    return;
+  }
+
   const toolbar = document.getElementById('toolbar');
   const left = toolbar?.querySelector('.toolbar-left');
   const right = toolbar?.querySelector('.toolbar-right');
@@ -956,6 +1050,214 @@ function syncWindowMinWidth() {
   };
 
   requestAnimationFrame(measure);
+}
+
+function updateCompactButton() {
+  const on = Boolean(settings.compactMode);
+  const btn = els.btnCompact;
+  if (!btn) return;
+  btn.classList.toggle('is-active', on);
+  btn.setAttribute('aria-pressed', String(on));
+  btn.querySelector('.icon-compact-enter')?.classList.toggle('hidden', on);
+  btn.querySelector('.icon-compact-exit')?.classList.toggle('hidden', !on);
+  if (on) {
+    btn.setAttribute('data-tooltip', t('compactExpandTip'));
+    btn.setAttribute('aria-label', t('compactExpand'));
+    btn.setAttribute('data-i18n-tooltip', 'compactExpandTip');
+    btn.setAttribute('data-i18n-aria', 'compactExpand');
+  } else {
+    btn.setAttribute('data-tooltip', t('compactTip'));
+    btn.setAttribute('aria-label', t('compact'));
+    btn.setAttribute('data-i18n-tooltip', 'compactTip');
+    btn.setAttribute('data-i18n-aria', 'compact');
+  }
+}
+
+let compactChromeHideTimer = 0;
+const COMPACT_CHROME_HOTZONE_PX = 56;
+const COMPACT_CHROME_HIDE_MS = 1600;
+
+function isMediaPlayingNow() {
+  if (youtubeMode) return Boolean(ytPlayer.isPlaying?.());
+  return Boolean(els.media?.src) && !els.media.paused && !els.media.ended;
+}
+
+function showCompactChrome({ sticky = false } = {}) {
+  if (!settings.compactMode) return;
+  els.appRoot?.classList.add('compact-chrome-visible');
+  document.body.classList.add('compact-chrome-visible');
+  document.documentElement.classList.add('compact-chrome-visible');
+  if (compactChromeHideTimer) {
+    clearTimeout(compactChromeHideTimer);
+    compactChromeHideTimer = 0;
+  }
+  // While playing, chrome always auto-hides after idle (even if briefly sticky).
+  if (!sticky || isMediaPlayingNow()) scheduleHideCompactChrome();
+}
+
+function scheduleHideCompactChrome() {
+  if (!settings.compactMode) return;
+  if (compactChromeHideTimer) clearTimeout(compactChromeHideTimer);
+  compactChromeHideTimer = window.setTimeout(() => {
+    compactChromeHideTimer = 0;
+    hideCompactChrome();
+  }, COMPACT_CHROME_HIDE_MS);
+}
+
+function hideCompactChrome({ force = false } = {}) {
+  const toolbar = $('toolbar');
+  const control = els.controlBar;
+  if (!force && toolbar?.classList.contains('is-dragging')) return;
+  if (
+    !force &&
+    (toolbar?.matches(':hover, :focus-within') || control?.matches(':hover, :focus-within'))
+  ) {
+    if (isMediaPlayingNow()) scheduleHideCompactChrome();
+    return;
+  }
+  els.appRoot?.classList.remove('compact-chrome-visible');
+  document.body.classList.remove('compact-chrome-visible');
+  document.documentElement.classList.remove('compact-chrome-visible');
+}
+
+function onCompactPlaybackStarted() {
+  if (!settings.compactMode) return;
+  showCompactChrome();
+  scheduleHideCompactChrome();
+}
+
+function onCompactPlaybackPaused() {
+  if (!settings.compactMode) return;
+  showCompactChrome({ sticky: true });
+  if (compactChromeHideTimer) {
+    clearTimeout(compactChromeHideTimer);
+    compactChromeHideTimer = 0;
+  }
+}
+
+function bindCompactChromeOverlay() {
+  const chrome = $('chrome');
+  if (!chrome) return;
+
+  const onMove = (e) => {
+    if (!settings.compactMode) return;
+    const rect = chrome.getBoundingClientRect();
+    const y = e.clientY - rect.top;
+    const fromBottom = rect.height - y;
+    const visible = els.appRoot?.classList.contains('compact-chrome-visible');
+    if (y <= COMPACT_CHROME_HOTZONE_PX || fromBottom <= COMPACT_CHROME_HOTZONE_PX || visible) {
+      showCompactChrome();
+    }
+  };
+
+  chrome.addEventListener('mousemove', onMove);
+  chrome.addEventListener('mouseenter', onMove);
+  chrome.addEventListener('mouseleave', () => {
+    if (!settings.compactMode) return;
+    if (compactChromeHideTimer) clearTimeout(compactChromeHideTimer);
+    compactChromeHideTimer = window.setTimeout(() => {
+      compactChromeHideTimer = 0;
+      if ($('toolbar')?.classList.contains('is-dragging')) return;
+      if (!isMediaPlayingNow()) return;
+      els.appRoot?.classList.remove('compact-chrome-visible');
+      document.body.classList.remove('compact-chrome-visible');
+      document.documentElement.classList.remove('compact-chrome-visible');
+    }, 350);
+  });
+
+  const stickShow = () => showCompactChrome({ sticky: true });
+  const stickHide = () => {
+    if (!settings.compactMode) return;
+    if (isMediaPlayingNow()) scheduleHideCompactChrome();
+  };
+  $('toolbar')?.addEventListener('pointerenter', stickShow);
+  $('toolbar')?.addEventListener('pointerleave', stickHide);
+  els.controlBar?.addEventListener('pointerenter', stickShow);
+  els.controlBar?.addEventListener('pointerleave', stickHide);
+}
+
+async function setCompactMode(next, { persist = true, announce = false } = {}) {
+  const on = Boolean(next);
+  const wasOn = Boolean(settings.compactMode);
+  settings.compactMode = on;
+  if (persist) saveSettings(settings);
+
+  document.documentElement.classList.toggle('is-compact', on);
+  document.body.classList.toggle('is-compact', on);
+  els.appRoot?.classList.toggle('is-compact', on);
+
+  if (on) {
+    closeToolbarMenus();
+    // Hide history panel without clearing the persisted preference.
+    if (els.historyPanel && !els.historyPanel.hidden) {
+      els.historyPanel.hidden = true;
+      els.stage?.classList.remove('has-history-panel');
+      els.btnHistory?.setAttribute('aria-pressed', 'false');
+      els.btnHistory?.classList.remove('is-active');
+    }
+    closeSpectrumPopup({ updateSetting: false });
+    showCompactChrome();
+  } else {
+    hideCompactChrome();
+    els.appRoot?.classList.remove('compact-chrome-visible');
+    document.body.classList.remove('compact-chrome-visible');
+    document.documentElement.classList.remove('compact-chrome-visible');
+    setHistoryPanelOpen(Boolean(settings.showHistoryPanel));
+    if (settings.showSpectrum && currentMediaName && !youtubeMode) {
+      updateSpectrumVisibility();
+    }
+  }
+
+  updateCompactButton();
+
+  if (isElectron && window.desktopAPI?.setBounds && window.desktopAPI?.getBounds) {
+    try {
+      if (on) {
+        if (await window.desktopAPI.isMaximized?.()) {
+          await window.desktopAPI.maximizeToggle();
+          await new Promise((r) => requestAnimationFrame(() => r()));
+        }
+        if (!wasOn) {
+          compactRestoreBounds = await window.desktopAPI.getBounds();
+        }
+        await window.desktopAPI.setMinimumSize(420, 200);
+        const cur = compactRestoreBounds || (await window.desktopAPI.getBounds()) || {};
+        await window.desktopAPI.setBounds({
+          x: cur.x,
+          y: cur.y,
+          width: 560,
+          height: 280
+        });
+      } else {
+        const restore = compactRestoreBounds;
+        compactRestoreBounds = null;
+        syncWindowMinWidth();
+        if (restore && restore.width >= 640 && restore.height >= 360) {
+          await window.desktopAPI.setBounds(restore);
+        } else {
+          const cur = (await window.desktopAPI.getBounds()) || {};
+          await window.desktopAPI.setBounds({
+            x: cur.x,
+            y: cur.y,
+            width: Math.max(1100, cur.width || 0),
+            height: Math.max(720, cur.height || 0)
+          });
+        }
+      }
+    } catch {
+      syncWindowMinWidth();
+    }
+  } else {
+    syncWindowMinWidth();
+  }
+
+  if (announce) {
+    setStatus({ state: statusKey(on ? 'statusCompactOn' : 'statusCompactOff') });
+  }
+}
+
+function toggleCompactMode() {
+  void setCompactMode(!settings.compactMode, { announce: true });
 }
 
 function toggleLocale() {
@@ -1254,12 +1556,49 @@ function syncVolumeBarFill() {
   el.setAttribute('aria-valuenow', String(clamped));
   el.setAttribute('aria-valuetext', `${clamped}%`);
   if (els.volumeValue) els.volumeValue.textContent = `${clamped}%`;
+  // Live tooltip while adjusting (0–100%).
+  const tip = t('volumeTipPct', { n: clamped });
+  el.setAttribute('data-tooltip', tip);
+  el.setAttribute('aria-label', tip);
+  const tipEl = document.getElementById('tooltip');
+  if (tipEl && !tipEl.hidden && (document.activeElement === el || el.matches?.(':hover'))) {
+    tipEl.textContent = tip;
+  }
+}
+
+/**
+ * Local <video> volume. Once SpectrumAnalyzer owns the output graph, loudness
+ * goes through a GainNode so the analyser still sees full-level audio.
+ */
+function setLocalVolumePercent(percent) {
+  const p = Math.min(100, Math.max(0, Math.round(Number(percent) || 0)));
+  if (p > 0) lastAudibleVolumePct = p;
+  els.volumeBar.value = String(p);
+  if (spectrum.hasWebAudioOutput()) {
+    spectrum.setOutputLevel(p / 100);
+    els.media.volume = 1;
+    els.media.muted = false;
+  } else {
+    els.media.volume = p / 100;
+    els.media.muted = p === 0;
+  }
+  syncVolumeBarFill();
+}
+
+function syncSpectrumOutputFromUi() {
+  if (!spectrum.hasWebAudioOutput()) return;
+  const p = Math.min(100, Math.max(0, Number(els.volumeBar.value) || 0));
+  spectrum.setOutputLevel(p / 100);
+  els.media.volume = 1;
+  els.media.muted = false;
 }
 
 function updateMuteIcons() {
   const muted = youtubeMode
     ? (ytPlayer.isMuted() || Number(els.volumeBar.value) === 0)
-    : (els.media.muted || els.media.volume === 0);
+    : spectrum.hasWebAudioOutput()
+      ? Number(els.volumeBar.value) === 0
+      : (els.media.muted || els.media.volume === 0);
   $('btnMute').querySelector('.icon-vol').classList.toggle('hidden', muted);
   $('btnMute').querySelector('.icon-muted').classList.toggle('hidden', !muted);
   syncVolumeBarFill();
@@ -1778,6 +2117,7 @@ function applyLocale(locale, { persist = true } = {}) {
   updateLocaleToolbarButton();
   updateFitToolbarButton();
   updateFitMenuSelection();
+  updateCompactButton();
   applySpectrumStyle(settings.spectrumStyle, { persist: false });
   const playing = youtubeMode
     ? ytPlayer.isPlaying()
@@ -1799,10 +2139,13 @@ function applyLocale(locale, { persist = true } = {}) {
 function applySettingsToPlayer({ applyVolume = false } = {}) {
   els.media.loop = Boolean(settings.loop);
   if (applyVolume) {
-    const vol = Math.min(1, Math.max(0, (Number(settings.startVolume) || 80) / 100));
-    els.media.volume = vol;
-    els.volumeBar.value = String(Math.round(vol * 100));
-    if (youtubeMode) ytPlayer.setVolume(Math.round(vol * 100));
+    const pct = Math.min(100, Math.max(0, Math.round(Number(settings.startVolume) || 80)));
+    if (youtubeMode) {
+      ytPlayer.setVolume(pct);
+      els.volumeBar.value = String(pct);
+    } else {
+      setLocalVolumePercent(pct);
+    }
   }
   setPlaybackRate(settings.rate, { persist: false, announce: true });
   subtitles.setEnabled(Boolean(settings.showSubtitles));
@@ -1831,10 +2174,14 @@ async function updateSpectrumVisibility() {
   if (want) {
     openSpectrumPopup();
     await spectrum.start();
+    syncSpectrumOutputFromUi();
+    if (spectrum.isHoldingFrame()) spectrum.repaintLast();
     // Layout may not be ready on the same frame after un-hiding.
     requestAnimationFrame(() => {
       clampSpectrumPopupPosition();
       spectrumPainter?.resize();
+      // resize() clears the canvas — restore held frame while paused.
+      if (spectrum.isHoldingFrame()) spectrum.repaintLast();
     });
   } else {
     closeSpectrumPopup({ updateSetting: false });
@@ -1876,15 +2223,24 @@ function updateOpacityUi(opacityPercent) {
   const toolbarOut = $('toolbarOpacityValue');
   const setting = $('settingOpacity');
   const settingOut = $('settingOpacityValue');
+  const tip = t('opacityTipPct', { n: value });
   if (toolbar) {
     toolbar.value = String(value);
     syncRangeFill(toolbar);
+    toolbar.setAttribute('aria-valuenow', String(value));
     toolbar.setAttribute('aria-valuetext', `${value}%`);
+    toolbar.setAttribute('data-tooltip', tip);
+    toolbar.setAttribute('aria-label', tip);
+    const tipEl = document.getElementById('tooltip');
+    if (tipEl && !tipEl.hidden && (document.activeElement === toolbar || toolbar.matches?.(':hover'))) {
+      tipEl.textContent = tip;
+    }
   }
   if (toolbarOut) toolbarOut.textContent = `${value}%`;
   if (setting) {
     setting.value = String(value);
     syncRangeFill(setting);
+    setting.setAttribute('aria-valuenow', String(value));
     setting.setAttribute('aria-valuetext', `${value}%`);
   }
   if (settingOut) settingOut.textContent = `${value}%`;
@@ -2330,9 +2686,8 @@ function adjustVolume(delta) {
     els.volumeBar.value = String(v);
     ytPlayer.setVolume(v);
   } else {
-    els.media.muted = false;
-    els.media.volume = Math.min(1, Math.max(0, els.media.volume + delta / 100));
-    els.volumeBar.value = String(Math.round(els.media.volume * 100));
+    const v = Math.min(100, Math.max(0, Number(els.volumeBar.value) + delta));
+    setLocalVolumePercent(v);
   }
   updateMuteIcons();
 }
@@ -2341,6 +2696,14 @@ function toggleMute() {
   if (youtubeMode) {
     if (ytPlayer.isMuted()) ytPlayer.unmute();
     else ytPlayer.mute();
+  } else if (spectrum.hasWebAudioOutput()) {
+    const cur = Number(els.volumeBar.value) || 0;
+    if (cur > 0) {
+      lastAudibleVolumePct = cur;
+      setLocalVolumePercent(0);
+    } else {
+      setLocalVolumePercent(lastAudibleVolumePct || Number(settings.startVolume) || 80);
+    }
   } else {
     els.media.muted = !els.media.muted;
   }
@@ -2387,6 +2750,8 @@ function applySpectrumStyle(styleId, { persist = true } = {}) {
   if ($('settingSpectrumStyle')) $('settingSpectrumStyle').value = next;
   spectrumPainter?.setStyle(next);
   if (els.spectrumStyleName) els.spectrumStyleName.textContent = spectrumStyleLabel(next);
+  // While paused, re-draw once with the last bins so the style change is visible.
+  if (spectrum.isHoldingFrame()) spectrum.repaintLast();
 }
 
 function cycleSpectrumStyle(delta = 1) {
@@ -3031,9 +3396,6 @@ function bindToolbarWindowDrag() {
   const toolbar = $('toolbar');
   if (!toolbar || !isElectron || !window.desktopAPI?.beginWindowDrag) return;
 
-  const handles = [...toolbar.querySelectorAll('.toolbar-drag-region')];
-  if (!handles.length) return;
-
   let dragging = false;
 
   const onMove = (e) => {
@@ -3049,29 +3411,42 @@ function bindToolbarWindowDrag() {
     window.removeEventListener('pointerup', endDrag, true);
     window.removeEventListener('pointercancel', endDrag, true);
     window.desktopAPI.endWindowDrag?.();
+    if (settings.compactMode && isMediaPlayingNow()) scheduleHideCompactChrome();
   };
 
-  handles.forEach((handle) => {
-    handle.addEventListener('pointerdown', (e) => {
-      if (e.button !== 0) return;
-      // Only empty chrome — never start drag from nested controls.
-      if (e.target.closest?.('button, input, select, a, label')) return;
-      dragging = true;
-      toolbar.classList.add('is-dragging');
-      if (document.activeElement instanceof HTMLElement) {
-        document.activeElement.blur();
-      }
-      try {
-        handle.setPointerCapture?.(e.pointerId);
-      } catch {
-        /* ignore */
-      }
-      window.desktopAPI.beginWindowDrag();
-      window.addEventListener('pointermove', onMove, true);
-      window.addEventListener('pointerup', endDrag, true);
-      window.addEventListener('pointercancel', endDrag, true);
-      e.preventDefault();
-    });
+  const beginDragFromEvent = (e, handle) => {
+    if (e.button !== 0) return false;
+    // Buttons / inputs never start a window drag.
+    if (e.target.closest?.('button, input, select, a, label, .win-btn, .window-controls')) {
+      return false;
+    }
+    // Compact: require visible overlay toolbar first.
+    if (settings.compactMode && !els.appRoot?.classList.contains('compact-chrome-visible')) {
+      showCompactChrome({ sticky: true });
+      return false;
+    }
+    dragging = true;
+    toolbar.classList.add('is-dragging');
+    if (settings.compactMode) showCompactChrome({ sticky: true });
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+    try {
+      handle.setPointerCapture?.(e.pointerId);
+    } catch {
+      /* ignore */
+    }
+    window.desktopAPI.beginWindowDrag();
+    window.addEventListener('pointermove', onMove, true);
+    window.addEventListener('pointerup', endDrag, true);
+    window.addEventListener('pointercancel', endDrag, true);
+    e.preventDefault();
+    return true;
+  };
+
+  // Empty toolbar chrome (not buttons) moves the window — including brand/spacer.
+  toolbar.addEventListener('pointerdown', (e) => {
+    beginDragFromEvent(e, toolbar);
   });
 }
 
@@ -3248,7 +3623,13 @@ function bindMediaEvents() {
     finishSeekInteraction(els.media.currentTime);
   });
   els.media.addEventListener('volumechange', () => {
-    if (!seeking) els.volumeBar.value = String(Math.round((els.media.muted ? 0 : els.media.volume) * 100));
+    if (seeking) return;
+    // When Web Audio owns output, UI volume is driven by the gain node / slider.
+    if (spectrum.hasWebAudioOutput()) {
+      updateMuteIcons();
+      return;
+    }
+    els.volumeBar.value = String(Math.round((els.media.muted ? 0 : els.media.volume) * 100));
     updateMuteIcons();
   });
   // One stage click path only — stopPropagation prevents media+wrap double toggle.
@@ -3337,13 +3718,7 @@ function bindToolbar() {
   $('btnPrev').addEventListener('click', () => seekBy(-(Number(settings.seekStep) || 10)));
   $('btnNext').addEventListener('click', () => seekBy(Number(settings.seekStep) || 10));
   $('btnMute').addEventListener('click', () => {
-    if (youtubeMode) {
-      if (ytPlayer.isMuted()) ytPlayer.unmute();
-      else ytPlayer.mute();
-    } else {
-      els.media.muted = !els.media.muted;
-    }
-    updateMuteIcons();
+    toggleMute();
   });
   els.rateSelect.addEventListener('change', () => {
     setPlaybackRate(els.rateSelect.value);
@@ -3362,6 +3737,11 @@ function bindToolbar() {
   });
   bindSpectrumPopupChrome();
   $('btnFullscreen').addEventListener('click', toggleFullscreen);
+  els.btnCompact?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    closeToolbarMenus();
+    toggleCompactMode();
+  });
   $('btnSettings').addEventListener('click', () => {
     fillSettingsForm();
     openThemedDialog(els.settingsModal);
@@ -3380,12 +3760,11 @@ function bindToolbar() {
 
   els.volumeBar.addEventListener('input', () => {
     const percent = Number(els.volumeBar.value);
-    syncVolumeBarFill();
     if (youtubeMode) {
       ytPlayer.setVolume(percent);
+      syncVolumeBarFill();
     } else {
-      els.media.volume = percent / 100;
-      els.media.muted = percent === 0;
+      setLocalVolumePercent(percent);
     }
     updateMuteIcons();
   });
@@ -3485,7 +3864,8 @@ function bindToolbar() {
       ...readSettingsForm(),
       // Preserve fields not present on the settings form.
       videoFit: normalizeVideoFit(settings.videoFit),
-      showHistoryPanel: Boolean(settings.showHistoryPanel)
+      showHistoryPanel: Boolean(settings.showHistoryPanel),
+      compactMode: Boolean(settings.compactMode)
     };
     saveSettings(settings);
     applyLocale(settings.locale, { persist: false });
@@ -3551,6 +3931,7 @@ function bindKeyboard() {
       }
 
       // Always allow Escape to dismiss overlays even when typing in non-modal UI.
+      // If nothing is open, minimize the desktop window.
       if (e.key === 'Escape') {
         if (document.fullscreenElement) {
           e.preventDefault();
@@ -3565,6 +3946,12 @@ function bindKeyboard() {
         if (closeTopNonblockingDialog()) {
           e.preventDefault();
           return;
+        }
+        // Native <dialog showModal()> handles its own Escape — do not minimize over it.
+        if (isModalOpen()) return;
+        if (isElectron && window.desktopAPI?.minimize) {
+          e.preventDefault();
+          void window.desktopAPI.minimize();
         }
         return;
       }
@@ -3784,6 +4171,8 @@ async function init() {
   bindWindowControls();
   bindToolbar();
   bindMediaEvents();
+  bindStageContextMenu();
+  bindCompactChromeOverlay();
   bindDragDrop();
   bindKeyboard();
 
@@ -3917,7 +4306,10 @@ async function init() {
 
   updateSaveButton();
   renderPlayHistory();
-  setHistoryPanelOpen(Boolean(settings.showHistoryPanel));
+  await setCompactMode(Boolean(settings.compactMode), { persist: false });
+  if (!settings.compactMode) {
+    setHistoryPanelOpen(Boolean(settings.showHistoryPanel));
+  }
   syncWindowMinWidth();
 
   // OS file association / "Open with" / second-instance handoff

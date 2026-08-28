@@ -16,6 +16,8 @@ export const DEFAULT_SETTINGS = {
   startVolume: 80,
   windowOpacity: 100,
   showHistoryPanel: false,
+  /** Compact / mini player chrome */
+  compactMode: false,
   /** @type {'contain' | 'cover' | 'actual'} */
   videoFit: 'contain'
 };

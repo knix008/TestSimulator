@@ -693,13 +693,39 @@ ipcMain.handle('window:isMaximized', () => mainWindow?.isMaximized() ?? false);
 
 ipcMain.handle('window:setMinimumSize', (_evt, width, height) => {
   if (!mainWindow || mainWindow.isDestroyed()) return false;
-  const minW = Math.max(640, Math.round(Number(width) || 800));
-  const minH = Math.max(360, Math.round(Number(height) || 420));
+  // Compact mode needs a lower floor than the normal toolbar layout.
+  const minW = Math.max(280, Math.round(Number(width) || 800));
+  const minH = Math.max(180, Math.round(Number(height) || 420));
   mainWindow.setMinimumSize(minW, minH);
   const [cw, ch] = mainWindow.getSize();
   if (cw < minW || ch < minH) {
     mainWindow.setSize(Math.max(cw, minW), Math.max(ch, minH));
   }
+  return true;
+});
+
+ipcMain.handle('window:getBounds', () => {
+  if (!mainWindow || mainWindow.isDestroyed()) return null;
+  return mainWindow.getBounds();
+});
+
+ipcMain.handle('window:setBounds', (_evt, bounds) => {
+  if (!mainWindow || mainWindow.isDestroyed() || !bounds || typeof bounds !== 'object') {
+    return false;
+  }
+  if (mainWindow.isMaximized()) mainWindow.unmaximize();
+  const next = {
+    x: Math.round(Number(bounds.x)),
+    y: Math.round(Number(bounds.y)),
+    width: Math.max(280, Math.round(Number(bounds.width) || 480)),
+    height: Math.max(180, Math.round(Number(bounds.height) || 300))
+  };
+  if (!Number.isFinite(next.x) || !Number.isFinite(next.y)) {
+    const cur = mainWindow.getBounds();
+    next.x = cur.x;
+    next.y = cur.y;
+  }
+  mainWindow.setBounds(next);
   return true;
 });
 

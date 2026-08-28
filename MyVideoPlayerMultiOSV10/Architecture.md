@@ -16,7 +16,7 @@ This document describes how MyVideoPlayer is structured across desktop (Electron
 │  • /__media/<token> → Range streaming for local files         │
 │  • FFmpeg compat convert (soft remux → H.264)                 │
 │  • Bundled yt-dlp (vendor/ → extraResources)                  │
-│  • IPC: dialogs, window drag/opacity, persist, YouTube, RTSP │
+│  • IPC: dialogs, window drag/opacity/bounds, persist, YT, RTSP │
 │  • Quiet Chromium logs by default (MYVIDEOPLAYER_VERBOSE)     │
 └───────────────────────────┬─────────────────────────────────┘
                             │ preload (contextBridge)
@@ -26,8 +26,8 @@ This document describes how MyVideoPlayer is structured across desktop (Electron
 │  index.html + ES modules                                      │
 │  • app.js orchestrates playback, settings, hotkeys, status    │
 │  • <video> for local/RTSP · YouTube IFrame API for YT         │
-│  • History panel · video fit modes · spectrum popup           │
-│  • Non-blocking settings/about dialogs (playback continues)   │
+│  • History panel · video fit · compact mode · spectrum popup  │
+│  • Open progress for YouTube/RTSP; non-blocking settings UI   │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -41,7 +41,7 @@ On **web** (`npm run web`), there is no main process. The same `src/` UI runs in
 
 | File | Responsibility |
 |------|----------------|
-| `main.js` | App lifecycle, window, UI HTTP server, `/__media` Range handler, IPC, subtitle discovery, window drag/opacity, spectrum child window, Chromium log quieting |
+| `main.js` | App lifecycle, window, UI HTTP server, `/__media` Range handler, IPC, subtitle discovery, window drag/opacity/bounds, spectrum child window, Chromium log quieting |
 | `preload.js` | Exposes a safe `window.desktopAPI` to the renderer |
 | `youtube.js` | YouTube URL parse, metadata, download (bundled/system `yt-dlp` preferred, `youtubei.js` fallback) |
 | `youtube-auth.js` | Optional Electron sign-in session → cookies file for restricted downloads |
@@ -71,6 +71,7 @@ Unless `MYVIDEOPLAYER_VERBOSE=1`, main process sets Chromium `disable-logging` /
 | `isElectron` | Feature detection in renderer |
 | `getAppInfo` | Name, version, platform |
 | `minimize` / `maximizeToggle` / `close` / `isMaximized` / `onWindowState` | Window chrome |
+| `setMinimumSize` / `getBounds` / `setBounds` | Min size + bounds (compact mode shrink/restore) |
 | `beginWindowDrag` / `updateWindowDrag` / `endWindowDrag` | Frameless move |
 | `setWindowOpacity` | Desktop opacity |
 | `openMedia` / `openMediaPath` / `openSubtitle` / `findSubtitle` | File dialogs & path helpers (remember last dirs) |
@@ -87,8 +88,8 @@ Pure static UI: no bundler. Modules are loaded as native ES modules.
 
 | Module | Role |
 |--------|------|
-| `js/app.js` | Application controller: modes, fit/history UI, hotkeys, DnD, status snapshot + locale refresh |
-| `js/settings.js` | Settings defaults + load/save via persist layer (`videoFit`, `showHistoryPanel`, …) |
+| `js/app.js` | Application controller: modes, fit/history/compact UI, hotkeys, DnD, status snapshot + locale refresh |
+| `js/settings.js` | Settings defaults + load/save via persist layer (`videoFit`, `showHistoryPanel`, `compactMode`, …) |
 | `js/persist.js` | `localStorage` (web) or `desktopAPI.persist*` (Electron) |
 | `js/themes.js` | Builtin + custom themes, CSS variables, overlay sync; toolbar menus use scheme-locked contrast |
 | `js/i18n.js` | English / Korean dictionaries + `applyI18n` |
@@ -100,7 +101,7 @@ Pure static UI: no bundler. Modules are loaded as native ES modules.
 | `js/youtube-player.js` | YouTube ID helpers + IFrame player controller |
 | `js/error-dialog.js` | Detailed error modal with copy |
 | `js/tooltip.js` | Floating tooltips (`data-i18n-tooltip`) |
-| `styles/main.css` | Layout & components (fit modes, history panel, spectrum layering) |
+| `styles/main.css` | Layout & components (fit modes, history panel, compact chrome, spectrum layering) |
 | `styles/themes.css` | Builtin theme tokens (`--bg-stage`, etc.) |
 
 ### 2.4 Scripts (`scripts/`)
@@ -138,7 +139,8 @@ Pure static UI: no bundler. Modules are loaded as native ES modules.
 - Spectrum UI is an in-player draggable popup (`#spectrumPopup`). Overlays use compositor-friendly stacking so they remain visible over `object-fit: cover` video.
 - **Video fit** (`settings.videoFit`): `cover` | `contain` | `actual` — CSS classes on `#videoWrap` (`fit-*`).
 - **History panel**: right-side list driven by `recent.js`; visibility persisted as `showHistoryPanel`.
-- Floating save/open progress (`#progressModal`) is non-modal so the stage stays visible.
+- **Compact mode** (`settings.compactMode`): `#app.is-compact` hides non-essential chrome; keeps **Open**, transport, volume, compact-restore, and window controls. Distinct enter (PIP) / exit (full layout) icons on `#btnCompact`. Desktop saves/restores window bounds via `getBounds` / `setBounds` and lowers `setMinimumSize` while compact.
+- Floating save/open progress (`#progressModal`) is non-modal so the stage stays visible. Opening YouTube/RTSP closes the URL modal first, shows staged progress, and blocks duplicate Play/Connect while in flight.
 - Settings / About / theme editor use `dialog.show()` (non-blocking) so Chromium does not mark the page inert and pause media. URL/error dialogs may still use `showModal()`.
 
 ---
@@ -150,7 +152,7 @@ Pure static UI: no bundler. Modules are loaded as native ES modules.
 | Electron `userData/persist.json` | Settings, custom themes, recent list, `dialog.lastOpenDir` / `dialog.lastSaveDir` |
 | Web `localStorage` | Same logical keys via `persist.js` |
 | Keys (examples) | `myvideoplayer.settings.v1`, custom themes, recent entries |
-| Settings fields | locale, theme, rate, seekStep, autoplay, loop, showSpectrum, spectrumStyle, showSubtitles, subSize, startVolume, windowOpacity, showHistoryPanel, videoFit |
+| Settings fields | locale, theme, rate, seekStep, autoplay, loop, showSpectrum, spectrumStyle, showSubtitles, subSize, startVolume, windowOpacity, showHistoryPanel, videoFit, compactMode |
 | Compat cache | `userData/compat-cache/` (converted media; not in git) |
 
 Settings live per-profile (browser / Electron userData), not inside the install directory.
@@ -244,5 +246,6 @@ This keeps reinstalls clean while preserving auto-update behavior when `--update
 | New hotkey | `bindKeyboard` in `app.js` + i18n tip strings |
 | New spectrum style | `SPECTRUM_STYLES` + painter branch in `spectrum.js` + i18n labels |
 | New fit mode | `normalizeVideoFit` + CSS `.fit-*` + toolbar menu in `index.html` |
+| Compact chrome | `setCompactMode` in `app.js` + `.app.is-compact` rules in `main.css` |
 | New IPC | `main.js` handler + `preload.js` + renderer call site |
 | Installer UX | `build/installer.nsh` + `package.json` `build.nsis` |

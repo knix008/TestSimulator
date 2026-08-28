@@ -8,6 +8,8 @@ contextBridge.exposeInMainWorld('desktopAPI', {
   close: () => ipcRenderer.invoke('window:close'),
   isMaximized: () => ipcRenderer.invoke('window:isMaximized'),
   setMinimumSize: (width, height) => ipcRenderer.invoke('window:setMinimumSize', width, height),
+  getBounds: () => ipcRenderer.invoke('window:getBounds'),
+  setBounds: (bounds) => ipcRenderer.invoke('window:setBounds', bounds),
   setWindowOpacity: (opacity) => ipcRenderer.invoke('window:setOpacity', opacity),
   getWindowOpacity: () => ipcRenderer.invoke('window:getOpacity'),
   beginWindowDrag: () => ipcRenderer.send('window:beginDrag'),
