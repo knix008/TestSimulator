@@ -7,8 +7,8 @@
     "email": "knix008@naver.com"
   },
   "license": "MIT",
-  "buildTime": "2026-08-27T02:03:46.843Z",
-  "gitCommit": "db71e966",
+  "buildTime": "2026-08-28T00:17:47.613Z",
+  "gitCommit": "e05858dd",
   "gitBranch": "main",
-  "node": "v24.15.0"
+  "node": "v22.18.0"
 }
