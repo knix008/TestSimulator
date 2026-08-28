@@ -12,6 +12,7 @@ This document describes how MyVideoPlayer is structured across desktop (Electron
 │  electron/main.js · youtube.js · youtube-auth.js              │
 │  · rtsp-stream.js · media-compat.js · persist-store.js        │
 │  • BrowserWindow (frameless) + spectrum / history windows     │
+│  • Esc / caption minimize → group-minimize all app windows    │
 │  • Local HTTP UI server (127.0.0.1) → serves src/              │
 │  • /__media/<token> → Range streaming for local files         │
 │  • FFmpeg compat convert (soft remux → H.264)                 │
@@ -41,7 +42,7 @@ On **web** (`npm run web`), there is no main process. The same `src/` UI runs in
 
 | File | Responsibility |
 |------|----------------|
-| `main.js` | App lifecycle, window, UI HTTP server, `/__media` Range handler, IPC, subtitle discovery, window drag/opacity/bounds, spectrum/history child windows, Chromium log quieting |
+| `main.js` | App lifecycle, windows, UI HTTP server, `/__media` Range handler, IPC, subtitle discovery, window drag/opacity/bounds, spectrum/history child windows, **group minimize/restore** (`Esc`), Chromium log quieting |
 | `preload.js` | Exposes a safe `window.desktopAPI` to the renderer |
 | `youtube.js` | YouTube URL parse, metadata, download (bundled/system `yt-dlp` preferred, `youtubei.js` fallback) |
 | `youtube-auth.js` | Optional Electron sign-in session → cookies file for restricted downloads |
@@ -70,10 +71,10 @@ Unless `MYVIDEOPLAYER_VERBOSE=1`, main process sets Chromium `disable-logging` /
 |-----|---------|
 | `isElectron` | Feature detection in renderer |
 | `getAppInfo` | Name, version, platform |
-| `minimize` / `maximizeToggle` / `close` / `isMaximized` / `onWindowState` | Window chrome |
-| `setMinimumSize` / `getBounds` / `setBounds` | Min size + bounds (compact mode shrink/restore) |
+| `minimize` / `maximizeToggle` / `close` / `isMaximized` / `onWindowState` | Window chrome (`minimize` group-minimizes main + spectrum + history) |
+| `setMinimumSize` / `getBounds` / `setBounds` | Min size + bounds (compact mode shrink/restore; sender window) |
 | `beginWindowDrag` / `updateWindowDrag` / `endWindowDrag` | Frameless move |
-| `setWindowOpacity` | Desktop opacity |
+| `setWindowOpacity` / `getWindowOpacity` | Per-window opacity (sender BrowserWindow) |
 | `openMedia` / `openMediaPath` / `openSubtitle` / `findSubtitle` | File dialogs & path helpers (remember last dirs) |
 | `makeMediaCompatible` / `onMediaCompatProgress` | FFmpeg compat pipeline |
 | `getPathForFile` | Resolve dropped `File` → filesystem path |
@@ -139,10 +140,11 @@ Pure static UI: no bundler. Modules are loaded as native ES modules.
 - Only one primary presentation mode is active; entering YouTube hides local video presentation.
 - Transport UI (seek, volume, rate, play/stop) is shared and routed to the active backend.
 - Spectrum analysis attaches to the local `<video>` audio graph; it is disabled in YouTube mode.
-- Spectrum UI is a **separate window** (`spectrum.html`) driven by IPC / BroadcastChannel frame streaming from the player.
-- Play history is a **separate window** (`history.html`) driven by IPC / BroadcastChannel item sync from the player.
-- **Video fit** (`settings.videoFit`): `cover` | `contain` | `actual` — CSS classes on `#videoWrap` (`fit-*`).
-- **History panel**: right-side list driven by `recent.js`; visibility persisted as `showHistoryPanel`.
+- Spectrum UI is a **separate window** (`spectrum.html`) driven by IPC / BroadcastChannel frame streaming from the player. Title-bar opacity applies only to that window (`spectrumOpacity`).
+- Play history is a **separate window** (`history.html`) driven by IPC / BroadcastChannel item sync from the player. Open state persisted as `showHistoryPanel`; title-bar opacity as `historyOpacity`.
+- **Video fit** (`settings.videoFit`): `cover` | `contain` | `actual` — CSS classes on `#videoWrap` (`fit-*`); control-bar `#btnFit` menu.
+- **Group minimize / restore**: `desktopAPI.minimize` (toolbar ─ and `Esc` when no overlay) minimizes main + spectrum + history together. Restoring any one window (taskbar / second-instance) restores the whole group via `restore` listeners in `main.js`.
+- **Chrome auto-hide** (`settings.autoHideChrome`): overlay toolbar + bottom chrome hide while playing; edge hover reveals them.
 - **Compact mode** (`settings.compactMode`): `#app.is-compact` hides non-essential chrome; keeps **Open**, transport, volume, compact-restore, and window controls. Distinct enter (PIP) / exit (full layout) icons on `#btnCompact`. Desktop saves/restores window bounds via `getBounds` / `setBounds` and lowers `setMinimumSize` while compact. The separate spectrum and history windows stay open across compact toggle.
 - Floating save/open progress (`#progressModal`) is non-modal so the stage stays visible. Opening YouTube/RTSP closes the URL modal first, shows staged progress, and blocks duplicate Play/Connect while in flight.
 - Settings / About / theme editor use `dialog.show()` (non-blocking) so Chromium does not mark the page inert and pause media. URL/error dialogs may still use `showModal()`.
@@ -249,7 +251,8 @@ This keeps reinstalls clean while preserving auto-update behavior when `--update
 | New theme token | `THEME_EDIT_KEYS` / `BASE_VARS` in `themes.js` + `themes.css` |
 | New hotkey | `bindKeyboard` in `app.js` + i18n tip strings |
 | New spectrum style | `SPECTRUM_STYLES` + painter branch in `spectrum.js` + i18n labels |
-| New fit mode | `normalizeVideoFit` + CSS `.fit-*` + toolbar menu in `index.html` |
+| New fit mode | `normalizeVideoFit` + CSS `.fit-*` + control-bar menu in `index.html` |
 | Compact chrome | `setCompactMode` in `app.js` + `.app.is-compact` rules in `main.css` |
+| Group minimize | `minimizeAllAppWindows` / `restoreAllAppWindows` in `main.js` |
 | New IPC | `main.js` handler + `preload.js` + renderer call site |
 | Installer UX | `build/installer.nsh` + `package.json` `build.nsis` |
