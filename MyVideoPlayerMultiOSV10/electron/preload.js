@@ -12,6 +12,8 @@ contextBridge.exposeInMainWorld('desktopAPI', {
   setBounds: (bounds) => ipcRenderer.invoke('window:setBounds', bounds),
   setWindowOpacity: (opacity) => ipcRenderer.invoke('window:setOpacity', opacity),
   getWindowOpacity: () => ipcRenderer.invoke('window:getOpacity'),
+  setSpectrumOpacity: (opacity) => ipcRenderer.invoke('spectrum:setOpacity', opacity),
+  getSpectrumOpacity: () => ipcRenderer.invoke('spectrum:getOpacity'),
   beginWindowDrag: () => ipcRenderer.send('window:beginDrag'),
   updateWindowDrag: (screenX, screenY) => ipcRenderer.send('window:updateDrag', screenX, screenY),
   endWindowDrag: () => ipcRenderer.send('window:endDrag'),
@@ -73,6 +75,21 @@ contextBridge.exposeInMainWorld('desktopAPI', {
     const handler = (_event, message) => callback(message);
     ipcRenderer.on('spectrum:hostEvent', handler);
     return () => ipcRenderer.removeListener('spectrum:hostEvent', handler);
+  },
+  openHistoryWindow: (initPayload) => ipcRenderer.invoke('history:open', initPayload),
+  closeHistoryWindow: () => ipcRenderer.invoke('history:close'),
+  focusHistoryWindow: () => ipcRenderer.invoke('history:focus'),
+  sendHistoryMessage: (message) => ipcRenderer.send('history:toWindow', message),
+  sendHistoryHostMessage: (message) => ipcRenderer.send('history:toHost', message),
+  onHistoryMessage: (callback) => {
+    const handler = (_event, message) => callback(message);
+    ipcRenderer.on('history:message', handler);
+    return () => ipcRenderer.removeListener('history:message', handler);
+  },
+  onHistoryWindowEvent: (callback) => {
+    const handler = (_event, message) => callback(message);
+    ipcRenderer.on('history:hostEvent', handler);
+    return () => ipcRenderer.removeListener('history:hostEvent', handler);
   },
   onYouTubeDownloadProgress: (callback) => {
     const handler = (_event, progress) => callback(progress);

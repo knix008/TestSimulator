@@ -11,7 +11,7 @@ This document describes how MyVideoPlayer is structured across desktop (Electron
 │                     Electron Main Process                     │
 │  electron/main.js · youtube.js · youtube-auth.js              │
 │  · rtsp-stream.js · media-compat.js · persist-store.js        │
-│  • BrowserWindow (frameless) + optional spectrum window       │
+│  • BrowserWindow (frameless) + spectrum / history windows     │
 │  • Local HTTP UI server (127.0.0.1) → serves src/              │
 │  • /__media/<token> → Range streaming for local files         │
 │  • FFmpeg compat convert (soft remux → H.264)                 │
@@ -26,7 +26,7 @@ This document describes how MyVideoPlayer is structured across desktop (Electron
 │  index.html + ES modules                                      │
 │  • app.js orchestrates playback, settings, hotkeys, status    │
 │  • <video> for local/RTSP · YouTube IFrame API for YT         │
-│  • History panel · video fit · compact mode · spectrum popup  │
+│  • History window · video fit · compact mode · spectrum window │
 │  • Open progress for YouTube/RTSP; non-blocking settings UI   │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -41,7 +41,7 @@ On **web** (`npm run web`), there is no main process. The same `src/` UI runs in
 
 | File | Responsibility |
 |------|----------------|
-| `main.js` | App lifecycle, window, UI HTTP server, `/__media` Range handler, IPC, subtitle discovery, window drag/opacity/bounds, spectrum child window, Chromium log quieting |
+| `main.js` | App lifecycle, window, UI HTTP server, `/__media` Range handler, IPC, subtitle discovery, window drag/opacity/bounds, spectrum/history child windows, Chromium log quieting |
 | `preload.js` | Exposes a safe `window.desktopAPI` to the renderer |
 | `youtube.js` | YouTube URL parse, metadata, download (bundled/system `yt-dlp` preferred, `youtubei.js` fallback) |
 | `youtube-auth.js` | Optional Electron sign-in session → cookies file for restricted downloads |
@@ -81,6 +81,7 @@ Unless `MYVIDEOPLAYER_VERBOSE=1`, main process sets Chromium `disable-logging` /
 | `parseYouTube` / `getYouTubeInfo` / `downloadYouTube` / `stopYouTubeDownload` / `onYouTubeDownloadProgress` | YouTube desktop pipeline |
 | `openRtsp` / `stopRtsp` / `startRtspRecord` / `stopRtspRecord` / `onRtspRecordProgress` / … | RTSP view + record |
 | `openSpectrumWindow` / `sendSpectrumMessage` / … | Optional separate spectrum window |
+| `openHistoryWindow` / `sendHistoryMessage` / … | Optional separate play-history window |
 
 ### 2.3 Renderer (`src/`)
 
@@ -96,12 +97,14 @@ Pure static UI: no bundler. Modules are loaded as native ES modules.
 | `js/hotkeys.js` | Editable-target / modal helpers for shortcut gating |
 | `js/recent.js` | Recent / history list (max 30; file / youtube / rtsp) |
 | `js/spectrum.js` | `SpectrumAnalyzer` (Web Audio) + `SpectrumPainter` (styles) |
-| `js/spectrum-bridge.js` / `spectrum-window-app.js` / `spectrum.html` | Optional separate spectrum window |
+| `js/spectrum-bridge.js` / `spectrum-window-app.js` / `spectrum.html` | Separate spectrum BrowserWindow (or web popup) |
+| `js/history-bridge.js` / `history-window-app.js` / `history.html` | Separate play-history BrowserWindow (or web popup) |
 | `js/subtitles.js` | SMI/SRT/VTT parse + overlay renderer |
 | `js/youtube-player.js` | YouTube ID helpers + IFrame player controller |
 | `js/error-dialog.js` | Detailed error modal with copy |
 | `js/tooltip.js` | Floating tooltips (`data-i18n-tooltip`) |
-| `styles/main.css` | Layout & components (fit modes, history panel, compact chrome, spectrum layering) |
+| `styles/main.css` | Layout & components (fit modes, compact chrome, spectrum layering) |
+| `styles/history-window.css` / `spectrum-window.css` | Child-window chrome |
 | `styles/themes.css` | Builtin theme tokens (`--bg-stage`, etc.) |
 
 ### 2.4 Scripts (`scripts/`)
@@ -136,10 +139,11 @@ Pure static UI: no bundler. Modules are loaded as native ES modules.
 - Only one primary presentation mode is active; entering YouTube hides local video presentation.
 - Transport UI (seek, volume, rate, play/stop) is shared and routed to the active backend.
 - Spectrum analysis attaches to the local `<video>` audio graph; it is disabled in YouTube mode.
-- Spectrum UI is an in-player draggable popup (`#spectrumPopup`). Overlays use compositor-friendly stacking so they remain visible over `object-fit: cover` video.
+- Spectrum UI is a **separate window** (`spectrum.html`) driven by IPC / BroadcastChannel frame streaming from the player.
+- Play history is a **separate window** (`history.html`) driven by IPC / BroadcastChannel item sync from the player.
 - **Video fit** (`settings.videoFit`): `cover` | `contain` | `actual` — CSS classes on `#videoWrap` (`fit-*`).
 - **History panel**: right-side list driven by `recent.js`; visibility persisted as `showHistoryPanel`.
-- **Compact mode** (`settings.compactMode`): `#app.is-compact` hides non-essential chrome; keeps **Open**, transport, volume, compact-restore, and window controls. Distinct enter (PIP) / exit (full layout) icons on `#btnCompact`. Desktop saves/restores window bounds via `getBounds` / `setBounds` and lowers `setMinimumSize` while compact.
+- **Compact mode** (`settings.compactMode`): `#app.is-compact` hides non-essential chrome; keeps **Open**, transport, volume, compact-restore, and window controls. Distinct enter (PIP) / exit (full layout) icons on `#btnCompact`. Desktop saves/restores window bounds via `getBounds` / `setBounds` and lowers `setMinimumSize` while compact. The separate spectrum and history windows stay open across compact toggle.
 - Floating save/open progress (`#progressModal`) is non-modal so the stage stays visible. Opening YouTube/RTSP closes the URL modal first, shows staged progress, and blocks duplicate Play/Connect while in flight.
 - Settings / About / theme editor use `dialog.show()` (non-blocking) so Chromium does not mark the page inert and pause media. URL/error dialogs may still use `showModal()`.
 
@@ -152,7 +156,7 @@ Pure static UI: no bundler. Modules are loaded as native ES modules.
 | Electron `userData/persist.json` | Settings, custom themes, recent list, `dialog.lastOpenDir` / `dialog.lastSaveDir` |
 | Web `localStorage` | Same logical keys via `persist.js` |
 | Keys (examples) | `myvideoplayer.settings.v1`, custom themes, recent entries |
-| Settings fields | locale, theme, rate, seekStep, autoplay, loop, showSpectrum, spectrumStyle, showSubtitles, subSize, startVolume, windowOpacity, showHistoryPanel, videoFit, compactMode |
+| Settings fields | locale, theme, rate, seekStep, autoplay, loop, showSpectrum, autoHideChrome, spectrumStyle, showSubtitles, subSize, startVolume, windowOpacity, spectrumOpacity, historyOpacity, showHistoryPanel, videoFit, compactMode |
 | Compat cache | `userData/compat-cache/` (converted media; not in git) |
 
 Settings live per-profile (browser / Electron userData), not inside the install directory.

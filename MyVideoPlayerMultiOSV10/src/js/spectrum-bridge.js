@@ -20,6 +20,11 @@ export function isSpectrumWindowSupported() {
   return Boolean(window.desktopAPI?.openSpectrumWindow) || typeof window.open === 'function';
 }
 
+export function markSpectrumWindowClosed() {
+  electronOpen = false;
+  webPopup = null;
+}
+
 export async function openSpectrumWindow(initPayload = {}) {
   if (window.desktopAPI?.openSpectrumWindow) {
     await window.desktopAPI.openSpectrumWindow(initPayload);
@@ -37,7 +42,7 @@ export async function openSpectrumWindow(initPayload = {}) {
   webPopup = window.open(
     url,
     'MyVideoPlayerSpectrum',
-    'width=520,height=380,menubar=no,toolbar=no,location=no,status=no,resizable=yes'
+    'width=520,height=320,menubar=no,toolbar=no,location=no,status=no,resizable=yes'
   );
   if (!webPopup) return false;
 
@@ -70,19 +75,21 @@ export function focusSpectrumWindow() {
 }
 
 export function postSpectrumMessage(message) {
-  if (window.desktopAPI?.sendSpectrumMessage && (electronOpen || message.type === 'init')) {
+  if (window.desktopAPI?.sendSpectrumMessage) {
+    // Main process ignores messages when the spectrum window is closed.
     window.desktopAPI.sendSpectrumMessage(message);
-  }
-  try {
-    getChannel()?.postMessage(message);
-  } catch {
-    /* ignore */
-  }
-  if (webPopup && !webPopup.closed) {
+  } else {
     try {
-      webPopup.postMessage({ channel: SPECTRUM_CHANNEL, ...message }, window.location.origin);
+      getChannel()?.postMessage(message);
     } catch {
       /* ignore */
+    }
+    if (webPopup && !webPopup.closed) {
+      try {
+        webPopup.postMessage({ channel: SPECTRUM_CHANNEL, ...message }, window.location.origin);
+      } catch {
+        /* ignore */
+      }
     }
   }
 }

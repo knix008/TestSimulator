@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self' data:;" />
-  <title>Spectrum — MyVideoPlayer</title>
+  <title>MyVideoPlayer Spectrum</title>
   <link rel="icon" type="image/png" href="favicon.png" />
   <link rel="stylesheet" href="styles/themes.css" />
   <link rel="stylesheet" href="styles/spectrum-window.css" />
@@ -12,18 +12,27 @@
 <body class="spectrum-window-body">
   <div class="spectrum-window" id="spectrumWindow">
     <header class="spectrum-titlebar" id="spectrumTitlebar">
-      <span class="spectrum-title" id="spectrumTitle">Spectrum</span>
-      <button type="button" class="spectrum-win-close" id="btnSpectrumWinClose" aria-label="Close">✕</button>
+      <span class="spectrum-title" id="spectrumStyleName">Rainbow</span>
+      <label class="spectrum-opacity" for="spectrumOpacityBar">
+        <svg class="spectrum-opacity-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 1 0 0 20V2Zm0 18a8 8 0 0 1 0-16v16Z"/></svg>
+        <input type="range" class="spectrum-opacity-bar" id="spectrumOpacityBar" min="20" max="100" step="1" value="100" style="--fill: 100%" />
+        <span class="spectrum-opacity-value" id="spectrumOpacityValue">100%</span>
+      </label>
+      <div class="spectrum-titlebar-actions">
+        <button type="button" class="spectrum-style-btn" id="btnSpectrumPrev" aria-label="Previous style">‹</button>
+        <button type="button" class="spectrum-style-btn" id="btnSpectrumNext" aria-label="Next style">›</button>
+        <button type="button" class="spectrum-win-close" id="btnSpectrumWinClose" aria-label="Close">✕</button>
+      </div>
     </header>
     <canvas id="spectrumCanvas"></canvas>
-    <footer class="spectrum-footer">
-      <button type="button" class="spectrum-style-btn" id="btnSpectrumPrev" aria-label="Previous style">‹</button>
-      <div class="spectrum-style-meta">
-        <span class="spectrum-label" id="spectrumLabel">Spectrum</span>
-        <span class="spectrum-style-name" id="spectrumStyleName">Rainbow</span>
-      </div>
-      <button type="button" class="spectrum-style-btn" id="btnSpectrumNext" aria-label="Next style">›</button>
-    </footer>
+    <div
+      class="spectrum-resize-grip"
+      id="spectrumResizeGrip"
+      role="separator"
+      aria-orientation="horizontal"
+      aria-label="Resize window"
+      title="Resize"
+    ></div>
   </div>
   <script type="module" src="js/spectrum-window-app.js"></script>
 </body>

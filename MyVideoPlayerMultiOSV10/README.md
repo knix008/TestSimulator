@@ -9,7 +9,7 @@ Cross-platform video/audio player for **Web**, **Windows**, **macOS**, and **Lin
 | **License** | MIT |
 | **Stack** | Electron 33 · HTML/CSS/ES modules · youtubei.js · ffmpeg-static · bundled yt-dlp |
 
-멀티 OS 미디어 플레이어입니다. 로컬 파일은 HTTP Range(`/__media/…`)로 스트리밍하고, 재생 실패 시 FFmpeg로 호환 변환(소프트 리먹스 → H.264)을 시도합니다. YouTube·RTSP 재생, YouTube/RTSP 저장(녹화), 자막(SMI/SRT/VTT), 테마, 한글·영어 UI, 화면 맞춤, **축소 모드**, 재생 목록 패널, 스펙트럼 팝업, 창 투명도, 단축키를 지원합니다.
+멀티 OS 미디어 플레이어입니다. 로컬 파일은 HTTP Range(`/__media/…`)로 스트리밍하고, 재생 실패 시 FFmpeg로 호환 변환(소프트 리먹스 → H.264)을 시도합니다. YouTube·RTSP 재생, YouTube/RTSP 저장(녹화), 자막(SMI/SRT/VTT), 테마, 한글·영어 UI, 화면 맞춤, **축소 모드**, 재생 목록 창, 스펙트럼 창, 창 투명도, 단축키를 지원합니다.
 
 자세한 구조·IPC·모듈 설명은 [Architecture.md](Architecture.md)를 참고하세요.
 
@@ -22,12 +22,12 @@ Cross-platform video/audio player for **Web**, **Windows**, **macOS**, and **Lin
 - YouTube playback (IFrame API) and desktop download/save (bundled `yt-dlp` preferred, `youtubei.js` fallback; optional sign-in cookies)
 - RTSP / RTSPS live view and MP4 recording (desktop; stop keeps the file and can play it back)
 - Auto subtitle load (SMI / SRT / VTT beside the media file)
-- Recent plays (up to 30) + right-side **play history** panel (`Ctrl+L`); last open/save folders remembered (desktop)
+- Recent plays (up to 30) + separate **play history** window (`Ctrl+L`); last open/save folders remembered (desktop)
 - Display fit modes: fill screen / keep aspect ratio / original size (toolbar menu; persisted)
 - **Compact mode**: shrink the window to essential controls (open, transport, volume, restore); distinct enter/exit icons; persisted
 - Built-in themes (Dark, Light, Ocean, Forest) + custom theme editor; stage uses `--bg-stage`
 - UI language toggle: toolbar shows **ENG** / **한글** (target language); status bar re-translates on switch
-- Draggable in-player spectrum popup (Web Audio analyzer + multiple painter styles)
+- Separate spectrum window (Web Audio analyzer + multiple painter styles)
 - Staged open progress when connecting YouTube / RTSP (URL dialog closes so the floating progress is visible; duplicate clicks blocked)
 - Settings / About / theme editor open as non-blocking dialogs so playback continues
 - Frameless desktop window: brand bar, IPC drag (not `-webkit-app-region`), opacity, caption buttons

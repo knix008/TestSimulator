@@ -325,7 +325,7 @@ if (!gotSingleInstanceLock) {
   app.on('second-instance', (_event, argv) => {
     const files = extractMediaPathsFromArgv(argv);
     if (mainWindow && !mainWindow.isDestroyed()) {
-      if (mainWindow.isMinimized()) mainWindow.restore();
+      restoreAllAppWindows();
       mainWindow.show();
       mainWindow.focus();
       if (files.length) sendOpenMediaPaths(files);
@@ -339,10 +339,51 @@ if (!gotSingleInstanceLock) {
 let mainWindow = null;
 /** @type {BrowserWindow | null} */
 let spectrumWindow = null;
+/** @type {BrowserWindow | null} */
+let historyWindow = null;
+/** When true, restoring any app window restores the whole group. */
+let restoreGroupOnNextRestore = false;
 let downloadInProgress = false;
 /** @type {http.Server | null} */
 let uiServer = null;
 let uiServerPort = 0;
+
+function forEachAppWindow(fn) {
+  for (const win of [mainWindow, spectrumWindow, historyWindow]) {
+    if (win && !win.isDestroyed()) fn(win);
+  }
+}
+
+/** Minimize player + spectrum + history together (Esc / caption minimize). */
+function minimizeAllAppWindows() {
+  let minimizedAny = false;
+  forEachAppWindow((win) => {
+    if (!win.isMinimized()) {
+      win.minimize();
+      minimizedAny = true;
+    }
+  });
+  if (minimizedAny) restoreGroupOnNextRestore = true;
+  return true;
+}
+
+/** Restore every app window that was group-minimized. */
+function restoreAllAppWindows() {
+  restoreGroupOnNextRestore = false;
+  forEachAppWindow((win) => {
+    if (win.isMinimized()) win.restore();
+    if (!win.isVisible()) win.show();
+  });
+  return true;
+}
+
+function attachGroupMinimizeRestore(win) {
+  if (!win || win.isDestroyed()) return;
+  win.on('restore', () => {
+    if (!restoreGroupOnNextRestore) return;
+    restoreAllAppWindows();
+  });
+}
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -472,6 +513,8 @@ function createWindow() {
     mainWindow.show();
   });
 
+  attachGroupMinimizeRestore(mainWindow);
+
   mainWindow.webContents.on('did-finish-load', () => {
     if (pendingOpenFiles.length) {
       const files = pendingOpenFiles.slice();
@@ -501,6 +544,12 @@ function createWindow() {
       /* ignore */
     }
     spectrumWindow = null;
+    try {
+      historyWindow?.close();
+    } catch {
+      /* ignore */
+    }
+    historyWindow = null;
     mainWindow = null;
   });
 }
@@ -517,6 +566,11 @@ function getAppIconPath() {
 function createSpectrumWindow(initPayload = {}) {
   if (spectrumWindow && !spectrumWindow.isDestroyed()) {
     spectrumWindow.focus();
+    const opacityPct = Number(initPayload?.opacity);
+    if (Number.isFinite(opacityPct)) {
+      const value = Math.min(1, Math.max(0.2, opacityPct / 100));
+      spectrumWindow.setOpacity(value);
+    }
     if (initPayload && Object.keys(initPayload).length) {
       spectrumWindow.webContents.send('spectrum:message', { type: 'init', ...initPayload });
     }
@@ -525,9 +579,9 @@ function createSpectrumWindow(initPayload = {}) {
 
   spectrumWindow = new BrowserWindow({
     width: 520,
-    height: 380,
+    height: 320,
     minWidth: 320,
-    minHeight: 240,
+    minHeight: 200,
     resizable: true,
     maximizable: true,
     minimizable: true,
@@ -535,7 +589,7 @@ function createSpectrumWindow(initPayload = {}) {
     frame: false,
     titleBarStyle: 'hidden',
     thickFrame: true,
-    parent: mainWindow || undefined,
+    // Independent window (not owned by the player) so it can move to another display.
     modal: false,
     show: false,
     backgroundColor: '#121418',
@@ -552,8 +606,15 @@ function createSpectrumWindow(initPayload = {}) {
 
   spectrumWindow.loadURL(`http://127.0.0.1:${uiServerPort}/spectrum.html`);
 
+  attachGroupMinimizeRestore(spectrumWindow);
+
   spectrumWindow.once('ready-to-show', () => {
     spectrumWindow?.show();
+    const opacityPct = Number(initPayload?.opacity);
+    if (Number.isFinite(opacityPct)) {
+      const value = Math.min(1, Math.max(0.2, opacityPct / 100));
+      spectrumWindow?.setOpacity(value);
+    }
     if (initPayload && Object.keys(initPayload).length) {
       spectrumWindow?.webContents.send('spectrum:message', { type: 'init', ...initPayload });
     }
@@ -562,6 +623,71 @@ function createSpectrumWindow(initPayload = {}) {
   spectrumWindow.on('closed', () => {
     spectrumWindow = null;
     mainWindow?.webContents.send('spectrum:hostEvent', { type: 'closed' });
+  });
+
+  return true;
+}
+
+function createHistoryWindow(initPayload = {}) {
+  if (historyWindow && !historyWindow.isDestroyed()) {
+    historyWindow.focus();
+    const opacityPct = Number(initPayload?.opacity);
+    if (Number.isFinite(opacityPct)) {
+      const value = Math.min(1, Math.max(0.2, opacityPct / 100));
+      historyWindow.setOpacity(value);
+    }
+    if (initPayload && Object.keys(initPayload).length) {
+      historyWindow.webContents.send('history:message', { type: 'init', ...initPayload });
+    }
+    return true;
+  }
+
+  historyWindow = new BrowserWindow({
+    width: 380,
+    height: 560,
+    minWidth: 300,
+    minHeight: 280,
+    resizable: true,
+    maximizable: true,
+    minimizable: true,
+    fullscreenable: false,
+    frame: false,
+    titleBarStyle: 'hidden',
+    thickFrame: true,
+    // Independent window (not owned by the player) so it can move to another display.
+    modal: false,
+    show: false,
+    backgroundColor: '#121418',
+    icon: getAppIconPath(),
+    title: 'Play list — MyVideoPlayer',
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: false,
+      webSecurity: true
+    }
+  });
+
+  historyWindow.loadURL(`http://127.0.0.1:${uiServerPort}/history.html`);
+
+  attachGroupMinimizeRestore(historyWindow);
+
+  historyWindow.once('ready-to-show', () => {
+    historyWindow?.show();
+    const opacityPct = Number(initPayload?.opacity);
+    if (Number.isFinite(opacityPct)) {
+      const value = Math.min(1, Math.max(0.2, opacityPct / 100));
+      historyWindow?.setOpacity(value);
+    }
+    if (initPayload && Object.keys(initPayload).length) {
+      historyWindow?.webContents.send('history:message', { type: 'init', ...initPayload });
+    }
+  });
+
+  historyWindow.on('closed', () => {
+    historyWindow = null;
+    mainWindow?.webContents.send('history:hostEvent', { type: 'closed' });
   });
 
   return true;
@@ -671,9 +797,7 @@ ipcMain.on('persist:removeItem', (event, key) => {
   event.returnValue = persistStore.removeItem(key);
 });
 
-ipcMain.handle('window:minimize', () => {
-  mainWindow?.minimize();
-});
+ipcMain.handle('window:minimize', () => minimizeAllAppWindows());
 
 ipcMain.handle('window:maximizeToggle', () => {
   if (!mainWindow) return false;
@@ -691,55 +815,82 @@ ipcMain.handle('window:close', () => {
 
 ipcMain.handle('window:isMaximized', () => mainWindow?.isMaximized() ?? false);
 
-ipcMain.handle('window:setMinimumSize', (_evt, width, height) => {
-  if (!mainWindow || mainWindow.isDestroyed()) return false;
-  // Compact mode needs a lower floor than the normal toolbar layout.
-  const minW = Math.max(280, Math.round(Number(width) || 800));
-  const minH = Math.max(180, Math.round(Number(height) || 420));
-  mainWindow.setMinimumSize(minW, minH);
-  const [cw, ch] = mainWindow.getSize();
+ipcMain.handle('window:setMinimumSize', (event, width, height) => {
+  const win = resolveSenderWindow(event);
+  if (!win || win.isDestroyed()) return false;
+  // Allow compact-mode floors below the normal toolbar minimum.
+  const minW = Math.max(320, Math.round(Number(width) || 800));
+  const minH = Math.max(200, Math.round(Number(height) || 420));
+  win.setMinimumSize(minW, minH);
+  const [cw, ch] = win.getSize();
   if (cw < minW || ch < minH) {
-    mainWindow.setSize(Math.max(cw, minW), Math.max(ch, minH));
+    win.setSize(Math.max(cw, minW), Math.max(ch, minH));
   }
   return true;
 });
 
-ipcMain.handle('window:getBounds', () => {
-  if (!mainWindow || mainWindow.isDestroyed()) return null;
-  return mainWindow.getBounds();
+ipcMain.handle('window:getBounds', (event) => {
+  const win = resolveSenderWindow(event);
+  if (!win || win.isDestroyed()) return null;
+  return win.getBounds();
 });
 
-ipcMain.handle('window:setBounds', (_evt, bounds) => {
-  if (!mainWindow || mainWindow.isDestroyed() || !bounds || typeof bounds !== 'object') {
+ipcMain.handle('window:setBounds', (event, bounds) => {
+  const win = resolveSenderWindow(event);
+  if (!win || win.isDestroyed() || !bounds || typeof bounds !== 'object') {
     return false;
   }
-  if (mainWindow.isMaximized()) mainWindow.unmaximize();
+  if (win.isMaximized()) win.unmaximize();
+  const [minW, minH] = win.getMinimumSize();
   const next = {
     x: Math.round(Number(bounds.x)),
     y: Math.round(Number(bounds.y)),
-    width: Math.max(280, Math.round(Number(bounds.width) || 480)),
-    height: Math.max(180, Math.round(Number(bounds.height) || 300))
+    width: Math.max(minW || 320, Math.round(Number(bounds.width) || 480)),
+    height: Math.max(minH || 200, Math.round(Number(bounds.height) || 300))
   };
   if (!Number.isFinite(next.x) || !Number.isFinite(next.y)) {
-    const cur = mainWindow.getBounds();
+    const cur = win.getBounds();
     next.x = cur.x;
     next.y = cur.y;
   }
-  mainWindow.setBounds(next);
+  win.setBounds(next);
   return true;
 });
 
-ipcMain.handle('window:setOpacity', (_evt, opacity) => {
-  if (!mainWindow || mainWindow.isDestroyed()) return 1;
+ipcMain.handle('window:setOpacity', (event, opacity) => {
+  const win = resolveSenderWindow(event);
+  if (!win || win.isDestroyed()) return 1;
   const value = Math.min(1, Math.max(0.2, Number(opacity)));
-  if (!Number.isFinite(value)) return mainWindow.getOpacity();
-  mainWindow.setOpacity(value);
-  return mainWindow.getOpacity();
+  if (!Number.isFinite(value)) return win.getOpacity();
+  win.setOpacity(value);
+  return win.getOpacity();
 });
 
-ipcMain.handle('window:getOpacity', () => {
-  if (!mainWindow || mainWindow.isDestroyed()) return 1;
-  return mainWindow.getOpacity();
+ipcMain.handle('window:getOpacity', (event) => {
+  const win = resolveSenderWindow(event);
+  if (!win || win.isDestroyed()) return 1;
+  return win.getOpacity();
+});
+
+ipcMain.handle('spectrum:setOpacity', (event, opacity) => {
+  // Alias: always applies to the spectrum window when present.
+  if (!spectrumWindow || spectrumWindow.isDestroyed()) {
+    const win = resolveSenderWindow(event);
+    if (!win || win.isDestroyed()) return 1;
+    const value = Math.min(1, Math.max(0.2, Number(opacity)));
+    if (!Number.isFinite(value)) return win.getOpacity();
+    win.setOpacity(value);
+    return win.getOpacity();
+  }
+  const value = Math.min(1, Math.max(0.2, Number(opacity)));
+  if (!Number.isFinite(value)) return spectrumWindow.getOpacity();
+  spectrumWindow.setOpacity(value);
+  return spectrumWindow.getOpacity();
+});
+
+ipcMain.handle('spectrum:getOpacity', () => {
+  if (!spectrumWindow || spectrumWindow.isDestroyed()) return 1;
+  return spectrumWindow.getOpacity();
 });
 
 /** @type {{ win: BrowserWindow, offsetX: number, offsetY: number } | null} */
@@ -821,6 +972,30 @@ ipcMain.on('spectrum:toWindow', (_evt, message) => {
 });
 ipcMain.on('spectrum:toHost', (_evt, message) => {
   mainWindow?.webContents.send('spectrum:hostEvent', message);
+});
+
+ipcMain.handle('history:open', (_evt, initPayload) => createHistoryWindow(initPayload || {}));
+ipcMain.handle('history:close', () => {
+  if (historyWindow && !historyWindow.isDestroyed()) {
+    historyWindow.close();
+  }
+  historyWindow = null;
+  return true;
+});
+ipcMain.handle('history:focus', () => {
+  if (historyWindow && !historyWindow.isDestroyed()) {
+    historyWindow.focus();
+    return true;
+  }
+  return false;
+});
+ipcMain.on('history:toWindow', (_evt, message) => {
+  if (historyWindow && !historyWindow.isDestroyed()) {
+    historyWindow.webContents.send('history:message', message);
+  }
+});
+ipcMain.on('history:toHost', (_evt, message) => {
+  mainWindow?.webContents.send('history:hostEvent', message);
 });
 
 async function mediaFromPath(filePath) {

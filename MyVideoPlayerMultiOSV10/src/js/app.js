@@ -1,6 +1,23 @@
 import { loadSettings, saveSettings, resetSettings, normalizeVideoFit } from './settings.js';
 import { parseSubtitle, SubtitleRenderer, findSubtitleInFileList } from './subtitles.js';
-import { SpectrumAnalyzer, SpectrumPainter, SPECTRUM_STYLES, normalizeSpectrumStyle } from './spectrum.js';
+import { SpectrumAnalyzer, SPECTRUM_STYLES, normalizeSpectrumStyle } from './spectrum.js';
+import {
+  openSpectrumWindow,
+  closeSpectrumWindow,
+  focusSpectrumWindow,
+  postSpectrumMessage,
+  onSpectrumWindowEvent,
+  markSpectrumWindowClosed,
+  isSpectrumWindowSupported
+} from './spectrum-bridge.js';
+import {
+  openHistoryWindow,
+  closeHistoryWindow,
+  postHistoryMessage,
+  onHistoryWindowEvent,
+  markHistoryWindowClosed,
+  isHistoryWindowSupported
+} from './history-bridge.js';
 import { initTooltips } from './tooltip.js';
 import { YouTubePlayerController, extractYouTubeId, isYouTubeUrl } from './youtube-player.js';
 import { loadRecent, addRecent, clearRecent, removeRecent, RECENT_LIMIT } from './recent.js';
@@ -84,12 +101,6 @@ const els = {
   recentList: $('recentList'),
   btnClearRecent: $('btnClearRecent'),
   btnHistory: $('btnHistory'),
-  historyPanel: $('historyPanel'),
-  historyList: $('historyList'),
-  historyEmpty: $('historyEmpty'),
-  historyCount: $('historyCount'),
-  btnHistoryClear: $('btnHistoryClear'),
-  btnHistoryClose: $('btnHistoryClose'),
   btnLocale: $('btnLocale'),
   localeBtnLabel: $('localeBtnLabel'),
   btnTheme: $('btnTheme'),
@@ -109,11 +120,7 @@ const els = {
   errorDetail: $('errorDetail'),
   errorCopied: $('errorCopied'),
   btnCopyError: $('btnCopyError'),
-  btnCloseError: $('btnCloseError'),
-  spectrumPopup: $('spectrumPopup'),
-  spectrumCanvas: $('spectrumCanvas'),
-  spectrumPopupDrag: $('spectrumPopupDrag'),
-  spectrumStyleName: $('spectrumStyleName')
+  btnCloseError: $('btnCloseError')
 };
 
 const errorDialog = createErrorDialogController({
@@ -183,44 +190,51 @@ let stopRequested = false;
 let ytErrorDialogShown = false;
 
 const subtitles = new SubtitleRenderer(els.subtitleOverlay);
-let spectrumPopupOpen = false;
+let spectrumWindowOpen = false;
+let historyWindowOpen = false;
 
-const spectrumPainter = els.spectrumCanvas ? new SpectrumPainter(els.spectrumCanvas) : null;
+function getSpectrumThemePayload() {
+  const def = getThemeDefinition(settings.theme);
+  const vars = ensureDerivedVars(cloneVarsFromTheme(settings.theme));
+  return {
+    themeId: def.builtin ? def.id : 'custom',
+    scheme: def.scheme === 'light' ? 'light' : 'dark',
+    vars
+  };
+}
 
-function syncSpectrumPainterTheme() {
-  if (!spectrumPainter) return;
-  const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg-panel').trim();
-  spectrumPainter.setBackground(bg || '#161a22');
+function getSpectrumInitPayload() {
+  return {
+    locale: settings.locale === 'ko' ? 'ko' : 'en',
+    style: normalizeSpectrumStyle(settings.spectrumStyle),
+    theme: getSpectrumThemePayload(),
+    opacity: clampWindowOpacity(settings.spectrumOpacity),
+    compact: Boolean(settings.compactMode)
+  };
 }
 
 function pushSpectrumFrame(bins) {
-  if (!spectrumPopupOpen || !settings.showSpectrum || !spectrumPainter) return;
-  spectrumPainter.paint(bins);
+  if (!spectrumWindowOpen || !settings.showSpectrum) return;
+  // Structured-clone friendly copy for IPC / BroadcastChannel.
+  postSpectrumMessage({ type: 'frame', bins: Array.from(bins) });
 }
 
 const spectrum = new SpectrumAnalyzer(els.media, { onFrame: pushSpectrumFrame });
 
-function openSpectrumPopup() {
-  const popup = els.spectrumPopup;
-  if (!popup || !spectrumPainter) return false;
-  syncSpectrumPainterTheme();
-  spectrumPainter.setStyle(settings.spectrumStyle);
-  if (els.spectrumStyleName) {
-    els.spectrumStyleName.textContent = spectrumStyleLabel(settings.spectrumStyle);
-  }
-  popup.hidden = false;
-  spectrumPopupOpen = true;
-  // Ensure it stays inside the video area after open/resize.
-  clampSpectrumPopupPosition();
-  spectrumPainter.resize();
+async function openSpectrumPopup() {
+  if (!isSpectrumWindowSupported()) return false;
+  const ok = await openSpectrumWindow(getSpectrumInitPayload());
+  if (!ok) return false;
+  spectrumWindowOpen = true;
+  postSpectrumMessage({ type: 'sync', ...getSpectrumInitPayload() });
   return true;
 }
 
-function closeSpectrumPopup({ updateSetting = false } = {}) {
-  if (els.spectrumPopup) els.spectrumPopup.hidden = true;
-  spectrumPopupOpen = false;
+async function closeSpectrumPopup({ updateSetting = false } = {}) {
+  spectrumWindowOpen = false;
   spectrum.stop();
-  spectrumPainter?.clear();
+  await closeSpectrumWindow();
+  markSpectrumWindowClosed();
   if (updateSetting && settings.showSpectrum) {
     settings.showSpectrum = false;
     saveSettings(settings);
@@ -229,103 +243,135 @@ function closeSpectrumPopup({ updateSetting = false } = {}) {
   }
 }
 
-function clampSpectrumPopupPosition() {
-  const popup = els.spectrumPopup;
-  const parent = els.videoWrap;
-  if (!popup || !parent || popup.hidden) return;
-  const p = parent.getBoundingClientRect();
-  const w = popup.offsetWidth;
-  const h = popup.offsetHeight;
-  let left = popup.offsetLeft;
-  let top = popup.offsetTop;
-  // If still using right/bottom defaults, resolve to left/top once moved/clamped.
-  if (!popup.style.left && !popup.style.top) {
-    left = Math.max(0, p.width - w - 14);
-    top = Math.max(0, p.height - h - 14);
-  }
-  left = Math.max(0, Math.min(left, Math.max(0, p.width - w)));
-  top = Math.max(0, Math.min(top, Math.max(0, p.height - h)));
-  popup.style.left = `${left}px`;
-  popup.style.top = `${top}px`;
-  popup.style.right = 'auto';
-  popup.style.bottom = 'auto';
+function bindSpectrumWindowBridge() {
+  onSpectrumWindowEvent((msg) => {
+    if (!msg) return;
+    if (msg.type === 'closed') {
+      spectrumWindowOpen = false;
+      markSpectrumWindowClosed();
+      spectrum.stop();
+      if (settings.showSpectrum) {
+        settings.showSpectrum = false;
+        saveSettings(settings);
+        $('btnSpectrum')?.setAttribute('aria-pressed', 'false');
+        if ($('settingShowSpectrum')) $('settingShowSpectrum').checked = false;
+      }
+      return;
+    }
+    if (msg.type === 'ready') {
+      postSpectrumMessage({ type: 'sync', ...getSpectrumInitPayload() });
+      return;
+    }
+    if (msg.type === 'style' && msg.style) {
+      applySpectrumStyle(msg.style, { persist: true, fromWindow: true });
+      return;
+    }
+    if (msg.type === 'opacity' && msg.opacity != null) {
+      void applySpectrumOpacity(msg.opacity, { persist: true });
+    }
+  });
 }
 
-function bindSpectrumPopupChrome() {
-  const popup = els.spectrumPopup;
-  const handle = els.spectrumPopupDrag;
-  if (!popup || !handle) return;
+function getHistoryInitPayload() {
+  return {
+    locale: getLocaleSafe() === 'ko' ? 'ko' : 'en',
+    theme: getSpectrumThemePayload(),
+    opacity: clampWindowOpacity(settings.historyOpacity),
+    compact: Boolean(settings.compactMode),
+    items: loadRecent()
+  };
+}
 
-  let dragging = false;
-  let grabX = 0;
-  let grabY = 0;
+function syncHistoryWindowItems() {
+  if (!historyWindowOpen) return;
+  postHistoryMessage({ type: 'items', items: loadRecent() });
+}
 
-  handle.addEventListener('pointerdown', (e) => {
-    if (e.button != null && e.button !== 0) return;
-    if (e.target.closest?.('button')) return;
-    const rect = popup.getBoundingClientRect();
-    dragging = true;
-    grabX = e.clientX - rect.left;
-    grabY = e.clientY - rect.top;
-    handle.setPointerCapture?.(e.pointerId);
-    e.preventDefault();
-  });
+async function openHistoryPopup() {
+  if (!isHistoryWindowSupported()) return false;
+  const ok = await openHistoryWindow(getHistoryInitPayload());
+  if (!ok) return false;
+  historyWindowOpen = true;
+  els.btnHistory?.setAttribute('aria-pressed', 'true');
+  els.btnHistory?.classList.add('is-active');
+  postHistoryMessage({ type: 'sync', ...getHistoryInitPayload() });
+  return true;
+}
 
-  handle.addEventListener('pointermove', (e) => {
-    if (!dragging) return;
-    const parent = els.videoWrap.getBoundingClientRect();
-    const w = popup.offsetWidth;
-    const h = popup.offsetHeight;
-    let left = e.clientX - parent.left - grabX;
-    let top = e.clientY - parent.top - grabY;
-    left = Math.max(0, Math.min(left, Math.max(0, parent.width - w)));
-    top = Math.max(0, Math.min(top, Math.max(0, parent.height - h)));
-    popup.style.left = `${left}px`;
-    popup.style.top = `${top}px`;
-    popup.style.right = 'auto';
-    popup.style.bottom = 'auto';
-  });
-
-  const endDrag = () => { dragging = false; };
-  handle.addEventListener('pointerup', endDrag);
-  handle.addEventListener('pointercancel', endDrag);
-
-  $('btnSpectrumPopupClose')?.addEventListener('click', (e) => {
-    e.stopPropagation();
-    closeSpectrumPopup({ updateSetting: true });
-  });
-  $('btnSpectrumPrev')?.addEventListener('click', (e) => {
-    e.stopPropagation();
-    cycleSpectrumStyle(-1);
-  });
-  $('btnSpectrumNext')?.addEventListener('click', (e) => {
-    e.stopPropagation();
-    cycleSpectrumStyle(1);
-  });
-
-  // Prevent clicks on popup from toggling play.
-  popup.addEventListener('click', (e) => e.stopPropagation());
-  popup.addEventListener('dblclick', (e) => e.stopPropagation());
-
-  if (typeof ResizeObserver !== 'undefined') {
-    const ro = new ResizeObserver(() => {
-      if (!popup.hidden) {
-        clampSpectrumPopupPosition();
-        spectrumPainter?.resize();
-        if (spectrum.isHoldingFrame()) spectrum.repaintLast();
-      }
-    });
-    ro.observe(popup);
-    if (els.videoWrap) ro.observe(els.videoWrap);
-  } else {
-    window.addEventListener('resize', () => {
-      if (!popup.hidden) {
-        clampSpectrumPopupPosition();
-        spectrumPainter?.resize();
-        if (spectrum.isHoldingFrame()) spectrum.repaintLast();
-      }
-    });
+async function closeHistoryPopup({ updateSetting = true } = {}) {
+  historyWindowOpen = false;
+  els.btnHistory?.setAttribute('aria-pressed', 'false');
+  els.btnHistory?.classList.remove('is-active');
+  await closeHistoryWindow();
+  markHistoryWindowClosed();
+  if (updateSetting && settings.showHistoryPanel) {
+    settings.showHistoryPanel = false;
+    saveSettings(settings);
   }
+}
+
+async function setHistoryWindowOpen(open, { persist = true } = {}) {
+  const next = Boolean(open);
+  if (next) {
+    const ok = await openHistoryPopup();
+    if (!ok) return false;
+    if (persist && !settings.showHistoryPanel) {
+      settings.showHistoryPanel = true;
+      saveSettings(settings);
+    }
+    return true;
+  }
+  await closeHistoryPopup({ updateSetting: persist });
+  return true;
+}
+
+function toggleHistoryWindow() {
+  if (historyWindowOpen) {
+    void setHistoryWindowOpen(false);
+  } else {
+    void setHistoryWindowOpen(true);
+  }
+}
+
+function bindHistoryWindowBridge() {
+  onHistoryWindowEvent((msg) => {
+    if (!msg) return;
+    if (msg.type === 'closed') {
+      historyWindowOpen = false;
+      markHistoryWindowClosed();
+      els.btnHistory?.setAttribute('aria-pressed', 'false');
+      els.btnHistory?.classList.remove('is-active');
+      if (settings.showHistoryPanel) {
+        settings.showHistoryPanel = false;
+        saveSettings(settings);
+      }
+      return;
+    }
+    if (msg.type === 'ready') {
+      postHistoryMessage({ type: 'sync', ...getHistoryInitPayload() });
+      return;
+    }
+    if (msg.type === 'play' && msg.id) {
+      const item = loadRecent().find((r) => r.id === msg.id);
+      if (item) void playRecentItem(item);
+      return;
+    }
+    if (msg.type === 'remove' && msg.id) {
+      removeRecent(msg.id);
+      renderPlayHistory();
+      setStatus({ state: statusKey('statusRecentRemoved') });
+      return;
+    }
+    if (msg.type === 'clear') {
+      clearRecent();
+      renderPlayHistory();
+      setStatus({ state: statusKey('statusRecentCleared') });
+      return;
+    }
+    if (msg.type === 'opacity' && msg.opacity != null) {
+      void applyHistoryOpacity(msg.opacity, { persist: true });
+    }
+  });
 }
 
 function clearOverlayTimer() {
@@ -427,14 +473,14 @@ function notifyPlaying() {
   stopRequested = false;
   holdOverlayMode = null;
   notifyOverlayOnce('play', { hold: false });
-  onCompactPlaybackStarted();
+  onChromePlaybackStarted();
 }
 
 function notifyPaused() {
   if (stopRequested) return;
   // Keep pause icon visible until play / stop / new media.
   notifyOverlayOnce('paused', { hold: true });
-  onCompactPlaybackPaused();
+  onChromePlaybackPaused();
 }
 
 function notifyStopped() {
@@ -593,130 +639,9 @@ function rememberRecentRtsp({ url, title }) {
   renderPlayHistory();
 }
 
-function historyTypeLabel(type) {
-  if (type === 'youtube') return t('historyTypeYoutube');
-  if (type === 'rtsp') return t('historyTypeRtsp');
-  return t('historyTypeFile');
-}
-
-function formatHistoryDate(ts) {
-  if (!ts) return '—';
-  try {
-    return new Date(ts).toLocaleString(getLocaleSafe() === 'ko' ? 'ko-KR' : 'en-US', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  } catch {
-    return formatRecentTime(ts);
-  }
-}
-
-function renderHistoryPanel() {
-  const items = loadRecent();
-  const list = els.historyList;
-  const panel = els.historyPanel;
-  if (!list || !panel) return;
-
-  list.innerHTML = '';
-  panel.classList.toggle('is-empty', items.length === 0);
-  if (els.historyCount) {
-    els.historyCount.textContent = items.length ? t('historyCount', { n: items.length }) : '';
-  }
-
-  for (const item of items) {
-    const li = document.createElement('li');
-    li.className = 'history-item';
-
-    const openBtn = document.createElement('button');
-    openBtn.type = 'button';
-    openBtn.className = 'history-item-main';
-    openBtn.title = item.type === 'file' ? item.path || item.title : item.url || item.title;
-
-    const badgeClass =
-      item.type === 'youtube' ? 'yt' : item.type === 'rtsp' ? 'rtsp' : 'file';
-    const badgeLabel =
-      item.type === 'youtube' ? 'YT' : item.type === 'rtsp' ? 'RTSP' : 'FILE';
-    const location = item.type === 'file' ? item.path || '' : item.url || '';
-    const formatLabel =
-      item.type === 'youtube'
-        ? 'YouTube'
-        : item.type === 'rtsp'
-          ? 'RTSP'
-          : (item.ext || '').replace(/^\./, '').toUpperCase() || 'MEDIA';
-
-    openBtn.innerHTML = `
-      <span class="recent-badge ${badgeClass}">${badgeLabel}</span>
-      <span class="history-item-text">
-        <span class="history-item-title"></span>
-        <span class="history-item-path"></span>
-        <span class="history-item-meta"></span>
-      </span>
-    `;
-    openBtn.querySelector('.history-item-title').textContent = item.title || item.name || '—';
-    openBtn.querySelector('.history-item-path').textContent = location || '—';
-    const metaBits = [
-      historyTypeLabel(item.type),
-      formatLabel,
-      item.size > 0 ? formatBytes(item.size) : '',
-      formatHistoryDate(item.playedAt)
-    ].filter(Boolean);
-    openBtn.querySelector('.history-item-meta').textContent = metaBits.join(' · ');
-    openBtn.addEventListener('click', () => {
-      void playRecentItem(item);
-    });
-
-    const footer = document.createElement('div');
-    footer.className = 'history-item-footer';
-    const del = document.createElement('button');
-    del.type = 'button';
-    del.className = 'history-item-delete';
-    del.textContent = t('historyRemove');
-    del.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      removeRecent(item.id);
-      renderPlayHistory();
-      setStatus({ state: statusKey('statusRecentRemoved') });
-    });
-    footer.appendChild(del);
-
-    li.appendChild(openBtn);
-    li.appendChild(footer);
-    list.appendChild(li);
-  }
-}
-
-function setHistoryPanelOpen(open) {
-  const panel = els.historyPanel;
-  if (!panel || !els.stage) return;
-  const next = Boolean(open) && !settings.compactMode;
-  panel.hidden = !next;
-  els.stage.classList.toggle('has-history-panel', next);
-  els.btnHistory?.setAttribute('aria-pressed', next ? 'true' : 'false');
-  els.btnHistory?.classList.toggle('is-active', next);
-  if (!settings.compactMode && settings.showHistoryPanel !== Boolean(open)) {
-    settings.showHistoryPanel = Boolean(open);
-    saveSettings(settings);
-  }
-  if (next) {
-    renderHistoryPanel();
-    syncThemeToOverlays();
-  }
-  syncWindowMinWidth();
-}
-
-function toggleHistoryPanel() {
-  setHistoryPanelOpen(Boolean(els.historyPanel?.hidden));
-}
-
 function renderPlayHistory() {
   renderRecentMenu();
-  if (els.historyPanel && !els.historyPanel.hidden) {
-    renderHistoryPanel();
-  }
+  syncHistoryWindowItems();
 }
 
 async function finalizeRtspRecordIfAny() {
@@ -896,7 +821,7 @@ function bindStageContextMenu() {
   if (!wrap || !menu) return;
 
   wrap.addEventListener('contextmenu', (e) => {
-    if (e.target.closest?.('.spectrum-popup, .save-progress-popup, .history-panel, button, a, input, select, textarea')) {
+    if (e.target.closest?.('.save-progress-popup, .history-panel, button, a, input, select, textarea')) {
       return;
     }
     // Custom menu for YouTube playback surface (iframe has pointer-events: none).
@@ -972,6 +897,14 @@ function updateFitToolbarButton() {
   const label = t(fitLabelKey(current));
   els.btnFit?.setAttribute('data-tooltip', `${t('fitTip')}: ${label}`);
   els.btnFit?.setAttribute('aria-label', `${t('fit')}: ${label}`);
+  const labelEl = $('fitBtnLabel');
+  if (labelEl) labelEl.textContent = label;
+  const btn = els.btnFit;
+  if (btn) {
+    btn.querySelector('.icon-fit-cover')?.classList.toggle('hidden', current !== 'cover');
+    btn.querySelector('.icon-fit-contain')?.classList.toggle('hidden', current !== 'contain');
+    btn.querySelector('.icon-fit-actual')?.classList.toggle('hidden', current !== 'actual');
+  }
 }
 
 function applyVideoFit(mode, { persist = true, announce = false } = {}) {
@@ -1014,12 +947,90 @@ function updateLocaleToolbarButton() {
   els.btnLocale?.setAttribute('aria-label', `${t('language')}: ${nextLabel}`);
 }
 
+/** Compact chrome floors — buttons / sliders must not collide. */
+const COMPACT_MIN_HEIGHT = 220;
+const COMPACT_MIN_WIDTH_FLOOR = 520;
+
+/**
+ * Measure compact toolbar + control-bar content and apply Electron min size
+ * so the window cannot shrink below a non-overlapping layout.
+ */
+function syncCompactWindowMinSize() {
+  if (!isElectron || !window.desktopAPI?.setMinimumSize) return;
+  if (!settings.compactMode) return;
+
+  const measure = () => {
+    const toolbar = document.getElementById('toolbar');
+    const control = els.controlBar;
+    let neededW = COMPACT_MIN_WIDTH_FLOOR;
+
+    if (toolbar) {
+      const left = toolbar.querySelector('.toolbar-left');
+      const right = toolbar.querySelector('.toolbar-right');
+      const caps = document.getElementById('windowControls');
+      const parts = [left, right, caps].filter(Boolean);
+      let fixed = 0;
+      for (const el of parts) {
+        if (getComputedStyle(el).display === 'none') continue;
+        fixed += el.getBoundingClientRect().width;
+      }
+      // Spacer + chrome padding / gaps
+      fixed += 24 + 20;
+      neededW = Math.max(neededW, Math.ceil(fixed));
+    }
+
+    if (control && getComputedStyle(control).display !== 'none') {
+      let controlNeed = 0;
+      const fixedParts = control.querySelectorAll(
+        '.transport-row > .toolbar-group, .transport-row > .fit-wrap, .transport-row > .volume-group, .transport-row > .toolbar-sep:not([hidden])'
+      );
+      fixedParts.forEach((el) => {
+        if (getComputedStyle(el).display === 'none') return;
+        controlNeed += el.getBoundingClientRect().width;
+      });
+      const seek = control.querySelector('.seek-row');
+      if (seek && getComputedStyle(seek).display !== 'none') {
+        const times = seek.querySelectorAll('.time-label');
+        let timeW = 0;
+        times.forEach((el) => {
+          timeW += Math.max(el.getBoundingClientRect().width, 36);
+        });
+        // CSS min-width on seek track + time labels + gaps
+        controlNeed += 140 + timeW + 12;
+      }
+      controlNeed += 24; // control-bar padding
+      neededW = Math.max(neededW, Math.ceil(controlNeed));
+    }
+
+    const minW = Math.max(COMPACT_MIN_WIDTH_FLOOR, Math.min(neededW, 900));
+    void window.desktopAPI.setMinimumSize(minW, COMPACT_MIN_HEIGHT).then(async () => {
+      if (!window.desktopAPI?.getBounds || !window.desktopAPI?.setBounds) return;
+      try {
+        const cur = await window.desktopAPI.getBounds();
+        if (!cur) return;
+        if (cur.width < minW || cur.height < COMPACT_MIN_HEIGHT) {
+          await window.desktopAPI.setBounds({
+            x: cur.x,
+            y: cur.y,
+            width: Math.max(cur.width || 0, minW),
+            height: Math.max(cur.height || 0, COMPACT_MIN_HEIGHT)
+          });
+        }
+      } catch {
+        /* ignore */
+      }
+    });
+  };
+
+  requestAnimationFrame(() => requestAnimationFrame(measure));
+}
+
 /** Keep the frameless window wide enough that toolbar controls stay visible. */
 function syncWindowMinWidth() {
   if (!isElectron || !window.desktopAPI?.setMinimumSize) return;
 
   if (settings.compactMode) {
-    void window.desktopAPI.setMinimumSize(420, 200);
+    syncCompactWindowMinSize();
     return;
   }
 
@@ -1073,107 +1084,165 @@ function updateCompactButton() {
   }
 }
 
-let compactChromeHideTimer = 0;
-const COMPACT_CHROME_HOTZONE_PX = 56;
-const COMPACT_CHROME_HIDE_MS = 1600;
+let chromeHideTimer = 0;
+const CHROME_HOTZONE_PX = 64;
+const CHROME_HIDE_MS = 2000;
 
 function isMediaPlayingNow() {
   if (youtubeMode) return Boolean(ytPlayer.isPlaying?.());
   return Boolean(els.media?.src) && !els.media.paused && !els.media.ended;
 }
 
-function showCompactChrome({ sticky = false } = {}) {
-  if (!settings.compactMode) return;
-  els.appRoot?.classList.add('compact-chrome-visible');
-  document.body.classList.add('compact-chrome-visible');
-  document.documentElement.classList.add('compact-chrome-visible');
-  if (compactChromeHideTimer) {
-    clearTimeout(compactChromeHideTimer);
-    compactChromeHideTimer = 0;
+function setChromeVisibleClass(on) {
+  els.appRoot?.classList.toggle('chrome-visible', on);
+  document.body.classList.toggle('chrome-visible', on);
+  document.documentElement.classList.toggle('chrome-visible', on);
+  // Keep legacy compact class in sync for any remaining selectors.
+  els.appRoot?.classList.toggle('compact-chrome-visible', on);
+  document.body.classList.toggle('compact-chrome-visible', on);
+  document.documentElement.classList.toggle('compact-chrome-visible', on);
+}
+
+function setChromePinnedClass(on) {
+  els.appRoot?.classList.toggle('chrome-pinned', on);
+  document.body.classList.toggle('chrome-pinned', on);
+  document.documentElement.classList.toggle('chrome-pinned', on);
+}
+
+function isChromeAutoHideEnabled() {
+  return settings.autoHideChrome !== false;
+}
+
+function applyChromeAutoHideSetting() {
+  const autoHide = isChromeAutoHideEnabled();
+  setChromePinnedClass(!autoHide);
+  if (!autoHide) {
+    if (chromeHideTimer) {
+      clearTimeout(chromeHideTimer);
+      chromeHideTimer = 0;
+    }
+    setChromeVisibleClass(true);
+    return;
   }
-  // While playing, chrome always auto-hides after idle (even if briefly sticky).
-  if (!sticky || isMediaPlayingNow()) scheduleHideCompactChrome();
+  if (isMediaPlayingNow()) {
+    showChromeOverlay();
+    scheduleHideChromeOverlay();
+  } else {
+    showChromeOverlay({ sticky: true });
+  }
 }
 
-function scheduleHideCompactChrome() {
-  if (!settings.compactMode) return;
-  if (compactChromeHideTimer) clearTimeout(compactChromeHideTimer);
-  compactChromeHideTimer = window.setTimeout(() => {
-    compactChromeHideTimer = 0;
-    hideCompactChrome();
-  }, COMPACT_CHROME_HIDE_MS);
+function showChromeOverlay({ sticky = false } = {}) {
+  setChromeVisibleClass(true);
+  if (chromeHideTimer) {
+    clearTimeout(chromeHideTimer);
+    chromeHideTimer = 0;
+  }
+  if (!isChromeAutoHideEnabled()) return;
+  // While playing, always schedule auto-hide after idle.
+  if (!sticky || isMediaPlayingNow()) scheduleHideChromeOverlay();
 }
 
-function hideCompactChrome({ force = false } = {}) {
+function scheduleHideChromeOverlay() {
+  if (!isChromeAutoHideEnabled()) return;
+  if (chromeHideTimer) clearTimeout(chromeHideTimer);
+  chromeHideTimer = window.setTimeout(() => {
+    chromeHideTimer = 0;
+    hideChromeOverlay();
+  }, CHROME_HIDE_MS);
+}
+
+function hideChromeOverlay({ force = false } = {}) {
+  if (!force && !isChromeAutoHideEnabled()) {
+    setChromeVisibleClass(true);
+    return;
+  }
   const toolbar = $('toolbar');
+  const bottom = $('bottomChrome');
   const control = els.controlBar;
   if (!force && toolbar?.classList.contains('is-dragging')) return;
   if (
     !force &&
-    (toolbar?.matches(':hover, :focus-within') || control?.matches(':hover, :focus-within'))
+    (toolbar?.matches(':hover, :focus-within') ||
+      bottom?.matches(':hover, :focus-within') ||
+      control?.matches(':hover, :focus-within') ||
+      els.statusBar?.matches(':hover, :focus-within'))
   ) {
-    if (isMediaPlayingNow()) scheduleHideCompactChrome();
+    if (isMediaPlayingNow()) scheduleHideChromeOverlay();
     return;
   }
-  els.appRoot?.classList.remove('compact-chrome-visible');
-  document.body.classList.remove('compact-chrome-visible');
-  document.documentElement.classList.remove('compact-chrome-visible');
+  // Keep open while a toolbar popup menu is open.
+  if (
+    !force &&
+    ((els.recentMenu && !els.recentMenu.hidden) ||
+      (els.themeMenu && !els.themeMenu.hidden) ||
+      (els.fitMenu && !els.fitMenu.hidden))
+  ) {
+    scheduleHideChromeOverlay();
+    return;
+  }
+  setChromeVisibleClass(false);
 }
 
-function onCompactPlaybackStarted() {
-  if (!settings.compactMode) return;
-  showCompactChrome();
-  scheduleHideCompactChrome();
+function onChromePlaybackStarted() {
+  if (!isChromeAutoHideEnabled()) {
+    setChromeVisibleClass(true);
+    return;
+  }
+  showChromeOverlay();
+  scheduleHideChromeOverlay();
 }
 
-function onCompactPlaybackPaused() {
-  if (!settings.compactMode) return;
-  showCompactChrome({ sticky: true });
-  if (compactChromeHideTimer) {
-    clearTimeout(compactChromeHideTimer);
-    compactChromeHideTimer = 0;
+function onChromePlaybackPaused() {
+  showChromeOverlay({ sticky: true });
+  if (!isChromeAutoHideEnabled()) return;
+  if (chromeHideTimer) {
+    clearTimeout(chromeHideTimer);
+    chromeHideTimer = 0;
   }
 }
 
-function bindCompactChromeOverlay() {
+function bindChromeOverlay() {
   const chrome = $('chrome');
   if (!chrome) return;
 
   const onMove = (e) => {
-    if (!settings.compactMode) return;
+    if (!isChromeAutoHideEnabled()) return;
     const rect = chrome.getBoundingClientRect();
     const y = e.clientY - rect.top;
     const fromBottom = rect.height - y;
-    const visible = els.appRoot?.classList.contains('compact-chrome-visible');
-    if (y <= COMPACT_CHROME_HOTZONE_PX || fromBottom <= COMPACT_CHROME_HOTZONE_PX || visible) {
-      showCompactChrome();
+    const overChromeUi =
+      Boolean(e.target?.closest?.('.toolbar, .bottom-chrome, .control-bar, .statusbar'));
+    if (y <= CHROME_HOTZONE_PX || fromBottom <= CHROME_HOTZONE_PX || overChromeUi) {
+      showChromeOverlay();
+    } else if (els.appRoot?.classList.contains('chrome-visible') && isMediaPlayingNow()) {
+      // Leaving edge/UI into the video area starts the hide countdown once.
+      scheduleHideChromeOverlay();
     }
   };
 
   chrome.addEventListener('mousemove', onMove);
   chrome.addEventListener('mouseenter', onMove);
   chrome.addEventListener('mouseleave', () => {
-    if (!settings.compactMode) return;
-    if (compactChromeHideTimer) clearTimeout(compactChromeHideTimer);
-    compactChromeHideTimer = window.setTimeout(() => {
-      compactChromeHideTimer = 0;
+    if (!isChromeAutoHideEnabled()) return;
+    if (chromeHideTimer) clearTimeout(chromeHideTimer);
+    chromeHideTimer = window.setTimeout(() => {
+      chromeHideTimer = 0;
       if ($('toolbar')?.classList.contains('is-dragging')) return;
       if (!isMediaPlayingNow()) return;
-      els.appRoot?.classList.remove('compact-chrome-visible');
-      document.body.classList.remove('compact-chrome-visible');
-      document.documentElement.classList.remove('compact-chrome-visible');
-    }, 350);
+      setChromeVisibleClass(false);
+    }, 280);
   });
 
-  const stickShow = () => showCompactChrome({ sticky: true });
+  const stickShow = () => showChromeOverlay({ sticky: true });
   const stickHide = () => {
-    if (!settings.compactMode) return;
-    if (isMediaPlayingNow()) scheduleHideCompactChrome();
+    if (!isChromeAutoHideEnabled()) return;
+    if (isMediaPlayingNow()) scheduleHideChromeOverlay();
   };
   $('toolbar')?.addEventListener('pointerenter', stickShow);
   $('toolbar')?.addEventListener('pointerleave', stickHide);
-  els.controlBar?.addEventListener('pointerenter', stickShow);
-  els.controlBar?.addEventListener('pointerleave', stickHide);
+  $('bottomChrome')?.addEventListener('pointerenter', stickShow);
+  $('bottomChrome')?.addEventListener('pointerleave', stickHide);
 }
 
 async function setCompactMode(next, { persist = true, announce = false } = {}) {
@@ -1188,27 +1257,19 @@ async function setCompactMode(next, { persist = true, announce = false } = {}) {
 
   if (on) {
     closeToolbarMenus();
-    // Hide history panel without clearing the persisted preference.
-    if (els.historyPanel && !els.historyPanel.hidden) {
-      els.historyPanel.hidden = true;
-      els.stage?.classList.remove('has-history-panel');
-      els.btnHistory?.setAttribute('aria-pressed', 'false');
-      els.btnHistory?.classList.remove('is-active');
-    }
-    closeSpectrumPopup({ updateSetting: false });
-    showCompactChrome();
+    applyChromeAutoHideSetting();
   } else {
-    hideCompactChrome();
-    els.appRoot?.classList.remove('compact-chrome-visible');
-    document.body.classList.remove('compact-chrome-visible');
-    document.documentElement.classList.remove('compact-chrome-visible');
-    setHistoryPanelOpen(Boolean(settings.showHistoryPanel));
-    if (settings.showSpectrum && currentMediaName && !youtubeMode) {
-      updateSpectrumVisibility();
-    }
+    applyChromeAutoHideSetting();
   }
 
   updateCompactButton();
+
+  if (spectrumWindowOpen) {
+    postSpectrumMessage({ type: 'compact', compact: on });
+  }
+  if (historyWindowOpen) {
+    postHistoryMessage({ type: 'compact', compact: on });
+  }
 
   if (isElectron && window.desktopAPI?.setBounds && window.desktopAPI?.getBounds) {
     try {
@@ -1220,14 +1281,16 @@ async function setCompactMode(next, { persist = true, announce = false } = {}) {
         if (!wasOn) {
           compactRestoreBounds = await window.desktopAPI.getBounds();
         }
-        await window.desktopAPI.setMinimumSize(420, 200);
+        // Provisional floor; refined by syncCompactWindowMinSize after layout.
+        await window.desktopAPI.setMinimumSize(COMPACT_MIN_WIDTH_FLOOR, COMPACT_MIN_HEIGHT);
         const cur = compactRestoreBounds || (await window.desktopAPI.getBounds()) || {};
         await window.desktopAPI.setBounds({
           x: cur.x,
           y: cur.y,
-          width: 560,
-          height: 280
+          width: Math.max(COMPACT_MIN_WIDTH_FLOOR, Math.min(560, cur.width || 560)),
+          height: Math.max(COMPACT_MIN_HEIGHT, Math.min(280, cur.height || 280))
         });
+        syncCompactWindowMinSize();
       } else {
         const restore = compactRestoreBounds;
         compactRestoreBounds = null;
@@ -1706,7 +1769,12 @@ async function applyTheme(themeSetting) {
     const source = def.scheme === 'light' ? 'light' : 'dark';
     await window.desktopAPI.setThemeSource(source);
   }
-  syncSpectrumPainterTheme();
+  if (spectrumWindowOpen) {
+    postSpectrumMessage({ type: 'theme', theme: getSpectrumThemePayload() });
+  }
+  if (historyWindowOpen) {
+    postHistoryMessage({ type: 'theme', theme: getSpectrumThemePayload() });
+  }
   return def;
 }
 
@@ -2133,6 +2201,18 @@ function applyLocale(locale, { persist = true } = {}) {
   }
   renderPlayHistory();
   syncWindowMinWidth();
+  if (spectrumWindowOpen) {
+    postSpectrumMessage({
+      type: 'locale',
+      locale: next
+    });
+  }
+  if (historyWindowOpen) {
+    postHistoryMessage({
+      type: 'locale',
+      locale: next
+    });
+  }
   return next;
 }
 
@@ -2155,6 +2235,7 @@ function applySettingsToPlayer({ applyVolume = false } = {}) {
   updateMuteIcons();
   updateSpectrumVisibility();
   void applyWindowOpacity(settings.windowOpacity, { persist: false });
+  applyChromeAutoHideSetting();
 }
 
 function stepPlaybackRate(delta) {
@@ -2166,25 +2247,18 @@ function stepPlaybackRate(delta) {
 
 async function updateSpectrumVisibility() {
   // Do not gate on spectrum.hasAudio: Chromium reports webkitAudioDecodedByteCount=0
-  // until decode starts, which previously kept the popup closed forever.
+  // until decode starts, which previously kept the window closed forever.
   const want = !youtubeMode && Boolean(settings.showSpectrum) && Boolean(currentMediaName);
   const pressed = Boolean(settings.showSpectrum);
   $('btnSpectrum')?.setAttribute('aria-pressed', String(pressed));
 
   if (want) {
-    openSpectrumPopup();
+    await openSpectrumPopup();
     await spectrum.start();
     syncSpectrumOutputFromUi();
     if (spectrum.isHoldingFrame()) spectrum.repaintLast();
-    // Layout may not be ready on the same frame after un-hiding.
-    requestAnimationFrame(() => {
-      clampSpectrumPopupPosition();
-      spectrumPainter?.resize();
-      // resize() clears the canvas — restore held frame while paused.
-      if (spectrum.isHoldingFrame()) spectrum.repaintLast();
-    });
   } else {
-    closeSpectrumPopup({ updateSetting: false });
+    await closeSpectrumPopup({ updateSetting: false });
   }
 }
 
@@ -2197,6 +2271,9 @@ function fillSettingsForm() {
   $('settingAutoplay').checked = settings.autoplay;
   $('settingLoop').checked = settings.loop;
   $('settingShowSpectrum').checked = settings.showSpectrum;
+  if ($('settingAutoHideChrome')) {
+    $('settingAutoHideChrome').checked = settings.autoHideChrome !== false;
+  }
   $('settingShowSubtitles').checked = settings.showSubtitles;
   $('settingSubSize').value = String(settings.subSize);
   updateSubSizeValue(settings.subSize);
@@ -2221,8 +2298,6 @@ function updateOpacityUi(opacityPercent) {
   const value = clampWindowOpacity(opacityPercent);
   const toolbar = $('toolbarOpacityBar');
   const toolbarOut = $('toolbarOpacityValue');
-  const setting = $('settingOpacity');
-  const settingOut = $('settingOpacityValue');
   const tip = t('opacityTipPct', { n: value });
   if (toolbar) {
     toolbar.value = String(value);
@@ -2237,13 +2312,6 @@ function updateOpacityUi(opacityPercent) {
     }
   }
   if (toolbarOut) toolbarOut.textContent = `${value}%`;
-  if (setting) {
-    setting.value = String(value);
-    syncRangeFill(setting);
-    setting.setAttribute('aria-valuenow', String(value));
-    setting.setAttribute('aria-valuetext', `${value}%`);
-  }
-  if (settingOut) settingOut.textContent = `${value}%`;
 }
 
 async function applyWindowOpacity(opacityPercent, { persist = true } = {}) {
@@ -2251,9 +2319,24 @@ async function applyWindowOpacity(opacityPercent, { persist = true } = {}) {
   settings.windowOpacity = value;
   updateOpacityUi(value);
   if (persist) saveSettings(settings);
+  // Main player window only — never touches the spectrum window.
   if (isElectron && window.desktopAPI?.setWindowOpacity) {
     await window.desktopAPI.setWindowOpacity(value / 100);
   }
+}
+
+async function applySpectrumOpacity(opacityPercent, { persist = true } = {}) {
+  const value = clampWindowOpacity(opacityPercent);
+  settings.spectrumOpacity = value;
+  if (persist) saveSettings(settings);
+  // Spectrum window applies its own opacity; host only stores the preference.
+}
+
+async function applyHistoryOpacity(opacityPercent, { persist = true } = {}) {
+  const value = clampWindowOpacity(opacityPercent);
+  settings.historyOpacity = value;
+  if (persist) saveSettings(settings);
+  // History window applies its own opacity; host only stores the preference.
 }
 
 function updateStartVolumeValue(volume) {
@@ -2285,11 +2368,14 @@ function readSettingsForm() {
     autoplay: $('settingAutoplay').checked,
     loop: $('settingLoop').checked,
     showSpectrum: $('settingShowSpectrum').checked,
+    autoHideChrome: $('settingAutoHideChrome') ? $('settingAutoHideChrome').checked : settings.autoHideChrome !== false,
     spectrumStyle: normalizeSpectrumStyle($('settingSpectrumStyle')?.value || settings.spectrumStyle),
     showSubtitles: $('settingShowSubtitles').checked,
     subSize: Number($('settingSubSize').value) || 28,
     startVolume: clampStartVolume($('settingStartVolume').value),
-    windowOpacity: clampWindowOpacity($('settingOpacity')?.value ?? settings.windowOpacity)
+    windowOpacity: clampWindowOpacity(settings.windowOpacity),
+    spectrumOpacity: clampWindowOpacity(settings.spectrumOpacity),
+    historyOpacity: clampWindowOpacity(settings.historyOpacity)
   };
 }
 
@@ -2716,11 +2802,11 @@ function toggleSpectrumPanel() {
   if ($('settingShowSpectrum')) {
     $('settingShowSpectrum').checked = settings.showSpectrum;
   }
-  updateSpectrumVisibility();
-  // One-click open: if spectrum was off only because no media name yet, keep the
-  // preference; when media is already loaded, ensure the popup is actually shown.
+  void updateSpectrumVisibility();
   if (settings.showSpectrum && currentMediaName && !youtubeMode) {
-    openSpectrumPopup();
+    void openSpectrumPopup().then(() => {
+      if (spectrumWindowOpen) focusSpectrumWindow();
+    });
   }
 }
 
@@ -2743,14 +2829,15 @@ function fillSpectrumStyleSelect() {
   select.value = current;
 }
 
-function applySpectrumStyle(styleId, { persist = true } = {}) {
+function applySpectrumStyle(styleId, { persist = true, fromWindow = false } = {}) {
   const next = normalizeSpectrumStyle(styleId);
   settings.spectrumStyle = next;
   if (persist) saveSettings(settings);
   if ($('settingSpectrumStyle')) $('settingSpectrumStyle').value = next;
-  spectrumPainter?.setStyle(next);
-  if (els.spectrumStyleName) els.spectrumStyleName.textContent = spectrumStyleLabel(next);
-  // While paused, re-draw once with the last bins so the style change is visible.
+  if (!fromWindow && spectrumWindowOpen) {
+    postSpectrumMessage({ type: 'style', style: next });
+  }
+  // While paused, re-send last bins so the style change is visible in the window.
   if (spectrum.isHoldingFrame()) spectrum.repaintLast();
 }
 
@@ -3411,7 +3498,7 @@ function bindToolbarWindowDrag() {
     window.removeEventListener('pointerup', endDrag, true);
     window.removeEventListener('pointercancel', endDrag, true);
     window.desktopAPI.endWindowDrag?.();
-    if (settings.compactMode && isMediaPlayingNow()) scheduleHideCompactChrome();
+    if (isMediaPlayingNow()) scheduleHideChromeOverlay();
   };
 
   const beginDragFromEvent = (e, handle) => {
@@ -3420,14 +3507,17 @@ function bindToolbarWindowDrag() {
     if (e.target.closest?.('button, input, select, a, label, .win-btn, .window-controls')) {
       return false;
     }
-    // Compact: require visible overlay toolbar first.
-    if (settings.compactMode && !els.appRoot?.classList.contains('compact-chrome-visible')) {
-      showCompactChrome({ sticky: true });
+    // Require visible overlay toolbar first (always true when auto-hide is off / chrome-pinned).
+    const chromeReady =
+      els.appRoot?.classList.contains('chrome-visible') ||
+      els.appRoot?.classList.contains('chrome-pinned');
+    if (!chromeReady) {
+      showChromeOverlay({ sticky: true });
       return false;
     }
     dragging = true;
     toolbar.classList.add('is-dragging');
-    if (settings.compactMode) showCompactChrome({ sticky: true });
+    showChromeOverlay({ sticky: true });
     if (document.activeElement instanceof HTMLElement) {
       document.activeElement.blur();
     }
@@ -3462,18 +3552,15 @@ function updateToolbarBrand(info) {
 
 function bindWindowControls() {
   const opacity = $('toolbarOpacity');
-  const opacityField = $('settingOpacityField');
 
   if (!isElectron) {
     if (opacity) opacity.hidden = true;
-    if (opacityField) opacityField.hidden = true;
     return;
   }
 
   document.documentElement.classList.add('is-electron');
   document.body.classList.add('is-electron');
   if (opacity) opacity.hidden = false;
-  if (opacityField) opacityField.hidden = false;
   const controls = $('windowControls');
   if (controls) {
     controls.hidden = false;
@@ -3499,11 +3586,9 @@ function bindWindowControls() {
 
   bindToolbarWindowDrag();
 
-  const onOpacityInput = (e) => {
+  $('toolbarOpacityBar')?.addEventListener('input', (e) => {
     void applyWindowOpacity(e.target.value, { persist: true });
-  };
-  $('toolbarOpacityBar')?.addEventListener('input', onOpacityInput);
-  $('settingOpacity')?.addEventListener('input', onOpacityInput);
+  });
 
   window.desktopAPI.isMaximized?.().then((maximized) => syncMaximizeButton(Boolean(maximized)));
   window.desktopAPI.onWindowState?.((state) => {
@@ -3667,13 +3752,7 @@ function bindToolbar() {
   els.btnHistory?.addEventListener('click', (e) => {
     e.stopPropagation();
     closeToolbarMenus();
-    toggleHistoryPanel();
-  });
-  els.btnHistoryClose?.addEventListener('click', () => setHistoryPanelOpen(false));
-  els.btnHistoryClear?.addEventListener('click', () => {
-    clearRecent();
-    renderPlayHistory();
-    setStatus({ state: statusKey('statusRecentCleared') });
+    toggleHistoryWindow();
   });
   els.btnLocale?.addEventListener('click', () => {
     toggleLocale();
@@ -3735,7 +3814,8 @@ function bindToolbar() {
   $('settingSpectrumStyle')?.addEventListener('change', () => {
     applySpectrumStyle($('settingSpectrumStyle').value);
   });
-  bindSpectrumPopupChrome();
+  bindSpectrumWindowBridge();
+  bindHistoryWindowBridge();
   $('btnFullscreen').addEventListener('click', toggleFullscreen);
   els.btnCompact?.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -4015,7 +4095,7 @@ function bindKeyboard() {
         }
         if (k === 'l') {
           e.preventDefault();
-          toggleHistoryPanel();
+          toggleHistoryWindow();
           return;
         }
         if (k === 'y') {
@@ -4172,7 +4252,7 @@ async function init() {
   bindToolbar();
   bindMediaEvents();
   bindStageContextMenu();
-  bindCompactChromeOverlay();
+  bindChromeOverlay();
   bindDragDrop();
   bindKeyboard();
 
@@ -4307,8 +4387,8 @@ async function init() {
   updateSaveButton();
   renderPlayHistory();
   await setCompactMode(Boolean(settings.compactMode), { persist: false });
-  if (!settings.compactMode) {
-    setHistoryPanelOpen(Boolean(settings.showHistoryPanel));
+  if (settings.showHistoryPanel) {
+    await setHistoryWindowOpen(true, { persist: false });
   }
   syncWindowMinWidth();
 

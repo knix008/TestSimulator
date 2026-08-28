@@ -15,6 +15,7 @@ body {
 }
 
 .spectrum-window {
+  position: relative;
   display: flex;
   flex-direction: column;
   width: 100%;
@@ -26,7 +27,6 @@ body {
 .spectrum-titlebar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 8px;
   padding: 6px 8px 6px 12px;
   border-bottom: 1px solid var(--border, #2a3140);
@@ -37,11 +37,28 @@ body {
 }
 
 .spectrum-title {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 38%;
   font-size: 12px;
   font-weight: 600;
   color: var(--text, #e8ecf4);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
+.spectrum-titlebar-actions {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  flex: 0 0 auto;
+  margin-left: auto;
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
+.spectrum-style-btn,
 .spectrum-win-close {
   width: 28px;
   height: 22px;
@@ -50,8 +67,13 @@ body {
   background: transparent;
   color: var(--text-muted, #9aa3b5);
   cursor: pointer;
-  -webkit-app-region: no-drag;
-  app-region: no-drag;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.spectrum-style-btn:hover {
+  background: color-mix(in srgb, var(--bg-control, #222833) 80%, transparent);
+  color: var(--text, #e8ecf4);
 }
 
 .spectrum-win-close:hover {
@@ -67,56 +89,115 @@ body {
   background: var(--bg-panel, #161a22);
 }
 
-.spectrum-footer {
-  display: flex;
+.spectrum-opacity {
+  display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 8px;
-  border-top: 1px solid var(--border, #2a3140);
-  background: color-mix(in srgb, var(--bg-panel, #161a22) 88%, var(--bg-control, #222833));
+  flex: 1 1 auto;
+  min-width: 100px;
+  max-width: 220px;
+  margin: 0;
+  cursor: default;
   -webkit-app-region: no-drag;
   app-region: no-drag;
 }
 
-.spectrum-style-meta {
-  flex: 1 1 auto;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  text-align: center;
+.spectrum-opacity[hidden] {
+  display: none !important;
 }
 
-.spectrum-label {
-  font-size: 10px;
-  color: var(--text-muted, #9aa3b5);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-
-.spectrum-style-name {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text, #e8ecf4);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.spectrum-style-btn {
-  width: 28px;
-  height: 26px;
+.spectrum-opacity-icon {
+  width: 14px;
+  height: 14px;
   flex: 0 0 auto;
-  border: 1px solid var(--border, #2a3140);
-  border-radius: 6px;
-  background: var(--bg-control, #222833);
-  color: var(--text, #e8ecf4);
-  cursor: pointer;
-  font-size: 16px;
-  line-height: 1;
-  padding: 0;
+  fill: currentColor;
+  color: var(--text-muted, #9aa3b5);
 }
 
-.spectrum-style-btn:hover {
-  background: var(--bg-control-hover, #2c3444);
+.spectrum-opacity-bar {
+  -webkit-appearance: none;
+  appearance: none;
+  flex: 1 1 auto;
+  min-width: 64px;
+  height: 4px;
+  border-radius: 999px;
+  outline: none;
+  cursor: pointer;
+  background: linear-gradient(
+    to right,
+    var(--seek-fill, #5ab0ff) 0%,
+    var(--seek-fill, #5ab0ff) var(--fill, 100%),
+    var(--seek-track, #3a4458) var(--fill, 100%),
+    var(--seek-track, #3a4458) 100%
+  );
+}
+
+.spectrum-opacity-bar::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  background: transparent;
+}
+
+.spectrum-opacity-bar::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  margin-top: -4px;
+  border-radius: 50%;
+  background: var(--seek-fill, #5ab0ff);
+  border: 1px solid #fff;
+}
+
+.spectrum-opacity-bar::-moz-range-track {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--seek-track, #3a4458);
+}
+
+.spectrum-opacity-bar::-moz-range-progress {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--seek-fill, #5ab0ff);
+}
+
+.spectrum-opacity-bar::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--seek-fill, #5ab0ff);
+  border: 1px solid #fff;
+}
+
+.spectrum-opacity-value {
+  flex: 0 0 auto;
+  min-width: 2.8em;
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text, #e8ecf4);
+  text-align: right;
+}
+
+.spectrum-resize-grip {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  z-index: 5;
+  width: 16px;
+  height: 16px;
+  cursor: nwse-resize;
+  touch-action: none;
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+  background:
+    linear-gradient(135deg, transparent 0 46%, color-mix(in srgb, var(--text-muted, #9aa3b5) 70%, transparent) 46% 54%, transparent 54% 100%),
+    linear-gradient(135deg, transparent 0 62%, color-mix(in srgb, var(--text-muted, #9aa3b5) 70%, transparent) 62% 70%, transparent 70% 100%),
+    linear-gradient(135deg, transparent 0 78%, color-mix(in srgb, var(--text-muted, #9aa3b5) 70%, transparent) 78% 86%, transparent 86% 100%);
+  opacity: 0.75;
+}
+
+.spectrum-resize-grip:hover,
+.spectrum-resize-grip.is-dragging {
+  opacity: 1;
 }

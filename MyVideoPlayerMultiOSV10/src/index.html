@@ -55,43 +55,13 @@
       <div class="toolbar-spacer toolbar-drag-region" id="toolbarDrag" aria-hidden="true"></div>
 
       <div class="toolbar-right">
-        <div class="popup-wrap fit-wrap">
-          <button type="button" class="tool-btn" id="btnFit" data-i18n-tooltip="fitTip" data-i18n-aria="fit" aria-haspopup="menu" aria-expanded="false">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v12H4V6Zm2 2v8h12V8H6Zm3 2h6v4H9v-4Z"/></svg>
-          </button>
-          <div class="popup-menu popup-menu-end" id="fitMenu" role="menu" hidden>
-            <div class="popup-menu-header">
-              <span data-i18n="fitTitle">Display size</span>
-            </div>
-            <ul class="popup-list" id="fitList">
-              <li>
-                <button type="button" class="popup-item" data-fit="cover" role="menuitemradio" aria-checked="false">
-                  <span data-i18n="fitCover">Fill screen</span>
-                  <span class="popup-item-check" aria-hidden="true"></span>
-                </button>
-              </li>
-              <li>
-                <button type="button" class="popup-item" data-fit="contain" role="menuitemradio" aria-checked="true">
-                  <span data-i18n="fitContain">Keep aspect ratio</span>
-                  <span class="popup-item-check" aria-hidden="true"></span>
-                </button>
-              </li>
-              <li>
-                <button type="button" class="popup-item" data-fit="actual" role="menuitemradio" aria-checked="false">
-                  <span data-i18n="fitActual">Original size</span>
-                  <span class="popup-item-check" aria-hidden="true"></span>
-                </button>
-              </li>
-            </ul>
-          </div>
-        </div>
         <button type="button" class="tool-btn" id="btnSpectrum" data-i18n-tooltip="spectrumTip" data-i18n-aria="spectrum" aria-pressed="true">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18h2V8H4v10Zm4 0h2V4H8v14Zm4 0h2v-7h-2v7Zm4 0h2V9h-2v9Zm4 0h2V6h-2v12Z"/></svg>
-        </button>
-        <button type="button" class="tool-btn" id="btnFullscreen" data-i18n-tooltip="fullscreenTip" data-i18n-aria="fullscreen">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5v2H6v3H4Zm10-5h5v5h-2V6h-3V4ZM4 15h2v3h3v2H4v-5Zm16 5h-5v-2h3v-3h2v5Z"/></svg>
-        </button>
-        <button type="button" class="tool-btn" id="btnCompact" data-i18n-tooltip="compactTip" data-i18n-aria="compact" aria-pressed="false">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18h2V8H4v10Zm4 0h2V4H8v14Zm4 0h2v-7h-2v7Zm4 0h2V9h-2v9Zm4 0h2V6h-2v12Z"/></svg>
+          </button>
+          <button type="button" class="tool-btn" id="btnFullscreen" data-i18n-tooltip="fullscreenTip" data-i18n-aria="fullscreen">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5v2H6v3H4Zm10-5h5v5h-2V6h-3V4ZM4 15h2v3h3v2H4v-5Zm16 5h-5v-2h3v-3h2v5Z"/></svg>
+          </button>
+          <button type="button" class="tool-btn" id="btnCompact" data-i18n-tooltip="compactTip" data-i18n-aria="compact" aria-pressed="false">
           <!-- Enter compact: picture-in-picture / mini window -->
           <svg class="icon-compact-enter" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h13v11H3V4Zm2 2v7h9V6H5Zm11 5h5v9H9v-3h2v1h8v-5h-2v-2Z"/></svg>
           <!-- Exit compact: restore full player layout -->
@@ -137,7 +107,8 @@
         <button type="button" class="win-btn win-close" id="btnClose" data-i18n-tooltip="close" data-i18n-aria="close">✕</button>
       </div>
     </nav>
-    <!-- Playback / volume controls (same chrome row in compact mode) -->
+    <!-- Playback controls + status bar (auto-hide together) -->
+    <div class="bottom-chrome" id="bottomChrome">
     <section class="control-bar" id="controlBar" role="toolbar" data-i18n-aria="controls">
       <div class="control-bar-row seek-row">
         <span class="time-label" id="timeCurrent">00:00</span>
@@ -178,6 +149,42 @@
 
         <div class="toolbar-sep"></div>
 
+        <div class="popup-wrap fit-wrap">
+          <button type="button" class="tool-btn tool-btn-labeled" id="btnFit" data-i18n-tooltip="fitTip" data-i18n-aria="fit" aria-haspopup="menu" aria-expanded="false">
+            <svg class="icon-fit-cover" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3h7v2H5v5H3V3Zm11 0h7v7h-2V5h-5V3ZM3 14h2v5h5v2H3v-7Zm18 0v7h-7v-2h5v-5h2Z"/></svg>
+            <svg class="icon-fit-contain hidden" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v12H4V6Zm2 2v8h12V8H6Zm3 2h6v4H9v-4Z"/></svg>
+            <svg class="icon-fit-actual hidden" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h4v2H9v2H7V7Zm6 0h4v4h-2V9h-2V7ZM7 13h2v2h2v2H7v-4Zm8 2h2v4h-4v-2h2v-2Z"/></svg>
+            <span class="tool-btn-label" id="fitBtnLabel">Keep aspect ratio</span>
+          </button>
+          <div class="popup-menu popup-menu-end popup-menu-up" id="fitMenu" role="menu" hidden>
+            <div class="popup-menu-header">
+              <span data-i18n="fitTitle">Display size</span>
+            </div>
+            <ul class="popup-list" id="fitList">
+              <li>
+                <button type="button" class="popup-item" data-fit="cover" role="menuitemradio" aria-checked="false">
+                  <span data-i18n="fitCover">Fill screen</span>
+                  <span class="popup-item-check" aria-hidden="true"></span>
+                </button>
+              </li>
+              <li>
+                <button type="button" class="popup-item" data-fit="contain" role="menuitemradio" aria-checked="true">
+                  <span data-i18n="fitContain">Keep aspect ratio</span>
+                  <span class="popup-item-check" aria-hidden="true"></span>
+                </button>
+              </li>
+              <li>
+                <button type="button" class="popup-item" data-fit="actual" role="menuitemradio" aria-checked="false">
+                  <span data-i18n="fitActual">Original size</span>
+                  <span class="popup-item-check" aria-hidden="true"></span>
+                </button>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="toolbar-sep"></div>
+
         <div class="toolbar-group rate-group">
           <button type="button" class="tool-btn" id="btnRateDown" data-i18n-tooltip="slowerTip" data-i18n-aria="slower">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 11h10v2H7v-2Z"/></svg>
@@ -200,6 +207,22 @@
         </div>
       </div>
     </section>
+    <footer class="statusbar" id="statusBar" role="status">
+      <span class="status-item" id="statusFile">Ready</span>
+      <span class="status-sep">|</span>
+      <span class="status-item" id="statusFormat">—</span>
+      <span class="status-sep">|</span>
+      <span class="status-item" id="statusSubtitle">No subtitle</span>
+      <span class="status-sep">|</span>
+      <span class="status-item" id="statusState">Idle</span>
+      <span class="status-sep">|</span>
+      <span class="status-item" id="statusRate">Speed: 1×</span>
+      <span class="status-sep">|</span>
+      <span class="status-item" id="statusTheme">Theme: Dark</span>
+      <span class="status-sep">|</span>
+      <span class="status-item" id="statusPlatform">Web</span>
+    </footer>
+    </div>
     </div>
 
     <main class="stage" id="stage">
@@ -227,20 +250,6 @@
             <p class="drop-title" data-i18n="dropTitle">Open a media file or YouTube link</p>
             <p class="drop-sub" data-i18n="dropSub">Drop files here, use Open, or paste a YouTube URL · MP4, WebM, H.264, H.265*, MP3, AAC and more</p>
           </div>
-        </div>
-        <div class="spectrum-popup" id="spectrumPopup" hidden>
-          <header class="spectrum-popup-titlebar" id="spectrumPopupDrag">
-            <div class="spectrum-popup-titles">
-              <span class="spectrum-popup-label" data-i18n="spectrumLabel">Spectrum</span>
-              <span class="spectrum-popup-style" id="spectrumStyleName">Rainbow</span>
-            </div>
-            <div class="spectrum-popup-actions">
-              <button type="button" class="spectrum-popup-btn" id="btnSpectrumPrev" data-i18n-tooltip="spectrumPrevTip" aria-label="Previous style">‹</button>
-              <button type="button" class="spectrum-popup-btn" id="btnSpectrumNext" data-i18n-tooltip="spectrumNextTip" aria-label="Next style">›</button>
-              <button type="button" class="spectrum-popup-btn spectrum-popup-close" id="btnSpectrumPopupClose" data-i18n-tooltip="close" data-i18n-aria="close" aria-label="Close">✕</button>
-            </div>
-          </header>
-          <canvas id="spectrumCanvas" class="spectrum-popup-canvas"></canvas>
         </div>
         <!-- Non-modal save progress: keeps the video visible while saving -->
         <aside class="save-progress-popup" id="progressModal" hidden aria-live="polite">
@@ -282,40 +291,8 @@
         </aside>
       </div>
 
-      <aside class="history-panel" id="historyPanel" hidden aria-label="Play history">
-        <header class="history-panel-header">
-          <div class="history-panel-titles">
-            <h2 data-i18n="historyTitle">Play list</h2>
-            <span class="history-panel-count" id="historyCount"></span>
-          </div>
-          <div class="history-panel-actions">
-            <button type="button" class="history-panel-btn" id="btnHistoryClear" data-i18n="recentClear">Clear</button>
-            <button type="button" class="history-panel-btn history-panel-close" id="btnHistoryClose" data-i18n-tooltip="close" data-i18n-aria="close" aria-label="Close">✕</button>
-          </div>
-        </header>
-        <div class="history-panel-body">
-          <ul class="history-list" id="historyList"></ul>
-          <div class="history-empty" id="historyEmpty" data-i18n="historyEmpty">No played items yet</div>
-        </div>
-      </aside>
     </main>
     </div>
-    <!-- Status bar -->
-    <footer class="statusbar" id="statusBar" role="status">
-      <span class="status-item" id="statusFile">Ready</span>
-      <span class="status-sep">|</span>
-      <span class="status-item" id="statusFormat">—</span>
-      <span class="status-sep">|</span>
-      <span class="status-item" id="statusSubtitle">No subtitle</span>
-      <span class="status-sep">|</span>
-      <span class="status-item" id="statusState">Idle</span>
-      <span class="status-sep">|</span>
-      <span class="status-item" id="statusRate">Speed: 1×</span>
-      <span class="status-sep">|</span>
-      <span class="status-item" id="statusTheme">Theme: Dark</span>
-      <span class="status-sep">|</span>
-      <span class="status-item" id="statusPlatform">Web</span>
-    </footer>
   </div>
 
   <!-- Settings modal -->
@@ -352,15 +329,6 @@
                 </div>
               </div>
             </div>
-            <div class="field field-range electron-only" id="settingOpacityField" role="group" aria-labelledby="settingOpacityLabel" hidden>
-              <span class="field-label" id="settingOpacityLabel">
-                <svg class="field-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 1 0 0 20V2Zm0 18a8 8 0 0 1 0-16v16Z"/></svg>
-                <span data-i18n="windowOpacity">Window opacity</span>
-              </span>
-              <div class="settings-range-control">
-                <input type="range" class="opacity-bar" id="settingOpacity" name="windowOpacity" min="20" max="100" step="1" value="100" style="--fill: 100%" aria-valuetext="100%" />
-                <output class="settings-range-value" id="settingOpacityValue" for="settingOpacity">100%</output>
-              </div>
             </div>
           </div>
         </section>
@@ -456,6 +424,13 @@
               <span class="field-label">
                 <svg class="field-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18h2V8H4v10Zm4 0h2V4H8v14Zm4 0h2v-7h-2v7Zm4 0h2V9h-2v9Zm4 0h2V6h-2v12Z"/></svg>
                 <span data-i18n="showSpectrum">Show spectrum when audio is present</span>
+              </span>
+            </label>
+            <label class="field checkbox">
+              <input type="checkbox" id="settingAutoHideChrome" name="autoHideChrome" checked />
+              <span class="field-label">
+                <svg class="field-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v2H4V6Zm0 5h16v2H4v-2Zm0 5h10v2H4v-2Z"/><path d="M18 14.5 22 18l-4 3.5v-7Z"/></svg>
+                <span data-i18n="autoHideChrome">Auto-hide toolbar, controls, and status bar</span>
               </span>
             </label>
           </div>

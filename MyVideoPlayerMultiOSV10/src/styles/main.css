@@ -36,101 +36,108 @@ select {
 
 .app {
   display: grid;
-  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-rows: minmax(0, 1fr);
   height: 100%;
   background: var(--bg-app);
 }
 
 .chrome {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
-  grid-template-areas:
-    "top"
-    "stage"
-    "bottom";
+  grid-template-rows: minmax(0, 1fr);
+  grid-template-areas: "stage";
+  position: relative;
   min-height: 0;
   min-width: 0;
+  background: var(--bg-stage);
 }
 
 .chrome-rail {
   display: contents;
 }
 
-.chrome-rail > .toolbar {
-  grid-area: top;
-}
-
-.chrome-rail > .control-bar {
-  grid-area: bottom;
-}
-
 .chrome > .stage {
-  grid-area: stage;
-  min-height: 0;
-}
-
-/* Compact / mini player: video fills window; top chrome + bottom transport overlays */
-.app.is-compact {
-  grid-template-rows: minmax(0, 1fr);
-}
-
-.app.is-compact .chrome {
-  display: grid;
-  grid-template-rows: minmax(0, 1fr);
-  grid-template-areas: "stage";
-  position: relative;
-  min-height: 0;
-  background: var(--bg-stage);
-}
-
-.app.is-compact .chrome > .stage {
   grid-area: stage;
   min-height: 0;
   overflow: hidden;
   z-index: 0;
 }
 
-.app.is-compact .chrome-rail {
-  display: contents;
-}
-
-.app.is-compact .toolbar,
-.app.is-compact .control-bar {
+/* Auto-hide overlays: toolbar (top) + bottom chrome (controls + status) */
+.toolbar,
+.bottom-chrome {
   position: absolute;
   left: 0;
   right: 0;
   z-index: 40;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.18s ease, transform 0.18s ease;
-  background: color-mix(in srgb, var(--bg-toolbar) 90%, transparent);
+  transition:
+    opacity 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: opacity, transform;
+}
+
+.toolbar {
+  top: 0;
+  transform: translateY(-100%);
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.22);
+  background: color-mix(in srgb, var(--bg-toolbar) 92%, transparent);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
 }
 
-.app.is-compact .toolbar {
-  top: 0;
-  transform: translateY(-104%);
-  border-bottom: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.28);
-}
-
-.app.is-compact .control-bar {
+.bottom-chrome {
   bottom: 0;
-  top: auto;
-  transform: translateY(104%);
-  border-top: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
-  border-bottom: none;
-  box-shadow: 0 -8px 20px rgba(0, 0, 0, 0.28);
+  display: flex;
+  flex-direction: column;
+  transform: translateY(100%);
+  box-shadow: 0 -8px 20px rgba(0, 0, 0, 0.22);
 }
 
-.app.is-compact.compact-chrome-visible .toolbar,
-.app.is-compact.compact-chrome-visible .control-bar,
-.app.is-compact .toolbar:focus-within,
-.app.is-compact .control-bar:focus-within {
+.bottom-chrome .control-bar {
+  position: relative;
+  left: auto;
+  right: auto;
+  bottom: auto;
+  top: auto;
+  opacity: 1;
+  pointer-events: auto;
+  transform: none;
+  transition: none;
+  background: color-mix(in srgb, var(--bg-toolbar) 92%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-top: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
+  box-shadow: none;
+}
+
+.bottom-chrome .statusbar {
+  position: relative;
+  flex: 0 0 auto;
+  background: color-mix(in srgb, var(--bg-statusbar) 94%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.app.chrome-visible .toolbar,
+.app.chrome-visible .bottom-chrome,
+.app.chrome-pinned .toolbar,
+.app.chrome-pinned .bottom-chrome,
+.toolbar:focus-within,
+.bottom-chrome:focus-within {
   opacity: 1;
   transform: translateY(0);
   pointer-events: auto;
+}
+
+/* Compact / mini player layout tweaks on top of shared overlays */
+.app.is-compact {
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.app.is-compact .chrome-rail {
+  display: contents;
 }
 
 .app.is-compact .toolbar {
@@ -143,6 +150,15 @@ select {
   padding: 0 4px 0 6px;
   grid-template-columns: none;
   cursor: grab;
+  overflow: hidden;
+}
+
+.app.is-compact .toolbar-left,
+.app.is-compact .toolbar-actions,
+.app.is-compact .toolbar-right,
+.app.is-compact .window-controls,
+.app.is-compact #toolbarOpacity {
+  flex-shrink: 0;
 }
 
 .app.is-compact .toolbar button,
@@ -213,11 +229,10 @@ select {
 .app.is-compact .toolbar-actions > *:not(#btnOpen),
 .app.is-compact .toolbar-right > *:not(#btnCompact):not(#toolbarOpacity),
 .app.is-compact .statusbar,
-.app.is-compact .history-panel,
+.app.is-compact .fit-wrap .tool-btn-label,
 .app.is-compact .rate-group,
-.app.is-compact .transport-row > .toolbar-sep,
+.app.is-compact .transport-row > .toolbar-sep:has(+ .rate-group),
 .app.is-compact .volume-scale,
-.app.is-compact .spectrum-popup,
 .app.is-compact .drop-hint {
   display: none !important;
 }
@@ -264,6 +279,7 @@ select {
   text-align: right;
 }
 
+.app.is-compact .bottom-chrome .control-bar,
 .app.is-compact .control-bar {
   display: flex;
   flex-direction: row;
@@ -275,16 +291,24 @@ select {
   height: 44px;
   padding: 4px 10px 6px;
   margin: 0;
+  overflow: hidden;
+}
+
+.app.is-compact .control-bar .toolbar-group,
+.app.is-compact .control-bar .fit-wrap,
+.app.is-compact .control-bar .volume-group {
+  flex-shrink: 0;
 }
 
 .app.is-compact .seek-row {
   flex: 1 1 auto;
   width: auto;
-  min-width: 120px;
+  min-width: 140px;
   max-width: none;
   gap: 6px;
   padding: 0;
   order: 2;
+  flex-shrink: 1;
 }
 
 .app.is-compact .seek-row .time-label {
@@ -327,10 +351,6 @@ body:not(.is-electron) .app.is-compact .window-controls {
   display: none !important;
 }
 
-.app.is-compact .stage.has-history-panel {
-  grid-template-columns: 1fr;
-}
-
 #btnCompact .icon-compact-enter,
 #btnCompact .icon-compact-exit {
   display: block;
@@ -348,16 +368,12 @@ body:not(.is-electron) .app.is-compact .window-controls {
 
 /* Toolbar: left | drag | tools | caption buttons (fixed last column) */
 .toolbar {
-  position: relative;
-  z-index: 200;
   display: grid;
   /* Right column is auto (not minmax(0,…)) so tool buttons do not shrink/clip. */
   grid-template-columns: auto minmax(16px, 1fr) auto 108px;
   align-items: center;
   column-gap: 4px;
   padding: 0;
-  background: var(--bg-toolbar);
-  border-bottom: 1px solid var(--border);
   min-height: 32px;
   min-width: 0;
   overflow: visible;
@@ -365,7 +381,6 @@ body:not(.is-electron) .app.is-compact .window-controls {
      swallow clicks for the whole toolbar. Window move is JS/IPC only. */
   -webkit-app-region: no-drag !important;
   app-region: no-drag !important;
-  pointer-events: auto;
 }
 
 body.is-electron .toolbar,
@@ -631,10 +646,11 @@ body.is-electron .toolbar-opacity {
 }
 
 .toolbar-opacity-value {
-  min-width: 2.6em;
-  font-size: 10px;
+  min-width: 2.8em;
+  font-size: 11px;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
-  color: var(--text-muted);
+  color: var(--text);
   text-align: right;
 }
 
@@ -763,8 +779,6 @@ body.is-electron .toolbar-opacity {
   align-items: center;
   gap: 6px;
   padding: 8px 12px 10px;
-  background: var(--bg-toolbar);
-  border-top: 1px solid var(--border);
   -webkit-app-region: no-drag;
   app-region: no-drag;
 }
@@ -827,6 +841,24 @@ body.is-electron .toolbar-opacity {
   width: 14px;
   height: 14px;
   display: block;
+  flex: 0 0 14px;
+}
+
+.control-bar .tool-btn.tool-btn-labeled {
+  width: auto;
+  min-width: 0;
+  max-width: min(220px, 40vw);
+  height: 28px;
+  min-height: 28px;
+  max-height: 28px;
+  padding: 0 8px;
+  gap: 5px;
+  flex: 0 0 auto;
+}
+
+.control-bar .tool-btn.tool-btn-labeled svg {
+  width: 14px;
+  height: 14px;
   flex: 0 0 14px;
 }
 
@@ -1010,198 +1042,6 @@ body.is-electron .toolbar-opacity {
   min-height: 0;
   background: var(--bg-stage);
   position: relative;
-}
-
-.stage.has-history-panel {
-  grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
-}
-
-/* Right play-history panel */
-.history-panel {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  min-height: 0;
-  border-left: 1px solid var(--border);
-  background: var(--bg-panel);
-  color: var(--text);
-  z-index: 4;
-}
-
-.history-panel[hidden] {
-  display: none !important;
-}
-
-.history-panel-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--border);
-  flex: 0 0 auto;
-}
-
-.history-panel-titles {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  min-width: 0;
-}
-
-.history-panel-titles h2 {
-  margin: 0;
-  font-size: 13px;
-  font-weight: 650;
-}
-
-.history-panel-count {
-  font-size: 11px;
-  color: var(--text-muted);
-  white-space: nowrap;
-}
-
-.history-panel-actions {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex: 0 0 auto;
-}
-
-.history-panel-btn {
-  border: 0;
-  background: transparent;
-  color: var(--text-muted);
-  font: inherit;
-  font-size: 12px;
-  padding: 4px 8px;
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-.history-panel-btn:hover {
-  background: var(--bg-hover, rgba(255, 255, 255, 0.06));
-  color: var(--text);
-}
-
-.history-panel-close {
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  display: inline-grid;
-  place-items: center;
-}
-
-.history-panel-body {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow: auto;
-  padding: 8px;
-}
-
-.history-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.history-item {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 10px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--bg-stage);
-}
-
-.history-item-main {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  width: 100%;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  text-align: left;
-  padding: 0;
-  cursor: pointer;
-  font: inherit;
-}
-
-.history-item-main:hover .history-item-title {
-  color: var(--accent, #6cb6ff);
-}
-
-.history-item-text {
-  min-width: 0;
-  flex: 1 1 auto;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.history-item-title {
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 1.3;
-  word-break: break-word;
-}
-
-.history-item-path {
-  font-size: 11px;
-  color: var(--text-muted);
-  word-break: break-all;
-  line-height: 1.35;
-}
-
-.history-item-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 10px;
-  font-size: 11px;
-  color: var(--text-muted);
-}
-
-.history-item-footer {
-  display: flex;
-  justify-content: flex-end;
-}
-
-.history-item-delete {
-  border: 0;
-  background: transparent;
-  color: var(--text-muted);
-  font: inherit;
-  font-size: 11px;
-  padding: 2px 6px;
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-.history-item-delete:hover {
-  color: var(--danger, #ff7b7b);
-  background: var(--bg-hover, rgba(255, 255, 255, 0.06));
-}
-
-.history-empty {
-  display: none;
-  padding: 24px 12px;
-  text-align: center;
-  color: var(--text-muted);
-  font-size: 12px;
-  line-height: 1.5;
-}
-
-.history-panel.is-empty .history-list {
-  display: none;
-}
-
-.history-panel.is-empty .history-empty {
-  display: block;
 }
 
 .tool-btn.is-active,
@@ -1452,6 +1292,24 @@ html[data-color-scheme="light"] .stage-context-menu,
 .popup-menu-end {
   left: auto;
   right: 0;
+}
+
+.popup-menu-up {
+  top: auto;
+  bottom: calc(100% + 4px);
+}
+
+.control-bar .fit-wrap {
+  flex: 0 0 auto;
+  z-index: 5;
+}
+
+.control-bar .fit-wrap .tool-btn-labeled {
+  max-width: min(200px, 36vw);
+}
+
+.control-bar .fit-wrap .tool-btn-label {
+  max-width: 9.5em;
 }
 
 .popup-menu[hidden] {
@@ -1765,111 +1623,6 @@ html[data-color-scheme="light"] .stage-context-menu,
 
 .subtitle-overlay.visible {
   opacity: 1;
-}
-
-.spectrum-popup {
-  position: absolute;
-  right: 14px;
-  bottom: 14px;
-  z-index: 8;
-  width: min(320px, calc(100% - 24px));
-  height: min(210px, calc(100% - 24px));
-  min-width: 200px;
-  min-height: 140px;
-  display: flex;
-  flex-direction: column;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--bg-modal) 92%, transparent);
-  box-shadow: var(--shadow);
-  overflow: hidden;
-  backdrop-filter: blur(8px);
-  resize: both;
-  pointer-events: auto;
-  /* Promote above hardware-decoded <video> layers (esp. object-fit: cover). */
-  transform: translateZ(0);
-}
-
-.spectrum-popup[hidden] {
-  display: none !important;
-}
-
-.spectrum-popup-titlebar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 5px 6px 5px 10px;
-  border-bottom: 1px solid var(--border);
-  background: color-mix(in srgb, var(--bg-toolbar) 88%, transparent);
-  cursor: grab;
-  user-select: none;
-  touch-action: none;
-}
-
-.spectrum-popup-titlebar:active {
-  cursor: grabbing;
-}
-
-.spectrum-popup-titles {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-}
-
-.spectrum-popup-label {
-  font-size: 10px;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-
-.spectrum-popup-style {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.spectrum-popup-actions {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  flex: 0 0 auto;
-}
-
-.spectrum-popup-btn {
-  width: 24px;
-  height: 22px;
-  border: 0;
-  border-radius: 5px;
-  background: transparent;
-  color: var(--text-muted);
-  cursor: pointer;
-  font-size: 14px;
-  line-height: 1;
-  padding: 0;
-}
-
-.spectrum-popup-btn:hover {
-  background: var(--bg-control);
-  color: var(--text);
-}
-
-.spectrum-popup-close:hover {
-  background: var(--danger);
-  color: #fff;
-}
-
-.spectrum-popup-canvas {
-  flex: 1 1 auto;
-  width: 100%;
-  min-height: 0;
-  display: block;
-  background: var(--bg-panel);
 }
 
 .playback-overlay {
@@ -2723,6 +2476,7 @@ html[data-color-scheme="light"] .stage-context-menu,
 
 body.is-fullscreen .toolbar,
 body.is-fullscreen .control-bar,
+body.is-fullscreen .bottom-chrome,
 body.is-fullscreen .chrome-rail,
 body.is-fullscreen .statusbar {
   display: none !important;
@@ -2730,10 +2484,6 @@ body.is-fullscreen .statusbar {
 
 body.is-fullscreen .stage {
   grid-template-columns: 1fr !important;
-}
-
-body.is-fullscreen .history-panel {
-  display: none !important;
 }
 
 body.is-fullscreen .app {
