@@ -1108,7 +1108,6 @@ function updateCompactButton() {
 }
 
 let chromeHideTimer = 0;
-const CHROME_HOTZONE_PX = 64;
 const CHROME_HIDE_MS = 2000;
 
 function isMediaPlayingNow() {
@@ -1229,19 +1228,12 @@ function bindChromeOverlay() {
   const chrome = $('chrome');
   if (!chrome) return;
 
-  const onMove = (e) => {
+  const onMove = () => {
     if (!isChromeAutoHideEnabled()) return;
-    const rect = chrome.getBoundingClientRect();
-    const y = e.clientY - rect.top;
-    const fromBottom = rect.height - y;
-    const overChromeUi =
-      Boolean(e.target?.closest?.('.toolbar, .bottom-chrome, .control-bar, .statusbar'));
-    if (y <= CHROME_HOTZONE_PX || fromBottom <= CHROME_HOTZONE_PX || overChromeUi) {
-      showChromeOverlay();
-    } else if (els.appRoot?.classList.contains('chrome-visible') && isMediaPlayingNow()) {
-      // Leaving edge/UI into the video area starts the hide countdown once.
-      scheduleHideChromeOverlay();
-    }
+    // Any mouse movement over the video (or chrome UI) reveals the bars;
+    // the idle countdown hides them again while playing. This mirrors the
+    // standard video-player behaviour and applies in compact mode too.
+    showChromeOverlay();
   };
 
   chrome.addEventListener('mousemove', onMove);
