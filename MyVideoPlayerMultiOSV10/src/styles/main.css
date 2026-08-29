@@ -150,7 +150,7 @@ select {
   padding: 0 4px 0 6px;
   grid-template-columns: none;
   cursor: grab;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .app.is-compact .toolbar-left,
@@ -227,7 +227,7 @@ select {
 }
 
 .app.is-compact .toolbar-actions > *:not(#btnOpen),
-.app.is-compact .toolbar-right > *:not(#btnCompact):not(#toolbarOpacity),
+.app.is-compact .toolbar-right > *:not(#btnCompact):not(#toolbarOpacity):not(#toolbarFitWrap),
 .app.is-compact .statusbar,
 .app.is-compact .fit-wrap .tool-btn-label,
 .app.is-compact .rate-group,
@@ -1199,6 +1199,19 @@ html[data-color-scheme="light"] .stage-context-menu,
   cursor: not-allowed;
 }
 
+.context-menu-label {
+  padding: 6px 10px 4px;
+  color: var(--menu-fg-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.context-menu-separator {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--menu-border);
+}
+
 .field-hint {
   margin: 0;
   font-size: 12px;
@@ -1356,6 +1369,27 @@ html[data-color-scheme="light"] .stage-context-menu,
   text-align: left;
   cursor: pointer;
   font-size: 12px;
+}
+
+.popup-item-content {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+
+.popup-item-icon {
+  width: 17px;
+  height: 17px;
+  flex: 0 0 17px;
+  fill: currentColor;
+  color: var(--menu-fg-muted);
+}
+
+.popup-item:hover .popup-item-icon,
+.popup-item:focus-visible .popup-item-icon,
+.popup-item.is-active .popup-item-icon {
+  color: var(--menu-accent);
 }
 
 .popup-item-label {
@@ -2066,6 +2100,25 @@ html[data-color-scheme="light"] .stage-context-menu,
   font-size: 16px;
   font-weight: 600;
   color: var(--text);
+}
+
+.dialog-title {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 9px;
+}
+
+.dialog-title-icon {
+  flex: 0 0 20px;
+  width: 20px;
+  height: 20px;
+  fill: currentColor;
+  color: var(--bg-primary);
+}
+
+.dialog-title-error .dialog-title-icon {
+  color: var(--danger, #e05252);
 }
 
 .modal-close {

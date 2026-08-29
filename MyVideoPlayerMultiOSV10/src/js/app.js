@@ -95,6 +95,11 @@ const els = {
   btnSaveYt: $('btnSaveYt'),
   stageContextMenu: $('stageContextMenu'),
   ctxSaveMedia: $('ctxSaveMedia'),
+  ctxSaveMediaLabel: $('ctxSaveMediaLabel'),
+  ctxPlayPause: $('ctxPlayPause'),
+  ctxPlayPauseLabel: $('ctxPlayPauseLabel'),
+  ctxMute: $('ctxMute'),
+  ctxMuteLabel: $('ctxMuteLabel'),
   rateSelect: $('rateSelect'),
   btnRecent: $('btnRecent'),
   recentMenu: $('recentMenu'),
@@ -802,8 +807,17 @@ function openStageContextMenu(clientX, clientY) {
   );
   if (els.ctxSaveMedia) {
     els.ctxSaveMedia.disabled = !canSave;
-    els.ctxSaveMedia.textContent = t('save');
+    if (els.ctxSaveMediaLabel) els.ctxSaveMediaLabel.textContent = t('save');
   }
+  const playing = youtubeMode ? ytPlayer.isPlaying() : !els.media.paused && !els.media.ended;
+  if (els.ctxPlayPauseLabel) els.ctxPlayPauseLabel.textContent = t(playing ? 'pause' : 'play');
+  els.ctxPlayPause?.querySelector('.ctx-icon-play')?.classList.toggle('hidden', playing);
+  els.ctxPlayPause?.querySelector('.ctx-icon-pause')?.classList.toggle('hidden', !playing);
+  const muted = youtubeMode ? ytPlayer.isMuted() : els.media.muted || Number(els.volumeBar.value) === 0;
+  if (els.ctxMuteLabel) els.ctxMuteLabel.textContent = t(muted ? 'unmute' : 'mute');
+  els.ctxMute?.querySelector('.ctx-icon-volume')?.classList.toggle('hidden', muted);
+  els.ctxMute?.querySelector('.ctx-icon-muted')?.classList.toggle('hidden', !muted);
+  updateFitMenuSelection();
 
   menu.hidden = false;
   // Measure after show so clamping uses real size.
@@ -824,20 +838,29 @@ function bindStageContextMenu() {
     if (e.target.closest?.('.save-progress-popup, .history-panel, button, a, input, select, textarea')) {
       return;
     }
-    // Custom menu for YouTube playback surface (iframe has pointer-events: none).
-    if (!youtubeMode || !currentYouTube?.url) return;
     e.preventDefault();
     e.stopPropagation();
     openStageContextMenu(e.clientX, e.clientY);
   });
 
-  els.ctxSaveMedia?.addEventListener('click', (e) => {
+  menu.addEventListener('click', (e) => {
     e.stopPropagation();
+    const item = e.target.closest?.('button');
+    if (!item || item.disabled) return;
     closeStageContextMenu();
-    void saveCurrentMedia();
+    if (item.dataset.fit) {
+      applyVideoFit(item.dataset.fit, { announce: true });
+      return;
+    }
+    if (item === els.ctxSaveMedia) {
+      void saveCurrentMedia();
+      return;
+    }
+    if (item.dataset.action === 'play-pause') togglePlay();
+    else if (item.dataset.action === 'stop') stopPlayback();
+    else if (item.dataset.action === 'mute') toggleMute();
+    else if (item.dataset.action === 'fullscreen') void toggleFullscreen();
   });
-
-  menu.addEventListener('click', (e) => e.stopPropagation());
   menu.addEventListener('contextmenu', (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -883,7 +906,7 @@ function updateActualMediaSize() {
 
 function updateFitMenuSelection() {
   const current = normalizeVideoFit(settings.videoFit);
-  els.fitList?.querySelectorAll('[data-fit]').forEach((btn) => {
+  document.querySelectorAll('#fitList [data-fit], #stageContextMenu [data-fit]').forEach((btn) => {
     const active = btn.dataset.fit === current;
     btn.classList.toggle('is-active', active);
     btn.setAttribute('aria-checked', String(active));

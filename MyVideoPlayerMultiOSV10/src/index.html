@@ -55,6 +55,48 @@
       <div class="toolbar-spacer toolbar-drag-region" id="toolbarDrag" aria-hidden="true"></div>
 
       <div class="toolbar-right">
+        <div class="popup-wrap fit-wrap" id="toolbarFitWrap">
+          <button type="button" class="tool-btn tool-btn-labeled" id="btnFit" data-i18n-tooltip="fitTip" data-i18n-aria="fit" aria-haspopup="menu" aria-expanded="false">
+            <svg class="icon-fit-cover" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3h7v2H5v5H3V3Zm11 0h7v7h-2V5h-5V3ZM3 14h2v5h5v2H3v-7Zm18 0v7h-7v-2h5v-5h2Z"/></svg>
+            <svg class="icon-fit-contain hidden" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v12H4V6Zm2 2v8h12V8H6Zm3 2h6v4H9v-4Z"/></svg>
+            <svg class="icon-fit-actual hidden" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h4v2H9v2H7V7Zm6 0h4v4h-2V9h-2V7ZM7 13h2v2h2v2H7v-4Zm8 2h2v4h-4v-2h2v-2Z"/></svg>
+            <span class="tool-btn-label" id="fitBtnLabel">Keep aspect ratio</span>
+          </button>
+          <div class="popup-menu popup-menu-end" id="fitMenu" role="menu" hidden>
+            <div class="popup-menu-header">
+              <span data-i18n="fitTitle">Display size</span>
+            </div>
+            <ul class="popup-list" id="fitList">
+              <li>
+                <button type="button" class="popup-item" data-fit="cover" role="menuitemradio" aria-checked="false">
+                  <span class="popup-item-content">
+                    <svg class="popup-item-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3h7v2H5v5H3V3Zm11 0h7v7h-2V5h-5V3ZM3 14h2v5h5v2H3v-7Zm18 0v7h-7v-2h5v-5h2Z"/></svg>
+                    <span data-i18n="fitCover">Fill screen</span>
+                  </span>
+                  <span class="popup-item-check" aria-hidden="true"></span>
+                </button>
+              </li>
+              <li>
+                <button type="button" class="popup-item" data-fit="contain" role="menuitemradio" aria-checked="true">
+                  <span class="popup-item-content">
+                    <svg class="popup-item-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18v14H3V5Zm2 2v10h14V7H5Zm3 3h8v4H8v-4Z"/></svg>
+                    <span data-i18n="fitContain">Keep aspect ratio</span>
+                  </span>
+                  <span class="popup-item-check" aria-hidden="true"></span>
+                </button>
+              </li>
+              <li>
+                <button type="button" class="popup-item" data-fit="actual" role="menuitemradio" aria-checked="false">
+                  <span class="popup-item-content">
+                    <svg class="popup-item-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h6v2H7v4H5V5Zm8 0h6v6h-2V7h-4V5ZM5 13h2v4h4v2H5v-6Zm12 0h2v6h-6v-2h4v-4Z"/></svg>
+                    <span data-i18n="fitActual">Original size</span>
+                  </span>
+                  <span class="popup-item-check" aria-hidden="true"></span>
+                </button>
+              </li>
+            </ul>
+          </div>
+        </div>
         <button type="button" class="tool-btn" id="btnSpectrum" data-i18n-tooltip="spectrumTip" data-i18n-aria="spectrum" aria-pressed="true">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18h2V8H4v10Zm4 0h2V4H8v14Zm4 0h2v-7h-2v7Zm4 0h2V9h-2v9Zm4 0h2V6h-2v12Z"/></svg>
           </button>
@@ -149,42 +191,6 @@
 
         <div class="toolbar-sep"></div>
 
-        <div class="popup-wrap fit-wrap">
-          <button type="button" class="tool-btn tool-btn-labeled" id="btnFit" data-i18n-tooltip="fitTip" data-i18n-aria="fit" aria-haspopup="menu" aria-expanded="false">
-            <svg class="icon-fit-cover" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3h7v2H5v5H3V3Zm11 0h7v7h-2V5h-5V3ZM3 14h2v5h5v2H3v-7Zm18 0v7h-7v-2h5v-5h2Z"/></svg>
-            <svg class="icon-fit-contain hidden" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v12H4V6Zm2 2v8h12V8H6Zm3 2h6v4H9v-4Z"/></svg>
-            <svg class="icon-fit-actual hidden" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h4v2H9v2H7V7Zm6 0h4v4h-2V9h-2V7ZM7 13h2v2h2v2H7v-4Zm8 2h2v4h-4v-2h2v-2Z"/></svg>
-            <span class="tool-btn-label" id="fitBtnLabel">Keep aspect ratio</span>
-          </button>
-          <div class="popup-menu popup-menu-end popup-menu-up" id="fitMenu" role="menu" hidden>
-            <div class="popup-menu-header">
-              <span data-i18n="fitTitle">Display size</span>
-            </div>
-            <ul class="popup-list" id="fitList">
-              <li>
-                <button type="button" class="popup-item" data-fit="cover" role="menuitemradio" aria-checked="false">
-                  <span data-i18n="fitCover">Fill screen</span>
-                  <span class="popup-item-check" aria-hidden="true"></span>
-                </button>
-              </li>
-              <li>
-                <button type="button" class="popup-item" data-fit="contain" role="menuitemradio" aria-checked="true">
-                  <span data-i18n="fitContain">Keep aspect ratio</span>
-                  <span class="popup-item-check" aria-hidden="true"></span>
-                </button>
-              </li>
-              <li>
-                <button type="button" class="popup-item" data-fit="actual" role="menuitemradio" aria-checked="false">
-                  <span data-i18n="fitActual">Original size</span>
-                  <span class="popup-item-check" aria-hidden="true"></span>
-                </button>
-              </li>
-            </ul>
-          </div>
-        </div>
-
-        <div class="toolbar-sep"></div>
-
         <div class="toolbar-group rate-group">
           <button type="button" class="tool-btn" id="btnRateDown" data-i18n-tooltip="slowerTip" data-i18n-aria="slower">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 11h10v2H7v-2Z"/></svg>
@@ -231,7 +237,76 @@
         <div id="youtubeContainer" class="youtube-container hidden" data-i18n-aria="youtubePlayer"></div>
         <ul class="stage-context-menu" id="stageContextMenu" role="menu" hidden>
           <li role="none">
-            <button type="button" class="popup-item" id="ctxSaveMedia" role="menuitem" data-i18n="save">Save</button>
+            <button type="button" class="popup-item" id="ctxPlayPause" role="menuitem" data-action="play-pause">
+              <span class="popup-item-content">
+                <svg class="popup-item-icon ctx-icon-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7L8 5Z"/></svg>
+                <svg class="popup-item-icon ctx-icon-pause hidden" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h3v14H7V5Zm7 0h3v14h-3V5Z"/></svg>
+                <span id="ctxPlayPauseLabel" data-i18n="play">Play</span>
+              </span>
+            </button>
+          </li>
+          <li role="none">
+            <button type="button" class="popup-item" role="menuitem" data-action="stop">
+              <span class="popup-item-content">
+                <svg class="popup-item-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6h12v12H6V6Z"/></svg>
+                <span data-i18n="stop">Stop</span>
+              </span>
+            </button>
+          </li>
+          <li role="none">
+            <button type="button" class="popup-item" id="ctxMute" role="menuitem" data-action="mute">
+              <span class="popup-item-content">
+                <svg class="popup-item-icon ctx-icon-volume" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10v4h3l4 3V7l-4 3H4Zm11.5 2a3.5 3.5 0 0 0-1.8-3.05v6.1A3.5 3.5 0 0 0 15.5 12Zm0-7.7v2.06A6.5 6.5 0 0 1 19 12a6.5 6.5 0 0 1-3.5 5.64v2.06A8.5 8.5 0 0 0 21 12a8.5 8.5 0 0 0-5.5-7.7Z"/></svg>
+                <svg class="popup-item-icon ctx-icon-muted hidden" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10v4h3l4 3V7l-4 3H4Zm9.4-2.6 1.4-1.4 2.2 2.2L19.2 6l1.4 1.4-2.2 2.2 2.2 2.2-1.4 1.4-2.2-2.2-2.2 2.2-1.4-1.4 2.2-2.2-2.2-2.2Z"/></svg>
+                <span id="ctxMuteLabel" data-i18n="mute">Mute</span>
+              </span>
+            </button>
+          </li>
+          <li class="context-menu-separator" role="separator"></li>
+          <li class="context-menu-label" role="presentation" data-i18n="fitTitle">Display size</li>
+          <li role="none">
+            <button type="button" class="popup-item" data-fit="cover" role="menuitemradio" aria-checked="false">
+              <span class="popup-item-content">
+                <svg class="popup-item-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3h7v2H5v5H3V3Zm11 0h7v7h-2V5h-5V3ZM3 14h2v5h5v2H3v-7Zm18 0v7h-7v-2h5v-5h2Z"/></svg>
+                <span data-i18n="fitCover">Fill screen</span>
+              </span>
+              <span class="popup-item-check" aria-hidden="true"></span>
+            </button>
+          </li>
+          <li role="none">
+            <button type="button" class="popup-item" data-fit="contain" role="menuitemradio" aria-checked="true">
+              <span class="popup-item-content">
+                <svg class="popup-item-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18v14H3V5Zm2 2v10h14V7H5Zm3 3h8v4H8v-4Z"/></svg>
+                <span data-i18n="fitContain">Keep aspect ratio</span>
+              </span>
+              <span class="popup-item-check" aria-hidden="true"></span>
+            </button>
+          </li>
+          <li role="none">
+            <button type="button" class="popup-item" data-fit="actual" role="menuitemradio" aria-checked="false">
+              <span class="popup-item-content">
+                <svg class="popup-item-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h6v2H7v4H5V5Zm8 0h6v6h-2V7h-4V5ZM5 13h2v4h4v2H5v-6Zm12 0h2v6h-6v-2h4v-4Z"/></svg>
+                <span data-i18n="fitActual">Original size</span>
+              </span>
+              <span class="popup-item-check" aria-hidden="true"></span>
+            </button>
+          </li>
+          <li class="context-menu-separator" role="separator"></li>
+          <li role="none">
+            <button type="button" class="popup-item" role="menuitem" data-action="fullscreen">
+              <span class="popup-item-content">
+                <svg class="popup-item-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5v2H6v3H4Zm10-5h6v5h-2V6h-4V4ZM4 15h2v3h3v2H4v-5Zm16 5h-6v-2h4v-3h2v5Z"/></svg>
+                <span data-i18n="fullscreen">Fullscreen</span>
+              </span>
+            </button>
+          </li>
+          <li role="none">
+            <button type="button" class="popup-item" id="ctxSaveMedia" role="menuitem">
+              <span class="popup-item-content">
+                <svg class="popup-item-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 3h2v10l3.5-3.5 1.4 1.4L12 16.8l-5.9-5.9 1.4-1.4L11 13V3ZM5 19h14v2H5v-2Z"/></svg>
+                <span id="ctxSaveMediaLabel" data-i18n="save">Save</span>
+              </span>
+            </button>
           </li>
         </ul>
         <div class="subtitle-overlay" id="subtitleOverlay" aria-live="polite"></div>
@@ -254,7 +329,10 @@
         <!-- Non-modal save progress: keeps the video visible while saving -->
         <aside class="save-progress-popup" id="progressModal" hidden aria-live="polite">
           <header class="save-progress-header">
-            <h2 id="progressTitle" data-i18n="progressSaving">Saving…</h2>
+            <div class="dialog-title">
+              <svg class="dialog-title-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20h14v-2H5v2Zm7-18-5.5 5.5H10V15h4V7.5h3.5L12 2Z"/></svg>
+              <h2 id="progressTitle" data-i18n="progressSaving">Saving…</h2>
+            </div>
           </header>
           <div class="save-progress-body">
             <p class="progress-name" id="progressName"></p>
@@ -299,7 +377,10 @@
   <dialog class="modal" id="settingsModal">
     <form method="dialog" class="modal-card settings-card" id="settingsForm">
       <header class="modal-header">
-        <h2 data-i18n="settingsTitle">Settings</h2>
+        <div class="dialog-title">
+          <svg class="dialog-title-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M19.14 12.94c.04-.31.06-.63.06-.94s-.02-.63-.06-.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.03 7.03 0 0 0-1.63-.94l-.36-2.54A.5.5 0 0 0 13.9 2h-3.8a.5.5 0 0 0-.5.42l-.36 2.54c-.58.23-1.12.54-1.63.94l-2.39-.96a.5.5 0 0 0-.6.22L2.7 8.48a.5.5 0 0 0 .12.64l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94L2.82 14.16a.5.5 0 0 0-.12.64l1.92 3.32c.13.23.4.32.64.22l2.39-.96c.5.4 1.05.72 1.63.94l.36 2.54c.05.24.26.42.5.42h3.8c.24 0 .45-.18.5-.42l.36-2.54c.58-.22 1.13-.54 1.63-.94l2.39.96c.24.1.51 0 .64-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58ZM12 15.5A3.5 3.5 0 1 1 12 8.5a3.5 3.5 0 0 1 0 7Z"/></svg>
+          <h2 data-i18n="settingsTitle">Settings</h2>
+        </div>
         <button type="submit" class="modal-close" value="cancel" data-i18n-aria="close">✕</button>
       </header>
       <div class="modal-body settings-body">
@@ -328,7 +409,6 @@
                   <button type="button" class="btn secondary" id="btnDeleteTheme" hidden data-i18n="deleteCustom">Delete custom</button>
                 </div>
               </div>
-            </div>
             </div>
           </div>
         </section>
@@ -447,7 +527,10 @@
   <dialog class="modal" id="themeEditorModal">
     <form method="dialog" class="modal-card theme-editor-card" id="themeEditorForm">
       <header class="modal-header">
-        <h2 data-i18n="themeEditor">Custom Theme</h2>
+        <div class="dialog-title">
+          <svg class="dialog-title-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 0 0 0 18c.8 0 1.5-.7 1.5-1.5 0-.4-.15-.75-.4-1-.25-.25-.4-.6-.4-1 0-.8.7-1.5 1.5-1.5H15a5 5 0 0 0 0-10h-3Zm-5.5 9a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm3-4a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm2.5 4.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Z"/></svg>
+          <h2 data-i18n="themeEditor">Custom Theme</h2>
+        </div>
         <button type="button" class="modal-close" id="btnCloseThemeEditor" data-i18n-aria="close">✕</button>
       </header>
       <div class="modal-body">
@@ -476,7 +559,10 @@
   <dialog class="modal" id="youtubeModal">
     <form method="dialog" class="modal-card" id="youtubeForm">
       <header class="modal-header">
-        <h2 data-i18n="youtubeTitle">Open URL</h2>
+        <div class="dialog-title">
+          <svg class="dialog-title-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M10.6 13.4a2 2 0 0 0 2.8 0l3-3a2 2 0 0 0-2.8-2.8l-1.1 1.1-1.4-1.4 1.1-1.1a4 4 0 0 1 5.6 5.6l-3 3a4 4 0 0 1-5.6 0l-.4-.4 1.4-1.4.4.4Zm2.8-2.8a2 2 0 0 0-2.8 0l-3 3a2 2 0 1 0 2.8 2.8l1.1-1.1 1.4 1.4-1.1 1.1a4 4 0 0 1-5.6-5.6l3-3a4 4 0 0 1 5.6 0l.4.4-1.4 1.4-.4-.4Z"/></svg>
+          <h2 data-i18n="youtubeTitle">Open URL</h2>
+        </div>
         <button type="submit" class="modal-close" value="cancel" data-i18n-aria="close">✕</button>
       </header>
       <div class="modal-body">
@@ -498,7 +584,10 @@
   <dialog class="modal" id="errorModal">
     <form method="dialog" class="modal-card error-card" id="errorForm">
       <header class="modal-header">
-        <h2 id="errorTitle" data-i18n="errorDefaultTitle">Error</h2>
+        <div class="dialog-title dialog-title-error">
+          <svg class="dialog-title-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 1 21h22L12 2Zm0 5.8 6.1 10.7H5.9L12 7.8ZM11 10v5h2v-5h-2Zm0 6.5v2h2v-2h-2Z"/></svg>
+          <h2 id="errorTitle" data-i18n="errorDefaultTitle">Error</h2>
+        </div>
         <button type="button" class="modal-close" id="btnCloseError" data-i18n-aria="close">✕</button>
       </header>
       <div class="modal-body">
@@ -520,7 +609,10 @@
   <dialog class="modal" id="aboutModal">
     <form method="dialog" class="modal-card about-card">
       <header class="modal-header">
-        <h2 data-i18n="aboutTitle">About</h2>
+        <div class="dialog-title">
+          <svg class="dialog-title-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm1 15h-2v-6h2v6Zm0-8h-2V7h2v2Z"/></svg>
+          <h2 data-i18n="aboutTitle">About</h2>
+        </div>
         <button type="submit" class="modal-close" value="cancel" data-i18n-aria="close">✕</button>
       </header>
       <div class="modal-body about-body">
