@@ -321,6 +321,34 @@ export function openModal(options) {
 
 /* ---------------- About ---------------- */
 
+/** Build/runtime info rows (Electron desktop only; empty on the web). */
+function aboutBuildInfoHtml(i18n, info = {}) {
+  if (!info.electron) return '';
+  const fmtDate = (iso) => {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return iso;
+    const p = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  };
+  const rows = [
+    [i18n.t('about.electron', 'Electron'), info.electron],
+    [i18n.t('about.chromium', 'Chromium'), info.chrome],
+    [i18n.t('about.nodejs', 'Node.js'), info.node],
+    [i18n.t('about.os', 'OS'), info.os],
+    [i18n.t('about.buildDate', 'Build date'), fmtDate(info.buildDate)],
+  ].filter(([, v]) => v);
+  if (!rows.length) return '';
+  return `
+    <div class="about-section-title">${i18n.t('about.buildSection', 'Build info')}</div>
+    <div class="about-meta">
+      ${rows
+        .map(([k, v]) => `<div class="about-row"><strong>${k}</strong><span>${v}</span></div>`)
+        .join('')}
+    </div>
+  `;
+}
+
 export function mountAboutView(ctx, payload) {
   const { i18n, bodyEl, footerEl, setTitle, close } = ctx;
   const info = payload.info || {};
@@ -340,6 +368,7 @@ export function mountAboutView(ctx, payload) {
       <div class="about-row"><strong>${i18n.t('about.platform')}</strong><span>${info.platform || 'web'} / ${info.arch || ''}</span></div>
       <div class="about-row"><strong>${i18n.t('about.runtime')}</strong><span>${info.electron ? `Electron ${info.electron}` : 'Web Browser'}</span></div>
     </div>
+    ${aboutBuildInfoHtml(i18n, info)}
   `;
   addFooterButtons(
     footerEl,
@@ -386,6 +415,7 @@ export async function openAboutModal({ i18n, info, iconSrc, themes, themeId, cus
       <div class="about-row"><strong>${i18n.t('about.platform')}</strong><span>${info.platform || 'web'} / ${info.arch || navigator.platform}</span></div>
       <div class="about-row"><strong>${i18n.t('about.runtime')}</strong><span>${info.electron ? `Electron ${info.electron}` : 'Web Browser'}</span></div>
     </div>
+    ${aboutBuildInfoHtml(i18n, info)}
   `;
   return openModalInPage({
     title: i18n.t('about.title'),
@@ -786,6 +816,8 @@ export function mountSettingsView(ctx, payload) {
   const fonts = payload.fonts?.length ? payload.fonts : FONTS;
   const fontId = payload.fontId || DEFAULT_FONT_ID;
   const fontSize = clampFontSize(payload.fontSize);
+  const clampPct = (v) => Math.max(0, Math.min(100, Number.parseInt(v, 10) || 0));
+  let bgImageTransparency = clampPct(payload.bgImageTransparency);
 
   const fitOptions = (bgFitModes.length ? bgFitModes : [{ id: 'cover' }])
     .map((mode) => {
@@ -808,7 +840,7 @@ export function mountSettingsView(ctx, payload) {
           min="100"
           max="100000"
           step="100"
-          value="${payload.scrollback ?? 1000}"
+          value="${payload.scrollback ?? 10000}"
         />
       </div>
       <p class="settings-hint">${i18n.t('settings.scrollbackHint')}</p>
@@ -858,6 +890,25 @@ export function mountSettingsView(ctx, payload) {
         backgroundFitOptions: fitOptions,
         canClear: !!activeBgId || !!currentBgImage,
       })}
+      <div class="settings-grid" style="margin-top:12px">
+        <label for="setting-bg-image-transparency">${i18n.t('settings.bgImageTransparency', 'Background transparency')}</label>
+        <div class="settings-range-row">
+          <span class="settings-range-bound">0</span>
+          <input
+            id="setting-bg-image-transparency"
+            class="settings-range"
+            type="range"
+            min="0"
+            max="100"
+            step="1"
+            value="${bgImageTransparency}"
+            aria-describedby="setting-bg-image-transparency-value"
+          />
+          <span class="settings-range-bound">100</span>
+          <span class="settings-range-value" id="setting-bg-image-transparency-value">${bgImageTransparency}%</span>
+        </div>
+      </div>
+      <p class="settings-hint">${i18n.t('settings.bgImageTransparencyHint', '0% = opaque image, 100% = fully transparent (image hidden).')}</p>
     </div>
   `;
 
@@ -905,6 +956,7 @@ export function mountSettingsView(ctx, payload) {
       backgroundImageId: activeBgId || '',
       backgroundLibrary: bgItems,
       backgroundFit: currentBgFit,
+      bgImageTransparency,
       fontId: getFontById(selectedFont).id,
       fontSize: clampFontSize(bodyEl.querySelector('#setting-font-size')?.value),
       lsDirectoryColor:
@@ -959,6 +1011,14 @@ export function mountSettingsView(ctx, payload) {
     api,
     sendChange: () => emitChange({ themeTouched: false }),
     fit,
+  });
+
+  const bgImageAlphaInput = bodyEl.querySelector('#setting-bg-image-transparency');
+  const bgImageAlphaValue = bodyEl.querySelector('#setting-bg-image-transparency-value');
+  bgImageAlphaInput?.addEventListener('input', () => {
+    bgImageTransparency = clampPct(bgImageAlphaInput.value);
+    if (bgImageAlphaValue) bgImageAlphaValue.textContent = `${bgImageTransparency}%`;
+    emitChange({ themeTouched: false });
   });
 
   bodyEl.querySelector('#setting-bg-pick')?.addEventListener('click', async () => {
@@ -1120,7 +1180,7 @@ export function mountSettingsView(ctx, payload) {
 export async function openSettingsModal({
   i18n,
   custom,
-  scrollback = 1000,
+  scrollback = 10000,
   startDirectory = '',
   showStatusBar = true,
   showTrayIcon = false,
@@ -1129,6 +1189,7 @@ export async function openSettingsModal({
   backgroundImageId = '',
   backgroundLibrary = [],
   backgroundFit = 'cover',
+  bgImageTransparency = 0,
   bgFitModes = [],
   themes = null,
   themeId = 'custom',
@@ -1175,6 +1236,7 @@ export async function openSettingsModal({
         backgroundImageId,
         backgroundLibrary,
         backgroundFit,
+        bgImageTransparency,
         bgFitModes,
         themes,
         themeId,
@@ -1199,6 +1261,7 @@ export async function openSettingsModal({
     activeBgId = activeBgId || 'bg_web_1';
     bgItems = [{ id: activeBgId, name: 'Wallpaper', dataUrl: currentBgImage }];
   }
+  let bgImageAlpha = Math.max(0, Math.min(100, Number.parseInt(bgImageTransparency, 10) || 0));
   const fields = [
     ['background', 'settings.background'],
     ['cursor', 'settings.cursor'],
@@ -1272,6 +1335,16 @@ export async function openSettingsModal({
         accept="image/png,image/jpeg,image/gif,image/webp,image/avif,image/tiff,image/bmp,image/svg+xml,.jpg,.jpeg,.jfif,.png,.gif,.webp,.avif,.tif,.tiff,.bmp,.svg,.ico"
         hidden
       />
+      <div class="settings-grid" style="margin-top:12px">
+        <label for="setting-bg-image-transparency">${i18n.t('settings.bgImageTransparency', 'Background transparency')}</label>
+        <div class="settings-range-row">
+          <span class="settings-range-bound">0</span>
+          <input id="setting-bg-image-transparency" class="settings-range" type="range" min="0" max="100" step="1" value="${bgImageAlpha}" aria-describedby="setting-bg-image-transparency-value" />
+          <span class="settings-range-bound">100</span>
+          <span class="settings-range-value" id="setting-bg-image-transparency-value">${bgImageAlpha}%</span>
+        </div>
+      </div>
+      <p class="settings-hint">${i18n.t('settings.bgImageTransparencyHint', '0% = opaque image, 100% = fully transparent (image hidden).')}</p>
     </div>
   `;
 
@@ -1353,6 +1426,7 @@ export async function openSettingsModal({
       backgroundImageId: activeBgId || '',
       backgroundLibrary: bgItems,
       backgroundFit: currentBgFit,
+      bgImageTransparency: bgImageAlpha,
       fontId: getFontById(selectedFont).id,
       fontSize: clampFontSize(m.querySelector('#setting-font-size')?.value),
       lsDirectoryColor:
@@ -1402,6 +1476,14 @@ export async function openSettingsModal({
   wireStartDirectoryControls(modal, {
     api: window.myTerminal,
     sendChange: () => emitChange(modal, { themeTouched: false }),
+  });
+
+  const bgAlphaInput = modal.querySelector('#setting-bg-image-transparency');
+  const bgAlphaValue = modal.querySelector('#setting-bg-image-transparency-value');
+  bgAlphaInput?.addEventListener('input', () => {
+    bgImageAlpha = Math.max(0, Math.min(100, Number.parseInt(bgAlphaInput.value, 10) || 0));
+    if (bgAlphaValue) bgAlphaValue.textContent = `${bgImageAlpha}%`;
+    emitChange(modal, { themeTouched: false });
   });
 
   const fileInput = modal.querySelector('#setting-bg-file');

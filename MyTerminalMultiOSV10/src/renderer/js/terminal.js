@@ -7,6 +7,20 @@ import { WebglAddon } from '@xterm/addon-webgl';
 import { toXtermTheme } from './themes.js';
 import { WebShell } from './web-shell.js';
 
+/** Inline SVG glyphs for the terminal context menu (stroke inherits currentColor via CSS). */
+const CTX_ICONS = {
+  copy: '<rect x="8" y="8" width="11" height="11" rx="2"/><path d="M5 15V5h10"/>',
+  copyAll: '<rect x="8" y="8" width="11" height="11" rx="2"/><path d="M5 15V5h10"/><path d="M11 13h5M11 16h5"/>',
+  paste: '<path d="M8 5h8v3H8zM9 8h6v12H9z"/>',
+  selectAll:
+    '<rect x="4" y="4" width="16" height="16" rx="2" stroke-dasharray="3 2.5"/><path d="M9 12l2 2 4-4"/>',
+  clear: '<path d="M4 7h16M9 7V5h6v2M6 7l1 12h10l1-12"/>',
+  fontInc: '<path d="M4 18l4-11 4 11M5.5 14h5"/><path d="M16 10v6M13 13h6"/>',
+  fontDec: '<path d="M4 18l4-11 4 11M5.5 14h5"/><path d="M13 13h6"/>',
+  reset: '<path d="M4 12a8 8 0 1 0 3-6.2M4 4v4h4"/>',
+  scrollBottom: '<path d="M12 4v14M6 12l6 6 6-6"/>',
+};
+
 /** @type {HTMLElement | null} */
 let sharedContextMenu = null;
 /** @type {(() => void) | null} */
@@ -51,7 +65,7 @@ export class TerminalPane {
     this.mode = 'local';
     this.fontSize = 14;
     this.fontFamily = 'Consolas, "Courier New", monospace';
-    this.scrollback = 1000;
+    this.scrollback = 10000;
     this.webShell = null;
     this.disposers = [];
     this.active = false;
@@ -385,6 +399,27 @@ export class TerminalPane {
     }
   }
 
+  async copyAll() {
+    try {
+      const hadSelection = this.term.hasSelection();
+      this.term.selectAll();
+      const ok = await this.copy();
+      if (!hadSelection) this.term.clearSelection();
+      return ok;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  scrollToBottom() {
+    try {
+      this.term.scrollToBottom();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   openContextMenu(clientX, clientY) {
     closeTerminalContextMenu();
     this.term.focus();
@@ -397,25 +432,59 @@ export class TerminalPane {
     const items = [
       {
         id: 'copy',
+        icon: CTX_ICONS.copy,
         label: this.i18n.t('contextMenu.copy', this.i18n.t('toolbar.copy')),
+        shortcut: 'Ctrl+Shift+C',
         disabled: !hasSelection,
         action: () => this.copy(),
       },
       {
+        id: 'copyAll',
+        icon: CTX_ICONS.copyAll,
+        label: this.i18n.t('contextMenu.copyAll', 'Copy All'),
+        action: () => this.copyAll(),
+      },
+      {
         id: 'paste',
+        icon: CTX_ICONS.paste,
         label: this.i18n.t('contextMenu.paste', this.i18n.t('toolbar.paste')),
+        shortcut: 'Ctrl+Shift+V',
         action: () => this.paste(),
       },
       { type: 'sep' },
       {
         id: 'selectAll',
+        icon: CTX_ICONS.selectAll,
         label: this.i18n.t('contextMenu.selectAll', 'Select All'),
+        shortcut: 'Ctrl+Shift+A',
         action: () => this.selectAll(),
       },
       {
         id: 'clear',
+        icon: CTX_ICONS.clear,
         label: this.i18n.t('contextMenu.clear', this.i18n.t('toolbar.clear')),
+        shortcut: 'Ctrl+L',
         action: () => this.clear(),
+      },
+      { type: 'sep' },
+      {
+        id: 'fontInc',
+        icon: CTX_ICONS.fontInc,
+        label: this.i18n.t('contextMenu.fontIncrease', this.i18n.t('toolbar.fontIncrease', 'Increase Font')),
+        action: () => this.changeFont(1),
+      },
+      {
+        id: 'fontDec',
+        icon: CTX_ICONS.fontDec,
+        label: this.i18n.t('contextMenu.fontDecrease', this.i18n.t('toolbar.fontDecrease', 'Decrease Font')),
+        action: () => this.changeFont(-1),
+      },
+      { type: 'sep' },
+      {
+        id: 'scrollBottom',
+        icon: CTX_ICONS.scrollBottom,
+        label: this.i18n.t('contextMenu.scrollToBottom', 'Scroll to Bottom'),
+        action: () => this.scrollToBottom(),
       },
     ];
 
@@ -431,7 +500,27 @@ export class TerminalPane {
       btn.type = 'button';
       btn.className = 'menu-item term-context-item';
       btn.setAttribute('role', 'menuitem');
-      btn.textContent = item.label;
+
+      const icon = document.createElement('span');
+      icon.className = 'ctx-icon';
+      icon.setAttribute('aria-hidden', 'true');
+      icon.innerHTML = item.icon
+        ? `<svg viewBox="0 0 24 24">${item.icon}</svg>`
+        : '';
+      btn.appendChild(icon);
+
+      const label = document.createElement('span');
+      label.className = 'ctx-label';
+      label.textContent = item.label;
+      btn.appendChild(label);
+
+      if (item.shortcut) {
+        const kbd = document.createElement('span');
+        kbd.className = 'ctx-shortcut';
+        kbd.textContent = item.shortcut;
+        btn.appendChild(kbd);
+      }
+
       if (item.disabled) {
         btn.disabled = true;
         btn.classList.add('disabled');
@@ -529,11 +618,25 @@ export class TerminalPane {
   }
 
   dispose({ killBackend = true } = {}) {
-    closeTerminalContextMenu();
-    this.disposers.forEach((d) => d());
-    if (killBackend && this.api?.ptyKill) this.api.ptyKill(this.sessionId);
-    if (killBackend) this.webShell?.kill();
-    this.term.dispose();
-    this.host.remove();
+    // Each step is isolated: a throw in one (notably xterm's term.dispose(), which
+    // can hit "_isDisposed of undefined" when the WebGL/canvas renderer is already
+    // torn down) must not abort the caller (close()), or the tab never closes and
+    // the app never quits.
+    const safely = (fn) => {
+      try {
+        fn();
+      } catch (_) {
+        /* keep tearing down */
+      }
+    };
+    safely(() => closeTerminalContextMenu());
+    for (const d of this.disposers) safely(() => d());
+    this.disposers = [];
+    if (killBackend) {
+      safely(() => this.api?.ptyKill?.(this.sessionId));
+      safely(() => this.webShell?.kill());
+    }
+    safely(() => this.term.dispose());
+    safely(() => this.host.remove());
   }
 }

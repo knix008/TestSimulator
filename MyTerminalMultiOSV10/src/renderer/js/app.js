@@ -29,7 +29,7 @@ import {
 } from './background-fit.js';
 
 const DEFAULT_PROMPT = '{cyan}myterm{reset}:{yellow}{cwd:short}{reset}> ';
-const DEFAULT_SCROLLBACK = 1000;
+const DEFAULT_SCROLLBACK = 10000;
 const DEFAULT_PROMPT_GIT_MODE = 'status';
 
 function normalizePromptGitMode(mode) {
@@ -120,6 +120,8 @@ const state = {
   showStatusBar: true,
   showTrayIcon: false,
   bgTransparency: 0,
+  /** Wallpaper image alpha, separate from whole-window opacity. 0 = opaque, 100 = hidden. */
+  bgImageTransparency: 0,
   backgroundImage: '',
   backgroundImageId: '',
   backgroundLibrary: [],
@@ -169,6 +171,7 @@ async function persist() {
     showStatusBar: state.showStatusBar,
     showTrayIcon: state.showTrayIcon,
     bgTransparency: state.bgTransparency,
+    bgImageTransparency: state.bgImageTransparency,
     backgroundImageDir: state.backgroundImageDir || '',
     backgroundFit: state.backgroundFit,
     promptTemplate: state.promptTemplate,
@@ -210,6 +213,7 @@ async function persist() {
 /** Restore wallpaper + transparency prefs from settings / background library. */
 async function restoreBackgroundFromSettings(saved = {}) {
   state.bgTransparency = clampTransparency(saved.bgTransparency ?? 0);
+  state.bgImageTransparency = clampTransparency(saved.bgImageTransparency ?? 0);
   state.backgroundFit = normalizeBgFit(saved.backgroundFit || DEFAULT_BG_FIT);
   state.backgroundImageDir =
     typeof saved.backgroundImageDir === 'string' ? saved.backgroundImageDir : '';
@@ -302,7 +306,7 @@ function updateRemoteButton() {
   const connected = activePane()?.mode === 'ssh';
   const key = connected ? 'toolbar.remoteDisconnect' : 'toolbar.remote';
   const text = i18n.t(key);
-  btn.setAttribute('title', text);
+  btn.removeAttribute('title');
   btn.setAttribute('aria-label', text);
   btn.dataset.tooltip = text;
   btn.classList.toggle('tb-active', connected);
@@ -315,7 +319,7 @@ function updateGitStatusButton() {
   const on = state.promptGitMode !== 'off';
   const key = on ? 'toolbar.gitStatusOn' : 'toolbar.gitStatusOff';
   const text = i18n.t(key);
-  btn.setAttribute('title', text);
+  btn.removeAttribute('title');
   btn.setAttribute('aria-label', text);
   btn.dataset.tooltip = text;
   btn.setAttribute('aria-pressed', on ? 'true' : 'false');
@@ -386,9 +390,12 @@ function updateStatusBar() {
 
 function applyTheme() {
   const theme = currentTheme();
+  // Two independent controls: the toolbar slider drives whole-window opacity
+  // (setOpacity), while the Settings "background transparency" slider drives the
+  // wallpaper image's alpha (below).
   applyThemeToDocument(
     theme,
-    state.bgTransparency,
+    state.bgImageTransparency,
     state.backgroundImage,
     getBgFitById(state.backgroundFit)
   );
@@ -404,7 +411,7 @@ function updateFontUi() {
   const btn = document.getElementById('btn-font');
   if (btn) {
     const tip = `${i18n.t('toolbar.fontFamily')}: ${font.label}`;
-    btn.setAttribute('title', tip);
+    btn.removeAttribute('title');
     btn.setAttribute('aria-label', tip);
     btn.dataset.tooltip = tip;
   }
@@ -419,7 +426,7 @@ function updateTextColorUi() {
   }
   if (btn) {
     const tip = `${i18n.t('toolbar.textColor')}: ${color}`;
-    btn.setAttribute('title', tip);
+    btn.removeAttribute('title');
     btn.setAttribute('aria-label', tip);
     btn.dataset.tooltip = tip;
   }
@@ -440,7 +447,7 @@ function updateBgFitUi() {
   const btn = document.getElementById('btn-bg-fit');
   if (btn) {
     const tip = `${i18n.t('toolbar.bgFit')}: ${bgFitLabel()}`;
-    btn.setAttribute('title', tip);
+    btn.removeAttribute('title');
     btn.setAttribute('aria-label', tip);
     btn.dataset.tooltip = tip;
   }
@@ -468,9 +475,21 @@ function updateTransparencyUi(value = state.bgTransparency) {
   if (label) label.textContent = `${n}%`;
 }
 
+/** Map a transparency percent (0–100) to a usable window opacity (1.0–0.2). */
+function windowOpacityFromTransparency(n) {
+  const t = clampTransparency(n);
+  return Math.max(0.2, 1 - t / 100);
+}
+
+/** Push the current transparency to the whole window via Electron setOpacity. */
+function applyWindowOpacity() {
+  api.setWindowOpacity?.(windowOpacityFromTransparency(state.bgTransparency));
+}
+
 function applyBackgroundTransparency(value, { persistSettings = true } = {}) {
   state.bgTransparency = clampTransparency(value);
   updateTransparencyUi(state.bgTransparency);
+  applyWindowOpacity();
   applyTheme();
   if (persistSettings) persist();
 }
@@ -495,7 +514,7 @@ function updateLangUi() {
   const btn = document.getElementById('btn-lang');
   if (btn) {
     const tip = `${i18n.t('toolbar.language')}: ${langLabel()}`;
-    btn.setAttribute('title', tip);
+    btn.removeAttribute('title');
     btn.setAttribute('aria-label', tip);
     btn.dataset.tooltip = tip;
   }
@@ -635,6 +654,57 @@ function toggleMenu(menuId, populate, anchor) {
   }
 }
 
+/** Inline SVG glyphs used inside the toolbar dropdown menus. */
+const MENU_ICONS = {
+  font: '<path d="M5 18l4.5-12 4.5 12M6.7 14h5.6"/><path d="M15.5 18l3-8 3 8M16.5 15.4h4"/>',
+  custom: '<circle cx="12" cy="12" r="8"/><circle cx="9" cy="9.5" r="1"/><circle cx="14.5" cy="9" r="1"/><circle cx="15.5" cy="13.5" r="1"/><path d="M12 20c-1 0-1.4-.9-.9-1.7.6-.9.2-1.9-.9-1.9"/>',
+  fitNone: '<rect x="4" y="6" width="16" height="12" rx="1.5"/><path d="M7 15l3-3 2 2 3-3 2 2"/><path d="M4 6l16 12" opacity="0.9"/>',
+  fitCover: '<rect x="4" y="6" width="16" height="12" rx="1.5"/><path d="M4 6l16 12M20 6L4 18"/>',
+  fitContain: '<rect x="4" y="6" width="16" height="12" rx="1.5"/><rect x="8" y="8.5" width="8" height="7" rx="1"/>',
+  fitStretch: '<rect x="4" y="6" width="16" height="12" rx="1.5"/><path d="M4 12h16M8 9l-3 3 3 3M16 9l3 3-3 3"/>',
+  fitCenter: '<rect x="4" y="6" width="16" height="12" rx="1.5"/><circle cx="12" cy="12" r="3"/>',
+  fitTile: '<rect x="5" y="6" width="6" height="5" rx="1"/><rect x="13" y="6" width="6" height="5" rx="1"/><rect x="5" y="13" width="6" height="5" rx="1"/><rect x="13" y="13" width="6" height="5" rx="1"/>',
+};
+
+const BG_FIT_ICON = {
+  none: MENU_ICONS.fitNone,
+  cover: MENU_ICONS.fitCover,
+  contain: MENU_ICONS.fitContain,
+  stretch: MENU_ICONS.fitStretch,
+  center: MENU_ICONS.fitCenter,
+  tile: MENU_ICONS.fitTile,
+};
+
+/** A distinct glyph per built-in theme (backgrounds are too similar to tell apart). */
+const THEME_ICONS = {
+  dark: '<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>',
+  light:
+    '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+  midnight:
+    '<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/><path d="M16.5 3.5l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z"/>',
+  forest: '<path d="M12 3l4.5 7H14l3 4.5H7l3-4.5H7.5z"/><path d="M12 14.5V21"/>',
+  sunset:
+    '<path d="M3 18h18M6.5 18a5.5 5.5 0 0 1 11 0"/><path d="M12 3.5v2.5M4.8 7.3l1.6 1.6M19.2 7.3l-1.6 1.6M2.5 13h2M19.5 13h2"/>',
+  ocean:
+    '<path d="M3 8c2-2 4-2 6 0s4 2 6 0 4-2 6 0M3 13c2-2 4-2 6 0s4 2 6 0 4-2 6 0M3 18c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/>',
+  custom: MENU_ICONS.custom,
+};
+
+/** A leading icon cell (`viewBox` SVG) for a dropdown menu item. */
+function menuIcon(svgInner) {
+  return `<span class="menu-ico" aria-hidden="true"><svg viewBox="0 0 24 24">${svgInner}</svg></span>`;
+}
+
+/** A leading text-badge cell (e.g. a language code) for a dropdown menu item. */
+function menuBadge(text) {
+  return `<span class="menu-ico menu-badge" aria-hidden="true">${text}</span>`;
+}
+
+/** A leading swatch cell: a theme's own colors plus a distinct glyph. */
+function menuSwatch(bg, fg, svgInner) {
+  return `<span class="menu-ico menu-swatch" aria-hidden="true" style="background:${bg};border-color:${fg};color:${fg}"><svg viewBox="0 0 24 24">${svgInner}</svg></span>`;
+}
+
 function populateThemeMenu() {
   const menu = document.getElementById('theme-menu');
   const ids = [...getThemeList(state.themes), 'custom'];
@@ -642,7 +712,15 @@ function populateThemeMenu() {
     .map((id) => {
       const label = i18n.t(`themes.${id}`, id);
       const active = id === state.themeId ? ' active' : '';
-      return `<button class="menu-item${active}" type="button" data-theme="${id}">${label}</button>`;
+      const glyph = THEME_ICONS[id] || THEME_ICONS.custom;
+      const lead =
+        id === 'custom' && !state.custom
+          ? menuIcon(glyph)
+          : (() => {
+              const t = resolveTheme(state.themes, id, state.custom);
+              return menuSwatch(t.background || '#1e1e1e', t.foreground || '#d4d4d4', glyph);
+            })();
+      return `<button class="menu-item${active}" type="button" data-theme="${id}">${lead}<span class="menu-label">${label}</span></button>`;
     })
     .join('');
 }
@@ -652,9 +730,10 @@ function populateLangMenu() {
   menu.innerHTML = ['en', 'ko']
     .map((lang) => {
       const active = lang === state.lang ? ' active' : '';
-      return `<button class="menu-item${active}" type="button" data-lang="${lang}">${i18n.t(
+      const lead = menuBadge(lang === 'ko' ? '한' : 'EN');
+      return `<button class="menu-item${active}" type="button" data-lang="${lang}">${lead}<span class="menu-label">${i18n.t(
         `language.${lang}`
-      )}</button>`;
+      )}</span></button>`;
     })
     .join('');
 }
@@ -663,7 +742,9 @@ function populateFontMenu() {
   const menu = document.getElementById('font-menu');
   menu.innerHTML = FONTS.map((font) => {
     const active = font.id === state.fontId ? ' active' : '';
-    return `<button class="menu-item${active}" type="button" data-font="${font.id}"><span class="font-preview" style="font-family:${font.family.replace(
+    return `<button class="menu-item${active}" type="button" data-font="${font.id}">${menuIcon(
+      MENU_ICONS.font
+    )}<span class="font-preview menu-label" style="font-family:${font.family.replace(
       /"/g,
       "'"
     )}">${font.label}</span></button>`;
@@ -674,9 +755,10 @@ function populateBgFitMenu() {
   const menu = document.getElementById('bg-fit-menu');
   menu.innerHTML = BG_FIT_MODES.map((mode) => {
     const active = mode.id === state.backgroundFit ? ' active' : '';
-    return `<button class="menu-item${active}" type="button" data-bg-fit="${mode.id}">${bgFitLabel(
+    const lead = menuIcon(BG_FIT_ICON[mode.id] || MENU_ICONS.fitCover);
+    return `<button class="menu-item${active}" type="button" data-bg-fit="${mode.id}">${lead}<span class="menu-label">${bgFitLabel(
       mode.id
-    )}</button>`;
+    )}</span></button>`;
   }).join('');
 }
 
@@ -966,6 +1048,7 @@ function bindToolbar() {
       backgroundImageId: state.backgroundImageId,
       backgroundLibrary: state.backgroundLibrary,
       backgroundFit: state.backgroundFit,
+      bgImageTransparency: state.bgImageTransparency,
       bgFitModes: BG_FIT_MODES,
       themes: state.themes,
       themeId: state.themeId,
@@ -1010,6 +1093,7 @@ function bindToolbar() {
         backgroundImageId,
         backgroundLibrary,
         backgroundFit,
+        bgImageTransparency,
         themeTouched,
         fontId,
         fontSize,
@@ -1043,14 +1127,10 @@ function bindToolbar() {
             state.backgroundLibrary.find((item) => item.id === state.backgroundImageId)
               ?.dataUrl || '';
         }
-        const imageChanged = nextImage !== state.backgroundImage;
         state.backgroundImage = nextImage;
         state.backgroundFit = normalizeBgFit(backgroundFit || state.backgroundFit);
-        // New wallpaper: default to 50% image transparency so terminal text
-        // stays readable over the image out of the box (user can still adjust).
-        if (imageChanged && nextImage) {
-          state.bgTransparency = 50;
-          updateTransparencyUi();
+        if (bgImageTransparency != null) {
+          state.bgImageTransparency = clampTransparency(bgImageTransparency);
         }
         if (lsDirectoryColor != null || lsFileColor != null) {
           const colors = normalizeLsColors({
@@ -1136,7 +1216,7 @@ function updateMaxButton(maximized) {
   const btn = document.getElementById('btn-max');
   const key = maximized ? 'toolbar.restore' : 'toolbar.maximize';
   const text = i18n.t(key);
-  btn.setAttribute('title', text);
+  btn.removeAttribute('title');
   btn.setAttribute('aria-label', text);
   btn.dataset.tooltip = text;
 }
@@ -1216,6 +1296,7 @@ async function boot() {
 
   await applyLanguage(state.lang);
   updateTransparencyUi();
+  applyWindowOpacity();
   applyTheme();
   applyStatusBarVisibility();
 
@@ -1289,6 +1370,7 @@ async function boot() {
   }
   // Re-apply after panes exist so wallpaper transparency hits xterm + CSS together.
   updateTransparencyUi();
+  applyWindowOpacity();
   applyTheme();
   applyFont();
   applyScrollback();

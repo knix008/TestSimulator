@@ -54,8 +54,15 @@ export class SessionManager {
         api.onPtyExit((payload) => {
           const sessionId = String(payload?.sessionId ?? payload ?? '');
           const pane = this.panes.get(sessionId);
-          if (pane) pane.handleExit();
-          this.renderTabs();
+          if (!pane) return;
+          if (pane.mode === 'ssh') {
+            // Remote session ended → drop back to a local shell in the same tab.
+            pane.handleExit();
+            this.renderTabs();
+          } else {
+            // Local shell exited (e.g. `exit`) → close the tab; quit if it was last.
+            this.close(sessionId);
+          }
         })
       );
     }
@@ -187,16 +194,28 @@ export class SessionManager {
     if (this.mergeGhost) this.clearMergeGhost();
     const pane = this.panes.get(id);
     if (!pane) return;
-    if (this.panes.size <= 1) {
-      await pane.start();
-      this.renderTabs();
-      return;
-    }
 
     const ids = [...this.panes.keys()];
     const idx = ids.indexOf(id);
     pane.dispose({ killBackend: true });
     this.panes.delete(id);
+
+    if (this.panes.size === 0) {
+      // Last terminal closed → quit the app for real. Use the dedicated force-quit
+      // so the tray's hide-on-close behavior can't keep the process alive.
+      if (this.api?.quitApp) {
+        await this.api.quitApp();
+        return;
+      }
+      if (this.api?.close) {
+        await this.api.close();
+        return;
+      }
+      // Web / no window API: keep a shell alive so the view isn't left blank.
+      await this.create(this.getNewSessionOptions());
+      this.onActiveChange(this.active);
+      return;
+    }
 
     const nextId = ids[idx - 1] || ids[idx + 1];
     if (this.activeId === id) this.activate(nextId);

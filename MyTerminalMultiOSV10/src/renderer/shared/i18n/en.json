@@ -71,7 +71,9 @@
     "background": "Terminal background",
     "backgroundHint": "Solid terminal background color (shown behind the wallpaper).",
     "backgroundImage": "Background image",
-    "backgroundImageHint": "Add wallpapers to the library, then click one to use it. Use the toolbar slider for image transparency (0% = fully visible, 100% = hidden).",
+    "backgroundImageHint": "Add wallpapers to the library, then click one to use it.",
+    "bgImageTransparency": "Background transparency",
+    "bgImageTransparencyHint": "Wallpaper image transparency: 0% = fully visible, 100% = hidden. (The toolbar slider controls the whole window's opacity.)",
     "backgroundImagePick": "Add image…",
     "backgroundImageClear": "Use none",
     "backgroundImageDelete": "Delete",
@@ -111,6 +113,12 @@
     "version": "Version",
     "platform": "Platform",
     "runtime": "Runtime",
+    "buildSection": "Build info",
+    "electron": "Electron",
+    "chromium": "Chromium",
+    "nodejs": "Node.js",
+    "os": "OS",
+    "buildDate": "Build date",
     "close": "Close"
   },
   "terminal": {
@@ -120,9 +128,13 @@
   },
   "contextMenu": {
     "copy": "Copy",
+    "copyAll": "Copy All",
     "paste": "Paste",
     "selectAll": "Select All",
-    "clear": "Clear"
+    "clear": "Clear",
+    "fontIncrease": "Increase Font",
+    "fontDecrease": "Decrease Font",
+    "scrollToBottom": "Scroll to Bottom"
   },
   "prompt": {
     "title": "Shell Prompt",

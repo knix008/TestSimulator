@@ -10,12 +10,17 @@ Electron + xterm.js 기반으로 동작하며, 자체 구현 셸(**MyShell**)과
 ## 주요 기능
 
 - 프레임리스 창 + 항상 보이는 툴바(아이콘·툴팁)
-- 자체 셸(MyShell) — `ls`/`dir`, `cd`, `cat`, `prompt`, `run` 등
-- 멀티 세션 탭, 탭을 창 밖으로 드래그하여 분리
+- 자체 셸(MyShell) — `ls`/`dir`, `cd`, `cat`, `prompt`, `run` 등. `exit`로 탭 종료, 마지막 탭이면 앱 종료
+- 멀티 세션 탭, 탭을 창 밖으로 드래그하여 분리 / 다른 창으로 합치기
+- 아이콘이 함께 표시되는 우클릭 컨텍스트 메뉴(복사·붙여넣기·전체 복사·글꼴·스크롤 등)
 - SSH 원격 연결 (`ssh2`)
 - 테마 / 언어(KO·EN) / 글꼴·크기
-- 스크롤백 줄 수, 상태바 On/Off, 시스템 트레이 아이콘(설치/설정)
-- 터미널 배경색·배경 이미지·이미지 투명도·표시 방식(가득채움/맞춤/늘이기/가운데/패턴)
+- 스크롤백 줄 수(기본 10,000), 상태바 On/Off, 시스템 트레이 아이콘(설치/설정)
+- **창 전체 투명도** 슬라이더(바탕화면이 비치는 터미널)
+- 터미널 배경색·배경 이미지·표시 방식(가득채움/맞춤/늘이기/가운데/패턴)
+  - 다양한 포맷 지원: PNG·JPG·JPEG·JFIF·GIF·WebP·AVIF·TIFF·BMP·SVG·ICO
+  - 이미지 **크기 제한 없음**(대용량은 표시용으로 자동 축소)
+- 단일 인스턴스 실행(중복 실행 시 기존 창 포커스)
 - Windows / macOS / Linux 설치 패키지 및 Web 모드
 
 ## 문서
@@ -95,10 +100,12 @@ MyTerminalMultiOSV10/
 
 ## 개발 메모
 
-- 렌더러 엔트리: `src/renderer/js/app.js` → esbuild → `app.bundle.js`
+- 렌더러 엔트리: `src/renderer/js/app.js`(+ 팝업 `popup-app.js`) → esbuild → `app.bundle.js` / `popup.bundle.js`
 - `npm start` 시 `prestart`로 렌더러가 자동 빌드됩니다.
-- 설정은 앱 사용자 데이터(`settings.json`)에 저장됩니다.
-- 배경 이미지는 Electron에서 `userData/backgrounds/`에 보관됩니다.
+- 설정은 앱 사용자 데이터(`settings.json`)에 저장되며, 변경 즉시 반영·저장됩니다.
+- 배경 이미지는 Electron에서 `userData/backgrounds/`에 원본 보관하고, 표시용 데이터 URL은 긴 변(2560px) 기준으로 자동 축소합니다.
+- 창 투명도는 Electron `win.setOpacity()`로 창 전체에 적용됩니다.
+- 단일 인스턴스 잠금(`requestSingleInstanceLock`)으로 중복 실행을 막습니다.
 
 ## 라이선스
 

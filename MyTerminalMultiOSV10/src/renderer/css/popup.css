@@ -47,8 +47,33 @@ body.popup-fixed .popup-body-content {
   cursor: move;
 }
 
+.popup-title-icon {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+}
+
+.popup-title-icon[hidden] {
+  display: none;
+}
+
+.popup-title-icon svg {
+  width: 16px;
+  height: 16px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .popup-title {
   margin: 0;
+  flex: 1 1 auto;
   font-size: 14px;
   font-weight: 650;
   white-space: nowrap;

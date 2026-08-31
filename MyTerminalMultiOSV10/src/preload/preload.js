@@ -7,6 +7,8 @@ contextBridge.exposeInMainWorld('myTerminal', {
   minimize: () => ipcRenderer.invoke('window:minimize'),
   maximize: () => ipcRenderer.invoke('window:maximize'),
   close: () => ipcRenderer.invoke('window:close'),
+  quitApp: () => ipcRenderer.invoke('app:quit'),
+  setWindowOpacity: (value) => ipcRenderer.invoke('window:setOpacity', value),
   isMaximized: () => ipcRenderer.invoke('window:isMaximized'),
   getWindowBounds: () => ipcRenderer.invoke('window:getBounds'),
   setMinSize: (size) => ipcRenderer.invoke('window:setMinSize', size || {}),
@@ -30,6 +32,7 @@ contextBridge.exposeInMainWorld('myTerminal', {
 
   openPopup: (options) => ipcRenderer.invoke('popup:open', options || {}),
   closePopup: (id) => ipcRenderer.invoke('popup:close', id),
+  showPopup: (id) => ipcRenderer.invoke('popup:show', id),
   fitPopup: (payload) => ipcRenderer.invoke('popup:fit', payload || {}),
   popupSend: (id, message) => ipcRenderer.invoke('popup:send', { id, message }),
   popupGetId: () => ipcRenderer.invoke('popup:getId'),

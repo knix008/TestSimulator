@@ -346,19 +346,40 @@ function applyTrayFromSettings(settings = {}) {
   }
 }
 
-app.whenReady().then(() => {
-  registerPopupIpc();
-  registerDetachPreviewIpc();
-  const settings = bootstrapSettings();
-  syncBackgroundSelectionFromSettings(settings);
-  loadDirectoryPrefsFromSettings(readSettings());
-  applyTrayFromSettings(readSettings());
-  createWindow();
+// Chromium's GPU shader disk cache can fail to initialize on Windows when the
+// userData cache dir is locked (a lingering prior instance or antivirus),
+// spamming "Unable to move the cache ... (0x5)" / "Gpu Cache Creation failed".
+// We don't rely on the persistent shader cache, so disable it for clean startup.
+app.commandLine.appendSwitch('disable-gpu-shader-disk-cache');
 
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+// Single-instance lock: a second launch would spawn a competing process sharing
+// this userData — racing on settings.json (lost saves) and locking the GPU cache.
+// Instead, quit the newcomer and surface the window that already owns the lock.
+if (!app.requestSingleInstanceLock()) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    const win = [...windows][0];
+    if (!win || win.isDestroyed()) return;
+    if (win.isMinimized()) win.restore();
+    if (!win.isVisible()) win.show();
+    win.focus();
   });
-});
+
+  app.whenReady().then(() => {
+    registerPopupIpc();
+    registerDetachPreviewIpc();
+    const settings = bootstrapSettings();
+    syncBackgroundSelectionFromSettings(settings);
+    loadDirectoryPrefsFromSettings(readSettings());
+    applyTrayFromSettings(readSettings());
+    createWindow();
+
+    app.on('activate', () => {
+      if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    });
+  });
+}
 
 app.on('before-quit', () => {
   for (const win of windows) saveWindowState(win);
@@ -394,6 +415,35 @@ ipcMain.handle('window:close', (event) => {
     return;
   }
   win.close();
+});
+
+// Force-quit when the last terminal is closed (e.g. via `exit`). Bypasses the
+// tray hide-on-close behavior so the program actually exits. If other windows
+// remain open, only the requesting window is closed.
+ipcMain.handle('app:quit', (event) => {
+  const senderWin = winFromEvent(event);
+  const others = [...windows].filter((w) => w !== senderWin && !w.isDestroyed());
+  if (others.length > 0) {
+    if (senderWin && !senderWin.isDestroyed()) senderWin.destroy();
+    return;
+  }
+  // Last window → tear everything down and quit, ignoring the tray.
+  setQuitting(true);
+  destroyTray();
+  killPty();
+  for (const win of [...windows]) {
+    if (win && !win.isDestroyed()) win.destroy();
+  }
+  app.quit();
+});
+// Whole-window translucency (toolbar transparency slider). Clamp the floor so the
+// window can never become fully invisible / unclickable.
+ipcMain.handle('window:setOpacity', (event, value) => {
+  const win = winFromEvent(event);
+  if (!win || win.isDestroyed()) return false;
+  const o = Math.max(0.2, Math.min(1, Number(value)));
+  win.setOpacity(o);
+  return true;
 });
 ipcMain.handle('window:isMaximized', (event) => winFromEvent(event)?.isMaximized() ?? false);
 ipcMain.handle('window:getBounds', (event) => {
@@ -525,19 +575,30 @@ ipcMain.handle('window:setMinSize', (event, payload = {}) => {
   return { minWidth, minHeight };
 });
 
-ipcMain.handle('app:getInfo', () => ({
-  name: 'MyTerminal',
-  version: app.getVersion(),
-  author: 'SHKWON',
-  email: 'knix008@naver.com',
-  platform: process.platform,
-  arch: process.arch,
-  electron: process.versions.electron,
-  chrome: process.versions.chrome,
-  node: process.versions.node,
-  os: `${os.type()} ${os.release()}`,
-  homepage: 'https://github.com/knix008',
-}));
+ipcMain.handle('app:getInfo', () => {
+  let buildDate = '';
+  try {
+    // Approximate build time from the packaged main entry's mtime.
+    buildDate = fs.statSync(__filename).mtime.toISOString();
+  } catch (_) {
+    /* ignore */
+  }
+  return {
+    name: 'MyTerminal',
+    version: app.getVersion(),
+    author: 'SHKWON',
+    email: 'knix008@naver.com',
+    platform: process.platform,
+    arch: process.arch,
+    electron: process.versions.electron,
+    chrome: process.versions.chrome,
+    node: process.versions.node,
+    v8: process.versions.v8,
+    os: `${os.type()} ${os.release()}`,
+    buildDate,
+    homepage: 'https://github.com/knix008',
+  };
+});
 
 ipcMain.handle('settings:get', () => readSettings());
 ipcMain.handle('settings:set', (_e, settings) => {
@@ -587,7 +648,8 @@ ipcMain.handle('settings:set', (_e, settings) => {
 
 ipcMain.handle('tray:getEnabled', () => isTrayActive());
 
-const BG_MAX_BYTES = 5 * 1024 * 1024;
+// Wallpapers are stored as files in userData/backgrounds (only a marker lives in
+// settings.json) and downscaled for display, so there is no import size limit.
 const BG_MIME = {
   '.png': 'image/png',
   '.jpg': 'image/jpeg',
@@ -647,9 +709,36 @@ function newBackgroundId() {
   return `bg_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
+// Cap wallpaper dimensions so the generated CSS data URL stays small. A huge
+// --bg-image value (e.g. a 6000×4500 photo → ~11 MB data URL) is silently
+// dropped by Chromium and also risks exceeding GPU texture limits, so the
+// wallpaper never paints. 2560px on the long edge is ample for a background.
+const BG_MAX_DIMENSION = 2560;
+
 function fileToDataUrl(filePath) {
   const buf = fs.readFileSync(filePath);
-  const mime = BG_MIME[path.extname(filePath).toLowerCase()] || 'image/png';
+  const ext = path.extname(filePath).toLowerCase();
+  const mime = BG_MIME[ext] || 'image/png';
+  try {
+    const img = nativeImage.createFromBuffer(buf);
+    const size = img.getSize();
+    if (size.width > BG_MAX_DIMENSION || size.height > BG_MAX_DIMENSION) {
+      const scale = BG_MAX_DIMENSION / Math.max(size.width, size.height);
+      const resized = img.resize({
+        width: Math.round(size.width * scale),
+        height: Math.round(size.height * scale),
+        quality: 'good',
+      });
+      if (!resized.isEmpty()) {
+        // Keep PNG for images that may have alpha; JPEG is far smaller for photos.
+        return mime === 'image/png'
+          ? `data:image/png;base64,${resized.toPNG().toString('base64')}`
+          : `data:image/jpeg;base64,${resized.toJPEG(85).toString('base64')}`;
+      }
+    }
+  } catch (_) {
+    /* fall back to the raw bytes below (e.g. formats nativeImage can't decode) */
+  }
   return `data:${mime};base64,${buf.toString('base64')}`;
 }
 
@@ -903,9 +992,8 @@ ipcMain.handle('background:pick', async (event) => {
   } catch (err) {
     return { ok: false, error: err.message || 'read_failed' };
   }
-  if (buf.length > BG_MAX_BYTES) {
-    return { ok: false, error: 'too_large' };
-  }
+  // No size cap: originals are stored as files and downscaled when a CSS data URL
+  // is generated (see fileToDataUrl / BG_MAX_DIMENSION), so any resolution is fine.
 
   let prepared;
   try {

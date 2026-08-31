@@ -71,4 +71,10 @@ temp/
 
 # Cursor / local agent artifacts (keep project rules if committed intentionally)
 .cursor/projects/
-)
+
+# Claude Code local artifacts
+.claude/
+
+# App runtime data (generated in Electron userData, never in-repo)
+settings.json
+backgrounds/

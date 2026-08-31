@@ -32,7 +32,9 @@ export class I18n {
     });
     root.querySelectorAll('[data-i18n-title]').forEach((el) => {
       const text = this.t(el.getAttribute('data-i18n-title'));
-      el.setAttribute('title', text);
+      // Use only the custom tooltip (dataset.tooltip); the native `title`
+      // attribute would render a second, duplicate browser tooltip.
+      el.removeAttribute('title');
       el.setAttribute('aria-label', text);
       el.dataset.tooltip = text;
     });

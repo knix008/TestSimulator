@@ -68,10 +68,19 @@ function createPopupWindow(owner, options = {}) {
     },
   });
 
+  let shown = false;
+  const showWin = () => {
+    if (shown || win.isDestroyed()) return;
+    shown = true;
+    win.show();
+    win.focus();
+  };
+
   popups.set(id, {
     win,
     ownerId: owner?.webContents?.id,
     kind: options.kind || 'generic',
+    show: showWin,
   });
 
   const q = new URLSearchParams({
@@ -83,10 +92,10 @@ function createPopupWindow(owner, options = {}) {
   });
 
   win.once('ready-to-show', () => {
-    if (!win.isDestroyed()) {
-      win.show();
-      win.focus();
-    }
+    // Prefer showing only after the renderer has mounted + sized the content
+    // (via popup:show) to avoid a resize/reposition flicker. This timer is a
+    // safety net so the window can never get stuck hidden.
+    setTimeout(showWin, 1500);
   });
 
   win.on('closed', () => {
@@ -152,6 +161,13 @@ function registerPopupIpc() {
   });
 
   ipcMain.handle('popup:close', (_e, id) => closePopup(id));
+
+  ipcMain.handle('popup:show', (_e, id) => {
+    const entry = popups.get(id);
+    if (!entry || entry.win.isDestroyed()) return false;
+    entry.show?.();
+    return true;
+  });
 
   ipcMain.handle('popup:fit', (_e, payload = {}) =>
     fitPopup(payload.id, { width: payload.width, height: payload.height })
