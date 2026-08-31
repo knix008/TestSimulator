@@ -61,6 +61,9 @@ Detection: if `window.electronAPI` is missing at page load, `webAPI.js` installs
 - Persists `lastOpenDir` under userData for open/save dialogs.
 - IPC: directory listing, **list-drives**, path helpers, file read/write, TIFF/HEIC via **sharp** / **heic-convert** / **heic-decode**, DICOM decode, **read-image-meta** (exifr + sharp), **read-media-meta** (A/V container/codecs/duration/bitrate), dialogs, watchers, drag-out, window min/max/close.
 - Close intercept for unsaved changes (`window-close` vs force close).
+- **AI background removal** (`rembg-remove`): spawns `scripts/rembg_worker.py` (`rembg1`=U2Net, `rembg2`=RMBG-2.0, `rembg3`=ISNet) and streams `rembg-progress` events.
+  - **Auto-provisioning**: `_resolvePython` prefers the machine's existing Python (env override → `python`/`py` → previously app-installed); `_ensureRembgPackages` pip-installs `rembg`/`onnxruntime` on demand into that interpreter. Only if **no** Python exists does `_installManagedPython` download the official installer (Windows, per-user, isolated under `userData/python`) — it never replaces or downgrades a system Python.
+  - Progress is **monotonic**: download → install → package install → the worker's own model/inference progress are remapped into an always-advancing bar.
 
 ### `preload.js` — Context Bridge
 - Exposes `window.electronAPI` only (no raw Node APIs).
@@ -87,6 +90,8 @@ Detection: if `window.electronAPI` is missing at page load, `webAPI.js` installs
 - **Media transport** (`#media-controls`): Play / Pause / Stop, seek + time for video; same play/pause/stop for animated GIF. Overlay cues (`#media-cue`): play/stop flash; pause badge persists only while actually paused (not on first open). Video click (without drag) toggles playback; context menu includes Play/Pause/Stop.
 - Sidebar: explorer and info panels `flex: 1 1 0` (equal height); vertical splitter persists `sidebarTreeHeightV2`.
 - Effect sliders: `input` → live preview (`setEffect(..., false)`); `change` → history commit. Wheel over a slider scrolls the panel.
+- Effect presets: `_buildEffectsPanelIn` groups presets into collapsible category sections (`.fx-cat`); any preset missing from a category falls into a **Misc** group so nothing can silently disappear. Category headers persist collapse state (`fxCat:*`).
+- AI background removal: `rembgRemove` (IPC) with a progress dialog fed by `rembg-progress`; `_progressMessage` maps worker phase codes (incl. `downloading_python` / `installing_python` / `installing_deps`) to localized strings.
 - Border/caption UI: thickness (px, max 480), shadow, caption template tokens, font family/size/color, bold/italic/underline/strikethrough.
 - Desktop: restores last folder/file unless a launch file was passed on the command line.
 - Web: skips path restore; drag-drop registers `File` objects into `FileRegistry`.
@@ -95,11 +100,12 @@ Detection: if `window.electronAPI` is missing at page load, `webAPI.js` installs
 | Concern | Implementation |
 |---|---|
 | Effects | CSS filters + pixel convolution + vignette / grain / posterize / solarize |
+| Presets | ~118 curated presets (`PRESETS` map) rendered as **collapsible categories**; per-category collapse state in `localStorage` (`fxCat:*`) |
 | Miniature | `_applyMiniatureDof` — soft horizontal shallow DOF + toy-model color grade (`tiltShift` / diorama depth) |
 | Border | Mat pad up to 480px, shadow styles, caption with configurable typography |
 | Selection | Rect, lasso, polygon, magic wand (BFS) |
-| Overlay | Yellow dashed selection on `#sel-canvas` |
-| BG remove / crop | Mask-guided alpha / off-screen canvas |
+| Overlay | Yellow dashed selection on `#sel-canvas`; stroke width / dash / handles are divided by the canvas-to-display scale (`_selScale`) so outlines keep a constant on-screen thickness at any zoom or image size |
+| BG remove / crop | Algorithmic (mask-guided alpha, flood/chroma) + AI (`rembg` via main-process worker); crop uses off-screen canvas |
 | Undo/Redo | Snapshots of pixels **and** effects / rotation / flip (`MAX_HISTORY` 20) |
 
 ### `src/js/formatSupport.js` — Format Loader
@@ -171,6 +177,7 @@ Shared contract (`preload` and `webAPI`):
 | `readMediaMeta` | A/V container / codecs / duration / bitrate (desktop) |
 | `getLaunchFile` | Path passed on process start |
 | `convertToPng` / `decodeDicom` | Special formats |
+| `rembgRemove` + `onRembgProgress` | AI background removal (desktop) + progress events |
 | `openFileDialog` / `openFolderDialog` | Open |
 | `showSaveDialog` / `writeFile` / `saveFile` | Save |
 | `setLastOpenDir` / `getLastOpenDir` | Dialog default folder |
@@ -237,3 +244,6 @@ Web mode is not packaged as a separate installer; deploy by serving `src/` (or r
 12. **Dev icon via rcedit / branded exe** — BrowserWindow `icon` alone does not change the Windows taskbar for stock `electron.exe`.
 13. **`ELECTRON_RUN_AS_NODE`** — If set system-wide, `start-dev.js` unsets it when launching Electron.
 14. **Media cues match state** — Pause overlay appears only when media is actually paused by the user (or after stop); opening a video does not show a pause badge.
+15. **AI provisioning, non-destructive** — rembg runs in a Python worker. The app installs only the missing packages into the user's existing Python and never downgrades or replaces it; downloading a fresh Python is a Windows-only last resort into an isolated `userData/python`. Progress is streamed and kept monotonic across download/install/inference phases.
+16. **Selection outlines are DPI/zoom-aware** — the selection canvas buffer matches the image's native pixels, so fixed-width strokes vanish on large images; widths are scaled by the display ratio (`_selScale`) to a constant on-screen thickness.
+17. **Curated, categorized presets** — the preset set is trimmed of near-duplicates and grouped into collapsible categories to reduce clutter while keeping distinct looks.

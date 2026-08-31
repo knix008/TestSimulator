@@ -13,13 +13,21 @@ A multi-platform image viewer and editor built with **Electron** and vanilla Jav
 - **Image Editing / 이미지 편집**
   - Rotate (90° steps), Flip H/V
   - Selection tools: Rectangle, Lasso, Polygon, Magic Wand
-  - Background removal, crop to selection
+  - Selection outlines stay a **constant on-screen thickness** at any zoom / image size (visible even on very large images)
+  - Background removal (algorithmic + **AI**), crop to selection
   - Undo / Redo (`Ctrl+Z` / `Ctrl+Y`) — pixels, effects, and transforms (up to 20 steps)
   - Edit window: **Cancel** discards the session; **Apply** commits — dirty/save prompt only after Apply with unsaved changes
+
+- **Background removal / 배경 제거**
+  - Algorithmic: corner/border flood, color key, chroma, brightness, selection-guided
+  - **AI (rembg)**: `rembg1` (U2Net), `rembg2` (RMBG-2.0), `rembg3` (ISNet)
+  - AI requires Python + `rembg`/`onnxruntime`. Missing packages are **auto-installed on demand** into your existing Python, with a **progress bar**; if no Python exists at all, an official Python is downloaded and installed as a last resort (Windows). See [rembg_worker.py](scripts/rembg_worker.py).
+  - First AI run also downloads the model file (~170 MB) once, cached under `~/.u2net`.
 
 - **Effects & Adjustments / 효과 및 조정**
   - Brightness, Contrast, Saturation, Hue, Blur, Sharpen, Vignette, Warmth, Grayscale, Sepia, Invert, Grain, Posterize, Solarize
   - **Miniature** preset + **Diorama depth** (tilt-shift style shallow DOF)
+  - ~118 curated presets grouped into **10 collapsible categories** (Color Film, Slide Film, B&W, Instant/Toy, Cinema, Cross/Experimental, Warm, Cool, Tonal, Creative). Expand/collapse state is remembered.
   - Live preview while dragging sliders; history commits on release
   - Wheel over sliders scrolls the panel (does not nudge values)
   - Presets: Vivid, Vintage, Dramatic, Noir, Golden Hour, Miniature, and many more
@@ -72,6 +80,7 @@ A multi-platform image viewer and editor built with **Electron** and vanilla Jav
 
 - [Node.js](https://nodejs.org/) v18 or higher
 - npm
+- *(Optional)* **Python 3** — only for **AI** background removal (`rembg1/2/3`). The app auto-installs the `rembg` / `onnxruntime` packages into your Python on first use; on Windows it can even download and install Python itself if none is found. Algorithmic background removal needs no Python.
 
 ### Installation / 설치
 

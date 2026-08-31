@@ -51,9 +51,16 @@ src/vendor/
 *.tmp
 *.bak
 _test_*.js
+scripts/_*.js
 .cache/
 samples/_*.png
 samples/_*.jpg
 samples/_*.webp
 *_preview.png
 *_preview.jpg
+
+# Python (rembg background-removal worker)
+__pycache__/
+*.pyc
+.venv/
+venv/
