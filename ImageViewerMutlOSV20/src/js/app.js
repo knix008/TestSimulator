@@ -2356,6 +2356,9 @@
   function _progressMessage(code, algoLabel) {
     const map = {
       preparing: 'progress.preparing',
+      downloading_python: 'progress.downloadingPython',
+      installing_python: 'progress.installingPython',
+      installing_deps: 'progress.installingDeps',
       loading_model: 'progress.loadingModel',
       running: 'progress.running',
       writing: 'progress.applying',

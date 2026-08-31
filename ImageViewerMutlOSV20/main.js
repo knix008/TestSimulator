@@ -1482,6 +1482,154 @@ ipcMain.handle('convert-to-png', async (event, filePath) => {
   }
 });
 
+/* ═══════════════════════════════════════════════════════════
+   Python + rembg auto-provisioning
+   ───────────────────────────────────────────────────────────
+   If Python or the `rembg`/`onnxruntime` packages are missing we
+   download and install them on demand, streaming progress to the
+   renderer. A self-contained interpreter is installed per-user under
+   userData/python so we never depend on (or modify) system Python.
+   ═══════════════════════════════════════════════════════════ */
+const PY_VERSION = '3.12.8';
+
+function _pyInstallerName() {
+  if (process.arch === 'arm64') return `python-${PY_VERSION}-arm64.exe`;
+  if (process.arch === 'ia32')  return `python-${PY_VERSION}.exe`;
+  return `python-${PY_VERSION}-amd64.exe`;
+}
+function _pyInstallerUrl() {
+  return `https://www.python.org/ftp/python/${PY_VERSION}/${_pyInstallerName()}`;
+}
+function _managedPythonExe() {
+  return path.join(app.getPath('userData'), 'python', 'python.exe');
+}
+
+function _runCmd(cmd, args, opts = {}) {
+  const { spawn } = require('child_process');
+  return new Promise((resolve) => {
+    let out = '', err = '', child;
+    try {
+      child = spawn(cmd, args, { windowsHide: true, ...opts });
+    } catch (e) {
+      return resolve({ code: -1, out: '', err: e.message });
+    }
+    if (child.stdout) child.stdout.on('data', (d) => { const s = d.toString(); out += s; if (opts.onLine) opts.onLine(s); });
+    if (child.stderr) child.stderr.on('data', (d) => { const s = d.toString(); err += s; if (opts.onLine) opts.onLine(s); });
+    child.on('error', (e) => resolve({ code: -1, out, err: err || e.message }));
+    child.on('close', (code) => resolve({ code, out, err }));
+  });
+}
+
+async function _pythonWorks(py) {
+  if (!py) return false;
+  const r = await _runCmd(py, ['--version']);
+  return r.code === 0 && /Python\s+3\./.test(`${r.out}${r.err}`);
+}
+
+function _downloadFile(fileUrl, destPath, onProgress, redirects = 0) {
+  const https = require('https');
+  return new Promise((resolve, reject) => {
+    if (redirects > 5) return reject(new Error('Too many redirects'));
+    const file = fs.createWriteStream(destPath);
+    const req = https.get(fileUrl, { headers: { 'User-Agent': 'ImageViewer' } }, (res) => {
+      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+        res.resume();
+        file.close(() => fs.unlink(destPath, () => {
+          _downloadFile(res.headers.location, destPath, onProgress, redirects + 1).then(resolve, reject);
+        }));
+        return;
+      }
+      if (res.statusCode !== 200) {
+        res.resume();
+        file.close(() => fs.unlink(destPath, () => reject(new Error(`HTTP ${res.statusCode} for ${fileUrl}`))));
+        return;
+      }
+      const total = parseInt(res.headers['content-length'] || '0', 10);
+      let done = 0;
+      res.on('data', (chunk) => { done += chunk.length; if (total && onProgress) onProgress(done / total); });
+      res.pipe(file);
+      file.on('finish', () => file.close(() => resolve(destPath)));
+    });
+    req.on('error', (err) => { file.close(() => fs.unlink(destPath, () => reject(err))); });
+  });
+}
+
+// Download and silently install a per-user Python into userData/python.
+async function _installManagedPython(emit) {
+  if (process.platform !== 'win32') {
+    throw new Error('Automatic Python installation is only supported on Windows. Please install Python 3 from https://www.python.org/downloads/');
+  }
+  const targetDir = path.join(app.getPath('userData'), 'python');
+  const tmp = path.join(os.tmpdir(), 'imageviewer-rembg');
+  await fs.promises.mkdir(tmp, { recursive: true });
+  const installer = path.join(tmp, _pyInstallerName());
+
+  emit(4, 'downloading_python');
+  await _downloadFile(_pyInstallerUrl(), installer, (frac) => {
+    emit(4 + Math.round(frac * 26), 'downloading_python'); // 4 → 30
+  });
+
+  // ≥35 so the renderer's creep animates the bar during the silent install.
+  emit(36, 'installing_python');
+  // Per-user, unattended, no PATH changes, into our own folder.
+  const r = await _runCmd(installer, [
+    '/quiet', 'InstallAllUsers=0', 'PrependPath=0', 'Include_launcher=0',
+    'Include_test=0', 'Include_pip=1', 'AssociateFiles=0', 'Shortcuts=0',
+    `TargetDir=${targetDir}`,
+  ]);
+  const exe = _managedPythonExe();
+  if (!fs.existsSync(exe)) {
+    throw new Error(`Python installation failed (exit ${r.code}). ${(r.err || '').trim()}`.trim());
+  }
+  try { await fs.promises.unlink(installer); } catch {}
+  emit(42, 'installing_python');
+  return exe;
+}
+
+// Ensure rembg + onnxruntime are importable by `py`; pip-install if not.
+async function _ensureRembgPackages(py, emit) {
+  const chk = await _runCmd(py, ['-c', 'import rembg, onnxruntime']);
+  if (chk.code === 0) return;
+
+  emit(44, 'installing_deps');
+  await _runCmd(py, ['-m', 'pip', 'install', '--upgrade', '--no-warn-script-location', 'pip']);
+
+  let creep = 46;
+  const bump = (s) => {
+    if (/Collecting|Downloading|Building|Preparing|Installing/i.test(s)) {
+      creep = Math.min(88, creep + 1);
+      emit(creep, 'installing_deps');
+    }
+  };
+  const r = await _runCmd(py, [
+    '-m', 'pip', 'install', '--upgrade', '--no-warn-script-location',
+    'rembg', 'onnxruntime',
+  ], { onLine: bump });
+
+  const verify = await _runCmd(py, ['-c', 'import rembg, onnxruntime']);
+  if (verify.code !== 0) {
+    const tail = (r.err || r.out || verify.err || '').split(/\r?\n/).filter(Boolean).slice(-4).join(' ');
+    throw new Error(`Failed to install rembg/onnxruntime: ${tail || `pip exit ${r.code}`}`);
+  }
+  emit(90, 'installing_deps');
+}
+
+// Resolve a working Python: managed → system → freshly installed managed.
+async function _resolvePython(emit) {
+  const managed = _managedPythonExe();
+  if (await _pythonWorks(managed)) return managed;
+
+  const candidates = [
+    process.env.IMAGEVIEWER_PYTHON,
+    process.platform === 'win32' ? 'python' : 'python3',
+    'py',
+  ].filter(Boolean);
+  for (const py of candidates) {
+    if (await _pythonWorks(py)) return py;
+  }
+  return _installManagedPython(emit);
+}
+
 /**
  * AI background removal via Python rembg (rembg1/u2net, rembg2/bria-rmbg, rembg3/isnet).
  * Input: { dataUrl: 'data:image/png;base64,...', model: 'rembg1'|'rembg2'|'rembg3' }
@@ -1496,81 +1644,92 @@ ipcMain.handle('rembg-remove', async (event, { dataUrl, model }) => {
   const outPath = path.join(tmpRoot, `${id}-out.png`);
   const worker = path.join(__dirname, 'scripts', 'rembg_worker.py');
 
-  const sendProgress = (percent, message) => {
+  // Monotonic progress: never let the bar move backwards across phases
+  // (provision → model → inference), which would look like a stall/reset.
+  let lastPct = 0;
+  const emit = (percent, message) => {
+    lastPct = Math.max(lastPct, Math.min(100, percent | 0));
     try {
       if (!event.sender.isDestroyed()) {
-        event.sender.send('rembg-progress', { percent, message: message || '' });
+        event.sender.send('rembg-progress', { percent: lastPct, message: message || '' });
       }
     } catch (_) {}
   };
+
+  // Run the Python worker; remap its own 0–100 progress into [base..100]
+  // so the inference phase keeps advancing from wherever provisioning ended.
+  const runWorker = (py, base) => new Promise((resolve) => {
+    const remap = (p) => base + ((100 - base) * Math.max(0, Math.min(100, p))) / 100;
+    let child;
+    try {
+      child = spawn(py, [worker, (model || 'rembg1').toString(), inPath, outPath], {
+        windowsHide: true, env: { ...process.env },
+      });
+    } catch (e) {
+      return resolve({ code: -1, stderr: e.message });
+    }
+    let stderr = '', buf = '';
+    child.stderr.on('data', (d) => {
+      const chunk = d.toString();
+      stderr += chunk; buf += chunk;
+      const lines = buf.split(/\r?\n/);
+      buf = lines.pop() || '';
+      for (const line of lines) {
+        const m = line.match(/^PROGRESS\s+(\d+)\s*(.*)$/);
+        if (m) emit(remap(Number(m[1])), (m[2] || '').trim());
+      }
+    });
+    child.on('error', (err) => resolve({ code: -1, stderr: err.message }));
+    child.on('close', (code) => {
+      const m = buf.match(/^PROGRESS\s+(\d+)\s*(.*)$/m);
+      if (m) emit(remap(Number(m[1])), (m[2] || '').trim());
+      resolve({ code, stderr });
+    });
+  });
 
   try {
     if (!dataUrl || typeof dataUrl !== 'string' || !dataUrl.startsWith('data:')) {
       return { error: 'Invalid image data' };
     }
-    sendProgress(2, 'preparing');
+    emit(2, 'preparing');
     const b64 = dataUrl.replace(/^data:[^;]+;base64,/, '');
     await fs.promises.writeFile(inPath, Buffer.from(b64, 'base64'));
-    sendProgress(8, 'preparing');
+    emit(3, 'preparing');
 
     if (!fs.existsSync(worker)) {
       return { error: `rembg worker missing: ${worker}` };
     }
 
-    const modelKey = (model || 'rembg1').toString();
-    const pyCandidates = [
-      process.env.IMAGEVIEWER_PYTHON,
-      process.platform === 'win32' ? 'python' : 'python3',
-      'python',
-    ].filter(Boolean);
+    // 1) Resolve a working Python (installing one on demand if none exists).
+    let py = await _resolvePython(emit);
 
-    let lastErr = '';
-    for (const py of pyCandidates) {
-      const result = await new Promise((resolve) => {
-        const child = spawn(py, [worker, modelKey, inPath, outPath], {
-          windowsHide: true,
-          env: { ...process.env },
-        });
-        let stderr = '';
-        let stderrBuf = '';
-        child.stderr.on('data', (d) => {
-          const chunk = d.toString();
-          stderr += chunk;
-          stderrBuf += chunk;
-          const lines = stderrBuf.split(/\r?\n/);
-          stderrBuf = lines.pop() || '';
-          for (const line of lines) {
-            const m = line.match(/^PROGRESS\s+(\d+)\s*(.*)$/);
-            if (m) {
-              sendProgress(Number(m[1]), (m[2] || '').trim());
-            }
-          }
-        });
-        child.on('error', (err) => resolve({ code: -1, stderr: err.message }));
-        child.on('close', (code) => {
-          if (stderrBuf) {
-            const m = stderrBuf.match(/^PROGRESS\s+(\d+)\s*(.*)$/m);
-            if (m) sendProgress(Number(m[1]), (m[2] || '').trim());
-          }
-          resolve({ code, stderr });
-        });
-      });
-
-      if (result.code === 0 && fs.existsSync(outPath)) {
-        sendProgress(95, 'applying');
-        const outBuf = await fs.promises.readFile(outPath);
-        sendProgress(100, 'done');
-        return { dataUrl: `data:image/png;base64,${outBuf.toString('base64')}` };
+    // 2) Ensure rembg/onnxruntime are available. If the resolved (system)
+    //    Python can't install them — e.g. no wheels for its version — fall
+    //    back to a freshly installed managed Python and try once more.
+    try {
+      await _ensureRembgPackages(py, emit);
+    } catch (depErr) {
+      if (py !== _managedPythonExe()) {
+        py = await _installManagedPython(emit);
+        await _ensureRembgPackages(py, emit);
+      } else {
+        throw depErr;
       }
-      lastErr = (result.stderr || '').trim() || `exit ${result.code}`;
-      // If python missing, try next candidate
-      if (/ENOENT|not found/i.test(lastErr)) continue;
-      break;
+    }
+
+    // 3) Run the actual background removal.
+    const base = Math.max(lastPct, 8);
+    const result = await runWorker(py, base);
+    if (result.code === 0 && fs.existsSync(outPath)) {
+      emit(96, 'applying');
+      const outBuf = await fs.promises.readFile(outPath);
+      emit(100, 'done');
+      return { dataUrl: `data:image/png;base64,${outBuf.toString('base64')}` };
     }
 
     return {
-      error: lastErr || 'rembg failed',
-      hint: 'pip install rembg onnxruntime  (models: rembg1=u2net, rembg2=bria-rmbg, rembg3=isnet-general-use)',
+      error: (result.stderr || '').trim() || `rembg failed (exit ${result.code})`,
+      hint: 'models: rembg1=u2net, rembg2=bria-rmbg, rembg3=isnet-general-use',
     };
   } catch (err) {
     return { error: err.message };

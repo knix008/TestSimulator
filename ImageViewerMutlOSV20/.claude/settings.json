@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(python --version; \\(Get-Command python\\).Source; python -c \"import sys; print\\(sys.executable\\)\")",
+      "PowerShell(node --check \"c:\\\\Home\\\\Projects\\\\TestSimulator\\\\ImageViewerMutlOSV20\\\\main.js\")",
+      "PowerShell(node --check \"c:\\\\Home\\\\Projects\\\\TestSimulator\\\\ImageViewerMutlOSV20\\\\src\\\\js\\\\app.js\")",
+      "PowerShell(node --check \"c:\\\\Home\\\\Projects\\\\TestSimulator\\\\ImageViewerMutlOSV20\\\\src\\\\js\\\\editor.js\")",
+      "PowerShell(if \\($?\\) { \"main.js OK\" })",
+      "PowerShell(if \\($?\\) { \"app.js OK\" })",
+      "PowerShell(if \\($?\\) { \"editor.js OK\" })",
+      "PowerShell(if \\($?\\) { \"ko.json OK\" })",
+      "PowerShell(if \\($?\\) { \"en.json OK\" })",
+      "Bash(node -e \"JSON.parse\\(require\\('fs'\\).readFileSync\\('src/i18n/ko.json','utf8'\\)\\); console.log\\('ko.json OK'\\); JSON.parse\\(require\\('fs'\\).readFileSync\\('src/i18n/en.json','utf8'\\)\\); console.log\\('en.json OK'\\);\")"
+    ]
+  }
+}

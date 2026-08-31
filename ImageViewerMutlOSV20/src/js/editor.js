@@ -1763,12 +1763,24 @@ window.Editor = (() => {
   const SEL_COLOR_BRIGHT = '#FFD700';
   const SEL_COLOR_DARK   = 'rgba(0,0,0,0.6)';
   const SEL_DASH         = [6, 4];
+  const SEL_LINE_CSS     = 2;   // desired on-screen line thickness (CSS px)
+  const SEL_HANDLE_CSS   = 4;   // desired on-screen polygon handle radius (CSS px)
+
+  // Buffer px per displayed CSS px. The selection canvas buffer is sized to the
+  // image's native pixel dimensions, so a large image shown scaled-down makes
+  // fixed-width strokes render sub-pixel. Divide desired CSS sizes by this to
+  // keep selection outlines a constant visual thickness regardless of zoom.
+  function _selScale() {
+    const disp = selCanvas.getBoundingClientRect().width || selCanvas.width;
+    return disp ? selCanvas.width / disp : 1;
+  }
 
   function _selStroke(ctx, color, offset) {
+    const s = _selScale();
     ctx.strokeStyle  = color;
-    ctx.lineWidth    = 1.5;
-    ctx.setLineDash(SEL_DASH);
-    ctx.lineDashOffset = offset || 0;
+    ctx.lineWidth    = Math.max(1, SEL_LINE_CSS * s);
+    ctx.setLineDash([SEL_DASH[0] * s, SEL_DASH[1] * s]);
+    ctx.lineDashOffset = (offset || 0) * s;
     ctx.stroke();
     ctx.setLineDash([]);
     ctx.lineDashOffset = 0;
@@ -1829,13 +1841,15 @@ window.Editor = (() => {
       if (cursor) selCtx.lineTo(cursor.x, cursor.y);
       _selStroke(selCtx, SEL_COLOR_DARK, SEL_DASH[0]);
 
+      const s = _selScale();
+      const r = Math.max(2, SEL_HANDLE_CSS * s);
       polygonPoints.forEach(pt => {
         selCtx.beginPath();
-        selCtx.arc(pt.x, pt.y, 3, 0, Math.PI * 2);
+        selCtx.arc(pt.x, pt.y, r, 0, Math.PI * 2);
         selCtx.fillStyle = SEL_COLOR_BRIGHT;
         selCtx.fill();
         selCtx.strokeStyle = '#333';
-        selCtx.lineWidth = 1;
+        selCtx.lineWidth = Math.max(1, s);
         selCtx.setLineDash([]);
         selCtx.stroke();
       });
