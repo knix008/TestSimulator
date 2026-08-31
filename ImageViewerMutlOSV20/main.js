@@ -1642,7 +1642,12 @@ ipcMain.handle('rembg-remove', async (event, { dataUrl, model }) => {
   const id = `${Date.now()}-${process.pid}`;
   const inPath = path.join(tmpRoot, `${id}-in.png`);
   const outPath = path.join(tmpRoot, `${id}-out.png`);
-  const worker = path.join(__dirname, 'scripts', 'rembg_worker.py');
+  // In a packaged build the worker is unpacked from app.asar (asarUnpack), because
+  // a child Python process cannot read files from inside the asar archive. In dev
+  // (__dirname is not inside app.asar) the replace is a harmless no-op.
+  const worker = path
+    .join(__dirname, 'scripts', 'rembg_worker.py')
+    .replace(`app.asar${path.sep}`, `app.asar.unpacked${path.sep}`);
 
   // Monotonic progress: never let the bar move backwards across phases
   // (provision → model → inference), which would look like a stall/reset.

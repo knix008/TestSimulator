@@ -34,12 +34,14 @@
       "main.js",
       "preload.js",
       "src/**/*",
+      "scripts/rembg_worker.py",
       "package.json"
     ],
     "asarUnpack": [
       "src/assets/icon.ico",
       "src/assets/icon.png",
-      "src/assets/icon_512.png"
+      "src/assets/icon_512.png",
+      "scripts/rembg_worker.py"
     ],
     "afterPack": "scripts/after-pack.js",
     "afterAllArtifactBuild": "scripts/copy-dist.js",
