@@ -1036,6 +1036,39 @@ body.resizing-row * {
   margin-bottom: 12px;
 }
 
+/* Collapsible preset categories */
+.fx-cat { margin-bottom: 6px; }
+.fx-cat-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 6px 8px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  text-align: left;
+  cursor: pointer;
+  transition: color 0.1s, background 0.1s;
+}
+.fx-cat-header:hover { color: var(--text-primary); background: var(--bg-hover); }
+.fx-cat-chevron {
+  font-size: 10px;
+  line-height: 1;
+  transition: transform 0.15s ease;
+}
+.fx-cat.collapsed .fx-cat-chevron { transform: rotate(-90deg); }
+.fx-cat-title { flex: 1; }
+.fx-cat-count { opacity: 0.6; font-weight: 600; }
+.fx-cat-body { margin-top: 6px; margin-bottom: 0; }
+.fx-cat.collapsed .fx-cat-body { display: none; }
+
 .preset-btn {
   box-sizing: border-box;
   width: 100%;

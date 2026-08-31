@@ -3,7 +3,9 @@ window.Tooltip = (() => {
   let tip = null;
   let hideTimer = null;
   let showTimer = null;
-  const DELAY = 600; // ms before showing
+  const DELAY = 350;      // ms before showing the first tooltip
+  const WARM  = 900;      // grace window: after one tip hides, the next shows instantly
+  let lastHiddenAt = 0;   // timestamp a tooltip was last dismissed
 
   function init() {
     tip = document.getElementById('tooltip');
@@ -35,7 +37,10 @@ window.Tooltip = (() => {
 
   function hide() {
     clearTimeout(showTimer);
-    if (tip) tip.style.display = 'none';
+    if (tip && tip.style.display !== 'none') {
+      lastHiddenAt = Date.now();
+      tip.style.display = 'none';
+    }
   }
 
   function attach(element, getText) {
@@ -51,14 +56,22 @@ window.Tooltip = (() => {
     element.dataset.customTip = '1';
     element.removeAttribute('title');
 
+    let lastX = 0, lastY = 0;
     element.addEventListener('mouseenter', (e) => {
       clearTimeout(hideTimer);
+      clearTimeout(showTimer);
+      lastX = e.clientX; lastY = e.clientY;
+      // Feel real-time when sweeping across a toolbar: if a tooltip was
+      // visible moments ago, show the next one immediately instead of
+      // restarting the full hover delay.
+      const warm = Date.now() - lastHiddenAt < WARM;
       showTimer = setTimeout(() => {
         const text = typeof getText === 'function' ? getText() : getText;
-        show(text, e.clientX, e.clientY);
-      }, DELAY);
+        show(text, lastX, lastY);
+      }, warm ? 0 : DELAY);
     });
     element.addEventListener('mousemove', (e) => {
+      lastX = e.clientX; lastY = e.clientY;
       if (tip && tip.style.display === 'block') {
         show(tip.textContent, e.clientX, e.clientY);
       }

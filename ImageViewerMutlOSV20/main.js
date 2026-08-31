@@ -1485,12 +1485,13 @@ ipcMain.handle('convert-to-png', async (event, filePath) => {
 /* ═══════════════════════════════════════════════════════════
    Python + rembg auto-provisioning
    ───────────────────────────────────────────────────────────
-   If Python or the `rembg`/`onnxruntime` packages are missing we
-   download and install them on demand, streaming progress to the
-   renderer. A self-contained interpreter is installed per-user under
-   userData/python so we never depend on (or modify) system Python.
+   Policy: use whatever Python the machine already has and install only
+   the missing `rembg`/`onnxruntime` packages into it (streaming progress
+   to the renderer). We never downgrade or replace an existing Python.
+   Downloading/installing Python is a LAST RESORT, only when no working
+   interpreter exists at all — and then we install a current version.
    ═══════════════════════════════════════════════════════════ */
-const PY_VERSION = '3.12.8';
+const PY_VERSION = '3.14.0';
 
 function _pyInstallerName() {
   if (process.arch === 'arm64') return `python-${PY_VERSION}-arm64.exe`;
@@ -1614,15 +1615,14 @@ async function _ensureRembgPackages(py, emit) {
   emit(90, 'installing_deps');
 }
 
-// Resolve a working Python: managed → system → freshly installed managed.
+// Resolve a working Python, preferring what the machine already has:
+// explicit override → system python → previously app-installed → install.
 async function _resolvePython(emit) {
-  const managed = _managedPythonExe();
-  if (await _pythonWorks(managed)) return managed;
-
   const candidates = [
     process.env.IMAGEVIEWER_PYTHON,
     process.platform === 'win32' ? 'python' : 'python3',
     'py',
+    _managedPythonExe(),
   ].filter(Boolean);
   for (const py of candidates) {
     if (await _pythonWorks(py)) return py;
@@ -1700,22 +1700,13 @@ ipcMain.handle('rembg-remove', async (event, { dataUrl, model }) => {
       return { error: `rembg worker missing: ${worker}` };
     }
 
-    // 1) Resolve a working Python (installing one on demand if none exists).
-    let py = await _resolvePython(emit);
+    // 1) Use the machine's existing Python; only if none exists do we
+    //    install one (last resort). We never replace an existing interpreter.
+    const py = await _resolvePython(emit);
 
-    // 2) Ensure rembg/onnxruntime are available. If the resolved (system)
-    //    Python can't install them — e.g. no wheels for its version — fall
-    //    back to a freshly installed managed Python and try once more.
-    try {
-      await _ensureRembgPackages(py, emit);
-    } catch (depErr) {
-      if (py !== _managedPythonExe()) {
-        py = await _installManagedPython(emit);
-        await _ensureRembgPackages(py, emit);
-      } else {
-        throw depErr;
-      }
-    }
+    // 2) Install rembg/onnxruntime into that Python if they're missing.
+    //    (Fast path: if already importable, this returns immediately.)
+    await _ensureRembgPackages(py, emit);
 
     // 3) Run the actual background removal.
     const base = Math.max(lastPct, 8);

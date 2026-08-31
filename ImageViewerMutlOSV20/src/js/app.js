@@ -2878,45 +2878,28 @@
       /* Color negative */
       { id: 'portra',       label: 'effects.portra' },
       { id: 'ektar',        label: 'effects.ektar' },
-      { id: 'gold200',      label: 'effects.gold200' },
-      { id: 'ultramax',     label: 'effects.ultramax' },
-      { id: 'colorplus',    label: 'effects.colorplus' },
       { id: 'fuji400h',     label: 'effects.fuji400h' },
       { id: 'superia',      label: 'effects.superia' },
-      { id: 'agfacolor',    label: 'effects.agfacolor' },
       { id: 'lomochrome',   label: 'effects.lomochrome' },
       /* Slide */
       { id: 'kodachrome',   label: 'effects.kodachrome' },
-      { id: 'ektachrome',   label: 'effects.ektachrome' },
       { id: 'velvia',       label: 'effects.velvia' },
       { id: 'provia',       label: 'effects.provia' },
-      { id: 'sensia',       label: 'effects.sensia' },
-      { id: 'astia',        label: 'effects.astia' },
       { id: 'slide',        label: 'effects.slide' },
       /* B&W */
       { id: 'trix',         label: 'effects.trix' },
-      { id: 'hp5',          label: 'effects.hp5' },
-      { id: 'delta100',     label: 'effects.delta100' },
       { id: 'delta3200',    label: 'effects.delta3200' },
-      { id: 'panf',         label: 'effects.panf' },
-      { id: 'neopan',       label: 'effects.neopan' },
       { id: 'tmax100',      label: 'effects.tmax100' },
-      { id: 'tmax400',      label: 'effects.tmax400' },
-      { id: 'xp2',          label: 'effects.xp2' },
-      { id: 'plusx',        label: 'effects.plusx' },
-      { id: 'fomapan',      label: 'effects.fomapan' },
       /* Instant / toy */
       { id: 'polaroid',     label: 'effects.polaroid' },
       { id: 'sx70',         label: 'effects.sx70' },
       { id: 'instax',       label: 'effects.instax' },
       { id: 'holga',        label: 'effects.holga' },
-      { id: 'diana',        label: 'effects.diana' },
       { id: 'lomo',         label: 'effects.lomo' },
       { id: 'sprocket',     label: 'effects.sprocket' },
       /* Cinema */
       { id: 'cinestill',    label: 'effects.cinestill' },
       { id: 'vision3500t',  label: 'effects.vision3500t' },
-      { id: 'vision3250d',  label: 'effects.vision3250d' },
       /* Process */
       { id: 'expired',      label: 'effects.expired' },
       { id: 'expiredcool',  label: 'effects.expiredcool' },
@@ -2952,7 +2935,6 @@
       { id: 'retro70',      label: 'effects.retro70' },
       { id: 'retro80',      label: 'effects.retro80' },
       { id: 'soft',         label: 'effects.soft' },
-      { id: 'haze',         label: 'effects.haze' },
       { id: 'crisp',        label: 'effects.crisp' },
       { id: 'clarity',      label: 'effects.clarity' },
       { id: 'bleach',       label: 'effects.bleach' },
@@ -2976,7 +2958,6 @@
       { id: 'selenium',     label: 'effects.selenium' },
       { id: 'platinum',     label: 'effects.platinum' },
       { id: 'lith',         label: 'effects.lith' },
-      { id: 'washout',      label: 'effects.washout' },
       { id: 'muted',        label: 'effects.muted' },
       { id: 'cyberpunk',    label: 'effects.cyberpunk' },
       { id: 'vaporwave',    label: 'effects.vaporwave' },
@@ -2991,11 +2972,9 @@
       { id: 'rainy',        label: 'effects.rainy' },
       { id: 'peach',        label: 'effects.peach' },
       { id: 'coral',        label: 'effects.coral' },
-      { id: 'emerald',      label: 'effects.emerald' },
       { id: 'amethyst',     label: 'effects.amethyst' },
       { id: 'copper',       label: 'effects.copper' },
       { id: 'denim',        label: 'effects.denim' },
-      { id: 'olive',        label: 'effects.olive' },
       { id: 'gothic',       label: 'effects.gothic' },
       { id: 'romance',      label: 'effects.romance' },
       { id: 'duotone',      label: 'effects.duotone' },
@@ -3004,8 +2983,6 @@
       { id: 'anime',        label: 'effects.anime' },
       { id: 'silhouette',   label: 'effects.silhouette' },
       { id: 'amber',        label: 'effects.amber' },
-      { id: 'mint',         label: 'effects.mint' },
-      { id: 'mustard',      label: 'effects.mustard' },
       { id: 'steel',        label: 'effects.steel' },
       { id: 'push',         label: 'effects.push' },
       { id: 'pull',         label: 'effects.pull' },
@@ -3014,24 +2991,84 @@
       { id: 'miniature',    label: 'effects.miniature' },
     ];
 
-    const presetWrap = document.createElement('div');
-    presetWrap.className = 'effect-presets';
-    presets.forEach(p => {
+    // Group presets into collapsible categories. The flat `presets` array
+    // above stays the source of truth for id→label; categories only order and
+    // group them. Anything not listed in a category falls into a Misc group so
+    // no preset can silently disappear.
+    const _labelOf = {};
+    presets.forEach((p) => { _labelOf[p.id] = p.label; });
+
+    const PRESET_CATS = [
+      { key: 'catFilmColor', ids: ['filmcamera', 'disposable', 'portra', 'ektar', 'fuji400h', 'superia', 'lomochrome'] },
+      { key: 'catSlide',     ids: ['kodachrome', 'velvia', 'provia', 'slide'] },
+      { key: 'catBW',        ids: ['silver', 'noir', 'trix', 'delta3200', 'tmax100', 'newspaper', 'charcoal', 'ink', 'selenium', 'platinum', 'lith', 'silhouette', 'steel', 'sketch'] },
+      { key: 'catInstant',   ids: ['vintage', 'polaroid', 'sx70', 'instax', 'holga', 'lomo', 'sprocket'] },
+      { key: 'catCinema',    ids: ['cinestill', 'vision3500t', 'tealorange', 'dayfornight', 'horror'] },
+      { key: 'catProcess',   ids: ['expired', 'expiredcool', 'redscale', 'crossprocess', 'crossfuji', 'bleachbypass', 'nightflash', 'halfFrame', 'doubleExp', 'dramatic', 'glitch', 'push', 'pull'] },
+      { key: 'catWarm',      ids: ['warm', 'golden', 'sunset', 'autumn', 'dusk', 'tungsten', 'retro70', 'desert', 'candy', 'summer', 'peach', 'coral', 'copper', 'amber', 'romance', 'midcentury'] },
+      { key: 'catCool',      ids: ['cool', 'arctic', 'moonlight', 'fog', 'spring', 'fluorescent', 'retro80', 'underwater', 'forest', 'lavender', 'midnight', 'winter', 'rainy', 'denim', 'amethyst', 'gothic', 'cyberpunk', 'vaporwave'] },
+      { key: 'catBasic',     ids: ['vivid', 'pop', 'fade', 'pastel', 'matte', 'soft', 'crisp', 'clarity', 'bleach', 'highkey', 'lowkey', 'muted', 'flat', 'bloom', 'punch', 'documentary'] },
+      { key: 'catCreative',  ids: ['neon', 'chrome', 'hdr', 'infrared', 'nightvision', 'thermal', 'dream', 'orton', 'cyanotype', 'watercolor', 'anime', 'comic', 'xray', 'emboss', 'edge', 'duotone', 'blueprint', 'miniature'] },
+    ];
+
+    const _makePresetBtn = (id) => {
+      const label = _labelOf[id] || `effects.${id}`;
       const btn = document.createElement('button');
       btn.className = 'preset-btn';
-      btn.setAttribute('data-i18n', p.label);
-      btn.textContent = I18n.t(p.label);
-      btn.dataset.preset = p.id;
-      if (activePreset === p.id) btn.classList.add('active');
+      btn.setAttribute('data-i18n', label);
+      btn.textContent = I18n.t(label);
+      btn.dataset.preset = id;
+      if (activePreset === id) btn.classList.add('active');
       btn.addEventListener('click', () => {
         _clearPresetActive(idPrefix);
         btn.classList.add('active');
-        Editor.applyPreset(p.id);
+        Editor.applyPreset(id);
         _syncSlidersFromEffects(idPrefix);
       });
-      presetWrap.appendChild(btn);
+      return btn;
+    };
+
+    const _addCatSection = (catKey, ids, persist) => {
+      if (!ids.length) return;
+      const section = document.createElement('div');
+      section.className = 'fx-cat';
+      if (persist && localStorage.getItem(`fxCat:${catKey}`) === '1') section.classList.add('collapsed');
+
+      const header = document.createElement('button');
+      header.type = 'button';
+      header.className = 'fx-cat-header';
+      header.innerHTML = '<span class="fx-cat-chevron">▾</span>';
+      const title = document.createElement('span');
+      title.className = 'fx-cat-title';
+      title.setAttribute('data-i18n', `effects.${catKey}`);
+      title.textContent = I18n.t(`effects.${catKey}`);
+      const count = document.createElement('span');
+      count.className = 'fx-cat-count';
+      count.textContent = ids.length;
+      header.appendChild(title);
+      header.appendChild(count);
+      header.addEventListener('click', () => {
+        const collapsed = section.classList.toggle('collapsed');
+        if (persist) localStorage.setItem(`fxCat:${catKey}`, collapsed ? '1' : '0');
+      });
+
+      const body = document.createElement('div');
+      body.className = 'fx-cat-body effect-presets';
+      ids.forEach((id) => body.appendChild(_makePresetBtn(id)));
+
+      section.appendChild(header);
+      section.appendChild(body);
+      content.appendChild(section);
+    };
+
+    const _seen = new Set();
+    PRESET_CATS.forEach((cat) => {
+      const ids = cat.ids.filter((id) => _labelOf[id]);
+      ids.forEach((id) => _seen.add(id));
+      _addCatSection(cat.key, ids, true);
     });
-    content.appendChild(presetWrap);
+    const _rest = presets.filter((p) => !_seen.has(p.id)).map((p) => p.id);
+    _addCatSection('catMisc', _rest, false);
 
     if (mode === 'presets') return;
 
@@ -3933,7 +3970,7 @@
     ['ew-cut',       'cut',         'context.cut',          () => { _ewCut(); }],
     ['ew-copy',      'copy',        'context.copy',         () => { _ewCopy(); }],
     ['ew-bg-remove', 'bgRemove',    'toolbar.bgRemove',     () => { _removeBackground(); }],
-    ['ew-crop-sel',  'fitWindow',   'editWindow.cropSel',   () => { _cropToSelection(); }],
+    ['ew-crop-sel',  'crop',        'editWindow.cropSel',   () => { _cropToSelection(); }],
     ['ew-clear-sel', 'close',       'editWindow.clearSel',  () => { Editor.clearSelection(); _ewUpdateSelBtns(); }],
     ['ew-rotate-l',  'rotateLeft',  'toolbar.rotateLeft',   () => { _rotate(-90); }],
     ['ew-rotate-r',  'rotateRight', 'toolbar.rotateRight',  () => { _rotate(90); }],

@@ -10,7 +10,10 @@
       "PowerShell(if \\($?\\) { \"editor.js OK\" })",
       "PowerShell(if \\($?\\) { \"ko.json OK\" })",
       "PowerShell(if \\($?\\) { \"en.json OK\" })",
-      "Bash(node -e \"JSON.parse\\(require\\('fs'\\).readFileSync\\('src/i18n/ko.json','utf8'\\)\\); console.log\\('ko.json OK'\\); JSON.parse\\(require\\('fs'\\).readFileSync\\('src/i18n/en.json','utf8'\\)\\); console.log\\('en.json OK'\\);\")"
+      "Bash(node -e \"JSON.parse\\(require\\('fs'\\).readFileSync\\('src/i18n/ko.json','utf8'\\)\\); console.log\\('ko.json OK'\\); JSON.parse\\(require\\('fs'\\).readFileSync\\('src/i18n/en.json','utf8'\\)\\); console.log\\('en.json OK'\\);\")",
+      "PowerShell(python -m pip install --only-binary=:all: --dry-run onnxruntime 2>&1)",
+      "PowerShell(python -m pip install --only-binary=:all: --dry-run rembg 2>&1)",
+      "PowerShell(python -c \"import rembg, onnxruntime, sys; print\\('IMPORT OK', sys.executable\\)\")"
     ]
   }
 }
