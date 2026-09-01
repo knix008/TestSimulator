@@ -1,0 +1,80 @@
+{
+  "name": "vixreader-multios",
+  "productName": "VixReader Test",
+  "version": "1.0.0",
+  "description": "Cross-platform (Windows / macOS / Linux / Web) firmware reader test tool. HTTPS/Ethernet based. JavaScript + Electron rewrite of VixReaderTest.",
+  "author": "Suho Kwon <suho.kwon@gmail.com>",
+  "license": "MIT",
+  "main": "electron/main.js",
+  "scripts": {
+    "start": "electron .",
+    "mock": "node server/mockDevice.mjs",
+    "web": "node server/webServer.mjs",
+    "icons": "node scripts/make-icons.mjs",
+    "smoke": "node scripts/smoke.mjs",
+    "build": "electron-builder",
+    "build:win": "electron-builder --win",
+    "build:mac": "electron-builder --mac",
+    "build:linux": "electron-builder --linux",
+    "build:all": "electron-builder -mwl"
+  },
+  "devDependencies": {
+    "electron": "^31.7.7",
+    "electron-builder": "^24.13.3",
+    "png-to-ico": "^2.1.8",
+    "sharp": "^0.33.5"
+  },
+  "build": {
+    "appId": "com.suho.vixreader",
+    "productName": "VixReader Test",
+    "afterAllArtifactBuild": "scripts/after-build.cjs",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "electron/**/*",
+      "src/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "src/config/buttons.json",
+        "to": "buttons.json"
+      }
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "icon": "build/icon.png",
+      "category": "public.app-category.developer-tools"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "icon": "build/icon.png",
+      "category": "Utility"
+    }
+  },
+  "allowScripts": {
+    "electron@31.7.7": true,
+    "sharp@0.33.5": true
+  }
+}

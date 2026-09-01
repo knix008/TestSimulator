@@ -1,0 +1,79 @@
+{
+  "$comment": "This file defines every button, group and command. Edit it to add/remove/rename buttons WITHOUT touching code. On desktop the app also looks for a copy in the user-data folder (see README) so buttons can be changed after install without rebuilding.",
+  "app": {
+    "title": "VixReader Test",
+    "subtitle": "Intellivix Reader Firmware Test Program",
+    "version": "1.0.0",
+    "footer": "All rights reserved."
+  },
+  "connection": {
+    "defaultInterface": "ethernet",
+    "defaultIp": "192.168.0.2",
+    "defaultPort": 8443,
+    "path": "/at",
+    "timeoutMs": 15000,
+    "handshake": ["AT", "AT+TEST=BEGIN"],
+    "deviceTypes": [
+      { "value": "M", "label": "M : 멀리언(Mullion) 타입" },
+      { "value": "G", "label": "G : 갱(Gang) 타입" }
+    ]
+  },
+  "groups": [
+    {
+      "id": "control",
+      "title": "장치 제어 명령 선택",
+      "buttons": [
+        { "id": "getSerial", "label": "시리얼 번호 읽기", "command": "AT+SERIAL?", "kind": "read", "column": "SERIAL" },
+        { "id": "setSerial", "label": "시리얼 번호 쓰기", "command": "AT+SERIAL={value}", "kind": "write", "prompt": "설정할 시리얼 번호를 입력하세요", "column": "SERIAL" },
+        { "id": "clearSetting", "label": "장치 설정 지우기", "command": "AT+CLEAR", "kind": "test", "column": "CLEAR_SETTING" }
+      ]
+    },
+    {
+      "id": "test",
+      "title": "장치 테스트 명령 선택",
+      "buttons": [
+        { "id": "getVersion", "label": "펌웨어 버전 읽기", "command": "AT+VER?", "kind": "read", "column": "VERSION" },
+        { "id": "getMac", "label": "MAC 주소 읽기 실행", "command": "AT+MAC?", "kind": "read", "column": "MAC" },
+        { "id": "selfTest", "label": "자가 진단 실행", "command": "AT+TEST=BIST", "kind": "test", "column": "BIST" },
+        { "id": "ledTest", "label": "LED 테스트 실행", "command": "AT+TEST=LED", "kind": "test", "column": "LED" },
+        { "id": "buzzerTest", "label": "부저 테스트 실행", "command": "AT+TEST=BUZZER", "kind": "test", "column": "BUZZER" },
+        { "id": "doorLockTest", "label": "릴레이제어 실행", "command": "AT+TEST=LOCK", "kind": "test", "column": "LOCK" },
+        { "id": "auxinTest", "label": "AUX IN 테스트 실행", "command": "AT+TEST=AUXIN", "kind": "test", "column": "AUXIN" },
+        { "id": "sensorTest", "label": "센서 테스트 실행", "command": "AT+TEST=SENSOR", "kind": "test", "column": "SENSOR" },
+        { "id": "lfidTest", "label": "LFID 테스트 실행", "command": "AT+TEST=LFID", "kind": "test", "column": "LFID" },
+        { "id": "nfcTest", "label": "NFC 테스트 실행", "command": "AT+TEST=NFC", "kind": "test", "column": "NFC" },
+        { "id": "bleTest", "label": "Bluetooth 테스트 실행", "command": "AT+TEST=BLE", "kind": "test", "column": "BLE" },
+        { "id": "doorButtonTest", "label": "도어 버튼 테스트 실행", "command": "AT+TEST=BUTTON", "kind": "test", "column": "BUTTON" },
+        { "id": "tamperTest", "label": "템퍼 버튼 실행", "command": "AT+TEST=TAMPER", "kind": "test", "column": "TAMPER" },
+        { "id": "defaultState", "label": "리셋 버튼 실행", "command": "AT+TEST=DEFBUTTON", "kind": "test", "column": "DEFAULT_STATE" },
+        { "id": "reboot", "label": "장치 재부팅", "command": "AT+REBOOT", "kind": "test", "column": "REBOOT" }
+      ]
+    }
+  ],
+  "ledColor": {
+    "id": "ledColor",
+    "title": "LED 색상 테스트",
+    "label": "설정",
+    "column": "LED",
+    "channels": [
+      { "id": "red", "label": "빨간색", "color": "#e5484d" },
+      { "id": "green", "label": "녹색", "color": "#30a46c" },
+      { "id": "blue", "label": "파란색", "color": "#3e63dd" }
+    ],
+    "commandMap": {
+      "000": "AT+TEST=LED_BLACK",
+      "100": "AT+TEST=LED_RED",
+      "110": "AT+TEST=LED_YELLOW",
+      "010": "AT+TEST=LED_GREEN",
+      "011": "AT+TEST=LED_CYAN",
+      "001": "AT+TEST=LED_BLUE",
+      "101": "AT+TEST=LED_MAGENTA",
+      "111": "AT+TEST=LED_WHITE"
+    }
+  },
+  "resultColumns": [
+    "SERIAL", "VERSION", "MAC", "REBOOT", "BIST", "BLE", "NFC", "LFID",
+    "AUXIN", "SENSOR", "LOCK", "BUTTON", "LED", "BUZZER", "TAMPER",
+    "DEFAULT_STATE", "CLEAR_SETTING"
+  ]
+}
