@@ -16,6 +16,7 @@ import { applyLayout, NODE_H, NODE_W } from '../layout/engine'
 
 export const DEFAULT_TEXT_STYLE: TextStyle = {
   fontFamily: 'notoSansKr',
+  fontSize: 13,
   color: AUTO_TEXT_COLOR,
   bold: true,
   italic: false,
@@ -94,6 +95,7 @@ export function createMindmapDoc(centralText: string): DiagramDocument {
     edges: [],
     selectedId: rootId,
     selectedIds: [rootId],
+    selectedEdgeId: null,
     filePath: null,
     dirty: false,
   }
@@ -149,6 +151,7 @@ export function createFishboneDoc(effectText: string, categoryText: string): Dia
     edges,
     selectedId: effectId,
     selectedIds: [effectId],
+    selectedEdgeId: null,
     filePath: null,
     dirty: false,
   }
@@ -198,6 +201,7 @@ export function addChild(
     edges: [...doc.edges, edge],
     selectedId: id,
     selectedIds: [id],
+    selectedEdgeId: null,
     dirty: true,
   }
 }
@@ -221,6 +225,7 @@ export function addFreeNode(doc: DiagramDocument, text: string, x: number, y: nu
     nodes: [...doc.nodes, node],
     selectedId: id,
     selectedIds: [id],
+    selectedEdgeId: null,
     dirty: true,
   }
 }
@@ -254,8 +259,91 @@ export function deleteNodes(doc: DiagramDocument, nodeIds: string[]): DiagramDoc
     edges: doc.edges.filter((e) => !toRemove.has(e.from) && !toRemove.has(e.to)),
     selectedId: root?.id ?? null,
     selectedIds: root ? [root.id] : [],
+    selectedEdgeId: null,
     dirty: true,
   }
+}
+
+/** Return a node and all of its descendants (the node itself is index 0). */
+export function collectSubtree(nodes: DiagramNode[], rootId: string): DiagramNode[] {
+  const result: DiagramNode[] = []
+  const walk = (id: string) => {
+    const node = nodes.find((n) => n.id === id)
+    if (!node) return
+    result.push(node)
+    nodes.filter((c) => c.parentId === id).forEach((c) => walk(c.id))
+  }
+  walk(rootId)
+  return result
+}
+
+/**
+ * Insert a copied subtree (as returned by collectSubtree) into the document with
+ * fresh ids. Attaches under `targetParentId`, or as a free root when it is null.
+ * Offsets every node by (dx, dy) so a paste/duplicate does not land exactly on
+ * the original.
+ */
+export function insertSubtree(
+  doc: DiagramDocument,
+  subtree: DiagramNode[],
+  targetParentId: string | null,
+  dx: number,
+  dy: number,
+): DiagramDocument {
+  if (subtree.length === 0) return doc
+  const oldRootId = subtree[0].id
+  const idMap = new Map<string, string>()
+  subtree.forEach((n) => idMap.set(n.id, uuid()))
+
+  const newNodes: DiagramNode[] = subtree.map((n) => ({
+    ...n,
+    id: idMap.get(n.id)!,
+    parentId: n.id === oldRootId ? targetParentId : idMap.get(n.parentId as string)!,
+    x: n.x + dx,
+    y: n.y + dy,
+  }))
+
+  const newEdges: DiagramEdge[] = subtree
+    .filter((n) => n.id !== oldRootId)
+    .map((n) => ({
+      id: uuid(),
+      from: idMap.get(n.parentId as string)!,
+      to: idMap.get(n.id)!,
+      lineType: doc.defaultLine,
+      linePattern: doc.defaultLinePattern,
+      color: '#94a3b8',
+    }))
+  if (targetParentId) {
+    newEdges.push({
+      id: uuid(),
+      from: targetParentId,
+      to: idMap.get(oldRootId)!,
+      lineType: doc.defaultLine,
+      linePattern: doc.defaultLinePattern,
+      color: '#94a3b8',
+    })
+  }
+
+  const mergedNodes = [...doc.nodes, ...newNodes]
+  const newRootId = idMap.get(oldRootId)!
+  return {
+    ...doc,
+    // Re-derive fishbone roles so a pasted branch fits its new parent.
+    nodes: doc.mode === 'fishbone' ? assignFishboneRoles(mergedNodes) : mergedNodes,
+    edges: [...doc.edges, ...newEdges],
+    selectedId: newRootId,
+    selectedIds: [newRootId],
+    selectedEdgeId: null,
+    dirty: true,
+  }
+}
+
+/** Duplicate a node and its subtree as a sibling (same parent), nudged nearby. */
+export function duplicateNode(doc: DiagramDocument, nodeId: string): DiagramDocument {
+  const node = doc.nodes.find((n) => n.id === nodeId)
+  if (!node) return doc
+  const subtree = collectSubtree(doc.nodes, nodeId)
+  return insertSubtree(doc, subtree, node.parentId, 40, 40)
 }
 
 export function moveNode(doc: DiagramDocument, nodeId: string, x: number, y: number): DiagramDocument {
@@ -327,6 +415,26 @@ export function setNodeTextStyle(
   }
 }
 
+/** Select a single edge, clearing any node selection (they are exclusive). */
+export function selectEdge(doc: DiagramDocument, edgeId: string | null): DiagramDocument {
+  return { ...doc, selectedEdgeId: edgeId, selectedId: null, selectedIds: [] }
+}
+
+/** Patch one edge by id, updating the relevant document default when present. */
+export function updateEdgeById(
+  doc: DiagramDocument,
+  edgeId: string,
+  patch: Partial<DiagramEdge>,
+): DiagramDocument {
+  return {
+    ...doc,
+    edges: doc.edges.map((e) => (e.id === edgeId ? { ...e, ...patch } : e)),
+    ...(patch.lineType ? { defaultLine: patch.lineType } : {}),
+    ...(patch.linePattern ? { defaultLinePattern: patch.linePattern } : {}),
+    dirty: true,
+  }
+}
+
 export function setEdgeLine(doc: DiagramDocument, nodeId: string, lineType: LineType): DiagramDocument {
   return {
     ...doc,
@@ -373,16 +481,53 @@ export function setLayout(doc: DiagramDocument, layout: LayoutDirection): Diagra
   return relayout({ ...doc, layout, dirty: true })
 }
 
+/**
+ * Assign fishbone roles from the tree structure: the root is the `effect`, its
+ * direct children are `category`, and everything deeper is a `cause`.
+ */
+function assignFishboneRoles(nodes: DiagramNode[]): DiagramNode[] {
+  const roleFor = (node: DiagramNode): DiagramNode['role'] => {
+    if (!node.parentId) return 'effect'
+    const parent = nodes.find((n) => n.id === node.parentId)
+    return parent && !parent.parentId ? 'category' : 'cause'
+  }
+  return nodes.map((n) => ({ ...n, role: roleFor(n) }))
+}
+
+/**
+ * Switch between mindmap and fishbone. The two views share the same node/edge
+ * tree — only the rendering changes — so this preserves all content and just
+ * re-derives the roles and layout the target view needs.
+ */
 export function setMode(
   doc: DiagramDocument,
   mode: DiagramMode,
-  labels: { central: string; effect: string; category: string },
+  _labels: { central: string; effect: string; category: string },
 ): DiagramDocument {
   if (mode === doc.mode) return doc
-  if (mode === 'mindmap') {
-    return relayout({ ...createMindmapDoc(labels.central), dirty: true })
+
+  if (mode === 'fishbone') {
+    // Fishbone can only run horizontally; keep an existing rtl, else use ltr.
+    const layout: LayoutDirection = doc.layout === 'rtl' ? 'rtl' : 'ltr'
+    return {
+      ...doc,
+      mode,
+      layout,
+      nodes: assignFishboneRoles(doc.nodes),
+      dirty: true,
+    }
   }
-  return relayout({ ...createFishboneDoc(labels.effect, labels.category), dirty: true })
+
+  // Back to mindmap: roles are irrelevant here, so drop them. Keep a horizontal
+  // orientation if the fishbone used one, otherwise fall back to radial.
+  const layout: LayoutDirection = doc.layout === 'ltr' || doc.layout === 'rtl' ? doc.layout : 'radial'
+  return {
+    ...doc,
+    mode,
+    layout,
+    nodes: doc.nodes.map(({ role: _role, ...rest }) => rest),
+    dirty: true,
+  }
 }
 
 export function serialize(doc: DiagramDocument): string {
@@ -432,6 +577,7 @@ export function deserialize(content: string, filePath: string | null): DiagramDo
     })),
     selectedId: data.nodes[0]?.id ?? null,
     selectedIds: data.nodes[0] ? [data.nodes[0].id] : [],
+    selectedEdgeId: null,
     filePath,
     dirty: false,
   }

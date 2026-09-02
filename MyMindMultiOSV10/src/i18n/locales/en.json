@@ -28,7 +28,8 @@
     "radial": "Radial",
     "ltr": "Left → Right",
     "rtl": "Right → Left",
-    "ttb": "Top → Bottom"
+    "ttb": "Top → Bottom",
+    "btt": "Bottom → Top"
   },
   "shape": {
     "rounded": "Rounded",
@@ -63,7 +64,11 @@
   },
   "theme": {
     "light": "Light",
-    "dark": "Dark"
+    "dark": "Dark",
+    "midnight": "Midnight",
+    "forest": "Forest",
+    "sunset": "Sunset",
+    "ocean": "Ocean"
   },
   "language": {
     "ko": "한국어",
@@ -75,6 +80,9 @@
     "edit": "Edit Text",
     "addText": "Add Text",
     "addTextPrompt": "Enter text to add.",
+    "duplicate": "Duplicate",
+    "copy": "Copy",
+    "paste": "Paste",
     "delete": "Delete",
     "deleteSelected": "Delete {{count}} selected",
     "selectedCount": "{{count}} selected",
@@ -92,6 +100,7 @@
     "memoPlaceholder": "Add a note for this shape.",
     "textStyle": "Text Style",
     "font": "Font",
+    "fontSize": "Font Size",
     "textColor": "Text Color",
     "textColorAuto": "Auto",
     "textColorAutoHint": "Use the default text color (black)",
@@ -123,6 +132,8 @@
     "email": "Email",
     "copyright": "Copyright",
     "platform": "Platform",
+    "buildDate": "Build Date",
+    "runtime": "Runtime",
     "close": "Close",
     "description": "Mindmap and Fishbone diagram editor for Web, Linux, macOS, and Windows"
   },

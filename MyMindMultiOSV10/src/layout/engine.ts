@@ -52,6 +52,7 @@ function layoutVerticalTree(
   x: number,
   y: number,
   depth: number,
+  vdir: 1 | -1, // +1: children below (ttb), -1: children above (btt)
   out: Map<string, { x: number; y: number }>,
 ) {
   out.set(id, { x, y })
@@ -64,39 +65,60 @@ function layoutVerticalTree(
   for (const kid of kids) {
     const w = subtreeWidth(nodes, kid.id)
     const cx = cursor + w / 2 - NODE_W / 2
-    const cy = y + NODE_H + V_GAP + depth * 10
-    layoutVerticalTree(nodes, kid.id, cx, cy, depth + 1, out)
+    const cy = y + vdir * (NODE_H + V_GAP + depth * 10)
+    layoutVerticalTree(nodes, kid.id, cx, cy, depth + 1, vdir, out)
     cursor += w + H_GAP
   }
 }
 
+// Count the leaves under a node (a node with no children counts as one leaf).
+// Leaf counts drive how much angular room each subtree reserves, so dense
+// branches get a proportionally wider wedge and siblings never overlap.
+function leafCount(nodes: DiagramNode[], id: string): number {
+  const kids = childrenOf(nodes, id)
+  if (kids.length === 0) return 1
+  return kids.reduce((sum, k) => sum + leafCount(nodes, k.id), 0)
+}
+
+function treeDepth(nodes: DiagramNode[], id: string): number {
+  const kids = childrenOf(nodes, id)
+  if (kids.length === 0) return 0
+  return 1 + Math.max(...kids.map((k) => treeDepth(nodes, k.id)))
+}
+
+// Recursive sector (wedge) radial layout: every node owns an angular slice, and
+// its children split that slice proportionally to their leaf counts and sit one
+// ring further out. Because a child stays inside its parent's wedge, branches
+// never cross and siblings never collide.
 function layoutRadial(nodes: DiagramNode[], rootId: string, cx: number, cy: number) {
   const out = new Map<string, { x: number; y: number }>()
   out.set(rootId, { x: cx - NODE_W / 2, y: cy - NODE_H / 2 })
 
-  const RING_GAP = 210 // minimum radius increase per level
-  const ARC_GAP = NODE_W + 60 // minimum arc length reserved for each node
+  const totalLeaves = leafCount(nodes, rootId)
+  const depth = Math.max(1, treeDepth(nodes, rootId))
+  // Ring spacing wide enough that even if every leaf landed on the outermost
+  // ring they would still clear NODE_W; keeps a comfortable gap between nodes.
+  const ringGap = Math.max(200, (totalLeaves * (NODE_W + 40)) / (Math.PI * 2 * depth))
 
-  const placeLevel = (parentIds: string[], level: number) => {
-    const levelNodes = parentIds.flatMap((pid) => childrenOf(nodes, pid))
-    if (levelNodes.length === 0) return
-    const step = (Math.PI * 2) / levelNodes.length
-    // Grow the ring so nodes never crowd, even with many siblings on one level.
-    const radius = Math.max(level * RING_GAP, (levelNodes.length * ARC_GAP) / (Math.PI * 2))
-    levelNodes.forEach((node, i) => {
-      const angle = -Math.PI / 2 + step * i
-      out.set(node.id, {
-        x: cx + Math.cos(angle) * radius - NODE_W / 2,
-        y: cy + Math.sin(angle) * radius - NODE_H / 2,
+  const place = (id: string, a0: number, a1: number, level: number) => {
+    const kids = childrenOf(nodes, id)
+    if (kids.length === 0) return
+    const total = kids.reduce((sum, k) => sum + leafCount(nodes, k.id), 0)
+    const radius = level * ringGap
+    let a = a0
+    for (const kid of kids) {
+      const span = (a1 - a0) * (leafCount(nodes, kid.id) / total)
+      const mid = a + span / 2
+      out.set(kid.id, {
+        x: cx + Math.cos(mid) * radius - NODE_W / 2,
+        y: cy + Math.sin(mid) * radius - NODE_H / 2,
       })
-    })
-    placeLevel(
-      levelNodes.map((n) => n.id),
-      level + 1,
-    )
+      place(kid.id, a, a + span, level + 1)
+      a += span
+    }
   }
 
-  placeLevel([rootId], 1)
+  place(rootId, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2, 1)
   return out
 }
 
@@ -187,7 +209,10 @@ export function applyLayout(
     positions = layoutRadial(nodes, root.id, viewportW / 2, viewportH / 2)
   } else if (layout === 'ttb') {
     positions = new Map()
-    layoutVerticalTree(nodes, root.id, viewportW / 2 - NODE_W / 2, 80, 0, positions)
+    layoutVerticalTree(nodes, root.id, viewportW / 2 - NODE_W / 2, 80, 0, 1, positions)
+  } else if (layout === 'btt') {
+    positions = new Map()
+    layoutVerticalTree(nodes, root.id, viewportW / 2 - NODE_W / 2, viewportH - 80 - NODE_H, 0, -1, positions)
   } else {
     positions = new Map()
     const dir: 1 | -1 = layout === 'ltr' ? 1 : -1

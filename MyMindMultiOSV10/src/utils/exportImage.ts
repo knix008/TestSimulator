@@ -74,7 +74,8 @@ export async function exportPngDataUrl(
     const ctx = canvas.getContext('2d')
     if (!ctx) throw new Error('2d context unavailable')
     ctx.scale(scale, scale)
-    ctx.fillStyle = theme === 'dark' ? '#1a1d23' : '#ffffff'
+    // Use the active theme's solid background so every theme exports correctly.
+    ctx.fillStyle = resolveVar('--bg') || (theme === 'dark' ? '#1a1d23' : '#ffffff')
     ctx.fillRect(0, 0, width, height)
     ctx.drawImage(img, 0, 0, width, height)
     return canvas.toDataURL('image/png')

@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState, type WheelEvent } from 'react'
-import type { DiagramDocument, DiagramNode, LinePattern, LineType, ShapeType, TextFont, ThemeMode } from '../types'
+import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type WheelEvent } from 'react'
+import type { DiagramDocument, DiagramNode, LinePattern, LineType, ShapeType, ThemeMode } from '../types'
 import { FISH_ANGLE_DEG } from '../layout/engine'
 import { resolveTextColor } from '../constants/colors'
 
@@ -14,6 +14,7 @@ type Props = {
   editingId: string | null
   onSelect: (id: string | null) => void
   onSelectMany: (ids: string[]) => void
+  onSelectEdge: (id: string) => void
   onMoveNodes: (ids: string[], dx: number, dy: number) => void
   onContext: (x: number, y: number, nodeId: string | null, canvasX?: number, canvasY?: number) => void
   onEditStart: (id: string) => void
@@ -45,6 +46,11 @@ function shapePath(shape: ShapeType, x: number, y: number, w: number, h: number)
   }
 }
 
+/** Stable, id-safe key for a colour string (e.g. "#94a3b8" -> "94a3b8"). */
+function colorKey(color: string): string {
+  return color.replace(/[^a-zA-Z0-9]/g, '')
+}
+
 function dashArray(linePattern: LinePattern): string | undefined {
   if (linePattern === 'dashed') return '8 6'
   if (linePattern === 'dotted') return '2 5'
@@ -52,37 +58,93 @@ function dashArray(linePattern: LinePattern): string | undefined {
   return undefined
 }
 
-function fontFamily(font: TextFont): string {
+function fontFamily(font: string): string {
   if (font === 'serif') return 'Georgia, serif'
   if (font === 'mono') return 'Consolas, monospace'
   if (font === 'outfit') return 'Outfit, sans-serif'
-  return 'Noto Sans KR, sans-serif'
+  if (font === 'notoSansKr') return '"Noto Sans KR", sans-serif'
+  // Any other value is treated as an installed system font family name.
+  return `"${font}", "Noto Sans KR", sans-serif`
+}
+
+const nodeCenter = (n: DiagramNode) => ({ x: n.x + n.width / 2, y: n.y + n.height / 2 })
+
+/** Which axis connectors run along. 'auto' = whichever the node offset favours. */
+type EdgeOrient = 'h' | 'v' | 'auto'
+
+/**
+ * Pick the connection points at the *midpoint of the facing side* of each node.
+ * `orient` forces side-to-side ('h') or top/bottom ('v') so that, e.g., every
+ * edge in a top-down tree leaves the parent's bottom-centre rather than flipping
+ * to a side face for diagonally-placed children. 'auto' falls back to the
+ * dominant axis. Returning the axis lets each line type arrive perpendicular to
+ * the face, so arrowheads sit flush.
+ */
+function facePoints(from: DiagramNode, to: DiagramNode, orient: EdgeOrient): {
+  p1: { x: number; y: number }
+  p2: { x: number; y: number }
+  horizontal: boolean
+} {
+  const fc = nodeCenter(from)
+  const tc = nodeCenter(to)
+  const dx = tc.x - fc.x
+  const dy = tc.y - fc.y
+  const horizontal = orient === 'h' ? true : orient === 'v' ? false : Math.abs(dx) >= Math.abs(dy)
+  if (horizontal) {
+    const right = dx >= 0
+    return {
+      p1: { x: right ? from.x + from.width : from.x, y: fc.y },
+      p2: { x: right ? to.x : to.x + to.width, y: tc.y },
+      horizontal,
+    }
+  }
+  const down = dy >= 0
+  return {
+    p1: { x: fc.x, y: down ? from.y + from.height : from.y },
+    p2: { x: tc.x, y: down ? to.y : to.y + to.height },
+    horizontal,
+  }
 }
 
 function edgePath(
   from: DiagramNode,
   to: DiagramNode,
   lineType: LineType,
+  orient: EdgeOrient,
 ): string {
-  const x1 = from.x + from.width / 2
-  const y1 = from.y + from.height / 2
-  const x2 = to.x + to.width / 2
-  const y2 = to.y + to.height / 2
+  const { p1, p2, horizontal } = facePoints(from, to, orient)
+  const x1 = p1.x
+  const y1 = p1.y
+  const x2 = p2.x
+  const y2 = p2.y
 
   if (lineType === 'root') {
     const mx = (x1 + x2) / 2
-    const vertical = y2 >= y1 ? 1 : -1
     const spread = Math.max(24, Math.abs(y2 - y1) * 0.28)
+    const vertical = y2 >= y1 ? 1 : -1
     return `M ${x1} ${y1} C ${mx - 42} ${y1 + vertical * spread}, ${mx + 18} ${y2 - vertical * spread * 0.45}, ${x2} ${y2}`
   }
 
   if (lineType === 'elbow') {
-    return `M ${x1} ${y1} L ${x2} ${y1} L ${x2} ${y2}`
+    // Route perpendicular to each face: H-V-H when side-connected, V-H-V when
+    // top/bottom-connected, so the segment meeting each node is axis-aligned.
+    if (horizontal) {
+      const mx = (x1 + x2) / 2
+      return `M ${x1} ${y1} L ${mx} ${y1} L ${mx} ${y2} L ${x2} ${y2}`
+    }
+    const my = (y1 + y2) / 2
+    return `M ${x1} ${y1} L ${x1} ${my} L ${x2} ${my} L ${x2} ${y2}`
   }
 
   if (lineType === 'curve') {
-    const mx = (x1 + x2) / 2
-    return `M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`
+    // Control points along the face normal → tangent is perpendicular to the
+    // face at both ends.
+    if (horizontal) {
+      const mx = (x1 + x2) / 2
+      return `M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`
+    }
+    const my = (y1 + y2) / 2
+    return `M ${x1} ${y1} C ${x1} ${my}, ${x2} ${my}, ${x2} ${y2}`
   }
   return `M ${x1} ${y1} L ${x2} ${y2}`
 }
@@ -110,11 +172,18 @@ const cubicDeriv = (p0: number, p1: number, p2: number, p3: number, t: number) =
  * A filled, organically tapered "tree-root" ribbon between two node centers:
  * wide at the parent, narrowing to the child, following a smooth S-curve.
  */
-function rootRibbonPath(from: DiagramNode, to: DiagramNode, wStart: number, wEnd: number): string {
-  const x1 = from.x + from.width / 2
-  const y1 = from.y + from.height / 2
-  const x2 = to.x + to.width / 2
-  const y2 = to.y + to.height / 2
+function rootRibbonPath(
+  from: DiagramNode,
+  to: DiagramNode,
+  wStart: number,
+  wEnd: number,
+  orient: EdgeOrient,
+): string {
+  const { p1, p2 } = facePoints(from, to, orient)
+  const x1 = p1.x
+  const y1 = p1.y
+  const x2 = p2.x
+  const y2 = p2.y
   const dx = x2 - x1
   const c1x = x1 + dx * 0.5
   const c2x = x1 + dx * 0.5
@@ -175,6 +244,7 @@ export function DiagramCanvas({
   editingId,
   onSelect,
   onSelectMany,
+  onSelectEdge,
   onMoveNodes,
   onContext,
   onEditStart,
@@ -190,6 +260,15 @@ export function DiagramCanvas({
   const [dragPreview, setDragPreview] = useState<{ ids: string[]; dx: number; dy: number } | null>(null)
   const [marquee, setMarquee] = useState<Rect | null>(null)
   const drag = useRef<DragState | null>(null)
+
+  // Connectors follow the layout orientation so every edge leaves the same face
+  // (e.g. parent-bottom in a top-down tree) instead of flipping per edge.
+  const edgeOrient: EdgeOrient =
+    doc.layout === 'ttb' || doc.layout === 'btt'
+      ? 'v'
+      : doc.layout === 'ltr' || doc.layout === 'rtl'
+        ? 'h'
+        : 'auto'
 
   const nodeMap = useMemo(() => {
     const map = new Map(doc.nodes.map((n) => [n.id, n]))
@@ -221,6 +300,24 @@ export function DiagramCanvas({
   }, [nodeMap])
 
   const nodes = useMemo(() => Array.from(nodeMap.values()), [nodeMap])
+  // Edge keyed by its child (target) node, so the fishbone skeleton can inherit
+  // the same colour/pattern the user set on that connection.
+  const edgeByChild = useMemo(() => {
+    const map = new Map<string, (typeof doc.edges)[number]>()
+    doc.edges.forEach((e) => map.set(e.to, e))
+    return map
+  }, [doc.edges])
+  // Distinct colours that need arrow/dot/diamond caps. We build one marker per
+  // colour with an explicit fill (instead of relying on `context-stroke`, which
+  // silently falls back to black — invisible on the dark theme — and is flaky in
+  // exported SVGs).
+  const capColors = useMemo(() => {
+    const set = new Set<string>()
+    for (const e of doc.edges) {
+      if ((e.startCap && e.startCap !== 'none') || (e.endCap && e.endCap !== 'none')) set.add(e.color)
+    }
+    return Array.from(set)
+  }, [doc.edges])
   const editingNode = editingId ? nodeMap.get(editingId) : null
   const fishbone = useMemo(() => {
     if (doc.mode !== 'fishbone') return null
@@ -367,8 +464,10 @@ export function DiagramCanvas({
         }`}
         onMouseDown={(e) => {
           if ((e.target as Element).closest('.node-hit')) return
-          // Middle button pans; left button on empty canvas draws a marquee.
-          if (e.button === 1) {
+          // Middle button always pans. When the grid is on, a left drag on empty
+          // canvas also pans the background (to shift every shape at once);
+          // otherwise a left drag draws a selection marquee.
+          if (e.button === 1 || (e.button === 0 && showGrid)) {
             e.preventDefault()
             drag.current = { kind: 'pan', ox: e.clientX, oy: e.clientY, px: pan.x, py: pan.y }
             return
@@ -421,42 +520,49 @@ export function DiagramCanvas({
               strokeWidth="1"
             />
           </pattern>
-          <marker
-            id="cap-arrow"
-            viewBox="0 0 12 12"
-            refX="10"
-            refY="6"
-            markerWidth="12"
-            markerHeight="12"
-            markerUnits="userSpaceOnUse"
-            orient="auto-start-reverse"
-          >
-            <path d="M1 2 L11 6 L1 10 z" fill="context-stroke" />
-          </marker>
-          <marker
-            id="cap-dot"
-            viewBox="0 0 12 12"
-            refX="6"
-            refY="6"
-            markerWidth="10"
-            markerHeight="10"
-            markerUnits="userSpaceOnUse"
-            orient="auto"
-          >
-            <circle cx="6" cy="6" r="4" fill="context-stroke" />
-          </marker>
-          <marker
-            id="cap-diamond"
-            viewBox="0 0 12 12"
-            refX="6"
-            refY="6"
-            markerWidth="12"
-            markerHeight="12"
-            markerUnits="userSpaceOnUse"
-            orient="auto"
-          >
-            <path d="M6 1 L11 6 L6 11 L1 6 z" fill="context-stroke" />
-          </marker>
+          {capColors.map((color) => {
+            const k = colorKey(color)
+            return (
+              <g key={k}>
+                <marker
+                  id={`cap-arrow-${k}`}
+                  viewBox="0 0 12 12"
+                  refX="10"
+                  refY="6"
+                  markerWidth="12"
+                  markerHeight="12"
+                  markerUnits="userSpaceOnUse"
+                  orient="auto-start-reverse"
+                >
+                  <path d="M1 2 L11 6 L1 10 z" fill={color} />
+                </marker>
+                <marker
+                  id={`cap-dot-${k}`}
+                  viewBox="0 0 12 12"
+                  refX="6"
+                  refY="6"
+                  markerWidth="10"
+                  markerHeight="10"
+                  markerUnits="userSpaceOnUse"
+                  orient="auto"
+                >
+                  <circle cx="6" cy="6" r="4" fill={color} />
+                </marker>
+                <marker
+                  id={`cap-diamond-${k}`}
+                  viewBox="0 0 12 12"
+                  refX="6"
+                  refY="6"
+                  markerWidth="12"
+                  markerHeight="12"
+                  markerUnits="userSpaceOnUse"
+                  orient="auto"
+                >
+                  <path d="M6 1 L11 6 L6 11 L1 6 z" fill={color} />
+                </marker>
+              </g>
+            )
+          })}
         </defs>
 
         {showGrid && (
@@ -487,9 +593,25 @@ export function DiagramCanvas({
               {/* horizontal sub-axes for categories/causes that have children */}
               {fishbone.axes.map((axis) => {
                 const depth = nodeDepthMap.get(axis.id) ?? 1
+                const edge = edgeByChild.get(axis.id)
+                const pattern = edge?.linePattern ?? 'solid'
+                if (pattern !== 'solid') {
+                  return (
+                    <path
+                      key={`axis-${axis.id}`}
+                      d={`M ${axis.x1} ${axis.y1} L ${axis.x2} ${axis.y2}`}
+                      fill="none"
+                      stroke={edge?.color ?? 'var(--spine)'}
+                      strokeWidth={fishWidth(depth)}
+                      strokeDasharray={dashArray(pattern)}
+                      strokeLinecap="round"
+                    />
+                  )
+                }
                 return (
                   <path
                     key={`axis-${axis.id}`}
+                    fill={edge?.color ?? 'var(--spine)'}
                     d={taperSegmentPath(
                       axis.x1,
                       axis.y1,
@@ -504,9 +626,25 @@ export function DiagramCanvas({
               {/* diagonal bones tapering from the parent's axis out to each node */}
               {fishbone.bones.map((bone) => {
                 const depth = nodeDepthMap.get(bone.id) ?? 1
+                const edge = edgeByChild.get(bone.id)
+                const pattern = edge?.linePattern ?? 'solid'
+                if (pattern !== 'solid') {
+                  return (
+                    <path
+                      key={`bone-${bone.id}`}
+                      d={`M ${bone.x1} ${bone.y1} L ${bone.x2} ${bone.y2}`}
+                      fill="none"
+                      stroke={edge?.color ?? 'var(--spine)'}
+                      strokeWidth={fishWidth(depth)}
+                      strokeDasharray={dashArray(pattern)}
+                      strokeLinecap="round"
+                    />
+                  )
+                }
                 return (
                   <path
                     key={`bone-${bone.id}`}
+                    fill={edge?.color ?? 'var(--spine)'}
                     d={taperSegmentPath(
                       bone.x1,
                       bone.y1,
@@ -525,32 +663,61 @@ export function DiagramCanvas({
             const from = nodeMap.get(edge.from)
             const to = nodeMap.get(edge.to)
             if (!from || !to) return null
+            const isSelected = doc.selectedEdgeId === edge.id
+            const selectEdge = (e: ReactMouseEvent) => {
+              e.stopPropagation()
+              if (e.button === 0) onSelectEdge(edge.id)
+            }
             if (edge.lineType === 'root') {
               // Organic tree-root branch: a filled tapered ribbon (no dashes).
               const parentDepth = nodeDepthMap.get(from.id) ?? 0
               const childDepth = nodeDepthMap.get(to.id) ?? parentDepth + 1
+              const d = rootRibbonPath(from, to, branchWidth(parentDepth), branchWidth(childDepth), edgeOrient)
               return (
                 <path
                   key={edge.id}
-                  d={rootRibbonPath(from, to, branchWidth(parentDepth), branchWidth(childDepth))}
+                  className="edge-hit"
+                  d={d}
                   fill={edge.color}
-                  stroke="none"
+                  stroke={isSelected ? 'var(--accent)' : 'none'}
+                  strokeWidth={isSelected ? 2 : 0}
+                  onMouseDown={selectEdge}
                 />
               )
             }
+            const d = edgePath(from, to, edge.lineType, edgeOrient)
             return (
-              <path
-                key={edge.id}
-                d={edgePath(from, to, edge.lineType)}
-                fill="none"
-                stroke={edge.color}
-                strokeWidth={2}
-                strokeDasharray={dashArray(edge.linePattern)}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                markerStart={edge.startCap && edge.startCap !== 'none' ? `url(#cap-${edge.startCap})` : undefined}
-                markerEnd={edge.endCap && edge.endCap !== 'none' ? `url(#cap-${edge.endCap})` : undefined}
-              />
+              <g key={edge.id}>
+                {/* Invisible wide hit target so thin lines are easy to click. */}
+                <path
+                  className="edge-hit"
+                  d={d}
+                  fill="none"
+                  stroke="transparent"
+                  strokeWidth={14}
+                  onMouseDown={selectEdge}
+                />
+                <path
+                  d={d}
+                  fill="none"
+                  stroke={isSelected ? 'var(--accent)' : edge.color}
+                  strokeWidth={isSelected ? 3.5 : 2}
+                  strokeDasharray={dashArray(edge.linePattern)}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  pointerEvents="none"
+                  markerStart={
+                    edge.startCap && edge.startCap !== 'none'
+                      ? `url(#cap-${edge.startCap}-${colorKey(edge.color)})`
+                      : undefined
+                  }
+                  markerEnd={
+                    edge.endCap && edge.endCap !== 'none'
+                      ? `url(#cap-${edge.endCap}-${colorKey(edge.color)})`
+                      : undefined
+                  }
+                />
+              </g>
             )
           })}
 
@@ -591,6 +758,7 @@ export function DiagramCanvas({
               }}
             >
               <path
+                className="node-shape"
                 d={shapePath(node.shape, node.x, node.y, node.width, node.height)}
                 fill={node.color}
                 stroke="var(--node-stroke)"
@@ -601,6 +769,7 @@ export function DiagramCanvas({
                 <tspan
                   fill={resolveTextColor(node.textStyle?.color, theme)}
                   fontFamily={fontFamily(node.textStyle?.fontFamily ?? 'notoSansKr')}
+                  fontSize={node.textStyle?.fontSize ?? 13}
                   fontWeight={node.textStyle?.bold ? 700 : 500}
                   fontStyle={node.textStyle?.italic ? 'italic' : 'normal'}
                   textDecoration={[
@@ -652,6 +821,8 @@ export function DiagramCanvas({
             top: pan.y + editingNode.y * zoom,
             width: Math.max(120, editingNode.width * zoom),
             height: editingNode.height * zoom,
+            fontFamily: fontFamily(editingNode.textStyle?.fontFamily ?? 'notoSansKr'),
+            fontSize: (editingNode.textStyle?.fontSize ?? 13) * zoom,
           }}
           autoFocus
           defaultValue={editingNode.text}

@@ -28,7 +28,8 @@
     "radial": "방사형",
     "ltr": "좌 → 우",
     "rtl": "우 → 좌",
-    "ttb": "상 → 하"
+    "ttb": "상 → 하",
+    "btt": "하 → 상"
   },
   "shape": {
     "rounded": "둥근 사각형",
@@ -63,7 +64,11 @@
   },
   "theme": {
     "light": "라이트",
-    "dark": "다크"
+    "dark": "다크",
+    "midnight": "미드나잇",
+    "forest": "포레스트",
+    "sunset": "선셋",
+    "ocean": "오션"
   },
   "language": {
     "ko": "한국어",
@@ -75,6 +80,9 @@
     "edit": "텍스트 편집",
     "addText": "텍스트 추가",
     "addTextPrompt": "추가할 텍스트를 입력하세요.",
+    "duplicate": "복제",
+    "copy": "복사",
+    "paste": "붙여넣기",
     "delete": "삭제",
     "deleteSelected": "선택 {{count}}개 삭제",
     "selectedCount": "{{count}}개 선택됨",
@@ -92,6 +100,7 @@
     "memoPlaceholder": "이 도형에 대한 메모를 입력하세요.",
     "textStyle": "텍스트 스타일",
     "font": "폰트",
+    "fontSize": "폰트 크기",
     "textColor": "글자 색",
     "textColorAuto": "기본",
     "textColorAutoHint": "기본 글자색(검정) 사용",
@@ -123,6 +132,8 @@
     "email": "이메일",
     "copyright": "저작권",
     "platform": "플랫폼",
+    "buildDate": "빌드 날짜",
+    "runtime": "런타임",
     "close": "닫기",
     "description": "웹 · Linux · macOS · Windows용 마인드맵 / 피쉬본 다이어그램 편집기"
   },

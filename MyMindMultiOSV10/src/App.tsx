@@ -10,9 +10,14 @@ export default function App() {
   const state = useAppState()
   const isElectron = Boolean(window.mymind?.isElectron)
   const selectedNode = state.doc.nodes.find((node) => node.id === state.doc.selectedId) ?? null
-  const selectedEdge = state.doc.edges.find(
-    (edge) => edge.to === state.doc.selectedId || edge.from === state.doc.selectedId,
-  )
+  // An independently-selected edge takes priority; otherwise fall back to the
+  // edge implied by the selected node (its connection to its parent/children).
+  const selectedEdge = state.doc.selectedEdgeId
+    ? state.doc.edges.find((edge) => edge.id === state.doc.selectedEdgeId)
+    : state.doc.edges.find(
+        (edge) => edge.to === state.doc.selectedId || edge.from === state.doc.selectedId,
+      )
+  const edgeOnlySelected = Boolean(state.doc.selectedEdgeId)
   const currentLine = selectedEdge?.lineType ?? state.doc.defaultLine
   const currentLinePattern = selectedEdge?.linePattern ?? state.doc.defaultLinePattern
   const currentLineColor = selectedEdge?.color ?? '#94a3b8'
@@ -32,6 +37,7 @@ export default function App() {
         onSave={state.saveDoc}
         onExport={state.exportImage}
         onMode={state.switchMode}
+        onLayout={state.onLayout}
         onTheme={state.setTheme}
         onLocale={state.setLocale}
         onToggleGrid={state.toggleGrid}
@@ -44,13 +50,13 @@ export default function App() {
         <SidePanels
           doc={state.doc}
           selectedNode={selectedNode}
+          edgeOnlySelected={edgeOnlySelected}
           currentLine={currentLine}
           currentLinePattern={currentLinePattern}
           currentLineColor={currentLineColor}
           currentStartCap={currentStartCap}
           currentEndCap={currentEndCap}
           theme={state.settings.theme}
-          onLayout={state.onLayout}
           onSelect={state.selectNode}
           onShape={state.onShape}
           onColor={state.onColor}
@@ -73,6 +79,7 @@ export default function App() {
           editingId={state.editingId}
           onSelect={state.selectNode}
           onSelectMany={state.selectNodes}
+          onSelectEdge={state.selectEdgeById}
           onMoveNodes={state.onMoveNodes}
           onContext={state.showContext}
           onEditStart={state.setEditingId}
@@ -96,6 +103,7 @@ export default function App() {
       <ContextMenu
         menu={state.contextMenu}
         selectedCount={state.doc.selectedIds.length}
+        canPaste={state.canPaste}
         onClose={state.hideContext}
         onAddText={state.addTextAtContext}
         onAddChild={state.onAddChild}
@@ -103,6 +111,9 @@ export default function App() {
         onEdit={() => {
           if (state.contextMenu.nodeId) state.setEditingId(state.contextMenu.nodeId)
         }}
+        onDuplicate={state.duplicateAtContext}
+        onCopy={state.copyAtContext}
+        onPaste={state.pasteAtContext}
         onDelete={state.onDelete}
       />
 

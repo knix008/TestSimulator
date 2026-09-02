@@ -8,6 +8,10 @@ type AppInfo = {
   email: string
   copyright: string
   platform: string
+  buildDate?: string
+  electron?: string
+  chrome?: string
+  node?: string
 }
 
 type Props = {
@@ -17,11 +21,19 @@ type Props = {
 
 const FALLBACK: AppInfo = {
   name: 'MyMind',
-  version: '1.0.0',
+  version: __APP_VERSION__,
   author: 'SHKWON',
   email: 'knix008@naver.com',
   copyright: `Copyright © ${new Date().getFullYear()} SHKWON`,
   platform: 'web',
+  buildDate: __BUILD_DATE__,
+}
+
+function formatBuildDate(iso: string | undefined): string {
+  if (!iso) return '—'
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return iso
+  return date.toLocaleString()
 }
 
 export function AboutDialog({ open, onClose }: Props) {
@@ -76,6 +88,16 @@ export function AboutDialog({ open, onClose }: Props) {
           <dd>{info.copyright}</dd>
           <dt>{t('about.platform')}</dt>
           <dd>{info.platform}</dd>
+          <dt>{t('about.buildDate')}</dt>
+          <dd>{formatBuildDate(info.buildDate)}</dd>
+          {info.electron ? (
+            <>
+              <dt>{t('about.runtime')}</dt>
+              <dd>
+                Electron {info.electron} · Chromium {info.chrome} · Node {info.node}
+              </dd>
+            </>
+          ) : null}
         </dl>
         <div className="about-actions">
           <button type="button" className="tb-btn" onClick={onClose}>

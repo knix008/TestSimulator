@@ -27,7 +27,7 @@ export type NodeColor = (typeof NODE_COLORS)[number]
 export const AUTO_TEXT_COLOR = 'auto'
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-export function resolveTextColor(color: string | undefined, _theme: 'light' | 'dark'): string {
+export function resolveTextColor(color: string | undefined, _theme: string): string {
   // Node fills are light pastel colors in both themes, so black stays readable.
   if (!color || color === AUTO_TEXT_COLOR) return '#111827'
   return color

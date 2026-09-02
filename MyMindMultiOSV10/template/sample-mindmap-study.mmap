@@ -1,0 +1,362 @@
+{
+  "version": 1,
+  "mode": "mindmap",
+  "layout": "ttb",
+  "defaultShape": "rounded",
+  "defaultLine": "curve",
+  "defaultLinePattern": "solid",
+  "nodes": [
+    {
+      "id": "n-1",
+      "parentId": null,
+      "text": "웹 개발 학습",
+      "x": 630,
+      "y": 80,
+      "width": 160,
+      "height": 52,
+      "shape": "rounded",
+      "color": "#93c5fd",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-2",
+      "parentId": "n-1",
+      "text": "프론트엔드",
+      "x": 100,
+      "y": 168,
+      "width": 140,
+      "height": 44,
+      "shape": "rounded",
+      "color": "#a7f3d0",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-3",
+      "parentId": "n-2",
+      "text": "HTML/CSS",
+      "x": -112,
+      "y": 266,
+      "width": 140,
+      "height": 44,
+      "shape": "rounded",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-5",
+      "parentId": "n-2",
+      "text": "JavaScript",
+      "x": 100,
+      "y": 266,
+      "width": 140,
+      "height": 44,
+      "shape": "rounded",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-7",
+      "parentId": "n-2",
+      "text": "React",
+      "x": 312,
+      "y": 266,
+      "width": 140,
+      "height": 44,
+      "shape": "rounded",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-10",
+      "parentId": "n-1",
+      "text": "백엔드",
+      "x": 736,
+      "y": 168,
+      "width": 140,
+      "height": 44,
+      "shape": "rounded",
+      "color": "#a7f3d0",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-11",
+      "parentId": "n-10",
+      "text": "Node.js",
+      "x": 524,
+      "y": 266,
+      "width": 140,
+      "height": 44,
+      "shape": "rounded",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-13",
+      "parentId": "n-10",
+      "text": "DB",
+      "x": 736,
+      "y": 266,
+      "width": 140,
+      "height": 44,
+      "shape": "rounded",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-15",
+      "parentId": "n-10",
+      "text": "API",
+      "x": 948,
+      "y": 266,
+      "width": 140,
+      "height": 44,
+      "shape": "rounded",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-18",
+      "parentId": "n-1",
+      "text": "도구",
+      "x": 1266,
+      "y": 168,
+      "width": 140,
+      "height": 44,
+      "shape": "rounded",
+      "color": "#a7f3d0",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-19",
+      "parentId": "n-18",
+      "text": "Git",
+      "x": 1160,
+      "y": 266,
+      "width": 140,
+      "height": 44,
+      "shape": "rounded",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    },
+    {
+      "id": "n-21",
+      "parentId": "n-18",
+      "text": "Docker",
+      "x": 1372,
+      "y": 266,
+      "width": 140,
+      "height": 44,
+      "shape": "rounded",
+      "color": "#fde68a",
+      "textStyle": {
+        "fontFamily": "notoSansKr",
+        "fontSize": 13,
+        "color": "auto",
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e-4",
+      "from": "n-2",
+      "to": "n-3",
+      "lineType": "curve",
+      "linePattern": "solid",
+      "color": "#94a3b8",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-6",
+      "from": "n-2",
+      "to": "n-5",
+      "lineType": "curve",
+      "linePattern": "solid",
+      "color": "#94a3b8",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-8",
+      "from": "n-2",
+      "to": "n-7",
+      "lineType": "curve",
+      "linePattern": "solid",
+      "color": "#94a3b8",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-9",
+      "from": "n-1",
+      "to": "n-2",
+      "lineType": "curve",
+      "linePattern": "solid",
+      "color": "#94a3b8",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-12",
+      "from": "n-10",
+      "to": "n-11",
+      "lineType": "curve",
+      "linePattern": "solid",
+      "color": "#94a3b8",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-14",
+      "from": "n-10",
+      "to": "n-13",
+      "lineType": "curve",
+      "linePattern": "solid",
+      "color": "#94a3b8",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-16",
+      "from": "n-10",
+      "to": "n-15",
+      "lineType": "curve",
+      "linePattern": "solid",
+      "color": "#94a3b8",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-17",
+      "from": "n-1",
+      "to": "n-10",
+      "lineType": "curve",
+      "linePattern": "solid",
+      "color": "#94a3b8",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-20",
+      "from": "n-18",
+      "to": "n-19",
+      "lineType": "curve",
+      "linePattern": "solid",
+      "color": "#94a3b8",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-22",
+      "from": "n-18",
+      "to": "n-21",
+      "lineType": "curve",
+      "linePattern": "solid",
+      "color": "#94a3b8",
+      "startCap": "none",
+      "endCap": "none"
+    },
+    {
+      "id": "e-23",
+      "from": "n-1",
+      "to": "n-18",
+      "lineType": "curve",
+      "linePattern": "solid",
+      "color": "#94a3b8",
+      "startCap": "none",
+      "endCap": "none"
+    }
+  ]
+}

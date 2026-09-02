@@ -43,6 +43,90 @@
   --grid-line-major: rgba(148, 163, 184, 0.24);
 }
 
+[data-theme='midnight'] {
+  --bg: #0f1020;
+  --bg-elevated: #191a2e;
+  --bg-toolbar: linear-gradient(180deg, #20223d 0%, #15162a 100%);
+  --bg-canvas: radial-gradient(1200px 700px at 15% 0%, #312e8166, transparent),
+    radial-gradient(800px 500px at 90% 90%, #6d28d944, transparent), #0f1020;
+  --text: #e6e6fa;
+  --text-muted: #a5a3c7;
+  --border: #332f57;
+  --accent: #a78bfa;
+  --accent-soft: #312e81;
+  --danger: #fb7185;
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  --node-stroke: rgba(255, 255, 255, 0.12);
+  --spine: #a5a3c7;
+  --menu-bg: #191a2e;
+  --status-bg: #0b0c18;
+  --grid-line: rgba(165, 163, 199, 0.12);
+  --grid-line-major: rgba(165, 163, 199, 0.24);
+}
+
+[data-theme='forest'] {
+  --bg: #0f1a14;
+  --bg-elevated: #16241c;
+  --bg-toolbar: linear-gradient(180deg, #1c2f24 0%, #132019 100%);
+  --bg-canvas: radial-gradient(1200px 700px at 15% 0%, #14532d55, transparent),
+    radial-gradient(800px 500px at 90% 90%, #3f621233, transparent), #0f1a14;
+  --text: #e3f2e9;
+  --text-muted: #93b8a4;
+  --border: #2c4638;
+  --accent: #34d399;
+  --accent-soft: #14532d;
+  --danger: #f87171;
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+  --node-stroke: rgba(255, 255, 255, 0.12);
+  --spine: #93b8a4;
+  --menu-bg: #16241c;
+  --status-bg: #0a130e;
+  --grid-line: rgba(147, 184, 164, 0.12);
+  --grid-line-major: rgba(147, 184, 164, 0.24);
+}
+
+[data-theme='sunset'] {
+  --bg: #fdf3ec;
+  --bg-elevated: #fffaf6;
+  --bg-toolbar: linear-gradient(180deg, #fff2e6 0%, #ffe6d0 100%);
+  --bg-canvas: radial-gradient(1200px 700px at 20% 10%, #fed7aa66, transparent),
+    radial-gradient(900px 600px at 80% 80%, #fbcfe855, transparent), #fdf3ec;
+  --text: #4a2c1a;
+  --text-muted: #9a6b4f;
+  --border: #e7c9b3;
+  --accent: #ea580c;
+  --accent-soft: #ffedd5;
+  --danger: #dc2626;
+  --shadow: 0 8px 24px rgba(74, 44, 26, 0.1);
+  --node-stroke: rgba(74, 44, 26, 0.12);
+  --spine: #b06a44;
+  --menu-bg: #fffaf6;
+  --status-bg: #f3ddcb;
+  --grid-line: rgba(154, 107, 79, 0.18);
+  --grid-line-major: rgba(154, 107, 79, 0.3);
+}
+
+[data-theme='ocean'] {
+  --bg: #eef7fb;
+  --bg-elevated: #ffffff;
+  --bg-toolbar: linear-gradient(180deg, #f0fbff 0%, #dcf1fa 100%);
+  --bg-canvas: radial-gradient(1200px 700px at 20% 10%, #a5f3fc55, transparent),
+    radial-gradient(900px 600px at 80% 80%, #bae6fd55, transparent), #eef7fb;
+  --text: #0c3547;
+  --text-muted: #4d7d92;
+  --border: #b6dbe8;
+  --accent: #0891b2;
+  --accent-soft: #cffafe;
+  --danger: #dc2626;
+  --shadow: 0 8px 24px rgba(12, 53, 71, 0.1);
+  --node-stroke: rgba(12, 53, 71, 0.12);
+  --spine: #3f7f97;
+  --menu-bg: #ffffff;
+  --status-bg: #d7edf5;
+  --grid-line: rgba(77, 125, 146, 0.18);
+  --grid-line-major: rgba(77, 125, 146, 0.3);
+}
+
 * {
   box-sizing: border-box;
 }
@@ -82,6 +166,20 @@ select {
   flex-wrap: nowrap;
   overflow: hidden;
   font-size: 11px;
+}
+
+/* Holds everything except the window controls. It shrinks and clips its own
+   overflow so the min/max/close buttons are never pushed off-screen. */
+.toolbar-main {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  /* Size to content (don't grow) so scrollWidth reports the true toolbar width;
+     shrink + clip only as a safety net (the window min-width normally prevents
+     it from ever needing to). */
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .toolbar-group {
@@ -279,9 +377,11 @@ select {
 }
 
 .window-controls {
-  margin-left: auto;
   display: flex;
   gap: 4px;
+  flex-shrink: 0;
+  margin-left: auto;
+  padding-left: 6px;
   -webkit-app-region: no-drag;
 }
 
@@ -415,6 +515,108 @@ select {
 
 .node-list-text {
   min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Tree view (parent/child) for the node list */
+.node-tree {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 0;
+  overflow: auto;
+}
+
+.node-tree-item {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+  width: 100%;
+  min-height: 28px;
+  padding: 0 7px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.node-tree-item:hover,
+.node-tree-item.selected {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+/* Tree guide columns: 16px each, lines drawn with pseudo-elements. */
+.tg {
+  position: relative;
+  flex: 0 0 16px;
+  align-self: stretch;
+}
+
+/* Full-height vertical line (an ancestor with more siblings below). */
+.tg-v::before {
+  content: '';
+  position: absolute;
+  left: 8px;
+  top: 0;
+  bottom: 0;
+  border-left: 1px solid var(--border);
+}
+
+/* ├ connector: vertical through the row + horizontal tick to the node. */
+.tg-mid::before {
+  content: '';
+  position: absolute;
+  left: 8px;
+  top: 0;
+  bottom: 0;
+  border-left: 1px solid var(--border);
+}
+
+.tg-mid::after {
+  content: '';
+  position: absolute;
+  left: 8px;
+  top: 50%;
+  width: 8px;
+  border-top: 1px solid var(--border);
+}
+
+/* └ connector: vertical to the middle only + horizontal tick. */
+.tg-last::before {
+  content: '';
+  position: absolute;
+  left: 8px;
+  top: 0;
+  height: 50%;
+  border-left: 1px solid var(--border);
+}
+
+.tg-last::after {
+  content: '';
+  position: absolute;
+  left: 8px;
+  top: 50%;
+  width: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.node-tree-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  align-self: center;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.18);
+}
+
+.node-tree-text {
+  min-width: 0;
+  align-self: center;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -597,8 +799,19 @@ select {
   filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.18));
 }
 
+/* drop-shadow() has no spread param, so an outline can't be faked with it.
+   Colour the shape outline instead (overrides the path's presentation attrs). */
+.node-hit.selected .node-shape {
+  stroke: var(--accent);
+  stroke-width: 3;
+}
+
 .node-hit.selected {
-  filter: drop-shadow(0 0 0 2px var(--accent)) drop-shadow(0 6px 14px rgba(37, 99, 235, 0.35));
+  filter: drop-shadow(0 0 6px rgba(37, 99, 235, 0.55));
+}
+
+.edge-hit {
+  cursor: pointer;
 }
 
 .status-bar {
@@ -688,6 +901,28 @@ select {
 
 .context-item {
   position: relative;
+}
+
+.context-item-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+
+.context-menu button:hover:not(:disabled) .context-item-icon {
+  color: var(--accent);
+}
+
+.context-menu button.danger:hover:not(:disabled) .context-item-icon {
+  color: var(--danger);
+}
+
+.context-item-label {
+  flex: 1;
 }
 
 .context-arrow {

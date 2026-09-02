@@ -10,6 +10,7 @@ export type AppInfo = {
   electron: string
   chrome: string
   node: string
+  buildDate: string
 }
 
 const api = {
@@ -17,6 +18,7 @@ const api = {
   maximize: () => ipcRenderer.invoke('window:maximize') as Promise<boolean>,
   close: () => ipcRenderer.invoke('window:close') as Promise<void>,
   isMaximized: () => ipcRenderer.invoke('window:isMaximized') as Promise<boolean>,
+  setMinWidth: (width: number) => ipcRenderer.invoke('window:setMinWidth', width) as Promise<void>,
   saveDialog: (defaultName: string) =>
     ipcRenderer.invoke('dialog:save', defaultName) as Promise<string | null>,
   openDialog: () =>
@@ -29,6 +31,14 @@ const api = {
     ipcRenderer.invoke('file:writeBinary', filePath, base64) as Promise<boolean>,
   openExternal: (url: string) => ipcRenderer.invoke('shell:openExternal', url) as Promise<void>,
   getAppInfo: () => ipcRenderer.invoke('app:getInfo') as Promise<AppInfo>,
+  // Fired when the OS opens a .mmap with the app (file association / "Open with").
+  onOpenFile: (cb: (data: { filePath: string; content: string }) => void) => {
+    const listener = (_e: unknown, data: { filePath: string; content: string }) => cb(data)
+    ipcRenderer.on('file:opened', listener)
+    return () => {
+      ipcRenderer.removeListener('file:opened', listener)
+    }
+  },
   isElectron: true as const,
 }
 

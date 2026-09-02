@@ -1,5 +1,6 @@
 <svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
-  <!-- Document sheet with a folded top-right corner -->
+  <!-- Document sheet with a folded top-right corner. The app icon is composited
+       onto the lower half by scripts/gen-icons.mjs. -->
   <defs>
     <linearGradient id="sheet" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#ffffff"/>
@@ -17,14 +18,8 @@
     <path d="M336 40 l64 64 h-48 a16 16 0 0 1 -16 -16 z" fill="#cbd5e1"/>
   </g>
 
-  <!-- App icon composited onto the lower part of the document -->
-  <image href="icons/256x256.png" x="136" y="196" width="240" height="240"
-         preserveAspectRatio="xMidYMid meet"/>
-
   <!-- Extension badge -->
-  <g>
-    <rect x="150" y="120" width="150" height="52" rx="12" fill="#2563eb"/>
-    <text x="225" y="156" text-anchor="middle" font-family="Outfit, Segoe UI, sans-serif"
-          font-size="30" font-weight="700" fill="#ffffff">.mmap</text>
-  </g>
+  <rect x="150" y="118" width="164" height="54" rx="14" fill="#3b82f6"/>
+  <text x="232" y="155" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif"
+        font-size="30" font-weight="700" fill="#ffffff">.mmap</text>
 </svg>

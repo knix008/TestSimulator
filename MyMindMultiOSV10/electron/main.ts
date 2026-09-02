@@ -4,6 +4,7 @@ import {
   ipcMain,
   dialog,
   Menu,
+  session,
   shell,
 } from 'electron'
 import path from 'node:path'
@@ -51,10 +52,78 @@ function createWindow() {
   mainWindow.on('closed', () => {
     mainWindow = null
   })
+
+  // Flush any file requested before the renderer finished loading.
+  mainWindow.webContents.on('did-finish-load', () => {
+    if (pendingOpen) {
+      mainWindow?.webContents.send('file:opened', pendingOpen)
+      pendingOpen = null
+    }
+  })
+}
+
+// A .mmap path passed on the command line (double-click / "Open with"). Skip the
+// executable and any flags.
+function fileArgFrom(argv: string[]): string | null {
+  return (
+    argv.slice(1).find((a) => !a.startsWith('-') && a.toLowerCase().endsWith('.mmap')) ?? null
+  )
+}
+
+let pendingOpen: { filePath: string; content: string } | null = null
+
+// Read a .mmap and hand it to the renderer (or queue it until the window loads).
+function openFilePath(filePath: string) {
+  try {
+    const content = fs.readFileSync(filePath, 'utf8')
+    const payload = { filePath, content }
+    if (mainWindow && !mainWindow.webContents.isLoading()) {
+      mainWindow.webContents.send('file:opened', payload)
+    } else {
+      pendingOpen = payload
+    }
+  } catch {
+    /* ignore unreadable file */
+  }
+}
+
+// macOS delivers file-open via this event (can fire before the app is ready).
+app.on('open-file', (event, filePath) => {
+  event.preventDefault()
+  openFilePath(filePath)
+})
+
+// Single-instance: a second launch (e.g. double-clicking another file) should
+// open that file in the existing window instead of starting a new process.
+const gotSingleInstanceLock = app.requestSingleInstanceLock()
+if (!gotSingleInstanceLock) {
+  app.quit()
+} else {
+  app.on('second-instance', (_event, argv) => {
+    const f = fileArgFrom(argv)
+    if (f) openFilePath(f)
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore()
+      mainWindow.focus()
+    }
+  })
 }
 
 app.whenReady().then(() => {
+  // Allow the renderer to enumerate installed fonts (Local Font Access API).
+  // 'local-fonts' is a valid runtime permission but missing from these typings.
+  session.defaultSession.setPermissionRequestHandler((_wc, permission, callback) => {
+    callback((permission as string) === 'local-fonts')
+  })
+  session.defaultSession.setPermissionCheckHandler(
+    (_wc, permission) => (permission as string) === 'local-fonts',
+  )
+
   createWindow()
+
+  // First launch via double-click / "Open with": load that file once ready.
+  const initialFile = fileArgFrom(process.argv)
+  if (initialFile) openFilePath(initialFile)
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
@@ -67,6 +136,15 @@ app.on('window-all-closed', () => {
 
 ipcMain.handle('window:minimize', () => {
   mainWindow?.minimize()
+})
+
+ipcMain.handle('window:setMinWidth', (_e, width: number) => {
+  if (!mainWindow || !Number.isFinite(width)) return
+  const [, minH] = mainWindow.getMinimumSize()
+  const w = Math.ceil(width)
+  mainWindow.setMinimumSize(w, minH)
+  const [curW, curH] = mainWindow.getSize()
+  if (curW < w) mainWindow.setSize(w, curH)
 })
 
 ipcMain.handle('window:maximize', () => {
@@ -150,4 +228,9 @@ ipcMain.handle('app:getInfo', () => ({
   electron: process.versions.electron,
   chrome: process.versions.chrome,
   node: process.versions.node,
+  // In a packaged app the executable's mtime is the build time; in dev, "now".
+  buildDate: (app.isPackaged
+    ? fs.statSync(app.getPath('exe')).mtime
+    : new Date()
+  ).toISOString(),
 }))

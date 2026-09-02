@@ -1,15 +1,20 @@
 export type DiagramMode = 'mindmap' | 'fishbone'
-export type LayoutDirection = 'radial' | 'ltr' | 'rtl' | 'ttb'
+export type LayoutDirection = 'radial' | 'ltr' | 'rtl' | 'ttb' | 'btt'
 export type ShapeType = 'rounded' | 'rect' | 'ellipse' | 'diamond' | 'parallelogram'
 export type LineType = 'curve' | 'straight' | 'elbow' | 'root'
 export type LinePattern = 'solid' | 'dashed' | 'dotted' | 'dashdot'
 export type EndCap = 'none' | 'arrow' | 'dot' | 'diamond'
-export type ThemeMode = 'light' | 'dark'
+export type ThemeMode = 'light' | 'dark' | 'midnight' | 'forest' | 'sunset' | 'ocean'
+
+export const THEME_MODES: ThemeMode[] = ['light', 'dark', 'midnight', 'forest', 'sunset', 'ocean']
 export type Locale = 'ko' | 'en'
 export type TextFont = 'outfit' | 'notoSansKr' | 'serif' | 'mono'
 
 export interface TextStyle {
-  fontFamily: TextFont
+  /** A preset keyword (see TextFont) or any installed system font family name. */
+  fontFamily: string
+  /** Text size in px. */
+  fontSize: number
   color: string
   bold: boolean
   italic: boolean
@@ -58,6 +63,8 @@ export interface DiagramDocument {
   selectedId: string | null
   /** Full selection set (marquee / multi-select); includes selectedId. */
   selectedIds: string[]
+  /** Independently selected edge (mutually exclusive with node selection). */
+  selectedEdgeId: string | null
   filePath: string | null
   dirty: boolean
 }

@@ -1,26 +1,66 @@
-import { useEffect } from 'react'
+import { useEffect, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ContextMenuState } from '../types'
+import {
+  IconChild,
+  IconCopy,
+  IconDuplicate,
+  IconEdit,
+  IconPaste,
+  IconSibling,
+  IconText,
+  IconTrash,
+} from './Icons'
 
 type Props = {
   menu: ContextMenuState
   selectedCount: number
+  canPaste: boolean
   onClose: () => void
   onAddText: () => void
   onAddChild: () => void
   onAddSibling: () => void
   onEdit: () => void
+  onDuplicate: () => void
+  onCopy: () => void
+  onPaste: () => void
   onDelete: () => void
+}
+
+type ItemProps = {
+  icon: ReactNode
+  label: string
+  disabled?: boolean
+  danger?: boolean
+  onClick: () => void
+}
+
+function MenuItem({ icon, label, disabled, danger, onClick }: ItemProps) {
+  return (
+    <button
+      type="button"
+      className={danger ? 'context-item danger' : 'context-item'}
+      disabled={disabled}
+      onClick={onClick}
+    >
+      <span className="context-item-icon">{icon}</span>
+      <span className="context-item-label">{label}</span>
+    </button>
+  )
 }
 
 export function ContextMenu({
   menu,
   selectedCount,
+  canPaste,
   onClose,
   onAddText,
   onAddChild,
   onAddSibling,
   onEdit,
+  onDuplicate,
+  onCopy,
+  onPaste,
   onDelete,
 }: Props) {
   const { t } = useTranslation()
@@ -47,67 +87,76 @@ export function ContextMenu({
 
   if (!menu.visible) return null
 
+  const run = (action: () => void) => () => {
+    action()
+    onClose()
+  }
+
   return (
     <div
       className="context-menu"
       style={{ left: menu.x, top: menu.y }}
       onContextMenu={(e) => e.preventDefault()}
     >
-      {multi ? <div className="context-header">{t('context.selectedCount', { count: selectedCount })}</div> : null}
-      <button
-        type="button"
+      {multi ? (
+        <div className="context-header">{t('context.selectedCount', { count: selectedCount })}</div>
+      ) : null}
+
+      <MenuItem
+        icon={<IconChild />}
+        label={t('context.addChild')}
         disabled={multi}
-        onClick={() => {
-          onAddChild()
-          onClose()
-        }}
-      >
-        {t('context.addChild')}
-      </button>
-      <button
-        type="button"
+        onClick={run(onAddChild)}
+      />
+      <MenuItem
+        icon={<IconSibling />}
+        label={t('context.addSibling')}
         disabled={multi}
-        onClick={() => {
-          onAddSibling()
-          onClose()
-        }}
-      >
-        {t('context.addSibling')}
-      </button>
-        <button
-          type="button"
-          disabled={hasNode}
-          onClick={() => {
-            onAddText()
-            onClose()
-          }}
-        >
-          {t('context.addText')}
-        </button>
-      <button
-        type="button"
+        onClick={run(onAddSibling)}
+      />
+      <MenuItem
+        icon={<IconText />}
+        label={t('context.addText')}
+        disabled={hasNode}
+        onClick={run(onAddText)}
+      />
+      <MenuItem
+        icon={<IconEdit />}
+        label={t('context.edit')}
         disabled={!hasNode || multi}
-        onClick={() => {
-          onEdit()
-          onClose()
-        }}
-      >
-        {t('context.edit')}
-      </button>
+        onClick={run(onEdit)}
+      />
 
       <div className="context-sep" />
 
-      <button
-        type="button"
-        className="danger"
+      <MenuItem
+        icon={<IconDuplicate />}
+        label={t('context.duplicate')}
+        disabled={!hasNode || multi}
+        onClick={run(onDuplicate)}
+      />
+      <MenuItem
+        icon={<IconCopy />}
+        label={t('context.copy')}
+        disabled={!hasNode || multi}
+        onClick={run(onCopy)}
+      />
+      <MenuItem
+        icon={<IconPaste />}
+        label={t('context.paste')}
+        disabled={!canPaste}
+        onClick={run(onPaste)}
+      />
+
+      <div className="context-sep" />
+
+      <MenuItem
+        icon={<IconTrash />}
+        label={multi ? t('context.deleteSelected', { count: selectedCount }) : t('context.delete')}
+        danger
         disabled={!hasNode}
-        onClick={() => {
-          onDelete()
-          onClose()
-        }}
-      >
-        {multi ? t('context.deleteSelected', { count: selectedCount }) : t('context.delete')}
-      </button>
+        onClick={run(onDelete)}
+      />
     </div>
   )
 }
