@@ -49,6 +49,14 @@ function createWindow() {
     mainWindow?.show()
   })
 
+  // Intercept close while there are unsaved changes: ask the renderer to show a
+  // Save / Don't Save / Cancel prompt instead of quitting immediately.
+  mainWindow.on('close', (event) => {
+    if (allowClose || !docDirty) return
+    event.preventDefault()
+    mainWindow?.webContents.send('app:requestClose')
+  })
+
   mainWindow.on('closed', () => {
     mainWindow = null
   })
@@ -71,6 +79,10 @@ function fileArgFrom(argv: string[]): string | null {
 }
 
 let pendingOpen: { filePath: string; content: string } | null = null
+// Whether the renderer has unsaved changes, and whether a confirmed close is in
+// progress (so the close handler lets it through).
+let docDirty = false
+let allowClose = false
 
 // Read a .mmap and hand it to the renderer (or queue it until the window loads).
 function openFilePath(filePath: string) {
@@ -159,6 +171,17 @@ ipcMain.handle('window:maximize', () => {
 
 ipcMain.handle('window:close', () => {
   mainWindow?.close()
+})
+
+ipcMain.on('app:setDirty', (_e, dirty: boolean) => {
+  docDirty = Boolean(dirty)
+})
+
+// The renderer resolved the unsaved-changes prompt (saved or discarded) — close.
+ipcMain.on('app:confirmClose', () => {
+  allowClose = true
+  // destroy() force-closes without re-firing the guarded 'close' event.
+  mainWindow?.destroy()
 })
 
 ipcMain.handle('window:isMaximized', () => {

@@ -12,9 +12,11 @@ import {
   IconMind,
   IconNew,
   IconOpen,
+  IconRedo,
   IconReset,
   IconSave,
   IconTheme,
+  IconUndo,
 } from './Icons'
 import { ToolbarDropdown } from './ToolbarDropdown'
 
@@ -36,6 +38,11 @@ type Props = {
   onResetView: () => void
   onAutoAlign: () => void
   onAbout: () => void
+  onRequestClose: () => void
+  onUndo: () => void
+  onRedo: () => void
+  canUndo: boolean
+  canRedo: boolean
 }
 
 export function Toolbar({
@@ -56,6 +63,11 @@ export function Toolbar({
   onResetView,
   onAutoAlign,
   onAbout,
+  onRequestClose,
+  onUndo,
+  onRedo,
+  canUndo,
+  canRedo,
 }: Props) {
   const { t } = useTranslation()
   const mainRef = useRef<HTMLDivElement>(null)
@@ -130,6 +142,31 @@ export function Toolbar({
         <button type="button" className="tb-btn" onClick={onExport} title={t('toolbar.export')}>
           <span className="icon"><IconExport /></span>
           {t('toolbar.export')}
+        </button>
+      </div>
+
+      <div className="toolbar-sep" />
+
+      <div className="toolbar-group">
+        <button
+          type="button"
+          className="tb-btn"
+          onClick={onUndo}
+          disabled={!canUndo}
+          title={t('toolbar.undo')}
+        >
+          <span className="icon"><IconUndo /></span>
+          {t('toolbar.undo')}
+        </button>
+        <button
+          type="button"
+          className="tb-btn"
+          onClick={onRedo}
+          disabled={!canRedo}
+          title={t('toolbar.redo')}
+        >
+          <span className="icon"><IconRedo /></span>
+          {t('toolbar.redo')}
         </button>
       </div>
 
@@ -219,7 +256,7 @@ export function Toolbar({
           <button type="button" className="tb-btn" title={t('toolbar.maximize')} onClick={() => window.mymind?.maximize()}>
             □
           </button>
-          <button type="button" className="tb-btn close" title={t('toolbar.close')} onClick={() => window.mymind?.close()}>
+          <button type="button" className="tb-btn close" title={t('toolbar.close')} onClick={onRequestClose}>
             ✕
           </button>
         </div>

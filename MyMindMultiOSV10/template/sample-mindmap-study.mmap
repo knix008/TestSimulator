@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "mode": "mindmap",
-  "layout": "ttb",
+  "mode": "fishbone",
+  "layout": "ltr",
   "defaultShape": "rounded",
   "defaultLine": "curve",
   "defaultLinePattern": "solid",
@@ -10,8 +10,8 @@
       "id": "n-1",
       "parentId": null,
       "text": "웹 개발 학습",
-      "x": 630,
-      "y": 80,
+      "x": 1166,
+      "y": 334,
       "width": 160,
       "height": 52,
       "shape": "rounded",
@@ -24,14 +24,15 @@
         "italic": false,
         "underline": false,
         "strike": false
-      }
+      },
+      "role": "effect"
     },
     {
       "id": "n-2",
       "parentId": "n-1",
       "text": "프론트엔드",
-      "x": 100,
-      "y": 168,
+      "x": 902.8965569349609,
+      "y": 173,
       "width": 140,
       "height": 44,
       "shape": "rounded",
@@ -44,14 +45,15 @@
         "italic": false,
         "underline": false,
         "strike": false
-      }
+      },
+      "role": "category"
     },
     {
       "id": "n-3",
       "parentId": "n-2",
       "text": "HTML/CSS",
-      "x": -112,
-      "y": 266,
+      "x": 742.9122347058417,
+      "y": 53,
       "width": 140,
       "height": 44,
       "shape": "rounded",
@@ -64,14 +66,15 @@
         "italic": false,
         "underline": false,
         "strike": false
-      }
+      },
+      "role": "cause"
     },
     {
       "id": "n-5",
       "parentId": "n-2",
       "text": "JavaScript",
-      "x": 100,
-      "y": 266,
+      "x": 542.9122347058417,
+      "y": 293,
       "width": 140,
       "height": 44,
       "shape": "rounded",
@@ -84,14 +87,15 @@
         "italic": false,
         "underline": false,
         "strike": false
-      }
+      },
+      "role": "cause"
     },
     {
       "id": "n-7",
       "parentId": "n-2",
       "text": "React",
-      "x": 312,
-      "y": 266,
+      "x": 342.9122347058417,
+      "y": 53,
       "width": 140,
       "height": 44,
       "shape": "rounded",
@@ -104,14 +108,15 @@
         "italic": false,
         "underline": false,
         "strike": false
-      }
+      },
+      "role": "cause"
     },
     {
       "id": "n-10",
       "parentId": "n-1",
       "text": "백엔드",
-      "x": 736,
-      "y": 168,
+      "x": 818.3176401112471,
+      "y": 513.8108108108108,
       "width": 140,
       "height": 44,
       "shape": "rounded",
@@ -124,14 +129,15 @@
         "italic": false,
         "underline": false,
         "strike": false
-      }
+      },
+      "role": "category"
     },
     {
       "id": "n-11",
       "parentId": "n-10",
       "text": "Node.js",
-      "x": 524,
-      "y": 266,
+      "x": 585.3603449091547,
+      "y": 412.72972972972974,
       "width": 140,
       "height": 44,
       "shape": "rounded",
@@ -144,14 +150,15 @@
         "italic": false,
         "underline": false,
         "strike": false
-      }
+      },
+      "role": "cause"
     },
     {
       "id": "n-13",
       "parentId": "n-10",
       "text": "DB",
-      "x": 736,
-      "y": 266,
+      "x": 450.2252097740197,
+      "y": 644.6216216216217,
       "width": 140,
       "height": 44,
       "shape": "rounded",
@@ -164,14 +171,15 @@
         "italic": false,
         "underline": false,
         "strike": false
-      }
+      },
+      "role": "cause"
     },
     {
       "id": "n-15",
       "parentId": "n-10",
       "text": "API",
-      "x": 948,
-      "y": 266,
+      "x": 320.49548004429005,
+      "y": 423.5405405405405,
       "width": 140,
       "height": 44,
       "shape": "rounded",
@@ -184,14 +192,15 @@
         "italic": false,
         "underline": false,
         "strike": false
-      }
+      },
+      "role": "cause"
     },
     {
       "id": "n-18",
       "parentId": "n-1",
       "text": "도구",
-      "x": 1266,
-      "y": 168,
+      "x": 147.25223680104682,
+      "y": 132.45945945945945,
       "width": 140,
       "height": 44,
       "shape": "rounded",
@@ -204,14 +213,15 @@
         "italic": false,
         "underline": false,
         "strike": false
-      }
+      },
+      "role": "category"
     },
     {
       "id": "n-19",
       "parentId": "n-18",
       "text": "Git",
-      "x": 1160,
-      "y": 266,
+      "x": -145.16451786050493,
+      "y": 15.162162162162161,
       "width": 140,
       "height": 44,
       "shape": "rounded",
@@ -224,14 +234,15 @@
         "italic": false,
         "underline": false,
         "strike": false
-      }
+      },
+      "role": "cause"
     },
     {
       "id": "n-21",
       "parentId": "n-18",
       "text": "Docker",
-      "x": 1372,
-      "y": 266,
+      "x": -42.46181515780222,
+      "y": 238.94594594594594,
       "width": 140,
       "height": 44,
       "shape": "rounded",
@@ -244,7 +255,8 @@
         "italic": false,
         "underline": false,
         "strike": false
-      }
+      },
+      "role": "cause"
     }
   ],
   "edges": [

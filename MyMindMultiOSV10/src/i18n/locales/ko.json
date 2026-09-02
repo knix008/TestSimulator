@@ -17,6 +17,8 @@
     "grid": "그리드",
     "reset": "중심 이동",
     "align": "자동 정렬",
+    "undo": "실행 취소",
+    "redo": "다시 실행",
     "theme": "테마",
     "language": "언어",
     "about": "정보",
@@ -147,6 +149,13 @@
   "dialog": {
     "confirmNew": "저장하지 않은 변경사항이 있습니다. 새 문서를 만들까요?",
     "untitled": "제목 없음"
+  },
+  "closePrompt": {
+    "title": "저장하지 않은 변경사항",
+    "message": "저장하지 않은 변경사항이 있습니다. 닫기 전에 저장할까요?",
+    "save": "저장",
+    "discard": "저장 안 함",
+    "cancel": "취소"
   },
   "canvas": {
     "centralTopic": "중심 주제",

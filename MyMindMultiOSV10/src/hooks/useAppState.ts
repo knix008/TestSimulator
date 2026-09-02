@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { exportPngDataUrl } from '../utils/exportImage'
 import type {
@@ -72,6 +72,7 @@ export function useAppState() {
   const [zoom, setZoom] = useState(1)
   const [viewResetKey, setViewResetKey] = useState(0)
   const [aboutOpen, setAboutOpen] = useState(false)
+  const [closePromptOpen, setClosePromptOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   // In-app clipboard: a snapshot of a copied subtree (root at index 0).
   const [clipboard, setClipboard] = useState<DiagramNode[] | null>(null)
@@ -83,6 +84,88 @@ export function useAppState() {
     nodeId: null,
     visible: false,
   })
+
+  // Undo/redo history. Content changes (new nodes/edges arrays, mode, layout,
+  // defaults) create a history entry; selection-only changes reuse the same
+  // arrays and are ignored. `timeTravel` suppresses recording during undo/redo.
+  const past = useRef<DiagramDocument[]>([])
+  const future = useRef<DiagramDocument[]>([])
+  const prevDoc = useRef<DiagramDocument>(doc)
+  const timeTravel = useRef(false)
+  const [, bumpHistory] = useState(0)
+
+  const contentChanged = (a: DiagramDocument, b: DiagramDocument) =>
+    a.nodes !== b.nodes ||
+    a.edges !== b.edges ||
+    a.mode !== b.mode ||
+    a.layout !== b.layout ||
+    a.defaultShape !== b.defaultShape ||
+    a.defaultLine !== b.defaultLine ||
+    a.defaultLinePattern !== b.defaultLinePattern
+
+  useEffect(() => {
+    if (prevDoc.current === doc) return
+    if (timeTravel.current) {
+      timeTravel.current = false
+      prevDoc.current = doc
+      return
+    }
+    if (contentChanged(prevDoc.current, doc)) {
+      past.current.push(prevDoc.current)
+      if (past.current.length > 100) past.current.shift()
+      future.current = []
+      bumpHistory((v) => v + 1)
+    }
+    prevDoc.current = doc
+  }, [doc])
+
+  const resetHistory = () => {
+    past.current = []
+    future.current = []
+    timeTravel.current = true // don't record the doc swap that triggered the reset
+    bumpHistory((v) => v + 1)
+  }
+
+  const undo = () => {
+    const prev = past.current.pop()
+    if (!prev) return
+    future.current.push(doc)
+    timeTravel.current = true
+    setDoc(prev)
+    bumpHistory((v) => v + 1)
+  }
+  const redo = () => {
+    const next = future.current.pop()
+    if (!next) return
+    past.current.push(doc)
+    timeTravel.current = true
+    setDoc(next)
+    bumpHistory((v) => v + 1)
+  }
+  const canUndo = past.current.length > 0
+  const canRedo = future.current.length > 0
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null
+      const isTyping =
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        Boolean(target?.isContentEditable)
+      if (isTyping || !(event.ctrlKey || event.metaKey)) return
+      const key = event.key.toLowerCase()
+      if (key === 'z' && !event.shiftKey) {
+        event.preventDefault()
+        undo()
+      } else if (key === 'y' || (key === 'z' && event.shiftKey)) {
+        event.preventDefault()
+        redo()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [doc])
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -106,6 +189,7 @@ export function useAppState() {
     if (!window.mymind?.onOpenFile) return
     return window.mymind.onOpenFile(({ filePath, content }) => {
       try {
+        resetHistory()
         setDoc(deserialize(content, filePath))
         setZoom(1)
         setViewResetKey((k) => k + 1)
@@ -114,6 +198,29 @@ export function useAppState() {
       }
     })
   }, [])
+
+  // Tell the main process whether there are unsaved changes, so it can prompt
+  // before the window closes; open the in-app prompt when a close is requested.
+  useEffect(() => {
+    window.mymind?.setDirty(doc.dirty)
+  }, [doc.dirty])
+
+  useEffect(() => {
+    if (!window.mymind?.onRequestClose) return
+    return window.mymind.onRequestClose(() => setClosePromptOpen(true))
+  }, [])
+
+  // Web fallback: the browser's native "leave site?" prompt on unsaved changes.
+  useEffect(() => {
+    if (window.mymind) return
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (!doc.dirty) return
+      e.preventDefault()
+      e.returnValue = ''
+    }
+    window.addEventListener('beforeunload', onBeforeUnload)
+    return () => window.removeEventListener('beforeunload', onBeforeUnload)
+  }, [doc.dirty])
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', settings.theme)
@@ -133,7 +240,9 @@ export function useAppState() {
 
   const newDoc = useCallback(() => {
     if (doc.dirty && !window.confirm(t('dialog.confirmNew'))) return
+    resetHistory()
     setDoc(relayout(createMindmapDoc(t('canvas.centralTopic'))))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [doc.dirty, t])
 
   const openDoc = useCallback(async () => {
@@ -145,6 +254,7 @@ export function useAppState() {
         const file = input.files?.[0]
         if (!file) return
         const content = await file.text()
+        resetHistory()
         setDoc(deserialize(content, file.name))
         setZoom(1)
         setViewResetKey((k) => k + 1)
@@ -154,12 +264,15 @@ export function useAppState() {
     }
     const result = await window.mymind.openDialog()
     if (!result) return
+    resetHistory()
     setDoc(deserialize(result.content, result.filePath))
     setZoom(1)
     setViewResetKey((k) => k + 1)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const saveDoc = useCallback(async () => {
+  // Returns true if the document was written, false if the user cancelled.
+  const saveDoc = useCallback(async (): Promise<boolean> => {
     const content = serialize(doc)
     if (!window.mymind) {
       const blob = new Blob([content], { type: 'application/json' })
@@ -169,15 +282,16 @@ export function useAppState() {
       a.click()
       URL.revokeObjectURL(a.href)
       setDoc((d) => ({ ...d, dirty: false }))
-      return
+      return true
     }
     let filePath = doc.filePath
     if (!filePath) {
       filePath = await window.mymind.saveDialog('diagram.mmap')
-      if (!filePath) return
+      if (!filePath) return false
     }
     await window.mymind.writeFile(filePath, content)
     setDoc((d) => ({ ...d, filePath, dirty: false }))
+    return true
   }, [doc])
 
   const exportImage = useCallback(async () => {
@@ -345,6 +459,23 @@ export function useAppState() {
     setViewResetKey((k) => k + 1)
   }
 
+  // Window close: prompt if there are unsaved changes, otherwise close directly.
+  const requestClose = () => {
+    if (doc.dirty) setClosePromptOpen(true)
+    else window.mymind?.close()
+  }
+  const closePromptSave = async () => {
+    const saved = await saveDoc()
+    if (!saved) return // user cancelled the save dialog — keep the app open
+    setClosePromptOpen(false)
+    window.mymind?.confirmClose()
+  }
+  const closePromptDiscard = () => {
+    setClosePromptOpen(false)
+    window.mymind?.confirmClose()
+  }
+  const closePromptCancel = () => setClosePromptOpen(false)
+
   const showContext = (x: number, y: number, nodeId: string | null, canvasX = 0, canvasY = 0) => {
     setContextMenu({ x, y, canvasX, canvasY, nodeId, visible: true })
     // Keep the current multi-selection if the right-clicked node is part of it;
@@ -403,8 +534,17 @@ export function useAppState() {
     viewResetKey,
     resetView,
     autoAlign,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
     aboutOpen,
     setAboutOpen,
+    closePromptOpen,
+    requestClose,
+    closePromptSave,
+    closePromptDiscard,
+    closePromptCancel,
     editingId,
     setEditingId,
     contextMenu,

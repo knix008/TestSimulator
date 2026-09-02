@@ -99,6 +99,41 @@ function fontFamily(font: string): string {
 
 const nodeCenter = (n: DiagramNode) => ({ x: n.x + n.width / 2, y: n.y + n.height / 2 })
 
+/**
+ * How far the shape's outline sits inside the bounding box at the *centre* of
+ * each face. For most shapes the outline meets the box at the face midpoint
+ * (inset 0), but slanted/notched/curved shapes are set in — without this the
+ * connector would attach to empty space outside the visible outline.
+ */
+function faceInsets(
+  shape: ShapeType,
+  w: number,
+  h: number,
+): { left: number; right: number; top: number; bottom: number } {
+  const none = { left: 0, right: 0, top: 0, bottom: 0 }
+  switch (shape) {
+    case 'parallelogram':
+      // Sides are skewed by a fixed 16px; the mid-height edge is half of that in.
+      return { ...none, left: 8, right: 8 }
+    case 'trapezoid': {
+      const c = Math.min(w * 0.22, 30)
+      return { ...none, left: c / 2, right: c / 2 }
+    }
+    case 'chevron': {
+      // Left is a concave notch (tip at +c); right is the arrow point (at the edge).
+      const c = Math.min(w * 0.24, 28)
+      return { ...none, left: c }
+    }
+    case 'cylinder': {
+      // Curved lid/base: at centre-x the outline sits ~1/4 of the ellipse in.
+      const ry = Math.min(h * 0.22, 16) * 0.25
+      return { ...none, top: ry, bottom: ry }
+    }
+    default:
+      return none
+  }
+}
+
 /** Which axis connectors run along. 'auto' = whichever the node offset favours. */
 type EdgeOrient = 'h' | 'v' | 'auto'
 
@@ -119,19 +154,21 @@ function facePoints(from: DiagramNode, to: DiagramNode, orient: EdgeOrient): {
   const tc = nodeCenter(to)
   const dx = tc.x - fc.x
   const dy = tc.y - fc.y
+  const fi = faceInsets(from.shape, from.width, from.height)
+  const ti = faceInsets(to.shape, to.width, to.height)
   const horizontal = orient === 'h' ? true : orient === 'v' ? false : Math.abs(dx) >= Math.abs(dy)
   if (horizontal) {
     const right = dx >= 0
     return {
-      p1: { x: right ? from.x + from.width : from.x, y: fc.y },
-      p2: { x: right ? to.x : to.x + to.width, y: tc.y },
+      p1: { x: right ? from.x + from.width - fi.right : from.x + fi.left, y: fc.y },
+      p2: { x: right ? to.x + ti.left : to.x + to.width - ti.right, y: tc.y },
       horizontal,
     }
   }
   const down = dy >= 0
   return {
-    p1: { x: fc.x, y: down ? from.y + from.height : from.y },
-    p2: { x: tc.x, y: down ? to.y : to.y + to.height },
+    p1: { x: fc.x, y: down ? from.y + from.height - fi.bottom : from.y + fi.top },
+    p2: { x: tc.x, y: down ? to.y + ti.top : to.y + to.height - ti.bottom },
     horizontal,
   }
 }
@@ -427,10 +464,17 @@ export function DiagramCanvas({
       maxX = Math.max(maxX, n.x + n.width)
       maxY = Math.max(maxY, n.y + n.height)
     }
+    const contentW = Math.max(1, maxX - minX)
+    const contentH = Math.max(1, maxY - minY)
     const cx = (minX + maxX) / 2
     const cy = (minY + maxY) / 2
-    setPan({ x: vw / 2 - cx, y: vh / 2 - cy })
-    onZoom(1)
+    // Zoom-to-fit: shrink so the whole (restored) diagram is visible, but never
+    // enlarge past 100% for small diagrams. Then centre it at that zoom.
+    const PAD = 80
+    const fit = Math.min((vw - PAD) / contentW, (vh - PAD) / contentH)
+    const scale = Number(Math.min(1, Math.max(ZOOM_MIN, fit)).toFixed(2))
+    setPan({ x: vw / 2 - cx * scale, y: vh / 2 - cy * scale })
+    onZoom(scale)
   }, [viewResetKey, onZoom])
 
   const onWheel = (e: WheelEvent) => {

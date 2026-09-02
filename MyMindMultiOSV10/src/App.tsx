@@ -2,6 +2,7 @@ import { Toolbar } from './components/Toolbar'
 import { StatusBar } from './components/StatusBar'
 import { ContextMenu } from './components/ContextMenu'
 import { AboutDialog } from './components/AboutDialog'
+import { ConfirmCloseDialog } from './components/ConfirmCloseDialog'
 import { DiagramCanvas } from './components/DiagramCanvas'
 import { SidePanels } from './components/SidePanels'
 import { useAppState } from './hooks/useAppState'
@@ -44,6 +45,11 @@ export default function App() {
         onResetView={state.resetView}
         onAutoAlign={state.autoAlign}
         onAbout={() => state.setAboutOpen(true)}
+        onRequestClose={state.requestClose}
+        onUndo={state.undo}
+        onRedo={state.redo}
+        canUndo={state.canUndo}
+        canRedo={state.canRedo}
       />
 
       <main className="workspace">
@@ -104,7 +110,11 @@ export default function App() {
         menu={state.contextMenu}
         selectedCount={state.doc.selectedIds.length}
         canPaste={state.canPaste}
+        canUndo={state.canUndo}
+        canRedo={state.canRedo}
         onClose={state.hideContext}
+        onUndo={state.undo}
+        onRedo={state.redo}
         onAddText={state.addTextAtContext}
         onAddChild={state.onAddChild}
         onAddSibling={state.onAddSibling}
@@ -118,6 +128,13 @@ export default function App() {
       />
 
       <AboutDialog open={state.aboutOpen} onClose={() => state.setAboutOpen(false)} />
+
+      <ConfirmCloseDialog
+        open={state.closePromptOpen}
+        onSave={state.closePromptSave}
+        onDiscard={state.closePromptDiscard}
+        onCancel={state.closePromptCancel}
+      />
     </div>
   )
 }

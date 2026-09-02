@@ -7,16 +7,22 @@ import {
   IconDuplicate,
   IconEdit,
   IconPaste,
+  IconRedo,
   IconSibling,
   IconText,
   IconTrash,
+  IconUndo,
 } from './Icons'
 
 type Props = {
   menu: ContextMenuState
   selectedCount: number
   canPaste: boolean
+  canUndo: boolean
+  canRedo: boolean
   onClose: () => void
+  onUndo: () => void
+  onRedo: () => void
   onAddText: () => void
   onAddChild: () => void
   onAddSibling: () => void
@@ -53,7 +59,11 @@ export function ContextMenu({
   menu,
   selectedCount,
   canPaste,
+  canUndo,
+  canRedo,
   onClose,
+  onUndo,
+  onRedo,
   onAddText,
   onAddChild,
   onAddSibling,
@@ -101,6 +111,21 @@ export function ContextMenu({
       {multi ? (
         <div className="context-header">{t('context.selectedCount', { count: selectedCount })}</div>
       ) : null}
+
+      <MenuItem
+        icon={<IconUndo />}
+        label={t('toolbar.undo')}
+        disabled={!canUndo}
+        onClick={run(onUndo)}
+      />
+      <MenuItem
+        icon={<IconRedo />}
+        label={t('toolbar.redo')}
+        disabled={!canRedo}
+        onClick={run(onRedo)}
+      />
+
+      <div className="context-sep" />
 
       <MenuItem
         icon={<IconChild />}

@@ -39,6 +39,18 @@ const api = {
       ipcRenderer.removeListener('file:opened', listener)
     }
   },
+  // Report unsaved-changes state so the main process can prompt before closing.
+  setDirty: (dirty: boolean) => ipcRenderer.send('app:setDirty', dirty),
+  // Let the window actually close after the user resolves the save prompt.
+  confirmClose: () => ipcRenderer.send('app:confirmClose'),
+  // Fired when a close was requested while there are unsaved changes.
+  onRequestClose: (cb: () => void) => {
+    const listener = () => cb()
+    ipcRenderer.on('app:requestClose', listener)
+    return () => {
+      ipcRenderer.removeListener('app:requestClose', listener)
+    }
+  },
   isElectron: true as const,
 }
 

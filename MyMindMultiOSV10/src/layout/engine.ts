@@ -133,14 +133,32 @@ export const FISH_ANGLE_DEG = 58
 const FISH_TAN = Math.tan((FISH_ANGLE_DEG * Math.PI) / 180)
 const FISH_RISE = 165 // vertical distance from the spine to a category center
 const FISH_RUN = FISH_RISE / FISH_TAN // horizontal run of a category bone
-const FISH_BONE_GAP = 300 // spacing between successive category bones on the spine
 const FISH_FIRST_OFFSET = 90 // gap from the head to the first category bone
 const FISH_MARGIN = 90
 const FISH_SUB_RISE = 120 // vertical distance from a sub-axis to its child
 const FISH_SUB_RUN = FISH_SUB_RISE / FISH_TAN // horizontal run of a sub bone
 const FISH_SUB_FIRST = 85 // gap from a node to its first child bone
-// Children share a sub-axis y, so this must clear the node width to avoid overlap.
-const FISH_SUB_GAP = NODE_W + 60
+const FISH_BONE_GAP = 90 // minimum clear gap between adjacent category subtrees
+const FISH_SUB_GAP = 60 // minimum clear gap between adjacent child subtrees
+
+// Total number of nodes in a subtree (used to balance branches above/below).
+function subtreeCount(nodes: DiagramNode[], id: string): number {
+  return 1 + childrenOf(nodes, id).reduce((sum, k) => sum + subtreeCount(nodes, k.id), 0)
+}
+
+// Horizontal reach of a node's subtree, measured from the node centre. Every
+// child occupies its own horizontal slot (past the previous child's whole
+// subtree), so siblings — whichever side they fan to — never overlap.
+function fishReach(nodes: DiagramNode[], id: string): number {
+  let maxReach = NODE_W / 2
+  let d = FISH_SUB_FIRST + FISH_SUB_RUN
+  for (const kid of childrenOf(nodes, id)) {
+    const r = fishReach(nodes, kid.id)
+    maxReach = Math.max(maxReach, d + r)
+    d += r + FISH_SUB_GAP + NODE_W / 2
+  }
+  return maxReach
+}
 
 function layoutFishbone(nodes: DiagramNode[], width: number, height: number, layout: LayoutDirection) {
   const out = new Map<string, { x: number; y: number }>()
@@ -164,26 +182,58 @@ function layoutFishbone(nodes: DiagramNode[], width: number, height: number, lay
     out.set(node.id, { x: cx - w / 2, y: cy - h / 2 })
   }
 
-  // Lay a node's children along its horizontal axis at (axisX, axisY), each on a
-  // diagonal sub-bone toward `side`, then recurse for deeper causes.
-  const branch = (parentId: string, axisX: number, axisY: number, side: number) => {
-    childrenOf(nodes, parentId).forEach((kid, k) => {
-      const attachX = axisX - dir * (FISH_SUB_FIRST + k * FISH_SUB_GAP)
-      const cx = attachX - dir * FISH_SUB_RUN
-      const cy = axisY + side * FISH_SUB_RISE
+  // Lay a node's children as a nested fishbone: each child gets its own slot
+  // along the parent's axis and fans above or below it (whichever side holds
+  // fewer nodes so far), recursing so deeper causes are also split evenly
+  // above/below their parent. `catSide` is the spine side this whole branch lives
+  // on; a child is never placed across the spine (clamped to catSide), so — since
+  // each subtree owns its own horizontal band — the above and below halves can
+  // reuse the same x-range without ever colliding.
+  const branch = (parentId: string, axisX: number, axisY: number, catSide: number) => {
+    let d = FISH_SUB_FIRST + FISH_SUB_RUN
+    let upLoad = 0
+    let downLoad = 0
+    for (const kid of childrenOf(nodes, parentId)) {
+      let side = upLoad <= downLoad ? -1 : 1
+      let cy = axisY + side * FISH_SUB_RISE
+      // Keep the child (and thus its subtree) on the category's side of the spine.
+      if ((catSide < 0 && cy > spineY - NODE_H) || (catSide > 0 && cy < spineY + NODE_H)) {
+        side = catSide
+        cy = axisY + side * FISH_SUB_RISE
+      }
+      if (side < 0) upLoad += subtreeCount(nodes, kid.id)
+      else downLoad += subtreeCount(nodes, kid.id)
+      const cx = axisX - dir * d
       place(kid, cx, cy)
-      branch(kid.id, cx, cy, side)
-    })
+      branch(kid.id, cx, cy, catSide)
+      d += fishReach(nodes, kid.id) + FISH_SUB_GAP + NODE_W / 2
+    }
   }
 
-  childrenOf(nodes, effect.id).forEach((cat, i) => {
-    const side = i % 2 === 0 ? -1 : 1 // -1 above the spine, +1 below
-    const pair = Math.floor(i / 2)
-    const attachX = headEdgeX - dir * (FISH_FIRST_OFFSET + pair * FISH_BONE_GAP)
-    const cx = attachX - dir * FISH_RUN
+  // Distribute categories evenly above/below the spine by *subtree size* (each
+  // goes to whichever side holds fewer nodes so far, ties go up). Each side keeps
+  // its own cursor so the diagram stays compact; branches never cross the spine
+  // (see branch's clamp), so the two halves can overlap horizontally safely.
+  let aboveCursor = FISH_FIRST_OFFSET + FISH_RUN
+  let belowCursor = FISH_FIRST_OFFSET + FISH_RUN
+  let aboveLoad = 0
+  let belowLoad = 0
+  childrenOf(nodes, effect.id).forEach((cat) => {
+    const load = subtreeCount(nodes, cat.id)
+    const side = aboveLoad <= belowLoad ? -1 : 1 // -1 above the spine, +1 below
+    const cursor = side < 0 ? aboveCursor : belowCursor
+    const cx = headEdgeX - dir * cursor
     const cy = spineY + side * FISH_RISE
     place(cat, cx, cy)
     branch(cat.id, cx, cy, side)
+    const advance = fishReach(nodes, cat.id) + FISH_BONE_GAP + NODE_W / 2
+    if (side < 0) {
+      aboveCursor = cursor + advance
+      aboveLoad += load
+    } else {
+      belowCursor = cursor + advance
+      belowLoad += load
+    }
   })
 
   return out

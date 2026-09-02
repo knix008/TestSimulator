@@ -244,9 +244,14 @@ select {
   transition: background 0.15s, border-color 0.15s, transform 0.1s;
 }
 
-.tb-btn:hover {
+.tb-btn:hover:not(:disabled) {
   border-color: var(--accent);
   background: var(--accent-soft);
+}
+
+.tb-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
 }
 
 .tb-btn:active {
@@ -1065,6 +1070,13 @@ select {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
+  margin-top: 16px;
+}
+
+.tb-btn.primary {
+  background: var(--accent);
+  color: #ffffff;
+  border-color: var(--accent);
 }
 
 .node-editor {
