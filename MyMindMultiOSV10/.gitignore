@@ -56,10 +56,9 @@ latest*.yml
 builder-effective-config.yaml
 builder-debug.yml
 
-# Generated file-type icon rasters (source of truth is build/file-icon.svg)
-build/file-icon.ico
-build/file-icon.icns
-build/file-icon.png
+# Note: generated icon rasters (build/file-icon.ico, build/icon.ico, .png ...) are
+# committed as binary assets so packaging works without the icon-generation dev
+# tools (sharp/png-to-ico). Regenerate them with: node scripts/gen-icons.mjs
 
 # Exported diagram images
 *.export.png
