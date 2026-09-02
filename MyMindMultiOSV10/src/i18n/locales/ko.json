@@ -36,7 +36,14 @@
     "rect": "사각형",
     "ellipse": "타원",
     "diamond": "마름모",
-    "parallelogram": "평행사변형"
+    "parallelogram": "평행사변형",
+    "stadium": "타원형 막대",
+    "hexagon": "육각형",
+    "octagon": "팔각형",
+    "cylinder": "원통",
+    "trapezoid": "사다리꼴",
+    "chevron": "화살표",
+    "note": "노트"
   },
   "line": {
     "curve": "곡선",

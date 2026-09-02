@@ -36,7 +36,14 @@
     "rect": "Rectangle",
     "ellipse": "Ellipse",
     "diamond": "Diamond",
-    "parallelogram": "Parallelogram"
+    "parallelogram": "Parallelogram",
+    "stadium": "Stadium",
+    "hexagon": "Hexagon",
+    "octagon": "Octagon",
+    "cylinder": "Cylinder",
+    "trapezoid": "Trapezoid",
+    "chevron": "Chevron",
+    "note": "Note"
   },
   "line": {
     "curve": "Curve",

@@ -5,9 +5,25 @@ import { ColorPicker } from './ColorPicker'
 import { IconLine, IconShape } from './Icons'
 import { LinePreview } from './LinePreview'
 import { ToolbarDropdown } from './ToolbarDropdown'
+import { ShapePreview } from './ShapePreview'
 import { useSystemFonts } from '../hooks/useSystemFonts'
 
 const PRESET_FONT_VALUES = ['notoSansKr', 'outfit', 'serif', 'mono']
+
+const SHAPE_VALUES: ShapeType[] = [
+  'rounded',
+  'rect',
+  'stadium',
+  'ellipse',
+  'diamond',
+  'parallelogram',
+  'trapezoid',
+  'hexagon',
+  'octagon',
+  'chevron',
+  'cylinder',
+  'note',
+]
 
 type Props = {
   doc: DiagramDocument
@@ -236,16 +252,15 @@ export function SidePanels({
 
               <ToolbarDropdown
                 label={t('toolbar.shape')}
+                title={t('toolbar.shape')}
                 icon={<IconShape />}
                 value={selectedNode.shape}
                 onChange={onShape}
-                options={[
-                  { value: 'rounded', label: t('shape.rounded') },
-                  { value: 'rect', label: t('shape.rect') },
-                  { value: 'ellipse', label: t('shape.ellipse') },
-                  { value: 'diamond', label: t('shape.diamond') },
-                  { value: 'parallelogram', label: t('shape.parallelogram') },
-                ]}
+                options={SHAPE_VALUES.map((s) => ({
+                  value: s,
+                  label: t(`shape.${s}`),
+                  icon: <ShapePreview shape={s} />,
+                }))}
               />
 
               <ColorPicker label={t('panel.shapeColor')} value={selectedNode.color} onChange={onColor} />
