@@ -16,6 +16,8 @@ type Props<T extends string> = {
   onChange: (value: T) => void
   /** Fired when the menu is opened (e.g. to lazily load options). */
   onOpen?: () => void
+  /** Native tooltip for the trigger button. */
+  title?: string
 }
 
 export function ToolbarDropdown<T extends string>({
@@ -26,6 +28,7 @@ export function ToolbarDropdown<T extends string>({
   disabled,
   onChange,
   onOpen,
+  title,
 }: Props<T>) {
   const [open, setOpen] = useState(false)
   // Fixed-position anchor for the menu so it escapes clipping containers
@@ -75,6 +78,7 @@ export function ToolbarDropdown<T extends string>({
         type="button"
         className={`tb-btn tb-dropdown-trigger ${open ? 'active' : ''}`}
         disabled={disabled}
+        title={title ?? label}
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={menuId}

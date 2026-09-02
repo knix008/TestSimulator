@@ -62,22 +62,34 @@ export function Toolbar({
   const controlsRef = useRef<HTMLDivElement>(null)
 
   // Keep the window from shrinking narrower than the full toolbar, so no button
-  // (About included) can ever be clipped. Re-measure when labels change size
-  // (locale/theme) and once after fonts settle.
+  // (About included) can ever be clipped. This must track the *real* content
+  // width, which changes after the web fonts load and whenever labels change —
+  // so re-measure via ResizeObserver and fonts.ready, not just once.
   useEffect(() => {
     if (!isElectron || !window.mymind?.setMinWidth) return
+    const main = mainRef.current
+    if (!main) return
+    let raf = 0
     const measure = () => {
-      const main = mainRef.current
-      if (!main) return
       const controlsW = controlsRef.current?.offsetWidth ?? 0
-      // main sizes to its content (flex: 0 1 auto), so scrollWidth is the true
-      // intrinsic width even when the window is wide.
-      const needed = main.scrollWidth + controlsW + 16 /* toolbar padding */ + 12 /* gap+safety */
+      // main is flex:0 1 auto, so scrollWidth is the intrinsic toolbar width
+      // even while it is clipped in a too-narrow window.
+      const needed = main.scrollWidth + controlsW + 16 /* toolbar padding */ + 16 /* gap+safety */
       window.mymind!.setMinWidth(Math.ceil(needed))
     }
-    measure()
-    const id = window.setTimeout(measure, 300)
-    return () => window.clearTimeout(id)
+    const schedule = () => {
+      cancelAnimationFrame(raf)
+      raf = requestAnimationFrame(measure)
+    }
+    schedule()
+    const ro = new ResizeObserver(schedule)
+    ro.observe(main)
+    if (controlsRef.current) ro.observe(controlsRef.current)
+    document.fonts?.ready.then(schedule).catch(() => {})
+    return () => {
+      cancelAnimationFrame(raf)
+      ro.disconnect()
+    }
   }, [isElectron, locale, theme])
 
   const layoutOptions =
@@ -128,6 +140,7 @@ export function Toolbar({
           type="button"
           className={`tb-btn ${doc.mode === 'mindmap' ? 'active' : ''}`}
           onClick={() => onMode('mindmap')}
+          title={t('toolbar.mindmap')}
         >
           <span className="icon"><IconMind /></span>
           {t('toolbar.mindmap')}
@@ -136,12 +149,14 @@ export function Toolbar({
           type="button"
           className={`tb-btn ${doc.mode === 'fishbone' ? 'active' : ''}`}
           onClick={() => onMode('fishbone')}
+          title={t('toolbar.fishbone')}
         >
           <span className="icon"><IconFish /></span>
           {t('toolbar.fishbone')}
         </button>
         <ToolbarDropdown
           label={t('toolbar.layout')}
+          title={t('toolbar.layout')}
           icon={<IconLayout />}
           value={doc.layout}
           onChange={onLayout}
@@ -171,6 +186,7 @@ export function Toolbar({
         </button>
         <ToolbarDropdown
           label={t('toolbar.theme')}
+          title={t('toolbar.theme')}
           icon={<IconTheme />}
           value={theme}
           onChange={onTheme}
@@ -180,6 +196,7 @@ export function Toolbar({
           type="button"
           className="tb-btn"
           onClick={() => onLocale(locale === 'ko' ? 'en' : 'ko')}
+          title={t('toolbar.language')}
         >
           <span className="icon"><IconLang /></span>
           {t(`language.${locale === 'ko' ? 'en' : 'ko'}`)}
@@ -187,7 +204,7 @@ export function Toolbar({
       </div>
 
       <div className="toolbar-group toolbar-about">
-        <button type="button" className="tb-btn" onClick={onAbout}>
+        <button type="button" className="tb-btn" onClick={onAbout} title={t('toolbar.about')}>
           <span className="icon"><IconInfo /></span>
           {t('toolbar.about')}
         </button>
