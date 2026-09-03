@@ -6,7 +6,7 @@ import { IconGrip, IconUp, IconDown, IconX } from './Icons';
 // The whole row is NOT draggable (that interfered with checkbox clicks) — only
 // the grip handle starts a drag. The checkbox + name are wrapped in a <label>
 // so clicking anywhere on the name toggles the file.
-export default function FileList({ files, onToggle, onCheckAll, onRemove, onMove, onReorder, onRowContextMenu }) {
+export default function FileList({ files, onToggle, onCheckAll, onRemove, onRemoveChecked, onMove, onReorder, onRowContextMenu }) {
   const { t } = useTranslation();
   const [dragIdx, setDragIdx] = useState(null);
   const [overIdx, setOverIdx] = useState(null);
@@ -29,6 +29,7 @@ export default function FileList({ files, onToggle, onCheckAll, onRemove, onMove
         <div className="filelist-head-actions">
           <button className="link" onClick={() => onCheckAll(true)}>{t('files.checkAll')}</button>
           <button className="link" onClick={() => onCheckAll(false)}>{t('files.uncheckAll')}</button>
+          <button className="link danger" disabled={!checked} onClick={() => onRemoveChecked?.()}>{t('files.removeChecked')}</button>
         </div>
       </div>
       <ul>

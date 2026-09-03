@@ -65,6 +65,7 @@ const resources = {
       align: { left: '왼쪽', center: '가운데', right: '오른쪽' },
       stat: { files: '선택/전체 파일', headings: '헤딩 수', words: '단어 수', chars: '글자 수', wAbbr: '단어', cAbbr: '글자' },
       toast: { merged: '병합 완료', numbered: '번호 매기기 완료', exported: '{{fmt}} 내보내기 완료', exportFailed: '내보내기 실패' },
+      import: { title: '파일 추가 중…' },
       exportDlg: {
         titleSuccess: '내보내기 완료', titleError: '내보내기 실패',
         format: '형식', location: '위치', error: '오류', openFolder: '폴더 열기',
@@ -97,6 +98,7 @@ const resources = {
         checkThis: '이 파일 선택',
         uncheckThis: '이 파일 해제',
         remove: '제거',
+        removeChecked: '선택 항목 삭제',
         moveUp: '위로',
         moveDown: '아래로',
         dropHere: '여기에 .md 파일이나 폴더를 끌어다 놓으세요',
@@ -193,6 +195,7 @@ const resources = {
       align: { left: 'Left', center: 'Center', right: 'Right' },
       stat: { files: 'Checked/Total files', headings: 'Headings', words: 'Words', chars: 'Characters', wAbbr: 'W', cAbbr: 'C' },
       toast: { merged: 'Merge complete', numbered: 'Renumbered', exported: '{{fmt}} export complete', exportFailed: 'Export failed' },
+      import: { title: 'Adding files…' },
       exportDlg: {
         titleSuccess: 'Export complete', titleError: 'Export failed',
         format: 'Format', location: 'Location', error: 'Error', openFolder: 'Open folder',
@@ -225,6 +228,7 @@ const resources = {
         checkThis: 'Check this file',
         uncheckThis: 'Uncheck this file',
         remove: 'Remove',
+        removeChecked: 'Delete checked',
         moveUp: 'Up',
         moveDown: 'Down',
         dropHere: 'Drop .md files or a folder here',

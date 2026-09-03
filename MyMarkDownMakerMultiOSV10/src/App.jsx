@@ -10,6 +10,7 @@ import Tooltip from './components/Tooltip';
 import Toasts from './components/Toasts';
 import ExportResultDialog from './components/ExportResultDialog';
 import ExportProgressDialog from './components/ExportProgressDialog';
+import ImportProgressDialog from './components/ImportProgressDialog';
 import {
   IconFolder, IconFilePlus, IconMerge, IconHash, IconExport, IconChevron,
   IconMd, IconHtml, IconPdf, IconWord, IconTrash, IconInfo, IconSettings,
@@ -66,6 +67,8 @@ export default function App() {
   const toastSeq = useRef(0);
   const [exportResult, setExportResult] = useState(null);
   const [exporting, setExporting] = useState(null);
+  const [importProg, setImportProg] = useState(null); // { done, total, file }
+  const [importOpen, setImportOpen] = useState(false);
 
   const folderInputRef = useRef(null);
   const filesInputRef = useRef(null);
@@ -158,6 +161,25 @@ export default function App() {
     if (!exportNameEdited.current) setExportName(firstCheckedName);
   }, [firstCheckedName]);
 
+  // Runs `process(item, i)` over items sequentially, showing a determinate
+  // progress popup (only if it takes longer than a short delay, to avoid flashes).
+  async function withImportProgress(items, nameOf, process) {
+    const total = items.length;
+    setImportProg({ done: 0, total, file: total ? nameOf(items[0]) : '' });
+    const timer = setTimeout(() => setImportOpen(true), 250);
+    try {
+      for (let i = 0; i < items.length; i++) {
+        setImportProg({ done: i, total, file: nameOf(items[i]) });
+        await process(items[i], i);
+        setImportProg({ done: i + 1, total, file: nameOf(items[i]) });
+      }
+    } finally {
+      clearTimeout(timer);
+      setImportOpen(false);
+      setImportProg(null);
+    }
+  }
+
   // ── Import helpers (additive, deduped) ──────────────────
   function addImported(items) {
     const patterns = parseExcludePatterns(excludeText);
@@ -181,14 +203,14 @@ export default function App() {
       const dir = await api.pickDirectory();
       if (!dir) return;
       const { files: scanned } = await api.scanMarkdown({ dir, recursive });
-      const contents = await api.readFiles(scanned.map((f) => f.fullPath));
       const items = scanned.map((f) => ({
         key: f.fullPath, name: f.name, relPath: f.relPath, fullPath: f.fullPath,
-        mtime: f.mtime, content: contents[f.fullPath] ?? '',
+        mtime: f.mtime, content: '',
       }));
-      await Promise.all(items.map(async (it) => {
-        it.content = await embedImages(it.content, (src) => api.embedImage({ mdPath: it.fullPath, src }));
-      }));
+      await withImportProgress(items, (it) => it.relPath || it.name, async (it) => {
+        const raw = await api.readFile(it.fullPath);
+        it.content = await embedImages(raw, (src) => api.embedImage({ mdPath: it.fullPath, src }));
+      });
       const added = addImported(items);
       setSourceDir(dir);
       setStatus(t('status.added', { count: added }));
@@ -205,9 +227,9 @@ export default function App() {
         key: f.fullPath, name: f.name, relPath: f.relPath, fullPath: f.fullPath,
         mtime: f.mtime, content: f.content,
       }));
-      await Promise.all(items.map(async (it) => {
+      await withImportProgress(items, (it) => it.name, async (it) => {
         it.content = await embedImages(it.content, (src) => api.embedImage({ mdPath: it.fullPath, src }));
-      }));
+      });
       const added = addImported(items);
       setStatus(t('status.added', { count: added }));
     } else {
@@ -225,21 +247,16 @@ export default function App() {
       const ext = f.name.split('.').pop().toLowerCase();
       if (IMAGE_EXTS.includes(ext)) imgMap.set(f.webkitRelativePath || f.name, f);
     }
-    const items = await Promise.all(list.map(async (f) => {
+    const items = [];
+    await withImportProgress(list, (f) => f.webkitRelativePath || f.name, async (f) => {
       const relPath = f.webkitRelativePath || f.name;
       let content = await readFileText(f);
       content = await embedImages(content, async (src) => {
         const file = imgMap.get(resolveRelPath(relPath, src));
         return file ? readFileDataURL(file) : null;
       });
-      return {
-        key: relPath,
-        name: f.name,
-        relPath,
-        mtime: f.lastModified,
-        content,
-      };
-    }));
+      items.push({ key: relPath, name: f.name, relPath, mtime: f.lastModified, content });
+    });
     const added = addImported(items);
     setSourceDir(list[0].webkitRelativePath?.split('/')[0] || '');
     setStatus(t('status.added', { count: added }) + ' ' + t('status.webFolderNote'));
@@ -263,6 +280,7 @@ export default function App() {
   const toggle = (id) => setFiles((p) => p.map((f) => f.id === id ? { ...f, checked: !f.checked } : f));
   const checkAll = (v) => setFiles((p) => p.map((f) => ({ ...f, checked: v })));
   const remove = (id) => setFiles((p) => p.filter((f) => f.id !== id));
+  const removeChecked = () => setFiles((p) => p.filter((f) => !f.checked));
 
   const move = (i, dir) => {
     const j = i + dir;
@@ -417,6 +435,7 @@ export default function App() {
       { icon: IconUp, label: t('files.moveUp'), disabled: index === 0, onClick: () => move(index, -1) },
       { icon: IconDown, label: t('files.moveDown'), disabled: index === files.length - 1, onClick: () => move(index, 1) },
       { icon: IconX, label: t('files.remove'), danger: true, onClick: () => remove(file.id) },
+      { icon: IconTrash, label: t('files.removeChecked'), danger: true, disabled: !files.some((f) => f.checked), onClick: removeChecked },
       { separator: true },
       { icon: IconCheckSquare, label: t('files.checkAll'), onClick: () => checkAll(true) },
       { icon: IconSquare, label: t('files.uncheckAll'), onClick: () => checkAll(false) },
@@ -431,6 +450,7 @@ export default function App() {
       { icon: IconCopy, label: t('ctx.copyHeading'), onClick: () => copyText(h.text) },
       { separator: true },
       { icon: IconHash, label: t('toolbar.renumber'), disabled: !merged, onClick: doRenumber },
+      { icon: IconTrash, label: t('files.removeChecked'), danger: true, disabled: !files.some((f) => f.checked), onClick: removeChecked },
     ]);
   }
 
@@ -574,7 +594,7 @@ export default function App() {
           </div>
           <div className="sidebar-body">
             {leftTab === 'files'
-              ? <FileList files={files} onToggle={toggle} onCheckAll={checkAll} onRemove={remove} onMove={move} onReorder={reorder} onRowContextMenu={fileRowMenu} />
+              ? <FileList files={files} onToggle={toggle} onCheckAll={checkAll} onRemove={remove} onRemoveChecked={removeChecked} onMove={move} onReorder={reorder} onRowContextMenu={fileRowMenu} />
               : <OutlineTree outline={outline} onSelect={scrollToHeading} onItemContextMenu={outlineMenu} />}
           </div>
         </aside>
@@ -619,6 +639,7 @@ export default function App() {
 
       <ContextMenu open={ctx.open} x={ctx.x} y={ctx.y} items={ctx.items} onClose={closeCtx} />
       <Toasts toasts={toasts} onDismiss={dismissToast} />
+      <ImportProgressDialog open={importOpen && !!importProg} done={importProg?.done || 0} total={importProg?.total || 0} file={importProg?.file || ''} />
       <ExportProgressDialog open={!!exporting} label={exporting || ''} />
       <ExportResultDialog result={exportResult} onClose={() => setExportResult(null)} />
       <Tooltip />

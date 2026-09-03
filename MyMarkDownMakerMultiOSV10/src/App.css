@@ -205,6 +205,8 @@ body {
 .filelist-head-actions { display: flex; gap: 10px; }
 .link { border: none; background: none; color: var(--accent); cursor: pointer; font-size: 12px; padding: 0; white-space: nowrap; }
 .link:hover { text-decoration: underline; }
+.link.danger { color: var(--danger); }
+.link:disabled { opacity: 0.4; cursor: not-allowed; text-decoration: none; }
 .filelist ul, .outline ul { list-style: none; margin: 0; padding: 0; }
 .filerow {
   display: flex; align-items: center; gap: 6px; padding: 5px 8px 5px 4px;
@@ -426,6 +428,14 @@ body {
   0% { transform: translateX(-100%); }
   100% { transform: translateX(250%); }
 }
+
+/* ── Determinate progress (import) ───────────────────────── */
+.import-head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.import-title { font-weight: 600; font-size: 14px; }
+.progress-track { height: 8px; border-radius: 5px; background: var(--bg-3); overflow: hidden; }
+.progress-track > span { display: block; height: 100%; background: var(--accent); border-radius: 5px; transition: width .12s ease; }
+.progress-meta { display: flex; justify-content: space-between; margin-top: 6px; font-size: 12px; color: var(--text-dim); }
+.progress-file { margin-top: 8px; font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: Consolas, monospace; }
 
 /* ── Completion toasts ───────────────────────────────────── */
 .toasts {
