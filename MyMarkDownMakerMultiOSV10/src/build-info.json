@@ -1,0 +1,14 @@
+{
+  "name": "mymarkdownmaker",
+  "productName": "MyMarkDownMaker",
+  "version": "1.0.0",
+  "author": {
+    "name": "SHKWON",
+    "email": "suho.kwon@gmail.com"
+  },
+  "license": "MIT",
+  "buildTime": "2026-09-03T07:08:38.722Z",
+  "gitCommit": "cad3c052",
+  "gitBranch": "main",
+  "node": "v24.15.0"
+}
