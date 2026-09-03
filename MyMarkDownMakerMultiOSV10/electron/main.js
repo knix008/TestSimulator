@@ -186,6 +186,32 @@ ipcMain.handle('fs:readFile', (_e, filePath) => {
   return fs.readFileSync(filePath, 'utf-8');
 });
 
+// Resolve a local image referenced by a markdown file and return it as a
+// Base64 data URI (used to inline images at merge time). Returns null for
+// remote/data URLs, missing files, non-images, or oversized files.
+const IMG_MIME = {
+  '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif',
+  '.webp': 'image/webp', '.bmp': 'image/bmp', '.svg': 'image/svg+xml', '.tif': 'image/tiff',
+  '.tiff': 'image/tiff', '.ico': 'image/x-icon', '.avif': 'image/avif',
+};
+ipcMain.handle('fs:embedImage', (_e, { mdPath, src }) => {
+  try {
+    let s = String(src || '').trim().replace(/^<|>$/g, '');
+    if (!s || /^(https?:|data:|\/\/)/i.test(s)) return null;
+    let decoded = s;
+    try { decoded = decodeURI(s); } catch { /* ignore */ }
+    const clean = decoded.split('#')[0].split('?')[0];
+    const base = path.dirname(mdPath);
+    const abs = path.isAbsolute(clean) ? clean : path.resolve(base, clean);
+    const ext = path.extname(abs).toLowerCase();
+    const mime = IMG_MIME[ext];
+    if (!mime || !fs.existsSync(abs)) return null;
+    const buf = fs.readFileSync(abs);
+    if (buf.length > 25 * 1024 * 1024) return null;
+    return `data:${mime};base64,${buf.toString('base64')}`;
+  } catch { return null; }
+});
+
 // Read many files at once (used when merging).
 ipcMain.handle('fs:readFiles', (_e, paths) => {
   const out = {};

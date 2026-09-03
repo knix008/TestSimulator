@@ -114,3 +114,13 @@ export function readFileText(file) {
     reader.readAsText(file, 'utf-8');
   });
 }
+
+// Reads a browser File object as a Base64 data URL (for inlining images).
+export function readFileDataURL(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}

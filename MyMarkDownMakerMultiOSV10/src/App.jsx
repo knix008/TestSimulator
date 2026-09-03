@@ -16,7 +16,8 @@ import {
   IconSun, IconMoon, IconUp, IconDown, IconX, IconCheckSquare, IconSquare,
   IconCopy, IconCut, IconPaste, IconSelectAll, IconTarget,
 } from './components/Icons';
-import { isElectron, api, readFileText, saveSettingsToDisk } from './lib/platform';
+import { isElectron, api, readFileText, readFileDataURL, saveSettingsToDisk } from './lib/platform';
+import { embedImages, resolveRelPath, IMAGE_EXTS } from './lib/images';
 import {
   mergeFiles, renumberHeadings, getOutline, renderHtml, fontStack,
   sortFiles, parseExcludePatterns, isExcluded, DEFAULT_EXPORT_SETTINGS,
@@ -185,6 +186,9 @@ export default function App() {
         key: f.fullPath, name: f.name, relPath: f.relPath, fullPath: f.fullPath,
         mtime: f.mtime, content: contents[f.fullPath] ?? '',
       }));
+      await Promise.all(items.map(async (it) => {
+        it.content = await embedImages(it.content, (src) => api.embedImage({ mdPath: it.fullPath, src }));
+      }));
       const added = addImported(items);
       setSourceDir(dir);
       setStatus(t('status.added', { count: added }));
@@ -197,10 +201,14 @@ export default function App() {
     if (isElectron) {
       const picked = await api.openFiles();
       if (!picked?.length) return;
-      const added = addImported(picked.map((f) => ({
+      const items = picked.map((f) => ({
         key: f.fullPath, name: f.name, relPath: f.relPath, fullPath: f.fullPath,
         mtime: f.mtime, content: f.content,
-      })));
+      }));
+      await Promise.all(items.map(async (it) => {
+        it.content = await embedImages(it.content, (src) => api.embedImage({ mdPath: it.fullPath, src }));
+      }));
+      const added = addImported(items);
       setStatus(t('status.added', { count: added }));
     } else {
       filesInputRef.current?.click();
@@ -208,15 +216,30 @@ export default function App() {
   }
 
   async function onWebFolder(e) {
-    const list = Array.from(e.target.files || []).filter((f) => MD_RE.test(f.name));
+    const all = Array.from(e.target.files || []);
+    const list = all.filter((f) => MD_RE.test(f.name));
     if (!list.length) { e.target.value = ''; return; }
-    const items = await Promise.all(list.map(async (f) => ({
-      key: f.webkitRelativePath || f.name,
-      name: f.name,
-      relPath: f.webkitRelativePath || f.name,
-      mtime: f.lastModified,
-      content: await readFileText(f),
-    })));
+    // Map of relative path -> image File for inlining local image links.
+    const imgMap = new Map();
+    for (const f of all) {
+      const ext = f.name.split('.').pop().toLowerCase();
+      if (IMAGE_EXTS.includes(ext)) imgMap.set(f.webkitRelativePath || f.name, f);
+    }
+    const items = await Promise.all(list.map(async (f) => {
+      const relPath = f.webkitRelativePath || f.name;
+      let content = await readFileText(f);
+      content = await embedImages(content, async (src) => {
+        const file = imgMap.get(resolveRelPath(relPath, src));
+        return file ? readFileDataURL(file) : null;
+      });
+      return {
+        key: relPath,
+        name: f.name,
+        relPath,
+        mtime: f.lastModified,
+        content,
+      };
+    }));
     const added = addImported(items);
     setSourceDir(list[0].webkitRelativePath?.split('/')[0] || '');
     setStatus(t('status.added', { count: added }) + ' ' + t('status.webFolderNote'));

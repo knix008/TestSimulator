@@ -12,10 +12,23 @@ Var DesktopShortcutCheckbox
 Var StartMenuShortcutCheckbox
 Var DoCreateDesktopShortcut
 Var DoCreateStartMenuShortcut
+Var PrevInstalled
 
 !macro customInit
   StrCpy $DoCreateDesktopShortcut "1"
   StrCpy $DoCreateStartMenuShortcut "1"
+
+  ; Detect a previous installation so we can fully wipe it before reinstalling.
+  StrCpy $PrevInstalled "0"
+  ReadRegStr $0 HKCU "${UNINSTALL_REGISTRY_KEY}" "UninstallString"
+  ${If} $0 != ""
+    StrCpy $PrevInstalled "1"
+  ${Else}
+    ReadRegStr $0 HKLM "${UNINSTALL_REGISTRY_KEY}" "UninstallString"
+    ${If} $0 != ""
+      StrCpy $PrevInstalled "1"
+    ${EndIf}
+  ${EndIf}
 !macroend
 
 !macro customPageAfterChangeDir
@@ -69,6 +82,15 @@ Function ShortcutsPageLeave
 FunctionEnd
 
 !macro customInstall
+  ; If a previous version was installed, remove its leftover app data so this is
+  ; a completely clean (re)install. (electron-builder already removes the old
+  ; program files/registry before this runs.)
+  ${If} $PrevInstalled == "1"
+    SetShellVarContext current
+    RMDir /r "$APPDATA\${PRODUCT_NAME}"
+    RMDir /r "$LOCALAPPDATA\${PRODUCT_NAME}"
+  ${EndIf}
+
   ${If} $DoCreateStartMenuShortcut == "1"
     CreateDirectory "$SMPROGRAMS"
     CreateShortCut "$SMPROGRAMS\${SHORTCUT_NAME}.lnk" "$INSTDIR\${APP_EXECUTABLE_FILENAME}" "" "$INSTDIR\${APP_EXECUTABLE_FILENAME}" 0 "" "" "${APP_DESCRIPTION}"

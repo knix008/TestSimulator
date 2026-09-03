@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   scanMarkdown: (payload) => ipcRenderer.invoke('fs:scanMarkdown', payload),
   readFile: (filePath) => ipcRenderer.invoke('fs:readFile', filePath),
   readFiles: (paths) => ipcRenderer.invoke('fs:readFiles', paths),
+  embedImage: (payload) => ipcRenderer.invoke('fs:embedImage', payload),
   openFiles: () => ipcRenderer.invoke('dialog:openFiles'),
   saveText: (payload) => ipcRenderer.invoke('dialog:saveText', payload),
   saveBinary: (payload) => ipcRenderer.invoke('dialog:saveBinary', payload),
