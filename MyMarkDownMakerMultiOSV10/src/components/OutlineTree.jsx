@@ -17,12 +17,12 @@ export default function OutlineTree({ outline, onSelect, onItemContextMenu }) {
           <li
             key={h.index}
             className={`outline-item lvl-${h.level}`}
-            style={{ paddingLeft: `${(h.level - 1) * 16 + 12}px` }}
+            style={{ paddingLeft: `${(h.level - 1) * 18 + 12}px` }}
             onClick={() => onSelect?.(h)}
             onContextMenu={(e) => onItemContextMenu?.(e, h)}
             title={h.text}
           >
-            <span className="outline-badge">H{h.level}</span>
+            <span className="outline-marker" aria-hidden="true" />
             <span className="outline-text">{h.text || ' '}</span>
           </li>
         ))}

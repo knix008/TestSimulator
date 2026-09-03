@@ -13,6 +13,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   saveBinary: (payload) => ipcRenderer.invoke('dialog:saveBinary', payload),
   exportPdf: (payload) => ipcRenderer.invoke('export:pdf', payload),
   openSettings: () => ipcRenderer.invoke('settings:open'),
+  openAbout: () => ipcRenderer.invoke('about:open'),
   loadSettings: () => ipcRenderer.invoke('settings:load'),
   saveSettings: (data) => ipcRenderer.invoke('settings:save', data),
   showItem: (p) => ipcRenderer.invoke('shell:showItem', p),

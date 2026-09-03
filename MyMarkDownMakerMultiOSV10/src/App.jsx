@@ -4,7 +4,6 @@ import i18n from './i18n';
 import TitleBar from './components/TitleBar';
 import FileList from './components/FileList';
 import OutlineTree from './components/OutlineTree';
-import AboutDialog from './components/AboutDialog';
 import { THEMES } from './lib/themes';
 import ContextMenu from './components/ContextMenu';
 import Tooltip from './components/Tooltip';
@@ -52,7 +51,6 @@ export default function App() {
   const [leftTab, setLeftTab] = useState('files');
   const [rightTab, setRightTab] = useState('preview');
   const [status, setStatus] = useState(t('status.ready'));
-  const [aboutOpen, setAboutOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [theme, setTheme] = useState(() => {
     const s = localStorage.getItem('mmm-theme');
@@ -371,6 +369,15 @@ export default function App() {
     }
   }
 
+  function openAbout() {
+    if (isElectron) {
+      api.openAbout();
+    } else {
+      const url = `${window.location.pathname}${window.location.search}#about`;
+      window.open(url, 'mmm-about', 'width=520,height=560');
+    }
+  }
+
   // ── Context menus ───────────────────────────────────────
   const openCtx = (e, items) => { e.preventDefault(); e.stopPropagation(); setCtx({ open: true, x: e.clientX, y: e.clientY, items }); };
   const closeCtx = () => setCtx((c) => ({ ...c, open: false }));
@@ -514,7 +521,7 @@ export default function App() {
           <button className="iconbtn" title={t('tip.lang')} onClick={toggleLang}><span className="lang">{lang.toUpperCase()}</span></button>
           <button className="iconbtn" title={t('tip.theme')} onClick={cycleTheme}><ThemeIcon /></button>
           <button className="iconbtn" title={t('tip.settings')} onClick={openSettings}><IconSettings /></button>
-          <button className="iconbtn" title={t('tip.about')} onClick={() => setAboutOpen(true)}><IconInfo /></button>
+          <button className="iconbtn" title={t('tip.about')} onClick={openAbout}><IconInfo /></button>
         </div>
       </header>
 
@@ -587,7 +594,6 @@ export default function App() {
         {sourceDir && <span className="status-dir" title={sourceDir}>{sourceDir}</span>}
       </footer>
 
-      <AboutDialog open={aboutOpen} onClose={() => setAboutOpen(false)} />
       <ContextMenu open={ctx.open} x={ctx.x} y={ctx.y} items={ctx.items} onClose={closeCtx} />
       <Toasts toasts={toasts} onDismiss={dismissToast} />
       <ExportProgressDialog open={!!exporting} label={exporting || ''} />

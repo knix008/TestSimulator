@@ -42,7 +42,7 @@ function createWindow() {
     frame: false,            // custom title bar / window controls live in the toolbar
     autoHideMenuBar: true,
     show: false,
-    title: 'MyMarkDownMaker',
+    title: 'MarkDown Merge v1.0',
   });
 
   if (isDev) {
@@ -342,6 +342,33 @@ ipcMain.handle('settings:open', () => {
     settingsWin.loadFile(path.join(__dirname, '..', 'dist', 'index.html'), { hash: 'settings' });
   }
   settingsWin.on('closed', () => { settingsWin = null; });
+});
+
+// Separate, movable About window (frameless — custom title bar only).
+let aboutWin = null;
+ipcMain.handle('about:open', () => {
+  if (aboutWin && !aboutWin.isDestroyed()) { aboutWin.show(); aboutWin.focus(); return; }
+  aboutWin = new BrowserWindow({
+    width: 520,
+    height: 500,
+    resizable: false,
+    title: 'About MarkDown Merge',
+    frame: false,
+    autoHideMenuBar: true,
+    backgroundColor: '#1b1917',
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+  aboutWin.setMenu(null);
+  if (isDev) {
+    aboutWin.loadURL('http://localhost:5178/#about');
+  } else {
+    aboutWin.loadFile(path.join(__dirname, '..', 'dist', 'index.html'), { hash: 'about' });
+  }
+  aboutWin.on('closed', () => { aboutWin = null; });
 });
 
 // Persisted settings (survive restarts) stored under userData/settings.json.

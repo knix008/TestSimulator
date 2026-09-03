@@ -4,7 +4,7 @@ import { initReactI18next } from 'react-i18next';
 const resources = {
   ko: {
     translation: {
-      app: { title: 'MyMarkDownMaker' },
+      app: { title: 'MarkDown Merge v1.0' },
       tab: { files: '파일', structure: '구조', preview: '미리보기', edit: '편집' },
       toolbar: {
         addFolder: '폴더 추가',
@@ -132,7 +132,7 @@ const resources = {
   },
   en: {
     translation: {
-      app: { title: 'MyMarkDownMaker' },
+      app: { title: 'MarkDown Merge v1.0' },
       tab: { files: 'Files', structure: 'Structure', preview: 'Preview', edit: 'Edit' },
       toolbar: {
         addFolder: 'Add Folder',
