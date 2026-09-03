@@ -541,7 +541,7 @@ export default function App() {
         <div className="toolbar-spacer" />
         <div className="toolbar-group">
           <button className="iconbtn" title={t('tip.clear')} onClick={clearAll}><IconTrash /></button>
-          <button className="iconbtn" title={t('tip.lang')} onClick={toggleLang}><span className="lang">{lang.toUpperCase()}</span></button>
+          <button className="iconbtn" title={t('tip.lang')} onClick={toggleLang}><span className="lang">{lang === 'ko' ? 'EN' : '한글'}</span></button>
           <button className="iconbtn" title={t('tip.theme')} onClick={cycleTheme}><ThemeIcon /></button>
           <button className="iconbtn" title={t('tip.settings')} onClick={openSettings}><IconSettings /></button>
           <button className="iconbtn" title={t('tip.about')} onClick={openAbout}><IconInfo /></button>
