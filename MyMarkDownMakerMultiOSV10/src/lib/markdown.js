@@ -211,6 +211,12 @@ export const DEFAULT_EXPORT_SETTINGS = {
   fontSizePt: 11,
   coverPage: true,       // auto-generated cover page
   coverTitle: '',        // user-entered cover title ('' = use document title)
+  coverAuthor: '',       // cover: author
+  coverDate: '',         // cover: date ('' = today's date)
+  coverVersion: '',      // cover: version number
+  coverShowVersion: true, // show version on the cover
+  coverShowAuthor: true,  // show author on the cover
+  coverShowDate: true,    // show date on the cover
   tocPage: true,         // separate index / table-of-contents page
   headerText: '',
   headerAlign: 'center', // left | center | right
@@ -252,26 +258,38 @@ function buildPageMarginCss(s, family) {
 // Cover page markup (auto-generated first page).
 function coverHtml(title, s) {
   const sub = s.headerText ? `<div class="cover-sub">${escapeHtml(s.headerText)}</div>` : '';
-  const date = s.dateStr ? `<div class="cover-date">${escapeHtml(s.dateStr)}</div>` : '';
+  const date = (s.coverDate && s.coverDate.trim()) || s.dateStr || '';
+  const lines = [];
+  if (s.coverShowVersion && s.coverVersion) lines.push(escapeHtml(s.coverVersion));
+  if (s.coverShowAuthor && s.coverAuthor) lines.push(escapeHtml(s.coverAuthor));
+  if (s.coverShowDate && date) lines.push(escapeHtml(date));
+  const meta = lines.length ? `<div class="cover-meta">${lines.map((l) => `<div>${l}</div>`).join('')}</div>` : '';
   return `<div class="cover"><div class="cover-inner">
   <h1 class="cover-title">${escapeHtml(title)}</h1>
   ${sub}
-  ${date}
+  ${meta}
 </div></div>`;
 }
 
 // Index / table-of-contents page linking to each heading (#h-N anchors).
 // When withPageNo is set, each entry gets an empty .toc-pg span that the paged
 // PDF renderer fills with the target heading's actual page number.
-function tocHtml(markdown, label, withPageNo) {
+function tocHtml(markdown, label, withPageNo, breakBefore) {
   const items = getOutline(markdown);
   if (!items.length) return '';
-  const lis = items.map((h) => {
+  // Use <div> rows (not <ul>/<li>): Word shows list bullets even with
+  // list-style:none, so a div list keeps the index clean (number + title only).
+  const rows = items.map((h) => {
+    // Indent by the numbering depth (1 / 1.1 / 1.1.1 …) when the heading carries
+    // a leading number; otherwise fall back to the heading level.
+    const m = (h.text || '').match(/^(\d+(?:\.\d+)*)(?:\s|$)/);
+    const depth = m ? m[1].split('.').length : h.level;
+    const indent = (Math.max(1, depth) - 1) * 1.6;
     const text = `<span class="toc-text">${escapeHtml(h.text || ' ')}</span>`;
     const pg = withPageNo ? '<span class="toc-pg"></span>' : '';
-    return `<li class="toc-l${h.level}"><a href="#h-${h.index}">${text}${pg}</a></li>`;
+    return `<div class="toc-item${depth <= 1 ? ' toc-l1' : ''}" style="margin-left:${indent}em"><a href="#h-${h.index}">${text}${pg}</a></div>`;
   }).join('');
-  return `<div class="toc"><h1 class="toc-title">${escapeHtml(label)}</h1><ul class="toc-list">${lis}</ul></div>`;
+  return `<div class="toc${breakBefore ? ' pb' : ''}"><h1 class="toc-title">${escapeHtml(label)}</h1><div class="toc-list">${rows}</div></div>`;
 }
 
 // Wraps rendered body HTML into a standalone, styled HTML document (for export).
@@ -286,7 +304,9 @@ export function toStandaloneHtml(markdown, title = 'Document', settings = {}) {
   const coverTitle = (s.coverTitle && s.coverTitle.trim()) || title;
   const appName = s.appName || 'MyMarkDownMaker';
   const cover = s.coverPage ? coverHtml(coverTitle, s) : '';
-  const toc = s.tocPage ? tocHtml(markdown, s.contentsLabel || 'Contents', s.tocPageNumbers) : '';
+  const toc = s.tocPage ? tocHtml(markdown, s.contentsLabel || 'Contents', s.tocPageNumbers, !!cover) : '';
+  // Content always starts on a fresh page when a cover or index precedes it.
+  const content = `<div class="doc-content${(cover || toc) ? ' pb' : ''}">${body}</div>`;
   // In the paged PDF path the .toc-pg span is filled with the real page number;
   // this CSS lays it out (title left, page number right, no wrapping).
   const tocNumCss = s.tocPageNumbers
@@ -300,6 +320,9 @@ export function toStandaloneHtml(markdown, title = 'Document', settings = {}) {
     ? `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40" lang="ko">`
     : `<html lang="ko">`;
   const wordMeta = s.forWord ? `<meta name="ProgId" content="Word.Document">\n<meta name="Originator" content="Word">` : '';
+  // Word ignores CSS page-break-before in MHT, so insert an explicit hard page
+  // break element (the documented mso break) between sections for Word.
+  const wb = s.forWord ? '<br clear="all" style="mso-special-character:line-break;page-break-before:always">' : '';
   // On screen the cover fills the viewport & centers; in print/Word it is a
   // simple centered block that breaks to the next page.
   const coverScreen = '@media screen{.cover{min-height:calc(100vh - 96px);display:flex;align-items:center;justify-content:center}}';
@@ -327,24 +350,23 @@ ${wordMeta}
   th{background:#f0f0f0;font-weight:600} tr:nth-child(even){background:#fafafa}
   hr{border:none;border-top:2px solid #e0e0e0;margin:1.4em 0}
   a{color:#0b8a76;text-decoration:none} img{max-width:100%}
-  .cover{text-align:center;padding-top:30vh;page-break-after:always;break-after:page}
+  .cover{text-align:center;padding-top:30vh}
   .cover-title{font-size:2.7em;border:none;margin:0 0 .4em;padding:0}
-  .cover-sub{font-size:1.15em;color:#555;margin-bottom:2.5em}
-  .cover-date{color:#888;font-size:.95em}
-  .toc{page-break-after:always;break-after:page}
+  .cover-sub{font-size:1.2em;color:#555;margin-bottom:1.5em}
+  .cover-meta{margin-top:2.5em;color:#555;font-size:1.05em;line-height:1.9}
+  .pb{page-break-before:always;break-before:page}
+  .toc{}
   .toc-title{border-bottom:2px solid #e0e0e0;padding-bottom:.2em}
-  .toc-list{list-style:none;padding:0;margin:.6em 0 0}
-  .toc-list li{margin:.15em 0}
+  .toc-list{padding:0;margin:.6em 0 0}
+  .toc-item{margin:.15em 0}
   .toc-list a{color:inherit;text-decoration:none;display:block;padding:.2em 0}
   .toc-l1{font-weight:600;margin-top:.5em}
-  .toc-l2{padding-left:1.4em}.toc-l3{padding-left:2.8em}.toc-l4{padding-left:4.2em}
-  .toc-l5{padding-left:5.6em}.toc-l6{padding-left:7em}
   ${coverScreen}
   ${tocNumCss}
   ${pageCss}
 </style>
 </head><body>
-${cover}${toc}${body}
+${cover}${toc ? (cover ? wb : '') + toc : ''}${(cover || toc) ? wb : ''}${content}
 </body></html>`;
 }
 
@@ -355,9 +377,12 @@ export function buildMergedMarkdownDocument(markdown, opts = {}) {
   const title = (s.coverTitle && s.coverTitle.trim()) || opts.title || documentExportBaseName(markdown);
   const blocks = [];
   if (s.coverPage) {
-    const lines = [`# ${title}`];
-    if (s.dateStr) lines.push('', s.dateStr);
-    blocks.push(lines.join('\n'));
+    const lines = [`# ${title}`, ''];
+    const date = (s.coverDate && s.coverDate.trim()) || s.dateStr || '';
+    if (s.coverShowVersion && s.coverVersion) lines.push(s.coverVersion, '');
+    if (s.coverShowAuthor && s.coverAuthor) lines.push(s.coverAuthor, '');
+    if (s.coverShowDate && date) lines.push(date, '');
+    blocks.push(lines.join('\n').trimEnd());
   }
   if (s.tocPage) {
     const items = getOutline(markdown);

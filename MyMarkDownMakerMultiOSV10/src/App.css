@@ -359,6 +359,8 @@ body {
 .field > .control input[type='text'] { flex: 1 1 auto; min-width: 0; }
 .field > .control .link { flex: none; }
 .field .segmented { flex: none; }
+.field .control .show-toggle { flex: none; width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+.field .control input:disabled { opacity: 0.45; }
 .field input[type='text'], .field input[type='number'], .field select {
   height: 30px; border-radius: 7px; border: 1px solid var(--border);
   background: var(--bg-2); color: var(--text); padding: 0 9px; font-size: 13px; width: 100%;

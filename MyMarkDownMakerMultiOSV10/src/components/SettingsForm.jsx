@@ -97,13 +97,42 @@ export default function SettingsForm({ settings, onChange, theme, onTheme, lang,
           </div>
         </div>
         {s.coverPage && (
-          <div className="field">
-            <label>{t('settings.coverTitle')}</label>
-            <div className="control">
-              <input type="text" value={s.coverTitle} placeholder={t('settings.coverTitlePh')}
-                onChange={(e) => set({ coverTitle: e.target.value })} />
+          <>
+            <div className="field">
+              <label>{t('settings.coverTitle')}</label>
+              <div className="control">
+                <input type="text" value={s.coverTitle} placeholder={t('settings.coverTitlePh')}
+                  onChange={(e) => set({ coverTitle: e.target.value })} />
+              </div>
             </div>
-          </div>
+            <div className="field">
+              <label>{t('settings.coverVersion')}</label>
+              <div className="control">
+                <input type="checkbox" className="show-toggle" title={t('settings.showOnCover')}
+                  checked={s.coverShowVersion} onChange={(e) => set({ coverShowVersion: e.target.checked })} />
+                <input type="text" value={s.coverVersion} placeholder={t('settings.coverVersionPh')}
+                  disabled={!s.coverShowVersion} onChange={(e) => set({ coverVersion: e.target.value })} />
+              </div>
+            </div>
+            <div className="field">
+              <label>{t('settings.coverAuthor')}</label>
+              <div className="control">
+                <input type="checkbox" className="show-toggle" title={t('settings.showOnCover')}
+                  checked={s.coverShowAuthor} onChange={(e) => set({ coverShowAuthor: e.target.checked })} />
+                <input type="text" value={s.coverAuthor} placeholder={t('settings.coverAuthorPh')}
+                  disabled={!s.coverShowAuthor} onChange={(e) => set({ coverAuthor: e.target.value })} />
+              </div>
+            </div>
+            <div className="field">
+              <label>{t('settings.coverDate')}</label>
+              <div className="control">
+                <input type="checkbox" className="show-toggle" title={t('settings.showOnCover')}
+                  checked={s.coverShowDate} onChange={(e) => set({ coverShowDate: e.target.checked })} />
+                <input type="text" value={s.coverDate} placeholder={t('settings.coverDatePh')}
+                  disabled={!s.coverShowDate} onChange={(e) => set({ coverDate: e.target.value })} />
+              </div>
+            </div>
+          </>
         )}
         <div className="field">
           <label>{t('settings.tocPage')}</label>
