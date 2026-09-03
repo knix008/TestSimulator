@@ -430,7 +430,9 @@ export function DiagramCanvas({
   }, [doc.mode, doc.layout, nodes, nodeMap])
 
   useEffect(() => {
-    if (viewResetKey === 0) return
+    // Runs on first mount (viewResetKey starts at 0) and on every explicit view
+    // reset, so the initial single-node diagram is centred instead of stuck at
+    // the default top-left pan.
     const wrap = svgRef.current?.parentElement
     const vw = wrap?.clientWidth ?? window.innerWidth
     const vh = wrap?.clientHeight ?? window.innerHeight - 120
