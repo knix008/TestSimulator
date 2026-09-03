@@ -1,6 +1,7 @@
 ; Custom NSIS macros for MyMind
 ; - Offer Start Menu / Desktop shortcuts (electron-builder NSIS UI)
 ; - Completely remove any previous installation before installing the new one
+; - Install the bundled sample diagrams as editable examples in Documents
 
 !macro customInit
   ; $R0 = previous uninstaller path, $R1 = previous install location.
@@ -53,4 +54,17 @@
     RMDir /r "$LOCALAPPDATA\Programs\mymind"
     RMDir /r "$LOCALAPPDATA\mymind-updater"
   ${EndIf}
+!macroend
+
+; Copy the bundled sample diagrams (shipped under resources\template) into the
+; user's Documents so they can be opened and edited as examples.
+!macro customInstall
+  CreateDirectory "$DOCUMENTS\MyMind Examples"
+  CopyFiles /SILENT "$INSTDIR\resources\template\*.mmap" "$DOCUMENTS\MyMind Examples"
+!macroend
+
+; Remove the installed examples on uninstall (user files elsewhere are untouched).
+!macro customUnInstall
+  Delete "$DOCUMENTS\MyMind Examples\*.mmap"
+  RMDir "$DOCUMENTS\MyMind Examples"
 !macroend

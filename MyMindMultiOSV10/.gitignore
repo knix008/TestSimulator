@@ -56,12 +56,16 @@ latest*.yml
 builder-effective-config.yaml
 builder-debug.yml
 
-# Note: generated icon rasters (build/file-icon.ico, build/icon.ico, .png ...) are
-# committed as binary assets so packaging works without the icon-generation dev
-# tools (sharp/png-to-ico). Regenerate them with: node scripts/gen-icons.mjs
+# Committed assets (do NOT ignore): the bundled sample diagrams in template/*.mmap
+# and the generated icon rasters (build/*.ico, build/*.png, build/icons/*) are
+# checked in so packaging works without the icon/sample dev tools. Regenerate with:
+#   node scripts/gen-icons.mjs      (needs sharp + png-to-ico)
+#   node scripts/gen-samples.mjs
 
-# Exported diagram images
+# Exported diagram images and dev-time web downloads (from `npm run dev`)
 *.export.png
+/diagram*.png
+/diagram*.mmap
 
 # Local scratch
 tmp/

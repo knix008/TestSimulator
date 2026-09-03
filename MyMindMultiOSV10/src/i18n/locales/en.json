@@ -1,12 +1,14 @@
 {
-  "appName": "MyMind",
+  "appName": "MyMind v1.0",
   "toolbar": {
+    "file": "File",
     "new": "New",
     "open": "Open",
     "save": "Save",
     "export": "Export",
     "mindmap": "Mindmap",
     "fishbone": "Fishbone",
+    "switchTo": "Switch to {{mode}}",
     "addChild": "Add Child",
     "addSibling": "Add Sibling",
     "delete": "Delete",
@@ -65,6 +67,13 @@
     "dot": "Dot",
     "diamond": "Diamond"
   },
+  "side": {
+    "auto": "Auto",
+    "top": "Top",
+    "bottom": "Bottom",
+    "left": "Left",
+    "right": "Right"
+  },
   "font": {
     "notoSansKr": "Noto Sans KR",
     "outfit": "Outfit",
@@ -92,6 +101,8 @@
     "duplicate": "Duplicate",
     "copy": "Copy",
     "paste": "Paste",
+    "showGrid": "Show Grid",
+    "hideGrid": "Hide Grid",
     "delete": "Delete",
     "deleteSelected": "Delete {{count}} selected",
     "selectedCount": "{{count}} selected",
@@ -108,6 +119,9 @@
     "memo": "Memo",
     "memoPlaceholder": "Add a note for this shape.",
     "textStyle": "Text Style",
+    "connection": "Connection Point",
+    "fromSide": "Start side",
+    "toSide": "End side",
     "font": "Font",
     "fontSize": "Font Size",
     "textColor": "Text Color",
@@ -149,6 +163,14 @@
   "dialog": {
     "confirmNew": "You have unsaved changes. Create a new document?",
     "untitled": "Untitled"
+  },
+  "export": {
+    "title": "Export Image",
+    "format": "Format",
+    "transparent": "Transparent background",
+    "jpegHint": "JPEG does not support transparency.",
+    "export": "Export",
+    "cancel": "Cancel"
   },
   "closePrompt": {
     "title": "Unsaved changes",

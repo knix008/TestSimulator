@@ -131,15 +131,18 @@ function layoutRadial(nodes: DiagramNode[], rootId: string, cx: number, cy: numb
 // parent's axis even after a node is dragged.
 export const FISH_ANGLE_DEG = 58
 const FISH_TAN = Math.tan((FISH_ANGLE_DEG * Math.PI) / 180)
-const FISH_RISE = 165 // vertical distance from the spine to a category center
+// Spacing is kept compact but must satisfy FISH_RISE - FISH_SUB_RISE >= NODE_H so
+// a category's first-level children can still fan to the spine side without being
+// clamped away.
+const FISH_RISE = 140 // vertical distance from the spine to a category center
 const FISH_RUN = FISH_RISE / FISH_TAN // horizontal run of a category bone
-const FISH_FIRST_OFFSET = 90 // gap from the head to the first category bone
+const FISH_FIRST_OFFSET = 44 // gap from the head to the first category bone
 const FISH_MARGIN = 90
-const FISH_SUB_RISE = 120 // vertical distance from a sub-axis to its child
+const FISH_SUB_RISE = 95 // vertical distance from a sub-axis to its child
 const FISH_SUB_RUN = FISH_SUB_RISE / FISH_TAN // horizontal run of a sub bone
-const FISH_SUB_FIRST = 85 // gap from a node to its first child bone
-const FISH_BONE_GAP = 90 // minimum clear gap between adjacent category subtrees
-const FISH_SUB_GAP = 60 // minimum clear gap between adjacent child subtrees
+const FISH_SUB_FIRST = 38 // gap from a node to its first child bone
+const FISH_BONE_GAP = 38 // minimum clear gap between adjacent category subtrees
+const FISH_SUB_GAP = 26 // minimum clear gap between adjacent child subtrees
 
 // Total number of nodes in a subtree (used to balance branches above/below).
 function subtreeCount(nodes: DiagramNode[], id: string): number {

@@ -2,12 +2,19 @@ import { useEffect, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ContextMenuState } from '../types'
 import {
+  IconAlign,
   IconChild,
   IconCopy,
   IconDuplicate,
   IconEdit,
+  IconExport,
+  IconGrid,
+  IconNew,
+  IconOpen,
   IconPaste,
   IconRedo,
+  IconReset,
+  IconSave,
   IconSibling,
   IconText,
   IconTrash,
@@ -20,6 +27,7 @@ type Props = {
   canPaste: boolean
   canUndo: boolean
   canRedo: boolean
+  showGrid: boolean
   onClose: () => void
   onUndo: () => void
   onRedo: () => void
@@ -31,6 +39,13 @@ type Props = {
   onCopy: () => void
   onPaste: () => void
   onDelete: () => void
+  onNew: () => void
+  onOpen: () => void
+  onSave: () => void
+  onExport: () => void
+  onAutoAlign: () => void
+  onResetView: () => void
+  onToggleGrid: () => void
 }
 
 type ItemProps = {
@@ -72,6 +87,14 @@ export function ContextMenu({
   onCopy,
   onPaste,
   onDelete,
+  showGrid,
+  onNew,
+  onOpen,
+  onSave,
+  onExport,
+  onAutoAlign,
+  onResetView,
+  onToggleGrid,
 }: Props) {
   const { t } = useTranslation()
   const hasNode = Boolean(menu.nodeId)
@@ -171,6 +194,23 @@ export function ContextMenu({
         label={t('context.paste')}
         disabled={!canPaste}
         onClick={run(onPaste)}
+      />
+
+      <div className="context-sep" />
+
+      <MenuItem icon={<IconNew />} label={t('toolbar.new')} onClick={run(onNew)} />
+      <MenuItem icon={<IconOpen />} label={t('toolbar.open')} onClick={run(onOpen)} />
+      <MenuItem icon={<IconSave />} label={t('toolbar.save')} onClick={run(onSave)} />
+      <MenuItem icon={<IconExport />} label={t('toolbar.export')} onClick={run(onExport)} />
+
+      <div className="context-sep" />
+
+      <MenuItem icon={<IconAlign />} label={t('toolbar.align')} onClick={run(onAutoAlign)} />
+      <MenuItem icon={<IconReset />} label={t('toolbar.reset')} onClick={run(onResetView)} />
+      <MenuItem
+        icon={<IconGrid />}
+        label={showGrid ? t('context.hideGrid') : t('context.showGrid')}
+        onClick={run(onToggleGrid)}
       />
 
       <div className="context-sep" />

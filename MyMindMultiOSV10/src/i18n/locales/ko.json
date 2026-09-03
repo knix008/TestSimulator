@@ -1,12 +1,14 @@
 {
-  "appName": "MyMind",
+  "appName": "MyMind v1.0",
   "toolbar": {
+    "file": "파일",
     "new": "새로 만들기",
     "open": "열기",
     "save": "저장",
     "export": "내보내기",
     "mindmap": "마인드맵",
     "fishbone": "피쉬본",
+    "switchTo": "{{mode}}(으)로 전환",
     "addChild": "하위 추가",
     "addSibling": "형제 추가",
     "delete": "삭제",
@@ -65,6 +67,13 @@
     "dot": "원",
     "diamond": "마름모"
   },
+  "side": {
+    "auto": "자동",
+    "top": "위",
+    "bottom": "아래",
+    "left": "왼쪽",
+    "right": "오른쪽"
+  },
   "font": {
     "notoSansKr": "Noto Sans KR",
     "outfit": "Outfit",
@@ -92,6 +101,8 @@
     "duplicate": "복제",
     "copy": "복사",
     "paste": "붙여넣기",
+    "showGrid": "그리드 표시",
+    "hideGrid": "그리드 숨기기",
     "delete": "삭제",
     "deleteSelected": "선택 {{count}}개 삭제",
     "selectedCount": "{{count}}개 선택됨",
@@ -108,6 +119,9 @@
     "memo": "메모",
     "memoPlaceholder": "이 도형에 대한 메모를 입력하세요.",
     "textStyle": "텍스트 스타일",
+    "connection": "연결 위치",
+    "fromSide": "시작 면",
+    "toSide": "끝 면",
     "font": "폰트",
     "fontSize": "폰트 크기",
     "textColor": "글자 색",
@@ -149,6 +163,14 @@
   "dialog": {
     "confirmNew": "저장하지 않은 변경사항이 있습니다. 새 문서를 만들까요?",
     "untitled": "제목 없음"
+  },
+  "export": {
+    "title": "이미지 내보내기",
+    "format": "형식",
+    "transparent": "배경 투명하게",
+    "jpegHint": "JPEG는 투명 배경을 지원하지 않습니다.",
+    "export": "내보내기",
+    "cancel": "취소"
   },
   "closePrompt": {
     "title": "저장하지 않은 변경사항",

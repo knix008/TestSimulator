@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type WheelEvent } from 'react'
-import type { DiagramDocument, DiagramNode, LinePattern, LineType, ShapeType, ThemeMode } from '../types'
+import type { DiagramDocument, DiagramNode, EdgeSide, LinePattern, LineType, ShapeType, ThemeMode } from '../types'
 import { FISH_ANGLE_DEG } from '../layout/engine'
 import { resolveTextColor } from '../constants/colors'
+import { shapePath } from '../utils/shapePath'
 
 const FISH_TAN = Math.tan((FISH_ANGLE_DEG * Math.PI) / 180)
 
@@ -27,54 +28,6 @@ const GRID = 20
 const DRAG_THRESHOLD = 4 // px of movement before a node actually starts dragging
 const ZOOM_MIN = 0.1 // 10%
 const ZOOM_MAX = 4 // 400%
-
-export function shapePath(shape: ShapeType, x: number, y: number, w: number, h: number): string {
-  const min = (...v: number[]) => Math.min(...v)
-  switch (shape) {
-    case 'ellipse':
-      return `M ${x + w / 2} ${y} A ${w / 2} ${h / 2} 0 1 1 ${x + w / 2 - 0.01} ${y}`
-    case 'diamond':
-      return `M ${x + w / 2} ${y} L ${x + w} ${y + h / 2} L ${x + w / 2} ${y + h} L ${x} ${y + h / 2} Z`
-    case 'parallelogram':
-      return `M ${x + 16} ${y} L ${x + w} ${y} L ${x + w - 16} ${y + h} L ${x} ${y + h} Z`
-    case 'rect':
-      return `M ${x} ${y} H ${x + w} V ${y + h} H ${x} Z`
-    case 'hexagon': {
-      const c = min(w * 0.25, h * 0.6, 26)
-      return `M ${x + c} ${y} H ${x + w - c} L ${x + w} ${y + h / 2} L ${x + w - c} ${y + h} H ${x + c} L ${x} ${y + h / 2} Z`
-    }
-    case 'octagon': {
-      const cx = min(w * 0.2, 26)
-      const cy = min(h * 0.35, 16)
-      return `M ${x + cx} ${y} H ${x + w - cx} L ${x + w} ${y + cy} V ${y + h - cy} L ${x + w - cx} ${y + h} H ${x + cx} L ${x} ${y + h - cy} V ${y + cy} Z`
-    }
-    case 'stadium': {
-      const r = h / 2
-      return `M ${x + r} ${y} H ${x + w - r} A ${r} ${r} 0 0 1 ${x + w - r} ${y + h} H ${x + r} A ${r} ${r} 0 0 1 ${x + r} ${y} Z`
-    }
-    case 'cylinder': {
-      const ry = min(h * 0.22, 16)
-      return `M ${x} ${y + ry} C ${x} ${y}, ${x + w} ${y}, ${x + w} ${y + ry} V ${y + h - ry} C ${x + w} ${y + h}, ${x} ${y + h}, ${x} ${y + h - ry} Z M ${x} ${y + ry} C ${x} ${y + 2 * ry}, ${x + w} ${y + 2 * ry}, ${x + w} ${y + ry}`
-    }
-    case 'trapezoid': {
-      const c = min(w * 0.22, 30)
-      return `M ${x + c} ${y} H ${x + w - c} L ${x + w} ${y + h} H ${x} Z`
-    }
-    case 'chevron': {
-      const c = min(w * 0.24, 28)
-      return `M ${x} ${y} H ${x + w - c} L ${x + w} ${y + h / 2} L ${x + w - c} ${y + h} H ${x} L ${x + c} ${y + h / 2} Z`
-    }
-    case 'note': {
-      const f = min(w * 0.14, h * 0.45, 18)
-      return `M ${x} ${y} H ${x + w - f} L ${x + w} ${y + f} V ${y + h} H ${x} Z M ${x + w - f} ${y} V ${y + f} H ${x + w}`
-    }
-    case 'rounded':
-    default: {
-      const r = 12
-      return `M ${x + r} ${y} H ${x + w - r} Q ${x + w} ${y} ${x + w} ${y + r} V ${y + h - r} Q ${x + w} ${y + h} ${x + w - r} ${y + h} H ${x + r} Q ${x} ${y + h} ${x} ${y + h - r} V ${y + r} Q ${x} ${y} ${x + r} ${y} Z`
-    }
-  }
-}
 
 /** Stable, id-safe key for a colour string (e.g. "#94a3b8" -> "94a3b8"). */
 function colorKey(color: string): string {
@@ -145,7 +98,35 @@ type EdgeOrient = 'h' | 'v' | 'auto'
  * dominant axis. Returning the axis lets each line type arrive perpendicular to
  * the face, so arrowheads sit flush.
  */
-function facePoints(from: DiagramNode, to: DiagramNode, orient: EdgeOrient): {
+/** Connection point at the centre of one node face (respecting shape insets). */
+function sideMidpoint(node: DiagramNode, side: EdgeSide): { x: number; y: number } {
+  const ins = faceInsets(node.shape, node.width, node.height)
+  const cx = node.x + node.width / 2
+  const cy = node.y + node.height / 2
+  switch (side) {
+    case 'left':
+      return { x: node.x + ins.left, y: cy }
+    case 'right':
+      return { x: node.x + node.width - ins.right, y: cy }
+    case 'top':
+      return { x: cx, y: node.y + ins.top }
+    case 'bottom':
+      return { x: cx, y: node.y + node.height - ins.bottom }
+    default:
+      return { x: cx, y: cy }
+  }
+}
+
+const sideAxis = (s?: EdgeSide) =>
+  s === 'left' || s === 'right' ? 'h' : s === 'top' || s === 'bottom' ? 'v' : null
+
+function facePoints(
+  from: DiagramNode,
+  to: DiagramNode,
+  orient: EdgeOrient,
+  fromSide?: EdgeSide,
+  toSide?: EdgeSide,
+): {
   p1: { x: number; y: number }
   p2: { x: number; y: number }
   horizontal: boolean
@@ -156,21 +137,26 @@ function facePoints(from: DiagramNode, to: DiagramNode, orient: EdgeOrient): {
   const dy = tc.y - fc.y
   const fi = faceInsets(from.shape, from.width, from.height)
   const ti = faceInsets(to.shape, to.width, to.height)
-  const horizontal = orient === 'h' ? true : orient === 'v' ? false : Math.abs(dx) >= Math.abs(dy)
+  let horizontal = orient === 'h' ? true : orient === 'v' ? false : Math.abs(dx) >= Math.abs(dy)
+  let p1: { x: number; y: number }
+  let p2: { x: number; y: number }
   if (horizontal) {
     const right = dx >= 0
-    return {
-      p1: { x: right ? from.x + from.width - fi.right : from.x + fi.left, y: fc.y },
-      p2: { x: right ? to.x + ti.left : to.x + to.width - ti.right, y: tc.y },
-      horizontal,
-    }
+    p1 = { x: right ? from.x + from.width - fi.right : from.x + fi.left, y: fc.y }
+    p2 = { x: right ? to.x + ti.left : to.x + to.width - ti.right, y: tc.y }
+  } else {
+    const down = dy >= 0
+    p1 = { x: fc.x, y: down ? from.y + from.height - fi.bottom : from.y + fi.top }
+    p2 = { x: tc.x, y: down ? to.y + ti.top : to.y + to.height - ti.bottom }
   }
-  const down = dy >= 0
-  return {
-    p1: { x: fc.x, y: down ? from.y + from.height - fi.bottom : from.y + fi.top },
-    p2: { x: tc.x, y: down ? to.y + ti.top : to.y + to.height - ti.bottom },
-    horizontal,
-  }
+  // Manual per-endpoint face overrides.
+  const fa = sideAxis(fromSide)
+  const ta = sideAxis(toSide)
+  if (fromSide && fromSide !== 'auto') p1 = sideMidpoint(from, fromSide)
+  if (toSide && toSide !== 'auto') p2 = sideMidpoint(to, toSide)
+  if (ta) horizontal = ta === 'h'
+  else if (fa) horizontal = fa === 'h'
+  return { p1, p2, horizontal }
 }
 
 function edgePath(
@@ -178,8 +164,10 @@ function edgePath(
   to: DiagramNode,
   lineType: LineType,
   orient: EdgeOrient,
+  fromSide?: EdgeSide,
+  toSide?: EdgeSide,
 ): string {
-  const { p1, p2, horizontal } = facePoints(from, to, orient)
+  const { p1, p2, horizontal } = facePoints(from, to, orient, fromSide, toSide)
   const x1 = p1.x
   const y1 = p1.y
   const x2 = p2.x
@@ -759,7 +747,7 @@ export function DiagramCanvas({
                 />
               )
             }
-            const d = edgePath(from, to, edge.lineType, edgeOrient)
+            const d = edgePath(from, to, edge.lineType, edgeOrient, edge.fromSide, edge.toSide)
             return (
               <g key={edge.id}>
                 {/* Invisible wide hit target so thin lines are easy to click. */}
@@ -839,7 +827,13 @@ export function DiagramCanvas({
                 strokeWidth={1.5}
               />
               {node.note?.trim() ? <title>{node.note}</title> : null}
-              <text className="node-label" x={node.x + node.width / 2} y={node.y + node.height / 2 + 1}>
+              <text
+                className="node-label"
+                x={node.x + node.width / 2}
+                y={node.y + node.height / 2 + 1}
+                textAnchor="middle"
+                dominantBaseline="middle"
+              >
                 <tspan
                   fill={resolveTextColor(node.textStyle?.color, theme)}
                   fontFamily={fontFamily(node.textStyle?.fontFamily ?? 'notoSansKr')}

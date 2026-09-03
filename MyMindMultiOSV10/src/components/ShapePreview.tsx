@@ -1,5 +1,5 @@
 import type { ShapeType } from '../types'
-import { shapePath } from './DiagramCanvas'
+import { shapePath } from '../utils/shapePath'
 
 /** A tiny outlined preview of a node shape, for dropdown option icons. */
 export function ShapePreview({ shape }: { shape: ShapeType }) {

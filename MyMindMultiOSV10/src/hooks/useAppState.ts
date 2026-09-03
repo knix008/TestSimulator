@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { exportPngDataUrl } from '../utils/exportImage'
+import { exportDiagram, type ExportFormat } from '../utils/exportImage'
 import type {
   AppSettings,
   ContextMenuState,
   DiagramDocument,
+  EdgeSide,
   EndCap,
   LayoutDirection,
   LinePattern,
@@ -72,6 +73,7 @@ export function useAppState() {
   const [zoom, setZoom] = useState(1)
   const [viewResetKey, setViewResetKey] = useState(0)
   const [aboutOpen, setAboutOpen] = useState(false)
+  const [exportOpen, setExportOpen] = useState(false)
   const [closePromptOpen, setClosePromptOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   // In-app clipboard: a snapshot of a copied subtree (root at index 0).
@@ -294,23 +296,39 @@ export function useAppState() {
     return true
   }, [doc])
 
-  const exportImage = useCallback(async () => {
-    const svg = document.querySelector('.canvas-svg') as SVGSVGElement | null
-    if (!svg) return
-    const dataUrl = await exportPngDataUrl(svg, doc.nodes, settings.theme)
-    const base = doc.filePath ? doc.filePath.replace(/\.[^.]+$/, '').split(/[\\/]/).pop() : 'diagram'
-    const name = `${base || 'diagram'}.png`
-    if (window.mymind) {
-      const path = await window.mymind.saveImageDialog(name)
-      if (!path) return
-      await window.mymind.writeBinaryFile(path, dataUrl.split(',')[1])
-    } else {
-      const a = document.createElement('a')
-      a.href = dataUrl
-      a.download = name
-      a.click()
-    }
-  }, [doc.nodes, doc.filePath, settings.theme])
+  // Open the export dialog (format + transparent background choices).
+  const exportImage = useCallback(() => setExportOpen(true), [])
+
+  const runExport = useCallback(
+    async (format: ExportFormat, transparent: boolean) => {
+      const svg = document.querySelector('.canvas-svg') as SVGSVGElement | null
+      if (!svg) return
+      const out = await exportDiagram(svg, doc.nodes, { format, transparent, theme: settings.theme })
+      const base = doc.filePath ? doc.filePath.replace(/\.[^.]+$/, '').split(/[\\/]/).pop() : 'diagram'
+      const name = `${base || 'diagram'}.${out.ext}`
+      if (window.mymind) {
+        const path = await window.mymind.saveImageDialog(name)
+        if (!path) return
+        if (out.kind === 'svg') await window.mymind.writeFile(path, out.text)
+        else await window.mymind.writeBinaryFile(path, out.dataUrl.split(',')[1])
+      } else {
+        const a = document.createElement('a')
+        if (out.kind === 'svg') {
+          const blob = new Blob([out.text], { type: 'image/svg+xml' })
+          a.href = URL.createObjectURL(blob)
+          a.download = name
+          a.click()
+          URL.revokeObjectURL(a.href)
+        } else {
+          a.href = out.dataUrl
+          a.download = name
+          a.click()
+        }
+      }
+      setExportOpen(false)
+    },
+    [doc.nodes, doc.filePath, settings.theme],
+  )
 
   const selectNode = (id: string | null) =>
     setDoc((d) => ({ ...d, selectedId: id, selectedIds: id ? [id] : [], selectedEdgeId: null }))
@@ -434,6 +452,22 @@ export function useAppState() {
           : d,
     )
   }
+  // Manual connection-face overrides target the selected edge, or the edge from
+  // the selected node to its parent (from = parent, to = node).
+  const activeEdgeId = (d: DiagramDocument) =>
+    d.selectedEdgeId ?? d.edges.find((e) => e.to === d.selectedId)?.id ?? null
+  const onLineFromSide = (side: EdgeSide) => {
+    setDoc((d) => {
+      const id = activeEdgeId(d)
+      return id ? updateEdgeById(d, id, { fromSide: side }) : d
+    })
+  }
+  const onLineToSide = (side: EdgeSide) => {
+    setDoc((d) => {
+      const id = activeEdgeId(d)
+      return id ? updateEdgeById(d, id, { toSide: side }) : d
+    })
+  }
   const onTextStyle = (style: Partial<TextStyle>) => {
     if (!doc.selectedId) return
     setDoc((d) => setNodeTextStyle(d, d.selectedId!, style))
@@ -540,6 +574,9 @@ export function useAppState() {
     canRedo,
     aboutOpen,
     setAboutOpen,
+    exportOpen,
+    setExportOpen,
+    runExport,
     closePromptOpen,
     requestClose,
     closePromptSave,
@@ -572,6 +609,8 @@ export function useAppState() {
     onLineColor,
     onLineStartCap,
     onLineEndCap,
+    onLineFromSide,
+    onLineToSide,
     onTextStyle,
     switchMode,
     editText,

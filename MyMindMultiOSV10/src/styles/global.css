@@ -204,8 +204,14 @@ select {
   min-width: 12px;
 }
 
-.toolbar-about {
+/* Right cluster: About button + window controls, pinned to the right edge. */
+.toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   margin-left: auto;
+  flex-shrink: 0;
+  -webkit-app-region: no-drag;
 }
 
 .brand {
@@ -268,6 +274,7 @@ select {
   border-color: var(--danger);
   color: var(--danger);
 }
+
 
 .tb-btn .icon {
   width: 13px;
@@ -385,8 +392,7 @@ select {
   display: flex;
   gap: 4px;
   flex-shrink: 0;
-  margin-left: auto;
-  padding-left: 6px;
+  padding-left: 2px;
   -webkit-app-region: no-drag;
 }
 
@@ -1077,6 +1083,33 @@ select {
   background: var(--accent);
   color: #ffffff;
   border-color: var(--accent);
+}
+
+.export-formats {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.export-transparent {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  cursor: pointer;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.export-transparent.disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.export-hint {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--text-muted);
 }
 
 .node-editor {

@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import type { DiagramDocument, DiagramNode, EndCap, LinePattern, LineType, ShapeType, TextStyle, ThemeMode } from '../types'
+import type { DiagramDocument, DiagramNode, EdgeSide, EndCap, LinePattern, LineType, ShapeType, TextStyle, ThemeMode } from '../types'
 import { AUTO_TEXT_COLOR, resolveTextColor } from '../constants/colors'
 import { ColorPicker } from './ColorPicker'
 import { IconLine, IconShape } from './Icons'
@@ -34,6 +34,8 @@ type Props = {
   currentLineColor: string
   currentStartCap: EndCap
   currentEndCap: EndCap
+  currentFromSide: EdgeSide
+  currentToSide: EdgeSide
   theme: ThemeMode
   onSelect: (id: string | null) => void
   onShape: (shape: ShapeType) => void
@@ -44,6 +46,8 @@ type Props = {
   onLineColor: (color: string) => void
   onLineStartCap: (cap: EndCap) => void
   onLineEndCap: (cap: EndCap) => void
+  onLineFromSide: (side: EdgeSide) => void
+  onLineToSide: (side: EdgeSide) => void
   onTextStyle: (style: Partial<TextStyle>) => void
   onTextChange: (id: string, text: string) => void
 }
@@ -67,11 +71,22 @@ export function SidePanels({
   onLineColor,
   onLineStartCap,
   onLineEndCap,
+  onLineFromSide,
+  onLineToSide,
+  currentFromSide,
+  currentToSide,
   onTextStyle,
   onTextChange,
 }: Props) {
   const { t } = useTranslation()
   const { fonts: systemFonts, load: loadFonts } = useSystemFonts()
+  const sideOptions = [
+    { value: 'auto' as const, label: t('side.auto') },
+    { value: 'top' as const, label: t('side.top') },
+    { value: 'bottom' as const, label: t('side.bottom') },
+    { value: 'left' as const, label: t('side.left') },
+    { value: 'right' as const, label: t('side.right') },
+  ]
 
   // Flatten the parent/child tree into ordered rows (depth-first) so the Node
   // List can render as an indented tree with connector lines. `lineage[k]` marks
@@ -186,6 +201,22 @@ export function SidePanels({
       />
 
       <ColorPicker label={t('panel.lineColor')} value={currentLineColor} onChange={onLineColor} />
+
+      <div className="panel-subheading">{t('panel.connection')}</div>
+      <ToolbarDropdown
+        label={t('panel.fromSide')}
+        icon={<IconLine />}
+        value={currentFromSide}
+        onChange={onLineFromSide}
+        options={sideOptions}
+      />
+      <ToolbarDropdown
+        label={t('panel.toSide')}
+        icon={<IconLine />}
+        value={currentToSide}
+        onChange={onLineToSide}
+        options={sideOptions}
+      />
     </>
   )
 

@@ -17,12 +17,13 @@ The UI is frameless on desktop (no native title bar). Window controls, toolbar, 
 ┌─────────────────────────────────────────────────────────┐
 │  Electron Main (electron/main.ts)                       │
 │  · BrowserWindow (frame: false)                         │
-│  · IPC: window, dialogs, file I/O, app info             │
+│  · IPC: window, dialogs, file I/O, app info, close flow │
+│  · Single-instance + .mmap file-open handling           │
 └───────────────────────┬─────────────────────────────────┘
                         │ contextBridge (preload)
 ┌───────────────────────▼─────────────────────────────────┐
 │  Renderer (React + Vite)                                │
-│  Toolbar · Canvas · StatusBar · ContextMenu · About     │
+│  Toolbar · Canvas · SidePanels · ContextMenu · Dialogs  │
 │  useAppState · document store · layout engine · i18n    │
 └─────────────────────────────────────────────────────────┘
 ```
@@ -43,36 +44,42 @@ The UI is frameless on desktop (no native title bar). Window controls, toolbar, 
 ```
 MyMindMultiOSV10/
 ├── electron/
-│   ├── main.ts          # App lifecycle, window, IPC handlers
+│   ├── main.ts          # App lifecycle, window, IPC, file-open, close flow
 │   └── preload.ts       # Safe API exposed as window.mymind
 ├── src/
 │   ├── App.tsx          # Shell composition
 │   ├── main.tsx         # React entry
 │   ├── types.ts         # Shared domain types
-│   ├── components/      # Toolbar, Canvas, menus, dialogs
+│   ├── components/      # Toolbar, Canvas, SidePanels, menus, dialogs, previews
 │   ├── hooks/
-│   │   └── useAppState.ts
+│   │   ├── useAppState.ts   # All app state & actions (incl. undo/redo)
+│   │   └── useSystemFonts.ts# Local Font Access enumeration
 │   ├── store/
-│   │   └── document.ts  # Document mutations (add/delete/move/caps/…)
+│   │   └── document.ts  # Document mutations + serialize/deserialize
 │   ├── layout/
-│   │   └── engine.ts    # Radial / LTR / RTL / TTB / nested Fishbone layout
+│   │   └── engine.ts    # Radial / TTB / BTT / LTR / RTL / nested Fishbone
 │   ├── utils/
-│   │   └── exportImage.ts  # SVG → PNG export
+│   │   ├── exportImage.ts  # SVG → PNG/JPEG/WebP/SVG export
+│   │   └── shapePath.ts    # Node shape path builder (shared, non-component)
 │   ├── constants/
 │   │   └── colors.ts    # Node palette + theme text color
 │   ├── i18n/            # ko / en JSON catalogs
 │   └── styles/
-│       └── global.css
+│       └── global.css   # Themes (CSS variables) + all styling
 ├── build/
-│   ├── icon.png         # App / installer icon
+│   ├── app-icon.svg     # Source for the app icon
+│   ├── file-icon.svg    # Source for the .mmap document icon
+│   ├── icon.png / icon.ico          # Generated app icons
+│   ├── file-icon.png / file-icon.ico# Generated .mmap file icons (committed)
 │   ├── icons/           # Linux icon sizes
-│   ├── file-icon.svg    # Source for the .mmap file-type icon (document + app icon)
 │   └── installer.nsh    # NSIS: uninstall previous version
 ├── scripts/
 │   ├── copy-installer.mjs
-│   └── make-file-icon.mjs  # Rasterize file-icon.svg → .png/.ico
-├── template/            # Bundled sample .mmap diagrams
-├── public/              # Vite public assets
+│   ├── gen-icons.mjs    # Rasterize SVG sources → PNG/ICO
+│   ├── gen-samples.mjs  # Regenerate template/*.mmap
+│   └── make-file-icon.mjs
+├── template/            # Bundled sample .mmap diagrams (extraResources)
+├── public/              # Vite public assets (icon.png used in-app)
 └── package.json         # Scripts + electron-builder config
 ```
 
@@ -80,54 +87,51 @@ MyMindMultiOSV10/
 
 ### 4.1 Main process
 
-- Creates a **frameless** `BrowserWindow`
-- Disables the application menu
-- In development loads `http://localhost:5173`
-- In production loads `dist/index.html`
+- Creates a **frameless** `BrowserWindow`; disables the application menu
+- Dev loads `http://localhost:5173`; production loads `dist/index.html`
+- Grants the `local-fonts` permission so the renderer can enumerate system fonts
+- **Single instance**: a second launch (e.g. double-clicking a `.mmap`) forwards the file to the running window
+- **File association**: opens a `.mmap` passed on the command line / `open-file` (macOS) and sends it to the renderer
+- **Close flow**: while the document is dirty, `close` is intercepted and the renderer shows a Save / Don't Save / Cancel prompt; `app:confirmClose` then `destroy()`s the window
 - Handles IPC:
-  - `window:minimize` / `maximize` / `close` / `isMaximized`
-  - `dialog:open` (starts in the bundled templates folder; accepts `.mmap` and `.mymind`) / `dialog:save`
-  - `dialog:saveImage` (PNG) / `file:writeBinary` (base64 → file)
-  - `file:write`
+  - `window:minimize` / `maximize` / `close` / `isMaximized` / `setMinWidth`
+  - `dialog:open` (starts in the templates folder; accepts `.mmap` / `.mymind`) / `dialog:save`
+  - `dialog:saveImage` (filter derived from the chosen extension) / `file:write` / `file:writeBinary`
   - `shell:openExternal`
-  - `app:getInfo` (name, version, author, email, copyright, platform)
+  - `app:getInfo` (name, version, author, email, copyright, platform, runtime versions, build date)
+  - `app:setDirty` / `app:confirmClose` (close flow); sends `app:requestClose`, `file:opened`
 
 ### 4.2 Preload
 
-`contextBridge.exposeInMainWorld('mymind', api)` exposes a typed API.  
-Renderer never gets `nodeIntegration`.
+`contextBridge.exposeInMainWorld('mymind', api)` exposes a typed API. The renderer never gets `nodeIntegration`.
 
 ### 4.3 Renderer
 
-Pure React app. Detects Electron via `window.mymind?.isElectron`.  
-Without Electron, open/save use `<input type="file">` and download blobs.
+Pure React app; detects Electron via `window.mymind?.isElectron`. Without Electron, open/save use `<input type="file">` / blob downloads, and unsaved changes trigger the browser's `beforeunload` prompt.
 
 ## 5. UI composition
 
 ```
-┌─ Toolbar (drag region + no-drag controls) ──────────────┐
-│ Brand · File · Mode · Edit · Dropdowns · View · Window │
-├─────────────────────────────────────────────────────────┤
-│                                                         │
-│  DiagramCanvas (SVG)                                    │
-│  · Grid pattern (optional)                              │
-│  · Pan / zoom · Node drag · Context menu                │
-│                                                         │
-├─ StatusBar ─────────────────────────────────────────────┤
-│ Mode · Layout · Nodes · Zoom · Grid · File status       │
-└─────────────────────────────────────────────────────────┘
+┌─ Toolbar (drag region + no-drag controls) ───────────────────┐
+│ Brand · File▾ · Undo/Redo · Mode-toggle Layout▾ · View ·    │
+│ Theme▾ · Lang · [right cluster: About · min/max/close]      │
+├──────────────────────────────────────────────────────────────┤
+│  DiagramCanvas (SVG): grid · pan/zoom · node & edge select   │
+├─ StatusBar ──────────────────────────────────────────────────┤
+│ Mode · Layout · Nodes · Zoom · Grid · File status            │
+└──────────────────────────────────────────────────────────────┘
 ```
 
 | Component | Responsibility |
 |-----------|----------------|
-| `Toolbar` | File (incl. **Export**), mode, view, theme, locale, about |
-| `SidePanels` | Left: document info + **layout dropdown** + node list. Right: node/edge properties (text, memo, shape, line shape/pattern/**caps**, colors) |
-| `ToolbarDropdown` | Custom popup menus (replaces native `<select>`); shows the selected option's icon |
-| `LinePreview` | Small SVG previews of line shape / pattern / caps |
-| `DiagramCanvas` | SVG rendering, pan, wheel zoom, node drag, **marquee multi-select**, grid, view reset |
-| `StatusBar` | Live status + grid toggle |
-| `ContextMenu` | Node/canvas right-click actions (multi-selection aware) |
-| `AboutDialog` | Copyright, developer, version, platform |
+| `Toolbar` | **File menu** (New/Open/Save/Export), Undo/Redo, **Mindmap⇄Fishbone toggle**, layout, view tools, theme, locale, About, window controls. Measures its content to keep the OS window from clipping any button. |
+| `ToolbarMenu` | Action dropdown (File) rendered in a portal so it escapes toolbar clipping |
+| `ToolbarDropdown` | Value dropdown (layout, theme, shape, font, line, connection side) in a portal; shows the selected option's icon/preview |
+| `SidePanels` | Left: **Node List as a tree view**. Right: node/edge properties (text, memo, shape, font family/size, colors, line shape/pattern/caps, **connection side**) |
+| `LinePreview` / `ShapePreview` | Small SVG previews of line styles / node shapes |
+| `DiagramCanvas` | SVG rendering, pan, wheel zoom, node drag, **edge click-select**, marquee multi-select, grid, view fit |
+| `ContextMenu` | Right-click actions (undo/redo, add/edit, duplicate/copy/paste, file & view actions, delete) with icons |
+| `AboutDialog` / `ExportDialog` / `ConfirmCloseDialog` | About info; export format + transparency; unsaved-changes prompt |
 
 ## 6. Application state
 
@@ -138,9 +142,11 @@ Central hook: `useAppState` (`src/hooks/useAppState.ts`).
 | `doc` | `DiagramDocument` | `.mmap` file on save |
 | `settings` | locale, theme, showGrid | `localStorage` (`mymind.settings`) |
 | `zoom` / `viewResetKey` | View | Session only |
-| `editingId` / `contextMenu` / `aboutOpen` | UI | Session only |
+| `editingId` / `contextMenu` / dialog flags | UI | Session only |
+| Undo/redo history | `past` / `future` refs | Session only |
 
-Document mutations live in `src/store/document.ts` (pure functions): create, add child/sibling, delete (single **or multi**), move (single or **group by delta**), shape/color/note, line shape/pattern/color/**caps**, layout, serialize/deserialize.
+- **Undo/Redo**: a `useEffect` records the previous `doc` when its content arrays (nodes/edges/mode/layout/defaults) change by reference; selection-only changes are ignored. History resets on New / Open.
+- Document mutations live in `src/store/document.ts` (pure functions): create, add child/sibling/free, delete (single/multi), move (single/group), duplicate & paste subtree, shape/color/note/text-style, edge line/pattern/color/caps/**connection side**, mode switch, layout, serialize/deserialize.
 
 ## 7. Domain model
 
@@ -148,20 +154,18 @@ Document mutations live in `src/store/document.ts` (pure functions): create, add
 DiagramDocument {
   version: 1
   mode: 'mindmap' | 'fishbone'
-  layout: 'radial' | 'ltr' | 'rtl' | 'ttb'
+  layout: 'radial' | 'ltr' | 'rtl' | 'ttb' | 'btt'
   defaultShape, defaultLine, defaultLinePattern
   nodes: DiagramNode[]
   edges: DiagramEdge[]
-  selectedId, selectedIds, filePath, dirty   // runtime / UI fields
+  selectedId, selectedIds, selectedEdgeId, filePath, dirty  // runtime / UI
 }
 ```
 
-- **Nodes**: tree via `parentId`; Fishbone uses `role` (`effect` | `category` | `cause`); optional `note`; `textStyle.color` may be `'auto'` (resolves to black)
-- **Edges**: connect parent → child; carry `lineType`, `linePattern`, `color`, and optional `startCap` / `endCap` (`none` | `arrow` | `dot` | `diamond`)
-- **Selection**: `selectedId` is the primary (drives the properties panel); `selectedIds` is the full multi-selection (marquee / Shift-click). Neither is serialized.
-- Manual drag updates `x`/`y` without full relayout (group drag moves every selected node)
-- **Auto Align** calls `relayout()` with current mode/layout
-- **Center View** recenters pan/zoom on content bounds
+- **Nodes**: tree via `parentId`; 12 `shape` values; Fishbone `role` (`effect` | `category` | `cause`); optional `note`; `textStyle` = `{ fontFamily (preset or system font), fontSize, color ('auto' → black), bold, italic, underline, strike }`
+- **Edges**: parent → child; `lineType`, `linePattern`, `color`, optional `startCap`/`endCap` (`none`|`arrow`|`dot`|`diamond`), and optional `fromSide`/`toSide` (`auto`|`top`|`bottom`|`left`|`right`) manual connection-face overrides
+- **Selection**: `selectedId`/`selectedIds` (nodes) and `selectedEdgeId` (a single edge) are mutually exclusive; none are serialized
+- Manual drag updates `x`/`y` without relayout (group drag moves the whole selection)
 
 ## 8. Layout engine
 
@@ -169,30 +173,29 @@ DiagramDocument {
 
 | Mode / layout | Behavior |
 |---------------|----------|
-| Mindmap · radial | Concentric rings around root; ring radius grows with sibling count so nodes never crowd |
-| Mindmap · ltr / rtl | Horizontal tree left → right / right → left |
-| Mindmap · ttb | Vertical tree top → bottom |
-| Fishbone | Nested Ishikawa: a horizontal spine, diagonal category bones at a fixed angle (alternating above/below), each category owns a horizontal sub-axis with diagonal cause bones. The canvas re-derives every bone's attach point from node positions using the same angle, clamped onto the parent's drawn axis, so bones stay connected when nodes are dragged. |
+| Mindmap · radial | Recursive **sector (wedge)** layout: each node owns an angular slice split among children by leaf count, so branches never cross |
+| Mindmap · ltr / rtl | Horizontal tree; connectors follow the layout axis |
+| Mindmap · ttb / btt | Vertical tree top→bottom / bottom→top |
+| Fishbone | Nested Ishikawa. Categories alternate above/below the spine, **balanced by subtree size**; each node fans its children up/down, each child in its own horizontal slot (dynamic spacing from subtree reach) so **nodes never overlap**. A per-side clamp keeps a branch on its side of the spine. Spacing is tuned to be compact. |
 
-Layout runs on new document, mode switch, layout change (re-fit to the real viewport), and Auto Align — not on every resize or node drag.
+Layout runs on new document, mode switch, layout change, and Auto Align — re-fit (zoom-to-fit) to the real viewport — not on every resize or node drag. The canvas re-derives fishbone bones/axes from node positions using a fixed angle, so they follow dragged nodes.
 
 ## 9. Rendering
 
-- SVG scene with pan (`translate`) and zoom (`scale`); wheel zoom is 10%–400%, multiplicative, centered on the viewport
-- Shapes: rounded, rect, ellipse, diamond, parallelogram (path builders)
-- Lines: curve / straight / elbow (stroked, with `linePattern` dashes and `start`/`end` cap markers using `context-stroke`); **root** renders as a filled, depth-tapered ribbon
-- Fishbone skeleton (spine / sub-axes / bones) drawn as filled tapered shapes, thicker near the root
-- `note` shows a ✎ badge and a `<title>` tooltip; default text color resolves via `resolveTextColor`
-- **Marquee**: left-drag on empty canvas draws a selection rect (middle-button drag pans); a small movement threshold prevents accidental node nudging
-- Optional screen-space grid via SVG `<pattern>`
-- Double-click edits node text in an overlay `<input>`
-- Export clones the live SVG, strips pan/zoom + grid, resolves CSS variables, and rasterizes to PNG (`src/utils/exportImage.ts`)
+- SVG scene with pan (`translate`) and zoom (`scale`); wheel zoom 10%–400%, centered on the viewport; view-fit scales to show the whole diagram
+- Shapes built by `src/utils/shapePath.ts` (12 shapes)
+- Connectors attach at the **midpoint of the facing node surface** (per-shape insets keep the point on slanted/curved outlines); `fromSide`/`toSide` override the face. Curve/elbow arrive perpendicular to the face; caps use per-colour markers with explicit fills
+- **root** line renders as a filled, depth-tapered ribbon; Fishbone skeleton (spine/sub-axes/bones) drawn as filled tapered shapes honouring edge colour/pattern
+- Node label uses `text-anchor`/`dominant-baseline` **attributes** (not only CSS) so exports match the screen
+- `note` shows a ✎ badge + `<title>` tooltip; selected node/edge highlighted with the accent colour
+- Marquee select (left-drag on empty canvas); middle-button drag pans; left-drag pans when the grid is on
+- Export clones the live SVG, strips pan/zoom + grid, resolves CSS variables, crops to content, and outputs SVG or rasterizes to PNG/JPEG/WebP (`src/utils/exportImage.ts`), with optional transparent background
 
 ## 10. Internationalization & theme
 
 - Locales: `src/i18n/locales/ko.json`, `en.json`
-- Theme: `data-theme="light|dark"` on `<html>`, CSS variables in `global.css`
-- Preference stored in `localStorage`
+- **6 themes** via `data-theme` on `<html>` (light, dark, midnight, forest, sunset, ocean); CSS variables in `global.css`
+- Preferences stored in `localStorage`
 
 ## 11. Packaging & installer
 
@@ -204,20 +207,20 @@ Configured in `package.json` → `"build"` (electron-builder).
 | macOS | DMG |
 | Linux | AppImage, deb |
 
-`build/installer.nsh` `customInit` looks up a previous uninstall registry key, runs silent uninstall, and removes leftover shortcuts/directories before install.
+`build/installer.nsh` `customInit` removes a previous install (silent uninstall + leftover cleanup) before installing.
 
-- **File association**: `build.fileAssociations` registers the `.mmap` extension with MyMind.
-- **File-type icon**: `build/file-icon.svg` is the source for a document icon with the app icon composited on it. Run `npm run make:file-icon` (needs `sharp` + `png-to-ico`) to produce `build/file-icon.png` / `.ico`, then add `"icon": "build/file-icon"` to the `fileAssociations` entry.
-- **Templates**: `build.extraResources` copies `template/` next to the app so the sample `.mmap` files ship with the installer.
+- **App / installer icon**: `build/icon.ico` (win `icon` + NSIS `installerIcon`/`uninstallerIcon`/`installerHeaderIcon`).
+- **File association**: `build.fileAssociations` registers `.mmap` with the `build/file-icon.ico` document icon; the app opens a double-clicked file.
+- **Templates**: `build.extraResources` copies `template/` to `resources/template/` so the sample `.mmap` files ship with the installer (the Open dialog starts there). The NSIS `customInstall` macro also copies them to `Documents\MyMind Examples` as editable examples (`customUnInstall` removes them).
+- Generated icon rasters and sample `.mmap` files are committed so packaging works without the icon dev tools.
 
-App id: `com.shkwon.mymind`  
-Product name: `MyMind`
+App id: `com.shkwon.mymind` · Product name: `MyMind`
 
 ## 12. File format
 
 Extension: **`.mmap`** (JSON, UTF-8). Legacy **`.mymind`** files still open.
 
-Serialized fields (runtime UI fields such as `selectedId` / `selectedIds` / `filePath` / `dirty` omitted):
+Serialized fields (runtime UI fields such as `selectedId` / `selectedIds` / `selectedEdgeId` / `filePath` / `dirty` omitted):
 
 ```json
 {
@@ -227,8 +230,8 @@ Serialized fields (runtime UI fields such as `selectedId` / `selectedIds` / `fil
   "defaultShape": "rounded",
   "defaultLine": "curve",
   "defaultLinePattern": "solid",
-  "nodes": [ /* id, parentId, text, x, y, width, height, shape, color, textStyle, note?, role? */ ],
-  "edges": [ /* id, from, to, lineType, linePattern, color, startCap, endCap */ ]
+  "nodes": [ /* id, parentId, text, x, y, width, height, shape, color, textStyle{fontFamily,fontSize,color,bold,italic,underline,strike}, note?, role? */ ],
+  "edges": [ /* id, from, to, lineType, linePattern, color, startCap, endCap, fromSide, toSide */ ]
 }
 ```
 
@@ -237,13 +240,15 @@ Serialized fields (runtime UI fields such as `selectedId` / `selectedIds` / `fil
 - `contextIsolation: true`, `nodeIntegration: false`
 - Preload whitelist only
 - CSP in `index.html` restricts script/style/font/connect sources
-- File paths for save/open come from Electron dialogs (desktop) or user file picker (web)
+- File paths for save/open come from Electron dialogs (desktop) or the user file picker (web)
 
 ## 14. Extension points
 
 | Area | Where to change |
 |------|-----------------|
-| New shape / line style / cap | `types.ts`, canvas path helpers + markers, `LinePreview`, `SidePanels` options, i18n |
-| New layout | `layout/engine.ts` + `SidePanels` layout dropdown |
-| Export formats (SVG/JPEG) | `src/utils/exportImage.ts` + `useAppState.exportImage` |
-| Collaboration / undo | Layer history in `useAppState` / document store |
+| New shape | `types.ts`, `utils/shapePath.ts`, `SidePanels` (SHAPE_VALUES), i18n |
+| New line style / cap | canvas path helpers + markers, `LinePreview`, `SidePanels`, i18n |
+| New layout | `layout/engine.ts` + toolbar layout options + i18n |
+| New theme | `global.css` `[data-theme]` block + `THEME_MODES` + i18n |
+| Export formats | `src/utils/exportImage.ts` + `ExportDialog` |
+| Undo granularity | `useAppState` history effect |

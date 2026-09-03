@@ -1,5 +1,11 @@
 import type { DiagramNode, ThemeMode } from '../types'
 
+export type ExportFormat = 'png' | 'jpeg' | 'webp' | 'svg'
+
+export type ExportResult =
+  | { kind: 'svg'; text: string; ext: string; mime: string }
+  | { kind: 'raster'; dataUrl: string; ext: string; mime: string }
+
 const CSS_VARS = ['--spine', '--node-stroke', '--accent', '--grid-line', '--grid-line-major']
 
 function resolveVar(name: string): string {
@@ -8,6 +14,8 @@ function resolveVar(name: string): string {
   return getComputedStyle(document.body).getPropertyValue(name).trim()
 }
 
+// The tightest box that contains every shape, plus a small margin — so exports
+// are always cropped to the diagram's minimum size.
 function contentBounds(nodes: DiagramNode[], pad: number) {
   if (nodes.length === 0) return { minX: 0, minY: 0, width: 800, height: 600 }
   let minX = Infinity
@@ -23,18 +31,21 @@ function contentBounds(nodes: DiagramNode[], pad: number) {
   return { minX: minX - pad, minY: minY - pad, width: maxX - minX + pad * 2, height: maxY - minY + pad * 2 }
 }
 
-/** Serialize the live diagram SVG into a standalone, self-contained SVG string. */
-export function buildSvgString(svg: SVGSVGElement, nodes: DiagramNode[]): {
-  svg: string
-  width: number
-  height: number
-} {
+/**
+ * Serialize the live diagram SVG into a standalone SVG string, cropped to the
+ * content. Pass `background` to paint a solid backdrop rect; omit it to keep the
+ * canvas transparent.
+ */
+export function buildSvgString(
+  svg: SVGSVGElement,
+  nodes: DiagramNode[],
+  background?: string,
+): { svg: string; width: number; height: number } {
   const clone = svg.cloneNode(true) as SVGSVGElement
   clone.querySelector('.canvas-grid')?.remove()
   // Reset the pan/zoom transform so the export is at 1:1 in content coordinates.
   const g = clone.querySelector('g[transform]')
   g?.removeAttribute('transform')
-  // Drop any transient overlay (marquee rectangle).
   clone.querySelector('.marquee-rect')?.remove()
 
   const { minX, minY, width, height } = contentBounds(nodes, 48)
@@ -48,18 +59,31 @@ export function buildSvgString(svg: SVGSVGElement, nodes: DiagramNode[]): {
     const val = resolveVar(v)
     if (val) str = str.split(`var(${v})`).join(val)
   }
+  if (background) {
+    const rect = `<rect x="${minX}" y="${minY}" width="${width}" height="${height}" fill="${background}"/>`
+    str = str.replace(/(<svg[^>]*>)/, `$1${rect}`)
+  }
   return { svg: str, width, height }
 }
 
-/** Rasterize the diagram to a PNG data URL (2x for crispness). */
-export async function exportPngDataUrl(
+/** Export the diagram to the requested format, optionally with a transparent bg. */
+export async function exportDiagram(
   svg: SVGSVGElement,
   nodes: DiagramNode[],
-  theme: ThemeMode,
-): Promise<string> {
-  const { svg: svgStr, width, height } = buildSvgString(svg, nodes)
-  const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' })
-  const url = URL.createObjectURL(blob)
+  opts: { format: ExportFormat; transparent: boolean; theme: ThemeMode; scale?: number },
+): Promise<ExportResult> {
+  const { format, transparent, theme, scale = 2 } = opts
+  const solidBg = resolveVar('--bg') || (theme === 'dark' ? '#1a1d23' : '#ffffff')
+
+  if (format === 'svg') {
+    const { svg: str } = buildSvgString(svg, nodes, transparent ? undefined : solidBg)
+    return { kind: 'svg', text: str, ext: 'svg', mime: 'image/svg+xml' }
+  }
+
+  // Rasterize the (transparent) SVG onto a canvas, painting a backdrop unless the
+  // user asked for transparency. JPEG has no alpha, so it always gets a backdrop.
+  const { svg: str, width, height } = buildSvgString(svg, nodes)
+  const url = URL.createObjectURL(new Blob([str], { type: 'image/svg+xml;charset=utf-8' }))
   try {
     const img = await new Promise<HTMLImageElement>((resolve, reject) => {
       const image = new Image()
@@ -67,18 +91,21 @@ export async function exportPngDataUrl(
       image.onerror = reject
       image.src = url
     })
-    const scale = 2
     const canvas = document.createElement('canvas')
     canvas.width = Math.max(1, Math.round(width * scale))
     canvas.height = Math.max(1, Math.round(height * scale))
     const ctx = canvas.getContext('2d')
     if (!ctx) throw new Error('2d context unavailable')
     ctx.scale(scale, scale)
-    // Use the active theme's solid background so every theme exports correctly.
-    ctx.fillStyle = resolveVar('--bg') || (theme === 'dark' ? '#1a1d23' : '#ffffff')
-    ctx.fillRect(0, 0, width, height)
+    const isJpeg = format === 'jpeg'
+    if (!transparent || isJpeg) {
+      ctx.fillStyle = solidBg
+      ctx.fillRect(0, 0, width, height)
+    }
     ctx.drawImage(img, 0, 0, width, height)
-    return canvas.toDataURL('image/png')
+    const mime = isJpeg ? 'image/jpeg' : format === 'webp' ? 'image/webp' : 'image/png'
+    const dataUrl = canvas.toDataURL(mime, 0.95)
+    return { kind: 'raster', dataUrl, ext: isJpeg ? 'jpg' : format, mime }
   } finally {
     URL.revokeObjectURL(url)
   }

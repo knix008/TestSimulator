@@ -4,6 +4,7 @@ import { THEME_MODES, type DiagramDocument, type LayoutDirection, type Locale, t
 import {
   IconAlign,
   IconExport,
+  IconFile,
   IconFish,
   IconGrid,
   IconInfo,
@@ -19,6 +20,7 @@ import {
   IconUndo,
 } from './Icons'
 import { ToolbarDropdown } from './ToolbarDropdown'
+import { ToolbarMenu } from './ToolbarMenu'
 
 type Props = {
   doc: DiagramDocument
@@ -71,7 +73,8 @@ export function Toolbar({
 }: Props) {
   const { t } = useTranslation()
   const mainRef = useRef<HTMLDivElement>(null)
-  const controlsRef = useRef<HTMLDivElement>(null)
+  // Right cluster: the About button plus the window controls.
+  const rightRef = useRef<HTMLDivElement>(null)
 
   // Keep the window from shrinking narrower than the full toolbar, so no button
   // (About included) can ever be clipped. This must track the *real* content
@@ -83,10 +86,10 @@ export function Toolbar({
     if (!main) return
     let raf = 0
     const measure = () => {
-      const controlsW = controlsRef.current?.offsetWidth ?? 0
+      const rightW = rightRef.current?.offsetWidth ?? 0
       // main is flex:0 1 auto, so scrollWidth is the intrinsic toolbar width
       // even while it is clipped in a too-narrow window.
-      const needed = main.scrollWidth + controlsW + 16 /* toolbar padding */ + 16 /* gap+safety */
+      const needed = main.scrollWidth + rightW + 16 /* toolbar padding */ + 16 /* gap+safety */
       window.mymind!.setMinWidth(Math.ceil(needed))
     }
     const schedule = () => {
@@ -96,7 +99,7 @@ export function Toolbar({
     schedule()
     const ro = new ResizeObserver(schedule)
     ro.observe(main)
-    if (controlsRef.current) ro.observe(controlsRef.current)
+    if (rightRef.current) ro.observe(rightRef.current)
     document.fonts?.ready.then(schedule).catch(() => {})
     return () => {
       cancelAnimationFrame(raf)
@@ -127,22 +130,16 @@ export function Toolbar({
       </div>
 
       <div className="toolbar-group">
-        <button type="button" className="tb-btn" onClick={onNew} title={t('toolbar.new')}>
-          <span className="icon"><IconNew /></span>
-          {t('toolbar.new')}
-        </button>
-        <button type="button" className="tb-btn" onClick={onOpen} title={t('toolbar.open')}>
-          <span className="icon"><IconOpen /></span>
-          {t('toolbar.open')}
-        </button>
-        <button type="button" className="tb-btn" onClick={onSave} title={t('toolbar.save')}>
-          <span className="icon"><IconSave /></span>
-          {t('toolbar.save')}
-        </button>
-        <button type="button" className="tb-btn" onClick={onExport} title={t('toolbar.export')}>
-          <span className="icon"><IconExport /></span>
-          {t('toolbar.export')}
-        </button>
+        <ToolbarMenu
+          label={t('toolbar.file')}
+          icon={<IconFile />}
+          items={[
+            { icon: <IconNew />, label: t('toolbar.new'), onClick: onNew },
+            { icon: <IconOpen />, label: t('toolbar.open'), onClick: onOpen },
+            { icon: <IconSave />, label: t('toolbar.save'), onClick: onSave },
+            { icon: <IconExport />, label: t('toolbar.export'), onClick: onExport },
+          ]}
+        />
       </div>
 
       <div className="toolbar-sep" />
@@ -175,21 +172,14 @@ export function Toolbar({
       <div className="toolbar-group">
         <button
           type="button"
-          className={`tb-btn ${doc.mode === 'mindmap' ? 'active' : ''}`}
-          onClick={() => onMode('mindmap')}
-          title={t('toolbar.mindmap')}
+          className="tb-btn active"
+          onClick={() => onMode(doc.mode === 'mindmap' ? 'fishbone' : 'mindmap')}
+          title={t('toolbar.switchTo', {
+            mode: t(doc.mode === 'mindmap' ? 'toolbar.fishbone' : 'toolbar.mindmap'),
+          })}
         >
-          <span className="icon"><IconMind /></span>
-          {t('toolbar.mindmap')}
-        </button>
-        <button
-          type="button"
-          className={`tb-btn ${doc.mode === 'fishbone' ? 'active' : ''}`}
-          onClick={() => onMode('fishbone')}
-          title={t('toolbar.fishbone')}
-        >
-          <span className="icon"><IconFish /></span>
-          {t('toolbar.fishbone')}
+          <span className="icon">{doc.mode === 'mindmap' ? <IconMind /> : <IconFish />}</span>
+          {doc.mode === 'mindmap' ? t('toolbar.mindmap') : t('toolbar.fishbone')}
         </button>
         <ToolbarDropdown
           label={t('toolbar.layout')}
@@ -240,29 +230,30 @@ export function Toolbar({
         </button>
       </div>
 
-      <div className="toolbar-group toolbar-about">
+      </div>
+
+      <div className="toolbar-right" ref={rightRef}>
         <button type="button" className="tb-btn" onClick={onAbout} title={t('toolbar.about')}>
           <span className="icon"><IconInfo /></span>
           {t('toolbar.about')}
         </button>
-      </div>
-      </div>
 
-      {isElectron ? (
-        <div className="window-controls" ref={controlsRef}>
-          <button type="button" className="tb-btn" title={t('toolbar.minimize')} onClick={() => window.mymind?.minimize()}>
-            ─
-          </button>
-          <button type="button" className="tb-btn" title={t('toolbar.maximize')} onClick={() => window.mymind?.maximize()}>
-            □
-          </button>
-          <button type="button" className="tb-btn close" title={t('toolbar.close')} onClick={onRequestClose}>
-            ✕
-          </button>
-        </div>
-      ) : (
-        <span className="web-hint">Web</span>
-      )}
+        {isElectron ? (
+          <div className="window-controls">
+            <button type="button" className="tb-btn" title={t('toolbar.minimize')} onClick={() => window.mymind?.minimize()}>
+              ─
+            </button>
+            <button type="button" className="tb-btn" title={t('toolbar.maximize')} onClick={() => window.mymind?.maximize()}>
+              □
+            </button>
+            <button type="button" className="tb-btn close" title={t('toolbar.close')} onClick={onRequestClose}>
+              ✕
+            </button>
+          </div>
+        ) : (
+          <span className="web-hint">Web</span>
+        )}
+      </div>
     </header>
   )
 }

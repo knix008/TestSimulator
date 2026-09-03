@@ -51,6 +51,9 @@ export interface DiagramNode {
   role?: 'effect' | 'category' | 'cause'
 }
 
+/** Which face of a node a connector attaches to; 'auto' picks it by geometry. */
+export type EdgeSide = 'auto' | 'top' | 'bottom' | 'left' | 'right'
+
 export interface DiagramEdge {
   id: string
   from: string
@@ -60,6 +63,9 @@ export interface DiagramEdge {
   color: string
   startCap?: EndCap
   endCap?: EndCap
+  /** Manual override of the connection face at the from/to node. */
+  fromSide?: EdgeSide
+  toSide?: EdgeSide
 }
 
 export interface DiagramDocument {

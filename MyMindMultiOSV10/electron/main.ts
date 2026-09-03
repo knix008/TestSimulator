@@ -224,10 +224,18 @@ ipcMain.handle('file:write', async (_event, filePath: string, content: string) =
 
 ipcMain.handle('dialog:saveImage', async (_event, defaultName: string) => {
   if (!mainWindow) return null
+  const ext = path.extname(defaultName).replace('.', '').toLowerCase() || 'png'
+  const names: Record<string, string> = {
+    png: 'PNG Image',
+    jpg: 'JPEG Image',
+    jpeg: 'JPEG Image',
+    webp: 'WebP Image',
+    svg: 'SVG Image',
+  }
   const result = await dialog.showSaveDialog(mainWindow, {
     title: 'Export Image',
     defaultPath: defaultName,
-    filters: [{ name: 'PNG Image', extensions: ['png'] }],
+    filters: [{ name: names[ext] ?? 'Image', extensions: [ext] }],
   })
   return result.canceled ? null : result.filePath
 })

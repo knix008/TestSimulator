@@ -4,6 +4,7 @@ import type {
   DiagramEdge,
   DiagramMode,
   DiagramNode,
+  EdgeSide,
   EndCap,
   LayoutDirection,
   LinePattern,
@@ -62,6 +63,11 @@ function normalizeLinePattern(value: unknown, fallback?: unknown): LinePattern {
 function normalizeEndCap(value: unknown): EndCap {
   if (value === 'arrow' || value === 'dot' || value === 'diamond') return value
   return 'none'
+}
+
+function normalizeSide(value: unknown): EdgeSide {
+  if (value === 'top' || value === 'bottom' || value === 'left' || value === 'right') return value
+  return 'auto'
 }
 
 function normalizeTextStyle(style: Partial<TextStyle> | undefined): TextStyle {
@@ -549,6 +555,8 @@ export function serialize(doc: DiagramDocument): string {
         linePattern: normalizeLinePattern(edge.linePattern),
         startCap: normalizeEndCap(edge.startCap),
         endCap: normalizeEndCap(edge.endCap),
+        fromSide: normalizeSide(edge.fromSide),
+        toSide: normalizeSide(edge.toSide),
       })),
     },
     null,
@@ -574,6 +582,8 @@ export function deserialize(content: string, filePath: string | null): DiagramDo
       linePattern: normalizeLinePattern(edge.linePattern, edge.lineType),
       startCap: normalizeEndCap(edge.startCap),
       endCap: normalizeEndCap(edge.endCap),
+      fromSide: normalizeSide(edge.fromSide),
+      toSide: normalizeSide(edge.toSide),
     })),
     selectedId: data.nodes[0]?.id ?? null,
     selectedIds: data.nodes[0] ? [data.nodes[0].id] : [],

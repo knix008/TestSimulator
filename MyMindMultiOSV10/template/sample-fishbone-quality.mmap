@@ -73,8 +73,8 @@
       "id": "n-5",
       "parentId": "n-2",
       "text": "교육 미흡",
-      "x": 507,
-      "y": 143,
+      "x": 674.1641791044776,
+      "y": 363.8955223880597,
       "width": 140,
       "height": 44,
       "shape": "rect",
@@ -136,8 +136,8 @@
       "id": "n-11",
       "parentId": "n-8",
       "text": "점검 부족",
-      "x": 507,
-      "y": 713,
+      "x": 647.2985074626865,
+      "y": 502.55223880597015,
       "width": 140,
       "height": 44,
       "shape": "rect",
@@ -157,8 +157,8 @@
       "id": "n-14",
       "parentId": "n-1",
       "text": "재료(Material)",
-      "x": 567,
-      "y": 263,
+      "x": 459.53731343283584,
+      "y": 271.95522388059703,
       "width": 140,
       "height": 44,
       "shape": "rect",
@@ -178,8 +178,8 @@
       "id": "n-15",
       "parentId": "n-14",
       "text": "자재 불량",
-      "x": 407,
-      "y": 143,
+      "x": 345.8059701492537,
+      "y": 396.7313432835821,
       "width": 140,
       "height": 44,
       "shape": "rect",
@@ -220,7 +220,7 @@
       "id": "n-20",
       "parentId": "n-1",
       "text": "방법(Method)",
-      "x": 567,
+      "x": 428.1940298507463,
       "y": 593,
       "width": 140,
       "height": 44,
@@ -241,8 +241,8 @@
       "id": "n-21",
       "parentId": "n-20",
       "text": "표준 미준수",
-      "x": 407,
-      "y": 713,
+      "x": 257.74626865671644,
+      "y": 489.11940298507466,
       "width": 140,
       "height": 44,
       "shape": "rect",
@@ -289,7 +289,9 @@
       "linePattern": "solid",
       "color": "#94a3b8",
       "startCap": "none",
-      "endCap": "none"
+      "endCap": "none",
+      "fromSide": "auto",
+      "toSide": "auto"
     },
     {
       "id": "e-6",
@@ -299,7 +301,9 @@
       "linePattern": "solid",
       "color": "#94a3b8",
       "startCap": "none",
-      "endCap": "none"
+      "endCap": "none",
+      "fromSide": "auto",
+      "toSide": "auto"
     },
     {
       "id": "e-7",
@@ -309,7 +313,9 @@
       "linePattern": "solid",
       "color": "#94a3b8",
       "startCap": "none",
-      "endCap": "none"
+      "endCap": "none",
+      "fromSide": "auto",
+      "toSide": "auto"
     },
     {
       "id": "e-10",
@@ -319,7 +325,9 @@
       "linePattern": "solid",
       "color": "#94a3b8",
       "startCap": "none",
-      "endCap": "none"
+      "endCap": "none",
+      "fromSide": "auto",
+      "toSide": "auto"
     },
     {
       "id": "e-12",
@@ -329,7 +337,9 @@
       "linePattern": "solid",
       "color": "#94a3b8",
       "startCap": "none",
-      "endCap": "none"
+      "endCap": "none",
+      "fromSide": "auto",
+      "toSide": "auto"
     },
     {
       "id": "e-13",
@@ -339,7 +349,9 @@
       "linePattern": "solid",
       "color": "#94a3b8",
       "startCap": "none",
-      "endCap": "none"
+      "endCap": "none",
+      "fromSide": "auto",
+      "toSide": "auto"
     },
     {
       "id": "e-16",
@@ -349,7 +361,9 @@
       "linePattern": "solid",
       "color": "#94a3b8",
       "startCap": "none",
-      "endCap": "none"
+      "endCap": "none",
+      "fromSide": "auto",
+      "toSide": "auto"
     },
     {
       "id": "e-18",
@@ -359,7 +373,9 @@
       "linePattern": "solid",
       "color": "#94a3b8",
       "startCap": "none",
-      "endCap": "none"
+      "endCap": "none",
+      "fromSide": "auto",
+      "toSide": "auto"
     },
     {
       "id": "e-19",
@@ -369,7 +385,9 @@
       "linePattern": "solid",
       "color": "#94a3b8",
       "startCap": "none",
-      "endCap": "none"
+      "endCap": "none",
+      "fromSide": "auto",
+      "toSide": "auto"
     },
     {
       "id": "e-22",
@@ -379,7 +397,9 @@
       "linePattern": "solid",
       "color": "#94a3b8",
       "startCap": "none",
-      "endCap": "none"
+      "endCap": "none",
+      "fromSide": "auto",
+      "toSide": "auto"
     },
     {
       "id": "e-24",
@@ -389,7 +409,9 @@
       "linePattern": "solid",
       "color": "#94a3b8",
       "startCap": "none",
-      "endCap": "none"
+      "endCap": "none",
+      "fromSide": "auto",
+      "toSide": "auto"
     },
     {
       "id": "e-25",
@@ -399,7 +421,9 @@
       "linePattern": "solid",
       "color": "#94a3b8",
       "startCap": "none",
-      "endCap": "none"
+      "endCap": "none",
+      "fromSide": "auto",
+      "toSide": "auto"
     }
   ]
 }

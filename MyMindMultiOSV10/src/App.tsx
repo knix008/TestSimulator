@@ -3,6 +3,7 @@ import { StatusBar } from './components/StatusBar'
 import { ContextMenu } from './components/ContextMenu'
 import { AboutDialog } from './components/AboutDialog'
 import { ConfirmCloseDialog } from './components/ConfirmCloseDialog'
+import { ExportDialog } from './components/ExportDialog'
 import { DiagramCanvas } from './components/DiagramCanvas'
 import { SidePanels } from './components/SidePanels'
 import { useAppState } from './hooks/useAppState'
@@ -24,6 +25,8 @@ export default function App() {
   const currentLineColor = selectedEdge?.color ?? '#94a3b8'
   const currentStartCap = selectedEdge?.startCap ?? 'none'
   const currentEndCap = selectedEdge?.endCap ?? 'none'
+  const currentFromSide = selectedEdge?.fromSide ?? 'auto'
+  const currentToSide = selectedEdge?.toSide ?? 'auto'
 
   return (
     <div className="app-shell">
@@ -62,6 +65,8 @@ export default function App() {
           currentLineColor={currentLineColor}
           currentStartCap={currentStartCap}
           currentEndCap={currentEndCap}
+          currentFromSide={currentFromSide}
+          currentToSide={currentToSide}
           theme={state.settings.theme}
           onSelect={state.selectNode}
           onShape={state.onShape}
@@ -72,6 +77,8 @@ export default function App() {
           onLineColor={state.onLineColor}
           onLineStartCap={state.onLineStartCap}
           onLineEndCap={state.onLineEndCap}
+          onLineFromSide={state.onLineFromSide}
+          onLineToSide={state.onLineToSide}
           onTextStyle={state.onTextStyle}
           onTextChange={state.editText}
         />
@@ -112,9 +119,17 @@ export default function App() {
         canPaste={state.canPaste}
         canUndo={state.canUndo}
         canRedo={state.canRedo}
+        showGrid={state.settings.showGrid}
         onClose={state.hideContext}
         onUndo={state.undo}
         onRedo={state.redo}
+        onNew={state.newDoc}
+        onOpen={state.openDoc}
+        onSave={state.saveDoc}
+        onExport={state.exportImage}
+        onAutoAlign={state.autoAlign}
+        onResetView={state.resetView}
+        onToggleGrid={state.toggleGrid}
         onAddText={state.addTextAtContext}
         onAddChild={state.onAddChild}
         onAddSibling={state.onAddSibling}
@@ -128,6 +143,12 @@ export default function App() {
       />
 
       <AboutDialog open={state.aboutOpen} onClose={() => state.setAboutOpen(false)} />
+
+      <ExportDialog
+        open={state.exportOpen}
+        onExport={state.runExport}
+        onCancel={() => state.setExportOpen(false)}
+      />
 
       <ConfirmCloseDialog
         open={state.closePromptOpen}
