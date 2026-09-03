@@ -54,6 +54,11 @@ async function main() {
   for (const size of ICNS_SIZES) icnsEntries.push({ size, png: new Uint8Array(await png(size)) });
   fs.writeFileSync(path.join(outDir, 'icon.icns'), Buffer.from(encodeIcns(icnsEntries)));
   console.log('[icons] Wrote icon.icns');
+
+  // Keep the committed web/UI copy in sync with the source SVG.
+  fs.mkdirSync(path.join(root, 'public'), { recursive: true });
+  fs.copyFileSync(svg, path.join(root, 'public', 'icon.svg'));
+  console.log('[icons] Synced public/icon.svg');
 }
 
 main().catch((err) => {
