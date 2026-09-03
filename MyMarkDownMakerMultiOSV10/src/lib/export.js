@@ -4,7 +4,7 @@ import {
   toStandaloneHtml, buildMergedMarkdownDocument, documentExportBaseName,
   sanitizeExportName, DEFAULT_EXPORT_SETTINGS,
 } from './markdown';
-import { saveText, saveBlob, exportPdf as platformExportPdf } from './platform';
+import { saveText, exportPdf as platformExportPdf } from './platform';
 
 // Resolve the export base name: user-provided name wins, else first heading.
 function baseNameFor(markdown, baseName) {
@@ -44,18 +44,63 @@ export async function exportPdf(markdown, settings = {}, baseName) {
 
 export async function exportWord(markdown, settings = {}, baseName) {
   const base = baseNameFor(markdown, baseName);
-  const html = toStandaloneHtml(markdown, base, settings);
-  // Lazy-loaded so the docx converter stays out of the initial bundle.
-  const { asBlob } = await import('html-docx-js-typescript');
-  const out = await asBlob(html);
-  const blob = out instanceof Blob ? out : new Blob([out], {
-    type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  // Word opens an MHT ("Single File Web Page") saved as .doc and reliably
+  // renders the cover, the index (page breaks) and images. Base64 images are
+  // emitted as separate MIME parts (Word does not render inline data: images).
+  const html = toStandaloneHtml(markdown, base, { ...settings, forWord: true });
+  return saveText({
+    defaultName: `${base}.doc`,
+    content: buildWordMht(html),
+    filters: [{ name: 'Word Document', extensions: ['doc'] }],
   });
-  return saveBlob({
-    defaultName: `${base}.docx`,
-    blob,
-    filters: [{ name: 'Word', extensions: ['docx'] }],
+}
+
+// ── Word MHT (multipart/related) builder ──────────────────
+const MIME_EXT = {
+  'image/png': 'png', 'image/jpeg': 'jpg', 'image/gif': 'gif', 'image/webp': 'webp',
+  'image/bmp': 'bmp', 'image/svg+xml': 'svg', 'image/tiff': 'tif', 'image/x-icon': 'ico', 'image/avif': 'avif',
+};
+
+function utf8ToBase64(str) {
+  const bytes = new TextEncoder().encode(str);
+  let bin = '';
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+  return btoa(bin);
+}
+
+const wrap76 = (b64) => b64.replace(/(.{76})/g, '$1\r\n');
+
+function buildWordMht(html) {
+  const boundary = '----=_NextPart_MarkDownMerge';
+  const baseUrl = 'file:///C:/markdownmerge/';
+  const CRLF = '\r\n';
+  let idx = 0;
+  const images = [];
+
+  const htmlOut = html.replace(/src="data:(image\/[a-z0-9.+-]+);base64,([^"]+)"/gi, (_m, mime, data) => {
+    idx += 1;
+    const name = `image${String(idx).padStart(3, '0')}.${MIME_EXT[mime.toLowerCase()] || 'png'}`;
+    images.push({ name, mime, data: data.replace(/\s+/g, '') });
+    return `src="${name}"`;
   });
+
+  let out = 'MIME-Version: 1.0' + CRLF;
+  out += `Content-Type: multipart/related; type="text/html"; boundary="${boundary}"` + CRLF + CRLF;
+  out += `--${boundary}` + CRLF;
+  out += 'Content-Type: text/html; charset="utf-8"' + CRLF;
+  out += 'Content-Transfer-Encoding: base64' + CRLF;
+  out += `Content-Location: ${baseUrl}document.html` + CRLF + CRLF;
+  out += wrap76(utf8ToBase64(htmlOut)) + CRLF;
+  for (const img of images) {
+    out += `--${boundary}` + CRLF;
+    out += `Content-Type: ${img.mime}` + CRLF;
+    out += 'Content-Transfer-Encoding: base64' + CRLF;
+    out += `Content-Location: ${baseUrl}${img.name}` + CRLF + CRLF;
+    out += wrap76(img.data) + CRLF;
+  }
+  out += `--${boundary}--` + CRLF;
+  return out;
 }
 
 // ── Electron printToPDF header/footer templates ───────────

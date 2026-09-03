@@ -253,11 +253,11 @@ function buildPageMarginCss(s, family) {
 function coverHtml(title, s) {
   const sub = s.headerText ? `<div class="cover-sub">${escapeHtml(s.headerText)}</div>` : '';
   const date = s.dateStr ? `<div class="cover-date">${escapeHtml(s.dateStr)}</div>` : '';
-  return `<section class="cover"><div class="cover-inner">
+  return `<div class="cover"><div class="cover-inner">
   <h1 class="cover-title">${escapeHtml(title)}</h1>
   ${sub}
   ${date}
-</div></section>`;
+</div></div>`;
 }
 
 // Index / table-of-contents page linking to each heading (#h-N anchors).
@@ -271,7 +271,7 @@ function tocHtml(markdown, label, withPageNo) {
     const pg = withPageNo ? '<span class="toc-pg"></span>' : '';
     return `<li class="toc-l${h.level}"><a href="#h-${h.index}">${text}${pg}</a></li>`;
   }).join('');
-  return `<section class="toc"><h1 class="toc-title">${escapeHtml(label)}</h1><ul class="toc-list">${lis}</ul></section>`;
+  return `<div class="toc"><h1 class="toc-title">${escapeHtml(label)}</h1><ul class="toc-list">${lis}</ul></div>`;
 }
 
 // Wraps rendered body HTML into a standalone, styled HTML document (for export).
@@ -294,13 +294,23 @@ export function toStandaloneHtml(markdown, title = 'Document', settings = {}) {
   .toc-text{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .toc-pg{flex:none;margin-left:auto;color:#555;font-variant-numeric:tabular-nums;white-space:nowrap}`
     : '';
+  // Word (.doc) needs the Office namespaces + ProgId so it opens as a Word
+  // document and renders base64 images, page breaks and the cover/index.
+  const htmlOpen = s.forWord
+    ? `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40" lang="ko">`
+    : `<html lang="ko">`;
+  const wordMeta = s.forWord ? `<meta name="ProgId" content="Word.Document">\n<meta name="Originator" content="Word">` : '';
+  // On screen the cover fills the viewport & centers; in print/Word it is a
+  // simple centered block that breaks to the next page.
+  const coverScreen = '@media screen{.cover{min-height:calc(100vh - 96px);display:flex;align-items:center;justify-content:center}}';
   return `<!DOCTYPE html>
-<html lang="ko"><head>
+${htmlOpen}<head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${escapeHtml(coverTitle)}</title>
 <meta name="generator" content="${escapeHtml(appName)}">
 <meta name="author" content="${escapeHtml(appName)}">
+${wordMeta}
 <style>
   body{font-family:${family};font-size:${size}pt;line-height:1.65;
        max-width:900px;margin:0 auto;padding:48px 40px;color:#1a1a1a;background:#fff}
@@ -317,8 +327,7 @@ export function toStandaloneHtml(markdown, title = 'Document', settings = {}) {
   th{background:#f0f0f0;font-weight:600} tr:nth-child(even){background:#fafafa}
   hr{border:none;border-top:2px solid #e0e0e0;margin:1.4em 0}
   a{color:#0b8a76;text-decoration:none} img{max-width:100%}
-  .cover{min-height:calc(100vh - 96px);display:flex;align-items:center;justify-content:center;text-align:center;page-break-after:always;break-after:page}
-  .cover-kicker{letter-spacing:.15em;text-transform:uppercase;color:#0b8a76;font-size:.8em;margin-bottom:1.2em}
+  .cover{text-align:center;padding-top:30vh;page-break-after:always;break-after:page}
   .cover-title{font-size:2.7em;border:none;margin:0 0 .4em;padding:0}
   .cover-sub{font-size:1.15em;color:#555;margin-bottom:2.5em}
   .cover-date{color:#888;font-size:.95em}
@@ -330,6 +339,7 @@ export function toStandaloneHtml(markdown, title = 'Document', settings = {}) {
   .toc-l1{font-weight:600;margin-top:.5em}
   .toc-l2{padding-left:1.4em}.toc-l3{padding-left:2.8em}.toc-l4{padding-left:4.2em}
   .toc-l5{padding-left:5.6em}.toc-l6{padding-left:7em}
+  ${coverScreen}
   ${tocNumCss}
   ${pageCss}
 </style>

@@ -27,7 +27,7 @@ const resources = {
         settings: '설정',
         about: '프로그램 정보',
       },
-      export: { md: 'Markdown (.md)', html: 'HTML (.html)', pdf: 'PDF (.pdf)', word: 'Word (.docx)', filename: '파일 이름', contents: '목차' },
+      export: { md: 'Markdown (.md)', html: 'HTML (.html)', pdf: 'PDF (.pdf)', word: 'Word (.doc)', filename: '파일 이름', contents: '목차' },
       settings: {
         title: '설정',
         ok: '확인',
@@ -157,7 +157,7 @@ const resources = {
         settings: 'Settings',
         about: 'About this program',
       },
-      export: { md: 'Markdown (.md)', html: 'HTML (.html)', pdf: 'PDF (.pdf)', word: 'Word (.docx)', filename: 'File name', contents: 'Contents' },
+      export: { md: 'Markdown (.md)', html: 'HTML (.html)', pdf: 'PDF (.pdf)', word: 'Word (.doc)', filename: 'File name', contents: 'Contents' },
       settings: {
         title: 'Settings',
         ok: 'OK',
