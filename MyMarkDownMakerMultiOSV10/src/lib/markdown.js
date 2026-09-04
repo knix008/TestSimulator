@@ -227,7 +227,7 @@ export function sanitizeExportName(name) {
 // Default export/appearance settings (typography + header/footer/page number).
 export const DEFAULT_EXPORT_SETTINGS = {
   fontFamily: '',        // '' = system default stack
-  fontSizePt: 11,
+  fontSizePt: 10,
   lineHeight: 1.5,       // export line spacing
   coverPage: true,       // auto-generated cover page
   coverTitle: '',        // user-entered cover title ('' = use document title)
@@ -351,7 +351,7 @@ export function toStandaloneHtml(markdown, title = 'Document', settings = {}) {
   const s = { ...DEFAULT_EXPORT_SETTINGS, ...settings };
   const body = renderHtml(markdown);
   const family = fontStack(s.fontFamily);
-  const size = Number(s.fontSizePt) || 11;
+  const size = Number(s.fontSizePt) || 10;
   const lineHeight = Number(s.lineHeight) > 0 ? Number(s.lineHeight) : 1;
   const pageCss = buildPageMarginCss(s, family);
   const coverTitle = (s.coverTitle && s.coverTitle.trim()) || title;

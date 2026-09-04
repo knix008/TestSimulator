@@ -41,6 +41,12 @@ export default function SettingsForm({ settings, onChange, theme, onTheme, lang,
     if (n > 5) n = 5;
     set({ lineHeight: n });
   };
+  const stepFontSize = (delta) => {
+    let n = Math.round(((Number(s.fontSizePt) || 10) + delta) * 2) / 2;
+    if (n < 6) n = 6;
+    if (n > 48) n = 48;
+    set({ fontSizePt: n });
+  };
 
   return (
     <div className="settings-form">
@@ -97,8 +103,10 @@ export default function SettingsForm({ settings, onChange, theme, onTheme, lang,
         <div className="field">
           <label>{t('settings.fontSize')}</label>
           <div className="control">
+            <button type="button" className="step-btn" title="-1" onClick={() => stepFontSize(-1)}>−</button>
             <input type="number" min="6" max="48" step="0.5" value={s.fontSizePt}
-              onChange={(e) => set({ fontSizePt: Number(e.target.value) || 11 })} />
+              onChange={(e) => set({ fontSizePt: Number(e.target.value) || 10 })} />
+            <button type="button" className="step-btn" title="+1" onClick={() => stepFontSize(1)}>+</button>
             <span className="suffix">pt</span>
             {fonts === null && <span className="suffix">· {t('settings.loadingFonts')}</span>}
           </div>

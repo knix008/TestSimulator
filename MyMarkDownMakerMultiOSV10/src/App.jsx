@@ -354,10 +354,11 @@ export default function App() {
   };
 
   function buildExportOpts() {
-    // Read the freshest settings from localStorage so changes made in the
-    // separate settings window always apply, even if the live storage event
-    // didn't reach this window.
-    const fresh = loadSettings();
+    // Use the freshest settings so the export matches the preview / settings:
+    // defaults < persisted localStorage < live state (updated via the settings
+    // window's storage event). The live state wins so the chosen font, size and
+    // spacing always reach the export.
+    const fresh = { ...DEFAULT_EXPORT_SETTINGS, ...loadSettings(), ...exportSettings };
     setExportSettings(fresh);
     return {
       ...fresh,
@@ -621,7 +622,7 @@ export default function App() {
                 ? <div ref={previewRef} className="preview markdown-body"
                     style={{
                       fontFamily: exportSettings.fontFamily ? fontStack(exportSettings.fontFamily) : undefined,
-                      fontSize: `${exportSettings.fontSizePt || 11}pt`,
+                      fontSize: `${exportSettings.fontSizePt || 10}pt`,
                       lineHeight: Number(exportSettings.lineHeight) > 0 ? Number(exportSettings.lineHeight) : 1,
                     }}
                     onContextMenu={previewMenu} dangerouslySetInnerHTML={{ __html: previewHtml }} />
