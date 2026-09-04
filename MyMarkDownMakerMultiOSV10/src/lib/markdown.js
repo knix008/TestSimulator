@@ -399,8 +399,10 @@ ${wordMeta}
   pre{background:#f5f5f5;padding:.8em 1em;border-radius:6px;overflow-x:auto;border:1px solid #e0e0e0}
   pre code{background:none;padding:0}
   blockquote{border-left:4px solid #ccc;margin:0 0 1em;padding:.4em .9em;color:#555;background:#fafafa}
-  table{border-collapse:collapse;width:100%;margin:1em 0}
-  th,td{border:1px solid #ddd;padding:.4em .7em;text-align:left}
+  /* Fixed layout + word wrapping so wide tables stay within the page instead of
+     overflowing (and being clipped) off the right edge in the PDF. */
+  table{border-collapse:collapse;width:100%;max-width:100%;table-layout:fixed;margin:1em 0}
+  th,td{border:1px solid #ddd;padding:.4em .7em;text-align:left;word-wrap:break-word;overflow-wrap:break-word}
   th{background:#f0f0f0;font-weight:600} tr:nth-child(even){background:#fafafa}
   hr{border:none;border-top:2px solid #e0e0e0;margin:1.4em 0}
   a{color:#0b8a76;text-decoration:none} img{max-width:100%}
@@ -412,7 +414,7 @@ ${wordMeta}
   .cover-meta{margin-top:2.5em;color:#555;font-size:1.05em;line-height:1.9}
   .pb{page-break-before:always;break-before:page}
   .toc-title{border-bottom:2px solid #e0e0e0;padding-bottom:.2em}
-  .toc-table{width:100%;border-collapse:collapse;margin:.6em 0 0}
+  .toc-table{width:100%;border-collapse:collapse;table-layout:auto;margin:.6em 0 0}
   .toc-table tr{background:none}
   .toc-table td{border:0;padding:.22em 0;vertical-align:bottom}
   .toc-table a{color:inherit;text-decoration:none}
