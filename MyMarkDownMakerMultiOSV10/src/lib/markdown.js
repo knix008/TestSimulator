@@ -124,6 +124,25 @@ export function mergeFiles(files, { insertFileHeaders = false } = {}) {
   return body.length ? body + '\n' : '';
 }
 
+// Async, chunked variant of mergeFiles: reports per-file progress via
+// onProgress(done, total, name) and yields to the event loop every few files so
+// a progress popup can paint during large merges. Same output as mergeFiles.
+export async function mergeFilesAsync(files, { insertFileHeaders = false } = {}, onProgress) {
+  const parts = [];
+  const total = files.length;
+  for (let i = 0; i < total; i++) {
+    const f = files[i];
+    let seg = '';
+    if (insertFileHeaders) seg += `## ${f.relPath || f.name}\n\n`;
+    seg += (f.content || '').replace(/\s+$/, '');
+    parts.push(seg);
+    if (onProgress) onProgress(i + 1, total, f.relPath || f.name);
+    if ((i & 15) === 15) await new Promise((r) => setTimeout(r, 0));
+  }
+  const body = parts.join('\n\n---\n\n');
+  return body.length ? body + '\n' : '';
+}
+
 // ── Selection helpers (sort / exclude) ────────────────────
 export const SORT_ORDERS = ['nameAsc', 'nameDesc', 'dateNewest', 'dateOldest', 'custom'];
 
@@ -209,6 +228,7 @@ export function sanitizeExportName(name) {
 export const DEFAULT_EXPORT_SETTINGS = {
   fontFamily: '',        // '' = system default stack
   fontSizePt: 11,
+  lineHeight: 1.5,       // export line spacing
   coverPage: true,       // auto-generated cover page
   coverTitle: '',        // user-entered cover title ('' = use document title)
   coverAuthor: '',       // cover: author
@@ -218,6 +238,8 @@ export const DEFAULT_EXPORT_SETTINGS = {
   coverShowAuthor: true,  // show author on the cover
   coverShowDate: true,    // show date on the cover
   tocPage: true,         // separate index / table-of-contents page
+  tocPageNumbers: true,  // show a right-aligned page number per index entry
+  tocPageMap: null,      // { 'h-<index>': page } from a pagination pass (baked)
   headerText: '',
   headerAlign: 'center', // left | center | right
   footerText: '',
@@ -272,24 +294,54 @@ function coverHtml(title, s) {
 }
 
 // Index / table-of-contents page linking to each heading (#h-N anchors).
-// When withPageNo is set, each entry gets an empty .toc-pg span that the paged
-// PDF renderer fills with the target heading's actual page number.
-function tocHtml(markdown, label, withPageNo, breakBefore) {
+// opts:
+//   withPageNo  – add a page-number column with a dotted leader per entry.
+//   breakBefore – start the index on a fresh page.
+//   pageMap     – { 'h-<index>': pageNumber } resolved by a pagination pass;
+//                 numbers are baked in as static text. When absent, the .toc-c-pg
+//                 cell is left empty for the paged PDF renderer to fill live.
+//
+// Rendered as a 3-cell table (title / dotted-leader / page number). A table is
+// the one layout that renders consistently across the PDF (paged.js), the
+// browser and Word (MHT) — flexbox and CSS leaders are unreliable in Word, and
+// the middle cell's dotted bottom-border gives the classic "……" leader.
+function tocHtml(markdown, label, opts = {}) {
+  const { withPageNo, breakBefore, pageMap } = opts;
   const items = getOutline(markdown);
   if (!items.length) return '';
-  // Use <div> rows (not <ul>/<li>): Word shows list bullets even with
-  // list-style:none, so a div list keeps the index clean (number + title only).
+  const pageFor = (h) => {
+    const n = pageMap ? pageMap[`h-${h.index}`] : undefined;
+    return n != null ? String(n) : '';
+  };
   const rows = items.map((h) => {
     // Indent by the numbering depth (1 / 1.1 / 1.1.1 …) when the heading carries
     // a leading number; otherwise fall back to the heading level.
     const m = (h.text || '').match(/^(\d+(?:\.\d+)*)(?:\s|$)/);
     const depth = m ? m[1].split('.').length : h.level;
     const indent = (Math.max(1, depth) - 1) * 1.6;
-    const text = `<span class="toc-text">${escapeHtml(h.text || ' ')}</span>`;
-    const pg = withPageNo ? '<span class="toc-pg"></span>' : '';
-    return `<div class="toc-item${depth <= 1 ? ' toc-l1' : ''}" style="margin-left:${indent}em"><a href="#h-${h.index}">${text}${pg}</a></div>`;
+    const isL1 = depth <= 1;
+    const cls = `toc-item${isL1 ? ' toc-l1' : ''}`;
+    // Word (MHT) ignores CSS class/child-combinator rules, so bold the top-level
+    // (H1) entries via inline styles + <b> which Word honors reliably.
+    const label1 = escapeHtml(h.text || ' ');
+    const title = isL1
+      ? `<a href="#h-${h.index}" style="font-weight:bold"><b>${label1}</b></a>`
+      : `<a href="#h-${h.index}">${label1}</a>`;
+    const titleStyle = `padding-left:${indent}em${isL1 ? ';font-weight:bold' : ''}`;
+    if (!withPageNo) {
+      return `<tr class="${cls}"><td class="toc-c-title" colspan="3" style="${titleStyle}">${title}</td></tr>`;
+    }
+    const pg = pageFor(h);
+    const pgInner = isL1 ? `<b>${pg}</b>` : pg;
+    const pgStyle = isL1 ? ' style="font-weight:bold;color:#111"' : '';
+    return `<tr class="${cls}">`
+      + `<td class="toc-c-title" style="${titleStyle}">${title}</td>`
+      + `<td class="toc-c-dots"></td>`
+      + `<td class="toc-c-pg"${pgStyle}>${pgInner}</td>`
+      + `</tr>`;
   }).join('');
-  return `<div class="toc${breakBefore ? ' pb' : ''}"><h1 class="toc-title">${escapeHtml(label)}</h1><div class="toc-list">${rows}</div></div>`;
+  return `<div class="toc${breakBefore ? ' pb' : ''}"><h1 class="toc-title">${escapeHtml(label)}</h1>`
+    + `<table class="toc-table"><tbody>${rows}</tbody></table></div>`;
 }
 
 // Wraps rendered body HTML into a standalone, styled HTML document (for export).
@@ -300,20 +352,18 @@ export function toStandaloneHtml(markdown, title = 'Document', settings = {}) {
   const body = renderHtml(markdown);
   const family = fontStack(s.fontFamily);
   const size = Number(s.fontSizePt) || 11;
+  const lineHeight = Number(s.lineHeight) > 0 ? Number(s.lineHeight) : 1;
   const pageCss = buildPageMarginCss(s, family);
   const coverTitle = (s.coverTitle && s.coverTitle.trim()) || title;
   const appName = s.appName || 'MyMarkDownMaker';
   const cover = s.coverPage ? coverHtml(coverTitle, s) : '';
-  const toc = s.tocPage ? tocHtml(markdown, s.contentsLabel || 'Contents', s.tocPageNumbers, !!cover) : '';
+  const toc = s.tocPage ? tocHtml(markdown, s.contentsLabel || 'Contents', {
+    withPageNo: s.tocPageNumbers,
+    breakBefore: !!cover,
+    pageMap: s.tocPageMap,
+  }) : '';
   // Content always starts on a fresh page when a cover or index precedes it.
   const content = `<div class="doc-content${(cover || toc) ? ' pb' : ''}">${body}</div>`;
-  // In the paged PDF path the .toc-pg span is filled with the real page number;
-  // this CSS lays it out (title left, page number right, no wrapping).
-  const tocNumCss = s.tocPageNumbers
-    ? `.toc-list a{display:flex;align-items:baseline;gap:1em}
-  .toc-text{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .toc-pg{flex:none;margin-left:auto;color:#555;font-variant-numeric:tabular-nums;white-space:nowrap}`
-    : '';
   // Word (.doc) needs the Office namespaces + ProgId so it opens as a Word
   // document and renders base64 images, page breaks and the cover/index.
   const htmlOpen = s.forWord
@@ -335,8 +385,12 @@ ${htmlOpen}<head>
 <meta name="author" content="${escapeHtml(appName)}">
 ${wordMeta}
 <style>
-  body{font-family:${family};font-size:${size}pt;line-height:1.65;
+  body{font-family:${family};font-size:${size}pt;line-height:${lineHeight};
        max-width:900px;margin:0 auto;padding:48px 40px;color:#1a1a1a;background:#fff}
+  /* When printing (Electron PDF), the body padding/max-width offsets the
+     paged.js A4 pages and spills them onto extra blank pages — reset it so each
+     paged page maps 1:1 to a physical page. */
+  @media print{body{margin:0;padding:0;max-width:none}}
   h1,h2,h3,h4,h5,h6{margin-top:1em;margin-bottom:.3em;color:#111;font-weight:600;page-break-after:avoid}
   h1{font-size:1.9em;border-bottom:2px solid #e0e0e0;padding-bottom:.2em}
   h2{font-size:1.45em;border-bottom:1px solid #e0e0e0;padding-bottom:.15em}
@@ -350,19 +404,28 @@ ${wordMeta}
   th{background:#f0f0f0;font-weight:600} tr:nth-child(even){background:#fafafa}
   hr{border:none;border-top:2px solid #e0e0e0;margin:1.4em 0}
   a{color:#0b8a76;text-decoration:none} img{max-width:100%}
-  .cover{text-align:center;padding-top:30vh}
+  /* Fixed em-based top offset (NOT vh: paged.js mis-resolves viewport units,
+     which pushed the cover onto a 2nd blank page before the index). */
+  .cover{text-align:center;padding-top:15em}
   .cover-title{font-size:2.7em;border:none;margin:0 0 .4em;padding:0}
   .cover-sub{font-size:1.2em;color:#555;margin-bottom:1.5em}
   .cover-meta{margin-top:2.5em;color:#555;font-size:1.05em;line-height:1.9}
   .pb{page-break-before:always;break-before:page}
-  .toc{}
   .toc-title{border-bottom:2px solid #e0e0e0;padding-bottom:.2em}
-  .toc-list{padding:0;margin:.6em 0 0}
-  .toc-item{margin:.15em 0}
-  .toc-list a{color:inherit;text-decoration:none;display:block;padding:.2em 0}
-  .toc-l1{font-weight:600;margin-top:.5em}
+  .toc-table{width:100%;border-collapse:collapse;margin:.6em 0 0}
+  .toc-table tr{background:none}
+  .toc-table td{border:0;padding:.22em 0;vertical-align:bottom}
+  .toc-table a{color:inherit;text-decoration:none}
+  /* Each entry stays on ONE line; the middle cell is an empty spacer that pushes
+     the page number flush right (no dotted leader). */
+  .toc-c-title{white-space:nowrap;padding-right:.5em}
+  .toc-c-dots{width:100%;min-width:1.5em}
+  .toc-c-pg{white-space:nowrap;text-align:right;color:#555;padding-left:.5em;font-variant-numeric:tabular-nums}
+  .toc-l1>.toc-c-title{font-weight:600}
+  /* H1 (top-level) page numbers are bold and dark so they stand out. */
+  .toc-l1>.toc-c-pg{font-weight:700;color:#111}
+  .toc-l1>.toc-c-title{padding-top:.4em}
   ${coverScreen}
-  ${tocNumCss}
   ${pageCss}
 </style>
 </head><body>

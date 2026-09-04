@@ -56,10 +56,14 @@ export default function AboutPage() {
         <button className="iconbtn" onClick={() => window.close()} title={t('about.close')}><IconX /></button>
       </div>
 
-      <div className="settings-page-body" style={{ textAlign: 'center' }}>
-        <img className="about-logo" src="./icon.svg" alt="" onError={(e) => { e.target.style.display = 'none'; }} />
-        <h3 style={{ margin: '4px 0 2px' }}>{info?.productName || 'MyMarkDownMaker'}</h3>
-        <p className="about-desc">{t('about.desc')}</p>
+      <div className="settings-page-body">
+        <div className="about-top">
+          <img className="about-logo" src="./icon.svg" alt="" onError={(e) => { e.target.style.display = 'none'; }} />
+          <div className="about-top-text">
+            <h3 className="about-name">{info?.productName || 'MyMarkDownMaker'}</h3>
+            <p className="about-desc">{t('about.desc')}</p>
+          </div>
+        </div>
         <dl className="about-grid" style={{ maxWidth: 420, margin: '0 auto' }}>
           <dt>{t('about.version')}</dt><dd>{info?.version || '—'}</dd>
           <dt>{t('about.platform')}</dt><dd>{platformLabel || '—'}</dd>

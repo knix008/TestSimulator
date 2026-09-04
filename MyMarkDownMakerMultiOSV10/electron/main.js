@@ -23,7 +23,33 @@ function getPagedPolyfill() {
   return pagedPolyfillSrc;
 }
 
-function delay(ms) { return new Promise((r) => setTimeout(r, ms)); }
+// Offscreen render window for paged.js pagination / PDF printing.
+// IMPORTANT: this is NOT `show:false`. A hidden window has its rendering
+// throttled to ~1fps, which makes paged.js ~40× slower (17s vs 0.4s for a
+// 19-page doc). A shown-but-offscreen, fully-transparent, no-taskbar window
+// renders at full speed while remaining invisible to the user.
+function createRenderWindow() {
+  return new BrowserWindow({
+    show: true, x: -32000, y: -32000, width: 900, height: 700,
+    opacity: 0, skipTaskbar: true, focusable: false,
+    webPreferences: { sandbox: true, backgroundThrottling: false },
+  });
+}
+
+// Disable paged.js auto-run so we can drive it explicitly (see pagedDriver).
+function injectPagedConfig(html) {
+  const cfg = '<script>window.PagedConfig={auto:false};</script>';
+  return html.includes('</head>') ? html.replace('</head>', `${cfg}</head>`) : cfg + html;
+}
+
+// Build the JS that paginates a loaded document and then runs `tailJs`.
+// paged.js must be injected as pure JS (inlining it in an HTML <script> tag
+// breaks HTML parsing → SyntaxError → it never loads), and driven explicitly
+// via preview() because the auto-run `after` hook does not fire reliably here.
+// `tailJs` runs with pagination complete and must `return` a serializable value.
+function pagedDriver(polyfill, tailJs) {
+  return `(async function(){\n${polyfill}\n;\nvar __p=new window.Paged.Previewer();\nawait __p.preview();\n${tailJs}\n})()`;
+}
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -57,6 +83,15 @@ function createWindow() {
   const sendMax = () => { if (!win.isDestroyed()) win.webContents.send('win:maximized', win.isMaximized()); };
   win.on('maximize', sendMax);
   win.on('unmaximize', sendMax);
+
+  // Closing the main window closes every other window (settings / about / any)
+  // and quits, so the app fully exits instead of lingering behind them.
+  win.on('closed', () => {
+    for (const w of BrowserWindow.getAllWindows()) {
+      if (!w.isDestroyed()) w.destroy();
+    }
+    app.quit();
+  });
   return win;
 }
 
@@ -283,42 +318,29 @@ ipcMain.handle('export:pdf', async (_e, { html, defaultName, pdfOptions }) => {
   const polyfill = opts.paged ? getPagedPolyfill() : '';
   const usePaged = !!(opts.paged && polyfill);
 
-  // For the paged path, inject paged.js so the TOC resolves page numbers and
-  // header/footer/page-number margin boxes render.
-  let finalHtml = html;
-  if (usePaged) {
-    // After paged.js paginates, fill each TOC entry with its target heading's
-    // real page number (read from the rendered .pagedjs_page[data-page-number]).
-    const cfg = `window.PagedConfig={auto:true,after:function(){try{`
-      + `document.querySelectorAll('.toc-list a').forEach(function(a){`
-      + `var id=(a.getAttribute('href')||'').slice(1);`
-      + `var el=id&&document.getElementById(id);`
-      + `var pg=el&&el.closest('.pagedjs_page');`
-      + `var n=pg&&pg.getAttribute('data-page-number');`
-      + `var s=a.querySelector('.toc-pg');`
-      + `if(s&&n)s.textContent=n;});`
-      + `}catch(e){}window.__pagedReady=true;}};`;
-    const inject = `<script>${cfg}</script><script>${polyfill}</script>`;
-    finalHtml = html.includes('</head>') ? html.replace('</head>', `${inject}</head>`) : inject + html;
-  }
-
   // Write HTML to a temp file so large documents avoid data-URL size limits.
+  const finalHtml = usePaged ? injectPagedConfig(html) : html;
   const tmp = path.join(os.tmpdir(), `mmm-export-${Date.now()}.html`);
   fs.writeFileSync(tmp, finalHtml, 'utf-8');
 
-  const pdfWin = new BrowserWindow({ show: false, webPreferences: { sandbox: true } });
+  const pdfWin = usePaged ? createRenderWindow() : new BrowserWindow({ show: false, webPreferences: { sandbox: true } });
   try {
     await pdfWin.loadFile(tmp);
 
     let paged = false;
     if (usePaged) {
-      // Wait for paged.js to finish paginating (bounded).
-      for (let i = 0; i < 100; i++) {
-        let ready = false;
-        try { ready = await pdfWin.webContents.executeJavaScript('window.__pagedReady===true'); } catch { /* ignore */ }
-        if (ready) { paged = true; break; }
-        await delay(100);
-      }
+      // Paginate with paged.js, then fill each TOC entry with its target
+      // heading's real page number (from the rendered .pagedjs_page).
+      const tail = `document.querySelectorAll('.toc-table tr').forEach(function(tr){`
+        + `var a=tr.querySelector('a');var s=tr.querySelector('.toc-c-pg');if(!a||!s)return;`
+        + `var id=(a.getAttribute('href')||'').slice(1);`
+        + `var el=id&&document.getElementById(id);`
+        + `var pg=el&&el.closest('.pagedjs_page');`
+        + `var n=pg&&pg.getAttribute('data-page-number');`
+        + `if(n!=null)s.textContent=n;});`
+        + `return true;`;
+      try { paged = (await pdfWin.webContents.executeJavaScript(pagedDriver(polyfill, tail))) === true; }
+      catch { paged = false; }
     }
 
     let data;
@@ -342,15 +364,45 @@ ipcMain.handle('export:pdf', async (_e, { html, defaultName, pdfOptions }) => {
   }
 });
 
+// Paginate a standalone HTML document with paged.js and return a map of every
+// heading anchor to its real page number ({ 'h-0': 3, 'h-1': 4, … }). Word and
+// HTML export use this to bake right-aligned TOC page numbers (they cannot run
+// the paged.js layout themselves the way the PDF path does during its render).
+ipcMain.handle('export:paginate', async (_e, html) => {
+  const polyfill = getPagedPolyfill();
+  if (!polyfill || typeof html !== 'string') return {};
+
+  const finalHtml = injectPagedConfig(html);
+  const tmp = path.join(os.tmpdir(), `mmm-paginate-${Date.now()}.html`);
+  fs.writeFileSync(tmp, finalHtml, 'utf-8');
+  const win = createRenderWindow();
+  try {
+    await win.loadFile(tmp);
+    // After pagination, walk every heading (id="h-N"), find the page it landed
+    // on and record its number.
+    const tail = `var map={};`
+      + `document.querySelectorAll('[id^="h-"]').forEach(function(el){`
+      + `var pg=el.closest('.pagedjs_page');`
+      + `var n=pg&&pg.getAttribute('data-page-number');`
+      + `if(n!=null)map[el.id]=parseInt(n,10);});`
+      + `return map;`;
+    return (await win.webContents.executeJavaScript(pagedDriver(polyfill, tail))) || {};
+  } catch { return {}; }
+  finally {
+    win.destroy();
+    try { fs.unlinkSync(tmp); } catch { /* ignore */ }
+  }
+});
+
 // Separate, movable settings window (native frame so it can leave the main window).
 let settingsWin = null;
 ipcMain.handle('settings:open', () => {
   if (settingsWin && !settingsWin.isDestroyed()) { settingsWin.show(); settingsWin.focus(); return; }
   settingsWin = new BrowserWindow({
-    width: 700,
-    height: 880,
-    minWidth: 520,
-    minHeight: 480,
+    width: 1060,
+    height: 720,
+    minWidth: 860,
+    minHeight: 520,
     title: 'MyMarkDownMaker — Settings',
     frame: false,            // only the in-app settings title bar is shown
     autoHideMenuBar: true,

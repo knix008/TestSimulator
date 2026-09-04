@@ -56,6 +56,10 @@ export default function SettingsPage() {
   }, []);
 
   const patch = (p) => setSettings((s) => ({ ...s, ...p }));
+  const resetAll = () => {
+    if (typeof window !== 'undefined' && window.confirm && !window.confirm(t('settings.resetConfirm'))) return;
+    setSettings({ ...DEFAULT_EXPORT_SETTINGS });
+  };
   const changeLang = (l) => { i18n.changeLanguage(l); localStorage.setItem('mmm-lang', l); setLang(l); saveSettingsToDisk(); };
 
   return (
@@ -78,6 +82,8 @@ export default function SettingsPage() {
         />
       </div>
       <div className="settings-page-foot">
+        <button className="btn" onClick={resetAll}>{t('settings.resetAll')}</button>
+        <span style={{ flex: 1 }} />
         <button className="btn primary" onClick={() => window.close()}>{t('settings.ok')}</button>
       </div>
     </div>

@@ -31,6 +31,8 @@ const resources = {
       settings: {
         title: '설정',
         ok: '확인',
+        resetAll: '설정 초기화',
+        resetConfirm: '모든 내보내기 설정을 기본값으로 되돌릴까요?',
         general: '일반',
         language: '언어',
         theme: '테마',
@@ -38,6 +40,7 @@ const resources = {
         font: '글꼴',
         fontDefault: '시스템 기본',
         fontSize: '기본 크기',
+        lineSpacing: '줄 간격',
         reset: '기본값',
         loadingFonts: '글꼴 불러오는 중…',
         pages: '표지 / 목차',
@@ -66,13 +69,15 @@ const resources = {
         pageNumberOnCoverDesc: '표지에도 페이지 번호 표시',
       },
       theme: {
-        dark: '다크', light: '라이트', midnight: '미드나잇', nord: '노르드',
+        dark: '다크', light: '라이트', white: '화이트', midnight: '미드나잇', nord: '노르드',
         forest: '포레스트', rose: '로즈', solarized: '솔라라이즈드', contrast: '고대비',
+        ocean: '오션', mocha: '모카', sky: '스카이',
       },
       align: { left: '왼쪽', center: '가운데', right: '오른쪽' },
       stat: { files: '선택/전체 파일', headings: '헤딩 수', words: '단어 수', chars: '글자 수', wAbbr: '단어', cAbbr: '글자' },
       toast: { merged: '병합 완료', numbered: '번호 매기기 완료', exported: '{{fmt}} 내보내기 완료', exportFailed: '내보내기 실패' },
       import: { title: '파일 추가 중…' },
+      merge: { title: '병합 중…' },
       exportDlg: {
         titleSuccess: '내보내기 완료', titleError: '내보내기 실패',
         format: '형식', location: '위치', error: '오류', openFolder: '폴더 열기',
@@ -87,7 +92,7 @@ const resources = {
         exclude: '제외 패턴',
         excludePh: '예: _draft, temp*',
         fileHeaders: '파일명 헤더 삽입',
-        numbering: '헤딩 번호 매기기',
+        numbering: '번호 매기기',
       },
       sort: {
         nameAsc: '이름 오름차순',
@@ -114,7 +119,7 @@ const resources = {
         none: '병합 후 문서 구조가 여기에 표시됩니다.',
         headings: '헤딩 {{count}}개',
       },
-      preview: { empty: '병합된 내용이 없습니다. 파일을 선택하고 “병합”을 누르세요.' },
+      preview: { empty: '병합된 내용이 없습니다. 파일을 선택하면 자동으로 병합됩니다.' },
       status: {
         ready: '준비',
         merged: '{{count}}개 파일을 병합했습니다.',
@@ -168,6 +173,8 @@ const resources = {
       settings: {
         title: 'Settings',
         ok: 'OK',
+        resetAll: 'Reset settings',
+        resetConfirm: 'Reset all export settings to their defaults?',
         general: 'General',
         language: 'Language',
         theme: 'Theme',
@@ -175,6 +182,7 @@ const resources = {
         font: 'Font',
         fontDefault: 'System default',
         fontSize: 'Base size',
+        lineSpacing: 'Line spacing',
         reset: 'Default',
         loadingFonts: 'loading fonts…',
         pages: 'Cover / Index',
@@ -203,13 +211,15 @@ const resources = {
         pageNumberOnCoverDesc: 'Show page number on the cover too',
       },
       theme: {
-        dark: 'Dark', light: 'Light', midnight: 'Midnight', nord: 'Nord',
+        dark: 'Dark', light: 'Light', white: 'White', midnight: 'Midnight', nord: 'Nord',
         forest: 'Forest', rose: 'Rose', solarized: 'Solarized', contrast: 'Contrast',
+        ocean: 'Ocean', mocha: 'Mocha', sky: 'Sky',
       },
       align: { left: 'Left', center: 'Center', right: 'Right' },
       stat: { files: 'Checked/Total files', headings: 'Headings', words: 'Words', chars: 'Characters', wAbbr: 'W', cAbbr: 'C' },
       toast: { merged: 'Merge complete', numbered: 'Renumbered', exported: '{{fmt}} export complete', exportFailed: 'Export failed' },
       import: { title: 'Adding files…' },
+      merge: { title: 'Merging…' },
       exportDlg: {
         titleSuccess: 'Export complete', titleError: 'Export failed',
         format: 'Format', location: 'Location', error: 'Error', openFolder: 'Open folder',
@@ -224,7 +234,7 @@ const resources = {
         exclude: 'Exclude',
         excludePh: 'e.g. _draft, temp*',
         fileHeaders: 'Insert filename headers',
-        numbering: 'Number headings',
+        numbering: 'Numbering',
       },
       sort: {
         nameAsc: 'Name ↑',
@@ -251,7 +261,7 @@ const resources = {
         none: 'The merged document structure appears here.',
         headings: '{{count}} headings',
       },
-      preview: { empty: 'Nothing merged yet. Select files and press “Merge”.' },
+      preview: { empty: 'Nothing merged yet. Select files and they are merged automatically.' },
       status: {
         ready: 'Ready',
         merged: 'Merged {{count}} file(s).',

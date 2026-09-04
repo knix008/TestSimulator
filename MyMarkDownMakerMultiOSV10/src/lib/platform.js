@@ -45,6 +45,19 @@ export async function exportPdf({ html, defaultName, pdfOptions }) {
   return defaultName;
 }
 
+// Paginate a standalone HTML document (Electron only) and return a map of each
+// heading anchor to its page number ({ 'h-0': 3, … }), used to bake real TOC
+// page numbers into Word / HTML exports. Returns null when unavailable (web).
+export async function computeTocPageMap(html) {
+  if (isElectron && api.paginate) {
+    try {
+      const map = await api.paginate(html);
+      return map && Object.keys(map).length ? map : null;
+    } catch { return null; }
+  }
+  return null;
+}
+
 function printHtml(html) {
   const win = window.open('', '_blank');
   if (!win) return;

@@ -11,22 +11,31 @@ import Toasts from './components/Toasts';
 import ExportResultDialog from './components/ExportResultDialog';
 import ExportProgressDialog from './components/ExportProgressDialog';
 import ImportProgressDialog from './components/ImportProgressDialog';
+import MergeProgressDialog from './components/MergeProgressDialog';
 import {
-  IconFolder, IconFilePlus, IconMerge, IconHash, IconExport, IconChevron,
+  IconFolder, IconFilePlus, IconHash, IconExport, IconChevron,
   IconMd, IconHtml, IconPdf, IconWord, IconTrash, IconInfo, IconSettings,
   IconSun, IconMoon, IconUp, IconDown, IconX, IconCheckSquare, IconSquare,
   IconCopy, IconCut, IconPaste, IconSelectAll, IconTarget,
+  IconStars, IconSnow, IconLeaf, IconFlower, IconSunrise, IconContrast, IconBulb,
+  IconDroplet, IconCoffee, IconCloud, IconGlobe,
 } from './components/Icons';
 import { isElectron, api, readFileText, readFileDataURL, saveSettingsToDisk } from './lib/platform';
 import { embedImages, resolveRelPath, IMAGE_EXTS } from './lib/images';
 import {
-  mergeFiles, renumberHeadings, getOutline, renderHtml, fontStack,
-  sortFiles, parseExcludePatterns, isExcluded, DEFAULT_EXPORT_SETTINGS,
+  mergeFilesAsync, renumberHeadings, getOutline, renderHtml, fontStack,
+  sortFiles, DEFAULT_EXPORT_SETTINGS,
 } from './lib/markdown';
 import { exportMarkdown, exportHtml, exportPdf, exportWord } from './lib/export';
 
 const MD_RE = /\.(md|markdown)$/i;
 const THEME_IDS = THEMES.map((t) => t.id);
+// Each theme shows its own toolbar glyph so the current theme is recognizable.
+const THEME_ICONS = {
+  dark: IconMoon, light: IconSun, white: IconBulb, midnight: IconStars, nord: IconSnow,
+  forest: IconLeaf, rose: IconFlower, solarized: IconSunrise, contrast: IconContrast,
+  ocean: IconDroplet, mocha: IconCoffee, sky: IconCloud,
+};
 let uid = 0;
 const nextId = () => `f${++uid}`;
 
@@ -45,7 +54,6 @@ export default function App() {
   const [sourceDir, setSourceDir] = useState('');
   const [recursive, setRecursive] = useState(true);
   const [sortOrder, setSortOrder] = useState('nameAsc');
-  const [excludeText, setExcludeText] = useState('');
   const [insertFileHeaders, setInsertFileHeaders] = useState(false);
   const [numberHeadings, setNumberHeadings] = useState(true);
 
@@ -69,6 +77,9 @@ export default function App() {
   const [exporting, setExporting] = useState(null);
   const [importProg, setImportProg] = useState(null); // { done, total, file }
   const [importOpen, setImportOpen] = useState(false);
+  const [mergeProg, setMergeProg] = useState(null); // { done, total, file }
+  const [mergeOpen, setMergeOpen] = useState(false);
+  const mergeSeq = useRef(0);
 
   const folderInputRef = useRef(null);
   const filesInputRef = useRef(null);
@@ -138,19 +149,41 @@ export default function App() {
   const outline = useMemo(() => getOutline(merged), [merged]);
   const previewHtml = useMemo(() => renderHtml(merged), [merged]);
 
-  // Live preview: re-merge automatically whenever the selection or the merge
-  // options change, so choosing files shows the result immediately. Manual
-  // editor edits are intentionally superseded on the next selection change.
+  // Live preview: re-merge automatically whenever the selection, order or merge
+  // options change, so including / reordering files updates the result with no
+  // manual step. Manual editor edits are superseded on the next change.
   const editedRef = useRef(false);
   useEffect(() => {
     const chosen = files.filter((f) => f.checked);
     if (!chosen.length) { setMerged(''); editedRef.current = false; return; }
-    let out = mergeFiles(chosen, { insertFileHeaders });
-    if (numberHeadings) out = renumberHeadings(out);
-    setMerged(out);
-    editedRef.current = false;
+    const seq = ++mergeSeq.current;
+    runMerge(chosen, seq);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [files, insertFileHeaders, numberHeadings]);
+
+  // Chunked merge that yields to the event loop and surfaces a determinate
+  // progress popup (only if it runs longer than a short delay, to avoid a flash
+  // on small documents). `seq` guards against out-of-order/superseded runs.
+  async function runMerge(chosen, seq) {
+    const total = chosen.length;
+    const nameOf = (f) => f.relPath || f.name;
+    setMergeProg({ done: 0, total, file: total ? nameOf(chosen[0]) : '' });
+    const timer = setTimeout(() => { if (seq === mergeSeq.current) setMergeOpen(true); }, 300);
+    try {
+      let out = await mergeFilesAsync(chosen, { insertFileHeaders }, (done, tot, name) => {
+        if (seq === mergeSeq.current) setMergeProg({ done, total: tot, file: name });
+      });
+      if (seq !== mergeSeq.current) return; // a newer merge started; drop this one
+      if (numberHeadings) out = renumberHeadings(out);
+      if (seq !== mergeSeq.current) return;
+      setMerged(out);
+      editedRef.current = false;
+      setStatus(t('status.merged', { count: total }));
+    } finally {
+      clearTimeout(timer);
+      if (seq === mergeSeq.current) { setMergeOpen(false); setMergeProg(null); }
+    }
+  }
 
   // Default export name = first merged file's name (until the user edits it).
   const firstCheckedName = useMemo(() => {
@@ -182,12 +215,10 @@ export default function App() {
 
   // ── Import helpers (additive, deduped) ──────────────────
   function addImported(items) {
-    const patterns = parseExcludePatterns(excludeText);
     let added = 0;
     setFiles((prev) => {
       const seen = new Set(prev.map((f) => f.key));
       const additions = items
-        .filter((it) => !isExcluded(it.relPath || it.name, patterns))
         .filter((it) => !seen.has(it.key))
         .map((it) => ({ ...it, id: nextId(), checked: true }));
       added = additions.length;
@@ -308,18 +339,6 @@ export default function App() {
   }
 
   // ── Actions ─────────────────────────────────────────────
-  function doMerge() {
-    const chosen = files.filter((f) => f.checked);
-    if (!chosen.length) return;
-    let out = mergeFiles(chosen, { insertFileHeaders });
-    if (numberHeadings) out = renumberHeadings(out);
-    setMerged(out);
-    setRightTab('preview');
-    setLeftTab('structure');
-    setStatus(t('status.merged', { count: chosen.length }));
-    notify(t('toast.merged'), { message: t('status.merged', { count: chosen.length }) });
-  }
-
   function doRenumber() {
     if (!merged) return;
     setMerged(renumberHeadings(merged));
@@ -406,7 +425,7 @@ export default function App() {
       api.openSettings();
     } else {
       const url = `${window.location.pathname}${window.location.search}#settings`;
-      window.open(url, 'mmm-settings', 'width=700,height=880');
+      window.open(url, 'mmm-settings', 'width=1060,height=720');
     }
   }
 
@@ -439,8 +458,6 @@ export default function App() {
       { separator: true },
       { icon: IconCheckSquare, label: t('files.checkAll'), onClick: () => checkAll(true) },
       { icon: IconSquare, label: t('files.uncheckAll'), onClick: () => checkAll(false) },
-      { separator: true },
-      { icon: IconMerge, label: t('toolbar.merge'), disabled: !files.some((f) => f.checked), onClick: doMerge },
     ]);
   }
 
@@ -498,7 +515,6 @@ export default function App() {
     try { const text = await navigator.clipboard.readText(); if (text) replaceSelection(text); } catch { /* ignore */ }
   }
 
-  const hasChecked = files.some((f) => f.checked);
   const checkedCount = files.filter((f) => f.checked).length;
   const stats = useMemo(() => {
     const trimmed = merged.trim();
@@ -507,7 +523,7 @@ export default function App() {
       words: trimmed ? trimmed.split(/\s+/).length : 0,
     };
   }, [merged]);
-  const ThemeIcon = theme === 'light' || theme === 'solarized' ? IconMoon : IconSun;
+  const ThemeIcon = THEME_ICONS[theme] || IconSun;
 
   return (
     <div className="app">
@@ -523,10 +539,6 @@ export default function App() {
         <div className="toolbar-group">
           <button className="btn" title={t('tip.addFolder')} onClick={addFolder}><IconFolder /> {t('toolbar.addFolder')}</button>
           <button className="btn" title={t('tip.addFiles')} onClick={addFiles}><IconFilePlus /> {t('toolbar.addFiles')}</button>
-        </div>
-        <div className="toolbar-group">
-          <button className="btn primary" title={t('tip.merge')} onClick={doMerge} disabled={!hasChecked}><IconMerge /> {t('toolbar.merge')}</button>
-          <button className="btn" title={t('tip.renumber')} onClick={doRenumber} disabled={!merged}><IconHash /> {t('toolbar.renumber')}</button>
         </div>
         <div className="toolbar-group">
           <div className="dropdown" ref={exportRef}>
@@ -561,8 +573,10 @@ export default function App() {
         <div className="toolbar-spacer" />
         <div className="toolbar-group">
           <button className="iconbtn" title={t('tip.clear')} onClick={clearAll}><IconTrash /></button>
-          <button className="iconbtn" title={t('tip.lang')} onClick={toggleLang}><span className="lang">{lang === 'ko' ? 'EN' : '한글'}</span></button>
-          <button className="iconbtn" title={t('tip.theme')} onClick={cycleTheme}><ThemeIcon /></button>
+          <button className="iconbtn lang-btn" title={`${t('tip.lang')} — ${lang === 'ko' ? 'EN' : '한글'}`} onClick={toggleLang}>
+            <IconGlobe /><span className="lang-code">{lang === 'ko' ? 'EN' : '한글'}</span>
+          </button>
+          <button className="iconbtn" title={`${t('tip.theme')} — ${t(`theme.${theme}`)}`} onClick={cycleTheme}><ThemeIcon /></button>
           <button className="iconbtn" title={t('tip.settings')} onClick={openSettings}><IconSettings /></button>
           <button className="iconbtn" title={t('tip.about')} onClick={openAbout}><IconInfo /></button>
         </div>
@@ -578,9 +592,6 @@ export default function App() {
             <option value="dateOldest">{t('sort.dateOldest')}</option>
             <option value="custom">{t('sort.custom')}</option>
           </select>
-        </label>
-        <label className="opt exclude">{t('opts.exclude')}:
-          <input type="text" value={excludeText} placeholder={t('opts.excludePh')} onChange={(e) => setExcludeText(e.target.value)} />
         </label>
         <label className="opt"><input type="checkbox" checked={insertFileHeaders} onChange={(e) => setInsertFileHeaders(e.target.checked)} /> {t('opts.fileHeaders')}</label>
         <label className="opt"><input type="checkbox" checked={numberHeadings} onChange={(e) => setNumberHeadings(e.target.checked)} /> {t('opts.numbering')}</label>
@@ -611,6 +622,7 @@ export default function App() {
                     style={{
                       fontFamily: exportSettings.fontFamily ? fontStack(exportSettings.fontFamily) : undefined,
                       fontSize: `${exportSettings.fontSizePt || 11}pt`,
+                      lineHeight: Number(exportSettings.lineHeight) > 0 ? Number(exportSettings.lineHeight) : 1,
                     }}
                     onContextMenu={previewMenu} dangerouslySetInnerHTML={{ __html: previewHtml }} />
                 : <div className="empty"><p className="muted">{t('preview.empty')}</p></div>
@@ -640,6 +652,7 @@ export default function App() {
       <ContextMenu open={ctx.open} x={ctx.x} y={ctx.y} items={ctx.items} onClose={closeCtx} />
       <Toasts toasts={toasts} onDismiss={dismissToast} />
       <ImportProgressDialog open={importOpen && !!importProg} done={importProg?.done || 0} total={importProg?.total || 0} file={importProg?.file || ''} />
+      <MergeProgressDialog open={mergeOpen && !!mergeProg} done={mergeProg?.done || 0} total={mergeProg?.total || 0} file={mergeProg?.file || ''} />
       <ExportProgressDialog open={!!exporting} label={exporting || ''} />
       <ExportResultDialog result={exportResult} onClose={() => setExportResult(null)} />
       <Tooltip />

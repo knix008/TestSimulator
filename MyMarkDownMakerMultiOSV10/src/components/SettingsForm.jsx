@@ -21,6 +21,27 @@ export default function SettingsForm({ settings, onChange, theme, onTheme, lang,
   const s = settings;
   const set = (patch) => onChange(patch);
 
+  // Free-text line-spacing field: keep the raw string locally so partial input
+  // (e.g. "1.") is not snapped back to 1 mid-typing; commit only valid numbers.
+  const [lhText, setLhText] = useState(String(s.lineHeight ?? 1));
+  useEffect(() => { setLhText(String(s.lineHeight ?? 1)); }, [s.lineHeight]);
+  const onLineHeightInput = (raw) => {
+    setLhText(raw);
+    const n = parseFloat(raw);
+    if (Number.isFinite(n) && n > 0) set({ lineHeight: n });
+  };
+  const onLineHeightBlur = () => {
+    const n = parseFloat(lhText);
+    if (!Number.isFinite(n) || n <= 0) setLhText(String(s.lineHeight ?? 1));
+  };
+  const stepLineHeight = (delta) => {
+    const cur = Number.isFinite(parseFloat(lhText)) ? parseFloat(lhText) : (Number(s.lineHeight) || 1);
+    let n = Math.round((cur + delta) * 100) / 100;
+    if (n < 0.5) n = 0.5;
+    if (n > 5) n = 5;
+    set({ lineHeight: n });
+  };
+
   return (
     <div className="settings-form">
       {/* ── General ── */}
@@ -80,6 +101,15 @@ export default function SettingsForm({ settings, onChange, theme, onTheme, lang,
               onChange={(e) => set({ fontSizePt: Number(e.target.value) || 11 })} />
             <span className="suffix">pt</span>
             {fonts === null && <span className="suffix">· {t('settings.loadingFonts')}</span>}
+          </div>
+        </div>
+        <div className="field">
+          <label>{t('settings.lineSpacing')}</label>
+          <div className="control">
+            <button type="button" className="step-btn" title="-0.5" onClick={() => stepLineHeight(-0.5)}>−</button>
+            <input type="number" min="0.5" max="5" step="0.05" value={lhText}
+              onChange={(e) => onLineHeightInput(e.target.value)} onBlur={onLineHeightBlur} />
+            <button type="button" className="step-btn" title="+0.5" onClick={() => stepLineHeight(0.5)}>+</button>
           </div>
         </div>
       </div>

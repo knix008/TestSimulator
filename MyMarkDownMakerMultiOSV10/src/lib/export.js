@@ -4,11 +4,21 @@ import {
   toStandaloneHtml, buildMergedMarkdownDocument, documentExportBaseName,
   sanitizeExportName, DEFAULT_EXPORT_SETTINGS,
 } from './markdown';
-import { saveText, exportPdf as platformExportPdf } from './platform';
+import { saveText, exportPdf as platformExportPdf, computeTocPageMap } from './platform';
 
 // Resolve the export base name: user-provided name wins, else first heading.
 function baseNameFor(markdown, baseName) {
   return sanitizeExportName(baseName) || documentExportBaseName(markdown);
+}
+
+// Resolve real TOC page numbers by paginating the document once (Electron only).
+// We render the same A4 layout the export uses, learn which page each heading
+// lands on, then bake those numbers into the index. Returns null when the index
+// is off or pagination is unavailable (web), leaving the TOC without numbers.
+async function resolveTocPageMap(markdown, base, s) {
+  if (!s.tocPage || s.tocPageNumbers === false) return null;
+  const measureHtml = toStandaloneHtml(markdown, base, { ...s, forWord: false, tocPageNumbers: true, tocPageMap: null });
+  return computeTocPageMap(measureHtml);
 }
 
 export async function exportMarkdown(markdown, baseName, opts = {}) {
@@ -21,20 +31,25 @@ export async function exportMarkdown(markdown, baseName, opts = {}) {
 }
 
 export async function exportHtml(markdown, settings = {}, baseName) {
+  const s = { ...DEFAULT_EXPORT_SETTINGS, ...settings };
   const base = baseNameFor(markdown, baseName);
+  const pageMap = await resolveTocPageMap(markdown, base, s);
   return saveText({
     defaultName: `${base}.html`,
-    content: toStandaloneHtml(markdown, base, settings),
+    content: toStandaloneHtml(markdown, base, { ...s, tocPageNumbers: !!pageMap, tocPageMap: pageMap }),
     filters: [{ name: 'HTML', extensions: ['html'] }],
   });
 }
 
 export async function exportPdf(markdown, settings = {}, baseName) {
-  // TOC page numbers are resolved by paged.js during PDF rendering.
   const s = { ...DEFAULT_EXPORT_SETTINGS, ...settings, tocPageNumbers: settings.tocPage !== false };
   const base = baseNameFor(markdown, baseName);
+  // Bake the page numbers from a pagination pass so they are present even if the
+  // live paged.js fill during printing misses; the print pass still fills any
+  // remaining empty entries and renders the header/footer margin boxes.
+  const pageMap = await resolveTocPageMap(markdown, base, s);
   return platformExportPdf({
-    html: toStandaloneHtml(markdown, base, s),
+    html: toStandaloneHtml(markdown, base, { ...s, tocPageMap: pageMap }),
     defaultName: `${base}.pdf`,
     // `paged` engine renders TOC page numbers + header/footer via CSS;
     // `fallback` templates are used if paged.js is unavailable.
@@ -43,11 +58,15 @@ export async function exportPdf(markdown, settings = {}, baseName) {
 }
 
 export async function exportWord(markdown, settings = {}, baseName) {
+  const s = { ...DEFAULT_EXPORT_SETTINGS, ...settings };
   const base = baseNameFor(markdown, baseName);
+  // Word cannot run the paged.js layout, so resolve the TOC page numbers up
+  // front and bake them into the index as static, right-aligned text.
+  const pageMap = await resolveTocPageMap(markdown, base, s);
   // Word opens an MHT ("Single File Web Page") saved as .doc and reliably
   // renders the cover, the index (page breaks) and images. Base64 images are
   // emitted as separate MIME parts (Word does not render inline data: images).
-  const html = toStandaloneHtml(markdown, base, { ...settings, forWord: true });
+  const html = toStandaloneHtml(markdown, base, { ...s, forWord: true, tocPageNumbers: !!pageMap, tocPageMap: pageMap });
   return saveText({
     defaultName: `${base}.doc`,
     content: buildWordMht(html),
