@@ -22,9 +22,14 @@ src/build-info.json
 *.snap
 *.zip
 
-# Temp / scratch (screenshots, export temp)
+# Exported documents (Word MHT / others) accidentally saved into the repo
+*.doc
+*.mht
+
+# Temp / scratch (screenshots, export temp, one-off Electron test harnesses)
 _*.png
 *.tmp
+scripts/test-*.cjs
 
 # Logs
 *.log

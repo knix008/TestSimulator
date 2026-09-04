@@ -344,12 +344,46 @@ function tocHtml(markdown, label, opts = {}) {
     + `<table class="toc-table"><tbody>${rows}</tbody></table></div>`;
 }
 
+// Constrain content tables to the page width. CSS `table-layout:fixed` handles
+// the PDF/HTML path, but Word (MHT) ignores class/`table-layout` CSS — it only
+// honors inline styles, <col> widths and the `mso-table-layout-alt` property. So
+// give every content table a <colgroup> of equal-width columns plus an inline
+// fixed layout, which both Word and Chromium respect, so wide tables wrap to the
+// page instead of overflowing the right margin.
+function fitContentTables(html) {
+  return html.replace(/<table\b([^>]*)>([\s\S]*?)<\/table>/gi, (whole, attrs, inner) => {
+    const firstRow = inner.match(/<tr\b[^>]*>([\s\S]*?)<\/tr>/i);
+    const n = firstRow ? (firstRow[1].match(/<(?:th|td)\b/gi) || []).length : 0;
+    if (n < 1) return whole;
+    const w = (100 / n).toFixed(3);
+    const colgroup = `<colgroup>${`<col style="width:${w}%">`.repeat(n)}</colgroup>`;
+    const fitStyle = 'table-layout:fixed;width:100%;max-width:100%;border-collapse:collapse;mso-table-layout-alt:fixed';
+    const cleanAttrs = attrs.replace(/\sstyle="[^"]*"/i, '');
+    // Insert zero-width break opportunities into long unbreakable tokens (paths,
+    // URLs) in cell text so they wrap at the CHARACTER level. Word ignores CSS
+    // word-break, but honors U+200B; the PDF/HTML break there too. Only text
+    // between tags is touched (not attributes), and HTML entities stay intact.
+    const broken = inner.replace(/>([^<]+)</g, (m, txt) => `>${breakLongTokens(txt)}<`);
+    return `<table${cleanAttrs} style="${fitStyle}">${colgroup}${broken}</table>`;
+  });
+}
+
+// Split runs of 15+ non-space characters with a zero-width space (U+200B) after
+// each unit so long tokens can wrap anywhere. HTML entities (&amp;, &#8203; …)
+// are treated as single units so they are never corrupted.
+function breakLongTokens(text) {
+  return text.replace(/\S{15,}/g, (run) => {
+    const units = run.match(/&(?:#\d+|#x[0-9a-fA-F]+|[a-zA-Z]+);|[\s\S]/g) || [];
+    return units.join('​');
+  });
+}
+
 // Wraps rendered body HTML into a standalone, styled HTML document (for export).
 // settings may include: coverPage, coverTitle, tocPage, tocPageNumbers,
 // contentsLabel, dateStr, appName.
 export function toStandaloneHtml(markdown, title = 'Document', settings = {}) {
   const s = { ...DEFAULT_EXPORT_SETTINGS, ...settings };
-  const body = renderHtml(markdown);
+  const body = fitContentTables(renderHtml(markdown));
   const family = fontStack(s.fontFamily);
   const size = Number(s.fontSizePt) || 10;
   const lineHeight = Number(s.lineHeight) > 0 ? Number(s.lineHeight) : 1;
@@ -402,7 +436,7 @@ ${wordMeta}
   /* Fixed layout + word wrapping so wide tables stay within the page instead of
      overflowing (and being clipped) off the right edge in the PDF. */
   table{border-collapse:collapse;width:100%;max-width:100%;table-layout:fixed;margin:1em 0}
-  th,td{border:1px solid #ddd;padding:.4em .7em;text-align:left;word-wrap:break-word;overflow-wrap:break-word}
+  th,td{border:1px solid #ddd;padding:.4em .7em;text-align:left;word-wrap:break-word;overflow-wrap:anywhere}
   th{background:#f0f0f0;font-weight:600} tr:nth-child(even){background:#fafafa}
   hr{border:none;border-top:2px solid #e0e0e0;margin:1.4em 0}
   a{color:#0b8a76;text-decoration:none} img{max-width:100%}

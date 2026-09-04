@@ -71,14 +71,17 @@ MyMarkDownMakerMultiOSV10/
 | 함수 | 역할 |
 |------|------|
 | `mergeFiles(files, opts)` | 선택 파일을 `---` 로 병합, 옵션 시 `## 상대경로` 헤더 삽입 |
+| `mergeFilesAsync(files, opts, onProgress)` | 청크 단위 비동기 병합(대용량 진행률 팝업용, 이벤트 루프 양보) |
 | `applyHeadingNumbering(md)` | 헤딩에 계층 번호(1, 1.1 …) 부여. 펜스 코드블록은 건너뜀 |
 | `stripHeadingNumbers(md)` | 누적된 기존 번호 제거 |
-| `renumberHeadings(md)` | strip → apply. "번호 새로 매기기" 동작 |
+| `renumberHeadings(md)` | strip → apply. "번호 다시 매기기" 동작 |
 | `getOutline(md)` | 헤딩 트리 `{level,text,line,index}` 추출 (구조 보기용) |
 | `renderHtml(md)` | marked 렌더 + 헤딩에 `id="h-N"` 부여 + DOMPurify 살균 |
-| `toStandaloneHtml(md,title,settings)` | 내보내기용 단독 HTML(글꼴·크기·@page 머리글/바닥글/페이지번호) |
-| `sanitizeExportName(name)` | 사용자 지정 파일명 정리 |
-| `sortFiles` / `isExcluded` | 정렬 / 와일드카드 제외 |
+| `tocHtml(md,label,opts)` | 목차 3셀 테이블(제목/여백/우측 페이지번호). `pageMap` 으로 번호 baking, H1 굵게 |
+| `fitContentTables(html)` | 본문 표에 `<colgroup>`+인라인 고정 레이아웃 주입(Word·PDF에서 페이지 폭에 맞춤) |
+| `toStandaloneHtml(md,title,settings)` | 내보내기용 단독 HTML(글꼴·크기·줄간격·표지·목차·@page 머리글/바닥글/페이지번호, 인쇄 시 body 리셋) |
+| `buildMergedMarkdownDocument` | Markdown 내보내기(표지+목차+본문) |
+| `sanitizeExportName(name)` / `sortFiles` | 파일명 정리 / 정렬 |
 
 번호 매기기 정규식과 계층 카운터 로직은 Windows 원본(`MDMakerWinV10/MarkdownConverter.cs`)의 동작을 그대로 이식했습니다.
 
@@ -90,22 +93,36 @@ MyMarkDownMakerMultiOSV10/
 
 ## 상태·데이터 흐름 (App.jsx)
 
-- **자동 병합(live preview)** — `files`(체크/순서), `insertFileHeaders`, `numberHeadings` 가 바뀌면 `useEffect` 가 병합을 다시 수행해 `merged` 를 갱신. 미리보기·구조·상태바가 즉시 반영됩니다. (편집 탭의 수동 수정은 다음 선택 변경 시 소스 기준으로 덮어써짐)
+- **자동 병합(live preview)** — `files`(체크/순서), `insertFileHeaders`, `numberHeadings` 가 바뀌면 `useEffect` 가 `mergeFilesAsync` 로 병합을 다시 수행해 `merged` 를 갱신. 미리보기·구조·상태바가 즉시 반영됩니다. 별도 병합/번호 버튼은 없으며, 병합이 300ms 이상 걸리면 진행률 팝업(`MergeProgressDialog`)이 뜹니다. `seq` 가드로 중복/역순 실행을 방지합니다. (편집 탭의 수동 수정은 다음 선택 변경 시 소스 기준으로 덮어써짐)
 - **파생값** — `outline`(구조), `previewHtml`(렌더), `stats`(단어/글자), `firstCheckedName`(내보내기 기본 파일명) 은 `useMemo` 로 계산.
-- **영속화** — 테마(`mmm-theme`), 언어(`mmm-lang`), 내보내기 서식(`mmm-export`) 은 localStorage 에 저장.
+- **내보내기 옵션** — `buildExportOpts()` 는 `{...기본값, ...localStorage, ...라이브상태}` 순으로 병합해 설정창에서 바꾼 폰트·크기·줄간격이 항상 내보내기에 반영되도록 합니다(미리보기와 일치).
+- **영속화** — 테마(`mmm-theme`), 언어(`mmm-lang`), 내보내기 서식(`mmm-export`) 은 localStorage 에 저장(Electron 은 userData JSON 미러도 유지).
 
 ## 내보내기 파이프라인 ([src/lib/export.js](src/lib/export.js))
 
 | 포맷 | 방식 |
 |------|------|
 | Markdown | `buildMergedMarkdownDocument`(표지 + 목차 + 본문, `---` 구분) |
-| HTML | `toStandaloneHtml`(표지/목차/@page CSS) → 저장 |
-| PDF | Electron: **paged.js**로 페이지네이션 후 `printToPDF`(목차 페이지 번호=`target-counter`, 머리글/바닥글/페이지번호=@page 마진박스). paged.js 실패 시 `printToPDF` 템플릿으로 폴백. Web: 인쇄 창(`Save as PDF`) |
-| Word | `html-docx-js-typescript.asBlob(html)` → `.docx` (지연 로드로 초기 번들에서 분리) |
+| HTML | `toStandaloneHtml`(표지/목차/@page CSS) → 저장. Electron 은 `export:paginate` 로 목차 페이지 번호를 미리 계산해 baking |
+| PDF | Electron: **paged.js** 로 페이지네이션 후 `printToPDF`. 목차 `.toc-c-pg` 셀을 실제 페이지 번호로 채우고, 머리글/바닥글/페이지번호는 @page 마진박스. paged.js 없으면 `printToPDF` 템플릿으로 폴백. Web: 인쇄 창(`Save as PDF`) |
+| Word | **MHT(multipart/related)** `.doc` — `toStandaloneHtml({forWord:true})` + Office 네임스페이스/ProgId, base64 이미지는 별도 MIME 파트. 목차 페이지 번호는 `export:paginate` 로 미리 계산해 baking |
 
-- **표지(Cover)**: 제목은 `coverTitle` 설정(비우면 문서 제목), 부제=머리글 문구, 날짜 포함. **목차(Index)**: 본문 앞 별도 페이지, PDF는 실제 페이지 번호 표시.
+- **표지(Cover)**: 제목은 `coverTitle` 설정(비우면 문서 제목), 부제=머리글 문구, 버전/작성자/날짜 포함. **목차(Index)**: 본문 앞 별도 페이지, 각 항목 오른쪽에 실제 페이지 번호(H1 굵게).
 - 파일 이름은 첫 병합 파일 이름을 기본값으로 하며 내보내기 드롭다운에서 수정할 수 있습니다.
-- **paged.js**는 렌더러가 아닌 **메인 프로세스**에서 `paged.polyfill.js`를 임시 HTML에 인라인 주입 → 숨김 창에서 `window.__pagedReady` 대기 → `printToPDF(preferCSSPageSize, margins 0)`.
+
+### paged.js 페이지네이션 (메인 프로세스, `electron/main.js`)
+
+목차 페이지 번호는 **문서를 실제로 페이지네이션해서 각 헤딩(`h-N`)이 놓인 페이지를 읽어와** 채웁니다. 다음 세 가지가 핵심입니다(모두 디버깅으로 확정된 함정 회피):
+
+1. **폴리필은 `webContents.executeJavaScript(polyfill)` 로 주입** — 인라인 `<script>` 로 넣으면 HTML 파싱이 깨져 SyntaxError 로 로드되지 않습니다.
+2. **오프스크린이지만 *보이는* 창** (`show:true`, 화면 밖 `x/y:-32000`, `opacity:0`, `skipTaskbar`, `backgroundThrottling:false`) — `show:false` 숨김 창은 렌더가 throttle 되어 ~40× 느려집니다.
+3. **`PagedConfig={auto:false}` + `new Paged.Previewer().preview()` 를 명시적으로 await** — auto-run `after` 훅은 이 환경에서 신뢰할 수 없습니다.
+
+헬퍼: `createRenderWindow()` / `injectPagedConfig()` / `pagedDriver(polyfill, tailJs)`. `export:paginate` 는 `h-N → 페이지번호` 맵을 반환하고(Word/HTML 용), `export:pdf` 는 같은 방식으로 페이지네이션 후 목차 셀을 채워 `printToPDF(preferCSSPageSize, margins 0)`.
+
+- **인쇄 시 body 리셋** — `@media print{body{margin:0;padding:0;max-width:none}}` 로 body 패딩/최대폭이 paged.js A4 페이지를 밀어 빈 페이지가 생기는 것을 방지. 표지 상단 여백은 `vh` 대신 `em` 고정.
+- **표 폭 맞춤** — `fitContentTables` 가 본문 표에 `<colgroup>` + 인라인 `table-layout:fixed`(+`mso-table-layout-alt`)를 주입해 Word·PDF 모두 페이지 폭 안에서 줄바꿈.
+- **주의**: Word 는 열 때 자체적으로 다시 페이지를 나누므로 목차 번호는 A4 기준 근사값입니다.
 
 ## 설정 창 (별도 창)
 
@@ -113,10 +130,12 @@ MyMarkDownMakerMultiOSV10/
 
 ## IPC 표면 (Electron)
 
-`app:getInfo`, `dialog:pickDirectory`, `fs:scanMarkdown`, `fs:readFile(s)`, `dialog:openFiles`,
-`dialog:saveText`, `dialog:saveBinary`, `export:pdf`(paged.js), `settings:open`(별도 설정 창),
-`shell:showItem`, `win:*`(minimize/toggleMaximize/close/isMaximized).
+`app:getInfo`, `fs:home`, `dialog:pickDirectory`, `fs:scanMarkdown`, `fs:readFile(s)`, `fs:embedImage`, `dialog:openFiles`,
+`dialog:saveText`, `dialog:saveBinary`, `export:pdf`(paged.js), `export:paginate`(목차 페이지맵),
+`settings:open`/`settings:load`/`settings:save`, `about:open`, `shell:showItem`,
+`win:*`(minimize/toggleMaximize/close/isMaximized).
 메인 프로세스는 `session.setPermissionRequestHandler` 로 `local-fonts` 권한을 허용해 `queryLocalFonts()` 를 지원합니다.
+메인 창을 닫으면 `win.on('closed')` 에서 나머지 모든 창(설정/정보)을 destroy 하고 앱을 종료합니다.
 
 ## 빌드 파이프라인
 
