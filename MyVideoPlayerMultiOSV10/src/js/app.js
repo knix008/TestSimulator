@@ -1,6 +1,19 @@
-import { loadSettings, saveSettings, resetSettings, normalizeVideoFit } from './settings.js';
-import { parseSubtitle, SubtitleRenderer, findSubtitleInFileList } from './subtitles.js';
-import { SpectrumAnalyzer, SPECTRUM_STYLES, normalizeSpectrumStyle } from './spectrum.js';
+import {
+  loadSettings,
+  saveSettings,
+  resetSettings,
+  normalizeVideoFit,
+} from "./settings.js";
+import {
+  parseSubtitle,
+  SubtitleRenderer,
+  findSubtitleInFileList,
+} from "./subtitles.js";
+import {
+  SpectrumAnalyzer,
+  SPECTRUM_STYLES,
+  normalizeSpectrumStyle,
+} from "./spectrum.js";
 import {
   openSpectrumWindow,
   closeSpectrumWindow,
@@ -8,19 +21,29 @@ import {
   postSpectrumMessage,
   onSpectrumWindowEvent,
   markSpectrumWindowClosed,
-  isSpectrumWindowSupported
-} from './spectrum-bridge.js';
+  isSpectrumWindowSupported,
+} from "./spectrum-bridge.js";
 import {
   openHistoryWindow,
   closeHistoryWindow,
   postHistoryMessage,
   onHistoryWindowEvent,
   markHistoryWindowClosed,
-  isHistoryWindowSupported
-} from './history-bridge.js';
-import { initTooltips } from './tooltip.js';
-import { YouTubePlayerController, extractYouTubeId, isYouTubeUrl } from './youtube-player.js';
-import { loadRecent, addRecent, clearRecent, removeRecent, RECENT_LIMIT } from './recent.js';
+  isHistoryWindowSupported,
+} from "./history-bridge.js";
+import { initTooltips } from "./tooltip.js";
+import {
+  YouTubePlayerController,
+  extractYouTubeId,
+  isYouTubeUrl,
+} from "./youtube-player.js";
+import {
+  loadRecent,
+  addRecent,
+  clearRecent,
+  removeRecent,
+  RECENT_LIMIT,
+} from "./recent.js";
 import {
   BUILTIN_THEMES,
   BUILTIN_THEME_NAME_KEYS,
@@ -33,99 +56,102 @@ import {
   deleteCustomTheme,
   createThemeId,
   cloneVarsFromTheme,
-  ensureDerivedVars
-} from './themes.js';
-import { t, setLocale, applyI18n, resolveInitialLocale } from './i18n.js';
-import { createErrorDialogController, mediaErrorDetail } from './error-dialog.js';
-import { isEditableTarget, isModalOpen, isSpaceKey } from './hotkeys.js';
+  ensureDerivedVars,
+} from "./themes.js";
+import { t, setLocale, applyI18n, resolveInitialLocale } from "./i18n.js";
+import {
+  createErrorDialogController,
+  mediaErrorDetail,
+} from "./error-dialog.js";
+import { isEditableTarget, isModalOpen, isSpaceKey } from "./hotkeys.js";
 
 const isElectron = Boolean(window.desktopAPI?.isElectron);
 if (isElectron) {
-  document.documentElement.classList.add('is-electron');
-  document.body.classList.add('is-electron');
+  document.documentElement.classList.add("is-electron");
+  document.body.classList.add("is-electron");
 }
 const $ = (id) => document.getElementById(id);
 
 const els = {
-  media: $('media'),
-  seekBar: $('seekBar'),
-  volumeBar: $('volumeBar'),
-  volumeValue: $('volumeValue'),
-  timeCurrent: $('timeCurrent'),
-  timeDuration: $('timeDuration'),
-  btnPlay: $('btnPlay'),
-  dropHint: $('dropHint'),
-  stage: $('stage'),
-  subtitleOverlay: $('subtitleOverlay'),
-  playbackOverlay: $('playbackOverlay'),
-  playbackOverlayLabel: $('playbackOverlayLabel'),
-  videoWrap: $('videoWrap'),
-  youtubeContainer: $('youtubeContainer'),
-  settingsModal: $('settingsModal'),
-  aboutModal: $('aboutModal'),
-  youtubeModal: $('youtubeModal'),
-  youtubeUrlInput: $('youtubeUrlInput'),
-  youtubeError: $('youtubeError'),
-  progressModal: $('progressModal'),
-  progressTitle: $('progressTitle'),
-  progressName: $('progressName'),
-  progressTrack: $('progressTrack'),
-  progressFill: $('progressFill'),
-  progressValue: $('progressValue'),
-  progressDetail: $('progressDetail'),
-  progressMeta: $('progressMeta'),
-  progressSaved: $('progressSaved'),
-  progressSavedName: $('progressSavedName'),
-  progressSavedPath: $('progressSavedPath'),
-  progressSavedSize: $('progressSavedSize'),
-  progressSavedSizeRow: $('progressSavedSizeRow'),
-  progressSavedElapsed: $('progressSavedElapsed'),
-  progressSavedElapsedRow: $('progressSavedElapsedRow'),
-  btnProgressCancel: $('btnProgressCancel'),
-  btnProgressClose: $('btnProgressClose'),
-  statusFile: $('statusFile'),
-  statusFormat: $('statusFormat'),
-  statusSubtitle: $('statusSubtitle'),
-  statusState: $('statusState'),
-  statusRate: $('statusRate'),
-  statusTheme: $('statusTheme'),
-  statusPlatform: $('statusPlatform'),
-  webMediaInput: $('webMediaInput'),
-  webSubInput: $('webSubInput'),
-  btnSaveYt: $('btnSaveYt'),
-  stageContextMenu: $('stageContextMenu'),
-  ctxSaveMedia: $('ctxSaveMedia'),
-  ctxSaveMediaLabel: $('ctxSaveMediaLabel'),
-  ctxPlayPause: $('ctxPlayPause'),
-  ctxPlayPauseLabel: $('ctxPlayPauseLabel'),
-  ctxMute: $('ctxMute'),
-  ctxMuteLabel: $('ctxMuteLabel'),
-  rateSelect: $('rateSelect'),
-  btnRecent: $('btnRecent'),
-  recentMenu: $('recentMenu'),
-  recentList: $('recentList'),
-  btnClearRecent: $('btnClearRecent'),
-  btnHistory: $('btnHistory'),
-  btnLocale: $('btnLocale'),
-  localeBtnLabel: $('localeBtnLabel'),
-  btnTheme: $('btnTheme'),
-  themeMenu: $('themeMenu'),
-  themeList: $('themeList'),
-  btnToolbarEditTheme: $('btnToolbarEditTheme'),
-  btnFit: $('btnFit'),
-  fitMenu: $('fitMenu'),
-  fitList: $('fitList'),
-  btnCompact: $('btnCompact'),
-  appRoot: document.getElementById('app'),
-  controlBar: $('controlBar'),
-  statusBar: $('statusBar'),
-  errorModal: $('errorModal'),
-  errorTitle: $('errorTitle'),
-  errorMessage: $('errorMessage'),
-  errorDetail: $('errorDetail'),
-  errorCopied: $('errorCopied'),
-  btnCopyError: $('btnCopyError'),
-  btnCloseError: $('btnCloseError')
+  media: $("media"),
+  seekBar: $("seekBar"),
+  volumeBar: $("volumeBar"),
+  volumeValue: $("volumeValue"),
+  timeCurrent: $("timeCurrent"),
+  timeDuration: $("timeDuration"),
+  btnPlay: $("btnPlay"),
+  dropHint: $("dropHint"),
+  stage: $("stage"),
+  subtitleOverlay: $("subtitleOverlay"),
+  playbackOverlay: $("playbackOverlay"),
+  playbackOverlayLabel: $("playbackOverlayLabel"),
+  videoWrap: $("videoWrap"),
+  youtubeContainer: $("youtubeContainer"),
+  settingsModal: $("settingsModal"),
+  aboutModal: $("aboutModal"),
+  youtubeModal: $("youtubeModal"),
+  youtubeUrlInput: $("youtubeUrlInput"),
+  youtubeError: $("youtubeError"),
+  progressModal: $("progressModal"),
+  progressTitle: $("progressTitle"),
+  progressName: $("progressName"),
+  progressTrack: $("progressTrack"),
+  progressFill: $("progressFill"),
+  progressValue: $("progressValue"),
+  progressDetail: $("progressDetail"),
+  progressMeta: $("progressMeta"),
+  progressSaved: $("progressSaved"),
+  progressSavedName: $("progressSavedName"),
+  progressSavedPath: $("progressSavedPath"),
+  progressSavedSize: $("progressSavedSize"),
+  progressSavedSizeRow: $("progressSavedSizeRow"),
+  progressSavedElapsed: $("progressSavedElapsed"),
+  progressSavedElapsedRow: $("progressSavedElapsedRow"),
+  btnProgressCancel: $("btnProgressCancel"),
+  btnProgressClose: $("btnProgressClose"),
+  statusFile: $("statusFile"),
+  statusFormat: $("statusFormat"),
+  statusSubtitle: $("statusSubtitle"),
+  statusState: $("statusState"),
+  statusRate: $("statusRate"),
+  statusTheme: $("statusTheme"),
+  statusPlatform: $("statusPlatform"),
+  webMediaInput: $("webMediaInput"),
+  webSubInput: $("webSubInput"),
+  btnSaveYt: $("btnSaveYt"),
+  stageContextMenu: $("stageContextMenu"),
+  ctxSaveMedia: $("ctxSaveMedia"),
+  ctxSaveMediaLabel: $("ctxSaveMediaLabel"),
+  ctxPlayPause: $("ctxPlayPause"),
+  ctxPlayPauseLabel: $("ctxPlayPauseLabel"),
+  ctxMute: $("ctxMute"),
+  ctxMuteLabel: $("ctxMuteLabel"),
+  rateSelect: $("rateSelect"),
+  btnRecent: $("btnRecent"),
+  recentMenu: $("recentMenu"),
+  recentList: $("recentList"),
+  btnClearRecent: $("btnClearRecent"),
+  btnHistory: $("btnHistory"),
+  btnLocale: $("btnLocale"),
+  localeBtnLabel: $("localeBtnLabel"),
+  btnTheme: $("btnTheme"),
+  themeMenu: $("themeMenu"),
+  themeList: $("themeList"),
+  btnToolbarEditTheme: $("btnToolbarEditTheme"),
+  btnFit: $("btnFit"),
+  fitMenu: $("fitMenu"),
+  fitList: $("fitList"),
+  btnCompact: $("btnCompact"),
+  appRoot: document.getElementById("app"),
+  controlBar: $("controlBar"),
+  statusBar: $("statusBar"),
+  errorModal: $("errorModal"),
+  errorTitle: $("errorTitle"),
+  errorMessage: $("errorMessage"),
+  errorDetail: $("errorDetail"),
+  errorCopied: $("errorCopied"),
+  btnCopyError: $("btnCopyError"),
+  btnCloseError: $("btnCloseError"),
 };
 
 const errorDialog = createErrorDialogController({
@@ -136,24 +162,24 @@ const errorDialog = createErrorDialogController({
   copyBtn: els.btnCopyError,
   closeBtn: els.btnCloseError,
   copiedEl: els.errorCopied,
-  t
+  t,
 });
 
 function showAppError({
   title,
   message,
-  detail = '',
+  detail = "",
   error = null,
   context = {},
-  statusMessage = null
+  statusMessage = null,
 } = {}) {
-  const summary = message || t('errorDefaultMessage');
+  const summary = message || t("errorDefaultMessage");
   errorDialog.show({
-    title: title || t('errorDefaultTitle'),
+    title: title || t("errorDefaultTitle"),
     message: summary,
     detail,
     error,
-    context
+    context,
   });
   setStatus({ state: statusMessage || summary });
 }
@@ -174,10 +200,11 @@ let seekWatchdog = 0;
 let appInfo = null;
 let youtubeMode = false;
 let currentYouTube = null; // { id, url, title }
+let currentRemote = null; // { url, title, service, tempPath }
 /** @type {string|null} */
 let currentRtspUrl = null;
 let rtspRecording = false;
-/** @type {'youtube' | 'rtsp' | 'open-youtube' | 'open-rtsp' | null} */
+/** @type {'youtube' | 'remote' | 'rtsp' | 'open-youtube' | 'open-remote' | 'open-rtsp' | null} */
 let saveProgressMode = null;
 let saveProgressCloseTimer = 0;
 /** Abort flag for in-flight YouTube/RTSP open. */
@@ -202,36 +229,38 @@ function getSpectrumThemePayload() {
   const def = getThemeDefinition(settings.theme);
   const vars = ensureDerivedVars(cloneVarsFromTheme(settings.theme));
   return {
-    themeId: def.builtin ? def.id : 'custom',
-    scheme: def.scheme === 'light' ? 'light' : 'dark',
-    vars
+    themeId: def.builtin ? def.id : "custom",
+    scheme: def.scheme === "light" ? "light" : "dark",
+    vars,
   };
 }
 
 function getSpectrumInitPayload() {
   return {
-    locale: settings.locale === 'ko' ? 'ko' : 'en',
+    locale: settings.locale === "ko" ? "ko" : "en",
     style: normalizeSpectrumStyle(settings.spectrumStyle),
     theme: getSpectrumThemePayload(),
     opacity: clampWindowOpacity(settings.spectrumOpacity),
-    compact: Boolean(settings.compactMode)
+    compact: Boolean(settings.compactMode),
   };
 }
 
 function pushSpectrumFrame(bins) {
   if (!spectrumWindowOpen || !settings.showSpectrum) return;
   // Structured-clone friendly copy for IPC / BroadcastChannel.
-  postSpectrumMessage({ type: 'frame', bins: Array.from(bins) });
+  postSpectrumMessage({ type: "frame", bins: Array.from(bins) });
 }
 
-const spectrum = new SpectrumAnalyzer(els.media, { onFrame: pushSpectrumFrame });
+const spectrum = new SpectrumAnalyzer(els.media, {
+  onFrame: pushSpectrumFrame,
+});
 
 async function openSpectrumPopup() {
   if (!isSpectrumWindowSupported()) return false;
   const ok = await openSpectrumWindow(getSpectrumInitPayload());
   if (!ok) return false;
   spectrumWindowOpen = true;
-  postSpectrumMessage({ type: 'sync', ...getSpectrumInitPayload() });
+  postSpectrumMessage({ type: "sync", ...getSpectrumInitPayload() });
   return true;
 }
 
@@ -243,35 +272,35 @@ async function closeSpectrumPopup({ updateSetting = false } = {}) {
   if (updateSetting && settings.showSpectrum) {
     settings.showSpectrum = false;
     saveSettings(settings);
-    $('btnSpectrum')?.setAttribute('aria-pressed', 'false');
-    if ($('settingShowSpectrum')) $('settingShowSpectrum').checked = false;
+    $("btnSpectrum")?.setAttribute("aria-pressed", "false");
+    if ($("settingShowSpectrum")) $("settingShowSpectrum").checked = false;
   }
 }
 
 function bindSpectrumWindowBridge() {
   onSpectrumWindowEvent((msg) => {
     if (!msg) return;
-    if (msg.type === 'closed') {
+    if (msg.type === "closed") {
       spectrumWindowOpen = false;
       markSpectrumWindowClosed();
       spectrum.stop();
       if (settings.showSpectrum) {
         settings.showSpectrum = false;
         saveSettings(settings);
-        $('btnSpectrum')?.setAttribute('aria-pressed', 'false');
-        if ($('settingShowSpectrum')) $('settingShowSpectrum').checked = false;
+        $("btnSpectrum")?.setAttribute("aria-pressed", "false");
+        if ($("settingShowSpectrum")) $("settingShowSpectrum").checked = false;
       }
       return;
     }
-    if (msg.type === 'ready') {
-      postSpectrumMessage({ type: 'sync', ...getSpectrumInitPayload() });
+    if (msg.type === "ready") {
+      postSpectrumMessage({ type: "sync", ...getSpectrumInitPayload() });
       return;
     }
-    if (msg.type === 'style' && msg.style) {
+    if (msg.type === "style" && msg.style) {
       applySpectrumStyle(msg.style, { persist: true, fromWindow: true });
       return;
     }
-    if (msg.type === 'opacity' && msg.opacity != null) {
+    if (msg.type === "opacity" && msg.opacity != null) {
       void applySpectrumOpacity(msg.opacity, { persist: true });
     }
   });
@@ -279,17 +308,17 @@ function bindSpectrumWindowBridge() {
 
 function getHistoryInitPayload() {
   return {
-    locale: getLocaleSafe() === 'ko' ? 'ko' : 'en',
+    locale: getLocaleSafe() === "ko" ? "ko" : "en",
     theme: getSpectrumThemePayload(),
     opacity: clampWindowOpacity(settings.historyOpacity),
     compact: Boolean(settings.compactMode),
-    items: loadRecent()
+    items: loadRecent(),
   };
 }
 
 function syncHistoryWindowItems() {
   if (!historyWindowOpen) return;
-  postHistoryMessage({ type: 'items', items: loadRecent() });
+  postHistoryMessage({ type: "items", items: loadRecent() });
 }
 
 async function openHistoryPopup() {
@@ -297,16 +326,16 @@ async function openHistoryPopup() {
   const ok = await openHistoryWindow(getHistoryInitPayload());
   if (!ok) return false;
   historyWindowOpen = true;
-  els.btnHistory?.setAttribute('aria-pressed', 'true');
-  els.btnHistory?.classList.add('is-active');
-  postHistoryMessage({ type: 'sync', ...getHistoryInitPayload() });
+  els.btnHistory?.setAttribute("aria-pressed", "true");
+  els.btnHistory?.classList.add("is-active");
+  postHistoryMessage({ type: "sync", ...getHistoryInitPayload() });
   return true;
 }
 
 async function closeHistoryPopup({ updateSetting = true } = {}) {
   historyWindowOpen = false;
-  els.btnHistory?.setAttribute('aria-pressed', 'false');
-  els.btnHistory?.classList.remove('is-active');
+  els.btnHistory?.setAttribute("aria-pressed", "false");
+  els.btnHistory?.classList.remove("is-active");
   await closeHistoryWindow();
   markHistoryWindowClosed();
   if (updateSetting && settings.showHistoryPanel) {
@@ -341,39 +370,39 @@ function toggleHistoryWindow() {
 function bindHistoryWindowBridge() {
   onHistoryWindowEvent((msg) => {
     if (!msg) return;
-    if (msg.type === 'closed') {
+    if (msg.type === "closed") {
       historyWindowOpen = false;
       markHistoryWindowClosed();
-      els.btnHistory?.setAttribute('aria-pressed', 'false');
-      els.btnHistory?.classList.remove('is-active');
+      els.btnHistory?.setAttribute("aria-pressed", "false");
+      els.btnHistory?.classList.remove("is-active");
       if (settings.showHistoryPanel) {
         settings.showHistoryPanel = false;
         saveSettings(settings);
       }
       return;
     }
-    if (msg.type === 'ready') {
-      postHistoryMessage({ type: 'sync', ...getHistoryInitPayload() });
+    if (msg.type === "ready") {
+      postHistoryMessage({ type: "sync", ...getHistoryInitPayload() });
       return;
     }
-    if (msg.type === 'play' && msg.id) {
+    if (msg.type === "play" && msg.id) {
       const item = loadRecent().find((r) => r.id === msg.id);
       if (item) void playRecentItem(item);
       return;
     }
-    if (msg.type === 'remove' && msg.id) {
+    if (msg.type === "remove" && msg.id) {
       removeRecent(msg.id);
       renderPlayHistory();
-      setStatus({ state: statusKey('statusRecentRemoved') });
+      setStatus({ state: statusKey("statusRecentRemoved") });
       return;
     }
-    if (msg.type === 'clear') {
+    if (msg.type === "clear") {
       clearRecent();
       renderPlayHistory();
-      setStatus({ state: statusKey('statusRecentCleared') });
+      setStatus({ state: statusKey("statusRecentCleared") });
       return;
     }
-    if (msg.type === 'opacity' && msg.opacity != null) {
+    if (msg.type === "opacity" && msg.opacity != null) {
       void applyHistoryOpacity(msg.opacity, { persist: true });
     }
   });
@@ -387,30 +416,30 @@ function clearOverlayTimer() {
 }
 
 const OVERLAY_ICON_MAP = {
-  play: '.ov-play',
-  paused: '.ov-pause',
-  stopped: '.ov-stop'
+  play: ".ov-play",
+  paused: ".ov-pause",
+  stopped: ".ov-stop",
 };
 
 function setOverlayIcon(card, mode) {
-  const icons = card.querySelectorAll('.playback-overlay-icon svg');
-  icons.forEach((svg) => svg.classList.remove('is-on'));
+  const icons = card.querySelectorAll(".playback-overlay-icon svg");
+  icons.forEach((svg) => svg.classList.remove("is-on"));
   const sel = OVERLAY_ICON_MAP[mode] || OVERLAY_ICON_MAP.play;
-  card.querySelector(sel)?.classList.add('is-on');
+  card.querySelector(sel)?.classList.add("is-on");
 }
 
 function showPlaybackOverlay(mode, { hold = false, label } = {}) {
   const root = els.playbackOverlay;
-  const card = root?.querySelector('.playback-overlay-card');
+  const card = root?.querySelector(".playback-overlay-card");
   if (!root || !card) return;
 
   clearOverlayTimer();
   holdOverlayMode = null;
 
   const labels = {
-    play: t('overlayPlay'),
-    paused: t('overlayPaused'),
-    stopped: t('overlayStopped')
+    play: t("overlayPlay"),
+    paused: t("overlayPaused"),
+    stopped: t("overlayStopped"),
   };
 
   // Exclusive mode + single glyph (prevents pause+play icons stacking).
@@ -419,16 +448,16 @@ function showPlaybackOverlay(mode, { hold = false, label } = {}) {
   els.playbackOverlayLabel.textContent = label || labels[mode] || mode;
 
   root.hidden = false;
-  root.classList.remove('dimmed');
-  root.classList.add('visible');
+  root.classList.remove("dimmed");
+  root.classList.add("visible");
 
   // restart pop animation on the card only
-  card.style.animation = 'none';
+  card.style.animation = "none";
   void card.offsetHeight;
-  card.style.animation = '';
+  card.style.animation = "";
 
   if (hold) {
-    holdOverlayMode = mode === 'play' ? null : mode;
+    holdOverlayMode = mode === "play" ? null : mode;
     return;
   }
 
@@ -442,12 +471,12 @@ function hidePlaybackOverlay(force = false) {
   clearOverlayTimer();
   holdOverlayMode = null;
   const root = els.playbackOverlay;
-  const card = root?.querySelector('.playback-overlay-card');
+  const card = root?.querySelector(".playback-overlay-card");
   if (!root) return;
-  root.classList.remove('visible', 'dimmed');
+  root.classList.remove("visible", "dimmed");
   if (card) {
-    card.querySelectorAll('.playback-overlay-icon svg').forEach((svg) => {
-      svg.classList.remove('is-on');
+    card.querySelectorAll(".playback-overlay-icon svg").forEach((svg) => {
+      svg.classList.remove("is-on");
     });
   }
   overlayTimer = window.setTimeout(() => {
@@ -457,7 +486,7 @@ function hidePlaybackOverlay(force = false) {
 }
 
 /** Coalesce overlay flashes so pause→play never stacks two glyphs. */
-let lastOverlayNotify = { mode: '', at: 0 };
+let lastOverlayNotify = { mode: "", at: 0 };
 let overlaySeq = 0;
 
 function notifyOverlayOnce(mode, options) {
@@ -477,66 +506,69 @@ function notifyOverlayOnce(mode, options) {
 function notifyPlaying() {
   stopRequested = false;
   holdOverlayMode = null;
-  notifyOverlayOnce('play', { hold: false });
+  notifyOverlayOnce("play", { hold: false });
   onChromePlaybackStarted();
 }
 
 function notifyPaused() {
   if (stopRequested) return;
   // Keep pause icon visible until play / stop / new media.
-  notifyOverlayOnce('paused', { hold: true });
+  notifyOverlayOnce("paused", { hold: true });
   onChromePlaybackPaused();
 }
 
 function notifyStopped() {
   stopRequested = true;
   holdOverlayMode = null;
-  notifyOverlayOnce('stopped', { hold: false, label: t('overlayStopped') });
+  notifyOverlayOnce("stopped", { hold: false, label: t("overlayStopped") });
 }
 
 const ytPlayer = new YouTubePlayerController(els.youtubeContainer, {
   onReady: (ctrl) => {
     setStatus({
-      file: ctrl.title || currentYouTube?.title || currentYouTube?.id || 'YouTube',
-      format: 'YouTube',
-      state: settings.autoplay ? statusKey('statusPlaying') : statusKey('statusReady'),
-      subtitle: statusKey('statusYtCaptions')
+      file:
+        ctrl.title || currentYouTube?.title || currentYouTube?.id || "YouTube",
+      format: "YouTube",
+      state: settings.autoplay
+        ? statusKey("statusPlaying")
+        : statusKey("statusReady"),
+      subtitle: statusKey("statusYtCaptions"),
     });
     if (currentYouTube) {
       currentYouTube.title = ctrl.title || currentYouTube.title;
       rememberRecentYouTube({
         id: currentYouTube.id,
         url: currentYouTube.url,
-        title: currentYouTube.title
+        title: currentYouTube.title,
       });
     }
     updateSaveButton();
     if (settings.autoplay) notifyPlaying();
   },
   onStateChange: (state) => {
-    if (state === 'playing') {
+    if (state === "playing") {
       updatePlayIcons(true);
-      setStatus({ state: statusKey('statusPlaying') });
+      setStatus({ state: statusKey("statusPlaying") });
       notifyPlaying();
-    } else if (state === 'paused') {
+    } else if (state === "paused") {
       updatePlayIcons(false);
       if (stopRequested) {
         // stopPlayback() already showed the stopped overlay — only sync status.
-        setStatus({ state: statusKey('statusStopped') });
+        setStatus({ state: statusKey("statusStopped") });
       } else {
-        setStatus({ state: statusKey('statusPaused') });
+        setStatus({ state: statusKey("statusPaused") });
         notifyPaused();
       }
-    } else if (state === 'ended') {
+    } else if (state === "ended") {
       updatePlayIcons(false);
-      setStatus({ state: statusKey('statusEnded') });
-      notifyOverlayOnce('stopped', { hold: false, label: t('overlayEnded') });
-    } else if (state === 'buffering') {
-      setStatus({ state: statusKey('statusBuffering') });
-    } else if (state === 'cued' || state === 'unstarted') {
+      setStatus({ state: statusKey("statusEnded") });
+      notifyOverlayOnce("stopped", { hold: false, label: t("overlayEnded") });
+    } else if (state === "buffering") {
+      setStatus({ state: statusKey("statusBuffering") });
+    } else if (state === "cued" || state === "unstarted") {
       if (stopRequested) {
         updatePlayIcons(false);
-        setStatus({ state: statusKey('statusStopped') });
+        setStatus({ state: statusKey("statusStopped") });
         // Overlay already shown by stopPlayback(); skip duplicate.
       }
     }
@@ -544,14 +576,14 @@ const ytPlayer = new YouTubePlayerController(els.youtubeContainer, {
   onError: (message) => {
     ytErrorDialogShown = true;
     showAppError({
-      title: t('errorYoutubeTitle'),
+      title: t("errorYoutubeTitle"),
       message,
-      detail: String(message || ''),
+      detail: String(message || ""),
       context: {
-        mode: 'youtube',
-        videoId: currentYouTube?.id || '',
-        url: currentYouTube?.url || ''
-      }
+        mode: "youtube",
+        videoId: currentYouTube?.id || "",
+        url: currentYouTube?.url || "",
+      },
     });
   },
   onTime: (current, duration) => {
@@ -562,47 +594,54 @@ const ytPlayer = new YouTubePlayerController(els.youtubeContainer, {
       els.seekBar.value = String(Math.round((current / duration) * 1000));
       syncSeekBarFill();
     }
-  }
+  },
 });
 
 function updateSaveButton() {
   const canSave = Boolean(
     isElectron &&
-      ((youtubeMode && currentYouTube?.url) || currentRtspUrl || rtspRecording)
+    ((youtubeMode && currentYouTube?.url) ||
+      currentRemote?.url ||
+      currentRtspUrl ||
+      rtspRecording),
   );
   els.btnSaveYt.disabled = !canSave;
   if (els.btnSaveYt) {
-    els.btnSaveYt.setAttribute(
-      'data-tooltip',
-      rtspRecording ? t('rtspStopRecordTip') : currentRtspUrl ? t('rtspSaveTip') : t('saveYtTip')
-    );
-    els.btnSaveYt.classList.toggle('is-recording', rtspRecording);
+    const tip = rtspRecording
+      ? t("rtspStopRecordTip")
+      : currentRtspUrl
+        ? t("rtspSaveTip")
+        : currentRemote?.url
+          ? t("saveRemoteTip")
+          : t("saveYtTip");
+    els.btnSaveYt.setAttribute("data-tooltip", tip);
+    els.btnSaveYt.classList.toggle("is-recording", rtspRecording);
   }
 }
 
 function formatRecentTime(ts) {
   try {
     return new Date(ts).toLocaleString(undefined, {
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit'
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   } catch {
-    return '';
+    return "";
   }
 }
 
 function rememberRecentFile({ path: filePath, name, title, ext, size }) {
   if (!filePath) return;
   addRecent({
-    type: 'file',
+    type: "file",
     id: `file:${filePath}`,
     path: filePath,
     name: name || filePath,
     title: title || name || filePath,
-    ext: ext || '',
-    size
+    ext: ext || "",
+    size,
   });
   renderPlayHistory();
 }
@@ -610,17 +649,49 @@ function rememberRecentFile({ path: filePath, name, title, ext, size }) {
 function rememberRecentYouTube({ id, url, title }) {
   if (!id || !url) return;
   addRecent({
-    type: 'youtube',
+    type: "youtube",
     id: `youtube:${id}`,
     url,
     name: title || id,
-    title: title || id
+    title: title || id,
   });
   renderPlayHistory();
 }
 
+function remoteDisplayName(url, service = "") {
+  try {
+    const u = new URL(url);
+    const host = u.host || url;
+    if (service === "instagram") return `Instagram - ${host}`;
+    if (service === "tiktok") return `TikTok - ${host}`;
+    return host;
+  } catch {
+    return url;
+  }
+}
+
 function isRtspUrl(input) {
-  return /^rtsps?:\/\//i.test(String(input || '').trim());
+  return /^rtsps?:\/\//i.test(String(input || "").trim());
+}
+
+function detectRemoteService(input) {
+  const text = String(input || "").trim();
+  if (/instagram\.com/i.test(text)) return "instagram";
+  if (/tiktok\.com/i.test(text) || /vt\.tiktok\.com/i.test(text))
+    return "tiktok";
+  return "remote";
+}
+
+function isSupportedRemoteUrl(input) {
+  const text = String(input || "").trim();
+  if (!/^https?:\/\//i.test(text)) return false;
+  if (isYouTubeUrl(text)) return false;
+  try {
+    const u = new URL(text);
+    return u.protocol === "http:" || u.protocol === "https:";
+  } catch {
+    return false;
+  }
 }
 
 function rtspDisplayName(url) {
@@ -635,11 +706,24 @@ function rtspDisplayName(url) {
 function rememberRecentRtsp({ url, title }) {
   if (!url) return;
   addRecent({
-    type: 'rtsp',
+    type: "rtsp",
     id: `rtsp:${url}`,
     url,
     name: title || rtspDisplayName(url),
-    title: title || rtspDisplayName(url)
+    title: title || rtspDisplayName(url),
+  });
+  renderPlayHistory();
+}
+
+function rememberRecentRemote({ url, title, service }) {
+  if (!url) return;
+  addRecent({
+    type: "remote",
+    id: `remote:${url}`,
+    url,
+    service: service || detectRemoteService(url),
+    name: title || remoteDisplayName(url, service),
+    title: title || remoteDisplayName(url, service),
   });
   renderPlayHistory();
 }
@@ -680,8 +764,8 @@ async function stopRtspBridge({ finalizeRecord = false } = {}) {
     const recorded = await finalizeRtspRecordIfAny();
     if (recorded?.ok && recorded.path) {
       setStatus({
-        state: statusKey('statusRtspRecordSaved'),
-        file: recorded.path
+        state: statusKey("statusRtspRecordSaved"),
+        file: recorded.path,
       });
     }
   }
@@ -705,53 +789,68 @@ function renderRecentMenu() {
   const items = loadRecent();
   const list = els.recentList;
   if (!list || !els.recentMenu) return;
-  list.innerHTML = '';
-  els.recentMenu.classList.toggle('is-empty', items.length === 0);
+  list.innerHTML = "";
+  els.recentMenu.classList.toggle("is-empty", items.length === 0);
   els.btnRecent?.setAttribute(
-    'data-tooltip',
+    "data-tooltip",
     items.length
-      ? t('recentCount', { n: items.length, max: RECENT_LIMIT })
-      : t('recentEmptyTip')
+      ? t("recentCount", { n: items.length, max: RECENT_LIMIT })
+      : t("recentEmptyTip"),
   );
 
   for (const item of items) {
-    const li = document.createElement('li');
-    li.className = 'recent-row';
+    const li = document.createElement("li");
+    li.className = "recent-row";
 
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'recent-item';
-    btn.setAttribute('role', 'menuitem');
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "recent-item";
+    btn.setAttribute("role", "menuitem");
     btn.dataset.id = item.id;
-    btn.title = item.type === 'file' ? (item.path || item.title) : (item.url || item.title);
+    btn.title =
+      item.type === "file" ? item.path || item.title : item.url || item.title;
     const badgeClass =
-      item.type === 'youtube' ? 'yt' : item.type === 'rtsp' ? 'rtsp' : 'file';
+      item.type === "youtube"
+        ? "yt"
+        : item.type === "rtsp"
+          ? "rtsp"
+          : item.type === "remote"
+            ? "yt"
+            : "file";
     const badgeLabel =
-      item.type === 'youtube' ? 'YT' : item.type === 'rtsp' ? 'RTSP' : 'FILE';
+      item.type === "youtube"
+        ? "YT"
+        : item.type === "rtsp"
+          ? "RTSP"
+          : item.type === "remote"
+            ? "URL"
+            : "FILE";
     btn.innerHTML = `
       <span class="recent-badge ${badgeClass}">${badgeLabel}</span>
       <span class="recent-title"></span>
       <span class="recent-meta"></span>
     `;
-    btn.querySelector('.recent-title').textContent = item.title || item.name;
-    btn.querySelector('.recent-meta').textContent = formatRecentTime(item.playedAt);
-    btn.addEventListener('click', () => {
+    btn.querySelector(".recent-title").textContent = item.title || item.name;
+    btn.querySelector(".recent-meta").textContent = formatRecentTime(
+      item.playedAt,
+    );
+    btn.addEventListener("click", () => {
       closeRecentMenu();
       playRecentItem(item);
     });
 
-    const del = document.createElement('button');
-    del.type = 'button';
-    del.className = 'recent-delete';
-    del.title = t('recentDelete');
-    del.setAttribute('aria-label', t('recentDelete'));
-    del.textContent = '✕';
-    del.addEventListener('click', (e) => {
+    const del = document.createElement("button");
+    del.type = "button";
+    del.className = "recent-delete";
+    del.title = t("recentDelete");
+    del.setAttribute("aria-label", t("recentDelete"));
+    del.textContent = "✕";
+    del.addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
       removeRecent(item.id);
       renderPlayHistory();
-      setStatus({ state: statusKey('statusRecentRemoved') });
+      setStatus({ state: statusKey("statusRecentRemoved") });
     });
 
     li.appendChild(btn);
@@ -761,17 +860,17 @@ function renderRecentMenu() {
 }
 
 function openRecentMenu() {
-  closeToolbarMenus({ except: 'recent' });
+  closeToolbarMenus({ except: "recent" });
   renderRecentMenu();
   syncThemeToOverlays();
   els.recentMenu.hidden = false;
-  els.btnRecent.setAttribute('aria-expanded', 'true');
+  els.btnRecent.setAttribute("aria-expanded", "true");
 }
 
 function closeRecentMenu() {
   if (!els.recentMenu) return;
   els.recentMenu.hidden = true;
-  els.btnRecent?.setAttribute('aria-expanded', 'false');
+  els.btnRecent?.setAttribute("aria-expanded", "false");
 }
 
 function toggleRecentMenu() {
@@ -780,9 +879,9 @@ function toggleRecentMenu() {
 }
 
 function closeToolbarMenus({ except = null } = {}) {
-  if (except !== 'recent') closeRecentMenu();
-  if (except !== 'theme') closeThemeMenu();
-  if (except !== 'fit') closeFitMenu();
+  if (except !== "recent") closeRecentMenu();
+  if (except !== "theme") closeThemeMenu();
+  if (except !== "fit") closeFitMenu();
   closeStageContextMenu();
 }
 
@@ -798,33 +897,57 @@ function openStageContextMenu(clientX, clientY) {
 
   closeToolbarMenus();
 
-  const scheme = document.documentElement.getAttribute('data-color-scheme') || 'dark';
-  menu.setAttribute('data-color-scheme', scheme);
+  const scheme =
+    document.documentElement.getAttribute("data-color-scheme") || "dark";
+  menu.setAttribute("data-color-scheme", scheme);
 
   const canSave = Boolean(
     isElectron &&
-      ((youtubeMode && currentYouTube?.url) || currentRtspUrl || rtspRecording)
+    ((youtubeMode && currentYouTube?.url) ||
+      currentRemote?.url ||
+      currentRtspUrl ||
+      rtspRecording),
   );
   if (els.ctxSaveMedia) {
     els.ctxSaveMedia.disabled = !canSave;
-    if (els.ctxSaveMediaLabel) els.ctxSaveMediaLabel.textContent = t('save');
+    if (els.ctxSaveMediaLabel) els.ctxSaveMediaLabel.textContent = t("save");
   }
-  const playing = youtubeMode ? ytPlayer.isPlaying() : !els.media.paused && !els.media.ended;
-  if (els.ctxPlayPauseLabel) els.ctxPlayPauseLabel.textContent = t(playing ? 'pause' : 'play');
-  els.ctxPlayPause?.querySelector('.ctx-icon-play')?.classList.toggle('hidden', playing);
-  els.ctxPlayPause?.querySelector('.ctx-icon-pause')?.classList.toggle('hidden', !playing);
-  const muted = youtubeMode ? ytPlayer.isMuted() : els.media.muted || Number(els.volumeBar.value) === 0;
-  if (els.ctxMuteLabel) els.ctxMuteLabel.textContent = t(muted ? 'unmute' : 'mute');
-  els.ctxMute?.querySelector('.ctx-icon-volume')?.classList.toggle('hidden', muted);
-  els.ctxMute?.querySelector('.ctx-icon-muted')?.classList.toggle('hidden', !muted);
+  const playing = youtubeMode
+    ? ytPlayer.isPlaying()
+    : !els.media.paused && !els.media.ended;
+  if (els.ctxPlayPauseLabel)
+    els.ctxPlayPauseLabel.textContent = t(playing ? "pause" : "play");
+  els.ctxPlayPause
+    ?.querySelector(".ctx-icon-play")
+    ?.classList.toggle("hidden", playing);
+  els.ctxPlayPause
+    ?.querySelector(".ctx-icon-pause")
+    ?.classList.toggle("hidden", !playing);
+  const muted = youtubeMode
+    ? ytPlayer.isMuted()
+    : els.media.muted || Number(els.volumeBar.value) === 0;
+  if (els.ctxMuteLabel)
+    els.ctxMuteLabel.textContent = t(muted ? "unmute" : "mute");
+  els.ctxMute
+    ?.querySelector(".ctx-icon-volume")
+    ?.classList.toggle("hidden", muted);
+  els.ctxMute
+    ?.querySelector(".ctx-icon-muted")
+    ?.classList.toggle("hidden", !muted);
   updateFitMenuSelection();
 
   menu.hidden = false;
   // Measure after show so clamping uses real size.
   const pad = 8;
   const rect = menu.getBoundingClientRect();
-  const left = Math.min(Math.max(pad, clientX), window.innerWidth - rect.width - pad);
-  const top = Math.min(Math.max(pad, clientY), window.innerHeight - rect.height - pad);
+  const left = Math.min(
+    Math.max(pad, clientX),
+    window.innerWidth - rect.width - pad,
+  );
+  const top = Math.min(
+    Math.max(pad, clientY),
+    window.innerHeight - rect.height - pad,
+  );
   menu.style.left = `${left}px`;
   menu.style.top = `${top}px`;
 }
@@ -834,8 +957,12 @@ function bindStageContextMenu() {
   const menu = els.stageContextMenu;
   if (!wrap || !menu) return;
 
-  wrap.addEventListener('contextmenu', (e) => {
-    if (e.target.closest?.('.save-progress-popup, .history-panel, button, a, input, select, textarea')) {
+  wrap.addEventListener("contextmenu", (e) => {
+    if (
+      e.target.closest?.(
+        ".save-progress-popup, .history-panel, button, a, input, select, textarea",
+      )
+    ) {
       return;
     }
     e.preventDefault();
@@ -843,9 +970,9 @@ function bindStageContextMenu() {
     openStageContextMenu(e.clientX, e.clientY);
   });
 
-  menu.addEventListener('click', (e) => {
+  menu.addEventListener("click", (e) => {
     e.stopPropagation();
-    const item = e.target.closest?.('button');
+    const item = e.target.closest?.("button");
     if (!item || item.disabled) return;
     closeStageContextMenu();
     if (item.dataset.fit) {
@@ -856,44 +983,44 @@ function bindStageContextMenu() {
       void saveCurrentMedia();
       return;
     }
-    if (item.dataset.action === 'play-pause') togglePlay();
-    else if (item.dataset.action === 'stop') stopPlayback();
-    else if (item.dataset.action === 'mute') toggleMute();
-    else if (item.dataset.action === 'fullscreen') void toggleFullscreen();
+    if (item.dataset.action === "play-pause") togglePlay();
+    else if (item.dataset.action === "stop") stopPlayback();
+    else if (item.dataset.action === "mute") toggleMute();
+    else if (item.dataset.action === "fullscreen") void toggleFullscreen();
   });
-  menu.addEventListener('contextmenu', (e) => {
+  menu.addEventListener("contextmenu", (e) => {
     e.preventDefault();
     e.stopPropagation();
   });
 
   document.addEventListener(
-    'pointerdown',
+    "pointerdown",
     (e) => {
       if (menu.hidden) return;
       if (menu.contains(e.target)) return;
       closeStageContextMenu();
     },
-    true
+    true,
   );
 }
 
 function fitLabelKey(mode) {
-  if (mode === 'cover') return 'fitCover';
-  if (mode === 'actual') return 'fitActual';
-  return 'fitContain';
+  if (mode === "cover") return "fitCover";
+  if (mode === "actual") return "fitActual";
+  return "fitContain";
 }
 
 function fitStatusKey(mode) {
-  if (mode === 'cover') return 'statusFitCover';
-  if (mode === 'actual') return 'statusFitActual';
-  return 'statusFitContain';
+  if (mode === "cover") return "statusFitCover";
+  if (mode === "actual") return "statusFitActual";
+  return "statusFitContain";
 }
 
 function updateActualMediaSize() {
   if (!els.media) return;
-  if (normalizeVideoFit(settings.videoFit) !== 'actual' || youtubeMode) {
-    els.media.style.width = '';
-    els.media.style.height = '';
+  if (normalizeVideoFit(settings.videoFit) !== "actual" || youtubeMode) {
+    els.media.style.width = "";
+    els.media.style.height = "";
     return;
   }
   const w = els.media.videoWidth;
@@ -906,27 +1033,35 @@ function updateActualMediaSize() {
 
 function updateFitMenuSelection() {
   const current = normalizeVideoFit(settings.videoFit);
-  document.querySelectorAll('#fitList [data-fit], #stageContextMenu [data-fit]').forEach((btn) => {
-    const active = btn.dataset.fit === current;
-    btn.classList.toggle('is-active', active);
-    btn.setAttribute('aria-checked', String(active));
-    const check = btn.querySelector('.popup-item-check');
-    if (check) check.textContent = active ? '✓' : '';
-  });
+  document
+    .querySelectorAll("#fitList [data-fit], #stageContextMenu [data-fit]")
+    .forEach((btn) => {
+      const active = btn.dataset.fit === current;
+      btn.classList.toggle("is-active", active);
+      btn.setAttribute("aria-checked", String(active));
+      const check = btn.querySelector(".popup-item-check");
+      if (check) check.textContent = active ? "✓" : "";
+    });
 }
 
 function updateFitToolbarButton() {
   const current = normalizeVideoFit(settings.videoFit);
   const label = t(fitLabelKey(current));
-  els.btnFit?.setAttribute('data-tooltip', `${t('fitTip')}: ${label}`);
-  els.btnFit?.setAttribute('aria-label', `${t('fit')}: ${label}`);
-  const labelEl = $('fitBtnLabel');
+  els.btnFit?.setAttribute("data-tooltip", `${t("fitTip")}: ${label}`);
+  els.btnFit?.setAttribute("aria-label", `${t("fit")}: ${label}`);
+  const labelEl = $("fitBtnLabel");
   if (labelEl) labelEl.textContent = label;
   const btn = els.btnFit;
   if (btn) {
-    btn.querySelector('.icon-fit-cover')?.classList.toggle('hidden', current !== 'cover');
-    btn.querySelector('.icon-fit-contain')?.classList.toggle('hidden', current !== 'contain');
-    btn.querySelector('.icon-fit-actual')?.classList.toggle('hidden', current !== 'actual');
+    btn
+      .querySelector(".icon-fit-cover")
+      ?.classList.toggle("hidden", current !== "cover");
+    btn
+      .querySelector(".icon-fit-contain")
+      ?.classList.toggle("hidden", current !== "contain");
+    btn
+      .querySelector(".icon-fit-actual")
+      ?.classList.toggle("hidden", current !== "actual");
   }
 }
 
@@ -934,7 +1069,7 @@ function applyVideoFit(mode, { persist = true, announce = false } = {}) {
   const next = normalizeVideoFit(mode);
   settings.videoFit = next;
   if (persist) saveSettings(settings);
-  els.videoWrap?.classList.remove('fit-contain', 'fit-cover', 'fit-actual');
+  els.videoWrap?.classList.remove("fit-contain", "fit-cover", "fit-actual");
   els.videoWrap?.classList.add(`fit-${next}`);
   updateActualMediaSize();
   updateFitMenuSelection();
@@ -943,17 +1078,17 @@ function applyVideoFit(mode, { persist = true, announce = false } = {}) {
 }
 
 function openFitMenu() {
-  closeToolbarMenus({ except: 'fit' });
+  closeToolbarMenus({ except: "fit" });
   updateFitMenuSelection();
   syncThemeToOverlays();
   if (els.fitMenu) els.fitMenu.hidden = false;
-  els.btnFit?.setAttribute('aria-expanded', 'true');
+  els.btnFit?.setAttribute("aria-expanded", "true");
 }
 
 function closeFitMenu() {
   if (!els.fitMenu) return;
   els.fitMenu.hidden = true;
-  els.btnFit?.setAttribute('aria-expanded', 'false');
+  els.btnFit?.setAttribute("aria-expanded", "false");
 }
 
 function toggleFitMenu() {
@@ -964,10 +1099,13 @@ function toggleFitMenu() {
 function updateLocaleToolbarButton() {
   const locale = getLocaleSafe();
   // Show the language you can switch to (not the current one).
-  const nextLabel = locale === 'ko' ? 'ENG' : '한글';
+  const nextLabel = locale === "ko" ? "ENG" : "한글";
   if (els.localeBtnLabel) els.localeBtnLabel.textContent = nextLabel;
-  els.btnLocale?.setAttribute('data-tooltip', `${t('languageTip')}: ${nextLabel}`);
-  els.btnLocale?.setAttribute('aria-label', `${t('language')}: ${nextLabel}`);
+  els.btnLocale?.setAttribute(
+    "data-tooltip",
+    `${t("languageTip")}: ${nextLabel}`,
+  );
+  els.btnLocale?.setAttribute("aria-label", `${t("language")}: ${nextLabel}`);
 }
 
 /** Compact chrome floors — buttons / sliders must not collide. */
@@ -983,18 +1121,18 @@ function syncCompactWindowMinSize() {
   if (!settings.compactMode) return;
 
   const measure = () => {
-    const toolbar = document.getElementById('toolbar');
+    const toolbar = document.getElementById("toolbar");
     const control = els.controlBar;
     let neededW = COMPACT_MIN_WIDTH_FLOOR;
 
     if (toolbar) {
-      const left = toolbar.querySelector('.toolbar-left');
-      const right = toolbar.querySelector('.toolbar-right');
-      const caps = document.getElementById('windowControls');
+      const left = toolbar.querySelector(".toolbar-left");
+      const right = toolbar.querySelector(".toolbar-right");
+      const caps = document.getElementById("windowControls");
       const parts = [left, right, caps].filter(Boolean);
       let fixed = 0;
       for (const el of parts) {
-        if (getComputedStyle(el).display === 'none') continue;
+        if (getComputedStyle(el).display === "none") continue;
         fixed += el.getBoundingClientRect().width;
       }
       // Spacer + chrome padding / gaps
@@ -1002,18 +1140,18 @@ function syncCompactWindowMinSize() {
       neededW = Math.max(neededW, Math.ceil(fixed));
     }
 
-    if (control && getComputedStyle(control).display !== 'none') {
+    if (control && getComputedStyle(control).display !== "none") {
       let controlNeed = 0;
       const fixedParts = control.querySelectorAll(
-        '.transport-row > .toolbar-group, .transport-row > .fit-wrap, .transport-row > .volume-group, .transport-row > .toolbar-sep:not([hidden])'
+        ".transport-row > .toolbar-group, .transport-row > .fit-wrap, .transport-row > .volume-group, .transport-row > .toolbar-sep:not([hidden])",
       );
       fixedParts.forEach((el) => {
-        if (getComputedStyle(el).display === 'none') return;
+        if (getComputedStyle(el).display === "none") return;
         controlNeed += el.getBoundingClientRect().width;
       });
-      const seek = control.querySelector('.seek-row');
-      if (seek && getComputedStyle(seek).display !== 'none') {
-        const times = seek.querySelectorAll('.time-label');
+      const seek = control.querySelector(".seek-row");
+      if (seek && getComputedStyle(seek).display !== "none") {
+        const times = seek.querySelectorAll(".time-label");
         let timeW = 0;
         times.forEach((el) => {
           timeW += Math.max(el.getBoundingClientRect().width, 36);
@@ -1026,23 +1164,26 @@ function syncCompactWindowMinSize() {
     }
 
     const minW = Math.max(COMPACT_MIN_WIDTH_FLOOR, Math.min(neededW, 900));
-    void window.desktopAPI.setMinimumSize(minW, COMPACT_MIN_HEIGHT).then(async () => {
-      if (!window.desktopAPI?.getBounds || !window.desktopAPI?.setBounds) return;
-      try {
-        const cur = await window.desktopAPI.getBounds();
-        if (!cur) return;
-        if (cur.width < minW || cur.height < COMPACT_MIN_HEIGHT) {
-          await window.desktopAPI.setBounds({
-            x: cur.x,
-            y: cur.y,
-            width: Math.max(cur.width || 0, minW),
-            height: Math.max(cur.height || 0, COMPACT_MIN_HEIGHT)
-          });
+    void window.desktopAPI
+      .setMinimumSize(minW, COMPACT_MIN_HEIGHT)
+      .then(async () => {
+        if (!window.desktopAPI?.getBounds || !window.desktopAPI?.setBounds)
+          return;
+        try {
+          const cur = await window.desktopAPI.getBounds();
+          if (!cur) return;
+          if (cur.width < minW || cur.height < COMPACT_MIN_HEIGHT) {
+            await window.desktopAPI.setBounds({
+              x: cur.x,
+              y: cur.y,
+              width: Math.max(cur.width || 0, minW),
+              height: Math.max(cur.height || 0, COMPACT_MIN_HEIGHT),
+            });
+          }
+        } catch {
+          /* ignore */
         }
-      } catch {
-        /* ignore */
-      }
-    });
+      });
   };
 
   requestAnimationFrame(() => requestAnimationFrame(measure));
@@ -1057,10 +1198,10 @@ function syncWindowMinWidth() {
     return;
   }
 
-  const toolbar = document.getElementById('toolbar');
-  const left = toolbar?.querySelector('.toolbar-left');
-  const right = toolbar?.querySelector('.toolbar-right');
-  const caps = document.getElementById('windowControls');
+  const toolbar = document.getElementById("toolbar");
+  const left = toolbar?.querySelector(".toolbar-left");
+  const right = toolbar?.querySelector(".toolbar-right");
+  const caps = document.getElementById("windowControls");
   if (!toolbar || !left || !right) return;
 
   const measure = () => {
@@ -1068,7 +1209,7 @@ function syncWindowMinWidth() {
     const spacerMin = 16;
     const safety = 12;
     const capsW =
-      caps && getComputedStyle(caps).display !== 'none'
+      caps && getComputedStyle(caps).display !== "none"
         ? caps.getBoundingClientRect().width
         : 0;
     const needed = Math.ceil(
@@ -1077,7 +1218,7 @@ function syncWindowMinWidth() {
         capsW +
         spacerMin +
         columnGap +
-        safety
+        safety,
     );
     const minW = Math.max(800, Math.min(needed, 1100));
     void window.desktopAPI.setMinimumSize(minW, 420);
@@ -1090,20 +1231,20 @@ function updateCompactButton() {
   const on = Boolean(settings.compactMode);
   const btn = els.btnCompact;
   if (!btn) return;
-  btn.classList.toggle('is-active', on);
-  btn.setAttribute('aria-pressed', String(on));
-  btn.querySelector('.icon-compact-enter')?.classList.toggle('hidden', on);
-  btn.querySelector('.icon-compact-exit')?.classList.toggle('hidden', !on);
+  btn.classList.toggle("is-active", on);
+  btn.setAttribute("aria-pressed", String(on));
+  btn.querySelector(".icon-compact-enter")?.classList.toggle("hidden", on);
+  btn.querySelector(".icon-compact-exit")?.classList.toggle("hidden", !on);
   if (on) {
-    btn.setAttribute('data-tooltip', t('compactExpandTip'));
-    btn.setAttribute('aria-label', t('compactExpand'));
-    btn.setAttribute('data-i18n-tooltip', 'compactExpandTip');
-    btn.setAttribute('data-i18n-aria', 'compactExpand');
+    btn.setAttribute("data-tooltip", t("compactExpandTip"));
+    btn.setAttribute("aria-label", t("compactExpand"));
+    btn.setAttribute("data-i18n-tooltip", "compactExpandTip");
+    btn.setAttribute("data-i18n-aria", "compactExpand");
   } else {
-    btn.setAttribute('data-tooltip', t('compactTip'));
-    btn.setAttribute('aria-label', t('compact'));
-    btn.setAttribute('data-i18n-tooltip', 'compactTip');
-    btn.setAttribute('data-i18n-aria', 'compact');
+    btn.setAttribute("data-tooltip", t("compactTip"));
+    btn.setAttribute("aria-label", t("compact"));
+    btn.setAttribute("data-i18n-tooltip", "compactTip");
+    btn.setAttribute("data-i18n-aria", "compact");
   }
 }
 
@@ -1116,19 +1257,19 @@ function isMediaPlayingNow() {
 }
 
 function setChromeVisibleClass(on) {
-  els.appRoot?.classList.toggle('chrome-visible', on);
-  document.body.classList.toggle('chrome-visible', on);
-  document.documentElement.classList.toggle('chrome-visible', on);
+  els.appRoot?.classList.toggle("chrome-visible", on);
+  document.body.classList.toggle("chrome-visible", on);
+  document.documentElement.classList.toggle("chrome-visible", on);
   // Keep legacy compact class in sync for any remaining selectors.
-  els.appRoot?.classList.toggle('compact-chrome-visible', on);
-  document.body.classList.toggle('compact-chrome-visible', on);
-  document.documentElement.classList.toggle('compact-chrome-visible', on);
+  els.appRoot?.classList.toggle("compact-chrome-visible", on);
+  document.body.classList.toggle("compact-chrome-visible", on);
+  document.documentElement.classList.toggle("compact-chrome-visible", on);
 }
 
 function setChromePinnedClass(on) {
-  els.appRoot?.classList.toggle('chrome-pinned', on);
-  document.body.classList.toggle('chrome-pinned', on);
-  document.documentElement.classList.toggle('chrome-pinned', on);
+  els.appRoot?.classList.toggle("chrome-pinned", on);
+  document.body.classList.toggle("chrome-pinned", on);
+  document.documentElement.classList.toggle("chrome-pinned", on);
 }
 
 function isChromeAutoHideEnabled() {
@@ -1179,16 +1320,16 @@ function hideChromeOverlay({ force = false } = {}) {
     setChromeVisibleClass(true);
     return;
   }
-  const toolbar = $('toolbar');
-  const bottom = $('bottomChrome');
+  const toolbar = $("toolbar");
+  const bottom = $("bottomChrome");
   const control = els.controlBar;
-  if (!force && toolbar?.classList.contains('is-dragging')) return;
+  if (!force && toolbar?.classList.contains("is-dragging")) return;
   if (
     !force &&
-    (toolbar?.matches(':hover, :focus-within') ||
-      bottom?.matches(':hover, :focus-within') ||
-      control?.matches(':hover, :focus-within') ||
-      els.statusBar?.matches(':hover, :focus-within'))
+    (toolbar?.matches(":hover, :focus-within") ||
+      bottom?.matches(":hover, :focus-within") ||
+      control?.matches(":hover, :focus-within") ||
+      els.statusBar?.matches(":hover, :focus-within"))
   ) {
     if (isMediaPlayingNow()) scheduleHideChromeOverlay();
     return;
@@ -1225,7 +1366,7 @@ function onChromePlaybackPaused() {
 }
 
 function bindChromeOverlay() {
-  const chrome = $('chrome');
+  const chrome = $("chrome");
   if (!chrome) return;
 
   const onMove = () => {
@@ -1236,14 +1377,14 @@ function bindChromeOverlay() {
     showChromeOverlay();
   };
 
-  chrome.addEventListener('mousemove', onMove);
-  chrome.addEventListener('mouseenter', onMove);
-  chrome.addEventListener('mouseleave', () => {
+  chrome.addEventListener("mousemove", onMove);
+  chrome.addEventListener("mouseenter", onMove);
+  chrome.addEventListener("mouseleave", () => {
     if (!isChromeAutoHideEnabled()) return;
     if (chromeHideTimer) clearTimeout(chromeHideTimer);
     chromeHideTimer = window.setTimeout(() => {
       chromeHideTimer = 0;
-      if ($('toolbar')?.classList.contains('is-dragging')) return;
+      if ($("toolbar")?.classList.contains("is-dragging")) return;
       if (!isMediaPlayingNow()) return;
       setChromeVisibleClass(false);
     }, 280);
@@ -1254,10 +1395,10 @@ function bindChromeOverlay() {
     if (!isChromeAutoHideEnabled()) return;
     if (isMediaPlayingNow()) scheduleHideChromeOverlay();
   };
-  $('toolbar')?.addEventListener('pointerenter', stickShow);
-  $('toolbar')?.addEventListener('pointerleave', stickHide);
-  $('bottomChrome')?.addEventListener('pointerenter', stickShow);
-  $('bottomChrome')?.addEventListener('pointerleave', stickHide);
+  $("toolbar")?.addEventListener("pointerenter", stickShow);
+  $("toolbar")?.addEventListener("pointerleave", stickHide);
+  $("bottomChrome")?.addEventListener("pointerenter", stickShow);
+  $("bottomChrome")?.addEventListener("pointerleave", stickHide);
 }
 
 async function setCompactMode(next, { persist = true, announce = false } = {}) {
@@ -1266,9 +1407,9 @@ async function setCompactMode(next, { persist = true, announce = false } = {}) {
   settings.compactMode = on;
   if (persist) saveSettings(settings);
 
-  document.documentElement.classList.toggle('is-compact', on);
-  document.body.classList.toggle('is-compact', on);
-  els.appRoot?.classList.toggle('is-compact', on);
+  document.documentElement.classList.toggle("is-compact", on);
+  document.body.classList.toggle("is-compact", on);
+  els.appRoot?.classList.toggle("is-compact", on);
 
   if (on) {
     closeToolbarMenus();
@@ -1280,13 +1421,17 @@ async function setCompactMode(next, { persist = true, announce = false } = {}) {
   updateCompactButton();
 
   if (spectrumWindowOpen) {
-    postSpectrumMessage({ type: 'compact', compact: on });
+    postSpectrumMessage({ type: "compact", compact: on });
   }
   if (historyWindowOpen) {
-    postHistoryMessage({ type: 'compact', compact: on });
+    postHistoryMessage({ type: "compact", compact: on });
   }
 
-  if (isElectron && window.desktopAPI?.setBounds && window.desktopAPI?.getBounds) {
+  if (
+    isElectron &&
+    window.desktopAPI?.setBounds &&
+    window.desktopAPI?.getBounds
+  ) {
     try {
       if (on) {
         if (await window.desktopAPI.isMaximized?.()) {
@@ -1297,13 +1442,23 @@ async function setCompactMode(next, { persist = true, announce = false } = {}) {
           compactRestoreBounds = await window.desktopAPI.getBounds();
         }
         // Provisional floor; refined by syncCompactWindowMinSize after layout.
-        await window.desktopAPI.setMinimumSize(COMPACT_MIN_WIDTH_FLOOR, COMPACT_MIN_HEIGHT);
-        const cur = compactRestoreBounds || (await window.desktopAPI.getBounds()) || {};
+        await window.desktopAPI.setMinimumSize(
+          COMPACT_MIN_WIDTH_FLOOR,
+          COMPACT_MIN_HEIGHT,
+        );
+        const cur =
+          compactRestoreBounds || (await window.desktopAPI.getBounds()) || {};
         await window.desktopAPI.setBounds({
           x: cur.x,
           y: cur.y,
-          width: Math.max(COMPACT_MIN_WIDTH_FLOOR, Math.min(560, cur.width || 560)),
-          height: Math.max(COMPACT_MIN_HEIGHT, Math.min(280, cur.height || 280))
+          width: Math.max(
+            COMPACT_MIN_WIDTH_FLOOR,
+            Math.min(560, cur.width || 560),
+          ),
+          height: Math.max(
+            COMPACT_MIN_HEIGHT,
+            Math.min(280, cur.height || 280),
+          ),
         });
         syncCompactWindowMinSize();
       } else {
@@ -1318,7 +1473,7 @@ async function setCompactMode(next, { persist = true, announce = false } = {}) {
             x: cur.x,
             y: cur.y,
             width: Math.max(1100, cur.width || 0),
-            height: Math.max(720, cur.height || 0)
+            height: Math.max(720, cur.height || 0),
           });
         }
       }
@@ -1330,7 +1485,9 @@ async function setCompactMode(next, { persist = true, announce = false } = {}) {
   }
 
   if (announce) {
-    setStatus({ state: statusKey(on ? 'statusCompactOn' : 'statusCompactOff') });
+    setStatus({
+      state: statusKey(on ? "statusCompactOn" : "statusCompactOff"),
+    });
   }
 }
 
@@ -1339,7 +1496,7 @@ function toggleCompactMode() {
 }
 
 function toggleLocale() {
-  const next = getLocaleSafe() === 'ko' ? 'en' : 'ko';
+  const next = getLocaleSafe() === "ko" ? "en" : "ko";
   applyLocale(next);
 }
 
@@ -1347,27 +1504,28 @@ function renderThemeMenu() {
   const list = els.themeList;
   if (!list) return;
   const current = settings.theme;
-  list.innerHTML = '';
+  list.innerHTML = "";
 
   const addGroup = (label) => {
-    const group = document.createElement('li');
-    group.className = 'popup-group-label';
+    const group = document.createElement("li");
+    group.className = "popup-group-label";
     group.textContent = label;
     list.appendChild(group);
   };
 
   const addItem = (id, label) => {
-    const li = document.createElement('li');
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = `popup-item${id === current ? ' is-active' : ''}`;
-    btn.setAttribute('role', 'menuitemradio');
-    btn.setAttribute('aria-checked', String(id === current));
+    const li = document.createElement("li");
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = `popup-item${id === current ? " is-active" : ""}`;
+    btn.setAttribute("role", "menuitemradio");
+    btn.setAttribute("aria-checked", String(id === current));
     btn.dataset.theme = id;
     btn.innerHTML = `<span class="popup-item-label"></span><span class="popup-item-check" aria-hidden="true"></span>`;
-    btn.querySelector('.popup-item-label').textContent = label;
-    btn.querySelector('.popup-item-check').textContent = id === current ? '✓' : '';
-    btn.addEventListener('click', async () => {
+    btn.querySelector(".popup-item-label").textContent = label;
+    btn.querySelector(".popup-item-check").textContent =
+      id === current ? "✓" : "";
+    btn.addEventListener("click", async () => {
       closeThemeMenu();
       await selectTheme(id);
     });
@@ -1375,35 +1533,38 @@ function renderThemeMenu() {
     list.appendChild(li);
   };
 
-  addGroup(t('builtinGroup'));
+  addGroup(t("builtinGroup"));
   for (const theme of BUILTIN_THEMES) {
     addItem(theme.id, t(BUILTIN_THEME_NAME_KEYS[theme.id] || theme.name));
   }
 
   const customs = loadCustomThemes();
   if (customs.length) {
-    addGroup(t('customGroup'));
+    addGroup(t("customGroup"));
     for (const theme of customs) {
       addItem(`custom:${theme.id}`, theme.name);
     }
   }
 
-  els.btnTheme?.setAttribute('data-tooltip', `${t('themeTip')}: ${themeDisplayName(current)}`);
+  els.btnTheme?.setAttribute(
+    "data-tooltip",
+    `${t("themeTip")}: ${themeDisplayName(current)}`,
+  );
 }
 
 function openThemeMenu() {
-  closeToolbarMenus({ except: 'theme' });
+  closeToolbarMenus({ except: "theme" });
   renderThemeMenu();
   // Apply scheme first so high-contrast menu colors resolve before paint.
   syncThemeToOverlays();
   els.themeMenu.hidden = false;
-  els.btnTheme?.setAttribute('aria-expanded', 'true');
+  els.btnTheme?.setAttribute("aria-expanded", "true");
 }
 
 function closeThemeMenu() {
   if (!els.themeMenu) return;
   els.themeMenu.hidden = true;
-  els.btnTheme?.setAttribute('aria-expanded', 'false');
+  els.btnTheme?.setAttribute("aria-expanded", "false");
 }
 
 function toggleThemeMenu() {
@@ -1422,26 +1583,30 @@ async function selectTheme(themeId) {
 
 async function playRecentItem(item) {
   if (!item) return;
-  if (item.type === 'youtube') {
-    await playYouTubeFromInput(item.url || item.id.replace(/^youtube:/, ''));
+  if (item.type === "youtube") {
+    await playYouTubeFromInput(item.url || item.id.replace(/^youtube:/, ""));
     return;
   }
-  if (item.type === 'rtsp') {
-    await playRtspFromInput(item.url || item.id.replace(/^rtsp:/, ''));
+  if (item.type === "remote") {
+    await playRemoteVideoFromInput(item.url || item.id.replace(/^remote:/, ""));
     return;
   }
-  if (item.type === 'file') {
+  if (item.type === "rtsp") {
+    await playRtspFromInput(item.url || item.id.replace(/^rtsp:/, ""));
+    return;
+  }
+  if (item.type === "file") {
     if (!isElectron || !item.path) {
-      setStatus({ state: statusKey('statusRecentDesktopOnly') });
+      setStatus({ state: statusKey("statusRecentDesktopOnly") });
       return;
     }
     const result = await window.desktopAPI.openMediaPath(item.path);
     if (!result?.ok) {
       showAppError({
-        title: t('errorFileTitle'),
-        message: result?.error || t('statusFileOpenFail'),
-        detail: result?.error || t('statusFileMissing'),
-        context: { path: item.path, name: item.name || item.title || '' }
+        title: t("errorFileTitle"),
+        message: result?.error || t("statusFileOpenFail"),
+        detail: result?.error || t("statusFileMissing"),
+        context: { path: item.path, name: item.name || item.title || "" },
       });
       return;
     }
@@ -1451,33 +1616,33 @@ async function playRecentItem(item) {
       path: result.path,
       size: result.size,
       ext: result.ext,
-      subtitle: result.subtitle
+      subtitle: result.subtitle,
     });
   }
 }
 
 function resolveFilePath(file) {
-  if (!file || !isElectron || !window.desktopAPI.getPathForFile) return '';
+  if (!file || !isElectron || !window.desktopAPI.getPathForFile) return "";
   try {
-    return window.desktopAPI.getPathForFile(file) || '';
+    return window.desktopAPI.getPathForFile(file) || "";
   } catch {
-    return '';
+    return "";
   }
 }
 
 function formatTime(sec) {
-  if (!Number.isFinite(sec) || sec < 0) return '00:00';
+  if (!Number.isFinite(sec) || sec < 0) return "00:00";
   const s = Math.floor(sec % 60);
   const m = Math.floor((sec / 60) % 60);
   const h = Math.floor(sec / 3600);
-  const mm = String(m).padStart(2, '0');
-  const ss = String(s).padStart(2, '0');
+  const mm = String(m).padStart(2, "0");
+  const ss = String(s).padStart(2, "0");
   return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
 }
 
 function formatBytes(n) {
-  if (!n) return '';
-  const u = ['B', 'KB', 'MB', 'GB'];
+  if (!n) return "";
+  const u = ["B", "KB", "MB", "GB"];
   let i = 0;
   let v = n;
   while (v >= 1024 && i < u.length - 1) {
@@ -1492,18 +1657,18 @@ function formatBytes(n) {
 /** Kept as i18n parts so locale changes can re-render the status bar. */
 const statusSnapshot = {
   /** @type {StatusPart} */
-  file: { key: 'statusReady' },
+  file: { key: "statusReady" },
   /** @type {StatusPart} */
-  format: { text: '—' },
+  format: { text: "—" },
   /** @type {StatusPart} */
-  subtitle: { key: 'statusNoSubtitle' },
+  subtitle: { key: "statusNoSubtitle" },
   /** @type {StatusPart} */
-  state: { key: 'statusIdle' },
-  rate: '1',
+  state: { key: "statusIdle" },
+  rate: "1",
   /** @type {string|null} */
   themeSetting: null,
   /** @type {StatusPart} */
-  platform: { text: 'Web' }
+  platform: { text: "Web" },
 };
 
 /** @param {string} key @param {Record<string, string|number>} [vars] */
@@ -1513,13 +1678,17 @@ function statusKey(key, vars) {
 
 /** @param {string|number|null|undefined} value */
 function statusText(value) {
-  return { text: value == null || value === '' ? '—' : String(value) };
+  return { text: value == null || value === "" ? "—" : String(value) };
 }
 
 /** @param {unknown} value @returns {StatusPart|null} */
 function asStatusPart(value) {
   if (value == null) return null;
-  if (typeof value === 'object' && value !== null && ('key' in value || 'text' in value)) {
+  if (
+    typeof value === "object" &&
+    value !== null &&
+    ("key" in value || "text" in value)
+  ) {
     return /** @type {StatusPart} */ (value);
   }
   return statusText(/** @type {string|number} */ (value));
@@ -1527,37 +1696,49 @@ function asStatusPart(value) {
 
 /** @param {StatusPart|null|undefined} part */
 function resolveStatusPart(part) {
-  if (!part) return '—';
-  if ('styleId' in part && part.styleId && part.key === 'spectrumStyle') {
-    return `${t('spectrumStyle')}: ${spectrumStyleLabel(part.styleId)}`;
+  if (!part) return "—";
+  if ("styleId" in part && part.styleId && part.key === "spectrumStyle") {
+    return `${t("spectrumStyle")}: ${spectrumStyleLabel(part.styleId)}`;
   }
-  if ('key' in part && part.key) return t(part.key, part.vars || {});
-  if ('text' in part) return part.text ?? '—';
-  return '—';
+  if ("key" in part && part.key) return t(part.key, part.vars || {});
+  if ("text" in part) return part.text ?? "—";
+  return "—";
 }
 
 function paintStatusBar() {
-  if (els.statusFile) els.statusFile.textContent = resolveStatusPart(statusSnapshot.file);
-  if (els.statusFormat) els.statusFormat.textContent = resolveStatusPart(statusSnapshot.format);
-  if (els.statusSubtitle) els.statusSubtitle.textContent = resolveStatusPart(statusSnapshot.subtitle);
-  if (els.statusState) els.statusState.textContent = resolveStatusPart(statusSnapshot.state);
-  if (els.statusRate) els.statusRate.textContent = t('statusSpeed', { n: statusSnapshot.rate });
+  if (els.statusFile)
+    els.statusFile.textContent = resolveStatusPart(statusSnapshot.file);
+  if (els.statusFormat)
+    els.statusFormat.textContent = resolveStatusPart(statusSnapshot.format);
+  if (els.statusSubtitle)
+    els.statusSubtitle.textContent = resolveStatusPart(statusSnapshot.subtitle);
+  if (els.statusState)
+    els.statusState.textContent = resolveStatusPart(statusSnapshot.state);
+  if (els.statusRate)
+    els.statusRate.textContent = t("statusSpeed", { n: statusSnapshot.rate });
   if (els.statusTheme) {
     const themeId = statusSnapshot.themeSetting || settings.theme;
-    els.statusTheme.textContent = t('statusTheme', { name: themeDisplayName(themeId) });
+    els.statusTheme.textContent = t("statusTheme", {
+      name: themeDisplayName(themeId),
+    });
   }
-  if (els.statusPlatform) els.statusPlatform.textContent = resolveStatusPart(statusSnapshot.platform);
+  if (els.statusPlatform)
+    els.statusPlatform.textContent = resolveStatusPart(statusSnapshot.platform);
 }
 
 function setStatus(partial = {}) {
   if (partial.file != null) statusSnapshot.file = asStatusPart(partial.file);
-  if (partial.format != null) statusSnapshot.format = asStatusPart(partial.format);
-  if (partial.subtitle != null) statusSnapshot.subtitle = asStatusPart(partial.subtitle);
+  if (partial.format != null)
+    statusSnapshot.format = asStatusPart(partial.format);
+  if (partial.subtitle != null)
+    statusSnapshot.subtitle = asStatusPart(partial.subtitle);
   if (partial.state != null) statusSnapshot.state = asStatusPart(partial.state);
   if (partial.rate != null) statusSnapshot.rate = formatRateLabel(partial.rate);
-  if (partial.platform != null) statusSnapshot.platform = asStatusPart(partial.platform);
-  if (partial.themeSetting != null) statusSnapshot.themeSetting = String(partial.themeSetting);
-  else if (partial.theme != null && typeof partial.theme === 'string') {
+  if (partial.platform != null)
+    statusSnapshot.platform = asStatusPart(partial.platform);
+  if (partial.themeSetting != null)
+    statusSnapshot.themeSetting = String(partial.themeSetting);
+  else if (partial.theme != null && typeof partial.theme === "string") {
     // Prefer theme ids (dark/light/custom:…); ignore already-translated names.
     if (/^(dark|light|ocean|forest|custom:)/.test(partial.theme)) {
       statusSnapshot.themeSetting = partial.theme;
@@ -1568,21 +1749,22 @@ function setStatus(partial = {}) {
 
 function themeDisplayName(themeSetting) {
   const def = getThemeDefinition(themeSetting);
-  if (def.builtin) return t(BUILTIN_THEME_NAME_KEYS[def.id] || 'themeDark');
-  return def.name || t('themeDark');
+  if (def.builtin) return t(BUILTIN_THEME_NAME_KEYS[def.id] || "themeDark");
+  return def.name || t("themeDark");
 }
 
 function formatRateLabel(rate) {
   const n = Number(rate);
-  if (!Number.isFinite(n)) return '1';
+  if (!Number.isFinite(n)) return "1";
   return Number.isInteger(n) ? String(n) : String(n);
 }
 
 function nearestPlaybackRate(rate) {
   const n = Number(rate) || 1;
-  return PLAYBACK_RATES.reduce((best, cur) =>
-    Math.abs(cur - n) < Math.abs(best - n) ? cur : best
-  , PLAYBACK_RATES[0]);
+  return PLAYBACK_RATES.reduce(
+    (best, cur) => (Math.abs(cur - n) < Math.abs(best - n) ? cur : best),
+    PLAYBACK_RATES[0],
+  );
 }
 
 function setPlaybackRate(rate, { persist = true, announce = true } = {}) {
@@ -1591,22 +1773,31 @@ function setPlaybackRate(rate, { persist = true, announce = true } = {}) {
   els.media.playbackRate = next;
   if (youtubeMode) ytPlayer.setPlaybackRate(next);
   if (els.rateSelect) els.rateSelect.value = String(next);
-  const settingRate = $('settingRate');
+  const settingRate = $("settingRate");
   if (settingRate) settingRate.value = String(next);
-  els.rateSelect?.setAttribute('data-tooltip', t('speedTipValue', { n: formatRateLabel(next) }));
+  els.rateSelect?.setAttribute(
+    "data-tooltip",
+    t("speedTipValue", { n: formatRateLabel(next) }),
+  );
   if (persist) saveSettings(settings);
   if (announce) setStatus({ rate: formatRateLabel(next) });
 }
 
 function updatePlayIcons(playing) {
-  const playIcon = els.btnPlay.querySelector('.icon-play');
-  const pauseIcon = els.btnPlay.querySelector('.icon-pause');
-  playIcon.classList.toggle('hidden', playing);
-  pauseIcon.classList.toggle('hidden', !playing);
-  els.btnPlay.setAttribute('data-tooltip', playing ? t('pauseTip') : t('playTip'));
-  els.btnPlay.setAttribute('aria-label', playing ? t('pause') : t('play'));
-  els.btnPlay.setAttribute('data-i18n-tooltip', playing ? 'pauseTip' : 'playTip');
-  els.btnPlay.setAttribute('data-i18n-aria', playing ? 'pause' : 'play');
+  const playIcon = els.btnPlay.querySelector(".icon-play");
+  const pauseIcon = els.btnPlay.querySelector(".icon-pause");
+  playIcon.classList.toggle("hidden", playing);
+  pauseIcon.classList.toggle("hidden", !playing);
+  els.btnPlay.setAttribute(
+    "data-tooltip",
+    playing ? t("pauseTip") : t("playTip"),
+  );
+  els.btnPlay.setAttribute("aria-label", playing ? t("pause") : t("play"));
+  els.btnPlay.setAttribute(
+    "data-i18n-tooltip",
+    playing ? "pauseTip" : "playTip",
+  );
+  els.btnPlay.setAttribute("data-i18n-aria", playing ? "pause" : "play");
 }
 
 function syncRangeFill(el) {
@@ -1618,8 +1809,11 @@ function syncRangeFill(el) {
   const hi = Number.isFinite(max) ? max : 100;
   const cur = Number.isFinite(value) ? value : lo;
   const clamped = Math.min(hi, Math.max(lo, Math.round(cur)));
-  const pct = hi === lo ? 0 : Math.min(100, Math.max(0, ((clamped - lo) / (hi - lo)) * 100));
-  el.style.setProperty('--fill', `${pct}%`);
+  const pct =
+    hi === lo
+      ? 0
+      : Math.min(100, Math.max(0, ((clamped - lo) / (hi - lo)) * 100));
+  el.style.setProperty("--fill", `${pct}%`);
   return clamped;
 }
 
@@ -1631,15 +1825,19 @@ function syncVolumeBarFill() {
   const clamped = syncRangeFill(els.volumeBar);
   const el = els.volumeBar;
   if (!el) return;
-  el.setAttribute('aria-valuenow', String(clamped));
-  el.setAttribute('aria-valuetext', `${clamped}%`);
+  el.setAttribute("aria-valuenow", String(clamped));
+  el.setAttribute("aria-valuetext", `${clamped}%`);
   if (els.volumeValue) els.volumeValue.textContent = `${clamped}%`;
   // Live tooltip while adjusting (0–100%).
-  const tip = t('volumeTipPct', { n: clamped });
-  el.setAttribute('data-tooltip', tip);
-  el.setAttribute('aria-label', tip);
-  const tipEl = document.getElementById('tooltip');
-  if (tipEl && !tipEl.hidden && (document.activeElement === el || el.matches?.(':hover'))) {
+  const tip = t("volumeTipPct", { n: clamped });
+  el.setAttribute("data-tooltip", tip);
+  el.setAttribute("aria-label", tip);
+  const tipEl = document.getElementById("tooltip");
+  if (
+    tipEl &&
+    !tipEl.hidden &&
+    (document.activeElement === el || el.matches?.(":hover"))
+  ) {
     tipEl.textContent = tip;
   }
 }
@@ -1673,18 +1871,19 @@ function syncSpectrumOutputFromUi() {
 
 function updateMuteIcons() {
   const muted = youtubeMode
-    ? (ytPlayer.isMuted() || Number(els.volumeBar.value) === 0)
+    ? ytPlayer.isMuted() || Number(els.volumeBar.value) === 0
     : spectrum.hasWebAudioOutput()
       ? Number(els.volumeBar.value) === 0
-      : (els.media.muted || els.media.volume === 0);
-  $('btnMute').querySelector('.icon-vol').classList.toggle('hidden', muted);
-  $('btnMute').querySelector('.icon-muted').classList.toggle('hidden', !muted);
+      : els.media.muted || els.media.volume === 0;
+  $("btnMute").querySelector(".icon-vol").classList.toggle("hidden", muted);
+  $("btnMute").querySelector(".icon-muted").classList.toggle("hidden", !muted);
   syncVolumeBarFill();
 }
 
 function enterYouTubeMode() {
   youtubeMode = true;
-  els.videoWrap.classList.add('youtube-mode');
+  currentRemote = null;
+  els.videoWrap.classList.add("youtube-mode");
   updateActualMediaSize();
   updateSpectrumVisibility();
   updateSaveButton();
@@ -1695,7 +1894,7 @@ function exitYouTubeMode() {
   ytPlayer.destroy();
   youtubeMode = false;
   currentYouTube = null;
-  els.videoWrap.classList.remove('youtube-mode');
+  els.videoWrap.classList.remove("youtube-mode");
   updateActualMediaSize();
   updateSpectrumVisibility();
   updateSaveButton();
@@ -1703,23 +1902,23 @@ function exitYouTubeMode() {
 
 function showYoutubeError(msg) {
   if (!msg) {
-    els.youtubeError.classList.add('hidden');
-    els.youtubeError.textContent = '';
+    els.youtubeError.classList.add("hidden");
+    els.youtubeError.textContent = "";
     return;
   }
   els.youtubeError.textContent = msg;
-  els.youtubeError.classList.remove('hidden');
+  els.youtubeError.classList.remove("hidden");
 }
 
 function fillLocaleSelect() {
-  const select = $('settingLocale');
+  const select = $("settingLocale");
   if (!select) return;
-  select.innerHTML = '';
+  select.innerHTML = "";
   for (const loc of [
-    { id: 'en', label: t('langEnglish') },
-    { id: 'ko', label: t('langKorean') }
+    { id: "en", label: t("langEnglish") },
+    { id: "ko", label: t("langKorean") },
   ]) {
-    const opt = document.createElement('option');
+    const opt = document.createElement("option");
     opt.value = loc.id;
     opt.textContent = loc.label;
     select.appendChild(opt);
@@ -1728,22 +1927,26 @@ function fillLocaleSelect() {
 }
 
 function getLocaleSafe() {
-  return settings.locale === 'ko' ? 'ko' : settings.locale === 'en' ? 'en' : resolveInitialLocale(settings.locale);
+  return settings.locale === "ko"
+    ? "ko"
+    : settings.locale === "en"
+      ? "en"
+      : resolveInitialLocale(settings.locale);
 }
 
 /** @type {{ id: string|null, name: string, scheme: string, vars: Record<string,string> }} */
-let themeDraft = { id: null, name: '', scheme: 'dark', vars: {} };
+let themeDraft = { id: null, name: "", scheme: "dark", vars: {} };
 
 function populateThemeSelect(selected) {
-  const select = $('settingTheme');
+  const select = $("settingTheme");
   if (!select) return;
   const current = selected ?? settings.theme;
-  select.innerHTML = '';
+  select.innerHTML = "";
 
-  const builtinGroup = document.createElement('optgroup');
-  builtinGroup.label = t('builtinGroup');
+  const builtinGroup = document.createElement("optgroup");
+  builtinGroup.label = t("builtinGroup");
   for (const theme of BUILTIN_THEMES) {
-    const opt = document.createElement('option');
+    const opt = document.createElement("option");
     opt.value = theme.id;
     opt.textContent = t(BUILTIN_THEME_NAME_KEYS[theme.id] || theme.name);
     builtinGroup.appendChild(opt);
@@ -1752,10 +1955,10 @@ function populateThemeSelect(selected) {
 
   const customs = loadCustomThemes();
   if (customs.length) {
-    const customGroup = document.createElement('optgroup');
-    customGroup.label = t('customGroup');
+    const customGroup = document.createElement("optgroup");
+    customGroup.label = t("customGroup");
     for (const theme of customs) {
-      const opt = document.createElement('option');
+      const opt = document.createElement("option");
       opt.value = `custom:${theme.id}`;
       opt.textContent = theme.name;
       customGroup.appendChild(opt);
@@ -1764,15 +1967,15 @@ function populateThemeSelect(selected) {
   }
 
   const values = [...select.options].map((o) => o.value);
-  select.value = values.includes(current) ? current : 'dark';
+  select.value = values.includes(current) ? current : "dark";
   updateThemeActionButtons();
   renderThemeMenu();
 }
 
 function updateThemeActionButtons() {
-  const value = $('settingTheme')?.value || settings.theme;
-  const isCustom = String(value).startsWith('custom:');
-  const del = $('btnDeleteTheme');
+  const value = $("settingTheme")?.value || settings.theme;
+  const isCustom = String(value).startsWith("custom:");
+  const del = $("btnDeleteTheme");
   if (del) del.hidden = !isCustom;
 }
 
@@ -1781,14 +1984,14 @@ async function applyTheme(themeSetting) {
   syncThemeToOverlays();
   setStatus({ themeSetting: themeSetting });
   if (isElectron && window.desktopAPI.setThemeSource) {
-    const source = def.scheme === 'light' ? 'light' : 'dark';
+    const source = def.scheme === "light" ? "light" : "dark";
     await window.desktopAPI.setThemeSource(source);
   }
   if (spectrumWindowOpen) {
-    postSpectrumMessage({ type: 'theme', theme: getSpectrumThemePayload() });
+    postSpectrumMessage({ type: "theme", theme: getSpectrumThemePayload() });
   }
   if (historyWindowOpen) {
-    postHistoryMessage({ type: 'theme', theme: getSpectrumThemePayload() });
+    postHistoryMessage({ type: "theme", theme: getSpectrumThemePayload() });
   }
   return def;
 }
@@ -1801,22 +2004,24 @@ async function applyTheme(themeSetting) {
 function openThemedDialog(dialogEl, { modal = false } = {}) {
   if (!dialogEl) return;
   syncThemeToOverlays();
-  dialogEl.dataset.blocking = modal ? 'true' : 'false';
+  dialogEl.dataset.blocking = modal ? "true" : "false";
   if (modal) {
-    if (typeof dialogEl.showModal === 'function') dialogEl.showModal();
-    else dialogEl.setAttribute('open', '');
+    if (typeof dialogEl.showModal === "function") dialogEl.showModal();
+    else dialogEl.setAttribute("open", "");
     return;
   }
-  if (typeof dialogEl.show === 'function') dialogEl.show();
-  else dialogEl.setAttribute('open', '');
+  if (typeof dialogEl.show === "function") dialogEl.show();
+  else dialogEl.setAttribute("open", "");
 }
 
 function closeTopNonblockingDialog() {
-  const open = [...document.querySelectorAll('dialog.modal[open][data-blocking="false"]')];
+  const open = [
+    ...document.querySelectorAll('dialog.modal[open][data-blocking="false"]'),
+  ];
   const top = open[open.length - 1];
   if (!top) return false;
-  if (typeof top.close === 'function') top.close();
-  else top.removeAttribute('open');
+  if (typeof top.close === "function") top.close();
+  else top.removeAttribute("open");
   return true;
 }
 
@@ -1832,37 +2037,48 @@ function isSaveProgressVisible() {
 }
 
 function hideSavedInfo() {
-  els.progressSaved?.classList.add('hidden');
-  if (els.progressSavedName) els.progressSavedName.textContent = '';
-  if (els.progressSavedPath) els.progressSavedPath.textContent = '';
-  if (els.progressSavedSize) els.progressSavedSize.textContent = '';
-  if (els.progressSavedElapsed) els.progressSavedElapsed.textContent = '';
-  els.progressSavedSizeRow?.classList.add('hidden');
-  els.progressSavedElapsedRow?.classList.add('hidden');
+  els.progressSaved?.classList.add("hidden");
+  if (els.progressSavedName) els.progressSavedName.textContent = "";
+  if (els.progressSavedPath) els.progressSavedPath.textContent = "";
+  if (els.progressSavedSize) els.progressSavedSize.textContent = "";
+  if (els.progressSavedElapsed) els.progressSavedElapsed.textContent = "";
+  els.progressSavedSizeRow?.classList.add("hidden");
+  els.progressSavedElapsedRow?.classList.add("hidden");
 }
 
-function showSavedInfo({ name = '', path: filePath = '', size = 0, elapsed = '' } = {}) {
+function showSavedInfo({
+  name = "",
+  path: filePath = "",
+  size = 0,
+  elapsed = "",
+} = {}) {
   if (!els.progressSaved) return;
-  const baseName = name || (filePath ? filePath.split(/[/\\]/).pop() : '') || '—';
+  const baseName =
+    name || (filePath ? filePath.split(/[/\\]/).pop() : "") || "—";
   if (els.progressSavedName) els.progressSavedName.textContent = baseName;
-  if (els.progressSavedPath) els.progressSavedPath.textContent = filePath || '—';
+  if (els.progressSavedPath)
+    els.progressSavedPath.textContent = filePath || "—";
   if (size > 0) {
-    els.progressSavedSizeRow?.classList.remove('hidden');
-    if (els.progressSavedSize) els.progressSavedSize.textContent = formatBytes(size);
+    els.progressSavedSizeRow?.classList.remove("hidden");
+    if (els.progressSavedSize)
+      els.progressSavedSize.textContent = formatBytes(size);
   } else {
-    els.progressSavedSizeRow?.classList.add('hidden');
+    els.progressSavedSizeRow?.classList.add("hidden");
   }
   if (elapsed) {
-    els.progressSavedElapsedRow?.classList.remove('hidden');
-    if (els.progressSavedElapsed) els.progressSavedElapsed.textContent = elapsed;
+    els.progressSavedElapsedRow?.classList.remove("hidden");
+    if (els.progressSavedElapsed)
+      els.progressSavedElapsed.textContent = elapsed;
   } else {
-    els.progressSavedElapsedRow?.classList.add('hidden');
+    els.progressSavedElapsedRow?.classList.add("hidden");
   }
-  els.progressSaved.classList.remove('hidden');
+  els.progressSaved.classList.remove("hidden");
 }
 
 function isOpenProgressMode(mode = saveProgressMode) {
-  return mode === 'open-youtube' || mode === 'open-rtsp';
+  return (
+    mode === "open-youtube" || mode === "open-remote" || mode === "open-rtsp"
+  );
 }
 
 function showSaveProgress({ mode, title, name }) {
@@ -1870,42 +2086,45 @@ function showSaveProgress({ mode, title, name }) {
   clearSaveProgressCloseTimer();
   saveProgressMode = mode;
   hideSavedInfo();
-  if (els.progressTitle) els.progressTitle.textContent = title || t('progressSaving');
+  if (els.progressTitle)
+    els.progressTitle.textContent = title || t("progressSaving");
   if (els.progressName) {
-    els.progressName.textContent = name || '';
-    els.progressName.classList.remove('hidden');
+    els.progressName.textContent = name || "";
+    els.progressName.classList.remove("hidden");
   }
-  els.progressTrack?.classList.remove('hidden');
-  els.progressMeta?.classList.remove('hidden');
-  if (els.progressFill) els.progressFill.style.width = '0%';
+  els.progressTrack?.classList.remove("hidden");
+  els.progressMeta?.classList.remove("hidden");
+  if (els.progressFill) els.progressFill.style.width = "0%";
   // Open (YouTube/RTSP) uses staged %; save/record may be indeterminate.
-  const indeterminate = mode === 'rtsp' || mode === 'youtube';
-  els.progressTrack?.classList.toggle('is-indeterminate', indeterminate);
+  const indeterminate =
+    mode === "rtsp" || mode === "youtube" || mode === "remote";
+  els.progressTrack?.classList.toggle("is-indeterminate", indeterminate);
   if (els.progressValue) {
-    els.progressValue.textContent = mode === 'rtsp' ? '00:00' : isOpenProgressMode(mode) ? '8%' : '0%';
+    els.progressValue.textContent =
+      mode === "rtsp" ? "00:00" : isOpenProgressMode(mode) ? "8%" : "0%";
   }
-  if (els.progressDetail) els.progressDetail.textContent = '';
+  if (els.progressDetail) els.progressDetail.textContent = "";
   // Save: Stop keeps content. Open: Cancel aborts connect/load.
   if (els.btnProgressCancel) {
     els.btnProgressCancel.hidden = false;
-    els.btnProgressCancel.classList.remove('hidden');
+    els.btnProgressCancel.classList.remove("hidden");
     els.btnProgressCancel.disabled = false;
     els.btnProgressCancel.textContent = isOpenProgressMode(mode)
-      ? t('progressCancelOpen')
-      : t('progressStopSave');
+      ? t("progressCancelOpen")
+      : t("progressStopSave");
   }
-  els.btnProgressClose?.classList.add('hidden');
+  els.btnProgressClose?.classList.add("hidden");
   if (els.btnProgressClose) els.btnProgressClose.hidden = true;
   syncThemeToOverlays();
   els.progressModal.hidden = false;
 }
 
 function setUrlDialogBusy(busy) {
-  const play = $('btnYtPlay');
-  const save = $('btnYtSaveFromDialog');
+  const play = $("btnYtPlay");
+  const save = $("btnYtSaveFromDialog");
   if (play) {
     play.disabled = busy;
-    play.textContent = busy ? t('progressConnecting') : t('playAction');
+    play.textContent = busy ? t("progressConnecting") : t("playAction");
   }
   if (save) save.disabled = busy;
   if (els.youtubeUrlInput) els.youtubeUrlInput.readOnly = busy;
@@ -1915,7 +2134,7 @@ function setUrlDialogBusy(busy) {
  * Close the URL modal so the floating progress popup is visible, then show stages.
  * (showModal() dialogs sit above the stage and previously hid open progress.)
  */
-function beginOpenStreamProgress({ kind, name = '', detail = '' } = {}) {
+function beginOpenStreamProgress({ kind, name = "", detail = "" } = {}) {
   openStreamCancelled = false;
   setUrlDialogBusy(true);
   try {
@@ -1923,17 +2142,27 @@ function beginOpenStreamProgress({ kind, name = '', detail = '' } = {}) {
   } catch {
     /* ignore */
   }
-  const mode = kind === 'rtsp' ? 'open-rtsp' : 'open-youtube';
+  const mode =
+    kind === "rtsp"
+      ? "open-rtsp"
+      : kind === "remote"
+        ? "open-remote"
+        : "open-youtube";
   showSaveProgress({
     mode,
-    title: kind === 'rtsp' ? t('progressOpeningRtsp') : t('progressOpeningYoutube'),
-    name
+    title:
+      kind === "rtsp"
+        ? t("progressOpeningRtsp")
+        : kind === "remote"
+          ? t("progressOpeningRemote")
+          : t("progressOpeningYoutube"),
+    name,
   });
   // Determinate steps so the bar moves even when the backend has no byte %.
   updateSaveProgress({
     percent: 8,
-    detail: detail || t('progressOpening'),
-    indeterminate: false
+    detail: detail || t("progressOpening"),
+    indeterminate: false,
   });
 }
 
@@ -1942,8 +2171,8 @@ function updateOpenProgressStage(step, total, detail) {
   const pct = Math.max(8, Math.min(96, Math.round((step / safeTotal) * 100)));
   updateSaveProgress({
     percent: pct,
-    detail: detail || '',
-    indeterminate: false
+    detail: detail || "",
+    indeterminate: false,
   });
 }
 
@@ -1955,11 +2184,15 @@ function endOpenStreamInFlight() {
 function reopenUrlDialogAfterOpenFailure(url, message) {
   endOpenStreamInFlight();
   closeSaveProgress();
-  openYouTubeDialog(url || '');
+  openYouTubeDialog(url || "");
   if (message) showYoutubeError(message);
 }
 
-function finishOpenProgress({ ok = true, message = '', autoCloseMs = 900 } = {}) {
+function finishOpenProgress({
+  ok = true,
+  message = "",
+  autoCloseMs = 900,
+} = {}) {
   if (!isSaveProgressVisible() || !isOpenProgressMode()) {
     if (!ok && message) {
       /* open UI already gone */
@@ -1967,30 +2200,31 @@ function finishOpenProgress({ ok = true, message = '', autoCloseMs = 900 } = {})
     return;
   }
   clearSaveProgressCloseTimer();
-  els.progressTrack?.classList.remove('is-indeterminate');
-  els.btnProgressCancel?.classList.add('hidden');
+  els.progressTrack?.classList.remove("is-indeterminate");
+  els.btnProgressCancel?.classList.add("hidden");
   if (els.btnProgressCancel) els.btnProgressCancel.hidden = true;
 
   if (!ok) {
-    if (els.progressTitle) els.progressTitle.textContent = t('progressOpenFailed');
+    if (els.progressTitle)
+      els.progressTitle.textContent = t("progressOpenFailed");
     hideSavedInfo();
-    if (els.progressValue) els.progressValue.textContent = '—';
+    if (els.progressValue) els.progressValue.textContent = "—";
     if (message && els.progressDetail) els.progressDetail.textContent = message;
-    els.btnProgressClose?.classList.remove('hidden');
+    els.btnProgressClose?.classList.remove("hidden");
     if (els.btnProgressClose) {
       els.btnProgressClose.hidden = false;
-      els.btnProgressClose.textContent = t('ok');
+      els.btnProgressClose.textContent = t("ok");
     }
     saveProgressMode = null;
     return;
   }
 
-  if (els.progressFill) els.progressFill.style.width = '100%';
-  if (els.progressValue) els.progressValue.textContent = '100%';
-  if (els.progressTitle) els.progressTitle.textContent = t('progressOpenReady');
-  if (els.progressDetail) els.progressDetail.textContent = message || '';
+  if (els.progressFill) els.progressFill.style.width = "100%";
+  if (els.progressValue) els.progressValue.textContent = "100%";
+  if (els.progressTitle) els.progressTitle.textContent = t("progressOpenReady");
+  if (els.progressDetail) els.progressDetail.textContent = message || "";
   hideSavedInfo();
-  els.btnProgressClose?.classList.add('hidden');
+  els.btnProgressClose?.classList.add("hidden");
   if (els.btnProgressClose) els.btnProgressClose.hidden = true;
   saveProgressMode = null;
   if (autoCloseMs > 0) {
@@ -2000,21 +2234,28 @@ function finishOpenProgress({ ok = true, message = '', autoCloseMs = 900 } = {})
   }
 }
 
-function updateSaveProgress({ percent = null, elapsed = null, detail = '', indeterminate = null } = {}) {
+function updateSaveProgress({
+  percent = null,
+  elapsed = null,
+  detail = "",
+  indeterminate = null,
+} = {}) {
   if (!isSaveProgressVisible()) return;
 
   const useIndeterminate =
     indeterminate != null
       ? indeterminate
-      : saveProgressMode === 'rtsp' ||
+      : saveProgressMode === "rtsp" ||
         isOpenProgressMode() ||
-        (saveProgressMode === 'youtube' && percent == null);
-  els.progressTrack?.classList.toggle('is-indeterminate', useIndeterminate);
+        ((saveProgressMode === "youtube" || saveProgressMode === "remote") &&
+          percent == null);
+  els.progressTrack?.classList.toggle("is-indeterminate", useIndeterminate);
 
   if (percent != null && Number.isFinite(percent)) {
     const pct = Math.max(0, Math.min(100, percent));
     if (els.progressFill) els.progressFill.style.width = `${pct}%`;
-    if (els.progressValue) els.progressValue.textContent = `${Math.round(pct)}%`;
+    if (els.progressValue)
+      els.progressValue.textContent = `${Math.round(pct)}%`;
   } else if (elapsed) {
     if (els.progressValue) els.progressValue.textContent = elapsed;
   }
@@ -2026,51 +2267,52 @@ function updateSaveProgress({ percent = null, elapsed = null, detail = '', indet
 
 function finishSaveProgress({
   ok = true,
-  message = '',
+  message = "",
   value = null,
   cancelled = false,
-  saved = null
+  saved = null,
 } = {}) {
   if (!els.progressModal) return;
   clearSaveProgressCloseTimer();
   els.progressModal.hidden = false;
-  els.progressTrack?.classList.remove('is-indeterminate');
+  els.progressTrack?.classList.remove("is-indeterminate");
   if (cancelled) {
     closeSaveProgress();
-    setStatus({ state: statusKey('progressCancelled') });
+    setStatus({ state: statusKey("progressCancelled") });
     return;
   }
   if (ok) {
-    if (els.progressFill) els.progressFill.style.width = '100%';
-    if (els.progressValue) els.progressValue.textContent = '100%';
-    if (els.progressTitle) els.progressTitle.textContent = t('progressDone');
+    if (els.progressFill) els.progressFill.style.width = "100%";
+    if (els.progressValue) els.progressValue.textContent = "100%";
+    if (els.progressTitle) els.progressTitle.textContent = t("progressDone");
     const info = saved || {};
-    const filePath = info.path || message || '';
-    const fileName = info.name || (filePath ? filePath.split(/[/\\]/).pop() : '') || '';
+    const filePath = info.path || message || "";
+    const fileName =
+      info.name || (filePath ? filePath.split(/[/\\]/).pop() : "") || "";
     if (els.progressName) {
       els.progressName.textContent = fileName;
-      els.progressName.classList.add('hidden');
+      els.progressName.classList.add("hidden");
     }
     if (els.progressDetail) {
-      els.progressDetail.textContent = info.size ? formatBytes(info.size) : '';
+      els.progressDetail.textContent = info.size ? formatBytes(info.size) : "";
     }
     showSavedInfo({
       name: fileName,
       path: filePath,
       size: Number(info.size) || 0,
-      elapsed: info.elapsed || (value && value !== '100%' ? value : '') || ''
+      elapsed: info.elapsed || (value && value !== "100%" ? value : "") || "",
     });
   } else {
-    if (els.progressTitle) els.progressTitle.textContent = t('progressFailed');
+    if (els.progressTitle) els.progressTitle.textContent = t("progressFailed");
     hideSavedInfo();
     if (message && els.progressDetail) els.progressDetail.textContent = message;
   }
-  els.btnProgressCancel?.classList.add('hidden');
+  els.btnProgressCancel?.classList.add("hidden");
   if (els.btnProgressCancel) els.btnProgressCancel.hidden = true;
-  els.btnProgressClose?.classList.remove('hidden');
+  els.btnProgressClose?.classList.remove("hidden");
   if (els.btnProgressClose) {
     els.btnProgressClose.hidden = false;
-    els.btnProgressClose.textContent = t('ok');
+    els.btnProgressClose.textContent = t("ok");
   }
   saveProgressMode = null;
 }
@@ -2082,14 +2324,14 @@ function closeSaveProgress() {
 }
 
 function renderThemeColorGrid(vars) {
-  const grid = $('themeColorGrid');
+  const grid = $("themeColorGrid");
   if (!grid) return;
-  grid.innerHTML = '';
+  grid.innerHTML = "";
   for (const item of THEME_EDIT_KEYS) {
-    const value = vars[item.key] || '#000000';
-    const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(value) ? value : '#888888';
-    const field = document.createElement('label');
-    field.className = 'theme-color-field';
+    const value = vars[item.key] || "#000000";
+    const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(value) ? value : "#888888";
+    const field = document.createElement("label");
+    field.className = "theme-color-field";
     field.innerHTML = `
       <span></span>
       <div class="color-row">
@@ -2097,15 +2339,15 @@ function renderThemeColorGrid(vars) {
         <input type="text" data-key-text="${item.key}" value="${value}" spellcheck="false" />
       </div>
     `;
-    field.querySelector('span').textContent = t(item.labelKey);
+    field.querySelector("span").textContent = t(item.labelKey);
     const colorInput = field.querySelector('input[type="color"]');
     const textInput = field.querySelector('input[type="text"]');
-    colorInput.addEventListener('input', () => {
+    colorInput.addEventListener("input", () => {
       textInput.value = colorInput.value;
       themeDraft.vars[item.key] = colorInput.value;
       previewThemeDraft();
     });
-    textInput.addEventListener('change', () => {
+    textInput.addEventListener("change", () => {
       const v = textInput.value.trim();
       themeDraft.vars[item.key] = v;
       if (/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(v)) colorInput.value = v;
@@ -2118,9 +2360,9 @@ function renderThemeColorGrid(vars) {
 function previewThemeDraft() {
   const vars = ensureDerivedVars(themeDraft.vars);
   const root = document.documentElement;
-  root.setAttribute('data-theme', 'custom');
-  root.setAttribute('data-color-scheme', themeDraft.scheme);
-  root.style.colorScheme = themeDraft.scheme === 'light' ? 'light' : 'dark';
+  root.setAttribute("data-theme", "custom");
+  root.setAttribute("data-color-scheme", themeDraft.scheme);
+  root.style.colorScheme = themeDraft.scheme === "light" ? "light" : "dark";
   for (const [key, value] of Object.entries(vars)) {
     root.style.setProperty(key, value);
   }
@@ -2128,29 +2370,30 @@ function previewThemeDraft() {
 }
 
 function openThemeEditor() {
-  const selected = $('settingTheme').value || settings.theme;
+  const selected = $("settingTheme").value || settings.theme;
   const def = getThemeDefinition(selected);
   themeDraft = {
     id: def.builtin ? null : def.id,
     name: def.builtin ? themeDisplayName(selected) : def.name,
-    scheme: def.scheme || 'dark',
-    vars: cloneVarsFromTheme(selected)
+    scheme: def.scheme || "dark",
+    vars: cloneVarsFromTheme(selected),
   };
-  $('themeNameInput').value = themeDraft.name;
-  $('themeSchemeSelect').value = themeDraft.scheme;
+  $("themeNameInput").value = themeDraft.name;
+  $("themeSchemeSelect").value = themeDraft.scheme;
   renderThemeColorGrid(themeDraft.vars);
   previewThemeDraft();
-  openThemedDialog($('themeEditorModal'));
+  openThemedDialog($("themeEditorModal"));
 }
 
 function closeThemeEditor(restore = true) {
-  $('themeEditorModal').close();
+  $("themeEditorModal").close();
   if (restore) applyTheme(settings.theme);
 }
 
 function collectThemeDraftFromForm() {
-  themeDraft.name = $('themeNameInput').value.trim() || t('themeNamePh');
-  themeDraft.scheme = $('themeSchemeSelect').value === 'light' ? 'light' : 'dark';
+  themeDraft.name = $("themeNameInput").value.trim() || t("themeNamePh");
+  themeDraft.scheme =
+    $("themeSchemeSelect").value === "light" ? "light" : "dark";
   themeDraft.vars = ensureDerivedVars(themeDraft.vars);
   return themeDraft;
 }
@@ -2162,33 +2405,36 @@ async function saveThemeDraft({ asNew }) {
     id,
     name: draft.name,
     scheme: draft.scheme,
-    vars: draft.vars
+    vars: draft.vars,
   });
   themeDraft.id = saved.id;
   settings.theme = `custom:${saved.id}`;
   saveSettings(settings);
   populateThemeSelect(settings.theme);
   await applyTheme(settings.theme);
-  $('themeEditorModal').close();
+  $("themeEditorModal").close();
   setStatus({
-    state: asNew || !draft.id ? statusKey('statusThemeCreated') : statusKey('statusThemeSaved')
+    state:
+      asNew || !draft.id
+        ? statusKey("statusThemeCreated")
+        : statusKey("statusThemeSaved"),
   });
 }
 
 async function deleteSelectedCustomTheme() {
-  const value = $('settingTheme').value;
-  if (!String(value).startsWith('custom:')) return;
-  const id = value.slice('custom:'.length);
+  const value = $("settingTheme").value;
+  if (!String(value).startsWith("custom:")) return;
+  const id = value.slice("custom:".length);
   deleteCustomTheme(id);
-  settings.theme = 'dark';
+  settings.theme = "dark";
   saveSettings(settings);
-  populateThemeSelect('dark');
-  await applyTheme('dark');
-  setStatus({ state: statusKey('statusThemeDeleted') });
+  populateThemeSelect("dark");
+  await applyTheme("dark");
+  setStatus({ state: statusKey("statusThemeDeleted") });
 }
 
 function applyLocale(locale, { persist = true } = {}) {
-  const next = setLocale(locale === 'ko' ? 'ko' : 'en');
+  const next = setLocale(locale === "ko" ? "ko" : "en");
   if (persist) {
     settings.locale = next;
     saveSettings(settings);
@@ -2208,24 +2454,26 @@ function applyLocale(locale, { persist = true } = {}) {
   updatePlayIcons(playing);
   setPlaybackRate(settings.rate, { persist: false, announce: true });
   paintStatusBar();
-  if ($('youtubeHint')) {
-    $('youtubeHint').textContent = isElectron ? t('youtubeHintDesktop') : t('youtubeHintWeb');
+  if ($("youtubeHint")) {
+    $("youtubeHint").textContent = isElectron
+      ? t("youtubeHintDesktop")
+      : t("youtubeHintWeb");
   }
   if (appInfo) {
-    $('aboutVersion').textContent = t('aboutVersion', { n: appInfo.version });
+    $("aboutVersion").textContent = t("aboutVersion", { n: appInfo.version });
   }
   renderPlayHistory();
   syncWindowMinWidth();
   if (spectrumWindowOpen) {
     postSpectrumMessage({
-      type: 'locale',
-      locale: next
+      type: "locale",
+      locale: next,
     });
   }
   if (historyWindowOpen) {
     postHistoryMessage({
-      type: 'locale',
-      locale: next
+      type: "locale",
+      locale: next,
     });
   }
   return next;
@@ -2234,7 +2482,10 @@ function applyLocale(locale, { persist = true } = {}) {
 function applySettingsToPlayer({ applyVolume = false } = {}) {
   els.media.loop = Boolean(settings.loop);
   if (applyVolume) {
-    const pct = Math.min(100, Math.max(0, Math.round(Number(settings.startVolume) || 80)));
+    const pct = Math.min(
+      100,
+      Math.max(0, Math.round(Number(settings.startVolume) || 80)),
+    );
     if (youtubeMode) {
       ytPlayer.setVolume(pct);
       els.volumeBar.value = String(pct);
@@ -2263,9 +2514,10 @@ function stepPlaybackRate(delta) {
 async function updateSpectrumVisibility() {
   // Do not gate on spectrum.hasAudio: Chromium reports webkitAudioDecodedByteCount=0
   // until decode starts, which previously kept the window closed forever.
-  const want = !youtubeMode && Boolean(settings.showSpectrum) && Boolean(currentMediaName);
+  const want =
+    !youtubeMode && Boolean(settings.showSpectrum) && Boolean(currentMediaName);
   const pressed = Boolean(settings.showSpectrum);
-  $('btnSpectrum')?.setAttribute('aria-pressed', String(pressed));
+  $("btnSpectrum")?.setAttribute("aria-pressed", String(pressed));
 
   if (want) {
     await openSpectrumPopup();
@@ -2281,18 +2533,20 @@ function fillSettingsForm() {
   fillLocaleSelect();
   populateThemeSelect(settings.theme);
   fillSpectrumStyleSelect();
-  $('settingRate').value = String(settings.rate);
-  $('settingSeekStep').value = String(settings.seekStep);
-  $('settingAutoplay').checked = settings.autoplay;
-  $('settingLoop').checked = settings.loop;
-  $('settingShowSpectrum').checked = settings.showSpectrum;
-  if ($('settingAutoHideChrome')) {
-    $('settingAutoHideChrome').checked = settings.autoHideChrome !== false;
+  $("settingRate").value = String(settings.rate);
+  $("settingSeekStep").value = String(settings.seekStep);
+  $("settingAutoplay").checked = settings.autoplay;
+  $("settingLoop").checked = settings.loop;
+  $("settingShowSpectrum").checked = settings.showSpectrum;
+  if ($("settingAutoHideChrome")) {
+    $("settingAutoHideChrome").checked = settings.autoHideChrome !== false;
   }
-  $('settingShowSubtitles').checked = settings.showSubtitles;
-  $('settingSubSize').value = String(settings.subSize);
+  $("settingShowSubtitles").checked = settings.showSubtitles;
+  $("settingSubSize").value = String(settings.subSize);
   updateSubSizeValue(settings.subSize);
-  $('settingStartVolume').value = String(clampStartVolume(settings.startVolume));
+  $("settingStartVolume").value = String(
+    clampStartVolume(settings.startVolume),
+  );
   updateStartVolumeValue(settings.startVolume);
   updateOpacityUi(settings.windowOpacity);
 }
@@ -2311,18 +2565,22 @@ function clampWindowOpacity(value) {
 
 function updateOpacityUi(opacityPercent) {
   const value = clampWindowOpacity(opacityPercent);
-  const toolbar = $('toolbarOpacityBar');
-  const toolbarOut = $('toolbarOpacityValue');
-  const tip = t('opacityTipPct', { n: value });
+  const toolbar = $("toolbarOpacityBar");
+  const toolbarOut = $("toolbarOpacityValue");
+  const tip = t("opacityTipPct", { n: value });
   if (toolbar) {
     toolbar.value = String(value);
     syncRangeFill(toolbar);
-    toolbar.setAttribute('aria-valuenow', String(value));
-    toolbar.setAttribute('aria-valuetext', `${value}%`);
-    toolbar.setAttribute('data-tooltip', tip);
-    toolbar.setAttribute('aria-label', tip);
-    const tipEl = document.getElementById('tooltip');
-    if (tipEl && !tipEl.hidden && (document.activeElement === toolbar || toolbar.matches?.(':hover'))) {
+    toolbar.setAttribute("aria-valuenow", String(value));
+    toolbar.setAttribute("aria-valuetext", `${value}%`);
+    toolbar.setAttribute("data-tooltip", tip);
+    toolbar.setAttribute("aria-label", tip);
+    const tipEl = document.getElementById("tooltip");
+    if (
+      tipEl &&
+      !tipEl.hidden &&
+      (document.activeElement === toolbar || toolbar.matches?.(":hover"))
+    ) {
       tipEl.textContent = tip;
     }
   }
@@ -2356,41 +2614,45 @@ async function applyHistoryOpacity(opacityPercent, { persist = true } = {}) {
 
 function updateStartVolumeValue(volume) {
   const value = clampStartVolume(volume);
-  const out = $('settingStartVolumeValue');
-  const input = $('settingStartVolume');
+  const out = $("settingStartVolumeValue");
+  const input = $("settingStartVolume");
   if (out) out.textContent = `${value}%`;
   if (input) {
     input.value = String(value);
-    input.setAttribute('aria-valuetext', `${value}%`);
+    input.setAttribute("aria-valuetext", `${value}%`);
     syncRangeFill(input);
   }
 }
 
 function updateSubSizeValue(size) {
   const value = Number(size) || 28;
-  const out = $('settingSubSizeValue');
-  const input = $('settingSubSize');
+  const out = $("settingSubSizeValue");
+  const input = $("settingSubSize");
   if (out) out.textContent = `${value}px`;
-  if (input) input.setAttribute('aria-valuetext', `${value}px`);
+  if (input) input.setAttribute("aria-valuetext", `${value}px`);
 }
 
 function readSettingsForm() {
   return {
-    locale: $('settingLocale')?.value === 'ko' ? 'ko' : 'en',
-    theme: $('settingTheme').value,
-    rate: Number($('settingRate').value),
-    seekStep: Number($('settingSeekStep').value) || 10,
-    autoplay: $('settingAutoplay').checked,
-    loop: $('settingLoop').checked,
-    showSpectrum: $('settingShowSpectrum').checked,
-    autoHideChrome: $('settingAutoHideChrome') ? $('settingAutoHideChrome').checked : settings.autoHideChrome !== false,
-    spectrumStyle: normalizeSpectrumStyle($('settingSpectrumStyle')?.value || settings.spectrumStyle),
-    showSubtitles: $('settingShowSubtitles').checked,
-    subSize: Number($('settingSubSize').value) || 28,
-    startVolume: clampStartVolume($('settingStartVolume').value),
+    locale: $("settingLocale")?.value === "ko" ? "ko" : "en",
+    theme: $("settingTheme").value,
+    rate: Number($("settingRate").value),
+    seekStep: Number($("settingSeekStep").value) || 10,
+    autoplay: $("settingAutoplay").checked,
+    loop: $("settingLoop").checked,
+    showSpectrum: $("settingShowSpectrum").checked,
+    autoHideChrome: $("settingAutoHideChrome")
+      ? $("settingAutoHideChrome").checked
+      : settings.autoHideChrome !== false,
+    spectrumStyle: normalizeSpectrumStyle(
+      $("settingSpectrumStyle")?.value || settings.spectrumStyle,
+    ),
+    showSubtitles: $("settingShowSubtitles").checked,
+    subSize: Number($("settingSubSize").value) || 28,
+    startVolume: clampStartVolume($("settingStartVolume").value),
     windowOpacity: clampWindowOpacity(settings.windowOpacity),
     spectrumOpacity: clampWindowOpacity(settings.spectrumOpacity),
-    historyOpacity: clampWindowOpacity(settings.historyOpacity)
+    historyOpacity: clampWindowOpacity(settings.historyOpacity),
   };
 }
 
@@ -2404,12 +2666,15 @@ function revokeObjectUrl() {
 function detectHasAudioTrack() {
   const media = els.media;
   if (!media) return false;
-  if (media.tagName === 'AUDIO') return true;
+  if (media.tagName === "AUDIO") return true;
 
   // Trust positive signals only. In Chromium/Electron, webkitAudioDecodedByteCount
   // is often 0 at loadedmetadata / early play — that must not mean "no audio".
   if (media.mozHasAudio === true) return true;
-  if (typeof media.webkitAudioDecodedByteCount === 'number' && media.webkitAudioDecodedByteCount > 0) {
+  if (
+    typeof media.webkitAudioDecodedByteCount === "number" &&
+    media.webkitAudioDecodedByteCount > 0
+  ) {
     return true;
   }
   try {
@@ -2429,11 +2694,11 @@ async function loadMedia({
   name,
   path = null,
   size = null,
-  ext = '',
+  ext = "",
   subtitle = null,
   skipRecent = false,
   isRtsp = false,
-  rtspUrl = null
+  rtspUrl = null,
 } = {}) {
   exitYouTubeMode();
   if (!isRtsp) {
@@ -2442,21 +2707,24 @@ async function loadMedia({
   revokeObjectUrl();
   stopRequested = false;
   hidePlaybackOverlay(true);
+  currentRemote = null;
   currentMediaPath = path;
   currentMediaName = name;
-  currentRtspUrl = isRtsp ? (rtspUrl || name || null) : null;
-  els.dropHint.classList.add('hidden');
+  currentRtspUrl = isRtsp ? rtspUrl || name || null : null;
+  els.dropHint.classList.add("hidden");
   els.media.src = url;
   els.media.load();
 
   const extLabel = isRtsp
-    ? 'RTSP'
-    : (ext || (name.includes('.') ? name.slice(name.lastIndexOf('.')) : '')).toUpperCase().replace('.', '') || 'MEDIA';
+    ? "RTSP"
+    : (ext || (name.includes(".") ? name.slice(name.lastIndexOf(".")) : ""))
+        .toUpperCase()
+        .replace(".", "") || "MEDIA";
   setStatus({
     file: size ? `${name} (${formatBytes(size)})` : name,
     format: extLabel,
-    state: statusKey(isRtsp ? 'statusRtspConnecting' : 'statusLoading'),
-    subtitle: statusKey('statusNoSubtitle')
+    state: statusKey(isRtsp ? "statusRtspConnecting" : "statusLoading"),
+    subtitle: statusKey("statusNoSubtitle"),
   });
 
   subtitles.setCues([]);
@@ -2478,21 +2746,27 @@ async function loadMedia({
     try {
       await els.media.play();
     } catch {
-      setStatus({ state: statusKey('statusReadyPlay') });
+      setStatus({ state: statusKey("statusReadyPlay") });
     }
   }
 }
 
 async function repairAndReloadMedia(sourcePath, options = {}) {
   if (!isElectron || !window.desktopAPI?.makeMediaCompatible || !sourcePath) {
-    return { ok: false, error: t('statusCompatFailed') };
+    return { ok: false, error: t("statusCompatFailed") };
   }
-  setStatus({ state: statusKey('statusCompatConverting'), format: statusKey('statusCodecError') });
+  setStatus({
+    state: statusKey("statusCompatConverting"),
+    format: statusKey("statusCodecError"),
+  });
   const unsub = window.desktopAPI.onMediaCompatProgress?.((progress) => {
     if (progress?.message) setStatus({ state: progress.message });
   });
   try {
-    const result = await window.desktopAPI.makeMediaCompatible(sourcePath, options);
+    const result = await window.desktopAPI.makeMediaCompatible(
+      sourcePath,
+      options,
+    );
     return result;
   } finally {
     unsub?.();
@@ -2501,16 +2775,18 @@ async function repairAndReloadMedia(sourcePath, options = {}) {
 
 async function handleMediaElementError() {
   const err = els.media.error;
-  const detail = mediaErrorDetail(err) || t('statusPlaybackError');
-  const msg = err ? `${t('statusPlaybackError')} (${err.code})` : t('statusPlaybackError');
+  const detail = mediaErrorDetail(err) || t("statusPlaybackError");
+  const msg = err
+    ? `${t("statusPlaybackError")} (${err.code})`
+    : t("statusPlaybackError");
 
   if (currentRtspUrl) {
-    setStatus({ state: statusKey('statusRtspFailed'), format: 'RTSP' });
+    setStatus({ state: statusKey("statusRtspFailed"), format: "RTSP" });
     showAppError({
-      title: t('errorRtspTitle'),
+      title: t("errorRtspTitle"),
       message: msg,
       detail,
-      context: { url: currentRtspUrl }
+      context: { url: currentRtspUrl },
     });
     await stopRtspBridge();
     return;
@@ -2519,10 +2795,18 @@ async function handleMediaElementError() {
   const decodeLike =
     err?.code === 3 ||
     err?.code === 4 ||
-    /DECODE|PIPELINE_ERROR_DECODE|DEMUXER_ERROR|not supported/i.test(String(err?.message || ''));
+    /DECODE|PIPELINE_ERROR_DECODE|DEMUXER_ERROR|not supported/i.test(
+      String(err?.message || ""),
+    );
 
-  const priorCompat = currentMediaPath ? compatTriedPaths.get(currentMediaPath) : null;
-  const nextCompatMode = !priorCompat ? 'soft' : priorCompat === 'soft' ? 'full' : null;
+  const priorCompat = currentMediaPath
+    ? compatTriedPaths.get(currentMediaPath)
+    : null;
+  const nextCompatMode = !priorCompat
+    ? "soft"
+    : priorCompat === "soft"
+      ? "full"
+      : null;
 
   if (
     decodeLike &&
@@ -2539,36 +2823,42 @@ async function handleMediaElementError() {
     try {
       const repaired = await repairAndReloadMedia(originalPath, {
         mode: nextCompatMode,
-        force: nextCompatMode === 'full'
+        force: nextCompatMode === "full",
       });
       if (repaired?.ok && repaired.url) {
-        if (repaired.mode === 'full') compatTriedPaths.set(originalPath, 'full');
-        setStatus({ state: statusKey('statusCompatRetry') });
+        if (repaired.mode === "full")
+          compatTriedPaths.set(originalPath, "full");
+        setStatus({ state: statusKey("statusCompatRetry") });
         await loadMedia({
           url: repaired.url,
           name: originalName || repaired.name,
           path: originalPath,
           size: repaired.size,
-          ext: repaired.ext || '.mp4',
-          skipRecent: true
+          ext: repaired.ext || ".mp4",
+          skipRecent: true,
         });
-        setStatus({ state: statusKey('statusCompatDone') });
+        setStatus({ state: statusKey("statusCompatDone") });
         return;
       }
-      setStatus({ state: statusKey('statusCompatFailed'), format: statusKey('statusCodecError') });
+      setStatus({
+        state: statusKey("statusCompatFailed"),
+        format: statusKey("statusCodecError"),
+      });
       showAppError({
-        title: t('errorMediaTitle'),
-        message: t('statusCompatFailed'),
-        detail: [detail, t('errorDecodeHint'), repaired?.error || ''].filter(Boolean).join('\n\n'),
+        title: t("errorMediaTitle"),
+        message: t("statusCompatFailed"),
+        detail: [detail, t("errorDecodeHint"), repaired?.error || ""]
+          .filter(Boolean)
+          .join("\n\n"),
         error: err,
         context: {
-          src: els.media.currentSrc || els.media.src || '',
-          file: originalName || '',
+          src: els.media.currentSrc || els.media.src || "",
+          file: originalName || "",
           path: originalPath,
           networkState: els.media.networkState,
-          readyState: els.media.readyState
+          readyState: els.media.readyState,
         },
-        statusMessage: t('statusCompatFailed')
+        statusMessage: t("statusCompatFailed"),
       });
       return;
     } finally {
@@ -2576,33 +2866,37 @@ async function handleMediaElementError() {
     }
   }
 
-  setStatus({ state: msg, format: statusKey('statusCodecError') });
+  setStatus({ state: msg, format: statusKey("statusCodecError") });
   showAppError({
-    title: t('errorMediaTitle'),
+    title: t("errorMediaTitle"),
     message: msg,
-    detail: [detail, t('statusCodecError'), decodeLike ? t('errorDecodeHint') : '']
+    detail: [
+      detail,
+      t("statusCodecError"),
+      decodeLike ? t("errorDecodeHint") : "",
+    ]
       .filter(Boolean)
-      .join('\n'),
+      .join("\n"),
     error: err,
     context: {
-      src: els.media.currentSrc || els.media.src || '',
-      file: currentMediaName || '',
-      path: currentMediaPath || '',
+      src: els.media.currentSrc || els.media.src || "",
+      file: currentMediaName || "",
+      path: currentMediaPath || "",
       networkState: els.media.networkState,
-      readyState: els.media.readyState
+      readyState: els.media.readyState,
     },
-    statusMessage: msg
+    statusMessage: msg,
   });
 }
 
 function applySubtitle(subtitle) {
-  const cues = parseSubtitle(subtitle.content, subtitle.ext || '');
+  const cues = parseSubtitle(subtitle.content, subtitle.ext || "");
   subtitles.setCues(cues);
   subtitles.setEnabled(Boolean(settings.showSubtitles));
   setStatus({
     subtitle: cues.length
-      ? statusKey('statusSubtitle', { name: subtitle.name, n: cues.length })
-      : statusKey('statusSubtitleEmpty', { name: subtitle.name })
+      ? statusKey("statusSubtitle", { name: subtitle.name, n: cues.length })
+      : statusKey("statusSubtitleEmpty", { name: subtitle.name }),
   });
 }
 
@@ -2615,12 +2909,12 @@ async function openMediaDesktop() {
     path: result.path,
     size: result.size,
     ext: result.ext,
-    subtitle: result.subtitle
+    subtitle: result.subtitle,
   });
 }
 
 function openMediaWeb() {
-  els.webMediaInput.value = '';
+  els.webMediaInput.value = "";
   els.webMediaInput.click();
 }
 
@@ -2638,7 +2932,7 @@ async function onWebMediaChosen(e) {
         path: result.path,
         size: result.size,
         ext: result.ext,
-        subtitle: result.subtitle
+        subtitle: result.subtitle,
       });
       return;
     }
@@ -2650,8 +2944,10 @@ async function onWebMediaChosen(e) {
     url: currentObjectUrl,
     name: file.name,
     size: file.size,
-    ext: file.name.includes('.') ? file.name.slice(file.name.lastIndexOf('.')) : '',
-    subtitle
+    ext: file.name.includes(".")
+      ? file.name.slice(file.name.lastIndexOf("."))
+      : "",
+    subtitle,
   });
 }
 
@@ -2661,7 +2957,7 @@ async function openSubtitle() {
     if (sub) applySubtitle(sub);
     return;
   }
-  els.webSubInput.value = '';
+  els.webSubInput.value = "";
   els.webSubInput.click();
 }
 
@@ -2669,7 +2965,9 @@ async function onWebSubChosen(e) {
   const file = e.target.files?.[0];
   if (!file) return;
   const content = await file.text();
-  const ext = file.name.includes('.') ? file.name.slice(file.name.lastIndexOf('.')) : '.srt';
+  const ext = file.name.includes(".")
+    ? file.name.slice(file.name.lastIndexOf("."))
+    : ".srt";
   applySubtitle({ name: file.name, content, ext });
 }
 
@@ -2697,7 +2995,7 @@ function stopPlayback() {
   if (youtubeMode) {
     ytPlayer.stop();
     updatePlayIcons(false);
-    setStatus({ state: statusKey('statusStopped') });
+    setStatus({ state: statusKey("statusStopped") });
     notifyStopped();
     return;
   }
@@ -2706,26 +3004,27 @@ function stopPlayback() {
   els.media.pause();
   if (currentRtspUrl) {
     void stopRtspBridge();
-    els.media.removeAttribute('src');
+    els.media.removeAttribute("src");
     els.media.load();
   } else {
     els.media.currentTime = 0;
   }
   updatePlayIcons(false);
-  setStatus({ state: statusKey('statusStopped') });
+  setStatus({ state: statusKey("statusStopped") });
   subtitles.clear();
   notifyStopped();
 }
 
 async function playSavedLocalFile(filePath) {
-  if (!isElectron || !filePath || !window.desktopAPI?.openMediaPath) return false;
+  if (!isElectron || !filePath || !window.desktopAPI?.openMediaPath)
+    return false;
   const result = await window.desktopAPI.openMediaPath(filePath);
   if (!result?.ok) {
     showAppError({
-      title: t('errorFileTitle'),
-      message: result?.error || t('statusFileOpenFail'),
-      detail: result?.error || '',
-      context: { path: filePath }
+      title: t("errorFileTitle"),
+      message: result?.error || t("statusFileOpenFail"),
+      detail: result?.error || "",
+      context: { path: filePath },
     });
     return false;
   }
@@ -2735,16 +3034,16 @@ async function playSavedLocalFile(filePath) {
     path: result.path,
     size: result.size,
     ext: result.ext,
-    subtitle: result.subtitle
+    subtitle: result.subtitle,
   });
   // Always play after RTSP stop-save, even if autoplay setting is off.
   try {
     await els.media.play();
     updatePlayIcons(true);
-    setStatus({ state: statusKey('statusPlaying') });
+    setStatus({ state: statusKey("statusPlaying") });
     notifyPlaying();
   } catch {
-    setStatus({ state: statusKey('statusReadyPlay') });
+    setStatus({ state: statusKey("statusReadyPlay") });
   }
   return true;
 }
@@ -2757,7 +3056,7 @@ function seekBy(delta) {
   if (!Number.isFinite(els.media.duration)) return;
   els.media.currentTime = Math.min(
     els.media.duration,
-    Math.max(0, els.media.currentTime + delta)
+    Math.max(0, els.media.currentTime + delta),
   );
 }
 
@@ -2803,7 +3102,9 @@ function toggleMute() {
       lastAudibleVolumePct = cur;
       setLocalVolumePercent(0);
     } else {
-      setLocalVolumePercent(lastAudibleVolumePct || Number(settings.startVolume) || 80);
+      setLocalVolumePercent(
+        lastAudibleVolumePct || Number(settings.startVolume) || 80,
+      );
     }
   } else {
     els.media.muted = !els.media.muted;
@@ -2814,8 +3115,8 @@ function toggleMute() {
 function toggleSpectrumPanel() {
   settings.showSpectrum = !settings.showSpectrum;
   saveSettings(settings);
-  if ($('settingShowSpectrum')) {
-    $('settingShowSpectrum').checked = settings.showSpectrum;
+  if ($("settingShowSpectrum")) {
+    $("settingShowSpectrum").checked = settings.showSpectrum;
   }
   void updateSpectrumVisibility();
   if (settings.showSpectrum && currentMediaName && !youtubeMode) {
@@ -2826,17 +3127,18 @@ function toggleSpectrumPanel() {
 }
 
 function spectrumStyleLabel(styleId) {
-  const style = SPECTRUM_STYLES.find((s) => s.id === styleId) || SPECTRUM_STYLES[0];
+  const style =
+    SPECTRUM_STYLES.find((s) => s.id === styleId) || SPECTRUM_STYLES[0];
   return t(style.labelKey);
 }
 
 function fillSpectrumStyleSelect() {
-  const select = $('settingSpectrumStyle');
+  const select = $("settingSpectrumStyle");
   if (!select) return;
   const current = normalizeSpectrumStyle(settings.spectrumStyle);
-  select.innerHTML = '';
+  select.innerHTML = "";
   for (const style of SPECTRUM_STYLES) {
-    const opt = document.createElement('option');
+    const opt = document.createElement("option");
     opt.value = style.id;
     opt.textContent = t(style.labelKey);
     select.appendChild(opt);
@@ -2844,13 +3146,16 @@ function fillSpectrumStyleSelect() {
   select.value = current;
 }
 
-function applySpectrumStyle(styleId, { persist = true, fromWindow = false } = {}) {
+function applySpectrumStyle(
+  styleId,
+  { persist = true, fromWindow = false } = {},
+) {
   const next = normalizeSpectrumStyle(styleId);
   settings.spectrumStyle = next;
   if (persist) saveSettings(settings);
-  if ($('settingSpectrumStyle')) $('settingSpectrumStyle').value = next;
+  if ($("settingSpectrumStyle")) $("settingSpectrumStyle").value = next;
   if (!fromWindow && spectrumWindowOpen) {
-    postSpectrumMessage({ type: 'style', style: next });
+    postSpectrumMessage({ type: "style", style: next });
   }
   // While paused, re-send last bins so the style change is visible in the window.
   if (spectrum.isHoldingFrame()) spectrum.repaintLast();
@@ -2862,15 +3167,15 @@ function cycleSpectrumStyle(delta = 1) {
   const idx = Math.max(0, ids.indexOf(current));
   const next = ids[(idx + delta + ids.length) % ids.length];
   applySpectrumStyle(next);
-  setStatus({ state: { key: 'spectrumStyle', styleId: next } });
+  setStatus({ state: { key: "spectrumStyle", styleId: next } });
 }
 
 function toggleSubtitlesVisible() {
   settings.showSubtitles = !settings.showSubtitles;
   saveSettings(settings);
   subtitles.setEnabled(Boolean(settings.showSubtitles));
-  if ($('settingShowSubtitles')) {
-    $('settingShowSubtitles').checked = settings.showSubtitles;
+  if ($("settingShowSubtitles")) {
+    $("settingShowSubtitles").checked = settings.showSubtitles;
   }
 }
 
@@ -2878,7 +3183,7 @@ function syncSeekBar() {
   if (seeking || pendingSeekTarget != null || youtubeMode) return;
   const d = els.media.duration;
   if (!Number.isFinite(d) || d <= 0) {
-    els.seekBar.value = '0';
+    els.seekBar.value = "0";
     syncSeekBarFill();
     return;
   }
@@ -2962,9 +3267,10 @@ function beginSeekBar(e) {
   }
 }
 
-function openYouTubeDialog(prefill = '') {
-  showYoutubeError('');
-  els.youtubeUrlInput.value = prefill || currentYouTube?.url || '';
+function openYouTubeDialog(prefill = "") {
+  showYoutubeError("");
+  els.youtubeUrlInput.value =
+    prefill || currentYouTube?.url || currentRemote?.url || "";
   openThemedDialog(els.youtubeModal, { modal: true });
   queueMicrotask(() => {
     els.youtubeUrlInput.focus();
@@ -2973,28 +3279,28 @@ function openYouTubeDialog(prefill = '') {
 }
 
 async function playRtspFromInput(rawInput) {
-  const url = String(rawInput || '').trim();
+  const url = String(rawInput || "").trim();
   if (!isRtspUrl(url)) {
-    showYoutubeError(t('rtspInvalid'));
+    showYoutubeError(t("rtspInvalid"));
     return false;
   }
   if (!isElectron || !window.desktopAPI?.openRtsp) {
-    showYoutubeError(t('rtspDesktopOnly'));
+    showYoutubeError(t("rtspDesktopOnly"));
     return false;
   }
   if (openStreamInFlight) {
-    setStatus({ state: statusKey('statusOpenInProgress') });
+    setStatus({ state: statusKey("statusOpenInProgress") });
     return false;
   }
 
   openStreamInFlight = true;
-  showYoutubeError('');
+  showYoutubeError("");
   exitYouTubeMode();
   if (rtspRecording && currentRtspUrl && currentRtspUrl !== url) {
     await finalizeRtspRecordIfAny();
   }
   els.media.pause();
-  els.media.removeAttribute('src');
+  els.media.removeAttribute("src");
   els.media.load();
   revokeObjectUrl();
   currentMediaPath = null;
@@ -3002,50 +3308,50 @@ async function playRtspFromInput(rawInput) {
   subtitles.setCues([]);
   stopRequested = false;
   hidePlaybackOverlay(true);
-  els.dropHint.classList.add('hidden');
+  els.dropHint.classList.add("hidden");
 
   const label = rtspDisplayName(url);
   beginOpenStreamProgress({
-    kind: 'rtsp',
+    kind: "rtsp",
     name: url,
-    detail: t('statusRtspConnecting')
+    detail: t("statusRtspConnecting"),
   });
   setStatus({
     file: url,
-    format: 'RTSP',
-    state: statusKey('statusRtspConnecting'),
-    subtitle: statusKey('statusNoSubtitle')
+    format: "RTSP",
+    state: statusKey("statusRtspConnecting"),
+    subtitle: statusKey("statusNoSubtitle"),
   });
 
   try {
-    updateOpenProgressStage(1, 3, t('statusRtspConnecting'));
+    updateOpenProgressStage(1, 3, t("statusRtspConnecting"));
     const result = await window.desktopAPI.openRtsp(url);
     if (openStreamCancelled) {
       closeSaveProgress();
       return false;
     }
     if (!result?.ok) {
-      const errMsg = result?.error || t('statusRtspFailed');
+      const errMsg = result?.error || t("statusRtspFailed");
       reopenUrlDialogAfterOpenFailure(url, errMsg);
       showAppError({
-        title: t('errorRtspTitle'),
+        title: t("errorRtspTitle"),
         message: errMsg,
-        detail: result?.error || '',
-        context: { url }
+        detail: result?.error || "",
+        context: { url },
       });
       return false;
     }
 
-    updateOpenProgressStage(2, 3, t('progressStartingStream'));
+    updateOpenProgressStage(2, 3, t("progressStartingStream"));
     currentRtspUrl = url;
     await loadMedia({
       url: result.playUrl,
       name: url,
       path: null,
-      ext: 'rtsp',
+      ext: "rtsp",
       skipRecent: true,
       isRtsp: true,
-      rtspUrl: url
+      rtspUrl: url,
     });
     if (openStreamCancelled) {
       await stopRtspBridge();
@@ -3056,11 +3362,11 @@ async function playRtspFromInput(rawInput) {
     updateSaveButton();
     setStatus({
       file: url,
-      format: 'RTSP',
-      state: statusKey('statusRtspLive')
+      format: "RTSP",
+      state: statusKey("statusRtspLive"),
     });
-    updateOpenProgressStage(3, 3, t('statusRtspLive'));
-    finishOpenProgress({ ok: true, message: t('statusRtspLive') });
+    updateOpenProgressStage(3, 3, t("statusRtspLive"));
+    finishOpenProgress({ ok: true, message: t("statusRtspLive") });
     return true;
   } finally {
     endOpenStreamInFlight();
@@ -3068,32 +3374,174 @@ async function playRtspFromInput(rawInput) {
 }
 
 async function playNetworkFromInput(rawInput) {
-  const input = String(rawInput || '').trim();
+  const input = String(rawInput || "").trim();
   if (isRtspUrl(input)) {
     return playRtspFromInput(input);
   }
-  return playYouTubeFromInput(input);
+  if (isYouTubeUrl(input)) {
+    return playYouTubeFromInput(input);
+  }
+  if (isSupportedRemoteUrl(input)) {
+    return playRemoteVideoFromInput(input);
+  }
+  showYoutubeError(t("youtubeInvalid"));
+  return false;
+}
+
+async function playRemoteVideoFromInput(rawInput) {
+  const url = String(rawInput || "").trim();
+  if (!isSupportedRemoteUrl(url)) {
+    showYoutubeError(t("youtubeInvalid"));
+    return false;
+  }
+  if (!isElectron || !window.desktopAPI?.openRemoteVideo) {
+    showYoutubeError(t("remoteDesktopOnly"));
+    return false;
+  }
+  if (openStreamInFlight) {
+    setStatus({ state: statusKey("statusOpenInProgress") });
+    return false;
+  }
+
+  openStreamInFlight = true;
+  showYoutubeError("");
+  await stopRtspBridge({ finalizeRecord: true });
+  els.media.pause();
+  els.media.removeAttribute("src");
+  els.media.load();
+  revokeObjectUrl();
+  currentMediaPath = null;
+  currentMediaName = null;
+  currentRemote = null;
+  subtitles.setCues([]);
+  stopRequested = false;
+  hidePlaybackOverlay(true);
+  els.dropHint.classList.add("hidden");
+
+  beginOpenStreamProgress({
+    kind: "remote",
+    name: url,
+    detail: t("progressFetchingInfo"),
+  });
+  setStatus({
+    file: url,
+    format: "URL",
+    state: statusKey("statusLoading"),
+    subtitle: statusKey("statusNoSubtitle"),
+  });
+
+  try {
+    updateOpenProgressStage(1, 3, t("progressFetchingInfo"));
+    let info = null;
+    try {
+      const res = await window.desktopAPI.getRemoteVideoInfo(url);
+      if (openStreamCancelled) {
+        closeSaveProgress();
+        return false;
+      }
+      if (res?.ok && res.info) {
+        info = res.info;
+        setStatus({
+          file: res.info.title || url,
+          format: res.info.serviceLabel || "URL",
+        });
+        if (els.progressName)
+          els.progressName.textContent = res.info.title || url;
+      }
+    } catch {
+      /* optional metadata */
+    }
+
+    if (openStreamCancelled) {
+      closeSaveProgress();
+      return false;
+    }
+
+    updateOpenProgressStage(2, 3, t("progressPreparingPlayback"));
+    const result = await window.desktopAPI.openRemoteVideo({
+      url,
+      title: info?.title || "",
+    });
+    if (openStreamCancelled) {
+      closeSaveProgress();
+      return false;
+    }
+    if (!result?.ok) {
+      const errMsg = result?.error || t("statusPlaybackError");
+      reopenUrlDialogAfterOpenFailure(url, errMsg);
+      showAppError({
+        title: t("errorMediaTitle"),
+        message: errMsg,
+        detail: result?.error || "",
+        context: { url },
+      });
+      return false;
+    }
+
+    await loadMedia({
+      url: result.url,
+      name:
+        result.originalTitle ||
+        result.name ||
+        info?.title ||
+        remoteDisplayName(url, result.service),
+      path: result.path,
+      size: result.size,
+      ext: result.ext,
+      subtitle: result.subtitle,
+      skipRecent: true,
+    });
+    currentRemote = {
+      url,
+      title:
+        result.originalTitle ||
+        result.name ||
+        info?.title ||
+        remoteDisplayName(url, result.service),
+      service: result.service || info?.service || detectRemoteService(url),
+      tempPath: result.path || null,
+    };
+    rememberRecentRemote({
+      url,
+      title: currentRemote.title,
+      service: currentRemote.service,
+    });
+    updateSaveButton();
+    setStatus({
+      file: currentRemote.title || url,
+      format: result.serviceLabel || "URL",
+      state: statusKey("progressOpenReady"),
+    });
+    updateOpenProgressStage(3, 3, currentRemote.title || url);
+    finishOpenProgress({
+      ok: true,
+      message: currentRemote.title || url,
+    });
+    return true;
+  } finally {
+    endOpenStreamInFlight();
+  }
 }
 
 async function playYouTubeFromInput(rawInput) {
   const id = extractYouTubeId(rawInput);
   if (!id) {
-    showYoutubeError(t('youtubeInvalid'));
+    showYoutubeError(t("youtubeInvalid"));
     return false;
   }
   if (openStreamInFlight) {
-    setStatus({ state: statusKey('statusOpenInProgress') });
+    setStatus({ state: statusKey("statusOpenInProgress") });
     return false;
   }
 
   const url = `https://www.youtube.com/watch?v=${id}`;
   openStreamInFlight = true;
-  showYoutubeError('');
+  showYoutubeError("");
 
   // Stop local / RTSP media
   await stopRtspBridge({ finalizeRecord: true });
   els.media.pause();
-  els.media.removeAttribute('src');
+  els.media.removeAttribute("src");
   els.media.load();
   revokeObjectUrl();
   currentMediaPath = null;
@@ -3104,21 +3552,21 @@ async function playYouTubeFromInput(rawInput) {
   enterYouTubeMode();
   stopRequested = false;
   hidePlaybackOverlay(true);
-  els.dropHint.classList.add('hidden');
+  els.dropHint.classList.add("hidden");
   beginOpenStreamProgress({
-    kind: 'youtube',
+    kind: "youtube",
     name: url,
-    detail: t('progressFetchingInfo')
+    detail: t("progressFetchingInfo"),
   });
   setStatus({
     file: `YouTube: ${id}`,
-    format: 'YouTube',
-    state: statusKey('statusLoading'),
-    subtitle: statusKey('statusYtCaptions')
+    format: "YouTube",
+    state: statusKey("statusLoading"),
+    subtitle: statusKey("statusYtCaptions"),
   });
 
   try {
-    updateOpenProgressStage(1, 3, t('progressFetchingInfo'));
+    updateOpenProgressStage(1, 3, t("progressFetchingInfo"));
     try {
       if (isElectron) {
         const res = await window.desktopAPI.getYouTubeInfo(url);
@@ -3141,26 +3589,26 @@ async function playYouTubeFromInput(rawInput) {
       return false;
     }
 
-    updateOpenProgressStage(2, 3, t('progressLoadingPlayer'));
+    updateOpenProgressStage(2, 3, t("progressLoadingPlayer"));
     ytErrorDialogShown = false;
     try {
       await ytPlayer.load(id, {
         autoplay: Boolean(settings.autoplay),
-        startVolume: Number(settings.startVolume) || 80
+        startVolume: Number(settings.startVolume) || 80,
       });
     } catch (err) {
       if (openStreamCancelled) {
         closeSaveProgress();
         return false;
       }
-      const errMsg = err?.message || t('statusPlaybackError');
+      const errMsg = err?.message || t("statusPlaybackError");
       reopenUrlDialogAfterOpenFailure(url, errMsg);
       if (!ytErrorDialogShown) {
         showAppError({
-          title: t('errorYoutubeTitle'),
+          title: t("errorYoutubeTitle"),
           message: errMsg,
           error: err,
-          context: { videoId: id, url }
+          context: { videoId: id, url },
         });
       }
       return false;
@@ -3183,12 +3631,12 @@ async function playYouTubeFromInput(rawInput) {
     rememberRecentYouTube({
       id,
       url,
-      title: currentYouTube.title || ytPlayer.title || id
+      title: currentYouTube.title || ytPlayer.title || id,
     });
     updateOpenProgressStage(3, 3, currentYouTube.title || id);
     finishOpenProgress({
       ok: true,
-      message: currentYouTube.title || id
+      message: currentYouTube.title || id,
     });
     return true;
   } finally {
@@ -3198,8 +3646,11 @@ async function playYouTubeFromInput(rawInput) {
 
 async function stopCurrentRtspRecord({ playAfter = false } = {}) {
   if (!isElectron || !window.desktopAPI?.stopRtspRecord) return null;
-  setStatus({ state: statusKey('statusRtspRecordStopping') });
-  updateSaveProgress({ detail: t('statusRtspRecordStopping'), indeterminate: true });
+  setStatus({ state: statusKey("statusRtspRecordStopping") });
+  updateSaveProgress({
+    detail: t("statusRtspRecordStopping"),
+    indeterminate: true,
+  });
   els.btnSaveYt.disabled = true;
   if (els.btnProgressCancel) els.btnProgressCancel.disabled = true;
   try {
@@ -3213,31 +3664,31 @@ async function stopCurrentRtspRecord({ playAfter = false } = {}) {
     if (!result?.ok) {
       finishSaveProgress({
         ok: false,
-        message: result?.error || t('statusRtspRecordFailed'),
-        value: result?.elapsed || null
+        message: result?.error || t("statusRtspRecordFailed"),
+        value: result?.elapsed || null,
       });
       showAppError({
-        title: t('errorRtspTitle'),
-        message: result?.error || t('statusRtspRecordFailed'),
-        detail: result?.error || '',
-        context: { url: currentRtspUrl || '', path: result?.path || '' }
+        title: t("errorRtspTitle"),
+        message: result?.error || t("statusRtspRecordFailed"),
+        detail: result?.error || "",
+        context: { url: currentRtspUrl || "", path: result?.path || "" },
       });
       return result;
     }
     setStatus({
-      state: statusKey('statusRtspRecordSaved'),
+      state: statusKey("statusRtspRecordSaved"),
       file: result.path,
-      format: 'RTSP'
+      format: "RTSP",
     });
     finishSaveProgress({
       ok: true,
-      value: '100%',
+      value: "100%",
       saved: {
-        path: result.path || '',
-        name: result.name || '',
+        path: result.path || "",
+        name: result.name || "",
         size: result.size || 0,
-        elapsed: result.elapsed || ''
-      }
+        elapsed: result.elapsed || "",
+      },
     });
     if (playAfter && result.path) {
       await playSavedLocalFile(result.path);
@@ -3245,12 +3696,15 @@ async function stopCurrentRtspRecord({ playAfter = false } = {}) {
     return result;
   } catch (err) {
     rtspRecording = false;
-    finishSaveProgress({ ok: false, message: err?.message || t('statusRtspRecordFailed') });
+    finishSaveProgress({
+      ok: false,
+      message: err?.message || t("statusRtspRecordFailed"),
+    });
     showAppError({
-      title: t('errorRtspTitle'),
-      message: err?.message || t('statusRtspRecordFailed'),
+      title: t("errorRtspTitle"),
+      message: err?.message || t("statusRtspRecordFailed"),
       error: err,
-      context: { url: currentRtspUrl || '' }
+      context: { url: currentRtspUrl || "" },
     });
     return null;
   } finally {
@@ -3266,16 +3720,16 @@ async function cancelSaveProgress() {
   // Opening YouTube / RTSP for playback — cancel connect/load.
   if (isOpenProgressMode()) {
     openStreamCancelled = true;
-    if (saveProgressMode === 'open-rtsp') {
+    if (saveProgressMode === "open-rtsp") {
       try {
         await stopRtspBridge();
       } catch {
         /* ignore */
       }
-      els.media.removeAttribute('src');
+      els.media.removeAttribute("src");
       els.media.load();
     }
-    if (saveProgressMode === 'open-youtube') {
+    if (saveProgressMode === "open-youtube") {
       try {
         ytPlayer?.stop?.();
       } catch {
@@ -3283,27 +3737,48 @@ async function cancelSaveProgress() {
       }
       exitYouTubeMode();
     }
+    if (saveProgressMode === "open-remote") {
+      try {
+        await window.desktopAPI.cancelRemoteDownload?.({ discard: true });
+      } catch {
+        /* ignore */
+      }
+      els.media.removeAttribute("src");
+      els.media.load();
+      currentRemote = null;
+    }
     closeSaveProgress();
     endOpenStreamInFlight();
-    setStatus({ state: statusKey('progressCancelled') });
+    setStatus({ state: statusKey("progressCancelled") });
     return;
   }
 
   // RTSP "멈춤" → save what was recorded and play it.
-  if (saveProgressMode === 'rtsp' || rtspRecording) {
+  if (saveProgressMode === "rtsp" || rtspRecording) {
     await stopCurrentRtspRecord({ playAfter: true });
     return;
   }
 
-  // YouTube "멈춤" → keep downloaded portion, finalize, then play (handled by saveCurrentYouTube).
-  if (saveProgressMode === 'youtube') {
-    updateSaveProgress({ detail: t('statusDownloadStopping'), indeterminate: true });
-    setStatus({ state: statusKey('statusDownloadStopping') });
+  // YouTube / remote URL "멈춤" → stop the current download.
+  if (saveProgressMode === "youtube" || saveProgressMode === "remote") {
+    updateSaveProgress({
+      detail: t("statusDownloadStopping"),
+      indeterminate: true,
+    });
+    setStatus({ state: statusKey("statusDownloadStopping") });
     try {
-      await window.desktopAPI.stopYouTubeDownload?.({ discard: false });
+      if (saveProgressMode === "remote") {
+        await window.desktopAPI.cancelRemoteDownload?.({ discard: true });
+      } else {
+        await window.desktopAPI.stopYouTubeDownload?.({ discard: false });
+      }
     } catch {
       try {
-        await window.desktopAPI.cancelYouTubeDownload?.({ discard: false });
+        if (saveProgressMode === "remote") {
+          await window.desktopAPI.cancelRemoteDownload?.({ discard: true });
+        } else {
+          await window.desktopAPI.cancelYouTubeDownload?.({ discard: false });
+        }
       } catch {
         /* download promise will settle */
       }
@@ -3313,11 +3788,11 @@ async function cancelSaveProgress() {
 
 async function startCurrentRtspRecord(url = currentRtspUrl) {
   if (!url || !isRtspUrl(url)) {
-    openYouTubeDialog(url || '');
+    openYouTubeDialog(url || "");
     return;
   }
   if (!isElectron || !window.desktopAPI?.startRtspRecord) {
-    setStatus({ state: statusKey('rtspDesktopOnly') });
+    setStatus({ state: statusKey("rtspDesktopOnly") });
     return;
   }
   if (rtspRecording) {
@@ -3325,46 +3800,46 @@ async function startCurrentRtspRecord(url = currentRtspUrl) {
     return;
   }
 
-  setStatus({ state: statusKey('statusRtspRecordStarting') });
+  setStatus({ state: statusKey("statusRtspRecordStarting") });
   els.btnSaveYt.disabled = true;
   try {
     const result = await window.desktopAPI.startRtspRecord({ url });
     if (result?.cancelled) {
-      setStatus({ state: statusKey('statusDownloadCancelled') });
+      setStatus({ state: statusKey("statusDownloadCancelled") });
       return;
     }
     if (!result?.ok) {
       showAppError({
-        title: t('errorRtspTitle'),
-        message: result?.error || t('statusRtspRecordFailed'),
-        detail: result?.error || '',
-        context: { url }
+        title: t("errorRtspTitle"),
+        message: result?.error || t("statusRtspRecordFailed"),
+        detail: result?.error || "",
+        context: { url },
       });
       return;
     }
     rtspRecording = true;
     showSaveProgress({
-      mode: 'rtsp',
-      title: t('progressRecording'),
-      name: result.path || url
+      mode: "rtsp",
+      title: t("progressRecording"),
+      name: result.path || url,
     });
     updateSaveProgress({
-      elapsed: '00:00',
-      detail: t('progressElapsed', { time: '00:00' }),
-      indeterminate: true
+      elapsed: "00:00",
+      detail: t("progressElapsed", { time: "00:00" }),
+      indeterminate: true,
     });
     setStatus({
-      state: statusKey('statusRtspRecording', { time: '00:00' }),
+      state: statusKey("statusRtspRecording", { time: "00:00" }),
       file: result.path || url,
-      format: 'RTSP'
+      format: "RTSP",
     });
   } catch (err) {
     rtspRecording = false;
     showAppError({
-      title: t('errorRtspTitle'),
-      message: err?.message || t('statusRtspRecordFailed'),
+      title: t("errorRtspTitle"),
+      message: err?.message || t("statusRtspRecordFailed"),
       error: err,
-      context: { url }
+      context: { url },
     });
   } finally {
     updateSaveButton();
@@ -3381,7 +3856,102 @@ async function saveCurrentMedia() {
     await startCurrentRtspRecord(currentRtspUrl);
     return;
   }
+  if (currentRemote?.url) {
+    await saveCurrentRemote();
+    return;
+  }
   await saveCurrentYouTube();
+}
+
+async function saveCurrentRemote() {
+  if (!currentRemote?.url) {
+    openYouTubeDialog();
+    return;
+  }
+  if (!isElectron) {
+    setStatus({ state: statusKey("statusRemoteSaveDesktopOnly") });
+    return;
+  }
+
+  setStatus({ state: statusKey("statusDownloading") });
+  els.btnSaveYt.disabled = true;
+  const displayName = currentRemote.title || currentRemote.url;
+  try {
+    const result = await window.desktopAPI.downloadRemoteVideo({
+      url: currentRemote.url,
+      title: currentRemote.title,
+    });
+    if (result?.cancelled) {
+      finishSaveProgress({ cancelled: true });
+      setStatus({ state: statusKey("statusDownloadCancelled") });
+      return;
+    }
+    if (!result?.ok) {
+      if (!isSaveProgressVisible()) {
+        showSaveProgress({
+          mode: "remote",
+          title: t("progressDownloading"),
+          name: displayName,
+        });
+      }
+      finishSaveProgress({
+        ok: false,
+        message: result?.error || t("statusDownloadFailed"),
+      });
+      showAppError({
+        title: t("errorDownloadTitle"),
+        message: result?.error || t("statusDownloadFailed"),
+        detail: result?.error || "",
+        context: {
+          url: currentRemote.url,
+          title: currentRemote.title || displayName,
+        },
+      });
+      return;
+    }
+    if (!isSaveProgressVisible()) {
+      showSaveProgress({
+        mode: "remote",
+        title: t("progressDownloading"),
+        name: displayName,
+      });
+    }
+    setStatus({
+      state: statusKey("statusSaved"),
+      file: `${displayName} → ${result.path}`,
+    });
+    finishSaveProgress({
+      ok: true,
+      saved: {
+        path: result.path || "",
+        name: result.name || displayName,
+        size: result.size || 0,
+      },
+    });
+  } catch (err) {
+    if (!isSaveProgressVisible()) {
+      showSaveProgress({
+        mode: "remote",
+        title: t("progressDownloading"),
+        name: displayName,
+      });
+    }
+    finishSaveProgress({
+      ok: false,
+      message: err?.message || t("statusDownloadFailed"),
+    });
+    showAppError({
+      title: t("errorDownloadTitle"),
+      message: err?.message || t("statusDownloadFailed"),
+      error: err,
+      context: {
+        url: currentRemote.url,
+        title: currentRemote.title || displayName,
+      },
+    });
+  } finally {
+    updateSaveButton();
+  }
 }
 
 async function saveCurrentYouTube() {
@@ -3390,66 +3960,69 @@ async function saveCurrentYouTube() {
     return;
   }
   if (!isElectron) {
-    setStatus({ state: statusKey('statusYtSaveDesktopOnly') });
+    setStatus({ state: statusKey("statusYtSaveDesktopOnly") });
     return;
   }
 
-  setStatus({ state: statusKey('statusDownloading') });
+  setStatus({ state: statusKey("statusDownloading") });
   els.btnSaveYt.disabled = true;
-  const displayName = currentYouTube.title || currentYouTube.id || currentYouTube.url;
+  const displayName =
+    currentYouTube.title || currentYouTube.id || currentYouTube.url;
   try {
     // Progress popup opens from downloadProgress after the native Save dialog.
     const result = await window.desktopAPI.downloadYouTube({
       url: currentYouTube.url,
-      title: currentYouTube.title
+      title: currentYouTube.title,
     });
     if (result?.cancelled) {
       finishSaveProgress({ cancelled: true });
-      setStatus({ state: statusKey('statusDownloadCancelled') });
+      setStatus({ state: statusKey("statusDownloadCancelled") });
       return;
     }
     if (!result?.ok) {
       if (!isSaveProgressVisible()) {
         showSaveProgress({
-          mode: 'youtube',
-          title: t('progressDownloading'),
-          name: displayName
+          mode: "youtube",
+          title: t("progressDownloading"),
+          name: displayName,
         });
       }
       finishSaveProgress({
         ok: false,
-        message: result?.error || t('statusDownloadFailed')
+        message: result?.error || t("statusDownloadFailed"),
       });
       showAppError({
-        title: t('errorDownloadTitle'),
-        message: result?.error || t('statusDownloadFailed'),
-        detail: result?.error || '',
+        title: t("errorDownloadTitle"),
+        message: result?.error || t("statusDownloadFailed"),
+        detail: result?.error || "",
         context: {
           url: currentYouTube.url,
-          title: currentYouTube.title || currentYouTube.id
-        }
+          title: currentYouTube.title || currentYouTube.id,
+        },
       });
       return;
     }
     if (!isSaveProgressVisible()) {
       showSaveProgress({
-        mode: 'youtube',
-        title: t('progressDownloading'),
-        name: displayName
+        mode: "youtube",
+        title: t("progressDownloading"),
+        name: displayName,
       });
     }
     setStatus({
-      state: statusKey(result.stopped ? 'statusDownloadStoppedSaved' : 'statusSaved'),
-      file: `${displayName} → ${result.path}`
+      state: statusKey(
+        result.stopped ? "statusDownloadStoppedSaved" : "statusSaved",
+      ),
+      file: `${displayName} → ${result.path}`,
     });
     finishSaveProgress({
       ok: true,
-      value: '100%',
+      value: "100%",
       saved: {
-        path: result.path || '',
+        path: result.path || "",
         name: result.name || displayName,
-        size: result.size || 0
-      }
+        size: result.size || 0,
+      },
     });
     if (result.stopped && result.path) {
       await playSavedLocalFile(result.path);
@@ -3457,20 +4030,23 @@ async function saveCurrentYouTube() {
   } catch (err) {
     if (!isSaveProgressVisible()) {
       showSaveProgress({
-        mode: 'youtube',
-        title: t('progressDownloading'),
-        name: displayName
+        mode: "youtube",
+        title: t("progressDownloading"),
+        name: displayName,
       });
     }
-    finishSaveProgress({ ok: false, message: err?.message || t('statusDownloadFailed') });
+    finishSaveProgress({
+      ok: false,
+      message: err?.message || t("statusDownloadFailed"),
+    });
     showAppError({
-      title: t('errorDownloadTitle'),
-      message: err?.message || t('statusDownloadFailed'),
+      title: t("errorDownloadTitle"),
+      message: err?.message || t("statusDownloadFailed"),
       error: err,
       context: {
-        url: currentYouTube?.url || '',
-        title: currentYouTube?.title || currentYouTube?.id || ''
-      }
+        url: currentYouTube?.url || "",
+        title: currentYouTube?.title || currentYouTube?.id || "",
+      },
     });
   } finally {
     updateSaveButton();
@@ -3486,16 +4062,16 @@ async function toggleFullscreen() {
 }
 
 function syncMaximizeButton(maximized) {
-  const btn = $('btnMaximize');
+  const btn = $("btnMaximize");
   if (!btn) return;
-  btn.textContent = maximized ? '❐' : '□';
-  btn.setAttribute('data-tooltip', maximized ? t('restore') : t('maximize'));
-  btn.setAttribute('data-i18n-tooltip', maximized ? 'restore' : 'maximize');
-  btn.setAttribute('aria-label', maximized ? t('restore') : t('maximize'));
+  btn.textContent = maximized ? "❐" : "□";
+  btn.setAttribute("data-tooltip", maximized ? t("restore") : t("maximize"));
+  btn.setAttribute("data-i18n-tooltip", maximized ? "restore" : "maximize");
+  btn.setAttribute("aria-label", maximized ? t("restore") : t("maximize"));
 }
 
 function bindToolbarWindowDrag() {
-  const toolbar = $('toolbar');
+  const toolbar = $("toolbar");
   if (!toolbar || !isElectron || !window.desktopAPI?.beginWindowDrag) return;
 
   let dragging = false;
@@ -3508,10 +4084,10 @@ function bindToolbarWindowDrag() {
   const endDrag = () => {
     if (!dragging) return;
     dragging = false;
-    toolbar.classList.remove('is-dragging');
-    window.removeEventListener('pointermove', onMove, true);
-    window.removeEventListener('pointerup', endDrag, true);
-    window.removeEventListener('pointercancel', endDrag, true);
+    toolbar.classList.remove("is-dragging");
+    window.removeEventListener("pointermove", onMove, true);
+    window.removeEventListener("pointerup", endDrag, true);
+    window.removeEventListener("pointercancel", endDrag, true);
     window.desktopAPI.endWindowDrag?.();
     if (isMediaPlayingNow()) scheduleHideChromeOverlay();
   };
@@ -3519,19 +4095,23 @@ function bindToolbarWindowDrag() {
   const beginDragFromEvent = (e, handle) => {
     if (e.button !== 0) return false;
     // Buttons / inputs never start a window drag.
-    if (e.target.closest?.('button, input, select, a, label, .win-btn, .window-controls')) {
+    if (
+      e.target.closest?.(
+        "button, input, select, a, label, .win-btn, .window-controls",
+      )
+    ) {
       return false;
     }
     // Require visible overlay toolbar first (always true when auto-hide is off / chrome-pinned).
     const chromeReady =
-      els.appRoot?.classList.contains('chrome-visible') ||
-      els.appRoot?.classList.contains('chrome-pinned');
+      els.appRoot?.classList.contains("chrome-visible") ||
+      els.appRoot?.classList.contains("chrome-pinned");
     if (!chromeReady) {
       showChromeOverlay({ sticky: true });
       return false;
     }
     dragging = true;
-    toolbar.classList.add('is-dragging');
+    toolbar.classList.add("is-dragging");
     showChromeOverlay({ sticky: true });
     if (document.activeElement instanceof HTMLElement) {
       document.activeElement.blur();
@@ -3542,52 +4122,54 @@ function bindToolbarWindowDrag() {
       /* ignore */
     }
     window.desktopAPI.beginWindowDrag();
-    window.addEventListener('pointermove', onMove, true);
-    window.addEventListener('pointerup', endDrag, true);
-    window.addEventListener('pointercancel', endDrag, true);
+    window.addEventListener("pointermove", onMove, true);
+    window.addEventListener("pointerup", endDrag, true);
+    window.addEventListener("pointercancel", endDrag, true);
     e.preventDefault();
     return true;
   };
 
   // Empty toolbar chrome (not buttons) moves the window — including brand/spacer.
-  toolbar.addEventListener('pointerdown', (e) => {
+  toolbar.addEventListener("pointerdown", (e) => {
     beginDragFromEvent(e, toolbar);
   });
 }
 
 function updateToolbarBrand(info) {
-  const el = $('toolbarBrandText');
+  const el = $("toolbarBrandText");
   if (!el) return;
-  const version = info?.version || '1.0.0';
+  const version = info?.version || "1.0.0";
   el.textContent = `MyVideo V${version}`;
-  const brand = $('toolbarBrand');
+  const brand = $("toolbarBrand");
   if (brand) brand.title = `MyVideo V${version}`;
   syncWindowMinWidth();
 }
 
 function bindWindowControls() {
-  const opacity = $('toolbarOpacity');
+  const opacity = $("toolbarOpacity");
 
   if (!isElectron) {
     if (opacity) opacity.hidden = true;
     return;
   }
 
-  document.documentElement.classList.add('is-electron');
-  document.body.classList.add('is-electron');
+  document.documentElement.classList.add("is-electron");
+  document.body.classList.add("is-electron");
   if (opacity) opacity.hidden = false;
-  const controls = $('windowControls');
+  const controls = $("windowControls");
   if (controls) {
     controls.hidden = false;
-    controls.style.display = 'flex';
+    controls.style.display = "flex";
   }
 
-  $('btnMinimize')?.addEventListener('click', () => window.desktopAPI.minimize());
-  $('btnMaximize')?.addEventListener('click', async () => {
+  $("btnMinimize")?.addEventListener("click", () =>
+    window.desktopAPI.minimize(),
+  );
+  $("btnMaximize")?.addEventListener("click", async () => {
     const maximized = await window.desktopAPI.maximizeToggle();
     syncMaximizeButton(maximized);
   });
-  $('btnClose')?.addEventListener('click', () => window.desktopAPI.close());
+  $("btnClose")?.addEventListener("click", () => window.desktopAPI.close());
 
   // Double-click brand/spacer to maximize / restore (like a title bar).
   const toggleMaxOnDblClick = async (e) => {
@@ -3595,17 +4177,21 @@ function bindWindowControls() {
     const maximized = await window.desktopAPI.maximizeToggle();
     syncMaximizeButton(maximized);
   };
-  $('toolbar')?.querySelectorAll('.toolbar-drag-region').forEach((el) => {
-    el.addEventListener('dblclick', toggleMaxOnDblClick);
-  });
+  $("toolbar")
+    ?.querySelectorAll(".toolbar-drag-region")
+    .forEach((el) => {
+      el.addEventListener("dblclick", toggleMaxOnDblClick);
+    });
 
   bindToolbarWindowDrag();
 
-  $('toolbarOpacityBar')?.addEventListener('input', (e) => {
+  $("toolbarOpacityBar")?.addEventListener("input", (e) => {
     void applyWindowOpacity(e.target.value, { persist: true });
   });
 
-  window.desktopAPI.isMaximized?.().then((maximized) => syncMaximizeButton(Boolean(maximized)));
+  window.desktopAPI
+    .isMaximized?.()
+    .then((maximized) => syncMaximizeButton(Boolean(maximized)));
   window.desktopAPI.onWindowState?.((state) => {
     if (state.maximized != null) syncMaximizeButton(Boolean(state.maximized));
   });
@@ -3619,24 +4205,36 @@ function bindDragDrop() {
     e.preventDefault();
     e.stopPropagation();
   };
-  ['dragenter', 'dragover', 'dragleave', 'drop'].forEach((type) => {
+  ["dragenter", "dragover", "dragleave", "drop"].forEach((type) => {
     wrap.addEventListener(type, prevent);
   });
-  wrap.addEventListener('dragenter', () => wrap.classList.add('dragover'));
-  wrap.addEventListener('dragover', () => wrap.classList.add('dragover'));
-  wrap.addEventListener('dragleave', () => wrap.classList.remove('dragover'));
-  wrap.addEventListener('drop', async (e) => {
-    wrap.classList.remove('dragover');
-    const text = e.dataTransfer?.getData('text') || e.dataTransfer?.getData('text/uri-list') || '';
-    if (text && (isYouTubeUrl(text) || isRtspUrl(text))) {
+  wrap.addEventListener("dragenter", () => wrap.classList.add("dragover"));
+  wrap.addEventListener("dragover", () => wrap.classList.add("dragover"));
+  wrap.addEventListener("dragleave", () => wrap.classList.remove("dragover"));
+  wrap.addEventListener("drop", async (e) => {
+    wrap.classList.remove("dragover");
+    const text =
+      e.dataTransfer?.getData("text") ||
+      e.dataTransfer?.getData("text/uri-list") ||
+      "";
+    if (
+      text &&
+      (isYouTubeUrl(text) || isRtspUrl(text) || isSupportedRemoteUrl(text))
+    ) {
       await playNetworkFromInput(text.trim());
       return;
     }
     const files = [...(e.dataTransfer?.files || [])];
     if (!files.length) return;
-    const media = files.find((f) => /^(video|audio)\//.test(f.type) || /\.(mp4|mkv|webm|mov|avi|mp3|aac|m4a|wav|flac|opus|ogg|hevc|h265)$/i.test(f.name));
+    const media = files.find(
+      (f) =>
+        /^(video|audio)\//.test(f.type) ||
+        /\.(mp4|mkv|webm|mov|avi|mp3|aac|m4a|wav|flac|opus|ogg|hevc|h265)$/i.test(
+          f.name,
+        ),
+    );
     if (!media) {
-      setStatus({ state: statusKey('statusUnsupportedDrop') });
+      setStatus({ state: statusKey("statusUnsupportedDrop") });
       return;
     }
     const filePath = resolveFilePath(media);
@@ -3649,7 +4247,7 @@ function bindDragDrop() {
           path: result.path,
           size: result.size,
           ext: result.ext,
-          subtitle: result.subtitle
+          subtitle: result.subtitle,
         });
         return;
       }
@@ -3661,199 +4259,213 @@ function bindDragDrop() {
       url: currentObjectUrl,
       name: media.name,
       size: media.size,
-      ext: media.name.includes('.') ? media.name.slice(media.name.lastIndexOf('.')) : '',
-      subtitle
+      ext: media.name.includes(".")
+        ? media.name.slice(media.name.lastIndexOf("."))
+        : "",
+      subtitle,
     });
   });
 }
 
 function bindMediaEvents() {
-  els.media.addEventListener('loadedmetadata', () => {
+  els.media.addEventListener("loadedmetadata", () => {
     els.timeDuration.textContent = formatTime(els.media.duration);
     els.media.playbackRate = nearestPlaybackRate(settings.rate);
     updateActualMediaSize();
-    setStatus({ state: statusKey('statusReady') });
+    setStatus({ state: statusKey("statusReady") });
     spectrum.hasAudio = detectHasAudioTrack();
     updateSpectrumVisibility();
   });
-  els.media.addEventListener('ratechange', () => {
+  els.media.addEventListener("ratechange", () => {
     if (youtubeMode) return;
     const rate = nearestPlaybackRate(els.media.playbackRate);
     if (rate !== nearestPlaybackRate(settings.rate)) {
       setPlaybackRate(rate, { persist: true, announce: true });
     }
   });
-  els.media.addEventListener('play', () => {
+  els.media.addEventListener("play", () => {
     updatePlayIcons(true);
-    setStatus({ state: statusKey('statusPlaying') });
+    setStatus({ state: statusKey("statusPlaying") });
     spectrum.hasAudio = detectHasAudioTrack();
     updateSpectrumVisibility();
     notifyPlaying();
   });
-  els.media.addEventListener('pause', () => {
+  els.media.addEventListener("pause", () => {
     updatePlayIcons(false);
     if (els.media.ended) return;
     if (stopRequested) {
       // stopPlayback() owns the stopped overlay — avoid a second flash.
-      setStatus({ state: statusKey('statusStopped') });
+      setStatus({ state: statusKey("statusStopped") });
       return;
     }
-    setStatus({ state: statusKey('statusPaused') });
+    setStatus({ state: statusKey("statusPaused") });
     notifyPaused();
   });
-  els.media.addEventListener('ended', () => {
+  els.media.addEventListener("ended", () => {
     updatePlayIcons(false);
-    setStatus({ state: statusKey('statusEnded') });
-    notifyOverlayOnce('stopped', { hold: false, label: t('overlayEnded') });
+    setStatus({ state: statusKey("statusEnded") });
+    notifyOverlayOnce("stopped", { hold: false, label: t("overlayEnded") });
   });
-  els.media.addEventListener('waiting', () => setStatus({ state: statusKey('statusBuffering') }));
-  els.media.addEventListener('playing', () => {
-    setStatus({ state: statusKey('statusPlaying') });
+  els.media.addEventListener("waiting", () =>
+    setStatus({ state: statusKey("statusBuffering") }),
+  );
+  els.media.addEventListener("playing", () => {
+    setStatus({ state: statusKey("statusPlaying") });
     stopRequested = false;
   });
-  els.media.addEventListener('error', () => {
+  els.media.addEventListener("error", () => {
     void handleMediaElementError();
   });
-  els.media.addEventListener('timeupdate', syncSeekBar);
-  els.media.addEventListener('seeking', () => {
+  els.media.addEventListener("timeupdate", syncSeekBar);
+  els.media.addEventListener("seeking", () => {
     // Keep UI locked while the engine is jumping.
     seeking = true;
   });
-  els.media.addEventListener('seeked', () => {
+  els.media.addEventListener("seeked", () => {
     finishSeekInteraction(els.media.currentTime);
   });
-  els.media.addEventListener('volumechange', () => {
+  els.media.addEventListener("volumechange", () => {
     if (seeking) return;
     // When Web Audio owns output, UI volume is driven by the gain node / slider.
     if (spectrum.hasWebAudioOutput()) {
       updateMuteIcons();
       return;
     }
-    els.volumeBar.value = String(Math.round((els.media.muted ? 0 : els.media.volume) * 100));
+    els.volumeBar.value = String(
+      Math.round((els.media.muted ? 0 : els.media.volume) * 100),
+    );
     updateMuteIcons();
   });
   // One stage click path only — stopPropagation prevents media+wrap double toggle.
-  els.media.addEventListener('click', (e) => {
+  els.media.addEventListener("click", (e) => {
     e.stopPropagation();
     togglePlay();
   });
-  els.media.addEventListener('dblclick', (e) => {
+  els.media.addEventListener("dblclick", (e) => {
     e.stopPropagation();
     toggleFullscreen();
   });
-  els.videoWrap?.addEventListener('click', (e) => {
-    if (e.target.closest?.('.drop-hint')) return;
-    if (e.target.closest?.('button, a, input, select, textarea')) return;
+  els.videoWrap?.addEventListener("click", (e) => {
+    if (e.target.closest?.(".drop-hint")) return;
+    if (e.target.closest?.("button, a, input, select, textarea")) return;
     togglePlay();
   });
-  els.videoWrap?.addEventListener('dblclick', (e) => {
-    if (e.target.closest?.('.drop-hint')) return;
+  els.videoWrap?.addEventListener("dblclick", (e) => {
+    if (e.target.closest?.(".drop-hint")) return;
     toggleFullscreen();
   });
 }
 
 function bindToolbar() {
-  $('btnOpen').addEventListener('click', () => (isElectron ? openMediaDesktop() : openMediaWeb()));
-  $('btnRecent').addEventListener('click', (e) => {
+  $("btnOpen").addEventListener("click", () =>
+    isElectron ? openMediaDesktop() : openMediaWeb(),
+  );
+  $("btnRecent").addEventListener("click", (e) => {
     e.stopPropagation();
     toggleRecentMenu();
   });
-  $('btnClearRecent').addEventListener('click', (e) => {
+  $("btnClearRecent").addEventListener("click", (e) => {
     e.stopPropagation();
     clearRecent();
     renderPlayHistory();
-    setStatus({ state: statusKey('statusRecentCleared') });
+    setStatus({ state: statusKey("statusRecentCleared") });
   });
-  els.btnHistory?.addEventListener('click', (e) => {
+  els.btnHistory?.addEventListener("click", (e) => {
     e.stopPropagation();
     closeToolbarMenus();
     toggleHistoryWindow();
   });
-  els.btnLocale?.addEventListener('click', () => {
+  els.btnLocale?.addEventListener("click", () => {
     toggleLocale();
   });
-  els.btnTheme?.addEventListener('click', (e) => {
+  els.btnTheme?.addEventListener("click", (e) => {
     e.stopPropagation();
     toggleThemeMenu();
   });
-  els.btnToolbarEditTheme?.addEventListener('click', (e) => {
+  els.btnToolbarEditTheme?.addEventListener("click", (e) => {
     e.stopPropagation();
     closeThemeMenu();
     fillSettingsForm();
     openThemeEditor();
   });
-  els.btnFit?.addEventListener('click', (e) => {
+  els.btnFit?.addEventListener("click", (e) => {
     e.stopPropagation();
     toggleFitMenu();
   });
-  els.fitList?.addEventListener('click', (e) => {
-    const btn = e.target.closest?.('[data-fit]');
+  els.fitList?.addEventListener("click", (e) => {
+    const btn = e.target.closest?.("[data-fit]");
     if (!btn) return;
     e.stopPropagation();
     closeFitMenu();
     applyVideoFit(btn.dataset.fit, { announce: true });
   });
-  document.addEventListener('click', (e) => {
-    if (e.target.closest?.('.recent-wrap, .theme-wrap, .fit-wrap')) return;
+  document.addEventListener("click", (e) => {
+    if (e.target.closest?.(".recent-wrap, .theme-wrap, .fit-wrap")) return;
     closeToolbarMenus();
   });
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') closeToolbarMenus();
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeToolbarMenus();
   });
-  $('btnOpenSub').addEventListener('click', openSubtitle);
-  $('btnYouTube').addEventListener('click', () => openYouTubeDialog());
-  $('btnSaveYt').addEventListener('click', () => saveCurrentMedia());
-  els.btnProgressCancel?.addEventListener('click', () => {
+  $("btnOpenSub").addEventListener("click", openSubtitle);
+  $("btnYouTube").addEventListener("click", () => openYouTubeDialog());
+  $("btnSaveYt").addEventListener("click", () => saveCurrentMedia());
+  els.btnProgressCancel?.addEventListener("click", () => {
     void cancelSaveProgress();
   });
-  els.btnProgressClose?.addEventListener('click', () => closeSaveProgress());
-  $('btnPlay').addEventListener('click', togglePlay);
-  $('btnStop').addEventListener('click', stopPlayback);
-  $('btnPrev').addEventListener('click', () => seekBy(-(Number(settings.seekStep) || 10)));
-  $('btnNext').addEventListener('click', () => seekBy(Number(settings.seekStep) || 10));
-  $('btnMute').addEventListener('click', () => {
+  els.btnProgressClose?.addEventListener("click", () => closeSaveProgress());
+  $("btnPlay").addEventListener("click", togglePlay);
+  $("btnStop").addEventListener("click", stopPlayback);
+  $("btnPrev").addEventListener("click", () =>
+    seekBy(-(Number(settings.seekStep) || 10)),
+  );
+  $("btnNext").addEventListener("click", () =>
+    seekBy(Number(settings.seekStep) || 10),
+  );
+  $("btnMute").addEventListener("click", () => {
     toggleMute();
   });
-  els.rateSelect.addEventListener('change', () => {
+  els.rateSelect.addEventListener("change", () => {
     setPlaybackRate(els.rateSelect.value);
   });
-  $('btnRateDown').addEventListener('click', () => stepPlaybackRate(-1));
-  $('btnRateUp').addEventListener('click', () => stepPlaybackRate(1));
-  $('btnSpectrum').addEventListener('click', (e) => {
+  $("btnRateDown").addEventListener("click", () => stepPlaybackRate(-1));
+  $("btnRateUp").addEventListener("click", () => stepPlaybackRate(1));
+  $("btnSpectrum").addEventListener("click", (e) => {
     if (e.shiftKey) {
       cycleSpectrumStyle(1);
       return;
     }
     toggleSpectrumPanel();
   });
-  $('settingSpectrumStyle')?.addEventListener('change', () => {
-    applySpectrumStyle($('settingSpectrumStyle').value);
+  $("settingSpectrumStyle")?.addEventListener("change", () => {
+    applySpectrumStyle($("settingSpectrumStyle").value);
   });
   bindSpectrumWindowBridge();
   bindHistoryWindowBridge();
-  $('btnFullscreen').addEventListener('click', toggleFullscreen);
-  els.btnCompact?.addEventListener('click', (e) => {
+  $("btnFullscreen").addEventListener("click", toggleFullscreen);
+  els.btnCompact?.addEventListener("click", (e) => {
     e.stopPropagation();
     closeToolbarMenus();
     toggleCompactMode();
   });
-  $('btnSettings').addEventListener('click', () => {
+  $("btnSettings").addEventListener("click", () => {
     fillSettingsForm();
     openThemedDialog(els.settingsModal);
   });
-  $('btnAbout').addEventListener('click', () => openThemedDialog(els.aboutModal));
+  $("btnAbout").addEventListener("click", () =>
+    openThemedDialog(els.aboutModal),
+  );
 
-  els.seekBar.addEventListener('pointerdown', beginSeekBar);
-  els.seekBar.addEventListener('pointerup', commitSeekBar);
-  els.seekBar.addEventListener('pointercancel', commitSeekBar);
-  els.seekBar.addEventListener('input', () => {
+  els.seekBar.addEventListener("pointerdown", beginSeekBar);
+  els.seekBar.addEventListener("pointerup", commitSeekBar);
+  els.seekBar.addEventListener("pointercancel", commitSeekBar);
+  els.seekBar.addEventListener("input", () => {
     seeking = true;
     previewSeekBarTime();
   });
   // Keyboard / accessibility path (and browsers that emit change after drag).
-  els.seekBar.addEventListener('change', commitSeekBar);
+  els.seekBar.addEventListener("change", commitSeekBar);
 
-  els.volumeBar.addEventListener('input', () => {
+  els.volumeBar.addEventListener("input", () => {
     const percent = Number(els.volumeBar.value);
     if (youtubeMode) {
       ytPlayer.setVolume(percent);
@@ -3864,12 +4476,12 @@ function bindToolbar() {
     updateMuteIcons();
   });
 
-  els.webMediaInput.addEventListener('change', onWebMediaChosen);
-  els.webSubInput.addEventListener('change', onWebSubChosen);
+  els.webMediaInput.addEventListener("change", onWebMediaChosen);
+  els.webSubInput.addEventListener("change", onWebSubChosen);
 
-  $('btnYtPlay').addEventListener('click', async () => {
+  $("btnYtPlay").addEventListener("click", async () => {
     if (openStreamInFlight) {
-      setStatus({ state: statusKey('statusOpenInProgress') });
+      setStatus({ state: statusKey("statusOpenInProgress") });
       return;
     }
     setUrlDialogBusy(true);
@@ -3879,10 +4491,10 @@ function bindToolbar() {
       if (!openStreamInFlight) setUrlDialogBusy(false);
     }
   });
-  $('btnYtSaveFromDialog').addEventListener('click', async () => {
+  $("btnYtSaveFromDialog").addEventListener("click", async () => {
     const input = els.youtubeUrlInput.value.trim();
     if (isRtspUrl(input)) {
-      showYoutubeError('');
+      showYoutubeError("");
       if (rtspRecording && currentRtspUrl === input) {
         els.youtubeModal.close();
         await stopCurrentRtspRecord({ playAfter: true });
@@ -3897,62 +4509,79 @@ function bindToolbar() {
       await startCurrentRtspRecord(input);
       return;
     }
-    const id = extractYouTubeId(input);
-    if (!id) {
-      showYoutubeError(t('youtubeSaveNeedUrl'));
+    if (isYouTubeUrl(input)) {
+      const id = extractYouTubeId(input);
+      if (!id) {
+        showYoutubeError(t("youtubeSaveNeedUrl"));
+        return;
+      }
+      if (!youtubeMode || currentYouTube?.id !== id) {
+        const ok = await playYouTubeFromInput(input);
+        if (!ok) return;
+      }
+      await saveCurrentYouTube();
       return;
     }
-    if (!youtubeMode || currentYouTube?.id !== id) {
-      const ok = await playYouTubeFromInput(input);
+    if (!isSupportedRemoteUrl(input)) {
+      showYoutubeError(t("youtubeSaveNeedUrl"));
+      return;
+    }
+    if (!currentRemote?.url || currentRemote.url !== input) {
+      const ok = await playRemoteVideoFromInput(input);
       if (!ok) return;
     }
-    await saveCurrentYouTube();
+    await saveCurrentRemote();
   });
-  els.youtubeUrlInput.addEventListener('keydown', async (e) => {
-    if (e.key === 'Enter') {
+  els.youtubeUrlInput.addEventListener("keydown", async (e) => {
+    if (e.key === "Enter") {
       e.preventDefault();
       if (openStreamInFlight) {
-        setStatus({ state: statusKey('statusOpenInProgress') });
+        setStatus({ state: statusKey("statusOpenInProgress") });
         return;
       }
       await playNetworkFromInput(els.youtubeUrlInput.value);
     }
   });
 
-  $('settingLocale')?.addEventListener('change', () => {
-    applyLocale($('settingLocale').value);
+  $("settingLocale")?.addEventListener("change", () => {
+    applyLocale($("settingLocale").value);
   });
-  $('settingSubSize')?.addEventListener('input', () => {
-    updateSubSizeValue($('settingSubSize').value);
+  $("settingSubSize")?.addEventListener("input", () => {
+    updateSubSizeValue($("settingSubSize").value);
   });
-  $('settingStartVolume')?.addEventListener('input', () => {
-    updateStartVolumeValue($('settingStartVolume').value);
+  $("settingStartVolume")?.addEventListener("input", () => {
+    updateStartVolumeValue($("settingStartVolume").value);
   });
-  $('settingTheme').addEventListener('change', async () => {
+  $("settingTheme").addEventListener("change", async () => {
     updateThemeActionButtons();
-    await selectTheme($('settingTheme').value);
+    await selectTheme($("settingTheme").value);
   });
-  $('btnEditTheme').addEventListener('click', () => openThemeEditor());
-  $('btnDeleteTheme').addEventListener('click', () => deleteSelectedCustomTheme());
-  $('btnCloseThemeEditor').addEventListener('click', () => closeThemeEditor(true));
-  $('btnThemeSave').addEventListener('click', (e) => {
+  $("btnEditTheme").addEventListener("click", () => openThemeEditor());
+  $("btnDeleteTheme").addEventListener("click", () =>
+    deleteSelectedCustomTheme(),
+  );
+  $("btnCloseThemeEditor").addEventListener("click", () =>
+    closeThemeEditor(true),
+  );
+  $("btnThemeSave").addEventListener("click", (e) => {
     e.preventDefault();
     saveThemeDraft({ asNew: false });
   });
-  $('btnThemeSaveAs').addEventListener('click', (e) => {
+  $("btnThemeSaveAs").addEventListener("click", (e) => {
     e.preventDefault();
     saveThemeDraft({ asNew: true });
   });
-  $('themeSchemeSelect').addEventListener('change', () => {
-    themeDraft.scheme = $('themeSchemeSelect').value === 'light' ? 'light' : 'dark';
+  $("themeSchemeSelect").addEventListener("change", () => {
+    themeDraft.scheme =
+      $("themeSchemeSelect").value === "light" ? "light" : "dark";
     previewThemeDraft();
   });
-  $('themeEditorModal').addEventListener('cancel', (e) => {
+  $("themeEditorModal").addEventListener("cancel", (e) => {
     e.preventDefault();
     closeThemeEditor(true);
   });
 
-  $('btnSaveSettings').addEventListener('click', async (e) => {
+  $("btnSaveSettings").addEventListener("click", async (e) => {
     e.preventDefault();
     settings = {
       ...settings,
@@ -3960,31 +4589,31 @@ function bindToolbar() {
       // Preserve fields not present on the settings form.
       videoFit: normalizeVideoFit(settings.videoFit),
       showHistoryPanel: Boolean(settings.showHistoryPanel),
-      compactMode: Boolean(settings.compactMode)
+      compactMode: Boolean(settings.compactMode),
     };
     saveSettings(settings);
     applyLocale(settings.locale, { persist: false });
     await applyTheme(settings.theme);
     applySettingsToPlayer({ applyVolume: true });
     els.settingsModal.close();
-    setStatus({ state: statusKey('statusSettingsSaved') });
+    setStatus({ state: statusKey("statusSettingsSaved") });
   });
 
-  $('btnResetSettings').addEventListener('click', async () => {
+  $("btnResetSettings").addEventListener("click", async () => {
     settings = resetSettings();
-    settings.locale = resolveInitialLocale('auto');
+    settings.locale = resolveInitialLocale("auto");
     saveSettings(settings);
     applyLocale(settings.locale, { persist: false });
     fillSettingsForm();
     await applyTheme(settings.theme);
     applySettingsToPlayer({ applyVolume: true });
-    setStatus({ state: statusKey('statusSettingsReset') });
+    setStatus({ state: statusKey("statusSettingsReset") });
   });
 
-  $('aboutEmail').addEventListener('click', (e) => {
+  $("aboutEmail").addEventListener("click", (e) => {
     if (isElectron) {
       e.preventDefault();
-      window.desktopAPI.openExternal('mailto:knix008@naver.com');
+      window.desktopAPI.openExternal("mailto:knix008@naver.com");
     }
   });
 }
@@ -3992,7 +4621,7 @@ function bindToolbar() {
 function focusPlaybackSurface() {
   const wrap = els.videoWrap;
   if (!wrap) return;
-  if (!wrap.hasAttribute('tabindex')) wrap.setAttribute('tabindex', '-1');
+  if (!wrap.hasAttribute("tabindex")) wrap.setAttribute("tabindex", "-1");
   try {
     wrap.focus({ preventScroll: true });
   } catch {
@@ -4002,18 +4631,18 @@ function focusPlaybackSurface() {
 
 function bindKeyboard() {
   // Keep Space (and other keys) on the app, not inside YouTube iframe / stray controls.
-  els.videoWrap?.setAttribute('tabindex', '-1');
-  els.stage?.addEventListener('pointerdown', () => {
+  els.videoWrap?.setAttribute("tabindex", "-1");
+  els.stage?.addEventListener("pointerdown", () => {
     // Defer so click handlers still run, then reclaim focus for Space.
     queueMicrotask(() => focusPlaybackSurface());
   });
-  els.controlBar?.addEventListener('pointerup', (e) => {
+  els.controlBar?.addEventListener("pointerup", (e) => {
     if (isEditableTarget(e.target)) return;
     queueMicrotask(() => focusPlaybackSurface());
   });
 
   document.addEventListener(
-    'keydown',
+    "keydown",
     (e) => {
       // Space Bar: pause / resume — highest priority media control.
       if (isSpaceKey(e) && !e.ctrlKey && !e.metaKey && !e.altKey) {
@@ -4027,13 +4656,17 @@ function bindKeyboard() {
 
       // Always allow Escape to dismiss overlays even when typing in non-modal UI.
       // If nothing is open, minimize the desktop window.
-      if (e.key === 'Escape') {
+      if (e.key === "Escape") {
         if (document.fullscreenElement) {
           e.preventDefault();
           document.exitFullscreen?.();
           return;
         }
-        if (!els.recentMenu?.hidden || !els.themeMenu?.hidden || !els.fitMenu?.hidden) {
+        if (
+          !els.recentMenu?.hidden ||
+          !els.themeMenu?.hidden ||
+          !els.fitMenu?.hidden
+        ) {
           e.preventDefault();
           closeToolbarMenus();
           return;
@@ -4060,37 +4693,37 @@ function bindKeyboard() {
       const code = e.code;
 
       // Media keys (keyboards / headsets)
-      if (key === 'MediaPlayPause') {
+      if (key === "MediaPlayPause") {
         e.preventDefault();
         togglePlay();
         return;
       }
-      if (key === 'MediaStop') {
+      if (key === "MediaStop") {
         e.preventDefault();
         stopPlayback();
         return;
       }
-      if (key === 'MediaTrackPrevious' || key === 'MediaRewind') {
+      if (key === "MediaTrackPrevious" || key === "MediaRewind") {
         e.preventDefault();
         seekBy(-step);
         return;
       }
-      if (key === 'MediaTrackNext' || key === 'MediaFastForward') {
+      if (key === "MediaTrackNext" || key === "MediaFastForward") {
         e.preventDefault();
         seekBy(step);
         return;
       }
-      if (key === 'AudioVolumeMute') {
+      if (key === "AudioVolumeMute") {
         e.preventDefault();
         toggleMute();
         return;
       }
-      if (key === 'AudioVolumeUp') {
+      if (key === "AudioVolumeUp") {
         e.preventDefault();
         adjustVolume(5);
         return;
       }
-      if (key === 'AudioVolumeDown') {
+      if (key === "AudioVolumeDown") {
         e.preventDefault();
         adjustVolume(-5);
         return;
@@ -4098,32 +4731,35 @@ function bindKeyboard() {
 
       if (mod) {
         const k = key.toLowerCase();
-        if (k === 'o') {
+        if (k === "o") {
           e.preventDefault();
           isElectron ? openMediaDesktop() : openMediaWeb();
           return;
         }
-        if (k === 'r') {
+        if (k === "r") {
           e.preventDefault();
           toggleRecentMenu();
           return;
         }
-        if (k === 'l') {
+        if (k === "l") {
           e.preventDefault();
           toggleHistoryWindow();
           return;
         }
-        if (k === 'y') {
+        if (k === "y") {
           e.preventDefault();
           openYouTubeDialog();
           return;
         }
-        if (k === 's' && (youtubeMode || currentRtspUrl || rtspRecording)) {
+        if (
+          k === "s" &&
+          (youtubeMode || currentRemote?.url || currentRtspUrl || rtspRecording)
+        ) {
           e.preventDefault();
           saveCurrentMedia();
           return;
         }
-        if (k === ',' || code === 'Comma') {
+        if (k === "," || code === "Comma") {
           e.preventDefault();
           fillSettingsForm();
           openThemedDialog(els.settingsModal);
@@ -4140,75 +4776,75 @@ function bindKeyboard() {
       }
 
       switch (key) {
-        case 'k':
-        case 'K':
+        case "k":
+        case "K":
           e.preventDefault();
           togglePlay();
           break;
-        case 's':
-        case 'S':
-        case '.':
+        case "s":
+        case "S":
+        case ".":
           e.preventDefault();
           stopPlayback();
           break;
-        case 'ArrowLeft':
-        case 'j':
-        case 'J':
+        case "ArrowLeft":
+        case "j":
+        case "J":
           e.preventDefault();
           seekBy(-step);
           break;
-        case 'ArrowRight':
-        case 'l':
-        case 'L':
+        case "ArrowRight":
+        case "l":
+        case "L":
           e.preventDefault();
           seekBy(step);
           break;
-        case 'Home':
+        case "Home":
           e.preventDefault();
           seekToPosition(0);
           break;
-        case 'End': {
+        case "End": {
           e.preventDefault();
           const d = getMediaDuration();
           if (Number.isFinite(d) && d > 0) seekToPosition(d);
           break;
         }
-        case 'ArrowUp':
+        case "ArrowUp":
           e.preventDefault();
           adjustVolume(5);
           break;
-        case 'ArrowDown':
+        case "ArrowDown":
           e.preventDefault();
           adjustVolume(-5);
           break;
-        case 'm':
-        case 'M':
+        case "m":
+        case "M":
           e.preventDefault();
           toggleMute();
           break;
-        case 'f':
-        case 'F':
+        case "f":
+        case "F":
           e.preventDefault();
           toggleFullscreen();
           break;
-        case '[':
-        case '<':
+        case "[":
+        case "<":
           e.preventDefault();
           stepPlaybackRate(-1);
           break;
-        case ']':
-        case '>':
+        case "]":
+        case ">":
           e.preventDefault();
           stepPlaybackRate(1);
           break;
-        case 'a':
-        case 'A':
+        case "a":
+        case "A":
           e.preventDefault();
           if (e.shiftKey) cycleSpectrumStyle(1);
           else toggleSpectrumPanel();
           break;
-        case 'c':
-        case 'C':
+        case "c":
+        case "C":
           e.preventDefault();
           toggleSubtitlesVisible();
           break;
@@ -4216,22 +4852,27 @@ function bindKeyboard() {
           break;
       }
     },
-    true
+    true,
   );
 }
 
-document.addEventListener('fullscreenchange', () => {
-  document.body.classList.toggle('is-fullscreen', Boolean(document.fullscreenElement));
+document.addEventListener("fullscreenchange", () => {
+  document.body.classList.toggle(
+    "is-fullscreen",
+    Boolean(document.fullscreenElement),
+  );
 });
 
 async function init() {
   // migrate legacy system theme / locale
-  if (settings.theme === 'system') {
-    settings.theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  if (settings.theme === "system") {
+    settings.theme = window.matchMedia("(prefers-color-scheme: dark)").matches
+      ? "dark"
+      : "light";
     saveSettings(settings);
   }
-  if (!settings.locale || settings.locale === 'auto') {
-    settings.locale = resolveInitialLocale('auto');
+  if (!settings.locale || settings.locale === "auto") {
+    settings.locale = resolveInitialLocale("auto");
     saveSettings(settings);
   }
 
@@ -4240,26 +4881,30 @@ async function init() {
   // One document-level tooltip host — nested roots were hiding tips via mouseleave races.
   initTooltips(document);
 
-  window.addEventListener('error', (event) => {
+  window.addEventListener("error", (event) => {
     showAppError({
-      title: t('errorGenericTitle'),
-      message: event.message || t('errorDefaultMessage'),
+      title: t("errorGenericTitle"),
+      message: event.message || t("errorDefaultMessage"),
       detail: [
-        event.message || '',
-        event.filename ? `${event.filename}:${event.lineno}:${event.colno}` : '',
-        event.error?.stack || ''
-      ].filter(Boolean).join('\n'),
+        event.message || "",
+        event.filename
+          ? `${event.filename}:${event.lineno}:${event.colno}`
+          : "",
+        event.error?.stack || "",
+      ]
+        .filter(Boolean)
+        .join("\n"),
       error: event.error || event.message,
-      context: { type: 'window.error' }
+      context: { type: "window.error" },
     });
   });
-  window.addEventListener('unhandledrejection', (event) => {
+  window.addEventListener("unhandledrejection", (event) => {
     const reason = event.reason;
     showAppError({
-      title: t('errorGenericTitle'),
-      message: reason?.message || String(reason || t('errorDefaultMessage')),
+      title: t("errorGenericTitle"),
+      message: reason?.message || String(reason || t("errorDefaultMessage")),
       error: reason,
-      context: { type: 'unhandledrejection' }
+      context: { type: "unhandledrejection" },
     });
   });
 
@@ -4279,124 +4924,174 @@ async function init() {
   if (isElectron) {
     appInfo = await window.desktopAPI.getAppInfo();
     updateToolbarBrand(appInfo);
-    $('aboutName').textContent = appInfo.name;
-    $('aboutVersion').textContent = t('aboutVersion', { n: appInfo.version });
+    $("aboutName").textContent = appInfo.name;
+    $("aboutVersion").textContent = t("aboutVersion", { n: appInfo.version });
     setStatus({
       platform: `${appInfo.platform}/${appInfo.arch}`,
-      file: statusKey('statusReady'),
-      state: statusKey('statusIdle')
+      file: statusKey("statusReady"),
+      state: statusKey("statusIdle"),
     });
     window.desktopAPI.onYouTubeDownloadProgress?.((progress) => {
       if (!progress) return;
-      const name = currentYouTube?.title || currentYouTube?.id || currentYouTube?.url || '';
-      if (!isSaveProgressVisible() || saveProgressMode !== 'youtube') {
+      const name =
+        currentYouTube?.title ||
+        currentYouTube?.id ||
+        currentYouTube?.url ||
+        "";
+      if (!isSaveProgressVisible() || saveProgressMode !== "youtube") {
         showSaveProgress({
-          mode: 'youtube',
-          title: t('progressDownloading'),
-          name
+          mode: "youtube",
+          title: t("progressDownloading"),
+          name,
         });
       }
 
       if (progress.percent != null && Number.isFinite(progress.percent)) {
         const pct = Math.round(progress.percent);
-        setStatus({ state: statusKey('statusDownloadingPct', { n: pct }) });
+        setStatus({ state: statusKey("statusDownloadingPct", { n: pct }) });
         updateSaveProgress({
           percent: pct,
-          detail: progress.message || t('statusDownloadingPct', { n: pct }),
-          indeterminate: false
+          detail: progress.message || t("statusDownloadingPct", { n: pct }),
+          indeterminate: false,
         });
         return;
       }
 
-      let detail = progress.message || t('statusDownloading');
+      let detail = progress.message || t("statusDownloading");
       if (progress.bytes != null && Number.isFinite(progress.bytes)) {
         const mb = Math.round((progress.bytes / 1024 / 1024) * 10) / 10;
-        detail = t('progressBytes', { n: mb });
+        detail = t("progressBytes", { n: mb });
         setStatus({ state: detail });
       } else if (progress.message) {
         setStatus({ state: progress.message });
       }
       updateSaveProgress({ detail, indeterminate: true });
     });
+    window.desktopAPI.onRemoteDownloadProgress?.((progress) => {
+      if (!progress) return;
+      const name = currentRemote?.title || currentRemote?.url || "";
+      const modalMode = isOpenProgressMode(saveProgressMode)
+        ? saveProgressMode
+        : "remote";
+      if (
+        !isSaveProgressVisible() ||
+        (!isOpenProgressMode(saveProgressMode) && saveProgressMode !== "remote")
+      ) {
+        showSaveProgress({
+          mode: modalMode,
+          title:
+            modalMode === "open-remote"
+              ? t("progressOpeningRemote")
+              : t("progressDownloading"),
+          name,
+        });
+      }
+
+      if (progress.percent != null && Number.isFinite(progress.percent)) {
+        const pct = Math.round(progress.percent);
+        setStatus({ state: statusKey("statusDownloadingPct", { n: pct }) });
+        updateSaveProgress({
+          percent: pct,
+          detail: progress.message || t("statusDownloadingPct", { n: pct }),
+          indeterminate: false,
+        });
+        return;
+      }
+
+      let detail = progress.message || t("statusDownloading");
+      if (progress.message) {
+        setStatus({ state: progress.message });
+      }
+      updateSaveProgress({ detail, indeterminate: true });
+    });
     window.desktopAPI.onRtspRecordProgress?.((progress) => {
       if (!progress) return;
-      if (progress.phase === 'recording' || progress.phase === 'started') {
+      if (progress.phase === "recording" || progress.phase === "started") {
         rtspRecording = true;
         updateSaveButton();
-        if (!isSaveProgressVisible() || saveProgressMode !== 'rtsp') {
+        if (!isSaveProgressVisible() || saveProgressMode !== "rtsp") {
           showSaveProgress({
-            mode: 'rtsp',
-            title: t('progressRecording'),
-            name: progress.path || currentRtspUrl || ''
+            mode: "rtsp",
+            title: t("progressRecording"),
+            name: progress.path || currentRtspUrl || "",
           });
         }
         updateSaveProgress({
-          elapsed: progress.elapsed || '00:00',
-          detail: t('progressElapsed', { time: progress.elapsed || '00:00' }),
-          indeterminate: true
+          elapsed: progress.elapsed || "00:00",
+          detail: t("progressElapsed", { time: progress.elapsed || "00:00" }),
+          indeterminate: true,
         });
         setStatus({
-          state: statusKey('statusRtspRecording', { time: progress.elapsed || '00:00' }),
+          state: statusKey("statusRtspRecording", {
+            time: progress.elapsed || "00:00",
+          }),
           file: progress.path || currentRtspUrl || undefined,
-          format: 'RTSP'
+          format: "RTSP",
         });
         return;
       }
-      if (progress.phase === 'stopping') {
-        setStatus({ state: statusKey('statusRtspRecordStopping') });
-        updateSaveProgress({ detail: t('statusRtspRecordStopping'), indeterminate: true });
+      if (progress.phase === "stopping") {
+        setStatus({ state: statusKey("statusRtspRecordStopping") });
+        updateSaveProgress({
+          detail: t("statusRtspRecordStopping"),
+          indeterminate: true,
+        });
         return;
       }
-      if (progress.phase === 'cancelled') {
+      if (progress.phase === "cancelled") {
         rtspRecording = false;
         updateSaveButton();
         finishSaveProgress({ cancelled: true });
         return;
       }
-      if (progress.phase === 'done') {
+      if (progress.phase === "done") {
         rtspRecording = false;
         updateSaveButton();
         if (progress.path) {
           setStatus({
-            state: statusKey('statusRtspRecordSaved'),
+            state: statusKey("statusRtspRecordSaved"),
             file: progress.path,
-            format: 'RTSP'
+            format: "RTSP",
           });
         }
         if (isSaveProgressVisible()) {
           finishSaveProgress({
             ok: true,
-            value: '100%',
+            value: "100%",
             saved: {
-              path: progress.path || '',
-              name: progress.name || '',
+              path: progress.path || "",
+              name: progress.name || "",
               size: progress.size || 0,
-              elapsed: progress.elapsed || ''
-            }
+              elapsed: progress.elapsed || "",
+            },
           });
         }
         return;
       }
-      if (progress.phase === 'error') {
+      if (progress.phase === "error") {
         rtspRecording = false;
         updateSaveButton();
         if (isSaveProgressVisible()) {
           finishSaveProgress({
             ok: false,
-            message: progress.error || t('statusRtspRecordFailed')
+            message: progress.error || t("statusRtspRecordFailed"),
           });
         }
         showAppError({
-          title: t('errorRtspTitle'),
-          message: progress.error || t('statusRtspRecordFailed'),
-          detail: progress.error || '',
-          context: { url: currentRtspUrl || '', path: progress.path || '' }
+          title: t("errorRtspTitle"),
+          message: progress.error || t("statusRtspRecordFailed"),
+          detail: progress.error || "",
+          context: { url: currentRtspUrl || "", path: progress.path || "" },
         });
       }
     });
   } else {
-    updateToolbarBrand({ version: '1.0.0' });
-    setStatus({ platform: 'Web', file: statusKey('statusReady'), state: statusKey('statusIdle') });
+    updateToolbarBrand({ version: "1.0.0" });
+    setStatus({
+      platform: "Web",
+      file: statusKey("statusReady"),
+      state: statusKey("statusIdle"),
+    });
   }
 
   updateSaveButton();
@@ -4420,7 +5115,7 @@ async function init() {
           path: result.path,
           size: result.size,
           ext: result.ext,
-          subtitle: result.subtitle
+          subtitle: result.subtitle,
         });
         break;
       }
@@ -4428,16 +5123,15 @@ async function init() {
   });
 
   // Paste YouTube / RTSP URL anywhere (except inputs)
-  window.addEventListener('paste', async (e) => {
-    const tag = (e.target?.tagName || '').toLowerCase();
-    if (tag === 'input' || tag === 'textarea') return;
-    const text = e.clipboardData?.getData('text') || '';
-    if (isYouTubeUrl(text) || isRtspUrl(text)) {
+  window.addEventListener("paste", async (e) => {
+    const tag = (e.target?.tagName || "").toLowerCase();
+    if (tag === "input" || tag === "textarea") return;
+    const text = e.clipboardData?.getData("text") || "";
+    if (isYouTubeUrl(text) || isRtspUrl(text) || isSupportedRemoteUrl(text)) {
       e.preventDefault();
       await playNetworkFromInput(text.trim());
     }
   });
-
 }
 
 init();

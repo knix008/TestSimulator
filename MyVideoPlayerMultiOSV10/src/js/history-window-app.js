@@ -1,24 +1,24 @@
-import { getHistoryChannelName } from './history-bridge.js';
-import { t, setLocale, applyI18n } from './i18n.js';
+import { getHistoryChannelName } from "./history-bridge.js";
+import { t, setLocale, applyI18n } from "./i18n.js";
 
 const CHANNEL = getHistoryChannelName();
-const root = document.getElementById('historyWindow');
-const listEl = document.getElementById('historyList');
-const countEl = document.getElementById('historyCount');
-const opacityBar = document.getElementById('historyOpacityBar');
-const opacityValue = document.getElementById('historyOpacityValue');
-const opacityWrap = document.querySelector('.history-opacity');
+const root = document.getElementById("historyWindow");
+const listEl = document.getElementById("historyList");
+const countEl = document.getElementById("historyCount");
+const opacityBar = document.getElementById("historyOpacityBar");
+const opacityValue = document.getElementById("historyOpacityValue");
+const opacityWrap = document.querySelector(".history-opacity");
 
 /** @type {any[]} */
 let items = [];
-let locale = 'en';
+let locale = "en";
 let opacityPct = 100;
 let compactMode = false;
 
 function setCompactChrome(on) {
   compactMode = Boolean(on);
-  document.documentElement.classList.toggle('is-compact', compactMode);
-  document.body.classList.toggle('is-compact', compactMode);
+  document.documentElement.classList.toggle("is-compact", compactMode);
+  document.body.classList.toggle("is-compact", compactMode);
   if (opacityWrap) opacityWrap.hidden = compactMode;
 }
 
@@ -30,16 +30,19 @@ function clampOpacity(n) {
 
 function syncOpacityFill(value) {
   if (!opacityBar) return;
-  opacityBar.style.setProperty('--fill', `${value}%`);
+  opacityBar.style.setProperty("--fill", `${value}%`);
 }
 
 function updateOpacityUi(value) {
   opacityPct = clampOpacity(value);
   if (opacityBar) {
     opacityBar.value = String(opacityPct);
-    opacityBar.setAttribute('aria-valuenow', String(opacityPct));
-    opacityBar.setAttribute('aria-valuetext', `${opacityPct}%`);
-    opacityBar.setAttribute('aria-label', t('spectrumOpacityTipPct', { n: opacityPct }));
+    opacityBar.setAttribute("aria-valuenow", String(opacityPct));
+    opacityBar.setAttribute("aria-valuetext", `${opacityPct}%`);
+    opacityBar.setAttribute(
+      "aria-label",
+      t("spectrumOpacityTipPct", { n: opacityPct }),
+    );
     syncOpacityFill(opacityPct);
   }
   if (opacityValue) opacityValue.textContent = `${opacityPct}%`;
@@ -52,48 +55,49 @@ async function applyLocalOpacity(value, { notify = true } = {}) {
   } else {
     document.documentElement.style.opacity = String(opacityPct / 100);
   }
-  if (notify) emit({ type: 'opacity', opacity: opacityPct });
+  if (notify) emit({ type: "opacity", opacity: opacityPct });
 }
 
 function applyThemePayload(theme) {
-  if (!theme || typeof theme !== 'object') return;
+  if (!theme || typeof theme !== "object") return;
   const html = document.documentElement;
-  if (theme.themeId) html.setAttribute('data-theme', theme.themeId);
+  if (theme.themeId) html.setAttribute("data-theme", theme.themeId);
   if (theme.scheme) {
-    html.setAttribute('data-color-scheme', theme.scheme);
-    html.style.colorScheme = theme.scheme === 'light' ? 'light' : 'dark';
+    html.setAttribute("data-color-scheme", theme.scheme);
+    html.style.colorScheme = theme.scheme === "light" ? "light" : "dark";
   }
-  if (theme.vars && typeof theme.vars === 'object') {
+  if (theme.vars && typeof theme.vars === "object") {
     for (const [key, value] of Object.entries(theme.vars)) {
-      if (typeof value === 'string') html.style.setProperty(key, value);
+      if (typeof value === "string") html.style.setProperty(key, value);
     }
   }
 }
 
 function historyTypeLabel(type) {
-  if (type === 'youtube') return t('historyTypeYoutube');
-  if (type === 'rtsp') return t('historyTypeRtsp');
-  return t('historyTypeFile');
+  if (type === "youtube") return t("historyTypeYoutube");
+  if (type === "remote") return t("historyTypeRemote");
+  if (type === "rtsp") return t("historyTypeRtsp");
+  return t("historyTypeFile");
 }
 
 function formatHistoryDate(ts) {
-  if (!ts) return '—';
+  if (!ts) return "—";
   try {
-    return new Date(ts).toLocaleString(locale === 'ko' ? 'ko-KR' : 'en-US', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit'
+    return new Date(ts).toLocaleString(locale === "ko" ? "ko-KR" : "en-US", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   } catch {
-    return '';
+    return "";
   }
 }
 
 function formatBytes(n) {
-  if (!n) return '';
-  const u = ['B', 'KB', 'MB', 'GB'];
+  if (!n) return "";
+  const u = ["B", "KB", "MB", "GB"];
   let i = 0;
   let v = n;
   while (v >= 1024 && i < u.length - 1) {
@@ -105,32 +109,53 @@ function formatBytes(n) {
 
 function renderList() {
   if (!listEl || !root) return;
-  listEl.innerHTML = '';
-  root.classList.toggle('is-empty', items.length === 0);
+  listEl.innerHTML = "";
+  root.classList.toggle("is-empty", items.length === 0);
   if (countEl) {
-    countEl.textContent = items.length ? t('historyCount', { n: items.length }) : '';
+    countEl.textContent = items.length
+      ? t("historyCount", { n: items.length })
+      : "";
   }
 
   for (const item of items) {
-    const li = document.createElement('li');
-    li.className = 'history-item';
+    const li = document.createElement("li");
+    li.className = "history-item";
 
-    const openBtn = document.createElement('button');
-    openBtn.type = 'button';
-    openBtn.className = 'history-item-main';
-    openBtn.title = item.type === 'file' ? item.path || item.title : item.url || item.title;
+    const openBtn = document.createElement("button");
+    openBtn.type = "button";
+    openBtn.className = "history-item-main";
+    openBtn.title =
+      item.type === "file" ? item.path || item.title : item.url || item.title;
 
     const badgeClass =
-      item.type === 'youtube' ? 'yt' : item.type === 'rtsp' ? 'rtsp' : 'file';
+      item.type === "youtube"
+        ? "yt"
+        : item.type === "rtsp"
+          ? "rtsp"
+          : item.type === "remote"
+            ? "yt"
+            : "file";
     const badgeLabel =
-      item.type === 'youtube' ? 'YT' : item.type === 'rtsp' ? 'RTSP' : 'FILE';
-    const location = item.type === 'file' ? item.path || '' : item.url || '';
+      item.type === "youtube"
+        ? "YT"
+        : item.type === "rtsp"
+          ? "RTSP"
+          : item.type === "remote"
+            ? "URL"
+            : "FILE";
+    const location = item.type === "file" ? item.path || "" : item.url || "";
     const formatLabel =
-      item.type === 'youtube'
-        ? 'YouTube'
-        : item.type === 'rtsp'
-          ? 'RTSP'
-          : (item.ext || '').replace(/^\./, '').toUpperCase() || 'MEDIA';
+      item.type === "youtube"
+        ? "YouTube"
+        : item.type === "remote"
+          ? item.service === "instagram"
+            ? "Instagram"
+            : item.service === "tiktok"
+              ? "TikTok"
+              : "URL"
+          : item.type === "rtsp"
+            ? "RTSP"
+            : (item.ext || "").replace(/^\./, "").toUpperCase() || "MEDIA";
 
     openBtn.innerHTML = `
       <span class="recent-badge ${badgeClass}">${badgeLabel}</span>
@@ -140,29 +165,31 @@ function renderList() {
         <span class="history-item-meta"></span>
       </span>
     `;
-    openBtn.querySelector('.history-item-title').textContent = item.title || item.name || '—';
-    openBtn.querySelector('.history-item-path').textContent = location || '—';
+    openBtn.querySelector(".history-item-title").textContent =
+      item.title || item.name || "—";
+    openBtn.querySelector(".history-item-path").textContent = location || "—";
     const metaBits = [
       historyTypeLabel(item.type),
       formatLabel,
-      item.size > 0 ? formatBytes(item.size) : '',
-      formatHistoryDate(item.playedAt)
+      item.size > 0 ? formatBytes(item.size) : "",
+      formatHistoryDate(item.playedAt),
     ].filter(Boolean);
-    openBtn.querySelector('.history-item-meta').textContent = metaBits.join(' · ');
-    openBtn.addEventListener('click', () => {
-      emit({ type: 'play', id: item.id });
+    openBtn.querySelector(".history-item-meta").textContent =
+      metaBits.join(" · ");
+    openBtn.addEventListener("click", () => {
+      emit({ type: "play", id: item.id });
     });
 
-    const footer = document.createElement('div');
-    footer.className = 'history-item-footer';
-    const del = document.createElement('button');
-    del.type = 'button';
-    del.className = 'history-item-delete';
-    del.textContent = t('historyRemove');
-    del.addEventListener('click', (e) => {
+    const footer = document.createElement("div");
+    footer.className = "history-item-footer";
+    const del = document.createElement("button");
+    del.type = "button";
+    del.className = "history-item-delete";
+    del.textContent = t("historyRemove");
+    del.addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
-      emit({ type: 'remove', id: item.id });
+      emit({ type: "remove", id: item.id });
     });
     footer.appendChild(del);
 
@@ -174,7 +201,7 @@ function renderList() {
 
 function applyLocalUi() {
   applyI18n(document);
-  document.title = `${t('historyTitle')} — MyVideoPlayer`;
+  document.title = `${t("historyTitle")} — MyVideoPlayer`;
   updateOpacityUi(opacityPct);
   setCompactChrome(compactMode);
   renderList();
@@ -186,7 +213,7 @@ function emit(message) {
     window.desktopAPI.sendHistoryHostMessage(payload);
   }
   try {
-    if (typeof BroadcastChannel !== 'undefined') {
+    if (typeof BroadcastChannel !== "undefined") {
       new BroadcastChannel(CHANNEL).postMessage(payload);
     }
   } catch {
@@ -204,10 +231,10 @@ function emit(message) {
 function handleMessage(msg) {
   if (!msg || (msg.channel && msg.channel !== CHANNEL)) return;
   switch (msg.type) {
-    case 'init':
-    case 'sync':
+    case "init":
+    case "sync":
       if (msg.locale) {
-        locale = msg.locale === 'ko' ? 'ko' : 'en';
+        locale = msg.locale === "ko" ? "ko" : "en";
         setLocale(locale);
       }
       if (Array.isArray(msg.items)) items = msg.items;
@@ -218,29 +245,29 @@ function handleMessage(msg) {
       if (msg.compact != null) compactMode = Boolean(msg.compact);
       applyLocalUi();
       break;
-    case 'items':
+    case "items":
       if (Array.isArray(msg.items)) {
         items = msg.items;
         renderList();
       }
       break;
-    case 'theme':
+    case "theme":
       if (msg.theme) applyThemePayload(msg.theme);
       break;
-    case 'opacity':
+    case "opacity":
       if (msg.opacity != null) {
         void applyLocalOpacity(msg.opacity, { notify: false });
       }
       break;
-    case 'compact':
+    case "compact":
       setCompactChrome(Boolean(msg.compact));
       break;
-    case 'locale':
-      locale = msg.locale === 'ko' ? 'ko' : 'en';
+    case "locale":
+      locale = msg.locale === "ko" ? "ko" : "en";
       setLocale(locale);
       applyLocalUi();
       break;
-    case 'close':
+    case "close":
       window.close();
       break;
     default:
@@ -249,7 +276,7 @@ function handleMessage(msg) {
 }
 
 function bindResizeGrip() {
-  const grip = document.getElementById('historyResizeGrip');
+  const grip = document.getElementById("historyResizeGrip");
   if (!grip) return;
 
   const MIN_W = 300;
@@ -270,7 +297,7 @@ function bindResizeGrip() {
         x: startBounds.x,
         y: startBounds.y,
         width,
-        height
+        height,
       });
     } else {
       try {
@@ -285,13 +312,13 @@ function bindResizeGrip() {
     if (!resizing) return;
     resizing = false;
     startBounds = null;
-    grip.classList.remove('is-dragging');
-    window.removeEventListener('pointermove', onMove, true);
-    window.removeEventListener('pointerup', endResize, true);
-    window.removeEventListener('pointercancel', endResize, true);
+    grip.classList.remove("is-dragging");
+    window.removeEventListener("pointermove", onMove, true);
+    window.removeEventListener("pointerup", endResize, true);
+    window.removeEventListener("pointercancel", endResize, true);
   };
 
-  grip.addEventListener('pointerdown', async (e) => {
+  grip.addEventListener("pointerdown", async (e) => {
     if (e.button != null && e.button !== 0) return;
     e.preventDefault();
     e.stopPropagation();
@@ -304,38 +331,40 @@ function bindResizeGrip() {
         x: window.screenX,
         y: window.screenY,
         width: window.outerWidth,
-        height: window.outerHeight
+        height: window.outerHeight,
       };
     }
     if (!startBounds) return;
     resizing = true;
-    grip.classList.add('is-dragging');
+    grip.classList.add("is-dragging");
     try {
       grip.setPointerCapture?.(e.pointerId);
     } catch {
       /* ignore */
     }
-    window.addEventListener('pointermove', onMove, true);
-    window.addEventListener('pointerup', endResize, true);
-    window.addEventListener('pointercancel', endResize, true);
+    window.addEventListener("pointermove", onMove, true);
+    window.addEventListener("pointerup", endResize, true);
+    window.addEventListener("pointercancel", endResize, true);
   });
 }
 
 function bind() {
-  document.getElementById('btnHistoryClear')?.addEventListener('click', () => {
-    emit({ type: 'clear' });
+  document.getElementById("btnHistoryClear")?.addEventListener("click", () => {
+    emit({ type: "clear" });
   });
-  document.getElementById('btnHistoryWinClose')?.addEventListener('click', () => {
-    emit({ type: 'closed' });
-    window.close();
-  });
+  document
+    .getElementById("btnHistoryWinClose")
+    ?.addEventListener("click", () => {
+      emit({ type: "closed" });
+      window.close();
+    });
 
-  opacityBar?.addEventListener('input', () => {
+  opacityBar?.addEventListener("input", () => {
     void applyLocalOpacity(opacityBar.value, { notify: true });
   });
 
-  window.addEventListener('keydown', (e) => {
-    if (e.key !== 'Escape') return;
+  window.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") return;
     e.preventDefault();
     if (window.desktopAPI?.minimize) {
       void window.desktopAPI.minimize();
@@ -344,17 +373,17 @@ function bind() {
 
   bindResizeGrip();
 
-  window.addEventListener('beforeunload', () => {
-    emit({ type: 'closed' });
+  window.addEventListener("beforeunload", () => {
+    emit({ type: "closed" });
   });
 
-  window.addEventListener('message', (e) => {
+  window.addEventListener("message", (e) => {
     handleMessage(e.data);
   });
 
-  if (typeof BroadcastChannel !== 'undefined') {
+  if (typeof BroadcastChannel !== "undefined") {
     const ch = new BroadcastChannel(CHANNEL);
-    ch.addEventListener('message', (e) => handleMessage(e.data));
+    ch.addEventListener("message", (e) => handleMessage(e.data));
   }
 
   if (window.desktopAPI?.onHistoryMessage) {
@@ -362,7 +391,7 @@ function bind() {
   }
 
   applyLocalUi();
-  emit({ type: 'ready' });
+  emit({ type: "ready" });
 }
 
 bind();

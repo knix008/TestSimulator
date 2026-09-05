@@ -227,7 +227,9 @@ select {
 }
 
 .app.is-compact .toolbar-actions > *:not(#btnOpen),
-.app.is-compact .toolbar-right > *:not(#btnCompact):not(#toolbarOpacity):not(#toolbarFitWrap),
+.app.is-compact
+  .toolbar-right
+  > *:not(#btnCompact):not(#toolbarOpacity):not(#toolbarFitWrap),
 .app.is-compact .statusbar,
 .app.is-compact .fit-wrap .tool-btn-label,
 .app.is-compact .rate-group,
@@ -712,7 +714,9 @@ body.is-electron .toolbar-opacity {
   cursor: pointer;
   padding: 0;
   flex: 0 0 auto;
-  transition: background 0.15s ease, border-color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
 }
 
 .tool-btn svg {
@@ -1045,11 +1049,10 @@ body.is-electron .toolbar-opacity {
 }
 
 .tool-btn.is-active,
-.tool-btn[aria-pressed='true'] {
+.tool-btn[aria-pressed="true"] {
   background: var(--bg-hover, rgba(255, 255, 255, 0.08));
   color: var(--accent, #6cb6ff);
 }
-
 
 .video-wrap {
   position: relative;
@@ -1768,7 +1771,11 @@ html[data-color-scheme="light"] .stage-context-menu,
   align-items: center;
   justify-content: center;
   pointer-events: none;
-  background: radial-gradient(ellipse at center, rgba(40, 50, 70, 0.35), transparent 70%);
+  background: radial-gradient(
+    ellipse at center,
+    rgba(40, 50, 70, 0.35),
+    transparent 70%
+  );
 }
 
 .drop-hint.hidden {
@@ -1920,9 +1927,10 @@ html[data-color-scheme="light"] .stage-context-menu,
 .save-progress-popup {
   position: absolute;
   left: 14px;
-  bottom: 14px;
+  top: 56px;
   z-index: 9;
   width: min(380px, calc(100% - 28px));
+  max-height: calc(100% - 70px);
   display: flex;
   flex-direction: column;
   border: 1px solid var(--border);
@@ -1960,6 +1968,8 @@ html[data-color-scheme="light"] .stage-context-menu,
   flex-direction: column;
   gap: 8px;
   padding: 10px 12px;
+  min-height: 0;
+  overflow: auto;
 }
 
 .save-progress-footer {
@@ -2008,8 +2018,12 @@ html[data-color-scheme="light"] .stage-context-menu,
 }
 
 @keyframes progress-indeterminate {
-  0% { transform: translateX(-120%); }
-  100% { transform: translateX(320%); }
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(320%);
+  }
 }
 
 .progress-meta {

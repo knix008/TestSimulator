@@ -1,22 +1,36 @@
-const { app, BrowserWindow, ipcMain, dialog, shell, Menu, nativeTheme, protocol, net, screen } = require('electron');
+const {
+  app,
+  BrowserWindow,
+  ipcMain,
+  dialog,
+  shell,
+  Menu,
+  nativeTheme,
+  protocol,
+  net,
+  screen,
+} = require("electron");
 
 // Keep the terminal quiet unless explicitly debugging (MYVIDEOPLAYER_VERBOSE=1).
 // Chromium otherwise prints benign decoder noise like "Unsupported pixel format: -1".
-const VERBOSE_LOGS = ['1', 'true', 'yes'].includes(
-  String(process.env.MYVIDEOPLAYER_VERBOSE || '').toLowerCase()
+const VERBOSE_LOGS = ["1", "true", "yes"].includes(
+  String(process.env.MYVIDEOPLAYER_VERBOSE || "").toLowerCase(),
 );
 if (!VERBOSE_LOGS) {
-  app.commandLine.appendSwitch('disable-logging');
-  app.commandLine.appendSwitch('log-level', '3'); // FATAL only
+  app.commandLine.appendSwitch("disable-logging");
+  app.commandLine.appendSwitch("log-level", "3"); // FATAL only
   const noisyChromiumLog =
     /(?:ERROR|WARNING):(?:ffmpeg_common|gpu_|gl_|viz_|desktop_capture|allocation_tracker|console)\.cc|\bUnsupported pixel format\b/i;
   const wrapStd = (stream) => {
     const write = stream.write.bind(stream);
     stream.write = (chunk, encoding, cb) => {
-      const text = typeof chunk === 'string' ? chunk : chunk?.toString?.(encoding || 'utf8') || '';
+      const text =
+        typeof chunk === "string"
+          ? chunk
+          : chunk?.toString?.(encoding || "utf8") || "";
       if (text && noisyChromiumLog.test(text)) {
-        if (typeof encoding === 'function') encoding();
-        else if (typeof cb === 'function') cb();
+        if (typeof encoding === "function") encoding();
+        else if (typeof cb === "function") cb();
         return true;
       }
       return write(chunk, encoding, cb);
@@ -28,13 +42,13 @@ if (!VERBOSE_LOGS) {
 
 const {
   ensureYoutubeCookies,
-  writeYoutubeCookiesFile
-} = require('./youtube-auth');
-const path = require('path');
-const fs = require('fs');
-const http = require('http');
-const { Readable } = require('stream');
-const { pathToFileURL } = require('url');
+  writeYoutubeCookiesFile,
+} = require("./youtube-auth");
+const path = require("path");
+const fs = require("fs");
+const http = require("http");
+const { Readable } = require("stream");
+const { pathToFileURL } = require("url");
 const {
   openRtspStream,
   stopRtspStream,
@@ -43,49 +57,49 @@ const {
   isRtspUrl,
   startRtspRecord,
   stopRtspRecord,
-  getRtspRecording
-} = require('./rtsp-stream');
+  getRtspRecording,
+} = require("./rtsp-stream");
 
 protocol.registerSchemesAsPrivileged([
   {
-    scheme: 'localmedia',
+    scheme: "localmedia",
     privileges: {
       standard: true,
       secure: true,
       supportFetchAPI: true,
       stream: true,
       bypassCSP: true,
-      corsEnabled: true
-    }
-  }
+      corsEnabled: true,
+    },
+  },
 ]);
 
 const LOCAL_MEDIA_MIME = {
-  '.mp4': 'video/mp4',
-  '.m4v': 'video/mp4',
-  '.webm': 'video/webm',
-  '.mkv': 'video/x-matroska',
-  '.mov': 'video/quicktime',
-  '.avi': 'video/x-msvideo',
-  '.ogv': 'video/ogg',
-  '.ogg': 'audio/ogg',
-  '.mp3': 'audio/mpeg',
-  '.aac': 'audio/aac',
-  '.m4a': 'audio/mp4',
-  '.wav': 'audio/wav',
-  '.flac': 'audio/flac',
-  '.opus': 'audio/opus',
-  '.wma': 'audio/x-ms-wma'
+  ".mp4": "video/mp4",
+  ".m4v": "video/mp4",
+  ".webm": "video/webm",
+  ".mkv": "video/x-matroska",
+  ".mov": "video/quicktime",
+  ".avi": "video/x-msvideo",
+  ".ogv": "video/ogg",
+  ".ogg": "audio/ogg",
+  ".mp3": "audio/mpeg",
+  ".aac": "audio/aac",
+  ".m4a": "audio/mp4",
+  ".wav": "audio/wav",
+  ".flac": "audio/flac",
+  ".opus": "audio/opus",
+  ".wma": "audio/x-ms-wma",
 };
 
 function encodeMediaToken(filePath) {
-  return Buffer.from(path.resolve(filePath), 'utf8').toString('base64url');
+  return Buffer.from(path.resolve(filePath), "utf8").toString("base64url");
 }
 
 function decodeMediaToken(token) {
-  if (!token || typeof token !== 'string') return null;
+  if (!token || typeof token !== "string") return null;
   try {
-    return path.normalize(Buffer.from(token, 'base64url').toString('utf8'));
+    return path.normalize(Buffer.from(token, "base64url").toString("utf8"));
   } catch {
     return null;
   }
@@ -97,8 +111,8 @@ function toLocalMediaUrl(filePath) {
   if (uiServerPort) {
     return `http://127.0.0.1:${uiServerPort}/__media/${encodeMediaToken(filePath)}`;
   }
-  const normalized = path.resolve(filePath).replace(/\\/g, '/');
-  const prefixed = normalized.startsWith('/') ? normalized : `/${normalized}`;
+  const normalized = path.resolve(filePath).replace(/\\/g, "/");
+  const prefixed = normalized.startsWith("/") ? normalized : `/${normalized}`;
   return `localmedia://media${encodeURI(prefixed)}`;
 }
 
@@ -114,8 +128,8 @@ function parseByteRange(rangeHeader, size) {
   if (!rangeHeader) return null;
   const match = /bytes=(\d*)-(\d*)/i.exec(rangeHeader);
   if (!match) return null;
-  let start = match[1] === '' ? 0 : Number.parseInt(match[1], 10);
-  let end = match[2] === '' ? size - 1 : Number.parseInt(match[2], 10);
+  let start = match[1] === "" ? 0 : Number.parseInt(match[1], 10);
+  let end = match[2] === "" ? size - 1 : Number.parseInt(match[2], 10);
   if (!Number.isFinite(start)) start = 0;
   if (!Number.isFinite(end) || end >= size) end = size - 1;
   if (start < 0) start = 0;
@@ -129,22 +143,22 @@ function parseByteRange(rangeHeader, size) {
 function serveMediaFileHttp(req, res, filePath) {
   if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
     res.writeHead(404);
-    res.end('Not found');
+    res.end("Not found");
     return;
   }
 
   const { size } = fs.statSync(filePath);
   const ext = path.extname(filePath).toLowerCase();
-  const contentType = LOCAL_MEDIA_MIME[ext] || 'application/octet-stream';
+  const contentType = LOCAL_MEDIA_MIME[ext] || "application/octet-stream";
   const range = parseByteRange(req.headers.range, size);
   const common = {
-    'Accept-Ranges': 'bytes',
-    'Content-Type': contentType,
-    'Cache-Control': 'no-cache'
+    "Accept-Ranges": "bytes",
+    "Content-Type": contentType,
+    "Cache-Control": "no-cache",
   };
 
   if (range?.unsatisfiable) {
-    res.writeHead(416, { ...common, 'Content-Range': `bytes */${size}` });
+    res.writeHead(416, { ...common, "Content-Range": `bytes */${size}` });
     res.end();
     return;
   }
@@ -152,19 +166,21 @@ function serveMediaFileHttp(req, res, filePath) {
   if (range) {
     res.writeHead(206, {
       ...common,
-      'Content-Length': String(range.length),
-      'Content-Range': `bytes ${range.start}-${range.end}/${size}`
+      "Content-Length": String(range.length),
+      "Content-Range": `bytes ${range.start}-${range.end}/${size}`,
     });
-    if (req.method === 'HEAD') {
+    if (req.method === "HEAD") {
       res.end();
       return;
     }
-    fs.createReadStream(filePath, { start: range.start, end: range.end }).pipe(res);
+    fs.createReadStream(filePath, { start: range.start, end: range.end }).pipe(
+      res,
+    );
     return;
   }
 
-  res.writeHead(200, { ...common, 'Content-Length': String(size) });
-  if (req.method === 'HEAD') {
+  res.writeHead(200, { ...common, "Content-Length": String(size) });
+  if (req.method === "HEAD") {
     res.end();
     return;
   }
@@ -177,19 +193,19 @@ function serveMediaFileHttp(req, res, filePath) {
 function serveLocalMediaRequest(request) {
   const filePath = resolveLocalMediaPath(request.url);
   if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
-    return new Response('Not found', { status: 404 });
+    return new Response("Not found", { status: 404 });
   }
 
   const { size } = fs.statSync(filePath);
   const ext = path.extname(filePath).toLowerCase();
-  const contentType = LOCAL_MEDIA_MIME[ext] || 'application/octet-stream';
+  const contentType = LOCAL_MEDIA_MIME[ext] || "application/octet-stream";
   const range = parseByteRange(
-    request.headers.get('Range') || request.headers.get('range'),
-    size
+    request.headers.get("Range") || request.headers.get("range"),
+    size,
   );
 
   const toWeb = (nodeStream) => {
-    if (typeof Readable.toWeb === 'function') return Readable.toWeb(nodeStream);
+    if (typeof Readable.toWeb === "function") return Readable.toWeb(nodeStream);
     return fs.readFileSync(filePath);
   };
 
@@ -197,23 +213,26 @@ function serveLocalMediaRequest(request) {
     return new Response(null, {
       status: 416,
       headers: {
-        'Content-Range': `bytes */${size}`,
-        'Accept-Ranges': 'bytes'
-      }
+        "Content-Range": `bytes */${size}`,
+        "Accept-Ranges": "bytes",
+      },
     });
   }
 
   if (range) {
-    const stream = fs.createReadStream(filePath, { start: range.start, end: range.end });
+    const stream = fs.createReadStream(filePath, {
+      start: range.start,
+      end: range.end,
+    });
     return new Response(toWeb(stream), {
       status: 206,
       headers: {
-        'Content-Type': contentType,
-        'Content-Length': String(range.length),
-        'Content-Range': `bytes ${range.start}-${range.end}/${size}`,
-        'Accept-Ranges': 'bytes',
-        'Cache-Control': 'no-cache'
-      }
+        "Content-Type": contentType,
+        "Content-Length": String(range.length),
+        "Content-Range": `bytes ${range.start}-${range.end}/${size}`,
+        "Accept-Ranges": "bytes",
+        "Cache-Control": "no-cache",
+      },
     });
   }
 
@@ -221,11 +240,11 @@ function serveLocalMediaRequest(request) {
   return new Response(toWeb(stream), {
     status: 200,
     headers: {
-      'Content-Type': contentType,
-      'Content-Length': String(size),
-      'Accept-Ranges': 'bytes',
-      'Cache-Control': 'no-cache'
-    }
+      "Content-Type": contentType,
+      "Content-Length": String(size),
+      "Accept-Ranges": "bytes",
+      "Cache-Control": "no-cache",
+    },
   });
 }
 const {
@@ -234,27 +253,36 @@ const {
   sanitizeFilename,
   getYouTubeInfo,
   downloadYouTube,
-  stopYouTubeDownload
-} = require('./youtube');
-const persistStore = require('./persist-store');
-const { makeChromiumCompatible } = require('./media-compat');
+  stopYouTubeDownload,
+} = require("./youtube");
+const {
+  isHttpUrl,
+  detectRemoteService,
+  serviceLabel,
+  getRemoteVideoInfo,
+  downloadRemoteVideo,
+  stopRemoteDownload,
+  makeTempOutputPath,
+} = require("./remote-video");
+const persistStore = require("./persist-store");
+const { makeChromiumCompatible } = require("./media-compat");
 
-const APP_NAME = 'MyVideoPlayer';
-const APP_VERSION = '1.0.0';
-const AUTHOR = 'SHKWON';
-const AUTHOR_EMAIL = 'knix008@naver.com';
+const APP_NAME = "MyVideoPlayer";
+const APP_VERSION = "1.0.0";
+const AUTHOR = "SHKWON";
+const AUTHOR_EMAIL = "knix008@naver.com";
 
-const DIALOG_OPEN_DIR_KEY = 'dialog.lastOpenDir';
-const DIALOG_SAVE_DIR_KEY = 'dialog.lastSaveDir';
+const DIALOG_OPEN_DIR_KEY = "dialog.lastOpenDir";
+const DIALOG_SAVE_DIR_KEY = "dialog.lastSaveDir";
 
 function fallbackMediaDir() {
   try {
-    return app.getPath('videos');
+    return app.getPath("videos");
   } catch {
     try {
-      return app.getPath('documents');
+      return app.getPath("documents");
     } catch {
-      return app.getPath('home');
+      return app.getPath("home");
     }
   }
 }
@@ -272,7 +300,7 @@ function getRememberedDir(key) {
 }
 
 function rememberDirFromFile(key, filePath) {
-  if (!filePath || typeof filePath !== 'string') return;
+  if (!filePath || typeof filePath !== "string") return;
   try {
     const dir = path.dirname(path.resolve(filePath));
     if (fs.existsSync(dir) && fs.statSync(dir).isDirectory()) {
@@ -284,19 +312,38 @@ function rememberDirFromFile(key, filePath) {
 }
 
 const OPENABLE_MEDIA_EXTS = new Set([
-  '.mp4', '.m4v', '.webm', '.mkv', '.mov', '.avi', '.ogv', '.hevc', '.h265',
-  '.mp3', '.aac', '.m4a', '.wav', '.flac', '.opus', '.ogg', '.wma'
+  ".mp4",
+  ".m4v",
+  ".webm",
+  ".mkv",
+  ".mov",
+  ".avi",
+  ".ogv",
+  ".hevc",
+  ".h265",
+  ".mp3",
+  ".aac",
+  ".m4a",
+  ".wav",
+  ".flac",
+  ".opus",
+  ".ogg",
+  ".wma",
 ]);
 
 function extractMediaPathsFromArgv(argv) {
   return (argv || [])
     .slice(1)
     .filter((arg) => {
-      if (!arg || typeof arg !== 'string') return false;
-      if (arg.startsWith('-')) return false;
+      if (!arg || typeof arg !== "string") return false;
+      if (arg.startsWith("-")) return false;
       // Ignore electron/app entry paths
-      if (/electron\.exe$/i.test(arg) || /[\\/]electron([\\/]|$)/i.test(arg)) return false;
-      if (/\.(js|mjs|cjs|json|html)$/i.test(arg) && !OPENABLE_MEDIA_EXTS.has(path.extname(arg).toLowerCase())) {
+      if (/electron\.exe$/i.test(arg) || /[\\/]electron([\\/]|$)/i.test(arg))
+        return false;
+      if (
+        /\.(js|mjs|cjs|json|html)$/i.test(arg) &&
+        !OPENABLE_MEDIA_EXTS.has(path.extname(arg).toLowerCase())
+      ) {
         return false;
       }
       const ext = path.extname(arg).toLowerCase();
@@ -312,7 +359,7 @@ function extractMediaPathsFromArgv(argv) {
 
 function sendOpenMediaPaths(paths) {
   if (!paths?.length || !mainWindow || mainWindow.isDestroyed()) return;
-  mainWindow.webContents.send('app:openMediaPaths', paths);
+  mainWindow.webContents.send("app:openMediaPaths", paths);
 }
 
 /** @type {string[]} */
@@ -322,7 +369,7 @@ const gotSingleInstanceLock = app.requestSingleInstanceLock();
 if (!gotSingleInstanceLock) {
   app.quit();
 } else {
-  app.on('second-instance', (_event, argv) => {
+  app.on("second-instance", (_event, argv) => {
     const files = extractMediaPathsFromArgv(argv);
     if (mainWindow && !mainWindow.isDestroyed()) {
       restoreAllAppWindows();
@@ -379,38 +426,38 @@ function restoreAllAppWindows() {
 
 function attachGroupMinimizeRestore(win) {
   if (!win || win.isDestroyed()) return;
-  win.on('restore', () => {
+  win.on("restore", () => {
     if (!restoreGroupOnNextRestore) return;
     restoreAllAppWindows();
   });
 }
 
 const MIME = {
-  '.html': 'text/html; charset=utf-8',
-  '.js': 'text/javascript; charset=utf-8',
-  '.css': 'text/css; charset=utf-8',
-  '.svg': 'image/svg+xml',
-  '.png': 'image/png',
-  '.ico': 'image/x-icon',
-  '.json': 'application/json',
-  '.woff2': 'font/woff2'
+  ".html": "text/html; charset=utf-8",
+  ".js": "text/javascript; charset=utf-8",
+  ".css": "text/css; charset=utf-8",
+  ".svg": "image/svg+xml",
+  ".png": "image/png",
+  ".ico": "image/x-icon",
+  ".json": "application/json",
+  ".woff2": "font/woff2",
 };
 
 function startUiServer() {
-  const root = path.join(__dirname, '..', 'src');
+  const root = path.join(__dirname, "..", "src");
   return new Promise((resolve, reject) => {
     uiServer = http.createServer((req, res) => {
       try {
-        const reqUrl = new URL(req.url || '/', 'http://127.0.0.1');
+        const reqUrl = new URL(req.url || "/", "http://127.0.0.1");
         const pathname = decodeURIComponent(reqUrl.pathname);
 
         // Local media with HTTP Range (seek + decode). Token = base64url(abs path).
-        if (pathname.startsWith('/__media/')) {
-          const token = pathname.slice('/__media/'.length);
+        if (pathname.startsWith("/__media/")) {
+          const token = pathname.slice("/__media/".length);
           const mediaPath = decodeMediaToken(token);
           if (!mediaPath) {
             res.writeHead(400);
-            res.end('Bad media token');
+            res.end("Bad media token");
             return;
           }
           serveMediaFileHttp(req, res, mediaPath);
@@ -418,39 +465,41 @@ function startUiServer() {
         }
 
         // Live RTSP → fMP4 bridge (ffmpeg). Token = stream session id.
-        if (pathname.startsWith('/__rtsp/')) {
-          const streamId = pathname.slice('/__rtsp/'.length);
+        if (pathname.startsWith("/__rtsp/")) {
+          const streamId = pathname.slice("/__rtsp/".length);
           if (!streamId) {
             res.writeHead(400);
-            res.end('Bad RTSP stream id');
+            res.end("Bad RTSP stream id");
             return;
           }
           serveRtspHttp(req, res, streamId);
           return;
         }
 
-        let rel = pathname === '/' ? '/index.html' : pathname;
+        let rel = pathname === "/" ? "/index.html" : pathname;
         const filePath = path.normalize(path.join(root, rel));
         if (!filePath.startsWith(root)) {
           res.writeHead(403);
-          res.end('Forbidden');
+          res.end("Forbidden");
           return;
         }
         if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
           res.writeHead(404);
-          res.end('Not found');
+          res.end("Not found");
           return;
         }
         const ext = path.extname(filePath).toLowerCase();
-        res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream' });
+        res.writeHead(200, {
+          "Content-Type": MIME[ext] || "application/octet-stream",
+        });
         fs.createReadStream(filePath).pipe(res);
       } catch (err) {
         res.writeHead(500);
         res.end(String(err.message || err));
       }
     });
-    uiServer.once('error', reject);
-    uiServer.listen(0, '127.0.0.1', () => {
+    uiServer.once("error", reject);
+    uiServer.listen(0, "127.0.0.1", () => {
       uiServerPort = uiServer.address().port;
       resolve(uiServerPort);
     });
@@ -459,16 +508,47 @@ function startUiServer() {
 
 const VIDEO_FILTERS = [
   {
-    name: 'Media Files',
+    name: "Media Files",
     extensions: [
-      'mp4', 'm4v', 'webm', 'mkv', 'mov', 'avi', 'ogv', 'ogg',
-      'mp3', 'aac', 'm4a', 'wav', 'flac', 'opus', 'wma',
-      'hevc', 'h265', 'h264'
-    ]
+      "mp4",
+      "m4v",
+      "webm",
+      "mkv",
+      "mov",
+      "avi",
+      "ogv",
+      "ogg",
+      "mp3",
+      "aac",
+      "m4a",
+      "wav",
+      "flac",
+      "opus",
+      "wma",
+      "hevc",
+      "h265",
+      "h264",
+    ],
   },
-  { name: 'Video', extensions: ['mp4', 'm4v', 'webm', 'mkv', 'mov', 'avi', 'ogv', 'hevc', 'h265'] },
-  { name: 'Audio', extensions: ['mp3', 'aac', 'm4a', 'wav', 'flac', 'opus', 'ogg', 'wma'] },
-  { name: 'All Files', extensions: ['*'] }
+  {
+    name: "Video",
+    extensions: [
+      "mp4",
+      "m4v",
+      "webm",
+      "mkv",
+      "mov",
+      "avi",
+      "ogv",
+      "hevc",
+      "h265",
+    ],
+  },
+  {
+    name: "Audio",
+    extensions: ["mp3", "aac", "m4a", "wav", "flac", "opus", "ogg", "wma"],
+  },
+  { name: "All Files", extensions: ["*"] },
 ];
 
 function createWindow() {
@@ -483,19 +563,19 @@ function createWindow() {
     minimizable: true,
     fullscreenable: true,
     frame: false,
-    titleBarStyle: 'hidden',
+    titleBarStyle: "hidden",
     // Windows: keep thick frame so edges can be dragged to resize.
     thickFrame: true,
     icon: getAppIconPath(),
-    backgroundColor: '#121418',
+    backgroundColor: "#121418",
     show: false,
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
+      preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
-      webSecurity: true
-    }
+      webSecurity: true,
+    },
   });
 
   // Ensure resize/move stay enabled even after OS/theme changes.
@@ -509,13 +589,13 @@ function createWindow() {
   // Load over localhost so YouTube iframe API accepts the page origin.
   mainWindow.loadURL(`http://127.0.0.1:${uiServerPort}/index.html`);
 
-  mainWindow.once('ready-to-show', () => {
+  mainWindow.once("ready-to-show", () => {
     mainWindow.show();
   });
 
   attachGroupMinimizeRestore(mainWindow);
 
-  mainWindow.webContents.on('did-finish-load', () => {
+  mainWindow.webContents.on("did-finish-load", () => {
     if (pendingOpenFiles.length) {
       const files = pendingOpenFiles.slice();
       pendingOpenFiles = [];
@@ -524,20 +604,20 @@ function createWindow() {
     }
   });
 
-  mainWindow.on('maximize', () => {
-    mainWindow.webContents.send('window:state', { maximized: true });
+  mainWindow.on("maximize", () => {
+    mainWindow.webContents.send("window:state", { maximized: true });
   });
-  mainWindow.on('unmaximize', () => {
-    mainWindow.webContents.send('window:state', { maximized: false });
+  mainWindow.on("unmaximize", () => {
+    mainWindow.webContents.send("window:state", { maximized: false });
   });
-  mainWindow.on('enter-full-screen', () => {
-    mainWindow.webContents.send('window:state', { fullscreen: true });
+  mainWindow.on("enter-full-screen", () => {
+    mainWindow.webContents.send("window:state", { fullscreen: true });
   });
-  mainWindow.on('leave-full-screen', () => {
-    mainWindow.webContents.send('window:state', { fullscreen: false });
+  mainWindow.on("leave-full-screen", () => {
+    mainWindow.webContents.send("window:state", { fullscreen: false });
   });
 
-  mainWindow.on('closed', () => {
+  mainWindow.on("closed", () => {
     try {
       spectrumWindow?.close();
     } catch {
@@ -557,9 +637,9 @@ function createWindow() {
 function getAppIconPath() {
   return path.join(
     __dirname,
-    '..',
-    'asset',
-    process.platform === 'win32' ? 'icon.ico' : 'icon.png'
+    "..",
+    "asset",
+    process.platform === "win32" ? "icon.ico" : "icon.png",
   );
 }
 
@@ -572,7 +652,10 @@ function createSpectrumWindow(initPayload = {}) {
       spectrumWindow.setOpacity(value);
     }
     if (initPayload && Object.keys(initPayload).length) {
-      spectrumWindow.webContents.send('spectrum:message', { type: 'init', ...initPayload });
+      spectrumWindow.webContents.send("spectrum:message", {
+        type: "init",
+        ...initPayload,
+      });
     }
     return true;
   }
@@ -587,28 +670,28 @@ function createSpectrumWindow(initPayload = {}) {
     minimizable: true,
     fullscreenable: false,
     frame: false,
-    titleBarStyle: 'hidden',
+    titleBarStyle: "hidden",
     thickFrame: true,
     // Independent window (not owned by the player) so it can move to another display.
     modal: false,
     show: false,
-    backgroundColor: '#121418',
+    backgroundColor: "#121418",
     icon: getAppIconPath(),
-    title: 'Spectrum — MyVideoPlayer',
+    title: "Spectrum — MyVideoPlayer",
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
+      preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
-      webSecurity: true
-    }
+      webSecurity: true,
+    },
   });
 
   spectrumWindow.loadURL(`http://127.0.0.1:${uiServerPort}/spectrum.html`);
 
   attachGroupMinimizeRestore(spectrumWindow);
 
-  spectrumWindow.once('ready-to-show', () => {
+  spectrumWindow.once("ready-to-show", () => {
     spectrumWindow?.show();
     const opacityPct = Number(initPayload?.opacity);
     if (Number.isFinite(opacityPct)) {
@@ -616,13 +699,16 @@ function createSpectrumWindow(initPayload = {}) {
       spectrumWindow?.setOpacity(value);
     }
     if (initPayload && Object.keys(initPayload).length) {
-      spectrumWindow?.webContents.send('spectrum:message', { type: 'init', ...initPayload });
+      spectrumWindow?.webContents.send("spectrum:message", {
+        type: "init",
+        ...initPayload,
+      });
     }
   });
 
-  spectrumWindow.on('closed', () => {
+  spectrumWindow.on("closed", () => {
     spectrumWindow = null;
-    mainWindow?.webContents.send('spectrum:hostEvent', { type: 'closed' });
+    mainWindow?.webContents.send("spectrum:hostEvent", { type: "closed" });
   });
 
   return true;
@@ -637,7 +723,10 @@ function createHistoryWindow(initPayload = {}) {
       historyWindow.setOpacity(value);
     }
     if (initPayload && Object.keys(initPayload).length) {
-      historyWindow.webContents.send('history:message', { type: 'init', ...initPayload });
+      historyWindow.webContents.send("history:message", {
+        type: "init",
+        ...initPayload,
+      });
     }
     return true;
   }
@@ -652,28 +741,28 @@ function createHistoryWindow(initPayload = {}) {
     minimizable: true,
     fullscreenable: false,
     frame: false,
-    titleBarStyle: 'hidden',
+    titleBarStyle: "hidden",
     thickFrame: true,
     // Independent window (not owned by the player) so it can move to another display.
     modal: false,
     show: false,
-    backgroundColor: '#121418',
+    backgroundColor: "#121418",
     icon: getAppIconPath(),
-    title: 'Play list — MyVideoPlayer',
+    title: "Play list — MyVideoPlayer",
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
+      preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
-      webSecurity: true
-    }
+      webSecurity: true,
+    },
   });
 
   historyWindow.loadURL(`http://127.0.0.1:${uiServerPort}/history.html`);
 
   attachGroupMinimizeRestore(historyWindow);
 
-  historyWindow.once('ready-to-show', () => {
+  historyWindow.once("ready-to-show", () => {
     historyWindow?.show();
     const opacityPct = Number(initPayload?.opacity);
     if (Number.isFinite(opacityPct)) {
@@ -681,13 +770,16 @@ function createHistoryWindow(initPayload = {}) {
       historyWindow?.setOpacity(value);
     }
     if (initPayload && Object.keys(initPayload).length) {
-      historyWindow?.webContents.send('history:message', { type: 'init', ...initPayload });
+      historyWindow?.webContents.send("history:message", {
+        type: "init",
+        ...initPayload,
+      });
     }
   });
 
-  historyWindow.on('closed', () => {
+  historyWindow.on("closed", () => {
     historyWindow = null;
-    mainWindow?.webContents.send('history:hostEvent', { type: 'closed' });
+    mainWindow?.webContents.send("history:hostEvent", { type: "closed" });
   });
 
   return true;
@@ -696,8 +788,8 @@ function createHistoryWindow(initPayload = {}) {
 function getSubtitleCandidates(mediaPath) {
   const dir = path.dirname(mediaPath);
   const base = path.basename(mediaPath, path.extname(mediaPath));
-  const candidates = ['.smi', '.SMI', '.srt', '.SRT', '.vtt', '.VTT'].map((ext) =>
-    path.join(dir, base + ext)
+  const candidates = [".smi", ".SMI", ".srt", ".SRT", ".vtt", ".VTT"].map(
+    (ext) => path.join(dir, base + ext),
   );
   return candidates.filter((p) => fs.existsSync(p));
 }
@@ -706,26 +798,28 @@ async function readSubtitleNearMedia(mediaPath) {
   const found = getSubtitleCandidates(mediaPath);
   if (!found.length) return null;
   const subtitlePath = found[0];
-  const content = fs.readFileSync(subtitlePath, 'utf8');
+  const content = fs.readFileSync(subtitlePath, "utf8");
   return {
     path: subtitlePath,
     name: path.basename(subtitlePath),
     content,
-    ext: path.extname(subtitlePath).toLowerCase()
+    ext: path.extname(subtitlePath).toLowerCase(),
   };
 }
 
 app.whenReady().then(async () => {
   if (!gotSingleInstanceLock) return;
 
-  protocol.handle('localmedia', (request) => {
+  protocol.handle("localmedia", (request) => {
     try {
       return serveLocalMediaRequest(request);
     } catch (err) {
       // Last resort: try Chromium file fetch (may still be non-seekable).
       try {
         const filePath = resolveLocalMediaPath(request.url);
-        return net.fetch(pathToFileURL(filePath).href, { bypassCustomProtocolHandlers: true });
+        return net.fetch(pathToFileURL(filePath).href, {
+          bypassCustomProtocolHandlers: true,
+        });
       } catch {
         return new Response(String(err?.message || err), { status: 500 });
       }
@@ -735,26 +829,27 @@ app.whenReady().then(async () => {
   await startUiServer();
   createWindow();
 
-  app.on('activate', () => {
+  app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
 });
 
 // macOS: open file from Finder
-app.on('open-file', (event, filePath) => {
+app.on("open-file", (event, filePath) => {
   event.preventDefault();
   if (!filePath) return;
   const ext = path.extname(filePath).toLowerCase();
   if (!OPENABLE_MEDIA_EXTS.has(ext)) return;
-  if (mainWindow && !mainWindow.isDestroyed()) sendOpenMediaPaths([path.resolve(filePath)]);
+  if (mainWindow && !mainWindow.isDestroyed())
+    sendOpenMediaPaths([path.resolve(filePath)]);
   else pendingOpenFiles.push(path.resolve(filePath));
 });
 
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit();
+app.on("window-all-closed", () => {
+  if (process.platform !== "darwin") app.quit();
 });
 
-app.on('before-quit', () => {
+app.on("before-quit", () => {
   try {
     void stopRtspRecord();
   } catch {
@@ -773,7 +868,7 @@ app.on('before-quit', () => {
   uiServer = null;
 });
 
-ipcMain.handle('app:getInfo', () => ({
+ipcMain.handle("app:getInfo", () => ({
   name: APP_NAME,
   version: APP_VERSION,
   author: AUTHOR,
@@ -783,23 +878,23 @@ ipcMain.handle('app:getInfo', () => ({
   electron: process.versions.electron,
   chrome: process.versions.chrome,
   node: process.versions.node,
-  isElectron: true
+  isElectron: true,
 }));
 
 // Sync persist so renderer modules can load settings/recent before async init.
-ipcMain.on('persist:getItem', (event, key) => {
+ipcMain.on("persist:getItem", (event, key) => {
   event.returnValue = persistStore.getItem(key);
 });
-ipcMain.on('persist:setItem', (event, key, value) => {
+ipcMain.on("persist:setItem", (event, key, value) => {
   event.returnValue = persistStore.setItem(key, value);
 });
-ipcMain.on('persist:removeItem', (event, key) => {
+ipcMain.on("persist:removeItem", (event, key) => {
   event.returnValue = persistStore.removeItem(key);
 });
 
-ipcMain.handle('window:minimize', () => minimizeAllAppWindows());
+ipcMain.handle("window:minimize", () => minimizeAllAppWindows());
 
-ipcMain.handle('window:maximizeToggle', () => {
+ipcMain.handle("window:maximizeToggle", () => {
   if (!mainWindow) return false;
   if (mainWindow.isMaximized()) {
     mainWindow.unmaximize();
@@ -809,13 +904,13 @@ ipcMain.handle('window:maximizeToggle', () => {
   return true;
 });
 
-ipcMain.handle('window:close', () => {
+ipcMain.handle("window:close", () => {
   mainWindow?.close();
 });
 
-ipcMain.handle('window:isMaximized', () => mainWindow?.isMaximized() ?? false);
+ipcMain.handle("window:isMaximized", () => mainWindow?.isMaximized() ?? false);
 
-ipcMain.handle('window:setMinimumSize', (event, width, height) => {
+ipcMain.handle("window:setMinimumSize", (event, width, height) => {
   const win = resolveSenderWindow(event);
   if (!win || win.isDestroyed()) return false;
   // Allow compact-mode floors below the normal toolbar minimum.
@@ -829,15 +924,15 @@ ipcMain.handle('window:setMinimumSize', (event, width, height) => {
   return true;
 });
 
-ipcMain.handle('window:getBounds', (event) => {
+ipcMain.handle("window:getBounds", (event) => {
   const win = resolveSenderWindow(event);
   if (!win || win.isDestroyed()) return null;
   return win.getBounds();
 });
 
-ipcMain.handle('window:setBounds', (event, bounds) => {
+ipcMain.handle("window:setBounds", (event, bounds) => {
   const win = resolveSenderWindow(event);
-  if (!win || win.isDestroyed() || !bounds || typeof bounds !== 'object') {
+  if (!win || win.isDestroyed() || !bounds || typeof bounds !== "object") {
     return false;
   }
   if (win.isMaximized()) win.unmaximize();
@@ -846,7 +941,7 @@ ipcMain.handle('window:setBounds', (event, bounds) => {
     x: Math.round(Number(bounds.x)),
     y: Math.round(Number(bounds.y)),
     width: Math.max(minW || 320, Math.round(Number(bounds.width) || 480)),
-    height: Math.max(minH || 200, Math.round(Number(bounds.height) || 300))
+    height: Math.max(minH || 200, Math.round(Number(bounds.height) || 300)),
   };
   if (!Number.isFinite(next.x) || !Number.isFinite(next.y)) {
     const cur = win.getBounds();
@@ -857,7 +952,7 @@ ipcMain.handle('window:setBounds', (event, bounds) => {
   return true;
 });
 
-ipcMain.handle('window:setOpacity', (event, opacity) => {
+ipcMain.handle("window:setOpacity", (event, opacity) => {
   const win = resolveSenderWindow(event);
   if (!win || win.isDestroyed()) return 1;
   const value = Math.min(1, Math.max(0.2, Number(opacity)));
@@ -866,13 +961,13 @@ ipcMain.handle('window:setOpacity', (event, opacity) => {
   return win.getOpacity();
 });
 
-ipcMain.handle('window:getOpacity', (event) => {
+ipcMain.handle("window:getOpacity", (event) => {
   const win = resolveSenderWindow(event);
   if (!win || win.isDestroyed()) return 1;
   return win.getOpacity();
 });
 
-ipcMain.handle('spectrum:setOpacity', (event, opacity) => {
+ipcMain.handle("spectrum:setOpacity", (event, opacity) => {
   // Alias: always applies to the spectrum window when present.
   if (!spectrumWindow || spectrumWindow.isDestroyed()) {
     const win = resolveSenderWindow(event);
@@ -888,7 +983,7 @@ ipcMain.handle('spectrum:setOpacity', (event, opacity) => {
   return spectrumWindow.getOpacity();
 });
 
-ipcMain.handle('spectrum:getOpacity', () => {
+ipcMain.handle("spectrum:getOpacity", () => {
   if (!spectrumWindow || spectrumWindow.isDestroyed()) return 1;
   return spectrumWindow.getOpacity();
 });
@@ -900,7 +995,7 @@ function resolveSenderWindow(event) {
   return BrowserWindow.fromWebContents(event.sender) || mainWindow;
 }
 
-ipcMain.on('window:beginDrag', (event) => {
+ipcMain.on("window:beginDrag", (event) => {
   const win = resolveSenderWindow(event);
   if (!win || win.isDestroyed() || win.isFullScreen()) {
     windowMoveDrag = null;
@@ -920,7 +1015,9 @@ ipcMain.on('window:beginDrag', (event) => {
     win.unmaximize();
     const after = win.getBounds();
     const ratio = before.width > 0 ? (cursor.x - before.x) / before.width : 0.5;
-    const x = Math.round(cursor.x - after.width * Math.min(1, Math.max(0, ratio)));
+    const x = Math.round(
+      cursor.x - after.width * Math.min(1, Math.max(0, ratio)),
+    );
     const y = Math.round(cursor.y - Math.min(24, after.height / 3));
     win.setPosition(x, y);
   }
@@ -929,11 +1026,11 @@ ipcMain.on('window:beginDrag', (event) => {
   windowMoveDrag = {
     win,
     offsetX: cursor.x - wx,
-    offsetY: cursor.y - wy
+    offsetY: cursor.y - wy,
   };
 });
 
-ipcMain.on('window:updateDrag', (event, screenX, screenY) => {
+ipcMain.on("window:updateDrag", (event, screenX, screenY) => {
   const drag = windowMoveDrag;
   if (!drag?.win || drag.win.isDestroyed()) return;
   const senderWin = resolveSenderWindow(event);
@@ -943,66 +1040,73 @@ ipcMain.on('window:updateDrag', (event, screenX, screenY) => {
   const cursor = screen.getCursorScreenPoint();
   const x = Number.isFinite(Number(screenX)) ? Number(screenX) : cursor.x;
   const y = Number.isFinite(Number(screenY)) ? Number(screenY) : cursor.y;
-  drag.win.setPosition(Math.round(x - drag.offsetX), Math.round(y - drag.offsetY));
+  drag.win.setPosition(
+    Math.round(x - drag.offsetX),
+    Math.round(y - drag.offsetY),
+  );
 });
 
-ipcMain.on('window:endDrag', () => {
+ipcMain.on("window:endDrag", () => {
   windowMoveDrag = null;
 });
 
-ipcMain.handle('spectrum:open', (_evt, initPayload) => createSpectrumWindow(initPayload || {}));
-ipcMain.handle('spectrum:close', () => {
+ipcMain.handle("spectrum:open", (_evt, initPayload) =>
+  createSpectrumWindow(initPayload || {}),
+);
+ipcMain.handle("spectrum:close", () => {
   if (spectrumWindow && !spectrumWindow.isDestroyed()) {
     spectrumWindow.close();
   }
   spectrumWindow = null;
   return true;
 });
-ipcMain.handle('spectrum:focus', () => {
+ipcMain.handle("spectrum:focus", () => {
   if (spectrumWindow && !spectrumWindow.isDestroyed()) {
     spectrumWindow.focus();
     return true;
   }
   return false;
 });
-ipcMain.on('spectrum:toWindow', (_evt, message) => {
+ipcMain.on("spectrum:toWindow", (_evt, message) => {
   if (spectrumWindow && !spectrumWindow.isDestroyed()) {
-    spectrumWindow.webContents.send('spectrum:message', message);
+    spectrumWindow.webContents.send("spectrum:message", message);
   }
 });
-ipcMain.on('spectrum:toHost', (_evt, message) => {
-  mainWindow?.webContents.send('spectrum:hostEvent', message);
+ipcMain.on("spectrum:toHost", (_evt, message) => {
+  mainWindow?.webContents.send("spectrum:hostEvent", message);
 });
 
-ipcMain.handle('history:open', (_evt, initPayload) => createHistoryWindow(initPayload || {}));
-ipcMain.handle('history:close', () => {
+ipcMain.handle("history:open", (_evt, initPayload) =>
+  createHistoryWindow(initPayload || {}),
+);
+ipcMain.handle("history:close", () => {
   if (historyWindow && !historyWindow.isDestroyed()) {
     historyWindow.close();
   }
   historyWindow = null;
   return true;
 });
-ipcMain.handle('history:focus', () => {
+ipcMain.handle("history:focus", () => {
   if (historyWindow && !historyWindow.isDestroyed()) {
     historyWindow.focus();
     return true;
   }
   return false;
 });
-ipcMain.on('history:toWindow', (_evt, message) => {
+ipcMain.on("history:toWindow", (_evt, message) => {
   if (historyWindow && !historyWindow.isDestroyed()) {
-    historyWindow.webContents.send('history:message', message);
+    historyWindow.webContents.send("history:message", message);
   }
 });
-ipcMain.on('history:toHost', (_evt, message) => {
-  mainWindow?.webContents.send('history:hostEvent', message);
+ipcMain.on("history:toHost", (_evt, message) => {
+  mainWindow?.webContents.send("history:hostEvent", message);
 });
 
 async function mediaFromPath(filePath) {
-  if (!filePath || typeof filePath !== 'string') return null;
+  if (!filePath || typeof filePath !== "string") return null;
   const resolved = path.resolve(filePath);
   if (!fs.existsSync(resolved) || !fs.statSync(resolved).isFile()) {
-    return { ok: false, error: '파일을 찾을 수 없습니다.', path: resolved };
+    return { ok: false, error: "파일을 찾을 수 없습니다.", path: resolved };
   }
   const subtitle = await readSubtitleNearMedia(resolved);
   const stat = fs.statSync(resolved);
@@ -1013,16 +1117,16 @@ async function mediaFromPath(filePath) {
     url: toLocalMediaUrl(resolved),
     size: stat.size,
     ext: path.extname(resolved).toLowerCase(),
-    subtitle
+    subtitle,
   };
 }
 
-ipcMain.handle('dialog:openMedia', async () => {
+ipcMain.handle("dialog:openMedia", async () => {
   const result = await dialog.showOpenDialog(mainWindow, {
-    title: 'Open Media File',
+    title: "Open Media File",
     defaultPath: getRememberedDir(DIALOG_OPEN_DIR_KEY),
-    properties: ['openFile'],
-    filters: VIDEO_FILTERS
+    properties: ["openFile"],
+    filters: VIDEO_FILTERS,
   });
   if (result.canceled || !result.filePaths.length) return null;
   rememberDirFromFile(DIALOG_OPEN_DIR_KEY, result.filePaths[0]);
@@ -1030,48 +1134,56 @@ ipcMain.handle('dialog:openMedia', async () => {
   return media?.ok ? media : null;
 });
 
-ipcMain.handle('media:openPath', async (_evt, filePath) => {
+ipcMain.handle("media:openPath", async (_evt, filePath) => {
   const media = await mediaFromPath(filePath);
-  if (media?.ok && media.path) rememberDirFromFile(DIALOG_OPEN_DIR_KEY, media.path);
+  if (media?.ok && media.path)
+    rememberDirFromFile(DIALOG_OPEN_DIR_KEY, media.path);
   return media;
 });
 
-ipcMain.handle('media:makeCompatible', async (evt, filePath, options = {}) => {
+ipcMain.handle("media:makeCompatible", async (evt, filePath, options = {}) => {
   const sendProgress = (progress) => {
     try {
-      evt.sender.send('media:compatProgress', progress);
+      evt.sender.send("media:compatProgress", progress);
     } catch {
       /* ignore */
     }
   };
   try {
-    const result = await makeChromiumCompatible(filePath, sendProgress, options || {});
+    const result = await makeChromiumCompatible(
+      filePath,
+      sendProgress,
+      options || {},
+    );
     if (!result?.ok) return result;
     const media = await mediaFromPath(result.path);
     if (!media?.ok) {
-      return { ok: false, error: media?.error || '변환된 파일을 열 수 없습니다.' };
+      return {
+        ok: false,
+        error: media?.error || "변환된 파일을 열 수 없습니다.",
+      };
     }
     return {
       ...media,
       ok: true,
       cached: Boolean(result.cached),
-      mode: result.mode || options?.mode || 'soft',
-      repairedFrom: path.resolve(filePath)
+      mode: result.mode || options?.mode || "soft",
+      repairedFrom: path.resolve(filePath),
     };
   } catch (err) {
     return { ok: false, error: err?.message || String(err) };
   }
 });
 
-ipcMain.handle('dialog:openSubtitle', async () => {
+ipcMain.handle("dialog:openSubtitle", async () => {
   const result = await dialog.showOpenDialog(mainWindow, {
-    title: 'Open Subtitle File',
+    title: "Open Subtitle File",
     defaultPath: getRememberedDir(DIALOG_OPEN_DIR_KEY),
-    properties: ['openFile'],
+    properties: ["openFile"],
     filters: [
-      { name: 'Subtitles', extensions: ['smi', 'srt', 'vtt'] },
-      { name: 'All Files', extensions: ['*'] }
-    ]
+      { name: "Subtitles", extensions: ["smi", "srt", "vtt"] },
+      { name: "All Files", extensions: ["*"] },
+    ],
   });
   if (result.canceled || !result.filePaths.length) return null;
   const subtitlePath = result.filePaths[0];
@@ -1079,37 +1191,42 @@ ipcMain.handle('dialog:openSubtitle', async () => {
   return {
     path: subtitlePath,
     name: path.basename(subtitlePath),
-    content: fs.readFileSync(subtitlePath, 'utf8'),
-    ext: path.extname(subtitlePath).toLowerCase()
+    content: fs.readFileSync(subtitlePath, "utf8"),
+    ext: path.extname(subtitlePath).toLowerCase(),
   };
 });
 
-ipcMain.handle('fs:findSubtitle', async (_evt, mediaPath) => {
-  if (!mediaPath || typeof mediaPath !== 'string') return null;
+ipcMain.handle("fs:findSubtitle", async (_evt, mediaPath) => {
+  if (!mediaPath || typeof mediaPath !== "string") return null;
   return readSubtitleNearMedia(mediaPath);
 });
 
-ipcMain.handle('shell:openExternal', async (_evt, url) => {
-  if (typeof url === 'string' && (url.startsWith('https://') || url.startsWith('mailto:'))) {
+ipcMain.handle("shell:openExternal", async (_evt, url) => {
+  if (
+    typeof url === "string" &&
+    (url.startsWith("https://") || url.startsWith("mailto:"))
+  ) {
     await shell.openExternal(url);
   }
 });
 
-ipcMain.handle('theme:getSystem', () => (nativeTheme.shouldUseDarkColors ? 'dark' : 'light'));
+ipcMain.handle("theme:getSystem", () =>
+  nativeTheme.shouldUseDarkColors ? "dark" : "light",
+);
 
-ipcMain.handle('theme:setSource', (_evt, source) => {
-  if (source === 'dark' || source === 'light' || source === 'system') {
+ipcMain.handle("theme:setSource", (_evt, source) => {
+  if (source === "dark" || source === "light" || source === "system") {
     nativeTheme.themeSource = source;
   }
-  return nativeTheme.shouldUseDarkColors ? 'dark' : 'light';
+  return nativeTheme.shouldUseDarkColors ? "dark" : "light";
 });
 
-ipcMain.handle('rtsp:open', (_evt, input) => {
+ipcMain.handle("rtsp:open", (_evt, input) => {
   const result = openRtspStream(input);
   if (!result.ok) return result;
   if (!uiServerPort) {
     stopRtspStream();
-    return { ok: false, error: 'UI server is not ready' };
+    return { ok: false, error: "UI server is not ready" };
   }
   return {
     ok: true,
@@ -1117,67 +1234,74 @@ ipcMain.handle('rtsp:open', (_evt, input) => {
     url: result.url,
     name: result.name,
     playUrl: `http://127.0.0.1:${uiServerPort}${result.path}`,
-    isRtsp: true
+    isRtsp: true,
   };
 });
 
-ipcMain.handle('rtsp:stop', () => stopRtspStream());
+ipcMain.handle("rtsp:stop", () => stopRtspStream());
 
-ipcMain.handle('rtsp:getActive', () => getActiveRtsp());
+ipcMain.handle("rtsp:getActive", () => getActiveRtsp());
 
-ipcMain.handle('rtsp:isUrl', (_evt, input) => isRtspUrl(input));
+ipcMain.handle("rtsp:isUrl", (_evt, input) => isRtspUrl(input));
 
-ipcMain.handle('rtsp:getRecording', () => getRtspRecording());
+ipcMain.handle("rtsp:getRecording", () => getRtspRecording());
 
-ipcMain.handle('rtsp:startRecord', async (_evt, payload) => {
+ipcMain.handle("rtsp:startRecord", async (_evt, payload) => {
   const input = payload?.url || payload?.input;
-  const url = String(input || '').trim();
+  const url = String(input || "").trim();
   if (!isRtspUrl(url)) {
-    return { ok: false, error: '유효한 RTSP 링크가 아닙니다.' };
+    return { ok: false, error: "유효한 RTSP 링크가 아닙니다." };
   }
   if (getRtspRecording()) {
-    return { ok: false, error: '이미 RTSP 녹화가 진행 중입니다.', recording: getRtspRecording() };
+    return {
+      ok: false,
+      error: "이미 RTSP 녹화가 진행 중입니다.",
+      recording: getRtspRecording(),
+    };
   }
 
-  const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-  let host = 'rtsp';
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+  let host = "rtsp";
   try {
     host = new URL(url).hostname || host;
   } catch {
     /* keep fallback */
   }
-  const suggestedName = sanitizeFilename(`rtsp-${host}-${stamp}`) + '.mp4';
+  const suggestedName = sanitizeFilename(`rtsp-${host}-${stamp}`) + ".mp4";
 
   const save = await dialog.showSaveDialog(mainWindow, {
-    title: 'Save RTSP Stream',
-    defaultPath: path.join(getRememberedDir(DIALOG_SAVE_DIR_KEY), suggestedName),
+    title: "Save RTSP Stream",
+    defaultPath: path.join(
+      getRememberedDir(DIALOG_SAVE_DIR_KEY),
+      suggestedName,
+    ),
     filters: [
-      { name: 'MP4 Video', extensions: ['mp4'] },
-      { name: 'All Files', extensions: ['*'] }
-    ]
+      { name: "MP4 Video", extensions: ["mp4"] },
+      { name: "All Files", extensions: ["*"] },
+    ],
   });
   if (save.canceled || !save.filePath) return { ok: false, cancelled: true };
   rememberDirFromFile(DIALOG_SAVE_DIR_KEY, save.filePath);
 
   const result = startRtspRecord(url, save.filePath, (progress) => {
-    mainWindow?.webContents.send('rtsp:recordProgress', progress);
+    mainWindow?.webContents.send("rtsp:recordProgress", progress);
   });
   return result;
 });
 
-ipcMain.handle('rtsp:stopRecord', async (_evt, options = {}) => {
+ipcMain.handle("rtsp:stopRecord", async (_evt, options = {}) => {
   const result = await stopRtspRecord(options || {});
   if (result?.cancelled) {
-    mainWindow?.webContents.send('rtsp:recordProgress', {
-      phase: 'cancelled',
+    mainWindow?.webContents.send("rtsp:recordProgress", {
+      phase: "cancelled",
       elapsed: result.elapsed,
-      elapsedMs: result.elapsedMs
+      elapsedMs: result.elapsedMs,
     });
     return result;
   }
   if (result?.ok) {
     let size = 0;
-    let name = '';
+    let name = "";
     try {
       if (result.path && fs.existsSync(result.path)) {
         size = fs.statSync(result.path).size;
@@ -1188,29 +1312,29 @@ ipcMain.handle('rtsp:stopRecord', async (_evt, options = {}) => {
     }
     const payload = {
       ...result,
-      name: name || (result.path ? path.basename(result.path) : ''),
-      size
+      name: name || (result.path ? path.basename(result.path) : ""),
+      size,
     };
-    mainWindow?.webContents.send('rtsp:recordProgress', {
-      phase: 'done',
+    mainWindow?.webContents.send("rtsp:recordProgress", {
+      phase: "done",
       path: payload.path,
       name: payload.name,
       size: payload.size,
       elapsed: payload.elapsed,
-      elapsedMs: payload.elapsedMs
+      elapsedMs: payload.elapsedMs,
     });
     return payload;
   }
   return result;
 });
 
-ipcMain.handle('youtube:parse', (_evt, input) => {
+ipcMain.handle("youtube:parse", (_evt, input) => {
   const id = extractVideoId(input);
   const url = normalizeWatchUrl(input);
   return id ? { id, url } : null;
 });
 
-ipcMain.handle('youtube:info', async (_evt, input) => {
+ipcMain.handle("youtube:info", async (_evt, input) => {
   try {
     return { ok: true, info: await getYouTubeInfo(input) };
   } catch (err) {
@@ -1218,39 +1342,44 @@ ipcMain.handle('youtube:info', async (_evt, input) => {
   }
 });
 
-ipcMain.handle('youtube:download', async (_evt, payload) => {
+ipcMain.handle("youtube:download", async (_evt, payload) => {
   if (downloadInProgress) {
-    return { ok: false, error: '이미 다운로드가 진행 중입니다.' };
+    return { ok: false, error: "이미 다운로드가 진행 중입니다." };
   }
   const input = payload?.url || payload?.input;
   const url = normalizeWatchUrl(input);
-  if (!url) return { ok: false, error: '유효한 YouTube 링크가 아닙니다.' };
+  if (!url) return { ok: false, error: "유효한 YouTube 링크가 아닙니다." };
 
-  let suggestedName = sanitizeFilename(payload?.title || extractVideoId(url) || 'youtube-video') + '.mp4';
+  let suggestedName =
+    sanitizeFilename(payload?.title || extractVideoId(url) || "youtube-video") +
+    ".mp4";
   try {
     if (!payload?.title) {
       const info = await getYouTubeInfo(url);
-      suggestedName = sanitizeFilename(info.title) + '.mp4';
+      suggestedName = sanitizeFilename(info.title) + ".mp4";
     }
   } catch {
     /* keep fallback name */
   }
 
   const save = await dialog.showSaveDialog(mainWindow, {
-    title: 'Save YouTube Video',
-    defaultPath: path.join(getRememberedDir(DIALOG_SAVE_DIR_KEY), suggestedName),
+    title: "Save YouTube Video",
+    defaultPath: path.join(
+      getRememberedDir(DIALOG_SAVE_DIR_KEY),
+      suggestedName,
+    ),
     filters: [
-      { name: 'MP4 Video', extensions: ['mp4'] },
-      { name: 'All Files', extensions: ['*'] }
-    ]
+      { name: "MP4 Video", extensions: ["mp4"] },
+      { name: "All Files", extensions: ["*"] },
+    ],
   });
   if (save.canceled || !save.filePath) return { ok: false, cancelled: true };
   rememberDirFromFile(DIALOG_SAVE_DIR_KEY, save.filePath);
 
   downloadInProgress = true;
-  mainWindow?.webContents.send('youtube:downloadProgress', {
+  mainWindow?.webContents.send("youtube:downloadProgress", {
     percent: 0,
-    message: 'Starting download…'
+    message: "Starting download…",
   });
 
   const runDownload = async (cookiesPath, opts = {}) =>
@@ -1258,9 +1387,9 @@ ipcMain.handle('youtube:download', async (_evt, payload) => {
       url,
       save.filePath,
       (progress) => {
-        mainWindow?.webContents.send('youtube:downloadProgress', progress);
+        mainWindow?.webContents.send("youtube:downloadProgress", progress);
       },
-      { cookiesPath, ...opts }
+      { cookiesPath, ...opts },
     );
 
   try {
@@ -1275,25 +1404,27 @@ ipcMain.handle('youtube:download', async (_evt, payload) => {
     try {
       // Prefer adaptive DASH via yt-dlp (works for most public videos without login).
       result = await runDownload(cookies?.authenticated ? cookies.path : null, {
-        skipInnertubeFallback: true
+        skipInnertubeFallback: true,
       });
     } catch (err) {
       if (err?.cancelled) throw err;
       // Some videos need a signed-in session (age-gate / bot check). Prompt once.
-      mainWindow?.webContents.send('youtube:downloadProgress', {
+      mainWindow?.webContents.send("youtube:downloadProgress", {
         percent: null,
-        message: 'Sign in to YouTube required for this download…'
+        message: "Sign in to YouTube required for this download…",
       });
       const signedIn = await ensureYoutubeCookies({
         parentWindow: mainWindow,
-        forcePrompt: true
+        forcePrompt: true,
       });
       if (!signedIn?.authenticated || !signedIn.path) throw err;
-      mainWindow?.webContents.send('youtube:downloadProgress', {
+      mainWindow?.webContents.send("youtube:downloadProgress", {
         percent: null,
-        message: 'Continuing download with signed-in session…'
+        message: "Continuing download with signed-in session…",
       });
-      result = await runDownload(signedIn.path, { skipInnertubeFallback: true });
+      result = await runDownload(signedIn.path, {
+        skipInnertubeFallback: true,
+      });
     }
 
     let size = 0;
@@ -1312,7 +1443,7 @@ ipcMain.handle('youtube:download', async (_evt, payload) => {
       size: finalSize,
       engine: result.engine,
       stopped: Boolean(result.stopped),
-      partial: Boolean(result.partial)
+      partial: Boolean(result.partial),
     };
   } catch (err) {
     if (err?.cancelled) {
@@ -1324,6 +1455,135 @@ ipcMain.handle('youtube:download', async (_evt, payload) => {
   }
 });
 
-ipcMain.handle('youtube:cancelDownload', (_event, options) =>
-  stopYouTubeDownload(options || { discard: true })
+ipcMain.handle("youtube:cancelDownload", (_event, options) =>
+  stopYouTubeDownload(options || { discard: true }),
+);
+
+ipcMain.handle("remote:isSupportedUrl", (_evt, input) => {
+  const value = String(input || "").trim();
+  return isHttpUrl(value) && !extractVideoId(value);
+});
+
+ipcMain.handle("remote:info", async (_evt, input) => {
+  try {
+    return { ok: true, info: await getRemoteVideoInfo(input) };
+  } catch (err) {
+    return { ok: false, error: err.message || String(err) };
+  }
+});
+
+ipcMain.handle("remote:open", async (_evt, payload) => {
+  const input = payload?.url || payload?.input;
+  const url = String(input || "").trim();
+  if (!isHttpUrl(url)) {
+    return { ok: false, error: "유효한 HTTP(S) 링크가 아닙니다." };
+  }
+
+  const initialInfo = payload?.title
+    ? {
+        title: payload.title,
+        service: detectRemoteService(url),
+        serviceLabel: serviceLabel(detectRemoteService(url)),
+      }
+    : null;
+
+  let info = initialInfo;
+  try {
+    if (!info) info = await getRemoteVideoInfo(url);
+  } catch {
+    info = initialInfo;
+  }
+
+  const targetPath = makeTempOutputPath(url, info?.title || "");
+  try {
+    mainWindow?.webContents.send("remote:downloadProgress", {
+      percent: 0,
+      message: "Starting download…",
+    });
+    const result = await downloadRemoteVideo(url, targetPath, (progress) => {
+      mainWindow?.webContents.send("remote:downloadProgress", progress);
+    });
+    const media = await mediaFromPath(result.path);
+    if (!media?.ok) {
+      return {
+        ok: false,
+        error: media?.error || "다운로드된 파일을 열 수 없습니다.",
+      };
+    }
+    return {
+      ...media,
+      ok: true,
+      sourceUrl: url,
+      service: info?.service || result.service || detectRemoteService(url),
+      serviceLabel:
+        info?.serviceLabel || serviceLabel(detectRemoteService(url)),
+      originalTitle: info?.title || result.name || media.name,
+    };
+  } catch (err) {
+    if (err?.cancelled) return { ok: false, cancelled: true };
+    return { ok: false, error: err.message || String(err) };
+  }
+});
+
+ipcMain.handle("remote:download", async (_evt, payload) => {
+  if (downloadInProgress) {
+    return { ok: false, error: "이미 다운로드가 진행 중입니다." };
+  }
+  const input = payload?.url || payload?.input;
+  const url = String(input || "").trim();
+  if (!isHttpUrl(url))
+    return { ok: false, error: "유효한 HTTP(S) 링크가 아닙니다." };
+
+  let info = null;
+  try {
+    info = await getRemoteVideoInfo(url);
+  } catch {
+    info = null;
+  }
+
+  const service = info?.service || detectRemoteService(url);
+  const defaultName =
+    sanitizeFilename(
+      payload?.title || info?.title || `${serviceLabel(service)}-video`,
+    ) + ".mp4";
+
+  const save = await dialog.showSaveDialog(mainWindow, {
+    title: `Save ${serviceLabel(service)} Video`,
+    defaultPath: path.join(getRememberedDir(DIALOG_SAVE_DIR_KEY), defaultName),
+    filters: [
+      { name: "MP4 Video", extensions: ["mp4"] },
+      { name: "All Files", extensions: ["*"] },
+    ],
+  });
+  if (save.canceled || !save.filePath) return { ok: false, cancelled: true };
+  rememberDirFromFile(DIALOG_SAVE_DIR_KEY, save.filePath);
+
+  downloadInProgress = true;
+  mainWindow?.webContents.send("remote:downloadProgress", {
+    percent: 0,
+    message: "Starting download…",
+  });
+
+  try {
+    const result = await downloadRemoteVideo(url, save.filePath, (progress) => {
+      mainWindow?.webContents.send("remote:downloadProgress", progress);
+    });
+    return {
+      ...result,
+      ok: true,
+      title: info?.title || result.name,
+      sourceUrl: url,
+      service,
+      serviceLabel: serviceLabel(service),
+    };
+  } catch (err) {
+    if (err?.cancelled) return { ok: false, cancelled: true };
+    return { ok: false, error: err.message || String(err) };
+  } finally {
+    downloadInProgress = false;
+  }
+});
+
+ipcMain.handle("remote:cancelDownload", (_event, options) =>
+  stopRemoteDownload(options || { discard: true }),
 );
