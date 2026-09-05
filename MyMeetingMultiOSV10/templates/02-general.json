@@ -1,0 +1,33 @@
+{
+  "id": "general",
+  "order": 2,
+  "name": { "ko": "일반 회의록", "en": "General Meeting" },
+  "ko": {
+    "title": "회의 제목을 입력하세요",
+    "date": "",
+    "startTime": "",
+    "endTime": "",
+    "location": "",
+    "organizer": "",
+    "recorder": "",
+    "attendees": "참석자 1\n참석자 2",
+    "agenda": "안건 1\n안건 2\n안건 3",
+    "body": "## 논의 내용\n\n- \n\n## 참고 사항\n\n- ",
+    "decisions": "결정 사항 1",
+    "actionItems": "담당자 — 할 일 (기한)"
+  },
+  "en": {
+    "title": "Enter the meeting title",
+    "date": "",
+    "startTime": "",
+    "endTime": "",
+    "location": "",
+    "organizer": "",
+    "recorder": "",
+    "attendees": "Attendee 1\nAttendee 2",
+    "agenda": "Agenda item 1\nAgenda item 2\nAgenda item 3",
+    "body": "## Discussion\n\n- \n\n## Notes\n\n- ",
+    "decisions": "Decision 1",
+    "actionItems": "Owner — task (due)"
+  }
+}

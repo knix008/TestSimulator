@@ -1,0 +1,33 @@
+{
+  "id": "retrospective",
+  "order": 5,
+  "name": { "ko": "회고 (Retrospective)", "en": "Retrospective" },
+  "ko": {
+    "title": "스프린트 회고",
+    "date": "",
+    "startTime": "",
+    "endTime": "",
+    "location": "",
+    "organizer": "퍼실리테이터",
+    "recorder": "",
+    "attendees": "팀원 1\n팀원 2\n팀원 3",
+    "agenda": "잘한 점 (Keep)\n아쉬운 점 (Problem)\n시도할 점 (Try)",
+    "body": "## 잘한 점 (Keep)\n\n- \n\n## 아쉬운 점 (Problem)\n\n- \n\n## 시도할 점 (Try)\n\n- ",
+    "decisions": "다음 스프린트에 적용할 개선안 1",
+    "actionItems": "담당자 — 개선 활동 (다음 스프린트)"
+  },
+  "en": {
+    "title": "Sprint Retrospective",
+    "date": "",
+    "startTime": "",
+    "endTime": "",
+    "location": "",
+    "organizer": "Facilitator",
+    "recorder": "",
+    "attendees": "Member 1\nMember 2\nMember 3",
+    "agenda": "What went well (Keep)\nWhat didn't (Problem)\nWhat to try (Try)",
+    "body": "## Keep\n\n- \n\n## Problem\n\n- \n\n## Try\n\n- ",
+    "decisions": "Improvement to apply next sprint 1",
+    "actionItems": "Owner — improvement action (next sprint)"
+  }
+}

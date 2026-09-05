@@ -1,0 +1,33 @@
+{
+  "id": "client",
+  "order": 8,
+  "name": { "ko": "고객 / 외부 미팅", "en": "Client / External Meeting" },
+  "ko": {
+    "title": "고객 미팅",
+    "date": "",
+    "startTime": "",
+    "endTime": "",
+    "location": "",
+    "organizer": "",
+    "recorder": "",
+    "attendees": "[자사] 담당자\n[고객사] 담당자",
+    "agenda": "인사 및 목적 공유\n요구사항 확인\n제안 / 논의\n다음 단계 협의",
+    "body": "## 배경 / 목적\n\n- \n\n## 고객 요구사항\n\n- \n\n## 논의 내용\n\n- \n\n## 다음 단계\n\n- ",
+    "decisions": "합의 사항 1",
+    "actionItems": "자사 — 후속 제안서 전달 (기한)\n고객사 — 내부 검토 (기한)"
+  },
+  "en": {
+    "title": "Client Meeting",
+    "date": "",
+    "startTime": "",
+    "endTime": "",
+    "location": "",
+    "organizer": "",
+    "recorder": "",
+    "attendees": "[Us] Owner\n[Client] Owner",
+    "agenda": "Introductions and purpose\nConfirm requirements\nProposal / discussion\nAgree next steps",
+    "body": "## Background / Purpose\n\n- \n\n## Client Requirements\n\n- \n\n## Discussion\n\n- \n\n## Next Steps\n\n- ",
+    "decisions": "Agreement 1",
+    "actionItems": "Us — send follow-up proposal (due)\nClient — internal review (due)"
+  }
+}
