@@ -1,12 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
-  <!-- MyMeeting: a minutes sheet with a checklist, fronted by three participants -->
+  <!-- MyMeeting: a minutes sheet with a checklist, fronted by three participants.
+       Indigo tile background. -->
   <defs>
     <!-- Main 3D body gradient (top-left light -> bottom-right dark) -->
     <linearGradient id="body" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0"    stop-color="#7fdcc4"/>
-      <stop offset="0.45" stop-color="#2fb59a"/>
-      <stop offset="1"    stop-color="#12564a"/>
+      <stop offset="0"    stop-color="#8aa4ff"/>
+      <stop offset="0.45" stop-color="#5468e6"/>
+      <stop offset="1"    stop-color="#232a63"/>
     </linearGradient>
 
     <!-- Bevel edge highlight -->
@@ -33,14 +34,14 @@
     <!-- Minutes sheet shading -->
     <linearGradient id="sheet" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#ffffff"/>
-      <stop offset="1" stop-color="#d9efe7"/>
+      <stop offset="1" stop-color="#e7ebff"/>
     </linearGradient>
 
     <filter id="dropshadow" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="26" stdDeviation="30" flood-color="#063a30" flood-opacity="0.45"/>
+      <feDropShadow dx="0" dy="26" stdDeviation="30" flood-color="#161c47" flood-opacity="0.45"/>
     </filter>
     <filter id="cardshadow" x="-50%" y="-50%" width="200%" height="200%">
-      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#063a30" flood-opacity="0.35"/>
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#161c47" flood-opacity="0.35"/>
     </filter>
   </defs>
 
@@ -55,20 +56,20 @@
   <g filter="url(#cardshadow)">
     <rect x="300" y="212" width="424" height="470" rx="30" fill="url(#sheet)"/>
     <!-- Title bar of the sheet -->
-    <rect x="344" y="258" width="220" height="26" rx="13" fill="#12564a"/>
-    <rect x="344" y="300" width="336" height="13" rx="6.5" fill="#a7cbc0"/>
+    <rect x="344" y="258" width="220" height="26" rx="13" fill="#232a63"/>
+    <rect x="344" y="300" width="336" height="13" rx="6.5" fill="#b0b9e8"/>
     <!-- Checklist rows: check mark + line -->
     <g>
-      <circle cx="360" cy="366" r="17" fill="#2fb59a"/>
+      <circle cx="360" cy="366" r="17" fill="#5468e6"/>
       <path d="M351 366 l7 7 l11 -13" fill="none" stroke="#ffffff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
-      <rect x="392" y="358" width="290" height="16" rx="8" fill="#bfe0d6"/>
+      <rect x="392" y="358" width="290" height="16" rx="8" fill="#ccd4fb"/>
 
-      <circle cx="360" cy="424" r="17" fill="#2fb59a"/>
+      <circle cx="360" cy="424" r="17" fill="#5468e6"/>
       <path d="M351 424 l7 7 l11 -13" fill="none" stroke="#ffffff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
-      <rect x="392" y="416" width="240" height="16" rx="8" fill="#bfe0d6"/>
+      <rect x="392" y="416" width="240" height="16" rx="8" fill="#ccd4fb"/>
 
-      <circle cx="360" cy="482" r="17" fill="#93c9bc"/>
-      <rect x="392" y="474" width="270" height="16" rx="8" fill="#d5ece4"/>
+      <circle cx="360" cy="482" r="17" fill="#9aa6ea"/>
+      <rect x="392" y="474" width="270" height="16" rx="8" fill="#e2e7ff"/>
     </g>
   </g>
 
@@ -76,21 +77,21 @@
   <g filter="url(#cardshadow)">
     <!-- left person -->
     <g transform="translate(352 700)">
-      <circle cx="0" cy="0" r="46" fill="#d9efe7"/>
-      <circle cx="0" cy="-14" r="20" fill="#2fb59a"/>
-      <path d="M-30 26 a30 26 0 0 1 60 0 z" fill="#2fb59a"/>
+      <circle cx="0" cy="0" r="46" fill="#e7ebff"/>
+      <circle cx="0" cy="-14" r="20" fill="#5468e6"/>
+      <path d="M-30 26 a30 26 0 0 1 60 0 z" fill="#5468e6"/>
     </g>
     <!-- center person (front, larger) -->
     <g transform="translate(512 724)">
       <circle cx="0" cy="0" r="56" fill="#ffffff"/>
-      <circle cx="0" cy="-16" r="24" fill="#12564a"/>
-      <path d="M-36 32 a36 30 0 0 1 72 0 z" fill="#12564a"/>
+      <circle cx="0" cy="-16" r="24" fill="#232a63"/>
+      <path d="M-36 32 a36 30 0 0 1 72 0 z" fill="#232a63"/>
     </g>
     <!-- right person -->
     <g transform="translate(672 700)">
-      <circle cx="0" cy="0" r="46" fill="#d9efe7"/>
-      <circle cx="0" cy="-14" r="20" fill="#2fb59a"/>
-      <path d="M-30 26 a30 26 0 0 1 60 0 z" fill="#2fb59a"/>
+      <circle cx="0" cy="0" r="46" fill="#e7ebff"/>
+      <circle cx="0" cy="-14" r="20" fill="#5468e6"/>
+      <path d="M-30 26 a30 26 0 0 1 60 0 z" fill="#5468e6"/>
     </g>
   </g>
 

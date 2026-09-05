@@ -14,6 +14,7 @@ import { encodeIco, encodeIcns } from '../src/lib/ico.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, '..');
 const svg = path.join(root, 'assets', 'icon.svg');
+const fileSvg = path.join(root, 'assets', 'file-icon.svg');
 const outDir = path.join(root, 'build', 'icons');
 const pngDir = path.join(outDir, 'png');
 
@@ -54,6 +55,25 @@ async function main() {
   for (const size of ICNS_SIZES) icnsEntries.push({ size, png: new Uint8Array(await png(size)) });
   fs.writeFileSync(path.join(outDir, 'icon.icns'), Buffer.from(encodeIcns(icnsEntries)));
   console.log('[icons] Wrote icon.icns');
+
+  // ── Document (.mtg file) icon ──
+  if (fs.existsSync(fileSvg)) {
+    const filePng = (size) =>
+      sharp(fileSvg, { density: 512 })
+        .resize(size, size, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+        .png()
+        .toBuffer();
+    const fileIco = [];
+    for (const size of ICO_SIZES) fileIco.push({ size, png: new Uint8Array(await filePng(size)) });
+    fs.writeFileSync(path.join(outDir, 'file.ico'), Buffer.from(encodeIco(fileIco)));
+    // A generic PNG + ICNS for the file type on Linux/macOS too.
+    fs.writeFileSync(path.join(outDir, 'file.png'), await filePng(512));
+    const fileIcns = [];
+    for (const size of ICNS_SIZES) fileIcns.push({ size, png: new Uint8Array(await filePng(size)) });
+    fs.writeFileSync(path.join(outDir, 'file.icns'), Buffer.from(encodeIcns(fileIcns)));
+    fs.copyFileSync(fileSvg, path.join(root, 'public', 'file-icon.svg'));
+    console.log('[icons] Wrote file.ico / file.png / file.icns');
+  }
 
   // Keep the committed web/UI copy in sync with the source SVG.
   fs.mkdirSync(path.join(root, 'public'), { recursive: true });

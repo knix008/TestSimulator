@@ -7,6 +7,34 @@ const isDev = !app.isPackaged && process.env.ELECTRON_DEV === '1';
 
 app.commandLine.appendSwitch('disable-features', 'Autofill');
 
+// ── File association (.mtg) — open a file passed on the command line ───────
+// Find the first .mtg/.json path in an argv list that exists on disk.
+function fileArgFrom(argv) {
+  for (const a of (argv || []).slice(1)) {
+    if (typeof a === 'string' && /\.(mtg|json)$/i.test(a) && fs.existsSync(a)) return a;
+  }
+  return null;
+}
+// A file to open once the renderer is ready (from the initial launch / macOS).
+let pendingFile = fileArgFrom(process.argv);
+
+// Read the file and hand it to the renderer to load into the editor.
+function sendFileToWindow(win, filePath) {
+  if (!win || win.isDestroyed()) return;
+  try {
+    const content = fs.readFileSync(filePath, 'utf-8');
+    win.webContents.send('file:open', { name: path.basename(filePath), path: filePath, content });
+  } catch { /* ignore unreadable files */ }
+}
+
+// macOS delivers the opened file via this event.
+app.on('open-file', (e, filePath) => {
+  e.preventDefault();
+  const win = BrowserWindow.getAllWindows()[0];
+  if (win) { sendFileToWindow(win, filePath); win.focus(); }
+  else pendingFile = filePath;
+});
+
 // paged.js polyfill (paginates content so the TOC can resolve real page numbers
 // via target-counter). Loaded lazily and cached.
 let pagedPolyfillSrc = null;
@@ -79,6 +107,11 @@ function createWindow() {
 
   win.once('ready-to-show', () => win.show());
 
+  // Once the app has loaded, open any file the user launched us with.
+  win.webContents.on('did-finish-load', () => {
+    if (pendingFile) { sendFileToWindow(win, pendingFile); pendingFile = null; }
+  });
+
   // Keep the toolbar's maximize/restore button in sync.
   const sendMax = () => { if (!win.isDestroyed()) win.webContents.send('win:maximized', win.isMaximized()); };
   win.on('maximize', sendMax);
@@ -110,12 +143,15 @@ if (!gotLock) {
     app.quit();
   });
 } else {
-  app.on('second-instance', () => {
+  app.on('second-instance', (_e, argv) => {
     const win = BrowserWindow.getAllWindows()[0];
     if (win) {
       if (win.isMinimized()) win.restore();
       win.show();
       win.focus();
+      // A second launch with a .mtg file (e.g. double-click) opens it here.
+      const f = fileArgFrom(argv);
+      if (f) sendFileToWindow(win, f);
     }
   });
 

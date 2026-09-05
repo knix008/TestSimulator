@@ -20,6 +20,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   loadSettings: () => ipcRenderer.invoke('settings:load'),
   saveSettings: (data) => ipcRenderer.invoke('settings:save', data),
   showItem: (p) => ipcRenderer.invoke('shell:showItem', p),
+  onOpenFile: (cb) => {
+    const h = (_e, data) => cb(data);
+    ipcRenderer.on('file:open', h);
+    return () => ipcRenderer.removeListener('file:open', h);
+  },
   win: {
     minimize: () => ipcRenderer.invoke('win:minimize'),
     toggleMaximize: () => ipcRenderer.invoke('win:toggleMaximize'),

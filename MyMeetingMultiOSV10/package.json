@@ -58,6 +58,15 @@
     "appId": "com.shkwon.mymeeting",
     "productName": "MyMeeting",
     "copyright": "Copyright © 2026 SHKWON (knix008@naver.com)",
+    "fileAssociations": [
+      {
+        "ext": "mtg",
+        "name": "MyMeeting Minutes",
+        "description": "MyMeeting meeting minutes file",
+        "role": "Editor",
+        "icon": "build/icons/file.ico"
+      }
+    ],
     "directories": {
       "output": "release",
       "buildResources": "build"

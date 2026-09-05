@@ -18,15 +18,26 @@ Var PrevInstalled
   StrCpy $DoCreateDesktopShortcut "1"
   StrCpy $DoCreateStartMenuShortcut "1"
 
-  ; Detect a previous installation so we can fully wipe it before reinstalling.
+  ; Detect a previous installation so we can COMPLETELY remove it before
+  ; reinstalling (program files + registry via its uninstaller, then app data).
   StrCpy $PrevInstalled "0"
-  ReadRegStr $0 HKCU "${UNINSTALL_REGISTRY_KEY}" "UninstallString"
-  ${If} $0 != ""
+  StrCpy $R0 ""   ; UninstallString
+  StrCpy $R1 ""   ; InstallLocation
+  ReadRegStr $R0 HKCU "${UNINSTALL_REGISTRY_KEY}" "UninstallString"
+  ReadRegStr $R1 HKCU "${UNINSTALL_REGISTRY_KEY}" "InstallLocation"
+  ${If} $R0 == ""
+    ReadRegStr $R0 HKLM "${UNINSTALL_REGISTRY_KEY}" "UninstallString"
+    ReadRegStr $R1 HKLM "${UNINSTALL_REGISTRY_KEY}" "InstallLocation"
+  ${EndIf}
+  ${If} $R0 != ""
     StrCpy $PrevInstalled "1"
-  ${Else}
-    ReadRegStr $0 HKLM "${UNINSTALL_REGISTRY_KEY}" "UninstallString"
-    ${If} $0 != ""
-      StrCpy $PrevInstalled "1"
+    ; Run the previous uninstaller silently and WAIT for it to finish.
+    ; "_?=<dir>" keeps the uninstaller from copying itself to %TEMP% so ExecWait
+    ; actually blocks until removal is complete.
+    ${If} $R1 != ""
+      ExecWait '"$R0" /S _?=$R1'
+    ${Else}
+      ExecWait '"$R0" /S'
     ${EndIf}
   ${EndIf}
 !macroend

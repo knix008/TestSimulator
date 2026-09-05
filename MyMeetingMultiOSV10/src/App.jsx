@@ -210,6 +210,18 @@ export default function App() {
     setOpenOpen(false);
   }
 
+  // Open a .mtg file that the OS handed us (file association / double-click).
+  useEffect(() => {
+    if (!isElectron || !api.onOpenFile) return;
+    const off = api.onOpenFile((data) => {
+      if (data && typeof data.content === 'string') {
+        applyOpened(data.name || 'meeting', data.content, data.path);
+      }
+    });
+    return off;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Global error handlers → copyable error popup.
   useEffect(() => {
     const onError = (e) => {
