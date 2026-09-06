@@ -1,6 +1,7 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
+import { loadMedia, isMediaFile } from '../lib/media';
 
 // A WYSIWYG-style editor: it renders the meeting notes Markdown as formatted
 // HTML in a contentEditable surface, so the user edits the *interpreted* content
@@ -10,16 +11,44 @@ import DOMPurify from 'dompurify';
 //
 // The contentEditable is uncontrolled: innerHTML is only (re)set when a new
 // document loads (docKey changes), never on keystrokes, so the caret is stable.
+//
+// Media (image / video / audio) is embedded as base64 data: URLs and serialized
+// as raw HTML (<img>/<video>/<audio>) so a chosen display size survives the
+// Markdown round-trip and every export stays self-contained. Images and video
+// can be resized by dragging the handle on the selection overlay.
 
 marked.setOptions({ gfm: true, breaks: false });
 
+// Attributes we must preserve through sanitization for sized/controllable media.
+const MEDIA_ATTR = ['type', 'checked', 'disabled', 'id', 'align', 'target', 'width', 'height', 'controls', 'style', 'controlslist'];
+
 function renderMarkdown(md) {
   const html = marked.parse(md || '');
-  return DOMPurify.sanitize(html, { ADD_ATTR: ['type', 'checked', 'disabled', 'id', 'align', 'target'] });
+  return DOMPurify.sanitize(html, { ADD_ATTR: MEDIA_ATTR, ADD_TAGS: ['video', 'audio', 'source'] });
+}
+
+function caretRangeAtPoint(x, y) {
+  if (document.caretRangeFromPoint) return document.caretRangeFromPoint(x, y);
+  if (document.caretPositionFromPoint) {
+    const pos = document.caretPositionFromPoint(x, y);
+    if (pos) { const r = document.createRange(); r.setStart(pos.offsetNode, pos.offset); r.collapse(true); return r; }
+  }
+  return null;
+}
+
+// Build the HTML fragment for an embedded media descriptor from loadMedia().
+function mediaMarkup({ kind, dataUrl, width }) {
+  const w = width ? ` width="${width}"` : '';
+  if (kind === 'video') return `<video src="${dataUrl}" controls${w}></video>`;
+  if (kind === 'audio') return `<audio src="${dataUrl}" controls></audio>`;
+  return `<img src="${dataUrl}" alt=""${w}>`;
 }
 
 export default function RichEditor({ markdown, docKey, placeholder, onChange, apiRef, onContextMenu }) {
-  const ref = useRef(null);
+  const ref = useRef(null);      // the contentEditable surface
+  const wrapRef = useRef(null);  // positioned wrapper hosting the resize overlay
+  const selRef = useRef(null);   // currently selected <img>/<video> element
+  const [box, setBox] = useState(null); // overlay rect in wrapper coordinates
   const mdRef = useRef(markdown);
   mdRef.current = markdown;
 
@@ -29,6 +58,7 @@ export default function RichEditor({ markdown, docKey, placeholder, onChange, ap
     if (!el) return;
     const html = renderMarkdown(mdRef.current);
     if (el.innerHTML !== html) el.innerHTML = html;
+    selRef.current = null; setBox(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [docKey]);
 
@@ -36,6 +66,26 @@ export default function RichEditor({ markdown, docKey, placeholder, onChange, ap
     const el = ref.current;
     if (!el) return;
     onChange(htmlToMarkdown(el));
+  };
+
+  // Reposition the selection overlay over the currently selected media element.
+  const updateBox = () => {
+    const el = selRef.current;
+    const wrap = wrapRef.current;
+    if (!el || !wrap || !wrap.contains(el)) { selRef.current = null; setBox(null); return; }
+    const ir = el.getBoundingClientRect();
+    const wr = wrap.getBoundingClientRect();
+    setBox({ left: ir.left - wr.left, top: ir.top - wr.top, width: ir.width, height: ir.height });
+  };
+
+  const clearSelection = () => { selRef.current = null; setBox(null); };
+
+  const insertMedia = (info) => {
+    const el = ref.current;
+    if (!el || !info) return;
+    el.focus();
+    try { document.execCommand('insertHTML', false, mediaMarkup(info)); } catch { /* ignore */ }
+    serialize();
   };
 
   // Expose an imperative API for the formatting toolbar / context menu.
@@ -56,6 +106,7 @@ export default function RichEditor({ markdown, docKey, placeholder, onChange, ap
         try { document.execCommand('insertHTML', false, html); } catch { /* ignore */ }
         serialize();
       },
+      insertMedia,
       selection: () => (window.getSelection ? window.getSelection().toString() : ''),
       serialize,
     };
@@ -63,27 +114,145 @@ export default function RichEditor({ markdown, docKey, placeholder, onChange, ap
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Keep the overlay glued to its element while the editor scrolls / the window
+  // resizes (only wired while something is selected).
+  useEffect(() => {
+    if (!box) return undefined;
+    const onReflow = () => updateBox();
+    const el = ref.current;
+    el?.addEventListener('scroll', onReflow, true);
+    window.addEventListener('resize', onReflow);
+    return () => {
+      el?.removeEventListener('scroll', onReflow, true);
+      window.removeEventListener('resize', onReflow);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [box]);
+
   // Prefer <p> paragraphs on Enter for clean serialization.
   const onFocus = () => { try { document.execCommand('defaultParagraphSeparator', false, 'p'); } catch { /* ignore */ } };
 
+  // Select an image/video on click (so it can be resized); clear otherwise.
+  const onClick = (e) => {
+    const tag = e.target?.tagName;
+    if (tag === 'IMG' || tag === 'VIDEO') { selRef.current = e.target; updateBox(); }
+    else clearSelection();
+  };
+
+  const onInput = () => { serialize(); updateBox(); };
+
+  // Drag the bottom-right handle to resize the selected image/video (keeps aspect
+  // ratio: only the width is set, height stays auto). Serializes on release.
+  const startResize = (e) => {
+    e.preventDefault(); e.stopPropagation();
+    const el = selRef.current;
+    if (!el) return;
+    const startX = e.clientX;
+    const startW = el.getBoundingClientRect().width;
+    const onMove = (ev) => {
+      const w = Math.max(32, Math.round(startW + (ev.clientX - startX)));
+      el.setAttribute('width', String(w));
+      el.style.width = `${w}px`;
+      el.style.height = 'auto';
+      updateBox();
+    };
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      serialize();
+      updateBox();
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  };
+
+  // ── Drag & drop / paste of media files ──────────────────
+  const onDragOver = (e) => {
+    const dt = e.dataTransfer;
+    if (dt && Array.from(dt.types || []).includes('Files')) { e.preventDefault(); dt.dropEffect = 'copy'; }
+  };
+  const onDrop = async (e) => {
+    const dt = e.dataTransfer;
+    const files = dt ? Array.from(dt.files).filter(isMediaFile) : [];
+    if (!files.length) return; // let the browser handle non-media (text) drops
+    e.preventDefault();
+    const el = ref.current;
+    el.focus();
+    const range = caretRangeAtPoint(e.clientX, e.clientY);
+    if (range) { const s = window.getSelection(); s.removeAllRanges(); s.addRange(range); }
+    for (const f of files) {
+      try { insertMedia(await loadMedia(f)); } catch { /* skip unreadable file */ }
+    }
+  };
+  const onPaste = (e) => {
+    const items = e.clipboardData ? Array.from(e.clipboardData.items) : [];
+    const it = items.find((x) => x.kind === 'file' && isMediaFile({ type: x.type }));
+    if (!it) return;
+    const file = it.getAsFile();
+    if (!file) return;
+    e.preventDefault();
+    loadMedia(file).then(insertMedia).catch(() => { /* ignore */ });
+  };
+
   return (
-    <div
-      ref={ref}
-      className="richeditor markdown-body"
-      contentEditable
-      suppressContentEditableWarning
-      spellCheck={false}
-      data-placeholder={placeholder || ''}
-      onInput={serialize}
-      onBlur={serialize}
-      onFocus={onFocus}
-      onContextMenu={onContextMenu}
-    />
+    <div className="richeditor-wrap" ref={wrapRef}>
+      <div
+        ref={ref}
+        className="richeditor markdown-body"
+        contentEditable
+        suppressContentEditableWarning
+        spellCheck={false}
+        data-placeholder={placeholder || ''}
+        onInput={onInput}
+        onBlur={serialize}
+        onFocus={onFocus}
+        onClick={onClick}
+        onDragOver={onDragOver}
+        onDrop={onDrop}
+        onPaste={onPaste}
+        onContextMenu={onContextMenu}
+      />
+      {box && (
+        <div className="media-resize" style={{ left: box.left, top: box.top, width: box.width, height: box.height }}>
+          <span className="media-handle" onMouseDown={startResize} title="Resize" />
+        </div>
+      )}
+    </div>
   );
 }
 
 // ── HTML → Markdown serialization ─────────────────────────
 const esc = (s) => String(s);
+const attrEsc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+// Preserve an explicit media size: prefer the width attribute, fall back to a
+// pixel inline style set by the resize handle.
+function mediaWidth(node) {
+  const attr = node.getAttribute('width');
+  if (attr && /^\d+$/.test(attr.trim())) return attr.trim();
+  const sw = node.style && node.style.width;
+  const m = sw && sw.match(/^(\d+(?:\.\d+)?)px$/);
+  return m ? String(Math.round(parseFloat(m[1]))) : '';
+}
+
+function imgToMarkup(node) {
+  const src = node.getAttribute('src') || '';
+  const alt = node.getAttribute('alt') || '';
+  if (!src) return '';
+  const w = mediaWidth(node);
+  // Sized images use HTML so the width survives; plain images stay clean Markdown.
+  if (w) return `<img src="${src}" alt="${attrEsc(alt)}" width="${w}">`;
+  return `![${alt}](${src})`;
+}
+
+function avToMarkup(node) {
+  const tag = node.tagName.toLowerCase();
+  const src = node.getAttribute('src') || node.querySelector('source')?.getAttribute('src') || '';
+  if (!src) return '';
+  const w = tag === 'video' ? mediaWidth(node) : '';
+  const wAttr = w ? ` width="${w}"` : '';
+  return `<${tag} src="${src}" controls${wAttr}></${tag}>`;
+}
 
 function htmlToMarkdown(root) {
   const blocks = [];
@@ -114,6 +283,8 @@ function serializeBlock(node, depth) {
     case 'ol': return serializeList(node, true, depth);
     case 'hr': return '---';
     case 'table': return serializeTable(node);
+    case 'img': return imgToMarkup(node);
+    case 'video': case 'audio': return avToMarkup(node);
     case 'br': return '';
     default: return inline(node);
   }
@@ -187,7 +358,8 @@ function inlineNode(node) {
     case 'code': return '`' + node.textContent + '`';
     case 'a': { const href = node.getAttribute('href') || ''; return `[${inner()}](${href})`; }
     case 'br': return '\n';
-    case 'img': return `![${node.getAttribute('alt') || ''}](${node.getAttribute('src') || ''})`;
+    case 'img': return imgToMarkup(node);
+    case 'video': case 'audio': return avToMarkup(node);
     default: return inner();
   }
 }

@@ -193,7 +193,12 @@ export function renderHtml(markdown) {
   let html = marked.parse(markdown || '');
   let i = 0;
   html = html.replace(/<(h[1-6])(\s|>)/g, (_m, tag, after) => `<${tag} id="h-${i++}"${after}`);
-  return DOMPurify.sanitize(html, { ADD_ATTR: ['id', 'target', 'align'] });
+  // Keep embedded media intact: <video>/<audio> tags plus the width/height/
+  // controls/style attributes that carry a chosen display size and playback UI.
+  return DOMPurify.sanitize(html, {
+    ADD_ATTR: ['id', 'target', 'align', 'width', 'height', 'controls', 'controlslist', 'style'],
+    ADD_TAGS: ['video', 'audio', 'source'],
+  });
 }
 
 // Export file base name: first heading (or first non-empty line) without
@@ -440,7 +445,8 @@ ${wordMeta}
   th,td{border:1px solid #ddd;padding:.4em .7em;text-align:left;word-wrap:break-word;overflow-wrap:anywhere}
   th{background:#f0f0f0;font-weight:600} tr:nth-child(even){background:#fafafa}
   hr{border:none;border-top:2px solid #e0e0e0;margin:1.4em 0}
-  a{color:#0b8a76;text-decoration:none} img{max-width:100%}
+  a{color:#0b8a76;text-decoration:none}
+  img,video{max-width:100%;height:auto} audio{max-width:100%}
   /* Fixed em-based top offset (NOT vh: paged.js mis-resolves viewport units,
      which pushed the cover onto a 2nd blank page before the index). */
   .cover{text-align:center;padding-top:15em}

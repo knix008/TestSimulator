@@ -70,6 +70,7 @@ export const IconCode = (p) => <S {...p}><path d="m8 7-5 5 5 5M16 7l5 5-5 5M14 4
 export const IconLink = (p) => <S {...p}><path d="M10 13a5 5 0 0 0 7.1 0l2-2A5 5 0 0 0 12 4l-1 1" /><path d="M14 11a5 5 0 0 0-7.1 0l-2 2A5 5 0 0 0 12 20l1-1" /></S>;
 export const IconTable = (p) => <S {...p}><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M3 10h18M3 15h18M9 4v16M15 4v16" /></S>;
 export const IconRule = (p) => <S {...p}><path d="M4 12h16M6 8h2M16 8h2M6 16h2M16 16h2" /></S>;
+export const IconImage = (p) => <S {...p}><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><path d="m21 15-5-5L5 21" /></S>;
 
 // Window controls
 export const IconWinMin = (p) => <S {...p} size={14}><path d="M5 12h14" /></S>;

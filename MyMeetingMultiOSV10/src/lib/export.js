@@ -82,6 +82,9 @@ export async function exportWord(markdown, settings = {}, baseName) {
 const MIME_EXT = {
   'image/png': 'png', 'image/jpeg': 'jpg', 'image/gif': 'gif', 'image/webp': 'webp',
   'image/bmp': 'bmp', 'image/svg+xml': 'svg', 'image/tiff': 'tif', 'image/x-icon': 'ico', 'image/avif': 'avif',
+  'video/mp4': 'mp4', 'video/webm': 'webm', 'video/ogg': 'ogv', 'video/quicktime': 'mov',
+  'audio/mpeg': 'mp3', 'audio/mp3': 'mp3', 'audio/wav': 'wav', 'audio/x-wav': 'wav',
+  'audio/ogg': 'ogg', 'audio/webm': 'weba', 'audio/aac': 'aac', 'audio/mp4': 'm4a', 'audio/flac': 'flac',
 };
 
 function utf8ToBase64(str) {
@@ -101,9 +104,12 @@ function buildWordMht(html) {
   let idx = 0;
   const images = [];
 
-  const htmlOut = html.replace(/src="data:(image\/[a-z0-9.+-]+);base64,([^"]+)"/gi, (_m, mime, data) => {
+  // Word does not render inline data: URLs — pull every embedded media asset
+  // (images and, where Word can, audio/video) out into its own MIME part.
+  const htmlOut = html.replace(/src="data:((?:image|audio|video)\/[a-z0-9.+-]+);base64,([^"]+)"/gi, (_m, mime, data) => {
     idx += 1;
-    const name = `image${String(idx).padStart(3, '0')}.${MIME_EXT[mime.toLowerCase()] || 'png'}`;
+    const ext = MIME_EXT[mime.toLowerCase()] || mime.split('/')[0].replace(/[^a-z0-9]/gi, '') || 'bin';
+    const name = `media${String(idx).padStart(3, '0')}.${ext}`;
     images.push({ name, mime, data: data.replace(/\s+/g, '') });
     return `src="${name}"`;
   });

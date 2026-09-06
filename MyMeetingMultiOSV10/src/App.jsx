@@ -19,9 +19,10 @@ import {
   IconStars, IconSnow, IconLeaf, IconFlower, IconSunrise, IconContrast, IconBulb,
   IconDroplet, IconCoffee, IconCloud, IconGlobe, IconHash, IconCalendar,
   IconBold, IconItalic, IconHeading, IconList, IconListOrdered, IconChecklist,
-  IconQuote, IconCode, IconLink, IconTable, IconRule,
+  IconQuote, IconCode, IconLink, IconTable, IconRule, IconImage,
 } from './components/Icons';
 import { isElectron, api, saveText, readFileText, openTextFile, readPath, saveSettingsToDisk } from './lib/platform';
+import { loadMedia, isMediaFile, MEDIA_ACCEPT } from './lib/media';
 import { getOutline, DEFAULT_EXPORT_SETTINGS } from './lib/markdown';
 import { exportMarkdown, exportHtml, exportPdf, exportWord } from './lib/export';
 import {
@@ -105,6 +106,7 @@ export default function App() {
   const [errorInfo, setErrorInfo] = useState(null);
 
   const openInputRef = useRef(null);
+  const mediaInputRef = useRef(null);
   const richApi = useRef(null);
   const [docKey, setDocKey] = useState(0);
   const bumpDoc = () => setDocKey((k) => k + 1);
@@ -500,6 +502,8 @@ export default function App() {
       { icon: IconPaste, label: t('ctx.paste'), onClick: editorPaste },
       { icon: IconSelectAll, label: t('ctx.selectAll'), onClick: () => richApi.current?.cmd('selectAll') },
       { separator: true },
+      { icon: IconImage, label: t('ctx.insertMedia'), onClick: pickMedia },
+      { separator: true },
       ...fmtItems,
       { separator: true },
       { icon: IconSave, label: t('ctx.save'), onClick: saveMeeting },
@@ -543,6 +547,23 @@ export default function App() {
       + `<tbody><tr><td>&nbsp;</td><td>&nbsp;</td></tr></tbody></table><p><br></p>`);
   };
 
+  // Insert media (image / video / audio) via the file dialog. Reads each chosen
+  // file into an embedded base64 data: URL and drops it at the editor caret — so
+  // it can go into the body or a table cell, and travels inside every export.
+  const pickMedia = () => mediaInputRef.current?.click();
+  async function onMediaSelected(e) {
+    const files = Array.from(e.target.files || []).filter(isMediaFile);
+    e.target.value = '';
+    if (!files.length) return;
+    for (const f of files) {
+      try {
+        rich()?.insertMedia(await loadMedia(f));
+      } catch (err) {
+        showError(t('status.mediaErr', { msg: err?.message || String(err) }), err?.stack);
+      }
+    }
+  }
+
   const FORMAT_ACTIONS = [
     { key: 'bold', icon: IconBold, run: () => rich()?.cmd('bold') },
     { key: 'italic', icon: IconItalic, run: () => rich()?.cmd('italic') },
@@ -562,6 +583,7 @@ export default function App() {
     { key: 'codeblock', icon: IconHtml, run: () => rich()?.cmd('formatBlock', 'PRE') },
     { key: 'link', icon: IconLink, run: insertLink },
     { key: 'table', icon: IconTable, run: insertTable },
+    { key: 'image', icon: IconImage, run: pickMedia },
     { key: 'rule', icon: IconRule, run: () => rich()?.cmd('insertHorizontalRule') },
   ];
 
@@ -652,6 +674,9 @@ export default function App() {
       {/* hidden web open input */}
       <input ref={openInputRef} type="file" accept=".mtg,.json,application/json"
         style={{ display: 'none' }} onChange={onWebOpen} />
+      {/* hidden media (image/video/audio) picker for the editor toolbar */}
+      <input ref={mediaInputRef} type="file" accept={MEDIA_ACCEPT} multiple
+        style={{ display: 'none' }} onChange={onMediaSelected} />
 
       <header className="toolbar">
         <div className="toolbar-group">

@@ -71,6 +71,7 @@ const resources = {
         codeblock: '코드 블록  ``` ```',
         link: '링크  [텍스트](주소)',
         table: '표',
+        image: '이미지·동영상·오디오 삽입',
         rule: '구분선  ---',
         boldText: '굵은 텍스트', italicText: '기울임 텍스트', headingText: '제목', item: '항목',
         linkText: '텍스트', code1: '코드',
@@ -143,6 +144,7 @@ const resources = {
       ctx: {
         copy: '복사', copyAll: '전체 복사', cut: '잘라내기', paste: '붙여넣기', selectAll: '전체 선택',
         goto: '해당 위치로 이동', copyHeading: '헤딩 텍스트 복사',
+        insertMedia: '이미지·미디어 삽입…',
         newDoc: '새로 만들기', save: '저장', exportPdf: 'PDF로 내보내기', exportWord: 'Word로 내보내기',
       },
       structure: {
@@ -160,6 +162,7 @@ const resources = {
         templateLoaded: '"{{name}}" 양식을 불러왔습니다.',
         opened: '열었습니다: {{path}}',
         openErr: '열기 실패: {{msg}}',
+        mediaErr: '미디어 삽입 실패: {{msg}}',
         saved: '저장했습니다: {{path}}',
         saveCancel: '저장을 취소했습니다.',
         exporting: '{{fmt}} 내보내는 중…',
@@ -247,6 +250,7 @@ const resources = {
         codeblock: 'Code block  ``` ```',
         link: 'Link  [text](url)',
         table: 'Table',
+        image: 'Insert image / video / audio',
         rule: 'Divider  ---',
         boldText: 'bold text', italicText: 'italic text', headingText: 'Heading', item: 'item',
         linkText: 'text', code1: 'code',
@@ -319,6 +323,7 @@ const resources = {
       ctx: {
         copy: 'Copy', copyAll: 'Copy all', cut: 'Cut', paste: 'Paste', selectAll: 'Select all',
         goto: 'Go to location', copyHeading: 'Copy heading text',
+        insertMedia: 'Insert image / media…',
         newDoc: 'New', save: 'Save', exportPdf: 'Export to PDF', exportWord: 'Export to Word',
       },
       structure: {
@@ -335,6 +340,7 @@ const resources = {
         sampleLoaded: 'Loaded the sample meeting minutes.',
         templateLoaded: 'Loaded the "{{name}}" template.',
         opened: 'Opened: {{path}}',
+        mediaErr: 'Media insert failed: {{msg}}',
         openErr: 'Open failed: {{msg}}',
         saved: 'Saved: {{path}}',
         saveCancel: 'Save cancelled.',
