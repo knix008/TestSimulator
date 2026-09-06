@@ -142,6 +142,80 @@ function remoteTempDir() {
   return dir;
 }
 
+/** @type {Map<string, { path: string, title?: string, service?: string }>} */
+const remoteFileCache = new Map();
+
+function normalizeRemoteUrl(input) {
+  const text = String(input || "").trim();
+  if (!text) return "";
+  try {
+    const u = new URL(text);
+    u.hash = "";
+    // Drop common tracking noise so the same clip maps to one cache entry.
+    for (const key of [...u.searchParams.keys()]) {
+      if (
+        /^(utm_|fbclid|igsh|igshid|tt_from|is_from_webapp|sender_device|share|_r|_t)/i.test(
+          key,
+        )
+      ) {
+        u.searchParams.delete(key);
+      }
+    }
+    let href = u.toString();
+    if (href.endsWith("/") && u.pathname !== "/") href = href.slice(0, -1);
+    return href;
+  } catch {
+    return text;
+  }
+}
+
+function isUsableLocalFile(filePath) {
+  if (!filePath || typeof filePath !== "string") return false;
+  try {
+    if (!fs.existsSync(filePath)) return false;
+    const st = fs.statSync(filePath);
+    return st.isFile() && st.size > 1024;
+  } catch {
+    return false;
+  }
+}
+
+function getCachedRemoteFile(input) {
+  const key = normalizeRemoteUrl(input);
+  if (!key) return null;
+  const entry = remoteFileCache.get(key);
+  if (!entry?.path) return null;
+  if (!isUsableLocalFile(entry.path)) {
+    remoteFileCache.delete(key);
+    return null;
+  }
+  return { ...entry, url: key };
+}
+
+function setCachedRemoteFile(input, filePath, meta = {}) {
+  const key = normalizeRemoteUrl(input);
+  if (!key || !isUsableLocalFile(filePath)) return null;
+  const entry = {
+    path: path.resolve(filePath),
+    title: meta.title || "",
+    service: meta.service || detectRemoteService(key),
+  };
+  remoteFileCache.set(key, entry);
+  return { ...entry, url: key };
+}
+
+function findLocalRemoteSource(input, preferredPath = "") {
+  if (isUsableLocalFile(preferredPath)) {
+    return {
+      path: path.resolve(preferredPath),
+      title: "",
+      service: detectRemoteService(input),
+      url: normalizeRemoteUrl(input),
+    };
+  }
+  return getCachedRemoteFile(input);
+}
+
 function makeTempOutputPath(input, title = "") {
   const service = detectRemoteService(input);
   const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
@@ -314,12 +388,14 @@ async function downloadRemoteVideo(input, outputPath, onProgress) {
     if (!fs.existsSync(saved) || fs.statSync(saved).size < 1024) {
       throw new Error("Download finished without a usable file");
     }
+    const service = detectRemoteService(url);
+    setCachedRemoteFile(url, saved, { service });
     return {
       ok: true,
       path: saved,
       name: path.basename(saved),
       size: fs.statSync(saved).size,
-      service: detectRemoteService(url),
+      service,
     };
   } catch (err) {
     if (err?.cancelled || err instanceof RemoteDownloadCancelledError) {
@@ -346,6 +422,11 @@ module.exports = {
   isHttpUrl,
   detectRemoteService,
   serviceLabel,
+  normalizeRemoteUrl,
+  isUsableLocalFile,
+  getCachedRemoteFile,
+  setCachedRemoteFile,
+  findLocalRemoteSource,
   getRemoteVideoInfo,
   downloadRemoteVideo,
   stopRemoteDownload,

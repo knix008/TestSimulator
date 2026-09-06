@@ -263,6 +263,8 @@ const {
   downloadRemoteVideo,
   stopRemoteDownload,
   makeTempOutputPath,
+  findLocalRemoteSource,
+  setCachedRemoteFile,
 } = require("./remote-video");
 const persistStore = require("./persist-store");
 const { makeChromiumCompatible } = require("./media-compat");
@@ -1487,9 +1489,27 @@ ipcMain.handle("remote:open", async (_evt, payload) => {
       }
     : null;
 
+  // Reuse a previously downloaded file for this URL when available.
+  const cached = findLocalRemoteSource(url, payload?.sourcePath || "");
+  if (cached?.path) {
+    const media = await mediaFromPath(cached.path);
+    if (media?.ok) {
+      const service = cached.service || detectRemoteService(url);
+      return {
+        ...media,
+        ok: true,
+        sourceUrl: url,
+        service,
+        serviceLabel: serviceLabel(service),
+        originalTitle: payload?.title || cached.title || media.name,
+        reused: true,
+      };
+    }
+  }
+
   let info = initialInfo;
   try {
-    if (!info) info = await getRemoteVideoInfo(url);
+    if (!info?.title) info = await getRemoteVideoInfo(url);
   } catch {
     info = initialInfo;
   }
@@ -1502,6 +1522,10 @@ ipcMain.handle("remote:open", async (_evt, payload) => {
     });
     const result = await downloadRemoteVideo(url, targetPath, (progress) => {
       mainWindow?.webContents.send("remote:downloadProgress", progress);
+    });
+    setCachedRemoteFile(url, result.path, {
+      title: info?.title || result.name,
+      service: info?.service || result.service,
     });
     const media = await mediaFromPath(result.path);
     if (!media?.ok) {
@@ -1534,11 +1558,25 @@ ipcMain.handle("remote:download", async (_evt, payload) => {
   if (!isHttpUrl(url))
     return { ok: false, error: "유효한 HTTP(S) 링크가 아닙니다." };
 
+  // Prefer an already-downloaded playback file / URL cache. Download only if missing.
+  const local = findLocalRemoteSource(url, payload?.sourcePath || "");
+  const canReuseLocal = Boolean(local?.path);
+
   let info = null;
-  try {
-    info = await getRemoteVideoInfo(url);
-  } catch {
-    info = null;
+  if (!canReuseLocal) {
+    try {
+      info = await getRemoteVideoInfo(url);
+    } catch {
+      info = null;
+    }
+  } else {
+    info = {
+      title:
+        payload?.title ||
+        local.title ||
+        path.basename(local.path, path.extname(local.path)),
+      service: local.service || detectRemoteService(url),
+    };
   }
 
   const service = info?.service || detectRemoteService(url);
@@ -1561,12 +1599,44 @@ ipcMain.handle("remote:download", async (_evt, payload) => {
   downloadInProgress = true;
   mainWindow?.webContents.send("remote:downloadProgress", {
     percent: 0,
-    message: "Starting download…",
+    message: canReuseLocal ? "Copying saved file…" : "Starting download…",
   });
 
   try {
+    if (canReuseLocal) {
+      const sourcePath = path.resolve(local.path);
+      const dest = path.resolve(save.filePath);
+      if (path.normalize(sourcePath) !== path.normalize(dest)) {
+        fs.copyFileSync(sourcePath, dest);
+      }
+      const size = fs.statSync(dest).size;
+      setCachedRemoteFile(url, sourcePath, {
+        title: info?.title,
+        service,
+      });
+      mainWindow?.webContents.send("remote:downloadProgress", {
+        percent: 100,
+        message: "Save complete",
+      });
+      return {
+        ok: true,
+        path: dest,
+        name: path.basename(dest),
+        size,
+        title: info?.title || path.basename(dest),
+        sourceUrl: url,
+        service,
+        serviceLabel: serviceLabel(service),
+        reused: true,
+      };
+    }
+
     const result = await downloadRemoteVideo(url, save.filePath, (progress) => {
       mainWindow?.webContents.send("remote:downloadProgress", progress);
+    });
+    setCachedRemoteFile(url, result.path, {
+      title: info?.title || result.name,
+      service,
     });
     return {
       ...result,

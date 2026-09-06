@@ -682,6 +682,35 @@ function detectRemoteService(input) {
   return "remote";
 }
 
+function normalizeRemoteUrl(input) {
+  const text = String(input || "").trim();
+  if (!text) return "";
+  try {
+    const u = new URL(text);
+    u.hash = "";
+    for (const key of [...u.searchParams.keys()]) {
+      if (
+        /^(utm_|fbclid|igsh|igshid|tt_from|is_from_webapp|sender_device|share|_r|_t)/i.test(
+          key,
+        )
+      ) {
+        u.searchParams.delete(key);
+      }
+    }
+    let href = u.toString();
+    if (href.endsWith("/") && u.pathname !== "/") href = href.slice(0, -1);
+    return href;
+  } catch {
+    return text;
+  }
+}
+
+function sameRemoteUrl(a, b) {
+  const left = normalizeRemoteUrl(a);
+  const right = normalizeRemoteUrl(b);
+  return Boolean(left && right && left === right);
+}
+
 function isSupportedRemoteUrl(input) {
   const text = String(input || "").trim();
   if (!/^https?:\/\//i.test(text)) return false;
@@ -2707,7 +2736,17 @@ async function loadMedia({
   revokeObjectUrl();
   stopRequested = false;
   hidePlaybackOverlay(true);
-  currentRemote = null;
+  // Keep remote session when reloading the same playback file or its remuxed copy.
+  if (
+    currentRemote?.tempPath &&
+    path &&
+    (path === currentRemote.tempPath ||
+      currentMediaPath === currentRemote.tempPath)
+  ) {
+    currentRemote = { ...currentRemote, tempPath: path };
+  } else {
+    currentRemote = null;
+  }
   currentMediaPath = path;
   currentMediaName = name;
   currentRtspUrl = isRtsp ? rtspUrl || name || null : null;
@@ -3403,6 +3442,17 @@ async function playRemoteVideoFromInput(rawInput) {
     return false;
   }
 
+  // Already playing this link from a local file — no need to download again.
+  if (
+    sameRemoteUrl(currentRemote?.url, url) &&
+    currentRemote?.tempPath &&
+    currentMediaPath === currentRemote.tempPath &&
+    els.media?.src
+  ) {
+    updateSaveButton();
+    return true;
+  }
+
   openStreamInFlight = true;
   showYoutubeError("");
   await stopRtspBridge({ finalizeRecord: true });
@@ -3873,13 +3923,19 @@ async function saveCurrentRemote() {
     return;
   }
 
-  setStatus({ state: statusKey("statusDownloading") });
+  const localSource = currentRemote.tempPath || currentMediaPath || null;
+  const reuseLocal = Boolean(localSource);
+  setStatus({
+    state: statusKey(reuseLocal ? "statusSavingLocal" : "statusDownloading"),
+  });
   els.btnSaveYt.disabled = true;
   const displayName = currentRemote.title || currentRemote.url;
   try {
     const result = await window.desktopAPI.downloadRemoteVideo({
       url: currentRemote.url,
       title: currentRemote.title,
+      // Prefer the file already fetched for playback — avoid a second download.
+      sourcePath: localSource || undefined,
     });
     if (result?.cancelled) {
       finishSaveProgress({ cancelled: true });
@@ -3890,7 +3946,7 @@ async function saveCurrentRemote() {
       if (!isSaveProgressVisible()) {
         showSaveProgress({
           mode: "remote",
-          title: t("progressDownloading"),
+          title: t(reuseLocal ? "progressSaving" : "progressDownloading"),
           name: displayName,
         });
       }
@@ -3905,6 +3961,7 @@ async function saveCurrentRemote() {
         context: {
           url: currentRemote.url,
           title: currentRemote.title || displayName,
+          sourcePath: localSource || "",
         },
       });
       return;
@@ -3912,7 +3969,7 @@ async function saveCurrentRemote() {
     if (!isSaveProgressVisible()) {
       showSaveProgress({
         mode: "remote",
-        title: t("progressDownloading"),
+        title: t(result.reused ? "progressSaving" : "progressDownloading"),
         name: displayName,
       });
     }
@@ -3932,7 +3989,7 @@ async function saveCurrentRemote() {
     if (!isSaveProgressVisible()) {
       showSaveProgress({
         mode: "remote",
-        title: t("progressDownloading"),
+        title: t(reuseLocal ? "progressSaving" : "progressDownloading"),
         name: displayName,
       });
     }
@@ -3947,6 +4004,7 @@ async function saveCurrentRemote() {
       context: {
         url: currentRemote.url,
         title: currentRemote.title || displayName,
+        sourcePath: localSource || "",
       },
     });
   } finally {
@@ -4526,7 +4584,8 @@ function bindToolbar() {
       showYoutubeError(t("youtubeSaveNeedUrl"));
       return;
     }
-    if (!currentRemote?.url || currentRemote.url !== input) {
+    // If this link is already open/downloaded, save the local file directly.
+    if (!sameRemoteUrl(currentRemote?.url, input) || !currentRemote?.tempPath) {
       const ok = await playRemoteVideoFromInput(input);
       if (!ok) return;
     }
