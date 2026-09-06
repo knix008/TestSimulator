@@ -61,6 +61,10 @@ export const IconClock = (p) => <S {...p}><circle cx="12" cy="12" r="9" /><path 
 // ── Markdown formatting toolbar ──────────────────────────
 export const IconBold = (p) => <S {...p}><path d="M7 5h6a3.5 3.5 0 0 1 0 7H7z" /><path d="M7 12h7.5a3.5 3.5 0 0 1 0 7H7z" /></S>;
 export const IconItalic = (p) => <S {...p}><path d="M19 5h-7M12 19H5M15 5 9 19" /></S>;
+export const IconStrike = (p) => <S {...p}><path d="M5 12h14M8 8a3 3 0 0 1 3-2.5h2A3 3 0 0 1 16 8M8 16a3 3 0 0 0 3 2.5h2a3 3 0 0 0 3-2.5" /></S>;
+export const IconUndo = (p) => <S {...p}><path d="M9 7 4 12l5 5" /><path d="M4 12h11a5 5 0 0 1 0 10h-1" /></S>;
+export const IconRedo = (p) => <S {...p}><path d="m15 7 5 5-5 5" /><path d="M20 12H9a5 5 0 0 0 0 10h1" /></S>;
+export const IconUnderline = (p) => <S {...p}><path d="M7 5v6a5 5 0 0 0 10 0V5M5 21h14" /></S>;
 export const IconHeading = (p) => <S {...p}><path d="M6 5v14M18 5v14M6 12h12" /></S>;
 export const IconList = (p) => <S {...p}><path d="M9 6h11M9 12h11M9 18h11" /><circle cx="4" cy="6" r="1.2" fill="currentColor" stroke="none" /><circle cx="4" cy="12" r="1.2" fill="currentColor" stroke="none" /><circle cx="4" cy="18" r="1.2" fill="currentColor" stroke="none" /></S>;
 export const IconListOrdered = (p) => <S {...p}><path d="M10 6h10M10 12h10M10 18h10" /><path d="M4 4.5V8M3 15h2l-2 3h2M3 6h1" /></S>;

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
-import { loadMedia, isMediaFile } from '../lib/media';
+import { loadMedia, isMediaFile, readFileAsDataURL } from '../lib/media';
 
 // A WYSIWYG-style editor: it renders the meeting notes Markdown as formatted
 // HTML in a contentEditable surface, so the user edits the *interpreted* content
@@ -44,7 +44,7 @@ function mediaMarkup({ kind, dataUrl, width }) {
   return `<img src="${dataUrl}" alt=""${w}>`;
 }
 
-export default function RichEditor({ markdown, docKey, placeholder, onChange, apiRef, onContextMenu }) {
+export default function RichEditor({ markdown, docKey, placeholder, onChange, apiRef, onContextMenu, style }) {
   const ref = useRef(null);      // the contentEditable surface
   const wrapRef = useRef(null);  // positioned wrapper hosting the resize overlay
   const selRef = useRef(null);   // currently selected <img>/<video> element
@@ -88,6 +88,48 @@ export default function RichEditor({ markdown, docKey, placeholder, onChange, ap
     serialize();
   };
 
+  // Paste rich HTML from an external source (browser, Word, another editor):
+  // sanitize it (drop scripts/styles, keep formatting/tables/links/media), insert
+  // at the caret, then embed any non-data images so exports stay self-contained.
+  const pasteRichHtml = (html) => {
+    const el = ref.current;
+    if (!el || !html) return;
+    el.focus();
+    try { document.execCommand('insertHTML', false, sanitizePasteHtml(html)); } catch { /* ignore */ }
+    serialize();
+    embedForeignImages();
+  };
+
+  const insertPlainText = (text) => {
+    const el = ref.current;
+    if (!el || !text) return;
+    el.focus();
+    const html = attrEsc(text).replace(/\r?\n/g, '<br>');
+    try { document.execCommand('insertHTML', false, html); } catch { /* ignore */ }
+    serialize();
+  };
+
+  // Best-effort: turn remote/blob <img> sources introduced by a paste into
+  // embedded base64 so they survive save/export (CORS failures are left as-is).
+  const embedForeignImages = async () => {
+    const el = ref.current;
+    if (!el) return;
+    const imgs = Array.from(el.querySelectorAll('img'))
+      .filter((im) => !/^data:/i.test(im.getAttribute('src') || ''));
+    if (!imgs.length) return;
+    let changed = false;
+    for (const im of imgs) {
+      try {
+        const res = await fetch(im.src);
+        const blob = await res.blob();
+        if (!/^image\//.test(blob.type)) continue;
+        im.setAttribute('src', await readFileAsDataURL(blob));
+        changed = true;
+      } catch { /* keep original src on failure */ }
+    }
+    if (changed) serialize();
+  };
+
   // Expose an imperative API for the formatting toolbar / context menu.
   useEffect(() => {
     if (!apiRef) return;
@@ -107,6 +149,8 @@ export default function RichEditor({ markdown, docKey, placeholder, onChange, ap
         serialize();
       },
       insertMedia,
+      pasteRichHtml,
+      insertPlainText,
       selection: () => (window.getSelection ? window.getSelection().toString() : ''),
       serialize,
     };
@@ -185,13 +229,19 @@ export default function RichEditor({ markdown, docKey, placeholder, onChange, ap
     }
   };
   const onPaste = (e) => {
-    const items = e.clipboardData ? Array.from(e.clipboardData.items) : [];
-    const it = items.find((x) => x.kind === 'file' && isMediaFile({ type: x.type }));
-    if (!it) return;
-    const file = it.getAsFile();
-    if (!file) return;
-    e.preventDefault();
-    loadMedia(file).then(insertMedia).catch(() => { /* ignore */ });
+    const cd = e.clipboardData;
+    if (!cd) return;
+    // 1) A pasted image/media FILE (e.g. a screenshot) → embed it.
+    const items = Array.from(cd.items || []);
+    const fileItem = items.find((x) => x.kind === 'file' && isMediaFile({ type: x.type }));
+    if (fileItem) {
+      const file = fileItem.getAsFile();
+      if (file) { e.preventDefault(); loadMedia(file).then(insertMedia).catch(() => { /* ignore */ }); return; }
+    }
+    // 2) Rich HTML (from a browser / Word / another doc) → keep the formatting.
+    const html = cd.getData('text/html');
+    if (html && html.trim()) { e.preventDefault(); pasteRichHtml(html); return; }
+    // 3) Plain text falls through to the browser's default paste.
   };
 
   return (
@@ -199,6 +249,7 @@ export default function RichEditor({ markdown, docKey, placeholder, onChange, ap
       <div
         ref={ref}
         className="richeditor markdown-body"
+        style={style}
         contentEditable
         suppressContentEditableWarning
         spellCheck={false}
@@ -219,6 +270,23 @@ export default function RichEditor({ markdown, docKey, placeholder, onChange, ap
       )}
     </div>
   );
+}
+
+// Sanitize HTML arriving from an external paste: strip scripts/styles/Office
+// noise but keep the block/inline structure our Markdown serializer understands
+// (headings, lists, tables, links, images, media).
+function sanitizePasteHtml(html) {
+  // Drop Word's conditional comments and <style>/<xml> blocks before sanitizing.
+  const stripped = String(html)
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/<style[\s\S]*?<\/style>/gi, '')
+    .replace(/<xml[\s\S]*?<\/xml>/gi, '');
+  return DOMPurify.sanitize(stripped, {
+    ADD_ATTR: MEDIA_ATTR,
+    ADD_TAGS: ['video', 'audio', 'source'],
+    FORBID_TAGS: ['style', 'meta', 'link', 'title', 'head'],
+    FORBID_ATTR: ['class'],
+  });
 }
 
 // ── HTML → Markdown serialization ─────────────────────────
@@ -355,6 +423,9 @@ function inlineNode(node) {
     case 'strong': case 'b': { const x = inner().trim(); return x ? `**${x}**` : ''; }
     case 'em': case 'i': { const x = inner().trim(); return x ? `*${x}*` : ''; }
     case 'del': case 's': case 'strike': { const x = inner().trim(); return x ? `~~${x}~~` : ''; }
+    // Underline has no Markdown equivalent — keep it as HTML (rendered by marked,
+    // kept by DOMPurify) so it survives the round-trip and every export.
+    case 'u': case 'ins': { const x = inner().trim(); return x ? `<u>${x}</u>` : ''; }
     case 'code': return '`' + node.textContent + '`';
     case 'a': { const href = node.getAttribute('href') || ''; return `[${inner()}](${href})`; }
     case 'br': return '\n';

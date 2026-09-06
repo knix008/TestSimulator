@@ -14,15 +14,16 @@
 ```
 ┌─────────────────────────── Renderer (React) ───────────────────────────┐
 │  App.jsx  — meeting 상태 오케스트레이션, 실시간 직렬화·미리보기          │
-│   ├─ TitleBar / Toolbar(New·Sample·Open·Save·Export dropdown) / Status  │
+│   ├─ TitleBar / Toolbar(New·Sample·Open·Save·Export·글꼴/크기) / Status │
 │   ├─ Details(회의 정보 폼: 제목·날짜(달력+직접)·참석자·안건 …)          │
-│   ├─ OutlineTree(문서 구조)                                             │
-│   ├─ Editor(본문 직접 입력) / Preview(완성 회의록 렌더)                 │
+│   ├─ OutlineTree(문서 구조) · 크기 조절 splitter                        │
+│   ├─ RichEditor(WYSIWYG 편집) / Markdown 소스 탭(원본 편집)             │
 │   └─ SettingsPage · AboutPage · ContextMenu · ErrorDialog · Tooltip     │
 │                                                                          │
 │  lib/meeting.js  — meeting ↔ Markdown/평문 직렬화 + 섹션 번호 매기기     │
 │  lib/markdown.js — render · outline · toStandaloneHtml(표지/목차)       │
 │  lib/export.js   — md · html · pdf · word (+PDF 머리글/바닥글 템플릿)    │
+│  lib/media.js    — 이미지/동영상/오디오 → base64 내장(+이미지 축소)     │
 │  lib/fonts.js    — queryLocalFonts (system fonts)                       │
 │  lib/platform.js — isElectron / saveText / openTextFile / exportPdf     │
 └───────────────▲───────────────────────────────────────▲────────────────┘
@@ -54,12 +55,14 @@ MyMeetingMultiOSV10/
 │   │   ├── meeting.js     # meeting 모델 + Markdown/평문 직렬화 + numberSections
 │   │   ├── markdown.js    # 렌더/구조/표지·목차 HTML/파일명 (재사용 엔진)
 │   │   ├── export.js      # 포맷별 내보내기(md/html/pdf/word) + PDF 폴백 템플릿
+│   │   ├── media.js       # 이미지/동영상/오디오 파일 → base64 data URL(+이미지 축소)
 │   │   ├── fonts.js       # 시스템 폰트 열거 (queryLocalFonts + 폴백)
 │   │   ├── themes.js      # 테마 목록(THEMES)
 │   │   ├── platform.js    # 웹/Electron 추상화 (저장/열기/PDF)
 │   │   └── ico.js         # ICO/ICNS 인코더 (아이콘 생성 공유)
 │   └── components/
-│       ├── TitleBar.jsx    OutlineTree.jsx   AboutPage.jsx
+│       ├── RichEditor.jsx  # WYSIWYG(contentEditable) ↔ Markdown 직렬화 + 미디어/리사이즈
+│       ├── TitleBar.jsx    OutlineTree.jsx   TimeCombo.jsx   AboutPage.jsx
 │       ├── SettingsPage.jsx  SettingsForm.jsx  (별도 설정 창)
 │       ├── ExportResultDialog.jsx  ExportProgressDialog.jsx
 │       ├── ErrorDialog.jsx  (복사 가능한 상세 오류 팝업)
@@ -95,7 +98,10 @@ MyMeetingMultiOSV10/
 ## 상태·데이터 흐름 (App.jsx)
 
 - **실시간 직렬화** — `meeting` 이 바뀌면 `fullMarkdown = meetingToMarkdown(meeting, docLabels)` 를 `useMemo` 로 재계산하고, `previewHtml`(렌더)·`outline`(구조)·`stats` 가 즉시 갱신됩니다.
-- **편집 방식** — 회의 정보(제목·날짜·참석자 등)는 좌측 "회의 정보" 폼에서, 회의 내용 본문은 메인 창의 "편집" 탭에서 **직접 입력**합니다. "미리보기" 탭에서 완성된 회의록을 확인합니다(기본은 편집 탭).
+- **편집 방식** — 회의 정보(제목·날짜·참석자 등)는 좌측 "회의 정보" 폼에서, 회의 내용 본문은 메인 창에서 편집합니다. 본문 편집기는 두 탭을 제공합니다: **"편집"(RichEditor, WYSIWYG)** 은 Markdown 을 서식으로 렌더한 contentEditable 에서 직접 편집하고 매 입력마다 `htmlToMarkdown()` 으로 다시 Markdown 화합니다. **"Markdown"** 탭은 원본 소스를 그대로 편집하는 textarea 로, 두 탭은 같은 `meeting.body` 를 공유해 탭 전환 시 서로 반영됩니다.
+- **미디어 내장** — 이미지·동영상·오디오는 드래그 앤 드롭 / 붙여넣기 / 파일 열기로 넣으면 [lib/media.js](src/lib/media.js) 가 base64 `data:` URL 로 읽어(큰 이미지는 canvas 로 축소) 본문에 `<img>/<video>/<audio>` HTML 로 내장합니다. 크기가 지정된 미디어는 `width` 속성으로 직렬화되어 리사이즈가 왕복 보존되고, DOMPurify 가 `data:` 미디어·`<video>/<audio>` 태그를 허용해 미리보기·내보내기까지 이어집니다.
+- **글꼴·크기** — 툴바의 글꼴/크기 선택은 내보내기 설정(`fontFamily`/`fontSizePt`)을 갱신해 편집기 표시·미리보기·모든 내보내기에 동일 적용됩니다(설정 창과 `localStorage` 로 양방향 동기화).
+- **컨텍스트 메뉴** — Electron 은 `menu:popup` IPC 로 **OS 네이티브 메뉴**를 띄워 창 경계에 잘리지 않으며, 실패(`shown:false`)하거나 웹이면 앱 내 [ContextMenu](src/components/ContextMenu.jsx) 로 폴백합니다(뷰포트 클램프 + 스크롤).
 - **날짜 입력** — 자유 텍스트 입력과 달력 선택을 함께 지원합니다. 달력 버튼은 네이티브 `<input type="date">.showPicker()` 를 열어 선택값(YYYY-MM-DD)을 텍스트 칸에 채웁니다.
 - **내보내기 옵션** — `buildExportOpts()` 는 `{...기본값, ...localStorage, ...라이브상태}` 순으로 병합해 설정창에서 바꾼 폰트·크기·줄간격이 항상 내보내기·미리보기에 반영되도록 합니다. 표지 날짜 기본값은 회의 날짜(비면 오늘).
 - **영속화** — 작성 중 회의록(`mtg-doc`), 테마(`mtg-theme`), 언어(`mtg-lang`), 내보내기 서식(`mtg-export`) 은 localStorage 에 저장(Electron 은 userData JSON 미러도 유지). 재실행 시 마지막 회의록이 복원됩니다.
@@ -108,7 +114,7 @@ MyMeetingMultiOSV10/
 | Markdown | `buildMergedMarkdownDocument`(표지 + 목차 + 본문) |
 | HTML | `toStandaloneHtml`(표지/목차/@page CSS) → 저장. Electron 은 `export:paginate` 로 목차 페이지 번호를 미리 계산해 baking |
 | PDF | Electron: **paged.js** 로 페이지네이션 후 `printToPDF`. 목차 셀을 실제 페이지 번호로 채우고, 머리글/바닥글/페이지번호는 @page 마진박스. paged.js 없으면 `printToPDF` 템플릿으로 폴백. Web: 인쇄 창(`Save as PDF`) |
-| Word | **MHT(multipart/related)** `.doc` — `toStandaloneHtml({forWord:true})` + Office 네임스페이스/ProgId, base64 이미지는 별도 MIME 파트 |
+| Word | **MHT(multipart/related)** `.doc` — `toStandaloneHtml({forWord:true})` + Office 네임스페이스/ProgId, base64 이미지·오디오·동영상은 별도 MIME 파트 |
 | 텍스트 | `meetingToPlainText` → `.txt` 저장 |
 
 - **표지(Cover)**: 제목은 `coverTitle` 설정(비우면 회의 제목), 버전/작성자/날짜 포함. **목차(Index)**: 본문 앞 별도 페이지, 각 항목 오른쪽에 실제 페이지 번호(H1 굵게).
@@ -129,6 +135,7 @@ MyMeetingMultiOSV10/
 
 `app:getInfo`, `dialog:openTextFile`(.mtg 열기), `dialog:saveText`, `dialog:saveBinary`,
 `export:pdf`(paged.js), `export:paginate`(목차 페이지맵),
+`menu:popup`(네이티브 컨텍스트 메뉴 — `{shown,id}` 반환),
 `settings:open`/`settings:load`/`settings:save`, `about:open`, `shell:showItem`,
 `win:*`(minimize/toggleMaximize/close/isMaximized).
 메인 프로세스는 `session.setPermissionRequestHandler` 로 `local-fonts` 권한을 허용해 `queryLocalFonts()` 를 지원합니다.

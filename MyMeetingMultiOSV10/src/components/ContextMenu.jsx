@@ -6,18 +6,21 @@ export default function ContextMenu({ open, x, y, items, onClose }) {
   const ref = useRef(null);
   const [pos, setPos] = useState({ x, y });
 
-  useEffect(() => { setPos({ x, y }); }, [x, y]);
-
-  // Clamp inside the viewport once measured.
+  // Position the menu inside the viewport. This runs in a layout effect (before
+  // paint) and is the SINGLE source of truth for the position — measuring the
+  // real size, then shifting the menu up/left so it never spills past (and gets
+  // clipped by) the window edge. `items` is a dependency so a taller menu is
+  // re-clamped. NOTE: there must be no separate effect resetting pos to the raw
+  // cursor coordinates, or it would overwrite this clamp and re-clip the menu.
   useLayoutEffect(() => {
-    if (!open || !ref.current) return;
-    const r = ref.current.getBoundingClientRect();
-    let nx = x, ny = y;
-    if (x + r.width > window.innerWidth) nx = Math.max(4, window.innerWidth - r.width - 4);
-    if (y + r.height > window.innerHeight) ny = Math.max(4, window.innerHeight - r.height - 4);
-    if (nx !== pos.x || ny !== pos.y) setPos({ x: nx, y: ny });
+    if (!open) return;
+    const r = ref.current ? ref.current.getBoundingClientRect() : { width: 0, height: 0 };
+    const m = 6; // keep a small gap from the window edge
+    const nx = Math.max(m, Math.min(x, window.innerWidth - r.width - m));
+    const ny = Math.max(m, Math.min(y, window.innerHeight - r.height - m));
+    setPos({ x: nx, y: ny });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, x, y]);
+  }, [open, x, y, items]);
 
   useEffect(() => {
     if (!open) return;

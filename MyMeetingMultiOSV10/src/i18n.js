@@ -5,7 +5,7 @@ const resources = {
   ko: {
     translation: {
       app: { title: 'MyMeeting v1.0' },
-      tab: { details: '회의 정보', structure: '구조', preview: '미리보기', edit: '편집' },
+      tab: { details: '회의 정보', structure: '구조', preview: '미리보기', edit: '편집', markdown: 'Markdown' },
       toolbar: {
         newDoc: '새로 만들기',
         sample: '예시 불러오기',
@@ -16,6 +16,8 @@ const resources = {
       },
       tip: {
         newDoc: '빈 회의록을 새로 시작합니다',
+        resizePanel: '드래그하여 패널 크기 조절 (더블클릭: 기본값)',
+        font: '문서 글꼴·크기 (미리보기·내보내기에 적용)',
         sample: '회의록 양식(템플릿)을 선택해 불러옵니다',
         open: '저장된 회의록(.mtg / .json)을 엽니다',
         save: '회의록을 파일(.mtg)로 저장합니다',
@@ -58,8 +60,12 @@ const resources = {
       // Markdown formatting toolbar (shown above the body editor).
       fmt: {
         label: 'Markdown 서식',
+        undo: '실행 취소  (Ctrl+Z)',
+        redo: '다시 실행  (Ctrl+Y)',
         bold: '굵게  **텍스트**',
         italic: '기울임  *텍스트*',
+        strike: '취소선  ~~텍스트~~',
+        underline: '밑줄  <u>텍스트</u>',
         heading: '제목  ## 제목',
         h1: '제목 1  # 제목', h2: '제목 2  ## 제목', h3: '제목 3  ### 제목',
         h4: '제목 4  #### 제목', h5: '제목 5  ##### 제목', h6: '제목 6  ###### 제목',
@@ -142,6 +148,7 @@ const resources = {
         close: '닫기',
       },
       ctx: {
+        undo: '실행 취소', redo: '다시 실행',
         copy: '복사', copyAll: '전체 복사', cut: '잘라내기', paste: '붙여넣기', selectAll: '전체 선택',
         goto: '해당 위치로 이동', copyHeading: '헤딩 텍스트 복사',
         insertMedia: '이미지·미디어 삽입…',
@@ -153,7 +160,7 @@ const resources = {
       },
       opts: { label: '옵션:', numbering: '번호 매기기', cover: '표지', toc: '목차', pageNumber: '페이지 번호' },
       sample: { pick: '양식(템플릿) 선택' },
-      open: { browse: '파일 찾아보기…', recent: '최근 파일', clear: '기록 삭제', empty: '최근 파일이 없습니다' },
+      open: { browse: '파일 찾아보기…', recent: '최근 파일', clear: '기록 삭제', empty: '최근 파일이 없습니다', remove: '이 항목 삭제' },
       preview: { empty: '회의 정보를 입력하면 여기에 미리보기가 표시됩니다.' },
       status: {
         ready: '준비',
@@ -187,7 +194,7 @@ const resources = {
   en: {
     translation: {
       app: { title: 'MyMeeting v1.0' },
-      tab: { details: 'Details', structure: 'Structure', preview: 'Preview', edit: 'Edit' },
+      tab: { details: 'Details', structure: 'Structure', preview: 'Preview', edit: 'Edit', markdown: 'Markdown' },
       toolbar: {
         newDoc: 'New',
         sample: 'Sample',
@@ -198,6 +205,8 @@ const resources = {
       },
       tip: {
         newDoc: 'Start a new, empty meeting minutes',
+        resizePanel: 'Drag to resize panels (double-click: reset)',
+        font: 'Document font & size (applies to preview & export)',
         sample: 'Pick a meeting template to load',
         open: 'Open a saved meeting file (.mtg / .json)',
         save: 'Save the meeting minutes to a file (.mtg)',
@@ -237,8 +246,12 @@ const resources = {
       },
       fmt: {
         label: 'Markdown formatting',
+        undo: 'Undo  (Ctrl+Z)',
+        redo: 'Redo  (Ctrl+Y)',
         bold: 'Bold  **text**',
         italic: 'Italic  *text*',
+        strike: 'Strikethrough  ~~text~~',
+        underline: 'Underline  <u>text</u>',
         heading: 'Heading  ## title',
         h1: 'Heading 1  # title', h2: 'Heading 2  ## title', h3: 'Heading 3  ### title',
         h4: 'Heading 4  #### title', h5: 'Heading 5  ##### title', h6: 'Heading 6  ###### title',
@@ -321,6 +334,7 @@ const resources = {
         close: 'Close',
       },
       ctx: {
+        undo: 'Undo', redo: 'Redo',
         copy: 'Copy', copyAll: 'Copy all', cut: 'Cut', paste: 'Paste', selectAll: 'Select all',
         goto: 'Go to location', copyHeading: 'Copy heading text',
         insertMedia: 'Insert image / media…',
@@ -332,7 +346,7 @@ const resources = {
       },
       opts: { label: 'Options:', numbering: 'Numbering', cover: 'Cover', toc: 'Index', pageNumber: 'Page number' },
       sample: { pick: 'Choose a template' },
-      open: { browse: 'Browse files…', recent: 'Recent files', clear: 'Clear history', empty: 'No recent files' },
+      open: { browse: 'Browse files…', recent: 'Recent files', clear: 'Clear history', empty: 'No recent files', remove: 'Remove from list' },
       preview: { empty: 'Fill in the meeting details and a preview appears here.' },
       status: {
         ready: 'Ready',

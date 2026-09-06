@@ -518,6 +518,34 @@ ipcMain.handle('shell:showItem', (_e, p) => {
   try { shell.showItemInFolder(p); return true; } catch { return false; }
 });
 
+// ── Native context menu ───────────────────────────────────
+// Renderer sends a serializable template: [{ id, label, enabled }|{ type:'separator' }].
+// We show it as a real OS popup (never clipped by the window) at the cursor and
+// resolve with the clicked item's id (or null when dismissed) so the renderer
+// can run the exact same action the in-app menu would have.
+ipcMain.handle('menu:popup', (event, template) => new Promise((resolve) => {
+  // Returns { shown, id }: `shown:false` tells the renderer to fall back to its
+  // in-app menu so a context menu is never lost if the native popup can't show.
+  try {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    let picked = null;
+    const items = (Array.isArray(template) ? template : []).map((it) => (
+      it && it.type === 'separator'
+        ? { type: 'separator' }
+        : {
+          label: String((it && it.label) || ''),
+          enabled: !(it && it.enabled === false),
+          click: () => { picked = (it && it.id != null) ? it.id : null; },
+        }
+    ));
+    if (!win || !items.length) { resolve({ shown: false, id: null }); return; }
+    const menu = Menu.buildFromTemplate(items);
+    menu.popup({ window: win, callback: () => resolve({ shown: true, id: picked }) });
+  } catch {
+    resolve({ shown: false, id: null });
+  }
+}));
+
 // ── Window controls (frameless) ───────────────────────────
 ipcMain.handle('win:minimize', (e) => { BrowserWindow.fromWebContents(e.sender)?.minimize(); });
 ipcMain.handle('win:toggleMaximize', (e) => {

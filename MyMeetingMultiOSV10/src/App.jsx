@@ -18,12 +18,13 @@ import {
   IconSun, IconMoon, IconX, IconCopy, IconCut, IconPaste, IconSelectAll, IconTarget,
   IconStars, IconSnow, IconLeaf, IconFlower, IconSunrise, IconContrast, IconBulb,
   IconDroplet, IconCoffee, IconCloud, IconGlobe, IconHash, IconCalendar,
-  IconBold, IconItalic, IconHeading, IconList, IconListOrdered, IconChecklist,
-  IconQuote, IconCode, IconLink, IconTable, IconRule, IconImage,
+  IconBold, IconItalic, IconStrike, IconUnderline, IconHeading, IconList, IconListOrdered, IconChecklist,
+  IconQuote, IconCode, IconLink, IconTable, IconRule, IconImage, IconUndo, IconRedo,
 } from './components/Icons';
 import { isElectron, api, saveText, readFileText, openTextFile, readPath, saveSettingsToDisk } from './lib/platform';
 import { loadMedia, isMediaFile, MEDIA_ACCEPT } from './lib/media';
-import { getOutline, DEFAULT_EXPORT_SETTINGS } from './lib/markdown';
+import { getOutline, DEFAULT_EXPORT_SETTINGS, fontStack } from './lib/markdown';
+import { getSystemFonts } from './lib/fonts';
 import { exportMarkdown, exportHtml, exportPdf, exportWord } from './lib/export';
 import {
   createEmptyMeeting, meetingToMarkdown, meetingToPlainText,
@@ -85,6 +86,12 @@ export default function App() {
 
   const [meeting, setMeeting] = useState(loadMeeting);
   const [leftTab, setLeftTab] = useState('details');
+  const [editMode, setEditMode] = useState('wysiwyg'); // 'wysiwyg' | 'markdown'
+  const [fonts, setFonts] = useState(null); // system font list for the toolbar picker
+  const [sidebarWidth, setSidebarWidth] = useState(() => {
+    const v = Number(localStorage.getItem('mtg-sidebar-w'));
+    return v >= 240 && v <= 900 ? v : 340;
+  });
   const [status, setStatus] = useState(t('status.ready'));
   const [exportOpen, setExportOpen] = useState(false);
   const [sampleOpen, setSampleOpen] = useState(false);
@@ -107,6 +114,7 @@ export default function App() {
 
   const openInputRef = useRef(null);
   const mediaInputRef = useRef(null);
+  const bodyRef = useRef(null);
   const richApi = useRef(null);
   const [docKey, setDocKey] = useState(0);
   const bumpDoc = () => setDocKey((k) => k + 1);
@@ -138,6 +146,40 @@ export default function App() {
     localStorage.setItem('mtg-theme', theme);
     saveSettingsToDisk();
   }, [theme]);
+
+  // Load the system font list once for the toolbar font picker.
+  useEffect(() => {
+    let alive = true;
+    getSystemFonts().then((list) => { if (alive) setFonts(list); }).catch(() => {});
+    return () => { alive = false; };
+  }, []);
+
+  // Persist the sidebar width chosen via the splitter.
+  useEffect(() => {
+    try { localStorage.setItem('mtg-sidebar-w', String(Math.round(sidebarWidth))); } catch { /* ignore */ }
+  }, [sidebarWidth]);
+
+  // Drag the splitter to resize the sidebar (clamped so the editor keeps room).
+  function startSidebarResize(e) {
+    e.preventDefault();
+    const onMove = (ev) => {
+      const rect = bodyRef.current?.getBoundingClientRect();
+      const left = rect ? rect.left : 0;
+      const total = rect ? rect.width : window.innerWidth;
+      const w = Math.max(240, Math.min(ev.clientX - left, total - 360));
+      setSidebarWidth(w);
+    };
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  }
 
   // Autosave the current meeting draft so a reload restores it.
   useEffect(() => {
@@ -210,6 +252,15 @@ export default function App() {
     try { localStorage.setItem('mtg-recent', JSON.stringify(next)); } catch { /* ignore */ }
     saveSettingsToDisk();
     setOpenOpen(false);
+  }
+  // Remove a single entry from the recent-files list (keeps the dropdown open).
+  function removeRecent(path) {
+    setRecent((prev) => {
+      const next = { dir: prev.dir, files: prev.files.filter((x) => x !== path) };
+      try { localStorage.setItem('mtg-recent', JSON.stringify(next)); } catch { /* ignore */ }
+      saveSettingsToDisk();
+      return next;
+    });
   }
 
   // Open a .mtg file that the OS handed us (file association / double-click).
@@ -480,8 +531,36 @@ export default function App() {
   }
 
   // ── Context menus ───────────────────────────────────────
-  const openCtx = (e, items) => { e.preventDefault(); e.stopPropagation(); setCtx({ open: true, x: e.clientX, y: e.clientY, items }); };
+  // On Electron use a real OS popup menu (never clipped by the window edge);
+  // on the web fall back to the in-app DOM menu. Both drive the SAME items list,
+  // so the available actions and their behavior are identical either way.
+  const openCtx = (e, items) => {
+    e.preventDefault(); e.stopPropagation();
+    const x = e.clientX, y = e.clientY;
+    if (isElectron && api?.popupMenu) { showNativeMenu(items, x, y); return; }
+    setCtx({ open: true, x, y, items });
+  };
   const closeCtx = () => setCtx((c) => ({ ...c, open: false }));
+
+  // Show the OS-native popup. If it is unavailable or fails for ANY reason, fall
+  // back to the in-app DOM menu so a context menu is never silently lost.
+  async function showNativeMenu(items, x, y) {
+    // Map to a serializable template; the index is the id we get back on click.
+    const template = items.map((it, i) => (
+      it.separator ? { type: 'separator' } : { id: String(i), label: it.label, enabled: !it.disabled }
+    ));
+    try {
+      const res = await api.popupMenu(template);
+      if (res && res.shown) {
+        if (res.id != null) items[Number(res.id)]?.onClick?.();
+        return;
+      }
+      // Native reported it could not display → use the DOM menu instead.
+      setCtx({ open: true, x, y, items });
+    } catch {
+      setCtx({ open: true, x, y, items });
+    }
+  }
 
   async function copyText(text) {
     if (!text) return;
@@ -493,10 +572,12 @@ export default function App() {
 
   function editorMenu(e) {
     const hasSel = !!selectionText();
-    // Markdown insertions (mirrors the format toolbar) available on right-click.
-    const fmtItems = FORMAT_ACTIONS.map((a) =>
-      a.sep ? { separator: true } : { icon: a.icon, label: t(`fmt.${a.key}`), onClick: a.run });
+    // Markdown formatting inserts live on the format toolbar only; the context
+    // menu keeps editing, media insert and file actions.
     openCtx(e, [
+      { icon: IconUndo, label: t('ctx.undo'), onClick: () => richApi.current?.cmd('undo') },
+      { icon: IconRedo, label: t('ctx.redo'), onClick: () => richApi.current?.cmd('redo') },
+      { separator: true },
       { icon: IconCut, label: t('ctx.cut'), disabled: !hasSel, onClick: () => richApi.current?.cmd('cut') },
       { icon: IconCopy, label: t('ctx.copy'), disabled: !hasSel, onClick: () => { document.execCommand('copy'); } },
       { icon: IconPaste, label: t('ctx.paste'), onClick: editorPaste },
@@ -504,11 +585,25 @@ export default function App() {
       { separator: true },
       { icon: IconImage, label: t('ctx.insertMedia'), onClick: pickMedia },
       { separator: true },
-      ...fmtItems,
-      { separator: true },
       { icon: IconSave, label: t('ctx.save'), onClick: saveMeeting },
       { icon: IconPdf, label: t('ctx.exportPdf'), disabled: empty, onClick: () => doExport('pdf') },
       { icon: IconWord, label: t('ctx.exportWord'), disabled: empty, onClick: () => doExport('word') },
+    ]);
+  }
+
+  // Context menu for the raw Markdown source textarea. Uses execCommand so cut/
+  // copy/paste act on the focused textarea (works natively in Electron).
+  function sourceMenu(e) {
+    const ta = e.target;
+    const hasSel = !!ta && ta.selectionStart !== ta.selectionEnd;
+    openCtx(e, [
+      { icon: IconUndo, label: t('ctx.undo'), onClick: () => { ta.focus(); document.execCommand('undo'); } },
+      { icon: IconRedo, label: t('ctx.redo'), onClick: () => { ta.focus(); document.execCommand('redo'); } },
+      { separator: true },
+      { icon: IconCut, label: t('ctx.cut'), disabled: !hasSel, onClick: () => { ta.focus(); document.execCommand('cut'); } },
+      { icon: IconCopy, label: t('ctx.copy'), disabled: !hasSel, onClick: () => { ta.focus(); document.execCommand('copy'); } },
+      { icon: IconPaste, label: t('ctx.paste'), onClick: () => { ta.focus(); document.execCommand('paste'); } },
+      { icon: IconSelectAll, label: t('ctx.selectAll'), onClick: () => { ta.focus(); ta.select(); } },
     ]);
   }
 
@@ -519,10 +614,36 @@ export default function App() {
     ]);
   }
 
+  // Context-menu "Paste": mirror the editor's native paste — bring in images,
+  // rich HTML (formatting/tables/links) or plain text from the system clipboard.
   async function editorPaste() {
+    const rapi = richApi.current;
+    if (!rapi) return;
+    rapi.focus();
+    try {
+      if (navigator.clipboard?.read) {
+        const items = await navigator.clipboard.read();
+        for (const it of items) {
+          const imgType = it.types.find((tp) => tp.startsWith('image/'));
+          if (imgType) {
+            const blob = await it.getType(imgType);
+            rapi.insertMedia(await loadMedia(new File([blob], 'pasted', { type: blob.type || imgType })));
+            return;
+          }
+          if (it.types.includes('text/html')) {
+            rapi.pasteRichHtml(await (await it.getType('text/html')).text());
+            return;
+          }
+          if (it.types.includes('text/plain')) {
+            rapi.insertPlainText(await (await it.getType('text/plain')).text());
+            return;
+          }
+        }
+      }
+    } catch { /* fall through to plain-text read below */ }
     try {
       const text = await navigator.clipboard.readText();
-      if (text) richApi.current?.insertHTML(escHtml(text).replace(/\n/g, '<br>'));
+      if (text) rapi.insertPlainText(text);
     } catch { /* ignore */ }
   }
 
@@ -567,6 +688,8 @@ export default function App() {
   const FORMAT_ACTIONS = [
     { key: 'bold', icon: IconBold, run: () => rich()?.cmd('bold') },
     { key: 'italic', icon: IconItalic, run: () => rich()?.cmd('italic') },
+    { key: 'strike', icon: IconStrike, run: () => rich()?.cmd('strikeThrough') },
+    { key: 'underline', icon: IconUnderline, run: () => rich()?.cmd('underline') },
     { sep: true },
     // Heading levels H1–H6 (formatBlock on the current line/selection).
     ...[1, 2, 3, 4, 5, 6].map((lvl) => ({
@@ -712,13 +835,22 @@ export default function App() {
                     <>
                       <div className="dropdown-head">{t('open.recent')}</div>
                       {recent.files.map((f) => (
-                        <button key={f} className="dropdown-item recent-item" title={f} onClick={() => openRecent(f)}>
-                          <IconPaper size={16} />
-                          <span className="recent-text">
-                            <span className="recent-name">{basenameOf(f)}</span>
-                            <span className="recent-dir">{dirnameOf(f)}</span>
-                          </span>
-                        </button>
+                        <div key={f} className="recent-row">
+                          <button className="dropdown-item recent-item" title={f} onClick={() => openRecent(f)}>
+                            <IconPaper size={16} />
+                            <span className="recent-text">
+                              <span className="recent-name">{basenameOf(f)}</span>
+                              <span className="recent-dir">{dirnameOf(f)}</span>
+                            </span>
+                          </button>
+                          <button
+                            className="recent-del"
+                            title={t('open.remove')}
+                            onClick={(e) => { e.stopPropagation(); removeRecent(f); }}
+                          >
+                            <IconX size={14} />
+                          </button>
+                        </div>
                       ))}
                       <div className="ctxmenu-sep" />
                       <button className="dropdown-item danger" onClick={clearRecent}>
@@ -764,6 +896,23 @@ export default function App() {
             )}
           </div>
         </div>
+        <div className="toolbar-group toolbar-font" title={t('tip.font')}>
+          <select
+            className="tb-font" title={t('settings.font')} aria-label={t('settings.font')}
+            value={exportSettings.fontFamily || ''}
+            style={exportSettings.fontFamily ? { fontFamily: `"${exportSettings.fontFamily}"` } : undefined}
+            onChange={(e) => setExportSettings((s) => ({ ...s, fontFamily: e.target.value }))}
+          >
+            <option value="">{t('settings.fontDefault')}</option>
+            {(fonts || []).map((f) => <option key={f} value={f}>{f}</option>)}
+          </select>
+          <input
+            className="tb-size" type="number" min="6" max="48" step="0.5"
+            title={t('settings.fontSize')} aria-label={t('settings.fontSize')}
+            value={exportSettings.fontSizePt}
+            onChange={(e) => setExportSettings((s) => ({ ...s, fontSizePt: Number(e.target.value) || 10 }))}
+          />
+        </div>
         <div className="toolbar-spacer" />
         <div className="toolbar-group">
           <button className="iconbtn" title={t('tip.clear')} onClick={clearAll} disabled={empty}><IconTrash /></button>
@@ -800,8 +949,8 @@ export default function App() {
         </label>
       </div>
 
-      <main className="body">
-        <aside className="sidebar">
+      <main className="body" ref={bodyRef}>
+        <aside className="sidebar" style={{ width: sidebarWidth, flex: '0 0 auto' }}>
           <div className="tabs">
             <button className={leftTab === 'details' ? 'tab active' : 'tab'} onClick={() => setLeftTab('details')}>{t('tab.details')}</button>
             <button className={leftTab === 'structure' ? 'tab active' : 'tab'} onClick={() => setLeftTab('structure')}>{t('tab.structure')}</button>
@@ -833,32 +982,71 @@ export default function App() {
           </div>
         </aside>
 
+        <div
+          className="splitter"
+          role="separator"
+          aria-orientation="vertical"
+          title={t('tip.resizePanel')}
+          onMouseDown={startSidebarResize}
+          onDoubleClick={() => setSidebarWidth(340)}
+        />
+
         <section className="main">
-          <div className="main-head">
-            <span className="main-head-title">{t('tab.edit')}</span>
+          <div className="main-head main-tabs">
+            <button className={editMode === 'wysiwyg' ? 'tab active' : 'tab'} onClick={() => setEditMode('wysiwyg')}>
+              {t('tab.edit')}
+            </button>
+            <button className={editMode === 'markdown' ? 'tab active' : 'tab'} onClick={() => setEditMode('markdown')}>
+              {t('tab.markdown')}
+            </button>
           </div>
-          <div className="format-bar" role="toolbar" aria-label={t('fmt.label')}>
-            {FORMAT_ACTIONS.map((a, i) => {
-              if (a.sep) return <span className="fmt-sep" key={`s${i}`} />;
-              const Ico = a.icon;
-              return (
-                <button key={a.key} type="button" className={`fmt-btn${a.text ? ' fmt-text' : ''}`}
-                  title={t(`fmt.${a.key}`)} onMouseDown={(e) => e.preventDefault()} onClick={a.run}>
-                  {a.text ? a.text : <Ico size={16} />}
+          {editMode === 'wysiwyg' ? (
+            <>
+              <div className="format-bar" role="toolbar" aria-label={t('fmt.label')}>
+                <button type="button" className="fmt-btn" title={t('fmt.undo')}
+                  onMouseDown={(e) => e.preventDefault()} onClick={() => rich()?.cmd('undo')}>
+                  <IconUndo size={16} />
                 </button>
-              );
-            })}
-          </div>
-          <div className="main-body">
-            <RichEditor
-              markdown={meeting.body || ''}
-              docKey={docKey}
-              placeholder={t('fields.bodyPh')}
-              onChange={(md) => update('body', md)}
-              apiRef={richApi}
-              onContextMenu={editorMenu}
-            />
-          </div>
+                <button type="button" className="fmt-btn" title={t('fmt.redo')}
+                  onMouseDown={(e) => e.preventDefault()} onClick={() => rich()?.cmd('redo')}>
+                  <IconRedo size={16} />
+                </button>
+                <span className="fmt-sep" />
+                {FORMAT_ACTIONS.map((a, i) => {
+                  if (a.sep) return <span className="fmt-sep" key={`s${i}`} />;
+                  const Ico = a.icon;
+                  return (
+                    <button key={a.key} type="button" className={`fmt-btn${a.text ? ' fmt-text' : ''}`}
+                      title={t(`fmt.${a.key}`)} onMouseDown={(e) => e.preventDefault()} onClick={a.run}>
+                      {a.text ? a.text : <Ico size={16} />}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="main-body">
+                <RichEditor
+                  markdown={meeting.body || ''}
+                  docKey={docKey}
+                  placeholder={t('fields.bodyPh')}
+                  onChange={(md) => update('body', md)}
+                  apiRef={richApi}
+                  onContextMenu={editorMenu}
+                  style={{ fontFamily: fontStack(exportSettings.fontFamily), fontSize: `${exportSettings.fontSizePt || 10}pt` }}
+                />
+              </div>
+            </>
+          ) : (
+            <div className="main-body">
+              <textarea
+                className="md-source"
+                value={meeting.body || ''}
+                placeholder={t('fields.bodyPh')}
+                spellCheck={false}
+                onChange={(e) => update('body', e.target.value)}
+                onContextMenu={sourceMenu}
+              />
+            </div>
+          )}
         </section>
       </main>
 

@@ -134,6 +134,16 @@ body {
 }
 .toolbar-group { display: flex; align-items: center; gap: 6px; }
 .toolbar-spacer { flex: 1; }
+/* Document/export font pickers on the main toolbar (apply to preview + export). */
+.toolbar-font { gap: 4px; }
+.tb-font, .tb-size {
+  height: 32px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--bg-2); color: var(--text); font-size: 13px; padding: 0 8px;
+}
+.tb-font { max-width: 170px; }
+.tb-size { width: 62px; }
+.tb-font:hover, .tb-size:hover { border-color: var(--accent); }
+.tb-font:focus, .tb-size:focus { outline: none; border-color: var(--accent); }
 
 .btn {
   display: inline-flex; align-items: center; gap: 6px;
@@ -169,6 +179,14 @@ body {
 .dropdown-item.danger:hover svg { color: var(--danger); }
 .recent-menu { min-width: 300px; max-width: 460px; max-height: 440px; overflow-y: auto; }
 .dropdown-empty { padding: 8px 10px; font-size: 12px; color: var(--muted); }
+.recent-row { display: flex; align-items: stretch; gap: 2px; }
+.recent-row .recent-item { flex: 1; min-width: 0; }
+.recent-del {
+  flex: none; width: 28px; border: none; background: transparent; color: var(--muted);
+  border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+}
+.recent-row:hover .recent-del { color: var(--text-dim); }
+.recent-del:hover { background: var(--bg-3); color: var(--danger); }
 .recent-item { align-items: flex-start; }
 .recent-text { display: flex; flex-direction: column; min-width: 0; }
 .recent-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -233,6 +251,13 @@ body {
   flex: 1; display: flex; flex-direction: column; min-width: 0;
   background: var(--bg); min-height: 0; overflow: hidden;
 }
+/* Draggable divider between the sidebar and the editor. The 1px look comes from
+   the sidebar's border-right; this is the wider, invisible drag hit-area. */
+.splitter {
+  flex: 0 0 auto; width: 6px; margin-left: -3px; margin-right: -2px; z-index: 3;
+  cursor: col-resize; background: transparent;
+}
+.splitter:hover, .splitter:active { background: var(--accent); opacity: 0.6; }
 
 .tabs { display: flex; gap: 2px; padding: 6px 8px 0; background: var(--bg-2); border-bottom: 1px solid var(--border); }
 .tab {
@@ -419,6 +444,19 @@ body {
   background: var(--bg-2); border-bottom: 1px solid var(--border);
 }
 .main-head-title { font-size: 13px; font-weight: 600; color: var(--text); }
+/* When the header hosts the Edit / Markdown tabs, drop the fixed height and align
+   the tabs to the bottom edge like the sidebar tabs. */
+.main-tabs { height: auto; align-items: flex-end; gap: 2px; padding: 6px 8px 0; }
+
+/* Raw Markdown source view (second tab) — a monospace editor bound to the same
+   notes body, so edits here round-trip to the WYSIWYG editor and every export. */
+.md-source {
+  width: 100%; height: 100%; resize: none; border: none; outline: none;
+  padding: 20px 28px; background: var(--bg-2); color: var(--text);
+  font-family: Consolas, 'Courier New', monospace; font-size: 13px; line-height: 1.6;
+  white-space: pre-wrap; word-break: break-word; tab-size: 2; overflow: auto;
+}
+.md-source::placeholder { color: var(--muted); }
 
 /* ── Markdown format toolbar (above the body editor) ─────── */
 .format-bar {
@@ -651,6 +689,8 @@ body {
   position: fixed; z-index: 200; min-width: 190px; padding: 5px;
   background: var(--panel); border: 1px solid var(--border); border-radius: 9px;
   box-shadow: 0 12px 34px var(--shadow); display: flex; flex-direction: column; gap: 1px;
+  /* Never exceed the window; scroll instead of being clipped by the edge. */
+  max-height: calc(100vh - 12px); overflow-y: auto; overscroll-behavior: contain;
 }
 .ctxmenu-item {
   display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;

@@ -20,6 +20,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   loadSettings: () => ipcRenderer.invoke('settings:load'),
   saveSettings: (data) => ipcRenderer.invoke('settings:save', data),
   showItem: (p) => ipcRenderer.invoke('shell:showItem', p),
+  popupMenu: (template) => ipcRenderer.invoke('menu:popup', template),
   onOpenFile: (cb) => {
     const h = (_e, data) => cb(data);
     ipcRenderer.on('file:open', h);

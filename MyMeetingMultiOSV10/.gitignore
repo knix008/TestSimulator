@@ -1,0 +1,47 @@
+# ── Dependencies ──────────────────────────────────────────
+node_modules/
+.pnp
+.pnp.js
+
+# ── Build output (Vite web bundle) ────────────────────────
+dist/
+dist-ssr/
+
+# ── Desktop packaging (electron-builder) ──────────────────
+release/
+# Installer artifacts copied to the project root by scripts/copy-installer.js
+/*.exe
+/*.dmg
+/*.AppImage
+/*.deb
+/*.snap
+/*.zip
+/*.blockmap
+
+# ── Generated assets ──────────────────────────────────────
+# App / file icons produced by `npm run generate:icons` (source: assets/*.svg)
+build/icons/
+# Build metadata written by scripts/generate-build-info.mjs (About dialog)
+src/build-info.json
+
+# ── Logs & caches ─────────────────────────────────────────
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.vite/
+.cache/
+.eslintcache
+
+# ── Environment / local overrides ─────────────────────────
+.env
+.env.*
+!.env.example
+
+# ── Editor / OS cruft ─────────────────────────────────────
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
