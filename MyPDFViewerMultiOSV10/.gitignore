@@ -10,6 +10,10 @@ release/
 build/icons/
 # copied from pdfjs-dist — npm run copy:pdfjs
 public/pdfjs/
+# stamped with the build time and commit on every build — npm run generate:build-info
+# (tracking it meant every machine's build dirtied the file and `git pull` conflicted;
+# prepare:assets and postinstall regenerate it, so a clone always has one)
+src/build-info.json
 # NOTE: public/icon.svg and public/file-icon.svg are copies of assets/*.svg but
 # are committed on purpose — the UI loads them by URL, so a fresh clone has to
 # show the welcome screen and favicon before any build step has run.

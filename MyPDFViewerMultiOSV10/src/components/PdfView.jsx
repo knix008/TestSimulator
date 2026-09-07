@@ -13,6 +13,10 @@ import { renderPage, renderTextLayer, cropCanvas, getPageImageRegions } from '..
 
 const NEAR = '900px'; // how far outside the viewport a page starts rendering
 
+// Turning pages with the wheel in the single-page layout.
+const REST_MS = 200;     // a scrollable page must sit at its edge this long first
+const TURN_GAP_MS = 400; // …and one flick of the wheel never skips two pages
+
 // The browser paints a text selection span by span, which looks speckled on a
 // PDF text layer. Merging the selection's client rectangles into one block per
 // line gives the solid, unmistakable selection users expect.
@@ -196,6 +200,44 @@ const PdfView = forwardRef(function PdfView({
     };
   }, [doc, layout, pages.length, onPageChange, captureAnchor]);
 
+  // In the single-page layout only one page is mounted, so the wheel would stop
+  // dead at the bottom of it. Rolling on past either edge turns to the
+  // neighbouring page and lands on the edge you came from, so the document
+  // still reads straight through — the same as scrolling the continuous layout.
+  const landEdge = useRef(null);    // where scrollToPage should put the next page
+  const turn = useRef({ edge: null, since: 0, last: 0 });
+
+  const wheelTurnPage = useCallback((e) => {
+    const el = scrollRef.current;
+    if (!el || layout !== 'single' || !doc) return;
+    const down = e.deltaY > 0;
+    const edge = down
+      ? (el.scrollTop + el.clientHeight >= el.scrollHeight - 1 ? 'bottom' : null)
+      : (el.scrollTop <= 1 ? 'top' : null);
+
+    const state = turn.current;
+    if (!edge) { state.edge = null; return; }
+
+    const now = Date.now();
+    if (state.edge !== edge) { state.edge = edge; state.since = now; }
+
+    // A page that fits entirely has no edge to arrive at, so it turns at once;
+    // one you were scrolling through waits, or overshooting the end of a page
+    // would carry you into the next one.
+    const scrollable = el.scrollHeight > el.clientHeight + 1;
+    if (scrollable && now - state.since < REST_MS) return;
+    if (now - state.last < TURN_GAP_MS) return;
+
+    const next = down ? pageNumber + 1 : pageNumber - 1;
+    if (next < 1 || next > doc.numPages) return;
+
+    e.preventDefault();
+    state.last = now;
+    state.edge = null;
+    landEdge.current = down ? 'top' : 'bottom';
+    onPageChange?.(next);
+  }, [doc, layout, pageNumber, onPageChange]);
+
   // Ctrl + wheel zooms, as it does in every other document viewer. The listener
   // has to be a non-passive native one: React's synthetic wheel handler is
   // passive, so preventDefault() there would not stop the browser's own zoom.
@@ -203,7 +245,7 @@ const PdfView = forwardRef(function PdfView({
     const el = scrollRef.current;
     if (!el) return undefined;
     const onWheel = (e) => {
-      if (!e.ctrlKey && !e.metaKey) return;
+      if (!e.ctrlKey && !e.metaKey) { if (e.deltaY !== 0) wheelTurnPage(e); return; }
       e.preventDefault();
       if (e.deltaY === 0) return;
       captureAnchor();
@@ -211,7 +253,7 @@ const PdfView = forwardRef(function PdfView({
     };
     el.addEventListener('wheel', onWheel, { passive: false });
     return () => el.removeEventListener('wheel', onWheel);
-  }, [captureAnchor, onZoomStep]);
+  }, [captureAnchor, onZoomStep, wheelTurnPage]);
 
   // Scroll a page into view when the page number changes from outside.
   //
@@ -222,7 +264,17 @@ const PdfView = forwardRef(function PdfView({
     const entry = pageRefs.current.get(num);
     const root = scrollRef.current;
     if (!entry?.wrapper || !root) return;
-    if (layout === 'single') { root.scrollTo({ top: 0, behavior }); return; }
+    if (layout === 'single') {
+      // Turning back with the wheel should show the foot of the previous page,
+      // not its head — otherwise scrolling up jumps over a screenful of text.
+      const edge = landEdge.current;
+      landEdge.current = null;
+      root.scrollTo({
+        top: edge === 'bottom' ? root.scrollHeight : 0,
+        behavior: edge ? 'auto' : behavior,
+      });
+      return;
+    }
     // Ignore the scroll-driven page updates this programmatic scroll causes.
     suppressScrollSync.current = true;
     const delta = entry.wrapper.getBoundingClientRect().top - root.getBoundingClientRect().top;
