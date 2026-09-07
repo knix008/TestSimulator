@@ -25,7 +25,7 @@ import {
 import { isElectron, api, saveText, writeTextTo, readFileText, openTextFile, readPath, saveSettingsToDisk, printPrinters } from './lib/platform';
 import { loadMedia, isMediaFile, MEDIA_ACCEPT } from './lib/media';
 import { getOutline, DEFAULT_EXPORT_SETTINGS, fontStack } from './lib/markdown';
-import { getSystemFonts } from './lib/fonts';
+import { getSystemFonts, fontsWith } from './lib/fonts';
 import { exportMarkdown, exportHtml, exportPdf, exportWord, preparePrint, runPrint } from './lib/export';
 import {
   createEmptyMeeting, meetingToMarkdown, meetingToPlainText,
@@ -1272,7 +1272,7 @@ export default function App() {
             onChange={(e) => setExportSettings((s) => ({ ...s, fontFamily: e.target.value }))}
           >
             <option value="">{t('settings.fontDefault')}</option>
-            {(fonts || []).map((f) => <option key={f} value={f}>{f}</option>)}
+            {fontsWith(fonts, exportSettings.fontFamily).map((f) => <option key={f} value={f}>{f}</option>)}
           </select>
           <input
             className="tb-size" type="number" min="6" max="48" step="0.5"

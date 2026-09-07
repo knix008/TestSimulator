@@ -157,11 +157,16 @@ if (!gotLock) {
 
   app.whenReady().then(() => {
     Menu.setApplicationMenu(null);
-    // Allow the Local Font Access API (queryLocalFonts) used by the settings dialog.
+    // Allow the Local Font Access API (queryLocalFonts) used by the font pickers.
+    // Chromium asks twice: a request handler for the prompt, and a *check*
+    // handler for the synchronous permission state. Without the check handler
+    // secondary windows (the settings window) get a denial and silently fall
+    // back to the small built-in font list.
     try {
       session.defaultSession.setPermissionRequestHandler((_wc, permission, cb) => {
         cb(permission === 'local-fonts');
       });
+      session.defaultSession.setPermissionCheckHandler((_wc, permission) => permission === 'local-fonts');
     } catch { /* ignore */ }
     createWindow();
     app.on('activate', () => {

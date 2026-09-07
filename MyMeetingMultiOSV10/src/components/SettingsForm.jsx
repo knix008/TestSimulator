@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { getSystemFonts } from '../lib/fonts';
+import { getSystemFonts, fontsWith } from '../lib/fonts';
 import { THEMES } from '../lib/themes';
 
 const ALIGNS = ['left', 'center', 'right'];
@@ -95,7 +95,7 @@ export default function SettingsForm({ settings, onChange, theme, onTheme, lang,
               onChange={(e) => set({ fontFamily: e.target.value })}
             >
               <option value="">System Default</option>
-              {(fonts || []).map((f) => <option key={f} value={f}>{f}</option>)}
+              {fontsWith(fonts, s.fontFamily).map((f) => <option key={f} value={f}>{f}</option>)}
             </select>
             {fonts === null && <span className="suffix">{t('settings.loadingFonts')}</span>}
           </div>

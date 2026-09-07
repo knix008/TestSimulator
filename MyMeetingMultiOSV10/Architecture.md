@@ -155,7 +155,7 @@ MyMeetingMultiOSV10/
 `menu:popup`(네이티브 컨텍스트 메뉴 — `{shown,id}` 반환),
 `settings:open`/`settings:load`/`settings:save`, `about:open`, `shell:showItem`,
 `win:*`(minimize/toggleMaximize/close/isMaximized).
-메인 프로세스는 `session.setPermissionRequestHandler` 로 `local-fonts` 권한을 허용해 `queryLocalFonts()` 를 지원합니다.
+메인 프로세스는 `setPermissionRequestHandler` **와 `setPermissionCheckHandler`** 로 `local-fonts` 권한을 허용해 `queryLocalFonts()` 를 지원합니다. 체크 핸들러가 없으면 보조 창(설정 창)이 권한을 거부당해 내장 폴백 목록(30여 개)만 보게 됩니다. 열거에 성공한 목록은 `mtg-fonts` 로 공유되고, 폰트 선택기는 현재 선택된 글꼴이 목록에 없더라도 항목으로 함께 표시합니다(그렇지 않으면 `<select>` 가 조용히 "시스템 기본"으로 보이고, 한 번의 클릭으로 사용자의 선택이 지워집니다).
 메인 창을 닫으면 `win.on('closed')` 에서 나머지 모든 창(설정/정보)을 destroy 하고 앱을 종료합니다.
 
 ## 빌드 파이프라인
