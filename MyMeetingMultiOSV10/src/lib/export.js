@@ -4,7 +4,10 @@ import {
   toStandaloneHtml, buildMergedMarkdownDocument, documentExportBaseName,
   sanitizeExportName, DEFAULT_EXPORT_SETTINGS,
 } from './markdown';
-import { saveText, exportPdf as platformExportPdf, computeTocPageMap } from './platform';
+import {
+  saveText, exportPdf as platformExportPdf, computeTocPageMap,
+  printInfo as platformPrintInfo, printDocument as platformPrint,
+} from './platform';
 
 // Resolve the export base name: user-provided name wins, else first heading.
 function baseNameFor(markdown, baseName) {
@@ -58,6 +61,31 @@ export async function exportPdf(markdown, settings = {}, baseName) {
     pdfOptions: { paged: true, fallback: pdfHeaderFooterOptions(s) },
     defaultDir: s.defaultDir,
   });
+}
+
+// ── Printing ──────────────────────────────────────────────
+// The printed document is byte-for-byte the layout the PDF export produces, so
+// what comes out of the printer matches what "Export → PDF" would have written.
+async function printableHtml(markdown, settings, baseName) {
+  const s = { ...DEFAULT_EXPORT_SETTINGS, ...settings, tocPageNumbers: settings.tocPage !== false };
+  const base = baseNameFor(markdown, baseName);
+  const pageMap = await resolveTocPageMap(markdown, base, s);
+  return toStandaloneHtml(markdown, base, { ...s, tocPageMap: pageMap });
+}
+
+// Build the printable document once and measure it: { html, pages, map }.
+// `pages` is 0 and `map` empty where pagination is unavailable (web build) —
+// the caller then prints everything and lets the browser dialog pick a range.
+export async function preparePrint(markdown, settings = {}, baseName) {
+  const html = await printableHtml(markdown, settings, baseName);
+  const info = await platformPrintInfo(html);
+  return { html, pages: info ? info.pages : 0, map: info ? info.map : {} };
+}
+
+// Print a document prepared by preparePrint(). `pages` is an array of 1-based
+// page numbers (null = all); `options` carries the printer and per-job settings.
+export async function runPrint(html, pages = null, options = {}) {
+  return platformPrint({ html, pages, options });
 }
 
 export async function exportWord(markdown, settings = {}, baseName) {

@@ -250,7 +250,7 @@ body {
 /* ── Body layout ─────────────────────────────────────────── */
 .body { flex: 1; display: flex; min-height: 0; }
 .sidebar {
-  width: 340px; min-width: 240px; display: flex; flex-direction: column;
+  width: 420px; min-width: 330px; display: flex; flex-direction: column;
   background: var(--panel); border-right: 1px solid var(--border);
   min-height: 0; overflow: hidden;
 }
@@ -530,13 +530,16 @@ body {
 .mfield input.invalid { border-color: var(--danger); }
 .mfield input.invalid:focus { border-color: var(--danger); }
 .field-error { font-size: 11px; color: var(--danger); margin-top: 1px; }
-.mfield-row { display: flex; gap: 10px; }
-.mfield-row .mfield { min-width: 0; }
+/* Two fields side by side. They stack instead of squeezing once the panel is
+   dragged narrow, so a value is never clipped against the trailing icon. */
+.mfield-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.mfield-row .mfield { flex: 1 1 140px; min-width: 0; }
 
 /* Date field: free-text input + calendar picker button (native date input is
    kept off-screen and triggered via showPicker()). */
 .date-control { position: relative; display: flex; align-items: stretch; gap: 6px; }
-.date-control input[type='text'] { flex: 1 1 auto; min-width: 0; }
+/* Wide enough for a full YYYY-MM-DD date whatever the panel width. */
+.date-control input[type='text'] { flex: 1 1 auto; min-width: 104px; }
 .date-btn {
   flex: none; width: 34px; border-radius: 8px; border: 1px solid var(--border);
   background: var(--bg-3); color: var(--text-dim); cursor: pointer;
@@ -610,6 +613,64 @@ body {
 .about-grid dd { margin: 0; color: var(--text); }
 .about-grid dd.export-path { word-break: break-all; }
 .modal-foot { padding: 12px 18px; border-top: 1px solid var(--border); text-align: right; display: flex; justify-content: flex-end; gap: 8px; }
+
+/* Structure tree: detail-panel entries read lighter than the notes headings,
+   so the document outline still stands out. */
+.tree-row.kind-group .tree-text { font-weight: 600; color: var(--text-dim); }
+.tree-row.kind-field .tree-text,
+.tree-row.kind-item .tree-text { font-weight: 400; color: var(--text-dim); }
+.tree-row.kind-field:hover .tree-text,
+.tree-row.kind-item:hover .tree-text,
+.tree-row.kind-group:hover .tree-text { color: var(--text); }
+.tree-row.kind-field .tree-marker,
+.tree-row.kind-item .tree-marker { opacity: 0.55; }
+
+/* ── Print dialog ─────────────────────────────────────────── */
+.print-modal { width: 520px; }
+/* The option list can outgrow a short window — keep the head/foot fixed and
+   scroll the middle. */
+.print-body { text-align: left; padding: 16px 18px; max-height: min(70vh, 640px); overflow-y: auto; }
+.print-sec { margin-bottom: 16px; }
+.print-sec:last-child { margin-bottom: 0; }
+.print-lab {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+  font-size: 11.5px; font-weight: 600; letter-spacing: .2px;
+  color: var(--text-dim); text-transform: uppercase; margin-bottom: 7px;
+}
+.print-total { font-size: 11.5px; font-weight: 400; text-transform: none; color: var(--muted); }
+.print-input {
+  height: 32px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--bg-2); color: var(--text); padding: 0 9px;
+  font-size: 13px; font-family: inherit; width: 100%; box-sizing: border-box;
+}
+.print-input:focus { outline: none; border-color: var(--accent); }
+.print-input:disabled { opacity: 0.45; }
+.print-input.invalid { border-color: var(--danger); }
+.print-scopes { display: flex; flex-direction: column; gap: 10px; }
+.print-scope { display: flex; align-items: flex-start; gap: 10px; cursor: pointer; }
+.print-scope input[type='radio'] { accent-color: var(--accent); width: 16px; height: 16px; margin-top: 2px; flex: none; }
+.print-scope > span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.print-scope b { font-size: 13.5px; font-weight: 600; color: var(--text); }
+.print-scope em { font-style: normal; font-size: 12px; color: var(--muted); }
+.print-scope.disabled { cursor: not-allowed; opacity: 0.5; }
+.print-range { margin: 2px 0 0 26px; width: calc(100% - 26px); }
+/* label / control pairs, two columns wide */
+.print-grid {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center; gap: 9px 10px;
+}
+.print-grid > label { font-size: 12.5px; color: var(--text-dim); white-space: nowrap; }
+.print-num { width: 100%; }
+.print-check { display: flex; align-items: flex-start; gap: 9px; margin-top: 11px; cursor: pointer; }
+.print-check input[type='checkbox'] { accent-color: var(--accent); width: 15px; height: 15px; margin-top: 2px; flex: none; }
+.print-check > span { display: flex; flex-direction: column; gap: 2px; font-size: 13px; color: var(--text); }
+.print-check em { font-style: normal; font-size: 11.5px; color: var(--muted); }
+.print-check.disabled { opacity: 0.45; cursor: not-allowed; }
+.print-count { flex: 1 1 auto; text-align: left; align-self: center; }
+
+@media (max-width: 560px) {
+  .print-grid { grid-template-columns: auto minmax(0, 1fr); }
+}
 /* ── Settings page (separate window) ─────────────────────── */
 .settings-page { display: flex; flex-direction: column; height: 100vh; background: var(--bg); color: var(--text); }
 .settings-page-head {

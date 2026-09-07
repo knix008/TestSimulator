@@ -1,6 +1,11 @@
 // Thin abstraction over the two runtimes:
 //   • Electron — native dialogs / filesystem via window.electronAPI (preload)
 //   • Web      — <input type=file webkitdirectory> + Blob downloads
+// paged.js polyfill as a plain asset URL: it is injected into the off-screen
+// iframe the web build paginates in. Imported by path because pagedjs's
+// "exports" map blocks a deep import of the standalone bundle.
+import pagedPolyfillUrl from '../../node_modules/pagedjs/dist/paged.polyfill.js?url';
+
 export const api = typeof window !== 'undefined' ? window.electronAPI : undefined;
 export const isElectron = !!(api && api.isElectron);
 
@@ -32,6 +37,16 @@ export async function saveBlob({ defaultName, blob, filters }) {
   }
   downloadBlob(blob, defaultName);
   return defaultName;
+}
+
+// Overwrite an existing file in place (Electron only) — the Save path for a
+// document that already has a location. Throws on failure; returns null when
+// there is no filesystem to write to (web build).
+export async function writeTextTo(filePath, content) {
+  if (!(isElectron && api.writeText && filePath)) return null;
+  const res = await api.writeText({ filePath, content });
+  if (res && res.error) throw new Error(res.error);
+  return res ? res.path : null;
 }
 
 // Open a single text file (Electron only) and return { name, content } or null.
@@ -71,6 +86,163 @@ export async function computeTocPageMap(html) {
     } catch { return null; }
   }
   return null;
+}
+
+// ── Web pagination (paged.js in an offscreen iframe) ──────
+// The desktop build paginates in a hidden Electron window; in the browser we do
+// the same work in a same-origin iframe parked off-screen, so "current page" and
+// a page range work in the web build too.
+
+// Load paged.js into the document with auto-run disabled. Pagination itself is
+// started from the parent once the frame has loaded — a <head> script would run
+// while <body> does not exist yet and paged.js would throw.
+function injectWebPaged(html) {
+  const inject = `<script>window.PagedConfig={auto:false};</script>`
+    + `<script src="${pagedPolyfillUrl}"></script>`;
+  return html.includes('</head>') ? html.replace('</head>', `${inject}</head>`) : inject + html;
+}
+
+// Build the off-screen iframe, paginate it and hand the frame to `fn`. The
+// iframe is removed afterwards unless `fn` asks to keep it (by returning an
+// object with `keep: true` — printing needs the document to stay alive).
+async function withPagedFrame(html, fn) {
+  const frame = document.createElement('iframe');
+  frame.setAttribute('aria-hidden', 'true');
+  frame.setAttribute('title', 'print');
+  // Off-screen rather than hidden: a display:none / visibility:hidden frame
+  // lays out at zero size, which would break pagination and print blank.
+  // The viewport is kept short on purpose — the cover styles itself with
+  // `min-height: calc(100vh - 96px)` on screen, and a tall frame would make it
+  // taller than one printed page, which stalls paged.js.
+  frame.style.cssText = 'position:fixed;left:-10000px;top:0;width:820px;height:640px;border:0;opacity:0;';
+  document.body.appendChild(frame);
+  const drop = () => { try { frame.remove(); } catch { /* ignore */ } };
+  try {
+    const doc = frame.contentDocument;
+    doc.open();
+    doc.write(injectWebPaged(html));
+    doc.close();
+    // Wait for the injected scripts to run, then for pagination to finish.
+    // Wait for the injected polyfill to be in place. The frame's load event can
+    // fire before the listener is attached, so poll for the global as well.
+    await new Promise((res) => {
+      const started = Date.now();
+      const tick = () => {
+        if (frame.contentWindow?.Paged || Date.now() - started > 8000) { res(); return; }
+        setTimeout(tick, 30);
+      };
+      tick();
+    });
+    const w = frame.contentWindow;
+    if (!w || !w.Paged) { drop(); return null; }
+    // paged.js can stall on content it cannot break; never let that hang the UI.
+    const paginated = await Promise.race([
+      new w.Paged.Previewer().preview().then(() => true, () => false),
+      new Promise((res) => setTimeout(() => res(false), 20000)),
+    ]);
+    if (!paginated || !doc.querySelectorAll('.pagedjs_page').length) { drop(); return null; }
+    const out = await fn(frame, doc);
+    if (!out || !out.keep) drop();
+    return out;
+  } catch {
+    drop();
+    return null;
+  }
+}
+
+// Total page count + the page every heading anchor landed on, read off a
+// paginated document.
+function readPagedInfo(doc) {
+  const map = {};
+  doc.querySelectorAll('[id^="h-"]').forEach((el) => {
+    const pg = el.closest('.pagedjs_page');
+    const n = pg && pg.getAttribute('data-page-number');
+    if (n != null) map[el.id] = parseInt(n, 10);
+  });
+  return { pages: doc.querySelectorAll('.pagedjs_page').length, map };
+}
+
+// Keep only `keep` (1-based page numbers). paged.js renders the page number as
+// `content: … counter(page)`, which would restart at 1 once pages are removed —
+// so freeze every counter-driven margin box to its literal number first.
+function prunePages(doc, keep) {
+  const all = [...doc.querySelectorAll('.pagedjs_page')];
+  if (!keep) return { pages: all.length, printed: all.length };
+  const rules = [];
+  all.forEach((p) => {
+    const n = p.getAttribute('data-page-number');
+    if (n == null) return;
+    p.querySelectorAll('.pagedjs_margin-content').forEach((m) => {
+      const c = (doc.defaultView.getComputedStyle(m, ':after').content) || '';
+      if (!c.includes('counter(page)')) return;
+      m.setAttribute('data-mtg-pgno', n);
+      rules.push(`.pagedjs_margin-content[data-mtg-pgno="${n}"]:after{content:${c.split('counter(page)').join(`"${n}"`)} !important}`);
+    });
+  });
+  if (rules.length) {
+    const st = doc.createElement('style');
+    st.textContent = rules.join('');
+    doc.head.appendChild(st);
+  }
+  all.forEach((p) => {
+    const n = parseInt(p.getAttribute('data-page-number'), 10);
+    if (!keep.includes(n)) p.remove();
+  });
+  return { pages: all.length, printed: doc.querySelectorAll('.pagedjs_page').length };
+}
+
+// Paginate a standalone HTML document and report { pages, map } — the total
+// page count plus the page every heading anchor (h-0, h-1 …) landed on.
+// Electron paginates in a hidden window, the web build in an off-screen iframe.
+// Returns null only when pagination is genuinely unavailable.
+export async function printInfo(html) {
+  if (isElectron && api.printInfo) {
+    try {
+      const info = await api.printInfo(html);
+      return info && info.pages ? info : null;
+    } catch { return null; }
+  }
+  const info = await withPagedFrame(html, (_f, doc) => readPagedInfo(doc));
+  return info && info.pages ? info : null;
+}
+
+// The printers this machine can reach ([] on the web build, where the browser
+// print dialog owns printer selection).
+export async function printPrinters() {
+  if (isElectron && api.printPrinters) {
+    try { return (await api.printPrinters()) || []; } catch { return []; }
+  }
+  return [];
+}
+
+// Print a standalone HTML document.
+//   • Electron — paginates offscreen, drops the pages outside `pages`
+//                (1-based; null = all) and prints with `options` (printer,
+//                copies, colour, duplex, orientation, scale, N-up). With
+//                options.silent false the system print dialog opens first.
+//   • Web      — opens a print window; the browser dialog owns every option.
+// Returns { ok, reason, pages, printed } (Electron) or { ok: true } (web).
+export async function printDocument({ html, pages, options }) {
+  if (isElectron && api.printDocument) {
+    return api.printDocument({ html, pages: pages || null, options: options || {} });
+  }
+  // Web: paginate in the off-screen iframe, drop the pages that were not
+  // selected, then let the browser's own dialog handle printer and copies.
+  const keep = Array.isArray(pages) && pages.length ? pages : null;
+  const r = await withPagedFrame(html, (frame, doc) => {
+    const counts = prunePages(doc, keep);
+    if (!counts.printed) return { ...counts, keep: false };
+    frame.contentWindow.focus();
+    frame.contentWindow.print();
+    // Give the print dialog time to take a snapshot before the frame goes away.
+    setTimeout(() => { try { frame.remove(); } catch { /* ignore */ } }, 60000);
+    return { ...counts, keep: true };
+  });
+  if (r && r.printed) return { ok: true, reason: '', pages: r.pages, printed: r.printed };
+  if (r && !r.printed) return { ok: false, reason: 'empty', pages: r.pages, printed: 0 };
+  // Pagination unavailable — fall back to printing the whole document.
+  printHtml(html);
+  return { ok: true, reason: '', pages: 0, printed: 0 };
 }
 
 function printHtml(html) {

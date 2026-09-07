@@ -13,7 +13,7 @@ export function nowRounded(step = 15) {
 // A time combobox: free-text entry PLUS a scrollable dropdown of options.
 // On open it scrolls to the current value (or the current time) so every option
 // is reachable and the list is centered on "now".
-export default function TimeCombo({ id, value, placeholder, invalid, options, onChange }) {
+export default function TimeCombo({ id, value, placeholder, hint, invalid, options, onChange }) {
   const [open, setOpen] = useState(false);
   const boxRef = useRef(null);
   const listRef = useRef(null);
@@ -47,6 +47,7 @@ export default function TimeCombo({ id, value, placeholder, invalid, options, on
         type="text"
         className={invalid ? 'invalid' : ''}
         value={value}
+        title={hint || ''}
         placeholder={placeholder}
         autoComplete="off"
         onChange={(e) => onChange(e.target.value)}
@@ -54,7 +55,7 @@ export default function TimeCombo({ id, value, placeholder, invalid, options, on
         aria-invalid={invalid}
       />
       <button type="button" className="time-btn" tabIndex={-1}
-        title={placeholder} onMouseDown={(e) => e.preventDefault()} onClick={() => setOpen((o) => !o)}>
+        title={hint || placeholder} onMouseDown={(e) => e.preventDefault()} onClick={() => setOpen((o) => !o)}>
         <IconClock size={16} />
       </button>
       {open && (

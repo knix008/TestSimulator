@@ -8,12 +8,13 @@ import ContextMenu from './components/ContextMenu';
 import Tooltip from './components/Tooltip';
 import Toasts from './components/Toasts';
 import ExportResultDialog from './components/ExportResultDialog';
+import PrintDialog, { DEFAULT_PRINT_OPTIONS } from './components/PrintDialog';
 import ExportProgressDialog from './components/ExportProgressDialog';
 import ErrorDialog from './components/ErrorDialog';
 import TimeCombo, { nowRounded } from './components/TimeCombo';
 import RichEditor from './components/RichEditor';
 import {
-  IconFilePlus, IconFolder, IconSave, IconExport, IconChevron,
+  IconFilePlus, IconFolder, IconSave, IconSaveAs, IconExport, IconChevron, IconPrinter,
   IconMd, IconHtml, IconPdf, IconWord, IconPaper, IconTrash, IconInfo, IconSettings,
   IconSun, IconMoon, IconX, IconCopy, IconCut, IconPaste, IconSelectAll, IconTarget,
   IconStars, IconSnow, IconLeaf, IconFlower, IconSunrise, IconContrast, IconBulb,
@@ -21,15 +22,14 @@ import {
   IconBold, IconItalic, IconStrike, IconUnderline, IconHeading, IconList, IconListOrdered, IconChecklist,
   IconQuote, IconCode, IconLink, IconTable, IconRule, IconImage, IconUndo, IconRedo,
 } from './components/Icons';
-import { isElectron, api, saveText, readFileText, openTextFile, readPath, saveSettingsToDisk } from './lib/platform';
+import { isElectron, api, saveText, writeTextTo, readFileText, openTextFile, readPath, saveSettingsToDisk, printPrinters } from './lib/platform';
 import { loadMedia, isMediaFile, MEDIA_ACCEPT } from './lib/media';
 import { getOutline, DEFAULT_EXPORT_SETTINGS, fontStack } from './lib/markdown';
 import { getSystemFonts } from './lib/fonts';
-import { exportMarkdown, exportHtml, exportPdf, exportWord } from './lib/export';
+import { exportMarkdown, exportHtml, exportPdf, exportWord, preparePrint, runPrint } from './lib/export';
 import {
   createEmptyMeeting, meetingToMarkdown, meetingToPlainText,
-  meetingBaseName, isMeetingEmpty, lines,
-} from './lib/meeting';
+  meetingBaseName, isMeetingEmpty, lines, buildStructure } from './lib/meeting';
 import { TEMPLATES, templateName, templateMeeting } from './lib/templates';
 
 const THEME_IDS = THEMES.map((t) => t.id);
@@ -62,6 +62,32 @@ function loadExportSettings() {
   return { ...DEFAULT_EXPORT_SETTINGS };
 }
 
+// Details-panel width. The minimum is the narrowest panel that still shows a
+// whole date and a whole time next to the calendar / clock buttons: each column
+// of a two-field row needs 104px of input + 6px gap + a 34px button, so
+// 2 x 144 + 10px gap + 24px padding = 322px, rounded up for the labels.
+// The storage key is versioned so an older, narrower saved width does not
+// survive the change.
+const SIDEBAR_W_KEY = 'mtg-sidebar-w2';
+const SIDEBAR_DEFAULT = 420;
+const SIDEBAR_MIN = 330;
+const SIDEBAR_MAX = 900;
+
+// The file the restored document belongs to. Kept next to the autosaved draft
+// so Save (Ctrl+S) still writes straight back to it after a restart, instead of
+// forgetting the location and asking again.
+function loadDocPath() {
+  try { return localStorage.getItem('mtg-doc-path') || ''; } catch { return ''; }
+}
+
+function loadPrintOptions() {
+  try {
+    const raw = localStorage.getItem('mtg-print');
+    if (raw) return { ...DEFAULT_PRINT_OPTIONS, ...JSON.parse(raw) };
+  } catch { /* ignore */ }
+  return { ...DEFAULT_PRINT_OPTIONS };
+}
+
 function loadMeeting() {
   try {
     const raw = localStorage.getItem('mtg-doc');
@@ -91,13 +117,25 @@ export default function App() {
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(() => {
-    const v = Number(localStorage.getItem('mtg-sidebar-w'));
-    return v >= 240 && v <= 900 ? v : 340;
+    const v = Number(localStorage.getItem(SIDEBAR_W_KEY));
+    return v >= SIDEBAR_MIN && v <= SIDEBAR_MAX ? v : SIDEBAR_DEFAULT;
   });
   const [status, setStatus] = useState(t('status.ready'));
   const [fileOpen, setFileOpen] = useState(false); // File menu (New/Open/Save/Recent)
   const [sampleOpen, setSampleOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
+  // Print: `printDoc` holds the prepared document + its pagination result.
+  const [printOpen, setPrintOpen] = useState(false);
+  const [printBusy, setPrintBusy] = useState(false);
+  const [printDoc, setPrintDoc] = useState(null); // { html, pages, map, currentPage }
+  // Path of the file this document came from / was last saved to. Save writes
+  // straight back to it; Save As always asks. Empty for an unsaved document.
+  const [docPath, setDocPath] = useState(loadDocPath);
+  const [printers, setPrinters] = useState([]);
+  // Per-job print settings (printer, copies, colour, duplex …), remembered
+  // between jobs so a repeat print does not need setting up again.
+  const [printOptions, setPrintOptions] = useState(loadPrintOptions);
+
   const [recent, setRecent] = useState(loadRecent);
   const [theme, setTheme] = useState(() => {
     const s = localStorage.getItem('mtg-theme');
@@ -120,6 +158,11 @@ export default function App() {
   const mdSourceRef = useRef(null);
   const toolbarRef = useRef(null);
   const richApi = useRef(null);
+  // Always point at the current handlers, so the keyboard shortcuts (bound once,
+  // on mount) never call a stale closure.
+  const printRef = useRef(() => {});
+  const saveRef = useRef(() => {});
+  const saveAsRef = useRef(() => {});
   // Body edit history for Undo/Redo (owns the stack so the buttons know exactly
   // when they are available; native contentEditable undo isn't observable).
   const histRef = useRef(null);
@@ -148,6 +191,12 @@ export default function App() {
   // The structure tree reflects the WHOLE assembled document (title, sections,
   // notes) with numbering, not just the editor body.
   const outline = useMemo(() => getOutline(fullMarkdown), [fullMarkdown]);
+  // The Structure tab shows the whole document: the notes headings plus the
+  // fields and list entries typed in the details panel.
+  const structure = useMemo(
+    () => buildStructure(meeting, { ...docLabels, info: t('structure.info') }, outline),
+    [meeting, docLabels, outline, lang], // eslint-disable-line react-hooks/exhaustive-deps
+  );
   const empty = isMeetingEmpty(meeting);
 
   useEffect(() => {
@@ -190,6 +239,19 @@ export default function App() {
     const onKey = (e) => {
       if (!(e.ctrlKey || e.metaKey)) return;
       const k = e.key.toLowerCase();
+      if (k === 'p') {
+        // Ctrl/⌘+P prints the meeting document, not the app window.
+        e.preventDefault();
+        printRef.current();
+        return;
+      }
+      if (k === 's') {
+        // Ctrl/⌘+S saves in place; add Shift for Save As.
+        e.preventDefault();
+        if (e.shiftKey) saveAsRef.current();
+        else saveRef.current();
+        return;
+      }
       const isUndo = k === 'z' && !e.shiftKey;
       const isRedo = k === 'y' || (k === 'z' && e.shiftKey);
       if (!isUndo && !isRedo) return;
@@ -205,7 +267,7 @@ export default function App() {
 
   // Persist the sidebar width chosen via the splitter.
   useEffect(() => {
-    try { localStorage.setItem('mtg-sidebar-w', String(Math.round(sidebarWidth))); } catch { /* ignore */ }
+    try { localStorage.setItem(SIDEBAR_W_KEY, String(Math.round(sidebarWidth))); } catch { /* ignore */ }
   }, [sidebarWidth]);
 
   // Drag the splitter to resize the sidebar (clamped so the editor keeps room).
@@ -215,7 +277,7 @@ export default function App() {
       const rect = bodyRef.current?.getBoundingClientRect();
       const left = rect ? rect.left : 0;
       const total = rect ? rect.width : window.innerWidth;
-      const w = Math.max(240, Math.min(ev.clientX - left, total - 360));
+      const w = Math.max(SIDEBAR_MIN, Math.min(ev.clientX - left, Math.min(SIDEBAR_MAX, total - 360)));
       setSidebarWidth(w);
     };
     const onUp = () => {
@@ -229,6 +291,14 @@ export default function App() {
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
   }
+
+  useEffect(() => {
+    try { localStorage.setItem('mtg-print', JSON.stringify(printOptions)); } catch { /* ignore */ }
+  }, [printOptions]);
+
+  useEffect(() => {
+    try { localStorage.setItem('mtg-doc-path', docPath || ''); } catch { /* ignore */ }
+  }, [docPath]);
 
   // Autosave the current meeting draft so a reload restores it.
   useEffect(() => {
@@ -401,6 +471,7 @@ export default function App() {
     // A fresh meeting starts at the current (rounded) time.
     setMeeting({ ...createEmptyMeeting(), startTime: nowRounded() });
     exportNameEdited.current = false;
+    setDocPath('');
     bumpDoc();
     setStatus(t('status.newDoc'));
   }
@@ -408,6 +479,7 @@ export default function App() {
     setSampleOpen(false);
     setMeeting(templateMeeting(tpl, lang));
     exportNameEdited.current = false;
+    setDocPath('');
     bumpDoc();
     setStatus(t('status.templateLoaded', { name: templateName(tpl, lang) }));
     notify(t('toast.opened'), { message: templateName(tpl, lang) });
@@ -415,6 +487,7 @@ export default function App() {
   function clearAll() {
     setMeeting(createEmptyMeeting());
     exportNameEdited.current = false;
+    setDocPath('');
     bumpDoc();
     setStatus(t('status.cleared'));
   }
@@ -436,6 +509,7 @@ export default function App() {
     setMeeting({ ...createEmptyMeeting(), ...data });
     exportNameEdited.current = false;
     bumpDoc();
+    setDocPath(fullPath || '');
     if (fullPath) rememberPath(fullPath);
     setStatus(t('status.opened', { path: name }));
     notify(t('toast.opened'));
@@ -481,24 +555,51 @@ export default function App() {
     }
   }
 
+  const docJson = () => JSON.stringify(meeting, null, 2);
+
+  // Save (Ctrl+S): write straight back to the file the document came from. A
+  // document that has no file yet falls through to Save As.
   async function saveMeeting() {
+    setFileOpen(false);
+    if (!(isElectron && docPath)) return saveMeetingAs();
+    try {
+      const saved = await writeTextTo(docPath, docJson());
+      rememberPath(docPath);
+      setStatus(t('status.saved', { path: saved || docPath }));
+      notify(t('toast.saved'), { message: String(saved || docPath), type: 'success' });
+      return saved;
+    } catch (err) {
+      // The file or its folder is gone (moved, deleted, unplugged drive) —
+      // ask for a new location rather than leaving the user with an error.
+      setStatus(t('status.saveErr', { msg: err?.message || String(err) }));
+      return saveMeetingAs();
+    }
+  }
+
+  // Save As (Ctrl+Shift+S): always ask for a location, then adopt it as the
+  // document's file so later saves go there.
+  async function saveMeetingAs() {
+    setFileOpen(false);
     try {
       const base = (exportName || baseName || 'meeting').trim() || 'meeting';
       const saved = await saveText({
         defaultName: `${base}.mtg`,
-        content: JSON.stringify(meeting, null, 2),
+        content: docJson(),
         filters: FILE_FILTERS,
-        defaultDir: recent.dir,
+        defaultDir: dirnameOf(docPath) || recent.dir,
       });
       if (saved) {
+        if (isElectron) setDocPath(String(saved));
         rememberPath(String(saved));
         setStatus(t('status.saved', { path: saved }));
         notify(t('toast.saved'), { message: String(saved), type: 'success' });
       } else {
         setStatus(t('status.saveCancel'));
       }
+      return saved;
     } catch (err) {
-      showError(t('status.exportErr', { msg: err?.message || String(err) }), err?.stack);
+      showError(t('status.saveErr', { msg: err?.message || String(err) }), err?.stack);
+      return null;
     }
   }
 
@@ -561,6 +662,114 @@ export default function App() {
     }
   }
 
+  // ── Print ───────────────────────────────────────────────
+  // The heading the caret currently sits under, in the editor's own wording.
+  // Used to work out which printed page the user is looking at.
+  function currentBodyHeading() {
+    if (editMode === 'markdown') {
+      const ta = mdSourceRef.current;
+      if (!ta) return '';
+      const upto = String(meeting.body || '').slice(0, ta.selectionStart || 0);
+      const hits = upto.match(/^#{1,6}[ \t]+.*$/gm);
+      return hits && hits.length ? hits[hits.length - 1].replace(/^#{1,6}[ \t]+/, '') : '';
+    }
+    const el = richApi.current?.el?.();
+    if (!el) return '';
+    const heads = [...el.querySelectorAll('h1,h2,h3,h4,h5,h6')];
+    if (!heads.length) return '';
+    const sel = window.getSelection();
+    const node = sel && sel.rangeCount ? sel.getRangeAt(0).startContainer : null;
+    let text = '';
+    if (node && el.contains(node)) {
+      // Last heading that precedes (or contains) the caret.
+      for (const h of heads) {
+        if (h.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING) text = h.textContent;
+        else break;
+      }
+    } else {
+      // No caret in the editor — use the heading nearest the top of the view.
+      const top = el.getBoundingClientRect().top + 8;
+      for (const h of heads) {
+        if (h.getBoundingClientRect().top <= top) text = h.textContent;
+        else break;
+      }
+    }
+    return text;
+  }
+
+  // Resolve the caret's page from a pagination map ({ 'h-3': 2, … }). Body
+  // headings are matched against the assembled outline; with no heading above
+  // the caret the "Discussion" section heading stands in, since that is where
+  // the editor's content starts.
+  function resolveCurrentPage(map) {
+    if (!map) return 0;
+    const pageOf = (text) => {
+      const wanted = stripNum(text);
+      if (!wanted) return 0;
+      const item = outline.find((h) => stripNum(h.text) === wanted);
+      return item ? Number(map[`h-${item.index}`]) || 0 : 0;
+    };
+    return pageOf(currentBodyHeading()) || pageOf(docLabels.notes) || 0;
+  }
+
+  // Keep the keyboard shortcuts pointed at the live handlers.
+  printRef.current = openPrint;
+  saveRef.current = saveMeeting;
+  saveAsRef.current = saveMeetingAs;
+
+  // Open the print dialog: build the printable document (the PDF layout) and
+  // paginate it once, so the dialog can show a real page count and range.
+  async function openPrint() {
+    setFileOpen(false);
+    if (empty || printBusy) return;
+    setPrintBusy(true);
+    setPrintOpen(true);
+    setStatus(t('status.printPreparing'));
+    // The printer list can be fetched while the document is being laid out.
+    printPrinters().then(setPrinters).catch(() => setPrinters([]));
+    try {
+      const name = (exportName || baseName || 'meeting').trim() || 'meeting';
+      const prepared = await preparePrint(fullMarkdown, buildExportOpts(), name);
+      setPrintDoc({ ...prepared, currentPage: resolveCurrentPage(prepared.map) });
+      setStatus(prepared.pages ? t('status.printReady', { count: prepared.pages }) : t('status.ready'));
+    } catch (err) {
+      setPrintOpen(false);
+      setStatus(t('status.printErr', { msg: err?.message || String(err) }));
+      showError(t('status.printErr', { msg: err?.message || String(err) }), err?.stack);
+    } finally {
+      setPrintBusy(false);
+    }
+  }
+
+  // `pages` is an array of 1-based page numbers, or null for the whole document.
+  // `opts` carries the printer and per-job settings chosen in the dialog.
+  async function doPrint(pages, opts) {
+    if (!printDoc || printBusy) return;
+    setPrintBusy(true);
+    setStatus(t('status.printing'));
+    try {
+      const r = await runPrint(printDoc.html, pages, opts || printOptions);
+      if (r && r.ok) {
+        const count = pages ? pages.length : (r.pages || printDoc.pages);
+        setStatus(t('status.printed', { count }));
+        notify(t('toast.printed', { count }));
+        setPrintOpen(false);
+      } else if (r && /cancel/i.test(r.reason || '')) {
+        setStatus(t('status.printCancel'));
+        setPrintOpen(false);
+      } else {
+        const msg = (r && r.reason) || t('status.printUnavailable');
+        setStatus(t('status.printErr', { msg }));
+        showError(t('status.printErr', { msg }));
+      }
+    } catch (err) {
+      setStatus(t('status.printErr', { msg: err?.message || String(err) }));
+      showError(t('status.printErr', { msg: err?.message || String(err) }), err?.stack);
+    } finally {
+      setPrintBusy(false);
+    }
+  }
+
   // ── Navigation / preferences ────────────────────────────
   // Structure items come from the whole document; navigate the editor to the
   // matching notes heading when there is one (section wrappers like "Agenda"
@@ -583,6 +792,34 @@ export default function App() {
       sel.addRange(range);
       el.focus();
     } catch { /* ignore */ }
+  }
+
+  // Selecting a Structure row: headings jump to the editor, everything else
+  // came from the details panel — switch to it, focus the field and, for a
+  // one-entry-per-line list, select the exact line.
+  function selectStructure(node) {
+    if (!node) return;
+    if (!node.kind || node.kind === 'heading') { scrollToHeading(node); return; }
+    setLeftTab('details');
+    // The details form only mounts once the tab switch has been committed, so
+    // wait for the field to exist rather than racing the first frame.
+    const focusField = (tries = 0) => {
+      const el = document.getElementById(`f-${node.field}`);
+      if (!el) {
+        if (tries < 20) setTimeout(() => focusField(tries + 1), 16);
+        return;
+      }
+      el.focus();
+      if (node.lineIndex != null && typeof el.value === 'string') {
+        const rows = el.value.split('\n');
+        let start = 0;
+        for (let i = 0; i < node.lineIndex && i < rows.length; i++) start += rows[i].length + 1;
+        const len = rows[node.lineIndex] ? rows[node.lineIndex].length : 0;
+        try { el.setSelectionRange(start, start + len); } catch { /* ignore */ }
+      }
+      el.scrollIntoView({ block: 'nearest' });
+    };
+    setTimeout(() => focusField(), 0);
   }
 
   function toggleLang() { changeLang(lang === 'ko' ? 'en' : 'ko'); }
@@ -669,6 +906,7 @@ export default function App() {
       { icon: IconImage, label: t('ctx.insertMedia'), onClick: pickMedia },
       { separator: true },
       { icon: IconSave, label: t('ctx.save'), onClick: saveMeeting },
+      { icon: IconSaveAs, label: t('ctx.saveAs'), onClick: saveMeetingAs },
       { icon: IconPdf, label: t('ctx.exportPdf'), disabled: empty, onClick: () => doExport('pdf') },
       { icon: IconWord, label: t('ctx.exportWord'), disabled: empty, onClick: () => doExport('word') },
     ]);
@@ -690,10 +928,11 @@ export default function App() {
     ]);
   }
 
-  function outlineMenu(e, h) {
+  function outlineMenu(e, node) {
+    const isHeading = !node.kind || node.kind === 'heading';
     openCtx(e, [
-      { icon: IconTarget, label: t('ctx.goto'), onClick: () => scrollToHeading(h) },
-      { icon: IconCopy, label: t('ctx.copyHeading'), onClick: () => copyText(h.text) },
+      { icon: IconTarget, label: t(isHeading ? 'ctx.goto' : 'ctx.gotoField'), onClick: () => selectStructure(node) },
+      { icon: IconCopy, label: t(isHeading ? 'ctx.copyHeading' : 'ctx.copyEntry'), onClick: () => copyText(node.text) },
     ]);
   }
 
@@ -841,15 +1080,17 @@ export default function App() {
 
   // A labeled text field for the details panel. Rendered via a plain function
   // (not a nested component) so inputs keep focus across re-renders.
-  const field = (id, { area = false, rows = 3 } = {}) => (
+  // `model` is the meeting key this field edits — it differs from the label /
+  // element id only for Action Items, whose model key is `actionItems`.
+  const field = (id, { area = false, rows = 3, model = id } = {}) => (
     <div className={`mfield${area ? ' area' : ''}`} key={id}>
-      <label htmlFor={`f-${id}`}>{t(`fields.${id}`)}</label>
+      <label htmlFor={`f-${model}`}>{t(`fields.${id}`)}</label>
       {area ? (
-        <textarea id={`f-${id}`} rows={rows} value={meeting[id] || ''}
-          placeholder={t(`fields.${id}Ph`)} onChange={(e) => update(id, e.target.value)} spellCheck={false} />
+        <textarea id={`f-${model}`} rows={rows} value={meeting[model] || ''}
+          placeholder={t(`fields.${id}Ph`)} onChange={(e) => update(model, e.target.value)} spellCheck={false} />
       ) : (
-        <input id={`f-${id}`} type="text" value={meeting[id] || ''}
-          placeholder={t(`fields.${id}Ph`)} onChange={(e) => update(id, e.target.value)} />
+        <input id={`f-${model}`} type="text" value={meeting[model] || ''}
+          placeholder={t(`fields.${id}Ph`)} onChange={(e) => update(model, e.target.value)} />
       )}
     </div>
   );
@@ -862,7 +1103,7 @@ export default function App() {
     <div className="mfield" key="date">
       <label htmlFor="f-date">{t('fields.date')}</label>
       <div className="date-control">
-        <input id="f-date" type="text" value={meeting.date || ''}
+        <input id="f-date" type="text" value={meeting.date || ''} title={t('fields.dateHint')}
           placeholder={t('fields.datePh')} onChange={(e) => update('date', e.target.value)} />
         <button type="button" className="date-btn" title={t('fields.pickDate')}
           onClick={() => {
@@ -898,6 +1139,7 @@ export default function App() {
       <div className="mfield" key={id}>
         <label htmlFor={`f-${id}`}>{t(`fields.${id}`)}</label>
         <TimeCombo id={`f-${id}`} value={val} placeholder={t(`fields.${id}Ph`)}
+          hint={t('fields.timeHint')}
           invalid={invalid} options={TIME_OPTIONS} onChange={(v) => update(id, v)} />
         {invalid && (
           <span className="field-error">{t(orderError ? 'fields.timeOrder' : 'fields.timeInvalid')}</span>
@@ -931,8 +1173,14 @@ export default function App() {
                 <button className="dropdown-item" onClick={openMeeting}>
                   <IconFolder size={16} /> {t('open.browse')}
                 </button>
-                <button className="dropdown-item" disabled={empty} onClick={() => { setFileOpen(false); saveMeeting(); }}>
+                <button className="dropdown-item" disabled={empty} onClick={saveMeeting}>
                   <IconSave size={16} /> {t('toolbar.save')}
+                </button>
+                <button className="dropdown-item" disabled={empty} onClick={saveMeetingAs}>
+                  <IconSaveAs size={16} /> {t('toolbar.saveAs')}
+                </button>
+                <button className="dropdown-item" disabled={empty} onClick={openPrint}>
+                  <IconPrinter size={16} /> {t('toolbar.print')}
                 </button>
                 {isElectron && recent.files.length > 0 && (
                   <>
@@ -1003,6 +1251,9 @@ export default function App() {
               </div>
             )}
           </div>
+          <button className="btn" title={t('tip.print')} onClick={openPrint} disabled={empty}>
+            <IconPrinter /> {t('toolbar.printBtn')}
+          </button>
           <button className="btn" title={t('tip.media')} onClick={pickMedia}>
             <IconImage /> {t('toolbar.media')}
           </button>
@@ -1090,10 +1341,10 @@ export default function App() {
                 {field('attendees', { area: true, rows: 3 })}
                 {field('agenda', { area: true, rows: 3 })}
                 {field('decisions', { area: true, rows: 3 })}
-                {field('actions', { area: true, rows: 3 })}
+                {field('actions', { area: true, rows: 3, model: 'actionItems' })}
               </div>
             ) : (
-              <OutlineTree outline={outline} onSelect={scrollToHeading} onItemContextMenu={outlineMenu} />
+              <OutlineTree outline={structure} onSelect={selectStructure} onItemContextMenu={outlineMenu} />
             )}
           </div>
         </aside>
@@ -1104,7 +1355,7 @@ export default function App() {
           aria-orientation="vertical"
           title={t('tip.resizePanel')}
           onMouseDown={startSidebarResize}
-          onDoubleClick={() => setSidebarWidth(340)}
+          onDoubleClick={() => setSidebarWidth(SIDEBAR_DEFAULT)}
         />
 
         <section className="main">
@@ -1167,6 +1418,11 @@ export default function App() {
           <span className="stat" title={t('stat.chars')}>{t('stat.cAbbr')} {stats.chars}</span>
           <span className="stat" title={t('settings.font')}>{exportSettings.fontFamily || t('settings.fontDefault')} · {exportSettings.fontSizePt}pt</span>
           <span className="stat" title={t('settings.theme')}>{t(`theme.${theme}`)}</span>
+          {isElectron && (
+            <span className="stat" title={docPath || t('status.unsavedFileHint')}>
+              {docPath ? basenameOf(docPath) : t('status.unsavedFile')}
+            </span>
+          )}
         </div>
       </footer>
 
@@ -1174,6 +1430,17 @@ export default function App() {
       <Toasts toasts={toasts} onDismiss={dismissToast} />
       <ExportProgressDialog open={!!exporting} label={exporting || ''} />
       <ExportResultDialog result={exportResult} onClose={() => setExportResult(null)} />
+      <PrintDialog
+        open={printOpen}
+        busy={printBusy}
+        pages={printDoc?.pages || 0}
+        currentPage={printDoc?.currentPage || 0}
+        printers={printers}
+        options={printOptions}
+        onOptions={setPrintOptions}
+        onPrint={doPrint}
+        onClose={() => { if (!printBusy) { setPrintOpen(false); setPrintDoc(null); } }}
+      />
       <ErrorDialog error={errorInfo} onClose={() => setErrorInfo(null)} />
       <Tooltip />
     </div>

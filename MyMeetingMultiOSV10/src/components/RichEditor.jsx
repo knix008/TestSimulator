@@ -51,6 +51,13 @@ export default function RichEditor({ markdown, docKey, placeholder, onChange, ap
   const [box, setBox] = useState(null); // overlay rect in wrapper coordinates
   const mdRef = useRef(markdown);
   mdRef.current = markdown;
+  // Whether the surface has been edited since the model was last written.
+  // Serializing an untouched document would round-trip it through
+  // htmlToMarkdown() for nothing and quietly rewrite Markdown the renderer
+  // understands but the serializer spells differently (setext headings,
+  // reference links, _emphasis_ …). Switching to the Markdown view and back
+  // must leave an untouched document byte-for-byte identical.
+  const dirtyRef = useRef(false);
 
   // (Re)load the document when its identity changes (new / open / template).
   useEffect(() => {
@@ -58,15 +65,22 @@ export default function RichEditor({ markdown, docKey, placeholder, onChange, ap
     if (!el) return;
     const html = renderMarkdown(mdRef.current);
     if (el.innerHTML !== html) el.innerHTML = html;
+    dirtyRef.current = false;
     selRef.current = null; setBox(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [docKey]);
 
+  // Write the surface back into the Markdown model. A no-op unless something
+  // actually changed, so blur / tab switches never rewrite the source.
   const serialize = () => {
     const el = ref.current;
-    if (!el) return;
+    if (!el || !dirtyRef.current) return;
+    dirtyRef.current = false;
     onChange(htmlToMarkdown(el));
   };
+
+  // Mark the surface edited, then write it back.
+  const touch = () => { dirtyRef.current = true; serialize(); };
 
   // Reposition the selection overlay over the currently selected media element.
   const updateBox = () => {
@@ -85,7 +99,7 @@ export default function RichEditor({ markdown, docKey, placeholder, onChange, ap
     if (!el || !info) return;
     el.focus();
     try { document.execCommand('insertHTML', false, mediaMarkup(info)); } catch { /* ignore */ }
-    serialize();
+    touch();
   };
 
   // Paste rich HTML from an external source (browser, Word, another editor):
@@ -96,7 +110,7 @@ export default function RichEditor({ markdown, docKey, placeholder, onChange, ap
     if (!el || !html) return;
     el.focus();
     try { document.execCommand('insertHTML', false, sanitizePasteHtml(html)); } catch { /* ignore */ }
-    serialize();
+    touch();
     embedForeignImages();
   };
 
@@ -106,7 +120,7 @@ export default function RichEditor({ markdown, docKey, placeholder, onChange, ap
     el.focus();
     const html = attrEsc(text).replace(/\r?\n/g, '<br>');
     try { document.execCommand('insertHTML', false, html); } catch { /* ignore */ }
-    serialize();
+    touch();
   };
 
   // Best-effort: turn remote/blob <img> sources introduced by a paste into
@@ -127,7 +141,7 @@ export default function RichEditor({ markdown, docKey, placeholder, onChange, ap
         changed = true;
       } catch { /* keep original src on failure */ }
     }
-    if (changed) serialize();
+    if (changed) touch();
   };
 
   // Expose an imperative API for the formatting toolbar / context menu.
@@ -140,13 +154,13 @@ export default function RichEditor({ markdown, docKey, placeholder, onChange, ap
         const el = ref.current; if (!el) return;
         el.focus();
         try { document.execCommand(command, false, value); } catch { /* ignore */ }
-        serialize();
+        touch();
       },
       insertHTML: (html) => {
         const el = ref.current; if (!el) return;
         el.focus();
         try { document.execCommand('insertHTML', false, html); } catch { /* ignore */ }
-        serialize();
+        touch();
       },
       insertMedia,
       pasteRichHtml,
@@ -183,7 +197,7 @@ export default function RichEditor({ markdown, docKey, placeholder, onChange, ap
     else clearSelection();
   };
 
-  const onInput = () => { serialize(); updateBox(); };
+  const onInput = () => { touch(); updateBox(); };
 
   // Drag the bottom-right handle to resize the selected image/video (keeps aspect
   // ratio: only the width is set, height stays auto). Serializes on release.
@@ -203,7 +217,7 @@ export default function RichEditor({ markdown, docKey, placeholder, onChange, ap
     const onUp = () => {
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
-      serialize();
+      touch();
       updateBox();
     };
     window.addEventListener('mousemove', onMove);
@@ -331,6 +345,31 @@ function htmlToMarkdown(root) {
   return blocks.join('\n\n').replace(/\n{3,}/g, '\n\n').trim();
 }
 
+// Tags that carry their own Markdown block syntax. A container holding any of
+// these must be walked as blocks — serializing it inline would melt headings,
+// lists and tables down into one run of plain text.
+const BLOCK_TAG = /^(address|article|aside|blockquote|details|div|dl|figure|footer|form|h[1-6]|header|hr|main|nav|ol|p|pre|section|table|ul)$/;
+
+function hasBlockChild(node) {
+  for (const c of node.childNodes) {
+    if (c.nodeType === 1 && BLOCK_TAG.test(c.tagName.toLowerCase())) return true;
+  }
+  return false;
+}
+
+// A container (<div>, <p>, <span>-ish wrapper) is a block *group* when it holds
+// block children — walk into it; otherwise it is a single paragraph of inline
+// content. contentEditable and pasted HTML produce both shapes freely.
+function serializeContainer(node, depth) {
+  if (!hasBlockChild(node)) return paragraph(node);
+  const out = [];
+  node.childNodes.forEach((c) => {
+    const b = serializeBlock(c, depth);
+    if (b != null && b.trim() !== '') out.push(b);
+  });
+  return out.join('\n\n');
+}
+
 function serializeBlock(node, depth) {
   if (node.nodeType === 3) {
     const t = node.textContent.replace(/\s+/g, ' ');
@@ -340,9 +379,11 @@ function serializeBlock(node, depth) {
   const tag = node.tagName.toLowerCase();
   switch (tag) {
     case 'h1': case 'h2': case 'h3': case 'h4': case 'h5': case 'h6':
-      return '#'.repeat(Number(tag[1])) + ' ' + inline(node);
-    case 'p': case 'div': case 'section':
-      return inline(node);
+      // A heading is a single line: hard breaks inside it become spaces.
+      return '#'.repeat(Number(tag[1])) + ' ' + inline(node).replace(/\n/g, ' ');
+    case 'p': case 'div': case 'section': case 'article': case 'main':
+    case 'header': case 'footer': case 'aside': case 'figure':
+      return serializeContainer(node, depth);
     case 'blockquote':
       return blockChildren(node).join('\n\n').split('\n').map((l) => '> ' + l).join('\n');
     case 'pre':
@@ -354,7 +395,7 @@ function serializeBlock(node, depth) {
     case 'img': return imgToMarkup(node);
     case 'video': case 'audio': return avToMarkup(node);
     case 'br': return '';
-    default: return inline(node);
+    default: return serializeContainer(node, depth);
   }
 }
 
@@ -380,13 +421,19 @@ function serializeList(listNode, ordered, depth) {
         check = c.checked || c.getAttribute('checked') != null ? '[x] ' : '[ ] ';
       } else if (c.nodeType === 1 && /^(ul|ol)$/i.test(c.tagName)) {
         nested.push(c);
+      } else if (c.nodeType === 1 && c.tagName.toLowerCase() === 'p') {
+        // Loose list: each <p> in the item is its own line.
+        text += (text ? '\n' : '') + inline(c);
       } else {
         text += inlineNode(c);
       }
     });
     const indent = '  '.repeat(depth);
     const marker = ordered ? `${n}. ` : '- ';
-    items.push(indent + marker + (check + text).trim());
+    // Continuation lines must be indented past the marker to stay in the item.
+    const body = (check + text).replace(/[^\S\n]+/g, ' ').replace(/ *\n */g, '\n').trim()
+      .replace(/\n/g, `  \n${indent}${' '.repeat(marker.length)}`);
+    items.push(indent + marker + body);
     nested.forEach((nl) => items.push(serializeList(nl, nl.tagName.toLowerCase() === 'ol', depth + 1)));
     n += 1;
   });
@@ -396,7 +443,9 @@ function serializeList(listNode, ordered, depth) {
 function serializeTable(node) {
   const rows = Array.from(node.querySelectorAll('tr'));
   if (!rows.length) return '';
-  const cellsOf = (tr) => Array.from(tr.querySelectorAll('th,td')).map((c) => inline(c).replace(/\|/g, '\\|') || ' ');
+  // A cell must stay on one line: escape pipes and keep hard breaks as <br>.
+  const cellsOf = (tr) => Array.from(tr.querySelectorAll('th,td'))
+    .map((c) => inline(c).replace(/\|/g, '\\|').replace(/\n/g, '<br>') || ' ');
   const header = cellsOf(rows[0]);
   const cols = header.length || 1;
   const lines = [`| ${header.join(' | ')} |`, `| ${Array(cols).fill('---').join(' | ')} |`];
@@ -408,14 +457,23 @@ function serializeTable(node) {
   return lines.join('\n');
 }
 
+// Inline content of a node. Newlines here mean a real <br> (text-node newlines
+// are source formatting and were already collapsed in inlineNode), so only
+// spaces/tabs are squeezed — the hard breaks the user typed survive.
 function inline(node) {
   let s = '';
   node.childNodes.forEach((c) => { s += inlineNode(c); });
-  return s.replace(/\s+/g, ' ').trim();
+  return s.replace(/[^\S\n]+/g, ' ').replace(/ *\n */g, '\n').trim();
+}
+
+// A paragraph of inline content: <br> becomes a Markdown hard break so
+// Shift+Enter line breaks survive the round-trip.
+function paragraph(node) {
+  return inline(node).replace(/\n/g, '  \n');
 }
 
 function inlineNode(node) {
-  if (node.nodeType === 3) return esc(node.textContent);
+  if (node.nodeType === 3) return esc(node.textContent).replace(/\s+/g, ' ');
   if (node.nodeType !== 1) return '';
   const tag = node.tagName.toLowerCase();
   const inner = () => { let s = ''; node.childNodes.forEach((c) => { s += inlineNode(c); }); return s; };

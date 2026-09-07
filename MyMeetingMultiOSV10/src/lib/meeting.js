@@ -213,6 +213,70 @@ export function meetingToMarkdown(m, labels = {}, options = {}) {
   return (number ? numberSections(doc) : doc) + '\n';
 }
 
+// ── Structure view ────────────────────────────────────────
+// The Structure tab shows the WHOLE document, not just the notes headings: the
+// meeting-info fields and the one-per-line lists typed in the details panel are
+// part of the exported document too, so they belong in the tree.
+//
+// `outline` is getOutline(meetingToMarkdown(...)) — heading nodes keep their
+// `index`, so selecting one still resolves to the right place in the editor.
+// Everything else is a leaf that points back at the field that produced it.
+export function buildStructure(m, labels = {}, outline = []) {
+  const L = {
+    info: 'Meeting info', date: 'Date', time: 'Time', location: 'Location',
+    organizer: 'Organizer', recorder: 'Recorder', attendees: 'Attendees',
+    agenda: 'Agenda', decisions: 'Decisions', actions: 'Action Items', ...labels,
+  };
+  const strip = (v) => String(v || '').replace(/^\s*\d+(?:\.\d+)*\s+/, '').trim();
+  const out = [];
+
+  // One leaf per line of a "one entry per line" field.
+  const listLeaves = (field, level) => lines(m[field]).map((text, i) => ({
+    key: `${field}-${i}`, level, text, kind: 'item', field, lineIndex: i,
+  }));
+
+  outline.forEach((h) => {
+    out.push({ key: `h-${h.index}`, level: h.level, text: h.text, kind: 'heading', index: h.index, line: h.line });
+    const label = strip(h.text);
+
+    // The info table has no heading of its own in the document, so hang the
+    // fields off the title.
+    if (h.level === 1) {
+      const rows = [];
+      const add = (name, value, field) => {
+        const v = String(value || '').trim();
+        if (v) rows.push({ key: `f-${field}`, level: h.level + 2, text: `${name} — ${v}`, kind: 'field', field });
+      };
+      add(L.date, m.date, 'date');
+      const range = timeRange(m);
+      if (range) rows.push({ key: 'f-time', level: h.level + 2, text: `${L.time} — ${range}`, kind: 'field', field: 'startTime' });
+      add(L.location, m.location, 'location');
+      add(L.organizer, m.organizer, 'organizer');
+      add(L.recorder, m.recorder, 'recorder');
+      const attendees = lines(m.attendees);
+      if (rows.length || attendees.length) {
+        out.push({ key: 'info', level: h.level + 1, text: L.info, kind: 'group', field: 'date' });
+        rows.forEach((r) => out.push(r));
+        if (attendees.length) {
+          out.push({
+            key: 'attendees', level: h.level + 2, kind: 'group', field: 'attendees',
+            text: `${L.attendees} (${attendees.length})`,
+          });
+          attendees.forEach((text, i) => out.push({
+            key: `attendees-${i}`, level: h.level + 3, text, kind: 'item', field: 'attendees', lineIndex: i,
+          }));
+        }
+      }
+    }
+
+    if (label === strip(L.agenda)) listLeaves('agenda', h.level + 1).forEach((n) => out.push(n));
+    else if (label === strip(L.decisions)) listLeaves('decisions', h.level + 1).forEach((n) => out.push(n));
+    else if (label === strip(L.actions)) listLeaves('actionItems', h.level + 1).forEach((n) => out.push(n));
+  });
+
+  return out;
+}
+
 // ── Plain-text (.txt) rendering ───────────────────────────
 export function meetingToPlainText(m, labels = {}, options = {}) {
   const { number = true } = options;

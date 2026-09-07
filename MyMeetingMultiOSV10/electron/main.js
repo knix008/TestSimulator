@@ -349,6 +349,18 @@ ipcMain.handle('dialog:saveText', async (_e, { defaultName, content, filters, de
   return filePath;
 });
 
+// Write text straight to a known path — Save (Ctrl+S) on a document that
+// already has a file, with no dialog. Returns the path, or an { error } object.
+ipcMain.handle('fs:writeText', async (_e, { filePath, content } = {}) => {
+  if (!filePath || typeof content !== 'string') return { error: 'bad-request' };
+  try {
+    fs.writeFileSync(filePath, content, 'utf-8');
+    return { path: filePath };
+  } catch (err) {
+    return { error: String((err && err.message) || err) };
+  }
+});
+
 // Save a binary file (base64) — used for Word (.docx) export.
 ipcMain.handle('dialog:saveBinary', async (_e, { defaultName, base64, filters, defaultDir }) => {
   const { canceled, filePath } = await dialog.showSaveDialog({
@@ -447,6 +459,121 @@ ipcMain.handle('export:paginate', async (_e, html) => {
   finally {
     win.destroy();
     try { fs.unlinkSync(tmp); } catch { /* ignore */ }
+  }
+});
+
+// ── Printing ──────────────────────────────────────────────
+// Load a standalone HTML document into the offscreen render window, paginate it
+// with paged.js, run `tailJs` in the page and hand the *still open* window plus
+// the tail's return value to `fn`. Window and temp file are always cleaned up.
+async function withPagedWindow(html, tailJs, fn) {
+  const polyfill = getPagedPolyfill();
+  if (!polyfill || typeof html !== 'string') return null;
+  const tmp = path.join(os.tmpdir(), `mtg-print-${Date.now()}-${Math.random().toString(16).slice(2)}.html`);
+  fs.writeFileSync(tmp, injectPagedConfig(html), 'utf-8');
+  const win = createRenderWindow();
+  try {
+    await win.loadFile(tmp);
+    const info = await win.webContents.executeJavaScript(pagedDriver(polyfill, tailJs));
+    return await fn(win, info);
+  } finally {
+    if (!win.isDestroyed()) win.destroy();
+    try { fs.unlinkSync(tmp); } catch { /* ignore */ }
+  }
+}
+
+// How many pages the document has, and which page each heading lands on. The
+// Print dialog uses this to show the total and to resolve "current page".
+ipcMain.handle('print:info', async (_e, html) => {
+  const tail = `var map={};`
+    + `document.querySelectorAll('[id^="h-"]').forEach(function(el){`
+    + `var pg=el.closest('.pagedjs_page');`
+    + `var n=pg&&pg.getAttribute('data-page-number');`
+    + `if(n!=null)map[el.id]=parseInt(n,10);});`
+    + `return {pages:document.querySelectorAll('.pagedjs_page').length,map:map};`;
+  try {
+    return (await withPagedWindow(html, tail, (_w, info) => info)) || { pages: 0, map: {} };
+  } catch { return { pages: 0, map: {} }; }
+});
+
+// The printers this machine can reach, for the Print dialog's picker.
+ipcMain.handle('print:printers', async (e) => {
+  try {
+    const list = await e.sender.getPrintersAsync();
+    return (list || []).map((p) => ({
+      name: p.name,
+      displayName: p.displayName || p.name,
+      isDefault: !!p.isDefault,
+      status: p.status,
+    }));
+  } catch { return []; }
+});
+
+// Print a standalone HTML document.
+// The page selection is applied by deleting the pages paged.js laid out that
+// are not wanted — exact on every platform, and the surviving pages keep the
+// page numbers already rendered into their margin boxes.
+// `pages` is an array of 1-based page numbers; null/empty prints everything.
+ipcMain.handle('print:document', async (_e, { html, pages, options } = {}) => {
+  const keep = Array.isArray(pages) && pages.length ? pages.filter((n) => Number.isInteger(n) && n > 0) : null;
+  // paged.js renders the page number as `content: … counter(page)` in a margin
+  // box, so it would restart at 1 once pages are removed. Freeze every margin
+  // box that uses the counter to its literal number FIRST (keeping any
+  // header/footer text around it), then drop the unwanted pages.
+  const tail = `var keep=${keep ? JSON.stringify(keep) : 'null'};`
+    + `var all=Array.prototype.slice.call(document.querySelectorAll('.pagedjs_page'));`
+    + `if(keep){`
+    + `var rules=[];`
+    + `all.forEach(function(p){`
+    + `var n=p.getAttribute('data-page-number');if(n==null)return;`
+    + `p.querySelectorAll('.pagedjs_margin-content').forEach(function(m){`
+    + `var c=(getComputedStyle(m,':after').content)||'';`
+    + `if(c.indexOf('counter(page)')<0)return;`
+    + `m.setAttribute('data-mtg-pgno',n);`
+    + `rules.push('.pagedjs_margin-content[data-mtg-pgno="'+n+'"]:after{content:'`
+    + `+c.split('counter(page)').join('"'+n+'"')+' !important}');});});`
+    + `if(rules.length){var st=document.createElement('style');`
+    + `st.textContent=rules.join('');document.head.appendChild(st);}`
+    + `all.forEach(function(p){`
+    + `var n=parseInt(p.getAttribute('data-page-number'),10);`
+    + `if(keep.indexOf(n)<0)p.parentNode.removeChild(p);});}`
+    + `return {pages:all.length,printed:document.querySelectorAll('.pagedjs_page').length};`;
+
+  const o = options || {};
+  const int = (v, min, max, dflt) => {
+    const n = Math.round(Number(v));
+    return Number.isFinite(n) && n >= min && n <= max ? n : dflt;
+  };
+  const printOptions = {
+    // silent skips the system dialog and prints straight to the chosen printer.
+    silent: !!o.silent,
+    printBackground: true,
+    pageSize: 'A4',
+    // paged.js already drew the page margins into the layout.
+    margins: { marginType: 'none' },
+    copies: int(o.copies, 1, 99, 1),
+    collate: o.collate !== false,
+    color: o.color !== false,
+    landscape: !!o.landscape,
+    scaleFactor: int(o.scaleFactor, 10, 200, 100),
+    pagesPerSheet: [1, 2, 4, 6, 9, 16].includes(Number(o.pagesPerSheet)) ? Number(o.pagesPerSheet) : 1,
+  };
+  if (o.deviceName) printOptions.deviceName = o.deviceName;
+  if (['simplex', 'shortEdge', 'longEdge'].includes(o.duplexMode)) printOptions.duplexMode = o.duplexMode;
+
+  const run = (win, info) => new Promise((resolve) => {
+    if (!info || !info.printed) { resolve({ ok: false, reason: 'empty', ...(info || {}) }); return; }
+    win.webContents.print(
+      printOptions,
+      (ok, reason) => resolve({ ok, reason: ok ? '' : (reason || ''), ...info }),
+    );
+  });
+
+  try {
+    const r = await withPagedWindow(html, tail, run);
+    return r || { ok: false, reason: 'unavailable', pages: 0, printed: 0 };
+  } catch (err) {
+    return { ok: false, reason: String((err && err.message) || err), pages: 0, printed: 0 };
   }
 });
 
