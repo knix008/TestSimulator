@@ -1,0 +1,14 @@
+{
+  "name": "mypdfviewer",
+  "productName": "MyPDFViewer",
+  "version": "1.0.0",
+  "author": {
+    "name": "SHKWON",
+    "email": "knix008@naver.com"
+  },
+  "license": "MIT",
+  "buildTime": "2026-09-07T05:54:07.159Z",
+  "gitCommit": "5de313c6",
+  "gitBranch": "main",
+  "node": "v24.15.0"
+}

@@ -1,0 +1,34 @@
+# ── Dependencies ────────────────────────────────────────
+node_modules/
+
+# ── Build output (all reproducible: npm install && npm run build:win) ──
+# web bundle — npm run build
+dist/
+# electron-builder output
+release/
+# generated from assets/*.svg — npm run generate:icons
+build/icons/
+# copied from pdfjs-dist — npm run copy:pdfjs
+public/pdfjs/
+# synced copies of the source SVGs
+public/icon.svg
+public/file-icon.svg
+
+# ── Installers copied to the project root ───────────────
+*.exe
+*.dmg
+*.AppImage
+*.deb
+*.rpm
+*.snap
+*.blockmap
+
+# ── Local / editor / OS noise ───────────────────────────
+*.log
+npm-debug.log*
+.vite/
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json

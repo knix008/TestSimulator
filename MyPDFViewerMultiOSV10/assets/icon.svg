@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- MyPDFViewer application icon.
+     A 3D rounded tile (glossy, top-left specular highlight) floating on a fully
+     transparent background — no opaque border, so it composites cleanly on any
+     desktop. On top: a PDF sheet being inspected by a magnifier, with a text
+     line and an image tile being lifted off it (read PDFs → copy text/images). -->
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Main 3D body gradient: lit from the top-left, dark at the bottom-right -->
+    <linearGradient id="body" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0"    stop-color="#ff8f7a"/>
+      <stop offset="0.42" stop-color="#e0403a"/>
+      <stop offset="1"    stop-color="#6b0f14"/>
+    </linearGradient>
+
+    <!-- Bevelled edge: bright lip on top, shadowed lip at the bottom -->
+    <linearGradient id="bevel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0"    stop-color="#ffffff" stop-opacity="0.92"/>
+      <stop offset="0.12" stop-color="#ffffff" stop-opacity="0.15"/>
+      <stop offset="1"    stop-color="#000000" stop-opacity="0.38"/>
+    </linearGradient>
+
+    <!-- Top-left specular reflection (the "light source") -->
+    <radialGradient id="spec" cx="0.28" cy="0.24" r="0.72">
+      <stop offset="0"    stop-color="#ffffff" stop-opacity="0.85"/>
+      <stop offset="0.32" stop-color="#ffffff" stop-opacity="0.26"/>
+      <stop offset="0.74" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Concentrated top-left glow spot -->
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0"    stop-color="#ffffff" stop-opacity="0.95"/>
+      <stop offset="0.45" stop-color="#ffffff" stop-opacity="0.35"/>
+      <stop offset="1"    stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Glossy sweep across the upper half -->
+    <linearGradient id="gloss" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0"    stop-color="#ffffff" stop-opacity="0.55"/>
+      <stop offset="0.48" stop-color="#ffffff" stop-opacity="0.10"/>
+      <stop offset="0.5"  stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+
+    <!-- Paper sheet shading -->
+    <linearGradient id="sheet" x1="0" y1="0" x2="0.3" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#e6dcd8"/>
+    </linearGradient>
+
+    <!-- Magnifier glass: tinted, translucent, lit from the top-left -->
+    <linearGradient id="glass" x1="0" y1="0" x2="0.7" y2="1">
+      <stop offset="0"   stop-color="#ffffff" stop-opacity="0.72"/>
+      <stop offset="0.5" stop-color="#bfe4ff" stop-opacity="0.30"/>
+      <stop offset="1"   stop-color="#2b6f9e" stop-opacity="0.30"/>
+    </linearGradient>
+    <linearGradient id="ring" x1="0" y1="0" x2="0.6" y2="1">
+      <stop offset="0"   stop-color="#ffffff"/>
+      <stop offset="0.45" stop-color="#cfd8e0"/>
+      <stop offset="1"   stop-color="#5b6773"/>
+    </linearGradient>
+    <linearGradient id="handle" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0"   stop-color="#eef2f6"/>
+      <stop offset="0.5" stop-color="#9aa6b2"/>
+      <stop offset="1"   stop-color="#4a545f"/>
+    </linearGradient>
+
+    <!-- The lifted image tile (a small picture being copied out) -->
+    <linearGradient id="pic" x1="0" y1="0" x2="0.4" y2="1">
+      <stop offset="0" stop-color="#8fd3ff"/>
+      <stop offset="1" stop-color="#2f7fb8"/>
+    </linearGradient>
+
+    <filter id="dropshadow" x="-25%" y="-25%" width="150%" height="150%">
+      <feDropShadow dx="0" dy="26" stdDeviation="30" flood-color="#3a0508" flood-opacity="0.45"/>
+    </filter>
+    <filter id="cardshadow" x="-60%" y="-60%" width="220%" height="220%">
+      <feDropShadow dx="0" dy="10" stdDeviation="13" flood-color="#3a0508" flood-opacity="0.42"/>
+    </filter>
+    <filter id="softshadow" x="-60%" y="-60%" width="220%" height="220%">
+      <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#20303c" flood-opacity="0.45"/>
+    </filter>
+  </defs>
+
+  <!-- ── 3D tile body (transparent outside the rounded rectangle) ── -->
+  <g filter="url(#dropshadow)">
+    <rect x="132" y="120" width="760" height="760" rx="180" ry="180" fill="url(#body)"/>
+  </g>
+  <rect x="132" y="120" width="760" height="760" rx="180" ry="180" fill="url(#bevel)" opacity="0.55"/>
+
+  <!-- Foreground artwork, nudged up so the tile reads optically centred. -->
+  <g transform="translate(0 -34)">
+  <!-- ── PDF sheet ── -->
+  <g filter="url(#cardshadow)">
+    <!-- folded corner is cut out of the page outline -->
+    <path d="M300 258 h258 l128 128 v396 a34 34 0 0 1 -34 34 H300 a34 34 0 0 1 -34 -34 V292 a34 34 0 0 1 34 -34 z"
+          fill="url(#sheet)"/>
+    <path d="M558 258 l128 128 h-98 a30 30 0 0 1 -30 -30 z" fill="#c9b9b4"/>
+  </g>
+
+  <!-- "PDF" wordmark on the sheet -->
+  <g fill="#c22f2c" font-family="Segoe UI, Arial, Helvetica, sans-serif" font-weight="700" font-size="112">
+    <text x="318" y="474">PDF</text>
+  </g>
+  <!-- Body text lines -->
+  <g fill="#9aa3ad">
+    <rect x="318" y="524" width="300" height="20" rx="10"/>
+    <rect x="318" y="566" width="240" height="20" rx="10" opacity="0.75"/>
+    <rect x="318" y="608" width="272" height="20" rx="10" opacity="0.55"/>
+  </g>
+
+  <!-- ── Selected text line being copied out (highlighted + duplicate above) ── -->
+  <rect x="308" y="650" width="266" height="34" rx="12" fill="#2f7fb8" opacity="0.28"/>
+  <rect x="318" y="658" width="246" height="18" rx="9" fill="#2f7fb8"/>
+
+  <!-- ── Image tile being lifted off the page ── -->
+  <g filter="url(#softshadow)" transform="translate(556 596) rotate(-9)">
+    <rect width="196" height="150" rx="20" fill="#ffffff"/>
+    <rect x="10" y="10" width="176" height="130" rx="14" fill="url(#pic)"/>
+    <circle cx="60" cy="52" r="19" fill="#ffe9a8"/>
+    <path d="M22 128 l48 -56 l40 42 l30 -28 l46 54 z" fill="#1f5f86" opacity="0.85"/>
+  </g>
+
+  <!-- ── Magnifier (viewing) — sits right of the "PDF" wordmark ── -->
+  <g filter="url(#softshadow)">
+    <rect x="700" y="676" width="140" height="44" rx="22"
+          transform="rotate(45 700 676)" fill="url(#handle)"/>
+    <circle cx="642" cy="486" r="122" fill="url(#glass)"/>
+    <circle cx="642" cy="486" r="122" fill="none" stroke="url(#ring)" stroke-width="28"/>
+    <!-- glass highlight -->
+    <path d="M568 416 a104 104 0 0 1 90 -38 a122 122 0 0 0 -102 70 z" fill="#ffffff" opacity="0.75"/>
+  </g>
+  </g>
+
+  <!-- ── Glossy top sweep + top-left specular highlight ── -->
+  <path d="M 132 300 A 180 180 0 0 1 312 120 L 712 120 A 180 180 0 0 1 892 300 L 892 470 Q 512 560 132 470 Z"
+        fill="url(#gloss)"/>
+  <rect x="132" y="120" width="760" height="760" rx="180" ry="180" fill="url(#spec)"/>
+  <!-- Bright top-left glint -->
+  <ellipse cx="300" cy="278" rx="140" ry="104" fill="url(#glow)" opacity="0.75" transform="rotate(-28 300 278)"/>
+</svg>
