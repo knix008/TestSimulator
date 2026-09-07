@@ -165,8 +165,11 @@ PDF 자체는 넣지 않고 **경로만 가리킵니다.** 형식이 다르거�
 그 사실을 그대로 알려 주는 오류 메시지를 던지고, 그 문장이 오류 팝업에 그대로 표시됩니다.
 
 설치 프로그램이 `.pdfvw` 를 **전용 아이콘**과 함께 시스템에 등록하고,
-`.pdf` 는 기본 프로그램을 바꾸지 않고 *연결 프로그램* 목록에만 추가합니다
-([build/installer.nsh](build/installer.nsh)).
+`.pdf` 는 *연결 프로그램* 목록에 추가합니다. 설치 화면에서 **기본 뷰어로 설정**을 고르면
+`Software\Classes\.pdf` 와 *기본 프로그램*(`RegisteredApplications` + `Capabilities`) 등록까지
+이루어집니다. 실제 기본값이 저장되는 `FileExts\.pdf\UserChoice` 는 해시로 보호되어 설치
+프로그램이 쓸 수 없으므로, 이미 다른 기본값이 있으면 Windows [기본 앱] 설정 창을 열어
+사용자가 확인하도록 합니다 ([build/installer.nsh](build/installer.nsh)).
 
 ---
 

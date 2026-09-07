@@ -2,7 +2,7 @@
 //
 // The canvas gives us PNG, JPEG and WebP for free; GIF and BMP it cannot
 // produce, so both are encoded here — the same approach the project already
-// takes for ICO/ICNS in lib/ico.js.
+// takes for ICO/ICNS in lib/ico.mjs.
 
 export const IMAGE_FORMATS = [
   { id: 'png', ext: 'png', mime: 'image/png', label: 'PNG', lossy: false, alpha: true },

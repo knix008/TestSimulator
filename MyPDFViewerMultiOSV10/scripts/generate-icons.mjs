@@ -12,11 +12,14 @@
 //     build/icons/file.png   (512, Linux/web)
 //
 // sharp rasterizes each SVG at every size, then our own ICO/ICNS encoders
-// (src/lib/ico.js, shared with the app) wrap the PNGs into the containers.
+// (src/lib/ico.mjs) wrap the PNGs into the containers. That file is .mjs rather
+// than .js because Node runs it directly: the package has no "type": "module"
+// (electron/main.js, electron/preload.js and scripts/copy-installer.js are all
+// CommonJS), so a bare .js would be sniffed as CJS first and warn.
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import fs from 'node:fs';
-import { encodeIco, encodeIcns } from '../src/lib/ico.js';
+import { encodeIco, encodeIcns } from '../src/lib/ico.mjs';
 import { syncPublicSvgs } from './sync-public-svgs.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));

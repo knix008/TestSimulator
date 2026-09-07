@@ -1,3 +1,6 @@
+// .mjs rather than .js: the package has no "type": "module" — electron/main.js,
+// electron/preload.js and scripts/copy-installer.js are CommonJS — so a bare
+// .js config would be loaded through Vite's deprecated CJS Node API.
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
