@@ -88,14 +88,16 @@ export default function App() {
   const [leftTab, setLeftTab] = useState('details');
   const [editMode, setEditMode] = useState('wysiwyg'); // 'wysiwyg' | 'markdown'
   const [fonts, setFonts] = useState(null); // system font list for the toolbar picker
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     const v = Number(localStorage.getItem('mtg-sidebar-w'));
     return v >= 240 && v <= 900 ? v : 340;
   });
   const [status, setStatus] = useState(t('status.ready'));
-  const [exportOpen, setExportOpen] = useState(false);
+  const [fileOpen, setFileOpen] = useState(false); // File menu (New/Open/Save/Recent)
   const [sampleOpen, setSampleOpen] = useState(false);
-  const [openOpen, setOpenOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
   const [recent, setRecent] = useState(loadRecent);
   const [theme, setTheme] = useState(() => {
     const s = localStorage.getItem('mtg-theme');
@@ -115,12 +117,19 @@ export default function App() {
   const openInputRef = useRef(null);
   const mediaInputRef = useRef(null);
   const bodyRef = useRef(null);
+  const mdSourceRef = useRef(null);
+  const toolbarRef = useRef(null);
   const richApi = useRef(null);
+  // Body edit history for Undo/Redo (owns the stack so the buttons know exactly
+  // when they are available; native contentEditable undo isn't observable).
+  const histRef = useRef(null);
+  if (histRef.current === null) histRef.current = { stack: [meeting.body || ''], index: 0, applying: false, lastTs: 0 };
+  const skipHistResetRef = useRef(false);
   const [docKey, setDocKey] = useState(0);
   const bumpDoc = () => setDocKey((k) => k + 1);
-  const exportRef = useRef(null);
+  const fileRef = useRef(null);
   const sampleRef = useRef(null);
-  const openRef = useRef(null);
+  const exportRef = useRef(null);
 
   // Localized labels baked into the exported/preview document.
   const docLabels = useMemo(() => ({
@@ -154,6 +163,46 @@ export default function App() {
     return () => { alive = false; };
   }, []);
 
+  // Measure the toolbar's intrinsic width (sum of its groups, ignoring the elastic
+  // spacer) and set it as the window's minimum width, so the toolbar always fits
+  // on one row and no button is ever hidden. Re-measures when labels change
+  // (language) or the font picker appears. Electron only.
+  useEffect(() => {
+    if (!isElectron || !api?.win?.setMinWidth) return undefined;
+    const el = toolbarRef.current;
+    if (!el) return undefined;
+    const measure = () => {
+      const cs = getComputedStyle(el);
+      const gap = parseFloat(cs.columnGap || cs.gap) || 0;
+      const kids = Array.from(el.children);
+      let sum = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
+      kids.forEach((k) => { if (!k.classList.contains('toolbar-spacer')) sum += k.getBoundingClientRect().width; });
+      sum += gap * Math.max(0, kids.length - 1);
+      api.win.setMinWidth(Math.ceil(sum) + 8);
+    };
+    const id = requestAnimationFrame(measure);
+    return () => cancelAnimationFrame(id);
+  }, [lang, fonts]);
+
+  // Ctrl/⌘+Z (undo) and Ctrl+Y / Ctrl+Shift+Z (redo) inside the editors route to
+  // our history so the keyboard and the toolbar buttons share one stack.
+  useEffect(() => {
+    const onKey = (e) => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      const k = e.key.toLowerCase();
+      const isUndo = k === 'z' && !e.shiftKey;
+      const isRedo = k === 'y' || (k === 'z' && e.shiftKey);
+      if (!isUndo && !isRedo) return;
+      const ae = document.activeElement;
+      if (!ae || !ae.classList || !(ae.classList.contains('richeditor') || ae.classList.contains('md-source'))) return;
+      e.preventDefault();
+      if (isRedo) editRedo(); else editUndo();
+    };
+    document.addEventListener('keydown', onKey, true);
+    return () => document.removeEventListener('keydown', onKey, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Persist the sidebar width chosen via the splitter.
   useEffect(() => {
     try { localStorage.setItem('mtg-sidebar-w', String(Math.round(sidebarWidth))); } catch { /* ignore */ }
@@ -185,6 +234,40 @@ export default function App() {
   useEffect(() => {
     try { localStorage.setItem('mtg-doc', JSON.stringify(meeting)); } catch { /* ignore */ }
   }, [meeting]);
+
+  // Record body edits into the undo history (rapid edits within 500ms coalesce
+  // into one step). Skips the change that an undo/redo itself produced.
+  useEffect(() => {
+    const h = histRef.current;
+    const body = meeting.body || '';
+    if (h.applying) {
+      h.applying = false;
+    } else if (h.stack[h.index] !== body) {
+      const now = Date.now();
+      if (h.index === h.stack.length - 1 && now - h.lastTs < 500) {
+        h.stack[h.index] = body; // coalesce with the in-progress step
+      } else {
+        h.stack = h.stack.slice(0, h.index + 1);
+        h.stack.push(body);
+        h.index = h.stack.length - 1;
+        const MAX = 50; // cap depth (body may embed large base64 media)
+        if (h.stack.length > MAX) { h.stack.shift(); h.index -= 1; }
+      }
+      h.lastTs = now;
+    }
+    setCanUndo(h.index > 0);
+    setCanRedo(h.index < h.stack.length - 1);
+  }, [meeting.body]);
+
+  // A new/opened/cleared document resets the history (but an undo/redo reload,
+  // which also bumps docKey, must not — it sets skipHistResetRef first).
+  useEffect(() => {
+    if (skipHistResetRef.current) { skipHistResetRef.current = false; return; }
+    histRef.current = { stack: [meeting.body || ''], index: 0, applying: false, lastTs: 0 };
+    setCanUndo(false);
+    setCanRedo(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [docKey]);
 
   useEffect(() => {
     localStorage.setItem('mtg-export', JSON.stringify(exportSettings));
@@ -224,15 +307,15 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!exportOpen && !sampleOpen && !openOpen) return;
+    if (!fileOpen && !sampleOpen && !exportOpen) return;
     const onDown = (e) => {
-      if (exportRef.current && !exportRef.current.contains(e.target)) setExportOpen(false);
+      if (fileRef.current && !fileRef.current.contains(e.target)) setFileOpen(false);
       if (sampleRef.current && !sampleRef.current.contains(e.target)) setSampleOpen(false);
-      if (openRef.current && !openRef.current.contains(e.target)) setOpenOpen(false);
+      if (exportRef.current && !exportRef.current.contains(e.target)) setExportOpen(false);
     };
     document.addEventListener('mousedown', onDown);
     return () => document.removeEventListener('mousedown', onDown);
-  }, [exportOpen, sampleOpen, openOpen]);
+  }, [fileOpen, sampleOpen, exportOpen]);
 
   // Record a successfully opened/saved/exported file path: update the last-used
   // directory and prepend it to the recent-files list (max 10, deduped).
@@ -251,7 +334,7 @@ export default function App() {
     setRecent(next);
     try { localStorage.setItem('mtg-recent', JSON.stringify(next)); } catch { /* ignore */ }
     saveSettingsToDisk();
-    setOpenOpen(false);
+    setFileOpen(false);
   }
   // Remove a single entry from the recent-files list (keeps the dropdown open).
   function removeRecent(path) {
@@ -360,7 +443,7 @@ export default function App() {
   }
 
   async function openMeeting() {
-    setOpenOpen(false);
+    setFileOpen(false);
     if (isElectron) {
       try {
         const res = await openTextFile(FILE_FILTERS, recent.dir);
@@ -376,7 +459,7 @@ export default function App() {
 
   // Reopen a file from the recent list (Electron reads the path directly).
   async function openRecent(fullPath) {
-    setOpenOpen(false);
+    setFileOpen(false);
     try {
       const content = await readPath(fullPath);
       if (content == null) { showError(t('status.openErr', { msg: fullPath }), ''); return; }
@@ -575,8 +658,8 @@ export default function App() {
     // Markdown formatting inserts live on the format toolbar only; the context
     // menu keeps editing, media insert and file actions.
     openCtx(e, [
-      { icon: IconUndo, label: t('ctx.undo'), onClick: () => richApi.current?.cmd('undo') },
-      { icon: IconRedo, label: t('ctx.redo'), onClick: () => richApi.current?.cmd('redo') },
+      { icon: IconUndo, label: t('ctx.undo'), disabled: !canUndo, onClick: editUndo },
+      { icon: IconRedo, label: t('ctx.redo'), disabled: !canRedo, onClick: editRedo },
       { separator: true },
       { icon: IconCut, label: t('ctx.cut'), disabled: !hasSel, onClick: () => richApi.current?.cmd('cut') },
       { icon: IconCopy, label: t('ctx.copy'), disabled: !hasSel, onClick: () => { document.execCommand('copy'); } },
@@ -597,8 +680,8 @@ export default function App() {
     const ta = e.target;
     const hasSel = !!ta && ta.selectionStart !== ta.selectionEnd;
     openCtx(e, [
-      { icon: IconUndo, label: t('ctx.undo'), onClick: () => { ta.focus(); document.execCommand('undo'); } },
-      { icon: IconRedo, label: t('ctx.redo'), onClick: () => { ta.focus(); document.execCommand('redo'); } },
+      { icon: IconUndo, label: t('ctx.undo'), disabled: !canUndo, onClick: editUndo },
+      { icon: IconRedo, label: t('ctx.redo'), disabled: !canRedo, onClick: editRedo },
       { separator: true },
       { icon: IconCut, label: t('ctx.cut'), disabled: !hasSel, onClick: () => { ta.focus(); document.execCommand('cut'); } },
       { icon: IconCopy, label: t('ctx.copy'), disabled: !hasSel, onClick: () => { ta.focus(); document.execCommand('copy'); } },
@@ -651,6 +734,21 @@ export default function App() {
   // Uses the contentEditable execCommand API exposed by RichEditor so edits are
   // applied to the interpreted content and serialized back to Markdown.
   const rich = () => richApi.current;
+
+  // Undo / redo over our own body history (works identically on both the WYSIWYG
+  // and Markdown tabs). Reloads the active editor via a docKey bump.
+  function applyHistory(nextIndex) {
+    const h = histRef.current;
+    if (nextIndex < 0 || nextIndex > h.stack.length - 1) return;
+    h.index = nextIndex;
+    h.applying = true;
+    const body = h.stack[nextIndex];
+    skipHistResetRef.current = true;
+    setMeeting((m) => ({ ...m, body }));
+    bumpDoc();
+  }
+  function editUndo() { applyHistory(histRef.current.index - 1); }
+  function editRedo() { applyHistory(histRef.current.index + 1); }
   const wrapInline = (tag) => {
     const api = rich(); if (!api) return;
     const sel = api.selection();
@@ -669,16 +767,34 @@ export default function App() {
   };
 
   // Insert media (image / video / audio) via the file dialog. Reads each chosen
-  // file into an embedded base64 data: URL and drops it at the editor caret — so
-  // it can go into the body or a table cell, and travels inside every export.
+  // file into an embedded base64 data: URL and drops it into the active editor —
+  // the WYSIWYG caret (works in table cells) or the Markdown source caret — so it
+  // travels inside every export.
   const pickMedia = () => mediaInputRef.current?.click();
+  function mediaTagFor({ kind, dataUrl, width }) {
+    const w = width ? ` width="${width}"` : '';
+    if (kind === 'video') return `<video src="${dataUrl}" controls${w}></video>`;
+    if (kind === 'audio') return `<audio src="${dataUrl}" controls></audio>`;
+    return `<img src="${dataUrl}" alt=""${w}>`;
+  }
+  function insertMediaIntoSource(info) {
+    const ta = mdSourceRef.current;
+    const tag = mediaTagFor(info);
+    const cur = meeting.body || '';
+    if (!ta) { update('body', cur ? `${cur}\n\n${tag}` : tag); return; }
+    const s = ta.selectionStart ?? cur.length;
+    const e = ta.selectionEnd ?? s;
+    update('body', cur.slice(0, s) + tag + cur.slice(e));
+  }
   async function onMediaSelected(e) {
     const files = Array.from(e.target.files || []).filter(isMediaFile);
     e.target.value = '';
     if (!files.length) return;
     for (const f of files) {
       try {
-        rich()?.insertMedia(await loadMedia(f));
+        const info = await loadMedia(f);
+        if (editMode === 'markdown' || !rich()) insertMediaIntoSource(info);
+        else rich().insertMedia(info);
       } catch (err) {
         showError(t('status.mediaErr', { msg: err?.message || String(err) }), err?.stack);
       }
@@ -801,9 +917,49 @@ export default function App() {
       <input ref={mediaInputRef} type="file" accept={MEDIA_ACCEPT} multiple
         style={{ display: 'none' }} onChange={onMediaSelected} />
 
-      <header className="toolbar">
+      <header className="toolbar" ref={toolbarRef}>
         <div className="toolbar-group">
-          <button className="btn" title={t('tip.newDoc')} onClick={newDoc}><IconFilePlus /> {t('toolbar.newDoc')}</button>
+          <div className="dropdown" ref={fileRef}>
+            <button className="btn" title={t('tip.file')} onClick={() => setFileOpen((v) => !v)}>
+              <IconFolder /> {t('toolbar.file')} <IconChevron size={14} />
+            </button>
+            {fileOpen && (
+              <div className="dropdown-menu file-menu">
+                <button className="dropdown-item" onClick={() => { setFileOpen(false); newDoc(); }}>
+                  <IconFilePlus size={16} /> {t('toolbar.newDoc')}
+                </button>
+                <button className="dropdown-item" onClick={openMeeting}>
+                  <IconFolder size={16} /> {t('open.browse')}
+                </button>
+                <button className="dropdown-item" disabled={empty} onClick={() => { setFileOpen(false); saveMeeting(); }}>
+                  <IconSave size={16} /> {t('toolbar.save')}
+                </button>
+                {isElectron && recent.files.length > 0 && (
+                  <>
+                    <div className="dropdown-head">{t('open.recent')}</div>
+                    {recent.files.map((f) => (
+                      <div key={f} className="recent-row">
+                        <button className="dropdown-item recent-item" title={f} onClick={() => openRecent(f)}>
+                          <IconPaper size={16} />
+                          <span className="recent-text">
+                            <span className="recent-name">{basenameOf(f)}</span>
+                            <span className="recent-dir">{dirnameOf(f)}</span>
+                          </span>
+                        </button>
+                        <button className="recent-del" title={t('open.remove')}
+                          onClick={(e) => { e.stopPropagation(); removeRecent(f); }}>
+                          <IconX size={14} />
+                        </button>
+                      </div>
+                    ))}
+                    <button className="dropdown-item danger" onClick={clearRecent}>
+                      <IconTrash size={16} /> {t('open.clear')}
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
           <div className="dropdown" ref={sampleRef}>
             <button className="btn" title={t('tip.sample')} onClick={() => setSampleOpen((v) => !v)}>
               <IconBulb /> {t('toolbar.sample')} <IconChevron size={14} />
@@ -819,54 +975,6 @@ export default function App() {
               </div>
             )}
           </div>
-        </div>
-        <div className="toolbar-group">
-          <div className="dropdown" ref={openRef}>
-            <button className="btn" title={t('tip.open')} onClick={() => setOpenOpen((v) => !v)}>
-              <IconFolder /> {t('toolbar.open')} <IconChevron size={14} />
-            </button>
-            {openOpen && (
-              <div className="dropdown-menu recent-menu">
-                <button className="dropdown-item" onClick={openMeeting}>
-                  <IconFolder size={16} /> {t('open.browse')}
-                </button>
-                {isElectron && (
-                  recent.files.length > 0 ? (
-                    <>
-                      <div className="dropdown-head">{t('open.recent')}</div>
-                      {recent.files.map((f) => (
-                        <div key={f} className="recent-row">
-                          <button className="dropdown-item recent-item" title={f} onClick={() => openRecent(f)}>
-                            <IconPaper size={16} />
-                            <span className="recent-text">
-                              <span className="recent-name">{basenameOf(f)}</span>
-                              <span className="recent-dir">{dirnameOf(f)}</span>
-                            </span>
-                          </button>
-                          <button
-                            className="recent-del"
-                            title={t('open.remove')}
-                            onClick={(e) => { e.stopPropagation(); removeRecent(f); }}
-                          >
-                            <IconX size={14} />
-                          </button>
-                        </div>
-                      ))}
-                      <div className="ctxmenu-sep" />
-                      <button className="dropdown-item danger" onClick={clearRecent}>
-                        <IconTrash size={16} /> {t('open.clear')}
-                      </button>
-                    </>
-                  ) : (
-                    <div className="dropdown-empty">{t('open.empty')}</div>
-                  )
-                )}
-              </div>
-            )}
-          </div>
-          <button className="btn" title={t('tip.save')} onClick={saveMeeting} disabled={empty}><IconSave /> {t('toolbar.save')}</button>
-        </div>
-        <div className="toolbar-group">
           <div className="dropdown" ref={exportRef}>
             <button className="btn" title={t('tip.export')} onClick={() => setExportOpen((v) => !v)} disabled={empty}>
               <IconExport /> {t('toolbar.export')} <IconChevron size={14} />
@@ -895,6 +1003,15 @@ export default function App() {
               </div>
             )}
           </div>
+          <button className="btn" title={t('tip.media')} onClick={pickMedia}>
+            <IconImage /> {t('toolbar.media')}
+          </button>
+        </div>
+        <div className="toolbar-group">
+          <button className="iconbtn" title={t('fmt.undo')} onMouseDown={(e) => e.preventDefault()}
+            onClick={editUndo} disabled={!canUndo}><IconUndo /></button>
+          <button className="iconbtn" title={t('fmt.redo')} onMouseDown={(e) => e.preventDefault()}
+            onClick={editRedo} disabled={!canRedo}><IconRedo /></button>
         </div>
         <div className="toolbar-group toolbar-font" title={t('tip.font')}>
           <select
@@ -926,7 +1043,6 @@ export default function App() {
       </header>
 
       <div className="options">
-        <span className="options-label">{t('opts.label')}</span>
         <label className="opt">
           <input type="checkbox" checked={numbering}
             onChange={(e) => setExportSettings((s) => ({ ...s, numbering: e.target.checked }))} />
@@ -1003,15 +1119,6 @@ export default function App() {
           {editMode === 'wysiwyg' ? (
             <>
               <div className="format-bar" role="toolbar" aria-label={t('fmt.label')}>
-                <button type="button" className="fmt-btn" title={t('fmt.undo')}
-                  onMouseDown={(e) => e.preventDefault()} onClick={() => rich()?.cmd('undo')}>
-                  <IconUndo size={16} />
-                </button>
-                <button type="button" className="fmt-btn" title={t('fmt.redo')}
-                  onMouseDown={(e) => e.preventDefault()} onClick={() => rich()?.cmd('redo')}>
-                  <IconRedo size={16} />
-                </button>
-                <span className="fmt-sep" />
                 {FORMAT_ACTIONS.map((a, i) => {
                   if (a.sep) return <span className="fmt-sep" key={`s${i}`} />;
                   const Ico = a.icon;
@@ -1038,6 +1145,7 @@ export default function App() {
           ) : (
             <div className="main-body">
               <textarea
+                ref={mdSourceRef}
                 className="md-source"
                 value={meeting.body || ''}
                 placeholder={t('fields.bodyPh')}

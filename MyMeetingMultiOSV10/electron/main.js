@@ -83,7 +83,7 @@ function createWindow() {
   const win = new BrowserWindow({
     width: 1500,
     height: 940,
-    minWidth: 1000,
+    minWidth: 1120, // floor before the renderer measures the exact toolbar width
     minHeight: 620,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -547,6 +547,18 @@ ipcMain.handle('menu:popup', (event, template) => new Promise((resolve) => {
 }));
 
 // ── Window controls (frameless) ───────────────────────────
+// The renderer measures the toolbar's required width and sets it as the window's
+// minimum so the toolbar never wraps or clips buttons on resize.
+ipcMain.handle('win:setMinWidth', (e, w) => {
+  const win = BrowserWindow.fromWebContents(e.sender);
+  if (!win) return false;
+  const minW = Math.max(600, Math.min(2400, Math.ceil(Number(w) || 0)));
+  const [, minH] = win.getMinimumSize();
+  win.setMinimumSize(minW, minH || 620);
+  const [curW, curH] = win.getSize();
+  if (curW < minW) win.setSize(minW, curH);
+  return true;
+});
 ipcMain.handle('win:minimize', (e) => { BrowserWindow.fromWebContents(e.sender)?.minimize(); });
 ipcMain.handle('win:toggleMaximize', (e) => {
   const w = BrowserWindow.fromWebContents(e.sender);

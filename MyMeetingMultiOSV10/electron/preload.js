@@ -27,6 +27,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return () => ipcRenderer.removeListener('file:open', h);
   },
   win: {
+    setMinWidth: (w) => ipcRenderer.invoke('win:setMinWidth', w),
     minimize: () => ipcRenderer.invoke('win:minimize'),
     toggleMaximize: () => ipcRenderer.invoke('win:toggleMaximize'),
     close: () => ipcRenderer.invoke('win:close'),

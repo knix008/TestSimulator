@@ -7,10 +7,10 @@
     "email": "knix008@naver.com"
   },
   "license": "MIT",
-  "buildTime": "2026-09-06T06:29:08.560Z",
-  "gitCommit": "d827c86e",
+  "buildTime": "2026-09-06T23:50:02.049Z",
+  "gitCommit": "38409cfc",
   "gitBranch": "main",
-  "gitCommitCount": "1299",
+  "gitCommitCount": "1300",
   "node": "v22.18.0",
   "buildHost": "win32 x64",
   "electronBuilder": "^24.13.3"

@@ -131,17 +131,22 @@ body {
 .toolbar {
   display: flex; align-items: center; gap: 14px; padding: 8px 12px;
   background: var(--bg-2); border-bottom: 1px solid var(--border);
+  /* Single row, never wrapping — the window's minimum width is measured from
+     this toolbar's content so every button always fits (see App.jsx). */
+  flex-wrap: nowrap; white-space: nowrap;
 }
-.toolbar-group { display: flex; align-items: center; gap: 6px; }
-.toolbar-spacer { flex: 1; }
+/* Groups keep their natural size (only the spacer flexes) so the measured
+   minimum width matches what the buttons actually need. */
+.toolbar-group { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; }
+.toolbar-spacer { flex: 1 1 0; min-width: 0; }
 /* Document/export font pickers on the main toolbar (apply to preview + export). */
 .toolbar-font { gap: 4px; }
 .tb-font, .tb-size {
   height: 32px; border-radius: 8px; border: 1px solid var(--border);
   background: var(--bg-2); color: var(--text); font-size: 13px; padding: 0 8px;
 }
-.tb-font { max-width: 170px; }
-.tb-size { width: 62px; }
+.tb-font { width: 150px; flex: none; }
+.tb-size { width: 62px; flex: none; }
 .tb-font:hover, .tb-size:hover { border-color: var(--accent); }
 .tb-font:focus, .tb-size:focus { outline: none; border-color: var(--accent); }
 
@@ -178,6 +183,8 @@ body {
 .dropdown-item.danger:hover .ci-icon,
 .dropdown-item.danger:hover svg { color: var(--danger); }
 .recent-menu { min-width: 300px; max-width: 460px; max-height: 440px; overflow-y: auto; }
+/* Consolidated File menu (New/Open/Save/templates/recent/Export) — scrolls when tall. */
+.file-menu { min-width: 300px; max-width: 460px; max-height: min(70vh, 560px); overflow-y: auto; }
 .dropdown-empty { padding: 8px 10px; font-size: 12px; color: var(--muted); }
 .recent-row { display: flex; align-items: stretch; gap: 2px; }
 .recent-row .recent-item { flex: 1; min-width: 0; }
