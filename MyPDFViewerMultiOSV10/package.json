@@ -10,8 +10,8 @@
   "private": true,
   "main": "electron/main.js",
   "scripts": {
-    "postinstall": "node scripts/copy-pdfjs-assets.mjs && node scripts/generate-build-info.mjs",
-    "prepare:assets": "node scripts/copy-pdfjs-assets.mjs && node scripts/generate-build-info.mjs",
+    "postinstall": "node scripts/copy-pdfjs-assets.mjs && node scripts/sync-public-svgs.mjs && node scripts/generate-build-info.mjs",
+    "prepare:assets": "node scripts/copy-pdfjs-assets.mjs && node scripts/sync-public-svgs.mjs && node scripts/generate-build-info.mjs",
     "prestart": "npm run prepare:assets",
     "start": "cross-env NODE_OPTIONS=--disable-warning=DEP0060 concurrently -k \"vite --port 5179\" \"wait-on tcp:5179 && cross-env ELECTRON_DEV=1 node scripts/start-electron.mjs\"",
     "predev": "npm run prepare:assets",
@@ -23,6 +23,7 @@
     "generate:icons": "node scripts/generate-icons.mjs",
     "generate:build-info": "node scripts/generate-build-info.mjs",
     "copy:pdfjs": "node scripts/copy-pdfjs-assets.mjs",
+    "sync:svgs": "node scripts/sync-public-svgs.mjs",
     "prebuild": "npm run prepare:assets",
     "build": "vite build",
     "prebuild:win": "npm run generate:icons && npm run prepare:assets",

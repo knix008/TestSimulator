@@ -17,6 +17,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import fs from 'node:fs';
 import { encodeIco, encodeIcns } from '../src/lib/ico.js';
+import { syncPublicSvgs } from './sync-public-svgs.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, '..');
@@ -78,11 +79,9 @@ async function main() {
     console.log('[icons] Wrote file.ico / file.icns / file.png (.pdfvw document type)');
   }
 
-  // Keep the committed web/UI copies in sync with the sources.
-  fs.mkdirSync(path.join(root, 'public'), { recursive: true });
-  fs.copyFileSync(appSvg, path.join(root, 'public', 'icon.svg'));
-  if (fs.existsSync(fileSvg)) fs.copyFileSync(fileSvg, path.join(root, 'public', 'file-icon.svg'));
-  console.log('[icons] Synced public/ SVG copies');
+  // Keep the web/UI copies in sync with the sources. (Also done by
+  // `npm run prepare:assets`, so a plain start/dev has them too.)
+  console.log(`[icons] Synced public/${syncPublicSvgs().join(', public/')}`);
 }
 
 main().catch((err) => {

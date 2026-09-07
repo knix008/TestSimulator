@@ -10,9 +10,10 @@ release/
 build/icons/
 # copied from pdfjs-dist — npm run copy:pdfjs
 public/pdfjs/
-# synced copies of the source SVGs
-public/icon.svg
-public/file-icon.svg
+# NOTE: public/icon.svg and public/file-icon.svg are copies of assets/*.svg but
+# are committed on purpose — the UI loads them by URL, so a fresh clone has to
+# show the welcome screen and favicon before any build step has run.
+# `npm run sync:svgs` (part of prepare:assets) refreshes them from assets/.
 
 # ── Installers copied to the project root ───────────────
 *.exe
