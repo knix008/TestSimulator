@@ -29,6 +29,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   download: (payload) => ipcRenderer.invoke('net:download', payload),
 
+  printPages: (payload) => ipcRenderer.invoke('print:pages', payload),
+
   writeClipboardText: (text) => ipcRenderer.invoke('clipboard:writeText', text),
   writeClipboardImage: (dataUrl) => ipcRenderer.invoke('clipboard:writeImage', dataUrl),
 

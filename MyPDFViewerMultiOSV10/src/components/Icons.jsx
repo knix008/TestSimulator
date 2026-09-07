@@ -141,6 +141,14 @@ export const IconLayout = (p) => (
 export const IconChevron = ({ className = '', ...p }) => (
   <S {...p} className={`chev ${className}`}><path d="m9 5 7 7-7 7" /></S>
 );
+// Printer: paper feeding out of the top of the machine.
+export const IconPrint = (p) => (
+  <S {...p}><path d="M7 9V4h10v5" /><path d="M7 18H5a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2" /><rect x="7" y="14" width="10" height="7" rx="1" /></S>
+);
+// Overflow menu: the rest of the toolbar, behind one button.
+export const IconMore = (p) => (
+  <S {...p}><circle cx="5" cy="12" r="1.4" fill="currentColor" /><circle cx="12" cy="12" r="1.4" fill="currentColor" /><circle cx="19" cy="12" r="1.4" fill="currentColor" /></S>
+);
 export const IconCheck = (p) => (<S {...p}><path d="m5 12.5 4.5 4.5L19 7" /></S>);
 export const IconMinimize = (p) => (<S {...p} size={p.size || 14}><path d="M5 12h14" /></S>);
 export const IconMaximize = (p) => (<S {...p} size={p.size || 14}><rect x="5" y="5" width="14" height="14" rx="1.5" /></S>);

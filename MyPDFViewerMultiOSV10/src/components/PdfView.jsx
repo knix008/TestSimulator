@@ -12,6 +12,7 @@ import { renderPage, renderTextLayer, cropCanvas, getPageImageRegions } from '..
 // and memory stays bounded on large documents.
 
 const NEAR = '900px'; // how far outside the viewport a page starts rendering
+const NO_ANNOTATIONS = [];   // one shared instance, so the memo below holds
 
 // Turning pages with the wheel in the single-page layout.
 const REST_MS = 200;     // a scrollable page must sit at its edge this long first
@@ -114,6 +115,23 @@ const PdfView = forwardRef(function PdfView({
   }, [baseSize, viewport, zoomMode, zoom, rotation]);
 
   useEffect(() => { onScaleChange?.(scale); }, [scale, onScaleChange]);
+
+  // Grouped once per change: filtering inside the page list would hand every
+  // page a brand-new array on every render and defeat the memo below.
+  const annotationsByPage = useMemo(() => {
+    const map = new Map();
+    for (const a of annotations) {
+      const list = map.get(a.page);
+      if (list) list.push(a);
+      else map.set(a.page, [a]);
+    }
+    return map;
+  }, [annotations]);
+
+  const registerPage = useCallback((num, entry) => {
+    if (entry) pageRefs.current.set(num, entry);
+    else pageRefs.current.delete(num);
+  }, []);
 
   // ── Which pages are mounted ─────────────────────────────
   const pages = useMemo(() => {
@@ -397,10 +415,16 @@ const PdfView = forwardRef(function PdfView({
   // a flicker.
   const selectionSig = useRef('');
 
+  const lastText = useRef('');
+
   const refreshSelection = useCallback(() => {
     const sel = window.document.getSelection();
     const text = sel && !sel.isCollapsed ? sel.toString() : '';
-    onSelectionChange?.(text);
+    // App re-renders on this, so only report a value that actually changed.
+    if (text !== lastText.current) {
+      lastText.current = text;
+      onSelectionChange?.(text);
+    }
 
     const commit = (next) => {
       const sig = next
@@ -561,7 +585,7 @@ const PdfView = forwardRef(function PdfView({
             scale={scale}
             rotation={rotation}
             baseSize={baseSize}
-            annotations={annotations.filter((a) => a.page === num)}
+            annotations={annotationsByPage.get(num) || NO_ANNOTATIONS}
             selection={selection && selection.page === num ? selection.lines : null}
             tool={tool}
             onRegionCapture={onRegionCapture}
@@ -569,10 +593,7 @@ const PdfView = forwardRef(function PdfView({
             selectedImage={selectedImage && selectedImage.page === num ? selectedImage : null}
             onContextMenuAt={onContextMenu}
             onError={onError}
-            register={(entry) => {
-              if (entry) pageRefs.current.set(num, entry);
-              else pageRefs.current.delete(num);
-            }}
+            register={registerPage}
           />
         ))}
       </div>
@@ -581,7 +602,10 @@ const PdfView = forwardRef(function PdfView({
 });
 
 // ── A single page ─────────────────────────────────────────
-function PageView({
+// Memoised: a text drag updates the selection many times a second, and without
+// this every mounted page would re-render on each of those updates — which is
+// what made the selection flicker on long documents.
+const PageView = React.memo(function PageView({
   doc, num, scale, rotation, baseSize, annotations, selection,
   tool, onRegionCapture, onImagePick, selectedImage, onContextMenuAt, onError, register,
 }) {
@@ -610,9 +634,9 @@ function PageView({
   }, [size, baseSize, scale, rotation]);
 
   useEffect(() => {
-    register({ wrapper: wrapRef.current, canvas: canvasRef.current, textLayer: textRef.current });
-    return () => register(null);
-  });
+    register(num, { wrapper: wrapRef.current, canvas: canvasRef.current, textLayer: textRef.current });
+    return () => register(num, null);
+  }, [num, register]);
 
   // Render only while near the viewport.
   useEffect(() => {
@@ -700,7 +724,7 @@ function PageView({
   const pickImage = (e) => {
     if (!imageTool || e.button !== 0) return;
     const hit = regionAt(localPoint(e, e.currentTarget));
-    onImagePick?.(hit ? { page: num, id: hit.id, inline: hit.inline, rect: hit.rect } : null);
+    onImagePick?.(hit ? { page: num, id: hit.id, name: hit.name, inline: hit.inline, rect: hit.rect } : null);
   };
 
   // A right-click on a picture reports the hit alongside the event, so the menu
@@ -708,7 +732,7 @@ function PageView({
   const onContextMenu = (e) => {
     const hit = imageTool ? regionAt(localPoint(e, e.currentTarget)) : null;
     e.stopPropagation();
-    onContextMenuAt?.(e, hit ? { page: num, imageHit: { id: hit.id, inline: hit.inline, rect: hit.rect } } : {});
+    onContextMenuAt?.(e, hit ? { page: num, imageHit: { id: hit.id, name: hit.name, inline: hit.inline, rect: hit.rect } } : {});
   };
 
   const endDrag = () => {
@@ -800,6 +824,6 @@ function PageView({
       {!rendered ? <div className="page-skeleton"><span>{num}</span></div> : null}
     </div>
   );
-}
+});
 
 export default PdfView;

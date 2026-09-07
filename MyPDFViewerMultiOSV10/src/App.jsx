@@ -13,6 +13,7 @@ import SettingsDialog from './components/SettingsDialog.jsx';
 import AboutDialog from './components/AboutDialog.jsx';
 import { ErrorDialog, ProgressDialog, PromptDialog, PropertiesDialog } from './components/Dialogs.jsx';
 import CaptureDialog from './components/CaptureDialog.jsx';
+import PrintDialog from './components/PrintDialog.jsx';
 import {
   IconCopy, IconSelectAll, IconMarquee, IconHighlight, IconBookmark, IconZoomIn,
   IconZoomOut, IconFitWidth, IconRotateRight, IconPrev, IconNext, IconFolder, IconInfo, IconImage,
@@ -36,6 +37,7 @@ import {
   serializeWorkspace, parseWorkspace, isWorkspacePath, bytesToText, looksLikePdf, WORKSPACE_EXT,
 } from './lib/workspace.js';
 import { encodeImage, formatById, formatByExtension, saveFilters } from './lib/image.js';
+import { renderPagesForPrint, printViaBrowser } from './lib/print.js';
 import i18n, { setLanguage } from './i18n.js';
 
 const HIGHLIGHT_COLOR = 'rgba(255, 214, 0, 0.42)';
@@ -78,6 +80,8 @@ export default function App() {
   const [showProps, setShowProps] = useState(false);
   const [capture, setCapture] = useState(null);        // { dataUrl, width, height, page }
   const [selectedImage, setSelectedImage] = useState(null); // { page, id, rect }
+  const [showPrint, setShowPrint] = useState(false);
+  const [printing, setPrinting] = useState(false);
   const [toasts, setToasts] = useState([]);
   const [statusMessage, setStatusMessage] = useState('');
 
@@ -464,7 +468,7 @@ export default function App() {
     let height = Math.round(sel.rect?.height || 0);
     try {
       const pdfPage = await doc.getPage(sel.page);
-      dataUrl = await getImageDataUrl(pdfPage, sel.id);
+      dataUrl = await getImageDataUrl(pdfPage, sel.name || sel.id);
     } catch { dataUrl = null; }
     if (!dataUrl) {
       const canvas = viewRef.current?.getPageCanvas(sel.page);
@@ -593,6 +597,40 @@ export default function App() {
     }
   }, [doc, fail, file, settings.lastDir, t, toast, withProgress]);
 
+  // ── Printing ───────────────────────────────────────────
+  // On the desktop the original PDF goes to Chromium's PDF viewer and prints as
+  // vector output; on the web the chosen pages are rasterised and printed from
+  // a new window, because a browser cannot be told which pages to send.
+  const printPages = useCallback(async ({ pages }) => {
+    if (!doc || !file || !pages.length) return;
+    setPrinting(true);
+    try {
+      if (isElectron) {
+        await withProgress('printing', file.name, async (onProgress) => {
+          const sheets = await renderPagesForPrint({
+            doc, pages, rotation: settings.rotation, onProgress,
+          });
+          await api.printPages({ images: sheets.map((s) => s.bytes), title: file.name });
+        });
+      } else {
+        await withProgress('printing', file.name, (onProgress) => printViaBrowser({
+          doc,
+          pages,
+          rotation: settings.rotation,
+          title: file.name,
+          onProgress,
+        }));
+      }
+      setShowPrint(false);
+      setStatusMessage(t('status.printed', { n: pages.length }));
+      toast(t('status.printed', { n: pages.length }), 'ok');
+    } catch (err) {
+      fail(err, 'print');
+    } finally {
+      setPrinting(false);
+    }
+  }, [doc, fail, file, settings.rotation, t, toast, withProgress]);
+
   // ── Images panel ───────────────────────────────────────
   const extractImages = useCallback(async (num) => {
     if (!doc) return;
@@ -720,6 +758,7 @@ export default function App() {
         viewRef.current?.selectPageText(pageNumber);
         return;
       }
+      if (mod && e.key.toLowerCase() === 'p') { e.preventDefault(); if (doc) setShowPrint(true); return; }
       if (mod && e.key.toLowerCase() === 'm') {
         e.preventDefault();
         // Cycle text → image → region → text.
@@ -881,6 +920,7 @@ export default function App() {
         onLang={changeLang}
         onSettings={() => setShowSettings(true)}
         onAbout={() => setShowAbout(true)}
+        onPrint={() => setShowPrint(true)}
       />
 
       <div className="workarea">
@@ -1044,6 +1084,17 @@ export default function App() {
           toast(t('capture.addClip'), 'ok');
         }}
         onClose={() => setCapture(null)}
+      />
+
+      <PrintDialog
+        open={showPrint}
+        numPages={doc?.numPages || 0}
+        pageNumber={pageNumber}
+        settings={settings}
+        onChange={setSettings}
+        onPrint={printPages}
+        onClose={() => setShowPrint(false)}
+        busy={printing}
       />
 
       <ProgressDialog task={task} />

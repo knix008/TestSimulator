@@ -410,6 +410,68 @@ ipcMain.handle('net:download', async (e, { url, id }) => {
   return { data: new Uint8Array(buf), name, size: buf.length, url };
 });
 
+// ── Printing ──────────────────────────────────────────────
+// The renderer hands over the chosen pages already rendered as JPEGs (Electron's
+// own window paints a PDF as a blank page, which would print blank paper). They
+// are written to a temp folder and printed from an offscreen window, so the
+// system print dialog shows exactly the pages the user selected.
+ipcMain.handle('print:pages', async (e, { images, title }) => {
+  if (!Array.isArray(images) || !images.length) throw new Error('There are no pages to print.');
+
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mypdfviewer-print-'));
+  const cleanup = () => { try { fs.rmSync(dir, { recursive: true, force: true }); } catch { /* temp sweep */ } };
+
+  const srcs = images.map((bytes, i) => {
+    const file = path.join(dir, `p${String(i).padStart(5, '0')}.jpg`);
+    fs.writeFileSync(file, Buffer.from(bytes));
+    return pathToFileURL(file).toString();
+  });
+
+  const sheets = srcs.map((src) => `<div class="sheet"><img src="${src}" alt=""></div>`).join('\n');
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>${(title || 'Print').replace(/[<&]/g, '')}</title>
+<style>
+  @page { size: auto; margin: 8mm; }
+  html, body { margin: 0; padding: 0; background: #fff; }
+  .sheet { page-break-after: always; break-after: page; display: flex; align-items: center; justify-content: center; }
+  .sheet:last-child { page-break-after: auto; break-after: auto; }
+  .sheet img { max-width: 100%; display: block; }
+</style></head><body>${sheets}</body></html>`;
+
+  const htmlFile = path.join(dir, 'print.html');
+  fs.writeFileSync(htmlFile, html, 'utf-8');
+
+  // Shown but off-screen and transparent: a `show: false` window is throttled
+  // and can reach the printer before the images have painted.
+  const win = new BrowserWindow({
+    show: true, x: -32000, y: -32000, width: 900, height: 1200,
+    opacity: 0, skipTaskbar: true, focusable: false,
+    webPreferences: { sandbox: true, backgroundThrottling: false },
+  });
+
+  try {
+    await win.loadFile(htmlFile);
+    // Let every image decode before the print job is built.
+    await win.webContents.executeJavaScript(
+      'Promise.all(Array.from(document.images).map(function (i) { return i.decode().catch(function () {}); })).then(function () { return true; })'
+    );
+    await new Promise((r) => setTimeout(r, 250));
+
+    const result = await new Promise((resolve) => {
+      win.webContents.print(
+        { silent: false, printBackground: true },
+        (success, failureReason) => resolve({ success, failureReason })
+      );
+    });
+    if (!result.success && result.failureReason && !/cancel/i.test(result.failureReason)) {
+      throw new Error(result.failureReason);
+    }
+    return { printed: result.success, reason: result.failureReason || '', pages: images.length };
+  } finally {
+    if (!win.isDestroyed()) win.destroy();
+    cleanup();
+  }
+});
+
 // ── Clipboard ─────────────────────────────────────────────
 ipcMain.handle('clipboard:writeText', (_e, text) => { clipboard.writeText(String(text ?? '')); return true; });
 

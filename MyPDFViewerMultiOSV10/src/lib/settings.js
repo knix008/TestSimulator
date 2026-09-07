@@ -34,6 +34,7 @@ export const DEFAULT_SETTINGS = {
   captureFormat: 'png',      // png | jpeg | webp | gif | bmp — for saved captures
   captureQuality: 0.92,      // JPEG / WebP quality, 0..1
   captureAction: 'ask',      // ask = show the capture dialog, copy = copy at once
+  printScope: 'all',         // all | current | custom — remembered between prints
   rememberLastPage: true,
 
   // Session
