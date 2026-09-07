@@ -69,6 +69,15 @@ export async function renderTextLayer({ page, container, viewport }) {
   const textContent = await page.getTextContent();
   const layer = new TextLayer({ textContentSource: textContent, container, viewport });
   await layer.render();
+
+  // The guard block that keeps a drag from grabbing text elsewhere on the page
+  // — see the selection code in components/PdfView.jsx for what drives it.
+  // pdf.js's own viewer appends this in TextLayerBuilder; the bare TextLayer
+  // class this uses renders the spans and nothing else.
+  const end = document.createElement('div');
+  end.className = 'endOfContent';
+  container.append(end);
+
   return layer;
 }
 

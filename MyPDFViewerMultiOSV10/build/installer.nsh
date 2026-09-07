@@ -7,6 +7,7 @@
 ;    name and the shell verbs are exactly what we want)
 ;  • adds MyPDFViewer to the "Open with" list for .pdf, and — only if the user
 ;    ticks the box on that page — makes it the default PDF viewer
+;  • asks before deleting the data an earlier installation left behind
 ;
 ; On making MyPDFViewer the default for .pdf:
 ;   Since Windows 8 the actual default lives in a hash-protected UserChoice key
@@ -36,7 +37,6 @@ Var DefaultPdfCheckbox
 Var DoCreateDesktopShortcut
 Var DoCreateStartMenuShortcut
 Var DoSetDefaultPdf
-Var PrevInstalled
 
 !macro customInit
   StrCpy $DoCreateDesktopShortcut "1"
@@ -44,18 +44,6 @@ Var PrevInstalled
   ; Taking over the PDF default is opt-in: an installer should not silently
   ; replace whichever reader the user already chose.
   StrCpy $DoSetDefaultPdf "0"
-
-  ; Detect a previous installation so we can wipe its leftovers before reinstalling.
-  StrCpy $PrevInstalled "0"
-  ReadRegStr $0 HKCU "${UNINSTALL_REGISTRY_KEY}" "UninstallString"
-  ${If} $0 != ""
-    StrCpy $PrevInstalled "1"
-  ${Else}
-    ReadRegStr $0 HKLM "${UNINSTALL_REGISTRY_KEY}" "UninstallString"
-    ${If} $0 != ""
-      StrCpy $PrevInstalled "1"
-    ${EndIf}
-  ${EndIf}
 !macroend
 
 !macro customPageAfterChangeDir
@@ -124,11 +112,36 @@ Function ShortcutsPageLeave
 FunctionEnd
 
 !macro customInstall
-  ; A previous version leaves settings behind; start clean.
-  ${If} $PrevInstalled == "1"
-    SetShellVarContext current
-    RMDir /r "$APPDATA\${PRODUCT_NAME}"
-    RMDir /r "$LOCALAPPDATA\${PRODUCT_NAME}"
+  ; ── Data left behind by an earlier installation ─────────
+  ; The program files themselves are already gone: electron-builder runs the
+  ; previous version's uninstaller (which does RMDir /r on its install dir)
+  ; before a single new file is copied, so every install is a clean one.
+  ;
+  ; It hands that uninstaller the --updated flag, which is what stops it acting
+  ; on our `deleteAppDataOnUninstall` setting — so the settings, recent-file
+  ; list and window state survive to here. Throwing them away is the user's
+  ; decision, so ask, and only when there is actually something to delete.
+  SetShellVarContext current
+  StrCpy $0 "0"
+  ${If} ${FileExists} "$APPDATA\${PRODUCT_NAME}\*.*"
+    StrCpy $0 "1"
+  ${EndIf}
+  ${If} ${FileExists} "$LOCALAPPDATA\${PRODUCT_NAME}\*.*"
+    StrCpy $0 "1"
+  ${EndIf}
+
+  ${If} $0 == "1"
+    ${If} $LANGUAGE == 1042
+      StrCpy $1 "이전에 설치된 ${PRODUCT_NAME} 의 데이터가 남아 있습니다.$\r$\n(설정, 최근 파일 목록, 창 상태)$\r$\n$\r$\n이 데이터도 삭제하고 처음 상태로 시작할까요?$\r$\n[아니요] 를 누르면 기존 설정을 그대로 이어서 사용합니다."
+    ${Else}
+      StrCpy $1 "Data from a previous ${PRODUCT_NAME} installation is still on this PC.$\r$\n(settings, recent files, window state)$\r$\n$\r$\nDelete it as well and start fresh?$\r$\nChoose No to carry your existing settings over."
+    ${EndIf}
+    ; Silent installs keep the data — an unattended run must never destroy it.
+    MessageBox MB_YESNO|MB_ICONQUESTION "$1" /SD IDNO IDYES MpvWipeData IDNO MpvKeepData
+    MpvWipeData:
+      RMDir /r "$APPDATA\${PRODUCT_NAME}"
+      RMDir /r "$LOCALAPPDATA\${PRODUCT_NAME}"
+    MpvKeepData:
   ${EndIf}
 
   ${If} $DoCreateStartMenuShortcut == "1"
