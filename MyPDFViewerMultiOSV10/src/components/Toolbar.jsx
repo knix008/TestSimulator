@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -10,6 +10,52 @@ import {
   IconSelectText, IconPrint,
 } from './Icons.jsx';
 import { THEMES } from '../lib/themes.js';
+import { api, isElectron } from '../lib/platform.js';
+
+// The window must never be narrow enough to hide a toolbar button. How much the
+// row needs depends on the language, the UI font and whether button labels are
+// shown, so it is measured from the laid-out toolbar and handed to the main
+// process as the window's minimum width rather than guessed as a constant.
+function useToolbarMinWidth(barRef, scrollRef, deps) {
+  const last = useRef(0);
+
+  const measure = useCallback(() => {
+    if (!isElectron) return;
+    const bar = barRef.current;
+    const scroll = scrollRef.current;
+    if (!bar || !scroll) return;
+    const kids = [...scroll.children];
+    if (!kids.length) return;
+    const gap = parseFloat(getComputedStyle(scroll).columnGap) || 0;
+    // Every group is `flex: none`, so its laid-out width is its natural width
+    // even while the row is scrolled — the sum is what the row really wants.
+    // Margins have to be added by hand: a border box does not include them, and
+    // the separators carry 6px on each side, which is most of a button.
+    const content = kids.reduce((w, el) => {
+      const cs = getComputedStyle(el);
+      return w + el.getBoundingClientRect().width
+        + (parseFloat(cs.marginLeft) || 0) + (parseFloat(cs.marginRight) || 0);
+    }, 0) + gap * (kids.length - 1);
+    // Everything else on the row: the toolbar's own padding, the gap and the
+    // app group pinned to the right.
+    const chrome = bar.getBoundingClientRect().width - scroll.getBoundingClientRect().width;
+    const needed = Math.ceil(chrome + content) + 2;
+    if (!Number.isFinite(needed) || needed <= 0) return;
+    if (Math.abs(needed - last.current) < 2) return;
+    last.current = needed;
+    api?.win?.setMinWidth?.(needed)?.catch?.(() => {});
+  }, [barRef, scrollRef]);
+
+  // Anything that changes a label — language, the label toggle, the UI font —
+  // changes the answer, and so does a font that only finishes loading later.
+  useLayoutEffect(() => {
+    measure();
+    let cancelled = false;
+    document.fonts?.ready?.then(() => { if (!cancelled) measure(); }).catch(() => {});
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [measure, ...deps]);
+}
 
 // Every toolbar control carries a `title`, which the global Tooltip component
 // turns into a fast custom tooltip.
@@ -113,9 +159,16 @@ export default function Toolbar({
   onGoToPage, onZoom, onZoomMode, onRotate, onLayout,
   onSearch, onTogglePanel, onTheme, onLang, onSettings, onAbout, onPrint,
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [pageInput, setPageInput] = useState(String(pageNumber));
   const showLabel = settings.showToolbarLabels;
+  const barRef = useRef(null);
+  const scrollRef = useRef(null);
+
+  useToolbarMinWidth(barRef, scrollRef, [
+    showLabel, i18n.language, settings.fontFamily, settings.fontSize,
+    settings.fontWeight, settings.fontStyle, !!doc, numPages,
+  ]);
 
   useEffect(() => { setPageInput(String(pageNumber)); }, [pageNumber]);
 
@@ -128,10 +181,10 @@ export default function Toolbar({
   const zoomPercent = Math.round(scale * 100);
 
   return (
-    <div className="toolbar">
+    <div className="toolbar" ref={barRef}>
       {/* One row, always. Commands are grouped by kind behind a menu button —
           File, Copy, View — and only the everyday ones sit out here. */}
-      <div className="toolbar-scroll">
+      <div className="toolbar-scroll" ref={scrollRef}>
 
       {/* File */}
       <div className="toolbar-group">

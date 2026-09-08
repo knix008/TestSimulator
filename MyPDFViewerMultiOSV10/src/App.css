@@ -495,6 +495,16 @@ body {
 .st-ellipsis { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .st-dir { overflow: hidden; text-overflow: ellipsis; direction: rtl; }
 .st-sep { width: 1px; height: 13px; background: var(--border); flex: none; }
+/* Resize grip, hard against the bottom-right corner: the window is frameless,
+   so this is the only visible handle it has. The bar's own padding is
+   cancelled out so the diagonal sits in the very corner. */
+.st-grip {
+  flex: none; display: grid; place-items: end; align-self: stretch;
+  width: 16px; margin: 0 -10px 0 6px; padding-bottom: 1px;
+  color: var(--muted); cursor: nwse-resize; -webkit-app-region: no-drag;
+  touch-action: none; -webkit-user-select: none; user-select: none;
+}
+.st-grip:hover { color: var(--text); }
 .spinner {
   width: 12px; height: 12px; border-radius: 50%; flex: none;
   border: 2px solid var(--border); border-top-color: var(--accent);
@@ -556,6 +566,8 @@ body {
 .field.grow { flex: 1; }
 .field-label { font-size: 12px; color: var(--text-dim); }
 .field-label .hint { color: var(--muted); font-style: normal; }
+/* A one-line explanation under a checkbox, indented to line up with its label. */
+p.hint { margin: 0 0 0 23px; color: var(--muted); font-size: 11.5px; line-height: 1.5; }
 .field-error { margin: 0; color: var(--danger); font-size: 12px; }
 .input { width: 100%; height: 32px; }
 .range { width: 100%; accent-color: var(--accent); }
@@ -621,6 +633,8 @@ body {
    the accent colour but not the underline. */
 .about-modal .kv .linkish, .kv .linkish { text-decoration: none; }
 .kv .linkish:hover { text-decoration: none; }
+/* Program-info rows sit flush with no separator line between items. */
+.about-kv tr + tr th, .about-kv tr + tr td { border-top: none; }
 
 /* ── Capture dialog ────────────────────────────────────── */
 .capture-preview {

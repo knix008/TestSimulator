@@ -82,11 +82,16 @@ function deliverOpen(win, filePath) {
 
 let mainWin = null;
 
+// Floor and ceiling for the measured toolbar minimum: never let the window get
+// unusably narrow, and never let a runaway measurement make it unresizable.
+const MIN_WINDOW_WIDTH = 900;
+const MAX_MIN_WINDOW_WIDTH = 2000;
+
 function createWindow() {
   const win = new BrowserWindow({
     width: 1480,
     height: 960,
-    minWidth: 1040,
+    minWidth: MIN_WINDOW_WIDTH,
     minHeight: 640,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -517,5 +522,49 @@ ipcMain.handle('win:isMaximized', (e) => !!BrowserWindow.fromWebContents(e.sende
 ipcMain.handle('win:setTitle', (e, title) => {
   const w = BrowserWindow.fromWebContents(e.sender);
   if (w && !w.isDestroyed()) w.setTitle(String(title || 'MyPDFViewer'));
+  return true;
+});
+
+ipcMain.handle('win:getSize', (e) => {
+  const w = BrowserWindow.fromWebContents(e.sender);
+  if (!w || w.isDestroyed()) return null;
+  const [width, height] = w.getSize();
+  const [minWidth, minHeight] = w.getMinimumSize();
+  return { width, height, minWidth, minHeight };
+});
+
+// Used by the resize grip in the status bar: a frameless window has no corner
+// of its own to drag, so the grip drags the size itself.
+ipcMain.handle('win:setSize', (e, { width, height } = {}) => {
+  const w = BrowserWindow.fromWebContents(e.sender);
+  if (!w || w.isDestroyed() || w.isMaximized() || w.isFullScreen()) return false;
+  const [minWidth, minHeight] = w.getMinimumSize();
+  const nw = Math.max(minWidth, Math.round(Number(width) || 0));
+  const nh = Math.max(minHeight, Math.round(Number(height) || 0));
+  if (!Number.isFinite(nw) || !Number.isFinite(nh)) return false;
+  w.setSize(nw, nh);
+  return true;
+});
+
+// The narrowest the window may get. The renderer measures what the toolbar
+// actually needs — which depends on the language, the font and whether button
+// labels are shown — so the width is set from there rather than guessed here.
+// A window already narrower than the new minimum is widened to match.
+ipcMain.handle('win:setMinWidth', (e, width) => {
+  const w = BrowserWindow.fromWebContents(e.sender);
+  const want = Math.round(Number(width) || 0);
+  if (!w || w.isDestroyed() || !Number.isFinite(want) || want <= 0) return false;
+  // The renderer measures the page it draws on, but a minimum size is set in
+  // window coordinates — on a frameless window the two still differ by the
+  // resize border.
+  const pad = Math.max(0, w.getSize()[0] - w.getContentSize()[0]);
+  const min = Math.max(MIN_WINDOW_WIDTH, Math.min(want + pad, MAX_MIN_WINDOW_WIDTH));
+  const [curMin, minH] = w.getMinimumSize();
+  if (curMin === min) return true;
+  w.setMinimumSize(min, minH);
+  if (!w.isMaximized() && !w.isFullScreen()) {
+    const [cw, ch] = w.getSize();
+    if (cw < min) w.setSize(min, ch);
+  }
   return true;
 });

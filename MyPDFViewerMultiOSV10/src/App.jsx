@@ -449,16 +449,6 @@ export default function App() {
     setCapture(shot);
   }, [addClip, copyCapture, settings.captureAction, t]);
 
-  // Clicking a picture only *selects* it. Copying, saving or keeping it is then
-  // offered by the right-click menu, so nothing reaches the clipboard by
-  // surprise.
-  const onImagePick = useCallback((hit) => {
-    setSelectedImage(hit);
-    setStatusMessage(hit
-      ? t('status.imageSelected', { w: Math.round(hit.rect?.width || 0), h: Math.round(hit.rect?.height || 0) })
-      : '');
-  }, [t]);
-
   // Reads the selected picture at its full embedded resolution, falling back to
   // a crop of the rendered page when the original bitmap cannot be decoded.
   const resolveImage = useCallback(async (sel) => {
@@ -494,6 +484,17 @@ export default function App() {
       fail(err, 'copy');
     }
   }, [fail, resolveImage, t, toast]);
+
+  // Clicking a picture selects it; copying, saving or keeping it is then offered
+  // by the right-click menu, so nothing reaches the clipboard by surprise —
+  // unless "copy on select" is turned on, which copies the click as well.
+  const onImagePick = useCallback((hit) => {
+    setSelectedImage(hit);
+    setStatusMessage(hit
+      ? t('status.imageSelected', { w: Math.round(hit.rect?.width || 0), h: Math.round(hit.rect?.height || 0) })
+      : '');
+    if (hit && settings.autoCopyImage) copySelectedImage(hit);
+  }, [copySelectedImage, settings.autoCopyImage, t]);
 
   const keepSelectedImage = useCallback(async (sel) => {
     try {

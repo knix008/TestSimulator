@@ -13,6 +13,7 @@ import { renderPage, renderTextLayer, cropCanvas, getPageImageRegions } from '..
 
 const NEAR = '900px'; // how far outside the viewport a page starts rendering
 const NO_ANNOTATIONS = [];   // one shared instance, so the memo below holds
+const NO_SELECTION = {};     // ditto, for the painted-selection lookup
 
 // Turning pages with the wheel in the single-page layout.
 const REST_MS = 200;     // a scrollable page must sit at its edge this long first
@@ -69,7 +70,9 @@ const PdfView = forwardRef(function PdfView({
   const pageRefs = useRef(new Map());   // page number → { wrapper, canvas, textLayer }
   const [baseSize, setBaseSize] = useState(null); // intrinsic size of page 1 at scale 1
   const [viewport, setViewport] = useState({ width: 0, height: 0 });
-  const [selection, setSelection] = useState(null); // { page, lines: [{left,top,width,height}] }
+  // Painted selection, keyed by page: { [page]: [{ left, top, width, height }] }.
+  // A selection that runs across a page break paints on every page it covers.
+  const [selection, setSelection] = useState(NO_SELECTION);
 
   // ── Container measurement (drives fit-width / fit-page) ──
   useLayoutEffect(() => {
@@ -86,7 +89,7 @@ const PdfView = forwardRef(function PdfView({
   useEffect(() => {
     let cancelled = false;
     setBaseSize(null);
-    setSelection(null);
+    setSelection(NO_SELECTION);
     if (!doc) return undefined;
     doc.getPage(1)
       .then((page) => {
@@ -338,25 +341,22 @@ const PdfView = forwardRef(function PdfView({
     }
   }, [parkEndBlock]);
 
+  // The span the guard block has to sit beside: the element holding the end of
+  // the range that is on the move. A caret dropped in empty space reports the
+  // layer (or a .markedContent wrapper) as its own container, so the child at
+  // the boundary offset is what the caret actually sits next to.
+  const anchorSpanOf = (range, modifyStart) => {
+    const node = modifyStart ? range.startContainer : range.endContainer;
+    if (node.nodeType === Node.TEXT_NODE) return node.parentNode;
+    const kids = node.childNodes;
+    if (!kids.length) return node;
+    const off = modifyStart ? range.startOffset : range.endOffset;
+    return kids[Math.min(off, kids.length - 1)] || node;
+  };
+
   const syncEndBlocks = useCallback(() => {
     const sel = window.document.getSelection();
     if (!sel || sel.rangeCount === 0) { parkAllEndBlocks(); prevRange.current = null; return; }
-
-    // Only the pages the selection actually touches need the guard.
-    const active = new Set();
-    for (let i = 0; i < sel.rangeCount; i += 1) {
-      const r = sel.getRangeAt(i);
-      for (const [, entry] of pageRefs.current) {
-        const layer = entry?.textLayer;
-        if (layer && !active.has(layer) && r.intersectsNode(layer)) active.add(layer);
-      }
-    }
-    for (const [, entry] of pageRefs.current) {
-      const layer = entry?.textLayer;
-      if (!layer) continue;
-      if (active.has(layer)) layer.classList.add('selecting');
-      else parkEndBlock(layer);
-    }
 
     const range = sel.getRangeAt(0);
     const prev = prevRange.current;
@@ -365,13 +365,32 @@ const PdfView = forwardRef(function PdfView({
     const modifyStart = prev
       && (range.compareBoundaryPoints(Range.END_TO_END, prev) === 0
         || range.compareBoundaryPoints(Range.START_TO_END, prev) === 0);
-    let anchor = modifyStart ? range.startContainer : range.endContainer;
-    if (anchor.nodeType === Node.TEXT_NODE) anchor = anchor.parentNode;
+    const anchor = anchorSpanOf(range, modifyStart);
     prevRange.current = range.cloneRange();
 
-    const layer = anchor.parentElement?.closest('.textLayer');
+    // Only the page holding the moving end may arm its guard, and the search
+    // starts at the anchor itself — when the caret is in empty space the anchor
+    // *is* the layer, and looking only at its parent found nothing.
+    const layer = anchor.closest?.('.textLayer')
+      || anchor.parentElement?.closest('.textLayer')
+      || null;
     const end = layer && endBlockOf(layer);
-    if (!end) return;
+
+    // Every other page is parked. A layer left `selecting` while its block is
+    // still at the foot of the page has a full-page catch-all as its last
+    // child: the next press in empty space lands on it and takes the selection
+    // all the way to the end of the page.
+    for (const [, entry] of pageRefs.current) {
+      const other = entry?.textLayer;
+      if (other && other !== layer) parkEndBlock(other);
+    }
+
+    // Nowhere safe to put the block — leave the page unarmed rather than
+    // stretched.
+    if (!end || anchor === layer || anchor === end || !layer.contains(anchor) || !anchor.parentElement) {
+      if (layer) parkEndBlock(layer);
+      return;
+    }
 
     // Firefox puts the caret in empty space by itself, and moving the block
     // there fights it — the same exception pdf.js makes, using pdf.js's own
@@ -381,7 +400,7 @@ const PdfView = forwardRef(function PdfView({
     if (isGecko.current === null) {
       isGecko.current = getComputedStyle(end).getPropertyValue('-moz-user-select') === 'none';
     }
-    if (isGecko.current) return;
+    if (isGecko.current) { parkEndBlock(layer); return; }
 
     if (end.style.width !== layer.style.width) end.style.width = layer.style.width;
     if (end.style.height !== layer.style.height) end.style.height = layer.style.height;
@@ -394,6 +413,9 @@ const PdfView = forwardRef(function PdfView({
     if (!inPlace) {
       anchor.parentElement.insertBefore(end, modifyStart ? anchor : anchor.nextSibling);
     }
+
+    // Armed only now that the block is beside the anchor instead of at the foot.
+    layer.classList.add('selecting');
   }, [parkAllEndBlocks, parkEndBlock]);
 
   // A drag that ends outside the window still has to release the guard.
@@ -410,10 +432,12 @@ const PdfView = forwardRef(function PdfView({
   // ── Text selection: report it and paint it as solid blocks ──
   // The blocks are React state, so an update repaints them. A drag produces
   // several selectionchange events per pointer move and most of them describe
-  // the very same rectangles, so the value is committed only when it actually
-  // differs — an identical object would repaint for nothing, and that reads as
-  // a flicker.
+  // the very same rectangles, so a page's blocks are committed only when they
+  // actually differ — and a page whose blocks are unchanged keeps the very same
+  // array, so its memoised PageView does not repaint at all. Repainting a page
+  // for nothing is exactly what reads as a flicker.
   const selectionSig = useRef('');
+  const pageSigs = useRef(new Map());   // page → signature of the lines it holds
 
   const lastText = useRef('');
 
@@ -426,33 +450,69 @@ const PdfView = forwardRef(function PdfView({
       onSelectionChange?.(text);
     }
 
+    const lineSig = (lines) => lines
+      .map((l) => `${Math.round(l.left)},${Math.round(l.top)},${Math.round(l.width)},${Math.round(l.height)}`)
+      .join('|');
+
     const commit = (next) => {
-      const sig = next
-        ? `${next.page}:${next.lines.map((l) => `${Math.round(l.left)},${Math.round(l.top)},${Math.round(l.width)},${Math.round(l.height)}`).join('|')}`
-        : '';
+      const sig = Object.keys(next).map((n) => `${n}:${lineSig(next[n])}`).join(';');
       if (sig === selectionSig.current) return;
       selectionSig.current = sig;
       setSelection(next);
     };
 
-    if (!text || sel.rangeCount === 0) { commit(null); return; }
-    let page = 0;
-    let entry = null;
-    for (const [num, e] of pageRefs.current) {
-      if (e?.textLayer && (e.textLayer.contains(sel.anchorNode) || e.textLayer.contains(sel.focusNode))) {
-        page = num; entry = e; break;
-      }
-    }
-    if (!entry) { commit(null); return; }
+    if (!text || sel.rangeCount === 0) { pageSigs.current.clear(); commit(NO_SELECTION); return; }
 
-    const box = entry.textLayer.getBoundingClientRect();
-    const lines = mergeRectsIntoLines([...sel.getRangeAt(0).getClientRects()]).map((l) => ({
-      left: l.left - box.left,
-      top: l.top - box.top,
-      width: l.right - l.left,
-      height: l.bottom - l.top,
-    }));
-    commit(lines.length ? { page, lines } : null);
+    const range = sel.getRangeAt(0);
+    const raw = [...range.getClientRects()];
+
+    // The guard block is a page-sized box that lives inside the text layer. It
+    // is meant to sit beside the range, but for the one event where the dragged
+    // end passes it, the range holds it — and its rectangle would paint as a
+    // full-page highlight for that frame. That is the flash; drop its rectangle
+    // rather than trusting it to always be out of the way.
+    const guards = [];
+    for (const [, e] of pageRefs.current) {
+      const end = e?.textLayer && endBlockOf(e.textLayer);
+      if (end) guards.push(end.getBoundingClientRect());
+    }
+    const isGuard = (r) => guards.some((g) => (
+      Math.abs(r.left - g.left) < 1 && Math.abs(r.top - g.top) < 1
+      && Math.abs(r.right - g.right) < 1 && Math.abs(r.bottom - g.bottom) < 1
+    ));
+
+    // Split the rectangles across the pages they land on, so a selection that
+    // runs over a page break stays painted on both.
+    const next = {};
+    for (const [num, e] of pageRefs.current) {
+      const layer = e?.textLayer;
+      if (!layer || !range.intersectsNode(layer)) continue;
+      const box = layer.getBoundingClientRect();
+      const mine = raw.filter((r) => {
+        if (isGuard(r)) return false;
+        const cx = (r.left + r.right) / 2;
+        const cy = (r.top + r.bottom) / 2;
+        return cx >= box.left - 1 && cx <= box.right + 1 && cy >= box.top - 1 && cy <= box.bottom + 1;
+      });
+      const lines = mergeRectsIntoLines(mine).map((l) => ({
+        left: l.left - box.left,
+        top: l.top - box.top,
+        width: l.right - l.left,
+        height: l.bottom - l.top,
+      }));
+      if (!lines.length) continue;
+      // Same blocks as last time → hand back the same array, so this page's
+      // PageView is skipped by React.memo instead of repainting identically.
+      const sig = lineSig(lines);
+      const held = pageSigs.current.get(num);
+      if (held && held.sig === sig) { next[num] = held.lines; continue; }
+      pageSigs.current.set(num, { sig, lines });
+      next[num] = lines;
+    }
+    for (const num of [...pageSigs.current.keys()]) {
+      if (!(num in next)) pageSigs.current.delete(num);
+    }
+    commit(next);
   }, [onSelectionChange]);
 
   // The guard block is repositioned first, so the rectangles measured below are
@@ -500,6 +560,7 @@ const PdfView = forwardRef(function PdfView({
       if (end) range.setEndBefore(end);
       sel.removeAllRanges();
       sel.addRange(range);
+      prevRange.current = null;
       refreshSelection();
       return true;
     },
@@ -536,8 +597,10 @@ const PdfView = forwardRef(function PdfView({
     clearSelection() {
       window.getSelection()?.removeAllRanges();
       parkAllEndBlocks();
+      prevRange.current = null;
       selectionSig.current = '';
-      setSelection(null);
+      pageSigs.current.clear();
+      setSelection(NO_SELECTION);
       onSelectionChange?.('');
     },
   }), [scrollToPage, refreshSelection, onSelectionChange, parkAllEndBlocks, parkEndBlock]);
@@ -567,9 +630,18 @@ const PdfView = forwardRef(function PdfView({
         // reports where the caret actually went.
         const layer = e.target.closest?.('.textLayer');
         if (!layer) return;
+        // A new drag knows nothing about the last one. Left behind, the old
+        // range makes the very first move guess the wrong end as the moving
+        // one, which parks the guard block inside the range — one frame of a
+        // full-page highlight.
+        prevRange.current = null;
         const span = e.target.closest('.textLayer span');
         const end = endBlockOf(layer);
-        if (!end || !span || span === end) return;
+        // A press in empty space has no span to sit beside. Park the block
+        // rather than leaving whatever the last drag armed: stretched over the
+        // page and last in the DOM, it would swallow everything below the
+        // press for the one tick until the caret reports where it went.
+        if (!end || !span || span === end) { parkEndBlock(layer); return; }
         end.style.width = layer.style.width;
         end.style.height = layer.style.height;
         if (span.nextSibling !== end) span.parentElement.insertBefore(end, span.nextSibling);
@@ -586,7 +658,7 @@ const PdfView = forwardRef(function PdfView({
             rotation={rotation}
             baseSize={baseSize}
             annotations={annotationsByPage.get(num) || NO_ANNOTATIONS}
-            selection={selection && selection.page === num ? selection.lines : null}
+            selection={selection[num] || null}
             tool={tool}
             onRegionCapture={onRegionCapture}
             onImagePick={onImagePick}
