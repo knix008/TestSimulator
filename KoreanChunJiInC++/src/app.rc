@@ -1,0 +1,31 @@
+#include <windows.h>
+#include "../include/resource.h"
+
+IDI_APP ICON "../assets/chunjiin.ico"
+
+1 RT_MANIFEST "app.manifest"
+
+VS_VERSION_INFO VERSIONINFO
+FILEVERSION    1,0,0,0
+PRODUCTVERSION 1,0,0,0
+FILEOS         VOS__WINDOWS32
+FILETYPE       VFT_APP
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "041204B0"
+        BEGIN
+            VALUE "CompanyName",     "KoreanChunJiIn"
+            VALUE "FileDescription", "Chunjiin Hangul Input"
+            VALUE "FileVersion",     "1.0.0.0"
+            VALUE "InternalName",    "chunjiin"
+            VALUE "OriginalFilename","chunjiin.exe"
+            VALUE "ProductName",     "Chunjiin Hangul Input"
+            VALUE "ProductVersion",  "1.0.0.0"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x412, 1200
+    END
+END

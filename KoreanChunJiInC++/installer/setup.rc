@@ -1,0 +1,32 @@
+#include <windows.h>
+#include "setup_res.h"
+
+IDI_SETUP   ICON    "../assets/chunjiin.ico"
+IDR_APP_EXE RCDATA  "../build/chunjiin.exe"
+
+1 RT_MANIFEST "setup.manifest"
+
+VS_VERSION_INFO VERSIONINFO
+FILEVERSION    1,0,0,0
+PRODUCTVERSION 1,0,0,0
+FILEOS         VOS__WINDOWS32
+FILETYPE       VFT_APP
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "041204B0"
+        BEGIN
+            VALUE "CompanyName",     "KoreanChunJiIn"
+            VALUE "FileDescription", "Chunjiin Hangul Input Setup"
+            VALUE "FileVersion",     "1.0.0.0"
+            VALUE "InternalName",    "setup"
+            VALUE "OriginalFilename","chunjiin-setup.exe"
+            VALUE "ProductName",     "Chunjiin Hangul Input"
+            VALUE "ProductVersion",  "1.0.0.0"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x412, 1200
+    END
+END

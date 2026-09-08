@@ -1,0 +1,71 @@
+# ------------------------------------------------------------------
+# 천지인 한글 입력기 - 무시할 파일
+# ------------------------------------------------------------------
+
+# 빌드 폴더
+/build/
+/out/
+/cmake-build-*/
+
+# CMake 가 만드는 것들
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+CTestTestfile.cmake
+Testing/
+Makefile
+compile_commands.json
+
+# 컴파일 산출물
+*.o
+*.obj
+*.res
+*.exe
+*.dll
+*.a
+*.lib
+*.def
+*.pdb
+*.ilk
+*.map
+
+# 빌드가 끝나면 실행 파일과 설치 파일이 저장소 루트에도 복사된다.
+# (build.bat / CMakeLists.txt)  위의 *.exe 규칙으로 이미 무시된다.
+# 배포용으로 저장소에 같이 넣고 싶으면 아래 두 줄의 주석을 푼다.
+#!/chunjiin.exe
+#!/chunjiin-setup.exe
+
+# 실행하면서 생기는 것
+*.log
+*.stackdump
+
+# 편집기 / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.bak
+
+# 운영체제
+Thumbs.db
+ehthumbs.db
+desktop.ini
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store
+
+# 파이썬 (scripts/make_icon.py)
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# ------------------------------------------------------------------
+# 일부러 커밋하는 것 (참고)
+#   assets/chunjiin.ico       빌드에 필요하다. 있어야 파이썬 없이도 빌드된다.
+#   assets/chunjiin.png       README 에 쓴다.
+#   src/app.manifest
+#   installer/setup.manifest
+# ------------------------------------------------------------------
