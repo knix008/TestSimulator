@@ -145,18 +145,19 @@ body {
   background: var(--bg-2); border-bottom: 1px solid var(--border);
   flex: none; min-width: 0;
 }
-/* Everything except the app group; scrolls sideways on a narrow window so
-   Settings and About can never be pushed off the toolbar. */
+/* Everything except the app group. The toolbar is always a single row: when the
+   window is too narrow this part scrolls sideways, while the app group on the
+   right stays pinned and visible. */
 .toolbar-scroll {
   flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 4px;
-  overflow-x: auto; overflow-y: hidden; scrollbar-width: none;
+  flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; scrollbar-width: none;
 }
-/* The scrollbar would otherwise make the toolbar visibly taller; it appears
-   only while the pointer is over the toolbar. */
+/* A permanent scrollbar would make the row taller, so it appears only while the
+   pointer is over the toolbar. */
 .toolbar-scroll::-webkit-scrollbar { height: 0; }
-.toolbar:hover .toolbar-scroll::-webkit-scrollbar { height: 5px; }
+.toolbar:hover .toolbar-scroll::-webkit-scrollbar { height: 4px; }
 .toolbar:hover .toolbar-scroll::-webkit-scrollbar-thumb {
-  background: var(--border); border-radius: 3px; border: none;
+  background: var(--border); border-radius: 2px; border: none;
 }
 .toolbar-right {
   flex: none; display: flex; align-items: center; gap: 2px;
@@ -254,6 +255,10 @@ body {
 .dd-item:hover { background: var(--bg-3); }
 .dd-item.active { background: var(--bg-3); color: var(--accent); }
 .dd-name { flex: none; max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dd-name.wide { flex: 1; max-width: none; }
+.dd-key { flex: none; font-size: 11px; color: var(--muted); }
+.dd-item:disabled { opacity: 0.4; cursor: default; }
+.dd-item:disabled:hover { background: transparent; }
 .dd-dir { flex: 1; color: var(--muted); font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; }
 
 /* ── Work area ─────────────────────────────────────────── */
@@ -417,8 +422,7 @@ body {
    span-by-span highlight looks speckled on a PDF text layer. */
 .sel-layer { position: absolute; inset: 0; pointer-events: none; z-index: 0; }
 .sel-block {
-  position: absolute; background: rgba(56, 122, 223, 0.38);
-  border-radius: 2px; mix-blend-mode: multiply;
+  position: absolute; background: rgba(56, 122, 223, 0.34); border-radius: 2px;
 }
 
 .annots { position: absolute; inset: 0; pointer-events: none; }
@@ -491,6 +495,16 @@ body {
 .st-ellipsis { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .st-dir { overflow: hidden; text-overflow: ellipsis; direction: rtl; }
 .st-sep { width: 1px; height: 13px; background: var(--border); flex: none; }
+/* Resize grip, hard against the bottom-right corner: the window is frameless,
+   so this is the only visible handle it has. The bar's own padding is
+   cancelled out so the diagonal sits in the very corner. */
+.st-grip {
+  flex: none; display: grid; place-items: end; align-self: stretch;
+  width: 16px; margin: 0 -10px 0 6px; padding-bottom: 1px;
+  color: var(--muted); cursor: nwse-resize; -webkit-app-region: no-drag;
+  touch-action: none; -webkit-user-select: none; user-select: none;
+}
+.st-grip:hover { color: var(--text); }
 .spinner {
   width: 12px; height: 12px; border-radius: 50%; flex: none;
   border: 2px solid var(--border); border-top-color: var(--accent);
@@ -552,6 +566,8 @@ body {
 .field.grow { flex: 1; }
 .field-label { font-size: 12px; color: var(--text-dim); }
 .field-label .hint { color: var(--muted); font-style: normal; }
+/* A one-line explanation under a checkbox, indented to line up with its label. */
+p.hint { margin: 0 0 0 23px; color: var(--muted); font-size: 11.5px; line-height: 1.5; }
 .field-error { margin: 0; color: var(--danger); font-size: 12px; }
 .input { width: 100%; height: 32px; }
 .range { width: 100%; accent-color: var(--accent); }
@@ -613,6 +629,12 @@ body {
 .about-logo { flex: none; }
 .about-name { margin: 2px 0 6px; font-size: 17px; }
 .about-desc { margin: 0; font-size: 12.5px; color: var(--text-dim); line-height: 1.65; }
+/* Rows in the About table read as plain values, so the author's mail link keeps
+   the accent colour but not the underline. */
+.about-modal .kv .linkish, .kv .linkish { text-decoration: none; }
+.kv .linkish:hover { text-decoration: none; }
+/* Program-info rows sit flush with no separator line between items. */
+.about-kv tr + tr th, .about-kv tr + tr td { border-top: none; }
 
 /* ── Capture dialog ────────────────────────────────────── */
 .capture-preview {
@@ -633,6 +655,20 @@ body {
   font-size: 12px; color: var(--text-dim); margin-bottom: 14px;
 }
 .capture-note { margin: 4px 0 0; font-size: 11.5px; color: var(--muted); line-height: 1.6; }
+
+/* ── Print dialog ──────────────────────────────────────── */
+.print-scopes { display: grid; gap: 8px; margin-bottom: 14px; }
+.print-scope {
+  display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; cursor: pointer;
+  border: 1px solid var(--border); border-radius: 9px; background: var(--bg);
+}
+.print-scope:hover { border-color: var(--accent); }
+.print-scope.active { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--bg)); }
+.print-scope input { margin-top: 2px; accent-color: var(--accent); }
+.print-scope-text { display: grid; gap: 2px; }
+.print-scope-label { font-size: 13px; font-weight: 600; }
+.print-scope-hint { font-size: 11.5px; color: var(--muted); }
+.print-count { font-size: 12px; color: var(--text-dim); }
 
 /* ── Context menu ──────────────────────────────────────── */
 .ctxmenu {

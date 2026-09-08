@@ -77,7 +77,7 @@ export default function AboutDialog({ open, onClose }) {
         </div>
       </div>
 
-      <table className="kv">
+      <table className="kv about-kv">
         <tbody>
           {rows.map(([k, v]) => (
             <tr key={k}>

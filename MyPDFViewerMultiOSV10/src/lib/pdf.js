@@ -237,10 +237,14 @@ export async function getPageImageRegions(page, viewport, { minSize = 24 } = {})
     };
     if (rect.width < minSize || rect.height < minSize) continue;
 
+    // One page can paint the same image object more than once, so the object
+    // name identifies the *bitmap* while the id identifies this occurrence.
     const arg = ops.argsArray[i][0];
+    const named = typeof arg === 'string';
     regions.push({
-      id: typeof arg === 'string' ? arg : `inline-${i}`,
-      inline: typeof arg !== 'string',
+      id: named ? `${arg}#${i}` : `inline-${i}`,
+      name: named ? arg : null,
+      inline: !named,
       rect,
     });
   }

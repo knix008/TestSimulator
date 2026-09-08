@@ -274,6 +274,15 @@ export default function SettingsDialog({ open, settings, onChange, onClose, onCl
                 >{t('settings.captureCopy')}</button>
               </div>
             </label>
+
+            <div className="field">
+              <Check
+                label={t('settings.autoCopyImage')}
+                value={settings.autoCopyImage}
+                onChange={(v) => set({ autoCopyImage: v })}
+              />
+              <p className="hint">{t('settings.autoCopyImageHint')}</p>
+            </div>
           </section>
         )}
 

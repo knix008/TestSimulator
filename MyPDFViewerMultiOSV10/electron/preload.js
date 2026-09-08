@@ -29,6 +29,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   download: (payload) => ipcRenderer.invoke('net:download', payload),
 
+  printPages: (payload) => ipcRenderer.invoke('print:pages', payload),
+
   writeClipboardText: (text) => ipcRenderer.invoke('clipboard:writeText', text),
   writeClipboardImage: (dataUrl) => ipcRenderer.invoke('clipboard:writeImage', dataUrl),
 
@@ -51,6 +53,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     close: () => ipcRenderer.invoke('win:close'),
     isMaximized: () => ipcRenderer.invoke('win:isMaximized'),
     setTitle: (t) => ipcRenderer.invoke('win:setTitle', t),
+    setMinWidth: (w) => ipcRenderer.invoke('win:setMinWidth', w),
+    getSize: () => ipcRenderer.invoke('win:getSize'),
+    setSize: (payload) => ipcRenderer.invoke('win:setSize', payload),
     onMaximizeChange: (cb) => {
       const h = (_e, v) => cb(v);
       ipcRenderer.on('win:maximized', h);

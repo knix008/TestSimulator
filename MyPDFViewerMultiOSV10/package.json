@@ -12,11 +12,11 @@
   "scripts": {
     "postinstall": "node scripts/copy-pdfjs-assets.mjs && node scripts/sync-public-svgs.mjs && node scripts/generate-build-info.mjs",
     "prepare:assets": "node scripts/copy-pdfjs-assets.mjs && node scripts/sync-public-svgs.mjs && node scripts/generate-build-info.mjs",
-    "prestart": "npm run prepare:assets",
+    "prestart": "npm run free:port && npm run prepare:assets",
     "start": "cross-env NODE_OPTIONS=--disable-warning=DEP0060 concurrently -k \"vite --port 5179\" \"wait-on tcp:5179 && cross-env ELECTRON_DEV=1 node scripts/start-electron.mjs\"",
-    "predev": "npm run prepare:assets",
+    "predev": "npm run free:port && npm run prepare:assets",
     "dev": "vite --port 5179",
-    "preweb": "npm run prepare:assets",
+    "preweb": "npm run free:port && npm run prepare:assets",
     "web": "vite --port 5179",
     "electron": "cross-env ELECTRON_DEV=1 node scripts/start-electron.mjs",
     "preview:electron": "node scripts/start-electron.mjs",
@@ -36,7 +36,8 @@
     "build:linux": "vite build && electron-builder --linux",
     "postbuild:linux": "node scripts/copy-installer.js",
     "copy:installer": "node scripts/copy-installer.js",
-    "preview": "vite preview --port 4179"
+    "preview": "vite preview --port 4179",
+    "free:port": "node scripts/free-port.mjs 5179"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.1",

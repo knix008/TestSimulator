@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -7,9 +7,55 @@ import {
   IconFirst, IconPrev, IconNext, IconLast, IconZoomIn, IconZoomOut, IconFitWidth,
   IconFitPage, IconActual, IconRotateLeft, IconRotateRight, IconSearch, IconSidebar,
   IconSettings, IconInfo, IconLang, IconTheme, IconTrash, IconDown, IconLayout, IconFolder,
-  IconSelectText,
+  IconSelectText, IconPrint,
 } from './Icons.jsx';
 import { THEMES } from '../lib/themes.js';
+import { api, isElectron } from '../lib/platform.js';
+
+// The window must never be narrow enough to hide a toolbar button. How much the
+// row needs depends on the language, the UI font and whether button labels are
+// shown, so it is measured from the laid-out toolbar and handed to the main
+// process as the window's minimum width rather than guessed as a constant.
+function useToolbarMinWidth(barRef, scrollRef, deps) {
+  const last = useRef(0);
+
+  const measure = useCallback(() => {
+    if (!isElectron) return;
+    const bar = barRef.current;
+    const scroll = scrollRef.current;
+    if (!bar || !scroll) return;
+    const kids = [...scroll.children];
+    if (!kids.length) return;
+    const gap = parseFloat(getComputedStyle(scroll).columnGap) || 0;
+    // Every group is `flex: none`, so its laid-out width is its natural width
+    // even while the row is scrolled — the sum is what the row really wants.
+    // Margins have to be added by hand: a border box does not include them, and
+    // the separators carry 6px on each side, which is most of a button.
+    const content = kids.reduce((w, el) => {
+      const cs = getComputedStyle(el);
+      return w + el.getBoundingClientRect().width
+        + (parseFloat(cs.marginLeft) || 0) + (parseFloat(cs.marginRight) || 0);
+    }, 0) + gap * (kids.length - 1);
+    // Everything else on the row: the toolbar's own padding, the gap and the
+    // app group pinned to the right.
+    const chrome = bar.getBoundingClientRect().width - scroll.getBoundingClientRect().width;
+    const needed = Math.ceil(chrome + content) + 2;
+    if (!Number.isFinite(needed) || needed <= 0) return;
+    if (Math.abs(needed - last.current) < 2) return;
+    last.current = needed;
+    api?.win?.setMinWidth?.(needed)?.catch?.(() => {});
+  }, [barRef, scrollRef]);
+
+  // Anything that changes a label — language, the label toggle, the UI font —
+  // changes the answer, and so does a font that only finishes loading later.
+  useLayoutEffect(() => {
+    measure();
+    let cancelled = false;
+    document.fonts?.ready?.then(() => { if (!cancelled) measure(); }).catch(() => {});
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [measure, ...deps]);
+}
 
 // Every toolbar control carries a `title`, which the global Tooltip component
 // turns into a fast custom tooltip.
@@ -111,11 +157,18 @@ export default function Toolbar({
   onSave, onSaveAs, onCopyText, onSelectPage, onExtractImages, onExportText,
   onHighlight, onBookmark,
   onGoToPage, onZoom, onZoomMode, onRotate, onLayout,
-  onSearch, onTogglePanel, onTheme, onLang, onSettings, onAbout,
+  onSearch, onTogglePanel, onTheme, onLang, onSettings, onAbout, onPrint,
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [pageInput, setPageInput] = useState(String(pageNumber));
   const showLabel = settings.showToolbarLabels;
+  const barRef = useRef(null);
+  const scrollRef = useRef(null);
+
+  useToolbarMinWidth(barRef, scrollRef, [
+    showLabel, i18n.language, settings.fontFamily, settings.fontSize,
+    settings.fontWeight, settings.fontStyle, !!doc, numPages,
+  ]);
 
   useEffect(() => { setPageInput(String(pageNumber)); }, [pageNumber]);
 
@@ -128,16 +181,29 @@ export default function Toolbar({
   const zoomPercent = Math.round(scale * 100);
 
   return (
-    <div className="toolbar">
-      {/* Everything before the app group scrolls horizontally when the window
-          is too narrow, so Settings and About are never pushed out of sight. */}
-      <div className="toolbar-scroll">
+    <div className="toolbar" ref={barRef}>
+      {/* One row, always. Commands are grouped by kind behind a menu button —
+          File, Copy, View — and only the everyday ones sit out here. */}
+      <div className="toolbar-scroll" ref={scrollRef}>
+
       {/* File */}
       <div className="toolbar-group">
-        <ToolButton icon={IconOpen} label={t('toolbar.open')} tip={t('tip.open')} onClick={onOpen} showLabel={showLabel} />
-        <ToolButton icon={IconUrl} label={t('toolbar.openUrl')} tip={t('tip.openUrl')} onClick={onOpenUrl} showLabel={showLabel} />
+        <MenuButton icon={IconFolder} label={t('toolbar.fileMenu')} tip={t('tip.fileMenu')} showLabel={showLabel} width={430}>
+          <ul className="dd-list">
+            <li><button className="dd-item" onClick={onOpen} title={t('tip.open')}>
+              <IconOpen size={15} /><span className="dd-name wide">{t('toolbar.open')}</span><span className="dd-key">Ctrl+O</span></button></li>
+            <li><button className="dd-item" onClick={onOpenUrl} title={t('tip.openUrl')}>
+              <IconUrl size={15} /><span className="dd-name wide">{t('toolbar.openUrl')}</span></button></li>
+            <li><button className="dd-item" onClick={onSave} disabled={!doc} title={t('tip.save')}>
+              <IconSave size={15} /><span className="dd-name wide">{t('toolbar.save')}</span><span className="dd-key">Ctrl+S</span></button></li>
+            <li><button className="dd-item" onClick={onSaveAs} disabled={!doc} title={t('tip.saveAs')}>
+              <IconSaveAs size={15} /><span className="dd-name wide">{t('toolbar.saveAs')}</span></button></li>
+            <li><button className="dd-item" onClick={onExportText} disabled={!doc} title={t('tip.exportText')}>
+              <IconText size={15} /><span className="dd-name wide">{t('toolbar.exportText')}</span></button></li>
+            <li><button className="dd-item" onClick={onPrint} disabled={!doc} title={t('tip.print')}>
+              <IconPrint size={15} /><span className="dd-name wide">{t('toolbar.print')}</span><span className="dd-key">Ctrl+P</span></button></li>
+          </ul>
 
-        <MenuButton icon={IconRecent} label={t('toolbar.recent')} tip={t('tip.recent')} showLabel={showLabel} width={430}>
           <div className="dd-head">
             <span>{t('recent.title')}</span>
             {settings.recentFiles.length ? (
@@ -158,7 +224,7 @@ export default function Toolbar({
               {settings.recentFiles.map((f) => (
                 <li key={f.path || f.name}>
                   <button className="dd-item" onClick={() => onOpenRecent(f)} title={f.path || f.name}>
-                    <IconFolder size={15} />
+                    <IconRecent size={15} />
                     <span className="dd-name">{f.name}</span>
                     <span className="dd-dir">{f.dir || ''}</span>
                   </button>
@@ -176,8 +242,9 @@ export default function Toolbar({
           )}
         </MenuButton>
 
-        <ToolButton icon={IconSave} label={t('toolbar.save')} tip={t('tip.save')} onClick={onSave} disabled={!doc} active={dirty} showLabel={showLabel} />
-        <ToolButton icon={IconSaveAs} label={t('toolbar.saveAs')} tip={t('tip.saveAs')} onClick={onSaveAs} disabled={!doc} showLabel={showLabel} />
+        {/* Printing stays out here: it is asked for often and is easy to miss
+            inside a menu. Everything else about files lives in the menu. */}
+        <ToolButton icon={IconPrint} label={t('toolbar.print')} tip={t('tip.print')} onClick={onPrint} disabled={!doc} showLabel={showLabel} />
       </div>
 
       <div className="toolbar-sep" />
@@ -204,8 +271,8 @@ export default function Toolbar({
 
       <div className="toolbar-sep" />
 
-      {/* Mouse tool — three separate, mutually exclusive choices, always
-          labelled so text / image / region selection are told apart at a glance. */}
+      {/* Mouse tool — three mutually exclusive choices, always labelled so text,
+          image and region selection are told apart at a glance. */}
       <div className="toolbar-group tool-picker" role="radiogroup" aria-label={t('toolbar.toolGroup')}>
         {[
           { id: 'text', icon: IconSelectText, label: t('toolbar.toolText'), tip: t('tip.textTool') },
@@ -230,21 +297,27 @@ export default function Toolbar({
 
       <div className="toolbar-sep" />
 
-      {/* Copy tools */}
+      {/* Copying */}
       <div className="toolbar-group">
         <ToolButton icon={IconCopy} label={t('toolbar.copyText')} tip={t('tip.copyText')} onClick={onCopyText} disabled={!hasSelection} showLabel={showLabel} />
-        <ToolButton icon={IconSelectAll} label={t('toolbar.selectAll')} tip={t('tip.selectAll')} onClick={onSelectPage} disabled={!doc} showLabel={showLabel} />
-        <ToolButton icon={IconImage} label={t('toolbar.images')} tip={t('tip.images')} onClick={() => onExtractImages(pageNumber)} disabled={!doc} showLabel={showLabel} />
-        <ToolButton icon={IconText} label={t('toolbar.exportText')} tip={t('tip.exportText')} onClick={onExportText} disabled={!doc} showLabel={showLabel} />
-        <ToolButton icon={IconHighlight} label={t('toolbar.highlight')} tip={t('tip.highlight')} onClick={onHighlight} disabled={!hasSelection} showLabel={showLabel} />
-        <ToolButton icon={IconBookmark} label={t('menu.addBookmark')} tip={t('menu.addBookmark')} onClick={onBookmark} disabled={!doc} showLabel={showLabel} />
+        <MenuButton icon={IconSelectAll} label={t('toolbar.copyMenu')} tip={t('tip.copyMenu')} showLabel={showLabel} width={260}>
+          <ul className="dd-list">
+            <li><button className="dd-item" onClick={onSelectPage} disabled={!doc} title={t('tip.selectAll')}>
+              <IconSelectAll size={15} /><span className="dd-name wide">{t('toolbar.selectAll')}</span><span className="dd-key">Ctrl+A</span></button></li>
+            <li><button className="dd-item" onClick={onHighlight} disabled={!hasSelection} title={t('tip.highlight')}>
+              <IconHighlight size={15} /><span className="dd-name wide">{t('toolbar.highlight')}</span></button></li>
+            <li><button className="dd-item" onClick={() => onExtractImages(pageNumber)} disabled={!doc} title={t('tip.images')}>
+              <IconImage size={15} /><span className="dd-name wide">{t('toolbar.images')}</span></button></li>
+            <li><button className="dd-item" onClick={onBookmark} disabled={!doc} title={t('menu.addBookmark')}>
+              <IconBookmark size={15} /><span className="dd-name wide">{t('menu.addBookmark')}</span></button></li>
+          </ul>
+        </MenuButton>
       </div>
 
       <div className="toolbar-sep" />
 
       {/* Navigation */}
       <div className="toolbar-group">
-        <ToolButton icon={IconFirst} label={t('toolbar.firstPage')} tip={t('toolbar.firstPage')} onClick={() => onGoToPage(1)} disabled={!doc || pageNumber <= 1} />
         <ToolButton icon={IconPrev} label={t('toolbar.prevPage')} tip={t('toolbar.prevPage')} onClick={() => onGoToPage(pageNumber - 1)} disabled={!doc || pageNumber <= 1} />
         <span className="page-box">
           <input
@@ -260,12 +333,11 @@ export default function Toolbar({
           <span className="page-total">/ {numPages || 0}</span>
         </span>
         <ToolButton icon={IconNext} label={t('toolbar.nextPage')} tip={t('toolbar.nextPage')} onClick={() => onGoToPage(pageNumber + 1)} disabled={!doc || pageNumber >= numPages} />
-        <ToolButton icon={IconLast} label={t('toolbar.lastPage')} tip={t('toolbar.lastPage')} onClick={() => onGoToPage(numPages)} disabled={!doc || pageNumber >= numPages} />
       </div>
 
       <div className="toolbar-sep" />
 
-      {/* Zoom & rotation */}
+      {/* Zoom, with the rest of the view commands in one menu */}
       <div className="toolbar-group">
         <ToolButton icon={IconZoomOut} label={t('toolbar.zoomOut')} tip={t('tip.zoomOut')} onClick={() => onZoom(-1)} disabled={!doc} />
         <select
@@ -282,21 +354,29 @@ export default function Toolbar({
           <option value="custom">{zoomPercent}%</option>
         </select>
         <ToolButton icon={IconZoomIn} label={t('toolbar.zoomIn')} tip={t('tip.zoomIn')} onClick={() => onZoom(1)} disabled={!doc} />
-        <ToolButton icon={IconFitWidth} label={t('toolbar.fitWidth')} tip={t('tip.fitWidth')} onClick={() => onZoomMode('fit-width')} disabled={!doc} active={settings.zoomMode === 'fit-width'} />
-        <ToolButton icon={IconFitPage} label={t('toolbar.fitPage')} tip={t('tip.fitPage')} onClick={() => onZoomMode('fit-page')} disabled={!doc} active={settings.zoomMode === 'fit-page'} />
-        <ToolButton icon={IconActual} label={t('toolbar.actual')} tip={t('tip.actual')} onClick={() => onZoomMode('actual')} disabled={!doc} active={settings.zoomMode === 'actual'} />
-        <ToolButton icon={IconRotateLeft} label={t('toolbar.rotateLeft')} tip={t('tip.rotateLeft')} onClick={() => onRotate(-90)} disabled={!doc} />
-        <ToolButton icon={IconRotateRight} label={t('toolbar.rotateRight')} tip={t('tip.rotateRight')} onClick={() => onRotate(90)} disabled={!doc} />
-        <ToolButton
-          icon={IconLayout}
-          label={t('toolbar.layout')}
-          tip={`${t('toolbar.layout')}: ${settings.pageLayout === 'single' ? t('settings.single') : t('settings.continuous')}`}
-          onClick={onLayout}
-          disabled={!doc}
-          active={settings.pageLayout === 'continuous'}
-        />
-      </div>
 
+        <MenuButton icon={IconLayout} label={t('toolbar.viewMenu')} tip={t('tip.viewMenu')} showLabel={showLabel} width={260}>
+          <ul className="dd-list">
+            <li><button className={`dd-item${settings.zoomMode === 'fit-width' ? ' active' : ''}`} onClick={() => onZoomMode('fit-width')} disabled={!doc} title={t('tip.fitWidth')}>
+              <IconFitWidth size={15} /><span className="dd-name wide">{t('toolbar.fitWidth')}</span></button></li>
+            <li><button className={`dd-item${settings.zoomMode === 'fit-page' ? ' active' : ''}`} onClick={() => onZoomMode('fit-page')} disabled={!doc} title={t('tip.fitPage')}>
+              <IconFitPage size={15} /><span className="dd-name wide">{t('toolbar.fitPage')}</span></button></li>
+            <li><button className={`dd-item${settings.zoomMode === 'actual' ? ' active' : ''}`} onClick={() => onZoomMode('actual')} disabled={!doc} title={t('tip.actual')}>
+              <IconActual size={15} /><span className="dd-name wide">{t('toolbar.actual')}</span><span className="dd-key">Ctrl+0</span></button></li>
+            <li><button className="dd-item" onClick={() => onRotate(-90)} disabled={!doc} title={t('tip.rotateLeft')}>
+              <IconRotateLeft size={15} /><span className="dd-name wide">{t('toolbar.rotateLeft')}</span></button></li>
+            <li><button className="dd-item" onClick={() => onRotate(90)} disabled={!doc} title={t('tip.rotateRight')}>
+              <IconRotateRight size={15} /><span className="dd-name wide">{t('toolbar.rotateRight')}</span></button></li>
+            <li><button className={`dd-item${settings.pageLayout === 'continuous' ? ' active' : ''}`} onClick={onLayout} disabled={!doc}
+              title={`${t('toolbar.layout')}: ${settings.pageLayout === 'single' ? t('settings.single') : t('settings.continuous')}`}>
+              <IconLayout size={15} /><span className="dd-name wide">{t('toolbar.layout')}</span></button></li>
+            <li><button className="dd-item" onClick={() => onGoToPage(1)} disabled={!doc || pageNumber <= 1} title={t('toolbar.firstPage')}>
+              <IconFirst size={15} /><span className="dd-name wide">{t('toolbar.firstPage')}</span></button></li>
+            <li><button className="dd-item" onClick={() => onGoToPage(numPages)} disabled={!doc || pageNumber >= numPages} title={t('toolbar.lastPage')}>
+              <IconLast size={15} /><span className="dd-name wide">{t('toolbar.lastPage')}</span></button></li>
+          </ul>
+        </MenuButton>
+      </div>
       </div>
 
       {/* View & app — pinned to the right edge, always visible */}
@@ -316,7 +396,7 @@ export default function Toolbar({
                   <span className="theme-swatch small">
                     {th.bars.map((c, i) => <i key={i} style={{ background: c }} />)}
                   </span>
-                  <span className="dd-name">{th.id}</span>
+                  <span className="dd-name wide">{th.id}</span>
                 </button>
               </li>
             ))}

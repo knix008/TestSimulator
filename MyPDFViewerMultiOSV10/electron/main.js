@@ -82,11 +82,16 @@ function deliverOpen(win, filePath) {
 
 let mainWin = null;
 
+// Floor and ceiling for the measured toolbar minimum: never let the window get
+// unusably narrow, and never let a runaway measurement make it unresizable.
+const MIN_WINDOW_WIDTH = 900;
+const MAX_MIN_WINDOW_WIDTH = 2000;
+
 function createWindow() {
   const win = new BrowserWindow({
     width: 1480,
     height: 960,
-    minWidth: 1040,
+    minWidth: MIN_WINDOW_WIDTH,
     minHeight: 640,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -410,6 +415,68 @@ ipcMain.handle('net:download', async (e, { url, id }) => {
   return { data: new Uint8Array(buf), name, size: buf.length, url };
 });
 
+// ── Printing ──────────────────────────────────────────────
+// The renderer hands over the chosen pages already rendered as JPEGs (Electron's
+// own window paints a PDF as a blank page, which would print blank paper). They
+// are written to a temp folder and printed from an offscreen window, so the
+// system print dialog shows exactly the pages the user selected.
+ipcMain.handle('print:pages', async (e, { images, title }) => {
+  if (!Array.isArray(images) || !images.length) throw new Error('There are no pages to print.');
+
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mypdfviewer-print-'));
+  const cleanup = () => { try { fs.rmSync(dir, { recursive: true, force: true }); } catch { /* temp sweep */ } };
+
+  const srcs = images.map((bytes, i) => {
+    const file = path.join(dir, `p${String(i).padStart(5, '0')}.jpg`);
+    fs.writeFileSync(file, Buffer.from(bytes));
+    return pathToFileURL(file).toString();
+  });
+
+  const sheets = srcs.map((src) => `<div class="sheet"><img src="${src}" alt=""></div>`).join('\n');
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>${(title || 'Print').replace(/[<&]/g, '')}</title>
+<style>
+  @page { size: auto; margin: 8mm; }
+  html, body { margin: 0; padding: 0; background: #fff; }
+  .sheet { page-break-after: always; break-after: page; display: flex; align-items: center; justify-content: center; }
+  .sheet:last-child { page-break-after: auto; break-after: auto; }
+  .sheet img { max-width: 100%; display: block; }
+</style></head><body>${sheets}</body></html>`;
+
+  const htmlFile = path.join(dir, 'print.html');
+  fs.writeFileSync(htmlFile, html, 'utf-8');
+
+  // Shown but off-screen and transparent: a `show: false` window is throttled
+  // and can reach the printer before the images have painted.
+  const win = new BrowserWindow({
+    show: true, x: -32000, y: -32000, width: 900, height: 1200,
+    opacity: 0, skipTaskbar: true, focusable: false,
+    webPreferences: { sandbox: true, backgroundThrottling: false },
+  });
+
+  try {
+    await win.loadFile(htmlFile);
+    // Let every image decode before the print job is built.
+    await win.webContents.executeJavaScript(
+      'Promise.all(Array.from(document.images).map(function (i) { return i.decode().catch(function () {}); })).then(function () { return true; })'
+    );
+    await new Promise((r) => setTimeout(r, 250));
+
+    const result = await new Promise((resolve) => {
+      win.webContents.print(
+        { silent: false, printBackground: true },
+        (success, failureReason) => resolve({ success, failureReason })
+      );
+    });
+    if (!result.success && result.failureReason && !/cancel/i.test(result.failureReason)) {
+      throw new Error(result.failureReason);
+    }
+    return { printed: result.success, reason: result.failureReason || '', pages: images.length };
+  } finally {
+    if (!win.isDestroyed()) win.destroy();
+    cleanup();
+  }
+});
+
 // ── Clipboard ─────────────────────────────────────────────
 ipcMain.handle('clipboard:writeText', (_e, text) => { clipboard.writeText(String(text ?? '')); return true; });
 
@@ -455,5 +522,49 @@ ipcMain.handle('win:isMaximized', (e) => !!BrowserWindow.fromWebContents(e.sende
 ipcMain.handle('win:setTitle', (e, title) => {
   const w = BrowserWindow.fromWebContents(e.sender);
   if (w && !w.isDestroyed()) w.setTitle(String(title || 'MyPDFViewer'));
+  return true;
+});
+
+ipcMain.handle('win:getSize', (e) => {
+  const w = BrowserWindow.fromWebContents(e.sender);
+  if (!w || w.isDestroyed()) return null;
+  const [width, height] = w.getSize();
+  const [minWidth, minHeight] = w.getMinimumSize();
+  return { width, height, minWidth, minHeight };
+});
+
+// Used by the resize grip in the status bar: a frameless window has no corner
+// of its own to drag, so the grip drags the size itself.
+ipcMain.handle('win:setSize', (e, { width, height } = {}) => {
+  const w = BrowserWindow.fromWebContents(e.sender);
+  if (!w || w.isDestroyed() || w.isMaximized() || w.isFullScreen()) return false;
+  const [minWidth, minHeight] = w.getMinimumSize();
+  const nw = Math.max(minWidth, Math.round(Number(width) || 0));
+  const nh = Math.max(minHeight, Math.round(Number(height) || 0));
+  if (!Number.isFinite(nw) || !Number.isFinite(nh)) return false;
+  w.setSize(nw, nh);
+  return true;
+});
+
+// The narrowest the window may get. The renderer measures what the toolbar
+// actually needs — which depends on the language, the font and whether button
+// labels are shown — so the width is set from there rather than guessed here.
+// A window already narrower than the new minimum is widened to match.
+ipcMain.handle('win:setMinWidth', (e, width) => {
+  const w = BrowserWindow.fromWebContents(e.sender);
+  const want = Math.round(Number(width) || 0);
+  if (!w || w.isDestroyed() || !Number.isFinite(want) || want <= 0) return false;
+  // The renderer measures the page it draws on, but a minimum size is set in
+  // window coordinates — on a frameless window the two still differ by the
+  // resize border.
+  const pad = Math.max(0, w.getSize()[0] - w.getContentSize()[0]);
+  const min = Math.max(MIN_WINDOW_WIDTH, Math.min(want + pad, MAX_MIN_WINDOW_WIDTH));
+  const [curMin, minH] = w.getMinimumSize();
+  if (curMin === min) return true;
+  w.setMinimumSize(min, minH);
+  if (!w.isMaximized() && !w.isFullScreen()) {
+    const [cw, ch] = w.getSize();
+    if (cw < min) w.setSize(min, ch);
+  }
   return true;
 });
