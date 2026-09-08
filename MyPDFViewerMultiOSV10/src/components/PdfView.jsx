@@ -317,6 +317,14 @@ const PdfView = forwardRef(function PdfView({
   // that moves it lives here.
   const prevRange = useRef(null);
   const isGecko = useRef(null);
+  // The guard block may only be armed between a press inside a text layer and
+  // the release that ends it. Armed at rest it is a page-sized, user-select:none
+  // box sitting last in the layer, so the next press in empty space hit-tests
+  // onto it and the caret lands at the end of the page — which is how a plain
+  // click ends up selecting everything below itself. selectionchange fires long
+  // after a drag is over (a click settling its caret, Ctrl+A, focus moving), so
+  // "am I dragging" has to be tracked rather than inferred from the selection.
+  const dragging = useRef(false);
 
   // A descendant search, not a child one: parking puts the block back as a
   // direct child, but positioning it moves it in beside the anchor, which in a
@@ -325,12 +333,16 @@ const PdfView = forwardRef(function PdfView({
   // covering the page — which is what makes a drag swallow the whole of it.
   const endBlockOf = (layer) => layer.querySelector('.endOfContent');
 
+  // Back to the foot of the layer, disarmed. Parking is attempted on every page
+  // on every selectionchange, so a block that is already parked must be left
+  // alone: moving a node inside the selection's own container fires another
+  // selectionchange, and doing that per page per event is a feedback loop.
   const parkEndBlock = useCallback((layer) => {
     const end = endBlockOf(layer);
     if (end) {
-      layer.append(end);
-      end.style.width = '';
-      end.style.height = '';
+      if (end.parentElement !== layer || end.nextSibling) layer.append(end);
+      if (end.style.width) end.style.width = '';
+      if (end.style.height) end.style.height = '';
     }
     layer.classList.remove('selecting');
   }, []);
@@ -341,20 +353,21 @@ const PdfView = forwardRef(function PdfView({
     }
   }, [parkEndBlock]);
 
-  // The span the guard block has to sit beside: the element holding the end of
-  // the range that is on the move. A caret dropped in empty space reports the
-  // layer (or a .markedContent wrapper) as its own container, so the child at
-  // the boundary offset is what the caret actually sits next to.
-  const anchorSpanOf = (range, modifyStart) => {
+  // The element the guard block has to sit beside: whatever holds the end of the
+  // range that is on the move. Resolving no further than pdf.js does is the
+  // point — descending into childNodes to find "the span the caret is really
+  // next to" can land on a text node, and inserting the block beside *that*
+  // puts it inside a span, splitting its text. The split changes the selection,
+  // which fires another selectionchange, which moves the block again: the
+  // selection creeps a character at a time and never settles.
+  const anchorElementOf = (range, modifyStart) => {
     const node = modifyStart ? range.startContainer : range.endContainer;
-    if (node.nodeType === Node.TEXT_NODE) return node.parentNode;
-    const kids = node.childNodes;
-    if (!kids.length) return node;
-    const off = modifyStart ? range.startOffset : range.endOffset;
-    return kids[Math.min(off, kids.length - 1)] || node;
+    return node.nodeType === Node.TEXT_NODE ? node.parentNode : node;
   };
 
   const syncEndBlocks = useCallback(() => {
+    if (!dragging.current) { parkAllEndBlocks(); prevRange.current = null; return; }
+
     const sel = window.document.getSelection();
     if (!sel || sel.rangeCount === 0) { parkAllEndBlocks(); prevRange.current = null; return; }
 
@@ -365,15 +378,16 @@ const PdfView = forwardRef(function PdfView({
     const modifyStart = prev
       && (range.compareBoundaryPoints(Range.END_TO_END, prev) === 0
         || range.compareBoundaryPoints(Range.START_TO_END, prev) === 0);
-    const anchor = anchorSpanOf(range, modifyStart);
+    const anchor = anchorElementOf(range, modifyStart);
     prevRange.current = range.cloneRange();
 
-    // Only the page holding the moving end may arm its guard, and the search
-    // starts at the anchor itself — when the caret is in empty space the anchor
-    // *is* the layer, and looking only at its parent found nothing.
-    const layer = anchor.closest?.('.textLayer')
-      || anchor.parentElement?.closest('.textLayer')
-      || null;
+    // The page holding the moving end, found from the anchor's parent — so an
+    // anchor that is the layer itself (a caret in empty space) resolves to
+    // nothing and the page stays unarmed, rather than the block being placed
+    // somewhere it does not belong.
+    const layer = anchor.nodeType === Node.ELEMENT_NODE
+      ? anchor.parentElement?.closest('.textLayer') || null
+      : null;
     const end = layer && endBlockOf(layer);
 
     // Every other page is parked. A layer left `selecting` while its block is
@@ -387,7 +401,7 @@ const PdfView = forwardRef(function PdfView({
 
     // Nowhere safe to put the block — leave the page unarmed rather than
     // stretched.
-    if (!end || anchor === layer || anchor === end || !layer.contains(anchor) || !anchor.parentElement) {
+    if (!end || anchor === end || !layer.contains(anchor) || !anchor.parentElement) {
       if (layer) parkEndBlock(layer);
       return;
     }
@@ -420,7 +434,7 @@ const PdfView = forwardRef(function PdfView({
 
   // A drag that ends outside the window still has to release the guard.
   useEffect(() => {
-    const release = () => parkAllEndBlocks();
+    const release = () => { dragging.current = false; parkAllEndBlocks(); };
     document.addEventListener('pointerup', release);
     window.addEventListener('blur', release);
     return () => {
@@ -550,6 +564,7 @@ const PdfView = forwardRef(function PdfView({
       const entry = pageRefs.current.get(num);
       if (!entry?.textLayer) return false;
       const layer = entry.textLayer;
+      dragging.current = false;
       parkEndBlock(layer);
       const sel = window.getSelection();
       const range = document.createRange();
@@ -596,6 +611,7 @@ const PdfView = forwardRef(function PdfView({
 
     clearSelection() {
       window.getSelection()?.removeAllRanges();
+      dragging.current = false;
       parkAllEndBlocks();
       prevRange.current = null;
       selectionSig.current = '';
@@ -622,12 +638,6 @@ const PdfView = forwardRef(function PdfView({
       ref={scrollRef}
       onContextMenu={(e) => onContextMenu?.(e, {})}
       onMouseDown={(e) => {
-        // Arm the guard as the drag starts. Until the first selectionchange the
-        // block still sits at the foot of the layer, and arming it there would
-        // mean a quick drag into empty space selects everything down to it — so
-        // move it beside the span being pressed first, and if the press landed
-        // in empty space leave it disarmed for the one tick until the selection
-        // reports where the caret actually went.
         const layer = e.target.closest?.('.textLayer');
         if (!layer) return;
         // A new drag knows nothing about the last one. Left behind, the old
@@ -635,17 +645,32 @@ const PdfView = forwardRef(function PdfView({
         // one, which parks the guard block inside the range — one frame of a
         // full-page highlight.
         prevRange.current = null;
-        const span = e.target.closest('.textLayer span');
-        const end = endBlockOf(layer);
-        // A press in empty space has no span to sit beside. Park the block
-        // rather than leaving whatever the last drag armed: stretched over the
-        // page and last in the DOM, it would swallow everything below the
-        // press for the one tick until the caret reports where it went.
-        if (!end || !span || span === end) { parkEndBlock(layer); return; }
-        end.style.width = layer.style.width;
-        end.style.height = layer.style.height;
-        if (span.nextSibling !== end) span.parentElement.insertBefore(end, span.nextSibling);
+        dragging.current = true;
+        // The class, and nothing else — the guard block must not be *moved*
+        // here. This runs before the browser resolves the caret for this very
+        // press, and that resolution maps the box it already hit-tested back to
+        // a DOM position: move the block now and the caret lands wherever the
+        // block went. Parking it, in particular, sends the caret to the end of
+        // the layer, and the first twitch of the drag then selects everything
+        // from the press down to the foot of the page. Restyling is safe: the
+        // hit test that picked the target has already happened.
         layer.classList.add('selecting');
+      }}
+      onMouseUp={(e) => {
+        // A finished text drag offers its actions straight away. The menu is
+        // opened from the release position, and only for a drag that actually
+        // selected something — a plain click still just moves the caret.
+        if (tool !== 'text' || e.button !== 0) return;
+        if (!e.target.closest?.('.textLayer')) return;
+        const { clientX, clientY } = e;
+        // One tick, so the selection the menu asks about is the final one.
+        setTimeout(() => {
+          const sel = window.getSelection();
+          if (!sel || sel.isCollapsed || !sel.toString().trim()) return;
+          onContextMenu?.({
+            preventDefault() {}, stopPropagation() {}, clientX, clientY,
+          }, {});
+        }, 0);
       }}
     >
       <div className="pagestack">
@@ -797,6 +822,16 @@ const PageView = React.memo(function PageView({
     if (!imageTool || e.button !== 0) return;
     const hit = regionAt(localPoint(e, e.currentTarget));
     onImagePick?.(hit ? { page: num, id: hit.id, name: hit.name, inline: hit.inline, rect: hit.rect } : null);
+    if (!hit) return;
+    // Picking a picture offers what can be done with it straight away, at the
+    // point it was clicked — the same menu a right-click on it would give.
+    const { clientX, clientY } = e;
+    setTimeout(() => {
+      onContextMenuAt?.(
+        { preventDefault() {}, stopPropagation() {}, clientX, clientY },
+        { page: num, imageHit: { id: hit.id, name: hit.name, inline: hit.inline, rect: hit.rect } }
+      );
+    }, 0);
   };
 
   // A right-click on a picture reports the hit alongside the event, so the menu
@@ -807,8 +842,9 @@ const PageView = React.memo(function PageView({
     onContextMenuAt?.(e, hit ? { page: num, imageHit: { id: hit.id, name: hit.name, inline: hit.inline, rect: hit.rect } } : {});
   };
 
-  const endDrag = () => {
+  const endDrag = (e) => {
     if (!drag) return;
+    const at = e ? { clientX: e.clientX, clientY: e.clientY } : null;
     const rect = {
       x: Math.min(drag.x0, drag.x1),
       y: Math.min(drag.y0, drag.y1),
@@ -822,7 +858,7 @@ const PageView = React.memo(function PageView({
     if (!canvasRef.current) return;
     try {
       const shot = cropCanvas(canvasRef.current, rect);
-      onRegionCapture?.({ ...shot, page: num });
+      onRegionCapture?.({ ...shot, page: num, ...at });
     } catch (err) {
       onError?.(err, 'copy');
     }
@@ -845,8 +881,8 @@ const PageView = React.memo(function PageView({
       style={{ width: placeholder.width, height: placeholder.height }}
       onMouseDown={startDrag}
       onMouseMove={moveDrag}
-      onMouseUp={(e) => { endDrag(); pickImage(e); }}
-      onMouseLeave={() => { endDrag(); setHover(null); }}
+      onMouseUp={(e) => { endDrag(e); pickImage(e); }}
+      onMouseLeave={(e) => { endDrag(e); setHover(null); }}
       onContextMenu={onContextMenu}
     >
       <canvas className="page-canvas" ref={canvasRef} />

@@ -16,7 +16,7 @@ import CaptureDialog from './components/CaptureDialog.jsx';
 import PrintDialog from './components/PrintDialog.jsx';
 import {
   IconCopy, IconSelectAll, IconMarquee, IconHighlight, IconBookmark, IconZoomIn,
-  IconZoomOut, IconFitWidth, IconRotateRight, IconPrev, IconNext, IconFolder, IconInfo, IconImage,
+  IconZoomOut, IconFitWidth, IconRotateRight, IconPrev, IconNext, IconImage,
   IconSelectText, IconDownload, IconClip, IconClose,
 } from './components/Icons.jsx';
 
@@ -26,7 +26,7 @@ import {
 } from './lib/pdf.js';
 import {
   isElectron, api, openFileDialog, readPath, downloadUrl, copyText, copyImage,
-  saveText, writeTextTo, baseName, dirName, showItemInFolder, pathExists, saveEncoded,
+  saveText, writeTextTo, baseName, dirName, pathExists, saveEncoded,
 } from './lib/platform.js';
 import {
   loadSettings, persistSettings, DEFAULT_SETTINGS, addRecentFile, removeRecentFile,
@@ -438,15 +438,30 @@ export default function App() {
   // A dragged rectangle either opens the capture dialog (copy / save in any
   // format / keep as a clip) or is copied immediately, per the user's setting.
   const onRegionCapture = useCallback(async (shot) => {
+    const keep = () => addClip(
+      { kind: 'image', page: shot.page, content: shot.dataUrl, width: shot.width, height: shot.height },
+      t('menu.copyAsImage')
+    );
     if (settings.captureAction === 'copy') {
       await copyCapture(shot);
-      addClip(
-        { kind: 'image', page: shot.page, content: shot.dataUrl, width: shot.width, height: shot.height },
-        t('menu.copyAsImage')
-      );
+      keep();
       return;
     }
-    setCapture(shot);
+    // A finished rectangle offers its actions where it was released. The full
+    // capture dialog — other formats, quality, a preview — is the last item, so
+    // nothing that used to be reachable has gone away.
+    setMenu({
+      open: true,
+      x: shot.clientX ?? 0,
+      y: shot.clientY ?? 0,
+      items: [
+        { icon: IconCopy, label: t('menu.copyAsImage'), onClick: async () => { await copyCapture(shot); keep(); } },
+        { icon: IconDownload, label: t('menu.saveImage'), onClick: () => saveImageItemRef.current?.(shot, 'area') },
+        { icon: IconClip, label: t('capture.addClip'), onClick: keep },
+        { separator: true },
+        { icon: IconImage, label: t('capture.title'), onClick: () => setCapture(shot) },
+      ],
+    });
   }, [addClip, copyCapture, settings.captureAction, t]);
 
   // Reads the selected picture at its full embedded resolution, falling back to
@@ -848,13 +863,10 @@ export default function App() {
       { icon: IconZoomOut, label: t('menu.zoomOut'), onClick: () => changeZoom(-1), disabled: !doc },
       { icon: IconFitWidth, label: t('menu.fitWidth'), onClick: () => setSettings((s) => ({ ...s, zoomMode: 'fit-width' })), disabled: !doc },
       { icon: IconRotateRight, label: t('menu.rotate'), onClick: () => rotate(90), disabled: !doc },
-      { separator: true },
-      { icon: IconFolder, label: t('menu.openContaining'), onClick: () => showItemInFolder(file?.path), disabled: !isElectron || !file?.path },
-      { icon: IconInfo, label: t('menu.props'), onClick: () => setShowProps(true), disabled: !doc },
     ];
     setMenu({ open: true, x: e.clientX, y: e.clientY, items });
   }, [addBookmark, addHighlight, changeZoom, copyPageText, copySelection, copySelectedImage, doc, extractImages,
-    file, goToPage, keepSelectedImage, pageNumber, rotate, saveSelectedImage, selectedImage, selectionText, setTool, t]);
+    goToPage, keepSelectedImage, pageNumber, rotate, saveSelectedImage, selectedImage, selectionText, setTool, t]);
 
   // ── Derived ────────────────────────────────────────────
   const titleText = useMemo(
