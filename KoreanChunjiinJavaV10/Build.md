@@ -44,10 +44,17 @@ Git Bash · WSL 에서도 돕니다. `.ps1` 은 Windows PowerShell 용입니다.
 | `./package.sh` | `.\package.ps1` | 설치 파일을 만들어 `release/` 와 루트에 둔다 |
 | `./package.sh --portable` | `.\package.ps1 -Portable` | 설치 없이 풀어 쓰는 압축본 |
 | `./package.sh --no-wix` | `.\package.ps1 -NoWix` | WiX 가 없어도 받아 오지 않는다 (그냥 멈춘다) |
-| `./clean.sh` | `.\clean.ps1` | `out/` 과 `dist/` 를 지운다 |
+| `./clean.sh` | `.\clean.ps1` | 빌드 결과를 지운다 (`out` `dist` `release` + 루트로 복사한 설치 파일) |
+| `./clean.sh --tools` | `.\clean.ps1 -Tools` | 내려받은 빌드 도구(`tools/` 의 WiX)까지 지운다 |
+| `./clean.sh --dry-run` | `.\clean.ps1 -DryRun` | 지우지 않고 무엇이 지워질지만 보여 준다 |
 
 `run` 은 **언제나 먼저 다시 빌드합니다.** 고친 코드가 반영되지 않은 예전 JAR 이
 도는 일이 없어야 하기 때문입니다.
+
+`clean` 은 빌드가 만든 것만 지웁니다. `src/`, `docs/images/`, 문서, 스크립트는 건드리지 않습니다.
+내려받은 WiX(`tools/`, 약 116MB)는 기본으로 남깁니다 - 다시 받는 데 시간이 걸리고
+빌드마다 새로 만들 것이 아니기 때문입니다. 정말로 비우려면 `--tools` 를 붙이세요.
+무엇이 지워질지 먼저 보고 싶으면 `--dry-run` 입니다.
 
 ## 손으로 빌드하기
 
