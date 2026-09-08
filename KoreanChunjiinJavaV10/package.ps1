@@ -220,7 +220,7 @@ function Set-UpgradeOverride {
     $text = $text.Replace('Id="$(var.JpProductCode)"', 'Id="*"')
     $text = $text.Replace('IncludeMaximum="$(var.JpUpgradeVersionOnlyDetectUpgrade)"', 'IncludeMaximum="yes"')
 
-    # 3) 똑같은 설치 파일을 다시 실행했을 때도 통째로 다시 쓰게 한다.
+    # 3) 똑같은 설치 파일을 조용히(무인) 다시 실행했을 때 통째로 다시 쓰게 한다.
     #    ProductCode 가 같으면 윈도우는 "이미 깔린 그 제품"으로 보고 아무것도 하지 않는다.
     #    REINSTALL=ALL 과 REINSTALLMODE=amus 를 걸어 두면 파일·바로가기·레지스트리를
     #    판을 따지지 않고 모두 새로 쓴다. 지울 때(REMOVE)는 걸지 않는다.
@@ -231,10 +231,20 @@ function Set-UpgradeOverride {
     ) -join "`r`n"
     $text = $text.Replace('    <UIRef Id="JpUI"/>', $reinstall)
 
-    # 세 군데가 정말로 바뀌었는지 본다. 앞으로 JDK 가 원본을 바꾸면 여기서 걸린다.
+    # 4) 똑같은 설치 파일을 창을 띄워 다시 실행했을 때 "고치기 / 지우기" 를 묻게 한다.
+    #    jpackage 는 이 대화상자를 차례에 넣지 않는다. 그래서 그냥 두면 아무것도 묻지 않고
+    #    조용히 지워 버린다. 깔려 있는 프로그램이 사라지는 것이라 그대로 둘 수 없다.
+    $maintenance = @(
+        '    <InstallUISequence>',
+        '      <Show Dialog="MaintenanceWelcomeDlg" Before="ProgressDlg">Installed AND NOT RESUME AND NOT Preselected AND NOT PATCH</Show>'
+    ) -join "`r`n"
+    $text = $text.Replace('    <InstallUISequence>', $maintenance)
+
+    # 네 군데가 정말로 바뀌었는지 본다. 앞으로 JDK 가 원본을 바꾸면 여기서 걸린다.
     if ($text -notmatch '(?m)Id="\*"' -or
         $text -notmatch 'IncludeMaximum="yes"' -or
-        $text -notmatch 'Id="REINSTALLMODE"') { return $false }
+        $text -notmatch 'Id="REINSTALLMODE"' -or
+        $text -notmatch 'MaintenanceWelcomeDlg') { return $false }
 
     [System.IO.File]::WriteAllText((Join-Path (Get-Location) "$wixRes\main.wxs"), $text,
         (New-Object System.Text.UTF8Encoding $false))
