@@ -39,6 +39,7 @@ type result struct {
 	pkg    string
 	name   string // 꾸러미 안에서의 온전한 이름 (TestX/구역/항목)
 	action string // pass · fail · skip
+	detail string // 시험이 t.Log 로 남긴 설명 (있으면)
 	output []string
 }
 
@@ -148,8 +149,20 @@ func runTests(pkgs []string, run string, cover bool) ([]result, map[string]strin
 		case "pass", "fail", "skip":
 			results[at].action = e.Action
 		case "output":
-			if line := strings.TrimRight(e.Output, "\n"); isFailureNote(line) {
-				results[at].output = append(results[at].output, strings.TrimSpace(line))
+			line := strings.TrimRight(e.Output, "\n")
+			if !isFailureNote(line) {
+				break
+			}
+			note := strings.TrimSpace(line)
+			results[at].output = append(results[at].output, note)
+
+			// 시험이 t.Log 로 남긴 설명을 골라 둔다.
+			// 이름만으로는 그 시험이 무엇을 보는지 알 수 없으므로,
+			// -v 로 돌릴 때 항목 옆에 함께 보여 준다.
+			if results[at].detail == "" {
+				if d := afterFileLine(note); d != "" {
+					results[at].detail = d
+				}
 			}
 		}
 	}
@@ -188,6 +201,20 @@ func isFailureNote(line string) bool {
 		}
 	}
 	return true
+}
+
+// afterFileLine 은 "cases_test.go:168: 확정  301301 -> 가가" 에서
+// 파일과 줄 번호를 떼고 뒷말만 남긴다. 없으면 빈 문자열.
+func afterFileLine(note string) string {
+	i := strings.Index(note, ".go:")
+	if i < 0 {
+		return ""
+	}
+	j := strings.Index(note[i:], ": ")
+	if j < 0 {
+		return ""
+	}
+	return strings.TrimSpace(note[i+j+2:])
 }
 
 // onlyLeaves 는 하위 항목을 가진 시험(묶음 노릇만 하는 것)을 걸러 낸다.
@@ -315,8 +342,6 @@ func collect(leaves []result) []*group {
 // 보여 주기
 // ---------------------------------------------------------------------
 
-func itoa(n int) string { return fmt.Sprintf("%d", n) }
-
 type colors struct{ head, ok, bad, dim, off string }
 
 func newColors(want bool) colors {
@@ -351,12 +376,16 @@ func report(groups []*group, leaves []result, coverage map[string]string, verbos
 	for _, g := range groups {
 		fmt.Printf("\n %s[ %s ]%s\n", c.head, g.title, c.off)
 
+		var gPass, gAll int
+
 		for _, cat := range g.categories {
 			n := cat.pass + cat.fail + cat.skip
 			cats++
 			pass += cat.pass
 			fail += cat.fail
 			skip += cat.skip
+			gPass += cat.pass
+			gAll += n
 
 			mark, col := "통과", c.ok
 			if cat.fail > 0 {
@@ -368,6 +397,10 @@ func report(groups []*group, leaves []result, coverage map[string]string, verbos
 			fmt.Printf("   %s %4d/%-4d  %s%s%s\n",
 				pad(cat.name, 28), cat.pass, n, col, mark, c.off)
 		}
+
+		fmt.Printf("   %s%s %4d/%-4d%s\n", c.dim,
+			pad(fmt.Sprintf("소계  (구역 %d 개)", len(g.categories)), 28),
+			gPass, gAll, c.off)
 	}
 
 	total := pass + fail + skip
@@ -431,7 +464,15 @@ func printItems(leaves []result, c colors) {
 		case "skip":
 			mark, col = "SKIP", c.dim
 		}
-		fmt.Printf("  %s[%s]%s %s\n", col, mark, c.off, shortName(r.name))
+
+		// 시험이 남긴 설명이 있으면 이름 옆에 붙인다.
+		// 이름만 보아서는 그 항목이 무엇을 보는지 알 수 없기 때문이다.
+		if r.detail == "" {
+			fmt.Printf("  %s[%s]%s %s\n", col, mark, c.off, shortName(r.name))
+			continue
+		}
+		fmt.Printf("  %s[%s]%s %s %s%s%s\n", col, mark, c.off,
+			pad(shortName(r.name), 18), c.dim, r.detail, c.off)
 	}
 }
 

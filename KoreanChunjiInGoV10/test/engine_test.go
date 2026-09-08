@@ -42,7 +42,9 @@ func TestEnglishAlphabet(t *testing.T) {
 					s.Commit()
 					if got := s.Text(); got != want {
 						t.Errorf("%q -> %q, 기대: %q", seq, got, want)
+						return
 					}
+					t.Logf("%s -> %s", seq, want)
 				})
 			}
 		}
@@ -80,7 +82,9 @@ func TestKeyLabels(t *testing.T) {
 				s.Commit()
 				if got := s.Text(); got != want {
 					t.Errorf("라벨 %q 인데 입력은 %q, 기대: %q", label, got, want)
+					return
 				}
+				t.Logf("라벨 %s -> %s", label, want)
 			})
 		}
 	}
@@ -168,8 +172,15 @@ func TestCheckDouble(t *testing.T) {
 	}
 	for _, p := range pairs {
 		t.Run(p.a+"+"+p.b, func(t *testing.T) {
-			if got := engine.CheckDouble(p.a, p.b); got != p.want {
+			got := engine.CheckDouble(p.a, p.b)
+			if got != p.want {
 				t.Errorf("CheckDouble(%q, %q) = %q, 기대: %q", p.a, p.b, got, p.want)
+				return
+			}
+			if got == "" {
+				t.Logf("%s + %s -> 겹받침 아님", p.a, p.b)
+			} else {
+				t.Logf("%s + %s -> %s", p.a, p.b, got)
 			}
 		})
 	}
@@ -194,11 +205,22 @@ func TestGetUnicode(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			h := engine.HangulState{Chosung: c.cho, Jungsung: c.jung, Jongsung: c.jong}
-			if got := engine.GetUnicode(&h, c.jong); got != c.want {
+			got := engine.GetUnicode(&h, c.jong)
+			if got != c.want {
 				t.Errorf("GetUnicode = U+%04X, 기대: U+%04X", got, c.want)
+				return
 			}
+			t.Logf("%s+%s+%s -> U+%04X", dash(c.cho), dash(c.jung), dash(c.jong), got)
 		})
 	}
+}
+
+// dash 는 빈 자리를 - 로 보여 준다.
+func dash(v string) string {
+	if v == "" {
+		return "-"
+	}
+	return v
 }
 
 // TestTextUTF8 은 원본 wchar_to_utf8() 자리를 대신하는 Text() 를 본다.

@@ -1,15 +1,24 @@
-﻿# test.ps1 - 시험을 돌린다.
+﻿# test.ps1 - 시험을 돌리고 구역별로 정리해서 보여 준다.
 #
-#   .\test.ps1              요약만 본다
-#   .\test.ps1 -Verbose     항목마다 PASS/FAIL 을 본다
-#   .\test.ps1 -Cover       덮은 정도(coverage)까지 잰다
+#   .\test.ps1              구역별 집계와 요약
+#   .\test.ps1 -Detail      항목마다 한 줄씩
+#   .\test.ps1 -Cover       덮은 정도(coverage)까지
+#   .\test.ps1 -Run 낱말    이름이 맞는 것만
 #
-# 엔진 회귀 시험은 KoreanChunJiInC++ 의 tests/test_engine.c 를 옮긴 것으로
-# 34구역 586항목이다. 화면 계층은 색표 · 설정 · 배치 · 커서 변환 · 언어를 본다.
+# 무엇을 보는가
+#   test\        엔진 회귀 시험. KoreanChunJiInC++ 의 tests/test_engine.c 에서
+#                뽑아 온 430항목과, 자료로 뽑을 수 없는 항목들.
+#   internal\ui  색표 · 설정 · 배치 · 커서 변환 · 언어, 그리고 창까지 만들어
+#                보는 스모크 시험.
+#
+# 정리해서 보여 주는 일은 cmd/testreport 가 한다.
+# 그냥 go test 를 쓰고 싶으면 `go test ./...` 로도 된다.
 
 [CmdletBinding()]
 param(
-    [switch]$Cover
+    [switch]$Detail,
+    [switch]$Cover,
+    [string]$Run = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -17,21 +26,10 @@ $ErrorActionPreference = 'Stop'
 $OutputEncoding = [Console]::OutputEncoding = [Text.UTF8Encoding]::new()
 Set-Location (Split-Path -Parent $MyInvocation.MyCommand.Path)
 
-Write-Host '== 천지인 회귀 시험' -ForegroundColor Cyan
+$goArgs = @('run', './cmd/testreport')
+if ($Detail) { $goArgs += '-v' }
+if ($Cover) { $goArgs += '-cover' }
+if ($Run) { $goArgs += @('-run', $Run) }
 
-$args = @('test', './...')
-if ($VerbosePreference -eq 'Continue') { $args += '-v' }
-if ($Cover) { $args += @('-cover', '-coverprofile=coverage.out') }
-
-go @args
-if ($LASTEXITCODE -ne 0) {
-    Write-Host '== 실패' -ForegroundColor Red
-    exit 1
-}
-
-if ($Cover) {
-    Write-Host '-- 덮은 정도' -ForegroundColor Cyan
-    go tool cover -func=coverage.out | Select-Object -Last 1
-}
-
-Write-Host '== 모두 통과' -ForegroundColor Green
+go @goArgs
+exit $LASTEXITCODE

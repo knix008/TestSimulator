@@ -162,6 +162,11 @@ func (r caseRow) run(t *testing.T) {
 	s := engine.New()
 	runKeys(s, r.seq)
 
+	// 무엇을 눌러 무엇이 나와야 하는지 남긴다.
+	// -v 로 돌리면 이 줄이 항목 옆에 나와서, 이름만으로는 알 수 없는
+	// "이 시험이 무엇을 보는가" 가 눈에 보인다.
+	t.Logf("%s  %s -> %s", kindLabel(r.kind), r.seq, show(r.want, r))
+
 	switch r.kind {
 	case "expect":
 		// 확정한 뒤 버퍼를 비교한다.
@@ -195,6 +200,36 @@ func (r caseRow) run(t *testing.T) {
 	default:
 		t.Fatalf("모르는 종류: %q", r.kind)
 	}
+}
+
+// kindLabel 은 비교 축을 짧은 이름으로 보여 준다.
+func kindLabel(kind string) string {
+	switch kind {
+	case "expect":
+		return "확정"
+	case "live":
+		return "조합중"
+	case "cursor":
+		return "커서"
+	case "comp":
+		return "상태줄"
+	case "mode":
+		return "모드"
+	}
+	return kind
+}
+
+// show 는 기대값을 한 줄에 담기 좋게 만든다.
+// 줄바꿈은 눈에 보이는 \n 으로 바꾸고, 빈 값은 빈칸이라고 적는다.
+func show(want string, r caseRow) string {
+	out := strings.ReplaceAll(want, "\n", `\n`)
+	if out == "" {
+		out = "(빈칸)"
+	}
+	if r.hasCur {
+		out += " @" + strconv.Itoa(r.cursor)
+	}
+	return out
 }
 
 // TestCppSuite 는 C++ 판에서 뽑아 온 항목을 구역별로 돌린다.

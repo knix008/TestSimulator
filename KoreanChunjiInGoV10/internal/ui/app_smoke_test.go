@@ -106,11 +106,24 @@ func (a *App) typeSeq(t *testing.T, seq string) {
 // 엔진 버퍼가 아니라 화면을 읽어서, 둘이 어긋나면 걸리게 한다.
 func (a *App) text() string { return a.editor.Text }
 
+// check 는 값을 견주고, 무엇을 보았는지 남긴다.
+// 남긴 줄은 -v 로 돌릴 때 항목 옆에 나온다.
 func check(t *testing.T, name, got, want string) {
 	t.Helper()
 	if got != want {
 		t.Errorf("%s: %q, 기대: %q", name, got, want)
+		return
 	}
+	t.Logf("%s = %s", name, quoteShort(want))
+}
+
+// quoteShort 는 값이 눈에 잘 보이게 다듬는다.
+// 줄바꿈은 보이는 \n 으로 바꾸고, 빈 값은 빈칸이라고 적는다.
+func quoteShort(v string) string {
+	if v == "" {
+		return "(빈칸)"
+	}
+	return strings.ReplaceAll(v, "\n", `\n`)
 }
 
 // ---------------------------------------------------------------------
