@@ -1,0 +1,51 @@
+# 빌드 결과 ------------------------------------------------------------
+# 실행 파일과 설치용 파일은 빌드하면 저장소 루트에 생긴다.
+# 큰 파일이므로 저장소에는 넣지 않는다. scripts/package.* 로 다시 만든다.
+/chunjiin
+/chunjiin.exe
+/chunjiin-setup
+/chunjiin-setup.exe
+/chunjiin-serve
+/chunjiin-serve.exe
+/Chunjiin.app/
+/chunjiin-*.tar.gz
+/chunjiin-*.dmg
+/chunjiin-*.zip
+
+# 웹 판 빌드 결과 ------------------------------------------------------
+# index.html, style.css, app.js 는 손으로 쓴 것이라 저장소에 남긴다.
+# 아래 셋은 빌드할 때 만들어진다.
+/web/chunjiin.wasm
+/web/wasm_exec.js
+/web/chunjiin.png
+
+# 설치 프로그램이 품는 실행 파일 ---------------------------------------
+# 빌드하는 동안에만 놓였다가 지워진다. 남아 있으면 실수로 커밋된다.
+/cmd/chunjiin-setup/payload/chunjiin
+/cmd/chunjiin-setup/payload/chunjiin.exe
+
+# 서버가 품는 웹 파일 --------------------------------------------------
+/cmd/chunjiin-serve/site/*
+!/cmd/chunjiin-serve/site/README.txt
+
+# 시험 ----------------------------------------------------------------
+coverage.out
+coverage.html
+*.test
+*.test.exe
+
+# Go ------------------------------------------------------------------
+*.exe~
+*.dll
+*.so
+*.dylib
+vendor/
+
+# 편집기 · 운영체제 ----------------------------------------------------
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
