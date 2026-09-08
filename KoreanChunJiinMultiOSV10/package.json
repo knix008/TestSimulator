@@ -1,0 +1,101 @@
+{
+  "name": "korean-chunjiin-multios",
+  "version": "1.0.0",
+  "description": "천지인 12키 한글 입력기 - Web / Windows / macOS / Linux",
+  "type": "module",
+  "main": "electron/main.js",
+  "author": "SHKWON <knix008@naver.com>",
+  "license": "UNLICENSED",
+  "private": true,
+  "scripts": {
+    "start": "node scripts/dev.mjs",
+    "dev": "vite",
+    "web": "vite",
+    "build": "vite build",
+    "preview": "vite preview --port 4173",
+    "test": "node tests/engine.test.mjs",
+    "test:quiet": "node tests/engine.test.mjs -q",
+    "electron": "node scripts/run-electron.mjs",
+    "electron:dev": "node scripts/dev.mjs",
+    "make:icons": "node scripts/gen-icons.mjs",
+    "build:win": "npm run build && npm run clean:release && electron-builder --win && npm run copy:installer",
+    "build:mac": "npm run build && npm run clean:release && electron-builder --mac && npm run copy:installer",
+    "build:linux": "npm run build && npm run clean:release && electron-builder --linux && npm run copy:installer",
+    "electron:build": "npm run build && npm run clean:release && electron-builder && npm run copy:installer",
+    "test:app": "npm run build && node scripts/run-electron.mjs scripts/smoke.cjs",
+    "clean:release": "node scripts/clean-release.mjs",
+    "copy:installer": "node scripts/copy-installer.mjs"
+  },
+  "dependencies": {
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.7.0",
+    "electron": "^37.2.3",
+    "electron-builder": "^26.0.12",
+    "vite": "^7.0.5"
+  },
+  "build": {
+    "appId": "com.shkwon.chunjiin",
+    "productName": "Chunjiin",
+    "copyright": "Copyright © 2026 SHKWON",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "build/icon.*",
+      "build/icons/**/*"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico"
+    },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "icon": "build/icon.png",
+      "category": "public.app-category.utilities"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "icon": "build/icons",
+      "category": "Utility"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "천지인 한글 입력기",
+      "uninstallDisplayName": "천지인 한글 입력기",
+      "deleteAppDataOnUninstall": true,
+      "runAfterFinish": true,
+      "installerLanguages": [
+        "ko_KR",
+        "en_US"
+      ],
+      "language": "1042"
+    }
+  },
+  "allowScripts": {
+    "electron@37.10.3": true,
+    "esbuild@0.28.2": true,
+    "electron-winstaller@5.4.0": true
+  }
+}

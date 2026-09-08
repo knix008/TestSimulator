@@ -1,0 +1,503 @@
+/*
+ * styles.css - 화면 모양
+ *
+ * 색은 모두 themes.js 가 내려 주는 CSS 사용자 지정 속성에서 온다.
+ * 여기에는 색 값을 직접 적지 않는다(테마가 4종이므로).
+ */
+
+:root {
+  --radius: 10px;
+  --gap: 6px;
+  --ui-font: "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", "Nanum Gothic",
+    system-ui, -apple-system, "Segoe UI", sans-serif;
+  --text-font: "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", "Nanum Gothic",
+    system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: var(--ui-font);
+  font-size: 14px;
+  overflow: hidden;
+}
+
+/* ------------------------------------------------------------------ */
+/* 뼈대                                                                */
+/* ------------------------------------------------------------------ */
+
+.app {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+  /* 아래쪽은 오른쪽 구석의 크기 조절 손잡이가 앉을 자리만큼 더 띄운다 */
+  padding: var(--gap) var(--gap) 20px;
+  background: var(--wnd);
+  color: var(--text);
+  user-select: none;
+}
+
+/* ------------------------------------------------------------------ */
+/* 공통 버튼                                                           */
+/* ------------------------------------------------------------------ */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border: 1px solid var(--cons-border);
+  border-radius: var(--radius);
+  background: var(--cons-bg);
+  color: var(--cons-fg);
+  font-family: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color .09s ease, border-color .09s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.btn:hover { background: var(--cons-hover); }
+.btn:active { background: var(--cons-active); }
+.btn:focus-visible { outline: 2px solid var(--primary-bg); outline-offset: 1px; }
+
+.key-vowel { background: var(--vowel-bg); color: var(--vowel-fg); border-color: var(--vowel-border); }
+.key-vowel:hover { background: var(--vowel-hover); }
+.key-vowel:active { background: var(--vowel-active); }
+
+.key-mod { background: var(--mod-bg); color: var(--mod-fg); border-color: var(--mod-border); }
+.key-mod:hover { background: var(--mod-hover); }
+.key-mod:active { background: var(--mod-active); }
+
+.key-fn { background: var(--fn-bg); color: var(--fn-fg); border-color: var(--fn-border); }
+.key-fn:hover { background: var(--fn-hover); }
+.key-fn:active { background: var(--fn-active); }
+
+.key-primary { background: var(--primary-bg); color: var(--primary-fg); border-color: var(--primary-border); }
+.key-primary:hover { background: var(--primary-hover); }
+.key-primary:active { background: var(--primary-active); }
+
+/* ------------------------------------------------------------------ */
+/* 툴바                                                                */
+/* ------------------------------------------------------------------ */
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;          /* 버튼은 절대 접히지 않는다 */
+  gap: 2px;
+  padding: 3px;
+  border-radius: var(--radius);
+  background: var(--tool-bg);
+  border: 1px solid var(--border);
+}
+
+.tool-slot { display: inline-flex; align-items: center; flex: 0 0 auto; }
+
+/* 프로그램 정보는 남는 자리를 밀어내고 언제나 맨 오른쪽에 붙는다 */
+.tool-right { margin-left: auto; }
+
+.tool-sep {
+  width: 1px;
+  height: 17px;
+  margin: 0 4px;
+  background: var(--border);
+}
+
+.btn.tool {
+  width: 28px;
+  height: 28px;
+  background: transparent;
+  border-color: transparent;
+  color: var(--tool-fg);
+}
+
+.btn.tool:hover { background: var(--tool-hover); border-color: var(--tool-border); }
+.btn.tool:active { background: var(--tool-active); }
+
+/* ------------------------------------------------------------------ */
+/* 편집 영역                                                           */
+/* ------------------------------------------------------------------ */
+
+.card {
+  flex: 1 1 auto;
+  min-height: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+  overflow: hidden;
+}
+
+.editor {
+  height: 100%;
+  overflow: auto;
+  padding: 12px 14px;
+  outline: none;
+  cursor: text;
+  font-family: var(--text-font);
+  scrollbar-width: thin;
+  scrollbar-color: var(--muted) transparent;
+}
+
+.editor::-webkit-scrollbar { width: 12px; height: 12px; }
+.editor::-webkit-scrollbar-thumb {
+  background: var(--muted);
+  border: 4px solid transparent;
+  border-radius: 6px;
+  background-clip: content-box;
+}
+
+.editor-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  min-height: 100%;
+  user-select: text;
+}
+
+/* 아직 확정되지 않은, 계속 바뀌는 글자 */
+.composing {
+  border-bottom: 2px solid var(--primary-bg);
+  border-radius: 1px;
+}
+
+.caret {
+  display: inline-block;
+  width: 0;
+  border-left: 2px solid var(--primary-bg);
+  height: 1.1em;
+  vertical-align: text-bottom;
+  margin: 0 -1px;
+  animation: blink 1.06s steps(1) infinite;
+}
+
+@keyframes blink { 0%, 55% { opacity: 1; } 56%, 100% { opacity: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .caret { animation: none; }
+}
+
+/* ------------------------------------------------------------------ */
+/* 상태줄                                                              */
+/* ------------------------------------------------------------------ */
+
+.statusbar {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 5px 10px 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--tool-bg);
+  color: var(--muted);
+  font-size: 12.5px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.st-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.st-row-dim { font-size: 11.5px; opacity: .85; }
+
+.st-mode { color: var(--text); font-weight: 600; flex: 0 0 auto; }
+
+.st-comp {
+  flex: 0 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 알림은 오른쪽 끝. 오류면 눌러서 자세히 볼 수 있다. */
+.st-note {
+  margin-left: auto;
+  flex: 0 1 auto;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: default;
+}
+
+.st-note-error {
+  color: var(--primary-fg);
+  background: var(--primary-bg);
+  border-radius: 5px;
+  padding: 1px 7px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.st-pos { margin-left: auto; flex: 0 0 auto; font-variant-numeric: tabular-nums; }
+.st-tap { flex: 0 0 auto; }
+
+/* 연타 순환이 살아 있는 동안만 점에 불이 들어온다 */
+.st-dot { margin-left: 3px; opacity: .22; font-size: 9px; vertical-align: 1px; }
+.st-tap-live .st-dot { opacity: 1; color: var(--primary-bg); }
+
+/* ------------------------------------------------------------------ */
+/* 키패드                                                              */
+/* ------------------------------------------------------------------ */
+
+.keypad {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+  flex: 0 0 auto;
+}
+
+.keypad-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-auto-rows: minmax(46px, 8vh);
+  gap: var(--gap);
+}
+
+.keypad-grid .btn {
+  position: relative;
+  font-size: clamp(15px, 2.4vh, 21px);
+  font-weight: 600;
+}
+
+.key-label { pointer-events: none; }
+
+.key-hint {
+  position: absolute;
+  top: 3px;
+  right: 6px;
+  font-size: 10px;
+  font-weight: 400;
+  opacity: .42;
+  pointer-events: none;
+}
+
+.keypad-fn {
+  display: flex;
+  gap: var(--gap);
+  height: clamp(40px, 6.5vh, 52px);
+}
+
+.keypad-fn .btn { flex: 1 1 0; font-weight: 600; }
+
+/* ------------------------------------------------------------------ */
+/* 설명 풍선 (Tooltip.jsx)                                             */
+/* ------------------------------------------------------------------ */
+
+.tip {
+  position: fixed;
+  z-index: 60;
+  transform: translate(-50%, -100%);
+  max-width: 260px;
+  padding: 4px 9px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--card);
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.45;
+  white-space: nowrap;
+  box-shadow: 0 4px 14px rgb(0 0 0 / 24%);
+  pointer-events: none;
+}
+
+/* 화면 위쪽 가까운 것(툴바)은 아래로 내려 단다 */
+.tip-below { transform: translate(-50%, 0); }
+
+/* ------------------------------------------------------------------ */
+/* 창 크기 조절 손잡이                                                 */
+/* ------------------------------------------------------------------ */
+
+.resize-grip {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  z-index: 30;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  width: 16px;
+  height: 16px;
+  padding: 1px;
+  color: var(--muted);
+  opacity: .85;
+  cursor: nwse-resize;
+  touch-action: none;
+}
+
+.resize-grip:hover { opacity: 1; color: var(--primary-bg); }
+.resize-grip:active { color: var(--primary-bg); }
+
+/* ------------------------------------------------------------------ */
+/* 창                                                                  */
+/* ------------------------------------------------------------------ */
+
+.modal-back {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgb(0 0 0 / 45%);
+  z-index: 40;
+}
+
+.modal {
+  display: flex;
+  flex-direction: column;
+  width: min(460px, 100%);
+  max-height: 100%;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--card);
+  color: var(--text);
+  box-shadow: 0 18px 48px rgb(0 0 0 / 34%);
+  outline: none;
+}
+
+.modal-wide { width: min(720px, 100%); }
+
+.modal-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 12px 12px 16px;
+  border-bottom: 1px solid var(--border);
+  font-weight: 600;
+}
+
+.btn.modal-x {
+  width: 28px;
+  height: 28px;
+  background: transparent;
+  border-color: transparent;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.btn.modal-x:hover { background: var(--tool-hover); }
+
+.modal-body { padding: 16px; overflow: auto; }
+
+.modal-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+}
+
+.btn.dlg-btn { min-width: 84px; height: 32px; padding: 0 14px; }
+.btn.dlg-primary {
+  background: var(--primary-bg);
+  color: var(--primary-fg);
+  border-color: var(--primary-border);
+}
+.btn.dlg-primary:hover { background: var(--primary-hover); }
+
+/* 설정 폼 */
+
+.form { display: flex; flex-direction: column; gap: 12px; }
+
+.form-row {
+  display: grid;
+  grid-template-columns: 132px 1fr;
+  align-items: center;
+  gap: 12px;
+}
+
+.form-row select {
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--cons-bg);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 14px;
+}
+
+.form-check { grid-template-columns: 18px 1fr; }
+.form-check input { width: 16px; height: 16px; accent-color: var(--primary-bg); }
+
+/* 사용법 */
+
+.help {
+  margin: 0;
+  font-family: ui-monospace, "Cascadia Mono", "D2Coding", Consolas, "Noto Sans Mono CJK KR", monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  user-select: text;
+}
+
+/* 오류 창 */
+
+.err-lead { margin: 0 0 8px; color: var(--muted); }
+
+.err-msg {
+  margin: 0 0 14px;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.5;
+  user-select: text;
+  overflow-wrap: anywhere;
+}
+
+.err-detail {
+  margin: 0;
+  max-height: 260px;
+  overflow: auto;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--cons-bg);
+  color: var(--text);
+  font-family: ui-monospace, "Cascadia Mono", "D2Coding", Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
+.err-hint { margin: 10px 0 0; font-size: 12px; color: var(--muted); line-height: 1.55; }
+
+/* 프로그램 정보 */
+
+.about-lead { margin: 0 0 14px; line-height: 1.65; }
+.about-grid { margin: 0; display: flex; flex-direction: column; gap: 7px; }
+
+.about-row {
+  display: grid;
+  grid-template-columns: 118px 1fr;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.about-row dt { color: var(--muted); }
+.about-row dd { margin: 0; user-select: text; overflow-wrap: anywhere; }
+
+/* ------------------------------------------------------------------ */
+/* 좁은 화면 (휴대전화 세로)                                           */
+/* ------------------------------------------------------------------ */
+
+@media (max-width: 420px) {
+  .keypad-grid { grid-auto-rows: minmax(44px, 7.5vh); }
+  .keypad-fn .btn { font-size: 12px; }
+  .statusbar { gap: 8px; font-size: 12px; }
+}

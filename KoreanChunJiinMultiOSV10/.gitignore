@@ -1,0 +1,46 @@
+# 내려받은 것
+node_modules/
+
+# 빌드 결과
+dist/
+release/
+*.tsbuildinfo
+
+# Vite 캐시
+.vite/
+node_modules/.vite/
+
+# electron-builder 가 중간에 남기는 것
+release/win-unpacked.tmp/
+builder-effective-config.yaml
+builder-debug.yml
+latest*.yml
+
+# 루트로 복사해 둔 설치 파일 (npm run copy:installer)
+# 손 닿는 자리에 두려고 두는 것이라 저장소에는 넣지 않는다.
+*.exe
+*.dmg
+*.AppImage
+*.deb
+*.rpm
+*.snap
+*.blockmap
+
+# 로그
+*.log
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# 편집기 · 운영체제
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 환경 변수
+.env
+.env.local
+.env.*.local
