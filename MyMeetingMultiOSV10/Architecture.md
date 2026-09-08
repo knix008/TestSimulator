@@ -59,7 +59,7 @@ MyMeetingMultiOSV10/
 │   │   ├── fonts.js       # 시스템 폰트 열거 (queryLocalFonts + 폴백)
 │   │   ├── themes.js      # 테마 목록(THEMES)
 │   │   ├── platform.js    # 웹/Electron 추상화 (저장/열기/PDF/인쇄 + 웹 페이지네이션)
-│   │   └── ico.js         # ICO/ICNS 인코더 (아이콘 생성 공유)
+│   │   └── ico.mjs        # ICO/ICNS 인코더 (아이콘 생성 스크립트 전용, ESM)
 │   └── components/
 │       ├── RichEditor.jsx  # WYSIWYG(contentEditable) ↔ Markdown 직렬화 + 미디어/리사이즈
 │       ├── TitleBar.jsx    OutlineTree.jsx   TimeCombo.jsx   AboutPage.jsx

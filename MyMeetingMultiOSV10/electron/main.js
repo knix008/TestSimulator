@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, Menu, shell, session } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, Menu, shell, session, screen } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -616,7 +616,9 @@ ipcMain.handle('about:open', () => {
   if (aboutWin && !aboutWin.isDestroyed()) { aboutWin.show(); aboutWin.focus(); return; }
   aboutWin = new BrowserWindow({
     width: 520,
-    height: 500,
+    // A starting height only — the page measures its content and asks for the
+    // exact height via win:fitContent, so nothing is ever cut off.
+    height: 620,
     resizable: false,
     title: 'About MyMeeting',
     frame: false,
@@ -681,6 +683,28 @@ ipcMain.handle('menu:popup', (event, template) => new Promise((resolve) => {
 // ── Window controls (frameless) ───────────────────────────
 // The renderer measures the toolbar's required width and sets it as the window's
 // minimum so the toolbar never wraps or clips buttons on resize.
+// Let a fixed-size utility window (About) grow to exactly fit its content, so
+// it never shows a scrollbar. The renderer measures its own natural height;
+// here it is clamped to the display's work area and the window is re-centred.
+ipcMain.handle('win:fitContent', (e, { height } = {}) => {
+  const win = BrowserWindow.fromWebContents(e.sender);
+  if (!win || win.isDestroyed()) return false;
+  const want = Math.ceil(Number(height) || 0);
+  if (!want) return false;
+  const [w, cur] = win.getContentSize();
+  let max = 2000;
+  try { max = screen.getDisplayMatching(win.getBounds()).workAreaSize.height - 60; } catch { /* ignore */ }
+  const next = Math.max(240, Math.min(want, max));
+  if (Math.abs(next - cur) <= 1) return true;
+  // setContentSize is ignored on a non-resizable window, so lift the flag.
+  const resizable = win.isResizable();
+  if (!resizable) win.setResizable(true);
+  win.setContentSize(w, next);
+  if (!resizable) win.setResizable(false);
+  win.center();
+  return true;
+});
+
 ipcMain.handle('win:setMinWidth', (e, w) => {
   const win = BrowserWindow.fromWebContents(e.sender);
   if (!win) return false;

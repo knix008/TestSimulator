@@ -32,6 +32,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   win: {
     setMinWidth: (w) => ipcRenderer.invoke('win:setMinWidth', w),
+    fitContent: (payload) => ipcRenderer.invoke('win:fitContent', payload),
     minimize: () => ipcRenderer.invoke('win:minimize'),
     toggleMaximize: () => ipcRenderer.invoke('win:toggleMaximize'),
     close: () => ipcRenderer.invoke('win:close'),

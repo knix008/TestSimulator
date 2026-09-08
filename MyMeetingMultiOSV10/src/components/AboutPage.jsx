@@ -35,6 +35,37 @@ export default function AboutPage() {
     return () => window.removeEventListener('storage', onStorage);
   }, []);
 
+  // Grow the window to exactly fit the content so the About box never scrolls.
+  // Re-measured whenever the content can change (details arriving, language).
+  useEffect(() => {
+    if (!isElectron || !api?.win?.fitContent) return undefined;
+    const fit = () => {
+      const head = document.querySelector('.settings-page-head');
+      const body = document.querySelector('.settings-page-body');
+      const foot = document.querySelector('.settings-page-foot');
+      if (!head || !body || !foot) return;
+      // Measure the children, not the body: the body is flex:1 and therefore
+      // always as tall as the window, so scrollHeight could only ever grow the
+      // window, never tighten it.
+      const kids = [...body.children];
+      if (!kids.length) return;
+      const bs = getComputedStyle(body);
+      const pad = (parseFloat(bs.paddingTop) || 0) + (parseFloat(bs.paddingBottom) || 0);
+      const top = kids[0].getBoundingClientRect().top
+        - (parseFloat(getComputedStyle(kids[0]).marginTop) || 0);
+      const last = kids[kids.length - 1];
+      const bottom = last.getBoundingClientRect().bottom
+        + (parseFloat(getComputedStyle(last).marginBottom) || 0);
+      const natural = head.offsetHeight + (bottom - top) + pad + foot.offsetHeight + 2;
+      api.win.fitContent({ height: Math.ceil(natural) });
+    };
+    // One frame for layout, then once more after webfonts/images settle.
+    const a = setTimeout(fit, 60);
+    const b = setTimeout(fit, 320);
+    window.addEventListener('resize', fit);
+    return () => { clearTimeout(a); clearTimeout(b); window.removeEventListener('resize', fit); };
+  }, [info, i18n.language]);
+
   const platformLabel = info?.platform === 'web'
     ? t('about.web')
     : `${info?.platform || ''} ${info?.arch || ''}`.trim();

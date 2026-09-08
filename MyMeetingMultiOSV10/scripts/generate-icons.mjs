@@ -9,7 +9,10 @@
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import fs from 'node:fs';
-import { encodeIco, encodeIcns } from '../src/lib/ico.js';
+// .mjs so Node reads it as ESM without guessing. Adding "type": "module" to
+// package.json instead would turn electron/main.js and preload.js into ESM and
+// break their require() calls.
+import { encodeIco, encodeIcns } from '../src/lib/ico.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, '..');
