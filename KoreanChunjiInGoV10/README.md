@@ -27,7 +27,7 @@
 
 ```powershell
 .\build.ps1 -Run              # 빌드하고 바로 실행
-.\test.ps1                    # 시험 756항목 실행
+.\test.ps1                    # 시험 722항목 (구역별 집계와 요약)
 .\scripts\package.ps1         # 설치용 파일 만들기
 .\scripts\build-web.ps1 -Serve  # 웹 판 빌드 + 서버 띄우기
 ```
@@ -36,7 +36,7 @@
 
 ```sh
 ./build.sh --run              # 빌드하고 바로 실행
-./test.sh                     # 시험 756항목 실행
+./test.sh                     # 시험 722항목 (구역별 집계와 요약)
 ./scripts/package.sh          # 설치용 파일 만들기
 ./scripts/build-web.sh --serve  # 웹 판 빌드 + 서버 띄우기
 ```
@@ -135,7 +135,8 @@ KoreanChunjiInGoV10/
 │  ├─ chunjiin-setup/        설치 프로그램 (GUI)
 │  ├─ chunjiin-wasm/         웹 판이 쓰는 엔진
 │  ├─ chunjiin-serve/        웹 판 서버
-│  └─ gen-testcases/         C++ 시험 자료 뽑개
+│  ├─ gen-testcases/         C++ 시험 자료 뽑개
+│  └─ testreport/            시험 결과를 구역별로 정리해 보여 준다
 ├─ web/                      웹 판 화면 (HTML · CSS · JS)
 ├─ assets/                   아이콘, 내장 글꼴
 ├─ scripts/                  package · build-web 스크립트
