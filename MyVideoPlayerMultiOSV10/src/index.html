@@ -97,6 +97,17 @@
             </ul>
           </div>
         </div>
+        <div class="toolbar-group rotate-group" id="toolbarRotateGroup" role="group" data-i18n-aria="rotate">
+          <button type="button" class="tool-btn" id="btnRotateLeft" data-i18n-tooltip="rotateLeftTip" data-i18n-aria="rotateLeft">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7.11 8.53 5.7 7.11C4.8 8.27 4.24 9.61 4.07 11h2.02c.14-.87.49-1.72 1.02-2.47zM6.09 13H4.07c.17 1.39.72 2.73 1.62 3.89l1.41-1.42c-.52-.75-.87-1.59-1.01-2.47zm1.01 5.32c1.16.9 2.51 1.44 3.9 1.61V17.9c-.87-.15-1.71-.49-2.46-1.03L7.1 18.32zM13 4.07V1L8.45 5.55 13 10V6.09c2.84.48 5 2.94 5 5.91s-2.16 5.43-5 5.91v2.02c3.95-.49 7-3.85 7-7.93s-3.05-7.44-7-7.93z"/></svg>
+          </button>
+          <button type="button" class="tool-btn tool-btn-labeled rotate-indicator" id="btnRotateReset" data-i18n-tooltip="rotateResetTip" data-i18n-aria="rotateReset" aria-pressed="false" disabled>
+            <span class="tool-btn-label" id="rotateBtnLabel">0°</span>
+          </button>
+          <button type="button" class="tool-btn" id="btnRotateRight" data-i18n-tooltip="rotateRightTip" data-i18n-aria="rotateRight">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.55 5.55 11 1v3.07C7.06 4.56 4 7.92 4 12s3.05 7.44 7 7.93v-2.02c-2.84-.48-5-2.94-5-5.91s2.16-5.43 5-5.91V10l4.55-4.45zM19.93 11c-.17-1.39-.72-2.73-1.62-3.89l-1.42 1.42c.54.75.88 1.6 1.02 2.47h2.02zM13 17.9v2.02c1.39-.17 2.74-.71 3.9-1.61l-1.44-1.44c-.75.54-1.59.89-2.46 1.03zm3.89-2.42 1.42 1.41c.9-1.16 1.45-2.5 1.62-3.89h-2.02c-.14.87-.48 1.72-1.02 2.48z"/></svg>
+          </button>
+        </div>
         <button type="button" class="tool-btn" id="btnSpectrum" data-i18n-tooltip="spectrumTip" data-i18n-aria="spectrum" aria-pressed="true">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18h2V8H4v10Zm4 0h2V4H8v14Zm4 0h2v-7h-2v7Zm4 0h2V9h-2v9Zm4 0h2V6h-2v12Z"/></svg>
           </button>
@@ -289,6 +300,32 @@
                 <span data-i18n="fitActual">Original size</span>
               </span>
               <span class="popup-item-check" aria-hidden="true"></span>
+            </button>
+          </li>
+          <li class="context-menu-separator" role="separator"></li>
+          <li class="context-menu-label" role="presentation" data-i18n="rotateTitle">Rotate</li>
+          <li role="none">
+            <button type="button" class="popup-item" id="ctxRotateRight" role="menuitem" data-rotate="1">
+              <span class="popup-item-content">
+                <svg class="popup-item-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15.55 5.55 11 1v3.07C7.06 4.56 4 7.92 4 12s3.05 7.44 7 7.93v-2.02c-2.84-.48-5-2.94-5-5.91s2.16-5.43 5-5.91V10l4.55-4.45zM19.93 11c-.17-1.39-.72-2.73-1.62-3.89l-1.42 1.42c.54.75.88 1.6 1.02 2.47h2.02zM13 17.9v2.02c1.39-.17 2.74-.71 3.9-1.61l-1.44-1.44c-.75.54-1.59.89-2.46 1.03zm3.89-2.42 1.42 1.41c.9-1.16 1.45-2.5 1.62-3.89h-2.02c-.14.87-.48 1.72-1.02 2.48z"/></svg>
+                <span data-i18n="rotateRight">Rotate right 90°</span>
+              </span>
+            </button>
+          </li>
+          <li role="none">
+            <button type="button" class="popup-item" id="ctxRotateLeft" role="menuitem" data-rotate="-1">
+              <span class="popup-item-content">
+                <svg class="popup-item-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7.11 8.53 5.7 7.11C4.8 8.27 4.24 9.61 4.07 11h2.02c.14-.87.49-1.72 1.02-2.47zM6.09 13H4.07c.17 1.39.72 2.73 1.62 3.89l1.41-1.42c-.52-.75-.87-1.59-1.01-2.47zm1.01 5.32c1.16.9 2.51 1.44 3.9 1.61V17.9c-.87-.15-1.71-.49-2.46-1.03L7.1 18.32zM13 4.07V1L8.45 5.55 13 10V6.09c2.84.48 5 2.94 5 5.91s-2.16 5.43-5 5.91v2.02c3.95-.49 7-3.85 7-7.93s-3.05-7.44-7-7.93z"/></svg>
+                <span data-i18n="rotateLeft">Rotate left 90°</span>
+              </span>
+            </button>
+          </li>
+          <li role="none">
+            <button type="button" class="popup-item" id="ctxRotateReset" role="menuitem" data-rotate="reset">
+              <span class="popup-item-content">
+                <svg class="popup-item-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v12H4V6Zm2 2v8h12V8H6Z"/></svg>
+                <span data-i18n="rotateReset">No rotation</span>
+              </span>
             </button>
           </li>
           <li class="context-menu-separator" role="separator"></li>
@@ -490,7 +527,20 @@
               </span>
               <select id="settingSpectrumStyle" name="spectrumStyle"></select>
             </label>
+            <label class="field">
+              <span class="field-label">
+                <svg class="field-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15.55 5.55 11 1v3.07C7.06 4.56 4 7.92 4 12s3.05 7.44 7 7.93v-2.02c-2.84-.48-5-2.94-5-5.91s2.16-5.43 5-5.91V10l4.55-4.45zM19.93 11c-.17-1.39-.72-2.73-1.62-3.89l-1.42 1.42c.54.75.88 1.6 1.02 2.47h2.02zM13 17.9v2.02c1.39-.17 2.74-.71 3.9-1.61l-1.44-1.44c-.75.54-1.59.89-2.46 1.03zm3.89-2.42 1.42 1.41c.9-1.16 1.45-2.5 1.62-3.89h-2.02c-.14.87-.48 1.72-1.02 2.48z"/></svg>
+                <span data-i18n="videoRotation">Rotation on open</span>
+              </span>
+              <select id="settingVideoRotation" name="videoRotation">
+                <option value="0">0°</option>
+                <option value="90">90°</option>
+                <option value="180">180°</option>
+                <option value="270">270°</option>
+              </select>
+            </label>
           </div>
+          <p class="field-hint" data-i18n="videoRotationHint">Applied whenever a file opens. The toolbar buttons turn only the video playing now.</p>
           <div class="settings-check-grid">
             <label class="field checkbox">
               <input type="checkbox" id="settingShowSubtitles" name="showSubtitles" checked />

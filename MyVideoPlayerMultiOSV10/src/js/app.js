@@ -3,6 +3,7 @@ import {
   saveSettings,
   resetSettings,
   normalizeVideoFit,
+  normalizeVideoRotation,
 } from "./settings.js";
 import {
   parseSubtitle,
@@ -126,6 +127,9 @@ const els = {
   ctxPlayPauseLabel: $("ctxPlayPauseLabel"),
   ctxMute: $("ctxMute"),
   ctxMuteLabel: $("ctxMuteLabel"),
+  ctxRotateLeft: $("ctxRotateLeft"),
+  ctxRotateRight: $("ctxRotateRight"),
+  ctxRotateReset: $("ctxRotateReset"),
   rateSelect: $("rateSelect"),
   btnRecent: $("btnRecent"),
   recentMenu: $("recentMenu"),
@@ -141,6 +145,10 @@ const els = {
   btnFit: $("btnFit"),
   fitMenu: $("fitMenu"),
   fitList: $("fitList"),
+  btnRotateLeft: $("btnRotateLeft"),
+  btnRotateRight: $("btnRotateRight"),
+  btnRotateReset: $("btnRotateReset"),
+  rotateBtnLabel: $("rotateBtnLabel"),
   btnCompact: $("btnCompact"),
   appRoot: document.getElementById("app"),
   controlBar: $("controlBar"),
@@ -220,6 +228,12 @@ let overlayTimer = 0;
 let holdOverlayMode = null;
 let stopRequested = false;
 let ytErrorDialogShown = false;
+/**
+ * Stage rotation of the video playing now, in degrees (0 | 90 | 180 | 270).
+ * Session state: the toolbar / hotkeys turn the current file only. Opening a
+ * file resets it to `settings.videoRotation`, the persisted default.
+ */
+let videoRotation = normalizeVideoRotation(settings.videoRotation);
 
 const subtitles = new SubtitleRenderer(els.subtitleOverlay);
 let spectrumWindowOpen = false;
@@ -964,6 +978,7 @@ function openStageContextMenu(clientX, clientY) {
     ?.querySelector(".ctx-icon-muted")
     ?.classList.toggle("hidden", !muted);
   updateFitMenuSelection();
+  updateRotateControls();
 
   menu.hidden = false;
   // Measure after show so clamping uses real size.
@@ -1010,6 +1025,11 @@ function bindStageContextMenu() {
     }
     if (item === els.ctxSaveMedia) {
       void saveCurrentMedia();
+      return;
+    }
+    if (item.dataset.rotate) {
+      if (item.dataset.rotate === "reset") resetVideoRotation();
+      else rotateVideoBy(Number(item.dataset.rotate));
       return;
     }
     if (item.dataset.action === "play-pause") togglePlay();
@@ -1104,6 +1124,88 @@ function applyVideoFit(mode, { persist = true, announce = false } = {}) {
   updateFitMenuSelection();
   updateFitToolbarButton();
   if (announce) setStatus({ state: statusKey(fitStatusKey(next)) });
+}
+
+/**
+ * A quarter turn swaps the on-screen axes, so `object-fit` has to work against a
+ * box whose width/height are the stage's height/width. Publish the stage size as
+ * CSS vars and let the `.rot-*` rules read them.
+ */
+function updateRotationMetrics() {
+  const wrap = els.videoWrap;
+  if (!wrap) return;
+  if (!videoRotation) {
+    wrap.style.removeProperty("--stage-w");
+    wrap.style.removeProperty("--stage-h");
+    return;
+  }
+  const rect = wrap.getBoundingClientRect();
+  wrap.style.setProperty("--stage-w", `${Math.round(rect.width)}px`);
+  wrap.style.setProperty("--stage-h", `${Math.round(rect.height)}px`);
+}
+
+function rotationStatusKey(deg) {
+  if (deg === 90) return "statusRotate90";
+  if (deg === 180) return "statusRotate180";
+  if (deg === 270) return "statusRotate270";
+  return "statusRotate0";
+}
+
+function updateRotateControls() {
+  const deg = videoRotation;
+  const upright = deg === 0;
+  if (els.rotateBtnLabel) {
+    els.rotateBtnLabel.textContent = t("rotateDeg", { n: deg });
+  }
+  els.btnRotateReset?.setAttribute("aria-pressed", String(!upright));
+  // The indicator doubles as "clear rotation", so it only acts when there is one.
+  const turnDisabled = youtubeMode;
+  if (els.btnRotateLeft) els.btnRotateLeft.disabled = turnDisabled;
+  if (els.btnRotateRight) els.btnRotateRight.disabled = turnDisabled;
+  if (els.btnRotateReset) els.btnRotateReset.disabled = turnDisabled || upright;
+  if (els.ctxRotateLeft) els.ctxRotateLeft.disabled = turnDisabled;
+  if (els.ctxRotateRight) els.ctxRotateRight.disabled = turnDisabled;
+  if (els.ctxRotateReset) els.ctxRotateReset.disabled = turnDisabled || upright;
+}
+
+function applyVideoRotation(deg, { announce = false } = {}) {
+  const next = normalizeVideoRotation(deg);
+  videoRotation = next;
+  const wrap = els.videoWrap;
+  if (wrap) {
+    wrap.classList.remove("rot-90", "rot-180", "rot-270");
+    wrap.classList.toggle("is-rotated", next !== 0);
+    if (next !== 0) wrap.classList.add(`rot-${next}`);
+  }
+  updateRotationMetrics();
+  updateActualMediaSize();
+  updateRotateControls();
+  if (announce) setStatus({ state: statusKey(rotationStatusKey(next)) });
+}
+
+/** @param {number} quarterTurns Positive turns clockwise, negative counter-clockwise. */
+function rotateVideoBy(quarterTurns) {
+  if (youtubeMode) return;
+  applyVideoRotation(videoRotation + quarterTurns * 90, { announce: true });
+}
+
+function resetVideoRotation() {
+  if (!videoRotation) return;
+  applyVideoRotation(0, { announce: true });
+}
+
+function bindStageResize() {
+  const wrap = els.videoWrap;
+  if (!wrap) return;
+  if (typeof ResizeObserver === "function") {
+    new ResizeObserver(() => {
+      if (videoRotation) updateRotationMetrics();
+    }).observe(wrap);
+  } else {
+    window.addEventListener("resize", () => {
+      if (videoRotation) updateRotationMetrics();
+    });
+  }
 }
 
 function openFitMenu() {
@@ -1913,6 +2015,8 @@ function enterYouTubeMode() {
   youtubeMode = true;
   currentRemote = null;
   els.videoWrap.classList.add("youtube-mode");
+  // The YouTube iframe is not ours to transform — drop any stage rotation.
+  applyVideoRotation(0);
   updateActualMediaSize();
   updateSpectrumVisibility();
   updateSaveButton();
@@ -1924,6 +2028,7 @@ function exitYouTubeMode() {
   youtubeMode = false;
   currentYouTube = null;
   els.videoWrap.classList.remove("youtube-mode");
+  updateRotateControls();
   updateActualMediaSize();
   updateSpectrumVisibility();
   updateSaveButton();
@@ -2475,6 +2580,7 @@ function applyLocale(locale, { persist = true } = {}) {
   updateLocaleToolbarButton();
   updateFitToolbarButton();
   updateFitMenuSelection();
+  updateRotateControls();
   updateCompactButton();
   applySpectrumStyle(settings.spectrumStyle, { persist: false });
   const playing = youtubeMode
@@ -2508,7 +2614,10 @@ function applyLocale(locale, { persist = true } = {}) {
   return next;
 }
 
-function applySettingsToPlayer({ applyVolume = false } = {}) {
+function applySettingsToPlayer({
+  applyVolume = false,
+  applyRotation = false,
+} = {}) {
   els.media.loop = Boolean(settings.loop);
   if (applyVolume) {
     const pct = Math.min(
@@ -2527,6 +2636,7 @@ function applySettingsToPlayer({ applyVolume = false } = {}) {
   subtitles.setFontSize(Number(settings.subSize) || 28);
   applySpectrumStyle(settings.spectrumStyle, { persist: false });
   applyVideoFit(settings.videoFit, { persist: false });
+  applyVideoRotation(applyRotation ? settings.videoRotation : videoRotation);
   updateMuteIcons();
   updateSpectrumVisibility();
   void applyWindowOpacity(settings.windowOpacity, { persist: false });
@@ -2572,6 +2682,11 @@ function fillSettingsForm() {
   }
   $("settingShowSubtitles").checked = settings.showSubtitles;
   $("settingSubSize").value = String(settings.subSize);
+  if ($("settingVideoRotation")) {
+    $("settingVideoRotation").value = String(
+      normalizeVideoRotation(settings.videoRotation),
+    );
+  }
   updateSubSizeValue(settings.subSize);
   $("settingStartVolume").value = String(
     clampStartVolume(settings.startVolume),
@@ -2678,6 +2793,9 @@ function readSettingsForm() {
     ),
     showSubtitles: $("settingShowSubtitles").checked,
     subSize: Number($("settingSubSize").value) || 28,
+    videoRotation: normalizeVideoRotation(
+      $("settingVideoRotation")?.value ?? settings.videoRotation,
+    ),
     startVolume: clampStartVolume($("settingStartVolume").value),
     windowOpacity: clampWindowOpacity(settings.windowOpacity),
     spectrumOpacity: clampWindowOpacity(settings.spectrumOpacity),
@@ -2746,6 +2864,11 @@ async function loadMedia({
     currentRemote = { ...currentRemote, tempPath: path };
   } else {
     currentRemote = null;
+  }
+  // A new source starts at the configured default; reloads of the same file
+  // (compat remux) keep whatever the viewer had turned it to.
+  if (path !== currentMediaPath || name !== currentMediaName) {
+    applyVideoRotation(settings.videoRotation);
   }
   currentMediaPath = path;
   currentMediaName = name;
@@ -4457,6 +4580,11 @@ function bindToolbar() {
     closeFitMenu();
     applyVideoFit(btn.dataset.fit, { announce: true });
   });
+  // Left / right are separate buttons; the angle between them clears the turn.
+  // All three bubble so an open toolbar popup closes behind them.
+  els.btnRotateLeft?.addEventListener("click", () => rotateVideoBy(-1));
+  els.btnRotateRight?.addEventListener("click", () => rotateVideoBy(1));
+  els.btnRotateReset?.addEventListener("click", () => resetVideoRotation());
   document.addEventListener("click", (e) => {
     if (e.target.closest?.(".recent-wrap, .theme-wrap, .fit-wrap")) return;
     closeToolbarMenus();
@@ -4653,7 +4781,7 @@ function bindToolbar() {
     saveSettings(settings);
     applyLocale(settings.locale, { persist: false });
     await applyTheme(settings.theme);
-    applySettingsToPlayer({ applyVolume: true });
+    applySettingsToPlayer({ applyVolume: true, applyRotation: true });
     els.settingsModal.close();
     setStatus({ state: statusKey("statusSettingsSaved") });
   });
@@ -4665,7 +4793,7 @@ function bindToolbar() {
     applyLocale(settings.locale, { persist: false });
     fillSettingsForm();
     await applyTheme(settings.theme);
-    applySettingsToPlayer({ applyVolume: true });
+    applySettingsToPlayer({ applyVolume: true, applyRotation: true });
     setStatus({ state: statusKey("statusSettingsReset") });
   });
 
@@ -4907,6 +5035,11 @@ function bindKeyboard() {
           e.preventDefault();
           toggleSubtitlesVisible();
           break;
+        case "r":
+        case "R":
+          e.preventDefault();
+          rotateVideoBy(e.shiftKey ? -1 : 1);
+          break;
         default:
           break;
       }
@@ -4974,6 +5107,7 @@ async function init() {
   bindChromeOverlay();
   bindDragDrop();
   bindKeyboard();
+  bindStageResize();
 
   populateThemeSelect(settings.theme);
   await applyTheme(settings.theme);

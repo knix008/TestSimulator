@@ -91,7 +91,7 @@ Pure static UI: no bundler. Modules are loaded as native ES modules.
 | Module | Role |
 |--------|------|
 | `js/app.js` | Application controller: modes, fit/history/compact UI, hotkeys, DnD, status snapshot + locale refresh |
-| `js/settings.js` | Settings defaults + load/save via persist layer (`videoFit`, `showHistoryPanel`, `compactMode`, …) |
+| `js/settings.js` | Settings defaults + load/save via persist layer (`videoFit`, `videoRotation`, `showHistoryPanel`, `compactMode`, …) |
 | `js/persist.js` | `localStorage` (web) or `desktopAPI.persist*` (Electron) |
 | `js/themes.js` | Builtin + custom themes, CSS variables, overlay sync; toolbar menus use scheme-locked contrast |
 | `js/i18n.js` | English / Korean dictionaries + `applyI18n` |
@@ -143,6 +143,7 @@ Pure static UI: no bundler. Modules are loaded as native ES modules.
 - Spectrum UI is a **separate window** (`spectrum.html`) driven by IPC / BroadcastChannel frame streaming from the player. Title-bar opacity applies only to that window (`spectrumOpacity`).
 - Play history is a **separate window** (`history.html`) driven by IPC / BroadcastChannel item sync from the player. Open state persisted as `showHistoryPanel`; title-bar opacity as `historyOpacity`.
 - **Video fit** (`settings.videoFit`): `cover` | `contain` | `actual` — CSS classes on `#videoWrap` (`fit-*`); control-bar `#btnFit` menu.
+- **Stage rotation**: `0` | `90` | `180` | `270` — `.is-rotated` + `.rot-*` on `#videoWrap`. Two levels: `settings.videoRotation` is the **persisted default** applied on every `loadMedia` of a new source (Settings ▸ Display); the module-level `videoRotation` is the **live** angle for the file playing now, moved by `#btnRotateLeft` / `#btnRotateRight` (and `#btnRotateReset`, which doubles as the angle readout), the stage context menu, and `R` / `Shift+R` — none of which persist. A quarter turn swaps `#media`'s layout box to `--stage-h x --stage-w` (published by a `ResizeObserver` on the stage) so `object-fit` still resolves against the axes the viewer sees. Overlays (subtitles, drop hint, progress) are siblings and stay upright. Disabled in YouTube mode — the iframe is not ours to transform. Compact chrome keeps both turn buttons and hides only the readout.
 - **Group minimize / restore**: `desktopAPI.minimize` (toolbar ─ and `Esc` when no overlay) minimizes main + spectrum + history together. Restoring any one window (taskbar / second-instance) restores the whole group via `restore` listeners in `main.js`.
 - **Chrome auto-hide** (`settings.autoHideChrome`): overlay toolbar + bottom chrome hide while playing; edge hover reveals them.
 - **Compact mode** (`settings.compactMode`): `#app.is-compact` hides non-essential chrome; keeps **Open**, transport, volume, compact-restore, and window controls. Distinct enter (PIP) / exit (full layout) icons on `#btnCompact`. Desktop saves/restores window bounds via `getBounds` / `setBounds` and lowers `setMinimumSize` while compact. The separate spectrum and history windows stay open across compact toggle.
@@ -158,7 +159,7 @@ Pure static UI: no bundler. Modules are loaded as native ES modules.
 | Electron `userData/persist.json` | Settings, custom themes, recent list, `dialog.lastOpenDir` / `dialog.lastSaveDir` |
 | Web `localStorage` | Same logical keys via `persist.js` |
 | Keys (examples) | `myvideoplayer.settings.v1`, custom themes, recent entries |
-| Settings fields | locale, theme, rate, seekStep, autoplay, loop, showSpectrum, autoHideChrome, spectrumStyle, showSubtitles, subSize, startVolume, windowOpacity, spectrumOpacity, historyOpacity, showHistoryPanel, videoFit, compactMode |
+| Settings fields | locale, theme, rate, seekStep, autoplay, loop, showSpectrum, autoHideChrome, spectrumStyle, showSubtitles, subSize, startVolume, windowOpacity, spectrumOpacity, historyOpacity, showHistoryPanel, videoFit, videoRotation, compactMode |
 | Compat cache | `userData/compat-cache/` (converted media; not in git) |
 
 Settings live per-profile (browser / Electron userData), not inside the install directory.
@@ -252,6 +253,7 @@ This keeps reinstalls clean while preserving auto-update behavior when `--update
 | New hotkey | `bindKeyboard` in `app.js` + i18n tip strings |
 | New spectrum style | `SPECTRUM_STYLES` + painter branch in `spectrum.js` + i18n labels |
 | New fit mode | `normalizeVideoFit` + CSS `.fit-*` + control-bar menu in `index.html` |
+| Rotation step | `normalizeVideoRotation` in `settings.js` + `applyVideoRotation` in `app.js` + CSS `.rot-*` in `main.css` |
 | Compact chrome | `setCompactMode` in `app.js` + `.app.is-compact` rules in `main.css` |
 | Group minimize | `minimizeAllAppWindows` / `restoreAllAppWindows` in `main.js` |
 | New IPC | `main.js` handler + `preload.js` + renderer call site |

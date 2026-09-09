@@ -229,9 +229,12 @@ select {
 .app.is-compact .toolbar-actions > *:not(#btnOpen),
 .app.is-compact
   .toolbar-right
-  > *:not(#btnCompact):not(#toolbarOpacity):not(#toolbarFitWrap),
+  > *:not(#btnCompact):not(#toolbarOpacity):not(#toolbarFitWrap):not(
+      #toolbarRotateGroup
+    ),
 .app.is-compact .statusbar,
 .app.is-compact .fit-wrap .tool-btn-label,
+.app.is-compact #btnRotateReset,
 .app.is-compact .rate-group,
 .app.is-compact .transport-row > .toolbar-sep:has(+ .rate-group),
 .app.is-compact .volume-scale,
@@ -1008,6 +1011,23 @@ body.is-electron .toolbar-opacity {
   gap: 4px;
 }
 
+.rotate-group {
+  gap: 0;
+}
+
+/* Middle of the group: shows the current angle, click clears it. */
+.rotate-indicator {
+  min-width: 36px;
+  justify-content: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.rotate-indicator:disabled {
+  /* Upright is the resting state, not a broken control. */
+  opacity: 0.7;
+  cursor: default;
+}
+
 .control-bar .volume-bar {
   width: 80px;
   height: 14px;
@@ -1108,6 +1128,38 @@ body.is-electron .toolbar-opacity {
   max-width: none;
   max-height: none;
   object-fit: none;
+}
+
+/* Stage rotation — quarter turns swap the on-screen axes.
+   The element leaves flow so an oversized rotated box cannot stretch the stage,
+   and for contain/cover its layout box is swapped to --stage-h x --stage-w so
+   object-fit letterboxes against the axes the viewer actually sees. */
+.video-wrap.is-rotated #media {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+}
+
+.video-wrap.rot-90 #media {
+  transform: translate(-50%, -50%) rotate(90deg);
+}
+
+.video-wrap.rot-180 #media {
+  transform: translate(-50%, -50%) rotate(180deg);
+}
+
+.video-wrap.rot-270 #media {
+  transform: translate(-50%, -50%) rotate(270deg);
+}
+
+.video-wrap.rot-90.fit-contain #media,
+.video-wrap.rot-270.fit-contain #media,
+.video-wrap.rot-90.fit-cover #media,
+.video-wrap.rot-270.fit-cover #media {
+  width: var(--stage-h, 100%);
+  height: var(--stage-w, 100%);
+  max-width: none;
+  max-height: none;
 }
 
 .video-wrap.fit-cover .youtube-container {
