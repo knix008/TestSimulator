@@ -1,0 +1,12 @@
+[package]
+name = "gen-testcases"
+description = "C++ 판 test_engine.c 에서 회귀 시험 자료를 뽑아 온다"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+regex = "1"

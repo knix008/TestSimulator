@@ -1,0 +1,20 @@
+[package]
+name = "chunjiin-testreport"
+description = "시험 결과를 구역별로 정리해 보여 준다"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+publish = false
+
+[lib]
+name = "chunjiin_testreport"
+path = "src/lib.rs"
+
+[[bin]]
+name = "chunjiin-testreport"
+path = "src/main.rs"
+
+# 모으고 보여 주는 일만 한다. 꾸러미를 들이지 않는다.
+[dependencies]

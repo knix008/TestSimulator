@@ -1,0 +1,15 @@
+[package]
+name = "chunjiin-engine"
+description = "천지인 12키 한글 조합 엔진 (KoreanChunJiInC++ 이식)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+# 조합 엔진은 의존성이 없다. 데스크톱과 웹이 이것을 그대로 나눠 쓴다.
+[dependencies]
+
+[dev-dependencies]
+chunjiin-testkit = { path = "../testkit" }

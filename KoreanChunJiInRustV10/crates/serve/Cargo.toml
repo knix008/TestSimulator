@@ -1,0 +1,17 @@
+[package]
+name = "chunjiin-serve"
+description = "천지인 한글 입력기 웹 판 서버 (web/ 를 품는다)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+build = "build.rs"
+
+[[bin]]
+name = "chunjiin-serve"
+path = "src/main.rs"
+
+# 표준 라이브러리만 쓴다. 하는 일이 정적 파일 내려 주기 하나뿐이다.
+[dependencies]

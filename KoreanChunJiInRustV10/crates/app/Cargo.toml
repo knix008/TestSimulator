@@ -1,0 +1,18 @@
+[package]
+name = "chunjiin-app"
+description = "천지인 한글 입력기 (데스크톱 앱)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+# 실행 파일 이름은 chunjiin 이다. 꾸러미 이름과 따로 둔다.
+[[bin]]
+name = "chunjiin"
+path = "src/main.rs"
+
+[dependencies]
+chunjiin-ui.workspace = true
+eframe.workspace = true

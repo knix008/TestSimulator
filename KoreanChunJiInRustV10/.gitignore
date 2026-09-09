@@ -1,0 +1,33 @@
+# Rust 빌드 결과
+/target/
+/crates/wasm/target/
+
+# 빌드 스크립트가 저장소 루트에 놓는 것들
+/chunjiin
+/chunjiin.exe
+/chunjiin-serve
+/chunjiin-serve.exe
+/chunjiin-setup
+/chunjiin-setup.exe
+/chunjiin-*.zip
+/chunjiin-*.tar.gz
+/chunjiin-*.dmg
+/Chunjiin.app/
+
+# 설치 프로그램이 품을 실행 파일이 잠깐 놓이는 자리.
+# package 스크립트가 넣었다가 끝나면 치운다(README.txt 는 남긴다).
+/crates/setup/payload/*
+!/crates/setup/payload/README.txt
+
+# 웹 판 빌드 결과. scripts/build-web 이 만든다.
+# 원본(index.html · style.css · app.js · chunjiin.png)은 저장소에 둔다.
+/web/chunjiin_wasm.js
+/web/chunjiin_wasm_bg.wasm
+/web/*.d.ts
+
+# 편집기 · 운영체제
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db

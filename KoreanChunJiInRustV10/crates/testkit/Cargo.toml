@@ -1,0 +1,11 @@
+[package]
+name = "chunjiin-testkit"
+description = "천지인 시험 도우미 (시험에서만 쓴다)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]

@@ -1,0 +1,26 @@
+[package]
+name = "chunjiin-ui"
+description = "천지인 한글 입력기 데스크톱 화면 (egui)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+build = "build.rs"
+
+[dependencies]
+chunjiin-engine.workspace = true
+eframe.workspace = true
+egui.workspace = true
+rfd.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+# 툴바의 붙여넣기 단추가 클립보드를 직접 읽는다(clipboard.rs 를 보라).
+arboard = "3"
+# 창 아이콘 PNG 를 푼다. eframe 이 이미 들고 있는 것을 그대로 쓴다.
+image = { version = "0.25", default-features = false, features = ["png"] }
+
+[dev-dependencies]
+chunjiin-testkit = { path = "../testkit" }
+egui.workspace = true

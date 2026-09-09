@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="12키 천지인 자판으로 한글을 조합하는 웹 입력기">
+<meta name="theme-color" content="#f6f7fa">
+<title>천지인 한글 입력기</title>
+<link rel="icon" href="chunjiin.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body data-theme="light">
+
+<!--
+  화면은 데스크톱 판(egui)과 같은 차례로 놓는다.
+  툴바 - 편집 영역 - 상태줄 - 천지인 키패드.
+  조합은 전부 chunjiin_wasm 이 맡는다. 여기서는 그리기만 한다.
+-->
+<div class="app">
+
+  <header class="toolbar" id="toolbar">
+    <button class="tool" data-act="new"        data-tip="tipNew"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h7l5 5v15H6z"/><path d="M13 2v5h5"/></svg></button>
+    <button class="tool" data-act="open"       data-tip="tipOpen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h7l2 2h9v12H3z"/></svg></button>
+    <button class="tool" data-act="save"       data-tip="tipSave"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 3h13l3 3v15H4z"/><path d="M8 3v6h8V3"/><rect x="8" y="13" width="8" height="8"/></svg></button>
+    <button class="tool" data-act="copy"       data-tip="tipCopy"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/></svg></button>
+    <button class="tool" data-act="paste"      data-tip="tipPaste"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6v3H9z"/><path d="M15 5h3v16H6V5h3"/><path d="M9 12h6M9 16h6"/></svg></button>
+    <button class="tool" data-act="clear"      data-tip="tipClear"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M10 11v6M14 11v6"/><path d="M6 7l1 13h10l1-13"/><path d="M9 7V4h6v3"/></svg></button>
+    <button class="tool" data-act="cycleMode"  data-tip="tipMode"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg></button>
+    <button class="tool" data-act="cycleTheme" data-tip="tipTheme"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18c1.1 0 2-.9 2-2 0-.5-.2-1-.6-1.4-.3-.4-.5-.8-.5-1.3 0-1.1.9-2 2-2h2.4A5.7 5.7 0 0 0 21 12c0-5-4-9-9-9z"/><circle cx="7.5" cy="11" r="1.2"/><circle cx="11" cy="7" r="1.2"/><circle cx="15.5" cy="8.5" r="1.2"/></svg></button>
+    <button class="tool" data-act="cycleLang"  data-tip="tipLang"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 0 18a14 14 0 0 1 0-18z"/></svg></button>
+    <button class="tool" data-act="settings"   data-tip="tipSettings"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.5l1.6 2.6 3-.6.5 3 2.7 1.4-1.6 2.6 1.6 2.6-2.7 1.4-.5 3-3-.6L12 21.5l-1.6-2.6-3 .6-.5-3-2.7-1.4L5.8 12 4.2 9.4l2.7-1.4.5-3 3 .6z"/></svg></button>
+    <button class="tool" data-act="help"       data-tip="tipHelp"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.3 9.2a2.8 2.8 0 1 1 3.4 3.2c-.5.2-.7.6-.7 1.1v.6"/><circle cx="12" cy="17.4" r="1"/></svg></button>
+    <span class="tool-gap"></span>
+    <button class="tool" data-act="about"      data-tip="tipAbout"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6"/><circle cx="12" cy="7.6" r="1"/></svg></button>
+  </header>
+
+  <main class="card">
+    <!--
+      진짜 textarea 를 쓴다. 그래야 브라우저가 커서·선택·스크롤을 맡아 준다.
+      다만 직접 타이핑하는 것은 막고, 모든 입력을 엔진으로 돌린다.
+    -->
+    <textarea id="editor" spellcheck="false" autocomplete="off"
+              autocapitalize="off" autocorrect="off"></textarea>
+  </main>
+
+  <div class="status" id="status" aria-live="polite"></div>
+
+  <nav class="keypad" id="keypad">
+    <div class="keys" id="keys"></div>
+    <div class="fnrow" id="fnrow"></div>
+  </nav>
+
+</div>
+
+<!-- 설정 -->
+<div class="modal" id="settingsModal" hidden>
+  <div class="sheet">
+    <h2 data-t="setTitle"></h2>
+
+    <label class="row">
+      <span data-t="setTheme"></span>
+      <select id="selTheme"></select>
+    </label>
+    <label class="row">
+      <span data-t="setLanguage"></span>
+      <select id="selLang"></select>
+    </label>
+    <label class="row">
+      <span data-t="setFontSize"></span>
+      <select id="selFont"></select>
+    </label>
+    <label class="row">
+      <span data-t="setTapTime"></span>
+      <select id="selTap"></select>
+    </label>
+    <label class="row">
+      <span data-t="setStartMode"></span>
+      <select id="selMode"></select>
+    </label>
+    <label class="row check">
+      <input type="checkbox" id="chkToolbar">
+      <span data-t="showToolbar"></span>
+    </label>
+    <label class="row check">
+      <input type="checkbox" id="chkStatus">
+      <span data-t="showStatus"></span>
+    </label>
+
+    <div class="actions">
+      <button id="btnDefaults" class="ghost" data-t="setDefault"></button>
+      <span class="grow"></span>
+      <button id="btnSettingsClose" class="primary" data-t="setOK"></button>
+    </div>
+  </div>
+</div>
+
+<!-- 사용법 -->
+<div class="modal" id="helpModal" hidden>
+  <div class="sheet wide">
+    <h2 data-t="helpTitle"></h2>
+    <pre id="helpBody"></pre>
+    <div class="actions">
+      <span class="grow"></span>
+      <button id="btnHelpClose" class="primary" data-t="close"></button>
+    </div>
+  </div>
+</div>
+
+<!-- 프로그램 정보 -->
+<div class="modal" id="aboutModal" hidden>
+  <div class="sheet">
+    <h2 data-t="aboutTitle"></h2>
+    <pre id="aboutBody"></pre>
+    <div class="actions">
+      <span class="grow"></span>
+      <button id="btnAboutClose" class="primary" data-t="close"></button>
+    </div>
+  </div>
+</div>
+
+<div class="loading" id="loading">
+  <div class="spinner"></div>
+  <p>엔진을 불러오는 중…</p>
+</div>
+
+<input type="file" id="filePicker" accept=".txt,text/plain" hidden>
+
+<!--
+  app.js 는 모듈이다. wasm-bindgen 이 만든 chunjiin_wasm.js 를 들여오기
+  때문이다. Go 판이 쓰던 wasm_exec.js 자리를 그것이 대신한다.
+-->
+<script type="module" src="app.js"></script>
+</body>
+</html>

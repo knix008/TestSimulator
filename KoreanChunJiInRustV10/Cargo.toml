@@ -1,0 +1,45 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/engine",
+    "crates/testkit",
+    "crates/ui",
+    "crates/app",
+    "crates/serve",
+    "crates/gen-testcases",
+    "crates/setup",
+    "crates/testreport",
+]
+# 웹 판은 wasm32 전용이라 기본 빌드에서 빼 둔다.
+# scripts/build-web.* 가 -p chunjiin-wasm 으로 따로 부른다.
+exclude = ["crates/wasm"]
+
+[workspace.package]
+version = "1.0.0"
+edition = "2021"
+rust-version = "1.85"
+authors = ["SHKWON <knix008@naver.com>"]
+license = "MIT"
+repository = "https://github.com/knix008/chunjiin"
+
+[workspace.dependencies]
+chunjiin-engine = { path = "crates/engine" }
+chunjiin-ui = { path = "crates/ui" }
+eframe = { version = "0.36", default-features = false, features = [
+    "default_fonts",
+    "glow",
+    "wayland",
+    "x11",
+] }
+egui = "0.36"
+rfd = "0.17"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# 배포본은 크기를 줄이고 속도를 올린다.
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

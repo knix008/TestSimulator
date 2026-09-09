@@ -1,0 +1,29 @@
+[package]
+name = "chunjiin-wasm"
+description = "천지인 조합 엔진의 웹 판 (WebAssembly)"
+version = "1.0.0"
+edition = "2021"
+rust-version = "1.85"
+authors = ["SHKWON <knix008@naver.com>"]
+license = "MIT"
+publish = false
+
+# 이 꾸러미는 wasm32 전용이라 저장소 작업공간에서 빼 두었다.
+# scripts/build-web.* 가 여기서 따로 빌드한다.
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+chunjiin-engine = { path = "../engine" }
+wasm-bindgen = "0.2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[profile.release]
+# 웹으로 내려받는 것이므로 크기를 최우선으로 줄인다.
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

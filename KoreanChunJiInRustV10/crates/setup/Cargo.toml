@@ -1,0 +1,22 @@
+[package]
+name = "chunjiin-setup"
+description = "천지인 한글 입력기 설치 프로그램 (앱을 품는다)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+build = "build.rs"
+
+[[bin]]
+name = "chunjiin-setup"
+path = "src/main.rs"
+
+[dependencies]
+# 글꼴을 나눠 쓴다. 한글이 네모로 나오면 설치 안내를 읽을 수 없다.
+chunjiin-ui.workspace = true
+eframe.workspace = true
+egui.workspace = true
+rfd.workspace = true
+image = { version = "0.25", default-features = false, features = ["png"] }
