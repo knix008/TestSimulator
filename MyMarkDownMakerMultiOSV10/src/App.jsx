@@ -1,11 +1,10 @@
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { Suspense, lazy, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import i18n from './i18n';
 import TitleBar from './components/TitleBar';
 import FileList from './components/FileList';
 import OutlineTree from './components/OutlineTree';
 import FigureList from './components/FigureList';
-import MarkdownEditor from './components/MarkdownEditor';
 import { THEMES } from './lib/themes';
 import ContextMenu from './components/ContextMenu';
 import Tooltip from './components/Tooltip';
@@ -46,6 +45,7 @@ import {
 
 const MD_RE = /\.(md|markdown)$/i;
 const THEME_IDS = THEMES.map((t) => t.id);
+const MarkdownEditor = lazy(() => import('./components/MarkdownEditor'));
 // Each theme shows its own toolbar glyph so the current theme is recognizable.
 const THEME_ICONS = {
   dark: IconMoon, light: IconSun, white: IconBulb, midnight: IconStars, nord: IconSnow,
@@ -76,6 +76,17 @@ const LINE_DONE_KEYS = new Set([
 // anything with less than this long a pause in it.
 const HISTORY_LIMIT = 200;
 const HISTORY_COALESCE_MS = 600;
+
+// First index where two documents differ. Undo/redo use this (recorded against
+// the text being stored) so the caret lands on the edit, not a later TOC fold.
+function firstDiff(a, b) {
+  const left = a ?? '';
+  const right = b ?? '';
+  const n = Math.min(left.length, right.length);
+  let i = 0;
+  while (i < n && left.charCodeAt(i) === right.charCodeAt(i)) i += 1;
+  return i;
+}
 
 // Document zoom range, in percent.
 const ZOOM_MIN = 50;
@@ -115,6 +126,9 @@ export default function App() {
     return n >= ZOOM_MIN && n <= ZOOM_MAX ? n : 100;
   });
   const [rightTab, setRightTab] = useState('preview');
+  // CodeMirror is loaded only when the Edit tab is first opened, so the main
+  // window can appear without waiting for the editor bundle.
+  const [editorReady, setEditorReady] = useState(false);
   const [status, setStatus] = useState(t('status.ready'));
   const [exportOpen, setExportOpen] = useState(false);
   const [theme, setTheme] = useState(() => {
@@ -160,7 +174,8 @@ export default function App() {
   // instead of relying on document.execCommand('undo').
   //   apply – the change being applied IS an undo/redo, so do not record it
   //   fold  – an automatic pass (renumber / index); belongs to the step before it
-  const histRef = useRef({ past: [], future: [], current: '', at: 0, sel: 0, apply: false, fold: false });
+  const histRef = useRef({ past: [], future: [], current: '', at: 0, sel: 0, changeAt: 0, apply: false, fold: false });
+  const pendingSelRef = useRef(null);
   const [history, setHistory] = useState({ canUndo: false, canRedo: false });
   const [closeAsk, setCloseAsk] = useState(false);
   const [closeBusy, setCloseBusy] = useState(false);
@@ -285,15 +300,26 @@ export default function App() {
       // undo — it must not throw away a redo branch the writer may still want.
     } else {
       // A burst of typing is one step; a pause starts the next one.
+      // Store the first differing offset in the OLD text — that is where the
+      // caret should go when this step is undone. The live caret is in the NEW
+      // document and would restore to the wrong place (or into a later TOC).
+      const at = firstDiff(h.current, merged);
       const sameStep = h.past.length > 0 && now - h.at < HISTORY_COALESCE_MS;
       if (!sameStep) {
-        h.past.push({ text: h.current, sel: h.sel });
+        h.past.push({ text: h.current, sel: at });
         if (h.past.length > HISTORY_LIMIT) h.past.shift();
+        h.changeAt = at;
+      } else {
+        h.changeAt = firstDiff(h.past[h.past.length - 1].text, merged);
       }
       h.future.length = 0;                   // a new edit abandons the redo branch
     }
     h.fold = false;
     h.current = merged;
+    if (pendingSelRef.current != null) {
+      h.sel = pendingSelRef.current;
+      pendingSelRef.current = null;
+    }
     h.at = now;
     setHistory({ canUndo: h.past.length > 0, canRedo: h.future.length > 0 });
   }, [merged]);
@@ -301,24 +327,52 @@ export default function App() {
   // Starts the history over — a fresh merge is a new document, not an edit of
   // the one before it.
   function resetHistory(text) {
-    histRef.current = { past: [], future: [], current: text, at: Date.now(), sel: 0, apply: false, fold: false };
+    pendingSelRef.current = null;
+    histRef.current = { past: [], future: [], current: text, at: Date.now(), sel: 0, changeAt: 0, apply: false, fold: false };
     setHistory({ canUndo: false, canRedo: false });
+  }
+
+  function liveEditor() {
+    const el = editorRef.current;
+    return el && el.isReady && el.isFilled ? el : null;
   }
 
   function stepHistory(from, to) {
     const h = histRef.current;
-    if (!from.length) return;
     cancelEditorSync();                        // a queued keystroke would land after
-    const el = editorOnScreen();
+    pendingSelRef.current = null;
+    const el = liveEditor();
+    const live = el ? el.value : merged;
+    // Unsettled typing is not in the stacks yet. Record it first so Ctrl+Z
+    // undoes that burst rather than skipping it.
+    if (live !== h.current) {
+      const sameStep = h.past.length > 0 && Date.now() - h.at < HISTORY_COALESCE_MS;
+      const origin = sameStep ? h.past[h.past.length - 1].text : h.current;
+      const at = firstDiff(origin, live);
+      if (!sameStep) {
+        h.past.push({ text: h.current, sel: at });
+        if (h.past.length > HISTORY_LIMIT) h.past.shift();
+      }
+      h.future.length = 0;
+      h.current = live;
+      h.changeAt = at;
+      h.sel = el?.selectionStart ?? at;
+      h.at = Date.now();
+    }
+    if (!from.length) {
+      setHistory({ canUndo: h.past.length > 0, canRedo: h.future.length > 0 });
+      return;
+    }
     const entry = from.pop();
-    to.push({ text: currentText(), sel: el?.selectionStart ?? h.sel });
+    const redoAt = Math.min(h.changeAt ?? firstDiff(live, entry.text), live.length);
+    to.push({ text: live, sel: redoAt });
+    const pos = Math.min(entry.sel ?? 0, entry.text.length);
     h.apply = true;
+    h.sel = pos;
+    h.changeAt = pos;
     if (el) {
-      // Undo must leave the writer looking at the same place. The caret goes
-      // back to where that step was taken, but the viewport is pinned — swapping
-      // the document (and setting the selection) would otherwise scroll there.
-      const pos = Math.min(entry.sel || 0, entry.text.length);
-      el.replaceKeepingView(entry.text, pos, pos);
+      el.replaceAndReveal(entry.text, pos, pos);
+      el.focus();
     }
     setMerged(entry.text);
   }
@@ -480,6 +534,9 @@ export default function App() {
           mapPos: (p) => mapCaretPos(prev, next, p),
         });
       }
+      const h = histRef.current;
+      h.sel = mapCaretPos(prev, next, h.sel);
+      h.changeAt = mapCaretPos(prev, next, h.changeAt ?? h.sel);
       return next;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -691,6 +748,8 @@ export default function App() {
       if (next === merged) return;
       const caret = el ? el.selectionStart : 0;
       histRef.current.fold = true;
+      histRef.current.sel = mapCaretPos(merged, next, histRef.current.sel);
+      histRef.current.changeAt = mapCaretPos(merged, next, histRef.current.changeAt ?? histRef.current.sel);
       if (el) {
         el.replaceKeepingAnchor(next, {
           caret: mapCaretPos(merged, next, caret),
@@ -1074,6 +1133,7 @@ export default function App() {
   // rather than on any keystroke.
   function showTab(tab) {
     if (tab !== 'edit') settleNow();
+    if (tab === 'edit') setEditorReady(true);
     setRightTab(tab);
   }
 
@@ -1103,8 +1163,18 @@ export default function App() {
       return;
     }
     const text = el.value;
-    histRef.current.sel = el.selectionStart;
-    syncFigureToCaret();
+    const sel = el.selectionStart;
+    if (figures.length) {
+      const hit = figures.find((f) => sel >= f.start && sel <= f.start + f.length);
+      setActiveFigure(hit ? hit.index : -1);
+    }
+    // Keep hist.sel in the CURRENT document's coordinates until the history
+    // effect records the past entry. The live caret belongs to the new text.
+    if (text === histRef.current.current) {
+      histRef.current.sel = sel;
+      return;
+    }
+    pendingSelRef.current = sel;
     setMerged((prev) => (prev === text ? prev : text));
   }
 
@@ -1112,6 +1182,13 @@ export default function App() {
     const el = editorRef.current;
     if (!el || composingRef.current || !el.isReady) return;
     if (el.value === merged) return;
+    // Undo wrote `merged` but the view was empty (e.g. first fill). Follow the
+    // restored change rather than pinning whatever caret the empty view had.
+    if (histRef.current.apply) {
+      const pos = Math.min(histRef.current.sel, merged.length);
+      el.replaceAndReveal(merged, pos, pos);
+      return;
+    }
     const start = Math.min(el.selectionStart, merged.length);
     const end = Math.min(el.selectionEnd, merged.length);
     el.replaceKeepingView(merged, start, end);
@@ -1761,6 +1838,7 @@ export default function App() {
                     onContextMenu={previewMenu} dangerouslySetInnerHTML={{ __html: previewHtml }} />
                 : <div className="empty"><p className="muted">{t('preview.empty')}</p></div>}
             </div>
+            {(editorReady || rightTab === 'edit') && (
             <div className={`editor-wrap${rightTab === 'edit' ? '' : ' is-hidden'}`}>
                 {/* Markdown marks for the text under the caret. */}
                 <div className="md-toolbar">
@@ -1778,13 +1856,11 @@ export default function App() {
                   ))}
                 </div>
                 <div className="editor-pane">
-                  {/* Uncontrolled CodeMirror: React never writes the document
-                      during typing. The effect above is the only thing that
-                      fills it from app state. onSelect / onKeyUp stay off —
-                      both fire on every character typed. */}
-                  <MarkdownEditor ref={editorRef} zoom={zoom}
-                    placeholder={t('preview.empty')}
-                    callbacksRef={editorCbs} />
+                  <Suspense fallback={<div className="editor" />}>
+                    <MarkdownEditor ref={editorRef} zoom={zoom}
+                      placeholder={t('preview.empty')}
+                      callbacksRef={editorCbs} />
+                  </Suspense>
                   {figures.length > 0 && (
                     <aside className="editor-figures">
                       <FigureList figures={figures} activeIndex={activeFigure}
@@ -1793,6 +1869,7 @@ export default function App() {
                   )}
                 </div>
             </div>
+            )}
           </div>
         </section>
       </main>

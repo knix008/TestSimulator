@@ -1,15 +1,18 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import i18n from './i18n';
-import App from './App.jsx';
-import SettingsPage from './components/SettingsPage.jsx';
-import AboutPage from './components/AboutPage.jsx';
 import { seedSettingsFromDisk } from './lib/platform';
 import './App.css';
 
-// The settings window loads the same bundle with #settings and renders only
-// the settings page (a separate, movable OS window).
+// Settings / About must not download the editor (CodeMirror) or the main App.
+// Each window loads this file, then we import only the page it needs.
 const route = (window.location.hash || '').replace('#', '').split('?')[0];
+
+async function loadPage() {
+  if (route === 'settings') return (await import('./components/SettingsPage.jsx')).default;
+  if (route === 'about') return (await import('./components/AboutPage.jsx')).default;
+  return (await import('./App.jsx')).default;
+}
 
 async function boot() {
   // Restore persisted settings (Electron) before first render so the saved
@@ -19,7 +22,7 @@ async function boot() {
   if (savedLang && savedLang !== i18n.language) {
     try { await i18n.changeLanguage(savedLang); } catch { /* ignore */ }
   }
-  const Page = route === 'settings' ? SettingsPage : route === 'about' ? AboutPage : App;
+  const Page = await loadPage();
   ReactDOM.createRoot(document.getElementById('root')).render(
     <React.StrictMode>
       <Page />

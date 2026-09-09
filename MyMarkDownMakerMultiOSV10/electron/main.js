@@ -593,6 +593,7 @@ ipcMain.handle('settings:open', () => {
     frame: false,            // only the in-app settings title bar is shown
     autoHideMenuBar: true,
     backgroundColor: '#1b1917',
+    show: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -600,6 +601,7 @@ ipcMain.handle('settings:open', () => {
     },
   });
   settingsWin.setMenu(null);
+  settingsWin.once('ready-to-show', () => { if (!settingsWin.isDestroyed()) settingsWin.show(); });
   if (isDev) {
     settingsWin.loadURL('http://localhost:5178/#settings');
   } else {
@@ -628,6 +630,7 @@ ipcMain.handle('about:open', () => {
     frame: false,
     autoHideMenuBar: true,
     backgroundColor: '#1b1917',
+    show: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -635,6 +638,7 @@ ipcMain.handle('about:open', () => {
     },
   });
   aboutWin.setMenu(null);
+  aboutWin.once('ready-to-show', () => { if (!aboutWin.isDestroyed()) aboutWin.show(); });
   if (isDev) {
     aboutWin.loadURL('http://localhost:5178/#about');
   } else {

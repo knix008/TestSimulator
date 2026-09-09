@@ -12,13 +12,13 @@ import { search, searchKeymap } from '@codemirror/search';
 // whole text on every keystroke (and every Hangul jamo).
 // Full-document replaces rebuild the viewport; a synchronous scrollTop write is
 // then overwritten once CodeMirror measures the new lines. Pinning after
-// measure (and on the next frames) is what keeps undo/redo from jumping.
-let pinGen = 0;
-function cancelPinScroll() { pinGen += 1; }
+// measure (and on the next frames) keeps the writer looking at the same place
+// when the app rewrites the document in the background.
+let viewGen = 0;
 function pinScroll(view, top, left) {
-  const token = ++pinGen;
+  const token = ++viewGen;
   const apply = () => {
-    if (token !== pinGen) return;
+    if (token !== viewGen) return;
     view.scrollDOM.scrollTop = top;
     view.scrollDOM.scrollLeft = left;
   };
@@ -107,7 +107,7 @@ function createHandle(getView) {
     replaceKeepingAnchor(text, { caret, mapPos } = {}) {
       const v = getView();
       if (!v) return;
-      cancelPinScroll();
+      const token = ++viewGen;
       const wrap = v.scrollDOM.getBoundingClientRect();
       const head = v.state.selection.main.head;
       const caretCoords = v.coordsAtPos(head);
@@ -132,6 +132,7 @@ function createHandle(getView) {
       });
       v.mmmFilled = true;
       const place = () => {
+        if (token !== viewGen) return;
         const after = v.coordsAtPos(newAnchor);
         if (!after) return;
         const wrap2 = v.scrollDOM.getBoundingClientRect();
@@ -143,7 +144,6 @@ function createHandle(getView) {
       requestAnimationFrame(() => { place(); requestAnimationFrame(place); });
     },
     // One transaction for text + caret, with the viewport held where it is.
-    // Undo/redo must not follow the restored caret around the document.
     replaceKeepingView(text, start, end) {
       const v = getView();
       if (!v) return;
@@ -163,6 +163,39 @@ function createHandle(getView) {
       if (spec.changes || spec.selection) dispatchSilent(v, spec);
       v.mmmFilled = true;
       pinScroll(v, top, left);
+    },
+    // Undo/redo: put the caret on the restored change and bring that line
+    // into view. Cancels any leftover pin so a later rAF cannot yank the
+    // viewport back to where it was before the step.
+    replaceAndReveal(text, start, end) {
+      const v = getView();
+      if (!v) return;
+      const token = ++viewGen;
+      const next = text ?? '';
+      const len = next.length;
+      const from = Math.max(0, Math.min(start ?? 0, len));
+      const to = Math.max(0, Math.min(end ?? from, len));
+      const spec = {
+        selection: { anchor: from, head: to },
+        scrollIntoView: false,
+      };
+      if (v.state.doc.toString() !== next) {
+        spec.changes = { from: 0, to: v.state.doc.length, insert: next };
+      }
+      dispatchSilent(v, spec);
+      v.mmmFilled = true;
+      const reveal = () => {
+        if (token !== viewGen) return;
+        v.dispatch({
+          effects: EditorView.scrollIntoView(v.state.selection.main, { y: 'center' }),
+        });
+      };
+      reveal();
+      v.requestMeasure({ key: 'reveal-sel', read: () => {}, write: reveal });
+      requestAnimationFrame(() => {
+        reveal();
+        requestAnimationFrame(reveal);
+      });
     },
     get scrollTop() {
       return getView()?.scrollDOM.scrollTop ?? 0;
@@ -206,7 +239,7 @@ function createHandle(getView) {
     scrollSelectionIntoView() {
       const v = getView();
       if (!v) return;
-      cancelPinScroll();
+      viewGen += 1;
       v.dispatch({
         effects: EditorView.scrollIntoView(v.state.selection.main, { y: 'center' }),
       });
