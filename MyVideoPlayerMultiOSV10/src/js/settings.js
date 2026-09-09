@@ -26,13 +26,25 @@ export const DEFAULT_SETTINGS = {
   /** Compact / mini player chrome */
   compactMode: false,
   /** @type {'contain' | 'cover' | 'actual'} */
-  videoFit: 'contain'
+  videoFit: 'contain',
+  /**
+   * Rotation applied when a file opens, in degrees. The toolbar / hotkeys turn
+   * the current video without touching this; only Settings changes the default.
+   * @type {0 | 90 | 180 | 270}
+   */
+  videoRotation: 0
 };
 
 const VIDEO_FIT_MODES = new Set(['contain', 'cover', 'actual']);
+const VIDEO_ROTATIONS = [0, 90, 180, 270];
 
 export function normalizeVideoFit(mode) {
   return VIDEO_FIT_MODES.has(mode) ? mode : DEFAULT_SETTINGS.videoFit;
+}
+
+export function normalizeVideoRotation(deg) {
+  const n = ((Math.round(Number(deg) || 0) % 360) + 360) % 360;
+  return VIDEO_ROTATIONS.includes(n) ? n : DEFAULT_SETTINGS.videoRotation;
 }
 
 export function loadSettings() {
@@ -46,6 +58,7 @@ export function loadSettings() {
     if (merged.historyOpacity == null) merged.historyOpacity = DEFAULT_SETTINGS.historyOpacity;
     if (merged.autoHideChrome == null) merged.autoHideChrome = DEFAULT_SETTINGS.autoHideChrome;
     merged.videoFit = normalizeVideoFit(merged.videoFit);
+    merged.videoRotation = normalizeVideoRotation(merged.videoRotation);
     return merged;
   } catch {
     return { ...DEFAULT_SETTINGS };

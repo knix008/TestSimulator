@@ -15,6 +15,26 @@ MyVideoPlayer_*.deb
 MyVideoPlayer-*-mac.zip
 MyVideoPlayer-*-win.zip
 
+# Local sample / test media — keep your own clips under video/, they are not committed
+video/
+*.mp4
+*.mkv
+*.webm
+*.mov
+*.avi
+*.mp3
+*.aac
+*.m4a
+*.wav
+*.flac
+*.opus
+*.ogg
+
+# Subtitle sidecars picked up beside local media
+*.smi
+*.srt
+*.vtt
+
 # Incomplete / temp downloads
 *.part
 *.ytdl
@@ -42,6 +62,12 @@ cookies.sqlite
 *.temp
 .cache/
 .turbo/
+
+# Throwaway harness scripts run with `electron ./<name>-tmp.js`. They have to sit
+# inside the project for `require('electron')` to resolve, so they land here.
+*-tmp.js
+*.local.js
+scratch/
 
 # Bundled tool binaries (fetched by scripts/ensure-yt-dlp.js / postinstall)
 vendor/yt-dlp/yt-dlp

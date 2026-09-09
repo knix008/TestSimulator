@@ -9,7 +9,7 @@ Cross-platform video/audio player for **Web**, **Windows**, **macOS**, and **Lin
 | **License** | MIT |
 | **Stack** | Electron 33 · HTML/CSS/ES modules · youtubei.js · ffmpeg-static · bundled yt-dlp |
 
-멀티 OS 미디어 플레이어입니다. 로컬 파일은 HTTP Range(`/__media/…`)로 스트리밍하고, 재생 실패 시 FFmpeg로 호환 변환(소프트 리먹스 → H.264)을 시도합니다. YouTube·RTSP 재생, YouTube/RTSP 저장(녹화), 자막(SMI/SRT/VTT), 테마, 한글·영어 UI, 화면 맞춤, **축소 모드**, 재생 목록·스펙트럼 **별도 창**, 창별 투명도, `Esc` 일괄 최소화, 단축키를 지원합니다.
+멀티 OS 미디어 플레이어입니다. 로컬 파일은 HTTP Range(`/__media/…`)로 스트리밍하고, 재생 실패 시 FFmpeg로 호환 변환(소프트 리먹스 → H.264)을 시도합니다. YouTube·RTSP 재생, YouTube/RTSP 저장(녹화), 자막(SMI/SRT/VTT), 테마, 한글·영어 UI, 화면 맞춤, **화면 회전**(90° 단위), **축소 모드**, 재생 목록·스펙트럼 **별도 창**, 창별 투명도, `Esc` 일괄 최소화, 단축키를 지원합니다.
 
 자세한 구조·IPC·모듈 설명은 [Architecture.md](Architecture.md)를 참고하세요.
 
@@ -24,6 +24,7 @@ Cross-platform video/audio player for **Web**, **Windows**, **macOS**, and **Lin
 - Auto subtitle load (SMI / SRT / VTT beside the media file)
 - Recent plays (up to 30) + separate **play history** window (`Ctrl+L`); last open/save folders remembered (desktop)
 - Display fit modes: fill screen / keep aspect ratio / original size (control-bar menu; persisted)
+- Stage rotation in 90° steps for files stored sideways: separate left / right toolbar buttons (kept in compact mode), stage context menu, `R` / `Shift+R`. Persisted default in Settings ▸ Display; toolbar turns apply to the current video only
 - **Compact mode**: shrink the window to essential controls (open, transport, volume, restore); distinct enter/exit icons; spectrum & history windows stay open; persisted
 - Built-in themes (Dark, Light, Ocean, Forest) + custom theme editor; stage uses `--bg-stage`
 - UI language toggle: toolbar shows **ENG** / **한글** (target language); status bar re-translates on switch
@@ -125,8 +126,12 @@ From [`.gitignore`](.gitignore):
 | `*cookies*.txt`, `.env*` | Secrets / session data |
 | `.vscode/`, `.idea/`, `.cursor/`, `.DS_Store` | Editor / OS junk |
 | `*.tmp`, `.cache/` | Temp files |
+| `*-tmp.js`, `*.local.js`, `scratch/` | Throwaway harness scripts (`electron ./x-tmp.js` needs them inside the project) |
+| `*.dmp`, `crashpad/` | Local crash dumps |
 
-Put test videos under `video/` locally; they are not committed.
+Put test videos under `video/` locally; new ones are not committed. The few
+sample clips already in `video/` predate that rule and stay tracked until
+someone runs `git rm --cached` on them.
 
 ---
 
