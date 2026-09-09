@@ -1,0 +1,58 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "chunjiin"
+version = "1.0"
+description = "12키 천지인 자판 한글 입력기"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{ name = "SHKWON", email = "knix008@naver.com" }]
+keywords = ["hangul", "korean", "chunjiin", "keyboard", "input-method"]
+classifiers = [
+    "Environment :: X11 Applications :: Qt",
+    "Environment :: Win32 (MS Windows)",
+    "Intended Audience :: End Users/Desktop",
+    "Natural Language :: Korean",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Topic :: Text Editors",
+]
+
+# 엔진과 웹 판 서버는 표준 라이브러리 말고는 아무것도 쓰지 않는다.
+# 그래서 여기에 적을 것이 없다. 데스크톱 창을 띄울 때만 PySide6 이 필요하다.
+dependencies = []
+
+[project.optional-dependencies]
+desktop = ["PySide6>=6.5"]
+build = ["pyinstaller>=6.0"]
+
+[project.scripts]
+chunjiin-serve = "chunjiin.web.server:main"
+
+[project.gui-scripts]
+chunjiin = "chunjiin.ui.app:main"
+chunjiin-setup = "chunjiin.setup.main:main"
+
+[tool.setuptools.packages.find]
+include = ["chunjiin*"]
+
+[tool.setuptools.package-data]
+# 아이콘 · 글꼴 · 웹 화면은 코드 밖에 있으므로 따로 적어 넣는다.
+chunjiin = ["../assets/**", "../web/**"]
+
+[tool.ruff]
+line-length = 96
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "C4"]
+ignore = [
+    # 원본 표를 눈으로 대조할 수 있게 줄 모양을 그대로 둔 자리가 많다.
+    "E501",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# 사용법 본문과 자판 표는 원본과 글자 그대로 같아야 한다.
+"chunjiin/ui/help.py" = ["W291", "W293"]

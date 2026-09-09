@@ -1,0 +1,47 @@
+# git 은 줄 끝 주석을 모른다. 주석은 반드시 줄 맨 앞에 둔다.
+# (`dist/  # 설명` 은 죽은 규칙이 된다)
+
+# 파이썬
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+.venv/
+venv/
+env/
+
+# PyInstaller
+build/
+dist/
+*.spec
+
+# 빌드해서 저장소 루트에 갖다 놓은 것
+/chunjiin
+/chunjiin.exe
+/chunjiin-serve
+/chunjiin-serve.exe
+/chunjiin-setup
+/chunjiin-setup.exe
+/uninstall.exe
+
+# 배포용 묶음
+/Chunjiin.app/
+chunjiin-*.zip
+chunjiin-*.tar.gz
+chunjiin-*.dmg
+
+# 시험·도구가 남기는 것
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+htmlcov/
+.coverage
+
+# 편집기
+.vscode/
+.idea/
+*.swp
+
+# 운영체제
+.DS_Store
+Thumbs.db

@@ -1,0 +1,450 @@
+/*
+ * style.css - 웹 판 모양.
+ *
+ * 색은 데스크톱 판(internal/ui/theme.go) 의 테마 표와 같은 값을 쓴다.
+ * 테마를 바꾸면 <body data-theme="..."> 가 바뀌고 아래 변수들이 갈린다.
+ *
+ * 글꼴은 따로 내려받지 않는다. 브라우저가 이미 갖고 있는 시스템 한글 글꼴을
+ * 쓰는 편이 더 또렷하고, 6MB 짜리 글꼴을 받게 하지 않아도 된다.
+ */
+
+:root {
+  --font: "Malgun Gothic", "맑은 고딕", "Apple SD Gothic Neo",
+          "Noto Sans KR", "Nanum Gothic", system-ui, sans-serif;
+  --radius-key: 12px;
+  --radius-card: 10px;
+  --gap: 6px;
+  --editor-size: 21px;
+}
+
+/* ── 라이트 ─────────────────────────────────────────────── */
+body[data-theme="light"] {
+  --wnd: #f6f7fa; --card: #ffffff; --border: #dfe3ea;
+  --text: #1f2328; --muted: #6b7280;
+
+  --cons-bg: #ffffff; --cons-hover: #f2f5ff; --cons-press: #e3eafd;
+  --cons-border: #dfe3ea; --cons-text: #1f2328;
+
+  --vowel-bg: #edf2ff; --vowel-hover: #e3ebff; --vowel-press: #d6e1fd;
+  --vowel-border: #d3defb; --vowel-text: #2749c9;
+
+  --mod-bg: #f1f3f7; --mod-hover: #e9ecf2; --mod-press: #dfe3eb;
+  --mod-border: #e0e4eb; --mod-text: #4a5162;
+
+  --fn-bg: #f1f3f7; --fn-hover: #e9ecf2; --fn-press: #dfe3eb;
+  --fn-border: #e0e4eb; --fn-text: #333842;
+
+  --pri-bg: #3f62e8; --pri-hover: #3557dd; --pri-press: #2c4ac9;
+  --pri-border: #3557dd; --pri-text: #ffffff;
+
+  --tool-bg: #f6f7fa; --tool-hover: #e7ecf8; --tool-press: #d9e1f5;
+  --tool-text: #3b4250;
+}
+
+/* ── 다크 ───────────────────────────────────────────────── */
+body[data-theme="dark"] {
+  --wnd: #1e1f22; --card: #17181b; --border: #33363d;
+  --text: #e6e8eb; --muted: #9aa1ac;
+
+  --cons-bg: #24262b; --cons-hover: #2c2f36; --cons-press: #363a43;
+  --cons-border: #383b43; --cons-text: #e6e8eb;
+
+  --vowel-bg: #21304f; --vowel-hover: #27395e; --vowel-press: #2e446f;
+  --vowel-border: #33456b; --vowel-text: #a9c4ff;
+
+  --mod-bg: #1d1f24; --mod-hover: #24262b; --mod-press: #2b2e35;
+  --mod-border: #303339; --mod-text: #b7bdc7;
+
+  --fn-bg: #1d1f24; --fn-hover: #24262b; --fn-press: #2b2e35;
+  --fn-border: #303339; --fn-text: #dde1e7;
+
+  --pri-bg: #3f62e8; --pri-hover: #4a6df0; --pri-press: #3455ce;
+  --pri-border: #4a6df0; --pri-text: #ffffff;
+
+  --tool-bg: #1e1f22; --tool-hover: #2a2d34; --tool-press: #343840;
+  --tool-text: #d5d9e0;
+}
+
+/* ── 세피아 ─────────────────────────────────────────────── */
+body[data-theme="sepia"] {
+  --wnd: #f3eada; --card: #fbf3e6; --border: #dccdb4;
+  --text: #4a3b28; --muted: #8a755a;
+
+  --cons-bg: #fbf3e6; --cons-hover: #f6ead6; --cons-press: #eedcc0;
+  --cons-border: #dccdb4; --cons-text: #4a3b28;
+
+  --vowel-bg: #f3e3c6; --vowel-hover: #eedab6; --vowel-press: #e6cea2;
+  --vowel-border: #d9c09b; --vowel-text: #8a5a22;
+
+  --mod-bg: #efe4d0; --mod-hover: #e9dac2; --mod-press: #e0cdaf;
+  --mod-border: #d7c6aa; --mod-text: #5a4a34;
+
+  --fn-bg: #efe4d0; --fn-hover: #e9dac2; --fn-press: #e0cdaf;
+  --fn-border: #d7c6aa; --fn-text: #4a3b28;
+
+  --pri-bg: #a9713c; --pri-hover: #96632f; --pri-press: #855427;
+  --pri-border: #96632f; --pri-text: #fff8ec;
+
+  --tool-bg: #f3eada; --tool-hover: #eadcc4; --tool-press: #e0ceb0;
+  --tool-text: #5a4a34;
+}
+
+/* ── 고대비 ─────────────────────────────────────────────── */
+body[data-theme="contrast"] {
+  --wnd: #000000; --card: #000000; --border: #ffffff;
+  --text: #ffffff; --muted: #ffff00;
+
+  --cons-bg: #000000; --cons-hover: #222222; --cons-press: #444444;
+  --cons-border: #ffffff; --cons-text: #ffffff;
+
+  --vowel-bg: #000000; --vowel-hover: #222222; --vowel-press: #444444;
+  --vowel-border: #ffff00; --vowel-text: #ffff00;
+
+  --mod-bg: #000000; --mod-hover: #222222; --mod-press: #444444;
+  --mod-border: #00ff00; --mod-text: #00ff00;
+
+  --fn-bg: #000000; --fn-hover: #222222; --fn-press: #444444;
+  --fn-border: #ffffff; --fn-text: #ffffff;
+
+  --pri-bg: #ffff00; --pri-hover: #ffea00; --pri-press: #e6d200;
+  --pri-border: #ffff00; --pri-text: #000000;
+
+  --tool-bg: #000000; --tool-hover: #333333; --tool-press: #555555;
+  --tool-text: #ffff00;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  font-family: var(--font);
+  background: var(--wnd);
+  color: var(--text);
+  -webkit-text-size-adjust: 100%;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+  height: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 8px;
+}
+
+/* ── 툴바 ──────────────────────────────────────────────── */
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 0 0 auto;
+}
+
+.toolbar[hidden] { display: none; }
+
+.tool-gap { flex: 1 1 auto; }   /* 프로그램 정보 버튼을 오른쪽 끝으로 민다 */
+
+.tool {
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  font-size: 15px;
+  line-height: 1;
+  border: 0;
+  border-radius: 6px;
+  background: var(--tool-bg);
+  color: var(--tool-text);
+  cursor: pointer;
+  position: relative;
+}
+
+/* 아이콘은 인라인 SVG 다. 이모지를 쓰면 시스템마다 색과 크기가 달라진다. */
+.tool svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.tool:hover  { background: var(--tool-hover); }
+.tool:active { background: var(--tool-press); }
+
+/* 툴팁. 데스크톱 판과 마찬가지로 버튼 아래에 붙는다. */
+.tool[data-label]:hover::after {
+  content: attr(data-label);
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 20;
+  padding: 5px 8px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  color: var(--tool-text);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 18%);
+  pointer-events: none;
+}
+
+/* 오른쪽 끝 버튼의 툴팁은 화면 밖으로 나가지 않게 왼쪽으로 편다. */
+.toolbar .tool:last-child[data-label]:hover::after { left: auto; right: 0; }
+
+/* ── 편집 영역 ─────────────────────────────────────────── */
+.card {
+  flex: 1 1 auto;
+  min-height: 120px;
+  display: flex;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+}
+
+#editor {
+  flex: 1 1 auto;
+  width: 100%;
+  padding: 12px;
+  border: 0;
+  outline: none;
+  resize: none;
+  font-family: var(--font);
+  font-size: var(--editor-size);
+  line-height: 1.5;
+  color: var(--text);
+  background: transparent;
+  caret-color: var(--pri-bg);   /* 커서가 늘 또렷하게 보이도록 */
+}
+
+/* ── 상태줄 ────────────────────────────────────────────── */
+.status {
+  flex: 0 0 auto;
+  padding: 0 4px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+  min-height: 18px;
+  white-space: pre;      /* 모드와 조합 사이의 넓은 간격을 살린다 */
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.status[hidden] { display: none; }
+
+/* ── 키패드 ────────────────────────────────────────────── */
+.keypad {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+}
+
+.keys {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--gap);
+}
+
+/* 기능 버튼의 폭 비율은 데스크톱 판과 같다 (합 35). */
+.fnrow {
+  display: grid;
+  grid-template-columns: 7fr 4fr 10fr 4fr 4fr 6fr;
+  gap: var(--gap);
+}
+
+.key {
+  min-width: 0;          /* 격자 칸이 글자 때문에 넓어져 넘치지 않게 */
+  height: 54px;
+  display: grid;
+  place-items: center;
+  font-family: var(--font);
+  font-size: 19px;
+  font-weight: 700;
+  border-radius: var(--radius-key);
+  border: 1px solid var(--cons-border);
+  background: var(--cons-bg);
+  color: var(--cons-text);
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: background-color .08s ease;
+}
+
+.key:hover  { background: var(--cons-hover); }
+.key:active { background: var(--cons-press); }
+
+.key.vowel {
+  background: var(--vowel-bg);
+  border-color: var(--vowel-border);
+  color: var(--vowel-text);
+}
+.key.vowel:hover  { background: var(--vowel-hover); }
+.key.vowel:active { background: var(--vowel-press); }
+
+.key.mod {
+  background: var(--mod-bg);
+  border-color: var(--mod-border);
+  color: var(--mod-text);
+}
+.key.mod:hover  { background: var(--mod-hover); }
+.key.mod:active { background: var(--mod-press); }
+
+.key.fn {
+  font-size: 15px;
+  padding: 0 2px;
+  overflow: hidden;
+  background: var(--fn-bg);
+  border-color: var(--fn-border);
+  color: var(--fn-text);
+}
+.key.fn:hover  { background: var(--fn-hover); }
+.key.fn:active { background: var(--fn-press); }
+
+.key.primary {
+  background: var(--pri-bg);
+  border-color: var(--pri-border);
+  color: var(--pri-text);
+}
+.key.primary:hover  { background: var(--pri-hover); }
+.key.primary:active { background: var(--pri-press); }
+
+/* 기능 버튼의 그림(줄바꿈 · 지우기). 글자와 같은 색으로 그린다. */
+.fn-icon {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* ── 대화 상자 ─────────────────────────────────────────── */
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgb(0 0 0 / 45%);
+}
+
+.modal[hidden] { display: none; }
+
+.sheet {
+  width: min(420px, 100%);
+  max-height: 88vh;
+  overflow: auto;
+  padding: 18px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 12px 40px rgb(0 0 0 / 35%);
+}
+
+.sheet.wide { width: min(680px, 100%); }
+
+.sheet h2 {
+  margin: 0 0 14px;
+  font-size: 17px;
+}
+
+.sheet pre {
+  margin: 0;
+  font-family: var(--font);
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  font-size: 14px;
+}
+
+.row > span:first-child { flex: 0 0 130px; }
+.row select { flex: 1 1 auto; }
+
+.row.check { gap: 8px; }
+.row.check > span:first-child { flex: 0 0 auto; }
+
+select, .sheet button {
+  font-family: var(--font);
+  font-size: 14px;
+  padding: 7px 10px;
+  color: var(--text);
+  background: var(--fn-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.grow { flex: 1 1 auto; }
+
+.sheet button.primary {
+  background: var(--pri-bg);
+  border-color: var(--pri-border);
+  color: var(--pri-text);
+  font-weight: 700;
+}
+
+.sheet button.ghost { background: transparent; }
+
+/* ── 불러오는 중 ───────────────────────────────────────── */
+.loading {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  gap: 12px;
+  align-content: center;
+  background: var(--wnd);
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.loading[hidden] { display: none; }
+
+.spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid var(--border);
+  border-top-color: var(--pri-bg);
+  border-radius: 50%;
+  animation: spin .8s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* 화면이 짧으면 편집 영역을 먼저 줄인다. */
+@media (max-height: 620px) {
+  .key { height: 44px; font-size: 17px; }
+  .card { min-height: 80px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .key, .spinner { transition: none; animation: none; }
+}
