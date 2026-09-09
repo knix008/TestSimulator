@@ -97,6 +97,35 @@
   --accent: #2f7fe0; --accent-2: #2264b6; --accent-fg: #ffffff; --danger: #c0392b;
   --shadow: rgba(0, 0, 0, 0.14);
 }
+:root[data-theme='violet'] {
+  --bg: #14111f; --bg-2: #1d1830; --bg-3: #28213f; --panel: #1d1830;
+  --border: #3a3157; --text: #eae6f7; --text-dim: #b3a8d4; --muted: #857aa6;
+  --accent: #9b7bf0; --accent-2: #7c5ad4; --accent-fg: #150c2b; --danger: #e0685f;
+  --shadow: rgba(0, 0, 0, 0.55);
+}
+:root[data-theme='amber'] {
+  --bg: #1a1508; --bg-2: #241d0d; --bg-3: #302714; --border: #45391c; --panel: #241d0d;
+  --text: #f6efdc; --text-dim: #ccb98c; --muted: #97865e;
+  --accent: #f0b429; --accent-2: #cc9412; --accent-fg: #2a2003; --danger: #e0685f;
+  --shadow: rgba(0, 0, 0, 0.55);
+}
+:root[data-theme='mint'] {
+  --bg: #eefaf5; --bg-2: #ffffff; --bg-3: #ddf3ea; --panel: #ffffff;
+  --border: #c4e5d8; --text: #10302a; --text-dim: #41695f; --muted: #7ba396;
+  --accent: #12a37a; --accent-2: #0d8060; --accent-fg: #ffffff; --danger: #c0392b;
+  --shadow: rgba(0, 0, 0, 0.13);
+}
+:root[data-theme='sand'] {
+  --bg: #f7f2e8; --bg-2: #fffdf8; --bg-3: #efe7d6; --panel: #fffdf8;
+  --border: #ded2ba; --text: #2f2718; --text-dim: #6b5d45; --muted: #9a8a6e;
+  --accent: #b7791f; --accent-2: #935e13; --accent-fg: #ffffff; --danger: #b03a2e;
+  --shadow: rgba(0, 0, 0, 0.14);
+}
+
+/* Native controls (the date picker, scrollbars) follow the theme's lightness. */
+:root { color-scheme: dark; }
+:root[data-theme='light'], :root[data-theme='white'], :root[data-theme='solarized'],
+:root[data-theme='sky'], :root[data-theme='mint'], :root[data-theme='sand'] { color-scheme: light; }
 
 * { box-sizing: border-box; }
 html, body, #root { height: 100%; margin: 0; }
@@ -134,6 +163,21 @@ body {
 }
 .toolbar-group { display: flex; align-items: center; gap: 6px; }
 .toolbar-spacer { flex: 1; }
+.toolbar-sep { flex: none; width: 1px; height: 22px; background: var(--border); margin: 0 -4px; }
+/* An export option that is currently on. */
+.iconbtn.on { background: var(--bg-3); border-color: var(--accent); color: var(--accent); }
+.iconbtn.on:hover:not(:disabled) { color: var(--accent); }
+.fontsize-ctl, .zoom-ctl { gap: 2px; }
+.zoom-val {
+  min-width: 44px; height: 24px; padding: 0 4px; border: 1px solid transparent; border-radius: 6px;
+  background: transparent; color: var(--text-dim); font-size: 12px; cursor: pointer;
+  font-variant-numeric: tabular-nums;
+}
+.zoom-val:hover { background: var(--bg-3); color: var(--text); }
+.fontsize-val {
+  min-width: 34px; text-align: center; font-size: 12px; color: var(--text-dim);
+  font-variant-numeric: tabular-nums; -webkit-user-select: none; user-select: none;
+}
 
 .btn {
   display: inline-flex; align-items: center; gap: 6px;
@@ -145,6 +189,8 @@ body {
 .btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); font-weight: 600; }
 .btn.primary:hover:not(:disabled) { background: var(--accent-2); }
+.btn.danger { color: var(--danger); }
+.btn.danger:hover:not(:disabled) { border-color: var(--danger); color: var(--danger); }
 
 .dropdown { position: relative; }
 .dropdown-menu {
@@ -289,13 +335,72 @@ body {
 .outline-item.lvl-5 .outline-marker,
 .outline-item.lvl-6 .outline-marker { width: 5px; height: 5px; border-radius: 50%; transform: none; }
 
+/* ── Figure list ─────────────────────────────────────────── */
+.figlist ul { list-style: none; margin: 0; padding: 0; }
+.figlist-head {
+  padding: 8px 12px; font-size: 12px; color: var(--text-dim);
+  border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--panel);
+  -webkit-user-select: none; user-select: none;
+}
+.figrow {
+  display: flex; align-items: center; gap: 10px; padding: 7px 10px; cursor: pointer;
+  border-bottom: 1px solid var(--border);
+}
+.fig-size { display: flex; align-items: center; gap: 6px; margin-top: 3px; cursor: default; }
+.fig-size input[type='range'] { flex: 1; min-width: 0; accent-color: var(--accent); height: 14px; }
+.fig-size-val {
+  flex: none; min-width: 38px; text-align: right; font-size: 11px; color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+.fig-size .link { flex: none; font-size: 11px; }
+.figrow:hover { background: var(--bg-3); }
+.figrow.active { background: var(--bg-3); box-shadow: inset 3px 0 0 var(--accent); }
+.fig-thumb {
+  flex: none; width: 68px; height: 48px; border-radius: 5px; overflow: hidden;
+  border: 1px solid var(--border); background: var(--bg-2);
+  display: flex; align-items: center; justify-content: center;
+}
+.fig-thumb img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.fig-missing { font-size: 11px; color: var(--muted); }
+.fig-meta { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.fig-no { font-size: 12px; font-weight: 700; color: var(--accent); }
+.fig-cap { font-size: 12.5px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
 /* ── Preview / editor ────────────────────────────────────── */
 .preview { padding: 28px 36px; max-width: 900px; margin: 0 auto; }
+/* Edit tab: Markdown source + a docked panel of the document's images. */
+.editor-pane { display: flex; height: 100%; min-height: 0; }
+.editor-figures {
+  flex: none; width: 268px; min-width: 190px; overflow: auto;
+  background: var(--panel); border-left: 1px solid var(--border);
+}
 .editor {
-  width: 100%; height: 100%; border: none; resize: none; outline: none;
+  flex: 1; min-width: 0; width: 100%; height: 100%; border: none; resize: none; outline: none;
   background: var(--bg-2); color: var(--text); padding: 20px 24px;
   font-family: Consolas, 'Courier New', 'D2Coding', monospace; font-size: 13.5px; line-height: 1.6;
 }
+
+/* ── Preview: cover / contents / figure index ────────────── */
+/* Each front-matter block is its own "page" in the preview, separated by a
+   dashed rule where the export puts a real page break. */
+.preview .cover,
+.preview .toc { padding-bottom: 30px; margin-bottom: 30px; border-bottom: 1px dashed var(--border); }
+.preview .cover {
+  min-height: 300px; display: flex; align-items: center; justify-content: center; text-align: center;
+}
+.preview .cover-inner { width: 100%; }
+.preview .cover h1 { font-size: 2.2em; border: none; margin: 0 0 .5em; padding: 0; }
+.preview .cover p { color: var(--text-dim); margin: .35em 0; font-size: 1.05em; }
+.preview .toc-title { font-size: 1.6em; margin: 0 0 .6em; padding-bottom: .2em; border-bottom: 2px solid var(--border); }
+.preview .toc-table { width: 100%; border-collapse: collapse; margin: 0; }
+.preview .toc-table td { border: 0; padding: .22em 0; vertical-align: bottom; }
+.preview .toc-table a { color: var(--text); text-decoration: none; cursor: pointer; }
+.preview .toc-table a:hover { color: var(--accent); text-decoration: underline; }
+.preview .toc-l1 > .toc-c-title { padding-top: .45em; }
+/* One line per entry (the title cell must not wrap — see markdown.js). */
+.preview .toc-c-title { white-space: nowrap; padding-right: .5em; }
+.preview .toc-c-dots { width: 100%; min-width: 1.5em; }
+.preview .toc-c-pg { white-space: nowrap; text-align: right; color: var(--text-dim); padding-left: .5em; }
 
 /* ── Markdown body ───────────────────────────────────────── */
 .markdown-body { line-height: 1.7; color: var(--text); }
@@ -324,7 +429,9 @@ body {
 .markdown-body th, .markdown-body td { border: 1px solid var(--border); padding: .45em .7em; text-align: left; }
 .markdown-body th { background: var(--bg-3); font-weight: 600; }
 .markdown-body hr { border: none; border-top: 2px solid var(--border); margin: 1.6em 0; }
-.markdown-body img { max-width: 100%; }
+.markdown-body img { max-width: 100%; height: auto; scroll-margin-top: 12px; }
+.markdown-body figure { margin: 1.2em 0; text-align: center; }
+.markdown-body figure figcaption { margin-top: .5em; font-size: .9em; color: var(--text-dim); }
 .markdown-body ul, .markdown-body ol { padding-left: 1.7em; margin: 0 0 1em; }
 
 /* ── Status bar ──────────────────────────────────────────── */
@@ -358,8 +465,8 @@ body {
 .modal-title .mh-icon { color: var(--accent); display: inline-flex; }
 .modal-body { padding: 20px 18px; text-align: center; }
 /* About top row: bigger icon on the left, name (one line) + description stacked. */
-.about-top { display: flex; align-items: center; gap: 18px; margin: 2px 0 18px; text-align: left; }
-.about-logo { width: 96px; height: 96px; flex: none; }
+.about-top { display: flex; align-items: center; gap: 16px; margin: 0 0 12px; text-align: left; }
+.about-logo { width: 84px; height: 84px; flex: none; }
 .about-top-text { min-width: 0; }
 .about-name { margin: 0 0 5px; font-size: 19px; white-space: nowrap; }
 .about-desc { color: var(--text-dim); font-size: 13px; line-height: 1.55; margin: 0; }
@@ -376,40 +483,66 @@ body {
 .settings-page { display: flex; flex-direction: column; height: 100vh; background: var(--bg); color: var(--text); }
 .settings-page-head {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 12px 16px; border-bottom: 1px solid var(--border); background: var(--bg-2);
+  padding: 9px 14px; border-bottom: 1px solid var(--border); background: var(--bg-2);
   -webkit-app-region: drag; -webkit-user-select: none; user-select: none;
 }
 .settings-page-head .iconbtn { -webkit-app-region: no-drag; }
 .settings-page-head h2 { margin: 0; font-size: 16px; }
-.settings-page-body { flex: 1; overflow: auto; padding: 18px 20px; }
+.settings-page-body { flex: 1; overflow: hidden; padding: 12px 14px; min-height: 0; }
 .settings-page-foot {
   flex: none; display: flex; justify-content: flex-end; gap: 8px;
-  padding: 12px 16px; border-top: 1px solid var(--border); background: var(--bg-2);
+  padding: 9px 14px; border-top: 1px solid var(--border); background: var(--bg-2);
 }
 
-/* ── Settings form (two columns so it fits without scrolling) ─ */
-.settings-form { columns: 2; column-gap: 28px; }
+/* ── Settings form ───────────────────────────────────────────
+   Three columns in a fixed-size, non-resizable window: everything is visible at
+   once, with no scrolling in either direction. Sections never split across a
+   column break. */
+.settings-form { columns: 3; column-gap: 18px; }
 .form-section {
-  margin: 0 0 16px; break-inside: avoid; -webkit-column-break-inside: avoid;
-  border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px;
+  margin: 0 0 10px; break-inside: avoid; -webkit-column-break-inside: avoid;
+  border: 1px solid var(--border); border-radius: 9px; padding: 9px 11px;
 }
 .form-section:last-child { margin-bottom: 0; }
-.form-section h3 { margin: 0 0 10px; font-size: 12px; color: var(--text-dim); text-transform: uppercase; letter-spacing: .5px; }
-.field { display: flex; align-items: center; gap: 12px; margin-bottom: 9px; flex-wrap: nowrap; }
+.form-section h3 { margin: 0 0 7px; font-size: 12px; color: var(--text-dim); text-transform: uppercase; letter-spacing: .5px; }
+/* Rows wrap rather than overflow: the English labels are much longer than the
+   Korean ones, and a settings pane that scrolls sideways is unusable. */
+.field { display: flex; align-items: center; gap: 9px; margin-bottom: 6px; flex-wrap: wrap; }
 .field:last-child { margin-bottom: 0; }
-.field > label { flex: 0 0 132px; font-size: 13px; color: var(--text-dim); white-space: nowrap; }
-/* All settings text stays on a single line (never wraps). */
-.settings-form .field-check, .settings-form label, .settings-form .suffix { white-space: nowrap; }
-.field > .control { flex: 1; display: flex; align-items: center; gap: 8px; min-width: 0; flex-wrap: nowrap; }
+.field > label {
+  flex: 0 0 112px; font-size: 12.5px; color: var(--text-dim);
+  overflow-wrap: anywhere; hyphens: auto;
+}
+/* Short labels and unit suffixes keep to one line; the long descriptions next
+   to a checkbox are allowed to wrap onto a second. */
+.settings-form .suffix { white-space: nowrap; }
+/* Long descriptions next to a checkbox wrap inside their own box rather than
+   pushing the row wider. */
+.settings-form .field-check { white-space: normal; align-items: center; min-width: 0; }
+/* A control keeps its parts on one line (a "show this" checkbox must never be
+   split from the value it toggles); the whole control drops below the label
+   instead when the row is tight. Rows that really do hold several controls opt
+   into wrapping with .control.wrap. */
+.field > .control { flex: 1 1 180px; display: flex; align-items: center; gap: 8px; min-width: 0; flex-wrap: nowrap; }
+.field > .control.wrap { flex-wrap: wrap; row-gap: 5px; }
+/* In a wrapping row the select shares its line with the controls next to it
+   instead of claiming a full one, which keeps these rows two lines tall. */
+.field > .control.wrap select,
+.field > .control.wrap input[type='text'] { width: auto; flex: 1 1 120px; min-width: 0; }
 .field > .control input[type='text'] { flex: 1 1 auto; min-width: 0; }
 .field > .control .link { flex: none; }
 .field .segmented { flex: none; }
 .field .control .show-toggle { flex: none; width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
 .field .control input:disabled { opacity: 0.45; }
-.field input[type='text'], .field input[type='number'], .field select {
+.field input[type='text'], .field input[type='number'], .field input[type='date'], .field select {
   height: 30px; border-radius: 7px; border: 1px solid var(--border);
   background: var(--bg-2); color: var(--text); padding: 0 9px; font-size: 13px; width: 100%;
 }
+/* The date field is a native control: `color-scheme` (set per theme on :root)
+   makes Chromium draw its calendar popup and picker glyph to match. */
+.field input[type='date'] { flex: 1 1 auto; min-width: 0; font-family: inherit; }
+.field input[type='date']::-webkit-calendar-picker-indicator { cursor: pointer; opacity: .7; }
+.field input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 1; }
 .field input[type='number'] { width: 90px; flex: none; }
 .field .suffix { color: var(--muted); font-size: 12px; }
 .field .step-btn {
@@ -424,7 +557,7 @@ body {
 .segmented { display: inline-flex; border: 1px solid var(--border); border-radius: 7px; overflow: hidden; flex: none; }
 .segmented button {
   border: none; background: var(--bg-2); color: var(--text-dim); padding: 6px 8px;
-  font-size: 12.5px; cursor: pointer; min-width: 62px; text-align: center;
+  font-size: 12.5px; cursor: pointer; min-width: 46px; text-align: center;
 }
 .segmented button + button { border-left: 1px solid var(--border); }
 .segmented button.on { background: var(--accent); color: var(--accent-fg); font-weight: 600; }
@@ -441,17 +574,17 @@ body {
 
 /* Theme swatches — equal-width columns (minmax(0,1fr) so content never widens
    a column) filling the full control width. */
-.theme-grid { flex: 1 1 auto; min-width: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.theme-grid { flex: 1 1 auto; min-width: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; }
 .theme-swatch {
   min-width: 0;
-  display: flex; flex-direction: column; align-items: stretch; gap: 6px; padding: 8px;
+  display: flex; flex-direction: column; align-items: stretch; gap: 3px; padding: 4px;
   border: 2px solid var(--border); border-radius: 10px; background: var(--bg-2); cursor: pointer;
 }
 .theme-swatch .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .theme-swatch.on { border-color: var(--accent); }
-.theme-swatch .bars { display: flex; gap: 4px; height: 26px; border-radius: 6px; overflow: hidden; }
+.theme-swatch .bars { display: flex; gap: 2px; height: 16px; border-radius: 4px; overflow: hidden; }
 .theme-swatch .bars span { flex: 1; }
-.theme-swatch .name { font-size: 11.5px; color: var(--text-dim); text-align: center; }
+.theme-swatch .name { font-size: 11px; line-height: 1.25; color: var(--text-dim); text-align: center; }
 
 /* ── Context menu ────────────────────────────────────────── */
 .ctxmenu {

@@ -23,6 +23,11 @@ function getPagedPolyfill() {
   return pagedPolyfillSrc;
 }
 
+// Windows whose close the renderer has already approved (see the 'close' hook),
+// and the pending "renderer did not answer" timers.
+const closeApproved = new WeakSet();
+const closeTimers = new WeakMap();
+
 // Offscreen render window for paged.js pagination / PDF printing.
 // IMPORTANT: this is NOT `show:false`. A hidden window has its rendering
 // throttled to ~1fps, which makes paged.js ~40× slower (17s vs 0.4s for a
@@ -83,6 +88,28 @@ function createWindow() {
   const sendMax = () => { if (!win.isDestroyed()) win.webContents.send('win:maximized', win.isMaximized()); };
   win.on('maximize', sendMax);
   win.on('unmaximize', sendMax);
+
+  // Unsaved changes: the first close attempt is held back and handed to the
+  // renderer, which asks the user (save / don't save / cancel). The renderer
+  // calls back through `win:confirmClose`, which sets the flag and closes for
+  // real. Cancelling simply means no callback ever comes.
+  win.on('close', (e) => {
+    if (closeApproved.has(win) || win.webContents.isDestroyed()) return;
+    e.preventDefault();
+    win.webContents.send('app:requestClose');
+    // Safety net: a renderer that cannot answer (crashed, still loading, an old
+    // build without the listener) must never leave an unclosable window. If no
+    // answer arrives, close anyway. Answering cancels this timer, so a user who
+    // picks "Cancel" keeps the window.
+    clearTimeout(closeTimers.get(win));
+    closeTimers.set(win, setTimeout(() => {
+      closeTimers.delete(win);
+      if (!win.isDestroyed() && !closeApproved.has(win)) {
+        closeApproved.add(win);
+        win.close();
+      }
+    }, 3000));
+  });
 
   // Closing the main window closes every other window (settings / about / any)
   // and quits, so the app fully exits instead of lingering behind them.
@@ -365,9 +392,10 @@ ipcMain.handle('export:pdf', async (_e, { html, defaultName, pdfOptions }) => {
 });
 
 // Paginate a standalone HTML document with paged.js and return a map of every
-// heading anchor to its real page number ({ 'h-0': 3, 'h-1': 4, … }). Word and
-// HTML export use this to bake right-aligned TOC page numbers (they cannot run
-// the paged.js layout themselves the way the PDF path does during its render).
+// heading and figure anchor to its real page number ({ 'h-0': 3, 'fig-0': 5, … }).
+// Word and HTML export use this to bake right-aligned page numbers into the
+// contents and figure index pages (they cannot run the paged.js layout
+// themselves the way the PDF path does during its render).
 ipcMain.handle('export:paginate', async (_e, html) => {
   const polyfill = getPagedPolyfill();
   if (!polyfill || typeof html !== 'string') return {};
@@ -378,10 +406,10 @@ ipcMain.handle('export:paginate', async (_e, html) => {
   const win = createRenderWindow();
   try {
     await win.loadFile(tmp);
-    // After pagination, walk every heading (id="h-N"), find the page it landed
-    // on and record its number.
+    // After pagination, walk every heading (id="h-N") and figure (id="fig-N"),
+    // find the page each landed on and record its number.
     const tail = `var map={};`
-      + `document.querySelectorAll('[id^="h-"]').forEach(function(el){`
+      + `document.querySelectorAll('[id^="h-"],[id^="fig-"]').forEach(function(el){`
       + `var pg=el.closest('.pagedjs_page');`
       + `var n=pg&&pg.getAttribute('data-page-number');`
       + `if(n!=null)map[el.id]=parseInt(n,10);});`
@@ -395,14 +423,26 @@ ipcMain.handle('export:paginate', async (_e, html) => {
 });
 
 // Separate, movable settings window (native frame so it can leave the main window).
+// The settings window's fixed size (see the three-column form in App.css).
+const SETTINGS_W = 1240;
+const SETTINGS_H = 585;
+
 let settingsWin = null;
 ipcMain.handle('settings:open', () => {
   if (settingsWin && !settingsWin.isDestroyed()) { settingsWin.show(); settingsWin.focus(); return; }
+  // Fixed size: the form is laid out in three columns to fit exactly this box,
+  // so the window never scrolls in either direction and cannot be resized into
+  // a shape where it would have to.
   settingsWin = new BrowserWindow({
-    width: 1060,
-    height: 720,
-    minWidth: 860,
-    minHeight: 520,
+    width: SETTINGS_W,
+    height: SETTINGS_H,
+    minWidth: SETTINGS_W,
+    minHeight: SETTINGS_H,
+    maxWidth: SETTINGS_W,
+    maxHeight: SETTINGS_H,
+    resizable: false,
+    maximizable: false,
+    fullscreenable: false,
     title: 'MyMarkDownMaker — Settings',
     frame: false,            // only the in-app settings title bar is shown
     autoHideMenuBar: true,
@@ -423,13 +463,21 @@ ipcMain.handle('settings:open', () => {
 });
 
 // Separate, movable About window (frameless — custom title bar only).
+// The About window's fixed size.
+const ABOUT_W = 520;
+const ABOUT_H = 400;
+
 let aboutWin = null;
 ipcMain.handle('about:open', () => {
   if (aboutWin && !aboutWin.isDestroyed()) { aboutWin.show(); aboutWin.focus(); return; }
+  // Fixed size, measured to the content: no scrolling, no empty space.
   aboutWin = new BrowserWindow({
-    width: 520,
-    height: 500,
+    width: ABOUT_W,
+    height: ABOUT_H,
+    minWidth: ABOUT_W, minHeight: ABOUT_H, maxWidth: ABOUT_W, maxHeight: ABOUT_H,
     resizable: false,
+    maximizable: false,
+    fullscreenable: false,
     title: 'About MarkDown Merge',
     frame: false,
     autoHideMenuBar: true,
@@ -471,4 +519,22 @@ ipcMain.handle('win:toggleMaximize', (e) => {
   return w.isMaximized();
 });
 ipcMain.handle('win:close', (e) => { BrowserWindow.fromWebContents(e.sender)?.close(); });
+// The renderer is showing its "save before quitting?" dialog — stop the
+// no-answer timer so the question can wait for the user as long as it needs to.
+ipcMain.handle('win:holdClose', (e) => {
+  const w = BrowserWindow.fromWebContents(e.sender);
+  if (!w) return;
+  clearTimeout(closeTimers.get(w));
+  closeTimers.delete(w);
+});
+
+// The renderer has dealt with unsaved changes — close for real this time.
+ipcMain.handle('win:confirmClose', (e) => {
+  const w = BrowserWindow.fromWebContents(e.sender);
+  if (!w) return;
+  clearTimeout(closeTimers.get(w));
+  closeTimers.delete(w);
+  closeApproved.add(w);
+  w.close();
+});
 ipcMain.handle('win:isMaximized', (e) => !!BrowserWindow.fromWebContents(e.sender)?.isMaximized());

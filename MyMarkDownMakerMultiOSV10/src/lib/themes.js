@@ -12,4 +12,8 @@ export const THEMES = [
   { id: 'ocean',     bars: ['#0b1e2a', '#122b3a', '#3fc1c9'] },
   { id: 'mocha',     bars: ['#1c1512', '#261c17', '#d9a066'] },
   { id: 'sky',       bars: ['#eef4fb', '#ffffff', '#2f7fe0'] },
+  { id: 'violet',    bars: ['#14111f', '#1d1830', '#9b7bf0'] },
+  { id: 'amber',     bars: ['#1a1508', '#241d0d', '#f0b429'] },
+  { id: 'mint',      bars: ['#eefaf5', '#ffffff', '#12a37a'] },
+  { id: 'sand',      bars: ['#f7f2e8', '#fffdf8', '#b7791f'] },
 ];

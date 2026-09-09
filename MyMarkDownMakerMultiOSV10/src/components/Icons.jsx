@@ -30,6 +30,16 @@ export const IconCopy = (p) => <S {...p}><rect x="9" y="9" width="13" height="13
 export const IconCut = (p) => <S {...p}><circle cx="6" cy="6" r="3" /><circle cx="6" cy="18" r="3" /><path d="M20 4 8.12 15.88M14.47 14.48 20 20M8.12 8.12 12 12" /></S>;
 export const IconPaste = (p) => <S {...p}><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" /><rect x="8" y="2" width="8" height="4" rx="1" /></S>;
 export const IconSelectAll = (p) => <S {...p}><rect x="3" y="3" width="18" height="18" rx="2" strokeDasharray="3 3" /><path d="M9 12l2 2 4-4" /></S>;
+// Export-option toggles shown in the toolbar.
+export const IconCover = (p) => <S {...p}><rect x="4" y="3" width="16" height="18" rx="2" /><path d="M8 9h8M9.5 13h5" /></S>;
+export const IconContents = (p) => <S {...p}><path d="M4 7h10M4 12h10M4 17h7" /><path d="M18 7h2M18 12h2M18 17h2" /></S>;
+export const IconFigIndex = (p) => <S {...p}><rect x="3" y="4" width="8" height="7" rx="1.5" /><path d="m3.6 10 2.4-2.4L8 9.4" /><path d="M14 6h7M14 10h7M3 15h18M3 19h13" /></S>;
+export const IconPageNum = (p) => <S {...p}><rect x="5" y="3" width="14" height="18" rx="2" /><path d="M9 7h6M9 11h6" /><path d="M14.5 17.5h3" /></S>;
+export const IconMinus = (p) => <S {...p}><path d="M5 12h14" /></S>;
+export const IconZoomIn = (p) => <S {...p}><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5M11 8v6M8 11h6" /></S>;
+export const IconZoomOut = (p) => <S {...p}><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5M8 11h6" /></S>;
+export const IconPlus = (p) => <S {...p}><path d="M12 5v14M5 12h14" /></S>;
+export const IconImage = (p) => <S {...p}><rect x="3" y="4" width="18" height="16" rx="2" /><circle cx="8.5" cy="9" r="1.6" /><path d="m4 17 5-5 4 4 2.5-2.5L20 17" /></S>;
 export const IconTarget = (p) => <S {...p}><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="4" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3" /></S>;
 export const IconGrip = ({ size = 18 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -54,6 +64,10 @@ export const IconDroplet = (p) => <S {...p}><path d="M12 3s6 6.4 6 11a6 6 0 0 1-
 export const IconCoffee = (p) => <S {...p}><path d="M4 8h13v5a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5z" /><path d="M17 9h2a2.5 2.5 0 0 1 0 5h-2" /><path d="M7 2v2.5M11 2v2.5" /></S>;
 export const IconCloud = (p) => <S {...p}><path d="M17.5 19a4.5 4.5 0 0 0 .5-9 6 6 0 0 0-11.7-1.5A4 4 0 0 0 6.5 19z" /></S>;
 export const IconGlobe = (p) => <S {...p}><circle cx="12" cy="12" r="9" /><path d="M3.5 9h17M3.5 15h17M12 3c2.6 2.6 2.6 15.4 0 18M12 3c-2.6 2.6-2.6 15.4 0 18" /></S>;
+export const IconGem = (p) => <S {...p}><path d="M6 3h12l3 6-9 12L3 9z" /><path d="M3 9h18M9 3 6 9l6 12M15 3l3 6-6 12" /></S>;
+export const IconFlame = (p) => <S {...p}><path d="M12 2s5 4.5 5 9a5 5 0 0 1-10 0c0-1.7.7-3.2 1.6-4.4C9.3 8 10 9 10.5 9.7 11.3 7.6 12 4.8 12 2z" /></S>;
+export const IconSprout = (p) => <S {...p}><path d="M12 21v-8" /><path d="M12 13C12 9 9 7 5 7c0 4 3 6 7 6z" /><path d="M12 13c0-3.5 2.6-5.5 6-5.5 0 3.5-2.6 5.5-6 5.5z" /></S>;
+export const IconDune = (p) => <S {...p}><circle cx="17" cy="7" r="2.5" /><path d="M2 18c3-4 5-4 7.5-1S15 20 22 15" /><path d="M2 21h20" /></S>;
 export const IconBulb = (p) => <S {...p}><path d="M9 18h6M10 21h4" /><path d="M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.3 1 2.5h6c0-1.2.3-1.8 1-2.5A6 6 0 0 0 12 3z" /></S>;
 
 // Window controls

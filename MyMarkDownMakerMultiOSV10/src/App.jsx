@@ -4,6 +4,7 @@ import i18n from './i18n';
 import TitleBar from './components/TitleBar';
 import FileList from './components/FileList';
 import OutlineTree from './components/OutlineTree';
+import FigureList from './components/FigureList';
 import { THEMES } from './lib/themes';
 import ContextMenu from './components/ContextMenu';
 import Tooltip from './components/Tooltip';
@@ -12,18 +13,24 @@ import ExportResultDialog from './components/ExportResultDialog';
 import ExportProgressDialog from './components/ExportProgressDialog';
 import ImportProgressDialog from './components/ImportProgressDialog';
 import MergeProgressDialog from './components/MergeProgressDialog';
+import ConfirmCloseDialog from './components/ConfirmCloseDialog';
 import {
   IconFolder, IconFilePlus, IconHash, IconExport, IconChevron,
   IconMd, IconHtml, IconPdf, IconWord, IconTrash, IconInfo, IconSettings,
   IconSun, IconMoon, IconUp, IconDown, IconX, IconCheckSquare, IconSquare,
   IconCopy, IconCut, IconPaste, IconSelectAll, IconTarget,
   IconStars, IconSnow, IconLeaf, IconFlower, IconSunrise, IconContrast, IconBulb,
-  IconDroplet, IconCoffee, IconCloud, IconGlobe,
+  IconDroplet, IconCoffee, IconCloud, IconGlobe, IconImage,
+  IconCover, IconContents, IconFigIndex, IconPageNum, IconMinus, IconPlus,
+  IconZoomIn, IconZoomOut, IconGem, IconFlame, IconSprout, IconDune,
 } from './components/Icons';
 import { isElectron, api, readFileText, readFileDataURL, saveSettingsToDisk } from './lib/platform';
-import { embedImages, resolveRelPath, IMAGE_EXTS } from './lib/images';
 import {
-  mergeFilesAsync, renumberHeadings, getOutline, renderHtml, fontStack,
+  embedImages, resolveRelPath, registerImage, clearImages, srcBaseName, IMAGE_EXTS,
+} from './lib/images';
+import {
+  mergeFilesAsync, renumberHeadings, getOutline, getFigures, renderPreviewHtml,
+  buildDocument, refreshFrontMatter, splitDocument, setFigureWidth, fontStack, sanitizeExportName,
   sortFiles, DEFAULT_EXPORT_SETTINGS,
 } from './lib/markdown';
 import { exportMarkdown, exportHtml, exportPdf, exportWord } from './lib/export';
@@ -35,9 +42,15 @@ const THEME_ICONS = {
   dark: IconMoon, light: IconSun, white: IconBulb, midnight: IconStars, nord: IconSnow,
   forest: IconLeaf, rose: IconFlower, solarized: IconSunrise, contrast: IconContrast,
   ocean: IconDroplet, mocha: IconCoffee, sky: IconCloud,
+  violet: IconGem, amber: IconFlame, mint: IconSprout, sand: IconDune,
 };
 let uid = 0;
 const nextId = () => `f${++uid}`;
+
+// Document zoom range, in percent.
+const ZOOM_MIN = 50;
+const ZOOM_MAX = 300;
+const ZOOM_STEP = 10;
 
 function loadSettings() {
   try {
@@ -59,6 +72,13 @@ export default function App() {
 
   const [merged, setMerged] = useState('');
   const [leftTab, setLeftTab] = useState('files');
+  const [activeFigure, setActiveFigure] = useState(-1);
+  // Document zoom for the preview / editor panes (display only — it never
+  // reaches the export, which is laid out for the page).
+  const [zoom, setZoom] = useState(() => {
+    const n = Number(localStorage.getItem('mmm-zoom'));
+    return n >= ZOOM_MIN && n <= ZOOM_MAX ? n : 100;
+  });
   const [rightTab, setRightTab] = useState('preview');
   const [status, setStatus] = useState(t('status.ready'));
   const [exportOpen, setExportOpen] = useState(false);
@@ -80,6 +100,11 @@ export default function App() {
   const [mergeProg, setMergeProg] = useState(null); // { done, total, file }
   const [mergeOpen, setMergeOpen] = useState(false);
   const mergeSeq = useRef(0);
+  // Unsaved-changes tracking: the document counts as saved while it matches the
+  // text of the last successful export.
+  const savedTextRef = useRef('');
+  const [closeAsk, setCloseAsk] = useState(false);
+  const [closeBusy, setCloseBusy] = useState(false);
 
   const folderInputRef = useRef(null);
   const filesInputRef = useRef(null);
@@ -147,7 +172,39 @@ export default function App() {
   }
 
   const outline = useMemo(() => getOutline(merged), [merged]);
-  const previewHtml = useMemo(() => renderHtml(merged), [merged]);
+  const figures = useMemo(() => getFigures(merged), [merged]);
+  // The preview shows the whole document the export produces — cover, contents,
+  // figure index and body — built from the very text the Edit tab holds.
+  const previewHtml = useMemo(
+    () => renderPreviewHtml(merged, { ...exportSettings, figureLabel: t('figure.label') }),
+    [merged, exportSettings, lang],
+  );
+
+  // Document composition: the merged body plus the cover / contents / figure
+  // index the settings ask for, all as editable Markdown (see markdown.js).
+  function documentOpts() {
+    return {
+      ...exportSettings,
+      title: sanitizeExportName(exportName) || undefined,
+      contentsLabel: t('export.contents'),
+      figuresLabel: t('export.figures'),
+      figureLabel: t('figure.label'),
+      coverDate: coverDateText(),
+      dateStr: coverDateText(),
+    };
+  }
+
+  // The settings store the cover date as the calendar picker's ISO value (or ''
+  // for "today"); the cover shows it written out in the current language.
+  function coverDateText() {
+    const locale = lang === 'ko' ? 'ko-KR' : 'en-US';
+    const raw = String(exportSettings.coverDate || '').trim();
+    if (!raw) return new Date().toLocaleDateString(locale);
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw);
+    // Anything typed by hand before this build is left exactly as it was.
+    if (!m) return raw;
+    return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])).toLocaleDateString(locale);
+  }
 
   // Live preview: re-merge automatically whenever the selection, order or merge
   // options change, so including / reordering files updates the result with no
@@ -176,7 +233,7 @@ export default function App() {
       if (seq !== mergeSeq.current) return; // a newer merge started; drop this one
       if (numberHeadings) out = renumberHeadings(out);
       if (seq !== mergeSeq.current) return;
-      setMerged(out);
+      setMerged(buildDocument(out, documentOpts()));
       editedRef.current = false;
       setStatus(t('status.merged', { count: total }));
     } finally {
@@ -184,6 +241,29 @@ export default function App() {
       if (seq === mergeSeq.current) { setMergeOpen(false); setMergeProg(null); }
     }
   }
+
+  // The cover / contents / figure index are derived from the body and the export
+  // settings, so they are rebuilt whenever those settings change — turning the
+  // cover off, renaming the document or switching language updates the Edit tab
+  // and the preview together. Body edits are kept; manual edits to the front
+  // matter itself are replaced, the same way a re-merge replaces body edits.
+  const frontKey = JSON.stringify([
+    exportSettings.coverPage, exportSettings.coverTitle, exportSettings.coverVersion,
+    exportSettings.coverAuthor, exportSettings.coverDate, exportSettings.coverShowVersion,
+    exportSettings.coverShowAuthor, exportSettings.coverShowDate, exportSettings.headerText,
+    exportSettings.tocPage, exportSettings.figurePage, exportName, lang,
+  ]);
+  const frontKeyRef = useRef(frontKey);
+  useEffect(() => {
+    if (frontKeyRef.current === frontKey) return;
+    frontKeyRef.current = frontKey;
+    setMerged((prev) => {
+      if (!prev.trim()) return prev;
+      const next = refreshFrontMatter(prev, documentOpts());
+      return next === prev ? prev : next;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [frontKey]);
 
   // Default export name = first merged file's name (until the user edits it).
   const firstCheckedName = useMemo(() => {
@@ -213,6 +293,11 @@ export default function App() {
     }
   }
 
+  // Local images are pulled in as Base64 but stored out-of-line: the Markdown
+  // only keeps a short `mmm-img:<n>` ref, so the Edit tab stays readable while
+  // the preview and every export still render the real picture.
+  const toImageRef = (uri, src) => (uri ? registerImage(uri, srcBaseName(src)) : null);
+
   // ── Import helpers (additive, deduped) ──────────────────
   function addImported(items) {
     let added = 0;
@@ -240,7 +325,8 @@ export default function App() {
       }));
       await withImportProgress(items, (it) => it.relPath || it.name, async (it) => {
         const raw = await api.readFile(it.fullPath);
-        it.content = await embedImages(raw, (src) => api.embedImage({ mdPath: it.fullPath, src }));
+        it.content = await embedImages(raw, async (src) =>
+          toImageRef(await api.embedImage({ mdPath: it.fullPath, src }), src));
       });
       const added = addImported(items);
       setSourceDir(dir);
@@ -259,7 +345,8 @@ export default function App() {
         mtime: f.mtime, content: f.content,
       }));
       await withImportProgress(items, (it) => it.name, async (it) => {
-        it.content = await embedImages(it.content, (src) => api.embedImage({ mdPath: it.fullPath, src }));
+        it.content = await embedImages(it.content, async (src) =>
+          toImageRef(await api.embedImage({ mdPath: it.fullPath, src }), src));
       });
       const added = addImported(items);
       setStatus(t('status.added', { count: added }));
@@ -284,7 +371,7 @@ export default function App() {
       let content = await readFileText(f);
       content = await embedImages(content, async (src) => {
         const file = imgMap.get(resolveRelPath(relPath, src));
-        return file ? readFileDataURL(file) : null;
+        return file ? toImageRef(await readFileDataURL(file), src) : null;
       });
       items.push({ key: relPath, name: f.name, relPath, mtime: f.lastModified, content });
     });
@@ -341,7 +428,10 @@ export default function App() {
   // ── Actions ─────────────────────────────────────────────
   function doRenumber() {
     if (!merged) return;
-    setMerged(renumberHeadings(merged));
+    // Renumber the body, then rebuild the contents / figure index so their
+    // entries carry the new numbers.
+    const body = renumberHeadings(splitDocument(merged).body);
+    setMerged(buildDocument(body, documentOpts()));
     setStatus(t('status.numbered'));
     notify(t('toast.numbered'));
   }
@@ -363,6 +453,8 @@ export default function App() {
     return {
       ...fresh,
       contentsLabel: t('export.contents'),
+      figuresLabel: t('export.figures'),
+      figureLabel: t('figure.label'),
       appName: t('app.title'),
       dateStr: new Date().toLocaleDateString(lang === 'ko' ? 'ko-KR' : 'en-US'),
     };
@@ -377,6 +469,8 @@ export default function App() {
     try {
       const saved = await ex.run(merged, buildExportOpts());
       if (saved) {
+        // The document now matches a file on disk, so it is no longer "unsaved".
+        savedTextRef.current = merged;
         setStatus(t('status.exported', { path: saved }));
         setExportResult({
           status: 'success',
@@ -395,10 +489,61 @@ export default function App() {
     }
   }
 
+  // ── Unsaved changes / quitting ──────────────────────────
+  const isDirty = !!merged.trim() && merged !== savedTextRef.current;
+  const dirtyRef = useRef(isDirty);
+  dirtyRef.current = isDirty;
+
+  // Electron holds the window close back and asks here first; the web build can
+  // only fall back to the browser's own "leave site?" prompt.
+  useEffect(() => {
+    if (isElectron && api.win?.onRequestClose) {
+      return api.win.onRequestClose(() => {
+        if (!dirtyRef.current) { api.win.confirmClose(); return; }
+        // Tell the main process the question is on screen, so its "renderer did
+        // not answer" fallback does not close the window out from under it.
+        api.win.holdClose?.();
+        setCloseAsk(true);
+      });
+    }
+    const onBeforeUnload = (e) => {
+      if (!dirtyRef.current) return;
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, []);
+
+  // "Save" on exit means exporting the document as Markdown. A cancelled save
+  // dialog leaves the app open, so nothing is lost by accident.
+  async function saveThenClose() {
+    setCloseBusy(true);
+    try {
+      const saved = await exportMarkdown(merged, exportName);
+      if (!saved) { setCloseBusy(false); return; }
+      savedTextRef.current = merged;
+      discardAndClose();
+    } catch (err) {
+      setCloseBusy(false);
+      setCloseAsk(false);
+      setExportResult({ status: 'error', fmt: t('export.md'), message: err?.message || String(err) });
+    }
+  }
+
+  function discardAndClose() {
+    setCloseBusy(false);
+    setCloseAsk(false);
+    if (isElectron && api.win?.confirmClose) api.win.confirmClose();
+    else window.close();
+  }
+
   function clearAll() {
     setFiles([]);
     setMerged('');
     setSourceDir('');
+    clearImages();
+    setActiveFigure(-1);
     setStatus(t('status.cleared'));
   }
 
@@ -409,6 +554,106 @@ export default function App() {
       el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
   }
+
+  // Contents / figure-index entries are in-document links. Scroll the preview
+  // instead of letting the browser change the location hash — the app uses the
+  // hash to tell the main window from the settings window.
+  function previewLinkClick(e) {
+    const a = e.target.closest?.('a[href^="#"]');
+    if (!a) return;
+    e.preventDefault();
+    const id = a.getAttribute('href').slice(1);
+    const el = id && previewRef.current?.querySelector(`#${CSS.escape(id)}`);
+    el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  // Picking a figure follows whichever pane is open: it scrolls the preview to
+  // the picture, or selects the image link in the editor (so you can see and
+  // change the reference that produced it).
+  function gotoFigure(f) {
+    setActiveFigure(f.index);
+    if (rightTab === 'edit') {
+      const el = editorRef.current;
+      if (!el) return;
+      el.focus();
+      el.setSelectionRange(f.start, f.start + f.length);
+      // Chromium scrolls the selection into view when the field regains focus.
+      el.blur();
+      el.focus();
+      return;
+    }
+    setRightTab('preview');
+    requestAnimationFrame(() => {
+      const el = previewRef.current?.querySelector(`#fig-${f.index}`);
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  }
+
+  // Resizing a figure rewrites its Markdown in place (a `w=NN%` size hint), so
+  // the change shows up in the editor text, the preview and every export.
+  function resizeFigure(f, percent) {
+    setMerged((prev) => setFigureWidth(prev, f, percent));
+    setActiveFigure(f.index);
+    editedRef.current = true;
+  }
+
+  // Highlights the figure the editor caret currently sits in, so moving through
+  // the text shows the matching picture in the sidebar.
+  function syncFigureToCaret() {
+    const el = editorRef.current;
+    if (!el || !figures.length) return;
+    const pos = el.selectionStart;
+    const hit = figures.find((f) => pos >= f.start && pos <= f.start + f.length);
+    setActiveFigure(hit ? hit.index : -1);
+  }
+
+  // ── Toolbar quick settings ──────────────────────────────
+  // The same export settings the settings window holds, one click away. They
+  // persist and sync exactly like the ones changed in that window.
+  const onOff = (key) => exportSettings[key] !== false;
+  function toggleExportSetting(key) {
+    setExportSettings((prev) => ({ ...prev, [key]: !(prev[key] !== false) }));
+  }
+  function bumpFontSize(delta) {
+    setExportSettings((prev) => ({
+      ...prev,
+      fontSizePt: Math.min(40, Math.max(6, (Number(prev.fontSizePt) || 10) + delta)),
+    }));
+  }
+  const optTitle = (labelKey, key) =>
+    `${t(labelKey)} — ${onOff(key) ? t('opts.on') : t('opts.off')}`;
+
+  // ── Document zoom ───────────────────────────────────────
+  function applyZoom(next) {
+    const n = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round(next)));
+    setZoom(n);
+    localStorage.setItem('mmm-zoom', String(n));
+  }
+  const zoomIn = () => applyZoom(zoom + ZOOM_STEP);
+  const zoomOut = () => applyZoom(zoom - ZOOM_STEP);
+  const zoomReset = () => applyZoom(100);
+
+  // Ctrl +/-/0 and Ctrl+wheel, the shortcuts people already expect.
+  useEffect(() => {
+    const onKey = (e) => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      if (e.key === '+' || e.key === '=') { e.preventDefault(); zoomIn(); }
+      else if (e.key === '-' || e.key === '_') { e.preventDefault(); zoomOut(); }
+      else if (e.key === '0') { e.preventDefault(); zoomReset(); }
+    };
+    const onWheel = (e) => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      e.preventDefault();
+      applyZoom(zoom + (e.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP));
+    };
+    window.addEventListener('keydown', onKey);
+    window.addEventListener('wheel', onWheel, { passive: false });
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('wheel', onWheel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [zoom]);
 
   function toggleLang() { changeLang(lang === 'ko' ? 'en' : 'ko'); }
   function changeLang(next) {
@@ -426,7 +671,7 @@ export default function App() {
       api.openSettings();
     } else {
       const url = `${window.location.pathname}${window.location.search}#settings`;
-      window.open(url, 'mmm-settings', 'width=1060,height=720');
+      window.open(url, 'mmm-settings', 'width=1240,height=585,resizable=no');
     }
   }
 
@@ -435,7 +680,7 @@ export default function App() {
       api.openAbout();
     } else {
       const url = `${window.location.pathname}${window.location.search}#about`;
-      window.open(url, 'mmm-about', 'width=520,height=560');
+      window.open(url, 'mmm-about', 'width=520,height=400,resizable=no');
     }
   }
 
@@ -472,16 +717,36 @@ export default function App() {
     ]);
   }
 
+  function figureMenu(e, f) {
+    openCtx(e, [
+      { icon: IconTarget, label: t('ctx.goto'), onClick: () => gotoFigure(f) },
+      { icon: IconCopy, label: t('ctx.copyCaption'), disabled: !f.caption, onClick: () => copyText(f.caption) },
+    ]);
+  }
+
+  // Zoom + export entries both panes share, so the two menus stay consistent.
+  const zoomItems = () => [
+    { icon: IconZoomIn, label: `${t('tip.zoomIn')} (Ctrl +)`, disabled: zoom >= ZOOM_MAX, onClick: zoomIn },
+    { icon: IconZoomOut, label: `${t('tip.zoomOut')} (Ctrl −)`, disabled: zoom <= ZOOM_MIN, onClick: zoomOut },
+    { icon: IconTarget, label: `${t('tip.zoomReset')} (Ctrl 0) — ${zoom}%`, disabled: zoom === 100, onClick: zoomReset },
+  ];
+  const exportItems = () => Object.entries(EXPORTERS).map(([fmt, ex]) => ({
+    icon: ex.icon, label: t(ex.label), disabled: !merged, onClick: () => doExport(fmt),
+  }));
+
   function previewMenu(e) {
     const sel = selectionText();
     openCtx(e, [
       { icon: IconCopy, label: t('ctx.copy'), disabled: !sel, onClick: () => copyText(sel) },
       { icon: IconCopy, label: t('ctx.copyAll'), disabled: !merged, onClick: () => copyText(previewRef.current?.innerText || '') },
+      { icon: IconSelectAll, label: t('ctx.selectAll'), disabled: !merged, onClick: selectPreviewAll },
       { separator: true },
+      ...zoomItems(),
+      { separator: true },
+      { icon: IconMd, label: t('ctx.toEdit'), disabled: !merged, onClick: () => setRightTab('edit') },
       { icon: IconHash, label: t('toolbar.renumber'), disabled: !merged, onClick: doRenumber },
       { separator: true },
-      { icon: IconPdf, label: t('export.pdf'), disabled: !merged, onClick: () => doExport('pdf') },
-      { icon: IconWord, label: t('export.word'), disabled: !merged, onClick: () => doExport('word') },
+      ...exportItems(),
     ]);
   }
 
@@ -494,8 +759,36 @@ export default function App() {
       { icon: IconPaste, label: t('ctx.paste'), onClick: editorPaste },
       { icon: IconSelectAll, label: t('ctx.selectAll'), onClick: () => el?.select() },
       { separator: true },
+      { icon: IconUp, label: `${t('ctx.undo')} (Ctrl Z)`, onClick: () => editorExec('undo') },
+      { icon: IconDown, label: `${t('ctx.redo')} (Ctrl Y)`, onClick: () => editorExec('redo') },
+      { separator: true },
+      ...zoomItems(),
+      { separator: true },
+      { icon: IconHtml, label: t('ctx.toPreview'), disabled: !merged, onClick: () => setRightTab('preview') },
       { icon: IconHash, label: t('toolbar.renumber'), disabled: !merged, onClick: doRenumber },
+      { separator: true },
+      ...exportItems(),
     ]);
+  }
+
+  // Selects the whole rendered preview (the browser selection, so Copy works).
+  function selectPreviewAll() {
+    const el = previewRef.current;
+    if (!el) return;
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+  }
+
+  // Native textarea undo/redo — the stack the browser keeps for typing.
+  function editorExec(cmd) {
+    const el = editorRef.current;
+    if (!el) return;
+    el.focus();
+    try { document.execCommand(cmd); } catch { /* ignore */ }
+    if (el.value !== merged) { editedRef.current = true; setMerged(el.value); }
   }
 
   function replaceSelection(text) {
@@ -540,6 +833,9 @@ export default function App() {
         <div className="toolbar-group">
           <button className="btn" title={t('tip.addFolder')} onClick={addFolder}><IconFolder /> {t('toolbar.addFolder')}</button>
           <button className="btn" title={t('tip.addFiles')} onClick={addFiles}><IconFilePlus /> {t('toolbar.addFiles')}</button>
+          <button className="btn" title={t('tip.renumber')} onClick={doRenumber} disabled={!merged}>
+            <IconHash /> {t('toolbar.renumber')}
+          </button>
         </div>
         <div className="toolbar-group">
           <div className="dropdown" ref={exportRef}>
@@ -570,6 +866,40 @@ export default function App() {
               </div>
             )}
           </div>
+        </div>
+        {/* Export options that are worth one click: which pages the document
+            gets, page numbering, and the body font size. */}
+        <span className="toolbar-sep" />
+        <div className="toolbar-group">
+          <button className={`iconbtn${onOff('coverPage') ? ' on' : ''}`}
+            title={optTitle('settings.coverPage', 'coverPage')}
+            onClick={() => toggleExportSetting('coverPage')}><IconCover /></button>
+          <button className={`iconbtn${onOff('tocPage') ? ' on' : ''}`}
+            title={optTitle('settings.tocPage', 'tocPage')}
+            onClick={() => toggleExportSetting('tocPage')}><IconContents /></button>
+          <button className={`iconbtn${onOff('figurePage') ? ' on' : ''}`}
+            title={optTitle('settings.figurePage', 'figurePage')}
+            onClick={() => toggleExportSetting('figurePage')}><IconFigIndex /></button>
+          <button className={`iconbtn${onOff('showPageNumber') ? ' on' : ''}`}
+            title={optTitle('settings.pageNumber', 'showPageNumber')}
+            onClick={() => toggleExportSetting('showPageNumber')}><IconPageNum /></button>
+        </div>
+        <span className="toolbar-sep" />
+        <div className="toolbar-group fontsize-ctl" title={t('settings.fontSize')}>
+          <button className="iconbtn sm" onClick={() => bumpFontSize(-1)}
+            disabled={(Number(exportSettings.fontSizePt) || 10) <= 6}><IconMinus size={15} /></button>
+          <span className="fontsize-val">{Number(exportSettings.fontSizePt) || 10}pt</span>
+          <button className="iconbtn sm" onClick={() => bumpFontSize(1)}
+            disabled={(Number(exportSettings.fontSizePt) || 10) >= 40}><IconPlus size={15} /></button>
+        </div>
+        <span className="toolbar-sep" />
+        {/* Document zoom for the preview / editor panes. */}
+        <div className="toolbar-group zoom-ctl">
+          <button className="iconbtn sm" title={`${t('tip.zoomOut')} (Ctrl −)`}
+            onClick={zoomOut} disabled={zoom <= ZOOM_MIN}><IconZoomOut size={15} /></button>
+          <button className="zoom-val" title={`${t('tip.zoomReset')} (Ctrl 0)`} onClick={zoomReset}>{zoom}%</button>
+          <button className="iconbtn sm" title={`${t('tip.zoomIn')} (Ctrl +)`}
+            onClick={zoomIn} disabled={zoom >= ZOOM_MAX}><IconZoomIn size={15} /></button>
         </div>
         <div className="toolbar-spacer" />
         <div className="toolbar-group">
@@ -603,11 +933,14 @@ export default function App() {
           <div className="tabs">
             <button className={leftTab === 'files' ? 'tab active' : 'tab'} onClick={() => setLeftTab('files')}>{t('tab.files')}</button>
             <button className={leftTab === 'structure' ? 'tab active' : 'tab'} onClick={() => setLeftTab('structure')}>{t('tab.structure')}</button>
+            <button className={leftTab === 'figures' ? 'tab active' : 'tab'} onClick={() => setLeftTab('figures')}>{t('tab.figures')}</button>
           </div>
           <div className="sidebar-body">
             {leftTab === 'files'
               ? <FileList files={files} onToggle={toggle} onCheckAll={checkAll} onRemove={remove} onRemoveChecked={removeChecked} onMove={move} onReorder={reorder} onRowContextMenu={fileRowMenu} />
-              : <OutlineTree outline={outline} onSelect={scrollToHeading} onItemContextMenu={outlineMenu} />}
+              : leftTab === 'structure'
+                ? <OutlineTree outline={outline} onSelect={scrollToHeading} onItemContextMenu={outlineMenu} />
+                : <FigureList figures={figures} activeIndex={activeFigure} onSelect={gotoFigure} onResize={resizeFigure} onItemContextMenu={figureMenu} />}
           </div>
         </aside>
 
@@ -624,13 +957,28 @@ export default function App() {
                       fontFamily: exportSettings.fontFamily ? fontStack(exportSettings.fontFamily) : undefined,
                       fontSize: `${exportSettings.fontSizePt || 10}pt`,
                       lineHeight: Number(exportSettings.lineHeight) > 0 ? Number(exportSettings.lineHeight) : 1,
+                      zoom: zoom / 100,
                     }}
+                    onClick={previewLinkClick}
                     onContextMenu={previewMenu} dangerouslySetInnerHTML={{ __html: previewHtml }} />
                 : <div className="empty"><p className="muted">{t('preview.empty')}</p></div>
             ) : (
-              <textarea ref={editorRef} className="editor" value={merged}
-                onChange={(e) => { editedRef.current = true; setMerged(e.target.value); }}
-                onContextMenu={editorMenu} spellCheck={false} placeholder={t('preview.empty')} />
+              // The editor holds raw Markdown, so the images live in a docked
+              // panel beside it: every embedded picture is visible while editing,
+              // and the one the caret sits in is highlighted.
+              <div className="editor-pane">
+                <textarea ref={editorRef} className="editor" value={merged}
+                  style={{ fontSize: `${(13.5 * zoom) / 100}px` }}
+                  onChange={(e) => { editedRef.current = true; setMerged(e.target.value); }}
+                  onSelect={syncFigureToCaret} onClick={syncFigureToCaret} onKeyUp={syncFigureToCaret}
+                  onContextMenu={editorMenu} spellCheck={false} placeholder={t('preview.empty')} />
+                {figures.length > 0 && (
+                  <aside className="editor-figures">
+                    <FigureList figures={figures} activeIndex={activeFigure}
+                      onSelect={gotoFigure} onResize={resizeFigure} onItemContextMenu={figureMenu} />
+                  </aside>
+                )}
+              </div>
             )}
           </div>
         </section>
@@ -641,6 +989,7 @@ export default function App() {
         <div className="status-stats">
           <span className="stat" title={t('stat.files')}><IconFilePlus size={13} /> {checkedCount}/{files.length}</span>
           <span className="stat" title={t('stat.headings')}><IconHash size={13} /> {outline.length}</span>
+          <span className="stat" title={t('stat.figures')}><IconImage size={13} /> {figures.length}</span>
           <span className="stat" title={t('stat.words')}>{t('stat.wAbbr')} {stats.words}</span>
           <span className="stat" title={t('stat.chars')}>{t('stat.cAbbr')} {stats.chars}</span>
           {numberHeadings && <span className="stat badge" title={t('opts.numbering')}><IconHash size={12} /></span>}
@@ -656,6 +1005,8 @@ export default function App() {
       <MergeProgressDialog open={mergeOpen && !!mergeProg} done={mergeProg?.done || 0} total={mergeProg?.total || 0} file={mergeProg?.file || ''} />
       <ExportProgressDialog open={!!exporting} label={exporting || ''} />
       <ExportResultDialog result={exportResult} onClose={() => setExportResult(null)} />
+      <ConfirmCloseDialog open={closeAsk} busy={closeBusy}
+        onSave={saveThenClose} onDiscard={discardAndClose} onCancel={() => setCloseAsk(false)} />
       <Tooltip />
     </div>
   );

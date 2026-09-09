@@ -2,8 +2,9 @@
 // Shared by the Web and Electron builds; platform.js handles the actual write.
 import {
   toStandaloneHtml, buildMergedMarkdownDocument, documentExportBaseName,
-  sanitizeExportName, DEFAULT_EXPORT_SETTINGS,
+  sanitizeExportName, splitDocument, getFigures, PAGE_CONTENT_PX, DEFAULT_EXPORT_SETTINGS,
 } from './markdown';
+import { imageDisplaySrc } from './images';
 import { saveText, exportPdf as platformExportPdf, computeTocPageMap } from './platform';
 
 // Resolve the export base name: user-provided name wins, else first heading.
@@ -11,21 +12,81 @@ function baseNameFor(markdown, baseName) {
   return sanitizeExportName(baseName) || documentExportBaseName(markdown);
 }
 
-// Resolve real TOC page numbers by paginating the document once (Electron only).
-// We render the same A4 layout the export uses, learn which page each heading
-// lands on, then bake those numbers into the index. Returns null when the index
-// is off or pagination is unavailable (web), leaving the TOC without numbers.
-async function resolveTocPageMap(markdown, base, s) {
-  if (!s.tocPage || s.tocPageNumbers === false) return null;
-  const measureHtml = toStandaloneHtml(markdown, base, { ...s, forWord: false, tocPageNumbers: true, tocPageMap: null });
+// ── Fitting images to the page ────────────────────────────
+// A4 content box at 96dpi (the width is shared with markdown.js, which uses it
+// to fit wide code blocks), with a little height held back for a caption.
+const PAGE_W_PX = PAGE_CONTENT_PX;
+const PAGE_H_PX = Math.round((297 - 36) * 96 / 25.4) - 100; // ≈ 887
+
+// Reads the intrinsic pixel size of every image in the document. Runs in the
+// renderer, where data: URIs decode straight from memory.
+async function measureImages(markdown) {
+  const srcs = [...new Set(getFigures(markdown).map((f) => imageDisplaySrc(f.src)).filter(Boolean))];
+  const sizes = new Map();
+  await Promise.all(srcs.map((src) => new Promise((resolve) => {
+    const probe = new Image();
+    probe.onload = () => { sizes.set(src, { w: probe.naturalWidth, h: probe.naturalHeight }); resolve(); };
+    probe.onerror = () => resolve();
+    probe.src = src;
+  })));
+  return sizes;
+}
+
+// Pins each image to a size that fits the page, as explicit width/height
+// attributes. This is what keeps pictures inside the margins:
+//   • Word ignores the `img{max-width:100%}` stylesheet rule entirely and prints
+//     at the image's native pixel size, so a screenshot runs off the page;
+//   • Chromium/paged.js honour max-width but cannot shrink an over-TALL image,
+//     which then spills past the bottom margin.
+// A `width="60%"` set by the figure size control is resolved against the page
+// width here, so the chosen size is what gets printed.
+function fitImages(html, sizes) {
+  if (!sizes.size) return html;
+  return html.replace(/<img\b([^>]*?)\/?>/gi, (whole, attrs) => {
+    const m = /\bsrc\s*=\s*(?:"([^"]*)"|'([^']*)')/i.exec(attrs);
+    const nat = m && sizes.get(m[1] ?? m[2]);
+    if (!nat || !nat.w || !nat.h) return whole;
+    const pct = /\bwidth\s*=\s*["']?(\d+)%/i.exec(attrs);
+    let w = pct ? PAGE_W_PX * (Number(pct[1]) / 100) : Math.min(nat.w, PAGE_W_PX);
+    let h = w * (nat.h / nat.w);
+    if (h > PAGE_H_PX) { h = PAGE_H_PX; w = h * (nat.w / nat.h); }
+    if (w > PAGE_W_PX) { w = PAGE_W_PX; h = w * (nat.h / nat.w); }
+    const rest = attrs
+      .replace(/\swidth\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '')
+      .replace(/\sheight\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '')
+      .replace(/\sstyle\s*=\s*(?:"[^"]*"|'[^']*')/gi, '');
+    // The attributes are what Word obeys; `height:auto` lets a browser keep the
+    // aspect ratio if `max-width` shrinks the picture further.
+    return `<img${rest} width="${Math.round(w)}" height="${Math.round(h)}"`
+      + ` style="max-width:100%;height:auto">`;
+  });
+}
+
+// Resolve real page numbers by paginating the document once (Electron only). We
+// render the same A4 layout the export uses, learn which page each heading and
+// each figure lands on, then bake those numbers into the index pages. Returns
+// null when both index pages are off or pagination is unavailable (web),
+// leaving the indexes without numbers.
+async function resolvePageMap(markdown, base, s, sizes) {
+  // Only the index blocks the document actually carries need page numbers.
+  const doc = splitDocument(markdown);
+  const wantToc = !!doc.toc && s.tocPageNumbers !== false;
+  const wantFigures = !!doc.figures && s.figurePageNumbers !== false;
+  if (!wantToc && !wantFigures) return null;
+  // Measure the *fitted* layout — page numbers resolved against oversized
+  // images would land on the wrong pages.
+  const measureHtml = fitImages(toStandaloneHtml(markdown, base, {
+    ...s, forWord: false, tocPageNumbers: true, figurePageNumbers: true,
+    tocPageMap: null, figurePageMap: null,
+  }), sizes);
   return computeTocPageMap(measureHtml);
 }
 
-export async function exportMarkdown(markdown, baseName, opts = {}) {
+export async function exportMarkdown(markdown, baseName) {
   const base = baseNameFor(markdown, baseName);
   return saveText({
     defaultName: `${base}.md`,
-    content: buildMergedMarkdownDocument(markdown, { ...opts, title: base }),
+    content: buildMergedMarkdownDocument(markdown),
     filters: [{ name: 'Markdown', extensions: ['md'] }],
   });
 }
@@ -33,23 +94,36 @@ export async function exportMarkdown(markdown, baseName, opts = {}) {
 export async function exportHtml(markdown, settings = {}, baseName) {
   const s = { ...DEFAULT_EXPORT_SETTINGS, ...settings };
   const base = baseNameFor(markdown, baseName);
-  const pageMap = await resolveTocPageMap(markdown, base, s);
+  const sizes = await measureImages(markdown);
+  const pageMap = await resolvePageMap(markdown, base, s, sizes);
   return saveText({
     defaultName: `${base}.html`,
-    content: toStandaloneHtml(markdown, base, { ...s, tocPageNumbers: !!pageMap, tocPageMap: pageMap }),
+    content: fitImages(toStandaloneHtml(markdown, base, {
+      ...s,
+      tocPageNumbers: !!pageMap, tocPageMap: pageMap,
+      figurePageNumbers: !!pageMap, figurePageMap: pageMap,
+    }), sizes),
     filters: [{ name: 'HTML', extensions: ['html'] }],
   });
 }
 
 export async function exportPdf(markdown, settings = {}, baseName) {
-  const s = { ...DEFAULT_EXPORT_SETTINGS, ...settings, tocPageNumbers: settings.tocPage !== false };
+  const s = {
+    ...DEFAULT_EXPORT_SETTINGS, ...settings,
+    tocPageNumbers: settings.tocPage !== false,
+    figurePageNumbers: settings.figurePage !== false,
+  };
   const base = baseNameFor(markdown, baseName);
   // Bake the page numbers from a pagination pass so they are present even if the
   // live paged.js fill during printing misses; the print pass still fills any
   // remaining empty entries and renders the header/footer margin boxes.
-  const pageMap = await resolveTocPageMap(markdown, base, s);
+  const sizes = await measureImages(markdown);
+  const pageMap = await resolvePageMap(markdown, base, s, sizes);
   return platformExportPdf({
-    html: toStandaloneHtml(markdown, base, { ...s, tocPageMap: pageMap }),
+    html: fitImages(
+      toStandaloneHtml(markdown, base, { ...s, tocPageMap: pageMap, figurePageMap: pageMap }),
+      sizes,
+    ),
     defaultName: `${base}.pdf`,
     // `paged` engine renders TOC page numbers + header/footer via CSS;
     // `fallback` templates are used if paged.js is unavailable.
@@ -60,13 +134,18 @@ export async function exportPdf(markdown, settings = {}, baseName) {
 export async function exportWord(markdown, settings = {}, baseName) {
   const s = { ...DEFAULT_EXPORT_SETTINGS, ...settings };
   const base = baseNameFor(markdown, baseName);
-  // Word cannot run the paged.js layout, so resolve the TOC page numbers up
-  // front and bake them into the index as static, right-aligned text.
-  const pageMap = await resolveTocPageMap(markdown, base, s);
+  // Word cannot run the paged.js layout, so resolve the index page numbers up
+  // front and bake them in as static, right-aligned text.
+  const sizes = await measureImages(markdown);
+  const pageMap = await resolvePageMap(markdown, base, s, sizes);
   // Word opens an MHT ("Single File Web Page") saved as .doc and reliably
   // renders the cover, the index (page breaks) and images. Base64 images are
   // emitted as separate MIME parts (Word does not render inline data: images).
-  const html = toStandaloneHtml(markdown, base, { ...s, forWord: true, tocPageNumbers: !!pageMap, tocPageMap: pageMap });
+  const html = fitImages(toStandaloneHtml(markdown, base, {
+    ...s, forWord: true,
+    tocPageNumbers: !!pageMap, tocPageMap: pageMap,
+    figurePageNumbers: !!pageMap, figurePageMap: pageMap,
+  }), sizes);
   return saveText({
     defaultName: `${base}.doc`,
     content: buildWordMht(html),
@@ -97,12 +176,17 @@ function buildWordMht(html) {
   let idx = 0;
   const images = [];
 
-  const htmlOut = html.replace(/src="data:(image\/[a-z0-9.+-]+);base64,([^"]+)"/gi, (_m, mime, data) => {
-    idx += 1;
-    const name = `image${String(idx).padStart(3, '0')}.${MIME_EXT[mime.toLowerCase()] || 'png'}`;
-    images.push({ name, mime, data: data.replace(/\s+/g, '') });
-    return `src="${name}"`;
-  });
+  // Both quote styles: raw <img src='data:…'> written by hand in the Markdown
+  // passes through marked untouched, and Word needs every image as a MIME part.
+  const htmlOut = html.replace(
+    /src=("|')data:(image\/[a-z0-9.+-]+);base64,([^"']+)\1/gi,
+    (_m, _q, mime, data) => {
+      idx += 1;
+      const name = `image${String(idx).padStart(3, '0')}.${MIME_EXT[mime.toLowerCase()] || 'png'}`;
+      images.push({ name, mime, data: data.replace(/\s+/g, '') });
+      return `src="${name}"`;
+    },
+  );
 
   let out = 'MIME-Version: 1.0' + CRLF;
   out += `Content-Type: multipart/related; type="text/html"; boundary="${boundary}"` + CRLF + CRLF;

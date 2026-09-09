@@ -23,6 +23,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
     minimize: () => ipcRenderer.invoke('win:minimize'),
     toggleMaximize: () => ipcRenderer.invoke('win:toggleMaximize'),
     close: () => ipcRenderer.invoke('win:close'),
+    // Unsaved-changes handshake: the main process asks before closing, and the
+    // renderer answers with confirmClose() once the user has decided.
+    onRequestClose: (cb) => {
+      const h = () => cb();
+      ipcRenderer.on('app:requestClose', h);
+      return () => ipcRenderer.removeListener('app:requestClose', h);
+    },
+    holdClose: () => ipcRenderer.invoke('win:holdClose'),
+    confirmClose: () => ipcRenderer.invoke('win:confirmClose'),
     isMaximized: () => ipcRenderer.invoke('win:isMaximized'),
     onMaximizeChange: (cb) => {
       const h = (_e, v) => cb(v);

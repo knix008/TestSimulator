@@ -6,6 +6,14 @@ import { THEMES } from '../lib/themes';
 const ALIGNS = ['left', 'center', 'right'];
 const POS_ROWS = ['top', 'bottom'];
 
+// Today in the YYYY-MM-DD form <input type="date"> expects, in local time
+// (toISOString() would shift the day for anyone east or west of UTC).
+function todayISO() {
+  const d = new Date();
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
 // The settings form body (no window chrome). Shared by the separate settings
 // window (SettingsPage).
 export default function SettingsForm({ settings, onChange, theme, onTheme, lang, onLang }) {
@@ -144,6 +152,33 @@ export default function SettingsForm({ settings, onChange, theme, onTheme, lang,
               </div>
             </div>
             <div className="field">
+              <label>{t('settings.coverTitleFont')}</label>
+              <div className="control wrap">
+                <select
+                  value={s.coverTitleFont || ''}
+                  style={s.coverTitleFont ? { fontFamily: `"${s.coverTitleFont}"` } : undefined}
+                  onChange={(e) => set({ coverTitleFont: e.target.value })}
+                >
+                  <option value="">{t('settings.coverTitleFontDefault')}</option>
+                  {(fonts || []).map((f) => (
+                    <option key={f} value={f} style={{ fontFamily: `"${f}"` }}>{f}</option>
+                  ))}
+                </select>
+                <input type="number" min="8" max="96" step="1"
+                  value={Number(s.coverTitleSizePt) || ''} placeholder={t('settings.auto')}
+                  onChange={(e) => set({ coverTitleSizePt: Number(e.target.value) || 0 })} />
+                <span className="suffix">pt</span>
+                <AlignPicker value={s.coverTitleAlign || 'center'} onChange={(v) => set({ coverTitleAlign: v })} />
+              </div>
+            </div>
+            <div className="field">
+              <label>{t('settings.coverMetaAlign')}</label>
+              <div className="control wrap">
+                <AlignPicker value={s.coverMetaAlign || 'center'} onChange={(v) => set({ coverMetaAlign: v })} />
+                <span className="suffix">{t('settings.coverMetaAlignDesc')}</span>
+              </div>
+            </div>
+            <div className="field">
               <label>{t('settings.coverVersion')}</label>
               <div className="control">
                 <input type="checkbox" className="show-toggle" title={t('settings.showOnCover')}
@@ -166,8 +201,13 @@ export default function SettingsForm({ settings, onChange, theme, onTheme, lang,
               <div className="control">
                 <input type="checkbox" className="show-toggle" title={t('settings.showOnCover')}
                   checked={s.coverShowDate} onChange={(e) => set({ coverShowDate: e.target.checked })} />
-                <input type="text" value={s.coverDate} placeholder={t('settings.coverDatePh')}
+                {/* A calendar picker. An empty setting means "today", so the
+                    field shows today's date until a date is actually chosen —
+                    "오늘" puts it back to following the current date. */}
+                <input type="date" value={s.coverDate || todayISO()}
                   disabled={!s.coverShowDate} onChange={(e) => set({ coverDate: e.target.value })} />
+                <button type="button" className="link" disabled={!s.coverShowDate || !s.coverDate}
+                  onClick={() => set({ coverDate: '' })}>{t('settings.today')}</button>
               </div>
             </div>
           </>
@@ -181,6 +221,16 @@ export default function SettingsForm({ settings, onChange, theme, onTheme, lang,
             </label>
           </div>
         </div>
+        <div className="field">
+          <label>{t('settings.figurePage')}</label>
+          <div className="control">
+            <label className="field-check">
+              <input type="checkbox" checked={s.figurePage !== false}
+                onChange={(e) => set({ figurePage: e.target.checked })} />
+              {t('settings.figurePageDesc')}
+            </label>
+          </div>
+        </div>
       </div>
 
       {/* ── Header / Footer / Page number ── */}
@@ -188,7 +238,7 @@ export default function SettingsForm({ settings, onChange, theme, onTheme, lang,
         <h3>{t('settings.headerFooter')}</h3>
         <div className="field">
           <label>{t('settings.header')}</label>
-          <div className="control">
+          <div className="control wrap">
             <input type="text" value={s.headerText} placeholder={t('settings.headerPh')}
               onChange={(e) => set({ headerText: e.target.value })} />
             <AlignPicker value={s.headerAlign} onChange={(v) => set({ headerAlign: v })} />
@@ -196,7 +246,7 @@ export default function SettingsForm({ settings, onChange, theme, onTheme, lang,
         </div>
         <div className="field">
           <label>{t('settings.footer')}</label>
-          <div className="control">
+          <div className="control wrap">
             <input type="text" value={s.footerText} placeholder={t('settings.footerPh')}
               onChange={(e) => set({ footerText: e.target.value })} />
             <AlignPicker value={s.footerAlign} onChange={(v) => set({ footerAlign: v })} />
