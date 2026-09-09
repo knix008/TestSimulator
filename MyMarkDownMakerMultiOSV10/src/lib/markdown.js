@@ -24,6 +24,7 @@ function scanSections(markdown) {
   const lines = String(markdown || '').split('\n');
   const inSection = new Array(lines.length).fill(false);
   const sections = {};
+  const ranges = {};   // id -> { start, end }: the block's marker lines
   let open = null;
   let start = -1;
   for (let i = 0; i < lines.length; i++) {
@@ -36,13 +37,17 @@ function scanSections(markdown) {
     const c = SECTION_CLOSE.exec(lines[i]);
     if (c && c[1] === open) {
       sections[open] = lines.slice(start + 1, i).join('\n').trim();
+      ranges[open] = { start, end: i };
       open = null;
     }
   }
   // An unterminated marker swallows the rest of the file rather than leaking a
   // raw HTML comment into the body.
-  if (open) sections[open] = lines.slice(start + 1).join('\n').trim();
-  return { lines, inSection, sections };
+  if (open) {
+    sections[open] = lines.slice(start + 1).join('\n').trim();
+    ranges[open] = { start, end: lines.length - 1 };
+  }
+  return { lines, inSection, sections, ranges };
 }
 
 // { cover, toc, figures, body } — the four parts of a merged document.
@@ -173,6 +178,30 @@ export function getOutline(markdown) {
     }
   }
   return items;
+}
+
+// The structure tree's view of the whole document: the generated pages it
+// carries (cover, contents, figure index) followed by the body's own heading
+// tree. Those pages are NOT headings — getOutline() still skips them, so they
+// never get a number, an `h-N` anchor or a row in the contents — so each carries
+// a `section` id instead of a heading index and the app navigates to it by that.
+// Each is named by its own first heading (the cover shows the document title),
+// falling back to the label passed in.
+export function getDocumentOutline(markdown, labels = {}) {
+  const { sections, ranges } = scanSections(markdown);
+  const pages = [];
+  for (const id of ['cover', 'toc', 'figures']) {
+    const r = ranges[id];
+    if (!r) continue;
+    pages.push({
+      section: id,
+      level: 1,
+      index: -1,
+      line: r.start,
+      text: firstHeadingText(sections[id] || '') || labels[id] || id,
+    });
+  }
+  return [...pages, ...getOutline(markdown)];
 }
 
 // ── Figures (images) ──────────────────────────────────────
@@ -477,7 +506,16 @@ export function sanitizeExportName(name) {
 }
 
 // Default export/appearance settings (typography + header/footer/page number).
+// Every setting the app remembers between runs, export and merge alike: one
+// store, one place that persists it, one settings window that edits it.
 export const DEFAULT_EXPORT_SETTINGS = {
+  // ── How the files are collected and joined (the toolbar's left half) ──
+  sortOrder: 'nameAsc',      // nameAsc | nameDesc | dateNewest | dateOldest | custom
+  recursive: true,           // include Markdown files in sub-folders
+  insertFileHeaders: false,  // put a "## <relative path>" heading before each file
+  numberHeadings: true,      // hierarchical heading numbers (1, 1.1, 1.1.1 …)
+
+  // ── How the document is laid out and exported ──
   fontFamily: '',        // '' = system default stack
   fontSizePt: 10,
   lineHeight: 1.5,       // export line spacing
@@ -500,8 +538,10 @@ export const DEFAULT_EXPORT_SETTINGS = {
                          // no images in the document)
   figurePageNumbers: true, // show a right-aligned page number per figure entry
   figurePageMap: null,   // { 'fig-<index>': page } from a pagination pass
+  showHeader: true,      // use the header text at all (toolbar toggle)
   headerText: '',
   headerAlign: 'center', // left | center | right
+  showFooter: true,      // use the footer text at all (toolbar toggle)
   footerText: '',
   footerAlign: 'center',
   showPageNumber: true,
@@ -523,13 +563,26 @@ export function fontStack(family) {
   return family ? `"${family}", ${base}` : base;
 }
 
+// The running header / footer / page number every renderer asks about, so the
+// toolbar toggles and the settings mean the same thing in the PDF, the .doc and
+// the printed HTML. A text that is switched off is simply not there.
+export function runningHeaderText(s) {
+  return s.showHeader !== false ? String(s.headerText || '').trim() : '';
+}
+
+export function runningFooterText(s) {
+  return s.showFooter !== false ? String(s.footerText || '').trim() : '';
+}
+
 // @page margin-box CSS for header/footer text and the page-number counter.
 // Best-effort for HTML/print/web-PDF; Electron PDF uses printToPDF templates.
 function buildPageMarginCss(s, family, hasCover) {
   const slots = {}; // e.g. 'top-center' -> ['"Header"', 'counter(page)']
   const add = (slot, content) => { (slots[slot] ||= []).push(content); };
-  if (s.headerText) add(`top-${s.headerAlign}`, cssString(s.headerText));
-  if (s.footerText) add(`bottom-${s.footerAlign}`, cssString(s.footerText));
+  const headerText = runningHeaderText(s);
+  const footerText = runningFooterText(s);
+  if (headerText) add(`top-${s.headerAlign}`, cssString(headerText));
+  if (footerText) add(`bottom-${s.footerAlign}`, cssString(footerText));
   if (s.showPageNumber) add(s.pageNumberPos, 'counter(page)');
 
   const boxes = Object.entries(slots).map(([slot, parts]) =>
@@ -545,6 +598,75 @@ function buildPageMarginCss(s, family, hasCover) {
   return css;
 }
 
+// ── Word running header / footer ──────────────────────────
+// Word understands none of the CSS margin boxes above: it takes its running
+// header and footer from `mso-header` / `mso-footer` on a NAMED page rule that
+// points at two blocks parked at the end of the document, and it wants the page
+// number as a real PAGE field rather than a counter. This is exactly the markup
+// Word's own "Save as Web Page" writes, which is why the field survives a round
+// trip and renumbers itself when the document is edited.
+const WORD_SECTION = 'WordSection1';
+
+function buildWordPageCss(s, family, hasCover) {
+  // A different first page is what keeps the page number off the cover.
+  const firstPage = hasCover && s.showPageNumber && !s.pageNumberOnCover;
+  return [
+    `@page ${WORD_SECTION}{size:21.0cm 29.7cm;margin:1.8cm 1.6cm;`,
+    'mso-header-margin:1.0cm;mso-footer-margin:1.0cm;mso-paper-source:0;',
+    firstPage ? 'mso-title-page:yes;mso-first-header:fh1;mso-first-footer:ff1;' : '',
+    'mso-header:h1;mso-footer:f1}',
+    `div.${WORD_SECTION}{page:${WORD_SECTION}}`,
+    `p.MsoHeader,p.MsoFooter{margin:0;font-family:${family};font-size:9.0pt;color:#555}`,
+    'table.mso-run{width:100%;border-collapse:collapse;border:none;table-layout:fixed}',
+    'table.mso-run td{border:none;padding:0}',
+  ].join('');
+}
+
+// A Word PAGE field. The visible "1" is what non-Word readers see; Word replaces
+// it with the live field the moment it opens the document.
+function wordPageField() {
+  return "<!--[if supportFields]><span style='mso-element:field-begin'></span>PAGE "
+    + "<span style='mso-element:field-separator'></span><![endif]-->1"
+    + "<!--[if supportFields]><span style='mso-element:field-end'></span><![endif]-->";
+}
+
+// One header or footer block: three cells (left / centre / right) so the text
+// and the page number can sit in different slots, exactly as they do in the PDF.
+function wordRunningBlock(id, kind, cells) {
+  const cls = kind === 'header' ? 'MsoHeader' : 'MsoFooter';
+  const cell = (align) =>
+    `<td style="width:33.3%;text-align:${align}"><p class="${cls}" style="text-align:${align}">`
+    + `${cells[align] || '&nbsp;'}</p></td>`;
+  return `<div style='mso-element:${kind}' id="${id}">`
+    + `<table class="mso-run" border="0" cellspacing="0" cellpadding="0"><tr>`
+    + `${cell('left')}${cell('center')}${cell('right')}</tr></table></div>`;
+}
+
+// The header/footer blocks the named page rule refers to. `fh1` / `ff1` are the
+// cover's own pair — same text, no page number — and are only emitted when the
+// settings actually ask for a numberless first page.
+function buildWordRunningBlocks(s, hasCover) {
+  const put = (row, align, html) => { if (html) row[align] = row[align] ? `${row[align]} ${html}` : html; };
+  const make = (withNumber) => {
+    const top = {};
+    const bottom = {};
+    put(top, s.headerAlign || 'center', escapeHtml(runningHeaderText(s)));
+    put(bottom, s.footerAlign || 'center', escapeHtml(runningFooterText(s)));
+    if (withNumber && s.showPageNumber) {
+      const [row, col] = String(s.pageNumberPos || 'bottom-right').split('-');
+      put(row === 'top' ? top : bottom, col, wordPageField());
+    }
+    return { top, bottom };
+  };
+  const main = make(true);
+  let out = wordRunningBlock('h1', 'header', main.top) + wordRunningBlock('f1', 'footer', main.bottom);
+  if (hasCover && s.showPageNumber && !s.pageNumberOnCover) {
+    const first = make(false);
+    out += wordRunningBlock('fh1', 'header', first.top) + wordRunningBlock('ff1', 'footer', first.bottom);
+  }
+  return out;
+}
+
 // ── Front-matter builders (Markdown the user can edit) ────
 // These produce the *text* that goes into the cover / toc / figures sections of
 // the merged document. The renderers below turn that same text back into a
@@ -557,7 +679,7 @@ function escapeLinkText(text) {
 }
 
 // Text of the first ATX heading in a block ('' when there is none).
-function firstHeadingText(markdown) {
+export function firstHeadingText(markdown) {
   for (const raw of String(markdown || '').split('\n')) {
     const m = raw.match(/^\s*#{1,6}\s+(.*)$/);
     if (m) return m[1].trim();
@@ -565,15 +687,28 @@ function firstHeadingText(markdown) {
   return '';
 }
 
+// A cover line is plain text, but it lands in the document as Markdown — and a
+// Korean date ("2026. 9. 9.") is exactly ordered-list syntax. Left alone it was
+// parsed as a nested <ol>, which is why the date came out as several lines in
+// Word and why the cover's alignment never reached it: the alignment is put on
+// the paragraphs, and the date was no longer a paragraph. Escape the markers
+// that would change what a line *is*; the backslash is invisible once rendered.
+function escapeBlockMarkdown(text) {
+  const esc = String.fromCharCode(92); // a literal backslash, Markdown's escape
+  return String(text || '').trim()
+    .replace(/^(\d+)([.)])(\s)/, `$1${esc}$2$3`)
+    .replace(/^([-+*>#])(\s)/, `${esc}$1$2`);
+}
+
 // Cover block: the title as an H1, then version / author / date, each its own
 // paragraph so they stack as separate lines.
 export function buildCoverMarkdown(title, s = {}) {
   const meta = [];
   const date = (s.coverDate && s.coverDate.trim()) || s.dateStr || '';
-  if (s.coverShowVersion !== false && s.coverVersion) meta.push(s.coverVersion.trim());
-  if (s.coverShowAuthor !== false && s.coverAuthor) meta.push(s.coverAuthor.trim());
-  if (s.coverShowDate !== false && date) meta.push(date.trim());
-  const sub = s.headerText ? [s.headerText.trim()] : [];
+  if (s.coverShowVersion !== false && s.coverVersion) meta.push(escapeBlockMarkdown(s.coverVersion));
+  if (s.coverShowAuthor !== false && s.coverAuthor) meta.push(escapeBlockMarkdown(s.coverAuthor));
+  if (s.coverShowDate !== false && date) meta.push(escapeBlockMarkdown(date));
+  const sub = runningHeaderText(s) ? [escapeBlockMarkdown(runningHeaderText(s))] : [];
   return [`# ${String(title || '').trim()}`, ...sub, ...meta].join('\n\n');
 }
 
@@ -624,6 +759,68 @@ export function refreshFrontMatter(markdown, settings = {}) {
   return buildDocument(splitDocument(markdown).body, settings);
 }
 
+// Refreshes only what the app itself generates, in place: the heading numbers
+// and the contents / figure index rows. Everything the writer typed — the cover
+// block, the body text, the blank lines between paragraphs — is left byte for
+// byte as it is, so the automatic pass that runs after a pause in typing can
+// never undo a manual edit in the Edit tab. Rebuilding the whole document (see
+// buildDocument) is reserved for a re-merge or a settings change, where the new
+// cover / index really is what the user just asked for.
+export function refreshGenerated(markdown, settings = {}, { renumber = true } = {}) {
+  const s = { ...DEFAULT_EXPORT_SETTINGS, ...settings };
+  const text = renumber ? renumberHeadings(markdown) : String(markdown || '');
+  const doc = splitDocument(text);
+  const toc = buildTocMarkdown(doc.body, s.contentsLabel || 'Contents');
+  const figures = buildFiguresMarkdown(doc.body,
+    s.figuresLabel || 'List of Figures', s.figureLabel || 'Figure');
+  // A block the document does not have yet has to be put there, not just filled
+  // in: a document merged with no headings (or no pictures) carries no contents
+  // block at all, and without this the contents page could never appear however
+  // many headings were written afterwards. Only the settings can ask for one —
+  // turning the toolbar's contents / figure toggle off is how you say no.
+  const addToc = !!toc && s.tocPage !== false && !hasSection(text, 'toc');
+  const addFigures = !!figures && s.figurePage !== false && !hasSection(text, 'figures');
+  if (addToc || addFigures) {
+    return composeDocument({
+      cover: doc.cover,                       // the writer's cover text, verbatim
+      toc: hasSection(text, 'toc') || addToc ? toc : '',
+      figures: hasSection(text, 'figures') || addFigures ? figures : '',
+      body: doc.body,
+    });
+  }
+  return replaceSection(replaceSection(text, 'toc', toc), 'figures', figures);
+}
+
+// Whether the document carries one of the front-matter blocks at all.
+function hasSection(markdown, id) {
+  return String(markdown || '').split('\n').some((line) => {
+    const m = SECTION_OPEN.exec(line);
+    return !!m && m[1] === id;
+  });
+}
+
+// Swaps the contents of one front-matter section, leaving the markers and every
+// other line untouched. A section the document does not have is NOT created —
+// if the writer deleted the contents block by hand, it stays deleted until the
+// settings say otherwise.
+function replaceSection(markdown, id, content) {
+  const lines = String(markdown || '').split('\n');
+  let start = -1;
+  for (let i = 0; i < lines.length; i++) {
+    if (start < 0) {
+      const o = SECTION_OPEN.exec(lines[i]);
+      if (o && o[1] === id) start = i;
+      continue;
+    }
+    const c = SECTION_CLOSE.exec(lines[i]);
+    if (c && c[1] === id) {
+      const inner = content.trim() ? content.trim().split('\n') : [];
+      return [...lines.slice(0, start + 1), ...inner, ...lines.slice(i)].join('\n');
+    }
+  }
+  return String(markdown || '');
+}
+
 // ── Front-matter renderers ────────────────────────────────
 
 // Cover page: the block's own Markdown, centred on a page of its own. Anchors
@@ -642,9 +839,14 @@ function renderCoverHtml(coverMd, opts = {}) {
     Number(titleSizePt) > 0 ? `font-size:${Number(titleSizePt)}pt` : '',
   ].filter(Boolean).join(';');
   inner = inner.replace(/<h1(\s|>)/i, `<h1 style="${title}"$1`);
-  inner = inner.replace(/<p(\s|>)/gi, `<p style="text-align:${metaAlign}"$1`);
-  return `<div class="cover${breakBefore ? ' pb' : ''}">`
-    + `<div class="cover-inner">${inner}</div></div>`;
+  // Every block the cover text produced follows the meta alignment, not just
+  // paragraphs: a line the writer turned into a list or a quote in the Edit tab
+  // has to line up with the rest. Word ignores class rules and does not inherit
+  // text-align reliably, so the alignment goes on each element AND the wrapper.
+  inner = inner.replace(/<(p|ul|ol|li|blockquote|h[2-6])(\s|>)/gi,
+    `<$1 style="text-align:${metaAlign}"$2`);
+  return `<div class="cover${breakBefore ? ' pb' : ''}" id="sec-cover">`
+    + `<div class="cover-inner" style="text-align:${metaAlign}">${inner}</div></div>`;
 }
 
 // Renders a contents / figure-index block — a Markdown list of `[text](#anchor)`
@@ -662,7 +864,7 @@ function renderCoverHtml(coverMd, opts = {}) {
 //                 absent the cell is left empty for the paged PDF renderer.
 //   extraClass  – extra class on the wrapper (e.g. 'figure-index').
 function renderIndexHtml(blockMd, opts = {}) {
-  const { withPageNo, breakBefore, pageMap, extraClass = '' } = opts;
+  const { withPageNo, breakBefore, pageMap, extraClass = '', id = '' } = opts;
   const lines = String(blockMd || '').split('\n');
   let label = '';
   const rows = [];
@@ -704,7 +906,7 @@ function renderIndexHtml(blockMd, opts = {}) {
   }
   if (!rows.length) return '';
   const heading = label ? `<h1 class="toc-title">${escapeHtml(label)}</h1>` : '';
-  return `<div class="toc${extraClass ? ` ${extraClass}` : ''}${breakBefore ? ' pb' : ''}">${heading}`
+  return `<div class="toc${extraClass ? ` ${extraClass}` : ''}${breakBefore ? ' pb' : ''}"${id ? ` id="${id}"` : ''}>${heading}`
     + `<table class="toc-table"><tbody>${rows.join('')}</tbody></table></div>`;
 }
 
@@ -820,6 +1022,7 @@ function renderFrontMatter(doc, s, pageMap, withNumbers) {
     withPageNo: withNumbers && s.tocPageNumbers !== false,
     breakBefore: !!cover,
     pageMap,
+    id: 'sec-toc',
   });
   // The figure index follows the heading index on its own page. It exists only
   // when the document actually has one (buildFiguresMarkdown skips empty ones).
@@ -828,6 +1031,7 @@ function renderFrontMatter(doc, s, pageMap, withNumbers) {
     breakBefore: !!(cover || toc),
     pageMap,
     extraClass: 'figure-index',
+    id: 'sec-figures',
   });
   return { cover, toc, figIndex };
 }
@@ -849,7 +1053,12 @@ export function toStandaloneHtml(markdown, title = 'Document', settings = {}) {
   })), preBasePx);
   const lineHeight = Number(s.lineHeight) > 0 ? Number(s.lineHeight) : 1;
   const { cover, toc, figIndex } = renderFrontMatter(doc, s, s.figurePageMap || s.tocPageMap || null, true);
-  const pageCss = buildPageMarginCss(s, family, !!cover);
+  // Word ignores @page margin boxes entirely, so it gets a named page rule and
+  // real header/footer blocks instead (buildWordPageCss). Everything else uses
+  // the margin boxes, which is what paged.js renders for the PDF.
+  const pageCss = s.forWord
+    ? buildWordPageCss(s, family, !!cover)
+    : buildPageMarginCss(s, family, !!cover);
   const coverTitle = firstHeadingText(doc.cover) || (s.coverTitle && s.coverTitle.trim()) || title;
   const appName = s.appName || 'MyMarkDownMaker';
   const front = cover || toc || figIndex;
@@ -867,6 +1076,14 @@ export function toStandaloneHtml(markdown, title = 'Document', settings = {}) {
   // On screen the cover fills the viewport & centers; in print/Word it is a
   // simple centered block that breaks to the next page.
   const coverScreen = '@media screen{.cover{min-height:calc(100vh - 96px);display:flex;align-items:center;justify-content:center}}';
+  // Word only applies a page rule — and therefore the header/footer it names —
+  // to content inside the matching section div, and it looks for the blocks
+  // themselves at the very end of the body.
+  const docBody = `${cover}${toc ? (cover ? wb : '') + toc : ''}`
+    + `${figIndex ? ((cover || toc) ? wb : '') + figIndex : ''}${front ? wb : ''}${content}`;
+  const pageBody = s.forWord
+    ? `<div class="${WORD_SECTION}">${docBody}</div>${buildWordRunningBlocks(s, !!cover)}`
+    : docBody;
   return `<!DOCTYPE html>
 ${htmlOpen}<head>
 <meta charset="utf-8">
@@ -932,7 +1149,7 @@ ${wordMeta}
   ${pageCss}
 </style>
 </head><body>
-${cover}${toc ? (cover ? wb : '') + toc : ''}${figIndex ? ((cover || toc) ? wb : '') + figIndex : ''}${front ? wb : ''}${content}
+${pageBody}
 </body></html>`;
 }
 

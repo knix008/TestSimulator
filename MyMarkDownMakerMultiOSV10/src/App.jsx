@@ -1,10 +1,11 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import i18n from './i18n';
 import TitleBar from './components/TitleBar';
 import FileList from './components/FileList';
 import OutlineTree from './components/OutlineTree';
 import FigureList from './components/FigureList';
+import MarkdownEditor from './components/MarkdownEditor';
 import { THEMES } from './lib/themes';
 import ContextMenu from './components/ContextMenu';
 import Tooltip from './components/Tooltip';
@@ -17,23 +18,31 @@ import ConfirmCloseDialog from './components/ConfirmCloseDialog';
 import {
   IconFolder, IconFilePlus, IconHash, IconExport, IconChevron,
   IconMd, IconHtml, IconPdf, IconWord, IconTrash, IconInfo, IconSettings,
-  IconSun, IconMoon, IconUp, IconDown, IconX, IconCheckSquare, IconSquare,
+  IconSun, IconMoon, IconUp, IconDown, IconX, IconCheckSquare, IconSquare, IconSave,
+  IconUndo, IconRedo, IconPrint, IconRenumber,
   IconCopy, IconCut, IconPaste, IconSelectAll, IconTarget,
   IconStars, IconSnow, IconLeaf, IconFlower, IconSunrise, IconContrast, IconBulb,
   IconDroplet, IconCoffee, IconCloud, IconGlobe, IconImage,
-  IconCover, IconContents, IconFigIndex, IconPageNum, IconMinus, IconPlus,
+  IconCover, IconContents, IconFigIndex, IconPageNum, IconHeader, IconFooter, IconRemerge,
+  IconMinus, IconPlus,
   IconZoomIn, IconZoomOut, IconGem, IconFlame, IconSprout, IconDune,
+  IconSubfolder, IconFileHeading,
 } from './components/Icons';
-import { isElectron, api, readFileText, readFileDataURL, saveSettingsToDisk } from './lib/platform';
+import {
+  isElectron, api, readFileText, readFileDataURL, saveSettingsToDisk, canWriteInPlace,
+} from './lib/platform';
 import {
   embedImages, resolveRelPath, registerImage, clearImages, srcBaseName, IMAGE_EXTS,
 } from './lib/images';
 import {
-  mergeFilesAsync, renumberHeadings, getOutline, getFigures, renderPreviewHtml,
-  buildDocument, refreshFrontMatter, splitDocument, setFigureWidth, fontStack, sanitizeExportName,
+  mergeFilesAsync, renumberHeadings, getOutline, getDocumentOutline, getFigures, renderPreviewHtml,
+  buildDocument, refreshFrontMatter, refreshGenerated, splitDocument, setFigureWidth, fontStack,
+  firstHeadingText,
   sortFiles, DEFAULT_EXPORT_SETTINGS,
 } from './lib/markdown';
-import { exportMarkdown, exportHtml, exportPdf, exportWord } from './lib/export';
+import {
+  exportMarkdown, exportHtml, exportPdf, exportWord, saveMarkdownTo, printDocument,
+} from './lib/export';
 
 const MD_RE = /\.(md|markdown)$/i;
 const THEME_IDS = THEMES.map((t) => t.id);
@@ -46,6 +55,27 @@ const THEME_ICONS = {
 };
 let uid = 0;
 const nextId = () => `f${++uid}`;
+
+// Nothing derived from the document — the structure tree, the figure list, the
+// statistics, the preview — is computed while a LINE is being typed. It all
+// catches up when the writer finishes the line: Enter, a caret move off it, the
+// editor losing focus, a switch to the preview, or simply stopping. So a
+// keystroke costs a keystroke: no React render, no scan of the document, no
+// re-render of lists that may be hundreds of rows long.
+const SETTLE_LINE_MS = 250;    // after a key that ends or leaves a line
+const SETTLE_IDLE_MS = 1200;   // the writer simply stopped
+
+// Keys that end a line or take the caret off it — the line is finished, so the
+// rest of the app may catch up. keydown runs before the character lands, hence
+// the short delay rather than settling on the spot.
+const LINE_DONE_KEYS = new Set([
+  'Enter', 'ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', 'Tab',
+]);
+
+// Undo history for the document. One step per burst of typing; a burst is
+// anything with less than this long a pause in it.
+const HISTORY_LIMIT = 200;
+const HISTORY_COALESCE_MS = 600;
 
 // Document zoom range, in percent.
 const ZOOM_MIN = 50;
@@ -60,15 +90,20 @@ function loadSettings() {
   return { ...DEFAULT_EXPORT_SETTINGS };
 }
 
+// A callback whose identity never changes but which always runs the latest
+// version — so passing it to a memoised child does not re-render that child on
+// every keystroke, and it still closes over current state.
+function useEvent(fn) {
+  const ref = useRef(fn);
+  ref.current = fn;
+  return useMemo(() => (...args) => ref.current(...args), []);
+}
+
 export default function App() {
   const { t } = useTranslation();
 
   const [files, setFiles] = useState([]);
   const [sourceDir, setSourceDir] = useState('');
-  const [recursive, setRecursive] = useState(true);
-  const [sortOrder, setSortOrder] = useState('nameAsc');
-  const [insertFileHeaders, setInsertFileHeaders] = useState(false);
-  const [numberHeadings, setNumberHeadings] = useState(true);
 
   const [merged, setMerged] = useState('');
   const [leftTab, setLeftTab] = useState('files');
@@ -101,8 +136,32 @@ export default function App() {
   const [mergeOpen, setMergeOpen] = useState(false);
   const mergeSeq = useRef(0);
   // Unsaved-changes tracking: the document counts as saved while it matches the
-  // text of the last successful export.
+  // text of the last successful save / export.
   const savedTextRef = useRef('');
+  // The .md this document lives in once it has been saved. Save writes straight
+  // back to it; until then Save has to ask where, like Save as.
+  const [docPath, setDocPath] = useState('');
+  // The same value as a ref. Two saves can be raised in one tick (a shortcut
+  // that reaches two handlers, or an impatient double click), and the second
+  // must see the path the first just chose — a state update would not be there
+  // yet, and the user would be asked for a file name all over again.
+  const docPathRef = useRef('');
+  const savingRef = useRef(false);
+  const printingRef = useRef(false);
+  const [saving, setSaving] = useState(false);
+  const [printing, setPrinting] = useState(false);
+  // The window-level Ctrl+S listener is installed once, so it reaches the save
+  // action through a ref — a captured saveDocument would save a stale document.
+  const saveRef = useRef(null);
+  const printRef = useRef(null);
+  // The editor is rewritten by the app on its own (numbering, the contents
+  // block). Every one of those writes replaces the document text, which wipes
+  // CodeMirror's native undo stack — so the document keeps its own history
+  // instead of relying on document.execCommand('undo').
+  //   apply – the change being applied IS an undo/redo, so do not record it
+  //   fold  – an automatic pass (renumber / index); belongs to the step before it
+  const histRef = useRef({ past: [], future: [], current: '', at: 0, sel: 0, apply: false, fold: false });
+  const [history, setHistory] = useState({ canUndo: false, canRedo: false });
   const [closeAsk, setCloseAsk] = useState(false);
   const [closeBusy, setCloseBusy] = useState(false);
 
@@ -110,7 +169,18 @@ export default function App() {
   const filesInputRef = useRef(null);
   const previewRef = useRef(null);
   const editorRef = useRef(null);
+  const editorCbs = useRef({});
+  // The editor is UNCONTROLLED CodeMirror. While the writer types, the view
+  // owns its own text and React never writes to it: that keeps the whole app
+  // out of the keystroke path, leaves IME composition (Korean and friends)
+  // alone, and — unlike a <textarea> — only paints the visible lines, so a
+  // long merged document does not re-layout on every jamo.
+  // `merged` catches up on a short debounce; anything that needs the very
+  // latest text reads it straight from the editor (currentText).
+  const settleTimer = useRef(0);
+  const composingRef = useRef(false);
   const exportRef = useRef(null);
+  const toolbarRef = useRef(null);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -163,6 +233,32 @@ export default function App() {
     return () => document.removeEventListener('mousedown', onDown);
   }, [exportOpen]);
 
+  // Anything that goes wrong ends up here: the popup names what was being done,
+  // says exactly what failed, and shows the stack — all of it copyable, because
+  // an error the user cannot quote is an error nobody can help them with.
+  function reportError(what, err) {
+    setExportResult({
+      status: 'error',
+      fmt: what,
+      message: err?.message || String(err),
+      detail: err?.stack && err.stack !== err.message ? String(err.stack) : '',
+    });
+  }
+
+  // Failures that never reached a try/catch — a bug in the app, or a rejected
+  // promise nobody awaited — would otherwise vanish into the console.
+  useEffect(() => {
+    const onError = (e) => reportError(t('exportDlg.titleUnexpected'), e.error || e.message || e);
+    const onRejection = (e) => reportError(t('exportDlg.titleUnexpected'), e.reason || e);
+    window.addEventListener('error', onError);
+    window.addEventListener('unhandledrejection', onRejection);
+    return () => {
+      window.removeEventListener('error', onError);
+      window.removeEventListener('unhandledrejection', onRejection);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lang]);
+
   // ── Completion toasts ───────────────────────────────────
   const dismissToast = (id) => setToasts((list) => list.filter((x) => x.id !== id));
   function notify(title, { message = '', type = 'success', duration = 3800 } = {}) {
@@ -171,21 +267,104 @@ export default function App() {
     if (duration) setTimeout(() => dismissToast(id), duration);
   }
 
+  // `merged` IS the settled document now: it only changes when a line is
+  // finished, or when something other than the keyboard changes it. So the
+  // derived views read it directly. Anything that splices text back by offset
+  // must still re-resolve against the LIVE editor value (currentText), which
+  // can be a line ahead of this.
+  // Records every change to the document, except the ones it is itself making.
+  useEffect(() => {
+    const h = histRef.current;
+    if (h.current === merged) return;
+    const now = Date.now();
+    if (h.apply) {
+      h.apply = false;                       // undo/redo already moved the stacks
+    } else if (h.fold) {
+      // The automatic pass (renumber / index) is not an edit of its own: it
+      // belongs to the step before it, and — since it also runs right after an
+      // undo — it must not throw away a redo branch the writer may still want.
+    } else {
+      // A burst of typing is one step; a pause starts the next one.
+      const sameStep = h.past.length > 0 && now - h.at < HISTORY_COALESCE_MS;
+      if (!sameStep) {
+        h.past.push({ text: h.current, sel: h.sel });
+        if (h.past.length > HISTORY_LIMIT) h.past.shift();
+      }
+      h.future.length = 0;                   // a new edit abandons the redo branch
+    }
+    h.fold = false;
+    h.current = merged;
+    h.at = now;
+    setHistory({ canUndo: h.past.length > 0, canRedo: h.future.length > 0 });
+  }, [merged]);
+
+  // Starts the history over — a fresh merge is a new document, not an edit of
+  // the one before it.
+  function resetHistory(text) {
+    histRef.current = { past: [], future: [], current: text, at: Date.now(), sel: 0, apply: false, fold: false };
+    setHistory({ canUndo: false, canRedo: false });
+  }
+
+  function stepHistory(from, to) {
+    const h = histRef.current;
+    if (!from.length) return;
+    cancelEditorSync();                        // a queued keystroke would land after
+    const el = editorOnScreen();
+    const entry = from.pop();
+    to.push({ text: currentText(), sel: el?.selectionStart ?? h.sel });
+    h.apply = true;
+    if (el) {
+      // Undo must leave the writer looking at the same place. The caret goes
+      // back to where that step was taken, but the viewport is pinned — swapping
+      // the document (and setting the selection) would otherwise scroll there.
+      const pos = Math.min(entry.sel || 0, entry.text.length);
+      el.replaceKeepingView(entry.text, pos, pos);
+    }
+    setMerged(entry.text);
+  }
+  const undo = () => stepHistory(histRef.current.past, histRef.current.future);
+  const redo = () => stepHistory(histRef.current.future, histRef.current.past);
+
+  // The merge options live in the same store as the export ones, so the toolbar,
+  // the settings window and the next launch all agree on them.
+  const recursive = exportSettings.recursive !== false;
+  const insertFileHeaders = exportSettings.insertFileHeaders !== false;
+  const numberHeadings = exportSettings.numberHeadings !== false;
+  const sortOrder = exportSettings.sortOrder || 'nameAsc';
+  const setSortOrder = (order) => setExportSettings((prev) => ({ ...prev, sortOrder: order }));
+
   const outline = useMemo(() => getOutline(merged), [merged]);
+  // What the structure tab shows: the generated pages the document carries, then
+  // its headings. The pages are named by their own text, so the tree reads the
+  // way the document does.
+  const structure = useMemo(() => getDocumentOutline(merged, {
+    cover: t('structure.cover'),
+    toc: t('export.contents'),
+    figures: t('export.figures'),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [merged, lang]);
   const figures = useMemo(() => getFigures(merged), [merged]);
   // The preview shows the whole document the export produces — cover, contents,
-  // figure index and body — built from the very text the Edit tab holds.
+  // figure index and body — built from the very text the Edit tab holds. It is
+  // built only while it is the visible tab: running the whole document through
+  // marked + DOMPurify on every keystroke was by far the biggest cost of typing
+  // in the Edit tab, and nothing was looking at the result.
   const previewHtml = useMemo(
-    () => renderPreviewHtml(merged, { ...exportSettings, figureLabel: t('figure.label') }),
-    [merged, exportSettings, lang],
+    () => (rightTab === 'preview'
+      ? renderPreviewHtml(merged, { ...exportSettings, figureLabel: t('figure.label') })
+      : ''),
+    [merged, exportSettings, lang, rightTab],
   );
 
   // Document composition: the merged body plus the cover / contents / figure
   // index the settings ask for, all as editable Markdown (see markdown.js).
+  // No `title` here on purpose: the cover names the document, not the other way
+  // round (see documentTitle). Feeding the export name back into the cover would
+  // make the two chase each other and rebuild the front matter — and throw away
+  // manual cover edits — every time the name followed the title.
   function documentOpts() {
     return {
       ...exportSettings,
-      title: sanitizeExportName(exportName) || undefined,
       contentsLabel: t('export.contents'),
       figuresLabel: t('export.figures'),
       figureLabel: t('figure.label'),
@@ -208,15 +387,43 @@ export default function App() {
 
   // Live preview: re-merge automatically whenever the selection, order or merge
   // options change, so including / reordering files updates the result with no
-  // manual step. Manual editor edits are superseded on the next change.
+  // manual step.
+  //
+  // Until the writer touches it. A merged document that has been edited by hand
+  // is a document of its own, and rebuilding it from the sources would throw
+  // that work away — which is what used to happen on something as ordinary as
+  // ticking a file in the list. So once it is edited the automatic merge stops
+  // and offers itself instead: `mergeStale` lights the toolbar's re-merge
+  // button, and only pressing that rebuilds from the sources.
   const editedRef = useRef(false);
+  const [edited, setEdited] = useState(false);
+  const [mergeStale, setMergeStale] = useState(false);
+  function markEdited() {
+    if (!editedRef.current) { editedRef.current = true; setEdited(true); }
+  }
   useEffect(() => {
+    if (editedRef.current) {
+      setMergeStale(true);
+      setStatus(t('status.mergeStale'));
+      return;
+    }
     const chosen = files.filter((f) => f.checked);
-    if (!chosen.length) { setMerged(''); editedRef.current = false; return; }
-    const seq = ++mergeSeq.current;
-    runMerge(chosen, seq);
+    if (!chosen.length) { setMerged(''); return; }
+    runMerge(chosen, ++mergeSeq.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [files, insertFileHeaders, numberHeadings]);
+
+  // The explicit "merge again" action: the only thing that replaces an edited
+  // document with a fresh merge of the sources.
+  function remerge() {
+    cancelEditorSync();
+    editedRef.current = false;
+    setEdited(false);
+    setMergeStale(false);
+    const chosen = files.filter((f) => f.checked);
+    if (!chosen.length) { setMerged(''); return; }
+    runMerge(chosen, ++mergeSeq.current);
+  }
 
   // Chunked merge that yields to the event loop and surfaces a determinate
   // progress popup (only if it runs longer than a short delay, to avoid a flash
@@ -233,8 +440,12 @@ export default function App() {
       if (seq !== mergeSeq.current) return; // a newer merge started; drop this one
       if (numberHeadings) out = renumberHeadings(out);
       if (seq !== mergeSeq.current) return;
-      setMerged(buildDocument(out, documentOpts()));
+      const built = buildDocument(out, documentOpts());
+      resetHistory(built);
+      setMerged(built);
       editedRef.current = false;
+      setEdited(false);
+      setMergeStale(false);
       setStatus(t('status.merged', { count: total }));
     } finally {
       clearTimeout(timer);
@@ -251,7 +462,7 @@ export default function App() {
     exportSettings.coverPage, exportSettings.coverTitle, exportSettings.coverVersion,
     exportSettings.coverAuthor, exportSettings.coverDate, exportSettings.coverShowVersion,
     exportSettings.coverShowAuthor, exportSettings.coverShowDate, exportSettings.headerText,
-    exportSettings.tocPage, exportSettings.figurePage, exportName, lang,
+    exportSettings.showHeader, exportSettings.tocPage, exportSettings.figurePage, lang,
   ]);
   const frontKeyRef = useRef(frontKey);
   useEffect(() => {
@@ -260,19 +471,38 @@ export default function App() {
     setMerged((prev) => {
       if (!prev.trim()) return prev;
       const next = refreshFrontMatter(prev, documentOpts());
-      return next === prev ? prev : next;
+      if (next === prev) return prev;
+      const el = editorRef.current;
+      if (el && el.value === prev) {
+        const caret = el.selectionStart;
+        el.replaceKeepingAnchor(next, {
+          caret: mapCaretPos(prev, next, caret),
+          mapPos: (p) => mapCaretPos(prev, next, p),
+        });
+      }
+      return next;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [frontKey]);
 
-  // Default export name = first merged file's name (until the user edits it).
   const firstCheckedName = useMemo(() => {
     const f = files.find((x) => x.checked);
     return f ? f.name.replace(/\.(md|markdown)$/i, '') : '';
   }, [files]);
+
+  // The document's name is the one written on its cover, so that is the export
+  // name too — the settings title if there is one, otherwise the cover block's
+  // own H1 (which the writer can retype in the Edit tab). Only a document with
+  // no cover at all falls back to the first merged file's name, and a name the
+  // user typed into the export box always wins.
+  const documentTitle = useMemo(() => {
+    const chosen = (exportSettings.coverTitle || '').trim();
+    return chosen || firstHeadingText(splitDocument(merged).cover);
+  }, [exportSettings.coverTitle, merged]);
   useEffect(() => {
-    if (!exportNameEdited.current) setExportName(firstCheckedName);
-  }, [firstCheckedName]);
+    if (exportNameEdited.current) return;
+    setExportName(documentTitle || firstCheckedName);
+  }, [documentTitle, firstCheckedName]);
 
   // Runs `process(item, i)` over items sequentially, showing a determinate
   // progress popup (only if it takes longer than a short delay, to avoid flashes).
@@ -315,43 +545,53 @@ export default function App() {
   }
 
   async function addFolder() {
-    if (isElectron) {
-      const dir = await api.pickDirectory();
-      if (!dir) return;
-      const { files: scanned } = await api.scanMarkdown({ dir, recursive });
-      const items = scanned.map((f) => ({
-        key: f.fullPath, name: f.name, relPath: f.relPath, fullPath: f.fullPath,
-        mtime: f.mtime, content: '',
-      }));
-      await withImportProgress(items, (it) => it.relPath || it.name, async (it) => {
-        const raw = await api.readFile(it.fullPath);
-        it.content = await embedImages(raw, async (src) =>
-          toImageRef(await api.embedImage({ mdPath: it.fullPath, src }), src));
-      });
-      const added = addImported(items);
-      setSourceDir(dir);
-      setStatus(t('status.added', { count: added }));
-    } else {
-      folderInputRef.current?.click();
+    try {
+      editorRef.current?.blur?.();
+      if (isElectron) {
+        const dir = await api.pickDirectory();
+        if (!dir) return;
+        const { files: scanned } = await api.scanMarkdown({ dir, recursive });
+        const items = scanned.map((f) => ({
+          key: f.fullPath, name: f.name, relPath: f.relPath, fullPath: f.fullPath,
+          mtime: f.mtime, content: '',
+        }));
+        await withImportProgress(items, (it) => it.relPath || it.name, async (it) => {
+          const raw = await api.readFile(it.fullPath);
+          it.content = await embedImages(raw, async (src) =>
+            toImageRef(await api.embedImage({ mdPath: it.fullPath, src }), src));
+        });
+        const added = addImported(items);
+        setSourceDir(dir);
+        setStatus(t('status.added', { count: added }));
+      } else {
+        folderInputRef.current?.click();
+      }
+    } catch (err) {
+      reportError(t('toolbar.addFolder'), err);
     }
   }
 
   async function addFiles() {
-    if (isElectron) {
-      const picked = await api.openFiles();
-      if (!picked?.length) return;
-      const items = picked.map((f) => ({
-        key: f.fullPath, name: f.name, relPath: f.relPath, fullPath: f.fullPath,
-        mtime: f.mtime, content: f.content,
-      }));
-      await withImportProgress(items, (it) => it.name, async (it) => {
-        it.content = await embedImages(it.content, async (src) =>
-          toImageRef(await api.embedImage({ mdPath: it.fullPath, src }), src));
-      });
-      const added = addImported(items);
-      setStatus(t('status.added', { count: added }));
-    } else {
-      filesInputRef.current?.click();
+    try {
+      editorRef.current?.blur?.();
+      if (isElectron) {
+        const picked = await api.openFiles();
+        if (!picked?.length) return;
+        const items = picked.map((f) => ({
+          key: f.fullPath, name: f.name, relPath: f.relPath, fullPath: f.fullPath,
+          mtime: f.mtime, content: f.content,
+        }));
+        await withImportProgress(items, (it) => it.name, async (it) => {
+          it.content = await embedImages(it.content, async (src) =>
+            toImageRef(await api.embedImage({ mdPath: it.fullPath, src }), src));
+        });
+        const added = addImported(items);
+        setStatus(t('status.added', { count: added }));
+      } else {
+        filesInputRef.current?.click();
+      }
+    } catch (err) {
+      reportError(t('toolbar.addFiles'), err);
     }
   }
 
@@ -420,20 +660,99 @@ export default function App() {
     setSortOrder('custom');
   };
 
+  // The order is a setting, and it can change in the settings window too — so
+  // the list follows the setting rather than the toolbar's onChange.
+  const sortedBy = useRef(sortOrder);
+  useEffect(() => {
+    if (sortedBy.current === sortOrder) return;
+    sortedBy.current = sortOrder;
+    if (sortOrder !== 'custom') setFiles((p) => sortFiles(p, sortOrder));
+  }, [sortOrder]);
+
   function onSortChange(order) {
     setSortOrder(order);
-    if (order !== 'custom') setFiles((p) => sortFiles(p, order));
   }
 
   // ── Actions ─────────────────────────────────────────────
-  function doRenumber() {
-    if (!merged) return;
-    // Renumber the body, then rebuild the contents / figure index so their
-    // entries carry the new numbers.
-    const body = renumberHeadings(splitDocument(merged).body);
-    setMerged(buildDocument(body, documentOpts()));
+  // The contents and figure index follow the headings on their own — they are
+  // generated lists, and stale ones are worse than useless. Heading NUMBERS are
+  // not touched here: renumbering rewrites lines the writer is working on, so it
+  // happens when they ask for it (the toolbar's renumber button) or when a merge
+  // builds the document. This pass only ever rewrites the index rows, in place;
+  // the cover, the body text and the spacing stay exactly as typed.
+  useEffect(() => {
+    if (!merged.trim()) return undefined;
+    const timer = setTimeout(() => {
+      // The writer has typed since this text settled — rewriting the textarea
+      // now would fight them. It runs again after the next settle.
+      const el = editorRef.current;
+      if (el && el.value !== merged) return;
+      const next = refreshGenerated(merged, documentOpts(), { renumber: false });
+      if (next === merged) return;
+      const caret = el ? el.selectionStart : 0;
+      histRef.current.fold = true;
+      if (el) {
+        el.replaceKeepingAnchor(next, {
+          caret: mapCaretPos(merged, next, caret),
+          mapPos: (p) => mapCaretPos(merged, next, p),
+        });
+      }
+      setMerged(next);
+    }, 600);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [merged, frontKey]);
+
+  // Renumber on request: every heading gets a fresh hierarchical number and the
+  // contents / figure index follow. The one place that rewrites heading lines.
+  function renumberNow() {
+    const text = currentText();
+    if (!text.trim()) return;
+    const next = refreshGenerated(text, documentOpts(), { renumber: true });
+    if (next === text) { setStatus(t('status.numbered')); return; }
+    const el = editorOnScreen();
+    const caret = el ? el.selectionStart : 0;
+    if (el) {
+      el.replaceKeepingAnchor(next, {
+        caret: mapCaretPos(text, next, caret),
+        mapPos: (p) => mapCaretPos(text, next, p),
+      });
+    }
+    markEdited();
+    setMerged(next);
     setStatus(t('status.numbered'));
     notify(t('toast.numbered'));
+  }
+
+  // Maps a caret through a generated-block rewrite. Only the cover / contents /
+  // figure index above the body change length, so the anchor is the caret's
+  // line and column within the body.
+  function mapCaretPos(oldText, newText, caret) {
+    const oldBody = splitDocument(oldText).body;
+    const newBody = splitDocument(newText).body;
+    const oldStart = oldText.lastIndexOf(oldBody);
+    const newStart = newText.lastIndexOf(newBody);
+    if (oldStart < 0 || newStart < 0 || caret < oldStart) {
+      return Math.min(caret, newText.length);
+    }
+    const before = oldBody.slice(0, caret - oldStart);
+    const line = before.split('\n').length - 1;
+    const col = (caret - oldStart) - (before.lastIndexOf('\n') + 1);
+    const oldLines = oldBody.split('\n');
+    const newLines = newBody.split('\n');
+    if (line >= newLines.length) return newText.length;
+    const delta = newLines[line].length - (oldLines[line] || '').length;
+    const nc = Math.max(0, Math.min(newLines[line].length, col > 0 ? col + delta : col));
+    let pos = newStart;
+    for (let i = 0; i < line; i++) pos += newLines[i].length + 1;
+    return pos + nc;
+  }
+
+  function restoreCaret(oldText, newText, caret) {
+    const el = editorRef.current;
+    if (!el) return;
+    const pos = mapCaretPos(oldText, newText, caret);
+    el.setSelectionRange(pos, pos);
   }
 
   const EXPORTERS = {
@@ -467,10 +786,11 @@ export default function App() {
     setStatus(t('status.exporting', { fmt: t(ex.label) }));
     setExporting(t(ex.label));
     try {
-      const saved = await ex.run(merged, buildExportOpts());
+      const text = flushEditor();
+      const saved = await ex.run(text, buildExportOpts());
       if (saved) {
         // The document now matches a file on disk, so it is no longer "unsaved".
-        savedTextRef.current = merged;
+        savedTextRef.current = text;
         setStatus(t('status.exported', { path: saved }));
         setExportResult({
           status: 'success',
@@ -483,7 +803,7 @@ export default function App() {
       }
     } catch (err) {
       setStatus(t('status.exportErr', { msg: err?.message || String(err) }));
-      setExportResult({ status: 'error', fmt: t(ex.label), message: err?.message || String(err) });
+      reportError(t(ex.label), err);
     } finally {
       setExporting(null);
     }
@@ -517,17 +837,113 @@ export default function App() {
 
   // "Save" on exit means exporting the document as Markdown. A cancelled save
   // dialog leaves the app open, so nothing is lost by accident.
+  // Save the document as it stands. The first save asks where to put it (and
+  // remembers); after that it writes straight over that file, the way Ctrl+S is
+  // expected to behave. The bytes are exactly what a Markdown export writes, so
+  // the file can be read back into the app unchanged. The web build cannot write
+  // to a path it was handed earlier, so there every save is a download.
+  // Reads the editor's text and makes it the document state right away, so an
+  // action taken mid-typing works on what is on screen, not on what React last
+  // heard about.
+  function flushEditor() {
+    const text = currentText();
+    cancelEditorSync();
+    if (text !== merged) setMerged(text);
+    return text;
+  }
+
+  async function saveDocument({ saveAs = false } = {}) {
+    if (!merged.trim() || savingRef.current) return;
+    savingRef.current = true;
+    setSaving(true);
+    try {
+      const text = flushEditor();
+      let path = null;
+      if (!saveAs && docPathRef.current && canWriteInPlace) {
+        path = await saveMarkdownTo(text, docPathRef.current);
+      }
+      if (!path) {
+        path = await exportMarkdown(text, exportName);
+        if (!path) return;                       // cancelled in the dialog
+        if (canWriteInPlace) { docPathRef.current = path; setDocPath(path); }
+      }
+      savedTextRef.current = text;
+      setStatus(t('status.saved', { path }));
+      notify(t('toast.saved'), { message: path });
+    } catch (err) {
+      reportError(t('tip.save'), err);
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
+    }
+  }
+
+  saveRef.current = saveDocument;
+  printRef.current = doPrint;
+
+  // Frameless windows have no OS grip in the corner, so the status bar draws one
+  // and drives the resize itself: the pointer's movement across the screen is
+  // added to the window size the drag started from.
+  function startResize(e) {
+    if (!isElectron || !api.win?.getSize) return;
+    e.preventDefault();
+    const el = e.currentTarget;
+    const pid = e.pointerId;
+    const startX = e.screenX;
+    const startY = e.screenY;
+    api.win.getSize().then((size) => {
+      const [w0, h0] = size || [0, 0];
+      const move = (ev) => api.win.setSize({
+        width: w0 + (ev.screenX - startX),
+        height: h0 + (ev.screenY - startY),
+      });
+      const up = () => {
+        try { el.releasePointerCapture(pid); } catch { /* already released */ }
+        el.removeEventListener('pointermove', move);
+        el.removeEventListener('pointerup', up);
+        el.removeEventListener('pointercancel', up);
+      };
+      try { el.setPointerCapture(pid); } catch { /* not captured; edge case */ }
+      el.addEventListener('pointermove', move);
+      el.addEventListener('pointerup', up);
+      el.addEventListener('pointercancel', up);
+    });
+  }
+
+  // Print what the preview shows. The heavy part (pagination) happens in the
+  // export pipeline, so this only has to guard against a second click.
+  async function doPrint() {
+    if (!merged.trim() || printingRef.current) return;
+    printingRef.current = true;
+    setPrinting(true);
+    setStatus(t('status.printing'));
+    try {
+      const r = await printDocument(flushEditor(), buildExportOpts(), exportName);
+      // A dialog the user closed is not a failure worth a red box.
+      setStatus(r && r.success === false
+        ? t('status.printCancel')
+        : t('status.printed'));
+    } catch (err) {
+      setStatus(t('status.ready'));
+      reportError(t('tip.print'), err);
+    } finally {
+      printingRef.current = false;
+      setPrinting(false);
+    }
+  }
+
   async function saveThenClose() {
     setCloseBusy(true);
     try {
-      const saved = await exportMarkdown(merged, exportName);
+      const text = flushEditor();
+      const saved = await exportMarkdown(text, exportName);
       if (!saved) { setCloseBusy(false); return; }
-      savedTextRef.current = merged;
+      savedTextRef.current = text;
       discardAndClose();
     } catch (err) {
       setCloseBusy(false);
       setCloseAsk(false);
-      setExportResult({ status: 'error', fmt: t('export.md'), message: err?.message || String(err) });
+      reportError(t('export.md'), err);
     }
   }
 
@@ -539,7 +955,15 @@ export default function App() {
   }
 
   function clearAll() {
+    cancelEditorSync();
     setFiles([]);
+    docPathRef.current = '';
+    setDocPath('');
+    savedTextRef.current = '';
+    resetHistory('');
+    editedRef.current = false;
+    setEdited(false);
+    setMergeStale(false);
     setMerged('');
     setSourceDir('');
     clearImages();
@@ -547,8 +971,45 @@ export default function App() {
     setStatus(t('status.cleared'));
   }
 
+  // Selects a range in the editor AND brings it into view.
+  function selectInEditor(el, start, end) {
+    el.focus();
+    el.setSelectionRange(start, end);
+    el.scrollSelectionIntoView?.();
+  }
+
+  // Jump to a heading without leaving the tab the writer is working in: select
+  // its line in the editor, or scroll to it in the preview.
   function scrollToHeading(h) {
-    setRightTab('preview');
+    // A generated page (cover / contents / figure index) is addressed by its
+    // section id — it has no heading number and no `h-N` anchor.
+    if (h.section) {
+      const el = editorOnScreen();
+      if (el) {
+        const live = getDocumentOutline(el.value).find((x) => x.section === h.section) || h;
+        const lines = el.value.split("\n");
+        const start = lines.slice(0, live.line).reduce((n, l) => n + l.length + 1, 0);
+        selectInEditor(el, start, start + (lines[live.line] || '').length);
+        return;
+      }
+      showTab('preview');
+      requestAnimationFrame(() => {
+        previewRef.current?.querySelector(`#sec-${h.section}`)
+          ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+      return;
+    }
+    const el = editorOnScreen();
+    if (el) {
+      // The outline is built from the settled text, which can be a line behind —
+      // so find the heading again in the text that is in the editor right now.
+      const live = getOutline(el.value).find((x) => x.index === h.index) || h;
+      const lines = el.value.split("\n");
+      const start = lines.slice(0, live.line).reduce((n, l) => n + l.length + 1, 0);
+      selectInEditor(el, start, start + (lines[live.line] || '').length);
+      return;
+    }
+    showTab('preview');
     requestAnimationFrame(() => {
       const el = previewRef.current?.querySelector(`#h-${h.index}`);
       el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -572,17 +1033,15 @@ export default function App() {
   // change the reference that produced it).
   function gotoFigure(f) {
     setActiveFigure(f.index);
-    if (rightTab === 'edit') {
-      const el = editorRef.current;
-      if (!el) return;
-      el.focus();
-      el.setSelectionRange(f.start, f.start + f.length);
-      // Chromium scrolls the selection into view when the field regains focus.
-      el.blur();
-      el.focus();
+    const el = editorOnScreen();
+    if (el) {
+      // Same reason as resizeFigure: select using offsets read from the text
+      // that is actually in the editor right now.
+      const live = getFigures(el.value).find((x) => x.index === f.index) || f;
+      selectInEditor(el, live.start, live.start + live.length);
       return;
     }
-    setRightTab('preview');
+    showTab('preview');
     requestAnimationFrame(() => {
       const el = previewRef.current?.querySelector(`#fig-${f.index}`);
       el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -592,16 +1051,125 @@ export default function App() {
   // Resizing a figure rewrites its Markdown in place (a `w=NN%` size hint), so
   // the change shows up in the editor text, the preview and every export.
   function resizeFigure(f, percent) {
-    setMerged((prev) => setFigureWidth(prev, f, percent));
+    // `figures` can be a moment behind the text, and setFigureWidth splices by
+    // offset — so find the figure again in the text as it is right now.
+    const base = currentText();
+    const live = getFigures(base).find((x) => x.index === f.index);
+    if (live) putEditorText(setFigureWidth(base, live, percent));
     setActiveFigure(f.index);
-    editedRef.current = true;
   }
 
   // Highlights the figure the editor caret currently sits in, so moving through
   // the text shows the matching picture in the sidebar.
+  // The editor stays mounted (hidden on the preview tab), so "go to this item"
+  // follows the visible tab rather than whether the DOM node exists.
+  function editorOnScreen() {
+    if (rightTab !== 'edit') return null;
+    const el = editorRef.current;
+    return el && el.isConnected ? el : null;
+  }
+
+  // Switching panes finishes the line first, so the preview always renders what
+  // is actually in the editor — and so the preview is built once, on the way in,
+  // rather than on any keystroke.
+  function showTab(tab) {
+    if (tab !== 'edit') settleNow();
+    setRightTab(tab);
+  }
+
+  // The document as it is at this instant: while the Edit tab is up, that is the
+  // textarea's own value, which can be a moment ahead of `merged`.
+  function currentText() {
+    const el = editorOnScreen();
+    if (!el || !el.isFilled) return merged;
+    return el.value;
+  }
+
+  function cancelEditorSync() {
+    clearTimeout(settleTimer.current);
+    settleTimer.current = 0;
+  }
+
+  // The editor's text becomes the document. A functional update, because this
+  // usually runs from a timer whose closure holds an older `merged`.
+  function settleNow() {
+    cancelEditorSync();
+    const el = editorRef.current;
+    if (!el || composingRef.current || !el.isReady) return;
+    // A remounted / not-yet-written editor is empty. Treating that as the
+    // document would wipe the merge the sidebar just showed.
+    if (!el.isFilled) {
+      if (merged) fillEditorFromMerged();
+      return;
+    }
+    const text = el.value;
+    histRef.current.sel = el.selectionStart;
+    syncFigureToCaret();
+    setMerged((prev) => (prev === text ? prev : text));
+  }
+
+  function fillEditorFromMerged() {
+    const el = editorRef.current;
+    if (!el || composingRef.current || !el.isReady) return;
+    if (el.value === merged) return;
+    const start = Math.min(el.selectionStart, merged.length);
+    const end = Math.min(el.selectionEnd, merged.length);
+    el.replaceKeepingView(merged, start, end);
+  }
+
+  function settleIn(ms) {
+    cancelEditorSync();
+    settleTimer.current = setTimeout(settleNow, ms);
+  }
+
+  // Replaces the editor's text from an action rather than a keystroke. The
+  // textarea is written directly — waiting for the push-back effect would race
+  // the requestAnimationFrame that puts the caret where the action wants it.
+  function putEditorText(text, start, end) {
+    const el = editorRef.current;
+    cancelEditorSync();
+    if (el) {
+      if (start != null) {
+        el.replaceKeepingView(text, start, end ?? start);
+        el.focus();
+      } else {
+        el.value = text;
+      }
+    }
+    markEdited();
+    setMerged(text);
+  }
+
+  // Typing costs exactly this: one flag and one timer. The first keystroke's
+  // "edited" badge is deferred so a React render cannot land inside an IME
+  // composition. After that, no state update at all.
+  function onEditorInput() {
+    if (!editedRef.current) queueMicrotask(markEdited);
+    if (composingRef.current) return;   // never interrupt IME composition
+    settleIn(SETTLE_IDLE_MS);
+  }
+
+  function onCompositionEnd() {
+    composingRef.current = false;
+    onEditorInput();
+  }
+
+  // Changes that came from somewhere other than the keyboard — a merge, an undo,
+  // the automatic renumber, a settings change — have to be pushed into the
+  // editor, because nothing else writes to it any more.
+  useLayoutEffect(() => {
+    fillEditorFromMerged();
+  }, [merged, rightTab]);
+
+  useEffect(() => {
+    if (rightTab === 'edit') editorRef.current?.requestMeasure?.();
+  }, [rightTab]);
+
   function syncFigureToCaret() {
     const el = editorRef.current;
-    if (!el || !figures.length) return;
+    if (!el) return;
+    histRef.current.sel = el.selectionStart;   // where undo should put the caret
+    if (!figures.length) return;
     const pos = el.selectionStart;
     const hit = figures.find((f) => pos >= f.start && pos <= f.start + f.length);
     setActiveFigure(hit ? hit.index : -1);
@@ -622,6 +1190,12 @@ export default function App() {
   }
   const optTitle = (labelKey, key) =>
     `${t(labelKey)} — ${onOff(key) ? t('opts.on') : t('opts.off')}`;
+  // Header / footer are a switch over a piece of text, so the tooltip shows the
+  // text as well — and says where to type one when there is none yet.
+  const optHint = (labelKey, key, text) => {
+    const body = String(text || '').trim();
+    return `${optTitle(labelKey, key)}${body ? ` — ${body}` : ` (${t('opts.noText')})`}`;
+  };
 
   // ── Document zoom ───────────────────────────────────────
   function applyZoom(next) {
@@ -633,11 +1207,46 @@ export default function App() {
   const zoomOut = () => applyZoom(zoom - ZOOM_STEP);
   const zoomReset = () => applyZoom(100);
 
-  // Ctrl +/-/0 and Ctrl+wheel, the shortcuts people already expect.
+  // The window may never be narrower than its own toolbar. Rather than keep a
+  // hand-measured constant in sync with every button anyone adds, measure the
+  // row that was actually laid out — in the language and font in use — and tell
+  // the main process. The spacer is skipped: it is the slack, not content.
+  useEffect(() => {
+    if (!isElectron || !api.win?.setMinWidth) return undefined;
+    let cancelled = false;
+    const measure = () => {
+      const el = toolbarRef.current;
+      if (cancelled || !el) return;
+      const cs = getComputedStyle(el);
+      const gap = parseFloat(cs.columnGap) || parseFloat(cs.gap) || 0;
+      const pad = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0);
+      let content = 0;
+      for (const child of el.children) {
+        if (child.classList.contains('toolbar-spacer')) continue;
+        content += child.getBoundingClientRect().width;
+      }
+      const gaps = gap * Math.max(0, el.children.length - 1);
+      // Whatever the window frame adds around the page, plus a little slack.
+      const chrome = Math.max(0, window.outerWidth - window.innerWidth);
+      api.win.setMinWidth(Math.ceil(content + gaps + pad + chrome) + 8);
+    };
+    // After layout, and again once webfonts have settled (label widths change).
+    const id = requestAnimationFrame(measure);
+    document.fonts?.ready?.then(measure).catch(() => {});
+    return () => { cancelled = true; cancelAnimationFrame(id); };
+    // Language changes the label widths, so measure again.
+  }, [lang]);
+
+  // Ctrl+S and Ctrl +/-/0 and Ctrl+wheel, the shortcuts people already expect.
   useEffect(() => {
     const onKey = (e) => {
       if (!(e.ctrlKey || e.metaKey)) return;
-      if (e.key === '+' || e.key === '=') { e.preventDefault(); zoomIn(); }
+      const k = e.key.toLowerCase();
+      // Ctrl+S saves, Ctrl+Shift+S saves under a new name. The editor's own
+      // key handler lets these through so they work while typing too.
+      if (k === 's') { e.preventDefault(); saveRef.current?.({ saveAs: e.shiftKey }); }
+      else if (k === 'p') { e.preventDefault(); printRef.current?.(); }
+      else if (e.key === '+' || e.key === '=') { e.preventDefault(); zoomIn(); }
       else if (e.key === '-' || e.key === '_') { e.preventDefault(); zoomOut(); }
       else if (e.key === '0') { e.preventDefault(); zoomReset(); }
     };
@@ -712,7 +1321,6 @@ export default function App() {
       { icon: IconTarget, label: t('ctx.goto'), onClick: () => scrollToHeading(h) },
       { icon: IconCopy, label: t('ctx.copyHeading'), onClick: () => copyText(h.text) },
       { separator: true },
-      { icon: IconHash, label: t('toolbar.renumber'), disabled: !merged, onClick: doRenumber },
       { icon: IconTrash, label: t('files.removeChecked'), danger: true, disabled: !files.some((f) => f.checked), onClick: removeChecked },
     ]);
   }
@@ -743,8 +1351,10 @@ export default function App() {
       { separator: true },
       ...zoomItems(),
       { separator: true },
-      { icon: IconMd, label: t('ctx.toEdit'), disabled: !merged, onClick: () => setRightTab('edit') },
-      { icon: IconHash, label: t('toolbar.renumber'), disabled: !merged, onClick: doRenumber },
+      { icon: IconMd, label: t('ctx.toEdit'), disabled: !merged, onClick: () => showTab('edit') },
+      { separator: true },
+      { icon: IconSave, label: `${t('tip.save')} (Ctrl S)`, disabled: !merged || saving, onClick: () => saveDocument() },
+      { icon: IconPrint, label: `${t('tip.print')} (Ctrl P)`, disabled: !merged || printing, onClick: doPrint },
       { separator: true },
       ...exportItems(),
     ]);
@@ -759,13 +1369,15 @@ export default function App() {
       { icon: IconPaste, label: t('ctx.paste'), onClick: editorPaste },
       { icon: IconSelectAll, label: t('ctx.selectAll'), onClick: () => el?.select() },
       { separator: true },
-      { icon: IconUp, label: `${t('ctx.undo')} (Ctrl Z)`, onClick: () => editorExec('undo') },
-      { icon: IconDown, label: `${t('ctx.redo')} (Ctrl Y)`, onClick: () => editorExec('redo') },
+      { icon: IconUndo, label: `${t('ctx.undo')} (Ctrl Z)`, disabled: !history.canUndo, onClick: undo },
+      { icon: IconRedo, label: `${t('ctx.redo')} (Ctrl Y)`, disabled: !history.canRedo, onClick: redo },
       { separator: true },
       ...zoomItems(),
       { separator: true },
-      { icon: IconHtml, label: t('ctx.toPreview'), disabled: !merged, onClick: () => setRightTab('preview') },
-      { icon: IconHash, label: t('toolbar.renumber'), disabled: !merged, onClick: doRenumber },
+      { icon: IconHtml, label: t('ctx.toPreview'), disabled: !merged, onClick: () => showTab('preview') },
+      { separator: true },
+      { icon: IconSave, label: `${t('tip.save')} (Ctrl S)`, disabled: !merged || saving, onClick: () => saveDocument() },
+      { icon: IconPrint, label: `${t('tip.print')} (Ctrl P)`, disabled: !merged || printing, onClick: doPrint },
       { separator: true },
       ...exportItems(),
     ]);
@@ -782,13 +1394,131 @@ export default function App() {
     sel.addRange(range);
   }
 
-  // Native textarea undo/redo — the stack the browser keeps for typing.
-  function editorExec(cmd) {
+
+  // ── Markdown toolbar (Edit tab) ─────────────────────────
+  // Every action runs on the textarea's current value and puts the selection
+  // back where it belongs, so the writer never loses their place. Headings stop
+  // at H5 — the document format does not use H6.
+  const HEADING_LEVELS = [1, 2, 3, 4, 5];
+
+  function editorApply(transform) {
     const el = editorRef.current;
     if (!el) return;
-    el.focus();
-    try { document.execCommand(cmd); } catch { /* ignore */ }
-    if (el.value !== merged) { editedRef.current = true; setMerged(el.value); }
+    const out = transform({ value: el.value, start: el.selectionStart, end: el.selectionEnd });
+    if (!out) return;
+    putEditorText(out.text, out.start, out.end ?? out.start);
+  }
+
+  // Start/end offsets of the whole lines the selection touches.
+  function lineRange(text, start, end) {
+    const from = text.lastIndexOf('\n', start - 1) + 1;
+    const nl = text.indexOf('\n', end);
+    return [from, nl < 0 ? text.length : nl];
+  }
+
+  // Sets every touched line to `level`; pressing the level a line already has
+  // takes the heading off again.
+  function applyHeading(level) {
+    editorApply(({ value, start, end }) => {
+      const [from, to] = lineRange(value, start, end);
+      const next = value.slice(from, to).split('\n').map((line) => {
+        const m = line.match(/^(#{1,6})\s+(.*)$/);
+        const body = m ? m[2] : line.replace(/^\s+/, '');
+        if (m && m[1].length === level) return body;
+        return `${'#'.repeat(level)} ${body}`;
+      }).join('\n');
+      return { text: value.slice(0, from) + next + value.slice(to), start: from, end: from + next.length };
+    });
+  }
+
+  // Wraps the selection (bold, italic, code …), or unwraps it if already wrapped.
+  function applyWrap(before, after = before) {
+    editorApply(({ value, start, end }) => {
+      const sel = value.slice(start, end);
+      if (sel.length >= before.length + after.length && sel.startsWith(before) && sel.endsWith(after)) {
+        const inner = sel.slice(before.length, sel.length - after.length);
+        return { text: value.slice(0, start) + inner + value.slice(end), start, end: start + inner.length };
+      }
+      return {
+        text: value.slice(0, start) + before + sel + after + value.slice(end),
+        start: start + before.length,
+        end: start + before.length + sel.length,
+      };
+    });
+  }
+
+  // Toggles a line prefix (list item, quote) across the selected lines.
+  function applyLinePrefix(prefix, ordered = false) {
+    editorApply(({ value, start, end }) => {
+      const [from, to] = lineRange(value, start, end);
+      const lines = value.slice(from, to).split('\n');
+      const rx = ordered ? /^\d+\.\s+/ : new RegExp(`^${prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`);
+      const on = lines.every((l) => rx.test(l));
+      const next = lines
+        .map((l, i) => (on ? l.replace(rx, '') : (ordered ? `${i + 1}. ` : prefix) + l))
+        .join('\n');
+      return { text: value.slice(0, from) + next + value.slice(to), start: from, end: from + next.length };
+    });
+  }
+
+  // Drops a block (code fence, table, rule) in on its own line. `select` is the
+  // placeholder to leave highlighted, if any.
+  function insertBlock(block, select) {
+    editorApply(({ value, start }) => {
+      const lead = start === 0 || value[start - 1] === '\n' ? '' : '\n';
+      const text = value.slice(0, start) + lead + block + value.slice(start);
+      const base = start + lead.length;
+      const at = select ? block.indexOf(select) : -1;
+      return at >= 0
+        ? { text, start: base + at, end: base + at + select.length }
+        : { text, start: base + block.length };
+    });
+  }
+
+  // A link/image keeps the selected text as the label and highlights the URL.
+  function insertLink(image) {
+    editorApply(({ value, start, end }) => {
+      const label = value.slice(start, end) || (image ? t('md.imageAlt') : t('md.linkText'));
+      const url = 'https://';
+      const snippet = `${image ? '!' : ''}[${label}](${url})`;
+      const text = value.slice(0, start) + snippet + value.slice(end);
+      const at = start + snippet.length - url.length - 1;
+      return { text, start: at, end: at + url.length };
+    });
+  }
+
+  const MD_TOOLS = [
+    { key: 'bold', label: 'B', cls: 'md-b', run: () => applyWrap('**') },
+    { key: 'italic', label: 'I', cls: 'md-i', run: () => applyWrap('*') },
+    { key: 'strike', label: 'S', cls: 'md-s', run: () => applyWrap('~~') },
+    { key: 'code', label: '`', cls: 'md-mono', run: () => applyWrap('`') },
+    { sep: true },
+    { key: 'list', label: '•', run: () => applyLinePrefix('- ') },
+    { key: 'ordered', label: '1.', cls: 'md-mono', run: () => applyLinePrefix('', true) },
+    { key: 'quote', label: '❝', run: () => applyLinePrefix('> ') },
+    { sep: true },
+    { key: 'link', label: '🔗', run: () => insertLink(false) },
+    { key: 'image', label: '🖼', run: () => insertLink(true) },
+    { key: 'codeBlock', label: '{ }', cls: 'md-mono', run: () => insertBlock('```\n\n```\n', '') },
+    { key: 'table', label: '▦', run: () => insertBlock('| A | B |\n| --- | --- |\n|  |  |\n', 'A') },
+    { key: 'rule', label: '―', run: () => insertBlock('\n---\n') },
+  ];
+
+  // Ctrl+B / Ctrl+I, and Ctrl+1…5 for the heading levels.
+  function editorKeyDown(e) {
+    if (!(e.ctrlKey || e.metaKey) && LINE_DONE_KEYS.has(e.key)) { settleIn(SETTLE_LINE_MS); return; }
+    if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+    const k = e.key.toLowerCase();
+    // Save / print are handled here as well as on the window, so they work even
+    // if something in between swallows the event — but then the window must not
+    // see them as well, or the action runs twice.
+    if (k === 's') { e.preventDefault(); e.stopPropagation(); saveDocument({ saveAs: e.shiftKey }); }
+    else if (k === 'p') { e.preventDefault(); e.stopPropagation(); doPrint(); }
+    else if (k === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
+    else if (k === 'y' || (k === 'z' && e.shiftKey)) { e.preventDefault(); redo(); }
+    else if (k === 'b') { e.preventDefault(); applyWrap('**'); }
+    else if (k === 'i') { e.preventDefault(); applyWrap('*'); }
+    else if (HEADING_LEVELS.includes(Number(k))) { e.preventDefault(); applyHeading(Number(k)); }
   }
 
   function replaceSelection(text) {
@@ -796,8 +1526,7 @@ export default function App() {
     if (!el) return;
     const s = el.selectionStart, e = el.selectionEnd;
     const next = el.value.slice(0, s) + text + el.value.slice(e);
-    setMerged(next);
-    requestAnimationFrame(() => { el.focus(); el.selectionStart = el.selectionEnd = s + text.length; });
+    putEditorText(next, s + text.length);
   }
   async function editorCut() {
     const el = editorRef.current;
@@ -819,6 +1548,32 @@ export default function App() {
   }, [merged]);
   const ThemeIcon = THEME_ICONS[theme] || IconSun;
 
+  // The sidebar lists are memoised (they can be hundreds of rows), so every
+  // handler they receive has to keep the same identity between renders.
+  const onFileToggle = useEvent(toggle);
+  const onFileCheckAll = useEvent(checkAll);
+  const onFileRemove = useEvent(remove);
+  const onFileRemoveChecked = useEvent(removeChecked);
+  const onFileMove = useEvent(move);
+  const onFileReorder = useEvent(reorder);
+  const onFileMenu = useEvent(fileRowMenu);
+  const onHeadingSelect = useEvent(scrollToHeading);
+  const onHeadingMenu = useEvent(outlineMenu);
+  const onFigureSelect = useEvent(gotoFigure);
+  const onFigureResize = useEvent(resizeFigure);
+  const onFigureMenu = useEvent(figureMenu);
+
+  editorCbs.current = {
+    onInput: onEditorInput,
+    onCompositionStart: () => { composingRef.current = true; },
+    onCompositionEnd,
+    onClick: () => { syncFigureToCaret(); settleIn(SETTLE_LINE_MS); },
+    onBlur: settleNow,
+    onKeyDown: editorKeyDown,
+    onContextMenu: editorMenu,
+    onReady: fillEditorFromMerged,
+  };
+
   return (
     <div className="app">
       <TitleBar title={t('app.title')} />
@@ -829,13 +1584,52 @@ export default function App() {
       <input ref={filesInputRef} type="file" accept=".md,.markdown" multiple
         style={{ display: 'none' }} onChange={onWebFiles} />
 
-      <header className="toolbar">
+      <header className="toolbar" ref={toolbarRef}>
         <div className="toolbar-group">
-          <button className="btn" title={t('tip.addFolder')} onClick={addFolder}><IconFolder /> {t('toolbar.addFolder')}</button>
-          <button className="btn" title={t('tip.addFiles')} onClick={addFiles}><IconFilePlus /> {t('toolbar.addFiles')}</button>
-          <button className="btn" title={t('tip.renumber')} onClick={doRenumber} disabled={!merged}>
-            <IconHash /> {t('toolbar.renumber')}
-          </button>
+          {/* Icon only: the tooltip names them, and the width goes to the
+              document instead. */}
+          <button className="iconbtn" title={`${t('toolbar.addFolder')} — ${t('tip.addFolder')}`}
+            onClick={addFolder}><IconFolder /></button>
+          <button className="iconbtn" title={`${t('toolbar.addFiles')} — ${t('tip.addFiles')}`}
+            onClick={addFiles}><IconFilePlus /></button>
+          {/* An ordinary action, not a toggle — the `on` state is reserved for
+              the option buttons. Unsaved work shows as a small dot instead. */}
+          <button className={`iconbtn${isDirty ? ' dirty' : ''}`}
+            title={`${t('tip.save')} (Ctrl S)${docPath ? ` — ${docPath}` : ''}`}
+            onClick={() => saveDocument()} disabled={!merged || saving}><IconSave /></button>
+          <button className="iconbtn" title={`${t('tip.print')} (Ctrl P)`}
+            onClick={doPrint} disabled={!merged || printing}><IconPrint /></button>
+        </div>
+        {/* Merge options: how the files are collected, ordered and joined. */}
+        <span className="toolbar-sep" />
+        <div className="toolbar-group">
+          <span className="toolbar-label">{t('opts.sort')}</span>
+          <select className="toolbar-select" value={sortOrder} title={t('opts.sort')}
+            onChange={(e) => onSortChange(e.target.value)}>
+            <option value="nameAsc">{t('sort.nameAsc')}</option>
+            <option value="nameDesc">{t('sort.nameDesc')}</option>
+            <option value="dateNewest">{t('sort.dateNewest')}</option>
+            <option value="dateOldest">{t('sort.dateOldest')}</option>
+            <option value="custom">{t('sort.custom')}</option>
+          </select>
+          <button className={`iconbtn${recursive ? ' on' : ''}`}
+            title={`${t('opts.recursive')} — ${recursive ? t('opts.on') : t('opts.off')}`}
+            onClick={() => toggleExportSetting('recursive')}><IconSubfolder /></button>
+          <button className={`iconbtn${insertFileHeaders ? ' on' : ''}`}
+            title={`${t('opts.fileHeaders')} — ${insertFileHeaders ? t('opts.on') : t('opts.off')}`}
+            onClick={() => toggleExportSetting('insertFileHeaders')}><IconFileHeading /></button>
+          <button className={`iconbtn${numberHeadings ? ' on' : ''}`}
+            title={`${t('opts.numberingOnMerge')} — ${numberHeadings ? t('opts.on') : t('opts.off')}`}
+            onClick={() => toggleExportSetting('numberHeadings')}><IconHash /></button>
+          {/* An action, not a toggle: numbering rewrites heading lines, so it
+              happens when asked for rather than under the writer's hands. */}
+          <button className="iconbtn" title={t('tip.renumber')}
+            onClick={renumberNow} disabled={!merged}><IconRenumber /></button>
+          {/* Rebuild from the sources — highlighted once the selection has moved
+              on but the edited document is being kept. */}
+          <button className={`iconbtn${mergeStale ? ' on' : ''}`}
+            title={mergeStale ? t('tip.remergeStale') : t('tip.remerge')}
+            onClick={remerge} disabled={!checkedCount}><IconRemerge /></button>
         </div>
         <div className="toolbar-group">
           <div className="dropdown" ref={exportRef}>
@@ -883,6 +1677,12 @@ export default function App() {
           <button className={`iconbtn${onOff('showPageNumber') ? ' on' : ''}`}
             title={optTitle('settings.pageNumber', 'showPageNumber')}
             onClick={() => toggleExportSetting('showPageNumber')}><IconPageNum /></button>
+          <button className={`iconbtn${onOff('showHeader') ? ' on' : ''}`}
+            title={optHint('settings.header', 'showHeader', exportSettings.headerText)}
+            onClick={() => toggleExportSetting('showHeader')}><IconHeader /></button>
+          <button className={`iconbtn${onOff('showFooter') ? ' on' : ''}`}
+            title={optHint('settings.footer', 'showFooter', exportSettings.footerText)}
+            onClick={() => toggleExportSetting('showFooter')}><IconFooter /></button>
         </div>
         <span className="toolbar-sep" />
         <div className="toolbar-group fontsize-ctl" title={t('settings.fontSize')}>
@@ -901,6 +1701,15 @@ export default function App() {
           <button className="iconbtn sm" title={`${t('tip.zoomIn')} (Ctrl +)`}
             onClick={zoomIn} disabled={zoom >= ZOOM_MAX}><IconZoomIn size={15} /></button>
         </div>
+        <span className="toolbar-sep" />
+        {/* Undo / redo for the document itself — the app keeps its own history,
+            because rewriting the textarea's value wipes the browser's. */}
+        <div className="toolbar-group">
+          <button className="iconbtn" title={`${t('md.undo')} (Ctrl Z)`}
+            onClick={undo} disabled={!history.canUndo}><IconUndo /></button>
+          <button className="iconbtn" title={`${t('md.redo')} (Ctrl Y)`}
+            onClick={redo} disabled={!history.canRedo}><IconRedo /></button>
+        </div>
         <div className="toolbar-spacer" />
         <div className="toolbar-group">
           <button className="iconbtn" title={t('tip.clear')} onClick={clearAll}><IconTrash /></button>
@@ -913,21 +1722,6 @@ export default function App() {
         </div>
       </header>
 
-      <div className="options">
-        <label className="opt"><input type="checkbox" checked={recursive} onChange={(e) => setRecursive(e.target.checked)} /> {t('opts.recursive')}</label>
-        <label className="opt">{t('opts.sort')}:
-          <select value={sortOrder} onChange={(e) => onSortChange(e.target.value)}>
-            <option value="nameAsc">{t('sort.nameAsc')}</option>
-            <option value="nameDesc">{t('sort.nameDesc')}</option>
-            <option value="dateNewest">{t('sort.dateNewest')}</option>
-            <option value="dateOldest">{t('sort.dateOldest')}</option>
-            <option value="custom">{t('sort.custom')}</option>
-          </select>
-        </label>
-        <label className="opt"><input type="checkbox" checked={insertFileHeaders} onChange={(e) => setInsertFileHeaders(e.target.checked)} /> {t('opts.fileHeaders')}</label>
-        <label className="opt"><input type="checkbox" checked={numberHeadings} onChange={(e) => setNumberHeadings(e.target.checked)} /> {t('opts.numbering')}</label>
-      </div>
-
       <main className="body">
         <aside className="sidebar">
           <div className="tabs">
@@ -937,21 +1731,25 @@ export default function App() {
           </div>
           <div className="sidebar-body">
             {leftTab === 'files'
-              ? <FileList files={files} onToggle={toggle} onCheckAll={checkAll} onRemove={remove} onRemoveChecked={removeChecked} onMove={move} onReorder={reorder} onRowContextMenu={fileRowMenu} />
+              ? <FileList files={files} onToggle={onFileToggle} onCheckAll={onFileCheckAll}
+                  onRemove={onFileRemove} onRemoveChecked={onFileRemoveChecked}
+                  onMove={onFileMove} onReorder={onFileReorder} onRowContextMenu={onFileMenu} />
               : leftTab === 'structure'
-                ? <OutlineTree outline={outline} onSelect={scrollToHeading} onItemContextMenu={outlineMenu} />
-                : <FigureList figures={figures} activeIndex={activeFigure} onSelect={gotoFigure} onResize={resizeFigure} onItemContextMenu={figureMenu} />}
+                ? <OutlineTree outline={structure} headingCount={outline.length}
+                    onSelect={onHeadingSelect} onItemContextMenu={onHeadingMenu} />
+                : <FigureList figures={figures} activeIndex={activeFigure} onSelect={onFigureSelect}
+                    onResize={onFigureResize} onItemContextMenu={onFigureMenu} />}
           </div>
         </aside>
 
         <section className="main">
           <div className="tabs">
-            <button className={rightTab === 'preview' ? 'tab active' : 'tab'} onClick={() => setRightTab('preview')}>{t('tab.preview')}</button>
-            <button className={rightTab === 'edit' ? 'tab active' : 'tab'} onClick={() => setRightTab('edit')}>{t('tab.edit')}</button>
+            <button className={rightTab === 'edit' ? 'tab active' : 'tab'} onClick={() => showTab('edit')}>{t('tab.edit')}</button>
+            <button className={rightTab === 'preview' ? 'tab active' : 'tab'} onClick={() => showTab('preview')}>{t('tab.preview')}</button>
           </div>
           <div className="main-body">
-            {rightTab === 'preview' ? (
-              merged
+            <div className={`preview-host${rightTab === 'preview' ? '' : ' is-hidden'}`}>
+              {merged
                 ? <div ref={previewRef} className="preview markdown-body"
                     style={{
                       fontFamily: exportSettings.fontFamily ? fontStack(exportSettings.fontFamily) : undefined,
@@ -961,25 +1759,40 @@ export default function App() {
                     }}
                     onClick={previewLinkClick}
                     onContextMenu={previewMenu} dangerouslySetInnerHTML={{ __html: previewHtml }} />
-                : <div className="empty"><p className="muted">{t('preview.empty')}</p></div>
-            ) : (
-              // The editor holds raw Markdown, so the images live in a docked
-              // panel beside it: every embedded picture is visible while editing,
-              // and the one the caret sits in is highlighted.
-              <div className="editor-pane">
-                <textarea ref={editorRef} className="editor" value={merged}
-                  style={{ fontSize: `${(13.5 * zoom) / 100}px` }}
-                  onChange={(e) => { editedRef.current = true; setMerged(e.target.value); }}
-                  onSelect={syncFigureToCaret} onClick={syncFigureToCaret} onKeyUp={syncFigureToCaret}
-                  onContextMenu={editorMenu} spellCheck={false} placeholder={t('preview.empty')} />
-                {figures.length > 0 && (
-                  <aside className="editor-figures">
-                    <FigureList figures={figures} activeIndex={activeFigure}
-                      onSelect={gotoFigure} onResize={resizeFigure} onItemContextMenu={figureMenu} />
-                  </aside>
-                )}
-              </div>
-            )}
+                : <div className="empty"><p className="muted">{t('preview.empty')}</p></div>}
+            </div>
+            <div className={`editor-wrap${rightTab === 'edit' ? '' : ' is-hidden'}`}>
+                {/* Markdown marks for the text under the caret. */}
+                <div className="md-toolbar">
+                  {HEADING_LEVELS.map((n) => (
+                    <button key={n} className="md-btn md-h" title={t('md.heading', { level: n })}
+                      onClick={() => applyHeading(n)}>H{n}</button>
+                  ))}
+                  <span className="md-sep" />
+                  {MD_TOOLS.map((tool, i) => (tool.sep
+                    ? <span key={`s${i}`} className="md-sep" />
+                    : (
+                      <button key={tool.key} className={`md-btn ${tool.cls || ''}`}
+                        title={t(`md.${tool.key}`)} onClick={tool.run}>{tool.label}</button>
+                    )
+                  ))}
+                </div>
+                <div className="editor-pane">
+                  {/* Uncontrolled CodeMirror: React never writes the document
+                      during typing. The effect above is the only thing that
+                      fills it from app state. onSelect / onKeyUp stay off —
+                      both fire on every character typed. */}
+                  <MarkdownEditor ref={editorRef} zoom={zoom}
+                    placeholder={t('preview.empty')}
+                    callbacksRef={editorCbs} />
+                  {figures.length > 0 && (
+                    <aside className="editor-figures">
+                      <FigureList figures={figures} activeIndex={activeFigure}
+                        onSelect={onFigureSelect} onResize={onFigureResize} onItemContextMenu={onFigureMenu} />
+                    </aside>
+                  )}
+                </div>
+            </div>
           </div>
         </section>
       </main>
@@ -992,11 +1805,17 @@ export default function App() {
           <span className="stat" title={t('stat.figures')}><IconImage size={13} /> {figures.length}</span>
           <span className="stat" title={t('stat.words')}>{t('stat.wAbbr')} {stats.words}</span>
           <span className="stat" title={t('stat.chars')}>{t('stat.cAbbr')} {stats.chars}</span>
-          {numberHeadings && <span className="stat badge" title={t('opts.numbering')}><IconHash size={12} /></span>}
+          {/* Says why the automatic merge has gone quiet: this document is
+              the writer's now, not a rebuild of the sources. */}
+          {edited && <span className="stat badge" title={t('stat.editedHint')}>{t('stat.edited')}</span>}
+          {numberHeadings && <span className="stat badge" title={t('opts.numberingOnMerge')}><IconHash size={12} /></span>}
           <span className="stat" title={t('settings.font')}>{exportSettings.fontFamily || t('settings.fontDefault')} · {exportSettings.fontSizePt}pt</span>
           <span className="stat" title={t('settings.theme')}>{t(`theme.${theme}`)}</span>
         </div>
         {sourceDir && <span className="status-dir" title={sourceDir}>{sourceDir}</span>}
+        {isElectron && (
+          <span className="resize-grip" title={t('tip.resize')} onPointerDown={startResize} />
+        )}
       </footer>
 
       <ContextMenu open={ctx.open} x={ctx.x} y={ctx.y} items={ctx.items} onClose={closeCtx} />

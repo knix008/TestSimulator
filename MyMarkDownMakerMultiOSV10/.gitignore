@@ -22,12 +22,19 @@ src/build-info.json
 *.snap
 *.zip
 
-# Exported documents (Word MHT / others) accidentally saved into the repo
+# Exported documents saved into the repo by mistake. The app writes .md too,
+# but those are the user's real documents — never blanket-ignore *.md here.
 *.doc
+*.docx
 *.mht
+*.pdf
 
-# Temp / scratch (screenshots, export temp, one-off Electron test harnesses)
+# Temp / scratch (screenshots, export temp, one-off test harnesses). Anything
+# starting with "_" at the root is a throwaway — that is the convention here.
 _*.png
+_*.mjs
+_*.js
+_*.html
 *.tmp
 scripts/test-*.cjs
 
@@ -36,6 +43,10 @@ scripts/test-*.cjs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Local environment overrides
+.env
+.env.*
 
 # OS / editor
 .DS_Store

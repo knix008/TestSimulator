@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, Menu, shell, session } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, Menu, shell, session, screen } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -60,7 +60,11 @@ function createWindow() {
   const win = new BrowserWindow({
     width: 1500,
     height: 940,
-    minWidth: 1000,
+    // A starting point only: the renderer measures the toolbar it actually drew
+    // and raises this to whatever that row needs (win:setMinWidth), in whichever
+    // language is on. Adding a toolbar button no longer means re-measuring a
+    // constant by hand.
+    minWidth: 900,
     minHeight: 620,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -230,12 +234,48 @@ function scanMarkdown(dir, recursive) {
   return results;
 }
 
+// ── Last used folder ──────────────────────────────────────
+// Kept in its own file (settings.json is rewritten wholesale by the renderer,
+// which would drop anything the main process put there). The open dialogs start
+// in this folder, so the next run picks up where the last one left off.
+function lastDirFile() { return path.join(app.getPath('userData'), 'last-dir.json'); }
+
+function readLastDir() {
+  try {
+    const { dir } = JSON.parse(fs.readFileSync(lastDirFile(), 'utf-8'));
+    if (dir && fs.existsSync(dir)) return dir;
+  } catch { /* ignore */ }
+  return undefined;
+}
+
+function rememberDir(dir) {
+  try { fs.writeFileSync(lastDirFile(), JSON.stringify({ dir }, null, 2), 'utf-8'); } catch { /* ignore */ }
+}
+
+function dialogParent() {
+  const win = BrowserWindow.getFocusedWindow()
+    || BrowserWindow.getAllWindows().find((w) => !w.isDestroyed() && w.isVisible());
+  return win && !win.isDestroyed() ? win : undefined;
+}
+
+function openDialog(opts) {
+  const win = dialogParent();
+  return win ? dialog.showOpenDialog(win, opts) : dialog.showOpenDialog(opts);
+}
+
+function saveDialog(opts) {
+  const win = dialogParent();
+  return win ? dialog.showSaveDialog(win, opts) : dialog.showSaveDialog(opts);
+}
+
 ipcMain.handle('dialog:pickDirectory', async () => {
-  const { canceled, filePaths } = await dialog.showOpenDialog({
+  const { canceled, filePaths } = await openDialog({
     title: '소스 폴더 선택 / Select Source Folder',
+    defaultPath: readLastDir(),
     properties: ['openDirectory'],
   });
   if (canceled || !filePaths.length) return null;
+  rememberDir(filePaths[0]);
   return filePaths[0];
 });
 
@@ -286,8 +326,9 @@ ipcMain.handle('fs:readFiles', (_e, paths) => {
 
 // Pick individual Markdown files (fallback / add-files flow).
 ipcMain.handle('dialog:openFiles', async () => {
-  const { canceled, filePaths } = await dialog.showOpenDialog({
+  const { canceled, filePaths } = await openDialog({
     title: 'Markdown 파일 선택 / Select Markdown Files',
+    defaultPath: readLastDir(),
     filters: [
       { name: 'Markdown', extensions: ['md', 'markdown'] },
       { name: 'All Files', extensions: ['*'] },
@@ -295,6 +336,7 @@ ipcMain.handle('dialog:openFiles', async () => {
     properties: ['openFile', 'multiSelections'],
   });
   if (canceled || !filePaths.length) return [];
+  rememberDir(path.dirname(filePaths[0]));
   return filePaths.map((fp) => {
     let mtime = 0;
     try { mtime = fs.statSync(fp).mtimeMs; } catch { /* ignore */ }
@@ -310,7 +352,7 @@ ipcMain.handle('dialog:openFiles', async () => {
 
 // Save text (merged markdown or exported HTML) with a save dialog.
 ipcMain.handle('dialog:saveText', async (_e, { defaultName, content, filters }) => {
-  const { canceled, filePath } = await dialog.showSaveDialog({
+  const { canceled, filePath } = await saveDialog({
     title: '저장 / Save',
     defaultPath: defaultName || 'merged.md',
     filters: filters || [{ name: 'Markdown', extensions: ['md'] }],
@@ -320,9 +362,48 @@ ipcMain.handle('dialog:saveText', async (_e, { defaultName, content, filters }) 
   return filePath;
 });
 
+// The renderer measures the toolbar it actually laid out — fonts, language and
+// all — and reports how wide the window has to be for it. That beats a constant
+// nobody remembers to re-measure when a button is added. Clamped to the display
+// so a small screen never gets a window it cannot fit.
+ipcMain.handle('win:setMinWidth', (e, width) => {
+  const win = BrowserWindow.fromWebContents(e.sender);
+  if (!win) return null;
+  const workArea = screen.getPrimaryDisplay().workAreaSize.width;
+  const w = Math.max(640, Math.min(Math.round(width), workArea));
+  const [, minH] = win.getMinimumSize();
+  win.setMinimumSize(w, minH);
+  const [curW, curH] = win.getSize();
+  if (curW < w) win.setSize(w, curH);
+  return w;
+});
+
+// A frameless window has no OS resize grip, so the status bar draws one and
+// drives the resize from the renderer (see startResize in App.jsx).
+ipcMain.handle('win:getSize', (e) => {
+  const win = BrowserWindow.fromWebContents(e.sender);
+  return win ? win.getSize() : [0, 0];
+});
+
+ipcMain.handle('win:setSize', (e, { width, height }) => {
+  const win = BrowserWindow.fromWebContents(e.sender);
+  // setSize already clamps to the window's minimum size.
+  if (win && !win.isMaximized()) win.setSize(Math.round(width), Math.round(height));
+  return null;
+});
+
+// Overwrite a file the user has already chosen — this is what Save (as opposed
+// to Save as) does, so it must not open a dialog. The path always comes from an
+// earlier save dialog in this session, never from the document.
+ipcMain.handle('fs:writeText', async (_e, { filePath, content }) => {
+  if (!filePath) return null;
+  fs.writeFileSync(filePath, content, 'utf-8');
+  return filePath;
+});
+
 // Save a binary file (base64) — used for Word (.docx) export.
 ipcMain.handle('dialog:saveBinary', async (_e, { defaultName, base64, filters }) => {
-  const { canceled, filePath } = await dialog.showSaveDialog({
+  const { canceled, filePath } = await saveDialog({
     title: '저장 / Save',
     defaultPath: defaultName || 'document.bin',
     filters: filters || [{ name: 'All Files', extensions: ['*'] }],
@@ -333,8 +414,50 @@ ipcMain.handle('dialog:saveBinary', async (_e, { defaultName, base64, filters })
 });
 
 // Render standalone HTML to PDF using an offscreen window's print engine.
+// Print the document itself — the same paginated HTML the PDF export renders,
+// so what comes out of the printer matches the preview (cover, contents with
+// real page numbers, header/footer, page breaks). Shows the system print dialog.
+ipcMain.handle('doc:print', async (_e, { html, pdfOptions }) => {
+  const opts = pdfOptions || {};
+  const polyfill = opts.paged ? getPagedPolyfill() : '';
+  const usePaged = !!(opts.paged && polyfill);
+  const tmp = path.join(os.tmpdir(), `mmm-print-${Date.now()}.html`);
+  fs.writeFileSync(tmp, usePaged ? injectPagedConfig(html) : html, 'utf-8');
+
+  // An offscreen-but-shown window: a hidden window cannot be printed on Windows.
+  const win = createRenderWindow();
+  const cleanup = () => {
+    if (!win.isDestroyed()) win.destroy();
+    try { fs.unlinkSync(tmp); } catch { /* already gone */ }
+  };
+  try {
+    await win.loadFile(tmp);
+    if (usePaged) {
+      const tail = `document.querySelectorAll('.toc-table tr').forEach(function(tr){`
+        + `var a=tr.querySelector('a');var s=tr.querySelector('.toc-c-pg');if(!a||!s)return;`
+        + `var id=(a.getAttribute('href')||'').slice(1);`
+        + `var el=id&&document.getElementById(id);`
+        + `var pg=el&&el.closest('.pagedjs_page');`
+        + `var n=pg&&pg.getAttribute('data-page-number');`
+        + `if(n!=null)s.textContent=n;});`
+        + `return true;`;
+      try { await win.webContents.executeJavaScript(pagedDriver(polyfill, tail)); }
+      catch { /* fall through and print what rendered */ }
+    }
+    return await new Promise((resolve) => {
+      win.webContents.print(
+        { silent: false, printBackground: true, margins: { marginType: 'none' } },
+        (success, reason) => { cleanup(); resolve({ success, reason: reason || '' }); },
+      );
+    });
+  } catch (err) {
+    cleanup();
+    throw err;
+  }
+});
+
 ipcMain.handle('export:pdf', async (_e, { html, defaultName, pdfOptions }) => {
-  const { canceled, filePath } = await dialog.showSaveDialog({
+  const { canceled, filePath } = await saveDialog({
     title: 'PDF 내보내기 / Export PDF',
     defaultPath: defaultName || 'document.pdf',
     filters: [{ name: 'PDF', extensions: ['pdf'] }],
@@ -425,9 +548,32 @@ ipcMain.handle('export:paginate', async (_e, html) => {
 // Separate, movable settings window (native frame so it can leave the main window).
 // The settings window's fixed size (see the three-column form in App.css).
 const SETTINGS_W = 1240;
-const SETTINGS_H = 585;
+// A starting height only, deliberately generous: the settings window measures
+// the form it actually laid out and asks to be resized to exactly fit
+// (settings:resize). Adding a section no longer means guessing a new constant,
+// and an over-tall window is a strip of empty space — an under-tall one hides
+// settings, which is what the old hand-kept constant kept doing.
+const SETTINGS_H = 820;
 
 let settingsWin = null;
+// The settings window reports how tall its form came out — in the language and
+// at the font size actually in use — and is resized to exactly that.
+ipcMain.handle('settings:resize', (e, { width, height }) => {
+  const win = BrowserWindow.fromWebContents(e.sender);
+  if (!win || win !== settingsWin) return null;
+  const area = screen.getPrimaryDisplay().workAreaSize;
+  const w = Math.max(640, Math.min(Math.round(width || win.getSize()[0]), area.width));
+  const h = Math.max(420, Math.min(Math.round(height), area.height));
+  const [curW, curH] = win.getSize();
+  if (curW === w && curH === h) return [w, h];
+  // The window is pinned to one size, so all three have to move together.
+  win.setMinimumSize(w, h);
+  win.setMaximumSize(w, h);
+  win.setSize(w, h);
+  win.center();
+  return [w, h];
+});
+
 ipcMain.handle('settings:open', () => {
   if (settingsWin && !settingsWin.isDestroyed()) { settingsWin.show(); settingsWin.focus(); return; }
   // Fixed size: the form is laid out in three columns to fit exactly this box,

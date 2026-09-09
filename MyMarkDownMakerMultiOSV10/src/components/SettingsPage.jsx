@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import i18n from '../i18n';
 import SettingsForm from './SettingsForm';
 import { THEMES } from '../lib/themes';
 import { IconSettings, IconX } from './Icons';
+import { isElectron, api } from '../lib/platform';
 import { DEFAULT_EXPORT_SETTINGS } from '../lib/markdown';
 import { saveSettingsToDisk } from '../lib/platform';
 
@@ -55,6 +56,39 @@ export default function SettingsPage() {
     return () => window.removeEventListener('storage', onStorage);
   }, []);
 
+  // The window is pinned to one size, so that size has to be the one the form
+  // actually needs — measured here rather than kept as a constant somebody has
+  // to remember to raise. Language, font and any new section are all accounted
+  // for, because this measures what was laid out.
+  const bodyRef = useRef(null);
+  useEffect(() => {
+    if (!isElectron || !api.resizeSettings) return undefined;
+    let cancelled = false;
+    const fit = () => {
+      const body = bodyRef.current;
+      const form = body?.querySelector('.settings-form');
+      if (cancelled || !body || !form) return;
+      // The form is a three-column box, so its own height is the height of the
+      // TALLEST column — measure the sections rather than trusting scrollHeight,
+      // which says nothing useful once a column has been forced to overflow.
+      const top = form.getBoundingClientRect().top;
+      let needed = 0;
+      for (const section of form.children) {
+        needed = Math.max(needed, section.getBoundingClientRect().bottom - top);
+      }
+      const cs = getComputedStyle(body);
+      const pad = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
+      // Everything that is not the scrolling body: the title bar and the footer.
+      const chrome = document.documentElement.clientHeight - body.clientHeight;
+      api.resizeSettings({ height: Math.ceil(needed + pad + chrome) + 4 });
+    };
+    const id = requestAnimationFrame(fit);
+    document.fonts?.ready?.then(fit).catch(() => {});
+    return () => { cancelled = true; cancelAnimationFrame(id); };
+    // Sections appear and disappear with the settings, and the labels change
+    // with the language — so re-measure whenever either moves.
+  }, [lang, settings]);
+
   const patch = (p) => setSettings((s) => ({ ...s, ...p }));
   const resetAll = () => {
     if (typeof window !== 'undefined' && window.confirm && !window.confirm(t('settings.resetConfirm'))) return;
@@ -71,7 +105,7 @@ export default function SettingsPage() {
         </div>
         <button className="iconbtn" onClick={() => window.close()} title={t('about.close')}><IconX /></button>
       </div>
-      <div className="settings-page-body">
+      <div className="settings-page-body" ref={bodyRef}>
         <SettingsForm
           settings={settings}
           onChange={patch}

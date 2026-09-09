@@ -23,6 +23,16 @@ export async function saveText({ defaultName, content, filters }) {
   return defaultName || 'merged.md';
 }
 
+// Write over a file already chosen in this session — Save, not Save as, so no
+// dialog. Only Electron can do this; a browser cannot write to a path it was
+// given earlier, so the web build says so and the caller falls back to saveText.
+export const canWriteInPlace = isElectron;
+
+export async function writeTextTo(filePath, content) {
+  if (!isElectron || !filePath) return null;
+  return api.writeText({ filePath, content });
+}
+
 // Save binary data (a Blob) — Word/PDF export. Electron routes through a native
 // Save dialog; the web build downloads the blob. Returns saved path / filename.
 export async function saveBlob({ defaultName, blob, filters }) {
@@ -37,6 +47,15 @@ export async function saveBlob({ defaultName, blob, filters }) {
 // Export a standalone HTML string to PDF.
 //   • Electron — native printToPDF via the main process (silent, file saved).
 //   • Web      — opens a print window; the user picks “Save as PDF”.
+// Print the document. Electron paginates it offscreen and opens the system
+// print dialog; the web build hands the same HTML to the browser's own dialog.
+// Returns { success, reason } — `success: false` also covers "user cancelled".
+export async function printDocument({ html, pdfOptions }) {
+  if (isElectron && api.printDoc) return api.printDoc({ html, pdfOptions });
+  printHtml(html);
+  return { success: true, reason: '' };
+}
+
 export async function exportPdf({ html, defaultName, pdfOptions }) {
   if (isElectron) {
     return api.exportPdf({ html, defaultName, pdfOptions });

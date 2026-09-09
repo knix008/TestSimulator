@@ -11,10 +11,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   embedImage: (payload) => ipcRenderer.invoke('fs:embedImage', payload),
   openFiles: () => ipcRenderer.invoke('dialog:openFiles'),
   saveText: (payload) => ipcRenderer.invoke('dialog:saveText', payload),
+  writeText: (payload) => ipcRenderer.invoke('fs:writeText', payload),
   saveBinary: (payload) => ipcRenderer.invoke('dialog:saveBinary', payload),
   exportPdf: (payload) => ipcRenderer.invoke('export:pdf', payload),
+  printDoc: (payload) => ipcRenderer.invoke('doc:print', payload),
   paginate: (html) => ipcRenderer.invoke('export:paginate', html),
   openSettings: () => ipcRenderer.invoke('settings:open'),
+  resizeSettings: (payload) => ipcRenderer.invoke('settings:resize', payload),
   openAbout: () => ipcRenderer.invoke('about:open'),
   loadSettings: () => ipcRenderer.invoke('settings:load'),
   saveSettings: (data) => ipcRenderer.invoke('settings:save', data),
@@ -33,6 +36,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     holdClose: () => ipcRenderer.invoke('win:holdClose'),
     confirmClose: () => ipcRenderer.invoke('win:confirmClose'),
     isMaximized: () => ipcRenderer.invoke('win:isMaximized'),
+    getSize: () => ipcRenderer.invoke('win:getSize'),
+    setMinWidth: (w) => ipcRenderer.invoke('win:setMinWidth', w),
+    setSize: (payload) => ipcRenderer.invoke('win:setSize', payload),
     onMaximizeChange: (cb) => {
       const h = (_e, v) => cb(v);
       ipcRenderer.on('win:maximized', h);

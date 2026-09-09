@@ -3,9 +3,13 @@
 import {
   toStandaloneHtml, buildMergedMarkdownDocument, documentExportBaseName,
   sanitizeExportName, splitDocument, getFigures, PAGE_CONTENT_PX, DEFAULT_EXPORT_SETTINGS,
+  runningHeaderText, runningFooterText,
 } from './markdown';
 import { imageDisplaySrc } from './images';
-import { saveText, exportPdf as platformExportPdf, computeTocPageMap } from './platform';
+import {
+  saveText, exportPdf as platformExportPdf, computeTocPageMap, printDocument as platformPrint,
+  canWriteInPlace, writeTextTo,
+} from './platform';
 
 // Resolve the export base name: user-provided name wins, else first heading.
 function baseNameFor(markdown, baseName) {
@@ -91,6 +95,14 @@ export async function exportMarkdown(markdown, baseName) {
   });
 }
 
+// Save over the .md the document already lives in — no dialog, same bytes an
+// export would write. Returns the path, or null when the runtime cannot write
+// in place (the web build), so the caller can fall back to exportMarkdown().
+export async function saveMarkdownTo(markdown, filePath) {
+  if (!canWriteInPlace || !filePath) return null;
+  return writeTextTo(filePath, buildMergedMarkdownDocument(markdown));
+}
+
 export async function exportHtml(markdown, settings = {}, baseName) {
   const s = { ...DEFAULT_EXPORT_SETTINGS, ...settings };
   const base = baseNameFor(markdown, baseName);
@@ -127,6 +139,28 @@ export async function exportPdf(markdown, settings = {}, baseName) {
     defaultName: `${base}.pdf`,
     // `paged` engine renders TOC page numbers + header/footer via CSS;
     // `fallback` templates are used if paged.js is unavailable.
+    pdfOptions: { paged: true, fallback: pdfHeaderFooterOptions(s) },
+  });
+}
+
+// Print the document as the preview lays it out. Deliberately the very same
+// HTML the PDF export renders — cover, contents with resolved page numbers,
+// figure index, header/footer and page breaks — so the paper matches the screen
+// and the PDF. No file is written; the print dialog decides where it goes.
+export async function printDocument(markdown, settings = {}, baseName) {
+  const s = {
+    ...DEFAULT_EXPORT_SETTINGS, ...settings,
+    tocPageNumbers: settings.tocPage !== false,
+    figurePageNumbers: settings.figurePage !== false,
+  };
+  const base = baseNameFor(markdown, baseName);
+  const sizes = await measureImages(markdown);
+  const pageMap = await resolvePageMap(markdown, base, s, sizes);
+  return platformPrint({
+    html: fitImages(
+      toStandaloneHtml(markdown, base, { ...s, tocPageMap: pageMap, figurePageMap: pageMap }),
+      sizes,
+    ),
     pdfOptions: { paged: true, fallback: pdfHeaderFooterOptions(s) },
   });
 }
@@ -211,15 +245,17 @@ function buildWordMht(html) {
 // header/footer to render. We lay out three cells (left/center/right) and drop
 // the header text, footer text and page-number counter into the chosen slots.
 function pdfHeaderFooterOptions(s) {
-  if (!s.headerText && !s.footerText && !s.showPageNumber) {
+  const headerText = runningHeaderText(s);
+  const footerText = runningFooterText(s);
+  if (!headerText && !footerText && !s.showPageNumber) {
     return { displayHeaderFooter: false, margins: { top: 0.5, bottom: 0.5, left: 0.5, right: 0.5 } };
   }
   const family = s.fontFamily ? `'${s.fontFamily}', sans-serif` : 'sans-serif';
 
   const top = { left: '', center: '', right: '' };
   const bottom = { left: '', center: '', right: '' };
-  if (s.headerText) top[s.headerAlign] = esc(s.headerText);
-  if (s.footerText) bottom[s.footerAlign] = esc(s.footerText);
+  if (headerText) top[s.headerAlign] = esc(headerText);
+  if (footerText) bottom[s.footerAlign] = esc(footerText);
   if (s.showPageNumber) {
     const [row, col] = s.pageNumberPos.split('-');
     (row === 'top' ? top : bottom)[col] = '<span class="pageNumber"></span>';

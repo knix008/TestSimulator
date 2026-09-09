@@ -2,8 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getSystemFonts } from '../lib/fonts';
 import { THEMES } from '../lib/themes';
+import { SORT_ORDERS } from '../lib/markdown';
 
 const ALIGNS = ['left', 'center', 'right'];
+// Same list the toolbar uses, and the same settings store behind both, so the
+// two can never drift apart.
+const MERGE_TOGGLES = ['recursive', 'insertFileHeaders', 'numberHeadings'];
 const POS_ROWS = ['top', 'bottom'];
 
 // Today in the YYYY-MM-DD form <input type="date"> expects, in local time
@@ -233,25 +237,76 @@ export default function SettingsForm({ settings, onChange, theme, onTheme, lang,
         </div>
       </div>
 
+      {/* ── Merge (the toolbar's left half) ── */}
+      <div className="form-section">
+        <h3>{t('settings.merge')}</h3>
+        <div className="field">
+          <label>{t('opts.sort')}</label>
+          <div className="control">
+            <select className="toolbar-select" value={s.sortOrder || 'nameAsc'}
+              onChange={(e) => set({ sortOrder: e.target.value })}>
+              {SORT_ORDERS.map((id) => <option key={id} value={id}>{t(`sort.${id}`)}</option>)}
+            </select>
+          </div>
+        </div>
+        {MERGE_TOGGLES.map((key) => (
+          <div className="field" key={key}>
+            <label>{t(`opts.${key === 'insertFileHeaders' ? 'fileHeaders' : key}`)}</label>
+            <div className="control">
+              <label className="field-check">
+                <input type="checkbox" checked={s[key] !== false}
+                  onChange={(e) => set({ [key]: e.target.checked })} />
+                {t(`settings.${key}Desc`)}
+              </label>
+            </div>
+          </div>
+        ))}
+      </div>
+
       {/* ── Header / Footer / Page number ── */}
       <div className="form-section">
         <h3>{t('settings.headerFooter')}</h3>
+        {/* The use/don't-use switches are the same ones the toolbar shows. */}
         <div className="field">
           <label>{t('settings.header')}</label>
-          <div className="control wrap">
-            <input type="text" value={s.headerText} placeholder={t('settings.headerPh')}
-              onChange={(e) => set({ headerText: e.target.value })} />
-            <AlignPicker value={s.headerAlign} onChange={(v) => set({ headerAlign: v })} />
+          <div className="control">
+            <label className="field-check">
+              <input type="checkbox" checked={s.showHeader !== false}
+                onChange={(e) => set({ showHeader: e.target.checked })} />
+              {t('settings.useHeader')}
+            </label>
           </div>
         </div>
+        {s.showHeader !== false && (
+          <div className="field">
+            <label>{t('settings.headerText')}</label>
+            <div className="control wrap">
+              <input type="text" value={s.headerText} placeholder={t('settings.headerPh')}
+                onChange={(e) => set({ headerText: e.target.value })} />
+              <AlignPicker value={s.headerAlign} onChange={(v) => set({ headerAlign: v })} />
+            </div>
+          </div>
+        )}
         <div className="field">
           <label>{t('settings.footer')}</label>
-          <div className="control wrap">
-            <input type="text" value={s.footerText} placeholder={t('settings.footerPh')}
-              onChange={(e) => set({ footerText: e.target.value })} />
-            <AlignPicker value={s.footerAlign} onChange={(v) => set({ footerAlign: v })} />
+          <div className="control">
+            <label className="field-check">
+              <input type="checkbox" checked={s.showFooter !== false}
+                onChange={(e) => set({ showFooter: e.target.checked })} />
+              {t('settings.useFooter')}
+            </label>
           </div>
         </div>
+        {s.showFooter !== false && (
+          <div className="field">
+            <label>{t('settings.footerText')}</label>
+            <div className="control wrap">
+              <input type="text" value={s.footerText} placeholder={t('settings.footerPh')}
+                onChange={(e) => set({ footerText: e.target.value })} />
+              <AlignPicker value={s.footerAlign} onChange={(v) => set({ footerAlign: v })} />
+            </div>
+          </div>
+        )}
         <div className="field">
           <label>{t('settings.pageNumber')}</label>
           <div className="control">

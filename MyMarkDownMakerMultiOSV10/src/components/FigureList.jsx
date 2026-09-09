@@ -6,7 +6,7 @@ import { imageDisplaySrc } from '../lib/images';
 // what makes figures visible while editing: the Edit tab holds the raw Markdown
 // (image links, not pictures), so the panel shows the actual picture next to its
 // "Figure N" label, highlights the one the caret sits on, and jumps to it.
-export default function FigureList({ figures, activeIndex, onSelect, onResize, onItemContextMenu }) {
+function FigureList({ figures, activeIndex, onSelect, onResize, onItemContextMenu }) {
   const { t } = useTranslation();
 
   if (!figures.length) {
@@ -64,3 +64,7 @@ export default function FigureList({ figures, activeIndex, onSelect, onResize, o
     </div>
   );
 }
+
+// Memoised: it can be hundreds of rows, and the document above it changes on
+// every keystroke. Every handler it takes is identity-stable (see useEvent).
+export default React.memo(FigureList);

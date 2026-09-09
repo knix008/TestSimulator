@@ -31,10 +31,20 @@ export const IconCut = (p) => <S {...p}><circle cx="6" cy="6" r="3" /><circle cx
 export const IconPaste = (p) => <S {...p}><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" /><rect x="8" y="2" width="8" height="4" rx="1" /></S>;
 export const IconSelectAll = (p) => <S {...p}><rect x="3" y="3" width="18" height="18" rx="2" strokeDasharray="3 3" /><path d="M9 12l2 2 4-4" /></S>;
 // Export-option toggles shown in the toolbar.
+// Merge options shown in the toolbar.
+export const IconSubfolder = (p) => <S {...p}><path d="M3 6a1 1 0 0 1 1-1h3l1.5 2H13a1 1 0 0 1 1 1v3" /><path d="M8 12a1 1 0 0 1 1-1h3l1.5 2H20a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1z" /></S>;
+export const IconFileHeading = (p) => <S {...p}><rect x="4" y="3" width="16" height="18" rx="2" /><path d="M7 7h10" strokeWidth="2.6" /><path d="M7 12h10M7 16h6" /></S>;
 export const IconCover = (p) => <S {...p}><rect x="4" y="3" width="16" height="18" rx="2" /><path d="M8 9h8M9.5 13h5" /></S>;
 export const IconContents = (p) => <S {...p}><path d="M4 7h10M4 12h10M4 17h7" /><path d="M18 7h2M18 12h2M18 17h2" /></S>;
 export const IconFigIndex = (p) => <S {...p}><rect x="3" y="4" width="8" height="7" rx="1.5" /><path d="m3.6 10 2.4-2.4L8 9.4" /><path d="M14 6h7M14 10h7M3 15h18M3 19h13" /></S>;
 export const IconPageNum = (p) => <S {...p}><rect x="5" y="3" width="14" height="18" rx="2" /><path d="M9 7h6M9 11h6" /><path d="M14.5 17.5h3" /></S>;
+// Running header / footer: the page outline with the band that carries the text
+// drawn solid at the top (header) or the bottom (footer).
+export const IconHeader = (p) => <S {...p}><rect x="5" y="3" width="14" height="18" rx="2" /><path d="M8 6.5h8" strokeWidth="2.6" /><path d="M8 12h8M8 16h5" /></S>;
+// Merge again from the sources: two pages folding into one, with the arrows
+// that say "redo this".
+export const IconRemerge = (p) => <S {...p}><path d="M20 11A8 8 0 0 0 6.3 6.3L4 8.5" /><path d="M4 4v4.5h4.5" /><path d="M4 13a8 8 0 0 0 13.7 4.7L20 15.5" /><path d="M20 20v-4.5h-4.5" /></S>;
+export const IconFooter = (p) => <S {...p}><rect x="5" y="3" width="14" height="18" rx="2" /><path d="M8 8h8M8 12h5" /><path d="M8 17.5h8" strokeWidth="2.6" /></S>;
 export const IconMinus = (p) => <S {...p}><path d="M5 12h14" /></S>;
 export const IconZoomIn = (p) => <S {...p}><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5M11 8v6M8 11h6" /></S>;
 export const IconZoomOut = (p) => <S {...p}><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5M8 11h6" /></S>;
@@ -47,6 +57,12 @@ export const IconGrip = ({ size = 18 }) => (
     <circle cx="15" cy="5" r="1.6" /><circle cx="15" cy="12" r="1.6" /><circle cx="15" cy="19" r="1.6" />
   </svg>
 );
+// Undo / redo: the usual curved arrow, mirrored.
+// Renumber now: an ordered list, 1 / 2 / 3.
+export const IconRenumber = (p) => <S {...p}><path d="M4 6h1v4M3.6 10h2.8" /><path d="M9 7h11M9 12h11M9 17h11" /><path d="M3.6 14.2a1.4 1.4 0 1 1 2.2 1.7L3.6 18.5h2.8" /></S>;
+export const IconPrint = (p) => <S {...p}><path d="M6 9V3h12v6" /><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" /><rect x="6" y="14" width="12" height="7" rx="1" /></S>;
+export const IconUndo = (p) => <S {...p}><path d="M9 14 4 9l5-5" /><path d="M4 9h9a6 6 0 0 1 0 12h-3" /></S>;
+export const IconRedo = (p) => <S {...p}><path d="m15 14 5-5-5-5" /><path d="M20 9h-9a6 6 0 0 0 0 12h3" /></S>;
 export const IconUp = (p) => <S {...p}><path d="m18 15-6-6-6 6" /></S>;
 export const IconDown = (p) => <S {...p}><path d="m6 9 6 6 6-6" /></S>;
 export const IconX = (p) => <S {...p}><path d="M18 6 6 18M6 6l12 12" /></S>;

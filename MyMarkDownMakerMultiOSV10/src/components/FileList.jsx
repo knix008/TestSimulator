@@ -6,7 +6,7 @@ import { IconGrip, IconUp, IconDown, IconX } from './Icons';
 // The whole row is NOT draggable (that interfered with checkbox clicks) — only
 // the grip handle starts a drag. The checkbox + name are wrapped in a <label>
 // so clicking anywhere on the name toggles the file.
-export default function FileList({ files, onToggle, onCheckAll, onRemove, onRemoveChecked, onMove, onReorder, onRowContextMenu }) {
+function FileList({ files, onToggle, onCheckAll, onRemove, onRemoveChecked, onMove, onReorder, onRowContextMenu }) {
   const { t } = useTranslation();
   const [dragIdx, setDragIdx] = useState(null);
   const [overIdx, setOverIdx] = useState(null);
@@ -70,3 +70,7 @@ export default function FileList({ files, onToggle, onCheckAll, onRemove, onRemo
     </div>
   );
 }
+
+// Memoised: it can be hundreds of rows, and the document above it changes on
+// every keystroke. Every handler it takes is identity-stable (see useEvent).
+export default React.memo(FileList);
