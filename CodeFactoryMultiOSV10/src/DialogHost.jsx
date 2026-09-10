@@ -108,9 +108,11 @@ export default function DialogHost({ name }) {
         <DiagramExportDialog
           {...common}
           busy={busy}
-          onExport={(format) => {
+          onExport={(request) => {
+            // Forwarded whole: format, transparency and scale are all chosen
+            // here but applied by the opener, which owns the rendered diagram.
             setBusy(true);
-            submit({ format }, { keepOpen: true });
+            submit(request, { keepOpen: true });
           }}
         />
       );

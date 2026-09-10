@@ -29,6 +29,7 @@ const CATEGORIES = [
   { file: 'database.test.mjs', ko: '데이터베이스 분석', en: 'Database analysis', detail: '스키마·ORM·테이블 접근·카탈로그' },
   { file: 'settings.test.mjs', ko: '설정·집계', en: 'Settings & rollups', detail: '임계값, 언어 레지스트리, 파일·패키지 집계' },
   { file: 'report.test.mjs', ko: '보고서 생성', en: 'Report generation', detail: 'HTML·Markdown·Word·CSV 출력' },
+  { file: 'imageExport.test.mjs', ko: '다이어그램 내보내기', en: 'Diagram export', detail: 'GIF 인코더, 이미지 형식, 인쇄 페이지' },
   { file: 'analyze.test.mjs', ko: '통합(End-to-End)', en: 'End-to-end', detail: '다언어 프로젝트 전체 분석 파이프라인' },
 ];
 

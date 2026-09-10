@@ -18,3 +18,4 @@ Thumbs.db
 *.zip
 # the smoke harness is source; only its output is generated
 .smoke/result.json
+.smoke/out/

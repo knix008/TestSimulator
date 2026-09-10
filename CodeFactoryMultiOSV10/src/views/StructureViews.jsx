@@ -143,22 +143,33 @@ export function ClassDiagramView({ result, diagramRef, onOpenSource, search, inh
             <marker id="uml-realize" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse">
               <path d="M 0 0 L 12 6 L 0 12 z" fill="var(--diagram-bg)" stroke="var(--info)" strokeWidth="1.2" />
             </marker>
+            <marker id="uml-hot" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="13" markerHeight="13" orient="auto-start-reverse">
+              <path d="M 0 0 L 12 6 L 0 12 z" fill="var(--diagram-bg)" stroke="var(--edge-highlight)" strokeWidth="1.6" />
+            </marker>
           </defs>
-          {layout.edges.map((edge, index) => {
-            const path = orthogonalPath(edge.from, edge.to);
-            const realization = edge.kind === 'realization';
-            return (
-              <path
-                key={index}
-                d={path.d}
-                fill="none"
-                stroke={realization ? 'var(--info)' : 'var(--edge)'}
-                strokeWidth="1.3"
-                strokeDasharray={realization ? '5 4' : undefined}
-                markerEnd={realization ? 'url(#uml-realize)' : 'url(#uml-inherit)'}
-              />
-            );
-          })}
+          {[...layout.edges]
+            .map((edge, index) => ({
+              edge,
+              index,
+              hot: !!selected && (edge.from.id === selected || edge.to.id === selected),
+            }))
+            .sort((a, b) => Number(a.hot) - Number(b.hot))
+            .map(({ edge, index, hot }) => {
+              const path = orthogonalPath(edge.from, edge.to);
+              const realization = edge.kind === 'realization';
+              return (
+                <path
+                  key={index}
+                  d={path.d}
+                  fill="none"
+                  stroke={hot ? 'var(--edge-highlight)' : realization ? 'var(--info)' : 'var(--edge)'}
+                  strokeWidth={hot ? 2.8 : 1.3}
+                  strokeOpacity={selected && !hot ? 0.15 : 1}
+                  strokeDasharray={realization ? '5 4' : undefined}
+                  markerEnd={hot ? 'url(#uml-hot)' : realization ? 'url(#uml-realize)' : 'url(#uml-inherit)'}
+                />
+              );
+            })}
           {layout.boxes.map((box) => (
             <UmlBox
               key={box.id}
@@ -291,23 +302,33 @@ export function ErdView({ result, diagramRef, onOpenSource, search }) {
             <marker id="erd-crow" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="11" markerHeight="11" orient="auto-start-reverse">
               <path d="M 0 1 L 11 6 L 0 11" fill="none" stroke="var(--edge)" strokeWidth="1.4" />
             </marker>
+            <marker id="erd-crow-hot" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse">
+              <path d="M 0 1 L 11 6 L 0 11" fill="none" stroke="var(--edge-highlight)" strokeWidth="1.9" />
+            </marker>
           </defs>
-          {layout.edges.map((edge, index) => {
-            const path = orthogonalPath(edge.from, edge.to);
-            const inferred = edge.rel.kind === 'inferredReference';
-            return (
-              <g key={index}>
+          {[...layout.edges]
+            .map((edge, index) => ({
+              edge,
+              index,
+              hot: !!selected && (edge.from.id === selected || edge.to.id === selected),
+            }))
+            .sort((a, b) => Number(a.hot) - Number(b.hot))
+            .map(({ edge, index, hot }) => {
+              const path = orthogonalPath(edge.from, edge.to);
+              const inferred = edge.rel.kind === 'inferredReference';
+              return (
                 <path
+                  key={index}
                   d={path.d}
                   fill="none"
-                  stroke={inferred ? 'var(--text-faint)' : 'var(--edge)'}
-                  strokeWidth="1.3"
+                  stroke={hot ? 'var(--edge-highlight)' : inferred ? 'var(--text-faint)' : 'var(--edge)'}
+                  strokeWidth={hot ? 2.8 : 1.3}
+                  strokeOpacity={selected && !hot ? 0.15 : 1}
                   strokeDasharray={inferred ? '4 4' : undefined}
-                  markerEnd="url(#erd-crow)"
+                  markerEnd={hot ? 'url(#erd-crow-hot)' : 'url(#erd-crow)'}
                 />
-              </g>
-            );
-          })}
+              );
+            })}
           {layout.boxes.map((box) => (
             <ErdBox
               key={box.id}
@@ -414,29 +435,46 @@ export function RelationGraphView({ result, diagramRef, onOpenSource, search, mo
             <marker id="rel-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
               <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--edge)" />
             </marker>
+            <marker id="rel-arrow-hot" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--edge-highlight)" />
+            </marker>
           </defs>
-          {layout.edges.map((edge, index) => {
-            const path = orthogonalPath(edge.from, edge.to);
-            const active = selected === edge.fromId || selected === edge.toId;
-            return (
-              <path
-                key={index}
-                d={path.d}
-                fill="none"
-                stroke={active ? 'var(--edge-highlight)' : 'var(--edge)'}
-                strokeWidth={Math.min(4, 0.8 + Math.log2(edge.weight + 1))}
-                markerEnd="url(#rel-arrow)"
-                opacity={active || !selected ? 1 : 0.3}
-              />
-            );
-          })}
+          {[...layout.edges]
+            .map((edge, index) => ({ edge, index, hot: selected === edge.fromId || selected === edge.toId }))
+            .sort((a, b) => Number(a.hot) - Number(b.hot))
+            .map(({ edge, index, hot }) => {
+              const path = orthogonalPath(edge.from, edge.to);
+              const weightWidth = Math.min(4, 0.8 + Math.log2(edge.weight + 1));
+              return (
+                <path
+                  key={index}
+                  d={path.d}
+                  fill="none"
+                  stroke={hot ? 'var(--edge-highlight)' : 'var(--edge)'}
+                  // A highlighted edge is always clearly thick, even when its
+                  // own call weight is low.
+                  strokeWidth={hot ? Math.max(3.4, weightWidth + 1.8) : weightWidth}
+                  markerEnd={hot ? 'url(#rel-arrow-hot)' : 'url(#rel-arrow)'}
+                  strokeOpacity={selected && !hot ? 0.15 : 1}
+                />
+              );
+            })}
           {layout.nodes.map((entry) => {
             const node = entry.node;
             const matched = search && node.displayName.toLowerCase().includes(search.toLowerCase());
+            const connected =
+              !selected ||
+              selected === node.id ||
+              layout.edges.some(
+                (edge) =>
+                  (edge.fromId === selected && edge.toId === node.id) ||
+                  (edge.toId === selected && edge.fromId === node.id),
+              );
             return (
               <g
                 key={node.id}
                 data-node={node.id}
+                opacity={connected ? 1 : 0.35}
                 transform={`translate(${entry.x}, ${entry.y})`}
                 onClick={() => setSelected(node.id)}
                 onDoubleClick={() => mode !== 'directory' && onOpenSource({ filePath: node.filePath, lineNumber: 1 })}

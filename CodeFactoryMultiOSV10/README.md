@@ -37,7 +37,7 @@ npm test         # 단위 테스트 (분류별 결과 + 요약)
 4. 툴바의 뷰 선택기로 호출 그래프 · 클래스 다이어그램 · 코드 메트릭 · DB ERD · 버그 위험 등으로 전환
 5. **Ctrl+F** 검색, 항목 더블클릭으로 소스 위치 이동, 우클릭으로 컨텍스트 메뉴
    (다이어그램은 처음에 상단 정렬로 맞춰지고, 확대·축소 상태는 뷰마다 따로 기억됩니다)
-6. 보고서(HTML / Markdown / Word / PDF), 다이어그램(PNG / SVG / PDF), 메트릭 CSV 내보내기
+6. 보고서(HTML / Markdown / Word / PDF), 다이어그램(PNG / WebP / JPEG / GIF / SVG / PDF), 메트릭 CSV 내보내기
 
 ---
 
@@ -111,7 +111,7 @@ npm test         # 단위 테스트 (분류별 결과 + 요약)
 | 대상 | 형식 |
 |------|------|
 | 분석 보고서 | HTML · Markdown · Word(.docx) · PDF |
-| 다이어그램 | PNG(2×) · SVG · PDF |
+| 다이어그램 | PNG · WebP · JPEG · GIF · SVG · PDF (투명 배경 선택, 1~4× 해상도, 도형에 맞춰 자동 크롭) |
 | 메트릭 | CSV (UTF-8 BOM, Excel 호환) |
 | 분석 결과 | JSON (다시 불러오기 가능) |
 
@@ -191,7 +191,7 @@ npm run test:raw      # node --test 원본 출력
 npm run smoke         # Electron UI 스모크 테스트 (dist/ 빌드 필요)
 ```
 
-단위 테스트는 9개 분류 151개로, 소스 텍스트 처리부터 다언어 프로젝트 전체 파이프라인까지 덮습니다.
+단위 테스트는 10개 분류 163개로, 소스 텍스트 처리부터 다언어 프로젝트 전체 파이프라인까지 덮습니다.
 결과는 분류별 통과/실패와 별도의 요약 표로 나뉘어 출력됩니다.
 
 ---
@@ -203,6 +203,8 @@ npm run smoke         # Electron UI 스모크 테스트 (dist/ 빌드 필요)
 - **데스크톱**: Electron 31 + electron-builder 24
 - **현지화**: i18next / react-i18next
 - **Word 내보내기**: 자체 OOXML + ZIP 작성기 (`src/lib/zip.js`) — 외부 라이브러리 없음
+- **GIF 내보내기**: 자체 GIF89a 인코더 (`src/lib/gif.js`) — 미디언 컷 + LZW, 외부 라이브러리 없음
+  (캔버스가 스스로 만들 수 있는 형식은 PNG·JPEG·WebP뿐입니다)
 - **PDF**: Electron `printToPDF`, 브라우저는 인쇄 대화상자
 
 ---

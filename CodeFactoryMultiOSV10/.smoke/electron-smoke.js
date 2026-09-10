@@ -14,6 +14,7 @@ const { registerIpcHandlers, MIN_WINDOW_WIDTH, MIN_WINDOW_HEIGHT } = require('..
 
 const ROOT = path.join(__dirname, '..');
 const OUT = path.join(__dirname, 'result.json');
+const EXPORT_DIR = path.join(__dirname, 'out');
 
 // Prefer the C# project this app was ported from: ~55K lines of real code, big
 // enough that the analysis and the heavy views actually take long enough to
@@ -25,6 +26,158 @@ const TARGET_IS_LARGE = TARGET === REFERENCE;
 
 const errors = [];
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/* ------------------------------------------------------- image inspection --
+ * Exported files are opened here rather than trusted: a save handler that was
+ * called proves nothing about whether the bytes are a readable image, the
+ * right size, or actually transparent.
+ * ------------------------------------------------------------------------ */
+
+/** PNG: dimensions, colour type, and the top-left pixel (fully decoded). */
+function readPng(bytes) {
+  const zlib = require('zlib');
+  if (bytes.readUInt32BE(0) !== 0x89504e47) return { ok: false, reason: 'not a PNG' };
+
+  let at = 8;
+  let header = null;
+  const idat = [];
+  while (at + 8 <= bytes.length) {
+    const length = bytes.readUInt32BE(at);
+    const type = bytes.toString('ascii', at + 4, at + 8);
+    const body = bytes.subarray(at + 8, at + 8 + length);
+    if (type === 'IHDR') {
+      header = {
+        width: body.readUInt32BE(0),
+        height: body.readUInt32BE(4),
+        bitDepth: body[8],
+        colorType: body[9],
+        interlace: body[12],
+      };
+    } else if (type === 'IDAT') {
+      idat.push(body);
+    } else if (type === 'IEND') {
+      break;
+    }
+    at += 12 + length;
+  }
+  if (!header) return { ok: false, reason: 'no IHDR' };
+  // Canvas only ever writes 8-bit RGBA, non-interlaced; anything else means
+  // the assumptions below no longer hold and the check should be revisited.
+  // Chromium writes RGBA, but may drop to RGB when the image is fully opaque.
+  const channels = header.colorType === 6 ? 4 : header.colorType === 2 ? 3 : 0;
+  if (header.bitDepth !== 8 || channels === 0 || header.interlace !== 0) {
+    return { ok: true, ...header, pixel: null, reason: 'unexpected PNG flavour' };
+  }
+
+  const raw = zlib.inflateSync(Buffer.concat(idat));
+  const stride = header.width * channels;
+  const out = Buffer.alloc(header.height * stride);
+
+  // Undo the per-scanline filters. Only the first two rows are needed for the
+  // corner pixel, but filters are cumulative so they all have to be walked.
+  for (let y = 0; y < header.height; y++) {
+    const filter = raw[y * (stride + 1)];
+    const line = raw.subarray(y * (stride + 1) + 1, y * (stride + 1) + 1 + stride);
+    for (let x = 0; x < stride; x++) {
+      const a = x >= channels ? out[y * stride + x - channels] : 0;
+      const b = y > 0 ? out[(y - 1) * stride + x] : 0;
+      const c = x >= channels && y > 0 ? out[(y - 1) * stride + x - channels] : 0;
+      let value = line[x];
+      if (filter === 1) value += a;
+      else if (filter === 2) value += b;
+      else if (filter === 3) value += (a + b) >> 1;
+      else if (filter === 4) {
+        const p = a + b - c;
+        const pa = Math.abs(p - a);
+        const pb = Math.abs(p - b);
+        const pc = Math.abs(p - c);
+        value += pa <= pb && pa <= pc ? a : pb <= pc ? b : c;
+      }
+      out[y * stride + x] = value & 0xff;
+    }
+  }
+
+  return {
+    ok: true,
+    ...header,
+    // Normalised to RGBA so callers do not have to care about the colour type.
+    pixel: [out[0], out[1], out[2], channels === 4 ? out[3] : 255],
+  };
+}
+
+/** GIF: dimensions and whether a transparent index was declared. */
+function readGif(bytes) {
+  const signature = bytes.toString('ascii', 0, 6);
+  if (signature !== 'GIF89a' && signature !== 'GIF87a') return { ok: false, reason: 'not a GIF' };
+  const packed = bytes[10];
+  let at = 13 + (packed & 0x80 ? 3 * (1 << ((packed & 0x07) + 1)) : 0);
+  let transparent = false;
+  while (bytes[at] === 0x21) {
+    at++;
+    const label = bytes[at++];
+    if (label === 0xf9) {
+      const size = bytes[at++];
+      transparent = (bytes[at] & 0x01) === 1;
+      at += size + 1;
+    } else {
+      let size = bytes[at++];
+      while (size !== 0) {
+        at += size;
+        size = bytes[at++];
+      }
+    }
+  }
+  return {
+    ok: true,
+    width: bytes.readUInt16LE(6),
+    height: bytes.readUInt16LE(8),
+    transparent,
+    hasImageDescriptor: bytes[at] === 0x2c,
+  };
+}
+
+/** WebP: container shape and whether an alpha channel is present. */
+function readWebp(bytes) {
+  if (bytes.toString('ascii', 0, 4) !== 'RIFF' || bytes.toString('ascii', 8, 12) !== 'WEBP') {
+    return { ok: false, reason: 'not a WebP' };
+  }
+  const chunks = [];
+  let at = 12;
+  while (at + 8 <= bytes.length) {
+    const type = bytes.toString('ascii', at, at + 4);
+    const size = bytes.readUInt32LE(at + 4);
+    chunks.push(type);
+    at += 8 + size + (size & 1);
+  }
+  // Chromium writes VP8X + ALPH for a lossy image with alpha, VP8L for
+  // lossless (which carries alpha inline).
+  const alphaFlag = chunks.includes('VP8X') && (bytes[20] & 0x10) !== 0;
+  return { ok: true, chunks, hasAlpha: chunks.includes('ALPH') || chunks.includes('VP8L') || alphaFlag };
+}
+
+/** JPEG: SOI/EOI markers plus the SOF dimensions. */
+function readJpeg(bytes) {
+  if (bytes[0] !== 0xff || bytes[1] !== 0xd8) return { ok: false, reason: 'not a JPEG' };
+  let at = 2;
+  let size = null;
+  while (at + 4 < bytes.length) {
+    if (bytes[at] !== 0xff) break;
+    const marker = bytes[at + 1];
+    const length = bytes.readUInt16BE(at + 2);
+    // SOF0..SOF3 / SOF5..SOF7 / SOF9..SOF11 carry the frame dimensions.
+    if (marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc) {
+      size = { height: bytes.readUInt16BE(at + 5), width: bytes.readUInt16BE(at + 7) };
+      break;
+    }
+    at += 2 + length;
+  }
+  return {
+    ok: true,
+    width: size ? size.width : null,
+    height: size ? size.height : null,
+    endsCleanly: bytes[bytes.length - 2] === 0xff && bytes[bytes.length - 1] === 0xd9,
+  };
+}
 
 // Electron quits by itself once the last window closes. The final check closes
 // the app window on purpose, so hold the process open long enough to write the
@@ -43,6 +196,41 @@ app.whenReady().then(async () => {
   ipcMain.handle('settings:load', () => null);
   ipcMain.removeHandler('settings:save');
   ipcMain.handle('settings:save', () => '(smoke test)');
+
+  // Exports go to a scratch folder instead of a save dialog, so the bytes the
+  // app really produces can be opened and checked afterwards.
+  fs.rmSync(EXPORT_DIR, { recursive: true, force: true });
+  fs.mkdirSync(EXPORT_DIR, { recursive: true });
+
+  ipcMain.removeHandler('dialog:saveBinary');
+  ipcMain.handle('dialog:saveBinary', (_e, { defaultName, data }) => {
+    const target = path.join(EXPORT_DIR, defaultName);
+    fs.writeFileSync(target, Buffer.from(data));
+    return target;
+  });
+
+  ipcMain.removeHandler('dialog:saveText');
+  ipcMain.handle('dialog:saveText', (_e, { defaultName, text }) => {
+    const target = path.join(EXPORT_DIR, defaultName);
+    fs.writeFileSync(target, text, 'utf8');
+    return target;
+  });
+
+  ipcMain.removeHandler('export:pdf');
+  ipcMain.handle('export:pdf', async (_e, { defaultName, html, landscape }) => {
+    // The real handler prints an offscreen window to PDF; do the same, so a
+    // page that cannot be rendered still fails here.
+    const printer = new BrowserWindow({ show: false, width: 1200, height: 900 });
+    try {
+      await printer.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html));
+      const pdf = await printer.webContents.printToPDF({ landscape: !!landscape, printBackground: true });
+      const target = path.join(EXPORT_DIR, defaultName);
+      fs.writeFileSync(target, pdf);
+      return target;
+    } finally {
+      if (!printer.isDestroyed()) printer.destroy();
+    }
+  });
 
   const win = new BrowserWindow({
     show: false,
@@ -532,11 +720,17 @@ app.whenReady().then(async () => {
       }
 
       await new Promise((r) => setTimeout(r, 250));
+      const canvasStyle = getComputedStyle(canvas);
+      const label = document.querySelector('.diagram-canvas svg text');
       return {
         before,
         after: svg() ? svg().style.transform : '',
         stillMounted: !!document.querySelector('.toolbar'),
         crashScreen: !!document.querySelector('.crash-screen'),
+        // Panning must not smear a text selection across the node captions.
+        selectionAfterDrag: String(window.getSelection ? window.getSelection().toString() : ''),
+        canvasUserSelect: canvasStyle.userSelect || canvasStyle.webkitUserSelect,
+        labelUserSelect: label ? (getComputedStyle(label).userSelect || getComputedStyle(label).webkitUserSelect) : null,
       };
     })()`);
 
@@ -635,6 +829,46 @@ app.whenReady().then(async () => {
     const afterExpandAll = await run(`document.querySelectorAll('.calltree .calltree-row').length`);
     callTree.afterCollapseAll = afterCollapseAll;
     callTree.afterExpandAll = afterExpandAll;
+
+    /* ------------------- a selected node's edges stand out from the rest --- */
+
+    mark('edgeHighlight');
+    await switchView('fileRelations');
+    await wait(900);
+
+    const edgeHighlight = await run(`(() => {
+      const node = document.querySelector('.diagram-canvas [data-node]');
+      if (!node) return { ok: false, reason: 'no node' };
+      node.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      return { clicked: true };
+    })()`);
+    await wait(600);
+
+    Object.assign(
+      edgeHighlight,
+      await run(`(() => {
+        const paths = [...document.querySelectorAll('.diagram-canvas svg path[marker-end]')];
+        const read = (el) => ({
+          width: parseFloat(getComputedStyle(el).strokeWidth) || 0,
+          opacity: parseFloat(el.getAttribute('stroke-opacity') || '1'),
+          marker: el.getAttribute('marker-end') || '',
+        });
+        const all = paths.map(read);
+        const hot = all.filter((p) => p.marker.includes('-hot'));
+        const cold = all.filter((p) => !p.marker.includes('-hot'));
+        return {
+          total: all.length,
+          hotCount: hot.length,
+          coldCount: cold.length,
+          hotWidth: hot.length ? Math.min(...hot.map((p) => p.width)) : null,
+          coldWidth: cold.length ? Math.max(...cold.map((p) => p.width)) : null,
+          hotOpacity: hot.length ? Math.min(...hot.map((p) => p.opacity)) : null,
+          coldOpacity: cold.length ? Math.max(...cold.map((p) => p.opacity)) : null,
+          // Highlighted edges must be painted after the dimmed ones.
+          lastIsHot: all.length > 0 && all[all.length - 1].marker.includes('-hot'),
+        };
+      })()`),
+    );
 
     /* ------------------------- a fresh view is fitted against the top ------ */
 
@@ -893,6 +1127,169 @@ app.whenReady().then(async () => {
     win.setSize(1500, 950);
     await wait(500);
 
+    /* ------------- every image format exports, cropped and transparent ----- */
+
+    mark('imageExport');
+
+    await switchView('classDiagram');
+    await wait(900);
+
+    // The tight-crop target: the drawing's own bounds plus the 8px padding the
+    // exporter keeps so strokes are not clipped.
+    const diagramBounds = await run(`(() => {
+      const svg = document.querySelector('.diagram-canvas svg');
+      if (!svg) return null;
+      const box = svg.getBBox();
+      const canvas = document.querySelector('.diagram-canvas');
+      return {
+        width: box.width,
+        height: box.height,
+        // The visible canvas is much larger than the drawing; a "tight" export
+        // has to be smaller than this, which is the bug being guarded against.
+        canvasWidth: canvas.clientWidth,
+        canvasHeight: canvas.clientHeight,
+      };
+    })()`);
+
+    /** Drives the real export dialog to completion and returns the saved path. */
+    const exportAs = async (formatId, { transparent = false, scale = 2 } = {}) => {
+      // Start from an empty folder: two exports in the same second would share
+      // a timestamped name, and a stale file would then be read as the new one.
+      for (const stale of fs.readdirSync(EXPORT_DIR)) fs.rmSync(path.join(EXPORT_DIR, stale), { force: true });
+
+      // File menu -> the last entry, which is "export diagram".
+      await run(`document.querySelector('.toolbar .menu-button').click(); null`);
+      await wait(350);
+      await run(`(() => {
+        const items = [...document.querySelectorAll('.context-menu .menu-item')];
+        const last = items[items.length - 1];
+        if (last) last.click();
+        return null;
+      })()`);
+
+      await until(() => otherWindows().length > 0, 8000);
+      const dialogWin = otherWindows()[0];
+      if (!dialogWin) return { ok: false, reason: 'export dialog did not open' };
+      await wait(900);
+
+      const probe = (code) => dialogWin.webContents.executeJavaScript(code);
+
+      const ui = await probe(`(() => {
+        const chip = document.querySelector('[data-format=${JSON.stringify(formatId)}]');
+        if (!chip) return { ok: false, reason: 'no chip for the format' };
+        chip.click();
+        return { ok: true };
+      })()`);
+      if (!ui.ok) {
+        if (!dialogWin.isDestroyed()) dialogWin.close();
+        return ui;
+      }
+      await wait(250);
+
+      // Read the option state the dialog is offering for this format, then set
+      // transparency and scale through the same controls a user would.
+      const options = await probe(`(() => {
+        const box = document.querySelector('[data-export-transparent]');
+        const scales = [...document.querySelectorAll('[data-scale]')];
+        return {
+          transparentOffered: !!box && !box.disabled,
+          scaleOffered: scales.length,
+          formats: [...document.querySelectorAll('[data-format]')].map((c) => c.getAttribute('data-format')),
+        };
+      })()`);
+
+      await probe(`(() => {
+        const box = document.querySelector('[data-export-transparent]');
+        if (box && !box.disabled && box.checked !== ${transparent ? 'true' : 'false'}) box.click();
+        const chip = document.querySelector('[data-scale=${JSON.stringify(String(scale))}]');
+        if (chip) chip.click();
+        return null;
+      })()`);
+      await wait(250);
+
+      await probe(`(() => {
+        const buttons = [...document.querySelectorAll('.app-window-footer button')];
+        const go = buttons[buttons.length - 1];
+        if (go) go.click();
+        return null;
+      })()`);
+
+      // The opener does the rasterizing, so wait for the file, not the click.
+      let file = null;
+      await until(() => {
+        const now = fs.readdirSync(EXPORT_DIR);
+        file = now[0] || null;
+        return !!file;
+      }, 20000).catch(() => {});
+
+      if (!dialogWin.isDestroyed()) dialogWin.close();
+      await wait(300);
+
+      if (!file) return { ok: false, reason: 'nothing was written', options };
+      return { ok: true, file: path.join(EXPORT_DIR, file), options };
+    };
+
+    const imageExport = { bounds: diagramBounds, formats: {} };
+
+    for (const spec of [
+      { id: 'png', transparent: true, scale: 2 },
+      { id: 'webp', transparent: true, scale: 2 },
+      { id: 'gif', transparent: true, scale: 1 },
+      { id: 'jpg', transparent: true, scale: 2 }, // asked for, must be refused
+      { id: 'svg', transparent: true, scale: 2 },
+      { id: 'pdf', transparent: false, scale: 2 },
+    ]) {
+      const saved = await exportAs(spec.id, { transparent: spec.transparent, scale: spec.scale });
+      const entry = { requested: spec, ...saved };
+
+      if (saved.ok && saved.file && fs.existsSync(saved.file)) {
+        const bytes = fs.readFileSync(saved.file);
+        entry.size = bytes.length;
+        entry.name = path.basename(saved.file);
+        if (spec.id === 'png') entry.image = readPng(bytes);
+        else if (spec.id === 'gif') entry.image = readGif(bytes);
+        else if (spec.id === 'webp') entry.image = readWebp(bytes);
+        else if (spec.id === 'jpg') entry.image = readJpeg(bytes);
+        else if (spec.id === 'svg') {
+          const text = bytes.toString('utf8');
+          const viewBox = /viewBox="([^"]+)"/.exec(text);
+          const box = viewBox ? viewBox[1].split(/\s+/).map(Number) : null;
+          // The diagram's own shapes are rects too, so "has a rect" proves
+          // nothing — the background is the one that spans the whole viewBox.
+          const covers = box
+            ? new RegExp('<rect[^>]*width="' + box[2] + '"[^>]*height="' + box[3] + '"').test(text)
+            : false;
+          entry.image = {
+            ok: text.includes('<svg'),
+            // Colours must be baked in: a var() reference means nothing outside
+            // the app, and would export as a black-on-black rectangle.
+            hasUnresolvedVars: text.includes('var(--'),
+            viewBox: box,
+            hasBackgroundRect: covers,
+          };
+        } else if (spec.id === 'pdf') {
+          entry.image = { ok: bytes.toString('ascii', 0, 4) === '%PDF' };
+        }
+      }
+      imageExport.formats[spec.id] = entry;
+    }
+
+    // The same diagram at 1x and 4x, to prove the scale control is wired up.
+    const scaleProbe = {};
+    for (const scale of [1, 4]) {
+      const saved = await exportAs('png', { transparent: false, scale });
+      scaleProbe[scale] =
+        saved.ok && saved.file && fs.existsSync(saved.file) ? readPng(fs.readFileSync(saved.file)) : { ok: false };
+    }
+    imageExport.scale = scaleProbe;
+
+    // And an opaque PNG, so the transparent one can be compared against it.
+    const opaque = await exportAs('png', { transparent: false, scale: 2 });
+    imageExport.opaquePng = opaque.ok && opaque.file && fs.existsSync(opaque.file) ? readPng(fs.readFileSync(opaque.file)) : { ok: false };
+
+    const opaqueGif = await exportAs('gif', { transparent: false, scale: 1 });
+    imageExport.opaqueGif = opaqueGif.ok && opaqueGif.file && fs.existsSync(opaqueGif.file) ? readGif(fs.readFileSync(opaqueGif.file)) : { ok: false };
+
     /* ------------------------------------------------------ context menu */
 
     mark('contextMenu');
@@ -1062,7 +1459,71 @@ app.whenReady().then(async () => {
       tablesRendered: tableViews.every((id) => views[id] && views[id].tableRows > 0),
 
       diagramsStartAtTop: Object.values(topAligned).every((y) => y !== null && y === 20),
+
+      // --- image export -------------------------------------------------
+      // Every format the dialog offers actually produces a file the format's
+      // own decoder can read.
+      exportOffersEveryFormat:
+        ['png', 'webp', 'jpg', 'gif', 'svg', 'pdf'].every(
+          (id) => (imageExport.formats[id].options || {}).formats?.includes(id),
+        ),
+      exportsPng: imageExport.formats.png.image?.ok === true && imageExport.formats.png.size > 0,
+      exportsWebp: imageExport.formats.webp.image?.ok === true && imageExport.formats.webp.size > 0,
+      exportsGif:
+        imageExport.formats.gif.image?.ok === true && imageExport.formats.gif.image.hasImageDescriptor === true,
+      exportsJpeg:
+        imageExport.formats.jpg.image?.ok === true && imageExport.formats.jpg.image.endsCleanly === true,
+      exportsSvg:
+        imageExport.formats.svg.image?.ok === true && imageExport.formats.svg.image.hasUnresolvedVars === false,
+      // Asked for transparently, so no full-bleed background rect was painted.
+      transparentSvgHasNoBackdrop: imageExport.formats.svg.image?.hasBackgroundRect === false,
+      exportsPdf: imageExport.formats.pdf.image?.ok === true && imageExport.formats.pdf.size > 1000,
+
+      // Transparency is offered exactly where the format supports it.
+      transparencyOfferedPerFormat:
+        imageExport.formats.png.options?.transparentOffered === true &&
+        imageExport.formats.webp.options?.transparentOffered === true &&
+        imageExport.formats.gif.options?.transparentOffered === true &&
+        imageExport.formats.svg.options?.transparentOffered === true &&
+        imageExport.formats.jpg.options?.transparentOffered === false &&
+        imageExport.formats.pdf.options?.transparentOffered === false,
+
+      // ...and asking for it really does leave the background unpainted.
+      transparentPngIsTransparent:
+        Array.isArray(imageExport.formats.png.image?.pixel) &&
+        imageExport.formats.png.image.pixel[3] === 0 &&
+        imageExport.opaquePng.pixel?.[3] === 255,
+      transparentGifDeclaresIt:
+        imageExport.formats.gif.image?.transparent === true && imageExport.opaqueGif.transparent === false,
+      transparentWebpHasAlpha: imageExport.formats.webp.image?.hasAlpha === true,
+
+      // The export is cropped to the drawing, not to the canvas it sits on.
+      exportIsCroppedToContent:
+        !!imageExport.bounds &&
+        imageExport.formats.png.image?.width > 0 &&
+        // 8px padding each side, times the 2x scale that was requested.
+        Math.abs(imageExport.formats.png.image.width - Math.round(imageExport.bounds.width + 16) * 2) <= 6 &&
+        Math.abs(imageExport.formats.png.image.height - Math.round(imageExport.bounds.height + 16) * 2) <= 6,
+      exportIgnoresOnScreenZoom:
+        imageExport.scale[1]?.ok === true &&
+        imageExport.scale[4]?.ok === true &&
+        // 4x is four times 1x, give or take the rounding at each end.
+        Math.abs(imageExport.scale[4].width - imageExport.scale[1].width * 4) <= 8 &&
+        Math.abs(imageExport.scale[4].height - imageExport.scale[1].height * 4) <= 8,
+      // Thicker, undimmed, its own arrowhead, and drawn on top: four signals,
+      // because a hue change alone was not enough to find the line.
+      selectedEdgesStandOut:
+        edgeHighlight.hotCount > 0 &&
+        edgeHighlight.coldCount > 0 &&
+        edgeHighlight.hotWidth >= 3.4 &&
+        edgeHighlight.coldOpacity <= 0.2 &&
+        edgeHighlight.hotOpacity === 1 &&
+        edgeHighlight.lastIsHot,
       everyViewLaysOutCleanly: Object.keys(layout).length === 0,
+      dragDoesNotSelectText:
+        dragPan.selectionAfterDrag === '' &&
+        dragPan.canvasUserSelect === 'none' &&
+        dragPan.labelUserSelect === 'none',
       dragPansWithoutCrashing:
         dragPan.stillMounted === true && dragPan.crashScreen === false && dragPan.after !== dragPan.before,
       zoomedIn: zoom.before !== null && zoom.before > 1.05,
@@ -1138,6 +1599,8 @@ app.whenReady().then(async () => {
       result,
       views,
       layout,
+      imageExport,
+      edgeHighlight,
       browseContrast,
       topAligned,
       dragPan,

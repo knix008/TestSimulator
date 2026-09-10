@@ -260,6 +260,16 @@ const ko = {
     architectureSection: '아키텍처',
     glossary: '용어집',
   },
+  diagram: {
+    background: '배경',
+    transparent: '투명 배경으로 내보내기',
+    transparentTip: '배경을 칠하지 않습니다. 문서나 슬라이드에 얹을 때 유용합니다.',
+    supportsTransparency: '투명 배경을 지원합니다',
+    noTransparency: '이 형식은 투명 배경을 지원하지 않아 테마 배경색으로 채웁니다.',
+    scale: '해상도',
+    scaleTip: '도형 크기의 {{scale}}배로 저장합니다',
+    cropNote: '이미지는 도형 전체를 담는 최소 크기로 잘라 저장합니다. 화면의 확대·축소 상태와는 무관합니다.',
+  },
   about: {
     author: '제작자',
     version: '버전',
@@ -531,6 +541,16 @@ const en = {
     databaseSection: 'Database',
     architectureSection: 'Architecture',
     glossary: 'Glossary',
+  },
+  diagram: {
+    background: 'Background',
+    transparent: 'Export with a transparent background',
+    transparentTip: 'Leaves the background unpainted — useful when placing the image on a document or slide.',
+    supportsTransparency: 'Supports a transparent background',
+    noTransparency: 'This format has no transparency, so the theme background is painted in.',
+    scale: 'Resolution',
+    scaleTip: 'Save at {{scale}}× the diagram size',
+    cropNote: 'The image is cropped to the smallest box containing every shape, regardless of the current zoom.',
   },
   about: {
     author: 'Author',

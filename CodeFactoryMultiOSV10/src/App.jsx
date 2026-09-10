@@ -746,17 +746,18 @@ export default function App() {
       } else if (name === 'report' && data) {
         generateReportRef.current(data.format, data.sections);
       } else if (name === 'diagram' && data) {
-        diagramExportRef.current(data.format);
+        diagramExportRef.current(data);
       }
     });
   }, [persist]);
 
   const runDiagramExport = useCallback(
-    async (format) => {
+    async (request) => {
       setExportBusy(true);
       try {
         const currentView = VIEWS.find((entry) => entry.id === view);
-        const savedTo = await exportDiagram(diagramRef.current, format, {
+        const savedTo = await exportDiagram(diagramRef.current, {
+          ...request,
           platform,
           themeId: settings.theme,
           fileName: view + '-' + stamp(),
@@ -1062,7 +1063,7 @@ export default function App() {
         >
           {/* The glyph names the language that is on, so the button reports
               state as well as offering the switch. */}
-          <CurrentLanguageIcon size={15} />
+          <CurrentLanguageIcon size={17} />
         </button>
 
         <button

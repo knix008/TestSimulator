@@ -15,6 +15,7 @@ import { AppDialog } from '../components/chrome.jsx';
 import { IconSettings, IconSliders, IconPalette, IconInfo, IconReport, IconImage, IconHourglass } from '../components/icons.jsx';
 import { INSPECTIONS, INSPECTION_GROUPS, defaultSettings } from '../core/settings.js';
 import { REPORT_SECTIONS } from '../report/builder.js';
+import { IMAGE_FORMATS, getFormat } from '../report/diagramExport.js';
 import buildInfo from '../build-info.json';
 
 /* --------------------------------------------------------------- Settings */
@@ -331,6 +332,14 @@ export function ProgressDialog({ title, message, percent, indeterminate, onCance
 export function DiagramExportDialog({ onClose, onExport, busy, standalone }) {
   const { t } = useTranslation();
   const [format, setFormat] = useState('png');
+  const [transparent, setTransparent] = useState(false);
+  const [scale, setScale] = useState(2);
+
+  const selected = getFormat(format);
+  // Offering transparency on a format with no alpha channel would quietly
+  // produce a black background, so the box is disabled rather than lying.
+  const canBeTransparent = selected.transparency;
+  const isRaster = selected.kind === 'canvas' || selected.kind === 'gif';
 
   return (
     <AppDialog
@@ -338,33 +347,88 @@ export function DiagramExportDialog({ onClose, onExport, busy, standalone }) {
       icon={IconImage}
       onClose={onClose}
       standalone={standalone}
-      width={480}
-      height={260}
+      width={520}
+      height={430}
       footer={
         <>
           <div style={{ flex: 1 }} />
           <button type="button" className="btn" title={t('common.cancel')} onClick={onClose}>
             {t('common.cancel')}
           </button>
-          <button type="button" className="btn primary" title={t('common.export')} disabled={busy} onClick={() => onExport(format)}>
+          <button
+            type="button"
+            className="btn primary"
+            title={t('common.export')}
+            disabled={busy}
+            onClick={() => onExport({ format, transparent: transparent && canBeTransparent, scale })}
+          >
             {busy ? t('common.exporting') : t('common.export')}
           </button>
         </>
       }
     >
-      <div className="inline-list">
-        {[
-          ['png', 'PNG'],
-          ['svg', 'SVG'],
-          ['pdf', 'PDF'],
-        ].map(([id, label]) => (
-          <button key={id} type="button" className={'chip' + (format === id ? ' active' : '')} title={label} onClick={() => setFormat(id)}>
-            {label}
-          </button>
-        ))}
+      <div className="settings-group">
+        <h4>{t('report.format')}</h4>
+        <div className="inline-list" data-export-formats>
+          {IMAGE_FORMATS.map((entry) => (
+            <button
+              key={entry.id}
+              type="button"
+              data-format={entry.id}
+              className={'chip' + (format === entry.id ? ' active' : '')}
+              title={entry.transparency ? t('diagram.supportsTransparency') : t('diagram.noTransparency')}
+              onClick={() => setFormat(entry.id)}
+            >
+              {entry.label}
+            </button>
+          ))}
+        </div>
       </div>
-      <p style={{ color: 'var(--text-dim)', marginTop: 14, marginBottom: 0, fontSize: 12.5 }}>
-        PNG는 2× 해상도로, SVG는 벡터 원본으로, PDF는 인쇄용 페이지로 저장합니다.
+
+      <div className="settings-group">
+        <h4>{t('diagram.background')}</h4>
+        <label
+          className="checkbox-row"
+          title={canBeTransparent ? t('diagram.transparentTip') : t('diagram.noTransparency')}
+        >
+          <input
+            type="checkbox"
+            data-export-transparent
+            checked={transparent && canBeTransparent}
+            disabled={!canBeTransparent}
+            onChange={(e) => setTransparent(e.target.checked)}
+          />
+          <span style={canBeTransparent ? undefined : { opacity: 0.5 }}>{t('diagram.transparent')}</span>
+        </label>
+        {!canBeTransparent ? (
+          <div style={{ color: 'var(--text-dim)', fontSize: 12.5, marginLeft: 24, marginTop: 4 }}>
+            {t('diagram.noTransparency')}
+          </div>
+        ) : null}
+      </div>
+
+      {isRaster ? (
+        <div className="settings-group">
+          <h4>{t('diagram.scale')}</h4>
+          <div className="inline-list" data-export-scales>
+            {[1, 2, 3, 4].map((value) => (
+              <button
+                key={value}
+                type="button"
+                data-scale={value}
+                className={'chip' + (scale === value ? ' active' : '')}
+                title={t('diagram.scaleTip', { scale: value })}
+                onClick={() => setScale(value)}
+              >
+                {value}×
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      <p style={{ color: 'var(--text-dim)', marginTop: 4, marginBottom: 0, fontSize: 12.5 }}>
+        {t('diagram.cropNote')}
       </p>
     </AppDialog>
   );

@@ -403,6 +403,14 @@ table.grid tbody tr.clickable { cursor: pointer; }
 .diagram-canvas.panning { cursor: grabbing; }
 .diagram-canvas svg { display: block; }
 
+/* Dragging a diagram means panning it, never selecting its labels. Without
+   this, every pan smears a text selection across the node captions. */
+.diagram-canvas,
+.diagram-canvas * {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
 .diagram-empty {
   position: absolute;
   inset: 0;

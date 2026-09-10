@@ -13,6 +13,14 @@ const NODE_WIDTH = 190;
 const NODE_HEIGHT = 40;
 const MAX_DRAWN_NODES = 1200;
 
+/**
+ * Selection highlighting. The dim is what does the work: a brighter line among
+ * equally bright lines is hard to find, a bright line among faded ones is not.
+ */
+const EDGE_WIDTH = 1.2;
+const EDGE_WIDTH_HOT = 2.8;
+const EDGE_DIM_OPACITY = 0.15;
+
 /** Caps on "expand all": deep enough to be useful, bounded enough to draw. */
 const MAX_EXPAND_DEPTH = 8;
 const MAX_EXPAND_KEYS = 3000;
@@ -180,21 +188,42 @@ export default function CallGraphView({ result, diagramRef, onOpenSource, search
                 <marker id="cg-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
                   <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--edge)" />
                 </marker>
+                <marker id="cg-arrow-hot" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+                  <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--edge-highlight)" />
+                </marker>
               </defs>
-              {layout.edges.map((edge, index) => (
-                <path
-                  key={index}
-                  d={curvePath(edge.from, edge.to, direction)}
-                  fill="none"
-                  stroke={selected && (selected === edge.fromNode.key || selected === edge.toNode.key) ? 'var(--edge-highlight)' : 'var(--edge)'}
-                  strokeWidth={selected && (selected === edge.fromNode.key || selected === edge.toNode.key) ? 2 : 1.2}
-                  markerEnd="url(#cg-arrow)"
-                />
-              ))}
+              {/* Connected edges are drawn last so no other line covers them. */}
+              {[...layout.edges]
+                .map((edge, index) => ({
+                  edge,
+                  index,
+                  hot: !!selected && (selected === edge.fromNode.key || selected === edge.toNode.key),
+                }))
+                .sort((a, b) => Number(a.hot) - Number(b.hot))
+                .map(({ edge, index, hot }) => (
+                  <path
+                    key={index}
+                    d={curvePath(edge.from, edge.to, direction)}
+                    fill="none"
+                    stroke={hot ? 'var(--edge-highlight)' : 'var(--edge)'}
+                    strokeWidth={hot ? EDGE_WIDTH_HOT : EDGE_WIDTH}
+                    strokeOpacity={selected && !hot ? EDGE_DIM_OPACITY : 1}
+                    markerEnd={hot ? 'url(#cg-arrow-hot)' : 'url(#cg-arrow)'}
+                  />
+                ))}
               {layout.nodes.map((entry) => (
                 <CallNode
                   key={entry.node.key}
                   entry={entry}
+                  dimmed={
+                    !!selected &&
+                    selected !== entry.node.key &&
+                    !layout.edges.some(
+                      (edge) =>
+                        (edge.fromNode.key === selected && edge.toNode.key === entry.node.key) ||
+                        (edge.toNode.key === selected && edge.fromNode.key === entry.node.key),
+                    )
+                  }
                   selected={selected === entry.node.key}
                   onSelect={() => setSelected(entry.node.key)}
                   onToggle={() => toggle(entry.node.key)}
@@ -257,7 +286,7 @@ function TreeRows({ node, depth, onToggle, selected, onSelect, onOpenSource, hig
   );
 }
 
-function CallNode({ entry, selected, onSelect, onToggle, onOpenSource, search }) {
+function CallNode({ entry, selected, dimmed, onSelect, onToggle, onOpenSource, search }) {
   const node = entry.node;
   const matched = search && node.displayName.toLowerCase().includes(search.toLowerCase());
   const stroke = selected ? 'var(--accent)' : matched ? 'var(--warning)' : 'var(--node-stroke)';
@@ -269,6 +298,7 @@ function CallNode({ entry, selected, onSelect, onToggle, onOpenSource, search })
       onClick={onSelect}
       onDoubleClick={() => onOpenSource(node)}
       style={{ cursor: 'pointer' }}
+      opacity={dimmed ? 0.35 : 1}
     >
       <rect
         width={entry.width}

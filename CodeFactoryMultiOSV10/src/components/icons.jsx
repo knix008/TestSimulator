@@ -156,7 +156,7 @@ export const IconCollapseAll = (p) => (
  * globe: the button's icon should say which language is on, not merely that a
  * language setting exists.
  */
-function LanguageGlyph({ size = 15, text, letterSpacing }) {
+function LanguageGlyph({ size = 16, text, letterSpacing }) {
   return (
     <svg
       width={size}
@@ -166,26 +166,30 @@ function LanguageGlyph({ size = 15, text, letterSpacing }) {
       focusable="false"
       style={{ flex: '0 0 auto', display: 'block' }}
     >
-      <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeWidth="1.8" />
+      {/* The active language, set large enough to read at 16px. */}
       <text
-        x="12"
-        y="12"
+        x="1"
+        y="11"
         fill="currentColor"
-        fontSize={text.length > 1 ? 9 : 11}
+        fontSize={text.length > 1 ? 13 : 15}
         fontWeight="700"
         letterSpacing={letterSpacing || 0}
-        textAnchor="middle"
         dominantBaseline="central"
         fontFamily='"Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif'
       >
         {text}
       </text>
+      {/* A swap mark, so the badge also reads as a control. */}
+      <g stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" fill="none" opacity="0.75">
+        <path d="M4 18h13l-2.6-2.6" />
+        <path d="M20 22H7l2.6 2.6" transform="translate(0,-4)" />
+      </g>
     </svg>
   );
 }
 
 export const IconLanguageKo = (p) => <LanguageGlyph {...p} text="한" />;
-export const IconLanguageEn = (p) => <LanguageGlyph {...p} text="EN" letterSpacing="-0.5" />;
+export const IconLanguageEn = (p) => <LanguageGlyph {...p} text="EN" letterSpacing="-1" />;
 
 /** Icon for a UI language id. */
 export const LANGUAGE_ICONS = { ko: IconLanguageKo, en: IconLanguageEn };

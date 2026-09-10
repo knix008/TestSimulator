@@ -271,6 +271,15 @@ export const DiagramCanvas = React.forwardRef(function DiagramCanvas(
     if (e.button !== 0) return;
     // Clicks on a node must not start a pan; nodes carry data-node.
     if (e.target.closest && e.target.closest('[data-node]')) return;
+
+    // Suppress the browser's drag-to-select before it starts, and drop any
+    // selection already on screen — `user-select: none` stops a new selection
+    // inside the canvas, but a drag that began elsewhere can still extend into
+    // it, leaving text highlighted behind the diagram.
+    e.preventDefault();
+    const selection = window.getSelection && window.getSelection();
+    if (selection && !selection.isCollapsed) selection.removeAllRanges();
+
     drag.current = { startX: e.clientX, startY: e.clientY, originX: view.x, originY: view.y, moved: false };
     e.currentTarget.setPointerCapture(e.pointerId);
   };
