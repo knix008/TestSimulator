@@ -1,0 +1,171 @@
+{
+  "name": "codefactory",
+  "version": "1.0.0",
+  "description": "Cross-platform (Web / Windows / macOS / Linux) multi-language source code analyzer: call graphs, UML, code metrics, duplicate code, global variables, DB ERD/table access, bug risk and security inspection.",
+  "author": {
+    "name": "SHKWON",
+    "email": "knix008@naver.com"
+  },
+  "license": "MIT",
+  "private": true,
+  "main": "electron/main.js",
+  "scripts": {
+    "postinstall": "node scripts/generate-build-info.mjs",
+    "prestart": "npm run generate:build-info",
+    "start": "cross-env NODE_OPTIONS=--disable-warning=DEP0060 concurrently -k \"vite --port 5183\" \"wait-on tcp:5183 && cross-env ELECTRON_DEV=1 node scripts/start-electron.mjs\"",
+    "predev": "npm run generate:build-info",
+    "dev": "vite --port 5183",
+    "preweb": "npm run generate:build-info",
+    "web": "vite --port 5183",
+    "electron": "cross-env ELECTRON_DEV=1 node scripts/start-electron.mjs",
+    "preview:electron": "node scripts/start-electron.mjs",
+    "generate:icons": "node scripts/generate-icons.mjs",
+    "generate:build-info": "node scripts/generate-build-info.mjs",
+    "build": "npm run generate:build-info && vite build",
+    "prebuild:win": "npm run generate:icons && npm run generate:build-info",
+    "build:win": "vite build && electron-builder --win",
+    "postbuild:win": "node scripts/copy-installer.js",
+    "prebuild:mac": "npm run generate:icons && npm run generate:build-info",
+    "build:mac": "vite build && electron-builder --mac",
+    "postbuild:mac": "node scripts/copy-installer.js",
+    "prebuild:linux": "npm run generate:icons && npm run generate:build-info",
+    "build:linux": "vite build && electron-builder --linux",
+    "postbuild:linux": "node scripts/copy-installer.js",
+    "build:web": "npm run generate:build-info && vite build --base=./",
+    "copy:installer": "node scripts/copy-installer.js",
+    "serve:web": "node scripts/serve-web.mjs",
+    "test": "node scripts/run-tests.mjs",
+    "preview": "vite preview --port 4183",
+    "test:verbose": "node scripts/run-tests.mjs --verbose",
+    "test:json": "node scripts/run-tests.mjs --json",
+    "test:raw": "node --test test/*.test.mjs",
+    "smoke": "node scripts/smoke.mjs"
+  },
+  "dependencies": {
+    "i18next": "^23.11.5",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-i18next": "^14.1.2"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.1",
+    "concurrently": "^8.2.2",
+    "cross-env": "^7.0.3",
+    "electron": "^31.3.1",
+    "electron-builder": "^24.13.3",
+    "sharp": "^0.33.4",
+    "vite": "^5.4.1",
+    "wait-on": "^7.2.0"
+  },
+  "build": {
+    "appId": "com.shkwon.codefactory",
+    "productName": "CodeFactory",
+    "copyright": "Copyright © 2026 SHKWON (knix008@naver.com)",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "asar": true,
+    "icon": "build/icons/icon.png",
+    "win": {
+      "icon": "build/icons/icon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": true,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": false,
+      "createStartMenuShortcut": false,
+      "menuCategory": true,
+      "shortcutName": "CodeFactory",
+      "installerIcon": "build/icons/icon.ico",
+      "uninstallerIcon": "build/icons/icon.ico",
+      "installerHeaderIcon": "build/icons/icon.ico",
+      "deleteAppDataOnUninstall": true,
+      "include": "build/installer.nsh"
+    },
+    "mac": {
+      "icon": "build/icons/icon.icns",
+      "category": "public.app-category.developer-tools",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ]
+    },
+    "dmg": {
+      "title": "CodeFactory ${version}"
+    },
+    "linux": {
+      "icon": "build/icons/png",
+      "category": "Development",
+      "maintainer": "SHKWON <knix008@naver.com>",
+      "desktop": {
+        "Name": "CodeFactory",
+        "Comment": "Multi-language source code analyzer",
+        "Categories": "Development;IDE;"
+      },
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "deb",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "rpm",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    }
+  },
+  "allowScripts": {
+    "electron@31.7.7": true,
+    "sharp@0.33.5": true,
+    "esbuild@0.21.5": true
+  },
+  "homepage": "https://github.com/knix008/TestSimulator",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/knix008/TestSimulator.git"
+  },
+  "bugs": {
+    "url": "https://github.com/knix008/TestSimulator/issues"
+  },
+  "keywords": [
+    "code-analysis",
+    "static-analysis",
+    "call-graph",
+    "uml",
+    "code-metrics",
+    "erd",
+    "electron",
+    "multi-language"
+  ]
+}

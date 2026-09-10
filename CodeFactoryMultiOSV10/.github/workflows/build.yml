@@ -1,0 +1,93 @@
+# Builds the installers for every supported platform.
+#
+# Each target is built on its own runner, because the packaging tools are not
+# cross-platform: `fpm` (deb/rpm) is unavailable on Windows, AppImage needs
+# symlink privileges, and a .dmg can only be produced on macOS.
+
+name: build
+
+on:
+  push:
+    branches: [main]
+    paths: ['CodeFactoryMultiOSV10/**']
+  pull_request:
+    paths: ['CodeFactoryMultiOSV10/**']
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: CodeFactoryMultiOSV10
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+      - run: npm test
+
+  windows:
+    needs: test
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+      - run: npm run build:win
+      - uses: actions/upload-artifact@v4
+        with:
+          name: codefactory-windows
+          path: CodeFactoryMultiOSV10/release/*.exe
+
+  linux:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+      - run: npm run build:linux
+      - uses: actions/upload-artifact@v4
+        with:
+          name: codefactory-linux
+          path: |
+            CodeFactoryMultiOSV10/release/*.AppImage
+            CodeFactoryMultiOSV10/release/*.deb
+            CodeFactoryMultiOSV10/release/*.rpm
+
+  macos:
+    needs: test
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+      - run: npm run build:mac
+      - uses: actions/upload-artifact@v4
+        with:
+          name: codefactory-macos
+          path: CodeFactoryMultiOSV10/release/*.dmg
+
+  web:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+      - run: npm run build:web
+      - uses: actions/upload-artifact@v4
+        with:
+          name: codefactory-web
+          path: CodeFactoryMultiOSV10/dist

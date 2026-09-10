@@ -1,0 +1,20 @@
+node_modules/
+dist/
+release/
+build/icons/
+public/icon.svg
+src/build-info.json
+*.log
+.DS_Store
+Thumbs.db
+
+# installer artifacts copied to the project root by scripts/copy-installer.js
+*.exe
+*.dmg
+*.AppImage
+*.deb
+*.rpm
+*.snap
+*.zip
+# the smoke harness is source; only its output is generated
+.smoke/result.json

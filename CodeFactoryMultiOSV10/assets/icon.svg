@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1e3a5f"/>
+      <stop offset="1" stop-color="#0d1b2a"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#4cc9f0"/>
+      <stop offset="1" stop-color="#4361ee"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="16" y="16" width="480" height="480" rx="96" fill="url(#bg)"/>
+
+  <!-- call-graph nodes and edges: the app's signature view -->
+  <g stroke="url(#accent)" stroke-width="12" fill="none" stroke-linecap="round">
+    <path d="M150 256 L246 154"/>
+    <path d="M150 256 L246 256"/>
+    <path d="M150 256 L246 358"/>
+    <path d="M310 154 L372 154"/>
+    <path d="M310 358 L372 358"/>
+  </g>
+
+  <g fill="#4cc9f0">
+    <circle cx="130" cy="256" r="34"/>
+  </g>
+  <g fill="#f8f9fa">
+    <rect x="248" y="126" width="62" height="56" rx="14"/>
+    <rect x="248" y="228" width="62" height="56" rx="14"/>
+    <rect x="248" y="330" width="62" height="56" rx="14"/>
+  </g>
+  <g fill="#ffd166">
+    <rect x="374" y="130" width="48" height="48" rx="12"/>
+    <rect x="374" y="334" width="48" height="48" rx="12"/>
+  </g>
+</svg>
