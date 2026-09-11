@@ -54,10 +54,26 @@ textarea {
 
 /* ── Shell ─────────────────────────────────────────────────────────────── */
 
+/* A column, not a grid with counted rows: the tab bar comes and goes with the
+   number of open documents, and a positional row template silently reassigns
+   every row when a child appears or disappears. */
 .app {
-  display: grid;
-  grid-template-rows: auto auto 1fr auto;
+  display: flex;
+  flex-direction: column;
   height: 100%;
+  min-height: 0;
+}
+
+.app > .menubar,
+.app > .toolbar,
+.app > .doc-tabs,
+.app > .statusbar {
+  flex: 0 0 auto;
+}
+
+.app > .main {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .menubar {
@@ -318,23 +334,129 @@ textarea {
   background: var(--app-background);
 }
 
+/* ── Document tabs ─────────────────────────────────────────────────────── */
+
+/* One row, one tab per open schema. It hides itself when only one is open —
+   the title bar already says which file that is. */
+.doc-tabs {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  padding: 2px 8px 0;
+  background: var(--sidebar-background);
+  border-bottom: 1px solid var(--border-light);
+  overflow-x: auto;
+  overflow-y: hidden;
+  white-space: nowrap;
+}
+
+.doc-tab {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 200px;
+  padding: 2px 4px 2px 8px;
+  border: 1px solid var(--border-light);
+  border-bottom: none;
+  border-radius: 5px 5px 0 0;
+  background: var(--tool-idle);
+  color: var(--text-secondary);
+  font-size: 11px;
+  line-height: 1.4;
+  cursor: pointer;
+  user-select: none;
+}
+
+.doc-tab:hover {
+  background: var(--tool-hover);
+}
+
+.doc-tab.active {
+  background: var(--panel-background);
+  color: var(--text-primary);
+  border-color: var(--border);
+  /* Sit a pixel lower so the tab merges into the page below it. */
+  margin-bottom: -1px;
+  padding-bottom: 3px;
+  font-weight: 600;
+}
+
+.doc-tab-icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+  opacity: 0.75;
+}
+
+.doc-tab-icon svg {
+  width: 13px;
+  height: 13px;
+}
+
+.doc-tab-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.doc-tab-dirty {
+  flex: 0 0 auto;
+  color: var(--accent);
+  font-size: 9px;
+  line-height: 1;
+}
+
+.doc-tab-close,
+.doc-tab-new {
+  flex: 0 0 auto;
+  width: 15px;
+  height: 15px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+}
+
+.doc-tab-close:hover,
+.doc-tab-new:hover {
+  background: var(--tool-selected);
+  color: var(--text-primary);
+}
+
+.doc-tab-new {
+  align-self: center;
+  margin-left: 4px;
+  font-size: 14px;
+}
+
 /* ── Left tool panel ───────────────────────────────────────────────────── */
 
 .tool-panel {
-  width: 88px;
-  flex: 0 0 88px;
+  width: 60px;
+  flex: 0 0 60px;
   background: var(--sidebar-background);
   border-right: 1px solid var(--border-light);
-  padding: 8px 6px;
+  padding: 8px 5px;
   overflow-y: auto;
 }
 
 .tool-group-title {
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text-muted);
-  margin: 10px 0 5px 4px;
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+  /* Not uppercased: the panel is 60px wide and "RELATION" does not fit in it,
+     while "Relation" does. Weight carries the heading on its own. */
+  letter-spacing: 0.02em;
+  color: var(--text-secondary);
+  margin: 10px 0 5px;
 }
 
 .tool-button {
@@ -343,13 +465,19 @@ textarea {
   align-items: center;
   gap: 3px;
   width: 100%;
-  padding: 7px 2px;
+  padding: 6px 1px;
   background: var(--tool-idle);
   border: 1px solid var(--border-light);
   border-radius: 6px;
   cursor: pointer;
   margin-bottom: 4px;
-  font-size: 11px;
+  font-size: 10px;
+  line-height: 1.25;
+  /* The panel is narrow enough that a two-word label has to wrap. Breaking at
+     the space keeps it readable; breaking inside a Korean word does not. */
+  text-align: center;
+  word-break: keep-all;
+  overflow-wrap: break-word;
 }
 
 .tool-button:hover {
@@ -1499,8 +1627,8 @@ textarea {
 
 @media (max-width: 900px) {
   .tool-panel {
-    width: 64px;
-    flex-basis: 64px;
+    width: 50px;
+    flex-basis: 50px;
   }
 
   .right-panel {

@@ -458,5 +458,8 @@
   "CmExportDiagram": "다이어그램 내보내기",
   "TtResizeWindow": "끌어서 창 크기 조절",
   "MsgDeleteTables": "선택한 테이블 {0}개를 삭제할까요?",
-  "CmDeleteTables": "선택한 테이블 {0}개 삭제"
+  "CmDeleteTables": "선택한 테이블 {0}개 삭제",
+  "TtCloseTab": "탭 닫기",
+  "TtNewTab": "새 탭",
+  "MsgUnsavedTabs": "저장하지 않은 탭이 있습니다. 현재 탭을 저장할까요?"
 }

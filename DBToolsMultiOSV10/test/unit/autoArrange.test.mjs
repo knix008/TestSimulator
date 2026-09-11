@@ -223,3 +223,87 @@ suite('auto arrange · related tables end up together', () => {
     expect(s.Tables.map((t) => `${t.X},${t.Y}`).join('|')).toBe(first);
   });
 });
+
+suite('auto arrange · a database with no declared foreign keys', () => {
+  /** What a plain SQLite file usually looks like: tables, no relationships. */
+  function unrelated(count) {
+    const s = schema.newSchema('plain');
+    for (let i = 0; i < count; i++) {
+      s.Tables.push(
+        schema.newTable({
+          Name: `table_${i}`,
+          Columns: [
+            schema.newColumn({ Name: 'id', DataType: 'INTEGER', IsPrimaryKey: true }),
+            schema.newColumn({ Name: 'name', DataType: 'VARCHAR', Length: 100 }),
+          ],
+        }),
+      );
+    }
+    return s;
+  }
+
+  const gridOf = (s) => ({
+    columns: new Set(s.Tables.map((t) => t.X)).size,
+    rows: new Set(s.Tables.map((t) => t.Y)).size,
+  });
+
+  test('they are spread across the page, not stacked in one column', () => {
+    for (const count of [4, 9, 16, 25]) {
+      const s = unrelated(count);
+      layout.autoArrange(s);
+      const grid = gridOf(s);
+      expect(grid.columns).toBeGreaterThan(1, `${count} tables ended up in one column`);
+      expect(grid.rows).toBeGreaterThan(1, `${count} tables ended up in one row`);
+    }
+  });
+
+  test('the number of columns follows the number of tables', () => {
+    // Four tables in a 2x2, nine in a 3x3: the square root, rounded up.
+    expect(gridOf((() => { const s = unrelated(4); layout.autoArrange(s); return s; })()).columns).toBe(2);
+    expect(gridOf((() => { const s = unrelated(9); layout.autoArrange(s); return s; })()).columns).toBe(3);
+    expect(gridOf((() => { const s = unrelated(16); layout.autoArrange(s); return s; })()).columns).toBe(4);
+  });
+
+  test('the diagram stays wider than it is tall', () => {
+    for (const count of [6, 12, 30]) {
+      const s = unrelated(count);
+      layout.autoArrange(s);
+      const b = geometry.getAllTablesBounds(s);
+      expect(b.w).toBeGreaterThan(b.h, `${count} tables came out taller than wide`);
+    }
+  });
+
+  test('a single table still sits at the top left', () => {
+    const s = unrelated(1);
+    layout.autoArrange(s);
+    expect(s.Tables[0].X).toBe(40);
+    expect(s.Tables[0].Y).toBe(50);
+  });
+
+  test('tables mixed with a related group all get a place', () => {
+    const s = unrelated(6);
+    const parent = s.Tables[0];
+    const child = s.Tables[1];
+    s.Relationships.push(
+      schema.newRelationship({
+        Name: 'fk',
+        SourceTableId: parent.Id,
+        SourceColumnId: parent.Columns[0].Id,
+        TargetTableId: child.Id,
+        TargetColumnId: child.Columns[1].Id,
+      }),
+    );
+    layout.autoArrange(s);
+    // The related pair sits side by side; nothing overlaps anything else.
+    expect(child.X).toBeGreaterThan(parent.X);
+    for (let i = 0; i < s.Tables.length; i++) {
+      for (let j = i + 1; j < s.Tables.length; j++) {
+        const a = geometry.getTableBounds(s.Tables[i]);
+        const b = geometry.getTableBounds(s.Tables[j]);
+        expect(a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h).toBeFalsy(
+          `${s.Tables[i].Name} overlaps ${s.Tables[j].Name}`,
+        );
+      }
+    }
+  });
+});

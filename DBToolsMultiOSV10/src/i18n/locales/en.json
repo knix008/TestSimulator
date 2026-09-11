@@ -458,5 +458,8 @@
   "CmExportDiagram": "Export diagram",
   "TtResizeWindow": "Drag to resize the window",
   "MsgDeleteTables": "Delete the {0} selected tables?",
-  "CmDeleteTables": "Delete {0} selected tables"
+  "CmDeleteTables": "Delete {0} selected tables",
+  "TtCloseTab": "Close tab",
+  "TtNewTab": "New tab",
+  "MsgUnsavedTabs": "Some tabs have unsaved changes. Save the current one?"
 }

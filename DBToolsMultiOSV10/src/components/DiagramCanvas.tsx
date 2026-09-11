@@ -55,6 +55,8 @@ interface Props {
   selectedTableIds: readonly string[];
   /** Add the table to the selection, or drop it if it is already in. */
   onToggleTable: (tableId: string) => void;
+  /** Select every table a rubber-band drag enclosed. */
+  onSelectTables: (tableIds: string[], additive: boolean) => void;
   selectedColumnId: string | null;
   selectedRelationshipId: string | null;
   highlightedColumnIds: Set<string>;
@@ -88,7 +90,18 @@ type DragKind =
     }
   | { kind: 'routePoint'; relationshipId: string; index: number }
   | { kind: 'segment'; relationshipId: string; index: number; origin: Point; originPoints: Point[] }
-  | { kind: 'relation'; sourceTableId: string; current: Point };
+  | { kind: 'relation'; sourceTableId: string; current: Point }
+  | { kind: 'marquee'; origin: Point; current: Point; additive: boolean };
+
+/** The rectangle between two corners, however the drag ran. */
+function marqueeRect(a: Point, b: Point) {
+  return {
+    x: Math.min(a.x, b.x),
+    y: Math.min(a.y, b.y),
+    w: Math.abs(a.x - b.x),
+    h: Math.abs(a.y - b.y),
+  };
+}
 
 export function DiagramCanvas(props: Props) {
   const t = useT();
@@ -185,6 +198,20 @@ export function DiagramCanvas(props: Props) {
       highlightedColumnIds: props.highlightedColumnIds,
       liveRouteTableId: drag.kind === 'table' ? drag.tableId : null,
     });
+
+    if (drag.kind === 'marquee') {
+      const rect = marqueeRect(drag.origin, drag.current);
+      ctx.save();
+      ctx.fillStyle = palette.accent;
+      ctx.globalAlpha = 0.12;
+      ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = palette.accent;
+      ctx.lineWidth = 1 / zoom;
+      ctx.setLineDash([4 / zoom, 3 / zoom]);
+      ctx.strokeRect(rect.x, rect.y, rect.w, rect.h);
+      ctx.restore();
+    }
 
     if (drag.kind === 'relation') {
       const source = findTable(schema, drag.sourceTableId);
@@ -392,6 +419,15 @@ export function DiagramCanvas(props: Props) {
       return;
     }
 
+    // Ctrl/Shift on empty canvas: sweep out a rectangle and take everything in
+    // it. Without a modifier the same gesture pans, which is the more common
+    // thing to want.
+    if (e.ctrlKey || e.shiftKey || e.metaKey) {
+      setDrag({ kind: 'marquee', origin: p, current: p, additive: true });
+      e.currentTarget.setPointerCapture(e.pointerId);
+      return;
+    }
+
     props.onSelectTable(null, null);
     setDrag({
       kind: 'pan',
@@ -423,6 +459,10 @@ export function DiagramCanvas(props: Props) {
             resetOrthogonalRoutesForTable(draft, tableId);
           }
         });
+        return;
+
+      case 'marquee':
+        setDrag({ ...drag, current: p });
         return;
 
       case 'routePoint':
@@ -481,6 +521,21 @@ export function DiagramCanvas(props: Props) {
   };
 
   const handlePointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (drag.kind === 'marquee') {
+      const rect = marqueeRect(drag.origin, drag.current);
+      // A band has to have some size; a modifier-click on empty canvas is not
+      // a selection of everything.
+      if (rect.w > 2 && rect.h > 2) {
+        const inside = schema.Tables.filter((table) => {
+          const b = getTableBounds(table);
+          return (
+            b.x < rect.x + rect.w && rect.x < b.x + b.w &&
+            b.y < rect.y + rect.h && rect.y < b.y + b.h
+          );
+        }).map((table) => table.Id);
+        props.onSelectTables(inside, drag.additive);
+      }
+    }
     if (drag.kind === 'relation') {
       const p = toCanvasPoint(e.clientX, e.clientY);
       const target = hitTable(p);

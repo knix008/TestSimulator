@@ -25,6 +25,7 @@ import {
   removeTable,
 } from './core/schema';
 import { clearRecentFiles } from './core/settings';
+import { areEquivalent } from './core/serializer';
 import { useT, type Language } from './i18n';
 import { getHost } from './platform';
 import { windowTitle } from './appInfo';
@@ -49,6 +50,7 @@ import { PropertyGrid, type SortMode } from './components/PropertyGrid';
 import { RelationshipEditDialog } from './components/RelationshipEditDialog';
 import { AboutDialog, ConfirmDialog, DoneDialog, ErrorDialog, NoticeDialog } from './components/SimpleDialogs';
 import { StructureTree } from './components/StructureTree';
+import { DocumentTabs } from './components/DocumentTabs';
 import { TableEditDialog } from './components/TableEditDialog';
 import { RULER_SIZE } from './components/CanvasRuler';
 import { ResizeGrip } from './components/ResizeGrip';
@@ -81,7 +83,8 @@ export default function App() {
   const state = useAppState('새 스키마');
   const {
     schema, mutate, loadSchema, markSaved, isDirty, currentPath,
-    selection, selectTable, toggleTableSelection, selectRelationship, clearSelection,
+    documents, documentId, switchDocument, openDocument, closeDocument, anyDirty,
+    selection, selectTable, toggleTableSelection, selectTables, selectRelationship, clearSelection,
     selectedTable, selectedColumn, selectedRelationship,
     tool, setTool, viewport, setViewport, zoomIn, zoomOut, resetZoom,
     prefs, setPrefs, prefsLoaded, recentFiles, setRecentFiles,
@@ -109,6 +112,9 @@ export default function App() {
   selectionRef.current = selection;
   const dirtyRef = useRef(isDirty);
   dirtyRef.current = isDirty;
+  // Closing the window is about every open tab, not only the visible one.
+  const anyDirtyRef = useRef(anyDirty);
+  anyDirtyRef.current = anyDirty;
   /**
    * Set while saving on the way out: the completion dialog would open a window
    * just as the app is closing it again, which reads as a flash and nothing
@@ -140,7 +146,9 @@ export default function App() {
     () => prefsRef.current.ImageExportTransparent,
     {
       onLoaded: (next, path, message) => {
-        loadSchema(next, path);
+        // Every open and import lands in a tab of its own; nothing that is
+        // already open is disturbed, so there is nothing to confirm first.
+        openDocument(next, path);
         setStatus(message);
       },
       onSaved: (path, message) => {
@@ -182,14 +190,57 @@ export default function App() {
     [t, closeModal, files],
   );
 
+  /** New schema, in a new tab. */
   const newProject = useCallback(() => {
-    withUnsavedCheck(() => {
-      const next = newSchema(t('NewProjectName'));
-      next.TargetDb = prefsRef.current.DefaultDbType;
-      loadSchema(next, null);
-      setStatus(t('StatusNewProjectCreated'));
-    });
-  }, [withUnsavedCheck, loadSchema, setStatus, t]);
+    const next = newSchema(t('NewProjectName'));
+    next.TargetDb = prefsRef.current.DefaultDbType;
+    openDocument(next, null);
+    setStatus(t('StatusNewProjectCreated'));
+  }, [openDocument, setStatus, t]);
+
+  /**
+   * Close one tab, asking first if it has unsaved changes. Closing the last
+   * remaining tab closes the window instead — there is no such thing as the
+   * editor with no document open.
+   */
+  const closeTab = useCallback(
+    (id: string) => {
+      const document = documents.find((d) => d.id === id);
+      if (!document) return;
+      const dirty = !areEquivalent(document.saved, document.schema);
+
+      const finish = () => {
+        // The editor always has a document. Closing the last tab empties it
+        // rather than leaving a window with nothing in it.
+        if (closeDocument(id)) return;
+        const fresh = newSchema(t('NewProjectName'));
+        fresh.TargetDb = prefsRef.current.DefaultDbType;
+        loadSchema(fresh, null);
+      };
+      if (!dirty) return finish();
+
+      const wasActive = id === documentId;
+      setModal({
+        kind: 'confirm',
+        title: t('ConfirmDiscardTitle'),
+        message: t('MsgUnsavedChanges'),
+        confirmLabel: t('ConfirmSave'),
+        discardLabel: t('ConfirmDiscard'),
+        onConfirm: () => {
+          closeModal();
+          // Saving works on the active document, so a background tab has to be
+          // brought forward before it can be saved.
+          if (!wasActive) switchDocument(id);
+          void files.save().then((saved) => saved && finish());
+        },
+        onDiscard: () => {
+          closeModal();
+          finish();
+        },
+      });
+    },
+    [documents, documentId, closeDocument, switchDocument, closeModal, files, loadSchema, t],
+  );
 
   // ── Window title and dirty state ───────────────────────────────────────────
 
@@ -203,12 +254,12 @@ export default function App() {
   // Close confirmation (Electron) / beforeunload (web)
   useEffect(() => {
     host.onBeforeClose(async () => {
-      if (!dirtyRef.current) return true;
+      if (!anyDirtyRef.current) return true;
       return new Promise<boolean>((resolve) => {
         setModal({
           kind: 'confirm',
           title: t('ConfirmDiscardTitle'),
-          message: t('MsgUnsavedChanges'),
+          message: dirtyRef.current ? t('MsgUnsavedChanges') : t('MsgUnsavedTabs'),
           confirmLabel: t('ConfirmSave'),
           discardLabel: t('ConfirmDiscard'),
           onConfirm: () => {
@@ -1216,6 +1267,14 @@ export default function App() {
         <button className="tb" title={t('TtAbout')} onClick={() => setModal({ kind: 'about' })}><Icons.About /></button>
       </div>
 
+      <DocumentTabs
+        documents={documents}
+        activeId={documentId}
+        onSelect={switchDocument}
+        onClose={closeTab}
+        onNew={newProject}
+      />
+
       <div className="main">
         <div className="tool-panel">
           <div className="tool-group-title">{t('GrpTools')}</div>
@@ -1246,6 +1305,7 @@ export default function App() {
             selectedTableId={selection.tableId}
             selectedTableIds={selection.tableIds}
             onToggleTable={toggleTableSelection}
+            onSelectTables={selectTables}
             selectedColumnId={selection.columnId}
             selectedRelationshipId={selection.relationshipId}
             highlightedColumnIds={highlightedColumnIds}

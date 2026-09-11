@@ -326,13 +326,18 @@ function countCoveredLines(schema: DbSchema, group: DbTable[]): number {
   return covered;
 }
 
-/** Place one group of connected tables, returning the height it used. */
-function placeComponent(
-  schema: DbSchema,
-  group: DbTable[],
-  edges: Edge[],
-  top: number,
-): number {
+interface Size {
+  width: number;
+  height: number;
+}
+
+/**
+ * Lay one group of connected tables out at the origin, returning the box it
+ * fills. Positioning the group on the page is the caller's business — the
+ * groups have to be packed against each other before anyone knows where this
+ * one goes.
+ */
+function placeComponent(schema: DbSchema, group: DbTable[], edges: Edge[]): Size {
   const layerOf = assignLayers(group, edges);
   const layerCount = Math.max(...group.map((t) => layerOf.get(t.Id)!)) + 1;
   const layers: DbTable[][] = Array.from({ length: layerCount }, () => []);
@@ -344,19 +349,22 @@ function placeComponent(
     layer.reduce((sum, t) => sum + getTableHeight(t), 0) + ROW_GAP * Math.max(0, layer.length - 1);
   const tallest = Math.max(...layers.map(heightOf));
 
+  let width = 0;
   const applyGutter = (gutter: number) => {
-    let x = ORIGIN_X;
+    let x = 0;
     for (const layer of layers) {
       // Centre each column against the tallest one, so lines between
       // neighbouring columns stay close to horizontal instead of fanning out
       // from the top.
-      let y = top + Math.round((tallest - heightOf(layer)) / 2);
+      let y = Math.round((tallest - heightOf(layer)) / 2);
       for (const table of layer) {
         table.X = x;
         table.Y = y;
         y += getTableHeight(table) + ROW_GAP;
       }
-      x += Math.max(...layer.map((t) => t.Width)) + gutter;
+      const columnWidth = Math.max(...layer.map((t) => t.Width));
+      x += columnWidth + gutter;
+      width = x - gutter;
     }
   };
 
@@ -378,13 +386,32 @@ function placeComponent(
   } else {
     applyGutter(GUTTER_STEPS[0]);
   }
-  return tallest;
+  return { width, height: tallest };
 }
 
 /**
  * Lay the schema out so that related tables sit next to each other and the
  * relationship lines have somewhere to run. Tables are moved; nothing else
  * about them changes.
+ */
+/** Shift every table in a group by the same amount. */
+function translate(group: DbTable[], dx: number, dy: number): void {
+  for (const table of group) {
+    table.X += dx;
+    table.Y += dy;
+  }
+}
+
+/**
+ * Lay the schema out so that related tables sit next to each other and the
+ * relationship lines have somewhere to run. Tables are moved; nothing else
+ * about them changes.
+ *
+ * Groups of related tables are packed across the page as well as down it. A
+ * database whose foreign keys are not declared — which is most SQLite files —
+ * arrives as one group per table, and stacking those in a single column gives
+ * a diagram a mile long and one table wide. How many go in a row comes from how
+ * many there are, so ten tables land in a block rather than a ribbon.
  */
 export function autoArrange(schema: DbSchema): void {
   if (!schema) return;
@@ -395,8 +422,27 @@ export function autoArrange(schema: DbSchema): void {
   const edges = collectEdges(schema);
   const components = connectedComponents(schema.Tables, edges);
 
-  let top = ORIGIN_Y;
-  for (const group of components) {
-    top += placeComponent(schema, group, edges, top) + COMPONENT_GAP;
+  const placed = components.map((group) => ({ group, size: placeComponent(schema, group, edges) }));
+
+  // Aim for a squarish block: the square root of the group count, rounded up,
+  // is the usual answer and needs no measurement of the window.
+  const columns = Math.max(1, Math.ceil(Math.sqrt(placed.length)));
+  const widest = Math.max(...placed.map((p) => p.size.width));
+  const rowLimit = columns * (widest + COMPONENT_GAP);
+
+  let x = ORIGIN_X;
+  let y = ORIGIN_Y;
+  let rowHeight = 0;
+  for (const { group, size } of placed) {
+    // Wrap once the row is full, but never leave a row empty: a group wider
+    // than the limit simply gets a row of its own.
+    if (x > ORIGIN_X && x + size.width > ORIGIN_X + rowLimit) {
+      x = ORIGIN_X;
+      y += rowHeight + COMPONENT_GAP;
+      rowHeight = 0;
+    }
+    translate(group, x, y);
+    x += size.width + COMPONENT_GAP;
+    rowHeight = Math.max(rowHeight, size.height);
   }
 }

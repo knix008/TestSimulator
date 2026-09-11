@@ -6,7 +6,7 @@ import { analyzeIndexes, type IndexSuggestion } from '../core/analysis/indexAdvi
 import { clamp, MAX_ZOOM, MIN_ZOOM } from '../core/geometry';
 import { cloneSchema, ensureInitialized, newSchema } from '../core/schema';
 import { areEquivalent } from '../core/serializer';
-import { UndoRedoManager } from '../core/undoRedo';
+import { EMPTY_HISTORY, UndoRedoManager, type UndoRedoSnapshot } from '../core/undoRedo';
 import {
   DEFAULT_PREFERENCES,
   loadPreferences,
@@ -42,6 +42,42 @@ export interface Viewport {
   offsetY: number;
 }
 
+/**
+ * One open schema.
+ *
+ * Only the active document's state lives in React state; the rest are parked
+ * here as plain values. Switching tabs writes the live state back into the
+ * document being left and loads the one being entered, which keeps every
+ * existing piece of editor code working on "the schema" with no idea that
+ * others exist.
+ */
+export interface SchemaDocument {
+  id: string;
+  schema: DbSchema;
+  path: string | null;
+  /** What the document looked like when it was last saved. */
+  saved: DbSchema;
+  selection: Selection;
+  viewport: Viewport;
+  tool: ToolMode;
+  history: UndoRedoSnapshot;
+}
+
+/** The name shown on a tab: the file name if it has one, else the schema name. */
+export function documentLabel(document: SchemaDocument): string {
+  if (document.path) {
+    const base = document.path.split(/[\\/]/).pop() ?? document.path;
+    return base;
+  }
+  return document.schema.Name || '(\uc774\ub984 \uc5c6\uc74c)';
+}
+
+let documentSequence = 0;
+function nextDocumentId(): string {
+  documentSequence += 1;
+  return `doc-${documentSequence}`;
+}
+
 export function useAppState(newProjectName: string) {
   const [schema, setSchemaState] = useState<DbSchema>(() => newSchema(newProjectName));
   const [selection, setSelection] = useState<Selection>(EMPTY_SELECTION);
@@ -62,6 +98,14 @@ export function useAppState(newProjectName: string) {
     () => !areEquivalent(savedSnapshot.current, schema),
     [schema],
   );
+
+  // ── Open documents ─────────────────────────────────────────────────────────
+
+  const [documentId, setDocumentId] = useState<string>(nextDocumentId);
+  /** Every document *except* the active one, whose state is the live state. */
+  const [parked, setParked] = useState<SchemaDocument[]>([]);
+  /** Tab order, including the active document. */
+  const [documentOrder, setDocumentOrder] = useState<string[]>(() => [documentId]);
 
   // ── Settings ───────────────────────────────────────────────────────────────
 
@@ -128,6 +172,137 @@ export function useAppState(newProjectName: string) {
     [schema],
   );
 
+
+  // ── Tabs ───────────────────────────────────────────────────────────────────
+
+  /** The live state, packaged as a document. */
+  const captureActive = useCallback(
+    (): SchemaDocument => ({
+      id: documentId,
+      schema,
+      path: currentPath,
+      saved: savedSnapshot.current,
+      selection,
+      viewport,
+      tool,
+      history: undoRedo.capture(),
+    }),
+    [documentId, schema, currentPath, selection, viewport, tool, undoRedo],
+  );
+
+  /** Make `document` the live state. The caller must have parked the old one. */
+  const activate = useCallback(
+    (document: SchemaDocument) => {
+      undoRedo.restore(document.history);
+      savedSnapshot.current = document.saved;
+      setDocumentId(document.id);
+      setSchemaState(document.schema);
+      setCurrentPath(document.path);
+      setSelection(document.selection);
+      setViewport(document.viewport);
+      setTool(document.tool);
+      setUndoVersion((v) => v + 1);
+    },
+    [undoRedo],
+  );
+
+  const switchDocument = useCallback(
+    (id: string) => {
+      if (id === documentId) return;
+      const target = parked.find((d) => d.id === id);
+      if (!target) return;
+      const leaving = captureActive();
+      setParked((current) => [...current.filter((d) => d.id !== id), leaving]);
+      activate(target);
+    },
+    [documentId, parked, captureActive, activate],
+  );
+
+  /**
+   * Open a schema in a tab of its own. Used by New, Open and every import —
+   * none of them disturb what is already open.
+   */
+  const openDocument = useCallback(
+    (next: DbSchema, path: string | null) => {
+      ensureInitialized(next);
+
+      // An untouched, empty, unsaved document is a scratch tab nobody chose to
+      // have. Opening into it rather than beside it keeps the row honest.
+      const scratch =
+        !currentPath && schema.Tables.length === 0 && areEquivalent(savedSnapshot.current, schema);
+      if (scratch) {
+        undoRedo.clear();
+        savedSnapshot.current = cloneSchema(next);
+        setSchemaState(next);
+        setCurrentPath(path);
+        setSelection(EMPTY_SELECTION);
+        setViewport({ zoom: 1, offsetX: 0, offsetY: 0 });
+        setTool('Select');
+        setUndoVersion((v) => v + 1);
+        return documentId;
+      }
+
+      const leaving = captureActive();
+      setParked((current) => [...current, leaving]);
+      const document: SchemaDocument = {
+        id: nextDocumentId(),
+        schema: next,
+        path,
+        saved: cloneSchema(next),
+        selection: EMPTY_SELECTION,
+        viewport: { zoom: 1, offsetX: 0, offsetY: 0 },
+        tool: 'Select',
+        history: EMPTY_HISTORY,
+      };
+      setDocumentOrder((order) => [...order, document.id]);
+      activate(document);
+      return document.id;
+    },
+    [captureActive, activate, currentPath, schema, documentId, undoRedo],
+  );
+
+  /**
+   * Close a tab. Returns false when it was the only one — the caller then knows
+   * nothing happened and can decide whether to close the window instead.
+   */
+  const closeDocument = useCallback(
+    (id: string): boolean => {
+      if (documentOrder.length <= 1) return false;
+      const remaining = documentOrder.filter((docId) => docId !== id);
+      setDocumentOrder(remaining);
+
+      if (id !== documentId) {
+        setParked((current) => current.filter((d) => d.id !== id));
+        return true;
+      }
+
+      // Closing the active tab: step to the neighbour on the right, or the last
+      // one if this was the rightmost — what every tabbed editor does.
+      const index = documentOrder.indexOf(id);
+      const nextId = remaining[Math.min(index, remaining.length - 1)];
+      const target = parked.find((d) => d.id === nextId);
+      if (!target) return false;
+      setParked((current) => current.filter((d) => d.id !== nextId));
+      activate(target);
+      return true;
+    },
+    [documentOrder, documentId, parked, activate],
+  );
+
+  /** Every open document in tab order, the active one carrying live state. */
+  const documents = useMemo<SchemaDocument[]>(() => {
+    const live = captureActive();
+    const byId = new Map(parked.map((d) => [d.id, d]));
+    byId.set(live.id, live);
+    return documentOrder.map((id) => byId.get(id)).filter((d): d is SchemaDocument => !!d);
+  }, [documentOrder, parked, captureActive]);
+
+  /** True when any open document has unsaved changes — used when closing. */
+  const anyDirty = useMemo(
+    () => documents.some((d) => !areEquivalent(d.saved, d.schema)),
+    [documents],
+  );
+
   const undo = useCallback(() => {
     if (!undoRedo.canUndo) return;
     setSchemaState((prev) => undoRedo.undo(cloneSchema(prev)));
@@ -172,6 +347,26 @@ export function useAppState(newProjectName: string) {
         columnId: primary === current.tableId ? current.columnId : null,
         relationshipId: null,
         tableIds,
+      };
+    });
+  }, []);
+
+  /**
+   * Select a set of tables in one go — what a rubber-band selection produces.
+   * `additive` keeps whatever was already selected, which is what holding a
+   * modifier through the drag implies.
+   */
+  const selectTables = useCallback((tableIds: string[], additive: boolean) => {
+    setSelection((current) => {
+      const merged = additive
+        ? [...current.tableIds, ...tableIds.filter((id) => !current.tableIds.includes(id))]
+        : [...new Set(tableIds)];
+      const primary = merged.length > 0 ? merged[merged.length - 1] : null;
+      return {
+        tableId: primary,
+        columnId: primary === current.tableId ? current.columnId : null,
+        relationshipId: null,
+        tableIds: merged,
       };
     });
   }, []);
@@ -229,10 +424,18 @@ export function useAppState(newProjectName: string) {
     currentPath,
     setCurrentPath,
 
+    documents,
+    documentId,
+    switchDocument,
+    openDocument,
+    closeDocument,
+    anyDirty,
+
     selection,
     setSelection,
     selectTable,
     toggleTableSelection,
+    selectTables,
     selectRelationship,
     clearSelection,
     selectedTable,
