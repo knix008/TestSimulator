@@ -209,20 +209,19 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
   const [position, setPosition] = useState({ left: x, top: y });
 
   useEffect(() => {
+    // Listening immediately is safe: this menu is opened from `contextmenu`
+    // (and the dropdowns from `click`), both of which fire *after* the
+    // mousedown of the gesture that opened them. Deferring the attachment
+    // instead — to a frame or a timeout — races with re-renders and can leave
+    // the menu with no outside-click handler at all.
     const onDocumentDown = (e: MouseEvent) => {
       if (!ref.current?.contains(e.target as Node)) onClose();
     };
     const onKeyDown = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
 
-    // Attach on the next frame. Listening immediately would let the very click
-    // that opened this menu bubble to the document and close it again.
-    const raf = requestAnimationFrame(() => {
-      document.addEventListener('mousedown', onDocumentDown);
-    });
+    document.addEventListener('mousedown', onDocumentDown);
     document.addEventListener('keydown', onKeyDown);
-
     return () => {
-      cancelAnimationFrame(raf);
       document.removeEventListener('mousedown', onDocumentDown);
       document.removeEventListener('keydown', onKeyDown);
     };

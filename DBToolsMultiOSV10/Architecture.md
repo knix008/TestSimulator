@@ -319,6 +319,10 @@ UI 코드에는 플랫폼 분기가 없습니다. 유일한 예외는 최근 파
 
 테스트는 `test/` 에 있고 외부 의존성이 없습니다. `test/index.mjs` 가 `*.test.mjs` 를
 찾아 실행하며, `test/helpers/runner.mjs` 가 `suite` / `test` / `expect` 를 제공합니다.
+`test/helpers/colors.mjs` 는 ANSI 스타일과 문자폭 계산(한글은 2칸)을 맡아 리포트의
+열을 정렬합니다. `index.mjs` 는 각 파일을 `import` 하기 전에 `setSourceFile()` 로
+표시를 남기고 — ESM 은 import 를 한 번에 하나씩 평가하므로 이 표시가 정확합니다 —
+러너는 그 값으로 결과를 파일별로 묶습니다.
 
 | 파일 | 검증 대상 |
 |------|-----------|

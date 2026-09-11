@@ -107,6 +107,9 @@ export default function App() {
   useToolbarMinWidth(toolbarRef, [prefs.Language, prefs.Theme, schema.TargetDb, prefs.DefaultLineStyle]);
 
   const closeModal = useCallback(() => setModal({ kind: 'none' }), []);
+  // Stable identity: the menu keys its document listeners off this, and a new
+  // function every render would tear them down and rebuild them constantly.
+  const closeContextMenu = useCallback(() => setContextMenu(null), []);
   const showError = useCallback(
     (message: string, details?: string | null) => setModal({ kind: 'error', message, details }),
     [],
@@ -1242,7 +1245,7 @@ export default function App() {
           x={contextMenu.x}
           y={contextMenu.y}
           items={contextMenu.items}
-          onClose={() => setContextMenu(null)}
+          onClose={closeContextMenu}
         />
       )}
 
