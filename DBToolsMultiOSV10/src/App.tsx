@@ -190,11 +190,11 @@ export default function App() {
     [t, closeModal, files],
   );
 
-  /** New schema, in a new tab. */
+  /** New schema, always in a tab of its own. */
   const newProject = useCallback(() => {
     const next = newSchema(t('NewProjectName'));
     next.TargetDb = prefsRef.current.DefaultDbType;
-    openDocument(next, null);
+    openDocument(next, null, { reuseScratch: false });
     setStatus(t('StatusNewProjectCreated'));
   }, [openDocument, setStatus, t]);
 

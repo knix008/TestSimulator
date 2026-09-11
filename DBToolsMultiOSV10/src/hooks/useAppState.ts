@@ -223,13 +223,18 @@ export function useAppState(newProjectName: string) {
    * none of them disturb what is already open.
    */
   const openDocument = useCallback(
-    (next: DbSchema, path: string | null) => {
+    (next: DbSchema, path: string | null, options: { reuseScratch?: boolean } = {}) => {
       ensureInitialized(next);
 
       // An untouched, empty, unsaved document is a scratch tab nobody chose to
-      // have. Opening into it rather than beside it keeps the row honest.
+      // have, so opening a *file* lands in it rather than beside it. Asking for
+      // a new tab is different: that is a deliberate request for another one,
+      // and it has to produce one even from an empty tab.
       const scratch =
-        !currentPath && schema.Tables.length === 0 && areEquivalent(savedSnapshot.current, schema);
+        options.reuseScratch !== false &&
+        !currentPath &&
+        schema.Tables.length === 0 &&
+        areEquivalent(savedSnapshot.current, schema);
       if (scratch) {
         undoRedo.clear();
         savedSnapshot.current = cloneSchema(next);

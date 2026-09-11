@@ -341,21 +341,41 @@ textarea {
 .doc-tabs {
   display: flex;
   align-items: stretch;
-  gap: 2px;
   padding: 2px 8px 0;
   background: var(--sidebar-background);
   border-bottom: 1px solid var(--border-light);
+  white-space: nowrap;
+}
+
+/* Only the tabs scroll. The new-tab button sits outside this box so it stays
+   reachable however many documents are open. */
+.doc-tab-strip {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  /* Only as wide as the tabs need, shrinking when they stop fitting. That is
+     what keeps the new-tab tab against the last tab while there is room, and
+     keeps it on screen once the tabs start scrolling. */
+  flex: 0 1 auto;
+  min-width: 0;
   overflow-x: auto;
   overflow-y: hidden;
-  white-space: nowrap;
+  /* The scrollbar would double the row's height for a few pixels of tab. */
+  scrollbar-width: none;
+}
+
+.doc-tab-strip::-webkit-scrollbar {
+  height: 0;
 }
 
 .doc-tab {
   display: flex;
   align-items: center;
   gap: 4px;
-  flex: 0 1 auto;
-  min-width: 0;
+  /* Never shrink: a squeezed tab shows no name, and a strip that compresses
+     instead of overflowing leaves the scroll arrows with nothing to do. */
+  flex: 0 0 auto;
+  min-width: 96px;
   max-width: 200px;
   padding: 2px 4px 2px 8px;
   border: 1px solid var(--border-light);
@@ -407,8 +427,7 @@ textarea {
   line-height: 1;
 }
 
-.doc-tab-close,
-.doc-tab-new {
+.doc-tab-close {
   flex: 0 0 auto;
   width: 15px;
   height: 15px;
@@ -425,16 +444,81 @@ textarea {
   padding: 0;
 }
 
-.doc-tab-close:hover,
-.doc-tab-new:hover {
+.doc-tab-close:hover {
   background: var(--tool-selected);
   color: var(--text-primary);
 }
 
+/* The new-tab tab. Same shape as the others, dimmer, and never the active one. */
 .doc-tab-new {
-  align-self: center;
+  min-width: 0;
   margin-left: 4px;
-  font-size: 14px;
+  padding-right: 8px;
+  color: var(--text-muted);
+  /* Dashed on the three sides a tab actually has. The shorthand would put it
+     back along the bottom too, which a tab does not have. */
+  border-style: dashed dashed none;
+  background: none;
+  font-family: inherit;
+}
+
+.doc-tab-new:hover {
+  color: var(--text-primary);
+  background: var(--tool-hover);
+}
+
+.doc-tab-plus {
+  font-size: 13px;
+  line-height: 1;
+}
+
+/* Arrows for walking the strip when there are more tabs than fit. They stay
+   put whatever the strip is doing, and carry the count of what is out of
+   sight — "there is more" is less useful than "there are four more". */
+.doc-tab-scroll {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  align-self: center;
+  flex: 0 0 auto;
+  height: 17px;
+  padding: 0 3px;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.doc-tab-scroll:hover:not(:disabled) {
+  background: var(--tool-selected);
+  color: var(--text-primary);
+}
+
+.doc-tab-scroll:disabled {
+  cursor: default;
+}
+
+/* Nothing hidden that way: keep the space so the row never shifts when the
+   arrows become useful, but stop drawing it. */
+.doc-tab-scroll.idle {
+  visibility: hidden;
+}
+
+.doc-tab-arrow {
+  font-size: 15px;
+  line-height: 1;
+}
+
+/* The count of tabs off this end. */
+.doc-tab-more {
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 1px 3px;
+  border-radius: 6px;
+  background: var(--accent);
+  color: var(--accent-contrast, #fff);
 }
 
 /* ── Left tool panel ───────────────────────────────────────────────────── */

@@ -461,5 +461,10 @@
   "CmDeleteTables": "선택한 테이블 {0}개 삭제",
   "TtCloseTab": "탭 닫기",
   "TtNewTab": "새 탭",
-  "MsgUnsavedTabs": "저장하지 않은 탭이 있습니다. 현재 탭을 저장할까요?"
+  "MsgUnsavedTabs": "저장하지 않은 탭이 있습니다. 현재 탭을 저장할까요?",
+  "TtTabsScrollLeft": "왼쪽 탭 보기",
+  "TtTabsScrollRight": "오른쪽 탭 보기",
+  "TtTabsMoreLeft": "왼쪽에 탭 {0}개 더 있습니다",
+  "TtTabsMoreRight": "오른쪽에 탭 {0}개 더 있습니다",
+  "TabNew": "새 탭"
 }

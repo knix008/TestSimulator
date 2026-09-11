@@ -461,5 +461,10 @@
   "CmDeleteTables": "Delete {0} selected tables",
   "TtCloseTab": "Close tab",
   "TtNewTab": "New tab",
-  "MsgUnsavedTabs": "Some tabs have unsaved changes. Save the current one?"
+  "MsgUnsavedTabs": "Some tabs have unsaved changes. Save the current one?",
+  "TtTabsScrollLeft": "Scroll tabs left",
+  "TtTabsScrollRight": "Scroll tabs right",
+  "TtTabsMoreLeft": "{0} more tabs to the left",
+  "TtTabsMoreRight": "{0} more tabs to the right",
+  "TabNew": "New tab"
 }
