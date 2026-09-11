@@ -1,0 +1,59 @@
+# ── Dependencies ───────────────────────────────────────────────────────────
+node_modules/
+.pnpm-store/
+
+# ── Build output ───────────────────────────────────────────────────────────
+# dist/          : Vite web bundle       (npm run build / build:web)
+# dist-electron/ : compiled main+preload (npm run compile:electron)
+# release/       : electron-builder installers (build:win / build:mac / build:linux)
+dist/
+dist-electron/
+release/
+builder-debug.yml
+builder-effective-config.yaml
+
+# `npm run copy:installer` drops the finished installer in the project root.
+*.exe
+*.msi
+*.dmg
+*.pkg
+*.AppImage
+*.deb
+*.rpm
+*.snap
+*.blockmap
+
+# Vite dependency pre-bundling and transform caches.
+.vite/
+node_modules/.vite/
+*.tsbuildinfo
+
+# ── Generated assets ───────────────────────────────────────────────────────
+# build/ and template/ ARE committed: they are produced by `npm run make:icons`
+# and `npm run make:template`, but shipping them keeps a plain `npm install &&
+# npm start` working without running the generators first.
+# Only the scratch output of the test/driver scripts is ignored.
+.web-test/
+shots/
+coverage/
+
+# ── Logs and local overrides ───────────────────────────────────────────────
+*.log
+npm-debug.log*
+yarn-error.log*
+.env
+.env.*
+!.env.example
+
+# ── Editors ────────────────────────────────────────────────────────────────
+.vs/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.swp
+
+# ── OS ─────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini

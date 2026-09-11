@@ -1,0 +1,133 @@
+{
+  "name": "dbtools-multios",
+  "version": "1.0.0",
+  "description": "Cross-platform ER diagram and database schema design tool",
+  "main": "dist-electron/main.js",
+  "author": "SHKWON <knix008@naver.com>",
+  "license": "UNLICENSED",
+  "private": true,
+  "scripts": {
+    "start": "npm run electron:dev",
+    "dev": "vite",
+    "web": "vite",
+    "compile:electron": "tsc -p tsconfig.electron.json",
+    "build": "vite build && npm run compile:electron",
+    "build:web": "vite build",
+    "preview": "vite preview",
+    "electron:dev": "npm run compile:electron && concurrently -k \"vite\" \"wait-on -t 60000 http://127.0.0.1:5174 && node scripts/start-electron.mjs\"",
+    "make:icons": "node scripts/make-icons.mjs",
+    "make:template": "node scripts/make-template.mjs",
+    "build:win": "npm run build && electron-builder --win && npm run copy:installer",
+    "build:mac": "npm run build && electron-builder --mac && npm run copy:installer",
+    "build:linux": "npm run build && electron-builder --linux && npm run copy:installer",
+    "electron:build": "npm run build && electron-builder && npm run copy:installer",
+    "test": "node test/index.mjs",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.electron.json",
+    "electron:start": "node scripts/start-electron.mjs",
+    "copy:installer": "node scripts/copy-installer.mjs",
+    "test:watch": "node --watch test/index.mjs",
+    "test:integration": "node test/index.mjs SQLite",
+    "test:fidelity": "node test/index.mjs fidelity"
+  },
+  "dependencies": {
+    "docx": "^9.0.2",
+    "exceljs": "^4.4.0",
+    "gifenc": "^1.0.3",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "sql.js": "^1.12.0",
+    "uuid": "^11.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "@types/sql.js": "^1.4.9",
+    "@vitejs/plugin-react": "^4.7.0",
+    "concurrently": "^9.2.0",
+    "electron": "^37.2.3",
+    "electron-builder": "^26.0.12",
+    "typescript": "^5.8.3",
+    "vite": "^7.0.5",
+    "wait-on": "^8.0.4"
+  },
+  "build": {
+    "appId": "com.shkwon.dbtools",
+    "productName": "DBTools",
+    "copyright": "Copyright (c) 2026 SHKWON",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "build/icon.*",
+      "build/file-icon.*"
+    ],
+    "extraResources": [
+      {
+        "from": "template",
+        "to": "template"
+      }
+    ],
+    "fileAssociations": [
+      {
+        "ext": "mdprj",
+        "name": "DBTools Project",
+        "description": "DBTools ER diagram project",
+        "role": "Editor",
+        "icon": "build/file-icon.ico"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico"
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "icon": "build/icon.png",
+      "category": "public.app-category.developer-tools"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "icon": "build/icons",
+      "category": "Development"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "allowElevation": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "DBTools",
+      "uninstallDisplayName": "DBTools",
+      "deleteAppDataOnUninstall": true,
+      "runAfterFinish": true,
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "installerHeaderIcon": "build/icon.ico",
+      "installerLanguages": [
+        "en_US",
+        "ko_KR"
+      ],
+      "language": "1042"
+    }
+  },
+  "allowScripts": {
+    "electron@37.10.3": true,
+    "esbuild@0.28.2": true,
+    "electron-winstaller@5.4.0": true
+  }
+}
