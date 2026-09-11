@@ -3,13 +3,21 @@ import { useState } from 'react';
 import { useT } from '../i18n';
 import { Dialog } from './Dialog';
 import { Icons } from './Icons';
+// The same artwork electron-builder stamps on the executable, so the About box
+// matches the taskbar / Finder icon. Vite bundles it for web and packaged builds.
+import appIcon from '../../build/icons/256x256.png';
 
 export function AboutDialog({ onClose }: { onClose: () => void }) {
   const t = useT();
   return (
-    <Dialog title={t('AboutTitle')} icon={<Icons.About />} onClose={onClose} cancelLabel={t('BtnClose')} width={520} height={430}>
-      <h2 className="about-name">DBTools</h2>
-      <p className="about-version">{t('AboutVersion').replace('{0}', '1.0.0')}</p>
+    <Dialog title={t('AboutTitle')} icon={<Icons.About />} onClose={onClose} cancelLabel={t('BtnClose')} width={520} height={460}>
+      <div className="about-header">
+        <img className="about-icon" src={appIcon} alt="" width={80} height={80} draggable={false} />
+        <div>
+          <h2 className="about-name">DBTools</h2>
+          <p className="about-version">{t('AboutVersion').replace('{0}', '1.0.0')}</p>
+        </div>
+      </div>
       <pre className="about-description">{t('AboutDescription')}</pre>
       <p className="about-platform">Web · Windows · macOS · Linux</p>
     </Dialog>

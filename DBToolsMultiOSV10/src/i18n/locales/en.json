@@ -122,6 +122,7 @@
   "CmSortCategory": "Sort by Category",
   "CmSortAlpha": "Sort Alphabetically",
   "CanvasNoTables": "No tables. Right-click to add a table.",
+  "CanvasWelcomeTagline": "DB table design and ER diagram editor",
   "ColEditTitle": "Column Editor",
   "ColEditName": "Column Name:",
   "ColEditType": "Data Type:",

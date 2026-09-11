@@ -157,11 +157,6 @@ textarea {
   font-variant-numeric: tabular-nums;
 }
 
-.tb-lang {
-  min-width: 52px;
-  font-weight: 600;
-}
-
 /* ── Split button: action on the left, menu on the caret ────────────────── */
 
 .split-button {
@@ -401,10 +396,38 @@ textarea {
   position: absolute;
   inset: 20px 0 0 20px;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 6px;
   pointer-events: none;
+  user-select: none;
   color: var(--text-muted);
+  text-align: center;
+}
+
+.canvas-empty-icon {
+  width: 96px;
+  height: 96px;
+  margin-bottom: 10px;
+  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.18));
+}
+
+.canvas-empty-title {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: var(--text-primary);
+}
+
+.canvas-empty-tagline {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.canvas-empty-hint {
+  margin-top: 14px;
+  font-size: 12px;
 }
 
 /* ── Right panel ───────────────────────────────────────────────────────── */
@@ -1246,13 +1269,27 @@ textarea {
 
 /* ── About / error dialogs ─────────────────────────────────────────────── */
 
+.about-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.about-icon {
+  width: 80px;
+  height: 80px;
+  flex: none;
+  user-select: none;
+}
+
 .about-name {
   margin: 0 0 4px;
   font-size: 20px;
 }
 
 .about-version {
-  margin: 0 0 12px;
+  margin: 0;
   color: var(--text-secondary);
 }
 

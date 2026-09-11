@@ -194,24 +194,40 @@ export const Icons = {
         <path d="M12.5 21l4-11 4 11M14 17.5h5" />
       </>,
     ),
-  // The language toggle shows the glyph of the language currently in use, so
-  // the two states are told apart at a glance rather than by a text label.
-  /** Korean: the syllable 가 (ㄱ + ㅏ). */
-  LanguageKo: () =>
-    icon(
-      <>
-        <path d="M4 6.5h7.5L7 17" />
-        <path d="M16.5 4v16M16.5 12H21" />
-      </>,
-    ),
-  /** English: the letter A. */
-  LanguageEn: () =>
-    icon(
-      <>
-        <path d="M5 19.5 11.2 5h1.6L19 19.5" />
-        <path d="M7.6 14.5h8.8" />
-      </>,
-    ),
+  // The language toggle shows the flag of the language in use. Flags are drawn
+  // in their own colours (not currentColor) so they stay recognisable in every
+  // theme; a faint outline keeps the white field visible on light backgrounds.
+  /** Korean: Taegeukgi — red/blue taegeuk on white with the four trigrams. */
+  FlagKo: () => (
+    <svg width={18} height={18} viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="2" y="5" width="20" height="14" rx="1.5" fill="#fff" />
+      <g fill="none" stroke="#111" strokeWidth="0.9" strokeLinecap="butt">
+        <g transform="translate(5.8 8.6) rotate(-56)"><path d="M-1.6-1h3.2M-1.6 0h3.2M-1.6 1h3.2" /></g>
+        <g transform="translate(18.2 8.6) rotate(56)"><path d="M-1.6-1h3.2M-1.6 0h3.2M-1.6 1h3.2" /></g>
+        <g transform="translate(5.8 15.4) rotate(56)"><path d="M-1.6-1h3.2M-1.6 0h3.2M-1.6 1h3.2" /></g>
+        <g transform="translate(18.2 15.4) rotate(-56)"><path d="M-1.6-1h3.2M-1.6 0h3.2M-1.6 1h3.2" /></g>
+      </g>
+      <g transform="rotate(-34 12 12)">
+        <circle cx="12" cy="12" r="3.8" fill="#0047a0" />
+        <path d="M8.2 12a3.8 3.8 0 0 1 7.6 0a1.9 1.9 0 0 1-3.8 0a1.9 1.9 0 0 0-3.8 0z" fill="#cd2e3a" />
+      </g>
+      <rect x="2" y="5" width="20" height="14" rx="1.5" fill="none" stroke="currentColor" strokeOpacity="0.35" />
+    </svg>
+  ),
+  /** English: the Union Jack. */
+  FlagEn: () => (
+    <svg width={18} height={18} viewBox="0 0 24 24" aria-hidden="true">
+      <clipPath id="flag-en-clip"><rect x="2" y="5" width="20" height="14" rx="1.5" /></clipPath>
+      <g clipPath="url(#flag-en-clip)">
+        <rect x="2" y="5" width="20" height="14" fill="#012169" />
+        <path d="M2 5l20 14M22 5L2 19" stroke="#fff" strokeWidth="3.4" />
+        <path d="M2 5l20 14M22 5L2 19" stroke="#c8102e" strokeWidth="1.2" />
+        <path d="M12 5v14M2 12h20" stroke="#fff" strokeWidth="4.6" />
+        <path d="M12 5v14M2 12h20" stroke="#c8102e" strokeWidth="2.6" />
+      </g>
+      <rect x="2" y="5" width="20" height="14" rx="1.5" fill="none" stroke="currentColor" strokeOpacity="0.35" />
+    </svg>
+  ),
   Palette: () =>
     icon(
       <>

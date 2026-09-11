@@ -27,6 +27,8 @@ import { drawGrid, drawRelationPreview, drawSchema } from '../render/drawDiagram
 import { getPalette, type ThemeId } from '../render/theme';
 import { useT } from '../i18n';
 import { CanvasRuler, RULER_SIZE } from './CanvasRuler';
+// The app icon, shown on the welcome screen while the diagram is still empty.
+import appIcon from '../../build/icons/256x256.png';
 
 export interface CanvasContextMenuRequest {
   screenX: number;
@@ -571,7 +573,14 @@ export function DiagramCanvas(props: Props) {
         onDoubleClick={handleDoubleClick}
         onContextMenu={handleContextMenu}
       />
-      {!hasTables && <div className="canvas-empty">{t('CanvasNoTables')}</div>}
+      {!hasTables && (
+        <div className="canvas-empty">
+          <img className="canvas-empty-icon" src={appIcon} alt="" width={96} height={96} draggable={false} />
+          <div className="canvas-empty-title">DBTools</div>
+          <div className="canvas-empty-tagline">{t('CanvasWelcomeTagline')}</div>
+          <div className="canvas-empty-hint">{t('CanvasNoTables')}</div>
+        </div>
+      )}
     </div>
   );
 }

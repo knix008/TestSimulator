@@ -1076,13 +1076,13 @@ export default function App() {
           items={themeItems}
         />
         <button
-          className="tb tb-lang"
+          className="tb"
           data-action="toggle-language"
-          title={t('TtToggleLanguage')}
+          title={`${t('TtToggleLanguage')} — ${t('StatusLanguage', prefs.Language === 'ko' ? '한국어' : 'English')}`}
           onClick={toggleLanguage}
         >
-          {/* A distinct glyph per language, so the current mode reads at a glance. */}
-          {prefs.Language === 'ko' ? <Icons.LanguageKo /> : <Icons.LanguageEn />}
+          {/* The flag of the language in use, so the current mode reads at a glance. */}
+          {prefs.Language === 'ko' ? <Icons.FlagKo /> : <Icons.FlagEn />}
         </button>
         {/* Only these three sit on the right; everything above is left-aligned. */}
         <span className="tb-spacer" />
