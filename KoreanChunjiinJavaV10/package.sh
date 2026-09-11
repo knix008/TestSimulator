@@ -94,13 +94,27 @@ esac
 WIX_LOCAL="tools/wix314"
 WIX_URL="https://github.com/wixtoolset/wix3/releases/download/wix3141rtm/wix314-binaries.zip"
 
-have_wix() {
-  command -v candle.exe >/dev/null 2>&1 && return 0
+# WiX 한 벌이 온전한가.
+# jpackage 는 candle.exe 로 컴파일하고 light.exe 로 묶으므로 둘 다 있어야 한다.
+# candle.exe 만 보고 넘어가면, 받다가 끊겨 반만 풀린 폴더를 멀쩡한 것으로 알고
+# 한참 뒤 jpackage 안에서 엉뚱한 소리를 내며 넘어진다.
+wix_dir_ok() {
+  [ -n "$1" ] && [ -x "$1/candle.exe" ] && [ -x "$1/light.exe" ]
+}
 
-  for candidate in     "$WIX_LOCAL/candle.exe"     "/c/Program Files (x86)/WiX Toolset v3.14/bin/candle.exe"     "/c/Program Files (x86)/WiX Toolset v3.11/bin/candle.exe"
+have_wix() {
+  if command -v candle.exe >/dev/null 2>&1; then
+    _onpath=$(dirname "$(command -v candle.exe)")
+    if wix_dir_ok "$_onpath"; then return 0; fi
+  fi
+
+  for _dir in \
+    "$WIX_LOCAL" \
+    "/c/Program Files (x86)/WiX Toolset v3.14/bin" \
+    "/c/Program Files (x86)/WiX Toolset v3.11/bin"
   do
-    if [ -x "$candidate" ]; then
-      PATH="$(dirname "$candidate"):$PATH"
+    if wix_dir_ok "$_dir"; then
+      PATH="$_dir:$PATH"
       export PATH
       return 0
     fi
@@ -108,26 +122,67 @@ have_wix() {
   return 1
 }
 
+# 받아서 tools/wix314 에 놓는다.
+#
+# 곧바로 tools/wix314 에 풀지 않고 곁에 풀었다가 옮긴다. 푸는 중에 끊기면
+# 반만 든 폴더가 남고, 그 뒤로는 그것이 멀쩡한 줄 알고 지나가 버리기 때문이다.
 get_wix() {
-  echo "  받는 중 ..."
-  echo "  $WIX_URL"
   mkdir -p tools
+  _zip=tools/wix314-binaries.zip
+  _stage="tools/wix314-staging-$$"
+  rm -rf "$_stage"
 
-  if command -v curl >/dev/null 2>&1; then
-    curl -fsSL -o tools/wix314-binaries.zip "$WIX_URL" || return 1
-  else
-    # Git Bash 에 curl 이 없으면 PowerShell 을 빌려 쓴다 (여기는 Windows 다)
-    powershell.exe -NoProfile -Command       "[Net.ServicePointManager]::SecurityProtocol = 'Tls12';        \$ProgressPreference = 'SilentlyContinue';        Invoke-WebRequest -Uri '$WIX_URL' -OutFile 'tools\wix314-binaries.zip' -UseBasicParsing" || return 1
+  # 지난번에 받다 만 것이 남아 있을 수 있다. 온전한 것만 다시 쓴다.
+  # zip 인지 아닌지는 목록을 뽑아 보면 안다 (프록시가 로그인 쪽지를
+  # 돌려주었어도 파일은 남는다).
+  if [ -f "$_zip" ]; then
+    if unzip -tqq "$_zip" >/dev/null 2>&1; then
+      echo "  받아 둔 것을 씁니다   $_zip"
+    else
+      echo "  지난번에 받다 만 것이 있어 지웁니다."
+      rm -f "$_zip"
+    fi
   fi
 
-  mkdir -p "$WIX_LOCAL"
+  if [ ! -f "$_zip" ]; then
+    echo "  받는 중 ... (40MB 남짓)"
+    echo "  $WIX_URL"
+
+    # 다 받기 전에는 제 이름을 주지 않는다. 중간에 끊긴 파일을 다음
+    # 실행에서 멀쩡한 것으로 잘못 알면 안 된다.
+    if command -v curl >/dev/null 2>&1; then
+      curl -fsSL -o "$_zip.part" "$WIX_URL" || { rm -f "$_zip.part"; return 1; }
+    else
+      # Git Bash 에 curl 이 없으면 PowerShell 을 빌려 쓴다 (여기는 Windows 다)
+      powershell.exe -NoProfile -Command "[Net.ServicePointManager]::SecurityProtocol = 'Tls12'; \$ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -Uri '$WIX_URL' -OutFile 'tools\wix314-binaries.zip.part' -UseBasicParsing" || { rm -f "$_zip.part"; return 1; }
+    fi
+
+    if command -v unzip >/dev/null 2>&1 && ! unzip -tqq "$_zip.part" >/dev/null 2>&1; then
+      echo "  받긴 받았는데 zip 이 아닙니다. 프록시가 가로챈 것일 수 있습니다." >&2
+      rm -f "$_zip.part"
+      return 1
+    fi
+    mv "$_zip.part" "$_zip"
+  fi
+
+  echo "  푸는 중 ..."
+  mkdir -p "$_stage"
   if command -v unzip >/dev/null 2>&1; then
-    unzip -q -o tools/wix314-binaries.zip -d "$WIX_LOCAL" || return 1
+    unzip -q -o "$_zip" -d "$_stage" || { rm -rf "$_stage"; return 1; }
   else
-    powershell.exe -NoProfile -Command       "Expand-Archive -Path 'tools\wix314-binaries.zip' -DestinationPath 'tools\wix314' -Force" || return 1
+    powershell.exe -NoProfile -Command "Expand-Archive -Path '$_zip' -DestinationPath '$_stage' -Force" || { rm -rf "$_stage"; return 1; }
   fi
 
-  rm -f tools/wix314-binaries.zip
+  if ! wix_dir_ok "$_stage"; then
+    echo "  푼 것 안에 candle.exe 와 light.exe 가 없습니다." >&2
+    rm -rf "$_stage"
+    return 1
+  fi
+
+  # 여기까지 왔으면 온전한 한 벌이다. 이제야 제자리에 앉힌다.
+  rm -rf "$WIX_LOCAL"
+  mv "$_stage" "$WIX_LOCAL"
+  rm -f "$_zip"
   echo "  풀었습니다   $WIX_LOCAL"
 }
 
@@ -196,8 +251,18 @@ echo "  크기   $(du -sh "$RUNTIME" | cut -f1)"
 #   Id="$(var.JpProductCode)"  ->  Id="*"        빌드마다 새 제품이 된다
 #   IncludeMaximum="...."      ->  "yes"         같은 판도 옛 것으로 친다
 #
-# 옛 것을 지우는 RemoveExistingProducts 는 jpackage 가 이미 맨 앞(798)에
-# 두었으므로, 새로 깔기 전에 통째로 지워진다.
+# 그리고 옛 것을 지우는 자리를 옮긴다. 이것이 없으면 위의 것이 다 헛일이다.
+#
+# jpackage 의 원본은 <RemoveExistingProducts Before="CostInitialize"/> 라고 적어
+# 이 동작을 798 번에 둔다. 그런데 그 자리는 값을 찾아보는 구간(Search)이라
+# 윈도우 인스톨러가 거기서는 이 동작을 돌리지 않는다. 옛 것이 걸려도 지워지지
+# 않는다는 뜻이다. WiX 의 검사 도구도 같은 말을 한다.
+#
+#   ICE27: 'RemoveExistingProducts' Action in InstallExecuteSequence table
+#          in wrong place. Current: Search, Correct: Execution
+#
+# 그래서 InstallValidate 바로 뒤(1401)로 옮긴다. 새 파일을 깔기 전에 옛 것을
+# 먼저 지우는 자리이고, WiX 의 MajorUpgrade 가 기본으로 쓰는 자리이기도 하다.
 WIX_RES=out/wix
 
 prepare_upgrade_override() {
@@ -212,8 +277,11 @@ prepare_upgrade_override() {
   [ -f "$src" ] || return 1
 
   # 1) 빌드마다 새 제품이 되게, 2) 같은 판도 옛 것으로 치게
+  # 5) 옛 것을 지우는 자리를 Search 구간에서 Execution 구간으로 옮긴다.
+  #    이것을 빼먹으면 1)~2) 가 아무리 옛 것을 찾아내도 지워지지 않는다.
   sed -e 's|Id="$(var\.JpProductCode)"|Id="*"|' \
       -e 's|IncludeMaximum="$(var\.JpUpgradeVersionOnlyDetectUpgrade)"|IncludeMaximum="yes"|' \
+      -e 's|<RemoveExistingProducts Before="CostInitialize"/>|<RemoveExistingProducts After="InstallValidate"/>|' \
       "$src" > "$WIX_RES/main.wxs.tmp"
 
   # 3) 똑같은 설치 파일을 조용히(무인) 다시 실행했을 때 통째로 다시 쓰게 한다.
@@ -236,11 +304,15 @@ prepare_upgrade_override() {
        { print }' "$WIX_RES/main.wxs.tmp" > "$WIX_RES/main.wxs"
   rm -f "$WIX_RES/main.wxs.tmp"
 
-  # 네 군데가 정말로 바뀌었는지 본다. 앞으로 JDK 가 원본을 바꾸면 여기서 걸린다.
+  # 다섯 군데가 정말로 바뀌었는지 본다. 앞으로 JDK 가 원본을 바꾸면 여기서 걸린다.
   grep -q 'Id="\*"' "$WIX_RES/main.wxs" || return 1
   grep -q 'IncludeMaximum="yes"' "$WIX_RES/main.wxs" || return 1
   grep -q 'Id="REINSTALLMODE"' "$WIX_RES/main.wxs" || return 1
   grep -q 'MaintenanceWelcomeDlg' "$WIX_RES/main.wxs" || return 1
+  grep -q 'RemoveExistingProducts After="InstallValidate"' "$WIX_RES/main.wxs" || return 1
+  # `grep ... && return 1` 로 쓰면 안 된다. 찾지 못했을 때 그 문장 자체가 실패로
+  # 잡혀 set -e 아래에서 엉뚱하게 멎을 수 있다.
+  if grep -q 'RemoveExistingProducts Before="CostInitialize"' "$WIX_RES/main.wxs"; then return 1; fi
   return 0
 }
 

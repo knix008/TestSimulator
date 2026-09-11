@@ -6,7 +6,15 @@
 # 빌드 결과                                                           #
 # ------------------------------------------------------------------ #
 
-# 컴파일된 클래스, jlink 런타임, 소스 목록
+# 빌드가 이 안에 다 넣는다. 폴더째 걸러 내므로 아래 것들을 따로 적지 않아도 된다.
+#   classes/        컴파일된 클래스
+#   test-classes/   시험까지 함께 컴파일한 것
+#   runtime/        jlink 가 만든 자바 런타임
+#   sources.txt     javac 에 넘기는 @목록 파일
+#   test-sources.txt, classes.txt, resources.txt   빌드가 세어 보려고 뽑는 목록
+#   javac.log       경고·오류를 세려고 받아 둔 javac 출력
+#   wix-src/        jdk.jpackage.jmod 에서 꺼낸 WiX 원본
+#   wix/            그것을 고쳐 jpackage 에 --resource-dir 로 넘기는 것
 out/
 # Chunjiin.jar
 dist/
@@ -19,6 +27,9 @@ release/
 
 # package.sh / package.ps1 이 WiX Toolset 이 없을 때 여기에 받아서 푼다.
 # 40MB 짜리 third-party 바이너리라 저장소에는 넣지 않는다.
+#
+# 받는 도중·푸는 도중에 생기는 것들(wix314-binaries.zip.part, 곁에 푸는 임시
+# 폴더)도 모두 이 안에 생기므로 따로 적지 않아도 된다.
 tools/
 
 # ------------------------------------------------------------------ #

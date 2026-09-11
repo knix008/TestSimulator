@@ -277,6 +277,69 @@ H E U N S 모드 지정   M 모드 순환
 | 대화상자 | 설정 · 사용법이 열리고 Esc 로 닫히는지 · 닫은 뒤에도 키가 통하는지 |
 | 클립보드 | `Ctrl+C` 로 복사한 것이 클립보드에 그대로 들어가는지 |
 
+## 빌드 스크립트
+
+빌드 도구를 쓰지 않습니다. Maven 도 Gradle 도 없고, 내려받을 의존성도 없습니다.
+`javac` 와 `jar` 만 있으면 되므로 스크립트가 그것을 직접 부릅니다.
+
+같은 일을 하는 것이 짝으로 있습니다. `.sh` 는 Linux · macOS 용이고 Windows 의
+Git Bash · WSL 에서도 돕니다. `.ps1` 은 Windows PowerShell 용입니다.
+`.bat` 둘은 `cmd.exe` 에서 `.ps1` 을 부르는 얇은 껍데기일 뿐, 스스로 하는 일이 없습니다.
+
+```
+scripts/find-jdk.sh   scripts/Find-Jdk.ps1     쓸 JDK 를 고르고 환경을 맞춘다
+build.sh              build.ps1                컴파일하고 JAR 로 묶는다
+run.sh                run.ps1                  빌드하고 창을 띄운다
+test.sh               test.ps1    test.bat     시험을 돌린다
+package.sh            package.ps1 package.bat  설치 파일을 만든다
+clean.sh              clean.ps1                빌드 결과를 지운다
+```
+
+### JDK 고르기
+
+나머지 전부가 `find-jdk` 하나를 거칩니다. 그래서 JDK 를 찾는 규칙이 한 군데에만 있습니다.
+
+이 프로그램은 텍스트 블록(Java 15) 과 `instanceof` 패턴(Java 16) 을 쓰므로 **JDK 17
+이상**이라야 합니다. 그냥 처음 만난 `javac` 를 쓰면 안 됩니다. 옛 JDK 가 `PATH`
+앞자리에 있는 기계가 흔하고, 그러면 문법 오류가 수십 개 쏟아지는데 원인이 드러나지
+않습니다. 그래서 후보를 모두 모아 **버전을 확인한 뒤** 조건에 맞는 것만 고릅니다.
+
+| 차례 | 어디서 | 고르는 조건 |
+|---|---|---|
+| 1 | `JAVA_HOME` | 17 이상일 때만 |
+| 2 | `PATH` 위의 `javac` | 17 이상일 때만 |
+| 3 | JDK 가 흔히 놓이는 자리 | 그 가운데 가장 높은 버전 |
+
+버전은 JDK 안의 `release` 파일에서 읽습니다. 프로그램을 띄우지 않아도 되어 빠릅니다.
+없으면 `javac -version` 을 물어봅니다 (자바 8 은 이것을 표준 오류로 내므로 두 줄기를
+다 받습니다). 비켜 간 것이 있으면 왜 비켜 갔는지 찍어 줍니다.
+
+고른 JDK 는 그 셸의 `JAVA_HOME` 과 `PATH` 에도 얹습니다. 이어 도는 `jpackage` 나
+`jlink`, 그리고 자식으로 부르는 `build` 까지 같은 것을 보게 하려는 것입니다.
+
+하나도 없으면 꾸러미 관리자(winget · brew · apt · dnf · zypper · pacman) 로 **깔지
+물어봅니다.** 사람이 답할 수 없는 자리(CI, 파이프)에서는 묻지 않고 안내만 하고 멎습니다.
+물으면 아무도 답하지 않아 그대로 멈춰 버리기 때문입니다.
+
+### 빌드가 찍는 것
+
+단계마다 무엇을 얼마나 했는지, 어디서 시간이 걸렸는지 보여 줍니다.
+`.sh` 와 `.ps1` 이 글자 하나까지 똑같이 찍습니다.
+
+원본·클래스 수와 패키지별 분포, 자원 개수, JAR 크기와 항목 수, 단계마다 걸린 시간,
+그리고 **바이트코드 대상**이 나옵니다. 마지막 것은 클래스 파일 머리(offset 6)에 적힌
+값을 그대로 읽은 것입니다. 지금은 `javac` 에 `--release` 를 주지 않으므로 빌드에 쓴
+JDK 가 곧 실행에 필요한 자바 버전이 됩니다. 그 사실이 눈에 보이도록 찍습니다.
+
+컴파일은 `-Xlint:all,-serial` 로 합니다. `serial` 만 뺐습니다. Swing 창을 물려받은
+클래스마다 `serialVersionUID` 가 없다고 하는데, 창을 파일로 저장할 일이 없으므로
+들을 것이 없습니다. 그것만 빼면 경고가 0 입니다.
+
+한글은 터미널에서 두 칸을 차지하므로 글자 수로 자리를 맞추면 어긋납니다. 두 스크립트
+모두 칸 수를 세어 맞춥니다. `.sh` 쪽은 `wc -m` 을 쓰지 않습니다. 로케일이 UTF-8 이
+아닌 자리(Git Bash 가 흔히 그렇습니다)에서는 바이트를 세어 버리기 때문입니다.
+대신 UTF-8 의 이어 붙는 바이트를 빼서 글자 수를 냅니다.
+
 ## 설치 파일
 
 `package.sh` · `package.ps1` 이 세 단계로 만듭니다.
@@ -295,7 +358,7 @@ H E U N S 모드 지정   M 모드 순환
 이미 깔린 상태에서 설치 파일을 다시 실행하면 **아무것도 묻지 않고 지워 버립니다.**
 
 `jpackage` 는 이것들을 옵션으로 열어 주지 않으므로, 지금 쓰는 JDK 안에 든 WiX 원본
-(`jdk.jpackage.jmod` 의 `main.wxs`)을 꺼내 네 군데만 고쳐 `--resource-dir` 로 넘깁니다.
+(`jdk.jpackage.jmod` 의 `main.wxs`)을 꺼내 다섯 군데만 고쳐 `--resource-dir` 로 넘깁니다.
 JDK 를 바꾸면 그때의 원본을 꺼내 쓰므로 낡지 않고, 고칠 자리를 못 찾으면 그 자리에서
 알려 줍니다.
 
@@ -305,15 +368,53 @@ JDK 를 바꾸면 그때의 원본을 꺼내 쓰므로 낡지 않고, 고칠 자
 | `IncludeMaximum="..."` → `"yes"` | 같은 판도 "옛 것"으로 쳐서 지운다 |
 | `REINSTALL=ALL`, `REINSTALLMODE=amus` | 무인으로 다시 깔면 통째로 새로 쓴다 |
 | `MaintenanceWelcomeDlg` 를 차례에 추가 | 이미 깔려 있으면 "고치기 / 지우기" 를 묻는다 |
+| `RemoveExistingProducts` 를 `After="InstallValidate"` 로 | 찾아낸 옛 것을 **정말로** 지운다 |
 
-옛 것을 지우는 `RemoveExistingProducts` 는 jpackage 가 이미 맨 앞(798)에 두므로,
-새로 깔기 전에 통째로 지워집니다.
+마지막 것이 빠지면 앞의 넷이 다 헛일입니다. jpackage 원본은
+
+```xml
+<RemoveExistingProducts Before="CostInitialize"/>
+```
+
+라고 적어 이 동작을 798번에 둡니다. 그 자리는 값을 찾아보는 **Search 구간**이라
+윈도우 인스톨러가 거기서는 이 동작을 돌리지 않습니다. 옛 것을 찾아내기는 해도
+지우지 않는다는 뜻입니다. WiX 의 검사 도구도 같은 말을 합니다.
+
+```
+ICE27: 'RemoveExistingProducts' Action in InstallExecuteSequence table
+       in wrong place. Current: Search, Correct: Execution
+```
+
+그래서 `InstallValidate` 바로 뒤(1401)로 옮깁니다. 새 파일을 깔기 전에 옛 것을 먼저
+지우는 자리이고, WiX 의 `MajorUpgrade` 가 기본으로 쓰는 자리이기도 합니다.
+다섯 군데가 정말로 바뀌었는지 스크립트가 확인하므로, 앞으로 JDK 가 원본을 바꾸면
+그 자리에서 걸립니다.
+
+> 만든 MSI 는 WiX 의 검사 도구로 확인할 수 있습니다. 오류가 없어야 합니다.
+>
+> ```powershell
+> .\tools\wix314\smoke.exe -nologo release\Chunjiin-1.0.0.msi
+> ```
+>
+> `ICE61` 경고는 남습니다. "자기보다 옛 판만 지워야 한다" 는 것인데, 여기서는
+> 같은 판도 지우려고 일부러 그렇게 둔 것입니다.
 
 Windows 의 `exe`/`msi` 는 WiX Toolset 3.14 가 있어야 합니다.
 없으면 스크립트가 공식 바이너리 묶음을 받아 `tools/wix314` 에 풀고 그대로 이어서 빌드합니다.
 관리자 권한도, .NET 3.5 도 필요 없어서 winget 판보다 걸리는 데가 적습니다
 (winget 판은 둘 다 요구합니다). 이미 깔린 WiX 가 있으면 그것을 먼저 씁니다.
 받아 오지 않게 하려면 `-NoWix` / `--no-wix`.
+
+받아 오는 일은 중간에 끊길 수 있으므로 세 가지를 지킵니다.
+
+- **온전한 한 벌인지 본다.** `candle.exe` 와 `light.exe` 가 둘 다 있어야 인정합니다.
+  `jpackage` 는 앞의 것으로 컴파일하고 뒤의 것으로 묶습니다. 앞의 것만 보고 넘어가면
+  반만 풀린 폴더를 멀쩡한 줄 알고 지나가 한참 뒤 `jpackage` 안에서 넘어집니다.
+- **다 되기 전에는 제자리에 앉히지 않는다.** 받는 동안은 `.part` 라는 이름으로 두었다가
+  다 받으면 이름을 바꾸고, 푸는 것도 곁의 임시 폴더에 풀어 확인한 뒤 옮깁니다.
+  그래서 중간에 멈춰도 반쪽짜리가 남지 않습니다.
+- **받은 것이 zip 인지 본다.** 로그인을 요구하는 프록시는 zip 대신 로그인 쪽지를
+  돌려주는데, 파일은 남으므로 열어 보아야 압니다.
 
 한 가지 걸리는 곳이 있습니다. MSI 는 문자열을 코드 페이지 1252 로 담고 `jpackage` 는
 `-cultures:en-us` 로 고정합니다. 그래서 `--description` 이나 `--win-menu-group` 에 한글을

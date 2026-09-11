@@ -40,6 +40,18 @@ public class ModalDialog extends JDialog {
     private final JPanel body = new JPanel();
     private final JPanel foot = new JPanel();
 
+    /*
+     * this-escape 경고를 끈다. 이 창은 물려받으라고 만든 것이라 final 로 닫을 수
+     * 없고, 창을 꾸미려면 생성자에서 setUndecorated 같은 것을 불러야 한다.
+     *
+     * 새어 나간 this 가 실제로 쓰이지는 않는지 확인했다.
+     *   - TitleBar 는 getIconImages() 만 읽는다. 바로 윗줄에서 채워 넣은 값이고
+     *     하위 넷(About·Error·Help·Settings) 가운데 그것을 재정의한 곳은 없다.
+     *   - onCancel() 은 하위에서 재정의하지만, 닫기 단추와 Esc 에서만 불린다.
+     *     둘 다 창이 다 만들어진 뒤의 일이다.
+     * 하위 클래스가 늘거나 위 둘을 건드리게 되면 여기부터 다시 보아야 한다.
+     */
+    @SuppressWarnings("this-escape")
     public ModalDialog(Window owner, Theme theme, String title, boolean wide) {
         super(owner, title, ModalityType.APPLICATION_MODAL);
         this.theme = theme;

@@ -68,56 +68,135 @@ if (-not $Type) { $Type = 'exe' }
 # .NET 3.5 도 필요 없어서 winget 설치보다 걸리는 데가 적다.
 
 $wixLocal = Join-Path $PSScriptRoot 'tools\wix314'
+$wixUrl = 'https://github.com/wixtoolset/wix3/releases/download/wix3141rtm/wix314-binaries.zip'
+$wixZip = Join-Path $PSScriptRoot 'tools\wix314-binaries.zip'
+
+# WiX 한 벌이 온전한가.
+# jpackage 는 candle.exe 로 컴파일하고 light.exe 로 묶으므로 둘 다 있어야 한다.
+# candle.exe 만 보고 넘어가면, 받다가 끊겨 반만 풀린 폴더를 멀쩡한 것으로 알고
+# 한참 뒤 jpackage 안에서 엉뚱한 소리를 내며 넘어진다.
+function Test-WixDir([string]$dir) {
+    if (-not $dir) { return $false }
+    return (Test-Path (Join-Path $dir 'candle.exe')) -and (Test-Path (Join-Path $dir 'light.exe'))
+}
 
 function Test-Wix {
-    if (Get-Command candle.exe -ErrorAction SilentlyContinue) { return $true }
-    $paths = @(
-        (Join-Path $wixLocal 'candle.exe'),
-        "${env:ProgramFiles(x86)}\WiX Toolset v3.14\bin\candle.exe",
-        "${env:ProgramFiles(x86)}\WiX Toolset v3.11\bin\candle.exe",
-        "$env:WIX\bin\candle.exe"
+    $onPath = Get-Command candle.exe -ErrorAction SilentlyContinue
+    if ($onPath -and (Test-WixDir (Split-Path $onPath.Source))) { return $true }
+
+    $dirs = @(
+        $wixLocal,
+        "${env:ProgramFiles(x86)}\WiX Toolset v3.14\bin",
+        "${env:ProgramFiles(x86)}\WiX Toolset v3.11\bin",
+        "$env:WIX\bin"
     )
-    foreach ($p in $paths) {
-        if ($p -and (Test-Path $p)) {
-            $env:PATH = "$(Split-Path $p);$env:PATH"
+    foreach ($d in $dirs) {
+        if (Test-WixDir $d) {
+            $env:PATH = "$d;$env:PATH"
             return $true
         }
     }
     return $false
 }
 
-function Install-Wix {
-    $url = 'https://github.com/wixtoolset/wix3/releases/download/wix3141rtm/wix314-binaries.zip'
-    $zip = Join-Path $env:TEMP 'wix314-binaries.zip'
+# 받아 둔 zip 이 온전한가. 받다가 끊겼거나, 프록시가 zip 대신 로그인 쪽지를
+# 돌려주었어도 파일은 남는다. 열어 보아야 안다.
+function Test-WixZip([string]$path) {
+    if (-not (Test-Path $path)) { return $false }
+    if ((Get-Item $path).Length -lt 1MB) { return $false }
+    try {
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        $archive = [System.IO.Compression.ZipFile]::OpenRead($path)
+        try { return $archive.Entries.Count -gt 0 } finally { $archive.Dispose() }
+    } catch {
+        return $false
+    }
+}
 
-    Write-Host '  받는 중 ...'
-    Write-Host "  $url"
+function Show-WixHelp($reason) {
+    Write-Host ''
+    Write-Host 'WiX 를 갖추지 못했습니다.' -ForegroundColor Red
+    if ($reason) { Write-Host "  $reason" }
+    Write-Host ''
+    Write-Host '  인터넷에 닿지 않는 자리라면 이렇게 하세요.'
+    Write-Host "    1) 다른 기계에서 $wixUrl 을 받아"
+    Write-Host "    2) $wixLocal 에 풀어 놓고 (candle.exe 가 그 폴더 바로 밑에 오게)"
+    Write-Host '    3) .\package.ps1 을 다시 실행'
+    Write-Host ''
+    Write-Host '  설치 프로그램 없이 쓰려면   .\package.ps1 -Portable'
+}
+
+# 받아서 tools\wix314 에 놓는다.
+#
+# 곧바로 tools\wix314 에 풀지 않고 곁에 풀었다가 옮긴다. 푸는 중에 끊기면
+# 반만 든 폴더가 남고, 그 뒤로는 그것이 멀쩡한 줄 알고 지나가 버리기 때문이다.
+# (이 저장소에도 그렇게 생긴 빈 tools\wix314 가 남아 있었다.)
+function Install-Wix {
+    $toolsDir = Join-Path $PSScriptRoot 'tools'
+    $stage = Join-Path $toolsDir ('wix314-푸는중-' + [guid]::NewGuid().ToString('N').Substring(0, 8))
+    New-Item -ItemType Directory -Force $toolsDir | Out-Null
 
     try {
-        # 옛 PowerShell 은 TLS 1.2 를 기본으로 켜지 않아 GitHub 에 붙지 못한다
-        [Net.ServicePointManager]::SecurityProtocol =
-            [Net.SecurityProtocolType]::Tls12 -bor [Net.ServicePointManager]::SecurityProtocol
-        $ProgressPreference = 'SilentlyContinue'   # 진행 막대를 끄면 훨씬 빠르다
-        Invoke-WebRequest -Uri $url -OutFile $zip -UseBasicParsing -TimeoutSec 300
-    }
-    catch {
-        Write-Host ''
-        Write-Host 'WiX 를 받지 못했습니다.' -ForegroundColor Red
-        Write-Host "  $($_.Exception.Message)"
-        Write-Host ''
-        Write-Host '  인터넷에 닿지 않는 자리라면 이렇게 하세요.'
-        Write-Host "    1) 다른 기계에서 $url 을 받아"
-        Write-Host "    2) $wixLocal 에 풀어 놓고"
-        Write-Host '    3) .\package.ps1 을 다시 실행'
-        Write-Host ''
-        Write-Host '  설치 프로그램 없이 쓰려면   .\package.ps1 -Portable'
-        exit 1
-    }
+        # 지난번에 받다 만 것이 남아 있을 수 있다. 온전한 것만 다시 쓴다.
+        if ((Test-Path $wixZip) -and -not (Test-WixZip $wixZip)) {
+            Write-Host '  지난번에 받다 만 것이 있어 지웁니다.'
+            Remove-Item $wixZip -Force
+        }
 
-    New-Item -ItemType Directory -Force $wixLocal | Out-Null
-    Expand-Archive -Path $zip -DestinationPath $wixLocal -Force
-    Remove-Item $zip -Force
-    Write-Host "  풀었습니다   $wixLocal"
+        if (Test-Path $wixZip) {
+            Write-Host "  받아 둔 것을 씁니다   $wixZip"
+        } else {
+            Write-Host '  받는 중 ... (40MB 남짓)'
+            Write-Host "  $wixUrl"
+
+            # 다 받기 전에는 제 이름을 주지 않는다. 중간에 끊긴 파일을
+            # 다음 실행에서 멀쩡한 것으로 잘못 알면 안 된다.
+            $partial = "$wixZip.part"
+            if (Test-Path $partial) { Remove-Item $partial -Force }
+            try {
+                # 옛 PowerShell 은 TLS 1.2 를 기본으로 켜지 않아 GitHub 에 붙지 못한다
+                [Net.ServicePointManager]::SecurityProtocol =
+                    [Net.SecurityProtocolType]::Tls12 -bor [Net.ServicePointManager]::SecurityProtocol
+                $ProgressPreference = 'SilentlyContinue'   # 진행 막대를 끄면 훨씬 빠르다
+                Invoke-WebRequest -Uri $wixUrl -OutFile $partial -UseBasicParsing -TimeoutSec 300
+            }
+            catch {
+                if (Test-Path $partial) { Remove-Item $partial -Force }
+                Show-WixHelp $_.Exception.Message
+                exit 1
+            }
+
+            if (-not (Test-WixZip $partial)) {
+                Remove-Item $partial -Force
+                Show-WixHelp '받긴 받았는데 zip 이 아닙니다. 프록시가 가로챈 것일 수 있습니다.'
+                exit 1
+            }
+            Move-Item $partial $wixZip -Force
+        }
+
+        Write-Host '  푸는 중 ...'
+        try {
+            Expand-Archive -Path $wixZip -DestinationPath $stage -Force
+        }
+        catch {
+            Show-WixHelp "푸는 데 실패했습니다. $($_.Exception.Message)"
+            exit 1
+        }
+
+        if (-not (Test-WixDir $stage)) {
+            Show-WixHelp '푼 것 안에 candle.exe 와 light.exe 가 없습니다.'
+            exit 1
+        }
+
+        # 여기까지 왔으면 온전한 한 벌이다. 이제야 제자리에 앉힌다.
+        if (Test-Path $wixLocal) { Remove-Item $wixLocal -Recurse -Force }
+        Move-Item $stage $wixLocal
+        Remove-Item $wixZip -Force
+        Write-Host "  풀었습니다   $wixLocal"
+    }
+    finally {
+        if (Test-Path $stage) { Remove-Item $stage -Recurse -Force -ErrorAction SilentlyContinue }
+    }
 }
 
 if ($Type -in @('exe', 'msi') -and -not (Test-Wix)) {
@@ -133,7 +212,10 @@ if ($Type -in @('exe', 'msi') -and -not (Test-Wix)) {
 
     Write-Host 'WiX Toolset 이 없습니다. 받아서 씁니다.' -ForegroundColor Yellow
     Install-Wix
-    if (-not (Test-Wix)) { throw 'WiX 를 받았지만 candle.exe 를 찾지 못했습니다.' }
+    if (-not (Test-Wix)) {
+        Show-WixHelp '받아서 풀었는데도 candle.exe 와 light.exe 를 찾지 못했습니다.'
+        exit 1
+    }
 }
 
 # ------------------------------------------------------------------ #
@@ -183,8 +265,18 @@ Write-Host "  크기   $mb MB"
 #   Id="$(var.JpProductCode)"  ->  Id="*"        빌드마다 새 제품이 된다
 #   IncludeMaximum="...."      ->  "yes"         같은 판도 옛 것으로 친다
 #
-# 옛 것을 지우는 RemoveExistingProducts 는 jpackage 가 이미 맨 앞(798)에
-# 두었으므로, 새로 깔기 전에 통째로 지워진다.
+# 그리고 옛 것을 지우는 자리를 옮긴다. 이것이 없으면 위의 것이 다 헛일이다.
+#
+# jpackage 의 원본은 <RemoveExistingProducts Before="CostInitialize"/> 라고 적어
+# 이 동작을 798 번에 둔다. 그런데 그 자리는 값을 찾아보는 구간(Search)이라
+# 윈도우 인스톨러가 거기서는 이 동작을 돌리지 않는다. 옛 것이 걸려도 지워지지
+# 않는다는 뜻이다. WiX 의 검사 도구도 같은 말을 한다.
+#
+#   ICE27: 'RemoveExistingProducts' Action in InstallExecuteSequence table
+#          in wrong place. Current: Search, Correct: Execution
+#
+# 그래서 InstallValidate 바로 뒤(1401)로 옮긴다. 새 파일을 깔기 전에 옛 것을
+# 먼저 지우는 자리이고, WiX 의 MajorUpgrade 가 기본으로 쓰는 자리이기도 하다.
 
 $wixRes = 'out\wix'
 
@@ -240,11 +332,18 @@ function Set-UpgradeOverride {
     ) -join "`r`n"
     $text = $text.Replace('    <InstallUISequence>', $maintenance)
 
-    # 네 군데가 정말로 바뀌었는지 본다. 앞으로 JDK 가 원본을 바꾸면 여기서 걸린다.
+    # 5) 옛 것을 지우는 자리를 Search 구간에서 Execution 구간으로 옮긴다.
+    #    이것을 빼먹으면 1)~2) 가 아무리 옛 것을 찾아내도 지워지지 않는다.
+    $text = $text.Replace('<RemoveExistingProducts Before="CostInitialize"/>',
+                          '<RemoveExistingProducts After="InstallValidate"/>')
+
+    # 다섯 군데가 정말로 바뀌었는지 본다. 앞으로 JDK 가 원본을 바꾸면 여기서 걸린다.
     if ($text -notmatch '(?m)Id="\*"' -or
         $text -notmatch 'IncludeMaximum="yes"' -or
         $text -notmatch 'Id="REINSTALLMODE"' -or
-        $text -notmatch 'MaintenanceWelcomeDlg') { return $false }
+        $text -notmatch 'MaintenanceWelcomeDlg' -or
+        $text -notmatch 'RemoveExistingProducts After="InstallValidate"' -or
+        $text -match 'RemoveExistingProducts Before="CostInitialize"') { return $false }
 
     [System.IO.File]::WriteAllText((Join-Path (Get-Location) "$wixRes\main.wxs"), $text,
         (New-Object System.Text.UTF8Encoding $false))

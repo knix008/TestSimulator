@@ -15,8 +15,36 @@
 | Fedora · RHEL | `sudo dnf install java-21-openjdk-devel` |
 | 그 밖 | <https://adoptium.net> |
 
-`PATH` 에 없어도 됩니다. 스크립트가 `JAVA_HOME` 과 흔한 설치 자리를 차례로 찾아봅니다.
-찾지 못하면 이렇게 알려 주세요.
+사실 미리 깔지 않아도 됩니다. 없으면 스크립트가 위 표의 명령으로 **설치할지 물어봅니다.**
+`y` 라고 답하면 깔고 그대로 이어서 빌드합니다.
+
+```
+JDK 가 설치되어 있지 않습니다.
+  지금 winget 으로 EclipseAdoptium.Temurin.21.JDK 를 설치할까요? (y/N)
+```
+
+묻지 말고 바로 깔게 하려면 `CHUNJIIN_INSTALL_JDK` 를 `1` 로, 아예 손대지 못하게 하려면
+`no` 로 둡니다. 사람이 답할 수 없는 자리(CI, 파이프)에서는 묻지 않고 안내만 하고 멎습니다.
+
+```bash
+CHUNJIIN_INSTALL_JDK=1 ./build.sh
+```
+
+```powershell
+$env:CHUNJIIN_INSTALL_JDK = '1'; .\build.ps1
+```
+
+### 여러 개가 깔려 있을 때
+
+`PATH` 에 없어도 됩니다. 스크립트가 `JAVA_HOME`, `PATH`, 흔한 설치 자리를 모두 훑어
+**버전을 확인한 뒤 17 이상인 것만** 고릅니다. 옛 JDK 가 `PATH` 앞자리에 있어도 비켜 가고,
+비켜 갈 때는 이렇게 알려 줍니다.
+
+```
+PATH 의 JDK 8 은 너무 낡아 건너뜁니다.  C:\Program Files\Eclipse Foundation\jdk-8.0.302.8-hotspot
+```
+
+특정 JDK 를 쓰게 하려면 `JAVA_HOME` 으로 알려 주세요. 17 이상이면 그것을 먼저 씁니다.
 
 ```bash
 JAVA_HOME=/path/to/jdk ./build.sh
@@ -25,6 +53,9 @@ JAVA_HOME=/path/to/jdk ./build.sh
 ```powershell
 $env:JAVA_HOME = "C:\Program Files\Java\jdk-21"; .\build.ps1
 ```
+
+고른 JDK 는 그 셸의 `JAVA_HOME` 과 `PATH` 에도 얹히므로, 이어 도는 `jpackage` 나
+`jlink` 도 같은 것을 씁니다.
 
 ## 스크립트
 
@@ -50,6 +81,84 @@ Git Bash · WSL 에서도 돕니다. `.ps1` 은 Windows PowerShell 용입니다.
 
 `run` 은 **언제나 먼저 다시 빌드합니다.** 고친 코드가 반영되지 않은 예전 JAR 이
 도는 일이 없어야 하기 때문입니다.
+
+### cmd.exe 에서
+
+`.ps1` 을 부르기 번거로운 자리(옛 명령 프롬프트, 바로 가기, 작업 스케줄러, CI)를
+위해 `.bat` 두 개를 두었습니다. 하는 일은 **`.ps1` 을 그대로 부르는 것뿐**입니다.
+JDK 찾기도, 빌드도, WiX 받기도 모두 `.ps1` 안에서 일어나므로 둘이 어긋날 일이 없습니다.
+
+| | 하는 일 |
+|---|---|
+| `test.bat` | 엔진 회귀 시험 584항목 |
+| `test.bat -q` | 실패한 항목과 요약만 |
+| `test.bat -app` · `-onlyapp` · `-shots` | `test.ps1` 의 `-App` · `-OnlyApp` · `-Shots` 와 같다 |
+| `package.bat` | 설치 프로그램을 만든다 |
+| `package.bat -portable` | 설치 없이 풀어 쓰는 압축본 |
+| `package.bat -type msi` | 만들 종류를 고른다 |
+| `package.bat -nowix` | WiX 를 받아 오지 않는다 |
+| `-pause` | 끝나고 아무 키나 누를 때까지 창을 붙든다 |
+| `-h` | 사용법 |
+
+`--app`, `--only-app`, `--portable`, `--no-wix` 같은 셸 쪽 철자도 그대로 받습니다.
+콘솔을 UTF-8 로 바꿨다가 끝나면 되돌리므로 한글이 깨지지 않습니다.
+종료 코드는 `.ps1` 의 것을 그대로 넘기므로 CI 에서 바로 쓸 수 있습니다.
+
+**탐색기에서 더블클릭하면 끝나는 순간 창이 닫힙니다.** 일부러 그렇게 두었습니다.
+탐색기가 우리를 `cmd /c ""...\test.bat" "` 로 부르는데, 스크립트나 CI 가 부를 때도
+꼴이 같아 둘을 구분할 방법이 없습니다. 더블클릭인 줄 알고 기다렸다가는 CI 가
+멎어 버립니다. 창을 붙들고 싶으면 `-pause` 를 주거나 `cmd /k "...\test.bat"` 로
+바로 가기를 만드세요.
+
+`.bat` 파일 안은 ASCII 만 씁니다. `cmd.exe` 가 `.bat` 를 ANSI 코드 페이지로 읽어서
+그 안에 한글을 넣으면 구문 해석이 깨지기 때문입니다. 시험과 빌드가 찍는 한글은
+`.ps1` 이 내는 것이라 문제없습니다.
+
+### 빌드가 찍어 주는 것
+
+단계마다 무엇을 얼마나 했는지, 어디서 시간이 걸렸는지 보여 줍니다.
+`.sh` 와 `.ps1` 이 똑같이 찍습니다.
+
+```
+────────────────────────────────────────────────────────────────
+ 천지인 한글 입력기  빌드
+────────────────────────────────────────────────────────────────
+ JDK          java 23.0.1 2024-10-15
+ 자리         C:\Program Files\Java\jdk-23
+ 빌드 시각    2026-09-11 08:58
+
+ 비우기       out\classes  dist                           0.0초
+ 자원         10개  54.4 KB                               0.0초
+                icons  10개
+ 원본         27개  4963줄  182.6 KB
+ 컴파일       클래스 51개  경고 2개                       1.5초
+                -Xlint:all,-serial
+                com.shkwon.chunjiin  8개
+                com.shkwon.chunjiin.engine  8개
+                com.shkwon.chunjiin.ui  35개
+                .\src\...\ui\ModalDialog.java:47: warning: [this-escape] ...
+                .\src\...\ui\KeyButton.java:52: warning: [this-escape] ...
+ 바이트코드   Java 23
+                이 JAR 은 Java 23 이상에서만 돕니다. JDK 17 로는 못 돌립니다.
+ 묶기         dist\Chunjiin.jar  153.9 KB  항목 70개      0.5초
+                주 클래스  com.shkwon.chunjiin.Main
+────────────────────────────────────────────────────────────────
+ 다 됐습니다.  모두 2.3초
+```
+
+몇 가지 짚어 둘 것이 있습니다.
+
+**경고를 켜 두었습니다.** `-Xlint:all,-serial` 로 컴파일합니다. `serial` 만 뺐습니다.
+Swing 창을 물려받은 클래스마다 `serialVersionUID` 가 없다고 하는데, 창을 파일로
+저장할 일이 없으므로 들을 것이 없습니다. 경고는 요약 줄 **뒤에** 모아서 붙입니다.
+
+**바이트코드 줄을 보세요.** 클래스 파일 머리에 적힌 값을 그대로 읽은 것입니다.
+지금은 `javac` 에 `--release` 를 주지 않으므로 **빌드에 쓴 JDK 가 곧 실행에 필요한
+자바 버전**이 됩니다. JDK 23 으로 빌드하면 그 JAR 은 JDK 17 에서 돌지 않습니다.
+받는 쪽 자바를 가리지 않게 하려면 `javac` 에 `--release 17` 을 붙이세요.
+(`package` 로 만든 설치판은 자바를 안에 넣어 배포하므로 이 문제가 없습니다.)
+
+**컴파일이 실패하면** `javac` 가 낸 오류를 그대로 다 보여 주고 종료 코드 1 로 멎습니다.
 
 `clean` 은 빌드가 만든 것만 지웁니다. `src/`, `docs/images/`, 문서, 스크립트는 건드리지 않습니다.
 내려받은 WiX(`tools/`, 약 116MB)는 기본으로 남깁니다 - 다시 받는 데 시간이 걸리고
@@ -111,9 +220,31 @@ java -cp out/test-classes com.shkwon.chunjiin.EngineTest
 | `IncludeMaximum="..."` → `"yes"` | 같은 판도 "옛 것"으로 쳐서 지운다 |
 | `REINSTALL=ALL`, `REINSTALLMODE=amus` 추가 | 무인 설치로 다시 깔면 파일을 통째로 새로 쓴다 |
 | `MaintenanceWelcomeDlg` 차례에 추가 | 이미 깔려 있으면 지우지 않고 "고치기 / 지우기" 를 묻는다 |
+| `RemoveExistingProducts` 를 `After="InstallValidate"` 로 | 찾아낸 옛 것을 **정말로** 지운다 |
 
-옛 것을 지우는 `RemoveExistingProducts` 는 jpackage 가 이미 맨 앞(798)에 두므로,
-새로 깔기 전에 통째로 지워집니다.
+마지막 것이 없으면 앞의 넷이 다 헛일입니다. jpackage 의 원본은
+
+```xml
+<RemoveExistingProducts Before="CostInitialize"/>
+```
+
+라고 적어 이 동작을 798번에 두는데, **그 자리는 값을 찾아보는 구간(Search)이라
+윈도우 인스톨러가 거기서는 이 동작을 돌리지 않습니다.** 옛 것을 찾아내기는 해도
+지우지는 않는다는 뜻입니다. WiX 의 검사 도구(`smoke.exe`)도 같은 말을 합니다.
+
+```
+ICE27: 'RemoveExistingProducts' Action in InstallExecuteSequence table
+       in wrong place. Current: Search, Correct: Execution
+```
+
+그래서 `InstallValidate` 바로 뒤(1401)로 옮깁니다. 새 파일을 깔기 전에 옛 것을
+먼저 지우는 자리이고, WiX 의 `MajorUpgrade` 가 기본으로 쓰는 자리이기도 합니다.
+
+> 만든 MSI 가 제대로 됐는지는 이렇게 확인합니다. 아무 말도 나오지 않아야 합니다.
+>
+> ```powershell
+> .\tools\wix314\smoke.exe -nologo release\Chunjiin-1.0.0.msi
+> ```
 
 그래서 이렇게 됩니다.
 
@@ -181,6 +312,17 @@ Windows 에서 `exe`/`msi` 를 만들 때 WiX 가 없으면, 스크립트가 공
 이미 시스템에 깔린 WiX 가 있으면 그것을 먼저 씁니다
 (`PATH`, `%ProgramFiles(x86)%\WiX Toolset v3.14`, `%WIX%` 순으로 찾습니다).
 
+**온전한 한 벌인지 확인하고 씁니다.** `candle.exe` 와 `light.exe` 가 **둘 다** 있어야
+쓸 만한 것으로 칩니다. `jpackage` 는 앞의 것으로 컴파일하고 뒤의 것으로 묶기 때문입니다.
+받다가 끊겨 반만 든 폴더를 멀쩡한 줄 알고 지나가면, 한참 뒤 `jpackage` 안에서
+영문 모를 소리를 내며 넘어집니다.
+
+받는 것도 푸는 것도 **다 끝난 뒤에야 제자리에 앉힙니다.** 받는 동안에는 `.part` 라는
+이름으로 두었다가 다 받으면 이름을 바꾸고, 푸는 것도 곁의 임시 폴더에 풀어
+확인한 뒤에 `tools/wix314` 로 옮깁니다. 그래서 중간에 Ctrl+C 를 눌러도
+반쪽짜리가 남지 않고, 다음에 다시 실행하면 그냥 이어집니다.
+받아 둔 zip 이 남아 있으면 다시 받지 않고 그것을 씁니다 (온전한 경우에만).
+
 인터넷에 닿지 않는 자리라면 다른 기계에서
 <https://github.com/wixtoolset/wix3/releases/download/wix3141rtm/wix314-binaries.zip>
 를 받아 `tools/wix314` 에 풀어 놓으면 그대로 씁니다.
@@ -194,8 +336,18 @@ Windows 배포판은 Windows 에서, macOS 배포판은 macOS 에서 만드세�
 
 ## 자주 걸리는 것
 
-**`JDK 를 찾지 못했습니다`**
-JDK 가 아니라 JRE 만 깔려 있으면 `javac` 가 없습니다. JDK 를 까세요.
+**`JDK 가 설치되어 있지 않습니다`**
+JDK 가 아니라 JRE 만 깔려 있어도 `javac` 가 없어 이렇게 됩니다.
+그 자리에서 설치할지 물어보니 `y` 라고 답하면 됩니다.
+
+**`JDK 17 이상이 필요한데 찾지 못했습니다`**
+JDK 는 있는데 너무 낡은 것입니다. 찾은 것을 함께 찍어 주니 확인하고 새것을 까세요.
+이 프로그램은 텍스트 블록(Java 15) 과 `instanceof` 패턴(Java 16) 을 씁니다.
+
+**`unclosed string literal` · `';' expected` 가 쏟아진다**
+옛 JDK 로 컴파일한 것입니다. 위 두 문법을 옛 `javac` 가 알아보지 못해 납니다.
+지금은 스크립트가 버전을 확인해 걸러 내므로, 이 오류를 보았다면
+`javac -version` 으로 실제로 무엇이 쓰였는지 확인해 보세요.
 
 **PowerShell 에서 한글이 깨진다**
 `.ps1` 파일에 UTF-8 BOM 이 있어야 PowerShell 5.1 이 한글을 제대로 읽습니다.
@@ -207,8 +359,18 @@ BOM 을 붙이므로, 이 저장소의 스크립트는 BOM 없이 직접 씁니�
 
 **WiX 를 받지 못한다**
 사내망 프록시나 오프라인 자리에서 납니다. 다른 기계에서
-`wix314-binaries.zip` 을 받아 `tools/wix314` 에 풀어 놓으면 그대로 씁니다.
+`wix314-binaries.zip` 을 받아 `tools/wix314` 에 풀어 놓으면 (`candle.exe` 가 그 폴더
+바로 밑에 오게) 그대로 씁니다.
 설치 프로그램이 꼭 필요하지 않다면 `--portable` 로 압축본만 만들어도 됩니다.
+
+**`받긴 받았는데 zip 이 아닙니다`**
+로그인을 요구하는 사내망 프록시가 zip 대신 로그인 쪽지를 돌려준 것입니다.
+파일은 받아졌으므로 예전에는 이것을 알아채지 못하고 푸는 데서 넘어졌습니다.
+위와 같이 손으로 받아 놓으세요.
+
+**`tools/wix314` 가 있는데도 없다고 한다**
+그 안에 `candle.exe` 나 `light.exe` 중 하나가 빠진 것입니다. 받다가 끊기면 이렇게
+됩니다. 그냥 다시 실행하면 알아서 지우고 새로 받습니다.
 
 **`light.exe ... exited with 311`**
 MSI 문자열에 한글이 들어갔을 때 납니다. 설치 프로그램이 쓰는 이름

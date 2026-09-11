@@ -25,7 +25,11 @@ import javax.accessibility.AccessibleContext;
 import javax.accessibility.AccessibleRole;
 import javax.swing.JComponent;
 
-public class KeyButton extends JComponent {
+/*
+ * final 이다. 물려받는 곳이 없고, 생성자가 setCursor 같은 JComponent 의 메서드를
+ * 부르므로 열어 두면 하위 클래스가 다 만들어지기 전에 그것이 불릴 수 있다.
+ */
+public final class KeyButton extends JComponent {
 
     /* 웹판 --radius */
     private static final int RADIUS = 10;
