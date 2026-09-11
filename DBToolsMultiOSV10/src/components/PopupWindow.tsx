@@ -87,7 +87,12 @@ export function PopupWindow({
 
     const handleUnload = () => {
       if (closedByUs.current) return;
-      onClose();
+      // The window is being torn down right now. Telling React about it here
+      // would have it unmount the portal into a document that is halfway gone,
+      // and the exception that throws takes the whole app down with it — the
+      // main window goes blank. Let the unload finish, then react to it.
+      closedByUs.current = true;
+      setTimeout(onClose, 0);
     };
     popup.addEventListener('beforeunload', handleUnload);
 
@@ -106,10 +111,16 @@ export function PopupWindow({
 
     return () => {
       closedByUs.current = true;
-      popup.removeEventListener('beforeunload', handleUnload);
-      doc.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('beforeunload', closeOnOpenerUnload);
-      popup.close();
+      // Everything below reaches into a window that may already be gone —
+      // which is exactly the case this cleanup runs in most often.
+      try {
+        popup.removeEventListener('beforeunload', handleUnload);
+        doc.removeEventListener('keydown', handleKeyDown);
+        if (!popup.closed) popup.close();
+      } catch {
+        // Already torn down by the OS; nothing left to clean up.
+      }
     };
     // Opened once per dialog instance; `title` updates are handled below.
     // eslint-disable-next-line react-hooks/exhaustive-deps

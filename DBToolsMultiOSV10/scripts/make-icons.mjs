@@ -222,10 +222,21 @@ function appLayers() {
     cut: bgFill,
     rim: [255, 255, 255, 235],
   });
-  // "DB": 64 high, 12 stroke, centred under the cylinder.
-  const textY = 150;
+  // "DB", centred under the cylinder. Kept deliberately small: at 16 and 32
+  // pixels the wordmark is unreadable anyway, so letting it crowd the disc
+  // stack buys nothing and costs the icon its shape at a glance.
+  const textH = 38;
+  const textT = 8;
+  const dW = 35;
+  const bW = 33;
+  const gap = 8;
+  const textX = Math.round(128 - (dW + gap + bW) / 2);
+  const textY = 163;
   const wordmark = (x, y) =>
-    Math.min(letterD(x, y, 65, textY, 58, 64, 12), letterB(x, y, 135, textY, 56, 64, 12));
+    Math.min(
+      letterD(x, y, textX, textY, dW, textH, textT),
+      letterB(x, y, textX + dW + gap, textY, bW, textH, textT),
+    );
   const glyph = (x, y) => Math.min(discs.silhouette(x, y), wordmark(x, y));
   return [
     { shape: bg, fill: bgFill },
