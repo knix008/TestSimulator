@@ -38,6 +38,7 @@ import {
   type ThemeId,
 } from './render/theme';
 import { useAppState } from './hooks/useAppState';
+import type { SchemaDocument } from './hooks/useAppState';
 import { useFileActions } from './hooks/useFileActions';
 import { useToolbarMinWidth } from './hooks/useToolbarMinWidth';
 import { AnalysisPanel, IndexAdvisorPanel } from './components/AnalysisPanel';
@@ -51,6 +52,7 @@ import { RelationshipEditDialog } from './components/RelationshipEditDialog';
 import { AboutDialog, ConfirmDialog, DoneDialog, ErrorDialog, NoticeDialog } from './components/SimpleDialogs';
 import { StructureTree } from './components/StructureTree';
 import { DocumentTabs } from './components/DocumentTabs';
+import { SchemaPickerDialog } from './components/SchemaPickerDialog';
 import { TableEditDialog } from './components/TableEditDialog';
 import { RULER_SIZE } from './components/CanvasRuler';
 import { ResizeGrip } from './components/ResizeGrip';
@@ -66,6 +68,11 @@ type ModalState =
   | { kind: 'about' }
   | { kind: 'notice'; message: string }
   | { kind: 'done'; message: string; detail?: string | null }
+  | {
+      kind: 'pick-schema';
+      title: string;
+      onPick: (documentIds: string[]) => void;
+    }
   | { kind: 'error'; message: string; details?: string | null }
   | {
       kind: 'confirm';
@@ -83,7 +90,7 @@ export default function App() {
   const state = useAppState('새 스키마');
   const {
     schema, mutate, loadSchema, markSaved, isDirty, currentPath,
-    documents, documentId, switchDocument, openDocument, closeDocument, anyDirty,
+    documents, documentId, switchDocument, openDocument, replaceDocuments, closeDocument, anyDirty,
     selection, selectTable, toggleTableSelection, selectTables, selectRelationship, clearSelection,
     selectedTable, selectedColumn, selectedRelationship,
     tool, setTool, viewport, setViewport, zoomIn, zoomOut, resetZoom,
@@ -110,6 +117,14 @@ export default function App() {
   // its menu closed — every time the selection changes.
   const selectionRef = useRef(selection);
   selectionRef.current = selection;
+  /**
+   * The document an export is currently working on. Exports read the schema
+   * through `getSchema`, so pointing this at another open tab is all it takes
+   * to make them produce that tab's files instead of the visible one's.
+   */
+  const exportTargetRef = useRef<SchemaDocument | null>(null);
+  const documentsRef = useRef(documents);
+  documentsRef.current = documents;
   const dirtyRef = useRef(isDirty);
   dirtyRef.current = isDirty;
   // Closing the window is about every open tab, not only the visible one.
@@ -137,8 +152,8 @@ export default function App() {
   // ── File actions ───────────────────────────────────────────────────────────
 
   const files = useFileActions(
-    () => schemaRef.current,
-    () => pathRef.current,
+    () => exportTargetRef.current?.schema ?? schemaRef.current,
+    () => exportTargetRef.current?.path ?? pathRef.current,
     () => prefsRef.current.RecentFilesMaxCount,
     () => prefsRef.current.Theme,
     () => prefsRef.current.NormalizationLevels,
@@ -159,6 +174,7 @@ export default function App() {
         }
       },
       onStatus: setStatus,
+      onWorkspaceLoaded: (entries, activeIndex) => replaceDocuments(entries, activeIndex),
       onCompleted: (message, detail) => {
         if (!closingRef.current) setModal({ kind: 'done', message, detail });
       },
@@ -548,7 +564,8 @@ export default function App() {
         return void (e.preventDefault(), addRelationship());
       }
       if (ctrl && e.shiftKey && e.key.toLowerCase() === 'r') {
-        return void (e.preventDefault(), files.exportAnalysisMarkdown());
+        e.preventDefault();
+        return void forChosenSchemas(t('PickTitleReport'), files.exportAnalysisMarkdown);
       }
       if (ctrl && (e.key === '+' || e.key === '=')) return void (e.preventDefault(), zoomIn());
       if (ctrl && e.key === '-') return void (e.preventDefault(), zoomOut());
@@ -659,34 +676,81 @@ export default function App() {
     ];
   }, [host.kind, recentFiles, t, withUnsavedCheck, files, setRecentFiles]);
 
+  /**
+   * Run an export for one or more open schemas.
+   *
+   * With a single document open there is nothing to ask. With several, the
+   * picker decides; picking more than one collects the files and writes them
+   * into a folder chosen once, rather than opening a save dialog per file.
+   */
+  const forChosenSchemas = useCallback(
+    (title: string, run: () => Promise<unknown> | unknown) => {
+      const all = documentsRef.current;
+      const runFor = async (ids: string[]) => {
+        const targets = all.filter((d) => ids.includes(d.id));
+        if (targets.length === 0) return;
+        if (targets.length === 1) {
+          exportTargetRef.current = targets[0];
+          try {
+            await run();
+          } finally {
+            exportTargetRef.current = null;
+          }
+          return;
+        }
+        files.beginBatch();
+        try {
+          for (const target of targets) {
+            exportTargetRef.current = target;
+            await run();
+          }
+        } finally {
+          exportTargetRef.current = null;
+        }
+        await files.saveBatch(files.endBatch(), title);
+      };
+
+      if (all.length <= 1) return void runFor(all.map((d) => d.id));
+      setModal({
+        kind: 'pick-schema',
+        title,
+        onPick: (ids) => {
+          closeModal();
+          void runFor(ids);
+        },
+      });
+    },
+    [files, closeModal],
+  );
+
   const diagramImageItems = useMemo<MenuItem[]>(
     () => [
-      { id: 'di-png', label: t('MenuExportPng'), icon: <Icons.Image />, onSelect: () => files.exportImage('png') },
-      { id: 'di-jpg', label: t('MenuExportJpeg'), icon: <Icons.Image />, onSelect: () => files.exportImage('jpeg') },
-      { id: 'di-webp', label: t('MenuExportWebp'), icon: <Icons.Image />, onSelect: () => files.exportImage('webp') },
-      { id: 'di-gif', label: t('MenuExportGif'), icon: <Icons.Image />, onSelect: () => files.exportImage('gif') },
+      { id: 'di-png', label: t('MenuExportPng'), icon: <Icons.Image />, onSelect: () => forChosenSchemas(t('PickTitleImage'), () => files.exportImage('png')) },
+      { id: 'di-jpg', label: t('MenuExportJpeg'), icon: <Icons.Image />, onSelect: () => forChosenSchemas(t('PickTitleImage'), () => files.exportImage('jpeg')) },
+      { id: 'di-webp', label: t('MenuExportWebp'), icon: <Icons.Image />, onSelect: () => forChosenSchemas(t('PickTitleImage'), () => files.exportImage('webp')) },
+      { id: 'di-gif', label: t('MenuExportGif'), icon: <Icons.Image />, onSelect: () => forChosenSchemas(t('PickTitleImage'), () => files.exportImage('gif')) },
     ],
-    [t, files],
+    [t, files, forChosenSchemas],
   );
 
   const analysisReportItems = useMemo<MenuItem[]>(
     () => [
-      { id: 'ar-md', label: t('MenuExportMarkdown'), icon: <Icons.Doc />, onSelect: files.exportAnalysisMarkdown },
-      { id: 'ar-docx', label: t('MenuExportWord'), icon: <Icons.Doc />, onSelect: files.exportAnalysisWordFile },
-      { id: 'ar-pdf', label: t('MenuExportPdf'), icon: <Icons.Report />, onSelect: files.exportAnalysisPdf },
-      { id: 'ar-html', label: t('MenuExportHtml'), icon: <Icons.Code />, onSelect: files.exportAnalysisHtml },
+      { id: 'ar-md', label: t('MenuExportMarkdown'), icon: <Icons.Doc />, onSelect: () => forChosenSchemas(t('PickTitleReport'), files.exportAnalysisMarkdown) },
+      { id: 'ar-docx', label: t('MenuExportWord'), icon: <Icons.Doc />, onSelect: () => forChosenSchemas(t('PickTitleReport'), files.exportAnalysisWordFile) },
+      { id: 'ar-pdf', label: t('MenuExportPdf'), icon: <Icons.Report />, onSelect: () => forChosenSchemas(t('PickTitleReport'), files.exportAnalysisPdf) },
+      { id: 'ar-html', label: t('MenuExportHtml'), icon: <Icons.Code />, onSelect: () => forChosenSchemas(t('PickTitleReport'), files.exportAnalysisHtml) },
     ],
-    [t, files],
+    [t, files, forChosenSchemas],
   );
 
   const exportItems = useMemo<MenuItem[]>(
     () => [
       { id: 'x-doc', header: true, label: t('ExportGroupDocument'), icon: <Icons.Doc /> },
-      { id: 'x-md', label: t('MenuExportMarkdown'), icon: <Icons.Doc />, onSelect: files.exportMarkdown },
-      { id: 'x-xlsx', label: t('MenuExportExcel'), icon: <Icons.Doc />, onSelect: files.exportExcelFile },
-      { id: 'x-docx', label: t('MenuExportWord'), icon: <Icons.Doc />, onSelect: files.exportWordFile },
-      { id: 'x-pdf', label: t('MenuExportPdf'), icon: <Icons.Report />, onSelect: files.exportPdf },
-      { id: 'x-html', label: t('MenuExportHtml'), icon: <Icons.Code />, onSelect: files.exportHtml },
+      { id: 'x-md', label: t('MenuExportMarkdown'), icon: <Icons.Doc />, onSelect: () => forChosenSchemas(t('PickTitleExport'), files.exportMarkdown) },
+      { id: 'x-xlsx', label: t('MenuExportExcel'), icon: <Icons.Doc />, onSelect: () => forChosenSchemas(t('PickTitleExport'), files.exportExcelFile) },
+      { id: 'x-docx', label: t('MenuExportWord'), icon: <Icons.Doc />, onSelect: () => forChosenSchemas(t('PickTitleExport'), files.exportWordFile) },
+      { id: 'x-pdf', label: t('MenuExportPdf'), icon: <Icons.Report />, onSelect: () => forChosenSchemas(t('PickTitleExport'), files.exportPdf) },
+      { id: 'x-html', label: t('MenuExportHtml'), icon: <Icons.Code />, onSelect: () => forChosenSchemas(t('PickTitleExport'), files.exportHtml) },
       { id: 'x-sep-an', separator: true },
       { id: 'x-analysis', header: true, label: t('ExportGroupAnalysis'), icon: <Icons.Analyze /> },
       ...analysisReportItems.map((item) => ({ ...item, id: `x-${item.id}` })),
@@ -695,17 +759,17 @@ export default function App() {
       ...diagramImageItems.map((item) => ({ ...item, id: `x-${item.id}` })),
       { id: 'x-sep2', separator: true },
       { id: 'x-data', header: true, label: t('ExportGroupData'), icon: <Icons.Code /> },
-      { id: 'x-json', label: t('MenuExportJson'), icon: <Icons.Code />, onSelect: files.exportJson },
+      { id: 'x-json', label: t('MenuExportJson'), icon: <Icons.Code />, onSelect: () => forChosenSchemas(t('PickTitleExport'), files.exportJson) },
       { id: 'x-sep3', separator: true },
       { id: 'x-sql', header: true, label: t('ExportGroupSql'), icon: <Icons.Database /> },
-      { id: 'x-sql-current', label: t('MenuExportSql'), icon: <Icons.Code />, onSelect: files.exportSqlCurrent },
-      { id: 'x-sqlite-db', label: t('MenuExportSqliteDb'), icon: <Icons.Database />, onSelect: files.exportSqliteDb },
-      { id: 'x-pg', label: t('MenuExportPostgres'), icon: <Icons.Database />, onSelect: () => files.exportSqlFor('PostgreSQL') },
-      { id: 'x-my', label: t('MenuExportMySql'), icon: <Icons.Database />, onSelect: () => files.exportSqlFor('MySQL') },
-      { id: 'x-maria', label: t('MenuExportMariaDb'), icon: <Icons.Database />, onSelect: () => files.exportSqlFor('MariaDB') },
-      { id: 'x-mssql', label: t('MenuExportSqlServer'), icon: <Icons.Database />, onSelect: () => files.exportSqlFor('SqlServer') },
+      { id: 'x-sql-current', label: t('MenuExportSql'), icon: <Icons.Code />, onSelect: () => forChosenSchemas(t('PickTitleExport'), files.exportSqlCurrent) },
+      { id: 'x-sqlite-db', label: t('MenuExportSqliteDb'), icon: <Icons.Database />, onSelect: () => forChosenSchemas(t('PickTitleExport'), files.exportSqliteDb) },
+      { id: 'x-pg', label: t('MenuExportPostgres'), icon: <Icons.Database />, onSelect: () => forChosenSchemas(t('PickTitleExport'), () => files.exportSqlFor('PostgreSQL')) },
+      { id: 'x-my', label: t('MenuExportMySql'), icon: <Icons.Database />, onSelect: () => forChosenSchemas(t('PickTitleExport'), () => files.exportSqlFor('MySQL')) },
+      { id: 'x-maria', label: t('MenuExportMariaDb'), icon: <Icons.Database />, onSelect: () => forChosenSchemas(t('PickTitleExport'), () => files.exportSqlFor('MariaDB')) },
+      { id: 'x-mssql', label: t('MenuExportSqlServer'), icon: <Icons.Database />, onSelect: () => forChosenSchemas(t('PickTitleExport'), () => files.exportSqlFor('SqlServer')) },
     ],
-    [t, files, analysisReportItems, diagramImageItems],
+    [t, files, analysisReportItems, diagramImageItems, forChosenSchemas],
   );
 
   const fileMenu = useMemo<MenuItem[]>(
@@ -716,6 +780,25 @@ export default function App() {
       { id: 'sep1', separator: true },
       { id: 'save', label: t('MenuSave'), icon: <Icons.Save />, shortcut: 'Ctrl+S', onSelect: () => void files.save() },
       { id: 'saveas', label: t('MenuSaveAs'), icon: <Icons.SaveAs />, shortcut: 'Ctrl+Shift+S', onSelect: () => void files.saveAs() },
+      { id: 'sep-ws', separator: true },
+      {
+        id: 'ws-save',
+        label: t('MenuSaveWorkspace'),
+        icon: <Icons.Save />,
+        tooltip: t('TtSaveWorkspace'),
+        onSelect: () =>
+          void files.saveWorkspace(
+            documentsRef.current.map((d) => ({ path: d.path, schema: d.schema })),
+            documentsRef.current.findIndex((d) => d.id === documentId),
+          ),
+      },
+      {
+        id: 'ws-open',
+        label: t('MenuOpenWorkspace'),
+        icon: <Icons.Open />,
+        tooltip: t('TtOpenWorkspace'),
+        onSelect: () => withUnsavedCheck(() => void files.openWorkspace()),
+      },
       { id: 'sep2', separator: true },
       { id: 'recent', label: t('MenuRecentFiles'), icon: <Icons.Recent />, submenu: recentItems },
       { id: 'export', label: t('MenuExport'), icon: <Icons.Export />, submenu: exportItems },
@@ -1517,6 +1600,15 @@ export default function App() {
       {modal.kind === 'notice' && <NoticeDialog message={modal.message} onClose={closeModal} />}
       {modal.kind === 'done' && (
         <DoneDialog message={modal.message} detail={modal.detail} onClose={closeModal} />
+      )}
+      {modal.kind === 'pick-schema' && (
+        <SchemaPickerDialog
+          title={modal.title}
+          documents={documents}
+          activeId={documentId}
+          onPick={modal.onPick}
+          onClose={closeModal}
+        />
       )}
       {modal.kind === 'error' && (
         <ErrorDialog message={modal.message} details={modal.details} onClose={closeModal} />

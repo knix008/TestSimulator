@@ -16,6 +16,7 @@ export const relationshipPath = await import('../../src/core/relationshipPath.ts
 export const layout = await import('../../src/core/layout.ts');
 export const undoRedo = await import('../../src/core/undoRedo.ts');
 export const sampleSchema = await import('../../src/core/sampleSchema.ts');
+export const workspace = await import('../../src/core/workspace.ts');
 export const normalization = await import('../../src/core/analysis/normalization.ts');
 export const indexAdvisor = await import('../../src/core/analysis/indexAdvisor.ts');
 export const report = await import('../../src/core/analysis/report.ts');

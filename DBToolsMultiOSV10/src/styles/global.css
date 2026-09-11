@@ -334,6 +334,91 @@ textarea {
   background: var(--app-background);
 }
 
+/* ── Schema picker ─────────────────────────────────────────────────────── */
+
+.picker-intro {
+  margin: 0 0 8px;
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.picker-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 250px;
+  overflow-y: auto;
+  padding: 2px;
+}
+
+.picker-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 9px;
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.picker-item:hover {
+  background: var(--tool-hover);
+}
+
+.picker-item.chosen {
+  border-color: var(--accent);
+  background: var(--tool-selected);
+}
+
+.picker-icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+  opacity: 0.7;
+}
+
+/* One line per schema: name, then what it holds, then where it came from.
+   The path is the part that gives way when there is not enough room. */
+.picker-text {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  flex: 1 1 auto;
+  white-space: nowrap;
+}
+
+.picker-name {
+  flex: 0 0 auto;
+  font-weight: 600;
+  max-width: 40%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.picker-detail {
+  flex: 0 0 auto;
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.picker-path {
+  flex: 1 1 auto;
+  min-width: 0;
+  text-align: right;
+  color: var(--text-muted);
+  font-size: 10px;
+  overflow: hidden;
+  /* Truncate at the front: the file name matters more than the drive. */
+  direction: rtl;
+  text-overflow: ellipsis;
+}
+
+.picker-note {
+  margin: 10px 0 0;
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
 /* ── Document tabs ─────────────────────────────────────────────────────── */
 
 /* One row, one tab per open schema. It hides itself when only one is open —

@@ -267,6 +267,35 @@ export function useAppState(newProjectName: string) {
   );
 
   /**
+   * Replace every open tab with these — what opening a workspace does. The
+   * session that was open is gone, so the caller has to have dealt with any
+   * unsaved changes first.
+   */
+  const replaceDocuments = useCallback(
+    (incoming: { path: string | null; schema: DbSchema }[], activeIndex: number) => {
+      if (incoming.length === 0) return;
+      const made: SchemaDocument[] = incoming.map((entry) => {
+        ensureInitialized(entry.schema);
+        return {
+          id: nextDocumentId(),
+          schema: entry.schema,
+          path: entry.path,
+          saved: cloneSchema(entry.schema),
+          selection: EMPTY_SELECTION,
+          viewport: { zoom: 1, offsetX: 0, offsetY: 0 },
+          tool: 'Select',
+          history: EMPTY_HISTORY,
+        };
+      });
+      const index = Math.min(Math.max(0, activeIndex), made.length - 1);
+      setDocumentOrder(made.map((d) => d.id));
+      setParked(made.filter((_, i) => i !== index));
+      activate(made[index]);
+    },
+    [activate],
+  );
+
+  /**
    * Close a tab. Returns false when it was the only one — the caller then knows
    * nothing happened and can decide whether to close the window instead.
    */
@@ -433,6 +462,7 @@ export function useAppState(newProjectName: string) {
     documentId,
     switchDocument,
     openDocument,
+    replaceDocuments,
     closeDocument,
     anyDirty,
 

@@ -1,5 +1,5 @@
 // Open / save / import / export, on top of the platform host.
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import type { DbSchema, DbTargetType } from '../types';
 import { writeReport } from '../core/analysis/report';
 import { exportDiagramImage, renderDiagramDataUrl, type DiagramImageFormat } from '../core/export/diagramImage';
@@ -16,6 +16,13 @@ import { exportSqliteDatabase } from '../core/export/sqliteDatabase';
 import { exportWord } from '../core/export/word';
 import { importDatabaseFile } from '../core/import/databaseFile';
 import { createOnlineShopSchema } from '../core/sampleSchema';
+import {
+  WORKSPACE_EXTENSION,
+  buildWorkspace,
+  deserializeWorkspace,
+  serializeWorkspace,
+  type WorkspaceEntry,
+} from '../core/workspace';
 import { deserialize, serializeToString } from '../core/serializer';
 import { pushRecentFile } from '../core/settings';
 import { baseName, getHost, stripExtension } from '../platform';
@@ -45,6 +52,10 @@ export const DATABASE_FILTER = [
   { name: '모든 파일', extensions: ['*'] },
 ];
 
+export const WORKSPACE_FILTER = [
+  { name: 'DBTools Workspace', extensions: [WORKSPACE_EXTENSION] },
+];
+
 export interface FileActionCallbacks {
   onLoaded: (schema: DbSchema, path: string | null, message: string) => void;
   onSaved: (path: string, message: string) => void;
@@ -53,6 +64,8 @@ export interface FileActionCallbacks {
    * passing remarks that do not deserve a dialog.
    */
   onCompleted: (message: string, detail?: string | null) => void;
+  /** A workspace was opened: replace every tab with these. */
+  onWorkspaceLoaded: (entries: WorkspaceEntry[], activeIndex: number) => void;
   onStatus: (message: string) => void;
   onError: (message: string, details?: string | null) => void;
   onRecentFilesChanged: (files: string[]) => void;
@@ -174,6 +187,24 @@ export function useFileActions(
   }, [host, getSchema, getCurrentPath, callbacks, saveAs]);
 
   /**
+   * Exporting several schemas at once collects the files here instead of asking
+   * where to put each one. The caller writes them all to one folder at the end
+   * — a dozen save dialogs in a row is not a feature.
+   */
+  const batch = useRef<{ name: string; data: Uint8Array | string }[] | null>(null);
+
+  const beginBatch = useCallback(() => {
+    batch.current = [];
+  }, []);
+
+  /** Hand back what the batch collected and stop collecting. */
+  const endBatch = useCallback(() => {
+    const files = batch.current ?? [];
+    batch.current = null;
+    return files;
+  }, []);
+
+  /**
    * Common tail for every export: write the bytes and report the result.
    * `title` names what finished, so the completion dialog can say "report" for
    * a report and "export" for everything else.
@@ -185,6 +216,16 @@ export function useFileActions(
       data: Uint8Array | string,
       title?: string,
     ) => {
+      if (batch.current) {
+        // Two untitled schemas would otherwise write the same file twice.
+        const taken = new Set(batch.current.map((f) => f.name));
+        let name = suggestedName;
+        for (let n = 2; taken.has(name); n++) {
+          name = suggestedName.replace(/(\.[^.]+)$/, `_${n}$1`);
+        }
+        batch.current.push({ name, data });
+        return name;
+      }
       const path = await host.saveFile({ suggestedName, filters, data });
       if (path) {
         callbacks.onStatus(t('ExportDone', path));
@@ -451,6 +492,40 @@ export function useFileActions(
     [runExport, host, analysisName, getSchema, getCurrentPath, getReportPrefs, analysisOptions, callbacks],
   );
 
+  // ── Workspace ─────────────────────────────────────────────────────────────
+  // Everything open, in one file. The single-schema project format is left
+  // exactly as it was — this sits beside it.
+
+  const saveWorkspace = useCallback(
+    (documents: { path: string | null; schema: DbSchema }[], activeIndex: number) =>
+      runExport(async () => {
+        const workspace = buildWorkspace(documents, activeIndex);
+        const stem = documents[activeIndex]?.path
+          ? stripExtension(baseName(documents[activeIndex].path!))
+          : t('WorkspaceDefaultName');
+        return writeExport(
+          `${stem}.${WORKSPACE_EXTENSION}`,
+          WORKSPACE_FILTER,
+          serializeWorkspace(workspace),
+          t('WorkspaceSaved'),
+        );
+      }),
+    [runExport, writeExport, t],
+  );
+
+  const openWorkspace = useCallback(
+    () =>
+      runExport(async () => {
+        const opened = await host.openFile({ filters: WORKSPACE_FILTER });
+        if (!opened) return;
+        const workspace = deserializeWorkspace(new TextDecoder('utf-8').decode(opened.bytes));
+        if (opened.path) await remember(opened.path);
+        callbacks.onWorkspaceLoaded(workspace.entries, workspace.activeIndex);
+        callbacks.onStatus(t('WorkspaceOpened', workspace.entries.length));
+      }),
+    [runExport, host, callbacks, remember],
+  );
+
   /** Regenerate every OnlineShop sample file into a chosen folder. */
   const generateSamples = useCallback(
     () =>
@@ -482,7 +557,25 @@ export function useFileActions(
     callbacks.onLoaded(sample, null, t('StatusLoaded', 'OnlineShop'));
   }, [callbacks]);
 
+  /** Write everything a batch collected into one chosen folder. */
+  const saveBatch = useCallback(
+    async (files: { name: string; data: Uint8Array | string }[], title: string) => {
+      if (files.length === 0) return;
+      const directory = await host.chooseDirectory();
+      if (host.kind === 'electron' && !directory) return;
+      const count = await host.writeFilesToDirectory(directory ?? '', files);
+      callbacks.onStatus(t('ExportDone', directory || String(count)));
+      callbacks.onCompleted(title, directory || null);
+    },
+    [host, callbacks],
+  );
+
   return {
+    saveWorkspace,
+    openWorkspace,
+    beginBatch,
+    endBatch,
+    saveBatch,
     openProject,
     openDatabase,
     openPath,

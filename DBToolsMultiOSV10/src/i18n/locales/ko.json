@@ -466,5 +466,21 @@
   "TtTabsScrollRight": "오른쪽 탭 보기",
   "TtTabsMoreLeft": "왼쪽에 탭 {0}개 더 있습니다",
   "TtTabsMoreRight": "오른쪽에 탭 {0}개 더 있습니다",
-  "TabNew": "새 탭"
+  "TabNew": "새 탭",
+  "PickTitleExport": "내보낼 스키마 선택",
+  "PickTitleReport": "보고서를 만들 스키마 선택",
+  "PickTitleImage": "다이어그램을 내보낼 스키마 선택",
+  "PickSchemaIntro": "열려 있는 탭 중에서 골라 주세요. 여러 개를 고를 수 있습니다.",
+  "PickSchemaDetail": "{0} · 테이블 {1}개 · 관계 {2}개",
+  "PickSchemaOneNote": "저장 위치를 물어본 뒤 파일 하나를 만듭니다.",
+  "PickSchemaFolderNote": "{0}개를 고르셨습니다. 폴더를 한 번만 물어보고 그 안에 모두 저장합니다.",
+  "PickSelectAll": "전체 선택",
+  "PickSelectNone": "전체 해제",
+  "MenuSaveWorkspace": "작업 공간 저장...",
+  "MenuOpenWorkspace": "작업 공간 열기...",
+  "TtSaveWorkspace": "열려 있는 탭을 모두 한 파일에 저장합니다",
+  "TtOpenWorkspace": "저장해 둔 탭 목록을 그대로 다시 연니다",
+  "WorkspaceDefaultName": "작업 공간",
+  "WorkspaceSaved": "작업 공간을 저장했습니다.",
+  "WorkspaceOpened": "작업 공간을 열었습니다: 탭 {0}개"
 }

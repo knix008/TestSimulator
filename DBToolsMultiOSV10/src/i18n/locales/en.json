@@ -466,5 +466,21 @@
   "TtTabsScrollRight": "Scroll tabs right",
   "TtTabsMoreLeft": "{0} more tabs to the left",
   "TtTabsMoreRight": "{0} more tabs to the right",
-  "TabNew": "New tab"
+  "TabNew": "New tab",
+  "PickTitleExport": "Choose schemas to export",
+  "PickTitleReport": "Choose schemas to report on",
+  "PickTitleImage": "Choose schemas to export as images",
+  "PickSchemaIntro": "Pick from the open tabs. More than one may be chosen.",
+  "PickSchemaDetail": "{0} · {1} tables · {2} relationships",
+  "PickSchemaOneNote": "You will be asked where to save the one file.",
+  "PickSchemaFolderNote": "{0} chosen. You will be asked for a folder once, and all of them go in it.",
+  "PickSelectAll": "Select all",
+  "PickSelectNone": "Select none",
+  "MenuSaveWorkspace": "Save workspace...",
+  "MenuOpenWorkspace": "Open workspace...",
+  "TtSaveWorkspace": "Save every open tab into one file",
+  "TtOpenWorkspace": "Reopen a saved set of tabs",
+  "WorkspaceDefaultName": "Workspace",
+  "WorkspaceSaved": "Workspace saved.",
+  "WorkspaceOpened": "Workspace opened: {0} tabs"
 }
