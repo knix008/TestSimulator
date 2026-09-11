@@ -1,6 +1,7 @@
 // Electron host: everything goes through the preload bridge (contextIsolation on).
 import type {
   AppSettingsData,
+  PdfPrintOptions,
   Host,
   OpenRequest,
   OpenedFile,
@@ -32,8 +33,13 @@ export interface ElectronBridge {
   ): Promise<number>;
   getStartupFile(): Promise<string | null>;
   getTemplateDirectory(): Promise<string>;
-  printToPdf(html: string, suggestedName: string): Promise<string | null>;
+  printToPdf(
+    html: string,
+    suggestedName: string,
+    options?: PdfPrintOptions,
+  ): Promise<string | null>;
   setTitle(title: string): void;
+  resizeWindowTo(width: number, height: number): void;
   setMinimumWidth(width: number): void;
   setDirty(dirty: boolean): void;
   onCloseRequested(handler: () => void): void;
@@ -113,12 +119,20 @@ export class ElectronHost implements Host {
     return this.bridge.getStartupFile();
   }
 
-  printToPdf(html: string, suggestedName: string): Promise<string | null> {
-    return this.bridge.printToPdf(html, suggestedName);
+  printToPdf(
+    html: string,
+    suggestedName: string,
+    options?: PdfPrintOptions,
+  ): Promise<string | null> {
+    return this.bridge.printToPdf(html, suggestedName, options);
   }
 
   setTitle(title: string): void {
     this.bridge.setTitle(title);
+  }
+
+  resizeWindowTo(width: number, height: number): void {
+    this.bridge.resizeWindowTo(width, height);
   }
 
   setMinimumWidth(width: number): void {

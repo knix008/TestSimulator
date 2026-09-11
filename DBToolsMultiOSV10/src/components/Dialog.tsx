@@ -4,6 +4,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useT } from '../i18n';
 import { canOpenPopupWindow, PopupWindow } from './PopupWindow';
+import { ResizeGrip } from './ResizeGrip';
 
 interface Props {
   title: string;
@@ -61,6 +62,7 @@ export function Dialog({
               {okLabel ?? t('BtnOk')}
             </button>
           )}
+          <ResizeGrip />
         </div>
       )}
     </div>

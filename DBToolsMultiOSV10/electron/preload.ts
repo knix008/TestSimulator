@@ -20,10 +20,15 @@ contextBridge.exposeInMainWorld('dbtools', {
 
   getStartupFile: () => ipcRenderer.invoke('app:startupFile'),
   getTemplateDirectory: () => ipcRenderer.invoke('app:templateDir'),
-  printToPdf: (html: string, suggestedName: string) =>
-    ipcRenderer.invoke('export:pdf', html, suggestedName),
+  printToPdf: (
+    html: string,
+    suggestedName: string,
+    options?: { headerTemplate?: string; footerTemplate?: string },
+  ) => ipcRenderer.invoke('export:pdf', html, suggestedName, options),
 
   setTitle: (title: string) => ipcRenderer.send('app:setTitle', title),
+  resizeWindowTo: (width: number, height: number) =>
+    ipcRenderer.send('app:resizeTo', width, height),
   setMinimumWidth: (width: number) => ipcRenderer.send('app:setMinimumWidth', width),
   setDirty: (dirty: boolean) => ipcRenderer.send('app:setDirty', dirty),
   confirmClose: () => ipcRenderer.send('app:confirmClose'),

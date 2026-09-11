@@ -4,6 +4,9 @@ import { getRelationshipTypeLabel } from '../../types';
 import { analyze, getLevelLabel } from '../analysis/normalization';
 import { findColumn, findTable, getTypeDisplay } from '../schema';
 import { buildCover } from './coverPage';
+import { DEFAULT_REPORT_PREFS, type ReportPrefs } from './reportOptions';
+import { embeddedImageSize } from './imageData';
+import { documentFontName } from './reportFonts';
 
 function mark(value: boolean): string {
   return value ? '✓' : '';
@@ -25,6 +28,8 @@ export interface ExcelExportOptions {
   /** data: URL of the rendered ERD; added on its own sheet when present. */
   erdImageDataUrl?: string | null;
   now?: Date;
+  /** User report settings — only the cover options apply to a workbook. */
+  report?: ReportPrefs;
 }
 
 export async function exportExcel(
@@ -37,26 +42,43 @@ export async function exportExcel(
   const ExcelJS = imported.default ?? imported;
   const workbook = new ExcelJS.Workbook();
   workbook.creator = 'DBTools';
+  const reportPrefs = options.report ?? DEFAULT_REPORT_PREFS;
   workbook.created = options.now ?? new Date();
 
   // 표지 — Excel has no page concept, so the cover is its own leading sheet.
-  const cover = buildCover(schema, { projectPath: options.projectPath, now: options.now });
-  const coverSheet = workbook.addWorksheet('표지');
-  coverSheet.columns = [{ width: 24 }, { width: 62 }];
-  coverSheet.getCell('B3').value = cover.heading;
-  coverSheet.getCell('B3').font = { size: 12, color: { argb: 'FF6B7280' } };
-  coverSheet.getCell('B5').value = cover.subject;
-  coverSheet.getCell('B5').font = { size: 26, bold: true };
-  let coverRow = 8;
-  for (const row of cover.rows) {
-    coverSheet.getCell(`A${coverRow}`).value = row.label;
-    coverSheet.getCell(`A${coverRow}`).font = { color: { argb: 'FF6B7280' } };
-    coverSheet.getCell(`A${coverRow}`).alignment = { horizontal: 'right' };
-    coverSheet.getCell(`B${coverRow}`).value = row.value;
-    coverRow++;
+  // Skipped entirely when the user turned the cover off.
+  const cover = buildCover(schema, {
+    projectPath: options.projectPath,
+    now: options.now,
+    report: reportPrefs,
+  });
+  if (cover) {
+    const coverSheet = workbook.addWorksheet('표지');
+    const titleFont = {
+      name: documentFontName(reportPrefs.FontFamily),
+      size: Math.round(reportPrefs.FontSize * 2.6),
+      bold: true,
+    };
+    coverSheet.columns = [{ width: 24 }, { width: 62 }];
+    coverSheet.getCell('B3').value = cover.heading;
+    coverSheet.getCell('B3').font = { size: 12, color: { argb: 'FF6B7280' } };
+    coverSheet.getCell('B5').value = cover.subject;
+    coverSheet.getCell('B5').font = titleFont;
+    if (cover.attribution) {
+      coverSheet.getCell('B6').value = cover.attribution;
+      coverSheet.getCell('B6').font = { size: 11, color: { argb: 'FF374151' } };
+    }
+    let coverRow = 8;
+    for (const row of cover.rows) {
+      coverSheet.getCell(`A${coverRow}`).value = row.label;
+      coverSheet.getCell(`A${coverRow}`).font = { color: { argb: 'FF6B7280' } };
+      coverSheet.getCell(`A${coverRow}`).alignment = { horizontal: 'right' };
+      coverSheet.getCell(`B${coverRow}`).value = row.value;
+      coverRow++;
+    }
+    coverSheet.getCell(`B${coverRow + 2}`).value = cover.producer;
+    coverSheet.getCell(`B${coverRow + 2}`).font = { size: 9, color: { argb: 'FF9CA3AF' } };
   }
-  coverSheet.getCell(`B${coverRow + 2}`).value = cover.producer;
-  coverSheet.getCell(`B${coverRow + 2}`).font = { size: 9, color: { argb: 'FF9CA3AF' } };
 
   // 요약
   const summary = workbook.addWorksheet('요약');
@@ -77,7 +99,9 @@ export async function exportExcel(
     sheet.getCell('A1').font = { bold: true };
     const base64 = options.erdImageDataUrl.split(',')[1] ?? '';
     const imageId = workbook.addImage({ base64, extension: 'png' });
-    sheet.addImage(imageId, { tl: { col: 0, row: 1 }, ext: { width: 900, height: 620 } });
+    // Sized from the PNG so the diagram keeps its shape on the sheet.
+    const ext = embeddedImageSize(options.erdImageDataUrl, 900, 620);
+    sheet.addImage(imageId, { tl: { col: 0, row: 1 }, ext });
   }
 
   // 테이블

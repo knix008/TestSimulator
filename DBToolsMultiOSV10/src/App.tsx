@@ -27,6 +27,7 @@ import {
 import { clearRecentFiles } from './core/settings';
 import { useT, type Language } from './i18n';
 import { getHost } from './platform';
+import { windowTitle } from './appInfo';
 import {
   applyPaletteToDocument,
   getHeaderColor,
@@ -46,10 +47,11 @@ import { Icons } from './components/Icons';
 import { PreferencesDialog } from './components/PreferencesDialog';
 import { PropertyGrid, type SortMode } from './components/PropertyGrid';
 import { RelationshipEditDialog } from './components/RelationshipEditDialog';
-import { AboutDialog, ConfirmDialog, ErrorDialog, NoticeDialog } from './components/SimpleDialogs';
+import { AboutDialog, ConfirmDialog, DoneDialog, ErrorDialog, NoticeDialog } from './components/SimpleDialogs';
 import { StructureTree } from './components/StructureTree';
 import { TableEditDialog } from './components/TableEditDialog';
 import { RULER_SIZE } from './components/CanvasRuler';
+import { ResizeGrip } from './components/ResizeGrip';
 
 type RightTab = 'structure' | 'analysis' | 'index';
 
@@ -61,6 +63,7 @@ type ModalState =
   | { kind: 'preferences' }
   | { kind: 'about' }
   | { kind: 'notice'; message: string }
+  | { kind: 'done'; message: string; detail?: string | null }
   | { kind: 'error'; message: string; details?: string | null }
   | {
       kind: 'confirm';
@@ -78,7 +81,7 @@ export default function App() {
   const state = useAppState('새 스키마');
   const {
     schema, mutate, loadSchema, markSaved, isDirty, currentPath,
-    selection, selectTable, selectRelationship, clearSelection,
+    selection, selectTable, toggleTableSelection, selectRelationship, clearSelection,
     selectedTable, selectedColumn, selectedRelationship,
     tool, setTool, viewport, setViewport, zoomIn, zoomOut, resetZoom,
     prefs, setPrefs, prefsLoaded, recentFiles, setRecentFiles,
@@ -100,8 +103,18 @@ export default function App() {
   pathRef.current = currentPath;
   const prefsRef = useRef(prefs);
   prefsRef.current = prefs;
+  // Read by the context menu builder, which would otherwise be rebuilt — and
+  // its menu closed — every time the selection changes.
+  const selectionRef = useRef(selection);
+  selectionRef.current = selection;
   const dirtyRef = useRef(isDirty);
   dirtyRef.current = isDirty;
+  /**
+   * Set while saving on the way out: the completion dialog would open a window
+   * just as the app is closing it again, which reads as a flash and nothing
+   * else. The save itself still reports to the status bar.
+   */
+  const closingRef = useRef(false);
 
   // The toolbar must stay one row, so the window cannot be narrower than it.
   useToolbarMinWidth(toolbarRef, [prefs.Language, prefs.Theme, schema.TargetDb, prefs.DefaultLineStyle]);
@@ -122,6 +135,9 @@ export default function App() {
     () => pathRef.current,
     () => prefsRef.current.RecentFilesMaxCount,
     () => prefsRef.current.Theme,
+    () => prefsRef.current.NormalizationLevels,
+    () => prefsRef.current.Report,
+    () => prefsRef.current.ImageExportTransparent,
     {
       onLoaded: (next, path, message) => {
         loadSchema(next, path);
@@ -130,8 +146,14 @@ export default function App() {
       onSaved: (path, message) => {
         markSaved(path);
         setStatus(message);
+        if (!closingRef.current) {
+          setModal({ kind: 'done', message: t('SaveDoneTitle'), detail: path });
+        }
       },
       onStatus: setStatus,
+      onCompleted: (message, detail) => {
+        if (!closingRef.current) setModal({ kind: 'done', message, detail });
+      },
       onError: showError,
       onRecentFilesChanged: setRecentFiles,
     },
@@ -172,8 +194,7 @@ export default function App() {
   // ── Window title and dirty state ───────────────────────────────────────────
 
   useEffect(() => {
-    const name = currentPath ?? schema.Name ?? 'DBTools';
-    const title = `${isDirty ? '● ' : ''}${name} — DBTools`;
+    const title = windowTitle(currentPath ?? schema.Name, isDirty);
     host.setTitle(title);
     document.title = title;
     if ('setDirty' in host) (host as { setDirty(dirty: boolean): void }).setDirty(isDirty);
@@ -192,7 +213,13 @@ export default function App() {
           discardLabel: t('ConfirmDiscard'),
           onConfirm: () => {
             closeModal();
-            void files.save().then(resolve);
+            closingRef.current = true;
+            void files.save().then((saved) => {
+              // Cancelling the save dialog keeps the app open, so the guard has
+              // to come back off or later saves would report nothing.
+              if (!saved) closingRef.current = false;
+              resolve(saved);
+            });
           },
           onDiscard: () => {
             closeModal();
@@ -354,13 +381,19 @@ export default function App() {
       return;
     }
     if (selectedTable) {
-      const tableId = selectedTable.Id;
+      // Several tables can be selected at once; delete asks about all of them.
+      const ids = selection.tableIds.length > 0 ? [...selection.tableIds] : [selectedTable.Id];
       setModal({
         kind: 'confirm',
         title: t('MsgDeleteTableTitle'),
-        message: t('MsgDeleteTable', selectedTable.Name),
+        message:
+          ids.length > 1
+            ? t('MsgDeleteTables', ids.length)
+            : t('MsgDeleteTable', selectedTable.Name),
         onConfirm: () => {
-          mutate((draft) => removeTable(draft, tableId));
+          mutate((draft) => {
+            for (const id of ids) removeTable(draft, id);
+          });
           clearSelection();
           closeModal();
         },
@@ -374,7 +407,8 @@ export default function App() {
       });
       clearSelection();
     }
-  }, [selectedColumn, selectedTable, selectedRelationship, mutate, selectTable, clearSelection, closeModal, t]);
+  }, [selectedColumn, selectedTable, selectedRelationship, selection.tableIds, mutate, selectTable,
+      clearSelection, closeModal, t]);
 
   const setTargetDb = useCallback(
     (db: DbTargetType) => {
@@ -403,21 +437,30 @@ export default function App() {
     [selectedRelationship, mutate, setPrefs],
   );
 
-  const fitAll = useCallback(() => {
-    const area = canvasAreaRef.current;
-    if (!area) return;
-    const next = computeFitViewport(
-      schemaRef.current,
-      area.clientWidth - RULER_SIZE,
-      area.clientHeight - RULER_SIZE,
-    );
-    if (next) setViewport(next);
-  }, [setViewport]);
+  /** Frame the whole schema. `fixedZoom` keeps a magnification instead of fitting. */
+  const frameAll = useCallback(
+    (fixedZoom?: number) => {
+      const area = canvasAreaRef.current;
+      if (!area) return;
+      const next = computeFitViewport(
+        schemaRef.current,
+        area.clientWidth - RULER_SIZE,
+        area.clientHeight - RULER_SIZE,
+        fixedZoom,
+      );
+      if (next) setViewport(next);
+    },
+    [setViewport],
+  );
+
+  const fitAll = useCallback(() => frameAll(), [frameAll]);
 
   const doAutoArrange = useCallback(() => {
     mutate((draft) => autoArrange(draft));
-    setTimeout(fitAll, 0);
-  }, [mutate, fitAll]);
+    // The arranged layout is designed at 1:1 — the gutters are sized in real
+    // pixels — so it is shown at 100% rather than shrunk to fit.
+    setTimeout(() => frameAll(1), 0);
+  }, [mutate, frameAll]);
 
   // ── Keyboard shortcuts (port of MainForm.ProcessCmdKey) ────────────────────
 
@@ -454,7 +497,7 @@ export default function App() {
         return void (e.preventDefault(), addRelationship());
       }
       if (ctrl && e.shiftKey && e.key.toLowerCase() === 'r') {
-        return void (e.preventDefault(), files.exportMarkdown());
+        return void (e.preventDefault(), files.exportAnalysisMarkdown());
       }
       if (ctrl && (e.key === '+' || e.key === '=')) return void (e.preventDefault(), zoomIn());
       if (ctrl && e.key === '-') return void (e.preventDefault(), zoomOut());
@@ -565,6 +608,26 @@ export default function App() {
     ];
   }, [host.kind, recentFiles, t, withUnsavedCheck, files, setRecentFiles]);
 
+  const diagramImageItems = useMemo<MenuItem[]>(
+    () => [
+      { id: 'di-png', label: t('MenuExportPng'), icon: <Icons.Image />, onSelect: () => files.exportImage('png') },
+      { id: 'di-jpg', label: t('MenuExportJpeg'), icon: <Icons.Image />, onSelect: () => files.exportImage('jpeg') },
+      { id: 'di-webp', label: t('MenuExportWebp'), icon: <Icons.Image />, onSelect: () => files.exportImage('webp') },
+      { id: 'di-gif', label: t('MenuExportGif'), icon: <Icons.Image />, onSelect: () => files.exportImage('gif') },
+    ],
+    [t, files],
+  );
+
+  const analysisReportItems = useMemo<MenuItem[]>(
+    () => [
+      { id: 'ar-md', label: t('MenuExportMarkdown'), icon: <Icons.Doc />, onSelect: files.exportAnalysisMarkdown },
+      { id: 'ar-docx', label: t('MenuExportWord'), icon: <Icons.Doc />, onSelect: files.exportAnalysisWordFile },
+      { id: 'ar-pdf', label: t('MenuExportPdf'), icon: <Icons.Report />, onSelect: files.exportAnalysisPdf },
+      { id: 'ar-html', label: t('MenuExportHtml'), icon: <Icons.Code />, onSelect: files.exportAnalysisHtml },
+    ],
+    [t, files],
+  );
+
   const exportItems = useMemo<MenuItem[]>(
     () => [
       { id: 'x-doc', header: true, label: t('ExportGroupDocument'), icon: <Icons.Doc /> },
@@ -572,12 +635,13 @@ export default function App() {
       { id: 'x-xlsx', label: t('MenuExportExcel'), icon: <Icons.Doc />, onSelect: files.exportExcelFile },
       { id: 'x-docx', label: t('MenuExportWord'), icon: <Icons.Doc />, onSelect: files.exportWordFile },
       { id: 'x-pdf', label: t('MenuExportPdf'), icon: <Icons.Report />, onSelect: files.exportPdf },
+      { id: 'x-html', label: t('MenuExportHtml'), icon: <Icons.Code />, onSelect: files.exportHtml },
+      { id: 'x-sep-an', separator: true },
+      { id: 'x-analysis', header: true, label: t('ExportGroupAnalysis'), icon: <Icons.Analyze /> },
+      ...analysisReportItems.map((item) => ({ ...item, id: `x-${item.id}` })),
       { id: 'x-sep1', separator: true },
       { id: 'x-img', header: true, label: t('ExportGroupImage'), icon: <Icons.Image /> },
-      { id: 'x-png', label: t('MenuExportPng'), icon: <Icons.Image />, onSelect: () => files.exportImage('png') },
-      { id: 'x-jpg', label: t('MenuExportJpeg'), icon: <Icons.Image />, onSelect: () => files.exportImage('jpeg') },
-      { id: 'x-webp', label: t('MenuExportWebp'), icon: <Icons.Image />, onSelect: () => files.exportImage('webp') },
-      { id: 'x-gif', label: t('MenuExportGif'), icon: <Icons.Image />, onSelect: () => files.exportImage('gif') },
+      ...diagramImageItems.map((item) => ({ ...item, id: `x-${item.id}` })),
       { id: 'x-sep2', separator: true },
       { id: 'x-data', header: true, label: t('ExportGroupData'), icon: <Icons.Code /> },
       { id: 'x-json', label: t('MenuExportJson'), icon: <Icons.Code />, onSelect: files.exportJson },
@@ -590,7 +654,7 @@ export default function App() {
       { id: 'x-maria', label: t('MenuExportMariaDb'), icon: <Icons.Database />, onSelect: () => files.exportSqlFor('MariaDB') },
       { id: 'x-mssql', label: t('MenuExportSqlServer'), icon: <Icons.Database />, onSelect: () => files.exportSqlFor('SqlServer') },
     ],
-    [t, files],
+    [t, files, analysisReportItems, diagramImageItems],
   );
 
   const fileMenu = useMemo<MenuItem[]>(
@@ -676,9 +740,14 @@ export default function App() {
       },
       { id: 'idx', label: t('TabIndexAdvisor'), icon: <Icons.Database />, onSelect: () => setRightTab('index') },
       { id: 'sep1', separator: true },
-      { id: 'report', label: t('MenuWriteReport'), icon: <Icons.Report />, shortcut: 'Ctrl+Shift+R', onSelect: files.exportMarkdown },
+      {
+        id: 'report',
+        label: t('MenuWriteReport'),
+        icon: <Icons.Report />,
+        submenu: analysisReportItems,
+      },
     ],
-    [t, issues.length, setStatus, files],
+    [t, issues.length, setStatus, analysisReportItems],
   );
 
   const helpMenu = useMemo<MenuItem[]>(
@@ -693,8 +762,22 @@ export default function App() {
       const items: MenuItem[] = [];
       const { table, columnIndex, relationship, canvasPoint } = request;
 
+      const selectedIds = selectionRef.current.tableIds;
+
+      // Undo and redo lead, as they do in every other context menu: they are
+      // what someone reaches for right after a mistake, wherever they clicked.
+      items.push(
+        { id: 'ctx-undo', label: t('MenuUndo'), icon: <Icons.Undo />, shortcut: 'Ctrl+Z', disabled: !canUndo, onSelect: undo },
+        { id: 'ctx-redo', label: t('MenuRedo'), icon: <Icons.Redo />, shortcut: 'Ctrl+Y', disabled: !canRedo, onSelect: redo },
+        { id: 'ctx-sep-edit', separator: true },
+      );
+
       if (table) {
-        selectTable(table.Id, columnIndex >= 0 ? table.Columns[columnIndex].Id : null);
+        // Right-clicking inside an existing multi-selection keeps it, so the
+        // menu can act on the whole group.
+        if (!selectedIds.includes(table.Id)) {
+          selectTable(table.Id, columnIndex >= 0 ? table.Columns[columnIndex].Id : null);
+        }
         if (columnIndex >= 0) {
           const column = table.Columns[columnIndex];
           items.push(
@@ -728,19 +811,28 @@ export default function App() {
           { id: 'ctx-edittable', label: t('CmEditTable'), icon: <Icons.Edit />, onSelect: () => setModal({ kind: 'table', table }) },
           {
             id: 'ctx-deltable',
-            label: t('CmDeleteTable'),
+            label:
+              selectedIds.length > 1 && selectedIds.includes(table.Id)
+                ? t('CmDeleteTables', selectedIds.length)
+                : t('CmDeleteTable'),
             icon: <Icons.Delete />,
-            onSelect: () =>
+            onSelect: () => {
+              const ids =
+                selectedIds.length > 1 && selectedIds.includes(table.Id) ? selectedIds : [table.Id];
               setModal({
                 kind: 'confirm',
                 title: t('MsgDeleteTableTitle'),
-                message: t('MsgDeleteTable', table.Name),
+                message:
+                  ids.length > 1 ? t('MsgDeleteTables', ids.length) : t('MsgDeleteTable', table.Name),
                 onConfirm: () => {
-                  mutate((draft) => removeTable(draft, table.Id));
+                  mutate((draft) => {
+                    for (const id of ids) removeTable(draft, id);
+                  });
                   clearSelection();
                   closeModal();
                 },
-              }),
+              });
+            },
           },
         );
       } else if (relationship) {
@@ -859,10 +951,28 @@ export default function App() {
         );
       }
 
+      items.push(
+        { id: 'ctx-sep-out', separator: true },
+        {
+          id: 'ctx-export-image',
+          label: t('CmExportDiagram'),
+          icon: <Icons.Image />,
+          disabled: schema.Tables.length === 0,
+          submenu: diagramImageItems,
+        },
+        {
+          id: 'ctx-report',
+          label: t('MenuWriteReport'),
+          icon: <Icons.Report />,
+          submenu: analysisReportItems,
+        },
+      );
+
       setContextMenu({ x: request.screenX, y: request.screenY, items });
     },
     [t, selectTable, selectRelationship, clearSelection, mutate, closeModal, addTable,
-     addRelationship, schema.Tables.length, fitAll, zoomIn, zoomOut, resetZoom],
+     addRelationship, schema.Tables.length, fitAll, zoomIn, zoomOut, resetZoom,
+     diagramImageItems, analysisReportItems, canUndo, canRedo, undo, redo],
   );
 
   // ── Analysis interaction ───────────────────────────────────────────────────
@@ -1036,7 +1146,12 @@ export default function App() {
         </button>
         <span className="tb-sep" />
         <button className="tb" title={t('TtAnalyze')} onClick={() => setRightTab('analysis')}><Icons.Analyze /></button>
-        <button className="tb" title={t('TtReport')} onClick={files.exportMarkdown}><Icons.Report /></button>
+        <Dropdown
+          className="tb-dropdown"
+          title={t('TtReport')}
+          label={<Icons.Report />}
+          items={analysisReportItems}
+        />
         <span className="tb-sep" />
         <Dropdown
           className="tb-dropdown"
@@ -1075,17 +1190,20 @@ export default function App() {
           menuTitle={t('TtThemeSelector')}
           items={themeItems}
         />
+        {/* Everything above is left-aligned; the group below sits on the right. */}
+        <span className="tb-spacer" />
         <button
           className="tb"
           data-action="toggle-language"
-          title={`${t('TtToggleLanguage')} — ${t('StatusLanguage', prefs.Language === 'ko' ? '한국어' : 'English')}`}
+          title={`${t('TtToggleLanguage')} — ${prefs.Language === 'ko' ? 'English' : '한국어'}`}
           onClick={toggleLanguage}
         >
-          {/* The flag of the language in use, so the current mode reads at a glance. */}
-          {prefs.Language === 'ko' ? <Icons.FlagKo /> : <Icons.FlagEn />}
+          {/* The flag of the language this button switches *to*, not the one in
+              use — the icon labels the action, the way every other toolbar
+              button does. The current language is already visible everywhere
+              else on screen. */}
+          {prefs.Language === 'ko' ? <Icons.FlagEn /> : <Icons.FlagKo />}
         </button>
-        {/* Only these three sit on the right; everything above is left-aligned. */}
-        <span className="tb-spacer" />
         <button
           className="tb"
           data-action="settings"
@@ -1126,6 +1244,8 @@ export default function App() {
             snapInterval={prefs.SnapInterval}
             defaultLineStyle={prefs.DefaultLineStyle}
             selectedTableId={selection.tableId}
+            selectedTableIds={selection.tableIds}
+            onToggleTable={toggleTableSelection}
             selectedColumnId={selection.columnId}
             selectedRelationshipId={selection.relationshipId}
             highlightedColumnIds={highlightedColumnIds}
@@ -1238,6 +1358,7 @@ export default function App() {
         <span className="spacer" />
         {isDirty && <span className="status-dirty">● {t('UnsavedMarker')}</span>}
         <span className="status-message">{status || t('StatusReady')}</span>
+        <ResizeGrip />
       </div>
 
       {contextMenu && (
@@ -1334,6 +1455,9 @@ export default function App() {
 
       {modal.kind === 'about' && <AboutDialog onClose={closeModal} />}
       {modal.kind === 'notice' && <NoticeDialog message={modal.message} onClose={closeModal} />}
+      {modal.kind === 'done' && (
+        <DoneDialog message={modal.message} detail={modal.detail} onClose={closeModal} />
+      )}
       {modal.kind === 'error' && (
         <ErrorDialog message={modal.message} details={modal.details} onClose={closeModal} />
       )}

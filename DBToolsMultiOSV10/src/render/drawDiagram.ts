@@ -29,6 +29,8 @@ export interface DrawOptions {
   palette: Palette;
   zoom: number;
   selectedTableId?: string | null;
+  /** Every selected table. Falls back to `selectedTableId` when absent. */
+  selectedTableIds?: ReadonlySet<string>;
   selectedColumnId?: string | null;
   selectedRelationshipId?: string | null;
   highlightedColumnIds?: Set<string>;
@@ -36,6 +38,12 @@ export interface DrawOptions {
   plain?: boolean;
   /** Relationship whose route is being recomputed live during a table drag. */
   liveRouteTableId?: string | null;
+  /**
+   * Transparent export: paint no backdrop behind a relationship label. The
+   * label still needs to be readable where it sits on the line, so the line is
+   * erased under it instead of being covered up — see `punchRelationshipLabel`.
+   */
+  transparentLabels?: boolean;
 }
 
 /** Draw a string clipped to `maxWidth`, appending an ellipsis when it overflows. */
@@ -69,7 +77,8 @@ function drawTable(ctx: CanvasRenderingContext2D, schema: DbSchema, table: DbTab
   const x = table.X;
   const y = table.Y;
   const w = table.Width;
-  const selected = !o.plain && o.selectedTableId === table.Id;
+  const selected =
+    !o.plain && (o.selectedTableIds?.has(table.Id) ?? o.selectedTableId === table.Id);
 
   ctx.save();
   ctx.textBaseline = 'middle';
@@ -330,15 +339,29 @@ function drawRelationship(
  * Relationship name labels, painted after the tables so a label whose midpoint
  * falls under a table stays readable instead of being clipped by it.
  */
-function drawRelationshipLabel(
+interface LabelBox {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  cx: number;
+  cy: number;
+}
+
+/**
+ * Where a relationship's name sits, or null when it has none. Measuring is what
+ * ties the erase pass and the text pass to the same rectangle, so the gap and
+ * the label cannot drift apart.
+ */
+function measureRelationshipLabel(
   ctx: CanvasRenderingContext2D,
   schema: DbSchema,
   rel: DbRelationship,
   o: DrawOptions,
-): void {
-  if (!rel.Name || !rel.Name.trim()) return;
+): LabelBox | null {
+  if (!rel.Name || !rel.Name.trim()) return null;
   const connection = getRelationshipConnection(schema, rel);
-  if (!connection) return;
+  if (!connection) return null;
 
   const liveRoute =
     !!o.liveRouteTableId &&
@@ -348,14 +371,63 @@ function drawRelationshipLabel(
 
   ctx.save();
   ctx.font = FONT_REL_NAME;
+  const tw = ctx.measureText(rel.Name).width;
+  ctx.restore();
+
+  const th = 12;
+  return {
+    x: mid.x - tw / 2 - 3,
+    y: mid.y - th / 2 - 2,
+    w: tw + 6,
+    h: th + 4,
+    cx: mid.x,
+    cy: mid.y,
+  };
+}
+
+/**
+ * Cut the relationship line out from under its label, leaving real
+ * transparency rather than a painted chip. Runs between the line pass and the
+ * table pass: erasing after the tables were drawn would punch a hole through a
+ * table that happens to sit under the label.
+ */
+function punchRelationshipLabel(
+  ctx: CanvasRenderingContext2D,
+  schema: DbSchema,
+  rel: DbRelationship,
+  o: DrawOptions,
+): void {
+  const box = measureRelationshipLabel(ctx, schema, rel, o);
+  if (!box) return;
+  ctx.save();
+  ctx.globalCompositeOperation = 'destination-out';
+  ctx.fillStyle = '#000';
+  ctx.fillRect(box.x, box.y, box.w, box.h);
+  ctx.restore();
+}
+
+function drawRelationshipLabel(
+  ctx: CanvasRenderingContext2D,
+  schema: DbSchema,
+  rel: DbRelationship,
+  o: DrawOptions,
+): void {
+  const box = measureRelationshipLabel(ctx, schema, rel, o);
+  if (!box) return;
+
+  ctx.save();
+  ctx.font = FONT_REL_NAME;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  const tw = ctx.measureText(rel.Name).width;
-  const th = 12;
-  ctx.fillStyle = o.palette.canvasRelNameBg;
-  ctx.fillRect(mid.x - tw / 2 - 3, mid.y - th / 2 - 2, tw + 6, th + 4);
+  // On screen the chip hides the line behind the text. In a transparent export
+  // that chip is exactly the painted background we do not want, and the line
+  // has already been erased for us.
+  if (!o.transparentLabels) {
+    ctx.fillStyle = o.palette.canvasRelNameBg;
+    ctx.fillRect(box.x, box.y, box.w, box.h);
+  }
   ctx.fillStyle = o.palette.canvasRelText;
-  ctx.fillText(rel.Name, mid.x, mid.y);
+  ctx.fillText(rel.Name, box.cx, box.cy);
   ctx.restore();
 }
 
@@ -366,6 +438,9 @@ function drawRelationshipLabel(
  */
 export function drawSchema(ctx: CanvasRenderingContext2D, schema: DbSchema, o: DrawOptions): void {
   for (const rel of schema.Relationships) drawRelationship(ctx, schema, rel, o);
+  if (o.transparentLabels) {
+    for (const rel of schema.Relationships) punchRelationshipLabel(ctx, schema, rel, o);
+  }
   for (const table of schema.Tables) drawTable(ctx, schema, table, o);
   for (const rel of schema.Relationships) drawRelationshipLabel(ctx, schema, rel, o);
 }

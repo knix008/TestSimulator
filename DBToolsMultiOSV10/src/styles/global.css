@@ -112,6 +112,19 @@ textarea {
   white-space: nowrap;
 }
 
+/* Nothing in the toolbar may shrink. A squeezed button is a button whose label
+   is cut off, and it also makes the row measure narrower than it really needs,
+   which is how the window minimum used to end up too small to hold it. */
+.toolbar > * {
+  flex: 0 0 auto;
+}
+
+/* The one exception: the gap that pushes the right-hand group over. */
+.toolbar > .tb-spacer {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 /* Keep every control at its natural size… */
 .toolbar > * {
   flex: 0 0 auto;
@@ -843,6 +856,43 @@ textarea {
   flex: 1;
 }
 
+/* The resize grip: the usual three diagonal ridges, drawn rather than imported
+   so it follows the theme.
+
+   Pinned to the very corner of the window rather than sitting inside the bar
+   it is written in — a resize handle belongs where the corner is, which is also
+   where the pointer goes looking for it. The bars reserve room on their right
+   so nothing ends up underneath it. */
+.resize-grip {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  width: 15px;
+  height: 15px;
+  z-index: 900;
+  cursor: nwse-resize;
+  touch-action: none;
+  background-image: linear-gradient(
+    135deg,
+    transparent 0 42%,
+    var(--text-muted) 42% 50%,
+    transparent 50% 64%,
+    var(--text-muted) 64% 72%,
+    transparent 72% 86%,
+    var(--text-muted) 86% 94%,
+    transparent 94%
+  );
+}
+
+/* Room for the grip, so the status text and the dialog buttons stay clear. */
+.statusbar {
+  padding-right: 22px;
+}
+
+.dialog-footer {
+  padding-right: 24px;
+}
+
 .status-dirty {
   color: var(--warning);
 }
@@ -1179,6 +1229,110 @@ textarea {
   align-items: center;
   gap: 5px;
   cursor: pointer;
+}
+
+/* Font preview: the picked family at the picked size, so the choice is visible
+   before a report is generated. */
+.font-preview {
+  margin: 10px 0 2px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-light);
+  border-radius: 5px;
+  background: var(--panel-background);
+  line-height: 1.5;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Completion dialog: a success mark beside the result and the path it wrote. */
+.done-body {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 4px 2px;
+}
+
+.done-mark {
+  display: inline-flex;
+  color: #16a34a;
+  flex: 0 0 auto;
+}
+
+.done-mark svg {
+  width: 26px;
+  height: 26px;
+}
+
+.done-message {
+  margin: 0 0 6px;
+  font-weight: 600;
+}
+
+.done-detail {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 11px;
+  /* A long path must wrap rather than widen the window. */
+  word-break: break-all;
+  line-height: 1.5;
+}
+
+/* Settings: three columns side by side. The window is sized from its content,
+   so spreading the groups across columns is what keeps it short enough to fit
+   on screen without a scrollbar — stacked, the groups come to roughly 1560px.
+   The groups are assigned to columns by measured height rather than flowed, so
+   the three columns stay close to even.
+
+   The window is resizable, and a squeezed three-column form is worse than a
+   taller two-column one, so it steps down as it narrows. */
+.prefs-columns {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0 18px;
+  align-items: start;
+}
+
+@media (max-width: 1180px) {
+  .prefs-columns {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 780px) {
+  .prefs-columns {
+    grid-template-columns: 1fr;
+  }
+}
+
+.prefs-column {
+  min-width: 0;
+}
+
+/* The first fieldset in each column lines up with the other column's. */
+.prefs-column > .form-fieldset:first-child {
+  margin-top: 0;
+}
+
+/* Explanatory line under a group of report fields. */
+.form-hint {
+  margin: 8px 0 2px;
+  color: var(--text-secondary);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+/* A disabled field still has to read as a field, not as blank space. */
+.form-grid input:disabled,
+.form-grid select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.form-checks input:disabled + *,
+.form-checks label:has(input:disabled) {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .form-fieldset {

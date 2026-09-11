@@ -237,6 +237,13 @@ export const Icons = {
         <circle cx="14.2" cy="8" r="1.1" fill="currentColor" stroke="none" />
       </>,
     ),
+  Success: () =>
+    icon(
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <path d="m8 12.4 2.6 2.6L16 9.6" />
+      </>,
+    ),
   Warning: () =>
     icon(
       <>

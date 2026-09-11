@@ -217,8 +217,8 @@ SQLite 등가 표현으로 변환합니다. **SQL 텍스트 내보내기는 원�
 - **DB 파일 가져오기** — SQLite, Vector Index(Faiss / hnswlib), SQL DDL, `.mdprj` 프로젝트
 - **정규화 검사** — 1NF · 2NF · 3NF · BCNF · 4NF · 5NF를 개별 선택하여 검사, 결과 클릭 시 해당 테이블로 이동
 - **인덱스 어드바이저** — PK/UNIQUE/FK/이름 패턴 기반으로 `CREATE INDEX` 문 제안
-- **내보내기** — Markdown · Excel(.xlsx) · Word(.docx) · PDF · PNG(투명) · JPEG · WebP · GIF · JSON ·
-  SQL DDL · SQLite `.db` · DB별 SQL. 문서 형식(Markdown · Excel · Word · PDF)에는
+- **내보내기** — Markdown · Word(.docx) · PDF · HTML · Excel(.xlsx) · PNG(투명) · JPEG · WebP ·
+  GIF · JSON · SQL DDL · SQLite `.db` · DB별 SQL. 문서 형식(Markdown · Excel · Word · PDF · HTML)에는
   **표지(커버 페이지)** 가 먼저 들어갑니다
 - **다국어** — 한국어 / English (원본 `Strings_*.resx` 이식). 툴바 언어 버튼으로 즉시 전환하며,
   현재 언어에 따라 아이콘이 **가 / A** 로 바뀝니다
@@ -253,8 +253,8 @@ SQLite 등가 표현으로 변환합니다. **SQL 텍스트 내보내기는 원�
 ### 툴바 빠른 전환
 
 툴바는 **항상 한 줄**로 표시됩니다. 버튼이 잘리지 않도록 창의 최소 너비를 툴바 내용에서
-측정해 자동으로 설정하며, 오른쪽 끝에는 **설정 · 우측 패널 토글 · 프로그램 정보** 세 개만
-배치하고 나머지는 모두 왼쪽에 둡니다.
+측정해 자동으로 설정하며, 오른쪽 끝에는 **한/영 전환 · 설정 · 우측 패널 토글 · 프로그램 정보**
+네 개만 배치하고 나머지는 모두 왼쪽에 둡니다.
 
 | 버튼 | 동작 |
 |------|------|

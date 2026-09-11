@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, session, shell } from 'electron';
 import * as fs from 'node:fs';
 import * as fsp from 'node:fs/promises';
 import * as path from 'node:path';
@@ -72,6 +72,31 @@ function findStartupFile(argv: string[]): string | null {
   return null;
 }
 
+/**
+ * The report font picker reads the installed fonts through Chromium's Local
+ * Font Access API, which is permission-gated. This is our own local page asking
+ * for a font list, so it is granted; everything else a page might ask for is
+ * refused rather than left to Chromium's default.
+ */
+/**
+ * Shown before the renderer has mounted and set its own title. Kept in step
+ * with `src/appInfo.ts` by a test — this file cannot import from `src/`,
+ * because the Electron build compiles `electron/` on its own.
+ */
+const APP_TITLE = 'DBTools v1.0';
+
+function applyPermissionPolicy(): void {
+  // Compared as a plain string: Electron's typed permission union does not
+  // list 'local-fonts', but Chromium still asks for it under that name.
+  const allowed = (permission: string) => permission === 'local-fonts';
+  session.defaultSession.setPermissionRequestHandler((_contents, permission, callback) => {
+    callback(allowed(permission));
+  });
+  session.defaultSession.setPermissionCheckHandler((_contents, permission) =>
+    allowed(permission),
+  );
+}
+
 function createWindow(): void {
   mainWindow = new BrowserWindow({
     width: 1440,
@@ -80,7 +105,7 @@ function createWindow(): void {
     minHeight: 600,
     show: false,
     backgroundColor: '#f0f2f5',
-    title: 'DBTools',
+    title: APP_TITLE,
     icon: resolveWindowIcon(),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -326,6 +351,26 @@ ipcMain.on('app:setMinimumWidth', (_e, contentWidth: number) => {
 });
 
 ipcMain.on('app:setTitle', (_e, title: string) => mainWindow?.setTitle(title));
+
+// The corner resize grip. Driven from the window the event came from, so it
+// works for the dialog windows as well as the main one. The size is absolute —
+// the renderer works it out from where the drag started, which is the only way
+// to keep a drag-resize from feeding back on its own movement.
+ipcMain.on('app:resizeTo', (event, width: number, height: number) => {
+  const target = BrowserWindow.fromWebContents(event.sender);
+  if (!target || target.isFullScreen()) return;
+  // A maximized window has to come back to a normal state before it can take a
+  // size, otherwise the call is silently ignored.
+  if (target.isMaximized()) target.unmaximize();
+  const [minWidth, minHeight] = target.getMinimumSize();
+  const { x, y } = target.getBounds();
+  target.setBounds({
+    x,
+    y,
+    width: Math.max(minWidth || 320, Math.round(width)),
+    height: Math.max(minHeight || 200, Math.round(height)),
+  });
+});
 ipcMain.on('app:setDirty', (_e, dirty: boolean) => {
   isDirty = dirty;
   mainWindow?.setDocumentEdited?.(dirty);
@@ -337,31 +382,52 @@ ipcMain.on('app:confirmClose', () => {
 
 // ─── PDF via Chromium's own renderer (keeps Korean text intact) ──────────────
 
-ipcMain.handle('export:pdf', async (_e, html: string, suggestedName: string) => {
-  if (!mainWindow) return null;
-  const result = await dialog.showSaveDialog(mainWindow, {
-    defaultPath: suggestedName,
-    filters: [{ name: 'PDF', extensions: ['pdf'] }],
-  });
-  if (result.canceled || !result.filePath) return null;
+interface PdfPrintOptions {
+  headerTemplate?: string;
+  footerTemplate?: string;
+}
 
-  const printWindow = new BrowserWindow({
-    show: false,
-    webPreferences: { offscreen: true, javascript: false },
-  });
-  try {
-    await printWindow.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html));
-    const pdf = await printWindow.webContents.printToPDF({
-      printBackground: true,
-      margins: { top: 0.5, bottom: 0.5, left: 0.5, right: 0.5 },
-      pageSize: 'A4',
+ipcMain.handle(
+  'export:pdf',
+  async (_e, html: string, suggestedName: string, options?: PdfPrintOptions) => {
+    if (!mainWindow) return null;
+    const result = await dialog.showSaveDialog(mainWindow, {
+      defaultPath: suggestedName,
+      filters: [{ name: 'PDF', extensions: ['pdf'] }],
     });
-    await fsp.writeFile(result.filePath, pdf);
-    return result.filePath;
-  } finally {
-    printWindow.destroy();
-  }
-});
+    if (result.canceled || !result.filePath) return null;
+
+    const printWindow = new BrowserWindow({
+      show: false,
+      webPreferences: { offscreen: true, javascript: false },
+    });
+    try {
+      await printWindow.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html));
+      // Chromium draws the header and footer inside the page margins, so the
+      // top and bottom margins have to grow to make room — otherwise it renders
+      // them over the content, or drops them silently.
+      const running = Boolean(options?.headerTemplate || options?.footerTemplate);
+      const pdf = await printWindow.webContents.printToPDF({
+        printBackground: true,
+        margins: running
+          ? { top: 0.7, bottom: 0.7, left: 0.5, right: 0.5 }
+          : { top: 0.5, bottom: 0.5, left: 0.5, right: 0.5 },
+        pageSize: 'A4',
+        displayHeaderFooter: running,
+        ...(running
+          ? {
+              headerTemplate: options?.headerTemplate ?? '<span></span>',
+              footerTemplate: options?.footerTemplate ?? '<span></span>',
+            }
+          : {}),
+      });
+      await fsp.writeFile(result.filePath, pdf);
+      return result.filePath;
+    } finally {
+      printWindow.destroy();
+    }
+  },
+);
 
 // ─── Lifecycle ───────────────────────────────────────────────────────────────
 
@@ -386,6 +452,7 @@ if (!gotLock) {
   });
 
   void app.whenReady().then(() => {
+    applyPermissionPolicy();
     startupFile = findStartupFile(process.argv);
     createWindow();
     app.on('activate', () => {

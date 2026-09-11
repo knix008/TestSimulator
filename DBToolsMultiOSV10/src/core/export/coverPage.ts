@@ -1,12 +1,16 @@
 // The cover page shared by every document export (Markdown, HTML/PDF, Word,
-// Excel). Defined once so the four formats stay in step.
+// Excel). Defined once so the formats stay in step, and shaped by the user's
+// report settings so a change in Settings reaches all of them at once.
 import type { DbSchema } from '../../types';
+import { DEFAULT_REPORT_PREFS, type ReportPrefs } from './reportOptions';
 
 export interface CoverInfo {
   /** Document title, e.g. "데이터베이스 설계 보고서". */
   heading: string;
-  /** The schema name, shown as the main subject. */
+  /** The main subject — the schema name unless the user overrode it. */
   subject: string;
+  /** Optional line under the subject (organisation, author). */
+  attribution: string | null;
   /** Label/value rows under the title. */
   rows: { label: string; value: string }[];
   /** Footer line — the producing application. */
@@ -24,23 +28,46 @@ export function formatTimestamp(date: Date): string {
 export interface CoverOptions {
   projectPath?: string | null;
   now?: Date;
+  /** The report's own title, used when the user has not set one. */
+  heading?: string;
+  /** Extra rows appended after the standard ones (the analysis report adds the
+   *  normalization levels it checked). */
+  extraRows?: { label: string; value: string }[];
+  /** User settings. Defaults apply when omitted. */
+  report?: ReportPrefs;
 }
 
-export function buildCover(schema: DbSchema, options: CoverOptions = {}): CoverInfo {
-  const rows: { label: string; value: string }[] = [
-    { label: '대상 데이터베이스', value: schema.TargetDb },
-    { label: '테이블 수', value: String(schema.Tables.length) },
-    { label: '관계 수', value: String(schema.Relationships.length) },
-    { label: '작성 일시', value: formatTimestamp(options.now ?? new Date()) },
-  ];
-  if (options.projectPath && options.projectPath.trim()) {
+/**
+ * Build the cover model, or null when the user has turned the cover off — the
+ * exporters check for null and start straight at the first section.
+ */
+export function buildCover(schema: DbSchema, options: CoverOptions = {}): CoverInfo | null {
+  const prefs = options.report ?? DEFAULT_REPORT_PREFS;
+  if (!prefs.CoverEnabled) return null;
+
+  const rows: { label: string; value: string }[] = [];
+  if (prefs.CoverShowDetails) {
+    rows.push(
+      { label: '대상 데이터베이스', value: schema.TargetDb },
+      { label: '테이블 수', value: String(schema.Tables.length) },
+      { label: '관계 수', value: String(schema.Relationships.length) },
+      { label: '작성 일시', value: formatTimestamp(options.now ?? new Date()) },
+    );
+    for (const row of options.extraRows ?? []) rows.push(row);
+  }
+  if (prefs.CoverShowProjectPath && options.projectPath && options.projectPath.trim()) {
     rows.push({ label: '프로젝트 파일', value: options.projectPath });
   }
 
+  const attribution = [prefs.CoverOrganization.trim(), prefs.CoverAuthor.trim()]
+    .filter(Boolean)
+    .join(' · ');
+
   return {
-    heading: '데이터베이스 설계 보고서',
-    subject: schema.Name || '(이름 없음)',
+    heading: prefs.CoverTitle.trim() || options.heading || '데이터베이스 설계 보고서',
+    subject: prefs.CoverSubject.trim() || schema.Name || '(이름 없음)',
+    attribution: attribution || null,
     rows,
-    producer: 'DBTools',
+    producer: prefs.CoverProducer,
   };
 }

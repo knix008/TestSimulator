@@ -8,6 +8,31 @@ import { getPalette, isDarkTheme, type ThemeId } from '../../render/theme';
 
 export type DiagramImageFormat = 'png' | 'jpeg' | 'webp' | 'gif' | 'avif';
 
+/** Formats with an alpha channel. JPEG has none — it cannot be transparent. */
+const SUPPORTS_ALPHA: Record<DiagramImageFormat, boolean> = {
+  png: true,
+  webp: true,
+  gif: true, // 1-bit: a pixel is either fully clear or fully opaque.
+  avif: true,
+  jpeg: false,
+};
+
+export function formatSupportsTransparency(format: DiagramImageFormat): boolean {
+  return SUPPORTS_ALPHA[format];
+}
+
+/**
+ * Whether this export actually ends up transparent. Asking for transparency in
+ * a format that has no alpha channel is not an error — the image is written
+ * opaque, because the alternative is refusing a perfectly reasonable export.
+ */
+export function resolveTransparency(
+  format: DiagramImageFormat,
+  requested: boolean,
+): boolean {
+  return requested && formatSupportsTransparency(format);
+}
+
 const MARGIN = 24;
 /** Cap total pixels so a huge diagram cannot exhaust memory. */
 const MAX_PIXELS = 40_000_000;
@@ -80,7 +105,14 @@ export function renderDiagramToCanvas(
 
   ctx.scale(scale, scale);
   ctx.translate(MARGIN - bounds.x, MARGIN - bounds.y);
-  drawSchema(ctx, schema, { palette, zoom: 1, plain: true });
+  drawSchema(ctx, schema, {
+    palette,
+    zoom: 1,
+    plain: true,
+    // With no backdrop, a label chip would be the only painted rectangle left
+    // in the image — the one thing the transparent export is meant to avoid.
+    transparentLabels: options.transparent,
+  });
   return canvas;
 }
 
@@ -88,16 +120,45 @@ function canvasToBlob(canvas: HTMLCanvasElement, mime: string, quality?: number)
   return new Promise((resolve) => canvas.toBlob(resolve, mime, quality));
 }
 
-/** GIF via gifenc — canvas.toBlob does not encode GIF in any browser. */
-async function encodeGif(canvas: HTMLCanvasElement): Promise<Uint8Array> {
+/**
+ * GIF via gifenc — canvas.toBlob does not encode GIF in any browser.
+ *
+ * GIF transparency is one bit: a palette entry is nominated as "clear" and
+ * every pixel using it disappears. That needs the RGBA quantizer, and the
+ * encoder needs to be told which entry it is.
+ */
+async function encodeGif(canvas: HTMLCanvasElement, transparent: boolean): Promise<Uint8Array> {
   const { GIFEncoder, quantize, applyPalette } = await import('gifenc');
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('캔버스를 만들 수 없습니다.');
   const { data, width, height } = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  const palette = quantize(data, 256);
-  const index = applyPalette(data, palette);
+
+  if (!transparent) {
+    const palette = quantize(data, 256);
+    const index = applyPalette(data, palette);
+    const encoder = GIFEncoder();
+    encoder.writeFrame(index, width, height, { palette });
+    encoder.finish();
+    return encoder.bytes();
+  }
+
+  // `oneBitAlpha` collapses the anti-aliased edges to fully clear or fully
+  // opaque, which is all a GIF can represent anyway.
+  const palette = quantize(data, 256, {
+    format: 'rgba4444',
+    oneBitAlpha: true,
+    clearAlpha: true,
+  });
+  const index = applyPalette(data, palette, 'rgba4444');
+  const transparentIndex = palette.findIndex((entry) => entry.length >= 4 && entry[3] === 0);
   const encoder = GIFEncoder();
-  encoder.writeFrame(index, width, height, { palette });
+  encoder.writeFrame(index, width, height, {
+    palette,
+    // Without a clear entry there is nothing to make see-through; writing the
+    // frame as opaque is better than nominating an arbitrary colour.
+    transparent: transparentIndex >= 0,
+    transparentIndex: transparentIndex >= 0 ? transparentIndex : 0,
+  });
   encoder.finish();
   return encoder.bytes();
 }
@@ -107,12 +168,12 @@ export async function exportDiagramImage(
   format: DiagramImageFormat,
   options: DiagramImageOptions = {},
 ): Promise<Uint8Array> {
-  const canvas = renderDiagramToCanvas(schema, {
-    ...options,
-    transparent: options.transparent ?? format === 'png',
-  });
+  // Transparent by default: the diagram is artwork to drop into something
+  // else, and a pasted-on white rectangle is rarely what anyone wants.
+  const transparent = resolveTransparency(format, options.transparent ?? true);
+  const canvas = renderDiagramToCanvas(schema, { ...options, transparent });
 
-  if (format === 'gif') return encodeGif(canvas);
+  if (format === 'gif') return encodeGif(canvas, transparent);
 
   const mime = MIME[format];
   const blob = await canvasToBlob(canvas, mime, format === 'jpeg' ? 0.92 : undefined);
@@ -124,8 +185,17 @@ export async function exportDiagramImage(
   return new Uint8Array(await blob.arrayBuffer());
 }
 
-/** PNG data URL of the diagram — embedded in the HTML/PDF and Excel reports. */
+/**
+ * PNG data URL of the diagram — embedded in the document reports.
+ *
+ * `transparent` leaves the area around the diagram unpainted so the document's
+ * own page shows through instead of a pasted-on rectangle. It defaults to false
+ * for callers that need a definite backdrop.
+ */
 export function renderDiagramDataUrl(schema: DbSchema, options: DiagramImageOptions = {}): string {
-  const canvas = renderDiagramToCanvas(schema, { ...options, transparent: false });
+  const canvas = renderDiagramToCanvas(schema, {
+    ...options,
+    transparent: options.transparent ?? false,
+  });
   return canvas.toDataURL('image/png');
 }

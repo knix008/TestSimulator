@@ -11,23 +11,31 @@ import { getHost } from '../platform';
 const MAX_MIN_WIDTH = 1600;
 const FLOOR_MIN_WIDTH = 640;
 
+/**
+ * The width the toolbar would like to have, which is not the width it currently
+ * has.
+ *
+ * Adding up the children as they stand measures them *after* flexbox has
+ * squeezed them, so once the window is a little too narrow the measurement
+ * comes back short, the minimum is set too low, and the toolbar can never get
+ * its space back — the last buttons stay clipped. Laying the row out at
+ * `max-content` with the elastic spacer collapsed asks for the natural width
+ * instead, which is the number the window minimum actually needs.
+ */
 function measureRequiredWidth(toolbar: HTMLElement): number {
-  const style = getComputedStyle(toolbar);
-  const padding = parseFloat(style.paddingLeft || '0') + parseFloat(style.paddingRight || '0');
-  const gap = parseFloat(style.columnGap || style.gap || '0') || 0;
+  const spacer = toolbar.querySelector<HTMLElement>('.tb-spacer');
+  const previousWidth = toolbar.style.width;
+  const previousSpacerFlex = spacer?.style.flex ?? '';
 
-  let content = 0;
-  let counted = 0;
-  for (const child of Array.from(toolbar.children) as HTMLElement[]) {
-    // The spacer is elastic — it is allowed to collapse to nothing.
-    if (child.classList.contains('tb-spacer')) continue;
-    content += child.getBoundingClientRect().width;
-    counted++;
-  }
+  if (spacer) spacer.style.flex = '0 0 0px';
+  toolbar.style.width = 'max-content';
+  // Reading scrollWidth here forces the layout, so the value is the settled one.
+  const natural = toolbar.scrollWidth;
+  toolbar.style.width = previousWidth;
+  if (spacer) spacer.style.flex = previousSpacerFlex;
 
-  const gaps = gap * Math.max(0, toolbar.children.length - 1);
-  // A few pixels of slack so a sub-pixel rounding never clips the last button.
-  return Math.ceil(content + padding + gaps + 8);
+  // A few pixels of slack so sub-pixel rounding never clips the last button.
+  return Math.ceil(natural + 8);
 }
 
 export function useToolbarMinWidth(toolbarRef: RefObject<HTMLElement | null>, deps: unknown[]): void {

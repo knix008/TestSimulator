@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useT } from '../i18n';
 import { Dialog } from './Dialog';
 import { Icons } from './Icons';
+import { APP_NAME, APP_VERSION } from '../appInfo';
 // The same artwork electron-builder stamps on the executable, so the About box
 // matches the taskbar / Finder icon. Vite bundles it for web and packaged builds.
 import appIcon from '../../build/icons/256x256.png';
@@ -14,8 +15,8 @@ export function AboutDialog({ onClose }: { onClose: () => void }) {
       <div className="about-header">
         <img className="about-icon" src={appIcon} alt="" width={80} height={80} draggable={false} />
         <div>
-          <h2 className="about-name">DBTools</h2>
-          <p className="about-version">{t('AboutVersion').replace('{0}', '1.0.0')}</p>
+          <h2 className="about-name">{APP_NAME}</h2>
+          <p className="about-version">{t('AboutVersion').replace('{0}', APP_VERSION)}</p>
         </div>
       </div>
       <pre className="about-description">{t('AboutDescription')}</pre>
@@ -114,6 +115,43 @@ export function ConfirmDialog({
       }
     >
       <p className="confirm-message">{message}</p>
+    </Dialog>
+  );
+}
+
+/**
+ * Shown when a save or an export finishes. Separate from NoticeDialog so the
+ * result reads as a result — a success mark and the path it was written to,
+ * rather than a generic notice.
+ */
+export function DoneDialog({
+  message,
+  detail,
+  onClose,
+}: {
+  message: string;
+  detail?: string | null;
+  onClose: () => void;
+}) {
+  const t = useT();
+  return (
+    <Dialog
+      title={t('MsgDoneTitle')}
+      icon={<Icons.Success />}
+      onClose={onClose}
+      cancelLabel={t('BtnClose')}
+      width={520}
+      height={260}
+    >
+      <div className="done-body">
+        <span className="done-mark">
+          <Icons.Success />
+        </span>
+        <div>
+          <p className="done-message">{message}</p>
+          {detail && <p className="done-detail">{detail}</p>}
+        </div>
+      </div>
     </Dialog>
   );
 }

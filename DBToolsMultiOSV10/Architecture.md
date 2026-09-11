@@ -95,10 +95,111 @@ fourcc 테이블과 스킵 규칙을 그대로 옮겨 동일한 인덱스 형식
 | `Export/PdfExporter.cs`, `PdfFontResolver.cs` (PDFsharp) | `src/core/export/htmlReport.ts` + Chromium 인쇄 |
 | `Export/DiagramImageExporter.cs` (ImageSharp) | `src/core/export/diagramImage.ts` (Canvas + gifenc) |
 
-**표지**는 `coverPage.ts` 의 `buildCover()` 가 한 번 만들어 네 형식이 함께 씁니다.
+**표지**는 `coverPage.ts` 의 `buildCover()` 가 한 번 만들어 모든 형식이 함께 씁니다.
 형식마다 "페이지"의 의미가 다르므로 표현만 달리합니다 — HTML/PDF는
 `page-break-after: always` 를 가진 섹션, Word는 문단 뒤 `PageBreak`, Excel은 맨 앞의
-**표지** 시트, Markdown은 제목 블록과 `---` 구분선입니다.
+**표지** 시트, Markdown은 제목 블록과 `---` 구분선입니다. 사용자가 표지를 끄면
+`buildCover()` 가 `null` 을 돌려주고 각 내보내기가 본문부터 시작합니다.
+
+### 보고서 설정
+
+`src/core/export/reportOptions.ts` 의 `ReportPrefs` 하나가 표지·제목 번호·머리말·꼬리말·
+쪽 번호를 모두 정의하고, 모든 문서 내보내기가 이 객체를 읽습니다. 형식이 정말로 표현할 수
+없는 설정은 추측하지 않고 문서화된 방식으로 물러납니다.
+
+| | Markdown | HTML | PDF | Word |
+|---|---|---|---|---|
+| 표지 | 제목 블록 | `.cover` 섹션 | 〃 | `PageBreak` |
+| 제목 번호 | ✓ | ✓ | ✓ | ✓ |
+| 머리말·꼬리말 | 문서 맨 위·맨 아래 1회 | `position: fixed` 띠 | 〃 | 진짜 머리글/바닥글 |
+| 쪽 번호 | — | — | Chromium 인쇄 템플릿 | `PAGE`/`NUMPAGES` 필드 |
+
+쪽 번호가 HTML에 없는 이유는 CSS가 인쇄된 쪽을 셀 수 없기 때문입니다. PDF는 문서가 아니라
+`printToPdf` 에 함께 넘기는 `headerTemplate`/`footerTemplate` 으로 Chromium이 채워 넣고
+(`reportStyle.ts` 의 `buildPrintTemplates()`), Word는 `wordRunning.ts` 가 Word가 다시
+계산하는 필드로 넣습니다.
+
+### 창 크기 조절
+
+`ResizeGrip` 은 드래그 중 **시작 시점의 창 크기와 포인터 위치로부터 절대 크기를 계산**
+합니다. 이벤트마다의 증분을 더하는 방식은 스스로 되먹입니다 — 창이 포인터 아래에서
+움직이면 다음 이벤트의 증분에 그 움직임이 섞여 크기가 폭주합니다(실제로 아래로 끌었는데
+높이가 줄어드는 증상이 나왔습니다). 팝업 창은 `window.resizeTo`, Electron 메인 창은
+`app:resizeTo` IPC 로 처리하며, 브라우저 탭은 스스로 크기를 바꿀 수 없으므로 그립이
+보이지 않습니다.
+
+### 툴바 최소 폭
+
+`useToolbarMinWidth` 는 툴바를 `width: max-content` 로 두고 탄력 스페이서를 접은 뒤
+`scrollWidth` 를 읽습니다. 자식들의 현재 폭을 더하면 flexbox 가 이미 눌러 놓은 크기를
+재게 되어, 창이 조금만 좁아져도 측정값이 실제 필요보다 작게 나오고 최소 폭이 그만큼
+낮게 잡혀 **다시는 제자리로 돌아오지 못합니다**. `.toolbar > *` 에 `flex: 0 0 auto` 를
+줘 어떤 버튼도 줄어들지 않게 한 것도 같은 이유입니다.
+
+### 선택 모델
+
+`Selection` 은 `tableIds` 배열과 그 마지막 항목인 `tableId`(주 선택)를 함께 들고
+있습니다. 주 선택을 따로 두면 속성 패널·컬럼 편집처럼 대상이 하나여야 하는 코드는
+예전 그대로 동작하고, 이동·삭제만 배열을 봅니다. Ctrl/Shift 클릭은 `toggleTableSelection`
+으로 들어가고, 수식어 없는 클릭은 하나만 선택하되 **이미 선택된 테이블을 누른 경우에는
+선택을 유지**해 그룹 전체를 끌 수 있게 합니다.
+
+### 자동 배치
+
+`layout.ts` 의 `autoArrange()` 는 규칙적인 격자 대신 **층형 배치**를 씁니다.
+연결 성분별로 나눈 뒤 최장 경로 층할당(Kahn)으로 부모 오른쪽에 자식을 두고,
+층 안 순서는 무게중심(barycentre) 스윕으로 정리해 선이 덜 엉키게 합니다. 순환이
+있는 테이블은 층을 결정할 수 없으므로 마지막에 이웃보다 한 층 오른쪽에 놓습니다.
+
+컬럼 사이 간격은 고정값이 아니라 **측정해서 정합니다**. 관계선은 상대 테이블을 향한
+쪽 모서리로 빠져나가는데(`getConnectionPoint`), 상대가 위나 아래로 멀리 있으면
+윗변·아랫변으로 빠져나와 컬럼을 가로질러 사이의 테이블을 덮어버립니다. 컬럼이
+멀어질수록 그 선은 수평에 가까워져 옆으로 빠져나가게 되므로, 가장 좁은 간격에서
+시작해 **실제로 가려지는 선을 세어 가며** 0이 될 때까지만 넓혀갑니다. 그래서 보통의
+스키마는 빽빽하게, 자식이 많은 스키마만 필요한 만큼 널찍하게 나옵니다.
+
+`test/unit/autoArrange.test.mjs` 가 이를 직접 검증합니다 — 렌더러가 그릴 경로를
+그대로 가져와 테이블 사각형과 교차하는지 따집니다.
+
+### 이미지 내보내기의 투명도
+
+`diagramImage.ts` 의 `resolveTransparency()` 가 "요청한 투명도"와 "형식이 담을 수 있는
+투명도"를 갈라 놓습니다. JPEG에 투명을 요청하는 것은 오류가 아니라 불투명하게 저장되는
+일이며 — 멀쩡한 내보내기를 거절하는 것보다 낫습니다 — PNG·WebP는 알파를, GIF는 1비트
+투명도를 그대로 씁니다. GIF는 `gifenc` 를 `rgba4444` + `oneBitAlpha` 로 양자화한 뒤 알파가
+0인 팔레트 항목을 `transparentIndex` 로 지정해 만듭니다.
+
+배경을 칠하지 않을 때는 `drawSchema` 에 `transparentLabels` 가 함께 켜집니다. 관계 이름
+라벨은 화면에서 선을 가리려고 칩을 깔지만, 투명 이미지에서는 그 칩이 유일하게 색칠된
+사각형으로 남기 때문입니다. 대신 선 위에 `destination-out` 으로 구멍을 뚫습니다 — 테이블을
+그리기 **전에** 뚫으므로 라벨이 테이블 위에 겹쳐도 테이블에 구멍이 나지 않습니다.
+
+### 보고서 글꼴
+
+`reportFonts.ts` 가 글꼴 설정을 형식별 표현으로 바꿉니다 — HTML/PDF는 기본 스타일시트
+뒤에 덧붙는 CSS, Word는 문서 기본 run, Excel은 표지 제목 글꼴입니다. 고른 글꼴 뒤에는
+언제나 한글 대체 스택이 붙습니다(`FALLBACK_STACK`). 제목 크기는 본문 크기의 배수
+(`SCALE`)로 정의해, 기본값이 기존 보고서 모양을 그대로 재현하면서 크기를 키우면 전체가
+비례해 커집니다. 표지 제목만 본문의 3.4배·굵게로, 제목이 아니라 표제로 읽히게 했습니다.
+
+설치된 글꼴 목록은 `src/core/systemFonts.ts` 가 Chromium의 `queryLocalFonts()` 로 읽고,
+권한이 없거나 API가 없으면 내장 목록으로 물러납니다(결과는 캐시해 한 번만 묻습니다).
+Electron 쪽은 `main.ts` 의 `applyPermissionPolicy()` 가 `local-fonts` 만 허용하고 나머지
+권한 요청은 거부합니다.
+
+### 분석 보고서
+
+`src/core/export/analysisReport.ts` 는 `buildAnalysisModel()` 로 분석과 집계를 한 번만
+하고, Markdown·HTML·PDF·Word 렌더러는 그 모델을 형식만 바꿔 찍습니다. 네 문서가 서로
+어긋날 수 없는 구조입니다. ERD는 화면 캔버스와 **같은 `drawSchema()` 와 같은 팔레트**로
+그리되 보이는 영역이 아니라 다이어그램 전체를 담습니다 — 보고서가 스크롤 밖 테이블을
+빠뜨려서는 안 되기 때문입니다. 배경은 칠하지 않아(`transparent`) 문서 지면이 그대로
+비칩니다.
+
+문서에 넣을 때의 크기는 `imageData.ts` 가 PNG의 IHDR 청크에서 실제 픽셀 크기를 읽어
+`fitWithin()` 으로 지면에 맞춰 줄입니다. Word와 Excel은 배치 크기를 명시해야 하는데,
+고정값을 주면 가로로 긴 스키마는 눌리고 세로로 긴 스키마는 늘어납니다. 확대는 하지
+않습니다 — 작은 다이어그램은 원래 크기가 선명하고, 늘리면 뭉개지기만 합니다.
 
 Markdown 본문은 표지 아래부터 **원본과 바이트 단위로 동일**하게 유지되며,
 `test/integration/fidelity.test.mjs` 가 문서 제목 줄부터 잘라 비교해 이를 보증합니다.
@@ -213,8 +314,8 @@ App.tsx  ──▶  Dialog  ──▶  PopupWindow  ──window.open('', '', fe
 ```
 
 탄력적으로 줄어들 수 있는 요소는 `.tb-spacer` 하나뿐이고, 나머지는 `flex: 0 0 auto` 라
-어떤 버튼도 찌그러지지 않습니다. 스페이서는 **설정 · 우측 패널 토글 · 프로그램 정보**
-바로 앞에 놓여, 그 세 개만 오른쪽으로 밀려납니다.
+어떤 버튼도 찌그러지지 않습니다. 스페이서는 **한/영 전환 · 설정 · 우측 패널 토글 ·
+프로그램 정보** 바로 앞에 놓여, 그 네 개만 오른쪽으로 밀려납니다.
 
 테마 컨트롤은 `SplitButton` 입니다. 왼쪽 절반은 `THEMES` 배열을 순환(라이트 8종 → 다크 8종
 → 처음으로)하고, 오른쪽 캐럿은 16종 목록을 엽니다. 버튼의 팔레트 글리프는 현재 테마의

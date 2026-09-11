@@ -5,6 +5,11 @@ import { ALL_LEVELS, cumulativeLevelsUpTo, type NormalizationLevel } from './ana
 import { getHost, type AppSettingsData } from '../platform';
 import { DEFAULT_THEME_ID, isThemeId, type ThemeId } from '../render/theme';
 import type { Language } from '../i18n';
+import {
+  DEFAULT_REPORT_PREFS,
+  normalizeReportPrefs,
+  type ReportPrefs,
+} from './export/reportOptions';
 
 export interface UserPreferences {
   Language: Language;
@@ -17,6 +22,10 @@ export interface UserPreferences {
   SnapInterval: number;
   NormalizationLevels: NormalizationLevel[];
   RightPanelWidth: number;
+  /** Image exports leave the area around the diagram unpainted. */
+  ImageExportTransparent: boolean;
+  /** Cover page, heading numbering, running header and footer. */
+  Report: ReportPrefs;
 }
 
 export const DEFAULT_PREFERENCES: UserPreferences = {
@@ -30,6 +39,8 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   SnapInterval: 20,
   NormalizationLevels: ['NF1'],
   RightPanelWidth: 340,
+  ImageExportTransparent: true,
+  Report: { ...DEFAULT_REPORT_PREFS },
 };
 
 function clamp(value: number, min: number, max: number): number {
@@ -78,6 +89,11 @@ export async function loadPreferences(): Promise<UserPreferences> {
     SnapInterval: raw.SnapInterval ? clamp(raw.SnapInterval, 5, 100) : 20,
     NormalizationLevels: parseNormalizationLevels(raw.NormalizationLevels, raw.NormalizationLevel),
     RightPanelWidth: clamp(raw.RightPanelWidth ?? 340, 260, 720),
+    // Absent in settings written by an older build, and the default is on.
+    ImageExportTransparent: raw.ImageExportTransparent !== false,
+    // Settings written by an older build have no Report block; normalize fills
+    // in every field from the defaults rather than leaving holes.
+    Report: normalizeReportPrefs(raw.Report),
   };
 }
 
@@ -93,6 +109,8 @@ export async function savePreferences(prefs: UserPreferences): Promise<void> {
     SnapInterval: prefs.SnapInterval,
     NormalizationLevels: prefs.NormalizationLevels.join(','),
     RightPanelWidth: prefs.RightPanelWidth,
+    ImageExportTransparent: prefs.ImageExportTransparent,
+    Report: { ...prefs.Report },
   });
 }
 

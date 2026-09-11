@@ -196,6 +196,11 @@ export class WebHost implements Host {
     return null; // The browser cannot read arbitrary paths.
   }
 
+  /**
+   * The browser's print dialog owns the page margins and its own header and
+   * footer, so `options` has nothing to attach to here — the running header and
+   * footer the user configured are already in the HTML itself.
+   */
   async printToPdf(html: string, _suggestedName: string): Promise<string | null> {
     const frame = document.createElement('iframe');
     frame.style.position = 'fixed';
@@ -218,6 +223,16 @@ export class WebHost implements Host {
     frame.contentWindow?.print();
     setTimeout(() => frame.remove(), 60_000);
     return null;
+  }
+
+  resizeWindowTo(width: number, height: number): void {
+    // Only a window the script opened may resize itself; a normal tab cannot,
+    // and the grip hides itself there.
+    try {
+      window.resizeTo(width, height);
+    } catch {
+      // Blocked by the browser — nothing else to try.
+    }
   }
 
   setTitle(title: string): void {

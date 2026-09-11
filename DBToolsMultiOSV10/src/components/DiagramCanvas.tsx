@@ -51,6 +51,10 @@ interface Props {
   snapInterval: number;
   defaultLineStyle: RelationshipLineStyle;
   selectedTableId: string | null;
+  /** Every selected table — Ctrl/Shift-click builds this up. */
+  selectedTableIds: readonly string[];
+  /** Add the table to the selection, or drop it if it is already in. */
+  onToggleTable: (tableId: string) => void;
   selectedColumnId: string | null;
   selectedRelationshipId: string | null;
   highlightedColumnIds: Set<string>;
@@ -68,10 +72,20 @@ interface Props {
   onRelationRequested: (sourceTableId: string, targetTableId: string) => void;
 }
 
+/** One wheel notch, in percentage points of magnification. */
+const ZOOM_STEP_PERCENT = 5;
+
 type DragKind =
   | { kind: 'none' }
   | { kind: 'pan'; startScreen: Point; startOffset: Point }
-  | { kind: 'table'; tableId: string; grabOffset: Point }
+  | {
+      kind: 'table';
+      /** The table under the pointer — what the live route preview follows. */
+      tableId: string;
+      grabOffset: Point;
+      /** Every table being moved, each with its own grab offset. */
+      grabOffsets: { tableId: string; dx: number; dy: number }[];
+    }
   | { kind: 'routePoint'; relationshipId: string; index: number }
   | { kind: 'segment'; relationshipId: string; index: number; origin: Point; originPoints: Point[] }
   | { kind: 'relation'; sourceTableId: string; current: Point };
@@ -165,6 +179,7 @@ export function DiagramCanvas(props: Props) {
       palette,
       zoom,
       selectedTableId: props.selectedTableId,
+      selectedTableIds: new Set(props.selectedTableIds),
       selectedColumnId: props.selectedColumnId,
       selectedRelationshipId: props.selectedRelationshipId,
       highlightedColumnIds: props.highlightedColumnIds,
@@ -182,7 +197,8 @@ export function DiagramCanvas(props: Props) {
 
     ctx.restore();
   }, [schema, size, zoom, offsetX, offsetY, palette, drag, props.showGrid, props.snapInterval,
-      props.selectedTableId, props.selectedColumnId, props.selectedRelationshipId,
+      props.selectedTableId, props.selectedTableIds, props.selectedColumnId,
+      props.selectedRelationshipId,
       props.highlightedColumnIds]);
 
   // ── Hit testing ────────────────────────────────────────────────────────────
@@ -335,13 +351,36 @@ export function DiagramCanvas(props: Props) {
     }
 
     if (table) {
-      const columnIndex = getColumnIndexAt(table, p);
-      props.onSelectTable(table.Id, columnIndex >= 0 ? table.Columns[columnIndex].Id : null);
+      // Ctrl or Shift adds to (or removes from) the selection and stops there:
+      // a modifier-click is about choosing, not about moving.
+      if (e.ctrlKey || e.shiftKey || e.metaKey) {
+        props.onToggleTable(table.Id);
+        return;
+      }
+
+      // Pressing a table that is already part of a multi-selection keeps the
+      // selection and moves the whole group; pressing any other table selects
+      // just it.
+      const alreadySelected = props.selectedTableIds.includes(table.Id);
+      if (!alreadySelected) {
+        const columnIndex = getColumnIndexAt(table, p);
+        props.onSelectTable(table.Id, columnIndex >= 0 ? table.Columns[columnIndex].Id : null);
+      } else if (props.selectedTableIds.length === 1) {
+        const columnIndex = getColumnIndexAt(table, p);
+        props.onSelectTable(table.Id, columnIndex >= 0 ? table.Columns[columnIndex].Id : null);
+      }
+
+      const moving = alreadySelected ? [...props.selectedTableIds] : [table.Id];
+      const grabOffsets = moving.map((id) => {
+        const t = findTable(schema, id);
+        return { tableId: id, dx: t ? p.x - t.X : 0, dy: t ? p.y - t.Y : 0 };
+      });
       props.onMutate(() => {}, { undo: true });
       setDrag({
         kind: 'table',
         tableId: table.Id,
         grabOffset: { x: p.x - table.X, y: p.y - table.Y },
+        grabOffsets,
       });
       e.currentTarget.setPointerCapture(e.pointerId);
       return;
@@ -376,11 +415,13 @@ export function DiagramCanvas(props: Props) {
 
       case 'table':
         props.onDragUpdate((draft) => {
-          const table = findTable(draft, drag.tableId);
-          if (!table) return;
-          table.X = snap(p.x - drag.grabOffset.x);
-          table.Y = snap(p.y - drag.grabOffset.y);
-          resetOrthogonalRoutesForTable(draft, table.Id);
+          for (const { tableId, dx, dy } of drag.grabOffsets) {
+            const table = findTable(draft, tableId);
+            if (!table) continue;
+            table.X = snap(p.x - dx);
+            table.Y = snap(p.y - dy);
+            resetOrthogonalRoutesForTable(draft, tableId);
+          }
         });
         return;
 
@@ -495,8 +536,15 @@ export function DiagramCanvas(props: Props) {
       const anchorY = e.clientY - rect.top - RULER_SIZE;
 
       if (e.ctrlKey || e.metaKey || !e.shiftKey) {
-        const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
-        const nextZoom = clamp(zoom * factor, MIN_ZOOM, MAX_ZOOM);
+        // One notch is five percentage points, landing on whole multiples of
+        // five however the zoom got to its current value — so the readout steps
+        // 95, 100, 105 rather than drifting to 103.7.
+        const step = e.deltaY < 0 ? 1 : -1;
+        const current = Math.round(zoom * 100);
+        const aligned = step > 0
+          ? Math.floor(current / ZOOM_STEP_PERCENT) * ZOOM_STEP_PERCENT
+          : Math.ceil(current / ZOOM_STEP_PERCENT) * ZOOM_STEP_PERCENT;
+        const nextZoom = clamp((aligned + step * ZOOM_STEP_PERCENT) / 100, MIN_ZOOM, MAX_ZOOM);
         if (Math.abs(nextZoom - zoom) < 0.0001) return;
         // Keep the point under the cursor fixed.
         const worldX = (anchorX + offsetX) / zoom;
@@ -593,23 +641,42 @@ function isEditableTarget(target: EventTarget | null): boolean {
 }
 
 /** Fit every table into `size`, returning the viewport that shows them all. */
+/**
+ * A viewport showing the whole schema.
+ *
+ * `fixedZoom` keeps a chosen magnification instead of shrinking to fit — auto
+ * arrange uses it to land at 100%. At a fixed zoom the diagram may be larger
+ * than the viewport, and centring would then cut off its top-left corner, so
+ * the view is centred only while the content fits and pinned to the corner
+ * once it does not.
+ */
 export function computeFitViewport(
   schema: DbSchema,
   width: number,
   height: number,
+  fixedZoom?: number,
 ): { zoom: number; offsetX: number; offsetY: number } | null {
   const bounds = getAllTablesBounds(schema);
   if (!bounds || bounds.w <= 0 || bounds.h <= 0 || width <= 0 || height <= 0) return null;
   const margin = 40;
-  const zoom = clamp(
-    Math.min((width - margin * 2) / bounds.w, (height - margin * 2) / bounds.h),
-    MIN_ZOOM,
-    MAX_ZOOM,
-  );
+  const zoom =
+    fixedZoom !== undefined
+      ? clamp(fixedZoom, MIN_ZOOM, MAX_ZOOM)
+      : clamp(
+          Math.min((width - margin * 2) / bounds.w, (height - margin * 2) / bounds.h),
+          MIN_ZOOM,
+          MAX_ZOOM,
+        );
   return {
     zoom,
-    offsetX: bounds.x * zoom - (width - bounds.w * zoom) / 2,
-    offsetY: bounds.y * zoom - (height - bounds.h * zoom) / 2,
+    offsetX: Math.min(
+      bounds.x * zoom - (width - bounds.w * zoom) / 2,
+      bounds.x * zoom - margin,
+    ),
+    offsetY: Math.min(
+      bounds.y * zoom - (height - bounds.h * zoom) / 2,
+      bounds.y * zoom - margin,
+    ),
   };
 }
 

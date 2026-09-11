@@ -4,6 +4,13 @@ import { getRelationshipTypeLabel } from '../../types';
 import { findColumn, findTable, getTypeDisplay } from '../schema';
 import { analyze, getLevelLabel, type NormalizationIssue } from './normalization';
 import { buildCover } from '../export/coverPage';
+import {
+  DEFAULT_REPORT_PREFS,
+  HeadingNumberer,
+  footerText,
+  headerText,
+  type ReportPrefs,
+} from '../export/reportOptions';
 
 function mark(value: boolean): string {
   return value ? '✓' : '';
@@ -37,14 +44,14 @@ function severityLabel(severity: NormalizationIssue['Severity']): string {
   }
 }
 
-function appendTables(lines: string[], schema: DbSchema): void {
-  lines.push('## 테이블 목록', '');
+function appendTables(lines: string[], schema: DbSchema, n: HeadingNumberer): void {
+  lines.push(`## ${n.headSection('테이블 목록')}`, '');
   if (schema.Tables.length === 0) {
     lines.push('(테이블 없음)', '');
     return;
   }
   for (const table of schema.Tables) {
-    lines.push(`### ${table.Name}`);
+    lines.push(`### ${n.headSub(table.Name)}`);
     if (table.Comment && table.Comment.trim()) lines.push(`_${table.Comment}_`);
     lines.push('');
     if (table.Columns.length === 0) {
@@ -71,8 +78,8 @@ function appendTables(lines: string[], schema: DbSchema): void {
   }
 }
 
-function appendRelationships(lines: string[], schema: DbSchema): void {
-  lines.push('## 관계 목록', '');
+function appendRelationships(lines: string[], schema: DbSchema, n: HeadingNumberer): void {
+  lines.push(`## ${n.headSection('관계 목록')}`, '');
   if (schema.Relationships.length === 0) {
     lines.push('(관계 없음)', '');
     return;
@@ -97,15 +104,17 @@ function appendRelationships(lines: string[], schema: DbSchema): void {
   lines.push('');
 }
 
-function appendNormalization(lines: string[], issues: NormalizationIssue[]): void {
-  lines.push('## 정규화 검사 결과', '');
+function appendNormalization(lines: string[], issues: NormalizationIssue[], n: HeadingNumberer): void {
+  lines.push(`## ${n.headSection('정규화 검사 결과')}`, '');
   if (issues.length === 0) {
     lines.push('발견된 문제가 없습니다.');
     return;
   }
   lines.push(`총 **${issues.length}**건의 항목이 발견되었습니다.`, '');
   for (const issue of issues) {
-    lines.push(`### [${getLevelLabel(issue.Level)}] ${issue.Table} — ${severityLabel(issue.Severity)}`);
+    lines.push(
+      `### ${n.headSub(`[${getLevelLabel(issue.Level)}] ${issue.Table} — ${severityLabel(issue.Severity)}`)}`,
+    );
     lines.push(`- **내용**: ${issue.Message}`);
     if (issue.Hint && issue.Hint.trim()) lines.push(`- **권장**: ${issue.Hint}`);
     lines.push('');
@@ -116,21 +125,41 @@ export interface ReportOptions {
   projectPath?: string | null;
   erdImageRelativePath?: string | null;
   now?: Date;
+  /** User report settings — cover, numbering, header and footer. */
+  report?: ReportPrefs;
 }
 
+const TITLE = '데이터베이스 설계 보고서';
+
 export function writeReport(schema: DbSchema, options: ReportOptions = {}): string {
+  const prefs = options.report ?? DEFAULT_REPORT_PREFS;
+  const context = { schema, title: TITLE, projectPath: options.projectPath, now: options.now };
   const issues = analyze(schema);
+  const numberer = new HeadingNumberer(prefs.HeadingNumberStyle);
   const lines: string[] = [];
+
+  // Markdown has no pages, so the running header and footer appear once — at
+  // the top and the bottom — and page numbers are simply not representable.
+  const header = headerText(prefs, context);
+  if (header) lines.push(`_${header}_`, '');
 
   // Cover page. Markdown has no page breaks, but a leading title block plus a
   // horizontal rule renders as a cover in every viewer and PDF converter.
-  const cover = buildCover(schema, { projectPath: options.projectPath, now: options.now });
-  lines.push(`# ${cover.subject}`, '');
-  lines.push(`### ${cover.heading}`, '');
-  for (const row of cover.rows) lines.push(`- **${row.label}**: ${row.value}`);
-  lines.push('', `_${cover.producer}_`, '', '---', '');
+  const cover = buildCover(schema, {
+    projectPath: options.projectPath,
+    now: options.now,
+    heading: TITLE,
+    report: prefs,
+  });
+  if (cover) {
+    lines.push(`# ${cover.subject}`, '');
+    lines.push(`### ${cover.heading}`, '');
+    if (cover.attribution) lines.push(`**${cover.attribution}**`, '');
+    for (const row of cover.rows) lines.push(`- **${row.label}**: ${row.value}`);
+    lines.push('', `_${cover.producer}_`, '', '---', '');
+  }
 
-  lines.push('# 데이터베이스 설계 보고서', '');
+  lines.push(`# ${TITLE}`, '');
   lines.push(`- **스키마 이름**: ${schema.Name}`);
   lines.push(`- **대상 DB**: ${schema.TargetDb}`);
   lines.push(`- **작성 일시**: ${formatTimestamp(options.now ?? new Date())}`);
@@ -142,13 +171,16 @@ export function writeReport(schema: DbSchema, options: ReportOptions = {}): stri
   lines.push('');
 
   if (options.erdImageRelativePath && options.erdImageRelativePath.trim()) {
-    lines.push('## ERD 다이어그램', '');
+    lines.push(`## ${numberer.headSection('ERD 다이어그램')}`, '');
     lines.push(`![ERD 다이어그램](${options.erdImageRelativePath})`);
     lines.push('');
   }
 
-  appendTables(lines, schema);
-  appendRelationships(lines, schema);
-  appendNormalization(lines, issues);
+  appendTables(lines, schema, numberer);
+  appendRelationships(lines, schema, numberer);
+  appendNormalization(lines, issues, numberer);
+
+  const footer = footerText(prefs, context);
+  if (footer) lines.push('', '---', '', `_${footer}_`);
   return lines.join('\n');
 }

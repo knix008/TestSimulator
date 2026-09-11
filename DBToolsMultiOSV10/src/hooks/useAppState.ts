@@ -18,12 +18,23 @@ import { setLanguage } from '../i18n';
 import { applyPaletteToDocument } from '../render/theme';
 
 export interface Selection {
+  /**
+   * The table the side panels follow — the last one clicked. It is always the
+   * final entry of `tableIds`, so single-selection code needs no special case.
+   */
   tableId: string | null;
   columnId: string | null;
   relationshipId: string | null;
+  /** Every selected table, for moving or deleting several at once. */
+  tableIds: string[];
 }
 
-export const EMPTY_SELECTION: Selection = { tableId: null, columnId: null, relationshipId: null };
+export const EMPTY_SELECTION: Selection = {
+  tableId: null,
+  columnId: null,
+  relationshipId: null,
+  tableIds: [],
+};
 
 export interface Viewport {
   zoom: number;
@@ -134,11 +145,39 @@ export function useAppState(newProjectName: string) {
   // ── Selection helpers ──────────────────────────────────────────────────────
 
   const selectTable = useCallback((tableId: string | null, columnId: string | null = null) => {
-    setSelection({ tableId, columnId, relationshipId: null });
+    setSelection({
+      tableId,
+      columnId,
+      relationshipId: null,
+      tableIds: tableId ? [tableId] : [],
+    });
+  }, []);
+
+  /**
+   * Ctrl/Shift-click: add the table to the selection, or drop it if it was
+   * already in. The primary stays the last one still selected, so the property
+   * panel keeps following something sensible.
+   */
+  const toggleTableSelection = useCallback((tableId: string) => {
+    setSelection((current) => {
+      const has = current.tableIds.includes(tableId);
+      const tableIds = has
+        ? current.tableIds.filter((id) => id !== tableId)
+        : [...current.tableIds, tableId];
+      const primary = tableIds.length > 0 ? tableIds[tableIds.length - 1] : null;
+      return {
+        tableId: primary,
+        // The column selection belongs to a single table; it cannot survive a
+        // change of primary.
+        columnId: primary === current.tableId ? current.columnId : null,
+        relationshipId: null,
+        tableIds,
+      };
+    });
   }, []);
 
   const selectRelationship = useCallback((relationshipId: string | null) => {
-    setSelection({ tableId: null, columnId: null, relationshipId });
+    setSelection({ tableId: null, columnId: null, relationshipId, tableIds: [] });
   }, []);
 
   const clearSelection = useCallback(() => setSelection(EMPTY_SELECTION), []);
@@ -193,6 +232,7 @@ export function useAppState(newProjectName: string) {
     selection,
     setSelection,
     selectTable,
+    toggleTableSelection,
     selectRelationship,
     clearSelection,
     selectedTable,

@@ -19,6 +19,16 @@ export interface OpenRequest {
   filters: { name: string; extensions: string[] }[];
 }
 
+/**
+ * Chromium's own print header and footer. Only these carry a real page number
+ * (`.pageNumber` / `.totalPages` spans), which is why they are passed alongside
+ * the document rather than baked into it.
+ */
+export interface PdfPrintOptions {
+  headerTemplate?: string;
+  footerTemplate?: string;
+}
+
 export interface AppSettingsData {
   Language: 'ko' | 'en';
   Theme: string;
@@ -30,7 +40,10 @@ export interface AppSettingsData {
   SnapInterval: number;
   NormalizationLevels: string;
   RightPanelWidth?: number;
+  ImageExportTransparent?: boolean;
   LastOpenDirectory?: string;
+  /** Report layout settings, stored as a nested block (see ReportPrefs). */
+  Report?: Record<string, unknown>;
 }
 
 export interface Host {
@@ -51,8 +64,13 @@ export interface Host {
   getStartupFile(): Promise<string | null>;
   /** Read a file by absolute path (Electron only). */
   readFileByPath(path: string): Promise<OpenedFile | null>;
-  printToPdf(html: string, suggestedName: string): Promise<string | null>;
+  printToPdf(html: string, suggestedName: string, options?: PdfPrintOptions): Promise<string | null>;
   setTitle(title: string): void;
+  /**
+   * Set the window's outer size, for the corner resize grip. Absolute rather
+   * than a delta: sizing a window from deltas feeds back on itself.
+   */
+  resizeWindowTo(width: number, height: number): void;
   onBeforeClose(handler: () => Promise<boolean>): void;
 }
 

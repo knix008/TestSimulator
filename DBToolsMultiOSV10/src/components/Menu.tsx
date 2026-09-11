@@ -77,7 +77,11 @@ export function MenuList({ items, onClose, nested }: MenuListProps) {
             </button>
             {hasSubmenu && openSubmenu === item.id && (
               <div className="submenu">
-                <MenuList items={item.submenu!} onClose={onClose} />
+                {/* `nested` is required, not cosmetic: without it the inner list
+                    is `position: absolute` and leaves the flow, so `.submenu`
+                    collapses to its padding and its `overflow-y` clips the
+                    items away — a submenu that is present but invisible. */}
+                <MenuList items={item.submenu!} onClose={onClose} nested />
               </div>
             )}
           </div>
