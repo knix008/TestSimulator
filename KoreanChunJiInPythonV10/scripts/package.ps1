@@ -6,14 +6,14 @@
 #
 # 하는 일
 #   1. 시험을 돌린다
-#   2. 앱과 서버를 한 파일로 빌드한다       -> chunjiin.exe · chunjiin-serve.exe
+#   2. 앱과 서버를 한 파일로 빌드한다       -> dist\chunjiin.exe · dist\chunjiin-serve.exe
 #   3. 그 앱을 설치 프로그램 안에 넣는다
-#   4. 설치 프로그램을 한 파일로 빌드한다   -> chunjiin-setup.exe
+#   4. 설치 프로그램을 한 파일로 빌드한다   -> chunjiin-setup.exe (루트에 이것 하나만)
 #   5. 배포용 묶음을 만든다                 -> chunjiin-<판>-windows-x64.zip
-#   6. 모두 저장소 루트에 둔다
 #
 # WiX 나 Inno Setup 같은 다른 설치 도구가 필요 없다.
 # 파이썬으로 짜인 GUI 설치기가 앱을 자기 안에 품는다.
+# PySide6 과 PyInstaller 는 없으면 pip 으로 저절로 넣는다 (scripts\ensure_deps.py).
 
 [CmdletBinding()]
 param(
@@ -53,6 +53,9 @@ if (-not $python) {
 $arch = if ([Environment]::Is64BitOperatingSystem) { 'x64' } else { 'x86' }
 Write-Host "== 천지인 설치용 파일 만들기  $Version  (windows/$arch)"
 
+& $python scripts\ensure_deps.py desktop build
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
 if (-not $SkipTest) {
     Write-Host '-- 시험'
     # 창을 띄우지 않고 그린다. 이 스크립트는 지금 PowerShell 프로세스 안에서
@@ -77,8 +80,8 @@ if (-not $SkipTest) {
 }
 
 Write-Host '-- 앱 · 서버 · 설치 프로그램 빌드'
-# 셋 다 한 파일로 만들어 저장소 루트에 놓는다. 설치 프로그램은 앞서 만든
-# 앱을 자기 안에 품으므로 차례가 중요하다. pyinstaller_build.py 가 지킨다.
+# 셋 다 한 파일로 만들되 루트에는 설치 프로그램만 놓는다. 설치 프로그램은
+# 앞서 만든 앱을 자기 안에 품으므로 차례가 중요하다. pyinstaller_build.py 가 지킨다.
 & $python scripts\pyinstaller_build.py --clean --copy-root --targets app serve setup
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
@@ -89,8 +92,12 @@ if (Test-Path -LiteralPath $zip) { Remove-Item -LiteralPath $zip -Force }
 $stage = Join-Path ([System.IO.Path]::GetTempPath()) "chunjiin-pkg-$([guid]::NewGuid())"
 $pkg = Join-Path $stage "chunjiin-$Version"
 New-Item -ItemType Directory -Path $pkg -Force | Out-Null
-foreach ($name in @('chunjiin.exe', 'chunjiin-serve.exe', 'chunjiin-setup.exe')) {
-    $file = Join-Path $root $name
+# 앱과 서버는 dist\ 에, 설치 프로그램은 루트에 있다.
+foreach ($file in @(
+    (Join-Path $root 'dist\chunjiin.exe'),
+    (Join-Path $root 'dist\chunjiin-serve.exe'),
+    (Join-Path $root 'chunjiin-setup.exe')
+)) {
     if (Test-Path -LiteralPath $file) {
         Copy-Item -LiteralPath $file -Destination $pkg -Force
     }
@@ -105,8 +112,8 @@ Remove-Item -LiteralPath $stage -Recurse -Force
 
 Write-Host '== 만든 것'
 $made = @(
-    'chunjiin.exe',
-    'chunjiin-serve.exe',
+    'dist\chunjiin.exe',
+    'dist\chunjiin-serve.exe',
     'chunjiin-setup.exe',
     "chunjiin-$Version-windows-$arch.zip"
 )

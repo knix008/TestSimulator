@@ -16,13 +16,19 @@ dist/
 *.spec
 
 # 빌드해서 저장소 루트에 갖다 놓은 것
-/chunjiin
+#
+# `/chunjiin` 은 적지 않는다. 소스 패키지 폴더 `chunjiin/` 까지 통째로
+# 가려져 한 번도 커밋되지 않는다(실제로 그랬다). 리눅스·맥에서 한 파일로
+# 만든 앱은 이름이 같아서 루트에 놓지 않고 dist/ 에 둔다
+# (scripts/pyinstaller_build.py). 그래서 여기 적을 것이 없다.
 /chunjiin.exe
+/chunjiin.exe.old
 /chunjiin-serve
 /chunjiin-serve.exe
 /chunjiin-setup
 /chunjiin-setup.exe
 /uninstall.exe
+/*.old
 
 # 배포용 묶음
 /Chunjiin.app/

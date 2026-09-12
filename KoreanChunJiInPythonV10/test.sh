@@ -7,7 +7,7 @@
 #
 # 무엇을 보는가
 #   tests/test_cases.py   엔진 회귀 시험. KoreanChunJiInC++ 의 tests/test_engine.c
-#                         에서 뽑아 온 430항목(test/cases.tsv).
+#                         에서 뽑아 온 430항목(tests/cases.tsv).
 #   tests/test_engine.py  자료로 뽑을 수 없는 항목 - 영문 26자 전수,
 #                         라벨-입력 일치, 원본 함수 직접 확인, 경계·예외.
 #   tests/test_ui.py      색표 · 설정 · 배치 · 커서 변환 · 언어 · 그림,
@@ -51,4 +51,7 @@ while [ $# -gt 0 ]; do
 done
 
 # shellcheck disable=SC2086
+# PySide6 이 없으면 창 시험이 통째로 건너뛰어 반쪽 결과가 된다. 먼저 갖춘다.
+"$python" scripts/ensure_deps.py desktop || exit $?
+
 exec "$python" -m tests.report $args

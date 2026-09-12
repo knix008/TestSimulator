@@ -6,7 +6,7 @@
 #
 # 무엇을 보는가
 #   tests\test_cases.py   엔진 회귀 시험. KoreanChunJiInC++ 의 tests/test_engine.c
-#                         에서 뽑아 온 430항목(test\cases.tsv).
+#                         에서 뽑아 온 430항목(tests\cases.tsv).
 #   tests\test_engine.py  자료로 뽑을 수 없는 항목 - 영문 26자 전수,
 #                         라벨-입력 일치, 원본 함수 직접 확인, 경계·예외.
 #   tests\test_ui.py      색표 · 설정 · 배치 · 커서 변환 · 언어 · 그림,
@@ -14,7 +14,8 @@
 #   tests\test_web.py     서버 경로 처리, 상태 객체, 실제로 띄워 두드려 보기.
 #
 # pytest 를 깔지 않아도 된다. tests\report.py 가 시험을 찾아 돌리고
-# 결과를 모아 정리한다.
+# 결과를 모아 정리한다. 창 시험에 쓰는 PySide6 은 없으면 pip 으로 저절로
+# 넣는다 (scripts\ensure_deps.py).
 
 [CmdletBinding()]
 param(
@@ -60,6 +61,10 @@ if (-not $python) {
     Write-Host '파이썬 3.10 이상을 찾지 못했습니다.' -ForegroundColor Red
     exit 1
 }
+
+# PySide6 이 없으면 창 시험이 통째로 건너뛰어 반쪽 결과가 된다. 먼저 갖춘다.
+& $python scripts\ensure_deps.py desktop
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 $argv = @('-m', 'tests.report')
 if ($Detail) { $argv += '-v' }

@@ -13,7 +13,7 @@
 #   5. 배포용 묶음을 만든다
 #        Linux  chunjiin-<판>-linux-<아키텍처>.tar.gz
 #        macOS  Chunjiin.app + chunjiin-<판>-macos-<아키텍처>.dmg
-#   6. 모두 저장소 루트에 둔다
+#   6. 설치 프로그램만 저장소 루트에 둔다 (앱과 서버는 dist/ 에)
 #
 # 다른 설치 도구(dpkg, rpm)를 필요로 하지 않는다.
 # 파이썬으로 짜인 GUI 설치기가 앱을 자기 안에 품는다.
@@ -63,18 +63,23 @@ esac
 
 echo "== 천지인 설치용 파일 만들기  $version  ($os/$arch)"
 
+"$python" scripts/ensure_deps.py desktop build || exit $?
+
 if [ "$skip_test" -eq 0 ]; then
     echo "-- 시험"
     QT_QPA_PLATFORM=offscreen "$python" -m tests.report
 fi
 
 echo "-- 앱 · 서버 · 설치 프로그램 빌드"
-# 셋 다 한 파일로 만들어 저장소 루트에 놓는다. 설치 프로그램은 앞서 만든
-# 앱을 자기 안에 품으므로 차례가 중요하다. pyinstaller_build.py 가 지킨다.
+# 셋 다 한 파일로 만들되 루트에는 설치 프로그램만 놓는다. 설치 프로그램은
+# 앞서 만든 앱을 자기 안에 품으므로 차례가 중요하다. pyinstaller_build.py 가 지킨다.
 "$python" scripts/pyinstaller_build.py --clean --copy-root --targets app serve setup
 
-for name in chunjiin chunjiin-serve chunjiin-setup; do
-    [ -f "$root/$name" ] && chmod +x "$root/$name"
+# 앱과 서버는 dist/ 에, 설치 프로그램은 루트에 있다.
+app_bin="$root/dist/chunjiin"
+serve_bin="$root/dist/chunjiin-serve"
+for f in "$app_bin" "$serve_bin" "$root/chunjiin-setup"; do
+    [ -f "$f" ] && chmod +x "$f"
 done
 
 if [ "$os" = "macos" ]; then
@@ -82,7 +87,7 @@ if [ "$os" = "macos" ]; then
     app="$root/Chunjiin.app"
     rm -rf "$app"
     mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
-    cp "$root/chunjiin" "$app/Contents/MacOS/chunjiin"
+    cp "$app_bin" "$app/Contents/MacOS/chunjiin"
     cp assets/chunjiin.png "$app/Contents/Resources/chunjiin.png"
     cat > "$app/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -119,16 +124,17 @@ else
     stage=$(mktemp -d)
     pkg="$stage/chunjiin-$version"
     mkdir -p "$pkg"
-    cp "$root/chunjiin" "$root/chunjiin-serve" "$root/chunjiin-setup" "$pkg/"
+    cp "$app_bin" "$serve_bin" "$root/chunjiin-setup" "$pkg/"
     cp README.md UsersGuide.md "$pkg/" 2>/dev/null || true
     tar -czf "$tarball" -C "$stage" "chunjiin-$version"
     rm -rf "$stage"
 fi
 
 echo "== 만든 것"
-for f in chunjiin chunjiin-serve chunjiin-setup \
+for f in dist/chunjiin dist/chunjiin-serve chunjiin-setup Chunjiin.app \
          "chunjiin-$version-linux-$arch.tar.gz" \
          "chunjiin-$version-macos-$arch.dmg"; do
     [ -e "$root/$f" ] || continue
+    [ "$f" = dist/chunjiin ] && [ ! -f "$root/$f" ] && continue
     printf '   %-38s %s\n' "$f" "$(du -sh "$root/$f" | cut -f1)"
 done

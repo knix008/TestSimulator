@@ -26,7 +26,10 @@
 `dist/chunjiin/` 을 폴더째 쓰면 된다. 그때는 루트에 복사하지 않고
 어디에 만들어졌는지만 알려 준다.
 
-`--copy-root` 는 **한 파일로 만든 것만** 루트에 놓는다.
+`--copy-root` 는 **설치 프로그램 하나만** 루트에 놓는다. 앱과 서버는
+dist/ 에 남는다. 루트에는 나눠 줄 파일 하나만 있으면 되고, 앱은 설치
+프로그램 안에 품겨 있기 때문이다. (리눅스·맥의 앱 이름 `chunjiin` 이
+소스 패키지 폴더와 같아 루트에 둘 수 없다는 사정도 있다.)
 """
 
 from __future__ import annotations
@@ -159,7 +162,7 @@ def main(argv=None):
     ap.add_argument(
         "--copy-root",
         action="store_true",
-        help="한 파일로 만든 것을 저장소 루트에도 놓는다",
+        help="설치 프로그램(한 파일)을 저장소 루트에도 놓는다",
     )
     args = ap.parse_args(argv)
 
@@ -192,9 +195,9 @@ def main(argv=None):
             print(f"   {TARGETS[name][0]:<44} (찾지 못했다)")
             continue
 
-        # 한 파일로 만든 것만 루트에 놓는다. 한 폴더 묶음은 실행 파일만
-        # 떼어 놓으면 딸린 파일이 없어 돌지 않는다.
-        if args.copy_root and onefile:
+        # 설치 프로그램만, 그것도 한 파일로 만든 것만 루트에 놓는다. 한 폴더
+        # 묶음은 실행 파일만 떼어 놓으면 딸린 파일이 없어 돌지 않는다.
+        if args.copy_root and onefile and name == "setup":
             dest = os.path.join(ROOT, os.path.basename(path))
             if os.path.abspath(dest) != os.path.abspath(path):
                 try:

@@ -11,7 +11,17 @@
 엔진과 웹 판 서버는 표준 라이브러리 말고는 아무것도 쓰지 않습니다.
 그래서 `python -m chunjiin.web` 은 PySide6 없이도 돕니다.
 
-한꺼번에 넣으려면:
+**PySide6 과 PyInstaller 는 손으로 넣지 않아도 됩니다.** `build` · `test` ·
+`package` 스크립트(`.ps1` · `.bat` · `.sh` 모두)가 시작할 때
+`scripts/ensure_deps.py` 를 불러, 없는 것만 그 파이썬의 pip 으로 넣습니다.
+스크립트가 고른 파이썬에 넣으므로 "깔았는데 못 찾는다" 가 생기지 않습니다.
+
+```sh
+python scripts/ensure_deps.py desktop build     # 직접 부를 때
+python scripts/ensure_deps.py --check desktop   # 넣지 않고 있는지만
+```
+
+망이 막힌 자리라면 미리 넣어 두면 됩니다. 한꺼번에 넣으려면:
 
 ```sh
 pip install -e ".[desktop,build]"
@@ -49,6 +59,10 @@ python -m chunjiin.setup    # 설치 프로그램 (품은 앱이 없으면 안�
 .\build.ps1 -Run
 ```
 
+```bat
+build.bat -run
+```
+
 ```sh
 ./build.sh --run
 ```
@@ -59,6 +73,12 @@ python -m chunjiin.setup    # 설치 프로그램 (품은 앱이 없으면 안�
 .\test.ps1              # 구역별 집계와 요약
 .\test.ps1 -Detail      # 항목마다 한 줄씩
 .\test.ps1 -Run 겹받침  # 이름이 맞는 것만
+```
+
+```bat
+test.bat
+test.bat -detail
+test.bat -run 겹받침
 ```
 
 ```sh
@@ -87,7 +107,7 @@ python -m tests.report -v
 
 | 파일 | 무엇 |
 |---|---|
-| `tests/test_cases.py` | C++ 원본에서 뽑아 온 430항목 (`test/cases.tsv`) |
+| `tests/test_cases.py` | C++ 원본에서 뽑아 온 430항목 (`tests/cases.tsv`) |
 | `tests/test_engine.py` | 영문 26자 전수, 라벨-입력 일치, 원본 함수, 경계·예외 |
 | `tests/test_ui.py` | 색표 · 설정 · 배치 · 커서 변환 · 언어 · 그림 · 창 스모크 |
 | `tests/test_setup.py` | 설치 자리, 만들어 내는 글(.desktop · plist · 레지스트리) |
@@ -108,8 +128,13 @@ python -m tests.report -v
 ## 실행 파일 만들기
 
 ```powershell
-.\build.ps1              # chunjiin.exe · chunjiin-serve.exe 를 루트에
-.\build.ps1 -OneDir      # dist\chunjiin\ 에 한 폴더로
+.\build.ps1              # dist\ 에 앱 · 서버 · 설치 프로그램, 루트에는 chunjiin-setup.exe 하나
+.\build.ps1 -OneDir      # dist\chunjiin\ 에 한 폴더로 (설치 프로그램은 만들지 않는다)
+```
+
+```bat
+build.bat
+build.bat -onedir
 ```
 
 ```sh
@@ -119,20 +144,23 @@ python -m tests.report -v
 
 ### 한 파일이냐 한 폴더냐
 
-기본은 **한 파일 묶음**입니다. 저장소 루트에 놓인 실행 파일 하나만
-있으면 그대로 돌아야 하기 때문입니다.
+기본은 **한 파일 묶음**입니다. 만든 것은 모두 `dist/` 에 놓이고,
+**저장소 루트에는 나눠 줄 파일인 설치 프로그램 하나만** 복사됩니다. 앱은
+그 안에 품겨 있으므로 루트에 따로 둘 까닭이 없습니다. (리눅스·맥의 앱
+이름 `chunjiin` 이 소스 패키지 폴더와 같아 루트에 둘 수 없다는 사정도
+있습니다.)
 
 | | 한 파일 (기본) | 한 폴더 (`--onedir`) |
 |---|---|---|
-| 놓이는 곳 | 저장소 루트 | `dist/chunjiin/` |
+| 놓이는 곳 | `dist/` (설치 프로그램은 루트에도) | `dist/chunjiin/` |
 | 옮길 때 | 파일 하나 | 폴더째 |
 | 처음 뜨는 데 | 2~3초 | 곧바로 |
 | 크기 | 앱 51MB · 서버 9MB | 앱 125MB · 서버 20MB |
 
 한 파일 묶음은 뜰 때마다 자기를 임시 폴더에 풉니다. 날마다 쓰면서 그것이
 거슬리면 `--onedir` 로 만들어 폴더째 쓰면 됩니다. 그때는 **실행 파일만
-떼어 놓으면 딸린 파일이 없어 돌지 않으므로** 루트에 복사하지 않고 어디에
-만들어졌는지만 알려 줍니다.
+떼어 놓으면 딸린 파일이 없어 돌지 않으므로** 어디에 만들어졌는지만 알려
+주고, 품을 수도 없으니 설치 프로그램은 만들지 않습니다.
 
 갓 만들었거나 갓 설치한 직후 **처음 한 번은 20초 넘게** 걸릴 수 있습니다.
 바이러스 검사가 50MB 짜리 새 파일을 통째로 훑기 때문입니다. 그 다음부터는
@@ -151,7 +179,7 @@ python scripts/pyinstaller_build.py --targets app --onefile --copy-root
 | `--onefile` | 모두 한 파일로 (기본) |
 | `--onedir` | 모두 한 폴더로 (빨리 뜨지만 폴더째 옮겨야 돈다) |
 | `--clean` | 중간 파일부터 지우고 |
-| `--copy-root` | 한 파일로 만든 것을 저장소 루트에도 |
+| `--copy-root` | 설치 프로그램(한 파일)을 저장소 루트에도 |
 
 `.spec` 파일을 저장소에 두지 않고 이 스크립트가 인자를 만들어 넘깁니다.
 `.spec` 은 손으로 고칠 자리가 많아 셋이 어긋나기 쉽기 때문입니다.
@@ -162,6 +190,12 @@ python scripts/pyinstaller_build.py --targets app --onefile --copy-root
 .\scripts\package.ps1
 .\scripts\package.ps1 -SkipTest
 .\scripts\package.ps1 -Version 1.0
+```
+
+```bat
+scripts\package.bat
+scripts\package.bat -skiptest
+scripts\package.bat -version 1.0
 ```
 
 ```sh
@@ -177,18 +211,18 @@ python scripts/pyinstaller_build.py --targets app --onefile --copy-root
 3. 그 앱을 설치 프로그램 안에 넣는다
 4. 설치 프로그램을 한 파일로 빌드한다
 5. 배포용 묶음을 만든다
-6. **모두 저장소 루트에 둔다**
+6. **설치 프로그램과 배포용 묶음만 저장소 루트에 둔다** (앱과 서버는 `dist/`)
 
 만들어지는 것:
 
-| 파일 | 무엇 | 크기 |
-|---|---|---|
-| `chunjiin` / `.exe` | 데스크톱 앱 | 51MB |
-| `chunjiin-serve` / `.exe` | 웹 판을 품은 서버 | 9MB |
-| `chunjiin-setup` / `.exe` | 설치 프로그램 (앱을 품는다) | 101MB |
-| `chunjiin-1.0-windows-x64.zip` | Windows 배포 묶음 | 160MB |
-| `chunjiin-1.0-linux-amd64.tar.gz` | 리눅스 배포 묶음 | |
-| `chunjiin-1.0-macos-arm64.dmg` | macOS 배포 이미지 | |
+| 파일 | 어디에 | 무엇 | 크기 |
+|---|---|---|---|
+| `chunjiin` / `.exe` | `dist/` | 데스크톱 앱 | 51MB |
+| `chunjiin-serve` / `.exe` | `dist/` | 웹 판을 품은 서버 | 9MB |
+| `chunjiin-setup` / `.exe` | 루트 | 설치 프로그램 (앱을 품는다) | 101MB |
+| `chunjiin-1.0-windows-x64.zip` | 루트 | Windows 배포 묶음 (셋 다 들어 있다) | 160MB |
+| `chunjiin-1.0-linux-amd64.tar.gz` | 루트 | 리눅스 배포 묶음 | |
+| `chunjiin-1.0-macos-arm64.dmg` | 루트 | macOS 배포 이미지 | |
 
 설치 프로그램은 앱을 통째로 품으므로 100MB 를 넘습니다. Qt 가 들어 있어
 그렇습니다.
@@ -197,13 +231,31 @@ python scripts/pyinstaller_build.py --targets app --onefile --copy-root
 
 ```
 chunjiin-setup                       설치 창을 띄운다
-chunjiin-setup --uninstall           제거 쪽을 펼친 채로 띄운다
+chunjiin-setup --uninstall           제거 창을 띄운다
 chunjiin-setup --silent --target D   창 없이 그 자리에 설치한다
+chunjiin-setup --silent --clean --target D       기존 파일을 모두 지우고 설치한다
 chunjiin-setup --silent --uninstall --target D   창 없이 제거한다
 ```
 
 관리자 권한이 필요 없습니다. 설치 자리는 아래와 같고, 창에서 바꿀 수
 있습니다.
+
+**이미 설치된 자리에 다시 설치하면** 기존 파일을 어떻게 할지 묻습니다.
+
+| 고르기 | 하는 일 |
+|---|---|
+| 기존 파일을 모두 지우고 설치 | 폴더를 통째로 비운 뒤 새로 놓는다 (`--clean`) |
+| 덮어쓰기 | 같은 이름의 파일만 갈아 끼운다. 그 밖의 파일은 그대로 둔다 |
+| 그만두기 | 아무것도 하지 않는다 |
+
+설치할 때 설치 프로그램 자신을 설치 폴더에 `uninstall.exe` 로 복사해
+둡니다. `설정 > 앱 > 제거` 가 그것을 띄우면 **자기가 설치 폴더 안에서
+돈다는 것을 알아보고 제거 창으로** 엽니다. 제거기 자신은 돌고 있는 동안
+지울 수 없으므로, 창을 닫으면 그때 남은 파일과 폴더가 지워집니다
+(콘솔 없이 도는 `ping` 으로 기다리는 배치 파일이 맡습니다).
+
+시작 메뉴 바로 가기와 앱 목록 등록은 사용자마다 하나뿐입니다. 제거할 때
+그것이 **다른 폴더의 설치를 가리키고 있으면 건드리지 않습니다.**
 
 | 운영체제 | 설치 자리 |
 |---|---|
@@ -242,6 +294,26 @@ python -m chunjiin.web -q                    # 요청 기록을 찍지 않는다
 PowerShell 5.1 은 BOM 없는 `.ps1` 을 ANSI 로 읽습니다. 이 저장소의 `.ps1`
 파일은 모두 **UTF-8 BOM + CRLF** 로 저장되어 있습니다. 편집기에서 고칠
 때 그 형식을 지키세요.
+
+### `.bat` 파일은 왜 영문뿐인가
+
+`.ps1` 과 `.sh` 는 한글로 적혀 있는데 `build.bat` · `test.bat` ·
+`scripts\package.bat` 만 주석과 메시지가 영문입니다. 일부러 그렇습니다.
+
+cmd.exe 는 `chcp 65001` 상태에서 **한글이 든 UTF-8 배치 파일**을 읽을 때
+4KB 읽기 경계 근처에 여러 바이트 글자가 걸리면 자리를 잘못 짚고, 줄 한가운데
+토막(`dir`, `p`, `ned` 같은)을 명령으로 실행합니다. 파일 크기가 4184
+바이트일 때는 돌고 3바이트 줄인 4181 바이트에서는 깨지는 것을 실제로
+겪었습니다. 언제 터질지 파일 크기에 달려 있어 고쳐 쓸 때마다 위험합니다.
+
+그래서 `.bat` 은 **모든 바이트를 0x80 미만으로** 두고, `goto` 와 라벨도 쓰지
+않습니다(라벨 찾기도 같은 버그를 탑니다). 콘솔은 UTF-8 로 맞춰 두므로
+파이썬이 찍는 시험 보고서와 빌드 기록은 한글 그대로 나옵니다.
+
+`.bat` 은 PowerShell 을 부르지 않고 cmd.exe 만으로 돕니다. 옵션은 `.ps1`
+과 같고, 앞의 `-` · `--` · `/` 는 무엇을 써도 되며 대소문자를 가리지
+않습니다. `QT_QPA_PLATFORM=offscreen` 은 `setlocal` 안에서만 켜므로
+아래 "앱이 뜨지 않고…" 문제가 `.bat` 에서는 생기지 않습니다.
 
 ### PowerShell 에서 빌드가 곧바로 멈춘다
 

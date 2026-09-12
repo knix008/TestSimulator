@@ -1,23 +1,26 @@
 ﻿# build.ps1 - 바로 실행할 수 있는 실행 파일을 만든다. (Windows)
 #
-#   .\build.ps1              앱과 서버를 만들어 저장소 루트에 둔다
+#   .\build.ps1              앱 · 서버 · 설치 프로그램을 만들고 설치 프로그램만 루트에 둔다
 #   .\build.ps1 -Run         빌드하지 않고 소스 그대로 실행한다 (가장 빠르다)
 #   .\build.ps1 -Web         빌드한 뒤 웹 판 서버까지 띄운다
 #   .\build.ps1 -OneDir      한 폴더로 묶는다 (빨리 뜨지만 폴더째 옮겨야 돈다)
 #
-# 기본은 한 파일 묶음이다. 루트에 놓인 실행 파일 하나만 있으면 그대로
-# 돌아야 하기 때문이다. 대신 처음 뜰 때 몇 초 걸린다(자기를 임시 폴더에
-# 푼다). 그것이 거슬리면 -OneDir 로 만들어 dist\chunjiin\ 을 폴더째 쓴다.
+# 기본은 한 파일 묶음이다. 만든 것은 dist\ 에 놓이고, 나눠 줄 파일인
+# 설치 프로그램(chunjiin-setup.exe)만 저장소 루트에 복사한다. 앱은 그
+# 안에 품겨 있다. 한 파일 묶음은 처음 뜰 때 몇 초 걸린다(자기를 임시
+# 폴더에 푼다). 그것이 거슬리면 -OneDir 로 만들어 dist\chunjiin\ 을
+# 폴더째 쓴다. 그때는 설치 프로그램을 만들지 않는다.
 #
 # 파이썬은 컴파일이 없으므로 -Run 은 언제나 방금 고친 코드를 그대로 돌린다.
 # .\build.ps1 로 만든 실행 파일은 그 순간의 코드를 굳힌 것이라, 고친 것을
 # 보려면 다시 만들어야 한다.
 #
-# 설치용 파일은 이 스크립트가 만들지 않는다. scripts\package.ps1 을 쓴다.
+# 시험을 돌리고 배포용 zip 까지 만들려면 scripts\package.ps1 을 쓴다.
 #
 # 필요한 것
-#   Python 3.10 이상, PySide6            pip install PySide6
-#   실행 파일을 만들려면 PyInstaller     pip install pyinstaller
+#   Python 3.10 이상. PySide6 과 PyInstaller 는 없으면 pip 으로 저절로 넣는다
+#   (scripts\ensure_deps.py). 망이 막힌 자리라면 먼저 넣어 두면 된다.
+#       pip install PySide6 pyinstaller
 
 [CmdletBinding()]
 param(
@@ -57,6 +60,8 @@ if (-not $python) {
 # -Run 은 묶지 않고 소스를 그대로 돌린다. 고친 것이 바로 보인다.
 if ($Run) {
     Write-Host "== 소스 그대로 실행  ($(& $python --version))"
+    & $python scripts\ensure_deps.py desktop
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     & $python -m chunjiin
     exit $LASTEXITCODE
 }
@@ -64,19 +69,22 @@ if ($Run) {
 Write-Host '== 천지인 한글 입력기 빌드'
 Write-Host "   $(& $python --version)"
 
-& $python -c 'import PyInstaller' *> $null
-if ($LASTEXITCODE -ne 0) {
-    Write-Host 'PyInstaller 가 없습니다. 아래를 먼저 하세요.' -ForegroundColor Yellow
-    Write-Host "   $python -m pip install pyinstaller"
-    exit 1
-}
+# 없는 것은 넣고 시작한다. 앱을 묶으려면 PySide6 도 있어야 한다.
+& $python scripts\ensure_deps.py desktop build
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 $mode = if ($OneDir) { '--onedir' } else { '--onefile' }
 
-Write-Host "-- 데스크톱 앱 · 서버  ($mode)"
-# 한 파일로 만든 것만 루트에 놓는다. 한 폴더 묶음은 실행 파일만 떼어
-# 놓으면 딸린 파일이 없어 돌지 않는다.
-& $python scripts\pyinstaller_build.py $mode --copy-root --targets app serve
+# 한 파일이면 설치 프로그램까지 만들어 그것 하나만 루트에 놓는다. 한 폴더
+# 묶음은 실행 파일만 떼어 놓으면 딸린 파일이 없어 돌지 않으므로 dist\ 에
+# 그대로 두고, 품을 수도 없으니 설치 프로그램은 만들지 않는다.
+if ($OneDir) {
+    Write-Host "-- 데스크톱 앱 · 서버  ($mode)"
+    & $python scripts\pyinstaller_build.py $mode --targets app serve
+} else {
+    Write-Host "-- 데스크톱 앱 · 서버 · 설치 프로그램  ($mode)"
+    & $python scripts\pyinstaller_build.py $mode --copy-root --targets app serve setup
+}
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Write-Host '== 빌드 완료'

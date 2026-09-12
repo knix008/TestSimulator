@@ -1,7 +1,7 @@
 """천지인 조합 엔진의 회귀 시험.
 
 기대값을 손으로 옮겨 적지 않는다. KoreanChunJiInC++/tests/test_engine.c 에서
-뽑아 `test/cases.tsv` 에 적어 둔 것을 읽어 돈다. 그 파일은 Rust 판
+뽑아 `tests/cases.tsv` 에 적어 둔 것을 읽어 돈다. 그 파일은 Rust 판
 (`KoreanChunJiInRustV10`)이 `gen-testcases` 로 만든 것을 그대로 가져왔다.
 
 C 코드에서도 계산으로 만들어지는 항목(영문 26자 전수, 라벨-입력 일치)과

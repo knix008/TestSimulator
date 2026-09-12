@@ -5,7 +5,7 @@
 
 조합 규칙은 [KoreanChunJiInC++](../KoreanChunJiInC++) 의 `chunjiin.c` 와
 `input.c` 를 그대로 옮긴 것입니다. 회귀 시험 기대값도 그 저장소의
-`tests/test_engine.c` 에서 뽑아 온 것(`test/cases.tsv`)을 씁니다.
+`tests/test_engine.c` 에서 뽑아 온 것(`tests/cases.tsv`)을 씁니다.
 손으로 옮겨 적지 않으므로 원본이 고쳐지면 시험도 따라갑니다.
 
 같은 규칙을 옮긴 [KoreanChunJiInRustV10](../KoreanChunJiInRustV10) 의
@@ -44,20 +44,30 @@ python -m chunjiin.web    # 웹 판 (http://localhost:8080)
 ```powershell
 .\build.ps1 -Run                # 소스 그대로 실행 (가장 빠르다)
 .\build.ps1                     # 실행 파일 만들기
-.\test.ps1                      # 시험 784항목 (구역별 집계와 요약)
+.\test.ps1                      # 시험 789항목 (구역별 집계와 요약)
 .\scripts\package.ps1           # 설치용 파일 만들기
+```
+
+cmd.exe 에서는 같은 이름의 `.bat` 을 씁니다. 옵션도 같습니다.
+
+```bat
+build.bat -run                  :: 소스 그대로 실행
+build.bat                       :: 실행 파일 만들기
+test.bat                        :: 시험
+scripts\package.bat             :: 설치용 파일 만들기
 ```
 
 ### macOS · Linux
 
 ```sh
 ./build.sh --run                # 소스 그대로 실행 (가장 빠르다)
-./build.sh                      # 실행 파일 만들어 루트에 두기
-./test.sh                       # 시험 784항목 (구역별 집계와 요약)
+./build.sh                      # 실행 파일 만들기 (설치 프로그램만 루트에)
+./test.sh                       # 시험 789항목 (구역별 집계와 요약)
 ./scripts/package.sh            # 설치용 파일 만들기
 ```
 
-빌드가 끝나면 저장소 루트에 실행 파일과 설치용 파일이 놓입니다.
+빌드가 끝나면 `dist/` 에 실행 파일들이, 저장소 루트에는 나눠 줄 설치
+프로그램 하나가 놓입니다.
 
 | 파일 | 무엇 |
 |---|---|
@@ -163,14 +173,13 @@ KoreanChunJiInPythonV10/
 │  ├─ test_web.py           서버와 상태 객체
 │  ├─ test_report.py        보고기 자체 (칸 맞추기 · 색)
 │  ├─ webui.mjs             웹 화면을 브라우저 없이 돌려 보기
-│  └─ report.py             시험 실행기 겸 보고기 (pytest 불필요)
-├─ test/
-│  └─ cases.tsv             C++ 판에서 뽑아 온 430항목
+│  ├─ report.py             시험 실행기 겸 보고기 (pytest 불필요)
+│  └─ cases.tsv             C++ 판에서 뽑아 온 430항목 (test_cases.py 가 읽는다)
 ├─ web/                     웹 판 화면 (HTML · CSS · JS)
 ├─ assets/                  아이콘, 내장 글꼴
 ├─ scripts/                 package · PyInstaller 스크립트
-├─ build.ps1  / build.sh     실행 파일 만들기 · 바로 실행
-└─ test.ps1   / test.sh      시험 실행
+├─ build.ps1  / build.bat / build.sh     실행 파일 만들기 · 바로 실행
+└─ test.ps1   / test.bat  / test.sh      시험 실행
 ```
 
 ## 필요한 것
