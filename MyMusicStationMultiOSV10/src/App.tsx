@@ -1,17 +1,18 @@
-import type { CSSProperties, ChangeEvent, FormEvent, PointerEvent } from 'react'
+import type { CSSProperties, ChangeEvent, FormEvent, MouseEvent as ReactMouseEvent, PointerEvent } from 'react'
 import { useEffect, useEffectEvent, useRef, useState } from 'react'
 import { convertFileSrc, invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
-import { join, tempDir } from '@tauri-apps/api/path'
+import { appCacheDir, appConfigDir, join, tempDir } from '@tauri-apps/api/path'
 import { currentMonitor, getCurrentWindow, LogicalSize, PhysicalPosition } from '@tauri-apps/api/window'
 import { open, save } from '@tauri-apps/plugin-dialog'
-import { readDir, readFile, readTextFile, remove, writeFile, writeTextFile } from '@tauri-apps/plugin-fs'
+import { exists, mkdir, readDir, readFile, readTextFile, remove, writeFile, writeTextFile } from '@tauri-apps/plugin-fs'
 import {
   ArrowLeftRight,
   AudioWaveform,
   Blend,
   ChartColumn,
   CircleAlert,
+  CloudDownload,
   Copy,
   Download,
   FileAudio,
@@ -80,6 +81,8 @@ type Track = {
   origin: 'local' | 'remote'
   filePath?: string
   remoteUrl?: string
+  /** remote playback: stream URL, extracted file, or deferred extract on play */
+  mode?: 'stream' | 'extracted' | 'pending'
   artist?: string
   album?: string
   year?: number
@@ -99,9 +102,13 @@ type PlaylistFile = {
   tracks: Array<Pick<Track, 'title' | 'source' | 'origin' | 'filePath' | 'remoteUrl'>>
 }
 
-const audioExtensions = ['.mp3', '.flac', '.wav', '.ogg', '.aac', '.m4a', '.webm', '.opus']
+const audioExtensions = ['.mp3', '.flac', '.wav', '.ogg', '.aac', '.m4a', '.webm', '.opus', '.wma', '.aiff', '.aif']
 const convertFormats = ['mp3', 'wav', 'flac', 'ogg', 'm4a'] as const
 type ConvertFormat = (typeof convertFormats)[number]
+const extractFormats = ['mp3', 'm4a', 'opus', 'flac', 'wav', 'ogg', 'aac'] as const
+type ExtractFormat = (typeof extractFormats)[number]
+const extractQualities = ['high', 'medium', 'low'] as const
+type ExtractQuality = (typeof extractQualities)[number]
 type TransportOverlay = 'play' | 'pause' | 'stop' | 'spectrum'
 type StatusKind = 'info' | 'success' | 'error' | 'busy'
 const customThemesKey = 'myMusicStation.customThemes'
@@ -110,6 +117,14 @@ const lastPlaylistKey = 'myMusicStation.lastPlaylist'
 // The working playlist is auto-saved here on every change so the exact list
 // (folders, added files, URLs) is restored on the next launch.
 const sessionPlaylistKey = 'myMusicStation.sessionPlaylist'
+// WebView2 may drop localStorage writes when the process exits from the tray,
+// so the session playlist is mirrored to a file in the app config directory.
+const sessionPlaylistFileName = 'session-playlist.json'
+// Media-page links (YouTube etc.) are extracted into this cache folder under
+// the app cache dir, keyed by URL hash, so a restart can replay them without
+// downloading again.
+const remoteCacheFolderName = 'remote-audio'
+const remoteCacheFormat = 'm4a'
 const defaultMusicFolder = 'D:\\Home\\Music'
 const appVersion = '1.0.0'
 const buildDate = '2026-08-08'
@@ -130,6 +145,11 @@ const text = {
     savePlaylistShort: '저장',
     openPlaylist: '플레이리스트 열기',
     addRemote: 'URL 추가',
+    addRemoteBusy: '오디오 준비 중…',
+    addRemoteSuccess: '오디오를 불러와 재생합니다',
+    addRemoteStreamSuccess: '오디오 스트림을 재생합니다',
+    addRemoteExtractSuccess: '비디오에서 오디오를 추출해 재생합니다',
+    addRemoteError: '링크에서 오디오를 가져올 수 없습니다',
     addTheme: '테마 추가',
     deleteTheme: '테마 삭제',
     exportTheme: '테마 파일 저장',
@@ -196,6 +216,23 @@ const text = {
     convertError: '변환할 수 없습니다',
     convertNoTrack: '변환할 곡을 먼저 선택하세요',
     convertNoSource: '변환할 수 있는 오디오 소스가 없습니다',
+    saveStream: '스트리밍 저장',
+    saveStreamBusy: '스트리밍 저장 중…',
+    saveStreamSuccess: '스트리밍 오디오를 저장했습니다',
+    extractAudio: 'URL 오디오 저장',
+    extractAudioShort: '추출',
+    extractAudioHint: '비디오·미디어 링크는 오디오만 추출해 저장합니다. 직접 오디오 링크는 스트리밍 재생 후 변환 저장을 사용하세요.',
+    extractUrl: '링크 주소',
+    extractFormat: '저장 형식',
+    extractQuality: '음질',
+    extractQualityHigh: '고음질 (기본)',
+    extractQualityMedium: '표준',
+    extractQualityLow: '용량 절약',
+    extractBusy: '오디오 추출 중…',
+    extractSuccess: '오디오 파일을 저장했습니다',
+    extractError: '오디오를 추출할 수 없습니다',
+    extractNoUrl: '오디오를 추출할 링크를 입력하세요',
+    extractAddToPlaylist: '저장 후 플레이리스트에 추가',
     reopenLastFolderOnStart: '시작 시 마지막 폴더 열기',
     tracksAlreadyLoaded: '이미 목록에 있는 항목은 건너뛰었습니다',
     folderNothingNew: '새 파일이 없어 다시 불러오지 않았습니다',
@@ -221,12 +258,14 @@ const text = {
     speakerActive: '스피커 켜짐',
     speakerInactive: '스피커 꺼짐',
     position: '재생 위치',
-    remoteUrl: '원격 오디오 URL',
+    remoteUrl: '미디어·오디오 URL',
     noTrack: '음악을 추가하세요',
     playlist: '재생 목록',
     removeTrack: '목록에서 삭제',
+    contextSaveDownload: '다운로드 오디오 저장',
+    contextPlay: '재생',
     folder: '폴더',
-    formats: 'MP3 FLAC WAV OGG AAC M4A WebM OPUS',
+    formats: 'MP3 FLAC WAV OGG AAC M4A WebM OPUS WMA AIFF',
     themeName: '테마 이름',
     accent: '강조색',
     local: '로컬',
@@ -270,6 +309,11 @@ const text = {
     savePlaylistShort: 'Save',
     openPlaylist: 'Open playlist',
     addRemote: 'Add URL',
+    addRemoteBusy: 'Preparing audio…',
+    addRemoteSuccess: 'Audio ready — playing',
+    addRemoteStreamSuccess: 'Streaming audio',
+    addRemoteExtractSuccess: 'Extracted audio from video — playing',
+    addRemoteError: 'Could not get audio from this link',
     addTheme: 'Add theme',
     deleteTheme: 'Delete theme',
     exportTheme: 'Save theme file',
@@ -336,6 +380,23 @@ const text = {
     convertError: 'Cannot convert this track',
     convertNoTrack: 'Select a track to convert first',
     convertNoSource: 'No convertible audio source is available',
+    saveStream: 'Save stream',
+    saveStreamBusy: 'Saving stream…',
+    saveStreamSuccess: 'Streamed audio saved',
+    extractAudio: 'Save audio from URL',
+    extractAudioShort: 'Extract',
+    extractAudioHint: 'Video/media links extract audio only. Direct audio links stream for playback — use Convert & save to download them.',
+    extractUrl: 'Link URL',
+    extractFormat: 'Output format',
+    extractQuality: 'Quality',
+    extractQualityHigh: 'High (default)',
+    extractQualityMedium: 'Standard',
+    extractQualityLow: 'Smaller file',
+    extractBusy: 'Extracting audio…',
+    extractSuccess: 'Audio file saved',
+    extractError: 'Cannot extract audio',
+    extractNoUrl: 'Enter a link to extract audio from',
+    extractAddToPlaylist: 'Add to playlist after saving',
     reopenLastFolderOnStart: 'Open last folder on start',
     tracksAlreadyLoaded: 'Skipped items already in the playlist',
     folderNothingNew: 'No new files to load',
@@ -361,12 +422,14 @@ const text = {
     speakerActive: 'Speaker on',
     speakerInactive: 'Speaker off',
     position: 'Position',
-    remoteUrl: 'Remote audio URL',
+    remoteUrl: 'Media or audio URL',
     noTrack: 'Add music to begin',
     playlist: 'Playlist',
     removeTrack: 'Remove from playlist',
+    contextSaveDownload: 'Save downloaded audio',
+    contextPlay: 'Play',
     folder: 'Folder',
-    formats: 'MP3 FLAC WAV OGG AAC M4A WebM OPUS',
+    formats: 'MP3 FLAC WAV OGG AAC M4A WebM OPUS WMA AIFF',
     themeName: 'Theme name',
     accent: 'Accent',
     local: 'Local',
@@ -463,9 +526,98 @@ const getAudioMimeType = (fileName: string) => {
       return 'audio/webm'
     case '.opus':
       return 'audio/opus'
+    case '.wma':
+      return 'audio/x-ms-wma'
+    case '.aiff':
+    case '.aif':
+      return 'audio/aiff'
     default:
       return 'application/octet-stream'
   }
+}
+
+const directAudioExtensionPattern = /\.(mp3|flac|wav|ogg|aac|m4a|opus|webm|wma|aiff|aif)(\?|#|$)/i
+
+const looksLikeDirectAudioUrl = (url: string) => directAudioExtensionPattern.test(url)
+
+const isAudioContentType = (contentType: string | null | undefined) => {
+  if (!contentType) {
+    return false
+  }
+
+  const mime = contentType.split(';')[0]?.trim().toLowerCase() || ''
+  return mime.startsWith('audio/') || mime === 'application/ogg'
+}
+
+const looksLikeHtmlPayload = (bytes: Uint8Array) => {
+  const head = new TextDecoder().decode(bytes.slice(0, 96)).trimStart().toLowerCase()
+  return head.startsWith('<!doctype') || head.startsWith('<html') || head.startsWith('<head')
+}
+
+const mediaPageHostMarkers = [
+  'youtube.com',
+  'youtu.be',
+  'instagram.com',
+  'tiktok.com',
+  'vimeo.com',
+  'facebook.com',
+  'fb.watch',
+  'twitter.com',
+  'x.com',
+  'twitch.tv',
+  'bilibili.com',
+  'nicovideo.jp',
+  'dailymotion.com',
+  'reddit.com',
+  'soundcloud.com',
+  'bandcamp.com',
+]
+
+const looksLikeMediaPageUrl = (url: string) => {
+  try {
+    const host = new URL(url).hostname.toLowerCase().replace(/^www\./, '')
+    return mediaPageHostMarkers.some((marker) => host === marker || host.endsWith(`.${marker}`))
+  } catch {
+    return false
+  }
+}
+
+const isStreamingRemoteTrack = (track: Track) =>
+  track.origin === 'remote' && Boolean(track.remoteUrl) && !track.filePath && /^https?:\/\//i.test(track.source)
+
+const isUrlAddedTrack = (track: Track) => Boolean(track.remoteUrl)
+
+const fetchWithTimeout = async (url: string, init: RequestInit = {}, timeoutMs = 4000) => {
+  const controller = new AbortController()
+  const timer = window.setTimeout(() => controller.abort(), timeoutMs)
+
+  try {
+    return await fetch(url, { ...init, signal: controller.signal })
+  } finally {
+    window.clearTimeout(timer)
+  }
+}
+
+const remoteTitleFromUrl = (url: string) => {
+  try {
+    return decodeURIComponent(url.split('/').pop()?.replace(/\?.*$/, '') || 'Remote audio')
+  } catch {
+    return url.split('/').pop()?.replace(/\?.*$/, '') || 'Remote audio'
+  }
+}
+
+// Stable file stem for a remote URL (two independent 32-bit hashes -> 16 hex chars).
+const remoteCacheStem = (url: string) => {
+  let djb = 5381
+  let sdbm = 0
+
+  for (let index = 0; index < url.length; index += 1) {
+    const code = url.charCodeAt(index)
+    djb = (Math.imul(djb, 33) ^ code) >>> 0
+    sdbm = (code + (sdbm << 6) + (sdbm << 16) - sdbm) >>> 0
+  }
+
+  return `${djb.toString(16).padStart(8, '0')}${sdbm.toString(16).padStart(8, '0')}`
 }
 
 const createBlobUrl = (data: Uint8Array, mimeType: string, objectUrls: string[]) => {
@@ -576,7 +728,12 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
   const objectUrlsRef = useRef<string[]>([])
   const loadMusicFolderRef = useRef<(folderPath: string) => Promise<void>>(async () => {})
   const loadPlaylistFromPathRef = useRef<(playlistPath: string) => Promise<boolean>>(async () => false)
+  const openPathsFromOsRef = useRef<(paths: string[]) => Promise<void>>(async () => {})
+  const ensurePlayableTrackRef = useRef<(track: Track) => Promise<Track>>(async (track) => track)
   const restoreSessionPlaylistRef = useRef<(raw: string) => Promise<boolean>>(async () => false)
+  const remoteCacheDirRef = useRef<string | null>(null)
+  const sessionPlaylistPathRef = useRef<string | null>(null)
+  const sessionSaveTimerRef = useRef<number | null>(null)
   // Guards the auto-save effect so it does not overwrite the saved session with
   // the initial empty list before startup restore has had a chance to run.
   const sessionReadyRef = useRef(false)
@@ -603,6 +760,7 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
   const [isMuted, setIsMuted] = useState(false)
   const volumeBeforeMuteRef = useRef(initialSettings.rememberVolume ? initialSettings.volume : 0.82)
   const [remoteUrl, setRemoteUrl] = useState('')
+  const [isResolvingRemote, setIsResolvingRemote] = useState(false)
   const [lastMusicFolder, setLastMusicFolder] = useState(() => localStorage.getItem(lastMusicFolderKey) ?? defaultMusicFolder)
   const [statusMessage, setStatusMessage] = useState('')
   const [statusKind, setStatusKind] = useState<StatusKind>('info')
@@ -613,12 +771,23 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
   const [showSettings, setShowSettings] = useState(false)
   const [showConvertDialog, setShowConvertDialog] = useState(false)
   const [convertFormat, setConvertFormat] = useState<ConvertFormat>('mp3')
+  const [convertQuality, setConvertQuality] = useState<ExtractQuality>('high')
   const [isConverting, setIsConverting] = useState(false)
   const [convertMessage, setConvertMessage] = useState('')
+  const [convertTargetTrackId, setConvertTargetTrackId] = useState<string | null>(null)
+  const [trackContextMenu, setTrackContextMenu] = useState<{ trackId: string; x: number; y: number } | null>(null)
+  const [showExtractDialog, setShowExtractDialog] = useState(false)
+  const [extractUrl, setExtractUrl] = useState('')
+  const [extractFormat, setExtractFormat] = useState<ExtractFormat>('mp3')
+  const [extractQuality, setExtractQuality] = useState<ExtractQuality>('high')
+  const [extractAddToPlaylist, setExtractAddToPlaylist] = useState(true)
+  const [isExtracting, setIsExtracting] = useState(false)
+  const [extractMessage, setExtractMessage] = useState('')
   const [alertDialog, setAlertDialog] = useState<{ title: string; message: string } | null>(null)
   const [folderProgress, setFolderProgress] = useState<{ phase: 'scanning' | 'loading'; loaded: number; total: number } | null>(null)
   const settingsDialogDrag = useDialogDrag(showSettings)
   const convertDialogDrag = useDialogDrag(showConvertDialog)
+  const extractDialogDrag = useDialogDrag(showExtractDialog)
   const errorDialogDrag = useDialogDrag(Boolean(errorDialogMessage))
   const alertDialogDrag = useDialogDrag(Boolean(alertDialog))
   const [themeMessage, setThemeMessage] = useState('')
@@ -657,6 +826,17 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
     matrix: labels.spectrumStyleMatrix,
   }
   const currentTrack = tracks.find((track) => track.id === currentTrackId)
+  const convertTargetTrack =
+    (convertTargetTrackId ? tracks.find((track) => track.id === convertTargetTrackId) : undefined) ?? currentTrack
+  const convertDialogIsRemoteSave = Boolean(convertTargetTrack && isUrlAddedTrack(convertTargetTrack))
+  const convertDialogTitle = convertDialogIsRemoteSave
+    ? isStreamingRemoteTrack(convertTargetTrack!)
+      ? labels.saveStream
+      : labels.contextSaveDownload
+    : labels.convertSave
+  const convertDialogBusy = convertDialogIsRemoteSave
+    ? labels.saveStreamBusy
+    : labels.convertBusy
   const selectedTheme = availableThemes.find((theme) => theme.id === themeId) ?? availableThemes[0]
   const playbackStateLabel = isPlaying
     ? labels.statusPlaying
@@ -893,7 +1073,7 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
       try {
         // 0) Restore the exact working playlist from the last session (folders,
         // added files and URLs alike). This wins over folder/playlist reopen.
-        const session = localStorage.getItem(sessionPlaylistKey)
+        const session = (await readSessionPlaylistFile()) ?? localStorage.getItem(sessionPlaylistKey)
 
         if (session) {
           const restored = await restoreSessionPlaylistRef.current(session)
@@ -904,6 +1084,7 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
 
           // Stale/invalid (e.g. every file was moved); drop it and fall back.
           localStorage.removeItem(sessionPlaylistKey)
+          await writeSessionPlaylistFile(null)
         }
 
         // 1) If a playlist was in use last session, reopen it as-is.
@@ -946,12 +1127,22 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
     }
 
     const playlist = buildPersistablePlaylist(tracks)
+    const raw = playlist ? JSON.stringify(playlist) : null
 
-    if (playlist) {
-      localStorage.setItem(sessionPlaylistKey, JSON.stringify(playlist))
+    if (raw) {
+      localStorage.setItem(sessionPlaylistKey, raw)
     } else {
       localStorage.removeItem(sessionPlaylistKey)
     }
+
+    // Folder loads update the list many times in a row; coalesce the disk writes.
+    if (sessionSaveTimerRef.current !== null) {
+      window.clearTimeout(sessionSaveTimerRef.current)
+    }
+    sessionSaveTimerRef.current = window.setTimeout(() => {
+      sessionSaveTimerRef.current = null
+      void writeSessionPlaylistFile(raw)
+    }, 300)
   }, [tracks])
 
   useEffect(() => {
@@ -992,7 +1183,9 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
   }, [])
 
   const applyTrackSource = (audio: HTMLAudioElement, track: Track) => {
-    if (isSameOriginMediaSrc(track.source)) {
+    // Streaming remote URLs often lack CORS headers. Omitting crossOrigin keeps
+    // playback working; Web Audio analysis may stay silent in that case.
+    if (isSameOriginMediaSrc(track.source) || isStreamingRemoteTrack(track)) {
       audio.removeAttribute('crossorigin')
     } else {
       audio.crossOrigin = 'anonymous'
@@ -1025,7 +1218,18 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
     }
 
     if (audio.dataset.trackId !== currentTrack.id) {
-      applyTrackSource(audio, currentTrack)
+      if (currentTrack.mode === 'pending') {
+        // Media-page links are extracted on play; loading the page URL into
+        // <audio> only raises a media error.
+        audio.removeAttribute('src')
+        audio.removeAttribute('crossorigin')
+        audio.dataset.trackId = currentTrack.id
+        audio.load()
+        setCurrentTime(0)
+        setDuration(0)
+      } else {
+        applyTrackSource(audio, currentTrack)
+      }
     }
 
     if (shouldPlayOnTrackLoadRef.current) {
@@ -1059,6 +1263,76 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
     container: metadata.format.container,
     artworkUrl: createArtworkUrl(metadata),
   })
+
+  const getSessionPlaylistPath = async () => {
+    if (!sessionPlaylistPathRef.current) {
+      sessionPlaylistPathRef.current = await join(await appConfigDir(), sessionPlaylistFileName)
+    }
+
+    return sessionPlaylistPathRef.current
+  }
+
+  const readSessionPlaylistFile = async (): Promise<string | null> => {
+    try {
+      const path = await getSessionPlaylistPath()
+      return (await exists(path)) ? await readTextFile(path) : null
+    } catch (error) {
+      console.warn('[session] read failed', error)
+      return null
+    }
+  }
+
+  const writeSessionPlaylistFile = async (raw: string | null) => {
+    try {
+      const path = await getSessionPlaylistPath()
+
+      if (raw === null) {
+        if (await exists(path)) {
+          await remove(path)
+        }
+        return
+      }
+
+      await mkdir(await appConfigDir(), { recursive: true })
+      await writeTextFile(path, raw)
+    } catch (error) {
+      console.warn('[session] write failed', error)
+    }
+  }
+
+  const getRemoteCacheDir = async () => {
+    if (!remoteCacheDirRef.current) {
+      const dir = await join(await appCacheDir(), remoteCacheFolderName)
+      await mkdir(dir, { recursive: true })
+      remoteCacheDirRef.current = dir
+    }
+
+    return remoteCacheDirRef.current
+  }
+
+  const getRemoteCachePath = async (url: string) =>
+    join(await getRemoteCacheDir(), `${remoteCacheStem(url)}.${remoteCacheFormat}`)
+
+  const isRemoteCachePath = (filePath: string) => {
+    const dir = remoteCacheDirRef.current
+    return Boolean(dir) && normalizePathKey(filePath).startsWith(normalizePathKey(dir ?? ''))
+  }
+
+  // Already-downloaded audio for a link: the path saved with the track (if it
+  // still exists) or the cache entry for that URL. Null -> needs extraction.
+  const findCachedRemoteFile = async (url: string, savedPath?: string) => {
+    try {
+      if (savedPath && (await exists(savedPath))) {
+        return savedPath
+      }
+
+      const cachePath = await getRemoteCachePath(url)
+      return (await exists(cachePath)) ? cachePath : null
+    } catch (error) {
+      console.warn('[remote] cache lookup failed', url, error)
+      return null
+    }
+  }
 
   const createTrackFromPath = async (filePath: string, fileName: string) => {
     const mimeType = getAudioMimeType(fileName)
@@ -1345,16 +1619,28 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
     }
   }
 
-  const loadAndPlayTrack = (track: Track) => {
+  const loadAndPlayTrack = async (track: Track) => {
     const audio = audioRef.current
 
     shouldPlayOnTrackLoadRef.current = false
-    setCurrentTrackId(track.id)
+
+    let playable = track
+
+    try {
+      playable = await ensurePlayableTrackRef.current(track)
+    } catch (error) {
+      console.error('[play] prepare failed', error)
+      const failed = `${labels.addRemoteError}: ${error instanceof Error ? error.message : String(error)}`
+      pushStatus(failed, 'error')
+      return
+    }
+
+    setCurrentTrackId(playable.id)
     setIsPlaying(true)
 
     if (audio) {
-      applyTrackSource(audio, track)
-      void playCurrentAudio(track)
+      applyTrackSource(audio, playable)
+      void playCurrentAudio(playable)
       return
     }
 
@@ -1402,11 +1688,20 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
     }
 
     if (trackId === currentTrackId) {
-      void playCurrentAudio(track)
+      void (async () => {
+        try {
+          const playable = await ensurePlayableTrackRef.current(track)
+          await playCurrentAudio(playable)
+        } catch (error) {
+          console.error('[play] prepare failed', error)
+          const failed = `${labels.addRemoteError}: ${error instanceof Error ? error.message : String(error)}`
+          pushStatus(failed, 'error')
+        }
+      })()
       return
     }
 
-    loadAndPlayTrack(track)
+    void loadAndPlayTrack(track)
   }
 
   const removeTrackFromPlaylist = (trackId: string) => {
@@ -1416,31 +1711,52 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
       return
     }
 
+    const removed = tracks[index]
     const remaining = tracks.filter((track) => track.id !== trackId)
-    setTracks(remaining)
+    const wasCurrent = trackId === currentTrackId
+    const wasPlaying = wasCurrent && isPlaying
+    const nextTrack = wasCurrent && remaining.length ? remaining[Math.min(index, remaining.length - 1)] : null
 
-    if (trackId !== currentTrackId) {
-      return
-    }
-
-    if (!remaining.length) {
+    if (wasCurrent) {
+      // Silence the removed track before the list re-renders so nothing keeps
+      // playing from a row that no longer exists.
       const audio = audioRef.current
       if (audio) {
         audio.pause()
         audio.removeAttribute('src')
+        audio.removeAttribute('crossorigin')
+        delete audio.dataset.trackId
         audio.load()
       }
-      setCurrentTrackId('')
+      setIsPlaying(false)
       setCurrentTime(0)
       setDuration(0)
-      setIsPlaying(false)
       stopSpectrum(true)
+    }
+
+    setTracks(remaining)
+    // Select the successor in the same batch so the player never renders an
+    // empty "no track" state in between.
+    setCurrentTrackId(nextTrack?.id ?? (wasCurrent ? '' : currentTrackId))
+
+    // The cached download is only useful while the link is in the list.
+    if (removed.remoteUrl && removed.filePath && isRemoteCachePath(removed.filePath)) {
+      const cachePath = removed.filePath
+      void remove(cachePath).catch((error) => console.warn('[remote] cache remove failed', cachePath, error))
+    }
+
+    if (!wasCurrent) {
+      return
+    }
+
+    if (!nextTrack) {
       showTransportOverlay('spectrum')
       return
     }
 
-    const nextTrack = remaining[Math.min(index, remaining.length - 1)]
-    loadAndPlayTrack(nextTrack)
+    if (wasPlaying) {
+      void loadAndPlayTrack(nextTrack)
+    }
   }
 
   const addTracks = (nextTracks: Track[]) => {
@@ -1485,16 +1801,22 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
     })
 
     const paths = Array.isArray(selected) ? selected : typeof selected === 'string' ? [selected] : []
+    await openPathsFromOs(paths)
+  }
 
+  const openPathsFromOs = async (paths: string[]) => {
     if (!paths.length) {
       return
     }
 
     const playlistPaths = paths.filter((path) => path.toLowerCase().endsWith('.mplist'))
-    const audioPaths = paths.filter((path) => !path.toLowerCase().endsWith('.mplist'))
+    const audioPaths = paths.filter((path) => {
+      const lower = path.toLowerCase()
+      return !lower.endsWith('.mplist') && audioExtensions.some((extension) => lower.endsWith(extension))
+    })
 
     for (const playlistPath of playlistPaths) {
-      await loadPlaylistFromPath(playlistPath)
+      await loadPlaylistFromPathRef.current(playlistPath)
     }
 
     if (!audioPaths.length) {
@@ -1517,12 +1839,52 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
     const newTracks = await mapWithConcurrency(pathsToLoad, loadConcurrency, (path) =>
       createTrackFromPath(path, fileNameFromPath(path)),
     )
-    const added = addTracks(newTracks.filter((track) => track.source))
+    const playable = newTracks.filter((track) => track.source)
+    const added = addTracks(playable)
 
     if (added < audioPaths.length) {
       pushStatus(labels.tracksAlreadyLoaded, 'info')
     }
+
+    if (playable[0]) {
+      loadAndPlayTrack(playable[0])
+    }
   }
+
+  openPathsFromOsRef.current = openPathsFromOs
+
+  useEffect(() => {
+    let cancelled = false
+    let unlisten: (() => void) | undefined
+
+    const handlePaths = (paths: string[]) => {
+      if (!paths.length || cancelled) {
+        return
+      }
+
+      void openPathsFromOsRef.current(paths)
+    }
+
+    void invoke<string[]>('take_pending_open_files')
+      .then(handlePaths)
+      .catch((error) => console.warn('[open-files] pending paths failed', error))
+
+    void listen<string[]>('open-files', (event) => {
+      handlePaths(Array.isArray(event.payload) ? event.payload : [])
+    }).then((dispose) => {
+      if (cancelled) {
+        dispose()
+        return
+      }
+
+      unlisten = dispose
+    })
+
+    return () => {
+      cancelled = true
+      unlisten?.()
+    }
+  }, [])
 
   const loadMusicFolder = async (folderPath: string) => {
     const collectAudioPaths = async (currentFolder: string): Promise<string[]> => {
@@ -1631,11 +1993,144 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
     await openMusicFolder()
   }
 
+  const probeAudioStreamUrl = async (url: string): Promise<{ title: string } | null> => {
+    if (looksLikeMediaPageUrl(url)) {
+      return null
+    }
+
+    const title = remoteTitleFromUrl(url)
+
+    // Extension is enough to stream immediately — avoid network probes that can hang.
+    if (looksLikeDirectAudioUrl(url)) {
+      return { title }
+    }
+
+    try {
+      const head = await fetchWithTimeout(url, { method: 'HEAD' }, 3500)
+
+      if (head.ok) {
+        const contentType = head.headers.get('content-type')
+        const mime = contentType?.split(';')[0]?.trim().toLowerCase() || ''
+
+        if (mime.startsWith('video/') || mime.includes('html') || mime.includes('xml') || mime.includes('json')) {
+          return null
+        }
+
+        if (isAudioContentType(contentType)) {
+          return { title }
+        }
+      }
+    } catch (error) {
+      console.warn('[remote] HEAD probe failed', url, error)
+    }
+
+    try {
+      const response = await fetchWithTimeout(url, { headers: { Range: 'bytes=0-96' } }, 3500)
+
+      if (!response.ok && response.status !== 206) {
+        return null
+      }
+
+      const contentType = response.headers.get('content-type')
+      const mime = contentType?.split(';')[0]?.trim().toLowerCase() || ''
+
+      if (mime.startsWith('video/') || mime.includes('html') || mime.includes('xml') || mime.includes('json')) {
+        return null
+      }
+
+      const bytes = new Uint8Array(await response.arrayBuffer())
+
+      if (!bytes.length || looksLikeHtmlPayload(bytes)) {
+        return null
+      }
+
+      if (isAudioContentType(contentType)) {
+        return { title }
+      }
+    } catch (error) {
+      console.warn('[remote] range probe failed', url, error)
+    }
+
+    return null
+  }
+
+  // Build a playable track from a previously extracted file for `url`.
+  const createExtractedRemoteTrack = async (url: string, filePath: string, title: string) => {
+    const localTrack = await createTrackFromPath(filePath, title || fileNameFromPath(filePath) || 'Remote audio')
+
+    return {
+      ...localTrack,
+      // Keep the title we know (yt-dlp / playlist); the cache file stem is a hash.
+      title: title || localTrack.title,
+      origin: 'remote' as const,
+      remoteUrl: url,
+      mode: 'extracted' as const,
+    }
+  }
+
+  const resolveUrlAsPlayableTrack = async (
+    url: string,
+    { quiet = false, title = '', savedPath }: { quiet?: boolean; title?: string; savedPath?: string } = {},
+  ) => {
+    // Reuse a finished download first; no network needed.
+    const cached = await findCachedRemoteFile(url, savedPath)
+
+    if (cached) {
+      return createExtractedRemoteTrack(url, cached, title)
+    }
+
+    const stream = await probeAudioStreamUrl(url)
+
+    if (stream) {
+      return {
+        id: `remote-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        title: title || stream.title,
+        source: url,
+        origin: 'remote' as const,
+        remoteUrl: url,
+        mode: 'stream' as const,
+      }
+    }
+
+    if (!quiet) {
+      pushStatus(labels.addRemoteBusy, 'busy')
+    }
+
+    const outputPath = await getRemoteCachePath(url)
+    const result = await invoke<{ outputPath: string; title: string }>('extract_audio_from_url', {
+      url,
+      outputPath,
+      format: remoteCacheFormat,
+      quality: 'high',
+    })
+
+    return createExtractedRemoteTrack(url, result.outputPath, title || result.title)
+  }
+
+  const ensurePlayableTrack = async (track: Track): Promise<Track> => {
+    if (track.filePath || track.mode === 'stream' || track.mode === 'extracted') {
+      return track
+    }
+
+    if (track.origin === 'remote' && track.remoteUrl && (track.mode === 'pending' || looksLikeMediaPageUrl(track.remoteUrl))) {
+      pushStatus(labels.addRemoteBusy, 'busy')
+      const resolved = await resolveUrlAsPlayableTrack(track.remoteUrl, { title: track.title, savedPath: track.filePath })
+      const nextTrack = { ...resolved, id: track.id, title: track.title || resolved.title }
+
+      setTracks((previous) => previous.map((item) => (item.id === track.id ? nextTrack : item)))
+      return nextTrack
+    }
+
+    return track
+  }
+
+  ensurePlayableTrackRef.current = ensurePlayableTrack
+
   const addRemoteTrack = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     const nextUrl = remoteUrl.trim()
 
-    if (!nextUrl) {
+    if (!nextUrl || isResolvingRemote) {
       return
     }
 
@@ -1644,30 +2139,26 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
       return
     }
 
-    let source = nextUrl
+    setIsResolvingRemote(true)
+    pushStatus(labels.addRemoteBusy, 'busy')
 
-    // Prefer a blob URL so MediaElementSource can analyse without CORS silence.
     try {
-      const response = await fetch(nextUrl)
-
-      if (response.ok) {
-        const contentType = response.headers.get('content-type') || getAudioMimeType(nextUrl)
-        source = createBlobUrl(new Uint8Array(await response.arrayBuffer()), contentType, objectUrlsRef.current)
-      }
+      const track = await resolveUrlAsPlayableTrack(nextUrl)
+      addTracks([track])
+      setRemoteUrl('')
+      await loadAndPlayTrack(track)
+      pushStatus(
+        track.mode === 'stream' ? labels.addRemoteStreamSuccess : labels.addRemoteExtractSuccess,
+        'success',
+      )
     } catch (error) {
-      console.warn('[remote] fetch-to-blob failed, using original URL', error)
+      console.error('[remote] resolve failed', error)
+      const failed = `${labels.addRemoteError}: ${error instanceof Error ? error.message : String(error)}`
+      pushStatus(failed, 'error')
+      showThemedAlert(labels.addRemote, failed)
+    } finally {
+      setIsResolvingRemote(false)
     }
-
-    addTracks([
-      {
-        id: `remote-${Date.now()}`,
-        title: nextUrl.split('/').pop()?.replace(/\?.*$/, '') || 'Remote audio',
-        source,
-        origin: 'remote',
-        remoteUrl: nextUrl,
-      },
-    ])
-    setRemoteUrl('')
   }
 
   const savePlaylist = async () => {
@@ -1739,29 +2230,52 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
       }
 
       const remoteSource = track.remoteUrl || track.source
-      let source = remoteSource
 
       if (track.origin === 'remote' && remoteSource) {
-        try {
-          const response = await fetch(remoteSource)
-
-          if (response.ok) {
-            const contentType = response.headers.get('content-type') || getAudioMimeType(remoteSource)
-            source = createBlobUrl(new Uint8Array(await response.arrayBuffer()), contentType, objectUrlsRef.current)
+        // Never block playlist restore on yt-dlp. Stream direct audio; defer media-page extract until play.
+        if (looksLikeDirectAudioUrl(remoteSource)) {
+          return {
+            id: `playlist-${Date.now()}-${index}`,
+            title: track.title || remoteTitleFromUrl(remoteSource),
+            source: remoteSource,
+            origin: 'remote' as const,
+            remoteUrl: remoteSource,
+            mode: 'stream' as const,
           }
-        } catch (error) {
-          console.warn('[playlist] remote fetch-to-blob failed', remoteSource, error)
+        }
+
+        // A finished download from a previous session plays as-is.
+        const cached = await findCachedRemoteFile(remoteSource, track.filePath)
+
+        if (cached) {
+          try {
+            return {
+              ...(await createExtractedRemoteTrack(remoteSource, cached, track.title)),
+              id: `playlist-${Date.now()}-${index}`,
+            }
+          } catch (error) {
+            console.warn('[playlist] cached remote file unusable, deferring extract', cached, error)
+          }
+        }
+
+        return {
+          id: `playlist-${Date.now()}-${index}`,
+          title: track.title || remoteTitleFromUrl(remoteSource),
+          source: remoteSource,
+          origin: 'remote' as const,
+          remoteUrl: remoteSource,
+          mode: 'pending' as const,
         }
       }
 
       return {
         id: `playlist-${Date.now()}-${index}`,
         title: track.title,
-        source,
+        source: remoteSource,
         origin: track.origin,
         remoteUrl: track.origin === 'remote' ? remoteSource : undefined,
       }
-    })).filter((track) => track.source)
+    })).filter((track): track is Track => Boolean(track?.source))
 
     if (!importedTracks.length) {
       if (!silent) {
@@ -1972,33 +2486,211 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
     showThemedAlert(labels.convertSave, labels.convertNoTrack)
   }
 
+  const closeConvertDialog = () => {
+    if (isConverting) {
+      return
+    }
+
+    setShowConvertDialog(false)
+    setConvertTargetTrackId(null)
+    setConvertMessage('')
+  }
+
+  const openConvertDialogForTrack = (track: Track) => {
+    setActiveToolbarMenu(null)
+    setTrackContextMenu(null)
+    setConvertTargetTrackId(track.id)
+    setConvertQuality('high')
+    setConvertMessage('')
+    setShowConvertDialog(true)
+  }
+
   const openConvertDialog = () => {
     setActiveToolbarMenu(null)
+    setTrackContextMenu(null)
 
     if (!currentTrack) {
       notifySelectTrackForConvert()
       return
     }
 
+    setConvertTargetTrackId(currentTrack.id)
+    if (isUrlAddedTrack(currentTrack)) {
+      setConvertQuality('high')
+    }
     setConvertMessage('')
     setShowConvertDialog(true)
   }
 
+  const openTrackContextMenu = (event: ReactMouseEvent, track: Track) => {
+    event.preventDefault()
+    event.stopPropagation()
+
+    const shell = event.currentTarget.closest('.station-shell')
+    const bounds = shell?.getBoundingClientRect()
+    const x = bounds ? event.clientX - bounds.left : event.clientX
+    const y = bounds ? event.clientY - bounds.top : event.clientY
+
+    setTrackContextMenu({
+      trackId: track.id,
+      x: Math.max(8, Math.min(x, (bounds?.width ?? 400) - 180)),
+      y: Math.max(8, Math.min(y, (bounds?.height ?? 400) - 120)),
+    })
+  }
+
+  useEffect(() => {
+    if (!trackContextMenu) {
+      return
+    }
+
+    const close = () => setTrackContextMenu(null)
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        close()
+      }
+    }
+
+    window.addEventListener('click', close)
+    window.addEventListener('keydown', onKey)
+    return () => {
+      window.removeEventListener('click', close)
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [trackContextMenu])
+
+  const openExtractDialog = () => {
+    setActiveToolbarMenu(null)
+    setExtractMessage('')
+    if (remoteUrl.trim()) {
+      setExtractUrl(remoteUrl.trim())
+    }
+    setShowExtractDialog(true)
+  }
+
+  const runExtractSave = async () => {
+    const url = extractUrl.trim()
+    if (!url) {
+      setExtractMessage(labels.extractNoUrl)
+      return
+    }
+
+    const stem = sanitizeFileStem(url.split('/').pop()?.replace(/\?.*$/, '') || 'extracted-audio')
+    const defaultPath = lastMusicFolder
+      ? await join(lastMusicFolder, `${stem}.${extractFormat}`)
+      : `${stem}.${extractFormat}`
+
+    const outputPath = await save({
+      defaultPath,
+      title: labels.extractAudio,
+      filters: [{ name: extractFormat.toUpperCase(), extensions: [extractFormat] }],
+    })
+
+    if (typeof outputPath !== 'string' || !outputPath) {
+      return
+    }
+
+    setIsExtracting(true)
+    setExtractMessage(labels.extractBusy)
+    pushStatus(labels.extractBusy, 'busy')
+
+    try {
+      const result = await invoke<{ outputPath: string; title: string }>('extract_audio_from_url', {
+        url,
+        outputPath,
+        format: extractFormat,
+        quality: extractQuality,
+      })
+
+      if (extractAddToPlaylist) {
+        const track = await createTrackFromPath(
+          result.outputPath,
+          result.title || fileNameFromPath(result.outputPath),
+        )
+        addTracks([track])
+      }
+
+      const saved = `${labels.extractSuccess}: ${result.outputPath}`
+      pushStatus(saved, 'success')
+      setExtractMessage('')
+      setShowExtractDialog(false)
+      showThemedAlert(labels.extractAudio, `${labels.extractSuccess}\n${result.outputPath}`)
+    } catch (error) {
+      console.error('[extract] failed', error)
+      const failed = `${labels.extractError}: ${error instanceof Error ? error.message : String(error)}`
+      setExtractMessage(failed)
+      pushStatus(failed, 'error')
+    } finally {
+      setIsExtracting(false)
+    }
+  }
+
+  const adoptSavedLocalTrack = async (trackId: string, outputPath: string, title: string) => {
+    const localTrack = await createTrackFromPath(outputPath, title || fileNameFromPath(outputPath))
+    const nextTrack: Track = {
+      ...localTrack,
+      id: trackId,
+      origin: 'local',
+      remoteUrl: undefined,
+      mode: undefined,
+    }
+
+    setTracks((previous) => previous.map((track) => (track.id === trackId ? nextTrack : track)))
+
+    if (currentTrackId === trackId) {
+      const audio = audioRef.current
+      const shouldResume = Boolean(audio && !audio.paused)
+
+      if (audio) {
+        applyTrackSource(audio, nextTrack)
+        if (shouldResume) {
+          void playCurrentAudio(nextTrack)
+        }
+      }
+    }
+
+    return nextTrack
+  }
+
   const runConvertSave = async () => {
-    if (!currentTrack) {
+    const targetTrack = convertTargetTrack
+
+    if (!targetTrack) {
       setConvertMessage(labels.convertNoTrack)
       notifySelectTrackForConvert()
       return
     }
 
-    const stem = sanitizeFileStem(currentTrack.title)
+    const remoteSave = isUrlAddedTrack(targetTrack)
+    const streaming = isStreamingRemoteTrack(targetTrack)
+    const dialogTitle = remoteSave
+      ? streaming
+        ? labels.saveStream
+        : labels.contextSaveDownload
+      : labels.convertSave
+    const busyLabel = remoteSave ? labels.saveStreamBusy : labels.convertBusy
+    const successLabel = remoteSave ? labels.saveStreamSuccess : labels.convertSuccess
+    const quality = remoteSave ? convertQuality : 'high'
+
+    let prepared = targetTrack
+    try {
+      prepared = await ensurePlayableTrackRef.current(targetTrack)
+    } catch (error) {
+      const failed = `${labels.convertError}: ${error instanceof Error ? error.message : String(error)}`
+      setConvertMessage(failed)
+      pushStatus(failed, 'error')
+      return
+    }
+
+    const stem = sanitizeFileStem(prepared.title)
     const defaultDirectory =
-      (currentTrack.filePath ? currentTrack.filePath.replace(/[\\/][^\\/]+$/, '') : '') || lastMusicFolder || undefined
+      (prepared.filePath && !prepared.filePath.toLowerCase().includes('mms-extract-')
+        ? prepared.filePath.replace(/[\\/][^\\/]+$/, '')
+        : '') || lastMusicFolder || undefined
     const defaultPath = defaultDirectory ? await join(defaultDirectory, `${stem}.${convertFormat}`) : `${stem}.${convertFormat}`
 
     const outputPath = await save({
       defaultPath,
-      title: labels.convertSave,
+      title: dialogTitle,
       filters: [{ name: convertFormat.toUpperCase(), extensions: [convertFormat] }],
     })
 
@@ -2007,21 +2699,46 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
     }
 
     setIsConverting(true)
-    setConvertMessage(labels.convertBusy)
-    pushStatus(labels.convertBusy, 'busy')
+    setConvertMessage(busyLabel)
+    pushStatus(busyLabel, 'busy')
 
     let tempInputPath = ''
 
     try {
+      // URL-added tracks: prefer saving from the original link at the chosen quality.
+      if (remoteSave && prepared.remoteUrl) {
+        try {
+          await invoke('extract_audio_from_url', {
+            url: prepared.remoteUrl,
+            outputPath,
+            format: convertFormat,
+            quality,
+          })
+
+          await adoptSavedLocalTrack(prepared.id, outputPath, prepared.title)
+          const saved = `${successLabel}: ${outputPath}`
+          pushStatus(saved, 'success')
+          setIsConverting(false)
+          setConvertMessage('')
+          setShowConvertDialog(false)
+          setConvertTargetTrackId(null)
+          showThemedAlert(dialogTitle, `${successLabel}\n${outputPath}`)
+          return
+        } catch (extractError) {
+          console.warn('[save] extract from URL failed, falling back to local convert', extractError)
+        }
+      }
+
       let inputPath: string | undefined
 
-      if (currentTrack.filePath) {
-        inputPath = currentTrack.filePath
-      } else if (currentTrack.source.startsWith('blob:') || currentTrack.remoteUrl || /^https?:\/\//i.test(currentTrack.source)) {
-        const url = currentTrack.source.startsWith('blob:')
-          ? currentTrack.source
-          : currentTrack.remoteUrl || currentTrack.source
-        const response = await fetch(url)
+      if (prepared.filePath) {
+        inputPath = prepared.filePath
+      } else if (prepared.source.startsWith('blob:') || prepared.remoteUrl || /^https?:\/\//i.test(prepared.source)) {
+        const url = prepared.source.startsWith('blob:')
+          ? prepared.source
+          : prepared.remoteUrl || prepared.source
+
+        const response = await fetchWithTimeout(url, {}, 60000)
 
         if (!response.ok) {
           throw new Error(`source fetch ${response.status}`)
@@ -2039,14 +2756,20 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
         inputBytes: null,
         outputPath,
         format: convertFormat,
+        quality,
       })
 
-      const converted = `${labels.convertSuccess}: ${outputPath}`
+      if (remoteSave) {
+        await adoptSavedLocalTrack(prepared.id, outputPath, prepared.title)
+      }
+
+      const converted = `${successLabel}: ${outputPath}`
       pushStatus(converted, 'success')
       setIsConverting(false)
       setConvertMessage('')
       setShowConvertDialog(false)
-      showThemedAlert(labels.convertSave, `${labels.convertSuccess}\n${outputPath}`)
+      setConvertTargetTrackId(null)
+      showThemedAlert(dialogTitle, `${successLabel}\n${outputPath}`)
 
       return
     } catch (error) {
@@ -2355,6 +3078,7 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
       {miniMode ? (
       <div className="mini-view" onPointerDown={startWindowDrag}>
         <div className="mini-toolbar">
+          <div className="mini-brand" aria-hidden="true" title={labels.appName} />
           <div className="mini-toolbar-group">
             <button
               type="button"
@@ -2576,8 +3300,18 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
           <button className="tool-button icon-only" type="button" data-tooltip={labels.savePlaylist} aria-label={labels.savePlaylist} onPointerDown={(event) => event.stopPropagation()} onClick={savePlaylist}>
             <Save size={14} aria-hidden="true" />
           </button>
-          <button className="tool-button icon-only" type="button" data-tooltip={labels.convertSave} aria-label={labels.convertSave} onPointerDown={(event) => event.stopPropagation()} onClick={openConvertDialog}>
+          <button
+            className="tool-button icon-only"
+            type="button"
+            data-tooltip={currentTrack && isStreamingRemoteTrack(currentTrack) ? labels.saveStream : labels.convertSave}
+            aria-label={currentTrack && isStreamingRemoteTrack(currentTrack) ? labels.saveStream : labels.convertSave}
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={openConvertDialog}
+          >
             <FileAudio size={14} aria-hidden="true" />
+          </button>
+          <button className="tool-button icon-only" type="button" data-tooltip={labels.extractAudio} aria-label={labels.extractAudio} onPointerDown={(event) => event.stopPropagation()} onClick={openExtractDialog}>
+            <CloudDownload size={14} aria-hidden="true" />
           </button>
           <button
             className={`tool-button icon-only${spectrumColorOrder === 'red-blue' ? ' active-toggle' : ''}`}
@@ -2836,10 +3570,21 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
 
         {!trackListCollapsed && (
         <aside className="side-panel">
-          <form className="remote-form" onSubmit={addRemoteTrack}>
+          <form className="remote-form" onSubmit={(event) => void addRemoteTrack(event)}>
             <Link size={14} />
-            <input id="remote-url" type="url" aria-label={labels.remoteUrl} placeholder="https://example.com/song.mp3" value={remoteUrl} onChange={(event) => setRemoteUrl(event.target.value)} />
-            <button type="submit" data-tooltip={labels.addRemote} aria-label={labels.addRemote}>
+            <input
+              id="remote-url"
+              type="text"
+              inputMode="url"
+              autoComplete="off"
+              spellCheck={false}
+              aria-label={labels.remoteUrl}
+              placeholder="https://…"
+              value={remoteUrl}
+              onChange={(event) => setRemoteUrl(event.target.value)}
+              onPointerDown={(event) => event.stopPropagation()}
+            />
+            <button type="submit" data-tooltip={labels.addRemote} aria-label={labels.addRemote} disabled={isResolvingRemote || !remoteUrl.trim()}>
               <Download size={14} />
             </button>
           </form>
@@ -2850,7 +3595,11 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
 
           <div className="track-list" aria-label={labels.playlist}>
             {tracks.map((track) => (
-              <div key={track.id} className={`track-row${track.id === currentTrackId ? ' active' : ''}`}>
+              <div
+                key={track.id}
+                className={`track-row${track.id === currentTrackId ? ' active' : ''}`}
+                onContextMenu={(event) => openTrackContextMenu(event, track)}
+              >
                 <button
                   type="button"
                   className="track-select"
@@ -2884,36 +3633,32 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
         <div
           className="modal-backdrop"
           role="presentation"
-          onClick={() => {
-            if (!isConverting) {
-              setShowConvertDialog(false)
-            }
-          }}
+          onClick={closeConvertDialog}
         >
           <section
             className="settings-dialog convert-dialog themed-dialog"
             role="dialog"
             aria-modal="true"
-            aria-label={labels.convertSave}
+            aria-label={convertDialogTitle}
             style={convertDialogDrag.style}
             onClick={(event) => event.stopPropagation()}
           >
             <header className="settings-header dialog-drag-handle" onPointerDown={convertDialogDrag.onHeaderPointerDown}>
               <FileAudio size={18} />
-              <h2>{labels.convertSave}</h2>
+              <h2>{convertDialogTitle}</h2>
             </header>
 
             <div className="settings-body">
               <label className="settings-row">
                 <span>{labels.convertTrack}</span>
-                <strong className="convert-track-name">{currentTrack?.title ?? labels.noTrack}</strong>
+                <strong className="convert-track-name">{convertTargetTrack?.title ?? labels.noTrack}</strong>
               </label>
               <label className="settings-row">
                 <span>{labels.convertFormat}</span>
                 <select
                   value={convertFormat}
                   aria-label={labels.convertFormat}
-                  disabled={isConverting || !currentTrack}
+                  disabled={isConverting || !convertTargetTrack}
                   onChange={(event) => setConvertFormat(event.target.value as ConvertFormat)}
                 >
                   {convertFormats.map((format) => (
@@ -2923,21 +3668,185 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
                   ))}
                 </select>
               </label>
+              {convertDialogIsRemoteSave && (
+                <label className="settings-row">
+                  <span>{labels.extractQuality}</span>
+                  <select
+                    value={convertQuality}
+                    aria-label={labels.extractQuality}
+                    disabled={isConverting || !convertTargetTrack}
+                    onChange={(event) => setConvertQuality(event.target.value as ExtractQuality)}
+                  >
+                    <option value="high">{labels.extractQualityHigh}</option>
+                    <option value="medium">{labels.extractQualityMedium}</option>
+                    <option value="low">{labels.extractQualityLow}</option>
+                  </select>
+                </label>
+              )}
               {convertMessage && <p className={`convert-message${isConverting ? ' busy' : ''}`}>{convertMessage}</p>}
             </div>
 
             <div className="convert-actions">
-              <button type="button" aria-label={labels.close} disabled={isConverting} onClick={() => setShowConvertDialog(false)}>
+              <button type="button" aria-label={labels.close} disabled={isConverting} onClick={closeConvertDialog}>
                 {labels.close}
               </button>
               <button
                 type="button"
                 className="primary-action"
-                aria-label={isConverting ? labels.convertBusy : labels.convertSave}
-                disabled={isConverting || !currentTrack}
+                aria-label={isConverting ? convertDialogBusy : convertDialogTitle}
+                disabled={isConverting || !convertTargetTrack}
                 onClick={() => void runConvertSave()}
               >
-                {isConverting ? labels.convertBusy : labels.convertSave}
+                {isConverting ? convertDialogBusy : convertDialogTitle}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {trackContextMenu && (() => {
+        const menuTrack = tracks.find((track) => track.id === trackContextMenu.trackId)
+        if (!menuTrack) {
+          return null
+        }
+
+        return (
+          <div
+            className="track-context-menu"
+            role="menu"
+            style={{ left: trackContextMenu.x, top: trackContextMenu.y }}
+            onClick={(event) => event.stopPropagation()}
+            onContextMenu={(event) => event.preventDefault()}
+          >
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setTrackContextMenu(null)
+                void loadAndPlayTrack(menuTrack)
+              }}
+            >
+              <Play size={13} />
+              <span>{labels.contextPlay}</span>
+            </button>
+            {isUrlAddedTrack(menuTrack) && (
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => openConvertDialogForTrack(menuTrack)}
+              >
+                <Save size={13} />
+                <span>{labels.contextSaveDownload}</span>
+              </button>
+            )}
+            <button
+              type="button"
+              role="menuitem"
+              className="danger"
+              onClick={() => {
+                setTrackContextMenu(null)
+                removeTrackFromPlaylist(menuTrack.id)
+              }}
+            >
+              <Trash2 size={13} />
+              <span>{labels.removeTrack}</span>
+            </button>
+          </div>
+        )
+      })()}
+
+      {showExtractDialog && (
+        <div
+          className="modal-backdrop"
+          role="presentation"
+          onClick={() => {
+            if (!isExtracting) {
+              setShowExtractDialog(false)
+            }
+          }}
+        >
+          <section
+            className="settings-dialog convert-dialog extract-dialog themed-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-label={labels.extractAudio}
+            style={extractDialogDrag.style}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <header className="settings-header dialog-drag-handle" onPointerDown={extractDialogDrag.onHeaderPointerDown}>
+              <CloudDownload size={18} />
+              <h2>{labels.extractAudio}</h2>
+            </header>
+
+            <div className="settings-body">
+              <p className="extract-hint">{labels.extractAudioHint}</p>
+              <label className="settings-row settings-row-stack">
+                <span>{labels.extractUrl}</span>
+                <input
+                  type="text"
+                  inputMode="url"
+                  autoComplete="off"
+                  spellCheck={false}
+                  value={extractUrl}
+                  aria-label={labels.extractUrl}
+                  placeholder="https://…"
+                  disabled={isExtracting}
+                  onChange={(event) => setExtractUrl(event.target.value)}
+                  onPointerDown={(event) => event.stopPropagation()}
+                />
+              </label>
+              <label className="settings-row">
+                <span>{labels.extractFormat}</span>
+                <select
+                  value={extractFormat}
+                  aria-label={labels.extractFormat}
+                  disabled={isExtracting}
+                  onChange={(event) => setExtractFormat(event.target.value as ExtractFormat)}
+                >
+                  {extractFormats.map((format) => (
+                    <option key={format} value={format}>
+                      {format.toUpperCase()}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="settings-row">
+                <span>{labels.extractQuality}</span>
+                <select
+                  value={extractQuality}
+                  aria-label={labels.extractQuality}
+                  disabled={isExtracting}
+                  onChange={(event) => setExtractQuality(event.target.value as ExtractQuality)}
+                >
+                  <option value="high">{labels.extractQualityHigh}</option>
+                  <option value="medium">{labels.extractQualityMedium}</option>
+                  <option value="low">{labels.extractQualityLow}</option>
+                </select>
+              </label>
+              <label className="settings-toggle">
+                <input
+                  type="checkbox"
+                  checked={extractAddToPlaylist}
+                  disabled={isExtracting}
+                  onChange={(event) => setExtractAddToPlaylist(event.target.checked)}
+                />
+                <span>{labels.extractAddToPlaylist}</span>
+              </label>
+              {extractMessage && <p className={`convert-message${isExtracting ? ' busy' : ''}`}>{extractMessage}</p>}
+            </div>
+
+            <div className="convert-actions">
+              <button type="button" aria-label={labels.close} disabled={isExtracting} onClick={() => setShowExtractDialog(false)}>
+                {labels.close}
+              </button>
+              <button
+                type="button"
+                className="primary-action"
+                aria-label={isExtracting ? labels.extractBusy : labels.extractAudio}
+                disabled={isExtracting || !extractUrl.trim()}
+                onClick={() => void runExtractSave()}
+              >
+                {isExtracting ? labels.extractBusy : labels.extractAudio}
               </button>
             </div>
           </section>

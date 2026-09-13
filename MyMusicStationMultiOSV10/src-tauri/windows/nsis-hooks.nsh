@@ -23,7 +23,6 @@
     ExecWait '$R1' $R3
   ${ElseIf} $R2 != ""
     DetailPrint "Uninstalling previous My Music Station (${ROOT_KEY})..."
-    ; Tauri NSIS uninstaller expects /S and the install directory via _?=
     ${If} $R0 != ""
       ExecWait '$R2 /S _?=$R0' $R3
     ${Else}
@@ -82,14 +81,12 @@
     StrCmp $R3 "" mms_msi_loop_${ROOT_KEY}
 
     DetailPrint "Uninstalling MSI/WiX My Music Station ($R1)..."
-    ; Prefer msiexec /x {ProductCode} /qn when the key looks like a GUID.
     StrCpy $R4 $R1 1
     ${If} $R4 == "{"
       ExecWait 'msiexec /x $R1 /qn /norestart' $R4
     ${Else}
       ExecWait '$R3 /quiet /norestart' $R4
     ${EndIf}
-    ; Registry keys shift after delete; restart enumeration.
     StrCpy $R0 0
     Goto mms_msi_loop_${ROOT_KEY}
 
@@ -101,28 +98,57 @@
   Pop $R0
 !macroend
 
+!macro MMS_CLEAN_ONE_AUDIO_ASSOC ROOT_KEY EXT
+  DeleteRegValue ${ROOT_KEY} "Software\Classes\.${EXT}\OpenWithProgids" "MyMusicStation.Audio"
+  ; Only clear the default ProgID when it still points at us.
+  Push $R9
+  ReadRegStr $R9 ${ROOT_KEY} "Software\Classes\.${EXT}" ""
+  ${If} $R9 == "MyMusicStation.Audio"
+    DeleteRegValue ${ROOT_KEY} "Software\Classes\.${EXT}" ""
+  ${EndIf}
+  Pop $R9
+!macroend
+
 !macro MMS_CLEAN_ASSOCIATIONS ROOT_KEY
   DeleteRegKey ${ROOT_KEY} "Software\Classes\.mplist"
   DeleteRegKey ${ROOT_KEY} "Software\Classes\MyMusicStation.Playlist"
-  DeleteRegValue ${ROOT_KEY} "Software\Classes\.mp3\OpenWithProgids" "MyMusicStation.Audio"
-  DeleteRegValue ${ROOT_KEY} "Software\Classes\.flac\OpenWithProgids" "MyMusicStation.Audio"
-  DeleteRegValue ${ROOT_KEY} "Software\Classes\.wav\OpenWithProgids" "MyMusicStation.Audio"
-  DeleteRegValue ${ROOT_KEY} "Software\Classes\.ogg\OpenWithProgids" "MyMusicStation.Audio"
-  DeleteRegValue ${ROOT_KEY} "Software\Classes\.aac\OpenWithProgids" "MyMusicStation.Audio"
-  DeleteRegValue ${ROOT_KEY} "Software\Classes\.m4a\OpenWithProgids" "MyMusicStation.Audio"
-  DeleteRegValue ${ROOT_KEY} "Software\Classes\.webm\OpenWithProgids" "MyMusicStation.Audio"
-  DeleteRegValue ${ROOT_KEY} "Software\Classes\.opus\OpenWithProgids" "MyMusicStation.Audio"
+  !insertmacro MMS_CLEAN_ONE_AUDIO_ASSOC ${ROOT_KEY} mp3
+  !insertmacro MMS_CLEAN_ONE_AUDIO_ASSOC ${ROOT_KEY} flac
+  !insertmacro MMS_CLEAN_ONE_AUDIO_ASSOC ${ROOT_KEY} wav
+  !insertmacro MMS_CLEAN_ONE_AUDIO_ASSOC ${ROOT_KEY} ogg
+  !insertmacro MMS_CLEAN_ONE_AUDIO_ASSOC ${ROOT_KEY} aac
+  !insertmacro MMS_CLEAN_ONE_AUDIO_ASSOC ${ROOT_KEY} m4a
+  !insertmacro MMS_CLEAN_ONE_AUDIO_ASSOC ${ROOT_KEY} webm
+  !insertmacro MMS_CLEAN_ONE_AUDIO_ASSOC ${ROOT_KEY} opus
+  !insertmacro MMS_CLEAN_ONE_AUDIO_ASSOC ${ROOT_KEY} wma
+  !insertmacro MMS_CLEAN_ONE_AUDIO_ASSOC ${ROOT_KEY} aiff
+  !insertmacro MMS_CLEAN_ONE_AUDIO_ASSOC ${ROOT_KEY} aif
   DeleteRegKey ${ROOT_KEY} "Software\Classes\MyMusicStation.Audio"
   DeleteRegValue ${ROOT_KEY} "Software\RegisteredApplications" "My Music Station"
   DeleteRegKey ${ROOT_KEY} "Software\Clients\Media\My Music Station"
 !macroend
 
+!macro MMS_REGISTER_OPEN_WITH EXT MIME
+  WriteRegStr SHCTX "Software\Classes\.${EXT}\OpenWithProgids" "MyMusicStation.Audio" ""
+  WriteRegStr SHCTX "Software\Clients\Media\My Music Station\Capabilities\FileAssociations" ".${EXT}" "MyMusicStation.Audio"
+  ; Content Type is helpful for Explorer; do not overwrite an existing non-empty value.
+  Push $R9
+  ReadRegStr $R9 SHCTX "Software\Classes\.${EXT}" "Content Type"
+  ${If} $R9 == ""
+    WriteRegStr SHCTX "Software\Classes\.${EXT}" "Content Type" "${MIME}"
+  ${EndIf}
+  Pop $R9
+!macroend
+
+!macro MMS_SET_DEFAULT_AUDIO EXT MIME
+  WriteRegStr SHCTX "Software\Classes\.${EXT}" "" "MyMusicStation.Audio"
+  WriteRegStr SHCTX "Software\Classes\.${EXT}" "Content Type" "${MIME}"
+  WriteRegStr SHCTX "Software\Classes\.${EXT}\OpenWithProgids" "MyMusicStation.Audio" ""
+  WriteRegStr SHCTX "Software\Clients\Media\My Music Station\Capabilities\FileAssociations" ".${EXT}" "MyMusicStation.Audio"
+!macroend
+
 ; ---------------------------------------------------------------------------
 ; Force the desktop / start-menu shortcuts to use the app icon.ico explicitly.
-; Tauri creates the shortcuts with only the .exe as target (icon = exe,0), which
-; leaves them at the mercy of the Windows icon cache. Re-stamping the shortcut
-; with an explicit icon path guarantees the new icon shows up. We only touch
-; shortcuts that already exist so update / silent / no-shortcut modes are honored.
 ; ---------------------------------------------------------------------------
 !macro MMS_SET_SHORTCUT_ICON LNK_PATH
   ${If} ${FileExists} "${LNK_PATH}"
@@ -142,7 +168,6 @@
 !macroend
 
 !macro MMS_REMOVE_LEFTOVERS
-  ; Common Tauri / Windows install locations
   RMDir /r "$LOCALAPPDATA\Programs\My Music Station"
   RMDir /r "$PROGRAMFILES\My Music Station"
   RMDir /r "$PROGRAMFILES64\My Music Station"
@@ -158,7 +183,7 @@
 
 !macro NSIS_HOOK_PREINSTALL
   DetailPrint "Stopping running My Music Station processes..."
-  ExecWait 'taskkill /F /IM my_music_station.exe /T' $R9
+  ExecWait 'taskkill /F /IM ${MAINBINARYNAME}.exe /T' $R9
   Sleep 500
 
   DetailPrint "Removing any previous My Music Station installation..."
@@ -174,60 +199,70 @@
 
 !macro NSIS_HOOK_PREUNINSTALL
   DetailPrint "Stopping My Music Station before uninstall..."
-  ExecWait 'taskkill /F /IM my_music_station.exe /T' $R9
+  ExecWait 'taskkill /F /IM ${MAINBINARYNAME}.exe /T' $R9
   Sleep 300
 !macroend
 
 !macro NSIS_HOOK_POSTINSTALL
+  ; Playlist association is always registered.
   WriteRegStr SHCTX "Software\Classes\.mplist" "" "MyMusicStation.Playlist"
   WriteRegStr SHCTX "Software\Classes\.mplist" "Content Type" "application/vnd.mymusicstation.playlist+json"
   WriteRegStr SHCTX "Software\Classes\MyMusicStation.Playlist" "" "My Music Station Playlist"
   WriteRegStr SHCTX "Software\Classes\MyMusicStation.Playlist\DefaultIcon" "" "$INSTDIR\resources\playlist-icons\icon.ico"
-  WriteRegStr SHCTX "Software\Classes\MyMusicStation.Playlist\shell\open\command" "" '"$INSTDIR\my_music_station.exe" "%1"'
+  WriteRegStr SHCTX "Software\Classes\MyMusicStation.Playlist\shell\open\command" "" '"$INSTDIR\${MAINBINARYNAME}.exe" "%1"'
 
+  ; ProgID used for all audio formats.
   WriteRegStr SHCTX "Software\Classes\MyMusicStation.Audio" "" "My Music Station Audio"
-  WriteRegStr SHCTX "Software\Classes\MyMusicStation.Audio\DefaultIcon" "" "$INSTDIR\my_music_station.exe,0"
-  WriteRegStr SHCTX "Software\Classes\MyMusicStation.Audio\shell\open\command" "" '"$INSTDIR\my_music_station.exe" "%1"'
+  WriteRegStr SHCTX "Software\Classes\MyMusicStation.Audio\DefaultIcon" "" "$INSTDIR\${MAINBINARYNAME}.exe,0"
+  WriteRegStr SHCTX "Software\Classes\MyMusicStation.Audio\shell\open\command" "" '"$INSTDIR\${MAINBINARYNAME}.exe" "%1"'
 
-  WriteRegStr SHCTX "Software\Classes\.mp3" "" "MyMusicStation.Audio"
-  WriteRegStr SHCTX "Software\Classes\.mp3" "Content Type" "audio/mpeg"
-  WriteRegStr SHCTX "Software\Classes\.mp3\OpenWithProgids" "MyMusicStation.Audio" ""
-  WriteRegStr SHCTX "Software\Classes\.flac" "" "MyMusicStation.Audio"
-  WriteRegStr SHCTX "Software\Classes\.flac" "Content Type" "audio/flac"
-  WriteRegStr SHCTX "Software\Classes\.flac\OpenWithProgids" "MyMusicStation.Audio" ""
-  WriteRegStr SHCTX "Software\Classes\.wav" "" "MyMusicStation.Audio"
-  WriteRegStr SHCTX "Software\Classes\.wav" "Content Type" "audio/wav"
-  WriteRegStr SHCTX "Software\Classes\.wav\OpenWithProgids" "MyMusicStation.Audio" ""
-  WriteRegStr SHCTX "Software\Classes\.ogg" "" "MyMusicStation.Audio"
-  WriteRegStr SHCTX "Software\Classes\.ogg" "Content Type" "audio/ogg"
-  WriteRegStr SHCTX "Software\Classes\.ogg\OpenWithProgids" "MyMusicStation.Audio" ""
-  WriteRegStr SHCTX "Software\Classes\.aac" "" "MyMusicStation.Audio"
-  WriteRegStr SHCTX "Software\Classes\.aac" "Content Type" "audio/aac"
-  WriteRegStr SHCTX "Software\Classes\.aac\OpenWithProgids" "MyMusicStation.Audio" ""
-  WriteRegStr SHCTX "Software\Classes\.m4a" "" "MyMusicStation.Audio"
-  WriteRegStr SHCTX "Software\Classes\.m4a" "Content Type" "audio/mp4"
-  WriteRegStr SHCTX "Software\Classes\.m4a\OpenWithProgids" "MyMusicStation.Audio" ""
-  WriteRegStr SHCTX "Software\Classes\.webm" "" "MyMusicStation.Audio"
-  WriteRegStr SHCTX "Software\Classes\.webm" "Content Type" "audio/webm"
-  WriteRegStr SHCTX "Software\Classes\.webm\OpenWithProgids" "MyMusicStation.Audio" ""
-  WriteRegStr SHCTX "Software\Classes\.opus" "" "MyMusicStation.Audio"
-  WriteRegStr SHCTX "Software\Classes\.opus" "Content Type" "audio/opus"
-  WriteRegStr SHCTX "Software\Classes\.opus\OpenWithProgids" "MyMusicStation.Audio" ""
-
+  ; Always register as a media client so Windows Default Apps / Open with can find us.
   WriteRegStr SHCTX "Software\Clients\Media\My Music Station" "" "My Music Station"
   WriteRegStr SHCTX "Software\Clients\Media\My Music Station\Capabilities" "ApplicationName" "My Music Station"
   WriteRegStr SHCTX "Software\Clients\Media\My Music Station\Capabilities" "ApplicationDescription" "A multi-platform music player."
-  WriteRegStr SHCTX "Software\Clients\Media\My Music Station\Capabilities\FileAssociations" ".mp3" "MyMusicStation.Audio"
-  WriteRegStr SHCTX "Software\Clients\Media\My Music Station\Capabilities\FileAssociations" ".flac" "MyMusicStation.Audio"
-  WriteRegStr SHCTX "Software\Clients\Media\My Music Station\Capabilities\FileAssociations" ".wav" "MyMusicStation.Audio"
-  WriteRegStr SHCTX "Software\Clients\Media\My Music Station\Capabilities\FileAssociations" ".ogg" "MyMusicStation.Audio"
-  WriteRegStr SHCTX "Software\Clients\Media\My Music Station\Capabilities\FileAssociations" ".aac" "MyMusicStation.Audio"
-  WriteRegStr SHCTX "Software\Clients\Media\My Music Station\Capabilities\FileAssociations" ".m4a" "MyMusicStation.Audio"
-  WriteRegStr SHCTX "Software\Clients\Media\My Music Station\Capabilities\FileAssociations" ".webm" "MyMusicStation.Audio"
-  WriteRegStr SHCTX "Software\Clients\Media\My Music Station\Capabilities\FileAssociations" ".opus" "MyMusicStation.Audio"
   WriteRegStr SHCTX "Software\RegisteredApplications" "My Music Station" "Software\Clients\Media\My Music Station\Capabilities"
 
-  ; Stamp the new app icon onto the desktop / start-menu shortcuts.
+  !insertmacro MMS_REGISTER_OPEN_WITH mp3 "audio/mpeg"
+  !insertmacro MMS_REGISTER_OPEN_WITH flac "audio/flac"
+  !insertmacro MMS_REGISTER_OPEN_WITH wav "audio/wav"
+  !insertmacro MMS_REGISTER_OPEN_WITH ogg "audio/ogg"
+  !insertmacro MMS_REGISTER_OPEN_WITH aac "audio/aac"
+  !insertmacro MMS_REGISTER_OPEN_WITH m4a "audio/mp4"
+  !insertmacro MMS_REGISTER_OPEN_WITH webm "audio/webm"
+  !insertmacro MMS_REGISTER_OPEN_WITH opus "audio/opus"
+  !insertmacro MMS_REGISTER_OPEN_WITH wma "audio/x-ms-wma"
+  !insertmacro MMS_REGISTER_OPEN_WITH aiff "audio/aiff"
+  !insertmacro MMS_REGISTER_OPEN_WITH aif "audio/aiff"
+
+  ; Ask to become the default player (silent installs default to Yes).
+  StrCpy $R8 1
+  ${IfNot} ${Silent}
+    MessageBox MB_YESNO|MB_ICONQUESTION \
+      "My Music Station을 다양한 오디오 파일의 기본 플레이어로 등록하시겠습니까?$\r$\n$\r$\n지원: MP3, FLAC, WAV, OGG, AAC, M4A, WebM, OPUS, WMA, AIFF$\r$\n$\r$\n예 = 기본 플레이어로 설정$\r$\n아니오 = '연결 프로그램' / Windows 기본 앱 목록에만 추가" \
+      IDYES mms_keep_default_yes
+    StrCpy $R8 0
+    mms_keep_default_yes:
+  ${EndIf}
+
+  ${If} $R8 == 1
+    DetailPrint "Registering My Music Station as the default audio player..."
+    !insertmacro MMS_SET_DEFAULT_AUDIO mp3 "audio/mpeg"
+    !insertmacro MMS_SET_DEFAULT_AUDIO flac "audio/flac"
+    !insertmacro MMS_SET_DEFAULT_AUDIO wav "audio/wav"
+    !insertmacro MMS_SET_DEFAULT_AUDIO ogg "audio/ogg"
+    !insertmacro MMS_SET_DEFAULT_AUDIO aac "audio/aac"
+    !insertmacro MMS_SET_DEFAULT_AUDIO m4a "audio/mp4"
+    !insertmacro MMS_SET_DEFAULT_AUDIO webm "audio/webm"
+    !insertmacro MMS_SET_DEFAULT_AUDIO opus "audio/opus"
+    !insertmacro MMS_SET_DEFAULT_AUDIO wma "audio/x-ms-wma"
+    !insertmacro MMS_SET_DEFAULT_AUDIO aiff "audio/aiff"
+    !insertmacro MMS_SET_DEFAULT_AUDIO aif "audio/aiff"
+  ${Else}
+    DetailPrint "Skipped default audio player registration (Open with / Default Apps list only)."
+  ${EndIf}
+
+  System::Call 'shell32::SHChangeNotify(i 0x08000000, i 0, i 0, i 0)'
+
   !insertmacro MMS_REFRESH_SHORTCUT_ICONS
 !macroend
 

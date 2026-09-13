@@ -49,6 +49,15 @@ if (fetchFfmpeg.status !== 0) {
   console.warn('[build] fetch-ffmpeg failed; convert may rely on PATH ffmpeg only.')
 }
 
+const fetchYtdlp = spawnSync(process.execPath, [join(root, 'scripts', 'fetch-ytdlp.mjs')], {
+  cwd: root,
+  stdio: 'inherit',
+})
+
+if (fetchYtdlp.status !== 0) {
+  console.warn('[build] fetch-ytdlp failed; URL extract may rely on PATH yt-dlp only.')
+}
+
 console.log(`[build] CARGO_TARGET_DIR=${localTargetDir}`)
 console.log(`[build] tauri build --bundles ${bundlesArg}`)
 
@@ -85,6 +94,23 @@ if (existsSync(bundledFfmpeg)) {
     console.log(`[build] copied ffmpeg beside release binary → ${releaseFfmpeg}`)
   } catch (error) {
     console.warn(`[build] could not copy ffmpeg beside release binary: ${error}`)
+  }
+}
+
+const bundledYtdlp = join(
+  root,
+  'src-tauri',
+  'yt-dlp',
+  platform() === 'win32' ? 'yt-dlp.exe' : 'yt-dlp',
+)
+const releaseYtdlp = join(releaseDir, platform() === 'win32' ? 'yt-dlp.exe' : 'yt-dlp')
+
+if (existsSync(bundledYtdlp)) {
+  try {
+    copyFileSync(bundledYtdlp, releaseYtdlp)
+    console.log(`[build] copied yt-dlp beside release binary → ${releaseYtdlp}`)
+  } catch (error) {
+    console.warn(`[build] could not copy yt-dlp beside release binary: ${error}`)
   }
 }
 

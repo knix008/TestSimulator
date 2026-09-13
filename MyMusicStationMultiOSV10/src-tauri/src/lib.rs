@@ -1,4 +1,5 @@
 mod audio_convert;
+mod audio_extract;
 mod wallpaper;
 
 use serde::{Deserialize, Serialize};
@@ -29,6 +30,45 @@ impl Default for ShellSettings {
 struct AppState {
     settings: Mutex<ShellSettings>,
     tray: TrayIcon,
+}
+
+struct PendingOpenFiles(Mutex<Vec<String>>);
+
+const OPENABLE_EXTENSIONS: &[&str] = &[
+    ".mp3", ".flac", ".wav", ".ogg", ".aac", ".m4a", ".webm", ".opus", ".wma", ".aiff", ".aif",
+    ".mplist",
+];
+
+fn is_openable_path(path: &str) -> bool {
+    let lower = path.to_ascii_lowercase();
+    OPENABLE_EXTENSIONS.iter().any(|ext| lower.ends_with(ext))
+}
+
+fn collect_open_paths(args: &[String]) -> Vec<String> {
+    args.iter()
+        .skip(1)
+        .filter(|arg| !arg.starts_with('-'))
+        .filter(|arg| is_openable_path(arg))
+        .cloned()
+        .collect()
+}
+
+fn queue_open_paths(app: &AppHandle, paths: Vec<String>) {
+    if paths.is_empty() {
+        return;
+    }
+
+    if let Some(state) = app.try_state::<PendingOpenFiles>() {
+        if let Ok(mut pending) = state.0.lock() {
+            for path in &paths {
+                if !pending.iter().any(|existing| existing.eq_ignore_ascii_case(path)) {
+                    pending.push(path.clone());
+                }
+            }
+        }
+    }
+
+    let _ = app.emit("open-files", paths);
 }
 
 fn apply_fixed_window_size(window: &tauri::WebviewWindow) {
@@ -156,21 +196,36 @@ fn save_ui_settings(app: AppHandle, settings: serde_json::Value) -> Result<(), S
     Ok(())
 }
 
+#[tauri::command]
+fn take_pending_open_files(state: State<'_, PendingOpenFiles>) -> Vec<String> {
+    state
+        .0
+        .lock()
+        .map(|mut pending| std::mem::take(&mut *pending))
+        .unwrap_or_default()
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let startup_paths = collect_open_paths(&std::env::args().collect::<Vec<_>>());
+
     tauri::Builder::default()
         // Must be registered first so a second launch exits before other plugins run.
-        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+        .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
             show_main_window(app);
+            queue_open_paths(app, collect_open_paths(&args));
         }))
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
+        .manage(PendingOpenFiles(Mutex::new(startup_paths)))
         .invoke_handler(tauri::generate_handler![
             get_shell_settings,
             set_use_system_tray,
             load_ui_settings,
             save_ui_settings,
+            take_pending_open_files,
             audio_convert::convert_audio,
+            audio_extract::extract_audio_from_url,
             wallpaper::load_wallpaper_image
         ])
         .setup(|app| {

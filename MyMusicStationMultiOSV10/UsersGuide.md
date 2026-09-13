@@ -1,4 +1,4 @@
-# Users Guide
+# Users Guide — My Music Station V1.0.0
 
 ## Run the App
 
@@ -8,11 +8,17 @@
 npm start
 ```
 
-Launches the local release executable from `src-tauri/target/release`. If sources are newer than that binary, it rebuilds with the **same desktop build** used for installers (`build:win` / `build:mac` / `build:linux`), then launches. On Windows it also stops any tray-hidden instance first.
+Launches the release executable from `src-tauri/target/release`. If sources are newer, it rebuilds (same path as the installer build), then launches. On Windows it stops a running instance first.
 
-| OS | Manual build (same as npm start rebuild) |
+Launch without rebuilding:
+
+```bash
+npm start -- --no-build
+```
+
+| OS | Installer build |
 | --- | --- |
-| Windows | `npm run build:win` |
+| Windows | `npm run build:win` → `My Music Station V1.0.0_*_x64-setup.exe` |
 | macOS | `npm run build:mac` |
 | Linux | `npm run build:linux` |
 
@@ -24,88 +30,127 @@ npm run desktop:dev
 
 ### Installed app
 
-After installing from the NSIS/MSI (or macOS/Linux package), start **My Music Station** from the Start Menu / Applications. A system tray icon appears while the app runs.
+Install from the NSIS setup (or macOS/Linux package), then start **My Music Station V1.0.0** from the Start Menu / Applications.
 
-`npm start` and the root installers share one release binary. Updating the already-installed Program Files / Applications copy still requires reinstalling from the newly built setup package.
+`npm start` and the root installer share one release binary. Updating Program Files still requires reinstalling from a new setup package.
 
 ## Toolbar
 
-Hover a button to see its tooltip.
+Hover a button for its tooltip.
 
 | Control | Action |
 | --- | --- |
-| Open folder | Choose a music folder (recursive scan for audio files). |
+| Open folder | Choose a music folder (recursive audio scan). |
 | Reopen | Reload the last remembered music folder. |
-| Add files | Add audio files via the native file dialog (paths are kept for playlist save). |
-| Save (플레이리스트 저장) | Save the current playlist as a `.mplist` file. |
-| Convert (형식 변환 저장) | Convert the current track to MP3/WAV/FLAC/OGG/M4A and save it. Requires ffmpeg. |
-| Open | Open a `.mplist` playlist and/or audio files. |
-| Language | Switch between Korean and English. |
-| Settings | Open app settings (language, theme, system tray, playback). |
-| About | Show version and copyright. |
-| Theme | Pick a built-in or custom theme. |
-| Minimize | Minimize the window. |
-| Close | Hide to tray when system tray is enabled; otherwise quit the app. |
+| Add | Add audio files and/or `.mplist` playlists. |
+| Save | Save the current playlist as `.mplist`. |
+| Convert / Save stream | Convert the current track, or save a streamed/URL track (format + quality). |
+| URL audio save | Extract audio from a media/URL and save (format + quality). |
+| Spectrum flip / style | Flip color direction; cycle spectrum display style. |
+| Language | Korean / English. |
+| Settings | Language, theme, tray, wallpaper, playback options. |
+| About | Version and copyright. |
+| Theme | Built-in or custom themes. |
+| Collapse list | Show/hide the side playlist panel. |
+| Compact mode | Shrink to **340×180** (app icon stays on the title bar). |
+| Minimize / Close | Minimize, or hide to tray / quit (per settings). |
 
 ## Status Bar
 
-The bottom status bar shows:
+Shows playback state or temporary feedback (save, extract, theme, errors), plus theme / tray / wallpaper / volume hints.
 
-- Playback state (Ready / Playing / Paused / Stopped) or temporary feedback (save, convert, theme, errors)
-- Current track title
-- Theme name, tray on/off, wallpaper on/off, and volume percent
-
-Success/info messages clear after a few seconds; errors stay until the next status update.
-
-When an error occurs, a popup shows the full details. You can select the text or use **Copy details**. Click the red status-bar message to reopen the error dialog.
+Errors open a detail dialog (copyable). Click a red status message to reopen it.
 
 ## Playback
 
-- Use Play / Pause / Stop and Previous / Next on the transport bar.
-- Drag the timeline to seek; use the volume slider on the side panel.
-- Click a track in the playlist to play it.
-- Spectrum bars show frequency energy: **blue on the left → red on the right**.
+- Play / Pause / Stop and Previous / Next on the transport bar.
+- Seek with the timeline; adjust volume (and mute).
+- Click a playlist row to play; **right-click** for context actions: **Play**, **Save downloaded audio** (link tracks only), **Remove**.
+- Removing the track that is currently playing stops it at once and continues with the next track. If playback was paused/stopped, the next track is only selected.
+- Spectrum shows frequency energy (style and color direction are configurable).
 - Album art and tags appear when metadata is available.
+
+## Compact Mode
+
+- Smaller always-on-top-friendly window with spectrum, transport, seek, and volume.
+- Program icon appears on the left of the mini title bar.
+- Restore with the maximize control; Close follows tray settings.
 
 ## Music Folder Memory
 
-Opening a folder stores its path locally. **Reopen** loads that directory again without picking it.
+Opening a folder stores its path. **Reopen** loads it again. Optional: open last folder on start (Settings).
 
 ## Playlists (`.mplist`)
 
-- **Save**: writes JSON playlist data. Local tracks need real filesystem paths (use Open folder / Add files / Open). Remote tracks save their URLs.
-- **Open**: restores local tracks from paths and remote tracks from URLs.
-- On Windows, `.mplist` is registered with the installer so it can be associated with My Music Station.
+- **Save**: local tracks need real paths; remote/URL tracks store their URLs.
+- **Open**: restores locals from paths; remotes restore from their cached download when available, otherwise as stream or pending extract (extract runs when you play).
+- The working playlist (local files **and** links) is also auto-saved for the next launch — to `localStorage` and to `session-playlist.json` in the app's config folder, so it survives quitting from the tray.
+- On Windows, `.mplist` is registered by the installer.
 
-## Remote URLs
+## Remote / Media URLs
 
-Paste an HTTP(S) audio URL in the side panel and add it. When possible the app fetches it into a blob for reliable spectrum display; the original URL is what gets saved in the playlist.
+In the side panel, paste a link and press Add:
 
-## Themes
+| Link type | What happens |
+| --- | --- |
+| Direct audio (e.g. `.mp3`, `audio/*`) | Streams for playback |
+| Video / media page (YouTube, Instagram, …) | Extracts audio only, then plays |
 
-Open the theme menu to select Dark, Modern, Classic, Fancy, or a custom theme. Enter a name, pick an accent color, and add a custom theme. Built-in themes cannot be deleted.
+While resolving/extracting, the status bar shows progress; you can still edit the URL field.
 
-Theme files are plain `.json`. From the theme menu:
+### Link tracks across restarts
 
-- **Save theme file**: export the current theme colors to a `.json` file
-- **Open theme file**: import a theme `.json` file as a custom theme and apply it
+- Link tracks stay in the playlist after you quit and relaunch.
+- Extracted audio is kept in the app cache (`remote-audio/<url-hash>.m4a`). On relaunch a cached track plays immediately, without downloading again.
+- If the cache file is gone (cleaned, moved), the track is listed as pending and is **downloaded again the first time you play it**.
+- Removing a link track from the list also deletes its cached file.
+
+### Save a URL-added track
+
+1. Right-click the track → **Save downloaded audio** (or use Convert when that track is current).
+2. Choose **format** (MP3, WAV, FLAC, OGG, M4A) and **quality** (High by default / Standard / Smaller).
+3. Pick the output path.
+
+After a successful save, that playlist entry becomes a **local file** and plays from disk (no longer the live link/stream).
+
+You can also use **URL audio save** on the toolbar to extract any supported link straight to a file (optional add-to-playlist).
+
+## Convert (local tracks)
+
+Select a track → Convert → choose format (and quality where applicable) → save. Requires bundled or PATH **ffmpeg**.
+
+## Themes & Background
+
+- Themes: Dark, Modern, Classic, Fancy, or custom (add / export / import JSON).
+- Settings → Background: built-in or custom image, dim, panel opacity.
 
 ## Settings
 
-Open **Settings** from the toolbar gear icon. Options are saved locally and apply to both `npm start` and the installed app:
-
-- **General**: language, theme
-- **Window / System**: use system tray (on by default)
-- **Background**: wallpaper image for the whole app, dim level
-- **Playback**: remember volume, show spectrum, open last folder on start, volume
+- **General**: language, theme  
+- **Window / System**: use system tray  
+- **Background**: wallpaper, dim, panel opacity  
+- **Playback**: remember volume, spectrum, reopen last folder  
 
 ## System Tray
 
-- When **Use system tray** is enabled, closing the window **hides** the app; it keeps running in the tray.
-- When the option is disabled, Close **quits** the app and the tray icon is hidden.
-- **Left-click** the tray icon to show the window and open **Settings**.
-- Tray menu: **Show My Music Station** / **Settings** / **Quit** (Quit fully exits the app).
+- Tray **on**: Close hides the window; app keeps running.
+- Tray **off**: Close quits; tray icon hidden.
+- Left-click tray → show window and open Settings.
+- Menu: Show / Settings / Quit.
 
-## Install / Reinstall (Windows)
+## Windows Installer Notes
 
-`npm run build:win` (and a stale `npm start`) produce the same release binary plus NSIS/MSI copies in the project root. The NSIS installer stops any running instance and removes a previous installation before installing the new version.
+- Stops running instances and removes previous installs before copying files.
+- Registers `.mplist` and appears under Windows media / Open with for common audio types.
+- Asks whether to set My Music Station as the **default audio player** (Yes / No). Silent (`/S`) installs choose Yes.
+- Supported association types include MP3, FLAC, WAV, OGG, AAC, M4A, WebM, OPUS, WMA, AIFF.
+- Opening an associated file launches (or focuses) the app and loads that file.
+
+## External Tools
+
+Bundled next to the app when possible:
+
+- **ffmpeg** — convert / post-process  
+- **yt-dlp** — extract audio from media URLs  
+
+If missing, the app falls back to the same tools on your PATH when available.

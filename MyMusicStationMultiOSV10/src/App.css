@@ -62,7 +62,7 @@
   background-color: var(--bg);
 }
 
-.station-shell > :not(.wallpaper-layer):not(.wallpaper-dim):not(audio):not(.modal-backdrop) {
+.station-shell > :not(.wallpaper-layer):not(.wallpaper-dim):not(audio):not(.modal-backdrop):not(.track-context-menu) {
   position: relative;
 }
 
@@ -129,12 +129,14 @@
 .title-toolbar {
   position: relative;
   display: grid;
-  /* Brand left, flexible drag area, then all buttons right-aligned. */
-  grid-template-columns: auto minmax(12px, 1fr) max-content auto;
+  /* Brand left, flexible drag area, then all buttons right-aligned. The brand
+     column may shrink (its text ellipsizes) so the window buttons never get
+     pushed past the right edge when the toolbar is tight. */
+  grid-template-columns: minmax(0, max-content) minmax(8px, 1fr) max-content auto;
   align-items: center;
   height: 44px;
-  gap: 4px;
-  padding: 6px 6px 6px 10px;
+  gap: 3px;
+  padding: 6px 8px 6px 10px;
   border-bottom: 1px solid var(--line);
   background: var(--toolbar);
   user-select: none;
@@ -161,10 +163,10 @@
 
 .brand-block {
   display: grid;
-  grid-template-columns: 22px max-content;
+  grid-template-columns: 22px minmax(0, max-content);
   align-items: center;
   gap: 6px;
-  min-width: max-content;
+  min-width: 0;
   touch-action: none;
 }
 
@@ -177,7 +179,9 @@
 }
 
 .brand-block strong {
-  overflow: visible;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   color: color-mix(in srgb, var(--text-strong) 72%, var(--primary));
   font-size: 12px;
   font-weight: 800;
@@ -203,7 +207,7 @@
   flex-wrap: nowrap;
   justify-content: flex-end;
   align-items: center;
-  gap: 1px;
+  gap: 0;
   min-width: max-content;
   max-width: none;
   overflow: visible;
@@ -303,15 +307,15 @@
 }
 
 .title-toolbar .window-actions .close-button:hover {
-  background: color-mix(in srgb, #ff5a4d 22%, transparent) !important;
-  border-color: color-mix(in srgb, #ff5a4d 45%, transparent) !important;
-  color: #ff9b8f;
+  background: #e5484d !important;
+  border-color: #e5484d !important;
+  color: #fff;
 }
 
 .title-toolbar .window-actions .close-button:active {
-  background: color-mix(in srgb, #ff5a4d 28%, transparent);
-  border-color: color-mix(in srgb, #ff5a4d 55%, transparent);
-  color: #ff9b8f;
+  background: #c93c41 !important;
+  border-color: #c93c41 !important;
+  color: #fff;
 }
 
 .title-toolbar button.tool-button {
@@ -444,10 +448,10 @@
 .toolbar-opacity {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   height: 30px;
-  margin: 0 3px;
-  padding: 0 4px;
+  margin: 0 1px;
+  padding: 0 3px;
   border: 1px solid transparent;
   color: var(--muted);
   /* Blend into the toolbar like the icon buttons (no pill background). */
@@ -455,13 +459,13 @@
 }
 
 .toolbar-opacity input[type='range'] {
-  width: 74px;
+  width: 56px;
   margin: 0;
   cursor: pointer;
 }
 
 .toolbar-opacity-value {
-  min-width: 30px;
+  min-width: 26px;
   color: var(--muted);
   font-size: 11px;
   font-variant-numeric: tabular-nums;
@@ -1009,9 +1013,13 @@ select {
 
 .remote-form input {
   flex: 1;
+  min-width: 0;
   border: 0;
   background: transparent;
   outline: 0;
+  color: var(--text);
+  user-select: text;
+  pointer-events: auto;
 }
 
 .volume-control {
@@ -1207,6 +1215,46 @@ select {
 .track-remove:hover {
   color: #ff9b8f;
   background: color-mix(in srgb, #ff5a4d 14%, transparent);
+}
+
+/* Direct child of .station-shell: keep it out of the flex flow (see the
+   position: relative rule near the top of this file). */
+.station-shell > .track-context-menu,
+.track-context-menu {
+  position: absolute;
+  z-index: 1100;
+  display: grid;
+  min-width: 168px;
+  gap: 2px;
+  padding: 4px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+
+.track-context-menu button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 28px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 5px;
+  color: var(--text);
+  background: transparent;
+  text-align: left;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.track-context-menu button:hover {
+  background: var(--active);
+}
+
+.track-context-menu button.danger {
+  color: color-mix(in srgb, #c04545 80%, var(--text));
 }
 
 .track-list span {
@@ -1598,6 +1646,34 @@ button:hover,
   grid-template-columns: 1fr;
 }
 
+.extract-dialog {
+  width: min(420px, calc(100vw - 24px));
+}
+
+.extract-hint {
+  margin: 0 0 4px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.settings-row-stack {
+  grid-template-columns: 1fr;
+  align-items: stretch;
+}
+
+.settings-row-stack input[type='url'] {
+  width: 100%;
+  min-width: 0;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--text);
+  background: color-mix(in srgb, var(--panel) 88%, transparent);
+  font-size: 11px;
+}
+
 .convert-track-name {
   overflow: hidden;
   color: var(--text-strong);
@@ -1879,6 +1955,14 @@ button:hover,
   gap: 8px;
 }
 
+.mini-brand {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  background: url('../asset/app-icon.svg') center / cover no-repeat;
+}
+
 .mini-toolbar-group {
   display: flex;
   gap: 5px;
@@ -2123,7 +2207,8 @@ button:hover,
 
 .mini-close:hover {
   border-color: #e5484d;
-  color: #e5484d;
+  background: #e5484d;
+  color: #fff;
 }
 
 .mini-button:disabled {

@@ -79,15 +79,26 @@ fn which_ffmpeg() -> Option<PathBuf> {
     None
 }
 
-fn codec_args(format: &str) -> Result<&'static [&'static str], String> {
-    match format {
-        "wav" => Ok(&["-c:a", "pcm_s16le"]),
-        "mp3" => Ok(&["-c:a", "libmp3lame", "-q:a", "2"]),
-        "flac" => Ok(&["-c:a", "flac"]),
-        "ogg" => Ok(&["-c:a", "libvorbis", "-q:a", "5"]),
-        "m4a" | "aac" => Ok(&["-c:a", "aac", "-b:a", "192k"]),
-        _ => Err(format!("지원하지 않는 형식입니다: {format}")),
-    }
+fn codec_args(format: &str, quality: &str) -> Result<Vec<&'static str>, String> {
+    let quality = match quality {
+        "medium" | "low" | "high" => quality,
+        _ => "high",
+    };
+
+    Ok(match (format, quality) {
+        ("wav", _) => vec!["-c:a", "pcm_s24le"],
+        ("flac", _) => vec!["-c:a", "flac", "-compression_level", "8"],
+        ("mp3", "high") => vec!["-c:a", "libmp3lame", "-b:a", "320k"],
+        ("mp3", "medium") => vec!["-c:a", "libmp3lame", "-b:a", "192k"],
+        ("mp3", "low") => vec!["-c:a", "libmp3lame", "-b:a", "128k"],
+        ("ogg", "high") => vec!["-c:a", "libvorbis", "-q:a", "8"],
+        ("ogg", "medium") => vec!["-c:a", "libvorbis", "-q:a", "5"],
+        ("ogg", "low") => vec!["-c:a", "libvorbis", "-q:a", "3"],
+        ("m4a" | "aac", "high") => vec!["-c:a", "aac", "-b:a", "256k"],
+        ("m4a" | "aac", "medium") => vec!["-c:a", "aac", "-b:a", "160k"],
+        ("m4a" | "aac", "low") => vec!["-c:a", "aac", "-b:a", "96k"],
+        _ => return Err(format!("지원하지 않는 형식입니다: {format}")),
+    })
 }
 
 fn normalize_format(format: &str) -> Result<String, String> {
@@ -115,8 +126,14 @@ pub fn convert_audio(
     input_bytes: Option<Vec<u8>>,
     output_path: String,
     format: String,
+    quality: Option<String>,
 ) -> Result<(), String> {
     let format = normalize_format(&format)?;
+    let quality = quality
+        .as_deref()
+        .unwrap_or("high")
+        .trim()
+        .to_ascii_lowercase();
     let ffmpeg = resolve_ffmpeg(&app)?;
     let output = PathBuf::from(&output_path);
     ensure_parent_dir(&output)?;
@@ -144,7 +161,7 @@ pub fn convert_audio(
         return Err("변환할 오디오 입력(경로 또는 데이터)이 없습니다.".to_string());
     };
 
-    let codec = codec_args(&format)?;
+    let codec = codec_args(&format, &quality)?;
 
     let mut command = Command::new(&ffmpeg);
     configure_hidden(

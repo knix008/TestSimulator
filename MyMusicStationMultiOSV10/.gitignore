@@ -12,8 +12,11 @@ node_modules
 dist
 dist-ssr
 src-tauri/target
+src-tauri/gen
 src-tauri/ffmpeg/*
 !src-tauri/ffmpeg/.gitkeep
+src-tauri/yt-dlp/*
+!src-tauri/yt-dlp/.gitkeep
 *.local
 
 # Local music samples (keep folder via .gitkeep)
@@ -27,6 +30,19 @@ music/*
 /*.AppImage
 /*.deb
 /*.rpm
+
+# TypeScript incremental build info
+*.tsbuildinfo
+
+# Temporary agent / patch scratch files
+scripts/_patch*.txt
+scripts/_*.tmp
+.claude/settings.local.json
+
+# Runtime data the app writes next to a dev run (never source)
+session-playlist.json
+app-settings.json
+shell-settings.json
 
 # Editor directories and files
 .vscode/*
