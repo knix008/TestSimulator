@@ -36,21 +36,21 @@ func installedExePath(target string) string {
 	return filepath.Join(target, exeName())
 }
 
-func install(target, name string, data []byte) error {
+func install(target, name string) error {
 	if runtime.GOOS == "darwin" {
-		return installMac(target, name, data)
+		return installMac(target, name)
 	}
-	return installLinux(target, name, data)
+	return installLinux(target, name)
 }
 
 // installLinux 는 실행 파일과 아이콘을 두고 프로그램 목록에 항목을 만든다.
-func installLinux(target, name string, data []byte) error {
+func installLinux(target, name string) error {
 	if err := os.MkdirAll(target, 0o755); err != nil {
 		return fmt.Errorf("폴더를 만들지 못했습니다: %w", err)
 	}
 	exe := filepath.Join(target, name)
-	if err := os.WriteFile(exe, data, 0o755); err != nil {
-		return fmt.Errorf("실행 파일을 쓰지 못했습니다: %w", err)
+	if err := extractPayload(exe); err != nil {
+		return err
 	}
 
 	home, _ := os.UserHomeDir()
@@ -92,7 +92,7 @@ func installLinux(target, name string, data []byte) error {
 }
 
 // installMac 은 .app 묶음을 만든다.
-func installMac(target, name string, data []byte) error {
+func installMac(target, name string) error {
 	macOS := filepath.Join(target, "Contents", "MacOS")
 	res := filepath.Join(target, "Contents", "Resources")
 
@@ -102,8 +102,8 @@ func installMac(target, name string, data []byte) error {
 		}
 	}
 
-	if err := os.WriteFile(filepath.Join(macOS, name), data, 0o755); err != nil {
-		return fmt.Errorf("실행 파일을 쓰지 못했습니다: %w", err)
+	if err := extractPayload(filepath.Join(macOS, name)); err != nil {
+		return err
 	}
 	_ = os.WriteFile(filepath.Join(res, "chunjiin.png"), assets.Icon.Content(), 0o644)
 

@@ -18,7 +18,7 @@ import (
 	"fyne.io/fyne/v2/canvas"
 	"golang.org/x/image/font/sfnt"
 
-	"github.com/knix008/chunjiin/assets"
+	"github.com/knix008/chunjiin/assets/fonts"
 	"github.com/knix008/chunjiin/internal/engine"
 )
 
@@ -501,6 +501,9 @@ func TestKeyLabelMatchesPhysicalKey(t *testing.T) {
 			s.Commit()
 
 			want := string([]rune(label)[0])
+			if want == "ㆍ" {
+				want = "·"
+			}
 			if got := s.Text(); got != want {
 				t.Errorf("%q 키(=키패드 %d, 라벨 %q) -> %q, 기대: %q",
 					name, key, label, got, want)
@@ -654,6 +657,35 @@ func TestThemeNamesFor(t *testing.T) {
 	}
 }
 
+// TestShowAraea 는 폭이 다른 아래아 기호를 한글 칸 자모로 바꾸는지 본다.
+func TestShowAraea(t *testing.T) {
+	cases := []struct{ in, want string }{
+		{"", ""},
+		{"가", "가"},
+		{"·", "ㆍ"},
+		{"‥", "ㆎ"},
+		{"ㄱ·", "ㄱㆍ"},
+		{"ㄱ‥", "ㄱㆎ"},
+		{"·ㄱ", "ㆍㄱ"},
+		{"안녕", "안녕"},
+		{"ㄱ + · + -", "ㄱ + ㆍ + -"},
+	}
+	for _, c := range cases {
+		if got := showAraea(c.in); got != c.want {
+			t.Errorf("showAraea(%q) = %q, 기대: %q", c.in, got, c.want)
+		}
+	}
+}
+
+// TestAraeaDisplayGlyphs 는 화면에 쓰는 아래아가 내장 글꼴에 있는지 본다.
+func TestAraeaDisplayGlyphs(t *testing.T) {
+	for _, r := range []rune{'ㆍ', 'ㆎ', 'ㄱ', 'ㅏ'} {
+		if !fontHasRune(t, r) {
+			t.Errorf("%q (U+%04X) 가 내장 글꼴에 없다", string(r), r)
+		}
+	}
+}
+
 // TestFnLabelGlyphs 는 기능 버튼 라벨의 글자가 내장 글꼴에 있는지 본다.
 //
 // 버튼은 FontSource 로 글꼴을 못박으므로 대체 글꼴이 끼어들지 않는다.
@@ -684,7 +716,7 @@ func TestFnLabelGlyphs(t *testing.T) {
 func fontHasRune(t *testing.T, r rune) bool {
 	t.Helper()
 
-	face, err := sfnt.Parse(assets.FontRegular.Content())
+	face, err := sfnt.Parse(fonts.Regular.Content())
 	if err != nil {
 		t.Fatalf("글꼴을 읽지 못했다: %v", err)
 	}

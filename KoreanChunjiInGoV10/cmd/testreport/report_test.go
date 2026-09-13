@@ -199,3 +199,28 @@ func TestGroupTitle(t *testing.T) {
 		}
 	}
 }
+
+// TestSummaryLine 은 스크립트용 한 줄 집계가 세는 방식을 본다.
+// test.bat 이 이 줄을 읽어 마지막 요약을 찍는다.
+func TestSummaryLine(t *testing.T) {
+	cases := []struct {
+		name   string
+		leaves []result
+		want   string
+	}{
+		{"빈 것", nil, "total=0 pass=0 fail=0 skip=0 result=PASS"},
+		{"모두 통과", []result{
+			{name: "a", action: "pass"}, {name: "b", action: "pass"},
+		}, "total=2 pass=2 fail=0 skip=0 result=PASS"},
+		{"하나 실패", []result{
+			{name: "a", action: "pass"}, {name: "b", action: "fail"}, {name: "c", action: "skip"},
+		}, "total=3 pass=1 fail=1 skip=1 result=FAIL"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := summaryLine(c.leaves); got != c.want {
+				t.Errorf("summaryLine = %q, 기대: %q", got, c.want)
+			}
+		})
+	}
+}

@@ -83,13 +83,19 @@ sudo pacman -S gcc libx11 libxcursor libxrandr libxinerama mesa libxi
 ```
 
 Windows 판은 `-H windowsgui` 로 빌드합니다. 그래야 창을 띄울 때
-검은 콘솔이 따라 뜨지 않습니다.
+검은 콘솔이 따라 뜨지 않습니다. 탐색기와 작업 표시줄에 쓰는 아이콘은
+`scripts\embed-win-icon.ps1` 이 `assets\chunjiin.ico` 를 실행 파일에 박습니다.
+`build.ps1` 과 `package.ps1` 이 빌드 전에 이 과정을 돌립니다.
 
 ### 손으로 빌드하기
 
 ```sh
 go build -o chunjiin ./cmd/chunjiin                       # Linux · macOS
-go build -ldflags "-H windowsgui" -o chunjiin.exe ./cmd/chunjiin   # Windows
+```
+
+```powershell
+.\scripts\embed-win-icon.ps1                              # Windows 아이콘
+go build -ldflags "-H windowsgui" -o chunjiin.exe ./cmd/chunjiin
 ```
 
 판 번호를 박으려면:
@@ -223,7 +229,7 @@ Inno Setup, NSIS, dpkg, rpm 같은 다른 도구는 필요 없습니다.
 | 운영체제 | 파일 | 크기 |
 |---|---|---|
 | Windows | `chunjiin.exe` | 약 35 MB |
-| Windows | `chunjiin-setup.exe` | 약 71 MB |
+| Windows | `chunjiin-setup.exe` | 약 59 MB |
 | Linux | `chunjiin`, `chunjiin-setup`, `chunjiin-1.0-linux-amd64.tar.gz` | |
 | macOS | `Chunjiin.app`, `chunjiin-1.0-macos-arm64.dmg` | |
 
@@ -319,6 +325,12 @@ Windows 에서 Linux 실행 파일을 바로 만들 수는 없습니다.
 → `go build ./cmd/chunjiin-setup` 을 직접 돌렸기 때문입니다.
    `scripts/package.*` 를 쓰세요. 그 스크립트가 앱을 먼저 빌드해
    `payload/` 에 넣습니다.
+
+**탐색기에서 실행 파일 아이콘이 기본 모양이다**
+→ Windows 는 떠 있는 창의 `SetIcon` 과 `.exe` 파일 아이콘을 따로 봅니다.
+   `.\scripts\embed-win-icon.ps1` 뒤에 `build.ps1` 또는 `package.ps1` 을
+   다시 돌리세요. 이미 있는 바로 가기는 탐색기를 새로 고치거나
+   다시 설치해야 아이콘이 바뀝니다.
 
 **웹 판이 "엔진을 불러오지 못했습니다" 라고 함**
 → `chunjiin.wasm` 이 `index.html` 과 같은 폴더에 있는지 보세요.

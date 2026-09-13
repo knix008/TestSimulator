@@ -76,6 +76,7 @@ def main():
                     sizes=[(s, s) for s in SIZES])
     frames[-1].save(os.path.join(OUT_DIR, "chunjiin.png"), format="PNG")
     print("wrote", ico)
+    print("Windows 실행 파일에 넣으려면:  .\\scripts\\embed-win-icon.ps1")
 
 
 if __name__ == "__main__":

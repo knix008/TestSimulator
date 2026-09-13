@@ -311,10 +311,10 @@ WASM 은 약 1.8 MB 입니다. Fyne 을 그대로 웹으로 올리면 글꼴까�
 실행 파일을 `go:embed` 로 자기 안에 품고 있다가 설치 폴더에 풉니다.
 관리자 권한이 필요 없고, 다른 설치 도구를 깔지 않아도 됩니다.
 
-- **Windows** — 실행 파일을 놓고, PowerShell 의 `WScript.Shell` 로 시작 메뉴
+- **Windows** — 실행 파일을 놓고, `cscript` 의 `WScript.Shell` 로 시작 메뉴
   바로 가기를 만들고, `HKCU\...\Uninstall\Chunjiin` 에 등록 정보를 씁니다.
-  제거할 때는 자기 자신이 그 폴더에서 돌고 있으면 지울 수 없으므로,
-  잠깐 기다렸다 지우는 `cmd` 를 띄우고 물러납니다.
+  설정 > 앱 제거는 작은 `uninstall.bat` 가 맡습니다. 설치 프로그램 자신을
+  복사하지 않습니다.
 - **Linux** — `~/.local/share/Chunjiin` 에 놓고, `~/.local/bin` 에 링크를 걸고,
   `.desktop` 항목과 아이콘을 만듭니다.
 - **macOS** — `~/Applications/Chunjiin.app` 묶음을 만듭니다.

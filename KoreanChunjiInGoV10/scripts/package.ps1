@@ -4,10 +4,11 @@
 #
 # 하는 일
 #   1. 시험을 돌린다 (-SkipTest 면 건너뛴다)
-#   2. 앱을 빌드한다                        -> chunjiin.exe
-#   3. 그 실행 파일을 설치 프로그램 안에 넣는다
-#   4. 설치 프로그램을 빌드한다             -> chunjiin-setup.exe
-#   5. 둘 다 저장소 루트에 둔다
+#   2. Windows 아이콘 리소스를 만든다
+#   3. 앱을 빌드한다                        -> chunjiin.exe
+#   4. 그 실행 파일을 설치 프로그램 안에 넣는다
+#   5. 설치 프로그램을 빌드한다             -> chunjiin-setup.exe
+#   6. 둘 다 저장소 루트에 둔다
 #
 # 설치 프로그램은 다른 도구(Inno Setup, NSIS)를 필요로 하지 않는다.
 # Go 로 짜인 GUI 설치기가 실행 파일을 자기 안에 품는다.
@@ -35,6 +36,10 @@ if (-not $SkipTest) {
     go test ./...
     if ($LASTEXITCODE -ne 0) { throw '시험이 실패했다. 설치용 파일을 만들지 않는다.' }
 }
+
+Write-Host '-- Windows 아이콘' -ForegroundColor Cyan
+& "$root\scripts\embed-win-icon.ps1" -Version $Version
+if ($LASTEXITCODE -ne 0) { throw '아이콘 리소스 만들기 실패' }
 
 Write-Host '-- 앱 빌드' -ForegroundColor Cyan
 go build -ldflags "-H windowsgui $ldApp" -o chunjiin.exe ./cmd/chunjiin

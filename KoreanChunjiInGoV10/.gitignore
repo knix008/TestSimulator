@@ -19,6 +19,12 @@
 /web/wasm_exec.js
 /web/chunjiin.png
 
+# Windows 아이콘 리소스 ------------------------------------------------
+# scripts/embed-win-icon.ps1 이 빌드 직전에 만든다.
+# _windows_amd64 접미사가 있어 다른 운영체제 빌드에는 붙지 않는다.
+/cmd/chunjiin/rsrc_windows_*.syso
+/cmd/chunjiin-setup/rsrc_windows_*.syso
+
 # 설치 프로그램이 품는 실행 파일 ---------------------------------------
 # 빌드하는 동안에만 놓였다가 지워진다. 남아 있으면 실수로 커밋된다.
 /cmd/chunjiin-setup/payload/chunjiin

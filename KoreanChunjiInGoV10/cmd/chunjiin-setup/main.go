@@ -10,11 +10,17 @@
 //
 // 품고 있는 실행 파일은 payload 폴더에서 온다. scripts/package.ps1 (또는
 // package.sh) 가 앱을 먼저 빌드해 그 폴더에 넣은 뒤 이 프로그램을 빌드한다.
+//
+// Windows 탐색기 아이콘은 rsrc_windows_amd64.syso 가 담당한다.
+// scripts/embed-win-icon.ps1 또는 아래 generate 로 만든다.
 package main
+
+//go:generate go run github.com/tc-hib/go-winres@v0.3.3 simply --icon ../../assets/chunjiin.ico --arch amd64 --manifest gui --product-name 천지인 한글 입력기 --file-description 천지인 한글 입력기 설치 --original-filename chunjiin-setup.exe --product-version 1.0.0.0 --file-version 1.0.0.0
 
 import (
 	"embed"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -45,10 +51,52 @@ func exeName() string {
 	return "chunjiin"
 }
 
-// hasPayload 는 설치할 실행 파일이 실제로 들어 있는지 본다.
+func payloadPath() string { return "payload/" + exeName() }
+
+// hasPayload 는 설치할 실행 파일이 들어 있는지만 본다.
+// ReadFile 은 수십 MB 를 메모리에 올리므로 쓰면 창이 뜨기 전에 멈춘다.
 func hasPayload() bool {
-	_, err := payload.ReadFile("payload/" + exeName())
-	return err == nil
+	f, err := payload.Open(payloadPath())
+	if err != nil {
+		return false
+	}
+	_ = f.Close()
+	return true
+}
+
+// extractPayload 는 품고 있는 실행 파일을 dest 로 흘려 보낸다.
+func extractPayload(dest string) error {
+	if err := copyPayload(dest); err == nil {
+		return nil
+	}
+	old := dest + ".old"
+	_ = os.Remove(old)
+	if err := os.Rename(dest, old); err != nil {
+		return fmt.Errorf("실행 파일을 쓰지 못했습니다(프로그램이 실행 중일 수 있습니다): %w", err)
+	}
+	if err := copyPayload(dest); err != nil {
+		return fmt.Errorf("실행 파일을 쓰지 못했습니다: %w", err)
+	}
+	return nil
+}
+
+func copyPayload(dest string) error {
+	src, err := payload.Open(payloadPath())
+	if err != nil {
+		return fmt.Errorf("품고 있는 실행 파일을 읽지 못했습니다: %w", err)
+	}
+	defer src.Close()
+
+	f, err := os.OpenFile(dest, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o755)
+	if err != nil {
+		return err
+	}
+	_, copyErr := io.Copy(f, src)
+	closeErr := f.Close()
+	if copyErr != nil {
+		return copyErr
+	}
+	return closeErr
 }
 
 func main() {
@@ -73,6 +121,7 @@ type setupUI struct {
 	status    *widget.Label
 	install   *widget.Button
 	remove    *widget.Button
+	busy      bool
 }
 
 func newSetupUI(a fyne.App, w fyne.Window) *setupUI {
@@ -138,30 +187,51 @@ func (u *setupUI) content() fyne.CanvasObject {
 	))
 }
 
+func (u *setupUI) setBusy(on bool) {
+	u.busy = on
+	if on {
+		u.install.Disable()
+		u.remove.Disable()
+		u.pathEntry.Disable()
+	} else {
+		u.install.Enable()
+		u.remove.Enable()
+		u.pathEntry.Enable()
+	}
+}
+
 func (u *setupUI) doInstall() {
+	if u.busy {
+		return
+	}
 	target := u.pathEntry.Text
 	if target == "" {
 		u.status.SetText("설치 폴더를 정해 주세요.")
 		return
 	}
 
-	data, err := payload.ReadFile("payload/" + exeName())
-	if err != nil {
-		u.fail(fmt.Errorf("품고 있는 실행 파일을 읽지 못했습니다: %w", err))
-		return
-	}
+	u.setBusy(true)
+	u.status.SetText("설치하는 중입니다…")
 
-	if err := install(target, exeName(), data); err != nil {
-		u.fail(err)
-		return
-	}
-
-	u.status.SetText("설치를 마쳤습니다.\n" + target)
-	dialog.ShowInformation("설치 완료",
-		"천지인 한글 입력기를 설치했습니다.\n\n"+target, u.win)
+	go func() {
+		err := install(target, exeName())
+		fyne.Do(func() {
+			u.setBusy(false)
+			if err != nil {
+				u.fail(err)
+				return
+			}
+			u.status.SetText("설치를 마쳤습니다.\n" + target)
+			dialog.ShowInformation("설치 완료",
+				"천지인 한글 입력기를 설치했습니다.\n\n"+target, u.win)
+		})
+	}()
 }
 
 func (u *setupUI) doRemove() {
+	if u.busy {
+		return
+	}
 	target := u.pathEntry.Text
 
 	if !installed(target) {
@@ -171,14 +241,22 @@ func (u *setupUI) doRemove() {
 
 	dialog.ShowConfirm("제거", "설치한 파일을 모두 지울까요?\n\n"+target,
 		func(ok bool) {
-			if !ok {
+			if !ok || u.busy {
 				return
 			}
-			if err := uninstall(target); err != nil {
-				u.fail(err)
-				return
-			}
-			u.status.SetText("제거를 마쳤습니다.")
+			u.setBusy(true)
+			u.status.SetText("제거하는 중입니다…")
+			go func() {
+				err := uninstall(target)
+				fyne.Do(func() {
+					u.setBusy(false)
+					if err != nil {
+						u.fail(err)
+						return
+					}
+					u.status.SetText("제거를 마쳤습니다.")
+				})
+			}()
 		}, u.win)
 }
 

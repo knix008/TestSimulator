@@ -306,14 +306,23 @@ function buildKeypad() {
   }
 }
 
+// showAraea 는 엔진의 아래아 기호를 화면용 한글 자모로 바꾼다.
+// ·(U+00B7) 와 ‥(U+2025) 는 한글보다 폭이 달라 두 번 누르면
+// 그 뒤 글자 칸이 어긋져 보인다. ㆍ 와 ㆎ 는 한글과 같은 폭이다.
+function showAraea(s) {
+  if (!s) return s;
+  return s.replace(/·/g, 'ㆍ').replace(/‥/g, 'ㆎ');
+}
+
 // render 는 엔진 상태를 화면에 옮긴다.
 function render() {
   if (!snap) return;
 
-  if (editor.value !== snap.text) editor.value = snap.text;
-  editor.selectionStart = editor.selectionEnd = codeUnitOf(snap.text, snap.cursor);
+  const shown = showAraea(snap.text);
+  if (editor.value !== shown) editor.value = shown;
+  editor.selectionStart = editor.selectionEnd = codeUnitOf(shown, snap.cursor);
 
-  const comp = snap.composition || t.none;
+  const comp = showAraea(snap.composition || '') || t.none;
   $('status').textContent =
     `${t.modes[snap.mode]}    ${t.composing} ${comp}    ${snap.length}${t.chars}`;
 

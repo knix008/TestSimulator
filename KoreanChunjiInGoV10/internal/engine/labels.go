@@ -8,7 +8,7 @@ package engine
 import "strings"
 
 var labelHangul = [KeyCount]string{
-	"ㅣ", "·", "ㅡ",
+	"ㅣ", "ㆍ", "ㅡ",
 	"ㄱㅋ", "ㄴㄹ", "ㄷㅌ",
 	"ㅂㅍ", "ㅅㅎ", "ㅈㅊ",
 	". ,", "ㅇㅁ", "? !",

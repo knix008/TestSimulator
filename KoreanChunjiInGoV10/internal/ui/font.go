@@ -8,13 +8,13 @@ package ui
 import (
 	"fyne.io/fyne/v2"
 
-	"github.com/knix008/chunjiin/assets"
+	"github.com/knix008/chunjiin/assets/fonts"
 )
 
 // fontFor 는 굵기에 맞는 글꼴 자원을 돌려준다.
 func fontFor(bold bool) fyne.Resource {
 	if bold {
-		return assets.FontBold
+		return fonts.Bold
 	}
-	return assets.FontRegular
+	return fonts.Regular
 }

@@ -179,7 +179,9 @@ func TestAppSmoke(t *testing.T) {
 	t.Run("아래아 표시", func(t *testing.T) {
 		a.doClear()
 		a.typeSeq(t, "31")
-		check(t, "ㄱ·", a.text(), "ㄱ·")
+		check(t, "ㄱ·", a.text(), "ㄱㆍ")
+		a.typeSeq(t, "1")
+		check(t, "ㄱ‥", a.text(), "ㄱㆎ")
 	})
 
 	t.Run("겹받침 병합", func(t *testing.T) {

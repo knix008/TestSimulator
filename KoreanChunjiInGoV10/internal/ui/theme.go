@@ -11,7 +11,7 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/theme"
 
-	"github.com/knix008/chunjiin/assets"
+	"github.com/knix008/chunjiin/assets/fonts"
 )
 
 // BtnRole 은 버튼의 역할이다. 역할마다 색이 다르다.
@@ -247,9 +247,9 @@ func (t *appTheme) Color(name fyne.ThemeColorName, _ fyne.ThemeVariant) color.Co
 // 도움말 같은 곳에서 네모가 나오기 때문이다.
 func (t *appTheme) Font(style fyne.TextStyle) fyne.Resource {
 	if style.Bold {
-		return assets.FontBold
+		return fonts.Bold
 	}
-	return assets.FontRegular
+	return fonts.Regular
 }
 
 // Icon 은 Fyne 이 들고 있는 기본 아이콘을 그대로 쓴다.

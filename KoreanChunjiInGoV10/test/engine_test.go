@@ -77,6 +77,11 @@ func TestKeyLabels(t *testing.T) {
 					t.Fatalf("라벨이 비어 있다")
 				}
 				want := string([]rune(label)[0])
+				// 아래아 키는 화면 라벨만 한글 폭 자모(ㆍ) 를 쓴다.
+				// 엔진 버퍼는 C++ 원본과 같이 · 를 둔다.
+				if want == "ㆍ" {
+					want = "·"
+				}
 
 				s.Key(key)
 				s.Commit()

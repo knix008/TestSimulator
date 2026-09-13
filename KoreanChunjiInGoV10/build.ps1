@@ -24,6 +24,12 @@ $ldflags = "-s -w -X github.com/knix008/chunjiin/internal/ui.Version=$version"
 Write-Host '== 천지인 한글 입력기 빌드' -ForegroundColor Cyan
 Write-Host ("   Go        " + (go version))
 
+# 탐색기·작업 표시줄이 보는 아이콘은 실행 파일 리소스로 박아야 한다.
+# Fyne 의 SetIcon 은 떠 있는 창에만 쓰고, .exe 파일 아이콘은 바꾸지 않는다.
+Write-Host '-- Windows 아이콘' -ForegroundColor Cyan
+& "$root\scripts\embed-win-icon.ps1" -Version $version
+if ($LASTEXITCODE -ne 0) { throw '아이콘 리소스 만들기 실패' }
+
 # 데스크톱 앱. -H windowsgui 를 주어야 콘솔 창이 따라 뜨지 않는다.
 Write-Host '-- 데스크톱 앱' -ForegroundColor Cyan
 go build -ldflags "-H windowsgui $ldflags" -o chunjiin.exe ./cmd/chunjiin

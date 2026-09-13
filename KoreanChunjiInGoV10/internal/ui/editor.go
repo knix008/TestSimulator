@@ -150,3 +150,31 @@ func flatPosOf(text string, row, col int) int {
 	}
 	return pos + col
 }
+
+// showAraea 는 엔진이 쓰는 아래아 기호를 화면용 한글 자모로 바꾼다.
+//
+// 엔진과 C++ 원본은 중간 상태를 ·(U+00B7) 와 ‥(U+2025) 로 든다.
+// Noto Sans KR 에서 · 은 0.56em, ‥ 은 전각 두점 리더(1.00em) 라서
+// 한글 자모(0.92em) 와 폭이 다르다. · 를 두 번 누르면 ‥ 가 들어가고
+// 그 뒤 글자 칸이 어긋져 보인다.
+//
+// ㆍ(U+318D) 와 ㆎ(U+318E) 는 같은 글꼴에서 한글과 같은 폭이다.
+// 엔진 버퍼는 그대로 두고 화면에만 바꾼다.
+func showAraea(s string) string {
+	if !strings.ContainsAny(s, "·‥") {
+		return s
+	}
+	var b strings.Builder
+	b.Grow(len(s))
+	for _, r := range s {
+		switch r {
+		case '·':
+			b.WriteRune('ㆍ')
+		case '‥':
+			b.WriteRune('ㆎ')
+		default:
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
+}

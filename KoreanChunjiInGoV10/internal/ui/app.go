@@ -492,7 +492,7 @@ func tipPosition(owner fyne.Position, ownerSize, tip, canvas fyne.Size) fyne.Pos
 
 // refresh 는 엔진 상태를 화면 전체에 반영한다.
 func (a *App) refresh() {
-	text := a.state.Text()
+	text := showAraea(a.state.Text())
 
 	a.editor.syncing = true
 	if a.editor.Text != text {
@@ -537,7 +537,7 @@ func (a *App) focusEditor() {
 
 // statusText 는 상태줄 한 줄이다. "한글    조합 ㄱ + ㅏ + -    3자" 꼴.
 func (a *App) statusText() string {
-	comp := a.state.CompositionText()
+	comp := showAraea(a.state.CompositionText())
 	if comp == "" {
 		comp = a.txt.StatusNone
 	}

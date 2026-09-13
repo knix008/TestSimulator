@@ -10,8 +10,9 @@
 //	go run ./cmd/testreport -cover       덮은 정도까지 잰다
 //	go run ./cmd/testreport -run 낱말    이름이 맞는 것만 돌린다
 //	go run ./cmd/testreport ./test/      그 꾸러미만 돌린다
+//	go run ./cmd/testreport -summary F   집계를 파일 F 에 한 줄로 더 쓴다 (스크립트용)
 //
-// test.ps1 과 test.sh 가 이것을 부른다.
+// test.ps1 과 test.sh, test.bat 이 이것을 부른다.
 package main
 
 import (
@@ -62,6 +63,7 @@ func main() {
 		cover   = flag.Bool("cover", false, "덮은 정도(coverage)를 잰다")
 		run     = flag.String("run", "", "이름이 맞는 시험만 돌린다")
 		noColor = flag.Bool("no-color", false, "색을 쓰지 않는다")
+		summary = flag.String("summary", "", "집계를 이 파일에 한 줄로 쓴다 (스크립트용)")
 	)
 	flag.Parse()
 
@@ -85,11 +87,46 @@ func main() {
 
 	report(groups, leaves, coverage, *verbose, c)
 
+	if *summary != "" {
+		if err := writeSummary(*summary, leaves); err != nil {
+			fmt.Fprintf(os.Stderr, "집계를 쓰지 못했습니다: %v\n", err)
+		}
+	}
+
 	for _, r := range leaves {
 		if r.action == "fail" {
 			os.Exit(1)
 		}
 	}
+}
+
+// summaryLine 은 스크립트가 읽기 쉬운 한 줄 집계다. 한글이나 색이 없다.
+//
+//	total=722 pass=722 fail=0 skip=0 result=PASS
+func summaryLine(leaves []result) string {
+	var pass, fail, skip int
+	for _, r := range leaves {
+		switch r.action {
+		case "pass":
+			pass++
+		case "fail":
+			fail++
+		case "skip":
+			skip++
+		}
+	}
+	verdict := "PASS"
+	if fail > 0 {
+		verdict = "FAIL"
+	}
+	return fmt.Sprintf("total=%d pass=%d fail=%d skip=%d result=%s",
+		pass+fail+skip, pass, fail, skip, verdict)
+}
+
+// writeSummary 는 집계 한 줄을 파일에 쓴다. .bat 처럼 화면 출력을 읽기
+// 어려운 쪽에서 결과를 가져가는 데 쓴다.
+func writeSummary(path string, leaves []result) error {
+	return os.WriteFile(path, []byte(summaryLine(leaves)+"\n"), 0o644)
 }
 
 // runTests 는 go test 를 돌리고 알림을 모은다.
