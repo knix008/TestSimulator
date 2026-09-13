@@ -4,6 +4,7 @@
 
 | 하고 싶은 것 | Windows | macOS · Linux |
 |---|---|---|
+| 바로 실행 (없으면 빌드) | `.\run.ps1` · `run.bat` | `./run.sh` |
 | 빌드해서 바로 실행 | `.\build.ps1 -Run` | `./build.sh --run` |
 | 시험 돌리기 | `.\test.ps1` | `./test.sh` |
 | 설치용 파일 만들기 | `.\scripts\package.ps1` | `./scripts/package.sh` |
@@ -67,6 +68,22 @@ sudo pacman -S gcc libx11 libxcursor libxrandr libxinerama mesa libxi
 ```
 
 ## 빌드
+
+### 바로 실행
+
+실행 파일이 이미 있으면 그걸 띄우고, 없으면 먼저 빌드합니다.
+
+```powershell
+.\run.ps1                 # PowerShell
+.\run.bat                 # 탐색기에서 더블클릭해도 된다
+```
+
+```sh
+./run.sh
+```
+
+Windows 에서는 `Start-Process` / `start` 로 창만 띄우고 스크립트는 바로 끝납니다.
+검은 콘솔이 앱에 붙어 있지 않습니다.
 
 ### 바로 실행할 실행 파일
 

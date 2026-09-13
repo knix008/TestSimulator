@@ -307,11 +307,17 @@ function buildKeypad() {
 }
 
 // showAraea 는 엔진의 아래아 기호를 화면용 한글 자모로 바꾼다.
-// ·(U+00B7) 와 ‥(U+2025) 는 한글보다 폭이 달라 두 번 누르면
-// 그 뒤 글자 칸이 어긋져 보인다. ㆍ 와 ㆎ 는 한글과 같은 폭이다.
+// ㆎ 는 Noto/시스템 글꼴에서 ㅣ 처럼 그려지므로 쓰지 않는다.
+// ㆍㆍ 로 풀면 점이 두 글자로 떨어진다. 한 점은 ㆍ, 두 점은 ᆢ 한 글자다.
 function showAraea(s) {
   if (!s) return s;
-  return s.replace(/·/g, 'ㆍ').replace(/‥/g, 'ㆎ');
+  let out = '';
+  for (const ch of s) {
+    if (ch === '‥') out += 'ᆢ';
+    else if (ch === '·') out += 'ㆍ';
+    else out += ch;
+  }
+  return out;
 }
 
 // render 는 엔진 상태를 화면에 옮긴다.
@@ -320,7 +326,8 @@ function render() {
 
   const shown = showAraea(snap.text);
   if (editor.value !== shown) editor.value = shown;
-  editor.selectionStart = editor.selectionEnd = codeUnitOf(shown, snap.cursor);
+  editor.selectionStart = editor.selectionEnd =
+    codeUnitOf(shown, snap.cursor);
 
   const comp = showAraea(snap.composition || '') || t.none;
   $('status').textContent =
@@ -595,7 +602,9 @@ function wireUp() {
     call('insertText', (e.clipboardData || window.clipboardData).getData('text'));
   });
   editor.addEventListener('click', () => {
-    if (snap) call('setCursor', charPosOf(editor.value, editor.selectionStart));
+    if (snap) {
+      call('setCursor', charPosOf(editor.value, editor.selectionStart));
+    }
   });
   document.addEventListener('keydown', (e) => {
     if (document.activeElement !== editor) onKeyDown(e);

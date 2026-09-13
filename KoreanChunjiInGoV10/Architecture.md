@@ -44,7 +44,7 @@
 | `check_double()` 의 if 사슬 | `map[string]map[string]string` | 같은 표 |
 | `chunjiin_process_input()` | `State.Key(int)` | |
 | `HKCU\Software\Chunjiin` | `settings.json` | 레지스트리는 Windows 에만 있다 |
-| `IShellLinkW` 바로 가기 | 설치 프로그램이 PowerShell 로 만든다 | COM 의존을 줄인다 |
+| `IShellLinkW` 바로 가기 | 설치 프로그램이 `cscript` 로 만든다 | PowerShell 은 켜지는 데 수 초가 걸린다 |
 
 ### 원본의 함정을 그대로 둔 곳
 
@@ -127,6 +127,18 @@ TextBuffer : 안 녕 하 세 요 ㄱ ·
 `GetUnicode()` 를 부르고 되돌립니다. 원본을 고치지 않고 원하는 값을 얻는
 방법이고, Go 판도 같은 수를 씁니다.
 
+엔진 버퍼는 C++ 원본과 같이 `·`(U+00B7) 와 `‥`(U+2025) 를 둡니다.
+화면만 `showAraea()` 가 바꿉니다.
+
+```
+엔진 ·   →  화면 ㆍ     (U+318D, 한글과 같은 폭)
+엔진 ‥   →  화면 ᆢ     (U+11A2, 한 칸에 점 두 개)
+```
+
+`ㆍㆍ` 로 풀면 점이 한글 두 칸으로 떨어져 보이고, `ㆎ`(U+318E) 는
+이 글꼴에서 `ㅣ` 로 그려져 쓰지 않습니다. 저장·복사는 엔진 버퍼를 쓰므로
+파일에는 원본과 같은 `·` `‥` 가 남습니다.
+
 ## 오토마타
 
 ### 모음
@@ -199,6 +211,7 @@ C++ 판이 읽기 전용 `EDIT` 컨트롤을 서브클래스해서 하던 일과
 
 엔진은 커서를 "몇 번째 글자" 하나로 들고, `Entry` 는 (줄, 칸) 두 값으로
 듭니다. `rowColOf()` / `flatPosOf()` 가 그 사이를 옮깁니다.
+아래아 화면 글자(`ㆍ`, `ᆢ`)는 엔진 칸과 1:1 입니다.
 
 ### 커서를 늘 보이게
 
@@ -231,10 +244,21 @@ python -m fontTools.varLib.instancer -o NotoSansKR-Bold.ttf    NotoSansKR[wght].
 버튼과 상태줄은 `canvas.Text` 의 `FontSource` 로 글꼴을 못박습니다.
 테마를 거치는 경로는 글꼴 캐시를 타서 굵기가 제때 반영되지 않는 일이 있습니다.
 
+글꼴은 `assets/fonts` 패키지에만 있습니다. 설치 프로그램은 아이콘만 쓰는
+`assets` 패키지를 가져오므로 글꼴 12MB 를 한 번 더 품지 않습니다.
+
 글꼴에 없는 글자를 라벨로 쓰면 버튼이 빈칸으로 나옵니다. `↵`(U+21B5)와
 `⌫`(U+232B)가 Noto Sans KR 에 없어서 실제로 겪은 일입니다. 그래서 그 두
 자리는 글자가 아니라 직접 그린 그림(`icons.go`)을 씁니다. 글자로 적는
 자리는 `TestFnLabelGlyphs` 가 내장 글꼴에 그 글자가 있는지 확인합니다.
+
+### Windows 실행 파일 아이콘
+
+`app.SetIcon()` 은 떠 있는 창에만 그림을 붙입니다. 탐색기·작업 표시줄·
+바로 가기가 보는 아이콘은 PE 리소스여야 합니다.
+`scripts/embed-win-icon.ps1` 이 `assets/chunjiin.ico` 로
+`rsrc_windows_amd64.syso` 를 만들어 `cmd/chunjiin` 과
+`cmd/chunjiin-setup` 에 둡니다. `go build` 가 자동으로 집어넣습니다.
 
 ### 테마
 
@@ -311,10 +335,14 @@ WASM 은 약 1.8 MB 입니다. Fyne 을 그대로 웹으로 올리면 글꼴까�
 실행 파일을 `go:embed` 로 자기 안에 품고 있다가 설치 폴더에 풉니다.
 관리자 권한이 필요 없고, 다른 설치 도구를 깔지 않아도 됩니다.
 
+창이 멈추지 않도록 설치·제거는 고루틴에서 하고, `fyne.Do` 로 화면만
+되돌립니다. 품고 있는 실행 파일은 있는지만 확인한 뒤(`Open`), 설치할 때
+디스크에 흘려 보냅니다. 시작할 때 통째로 메모리에 올리지 않습니다.
+
 - **Windows** — 실행 파일을 놓고, `cscript` 의 `WScript.Shell` 로 시작 메뉴
   바로 가기를 만들고, `HKCU\...\Uninstall\Chunjiin` 에 등록 정보를 씁니다.
-  설정 > 앱 제거는 작은 `uninstall.bat` 가 맡습니다. 설치 프로그램 자신을
-  복사하지 않습니다.
+  설정 > 앱 제거는 작은 `uninstall.bat` 가 맡습니다. 설치 프로그램 자신
+  (수십 MB)을 복사하지 않습니다.
 - **Linux** — `~/.local/share/Chunjiin` 에 놓고, `~/.local/bin` 에 링크를 걸고,
   `.desktop` 항목과 아이콘을 만듭니다.
 - **macOS** — `~/Applications/Chunjiin.app` 묶음을 만듭니다.
@@ -375,6 +403,7 @@ C 코드에서도 계산으로 만들어지는 것(영문 26자 전수, 라벨-�
 - `TestKeyLabels` — 다섯 모드 × 12키. 버튼에 적힌 글자와 실제로 들어가는
   글자가 같은지 본다.
 - `TestFnLabelGlyphs` — 기능 버튼 라벨의 모든 글자가 내장 글꼴에 있는지 본다.
+- `TestShowAraea` · `TestAraeaDisplayGlyphs` — 아래아 화면 변환과 글꼴 글리프를 본다.
 - `TestLangTablesComplete` — 두 언어 글자표에 빈 칸이 없는지 본다.
 - `TestThemeColors` — 테마가 어떤 색 이름에도 `nil` 을 주지 않는지 본다.
 - `TestWeightedRow` — 기능 버튼 줄이 오른쪽 끝에 정확히 닿는지 본다.

@@ -492,7 +492,8 @@ func tipPosition(owner fyne.Position, ownerSize, tip, canvas fyne.Size) fyne.Pos
 
 // refresh 는 엔진 상태를 화면 전체에 반영한다.
 func (a *App) refresh() {
-	text := showAraea(a.state.Text())
+	eng := a.state.Text()
+	text := showAraea(eng)
 
 	a.editor.syncing = true
 	if a.editor.Text != text {
@@ -571,8 +572,8 @@ func (a *App) showHint(hint string) {
 
 // cursorFromWidget 은 마우스로 찍은 자리를 엔진 커서에 반영한다.
 func (a *App) cursorFromWidget() {
-	pos := flatPosOf(a.editor.Text, a.editor.CursorRow, a.editor.CursorColumn)
-	a.state.SetCursor(pos)
+	dpos := flatPosOf(a.editor.Text, a.editor.CursorRow, a.editor.CursorColumn)
+	a.state.SetCursor(dpos)
 	a.refresh()
 }
 

@@ -11,6 +11,7 @@
 /chunjiin-*.tar.gz
 /chunjiin-*.dmg
 /chunjiin-*.zip
+*.old
 
 # 웹 판 빌드 결과 ------------------------------------------------------
 # index.html, style.css, app.js 는 손으로 쓴 것이라 저장소에 남긴다.
@@ -21,7 +22,8 @@
 
 # Windows 아이콘 리소스 ------------------------------------------------
 # scripts/embed-win-icon.ps1 이 빌드 직전에 만든다.
-# _windows_amd64 접미사가 있어 다른 운영체제 빌드에는 붙지 않는다.
+# _windows_amd64 접미사가 있어 Linux · macOS 빌드에는 붙지 않는다.
+# 아이콘 원본(assets/chunjiin.ico, assets/chunjiin.png)은 저장소에 둔다.
 /cmd/chunjiin/rsrc_windows_*.syso
 /cmd/chunjiin-setup/rsrc_windows_*.syso
 

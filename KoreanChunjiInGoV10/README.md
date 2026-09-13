@@ -15,7 +15,7 @@
 - 화면 위쪽은 편집 영역, 아래쪽은 천지인 12키 + 기능 버튼 한 줄
 - 마우스·손가락으로 눌러도 되고, 물리 키보드 숫자열로 쳐도 됩니다
 - 한글 / 영문 소문자 / 영문 대문자 / 숫자 / 기호 다섯 가지 입력 모드
-- 조합 중인 낱자를 상태줄에 보여 주고, 아래아(`·`, `‥`) 중간 상태도 화면에 표시
+- 조합 중인 낱자를 상태줄에 보여 주고, 아래아(`ㆍ`, `ᆢ`) 중간 상태도 화면에 표시
 - UTF-8 텍스트 파일로 열기 / 저장, 클립보드 복사 / 붙여넣기
 - 툴바 · 메뉴 · 설정 창 · 테마 4종(라이트 · 다크 · 세피아 · 고대비)
 - 화면 언어 **한국어 / English**
@@ -26,6 +26,8 @@
 ### Windows
 
 ```powershell
+.\run.ps1                     # 바로 실행 (없으면 빌드한다)
+.\run.bat                     # 탐색기에서 더블클릭해도 된다
 .\build.ps1 -Run              # 빌드하고 바로 실행
 .\test.ps1                    # 시험 722항목 (구역별 집계와 요약)
 .\scripts\package.ps1         # 설치용 파일 만들기
@@ -35,6 +37,7 @@
 ### macOS · Linux
 
 ```sh
+./run.sh                      # 바로 실행 (없으면 빌드한다)
 ./build.sh --run              # 빌드하고 바로 실행
 ./test.sh                     # 시험 722항목 (구역별 집계와 요약)
 ./scripts/package.sh          # 설치용 파일 만들기
@@ -58,12 +61,14 @@
 
 | 운영체제 | 설치 자리 | 함께 만들어지는 것 |
 |---|---|---|
-| Windows | `%LOCALAPPDATA%\Programs\Chunjiin` | 시작 메뉴 바로 가기, "설정 > 앱" 항목 |
+| Windows | `%LOCALAPPDATA%\Programs\Chunjiin` | 시작 메뉴 바로 가기, "설정 > 앱" 항목, `uninstall.bat` |
 | Linux | `~/.local/share/Chunjiin` | `~/.local/bin` 링크, `.desktop` 항목, 아이콘 |
 | macOS | `~/Applications/Chunjiin.app` | 앱 묶음 |
 
 Inno Setup, NSIS, dpkg 같은 다른 도구는 필요 없습니다.
 설치 프로그램 자체가 Go 로 짜여 있고 실행 파일을 자기 안에 품습니다.
+Windows 탐색기·작업 표시줄 아이콘은 빌드할 때 `assets/chunjiin.ico` 를
+실행 파일에 박습니다.
 
 ## 웹 판
 
@@ -82,7 +87,7 @@ Inno Setup, NSIS, dpkg 같은 다른 도구는 필요 없습니다.
 ## 자판
 
 ```
-  ㅣ     ·      ㅡ          키 0  1  2
+  ㅣ     ㆍ      ㅡ          키 0  1  2
   ㄱㅋ   ㄴㄹ   ㄷㅌ         키 3  4  5
   ㅂㅍ   ㅅㅎ   ㅈㅊ         키 6  7  8
   . ,    ㅇㅁ   ? !          키 9  10 11
@@ -93,7 +98,7 @@ Inno Setup, NSIS, dpkg 같은 다른 도구는 필요 없습니다.
 물리 키보드로는 한글 모드에서 숫자열이 대응합니다.
 
 ```
-  1 2 3  =  ㅣ · ㅡ            7 8 9  =  ㅂㅍ ㅅㅎ ㅈㅊ
+  1 2 3  =  ㅣ ㆍ ㅡ            7 8 9  =  ㅂㅍ ㅅㅎ ㅈㅊ
   4 5 6  =  ㄱㅋ ㄴㄹ ㄷㅌ      - 0 =  =  . ,  ㅇㅁ  ? !
 ```
 
@@ -125,7 +130,7 @@ KoreanChunjiInGoV10/
 │  ├─ lang.go, help.go       한국어 · 영어 글자표
 │  ├─ keybutton.go           직접 그리는 키패드 버튼
 │  ├─ iconbutton.go          툴바 버튼 + 툴팁
-│  ├─ editor.go              편집 영역 (엔진에 매인 입력칸)
+│  ├─ editor.go              편집 영역 (엔진에 매인 입력칸, 아래아 화면 변환)
 │  ├─ settings.go            설정 저장 (JSON)
 │  ├─ layout.go              키패드 배치
 │  ├─ ui_test.go             색표 · 설정 · 배치 · 커서 · 언어 시험
@@ -138,8 +143,10 @@ KoreanChunjiInGoV10/
 │  ├─ gen-testcases/         C++ 시험 자료 뽑개
 │  └─ testreport/            시험 결과를 구역별로 정리해 보여 준다
 ├─ web/                      웹 판 화면 (HTML · CSS · JS)
-├─ assets/                   아이콘, 내장 글꼴
-├─ scripts/                  package · build-web 스크립트
+├─ assets/                   창 아이콘 (chunjiin.png · .ico)
+│  └─ fonts/                 Noto Sans KR (데스크톱 앱만 품는다)
+├─ scripts/                  package · build-web · embed-win-icon
+├─ run.ps1 / run.bat / run.sh  바로 실행 (없으면 빌드한다)
 ├─ build.ps1  / build.sh     바로 실행할 실행 파일 만들기
 └─ test.ps1   / test.sh      시험 실행
 ```

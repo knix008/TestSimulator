@@ -663,9 +663,9 @@ func TestShowAraea(t *testing.T) {
 		{"", ""},
 		{"가", "가"},
 		{"·", "ㆍ"},
-		{"‥", "ㆎ"},
+		{"‥", "ᆢ"},
 		{"ㄱ·", "ㄱㆍ"},
-		{"ㄱ‥", "ㄱㆎ"},
+		{"ㄱ‥", "ㄱᆢ"},
 		{"·ㄱ", "ㆍㄱ"},
 		{"안녕", "안녕"},
 		{"ㄱ + · + -", "ㄱ + ㆍ + -"},
@@ -679,7 +679,7 @@ func TestShowAraea(t *testing.T) {
 
 // TestAraeaDisplayGlyphs 는 화면에 쓰는 아래아가 내장 글꼴에 있는지 본다.
 func TestAraeaDisplayGlyphs(t *testing.T) {
-	for _, r := range []rune{'ㆍ', 'ㆎ', 'ㄱ', 'ㅏ'} {
+	for _, r := range []rune{'ㆍ', 'ᆢ', 'ㄱ', 'ㅏ'} {
 		if !fontHasRune(t, r) {
 			t.Errorf("%q (U+%04X) 가 내장 글꼴에 없다", string(r), r)
 		}
