@@ -33,10 +33,40 @@ if /i "%~1"=="-v"      set VERBOSE=1
 
 rem ---------------------------------------------------------------
 rem Environment
+rem
+rem The build needs a MinGW-w64 gcc (target *-w64-mingw32). A Cygwin
+rem gcc earlier on PATH breaks step [1/6]: its windres feeds the path
+rem to a POSIX preprocessor, so src\app.rc is read as srcapp.rc. So
+rem check what gcc targets, and fall back to a known MSYS2 / MinGW-w64
+rem bin directory when the one on PATH is not usable.
 rem ---------------------------------------------------------------
+set MINGW=
+set GCCTARGET=
 where gcc >nul 2>&1
-if errorlevel 1 (
-    echo gcc not found on PATH.
+if not errorlevel 1 (
+    for /f "delims=" %%v in ('gcc -dumpmachine') do set GCCTARGET=%%v
+    if not "!GCCTARGET:mingw=!"=="!GCCTARGET!" set MINGW=1
+)
+
+if not defined MINGW if defined MSYS2_ROOT (
+    if exist "%MSYS2_ROOT%\ucrt64\bin\gcc.exe" (
+        set "PATH=%MSYS2_ROOT%\ucrt64\bin;!PATH!"
+        set MINGW=1
+    )
+)
+
+if not defined MINGW (
+    for %%d in (C:\msys64\ucrt64\bin C:\msys64\mingw64\bin C:\mingw64\bin) do (
+        if not defined MINGW if exist "%%d\gcc.exe" (
+            set "PATH=%%d;!PATH!"
+            set MINGW=1
+        )
+    )
+)
+
+if not defined MINGW (
+    echo MinGW-w64 gcc not found on PATH.
+    if defined GCCTARGET echo The gcc on PATH targets !GCCTARGET!, which this build cannot use.
     echo Add the MSYS2 UCRT64 bin directory, e.g. C:\msys64\ucrt64\bin
     echo See Build.md for the install steps.
     exit /b 1
