@@ -112,4 +112,4 @@ test/       archive.test.mjs fsops.test.mjs
 
 ## 라이선스
 
-MIT License — Copyleft © Knix008
+MIT License — 제작자: SHKWON (knix008@naver.com)

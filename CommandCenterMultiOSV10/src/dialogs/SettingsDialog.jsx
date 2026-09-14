@@ -4,17 +4,8 @@ import React, { useState } from 'react';
 import { t, useLanguage } from '../lib/i18n';
 import { THEMES } from '../themes';
 import { DialogFrame } from './Dialogs';
+import { SETTINGS_DEFAULTS } from '../lib/settings';
 
-export const SETTINGS_DEFAULTS = {
-  language: 'ko',
-  theme: 'midnight',
-  showHidden: false,
-  fontSize: 13,
-  confirmDelete: true,
-  splitSizeMB: 10,
-  restoreFolders: true,
-  autoRefresh: true,
-};
 
 export function SettingsDialog({ spec, done }) {
   const lang = useLanguage();

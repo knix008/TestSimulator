@@ -7,6 +7,7 @@ import { formatSize, truncateMiddle } from '../lib/format';
 import { Icon } from '../components/Icons';
 import { writeClipboardText } from '../lib/backend';
 import { SettingsDialog } from './SettingsDialog';
+import { describeError } from '../lib/errors';
 
 // ── Frame ─────────────────────────────────────────────────
 
@@ -212,6 +213,7 @@ function AboutDialog({ spec, done }) {
         <div className="about-text">
           <div className="about-name">{t('appName')}</div>
           <div><b>{t('version')}</b>&nbsp; {info.version || build.version || '1.0.0'}</div>
+          <div><b>{t('author')}</b>&nbsp; {t('author_name')}</div>
           <div className="muted">{t('about_desc')}</div>
           <div className="muted small">{t('about_host')}: {info.host === 'electron' ? t('host_electron') : t('host_web')} · {info.platform}</div>
           {build.buildTime && <div className="muted small">{t('about_build')}: {build.buildTime.replace('T', ' ').slice(0, 16)}{build.gitCommit ? ` (${build.gitCommit})` : ''}</div>}
@@ -272,19 +274,6 @@ export function DialogHost({ stack, resolve }) {
       })}
     </>
   );
-}
-
-// Splits an Error (or a plain message) into what the error dialog shows.
-export function describeError(err, extra) {
-  if (typeof err === 'string') return { message: err, detail: extra || '' };
-  if (!err) return { message: t('error_unexpected'), detail: extra || '' };
-  const lines = [];
-  if (err.code && err.code !== 'ERROR') lines.push(`${t('error_code')}: ${err.code}`);
-  if (err.path) lines.push(`${t('error_path')}: ${err.path}`);
-  if (err.syscall) lines.push(`syscall: ${err.syscall}`);
-  if (extra) lines.push(extra);
-  if (err.stack) lines.push('', err.stack);
-  return { message: err.message || String(err), detail: lines.join('\n').trim() };
 }
 
 // Hook that owns the stack and exposes promise-based openers.

@@ -11,7 +11,7 @@ import { MenuBar, Toolbar } from './components/Chrome';
 import { DialogHost, useDialogs } from './dialogs/Dialogs';
 import { SearchDialog } from './dialogs/SearchDialog';
 import { applyTheme, themeById, nextThemeId, DEFAULT_THEME } from './themes';
-import { SETTINGS_DEFAULTS } from './dialogs/SettingsDialog';
+import { SETTINGS_DEFAULTS } from './lib/settings';
 
 function applyFontSize(px) {
   document.documentElement.style.setProperty('--fs', `${Math.max(9, Number(px) || 13)}px`);

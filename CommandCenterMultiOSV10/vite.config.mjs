@@ -14,6 +14,8 @@ export default defineConfig({
     strictPort: true,
     // `npm run dev` + `npm run web:serve` → the browser UI talks to the API server.
     proxy: { '/api': 'http://127.0.0.1:5186' },
+    // Build output and smoke screenshots must not trigger dev reloads.
+    watch: { ignored: ['**/release/**', '**/dist/**', '**/.smoke/**', '**/build/**'] },
   },
   build: { outDir: 'dist', emptyOutDir: true, chunkSizeWarningLimit: 1500 },
 });
