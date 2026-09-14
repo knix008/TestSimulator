@@ -130,7 +130,9 @@ export default function App() {
     const onRej = (e) => { reportError(e.reason || new Error('Unhandled rejection'), t('error.unexpected')); };
     window.addEventListener('error', onErr);
     window.addEventListener('unhandledrejection', onRej);
-    return () => { window.removeEventListener('error', onErr); window.removeEventListener('unhandledrejection', onRej); };
+    // Exceptions in the main process are shown the same way.
+    const offMain = platform.onMainError((e) => reportError(Object.assign(new Error(e.message), { stack: e.stack, name: e.name }), e.context || 'main process'));
+    return () => { window.removeEventListener('error', onErr); window.removeEventListener('unhandledrejection', onRej); offMain(); };
   }, [reportError, t]);
 
   const confirm = useCallback((payload) => ask(`confirm#${newId('c')}`, payload), [ask]);
@@ -988,6 +990,7 @@ export default function App() {
     save: () => active && saveDoc(active, false), saveAs: () => active && saveDoc(active, true), exportImage: () => active && exportImage(active), print,
     undo, redo, copy: () => copy(), paste, zoomIn, zoomOut, zoomFit, zoom100,
     settings: openSettings, about: openAbout,
+    toggleLanguage: () => updateSettings((s) => ({ language: s.language === 'ko' ? 'en' : 'ko' })),
     setOpacity: (v) => updateSettings({ opacity: v }),
     setTool, setColor: (v) => setAnn({ color: v }), setStrokeWidth: (v) => setAnn({ strokeWidth: v }), setFill: (v) => setAnn({ fill: v }), setFontSize: (v) => setAnn({ fontSize: v }),
     deleteSelected, applyCrop, onMeasure,
@@ -997,7 +1000,7 @@ export default function App() {
     canCapture: platform.capture.available, recording, hasDoc: !!active, isImage: !!(active && active.kind === 'image'),
     canUndo: !!(active && active.history && canUndo(active.history)), canRedo: !!(active && active.history && canRedo(active.history)),
     tool, color: toolProps.color, strokeWidth: toolProps.strokeWidth, fill: toolProps.fill, fontSize: toolProps.font.size,
-    opacity: settings.opacity, showLabels: settings.toolbar.showLabels, selectedId: active ? active.selectedId : null, hasSelection: !!(active && active.selection),
+    opacity: settings.opacity, selectedId: active ? active.selectedId : null, hasSelection: !!(active && active.selection),
     fontKey: `${settings.font.family}|${settings.font.size}|${settings.font.bold}|${settings.font.italic}`,
   }), [active, recording, settings, tool, toolProps]);
 

@@ -21,6 +21,9 @@ const DEV_URL = 'http://localhost:5184';
 const PRODUCT = 'CaptureMaster';
 
 app.commandLine.appendSwitch('disable-features', 'Autofill');
+// Development aid: a separate profile (settings, window state, instance lock)
+// so a test run never touches — or collides with — the real one.
+if (process.env.CM_USER_DATA && !app.isPackaged) app.setPath('userData', process.env.CM_USER_DATA);
 // Wayland sessions (Ubuntu 22.04+) capture through the PipeWire portal.
 if (process.platform === 'linux') app.commandLine.appendSwitch('enable-features', 'WebRTCPipeWireCapturer');
 
@@ -158,10 +161,13 @@ function writeInstallStamp() {
 
 // ── Main window ───────────────────────────────────────────
 function createWindow() {
+  // The window always starts at its minimum size (the renderer widens it to
+  // whatever the toolbar needs once it has measured itself); only the last
+  // position is restored.
   const saved = usableBounds(loadWindowState());
   const win = new BrowserWindow({
-    width: saved ? saved.width : 1440,
-    height: saved ? saved.height : 920,
+    width: MIN_WINDOW_WIDTH,
+    height: MIN_WINDOW_HEIGHT,
     x: saved ? saved.x : undefined,
     y: saved ? saved.y : undefined,
     minWidth: MIN_WINDOW_WIDTH,
@@ -186,16 +192,22 @@ function createWindow() {
     },
   });
   state.mainWin = win;
+  state.windowCreatedAt = Date.now();
 
-  if (saved && saved.maximized) win.maximize();
   win.once('ready-to-show', () => {
+    // Shown transparent and faded in a moment later: on Windows the native
+    // window paints white for a frame before the first web frame arrives.
+    // The renderer applies the user's opacity setting itself once it is up;
+    // this only lifts the initial 0 if it has not done so yet.
+    win.setOpacity(0);
     win.show();
+    setTimeout(() => { if (!win.isDestroyed() && win.getOpacity() === 0) win.setOpacity(1); }, 60);
     // Development aid: `--smoke-shot=<png>` writes a screenshot of the window
     // a moment after it appears (and `--smoke-quit` exits afterwards), so the
     // UI can be checked from a script without a person at the screen.
     const shot = (process.argv.find((a) => a.startsWith('--smoke-shot=')) || '').slice('--smoke-shot='.length);
     const script = (process.argv.find((a) => a.startsWith('--smoke-script=')) || '').slice('--smoke-script='.length);
-    if (shot) {
+    if (shot && !app.isPackaged) {
       setTimeout(async () => {
         try {
           if (script) console.log('[smoke] script result:', await win.webContents.executeJavaScript(fs.readFileSync(script, 'utf-8'), true));
@@ -270,6 +282,20 @@ function createWindow() {
   else win.loadFile(path.join(__dirname, '..', 'dist', 'index.html'));
   return win;
 }
+
+// ── Main-process errors → the renderer's error dialog ─────
+function forwardMainError(err, context) {
+  const e = err instanceof Error ? err : new Error(String(err));
+  console.error('[main]', context, e);
+  const win = state.mainWin;
+  try {
+    if (win && !win.isDestroyed() && !win.webContents.isDestroyed()) {
+      win.webContents.send('app:mainError', { name: e.name, message: e.message, stack: e.stack || '', context });
+    }
+  } catch { /* nowhere left to report to */ }
+}
+process.on('uncaughtException', (err) => forwardMainError(err, 'uncaughtException'));
+process.on('unhandledRejection', (err) => forwardMainError(err, 'unhandledRejection'));
 
 // ── Single instance ───────────────────────────────────────
 const gotLock = app.requestSingleInstanceLock();

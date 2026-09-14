@@ -11,7 +11,7 @@ const ko = {
     details: '자세히', minimize: '최소화', maximize: '최대화', restore: '이전 크기로', openFolder: '폴더 열기',
   },
   toolbar: {
-    captureScreen: '화면 캡처', captureScreenTip: '전체 화면을 캡처합니다 (Ctrl+N)',
+    captureScreen: '전체 화면 캡처', captureScreenTip: '전체 화면을 캡처합니다 (Ctrl+N)',
     captureWindow: '창 캡처', captureWindowTip: '특정 창을 골라 캡처합니다 (Ctrl+Shift+W)',
     captureRegion: '영역 캡처', captureRegionTip: '화면의 일부를 드래그해서 캡처합니다 (Ctrl+Shift+R)',
     record: '녹화', recordTip: '전체 화면을 동영상으로 녹화합니다 (Ctrl+Shift+V)',
@@ -34,6 +34,7 @@ const ko = {
     settings: '설정', settingsTip: '언어 · 테마 · 폰트 · 캡처 · 녹화 설정 (Ctrl+,)',
     about: '정보', aboutTip: '프로그램 정보와 빌드 정보 (F1)',
     opacity: '투명도', opacityTip: '창의 투명도 (0 ~ 100)',
+    language: '언어', languageTip: '영어로 전환합니다',
     tools: '도구', color: '색상', colorTip: '주석 색상', stroke: '선 굵기', strokeTip: '선 굵기 (px)', fill: '채우기', fillTip: '도형 안쪽을 반투명하게 채웁니다',
     fontSize: '글자 크기', fontSizeTip: '텍스트 주석의 글자 크기 (px)',
     deleteAnnotation: '주석 삭제', deleteAnnotationTip: '선택한 주석을 지웁니다 (Delete)',
@@ -148,7 +149,7 @@ const en = {
     details: 'Details', minimize: 'Minimize', maximize: 'Maximize', restore: 'Restore', openFolder: 'Open folder',
   },
   toolbar: {
-    captureScreen: 'Screen', captureScreenTip: 'Capture the full screen (Ctrl+N)',
+    captureScreen: 'Full screen', captureScreenTip: 'Capture the full screen (Ctrl+N)',
     captureWindow: 'Window', captureWindowTip: 'Pick a window and capture it (Ctrl+Shift+W)',
     captureRegion: 'Region', captureRegionTip: 'Drag a region of the screen to capture (Ctrl+Shift+R)',
     record: 'Record', recordTip: 'Record the full screen as a video (Ctrl+Shift+V)',
@@ -171,6 +172,7 @@ const en = {
     settings: 'Settings', settingsTip: 'Language · theme · font · capture · recording settings (Ctrl+,)',
     about: 'About', aboutTip: 'Program and build information (F1)',
     opacity: 'Opacity', opacityTip: 'Window opacity (0 – 100)',
+    language: 'Language', languageTip: 'Switch to Korean (한국어)',
     tools: 'Tools', color: 'Color', colorTip: 'Annotation color', stroke: 'Stroke', strokeTip: 'Stroke width (px)', fill: 'Fill', fillTip: 'Fill shapes with a translucent tint',
     fontSize: 'Text size', fontSizeTip: 'Font size of text annotations (px)',
     deleteAnnotation: 'Delete', deleteAnnotationTip: 'Delete the selected annotation (Delete)',

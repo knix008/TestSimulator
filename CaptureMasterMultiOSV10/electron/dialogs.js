@@ -137,11 +137,18 @@ function openDialogWindow(name, payload, opener) {
   // Shown once the renderer has painted the payload (dialog:ready), so the
   // window never flashes empty — the region overlay in particular must appear
   // with the screenshot already in place. ready-to-show is only a fallback.
+  //
+  // On Windows the native window paints its default white background for one
+  // frame before the first composited web frame arrives, which reads as a
+  // flash. Showing the window fully transparent and fading it in a couple of
+  // frames later hides that frame completely.
   const reveal = () => {
     if (win.isDestroyed() || win.isVisible()) return;
     if (spec.overlay) win.setBounds(bounds);
+    win.setOpacity(0);
     win.show();
     if (spec.overlay) win.focus();
+    setTimeout(() => { if (!win.isDestroyed()) win.setOpacity(1); }, 50);
   };
   const entry = dialogWindows.get(name);
   entry.reveal = reveal;
@@ -152,9 +159,13 @@ function openDialogWindow(name, payload, opener) {
     dialogWindows.delete(name);
     // A dialog dismissed without an answer still resolves the opener's promise.
     const opener2 = entry && entry.openerId !== null ? BrowserWindow.fromId(entry.openerId) : null;
-    if (opener2 && !opener2.isDestroyed()) {
-      if (!entry.submitted) opener2.webContents.send('dialog:result', { name, data: null });
-      opener2.webContents.send('dialog:closed', { name });
+    // While the app quits the opener may be half torn down: alive as a window,
+    // gone as web contents.
+    if (opener2 && !opener2.isDestroyed() && opener2.webContents && !opener2.webContents.isDestroyed()) {
+      try {
+        if (!entry.submitted) opener2.webContents.send('dialog:result', { name, data: null });
+        opener2.webContents.send('dialog:closed', { name });
+      } catch { /* shutting down */ }
     }
   });
   return true;

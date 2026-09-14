@@ -34,6 +34,8 @@ const scenarios = fs.readdirSync(srcDir)
 
 const env = { ...process.env };
 delete env.ELECTRON_RUN_AS_NODE;
+// A private profile: no clash with a running copy of the app, no stray settings.
+env.CM_USER_DATA = path.join(outDir, 'profile');
 
 let failed = 0;
 for (const name of scenarios) {

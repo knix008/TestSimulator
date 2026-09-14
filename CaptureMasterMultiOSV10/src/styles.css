@@ -104,7 +104,12 @@ a { color: var(--accent); }
 .tb-btn.danger { color: var(--danger); }
 .tb-btn.recording { background: var(--danger-bg); border-color: var(--danger); color: var(--danger); }
 .tb-btn .caret { width: 10px; height: 10px; opacity: 0.7; }
+.tb-group.primary .tb-btn { border-color: var(--border); background: var(--bg-raised); }
+.tb-group.primary .tb-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.tb-group.primary .tb-btn svg { color: var(--accent); }
+.tb-group.primary .tb-btn:disabled svg { color: inherit; }
 .tb-label { font-size: 0.92em; }
+.tb-btn .flag { width: 22px; height: 15px; border-radius: 3px; box-shadow: 0 0 0 1px rgba(0,0,0,0.35); }
 .tb-field { display: inline-flex; align-items: center; gap: 6px; padding: 0 4px; color: var(--text-dim); }
 .tb-field label { font-size: 0.9em; }
 .tb-field input[type="number"] { width: 56px; }
@@ -162,7 +167,7 @@ a { color: var(--accent); }
 .video-meta { color: var(--text-dim); font-size: 0.92em; display: flex; gap: 14px; }
 
 /* welcome */
-.welcome { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; color: var(--text-dim); padding: 24px; text-align: center; }
+.welcome { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: safe center; overflow: auto; gap: 18px; color: var(--text-dim); padding: 24px; text-align: center; }
 .welcome img { width: 96px; height: 96px; filter: drop-shadow(0 8px 20px rgba(0,0,0,0.35)); }
 .welcome h1 { margin: 0; font-size: 1.6em; color: var(--text); font-weight: 600; }
 .welcome-actions { display: grid; grid-template-columns: repeat(3, minmax(150px, 1fr)); gap: 10px; }
@@ -188,8 +193,9 @@ a { color: var(--accent); }
 .sb-item.warn { color: var(--warning); }
 .sb-item.ok { color: var(--ok); }
 .sb-item svg { width: 13px; height: 13px; }
-.sb-grip { width: 18px; height: 100%; cursor: nwse-resize; display: flex; align-items: flex-end; justify-content: flex-end; padding: 0 3px 3px 0; color: var(--text-faint); flex: none; }
-.sb-grip svg { width: 10px; height: 10px; }
+.sb-grip { width: 26px; height: 100%; cursor: nwse-resize; display: flex; align-items: flex-end; justify-content: flex-end; padding: 0 4px 3px 0; color: var(--text-dim); flex: none; border-left: 1px solid var(--border); }
+.sb-grip:hover { color: var(--accent); background: var(--bg-hover); }
+.sb-grip svg { width: 16px; height: 16px; }
 
 /* ── Tooltip ────────────────────────────────────────── */
 .tooltip {

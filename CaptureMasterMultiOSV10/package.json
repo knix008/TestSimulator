@@ -35,7 +35,9 @@
     "copy:installer": "node scripts/copy-installer.js",
     "test": "node --test test/*.test.mjs",
     "free:port": "node scripts/free-port.mjs 5184",
-    "smoke": "node scripts/smoke.mjs"
+    "smoke": "node scripts/smoke.mjs",
+    "clean": "node scripts/clean.mjs",
+    "clean:all": "node scripts/clean.mjs --all"
   },
   "dependencies": {
     "i18next": "^23.11.5",

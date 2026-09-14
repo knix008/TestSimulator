@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Icon } from './Icons.jsx';
 import { platform } from '../lib/platform.js';
@@ -121,13 +121,29 @@ function ResizeGrip() {
 
 // ── Welcome screen ────────────────────────────────────────
 export function Welcome({ onAction, canCapture }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const ref = useRef(null);
+
+  // The start screen must be fully visible: whatever does not fit is added to
+  // the window's minimum height (measured again once fonts have settled).
+  useLayoutEffect(() => {
+    const measure = () => {
+      const el = ref.current;
+      if (!el) return;
+      const missing = el.scrollHeight - el.clientHeight;
+      if (missing > 0) platform.windowControls.setMinHeight(window.innerHeight + missing);
+    };
+    measure();
+    const id = setTimeout(measure, 400);
+    return () => clearTimeout(id);
+  }, [i18n.language]);
+
   const keys = [
     ['Ctrl+N', t('toolbar.captureScreen')], ['Ctrl+Shift+W', t('toolbar.captureWindow')], ['Ctrl+Shift+R', t('toolbar.captureRegion')],
     ['Ctrl+Shift+V', t('toolbar.record')], ['Ctrl+O', t('toolbar.open')], ['Ctrl+V', t('toolbar.paste')],
   ];
   return (
-    <div className="welcome">
+    <div className="welcome" ref={ref}>
       <img src="./icon.svg" alt="" draggable={false} />
       <h1>{t('welcome.title')}</h1>
       <div>{t('welcome.hint')}</div>

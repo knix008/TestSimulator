@@ -80,8 +80,6 @@ export function SettingsDialog({ payload, onSubmit, onClose, standalone }) {
                   <span>{s.opacity}%</span>
                 </div>
               </Field>
-              <Check label={t('settings.toolbarLabels')} checked={s.toolbar.showLabels} onChange={(v) => sub('toolbar', { showLabels: v })} />
-              <br />
               <Check label={t('settings.checkerboard')} checked={s.editor.checkerboard} onChange={(v) => sub('editor', { checkerboard: v })} />
             </>
           ) : null}

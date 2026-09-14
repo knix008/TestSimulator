@@ -28,7 +28,6 @@ export const DEFAULT_SETTINGS = Object.freeze({
   image: { format: 'png', quality: 92 },
   video: { format: 'auto', fps: 30, systemAudio: false, microphone: false, minimizeWhileRecording: true, askPath: false, bitrateMbps: 8 },
   paths: { lastOpenDir: '', lastSaveDir: '', lastExportDir: '', videoDir: '' },
-  toolbar: { showLabels: false },
   editor: { checkerboard: true, showRulers: false },
   recent: [],
 });
@@ -53,7 +52,6 @@ export function normalizeSettings(raw) {
   const img = s.image || {};
   const vid = s.video || {};
   const paths = s.paths || {};
-  const tb = s.toolbar || {};
   const ed = s.editor || {};
 
   const recent = Array.isArray(s.recent)
@@ -113,7 +111,6 @@ export function normalizeSettings(raw) {
       lastExportDir: str(paths.lastExportDir, ''),
       videoDir: str(paths.videoDir, ''),
     },
-    toolbar: { showLabels: bool(tb.showLabels, d.toolbar.showLabels) },
     editor: { checkerboard: bool(ed.checkerboard, d.editor.checkerboard), showRulers: bool(ed.showRulers, d.editor.showRulers) },
     recent,
   };

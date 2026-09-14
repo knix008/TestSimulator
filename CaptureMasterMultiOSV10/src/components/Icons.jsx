@@ -50,7 +50,7 @@ const PATHS = {
   folder: 'M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z',
   refresh: 'M20 12a8 8 0 1 1-2.3-5.7 M20 4v5h-5',
   caret: 'M6 9l6 6 6-6',
-  grip: 'M20 20L4 4 M20 12l-8 8 M20 16l-4 4',
+  grip: 'M21 21h-.01 M21 15l-6 6 M21 9L9 21 M21 3L3 21',
   front: 'M4 4h10v10H4z M10 10h10v10H10z',
   back: 'M10 10h10v10H10z M4 4h10v10H4z',
   duplicate: 'M8 8h12v12H8z M4 16V4h12',
@@ -62,6 +62,8 @@ const PATHS = {
   keyboard: 'M3 7h18v10H3z M7 10h.01 M11 10h.01 M15 10h.01 M7 14h10',
   general: 'M3 5h18v4H3z M3 12h18v7H3z',
   files: 'M4 4h9l3 3h4v13H4z',
+  globe: 'M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0-18 0 M3 12h18 M12 3a14 14 0 0 1 0 18 M12 3a14 14 0 0 0 0 18',
+  fill: 'M4 6h16v12H4z M4 6l16 12 M4 12l10 6 M10 6l10 8',
   camera: 'M4 8h3l2-3h6l2 3h3v11H4z M12 13m-3 0a3 3 0 1 0 6 0a3 3 0 1 0-6 0',
 };
 

@@ -1,24 +1,31 @@
 # ── Dependencies ────────────────────────────────────────
 node_modules/
 
-# ── Build output (reproducible: npm install && npm run build:<os>) ──
+# ── Build output (all reproducible: npm install && npm run build:<os>) ──
+# renderer bundle — npm run build
 dist/
+# electron-builder output (unpacked app + installers)
 release/
-# generated from assets/*.svg — npm run generate:icons
+# platform icons generated from assets/*.svg — npm run generate:icons
 build/icons/
-# stamped with build time and commit on every build — npm run generate:build-info
+# stamped with the build time and commit on every build — npm run generate:build-info
 src/build-info.json
 # NOTE: public/icon.svg and public/file-icon.svg are copies of assets/*.svg and
-# are committed on purpose — the UI loads them by URL.
+# are committed on purpose — the UI loads them by URL before any build step.
 
-# ── Installers copied to the project root ───────────────
+# ── Installers copied to the project root by scripts/copy-installer.js ──
 *.exe
 *.dmg
 *.AppImage
 *.deb
 *.rpm
 *.snap
+*.zip
 *.blockmap
+
+# ── Smoke-test output (npm run smoke): screenshots, prepared scripts,
+#    the private profile, recordings and capture files it writes ──
+.smoke/
 
 # ── Local / editor / OS noise ───────────────────────────
 *.log
@@ -29,6 +36,3 @@ Thumbs.db
 .idea/
 .vscode/*
 !.vscode/extensions.json
-
-# smoke-test output (npm run smoke)
-.smoke/

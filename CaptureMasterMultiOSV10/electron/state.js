@@ -8,4 +8,6 @@ module.exports = {
   pendingOpenPath: null,
   /** True when the executable changed under an existing profile (see main.js). */
   pendingInstallCheck: false,
+  /** When the main window was created; during start-up the window follows its minimum size exactly. */
+  windowCreatedAt: 0,
 };

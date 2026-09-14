@@ -24,6 +24,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   quit: () => ipcRenderer.invoke('app:quit'),
   onOpenPath: (cb) => listen('app:openPath', cb),
   onCloseRequested: (cb) => listen('app:closeRequested', cb),
+  onMainError: (cb) => listen('app:mainError', cb),
 
   loadSettings: () => ipcRenderer.invoke('settings:load'),
   saveSettings: (data) => ipcRenderer.invoke('settings:save', data),
@@ -109,6 +110,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     setTitle: (t) => ipcRenderer.invoke('win:setTitle', t),
     setOpacity: (v) => ipcRenderer.invoke('win:setOpacity', v),
     setMinWidth: (w) => ipcRenderer.invoke('win:setMinWidth', w),
+    setMinHeight: (h) => ipcRenderer.invoke('win:setMinHeight', h),
     getSize: () => ipcRenderer.invoke('win:getSize'),
     setSize: (payload) => ipcRenderer.invoke('win:setSize', payload),
     onMaximizeChange: (cb) => listen('win:maximized', cb),

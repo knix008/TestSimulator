@@ -17,8 +17,15 @@ const { registerCaptureHandlers } = require('./capture');
 const MIN_WINDOW_WIDTH = 960;
 const MAX_MIN_WINDOW_WIDTH = 2200;
 const MIN_WINDOW_HEIGHT = 600;
+const MAX_MIN_WINDOW_HEIGHT = 1400;
 
 function ownerWin(e) { return BrowserWindow.fromWebContents(e.sender) || state.mainWin; }
+
+// The window starts at exactly its minimum size. The renderer measures that
+// minimum a few times while it settles (fonts, language), so for the first
+// moments the window follows the measurement both ways; afterwards it is only
+// ever widened, never shrunk under the user.
+function startingUp() { return Date.now() - state.windowCreatedAt < 4000; }
 
 // ── App info ──────────────────────────────────────────────
 function readBuildInfo() {
@@ -413,6 +420,24 @@ function registerIpcHandlers({ writeInstallStamp } = {}) {
   });
   // The renderer measures what the toolbar needs (it depends on language and
   // font) and the window is never allowed narrower than that.
+  // Same for the height: the start screen measures what it needs to show
+  // everything without scrolling.
+  ipcMain.handle('win:setMinHeight', (e, height) => {
+    const w = ownerWin(e);
+    const want = Math.round(Number(height) || 0);
+    if (!w || w.isDestroyed() || !Number.isFinite(want) || want <= 0) return false;
+    const pad = Math.max(0, w.getSize()[1] - w.getContentSize()[1]);
+    const min = Math.max(MIN_WINDOW_HEIGHT, Math.min(want + pad, MAX_MIN_WINDOW_HEIGHT));
+    const [minW, curMin] = w.getMinimumSize();
+    if (curMin === min) return true;
+    w.setMinimumSize(minW, min);
+    if (!w.isMaximized() && !w.isFullScreen()) {
+      const [cw, ch] = w.getSize();
+      if (ch < min || startingUp()) w.setSize(cw, min);
+    }
+    return true;
+  });
+
   ipcMain.handle('win:setMinWidth', (e, width) => {
     const w = ownerWin(e);
     const want = Math.round(Number(width) || 0);
@@ -424,7 +449,7 @@ function registerIpcHandlers({ writeInstallStamp } = {}) {
     w.setMinimumSize(min, minH);
     if (!w.isMaximized() && !w.isFullScreen()) {
       const [cw, ch] = w.getSize();
-      if (cw < min) w.setSize(min, ch);
+      if (cw < min || startingUp()) w.setSize(min, ch);
     }
     return true;
   });
