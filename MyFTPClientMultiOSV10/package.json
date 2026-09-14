@@ -1,0 +1,188 @@
+{
+  "name": "myftpclient",
+  "version": "1.0.0",
+  "description": "My FTP Client — FTP / FTPS / SFTP client for Windows, macOS, Linux and the web (server listing, local tree, upload/download with progress and conflict handling, connection profiles).",
+  "author": {
+    "name": "SHKWON",
+    "email": "knix008@naver.com"
+  },
+  "license": "MIT",
+  "private": true,
+  "main": "electron/main.js",
+  "scripts": {
+    "postinstall": "node scripts/sync-public-svgs.mjs && node scripts/generate-build-info.mjs",
+    "prepare:assets": "node scripts/sync-public-svgs.mjs && node scripts/generate-build-info.mjs",
+    "prestart": "npm run free:port && npm run prepare:assets",
+    "start": "cross-env NODE_OPTIONS=--disable-warning=DEP0060 concurrently -k \"vite --port 5187\" \"wait-on tcp:5187 && cross-env ELECTRON_DEV=1 node scripts/start-electron.mjs\"",
+    "predev": "npm run free:port && npm run prepare:assets",
+    "dev": "vite --port 5187",
+    "electron": "cross-env ELECTRON_DEV=1 node scripts/start-electron.mjs",
+    "preview:electron": "node scripts/start-electron.mjs",
+    "web": "npm run build && node server/server.js",
+    "web:serve": "node server/server.js",
+    "generate:icons": "node scripts/generate-icons.mjs",
+    "generate:build-info": "node scripts/generate-build-info.mjs",
+    "sync:svgs": "node scripts/sync-public-svgs.mjs",
+    "prebuild": "npm run prepare:assets",
+    "build": "vite build",
+    "prebuild:win": "npm run generate:icons && npm run prepare:assets",
+    "build:win": "vite build && electron-builder --win",
+    "postbuild:win": "node scripts/copy-installer.js",
+    "prebuild:mac": "npm run generate:icons && npm run prepare:assets",
+    "build:mac": "vite build && electron-builder --mac",
+    "postbuild:mac": "node scripts/copy-installer.js",
+    "prebuild:linux": "npm run generate:icons && npm run prepare:assets",
+    "build:linux": "vite build && electron-builder --linux",
+    "postbuild:linux": "node scripts/copy-installer.js",
+    "copy:installer": "node scripts/copy-installer.js",
+    "test": "node --test test/*.test.mjs",
+    "free:port": "node scripts/free-port.mjs 5187",
+    "smoke": "node scripts/smoke.mjs",
+    "clean": "node scripts/clean.mjs",
+    "clean:all": "node scripts/clean.mjs --all"
+  },
+  "dependencies": {
+    "basic-ftp": "^6.2.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "ssh2": "^1.17.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.1",
+    "concurrently": "^8.2.2",
+    "cross-env": "^7.0.3",
+    "electron": "^31.3.1",
+    "electron-builder": "^24.13.3",
+    "sharp": "^0.33.4",
+    "vite": "^5.4.1",
+    "wait-on": "^7.2.0"
+  },
+  "build": {
+    "appId": "com.shkwon.myftpclient",
+    "productName": "My FTP Client",
+    "executableName": "MyFTPClient",
+    "copyright": "Copyright © 2026 SHKWON (knix008@naver.com)",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "core/**/*",
+      "build/icons/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "src/build-info.json",
+        "to": "build-info.json"
+      },
+      {
+        "from": "build/icons/icon.png",
+        "to": "icon.png"
+      }
+    ],
+    "asar": true,
+    "icon": "build/icons/icon.png",
+    "win": {
+      "icon": "build/icons/icon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": true,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": false,
+      "createStartMenuShortcut": false,
+      "menuCategory": false,
+      "shortcutName": "My FTP Client",
+      "installerIcon": "build/icons/icon.ico",
+      "uninstallerIcon": "build/icons/icon.ico",
+      "installerHeaderIcon": "build/icons/icon.ico",
+      "deleteAppDataOnUninstall": true,
+      "include": "build/installer.nsh"
+    },
+    "mac": {
+      "icon": "build/icons/icon.icns",
+      "category": "public.app-category.utilities",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ]
+    },
+    "dmg": {
+      "title": "My FTP Client ${version}",
+      "icon": "build/icons/icon.icns"
+    },
+    "linux": {
+      "icon": "build/icons/png",
+      "category": "Network;FileTransfer",
+      "maintainer": "SHKWON <knix008@naver.com>",
+      "desktop": {
+        "Name": "My FTP Client",
+        "Comment": "FTP / FTPS / SFTP client",
+        "Categories": "Network;FileTransfer;"
+      },
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "deb",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "deb": {
+      "afterInstall": "build/linux/after-install.sh",
+      "afterRemove": "build/linux/after-remove.sh",
+      "depends": [
+        "libgtk-3-0",
+        "libnotify4",
+        "libnss3",
+        "libxss1",
+        "libxtst6",
+        "xdg-utils",
+        "libatspi2.0-0",
+        "libuuid1",
+        "libsecret-1-0"
+      ]
+    }
+  },
+  "allowScripts": {
+    "electron@31.7.7": true,
+    "sharp@0.33.5": true,
+    "esbuild@0.21.5": true
+  },
+  "homepage": "https://github.com/knix008/TestSimulator",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/knix008/TestSimulator.git"
+  },
+  "keywords": [
+    "ftp",
+    "ftps",
+    "sftp",
+    "file-transfer",
+    "electron"
+  ]
+}

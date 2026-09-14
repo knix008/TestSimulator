@@ -1,0 +1,34 @@
+# ── Dependencies ────────────────────────────────────────
+node_modules/
+
+# ── Build output (reproducible: npm install && npm run build:<os>) ──
+dist/
+release/
+build/icons/
+src/build-info.json
+public/icon.svg
+
+# ── Installers copied to the project root by scripts/copy-installer.js ──
+*.exe
+*.dmg
+*.AppImage
+*.deb
+*.rpm
+*.snap
+*.zip
+*.blockmap
+
+# ── Smoke-test output (npm run smoke): screenshots, scripts, private profile ──
+.smoke/
+.icons-preview.png
+.npm-install.log
+
+# ── Local / editor / OS noise ───────────────────────────
+*.log
+npm-debug.log*
+.vite/
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json

@@ -1,0 +1,80 @@
+// Session / settings persistence: one JSON file in the app's config folder
+// (the WinForms original kept the same things in settings.json).
+//
+//   lastLocalPath  — the local folder to restore on the next start
+//   lastProfile    — the profile that was selected last
+//   language       — 'ko' | 'en'
+//   theme          — one of src/themes.js ids
+//   serverWidth    — width of the server panel as a fraction of the file area
+//   logHeight      — height of the log area in px
+//   windowBounds   — Electron window position/size
+//
+// Electron passes app.getPath('userData'); the web server uses the XDG /
+// AppData equivalent so a browser session survives a server restart too.
+'use strict';
+
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+
+const DEFAULTS = {
+  lastLocalPath: '',
+  lastProfile: '',
+  language: 'ko',
+  theme: 'midnight',
+  themeBg: '',
+  fontSize: 13,
+  serverWidth: 0.5,
+  logHeight: 170,
+  confirmDelete: true,
+  restoreLocalPath: true,
+  sounds: true,
+  showConnectedDialog: true,
+  windowBounds: null,
+};
+
+function defaultConfigDir(appName = 'My FTP Client') {
+  if (process.platform === 'win32') return path.join(process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming'), appName);
+  if (process.platform === 'darwin') return path.join(os.homedir(), 'Library', 'Application Support', appName);
+  return path.join(process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config'), appName);
+}
+
+class Session {
+  constructor(configDir) {
+    this.configDir = configDir || defaultConfigDir();
+    this.file = path.join(this.configDir, 'session.json');
+    this.data = { ...DEFAULTS };
+  }
+
+  load() {
+    try {
+      const raw = JSON.parse(fs.readFileSync(this.file, 'utf-8'));
+      this.data = { ...DEFAULTS, ...raw };
+    } catch {
+      this.data = { ...DEFAULTS };
+    }
+    return this.get();
+  }
+
+  get() {
+    const d = { ...this.data };
+    // Only restore a folder that still exists — else the home folder.
+    if (!d.lastLocalPath || !isDir(d.lastLocalPath)) d.lastLocalPath = os.homedir();
+    return d;
+  }
+
+  save(patch) {
+    this.data = { ...this.data, ...(patch || {}) };
+    try {
+      fs.mkdirSync(this.configDir, { recursive: true });
+      fs.writeFileSync(this.file, JSON.stringify(this.data, null, 2), 'utf-8');
+    } catch { /* best effort */ }
+    return this.get();
+  }
+}
+
+function isDir(p) {
+  try { return fs.statSync(p).isDirectory(); } catch { return false; }
+}
+
+module.exports = { Session, DEFAULTS, defaultConfigDir };
