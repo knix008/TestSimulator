@@ -4,7 +4,9 @@ My Music Station V1.0.0 is a compact cross-platform music player built with Reac
 
 ## Layers
 
-- **React UI**: fixed-size player shell, custom toolbar, transport, spectrum canvas, playlist side panel, settings/convert/extract dialogs, compact (mini) mode, language/theme/wallpaper controls.
+- **React UI**: fixed-size player shell, custom toolbar, transport, spectrum canvas, playlist side panel, compact (mini) mode, language/theme/wallpaper controls.
+- **Popup windows** (`src/popups/`): settings / convert / extract / about / alert / error / folder-progress dialogs each run in their own owned Tauri window (`popup-<kind>`, same bundle with `?popup=<kind>`). The main window holds all state and streams snapshots over Tauri events (`popup:state`); popups send intents back (`popup:action`). Rust emits `popup:closed` when a popup is destroyed and closes every `popup-*` window whenever the main window closes or hides. In a plain browser the same dialog components render inline as modals.
+- **Themes** (`src/themes.ts`): 16 built-in themes defined as full CSS-variable sets (applied inline on `:root`), so popups and the settings colour picker can render them without stylesheet lookups; custom themes layer an accent on the Dark base.
 - **Web Audio API**: HTML `<audio>` → `MediaElementSource → Analyser → Gain → destination` for playback and spectrum.
 - **Metadata**: `music-metadata` for tags and embedded artwork on local files.
 - **Tauri shell**: frameless window (**835×496** normal, **340×180** compact), status bar, optional system tray, single-instance, file associations, NSIS/DMG/AppImage packaging.

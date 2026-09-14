@@ -78,6 +78,24 @@ fn apply_fixed_window_size(window: &tauri::WebviewWindow) {
     let _ = window.set_max_size(Some(size));
 }
 
+const MAIN_WINDOW_LABEL: &str = "main";
+const POPUP_LABEL_PREFIX: &str = "popup-";
+const POPUP_CLOSED_EVENT: &str = "popup:closed";
+
+#[derive(Clone, Serialize)]
+struct PopupClosed {
+    label: String,
+}
+
+/// Dialogs live in their own owned windows; they must never outlive the main window.
+fn close_popup_windows(app: &AppHandle) {
+    for (label, window) in app.webview_windows() {
+        if label.starts_with(POPUP_LABEL_PREFIX) {
+            let _ = window.close();
+        }
+    }
+}
+
 fn show_main_window(app: &AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
         // Do NOT force the fixed size here: the window may be in compact mode,
@@ -294,12 +312,23 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("error while building My Music Station")
         .run(|app, event| {
-            if let RunEvent::WindowEvent {
-                label,
-                event: WindowEvent::CloseRequested { api, .. },
-                ..
-            } = event
-            {
+            let RunEvent::WindowEvent { label, event, .. } = event else {
+                return;
+            };
+
+            // Popup windows (label `popup-*`) close normally; tell the main
+            // window so it can drop the matching dialog state.
+            if label != MAIN_WINDOW_LABEL {
+                if let WindowEvent::Destroyed = event {
+                    let _ = app.emit_to(MAIN_WINDOW_LABEL, POPUP_CLOSED_EVENT, PopupClosed { label });
+                }
+                return;
+            }
+
+            if let WindowEvent::CloseRequested { api, .. } = event {
+                // Whatever happens to the main window, no popup outlives it.
+                close_popup_windows(app);
+
                 let use_tray = app
                     .try_state::<AppState>()
                     .and_then(|state| {
@@ -322,6 +351,8 @@ pub fn run() {
                     // No tray: allow the window to close and exit the app.
                     app.exit(0);
                 }
+            } else if let WindowEvent::Destroyed = event {
+                close_popup_windows(app);
             }
         });
 }

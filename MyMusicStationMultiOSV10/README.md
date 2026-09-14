@@ -35,7 +35,7 @@ React, Vite, TypeScript, Tauri 2 기반의 멀티 OS 음악 플레이어입니�
 npm start
 ```
 
-`src-tauri/target/release`의 릴리스 바이너리를 실행합니다. 소스가 더 새우면 데스크톱 빌드 후 실행합니다. 이미 빌드된 바이너리만 쓰려면:
+`src-tauri/target/release`의 릴리스 바이너리를 실행합니다. 소스가 더 새우면 실행 파일만 다시 컴파일(`npm run build:bin`, 설치 파일은 만들지 않음)한 뒤 실행합니다. 이미 빌드된 바이너리만 쓰려면:
 
 ```bash
 npm start -- --no-build

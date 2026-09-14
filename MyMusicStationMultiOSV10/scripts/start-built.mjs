@@ -44,6 +44,7 @@ const sourceRoots = [
   join(root, 'src-tauri', 'src'),
   join(root, 'src-tauri', 'Cargo.toml'),
   join(root, 'src-tauri', 'tauri.conf.json'),
+  join(root, 'src-tauri', 'capabilities'),
   join(root, 'src-tauri', 'windows'),
 ]
 
@@ -96,22 +97,24 @@ const stopRunningInstances = async () => {
   }
 }
 
+// `npm start` only needs the release executable, so it compiles with
+// `build:bin` (tauri build --no-bundle) and never produces an installer.
 const targets = {
   win32: {
     fileName: 'my_music_station.exe',
-    buildScript: 'build:win',
-    buildHint: 'npm run build:win',
+    buildScript: 'build:bin',
+    buildHint: 'npm run build:bin',
   },
   darwin: {
     appPath: join(localReleaseDir, 'bundle', 'macos', 'My Music Station.app'),
     fileName: 'my_music_station',
-    buildScript: 'build:mac',
-    buildHint: 'npm run build:mac',
+    buildScript: 'build:bin',
+    buildHint: 'npm run build:bin',
   },
   linux: {
     fileName: 'my_music_station',
-    buildScript: 'build:linux',
-    buildHint: 'npm run build:linux',
+    buildScript: 'build:bin',
+    buildHint: 'npm run build:bin',
   },
 }
 
@@ -156,7 +159,7 @@ const rebuildIfStale = () => {
   // .cmd/.bat without a shell since the CVE-2024-27980 fix). Pass the whole
   // command as a single string with NO args array: Node's DEP0190 warning only
   // fires when an args array is combined with `shell: true`. buildScript is a
-  // fixed internal token (build:win/mac/linux), so there is nothing to escape.
+  // fixed internal token (build:bin), so there is nothing to escape.
   const result = spawnSync(`npm run ${target.buildScript}`, {
     stdio: 'inherit',
     shell: true,

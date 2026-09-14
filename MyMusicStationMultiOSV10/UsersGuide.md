@@ -8,7 +8,7 @@
 npm start
 ```
 
-Launches the release executable from `src-tauri/target/release`. If sources are newer, it rebuilds (same path as the installer build), then launches. On Windows it stops a running instance first.
+Launches the release executable from `src-tauri/target/release`. If sources are newer, it recompiles just the executable (`npm run build:bin`, no installer is produced), then launches. On Windows it stops a running instance first.
 
 Launch without rebuilding:
 
@@ -48,9 +48,9 @@ Hover a button for its tooltip.
 | URL audio save | Extract audio from a media/URL and save (format + quality). |
 | Spectrum flip / style | Flip color direction; cycle spectrum display style. |
 | Language | Korean / English. |
-| Settings | Language, theme, tray, wallpaper, playback options. |
+| Settings | Opens the settings window (sits just left of Minimize; also in compact mode, left of Close). |
 | About | Version and copyright. |
-| Theme | Built-in or custom themes. |
+| Theme | Steps to the next theme (16 built-in + custom, in order). Pick by colour in Settings. |
 | Collapse list | Show/hide the side playlist panel. |
 | Compact mode | Shrink to **340×180** (app icon stays on the title bar). |
 | Minimize / Close | Minimize, or hide to tray / quit (per settings). |
@@ -60,6 +60,10 @@ Hover a button for its tooltip.
 Shows playback state or temporary feedback (save, extract, theme, errors), plus theme / tray / wallpaper / volume hints.
 
 Errors open a detail dialog (copyable). Click a red status message to reopen it.
+
+## Dialog Windows
+
+Settings, Convert, URL audio save, About, alerts, errors and the folder-loading progress each open in their **own window** above the player (the player is dimmed and inert while one is open; click it to bring the dialog back to front). Each dialog opens centred over the player (or the screen when the player is hidden) and grows to fit its content — no scrollbars. Drag a dialog by its header; **Esc**, the header **X**, or the Close button dismisses it. Closing or hiding the main window closes every open dialog window with it.
 
 ## Playback
 
@@ -121,12 +125,14 @@ Select a track → Convert → choose format (and quality where applicable) → 
 
 ## Themes & Background
 
-- Themes: Dark, Modern, Classic, Fancy, or custom (add / export / import JSON).
+- 16 built-in themes: Dark, Modern, Classic, Fancy, Midnight, Ocean, Forest, Sunset, Rose, Lavender, Sand, Arctic, Mono, Neon, Coffee, Slate — plus custom themes (add / delete / export / import JSON).
+- Toolbar **Theme** button: applies the next theme in the list each click (wraps around).
+- Settings → Theme: colour tiles preview each theme's background, panel, text and accent; click one to apply it.
 - Settings → Background: built-in or custom image, dim, panel opacity.
 
 ## Settings
 
-- **General**: language, theme  
+- **Theme**: colour-tile picker + custom theme tools  
 - **Window / System**: use system tray  
 - **Background**: wallpaper, dim, panel opacity  
 - **Playback**: remember volume, spectrum, reopen last folder  

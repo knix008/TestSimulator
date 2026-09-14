@@ -11,13 +11,10 @@ import {
   AudioWaveform,
   Blend,
   ChartColumn,
-  CircleAlert,
   CloudDownload,
-  Copy,
   Download,
   FileAudio,
   FolderOpen,
-  ImagePlus,
   Info,
   Languages,
   Link,
@@ -37,7 +34,6 @@ import {
   SkipForward,
   Square,
   Trash2,
-  Upload,
   Volume2,
   VolumeX,
   X,
@@ -62,7 +58,6 @@ import {
 } from './themeFile'
 import { type ThemeDefinition, themes as builtInThemes } from './themes'
 import {
-  builtInWallpapers,
   defaultBuiltInWallpaperId,
   findBuiltInWallpaper,
   isBuiltInWallpaperId,
@@ -70,7 +65,18 @@ import {
   wallpaperFileExtensions,
   wallpaperMimeFromPath,
 } from './wallpapers'
-import { useDialogDrag } from './useDialogDrag'
+import { text } from './labels'
+import { PopupHost } from './popups/PopupHost'
+import { closeAllPopupWindows } from './popups/popupWindows'
+import type {
+  ConvertPopupAction,
+  ConvertPopupData,
+  ExtractPopupAction,
+  ExtractPopupData,
+  PopupChrome,
+  SettingsPopupAction,
+  SettingsPopupData,
+} from './popups/protocol'
 import appIconUrl from '../asset/app-icon.svg'
 import './App.css'
 
@@ -126,363 +132,8 @@ const sessionPlaylistFileName = 'session-playlist.json'
 const remoteCacheFolderName = 'remote-audio'
 const remoteCacheFormat = 'm4a'
 const defaultMusicFolder = 'D:\\Home\\Music'
-const appVersion = '1.0.0'
-const buildDate = '2026-08-08'
 const normalWindowSize = { width: 835, height: 496 }
 const miniWindowSize = { width: 340, height: 180 }
-
-const text = {
-  ko: {
-    appName: 'My Music Station V1.0.0',
-    title: '멀티 OS 플레이어',
-    addFiles: '파일 추가',
-    addFilesShort: '추가',
-    openFolder: '폴더 열기',
-    openFolderShort: '폴더',
-    reopenFolder: '다시 열기',
-    reopenFolderShort: '다시',
-    savePlaylist: '플레이리스트 저장',
-    savePlaylistShort: '저장',
-    openPlaylist: '플레이리스트 열기',
-    addRemote: 'URL 추가',
-    addRemoteBusy: '오디오 준비 중…',
-    addRemoteSuccess: '오디오를 불러와 재생합니다',
-    addRemoteStreamSuccess: '오디오 스트림을 재생합니다',
-    addRemoteExtractSuccess: '비디오에서 오디오를 추출해 재생합니다',
-    addRemoteError: '링크에서 오디오를 가져올 수 없습니다',
-    addTheme: '테마 추가',
-    deleteTheme: '테마 삭제',
-    exportTheme: '테마 파일 저장',
-    importTheme: '테마 파일 열기',
-    exportThemeSuccess: '테마 파일을 저장했습니다',
-    importThemeSuccess: '테마 파일을 불러왔습니다',
-    exportThemeError: '테마 파일을 저장할 수 없습니다',
-    importThemeError: '테마 파일을 읽을 수 없습니다',
-    appInfo: '프로그램 정보',
-    settings: '설정',
-    settingsGeneral: '일반',
-    settingsWindow: '창 / 시스템',
-    settingsAppearance: '배경',
-    settingsPlayback: '재생',
-    saveSettings: '설정 저장',
-    settingsSaved: '설정을 저장했습니다',
-    settingsSaveError: '설정을 저장할 수 없습니다',
-    useSystemTray: '시스템 트레이 사용',
-    useSystemTrayHint: '끄면 닫기 시 앱이 종료되고 트레이 아이콘이 숨겨집니다.',
-    wallpaperEnabled: '배경 이미지 사용',
-    wallpaperEnabledHint: 'background 폴더의 기본 이미지 또는 사용자 지정 이미지를 표시합니다.',
-    wallpaperBuiltIn: '기본 배경',
-    wallpaperChoose: '다른 이미지 선택',
-    wallpaperClear: '배경 이미지 제거',
-    wallpaperDim: '배경 어둡기',
-    panelOpacity: '패널 불투명도',
-    panelOpacityHint: '값을 낮출수록 배경이 더 비칩니다.',
-    collapseTrackList: '곡 목록 접기',
-    expandTrackList: '곡 목록 펼치기',
-    wallpaperNone: '선택된 이미지 없음',
-    wallpaperCustom: '사용자 지정',
-    wallpaperFormats: '이미지 파일',
-    rememberVolume: '종료 후 볼륨 기억',
-    showSpectrum: '스펙트럼 표시',
-    spectrumColorOrder: '스펙트럼 색 방향',
-    spectrumBlueRed: '왼쪽 파랑 → 오른쪽 빨강',
-    spectrumRedBlue: '왼쪽 빨강 → 오른쪽 파랑',
-    flipSpectrumColors: '스펙트럼 색 좌우 반전',
-    spectrumStyle: '스펙트럼 표시 방식',
-    cycleSpectrumStyle: '스펙트럼 방식 전환',
-    spectrumStyleBars: '막대',
-    spectrumStyleMirror: '대칭 막대',
-    spectrumStyleWave: '파형',
-    spectrumStyleLine: '라인',
-    spectrumStyleRadial: '원형',
-    spectrumStyleDots: '도트',
-    spectrumStyleBlocks: '블록',
-    spectrumStyleRidge: '능선',
-    spectrumStyleRing: '링',
-    spectrumStyleNeedle: '니들',
-    spectrumStylePulse: '펄스',
-    spectrumStyleStripe: '스트라이프',
-    spectrumStyleSpark: '스파크',
-    spectrumStyleAurora: '오로라',
-    spectrumStyleMatrix: '매트릭스',
-    convertSave: '형식 변환 저장',
-    convertSaveShort: '변환',
-    languageShortEn: 'EN',
-    languageShortKo: '한',
-    convertFormat: '저장 형식',
-    convertTrack: '대상 트랙',
-    convertBusy: '변환 중…',
-    convertSuccess: '변환 파일을 저장했습니다',
-    convertError: '변환할 수 없습니다',
-    convertNoTrack: '변환할 곡을 먼저 선택하세요',
-    convertNoSource: '변환할 수 있는 오디오 소스가 없습니다',
-    saveStream: '스트리밍 저장',
-    saveStreamBusy: '스트리밍 저장 중…',
-    saveStreamSuccess: '스트리밍 오디오를 저장했습니다',
-    extractAudio: 'URL 오디오 저장',
-    extractAudioShort: '추출',
-    extractAudioHint: '비디오·미디어 링크는 오디오만 추출해 저장합니다. 직접 오디오 링크는 스트리밍 재생 후 변환 저장을 사용하세요.',
-    extractUrl: '링크 주소',
-    extractFormat: '저장 형식',
-    extractQuality: '음질',
-    extractQualityHigh: '고음질 (기본)',
-    extractQualityMedium: '표준',
-    extractQualityLow: '용량 절약',
-    extractBusy: '오디오 추출 중…',
-    extractSuccess: '오디오 파일을 저장했습니다',
-    extractError: '오디오를 추출할 수 없습니다',
-    extractNoUrl: '오디오를 추출할 링크를 입력하세요',
-    extractAddToPlaylist: '저장 후 플레이리스트에 추가',
-    reopenLastFolderOnStart: '시작 시 마지막 폴더 열기',
-    tracksAlreadyLoaded: '이미 목록에 있는 항목은 건너뛰었습니다',
-    folderNothingNew: '새 파일이 없어 다시 불러오지 않았습니다',
-    folderProgressTitle: '폴더에서 곡 추가 중',
-    folderScanning: '오디오 파일을 검색하는 중…',
-    folderLoadingTracks: '곡 불러오는 중',
-    language: '언어',
-    theme: '테마',
-    miniMode: '최소 크기 모드',
-    restoreNormalMode: '정상 모드로 복귀',
-    minimize: '최소화',
-    close: '닫기',
-    confirm: '확인',
-    quitApp: '종료',
-    previous: '이전 곡',
-    play: '재생',
-    pause: '일시정지',
-    stop: '정지',
-    next: '다음 곡',
-    volume: '볼륨',
-    mute: '볼륨 Off',
-    unmute: '볼륨 On',
-    speakerActive: '스피커 켜짐',
-    speakerInactive: '스피커 꺼짐',
-    position: '재생 위치',
-    remoteUrl: '미디어·오디오 URL',
-    noTrack: '음악을 추가하세요',
-    playlist: '재생 목록',
-    removeTrack: '목록에서 삭제',
-    contextSaveDownload: '다운로드 오디오 저장',
-    contextPlay: '재생',
-    folder: '폴더',
-    formats: 'MP3 FLAC WAV OGG AAC M4A WebM OPUS WMA AIFF',
-    themeName: '테마 이름',
-    accent: '강조색',
-    local: '로컬',
-    remote: '원격',
-    noAlbumArt: '앨범 이미지 없음',
-    playbackError: '재생할 수 없습니다',
-    saveError: '저장할 수 없습니다',
-    saveEmpty: '저장할 재생 목록이 없습니다',
-    saveNoPersistable: '경로가 있는 로컬 파일이나 URL만 저장할 수 있습니다. 폴더 열기/파일 열기를 사용하세요.',
-    saveSuccess: '재생 목록을 저장했습니다',
-    statusReady: '준비됨',
-    statusPlaying: '재생 중',
-    statusPaused: '일시정지',
-    statusStopped: '정지',
-    statusTrayOn: '트레이 사용',
-    statusTrayOff: '트레이 끄기',
-    statusWallpaperOn: '배경 사용',
-    statusWallpaperOff: '배경 없음',
-    statusBar: '상태바',
-    errorDialog: '오류',
-    errorDialogHint: '아래 내용을 선택하거나 복사할 수 있습니다.',
-    copyError: '내용 복사',
-    copied: '복사됨',
-    copyFailed: '클립보드에 복사하지 못했습니다',
-    version: '버전',
-    build: '빌드',
-    author: '작성자',
-    copyright: '저작권',
-    copyrightText: 'Copyright (c) 2026 SHKWON. 모든 권리 보유.',
-  },
-  en: {
-    appName: 'My Music Station V1.0.0',
-    title: 'Multi OS Player',
-    addFiles: 'Add files',
-    addFilesShort: 'Add',
-    openFolder: 'Open folder',
-    openFolderShort: 'Open',
-    reopenFolder: 'Reopen',
-    reopenFolderShort: 'Reopen',
-    savePlaylist: 'Save playlist',
-    savePlaylistShort: 'Save',
-    openPlaylist: 'Open playlist',
-    addRemote: 'Add URL',
-    addRemoteBusy: 'Preparing audio…',
-    addRemoteSuccess: 'Audio ready — playing',
-    addRemoteStreamSuccess: 'Streaming audio',
-    addRemoteExtractSuccess: 'Extracted audio from video — playing',
-    addRemoteError: 'Could not get audio from this link',
-    addTheme: 'Add theme',
-    deleteTheme: 'Delete theme',
-    exportTheme: 'Save theme file',
-    importTheme: 'Open theme file',
-    exportThemeSuccess: 'Theme file saved',
-    importThemeSuccess: 'Theme file loaded',
-    exportThemeError: 'Cannot save theme file',
-    importThemeError: 'Cannot read theme file',
-    appInfo: 'About',
-    settings: 'Settings',
-    settingsGeneral: 'General',
-    settingsWindow: 'Window / System',
-    settingsAppearance: 'Background',
-    settingsPlayback: 'Playback',
-    saveSettings: 'Save settings',
-    settingsSaved: 'Settings saved',
-    settingsSaveError: 'Could not save settings',
-    useSystemTray: 'Use system tray',
-    useSystemTrayHint: 'When off, Close quits the app and the tray icon is hidden.',
-    wallpaperEnabled: 'Use background image',
-    wallpaperEnabledHint: 'Show built-in images from the background folder, or a custom image.',
-    wallpaperBuiltIn: 'Built-in backgrounds',
-    wallpaperChoose: 'Choose another image',
-    wallpaperClear: 'Clear background image',
-    wallpaperDim: 'Background dim',
-    panelOpacity: 'Panel opacity',
-    panelOpacityHint: 'Lower values reveal more of the background.',
-    collapseTrackList: 'Collapse track list',
-    expandTrackList: 'Expand track list',
-    wallpaperNone: 'No image selected',
-    wallpaperCustom: 'Custom',
-    wallpaperFormats: 'Image files',
-    rememberVolume: 'Remember volume',
-    showSpectrum: 'Show spectrum',
-    spectrumColorOrder: 'Spectrum color direction',
-    spectrumBlueRed: 'Left blue → right red',
-    spectrumRedBlue: 'Left red → right blue',
-    flipSpectrumColors: 'Flip spectrum colors',
-    spectrumStyle: 'Spectrum style',
-    cycleSpectrumStyle: 'Cycle spectrum style',
-    spectrumStyleBars: 'Bars',
-    spectrumStyleMirror: 'Mirror bars',
-    spectrumStyleWave: 'Waveform',
-    spectrumStyleLine: 'Line',
-    spectrumStyleRadial: 'Radial',
-    spectrumStyleDots: 'Dots',
-    spectrumStyleBlocks: 'Blocks',
-    spectrumStyleRidge: 'Ridge',
-    spectrumStyleRing: 'Rings',
-    spectrumStyleNeedle: 'Needles',
-    spectrumStylePulse: 'Pulse',
-    spectrumStyleStripe: 'Stripes',
-    spectrumStyleSpark: 'Sparks',
-    spectrumStyleAurora: 'Aurora',
-    spectrumStyleMatrix: 'Matrix',
-    convertSave: 'Convert & save',
-    convertSaveShort: 'Convert',
-    languageShortEn: 'EN',
-    languageShortKo: '한',
-    convertFormat: 'Output format',
-    convertTrack: 'Track',
-    convertBusy: 'Converting…',
-    convertSuccess: 'Converted file saved',
-    convertError: 'Cannot convert this track',
-    convertNoTrack: 'Select a track to convert first',
-    convertNoSource: 'No convertible audio source is available',
-    saveStream: 'Save stream',
-    saveStreamBusy: 'Saving stream…',
-    saveStreamSuccess: 'Streamed audio saved',
-    extractAudio: 'Save audio from URL',
-    extractAudioShort: 'Extract',
-    extractAudioHint: 'Video/media links extract audio only. Direct audio links stream for playback — use Convert & save to download them.',
-    extractUrl: 'Link URL',
-    extractFormat: 'Output format',
-    extractQuality: 'Quality',
-    extractQualityHigh: 'High (default)',
-    extractQualityMedium: 'Standard',
-    extractQualityLow: 'Smaller file',
-    extractBusy: 'Extracting audio…',
-    extractSuccess: 'Audio file saved',
-    extractError: 'Cannot extract audio',
-    extractNoUrl: 'Enter a link to extract audio from',
-    extractAddToPlaylist: 'Add to playlist after saving',
-    reopenLastFolderOnStart: 'Open last folder on start',
-    tracksAlreadyLoaded: 'Skipped items already in the playlist',
-    folderNothingNew: 'No new files to load',
-    folderProgressTitle: 'Adding tracks from folder',
-    folderScanning: 'Scanning for audio files…',
-    folderLoadingTracks: 'Loading tracks',
-    language: 'Language',
-    theme: 'Theme',
-    miniMode: 'Compact mode',
-    restoreNormalMode: 'Back to normal mode',
-    minimize: 'Minimize',
-    close: 'Close',
-    confirm: 'OK',
-    quitApp: 'Quit',
-    previous: 'Previous track',
-    play: 'Play',
-    pause: 'Pause',
-    stop: 'Stop',
-    next: 'Next track',
-    volume: 'Volume',
-    mute: 'Volume Off',
-    unmute: 'Volume On',
-    speakerActive: 'Speaker on',
-    speakerInactive: 'Speaker off',
-    position: 'Position',
-    remoteUrl: 'Media or audio URL',
-    noTrack: 'Add music to begin',
-    playlist: 'Playlist',
-    removeTrack: 'Remove from playlist',
-    contextSaveDownload: 'Save downloaded audio',
-    contextPlay: 'Play',
-    folder: 'Folder',
-    formats: 'MP3 FLAC WAV OGG AAC M4A WebM OPUS WMA AIFF',
-    themeName: 'Theme name',
-    accent: 'Accent',
-    local: 'Local',
-    remote: 'Remote',
-    noAlbumArt: 'No album art',
-    playbackError: 'Cannot play this track',
-    saveError: 'Cannot save the playlist',
-    saveEmpty: 'There is no playlist to save',
-    saveNoPersistable: 'Only local files with paths or remote URLs can be saved. Use Open folder / Open files.',
-    saveSuccess: 'Playlist saved',
-    statusReady: 'Ready',
-    statusPlaying: 'Playing',
-    statusPaused: 'Paused',
-    statusStopped: 'Stopped',
-    statusTrayOn: 'Tray on',
-    statusTrayOff: 'Tray off',
-    statusWallpaperOn: 'Wallpaper on',
-    statusWallpaperOff: 'No wallpaper',
-    statusBar: 'Status bar',
-    errorDialog: 'Error',
-    errorDialogHint: 'You can select or copy the details below.',
-    copyError: 'Copy details',
-    copied: 'Copied',
-    copyFailed: 'Could not copy to the clipboard',
-    version: 'Version',
-    build: 'Build',
-    author: 'Author',
-    copyright: 'Copyright',
-    copyrightText: 'Copyright (c) 2026 SHKWON. All rights reserved.',
-  },
-} as const
-
-const copyTextToClipboard = async (value: string) => {
-  try {
-    if (navigator.clipboard?.writeText) {
-      await navigator.clipboard.writeText(value)
-      return true
-    }
-  } catch {
-    // Fall through to the legacy copy path.
-  }
-
-  const textarea = document.createElement('textarea')
-  textarea.value = value
-  textarea.setAttribute('readonly', '')
-  textarea.style.position = 'fixed'
-  textarea.style.left = '-9999px'
-  document.body.appendChild(textarea)
-  textarea.select()
-  const ok = document.execCommand('copy')
-  document.body.removeChild(textarea)
-  return ok
-}
 
 const formatTime = (seconds: number) => {
   if (!Number.isFinite(seconds)) {
@@ -743,9 +394,6 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
   const [language, setLanguage] = useState<Language>(initialSettings.language)
   const [availableThemes, setAvailableThemes] = useState<ThemeDefinition[]>(() => [...builtInThemes, ...loadCustomThemes()])
   const [themeId, setThemeId] = useState(initialSettings.themeId)
-  const [activeToolbarMenu, setActiveToolbarMenu] = useState<'language' | 'theme' | null>(null)
-  const [themeName, setThemeName] = useState('Custom')
-  const [themeAccent, setThemeAccent] = useState('#4cc9a6')
   const [tracks, setTracks] = useState<Track[]>([])
   tracksRef.current = tracks
   const [currentTrackId, setCurrentTrackId] = useState('')
@@ -765,7 +413,6 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
   const [statusMessage, setStatusMessage] = useState('')
   const [statusKind, setStatusKind] = useState<StatusKind>('info')
   const [errorDialogMessage, setErrorDialogMessage] = useState('')
-  const [errorCopyState, setErrorCopyState] = useState<'idle' | 'copied' | 'failed'>('idle')
   const [showAppInfo, setShowAppInfo] = useState(false)
   const [miniMode, setMiniMode] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
@@ -785,11 +432,6 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
   const [extractMessage, setExtractMessage] = useState('')
   const [alertDialog, setAlertDialog] = useState<{ title: string; message: string } | null>(null)
   const [folderProgress, setFolderProgress] = useState<{ phase: 'scanning' | 'loading'; loaded: number; total: number } | null>(null)
-  const settingsDialogDrag = useDialogDrag(showSettings)
-  const convertDialogDrag = useDialogDrag(showConvertDialog)
-  const extractDialogDrag = useDialogDrag(showExtractDialog)
-  const errorDialogDrag = useDialogDrag(Boolean(errorDialogMessage))
-  const alertDialogDrag = useDialogDrag(Boolean(alertDialog))
   const [themeMessage, setThemeMessage] = useState('')
   const [useSystemTray, setUseSystemTray] = useState(initialSettings.useSystemTray)
   const [rememberVolume] = useState(initialSettings.rememberVolume)
@@ -855,7 +497,6 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
 
     if (kind === 'error') {
       setErrorDialogMessage(message)
-      setErrorCopyState('idle')
     }
   }
 
@@ -866,16 +507,6 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
 
   const closeErrorDialog = () => {
     setErrorDialogMessage('')
-    setErrorCopyState('idle')
-  }
-
-  const copyErrorDetails = async () => {
-    if (!errorDialogMessage) {
-      return
-    }
-
-    const ok = await copyTextToClipboard(errorDialogMessage)
-    setErrorCopyState(ok ? 'copied' : 'failed')
   }
 
   useEffect(() => {
@@ -950,7 +581,6 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
     void listen('open-settings', () => {
       setShowSettings(true)
       setShowAppInfo(false)
-      setActiveToolbarMenu(null)
     }).then((dispose) => {
       if (cancelled) {
         dispose()
@@ -2343,15 +1973,15 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
     }
   }
 
-  const addTheme = () => {
+  const addTheme = (name: string, accent: string) => {
     const id = `custom-${Date.now()}`
     const newTheme: ThemeDefinition = {
       id,
-      name: themeName.trim() || 'Custom',
+      name: name.trim() || 'Custom',
       builtIn: false,
       vars: {
-        '--primary': themeAccent,
-        '--primary-soft': `${themeAccent}99`,
+        '--primary': accent,
+        '--primary-soft': `${accent}99`,
       },
     }
     const customThemes = [...availableThemes.filter((theme) => !theme.builtIn), newTheme]
@@ -2371,7 +2001,7 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
 
   const exportThemeFile = async () => {
     const selected = availableThemes.find((theme) => theme.id === themeId) ?? availableThemes[0]
-    const name = selected?.name || themeName.trim() || 'Theme'
+    const name = selected?.name || 'Theme'
     const vars = {
       ...captureThemeVars(),
       ...(selected?.vars ?? {}),
@@ -2427,11 +2057,6 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
       ]
 
       persistCustomThemes(customThemes, imported.id)
-      setThemeName(imported.name)
-
-      if (imported.vars?.['--primary']) {
-        setThemeAccent(imported.vars['--primary'])
-      }
 
       const importedMsg = `${labels.importThemeSuccess}: ${imported.name}`
       setThemeMessage(importedMsg)
@@ -2446,14 +2071,12 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
 
   const toggleLanguage = () => {
     setLanguage((currentLanguage) => (currentLanguage === 'ko' ? 'en' : 'ko'))
-    setActiveToolbarMenu(null)
   }
 
   const flipSpectrumColors = () => {
     const nextOrder: SpectrumColorOrder = spectrumColorOrderRef.current === 'blue-red' ? 'red-blue' : 'blue-red'
     spectrumColorOrderRef.current = nextOrder
     setSpectrumColorOrder(nextOrder)
-    setActiveToolbarMenu(null)
   }
 
   const cycleSpectrumStyle = () => {
@@ -2461,15 +2084,14 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
     spectrumStyleRef.current = nextStyle
     setSpectrumStyle(nextStyle)
     pushStatus(`${labels.spectrumStyle}: ${spectrumStyleLabels[nextStyle]}`, 'success')
-    setActiveToolbarMenu(null)
 
     if (showSpectrum && isPlaying) {
       drawSpectrum()
     }
   }
 
-  // Mini mode has no room for the theme dropdown, so the theme button cycles
-  // straight to the next available theme instead.
+  // The toolbar theme button steps through the theme list in order; picking a
+  // specific theme by colour happens in the settings window.
   const cycleTheme = () => {
     const index = availableThemes.findIndex((theme) => theme.id === themeId)
     const nextTheme = availableThemes[(index + 1) % availableThemes.length]
@@ -2497,7 +2119,6 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
   }
 
   const openConvertDialogForTrack = (track: Track) => {
-    setActiveToolbarMenu(null)
     setTrackContextMenu(null)
     setConvertTargetTrackId(track.id)
     setConvertQuality('high')
@@ -2506,7 +2127,6 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
   }
 
   const openConvertDialog = () => {
-    setActiveToolbarMenu(null)
     setTrackContextMenu(null)
 
     if (!currentTrack) {
@@ -2559,7 +2179,6 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
   }, [trackContextMenu])
 
   const openExtractDialog = () => {
-    setActiveToolbarMenu(null)
     setExtractMessage('')
     if (remoteUrl.trim()) {
       setExtractUrl(remoteUrl.trim())
@@ -2792,7 +2411,6 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
 
   const selectTheme = (nextThemeId: string) => {
     setThemeId(nextThemeId)
-    setActiveToolbarMenu(null)
   }
 
   const seek = (event: ChangeEvent<HTMLInputElement>) => {
@@ -2926,7 +2544,6 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
   }
 
   const enterMiniMode = async () => {
-    setActiveToolbarMenu(null)
     setShowAppInfo(false)
     setShowSettings(false)
     setShowConvertDialog(false)
@@ -2955,11 +2572,20 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [miniMode])
 
+  const openSettings = () => {
+    setShowAppInfo(false)
+    setShowConvertDialog(false)
+    setShowSettings(true)
+  }
+
   const minimizeWindow = async () => {
     await getCurrentWindow().minimize()
   }
 
   const closeWindow = async () => {
+    // Popups are owned by this window; never leave one floating without it.
+    await closeAllPopupWindows()
+
     if (useSystemTray) {
       await getCurrentWindow().hide()
       return
@@ -3039,6 +2665,151 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
     // Awaiting the promise often drops the first drag gesture on Windows.
     event.preventDefault()
     void getCurrentWindow().startDragging()
+  }
+
+
+  const popupChrome: PopupChrome = { language, theme: selectedTheme }
+
+  const settingsPopupData: SettingsPopupData = {
+    useSystemTray,
+    reopenLastFolderOnStart,
+    wallpaperEnabled,
+    wallpaperPath,
+    wallpaperDim,
+    panelOpacity,
+    themeId,
+    themes: availableThemes,
+    themeMessage,
+  }
+
+  const onSettingsPopupAction = (action: SettingsPopupAction) => {
+    switch (action.type) {
+      case 'setUseSystemTray':
+        updateUseSystemTray(action.enabled)
+        break
+      case 'setReopenLastFolderOnStart':
+        setReopenLastFolderOnStart(action.enabled)
+        break
+      case 'setWallpaperEnabled': {
+        const enabled = action.enabled
+        if (enabled && !wallpaperPath && defaultBuiltInWallpaperId) {
+          setWallpaperPath(defaultBuiltInWallpaperId)
+        }
+        setWallpaperEnabled(enabled)
+        pushStatus(enabled ? labels.statusWallpaperOn : labels.statusWallpaperOff, 'info')
+        break
+      }
+      case 'selectBuiltInWallpaper':
+        selectBuiltInWallpaper(action.wallpaperId)
+        break
+      case 'chooseWallpaper':
+        void chooseWallpaper()
+        break
+      case 'clearWallpaper':
+        clearWallpaper()
+        break
+      case 'setWallpaperDim':
+        setWallpaperDim(action.value)
+        break
+      case 'setPanelOpacity':
+        setPanelOpacity(action.value)
+        break
+      case 'selectTheme':
+        selectTheme(action.themeId)
+        break
+      case 'addTheme':
+        addTheme(action.name, action.accent)
+        break
+      case 'deleteTheme':
+        deleteTheme()
+        break
+      case 'exportTheme':
+        void exportThemeFile()
+        break
+      case 'importTheme':
+        void importThemeFile()
+        break
+      case 'save':
+        void saveSettingsFromDialog()
+        break
+      case 'close':
+        setShowSettings(false)
+        break
+    }
+  }
+
+  const convertPopupData: ConvertPopupData = {
+    title: convertDialogTitle,
+    busyLabel: convertDialogBusy,
+    trackTitle: convertTargetTrack?.title ?? null,
+    isRemoteSave: convertDialogIsRemoteSave,
+    format: convertFormat,
+    formats: convertFormats,
+    quality: convertQuality,
+    isConverting,
+    message: convertMessage,
+  }
+
+  const onConvertPopupAction = (action: ConvertPopupAction) => {
+    switch (action.type) {
+      case 'setFormat':
+        setConvertFormat(action.format)
+        break
+      case 'setQuality':
+        setConvertQuality(action.quality)
+        break
+      case 'run':
+        void runConvertSave()
+        break
+      case 'close':
+        closeConvertDialog()
+        break
+    }
+  }
+
+  const extractPopupData: ExtractPopupData = {
+    url: extractUrl,
+    format: extractFormat,
+    formats: extractFormats,
+    quality: extractQuality,
+    addToPlaylist: extractAddToPlaylist,
+    isExtracting,
+    message: extractMessage,
+  }
+
+  // The OS window can also vanish on its own (Alt+F4, main window closing); the
+  // flag must follow it or the next open would find no window to show.
+  const onConvertPopupClosed = () => {
+    setShowConvertDialog(false)
+    if (!isConverting) {
+      setConvertTargetTrackId(null)
+      setConvertMessage('')
+    }
+  }
+
+  const onExtractPopupAction = (action: ExtractPopupAction) => {
+    switch (action.type) {
+      case 'setUrl':
+        setExtractUrl(action.url)
+        break
+      case 'setFormat':
+        setExtractFormat(action.format)
+        break
+      case 'setQuality':
+        setExtractQuality(action.quality)
+        break
+      case 'setAddToPlaylist':
+        setExtractAddToPlaylist(action.enabled)
+        break
+      case 'run':
+        void runExtractSave()
+        break
+      case 'close':
+        if (!isExtracting) {
+          setShowExtractDialog(false)
+        }
+        break
+    }
   }
 
   return (
@@ -3141,6 +2912,16 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
               onClick={() => void exitMiniMode()}
             >
               <Maximize2 size={13} />
+            </button>
+            <button
+              type="button"
+              className="mini-button"
+              data-tooltip={labels.settings}
+              aria-label={labels.settings}
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={openSettings}
+            >
+              <Settings size={13} />
             </button>
             <button
               type="button"
@@ -3359,71 +3140,16 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
           <button
             className="tool-button icon-only"
             type="button"
-            data-tooltip={labels.settings}
-            aria-label={labels.settings}
+            data-tooltip={`${labels.theme}: ${selectedTheme.name}`}
+            aria-label={labels.theme}
             onPointerDown={(event) => event.stopPropagation()}
             onClick={(event) => {
               event.stopPropagation()
-              setActiveToolbarMenu(null)
-              setShowAppInfo(false)
-              setShowConvertDialog(false)
-              setShowSettings(true)
+              cycleTheme()
             }}
           >
-            <Settings size={14} />
+            <Palette size={14} />
           </button>
-          <div className="toolbar-menu">
-            <button
-              className="tool-button icon-only"
-              type="button"
-              data-tooltip={labels.theme}
-              aria-label={labels.theme}
-              onPointerDown={(event) => event.stopPropagation()}
-              onClick={(event) => {
-                event.stopPropagation()
-                setShowAppInfo(false)
-                setShowSettings(false)
-                setActiveToolbarMenu((menu) => (menu === 'theme' ? null : 'theme'))
-              }}
-            >
-              <Palette size={14} />
-            </button>
-            {activeToolbarMenu === 'theme' && (
-              <div className="toolbar-popover theme-popover" onPointerDown={(event) => event.stopPropagation()}>
-                <div className="theme-list">
-                  {availableThemes.map((theme) => (
-                    <button
-                      type="button"
-                      key={theme.id}
-                      className={theme.id === themeId ? 'active' : ''}
-                      data-tooltip={theme.name}
-                      aria-label={theme.name}
-                      onClick={() => selectTheme(theme.id)}
-                    >
-                      {theme.name}
-                    </button>
-                  ))}
-                </div>
-                <div className="theme-editor compact">
-                  <input aria-label={labels.themeName} value={themeName} onChange={(event) => setThemeName(event.target.value)} />
-                  <input aria-label={labels.accent} type="color" value={themeAccent} onChange={(event) => setThemeAccent(event.target.value)} />
-                  <button type="button" data-tooltip={labels.addTheme} aria-label={labels.addTheme} onClick={addTheme}>
-                    <Plus size={14} />
-                  </button>
-                  <button type="button" data-tooltip={labels.deleteTheme} aria-label={labels.deleteTheme} onClick={deleteTheme}>
-                    <Trash2 size={14} />
-                  </button>
-                  <button type="button" data-tooltip={labels.exportTheme} aria-label={labels.exportTheme} onClick={() => void exportThemeFile()}>
-                    <Save size={14} />
-                  </button>
-                  <button type="button" data-tooltip={labels.importTheme} aria-label={labels.importTheme} onClick={() => void importThemeFile()}>
-                    <Upload size={14} />
-                  </button>
-                </div>
-                {themeMessage && <p className="theme-message">{themeMessage}</p>}
-              </div>
-            )}
-          </div>
           <button
             className="tool-button icon-only"
             type="button"
@@ -3432,7 +3158,6 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
             onPointerDown={(event) => event.stopPropagation()}
             onClick={(event) => {
               event.stopPropagation()
-              setActiveToolbarMenu(null)
               setShowSettings(false)
               setShowConvertDialog(false)
               setShowAppInfo(true)
@@ -3463,6 +3188,18 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
             onClick={() => void enterMiniMode()}
           >
             <Minimize2 size={14} />
+          </button>
+          <button
+            type="button"
+            data-tooltip={labels.settings}
+            aria-label={labels.settings}
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={(event) => {
+              event.stopPropagation()
+              openSettings()
+            }}
+          >
+            <Settings size={14} />
           </button>
           <button type="button" data-tooltip={labels.minimize} aria-label={labels.minimize} onPointerDown={(event) => event.stopPropagation()} onClick={minimizeWindow}>
             <Minus size={14} />
@@ -3629,81 +3366,6 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
         )}
       </section>
 
-      {showConvertDialog && (
-        <div
-          className="modal-backdrop"
-          role="presentation"
-          onClick={closeConvertDialog}
-        >
-          <section
-            className="settings-dialog convert-dialog themed-dialog"
-            role="dialog"
-            aria-modal="true"
-            aria-label={convertDialogTitle}
-            style={convertDialogDrag.style}
-            onClick={(event) => event.stopPropagation()}
-          >
-            <header className="settings-header dialog-drag-handle" onPointerDown={convertDialogDrag.onHeaderPointerDown}>
-              <FileAudio size={18} />
-              <h2>{convertDialogTitle}</h2>
-            </header>
-
-            <div className="settings-body">
-              <label className="settings-row">
-                <span>{labels.convertTrack}</span>
-                <strong className="convert-track-name">{convertTargetTrack?.title ?? labels.noTrack}</strong>
-              </label>
-              <label className="settings-row">
-                <span>{labels.convertFormat}</span>
-                <select
-                  value={convertFormat}
-                  aria-label={labels.convertFormat}
-                  disabled={isConverting || !convertTargetTrack}
-                  onChange={(event) => setConvertFormat(event.target.value as ConvertFormat)}
-                >
-                  {convertFormats.map((format) => (
-                    <option key={format} value={format}>
-                      {format.toUpperCase()}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              {convertDialogIsRemoteSave && (
-                <label className="settings-row">
-                  <span>{labels.extractQuality}</span>
-                  <select
-                    value={convertQuality}
-                    aria-label={labels.extractQuality}
-                    disabled={isConverting || !convertTargetTrack}
-                    onChange={(event) => setConvertQuality(event.target.value as ExtractQuality)}
-                  >
-                    <option value="high">{labels.extractQualityHigh}</option>
-                    <option value="medium">{labels.extractQualityMedium}</option>
-                    <option value="low">{labels.extractQualityLow}</option>
-                  </select>
-                </label>
-              )}
-              {convertMessage && <p className={`convert-message${isConverting ? ' busy' : ''}`}>{convertMessage}</p>}
-            </div>
-
-            <div className="convert-actions">
-              <button type="button" aria-label={labels.close} disabled={isConverting} onClick={closeConvertDialog}>
-                {labels.close}
-              </button>
-              <button
-                type="button"
-                className="primary-action"
-                aria-label={isConverting ? convertDialogBusy : convertDialogTitle}
-                disabled={isConverting || !convertTargetTrack}
-                onClick={() => void runConvertSave()}
-              >
-                {isConverting ? convertDialogBusy : convertDialogTitle}
-              </button>
-            </div>
-          </section>
-        </div>
-      )}
-
       {trackContextMenu && (() => {
         const menuTrack = tracks.find((track) => track.id === trackContextMenu.trackId)
         if (!menuTrack) {
@@ -3755,406 +3417,6 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
         )
       })()}
 
-      {showExtractDialog && (
-        <div
-          className="modal-backdrop"
-          role="presentation"
-          onClick={() => {
-            if (!isExtracting) {
-              setShowExtractDialog(false)
-            }
-          }}
-        >
-          <section
-            className="settings-dialog convert-dialog extract-dialog themed-dialog"
-            role="dialog"
-            aria-modal="true"
-            aria-label={labels.extractAudio}
-            style={extractDialogDrag.style}
-            onClick={(event) => event.stopPropagation()}
-          >
-            <header className="settings-header dialog-drag-handle" onPointerDown={extractDialogDrag.onHeaderPointerDown}>
-              <CloudDownload size={18} />
-              <h2>{labels.extractAudio}</h2>
-            </header>
-
-            <div className="settings-body">
-              <p className="extract-hint">{labels.extractAudioHint}</p>
-              <label className="settings-row settings-row-stack">
-                <span>{labels.extractUrl}</span>
-                <input
-                  type="text"
-                  inputMode="url"
-                  autoComplete="off"
-                  spellCheck={false}
-                  value={extractUrl}
-                  aria-label={labels.extractUrl}
-                  placeholder="https://…"
-                  disabled={isExtracting}
-                  onChange={(event) => setExtractUrl(event.target.value)}
-                  onPointerDown={(event) => event.stopPropagation()}
-                />
-              </label>
-              <label className="settings-row">
-                <span>{labels.extractFormat}</span>
-                <select
-                  value={extractFormat}
-                  aria-label={labels.extractFormat}
-                  disabled={isExtracting}
-                  onChange={(event) => setExtractFormat(event.target.value as ExtractFormat)}
-                >
-                  {extractFormats.map((format) => (
-                    <option key={format} value={format}>
-                      {format.toUpperCase()}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="settings-row">
-                <span>{labels.extractQuality}</span>
-                <select
-                  value={extractQuality}
-                  aria-label={labels.extractQuality}
-                  disabled={isExtracting}
-                  onChange={(event) => setExtractQuality(event.target.value as ExtractQuality)}
-                >
-                  <option value="high">{labels.extractQualityHigh}</option>
-                  <option value="medium">{labels.extractQualityMedium}</option>
-                  <option value="low">{labels.extractQualityLow}</option>
-                </select>
-              </label>
-              <label className="settings-toggle">
-                <input
-                  type="checkbox"
-                  checked={extractAddToPlaylist}
-                  disabled={isExtracting}
-                  onChange={(event) => setExtractAddToPlaylist(event.target.checked)}
-                />
-                <span>{labels.extractAddToPlaylist}</span>
-              </label>
-              {extractMessage && <p className={`convert-message${isExtracting ? ' busy' : ''}`}>{extractMessage}</p>}
-            </div>
-
-            <div className="convert-actions">
-              <button type="button" aria-label={labels.close} disabled={isExtracting} onClick={() => setShowExtractDialog(false)}>
-                {labels.close}
-              </button>
-              <button
-                type="button"
-                className="primary-action"
-                aria-label={isExtracting ? labels.extractBusy : labels.extractAudio}
-                disabled={isExtracting || !extractUrl.trim()}
-                onClick={() => void runExtractSave()}
-              >
-                {isExtracting ? labels.extractBusy : labels.extractAudio}
-              </button>
-            </div>
-          </section>
-        </div>
-      )}
-
-      {showSettings && (
-        <div
-          className="modal-backdrop"
-          role="presentation"
-          onClick={() => setShowSettings(false)}
-        >
-          <section
-            className="settings-dialog"
-            role="dialog"
-            aria-modal="true"
-            aria-label={labels.settings}
-            style={settingsDialogDrag.style}
-            onClick={(event) => event.stopPropagation()}
-          >
-            <header className="settings-header dialog-drag-handle" onPointerDown={settingsDialogDrag.onHeaderPointerDown}>
-              <Settings size={16} />
-              <h2>{labels.settings}</h2>
-            </header>
-
-            <div className="settings-body">
-              <section className="settings-section">
-                <h3>{labels.settingsWindow}</h3>
-                <label className="settings-toggle" title={labels.useSystemTrayHint}>
-                  <input
-                    type="checkbox"
-                    checked={useSystemTray}
-                    onChange={(event) => updateUseSystemTray(event.target.checked)}
-                  />
-                  <span>
-                    <strong>{labels.useSystemTray}</strong>
-                    <small>{labels.useSystemTrayHint}</small>
-                  </span>
-                </label>
-                <label className="settings-toggle">
-                  <input
-                    type="checkbox"
-                    checked={reopenLastFolderOnStart}
-                    onChange={(event) => setReopenLastFolderOnStart(event.target.checked)}
-                  />
-                  <span>
-                    <strong>{labels.reopenLastFolderOnStart}</strong>
-                  </span>
-                </label>
-              </section>
-
-              <section className="settings-section">
-                <h3>{labels.settingsAppearance}</h3>
-                <label className="settings-toggle" title={labels.wallpaperEnabledHint}>
-                  <input
-                    type="checkbox"
-                    checked={wallpaperEnabled}
-                    onChange={(event) => {
-                      const enabled = event.target.checked
-                      if (enabled && !wallpaperPath && defaultBuiltInWallpaperId) {
-                        setWallpaperPath(defaultBuiltInWallpaperId)
-                      }
-                      setWallpaperEnabled(enabled)
-                      pushStatus(enabled ? labels.statusWallpaperOn : labels.statusWallpaperOff, 'info')
-                    }}
-                    disabled={!wallpaperPath && !defaultBuiltInWallpaperId}
-                  />
-                  <span>
-                    <strong>{labels.wallpaperEnabled}</strong>
-                    <small>{labels.wallpaperEnabledHint}</small>
-                  </span>
-                </label>
-                {builtInWallpapers.length > 0 && (
-                  <div className="wallpaper-built-in">
-                    <span className="wallpaper-built-in-label">{labels.wallpaperBuiltIn}</span>
-                    <div className="wallpaper-gallery" role="listbox" aria-label={labels.wallpaperBuiltIn}>
-                      {builtInWallpapers.map((item) => (
-                        <button
-                          type="button"
-                          key={item.id}
-                          className={`wallpaper-thumb${wallpaperPath === item.id ? ' active' : ''}`}
-                          role="option"
-                          aria-selected={wallpaperPath === item.id}
-                          aria-label={item.name}
-                          onClick={() => selectBuiltInWallpaper(item.id)}
-                        >
-                          <img src={item.url} alt="" />
-                          <span>{item.name}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                <div className="settings-row wallpaper-path-row">
-                  <small className="wallpaper-path" title={wallpaperPath || labels.wallpaperNone}>
-                    {wallpaperPath
-                      ? isBuiltInWallpaperId(wallpaperPath)
-                        ? `${labels.wallpaperBuiltIn}: ${wallpaperDisplayName(wallpaperPath)}`
-                        : `${labels.wallpaperCustom}: ${wallpaperDisplayName(wallpaperPath)}`
-                      : labels.wallpaperNone}
-                  </small>
-                  <div className="convert-actions">
-                    <button type="button" aria-label={labels.wallpaperChoose} onClick={() => void chooseWallpaper()}>
-                      <ImagePlus size={12} />
-                      {labels.wallpaperChoose}
-                    </button>
-                    <button
-                      type="button"
-                      aria-label={labels.wallpaperClear}
-                      disabled={!wallpaperPath && !defaultBuiltInWallpaperId}
-                      onClick={clearWallpaper}
-                    >
-                      {labels.wallpaperClear}
-                    </button>
-                  </div>
-                </div>
-                <label className="settings-row">
-                  <span>{labels.wallpaperDim}</span>
-                  <input
-                    type="range"
-                    min="0.15"
-                    max="0.9"
-                    step="0.01"
-                    value={wallpaperDim}
-                    aria-label={labels.wallpaperDim}
-                    disabled={!wallpaperEnabled || !wallpaperPath}
-                    onChange={(event) => setWallpaperDim(Number(event.target.value))}
-                  />
-                </label>
-                <label className="settings-row" title={labels.panelOpacityHint}>
-                  <span>
-                    {labels.panelOpacity}
-                    <small className="settings-inline-hint"> ({Math.round(panelOpacity * 100)}%)</small>
-                  </span>
-                  <input
-                    type="range"
-                    min="0.1"
-                    max="1"
-                    step="0.01"
-                    value={panelOpacity}
-                    aria-label={labels.panelOpacity}
-                    onChange={(event) => setPanelOpacity(Number(event.target.value))}
-                  />
-                </label>
-              </section>
-            </div>
-
-            <div className="settings-actions">
-              <button type="button" aria-label={labels.close} onClick={() => setShowSettings(false)}>
-                {labels.close}
-              </button>
-              <button
-                type="button"
-                className="primary-action"
-                aria-label={labels.saveSettings}
-                onClick={() => void saveSettingsFromDialog()}
-              >
-                <Save size={14} />
-                {labels.saveSettings}
-              </button>
-            </div>
-          </section>
-        </div>
-      )}
-
-      {showAppInfo && (
-        <div className="modal-backdrop" role="presentation" onClick={() => setShowAppInfo(false)}>
-          <section
-            className="app-info-dialog"
-            role="dialog"
-            aria-modal="true"
-            aria-label={labels.appInfo}
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="app-info-header">
-              <img src={appIconUrl} alt="" />
-              <div>
-                <h2>{labels.appName}</h2>
-                <p>{appVersion}</p>
-              </div>
-            </div>
-            <dl>
-              <div>
-                <dt>{labels.version}</dt>
-                <dd>{appVersion}</dd>
-              </div>
-              <div>
-                <dt>{labels.build}</dt>
-                <dd>{buildDate} / Tauri + React + Vite</dd>
-              </div>
-              <div>
-                <dt>{labels.author}</dt>
-                <dd>SHKWON(knix008@naver.com)</dd>
-              </div>
-              <div>
-                <dt>{labels.copyright}</dt>
-                <dd>{labels.copyrightText}</dd>
-              </div>
-            </dl>
-            <button type="button" aria-label={labels.close} onClick={() => setShowAppInfo(false)}>
-              {labels.close}
-            </button>
-          </section>
-        </div>
-      )}
-
-      {alertDialog && (
-        <div className="modal-backdrop alert-backdrop" role="presentation" onClick={() => setAlertDialog(null)}>
-          <section
-            className="alert-dialog themed-dialog"
-            role="alertdialog"
-            aria-modal="true"
-            aria-label={alertDialog.title}
-            style={alertDialogDrag.style}
-            onClick={(event) => event.stopPropagation()}
-          >
-            <header className="alert-dialog-header dialog-drag-handle" onPointerDown={alertDialogDrag.onHeaderPointerDown}>
-              <Info size={18} />
-              <h2>{alertDialog.title}</h2>
-            </header>
-            <p className="alert-dialog-message">{alertDialog.message}</p>
-            <button type="button" className="primary-action" aria-label={labels.confirm} onClick={() => setAlertDialog(null)}>
-              {labels.confirm}
-            </button>
-          </section>
-        </div>
-      )}
-
-      {errorDialogMessage && (
-        <div className="modal-backdrop error-backdrop" role="presentation" onClick={closeErrorDialog}>
-          <section
-            className="error-dialog themed-dialog"
-            role="alertdialog"
-            aria-modal="true"
-            aria-label={labels.errorDialog}
-            style={errorDialogDrag.style}
-            onClick={(event) => event.stopPropagation()}
-          >
-            <header className="error-dialog-header dialog-drag-handle" onPointerDown={errorDialogDrag.onHeaderPointerDown}>
-              <CircleAlert size={18} />
-              <div>
-                <h2>{labels.errorDialog}</h2>
-                <p>{labels.errorDialogHint}</p>
-              </div>
-            </header>
-            <textarea
-              className="error-dialog-details"
-              readOnly
-              value={errorDialogMessage}
-              aria-label={labels.errorDialog}
-              onFocus={(event) => event.currentTarget.select()}
-            />
-            <div className="error-dialog-actions">
-              <button
-                type="button"
-                className="error-copy-button"
-                aria-label={errorCopyState === 'copied' ? labels.copied : errorCopyState === 'failed' ? labels.copyFailed : labels.copyError}
-                onClick={() => void copyErrorDetails()}
-              >
-                <Copy size={14} />
-                {errorCopyState === 'copied' ? labels.copied : errorCopyState === 'failed' ? labels.copyFailed : labels.copyError}
-              </button>
-              <button type="button" aria-label={labels.close} onClick={closeErrorDialog}>
-                {labels.close}
-              </button>
-            </div>
-          </section>
-        </div>
-      )}
-
-      {folderProgress && (
-        <div className="modal-backdrop" role="presentation">
-          <section
-            className="folder-progress-dialog themed-dialog"
-            role="alertdialog"
-            aria-modal="true"
-            aria-busy="true"
-            aria-label={labels.folderProgressTitle}
-          >
-            <header className="folder-progress-header">
-              <FolderOpen size={18} />
-              <h2>{labels.folderProgressTitle}</h2>
-            </header>
-            <p className="folder-progress-message">
-              {folderProgress.phase === 'scanning'
-                ? labels.folderScanning
-                : `${labels.folderLoadingTracks} · ${folderProgress.loaded} / ${folderProgress.total}`}
-            </p>
-            <div
-              className={`folder-progress-bar${folderProgress.phase === 'scanning' ? ' indeterminate' : ''}`}
-              role="progressbar"
-              aria-valuemin={0}
-              aria-valuemax={folderProgress.phase === 'loading' ? folderProgress.total : undefined}
-              aria-valuenow={folderProgress.phase === 'loading' ? folderProgress.loaded : undefined}
-            >
-              <span
-                className="folder-progress-fill"
-                style={
-                  folderProgress.phase === 'loading'
-                    ? { width: `${folderProgress.total ? Math.round((folderProgress.loaded / folderProgress.total) * 100) : 0}%` }
-                    : undefined
-                }
-              />
-            </div>
-          </section>
-        </div>
-      )}
-
       <footer className="status-bar" role="status" aria-live="polite" aria-label={labels.statusBar}>
         <span
           className={`status-state status-${statusMessage ? statusKind : 'info'}${statusMessage && statusKind === 'error' ? ' status-clickable' : ''}`}
@@ -4164,14 +3426,12 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
           onClick={() => {
             if (statusMessage && statusKind === 'error') {
               setErrorDialogMessage(statusMessage)
-              setErrorCopyState('idle')
             }
           }}
           onKeyDown={(event) => {
             if ((event.key === 'Enter' || event.key === ' ') && statusMessage && statusKind === 'error') {
               event.preventDefault()
               setErrorDialogMessage(statusMessage)
-              setErrorCopyState('idle')
             }
           }}
         >
@@ -4191,6 +3451,65 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
       </footer>
       </>
       )}
+
+      {/* Dialogs live in their own OS windows (or inline in a plain browser); mounted in
+          both layouts so a window never outlives the state that opened it. */}
+      <PopupHost
+        kind="convert"
+        open={showConvertDialog}
+        chrome={popupChrome}
+        data={convertPopupData}
+        onAction={onConvertPopupAction}
+        onClosed={onConvertPopupClosed}
+      />
+      <PopupHost
+        kind="extract"
+        open={showExtractDialog}
+        chrome={popupChrome}
+        data={extractPopupData}
+        onAction={onExtractPopupAction}
+        onClosed={() => setShowExtractDialog(false)}
+      />
+      <PopupHost
+        kind="settings"
+        open={showSettings}
+        chrome={popupChrome}
+        data={settingsPopupData}
+        onAction={onSettingsPopupAction}
+        onClosed={() => setShowSettings(false)}
+      />
+      <PopupHost
+        kind="appInfo"
+        open={showAppInfo}
+        chrome={popupChrome}
+        data={{}}
+        onAction={() => setShowAppInfo(false)}
+        onClosed={() => setShowAppInfo(false)}
+      />
+      <PopupHost
+        kind="alert"
+        open={Boolean(alertDialog)}
+        chrome={popupChrome}
+        data={alertDialog}
+        onAction={() => setAlertDialog(null)}
+        onClosed={() => setAlertDialog(null)}
+      />
+      <PopupHost
+        kind="error"
+        open={Boolean(errorDialogMessage)}
+        chrome={popupChrome}
+        data={errorDialogMessage ? { message: errorDialogMessage } : null}
+        onAction={closeErrorDialog}
+        onClosed={closeErrorDialog}
+      />
+      <PopupHost
+        kind="folderProgress"
+        open={Boolean(folderProgress)}
+        chrome={popupChrome}
+        data={folderProgress}
+        onAction={() => {}}
+        onClosed={() => {}}
+      />
     </main>
   )
 }

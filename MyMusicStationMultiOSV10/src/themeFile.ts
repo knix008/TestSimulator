@@ -21,6 +21,7 @@ export const themeVarKeys = [
   '--tooltip',
   '--text',
   '--text-strong',
+  '--icon',
   '--muted',
   '--line',
   '--line-strong',

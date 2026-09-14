@@ -439,12 +439,6 @@
   box-shadow: var(--shadow);
 }
 
-.theme-popover {
-  left: auto;
-  right: 0;
-  min-width: 280px;
-}
-
 .toolbar-opacity {
   display: flex;
   align-items: center;
@@ -488,27 +482,102 @@
   word-break: break-word;
 }
 
-.theme-list button {
-  height: 25px;
+/* Theme picker (settings window): one colour tile per theme. */
+.settings-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.theme-swatch-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.theme-swatch {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  padding: 3px;
   border: 1px solid var(--line);
-  border-radius: 5px;
+  border-radius: 6px;
   color: var(--text);
   background: var(--control);
-  font-size: 11px;
-  text-align: left;
   cursor: pointer;
 }
 
-.theme-list button.active {
+.theme-swatch:hover {
+  border-color: var(--line-strong);
+  color: var(--text-strong);
+}
+
+.theme-swatch.active {
   border-color: var(--primary);
   color: var(--text-strong);
   background: var(--active);
 }
 
-.theme-list {
+.theme-swatch-preview {
+  position: relative;
+  display: block;
+  height: 36px;
+  border: 1px solid rgba(0, 0, 0, 0.25);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.theme-swatch-panel {
+  position: absolute;
+  inset: 9px 5px 5px;
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 5px;
+  gap: 3px;
+  align-content: start;
+  padding: 4px;
+  border-radius: 3px;
+}
+
+.theme-swatch-text {
+  display: block;
+  width: 55%;
+  height: 3px;
+  border-radius: 2px;
+}
+
+.theme-swatch-control {
+  display: block;
+  width: 80%;
+  height: 5px;
+  border-radius: 2px;
+}
+
+.theme-swatch-primary {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.theme-swatch-check {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  display: grid;
+  place-items: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+}
+
+.theme-swatch-name {
+  overflow: hidden;
+  font-size: 10px;
+  text-align: center;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .window-actions {
@@ -1447,7 +1516,7 @@ button:hover,
 
 .error-dialog-header {
   display: grid;
-  grid-template-columns: 22px 1fr;
+  grid-template-columns: 22px 1fr auto;
   gap: 10px;
   align-items: start;
   color: #ff9b8f;
@@ -2406,4 +2475,98 @@ button:hover,
   justify-content: center;
   gap: 6px;
   font-size: 11px;
+}
+
+/* Popup OS windows: the dialog is the whole page. */
+:root[data-popup] {
+  background: var(--panel);
+}
+
+:root[data-popup] body {
+  background: var(--panel);
+}
+
+.popup-root {
+  position: relative;
+  min-height: 100%;
+  background: var(--panel);
+}
+
+.popup-content {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+}
+
+/* Popup windows never scroll: the OS window grows to fit the dialog instead
+   (PopupApp measures .popup-content and resizes the window). */
+.popup-content > section {
+  width: 100%;
+  max-width: none;
+  max-height: none;
+  border-radius: 0;
+  box-shadow: none;
+  overflow: visible;
+}
+
+.popup-content > .settings-dialog {
+  max-height: none;
+  overflow: visible;
+}
+
+.popup-content .settings-body {
+  flex: none;
+  overflow: visible;
+  padding-right: 0;
+}
+
+.popup-content .wallpaper-gallery {
+  flex-wrap: wrap;
+  overflow: visible;
+}
+
+.popup-content .error-dialog-details {
+  /* Grow with the message instead of scrolling inside the window. */
+  field-sizing: content;
+  max-height: none;
+  resize: none;
+  overflow: hidden;
+}
+
+/* Main window while a popup is up: dimmed and inert; a click brings the popup back to front. */
+.popup-shield {
+  cursor: default;
+}
+
+/* Top-right close "X" in dialog headers. */
+button.dialog-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 24px;
+  height: 24px;
+  margin-left: auto;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+}
+
+button.dialog-close:hover:not(:disabled) {
+  border-color: var(--line);
+  color: var(--text-strong);
+  background: var(--control);
+}
+
+button.dialog-close:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.error-dialog-header button.dialog-close {
+  align-self: start;
 }

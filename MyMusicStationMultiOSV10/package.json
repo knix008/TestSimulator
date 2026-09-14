@@ -8,6 +8,7 @@
     "dev": "vite",
     "build": "npm run build:web",
     "build:web": "tsc -b && vite build",
+    "build:bin": "node scripts/build-desktop.mjs none",
     "build:win": "node scripts/build-desktop.mjs nsis",
     "build:mac": "node scripts/build-desktop.mjs dmg",
     "build:linux": "node scripts/build-desktop.mjs appimage",
