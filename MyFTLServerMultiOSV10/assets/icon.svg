@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#4c1d95"/>
+      <stop offset="1" stop-color="#0d9488"/>
+    </linearGradient>
+    <linearGradient id="shield" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fef3c7"/>
+      <stop offset="1" stop-color="#f59e0b"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#000" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+  <rect x="16" y="16" width="480" height="480" rx="104" fill="url(#bg)"/>
+  <rect x="16" y="16" width="480" height="480" rx="104" fill="none" stroke="#ffffff" stroke-opacity="0.18" stroke-width="6"/>
+
+  <!-- server tower -->
+  <g filter="url(#shadow)">
+    <rect x="96" y="96" width="220" height="320" rx="26" fill="#0f172a" fill-opacity="0.88"/>
+    <rect x="120" y="124" width="172" height="64" rx="12" fill="#e2e8f0"/>
+    <rect x="120" y="212" width="172" height="64" rx="12" fill="#e2e8f0"/>
+    <rect x="120" y="300" width="172" height="64" rx="12" fill="#e2e8f0"/>
+    <circle cx="146" cy="156" r="10" fill="#22c55e"/>
+    <circle cx="146" cy="244" r="10" fill="#22c55e"/>
+    <circle cx="146" cy="332" r="10" fill="#f59e0b"/>
+    <rect x="170" y="148" width="100" height="16" rx="8" fill="#94a3b8"/>
+    <rect x="170" y="236" width="100" height="16" rx="8" fill="#94a3b8"/>
+    <rect x="170" y="324" width="100" height="16" rx="8" fill="#94a3b8"/>
+  </g>
+
+  <!-- shield with lock (FTPS / SFTP) -->
+  <g filter="url(#shadow)">
+    <path d="M370 176 L446 204 V292 C446 348 410 392 370 410 C330 392 294 348 294 292 V204 Z" fill="url(#shield)"/>
+    <path d="M370 176 L446 204 V292 C446 348 410 392 370 410 C330 392 294 348 294 292 V204 Z" fill="none" stroke="#ffffff" stroke-opacity="0.5" stroke-width="6"/>
+    <rect x="344" y="284" width="52" height="42" rx="8" fill="#1e1b4b"/>
+    <path d="M352 284 V268 A18 18 0 0 1 388 268 V284" fill="none" stroke="#1e1b4b" stroke-width="10" stroke-linecap="round"/>
+    <circle cx="370" cy="303" r="6" fill="#fde68a"/>
+    <rect x="367" y="303" width="6" height="12" rx="2" fill="#fde68a"/>
+  </g>
+
+  <!-- network pulses -->
+  <g fill="none" stroke="#ffffff" stroke-opacity="0.75" stroke-width="12" stroke-linecap="round">
+    <path d="M124 440 H288"/>
+    <path d="M160 462 H252" stroke-opacity="0.45"/>
+  </g>
+</svg>

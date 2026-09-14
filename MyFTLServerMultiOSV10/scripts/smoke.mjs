@@ -1,0 +1,210 @@
+// Smoke test: launches the packaged-style app (dist/ must exist) with a
+// private profile (.smoke/profile) whose settings share .smoke/share, drives
+// it through window.__mfs (start the server, connect a real FTP client and
+// upload, open dialogs…), screenshots into .smoke/<scenario>.png and quits;
+// then does the same against the web server (fetch transport, polling).
+//
+//   npm run build && npm run smoke                 # desktop + web, default scenarios
+//   npm run smoke -- --scenario running            # one scenario (desktop)
+//   npm run smoke -- --scenario running --web      # the same in the web version
+//   npm run smoke -- --scenario all                # every scenario (desktop)
+//   npm run smoke -- --desktop-only | --web-only
+import { spawn } from 'node:child_process';
+import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
+import fs from 'node:fs';
+import path from 'node:path';
+import http from 'node:http';
+
+const require = createRequire(import.meta.url);
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const root = path.join(__dirname, '..');
+const smokeDir = path.join(root, '.smoke');
+const profile = path.join(smokeDir, 'profile');
+const shareDir = path.join(smokeDir, 'share');
+const docsDir = path.join(smokeDir, 'docs');
+
+const args = process.argv.slice(2);
+const opt = (name) => { const i = args.indexOf(`--${name}`); return i >= 0 ? args[i + 1] : null; };
+
+if (!fs.existsSync(path.join(root, 'dist', 'index.html'))) {
+  console.error('[smoke] dist/ missing — run `npm run build` first.');
+  process.exit(1);
+}
+
+const FTP_PORT = 2121, FTPS_PORT = 2990, SFTP_PORT = 2222;
+
+// ── Fixtures ──
+function seed() {
+  fs.rmSync(shareDir, { recursive: true, force: true });
+  fs.rmSync(docsDir, { recursive: true, force: true });
+  fs.rmSync(profile, { recursive: true, force: true });
+  fs.mkdirSync(path.join(shareDir, 'images'), { recursive: true });
+  fs.mkdirSync(path.join(docsDir, 'notes'), { recursive: true });
+  fs.writeFileSync(path.join(shareDir, 'welcome.txt'), 'welcome to my ftp server');
+  fs.writeFileSync(path.join(shareDir, 'images', 'logo.png'), Buffer.alloc(80_000, 3));
+  fs.writeFileSync(path.join(shareDir, 'video.mp4'), Buffer.alloc(2_000_000, 4));
+  fs.writeFileSync(path.join(docsDir, 'plan.md'), '# plan');
+  fs.writeFileSync(path.join(docsDir, 'notes', 'a.txt'), 'a');
+  fs.mkdirSync(profile, { recursive: true });
+  fs.writeFileSync(path.join(profile, 'session.json'), JSON.stringify({ language: opt('lang') || 'ko', theme: opt('theme') || 'midnight', lastProfile: 'Smoke' }, null, 2));
+  const settings = {
+    sharedFolders: [{ virtualName: 'data', physicalPath: shareDir }, { virtualName: 'docs', physicalPath: docsDir }],
+    protocols: { enableFtp: true, enableFtps: false, enableSftp: true, ftpPort: FTP_PORT, ftpsPort: FTPS_PORT, sftpPort: SFTP_PORT, explicitTls: true },
+    allowAnonymous: true,
+    users: [{ username: 'bob', password: 'secret', canRead: true, canWrite: true }, { username: 'viewer', password: 'ro', canRead: true, canWrite: false }],
+    bufferSizeKb: 64, maxConnections: 10,
+  };
+  fs.writeFileSync(path.join(profile, 'server_settings.json'), JSON.stringify(settings, null, 2));
+  fs.mkdirSync(path.join(profile, 'profiles'), { recursive: true });
+  fs.writeFileSync(path.join(profile, 'profiles', 'Smoke.json'), JSON.stringify(settings, null, 2));
+  fs.writeFileSync(path.join(profile, 'profiles', 'Office.json'), JSON.stringify({ ...settings, protocols: { ...settings.protocols, enableSftp: false } }, null, 2));
+}
+
+// ── Page scripts (run inside the renderer; `window.__mfs` is the hook) ──
+const BOOT = `
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const until = async (fn, ms = 10000) => { const t0 = Date.now(); while (!fn()) { if (Date.now() - t0 > ms) throw new Error('timeout: ' + fn.toString()); await wait(50); } };
+  await until(() => window.__mfs && window.__mfs.state.settings);
+`;
+const START = `${BOOT}
+  await window.__mfs.start();
+  await until(() => window.__mfs.state.server.running);
+`;
+
+const SCENARIOS = {
+  main: `(async () => { ${BOOT} await wait(300); return JSON.stringify({ shares: window.__mfs.state.settings.sharedFolders.length, users: window.__mfs.state.settings.users.length, profiles: window.__mfs.state.profiles }); })()`,
+  running: `(async () => { ${START} await wait(400); return JSON.stringify({ protocols: window.__mfs.state.server.protocols, log: window.__mfs.state.log.filter((l) => l.level !== 'trace').slice(-6).map((l) => l.text) }); })()`,
+  // The smoke runner connects an FTP client while this waits; the counters must move.
+  transfer: `(async () => { ${START} await until(() => window.__mfs.state.stats.uploads >= 1 && window.__mfs.state.stats.downloads >= 1, 30000); await wait(300); return JSON.stringify(window.__mfs.state.stats); })()`,
+  share_dialog: `(async () => { ${BOOT} window.__mfs.addShare(); await until(() => document.querySelector('.dlg')); return 'share dialog'; })()`,
+  user_dialog: `(async () => { ${BOOT} window.__mfs.addUser(); await until(() => document.querySelector('.dlg')); return 'user dialog'; })()`,
+  cert_dialog: `(async () => { ${BOOT} window.__mfs.generateCert(); await until(() => document.querySelector('.dlg')); return 'cert dialog'; })()`,
+  cert_generated: `(async () => { ${BOOT} const p = window.__mfs.generateCert(); await until(() => document.querySelector('.dlg')); document.querySelector('.dlg .btn.primary').click(); await until(() => window.__mfs.state.settings.certPath, 15000); await wait(600); return JSON.stringify({ cert: window.__mfs.state.settings.certPath, info: window.__mfs.state.certInfo }); })()`,
+  error: `(async () => { ${BOOT} window.__mfs.updateSettings({ sharedFolders: [] }); await wait(100); window.__mfs.start(); await until(() => document.querySelector('.dlg.error')); return 'settings error dialog'; })()`,
+  port_error: `(async () => { ${BOOT} window.__mfs.updateSettings({ protocols: { ...window.__mfs.state.settings.protocols, enableSftp: true, sftpPort: ${FTP_PORT} } }); await wait(100); window.__mfs.start(); await until(() => document.querySelector('.dlg.error')); return 'port clash dialog'; })()`,
+  about: `(async () => { ${BOOT} window.__mfs.action('about'); await until(() => document.querySelector('.dlg')); return 'about'; })()`,
+  settings: `(async () => { ${BOOT} window.__mfs.action('settings'); await until(() => document.querySelector('.dlg')); return 'settings'; })()`,
+  themes: `(async () => { ${BOOT} document.querySelector('.tb-split-caret').click(); await wait(200); return 'themes'; })()`,
+  light_en: `(async () => { ${BOOT} window.__mfs.action('theme:daylight'); window.__mfs.action('toggleLanguage'); await wait(200); await window.__mfs.start(); await until(() => window.__mfs.state.server.running); await wait(300); return 'light/en'; })()`,
+  theme_nord: `(async () => { ${BOOT} window.__mfs.action('theme:nord'); await wait(300); return 'nord'; })()`,
+  picker: `(async () => { ${BOOT} window.__mfs.dialogs.path({ mode: 'folder', start: ${JSON.stringify(smokeDir)} }); await until(() => document.querySelector('.picker-item')); await wait(300); return 'picker'; })()`,
+};
+
+async function electronShot(name = 'main', script = null, url = null, during = null) {
+  const electronPath = require('electron');
+  const env = { ...process.env, MFS_USER_DATA: profile };
+  delete env.ELECTRON_RUN_AS_NODE;
+  const shot = path.join(smokeDir, `${name}.png`);
+  const extra = [];
+  if (url) extra.push(`--smoke-url=${url}`);
+  if (script) {
+    const file = path.join(smokeDir, `${name}.script.js`);
+    fs.writeFileSync(file, script);
+    extra.push(`--smoke-script=${file}`, `--smoke-settle=${opt('settle') || 600}`);
+  }
+  let output = '';
+  await new Promise((resolve, reject) => {
+    const child = spawn(electronPath, ['.', `--smoke-shot=${shot}`, `--smoke-delay=${opt('delay') || 1500}`, ...extra], { cwd: root, stdio: ['ignore', 'pipe', 'inherit'], env });
+    child.stdout.on('data', (d) => { output += d; process.stdout.write(d); });
+    const timer = setTimeout(() => { child.kill(); reject(new Error('electron smoke timed out')); }, 120_000);
+    child.on('exit', (code) => { clearTimeout(timer); code === 0 ? resolve() : reject(new Error(`electron exited ${code}`)); });
+    child.on('error', reject);
+    if (during) during().catch((err) => console.error('[smoke] during-hook failed:', err.message));
+  });
+  if (!fs.existsSync(shot)) throw new Error('screenshot not written');
+  if (/\[smoke\] capture failed/.test(output)) throw new Error(`scenario ${name} failed`);
+  console.log(`[smoke] ${url ? 'web-ui' : 'desktop'} OK → ${path.relative(root, shot)} (${fs.statSync(shot).size} bytes)`);
+  return output;
+}
+
+// A real FTP client against the app's server: waits for the port, logs in,
+// uploads a folder, downloads a file.
+async function ftpRoundTrip(port) {
+  const ftp = require('basic-ftp');
+  const start = Date.now();
+  while (Date.now() - start < 40_000) {
+    const c = new ftp.Client(8000);
+    try {
+      await c.access({ host: '127.0.0.1', port, user: 'bob', password: 'secret' });
+      const root0 = (await c.list('/')).map((e) => e.name);
+      if (!root0.includes('data') || !root0.includes('docs')) throw new Error(`root listing wrong: ${root0}`);
+      await c.ensureDir('/data/uploaded');
+      await c.uploadFromDir(docsDir, '/data/uploaded');
+      await c.downloadTo(path.join(smokeDir, 'video-down.mp4'), '/data/video.mp4');
+      c.close();
+      if (!fs.existsSync(path.join(shareDir, 'uploaded', 'notes', 'a.txt'))) throw new Error('upload did not land in the share');
+      if (fs.statSync(path.join(smokeDir, 'video-down.mp4')).size !== 2_000_000) throw new Error('download size mismatch');
+      console.log('[smoke] ftp round trip OK (upload tree + 2 MB download)');
+      return;
+    } catch (err) {
+      c.close();
+      if (/ECONNREFUSED|timeout|Timeout/i.test(err.message)) { await new Promise((r) => setTimeout(r, 500)); continue; }
+      throw err;
+    }
+  }
+  throw new Error('server never came up on ' + port);
+}
+
+function post(port, name, body) {
+  return new Promise((resolve, reject) => {
+    const data = JSON.stringify(body || {});
+    const req = http.request({ host: '127.0.0.1', port, path: `/api/${name}`, method: 'POST', headers: { 'content-type': 'application/json', 'content-length': Buffer.byteLength(data) } }, (res) => {
+      let buf = '';
+      res.on('data', (c) => { buf += c; });
+      res.on('end', () => { try { resolve(JSON.parse(buf)); } catch (e) { reject(e); } });
+    });
+    req.on('error', reject);
+    req.end(data);
+  });
+}
+
+async function webSmoke(scenario = null) {
+  const port = 5199;
+  const child = spawn(process.execPath, [path.join(root, 'server', 'server.js'), '--port', String(port), '--no-open', '--config', profile], { cwd: root, stdio: ['ignore', 'pipe', 'inherit'], env: { ...process.env, MFS_SMOKE: '1' } });
+  try {
+    await new Promise((resolve, reject) => {
+      const t = setTimeout(() => reject(new Error('server did not start')), 10_000);
+      child.stdout.on('data', (d) => { process.stdout.write(`[web] ${d}`); if (String(d).includes('http://')) { clearTimeout(t); resolve(); } });
+      child.on('exit', (c) => reject(new Error(`server exited ${c}`)));
+    });
+    const info = await post(port, 'app.info');
+    if (!info.ok || info.data.host !== 'web') throw new Error('app.info failed');
+    const html = await new Promise((resolve, reject) => http.get(`http://127.0.0.1:${port}/`, (res) => { let b = ''; res.on('data', (c) => { b += c; }); res.on('end', () => resolve(b)); }).on('error', reject));
+    if (!html.includes('<div id="root">')) throw new Error('index.html not served');
+    // Start the servers over HTTP, talk FTP to them, poll the log, stop.
+    const st = await post(port, 'server.start', {});
+    if (!st.ok || !st.data.state.running) throw new Error(`server.start failed: ${st.error && st.error.message}`);
+    await ftpRoundTrip(FTP_PORT);
+    const poll = await post(port, 'server.poll', { seq: 0 });
+    if (!poll.ok || poll.data.stats.uploads < 1 || !poll.data.lines.length) throw new Error('server.poll did not report the transfer');
+    console.log(`[smoke] web OK → api + static + start/transfer/poll (${poll.data.lines.length} log lines, ${poll.data.stats.uploads} uploads)`);
+    await post(port, 'server.stop');
+    // The UI itself in browser mode: a window without the preload script pointed at the server.
+    const s = scenario || 'running';
+    await electronShot(`web_${s}`, SCENARIOS[s], `http://127.0.0.1:${port}/`, s === 'transfer' ? () => ftpRoundTrip(FTP_PORT) : null);
+  } finally {
+    child.kill();
+  }
+}
+
+(async () => {
+  seed();
+  const scenario = opt('scenario');
+  const during = (name) => (name === 'transfer' ? () => ftpRoundTrip(FTP_PORT) : null);
+  if (scenario) {
+    if (args.includes('--web')) await webSmoke(scenario);
+    else if (scenario === 'all') { for (const [k, v] of Object.entries(SCENARIOS)) { seed(); await electronShot(k, v, null, during(k)); } }
+    else await electronShot(scenario, SCENARIOS[scenario], null, during(scenario));
+    console.log('[smoke] scenario done');
+    return;
+  }
+  if (!args.includes('--web-only')) {
+    await electronShot('main', SCENARIOS.main);
+    const out = await electronShot('transfer', SCENARIOS.transfer, null, during('transfer'));
+    if (!/"uploads":[1-9]/.test(out)) throw new Error('upload counter did not move');
+    console.log('[smoke] desktop verified (server started from the UI, real FTP upload + download, counters updated)');
+  }
+  if (!args.includes('--desktop-only')) { seed(); await webSmoke(); }
+  console.log('[smoke] all good');
+})().catch((err) => { console.error('[smoke] FAILED:', err.message); process.exit(1); });
