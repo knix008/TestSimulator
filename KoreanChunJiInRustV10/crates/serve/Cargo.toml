@@ -15,3 +15,6 @@ path = "src/main.rs"
 
 # 표준 라이브러리만 쓴다. 하는 일이 정적 파일 내려 주기 하나뿐이다.
 [dependencies]
+
+[dev-dependencies]
+chunjiin-testkit = { path = "../testkit" }

@@ -1,3 +1,9 @@
+# 빌드·배포 결과만 무시한다.
+# crates/ · scripts/ · test/ · web/ · assets/ · Cargo.toml · Cargo.lock
+# 과 루트의 *.ps1 · *.sh · *.bat · *.md 는 저장소에 둔다.
+# assets/chunjiin.ico · assets/chunjiin.png · assets/fonts/ 도 둔다.
+# (Windows 탐색기 아이콘과 창 아이콘, 내장 글꼴에 필요하다)
+
 # Rust 빌드 결과
 /target/
 /crates/wasm/target/
@@ -13,9 +19,11 @@
 /chunjiin-*.tar.gz
 /chunjiin-*.dmg
 /Chunjiin.app/
+/test-summary.txt
 
 # 설치 프로그램이 품을 실행 파일이 잠깐 놓이는 자리.
-# package 스크립트가 넣었다가 끝나면 치운다(README.txt 는 남긴다).
+# package 스크립트가 넣었다가 끝나면 치운다.
+# README.txt 는 저장소에 둔다. (폴더가 비지 않게)
 /crates/setup/payload/*
 !/crates/setup/payload/README.txt
 

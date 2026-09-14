@@ -36,6 +36,10 @@ for arg in "$@"; do
     esac
 done
 
+# rustc 가 없으면 rustup 으로 넣는다. PATH 가 이어지게 source 한다.
+. "$root/scripts/prereq.sh"
+. "$root/scripts/cargo-out.sh"
+
 case "$(uname -s)" in
     Darwin) os=macos ;;
     Linux)  os=linux ;;
@@ -46,9 +50,6 @@ case "$arch" in
     x86_64) arch=amd64 ;;
     aarch64) arch=arm64 ;;
 esac
-
-payload="$root/crates/setup/payload"
-out="$root/target/release"
 
 echo "== 천지인 설치용 파일 만들기  $version  ($os/$arch)"
 
@@ -65,20 +66,11 @@ fi
 echo "-- 앱 · 서버 빌드"
 # 웹 판을 먼저 만들었으므로 서버가 그것을 품는다.
 cargo build --release -p chunjiin-app -p chunjiin-serve
-cp "$out/chunjiin" "$root/chunjiin"
-cp "$out/chunjiin-serve" "$root/chunjiin-serve"
-
-echo "-- 설치 프로그램에 넣기"
-rm -f "$payload"/chunjiin "$payload"/chunjiin.exe
-cp "$root/chunjiin" "$payload/chunjiin"
-
-# 저장소에 실행 파일이 남지 않게, 끝나면 반드시 치운다.
-cleanup() { rm -f "$payload"/chunjiin "$payload"/chunjiin.exe; }
-trap cleanup EXIT
+copy_cargo_bin chunjiin "$root" release
+copy_cargo_bin chunjiin-serve "$root" release
 
 echo "-- 설치 프로그램 빌드"
-cargo build --release -p chunjiin-setup
-cp "$out/chunjiin-setup" "$root/chunjiin-setup"
+build_chunjiin_setup "$root" release build --release
 
 if [ "$os" = "macos" ]; then
     echo "-- 앱 묶음"

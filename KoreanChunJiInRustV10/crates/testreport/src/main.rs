@@ -26,12 +26,19 @@
 #![forbid(unsafe_code)]
 
 use std::io::{BufRead, BufReader};
+use std::path::PathBuf;
 use std::process::{Command, Stdio};
 
-use chunjiin_testreport::{parse_line, Report};
+use chunjiin_testreport::{color_enabled, parse_line, Report};
+
+/// 저장소 루트의 test-summary.txt 자리.
+fn summary_path() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../test-summary.txt")
+}
 
 fn main() {
     let mut verbose = false;
+    let mut color: Option<bool> = None;
     let mut filter: Option<String> = None;
     let mut passthrough: Vec<String> = Vec::new();
 
@@ -43,12 +50,20 @@ fn main() {
                 verbose = true;
                 i += 1;
             }
+            "-color" | "--color" => {
+                color = Some(true);
+                i += 1;
+            }
+            "-no-color" | "--no-color" => {
+                color = Some(false);
+                i += 1;
+            }
             "-run" | "--run" if i + 1 < args.len() => {
                 filter = Some(args[i + 1].clone());
                 i += 2;
             }
             "-h" | "--help" => {
-                println!("testreport [-v] [-run <낱말>] [-- <cargo test 인자>]");
+                println!("testreport [-v] [-run <낱말>] [--color|--no-color] [-- <cargo test 인자>]");
                 return;
             }
             "--" => {
@@ -108,7 +123,13 @@ fn main() {
         report.retain(f);
     }
 
-    report.print(verbose);
+    report.print_colored(verbose, color.unwrap_or_else(color_enabled));
+
+    // 콘솔이 뒤를 잘라도 루트에서 전체 요약을 볼 수 있게 남긴다.
+    let summary = summary_path();
+    if let Err(e) = report.write_plain_file(&summary) {
+        eprintln!("요약을 루트에 쓰지 못했습니다: {e}");
+    }
 
     if report.total() == 0 {
         eprintln!();

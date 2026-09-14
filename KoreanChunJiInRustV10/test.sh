@@ -17,18 +17,25 @@
 # 정리해서 보여 주는 일은 crates/testreport 가 한다.
 set -eu
 
-cd "$(dirname "$0")"
+root=$(cd "$(dirname "$0")" && pwd)
+cd "$root"
 
 args=""
 while [ $# -gt 0 ]; do
     case "$1" in
         --detail) args="$args -v"; shift ;;
         --run) args="$args -run $2"; shift 2 ;;
-        --plain) exec cargo test --workspace ;;
+        --plain)
+            . "$root/scripts/prereq.sh"
+            exec cargo test --workspace
+            ;;
         -h|--help) sed -n '2,8p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
         *) echo "모르는 옵션: $1" >&2; exit 1 ;;
     esac
 done
+
+# rustc 가 없으면 rustup 으로 넣는다. PATH 가 이어지게 source 한다.
+. "$root/scripts/prereq.sh"
 
 # shellcheck disable=SC2086
 exec cargo run -q -p chunjiin-testreport -- $args

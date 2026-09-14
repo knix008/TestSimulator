@@ -9,8 +9,8 @@
 //! Linux    ~/.config/Chunjiin/settings.json
 //! ```
 
+use std::cell::RefCell;
 use std::path::PathBuf;
-use std::sync::Mutex;
 
 use serde::{Deserialize, Serialize};
 
@@ -36,6 +36,9 @@ pub struct Settings {
     pub show_toolbar: bool,
     #[serde(rename = "showStatus")]
     pub show_status: bool,
+    /// 컴팩트 모드. 툴바에서 정보 단추를 빼고 창을 조금 좁힌다.
+    #[serde(default, rename = "compactMode")]
+    pub compact: bool,
     /// 화면 언어 (`"ko"` 또는 `"en"`)
     pub language: String,
 }
@@ -60,6 +63,7 @@ impl Default for Settings {
             start_mode: 0,
             show_toolbar: true,
             show_status: true,
+            compact: false,
             language: Lang::Ko.code().to_string(),
         }
     }
@@ -129,20 +133,20 @@ pub fn load_settings() -> Settings {
 // 설정 파일의 자리
 // ---------------------------------------------------------------------
 
-/// 시험이 갈아 끼울 수 있게 덮어쓸 수 있는 자리로 둔다.
-///
-/// 환경 변수를 건드리는 것만으로는 운영체제마다 다른 설정 폴더를 확실히
-/// 돌려세울 수 없어, 실제 사용자 설정을 덮어쓸 위험이 있다.
-static OVERRIDE: Mutex<Option<PathBuf>> = Mutex::new(None);
+// 시험이 갈아 끼울 수 있게 덮어쓸 수 있는 자리.
+// 스레드마다 따로 두므로 cargo test 가 나란히 돌려도 서로 밟지 않는다.
+thread_local! {
+    static OVERRIDE: RefCell<Option<PathBuf>> = const { RefCell::new(None) };
+}
 
 /// 설정 파일의 자리를 바꾼다. 시험에서만 쓴다.
 pub fn set_settings_path(path: Option<PathBuf>) {
-    *OVERRIDE.lock().unwrap() = path;
+    OVERRIDE.with(|o| *o.borrow_mut() = path);
 }
 
 /// 설정 파일의 자리다.
 pub fn settings_path() -> Option<PathBuf> {
-    if let Some(p) = OVERRIDE.lock().unwrap().clone() {
+    if let Some(p) = OVERRIDE.with(|o| o.borrow().clone()) {
         return Some(p);
     }
     Some(config_dir()?.join("Chunjiin").join("settings.json"))

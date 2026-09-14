@@ -10,7 +10,16 @@
 
 use std::path::PathBuf;
 
+#[path = "../../scripts/windows_icon.rs"]
+mod windows_icon;
+
 fn main() {
+    windows_icon::embed(
+        "chunjiin-setup.exe",
+        "천지인 한글 입력기",
+        "천지인 한글 입력기 설치",
+    );
+
     let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("payload");
     println!("cargo:rerun-if-changed={}", dir.display());
 

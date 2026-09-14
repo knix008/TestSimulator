@@ -8,10 +8,15 @@ authors.workspace = true
 license.workspace = true
 repository.workspace = true
 
+build = "build.rs"
+
 # 실행 파일 이름은 chunjiin 이다. 꾸러미 이름과 따로 둔다.
 [[bin]]
 name = "chunjiin"
 path = "src/main.rs"
+
+[build-dependencies]
+winresource = "0.1"
 
 [dependencies]
 chunjiin-ui.workspace = true

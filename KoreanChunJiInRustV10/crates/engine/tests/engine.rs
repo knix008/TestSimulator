@@ -129,10 +129,10 @@ fn display_api() {
     let s = State::new();
 
     tally.add(kit::check(
-        s.key_label(KEY_COUNT).is_empty(),
+        s.key_label(usize::MAX).is_empty() && s.key_label(KEY_COUNT).is_empty(),
         GROUP,
         section,
-        "라벨 12",
+        "라벨 -1 · 12",
         "범위 밖은 빈 문자열",
     ));
 

@@ -13,6 +13,9 @@ build = "build.rs"
 name = "chunjiin-setup"
 path = "src/main.rs"
 
+[build-dependencies]
+winresource = "0.1"
+
 [dependencies]
 # 글꼴을 나눠 쓴다. 한글이 네모로 나오면 설치 안내를 읽을 수 없다.
 chunjiin-ui.workspace = true

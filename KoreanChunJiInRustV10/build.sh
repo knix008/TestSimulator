@@ -1,12 +1,12 @@
 #!/bin/sh
 # build.sh - 바로 실행할 수 있는 실행 파일을 만든다. (Linux / macOS)
 #
-#   ./build.sh              현재 운영체제용으로 빌드하고 저장소 루트에 둔다
+#   ./build.sh              앱 · 서버 · 설치 프로그램을 만들어 저장소 루트에 둔다
 #   ./build.sh --run        빌드한 뒤 곧바로 실행한다
 #   ./build.sh --web        웹 판(WASM + 정적 파일)까지 함께 만든다
 #   ./build.sh --debug      디버그 빌드 (빠르게 만들고 느리게 돈다)
 #
-# 설치용 파일은 이 스크립트가 만들지 않는다. scripts/package.sh 를 쓴다.
+# 배포용 tarball / dmg 은 scripts/package.sh 를 쓴다.
 #
 # Linux 에서는 창을 띄우는 데 X11(또는 Wayland) 개발 파일이 필요하다.
 #   데비안/우분투  sudo apt install libx11-dev libxcursor-dev libxrandr-dev \
@@ -31,6 +31,10 @@ for arg in "$@"; do
     esac
 done
 
+# rustc 가 없으면 rustup 으로 넣는다. PATH 가 이어지게 source 한다.
+. "$root/scripts/prereq.sh"
+. "$root/scripts/cargo-out.sh"
+
 if [ "$debug" -eq 1 ]; then
     profile=debug
     set -- build
@@ -48,9 +52,13 @@ cargo "$@" -p chunjiin-app -p chunjiin-serve
 
 # 저장소 루트에 갖다 놓는다. 여기서 바로 실행하고 배포할 수 있다.
 for name in chunjiin chunjiin-serve; do
-    cp "target/$profile/$name" "$root/$name"
+    copy_cargo_bin "$name" "$root" "$profile"
     echo "   $name  $(du -h "$root/$name" | cut -f1)"
 done
+
+echo "-- 설치 프로그램"
+build_chunjiin_setup "$root" "$profile" "$@"
+echo "   chunjiin-setup  $(du -h "$root/chunjiin-setup" | cut -f1)"
 
 if [ "$web" -eq 1 ]; then
     echo "-- 웹 판"

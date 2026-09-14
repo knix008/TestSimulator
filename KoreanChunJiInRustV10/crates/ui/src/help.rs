@@ -73,7 +73,7 @@ pub const HELP_KO: &str = r#"[ 키패드 ]
 [ 설정 ]
 
   설정 > 설정...(F4) 에서 테마, 글꼴 크기, 연타 유지 시간,
-  시작 입력 모드, 툴바 · 상태줄 표시를 바꿀 수 있습니다.
+  시작 입력 모드, 툴바 · 상태줄 · 컴팩트 모드를 바꿀 수 있습니다.
 "#;
 
 /// 영어 사용법.
@@ -145,7 +145,7 @@ pub const HELP_EN: &str = r#"[ Keypad ]
 [ Settings ]
 
   Settings > Preferences... (F4) changes the theme, font size, multi-tap
-  window, start mode, language and whether the toolbar and status bar show.
+  window, start mode, language, compact mode, and toolbar / status bar.
 "#;
 
 /// 사용법 본문을 `[ 제목 ]` 이 나올 때마다 잘라 돌려준다.

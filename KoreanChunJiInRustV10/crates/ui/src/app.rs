@@ -61,16 +61,22 @@ const GAP: f32 = 6.0;
 pub const TOOL_SIZE: f32 = 32.0;
 /// 툴바 버튼 사이의 틈이다.
 pub const TOOL_GAP: f32 = 2.0;
-/// 왼쪽 무리와 맨 오른쪽 "프로그램 정보" 사이에 적어도 두는 틈이다.
+/// 왼쪽 무리와 오른쪽 "정보 · 설정" 사이에 적어도 두는 틈이다.
 pub const TOOL_TAIL_GAP: f32 = 10.0;
 
 /// 툴바가 가려지지 않으려면 있어야 하는 최소 폭이다.
 ///
-/// 왼쪽에 `TOOL_COUNT - 1` 칸이 붙어 서고, 틈 하나를 두고, 맨 오른쪽에
-/// 한 칸이 붙는다. 창을 이보다 좁게 만들 수 없게 막는 값이라 손으로
+/// 왼쪽에 `TOOL_COUNT - 2` 칸이 붙어 서고, 틈 하나를 두고, 오른쪽에
+/// 정보·설정 두 칸이 붙는다. 창을 이보다 좁게 만들 수 없게 막는 값이라 손으로
 /// 적지 않고 셈한다. 버튼 수나 크기를 고치면 저절로 따라간다.
-const TOOLBAR_MIN_W: f32 =
-    TOOL_SIZE * TOOL_COUNT as f32 + TOOL_GAP * (TOOL_COUNT as f32 - 2.0) + TOOL_TAIL_GAP;
+const TOOLBAR_MIN_W: f32 = toolbar_row_w(TOOL_COUNT);
+
+/// 컴팩트 모드 툴바 폭. 정보 단추를 빼므로 한 칸이 줄어든다.
+const TOOLBAR_COMPACT_W: f32 = toolbar_row_w(TOOL_COUNT - 1);
+
+const fn toolbar_row_w(n: usize) -> f32 {
+    TOOL_SIZE * n as f32 + TOOL_GAP * (n as f32 - 2.0) + TOOL_TAIL_GAP
+}
 
 /// 툴바를 감싸는 판의 좌우 여백이다.
 ///
@@ -80,6 +86,9 @@ const PANEL_PAD: f32 = 20.0;
 
 /// 창의 최소 폭. 이보다 좁아지면 툴바 버튼이 가려진다.
 pub const MIN_WINDOW_W: f32 = TOOLBAR_MIN_W + PANEL_PAD;
+
+/// 컴팩트 모드일 때 창의 최소 폭이다.
+pub const MIN_COMPACT_W: f32 = TOOLBAR_COMPACT_W + PANEL_PAD;
 
 /// 창의 최소 높이. 편집칸이 아주 납작해지지 않을 만큼만 잡는다.
 pub const MIN_WINDOW_H: f32 = 560.0;
@@ -215,6 +224,20 @@ impl App {
     fn save_and_apply(&mut self, ctx: &Context) {
         let _ = self.set.save();
         self.apply_theme(ctx);
+        self.apply_window_size(ctx);
+    }
+
+    /// 컴팩트 모드에 맞춰 창의 최소 폭을 바꾼다.
+    fn apply_window_size(&self, ctx: &Context) {
+        let min_w = if self.set.compact {
+            MIN_COMPACT_W
+        } else {
+            MIN_WINDOW_W
+        };
+        ctx.send_viewport_cmd(egui::ViewportCommand::MinInnerSize([min_w, MIN_WINDOW_H].into()));
+        if self.set.compact {
+            ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize([min_w, WINDOW_H].into()));
+        }
     }
 
     // -----------------------------------------------------------------
@@ -268,13 +291,7 @@ impl App {
         };
 
         match std::fs::read(&path) {
-            Ok(data) => {
-                let body = data.strip_prefix(&UTF8_BOM[..]).unwrap_or(&data);
-                let text = String::from_utf8_lossy(body);
-                // 버퍼가 담을 수 있는 만큼만 읽는다.
-                let text: String = text.chars().take(MAX_TEXT_LEN - 1).collect();
-                self.state.set_text(&text);
-            }
+            Ok(data) => self.state.set_text(&decode_saved_text(&data)),
             Err(e) => self.error = Some(format!("{}: {e}", self.txt.err_open)),
         }
     }
@@ -290,9 +307,7 @@ impl App {
             return;
         };
 
-        let mut data = UTF8_BOM.to_vec();
-        data.extend_from_slice(self.state.text().as_bytes());
-        if let Err(e) = std::fs::write(&path, data) {
+        if let Err(e) = std::fs::write(&path, encode_saved_text(&self.state.text())) {
             self.error = Some(format!("{}: {e}", self.txt.err_save));
         }
     }
@@ -599,6 +614,12 @@ impl App {
                 {
                     self.save_and_apply(ctx);
                 }
+                if ui
+                    .checkbox(&mut self.set.compact, t.compact_mode)
+                    .changed()
+                {
+                    self.save_and_apply(ctx);
+                }
                 ui.separator();
                 if ui.button(format!("{}\tF4", t.settings_dots)).clicked() {
                     self.open_settings();
@@ -619,21 +640,31 @@ impl App {
         });
     }
 
-    /// 툴바를 그린다. 마지막 "프로그램 정보" 만 오른쪽 끝으로 민다.
+    /// 툴바를 그린다. 정보와 설정을 오른쪽 끝에 붙인다. 정보는 설정 왼쪽이다.
     ///
-    /// 창은 [`MIN_WINDOW_W`] 보다 좁아질 수 없으므로 보통은 제 크기로
-    /// 그린다. 그보다 좁아지면 버튼을 줄여서라도 열한 칸을 모두 보인다.
-    /// 창 최소 크기를 지키지 않는 창 관리자나, 프로그램이 창 크기를
-    /// 직접 바꾸는 경우에도 버튼이 잘려 나가지 않게 하려는 것이다.
+    /// 컴팩트 모드에서는 정보 단추를 그리지 않는다. 정보는 컨텍스트 메뉴에 있다.
+    ///
+    /// 창은 최소 폭보다 좁아질 수 없으므로 보통은 제 크기로 그린다.
+    /// 그보다 좁아지면 버튼을 줄여서라도 칸을 모두 보인다.
     fn toolbar(&mut self, ui: &mut Ui, ctx: &Context) {
+        let compact = self.set.compact;
+        let vis: Vec<(usize, Icon)> = TOOL_ICONS
+            .iter()
+            .copied()
+            .enumerate()
+            .filter(|(_, ic)| !compact || *ic != Icon::About)
+            .collect();
+        let n = vis.len();
+        let tail = if compact { 1 } else { 2 };
+
         let full = ui.available_rect_before_wrap();
-        let (size, gap, tail_gap) = toolbar_metrics(full.width());
+        let (size, gap, tail_gap) = toolbar_metrics_n(full.width(), n);
 
         let row = Rect::from_min_size(full.min, Vec2::new(full.width(), size));
         ui.allocate_rect(row, egui::Sense::hover());
 
-        for (i, ic) in TOOL_ICONS.iter().enumerate() {
-            let x = row.left() + toolbar_slot_x(i, full.width(), size, gap, tail_gap);
+        for (vis_i, (i, ic)) in vis.iter().enumerate() {
+            let x = row.left() + toolbar_slot_x_n(vis_i, n, tail, full.width(), size, gap, tail_gap);
             let at = Rect::from_min_size(egui::pos2(x, row.top()), Vec2::splat(size));
 
             let clicked = icon_button(
@@ -642,12 +673,12 @@ impl App {
                 Id::new(("tool", i)),
                 self.pal,
                 *ic,
-                self.txt.tips[i],
+                self.txt.tips[*i],
             )
             .clicked();
 
             if clicked {
-                self.run_tool(ctx, i);
+                self.run_tool(ctx, *i);
             }
         }
     }
@@ -663,8 +694,8 @@ impl App {
             6 => self.cycle_mode(),
             7 => self.cycle_theme(ctx),
             8 => self.cycle_language(ctx),
-            9 => self.open_settings(),
-            _ => self.open_about(),
+            9 => self.open_about(),
+            _ => self.open_settings(),
         }
     }
 
@@ -784,6 +815,38 @@ impl App {
                     .set_cursor(range.primary.index.0.min(self.state.len()));
             }
         }
+
+        self.context_menu(&out.response, ctx);
+    }
+
+    /// 편집칸을 오른쪽 단추로 눌렀을 때 나오는 메뉴다.
+    ///
+    /// 컴팩트 모드에는 툴바에 정보 단추가 없으므로, 여기서 연다.
+    fn context_menu(&mut self, response: &egui::Response, ctx: &Context) {
+        let t = self.txt;
+        response.context_menu(|ui| {
+            if ui.button(format!("{}\tCtrl+C", t.copy)).clicked() {
+                self.do_copy(ctx);
+                ui.close();
+            }
+            if ui.button(format!("{}\tCtrl+V", t.paste)).clicked() {
+                self.do_paste();
+                ui.close();
+            }
+            ui.separator();
+            if ui.button(format!("{}\tF4", t.settings_dots)).clicked() {
+                self.open_settings();
+                ui.close();
+            }
+            if ui.button(t.about_item).clicked() {
+                self.open_about();
+                ui.close();
+            }
+            if ui.button(format!("{}\tF1", t.usage)).clicked() {
+                self.open_help();
+                ui.close();
+            }
+        });
     }
 
     // -----------------------------------------------------------------
@@ -925,7 +988,7 @@ impl App {
         // 켜고 끄는 것은 표 밖에서 왼쪽부터 그린다. 네모 칸 몫을 더한다.
         let checks = widest(
             ctx,
-            [t.show_toolbar, t.show_status]
+            [t.show_toolbar, t.show_status, t.compact_mode]
                 .iter()
                 .map(|s| s.to_string()),
             font.clone(),
@@ -1045,6 +1108,7 @@ impl App {
         ui.add_space(8.0);
         ui.checkbox(&mut self.set.show_toolbar, t.show_toolbar);
         ui.checkbox(&mut self.set.show_status, t.show_status);
+        ui.checkbox(&mut self.set.compact, t.compact_mode);
     }
 
     /// 프로그램 정보 창의 본문이다.
@@ -1152,6 +1216,51 @@ impl App {
     pub fn close_all(&mut self) {
         self.close_modals();
     }
+
+    /// 편집칸을 비운다. 툴바의 지우기 · 새로 만들기와 같다.
+    pub fn clear_text(&mut self) {
+        self.do_new();
+    }
+
+    /// 물리 키 하나를 사람이 친 것처럼 넣는다.
+    pub fn press(&mut self, ctx: &Context, key: Key) -> bool {
+        self.handle_key(ctx, key)
+    }
+
+    /// 화면에 보이는 상태줄 글이다.
+    pub fn status_line(&self) -> String {
+        self.status_text()
+    }
+
+    pub fn help_open(&self) -> bool {
+        self.show_help
+    }
+
+    pub fn about_open(&self) -> bool {
+        self.show_about
+    }
+
+    pub fn settings_open(&self) -> bool {
+        self.show_settings
+    }
+}
+
+/// 저장 파일에 붙이는 UTF-8 BOM 이다. 메모장 같은 프로그램이 한글을
+/// 다른 코드 페이지로 읽지 않게 한다.
+pub fn encode_saved_text(text: &str) -> Vec<u8> {
+    let mut data = UTF8_BOM.to_vec();
+    data.extend_from_slice(text.as_bytes());
+    data
+}
+
+/// 저장 파일을 읽는다. 앞에 BOM 이 있으면 떼고, 버퍼가 담을 수 있는
+/// 만큼만 남긴다. Go 판 `TestAppFileRoundTrip` 과 같은 규칙이다.
+pub fn decode_saved_text(data: &[u8]) -> String {
+    let body = data.strip_prefix(&UTF8_BOM[..]).unwrap_or(data);
+    String::from_utf8_lossy(body)
+        .chars()
+        .take(MAX_TEXT_LEN - 1)
+        .collect()
 }
 
 /// 고르기 상자 하나를 그린다.
@@ -1177,17 +1286,45 @@ fn combo<S: AsRef<str>>(ui: &mut Ui, id: &str, items: &[S], at: &mut usize) {
 /// 모두 줄인다. 줄여서라도 열한 칸을 다 보이는 편이 몇 개를 잘라 내는
 /// 것보다 낫다.
 pub fn toolbar_metrics(width: f32) -> (f32, f32, f32) {
-    let scale = (width / TOOLBAR_MIN_W).clamp(0.1, 1.0);
+    toolbar_metrics_n(width, TOOL_COUNT)
+}
+
+/// `n` 칸이 다 들어가는 비율로 칸 크기 · 틈 · 꼬리 틈을 셈한다.
+pub fn toolbar_metrics_n(width: f32, n: usize) -> (f32, f32, f32) {
+    let need = toolbar_row_w(n);
+    let scale = (width / need).clamp(0.1, 1.0);
     (TOOL_SIZE * scale, TOOL_GAP * scale, TOOL_TAIL_GAP * scale)
 }
 
 /// `i` 번째 툴바 칸의 왼쪽 자리다(툴바 왼쪽 끝을 0 으로 본다).
 ///
-/// 마지막 칸만 오른쪽 끝에 붙인다. 다만 왼쪽 무리를 파고들지는 않는다.
+/// 마지막 두 칸(정보 · 설정)만 오른쪽 끝에 붙인다. 정보는 설정 왼쪽이다.
+/// 왼쪽 무리를 파고들지는 않는다.
 pub fn toolbar_slot_x(i: usize, width: f32, size: f32, gap: f32, tail_gap: f32) -> f32 {
-    let left_end = (TOOL_COUNT as f32 - 1.0) * (size + gap) - gap;
-    if i == TOOL_COUNT - 1 {
-        (width - size).max(left_end + tail_gap)
+    toolbar_slot_x_n(i, TOOL_COUNT, 2, width, size, gap, tail_gap)
+}
+
+/// 보이는 칸 수 `n` 과 오른쪽 끝 칸 수 `tail` 로 자리를 셈한다.
+pub fn toolbar_slot_x_n(
+    i: usize,
+    n: usize,
+    tail: usize,
+    width: f32,
+    size: f32,
+    gap: f32,
+    tail_gap: f32,
+) -> f32 {
+    let left_n = n.saturating_sub(tail);
+    let left_end = if left_n == 0 {
+        0.0
+    } else {
+        left_n as f32 * (size + gap) - gap
+    };
+    if i >= left_n {
+        let k = (i - left_n) as f32;
+        let pair_w = tail as f32 * size + (tail.saturating_sub(1) as f32) * gap;
+        let pair_left = (width - pair_w).max(left_end + tail_gap);
+        pair_left + k * (size + gap)
     } else {
         i as f32 * (size + gap)
     }
@@ -1467,6 +1604,7 @@ impl App {
 
         if !self.styled {
             self.apply_theme(&ctx);
+            self.apply_window_size(&ctx);
             self.styled = true;
         }
 

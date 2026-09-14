@@ -17,16 +17,19 @@ $ErrorActionPreference = 'Stop'
 $OutputEncoding = [Console]::OutputEncoding = [Text.UTF8Encoding]::new()
 $root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 Set-Location $root
+& "$root\scripts\prereq.ps1"
 
 Write-Host '== 웹 판 빌드' -ForegroundColor Cyan
 
-# 필요한 것이 갖춰졌는지 먼저 본다.
+# 필요한 것이 갖춰졌는지 먼저 본다. 없으면 스스로 넣는다.
 if (-not ((rustup target list --installed) -match 'wasm32-unknown-unknown')) {
     Write-Host '   wasm32 대상이 없습니다. 넣습니다...'
     rustup target add wasm32-unknown-unknown
 }
 if (-not (Get-Command wasm-bindgen -ErrorAction SilentlyContinue)) {
-    throw "wasm-bindgen 이 없습니다. 먼저 실행하세요:  cargo install wasm-bindgen-cli"
+    Write-Host '   wasm-bindgen 이 없습니다. 넣습니다...'
+    cargo install wasm-bindgen-cli
+    if ($LASTEXITCODE -ne 0) { throw 'wasm-bindgen-cli 설치 실패' }
 }
 
 Write-Host '-- 엔진(WASM)' -ForegroundColor Cyan

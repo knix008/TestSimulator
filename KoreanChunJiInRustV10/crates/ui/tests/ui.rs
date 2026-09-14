@@ -23,6 +23,14 @@ fn close(a: f32, b: f32) -> bool {
     (a - b).abs() < 0.01
 }
 
+/// 설정 파일 자리는 전역이라, 시험마다 다른 폴더를 써야 서로 밟지 않는다.
+fn unique_temp(tag: &str) -> std::path::PathBuf {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static N: AtomicU64 = AtomicU64::new(0);
+    let n = N.fetch_add(1, Ordering::Relaxed);
+    std::env::temp_dir().join(format!("chunjiin-{tag}-{}-{n}", std::process::id()))
+}
+
 // ---------------------------------------------------------------------
 // 테마
 // ---------------------------------------------------------------------
@@ -192,7 +200,7 @@ fn roles() {
 /// 진짜 사용자 설정을 건드리지 않도록 임시 폴더로 자리를 갈아 끼운다.
 #[test]
 fn settings_round_trip() {
-    let dir = std::env::temp_dir().join(format!("chunjiin-test-{}", std::process::id()));
+    let dir = unique_temp("set");
     let _ = std::fs::create_dir_all(&dir);
     set_settings_path(Some(dir.join("settings.json")));
 
@@ -221,6 +229,7 @@ fn settings_round_trip() {
         start_mode: 3,
         show_toolbar: false,
         show_status: false,
+        compact: true,
         language: "en".into(),
     };
     let wrote = saved.save().is_ok();
@@ -686,6 +695,29 @@ fn button_tables_match() {
         &format!("{} 개 (설명 {TOOL_COUNT} 개)", TOOL_ICONS.len()),
     ));
 
+    let about = TOOL_ICONS.iter().position(|&ic| ic == Icon::About);
+    let settings = TOOL_ICONS.iter().position(|&ic| ic == Icon::Settings);
+    tally.add(kit::check(
+        about.zip(settings).is_some_and(|(a, s)| a + 1 == s),
+        GROUP,
+        "표 맞추기",
+        "정보가 설정 왼쪽",
+        "About 바로 다음에 Settings",
+    ));
+
+    let compact: Vec<Icon> = TOOL_ICONS
+        .iter()
+        .copied()
+        .filter(|ic| *ic != Icon::About)
+        .collect();
+    tally.add(kit::check(
+        compact.len() == TOOL_COUNT - 1 && compact.last() == Some(&Icon::Settings),
+        GROUP,
+        "표 맞추기",
+        "컴팩트에서 정보 단추 없음",
+        "Settings 가 맨 오른쪽",
+    ));
+
     for l in LANGS {
         let t = strings_for(l);
         // 글자가 비면 반드시 그림이 있어야 한다.
@@ -700,6 +732,19 @@ fn button_tables_match() {
             "표 맞추기",
             &format!("{} 기능 버튼 얼굴", l.code()),
             "글자가 없으면 그림이 있다",
+        ));
+        // Go TestFnIcons: 그림과 글자가 동시에 있으면 겹쳐 그린다.
+        let xor_ok = t
+            .fn_labels
+            .iter()
+            .zip(FN_ICONS.iter())
+            .all(|(label, icon)| label.is_empty() != icon.is_none());
+        tally.add(kit::check(
+            xor_ok,
+            GROUP,
+            "표 맞추기",
+            &format!("{} 기능 버튼 하나만", l.code()),
+            "글자와 그림은 하나만",
         ));
     }
 
@@ -728,7 +773,7 @@ fn app_smoke() {
     let section = "스모크";
 
     // 진짜 사용자 설정을 건드리지 않는다.
-    let dir = std::env::temp_dir().join(format!("chunjiin-smoke-{}", std::process::id()));
+    let dir = unique_temp("smoke");
     let _ = std::fs::create_dir_all(&dir);
     set_settings_path(Some(dir.join("settings.json")));
     let _ = std::fs::remove_file(dir.join("settings.json"));
@@ -1018,4 +1063,409 @@ fn help_body_measures_its_own_size() {
     }
 
     tally.assert_clean("창 크기 맞추기");
+}
+
+// ---------------------------------------------------------------------
+// Go 판 ui_test.go · app_smoke_test.go 에 맞춰 넓힌 시험
+// ---------------------------------------------------------------------
+
+/// 테마 네 이름의 차례와 호버색이 기본색과 다른지 본다.
+#[test]
+fn theme_names_and_hover() {
+    let mut tally = kit::Tally::default();
+    let want = ["라이트", "다크", "세피아", "고대비"];
+    for (i, name) in want.iter().enumerate() {
+        tally.add(kit::check(
+            PALETTES[i].name == *name,
+            GROUP,
+            "테마 색표",
+            &format!("이름 {i}"),
+            PALETTES[i].name,
+        ));
+    }
+
+    for p in PALETTES.iter() {
+        let mut distinct = true;
+        for role in BtnRole::all() {
+            if p.fill(role, BtnState::Base) == p.fill(role, BtnState::Hover) {
+                distinct = false;
+            }
+        }
+        tally.add(kit::check(
+            distinct,
+            GROUP,
+            "테마 색표",
+            &format!("{} 호버가 보이는가", p.name),
+            "기본색과 호버색이 달라야 한다",
+        ));
+    }
+    tally.assert_clean("테마 이름 · 호버");
+}
+
+/// Go `TestHelpText` — 사용법에 꼭 있어야 하는 낱말.
+#[test]
+fn help_keywords() {
+    let mut tally = kit::Tally::default();
+    let ko = [
+        "키패드", "모음", "자음", "물리 키보드", "설정", "ㄱㅋ", "ㅅㅎ", "F1", "Ctrl+S",
+    ];
+    let en = [
+        "Keypad",
+        "Vowels",
+        "Consonants",
+        "Physical keyboard",
+        "Settings",
+        "ㄱㅋ",
+        "ㅅㅎ",
+        "F1",
+        "Ctrl+S",
+    ];
+    for (l, words) in [(Lang::Ko, ko.as_slice()), (Lang::En, en.as_slice())] {
+        let help = strings_for(l).help;
+        tally.add(kit::check(
+            help.len() >= 500,
+            GROUP,
+            "사용법",
+            &format!("{} 길이", l.code()),
+            &format!("{} 바이트", help.len()),
+        ));
+        for w in words {
+            tally.add(kit::check(
+                help.contains(w),
+                GROUP,
+                "사용법",
+                &format!("{} {w}", l.code()),
+                "본문에 있다",
+            ));
+        }
+    }
+    tally.assert_clean("사용법 낱말");
+}
+
+/// Go `TestAppFileRoundTrip` — UTF-8 BOM 을 붙였다 뗀다.
+#[test]
+fn file_bom_roundtrip() {
+    use chunjiin_ui::app::{decode_saved_text, encode_saved_text};
+
+    let mut tally = kit::Tally::default();
+    let section = "파일 BOM";
+    for src in ["", "가", "한글", "안녕\n하세요", "a가1!"] {
+        let raw = encode_saved_text(src);
+        tally.add(kit::check(
+            raw.starts_with(&[0xEF, 0xBB, 0xBF]),
+            GROUP,
+            section,
+            &format!("{src:?} BOM"),
+            "앞에 EF BB BF",
+        ));
+        tally.add(kit::check(
+            decode_saved_text(&raw) == src,
+            GROUP,
+            section,
+            &format!("{src:?} 왕복"),
+            "떼면 원래 글",
+        ));
+    }
+    tally.add(kit::check(
+        decode_saved_text("한글".as_bytes()) == "한글",
+        GROUP,
+        section,
+        "BOM 없는 파일",
+        "그대로 읽는다",
+    ));
+    tally.assert_clean("파일 BOM");
+}
+
+/// Go `TestAppLanguageSwitch` — 언어를 바꾸면 화면 글이 따라간다.
+#[test]
+fn language_switch() {
+    let mut tally = kit::Tally::default();
+    let section = "언어 전환";
+
+    let dir = unique_temp("lang");
+    let _ = std::fs::create_dir_all(&dir);
+    set_settings_path(Some(dir.join("settings.json")));
+
+    let ctx = egui::Context::default();
+    let mut app = App::new_in(&ctx);
+    app.set_lang(Lang::Ko);
+
+    tally.add(kit::check(
+        strings_for(app.settings().lang()).app_title.contains("천지인"),
+        GROUP,
+        section,
+        "한국어 제목",
+        strings_for(Lang::Ko).app_title,
+    ));
+
+    app.set_lang(Lang::En);
+    let en = strings_for(app.settings().lang());
+    tally.add(kit::check(
+        en.app_title.contains("Chunjiin") || en.app_title.contains("Hangul"),
+        GROUP,
+        section,
+        "영어 제목",
+        en.app_title,
+    ));
+    tally.add(kit::check(
+        en.mode_names[0].starts_with("Hangul") || en.mode_names[0] == "한글",
+        GROUP,
+        section,
+        "영어 모드 이름",
+        en.mode_names[0],
+    ));
+    tally.add(kit::check(
+        en.fn_labels[0] != strings_for(Lang::Ko).fn_labels[0],
+        GROUP,
+        section,
+        "기능 단추 글",
+        en.fn_labels[0],
+    ));
+
+    app.clear_text();
+    app.state_mut().set_mode(InputMode::Hangul);
+    for k in [7, 7, 0, 1, 4] {
+        app.state_mut().key(k);
+    }
+    app.state_mut().break_multitap();
+    for k in [3, 2] {
+        app.state_mut().key(k);
+    }
+    app.state_mut().break_multitap();
+    app.state_mut().key(4);
+    app.state_mut().key(4);
+    app.state_mut().commit();
+    tally.add(kit::check(
+        app.state().text() == "한글",
+        GROUP,
+        section,
+        "언어와 무관한 조합",
+        &format!("{:?}", app.state().text()),
+    ));
+
+    set_settings_path(None);
+    let _ = std::fs::remove_dir_all(&dir);
+    tally.assert_clean("언어 전환");
+}
+
+/// Go `TestAppSmoke` · `TestAppWindows` 의 화면 배선.
+#[test]
+fn app_smoke_go_parity() {
+    use egui::Key;
+
+    let mut tally = kit::Tally::default();
+    let section = "스모크 심화";
+
+    let dir = unique_temp("smoke2");
+    let _ = std::fs::create_dir_all(&dir);
+    set_settings_path(Some(dir.join("settings.json")));
+    let _ = std::fs::remove_file(dir.join("settings.json"));
+
+    let ctx = egui::Context::default();
+    let mut app = App::new_in(&ctx);
+    app.set_lang(Lang::Ko);
+
+    let frame = |app: &mut App, ctx: &egui::Context| {
+        let mut out = ctx.run_ui(egui::RawInput::default(), |ui| app.show(ui));
+        out.textures_delta.clear();
+    };
+    frame(&mut app, &ctx);
+
+    tally.add(kit::check(
+        app.state().text().is_empty() && app.settings().show_toolbar && app.settings().show_status,
+        GROUP,
+        section,
+        "시작 상태",
+        "빈 편집칸 · 툴바 · 상태줄",
+    ));
+
+    app.clear_text();
+    for k in [7, 7, 0, 1, 4] {
+        app.state_mut().key(k);
+    }
+    app.state_mut().break_multitap();
+    for k in [3, 2] {
+        app.state_mut().key(k);
+    }
+    app.state_mut().break_multitap();
+    app.state_mut().key(4);
+    app.state_mut().key(4);
+    app.state_mut().commit();
+    tally.add(kit::check(
+        app.state().text() == "한글",
+        GROUP,
+        section,
+        "한글 조합",
+        &format!("{:?}", app.state().text()),
+    ));
+
+    app.clear_text();
+    app.state_mut().key(10);
+    app.state_mut().key(10);
+    app.state_mut().key(0);
+    app.state_mut().key(1);
+    app.state_mut().key(4);
+    app.state_mut().key(7);
+    app.state_mut().key(7);
+    app.state_mut().commit();
+    tally.add(kit::check(
+        app.state().text() == "많",
+        GROUP,
+        section,
+        "겹받침 병합",
+        &format!("{:?}", app.state().text()),
+    ));
+
+    app.clear_text();
+    app.state_mut().key(3);
+    app.state_mut().key(0);
+    app.state_mut().key(1);
+    app.state_mut().space();
+    app.state_mut().key(4);
+    app.state_mut().key(0);
+    app.state_mut().key(1);
+    app.state_mut().backspace();
+    tally.add(kit::check(
+        app.state().text() == "가 니",
+        GROUP,
+        section,
+        "단추 누르기 · 지우기",
+        &format!("{:?}", app.state().text()),
+    ));
+
+    app.clear_text();
+    app.state_mut().key(3);
+    app.state_mut().key(0);
+    app.state_mut().key(1);
+    app.state_mut().key(4);
+    app.state_mut().key(0);
+    app.state_mut().key(1);
+    app.press(&ctx, Key::Backspace);
+    tally.add(kit::check(
+        app.state().text() == "가니",
+        GROUP,
+        section,
+        "백스페이스",
+        &format!("{:?}", app.state().text()),
+    ));
+
+    let start = app.state().now_mode;
+    for _ in 0..MODE_COUNT {
+        app.press(&ctx, Key::F2);
+    }
+    tally.add(kit::check(
+        app.state().now_mode == start,
+        GROUP,
+        section,
+        "F2 모드 한 바퀴",
+        app.state().mode_name(),
+    ));
+
+    let first_theme = app.settings().theme;
+    for _ in 0..PALETTES.len() {
+        app.press(&ctx, Key::F3);
+        frame(&mut app, &ctx);
+    }
+    tally.add(kit::check(
+        app.settings().theme == first_theme,
+        GROUP,
+        section,
+        "F3 테마 한 바퀴",
+        &format!("테마 {}", app.settings().theme),
+    ));
+
+    app.clear_text();
+    app.state_mut().set_mode(InputMode::Hangul);
+    app.state_mut().key(3);
+    app.state_mut().key(0);
+    app.state_mut().key(1);
+    frame(&mut app, &ctx);
+    tally.add(kit::check(
+        app.status_line().contains("한글") && app.status_line().contains("ㄱ"),
+        GROUP,
+        section,
+        "상태줄",
+        &app.status_line(),
+    ));
+
+    app.clear_text();
+    app.state_mut().insert_str("가");
+    app.clear_text();
+    tally.add(kit::check(
+        app.state().text().is_empty() && app.state().cursor_pos == 0,
+        GROUP,
+        section,
+        "전체 지우기",
+        "빈 편집칸",
+    ));
+
+    for (name, open, is_open) in [
+        (
+            "사용법",
+            App::open_help as fn(&mut App),
+            App::help_open as fn(&App) -> bool,
+        ),
+        (
+            "정보",
+            App::open_about as fn(&mut App),
+            App::about_open as fn(&App) -> bool,
+        ),
+        (
+            "설정",
+            App::open_settings_window as fn(&mut App),
+            App::settings_open as fn(&App) -> bool,
+        ),
+    ] {
+        tally.add(kit::check(
+            !is_open(&app),
+            GROUP,
+            section,
+            &format!("{name} 열기 전"),
+            "닫혀 있다",
+        ));
+        open(&mut app);
+        frame(&mut app, &ctx);
+        tally.add(kit::check(
+            is_open(&app),
+            GROUP,
+            section,
+            &format!("{name} 열림"),
+            "창이 있다",
+        ));
+        open(&mut app);
+        tally.add(kit::check(
+            is_open(&app),
+            GROUP,
+            section,
+            &format!("{name} 두 번"),
+            "하나만",
+        ));
+        app.close_all();
+        frame(&mut app, &ctx);
+        tally.add(kit::check(
+            !is_open(&app),
+            GROUP,
+            section,
+            &format!("{name} 닫힘"),
+            "손잡이 없음",
+        ));
+
+        app.clear_text();
+        app.state_mut().set_mode(InputMode::Hangul);
+        app.press(&ctx, Key::Num4);
+        app.press(&ctx, Key::Num1);
+        app.press(&ctx, Key::Num2);
+        app.state_mut().commit();
+        tally.add(kit::check(
+            app.state().text() == "가",
+            GROUP,
+            section,
+            &format!("{name} 닫은 뒤 입력"),
+            &format!("{:?}", app.state().text()),
+        ));
+    }
+
+    set_settings_path(None);
+    let _ = std::fs::remove_dir_all(&dir);
+    tally.assert_clean("스모크 심화");
 }

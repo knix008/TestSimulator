@@ -23,6 +23,9 @@ for arg in "$@"; do
     esac
 done
 
+# rustc 가 없으면 rustup 으로 넣는다. PATH 가 이어지게 source 한다.
+. "$root/scripts/prereq.sh"
+
 echo "== 웹 판 빌드"
 
 # 필요한 것이 갖춰졌는지 먼저 본다. 없으면 무엇을 해야 하는지 알려 준다.
@@ -31,9 +34,8 @@ if ! rustup target list --installed 2>/dev/null | grep -q wasm32-unknown-unknown
     rustup target add wasm32-unknown-unknown
 fi
 if ! command -v wasm-bindgen >/dev/null 2>&1; then
-    echo "wasm-bindgen 이 없습니다. 아래를 먼저 하세요." >&2
-    echo "   cargo install wasm-bindgen-cli" >&2
-    exit 1
+    echo "   wasm-bindgen 이 없습니다. 넣습니다..."
+    cargo install wasm-bindgen-cli
 fi
 
 echo "-- 엔진(WASM)"

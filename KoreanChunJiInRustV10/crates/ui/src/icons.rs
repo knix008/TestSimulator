@@ -83,7 +83,7 @@ impl Icon {
     }
 }
 
-/// 툴바 단추의 차례다. Go 판 `buildToolbar` 와 같다.
+/// 툴바 단추의 차례다. 정보(About) 가 설정 왼쪽이고, 둘은 오른쪽 끝에 선다.
 pub const TOOL_ICONS: [Icon; crate::TOOL_COUNT] = [
     Icon::New,
     Icon::Open,
@@ -94,8 +94,8 @@ pub const TOOL_ICONS: [Icon; crate::TOOL_COUNT] = [
     Icon::Mode,
     Icon::Theme,
     Icon::Language,
-    Icon::Settings,
     Icon::About,
+    Icon::Settings,
 ];
 
 #[rustfmt::skip]

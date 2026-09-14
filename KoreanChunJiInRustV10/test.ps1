@@ -14,6 +14,7 @@
 #   그 밖               서버 경로 처리, 시험 자료 읽기, 보고기 자체.
 #
 # 정리해서 보여 주는 일은 crates/testreport 가 한다.
+# 구역별 집계와 Summary 는 화면에 찍고, 같은 내용을 루트 test-summary.txt 에도 남긴다.
 
 [CmdletBinding()]
 param(
@@ -25,7 +26,9 @@ param(
 $ErrorActionPreference = 'Stop'
 # 콘솔이 한글을 깨뜨리지 않게 UTF-8 로 맞춘다.
 $OutputEncoding = [Console]::OutputEncoding = [Text.UTF8Encoding]::new()
-Set-Location (Split-Path -Parent $MyInvocation.MyCommand.Path)
+$root = Split-Path -Parent $MyInvocation.MyCommand.Path
+Set-Location $root
+& "$root\scripts\prereq.ps1"
 
 if ($Plain) {
     cargo test --workspace

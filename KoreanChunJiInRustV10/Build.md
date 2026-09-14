@@ -6,6 +6,10 @@
 
 **Rust 1.85 이상.** [rustup](https://rustup.rs) 으로 넣습니다.
 
+`build` · `test` · `package` · `run` 스크립트가 rustc 가 없거나
+1.85 보다 낮으면 **물어보지 않고** rustup 으로 넣거나 올립니다.
+수동으로 넣을 때는 아래와 같습니다.
+
 ```sh
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh   # Linux · macOS
 winget install Rustlang.Rustup                                    # Windows
@@ -47,23 +51,26 @@ rustup target add wasm32-unknown-unknown
 cargo install wasm-bindgen-cli
 ```
 
-`scripts/build-web.*` 가 이 둘이 있는지 먼저 보고, 없으면 무엇을 해야
-하는지 알려 줍니다. wasm32 대상은 스스로 넣습니다.
+`scripts/build-web.*` 가 rustc · wasm32 대상 · wasm-bindgen 이 있는지
+먼저 보고, 없으면 스스로 넣습니다.
 
 ## 빌드
 
 ### Windows
 
 ```powershell
-.\build.ps1              # 데스크톱 앱 · 서버를 만들어 루트에 둔다
+.\run.ps1                # 바로 실행 (없으면 먼저 빌드한다)
+.\run.bat                # 탐색기에서 더블클릭해도 된다
+.\build.ps1              # 앱 · 서버 · 설치 프로그램을 만들어 루트에 둔다
 .\build.ps1 -Run         # 만들고 바로 실행
 .\build.ps1 -Web         # 웹 판까지 함께
-.\build.ps1 -Debug       # 디버그 빌드 (빠르게 만들고 느리게 돈다)
+.\build.ps1 -Dev         # 디버그 빌드 (빠르게 만들고 느리게 돈다)
 ```
 
 ### macOS · Linux
 
 ```sh
+./run.sh
 ./build.sh
 ./build.sh --run
 ./build.sh --web
@@ -85,6 +92,9 @@ cargo build --release -p chunjiin-serve     # 웹 판 서버
 .\test.ps1 -Detail      # 항목마다 한 줄씩
 .\test.ps1 -Run 모음    # 이름이 맞는 것만
 .\test.ps1 -Plain       # cargo test 를 그대로
+.\test.bat              # 같은 시험 (cmd.exe)
+.\test.bat detail
+.\test.bat run 모음
 ```
 
 ```sh
@@ -98,9 +108,18 @@ cargo build --release -p chunjiin-serve     # 웹 판 서버
 `crates/testreport` 가 더 합니다.
 
 ```
-============================================================
-모두 통과      754 항목 중 754 통과, 0 실패
+════════════════════════════════════════════════════════════════
+  Summary
+────────────────────────────────────────────────────────────────
+    전체 시험 항목    1100+ 개    (구역 N 개 · 묶음 M 개)
+    통과              1100+ 개    (100%)
+    실패                 0 개
+    결과             PASS    모두 통과
+════════════════════════════════════════════════════════════════
 ```
+
+같은 내용이 저장소 루트 `test-summary.txt` 에도 남습니다. Windows 콘솔이
+긴 출력을 자르더라도 전체 요약을 거기서 볼 수 있습니다.
 
 ### 시험 자료 다시 뽑기
 
@@ -155,7 +174,10 @@ C++ 판이 없어도 시험은 그대로 돕니다. 뽑아낸 `test/cases.tsv` �
 ## 설치용 파일 만들기
 
 ```powershell
-.\scripts\package.ps1              # 시험 -> 웹 -> 앱 -> 설치 프로그램 -> 묶음
+.\package.bat                      # 시험 -> 웹 -> 앱 -> 설치 프로그램 -> 묶음
+.\package.bat -skiptest
+.\package.bat -skipweb
+.\scripts\package.ps1              # 같은 일 (PowerShell)
 .\scripts\package.ps1 -SkipTest
 .\scripts\package.ps1 -SkipWeb
 ```
@@ -176,6 +198,9 @@ C++ 판이 없어도 시험은 그대로 돕니다. 뽑아낸 `test/cases.tsv` �
 
 Inno Setup, NSIS, dpkg 같은 다른 도구는 필요 없습니다. 설치 프로그램 자체가
 Rust 로 짜여 있고, 빌드할 때 앱 실행 파일을 자기 안에 품습니다.
+
+Windows 탐색기·작업 표시줄 아이콘은 `assets/chunjiin.ico` 를 빌드할 때
+실행 파일 리소스에 넣습니다. 창 아이콘(PNG)과는 별개입니다.
 
 ### 품는 절차
 

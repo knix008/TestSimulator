@@ -23,24 +23,32 @@
 - UTF-8 텍스트 파일로 열기 / 저장, 클립보드 복사 / 붙여넣기
 - 툴바 · 메뉴 · 설정 창 · 테마 4종(라이트 · 다크 · 세피아 · 고대비)
 - 화면 언어 **한국어 / English**
+- **컴팩트 모드** — 툴바에서 정보 단추를 빼고 창을 좁힌다. 정보는 편집칸
+  오른쪽 단추 메뉴(컨텍스트 메뉴)와 `도움말 > 정보` 에 있다
 - 관리자 권한 없이 설치되는 설치 프로그램 포함
+  (이미 있으면 지울지 먼저 묻는다)
 
 ## 빠르게 써 보기
 
 ### Windows
 
 ```powershell
+.\run.ps1                       # 바로 실행 (없으면 빌드한다)
+.\run.bat                       # 탐색기에서 더블클릭해도 된다
 .\build.ps1 -Run                # 빌드하고 바로 실행
-.\test.ps1                      # 시험 754항목 (구역별 집계와 요약)
-.\scripts\package.ps1           # 설치용 파일 만들기
+.\test.ps1                      # 시험 (구역별 집계와 Summary, 루트 test-summary.txt)
+.\test.bat                      # 같은 시험 (cmd.exe)
+.\package.bat                   # 설치용 파일 만들기 (루트에 복사)
+.\scripts\package.ps1           # 같은 일 (PowerShell)
 .\scripts\build-web.ps1 -Serve  # 웹 판 빌드 + 서버 띄우기
 ```
 
 ### macOS · Linux
 
 ```sh
+./run.sh                        # 바로 실행 (없으면 빌드한다)
 ./build.sh --run                # 빌드하고 바로 실행
-./test.sh                       # 시험 754항목 (구역별 집계와 요약)
+./test.sh                       # 시험 (구역별 집계와 Summary, 루트 test-summary.txt)
 ./scripts/package.sh            # 설치용 파일 만들기
 ./scripts/build-web.sh --serve  # 웹 판 빌드 + 서버 띄우기
 ```
@@ -59,16 +67,20 @@
 ## 설치
 
 설치 프로그램(`chunjiin-setup`)을 실행하면 **관리자 권한 없이** 사용자 영역에
-설치됩니다. 같은 프로그램의 `제거` 단추로 되돌릴 수 있습니다.
+설치됩니다. 시작 메뉴와 바탕화면 바로 가기는 설치 창에서 고릅니다.
+이미 설치된 프로그램이 있으면 `설치` 또는 `제거` 를 눌렀을 때 지울지 묻습니다.
+같은 프로그램의 `제거` 단추로 되돌릴 수 있습니다.
 
 | 운영체제 | 설치 자리 | 함께 만들어지는 것 |
 |---|---|---|
-| Windows | `%LOCALAPPDATA%\Programs\Chunjiin` | 시작 메뉴 바로 가기, "설정 > 앱" 항목 |
-| Linux | `~/.local/share/Chunjiin` | `~/.local/bin` 링크, `.desktop` 항목, 아이콘 |
+| Windows | `%LOCALAPPDATA%\Programs\Chunjiin` | 시작 메뉴·바탕화면 바로 가기(선택), "설정 > 앱" 항목 |
+| Linux | `~/.local/share/Chunjiin` | `~/.local/bin` 링크, 프로그램 목록·바탕화면 바로 가기(선택), 아이콘 |
 | macOS | `~/Applications/Chunjiin.app` | 앱 묶음 |
 
 Inno Setup, NSIS, dpkg 같은 다른 도구는 필요 없습니다.
 설치 프로그램 자체가 Rust 로 짜여 있고 실행 파일을 자기 안에 품습니다.
+Windows 탐색기·작업 표시줄 아이콘은 빌드할 때 `assets/chunjiin.ico` 를
+실행 파일에 넣습니다. 창 아이콘은 `assets/chunjiin.png` 입니다.
 
 ## 웹 판
 
@@ -132,7 +144,7 @@ KoreanChunJiInRustV10/
 │  │     ├─ layout.rs       키패드 배치 · 커서 변환 (순수 계산)
 │  │     ├─ settings.rs     설정 저장 (JSON)
 │  │     └─ font.rs         내장 글꼴 등록
-│  ├─ app/                  데스크톱 앱 (실행 파일 chunjiin)
+│  ├─ app/                  데스크톱 앱 (실행 파일 chunjiin, 탐색기 아이콘)
 │  ├─ setup/                설치 프로그램 (GUI, 앱을 품는다)
 │  ├─ serve/                웹 판 서버 (web/ 를 품는다)
 │  ├─ wasm/                 웹 판이 쓰는 엔진 (wasm-bindgen)
@@ -141,16 +153,24 @@ KoreanChunJiInRustV10/
 │  └─ testreport/           시험 결과를 구역별로 정리해 보여 준다
 ├─ test/
 │  └─ cases.tsv             C++ 판에서 뽑아 온 430항목
-├─ web/                     웹 판 화면 (HTML · CSS · JS)
-├─ assets/                  아이콘, 내장 글꼴
-├─ scripts/                 package · build-web 스크립트
-├─ build.ps1  / build.sh     바로 실행할 실행 파일 만들기
-└─ test.ps1   / test.sh      시험 실행
+├─ web/                     웹 판 화면 (HTML · CSS · JS · chunjiin.png)
+├─ assets/                  chunjiin.png · chunjiin.ico · 내장 글꼴
+├─ scripts/                 package · build-web · prereq · cargo-out · windows_icon.rs · make_icon.py
+├─ package.bat              설치용 파일 만들기 (cmd.exe)
+├─ run.bat / run.ps1 / run.ps / run.sh  바로 실행 (없으면 빌드)
+├─ build.ps1  / build.sh     앱 · 서버 · 설치 프로그램을 루트에 둔다
+└─ test.bat / test.ps1 / test.sh  시험 실행 (루트에 test-summary.txt)
 ```
+
+`.gitignore` 는 빌드·배포 결과만 무시합니다.
+`crates/` · `scripts/` · `test/` · `web/` 원본 · `assets/`(PNG · ICO · 글꼴) ·
+`Cargo.toml` · `Cargo.lock` · 루트 스크립트와 문서는 저장소에 둡니다.
+루트의 실행 파일 · 배포 묶음 · `test-summary.txt` 와 `web/chunjiin_wasm*` 은
+빌드가 다시 만듭니다.
 
 ## 필요한 것
 
-- **Rust 1.85 이상** (rustup 으로 넣습니다)
+- **Rust 1.85 이상** (없으면 `build` · `test` · `package` · `run` 이 rustup 으로 넣습니다)
 - Windows 는 MSVC 링커가 필요합니다 (Visual Studio Build Tools).
 - Linux 는 창을 띄우는 데 X11/Wayland 개발 파일이 필요합니다.
   - 데비안/우분투: `sudo apt install libx11-dev libxcursor-dev libxrandr-dev libxi-dev libgl1-mesa-dev libxkbcommon-dev`

@@ -2,15 +2,16 @@
 //!
 //! ```text
 //! Windows  %LOCALAPPDATA%\Programs\Chunjiin\chunjiin.exe   실행 파일
-//!          시작 메뉴\프로그램\천지인 한글 입력기.lnk        바로 가기
+//!          시작 메뉴 · 바탕화면 바로 가기 (설치 창에서 고른다)
 //!          HKCU\...\Uninstall\Chunjiin                     "설정 > 앱" 목록
 //!
 //! Linux    ~/.local/share/Chunjiin/chunjiin                실행 파일
 //!          ~/.local/bin/chunjiin                           PATH 에 걸리는 링크
-//!          ~/.local/share/applications/chunjiin.desktop    프로그램 목록 항목
+//!          프로그램 목록 · 바탕화면 .desktop (설치 창에서 고른다)
 //!          ~/.local/share/icons/.../chunjiin.png           아이콘
 //!
 //! macOS    ~/Applications/Chunjiin.app                     앱 묶음
+//!          바탕화면 별칭 (설치 창에서 고른다)
 //! ```
 //!
 //! 모두 사용자 영역이라 관리자 권한(sudo)이 필요 없다.
@@ -20,6 +21,13 @@ use std::path::{Path, PathBuf};
 
 // VERSION 과 ICON_PNG 은 운영체제마다 쓰는 데가 달라서 쓰는 자리에서 부른다.
 use crate::APP_NAME;
+
+/// 사용자가 고른 바로 가기.
+#[derive(Clone, Copy, Debug)]
+pub struct LinkOpts {
+    pub start_menu: bool,
+    pub desktop: bool,
+}
 
 /// 품고 있는 실행 파일의 이름이다.
 pub fn exe_name() -> &'static str {
@@ -89,7 +97,7 @@ mod plat {
     const UNINSTALL_KEY: &str = r"Software\Microsoft\Windows\CurrentVersion\Uninstall\Chunjiin";
 
     /// 시작 메뉴 바로 가기의 자리다.
-    fn shortcut_path() -> PathBuf {
+    fn start_menu_shortcut() -> PathBuf {
         let appdata = std::env::var_os("APPDATA")
             .map(PathBuf::from)
             .unwrap_or_else(home);
@@ -98,7 +106,28 @@ mod plat {
             .join("천지인 한글 입력기.lnk")
     }
 
-    pub fn install(target: &Path, data: &[u8]) -> io::Result<()> {
+    /// 바탕화면 바로 가기의 자리다.
+    ///
+    /// OneDrive 로 바탕화면을 옮긴 집도 맞추려고, 있는 폴더를 먼저 고른다.
+    fn desktop_dir() -> PathBuf {
+        let home = home();
+        for cand in [
+            home.join("Desktop"),
+            home.join("OneDrive").join("Desktop"),
+            home.join("OneDrive").join("바탕 화면"),
+        ] {
+            if cand.is_dir() {
+                return cand;
+            }
+        }
+        home.join("Desktop")
+    }
+
+    fn desktop_shortcut() -> PathBuf {
+        desktop_dir().join("천지인 한글 입력기.lnk")
+    }
+
+    pub fn install(target: &Path, data: &[u8], links: LinkOpts) -> io::Result<()> {
         std::fs::create_dir_all(target)
             .map_err(|e| err(format!("폴더를 만들지 못했습니다: {e}")))?;
 
@@ -112,8 +141,14 @@ mod plat {
             }
         }
 
-        make_shortcut(&shortcut_path(), &exe, target)
-            .map_err(|e| err(format!("바로 가기를 만들지 못했습니다: {e}")))?;
+        if links.start_menu {
+            make_shortcut(&start_menu_shortcut(), &exe, target)
+                .map_err(|e| err(format!("시작 메뉴 바로 가기를 만들지 못했습니다: {e}")))?;
+        }
+        if links.desktop {
+            make_shortcut(&desktop_shortcut(), &exe, target)
+                .map_err(|e| err(format!("바탕화면 바로 가기를 만들지 못했습니다: {e}")))?;
+        }
         write_uninstall_entry(target, &exe)
             .map_err(|e| err(format!("등록 정보를 쓰지 못했습니다: {e}")))?;
         Ok(())
@@ -220,7 +255,8 @@ mod plat {
     }
 
     pub fn uninstall(target: &Path) -> io::Result<()> {
-        let _ = std::fs::remove_file(shortcut_path());
+        let _ = std::fs::remove_file(start_menu_shortcut());
+        let _ = std::fs::remove_file(desktop_shortcut());
         let _ = Command::new("reg")
             .args(["delete", &format!(r"HKCU\{UNINSTALL_KEY}"), "/f"])
             .output();
@@ -260,7 +296,47 @@ mod plat {
     use super::*;
     use std::os::unix::fs::PermissionsExt;
 
-    pub fn install(target: &Path, data: &[u8]) -> io::Result<()> {
+    fn desktop_entry(exe: &Path, icon: &Path) -> String {
+        format!(
+            "[Desktop Entry]\n\
+             Type=Application\n\
+             Name=Chunjiin Hangul Keyboard\n\
+             Name[ko]=천지인 한글 입력기\n\
+             Comment=12-key Chunjiin Hangul input\n\
+             Comment[ko]=12키 천지인 자판 한글 입력기\n\
+             Exec={}\n\
+             Icon={}\n\
+             Terminal=false\n\
+             Categories=Utility;\n\
+             StartupWMClass=chunjiin\n",
+            exe.display(),
+            icon.display()
+        )
+    }
+
+    fn write_desktop_file(path: &Path, body: &str) -> io::Result<()> {
+        if let Some(dir) = path.parent() {
+            std::fs::create_dir_all(dir)?;
+        }
+        std::fs::write(path, body)?;
+        // 바탕화면에 두면 실행 권한이 있어야 바로 가기로 본다.
+        let _ = std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o755));
+        Ok(())
+    }
+
+    fn desktop_shortcut() -> PathBuf {
+        home().join("Desktop").join("chunjiin.desktop")
+    }
+
+    fn menu_shortcut() -> PathBuf {
+        home()
+            .join(".local")
+            .join("share")
+            .join("applications")
+            .join("chunjiin.desktop")
+    }
+
+    pub fn install(target: &Path, data: &[u8], links: LinkOpts) -> io::Result<()> {
         std::fs::create_dir_all(target)
             .map_err(|e| err(format!("폴더를 만들지 못했습니다: {e}")))?;
 
@@ -284,26 +360,16 @@ mod plat {
             let _ = std::fs::write(&icon, crate::ICON_PNG);
         }
 
-        let app_dir = home.join(".local").join("share").join("applications");
-        std::fs::create_dir_all(&app_dir)
-            .map_err(|e| err(format!("프로그램 목록 폴더를 만들지 못했습니다: {e}")))?;
-
-        let desktop = format!(
-            "[Desktop Entry]\n\
-             Type=Application\n\
-             Name=Chunjiin Hangul Keyboard\n\
-             Name[ko]=천지인 한글 입력기\n\
-             Comment=12-key Chunjiin Hangul input\n\
-             Comment[ko]=12키 천지인 자판 한글 입력기\n\
-             Exec={}\n\
-             Icon={}\n\
-             Terminal=false\n\
-             Categories=Utility;\n\
-             StartupWMClass=chunjiin\n",
-            exe.display(),
-            icon.display()
-        );
-        std::fs::write(app_dir.join("chunjiin.desktop"), desktop)
+        let body = desktop_entry(&exe, &icon);
+        if links.start_menu {
+            write_desktop_file(&menu_shortcut(), &body)
+                .map_err(|e| err(format!("프로그램 목록 바로 가기를 만들지 못했습니다: {e}")))?;
+        }
+        if links.desktop {
+            write_desktop_file(&desktop_shortcut(), &body)
+                .map_err(|e| err(format!("바탕화면 바로 가기를 만들지 못했습니다: {e}")))?;
+        }
+        Ok(())
     }
 
     pub fn uninstall(target: &Path) -> io::Result<()> {
@@ -312,7 +378,8 @@ mod plat {
 
         let home = home();
         let _ = std::fs::remove_file(home.join(".local/bin").join(exe_name()));
-        let _ = std::fs::remove_file(home.join(".local/share/applications/chunjiin.desktop"));
+        let _ = std::fs::remove_file(menu_shortcut());
+        let _ = std::fs::remove_file(desktop_shortcut());
         let _ =
             std::fs::remove_file(home.join(".local/share/icons/hicolor/256x256/apps/chunjiin.png"));
         Ok(())
@@ -328,8 +395,17 @@ mod plat {
     use super::*;
     use std::os::unix::fs::PermissionsExt;
 
+    fn desktop_alias(target: &Path) -> PathBuf {
+        home().join("Desktop").join(
+            target
+                .file_name()
+                .map(|n| n.to_os_string())
+                .unwrap_or_else(|| format!("{APP_NAME}.app").into()),
+        )
+    }
+
     /// `.app` 묶음을 만든다.
-    pub fn install(target: &Path, data: &[u8]) -> io::Result<()> {
+    pub fn install(target: &Path, data: &[u8], links: LinkOpts) -> io::Result<()> {
         let macos = target.join("Contents").join("MacOS");
         let res = target.join("Contents").join("Resources");
         for d in [&macos, &res] {
@@ -362,12 +438,30 @@ mod plat {
             exe_name(),
             ver = crate::VERSION
         );
-        std::fs::write(target.join("Contents").join("Info.plist"), plist)
+        std::fs::write(target.join("Contents").join("Info.plist"), plist)?;
+
+        // 응용 프로그램 폴더에 넣는 것이 시작 메뉴에 해당한다. 그 자리는
+        // 설치 경로이므로 여기서는 바탕화면 별칭만 고른다.
+        if links.desktop {
+            let link = desktop_alias(target);
+            let _ = std::fs::remove_file(&link);
+            std::os::unix::fs::symlink(target, &link)
+                .map_err(|e| err(format!("바탕화면 바로 가기를 만들지 못했습니다: {e}")))?;
+        }
+        let _ = links.start_menu;
+        Ok(())
     }
 
     pub fn uninstall(target: &Path) -> io::Result<()> {
+        let _ = std::fs::remove_file(desktop_alias(target));
         std::fs::remove_dir_all(target).map_err(|e| err(format!("폴더를 지우지 못했습니다: {e}")))
     }
 }
 
-pub use plat::{install, uninstall};
+pub fn install(target: &Path, data: &[u8], links: LinkOpts) -> io::Result<()> {
+    plat::install(target, data, links)
+}
+
+pub fn uninstall(target: &Path) -> io::Result<()> {
+    plat::uninstall(target)
+}

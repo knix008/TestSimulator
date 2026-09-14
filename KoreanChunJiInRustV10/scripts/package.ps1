@@ -28,9 +28,8 @@ $ErrorActionPreference = 'Stop'
 $OutputEncoding = [Console]::OutputEncoding = [Text.UTF8Encoding]::new()
 $root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 Set-Location $root
-
-$payload = Join-Path $root 'crates\setup\payload'
-$out = Join-Path $root 'target\release'
+& "$root\scripts\prereq.ps1"
+. "$root\scripts\cargo-out.ps1"
 
 Write-Host "== 천지인 설치용 파일 만들기  $Version  (windows/x64)" -ForegroundColor Cyan
 
@@ -50,23 +49,11 @@ Write-Host '-- 앱 · 서버 빌드' -ForegroundColor Cyan
 # 웹 판을 먼저 만들었으므로 서버가 그것을 품는다.
 cargo build --release -p chunjiin-app -p chunjiin-serve
 if ($LASTEXITCODE -ne 0) { throw '앱 빌드 실패' }
-Copy-Item (Join-Path $out 'chunjiin.exe') $root -Force
-Copy-Item (Join-Path $out 'chunjiin-serve.exe') $root -Force
+Copy-CargoBinTo -Name 'chunjiin.exe' -DestDir $root -Profile 'release'
+Copy-CargoBinTo -Name 'chunjiin-serve.exe' -DestDir $root -Profile 'release'
 
-Write-Host '-- 설치 프로그램에 넣기' -ForegroundColor Cyan
-Get-ChildItem $payload -Filter 'chunjiin*' -ErrorAction SilentlyContinue | Remove-Item -Force
-Copy-Item (Join-Path $root 'chunjiin.exe') (Join-Path $payload 'chunjiin.exe') -Force
-
-try {
-    Write-Host '-- 설치 프로그램 빌드' -ForegroundColor Cyan
-    cargo build --release -p chunjiin-setup
-    if ($LASTEXITCODE -ne 0) { throw '설치 프로그램 빌드 실패' }
-    Copy-Item (Join-Path $out 'chunjiin-setup.exe') $root -Force
-}
-finally {
-    # 저장소에 실행 파일이 남지 않게 품었던 것을 치운다.
-    Get-ChildItem $payload -Filter 'chunjiin*' -ErrorAction SilentlyContinue | Remove-Item -Force
-}
+Write-Host '-- 설치 프로그램 빌드' -ForegroundColor Cyan
+Build-ChunjiinSetup -Root $root -Profile 'release' -CargoArgs @('build', '--release')
 
 Write-Host '-- 배포용 묶음' -ForegroundColor Cyan
 $stage = Join-Path $env:TEMP "chunjiin-pkg-$PID"

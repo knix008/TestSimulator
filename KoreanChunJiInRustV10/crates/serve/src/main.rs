@@ -260,29 +260,89 @@ fn browse_url(addr: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chunjiin_testkit as kit;
+
+    const GROUP: &str = "웹 서버";
 
     #[test]
     fn clean_path_is_safe() {
-        assert_eq!(clean_path("/"), "index.html");
-        assert_eq!(clean_path("/index.html"), "index.html");
-        assert_eq!(clean_path("/app.js?v=2"), "app.js");
-        // 서버 밖으로 나가려는 시도는 막힌다.
-        assert_eq!(clean_path("/../../etc/passwd"), "etc/passwd");
-        assert_eq!(clean_path("/a/../b.css"), "b.css");
+        let mut tally = kit::Tally::default();
+        let section = "경로";
+        for (src, want) in [
+            ("/", "index.html"),
+            ("/index.html", "index.html"),
+            ("/app.js?v=2", "app.js"),
+            ("/style.css", "style.css"),
+            ("/chunjiin_wasm_bg.wasm", "chunjiin_wasm_bg.wasm"),
+            ("/web/app.js", "web/app.js"),
+            ("/../../etc/passwd", "etc/passwd"),
+            ("/a/../b.css", "b.css"),
+            ("/./foo.js", "foo.js"),
+            ("", "index.html"),
+        ] {
+            let got = clean_path(src);
+            tally.add(kit::check(
+                got == want,
+                GROUP,
+                section,
+                src,
+                &format!("{src} -> {got}"),
+            ));
+        }
+        tally.assert_clean("경로");
     }
 
     #[test]
     fn wasm_gets_its_own_mime() {
-        assert_eq!(mime_of("chunjiin_wasm_bg.wasm"), "application/wasm");
-        assert_eq!(mime_of("app.js"), "text/javascript; charset=utf-8");
-        assert_eq!(mime_of("무엇"), "application/octet-stream");
+        let mut tally = kit::Tally::default();
+        let section = "MIME";
+        for (path, want) in [
+            ("chunjiin_wasm_bg.wasm", "application/wasm"),
+            ("app.js", "text/javascript; charset=utf-8"),
+            ("app.mjs", "text/javascript; charset=utf-8"),
+            ("style.css", "text/css; charset=utf-8"),
+            ("index.html", "text/html; charset=utf-8"),
+            ("data.json", "application/json; charset=utf-8"),
+            ("chunjiin.png", "image/png"),
+            ("icon.svg", "image/svg+xml"),
+            ("favicon.ico", "image/x-icon"),
+            ("readme.txt", "text/plain; charset=utf-8"),
+            ("무엇", "application/octet-stream"),
+            ("file.bin", "application/octet-stream"),
+        ] {
+            let got = mime_of(path);
+            tally.add(kit::check(
+                got == want,
+                GROUP,
+                section,
+                path,
+                got,
+            ));
+        }
+        tally.assert_clean("MIME");
     }
 
     #[test]
     fn browse_url_says_localhost() {
-        assert_eq!(browse_url("127.0.0.1:8080"), "http://localhost:8080");
-        assert_eq!(browse_url(":8080"), "http://localhost:8080");
-        assert_eq!(browse_url("0.0.0.0:9000"), "http://localhost:9000");
-        assert_eq!(browse_url("192.168.0.5:80"), "http://192.168.0.5:80");
+        let mut tally = kit::Tally::default();
+        let section = "주소";
+        for (src, want) in [
+            ("127.0.0.1:8080", "http://localhost:8080"),
+            (":8080", "http://localhost:8080"),
+            ("0.0.0.0:9000", "http://localhost:9000"),
+            ("[::]:8080", "http://localhost:8080"),
+            ("192.168.0.5:80", "http://192.168.0.5:80"),
+            ("example.test:443", "http://example.test:443"),
+        ] {
+            let got = browse_url(src);
+            tally.add(kit::check(
+                got == want,
+                GROUP,
+                section,
+                src,
+                &got,
+            ));
+        }
+        tally.assert_clean("주소");
     }
 }
