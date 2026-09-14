@@ -2435,7 +2435,8 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
   }
 
   const changeVolume = (nextVolume: number) => {
-    const clamped = Math.min(1, Math.max(0, nextVolume))
+    // Snap to 1% steps so keyboard/slider always move in whole percent units.
+    const clamped = Math.min(1, Math.max(0, Math.round(nextVolume * 100) / 100))
 
     if (clamped > 0) {
       volumeBeforeMuteRef.current = clamped
@@ -3032,16 +3033,15 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
                 {isMuted ? <VolumeX size={13} /> : <Volume2 size={13} />}
               </button>
               <input
-                className="mini-seek"
                 type="range"
                 min="0"
-                max="1"
-                step="0.01"
-                value={volume}
+                max="100"
+                step="1"
+                value={volumePercent}
                 aria-label={labels.volume}
                 aria-valuetext={`${volumePercent}%`}
-                onChange={(event) => changeVolume(Number(event.target.value))}
-                onInput={(event) => changeVolume(Number(event.currentTarget.value))}
+                onChange={(event) => changeVolume(Number(event.target.value) / 100)}
+                onInput={(event) => changeVolume(Number(event.currentTarget.value) / 100)}
               />
               <span className="mini-volume-value">{volumePercent}%</span>
             </div>
@@ -3285,11 +3285,11 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
                 aria-valuetext={`${volumePercent}%`}
                 type="range"
                 min="0"
-                max="1"
-                step="0.01"
-                value={volume}
-                onChange={(event) => changeVolume(Number(event.target.value))}
-                onInput={(event) => changeVolume(Number(event.currentTarget.value))}
+                max="100"
+                step="1"
+                value={volumePercent}
+                onChange={(event) => changeVolume(Number(event.target.value) / 100)}
+                onInput={(event) => changeVolume(Number(event.currentTarget.value) / 100)}
               />
               <span className="volume-bound">100%</span>
               <span className="volume-value" aria-live="polite">

@@ -2059,14 +2059,17 @@ button:hover,
   white-space: nowrap;
 }
 
-/* Volume sits on the control row, to the right of the progress bar, at a fixed
-   width so the seek bar keeps the bulk of the space. */
+/* Volume is a fixed slot to the right of the seek bar so the two never overlap
+   in the 340px compact window. */
 .mini-volume {
   display: flex;
-  flex: 0 0 74px;
+  flex: 0 0 110px;
   align-items: center;
-  gap: 4px;
-  min-width: 0;
+  gap: 3px;
+  width: 110px;
+  min-width: 110px;
+  max-width: 110px;
+  overflow: hidden;
   color: var(--muted);
 }
 
@@ -2298,19 +2301,21 @@ button:hover,
   gap: 6px;
 }
 
-/* Top row: transport buttons on the left, the whole-track progress bar filling
-   the rest so the seek control sits above the track info. */
+/* Top row: transport | seek (flex) | volume (fixed). Seek takes leftover width
+   after the fixed volume slot so the controls stay side-by-side without overlap. */
 .mini-control-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
 }
 
 .mini-progress {
   display: flex;
-  flex: 1 1 auto;
+  flex: 1 1 0;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   min-width: 0;
 }
 
