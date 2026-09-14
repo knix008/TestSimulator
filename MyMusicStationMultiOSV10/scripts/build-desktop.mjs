@@ -1,6 +1,6 @@
 import { copyFileSync, existsSync, mkdirSync, writeFileSync, statSync } from 'node:fs'
-import { platform } from 'node:os'
-import { join } from 'node:path'
+import { homedir, platform } from 'node:os'
+import { delimiter, join } from 'node:path'
 import { execFileSync, spawnSync } from 'node:child_process'
 
 const root = process.cwd()
@@ -43,22 +43,23 @@ if (!bundlesArg) {
 mkdirSync(releaseDir, { recursive: true })
 stopRunningInstances()
 
-const fetchFfmpeg = spawnSync(process.execPath, [join(root, 'scripts', 'fetch-ffmpeg.mjs')], {
+// Downloads whatever is missing (npm deps, Rust toolchain, MSVC hint,
+// ffmpeg, yt-dlp) so a checkout without node_modules/target can still build.
+const toolchain = spawnSync(process.execPath, [join(root, 'scripts', 'ensure-toolchain.mjs')], {
   cwd: root,
   stdio: 'inherit',
 })
 
-if (fetchFfmpeg.status !== 0) {
-  console.warn('[build] fetch-ffmpeg failed; convert may rely on PATH ffmpeg only.')
+if (toolchain.status !== 0) {
+  console.error('[build] build prerequisites are missing; see messages above.')
+  process.exit(toolchain.status ?? 1)
 }
 
-const fetchYtdlp = spawnSync(process.execPath, [join(root, 'scripts', 'fetch-ytdlp.mjs')], {
-  cwd: root,
-  stdio: 'inherit',
-})
-
-if (fetchYtdlp.status !== 0) {
-  console.warn('[build] fetch-ytdlp failed; URL extract may rely on PATH yt-dlp only.')
+// A rustup install done just now lives in ~/.cargo/bin, which this shell has
+// not picked up yet.
+const cargoBin = join(homedir(), '.cargo', 'bin')
+if (!(process.env.PATH || '').split(delimiter).some((entry) => entry.toLowerCase() === cargoBin.toLowerCase())) {
+  process.env.PATH = `${cargoBin}${delimiter}${process.env.PATH || ''}`
 }
 
 const buildFlags = binaryOnly ? '--no-bundle' : `--bundles ${bundlesArg}`

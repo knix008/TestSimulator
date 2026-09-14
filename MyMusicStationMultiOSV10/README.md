@@ -58,7 +58,21 @@ npm run build:web
 
 ## 설치 파일 생성
 
-`scripts/build-desktop.mjs`가 `CARGO_TARGET_DIR`을 `src-tauri/target`으로 고정하고, 빌드 전에 `ffmpeg`·`yt-dlp`를 준비한 뒤 번들을 만들어 프로젝트 루트로 복사합니다.
+`scripts/build-desktop.mjs`가 `CARGO_TARGET_DIR`을 `src-tauri/target`으로 고정하고, 빌드 전에 `scripts/ensure-toolchain.mjs`로 필요한 것을 준비한 뒤 번들을 만들어 프로젝트 루트로 복사합니다.
+
+### 빌드 준비물 자동 다운로드
+
+프로젝트는 `node_modules`·`src-tauri/target`·Rust 툴체인 없이 공유되므로(용량 때문에 압축 제외), 빌드/`npm start` 시 없는 것을 자동으로 받습니다. 미리 확인만 하려면 `npm run setup`.
+
+| 항목 | 없을 때 |
+| --- | --- |
+| `node_modules` (Tauri CLI 포함) | `npm install` 자동 실행 |
+| Rust (cargo/rustc) | rustup 자동 설치 (`~/.cargo`, 관리자 권한 불필요) |
+| Windows MSVC Build Tools | winget으로 설치 시도 (UAC 필요), 실패 시 설치 안내 출력 |
+| ffmpeg | 로컬 설치본 복사 → 없으면 [BtbN 빌드](https://github.com/BtbN/FFmpeg-Builds) zip 다운로드·압축 해제 (macOS: evermeet.cx, Linux: johnvansickle 정적 빌드) |
+| yt-dlp | 로컬 설치본 복사 → 없으면 GitHub 최신 릴리스 다운로드 |
+
+환경 변수 `SKIP_DOWNLOAD=1`은 ffmpeg/yt-dlp 다운로드를, `SKIP_TOOLCHAIN_INSTALL=1`은 툴체인 설치를 건너뛰고 안내만 합니다. `node scripts/fetch-ffmpeg.mjs --download`(또는 `fetch-ytdlp.mjs --download`)로 최신 바이너리를 강제로 다시 받을 수 있습니다.
 
 ```bash
 npm run build:win     # Windows NSIS → My Music Station V1.0.0_*_x64-setup.exe
@@ -75,8 +89,8 @@ npm run copy:installers
 
 | 도구 | 용도 | 위치 |
 | --- | --- | --- |
-| ffmpeg | 형식 변환·추출 후처리 | `src-tauri/ffmpeg/` (빌드 시 fetch, git 제외) |
-| yt-dlp | URL/미디어 오디오 추출 | `src-tauri/yt-dlp/` (빌드 시 fetch, git 제외) |
+| ffmpeg | 형식 변환·추출 후처리 | `src-tauri/ffmpeg/` (빌드 시 로컬 복사 또는 다운로드, git 제외) |
+| yt-dlp | URL/미디어 오디오 추출 | `src-tauri/yt-dlp/` (빌드 시 로컬 복사 또는 다운로드, git 제외) |
 
 릴리스 EXE 옆에 함께 복사됩니다.
 
@@ -95,6 +109,10 @@ macOS / Linux는 Tauri의 `appConfigDir` / `appCacheDir`에 해당하는 경로�
 
 ```bash
 npm run build           # = build:web
+npm run build:bin       # 릴리스 실행 파일만 컴파일 (설치 파일 없음, npm start가 사용)
 npm run desktop:build   # OS 기본 번들로 build-desktop
+npm run setup           # 빌드 준비물 확인·다운로드
+npm run clean           # 빌드 산출물 삭제 (dist, src-tauri/target, 루트 설치 파일, tsbuildinfo)
+npm run clean -- --all  # + node_modules, 다운로드한 ffmpeg/yt-dlp 까지 삭제 (공유용 최소 크기)
 npm run lint
 ```

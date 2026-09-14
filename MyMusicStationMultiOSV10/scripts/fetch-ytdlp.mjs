@@ -49,6 +49,10 @@ const targets = {
 }
 
 const target = targets[platform()]
+// Same switches as fetch-ffmpeg: SKIP_DOWNLOAD=1 never hits the network,
+// --download ignores local copies and fetches the latest release.
+const skipDownload = process.env.SKIP_DOWNLOAD === '1'
+const forceDownload = process.argv.includes('--download')
 
 if (!target) {
   console.warn(`[fetch-ytdlp] Unsupported platform: ${platform()}`)
@@ -58,12 +62,12 @@ if (!target) {
 mkdirSync(resourceDir, { recursive: true })
 const destination = join(resourceDir, target.fileName)
 
-if (existsSync(destination) && statSync(destination).size >= minBytes) {
+if (!forceDownload && existsSync(destination) && statSync(destination).size >= minBytes) {
   console.log(`[fetch-ytdlp] already present: ${destination}`)
   process.exit(0)
 }
 
-for (const candidate of target.listCandidates()) {
+for (const candidate of forceDownload ? [] : target.listCandidates()) {
   if (!existsSync(candidate) || statSync(candidate).size < minBytes) {
     continue
   }
@@ -72,6 +76,11 @@ for (const candidate of target.listCandidates()) {
     chmodSync(destination, 0o755)
   }
   console.log(`[fetch-ytdlp] copied ${candidate} → ${destination}`)
+  process.exit(0)
+}
+
+if (skipDownload) {
+  console.warn('[fetch-ytdlp] SKIP_DOWNLOAD=1 — not downloading; URL extract will use PATH yt-dlp at runtime if available.')
   process.exit(0)
 }
 

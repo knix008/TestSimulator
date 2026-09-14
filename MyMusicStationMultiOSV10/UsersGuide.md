@@ -16,6 +16,8 @@ Launch without rebuilding:
 npm start -- --no-build
 ```
 
+Build prerequisites are downloaded on demand (the project ships without `node_modules`, `src-tauri/target` or a Rust toolchain): missing `node_modules` → `npm install`; missing Rust → rustup; missing ffmpeg / yt-dlp → local copy or download. `npm run setup` runs just that step; `npm run clean` deletes build output (`--all` also drops `node_modules` and the downloaded binaries).
+
 | OS | Installer build |
 | --- | --- |
 | Windows | `npm run build:win` → `My Music Station V1.0.0_*_x64-setup.exe` |

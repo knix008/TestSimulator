@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "start": "node scripts/start-built.mjs",
+    "setup": "node scripts/ensure-toolchain.mjs",
+    "clean": "node scripts/clean.mjs",
     "dev": "vite",
     "build": "npm run build:web",
     "build:web": "tsc -b && vite build",
