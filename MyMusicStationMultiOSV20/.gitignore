@@ -1,0 +1,58 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Dependencies and build output
+node_modules
+dist
+dist-ssr
+src-tauri/target
+src-tauri/gen
+src-tauri/ffmpeg/*
+!src-tauri/ffmpeg/.gitkeep
+src-tauri/yt-dlp/*
+!src-tauri/yt-dlp/.gitkeep
+*.local
+
+# Local music samples (keep folder via .gitkeep)
+music/*
+!music/.gitkeep
+
+# Root copies of packaged installers
+/*.msi
+/*-setup.exe
+/*.dmg
+/*.AppImage
+/*.deb
+/*.rpm
+
+# TypeScript incremental build info
+*.tsbuildinfo
+
+# Temporary agent / patch scratch files
+scripts/_patch*.txt
+scripts/_*.tmp
+.claude/settings.local.json
+
+# Runtime data the app writes next to a dev run (never source)
+session-playlist.json
+app-settings.json
+shell-settings.json
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+Thumbs.db
+Desktop.ini
