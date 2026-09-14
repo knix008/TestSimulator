@@ -59,7 +59,7 @@ function FlagKR() {
  * Two toolbar rows. The wider of the two is reported through `onMeasure` so
  * the window can refuse to shrink below it (no button is ever hidden).
  */
-export function Toolbar({ s, a, recentAnchorRef }) {
+export function Toolbar({ s, a, recentAnchorRef, themeAnchorRef }) {
   const { t, i18n } = useTranslation();
   const row1 = useRef(null);
   const row2 = useRef(null);
@@ -149,6 +149,8 @@ export function Toolbar({ s, a, recentAnchorRef }) {
         </div>
         <div className="tb-spacer" />
         <div className="tb-group">
+          <TbButton icon="palette" label={t('toolbar.theme')} tip={t('toolbar.themeTip')} onClick={a.theme} caret refEl={themeAnchorRef} />
+          <TbButton icon="contrast" label={t('toolbar.nextTheme')} tip={t('toolbar.nextThemeTip', { theme: s.nextThemeLabel })} onClick={a.nextTheme} />
           <button className="tb-btn" data-tip={t('toolbar.languageTip')} aria-label={t('toolbar.language')} onClick={a.toggleLanguage}>
             {i18n.language === 'ko' ? <FlagUK /> : <FlagKR />}
           </button>

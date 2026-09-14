@@ -153,7 +153,7 @@ export function Dropdown({ anchor, onClose, children, width }) {
     };
   }, [anchor, onClose]);
   return (
-    <div ref={ref} className="dropdown" style={{ left: pos ? pos.x : -9999, top: pos ? pos.y : -9999, width }}>
+    <div ref={ref} className="dropdown" style={{ left: pos ? pos.x : -9999, top: pos ? pos.y : -9999, width, maxHeight: pos ? window.innerHeight - pos.y - 8 : undefined, overflowY: 'auto' }}>
       {children}
     </div>
   );

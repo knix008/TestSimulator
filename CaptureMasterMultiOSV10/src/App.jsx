@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 
 import { platform, isElectron, onProgress, newTaskId, emitProgress } from './lib/platform.js';
 import { normalizeSettings, addRecent, removeRecent, imageFormatById, imageFormatByExt, IMAGE_FORMATS } from './lib/settings.js';
-import { applyTheme, applyFont, appearanceOf, themeById } from './themes.js';
+import { applyTheme, applyFont, appearanceOf, themeById, THEMES } from './themes.js';
 import { push as hPush, undo as hUndo, redo as hRedo, canUndo, canRedo } from './lib/history.js';
 import {
   createImageDocument, createVideoDocument, isDirty, serializeCapture, parseCapture,
@@ -70,12 +70,14 @@ export default function App() {
   const [message] = useState('');
   const [ctxMenu, setCtxMenu] = useState(null);
   const [recentOpen, setRecentOpen] = useState(false);
+  const [themeOpen, setThemeOpen] = useState(false);
   const [dropping, setDropping] = useState(false);
   const [toasts, toast] = useToasts();
 
   const editorRef = useRef(null);
   const mainRef = useRef(null);
   const recentAnchorRef = useRef(null);
+  const themeAnchorRef = useRef(null);
   const settingsRef = useRef(settings);
   const docsRef = useRef(docs);
   const activeRef = useRef(activeId);
@@ -986,7 +988,8 @@ export default function App() {
   const setAnn = useCallback((patch) => updateSettings((s) => ({ annotation: { ...s.annotation, ...patch } })), [updateSettings]);
   const actions = useMemo(() => ({
     captureScreen, captureWindow, captureRegion, startRecording, stopRecording,
-    open: openFile, openUrl, recent: () => setRecentOpen((v) => !v),
+    open: openFile, openUrl, recent: () => setRecentOpen((v) => !v), theme: () => setThemeOpen((v) => !v),
+    nextTheme: () => updateSettings((s) => { const i = THEMES.findIndex((th) => th.id === s.theme); return { theme: THEMES[(i + 1) % THEMES.length].id }; }),
     save: () => active && saveDoc(active, false), saveAs: () => active && saveDoc(active, true), exportImage: () => active && exportImage(active), print,
     undo, redo, copy: () => copy(), paste, zoomIn, zoomOut, zoomFit, zoom100,
     settings: openSettings, about: openAbout,
@@ -1000,9 +1003,11 @@ export default function App() {
     canCapture: platform.capture.available, recording, hasDoc: !!active, isImage: !!(active && active.kind === 'image'),
     canUndo: !!(active && active.history && canUndo(active.history)), canRedo: !!(active && active.history && canRedo(active.history)),
     tool, color: toolProps.color, strokeWidth: toolProps.strokeWidth, fill: toolProps.fill, fontSize: toolProps.font.size,
-    opacity: settings.opacity, selectedId: active ? active.selectedId : null, hasSelection: !!(active && active.selection),
+    opacity: settings.opacity,
+    nextThemeLabel: (() => { const i = THEMES.findIndex((th) => th.id === settings.theme); const n = THEMES[(i + 1) % THEMES.length]; return i18n.language === 'ko' ? n.label : n.labelEn; })(),
+    selectedId: active ? active.selectedId : null, hasSelection: !!(active && active.selection),
     fontKey: `${settings.font.family}|${settings.font.size}|${settings.font.bold}|${settings.font.italic}`,
-  }), [active, recording, settings, tool, toolProps]);
+  }), [active, recording, settings, tool, toolProps, i18n.language]);
 
   const onEditorCommit = useCallback((next, extra) => { if (activeRef.current) commit(activeRef.current, next, extra); }, [commit]);
   const onFitDone = useCallback(() => { if (activeRef.current) updateDoc(activeRef.current, (d) => (d.fitRequested ? { ...d, fitRequested: false } : d)); }, [updateDoc]);
@@ -1024,7 +1029,7 @@ export default function App() {
   return (
     <div className={`app${platform.windowControls.available ? '' : ' no-frame'}`}>
       <TitleBar version={info.version} docName={active ? active.name : ''} dirty={!!(active && isDirty(active))} isMac={isMac} />
-      <Toolbar s={tbState} a={actions} recentAnchorRef={recentAnchorRef} />
+      <Toolbar s={tbState} a={actions} recentAnchorRef={recentAnchorRef} themeAnchorRef={themeAnchorRef} />
       <Tabs docs={docs} activeId={activeId} onSelect={setActiveId} onClose={closeDoc} onContextMenu={tabContextMenu} />
       <div className="main" ref={mainRef}>
         {!active ? <Welcome onAction={welcomeAction} canCapture={platform.capture.available} /> : null}
@@ -1074,6 +1079,24 @@ export default function App() {
           )) : <div className="dd-empty">{t('recent.empty')}</div>}
           <div className="dd-footer">
             <button className="btn small" disabled={!settings.recent.length} onClick={() => { updateSettings({ recent: [] }); setRecentOpen(false); }}><Icon name="trash" />{t('menu.clearRecent')}</button>
+          </div>
+        </Dropdown>
+      ) : null}
+
+      {themeOpen ? (
+        <Dropdown anchor={themeAnchorRef.current} onClose={() => setThemeOpen(false)} width={560}>
+          <div className="theme-grid" style={{ padding: 4, gridTemplateColumns: 'repeat(4, 1fr)' }}>
+            {THEMES.map((th) => (
+              <div key={th.id} className={`theme-card${settings.theme === th.id ? ' active' : ''}`} onClick={() => { updateSettings({ theme: th.id }); setThemeOpen(false); }}>
+                <div className="theme-swatch">
+                  <span style={{ background: th.tokens['--bg'] }} />
+                  <span style={{ background: th.tokens['--bg-panel'] }} />
+                  <span style={{ background: th.tokens['--accent'] }} />
+                  <span style={{ background: th.tokens['--text'] }} />
+                </div>
+                <div className="n">{i18n.language === 'ko' ? th.label : th.labelEn}</div>
+              </div>
+            ))}
           </div>
         </Dropdown>
       ) : null}
