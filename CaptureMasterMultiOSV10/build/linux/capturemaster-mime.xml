@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- shared-mime-info definition of the CaptureMaster document type, installed
+     by build/linux/after-install.sh so file managers show .cmcap files with
+     their own icon and open them with CaptureMaster. -->
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+  <mime-type type="application/x-capturemaster-capture">
+    <comment>CaptureMaster Capture</comment>
+    <comment xml:lang="ko">CaptureMaster 캡처 파일</comment>
+    <glob pattern="*.cmcap"/>
+    <magic priority="60">
+      <match type="string" offset="0:32" value="capturemaster-capture"/>
+    </magic>
+    <icon name="application-x-capturemaster-capture"/>
+  </mime-type>
+</mime-info>

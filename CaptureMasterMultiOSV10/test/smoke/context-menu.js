@@ -1,0 +1,24 @@
+(async () => {
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const key = (k, o = {}) => window.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true, ...o }));
+  key('n', { ctrlKey: true });
+  for (let i = 0; i < 40 && !document.querySelector('.editor-canvas'); i++) await sleep(250);
+  await sleep(300);
+  const canvas = document.querySelector('.editor-canvas');
+  const r = canvas.getBoundingClientRect();
+  const pe = (type, x, y) => canvas.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, clientX: r.left + x, clientY: r.top + y, button: 0, pointerId: 1, pointerType: 'mouse', isPrimary: true }));
+  key('r'); await sleep(30);
+  pe('pointerdown', 100, 100); pe('pointermove', 400, 300); pe('pointerup', 400, 300);
+  await sleep(100);
+  canvas.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: r.left + 200, clientY: r.top + 200, button: 2 }));
+  const t0 = !!document.querySelector('.ctx-menu');
+  await sleep(0);
+  const t1 = !!document.querySelector('.ctx-menu');
+  await sleep(50);
+  const t2 = !!document.querySelector('.ctx-menu');
+  await sleep(400);
+  const t3 = !!document.querySelector('.ctx-menu');
+  window.__probe = [t0, t1, t2, t3, document.hasFocus()];
+  const items = Array.from(document.querySelectorAll('.ctx-item')).map((e) => e.textContent).join(' / ');
+  return 'ctx: ' + items + ' probe=' + JSON.stringify(window.__probe);
+})();

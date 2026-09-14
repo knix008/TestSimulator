@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- CaptureMaster application icon.
+     A glossy 3D camera-shutter tile: transparent outside the rounded body,
+     a deep bevelled edge, and a specular highlight in the top-left as if lit
+     from above-left. The same file drives the app, installer and uninstaller
+     icons (see scripts/generate-icons.mjs). -->
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="body" x1="0" y1="0" x2="0.6" y2="1">
+      <stop offset="0"    stop-color="#5aa9ff"/>
+      <stop offset="0.5"  stop-color="#1f5fd1"/>
+      <stop offset="1"    stop-color="#0b2a6b"/>
+    </linearGradient>
+    <linearGradient id="bevel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0"   stop-color="#ffffff" stop-opacity="0.55"/>
+      <stop offset="0.35" stop-color="#ffffff" stop-opacity="0.08"/>
+      <stop offset="1"   stop-color="#000000" stop-opacity="0.35"/>
+    </linearGradient>
+    <radialGradient id="spec" cx="0.24" cy="0.18" r="0.62">
+      <stop offset="0"    stop-color="#ffffff" stop-opacity="0.95"/>
+      <stop offset="0.32" stop-color="#ffffff" stop-opacity="0.28"/>
+      <stop offset="0.75" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="lens" cx="0.4" cy="0.35" r="0.7">
+      <stop offset="0"   stop-color="#233043"/>
+      <stop offset="0.55" stop-color="#0c1220"/>
+      <stop offset="1"   stop-color="#020408"/>
+    </radialGradient>
+    <radialGradient id="iris" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0"   stop-color="#8fe3ff"/>
+      <stop offset="0.5" stop-color="#2aa6e0"/>
+      <stop offset="1"   stop-color="#0d4f8a"/>
+    </radialGradient>
+    <linearGradient id="ring" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0"   stop-color="#ffffff"/>
+      <stop offset="0.5" stop-color="#c7d3e3"/>
+      <stop offset="1"   stop-color="#6d7f99"/>
+    </linearGradient>
+    <linearGradient id="rec" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ff8a80"/>
+      <stop offset="1" stop-color="#c62828"/>
+    </linearGradient>
+    <filter id="drop" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="28" stdDeviation="28" flood-color="#04122e" flood-opacity="0.5"/>
+    </filter>
+    <filter id="inner" x="-10%" y="-10%" width="120%" height="120%">
+      <feGaussianBlur stdDeviation="10"/>
+    </filter>
+    <clipPath id="tile">
+      <rect x="92" y="92" width="840" height="840" rx="196"/>
+    </clipPath>
+  </defs>
+
+  <!-- Body tile with a 3D drop shadow (outside stays transparent) -->
+  <g filter="url(#drop)">
+    <rect x="92" y="92" width="840" height="840" rx="196" fill="url(#body)"/>
+  </g>
+  <rect x="92" y="92" width="840" height="840" rx="196" fill="url(#bevel)"/>
+  <!-- Inner rim to read as a thick, bevelled slab -->
+  <rect x="112" y="112" width="800" height="800" rx="180" fill="none" stroke="#ffffff" stroke-opacity="0.22" stroke-width="10"/>
+  <rect x="120" y="120" width="784" height="784" rx="174" fill="none" stroke="#04122e" stroke-opacity="0.35" stroke-width="6"/>
+
+  <!-- Viewfinder corner brackets -->
+  <g fill="none" stroke="#ffffff" stroke-opacity="0.9" stroke-width="34" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M210 330 V250 a40 40 0 0 1 40 -40 H330"/>
+    <path d="M694 210 H774 a40 40 0 0 1 40 40 V330"/>
+    <path d="M814 694 V774 a40 40 0 0 1 -40 40 H694"/>
+    <path d="M330 814 H250 a40 40 0 0 1 -40 -40 V694"/>
+  </g>
+
+  <!-- Lens: metallic ring, dark barrel, glowing iris -->
+  <circle cx="512" cy="512" r="238" fill="url(#ring)"/>
+  <circle cx="512" cy="512" r="238" fill="none" stroke="#04122e" stroke-opacity="0.35" stroke-width="6"/>
+  <circle cx="512" cy="512" r="204" fill="url(#lens)"/>
+  <circle cx="512" cy="512" r="120" fill="url(#iris)"/>
+  <!-- Shutter blades -->
+  <g stroke="#04122e" stroke-opacity="0.55" stroke-width="10" fill="none" stroke-linecap="round">
+    <path d="M512 392 L616 452"/>
+    <path d="M616 452 L616 572"/>
+    <path d="M616 572 L512 632"/>
+    <path d="M512 632 L408 572"/>
+    <path d="M408 572 L408 452"/>
+    <path d="M408 452 L512 392"/>
+  </g>
+  <!-- Lens reflections -->
+  <ellipse cx="462" cy="440" rx="56" ry="34" fill="#ffffff" opacity="0.55" transform="rotate(-30 462 440)"/>
+  <circle cx="586" cy="590" r="16" fill="#ffffff" opacity="0.35"/>
+
+  <!-- Record dot (video capture) -->
+  <circle cx="738" cy="286" r="46" fill="url(#rec)"/>
+  <circle cx="738" cy="286" r="46" fill="none" stroke="#ffffff" stroke-opacity="0.8" stroke-width="8"/>
+  <ellipse cx="724" cy="268" rx="18" ry="10" fill="#ffffff" opacity="0.6"/>
+
+  <!-- Glossy top sheen + top-left specular light -->
+  <g clip-path="url(#tile)">
+    <path d="M92 92 H932 V400 Q 512 560 92 400 Z" fill="#ffffff" opacity="0.14"/>
+    <rect x="92" y="92" width="840" height="840" fill="url(#spec)"/>
+    <ellipse cx="300" cy="230" rx="170" ry="90" fill="#ffffff" opacity="0.28" filter="url(#inner)" transform="rotate(-25 300 230)"/>
+  </g>
+</svg>

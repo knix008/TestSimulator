@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Icon of the CaptureMaster document type (.cmcap: a screenshot with its
+     annotations). Deliberately different from the app icon: a 3D photo print
+     with a folded corner and a small viewfinder badge, so the two never get
+     confused in a file listing, while keeping the same lighting language:
+     transparent background, glossy body, top-left specular highlight. -->
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="page" x1="0" y1="0" x2="0.45" y2="1">
+      <stop offset="0"    stop-color="#ffffff"/>
+      <stop offset="0.55" stop-color="#eef2f7"/>
+      <stop offset="1"    stop-color="#c3cdd9"/>
+    </linearGradient>
+    <linearGradient id="fold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#dfe6ee"/>
+      <stop offset="1" stop-color="#8a9bb0"/>
+    </linearGradient>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#7fc4ff"/>
+      <stop offset="1" stop-color="#2d7bd6"/>
+    </linearGradient>
+    <linearGradient id="hill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#57c785"/>
+      <stop offset="1" stop-color="#1f7a4a"/>
+    </linearGradient>
+    <linearGradient id="badge" x1="0" y1="0" x2="0.6" y2="1">
+      <stop offset="0"   stop-color="#5aa9ff"/>
+      <stop offset="0.5" stop-color="#1f5fd1"/>
+      <stop offset="1"   stop-color="#0b2a6b"/>
+    </linearGradient>
+    <linearGradient id="bgloss" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0"   stop-color="#ffffff" stop-opacity="0.55"/>
+      <stop offset="0.5" stop-color="#ffffff" stop-opacity="0.06"/>
+      <stop offset="1"   stop-color="#000000" stop-opacity="0.2"/>
+    </linearGradient>
+    <radialGradient id="fspec" cx="0.26" cy="0.20" r="0.7">
+      <stop offset="0"    stop-color="#ffffff" stop-opacity="0.9"/>
+      <stop offset="0.34" stop-color="#ffffff" stop-opacity="0.22"/>
+      <stop offset="0.78" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="fdrop" x="-25%" y="-25%" width="150%" height="150%">
+      <feDropShadow dx="0" dy="24" stdDeviation="26" flood-color="#0f1a2e" flood-opacity="0.45"/>
+    </filter>
+    <clipPath id="sheet">
+      <path d="M212 108 h396 l232 232 v520 a68 68 0 0 1 -68 68 H212 a68 68 0 0 1 -68 -68 V176 a68 68 0 0 1 68 -68 z"/>
+    </clipPath>
+  </defs>
+
+  <!-- Document body with a folded top-right corner (transparent outside) -->
+  <g filter="url(#fdrop)">
+    <path d="M212 108 h396 l232 232 v520 a68 68 0 0 1 -68 68 H212 a68 68 0 0 1 -68 -68 V176 a68 68 0 0 1 68 -68 z"
+          fill="url(#page)"/>
+    <path d="M608 108 l232 232 h-176 a56 56 0 0 1 -56 -56 z" fill="url(#fold)"/>
+  </g>
+
+  <!-- The captured picture: a framed landscape thumbnail -->
+  <g>
+    <rect x="216" y="392" width="552" height="372" rx="26" fill="#ffffff" stroke="#b9c4d2" stroke-width="8"/>
+    <rect x="236" y="412" width="512" height="332" rx="16" fill="url(#sky)"/>
+    <circle cx="352" cy="500" r="42" fill="#ffe9a8"/>
+    <path d="M236 744 V650 l112 -104 l104 96 l72 -60 l224 154 v8 a16 16 0 0 1 -16 16 z" fill="url(#hill)"/>
+    <!-- annotation arrow + box drawn on the shot -->
+    <rect x="474" y="468" width="176" height="104" rx="10" fill="none" stroke="#ff3d3d" stroke-width="14"/>
+    <path d="M300 690 L456 588" stroke="#ff3d3d" stroke-width="14" stroke-linecap="round"/>
+    <path d="M456 588 l-52 6 l24 -46 z" fill="#ff3d3d"/>
+  </g>
+
+  <!-- Viewfinder badge, bottom-right, in the app colour -->
+  <g transform="translate(560 640)">
+    <rect width="300" height="300" rx="70" fill="url(#badge)"/>
+    <rect width="300" height="300" rx="70" fill="url(#bgloss)"/>
+    <rect x="12" y="12" width="276" height="276" rx="60" fill="none" stroke="#ffffff" stroke-opacity="0.35" stroke-width="6"/>
+    <g fill="none" stroke="#ffffff" stroke-width="20" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M66 110 V86 a20 20 0 0 1 20 -20 H110"/>
+      <path d="M190 66 H214 a20 20 0 0 1 20 20 V110"/>
+      <path d="M234 190 V214 a20 20 0 0 1 -20 20 H190"/>
+      <path d="M110 234 H86 a20 20 0 0 1 -20 -20 V190"/>
+    </g>
+    <circle cx="150" cy="150" r="52" fill="#0c1220"/>
+    <circle cx="150" cy="150" r="30" fill="#8fe3ff"/>
+    <ellipse cx="132" cy="128" rx="14" ry="8" fill="#ffffff" opacity="0.7" transform="rotate(-30 132 128)"/>
+  </g>
+
+  <!-- Gloss + top-left highlight over the whole sheet -->
+  <g clip-path="url(#sheet)">
+    <path d="M212 108 h396 l232 232 v120 Q 500 560 144 452 V176 a68 68 0 0 1 68 -68 z" fill="#ffffff" opacity="0.16"/>
+    <rect x="144" y="108" width="696" height="820" fill="url(#fspec)"/>
+  </g>
+</svg>

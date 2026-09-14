@@ -1,0 +1,34 @@
+# ── Dependencies ────────────────────────────────────────
+node_modules/
+
+# ── Build output (reproducible: npm install && npm run build:<os>) ──
+dist/
+release/
+# generated from assets/*.svg — npm run generate:icons
+build/icons/
+# stamped with build time and commit on every build — npm run generate:build-info
+src/build-info.json
+# NOTE: public/icon.svg and public/file-icon.svg are copies of assets/*.svg and
+# are committed on purpose — the UI loads them by URL.
+
+# ── Installers copied to the project root ───────────────
+*.exe
+*.dmg
+*.AppImage
+*.deb
+*.rpm
+*.snap
+*.blockmap
+
+# ── Local / editor / OS noise ───────────────────────────
+*.log
+npm-debug.log*
+.vite/
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# smoke-test output (npm run smoke)
+.smoke/
