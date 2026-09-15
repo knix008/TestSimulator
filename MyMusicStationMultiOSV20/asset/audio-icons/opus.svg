@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- OPUS audio file type icon. Generate ICO: node scripts/make-audio-icon.mjs -->
+  <defs>
+    <linearGradient id="paper-opus" x1="142" y1="70" x2="390" y2="442" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff" />
+      <stop offset="1" stop-color="#EAF6FB" />
+    </linearGradient>
+    <linearGradient id="fold-opus" x1="302" y1="70" x2="390" y2="166" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#AED6F1" />
+      <stop offset="1" stop-color="#ffffff" />
+    </linearGradient>
+    <linearGradient id="note-opus" x1="168" y1="140" x2="340" y2="330" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1A7FBF" />
+      <stop offset="1" stop-color="#0E4D73" />
+    </linearGradient>
+  </defs>
+  <path d="M142 70h160l88 88v284H142z" fill="url(#paper-opus)" stroke="#0d2f6f" stroke-width="24" stroke-linejoin="round" />
+  <path d="M302 70v96h88" fill="url(#fold-opus)" stroke="#0d2f6f" stroke-width="24" stroke-linejoin="round" />
+  <g fill="url(#note-opus)">
+    <path d="M272 138 C348 138 396 182 382 248 C376 280 356 304 328 318
+             C350 276 346 236 326 212 C310 192 290 178 272 174 Z" />
+    <rect x="250" y="138" width="26" height="168" rx="13" />
+    <ellipse cx="198" cy="296" rx="56" ry="42" transform="rotate(-22 198 296)" />
+  </g>
+  <rect x="166" y="368" width="180" height="58" rx="14" fill="#0E4D73" />
+  <rect x="168" y="370" width="176" height="54" rx="13" fill="#1A7FBF" />
+  <text x="256" y="408" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="800" letter-spacing="-1.2" fill="#ffffff">OPUS</text>
+</svg>

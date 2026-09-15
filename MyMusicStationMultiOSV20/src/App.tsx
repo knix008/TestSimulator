@@ -65,6 +65,7 @@ import {
   wallpaperMimeFromPath,
 } from './wallpapers'
 import { text } from './labels'
+import { audioFormatIconForName } from './audioFormatIcons'
 import { PopupHost } from './popups/PopupHost'
 import { closeAllPopupWindows } from './popups/popupWindows'
 import type {
@@ -458,6 +459,10 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
     matrix: labels.spectrumStyleMatrix,
   }
   const currentTrack = tracks.find((track) => track.id === currentTrackId)
+  const currentTrackArtwork = currentTrack
+    ? currentTrack.artworkUrl ||
+      audioFormatIconForName(currentTrack.filePath || currentTrack.source || currentTrack.title)
+    : appIconUrl
   const convertTargetTrack =
     (convertTargetTrackId ? tracks.find((track) => track.id === convertTargetTrackId) : undefined) ?? currentTrack
   const selectedTheme = availableThemes.find((theme) => theme.id === themeId) ?? availableThemes[0]
@@ -2941,7 +2946,7 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
           </div>
           <div className="mini-track-row">
             <span className="mini-track-icon" aria-hidden="true">
-              <img src={currentTrack?.artworkUrl ?? appIconUrl} alt="" />
+              <img src={currentTrackArtwork} alt="" />
             </span>
             <div className="mini-track-text">
               <strong title={currentTrack?.title ?? labels.noTrack}>{currentTrack?.title ?? labels.noTrack}</strong>
@@ -3122,7 +3127,7 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
         <section className="player-panel">
           <div className="now-playing">
             <div className="album-art" aria-label={currentTrack?.artworkUrl ? currentTrack.title : labels.noAlbumArt}>
-              <img src={currentTrack?.artworkUrl ?? appIconUrl} alt="" />
+              <img src={currentTrackArtwork} alt="" />
             </div>
             <div className="now-playing-meta">
               <span>{currentTrack ? (currentTrack.origin === 'local' ? labels.local : labels.remote) : '\u00a0'}</span>

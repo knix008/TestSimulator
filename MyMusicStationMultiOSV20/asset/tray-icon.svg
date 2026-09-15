@@ -1,15 +1,43 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <defs>
-    <linearGradient id="tray-bg" x1="52" y1="52" x2="460" y2="460" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#67c7ff" />
-      <stop offset="0.48" stop-color="#1769d2" />
-      <stop offset="1" stop-color="#061a4f" />
+    <linearGradient id="tray-body" x1="0.08" y1="0" x2="0.92" y2="1">
+      <stop offset="0" stop-color="#9AFFFF"/>
+      <stop offset="0.32" stop-color="#6A62FF"/>
+      <stop offset="0.68" stop-color="#E03AE6"/>
+      <stop offset="1" stop-color="#FF4F7A"/>
     </linearGradient>
+    <radialGradient id="tray-shade" cx="0.78" cy="0.92" r="0.7">
+      <stop offset="0" stop-color="#3A0858" stop-opacity="0.45"/>
+      <stop offset="1" stop-color="#3A0858" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="tray-gloss" cx="0.28" cy="0.12" r="0.68">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.55"/>
+      <stop offset="0.45" stop-color="#ffffff" stop-opacity="0.1"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="tray-note" x1="150" y1="130" x2="280" y2="390" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#C9D4FF"/>
+    </linearGradient>
+    <clipPath id="tray-tile">
+      <rect x="48" y="36" width="416" height="416" rx="114"/>
+    </clipPath>
+    <filter id="tray-lift" x="-18%" y="-8%" width="136%" height="140%">
+      <feDropShadow dx="0" dy="12" stdDeviation="14" flood-color="#1a0628" flood-opacity="0.4"/>
+    </filter>
   </defs>
-  <rect x="28" y="28" width="456" height="456" rx="76" fill="url(#tray-bg)" />
-  <path d="M206 334V150l168-36v184" fill="none" stroke="#ffffff" stroke-width="52" stroke-linecap="round" stroke-linejoin="round" />
-  <circle cx="170" cy="340" r="60" fill="#ffffff" />
-  <circle cx="338" cy="306" r="60" fill="#ffffff" />
-  <path d="M220 166l140-30" stroke="#63dbff" stroke-width="18" stroke-linecap="round" />
-  <path d="M104 220h58M350 220h58M80 266h82M350 266h82" stroke="#63dbff" stroke-width="26" stroke-linecap="round" />
+  <g filter="url(#tray-lift)">
+    <rect x="48" y="36" width="416" height="416" rx="114" fill="url(#tray-body)"/>
+  </g>
+  <g clip-path="url(#tray-tile)">
+    <rect x="48" y="36" width="416" height="416" fill="url(#tray-shade)"/>
+    <rect x="48" y="36" width="416" height="416" fill="url(#tray-gloss)"/>
+    <ellipse cx="196" cy="84" rx="130" ry="44" fill="#ffffff" fill-opacity="0.26"/>
+  </g>
+  <g fill="url(#tray-note)">
+    <path d="M281 144 C361 144 412 188 400 256 C395 287 378 310 355 323
+             C376 289 372 254 353 229 C338 208 311 196 281 193 Z"/>
+    <rect x="281" y="144" width="30" height="204" rx="15"/>
+    <ellipse cx="224" cy="340" rx="66" ry="51" transform="rotate(-18 224 340)"/>
+  </g>
 </svg>

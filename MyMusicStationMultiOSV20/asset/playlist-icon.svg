@@ -1,18 +1,35 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Playlist file (.mplist): a document whose contents read as a track list.
+       Distinct from the single-note audio-file icon. Generate ICO:
+       node scripts/make-playlist-icon.mjs -->
   <defs>
     <linearGradient id="paper" x1="142" y1="70" x2="390" y2="442" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#ffffff" />
-      <stop offset="1" stop-color="#eef6ff" />
+      <stop offset="1" stop-color="#e8f2ff" />
     </linearGradient>
     <linearGradient id="fold" x1="302" y1="70" x2="390" y2="166" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#d9ecff" />
+      <stop offset="0" stop-color="#c5ddff" />
       <stop offset="1" stop-color="#ffffff" />
+    </linearGradient>
+    <linearGradient id="note" x1="168" y1="180" x2="240" y2="400" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#3E92F0" />
+      <stop offset="1" stop-color="#1558C0" />
     </linearGradient>
   </defs>
   <path d="M142 70h160l88 88v284H142z" fill="url(#paper)" stroke="#0d2f6f" stroke-width="24" stroke-linejoin="round" />
   <path d="M302 70v96h88" fill="url(#fold)" stroke="#0d2f6f" stroke-width="24" stroke-linejoin="round" />
-  <path d="M212 318V210l112-24v110" fill="none" stroke="#1769d2" stroke-width="28" stroke-linecap="round" stroke-linejoin="round" />
-  <circle cx="190" cy="324" r="35" fill="#1769d2" />
-  <circle cx="302" cy="300" r="35" fill="#1769d2" />
-  <path d="M186 388h152" stroke="#39b6e8" stroke-width="22" stroke-linecap="round" />
+  <!-- Three track rows: note-head + title bar. Reads as a list even at 16px. -->
+  <g fill="url(#note)">
+    <ellipse cx="196" cy="228" rx="22" ry="16" transform="rotate(-18 196 228)" />
+    <rect x="208" y="176" width="12" height="56" rx="6" />
+    <ellipse cx="196" cy="308" rx="22" ry="16" transform="rotate(-18 196 308)" />
+    <rect x="208" y="256" width="12" height="56" rx="6" />
+    <ellipse cx="196" cy="388" rx="22" ry="16" transform="rotate(-18 196 388)" />
+    <rect x="208" y="336" width="12" height="56" rx="6" />
+  </g>
+  <g fill="#2eb8e6">
+    <rect x="236" y="214" width="132" height="22" rx="11" />
+    <rect x="236" y="294" width="110" height="22" rx="11" />
+    <rect x="236" y="374" width="122" height="22" rx="11" />
+  </g>
 </svg>

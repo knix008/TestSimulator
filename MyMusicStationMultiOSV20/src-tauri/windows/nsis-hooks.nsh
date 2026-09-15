@@ -100,13 +100,16 @@
 
 !macro MMS_CLEAN_ONE_AUDIO_ASSOC ROOT_KEY EXT
   DeleteRegValue ${ROOT_KEY} "Software\Classes\.${EXT}\OpenWithProgids" "MyMusicStation.Audio"
+  DeleteRegValue ${ROOT_KEY} "Software\Classes\.${EXT}\OpenWithProgids" "MyMusicStation.Audio.${EXT}"
   ; Only clear the default ProgID when it still points at us.
   Push $R9
   ReadRegStr $R9 ${ROOT_KEY} "Software\Classes\.${EXT}" ""
   ${If} $R9 == "MyMusicStation.Audio"
+  ${OrIf} $R9 == "MyMusicStation.Audio.${EXT}"
     DeleteRegValue ${ROOT_KEY} "Software\Classes\.${EXT}" ""
   ${EndIf}
   Pop $R9
+  DeleteRegKey ${ROOT_KEY} "Software\Classes\MyMusicStation.Audio.${EXT}"
 !macroend
 
 !macro MMS_CLEAN_ASSOCIATIONS ROOT_KEY
@@ -128,9 +131,12 @@
   DeleteRegKey ${ROOT_KEY} "Software\Clients\Media\My Music Station"
 !macroend
 
-!macro MMS_REGISTER_OPEN_WITH EXT MIME
-  WriteRegStr SHCTX "Software\Classes\.${EXT}\OpenWithProgids" "MyMusicStation.Audio" ""
-  WriteRegStr SHCTX "Software\Clients\Media\My Music Station\Capabilities\FileAssociations" ".${EXT}" "MyMusicStation.Audio"
+!macro MMS_REGISTER_AUDIO_FORMAT EXT MIME ICON
+  WriteRegStr SHCTX "Software\Classes\MyMusicStation.Audio.${EXT}" "" "My Music Station ${EXT} Audio"
+  WriteRegStr SHCTX "Software\Classes\MyMusicStation.Audio.${EXT}\DefaultIcon" "" "$INSTDIR\resources\audio-icons\${ICON}"
+  WriteRegStr SHCTX "Software\Classes\MyMusicStation.Audio.${EXT}\shell\open\command" "" '"$INSTDIR\${MAINBINARYNAME}.exe" "%1"'
+  WriteRegStr SHCTX "Software\Classes\.${EXT}\OpenWithProgids" "MyMusicStation.Audio.${EXT}" ""
+  WriteRegStr SHCTX "Software\Clients\Media\My Music Station\Capabilities\FileAssociations" ".${EXT}" "MyMusicStation.Audio.${EXT}"
   ; Content Type is helpful for Explorer; do not overwrite an existing non-empty value.
   Push $R9
   ReadRegStr $R9 SHCTX "Software\Classes\.${EXT}" "Content Type"
@@ -140,11 +146,14 @@
   Pop $R9
 !macroend
 
-!macro MMS_SET_DEFAULT_AUDIO EXT MIME
-  WriteRegStr SHCTX "Software\Classes\.${EXT}" "" "MyMusicStation.Audio"
+!macro MMS_SET_DEFAULT_AUDIO EXT MIME ICON
+  WriteRegStr SHCTX "Software\Classes\MyMusicStation.Audio.${EXT}" "" "My Music Station ${EXT} Audio"
+  WriteRegStr SHCTX "Software\Classes\MyMusicStation.Audio.${EXT}\DefaultIcon" "" "$INSTDIR\resources\audio-icons\${ICON}"
+  WriteRegStr SHCTX "Software\Classes\MyMusicStation.Audio.${EXT}\shell\open\command" "" '"$INSTDIR\${MAINBINARYNAME}.exe" "%1"'
+  WriteRegStr SHCTX "Software\Classes\.${EXT}" "" "MyMusicStation.Audio.${EXT}"
   WriteRegStr SHCTX "Software\Classes\.${EXT}" "Content Type" "${MIME}"
-  WriteRegStr SHCTX "Software\Classes\.${EXT}\OpenWithProgids" "MyMusicStation.Audio" ""
-  WriteRegStr SHCTX "Software\Clients\Media\My Music Station\Capabilities\FileAssociations" ".${EXT}" "MyMusicStation.Audio"
+  WriteRegStr SHCTX "Software\Classes\.${EXT}\OpenWithProgids" "MyMusicStation.Audio.${EXT}" ""
+  WriteRegStr SHCTX "Software\Clients\Media\My Music Station\Capabilities\FileAssociations" ".${EXT}" "MyMusicStation.Audio.${EXT}"
 !macroend
 
 ; ---------------------------------------------------------------------------
@@ -211,7 +220,7 @@
   WriteRegStr SHCTX "Software\Classes\MyMusicStation.Playlist\DefaultIcon" "" "$INSTDIR\resources\playlist-icons\icon.ico"
   WriteRegStr SHCTX "Software\Classes\MyMusicStation.Playlist\shell\open\command" "" '"$INSTDIR\${MAINBINARYNAME}.exe" "%1"'
 
-  ; ProgID used for all audio formats.
+  ; Per-format ProgIDs so Explorer shows MP3/WAV/... icons instead of one generic mark.
   WriteRegStr SHCTX "Software\Classes\MyMusicStation.Audio" "" "My Music Station Audio"
   WriteRegStr SHCTX "Software\Classes\MyMusicStation.Audio\DefaultIcon" "" "$INSTDIR\resources\audio-icons\icon.ico"
   WriteRegStr SHCTX "Software\Classes\MyMusicStation.Audio\shell\open\command" "" '"$INSTDIR\${MAINBINARYNAME}.exe" "%1"'
@@ -222,17 +231,17 @@
   WriteRegStr SHCTX "Software\Clients\Media\My Music Station\Capabilities" "ApplicationDescription" "A multi-platform music player."
   WriteRegStr SHCTX "Software\RegisteredApplications" "My Music Station" "Software\Clients\Media\My Music Station\Capabilities"
 
-  !insertmacro MMS_REGISTER_OPEN_WITH mp3 "audio/mpeg"
-  !insertmacro MMS_REGISTER_OPEN_WITH flac "audio/flac"
-  !insertmacro MMS_REGISTER_OPEN_WITH wav "audio/wav"
-  !insertmacro MMS_REGISTER_OPEN_WITH ogg "audio/ogg"
-  !insertmacro MMS_REGISTER_OPEN_WITH aac "audio/aac"
-  !insertmacro MMS_REGISTER_OPEN_WITH m4a "audio/mp4"
-  !insertmacro MMS_REGISTER_OPEN_WITH webm "audio/webm"
-  !insertmacro MMS_REGISTER_OPEN_WITH opus "audio/opus"
-  !insertmacro MMS_REGISTER_OPEN_WITH wma "audio/x-ms-wma"
-  !insertmacro MMS_REGISTER_OPEN_WITH aiff "audio/aiff"
-  !insertmacro MMS_REGISTER_OPEN_WITH aif "audio/aiff"
+  !insertmacro MMS_REGISTER_AUDIO_FORMAT mp3 "audio/mpeg" "mp3.ico"
+  !insertmacro MMS_REGISTER_AUDIO_FORMAT flac "audio/flac" "flac.ico"
+  !insertmacro MMS_REGISTER_AUDIO_FORMAT wav "audio/wav" "wav.ico"
+  !insertmacro MMS_REGISTER_AUDIO_FORMAT ogg "audio/ogg" "ogg.ico"
+  !insertmacro MMS_REGISTER_AUDIO_FORMAT aac "audio/aac" "aac.ico"
+  !insertmacro MMS_REGISTER_AUDIO_FORMAT m4a "audio/mp4" "m4a.ico"
+  !insertmacro MMS_REGISTER_AUDIO_FORMAT webm "audio/webm" "webm.ico"
+  !insertmacro MMS_REGISTER_AUDIO_FORMAT opus "audio/opus" "opus.ico"
+  !insertmacro MMS_REGISTER_AUDIO_FORMAT wma "audio/x-ms-wma" "wma.ico"
+  !insertmacro MMS_REGISTER_AUDIO_FORMAT aiff "audio/aiff" "aiff.ico"
+  !insertmacro MMS_REGISTER_AUDIO_FORMAT aif "audio/aiff" "aiff.ico"
 
   ; Ask to become the default player (silent installs default to Yes).
   StrCpy $R8 1
@@ -246,17 +255,17 @@
 
   ${If} $R8 == 1
     DetailPrint "Registering My Music Station as the default audio player..."
-    !insertmacro MMS_SET_DEFAULT_AUDIO mp3 "audio/mpeg"
-    !insertmacro MMS_SET_DEFAULT_AUDIO flac "audio/flac"
-    !insertmacro MMS_SET_DEFAULT_AUDIO wav "audio/wav"
-    !insertmacro MMS_SET_DEFAULT_AUDIO ogg "audio/ogg"
-    !insertmacro MMS_SET_DEFAULT_AUDIO aac "audio/aac"
-    !insertmacro MMS_SET_DEFAULT_AUDIO m4a "audio/mp4"
-    !insertmacro MMS_SET_DEFAULT_AUDIO webm "audio/webm"
-    !insertmacro MMS_SET_DEFAULT_AUDIO opus "audio/opus"
-    !insertmacro MMS_SET_DEFAULT_AUDIO wma "audio/x-ms-wma"
-    !insertmacro MMS_SET_DEFAULT_AUDIO aiff "audio/aiff"
-    !insertmacro MMS_SET_DEFAULT_AUDIO aif "audio/aiff"
+    !insertmacro MMS_SET_DEFAULT_AUDIO mp3 "audio/mpeg" "mp3.ico"
+    !insertmacro MMS_SET_DEFAULT_AUDIO flac "audio/flac" "flac.ico"
+    !insertmacro MMS_SET_DEFAULT_AUDIO wav "audio/wav" "wav.ico"
+    !insertmacro MMS_SET_DEFAULT_AUDIO ogg "audio/ogg" "ogg.ico"
+    !insertmacro MMS_SET_DEFAULT_AUDIO aac "audio/aac" "aac.ico"
+    !insertmacro MMS_SET_DEFAULT_AUDIO m4a "audio/mp4" "m4a.ico"
+    !insertmacro MMS_SET_DEFAULT_AUDIO webm "audio/webm" "webm.ico"
+    !insertmacro MMS_SET_DEFAULT_AUDIO opus "audio/opus" "opus.ico"
+    !insertmacro MMS_SET_DEFAULT_AUDIO wma "audio/x-ms-wma" "wma.ico"
+    !insertmacro MMS_SET_DEFAULT_AUDIO aiff "audio/aiff" "aiff.ico"
+    !insertmacro MMS_SET_DEFAULT_AUDIO aif "audio/aiff" "aiff.ico"
   ${Else}
     DetailPrint "Skipped default audio player registration (Open with / Default Apps list only)."
   ${EndIf}
