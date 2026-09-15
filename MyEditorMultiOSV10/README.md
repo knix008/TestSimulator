@@ -20,6 +20,8 @@
 - **자동 들여쓰기**(도구 모음·설정에서 ON/OFF): Enter 시 들여쓰기 유지, 공백/탭 삽입 선택, 탭 = 공백 n자리
 - **글꼴**: 도구 모음에서 시스템에 설치된 모든 글꼴 중 선택(스크롤·검색되는 목록, 직접 입력도 가능) + 크기(px) −/+
 - **폴더/열린 문서에서 찾기**(Ctrl+Shift+F / Ctrl+Alt+F): 폴더 패널 아래 검색 영역에 파일별 결과, 클릭하면 그 자리로
+- **인쇄**(Ctrl+P): Markdown 은 이미지 포함 렌더 결과, 코드는 줄 번호 목록 · 미리보기 우클릭으로 이미지 복사/내보내기
+- **문서 정렬**(Shift+Alt+F): 내장 Prettier(JS/TS/JSON/HTML/CSS/Markdown/YAML) + 언어별 외부 도구(black · clang-format · gofmt · rustfmt · shfmt …), 설정에서 언어별 도구 선택, 저장 시 자동 정렬
 - **코드 검사(Lint)**: 언어별 도구(eslint · ruff/pyflakes · gcc · shellcheck · yamllint · hadolint …)를 백그라운드로 돌려 줄 번호 옆 마커·밑줄·메시지로 표시, 상태 표시줄에 오류/경고 수
 - **편집 창 나누기**: 좌우 · 상하 · 2×2 로 여러 문서를 동시에 보고 편집(창마다 문서 선택, 클릭한 창이 활성)
 - **터미널 패널**(Ctrl+`): 여러 셸 세션을 탭으로(명령 프롬프트 · PowerShell · Git Bash / bash · sh), 프롬프트 바로 뒤에서 입력, Tab 자동완성(명령·경로), oh-my-posh 식 색 프롬프트(디렉터리 ▶ Git 브랜치·↑↓·변경 수), 설정에서 시작 디렉터리·기본 셸
@@ -52,7 +54,9 @@ npm run build:mac     # macOS    → My Editor-1.0.0.dmg (x64 + arm64)  ※ macO
 npm run build:linux   # Linux    → .AppImage + .deb                    ※ Linux 에서 실행
 ```
 
-아이콘(`build/icons/`)은 `assets/icon.svg` 에서 자동 생성되며, 결과물은 `release/` 와 프로젝트 루트에 복사됩니다.
+아이콘(`build/icons/`)은 `assets/icon.svg` 에서, 언어별 파일 형식 아이콘(`build/fileicons/*.ico`, 35종)은 `scripts/generate-file-icons.mjs` 에서 자동 생성되며, 결과물은 `release/` 와 프로젝트 루트에 복사됩니다.
+
+Windows 설치 프로그램은 바로가기 선택 다음에 **파일 형식 등록** 페이지를 보여 줍니다: ① '연결 프로그램' 목록에 My Editor 추가(언어별 아이콘 포함, 기본 켜짐) ② **기본 편집기로 등록**(더블클릭으로 열리고 탐색기에 언어별 아이콘 표시, 기본 꺼짐). 소스·텍스트 90여 개 확장자를 현재 사용자(HKCU)에만 등록하고 제거 시 되돌립니다(`build/installer.nsh`).
 `npm run clean` 으로 빌드 산출물을, `npm run clean:all` 로 `node_modules` 까지 지웁니다.
 
 ## 샘플 파일

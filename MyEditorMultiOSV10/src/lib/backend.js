@@ -124,6 +124,26 @@ export function onWindowFocus(cb) {
   return () => { window.removeEventListener('focus', h); off(); };
 }
 
+// Settings / info / shortcuts in a separate window (desktop only; false when
+// there is none — the caller shows the dialog inside the page instead).
+export function openPopup(kind) {
+  if (isElectron && electron.openPopup && !electron.smoke) { electron.openPopup(kind); return true; }
+  return false;
+}
+// Prints an HTML document: the desktop app renders it in a hidden window and
+// opens the print dialog; the browser opens it in a new window and prints.
+export function printHtml(html, title) {
+  if (isElectron && electron.smoke) { window.__lastPrint = { html, title }; return; }   // the smoke test inspects instead of printing
+  if (isElectron && electron.printHtml) { electron.printHtml(html, title); return; }
+  const w = window.open('', '_blank');
+  if (!w) return;
+  w.document.open(); w.document.write(html); w.document.close();
+  w.document.title = title || '';
+  setTimeout(() => { w.focus(); w.print(); }, 400);
+}
+export function sendSettingsPatch(patch) { if (isElectron && electron.sendSettingsPatch) electron.sendSettingsPatch(patch); }
+export function onSettingsPatch(cb) { return isElectron && electron.onSettingsPatch ? electron.onSettingsPatch(cb) : () => {}; }
+
 export function quitApp() {
   if (isElectron) electron.quit();
   else window.close();

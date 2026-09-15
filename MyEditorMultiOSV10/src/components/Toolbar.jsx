@@ -15,6 +15,7 @@ const GROUPS = [
     { id: 'save', icon: 'fileSave', tip: 'tip_save', needs: 'dirty' },
     { id: 'saveAll', icon: 'saveAll', tip: 'tip_save_all', needs: 'anyDirty' },
     { id: 'close', icon: 'close', tip: 'tip_close' },
+    { id: 'print', icon: 'print', tip: 'tip_print' },
   ],
   [
     { id: 'undo', icon: 'undo', tip: 'tip_undo' },
@@ -28,6 +29,9 @@ const GROUPS = [
   [
     { id: 'find', icon: 'search', tip: 'tip_find' },
     { id: 'replace', icon: 'replace', tip: 'tip_replace' },
+  ],
+  [
+    { id: 'formatDoc', icon: 'format', tip: 'tip_format' },   // an action, not a toggle: formats the active document with the language's formatter
   ],
   [
     { id: 'toggle:showWhitespace', icon: 'pilcrow', tip: 'tip_ws', toggle: 'showWhitespace' },

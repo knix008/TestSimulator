@@ -148,4 +148,14 @@ async function dataUrl(p) {
   return { dataUrl: `data:${mime};base64,${buf.toString('base64')}`, size: st.size, mtime: st.mtimeMs };
 }
 
-module.exports = { stat, read, write, list, drives, mkdir, rename, remove, exists, openExternal, dataUrl, MAX_FILE, homedir: () => os.homedir() };
+// Writes the bytes of a data URL (an exported image).
+async function writeDataUrl(p, url) {
+  const m = /^data:([^;,]*)(;base64)?,(.*)$/s.exec(String(url || ''));
+  if (!m) throw new Error('not a data URL');
+  const buf = m[2] ? Buffer.from(m[3], 'base64') : Buffer.from(decodeURIComponent(m[3]), 'utf8');
+  await fsp.mkdir(path.dirname(path.resolve(p)), { recursive: true });
+  await fsp.writeFile(p, buf);
+  return { path: path.resolve(p), size: buf.length };
+}
+
+module.exports = { stat, read, write, list, drives, mkdir, rename, remove, exists, openExternal, dataUrl, writeDataUrl, MAX_FILE, homedir: () => os.homedir() };

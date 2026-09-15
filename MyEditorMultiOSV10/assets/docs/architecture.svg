@@ -1,0 +1,161 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1180" height="820" viewBox="0 0 1180 820" font-family="Segoe UI, Malgun Gothic, Apple SD Gothic Neo, Noto Sans KR, Helvetica, Arial, sans-serif" font-size="13">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0 0L10 5L0 10z" fill="#5b6472"/>
+    </marker>
+    <style>
+      .layer { fill: #f6f8fb; stroke: #c9d1dc; stroke-width: 1.2; rx: 10; }
+      .title { font-size: 15px; font-weight: 700; fill: #1f2933; }
+      .sub { font-size: 11.5px; fill: #5b6472; }
+      .box { fill: #ffffff; stroke: #8a96a6; stroke-width: 1.2; rx: 6; }
+      .box.ui { fill: #e8f1ff; stroke: #4c8dd8; }
+      .box.core { fill: #e9f8ee; stroke: #3f9b5c; }
+      .box.host { fill: #fff4e3; stroke: #d98b2b; }
+      .box.ext { fill: #f3ecfb; stroke: #8a5fc4; }
+      .box.store { fill: #fdf0f0; stroke: #c94f4f; }
+      .name { font-size: 12.5px; font-weight: 700; fill: #1f2933; }
+      .desc { font-size: 11px; fill: #3c4653; }
+      .arrow { fill: none; stroke: #5b6472; stroke-width: 1.6; marker-end: url(#arr); }
+      .arrow.two { marker-start: url(#arr); }
+      .lbl { font-size: 11px; fill: #5b6472; }
+    </style>
+  </defs>
+
+  <text x="24" y="30" font-size="20" font-weight="700" fill="#1f2933">My Editor — 전체 구조</text>
+  <text x="24" y="50" class="sub">렌더러(React + CodeMirror 6) ↔ 전송(IPC 또는 HTTP) ↔ 호스트(Electron / 웹 서버) ↔ core(Node) ↔ 외부 프로세스·파일</text>
+
+  <!-- ── Renderer layer ── -->
+  <rect x="24" y="70" width="1132" height="300" class="layer"/>
+  <text x="40" y="94" class="title">src/ — 렌더러 (React + Vite, CodeMirror 6)</text>
+  <text x="420" y="94" class="sub">데스크톱과 웹이 같은 번들을 씀 · 텍스트는 문서마다 EditorState 로 보관, 창(pane)마다 EditorView 하나</text>
+
+  <!-- App.jsx -->
+  <rect x="40" y="108" width="300" height="118" class="box ui"/>
+  <text x="52" y="128" class="name">App.jsx — 조정자</text>
+  <text x="52" y="146" class="desc">문서 모델(docs · states) · 탭 · 분할 창(panes)</text>
+  <text x="52" y="162" class="desc">열기/저장/닫기 · 세션 복원 · 메뉴/단축키/액션</text>
+  <text x="52" y="178" class="desc">Lint 스케줄 · 정렬 · 검색 · 터미널 · 대화상자 흐름</text>
+  <text x="52" y="194" class="desc">viewOfDoc / getState / dispatchTo</text>
+  <text x="52" y="210" class="desc">(상태가 어느 창에 있든 트랜잭션 적용)</text>
+
+  <!-- components -->
+  <rect x="356" y="108" width="400" height="118" class="box ui"/>
+  <text x="368" y="128" class="name">components/</text>
+  <text x="368" y="146" class="desc">MenuBar(제목줄·메뉴) · Toolbar · TabBar · EditorPane(CodeMirror 호스트)</text>
+  <text x="368" y="162" class="desc">Sidebar(폴더 트리) · SearchPanel · FindBar · MarkdownBar · Preview</text>
+  <text x="368" y="178" class="desc">TerminalPanel(oh-my-posh 프롬프트 · ANSI 색 · Tab 자동완성)</text>
+  <text x="368" y="194" class="desc">StatusBar(커서·Lint·인코딩·언어) · ContextMenu · FontPicker · Icons(LangIcon)</text>
+  <text x="368" y="210" class="desc">ErrorBoundary</text>
+
+  <!-- dialogs -->
+  <rect x="772" y="108" width="368" height="118" class="box ui"/>
+  <text x="784" y="128" class="name">dialogs/</text>
+  <text x="784" y="146" class="desc">SettingsDialog(일반·편집기·파일·터미널·정렬 탭)</text>
+  <text x="784" y="162" class="desc">ImageDialog(링크/내장·너비) · FileDialog(웹 전용 파일 선택)</text>
+  <text x="784" y="178" class="desc">Dialogs: 확인·오류·정보·줄 이동·프롬프트</text>
+  <text x="784" y="194" class="desc">언어 선택 · 인코딩 선택 · 단축키(2단)</text>
+
+  <!-- lib -->
+  <rect x="40" y="240" width="1100" height="116" class="box ui"/>
+  <text x="52" y="260" class="name">lib/</text>
+  <text x="110" y="260" class="desc">editor.js — CodeMirror 확장 세트·Compartment·테마 CSS 변수·검색 API·편집 명령 · languages.js — 150+ 언어 지연 로드·확장자 판별</text>
+  <text x="110" y="277" class="desc">markdown.js — 서식 명령·marked+DOMPurify 렌더 · mdlive.js — WYSIWYG(Decoration·이미지 위젯·크기 조절) · images.js — 이미지 경로→data URL·드롭/붙여넣기</text>
+  <text x="110" y="294" class="desc">lint.js — @codemirror/lint 거터·밑줄·패널 · spell.js — nspell 스펠링 · ansi.jsx — ANSI SGR→색 span · i18n.js — ko/en · settings.js — 기본값 · themes.js — 16 테마</text>
+  <text x="110" y="311" class="desc">backend.js — 전송 스위치: window.myEditor(IPC) 가 있으면 Electron, 없으면 fetch('/api/…') · 대화상자 폴백 · 창 제어</text>
+  <text x="110" y="332" class="desc" font-style="italic">call(name, args) 한 가지 함수로 모든 백엔드 기능을 부름 — 아래 두 호스트 어느 쪽이든 같은 계약(core/api.js)</text>
+
+  <!-- transport arrows -->
+  <path d="M300 370 L300 420" class="arrow two"/>
+  <text x="212" y="400" class="lbl">ipcRenderer.invoke('api')</text>
+  <path d="M880 370 L880 420" class="arrow two"/>
+  <text x="892" y="400" class="lbl">POST /api/&lt;name&gt; (JSON)</text>
+
+  <!-- ── Hosts ── -->
+  <rect x="24" y="420" width="550" height="120" class="layer"/>
+  <text x="40" y="444" class="title">electron/ — 데스크톱 호스트</text>
+  <rect x="40" y="456" width="250" height="70" class="box host"/>
+  <text x="52" y="476" class="name">main.js</text>
+  <text x="52" y="492" class="desc">프레임 없는 창(최소 1200×600) · 단일 인스턴스</text>
+  <text x="52" y="508" class="desc">argv 열기 · 네이티브 대화상자 · 닫기 확인</text>
+  <rect x="304" y="456" width="254" height="70" class="box host"/>
+  <text x="316" y="476" class="name">ipc.js · preload.js</text>
+  <text x="316" y="492" class="desc">ipcMain 'api' · 'dialog' · 창 제어</text>
+  <text x="316" y="508" class="desc">contextBridge → window.myEditor (contextIsolation)</text>
+
+  <rect x="606" y="420" width="550" height="120" class="layer"/>
+  <text x="622" y="444" class="title">server/server.js — 웹 호스트</text>
+  <rect x="622" y="456" width="518" height="70" class="box host"/>
+  <text x="634" y="476" class="name">http.createServer</text>
+  <text x="634" y="492" class="desc">dist/ 정적 서빙 · /api/&lt;name&gt; → api.call · 기본 루프백 바인드, --token 보호</text>
+  <text x="634" y="508" class="desc">브라우저에서 같은 UI (파일 대화상자는 FileDialog.jsx 로 대체)</text>
+
+  <path d="M300 540 L300 590" class="arrow"/>
+  <path d="M880 540 L880 590" class="arrow"/>
+  <text x="560" y="572" class="lbl" text-anchor="middle">api.call(name, args) — 메서드 테이블 · serializeError</text>
+
+  <!-- ── core ── -->
+  <rect x="24" y="590" width="1132" height="130" class="layer"/>
+  <text x="40" y="614" class="title">core/ — 플랫폼 무관 (Node 전용, 두 호스트가 공유)</text>
+  <g>
+    <rect x="40" y="626" width="130" height="80" class="box core"/>
+    <text x="50" y="646" class="name">api.js</text>
+    <text x="50" y="662" class="desc">app · session · file</text>
+    <text x="50" y="677" class="desc">fs · os · clipboard</text>
+    <text x="50" y="692" class="desc">term · lint · format</text>
+
+    <rect x="182" y="626" width="150" height="80" class="box core"/>
+    <text x="192" y="646" class="name">files.js · encoding.js</text>
+    <text x="192" y="662" class="desc">원자적 쓰기 · 디렉터리 목록</text>
+    <text x="192" y="677" class="desc">BOM/UTF-16/레거시 판별</text>
+    <text x="192" y="692" class="desc">줄 끝 · 이미지→data URL</text>
+
+    <rect x="344" y="626" width="120" height="80" class="box core"/>
+    <text x="354" y="646" class="name">session.js</text>
+    <text x="354" y="662" class="desc">설정 · 탭 · 초안</text>
+    <text x="354" y="677" class="desc">최근 파일 · 창 위치</text>
+    <text x="354" y="692" class="desc">버전별 이전(migration)</text>
+
+    <rect x="476" y="626" width="190" height="80" class="box core"/>
+    <text x="486" y="646" class="name">terminal.js</text>
+    <text x="486" y="662" class="desc">파이프 셸(cmd·PowerShell·bash)</text>
+    <text x="486" y="677" class="desc">코드 페이지 변환 · cwd/idle 마커</text>
+    <text x="486" y="692" class="desc">롱폴 read · 자동완성 · git status</text>
+
+    <rect x="678" y="626" width="140" height="80" class="box core"/>
+    <text x="688" y="646" class="name">lint.js</text>
+    <text x="688" y="662" class="desc">언어별 검사 도구 실행</text>
+    <text x="688" y="677" class="desc">stdin · 도구 탐색/캐시</text>
+    <text x="688" y="692" class="desc">문서별 취소 · 진단 파싱</text>
+
+    <rect x="830" y="626" width="150" height="80" class="box core"/>
+    <text x="840" y="646" class="name">format.js</text>
+    <text x="840" y="662" class="desc">내장 Prettier(in-process)</text>
+    <text x="840" y="677" class="desc">JSON/XML 내장 · 외부 도구</text>
+    <text x="840" y="692" class="desc">언어별 목록·설치 여부</text>
+
+    <rect x="992" y="626" width="148" height="80" class="box core"/>
+    <text x="1002" y="646" class="name">search.js</text>
+    <text x="1002" y="662" class="desc">폴더 전체 찾기(재귀)</text>
+    <text x="1002" y="677" class="desc">바이너리/빌드 폴더 제외</text>
+    <text x="1002" y="692" class="desc">포함·제외 글롭 · 취소</text>
+  </g>
+
+  <!-- ── external ── -->
+  <path d="M250 720 L250 748" class="arrow two"/>
+  <path d="M571 720 L571 748" class="arrow two"/>
+  <path d="M748 720 L748 748" class="arrow"/>
+  <path d="M905 720 L905 748" class="arrow"/>
+  <path d="M1066 720 L1066 748" class="arrow"/>
+
+  <rect x="40" y="748" width="400" height="58" class="box store"/>
+  <text x="52" y="768" class="name">파일 시스템 · session.json</text>
+  <text x="52" y="786" class="desc">문서 파일 · 폴더 트리 · 이미지 · 설정(userData 또는 ~/.config/my-editor)</text>
+
+  <rect x="456" y="748" width="230" height="58" class="box ext"/>
+  <text x="468" y="768" class="name">셸 프로세스 · git</text>
+  <text x="468" y="786" class="desc">cmd · powershell · bash -s / git status</text>
+
+  <rect x="702" y="748" width="438" height="58" class="box ext"/>
+  <text x="714" y="768" class="name">외부 도구 (설치되어 있을 때만)</text>
+  <text x="714" y="786" class="desc">eslint · ruff/pyflakes · gcc · shellcheck … / black · clang-format · gofmt · rustfmt · shfmt …</text>
+</svg>

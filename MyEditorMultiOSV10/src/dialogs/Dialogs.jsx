@@ -8,9 +8,33 @@ import { hostName, writeClipboardText } from '../lib/backend';
 import { Icon, LangIcon } from '../components/Icons';
 import { ALL_LANGUAGES, FEATURED_LANGUAGES, PLAIN } from '../lib/languages';
 
-export function Dialog({ title, icon, kind = '', width, onClose, children, footer, onEnter, className = '' }) {
+// Every dialog can be dragged by its title bar (kept inside the window). A
+// non-modal one (modal={false}: settings, info, shortcuts) leaves the editor
+// usable underneath — it behaves like a small separate window that closes
+// with the app — while the others keep their dimmed, click-to-close backdrop.
+export function Dialog({ title, icon, kind = '', width, onClose, children, footer, onEnter, className = '', modal = true, embedded = false }) {
   useLanguage();
   const ref = useRef(null);
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const onTitleDown = (e) => {
+    if (e.button !== 0 || e.target.closest('button')) return;
+    e.preventDefault();
+    const el = ref.current;
+    const start = { x: e.clientX, y: e.clientY, ox: offset.x, oy: offset.y };
+    const r0 = el ? el.getBoundingClientRect() : null;
+    const move = (ev) => {
+      let dx = start.ox + ev.clientX - start.x, dy = start.oy + ev.clientY - start.y;
+      if (r0) {   // keep the title bar reachable inside the window
+        const minX = -r0.left + 8 + (start.ox), maxX = window.innerWidth - r0.right - 8 + start.ox;
+        const minY = -r0.top + 8 + start.oy, maxY = window.innerHeight - r0.top - 40 + start.oy;
+        dx = Math.max(minX, Math.min(maxX, dx)); dy = Math.max(minY, Math.min(maxY, dy));
+      }
+      setOffset({ x: dx, y: dy });
+    };
+    const up = () => { window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up); };
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+  };
   useEffect(() => {
     const el = ref.current;
     const focusable = el && el.querySelector('input:not([type=checkbox]), select, textarea, [data-autofocus], button.primary, button');
@@ -23,10 +47,24 @@ export function Dialog({ title, icon, kind = '', width, onClose, children, foote
       e.preventDefault(); onEnter();
     }
   };
+  if (embedded) {
+    // A separate window: the dialog is the page; the title bar drags the window (-webkit-app-region).
+    return (
+      <div className={`dlg embedded ${kind} ${className}`} ref={ref} role="dialog" onKeyDown={onKey}>
+        <div className="dlg-title drag-region">
+          {icon && <Icon name={icon} />}
+          <span>{title}</span>
+          <button className="dlg-x" onClick={onClose} title={t('close_btn')} aria-label={t('close_btn')}><Icon name="close" size={14} /></button>
+        </div>
+        <div className="dlg-body">{children}</div>
+        {footer && <div className="dlg-footer">{footer}</div>}
+      </div>
+    );
+  }
   return (
-    <div className="dlg-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className={`dlg ${kind} ${className}`} style={width ? { width } : undefined} ref={ref} role="dialog" aria-modal="true" onKeyDown={onKey}>
-        <div className="dlg-title">
+    <div className={`dlg-backdrop ${modal ? '' : 'nomodal'}`} onMouseDown={(e) => { if (modal && e.target === e.currentTarget) onClose(); }}>
+      <div className={`dlg ${kind} ${className}`} style={{ ...(width ? { width } : {}), transform: offset.x || offset.y ? `translate(${offset.x}px, ${offset.y}px)` : undefined }} ref={ref} role="dialog" aria-modal={modal ? 'true' : 'false'} onKeyDown={onKey}>
+        <div className="dlg-title" onMouseDown={onTitleDown}>
           {icon && <Icon name={icon} />}
           <span>{title}</span>
           <button className="dlg-x" onClick={onClose} title={t('close_btn')} aria-label={t('close_btn')}><Icon name="close" size={14} /></button>
@@ -72,11 +110,11 @@ export function ErrorDialog({ title, message, error, onClose }) {
   );
 }
 
-export function AboutDialog({ info, onClose }) {
+export function AboutDialog({ info, onClose, embedded = false }) {
   useLanguage();
   const bi = info && info.buildInfo;
   return (
-    <Dialog title={t('about_title')} icon="info" kind="info" width={520} onClose={onClose} onEnter={onClose}
+    <Dialog modal={false} embedded={embedded} title={t('about_title')} icon="info" kind="info" width={520} onClose={onClose} onEnter={onClose}
       footer={<button className="btn primary" onClick={onClose}>{t('ok')}</button>}>
       <div className="about">
         <img src="./icon.svg" alt="" width={84} height={84} />
@@ -186,7 +224,7 @@ export function EncodingPicker({ title, encodings, current, onPick, onClose }) {
 }
 
 const SHORTCUTS = [
-  ['Ctrl+N', 'new_file'], ['Ctrl+O', 'open_file'], ['Ctrl+Shift+O', 'open_folder'], ['Ctrl+S', 'save'], ['Ctrl+Alt+S', 'save_as'], ['Ctrl+Shift+S', 'save_all'],
+  ['Ctrl+N', 'new_file'], ['Ctrl+O', 'open_file'], ['Ctrl+P', 'print'], ['Ctrl+Shift+O', 'open_folder'], ['Ctrl+S', 'save'], ['Ctrl+Alt+S', 'save_as'], ['Ctrl+Shift+S', 'save_all'],
   ['Ctrl+W', 'close'], ['Ctrl+Shift+W', 'close_all'], ['Ctrl+Tab / Ctrl+PgDn', 'tab_next'], ['Ctrl+Shift+Tab / Ctrl+PgUp', 'tab_prev'], ['Ctrl+1 … Ctrl+9', 'tab_n'],
   ['Ctrl+Z / Ctrl+Y', 'undo_redo'], ['Ctrl+D', 'dup_line'], ['Ctrl+L', 'del_line'], ['Alt+↑ / Alt+↓', 'move_line'], ['Ctrl+/', 'toggle_comment'], ['Tab / Shift+Tab', 'indent_outdent'],
   ['Ctrl+U / Ctrl+Shift+U', 'case'], ['Alt+Click', 'multi_cursor'], ['Alt+Drag', 'rect_sel'],
@@ -194,7 +232,7 @@ const SHORTCUTS = [
   ['Ctrl+B', 'sidebar'], ['Ctrl+Shift+B', 'sidebar_md'], ['Ctrl+= / Ctrl+-', 'zoom'], ['Ctrl+0', 'zoom_reset'], ['Ctrl+Wheel', 'zoom'], ['F11', 'fullscreen'], ['Ctrl+,', 'settings'],
   ['Ctrl+1 … Ctrl+6', 'md_h'], ['Ctrl+B / Ctrl+I', 'md_bi'], ['Ctrl+Shift+X', 'md_strike'], ['Ctrl+`', 'md_code'], ['Ctrl+Shift+C', 'md_code_block'], ['Ctrl+Shift+Q', 'md_quote'],
   ['Ctrl+Shift+8 / 7 / 9', 'md_lists'], ['Ctrl+K', 'md_link'], ['Ctrl+Shift+I', 'md_image'], ['Ctrl+Shift+W', 'md_wysiwyg_menu'], ['Ctrl+Shift+M', 'md_preview_menu'],
-  ['Ctrl+Shift+F', 'find_in_files'], ['Ctrl+Alt+F', 'find_in_open'], ['F7', 'spell_check'], ['F8', 'lint_next'],
+  ['Ctrl+Shift+F', 'find_in_files'], ['Ctrl+Alt+F', 'find_in_open'], ['Shift+Alt+F', 'format_doc'], ['F7', 'spell_check'], ['F8', 'lint_next'],
   ['Ctrl+`', 'terminal_sc'], ['Ctrl+Shift+`', 'term_new'], ['Ctrl+\\', 'split_sc'], ['Ctrl+Alt+1 … 4', 'split_layouts'], ['F6', 'next_pane'],
 ];
 const SHORTCUT_LABELS = {
@@ -202,7 +240,7 @@ const SHORTCUT_LABELS = {
   en: { terminal_sc: 'Terminal panel (outside Markdown documents)', split_sc: 'Split the editor left / right ↔ single', split_layouts: 'Editor panes: single / left-right / top-bottom / four', sidebar_md: 'Folder tree (in Markdown documents)', md_h: 'Markdown: heading H1–H6', md_bi: 'Markdown: bold / italic', md_lists: 'Markdown: bullet / numbered / task list', tab_next: 'Next tab', tab_prev: 'Previous tab', tab_n: 'n-th tab', undo_redo: 'Undo / Redo', move_line: 'Move line up / down', indent_outdent: 'Indent / Outdent', case: 'lowercase / UPPERCASE', multi_cursor: 'Add cursor (multi-cursor)', rect_sel: 'Rectangular selection', find_next_prev: 'Find next / previous', zoom: 'Zoom in / out' },
 };
 
-export function ShortcutsDialog({ onClose }) {
+export function ShortcutsDialog({ onClose, embedded = false }) {
   useLanguage();
   const lang = getLanguage();
   const label = (k) => SHORTCUT_LABELS[lang][k] || t(k);
@@ -212,7 +250,7 @@ export function ShortcutsDialog({ onClose }) {
   const parts = Array.from({ length: ncol }, (_, i) => SHORTCUTS.slice(i * per, (i + 1) * per));
   const col = (list) => list.map(([k, v]) => <React.Fragment key={k}><kbd>{k.replace(/Ctrl/g, navigator.platform.startsWith('Mac') ? '⌘' : 'Ctrl')}</kbd><span>{label(v)}</span></React.Fragment>);
   return (
-    <Dialog title={t('shortcuts_title')} icon="keyboard" kind="info" className="shortcuts" width={ncol === 3 ? 1150 : 960} onClose={onClose} onEnter={onClose}
+    <Dialog modal={false} embedded={embedded} title={t('shortcuts_title')} icon="keyboard" kind="info" className="shortcuts" width={ncol === 3 ? 1150 : 960} onClose={onClose} onEnter={onClose}
       footer={<button className="btn primary" onClick={onClose}>{t('ok')}</button>}>
       <div className="shortcut-cols selectable" style={{ gridTemplateColumns: `repeat(${ncol}, 1fr)` }}>
         {parts.map((part, i) => <div key={i} className="shortcut-grid">{col(part)}</div>)}

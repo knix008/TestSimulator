@@ -354,8 +354,20 @@ button:disabled { cursor: default; opacity: 0.45; }
 
 /* ── Dialogs ── */
 .dlg-backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.45); display: grid; place-items: center; z-index: 2000; }
+/* A dialog that is a window of its own (?popup=…): fills the page, its title bar drags the window. */
+html, body, #root { height: 100%; }
+.dlg.embedded { position: fixed; inset: 0; width: auto !important; max-width: none; max-height: none; border-radius: 0; border: 1px solid var(--border); box-shadow: none; }
+.dlg.embedded .dlg-title { border-radius: 0; cursor: default; }
+.dlg.embedded .dlg-title.drag-region { -webkit-app-region: drag; }
+.dlg.embedded .dlg-title button { -webkit-app-region: no-drag; }
+.dlg.embedded .dlg-body { flex: 1; min-height: 0; overflow: auto; }
+.dlg.embedded.settings .dlg-body { min-height: 0; }
+.popup-loading { position: fixed; inset: 0; background: var(--bg-panel); }
+/* Non-modal dialogs (settings · info · shortcuts): no dimming, the editor underneath stays usable. */
+.dlg-backdrop.nomodal { background: transparent; pointer-events: none; }
+.dlg-backdrop.nomodal .dlg { pointer-events: auto; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45), var(--shadow); }
 .dlg { background: var(--bg-panel); border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow); max-width: calc(100vw - 32px); max-height: calc(100vh - 32px); display: flex; flex-direction: column; }
-.dlg-title { display: flex; align-items: center; gap: 8px; padding: 10px 14px; font-weight: 600; border-bottom: 1px solid var(--border); background: var(--bg-elev); border-radius: 8px 8px 0 0; }
+.dlg-title { display: flex; align-items: center; gap: 8px; padding: 10px 14px; font-weight: 600; border-bottom: 1px solid var(--border); background: var(--bg-elev); border-radius: 8px 8px 0 0; cursor: move; user-select: none; }
 .dlg-title span { flex: 1; }
 .dlg-x { background: none; border: 0; outline: none; box-shadow: none; color: var(--fg-muted); padding: 2px; border-radius: 4px; display: inline-flex; }
 .dlg-x:hover { background: var(--danger); color: #ffffff; }
@@ -378,19 +390,37 @@ input[type="text"], input[type="number"], input:not([type]), input[list], select
 input:focus, select:focus { border-color: var(--accent); }
 input:disabled, select:disabled { opacity: 0.55; }
 .form-row { display: flex; flex-direction: column; gap: 6px; }
+.inst { display: flex; flex-direction: column; gap: 8px; }
+.inst-head { display: flex; align-items: center; gap: 8px; }
+.inst-spinner { width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: inst-spin 0.8s linear infinite; flex: none; }
+@keyframes inst-spin { to { transform: rotate(360deg); } }
+.inst-bar { height: 4px; border-radius: 2px; background: var(--bg-elev); overflow: hidden; position: relative; }
+.inst-bar span { position: absolute; top: 0; bottom: 0; width: 30%; border-radius: 2px; background: var(--accent); animation: inst-slide 1.2s ease-in-out infinite; }
+@keyframes inst-slide { 0% { left: -30%; } 100% { left: 100%; } }
+.inst-cmd { white-space: pre-wrap; word-break: break-all; }
+.inst-log { margin: 0; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 8px; font-size: 11.5px; height: 240px; overflow: auto; white-space: pre-wrap; word-break: break-all; }
+.settings-format { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+.settings-format p { margin: 0; }
+.btn.small { padding: 1px 8px; font-size: 11px; margin-left: 6px; }
+.format-grid { display: grid; grid-template-columns: max-content 1fr max-content 1fr max-content 1fr; gap: 6px 10px; align-items: center; }
+.format-grid label { text-align: right; color: var(--fg-muted); font-size: 12px; }
+.format-grid select { font-size: 12px; min-width: 0; flex: 1; }
+.fmt-row { display: flex; align-items: center; gap: 2px; min-width: 0; }
 .st-lint { display: inline-flex; align-items: center; gap: 4px; }
 .st-lint.pending { opacity: 0.55; }
 .st-lint.has-error { color: var(--danger); }
 .st-lint.has-warning { color: var(--folder); }
 .img-preview { min-height: 64px; max-height: 220px; overflow: auto; display: flex; align-items: center; justify-content: center; border: 1px dashed var(--border); border-radius: var(--radius); padding: 6px; background: var(--bg); }
 .img-preview img { max-width: 100%; max-height: 200px; }
+/* transparent pixels show as a checkerboard in the export preview */
+.imgx-preview { background-color: #fff; background-image: linear-gradient(45deg, #ccc 25%, transparent 25%, transparent 75%, #ccc 75%), linear-gradient(45deg, #ccc 25%, transparent 25%, transparent 75%, #ccc 75%); background-size: 16px 16px; background-position: 0 0, 8px 8px; }
 .form-grid { display: grid; grid-template-columns: max-content 1fr; gap: 10px 12px; align-items: center; }
 .form-grid label { text-align: right; color: var(--fg-muted); }
 .settings-grid { row-gap: 10px; }
 .check { display: inline-flex; align-items: center; gap: 6px; color: var(--fg); }
 .check input { width: auto; }
 /* The settings dialog keeps one size whatever tab is shown: the body is as tall as the tallest tab (editor). */
-.dlg.settings .dlg-body { min-height: 510px; }
+.dlg.settings .dlg-body { min-height: 560px; }
 .settings-tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--border); margin-bottom: 14px; }
 .settings-tab { background: none; border: 0; padding: 6px 14px; color: var(--fg-muted); border-bottom: 2px solid transparent; }
 .settings-tab:hover { color: var(--fg); }

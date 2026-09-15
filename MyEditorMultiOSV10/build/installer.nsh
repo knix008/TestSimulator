@@ -2,6 +2,9 @@
 ;
 ;  • a page letting the user choose Desktop / Start Menu shortcuts
 ;    (Korean when the installer runs in Korean, English otherwise)
+;  • a page for the file associations: "Open with" entries with a file-type
+;    icon per language (build/fileicons, generated) and — if the user wants —
+;    My Editor as the default editor of those files (per user, HKCU)
 ;  • a clean reinstall: electron-builder runs the previous version's
 ;    uninstaller first, and this script sweeps whatever it left behind
 ;  • asks before deleting the data (session, settings) an earlier
@@ -18,10 +21,16 @@ Var StartMenuShortcutCheckbox
 Var DoCreateDesktopShortcut
 Var DoCreateStartMenuShortcut
 Var PrevInstallDir
+Var AssocCheckbox
+Var DefaultCheckbox
+Var DoAssoc
+Var DoDefault
 
 !macro customInit
   StrCpy $DoCreateDesktopShortcut "1"
   StrCpy $DoCreateStartMenuShortcut "1"
+  StrCpy $DoAssoc "1"
+  StrCpy $DoDefault "0"
 
   StrCpy $PrevInstallDir ""
   ReadRegStr $0 HKCU "${UNINSTALL_REGISTRY_KEY}" "InstallLocation"
@@ -37,7 +46,107 @@ Var PrevInstallDir
 
 !macro customPageAfterChangeDir
   Page custom ShortcutsPageCreate ShortcutsPageLeave
+  Page custom AssocPageCreate AssocPageLeave
 !macroend
+
+; ── File associations page ────────────────────────────────
+Function AssocPageCreate
+  nsDialogs::Create 1018
+  Pop $0
+  ${If} $0 == error
+    Abort
+  ${EndIf}
+  ${If} $LANGUAGE == 1042
+    ${NSD_CreateLabel} 0 0u 100% 36u "파일 형식 등록을 선택하세요.$\r$\n소스 코드·텍스트 파일(JavaScript · Python · C/C++ · Markdown · JSON · SQL 등 35가지 형식, 90여 개 확장자)을 My Editor 와 연결합니다. 현재 사용자 계정에만 등록되며 제거 시 함께 지워집니다."
+    Pop $0
+    ${NSD_CreateCheckbox} 0 44u 100% 12u "'연결 프로그램' 목록에 My Editor 추가 (언어별 파일 아이콘 포함)"
+    Pop $AssocCheckbox
+    ${NSD_CreateCheckbox} 0 62u 100% 12u "My Editor 를 이 파일들의 기본 편집기로 등록 (더블클릭으로 열림, 탐색기에 언어별 아이콘 표시)"
+    Pop $DefaultCheckbox
+    ${NSD_CreateLabel} 0 84u 100% 40u "기본 편집기로 등록하지 않으면 각 파일의 아이콘은 기존 프로그램의 것이 유지되고, 오른쪽 클릭 › 연결 프로그램에서 My Editor 를 고를 수 있습니다. 나중에 Windows 설정 › 앱 › 기본 앱에서 언제든 바꿀 수 있습니다."
+    Pop $0
+  ${Else}
+    ${NSD_CreateLabel} 0 0u 100% 36u "Choose how My Editor registers file types.$\r$\nSource and text files (JavaScript, Python, C/C++, Markdown, JSON, SQL … 35 types, 90+ extensions) are associated for the current user only and removed on uninstall."
+    Pop $0
+    ${NSD_CreateCheckbox} 0 44u 100% 12u "Add My Editor to the 'Open with' list (with an icon per language)"
+    Pop $AssocCheckbox
+    ${NSD_CreateCheckbox} 0 62u 100% 12u "Make My Editor the default editor of these files (double-click opens them, Explorer shows the language icons)"
+    Pop $DefaultCheckbox
+    ${NSD_CreateLabel} 0 84u 100% 40u "Without the default registration the files keep their current program and icon; My Editor appears under right-click › Open with. You can change this any time in Windows Settings › Apps › Default apps."
+    Pop $0
+  ${EndIf}
+  ${NSD_Check} $AssocCheckbox
+  nsDialogs::Show
+FunctionEnd
+
+Function AssocPageLeave
+  ${NSD_GetState} $AssocCheckbox $0
+  ${If} $0 == 1
+    StrCpy $DoAssoc "1"
+  ${Else}
+    StrCpy $DoAssoc "0"
+  ${EndIf}
+  ${NSD_GetState} $DefaultCheckbox $0
+  ${If} $0 == 1
+    StrCpy $DoAssoc "1"
+    StrCpy $DoDefault "1"
+  ${Else}
+    StrCpy $DoDefault "0"
+  ${EndIf}
+FunctionEnd
+
+; One file type (build/fileicons/file-types.nsh): a ProgID with the icon and
+; the open command; every extension gets the ProgID in its "Open with" list
+; and, if chosen, as its default.
+!macro MED_FILE_TYPE key name exts
+  ${If} $DoAssoc == "1"
+    WriteRegStr HKCU "Software\Classes\MyEditor.${key}" "" "${name} — ${PRODUCT_NAME}"
+    WriteRegStr HKCU "Software\Classes\MyEditor.${key}\DefaultIcon" "" "$INSTDIR\resources\fileicons\${key}.ico,0"
+    WriteRegStr HKCU "Software\Classes\MyEditor.${key}\shell\open" "" "${PRODUCT_NAME}"
+    WriteRegStr HKCU "Software\Classes\MyEditor.${key}\shell\open\command" "" '"$INSTDIR\${APP_EXECUTABLE_FILENAME}" "%1"'
+    StrCpy $R9 "${key}"
+    Push "${exts}"
+    Call MedForEachExt
+  ${EndIf}
+!macroend
+
+; Splits the space-separated extensions on the stack ($R9 = key) and registers each.
+Var MedExtKey
+Var MedExtList
+Var MedExtOne
+Function MedForEachExt
+  Pop $MedExtList
+  StrCpy $MedExtKey $R9
+  MedExtLoop:
+    StrCpy $MedExtOne ""
+    StrCpy $2 0
+    MedExtScan:
+      StrCpy $3 $MedExtList 1 $2
+      ${If} $3 == ""
+        StrCpy $MedExtOne $MedExtList
+        StrCpy $MedExtList ""
+        Goto MedExtGot
+      ${EndIf}
+      ${If} $3 == " "
+        StrCpy $MedExtOne $MedExtList $2
+        IntOp $2 $2 + 1
+        StrCpy $MedExtList $MedExtList "" $2
+        Goto MedExtGot
+      ${EndIf}
+      IntOp $2 $2 + 1
+      Goto MedExtScan
+    MedExtGot:
+    ${If} $MedExtOne != ""
+      WriteRegStr HKCU "Software\Classes\.$MedExtOne\OpenWithProgids" "MyEditor.$MedExtKey" ""
+      ${If} $DoDefault == "1"
+        WriteRegStr HKCU "Software\Classes\.$MedExtOne" "" "MyEditor.$MedExtKey"
+      ${EndIf}
+    ${EndIf}
+    ${If} $MedExtList != ""
+      Goto MedExtLoop
+    ${EndIf}
+FunctionEnd
+
 
 Function ShortcutsPageCreate
   nsDialogs::Create 1018
@@ -132,12 +241,64 @@ FunctionEnd
   ${EndIf}
 
   WriteRegStr HKCU "Software\Classes\Applications\${APP_EXECUTABLE_FILENAME}" "FriendlyAppName" "${PRODUCT_NAME}"
+  WriteRegStr HKCU "Software\Classes\Applications\${APP_EXECUTABLE_FILENAME}\shell\open\command" "" '"$INSTDIR\${APP_EXECUTABLE_FILENAME}" "%1"'
+
+  ; ── File associations (build/fileicons/file-types.nsh, generated) ──
+  !include "${BUILD_RESOURCES_DIR}\fileicons\file-types.nsh"
   System::Call 'Shell32::SHChangeNotify(i 0x8000000, i 0, i 0, i 0)'
 !macroend
 !endif
 
+!ifdef BUILD_UNINSTALLER
+; Uninstall (build/fileicons/file-types-un.nsh): the ProgIDs go; extensions that pointed at them are released.
+!macro MED_FILE_TYPE_UN key name exts
+  DeleteRegKey HKCU "Software\Classes\MyEditor.${key}"
+  StrCpy $R9 "${key}"
+  Push "${exts}"
+  Call un.MedForEachExt
+!macroend
+Var UnExtKey
+Var UnExtList
+Var UnExtOne
+Function un.MedForEachExt
+  Pop $UnExtList
+  StrCpy $UnExtKey $R9
+  UnExtLoop:
+    StrCpy $UnExtOne ""
+    StrCpy $2 0
+    UnExtScan:
+      StrCpy $3 $UnExtList 1 $2
+      ${If} $3 == ""
+        StrCpy $UnExtOne $UnExtList
+        StrCpy $UnExtList ""
+        Goto UnExtGot
+      ${EndIf}
+      ${If} $3 == " "
+        StrCpy $UnExtOne $UnExtList $2
+        IntOp $2 $2 + 1
+        StrCpy $UnExtList $UnExtList "" $2
+        Goto UnExtGot
+      ${EndIf}
+      IntOp $2 $2 + 1
+      Goto UnExtScan
+    UnExtGot:
+    ${If} $UnExtOne != ""
+      DeleteRegValue HKCU "Software\Classes\.$UnExtOne\OpenWithProgids" "MyEditor.$UnExtKey"
+      ReadRegStr $4 HKCU "Software\Classes\.$UnExtOne" ""
+      ${If} $4 == "MyEditor.$UnExtKey"
+        DeleteRegValue HKCU "Software\Classes\.$UnExtOne" ""
+      ${EndIf}
+    ${EndIf}
+    ${If} $UnExtList != ""
+      Goto UnExtLoop
+    ${EndIf}
+FunctionEnd
+!endif
+
 !macro customUnInstall
   SetShellVarContext current
+  !include "${BUILD_RESOURCES_DIR}\fileicons\file-types-un.nsh"
+  System::Call 'Shell32::SHChangeNotify(i 0x8000000, i 0, i 0, i 0)'
   Delete "$DESKTOP\${SHORTCUT_NAME}.lnk"
   Delete "$SMPROGRAMS\${SHORTCUT_NAME}.lnk"
   DeleteRegKey HKCU "Software\Classes\Applications\${APP_EXECUTABLE_FILENAME}"

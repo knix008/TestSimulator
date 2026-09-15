@@ -15,6 +15,8 @@ const { createSession } = require('./session');
 const { createTerminals } = require('./terminal');
 const { createLinter } = require('./lint');
 const { createSearch } = require('./search');
+const { createFormatter } = require('./format');
+const { createInstaller } = require('./install');
 
 function serializeError(err) {
   if (!err) return { code: 'UNKNOWN', message: 'Unknown error' };
@@ -28,11 +30,14 @@ function serializeError(err) {
   };
 }
 
-function createApi({ name = 'web', version = '', buildInfo = null, configDir, openPath, revealPath, clipboard } = {}) {
+function createApi({ name = 'web', version = '', buildInfo = null, configDir, openPath, revealPath, clipboard, writeImage } = {}) {
   const session = createSession(configDir);
   const terminals = createTerminals();
   const linter = createLinter();
   const search = createSearch();
+  const toolsDir = path.join(session.dir, 'tools');
+  const formatter = createFormatter({ toolsDir });
+  const installer = createInstaller({ toolsDir });
 
   const methods = {
     // ── App ──
@@ -100,12 +105,21 @@ function createApi({ name = 'web', version = '', buildInfo = null, configDir, op
     'lint.run': async ({ id, path: p, name, language, text }) => linter.run({ id, path: p, name, language, text }),
     'lint.cancel': async ({ id }) => linter.cancel({ id }),
     'lint.languages': async () => linter.languages(),
+    // ── Code formatting ──
+    'format.tools': async ({ dir }) => formatter.tools({ dir }),
+    'format.run': async (opts) => formatter.run(opts || {}),
+    // ── Installing a missing formatter (progress popup) ──
+    'install.start': async ({ tool, reinstall }) => installer.start({ tool, reinstall: !!reinstall }),
+    'install.status': async ({ id, since, wait }) => installer.status({ id, since, wait }),
+    'install.cancel': async ({ id }) => installer.cancel({ id }),
     // ── Find in files ──
     'search.files': async (opts) => search.files(opts || {}),
     'search.cancel': async ({ id }) => search.cancel({ id }),
 
     'clipboard.read': async () => (clipboard ? clipboard.readText() : ''),
     'clipboard.write': async ({ text }) => { if (clipboard) clipboard.writeText(text || ''); return true; },
+    'clipboard.writeImage': async ({ dataUrl }) => { if (!writeImage) return false; writeImage(dataUrl); return true; },
+    'file.writeDataUrl': async ({ path: p, dataUrl }) => files.writeDataUrl(p, dataUrl),
   };
 
   return {
@@ -116,7 +130,7 @@ function createApi({ name = 'web', version = '', buildInfo = null, configDir, op
       if (!fn) { const e = new Error(`Unknown API method: ${method}`); e.code = 'ENOMETHOD'; throw e; }
       return fn(args || {});
     },
-    async shutdown() { terminals.shutdown(); linter.shutdown(); },
+    async shutdown() { terminals.shutdown(); linter.shutdown(); installer.shutdown(); },
   };
 }
 

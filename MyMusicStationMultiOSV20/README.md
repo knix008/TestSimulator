@@ -25,7 +25,7 @@ React, Vite, TypeScript, Tauri 2 기반의 멀티 OS 음악 플레이어입니�
 
 - [Architecture.md](Architecture.md) — 구조와 런타임 흐름
 - [UsersGuide.md](UsersGuide.md) — 사용자 기능 안내
-- [asset](asset) — 앱 / 플레이리스트 / 트레이 아이콘 SVG
+- [asset](asset) — 앱 / 플레이리스트 / 오디오 파일 / 트레이 아이콘 SVG
 - [music](music) — 로컬 테스트용 음악 (내용은 git 제외)
 - [background](background) — 기본 배경 이미지
 

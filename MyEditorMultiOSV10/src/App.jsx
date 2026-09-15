@@ -11,18 +11,20 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { EditorSelection } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
+import { indentSelection } from '@codemirror/commands';
 import { t, setLanguage, getLanguage, useLanguage } from './lib/i18n';
 import { applyTheme, nextThemeId, themeById } from './themes';
 import { SETTINGS_DEFAULTS, pickSettings } from './lib/settings';
 import {
   call, isElectron, nativeDialog, setDialogFallback, writeClipboardText, readClipboardText, onOpenFiles, rendererReady, pathForFile,
-  onCloseRequest, replyClose, onWindowFocus, setWindowTitle, windowControl, quitApp, isMac,
+  onCloseRequest, replyClose, onWindowFocus, setWindowTitle, windowControl, quitApp, isMac, openPopup, sendSettingsPatch, onSettingsPatch, printHtml,
 } from './lib/backend';
 import { createState, settingsEffects, languageEffect, readOnlyEffect, commands, searchApi, applySaveTransforms, cursorInfo } from './lib/editor';
 import { detectLanguage, languageByName, loadLanguage, FEATURED_LANGUAGES, PLAIN } from './lib/languages';
 import { commands as md } from './lib/markdown';
 import { markdownLive, imageBase } from './lib/mdlive';
-import { fileToDataUrl, isImageFile } from './lib/images';
+import { fileToDataUrl, isImageFile, resolveImageSrc, analyzeImage, encodeImage } from './lib/images';
+import { renderMarkdown } from './lib/markdown';
 import { applyDiagnostics, clearDiagnostics, countDiagnostics, openLintPanel, nextDiagnostic } from './lib/lint';
 import { wordAt as spellWordAt, suggest as spellSuggest, addUserWord, ignoreWord, setUserWords, setSpellOptions, refreshAll as spellRefreshAll, isReady as spellReady } from './lib/spell';
 import { MenuBar } from './components/MenuBar';
@@ -42,6 +44,8 @@ import { ConfirmDialog, ErrorDialog, AboutDialog, GotoLineDialog, PromptDialog, 
 import { SettingsDialog } from './dialogs/SettingsDialog';
 import { FileDialog } from './dialogs/FileDialog';
 import { ImageDialog } from './dialogs/ImageDialog';
+import { ImageExportDialog } from './dialogs/ImageExportDialog';
+import { InstallDialog } from './dialogs/InstallDialog';
 
 const BASE_FONT = 14;
 const EOLS = ['crlf', 'lf', 'cr'];
@@ -212,6 +216,116 @@ export default function App() {
     patchDoc(id, { lint: { tool: r.tool, error: r.error || null, ...counts } });
   };
   const clearLint = (id) => { const st = getState(id); if (st) dispatchTo(id, clearDiagnostics(st)); patchDoc(id, { lint: null }); };
+  // ── printing (파일 › 인쇄, Ctrl+P): a Markdown document prints as rendered,
+  // images included (local ones embedded as data URLs); anything else as a
+  // listing with line numbers.
+  const esc = (x) => String(x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const printDoc = async (id = activeIdRef.current) => {
+    const doc = getDoc(id);
+    const st = getState(id);
+    if (!doc || !st) return;
+    const text = st.doc.toString();
+    const title = doc.name;
+    let body;
+    if (doc.langName === 'Markdown') {
+      const host = document.createElement('div');
+      host.innerHTML = renderMarkdown(text);
+      const base = doc.path ? dirName(doc.path) : folderRef.current || '';
+      await Promise.all([...host.querySelectorAll('img[src]')].map(async (img) => { try { img.setAttribute('src', await resolveImageSrc(img.getAttribute('src'), base)); } catch { /* left as is */ } }));
+      body = `<article class="md">${host.innerHTML}</article>`;
+    } else {
+      const lines = text.split('\n');
+      body = `<table class="code"><tbody>${lines.map((l, i) => `<tr><td class="ln">${i + 1}</td><td class="src">${esc(l) || ' '}</td></tr>`).join('')}</tbody></table>`;
+    }
+    const css = `body{font-family:Segoe UI,Malgun Gothic,Apple SD Gothic Neo,Noto Sans KR,Helvetica,Arial,sans-serif;color:#111;margin:18mm 16mm;font-size:12pt;line-height:1.55}
+h1{font-size:1.8em;border-bottom:1px solid #999;padding-bottom:4px}h2{font-size:1.45em;border-bottom:1px solid #bbb;padding-bottom:3px}h3{font-size:1.2em}
+pre,code{font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospace;font-size:10.5pt}pre{background:#f4f4f4;border:1px solid #ddd;border-radius:4px;padding:8px;white-space:pre-wrap;word-break:break-all}
+img{max-width:100%;height:auto;page-break-inside:avoid}table{border-collapse:collapse}.md table td,.md table th{border:1px solid #bbb;padding:3px 8px}blockquote{border-left:3px solid #999;margin:0;padding:2px 12px;color:#444}
+table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospace;font-size:9.5pt}table.code td{vertical-align:top;padding:0 6px;white-space:pre-wrap;word-break:break-all}table.code td.ln{color:#888;text-align:right;user-select:none;width:1%;border-right:1px solid #ddd}
+.title{font-size:10pt;color:#666;border-bottom:1px solid #ccc;margin-bottom:12px;padding-bottom:4px}@page{margin:0}`;
+    const html = `<!doctype html><html><head><meta charset="utf-8"><title>${esc(title)}</title><style>${css}</style></head><body><div class="title">${esc(doc.path || doc.name)}</div>${body}</body></html>`;
+    printHtml(html, title);
+  };
+  // An image of the preview saved as a file: the export dialog picks the
+  // format / quality / transparency, then the save dialog the place.
+  const saveImage = async (src, alt) => {
+    const r = await ask({ type: 'imageExport', src, alt });
+    if (!r) return;
+    try {
+      const p = await nativeDialog('save', { name: r.name, defaultPath: folderRef.current ? `${folderRef.current}${(infoRef.current && infoRef.current.sep) || '/'}${r.name}` : undefined });
+      if (!p) return;
+      await call('file.writeDataUrl', { path: p, dataUrl: r.dataUrl });
+      setMessage(t('pv_image_saved', { path: p }));
+    } catch (e) { await showError(t('error_title'), e.message, e); }
+  };
+
+  // ── code formatting (편집 › 문서 정렬, Shift+Alt+F): the whole document
+  // through the formatter chosen for its language (settings › 정렬), the
+  // first one installed by default; 'indent' only re-indents with the editor's
+  // own rules, which is also the fallback when nothing is installed.
+  const reindentDoc = (id) => {
+    const v = viewOfDoc(id);
+    if (!v) return false;
+    const sel = v.state.selection;
+    v.dispatch({ selection: { anchor: 0, head: v.state.doc.length } });
+    indentSelection(v);
+    const len = v.state.doc.length;
+    v.dispatch({ selection: { anchor: Math.min(sel.main.anchor, len), head: Math.min(sel.main.head, len) } });
+    return true;
+  };
+  const formatDoc = async (id = activeIdRef.current, { quiet = false } = {}) => {
+    const doc = getDoc(id);
+    const st = getState(id);
+    if (!doc || !st) return false;
+    const lang = doc.langName;
+    const choice = (settingsRef.current.formatters || {})[lang] || 'auto';
+    if (choice === 'none') { if (!quiet) setMessage(t('fmt_off', { lang })); return false; }
+    if (!lang || choice === 'indent') { reindentDoc(id); if (!quiet) setMessage(t('fmt_done', { tool: t('fmt_indent') })); return true; }
+    const text = st.doc.toString();
+    let r;
+    try { r = await call('format.run', { path: doc.path || '', name: doc.name, language: lang, text, tool: choice, tabSize: settingsRef.current.tabSize, insertSpaces: settingsRef.current.insertSpaces }); } catch (e) { if (!quiet) setMessage(`${t('fmt_failed', { tool: lang })}: ${e.message}`); return false; }
+    if (r.error) {
+      if (!r.tool) { reindentDoc(id); if (!quiet) setMessage(t('fmt_none', { lang })); return true; }
+      // The chosen tool is not installed: offer to install it (package manager, progress popup), then format.
+      if (r.notInstalled && !quiet) {
+        if (r.installable) {
+          const yes = await confirm(t('inst_ask_title', { tool: r.tool }), t('inst_ask_msg', { tool: r.tool, lang }), [{ id: 'yes', label: t('inst_ask_yes'), kind: 'primary' }, { id: 'cancel', label: t('cancel') }], { icon: 'download', kind: 'info' });
+          if (yes !== 'yes') return false;
+          let st;
+          try { st = await call('install.start', { tool: r.tool }); } catch (e) { st = { error: e.message }; }
+          if (st.error) { setMessage(`${t('inst_failed', { tool: r.tool })}: ${st.error}`); return false; }
+          if (st.manual) { await showError(t('inst_manual_title', { tool: r.tool }), st.manual); return false; }
+          if (st.missing) { await showError(t('inst_manual_title', { tool: r.tool }), t('inst_missing_pm', { pm: st.missing, tool: r.tool })); return false; }
+          const ok = await ask({ type: 'install', tool: r.tool, jobId: st.id });
+          if (!ok) return false;
+          return formatDoc(id, { quiet });
+        }
+        await showError(t('inst_manual_title', { tool: r.tool }), r.hint || t('inst_no_recipe', { tool: r.tool }));
+        return false;
+      }
+      if (!quiet) setMessage(`${t('fmt_failed', { tool: r.tool })}: ${r.error}`);
+      return false;
+    }
+    const next = String(r.text).replace(/\r\n?/g, '\n');
+    const cur = getState(id);
+    if (!cur || cur.doc.toString() !== text) return false;   // edited meanwhile
+    if (next !== text) {
+      const main = cur.selection.main;
+      const line = cur.doc.lineAt(main.head);
+      const lineNo = line.number, col = main.head - line.from;
+      dispatchTo(id, { changes: { from: 0, to: cur.doc.length, insert: next } });
+      const after = getState(id);
+      if (after) {
+        const l = after.doc.line(Math.min(lineNo, after.doc.lines));
+        const pos = Math.min(l.from + col, l.to);
+        dispatchTo(id, { selection: { anchor: pos }, scrollIntoView: true });
+      }
+      scheduleLint(id, 300);
+    }
+    if (!quiet) setMessage(t(next === text ? 'fmt_unchanged' : 'fmt_done', { tool: r.tool }));
+    return true;
+  };
+
   // ── find in files / in the open documents ──
   const searchOpenDocs = ({ query, regex, caseSensitive, wholeWord }) => {
     let re;
@@ -522,6 +636,7 @@ export default function App() {
       target = p;
     }
     const enc = encoding || doc.encoding;
+    if (settingsRef.current.formatOnSave) await formatDoc(id, { quiet: true });
     // Save-time transforms are applied to the document itself, so what you see is what was written.
     const state = getState(id);
     const before = state.doc.toString();
@@ -765,7 +880,9 @@ export default function App() {
   }, []);
 
   // ── settings ──
-  const changeSettings = (patch) => {
+  // Settings changed in a separate window (settings popup): apply, don't save again, don't echo back.
+  useEffect(() => onSettingsPatch((patch) => changeSettings(patch, { fromRemote: true })), []);   // eslint-disable-line react-hooks/exhaustive-deps
+  const changeSettings = (patch, { fromRemote = false } = {}) => {
     const next = setSettings(patch);
     if (patch.language !== undefined) { setLanguage(next.language); setDocs((ds) => ds.map((d) => (d.path ? d : { ...d, name: t('untitled', { n: d.untitledNo }) }))); }
     if (patch.theme !== undefined) { const th = applyTheme(next.theme); call('session.save', { themeBg: th.tokens['--bg'] }).catch(() => {}); }
@@ -778,7 +895,7 @@ export default function App() {
     if (patch.mdWysiwyg !== undefined) for (const d of docsRef.current) if (d.langName === 'Markdown') applyLanguage(d);
     if (patch.spellCodeAll !== undefined) { setSpellOptions({ codeAll: !!next.spellCodeAll }); spellRefreshAll([viewRef.current]); }
     if (patch.lint !== undefined) lintAll();
-    call('session.save', patch).catch(() => {});
+    if (!fromRemote) { call('session.save', patch).catch(() => {}); sendSettingsPatch(patch); }
   };
   const toggleSetting = (k) => changeSettings({ [k]: !settingsRef.current[k] });
   const zoom = Math.round((settings.fontSize / BASE_FONT) * 100);
@@ -957,6 +1074,8 @@ export default function App() {
       case 'removeEmpty': withView(commands.removeEmpty); break;
       case 'removeDup': withView(commands.removeDuplicates); break;
       case 'insertDate': withView((vw) => commands.insertText(vw, new Date().toLocaleString())); break;
+      case 'formatDoc': await formatDoc(typeof arg === 'number' ? arg : activeIdRef.current); break;
+      case 'print': await printDoc(typeof arg === 'number' ? arg : activeIdRef.current); break;
       case 'insertPath': { const d = getDoc(cur); if (d && d.path) withView((vw) => commands.insertText(vw, d.path)); break; }
       case 'foldAll': withView(commands.foldAll); break;
       case 'unfoldAll': withView(commands.unfoldAll); break;
@@ -980,9 +1099,7 @@ export default function App() {
       case 'fullscreen': windowControl('fullscreen'); break;
       case 'nextTheme': changeSettings({ theme: nextThemeId(settingsRef.current.theme) }); break;
       case 'toggleLanguage': changeSettings({ language: getLanguage() === 'ko' ? 'en' : 'ko' }); break;
-      case 'settings': setDialog({ type: 'settings' }); break;
-      case 'about': setDialog({ type: 'about' }); break;
-      case 'shortcuts': setDialog({ type: 'shortcuts' }); break;
+      case 'settings': case 'about': case 'shortcuts': if (!openPopup(id)) setDialog({ type: id }); break;
       case 'guide': setDialog({ type: 'shortcuts' }); break;
       case 'languagePicker': setDialog({ type: 'language', docId: arg || cur }); break;
       case 'reopenPicker': setDialog({ type: 'encoding', mode: 'reopen' }); break;
@@ -1074,6 +1191,8 @@ export default function App() {
       else if (e.key === 'F11') action('fullscreen');
       else if (e.key === 'F7') action('toggle:spellCheck');
       else if (e.key === 'F8') action('lintNext');
+      else if (e.altKey && e.shiftKey && !mod && (e.key === 'F' || e.key === 'f')) action('formatDoc');
+      else if (mod && !e.shiftKey && !e.altKey && k === 'p') action('print');
       else if (mod && !e.shiftKey && e.key === '\\') action(settingsRef.current.split === 'none' ? 'split:cols' : 'split:none');
       else if (mod && e.altKey && /^[1-4]$/.test(e.key)) action(`split:${['none', 'cols', 'rows', 'grid'][Number(e.key) - 1]}`);
       else if (e.key === 'F6' && !e.shiftKey && !mod) action('nextPane');
@@ -1116,6 +1235,8 @@ export default function App() {
       { id: 'saveAll', label: t('save_all'), icon: 'saveAll', shortcut: sc('Ctrl+Shift+S'), disabled: !docs.some((d) => d.dirty) },
       { id: 'reload', label: t('reload'), icon: 'reload', disabled: !cur || !cur.path },
       { sep: true },
+      { id: 'print', label: t('print'), icon: 'print', shortcut: sc('Ctrl+P'), disabled: !cur },
+      { sep: true },
       { id: 'close', label: t('close'), icon: 'close', shortcut: sc('Ctrl+W'), disabled: !cur },
       { id: 'closeAll', icon: 'closeAll', label: t('close_all'), shortcut: sc('Ctrl+Shift+W'), disabled: !docs.length },
       { id: 'closeOthers', icon: 'closeOthers', label: t('close_others'), disabled: docs.length < 2 },
@@ -1155,6 +1276,8 @@ export default function App() {
       { id: 'trimWs', icon: 'trimWs', label: t('trim_ws') },
       { id: 'removeEmpty', icon: 'removeEmpty', label: t('remove_empty') },
       { id: 'removeDup', icon: 'removeDup', label: t('remove_dup') },
+      { sep: true },
+      { id: 'formatDoc', label: t('format_doc'), icon: 'format', shortcut: 'Shift+Alt+F', disabled: !cur },
       { sep: true },
       { id: 'insertDate', label: t('insert_date'), icon: 'calendar' },
       { id: 'insertPath', icon: 'link', label: t('insert_path'), disabled: !cur || !cur.path },
@@ -1238,6 +1361,7 @@ export default function App() {
       { id: 'save', label: t('save'), icon: 'fileSave' },
       { id: 'saveAs', icon: 'fileSave', label: t('save_as') },
       { id: 'reload', label: t('reload'), icon: 'reload', disabled: !d || !d.path },
+      { id: 'formatDoc', icon: 'format', label: t('format_doc'), shortcut: 'Shift+Alt+F' },
       { sep: true },
       { id: 'close', label: t('close'), icon: 'close' },
       { id: 'closeOthers', icon: 'closeOthers', label: t('close_others'), disabled: docs.length < 2 },
@@ -1278,6 +1402,7 @@ export default function App() {
     { id: 'toggleComment', icon: 'comment', label: t('toggle_comment'), shortcut: sc('Ctrl+/') },
     { id: 'upper', icon: 'upper', label: t('upper') },
     { id: 'lower', icon: 'lower', label: t('lower') },
+    { id: 'formatDoc', icon: 'format', label: t('format_doc'), shortcut: 'Shift+Alt+F' },
     { sep: true },
     { id: 'find', label: t('find'), icon: 'search', shortcut: sc('Ctrl+F') },
     { id: 'replace', label: t('replace'), icon: 'replace', shortcut: sc('Ctrl+H') },
@@ -1336,7 +1461,7 @@ export default function App() {
   useEffect(() => {
     window.__med = {
       get state() { return { docs: docsRef.current, activeId: activeIdRef.current, settings: settingsRef.current, folder, find: !!find, dialog: dialog ? dialog.type : null, cursor }; },
-      action, openFiles, openPath, newUntitled, activate, focusPane, showInPane, get panes() { return panesRef.current.map((p, i) => ({ docId: p.docId, active: i === activePaneRef.current })); }, setText: (text) => { const v = viewRef.current; if (v) v.dispatch({ changes: { from: 0, to: v.state.doc.length, insert: text } }); },
+      action, openFiles, openPath, newUntitled, activate, focusPane, showInPane, formatDoc, saveImage, exportImage: async (src, opts) => encodeImage((await analyzeImage(src)).canvas, opts), get panes() { return panesRef.current.map((p, i) => ({ docId: p.docId, active: i === activePaneRef.current })); }, setText: (text) => { const v = viewRef.current; if (v) v.dispatch({ changes: { from: 0, to: v.state.doc.length, insert: text } }); },
       getText: () => (viewRef.current ? viewRef.current.state.doc.toString() : ''), setFolder: (p) => setFolder(p), view: () => viewRef.current, closeDialog,
     };
   });
@@ -1431,7 +1556,7 @@ export default function App() {
             {isMarkdown && settings.mdPreview && view && (
               <>
                 <div className="v-splitter" onMouseDown={onPreviewSplitDown} />
-                <Preview view={view} docVersion={docVersion} cursorPos={cursor.pos} base={cur && cur.path ? dirName(cur.path) : folder || ''} width={`${Math.round(settings.mdPreviewWidth * 100)}%`} />
+                <Preview view={view} docVersion={docVersion} cursorPos={cursor.pos} onAction={action} onSaveImage={saveImage} onMessage={setMessage} base={cur && cur.path ? dirName(cur.path) : folder || ''} width={`${Math.round(settings.mdPreviewWidth * 100)}%`} />
               </>
             )}
           </div>
@@ -1453,10 +1578,12 @@ export default function App() {
       {dialog && dialog.type === 'prompt' && <PromptDialog title={dialog.title} label={dialog.label} initial={dialog.initial} okLabel={dialog.okLabel} icon={dialog.icon} validate={dialog.validate} onResult={closeDialog} />}
       {dialog && dialog.type === 'about' && <AboutDialog info={info} onClose={closeDialog} />}
       {dialog && dialog.type === 'shortcuts' && <ShortcutsDialog onClose={closeDialog} />}
-      {dialog && dialog.type === 'settings' && <SettingsDialog settings={settings} encodings={(info && info.encodings) || []} shells={shells} onChange={changeSettings} onClose={closeDialog} />}
+      {dialog && dialog.type === 'settings' && <SettingsDialog settings={settings} encodings={(info && info.encodings) || []} shells={shells} formatDir={cur && cur.path ? dirName(cur.path) : folder || ''} onChange={changeSettings} onClose={closeDialog} />}
       {dialog && dialog.type === 'goto' && <GotoLineDialog lines={cursor.lines} current={cursor.line} onClose={closeDialog} onGo={(l, c) => { closeDialog(); withView((v) => commands.gotoLine(v, l, c)); }} />}
       {dialog && dialog.type === 'language' && <LanguagePicker current={(getDoc(dialog.docId) || {}).language || 'auto'} onClose={closeDialog} onPick={(name) => { closeDialog(); setDocLanguage(dialog.docId, name); }} />}
       {dialog && dialog.type === 'encoding' && <EncodingPicker title={t('reopen_as')} encodings={(info && info.encodings) || []} current={cur && cur.encoding} onClose={closeDialog} onPick={(id) => { closeDialog(); reopenWith(activeIdRef.current, id); }} />}
+      {dialog && dialog.type === 'install' && <InstallDialog tool={dialog.tool} jobId={dialog.jobId} doneLabel={t('inst_use')} onResult={closeDialog} />}
+      {dialog && dialog.type === 'imageExport' && <ImageExportDialog src={dialog.src} alt={dialog.alt} onResult={closeDialog} />}
       {dialog && dialog.type === 'mdImage' && <ImageDialog base={cur && cur.path ? dirName(cur.path) : folder || ''} home={info && info.home} sep={(info && info.sep) || '/'}
         onResult={(text) => { closeDialog(); if (!text) return; withView((vw) => { const r = vw.state.selection.main; vw.dispatch({ changes: { from: r.from, to: r.to, insert: text }, selection: { anchor: r.from + text.length }, scrollIntoView: true }); }); }} />}
       {dialog && dialog.type === 'file' && <FileDialog kind={dialog.kind} startPath={dialog.opts.defaultPath || folder || (info && info.home)} defaultName={dialog.opts.name} sep={(info && info.sep) || '/'} onResult={closeDialog} />}

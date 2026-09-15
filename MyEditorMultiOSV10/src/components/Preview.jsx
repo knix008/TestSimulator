@@ -7,10 +7,12 @@
 // line is on screen (interpolated by line inside the element), and scrolling
 // the editor scrolls the preview to the element at its top. Re-renders a
 // moment after the document changes.
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { t } from '../lib/i18n';
+import { ContextMenu } from './ContextMenu';
 import { syntaxTree, ensureSyntaxTree } from '@codemirror/language';
 import { renderMarkdown } from '../lib/markdown';
-import { resolveImagesIn } from '../lib/images';
+import { resolveImagesIn, copyImage } from '../lib/images';
 
 // Top-level source blocks of the document: [{ from, to, name, items }] where
 // items are the list items / table rows ({ from, to }). The editor parses
@@ -47,8 +49,9 @@ function tagItems(blockEl, block) {
   els.forEach((e, i) => { e.dataset.from = block.items[i].from; e.dataset.to = block.items[i].to; });
 }
 
-export function Preview({ view, docVersion, cursorPos, width, base }) {
+export function Preview({ view, docVersion, cursorPos, width, base, onAction, onSaveImage, onMessage }) {
   const ref = useRef(null);
+  const [ctx, setCtx] = useState(null);   // { x, y, img: src | null, hasSelection }
   const timer = useRef(null);
   const lock = useRef(0);          // > now: a programmatic scroll, ignore the scroll event
   const lastTarget = useRef(null);
@@ -158,7 +161,32 @@ export function Preview({ view, docVersion, cursorPos, width, base }) {
     if (/^https?:/i.test(href)) window.open(href, '_blank', 'noopener');
   };
 
-  return <div className="md-preview selectable" ref={ref} style={{ width }} onClick={onClick} />;
+  const onContextMenu = (e) => {
+    e.preventDefault();
+    const img = e.target.closest('img');
+    setCtx({ x: e.clientX, y: e.clientY, img: img ? img.currentSrc || img.src : null, alt: img ? img.alt : '', hasSelection: !!String(window.getSelection()).trim() });
+  };
+  const items = ctx ? [
+    ...(ctx.img ? [{ id: 'copyImage', icon: 'fileImage', label: t('pv_copy_image') }, { id: 'saveImage', icon: 'fileSave', label: t('pv_save_image') }, { sep: true }] : []),
+    { id: 'copy', icon: 'copy', label: t('copy'), disabled: !ctx.hasSelection },
+    { id: 'selectAll', icon: 'selectAll', label: t('select_all') },
+    { sep: true },
+    { id: 'print', icon: 'print', label: t('print') },
+  ] : [];
+  const pick = async (id) => {
+    const c = ctx; setCtx(null);
+    if (id === 'copy') document.execCommand('copy');
+    else if (id === 'selectAll') { const sel = window.getSelection(); const r = document.createRange(); r.selectNodeContents(ref.current); sel.removeAllRanges(); sel.addRange(r); }
+    else if (id === 'copyImage') { try { await copyImage(c.img); if (onMessage) onMessage(t('pv_image_copied')); } catch (e) { if (onMessage) onMessage(`${t('pv_image_copy_failed')}: ${e.message}`); } }
+    else if (id === 'saveImage') { if (onSaveImage) onSaveImage(c.img, c.alt); }
+    else if (id === 'print') { if (onAction) onAction('print'); }
+  };
+  return (
+    <>
+      <div className="md-preview selectable" ref={ref} style={{ width }} onClick={onClick} onContextMenu={onContextMenu} />
+      {ctx && <ContextMenu x={ctx.x} y={ctx.y} items={items} onClose={() => setCtx(null)} onPick={pick} />}
+    </>
+  );
 }
 
 export default Preview;

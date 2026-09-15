@@ -1,11 +1,13 @@
 // Settings dialog (Ctrl+,) — four tabs: general, editor, files, terminal. Changes
 // apply immediately (the editor reconfigures live) and are persisted.
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { t, useLanguage, getLanguage } from '../lib/i18n';
 import { THEMES } from '../themes';
 import { FontPicker } from '../components/FontPicker';
-import { Dialog } from './Dialogs';
-import { isElectron, nativeDialog } from '../lib/backend';
+import { Icon } from '../components/Icons';
+import { Dialog, ConfirmDialog } from './Dialogs';
+import { InstallDialog } from './InstallDialog';
+import { isElectron, nativeDialog, call } from '../lib/backend';
 
 function Check({ id, label, settings, onChange }) {
   return (
@@ -16,15 +18,40 @@ function Check({ id, label, settings, onChange }) {
   );
 }
 
-export function SettingsDialog({ settings, encodings, shells = [], onChange, onClose }) {
+export function SettingsDialog({ settings, encodings, shells = [], formatDir = '', onChange, onClose, embedded = false }) {
   useLanguage();
   const [tab, setTab] = useState('general');
   const lang = getLanguage();
-  const tabs = [['general', t('set_general')], ['editor', t('set_editor')], ['files', t('set_files')], ['terminal', t('set_terminal')]];
+  const tabs = [['general', t('set_general')], ['editor', t('set_editor')], ['files', t('set_files')], ['terminal', t('set_terminal')], ['format', t('set_format')]];
+  // The formatters per language and which are installed (asked once, when the tab opens).
+  const [tools, setTools] = useState(null);
+  const [job, setJob] = useState(null);        // { tool, id } while a tool is being (re)installed from here
+  const [installMsg, setInstallMsg] = useState(null);
+  const [askReinstall, setAskReinstall] = useState(null);   // { lang, tool } — the tool is installed already: the user decides
+  // (Re)installs the tool chosen for a language. An installed one is only
+  // replaced when the user chooses so (remove + fresh install).
+  const installTool = async (lang, decided = null) => {
+    const id = (settings.formatters || {})[lang];
+    const list = (tools || {})[lang] || [];
+    const tool = list.find((x) => x.id === id) || (id === 'auto' || !id ? list.find((x) => x.installable) : null);
+    if (!tool) { setInstallMsg(t('inst_pick_first')); return; }
+    if (!tool.installable) { setInstallMsg(tool.hint || t('inst_no_recipe', { tool: tool.id })); return; }
+    setInstallMsg(null);
+    if (tool.available && decided == null) { setAskReinstall({ lang, tool }); return; }
+    let st;
+    try { st = await call('install.start', { tool: tool.id, reinstall: tool.available && decided === 'reinstall' }); } catch (e) { st = { error: e.message }; }
+    if (st.error) { setInstallMsg(st.error); return; }
+    if (st.manual) { setInstallMsg(st.manual); return; }
+    if (st.missing) { setInstallMsg(t('inst_missing_pm', { pm: st.missing, tool: tool.id })); return; }
+    setJob({ tool: tool.id, id: st.id });
+  };
+  useEffect(() => { if (tab === 'format' && !tools) call('format.tools', { dir: formatDir }).then(setTools).catch(() => setTools({})); }, [tab, tools, formatDir]);
+  const setFormatter = (lang, id) => onChange({ formatters: { ...(settings.formatters || {}), [lang]: id } });
+  const toolLabel = (x) => ({ 'prettier-builtin': t('fmt_prettier_builtin'), prettier: t('fmt_prettier_ext'), 'builtin-json': t('fmt_builtin_json'), 'builtin-xml': t('fmt_builtin_xml') })[x.id] || x.label;
   // The folder picker is a native dialog on the desktop; the web version's fallback dialog would replace this one, so there the path is typed.
   const browseTermCwd = async () => { try { const p = await nativeDialog('openFolder', { defaultPath: settings.termCwd || undefined }); if (p) onChange({ termCwd: p }); } catch { /* cancelled */ } };
   return (
-    <Dialog title={t('settings_title')} icon="settings" kind="info" className="settings" width={560} onClose={onClose} onEnter={onClose}
+    <Dialog modal={false} embedded={embedded} title={t('settings_title')} icon="settings" kind="info" className="settings" width={780} onClose={onClose} onEnter={onClose}
       footer={<button className="btn primary" onClick={onClose}>{t('ok')}</button>}>
       <div className="settings-tabs">
         {tabs.map(([id, label]) => <button key={id} className={`settings-tab ${tab === id ? 'active' : ''}`} onClick={() => setTab(id)}>{label}</button>)}
@@ -110,6 +137,36 @@ export function SettingsDialog({ settings, encodings, shells = [], onChange, onC
           <Check id="reloadChangedFiles" label={t('set_reload')} settings={settings} onChange={onChange} />
         </div>
       )}
+      {tab === 'format' && (
+        <div className="settings-format">
+          <label className="check settings-check"><input type="checkbox" checked={!!settings.formatOnSave} onChange={(e) => onChange({ formatOnSave: e.target.checked })} /><span>{t('set_format_on_save')}</span></label>
+          <p className="muted small">{t('set_format_hint')} <button className="btn small" onClick={() => setTools(null)}>{t('fmt_rescan')}</button></p>
+          {installMsg && <div className="danger small">{installMsg}</div>}
+          <div className="format-grid">
+            {!tools && <span className="muted small">…</span>}
+            {tools && Object.entries(tools).map(([lang, list]) => (
+              <React.Fragment key={lang}>
+                <label>{lang}</label>
+                <span className="row fmt-row">
+                <select value={(settings.formatters || {})[lang] || 'auto'} onChange={(e) => setFormatter(lang, e.target.value)}>
+                  <option value="auto">{t('fmt_auto', { tool: list.some((x) => x.available) ? toolLabel(list.find((x) => x.available)) : t('fmt_indent') })}</option>
+                  {list.map((x) => <option key={x.id} value={x.id}>{toolLabel(x)}{x.available ? '' : ` — ${x.installable ? t('fmt_not_installed_auto') : t('fmt_not_installed_manual')}`}</option>)}
+                  <option value="indent">{t('fmt_indent')}</option>
+                  <option value="none">{t('fmt_none_opt')}</option>
+                </select>
+                {(() => { const id = (settings.formatters || {})[lang]; const x = list.find((y) => y.id === id) || (id === 'auto' || !id ? list.find((y) => y.installable) : null); return x && x.installable ? <button className="icon-btn" title={x.available ? t('inst_reinstall', { tool: x.id }) : t('inst_install', { tool: x.id })} onClick={() => installTool(lang)}><Icon name={x.available ? 'refresh' : 'download'} size={14} /></button> : null; })()}
+                </span>
+              </React.Fragment>
+            ))}
+          </div>
+        </div>
+      )}
+      {askReinstall && (
+        <ConfirmDialog title={t('inst_already_title', { tool: askReinstall.tool.id })} message={t('inst_already_msg', { tool: askReinstall.tool.id })} icon="download" kind="info"
+          buttons={[{ id: 'reinstall', label: t('inst_already_reinstall'), kind: 'primary' }, { id: 'keep', label: t('inst_already_keep') }, { id: 'cancel', label: t('cancel') }]}
+          onResult={(r) => { const a = askReinstall; setAskReinstall(null); if (r === 'reinstall' || r === 'keep') installTool(a.lang, r); }} />
+      )}
+      {job && <InstallDialog tool={job.tool} jobId={job.id} onResult={() => { setJob(null); setTools(null); }} />}
       {tab === 'terminal' && (
         <div className="form-grid settings-grid">
           <label>{t('set_term_shell')}</label>

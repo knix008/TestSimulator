@@ -5,6 +5,7 @@ node_modules/
 dist/
 release/
 build/icons/
+build/fileicons/
 src/build-info.json
 public/icon.svg
 

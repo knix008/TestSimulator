@@ -1,5 +1,9 @@
 # My Editor — 아키텍처
 
+![전체 구조](assets/docs/architecture.svg)
+
+위 그림(assets/docs/architecture.svg · PNG: architecture.png)은 네 층 — 렌더러(React + CodeMirror 6) → 전송(Electron IPC 또는 HTTP /api) → 호스트(electron/ · server/) → core(Node, 두 호스트가 공유) — 와 core 가 다루는 바깥 세계(파일 시스템·세션, 셸·git 프로세스, 설치된 검사/정렬 도구)를 보여 줍니다. 렌더러의 모든 백엔드 호출은 lib/backend.js 의 call(name, args) 하나를 거치고, 호스트가 무엇이든 core/api.js 의 같은 메서드 테이블에 닿습니다.
+
 ```
 MyEditorMultiOSV10/
 ├ core/                 플랫폼 무관 (Node 전용, 두 호스트가 공유)
@@ -7,16 +11,19 @@ MyEditorMultiOSV10/
 │  ├ files.js           읽기/쓰기(원자적), 디렉터리 목록, 드라이브, mkdir/rename/remove, 이미지 → data URL
 │  ├ session.js         session.json (설정 · 탭 · 초안 · 최근 파일 · 창 위치)
 │  ├ search.js          폴더 전체 찾기(재귀 탐색, 바이너리/대용량/빌드 폴더 제외, 포함·제외 글롭, 취소, 결과 상한)
+│  ├ install.js         정렬 도구 자동 설치(레시피: npm→<config>/tools/node · pip --user · cargo · go · gem · rustup · Install-Module; 진행 로그 롱폴, 취소)
+│  ├ format.js          문서 정렬: 언어별 도구 목록·설치 여부, stdin/stdout 실행, 내장 Prettier(in-process)·JSON·XML
 │  ├ lint.js            언어별 검사 도구 실행(별도 프로세스, stdin, 도구 탐색·캐시, 문서별 취소) → { line, col, severity, message }
 │  ├ terminal.js        터미널 세션(파이프 셸 — 프롬프트·에코 없이 기동, 콘솔 코드 페이지 변환, bash 는 eval 래핑, SGR 색 유지, 출력 버퍼, cwd/idle 마커) + Tab 자동완성(내장 명령·PATH·경로) + git status 파싱
 │  └ api.js             메서드 테이블 `api.call(name, args)` + 오류 직렬화
 ├ electron/             데스크톱 호스트
-│  ├ main.js            창, 단일 인스턴스, argv 파일 열기, 네이티브 대화상자, 닫기 확인, 스모크 훅
+│  ├ main.js            창, 단일 인스턴스, argv 파일 열기, 네이티브 대화상자, 닫기 확인, 팝업 창(설정·정보·단축키 — ?popup=, 자식 창), 인쇄(숨은 창 → 시스템 대화상자), 스모크 훅
 │  ├ ipc.js             ipcMain: 'api' · 'dialog' · 창 제어
 │  └ preload.js         contextBridge → window.myEditor
 ├ server/server.js      웹 호스트: dist/ 정적 서빙 + POST /api/<name>
 ├ src/                  React UI (Vite)
-│  ├ App.jsx            문서 모델·탭·열기/저장/닫기·세션 복원·메뉴·단축키·대화상자 흐름
+│  ├ App.jsx            문서 모델·탭·열기/저장/닫기·세션 복원·메뉴·단축키·대화상자 흐름·인쇄 HTML 생성
+│  ├ PopupWindow.jsx    별도 창 페이지(설정·정보·단축키): 세션 읽기, settings:patch 로 창 간 동기화
 │  ├ lib/editor.js      CodeMirror 확장 세트, Compartment, 테마(CSS 변수), 검색 API, 편집 명령
 │  ├ lib/languages.js   @codemirror/language-data 150+ 언어 지연 로드, 확장자 판별
 │  ├ lib/markdown.js    Markdown 서식 명령(감싸기/접두사 토글/블록 삽입), marked+DOMPurify 렌더러
@@ -32,7 +39,7 @@ MyEditorMultiOSV10/
 │  ├ themes.js          16 테마 → CSS 변수(구문 색 --syn-* 포함)
 │  ├ components/        MenuBar · Toolbar · TabBar · EditorPane · FindBar · MarkdownBar · Preview · Sidebar · SearchPanel · TerminalPanel · FontPicker · StatusBar · ContextMenu · Icons
 │  └ dialogs/           Dialogs(확인·오류·정보·줄 이동·프롬프트·언어·인코딩·단축키) · SettingsDialog · FileDialog(웹)
-├ scripts/              start-electron · free-port · generate-icons(+ico) · build-info · smoke · clean …
+├ scripts/              start-electron · free-port · generate-icons(+ico) · generate-file-icons(언어별 .ico + NSIS 목록) · build-info · smoke · clean …
 ├ test/core.test.mjs    코어 단위 테스트
 └ build/                installer.nsh, linux 설치 스크립트, icons/(생성됨)
 ```

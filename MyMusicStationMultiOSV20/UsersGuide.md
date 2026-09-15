@@ -149,7 +149,7 @@ Select a track → Convert → choose format (and quality where applicable) → 
 ## Windows Installer Notes
 
 - Stops running instances and removes previous installs before copying files.
-- Registers `.mplist` and appears under Windows media / Open with for common audio types.
+- Registers `.mplist` (playlist icon) and appears under Windows media / Open with for common audio types (dedicated music-file icon).
 - Asks whether to set My Music Station as the **default audio player** (Yes / No). Silent (`/S`) installs choose Yes.
 - Supported association types include MP3, FLAC, WAV, OGG, AAC, M4A, WebM, OPUS, WMA, AIFF.
 - Opening an associated file launches (or focuses) the app and loads that file.

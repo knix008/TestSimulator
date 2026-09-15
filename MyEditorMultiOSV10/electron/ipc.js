@@ -1,9 +1,11 @@
 // IPC bridge: exposes core/api.js to the renderer, the native dialogs and the
 // frameless-window controls.
-const { ipcMain } = require('electron');
+const { ipcMain, BrowserWindow } = require('electron');
 const { serializeError } = require('../core/api');
 
-function registerIpc(api, getWindow, { dialogs, onRendererReady } = {}) {
+function registerIpc(api, getWindow, { dialogs, onRendererReady, openPopup, printHtml } = {}) {
+  // The window a message came from (a popup or the main window).
+  const senderWin = (event) => { const w = BrowserWindow.fromWebContents(event.sender); return w && !w.isDestroyed() ? w : getWindow(); };
   ipcMain.handle('api', async (_event, name, args) => {
     try {
       return { ok: true, data: await api.call(name, args) };
@@ -25,8 +27,8 @@ function registerIpc(api, getWindow, { dialogs, onRendererReady } = {}) {
   ipcMain.on('renderer:ready', () => { if (onRendererReady) onRendererReady(); });
 
   // Window buttons of the frameless window (menu bar).
-  ipcMain.on('win:control', (_event, action) => {
-    const win = getWindow();
+  ipcMain.on('win:control', (event, action) => {
+    const win = senderWin(event);
     if (!win || win.isDestroyed()) return;
     if (action === 'minimize') win.minimize();
     else if (action === 'maximize') { if (win.isMaximized()) win.unmaximize(); else win.maximize(); }
@@ -50,6 +52,14 @@ function registerIpc(api, getWindow, { dialogs, onRendererReady } = {}) {
   });
   ipcMain.handle('win:isMaximized', () => { const win = getWindow(); return !!(win && !win.isDestroyed() && win.isMaximized()); });
   ipcMain.on('win:setTitle', (_event, title) => { const win = getWindow(); if (win && !win.isDestroyed()) win.setTitle(title || 'My Editor'); });
+
+  // Separate windows for settings / info / shortcuts.
+  ipcMain.on('popup:open', (_event, kind) => { if (openPopup) openPopup(kind); });
+  ipcMain.on('print:html', (_event, html, title) => { if (printHtml) printHtml(String(html || ''), title); });
+  // A settings change in one window reaches every other window.
+  ipcMain.on('settings:patch', (event, patch) => {
+    for (const w of BrowserWindow.getAllWindows()) if (!w.isDestroyed() && w.webContents !== event.sender) w.webContents.send('settings:patch', patch);
+  });
 
   ipcMain.on('app:quit', () => {
     const win = getWindow();

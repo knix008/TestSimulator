@@ -65,6 +65,51 @@ function sendOpenFiles(list) {
   mainWin.webContents.send('files:open', list);
 }
 
+// Settings / info / shortcuts as separate windows — children of the main
+// window (always above it, minimized and closed with it) that can be moved
+// anywhere on the screen. Each loads the same bundle with ?popup=<kind>
+// (src/main.jsx renders PopupWindow instead of App). One window per kind.
+const POPUPS = { settings: { width: 820, height: 730, min: [700, 560] }, about: { width: 560, height: 420, min: [420, 360] }, shortcuts: { width: 1000, height: 780, min: [720, 500] } };
+const popups = new Map();
+function openPopup(kind) {
+  const spec = POPUPS[kind];
+  if (!spec || !mainWin || mainWin.isDestroyed()) return null;
+  const existing = popups.get(kind);
+  if (existing && !existing.isDestroyed()) { existing.focus(); return existing; }
+  const session = api.session.get();
+  const pb = mainWin.getBounds();
+  const win = new BrowserWindow({
+    width: spec.width, height: spec.height, minWidth: spec.min[0], minHeight: spec.min[1],
+    x: Math.round(pb.x + (pb.width - spec.width) / 2), y: Math.round(pb.y + Math.max(40, (pb.height - spec.height) / 2)),
+    parent: mainWin, modal: false, frame: false, autoHideMenuBar: true, show: false, title: PRODUCT,
+    backgroundColor: session.themeBg || '#12161c',
+    icon: fs.existsSync(iconPath()) ? iconPath() : undefined,
+    webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: false, spellcheck: false },
+  });
+  popups.set(kind, win);
+  win.once('ready-to-show', () => win.show());
+  win.on('closed', () => { if (popups.get(kind) === win) popups.delete(kind); });
+  win.webContents.setWindowOpenHandler(({ url }) => { if (/^https?:/.test(url)) shell.openExternal(url); return { action: 'deny' }; });
+  if (isDev) win.loadURL(`${DEV_URL}?popup=${kind}`);
+  else win.loadFile(path.join(__dirname, '..', 'dist', 'index.html'), { query: { popup: kind } });
+  return win;
+}
+// Printing: the HTML built by the renderer (a rendered Markdown document with
+// its images, or the code as a listing) is loaded into a hidden window and
+// sent to the system print dialog.
+function printHtml(html, title) {
+  const win = new BrowserWindow({ show: false, width: 900, height: 1200, parent: mainWin || undefined, webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false } });
+  win.webContents.once('did-finish-load', () => {
+    setTimeout(() => {
+      if (win.isDestroyed()) return;
+      win.webContents.print({ printBackground: true, silent: false }, () => { if (!win.isDestroyed()) win.close(); });
+    }, 300);
+  });
+  win.setTitle(title || PRODUCT);
+  win.loadURL(`data:text/html;charset=utf-8;base64,${Buffer.from(html, 'utf8').toString('base64')}`);
+}
+function closePopups() { for (const w of popups.values()) { if (!w.isDestroyed()) w.close(); } popups.clear(); }
+
 function createWindow() {
   const session = api.session.get();
   const saved = session.windowBounds || null;
@@ -131,7 +176,7 @@ function createWindow() {
     win.webContents.send('win:close-request');
   });
   win.approveClose = () => { closeApproved = true; if (!win.isDestroyed()) win.close(); };
-  win.on('closed', () => { mainWin = null; });
+  win.on('closed', () => { mainWin = null; closePopups(); });
 
   if (argValue('smoke-url')) win.loadURL(argValue('smoke-url'));
   else if (isDev) win.loadURL(DEV_URL);
@@ -148,6 +193,17 @@ function createWindow() {
             const result = await win.webContents.executeJavaScript(fs.readFileSync(script, 'utf-8'), true);
             await new Promise((r) => setTimeout(r, Number(argValue('smoke-settle') || 800)));
             if (result !== undefined) console.log('[smoke-script]', typeof result === 'string' ? result : JSON.stringify(result));
+          }
+          const popupKind = argValue('smoke-popup');
+          if (popupKind) {
+            const pw = openPopup(popupKind);
+            await new Promise((r) => pw.webContents.once('did-finish-load', r));
+            await new Promise((r) => setTimeout(r, 1200));
+            const pimg = await pw.webContents.capturePage();
+            fs.mkdirSync(path.dirname(shot), { recursive: true });
+            fs.writeFileSync(shot.replace(/\.png$/, `.${popupKind}.png`), pimg.toPNG());
+            const pb2 = pw.getBounds(), mb = win.getBounds();
+            console.log('[smoke-popup]', JSON.stringify({ kind: popupKind, bounds: pb2, parent: mb, title: pw.getTitle(), url: pw.webContents.getURL().replace(/^.*[\\/]/, '') }));
           }
           const img = await win.webContents.capturePage();
           fs.mkdirSync(path.dirname(shot), { recursive: true });
@@ -225,6 +281,8 @@ if (!gotLock) {
       buildInfo: readBuildInfo(),
       configDir: app.getPath('userData'),
       openPath: (p) => shell.openPath(p),
+      clipboard,
+      writeImage: (dataUrl) => clipboard.writeImage(nativeImage.createFromDataURL(dataUrl)),
       // A folder opens in the file manager; a file is shown selected in its folder.
       revealPath: async (p) => {
         let isDir = false;
@@ -239,6 +297,8 @@ if (!gotLock) {
     buildMenu();
     registerIpc(api, () => mainWin, {
       dialogs,
+      openPopup,
+      printHtml,
       // The renderer reports it is ready to receive files (its session is
       // restored); anything queued so far is delivered then.
       onRendererReady: () => {

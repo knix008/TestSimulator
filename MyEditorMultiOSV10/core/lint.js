@@ -35,7 +35,7 @@ function onPath(name) {
     }
     if (found) break;
   }
-  exeCache.set(key, found);
+  if (found) exeCache.set(key, found);   // a miss is not cached: a tool installed while the app runs is found next time
   return found;
 }
 // npm tools: the project's own copy first (node_modules/.bin, walking up from the file's folder).
@@ -52,7 +52,7 @@ function npmTool(name, dir) {
     d = up;
   }
   found = found || onPath(name);
-  exeCache.set(key, found);
+  if (found) exeCache.set(key, found);
   return found;
 }
 
@@ -62,7 +62,9 @@ function exec(cmd, args, { cwd, input, timeout = TIMEOUT, signal, env } = {}) {
     let proc;
     const shell = process.platform === 'win32' && /\.(cmd|bat)$/i.test(cmd);
     try {
-      proc = spawn(shell ? `"${cmd}"` : cmd, shell ? args.map((a) => (/[\s"]/.test(a) ? `"${a.replace(/"/g, '\\"')}"` : a)) : args, { cwd: cwd || undefined, stdio: 'pipe', windowsHide: true, shell, env: env || process.env });
+      proc = shell
+        ? spawn(`"${cmd}" ${args.map((a) => (/[\s"]/.test(a) ? `"${a.replace(/"/g, '\\"')}"` : a)).join(' ')}`, { cwd: cwd || undefined, stdio: 'pipe', windowsHide: true, shell: true, env: env || process.env })
+        : spawn(cmd, args, { cwd: cwd || undefined, stdio: 'pipe', windowsHide: true, env: env || process.env });
     } catch (err) { resolve({ code: -1, stdout: '', stderr: String(err.message), error: err.message }); return; }
     let stdout = '', stderr = '';
     let done = false;
@@ -337,4 +339,4 @@ function createLinter() {
   };
 }
 
-module.exports = { createLinter, LINTERS };
+module.exports = { createLinter, LINTERS, onPath, npmTool, exec, withTempFile };
