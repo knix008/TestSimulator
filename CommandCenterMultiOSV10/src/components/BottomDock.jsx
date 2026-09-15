@@ -74,22 +74,24 @@ function LogView({ entries, onClear, onCopy }) {
 
 // One prompt: [ 📁 dir ]▶[ ⎇ main ✓ ↑ ]▶ — the command is typed right after the last arrow.
 // Colours as oh-my-posh draws them: the segment's BACKGROUND tells the state,
-// the text stays dark (the path segment is the agnoster theme's #91ddff, the
-// git segment the colours oh-my-posh themes use for their git
-// background_templates):
-//     #95ffa4  green   nothing changed (in sync with the remote — the normal state)
-//     #FF9248  orange  changes in the working tree: added (+) or modified / untracked (~)
-//     #B388FF  purple  committed, not pushed (↑) / the remote has new commits, pull needed (↓)
-//     #ff4500  red     diverged (⇅) or merge conflicts (!)
+// the text stays dark (#193549; the path segment is the agnoster theme's
+// #91ddff). One background per step of the git workflow:
+//     green   ✓  nothing changed, pushed — the normal state
+//     yellow  +  added (staged), waiting for a commit
+//     amber   ↑  committed, waiting for a push
+//     red     ~  changed (modified / untracked), waiting for an add
+//     purple  ↓  the remote has new commits — pull needed
+//     deep red ⇅ diverged (pull, then push) / ! merge conflicts
 // One glyph per state next to the branch name, no numbers; the counts are in
-// the tooltip. Working-tree changes win over the sync state for the colour,
-// the sync glyph is still shown.
+// the tooltip. The colour follows the most urgent step (conflict > changed >
+// added > diverged > behind > committed > clean); the glyphs show both the
+// working tree and the sync state.
 function gitState(git) {
   if (!git || !git.repo) return null;
   const tree = git.conflicts > 0 ? 'conflict' : git.changed + git.untracked > 0 ? 'changed' : git.staged > 0 ? 'added' : 'clean';
   const sync = git.ahead > 0 && git.behind > 0 ? 'diverged' : git.behind > 0 ? 'behind' : git.ahead > 0 ? 'ahead' : null;
-  // background: working tree first (as oh-my-posh's templates do), then the sync state
-  const bg = tree === 'conflict' ? 'conflict' : tree !== 'clean' ? 'changed' : sync === 'diverged' ? 'diverged' : sync ? 'sync' : 'clean';
+  // background: the most urgent step first
+  const bg = tree !== 'clean' ? tree : sync === 'diverged' ? 'diverged' : sync === 'behind' ? 'behind' : sync === 'ahead' ? 'committed' : 'clean';
   return { tree, sync, bg };
 }
 const GLYPH = { clean: '✓', added: '+', changed: '~', conflict: '!', ahead: '↑', behind: '↓', diverged: '⇅' };
