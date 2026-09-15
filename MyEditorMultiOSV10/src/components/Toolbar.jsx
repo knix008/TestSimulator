@@ -9,7 +9,8 @@ import { FontPicker } from './FontPicker';
 const GROUPS = [
   [
     { id: 'new', icon: 'filePlus', tip: 'tip_new' },
-    { id: 'open', icon: 'folderOpen', tip: 'tip_open' },
+    { id: 'open', icon: 'fileOpen', tip: 'tip_open' },
+    { id: 'openFolder', icon: 'folderOpen', tip: 'tip_open_folder' },
     { id: 'save', icon: 'fileSave', tip: 'tip_save', needs: 'dirty' },
     { id: 'saveAll', icon: 'saveAll', tip: 'tip_save_all', needs: 'anyDirty' },
     { id: 'close', icon: 'close', tip: 'tip_close' },
@@ -28,13 +29,13 @@ const GROUPS = [
     { id: 'replace', icon: 'replace', tip: 'tip_replace' },
   ],
   [
-    { id: 'toggle:wordWrap', icon: 'wrap', tip: 'tip_wrap', toggle: 'wordWrap' },
     { id: 'toggle:showWhitespace', icon: 'pilcrow', tip: 'tip_ws', toggle: 'showWhitespace' },
     { id: 'zoomIn', icon: 'zoomIn', tip: 'tip_zoom_in' },
     { id: 'zoomOut', icon: 'zoomOut', tip: 'tip_zoom_out' },
     { id: 'toggle:sidebarVisible', icon: 'sidebar', tip: 'tip_sidebar', toggle: 'sidebarVisible' },
   ],
   [
+    { id: 'toggle:wordWrap', icon: 'wrap', tip: 'tip_wrap', toggle: 'wordWrap' },
     { id: 'toggle:autoIndent', icon: 'autoIndent', tip: 'tip_auto_indent', toggle: 'autoIndent' },
     { id: 'toggle:spellCheck', icon: 'spell', tip: 'tip_spell', toggle: 'spellCheck' },
     { id: 'toggle:termVisible', icon: 'terminal', tip: 'tip_terminal', toggle: 'termVisible' },

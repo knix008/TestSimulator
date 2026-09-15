@@ -20,7 +20,8 @@ import {
 import { createState, settingsEffects, languageEffect, readOnlyEffect, commands, searchApi, applySaveTransforms, cursorInfo } from './lib/editor';
 import { detectLanguage, languageByName, loadLanguage, FEATURED_LANGUAGES, PLAIN } from './lib/languages';
 import { commands as md } from './lib/markdown';
-import { markdownLive } from './lib/mdlive';
+import { markdownLive, imageBase } from './lib/mdlive';
+import { fileToDataUrl, isImageFile } from './lib/images';
 import { wordAt as spellWordAt, suggest as spellSuggest, addUserWord, ignoreWord, setUserWords, setSpellOptions, refreshAll as spellRefreshAll, isReady as spellReady } from './lib/spell';
 import { MenuBar } from './components/MenuBar';
 import { Toolbar } from './components/Toolbar';
@@ -36,6 +37,7 @@ import { LangIcon } from './components/Icons';
 import { ConfirmDialog, ErrorDialog, AboutDialog, GotoLineDialog, PromptDialog, LanguagePicker, EncodingPicker, ShortcutsDialog } from './dialogs/Dialogs';
 import { SettingsDialog } from './dialogs/SettingsDialog';
 import { FileDialog } from './dialogs/FileDialog';
+import { ImageDialog } from './dialogs/ImageDialog';
 
 const BASE_FONT = 14;
 const EOLS = ['crlf', 'lf', 'cr'];
@@ -151,7 +153,7 @@ export default function App() {
       const cur = getDoc(doc.id);
       if (!cur || (cur.langName || null) !== langName) return;
       // Markdown documents get the WYSIWYG rendering on top of the grammar.
-      const live = langName === 'Markdown' && settingsRef.current.mdWysiwyg ? markdownLive : [];
+      const live = langName === 'Markdown' && settingsRef.current.mdWysiwyg ? [markdownLive, imageBase.of(cur.path ? dirName(cur.path) : folderRef.current || '')] : [];
       dispatchTo(doc.id, { effects: languageEffect([support, live]) });
     }).catch(() => { /* a grammar failed to load: plain text */ });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -590,7 +592,27 @@ export default function App() {
   };
 
   // ── drops ──
-  const dropFiles = async (files) => {
+  // Images dropped on a Markdown document are embedded as data URLs (any
+  // other file is opened as a document).
+  const insertImages = async (files, pos) => {
+    const v = viewRef.current;
+    if (!v) return false;
+    const parts = [];
+    for (const f of files) {
+      if (f.size > 16 * 1024 * 1024) continue;
+      try { parts.push(`![${f.name.replace(/\.[^.]+$/, '').replace(/[\[\]]/g, '')}](${await fileToDataUrl(f)})`); } catch { /* unreadable */ }
+    }
+    if (!parts.length) return false;
+    const at = typeof pos === 'number' ? pos : v.state.selection.main.head;
+    const line = v.state.doc.lineAt(at);
+    const insert = (at > line.from ? '\n' : '') + parts.join('\n') + '\n';
+    v.dispatch({ changes: { from: at, insert }, selection: { anchor: at + insert.length }, scrollIntoView: true });
+    v.focus();
+    return true;
+  };
+  const dropFiles = async (files, pos) => {
+    const cur = getDoc(activeIdRef.current);
+    if (cur && cur.langName === 'Markdown' && files.length && files.every(isImageFile) && await insertImages(files, pos)) return;
     const paths = files.map(pathForFile).filter(Boolean);
     if (paths.length) { await openFiles(paths); return; }
     // Browser: no path — read the content and open it as a new document.
@@ -627,6 +649,7 @@ export default function App() {
     if (id === 'toggle:termVisible') id = 'toggleTerminal';
     if (id === 'toggleTerminal') { const on = !settingsRef.current.termVisible; changeSettings({ termVisible: on }); if (on && !terms.length) newTerminal(); return undefined; }
     if (id.startsWith('md:heading:')) return withView((vw) => md.heading(vw, Number(id.slice(11))));
+    if (id === 'md:image') { setDialog({ type: 'mdImage' }); return undefined; }
     if (id.startsWith('md:')) { const fn = md[id.slice(3)]; if (fn) withView((vw) => fn(vw)); return; }
     switch (id) {
       case 'new': newUntitled(); break;
@@ -818,8 +841,8 @@ export default function App() {
   const menus = [
     { id: 'file', label: t('m_file'), items: () => [
       { id: 'new', label: t('new_file'), icon: 'filePlus', shortcut: sc('Ctrl+N') },
-      { id: 'open', label: t('open_file'), icon: 'folderOpen', shortcut: sc('Ctrl+O') },
-      { id: 'openFolder', label: t('open_folder'), icon: 'folder', shortcut: sc('Ctrl+Shift+O') },
+      { id: 'open', label: t('open_file'), icon: 'fileOpen', shortcut: sc('Ctrl+O') },
+      { id: 'openFolder', label: t('open_folder'), icon: 'folderOpen', shortcut: sc('Ctrl+Shift+O') },
       ...(folder ? [{ id: 'closeFolder', label: t('close_folder'), icon: 'close' }] : []),
       { sep: true },
       { id: 'save', label: t('save'), icon: 'fileSave', shortcut: sc('Ctrl+S'), disabled: !cur },
@@ -1081,7 +1104,7 @@ export default function App() {
             {isMarkdown && settings.mdPreview && view && (
               <>
                 <div className="v-splitter" onMouseDown={onPreviewSplitDown} />
-                <Preview view={view} docVersion={docVersion} width={`${Math.round(settings.mdPreviewWidth * 100)}%`} />
+                <Preview view={view} docVersion={docVersion} base={cur && cur.path ? dirName(cur.path) : folder || ''} width={`${Math.round(settings.mdPreviewWidth * 100)}%`} />
               </>
             )}
           </div>
@@ -1107,6 +1130,8 @@ export default function App() {
       {dialog && dialog.type === 'goto' && <GotoLineDialog lines={cursor.lines} current={cursor.line} onClose={closeDialog} onGo={(l, c) => { closeDialog(); withView((v) => commands.gotoLine(v, l, c)); }} />}
       {dialog && dialog.type === 'language' && <LanguagePicker current={(getDoc(dialog.docId) || {}).language || 'auto'} onClose={closeDialog} onPick={(name) => { closeDialog(); setDocLanguage(dialog.docId, name); }} />}
       {dialog && dialog.type === 'encoding' && <EncodingPicker title={t('reopen_as')} encodings={(info && info.encodings) || []} current={cur && cur.encoding} onClose={closeDialog} onPick={(id) => { closeDialog(); reopenWith(activeIdRef.current, id); }} />}
+      {dialog && dialog.type === 'mdImage' && <ImageDialog base={cur && cur.path ? dirName(cur.path) : folder || ''} home={info && info.home} sep={(info && info.sep) || '/'}
+        onResult={(text) => { closeDialog(); if (!text) return; withView((vw) => { const r = vw.state.selection.main; vw.dispatch({ changes: { from: r.from, to: r.to, insert: text }, selection: { anchor: r.from + text.length }, scrollIntoView: true }); }); }} />}
       {dialog && dialog.type === 'file' && <FileDialog kind={dialog.kind} startPath={dialog.opts.defaultPath || folder || (info && info.home)} defaultName={dialog.opts.name} sep={(info && info.sep) || '/'} onResult={closeDialog} />}
     </div>
   );

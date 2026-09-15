@@ -4,7 +4,7 @@
 MyEditorMultiOSV10/
 ├ core/                 플랫폼 무관 (Node 전용, 두 호스트가 공유)
 │  ├ encoding.js        인코딩 감지·변환(iconv-lite), 줄 끝 감지·정규화
-│  ├ files.js           읽기/쓰기(원자적), 디렉터리 목록, 드라이브, mkdir/rename/remove
+│  ├ files.js           읽기/쓰기(원자적), 디렉터리 목록, 드라이브, mkdir/rename/remove, 이미지 → data URL
 │  ├ session.js         session.json (설정 · 탭 · 초안 · 최근 파일 · 창 위치)
 │  ├ terminal.js        터미널 세션(파이프 셸 — 프롬프트·에코 없이 기동, 출력 버퍼, cwd/idle 마커) + Tab 자동완성(내장 명령·PATH·경로) + git status 파싱
 │  └ api.js             메서드 테이블 `api.call(name, args)` + 오류 직렬화
@@ -18,7 +18,9 @@ MyEditorMultiOSV10/
 │  ├ lib/editor.js      CodeMirror 확장 세트, Compartment, 테마(CSS 변수), 검색 API, 편집 명령
 │  ├ lib/languages.js   @codemirror/language-data 150+ 언어 지연 로드, 확장자 판별
 │  ├ lib/markdown.js    Markdown 서식 명령(감싸기/접두사 토글/블록 삽입), marked+DOMPurify 렌더러
-│  ├ lib/mdlive.js      Markdown WYSIWYG: 구문 트리 기반 Decoration(기호 숨김·위젯·줄 스타일)
+│  ├ lib/mdlive.js      Markdown WYSIWYG: 구문 트리 기반 Decoration(기호 숨김·위젯·줄 스타일), 이미지 위젯(크기 조절 → <img width>)
+│  ├ dialogs/ImageDialog.jsx  이미지 넣기(파일/URL, 링크 또는 Base64 내장, 너비, 미리보기)
+│  ├ lib/images.js      이미지 경로 해석(문서 폴더 기준 → file.dataUrl, 캐시), 드롭/붙여넣기 파일 → data URL
 │  ├ lib/spell.js       스펠링 체크: nspell + assets/dict/en.{aff,dic}(지연 로드), 가시 범위만 검사, 제안·사용자 사전
 │  ├ lib/backend.js     전송 스위치(IPC ↔ fetch), 대화상자 폴백, 창 제어
 │  ├ lib/i18n.js        ko / en 사전
@@ -52,7 +54,7 @@ MyEditorMultiOSV10/
 - **설정 변경**은 Compartment 재구성 효과(`settingsEffects`)를 활성 뷰와 보관된 모든 상태에 적용합니다.
 - **언어**는 `LanguageDescription.load()` 로 지연 로드되어 Vite 가 문법마다 청크로 나눕니다. Markdown 이면 `markdownLive` 확장을 함께 넣습니다.
 - **찾기**는 CodeMirror 의 search 상태를 그대로 쓰되 내장 패널은 보이지 않는 빈 DOM 으로 대체하고(`.cm-panels{display:none}`) FindBar 가 `SearchQuery` 를 밀어 넣습니다. 패널이 "열려" 있어야 일치 강조가 동작하기 때문입니다.
-- **Markdown WYSIWYG**(`mdlive.js`)는 ViewPlugin 이 보이는 범위의 구문 트리를 훑어 `Decoration.replace`(기호 숨김 · 위젯) 와 `Decoration.line`(제목/인용/코드 줄 스타일) 을 만듭니다. 선택 영역이 닿은 줄은 원본을 그대로 보여 줍니다.
+- **Markdown WYSIWYG**(`mdlive.js`)는 ViewPlugin 이 보이는 범위의 구문 트리를 훑어 `Decoration.replace`(기호 숨김 · 위젯) 와 `Decoration.line`(제목/인용/코드 줄 스타일) 을 만듭니다. 선택 영역이 닿은 줄은 원본을 그대로 보여 줍니다. 이미지(`Image` 노드와 `<img>` HTMLTag/HTMLBlock)는 커서 줄에서도 항상 ImageWidget 으로 바뀌고, 같은 범위를 `EditorView.atomicRanges` 로도 제공해 커서 이동·삭제가 그림 단위로 이루어집니다. 로컬 이미지는 렌더러가 직접 읽을 수 없으므로(file:// · dev 서버 · 웹) `file.dataUrl` 로 받아 옵니다.
 - **외부 변경 감지**: 창 포커스 · 탭 활성화 시 `file.stat` 으로 mtime/size 를 비교합니다(1.5초 스로틀).
 - **세션 저장**은 1초 디바운스로, 탭 목록 · 커서 · dirty 문서의 초안을 씁니다.
 

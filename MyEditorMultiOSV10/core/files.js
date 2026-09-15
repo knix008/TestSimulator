@@ -135,4 +135,17 @@ function openExternal(p) {
   });
 }
 
-module.exports = { stat, read, write, list, drives, mkdir, rename, remove, exists, openExternal, MAX_FILE, homedir: () => os.homedir() };
+// An image file as a data URL, for the Markdown WYSIWYG view / preview (the
+// renderer cannot load local files itself).
+const IMAGE_MIME = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp', '.svg': 'image/svg+xml', '.bmp': 'image/bmp', '.ico': 'image/x-icon', '.avif': 'image/avif' };
+const MAX_IMAGE = 32 * 1024 * 1024;
+async function dataUrl(p) {
+  const mime = IMAGE_MIME[path.extname(p).toLowerCase()];
+  if (!mime) throw Object.assign(new Error('Not an image: ' + p), { code: 'ENOTIMAGE' });
+  const st = await fsp.stat(p);
+  if (st.size > MAX_IMAGE) throw Object.assign(new Error('Image too large: ' + p), { code: 'ETOOLARGE' });
+  const buf = await fsp.readFile(p);
+  return { dataUrl: `data:${mime};base64,${buf.toString('base64')}`, size: st.size, mtime: st.mtimeMs };
+}
+
+module.exports = { stat, read, write, list, drives, mkdir, rename, remove, exists, openExternal, dataUrl, MAX_FILE, homedir: () => os.homedir() };

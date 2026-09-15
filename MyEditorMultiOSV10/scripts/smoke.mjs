@@ -16,6 +16,7 @@ import { fileURLToPath } from 'node:url';
 import fs from 'node:fs';
 import path from 'node:path';
 import http from 'node:http';
+import zlib from 'node:zlib';
 
 const require = createRequire(import.meta.url);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -70,7 +71,26 @@ console.log('hello');
 \`\`\`
 
 > 인용문입니다. [link](https://example.com)
+
+## Images
+
+Local file: ![logo](logo.png)
+
+Sized tag: <img src="logo.png" alt="logo" width="60">
+
+Embedded: ![dot](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==)
 `;
+
+// A solid-colour PNG (the image fixtures), built by hand: IHDR + one IDAT + IEND.
+function makePng(w, h, [r, g, b]) {
+  const crcTable = Array.from({ length: 256 }, (_, n) => { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; return c >>> 0; });
+  const crc = (buf) => { let c = 0xffffffff; for (const x of buf) c = crcTable[(c ^ x) & 0xff] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0; };
+  const chunk = (type, data) => { const len = Buffer.alloc(4); len.writeUInt32BE(data.length); const td = Buffer.concat([Buffer.from(type), data]); const c = Buffer.alloc(4); c.writeUInt32BE(crc(td)); return Buffer.concat([len, td, c]); };
+  const ihdr = Buffer.alloc(13); ihdr.writeUInt32BE(w, 0); ihdr.writeUInt32BE(h, 4); ihdr[8] = 8; ihdr[9] = 2; ihdr[10] = 0; ihdr[11] = 0; ihdr[12] = 0;
+  const raw = Buffer.alloc((w * 3 + 1) * h);
+  for (let y = 0; y < h; y++) { raw[y * (w * 3 + 1)] = 0; for (let x = 0; x < w; x++) { const o = y * (w * 3 + 1) + 1 + x * 3; const edge = x < 4 || y < 4 || x >= w - 4 || y >= h - 4; raw[o] = edge ? 255 : r; raw[o + 1] = edge ? 255 : g; raw[o + 2] = edge ? 255 : b; } }
+  return Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), chunk('IHDR', ihdr), chunk('IDAT', zlib.deflateSync(raw)), chunk('IEND', Buffer.alloc(0))]);
+}
 const SAMPLE_PY = `import sys
 from pathlib import Path
 
@@ -96,6 +116,7 @@ function seed() {
   fs.writeFileSync(path.join(work, 'src', 'lib', 'util.py'), SAMPLE_PY);
   fs.writeFileSync(path.join(work, 'src', 'test.c'), ['#include <stdio.h>', '/* a commnt with a misteak */', 'int main(void) { printf("helo wrld\\n"); retrn 0; }', ''].join('\n'));
   fs.writeFileSync(path.join(work, 'docs', 'README.md'), SAMPLE_MD);
+  fs.writeFileSync(path.join(work, 'docs', 'logo.png'), makePng(160, 90, [58, 134, 255]));
   fs.writeFileSync(path.join(work, 'notes.txt'), 'first line\r\nsecond line\r\n한글 메모\r\n', 'utf-8');
   fs.writeFileSync(path.join(work, 'legacy.txt'), Buffer.from([0xbe, 0xc8, 0xb3, 0xe7, 0x20, 0x45, 0x55, 0x43, 0x2d, 0x4b, 0x52, 0x0a]));   // "안녕 EUC-KR\n" in CP949
   fs.writeFileSync(path.join(work, 'data.json'), JSON.stringify({ name: 'smoke', ok: true, list: [1, 2, 3] }, null, 2));
@@ -166,6 +187,29 @@ const SCENARIOS = {
   file_dialog: `(async () => { ${PRELUDE} window.__med.action('open'); await wait(600); return document.querySelector('.file-dialog') ? 'web file dialog' : 'native dialog'; })()`,
   many_tabs: `(async () => { ${PRELUDE} for (let i = 0; i < 14; i++) window.__med.newUntitled('tab ' + i); await wait(500); const ctl = document.querySelectorAll('.tab-ctl'); return JSON.stringify({ tabs: document.querySelectorAll('.tab').length, controls: ctl.length, leftEnabled: !ctl[1].disabled, rightEnabled: !ctl[2].disabled }); })()`,
   many_tabs_left: `(async () => { ${PRELUDE} for (let i = 0; i < 14; i++) window.__med.newUntitled('tab ' + i); await wait(500); for (let i = 0; i < 12; i++) { document.querySelectorAll('.tab-ctl')[1].click(); await wait(120); } await wait(400); const ctl = document.querySelectorAll('.tab-ctl'); return JSON.stringify({ leftEnabled: !ctl[1].disabled, rightEnabled: !ctl[2].disabled }); })()`,
+  // Images in the WYSIWYG view: the local file and the data URL are shown as pictures, the <img width> tag at its
+  // width — also on the cursor's line (no syntax); dragging the handle rewrites the syntax as an <img … width> tag; a dropped image file is embedded as a data URL.
+  markdown_images: `(async () => { ${PRELUDE} const s = window.__med.state; window.__med.activate(s.docs.find((d) => d.name === 'README.md').id); await wait(600);
+    await until(() => document.querySelectorAll('.md-image img[src^="data:"]').length >= 3, 8000);
+    const imgs = [...document.querySelectorAll('.md-image img')]; const widths = imgs.map((i) => Math.round(i.getBoundingClientRect().width));
+    const handle = document.querySelectorAll('.md-image .md-image-handle')[0]; const r = handle.getBoundingClientRect();
+    handle.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, clientX: r.x + 4, clientY: r.y + 4 }));
+    window.dispatchEvent(new MouseEvent('mousemove', { clientX: r.x - 56, clientY: r.y + 4 })); window.dispatchEvent(new MouseEvent('mouseup', { clientX: r.x - 56, clientY: r.y + 4 })); await wait(400);
+    const text = window.__med.getText(); const resized = /Local file: <img src="logo.png" alt="logo" width="(\\d+)">/.exec(text);
+    const dt = new DataTransfer(); dt.items.add(new File([Uint8Array.from(atob('R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw=='), (c) => c.charCodeAt(0))], 'tiny.gif', { type: 'image/gif' }));
+    const pane = document.querySelector('.editor-pane'); const last = document.querySelector('.cm-content').getBoundingClientRect();
+    pane.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: dt, clientX: last.x + 20, clientY: last.bottom - 10 })); await wait(600);
+    const dropped = window.__med.getText().includes('![tiny](data:image/gif;base64,'); await until(() => document.querySelectorAll('.md-image img[src^="data:"]').length >= 4, 4000);
+    const v = window.__med.view(); const l21 = v.state.doc.line(21); v.dispatch({ selection: { anchor: l21.to } }); await wait(300); const onLine = { images: document.querySelectorAll('.md-image img').length, syntaxShown: document.querySelector('.cm-content').textContent.includes('![dot]') };
+    return JSON.stringify({ onLine, images: imgs.length, widths, resized: resized ? Number(resized[1]) : null, dropped, docs: window.__med.state.docs.length }); })()`,
+  // Markdown toolbar › image: dialog with file / alt / link-or-embed / width; link = path relative to the document's folder.
+  markdown_image_dialog: `(async () => { ${PRELUDE} const s = window.__med.state; window.__med.activate(s.docs.find((d) => d.name === 'README.md').id); await wait(500); const v = window.__med.view(); v.dispatch({ selection: { anchor: v.state.doc.length } });
+    const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; const type = (el, text) => { set.call(el, text); el.dispatchEvent(new Event('input', { bubbles: true })); };
+    const open = async () => { window.__med.action('md:image'); await until(() => document.querySelector('.dlg .img-preview')); await wait(100); };
+    await open(); const inputs = () => document.querySelectorAll('.dlg input'); type(inputs()[0], ${wp(path.join(work, 'docs', 'logo.png'))}); await until(() => document.querySelector('.img-preview img'), 6000); const alt = inputs()[1].value; const radios = document.querySelectorAll('.dlg input[type=radio]');
+    document.querySelector('.dlg .btn.primary').click(); await wait(400); const t1 = window.__med.getText();
+    await open(); type(inputs()[0], 'logo.png'); await until(() => document.querySelector('.img-preview img'), 6000); document.querySelectorAll('.dlg input[type=radio]')[1].click(); type(document.querySelector('.dlg input[type=number]'), '80'); await wait(100); document.querySelector('.dlg .btn.primary').click(); await until(() => window.__med.getText().includes('width="80"'), 6000); const t2 = window.__med.getText();
+    await open(); type(inputs()[0], 'logo.png'); await until(() => document.querySelector('.img-preview img'), 6000); await wait(300); return JSON.stringify({ alt, radios: radios.length, link: t1.includes(String.fromCharCode(33) + "[logo](logo.png)"), embed: t2.includes('<img src="data:image/png;base64,') && t2.includes('" alt="logo" width="80">'), pics: document.querySelectorAll('.md-image img').length }); })()`,
   markdown_preview: `(async () => { ${PRELUDE} const s = window.__med.state; window.__med.activate(s.docs.find((d) => d.name === 'README.md').id); await wait(400);
     if (!window.__med.state.settings.mdPreview) window.__med.action('toggle:mdPreview'); await wait(500);
     const v = window.__med.view(); const pos = v.state.doc.toString().indexOf('tabbed'); v.dispatch({ selection: { anchor: pos, head: pos + 6 } });

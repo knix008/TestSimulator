@@ -3,8 +3,9 @@
 // position proportionally.
 import React, { useEffect, useRef } from 'react';
 import { renderMarkdown } from '../lib/markdown';
+import { resolveImagesIn } from '../lib/images';
 
-export function Preview({ view, docVersion, width }) {
+export function Preview({ view, docVersion, width, base }) {
   const ref = useRef(null);
   const timer = useRef(null);
 
@@ -13,10 +14,10 @@ export function Preview({ view, docVersion, width }) {
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => {
       timer.current = null;
-      if (ref.current) ref.current.innerHTML = renderMarkdown(view.state.doc.toString());
+      if (ref.current) { ref.current.innerHTML = renderMarkdown(view.state.doc.toString()); resolveImagesIn(ref.current, base); }
     }, ref.current && ref.current.innerHTML ? 150 : 0);
     return () => { if (timer.current) clearTimeout(timer.current); };
-  }, [view, docVersion]);
+  }, [view, docVersion, base]);
 
   // Scroll sync: editor → preview.
   useEffect(() => {

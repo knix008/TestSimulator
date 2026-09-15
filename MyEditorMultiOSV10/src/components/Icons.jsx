@@ -53,6 +53,8 @@ const paths = {
   copy: <><rect x="9" y="9" width="12" height="12" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></>,
   eraser: <><path d="M20 20H8L3 15a2 2 0 0 1 0-3l8-8a2 2 0 0 1 3 0l7 7a2 2 0 0 1 0 3l-6 6" /><path d="M6 12l7 7" /></>,
   link: <><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1" /><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" /></>,
+  // a document with an arrow going into it: open a file (folderOpen is for folders)
+  fileOpen: <><path d="M14 3H7a2 2 0 0 0-2 2v4M5 19a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5" />{docCorner}<path d="M2 14h9M8 11l3 3-3 3" /></>,
   filePlus: <>{doc}{docCorner}<path d="M12 11v6M9 14h6" /></>,
   fileSave: <><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" /><path d="M17 21v-8H7v8M7 3v5h8" /></>,
   saveAll: <><path d="M17 20H6a2 2 0 0 1-2-2V7" /><path d="M20 17H9a2 2 0 0 1-2-2V4a1 1 0 0 1 1-1h8l4 4v9a1 1 0 0 1-1 1z" /><path d="M15 3v4h4M11 17v-5h5v5" /></>,

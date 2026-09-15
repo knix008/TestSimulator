@@ -309,6 +309,8 @@ input[type="text"], input[type="number"], input:not([type]), input[list], select
 input:focus, select:focus { border-color: var(--accent); }
 input:disabled, select:disabled { opacity: 0.55; }
 .form-row { display: flex; flex-direction: column; gap: 6px; }
+.img-preview { min-height: 64px; max-height: 220px; overflow: auto; display: flex; align-items: center; justify-content: center; border: 1px dashed var(--border); border-radius: var(--radius); padding: 6px; background: var(--bg); }
+.img-preview img { max-width: 100%; max-height: 200px; }
 .form-grid { display: grid; grid-template-columns: max-content 1fr; gap: 10px 12px; align-items: center; }
 .form-grid label { text-align: right; color: var(--fg-muted); }
 .settings-grid { row-gap: 10px; }

@@ -68,6 +68,7 @@ function createApi({ name = 'web', version = '', buildInfo = null, configDir, op
     },
     'file.canEncode': async ({ text, encoding }) => enc.canEncode(text, encoding),
     'file.stat': async ({ path: p }) => files.stat(p),
+    'file.dataUrl': async ({ path: p }) => files.dataUrl(p),
     'file.exists': async ({ path: p }) => files.exists(p),
 
     // ── Folders (sidebar tree, in-app file dialog) ──
