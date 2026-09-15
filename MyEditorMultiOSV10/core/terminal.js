@@ -205,13 +205,14 @@ function createTerminals() {
 
     list: () => [...sessions.values()].map((s) => ({ id: s.id, shell: s.shell, label: s.label, cwd: s.cwd, idle: s.idle, exited: s.exited })),
 
-    // Git status of a directory: { repo:false } or { repo:true, root, branch, upstream, ahead, behind, staged, changed, untracked, conflicts }
+    // Git status of a directory: { repo:false } or { repo:true, root, branch, upstream, ahead, behind, staged, changed, untracked, conflicts }.
+    // A dirty working tree inside a submodule is ignored (it would keep the parent repository "modified" forever).
     git({ cwd }) {
       return new Promise((resolve) => {
         if (!cwd || !fs.existsSync(cwd)) return resolve({ repo: false });
         execFile('git', ['-C', cwd, 'rev-parse', '--show-toplevel'], { windowsHide: true }, (err, top) => {
           if (err) return resolve({ repo: false, error: /not a git repository/i.test(String(err.message)) ? null : err.message });
-          execFile('git', ['-C', cwd, '--no-optional-locks', 'status', '--porcelain=v2', '--branch'], { windowsHide: true, maxBuffer: 8 << 20 }, (err2, out) => {
+          execFile('git', ['-C', cwd, '--no-optional-locks', 'status', '--porcelain=v2', '--branch', '--ignore-submodules=dirty'], { windowsHide: true, maxBuffer: 8 << 20 }, (err2, out) => {
             if (err2) return resolve({ repo: true, root: top.trim(), error: err2.message });
             const st = { repo: true, root: top.trim(), branch: '', upstream: '', ahead: 0, behind: 0, staged: 0, changed: 0, untracked: 0, conflicts: 0, files: [] };
             for (const line of String(out).split('\n')) {

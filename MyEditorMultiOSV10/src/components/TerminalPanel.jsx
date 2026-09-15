@@ -22,9 +22,11 @@ function Prompt({ cwd, git }) {
   const repo = git && git.repo;
   const dirty = repo ? git.staged + git.changed + git.untracked + git.conflicts > 0 : false;
   // The state of the repository colours the whole block, from the branch name on (the first that applies):
-  // conflicts — red · staged (added) — yellow · changes in the working tree (modified / untracked) — red ·
+  // conflicts — red · staged (added) — yellow · modified files — red ·
   // committed but not pushed — yellow · behind the remote — blue · clean and pushed — bright green.
-  const cls = !repo ? '' : git.conflicts ? 'conflict' : git.staged ? 'staged' : (git.changed || git.untracked) ? 'modified' : git.ahead ? 'ahead' : git.behind ? 'behind' : 'uptodate';
+  // Untracked files do not colour the block (they are new files git does not know yet, shown by the ? symbol
+  // only); otherwise a committed-but-not-pushed or pushed repository would stay red because of them.
+  const cls = !repo ? '' : git.conflicts ? 'conflict' : git.staged ? 'staged' : git.changed ? 'modified' : git.ahead ? 'ahead' : git.behind ? 'behind' : 'uptodate';
   return (
     <span className="term-prompt" title={cwd}>
       <span className="seg seg-path"><Icon name="folder" size={12} /> {cwd}</span>

@@ -305,7 +305,7 @@ const SCENARIOS = {
     out.staged = await run('git add .', 'staged');
     out.committed = await run('git commit -qm c2', 'ahead');
     out.pushed = await run('git push -q', 'uptodate');
-    out.untracked = await run('echo x> new.txt', 'modified');
+    out.untracked = await run('echo x> new.txt', 'uptodate'); out.untrackedSymbol = (() => { const p = document.querySelectorAll('.term-view:not(.hidden) .term-prompt'); return (p[p.length - 1].querySelector('.g-untracked') || {}).textContent; })(); out.commitWithUntracked = await run('echo d>> f.txt && git commit -qam c3', 'ahead'); out.pushWithUntracked = await run('git push -q', 'uptodate');
     out.colors = Object.fromEntries(['uptodate', 'modified', 'staged', 'ahead'].map((c) => { const el = document.createElement('span'); el.className = 'seg seg-git ' + c; document.querySelector('.term-out').appendChild(el); const bg = getComputedStyle(el).backgroundColor; el.remove(); return [c, bg]; }));
     return JSON.stringify(out); })()`,
   markdown_preview: `(async () => { ${PRELUDE} const s = window.__med.state; window.__med.activate(s.docs.find((d) => d.name === 'README.md').id); await wait(400);
