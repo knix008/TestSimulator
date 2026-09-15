@@ -175,6 +175,7 @@ function createTerminals() {
       const send = (text) => s.proc.stdin.write(iconv.encode(text, s.enc || 'utf8'));
       if (!s.idle) { send(`${line}${eol}`); return true; }
       s.idle = false;
+      wake(s);   // readers see the busy phase, so the return to idle (the prompt, a fresh git status) is never missed
       const cmd = line.trim() && s.def.wrap ? s.def.wrap(line) : line;
       send(`${cmd}${eol}${s.def.cwdLine ? s.def.cwdLine + eol : ''}`);
       return true;

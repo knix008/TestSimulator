@@ -21,11 +21,10 @@ const MAX_LINES = 3000;
 function Prompt({ cwd, git }) {
   const repo = git && git.repo;
   const dirty = repo ? git.staged + git.changed + git.untracked + git.conflicts > 0 : false;
-  // The state of the repository colours the whole block, from the branch name on — one distinct hue per
-  // state, after oh-my-posh's git segment (the first that applies): conflicts — red · staged (added) — yellow ·
-  // modified, not staged — orange · new files not added (untracked only) — teal · committed but not pushed —
-  // purple · behind the remote — blue · both ahead and behind — red-orange · clean and pushed — bright green.
-  const cls = !repo ? '' : git.conflicts ? 'conflict' : git.staged ? 'staged' : git.changed ? 'modified' : git.untracked ? 'untracked' : (git.ahead && git.behind) ? 'diverged' : git.ahead ? 'ahead' : git.behind ? 'behind' : 'uptodate';
+  // The state of the repository colours the whole block, from the branch name on (the first that applies):
+  // conflicts — red · staged (added) — yellow · changes in the working tree (modified / untracked) — red ·
+  // committed but not pushed — yellow · behind the remote — blue · clean and pushed — bright green.
+  const cls = !repo ? '' : git.conflicts ? 'conflict' : git.staged ? 'staged' : (git.changed || git.untracked) ? 'modified' : git.ahead ? 'ahead' : git.behind ? 'behind' : 'uptodate';
   return (
     <span className="term-prompt" title={cwd}>
       <span className="seg seg-path"><Icon name="folder" size={12} /> {cwd}</span>
@@ -98,6 +97,7 @@ function TerminalView({ term, active, onExit }) {
   const idleRef = useRef(true);
   const [exited, setExited] = useState(false);
   const busyRef = useRef(false);
+  const cmdSentRef = useRef(false);   // a command went to the shell since the last git status
 
   // The prompt is drawn only once the git status of the current directory
   // is known (no bare prompt that then redraws with the git segment): every
@@ -133,7 +133,11 @@ function TerminalView({ term, active, onExit }) {
           const cwdChanged = r.cwd !== cwdRef.current;
           if (cwdChanged) { cwdRef.current = r.cwd; setCwd(r.cwd); }
           if (idleNow !== idleRef.current) { idleRef.current = idleNow; setIdle(idleNow); }
-          if (cwdChanged || (idleNow && idleChangedTo(r))) refreshGit();
+          // The git status is re-read when a command has finished — the shell is idle again after a command was
+          // sent (a fast command without output never shows as busy, so the sent flag is what counts) — or the
+          // directory changed.
+          const idleChanged = idleChangedTo(r);   // tracked on every answer, busy ones included
+          if (cwdChanged || (idleNow && (idleChanged || cmdSentRef.current))) { cmdSentRef.current = false; refreshGit(); }
           if (r.exited) { if (!exited) { setExited(true); onExit(term.id); } return; }
         } catch { await new Promise((res) => setTimeout(res, 300)); }
       }
@@ -156,6 +160,7 @@ function TerminalView({ term, active, onExit }) {
     if (!cmd) { await call('term.run', { id: term.id, line: '' }); return; }
     setHist((h) => ({ list: [...h.list.filter((x) => x !== cmd), cmd].slice(-100), idx: -1 }));
     if (idleRef.current && (cmd === 'clear' || cmd === 'cls')) { setEntries([]); await call('term.run', { id: term.id, line: '' }); return; }
+    cmdSentRef.current = true;
     await call('term.run', { id: term.id, line: cmd });
   };
 

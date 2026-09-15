@@ -306,18 +306,15 @@ button:disabled { cursor: default; opacity: 0.45; }
 .term-out .seg + .seg { margin-left: -0.8em; padding-left: calc(0.8em + 6px); }
 .term-out .seg svg { vertical-align: -2px; }
 .term-out .seg-path { background: var(--accent); z-index: 2; }
-/* The git block's colour (from the branch name on) is the repository's state, one hue each after oh-my-posh's
-   git segment: red conflicts · yellow staged · orange modified · teal untracked only · purple committed but
-   not pushed · blue behind · red-orange ahead and behind · bright green clean and pushed. */
+/* The git block's colour (from the branch name on) is the repository's state: red conflicts · yellow staged ·
+   red changes in the working tree · yellow committed but not pushed · blue behind · bright green clean and pushed. */
 .term-out .seg-git { z-index: 1; color: #1b1e24; }
-.term-out .seg-git.uptodate { background: #95ffa4; }   /* clean and pushed */
-.term-out .seg-git.untracked { background: #5fd7d7; }  /* new files, not added */
-.term-out .seg-git.modified { background: #ff9248; }   /* modified, not staged */
-.term-out .seg-git.staged { background: #ffd700; }     /* staged (added) */
-.term-out .seg-git.ahead { background: #b388ff; }      /* committed, not pushed */
+.term-out .seg-git.uptodate { background: #7CFC8B; }   /* clean and pushed: bright green */
+.term-out .seg-git.modified { background: #FF5C5C; }   /* changes in the working tree: red */
+.term-out .seg-git.staged { background: #FFD700; }     /* staged (added): yellow */
+.term-out .seg-git.ahead { background: #FFD700; }      /* committed, not pushed: yellow */
 .term-out .seg-git.behind { background: #7cc4ff; }     /* behind the remote */
-.term-out .seg-git.diverged { background: #ff4500; color: #ffffff; }   /* ahead and behind */
-.term-out .seg-git.conflict { background: #ff5555; color: #ffffff; }
+.term-out .seg-git.conflict { background: #D62828; color: #ffffff; }
 .term-out .seg-git .g-ahead, .term-out .seg-git .g-behind, .term-out .seg-git .g-staged, .term-out .seg-git .g-changed, .term-out .seg-git .g-untracked, .term-out .seg-git .g-conflict { font-weight: 800; margin-left: 1px; }
 /* The input sits inline after the prompt; the ::after mirror of its value gives it the width of the text. */
 .term-out .term-inline { display: inline-grid; vertical-align: baseline; max-width: 100%; }
