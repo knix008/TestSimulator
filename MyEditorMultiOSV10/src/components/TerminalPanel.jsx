@@ -12,6 +12,7 @@ import { t, useLanguage } from '../lib/i18n';
 import { call } from '../lib/backend';
 import { Icon } from './Icons';
 import { ContextMenu } from './ContextMenu';
+import { AnsiText } from '../lib/ansi.jsx';
 
 const POLL_MS = 150;
 const MAX_LINES = 3000;
@@ -20,10 +21,11 @@ const MAX_LINES = 3000;
 function Prompt({ cwd, git }) {
   const repo = git && git.repo;
   const dirty = repo ? git.staged + git.changed + git.untracked + git.conflicts > 0 : false;
-  // The state of the repository, one colour each (the first that applies): conflicts (red) · staged /
-  // added (yellow) · modified (orange) · untracked (cyan) · committed but not pushed (blue) · behind the
-  // remote (purple) · up to date (green).
-  const cls = !repo ? '' : git.conflicts ? 'conflict' : git.staged ? 'staged' : git.changed ? 'modified' : git.untracked ? 'untracked' : git.ahead ? 'ahead' : git.behind ? 'behind' : 'uptodate';
+  // The state of the repository colours the whole block, from the branch name on (the first that applies,
+  // colours after oh-my-posh's git segment): conflicts — dark red · staged (added) — yellow · changes in the
+  // working tree (modified / untracked) — red · committed but not pushed (ahead) — red · behind the remote —
+  // purple · clean and pushed — bright green.
+  const cls = !repo ? '' : git.conflicts ? 'conflict' : git.staged ? 'staged' : (git.changed || git.untracked) ? 'modified' : git.ahead ? 'ahead' : git.behind ? 'behind' : 'uptodate';
   return (
     <span className="term-prompt" title={cwd}>
       <span className="seg seg-path"><Icon name="folder" size={12} /> {cwd}</span>
@@ -200,7 +202,7 @@ function TerminalView({ term, active, onExit }) {
       <pre className="term-out selectable" ref={outRef} onClick={() => { if (!window.getSelection().toString() && inputRef.current) inputRef.current.focus(); }}>
         {entries.map((e, i) => (e.k === 'cmd'
           ? <React.Fragment key={i}><Prompt cwd={e.cwd} git={e.git} />{e.line}{'\n'}</React.Fragment>
-          : <React.Fragment key={i}>{e.text}</React.Fragment>))}
+          : <React.Fragment key={i}><AnsiText text={e.text} /></React.Fragment>))}
         {!exited && idle && gitReady && <Prompt cwd={cwd} git={git} />}
         {!exited && (
           <span className="term-inline" data-value={input}>

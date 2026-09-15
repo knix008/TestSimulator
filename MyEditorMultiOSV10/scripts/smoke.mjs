@@ -371,11 +371,13 @@ const SCENARIOS = {
     const pathOf = () => (last() && last().querySelector('.seg-path') || {}).textContent || ''; const gitOf = () => (last() && last().querySelector('.seg-git') || {}).textContent || '';
     await until(() => gitOf().includes('main'), 8000); const p0 = pathOf();
     type('echo hello-from-terminal', 'Enter'); await until(() => out().includes('echo hello-from-terminal\\nhello-from-terminal'), 8000);
+    type('git log --oneline -n 2', 'Enter'); await until(() => document.querySelectorAll('.term-out span[style*=color]').length >= 2, 8000); const colored = document.querySelectorAll('.term-out span[style*=color]').length;
+    type('echo 한글 출력', 'Enter'); await until(() => out().includes('한글 출력' + String.fromCharCode(10)), 8000);
     type('cd ..', 'Enter'); await until(() => pathOf() && pathOf() !== p0, 8000); const p1 = pathOf();
     type('cd MyEd', 'Tab'); await until(() => inp().value.startsWith('cd MyEditorMultiOSV10'), 4000); const completed = inp().value; type('', null);
     type('type READ', 'Tab'); await until(() => inp().value === 'type README.md ', 4000); type('', null);
     window.__med.action('newTerminal'); await wait(1200); document.querySelector('.term-tab').dispatchEvent(new MouseEvent('mousedown', { bubbles: true })); await wait(300); type('echo typing', null); await wait(300);
-    return JSON.stringify({ tabs: document.querySelectorAll('.term-tab').length, git: gitOf(), p0, p1, completed, prompts: prompts().length, typing: inp().value === 'echo typing' }); })()`,
+    return JSON.stringify({ tabs: document.querySelectorAll('.term-tab').length, git: gitOf(), colored, p0, p1, completed, prompts: prompts().length, typing: inp().value === 'echo typing' }); })()`,
   font_picker: `(async () => { ${PRELUDE} document.querySelector('.font-picker .fp-caret').dispatchEvent(new MouseEvent('mousedown', { bubbles: true })); await wait(1500);
     const list = document.querySelector('.fp-list'); const r = list.getBoundingClientRect();
     return JSON.stringify({ items: list.querySelectorAll('.fp-item').length, height: Math.round(r.height), scrollable: list.scrollHeight > list.clientHeight, insideWindow: r.bottom <= window.innerHeight }); })()`,
