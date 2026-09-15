@@ -63,7 +63,8 @@ const ko = {
   new_name: '이름', new_file_title: '새 파일', new_folder_title: '새 폴더', rename_title: '이름 바꾸기', create: '만들기',
   // settings
   settings_title: '설정', set_general: '일반', set_editor: '편집기', set_files: '파일',
-  set_language: 'UI 언어', set_theme: '테마', set_font: '글꼴', set_font_ph: '(기본 고정폭 글꼴)', set_font_size: '글꼴 크기', set_tab_size: '탭 크기', set_insert_spaces: 'Tab 키로 공백 입력',
+  set_language: 'UI 언어', set_theme: '테마', set_font: '글꼴', set_font_ph: '(기본 고정폭 글꼴) — 클릭하면 시스템 글꼴 목록', set_font_size: '글꼴 크기', set_tab_size: '탭 크기', set_insert_spaces: 'Tab 키로 공백 입력',
+  set_auto_indent: '자동 들여쓰기 (Enter 로 새 줄을 만들 때 이전 줄의 들여쓰기 유지, 닫는 괄호 자동 정렬)', set_indent_with: '들여쓰기 문자', set_indent_spaces: '공백 삽입', set_indent_tabs: '탭 문자 삽입', set_tab_size_hint: '탭 1개 = 공백 n자리 (공백 삽입 시 Tab 키가 넣는 공백 수)', tip_auto_indent: '자동 들여쓰기 켜기/끄기', auto_indent: '자동 들여쓰기',
   set_word_wrap: '자동 줄 바꿈', set_line_numbers: '줄 번호', set_show_ws: '공백 문자 표시', set_active_line: '현재 줄 강조', set_auto_close: '괄호·따옴표 자동 닫기', set_bracket_match: '짝 괄호 강조', set_fold: '코드 접기',
   set_default_enc: '새 문서 인코딩', set_default_eol: '새 문서 줄 끝', set_trim: '저장할 때 줄 끝 공백 제거', set_final_nl: '저장할 때 마지막 줄 바꿈 추가',
   set_restore: '시작할 때 이전 세션 복원', set_reload: '외부에서 바뀐 파일 자동 다시 읽기 (수정하지 않은 경우)', set_confirm_close: '닫을 때 저장 여부 확인',
@@ -80,6 +81,10 @@ const ko = {
   // markdown
   md_heading: '제목 {n} (H{n})', md_bold: '굵게', md_italic: '기울임', md_strike: '취소선', md_code: '인라인 코드', md_code_block: '코드 블록', md_quote: '인용',
   md_ul: '글머리 기호 목록', md_ol: '번호 매기기 목록', md_task: '체크리스트', md_link: '링크', md_image: '이미지', md_table: '표', md_hr: '구분선', md_preview: '미리보기',
+  spell_code_all: '코드 파일에서도 모든 단어 검사', set_spell_code_all: '코드 파일에서도 모든 단어 검사 (끄면 주석·문자열만)', tb_font: '편집기 글꼴', tb_font_size: '글꼴 크기 (px)', tb_font_smaller: '글꼴 작게', tb_font_larger: '글꼴 크게',
+  terminal: '터미널', tip_terminal: '터미널 패널 (Ctrl+`)', term_new: '새 터미널', term_new_shell: '셸을 골라 새 터미널', term_hide: '터미널 패널 닫기', term_empty: '터미널이 없습니다. + 를 눌러 여세요.', term_placeholder: '명령을 입력하고 Enter (↑ ↓ 기록, Ctrl+L 지우기, Ctrl+C 중단)',
+  term_no_git: 'Git 저장소가 아닙니다', term_git_ahead: '원격보다 앞선 커밋', term_git_behind: '원격보다 뒤진 커밋', term_git_changes: '스테이지 {staged} · 수정 {changed} · 추적 안 함 {untracked}', term_git_clean: '변경 없음', term_git_conflicts: '충돌 {n}',
+  spell_check: '스펠링 체크 (영어)', tip_spell: '스펠링 체크 켜기/끄기 (F7)', set_spell: '영어 스펠링 체크 (내장 en_US 사전; 코드에서는 주석·문자열만)', spell_add: '"{word}" 사전에 추가', spell_ignore: '"{word}" 이번만 무시', spell_none: '(제안 없음)', spell_loading: '사전 불러오는 중…',
   md_preview_menu: 'Markdown 미리보기', md_wysiwyg: 'WYSIWYG 편집 (기호를 렌더링해서 표시)', md_wysiwyg_menu: 'Markdown WYSIWYG 편집', md_source: '소스',
 };
 
@@ -132,7 +137,8 @@ const en = {
   open_failed: 'Cannot open "{name}".', save_failed: 'Cannot save "{name}".',
   new_name: 'Name', new_file_title: 'New file', new_folder_title: 'New folder', rename_title: 'Rename', create: 'Create',
   settings_title: 'Settings', set_general: 'General', set_editor: 'Editor', set_files: 'Files',
-  set_language: 'UI language', set_theme: 'Theme', set_font: 'Font', set_font_ph: '(default monospace font)', set_font_size: 'Font size', set_tab_size: 'Tab size', set_insert_spaces: 'Insert spaces on Tab',
+  set_language: 'UI language', set_theme: 'Theme', set_font: 'Font', set_font_ph: '(default monospace font) — click for system fonts', set_font_size: 'Font size', set_tab_size: 'Tab size', set_insert_spaces: 'Insert spaces on Tab',
+  set_auto_indent: 'Auto indentation (Enter keeps the previous line\'s indent, closing brackets re-align)', set_indent_with: 'Indent with', set_indent_spaces: 'Spaces', set_indent_tabs: 'Tab characters', set_tab_size_hint: 'one tab = n spaces (what Tab inserts when using spaces)', tip_auto_indent: 'Auto indentation on / off', auto_indent: 'Auto indentation',
   set_word_wrap: 'Word wrap', set_line_numbers: 'Line numbers', set_show_ws: 'Show whitespace', set_active_line: 'Highlight current line', set_auto_close: 'Auto-close brackets and quotes', set_bracket_match: 'Highlight matching brackets', set_fold: 'Code folding',
   set_default_enc: 'Encoding for new documents', set_default_eol: 'Line ending for new documents', set_trim: 'Trim trailing whitespace on save', set_final_nl: 'Add a final newline on save',
   set_restore: 'Restore the previous session on start', set_reload: 'Reload files changed outside (when unmodified)', set_confirm_close: 'Ask before closing unsaved documents',
@@ -145,6 +151,10 @@ const en = {
   shortcuts_title: 'Keyboard shortcuts',
   md_heading: 'Heading {n} (H{n})', md_bold: 'Bold', md_italic: 'Italic', md_strike: 'Strikethrough', md_code: 'Inline code', md_code_block: 'Code block', md_quote: 'Quote',
   md_ul: 'Bullet list', md_ol: 'Numbered list', md_task: 'Task list', md_link: 'Link', md_image: 'Image', md_table: 'Table', md_hr: 'Horizontal rule', md_preview: 'Preview',
+  spell_code_all: 'Check every word in code files too', set_spell_code_all: 'Check every word in code files too (off: comments and strings only)', tb_font: 'Editor font', tb_font_size: 'Font size (px)', tb_font_smaller: 'Smaller font', tb_font_larger: 'Larger font',
+  terminal: 'Terminal', tip_terminal: 'Terminal panel (Ctrl+`)', term_new: 'New terminal', term_new_shell: 'New terminal with a shell…', term_hide: 'Close the terminal panel', term_empty: 'No terminal. Press + to open one.', term_placeholder: 'Type a command and press Enter (↑ ↓ history, Ctrl+L clear, Ctrl+C interrupt)',
+  term_no_git: 'Not a git repository', term_git_ahead: 'commits ahead of the remote', term_git_behind: 'commits behind the remote', term_git_changes: 'staged {staged} · modified {changed} · untracked {untracked}', term_git_clean: 'clean', term_git_conflicts: 'conflicts {n}',
+  spell_check: 'Spell check (English)', tip_spell: 'Spell check on / off (F7)', set_spell: 'English spell check (bundled en_US dictionary; comments and strings only in code)', spell_add: 'Add "{word}" to dictionary', spell_ignore: 'Ignore "{word}" for now', spell_none: '(no suggestions)', spell_loading: 'Loading dictionary…',
   md_preview_menu: 'Markdown preview', md_wysiwyg: 'WYSIWYG editing (marks rendered in place)', md_wysiwyg_menu: 'Markdown WYSIWYG editing', md_source: 'Source',
 };
 

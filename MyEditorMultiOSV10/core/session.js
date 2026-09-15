@@ -38,6 +38,12 @@ const DEFAULTS = {
   statusBarVisible: true,
   mdPreview: false,        // Markdown live preview pane
   mdWysiwyg: true,         // Markdown rendered in place while editing
+  spellCheck: true,        // English spell checking (bundled en_US dictionary)
+  spellCodeAll: false,     // in code files check every word, not only comments / strings
+  autoIndent: true,        // Enter keeps the indentation; Tab inserts spaces (insertSpaces) or a tab, tabSize wide
+  termVisible: false,      // terminal panel shown
+  termHeight: 240,
+  userWords: [],           // words added to the dictionary by the user
   mdPreviewWidth: 0.5,     // fraction of the editor area
   folder: '',
   windowBounds: null,

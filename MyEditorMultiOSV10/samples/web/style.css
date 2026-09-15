@@ -1,0 +1,26 @@
+/* CSS — custom properties, nesting-free selectors, media queries */
+:root {
+  --bg: #12161c;
+  --fg: #e4e9f0;
+  --accent: #4cc9f0;
+}
+
+body {
+  margin: 0;
+  font: 14px/1.5 system-ui, 'Noto Sans KR', sans-serif;
+  color: var(--fg);
+  background: var(--bg);
+}
+
+.card {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+  padding: 16px;
+}
+
+.card > a:hover { color: var(--accent); text-decoration: underline; }
+
+@media (max-width: 600px) {
+  .card { grid-template-columns: 1fr; }
+}

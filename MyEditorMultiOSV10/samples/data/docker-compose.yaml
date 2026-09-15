@@ -1,0 +1,23 @@
+# YAML — nested maps, lists, anchors
+version: "3.9"
+
+x-common: &common
+  restart: unless-stopped
+  logging:
+    driver: json-file
+    options: { max-size: "10m" }
+
+services:
+  web:
+    <<: *common
+    image: nginx:1.27
+    ports:
+      - "8080:80"
+    volumes:
+      - ./dist:/usr/share/nginx/html:ro
+  api:
+    <<: *common
+    build: .
+    environment:
+      - NODE_ENV=production
+      - PORT=5190

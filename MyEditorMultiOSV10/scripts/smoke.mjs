@@ -9,6 +9,7 @@
 //   npm run smoke -- --scenario find --web         # the same in the web version
 //   npm run smoke -- --scenario all                # every scenario (desktop)
 //   npm run smoke -- --desktop-only | --web-only
+//   npm run smoke -- --scenario markdown_preview --dev   # against the running dev server
 import { spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
@@ -93,6 +94,7 @@ function seed() {
   fs.mkdirSync(path.join(work, 'docs'), { recursive: true });
   fs.writeFileSync(path.join(work, 'src', 'app.js'), SAMPLE_JS);
   fs.writeFileSync(path.join(work, 'src', 'lib', 'util.py'), SAMPLE_PY);
+  fs.writeFileSync(path.join(work, 'src', 'test.c'), ['#include <stdio.h>', '/* a commnt with a misteak */', 'int main(void) { printf("helo wrld\\n"); retrn 0; }', ''].join('\n'));
   fs.writeFileSync(path.join(work, 'docs', 'README.md'), SAMPLE_MD);
   fs.writeFileSync(path.join(work, 'notes.txt'), 'first line\r\nsecond line\r\n한글 메모\r\n', 'utf-8');
   fs.writeFileSync(path.join(work, 'legacy.txt'), Buffer.from([0xbe, 0xc8, 0xb3, 0xe7, 0x20, 0x45, 0x55, 0x43, 0x2d, 0x4b, 0x52, 0x0a]));   // "안녕 EUC-KR\n" in CP949
@@ -167,6 +169,70 @@ const SCENARIOS = {
     const last = v.state.doc.line(v.state.doc.lines); v.dispatch({ selection: { anchor: last.from } }); window.__med.action('md:taskList'); await wait(400);
     return JSON.stringify({ bar: !!document.querySelector('.mdbar'), preview: !!document.querySelector('.md-preview'), h1: document.querySelector('.md-preview h1') && document.querySelector('.md-preview h1').textContent, line3: v.state.doc.line(3).text, unbold: v.state.doc.toString().includes('A tabbed text'), task: v.state.doc.line(v.state.doc.lines).text });
   })()`,
+  dedupe: `(async () => { ${PRELUDE} const n0 = window.__med.state.docs.length; const p = ${wp(path.join(work, 'src', 'app.js'))};
+    await Promise.all([window.__med.openPath(p), window.__med.openPath(p.toUpperCase()), window.__med.openPath(p.split(String.fromCharCode(92)).join('/'))]);
+    await window.__med.openFiles([p, ${wp(path.join(work, 'notes.txt'))}, ${wp(path.join(work, 'data.json'))}, ${wp(path.join(work, 'data.json'))}]);
+    await wait(300); const names = window.__med.state.docs.map((d) => d.name); return JSON.stringify({ before: n0, after: names.length, names }); })()`,
+  wysiwyg_toggle: `(async () => { ${PRELUDE} const s = window.__med.state; window.__med.activate(s.docs.find((d) => d.name === 'README.md').id); await wait(500);
+    const count = () => document.querySelectorAll('.md-bullet').length; const a = count();
+    window.__med.action('toggle:mdWysiwyg'); await wait(400); const b = count();
+    window.__med.action('toggle:mdWysiwyg'); await wait(400); const c = count();
+    return JSON.stringify({ on: a, off: b, onAgain: c, setting: window.__med.state.settings.mdWysiwyg }); })()`,
+  spell: `(async () => { ${PRELUDE} window.__med.newUntitled('This sentense has a misspeled word and a correct one.' + String.fromCharCode(10) + 'Another lne here. URL http://exmple.com and code_ident and NASA.'); await wait(1500);
+    return JSON.stringify({ errors: Array.from(document.querySelectorAll('.cm-spell-error')).map((e) => e.textContent), on: window.__med.state.settings.spellCheck }); })()`,
+  spell_off: `(async () => { ${PRELUDE} window.__med.newUntitled('This sentense has a misspeled word.'); await wait(1200); window.__med.action('toggle:spellCheck'); await wait(300);
+    return JSON.stringify({ errors: document.querySelectorAll('.cm-spell-error').length, on: window.__med.state.settings.spellCheck }); })()`,
+  spell_menu: `(async () => { ${PRELUDE} window.__med.newUntitled('This sentense has a misspeled word.'); await wait(1500); const el = document.querySelector('.cm-spell-error'); const r = el.getBoundingClientRect();
+    el.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: r.left + 4, clientY: r.top + 4 })); await wait(300);
+    return Array.from(document.querySelectorAll('.ctx-item .ctx-label')).slice(0, 8).map((e) => e.textContent).join(' | '); })()`,
+  tree_expand: `(async () => { ${PRELUDE} await until(() => document.querySelectorAll('.tree-row').length >= 6); const rowsBefore = document.querySelectorAll('.tree-row').length;
+    const byName = (n) => Array.from(document.querySelectorAll('.tree-row')).find((r) => r.querySelector('.tree-name').textContent === n);
+    byName('src').click(); await until(() => byName('lib')); byName('lib').click(); await until(() => byName('util.py')); byName('docs').click(); await until(() => byName('README.md'));
+    byName('src').click(); await wait(200);   // collapse src: docs stays open
+    const names = Array.from(document.querySelectorAll('.tree-row .tree-name')).map((e) => e.textContent);
+    byName('src').click(); await wait(200);   // re-open: lib is still expanded inside
+    const names2 = Array.from(document.querySelectorAll('.tree-row .tree-name')).map((e) => e.textContent);
+    return JSON.stringify({ rowsBefore, afterCollapse: names, afterReopen: names2, guides: document.querySelectorAll('.guide').length }); })()`,
+  auto_indent: `(async () => { ${PRELUDE} window.__med.newUntitled('    indented'); await wait(300); const v = window.__med.view();
+    const enter = () => { v.contentDOM.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true })); };
+    v.dispatch({ selection: { anchor: v.state.doc.length } }); v.focus(); enter(); await wait(100); const withOn = v.state.doc.line(2).text;
+    window.__med.action('toggle:autoIndent'); await wait(200); v.dispatch({ selection: { anchor: v.state.doc.line(1).to } }); v.focus(); enter(); await wait(100); const withOff = v.state.doc.line(2).text;
+    window.__med.action('toggle:autoIndent'); await wait(200);
+    return JSON.stringify({ on: JSON.stringify(withOn), off: JSON.stringify(withOff), lines: v.state.doc.lines }); })()`,
+  settings_editor: `(async () => { ${PRELUDE} window.__med.action('settings'); await wait(200); document.querySelectorAll('.settings-tab')[1].click(); await wait(200); return 'editor tab'; })()`,
+  tree_collapse_all: `(async () => { ${PRELUDE} await until(() => document.querySelectorAll('.tree-row').length >= 6);
+    const byName = (n) => Array.from(document.querySelectorAll('.tree-row')).find((r) => r.querySelector('.tree-name').textContent === n);
+    byName('src').click(); await until(() => byName('lib')); byName('lib').click(); await until(() => byName('util.py')); byName('docs').click(); await until(() => byName('README.md'));
+    const expanded = Array.from(document.querySelectorAll('.tree-row .tree-name')).map((e) => e.textContent);
+    document.querySelector('.sb-head button[title="' + '${'모두 접기'}' + '"]').click(); await wait(300);
+    const collapsed = Array.from(document.querySelectorAll('.tree-row .tree-name')).map((e) => e.textContent);
+    byName('src').click(); await wait(300);   // reopening src after collapse-all: lib must be closed too
+    const reopened = Array.from(document.querySelectorAll('.tree-row .tree-name')).map((e) => e.textContent);
+    return JSON.stringify({ expanded, collapsed, reopened }); })()`,
+  tree_expand_all: `(async () => { ${PRELUDE} await until(() => document.querySelectorAll('.tree-row').length >= 6);
+    document.querySelector('.sb-head button[title="모두 펼치기"]').click(); await until(() => document.querySelectorAll('.tree-row').length >= 10);
+    const all = Array.from(document.querySelectorAll('.tree-row .tree-name')).map((e) => e.textContent);
+    document.querySelector('.sb-head button[title="모두 접기"]').click(); await wait(300);
+    return JSON.stringify({ all, collapsed: document.querySelectorAll('.tree-row').length }); })()`,
+  spell_c: `(async () => { ${PRELUDE} const p = ${wp(path.join(work, 'src', 'test.c'))}; await window.__med.openPath(p); await wait(2000);
+    const errs = () => Array.from(document.querySelectorAll('.cm-spell-error')).map((e) => e.textContent);
+    const inComments = errs(); window.__med.action('toggle:spellCodeAll'); await wait(500); const all = errs();
+    return JSON.stringify({ lang: window.__med.state.docs.find((d) => d.name === 'test.c').langName, inComments, all }); })()`,
+  fonts: `(async () => { ${PRELUDE} const inp = document.querySelector('.tb-font input'); inp.dispatchEvent(new MouseEvent('mousedown', { bubbles: true })); await wait(1500);
+    const n = document.querySelectorAll('#tb-font-list option').length; const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; set.call(inp, 'Consolas'); inp.dispatchEvent(new Event('input', { bubbles: true })); await wait(200);
+    document.querySelectorAll('.tb-size .tool-btn')[1].click(); document.querySelectorAll('.tb-size .tool-btn')[1].click(); await wait(300);
+    return JSON.stringify({ fonts: n, hasMalgun: Array.from(document.querySelectorAll('#tb-font-list option')).some((o) => /Malgun|맑은/i.test(o.value)), family: window.__med.state.settings.fontFamily, size: window.__med.state.settings.fontSize, css: getComputedStyle(document.querySelector('.cm-scroller')).fontFamily.slice(0, 40) }); })()`,
+  source_view: `(async () => { ${PRELUDE} const s = window.__med.state; window.__med.activate(s.docs.find((d) => d.name === 'README.md').id); await wait(400);
+    const h1 = () => getComputedStyle(document.querySelector('.cm-line')).fontSize; const live = h1(); window.__med.action('toggle:mdWysiwyg'); await wait(400); const src = h1();
+    return JSON.stringify({ live, source: src, body: getComputedStyle(document.querySelectorAll('.cm-line')[2]).fontSize }); })()`,
+  terminal: `(async () => { ${PRELUDE} window.__med.setFolder(${wp(root)}); await wait(300); window.__med.action('newTerminal'); await until(() => document.querySelector('.term-in input')); await wait(800);
+    const inp = document.querySelector('.term-in input'); const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; set.call(inp, 'echo hello-from-terminal'); inp.dispatchEvent(new Event('input', { bubbles: true }));
+    inp.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); await until(() => document.querySelector('.term-out').textContent.includes('hello-from-terminal'), 8000);
+    await until(() => document.querySelector('.term-git b'), 8000); window.__med.action('newTerminal'); await wait(1200);
+    return JSON.stringify({ tabs: document.querySelectorAll('.term-tab').length, git: document.querySelector('.term-git') && document.querySelector('.term-git').textContent.slice(0, 60), out: document.querySelectorAll('.term-out')[0].textContent.includes('hello-from-terminal') }); })()`,
+  font_picker: `(async () => { ${PRELUDE} document.querySelector('.font-picker .fp-caret').dispatchEvent(new MouseEvent('mousedown', { bubbles: true })); await wait(1500);
+    const list = document.querySelector('.fp-list'); const r = list.getBoundingClientRect();
+    return JSON.stringify({ items: list.querySelectorAll('.fp-item').length, height: Math.round(r.height), scrollable: list.scrollHeight > list.clientHeight, insideWindow: r.bottom <= window.innerHeight }); })()`,
   no_sidebar: `(async () => { ${PRELUDE} window.__med.action('toggle:sidebarVisible'); window.__med.action('toggle:toolbarVisible'); await wait(300); return 'plain'; })()`,
 };
 
@@ -175,6 +241,8 @@ async function electronShot(name = 'main', script = null, url = null) {
   seedProfile(name);
   const env = { ...process.env, MED_USER_DATA: profileFor(name) };
   delete env.ELECTRON_RUN_AS_NODE;
+  // --dev: load the running Vite dev server (npm run dev / npm start) instead of dist/.
+  if (args.includes('--dev')) env.ELECTRON_DEV = '1';
   const shot = path.join(smokeDir, `${name}.png`);
   const extra = [];
   if (url) extra.push(`--smoke-url=${url}`);

@@ -34,7 +34,7 @@ function WindowButtons() {
 }
 
 // menus: [{ id, label, items: () => [...] }]
-export function MenuBar({ menus, onAction, theme, title }) {
+export function MenuBar({ menus, onAction, theme }) {
   useLanguage();
   const [open, setOpen] = useState(null);        // { id, el }
   const [themeMenu, setThemeMenu] = useState(null);
@@ -67,7 +67,6 @@ export function MenuBar({ menus, onAction, theme, title }) {
           </button>
         ))}
       </span>
-      {title && <span className="tb-doc ellipsis" title={title}>{title}</span>}
       <span className="tb-spacer" />
       <span className="tb-split">
         <button className="tb-btn tb-split-main" title={t('tip_next_theme', { theme: themeLabel(nextThemeId(theme)) })} onClick={() => onAction('nextTheme')}>

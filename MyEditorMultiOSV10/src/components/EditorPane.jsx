@@ -1,7 +1,7 @@
 // Hosts the single CodeMirror view. App.jsx swaps EditorStates in and out of
 // it when the active tab changes (every tab keeps its own state: text, undo
 // history, selection, folds). The pane also takes dropped files and shows
-// the editor context menu.
+// the editor context menu (with spelling suggestions for the word under the pointer).
 import React, { useEffect, useRef, useState } from 'react';
 import { EditorView } from '@codemirror/view';
 import { ContextMenu } from './ContextMenu';
@@ -34,11 +34,11 @@ export function EditorPane({ initialState, onView, onDropFiles, contextItems, on
       onDragOver={(e) => { if (e.dataTransfer.types.includes('Files')) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; if (!dragOver) setDragOver(true); } }}
       onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setDragOver(false); }}
       onDrop={onDrop}
-      onContextMenu={(e) => { if (e.target.closest('.cm-editor')) { e.preventDefault(); setCtx({ x: e.clientX, y: e.clientY }); } }}>
+      onContextMenu={(e) => { if (e.target.closest('.cm-editor')) { e.preventDefault(); const v = viewRef.current; setCtx({ x: e.clientX, y: e.clientY, pos: v ? v.posAtCoords({ x: e.clientX, y: e.clientY }) : null }); } }}>
       <div className="cm-host" ref={hostRef} />
       {ctx && (
-        <ContextMenu x={ctx.x} y={ctx.y} items={contextItems()} onClose={() => setCtx(null)}
-          onPick={(id) => { setCtx(null); onAction(id); }} />
+        <ContextMenu x={ctx.x} y={ctx.y} items={contextItems(ctx.pos)} onClose={() => setCtx(null)}
+          onPick={(id) => { setCtx(null); onAction(id, ctx.pos); }} />
       )}
     </div>
   );

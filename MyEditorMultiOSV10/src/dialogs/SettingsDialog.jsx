@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { t, useLanguage, getLanguage } from '../lib/i18n';
 import { THEMES } from '../themes';
-import { FONT_SUGGESTIONS } from '../lib/settings';
+import { FontPicker } from '../components/FontPicker';
 import { Dialog } from './Dialogs';
 
 function Check({ id, label, settings, onChange }) {
@@ -38,10 +38,7 @@ export function SettingsDialog({ settings, encodings, onChange, onClose }) {
             {THEMES.map((th) => <option key={th.id} value={th.id}>{lang === 'ko' ? th.label : th.labelEn}</option>)}
           </select>
           <label>{t('set_font')}</label>
-          <span>
-            <input list="font-list" value={settings.fontFamily} placeholder={t('set_font_ph')} onChange={(e) => onChange({ fontFamily: e.target.value })} spellCheck={false} />
-            <datalist id="font-list">{FONT_SUGGESTIONS.map((f) => <option key={f} value={f} />)}</datalist>
-          </span>
+          <FontPicker value={settings.fontFamily} onChange={(f) => onChange({ fontFamily: f })} />
           <label>{t('set_font_size')}</label>
           <span className="row">
             <input type="number" min={8} max={40} value={settings.fontSize} onChange={(e) => onChange({ fontSize: Math.max(8, Math.min(40, Number(e.target.value) || 14)) })} style={{ width: 80 }} />
@@ -55,10 +52,17 @@ export function SettingsDialog({ settings, encodings, onChange, onClose }) {
       )}
       {tab === 'editor' && (
         <div className="form-grid settings-grid">
+          <label />
+          <Check id="autoIndent" label={t('set_auto_indent')} settings={settings} onChange={onChange} />
+          <label>{t('set_indent_with')}</label>
+          <span className="row">
+            <label className="check"><input type="radio" name="indent-with" checked={!!settings.insertSpaces} onChange={() => onChange({ insertSpaces: true })} /><span>{t('set_indent_spaces')}</span></label>
+            <label className="check"><input type="radio" name="indent-with" checked={!settings.insertSpaces} onChange={() => onChange({ insertSpaces: false })} /><span>{t('set_indent_tabs')}</span></label>
+          </span>
           <label>{t('set_tab_size')}</label>
           <span className="row">
             <input type="number" min={1} max={16} value={settings.tabSize} onChange={(e) => onChange({ tabSize: Math.max(1, Math.min(16, Number(e.target.value) || 4)) })} style={{ width: 80 }} />
-            <Check id="insertSpaces" label={t('set_insert_spaces')} settings={settings} onChange={onChange} />
+            <span className="muted small">{t('set_tab_size_hint')}</span>
           </span>
           <label />
           <Check id="wordWrap" label={t('set_word_wrap')} settings={settings} onChange={onChange} />
@@ -74,6 +78,10 @@ export function SettingsDialog({ settings, encodings, onChange, onClose }) {
           <Check id="bracketMatching" label={t('set_bracket_match')} settings={settings} onChange={onChange} />
           <label />
           <Check id="foldGutter" label={t('set_fold')} settings={settings} onChange={onChange} />
+          <label />
+          <Check id="spellCheck" label={t('set_spell')} settings={settings} onChange={onChange} />
+          <label />
+          <Check id="spellCodeAll" label={t('set_spell_code_all')} settings={settings} onChange={onChange} />
         </div>
       )}
       {tab === 'files' && (

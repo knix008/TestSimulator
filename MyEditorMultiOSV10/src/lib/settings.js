@@ -27,6 +27,11 @@ export const SETTINGS_DEFAULTS = {
   statusBarVisible: true,
   mdPreview: false,
   mdWysiwyg: true,
+  spellCheck: true,
+  spellCodeAll: false,
+  autoIndent: true,
+  termVisible: false,
+  termHeight: 240,
   mdPreviewWidth: 0.5,
 };
 

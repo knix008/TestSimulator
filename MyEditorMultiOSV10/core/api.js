@@ -12,6 +12,7 @@ const path = require('path');
 const files = require('./files');
 const enc = require('./encoding');
 const { createSession } = require('./session');
+const { createTerminals } = require('./terminal');
 
 function serializeError(err) {
   if (!err) return { code: 'UNKNOWN', message: 'Unknown error' };
@@ -27,6 +28,7 @@ function serializeError(err) {
 
 function createApi({ name = 'web', version = '', buildInfo = null, configDir, openPath, revealPath, clipboard } = {}) {
   const session = createSession(configDir);
+  const terminals = createTerminals();
 
   const methods = {
     // ── App ──
@@ -79,6 +81,16 @@ function createApi({ name = 'web', version = '', buildInfo = null, configDir, op
     // ── OS integration ──
     'os.open': async ({ path: p }) => { if (openPath) { const r = await openPath(p); if (r) throw new Error(r); return true; } return files.openExternal(p); },
     'os.reveal': async ({ path: p }) => { if (revealPath) { await revealPath(p); return true; } return files.openExternal(path.dirname(p)); },
+    // ── Terminal panel ──
+    'term.shells': async () => terminals.shells(),
+    'term.create': async ({ cwd, shell }) => terminals.create({ cwd, shell }),
+    'term.run': async ({ id, line }) => terminals.run({ id, line }),
+    'term.write': async ({ id, data }) => terminals.write({ id, data }),
+    'term.read': async ({ id, since }) => terminals.read({ id, since }),
+    'term.kill': async ({ id }) => terminals.kill({ id }),
+    'term.list': async () => terminals.list(),
+    'git.status': async ({ cwd }) => terminals.git({ cwd }),
+
     'clipboard.read': async () => (clipboard ? clipboard.readText() : ''),
     'clipboard.write': async ({ text }) => { if (clipboard) clipboard.writeText(text || ''); return true; },
   };
@@ -91,7 +103,7 @@ function createApi({ name = 'web', version = '', buildInfo = null, configDir, op
       if (!fn) { const e = new Error(`Unknown API method: ${method}`); e.code = 'ENOMETHOD'; throw e; }
       return fn(args || {});
     },
-    async shutdown() { /* nothing to release yet */ },
+    async shutdown() { terminals.shutdown(); },
   };
 }
 

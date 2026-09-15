@@ -6,6 +6,7 @@ MyEditorMultiOSV10/
 │  ├ encoding.js        인코딩 감지·변환(iconv-lite), 줄 끝 감지·정규화
 │  ├ files.js           읽기/쓰기(원자적), 디렉터리 목록, 드라이브, mkdir/rename/remove
 │  ├ session.js         session.json (설정 · 탭 · 초안 · 최근 파일 · 창 위치)
+│  ├ terminal.js        터미널 세션(파이프 셸, 출력 버퍼, cwd 마커) + git status 파싱
 │  └ api.js             메서드 테이블 `api.call(name, args)` + 오류 직렬화
 ├ electron/             데스크톱 호스트
 │  ├ main.js            창, 단일 인스턴스, argv 파일 열기, 네이티브 대화상자, 닫기 확인, 스모크 훅
@@ -18,11 +19,12 @@ MyEditorMultiOSV10/
 │  ├ lib/languages.js   @codemirror/language-data 150+ 언어 지연 로드, 확장자 판별
 │  ├ lib/markdown.js    Markdown 서식 명령(감싸기/접두사 토글/블록 삽입), marked+DOMPurify 렌더러
 │  ├ lib/mdlive.js      Markdown WYSIWYG: 구문 트리 기반 Decoration(기호 숨김·위젯·줄 스타일)
+│  ├ lib/spell.js       스펠링 체크: nspell + assets/dict/en.{aff,dic}(지연 로드), 가시 범위만 검사, 제안·사용자 사전
 │  ├ lib/backend.js     전송 스위치(IPC ↔ fetch), 대화상자 폴백, 창 제어
 │  ├ lib/i18n.js        ko / en 사전
 │  ├ lib/settings.js    설정 기본값
 │  ├ themes.js          16 테마 → CSS 변수(구문 색 --syn-* 포함)
-│  ├ components/        MenuBar · Toolbar · TabBar · EditorPane · FindBar · MarkdownBar · Preview · Sidebar · StatusBar · ContextMenu · Icons
+│  ├ components/        MenuBar · Toolbar · TabBar · EditorPane · FindBar · MarkdownBar · Preview · Sidebar · TerminalPanel · FontPicker · StatusBar · ContextMenu · Icons
 │  └ dialogs/           Dialogs(확인·오류·정보·줄 이동·프롬프트·언어·인코딩·단축키) · SettingsDialog · FileDialog(웹)
 ├ scripts/              start-electron · free-port · generate-icons(+ico) · build-info · smoke · clean …
 ├ test/core.test.mjs    코어 단위 테스트

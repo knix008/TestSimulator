@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- XML — elements, attributes, CDATA -->
+<library name="샘플">
+  <book id="1" year="2001">
+    <title>First</title>
+    <author>Kim</author>
+  </book>
+  <book id="2" year="2010">
+    <title>Other</title>
+    <author>Lee</author>
+    <note><![CDATA[Contains <markup> that is not parsed]]></note>
+  </book>
+</library>

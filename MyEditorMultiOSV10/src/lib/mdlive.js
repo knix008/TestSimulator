@@ -7,8 +7,9 @@
 // a box. The line(s) the cursor is on show the raw syntax again, so every
 // mark stays editable — the Typora / Obsidian "live preview" behaviour.
 //
-// Colours and sizes (headings H1–H6, bold, italic…) come from the highlight
-// style in ./editor.js; this module only decides what is shown.
+// Colours (headings, bold, italic…) come from the highlight style in
+// ./editor.js; the H1–H6 sizes and the inline-code box are applied here, so
+// the source view (WYSIWYG off) stays uniform monospace.
 import { ViewPlugin, Decoration, WidgetType, EditorView } from '@codemirror/view';
 import { syntaxTree } from '@codemirror/language';
 
@@ -44,6 +45,7 @@ class HrWidget extends WidgetType {
 const hide = Decoration.replace({});
 const bullet = Decoration.replace({ widget: new BulletWidget() });
 const hrDeco = Decoration.replace({ widget: new HrWidget() });
+const inlineCode = Decoration.mark({ class: 'md-inline-code' });
 const quoteLine = Decoration.line({ class: 'md-quote-line' });
 const codeLine = Decoration.line({ class: 'md-code-line' });
 const codeFenceLine = Decoration.line({ class: 'md-code-line md-code-fence' });
@@ -97,6 +99,9 @@ function build(view) {
             else decos.push(hide.range(node.from, node.to));
             break;
           }
+          case 'InlineCode':
+            decos.push(inlineCode.range(node.from, node.to));
+            break;
           case 'EmphasisMark': case 'CodeMark': case 'StrikethroughMark':
             if (!parent || revealed(parent.from, parent.to)) break;
             if (name === 'CodeMark' && parent.name === 'FencedCode') break;   // handled below
@@ -177,6 +182,8 @@ export const markdownLive = [
     '.md-code-line': { background: 'color-mix(in srgb, var(--fg) 6%, transparent)' },
     '.md-code-fence': { background: 'color-mix(in srgb, var(--fg) 10%, transparent)' },
     '.md-heading-line': { paddingTop: '2px', paddingBottom: '2px' },
+    '.md-h1': { fontSize: '1.6em' }, '.md-h2': { fontSize: '1.4em' }, '.md-h3': { fontSize: '1.25em' }, '.md-h4': { fontSize: '1.12em' }, '.md-h5': { fontSize: '1.05em' }, '.md-h6': { fontSize: '1em' },
     '.md-h1, .md-h2': { borderBottom: '1px solid var(--border)' },
+    '.md-inline-code': { background: 'color-mix(in srgb, var(--fg) 9%, transparent)', borderRadius: '3px', padding: '0 2px' },
   }),
 ];

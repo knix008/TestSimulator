@@ -12,7 +12,11 @@
 - **찾기 / 바꾸기**(Ctrl+F / Ctrl+H): 대/소문자, 단어 단위, 정규식, 일치 개수와 위치, 모두 선택 / 모두 바꾸기
 - **인코딩** 자동 감지(BOM · UTF-8 · UTF-16 · 한국어 CP949 등 11종) 와 변환 저장, 다른 인코딩으로 다시 열기, 손실 경고
 - **줄 끝**(CRLF / LF / CR) 감지·변환, 저장 시 줄 끝 공백 제거 · 마지막 줄 바꿈 옵션
-- **폴더 트리**(Ctrl+B): 폴더를 열면 하위 폴더까지 펼쳐 모든 파일을 트리로 표시, 필터, 새 파일/폴더 · 이름 바꾸기 · 삭제 · 탐색기에서 보기
+- **폴더 트리**(Ctrl+B): 연결선이 있는 트리 뷰 — 클릭한 폴더만 펼치고 펼친 폴더는 유지, 모두 접기, 필터, 새 파일/폴더 · 이름 바꾸기 · 삭제 · 탐색기에서 보기
+- **영어 스펠링 체크**(F7, 도구 모음·설정에서 ON/OFF): 내장 en_US Hunspell 사전, 물결 밑줄, 오른쪽 클릭으로 제안 · 사전에 추가 · 무시; 코드에서는 주석·문자열만 검사
+- **자동 들여쓰기**(도구 모음·설정에서 ON/OFF): Enter 시 들여쓰기 유지, 공백/탭 삽입 선택, 탭 = 공백 n자리
+- **글꼴**: 도구 모음에서 시스템에 설치된 모든 글꼴 중 선택(스크롤·검색되는 목록, 직접 입력도 가능) + 크기(px) −/+
+- **터미널 패널**(Ctrl+`): 여러 셸 세션을 탭으로(명령 프롬프트 · PowerShell · Git Bash / bash · sh), Git 저장소면 브랜치·↑↓·변경 파일 수 표시와 git status/log/diff 버튼
 - **Markdown WYSIWYG 편집**: 제목(H1~H6)·굵게·기울임·취소선·코드·인용·목록·체크리스트·링크·이미지·표·구분선 도구 모음(단축키 포함); 기호는 커서가 있는 줄에서만 보이고 나머지는 렌더링된 모습으로 편집 + 옆에 **미리보기** 창(Ctrl+Shift+M)
 - 편집 도구: 줄 복제/삭제/이동, 주석 토글, 대·소문자, 줄 정렬, 빈 줄·중복 줄 제거, 줄 끝 공백 제거, 다중 커서(Alt+클릭), 사각형 선택(Alt+드래그), 코드 접기, 괄호 짝 강조·자동 닫기
 - 줄로 이동(Ctrl+G), 자동 줄 바꿈, 공백 문자 표시, 확대/축소(Ctrl+휠), 전체 화면
@@ -45,6 +49,10 @@ npm run build:linux   # Linux    → .AppImage + .deb                    ※ Lin
 아이콘(`build/icons/`)은 `assets/icon.svg` 에서 자동 생성되며, 결과물은 `release/` 와 프로젝트 루트에 복사됩니다.
 `npm run clean` 으로 빌드 산출물을, `npm run clean:all` 로 `node_modules` 까지 지웁니다.
 
+## 샘플 파일
+
+`samples/` 에 지원 형식별 예제(코드 18종, 웹, 데이터/설정, 텍스트·Markdown·스펠링, 인코딩 7종, 줄 끝 4종)가 있습니다. 파일 › 폴더 열기로 `samples` 를 열어 보세요. `node scripts/make-samples.mjs` 로 다시 생성합니다.
+
 ## 테스트
 
 ```bash
@@ -65,6 +73,7 @@ npm run smoke -- --scenario all   # 모든 시나리오(메뉴·대화상자·�
 - [CodeMirror 6](https://codemirror.net/) — 편집 엔진, [@codemirror/language-data](https://github.com/codemirror/language-data) 의 150+ 언어 문법
 - [iconv-lite](https://github.com/ashtuchkin/iconv-lite) — 인코딩 변환
 - [marked](https://marked.js.org/) + [DOMPurify](https://github.com/cure53/DOMPurify) — Markdown 미리보기
+- [nspell](https://github.com/wooorm/nspell) + en_US Hunspell 사전(`assets/dict/`, [dictionary-en](https://github.com/wooorm/dictionaries)) — 스펠링 체크
 - React 18, Vite 5, Electron 31, electron-builder 24
 
 ## License

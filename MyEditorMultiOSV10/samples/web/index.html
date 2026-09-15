@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <title>HTML 샘플</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .hero { padding: 2rem; background: linear-gradient(90deg, #1e3a8a, #0ea5e9); color: #fff; }
+  </style>
+</head>
+<body>
+  <header class="hero">
+    <h1>My Editor</h1>
+    <p>HTML 안의 <em>CSS</em> 와 <strong>JavaScript</strong> 도 함께 강조됩니다.</p>
+  </header>
+  <main>
+    <ul id="list"></ul>
+    <button type="button" onclick="add()">추가</button>
+  </main>
+  <script>
+    let n = 0;
+    function add() {
+      const li = document.createElement('li');
+      li.textContent = `item ${++n}`;
+      document.getElementById('list').appendChild(li);
+    }
+  </script>
+</body>
+</html>

@@ -2,16 +2,17 @@
 // compartments the settings reconfigure at run time, the theme (all colours
 // come from the app's CSS variables, so the 16 themes of src/themes.js apply
 // to the editor as well) and a few editing commands the menus offer.
-import { EditorState, Compartment, EditorSelection } from '@codemirror/state';
+import { EditorState, Compartment, EditorSelection, Prec } from '@codemirror/state';
 import {
   EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter, drawSelection, dropCursor,
   rectangularSelection, crosshairCursor, highlightSpecialChars, highlightWhitespace, highlightTrailingWhitespace,
 } from '@codemirror/view';
-import { defaultKeymap, history, historyKeymap, indentWithTab, undo, redo, selectAll, copyLineDown, deleteLine, moveLineUp, moveLineDown, toggleComment, indentMore, indentLess, insertNewlineAndIndent } from '@codemirror/commands';
+import { defaultKeymap, history, historyKeymap, indentWithTab, undo, redo, selectAll, copyLineDown, deleteLine, moveLineUp, moveLineDown, toggleComment, indentMore, indentLess, insertNewlineAndIndent, insertNewline } from '@codemirror/commands';
 import { foldGutter, foldKeymap, indentOnInput, bracketMatching, syntaxHighlighting, HighlightStyle, indentUnit, foldAll, unfoldAll, defaultHighlightStyle } from '@codemirror/language';
 import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete';
 import { search, highlightSelectionMatches, SearchQuery, setSearchQuery, getSearchQuery, findNext, findPrevious, replaceNext, replaceAll, selectMatches, openSearchPanel, closeSearchPanel } from '@codemirror/search';
 import { tags as t } from '@lezer/highlight';
+import { spellChecker } from './spell';
 
 // ── Compartments (reconfigured from the settings) ──
 export const comp = {
@@ -25,6 +26,8 @@ export const comp = {
   foldGutter: new Compartment(),
   indent: new Compartment(),
   readOnly: new Compartment(),
+  spell: new Compartment(),
+  autoIndent: new Compartment(),
 };
 
 // ── Syntax colours → CSS variables set by src/themes.js ──
@@ -43,15 +46,10 @@ const highlight = HighlightStyle.define([
   { tag: [t.attributeValue], color: 'var(--syn-string)' },
   { tag: [t.meta, t.processingInstruction, t.documentMeta, t.annotation], color: 'var(--syn-meta)' },
   { tag: [t.regexp, t.escape, t.special(t.variableName)], color: 'var(--syn-regexp)' },
-  // Markdown: headings scale like rendered H1–H6, inline code gets a box.
-  { tag: t.heading, color: 'var(--syn-heading)', fontWeight: 'bold' },
-  { tag: t.heading1, color: 'var(--syn-heading)', fontWeight: 'bold', fontSize: '1.6em' },
-  { tag: t.heading2, color: 'var(--syn-heading)', fontWeight: 'bold', fontSize: '1.4em' },
-  { tag: t.heading3, color: 'var(--syn-heading)', fontWeight: 'bold', fontSize: '1.25em' },
-  { tag: t.heading4, color: 'var(--syn-heading)', fontWeight: 'bold', fontSize: '1.12em' },
-  { tag: t.heading5, color: 'var(--syn-heading)', fontWeight: 'bold', fontSize: '1.05em' },
-  { tag: t.heading6, color: 'var(--syn-heading)', fontWeight: 'bold', fontSize: '1em' },
-  { tag: t.monospace, background: 'color-mix(in srgb, var(--fg) 9%, transparent)', borderRadius: '3px', padding: '0 2px' },
+  // Markdown: headings are bold + coloured here; their H1–H6 sizes and the
+  // inline-code box come from the WYSIWYG extension (src/lib/mdlive.js), so
+  // the source view stays uniform monospace.
+  { tag: [t.heading, t.heading1, t.heading2, t.heading3, t.heading4, t.heading5, t.heading6], color: 'var(--syn-heading)', fontWeight: 'bold' },
   { tag: t.quote, color: 'var(--syn-comment)' },
   { tag: t.emphasis, fontStyle: 'italic' },
   { tag: t.strong, fontWeight: 'bold' },
@@ -106,7 +104,6 @@ export function baseExtensions(settings, { onChange, onUpdate }) {
     drawSelection(),
     dropCursor(),
     EditorState.allowMultipleSelections.of(true),
-    indentOnInput(),
     syntaxHighlighting(highlight),
     syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
     rectangularSelection(),
@@ -125,11 +122,23 @@ export function baseExtensions(settings, { onChange, onUpdate }) {
     comp.foldGutter.of(settings.foldGutter ? foldGutter() : []),
     comp.indent.of(indentConfig(settings)),
     comp.readOnly.of(EditorState.readOnly.of(false)),
+    comp.spell.of(settings.spellCheck ? spellChecker : []),
+    comp.autoIndent.of(autoIndentConfig(settings)),
     EditorView.updateListener.of((u) => {
       if (u.docChanged && onChange) onChange(u);
       if (onUpdate && (u.docChanged || u.selectionSet || u.focusChanged)) onUpdate(u);
     }),
   ];
+}
+
+// Auto indentation: Enter keeps / computes the indentation of the new line
+// and typing a closing bracket re-indents; off → Enter inserts a bare
+// newline. Tab always inserts the unit chosen by indentConfig (spaces or a
+// tab character).
+export function autoIndentConfig(settings) {
+  return settings.autoIndent === false
+    ? Prec.high(keymap.of([{ key: 'Enter', run: insertNewline }]))
+    : [indentOnInput(), Prec.high(keymap.of([{ key: 'Enter', run: insertNewlineAndIndent }]))];
 }
 
 export function indentConfig(settings) {
@@ -149,6 +158,8 @@ export function settingsEffects(settings) {
     comp.bracketMatching.reconfigure(settings.bracketMatching ? bracketMatching() : []),
     comp.foldGutter.reconfigure(settings.foldGutter ? foldGutter() : []),
     comp.indent.reconfigure(indentConfig(settings)),
+    comp.spell.reconfigure(settings.spellCheck ? spellChecker : []),
+    comp.autoIndent.reconfigure(autoIndentConfig(settings)),
   ];
 }
 

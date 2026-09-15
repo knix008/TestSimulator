@@ -21,6 +21,7 @@ import { createState, settingsEffects, languageEffect, readOnlyEffect, commands,
 import { detectLanguage, languageByName, loadLanguage, FEATURED_LANGUAGES, PLAIN } from './lib/languages';
 import { commands as md } from './lib/markdown';
 import { markdownLive } from './lib/mdlive';
+import { wordAt as spellWordAt, suggest as spellSuggest, addUserWord, ignoreWord, setUserWords, setSpellOptions, refreshAll as spellRefreshAll, isReady as spellReady } from './lib/spell';
 import { MenuBar } from './components/MenuBar';
 import { Toolbar } from './components/Toolbar';
 import { TabBar } from './components/TabBar';
@@ -30,6 +31,7 @@ import { MarkdownBar } from './components/MarkdownBar';
 import { Preview } from './components/Preview';
 import { Sidebar } from './components/Sidebar';
 import { StatusBar } from './components/StatusBar';
+import { TerminalPanel } from './components/TerminalPanel';
 import { ConfirmDialog, ErrorDialog, AboutDialog, GotoLineDialog, PromptDialog, LanguagePicker, EncodingPicker, ShortcutsDialog } from './dialogs/Dialogs';
 import { SettingsDialog } from './dialogs/SettingsDialog';
 import { FileDialog } from './dialogs/FileDialog';
@@ -40,7 +42,12 @@ let nextDocId = 1;
 
 const baseName = (p) => (p || '').replace(/[\\/]+$/, '').split(/[\\/]/).pop();
 const dirName = (p) => { const i = Math.max(p.lastIndexOf('/'), p.lastIndexOf('\\')); return i > 0 ? p.slice(0, i) : p; };
-const samePath = (a, b) => a && b && (a === b || (navigator.platform.startsWith('Win') && a.toLowerCase() === b.toLowerCase()));
+// Paths are compared through a normalized key: on Windows (of the host that
+// owns the files — the server's platform in the web version) separators and
+// case do not matter, so "c:/a/B.txt" and "C:\a\b.txt" are the same file.
+let hostIsWindows = navigator.platform.startsWith('Win');
+const pathKey = (p) => (!p ? '' : hostIsWindows ? p.replace(/\//g, '\\').replace(/\\+$/, '').toLowerCase() : p.replace(/\/+$/, ''));
+const samePath = (a, b) => !!a && !!b && pathKey(a) === pathKey(b);
 
 export default function App() {
   useLanguage();
@@ -76,6 +83,11 @@ export default function App() {
   const findRef = useRef(null); findRef.current = find;
   const sidebarWidthRef = useRef(240); sidebarWidthRef.current = sidebarWidth;
   const actionRef = useRef(null);
+  // Terminal panel: sessions live in the host (core/terminal.js); here only their tabs.
+  const [terms, setTerms] = useState([]);
+  const [activeTerm, setActiveTerm] = useState(null);
+  const [shells, setShells] = useState([]);
+  const termNo = useRef(1);
 
   // ── small helpers ──
   const setSettings = (patch) => { const next = { ...settingsRef.current, ...patch }; settingsRef.current = next; setSettingsState(next); return next; };
@@ -198,11 +210,25 @@ export default function App() {
   };
 
   // ── open ──
-  const openPath = async (p, { encoding = null, activateIt = true, force = false } = {}) => {
-    const existing = docsRef.current.find((d) => samePath(d.path, p));
+  // A file is never opened twice: an already open tab is activated instead,
+  // and a second request for a file that is still being read joins the first.
+  const openingRef = useRef(new Map());   // pathKey → Promise<doc>
+  const openPath = (p, opts = {}) => {
+    const key = pathKey(p);
+    const pending = openingRef.current.get(key);
+    if (pending && !opts.encoding) return pending.then((d) => { if (d && opts.activateIt !== false) activate(d.id); return d; });
+    const job = openPathNow(p, opts).finally(() => { if (openingRef.current.get(key) === job) openingRef.current.delete(key); });
+    openingRef.current.set(key, job);
+    return job;
+  };
+  const openPathNow = async (p, { encoding = null, activateIt = true, force = false } = {}) => {
+    let existing = docsRef.current.find((d) => samePath(d.path, p));
     if (existing && !encoding) { if (activateIt) activate(existing.id); return existing; }
     try {
       const r = await call('file.read', { path: p, encoding: encoding || (force ? 'utf8' : null), defaultEol: settingsRef.current.defaultEol });
+      // The resolved path may differ from what was asked for (relative path, "..", case).
+      if (!existing) existing = docsRef.current.find((d) => samePath(d.path, r.path));
+      if (existing && !encoding) { if (activateIt) activate(existing.id); return existing; }
       if (existing) {
         // Reopen with another encoding: replace the text in place.
         const state = newDocState(r.text, { selection: { anchor: 0 } });
@@ -410,18 +436,24 @@ export default function App() {
       try { appInfo = await call('app.info'); session = await call('session.get'); } catch (e) { console.error(e); }
       if (cancelled) return;
       setInfo(appInfo);
+      call('term.shells').then(setShells).catch(() => {});
+      if (appInfo && appInfo.platform) hostIsWindows = appInfo.platform === 'win32';
       const s = pickSettings(session);
       settingsRef.current = s; setSettingsState(s);
       setLanguage(s.language);
       applyTheme(s.theme);
       setRecent(Array.isArray(session.recent) ? session.recent : []);
+      setUserWords(Array.isArray(session.userWords) ? session.userWords : []);
+      setSpellOptions({ codeAll: !!s.spellCodeAll });
       setSidebarWidth(session.sidebarWidth || 240);
       if (session.folder) setFolder(session.folder);
       // Restore the tabs (files are re-read; unsaved drafts come back dirty).
       const tabs = s.restoreSession && Array.isArray(session.tabs) ? session.tabs : [];
       let restored = 0;
+      const seen = new Set();
       for (const tab of tabs) {
         if (!tab) continue;
+        if (tab.path) { const k = pathKey(tab.path); if (seen.has(k)) continue; seen.add(k); }
         try {
           if (tab.path) {
             let r = null;
@@ -479,13 +511,14 @@ export default function App() {
     const next = setSettings(patch);
     if (patch.language !== undefined) { setLanguage(next.language); setDocs((ds) => ds.map((d) => (d.path ? d : { ...d, name: t('untitled', { n: d.untitledNo }) }))); }
     if (patch.theme !== undefined) { const th = applyTheme(next.theme); call('session.save', { themeBg: th.tokens['--bg'] }).catch(() => {}); }
-    const editorKeys = ['tabSize', 'insertSpaces', 'wordWrap', 'lineNumbers', 'showWhitespace', 'highlightActiveLine', 'autoCloseBrackets', 'bracketMatching', 'foldGutter'];
+    const editorKeys = ['tabSize', 'insertSpaces', 'wordWrap', 'lineNumbers', 'showWhitespace', 'highlightActiveLine', 'autoCloseBrackets', 'bracketMatching', 'foldGutter', 'spellCheck', 'autoIndent'];
     if (editorKeys.some((k) => patch[k] !== undefined)) {
       const effects = settingsEffects(next);
       if (viewRef.current) viewRef.current.dispatch({ effects });
       for (const [id, s] of statesRef.current) if (id !== activeIdRef.current) statesRef.current.set(id, s.update({ effects: settingsEffects(next) }).state);
     }
     if (patch.mdWysiwyg !== undefined) for (const d of docsRef.current) if (d.langName === 'Markdown') applyLanguage(d);
+    if (patch.spellCodeAll !== undefined) { setSpellOptions({ codeAll: !!next.spellCodeAll }); spellRefreshAll([viewRef.current]); }
     call('session.save', patch).catch(() => {});
   };
   const toggleSetting = (k) => changeSettings({ [k]: !settingsRef.current[k] });
@@ -577,6 +610,17 @@ export default function App() {
     if (id.startsWith('recent:')) return openPath(id.slice(7));
     if (id.startsWith('indent:')) { const [kind, n] = id.slice(7).split('-'); return changeSettings({ insertSpaces: kind === 'spaces', tabSize: Number(n) }); }
     if (id.startsWith('tab:')) { const d = docsRef.current[Number(id.slice(4))]; if (d) activate(d.id); return; }
+    if (id.startsWith('spell:')) {
+      const [, kind, word] = id.split(':');
+      const hit = v && typeof arg === 'number' ? spellWordAt(v, arg) : null;
+      if (kind === 'replace' && hit) withView((vw) => vw.dispatch({ changes: { from: hit.from, to: hit.to, insert: word } }));
+      else if (kind === 'add' && hit) { const words = addUserWord(hit.word); call('session.save', { userWords: words }).catch(() => {}); spellRefreshAll([v]); }
+      else if (kind === 'ignore' && hit) { ignoreWord(hit.word); spellRefreshAll([v]); }
+      return undefined;
+    }
+    if (id === 'newTerminal') return newTerminal(arg);
+    if (id === 'toggle:termVisible') id = 'toggleTerminal';
+    if (id === 'toggleTerminal') { const on = !settingsRef.current.termVisible; changeSettings({ termVisible: on }); if (on && !terms.length) newTerminal(); return undefined; }
     if (id.startsWith('md:heading:')) return withView((vw) => md.heading(vw, Number(id.slice(11))));
     if (id.startsWith('md:')) { const fn = md[id.slice(3)]; if (fn) withView((vw) => fn(vw)); return; }
     switch (id) {
@@ -665,6 +709,32 @@ export default function App() {
   };
   actionRef.current = action;
 
+  // ── terminals ──
+  const newTerminal = async (shell) => {
+    const doc = getDoc(activeIdRef.current);
+    const cwd = folderRef.current || (doc && doc.path ? dirName(doc.path) : undefined);
+    try {
+      const r = await call('term.create', { cwd, shell: shell || undefined });
+      const tm = { id: r.id, title: `${r.label} ${termNo.current++}`, shell: r.shell, cwd: r.cwd, buffer: [], seq: 0 };
+      setTerms((ts) => [...ts, tm]);
+      setActiveTerm(r.id);
+      if (!settingsRef.current.termVisible) changeSettings({ termVisible: true });
+    } catch (e) { await showError(t('error_title'), e.message, e); }
+  };
+  const closeTerminal = (id) => {
+    call('term.kill', { id }).catch(() => {});
+    setTerms((ts) => { const next = ts.filter((x) => x.id !== id); if (activeTerm === id) setActiveTerm(next.length ? next[next.length - 1].id : null); return next; });
+  };
+  const termSplitRef = useRef(null);
+  const onTermResizeStart = (e) => {
+    e.preventDefault();
+    const y0 = e.clientY, h0 = settingsRef.current.termHeight;
+    const move = (ev) => setSettings({ termHeight: Math.max(120, Math.min(window.innerHeight - 200, h0 + (y0 - ev.clientY))) });
+    const up = () => { window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up); call('session.save', { termHeight: settingsRef.current.termHeight }).catch(() => {}); };
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+  };
+
   // ── keyboard shortcuts (window level, before CodeMirror's own keymap) ──
   useEffect(() => {
     const action = (id) => actionRef.current(id);
@@ -712,6 +782,9 @@ export default function App() {
       else if (mod && e.key === '-') action('zoomOut');
       else if (mod && e.key === '0') action('zoomReset');
       else if (e.key === 'F11') action('fullscreen');
+      else if (e.key === 'F7') action('toggle:spellCheck');
+      else if (mod && e.key === '`' && !inMd) action('toggleTerminal');
+      else if (mod && e.shiftKey && e.key === '`') action('newTerminal');
       else if (mod && e.key === ',') action('settings');
       else if (mod && !inField && !e.shiftKey && k === 'd') action('dupLine');
       else if (mod && !inField && !e.shiftKey && k === 'l') action('delLine');
@@ -802,11 +875,14 @@ export default function App() {
       { id: 'gotoLine', label: t('goto_line'), icon: 'hash', shortcut: sc('Ctrl+G') },
     ] },
     { id: 'view', label: t('m_view'), items: () => [
+      { id: 'toggle:autoIndent', label: t('auto_indent'), checked: settings.autoIndent },
       { id: 'toggle:wordWrap', label: t('word_wrap'), checked: settings.wordWrap },
       { id: 'toggle:lineNumbers', label: t('line_numbers'), checked: settings.lineNumbers },
       { id: 'toggle:showWhitespace', label: t('show_ws'), checked: settings.showWhitespace },
       { id: 'toggle:highlightActiveLine', label: t('active_line'), checked: settings.highlightActiveLine },
       { id: 'toggle:foldGutter', label: t('fold_gutter'), checked: settings.foldGutter },
+      { id: 'toggle:spellCheck', label: t('spell_check'), checked: settings.spellCheck, shortcut: 'F7' },
+      { id: 'toggle:spellCodeAll', label: t('spell_code_all'), checked: settings.spellCodeAll, disabled: !settings.spellCheck },
       { sep: true },
       { id: 'foldAll', label: t('fold_all') },
       { id: 'unfoldAll', label: t('unfold_all') },
@@ -816,6 +892,8 @@ export default function App() {
       { id: 'toggle:mdPreview', label: t('md_preview_menu'), checked: settings.mdPreview, shortcut: sc('Ctrl+Shift+M'), disabled: !cur || cur.langName !== 'Markdown' },
       { id: 'toggle:toolbarVisible', label: t('toolbar'), checked: settings.toolbarVisible },
       { id: 'toggle:statusBarVisible', label: t('statusbar'), checked: settings.statusBarVisible },
+      { id: 'toggleTerminal', label: t('terminal'), icon: 'terminal', checked: settings.termVisible, shortcut: sc('Ctrl+`') },
+      { id: 'newTerminal', label: t('term_new'), shortcut: sc('Ctrl+Shift+`') },
       { sep: true },
       { id: 'zoomIn', label: t('zoom_in'), icon: 'zoomIn', shortcut: sc('Ctrl++') },
       { id: 'zoomOut', label: t('zoom_out'), icon: 'zoomOut', shortcut: sc('Ctrl+-') },
@@ -868,7 +946,21 @@ export default function App() {
     ];
   };
 
-  const editorContextItems = () => [
+  const spellItems = (pos) => {
+    const v = viewRef.current;
+    if (!v || typeof pos !== 'number' || !settingsRef.current.spellCheck) return [];
+    const hit = spellWordAt(v, pos);
+    if (!hit) return [];
+    const sugg = spellReady() ? spellSuggest(hit.word) : [];
+    return [
+      ...(sugg.length ? sugg.map((w) => ({ id: `spell:replace:${w}`, label: w, icon: 'spell' })) : [{ id: 'spell:none', label: t(spellReady() ? 'spell_none' : 'spell_loading'), disabled: true }]),
+      { id: 'spell:add', label: t('spell_add', { word: hit.word }), icon: 'plus' },
+      { id: 'spell:ignore', label: t('spell_ignore', { word: hit.word }), icon: 'eyeOff' },
+      { sep: true },
+    ];
+  };
+  const editorContextItems = (pos) => [
+    ...spellItems(pos),
     { id: 'undo', label: t('undo'), icon: 'undo', shortcut: sc('Ctrl+Z') },
     { id: 'redo', label: t('redo'), icon: 'redo', shortcut: sc('Ctrl+Y') },
     { sep: true },
@@ -889,8 +981,11 @@ export default function App() {
 
   const statusPickers = {
     indent: () => [
-      { header: t('set_tab_size') },
-      ...[2, 4, 8].map((n) => ({ id: `indent:spaces-${n}`, label: t('st_spaces', { n }), checked: settings.insertSpaces && settings.tabSize === n, radio: true })),
+      { id: 'toggle:autoIndent', label: t('auto_indent'), checked: settings.autoIndent },
+      { sep: true },
+      { header: t('set_indent_spaces') },
+      ...[2, 3, 4, 8].map((n) => ({ id: `indent:spaces-${n}`, label: t('st_spaces', { n }), checked: settings.insertSpaces && settings.tabSize === n, radio: true })),
+      { header: t('set_indent_tabs') },
       ...[2, 4, 8].map((n) => ({ id: `indent:tabs-${n}`, label: t('st_tabs', { n }), checked: !settings.insertSpaces && settings.tabSize === n, radio: true })),
     ],
     eol: () => EOLS.map((e) => ({ id: `eol:${e}`, label: t(`eol_${e}`), checked: !!cur && cur.eol === e, radio: true })),
@@ -957,8 +1052,8 @@ export default function App() {
 
   return (
     <div className="app">
-      <MenuBar menus={menus} onAction={action} theme={settings.theme} title={cur ? `${cur.dirty ? '● ' : ''}${cur.path || cur.name}` : ''} />
-      {settings.toolbarVisible && <Toolbar onAction={action} settings={settings} state={toolbarState} />}
+      <MenuBar menus={menus} onAction={action} theme={settings.theme} />
+      {settings.toolbarVisible && <Toolbar onAction={action} onSetting={changeSettings} settings={settings} state={toolbarState} />}
       <div className="body">
         {settings.sidebarVisible && (
           <>
@@ -968,6 +1063,7 @@ export default function App() {
             <div className="v-splitter" onMouseDown={onSplitDown} />
           </>
         )}
+        <div className="editor-column">
         <div className="editor-area">
           <TabBar docs={docs} activeId={activeId} onActivate={activate} onClose={(id) => closeDocs([id])} onNew={() => newUntitled()}
             onReorder={(from, to) => { setDocs((ds) => { const a = ds.slice(); const i = a.findIndex((d) => d.id === from), j = a.findIndex((d) => d.id === to); const [m] = a.splice(i, 1); a.splice(j, 0, m); return a; }); schedulePersist(); }}
@@ -984,6 +1080,12 @@ export default function App() {
               </>
             )}
           </div>
+        </div>
+        {settings.termVisible && (
+          <TerminalPanel terms={terms} activeId={activeTerm} shells={shells} height={settings.termHeight} onResizeStart={onTermResizeStart}
+            onActivate={setActiveTerm} onNew={(shell) => newTerminal(shell)} onClose={closeTerminal} onHide={() => changeSettings({ termVisible: false })}
+            onExit={() => {}} />
+        )}
         </div>
       </div>
       {settings.statusBarVisible && (

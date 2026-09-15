@@ -1,0 +1,15 @@
+{
+  "name": "my-editor",
+  "version": "1.0.0",
+  "settings": {
+    "theme": "midnight",
+    "fontSize": 14,
+    "wordWrap": false,
+    "encodings": ["utf8", "utf16le", "cp949"]
+  },
+  "recent": [
+    { "path": "C:\\work\\notes.txt", "line": 12 },
+    { "path": "/home/user/todo.md", "line": 1 }
+  ],
+  "nullable": null
+}
