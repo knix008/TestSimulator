@@ -250,8 +250,12 @@ pub fn run() {
             if let Some(window) = app.get_webview_window("main") {
                 apply_fixed_window_size(&window);
 
-                if let Some(icon) = app.default_window_icon() {
-                    let _ = window.set_icon(icon.clone());
+                // PNG (not the ICO) so the Windows taskbar gets a filled glyph at 16–32px.
+                let window_icon = Image::from_bytes(include_bytes!("../icons/128x128.png"))
+                    .ok()
+                    .or_else(|| app.default_window_icon().cloned());
+                if let Some(icon) = window_icon {
+                    let _ = window.set_icon(icon);
                 }
             }
 

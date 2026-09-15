@@ -148,7 +148,23 @@ for (const entry of readdirSync(root, { withFileTypes: true })) {
 }
 
 const destination = join(root, selected.name)
-copyFileSync(selected.path, destination)
+
+const copyWithRetry = () => {
+  let lastError
+  for (let attempt = 1; attempt <= 5; attempt += 1) {
+    try {
+      copyFileSync(selected.path, destination)
+      return
+    } catch (error) {
+      lastError = error
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 400 * attempt)
+    }
+  }
+  console.error(`[copy-installers] could not write ${selected.name} (file may be open in Explorer or the editor). Close it and retry.`)
+  throw lastError
+}
+
+copyWithRetry()
 const sizeMb = (statSync(destination).size / (1024 * 1024)).toFixed(1)
 console.log(`[copy-installers] ${selected.name} → ./ (${sizeMb} MB)`)
 console.log('[copy-installers] Copied 1 final installer to project root.')

@@ -1,5 +1,5 @@
 <svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
-  <!-- Music player mark: 3D squircle on a transparent field (no opaque border). -->
+  <!-- Music player mark: 3D squircle that fills the canvas (taskbar / window icon). -->
   <defs>
     <linearGradient id="body" x1="0.08" y1="0" x2="0.92" y2="1">
       <stop offset="0" stop-color="#9AFFFF"/>
@@ -30,27 +30,22 @@
       <stop offset="1" stop-color="#C9D4FF"/>
     </linearGradient>
     <clipPath id="tile">
-      <rect x="96" y="72" width="832" height="832" rx="228"/>
+      <rect x="12" y="12" width="1000" height="1000" rx="248"/>
     </clipPath>
-    <filter id="lift" x="-18%" y="-8%" width="136%" height="140%">
-      <feDropShadow dx="0" dy="26" stdDeviation="30" flood-color="#1a0628" flood-opacity="0.42"/>
-    </filter>
     <filter id="noteShadow" x="-35%" y="-25%" width="170%" height="170%">
-      <feDropShadow dx="0" dy="18" stdDeviation="16" flood-color="#2a0860" flood-opacity="0.4"/>
+      <feDropShadow dx="0" dy="14" stdDeviation="12" flood-color="#2a0860" flood-opacity="0.35"/>
     </filter>
   </defs>
 
-  <g filter="url(#lift)">
-    <rect x="96" y="72" width="832" height="832" rx="228" fill="url(#body)"/>
-  </g>
+  <rect x="12" y="12" width="1000" height="1000" rx="248" fill="url(#body)"/>
   <g clip-path="url(#tile)">
-    <rect x="96" y="72" width="832" height="832" fill="url(#orbCyan)"/>
-    <rect x="96" y="72" width="832" height="832" fill="url(#orbMagenta)"/>
-    <rect x="96" y="72" width="832" height="832" fill="url(#shade)"/>
+    <rect x="12" y="12" width="1000" height="1000" fill="url(#orbCyan)"/>
+    <rect x="12" y="12" width="1000" height="1000" fill="url(#orbMagenta)"/>
+    <rect x="12" y="12" width="1000" height="1000" fill="url(#shade)"/>
     <circle cx="512" cy="530" r="176" fill="none" stroke="#ffffff" stroke-opacity="0.18" stroke-width="14"/>
     <circle cx="512" cy="530" r="262" fill="none" stroke="#ffffff" stroke-opacity="0.1" stroke-width="11"/>
-    <rect x="96" y="72" width="832" height="832" fill="url(#gloss)"/>
-    <ellipse cx="390" cy="168" rx="260" ry="90" fill="#ffffff" fill-opacity="0.28"/>
+    <rect x="12" y="12" width="1000" height="1000" fill="url(#gloss)"/>
+    <ellipse cx="390" cy="140" rx="280" ry="96" fill="#ffffff" fill-opacity="0.28"/>
   </g>
 
   <g filter="url(#noteShadow)" fill="url(#note)">

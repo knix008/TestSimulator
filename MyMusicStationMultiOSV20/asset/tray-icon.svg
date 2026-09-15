@@ -20,19 +20,14 @@
       <stop offset="1" stop-color="#C9D4FF"/>
     </linearGradient>
     <clipPath id="tray-tile">
-      <rect x="48" y="36" width="416" height="416" rx="114"/>
+      <rect x="6" y="6" width="500" height="500" rx="124"/>
     </clipPath>
-    <filter id="tray-lift" x="-18%" y="-8%" width="136%" height="140%">
-      <feDropShadow dx="0" dy="12" stdDeviation="14" flood-color="#1a0628" flood-opacity="0.4"/>
-    </filter>
   </defs>
-  <g filter="url(#tray-lift)">
-    <rect x="48" y="36" width="416" height="416" rx="114" fill="url(#tray-body)"/>
-  </g>
+  <rect x="6" y="6" width="500" height="500" rx="124" fill="url(#tray-body)"/>
   <g clip-path="url(#tray-tile)">
-    <rect x="48" y="36" width="416" height="416" fill="url(#tray-shade)"/>
-    <rect x="48" y="36" width="416" height="416" fill="url(#tray-gloss)"/>
-    <ellipse cx="196" cy="84" rx="130" ry="44" fill="#ffffff" fill-opacity="0.26"/>
+    <rect x="6" y="6" width="500" height="500" fill="url(#tray-shade)"/>
+    <rect x="6" y="6" width="500" height="500" fill="url(#tray-gloss)"/>
+    <ellipse cx="196" cy="70" rx="140" ry="48" fill="#ffffff" fill-opacity="0.26"/>
   </g>
   <g fill="url(#tray-note)">
     <path d="M281 144 C361 144 412 188 400 256 C395 287 378 310 355 323

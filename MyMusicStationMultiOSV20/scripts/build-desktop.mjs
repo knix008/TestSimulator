@@ -8,19 +8,57 @@ const localTargetDir = join(root, 'src-tauri', 'target')
 const releaseDir = join(localTargetDir, 'release')
 const manifestPath = join(releaseDir, 'build-manifest.json')
 
+const processName = platform() === 'win32' ? 'my_music_station.exe' : 'my_music_station'
+
+const sleepSync = (ms) => {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms)
+}
+
+const isAppRunning = () => {
+  if (platform() !== 'win32') {
+    return false
+  }
+
+  const result = spawnSync('tasklist', ['/FI', `IMAGENAME eq ${processName}`, '/NH'], {
+    encoding: 'utf8',
+    windowsHide: true,
+  })
+  return (result.stdout || '').toLowerCase().includes(processName.toLowerCase())
+}
+
 const stopRunningInstances = () => {
   if (platform() !== 'win32') {
     return
   }
 
-  try {
-    execFileSync('taskkill', ['/F', '/IM', 'my_music_station.exe', '/T'], {
-      stdio: 'ignore',
-    })
-    console.log('[build] stopped running my_music_station.exe instance(s)')
-  } catch {
-    // No running instance is fine.
+  if (!isAppRunning()) {
+    return
   }
+
+  console.log('[build] stopping running my_music_station.exe so release files can be overwritten')
+
+  for (let attempt = 1; attempt <= 10; attempt += 1) {
+    try {
+      execFileSync('taskkill', ['/F', '/IM', processName, '/T'], {
+        stdio: 'ignore',
+        windowsHide: true,
+      })
+    } catch {
+      // Already gone.
+    }
+
+    sleepSync(400)
+
+    if (!isAppRunning()) {
+      // Windows can keep .exe / .pdb / incremental .o handles open briefly after kill.
+      sleepSync(800)
+      console.log('[build] stopped running instance(s)')
+      return
+    }
+  }
+
+  console.error('[build] could not close my_music_station.exe. Quit it from the tray, then retry.')
+  process.exit(1)
 }
 
 // One final distributor image per platform (copied to project root).
@@ -72,15 +110,25 @@ console.log(`[build] tauri build ${buildFlags}`)
 // command as a single string with NO args array: Node's DEP0190 warning only
 // fires when an args array is combined with `shell: true`. bundlesArg is a
 // fixed internal token (nsis/dmg/appimage/none), so there is nothing to escape.
-const result = spawnSync(`npx tauri build ${buildFlags}`, {
-  cwd: root,
-  stdio: 'inherit',
-  shell: true,
-  env: {
-    ...process.env,
-    CARGO_TARGET_DIR: localTargetDir,
-  },
-})
+const runTauriBuild = () =>
+  spawnSync(`npx tauri build ${buildFlags}`, {
+    cwd: root,
+    stdio: 'inherit',
+    shell: true,
+    env: {
+      ...process.env,
+      CARGO_TARGET_DIR: localTargetDir,
+    },
+  })
+
+let result = runTauriBuild()
+
+if (result.status !== 0 && platform() === 'win32') {
+  console.warn('[build] compile failed (Windows often locks target files); stopping the app and retrying...')
+  stopRunningInstances()
+  sleepSync(1000)
+  result = runTauriBuild()
+}
 
 if (result.status !== 0) {
   process.exit(result.status ?? 1)
