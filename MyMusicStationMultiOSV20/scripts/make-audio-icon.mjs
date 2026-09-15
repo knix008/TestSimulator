@@ -1,11 +1,11 @@
-// Source of truth for music-file type icons.
+// Source of truth for music-file type icons (in-app artwork + Explorer).
 //
 //   node scripts/make-audio-icon.mjs            write SVGs + generate ICO files
 //   node scripts/make-audio-icon.mjs --svg-only write asset SVGs only
 //
-// Generic document: asset/audio-icon.svg
-// Per-format badges: asset/audio-icons/{mp3,wav,...}.svg
-// Windows Explorer icons: src-tauri/audio-icons/{icon,mp3,wav,...}.ico
+// Generic: asset/audio-icon.svg
+// Per-format: asset/audio-icons/{mp3,wav,...}.svg
+// Windows Explorer: src-tauri/audio-icons/{icon,mp3,wav,...}.ico
 import { copyFileSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { spawnSync } from 'node:child_process'
@@ -13,92 +13,193 @@ import { spawnSync } from 'node:child_process'
 const root = process.cwd()
 const svgOnly = process.argv.includes('--svg-only')
 
-/** One visual identity per container. `.aif` reuses the AIFF artwork. */
+/** Unique color + mark per container so 16px Explorer tiles still read apart. */
 const audioFormatIcons = [
-  { ext: 'mp3', label: 'MP3', paper: '#FFF6EC', fold: '#FFE0C2', accent: '#F08C00', accentDark: '#C46A00', badgeText: '#ffffff' },
-  { ext: 'wav', label: 'WAV', paper: '#EEFBF3', fold: '#C8F0D8', accent: '#1FA971', accentDark: '#157A52', badgeText: '#ffffff' },
-  { ext: 'flac', label: 'FLAC', paper: '#F7F0FB', fold: '#E3CFF3', accent: '#8E44AD', accentDark: '#5B2C6F', badgeText: '#ffffff' },
-  { ext: 'ogg', label: 'OGG', paper: '#FDEDEC', fold: '#F5B7B1', accent: '#E74C3C', accentDark: '#A93226', badgeText: '#ffffff' },
-  { ext: 'aac', label: 'AAC', paper: '#E8F8F5', fold: '#A3E4D7', accent: '#0E9F85', accentDark: '#0B6E5C', badgeText: '#ffffff' },
-  { ext: 'm4a', label: 'M4A', paper: '#FDEEF4', fold: '#F8BBD0', accent: '#E91E63', accentDark: '#AD1457', badgeText: '#ffffff' },
-  { ext: 'webm', label: 'WEBM', paper: '#F9EBEA', fold: '#E6B0AA', accent: '#B03A2E', accentDark: '#7B241C', badgeText: '#ffffff' },
-  { ext: 'opus', label: 'OPUS', paper: '#EAF6FB', fold: '#AED6F1', accent: '#1A7FBF', accentDark: '#0E4D73', badgeText: '#ffffff' },
-  { ext: 'wma', label: 'WMA', paper: '#EAF2F8', fold: '#A9CCE3', accent: '#2E86C1', accentDark: '#1B4F72', badgeText: '#ffffff' },
-  { ext: 'aiff', label: 'AIFF', paper: '#FEF9E7', fold: '#F9E79F', accent: '#D4A017', accentDark: '#9A7B0A', badgeText: '#2C2200' },
+  { ext: 'mp3', label: 'MP3', kind: 'notes', light: '#FFE08A', accent: '#FF6A00', deep: '#B33A00' },
+  { ext: 'wav', label: 'WAV', kind: 'wave', light: '#9CFFD4', accent: '#00C853', deep: '#007A38' },
+  { ext: 'flac', label: 'FLAC', kind: 'crystal', light: '#F0C8FF', accent: '#A855F7', deep: '#6B21A8' },
+  { ext: 'ogg', label: 'OGG', kind: 'rings', light: '#FFC2B6', accent: '#FF3B2E', deep: '#B71C1C' },
+  { ext: 'aac', label: 'AAC', kind: 'eq', light: '#9EFFF3', accent: '#00BFA5', deep: '#00695C' },
+  { ext: 'm4a', label: 'M4A', kind: 'vinyl', light: '#FFC2DA', accent: '#FF2E7A', deep: '#AD1457' },
+  { ext: 'webm', label: 'WEBM', kind: 'play', light: '#FFD0B0', accent: '#FF5722', deep: '#BF360C' },
+  { ext: 'opus', label: 'OPUS', kind: 'arcs', light: '#B8F0FF', accent: '#00B0F0', deep: '#01579B' },
+  { ext: 'wma', label: 'WMA', kind: 'tiles', light: '#D4D8FF', accent: '#5C6CFF', deep: '#283593' },
+  { ext: 'aiff', label: 'AIFF', kind: 'sine', light: '#FFE9A0', accent: '#F5C400', deep: '#C67A00', mark: '#2C2200' },
 ]
 
-const genericAudioSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <!-- Music-file type icon (distinct from the app tile and the .mplist document).
-       Generate ICO/ICNS: node scripts/make-audio-icon.mjs -->
-  <defs>
-    <linearGradient id="paper" x1="142" y1="70" x2="390" y2="442" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#ffffff" />
-      <stop offset="1" stop-color="#e8f6ff" />
-    </linearGradient>
-    <linearGradient id="fold" x1="302" y1="70" x2="390" y2="166" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#cfe8ff" />
-      <stop offset="1" stop-color="#ffffff" />
-    </linearGradient>
-    <linearGradient id="note" x1="168" y1="150" x2="340" y2="340" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#3E92F0" />
-      <stop offset="1" stop-color="#1558C0" />
-    </linearGradient>
-  </defs>
-  <path d="M142 70h160l88 88v284H142z" fill="url(#paper)" stroke="#0d2f6f" stroke-width="24" stroke-linejoin="round" />
-  <path d="M302 70v96h88" fill="url(#fold)" stroke="#0d2f6f" stroke-width="24" stroke-linejoin="round" />
-  <g fill="url(#note)">
-    <path d="M272 152 C348 152 396 196 382 262 C376 294 356 318 328 332
-             C350 290 346 250 326 226 C310 206 290 192 272 188 Z" />
-    <rect x="250" y="152" width="26" height="176" rx="13" />
-    <ellipse cx="198" cy="318" rx="56" ry="42" transform="rotate(-22 198 318)" />
-  </g>
-  <g fill="#2eb8e6">
-    <rect x="176" y="390" width="18" height="28" rx="9" />
-    <rect x="202" y="376" width="18" height="42" rx="9" />
-    <rect x="228" y="368" width="18" height="50" rx="9" />
-    <rect x="254" y="380" width="18" height="38" rx="9" />
-    <rect x="280" y="372" width="18" height="46" rx="9" />
-    <rect x="306" y="386" width="18" height="32" rx="9" />
-    <rect x="332" y="394" width="18" height="24" rx="9" />
-  </g>
-</svg>
-`
+const markGlyph = (kind, fill, stroke, deep) => {
+  switch (kind) {
+    case 'notes':
+      return `
+    <g fill="${fill}">
+      <ellipse cx="176" cy="236" rx="52" ry="38" transform="rotate(-18 176 236)" />
+      <rect x="212" y="96" width="26" height="148" rx="13" />
+      <ellipse cx="292" cy="214" rx="52" ry="38" transform="rotate(-18 292 214)" />
+      <rect x="328" y="74" width="26" height="148" rx="13" />
+      <path d="M225 74h129c8 0 12 10 8 16L346 132H237c-8 0-13-8-10-16z" />
+    </g>`
+    case 'wave':
+      return `
+    <g fill="${fill}">
+      <rect x="132" y="168" width="32" height="96" rx="16" />
+      <rect x="176" y="118" width="32" height="146" rx="16" />
+      <rect x="220" y="78" width="32" height="186" rx="16" />
+      <rect x="264" y="132" width="32" height="132" rx="16" />
+      <rect x="308" y="98" width="32" height="166" rx="16" />
+      <rect x="352" y="158" width="32" height="106" rx="16" />
+    </g>`
+    case 'crystal':
+      return `
+    <g fill="${fill}">
+      <path d="M256 72l92 86-36 118H200l-36-118z" />
+    </g>
+    <path d="M256 72l92 86H164z" fill="#ffffff" fill-opacity="0.28" />
+    <path d="M256 72L200 276l56-48z" fill="${deep}" fill-opacity="0.28" />`
+    case 'rings':
+      return `
+    <g fill="none" stroke="${stroke}" stroke-linecap="round">
+      <circle cx="256" cy="168" r="28" stroke-width="22" />
+      <circle cx="256" cy="168" r="70" stroke-width="18" />
+      <circle cx="256" cy="168" r="112" stroke-width="16" />
+    </g>`
+    case 'eq':
+      return `
+    <g fill="${fill}">
+      <rect x="136" y="150" width="36" height="114" rx="18" />
+      <rect x="188" y="88" width="36" height="176" rx="18" />
+      <rect x="240" y="62" width="36" height="202" rx="18" />
+      <rect x="292" y="108" width="36" height="156" rx="18" />
+      <rect x="344" y="142" width="36" height="122" rx="18" />
+    </g>`
+    case 'vinyl':
+      return `
+    <circle cx="256" cy="168" r="118" fill="${fill}" />
+    <g fill="none" stroke="${deep}" stroke-opacity="0.4">
+      <circle cx="256" cy="168" r="92" stroke-width="8" />
+      <circle cx="256" cy="168" r="70" stroke-width="8" />
+      <circle cx="256" cy="168" r="48" stroke-width="8" />
+    </g>
+    <circle cx="256" cy="168" r="20" fill="${deep}" fill-opacity="0.45" />
+    <circle cx="256" cy="168" r="10" fill="${fill}" />`
+    case 'play':
+      return `
+    <g fill="${fill}">
+      <circle cx="256" cy="168" r="118" fill-opacity="0.28" />
+      <path d="M214 96l132 72-132 72z" />
+    </g>`
+    case 'arcs':
+      return `
+    <g fill="none" stroke="${stroke}" stroke-linecap="round">
+      <path d="M168 220c36-86 140-86 176 0" stroke-width="22" />
+      <path d="M140 248c52-128 180-128 232 0" stroke-width="18" />
+      <path d="M114 276c66-168 218-168 284 0" stroke-width="16" />
+      <circle cx="256" cy="236" r="16" fill="${fill}" stroke="none" />
+    </g>`
+    case 'tiles':
+      return `
+    <g fill="${fill}">
+      <rect x="148" y="70" width="88" height="88" rx="26" />
+      <rect x="276" y="70" width="88" height="88" rx="26" />
+      <rect x="148" y="178" width="88" height="88" rx="26" fill-opacity="0.72" />
+      <rect x="276" y="178" width="88" height="88" rx="26" fill-opacity="0.72" />
+    </g>`
+    case 'sine':
+      return `
+    <path fill="none" stroke="${stroke}" stroke-width="28" stroke-linecap="round" stroke-linejoin="round"
+          d="M118 176c28-88 56-88 84 0s56 88 84 0 56-88 84 0 56 88 84 0" />`
+    default:
+      return `
+    <g fill="${fill}">
+      <path d="M281 96 C361 96 412 140 400 208 C395 239 378 262 355 275
+               C376 241 372 206 353 181 C338 160 311 148 281 145 Z" />
+      <rect x="281" y="96" width="32" height="188" rx="16" />
+      <ellipse cx="220" cy="276" rx="70" ry="54" transform="rotate(-18 220 276)" />
+    </g>`
+  }
+}
 
-const formatAudioSvg = ({ ext, label, paper, fold, accent, accentDark, badgeText }) => {
-  const id = ext.replace(/[^a-z0-9]/gi, '')
-  const fontSize = label.length > 3 ? 28 : 34
-  const tracking = label.length > 3 ? '-1.2' : '0.4'
+const squircleAudioSvg = ({
+  id,
+  light,
+  accent,
+  deep,
+  label = '',
+  kind = 'note',
+  mark = '#ffffff',
+}) => {
+  const fontSize = label.length > 3 ? 62 : 84
+  const tracking = label.length > 3 ? '-2.5' : '1.2'
+  const fill = `url(#mark-${id})`
+  const badge = label
+    ? `
+  <text x="258" y="412" text-anchor="middle" font-family="Arial Black, Arial, Helvetica, sans-serif" font-size="${fontSize}" font-weight="800" letter-spacing="${tracking}" fill="${deep}" fill-opacity="0.38">${label}</text>
+  <text x="256" y="402" text-anchor="middle" font-family="Arial Black, Arial, Helvetica, sans-serif" font-size="${fontSize}" font-weight="800" letter-spacing="${tracking}" fill="${mark}">${label}</text>`
+    : ''
 
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <!-- ${label} audio file type icon. Generate ICO: node scripts/make-audio-icon.mjs -->
+  <!-- ${label || 'Audio'} file mark. 3D squircle, unique glyph, large type. -->
   <defs>
-    <linearGradient id="paper-${id}" x1="142" y1="70" x2="390" y2="442" gradientUnits="userSpaceOnUse">
+    <linearGradient id="body-${id}" x1="0.08" y1="0" x2="0.92" y2="1">
+      <stop offset="0" stop-color="${light}" />
+      <stop offset="0.45" stop-color="${accent}" />
+      <stop offset="1" stop-color="${deep}" />
+    </linearGradient>
+    <radialGradient id="shade-${id}" cx="0.78" cy="0.92" r="0.7">
+      <stop offset="0" stop-color="#1a0628" stop-opacity="0.42" />
+      <stop offset="1" stop-color="#1a0628" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="gloss-${id}" cx="0.28" cy="0.12" r="0.68">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.58" />
+      <stop offset="0.42" stop-color="#ffffff" stop-opacity="0.12" />
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="mark-${id}" x1="150" y1="70" x2="340" y2="320" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#ffffff" />
-      <stop offset="1" stop-color="${paper}" />
+      <stop offset="1" stop-color="#E8EEFF" />
     </linearGradient>
-    <linearGradient id="fold-${id}" x1="302" y1="70" x2="390" y2="166" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="${fold}" />
-      <stop offset="1" stop-color="#ffffff" />
-    </linearGradient>
-    <linearGradient id="note-${id}" x1="168" y1="140" x2="340" y2="330" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="${accent}" />
-      <stop offset="1" stop-color="${accentDark}" />
-    </linearGradient>
+    <clipPath id="tile-${id}">
+      <rect x="48" y="36" width="416" height="416" rx="114" />
+    </clipPath>
+    <filter id="lift-${id}" x="-18%" y="-8%" width="136%" height="140%">
+      <feDropShadow dx="0" dy="12" stdDeviation="14" flood-color="#1a0628" flood-opacity="0.4" />
+    </filter>
+    <filter id="markShadow-${id}" x="-30%" y="-20%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="8" stdDeviation="8" flood-color="#2a0860" flood-opacity="0.32" />
+    </filter>
   </defs>
-  <path d="M142 70h160l88 88v284H142z" fill="url(#paper-${id})" stroke="#0d2f6f" stroke-width="24" stroke-linejoin="round" />
-  <path d="M302 70v96h88" fill="url(#fold-${id})" stroke="#0d2f6f" stroke-width="24" stroke-linejoin="round" />
-  <g fill="url(#note-${id})">
-    <path d="M272 138 C348 138 396 182 382 248 C376 280 356 304 328 318
-             C350 276 346 236 326 212 C310 192 290 178 272 174 Z" />
-    <rect x="250" y="138" width="26" height="168" rx="13" />
-    <ellipse cx="198" cy="296" rx="56" ry="42" transform="rotate(-22 198 296)" />
+  <g filter="url(#lift-${id})">
+    <rect x="48" y="36" width="416" height="416" rx="114" fill="url(#body-${id})" />
   </g>
-  <rect x="166" y="368" width="180" height="58" rx="14" fill="${accentDark}" />
-  <rect x="168" y="370" width="176" height="54" rx="13" fill="${accent}" />
-  <text x="256" y="408" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="${fontSize}" font-weight="800" letter-spacing="${tracking}" fill="${badgeText}">${label}</text>
+  <g clip-path="url(#tile-${id})">
+    <rect x="48" y="36" width="416" height="416" fill="url(#shade-${id})" />
+    <rect x="48" y="36" width="416" height="416" fill="url(#gloss-${id})" />
+    <ellipse cx="196" cy="84" rx="130" ry="44" fill="#ffffff" fill-opacity="0.26" />
+    <rect x="70" y="58" width="372" height="372" rx="96" fill="none" stroke="#ffffff" stroke-opacity="0.22" stroke-width="6" />
+  </g>
+  <g filter="url(#markShadow-${id})">${markGlyph(kind, fill, fill, deep)}
+  </g>${badge}
 </svg>
 `
 }
+
+const genericAudioSvg = squircleAudioSvg({
+  id: 'audio',
+  light: '#9AFFFF',
+  accent: '#6A62FF',
+  deep: '#5B1FA8',
+  kind: 'note',
+})
+
+const formatAudioSvg = (format) =>
+  squircleAudioSvg({
+    id: format.ext,
+    light: format.light,
+    accent: format.accent,
+    deep: format.deep,
+    label: format.label,
+    kind: format.kind,
+    mark: format.mark || '#ffffff',
+  })
 
 const runTauriIcon = (svgPath, outDir) => {
   mkdirSync(outDir, { recursive: true })

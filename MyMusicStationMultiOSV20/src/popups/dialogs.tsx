@@ -1,10 +1,10 @@
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import { useState } from 'react'
 import {
+  AudioLines,
   Check,
   CircleAlert,
   Copy,
-  FileAudio,
   FolderOpen,
   ImagePlus,
   Info,
@@ -71,7 +71,7 @@ export function ConvertDialog({ labels, data, send, onDragStart }: DialogProps<'
       onClick={(event) => event.stopPropagation()}
     >
       <header className="settings-header dialog-drag-handle" onPointerDown={onDragStart}>
-        <FileAudio size={18} />
+        <AudioLines size={18} />
         <h2>{d.title}</h2>
         <DialogCloseButton label={labels.close} disabled={d.isConverting} onClick={() => send({ type: 'close' })} />
       </header>

@@ -1,35 +1,51 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <!-- Playlist file (.mplist): a document whose contents read as a track list.
-       Distinct from the single-note audio-file icon. Generate ICO:
-       node scripts/make-playlist-icon.mjs -->
+  <!-- Playlist (.mplist): 3D squircle whose face reads as a track list. -->
   <defs>
-    <linearGradient id="paper" x1="142" y1="70" x2="390" y2="442" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#ffffff" />
-      <stop offset="1" stop-color="#e8f2ff" />
-    </linearGradient>
-    <linearGradient id="fold" x1="302" y1="70" x2="390" y2="166" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#c5ddff" />
-      <stop offset="1" stop-color="#ffffff" />
-    </linearGradient>
-    <linearGradient id="note" x1="168" y1="180" x2="240" y2="400" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#3E92F0" />
+    <linearGradient id="body-pl" x1="0.08" y1="0" x2="0.92" y2="1">
+      <stop offset="0" stop-color="#D6F4FF" />
+      <stop offset="0.42" stop-color="#3E92F0" />
       <stop offset="1" stop-color="#1558C0" />
     </linearGradient>
+    <radialGradient id="shade-pl" cx="0.78" cy="0.92" r="0.7">
+      <stop offset="0" stop-color="#1a0628" stop-opacity="0.4" />
+      <stop offset="1" stop-color="#1a0628" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="gloss-pl" cx="0.28" cy="0.12" r="0.68">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.58" />
+      <stop offset="0.42" stop-color="#ffffff" stop-opacity="0.12" />
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="mark-pl" x1="120" y1="120" x2="360" y2="400" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff" />
+      <stop offset="1" stop-color="#E8EEFF" />
+    </linearGradient>
+    <clipPath id="tile-pl">
+      <rect x="48" y="36" width="416" height="416" rx="114" />
+    </clipPath>
+    <filter id="lift-pl" x="-18%" y="-8%" width="136%" height="140%">
+      <feDropShadow dx="0" dy="12" stdDeviation="14" flood-color="#1a0628" flood-opacity="0.4" />
+    </filter>
+    <filter id="markShadow-pl" x="-30%" y="-20%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="8" stdDeviation="8" flood-color="#2a0860" flood-opacity="0.35" />
+    </filter>
   </defs>
-  <path d="M142 70h160l88 88v284H142z" fill="url(#paper)" stroke="#0d2f6f" stroke-width="24" stroke-linejoin="round" />
-  <path d="M302 70v96h88" fill="url(#fold)" stroke="#0d2f6f" stroke-width="24" stroke-linejoin="round" />
-  <!-- Three track rows: note-head + title bar. Reads as a list even at 16px. -->
-  <g fill="url(#note)">
-    <ellipse cx="196" cy="228" rx="22" ry="16" transform="rotate(-18 196 228)" />
-    <rect x="208" y="176" width="12" height="56" rx="6" />
-    <ellipse cx="196" cy="308" rx="22" ry="16" transform="rotate(-18 196 308)" />
-    <rect x="208" y="256" width="12" height="56" rx="6" />
-    <ellipse cx="196" cy="388" rx="22" ry="16" transform="rotate(-18 196 388)" />
-    <rect x="208" y="336" width="12" height="56" rx="6" />
+  <g filter="url(#lift-pl)">
+    <rect x="48" y="36" width="416" height="416" rx="114" fill="url(#body-pl)" />
   </g>
-  <g fill="#2eb8e6">
-    <rect x="236" y="214" width="132" height="22" rx="11" />
-    <rect x="236" y="294" width="110" height="22" rx="11" />
-    <rect x="236" y="374" width="122" height="22" rx="11" />
+  <g clip-path="url(#tile-pl)">
+    <rect x="48" y="36" width="416" height="416" fill="url(#shade-pl)" />
+    <rect x="48" y="36" width="416" height="416" fill="url(#gloss-pl)" />
+    <ellipse cx="196" cy="84" rx="130" ry="44" fill="#ffffff" fill-opacity="0.28" />
+  </g>
+  <g filter="url(#markShadow-pl)" fill="url(#mark-pl)">
+    <ellipse cx="156" cy="176" rx="22" ry="16" transform="rotate(-18 156 176)" />
+    <rect x="168" y="124" width="12" height="56" rx="6" />
+    <rect x="214" y="162" width="176" height="22" rx="11" />
+    <ellipse cx="156" cy="256" rx="22" ry="16" transform="rotate(-18 156 256)" />
+    <rect x="168" y="204" width="12" height="56" rx="6" />
+    <rect x="214" y="242" width="146" height="22" rx="11" />
+    <ellipse cx="156" cy="336" rx="22" ry="16" transform="rotate(-18 156 336)" />
+    <rect x="168" y="284" width="12" height="56" rx="6" />
+    <rect x="214" y="322" width="162" height="22" rx="11" />
   </g>
 </svg>
