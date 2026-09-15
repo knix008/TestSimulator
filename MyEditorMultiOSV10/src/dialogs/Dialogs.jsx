@@ -194,21 +194,28 @@ const SHORTCUTS = [
   ['Ctrl+B', 'sidebar'], ['Ctrl+Shift+B', 'sidebar_md'], ['Ctrl+= / Ctrl+-', 'zoom'], ['Ctrl+0', 'zoom_reset'], ['Ctrl+Wheel', 'zoom'], ['F11', 'fullscreen'], ['Ctrl+,', 'settings'],
   ['Ctrl+1 … Ctrl+6', 'md_h'], ['Ctrl+B / Ctrl+I', 'md_bi'], ['Ctrl+Shift+X', 'md_strike'], ['Ctrl+`', 'md_code'], ['Ctrl+Shift+C', 'md_code_block'], ['Ctrl+Shift+Q', 'md_quote'],
   ['Ctrl+Shift+8 / 7 / 9', 'md_lists'], ['Ctrl+K', 'md_link'], ['Ctrl+Shift+I', 'md_image'], ['Ctrl+Shift+W', 'md_wysiwyg_menu'], ['Ctrl+Shift+M', 'md_preview_menu'],
+  ['Ctrl+Shift+F', 'find_in_files'], ['Ctrl+Alt+F', 'find_in_open'], ['F7', 'spell_check'], ['F8', 'lint_next'],
+  ['Ctrl+`', 'terminal_sc'], ['Ctrl+Shift+`', 'term_new'], ['Ctrl+\\', 'split_sc'], ['Ctrl+Alt+1 … 4', 'split_layouts'], ['F6', 'next_pane'],
 ];
 const SHORTCUT_LABELS = {
-  ko: { sidebar_md: '폴더 트리 (Markdown 문서에서)', md_h: 'Markdown: 제목 H1~H6', md_bi: 'Markdown: 굵게 / 기울임', md_lists: 'Markdown: 글머리 / 번호 / 체크리스트', tab_next: '다음 탭', tab_prev: '이전 탭', tab_n: 'n번째 탭', undo_redo: '실행 취소 / 다시 실행', move_line: '줄 위/아래로 이동', indent_outdent: '들여쓰기 / 내어쓰기', case: '소문자 / 대문자', multi_cursor: '커서 추가 (다중 커서)', rect_sel: '사각형 선택', find_next_prev: '다음 / 이전 찾기', zoom: '확대 / 축소' },
-  en: { sidebar_md: 'Folder tree (in Markdown documents)', md_h: 'Markdown: heading H1–H6', md_bi: 'Markdown: bold / italic', md_lists: 'Markdown: bullet / numbered / task list', tab_next: 'Next tab', tab_prev: 'Previous tab', tab_n: 'n-th tab', undo_redo: 'Undo / Redo', move_line: 'Move line up / down', indent_outdent: 'Indent / Outdent', case: 'lowercase / UPPERCASE', multi_cursor: 'Add cursor (multi-cursor)', rect_sel: 'Rectangular selection', find_next_prev: 'Find next / previous', zoom: 'Zoom in / out' },
+  ko: { terminal_sc: '터미널 패널 (Markdown 문서 밖에서)', split_sc: '편집 창 좌우 나누기 ↔ 하나', split_layouts: '편집 창: 하나 / 좌우 / 상하 / 4개', sidebar_md: '폴더 트리 (Markdown 문서에서)', md_h: 'Markdown: 제목 H1~H6', md_bi: 'Markdown: 굵게 / 기울임', md_lists: 'Markdown: 글머리 / 번호 / 체크리스트', tab_next: '다음 탭', tab_prev: '이전 탭', tab_n: 'n번째 탭', undo_redo: '실행 취소 / 다시 실행', move_line: '줄 위/아래로 이동', indent_outdent: '들여쓰기 / 내어쓰기', case: '소문자 / 대문자', multi_cursor: '커서 추가 (다중 커서)', rect_sel: '사각형 선택', find_next_prev: '다음 / 이전 찾기', zoom: '확대 / 축소' },
+  en: { terminal_sc: 'Terminal panel (outside Markdown documents)', split_sc: 'Split the editor left / right ↔ single', split_layouts: 'Editor panes: single / left-right / top-bottom / four', sidebar_md: 'Folder tree (in Markdown documents)', md_h: 'Markdown: heading H1–H6', md_bi: 'Markdown: bold / italic', md_lists: 'Markdown: bullet / numbered / task list', tab_next: 'Next tab', tab_prev: 'Previous tab', tab_n: 'n-th tab', undo_redo: 'Undo / Redo', move_line: 'Move line up / down', indent_outdent: 'Indent / Outdent', case: 'lowercase / UPPERCASE', multi_cursor: 'Add cursor (multi-cursor)', rect_sel: 'Rectangular selection', find_next_prev: 'Find next / previous', zoom: 'Zoom in / out' },
 };
 
 export function ShortcutsDialog({ onClose }) {
   useLanguage();
   const lang = getLanguage();
   const label = (k) => SHORTCUT_LABELS[lang][k] || t(k);
+  // Two columns; three on a short window, so the list never needs a scrollbar.
+  const ncol = window.innerHeight < 760 ? 3 : 2;
+  const per = Math.ceil(SHORTCUTS.length / ncol);
+  const parts = Array.from({ length: ncol }, (_, i) => SHORTCUTS.slice(i * per, (i + 1) * per));
+  const col = (list) => list.map(([k, v]) => <React.Fragment key={k}><kbd>{k.replace(/Ctrl/g, navigator.platform.startsWith('Mac') ? '⌘' : 'Ctrl')}</kbd><span>{label(v)}</span></React.Fragment>);
   return (
-    <Dialog title={t('shortcuts_title')} icon="keyboard" kind="info" width={560} onClose={onClose} onEnter={onClose}
+    <Dialog title={t('shortcuts_title')} icon="keyboard" kind="info" className="shortcuts" width={ncol === 3 ? 1150 : 960} onClose={onClose} onEnter={onClose}
       footer={<button className="btn primary" onClick={onClose}>{t('ok')}</button>}>
-      <div className="shortcut-grid selectable">
-        {SHORTCUTS.map(([k, v]) => <React.Fragment key={k}><kbd>{k.replace(/Ctrl/g, navigator.platform.startsWith('Mac') ? '⌘' : 'Ctrl')}</kbd><span>{label(v)}</span></React.Fragment>)}
+      <div className="shortcut-cols selectable" style={{ gridTemplateColumns: `repeat(${ncol}, 1fr)` }}>
+        {parts.map((part, i) => <div key={i} className="shortcut-grid">{col(part)}</div>)}
       </div>
     </Dialog>
   );

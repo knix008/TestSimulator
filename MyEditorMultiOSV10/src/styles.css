@@ -404,7 +404,10 @@ input:disabled, select:disabled { opacity: 0.55; }
 .listbox-item.current .ellipsis { color: var(--accent); }
 .listbox-item .ellipsis { flex: 1; }
 
-.shortcut-grid { display: grid; grid-template-columns: max-content 1fr; gap: 5px 14px; align-items: center; max-height: 60vh; overflow: auto; }
+/* Shortcuts: two columns side by side, compact rows, no scrolling of its own. */
+.shortcut-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 0 28px; align-items: start; }
+.shortcut-grid { display: grid; grid-template-columns: max-content 1fr; gap: 3px 12px; align-items: center; font-size: 12.5px; }
+.dlg.shortcuts .dlg-body { overflow: visible; }
 .shortcut-grid kbd { font-family: var(--mono); font-size: 11px; background: var(--bg-elev); border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 4px; padding: 2px 6px; white-space: nowrap; }
 
 /* about */
