@@ -32,6 +32,8 @@ export const SETTINGS_DEFAULTS = {
   autoIndent: true,
   termVisible: false,
   termHeight: 240,
+  termCwd: '',
+  termShell: '',
   mdPreviewWidth: 0.5,
 };
 

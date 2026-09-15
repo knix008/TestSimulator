@@ -6,7 +6,7 @@ MyEditorMultiOSV10/
 │  ├ encoding.js        인코딩 감지·변환(iconv-lite), 줄 끝 감지·정규화
 │  ├ files.js           읽기/쓰기(원자적), 디렉터리 목록, 드라이브, mkdir/rename/remove
 │  ├ session.js         session.json (설정 · 탭 · 초안 · 최근 파일 · 창 위치)
-│  ├ terminal.js        터미널 세션(파이프 셸, 출력 버퍼, cwd 마커) + git status 파싱
+│  ├ terminal.js        터미널 세션(파이프 셸 — 프롬프트·에코 없이 기동, 출력 버퍼, cwd/idle 마커) + Tab 자동완성(내장 명령·PATH·경로) + git status 파싱
 │  └ api.js             메서드 테이블 `api.call(name, args)` + 오류 직렬화
 ├ electron/             데스크톱 호스트
 │  ├ main.js            창, 단일 인스턴스, argv 파일 열기, 네이티브 대화상자, 닫기 확인, 스모크 훅

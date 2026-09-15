@@ -712,9 +712,9 @@ export default function App() {
   // ── terminals ──
   const newTerminal = async (shell) => {
     const doc = getDoc(activeIdRef.current);
-    const cwd = folderRef.current || (doc && doc.path ? dirName(doc.path) : undefined);
+    const cwd = settingsRef.current.termCwd || folderRef.current || (doc && doc.path ? dirName(doc.path) : undefined);
     try {
-      const r = await call('term.create', { cwd, shell: shell || undefined });
+      const r = await call('term.create', { cwd, shell: shell || settingsRef.current.termShell || undefined });
       const tm = { id: r.id, title: `${r.label} ${termNo.current++}`, shell: r.shell, cwd: r.cwd, buffer: [], seq: 0 };
       setTerms((ts) => [...ts, tm]);
       setActiveTerm(r.id);
@@ -1098,7 +1098,7 @@ export default function App() {
       {dialog && dialog.type === 'prompt' && <PromptDialog title={dialog.title} label={dialog.label} initial={dialog.initial} okLabel={dialog.okLabel} icon={dialog.icon} validate={dialog.validate} onResult={closeDialog} />}
       {dialog && dialog.type === 'about' && <AboutDialog info={info} onClose={closeDialog} />}
       {dialog && dialog.type === 'shortcuts' && <ShortcutsDialog onClose={closeDialog} />}
-      {dialog && dialog.type === 'settings' && <SettingsDialog settings={settings} encodings={(info && info.encodings) || []} onChange={changeSettings} onClose={closeDialog} />}
+      {dialog && dialog.type === 'settings' && <SettingsDialog settings={settings} encodings={(info && info.encodings) || []} shells={shells} onChange={changeSettings} onClose={closeDialog} />}
       {dialog && dialog.type === 'goto' && <GotoLineDialog lines={cursor.lines} current={cursor.line} onClose={closeDialog} onGo={(l, c) => { closeDialog(); withView((v) => commands.gotoLine(v, l, c)); }} />}
       {dialog && dialog.type === 'language' && <LanguagePicker current={(getDoc(dialog.docId) || {}).language || 'auto'} onClose={closeDialog} onPick={(name) => { closeDialog(); setDocLanguage(dialog.docId, name); }} />}
       {dialog && dialog.type === 'encoding' && <EncodingPicker title={t('reopen_as')} encodings={(info && info.encodings) || []} current={cur && cur.encoding} onClose={closeDialog} onPick={(id) => { closeDialog(); reopenWith(activeIdRef.current, id); }} />}

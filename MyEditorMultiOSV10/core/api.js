@@ -87,6 +87,7 @@ function createApi({ name = 'web', version = '', buildInfo = null, configDir, op
     'term.run': async ({ id, line }) => terminals.run({ id, line }),
     'term.write': async ({ id, data }) => terminals.write({ id, data }),
     'term.read': async ({ id, since }) => terminals.read({ id, since }),
+    'term.complete': async ({ id, line, cursor }) => terminals.complete({ id, line, cursor }),
     'term.kill': async ({ id }) => terminals.kill({ id }),
     'term.list': async () => terminals.list(),
     'git.status': async ({ cwd }) => terminals.git({ cwd }),

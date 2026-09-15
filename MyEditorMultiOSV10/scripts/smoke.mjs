@@ -200,6 +200,8 @@ const SCENARIOS = {
     window.__med.action('toggle:autoIndent'); await wait(200);
     return JSON.stringify({ on: JSON.stringify(withOn), off: JSON.stringify(withOff), lines: v.state.doc.lines }); })()`,
   settings_editor: `(async () => { ${PRELUDE} window.__med.action('settings'); await wait(200); document.querySelectorAll('.settings-tab')[1].click(); await wait(200); return 'editor tab'; })()`,
+  terminal_gitbash: `(async () => { ${PRELUDE} window.__med.setFolder(${wp(root)}); await wait(300); window.__med.action('newTerminal', 'gitbash'); await until(() => document.querySelector('.term-out input')); await wait(1500); const inp = document.querySelector('.term-out input'); const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; set.call(inp, 'ls src'); inp.dispatchEvent(new Event('input', { bubbles: true })); inp.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); await wait(2000); return JSON.stringify({ prompts: document.querySelectorAll('.term-prompt').length, tab: document.querySelector('.term-tab').textContent, text: document.querySelector('.term-out').textContent.slice(0, 300) }); })()`,
+  settings_terminal: `(async () => { ${PRELUDE} window.__med.action('settings'); await wait(200); document.querySelectorAll('.settings-tab')[3].click(); await wait(300); return JSON.stringify({ shells: document.querySelectorAll('.settings-grid select option').length, cwd: !!document.querySelector('.settings-grid input[type=text]') }); })()`,
   tree_collapse_all: `(async () => { ${PRELUDE} await until(() => document.querySelectorAll('.tree-row').length >= 6);
     const byName = (n) => Array.from(document.querySelectorAll('.tree-row')).find((r) => r.querySelector('.tree-name').textContent === n);
     byName('src').click(); await until(() => byName('lib')); byName('lib').click(); await until(() => byName('util.py')); byName('docs').click(); await until(() => byName('README.md'));
@@ -225,11 +227,22 @@ const SCENARIOS = {
   source_view: `(async () => { ${PRELUDE} const s = window.__med.state; window.__med.activate(s.docs.find((d) => d.name === 'README.md').id); await wait(400);
     const h1 = () => getComputedStyle(document.querySelector('.cm-line')).fontSize; const live = h1(); window.__med.action('toggle:mdWysiwyg'); await wait(400); const src = h1();
     return JSON.stringify({ live, source: src, body: getComputedStyle(document.querySelectorAll('.cm-line')[2]).fontSize }); })()`,
-  terminal: `(async () => { ${PRELUDE} window.__med.setFolder(${wp(root)}); await wait(300); window.__med.action('newTerminal'); await until(() => document.querySelector('.term-in input')); await wait(800);
-    const inp = document.querySelector('.term-in input'); const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; set.call(inp, 'echo hello-from-terminal'); inp.dispatchEvent(new Event('input', { bubbles: true }));
-    inp.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); await until(() => document.querySelector('.term-out').textContent.includes('hello-from-terminal'), 8000);
-    await until(() => document.querySelector('.term-git b'), 8000); window.__med.action('newTerminal'); await wait(1200);
-    return JSON.stringify({ tabs: document.querySelectorAll('.term-tab').length, git: document.querySelector('.term-git') && document.querySelector('.term-git').textContent.slice(0, 60), out: document.querySelectorAll('.term-out')[0].textContent.includes('hello-from-terminal') }); })()`,
+  // Commands are typed at the oh-my-posh style prompt drawn at the end of the output (directory ▶ git branch ▶ >);
+  // the typed line stays there with its prompt, `cd` moves the prompt, Tab completes a path.
+  terminal: `(async () => { ${PRELUDE} window.__med.setFolder(${wp(root)}); await wait(300); window.__med.action('newTerminal'); await until(() => document.querySelector('.term-out input')); await wait(800);
+    const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+    const inp = () => document.querySelector('.term-view:not(.hidden) .term-out input');
+    const type = (text, key) => { const el = inp(); set.call(el, text); el.dispatchEvent(new Event('input', { bubbles: true })); if (key) el.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true })); };
+    const out = () => document.querySelector('.term-view:not(.hidden) .term-out').textContent;
+    const prompts = () => [...document.querySelectorAll('.term-view:not(.hidden) .term-prompt')]; const last = () => { const p = prompts(); return p.length ? p[p.length - 1] : null; };
+    const pathOf = () => (last() && last().querySelector('.seg-path') || {}).textContent || ''; const gitOf = () => (last() && last().querySelector('.seg-git') || {}).textContent || '';
+    await until(() => gitOf().includes('main'), 8000); const p0 = pathOf();
+    type('echo hello-from-terminal', 'Enter'); await until(() => out().includes('echo hello-from-terminal\\nhello-from-terminal'), 8000);
+    type('cd ..', 'Enter'); await until(() => pathOf() && pathOf() !== p0, 8000); const p1 = pathOf();
+    type('cd MyEd', 'Tab'); await until(() => inp().value.startsWith('cd MyEditorMultiOSV10'), 4000); const completed = inp().value; type('', null);
+    type('type READ', 'Tab'); await until(() => inp().value === 'type README.md ', 4000); type('', null);
+    window.__med.action('newTerminal'); await wait(1200); document.querySelector('.term-tab').dispatchEvent(new MouseEvent('mousedown', { bubbles: true })); await wait(300); type('echo typing', null); await wait(300);
+    return JSON.stringify({ tabs: document.querySelectorAll('.term-tab').length, git: gitOf(), p0, p1, completed, prompts: prompts().length, typing: inp().value === 'echo typing' }); })()`,
   font_picker: `(async () => { ${PRELUDE} document.querySelector('.font-picker .fp-caret').dispatchEvent(new MouseEvent('mousedown', { bubbles: true })); await wait(1500);
     const list = document.querySelector('.fp-list'); const r = list.getBoundingClientRect();
     return JSON.stringify({ items: list.querySelectorAll('.fp-item').length, height: Math.round(r.height), scrollable: list.scrollHeight > list.clientHeight, insideWindow: r.bottom <= window.innerHeight }); })()`,

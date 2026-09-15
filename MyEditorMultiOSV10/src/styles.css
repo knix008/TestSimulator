@@ -234,17 +234,23 @@ button:disabled { cursor: default; opacity: 0.45; }
 .term-body { flex: 1; min-height: 0; display: flex; flex-direction: column; position: relative; }
 .term-view { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .term-view.hidden { display: none; }
-.term-git { display: flex; align-items: center; gap: 8px; padding: 2px 10px; font-size: 12px; border-bottom: 1px solid var(--border); background: var(--bg-elev); color: var(--fg); min-height: 26px; }
-.term-git.none { color: var(--fg-muted); }
-.term-git-ab { color: var(--accent); font-weight: 600; }
-.term-git-dirty { color: var(--folder); }
-.term-git-clean { color: var(--ok); }
-.term-btn { background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 1px 8px; font-family: var(--mono); font-size: 11px; color: var(--fg); }
-.term-btn:hover { background: var(--bg-hover); }
 .term-out { flex: 1; min-height: 0; margin: 0; padding: 6px 10px; overflow: auto; font-family: var(--mono); font-size: 12.5px; line-height: 1.45; white-space: pre-wrap; word-break: break-all; background: var(--bg); color: var(--fg); }
-.term-in { display: flex; align-items: center; gap: 6px; padding: 4px 10px; border-top: 1px solid var(--border); background: var(--bg); }
-.term-prompt { color: var(--accent); white-space: nowrap; max-width: 260px; overflow: hidden; text-overflow: ellipsis; }
-.term-in input { flex: 1; background: none; border: 0; outline: none; padding: 2px 0; font-size: 12.5px; }
+/* oh-my-posh / powerline style prompt. Each segment is ONE element cut by clip-path into a block with a
+   pointed right end; the next segment starts under that point (negative margin, lower z-index), so the
+   blocks nest like >> with no seam and no special font. */
+.term-out .term-prompt { color: var(--accent); white-space: pre-wrap; }
+.term-out .seg { position: relative; display: inline-block; vertical-align: top; height: 1.45em; line-height: 1.45em; padding: 0 calc(0.8em + 4px) 0 8px; color: var(--bg); font-weight: 600; clip-path: polygon(0 0, calc(100% - 0.8em) 0, 100% 50%, calc(100% - 0.8em) 100%, 0 100%); }
+.term-out .seg + .seg { margin-left: -0.8em; padding-left: calc(0.8em + 6px); }
+.term-out .seg svg { vertical-align: -2px; }
+.term-out .seg-path { background: var(--accent); z-index: 2; }
+.term-out .seg-git { z-index: 1; }
+.term-out .seg-git.clean { background: var(--ok); }
+.term-out .seg-git.dirty { background: var(--folder); }
+.term-out .seg-git.conflict { background: var(--danger); }
+/* The input sits inline after the prompt; the ::after mirror of its value gives it the width of the text. */
+.term-out .term-inline { display: inline-grid; vertical-align: baseline; max-width: 100%; }
+.term-out .term-inline::after { content: attr(data-value) ' '; grid-area: 1 / 1; visibility: hidden; white-space: pre; }
+.term-out .term-inline input { grid-area: 1 / 1; width: 100%; min-width: 2ch; background: none; border: 0; outline: none; padding: 0; margin: 0; font: inherit; color: inherit; caret-color: var(--fg); }
 
 /* ── Status bar ── */
 .statusbar { display: flex; align-items: center; gap: 2px; padding: 0 8px 0 12px; font-size: 12px; color: var(--fg-muted); border-top: 1px solid var(--border); background: var(--bg-elev); min-height: 26px; position: relative; }

@@ -1,10 +1,11 @@
-// Settings dialog (Ctrl+,) — three tabs: general, editor, files. Changes
+// Settings dialog (Ctrl+,) — four tabs: general, editor, files, terminal. Changes
 // apply immediately (the editor reconfigures live) and are persisted.
 import React, { useState } from 'react';
 import { t, useLanguage, getLanguage } from '../lib/i18n';
 import { THEMES } from '../themes';
 import { FontPicker } from '../components/FontPicker';
 import { Dialog } from './Dialogs';
+import { isElectron, nativeDialog } from '../lib/backend';
 
 function Check({ id, label, settings, onChange }) {
   return (
@@ -15,11 +16,13 @@ function Check({ id, label, settings, onChange }) {
   );
 }
 
-export function SettingsDialog({ settings, encodings, onChange, onClose }) {
+export function SettingsDialog({ settings, encodings, shells = [], onChange, onClose }) {
   useLanguage();
   const [tab, setTab] = useState('general');
   const lang = getLanguage();
-  const tabs = [['general', t('set_general')], ['editor', t('set_editor')], ['files', t('set_files')]];
+  const tabs = [['general', t('set_general')], ['editor', t('set_editor')], ['files', t('set_files')], ['terminal', t('set_terminal')]];
+  // The folder picker is a native dialog on the desktop; the web version's fallback dialog would replace this one, so there the path is typed.
+  const browseTermCwd = async () => { try { const p = await nativeDialog('openFolder', { defaultPath: settings.termCwd || undefined }); if (p) onChange({ termCwd: p }); } catch { /* cancelled */ } };
   return (
     <Dialog title={t('settings_title')} icon="settings" kind="info" width={560} onClose={onClose} onEnter={onClose}
       footer={<button className="btn primary" onClick={onClose}>{t('ok')}</button>}>
@@ -102,6 +105,22 @@ export function SettingsDialog({ settings, encodings, onChange, onClose }) {
           <Check id="finalNewlineOnSave" label={t('set_final_nl')} settings={settings} onChange={onChange} />
           <label />
           <Check id="reloadChangedFiles" label={t('set_reload')} settings={settings} onChange={onChange} />
+        </div>
+      )}
+      {tab === 'terminal' && (
+        <div className="form-grid settings-grid">
+          <label>{t('set_term_shell')}</label>
+          <select value={settings.termShell || ''} onChange={(e) => onChange({ termShell: e.target.value })}>
+            <option value="">{shells.length ? t('set_term_shell_default', { name: shells[0].label }) : t('set_term_shell_default', { name: '' })}</option>
+            {shells.map((sh) => <option key={sh.id} value={sh.id}>{sh.label}</option>)}
+          </select>
+          <label>{t('set_term_cwd')}</label>
+          <span className="row">
+            <input type="text" className="mono" value={settings.termCwd || ''} placeholder={t('set_term_cwd_default')} spellCheck={false} onChange={(e) => onChange({ termCwd: e.target.value })} style={{ flex: 1, minWidth: 0 }} />
+            {isElectron && <button className="btn" onClick={browseTermCwd}>{t('set_browse')}</button>}
+          </span>
+          <label />
+          <span className="muted small">{t('set_term_cwd_hint')}</span>
         </div>
       )}
     </Dialog>

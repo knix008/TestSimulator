@@ -43,6 +43,8 @@ const DEFAULTS = {
   autoIndent: true,        // Enter keeps the indentation; Tab inserts spaces (insertSpaces) or a tab, tabSize wide
   termVisible: false,      // terminal panel shown
   termHeight: 240,
+  termCwd: '',             // where new terminals start; '' = the folder open in the sidebar (else the document's folder)
+  termShell: '',           // shell of a new terminal (id from term.shells); '' = the first one offered
   userWords: [],           // words added to the dictionary by the user
   mdPreviewWidth: 0.5,     // fraction of the editor area
   folder: '',

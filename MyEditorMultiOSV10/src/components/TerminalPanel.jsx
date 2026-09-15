@@ -1,9 +1,12 @@
 // Terminal panel (보기 › 터미널, Ctrl+`): several shell sessions as tabs, each
 // a line-oriented console — the output of the shell (core/terminal.js,
-// polled through term.read) above an input line with history (↑ / ↓).
-// When the shell's current directory is inside a git repository, a status
-// line shows the branch, ahead / behind and the number of changed files,
-// with buttons for `git status` and a refresh.
+// polled through term.read) ending with a prompt drawn by the panel, where
+// the command is typed (history with ↑ / ↓, Tab completion through
+// term.complete). The prompt is drawn oh-my-posh style: coloured segments
+// for the directory and, inside a git repository, the branch with ahead /
+// behind and the number of staged / changed / untracked files. Typed lines
+// stay in the output with their prompt as it was. While a command runs the
+// prompt is absent and typed lines go to that command's stdin.
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { t, useLanguage } from '../lib/i18n';
 import { call } from '../lib/backend';
@@ -11,35 +14,68 @@ import { Icon } from './Icons';
 import { ContextMenu } from './ContextMenu';
 
 const POLL_MS = 150;
+const MAX_LINES = 3000;
 
-function GitLine({ git, onCommand, onRefresh }) {
-  useLanguage();
-  if (!git) return null;
-  if (!git.repo) return <div className="term-git none">{t('term_no_git')}</div>;
-  const dirty = git.staged + git.changed + git.untracked + git.conflicts;
+// One prompt: [ 📁 dir ]▶[ ⎇ branch ↑1 ↓2 +3 ~4 ?5 !6 ]▶ — the command is typed right after the last arrow.
+function Prompt({ cwd, git }) {
+  const repo = git && git.repo;
+  const dirty = repo ? git.staged + git.changed + git.untracked + git.conflicts > 0 : false;
+  const cls = repo ? (git.conflicts ? 'conflict' : dirty ? 'dirty' : 'clean') : '';
   return (
-    <div className="term-git">
-      <Icon name="gitBranch" size={14} />
-      <b>{git.branch || '(detached)'}</b>
-      {git.upstream && <span className="muted">→ {git.upstream}</span>}
-      {git.ahead > 0 && <span className="term-git-ab" title={t('term_git_ahead')}>↑{git.ahead}</span>}
-      {git.behind > 0 && <span className="term-git-ab" title={t('term_git_behind')}>↓{git.behind}</span>}
-      <span className={dirty ? 'term-git-dirty' : 'term-git-clean'}>
-        {dirty ? t('term_git_changes', { staged: git.staged, changed: git.changed, untracked: git.untracked }) : t('term_git_clean')}
-        {git.conflicts > 0 && ` · ${t('term_git_conflicts', { n: git.conflicts })}`}
-      </span>
-      <span className="spacer" />
-      <button className="term-btn" onClick={() => onCommand('git status')}>git status</button>
-      <button className="term-btn" onClick={() => onCommand('git log --oneline -n 10')}>git log</button>
-      <button className="term-btn" onClick={() => onCommand('git diff --stat')}>git diff</button>
-      <button className="icon-btn" title={t('sb_refresh')} onClick={onRefresh}><Icon name="refresh" size={13} /></button>
-    </div>
+    <span className="term-prompt" title={cwd}>
+      <span className="seg seg-path"><Icon name="folder" size={12} /> {cwd}</span>
+      {repo && (
+        <>
+          <span className={`seg seg-git ${cls}`}>
+            <Icon name="gitBranch" size={12} /> {git.branch || '(detached)'}
+            {git.ahead > 0 && ` ↑${git.ahead}`}{git.behind > 0 && ` ↓${git.behind}`}
+            {git.staged > 0 && ` +${git.staged}`}{git.changed > 0 && ` ~${git.changed}`}{git.untracked > 0 && ` ?${git.untracked}`}{git.conflicts > 0 && ` !${git.conflicts}`}
+          </span>
+        </>
+      )}
+      {' '}
+    </span>
   );
+}
+
+// The output is a list of entries: shell output text, or a line typed at a
+// prompt (kept with the prompt of that moment so it is redrawn the same way).
+function lineCount(entries) { let n = 0; for (const e of entries) n += e.k === 'cmd' ? 1 : (e.text.match(/\n/g) || []).length; return n; }
+function trimEntries(entries) {
+  let n = lineCount(entries);
+  let list = entries;
+  while (n > MAX_LINES && list.length) {
+    const e = list[0];
+    if (e.k === 'cmd') { list = list.slice(1); n--; continue; }
+    const drop = Math.min(n - MAX_LINES, (e.text.match(/\n/g) || []).length);
+    if (drop === 0) { list = list.slice(1); continue; }
+    let i = 0, p = -1;
+    while (i < drop) { p = e.text.indexOf('\n', p + 1); i++; }
+    const rest = e.text.slice(p + 1);
+    list = rest ? [{ k: 'out', text: rest }, ...list.slice(1)] : list.slice(1);
+    n -= drop;
+  }
+  return list;
+}
+function appendText(entries, text) {
+  if (!text) return entries;
+  const last = entries[entries.length - 1];
+  const next = last && last.k === 'out' ? [...entries.slice(0, -1), { k: 'out', text: last.text + text }] : [...entries, { k: 'out', text }];
+  return trimEntries(next);
+}
+
+// Candidates listed like a shell does: in columns as wide as the panel allows.
+function columns(names, width) {
+  const w = Math.max(...names.map((n) => n.length)) + 2;
+  const cols = Math.max(1, Math.floor(width / w));
+  const rows = [];
+  for (let i = 0; i < names.length; i += cols) rows.push(names.slice(i, i + cols).map((n, j) => (j === cols - 1 ? n : n.padEnd(w))).join('').trimEnd());
+  return rows.join('\n');
 }
 
 function TerminalView({ term, active, onExit }) {
   useLanguage();
-  const [lines, setLines] = useState(() => term.buffer || []);
+  const [entries, setEntries] = useState(() => (Array.isArray(term.buffer) ? term.buffer : []));
   const [git, setGit] = useState(null);
   const [input, setInput] = useState('');
   const [hist, setHist] = useState({ list: [], idx: -1 });
@@ -47,11 +83,20 @@ function TerminalView({ term, active, onExit }) {
   const inputRef = useRef(null);
   const seqRef = useRef(term.seq || 0);
   const cwdRef = useRef(term.cwd);
+  const gitRef = useRef(null);
   const [cwd, setCwd] = useState(term.cwd);
+  const [idle, setIdle] = useState(true);
+  const idleRef = useRef(true);
   const [exited, setExited] = useState(false);
   const busyRef = useRef(false);
 
-  const refreshGit = useCallback(() => { call('git.status', { cwd: cwdRef.current }).then(setGit).catch(() => setGit(null)); }, []);
+  const refreshGit = useCallback(() => { call('git.status', { cwd: cwdRef.current }).then((g) => { gitRef.current = g; setGit(g); }).catch(() => { gitRef.current = null; setGit(null); }); }, []);
+  const append = useCallback((text) => setEntries((prev) => appendText(prev, text)), []);
+  // A line typed at the prompt (or, while a command runs, fed to it).
+  const echo = useCallback((line) => {
+    if (idleRef.current) setEntries((prev) => trimEntries([...prev, { k: 'cmd', shell: term.shell, cwd: cwdRef.current, git: gitRef.current, line }]));
+    else append(line + '\n');
+  }, [append, term.shell]);
 
   // Poll the shell output while the tab is visible.
   useEffect(() => {
@@ -63,13 +108,10 @@ function TerminalView({ term, active, onExit }) {
       try {
         const r = await call('term.read', { id: term.id, since: seqRef.current });
         if (stop || !r) return;
-        if (r.chunks.length) {
-          seqRef.current = r.seq;
-          const text = r.chunks.map((c) => c.text).join('');
-          setLines((prev) => { const next = (prev.join('') + text).split('\n'); return next.length > 3000 ? next.slice(-3000) : next; });
-          term.buffer = null;   // kept fresh below
-        }
+        if (r.chunks.length) { seqRef.current = r.seq; append(r.chunks.map((c) => c.text).join('')); }
         if (r.cwd !== cwdRef.current) { cwdRef.current = r.cwd; setCwd(r.cwd); refreshGit(); }
+        const idleNow = r.idle !== false;
+        if (idleNow !== idleRef.current) { idleRef.current = idleNow; setIdle(idleNow); if (idleNow) refreshGit(); }
         if (r.exited && !exited) { setExited(true); onExit(term.id); }
       } catch { /* transient */ } finally { busyRef.current = false; }
     };
@@ -80,36 +122,76 @@ function TerminalView({ term, active, onExit }) {
   }, [active, term.id]);
 
   useEffect(() => { refreshGit(); }, [refreshGit]);
-  useEffect(() => { term.buffer = lines; term.seq = seqRef.current; }, [lines, term]);
-  useEffect(() => { const el = outRef.current; if (el) el.scrollTop = el.scrollHeight; }, [lines]);
+  useEffect(() => { term.buffer = entries; term.seq = seqRef.current; }, [entries, term]);
+  useEffect(() => { const el = outRef.current; if (el) el.scrollTop = el.scrollHeight; }, [entries, input, idle]);
   useEffect(() => { if (active && inputRef.current) inputRef.current.focus(); }, [active]);
 
   const run = async (line) => {
     const cmd = line.trim();
+    echo(line);
     if (!cmd) { await call('term.run', { id: term.id, line: '' }); return; }
     setHist((h) => ({ list: [...h.list.filter((x) => x !== cmd), cmd].slice(-100), idx: -1 }));
-    if (cmd === 'clear' || cmd === 'cls') { setLines([]); await call('term.run', { id: term.id, line: '' }); return; }
+    if (idleRef.current && (cmd === 'clear' || cmd === 'cls')) { setEntries([]); await call('term.run', { id: term.id, line: '' }); return; }
     await call('term.run', { id: term.id, line: cmd });
-    setTimeout(refreshGit, 600);
+  };
+
+  // Tab: complete the word at the cursor — a single candidate is inserted (a
+  // space after a file / command, nothing after a directory so the next Tab
+  // goes on inside it), several share their common prefix, and when that
+  // adds nothing the candidates are listed under the prompt.
+  const complete = async () => {
+    const el = inputRef.current;
+    const line = input;
+    const cursor = el ? el.selectionStart : line.length;
+    let r;
+    try { r = await call('term.complete', { id: term.id, line, cursor }); } catch { return; }
+    if (!r || !r.items.length) return;
+    const tail = line.slice(cursor);
+    const put = (text, done) => {
+      const q = r.quoted || /\s/.test(text);
+      const rep = (q ? '"' : '') + text + (done && q ? '"' : '') + (done ? ' ' : '');
+      const next = line.slice(0, r.start) + rep + tail;
+      setInput(next);
+      const pos = next.length - tail.length;
+      requestAnimationFrame(() => { if (inputRef.current) inputRef.current.setSelectionRange(pos, pos); });
+    };
+    if (r.items.length === 1) { put(r.items[0].text, !r.items[0].dir); return; }
+    if (r.lcp.length > r.word.length) { put(r.lcp, false); return; }
+    const out = outRef.current;
+    let width = 80;
+    if (out) {
+      const c = document.createElement('canvas').getContext('2d');
+      c.font = getComputedStyle(out).font;
+      const cw = c.measureText('MMMMMMMMMM').width / 10 || 8;
+      width = Math.max(20, Math.floor((out.clientWidth - 24) / cw));
+    }
+    echo(line);
+    append(columns(r.items.map((i) => i.text), width) + '\n');
   };
 
   const onKey = (e) => {
     if (e.key === 'Enter') { e.preventDefault(); const v = input; setInput(''); run(v); }
+    else if (e.key === 'Tab') { e.preventDefault(); complete(); }
     else if (e.key === 'ArrowUp') { e.preventDefault(); setHist((h) => { const i = h.idx < 0 ? h.list.length - 1 : Math.max(0, h.idx - 1); if (h.list[i] !== undefined) setInput(h.list[i]); return { ...h, idx: i }; }); }
     else if (e.key === 'ArrowDown') { e.preventDefault(); setHist((h) => { if (h.idx < 0) return h; const i = h.idx + 1; if (i >= h.list.length) { setInput(''); return { ...h, idx: -1 }; } setInput(h.list[i]); return { ...h, idx: i }; }); }
     else if (e.key === 'c' && e.ctrlKey && !input) { e.preventDefault(); call('term.write', { id: term.id, data: '\x03' }).catch(() => {}); }
-    else if (e.key === 'l' && e.ctrlKey) { e.preventDefault(); setLines([]); }
+    else if (e.key === 'l' && e.ctrlKey) { e.preventDefault(); setEntries([]); }
   };
 
   return (
     <div className={`term-view ${active ? '' : 'hidden'}`}>
-      <GitLine git={git} onCommand={(c) => run(c)} onRefresh={refreshGit} />
-      <pre className="term-out selectable" ref={outRef} onClick={() => { if (!window.getSelection().toString() && inputRef.current) inputRef.current.focus(); }}>{lines.join('\n')}</pre>
-      <div className="term-in">
-        <span className="term-prompt mono" title={cwd}>{cwd.replace(/^.*[\\/](?=[^\\/]+$)/, '')}{exited ? ' [exited]' : ''}&gt;</span>
-        <input ref={inputRef} className="mono" value={input} disabled={exited} placeholder={t('term_placeholder')} spellCheck={false} autoComplete="off"
-          onChange={(e) => setInput(e.target.value)} onKeyDown={onKey} />
-      </div>
+      <pre className="term-out selectable" ref={outRef} onClick={() => { if (!window.getSelection().toString() && inputRef.current) inputRef.current.focus(); }}>
+        {entries.map((e, i) => (e.k === 'cmd'
+          ? <React.Fragment key={i}><Prompt cwd={e.cwd} git={e.git} />{e.line}{'\n'}</React.Fragment>
+          : <React.Fragment key={i}>{e.text}</React.Fragment>))}
+        {!exited && idle && <Prompt cwd={cwd} git={git} />}
+        {!exited && (
+          <span className="term-inline" data-value={input}>
+            <input ref={inputRef} value={input} title={t('term_placeholder')} spellCheck={false} autoComplete="off" autoCapitalize="off"
+              onChange={(e) => setInput(e.target.value)} onKeyDown={onKey} />
+          </span>
+        )}
+      </pre>
     </div>
   );
 }
