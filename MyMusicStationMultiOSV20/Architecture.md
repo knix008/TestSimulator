@@ -94,7 +94,7 @@ Right-click on a playlist row opens `.track-context-menu` (rendered as a direct 
 Windows NSIS hooks (`src-tauri/windows/nsis-hooks.nsh`):
 
 - **PREINSTALL**: stop process, uninstall previous NSIS/MSI, clean leftovers and association keys.
-- **POSTINSTALL**: register `.mplist` with `playlist-icons/icon.ico`; register a ProgID per audio extension (`MyMusicStation.Audio.mp3` → `audio-icons/mp3.ico`, and so on) plus a generic `MyMusicStation.Audio` fallback (`audio-icons/icon.ico`); **ask** whether to set as default player (silent install defaults to Yes).
+- **POSTINSTALL**: register `.mplist` with `playlist-icons/icon.ico`; register a ProgID per audio extension (`MyMusicStation.Audio.mp3` → `audio-icons/mp3.ico`, and so on) plus a generic `MyMusicStation.Audio` fallback (`audio-icons/icon.ico`); **ask** whether to set as default player (silent install defaults to Yes). Shortcut and file-type icons resolve under `$INSTDIR\icons\` / `$INSTDIR\audio-icons\` (Tauri 2 does **not** nest them in `resources\`).
 - **PRE/POST UNINSTALL**: stop app and clean associations.
 
 Release builds use `windows_subsystem = "windows"` (no console flash). Helpers spawn with `CREATE_NO_WINDOW` on Windows.

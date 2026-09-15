@@ -131,9 +131,23 @@
   DeleteRegKey ${ROOT_KEY} "Software\Clients\Media\My Music Station"
 !macroend
 
+; Tauri 2 NSIS lays resources next to the exe (`$INSTDIR\icons\...`),
+; not under `$INSTDIR\resources\`. Keep the old path as a fallback.
+!macro MMS_RESOLVE_ICON OUT REL
+  ${If} ${FileExists} "$INSTDIR\${REL}"
+    StrCpy ${OUT} "$INSTDIR\${REL}"
+  ${ElseIf} ${FileExists} "$INSTDIR\resources\${REL}"
+    StrCpy ${OUT} "$INSTDIR\resources\${REL}"
+  ${Else}
+    StrCpy ${OUT} "$INSTDIR\${MAINBINARYNAME}.exe"
+  ${EndIf}
+!macroend
+
 !macro MMS_REGISTER_AUDIO_FORMAT EXT MIME ICON
+  Push $R6
+  !insertmacro MMS_RESOLVE_ICON $R6 "audio-icons\${ICON}"
   WriteRegStr SHCTX "Software\Classes\MyMusicStation.Audio.${EXT}" "" "My Music Station ${EXT} Audio"
-  WriteRegStr SHCTX "Software\Classes\MyMusicStation.Audio.${EXT}\DefaultIcon" "" "$INSTDIR\resources\audio-icons\${ICON}"
+  WriteRegStr SHCTX "Software\Classes\MyMusicStation.Audio.${EXT}\DefaultIcon" "" "$R6"
   WriteRegStr SHCTX "Software\Classes\MyMusicStation.Audio.${EXT}\shell\open\command" "" '"$INSTDIR\${MAINBINARYNAME}.exe" "%1"'
   WriteRegStr SHCTX "Software\Classes\.${EXT}\OpenWithProgids" "MyMusicStation.Audio.${EXT}" ""
   WriteRegStr SHCTX "Software\Clients\Media\My Music Station\Capabilities\FileAssociations" ".${EXT}" "MyMusicStation.Audio.${EXT}"
@@ -144,25 +158,33 @@
     WriteRegStr SHCTX "Software\Classes\.${EXT}" "Content Type" "${MIME}"
   ${EndIf}
   Pop $R9
+  Pop $R6
 !macroend
 
 !macro MMS_SET_DEFAULT_AUDIO EXT MIME ICON
+  Push $R6
+  !insertmacro MMS_RESOLVE_ICON $R6 "audio-icons\${ICON}"
   WriteRegStr SHCTX "Software\Classes\MyMusicStation.Audio.${EXT}" "" "My Music Station ${EXT} Audio"
-  WriteRegStr SHCTX "Software\Classes\MyMusicStation.Audio.${EXT}\DefaultIcon" "" "$INSTDIR\resources\audio-icons\${ICON}"
+  WriteRegStr SHCTX "Software\Classes\MyMusicStation.Audio.${EXT}\DefaultIcon" "" "$R6"
   WriteRegStr SHCTX "Software\Classes\MyMusicStation.Audio.${EXT}\shell\open\command" "" '"$INSTDIR\${MAINBINARYNAME}.exe" "%1"'
   WriteRegStr SHCTX "Software\Classes\.${EXT}" "" "MyMusicStation.Audio.${EXT}"
   WriteRegStr SHCTX "Software\Classes\.${EXT}" "Content Type" "${MIME}"
   WriteRegStr SHCTX "Software\Classes\.${EXT}\OpenWithProgids" "MyMusicStation.Audio.${EXT}" ""
   WriteRegStr SHCTX "Software\Clients\Media\My Music Station\Capabilities\FileAssociations" ".${EXT}" "MyMusicStation.Audio.${EXT}"
+  Pop $R6
 !macroend
 
 ; ---------------------------------------------------------------------------
-; Force the desktop / start-menu shortcuts to use the app icon.ico explicitly.
+; Desktop / Start Menu shortcuts. A missing IconLocation makes the Windows
+; taskbar button blank when the shortcut's AppUserModelID is applied.
 ; ---------------------------------------------------------------------------
 !macro MMS_SET_SHORTCUT_ICON LNK_PATH
   ${If} ${FileExists} "${LNK_PATH}"
-    CreateShortcut "${LNK_PATH}" "$INSTDIR\${MAINBINARYNAME}.exe" "" "$INSTDIR\resources\icons\icon.ico" 0
+    Push $R6
+    !insertmacro MMS_RESOLVE_ICON $R6 "icons\icon.ico"
+    CreateShortcut "${LNK_PATH}" "$INSTDIR\${MAINBINARYNAME}.exe" "" "$R6" 0
     !insertmacro SetLnkAppUserModelId "${LNK_PATH}"
+    Pop $R6
   ${EndIf}
 !macroend
 
@@ -217,12 +239,18 @@
   WriteRegStr SHCTX "Software\Classes\.mplist" "" "MyMusicStation.Playlist"
   WriteRegStr SHCTX "Software\Classes\.mplist" "Content Type" "application/vnd.mymusicstation.playlist+json"
   WriteRegStr SHCTX "Software\Classes\MyMusicStation.Playlist" "" "My Music Station Playlist"
-  WriteRegStr SHCTX "Software\Classes\MyMusicStation.Playlist\DefaultIcon" "" "$INSTDIR\resources\playlist-icons\icon.ico"
+  Push $R6
+  !insertmacro MMS_RESOLVE_ICON $R6 "playlist-icons\icon.ico"
+  WriteRegStr SHCTX "Software\Classes\MyMusicStation.Playlist\DefaultIcon" "" "$R6"
+  Pop $R6
   WriteRegStr SHCTX "Software\Classes\MyMusicStation.Playlist\shell\open\command" "" '"$INSTDIR\${MAINBINARYNAME}.exe" "%1"'
 
   ; Per-format ProgIDs so Explorer shows MP3/WAV/... icons instead of one generic mark.
   WriteRegStr SHCTX "Software\Classes\MyMusicStation.Audio" "" "My Music Station Audio"
-  WriteRegStr SHCTX "Software\Classes\MyMusicStation.Audio\DefaultIcon" "" "$INSTDIR\resources\audio-icons\icon.ico"
+  Push $R6
+  !insertmacro MMS_RESOLVE_ICON $R6 "audio-icons\icon.ico"
+  WriteRegStr SHCTX "Software\Classes\MyMusicStation.Audio\DefaultIcon" "" "$R6"
+  Pop $R6
   WriteRegStr SHCTX "Software\Classes\MyMusicStation.Audio\shell\open\command" "" '"$INSTDIR\${MAINBINARYNAME}.exe" "%1"'
 
   ; Always register as a media client so Windows Default Apps / Open with can find us.
