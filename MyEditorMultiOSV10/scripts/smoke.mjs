@@ -112,6 +112,8 @@ function seedProfile(name) {
       { path: path.join(work, 'docs', 'README.md') },
       { path: path.join(work, 'notes.txt') },
       { untitledNo: 1, draft: 'unsaved draft text\n' },
+      // files that no longer exist: dropped on restore (the draft of the second one becomes a new untitled document)
+      ...(name === 'restore_missing' ? [{ path: path.join(work, 'gone.txt') }, { path: path.join(work, 'gone-draft.txt'), draft: 'draft of a deleted file\n' }] : []),
     ],
     activeTab: 0,
     recent: [path.join(work, 'src', 'app.js'), path.join(work, 'docs', 'README.md')],
@@ -204,6 +206,7 @@ const SCENARIOS = {
     return JSON.stringify({ on: JSON.stringify(withOn), off: JSON.stringify(withOff), lines: v.state.doc.lines }); })()`,
   settings_editor: `(async () => { ${PRELUDE} window.__med.action('settings'); await wait(200); document.querySelectorAll('.settings-tab')[1].click(); await wait(200); return 'editor tab'; })()`,
   terminal_gitbash: `(async () => { ${PRELUDE} window.__med.setFolder(${wp(root)}); await wait(300); window.__med.action('newTerminal', 'gitbash'); await until(() => document.querySelector('.term-out input')); await wait(1500); const inp = document.querySelector('.term-out input'); const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; set.call(inp, 'ls src'); inp.dispatchEvent(new Event('input', { bubbles: true })); inp.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); await wait(2000); return JSON.stringify({ prompts: document.querySelectorAll('.term-prompt').length, tab: document.querySelector('.term-tab').textContent, text: document.querySelector('.term-out').textContent.slice(0, 300) }); })()`,
+  restore_missing: `(async () => { ${PRELUDE} await wait(500); const docs = window.__med.state.docs; return JSON.stringify({ names: docs.map((d) => d.name), missing: docs.filter((d) => d.missing).length, gone: docs.filter((d) => d.path && /gone/.test(d.path)).length }); })()`,
   settings_terminal: `(async () => { ${PRELUDE} window.__med.action('settings'); await wait(200); document.querySelectorAll('.settings-tab')[3].click(); await wait(300); return JSON.stringify({ shells: document.querySelectorAll('.settings-grid select option').length, cwd: !!document.querySelector('.settings-grid input[type=text]') }); })()`,
   tree_collapse_all: `(async () => { ${PRELUDE} await until(() => document.querySelectorAll('.tree-row').length >= 6);
     const byName = (n) => Array.from(document.querySelectorAll('.tree-row')).find((r) => r.querySelector('.tree-name').textContent === n);

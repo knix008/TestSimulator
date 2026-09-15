@@ -447,8 +447,12 @@ export default function App() {
       setUserWords(Array.isArray(session.userWords) ? session.userWords : []);
       setSpellOptions({ codeAll: !!s.spellCodeAll });
       setSidebarWidth(session.sidebarWidth || 240);
-      if (session.folder) setFolder(session.folder);
+      if (session.folder) { try { await call('file.stat', { path: session.folder }); setFolder(session.folder); } catch { /* folder gone: start without one */ } }
       // Restore the tabs (files are re-read; unsaved drafts come back dirty).
+      // A file that no longer exists is not restored: its tab is dropped, or —
+      // when it had unsaved changes — those come back in a new untitled document
+      // so nothing is lost. With nothing to restore the editor starts with a new
+      // empty document.
       const tabs = s.restoreSession && Array.isArray(session.tabs) ? session.tabs : [];
       let restored = 0;
       const seen = new Set();
@@ -463,8 +467,8 @@ export default function App() {
               const hasDraft = typeof tab.draft === 'string';
               addDoc({ path: r.path, name: r.name, encoding: r.encoding, eol: tab.eol || r.eol, language: tab.language || null, mtime: r.mtime, size: r.size, readonly: r.readonly, savedText: hasDraft ? r.text : undefined }, hasDraft ? tab.draft : r.text, { activateIt: false, dirty: hasDraft && tab.draft !== r.text, selection: tab.cursor });
               restored++;
-            } else if (typeof tab.draft === 'string') {
-              addDoc({ path: tab.path, name: tab.name || baseName(tab.path), encoding: tab.encoding || s.defaultEncoding, eol: tab.eol || s.defaultEol, language: tab.language || null, missing: true }, tab.draft, { activateIt: false, dirty: true, selection: tab.cursor });
+            } else if (typeof tab.draft === 'string' && tab.draft.trim()) {
+              newUntitled(tab.draft, { activateIt: false, dirty: true, selection: tab.cursor, meta: { encoding: tab.encoding || s.defaultEncoding, eol: tab.eol || s.defaultEol, language: tab.language || null } });
               restored++;
             }
           } else {
