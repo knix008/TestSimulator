@@ -18,7 +18,7 @@ import { ContextMenu } from './ContextMenu';
 // safety net there.
 const POLL_BUSY_MS = 50;
 const POLL_IDLE_MS = 250;
-const MAX_LINES = 3000;   // lines kept per terminal transcript
+const MAX_LINES = 10000;  // lines kept per terminal transcript (a long `git log` stays complete)
 const GIT_WAIT_MS = 2000; // the prompt waits this long for git status before showing without it
 
 function timeOf(ts) {

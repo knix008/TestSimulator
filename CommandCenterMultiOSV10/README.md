@@ -28,7 +28,7 @@ Windows · macOS · Linux · **웹** 용 듀얼 패널 파일 관리자.
 
 ```bash
 npm install
-npm start          # Vite 개발 서버 + Electron (핫 리로드)
+npm start          # Vite 개발 서버 + Electron (UI 는 핫 리로드, core/·electron/ 이 바뀌면 Electron 자동 재시작)
 npm run web        # 빌드 후 웹 버전: http://127.0.0.1:5186 (브라우저가 열립니다)
 ```
 
