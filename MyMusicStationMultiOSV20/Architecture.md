@@ -5,15 +5,15 @@ My Music Station V1.0.0 is a compact cross-platform music player built with Reac
 ## Layers
 
 - **React UI**: fixed-size player shell, custom toolbar, transport, spectrum canvas, playlist side panel, compact (mini) mode, language/theme/wallpaper controls.
-- **Popup windows** (`src/popups/`): settings / convert / extract / about / alert / error / folder-progress dialogs each run in their own owned Tauri window (`popup-<kind>`, same bundle with `?popup=<kind>`). The main window holds all state and streams snapshots over Tauri events (`popup:state`); popups send intents back (`popup:action`). Rust emits `popup:closed` when a popup is destroyed and closes every `popup-*` window whenever the main window closes or hides. In a plain browser the same dialog components render inline as modals.
+- **Popup windows** (`src/popups/`): settings / convert / open-link / about / alert / error / folder-progress dialogs each run in their own owned Tauri window (`popup-<kind>`, same bundle with `?popup=<kind>`). The main window holds all state and streams snapshots over Tauri events (`popup:state`); popups send intents back (`popup:action`). Rust emits `popup:closed` when a popup is destroyed and closes every `popup-*` window whenever the main window closes or hides. In a plain browser the same dialog components render inline as modals.
 - **Themes** (`src/themes.ts`): 16 built-in themes defined as full CSS-variable sets (applied inline on `:root`), so popups and the settings colour picker can render them without stylesheet lookups; custom themes layer an accent on the Dark base.
 - **Web Audio API**: HTML `<audio>` → `MediaElementSource → Analyser → Gain → destination` for playback and spectrum.
 - **Metadata**: `music-metadata` for tags and embedded artwork on local files.
 - **Tauri shell**: frameless window (**835×496** normal, **340×180** compact), status bar, optional system tray, single-instance, file associations, NSIS/DMG/AppImage packaging.
 - **Tauri plugins**: `@tauri-apps/plugin-dialog`, `@tauri-apps/plugin-fs`.
 - **Native helpers (Rust)**:
-  - `convert_audio` — ffmpeg convert with format + quality
-  - `extract_audio_from_url` — yt-dlp audio extract (format + quality)
+  - `convert_audio` — ffmpeg convert with format + quality (**local files only**)
+  - `extract_audio_from_url` — yt-dlp audio extract for **playback cache** (not a user Save dialog)
   - `load_wallpaper_image` — wallpaper decode (incl. TIFF → PNG)
   - shell / UI settings persistence
   - pending open-file queue for OS file associations
@@ -22,7 +22,7 @@ My Music Station V1.0.0 is a compact cross-platform music player built with Reac
 
 1. User opens a folder, audio files, a `.mplist`, a remote URL, or the OS launches the app with file arguments.
 2. Local files are read into same-origin `blob:` URLs so Web Audio analysis works in WebView2.
-3. **URL add**:
+3. **URL add** (toolbar **Open link** or the playlist URL field) — play only, never a “save as file” dialog:
    - Direct audio URL → **stream** (`source` = HTTP URL).
    - Video/media page (YouTube, etc.) → **extract** audio via yt-dlp into the app cache (`appCacheDir/remote-audio/<url-hash>.m4a`), then play from that file.
 4. Playlist is in memory. The working list is auto-saved on every change to `localStorage` **and** to `appConfigDir/session-playlist.json` (WebView2 can drop `localStorage` writes when the process exits from the tray; the file wins on restore). Last folder/playlist paths stay in `localStorage`.
@@ -32,15 +32,27 @@ My Music Station V1.0.0 is a compact cross-platform music player built with Reac
 8. Spectrum styles and color direction are user-selectable.
 9. Close hides to tray when enabled; otherwise exits. Tray Quit fully exits.
 
-## URL / Save Pipeline
+## URL / Convert Pipeline
 
-| Kind | Play | Save (toolbar convert or track context menu) |
+| Kind | Play | Convert (toolbar) |
 | --- | --- | --- |
-| Direct audio URL | Stream | Download/convert at chosen quality → replace track with local file |
-| Media/video URL | yt-dlp extract → cache file play (reused across launches) | Re-extract (or convert) at chosen quality → replace track with local file |
+| Direct audio URL | Stream | Not offered (convert is local-only) |
+| Media/video URL | yt-dlp extract → cache file play (reused across launches) | Not offered (convert is local-only) |
 | Local file | blob / path | Optional format convert via ffmpeg |
 
-After a successful URL-track save, the playlist entry becomes `origin: 'local'` with `filePath` pointing at the saved file (no longer stream/pending).
+Link tracks stay as stream/extracted-cache entries. There is no toolbar or context-menu action that writes a URL track to a user-chosen file.
+
+## File Icons
+
+Source SVGs live in `asset/`. Windows ICOs and app rasters are generated, then only the files `tauri.conf.json` lists are kept:
+
+| Source | Generator | Shipped rasters |
+| --- | --- | --- |
+| `asset/app-icon.svg` (3D squircle, transparent field) | `scripts/make-app-icon.mjs` | `src-tauri/icons/*`, `tray-icons/32x32.png`, `public/favicon.svg` |
+| `asset/audio-icon.svg` + `asset/audio-icons/{mp3,wav,…}.svg` | `scripts/make-audio-icon.mjs` | `src-tauri/audio-icons/{icon,mp3,wav,…}.ico` |
+| `asset/playlist-icon.svg` (list on a 3D squircle) | `scripts/make-playlist-icon.mjs` | `src-tauri/playlist-icons/icon.ico` |
+
+In-app, `src/audioFormatIcons.ts` maps a track path to the matching SVG when there is no embedded cover (album art, mini-mode art, playlist row thumb).
 
 ## Playlist Format
 
@@ -53,7 +65,7 @@ After a successful URL-track save, the playlist entry becomes `origin: 'local'` 
 
 ## Track Context Menu
 
-Right-click on a playlist row opens `.track-context-menu` (rendered as a direct child of `main.station-shell`, positioned relative to it). Items: Play, Save/Download (URL-added tracks only), Remove. The shell rule `.station-shell > :not(...) { position: relative }` explicitly excludes `.track-context-menu` — without that exclusion the menu falls into the flex flow and is clipped out of view.
+Right-click on a playlist row opens `.track-context-menu` (rendered as a direct child of `main.station-shell`, positioned relative to it). Items: **Play**, **Remove**. The shell rule `.station-shell > :not(...) { position: relative }` explicitly excludes `.track-context-menu` — without that exclusion the menu falls into the flex flow and is clipped out of view.
 
 ## Title Toolbar Layout
 
@@ -82,14 +94,15 @@ Right-click on a playlist row opens `.track-context-menu` (rendered as a direct 
 Windows NSIS hooks (`src-tauri/windows/nsis-hooks.nsh`):
 
 - **PREINSTALL**: stop process, uninstall previous NSIS/MSI, clean leftovers and association keys.
-- **POSTINSTALL**: register `.mplist` with `playlist-icons/icon.ico`; register as media client + Open with for audio types using `audio-icons/icon.ico`; **ask** whether to set as default player (silent install defaults to Yes).
+- **POSTINSTALL**: register `.mplist` with `playlist-icons/icon.ico`; register a ProgID per audio extension (`MyMusicStation.Audio.mp3` → `audio-icons/mp3.ico`, and so on) plus a generic `MyMusicStation.Audio` fallback (`audio-icons/icon.ico`); **ask** whether to set as default player (silent install defaults to Yes).
 - **PRE/POST UNINSTALL**: stop app and clean associations.
 
 Release builds use `windows_subsystem = "windows"` (no console flash). Helpers spawn with `CREATE_NO_WINDOW` on Windows.
 
 ## Window & Tray
 
-- Normal: **835×496**, non-resizable, undecorated; compact: **340×180** (app icon on mini title bar).
+- Normal: **835×496**, non-resizable, undecorated; compact: **340×180** (app icon on mini title bar; seek is smaller than the volume slider).
+- Volume is stored and shown in **1%** steps (`snapVolume` in `src/appSettings.ts`).
 - Settings in `localStorage` (`myMusicStation.appSettings`) plus durable UI settings via Rust (`appConfigDir/app-settings.json`).
 - Session playlist mirrored to `appConfigDir/session-playlist.json`; extracted link audio cached under `appCacheDir/remote-audio/` (both via `@tauri-apps/plugin-fs`, scope `$APPDATA`/`$HOME`).
 - Tray optional: `get_shell_settings` / `set_use_system_tray` ↔ `shell-settings.json`.
@@ -101,10 +114,14 @@ Release builds use `windows_subsystem = "windows"` (no console flash). Helpers s
 | Path | Role |
 | --- | --- |
 | `src/App.tsx` | Main UI and playback logic |
+| `src/audioFormatIcons.ts` | Per-extension artwork fallback |
 | `src-tauri/src/lib.rs` | App entry, tray, open-files |
 | `src-tauri/src/audio_convert.rs` | ffmpeg convert |
-| `src-tauri/src/audio_extract.rs` | yt-dlp extract |
+| `src-tauri/src/audio_extract.rs` | yt-dlp extract (playback cache) |
 | `src-tauri/src/wallpaper.rs` | Wallpaper load |
-| `src-tauri/windows/nsis-hooks.nsh` | Installer associations |
+| `src-tauri/windows/nsis-hooks.nsh` | Installer associations (per-format icons) |
 | `scripts/build-desktop.mjs` | Desktop release build |
+| `scripts/make-app-icon.mjs` | App / tray rasters from SVG |
+| `scripts/make-audio-icon.mjs` | Format SVGs + Explorer ICOs |
+| `scripts/make-playlist-icon.mjs` | Playlist Explorer ICO |
 | `scripts/fetch-ffmpeg.mjs` / `fetch-ytdlp.mjs` | Bundle helpers |

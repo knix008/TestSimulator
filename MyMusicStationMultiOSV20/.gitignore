@@ -18,18 +18,37 @@ src-tauri/ffmpeg/*
 src-tauri/yt-dlp/*
 !src-tauri/yt-dlp/.gitkeep
 *.local
+.oxlintcache
 
 # Local music samples (keep folder via .gitkeep)
 music/*
 !music/.gitkeep
 
-# Root copies of packaged installers
+# Root copies of packaged installers (product name includes spaces)
 /*.msi
+/*.exe
 /*-setup.exe
 /*.dmg
 /*.AppImage
 /*.deb
 /*.rpm
+/My Music Station*.exe
+/My Music Station*.msi
+
+# `npx tauri icon` scratch. Scripts copy only the rasters the bundle ships
+# (src-tauri/icons, audio-icons/*.ico, playlist-icons/icon.ico, tray-icons/32x32.png).
+src-tauri/**/.build/
+src-tauri/**/.preview/
+src-tauri/audio-icons/android/
+src-tauri/audio-icons/ios/
+src-tauri/playlist-icons/android/
+src-tauri/playlist-icons/ios/
+src-tauri/tray-icons/android/
+src-tauri/tray-icons/ios/
+src-tauri/icons/android/
+src-tauri/icons/ios/
+src-tauri/**/StoreLogo.png
+src-tauri/**/Square*.png
 
 # TypeScript incremental build info
 *.tsbuildinfo

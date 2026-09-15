@@ -46,8 +46,8 @@ Hover a button for its tooltip.
 | Reopen | Reload the last remembered music folder. |
 | Add | Add audio files and/or `.mplist` playlists. |
 | Save | Save the current playlist as `.mplist`. |
-| Convert / Save stream | Convert the current track, or save a streamed/URL track (format + quality). |
-| URL audio save | Extract audio from a media/URL and save (format + quality). |
+| Convert | Convert the **current local track** (format + quality). Link tracks cannot be converted. |
+| Open link | Play a media or audio URL (stream or extract to cache). **Does not save a file.** |
 | Spectrum flip / style | Flip color direction; cycle spectrum display style. |
 | Language | Korean / English. |
 | Settings | Opens the settings window (sits just left of Minimize; also in compact mode, left of Close). |
@@ -65,21 +65,21 @@ Errors open a detail dialog (copyable). Click a red status message to reopen it.
 
 ## Dialog Windows
 
-Settings, Convert, URL audio save, About, alerts, errors and the folder-loading progress each open in their **own window** above the player (the player is dimmed and inert while one is open; click it to bring the dialog back to front). Each dialog opens centred over the player (or the screen when the player is hidden) and grows to fit its content — no scrollbars. Drag a dialog by its header; **Esc**, the header **X**, or the Close button dismisses it. Closing or hiding the main window closes every open dialog window with it.
+Settings, Convert, Open link, About, alerts, errors and the folder-loading progress each open in their **own window** above the player (the player is dimmed and inert while one is open; click it to bring the dialog back to front). Each dialog opens centred over the player (or the screen when the player is hidden) and grows to fit its content — no scrollbars. Drag a dialog by its header; **Esc**, the header **X**, or the Close button dismisses it. Closing or hiding the main window closes every open dialog window with it.
 
 ## Playback
 
 - Play / Pause / Stop and Previous / Next on the transport bar.
-- Seek with the timeline; adjust volume (and mute).
-- Click a playlist row to play; **right-click** for context actions: **Play**, **Save downloaded audio** (link tracks only), **Remove**.
+- Seek with the timeline; volume is **0–100% in 1% steps** (mute toggle next to the slider).
+- Click a playlist row to play; **right-click** for context actions: **Play**, **Remove**.
 - Removing the track that is currently playing stops it at once and continues with the next track. If playback was paused/stopped, the next track is only selected.
 - Spectrum shows frequency energy (style and color direction are configurable).
-- Album art and tags appear when metadata is available.
+- Album art and tags appear when metadata is available. If a file has no cover, the player and playlist show the **format icon** for that extension (MP3, WAV, FLAC, …).
 
 ## Compact Mode
 
-- Smaller always-on-top-friendly window with spectrum, transport, seek, and volume.
-- Program icon appears on the left of the mini title bar.
+- Smaller always-on-top-friendly window with spectrum, transport, a **short seek** bar, and a **wider volume** slider (1% steps).
+- Program icon appears on the left of the mini title bar; the current track shows a small cover / format icon.
 - Restore with the maximize control; Close follows tray settings.
 
 ## Music Folder Memory
@@ -95,14 +95,14 @@ Opening a folder stores its path. **Reopen** loads it again. Optional: open last
 
 ## Remote / Media URLs
 
-In the side panel, paste a link and press Add:
+Use the toolbar **Open link** button, or in the side panel paste a link and press Add. Both **play** the URL (and add it to the playlist). They do not download a file you pick in a save dialog.
 
 | Link type | What happens |
 | --- | --- |
 | Direct audio (e.g. `.mp3`, `audio/*`) | Streams for playback |
-| Video / media page (YouTube, Instagram, …) | Extracts audio only, then plays |
+| Video / media page (YouTube, Instagram, …) | Extracts audio only into the app cache, then plays |
 
-While resolving/extracting, the status bar shows progress; you can still edit the URL field.
+While resolving/extracting, the status bar shows progress.
 
 ### Link tracks across restarts
 
@@ -111,19 +111,9 @@ While resolving/extracting, the status bar shows progress; you can still edit th
 - If the cache file is gone (cleaned, moved), the track is listed as pending and is **downloaded again the first time you play it**.
 - Removing a link track from the list also deletes its cached file.
 
-### Save a URL-added track
-
-1. Right-click the track → **Save downloaded audio** (or use Convert when that track is current).
-2. Choose **format** (MP3, WAV, FLAC, OGG, M4A) and **quality** (High by default / Standard / Smaller).
-3. Pick the output path.
-
-After a successful save, that playlist entry becomes a **local file** and plays from disk (no longer the live link/stream).
-
-You can also use **URL audio save** on the toolbar to extract any supported link straight to a file (optional add-to-playlist).
-
 ## Convert (local tracks)
 
-Select a track → Convert → choose format (and quality where applicable) → save. Requires bundled or PATH **ffmpeg**.
+Select a **local** track → Convert → choose format → save. Requires bundled or PATH **ffmpeg**. URL/link tracks cannot be converted from this dialog.
 
 ## Themes & Background
 
@@ -149,10 +139,12 @@ Select a track → Convert → choose format (and quality where applicable) → 
 ## Windows Installer Notes
 
 - Stops running instances and removes previous installs before copying files.
-- Registers `.mplist` (playlist icon) and appears under Windows media / Open with for common audio types (dedicated music-file icon).
+- Registers `.mplist` (playlist icon) and appears under Windows media / Open with for common audio types.
+- Each audio extension uses its **own Explorer icon** (MP3, WAV, FLAC, …) rather than one generic file mark.
 - Asks whether to set My Music Station as the **default audio player** (Yes / No). Silent (`/S`) installs choose Yes.
 - Supported association types include MP3, FLAC, WAV, OGG, AAC, M4A, WebM, OPUS, WMA, AIFF.
 - Opening an associated file launches (or focuses) the app and loads that file.
+- After installing a new setup, Explorer icons update with that install; `npm start` does not refresh Program Files associations.
 
 ## External Tools
 
