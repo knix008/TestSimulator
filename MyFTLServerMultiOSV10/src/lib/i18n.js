@@ -11,7 +11,6 @@ const ko = {
   theme: '테마', tip_theme: '테마 선택 (16가지)', tip_next_theme: '다음 테마로 전환: {theme}', tip_language: '한국어 / English',
   settings: '설정', tip_settings: '앱 설정', menu_info: '정보', tip_about: '프로그램 정보',
   win_minimize: '최소화', win_maximize: '최대화', win_restore: '이전 크기로', win_close: '닫기', win_resize: '드래그하여 창 크기 조절',
-  badge_running: '실행 중', badge_stopped: '중지됨', badge_starting: '시작 중…',
 
   // control bar
   start: '시작', stop: '중지', starting: '시작 중…', tip_start: '선택한 프로토콜로 서버 시작', tip_stop: '모든 프로토콜 중지',
@@ -64,6 +63,7 @@ const ko = {
   log_settings_saved: '설정 저장 완료 (F5)', log_settings_loaded: '설정 불러오기 완료 (F6)',
 
   // status
+  state_running: '실행 중', state_stopped: '중지됨', state_starting: '시작 중…',
   status_ready: '준비됨', status_running: '실행 중 — {list}', status_stopped: '서버 중지됨', status_starting: '서버 시작 중…', status_start_failed: '서버 시작 실패',
   uptime: '가동 {time}',
 
@@ -101,7 +101,6 @@ const en = {
   theme: 'Theme', tip_theme: 'Choose a theme (16 built in)', tip_next_theme: 'Switch to the next theme: {theme}', tip_language: '한국어 / English',
   settings: 'Settings', tip_settings: 'App settings', menu_info: 'Info', tip_about: 'About My FTP Server',
   win_minimize: 'Minimize', win_maximize: 'Maximize', win_restore: 'Restore', win_close: 'Close', win_resize: 'Drag to resize the window',
-  badge_running: 'running', badge_stopped: 'stopped', badge_starting: 'starting…',
 
   start: 'Start', stop: 'Stop', starting: 'Starting…', tip_start: 'Start the server with the selected protocols', tip_stop: 'Stop every protocol',
   protocols: 'Protocols', tip_protocols: 'Several protocols can run at once. Ticking one fills in its standard port.',
@@ -147,6 +146,7 @@ const en = {
   log_file: 'Log file: {file}', log_copied: 'Log copied to the clipboard.', log_empty: 'There is no log to save.', log_saved: 'Log saved: {path}',
   log_settings_saved: 'Settings saved (F5)', log_settings_loaded: 'Settings reloaded (F6)',
 
+  state_running: 'Running', state_stopped: 'Stopped', state_starting: 'Starting…',
   status_ready: 'Ready', status_running: 'Running — {list}', status_stopped: 'Server stopped', status_starting: 'Starting the server…', status_start_failed: 'Server start failed',
   uptime: 'up {time}',
 

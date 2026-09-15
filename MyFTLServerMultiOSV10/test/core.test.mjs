@@ -6,6 +6,7 @@ import { createRequire } from 'node:module';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import crypto from 'node:crypto';
 
 const require = createRequire(import.meta.url);
 const { VirtualFileSystem, normalizePath } = require('../core/vfs');
@@ -14,6 +15,11 @@ const { Settings, normalize, toFile } = require('../core/settings');
 const { generateSelfSigned, writeSelfSigned, loadCertificate, inspectCertificate } = require('../core/x509');
 const hostkey = require('../core/hostkey');
 const { createApi, serializeError } = require('../core/api');
+const { Log } = require('../core/log');
+const { render } = require('../core/messages');
+const { Session } = require('../core/session');
+const { ServerManager } = require('../core/manager');
+const local = require('../core/local');
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'mfs-core-'));
 const shareA = path.join(tmp, 'a');
@@ -147,5 +153,197 @@ test('api: info, settings round trip, validation, poll, errors', async () => {
   await assert.rejects(api.call('nope.method'), /Unknown API method/);
   const e = serializeError(Object.assign(new Error('x'), { code: 'EX', detail: 'd' }));
   assert.deepEqual([e.code, e.message, e.detail], ['EX', 'x', 'd']);
+  await api.shutdown();
+});
+
+test('vfs: list of a file, skipped shares, trimmed names', () => {
+  const vfs = new VirtualFileSystem([{ virtualName: ' /Data/ ', physicalPath: shareA }, { virtualName: 'a/b', physicalPath: shareB }, { virtualName: '', physicalPath: shareB }]);
+  assert.deepEqual(vfs.virtualNames, ['Data']);
+  assert.deepEqual(vfs.skipped.map((s) => s.reason), ['name', 'name']);
+  // Listing a file path yields that one entry (LIST <file>).
+  assert.deepEqual(vfs.list('/data/hello.txt').map((e) => [e.name, e.isDir, e.size]), [['hello.txt', false, 5]]);
+  assert.throws(() => vfs.list('/nope/x'), (e) => e.code === 'ENOENT');   // single share: bare form → disk ENOENT
+  assert.throws(() => new VirtualFileSystem([{ virtualName: 'a', physicalPath: shareA }, { virtualName: 'b', physicalPath: shareB }]).list('/nope'), /No such directory/);
+  assert.equal(vfs.stat('/data/nope'), null);
+  assert.equal(vfs.mountOf('/data/sub').rest, '/sub');
+  assert.equal(vfs.mountOf('/'), null);
+});
+
+test('settings normalize: clamps, trimming, dropped entries', () => {
+  const s = normalize({
+    sharedFolders: [{ virtualName: '/x/', physicalPath: ' C:\\x ' }, { virtualName: '', physicalPath: 'C:\\y' }, { virtualName: 'z', physicalPath: '' }],
+    users: [{ username: ' a ', password: 'p' }, { username: '', password: 'p' }, { username: 'b' }],
+    bufferSizeKb: 1, maxConnections: -5, pasvPortMin: 70000, pasvPortMax: 'x', protocols: { sftpPort: 0 },
+  });
+  assert.deepEqual(s.sharedFolders, [{ virtualName: 'x', physicalPath: 'C:\\x' }]);
+  assert.deepEqual(s.users.map((u) => [u.username, u.password, u.canRead, u.canWrite]), [['a', 'p', true, true], ['b', '', true, true]]);
+  assert.equal(s.bufferSizeKb, 4);
+  assert.equal(s.maxConnections, 0);
+  assert.equal(s.pasvPortMin, 65535);
+  assert.equal(s.pasvPortMax, 0);
+  assert.equal(s.protocols.sftpPort, 22);
+  assert.equal(s.protocols.explicitTls, true);
+  assert.equal(normalize({ protocols: { explicitTls: false } }).protocols.explicitTls, false);
+  assert.equal(normalize(null).allowAnonymous, true);
+});
+
+test('Session: defaults, patch, persistence', () => {
+  const dir = path.join(tmp, 'sess');
+  const a = new Session(dir);
+  assert.equal(a.load().theme, 'midnight');
+  assert.equal(a.save({ language: 'en', logHeight: 240 }).language, 'en');
+  const b = new Session(dir);
+  const loaded = b.load();
+  assert.equal(loaded.language, 'en');
+  assert.equal(loaded.logHeight, 240);
+  assert.equal(loaded.confirmStop, true);   // untouched keys keep their defaults
+});
+
+test('messages: templates in both languages, unknown keys verbatim', () => {
+  assert.equal(render('ko', 'listen_in_use', { proto: 'FTP', port: 21 }).includes('FTP 포트 21'), true);
+  assert.match(render('en', 'listen_in_use', { proto: 'FTP', port: 21 }), /FTP port 21 is already in use/);
+  assert.equal(render('en', 'not_a_key', {}), 'not_a_key');
+  assert.equal(render('xx', 'allow'), '허용');   // unknown language → Korean
+});
+
+test('Log: ring buffer, sequence polling, file gets events but not traces', () => {
+  const file = path.join(tmp, 'logs', 'test.log');
+  const log = new Log(file);
+  const seen = [];
+  log.on('line', (l) => seen.push(l.level));
+  log.setLanguage('en');
+  log.info('server_stopped');
+  log.trace('FTP 1.2.3.4:5 > NOOP');
+  log.warn('client_limit', { proto: 'FTP', max: 3, peer: 'x' });
+  log.error('server_start_failed', { msg: 'boom' });
+  assert.deepEqual(seen, ['info', 'trace', 'warn', 'error']);
+  assert.equal(log.lines[0].text, 'Server stopped');
+  assert.equal(log.after(2).length, 2);
+  assert.equal(log.after(log.seq).length, 0);
+  log.flush();
+  const written = fs.readFileSync(file, 'utf-8');
+  assert.match(written, /\] Server stopped\n/);
+  assert.match(written, /ERROR Server start failed: boom/);
+  assert.equal(written.includes('NOOP'), false);
+  assert.match(log.text(), /^\[\d{4}-\d\d-\d\d \d\d:\d\d:\d\d\] Server stopped/);
+  log.clear();
+  assert.equal(log.lines.length, 0);
+  for (let i = 0; i < 3100; i++) log.trace(`t${i}`);
+  assert.equal(log.lines.length, 3000);
+  assert.equal(log.lines[0].text, 't100');
+});
+
+test('local: roots, folder listing (folders first, extension filter), mkdir, stat', async () => {
+  const roots = await local.listRoots();
+  assert.ok(roots.length >= 1 && roots.every((r) => r.path && r.isDir));
+  fs.writeFileSync(path.join(shareA, 'cert.pem'), 'x');
+  const all = await local.listDirectory(shareA, { filesToo: true });
+  assert.deepEqual(all.entries.map((e) => e.name), ['sub', 'cert.pem', 'hello.txt']);
+  assert.equal(all.parent, path.dirname(shareA));
+  const dirsOnly = await local.listDirectory(shareA);
+  assert.deepEqual(dirsOnly.entries.map((e) => e.name), ['sub']);
+  const pems = await local.listDirectory(shareA, { filesToo: true, extensions: ['.pem'] });
+  assert.deepEqual(pems.entries.map((e) => e.name), ['sub', 'cert.pem']);
+  assert.equal((await local.listDirectory(path.parse(shareA).root)).parent, null);
+  await assert.rejects(local.listDirectory(path.join(tmp, 'nope')), /ENOENT/);
+  const made = await local.makeDirectory(shareA, 'made');
+  assert.deepEqual(local.statPath(made), { exists: true, isDir: true, size: 0 });
+  assert.deepEqual(local.statPath(path.join(shareA, 'hello.txt')), { exists: true, isDir: false, size: 5 });
+  assert.equal(local.statPath(path.join(tmp, 'nope')).exists, false);
+  fs.rmSync(made, { recursive: true });
+  fs.unlinkSync(path.join(shareA, 'cert.pem'));
+});
+
+test('manager.validate: every refusal has a code and a readable message', () => {
+  const m = new ServerManager({ log: new Log(null), configDir: tmp, lang: 'en' });
+  const base = { sharedFolders: [{ virtualName: 'd', physicalPath: shareA }] };
+  const missing = m.validate(normalize({ sharedFolders: [{ virtualName: 'd', physicalPath: path.join(tmp, 'gone') }] }));
+  assert.equal(missing.code, 'no_shares');
+  assert.match(missing.detail, /\/d → /);
+  // One missing share out of two is only a warning at start time.
+  assert.equal(m.validate(normalize({ sharedFolders: [...base.sharedFolders, { virtualName: 'g', physicalPath: path.join(tmp, 'gone') }] })).ok, true);
+  const notFound = m.validate(normalize({ ...base, protocols: { enableFtps: true }, certPath: path.join(tmp, 'no.pem') }));
+  assert.equal(notFound.code, 'cert_not_found');
+  assert.match(notFound.message, /no\.pem/);
+  const clash = m.validate(normalize({ ...base, protocols: { enableFtp: true, ftpPort: 2121, enableSftp: true, sftpPort: 2121 } }));
+  assert.equal(clash.code, 'port_clash');
+  assert.match(clash.message, /same port/);
+  m.setLanguage('ko');
+  assert.match(m.validate(normalize({})).message, /공유 폴더/);
+});
+
+test('x509: SAN + validity, explicit key file, missing key is a clear error', () => {
+  const g = generateSelfSigned({ commonName: '10.0.0.5', validityYears: 3 });
+  const x = new crypto.X509Certificate(g.cert);
+  assert.match(x.subjectAltName, /IP Address:10\.0\.0\.5/);
+  assert.equal(x.checkIP('10.0.0.5'), '10.0.0.5');
+  assert.ok(Math.abs(new Date(x.validTo).getFullYear() - (new Date().getFullYear() + 3)) <= 1);
+  const dns = new crypto.X509Certificate(generateSelfSigned({ commonName: 'nas.local' }).cert);
+  assert.equal(dns.checkHost('nas.local'), 'nas.local');
+  // Certificate alone + key given explicitly, and the failure when neither is found.
+  const certOnly = path.join(tmp, 'only.crt');
+  const keyElsewhere = path.join(tmp, 'k', 'private.pem');
+  fs.mkdirSync(path.dirname(keyElsewhere), { recursive: true });
+  fs.writeFileSync(certOnly, g.cert);
+  fs.writeFileSync(keyElsewhere, g.key);
+  assert.ok(loadCertificate({ certPath: certOnly, keyPath: keyElsewhere }).options.key);
+  assert.throws(() => loadCertificate({ certPath: certOnly }), (e) => e.code === 'EKEY' && /Private key not found/.test(e.message));
+  fs.writeFileSync(path.join(tmp, 'junk.pem'), 'not a cert');
+  assert.throws(() => loadCertificate({ certPath: path.join(tmp, 'junk.pem') }), /Not a PEM certificate/);
+  assert.throws(() => loadCertificate({ certPath: '' }), /No certificate/);
+});
+
+test('hostkey: unreadable key reports an error instead of throwing', () => {
+  const bad = path.join(tmp, 'bad.pem');
+  fs.writeFileSync(bad, 'garbage');
+  const info = hostkey.inspectKey(bad);
+  assert.equal(info.exists, true);
+  assert.ok(info.error);
+});
+
+test('api: language, log methods, profiles, host key + certificate, unsupported host features', async () => {
+  const cfg = path.join(tmp, 'api2');
+  const api = createApi({ name: 'test', configDir: cfg });
+  assert.deepEqual(await api.call('app.setLanguage', { lang: 'en' }), { lang: 'en' });
+  await api.call('settings.save', { settings: { sharedFolders: [{ virtualName: 'd', physicalPath: shareA }] } });
+  assert.match((await api.call('log.text')).text, /Settings saved/);
+  const out = path.join(cfg, 'export.log');
+  assert.deepEqual(await api.call('log.save', { path: out }), { path: out });
+  assert.match(fs.readFileSync(out, 'utf-8'), /Settings saved/);
+  await assert.rejects(api.call('log.save', {}), (e) => e.code === 'EINVAL');
+  await api.call('log.clear');
+  assert.equal((await api.call('log.lines', { seq: 0 })).lines.length, 0);
+
+  // Profiles: save → list → load (becomes the current settings) → delete.
+  await api.call('profiles.save', { name: 'Lab', settings: { sharedFolders: [{ virtualName: 'lab', physicalPath: shareB }], allowAnonymous: false } });
+  assert.deepEqual((await api.call('profiles.list')).profiles, ['Lab']);
+  await api.call('settings.save', { settings: { sharedFolders: [{ virtualName: 'd', physicalPath: shareA }] } });
+  const loaded = await api.call('profiles.load', { name: 'Lab' });
+  assert.equal(loaded.sharedFolders[0].virtualName, 'lab');
+  assert.equal((await api.call('settings.get')).allowAnonymous, false);
+  assert.equal((await api.call('settings.reload')).sharedFolders[0].virtualName, 'lab');
+  assert.deepEqual((await api.call('profiles.delete', { name: 'Lab' })).profiles, []);
+  await assert.rejects(api.call('profiles.load', { name: 'Lab' }), /ENOENT/);
+
+  // Host key and certificate through the API.
+  assert.equal((await api.call('hostkey.info', {})).exists, false);
+  const gen = await api.call('hostkey.generate', {});
+  assert.equal(gen.path, path.join(cfg, 'ssh_host_rsa.pem'));
+  assert.match(gen.fingerprint, /^SHA256:/);
+  assert.equal((await api.call('hostkey.info', { path: gen.path })).fingerprint, gen.fingerprint);
+  const cert = await api.call('cert.generate', { commonName: 'box', validityYears: 1 });
+  assert.equal(cert.certPath, path.join(cfg, 'server_cert.pem'));
+  assert.equal((await api.call('cert.inspect', { path: cert.certPath })).subject, 'CN=box');
+  assert.equal((await api.call('settings.validate', { settings: { sharedFolders: [{ virtualName: 'd', physicalPath: shareA }], protocols: { enableFtps: true }, certPath: cert.certPath } })).ok, true);
+
+  // Local FS + session + features the web host lacks.
+  assert.equal((await api.call('local.stat', { path: shareA })).isDir, true);
+  assert.equal((await api.call('session.save', { patch: { theme: 'nord' } })).theme, 'nord');
+  assert.equal((await api.call('session.load')).theme, 'nord');
+  await assert.rejects(api.call('host.pickFolder', {}), (e) => e.code === 'UNSUPPORTED');
+  await assert.rejects(api.call('host.reveal', { path: shareA }), (e) => e.code === 'UNSUPPORTED');
+  assert.deepEqual(await api.call('clipboard.write', { text: 'x' }), { ok: true });   // no clipboard → silently ignored
+  const info = await api.call('app.info');
+  assert.deepEqual(info.capabilities, { pickFolder: false, pickFile: false, saveFile: false, reveal: false, open: false, clipboard: false });
   await api.shutdown();
 });

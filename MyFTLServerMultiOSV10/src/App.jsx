@@ -1,11 +1,11 @@
 // My FTP Server — application shell.
 //
 // Layout (top to bottom): toolbar · control bar (start/stop, protocols,
-// counters) · [ shares + security | users + network ] · log · status bar.
+// counters) · a 2×2 grid [ shares | users / security | network ] · log · status bar.
 // The settings shown in the panels are a draft that is saved to the config
 // file shortly after every change; ▶ 시작 sends them to the server manager.
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { call, subscribe, writeClipboardText, downloadText, isElectron } from './lib/backend';
+import { call, subscribe, writeClipboardText, downloadText, isElectron, setMinWindowSize } from './lib/backend';
 import { t, setLanguage, getLanguage, useLanguage } from './lib/i18n';
 import { fileStamp, timeStamp, baseName, dirName } from './lib/format';
 import { playSuccess, playError, setSoundsEnabled } from './lib/sound';
@@ -333,7 +333,7 @@ export default function App() {
     e.preventDefault();
     const startY = e.clientY;
     const startH = logHeight;
-    const move = (ev) => setLogHeight(Math.min(window.innerHeight * 0.7, Math.max(80, startH - (ev.clientY - startY))));
+    const move = (ev) => setLogHeight(Math.min(logCap.current || window.innerHeight * 0.7, Math.max(80, startH - (ev.clientY - startY))));
     const up = () => {
       document.removeEventListener('mousemove', move);
       document.removeEventListener('mouseup', up);
@@ -342,6 +342,47 @@ export default function App() {
     document.addEventListener('mousemove', move);
     document.addEventListener('mouseup', up);
   };
+
+  // ── Nothing wraps, nothing is hidden: the window's minimum size follows
+  // what the toolbar / control bar need on one line (language, font size,
+  // digits in the counters) and what the panel grid needs above a minimal
+  // log; the log splitter is capped so the bottom panels always stay visible ──
+  const logCap = useRef(0);
+  useEffect(() => {
+    if (!session) return undefined;
+    const q = (sel) => document.querySelector(sel);
+    const need = (el, spacer) => {
+      const cs = getComputedStyle(el);
+      const gap = parseFloat(cs.columnGap) || 0;
+      const kids = Array.from(el.children);
+      const sum = kids.reduce((n, k) => n + (k.classList.contains(spacer) ? 0 : k.getBoundingClientRect().width), 0);
+      return sum + gap * Math.max(0, kids.length - 1) + (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0);
+    };
+    const h = (sel) => { const el = q(sel); return el ? el.getBoundingClientRect().height : 0; };
+    const strips = [['.toolbar', 'tb-spacer'], ['.control-bar', 'cb-spacer']].map(([sel, sp]) => [q(sel), sp]).filter(([el]) => el);
+    if (!strips.length || !q('.main')) return undefined;
+    let timer = null;
+    const measure = () => {
+      timer = null;
+      const width = Math.ceil(Math.max(...strips.map(([el, sp]) => need(el, sp)))) + 16;
+      document.documentElement.style.setProperty('--app-min-width', `${width}px`);
+      if (!isElectron) return;
+      // Fixed rows + the grid (tables at their minimum, the bottom row at its natural height).
+      const fixed = h('.toolbar') + h('.control-bar') + h('.locked-hint') + h('.h-splitter') + h('.statusbar');
+      const grid = 16 + 136 + 8 + Math.max(h('.security-panel'), h('.network-panel'));
+      const cap = Math.max(80, Math.floor(window.innerHeight - fixed - grid));
+      logCap.current = cap;
+      setLogHeight((cur) => Math.min(cur, cap));
+      setMinWindowSize(width, Math.ceil(fixed + grid + 80));
+    };
+    const schedule = () => { if (!timer) timer = setTimeout(measure, 80); };
+    const ro = new ResizeObserver(schedule);
+    for (const [el] of strips) for (const k of el.children) ro.observe(k);
+    for (const sel of ['.security-panel', '.network-panel']) { const el = q(sel); if (el) ro.observe(el); }
+    window.addEventListener('resize', schedule);
+    schedule();
+    return () => { ro.disconnect(); window.removeEventListener('resize', schedule); if (timer) clearTimeout(timer); };
+  }, [session && session.language, session && session.fontSize, server.running, server.starting]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Smoke-test / automation hook ──
   useEffect(() => {
@@ -355,29 +396,25 @@ export default function App() {
 
   return (
     <div className="app">
-      <Toolbar onAction={action} theme={session.theme} running={server.running} starting={server.starting} busy={locked}
+      <Toolbar onAction={action} theme={session.theme} busy={locked}
         profiles={profiles} profileName={profileName} onPickProfile={pickProfile} onSaveProfile={saveProfile} onDeleteProfile={deleteProfile} />
       <ControlBar settings={settings} onChange={updateSettings} running={server.running} starting={server.starting} locked={locked}
         stats={stats} state={server} onStart={start} onStop={stop} />
       {locked && <div className="locked-hint muted small" title={t('locked_hint')}>{t('locked_hint')}</div>}
       <div className="main">
-        <div className="column">
-          <SharesPanel shares={settings.sharedFolders} missing={missing} locked={locked} onAdd={addShare} onEdit={editShare} onRemove={removeShare}
-            onReveal={reveal} canReveal={!!info.capabilities.reveal} />
-          <SecurityPanel settings={settings} onChange={updateSettings} locked={locked} certInfo={certInfo} hostKey={hostKey}
-            onPickCert={async () => { const p = await pickFile(settings.certPath, ['.pem', '.crt', '.cer', '.pfx', '.p12'], 'Certificate'); if (p) updateSettings({ certPath: p }); }}
-            onPickKey={async () => { const p = await pickFile(settings.certKeyPath || settings.certPath, ['.pem', '.key'], 'Private key'); if (p) updateSettings({ certKeyPath: p }); }}
-            onGenerateCert={generateCert} onGenerateHostKey={generateHostKey} onOpenKeyFolder={openKeyFolder}
-            onCopyFingerprint={() => { if (hostKey && hostKey.fingerprint) { writeClipboardText(hostKey.fingerprint); setStatus(t('copied')); } }} />
-        </div>
-        <div className="column">
-          <UsersPanel settings={settings} onChange={updateSettings} locked={locked} onAdd={addUser} onEdit={editUser} onRemove={removeUser} />
-          <NetworkPanel settings={settings} onChange={updateSettings} locked={locked} addresses={info.addresses || []} onCopy={(u) => writeClipboardText(u)} />
-        </div>
+        <SharesPanel shares={settings.sharedFolders} missing={missing} locked={locked} onAdd={addShare} onEdit={editShare} onRemove={removeShare}
+          onReveal={reveal} canReveal={!!info.capabilities.reveal} />
+        <SecurityPanel settings={settings} onChange={updateSettings} locked={locked} certInfo={certInfo} hostKey={hostKey}
+          onPickCert={async () => { const p = await pickFile(settings.certPath, ['.pem', '.crt', '.cer', '.pfx', '.p12'], 'Certificate'); if (p) updateSettings({ certPath: p }); }}
+          onPickKey={async () => { const p = await pickFile(settings.certKeyPath || settings.certPath, ['.pem', '.key'], 'Private key'); if (p) updateSettings({ certKeyPath: p }); }}
+          onGenerateCert={generateCert} onGenerateHostKey={generateHostKey} onOpenKeyFolder={openKeyFolder}
+          onCopyFingerprint={() => { if (hostKey && hostKey.fingerprint) { writeClipboardText(hostKey.fingerprint); setStatus(t('copied')); } }} />
+        <UsersPanel settings={settings} onChange={updateSettings} locked={locked} onAdd={addUser} onEdit={editUser} onRemove={removeUser} />
+        <NetworkPanel settings={settings} onChange={updateSettings} locked={locked} addresses={info.addresses || []} onCopy={(u) => writeClipboardText(u)} />
       </div>
       <LogPanel lines={log} showTrace={showTrace} onToggleTrace={setShowTrace} height={logHeight} onResizeStart={startHSplit} logFile={info.logFile}
         onClear={() => { setLog([]); call('log.clear').catch(() => {}); }} onCopy={copyLog} onSave={saveLog} />
-      <StatusBar status={status} startedAt={server.running ? server.startedAt : 0} hostLabel={isElectron ? '' : t('host_web')} />
+      <StatusBar status={status} state={server.starting ? 'starting' : server.running ? 'running' : 'stopped'} startedAt={server.running ? server.startedAt : 0} hostLabel={isElectron ? '' : t('host_web')} />
       <DialogHost stack={dialogs.stack} resolve={dialogs.resolve} />
     </div>
   );

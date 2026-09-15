@@ -1,6 +1,7 @@
 // IPC bridge: exposes core/api.js to the renderer and pushes the server's
 // live events (log lines, client counts, transfer statistics) to it.
 const { ipcMain } = require('electron');
+const { MIN_WIDTH, MIN_HEIGHT } = require('./window-size');
 const { serializeError } = require('../core/api');
 
 function registerIpc(api, getWindow) {
@@ -34,6 +35,18 @@ function registerIpc(api, getWindow) {
     if (!win || win.isDestroyed() || win.isMaximized()) return;
     const [minW, minH] = win.getMinimumSize();
     win.setSize(Math.max(minW, Math.round(w)), Math.max(minH, Math.round(h)));
+  });
+  // The renderer measures the widest single-line strips (toolbar, control
+  // bar) and raises the minimum so they never wrap or get clipped.
+  ipcMain.on('win:setMinSize', (_event, w, h) => {
+    const win = getWindow();
+    if (!win || win.isDestroyed()) return;
+    const minW = Math.max(MIN_WIDTH, Math.round(w) || 0);
+    const minH = Math.max(MIN_HEIGHT, Math.round(h) || 0);
+    win.setMinimumSize(minW, minH);
+    if (win.isMaximized() || win.isFullScreen()) return;
+    const [cw, ch] = win.getSize();
+    if (cw < minW || ch < minH) win.setSize(Math.max(cw, minW), Math.max(ch, minH));
   });
   ipcMain.handle('win:isMaximized', () => { const win = getWindow(); return !!(win && !win.isDestroyed() && win.isMaximized()); });
 

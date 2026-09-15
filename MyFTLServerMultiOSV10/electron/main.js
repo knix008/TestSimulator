@@ -11,6 +11,7 @@ const path = require('path');
 const fs = require('fs');
 
 const { registerIpc } = require('./ipc');
+const { MIN_WIDTH, MIN_HEIGHT } = require('./window-size');
 const { createApi } = require('../core/api');
 
 const isDev = !app.isPackaged && process.env.ELECTRON_DEV === '1';
@@ -51,9 +52,10 @@ function createWindow() {
     height: saved && saved.height ? saved.height : 800,
     x: saved && Number.isFinite(saved.x) ? saved.x : undefined,
     y: saved && Number.isFinite(saved.y) ? saved.y : undefined,
-    // The default size is also the minimum: every panel stays usable.
-    minWidth: 1100,
-    minHeight: 720,
+    // The floor; the renderer raises it to what its single-line strips need
+    // (win:setMinSize) so the control bar never wraps.
+    minWidth: MIN_WIDTH,
+    minHeight: MIN_HEIGHT,
     backgroundColor: session.themeBg || '#12161c',
     // No native title bar: the toolbar carries the window buttons and is the
     // drag region (see src/components/Toolbar.jsx).

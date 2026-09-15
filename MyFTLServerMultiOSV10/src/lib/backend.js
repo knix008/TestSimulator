@@ -107,6 +107,10 @@ export async function getWindowSize() {
   return [window.outerWidth, window.outerHeight];
 }
 
+export function setMinWindowSize(w, h) {
+  if (isElectron && electron.setMinWindowSize) electron.setMinWindowSize(w, h);
+}
+
 export function setWindowSize(w, h) {
   if (isElectron && electron.setWindowSize) electron.setWindowSize(w, h);
 }

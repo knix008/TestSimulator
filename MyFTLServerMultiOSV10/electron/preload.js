@@ -26,6 +26,7 @@ contextBridge.exposeInMainWorld('myFtpServer', {
   isMaximized: () => ipcRenderer.invoke('win:isMaximized'),
   getWindowSize: () => ipcRenderer.invoke('win:getSize'),
   setWindowSize: (w, h) => ipcRenderer.send('win:setSize', w, h),
+  setMinWindowSize: (w, h) => ipcRenderer.send('win:setMinSize', w, h),
   onMaximized: listen('win:maximized'),
 
   quit: () => ipcRenderer.send('app:quit'),

@@ -6,6 +6,7 @@ import { createRequire } from 'node:module';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import net from 'node:net';
 
 const require = createRequire(import.meta.url);
 const { Client } = require('ssh2');
@@ -26,6 +27,11 @@ await hostkey.ensureKey(keyFile);
 
 const users = [{ username: 'bob', password: 'pw', canRead: true, canWrite: true }];
 
+// The API refuses port 0 (normalize → default port), so tests pick a free one.
+function freePort() {
+  return new Promise((r) => { const srv = net.createServer(); srv.listen(0, '127.0.0.1', () => { const p = srv.address().port; srv.close(() => r(p)); }); });
+}
+
 async function server(extra = {}) {
   const log = new Log(null);
   const vfs = new VirtualFileSystem([{ virtualName: 'data', physicalPath: share }, { virtualName: 'other', physicalPath: tmp }]);
@@ -39,6 +45,7 @@ function connect(port, opts) {
     const c = new Client();
     c.on('ready', () => c.sftp((err, sftp) => (err ? reject(err) : resolve({ c, sftp, call: (m, ...a) => new Promise((res, rej) => sftp[m](...a, (e, r) => (e ? rej(e) : res(r)))) }))));
     c.on('error', reject);
+    c.on('close', () => reject(new Error('connection closed before ready')));   // e.g. refused by the connection limit
     c.connect({ host: '127.0.0.1', port, ...opts });
   });
 }
@@ -99,8 +106,7 @@ test('manager: FTP + FTPS + SFTP together through the API', async () => {
   const cfg = path.join(tmp, 'cfg');
   const api = createApi({ name: 'test', configDir: cfg });
   const cert = await api.call('cert.generate', { commonName: '127.0.0.1', validityYears: 1 });
-  const free = async () => { const net = await import('node:net'); return new Promise((r) => { const srv = net.createServer(); srv.listen(0, '127.0.0.1', () => { const p = srv.address().port; srv.close(() => r(p)); }); }); };
-  const [p1, p2, p3] = [await free(), await free(), await free()];
+  const [p1, p2, p3] = [await freePort(), await freePort(), await freePort()];
   const settings = {
     sharedFolders: [{ virtualName: 'data', physicalPath: share }],
     protocols: { enableFtp: true, enableFtps: true, enableSftp: true, ftpPort: p1, ftpsPort: p2, sftpPort: p3, explicitTls: true },
@@ -138,10 +144,148 @@ test('manager: FTP + FTPS + SFTP together through the API', async () => {
 test('manager: a failing listener rolls everything back', async () => {
   const api = createApi({ name: 'test', configDir: path.join(tmp, 'cfg2') });
   const s = await server();  // holds a port
-  await assert.rejects(api.call('server.start', { settings: { sharedFolders: [{ virtualName: 'data', physicalPath: share }], protocols: { enableFtp: true, ftpPort: 0, enableSftp: true, sftpPort: s.port } } }), /already in use/);
+  await assert.rejects(api.call('server.start', { settings: { sharedFolders: [{ virtualName: 'data', physicalPath: share }], protocols: { enableFtp: true, ftpPort: await freePort(), enableSftp: true, sftpPort: s.port } } }), /SFTP.*(already in use|사용 중)/);
   const st = await api.call('server.state');
   assert.equal(st.state.running, false);
   assert.equal(st.state.protocols.length, 0);
   await s.stop();
+  await api.shutdown();
+});
+
+test('SFTP: rights per user (read-only / write-only), anonymous upload refused, anonymous off', async () => {
+  const extra = [...users, { username: 'ro', password: 'ro', canRead: true, canWrite: false }, { username: 'wo', password: 'wo', canRead: false, canWrite: true }];
+  const s = await server({ auth: { allowAnonymous: true, users: extra } });
+  const ro = await connect(s.port, { username: 'RO', password: 'ro' });     // name is case-insensitive
+  assert.deepEqual((await ro.call('readdir', '/data')).map((e) => e.filename), ['sub', 'hello.txt']);
+  await assert.rejects(ro.call('fastPut', path.join(tmp, 'up.bin'), '/data/ro.bin'), /Write not allowed/);
+  await assert.rejects(ro.call('rename', '/data/hello.txt', '/data/h2.txt'), /Write not allowed/);
+  await assert.rejects(ro.call('setstat', '/data/hello.txt', { mtime: 1 }), /Write not allowed/);
+  ro.c.end();
+  const wo = await connect(s.port, { username: 'wo', password: 'wo' });
+  await assert.rejects(wo.call('readdir', '/data'), /Read not allowed/);
+  await assert.rejects(wo.call('stat', '/data/hello.txt'), /Read not allowed/);
+  await wo.call('fastPut', path.join(tmp, 'up.bin'), '/data/wo.bin');
+  assert.equal(fs.statSync(path.join(share, 'wo.bin')).size, 1_500_000);
+  await wo.call('unlink', '/data/wo.bin');
+  wo.c.end();
+  const anon = await connect(s.port, { username: 'anonymous', password: '' });
+  await assert.rejects(anon.call('fastPut', path.join(tmp, 'up.bin'), '/data/anon.bin'), /Write not allowed/);
+  assert.equal(fs.existsSync(path.join(share, 'anon.bin')), false);
+  anon.c.end();
+  await new Promise((r) => setTimeout(r, 100));
+  await s.stop();
+
+  const closed = await server({ auth: { allowAnonymous: false, users } });
+  await assert.rejects(connect(closed.port, { username: 'anonymous', password: '' }), /authentication/i);
+  await assert.rejects(connect(closed.port, { username: 'anonymous', password: 'x' }), /authentication/i);
+  const ok = await connect(closed.port, { username: 'bob', password: 'pw' });
+  ok.c.end();
+  await new Promise((r) => setTimeout(r, 100));
+  await closed.stop();
+});
+
+test('SFTP: virtual root is synthetic, paths cannot escape, unsupported requests', async () => {
+  const s = await server();
+  const { c, call } = await connect(s.port, { username: 'bob', password: 'pw' });
+  assert.equal(await call('realpath', '/data/../..'), '/');
+  assert.equal(await call('realpath', '/data/sub/..'), '/data');
+  assert.equal(await call('realpath', 'data/sub'), '/data/sub');
+  assert.deepEqual((await call('readdir', '/data/../../')).map((e) => e.filename), ['data', 'other']);
+  assert.equal((await call('stat', '/')).isDirectory(), true);
+  assert.equal((await call('stat', '/data')).isDirectory(), true);
+  assert.equal((await call('stat', '/data/hello.txt')).isFile(), true);
+  await assert.rejects(call('readdir', '/nope'), /No such/);
+  await assert.rejects(call('readdir', '/data/hello.txt/x'), /No such|not a directory/i);
+  await assert.rejects(call('mkdir', '/newshare'), /Cannot create/);
+  await assert.rejects(call('unlink', '/data'), /EPERM|EISDIR|EACCES|Failure|denied/i);
+  await assert.rejects(call('rename', '/data', '/data2'), /Path not found/);
+  await assert.rejects(call('fastGet', '/data/sub', path.join(tmp, 'dir.bin')), /Is a directory/);
+  await assert.rejects(call('fastGet', '/', path.join(tmp, 'root.bin')), /Not a file/);
+  await assert.rejects(call('readlink', '/data/hello.txt'), /unsupported/i);
+  await assert.rejects(call('symlink', '/data/hello.txt', '/data/link'), /unsupported/i);
+  c.end();
+  await new Promise((r) => setTimeout(r, 100));
+  await s.stop();
+});
+
+test('SFTP: big folders page through READDIR, setstat/fsetstat keep mtime, UTF-8 names', async () => {
+  const big = path.join(share, 'big');
+  fs.mkdirSync(big, { recursive: true });
+  for (let i = 0; i < 120; i++) fs.writeFileSync(path.join(big, `f${String(i).padStart(3, '0')}.txt`), 'x');
+  const s = await server();
+  const { c, call } = await connect(s.port, { username: 'bob', password: 'pw' });
+  const names = (await call('readdir', '/data/big')).map((e) => e.filename);
+  assert.equal(names.length, 120);                                    // 48 + 48 + 24 batches, then EOF
+  assert.equal(names[0], 'f000.txt');
+  assert.equal(names[119], 'f119.txt');
+
+  const when = Math.floor(new Date('2020-05-06T07:08:09Z').getTime() / 1000);
+  await call('setstat', '/data/big/f000.txt', { atime: when, mtime: when });
+  assert.equal((await call('stat', '/data/big/f000.txt')).mtime, when);
+  assert.equal(Math.floor(fs.statSync(path.join(big, 'f000.txt')).mtimeMs / 1000), when);
+  await call('fastPut', path.join(tmp, 'up.bin'), '/data/한글 이름.bin');
+  assert.ok((await call('readdir', '/data')).some((e) => e.filename === '한글 이름.bin'));
+  await call('mkdir', '/data/폴더');
+  await call('rename', '/data/한글 이름.bin', '/data/폴더/옮김.bin');
+  assert.equal(fs.statSync(path.join(share, '폴더', '옮김.bin')).size, 1_500_000);
+  await call('unlink', '/data/폴더/옮김.bin');
+  await call('rmdir', '/data/폴더');
+  c.end();
+  await new Promise((r) => setTimeout(r, 100));
+  await s.stop();
+  fs.rmSync(big, { recursive: true, force: true });
+});
+
+test('SFTP: connection limit, counters, stop() ends clients', async () => {
+  const log = new Log(null);
+  const keys = [];
+  log.on('line', (l) => { if (l.key) keys.push(l.key); });
+  const s = await server({ maxConnections: 1, log });
+  const counts = [];
+  s.on('clients', (n) => counts.push(n));
+  const first = await connect(s.port, { username: 'bob', password: 'pw' });
+  assert.equal(s.clientCount, 1);
+  await assert.rejects(connect(s.port, { username: 'bob', password: 'pw' }), /closed|ECONNRESET|reset|end/i);
+  assert.ok(keys.includes('client_limit'));
+  first.c.end();
+  await new Promise((r) => setTimeout(r, 150));
+  assert.equal(s.clientCount, 0);
+  assert.equal(s.totalConnections, 1);
+  assert.deepEqual(counts.slice(0, 2), [1, 0]);
+
+  const again = await connect(s.port, { username: 'bob', password: 'pw' });
+  const gone = new Promise((resolve) => again.c.on('close', resolve));
+  await s.stop();
+  await gone;
+  assert.ok(keys.includes('sftp_stopped'));
+  for (const k of ['sftp_started', 'client_connected', 'login_ok', 'sftp_subsystem', 'client_closed']) assert.ok(keys.includes(k), k);
+});
+
+test('manager: settings errors carry codes, a bad certificate stops FTPS but not FTP', async () => {
+  const cfg = path.join(tmp, 'cfg3');
+  const api = createApi({ name: 'test', configDir: cfg });
+  await assert.rejects(api.call('server.start', { settings: {} }), (e) => e.code === 'no_shares');
+  const shares = [{ virtualName: 'data', physicalPath: share }];
+  await assert.rejects(api.call('server.start', { settings: { sharedFolders: shares, protocols: { enableFtp: false } } }), (e) => e.code === 'no_protocol');
+  await assert.rejects(api.call('server.start', { settings: { sharedFolders: shares, protocols: { enableFtp: true, ftpPort: 2121, enableSftp: true, sftpPort: 2121 } } }), (e) => e.code === 'port_clash');
+  const junk = path.join(tmp, 'junk.pem');
+  fs.writeFileSync(junk, 'not a certificate');
+  // FTPS needs the certificate: refused with the file in the detail.
+  await assert.rejects(api.call('server.start', { settings: { sharedFolders: shares, protocols: { enableFtp: false, enableFtps: true, ftpsPort: await freePort() }, certPath: junk } }), (e) => /SSL|certificate|인증서/i.test(e.message) && String(e.detail).includes(junk));
+  assert.equal((await api.call('server.state')).state.running, false);
+  // Plain FTP with "allow AUTH TLS" only loses the upgrade — it still starts, with a warning in the log.
+  const snap = await api.call('server.start', { settings: { sharedFolders: shares, protocols: { enableFtp: true, ftpPort: await freePort(), explicitTls: true }, certPath: junk } });
+  assert.equal(snap.state.running, true);
+  assert.deepEqual(snap.state.protocols.map((p) => p.proto), ['FTP']);
+  const poll = await api.call('server.poll', { seq: 0 });
+  assert.ok(poll.lines.some((l) => l.key === 'cert_load_failed' && l.level === 'warn'));
+  const port = snap.state.protocols[0].port;
+  const f = new ftp.Client();
+  await f.access({ host: '127.0.0.1', port, user: 'anonymous', password: 'x' });
+  await assert.rejects(f.send('AUTH TLS'), /502/);
+  f.close();
+  // Stopping resets everything; stop() when already stopped is a no-op.
+  assert.equal((await api.call('server.stop')).state.protocols.length, 0);
+  assert.equal((await api.call('server.stop')).state.running, false);
   await api.shutdown();
 });

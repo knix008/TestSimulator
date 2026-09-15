@@ -1,6 +1,6 @@
 // The top bar of the frameless window — it replaces the OS title bar:
-//   left   app icon + name, the running/stopped badge, the profile combo
-//          with 저장 / 삭제
+//   left   app icon + name, the profile combo with 저장 / 삭제 (the server
+//          state is shown by the ▶/■ button underneath, not here)
 //   right  theme picker (split button: main part cycles, caret lists all 16),
 //          language toggle (the flag of the language you switch TO), Settings,
 //          Info, and — in the desktop app — minimize / maximize / close.
@@ -32,7 +32,7 @@ function WindowButtons() {
   );
 }
 
-export function Toolbar({ onAction, theme, running, starting, profiles, profileName, onPickProfile, onSaveProfile, onDeleteProfile, busy }) {
+export function Toolbar({ onAction, theme, profiles, profileName, onPickProfile, onSaveProfile, onDeleteProfile, busy }) {
   useLanguage();
   const [themeMenu, setThemeMenu] = useState(null);
   const lang = getLanguage();
@@ -45,15 +45,10 @@ export function Toolbar({ onAction, theme, running, starting, profiles, profileN
     swatchBg: th.tokens['--bg'],
   }));
   const onDouble = (e) => { if (isElectron && !e.target.closest('button, select, input, .tb-profile')) windowControl('maximize'); };
-  const badge = starting ? 'starting' : running ? 'running' : 'stopped';
   return (
     <div className="toolbar" onDoubleClick={onDouble}>
       <img src="./icon.svg" alt="" width={20} height={20} className="tb-logo" />
       <span className="tb-title">{t('appName')}</span>
-      <span className={`tb-badge ${badge}`} title={t(`badge_${badge}`)}>
-        <span className="tb-dot" />
-        <span>{t(`badge_${badge}`)}</span>
-      </span>
       <span className="tb-sep" />
       <span className="tb-profile">
         <span className="tb-label">{t('profile')}</span>

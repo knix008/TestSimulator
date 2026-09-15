@@ -1,4 +1,5 @@
-// Status strip: the message on the left, the uptime while running, and in
+// Status strip: the server state (● running / ○ stopped — it survives the
+// transient messages), the message, the uptime while running, and in
 // the bottom-right corner the size grip (the WinForms SizeGrip) — the
 // frameless window has no visible border to grab, so the grip drives the
 // window size over IPC.
@@ -35,7 +36,7 @@ function SizeGrip() {
   );
 }
 
-export function StatusBar({ status, startedAt, hostLabel }) {
+export function StatusBar({ status, startedAt, hostLabel, state = 'stopped' }) {
   useLanguage();
   const [, tick] = useState(0);
   useEffect(() => {
@@ -45,6 +46,10 @@ export function StatusBar({ status, startedAt, hostLabel }) {
   }, [startedAt]);
   return (
     <div className={`statusbar ${isElectron ? 'has-grip' : ''}`}>
+      <span className={`sb-state ${state}`} title={t(`state_${state}`)}>
+        <span className="sb-dot" />
+        <span>{t(`state_${state}`)}</span>
+      </span>
       <span className="status-text ellipsis" title={status}>{status}</span>
       {startedAt > 0 && <span className="mono small">{t('uptime', { time: formatUptime(startedAt) })}</span>}
       {hostLabel && <span className="muted small">{hostLabel}</span>}
