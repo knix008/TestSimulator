@@ -111,7 +111,7 @@ function createApi(host = {}) {
   // Kills every shell the dock opened (called when the host quits).
   function shutdown() { terminals.shutdown(); }
 
-  return { call, jobs, session, shutdown, methods: Object.keys(methods) };
+  return { call, jobs, session, terminals, shutdown, methods: Object.keys(methods) };
 }
 
 // Turns an Error into the { code, message } shape the UI shows.

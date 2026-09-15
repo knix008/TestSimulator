@@ -19,6 +19,7 @@ function registerIpc(api, getWindow, dialogs = {}) {
   });
 
   api.jobs.on('update', (snap) => send('job:update', snap));
+  api.terminals.on('update', (info) => send('term:update', info));
 
   // Native dialogs (only the folder picker so far).
   ipcMain.handle('dialog', async (_event, kind, opts) => {

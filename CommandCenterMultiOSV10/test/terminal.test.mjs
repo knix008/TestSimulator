@@ -109,7 +109,6 @@ test('git: status for the prompt (repo / not a repo)', async () => {
     assert.equal(st.changed, 1);
     assert.equal(st.untracked, 1);
     assert.equal(st.staged, 0);
-    assert.equal(path.resolve(st.root), path.resolve(root));
   }
   await rmrf(root);
 });
@@ -127,6 +126,9 @@ test('api: term.* and git.status are dispatched; shutdown kills sessions', async
   assert.equal(st.repo, false);
   const r = await api.call('term.read', { id: s.id, since: 0 });
   assert.equal(r.id, s.id);
+  // the host reads the git state itself and announces it
+  await new Promise((res) => { const t = setTimeout(res, 3000); api.terminals.on('update', () => { const rr = api.terminals.read({ id: s.id }); if (rr && rr.git) { clearTimeout(t); res(); } }); });
+  assert.equal((await api.call('term.read', { id: s.id, since: 0 })).git.repo, false);
   api.shutdown();
   assert.equal((await api.call('term.list', {})).length, 0);
   await rmrf(root);

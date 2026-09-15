@@ -40,13 +40,15 @@ UI 는 `window.commandCenter`(preload 가 노출) 유무로 전송 방식만 고
 UI  term.create {cwd, shell}         core/terminal.js
     term.run {id, line}  ──────────►  idle ? 스크립트 파일에 line 저장 → stdin 에 `. "file"; echo __CC_CWD__:$PWD` 한 줄
                                           : stdin 에 line 그대로 (실행 중 프로그램의 입력)
-    term.read {id, since} (150 ms) ◄──  {chunks, cwd, idle, exited}   마커는 걷어내고 cwd 갱신 + idle=true
-    git.status {cwd}       ◄──────────  git status --porcelain=v2 --branch --show-stash → 브랜치·ahead/behind·+~?! 수
+    term.read {id, since}  ◄──────────  {chunks, cwd, idle, git, exited}   마커는 걷어내고 cwd 갱신 + idle=true, 즉시 git status 시작 → 끝나면 git={…, dir, seq}
+    'update' {id} 이벤트  ─────────────►  출력·마커·git 이 생길 때마다 (Electron: ipc 'term:update' 로 푸시 → UI 가 바로 read)
+    git.status {cwd}       ◄──────────  탭 활성화 때만 (그 밖엔 read 에 실려 옴); 단일 git 프로세스: status --porcelain=v2 --branch --show-stash --no-optional-locks
     term.complete {id, line, cursor} ◄─ 첫 단어: 셸 내장 명령 + PATH 실행 파일(1회 스캔) / 그 밖: 그 단어가 가리키는 디렉터리의 파일
 ```
 
 - 명령을 **스크립트 파일로 source** 하는 이유: stdin 에는 짧은 한 줄만 흐르므로, 명령이 띄운 프로그램이 stdin 을 읽어도(Read-Host, python, npm init …) 다음 명령이나 마커를 먹지 않고 사용자가 이어서 치는 줄을 받습니다. source 이므로 `cd`·변수·함수는 셸에 남습니다.
-- **마커**(`__CC_CWD__:<dir>`)가 오면 셸이 idle 로 돌아오고 프롬프트가 다시 그려집니다. 마커와 그 개행이 청크 경계에서 갈리는 경우(Write-Host)도 처리합니다.
+- **마커**(`__CC_CWD__:<dir>`)가 오면 셸이 idle 로 돌아오고, 백엔드가 그 자리에서 새 디렉터리의 git 상태를 읽기 시작해 다음 `read` 에 실어 보냅니다(UI 의 별도 왕복 없음; 늦게 끝난 옛 조회는 seq 로 버림). 마커와 그 개행이 청크 경계에서 갈리는 경우(Write-Host)도 처리합니다.
+- **지연**: 데스크톱은 `update` 푸시로 출력이 ~15 ms, 프롬프트 복귀는 `git status` 시간(큰 저장소 ~150 ms)에 묶입니다. 웹은 푸시가 없어 폴링 — 명령 실행 중·git 대기 중 50 ms, 대기 중 250 ms, 명령을 보낸 직후엔 즉시 한 번 읽음.
 - **Windows** (cmd.exe / Windows PowerShell 5.1 에서 실측):
   - PowerShell 은 리다이렉트된 stdin 을 콘솔 코드 페이지로 읽으므로 `cmd /C chcp 65001 & powershell -ExecutionPolicy Bypass -Command -` 로 띄웁니다(pty 없이 UTF-8 입력을 받는 유일한 방법). 스크립트 파일은 BOM 을 붙여 저장(5.1 은 BOM 없으면 ANSI), 구문 오류여도 마커가 실행되도록 마커는 stdin 줄 쪽에 둡니다.
   - cmd 는 코드 페이지 65001 + 파이프에서 멀티바이트 입력을 읽으면 종료되는 버그가 있어 배치 파일 `call` 이 유일한 방법이며, `%CD%` 는 줄 파싱 시점에 확장되므로 마커를 배치 파일 안에 둡니다. cmd 가 읽기 전마다 찍는 프롬프트는 `PROMPT=__CC_P__` 로 바꿔 걷어냅니다.
@@ -97,9 +99,9 @@ UI runJob('ops.transfer', …)            core: jobs.run(kind, meta, fn)
 ### 터미널 UI (`BottomDock.jsx` 의 `TerminalView`)
 
 - 기록(`<pre>`)은 `cmd`(그 순간의 cwd·git + 입력한 줄) / `out`(셸 출력) 항목 배열로, 3000줄을 넘으면 앞에서 잘라냅니다. 탭 객체(`term.buffer/seq/git/idle`)에 보관하므로 탭 전환·패널 숨김 후에도 그대로입니다.
-- 기록 끝에 **oh-my-posh 식 프롬프트**(`Prompt`): 경로 세그먼트 + git 세그먼트. 각 세그먼트는 CSS `clip-path` 로 오른쪽이 뾰족한 블록이고 다음 세그먼트가 그 아래로 겹쳐 파워라인 화살표가 되므로 특수 폰트가 필요 없습니다. git 세그먼트는 브랜치 이름만 보이고 색이 상태를 말합니다(`gitState`): changed=`--danger`(작업 트리 변경) > committed=`--folder`(원격보다 앞선 커밋) > clean=`--ok`; 개수는 툴팁에.
+- 기록 끝에 **oh-my-posh 식 프롬프트**(`Prompt`): 경로 세그먼트 + git 세그먼트. 각 세그먼트는 CSS `clip-path` 로 오른쪽이 뾰족한 블록이고 다음 세그먼트가 그 아래로 겹쳐 파워라인 화살표가 되므로 특수 폰트가 필요 없습니다. git 상태는 `gitState` 가 두 축으로 나눔: 작업 트리(브랜치 세그먼트: conflict > changed(수정·추적 안 함) > added(스테이지) > clean) 와 원격 동기화(별도 세그먼트: diverged / behind / ahead, 동기화 상태면 없음). 색은 테마와 무관한 고정값, 기호 하나씩(✓ + ~ ! / ↑ ↓ ⇅), 개수는 툴팁에.
 - 프롬프트 바로 뒤에 `inline-grid` 로 값 너비만큼 늘어나는 `<input>`(`::after` 가 값을 거울처럼 그려 폭을 정함) — 네이티브 캐럿과 IME 를 그대로 씁니다. 출력을 클릭하면(선택 중이 아닐 때) 입력으로 포커스.
-- 탭이 보일 때만 `term.read` 를 150 ms 폴링. `idle` 이 아니면 프롬프트를 숨기고 Enter 는 실행 중 프로그램의 stdin 으로 갑니다(백엔드가 판단). 마커가 오면 idle 로 돌아오며 git 상태를 다시 읽습니다. `git.status` 는 명령 완료·cwd 변경·탭 활성화 시 갱신하되 이미 떠난 폴더의 결과는 버립니다.
+- 탭이 보일 때만 읽습니다: 데스크톱은 `onTerminalUpdate` 푸시가 오면 즉시, 그리고 타이머(실행 중·git 대기 중 50 ms, 대기 중 250 ms; 명령을 보낸 직후 한 번 즉시)로. `idle` 이 아니면 프롬프트를 숨기고 Enter 는 실행 중 프로그램의 stdin 으로 갑니다(백엔드가 판단). git 상태는 `read` 의 `git`(현재 폴더·seq 확인) 으로 받고, 탭 활성화 때만 `git.status` 를 조용히 다시 읽습니다. 기록(`transcript`)은 `useMemo` 로 묶어 키 입력마다 다시 그리지 않습니다. 프롬프트는 현재 폴더의 git 상태(`gitDir === cwd`)가 준비된 뒤에야 보이므로(그 전엔 `.term-live.pending` 의 `opacity:0` 으로 숨김 — `visibility:hidden` 은 포커스를 빼앗으므로 쓰지 않음; 명령이 끝나면 포커스가 비어 있을 때 입력으로 되돌림) 경로 세그먼트가 먼저 뜨고 git 세그먼트가 나중에 붙는 깜빡임이 없습니다; 2 초 안에 답이 없으면 git 없이 먼저 보입니다.
 - Tab → `term.complete`: 후보가 하나면 삽입(파일·명령 뒤엔 공백, 폴더 뒤엔 없음), 여럿이면 공통 접두사, 더 없으면 패널 폭에 맞춰 열로 나열. ↑↓ 기록(편집 중이던 줄 보존), Ctrl+L / `clear` / `cls`, Esc, 여러 줄 붙여넣기(줄마다 실행), 선택이 있을 때 Ctrl+C 는 복사.
 
 ## 6. 빌드·패키징

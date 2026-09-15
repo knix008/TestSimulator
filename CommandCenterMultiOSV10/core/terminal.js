@@ -13,6 +13,12 @@
 // again (prompt shown) — while it is not, `run` feeds typed lines to the
 // running command's stdin; the marker is stripped from the output. Sourcing
 // keeps `cd`, shell variables and functions in the shell, as if typed.
+// As soon as the marker arrives the git state of the new directory is read
+// here and handed to the UI with the next `read` (`git`, null while it is
+// being read), so the prompt comes back in one piece without a second round
+// trip. Every change (output, marker, git) is announced with an 'update'
+// event, which the desktop host forwards over IPC so the UI reads at once
+// instead of waiting for its next poll.
 // Tab completion (`complete`) is done here too, as in MyEditor: the first
 // word from the shell's builtins plus the executables on PATH, every word
 // from the files of the directory it names.
@@ -33,6 +39,7 @@
 'use strict';
 
 const { spawn, execFile } = require('child_process');
+const { EventEmitter } = require('events');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -120,9 +127,48 @@ function killTree(proc) {
   }
 }
 
+// Git status of a directory, for the prompt — one `git status` process:
+//   { repo:false } or { repo:true, branch, upstream, ahead, behind, staged, changed, untracked, conflicts, stashes }
+function gitStatus(cwd) {
+  return new Promise((resolve) => {
+    if (!cwd || !fs.existsSync(cwd)) return resolve({ repo: false });
+    execFile('git', ['-C', cwd, '--no-optional-locks', 'status', '--porcelain=v2', '--branch', '--show-stash'], { windowsHide: true, maxBuffer: 8 << 20 }, (err, out) => {
+      if (err) return resolve({ repo: false, error: /not a git repository/i.test(String(err.message)) ? null : err.message });
+      const st = { repo: true, branch: '', upstream: '', ahead: 0, behind: 0, staged: 0, changed: 0, untracked: 0, conflicts: 0, stashes: 0 };
+      for (const line of String(out).split('\n')) {
+        if (!line) continue;
+        if (line.startsWith('# branch.head ')) st.branch = line.slice(14).trim();
+        else if (line.startsWith('# branch.upstream ')) st.upstream = line.slice(18).trim();
+        else if (line.startsWith('# branch.ab ')) { const m = line.match(/\+(\d+) -(\d+)/); if (m) { st.ahead = Number(m[1]); st.behind = Number(m[2]); } }
+        else if (line.startsWith('# stash ')) st.stashes = Number(line.slice(8)) || 0;
+        else if (line[0] === '1' || line[0] === '2') {
+          const xy = line.slice(2, 4);
+          if (xy[0] !== '.') st.staged++;
+          if (xy[1] !== '.') st.changed++;
+        } else if (line[0] === 'u') st.conflicts++;
+        else if (line[0] === '?') st.untracked++;
+      }
+      if (st.branch === '(detached)') {
+        execFile('git', ['-C', cwd, 'rev-parse', '--short', 'HEAD'], { windowsHide: true }, (e2, sha) => { if (!e2) st.branch = `@${sha.trim()}`; resolve(st); });
+      } else resolve(st);
+    });
+  });
+}
+
 function createTerminals() {
   const sessions = new Map();
+  const events = new EventEmitter();
   let nextId = 1;
+
+  const notify = (s) => events.emit('update', { id: s.id });
+
+  // Reads the git state of the session's current directory; an older read
+  // that finishes later is dropped.
+  function refreshGit(s) {
+    const dir = s.cwd, seq = ++s.gitSeq;
+    s.git = null;
+    gitStatus(dir).then((g) => { if (s.gitSeq === seq && sessions.get(s.id) === s) { s.git = { ...g, dir, seq }; notify(s); } });
+  }
 
   function push(s, text) {
     // Pull the cwd / prompt markers out of the stream; everything else is output.
@@ -131,12 +177,16 @@ function createTerminals() {
     // newline arrives in the next chunk it must go with the marker.
     if (s.eatNewline) { t = t.replace(/^\r?\n/, ''); s.eatNewline = false; }
     if (MARK_AT_END.test(t)) s.eatNewline = true;
-    t = t.replace(CWD_RE, (_m, dir) => { s.cwd = dir.trim() || s.cwd; s.idle = true; return ''; });
+    let marked = false;
+    t = t.replace(CWD_RE, (_m, dir) => { s.cwd = dir.trim() || s.cwd; s.idle = true; marked = true; return ''; });
+    if (marked) refreshGit(s);
     if (s.def.batch) t = t.replace(PROMPT_RE, '');
-    if (!t) return;
-    s.seq++;
-    s.chunks.push({ seq: s.seq, text: t });
-    if (s.chunks.length > MAX_CHUNKS) s.chunks.splice(0, s.chunks.length - MAX_CHUNKS);
+    if (t) {
+      s.seq++;
+      s.chunks.push({ seq: s.seq, text: t });
+      if (s.chunks.length > MAX_CHUNKS) s.chunks.splice(0, s.chunks.length - MAX_CHUNKS);
+    }
+    if (t || marked) notify(s);
   }
 
   function cleanup(s) {
@@ -152,7 +202,7 @@ function createTerminals() {
       let dir = cwd && fs.existsSync(cwd) ? cwd : os.homedir();
       try { if (!fs.statSync(dir).isDirectory()) dir = path.dirname(dir); } catch { dir = os.homedir(); }
       const id = nextId++;
-      const s = { id, shell: def.id, label: def.label, cwd: dir, chunks: [], seq: 0, exited: false, code: null, def, proc: null, eatNewline: false, idle: true };
+      const s = { id, shell: def.id, label: def.label, cwd: dir, chunks: [], seq: 0, exited: false, code: null, def, proc: null, eatNewline: false, idle: true, git: null, gitSeq: 0 };
       s.scriptFile = path.join(os.tmpdir(), `cc-term-${process.pid}-${id}${def.ext}`);
       const env = { ...process.env, TERM: 'dumb', GIT_PAGER: 'cat', PAGER: 'cat', LANG: process.env.LANG || 'C.UTF-8' };
       if (def.batch) env.PROMPT = PROMPT_MARK;
@@ -161,10 +211,11 @@ function createTerminals() {
       proc.stdout.on('data', (d) => push(s, d.toString('utf8')));
       proc.stderr.on('data', (d) => push(s, d.toString('utf8')));
       proc.stdin.on('error', () => { /* the exit handler reports it */ });
-      proc.on('error', (err) => { push(s, `\n[${err.message}]\n`); s.exited = true; cleanup(s); });
-      proc.on('exit', (code) => { s.exited = true; s.code = code; push(s, `\n[process exited with code ${code}]\n`); cleanup(s); });
+      proc.on('error', (err) => { push(s, `\n[${err.message}]\n`); s.exited = true; cleanup(s); notify(s); });
+      proc.on('exit', (code) => { s.exited = true; s.code = code; push(s, `\n[process exited with code ${code}]\n`); cleanup(s); notify(s); });
       if (def.init) { try { proc.stdin.write(`${def.init}${def.eol}`); } catch { /* exited already */ } }
       sessions.set(id, s);
+      refreshGit(s);
       return { id, shell: s.shell, label: s.label, cwd: s.cwd };
     },
 
@@ -194,7 +245,7 @@ function createTerminals() {
       const s = sessions.get(id);
       if (!s) return null;
       const chunks = since ? s.chunks.filter((c) => c.seq > since) : s.chunks;
-      return { id, chunks, seq: s.seq, cwd: s.cwd, idle: s.idle, exited: s.exited, code: s.code };
+      return { id, chunks, seq: s.seq, cwd: s.cwd, idle: s.idle, git: s.git, exited: s.exited, code: s.code };
     },
 
     kill({ id }) {
@@ -208,37 +259,11 @@ function createTerminals() {
 
     list: () => [...sessions.values()].map((s) => ({ id: s.id, shell: s.shell, label: s.label, cwd: s.cwd, idle: s.idle, exited: s.exited })),
 
-    // Git status of a directory, for the prompt:
-    //   { repo:false } or
-    //   { repo:true, root, branch, upstream, ahead, behind, staged, changed, untracked, conflicts, stashes }
-    git({ cwd }) {
-      return new Promise((resolve) => {
-        if (!cwd || !fs.existsSync(cwd)) return resolve({ repo: false });
-        execFile('git', ['-C', cwd, 'rev-parse', '--show-toplevel'], { windowsHide: true }, (err, top) => {
-          if (err) return resolve({ repo: false, error: /not a git repository/i.test(String(err.message)) ? null : err.message });
-          execFile('git', ['-C', cwd, 'status', '--porcelain=v2', '--branch', '--show-stash'], { windowsHide: true, maxBuffer: 8 << 20 }, (err2, out) => {
-            if (err2) return resolve({ repo: true, root: top.trim(), error: err2.message });
-            const st = { repo: true, root: top.trim(), branch: '', upstream: '', ahead: 0, behind: 0, staged: 0, changed: 0, untracked: 0, conflicts: 0, stashes: 0 };
-            for (const line of String(out).split('\n')) {
-              if (!line) continue;
-              if (line.startsWith('# branch.head ')) st.branch = line.slice(14).trim();
-              else if (line.startsWith('# branch.upstream ')) st.upstream = line.slice(18).trim();
-              else if (line.startsWith('# branch.ab ')) { const m = line.match(/\+(\d+) -(\d+)/); if (m) { st.ahead = Number(m[1]); st.behind = Number(m[2]); } }
-              else if (line.startsWith('# stash ')) st.stashes = Number(line.slice(8)) || 0;
-              else if (line[0] === '1' || line[0] === '2') {
-                const xy = line.slice(2, 4);
-                if (xy[0] !== '.') st.staged++;
-                if (xy[1] !== '.') st.changed++;
-              } else if (line[0] === 'u') st.conflicts++;
-              else if (line[0] === '?') st.untracked++;
-            }
-            if (st.branch === '(detached)') {
-              execFile('git', ['-C', cwd, 'rev-parse', '--short', 'HEAD'], { windowsHide: true }, (e3, sha) => { if (!e3) st.branch = `@${sha.trim()}`; resolve(st); });
-            } else resolve(st);
-          });
-        });
-      });
-    },
+    // Git status of any directory (the UI re-reads a tab's state when it is activated).
+    git: ({ cwd }) => gitStatus(cwd),
+
+    // 'update' {id}: new output, a finished command or a git state — the desktop host forwards it over IPC.
+    on: (ev, fn) => events.on(ev, fn),
 
     // Completions for the word at `cursor` in `line`: { start, quoted, word, lcp, items:[{ text, dir, cmd }] }.
     // `start` is where the word begins in the line, `lcp` the longest common
