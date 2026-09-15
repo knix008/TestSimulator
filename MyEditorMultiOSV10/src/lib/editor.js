@@ -278,5 +278,5 @@ export function cursorInfo(state) {
     selected += r.to - r.from;
     selLines += state.doc.lineAt(r.to).number - state.doc.lineAt(r.from).number + 1;
   }
-  return { line: line.number, col: main.head - line.from + 1, selected, selLines, ranges: state.selection.ranges.length, chars: state.doc.length, lines: state.doc.lines };
+  return { line: line.number, col: main.head - line.from + 1, pos: main.head, selected, selLines, ranges: state.selection.ranges.length, chars: state.doc.length, lines: state.doc.lines };
 }

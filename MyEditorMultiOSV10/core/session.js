@@ -34,6 +34,8 @@ const DEFAULTS = {
   confirmClose: true,
   sidebarVisible: true,
   sidebarWidth: 240,
+  searchVisible: false,    // the search section under the folder tree
+  searchRatio: 0.5,        // the search section's share of the sidebar column (the folder tree gets the rest)
   toolbarVisible: true,
   statusBarVisible: true,
   mdPreview: false,        // Markdown live preview pane

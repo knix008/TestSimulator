@@ -20,16 +20,23 @@ const MAX_LINES = 3000;
 function Prompt({ cwd, git }) {
   const repo = git && git.repo;
   const dirty = repo ? git.staged + git.changed + git.untracked + git.conflicts > 0 : false;
-  const cls = repo ? (git.conflicts ? 'conflict' : dirty ? 'dirty' : 'clean') : '';
+  // The state of the repository, one colour each (the first that applies): conflicts (red) · staged /
+  // added (yellow) · modified (orange) · untracked (cyan) · committed but not pushed (blue) · behind the
+  // remote (purple) · up to date (green).
+  const cls = !repo ? '' : git.conflicts ? 'conflict' : git.staged ? 'staged' : git.changed ? 'modified' : git.untracked ? 'untracked' : git.ahead ? 'ahead' : git.behind ? 'behind' : 'uptodate';
   return (
     <span className="term-prompt" title={cwd}>
       <span className="seg seg-path"><Icon name="folder" size={12} /> {cwd}</span>
       {repo && (
         <>
           <span className={`seg seg-git ${cls}`}>
-            <Icon name="gitBranch" size={12} /> {git.branch || '(detached)'}
-            {git.ahead > 0 && ` ↑${git.ahead}`}{git.behind > 0 && ` ↓${git.behind}`}
-            {git.staged > 0 && ` +${git.staged}`}{git.changed > 0 && ` ~${git.changed}`}{git.untracked > 0 && ` ?${git.untracked}`}{git.conflicts > 0 && ` !${git.conflicts}`}
+            {/* the branch coloured by the overall state (green clean · yellow changes · red conflicts), then one coloured
+                symbol per kind of status that applies — no counts: ↑ ahead · ↓ behind · + staged · ~ changed · ? untracked · ! conflicts */}
+            <span className="g-branch"><Icon name="gitBranch" size={12} /> {git.branch || '(detached)'}</span>
+            {(git.ahead > 0 || git.behind > 0 || dirty) && ' '}
+            {git.ahead > 0 && <span className="g-ahead" title={`ahead ${git.ahead}`}>↑</span>}{git.behind > 0 && <span className="g-behind" title={`behind ${git.behind}`}>↓</span>}
+            {git.staged > 0 && <span className="g-staged" title={`staged ${git.staged}`}>+</span>}{git.changed > 0 && <span className="g-changed" title={`changed ${git.changed}`}>~</span>}
+            {git.untracked > 0 && <span className="g-untracked" title={`untracked ${git.untracked}`}>?</span>}{git.conflicts > 0 && <span className="g-conflict" title={`conflicts ${git.conflicts}`}>!</span>}
           </span>
         </>
       )}
@@ -90,7 +97,17 @@ function TerminalView({ term, active, onExit }) {
   const [exited, setExited] = useState(false);
   const busyRef = useRef(false);
 
-  const refreshGit = useCallback(() => { call('git.status', { cwd: cwdRef.current }).then((g) => { gitRef.current = g; setGit(g); }).catch(() => { gitRef.current = null; setGit(null); }); }, []);
+  // The prompt is drawn only once the git status of the current directory
+  // is known (no bare prompt that then redraws with the git segment): every
+  // refresh hides it until its answer arrives; a stale answer is ignored.
+  const [gitReady, setGitReady] = useState(false);
+  const gitSeq = useRef(0);
+  const refreshGit = useCallback(() => {
+    const my = ++gitSeq.current;
+    setGitReady(false);
+    call('git.status', { cwd: cwdRef.current }).then((g) => { if (my !== gitSeq.current) return; gitRef.current = g; setGit(g); setGitReady(true); })
+      .catch(() => { if (my !== gitSeq.current) return; gitRef.current = null; setGit(null); setGitReady(true); });
+  }, []);
   const append = useCallback((text) => setEntries((prev) => appendText(prev, text)), []);
   // A line typed at the prompt (or, while a command runs, fed to it).
   const echo = useCallback((line) => {
@@ -184,7 +201,7 @@ function TerminalView({ term, active, onExit }) {
         {entries.map((e, i) => (e.k === 'cmd'
           ? <React.Fragment key={i}><Prompt cwd={e.cwd} git={e.git} />{e.line}{'\n'}</React.Fragment>
           : <React.Fragment key={i}>{e.text}</React.Fragment>))}
-        {!exited && idle && <Prompt cwd={cwd} git={git} />}
+        {!exited && idle && gitReady && <Prompt cwd={cwd} git={git} />}
         {!exited && (
           <span className="term-inline" data-value={input}>
             <input ref={inputRef} value={input} title={t('term_placeholder')} spellCheck={false} autoComplete="off" autoCapitalize="off"

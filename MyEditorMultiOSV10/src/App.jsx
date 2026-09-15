@@ -10,6 +10,7 @@
 // its own undo history, selection and folds.
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { EditorSelection } from '@codemirror/state';
+import { EditorView } from '@codemirror/view';
 import { t, setLanguage, getLanguage, useLanguage } from './lib/i18n';
 import { applyTheme, nextThemeId, themeById } from './themes';
 import { SETTINGS_DEFAULTS, pickSettings } from './lib/settings';
@@ -32,9 +33,11 @@ import { FindBar } from './components/FindBar';
 import { MarkdownBar } from './components/MarkdownBar';
 import { Preview } from './components/Preview';
 import { Sidebar } from './components/Sidebar';
+import { SearchPanel } from './components/SearchPanel';
 import { StatusBar } from './components/StatusBar';
 import { TerminalPanel } from './components/TerminalPanel';
 import { Icon, LangIcon } from './components/Icons';
+import { ContextMenu } from './components/ContextMenu';
 import { ConfirmDialog, ErrorDialog, AboutDialog, GotoLineDialog, PromptDialog, LanguagePicker, EncodingPicker, ShortcutsDialog } from './dialogs/Dialogs';
 import { SettingsDialog } from './dialogs/SettingsDialog';
 import { FileDialog } from './dialogs/FileDialog';
@@ -70,7 +73,31 @@ export default function App() {
   // document; the active pane is the one the tab bar, find bar and preview
   // follow, and viewRef is its view. A document is shown in at most one pane.
   const [panes, setPanes] = useState([{ key: 1, docId: null }]);
-  const [paneMenu, setPaneMenu] = useState(null);
+  const [paneMenu, setPaneMenu] = useState(null);   // { i, el, files: [{ name, path }] | null }
+  // The pane's document picker: the open documents, then the files of the
+  // folder open in the sidebar (or the active document's folder), then "Open…".
+  const openPaneMenu = (i, el) => {
+    setPaneMenu({ i, el, files: null });
+    const dir = folderRef.current || (() => { const d = getDoc(activeIdRef.current); return d && d.path ? dirName(d.path) : ''; })();
+    if (!dir) return;
+    call('fs.list', { path: dir, showHidden: false }).then((r) => {
+      const entries = (r && r.entries) || (Array.isArray(r) ? r : []);
+      const files = entries.filter((e) => !e.isDir).map((e) => ({ name: e.name, path: e.path })).slice(0, 200);
+      setPaneMenu((m) => (m && m.i === i && m.el === el ? { ...m, dir, files } : m));
+    }).catch(() => {});
+  };
+  // Picked from the pane menu: an open document moves into the pane, a file is opened there.
+  const paneMenuPick = (i, id) => {
+    if (id.startsWith('doc:')) { showInPane(i, Number(id.slice(4))); return; }
+    if (id === 'open') { focusPane(i, { focus: false }); action('open'); return; }
+    if (id.startsWith('file:')) {
+      const p = id.slice(5);
+      const open = docsRef.current.find((d) => samePath(d.path, p));
+      if (open) { showInPane(i, open.id); return; }
+      focusPane(i, { focus: false });
+      openPath(p);
+    }
+  };
   const panesRef = useRef(panes);
   const paneKeyRef = useRef(2);
   const paneViews = useRef(new Map());     // pane key → EditorView
@@ -93,6 +120,7 @@ export default function App() {
   const [sbRefresh, setSbRefresh] = useState(0);
   const [recent, setRecent] = useState([]);
   const [sidebarWidth, setSidebarWidth] = useState(240);
+  const [searchRequest, setSearchRequest] = useState(null);   // { key, initial, scope } → the search panel focuses / runs
   const persistTimer = useRef(null);
   // Mirrors of state read from long-lived closures (event handlers, timers).
   const infoRef = useRef(null); infoRef.current = info;
@@ -184,6 +212,70 @@ export default function App() {
     patchDoc(id, { lint: { tool: r.tool, error: r.error || null, ...counts } });
   };
   const clearLint = (id) => { const st = getState(id); if (st) dispatchTo(id, clearDiagnostics(st)); patchDoc(id, { lint: null }); };
+  // ── find in files / in the open documents ──
+  const searchOpenDocs = ({ query, regex, caseSensitive, wholeWord }) => {
+    let re;
+    try {
+      let src = regex ? query : query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      if (wholeWord) src = `(?<![\\p{L}\\p{N}_])(?:${src})(?![\\p{L}\\p{N}_])`;
+      re = new RegExp(src, `gu${caseSensitive ? '' : 'i'}`);
+    } catch (e) { return { hits: [], error: e.message }; }
+    const hits = [];
+    let truncated = false;
+    for (const d of docsRef.current) {
+      const st = getState(d.id);
+      if (!st) continue;
+      const doc = st.doc;
+      for (let ln = 1; ln <= doc.lines && !truncated; ln++) {
+        const line = doc.line(ln);
+        re.lastIndex = 0;
+        let m;
+        while ((m = re.exec(line.text))) {
+          if (m[0] === '') { re.lastIndex++; continue; }
+          hits.push({ docId: d.id, name: d.name, path: d.path, line: ln, col: m.index + 1, endCol: m.index + m[0].length + 1, text: line.text.slice(0, 240) });
+          if (hits.length >= 2000) { truncated = true; break; }
+        }
+      }
+    }
+    return { hits, files: docsRef.current.length, truncated };
+  };
+  // A hit: open (or activate) the file and select the match.
+  const openSearchHit = async (h) => {
+    let doc = h.docId != null ? getDoc(h.docId) : docsRef.current.find((d) => samePath(d.path, h.path));
+    if (!doc && h.path) doc = await openPath(h.path);
+    if (!doc) return;
+    activate(doc.id);
+    setTimeout(() => {
+      const v = viewOfDoc(doc.id) || viewRef.current;
+      if (!v) return;
+      const st = v.state;
+      const ln = Math.min(Math.max(1, h.line), st.doc.lines);
+      const line = st.doc.line(ln);
+      const from = Math.min(line.from + Math.max(0, (h.col || 1) - 1), line.to);
+      const to = Math.min(line.from + Math.max(0, (h.endCol || h.col || 1) - 1), line.to);
+      v.dispatch({ selection: { anchor: from, head: Math.max(from, to) }, effects: EditorView.scrollIntoView(from, { y: 'center' }) });
+      v.focus();
+    }, 30);
+  };
+  const findInFiles = (scope) => {
+    const v = viewRef.current;
+    const sel = v ? v.state.sliceDoc(v.state.selection.main.from, v.state.selection.main.to) : '';
+    changeSettings({ sidebarVisible: true, searchVisible: true });
+    setSearchRequest({ key: Date.now(), initial: sel && !sel.includes('\n') ? sel : '', scope: scope || (folderRef.current ? 'folder' : 'open') });
+  };
+  // The divider between the folder tree and the search section: the search
+  // section takes half of the column by default; dragging changes the share.
+  const sidebarColumnRef = useRef(null);
+  const onSearchResizeStart = (e) => {
+    e.preventDefault();
+    const col = sidebarColumnRef.current;
+    if (!col) return;
+    const move = (ev) => { const r = col.getBoundingClientRect(); setSettings({ searchRatio: Math.max(0.15, Math.min(0.85, (r.bottom - ev.clientY) / r.height)) }); };
+    const up = () => { window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up); call('session.save', { searchRatio: settingsRef.current.searchRatio }).catch(() => {}); };
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+  };
+
   const lintAll = () => { for (const d of docsRef.current) { if (settingsRef.current.lint) scheduleLint(d.id, 50); else clearLint(d.id); } };
   handlersRef.current.onUpdate = (u) => { setCursor(cursorInfo(u.state)); };
 
@@ -270,15 +362,24 @@ export default function App() {
   const setSplit = (mode) => {
     const count = mode === 'grid' ? 4 : mode === 'cols' || mode === 'rows' ? 2 : 1;
     const cur = panesRef.current;
-    if (cur.length !== count) {
-      const shown = new Set(cur.slice(0, count).map((p) => p.docId));
+    if (count > cur.length) {
+      const shown = new Set(cur.map((p) => p.docId));
       const free = docsRef.current.map((d) => d.id).filter((id) => !shown.has(id));
-      const next = cur.slice(0, count).map((p) => ({ ...p }));
-      for (const p of cur.slice(count)) { const v = paneViews.current.get(p.key); if (v && p.docId != null && getDoc(p.docId)) statesRef.current.set(p.docId, v.state); }
+      const next = cur.map((p) => ({ ...p }));
       while (next.length < count) { const id = free.shift(); next.push({ key: paneKeyRef.current++, docId: id == null ? null : id }); }
       panesRef.current = next;
       setPanes(next);
-      if (activePaneRef.current >= count) focusPane(0);
+    } else if (count < cur.length) {
+      // Keep the panes that show something (the active one first), drop the rest.
+      const active = cur[activePaneRef.current];
+      const ordered = [...cur.filter((p) => p.docId != null && p === active), ...cur.filter((p) => p.docId != null && p !== active), ...cur.filter((p) => p.docId == null)];
+      const keep = new Set(ordered.slice(0, count));
+      const next = cur.filter((p) => keep.has(p)).map((p) => ({ ...p }));
+      for (const p of cur) { if (keep.has(p)) continue; const v = paneViews.current.get(p.key); if (v && p.docId != null && getDoc(p.docId)) statesRef.current.set(p.docId, v.state); }
+      panesRef.current = next;
+      setPanes(next);
+      const ai = next.findIndex((p) => p.key === active.key);
+      focusPane(ai >= 0 ? ai : 0, { focus: false });
     }
     changeSettings({ split: mode });
   };
@@ -331,7 +432,17 @@ export default function App() {
       if (next) activate(next.id);
       else if (!remaining.length) { setActiveIdState(null); newUntitled(); }
       else { const v = viewRef.current; if (v) v.setState(newDocState('')); setActiveIdState(null); setDocVersion((x) => x + 1); }
-    } else schedulePersist();
+      if (panesRef.current.length === 2 && panesRef.current.some((p) => p.docId == null)) setTimeout(() => collapseEmpty(), 0);
+    } else { schedulePersist(); if (panesRef.current.length === 2 && panesRef.current.some((p) => p.docId == null)) setTimeout(() => collapseEmpty(), 0); }
+  };
+  // Two panes and one of them has nothing to show: back to a single pane showing the other one's document.
+  const collapseEmpty = () => {
+    const ps = panesRef.current;
+    if (ps.length !== 2) return;
+    const keep = ps.find((p) => p.docId != null);
+    if (!keep) { setSplit('none'); return; }
+    focusPane(ps.indexOf(keep), { focus: false });
+    setSplit('none');
   };
 
   // ── open ──
@@ -855,6 +966,8 @@ export default function App() {
         setFind({ mode: id, initial: sel && !sel.includes('\n') ? sel : (findRef.current ? findRef.current.initial : ''), key: Date.now() });
         break;
       }
+      case 'findInFiles': findInFiles('folder'); break;
+      case 'findInOpen': findInFiles('open'); break;
       case 'findNext': if (findRef.current) withView((vw) => searchApi.next(vw)); else setFind({ mode: 'find', initial: '', key: Date.now() }); break;
       case 'findPrev': if (findRef.current) withView((vw) => searchApi.prev(vw)); else setFind({ mode: 'find', initial: '', key: Date.now() }); break;
       case 'closeFind': setFind(null); withView(() => {}); break;
@@ -948,7 +1061,9 @@ export default function App() {
       else if (mod && e.key === 'Tab') action(e.shiftKey ? 'prevTab' : 'nextTab');
       else if (mod && (e.key === 'PageDown' || e.key === 'PageUp')) action(e.key === 'PageDown' ? 'nextTab' : 'prevTab');
       else if (mod && !e.shiftKey && !e.altKey && /^[1-9]$/.test(e.key)) action(`tab:${Number(e.key) - 1}`);
-      else if (mod && !e.shiftKey && k === 'f') action('find');
+      else if (mod && !e.shiftKey && !e.altKey && k === 'f') action('find');
+      else if (mod && e.shiftKey && k === 'f') action('findInFiles');
+      else if (mod && e.altKey && k === 'f') action('findInOpen');
       else if (mod && !e.shiftKey && k === 'h') action('replace');
       else if (e.key === 'F3') action(e.shiftKey ? 'findPrev' : 'findNext');
       else if (mod && !e.shiftKey && k === 'g') action('gotoLine');
@@ -990,7 +1105,7 @@ export default function App() {
   const sc = (win, mac) => (isMac ? (mac || win.replace('Ctrl', '⌘')) : win);
   const cur = activeDoc;
   const menus = [
-    { id: 'file', label: t('m_file'), items: () => [
+    { id: 'file', label: t('m_file'), icon: 'folder', items: () => [
       { id: 'new', label: t('new_file'), icon: 'filePlus', shortcut: sc('Ctrl+N') },
       { id: 'open', label: t('open_file'), icon: 'fileOpen', shortcut: sc('Ctrl+O') },
       { id: 'openFolder', label: t('open_folder'), icon: 'folderOpen', shortcut: sc('Ctrl+Shift+O') },
@@ -1015,7 +1130,7 @@ export default function App() {
       { sep: true },
       { id: 'exit', icon: 'exit', label: t('exit'), shortcut: isMac ? '⌘Q' : 'Alt+F4' },
     ] },
-    { id: 'edit', label: t('m_edit'), items: () => [
+    { id: 'edit', label: t('m_edit'), icon: 'edit', items: () => [
       { id: 'undo', label: t('undo'), icon: 'undo', shortcut: sc('Ctrl+Z') },
       { id: 'redo', label: t('redo'), icon: 'redo', shortcut: sc('Ctrl+Y') },
       { sep: true },
@@ -1044,16 +1159,19 @@ export default function App() {
       { id: 'insertDate', label: t('insert_date'), icon: 'calendar' },
       { id: 'insertPath', icon: 'link', label: t('insert_path'), disabled: !cur || !cur.path },
     ] },
-    { id: 'search', label: t('m_search'), items: () => [
+    { id: 'search', label: t('m_search'), icon: 'search', items: () => [
       { id: 'find', label: t('find'), icon: 'search', shortcut: sc('Ctrl+F') },
       { id: 'findNext', icon: 'findNext', label: t('find_next'), shortcut: 'F3' },
       { id: 'findPrev', icon: 'findPrev', label: t('find_prev'), shortcut: 'Shift+F3' },
       { id: 'replace', label: t('replace'), icon: 'replace', shortcut: sc('Ctrl+H') },
       { id: 'selectMatches', icon: 'selectMatches', label: t('select_all_matches'), disabled: !find },
       { sep: true },
+      { id: 'findInFiles', icon: 'searchFolder', label: t('find_in_files'), shortcut: sc('Ctrl+Shift+F'), disabled: !folder },
+      { id: 'findInOpen', icon: 'searchDocs', label: t('find_in_open'), shortcut: sc('Ctrl+Alt+F') },
+      { sep: true },
       { id: 'gotoLine', label: t('goto_line'), icon: 'hash', shortcut: sc('Ctrl+G') },
     ] },
-    { id: 'view', label: t('m_view'), items: () => [
+    { id: 'view', label: t('m_view'), icon: 'eye', items: () => [
       { id: 'toggle:autoIndent', icon: 'autoIndent', label: t('auto_indent'), checked: settings.autoIndent },
       { id: 'toggle:wordWrap', icon: 'wrap', label: t('word_wrap'), checked: settings.wordWrap },
       { id: 'toggle:lineNumbers', icon: 'listOrdered', label: t('line_numbers'), checked: settings.lineNumbers },
@@ -1088,7 +1206,7 @@ export default function App() {
       { sep: true },
       { id: 'fullscreen', label: t('fullscreen'), icon: 'fullscreen', shortcut: 'F11' },
     ] },
-    { id: 'lang', label: t('m_lang'), items: () => [
+    { id: 'lang', label: t('m_lang'), icon: 'code', items: () => [
       { id: 'lang:auto', label: t('lang_auto'), checked: !!cur && !cur.language, radio: true, iconEl: <LangIcon name="auto" /> },
       { id: `lang:${PLAIN}`, label: t('lang_plain'), checked: !!cur && cur.language === PLAIN, radio: true, iconEl: <LangIcon name="plain" /> },
       { sep: true },
@@ -1096,7 +1214,7 @@ export default function App() {
       { sep: true },
       { id: 'languagePicker', label: `${t('m_lang')}…`, icon: 'search' },
     ] },
-    { id: 'enc', label: t('m_enc'), items: () => [
+    { id: 'enc', label: t('m_enc'), icon: 'encoding', items: () => [
       { header: t('enc_current') },
       ...((info && info.encodings) || []).map((e) => ({ id: `enc:${e.id}`, icon: 'encoding', label: e.label, checked: !!cur && cur.encoding === e.id, radio: true })),
       { sep: true },
@@ -1105,7 +1223,7 @@ export default function App() {
       { header: t('eol') },
       ...EOLS.map((e) => ({ id: `eol:${e}`, icon: 'eol', label: t(`eol_${e}`), checked: !!cur && cur.eol === e, radio: true })),
     ] },
-    { id: 'help', label: t('m_help'), items: () => [
+    { id: 'help', label: t('m_help'), icon: 'help', items: () => [
       { id: 'shortcuts', label: t('shortcuts'), icon: 'keyboard' },
       { sep: true },
       { id: 'settings', label: t('settings'), icon: 'settings', shortcut: sc('Ctrl+,') },
@@ -1248,14 +1366,20 @@ export default function App() {
 
   return (
     <div className="app">
-      <MenuBar menus={menus} onAction={action} theme={settings.theme} />
+      <MenuBar menus={menus} onAction={action} theme={settings.theme} controls={!settings.toolbarVisible} />
       {settings.toolbarVisible && <Toolbar onAction={action} onSetting={changeSettings} settings={settings} state={toolbarState} />}
       <div className="body">
         {settings.sidebarVisible && (
           <>
-            <Sidebar folder={folder} activePath={cur && cur.path} openPaths={openPaths} width={sidebarWidth} showHidden={showHidden}
-              onToggleHidden={() => setShowHidden(!showHidden)} onOpenFile={(p) => openPath(p)} onOpenFolder={openFolderDialog}
-              onCloseFolder={() => action('closeFolder')} onAction={sidebarAction} refreshKey={sbRefresh} />
+            <div className="sidebar-column" ref={sidebarColumnRef} style={{ width: sidebarWidth, '--search-share': settings.searchVisible ? settings.searchRatio : 0 }}>
+              <Sidebar folder={folder} activePath={cur && cur.path} openPaths={openPaths} showHidden={showHidden} searchOn={settings.searchVisible} onToggleSearch={() => (settings.searchVisible ? changeSettings({ searchVisible: false }) : findInFiles())}
+                onToggleHidden={() => setShowHidden(!showHidden)} onOpenFile={(p) => openPath(p)} onOpenFolder={openFolderDialog}
+                onCloseFolder={() => action('closeFolder')} onAction={sidebarAction} refreshKey={sbRefresh} />
+              {settings.searchVisible && (
+                <SearchPanel folder={folder} request={searchRequest} searchOpen={searchOpenDocs} onOpen={openSearchHit} onClose={() => changeSettings({ searchVisible: false })}
+                  onResizeStart={onSearchResizeStart} />
+              )}
+            </div>
             <div className="v-splitter" onMouseDown={onSplitDown} />
           </>
         )}
@@ -1274,12 +1398,15 @@ export default function App() {
                   <div key={p.key} className={`pane ${i === activePane ? 'active' : ''}`} onMouseDownCapture={() => { if (activePaneRef.current !== i) focusPane(i, { focus: false }); }}>
                     {panes.length > 1 && (
                       <div className="pane-head">
-                        <button className="pane-title ellipsis" title={pd ? pd.path || pd.name : t('pane_empty')} onClick={(e) => setPaneMenu({ i, el: e.currentTarget })}>
+                        <button className="pane-title ellipsis" title={pd ? pd.path || pd.name : t('pane_empty')} onClick={(e) => openPaneMenu(i, e.currentTarget)}>
                           {pd ? <>{pd.name}{pd.dirty ? ' ●' : ''}</> : <span className="muted">{t('pane_empty')}</span>}<Icon name="chevronDown" size={12} />
                         </button>
                         <span className="spacer" />
                         {pd && <button className="icon-btn" title={t('close')} onClick={() => closeDocs([pd.id])}><Icon name="close" size={13} /></button>}
                       </div>
+                    )}
+                    {panes.length > 1 && p.docId == null && (
+                      <div className="pane-empty"><Icon name="file" size={26} /><p>{t('pane_empty')}</p><button className="btn" onClick={(e) => openPaneMenu(i, e.currentTarget)}>{t('pane_pick')}</button></div>
                     )}
                     <EditorPane initialState={initialState} onView={(v) => onPaneView(p.key, v)} onDropFiles={dropFiles} contextItems={editorContextItems} onAction={action}
                       fontFamily={settings.fontFamily} fontSize={settings.fontSize} empty={!docs.length || p.docId == null} />
@@ -1287,14 +1414,24 @@ export default function App() {
                 );
               })}
             </div>
-            {paneMenu && (
-              <ContextMenu anchorEl={paneMenu.el} x={0} y={0} items={docs.map((d) => ({ id: `doc:${d.id}`, label: d.name + (d.dirty ? ' ●' : ''), meta: (() => { const j = paneOfDoc(d.id); return j >= 0 && j !== paneMenu.i ? t('pane_in', { n: j + 1 }) : undefined; })(), checked: panes[paneMenu.i].docId === d.id, radio: true, iconEl: <LangIcon name={d.langName || 'plain'} /> }))}
-                onClose={() => setPaneMenu(null)} onPick={(id) => { const i = paneMenu.i; setPaneMenu(null); showInPane(i, Number(id.slice(4))); }} />
+            {paneMenu && panes[paneMenu.i] && (
+              <ContextMenu anchorEl={paneMenu.el} x={0} y={0} className="pane-menu" items={[
+                { header: t('pane_open_docs') },
+                ...docs.map((d) => ({ id: `doc:${d.id}`, label: d.name + (d.dirty ? ' ●' : ''), meta: (() => { const j = paneOfDoc(d.id); return j >= 0 && j !== paneMenu.i ? t('pane_in', { n: j + 1 }) : undefined; })(), checked: panes[paneMenu.i].docId === d.id, radio: true, iconEl: <LangIcon name={d.langName || 'plain'} /> })),
+                ...(paneMenu.files ? [
+                  { sep: true },
+                  { header: t('pane_folder_files', { name: baseName(paneMenu.dir) }) },
+                  ...(paneMenu.files.length ? paneMenu.files.filter((f) => !docs.some((d) => samePath(d.path, f.path))).map((f) => ({ id: `file:${f.path}`, label: f.name, icon: 'file' })) : [{ id: 'none', label: t('pane_folder_empty'), disabled: true }]),
+                ] : []),
+                { sep: true },
+                { id: 'open', label: t('open_file'), icon: 'fileOpen' },
+              ]}
+                onClose={() => setPaneMenu(null)} onPick={(id) => { const i = paneMenu.i; setPaneMenu(null); paneMenuPick(i, id); }} />
             )}
             {isMarkdown && settings.mdPreview && view && (
               <>
                 <div className="v-splitter" onMouseDown={onPreviewSplitDown} />
-                <Preview view={view} docVersion={docVersion} base={cur && cur.path ? dirName(cur.path) : folder || ''} width={`${Math.round(settings.mdPreviewWidth * 100)}%`} />
+                <Preview view={view} docVersion={docVersion} cursorPos={cursor.pos} base={cur && cur.path ? dirName(cur.path) : folder || ''} width={`${Math.round(settings.mdPreviewWidth * 100)}%`} />
               </>
             )}
           </div>

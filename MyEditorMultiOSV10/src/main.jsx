@@ -1,6 +1,7 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import './styles.css';
 
 // Dev server: a hot update would leave the open EditorStates bound to stale
@@ -10,6 +11,8 @@ if (import.meta.hot) import.meta.hot.on('vite:beforeUpdate', () => window.locati
 
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <App />
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
   </React.StrictMode>,
 );

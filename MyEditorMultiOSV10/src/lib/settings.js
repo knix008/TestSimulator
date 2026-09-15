@@ -23,6 +23,8 @@ export const SETTINGS_DEFAULTS = {
   confirmClose: true,
   sidebarVisible: true,
   sidebarWidth: 240,
+  searchVisible: false,
+  searchRatio: 0.5,
   toolbarVisible: true,
   statusBarVisible: true,
   mdPreview: false,

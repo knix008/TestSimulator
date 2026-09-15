@@ -6,6 +6,7 @@ MyEditorMultiOSV10/
 │  ├ encoding.js        인코딩 감지·변환(iconv-lite), 줄 끝 감지·정규화
 │  ├ files.js           읽기/쓰기(원자적), 디렉터리 목록, 드라이브, mkdir/rename/remove, 이미지 → data URL
 │  ├ session.js         session.json (설정 · 탭 · 초안 · 최근 파일 · 창 위치)
+│  ├ search.js          폴더 전체 찾기(재귀 탐색, 바이너리/대용량/빌드 폴더 제외, 포함·제외 글롭, 취소, 결과 상한)
 │  ├ lint.js            언어별 검사 도구 실행(별도 프로세스, stdin, 도구 탐색·캐시, 문서별 취소) → { line, col, severity, message }
 │  ├ terminal.js        터미널 세션(파이프 셸 — 프롬프트·에코 없이 기동, 출력 버퍼, cwd/idle 마커) + Tab 자동완성(내장 명령·PATH·경로) + git status 파싱
 │  └ api.js             메서드 테이블 `api.call(name, args)` + 오류 직렬화
@@ -28,7 +29,7 @@ MyEditorMultiOSV10/
 │  ├ lib/i18n.js        ko / en 사전
 │  ├ lib/settings.js    설정 기본값
 │  ├ themes.js          16 테마 → CSS 변수(구문 색 --syn-* 포함)
-│  ├ components/        MenuBar · Toolbar · TabBar · EditorPane · FindBar · MarkdownBar · Preview · Sidebar · TerminalPanel · FontPicker · StatusBar · ContextMenu · Icons
+│  ├ components/        MenuBar · Toolbar · TabBar · EditorPane · FindBar · MarkdownBar · Preview · Sidebar · SearchPanel · TerminalPanel · FontPicker · StatusBar · ContextMenu · Icons
 │  └ dialogs/           Dialogs(확인·오류·정보·줄 이동·프롬프트·언어·인코딩·단축키) · SettingsDialog · FileDialog(웹)
 ├ scripts/              start-electron · free-port · generate-icons(+ico) · build-info · smoke · clean …
 ├ test/core.test.mjs    코어 단위 테스트
