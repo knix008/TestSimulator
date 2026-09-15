@@ -14,18 +14,18 @@ import { Icon } from './Icons';
 import { ContextMenu } from './ContextMenu';
 import { AnsiText } from '../lib/ansi.jsx';
 
-const POLL_MS = 150;
+const WAIT_MS = 1500;   // long poll: the backend answers as soon as something happens, or after this
 const MAX_LINES = 3000;
 
 // One prompt: [ 📁 dir ]▶[ ⎇ branch ↑1 ↓2 +3 ~4 ?5 !6 ]▶ — the command is typed right after the last arrow.
 function Prompt({ cwd, git }) {
   const repo = git && git.repo;
   const dirty = repo ? git.staged + git.changed + git.untracked + git.conflicts > 0 : false;
-  // The state of the repository colours the whole block, from the branch name on (the first that applies,
-  // colours after oh-my-posh's git segment): conflicts — dark red · staged (added) — yellow · changes in the
-  // working tree (modified / untracked) — red · committed but not pushed (ahead) — red · behind the remote —
-  // purple · clean and pushed — bright green.
-  const cls = !repo ? '' : git.conflicts ? 'conflict' : git.staged ? 'staged' : (git.changed || git.untracked) ? 'modified' : git.ahead ? 'ahead' : git.behind ? 'behind' : 'uptodate';
+  // The state of the repository colours the whole block, from the branch name on — one distinct hue per
+  // state, after oh-my-posh's git segment (the first that applies): conflicts — red · staged (added) — yellow ·
+  // modified, not staged — orange · new files not added (untracked only) — teal · committed but not pushed —
+  // purple · behind the remote — blue · both ahead and behind — red-orange · clean and pushed — bright green.
+  const cls = !repo ? '' : git.conflicts ? 'conflict' : git.staged ? 'staged' : git.changed ? 'modified' : git.untracked ? 'untracked' : (git.ahead && git.behind) ? 'diverged' : git.ahead ? 'ahead' : git.behind ? 'behind' : 'uptodate';
   return (
     <span className="term-prompt" title={cwd}>
       <span className="seg seg-path"><Icon name="folder" size={12} /> {cwd}</span>
@@ -117,26 +117,31 @@ function TerminalView({ term, active, onExit }) {
     else append(line + '\n');
   }, [append, term.shell]);
 
-  // Poll the shell output while the tab is visible.
+  // Read the shell output while the tab is visible: a long poll, answered
+  // the moment there is output, the prompt comes back or the shell exits.
   useEffect(() => {
     if (!active) return undefined;
     let stop = false;
-    const tick = async () => {
-      if (stop || busyRef.current) return;
-      busyRef.current = true;
-      try {
-        const r = await call('term.read', { id: term.id, since: seqRef.current });
-        if (stop || !r) return;
-        if (r.chunks.length) { seqRef.current = r.seq; append(r.chunks.map((c) => c.text).join('')); }
-        if (r.cwd !== cwdRef.current) { cwdRef.current = r.cwd; setCwd(r.cwd); refreshGit(); }
-        const idleNow = r.idle !== false;
-        if (idleNow !== idleRef.current) { idleRef.current = idleNow; setIdle(idleNow); if (idleNow) refreshGit(); }
-        if (r.exited && !exited) { setExited(true); onExit(term.id); }
-      } catch { /* transient */ } finally { busyRef.current = false; }
+    const loop = async () => {
+      while (!stop) {
+        try {
+          const r = await call('term.read', { id: term.id, since: seqRef.current, idle: idleRef.current, wait: WAIT_MS });
+          if (stop) return;
+          if (!r) { setExited(true); return; }
+          if (r.chunks.length) { seqRef.current = r.seq; append(r.chunks.map((c) => c.text).join('')); }
+          const idleNow = r.idle !== false;
+          const cwdChanged = r.cwd !== cwdRef.current;
+          if (cwdChanged) { cwdRef.current = r.cwd; setCwd(r.cwd); }
+          if (idleNow !== idleRef.current) { idleRef.current = idleNow; setIdle(idleNow); }
+          if (cwdChanged || (idleNow && idleChangedTo(r))) refreshGit();
+          if (r.exited) { if (!exited) { setExited(true); onExit(term.id); } return; }
+        } catch { await new Promise((res) => setTimeout(res, 300)); }
+      }
     };
-    tick();
-    const id = setInterval(tick, POLL_MS);
-    return () => { stop = true; clearInterval(id); };
+    let lastIdle = idleRef.current;
+    const idleChangedTo = (r) => { const now = r.idle !== false; const changed = now !== lastIdle; lastIdle = now; return changed; };
+    loop();
+    return () => { stop = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active, term.id]);
 
