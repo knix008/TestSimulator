@@ -18,12 +18,6 @@ contextBridge.exposeInMainWorld('commandCenter', {
     return () => ipcRenderer.removeListener('job:update', handler);
   },
 
-  onTermUpdate: (cb) => {
-    const handler = (_e, info) => cb(info);
-    ipcRenderer.on('term:update', handler);
-    return () => ipcRenderer.removeListener('term:update', handler);
-  },
-
   watchDir: (id, path) => ipcRenderer.send('watch:start', { id, path }),
   unwatchDir: (id) => ipcRenderer.send('watch:stop', { id }),
   onDirChanged: (cb) => {

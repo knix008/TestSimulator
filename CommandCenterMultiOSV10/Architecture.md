@@ -40,15 +40,15 @@ UI 는 `window.commandCenter`(preload 가 노출) 유무로 전송 방식만 고
 UI  term.create {cwd, shell}         core/terminal.js
     term.run {id, line}  ──────────►  idle ? 스크립트 파일에 line 저장 → stdin 에 `. "file"; echo __CC_CWD__:$PWD` 한 줄
                                           : stdin 에 line 그대로 (실행 중 프로그램의 입력)
-    term.read {id, since}  ◄──────────  {chunks, cwd, idle, git, exited}   마커는 걷어내고 cwd 갱신 + idle=true, 즉시 git status 시작 → 끝나면 git={…, dir, seq}
-    'update' {id} 이벤트  ─────────────►  출력·마커·git 이 생길 때마다 (Electron: ipc 'term:update' 로 푸시 → UI 가 바로 read)
-    git.status {cwd}       ◄──────────  탭 활성화 때만 (그 밖엔 read 에 실려 옴); 단일 git 프로세스: status --porcelain=v2 --branch --show-stash --no-optional-locks
+    term.read {id, since, idle, wait} ◄  {chunks, cwd, idle, exited} — 롱폴링: 새 출력·idle 변화·종료가 없으면 wait(≤5 s) 동안 답을 미룸(wake), 생기면 즉시
+    git.status {cwd}       ◄──────────  명령이 끝났을 때(idle 복귀 + 보낸 명령 있음)와 cwd 가 바뀔 때 UI 가 읽음; 단일 git 프로세스: status --porcelain=v2 --branch --show-stash --no-optional-locks --ignore-submodules=dirty
     term.complete {id, line, cursor} ◄─ 첫 단어: 셸 내장 명령 + PATH 실행 파일(1회 스캔) / 그 밖: 그 단어가 가리키는 디렉터리의 파일
 ```
 
 - 명령을 **스크립트 파일로 source** 하는 이유: stdin 에는 짧은 한 줄만 흐르므로, 명령이 띄운 프로그램이 stdin 을 읽어도(Read-Host, python, npm init …) 다음 명령이나 마커를 먹지 않고 사용자가 이어서 치는 줄을 받습니다. source 이므로 `cd`·변수·함수는 셸에 남습니다.
-- **마커**(`__CC_CWD__:<dir>`)가 오면 셸이 idle 로 돌아오고, 백엔드가 그 자리에서 새 디렉터리의 git 상태를 읽기 시작해 다음 `read` 에 실어 보냅니다(UI 의 별도 왕복 없음; 늦게 끝난 옛 조회는 seq 로 버림). 마커와 그 개행이 청크 경계에서 갈리는 경우(Write-Host)도 처리합니다.
-- **지연**: 데스크톱은 `update` 푸시로 출력이 ~15 ms, 프롬프트 복귀는 `git status` 시간(큰 저장소 ~150 ms)에 묶입니다. 웹은 푸시가 없어 폴링 — 명령 실행 중·git 대기 중 50 ms, 대기 중 250 ms, 명령을 보낸 직후엔 즉시 한 번 읽음.
+- **마커**(`__CC_CWD__:<dir>`)가 오면 셸이 idle 로 돌아오고 롱폴링 중인 `read` 가 깨어납니다(Git Bash 의 `/d/…` 는 `D:/…` 로 정규화). 마커와 그 개행이 청크 경계에서 갈리는 경우(Write-Host)도 처리합니다.
+- **지연**: 롱폴링이라 두 호스트 모두 출력 ~20 ms, 프롬프트 복귀 ~25 ms(같은 폴더면 마지막 git 상태로 즉시 그리고 새 상태가 다르면 색만 갱신 — MyEditor 방식). `git status` 는 `--ignore-submodules=dirty` 로 서브모듈 내부의 변경은 세지 않습니다(그렇지 않으면 빌드 산출물이 있는 서브모듈 때문에 저장소가 영영 '수정됨').
+- **ANSI 색**: 백엔드는 SGR(`\x1b[…m`)만 남기고 다른 이스케이프를 걷어내며, UI 의 `lib/ansi.jsx`(`AnsiText`, MyEditor 와 동일)가 16/256/24-bit 색과 굵게·기울임·밑줄 등을 그립니다.
 - **Windows** (cmd.exe / Windows PowerShell 5.1 에서 실측):
   - PowerShell 은 리다이렉트된 stdin 을 콘솔 코드 페이지로 읽으므로 `cmd /C chcp 65001 & powershell -ExecutionPolicy Bypass -Command -` 로 띄웁니다(pty 없이 UTF-8 입력을 받는 유일한 방법). 스크립트 파일은 BOM 을 붙여 저장(5.1 은 BOM 없으면 ANSI), 구문 오류여도 마커가 실행되도록 마커는 stdin 줄 쪽에 둡니다.
   - cmd 는 코드 페이지 65001 + 파이프에서 멀티바이트 입력을 읽으면 종료되는 버그가 있어 배치 파일 `call` 이 유일한 방법이며, `%CD%` 는 줄 파싱 시점에 확장되므로 마커를 배치 파일 안에 둡니다. cmd 가 읽기 전마다 찍는 프롬프트는 `PROMPT=__CC_P__` 로 바꿔 걷어냅니다.
@@ -69,7 +69,7 @@ UI runJob('ops.transfer', …)            core: jobs.run(kind, meta, fn)
 ## 3. electron/ — 데스크톱 호스트
 
 - `main.js`: 단일 인스턴스, 창 크기/위치 복원(`session.windowBounds`), `will-quit` 에서 `api.shutdown()`(터미널 셸 정리), 테마 배경색(`session.themeBg`)으로 첫 프레임 깜빡임 방지, macOS 만 애플리케이션 메뉴(Cmd+Q/C/V). `--smoke-shot=<png>` `--smoke-script=<js>` `--smoke-probe=<js>` `--smoke-url=<http>` 는 smoke 테스트용.
-- `ipc.js`: `ipcMain.handle('api')` → `api.call`; `job:update` 푸시; `fs.watch` 기반 `watch:start/stop` → `dir:changed`; `ipcMain.handle('dialog')` → 네이티브 대화상자(현재는 `openFolder` 만, 설정의 시작 디렉터리 찾아보기).
+- `ipc.js`: `ipcMain.handle('api')` → `api.call`(터미널 롱폴링 `term.read` 도 이 경로); `job:update` 푸시; `fs.watch` 기반 `watch:start/stop` → `dir:changed`; `ipcMain.handle('dialog')` → 네이티브 대화상자(현재는 `openFolder` 만, 설정의 시작 디렉터리 찾아보기).
 - `preload.js`: `window.commandCenter` (call / onJobUpdate / watchDir / onDirChanged / dialog / quit). `call` 은 `{ok,…}` 객체를 그대로 돌려주고 UI 가 Error 를 만듭니다 — contextBridge 를 넘는 Error 는 message 외의 속성을 잃기 때문입니다.
 
 ## 4. server/ — 웹 호스트
@@ -92,6 +92,7 @@ UI runJob('ops.transfer', …)            core: jobs.run(kind, meta, fn)
 | `dialogs/SettingsDialog.jsx` | 설정 — 일반 탭(언어·테마·글꼴 크기·분할 기본 크기·숨김·삭제 확인·폴더 복원·자동 새로고침)과 터미널 탭(기본 셸 `termShell` — `term.shells` 목록, 시작 디렉터리 `termCwd` — 데스크톱은 `pickFolder`(IPC `dialog` → `dialog.showOpenDialog`)로 찾아보기). 값은 세션에 저장되고 App 이 적용(`applyTheme`, `--fs`, `suspendWatch`; 새 터미널은 `termCwd`(없으면 활성 패널 폴더)·`termShell`). |
 | `lib/backend.js` | 전송 분기: `call`, `runJob/followJob`(푸시 vs 폴링), `watchDir`(fs.watch vs mtime 폴링), 클립보드, `unwrap`(오류 객체 → Error, 스택 결합). |
 | `lib/i18n.js` | ko/en 사전 + `t()` + `useLanguage()`(useSyncExternalStore). |
+| `lib/ansi.jsx` | ANSI SGR → 스타일 런(`parseAnsi`)과 `AnsiText`(MyEditor 와 동일): 16/256/24-bit 색, 굵게·흐리게·기울임·밑줄·반전·취소선. |
 | `lib/format.js` | 크기/종류 표시, 경로 분리자(백엔드에서 받음), breadcrumb 분해. |
 | `themes.js` | 16 테마 토큰 → `:root` CSS 변수(`applyTheme`), 순환(`nextThemeId`). |
 | `styles.css` | 변수 기반 스타일(기본값 = 미드나이트). |
@@ -101,7 +102,7 @@ UI runJob('ops.transfer', …)            core: jobs.run(kind, meta, fn)
 - 기록(`<pre>`)은 `cmd`(그 순간의 cwd·git + 입력한 줄) / `out`(셸 출력) 항목 배열로, 10,000줄을 넘으면 앞에서 잘라냅니다. 탭 객체(`term.buffer/seq/git/idle`)에 보관하므로 탭 전환·패널 숨김 후에도 그대로입니다.
 - 기록 끝에 **oh-my-posh 식 프롬프트**(`Prompt`): 경로 세그먼트 + git 세그먼트. 각 세그먼트는 CSS `clip-path` 로 오른쪽이 뾰족한 블록이고 다음 세그먼트가 그 아래로 겹쳐 파워라인 화살표가 되므로 특수 폰트가 필요 없습니다. git 상태는 `gitState` 가 남은 단계 목록(conflict, changed, added, diverged|ahead|behind)으로 만들고, oh-my-posh 처럼 **세그먼트**로 표시: MyEditor 의 `Prompt` 와 같은 규칙(`gitClass`: conflict `#D62828` > staged `#FFD700` > modified `#FF5C5C` > ahead `#FFD700` > behind `#7cc4ff` > uptodate `#7CFC8B`; 추적 안 함은 색에 영향 없음)으로 브랜치부터 한 블록을 칠하고, 해당하는 기호(↑ ↓ + ~ ? !)를 굵게 나열, 글자 `#1b1e24`; 경로 세그먼트는 `--accent`. 개수는 툴팁에.
 - 프롬프트 바로 뒤에 `inline-grid` 로 값 너비만큼 늘어나는 `<input>`(`::after` 가 값을 거울처럼 그려 폭을 정함) — 네이티브 캐럿과 IME 를 그대로 씁니다. 출력을 클릭하면(선택 중이 아닐 때) 입력으로 포커스.
-- 탭이 보일 때만 읽습니다: 데스크톱은 `onTerminalUpdate` 푸시가 오면 즉시, 그리고 타이머(실행 중·git 대기 중 50 ms, 대기 중 250 ms; 명령을 보낸 직후 한 번 즉시)로. `idle` 이 아니면 프롬프트를 숨기고 Enter 는 실행 중 프로그램의 stdin 으로 갑니다(백엔드가 판단). git 상태는 `read` 의 `git`(현재 폴더·seq 확인) 으로 받고, 탭 활성화 때만 `git.status` 를 조용히 다시 읽습니다. 기록(`transcript`)은 `useMemo` 로 묶어 키 입력마다 다시 그리지 않습니다. 프롬프트는 현재 폴더의 git 상태(`gitDir === cwd`)가 준비된 뒤에야 보이므로(그 전엔 `.term-live.pending` 의 `opacity:0` 으로 숨김 — `visibility:hidden` 은 포커스를 빼앗으므로 쓰지 않음; 명령이 끝나면 포커스가 비어 있을 때 입력으로 되돌림) 경로 세그먼트가 먼저 뜨고 git 세그먼트가 나중에 붙는 깜빡임이 없습니다; 2 초 안에 답이 없으면 git 없이 먼저 보입니다.
+- 탭이 보일 때만 읽습니다: `term.read` 롱폴링 루프(`wait` 1.5 s) — 출력·idle 변화·종료가 생기는 즉시 답이 옵니다. `idle` 이 아니면 프롬프트를 숨기고 Enter 는 실행 중 프로그램의 stdin 으로 갑니다(백엔드가 판단). git 상태는 명령이 끝났을 때(idle 복귀, `cmdSentRef`)와 cwd 가 바뀔 때 `git.status` 로 다시 읽습니다 — MyEditor 와 같이, 폴더의 첫 조회만 프롬프트를 기다리게 하고(`gitReady`; 그동안 `.term-live.pending` 의 `opacity:0` 으로 숨김 — `visibility:hidden` 은 포커스를 빼앗으므로 쓰지 않음), 이후엔 마지막 상태로 즉시 그린 뒤(`stale`) 새 상태가 다르면 색만 바뀝니다; 늦게 온 옛 조회는 seq 로 버립니다. 명령이 끝나면 포커스가 비어 있을 때 입력으로 되돌립니다. 기록(`transcript`)은 `useMemo` 로 묶어 키 입력마다 다시 그리지 않고, 출력은 `AnsiText` 로 ANSI 색을 살려 그립니다.
 - Tab → `term.complete`: 후보가 하나면 삽입(파일·명령 뒤엔 공백, 폴더 뒤엔 없음), 여럿이면 공통 접두사, 더 없으면 패널 폭에 맞춰 열로 나열. ↑↓ 기록(편집 중이던 줄 보존), Ctrl+L / `clear` / `cls`, Esc, 여러 줄 붙여넣기(줄마다 실행), 선택이 있을 때 Ctrl+C 는 복사.
 
 ## 6. 빌드·패키징
@@ -117,7 +118,7 @@ UI runJob('ops.transfer', …)            core: jobs.run(kind, meta, fn)
 
 - `test/archive.test.mjs`: 세 형식 왕복(한글·긴 이름·심볼릭 링크 포함), 분할/결합, 취소 시 잔여 파일 없음, 확장자 헬퍼.
 - `test/fsops.test.mjs`: 목록 메타데이터, 충돌(건너뛰기/덮어쓰기/모두 적용), 이동·자기 자신 안으로 이동 금지, 취소, mkdir/생성/이름 바꾸기/삭제, 검색, API 디스패치·세션.
-- `test/terminal.test.mjs`: 셸 목록, 세션 왕복(한글 echo, `cd` 후 cwd·`idle` 갱신, 마커 누출 없음, 실행 중 프로그램에 입력, 변수 유지, Tab 완성(파일/명령), 증분 읽기, kill), git 상태(저장소/비저장소), `term.*`/`git.status` 디스패치와 `shutdown`.
+- `test/terminal.test.mjs`: 셸 목록, 세션 왕복(한글 echo, `cd` 후 cwd·`idle` 갱신, 마커 누출 없음, 실행 중 프로그램에 입력, 변수 유지, Tab 완성(파일/명령), 증분 읽기, kill), git 상태(저장소/비저장소), `term.*`/`git.status` 디스패치, 롱폴링(타임아웃까지 대기 / 명령에 즉시 깨어남)과 `shutdown`.
 - `scripts/smoke.mjs`: 실제 Electron 을 별도 프로필로 띄워 스크린샷(`--scenario context|compress|search|about|light_en|delete|themes|error|theme_*|terminal|log|settings_terminal`), `--web` 이면 웹 서버를 띄우고 preload 없는 창으로 브라우저 모드를 캡처, `--probe <js>` 로 DOM 상태를 출력.
 
 ## 8. 설계 메모

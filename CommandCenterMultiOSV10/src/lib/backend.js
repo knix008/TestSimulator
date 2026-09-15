@@ -108,21 +108,6 @@ export function runJob(name, args, onUpdate) {
 export function cancelJob(id) { return call('jobs.cancel', { id }); }
 export function resolveConflict(id, answer, applyAll) { return call('jobs.resolveConflict', { id, answer, applyAll }); }
 
-// ── Terminal updates (desktop: pushed; web: the panel polls) ──
-
-let termUnsub = null;
-const termListeners = new Map(); // id → fn
-
-// Calls `onUpdate` whenever the host has something new for terminal `id`
-// (output, a finished command, a git state). Returns an unsubscribe fn;
-// returns null in the browser, where nothing is pushed.
-export function onTerminalUpdate(id, onUpdate) {
-  if (!isElectron || !electron.onTermUpdate) return null;
-  if (!termUnsub) termUnsub = electron.onTermUpdate((info) => { const fn = termListeners.get(info.id); if (fn) fn(info); });
-  termListeners.set(id, onUpdate);
-  return () => { if (termListeners.get(id) === onUpdate) termListeners.delete(id); };
-}
-
 // ── Directory watching ────────────────────────────────────
 
 let dirUnsub = null;

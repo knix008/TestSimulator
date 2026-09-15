@@ -20,7 +20,7 @@ Windows · macOS · Linux · **웹** 용 듀얼 패널 파일 관리자.
 | 압축 | `.tar.gz` `.tar.bz2` `.zip` 생성/해제, **분할 압축**(zip → `.zip`+`.z01`…, tar → `.tgz`+`.001`…; GTK 판과 호환), 분할 파일 더블클릭 시 자동 결합 해제, `.tar` `.gz` `.bz2` 해제, ZIP 한글 파일명(EUC-KR) 복원 |
 | 검색 | 재귀 파일 검색(F9): 이름 패턴(`*.txt`) + 내용 검색, 결과 더블클릭으로 해당 폴더 이동 |
 | UI | 16가지 테마(툴바 우측 분할 버튼: 클릭=다음 테마, ▾=목록), 한국어/영어(국기 아이콘 토글), **설정**(일반: 언어·테마·글꼴 크기·분할 기본 크기·숨김 파일·삭제 확인·마지막 폴더 복원·자동 새로고침 / 터미널: 기본 셸·시작 디렉터리), 프로그램 정보 버튼, 상태 표시줄 |
-| 하단 패널 | 파일 목록 아래의 탭 패널(``Ctrl+` ``). **로그** 탭: 모든 상태 메시지와 오류가 시각과 함께 쌓임(복사/지우기). **터미널** 탭: 원하는 만큼 열 수 있고(Windows: PowerShell · Command Prompt · PowerShell 7 · Git Bash, macOS/Linux: 로그인 셸 · bash · zsh · sh) 활성 패널 폴더 또는 설정한 시작 디렉터리에서 시작. MyEditor 와 같은 콘솔 — **oh-my-posh 스타일 프롬프트** `[📁 경로]▶[⎇ main ↑ + ~ ?]▶`(MyEditor 와 같은 규칙: 브랜치부터 한 블록이 저장소 상태 색 — 진홍 충돌 · 노랑 add 됨 / 커밋됨 · 빨강 수정됨 · 파랑 pull 필요 · 밝은 녹색 변경 없음·푸시됨; 기호 ↑ ↓ + ~ ? ! 는 해당하는 것만, 숫자 없음; 명령마다 갱신) 바로 뒤에서 입력(한글 IME 포함), **Tab 자동 완성**(명령·파일), ↑↓ 기록, 실행 중인 프로그램에 답 입력 가능 |
+| 하단 패널 | 파일 목록 아래의 탭 패널(``Ctrl+` ``). **로그** 탭: 모든 상태 메시지와 오류가 시각과 함께 쌓임(복사/지우기). **터미널** 탭: 원하는 만큼 열 수 있고(Windows: PowerShell · Command Prompt · PowerShell 7 · Git Bash, macOS/Linux: 로그인 셸 · bash · zsh · sh) 활성 패널 폴더 또는 설정한 시작 디렉터리에서 시작. MyEditor 와 같은 콘솔 — **oh-my-posh 스타일 프롬프트** `[📁 경로]▶[⎇ main ↑ + ~ ?]▶`(MyEditor 와 같은 규칙: 브랜치부터 한 블록이 저장소 상태 색 — 진홍 충돌 · 노랑 add 됨 / 커밋됨 · 빨강 수정됨 · 파랑 pull 필요 · 밝은 녹색 변경 없음·푸시됨; 기호 ↑ ↓ + ~ ? ! 는 해당하는 것만, 숫자 없음; 명령마다 갱신), 출력의 ANSI 색 표시 바로 뒤에서 입력(한글 IME 포함), **Tab 자동 완성**(명령·파일), ↑↓ 기록, 실행 중인 프로그램에 답 입력 가능 |
 | 오류 | 모든 오류는 팝업으로 — 메시지 + 자세한 내용(코드·경로·발생 프로세스의 스택) + **자세한 내용 복사** 버튼 |
 | 세션 | 마지막 좌/우 경로, 분할 위치, 정렬, 테마, 언어, 창 위치, 하단 패널 표시/높이, 터미널 기본 셸·시작 디렉터리를 저장하고 복원 |
 
@@ -104,7 +104,7 @@ core/       api.js fsops.js archive.js tar.js bzip2-worker.js jobs.js session.js
 electron/   main.js ipc.js preload.js                                             ← 데스크톱 호스트
 server/     server.js                                                             ← 웹 호스트 (http 모듈만 사용)
 src/        App.jsx themes.js styles.css main.jsx
-  lib/      backend.js i18n.js format.js
+  lib/      backend.js i18n.js format.js ansi.jsx
   components/ FilePanel.jsx FolderTree.jsx Chrome.jsx ContextMenu.jsx Icons.jsx BottomDock.jsx
   dialogs/  Dialogs.jsx SearchDialog.jsx SettingsDialog.jsx
 assets/     icon.svg

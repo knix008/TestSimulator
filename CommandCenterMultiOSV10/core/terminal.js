@@ -13,12 +13,11 @@
 // again (prompt shown) — while it is not, `run` feeds typed lines to the
 // running command's stdin; the marker is stripped from the output. Sourcing
 // keeps `cd`, shell variables and functions in the shell, as if typed.
-// As soon as the marker arrives the git state of the new directory is read
-// here and handed to the UI with the next `read` (`git`, null while it is
-// being read), so the prompt comes back in one piece without a second round
-// trip. Every change (output, marker, git) is announced with an 'update'
-// event, which the desktop host forwards over IPC so the UI reads at once
-// instead of waiting for its next poll.
+// `read({ wait })` is a long poll (as in MyEditor): with nothing new the
+// answer is held back until output arrives, the prompt comes back or the
+// shell exits, so the panel sees every change at once on both hosts. ANSI
+// colours (SGR) are kept for the panel to render; every other escape
+// sequence is dropped here.
 // Tab completion (`complete`) is done here too, as in MyEditor: the first
 // word from the shell's builtins plus the executables on PATH, every word
 // from the files of the directory it names.
@@ -39,7 +38,6 @@
 'use strict';
 
 const { spawn, execFile } = require('child_process');
-const { EventEmitter } = require('events');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -111,8 +109,9 @@ function shells() {
   return list;
 }
 
+// Every escape sequence but SGR colours ("\x1b[…m", rendered by the panel), a lone CR and BOMs.
 // eslint-disable-next-line no-control-regex
-const ANSI = /\x1b\[[0-9;?]*[ -/]*[@-~]|\x1b\][^\x07]*\x07|\r(?!\n)|\ufeff/g;
+const ANSI = /\x1b\[[0-9;?]*[ -/]*[@-lnp-~]|\x1b\][^\x07]*(?:\x07|\x1b\\)|\x1b[^[\]]|\r(?!\n)|\ufeff/g;
 const CWD_RE = new RegExp(`${MARK}([^\\r\\n]*)\\r?\\n?`, 'g');
 const PROMPT_RE = new RegExp(`(\\r?\\n)?${PROMPT_MARK}`, 'g');
 const MARK_AT_END = new RegExp(`${MARK}[^\\r\\n]*$`);
@@ -132,7 +131,9 @@ function killTree(proc) {
 function gitStatus(cwd) {
   return new Promise((resolve) => {
     if (!cwd || !fs.existsSync(cwd)) return resolve({ repo: false });
-    execFile('git', ['-C', cwd, '--no-optional-locks', 'status', '--porcelain=v2', '--branch', '--show-stash'], { windowsHide: true, maxBuffer: 8 << 20 }, (err, out) => {
+    // --ignore-submodules=dirty: files changed *inside* a submodule (build output, its own untracked files) do not
+    // count — only a submodule pointing at another commit does; otherwise such a repository never shows clean.
+    execFile('git', ['-C', cwd, '--no-optional-locks', 'status', '--porcelain=v2', '--branch', '--show-stash', '--ignore-submodules=dirty'], { windowsHide: true, maxBuffer: 8 << 20 }, (err, out) => {
       if (err) return resolve({ repo: false, error: /not a git repository/i.test(String(err.message)) ? null : err.message });
       const st = { repo: true, branch: '', upstream: '', ahead: 0, behind: 0, staged: 0, changed: 0, untracked: 0, conflicts: 0, stashes: 0 };
       for (const line of String(out).split('\n')) {
@@ -157,18 +158,10 @@ function gitStatus(cwd) {
 
 function createTerminals() {
   const sessions = new Map();
-  const events = new EventEmitter();
   let nextId = 1;
 
-  const notify = (s) => events.emit('update', { id: s.id });
-
-  // Reads the git state of the session's current directory; an older read
-  // that finishes later is dropped.
-  function refreshGit(s) {
-    const dir = s.cwd, seq = ++s.gitSeq;
-    s.git = null;
-    gitStatus(dir).then((g) => { if (s.gitSeq === seq && sessions.get(s.id) === s) { s.git = { ...g, dir, seq }; notify(s); } });
-  }
+  // Readers waiting in read({ wait }) are woken on any change of the session.
+  function wake(s) { const w = s.waiters; s.waiters = []; for (const f of w) f(); }
 
   function push(s, text) {
     // Pull the cwd / prompt markers out of the stream; everything else is output.
@@ -178,15 +171,20 @@ function createTerminals() {
     if (s.eatNewline) { t = t.replace(/^\r?\n/, ''); s.eatNewline = false; }
     if (MARK_AT_END.test(t)) s.eatNewline = true;
     let marked = false;
-    t = t.replace(CWD_RE, (_m, dir) => { s.cwd = dir.trim() || s.cwd; s.idle = true; marked = true; return ''; });
-    if (marked) refreshGit(s);
+    t = t.replace(CWD_RE, (_m, dir) => {
+      let d = dir.trim();
+      // Git Bash prints /d/Home/…; git and fs want D:/Home/…
+      if (process.platform === 'win32') d = d.replace(/^\/([a-zA-Z])(\/|$)/, (_x, l) => `${l.toUpperCase()}:/`);
+      s.cwd = d || s.cwd; s.idle = true; marked = true;
+      return '';
+    });
     if (s.def.batch) t = t.replace(PROMPT_RE, '');
     if (t) {
       s.seq++;
       s.chunks.push({ seq: s.seq, text: t });
       if (s.chunks.length > MAX_CHUNKS) s.chunks.splice(0, s.chunks.length - MAX_CHUNKS);
     }
-    if (t || marked) notify(s);
+    if (t || marked) wake(s);
   }
 
   function cleanup(s) {
@@ -202,7 +200,7 @@ function createTerminals() {
       let dir = cwd && fs.existsSync(cwd) ? cwd : os.homedir();
       try { if (!fs.statSync(dir).isDirectory()) dir = path.dirname(dir); } catch { dir = os.homedir(); }
       const id = nextId++;
-      const s = { id, shell: def.id, label: def.label, cwd: dir, chunks: [], seq: 0, exited: false, code: null, def, proc: null, eatNewline: false, idle: true, git: null, gitSeq: 0 };
+      const s = { id, shell: def.id, label: def.label, cwd: dir, chunks: [], seq: 0, exited: false, code: null, def, proc: null, eatNewline: false, idle: true, waiters: [] };
       s.scriptFile = path.join(os.tmpdir(), `cc-term-${process.pid}-${id}${def.ext}`);
       const env = { ...process.env, TERM: 'dumb', GIT_PAGER: 'cat', PAGER: 'cat', LANG: process.env.LANG || 'C.UTF-8' };
       if (def.batch) env.PROMPT = PROMPT_MARK;
@@ -211,11 +209,10 @@ function createTerminals() {
       proc.stdout.on('data', (d) => push(s, d.toString('utf8')));
       proc.stderr.on('data', (d) => push(s, d.toString('utf8')));
       proc.stdin.on('error', () => { /* the exit handler reports it */ });
-      proc.on('error', (err) => { push(s, `\n[${err.message}]\n`); s.exited = true; cleanup(s); notify(s); });
-      proc.on('exit', (code) => { s.exited = true; s.code = code; push(s, `\n[process exited with code ${code}]\n`); cleanup(s); notify(s); });
+      proc.on('error', (err) => { push(s, `\n[${err.message}]\n`); s.exited = true; cleanup(s); wake(s); });
+      proc.on('exit', (code) => { s.exited = true; s.code = code; push(s, `\n[process exited with code ${code}]\n`); cleanup(s); wake(s); });
       if (def.init) { try { proc.stdin.write(`${def.init}${def.eol}`); } catch { /* exited already */ } }
       sessions.set(id, s);
-      refreshGit(s);
       return { id, shell: s.shell, label: s.label, cwd: s.cwd };
     },
 
@@ -236,16 +233,23 @@ function createTerminals() {
       const { eol, cwdLine, bom, markerInFile, source } = s.def;
       if (!s.idle) { s.proc.stdin.write(`${line}${eol}`); return true; }
       s.idle = false;
+      wake(s);   // readers see the busy phase, so the return to idle (the prompt, a fresh git status) is never missed
       fs.writeFileSync(s.scriptFile, `${bom ? '\ufeff' : ''}${line}${eol}${markerInFile ? `${cwdLine}${eol}` : ''}`, 'utf8');
       s.proc.stdin.write(`${source(s.scriptFile)}${markerInFile ? '' : ` ${cwdLine}`}${eol}`);
       return true;
     },
 
-    read({ id, since = 0 }) {
+    // Long poll: with `wait` (ms) and nothing new since `since` / the given
+    // idle state, the answer is held back until something changes, so the
+    // panel sees output and the prompt's return at once.
+    async read({ id, since = 0, idle, wait = 0 }) {
       const s = sessions.get(id);
       if (!s) return null;
-      const chunks = since ? s.chunks.filter((c) => c.seq > since) : s.chunks;
-      return { id, chunks, seq: s.seq, cwd: s.cwd, idle: s.idle, git: s.git, exited: s.exited, code: s.code };
+      const snapshot = () => ({ id, chunks: since ? s.chunks.filter((c) => c.seq > since) : s.chunks, seq: s.seq, cwd: s.cwd, idle: s.idle, exited: s.exited, code: s.code });
+      const fresh = () => s.seq > since || (idle !== undefined && s.idle !== idle) || s.exited;
+      if (!wait || fresh()) return snapshot();
+      await new Promise((resolve) => { const t = setTimeout(resolve, Math.min(wait, 5000)); s.waiters.push(() => { clearTimeout(t); resolve(); }); });
+      return snapshot();
     },
 
     kill({ id }) {
@@ -254,16 +258,14 @@ function createTerminals() {
       killTree(s.proc);
       cleanup(s);
       sessions.delete(id);
+      wake(s);
       return true;
     },
 
     list: () => [...sessions.values()].map((s) => ({ id: s.id, shell: s.shell, label: s.label, cwd: s.cwd, idle: s.idle, exited: s.exited })),
 
-    // Git status of any directory (the UI re-reads a tab's state when it is activated).
+    // Git status of a directory, for the prompt.
     git: ({ cwd }) => gitStatus(cwd),
-
-    // 'update' {id}: new output, a finished command or a git state — the desktop host forwards it over IPC.
-    on: (ev, fn) => events.on(ev, fn),
 
     // Completions for the word at `cursor` in `line`: { start, quoted, word, lcp, items:[{ text, dir, cmd }] }.
     // `start` is where the word begins in the line, `lcp` the longest common
@@ -310,7 +312,7 @@ function createTerminals() {
     },
 
     shutdown() {
-      for (const s of sessions.values()) { killTree(s.proc); cleanup(s); }
+      for (const s of sessions.values()) { killTree(s.proc); cleanup(s); wake(s); }
       sessions.clear();
     },
   };

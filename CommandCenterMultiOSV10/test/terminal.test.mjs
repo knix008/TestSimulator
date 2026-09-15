@@ -26,7 +26,7 @@ async function rmrf(dir) {
 async function waitFor(terms, id, pred, ms = 8000) {
   const t0 = Date.now();
   for (;;) {
-    const r = terms.read({ id });
+    const r = await terms.read({ id });
     const text = r.chunks.map((c) => c.text).join('');
     if (pred(text, r)) return { text, r };
     if (Date.now() - t0 > ms) throw new Error(`timeout; transcript so far: ${JSON.stringify(text)} cwd=${r.cwd}`);
@@ -62,7 +62,7 @@ test('session: echo (non-ASCII), cd updates cwd, markers are stripped, kill', as
   const ask = process.platform === 'win32' ? '$n = Read-Host; echo "got:$n"' : 'read n; echo "got:$n"';
   assert.ok(terms.run({ id: s.id, line: ask }));
   await sleep(600);
-  assert.equal(terms.read({ id: s.id }).idle, false, 'busy while waiting for input');
+  assert.equal((await terms.read({ id: s.id })).idle, false, 'busy while waiting for input');
   assert.ok(terms.run({ id: s.id, line: '홍길동' }));
   const { r: r2 } = await waitFor(terms, s.id, (t, rr) => t.includes('got:홍길동') && rr.idle);
   assert.equal(r2.idle, true);
@@ -78,12 +78,12 @@ test('session: echo (non-ASCII), cd updates cwd, markers are stripped, kill', as
   assert.ok(terms.run({ id: s.id, line: 'echo "again:$v"' }));
   await waitFor(terms, s.id, (t) => t.includes('again:7'));
   // Incremental reads only return new chunks.
-  const all = terms.read({ id: s.id });
-  const none = terms.read({ id: s.id, since: all.seq });
+  const all = await terms.read({ id: s.id });
+  const none = await terms.read({ id: s.id, since: all.seq });
   assert.equal(none.chunks.length, 0);
   assert.ok(terms.list().some((x) => x.id === s.id));
   assert.ok(terms.kill({ id: s.id }));
-  assert.equal(terms.read({ id: s.id }), null);
+  assert.equal(await terms.read({ id: s.id }), null);
   assert.ok(!terms.list().some((x) => x.id === s.id));
   await rmrf(root);
 });
@@ -126,9 +126,17 @@ test('api: term.* and git.status are dispatched; shutdown kills sessions', async
   assert.equal(st.repo, false);
   const r = await api.call('term.read', { id: s.id, since: 0 });
   assert.equal(r.id, s.id);
-  // the host reads the git state itself and announces it
-  await new Promise((res) => { const t = setTimeout(res, 3000); api.terminals.on('update', () => { const rr = api.terminals.read({ id: s.id }); if (rr && rr.git) { clearTimeout(t); res(); } }); });
-  assert.equal((await api.call('term.read', { id: s.id, since: 0 })).git.repo, false);
+  // long poll: held back while nothing happens, answered at once when output arrives
+  const t0 = Date.now();
+  const held = await api.call('term.read', { id: s.id, since: r.seq, idle: true, wait: 400 });
+  assert.ok(Date.now() - t0 >= 350, 'waited for the timeout');
+  assert.equal(held.chunks.length, 0);
+  const pending = api.call('term.read', { id: s.id, since: r.seq, idle: true, wait: 5000 });
+  await new Promise((res) => setTimeout(res, 100));
+  await api.call('term.run', { id: s.id, line: 'echo woken' });
+  const woken = await pending;
+  assert.ok(Date.now() - t0 < 4000, 'woken by the command, not the timeout');
+  assert.equal(woken.idle, false);
   api.shutdown();
   assert.equal((await api.call('term.list', {})).length, 0);
   await rmrf(root);

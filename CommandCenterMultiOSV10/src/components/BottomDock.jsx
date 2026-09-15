@@ -9,17 +9,13 @@
 // is typed.
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { t, useLanguage } from '../lib/i18n';
-import { call, writeClipboardText, onTerminalUpdate } from '../lib/backend';
+import { call, writeClipboardText } from '../lib/backend';
+import { AnsiText } from '../lib/ansi.jsx';
 import { Icon } from './Icons';
 import { ContextMenu } from './ContextMenu';
 
-// Polling: fast while a command runs or the prompt waits for git, slow when
-// idle. On the desktop the host also pushes updates, so the poll is only a
-// safety net there.
-const POLL_BUSY_MS = 50;
-const POLL_IDLE_MS = 250;
+const WAIT_MS = 1500;     // long poll: the backend answers as soon as something happens, or after this
 const MAX_LINES = 10000;  // lines kept per terminal transcript (a long `git log` stays complete)
-const GIT_WAIT_MS = 2000; // the prompt waits this long for git status before showing without it
 
 function timeOf(ts) {
   const d = new Date(ts);
@@ -88,7 +84,7 @@ function gitClass(git) {
   return git.conflicts ? 'conflict' : git.staged ? 'staged' : git.changed ? 'modified' : git.ahead ? 'ahead' : git.behind ? 'behind' : 'uptodate';
 }
 
-function Prompt({ cwd, git }) {
+function Prompt({ cwd, git, stale = false }) {
   const repo = git && git.repo;
   const dirty = repo ? git.staged + git.changed + git.untracked + git.conflicts > 0 : false;
   const cls = gitClass(git);
@@ -100,7 +96,7 @@ function Prompt({ cwd, git }) {
     <span className="term-prompt" title={cwd}>
       <span className="seg seg-path"><Icon name="folder" size={12} /> {cwd}</span>
       {repo && (
-        <span className={`seg seg-git ${cls}`} title={tip}>
+        <span className={`seg seg-git ${cls} ${stale ? 'stale' : ''}`} title={tip}>
           <span className="g-branch"><Icon name="gitBranch" size={12} /> {git.branch || '(detached)'}</span>
           {(git.ahead > 0 || git.behind > 0 || dirty) && ' '}
           {git.ahead > 0 && <span className="g-ahead">↑</span>}{git.behind > 0 && <span className="g-behind">↓</span>}
@@ -151,45 +147,37 @@ function columns(names, width) {
 function TerminalView({ term, active, onExit }) {
   useLanguage();
   const [entries, setEntries] = useState(() => (Array.isArray(term.buffer) ? term.buffer : []));
-  const [git, setGit] = useState(term.git || null);
-  // The folder `git` was computed for. The prompt is drawn only once the git
-  // state of the current folder is known, so it appears complete — not the
-  // path first and the git segment a moment later.
-  const [gitDir, setGitDir] = useState(term.gitDir || null);
+  const [git, setGit] = useState(term.git === undefined ? null : term.git);
   const [input, setInput] = useState('');
   const [hist, setHist] = useState({ list: [], idx: -1, draft: '' });
   const outRef = useRef(null);
   const inputRef = useRef(null);
   const seqRef = useRef(term.seq || 0);
   const cwdRef = useRef(term.cwd);
-  const gitRef = useRef(term.git || null);
-  const gitDirRef = useRef(term.gitDir || null);   // gitDir as a ref (kept in sync by takeGit/waitGit) for the poll scheduler
+  const gitRef = useRef(term.git);
   const [cwd, setCwd] = useState(term.cwd);
   const [idle, setIdle] = useState(term.idle !== false);
   const idleRef = useRef(term.idle !== false);
   const [exited, setExited] = useState(!!term.exited);
-  const busyRef = useRef(false);
-  const pollRef = useRef({ tick: () => {}, schedule: () => {} });   // the poll loop, so `run` can read right away
+  const cmdSentRef = useRef(false);   // a command went to the shell since the last git status
 
-  // Results for a folder the shell has already left are dropped (a refresh
-  // for "command finished" can race with the one for "cwd changed").
-  // The git state normally arrives with `term.read` (the host reads it as
-  // soon as a command finishes). `waitGit` hides the prompt until the state
-  // of the current folder is in — at most GIT_WAIT_MS, then it shows without.
-  const gitTimer = useRef(null);
-  const takeGit = useCallback((g) => { gitRef.current = g; setGit(g); gitDirRef.current = g ? g.dir : cwdRef.current; setGitDir(gitDirRef.current); clearTimeout(gitTimer.current); }, []);
-  const waitGit = useCallback(() => {
-    const dir = cwdRef.current;
-    gitDirRef.current = null; setGitDir(null);
-    clearTimeout(gitTimer.current);
-    gitTimer.current = setTimeout(() => { if (cwdRef.current === dir && !gitDirRef.current) { gitDirRef.current = dir; setGitDir(dir); } }, GIT_WAIT_MS);
-  }, []);
-  // Re-read quietly (tab activation): the prompt stays while the answer comes.
+  // The git status of the current directory (as in MyEditor): the prompt
+  // never appears bare and then grows a git block — while the first status
+  // of a directory is being read the prompt waits; after that (a command
+  // finished in the same directory) the prompt is drawn at once with the last
+  // known state and recoloured only if the fresh status differs (a status of
+  // a big repository takes a few hundred ms). A stale answer is ignored.
+  const [gitReady, setGitReady] = useState(term.gitCwd === term.cwd);
+  const [gitStale, setGitStale] = useState(false);
+  const gitSeq = useRef(0);
+  const gitCwdRef = useRef(term.gitCwd || null);   // directory the current git state belongs to
   const refreshGit = useCallback(() => {
+    const my = ++gitSeq.current;
     const dir = cwdRef.current;
-    call('git.status', { cwd: dir }).then((g) => { if (cwdRef.current === dir) takeGit({ ...g, dir }); }).catch(() => {});
-  }, [takeGit]);
-  useEffect(() => () => clearTimeout(gitTimer.current), []);
+    if (gitCwdRef.current === dir && gitRef.current !== undefined) setGitStale(true); else { setGitReady(false); setGitStale(false); }
+    call('git.status', { cwd: dir }).then((g) => { if (my !== gitSeq.current) return; gitRef.current = g; gitCwdRef.current = dir; setGit(g); setGitReady(true); setGitStale(false); })
+      .catch(() => { if (my !== gitSeq.current) return; gitRef.current = null; gitCwdRef.current = dir; setGit(null); setGitReady(true); setGitStale(false); });
+  }, []);
   const append = useCallback((text) => setEntries((prev) => appendText(prev, text)), []);
   // A line typed at the prompt (or, while a command runs, fed to it).
   const echo = useCallback((line) => {
@@ -197,49 +185,48 @@ function TerminalView({ term, active, onExit }) {
     else append(line + '\n');
   }, [append]);
 
-  // Read the shell while the tab is visible: at once when the host pushes an
-  // update (desktop), and on a timer — fast while busy, slow when idle.
+  // Read the shell output while the tab is visible: a long poll, answered
+  // the moment there is output, the prompt comes back or the shell exits.
   useEffect(() => {
     if (!active) return undefined;
-    let stop = false, again = false, timer = null;
-    const tick = async () => {
-      if (stop) return;
-      if (busyRef.current) { again = true; return; }
-      busyRef.current = true;
-      try {
-        const r = await call('term.read', { id: term.id, since: seqRef.current });
-        if (stop || !r) return;
-        if (r.chunks.length) { seqRef.current = r.seq; append(r.chunks.map((c) => c.text).join('')); }
-        if (r.cwd !== cwdRef.current) { cwdRef.current = r.cwd; setCwd(r.cwd); term.cwd = r.cwd; waitGit(); }
-        const idleNow = r.idle !== false;
-        if (idleNow !== idleRef.current) {
-          idleRef.current = idleNow; setIdle(idleNow); term.idle = idleNow;
-          if (idleNow) {
-            waitGit();
+    let stop = false;
+    const loop = async () => {
+      while (!stop) {
+        try {
+          const r = await call('term.read', { id: term.id, since: seqRef.current, idle: idleRef.current, wait: WAIT_MS });
+          if (stop) return;
+          if (!r) { setExited(true); return; }
+          if (r.chunks.length) { seqRef.current = r.seq; append(r.chunks.map((c) => c.text).join('')); }
+          const idleNow = r.idle !== false;
+          const cwdChanged = r.cwd !== cwdRef.current;
+          if (cwdChanged) { cwdRef.current = r.cwd; setCwd(r.cwd); term.cwd = r.cwd; }
+          if (idleNow !== idleRef.current) { idleRef.current = idleNow; setIdle(idleNow); term.idle = idleNow; }
+          // The git status is re-read when a command has finished — the shell is idle again after a command was
+          // sent (a fast command without output never shows as busy, so the sent flag is what counts) — or the
+          // directory changed.
+          const idleChanged = idleChangedTo(r);   // tracked on every answer, busy ones included
+          if (cwdChanged || (idleNow && (idleChanged || cmdSentRef.current))) {
+            cmdSentRef.current = false;
+            refreshGit();
             // The prompt is back: if nothing else took the focus meanwhile, typing continues here.
             const el = inputRef.current, ae = document.activeElement;
             if (el && (!ae || ae === document.body || (outRef.current && outRef.current.contains(ae)))) el.focus({ preventScroll: true });
           }
-        }
-        // The git state the host read for the current folder (null while it is still reading).
-        if (r.git && r.git.dir === r.cwd && (!gitRef.current || gitRef.current.seq !== r.git.seq)) takeGit(r.git);
-        if (r.exited && !exited) { setExited(true); term.exited = true; onExit(term.id); }
-      } catch { /* transient */ } finally {
-        busyRef.current = false;
-        if (again && !stop) { again = false; tick(); }
+          if (r.exited) { if (!exited) { setExited(true); term.exited = true; onExit(term.id); } return; }
+        } catch { await new Promise((res) => setTimeout(res, 300)); }
       }
     };
-    const schedule = () => { clearTimeout(timer); timer = setTimeout(() => { tick().finally(schedule); }, idleRef.current && gitDirRef.current === cwdRef.current ? POLL_IDLE_MS : POLL_BUSY_MS); };
-    pollRef.current = { tick, schedule };
-    tick().finally(schedule);
-    const unsub = onTerminalUpdate(term.id, () => { tick(); });
-    return () => { stop = true; clearTimeout(timer); if (unsub) unsub(); pollRef.current = { tick: () => {}, schedule: () => {} }; };
+    let lastIdle = idleRef.current;
+    const idleChangedTo = (r) => { const now = r.idle !== false; const changed = now !== lastIdle; lastIdle = now; return changed; };
+    loop();
+    return () => { stop = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active, term.id]);
-  useEffect(() => { if (active && gitDirRef.current) refreshGit(); }, [active, refreshGit]);
-  // Keep the transcript on the tab object so it survives switching tabs.
-  useEffect(() => { term.buffer = entries; term.seq = seqRef.current; term.git = git; term.gitDir = gitDir; }, [entries, git, gitDir, term]);
-  useEffect(() => { const el = outRef.current; if (el) el.scrollTop = el.scrollHeight; }, [entries, input, idle]);
+
+  useEffect(() => { if (!gitReady) refreshGit(); }, [refreshGit]);   // eslint-disable-line react-hooks/exhaustive-deps
+  // Keep the transcript and the git state on the tab object so they survive switching tabs.
+  useEffect(() => { term.buffer = entries; term.seq = seqRef.current; term.git = git; term.gitCwd = gitReady ? gitCwdRef.current : null; }, [entries, git, gitReady, term]);
+  useEffect(() => { const el = outRef.current; if (el) el.scrollTop = el.scrollHeight; }, [entries, input, idle, gitReady]);
   useEffect(() => { if (active && inputRef.current) inputRef.current.focus(); }, [active]);
 
   const run = async (line) => {
@@ -249,11 +236,9 @@ function TerminalView({ term, active, onExit }) {
       if (!cmd) return;
       setHist((h) => ({ list: [...h.list.filter((x) => x !== cmd), cmd].slice(-200), idx: -1, draft: '' }));
       if (cmd === 'clear' || cmd === 'cls') { setEntries([]); return; }
-      idleRef.current = false; setIdle(false); term.idle = false;   // the poll confirms it when the marker comes back
+      cmdSentRef.current = true;
     }
     try { await call('term.run', { id: term.id, line: cmd }); } catch (err) { append(`\n[${err.message}]\n`); }
-    // Read at once and keep reading fast: the idle timer may still be a long way off.
-    pollRef.current.tick(); pollRef.current.schedule();
   };
 
   // Tab: complete the word at the cursor — a single candidate is inserted (a
@@ -323,17 +308,17 @@ function TerminalView({ term, active, onExit }) {
   // The transcript only re-renders when it changes — not on every keystroke.
   const transcript = useMemo(() => entries.map((e, i) => (e.k === 'cmd'
     ? <React.Fragment key={i}><Prompt cwd={e.cwd} git={e.git} />{e.line}{'\n'}</React.Fragment>
-    : <React.Fragment key={i}>{e.text}</React.Fragment>)), [entries]);
+    : <React.Fragment key={i}><AnsiText text={e.text} /></React.Fragment>)), [entries]);
 
   return (
     <div className={`dock-view term-view ${active ? '' : 'hidden'}`}>
       <pre className="term-out selectable" ref={outRef} onClick={() => { if (!window.getSelection().toString() && inputRef.current) inputRef.current.focus(); }}>
         {transcript}
         {!exited && (
-          // While the git state of the folder is still being read the prompt line is kept invisible
+          // While the first git status of a directory is being read the prompt line is kept invisible
           // (opacity, not unmounted or visibility:hidden: the input keeps the focus and what is typed meanwhile).
-          <span className={`term-live ${idle && gitDir !== cwd ? 'pending' : ''}`}>
-            {idle && <Prompt cwd={cwd} git={gitDir === cwd ? git : null} />}
+          <span className={`term-live ${idle && !gitReady ? 'pending' : ''}`}>
+            {idle && gitReady && <Prompt cwd={cwd} git={git} stale={gitStale} />}
             <span className="term-inline" data-value={input}>
               <input ref={inputRef} value={input} title={t('term_placeholder')} spellCheck={false} autoComplete="off" autoCapitalize="off" autoCorrect="off"
                 onChange={(e) => setInput(e.target.value)} onKeyDown={onKey} onPaste={onPaste} />

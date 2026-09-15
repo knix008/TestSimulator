@@ -87,7 +87,7 @@ function createApi(host = {}) {
     'term.create': async ({ cwd, shell }) => terminals.create({ cwd, shell }),
     'term.run': async ({ id, line }) => ({ ok: terminals.run({ id, line: String(line == null ? '' : line) }) }),
     'term.write': async ({ id, data }) => ({ ok: terminals.write({ id, data: String(data || '') }) }),
-    'term.read': async ({ id, since }) => terminals.read({ id, since: Number(since) || 0 }),
+    'term.read': async ({ id, since, idle, wait }) => terminals.read({ id, since: Number(since) || 0, idle: idle === undefined ? undefined : !!idle, wait: Number(wait) || 0 }),
     'term.kill': async ({ id }) => ({ ok: terminals.kill({ id }) }),
     'term.list': async () => terminals.list(),
     'term.complete': async ({ id, line, cursor }) => terminals.complete({ id, line: String(line || ''), cursor }),

@@ -152,7 +152,7 @@ export default function App() {
         if (!ok) { addLog('error', t('set_term_cwd_missing', { path: cwd })); cwd = ''; }
       }
       const r = await call('term.create', { cwd: cwd || pathOf(active), shell: shell || session.termShell || undefined });
-      const tm = { id: r.id, title: `${r.label} ${termNo.current++}`, shell: r.shell, cwd: r.cwd, exited: false, idle: true, buffer: [], seq: 0, git: null };
+      const tm = { id: r.id, title: `${r.label} ${termNo.current++}`, shell: r.shell, cwd: r.cwd, exited: false, idle: true, buffer: [], seq: 0, git: undefined, gitCwd: null };
       setTerms((ts) => [...ts, tm]);
       setDockTab(r.id);
       if (!session.dockVisible) showDock(true);
