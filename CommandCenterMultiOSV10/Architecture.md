@@ -97,7 +97,7 @@ UI runJob('ops.transfer', …)            core: jobs.run(kind, meta, fn)
 ### 터미널 UI (`BottomDock.jsx` 의 `TerminalView`)
 
 - 기록(`<pre>`)은 `cmd`(그 순간의 cwd·git + 입력한 줄) / `out`(셸 출력) 항목 배열로, 3000줄을 넘으면 앞에서 잘라냅니다. 탭 객체(`term.buffer/seq/git/idle`)에 보관하므로 탭 전환·패널 숨김 후에도 그대로입니다.
-- 기록 끝에 **oh-my-posh 식 프롬프트**(`Prompt`): 경로 세그먼트 + git 세그먼트. 각 세그먼트는 CSS `clip-path` 로 오른쪽이 뾰족한 블록이고 다음 세그먼트가 그 아래로 겹쳐 파워라인 화살표가 되므로 특수 폰트가 필요 없습니다. git 세그먼트 색: clean=`--ok`, dirty=`--folder`, conflict=`--danger`.
+- 기록 끝에 **oh-my-posh 식 프롬프트**(`Prompt`): 경로 세그먼트 + git 세그먼트. 각 세그먼트는 CSS `clip-path` 로 오른쪽이 뾰족한 블록이고 다음 세그먼트가 그 아래로 겹쳐 파워라인 화살표가 되므로 특수 폰트가 필요 없습니다. git 세그먼트는 브랜치 이름만 보이고 색이 상태를 말합니다(`gitState`): changed=`--danger`(작업 트리 변경) > committed=`--folder`(원격보다 앞선 커밋) > clean=`--ok`; 개수는 툴팁에.
 - 프롬프트 바로 뒤에 `inline-grid` 로 값 너비만큼 늘어나는 `<input>`(`::after` 가 값을 거울처럼 그려 폭을 정함) — 네이티브 캐럿과 IME 를 그대로 씁니다. 출력을 클릭하면(선택 중이 아닐 때) 입력으로 포커스.
 - 탭이 보일 때만 `term.read` 를 150 ms 폴링. `idle` 이 아니면 프롬프트를 숨기고 Enter 는 실행 중 프로그램의 stdin 으로 갑니다(백엔드가 판단). 마커가 오면 idle 로 돌아오며 git 상태를 다시 읽습니다. `git.status` 는 명령 완료·cwd 변경·탭 활성화 시 갱신하되 이미 떠난 폴더의 결과는 버립니다.
 - Tab → `term.complete`: 후보가 하나면 삽입(파일·명령 뒤엔 공백, 폴더 뒤엔 없음), 여럿이면 공통 접두사, 더 없으면 패널 폭에 맞춰 열로 나열. ↑↓ 기록(편집 중이던 줄 보존), Ctrl+L / `clear` / `cls`, Esc, 여러 줄 붙여넣기(줄마다 실행), 선택이 있을 때 Ctrl+C 는 복사.

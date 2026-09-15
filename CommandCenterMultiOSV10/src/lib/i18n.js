@@ -73,6 +73,8 @@ const ko = {
   log: '로그', log_clear: '로그 지우기', log_copy: '로그 복사', log_copied: '로그를 클립보드에 복사했습니다.', log_empty: '아직 기록이 없습니다. 파일 작업의 결과와 오류가 여기에 쌓입니다.',
   terminal: '터미널', term_new: '새 터미널', term_new_shell: '셸을 골라 새 터미널…', term_close: '터미널 닫기', term_empty: '열린 터미널이 없습니다. + 를 눌러 활성 패널 폴더에서 셸을 시작하세요.',
   term_placeholder: '명령을 입력하고 Enter (Tab 자동 완성 · ↑↓ 기록 · Ctrl+L 지우기)', term_opened: "터미널 '{name}' 시작 — {cwd}", term_closed: "터미널 '{name}' 닫음",
+  term_git_tip: 'Git: {branch}{upstream} — {state}\n앞선 커밋 {ahead} · 뒤진 커밋 {behind} · 스테이지 {staged} · 수정 {changed} · 추적 안 함 {untracked} · 충돌 {conflicts}',
+  term_git_clean: '변경 없음', term_git_committed: '커밋됨 (푸시 안 됨)', term_git_changed: '변경 있음',
   set_general: '일반', set_terminal: '터미널', set_term_shell: '기본 셸', set_term_shell_default: '기본 ({name})', set_term_cwd: '시작 디렉터리', set_term_cwd_default: '(활성 패널의 폴더)',
   set_term_cwd_hint: '새 터미널이 시작하는 디렉터리. 비우면 활성 패널에 열린 폴더에서 시작합니다.', set_browse: '찾아보기…', set_term_cwd_missing: "시작 디렉터리 '{path}'가 없어 활성 패널의 폴더에서 시작합니다.",
 };
@@ -149,6 +151,8 @@ const en = {
   log: 'Log', log_clear: 'Clear log', log_copy: 'Copy log', log_copied: 'Log copied to the clipboard.', log_empty: 'Nothing yet. Results and errors of file operations collect here.',
   terminal: 'Terminal', term_new: 'New terminal', term_new_shell: 'New terminal with a shell…', term_close: 'Close terminal', term_empty: 'No terminal is open. Press + to start a shell in the active panel\'s folder.',
   term_placeholder: 'Type a command and press Enter (Tab completion · ↑↓ history · Ctrl+L clear)', term_opened: "Terminal '{name}' started — {cwd}", term_closed: "Terminal '{name}' closed",
+  term_git_tip: 'Git: {branch}{upstream} — {state}\nahead {ahead} · behind {behind} · staged {staged} · modified {changed} · untracked {untracked} · conflicts {conflicts}',
+  term_git_clean: 'clean', term_git_committed: 'committed, not pushed', term_git_changed: 'changes in the working tree',
   set_general: 'General', set_terminal: 'Terminal', set_term_shell: 'Default shell', set_term_shell_default: 'Default ({name})', set_term_cwd: 'Start directory', set_term_cwd_default: "(the active panel's folder)",
   set_term_cwd_hint: 'Where a new terminal starts. Leave empty for the folder open in the active panel.', set_browse: 'Browse…', set_term_cwd_missing: "Start directory '{path}' does not exist; starting in the active panel's folder.",
 };

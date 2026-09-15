@@ -67,19 +67,31 @@ function LogView({ entries, onClear, onCopy }) {
 // was. While a command runs the prompt is absent and typed lines go to that
 // command's stdin.
 
-// One prompt: [ 📁 dir ]▶[ ⎇ branch ↑1 ↓2 +3 ~4 ?5 !6 ]▶ — the command is typed right after the last arrow.
+// One prompt: [ 📁 dir ]▶[ ⎇ branch ]▶ — the command is typed right after the last arrow.
+// The git segment is coloured by the state of the repository, no numbers:
+//   green  — nothing changed (working tree clean, nothing to push)
+//   yellow — committed but not pushed (ahead of the remote)
+//   red    — changes in the working tree (modified / staged / untracked / conflicts)
+// The details are in the tooltip.
+function gitState(git) {
+  if (!git || !git.repo) return null;
+  if (git.staged + git.changed + git.untracked + git.conflicts > 0) return 'changed';
+  if (git.ahead > 0) return 'committed';
+  return 'clean';
+}
+
 function Prompt({ cwd, git }) {
-  const repo = git && git.repo;
-  const dirty = repo ? git.staged + git.changed + git.untracked + git.conflicts > 0 : false;
-  const cls = repo ? (git.conflicts ? 'conflict' : dirty ? 'dirty' : 'clean') : '';
+  const state = gitState(git);
+  const tip = state ? t('term_git_tip', {
+    branch: git.branch || '(detached)', upstream: git.upstream ? ` → ${git.upstream}` : '', state: t(`term_git_${state}`),
+    ahead: git.ahead, behind: git.behind, staged: git.staged, changed: git.changed, untracked: git.untracked, conflicts: git.conflicts,
+  }) : '';
   return (
     <span className="term-prompt" title={cwd}>
       <span className="seg seg-path"><Icon name="folder" size={12} /> {cwd}</span>
-      {repo && (
-        <span className={`seg seg-git ${cls}`}>
+      {state && (
+        <span className={`seg seg-git ${state}`} title={tip}>
           <Icon name="gitBranch" size={12} /> {git.branch || '(detached)'}
-          {git.ahead > 0 && ` ↑${git.ahead}`}{git.behind > 0 && ` ↓${git.behind}`}
-          {git.staged > 0 && ` +${git.staged}`}{git.changed > 0 && ` ~${git.changed}`}{git.untracked > 0 && ` ?${git.untracked}`}{git.conflicts > 0 && ` !${git.conflicts}`}
         </span>
       )}
       {' '}
