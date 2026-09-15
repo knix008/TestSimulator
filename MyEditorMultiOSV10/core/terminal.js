@@ -210,11 +210,11 @@ function createTerminals() {
     git({ cwd }) {
       return new Promise((resolve) => {
         if (!cwd || !fs.existsSync(cwd)) return resolve({ repo: false });
-        execFile('git', ['-C', cwd, 'rev-parse', '--show-toplevel'], { windowsHide: true }, (err, top) => {
-          if (err) return resolve({ repo: false, error: /not a git repository/i.test(String(err.message)) ? null : err.message });
+        // One git process: status itself says when this is not a repository.
+        {
           execFile('git', ['-C', cwd, '--no-optional-locks', 'status', '--porcelain=v2', '--branch', '--ignore-submodules=dirty'], { windowsHide: true, maxBuffer: 8 << 20 }, (err2, out) => {
-            if (err2) return resolve({ repo: true, root: top.trim(), error: err2.message });
-            const st = { repo: true, root: top.trim(), branch: '', upstream: '', ahead: 0, behind: 0, staged: 0, changed: 0, untracked: 0, conflicts: 0, files: [] };
+            if (err2) return resolve(/not a git repository/i.test(String(err2.message)) ? { repo: false } : { repo: true, error: err2.message });
+            const st = { repo: true, branch: '', upstream: '', ahead: 0, behind: 0, staged: 0, changed: 0, untracked: 0, conflicts: 0, files: [] };
             for (const line of String(out).split('\n')) {
               if (!line) continue;
               if (line.startsWith('# branch.head ')) st.branch = line.slice(14).trim();
@@ -232,7 +232,7 @@ function createTerminals() {
             st.files = st.files.slice(0, 200);
             resolve(st);
           });
-        });
+        }
       });
     },
 

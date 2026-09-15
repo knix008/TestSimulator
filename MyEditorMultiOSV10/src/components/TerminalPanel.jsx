@@ -18,7 +18,7 @@ const WAIT_MS = 1500;   // long poll: the backend answers as soon as something h
 const MAX_LINES = 3000;
 
 // One prompt: [ 📁 dir ]▶[ ⎇ branch ↑1 ↓2 +3 ~4 ?5 !6 ]▶ — the command is typed right after the last arrow.
-function Prompt({ cwd, git }) {
+function Prompt({ cwd, git, stale = false }) {
   const repo = git && git.repo;
   const dirty = repo ? git.staged + git.changed + git.untracked + git.conflicts > 0 : false;
   // The state of the repository colours the whole block, from the branch name on (the first that applies):
@@ -32,7 +32,7 @@ function Prompt({ cwd, git }) {
       <span className="seg seg-path"><Icon name="folder" size={12} /> {cwd}</span>
       {repo && (
         <>
-          <span className={`seg seg-git ${cls}`}>
+          <span className={`seg seg-git ${cls} ${stale ? 'stale' : ''}`}>
             {/* the branch coloured by the overall state (green clean · yellow changes · red conflicts), then one coloured
                 symbol per kind of status that applies — no counts: ↑ ahead · ↓ behind · + staged · ~ changed · ? untracked · ! conflicts */}
             <span className="g-branch"><Icon name="gitBranch" size={12} /> {git.branch || '(detached)'}</span>
@@ -101,16 +101,22 @@ function TerminalView({ term, active, onExit }) {
   const busyRef = useRef(false);
   const cmdSentRef = useRef(false);   // a command went to the shell since the last git status
 
-  // The prompt is drawn only once the git status of the current directory
-  // is known (no bare prompt that then redraws with the git segment): every
-  // refresh hides it until its answer arrives; a stale answer is ignored.
+  // The git status of the current directory: the prompt never appears bare
+  // and then grows a git block — while the first status of a directory is
+  // being read the prompt waits; after that (a command finished in the same
+  // directory) the prompt is drawn at once with the last known state and
+  // recoloured only if the fresh status differs (a
+  // status of a big repository takes a few hundred ms). A stale answer is ignored.
   const [gitReady, setGitReady] = useState(false);
+  const [gitStale, setGitStale] = useState(false);
   const gitSeq = useRef(0);
+  const gitCwdRef = useRef(null);   // directory the current git state belongs to
   const refreshGit = useCallback(() => {
     const my = ++gitSeq.current;
-    setGitReady(false);
-    call('git.status', { cwd: cwdRef.current }).then((g) => { if (my !== gitSeq.current) return; gitRef.current = g; setGit(g); setGitReady(true); })
-      .catch(() => { if (my !== gitSeq.current) return; gitRef.current = null; setGit(null); setGitReady(true); });
+    const dir = cwdRef.current;
+    if (gitCwdRef.current === dir && gitRef.current !== undefined) setGitStale(true); else { setGitReady(false); setGitStale(false); }
+    call('git.status', { cwd: dir }).then((g) => { if (my !== gitSeq.current) return; gitRef.current = g; gitCwdRef.current = dir; setGit(g); setGitReady(true); setGitStale(false); })
+      .catch(() => { if (my !== gitSeq.current) return; gitRef.current = null; gitCwdRef.current = dir; setGit(null); setGitReady(true); setGitStale(false); });
   }, []);
   const append = useCallback((text) => setEntries((prev) => appendText(prev, text)), []);
   // A line typed at the prompt (or, while a command runs, fed to it).
@@ -215,7 +221,7 @@ function TerminalView({ term, active, onExit }) {
         {entries.map((e, i) => (e.k === 'cmd'
           ? <React.Fragment key={i}><Prompt cwd={e.cwd} git={e.git} />{e.line}{'\n'}</React.Fragment>
           : <React.Fragment key={i}><AnsiText text={e.text} /></React.Fragment>))}
-        {!exited && idle && gitReady && <Prompt cwd={cwd} git={git} />}
+        {!exited && idle && gitReady && <Prompt cwd={cwd} git={git} stale={gitStale} />}
         {!exited && (
           <span className="term-inline" data-value={input}>
             <input ref={inputRef} value={input} title={t('term_placeholder')} spellCheck={false} autoComplete="off" autoCapitalize="off"
