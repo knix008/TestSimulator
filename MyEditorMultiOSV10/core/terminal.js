@@ -111,12 +111,15 @@ function createTerminals() {
   const sessions = new Map();
   let nextId = 1;
 
+  // Readers waiting in read({ wait }) are woken on any change of the session.
+  function wake(s) { const w = s.waiters; s.waiters = []; for (const f of w) f(); }
+
   function push(s, text) {
     // Pull the cwd markers out of the stream; everything else is output. A
     // marker (and, for cmd, the blank line before it) may be split across
     // chunks, so the tail that could still become one is held back.
     s.pending += text.replace(/\r\n/g, '\n').replace(ANSI, '');
-    s.pending = s.pending.replace(s.def.blankBeforeMark ? BLANK_MARK_RE : MARK_RE, (_m, dir) => { let d = dir.trim(); if (process.platform === 'win32') d = d.replace(/^\/([a-zA-Z])(\/|$)/, (_x, l) => `${l.toUpperCase()}:/`); s.cwd = d || s.cwd; s.idle = true; return ''; });
+    s.pending = s.pending.replace(s.def.blankBeforeMark ? BLANK_MARK_RE : MARK_RE, (_m, dir) => { let d = dir.trim(); if (process.platform === 'win32') d = d.replace(/^\/([a-zA-Z])(\/|$)/, (_x, l) => `${l.toUpperCase()}:/`); s.cwd = d || s.cwd; s.idle = true; s.changed = true; return ''; });
     const nl = s.pending.lastIndexOf('\n');
     const tail = s.pending.slice(nl + 1);
     let cut = s.pending.length;
@@ -124,10 +127,12 @@ function createTerminals() {
     if (s.def.blankBeforeMark && !s.idle && cut > 0 && s.pending[cut - 1] === '\n') cut--;   // the blank line before the marker still to come
     const t = s.pending.slice(0, cut);
     s.pending = s.pending.slice(cut);
-    if (!t) return;
+    if (!t) { if (s.changed) { s.changed = false; wake(s); } return; }
     s.seq++;
     s.chunks.push({ seq: s.seq, text: t });
     if (s.chunks.length > MAX_CHUNKS) s.chunks.splice(0, s.chunks.length - MAX_CHUNKS);
+    s.changed = false;
+    wake(s);
   }
 
   return {
@@ -139,7 +144,7 @@ function createTerminals() {
       let dir = cwd && fs.existsSync(cwd) ? cwd : os.homedir();
       try { if (!fs.statSync(dir).isDirectory()) dir = path.dirname(dir); } catch { dir = os.homedir(); }
       const id = nextId++;
-      const s = { id, shell: def.id, label: def.label, cwd: dir, chunks: [], seq: 0, pending: '', idle: !!def.cwdLine, exited: false, code: null, def, proc: null };
+      const s = { id, shell: def.id, label: def.label, cwd: dir, chunks: [], seq: 0, pending: '', idle: !!def.cwdLine, waiters: [], changed: false, exited: false, code: null, def, proc: null };
       const proc = spawn(def.cmd, def.args, { cwd: dir, stdio: 'pipe', windowsHide: true, env: { ...process.env, TERM: 'xterm-256color', COLORTERM: 'truecolor', FORCE_COLOR: '1', CLICOLOR_FORCE: '1', GIT_CONFIG_PARAMETERS: "'color.ui=always'", GIT_PAGER: 'cat', PAGER: 'cat', LANG: process.env.LANG || 'C.UTF-8', ...(def.env || {}) } });
       s.proc = proc;
       const enc = def.encoding || 'utf8';
@@ -148,7 +153,7 @@ function createTerminals() {
       proc.stdout.on('data', (d) => push(s, decOut.write(d)));
       proc.stderr.on('data', (d) => push(s, decErr.write(d)));
       proc.on('error', (err) => { push(s, `\n[${err.message}]\n`); s.exited = true; });
-      proc.on('exit', (code) => { s.exited = true; s.code = code; push(s, `\n[process exited with code ${code}]\n`); });
+      proc.on('exit', (code) => { s.exited = true; s.code = code; push(s, `\n[process exited with code ${code}]\n`); wake(s); });
       sessions.set(id, s);
       return { id, shell: s.shell, label: s.label, cwd: s.cwd };
     },
@@ -175,17 +180,24 @@ function createTerminals() {
       return true;
     },
 
-    read({ id, since = 0 }) {
+    // Long poll: with `wait` (ms) and nothing new since `since` / the given
+    // idle state, the answer is held back until something changes, so the
+    // panel shows output and the prompt the moment they happen.
+    async read({ id, since = 0, idle, wait = 0 }) {
       const s = sessions.get(id);
       if (!s) return null;
-      const chunks = since ? s.chunks.filter((c) => c.seq > since) : s.chunks;
-      return { id, chunks, seq: s.seq, cwd: s.cwd, idle: s.idle, exited: s.exited, code: s.code };
+      const snapshot = () => ({ id, chunks: since ? s.chunks.filter((c) => c.seq > since) : s.chunks, seq: s.seq, cwd: s.cwd, idle: s.idle, exited: s.exited, code: s.code });
+      const fresh = () => s.seq > since || (idle !== undefined && s.idle !== idle) || s.exited;
+      if (!wait || fresh()) return snapshot();
+      await new Promise((resolve) => { const t = setTimeout(resolve, Math.min(wait, 5000)); s.waiters.push(() => { clearTimeout(t); resolve(); }); });
+      return snapshot();
     },
 
     kill({ id }) {
       const s = sessions.get(id);
       if (!s) return false;
       try { s.proc.kill(); } catch { /* already gone */ }
+      wake(s);
       sessions.delete(id);
       return true;
     },
@@ -198,7 +210,7 @@ function createTerminals() {
         if (!cwd || !fs.existsSync(cwd)) return resolve({ repo: false });
         execFile('git', ['-C', cwd, 'rev-parse', '--show-toplevel'], { windowsHide: true }, (err, top) => {
           if (err) return resolve({ repo: false, error: /not a git repository/i.test(String(err.message)) ? null : err.message });
-          execFile('git', ['-C', cwd, 'status', '--porcelain=v2', '--branch'], { windowsHide: true, maxBuffer: 8 << 20 }, (err2, out) => {
+          execFile('git', ['-C', cwd, '--no-optional-locks', 'status', '--porcelain=v2', '--branch'], { windowsHide: true, maxBuffer: 8 << 20 }, (err2, out) => {
             if (err2) return resolve({ repo: true, root: top.trim(), error: err2.message });
             const st = { repo: true, root: top.trim(), branch: '', upstream: '', ahead: 0, behind: 0, staged: 0, changed: 0, untracked: 0, conflicts: 0, files: [] };
             for (const line of String(out).split('\n')) {
