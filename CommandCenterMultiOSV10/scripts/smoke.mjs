@@ -104,10 +104,14 @@ async function webSmoke(scenario = null) {
 const SCENARIOS = {
   context: `(() => { const row = document.querySelectorAll('.file-panel')[0].querySelectorAll('tbody tr')[2]; row.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0 })); row.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: 260, clientY: 240 })); })()`,
   compress: `(() => { const row = document.querySelectorAll('.file-panel')[0].querySelectorAll('tbody tr')[2]; row.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0 })); setTimeout(() => window.__cc.action('compress', 'left'), 150); })()`,
-  search: `window.__cc.action('search', 'left')`,
+  search: `(() => { window.__cc.action('search', 'left'); setTimeout(() => { const inp = document.querySelector('.search-window input'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(inp, '*.jsx'); inp.dispatchEvent(new Event('input', { bubbles: true })); inp.form.requestSubmit(); }, 300); })()`,
   about: `(() => { window.__cc.action('about'); })()`,   // not returned: the promise settles only when the dialog closes
   light_en: `(() => { window.__cc.action('toggleTheme'); window.__cc.action('toggleLanguage'); setTimeout(() => { const lbl = document.querySelectorAll('.side-label')[1]; lbl.click(); }, 200); })()`,
   themes: `document.querySelector('.tb-split-caret').click()`,
+  menu_view: `document.querySelectorAll('.menu-title')[2].dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0 }))`,
+  menu_file: `document.querySelectorAll('.menu-title')[0].dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0 }))`,
+  menu_edit: `document.querySelectorAll('.menu-title')[1].dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0 }))`,
+  menu_archive: `(() => { const row = document.querySelectorAll('.file-panel')[0].querySelectorAll('tbody tr')[2]; row.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0 })); document.querySelectorAll('.menu-title')[3].dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0 })); })()`,
   drives: `document.querySelector('.drive-btn').click()`,
   settings: `(() => { window.__cc.action('settings'); })()`,
   settings_terminal: `(() => { window.__cc.action('settings'); setTimeout(() => document.querySelectorAll('.settings-tab')[1].click(), 300); })()`,

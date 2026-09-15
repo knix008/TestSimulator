@@ -26,7 +26,7 @@ UI 는 `window.commandCenter`(preload 가 노출) 유무로 전송 방식만 고
 | 파일 | 역할 |
 |---|---|
 | `api.js` | 메서드 이름 → 함수 표. `createApi(host)` 가 호스트 전용 기능(열기·휴지통·클립보드)을 주입받습니다. 긴 작업은 즉시 **잡 스냅샷**을 돌려줍니다. `term.*`/`git.status` 는 `terminal.js` 로, `shutdown()` 은 호스트 종료 시 셸 정리. `serializeError` 가 code/path/syscall/stack 을 UI 로 넘깁니다. |
-| `fsops.js` | 목록(권한 문자열, 날짜, 확장자), 루트 목록(홈·드라이브·/tmp·마운트), 드라이브 목록(`listDrives`: Windows 는 Win32_LogicalDisk 를 PowerShell 로 읽어 이름·종류·용량, 60초 캐시), 속성(폴더 합계), mkdir/새 파일/이름 바꾸기, 항목 수 세기, **복사/이동**(충돌 질문, 폴더 병합, 자기 자신 안으로 이동 금지, EXDEV 시 복사+삭제), 삭제, 휴지통(호스트 함수 없으면 freedesktop/macOS 휴지통 폴더), **검색**(글롭 + 내용, 64 MB 제한). |
+| `fsops.js` | 목록(권한 문자열, 날짜, 확장자), 루트 목록(홈·드라이브·/tmp·마운트), 드라이브 목록(`listDrives`: Windows 는 Win32_LogicalDisk 를 PowerShell 로 읽어 이름·종류·용량, 60초 캐시), 속성(폴더 합계), mkdir/새 파일/이름 바꾸기, 항목 수 세기, **복사/이동**(충돌 질문, 폴더 병합, 자기 자신 안으로 이동 금지, EXDEV 시 복사+삭제), 삭제, 휴지통(호스트 함수 없으면 freedesktop/macOS 휴지통 폴더), **검색**(글롭으로 폴더·파일, 내용 검색은 파일만, 64 MB 제한; 결과 `{path, isDir, size}`). |
 | `archive.js` | tar.gz / tar.bz2 / zip 생성·해제, 분할(`splitFile`)·결합(`joinParts`), 형식 감지(`describe`, `splitDetect`), 매직 바이트 스니핑, zip-slip 방지, ZIP 파일명 인코딩(UTF-8 플래그 → Info-ZIP 유니코드 필드 → EUC-KR → latin1). |
 | `tar.js` | 자체 스트리밍 tar 라이터/리더(ustar + pax `path`/`linkpath`/`mtime`, GNU `L`/`K` 읽기, base-256 크기). 긴 이름과 비ASCII 이름은 pax 로 기록해 libarchive/GNU tar/bsdtar 와 호환됩니다. |
 | `bzip2-worker.js` | `compressjs` 의 동기 bzip2 를 **worker_threads** 에서 실행(메인 프로세스 정지 방지). 1 MB 버퍼로 파일을 스트리밍하고 진행률을 postMessage. 취소는 `worker.terminate()`. 패키징 시 `asarUnpack` 대상. |
@@ -84,11 +84,11 @@ UI runJob('ops.transfer', …)            core: jobs.run(kind, meta, fn)
 | `App.jsx` | 세션 로드/저장, 활성 패널, 모든 액션(`runAction`), 진행률+충돌을 묶는 `runWithProgress`, F-키 단축키, 분할선, 전역 오류 핸들러(`error`/`unhandledrejection` → 오류 팝업), smoke 훅 `window.__cc`. 하단 패널 상태: `log`(`setStatus` 와 `dialogs.error` 를 감싸 모든 상태 메시지·오류를 기록, 2000줄), `terms`(탭 목록 — 세션은 호스트에 있고 여기엔 id·제목·기록만), `dockTab`, `session.dockVisible/dockHeight`. |
 | `components/FilePanel.jsx` | 목록 로드·정렬·선택(Ctrl/Shift/키보드)·컨텍스트 메뉴·폴더 감시(`watchDir`, 250 ms 디바운스, 작업 중 일시 정지)·패널 상태줄. App 은 `ref`(refresh/getSelectedEntries/selectPaths…)와 `onAction(id)` 로만 상호작용. |
 | `components/FolderTree.jsx` | 루트(`fs.roots`) + 지연 로딩(`fs.subdirs`), 현재 경로까지 자동 확장. |
-| `components/Chrome.jsx` | 메뉴바(파일/편집/보기/압축), 툴바(작업 버튼 · 터미널 + 우측: 테마 분할 버튼 · 국기 언어 토글 · 설정 · 정보). |
+| `components/Chrome.jsx` | 메뉴바(파일/편집/보기/압축 — 제목과 모든 항목에 아이콘, 체크 항목은 아이콘 + 오른쪽 체크 표시), 툴바(작업 버튼 · 검색 · 터미널 + 우측: 테마 분할 버튼 · 국기 언어 토글 · 설정 · 정보). |
 | `components/BottomDock.jsx` | 하단 패널: 탭 줄(로그 + 터미널 ×N, `+`/`+ ▾` 셸 선택, 가운데 클릭 닫기, 높이 조절 스플리터). `LogView` 는 시각·수준·메시지 줄(맨 아래 고정 스크롤, 복사/지우기). `TerminalView` 는 MyEditor 의 `TerminalPanel` 과 같은 콘솔 — 아래 "터미널 UI" 참고. |
 | `components/ContextMenu.jsx` | 위치 보정 팝업 메뉴(메뉴바 드롭다운·컨텍스트 메뉴·테마 목록 공용, 체크/스와치 지원). |
 | `dialogs/Dialogs.jsx` | `useDialogs()` — 프라미스 기반 스택(`prompt/confirm/error/conflict/compress/about/properties`, `open()` 은 진행률처럼 갱신형). `describeError` 가 Error → 메시지+상세. 오류 팝업에는 **자세한 내용 복사** 버튼. |
-| `dialogs/SearchDialog.jsx` | 비모달 검색 창(`search.start` 잡, 진행 중 개수, 결과 더블클릭). |
+| `dialogs/SearchDialog.jsx` | 비모달 검색 창(제목줄 드래그): `search.start` 잡(진행 중 개수), 결과 `{path,isDir,size}` 목록에 패널과 같은 선택(클릭/Ctrl/Shift/방향키/Ctrl+A). Enter·더블클릭 → 폴더 `onOpenDir`(App: 왼쪽 패널로 이동) / 파일 `onOpenFile`(`fs.open`); Ctrl+C·복사 버튼 → `onClipCopy`(패널의 클립보드 복사와 같은 `file://` 목록 + 앱 내부 클립보드 → 패널 Ctrl+V); 왼쪽/오른쪽 패널로 복사 버튼·우클릭 메뉴 → `onCopyTo`(App `copyPathsTo`: 진행률·충돌 처리하는 `ops.transfer`). |
 | `dialogs/SettingsDialog.jsx` | 설정 — 일반 탭(언어·테마·글꼴 크기·분할 기본 크기·숨김·삭제 확인·폴더 복원·자동 새로고침)과 터미널 탭(기본 셸 `termShell` — `term.shells` 목록, 시작 디렉터리 `termCwd` — 데스크톱은 `pickFolder`(IPC `dialog` → `dialog.showOpenDialog`)로 찾아보기). 값은 세션에 저장되고 App 이 적용(`applyTheme`, `--fs`, `suspendWatch`; 새 터미널은 `termCwd`(없으면 활성 패널 폴더)·`termShell`). |
 | `lib/backend.js` | 전송 분기: `call`, `runJob/followJob`(푸시 vs 폴링), `watchDir`(fs.watch vs mtime 폴링), 클립보드, `unwrap`(오류 객체 → Error, 스택 결합). |
 | `lib/i18n.js` | ko/en 사전 + `t()` + `useLanguage()`(useSyncExternalStore). |
@@ -119,13 +119,13 @@ UI runJob('ops.transfer', …)            core: jobs.run(kind, meta, fn)
 - `test/archive.test.mjs`: 세 형식 왕복(한글·긴 이름·심볼릭 링크 포함), 분할/결합, 취소 시 잔여 파일 없음, 확장자 헬퍼.
 - `test/fsops.test.mjs`: 목록 메타데이터, 충돌(건너뛰기/덮어쓰기/모두 적용), 이동·자기 자신 안으로 이동 금지, 취소, mkdir/생성/이름 바꾸기/삭제, 검색, API 디스패치·세션.
 - `test/terminal.test.mjs`: 셸 목록, 세션 왕복(한글 echo, `cd` 후 cwd·`idle` 갱신, 마커 누출 없음, 실행 중 프로그램에 입력, 변수 유지, Tab 완성(파일/명령), 증분 읽기, kill), git 상태(저장소/비저장소), `term.*`/`git.status` 디스패치, 롱폴링(타임아웃까지 대기 / 명령에 즉시 깨어남)과 `shutdown`.
-- `scripts/smoke.mjs`: 실제 Electron 을 별도 프로필로 띄워 스크린샷(`--scenario context|compress|search|about|light_en|delete|themes|error|theme_*|terminal|log|settings_terminal`), `--web` 이면 웹 서버를 띄우고 preload 없는 창으로 브라우저 모드를 캡처, `--probe <js>` 로 DOM 상태를 출력.
+- `scripts/smoke.mjs`: 실제 Electron 을 별도 프로필로 띄워 스크린샷(`--scenario context|compress|search|about|light_en|delete|themes|error|theme_*|terminal|log|settings_terminal|menu_file|menu_edit|menu_view|menu_archive`), `--web` 이면 웹 서버를 띄우고 preload 없는 창으로 브라우저 모드를 캡처, `--probe <js>` 로 DOM 상태를 출력.
 
 ## 8. 설계 메모
 
 - **왜 자체 tar 인가**: 네이티브 의존성 없이 Electron/서버에서 동일하게 동작하고, GTK 판(libarchive)과 서로 읽을 수 있어야 하기 때문.
 - **왜 bzip2 는 워커인가**: `compressjs` 는 동기·바이트 단위라 메인 프로세스에서 돌리면 IPC 가 멈춤.
 - **왜 분할 첫 조각이 `.zip`/`.tgz` 인가**: GTK 판의 규칙을 그대로 따라 두 프로그램이 서로의 분할 파일을 해제할 수 있게 함(7-Zip 순서와 다름 — README 의 `cat` 안내 참고).
-- **왜 대화상자가 앱 내부 모달인가**: 웹 버전에서도 같은 코드를 쓰기 위함. 충돌 질문은 진행률 창 위에 스택으로 쌓임.
+- **왜 대화상자가 앱 내부 모달인가**: 웹 버전에서도 같은 코드를 쓰기 위함. 충돌 질문은 진행률 창 위에 스택으로 쌓임. 검색 창만은 비모달이라 결과를 보며 패널을 계속 쓸 수 있습니다.
 - **왜 터미널이 pty 가 아닌가**: `node-pty` 는 네이티브 모듈이라 세 OS × Electron/Node ABI 마다 빌드가 필요하고 웹 서버 쪽도 무거워집니다. 파일 관리자에서 필요한 것은 `git`·`npm`·`dir` 같은 줄 단위 명령이므로 파이프 stdio 로 충분하고, 대신 전체 화면 프로그램과 Ctrl+C 중단은 포기했습니다. 프롬프트·입력·Tab 완성은 MyEditor 의 터미널 패널과 같은 방식이며, 명령을 스크립트 파일로 source 해 stdin 을 비워 두므로 실행 중 프로그램과의 줄 단위 대화도 됩니다. 한글 입력은 Windows 셸마다 다른 우회(2장 "터미널 흐름")로 해결.
 - **오류 전달**: 백엔드 → `serializeError`(code/path/syscall/stack) → `unwrap` 이 렌더러 Error 로 재구성(스택 두 프로세스 결합) → `describeError` → 팝업 + 복사.

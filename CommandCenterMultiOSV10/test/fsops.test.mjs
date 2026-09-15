@@ -128,9 +128,13 @@ test('search by name glob and by content', async () => {
   fs.writeFileSync(path.join(root, 'a', 'b', 'image.png'), 'binary');
   const jobs = new JobRegistry();
   let s = await waitJob(jobs.run('search', {}, (j) => fsops.search(root, { pattern: '*.txt' }, j)));
-  assert.deepEqual(s.result.found.map((p) => path.basename(p)).sort(), ['Report.TXT', 'notes.txt']);
+  assert.deepEqual(s.result.found.map((e) => path.basename(e.path)).sort(), ['Report.TXT', 'notes.txt']);
+  assert.ok(s.result.found.every((e) => e.isDir === false && e.size > 0));
+  // folders match a name pattern too
+  s = await waitJob(jobs.run('search', {}, (j) => fsops.search(root, { pattern: 'b' }, j)));
+  assert.deepEqual(s.result.found.map((e) => [path.basename(e.path), e.isDir]), [['b', true]]);
   s = await waitJob(jobs.run('search', {}, (j) => fsops.search(root, { pattern: '*', matchContent: true, content: 'BROWN' }, j)));
-  assert.deepEqual(s.result.found.map((p) => path.basename(p)), ['notes.txt']);
+  assert.deepEqual(s.result.found.map((e) => path.basename(e.path)), ['notes.txt']);
   fs.rmSync(root, { recursive: true, force: true });
 });
 

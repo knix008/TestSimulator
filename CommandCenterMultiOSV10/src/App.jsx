@@ -10,8 +10,8 @@ import { setSeparator, joinPath, baseName, dirName } from './lib/format';
 import { FilePanel } from './components/FilePanel';
 import { MenuBar, Toolbar } from './components/Chrome';
 import { DialogHost, useDialogs } from './dialogs/Dialogs';
-import { SearchDialog } from './dialogs/SearchDialog';
 import { BottomDock } from './components/BottomDock';
+import { SearchDialog } from './dialogs/SearchDialog';
 import { applyTheme, themeById, nextThemeId, DEFAULT_THEME } from './themes';
 import { SETTINGS_DEFAULTS } from './lib/settings';
 
@@ -73,9 +73,9 @@ export default function App() {
   const [shells, setShells] = useState([]);
   const termNo = useRef(1);
   const [busy, setBusy] = useState(0);
-  const [search, setSearch] = useState(null);
   const [selCount, setSelCount] = useState({ left: 0, right: 0 });
   const [extractable, setExtractable] = useState({ left: false, right: false });
+  const [search, setSearch] = useState(null);   // { root } while the search window is open
   const panels = { left: useRef(null), right: useRef(null) };
   const inAppClipboard = useRef([]);
   const splitRef = useRef(null);
@@ -244,6 +244,19 @@ export default function App() {
       setStatus(final.error || t(move ? 'move_failed' : 'copy_failed'));
       await dialogs.error(final.error || t(move ? 'move_failed' : 'copy_failed'), final.errorDetail);
     }
+  };
+
+  // Copies `sources` into a panel's folder (the search window's "→ left / right panel").
+  const copyPathsTo = async (side, sources) => {
+    if (!sources.length) return;
+    const dest = pathOf(side);
+    const final = await runWithProgress(t('copying'), 'ops.transfer', { sources, dest, move: false });
+    refreshBoth();
+    if (final.status === 'done') {
+      const st = final.result || { copied: 0, skipped: 0 };
+      setStatus(st.skipped ? t('transfer_skipped', { n: st.copied, verb: t('copy_verb'), skipped: st.skipped, dest }) : t('transfer_done', { n: st.copied, dest, verb: t('copy_verb') }));
+    } else if (final.status === 'cancelled') setStatus(t('copy_cancelled'));
+    else await dialogs.error(final.error || t('copy_failed'), final.errorDetail);
   };
 
   const newEntry = async (side, kind) => {
@@ -445,7 +458,7 @@ export default function App() {
       case 'open': await openSelected(side); break;
       case 'properties': await properties(side); break;
       case 'refresh': refreshBoth(); setStatus(t('refreshed')); break;
-      case 'search': setSearch({ side, root: pathOf(side) }); break;
+      case 'search': setSearch({ root: pathOf(side) }); break;
       case 'about': await dialogs.about({ ...(info || {}), host: hostName }); break;
       case 'settings': {
         const v = await dialogs.settings({
@@ -575,7 +588,10 @@ export default function App() {
       <div className="statusbar ellipsis" title={status}>{status}</div>
       {search && (
         <SearchDialog root={search.root} onClose={() => setSearch(null)}
-          onPick={(p) => { navigate(search.side, dirName(p)); setStatus(t('search_result', { path: p })); setTimeout(() => { const pn = panel(search.side); if (pn) pn.selectPaths([p]); }, 300); }} />
+          onOpenDir={(p) => { setActive('left'); navigate('left', p); setStatus(t('search_opened_left', { path: p })); }}
+          onOpenFile={(p) => openEntry('left', { name: baseName(p), path: p, isDir: false })}
+          onClipCopy={async (paths) => { inAppClipboard.current = paths; await writeClipboardText(paths.map(toFileUri).join('\n') + '\n'); setStatus(t('clip_copied', { n: paths.length })); }}
+          onCopyTo={(side, paths) => copyPathsTo(side, paths)} />
       )}
       <DialogHost stack={dialogs.stack} resolve={dialogs.resolve} />
     </div>

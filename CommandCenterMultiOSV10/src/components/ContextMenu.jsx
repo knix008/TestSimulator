@@ -45,9 +45,11 @@ export function ContextMenu({ x, y, items, onPick, onClose, anchorEl }) {
         : (
           <button key={it.id} className={`ctx-item ${it.checked ? 'checked' : ''}`} role="menuitem" disabled={it.disabled}
             onClick={() => { if (!it.disabled) onPick(it.id); }}>
-            <span className="ctx-icon">{it.checked ? <Icon name="check" size={14} /> : it.icon ? <Icon name={it.icon} size={14} /> : null}</span>
+            {/* the item's icon stays; a checked item gets a check mark on the right (an item without an icon shows the check in the icon slot) */}
+            <span className="ctx-icon">{it.icon ? <Icon name={it.icon} size={14} /> : it.checked ? <Icon name="check" size={14} /> : null}</span>
             {it.swatch && <span className="theme-swatch" style={{ background: `linear-gradient(135deg, ${it.swatchBg} 50%, ${it.swatch} 50%)` }} />}
             <span className="ctx-label">{it.label}</span>
+            {it.icon && it.checked && <Icon name="check" size={14} className="ctx-check" />}
             {it.shortcut && <span className="ctx-shortcut">{it.shortcut}</span>}
           </button>
         ))}

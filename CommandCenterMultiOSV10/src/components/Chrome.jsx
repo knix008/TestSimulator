@@ -1,6 +1,7 @@
-// Menu bar (파일/편집/보기/압축) and the icon toolbar, drawn in-app so they look
-// the same in the desktop app and in the browser. View holds the bottom dock
-// (log / terminals); the toolbar has a terminal button. The right end of the
+// Menu bar (파일/편집/보기/압축 — every title and item with an icon, as in
+// MyEditor) and the icon toolbar, drawn in-app so they look the same in the
+// desktop app and in the browser. View holds the bottom dock (log /
+// terminals); the toolbar has a terminal button. The right end of the
 // toolbar holds the theme picker (16 themes), the language toggle and the
 // About button.
 import React, { useState } from 'react';
@@ -31,10 +32,10 @@ export function MenuBar({ onAction, state }) {
       { id: 'refresh', label: t('refresh'), icon: 'refresh' },
       { id: 'search', label: t('search'), icon: 'search' },
       { sep: true },
-      { id: 'toggleHidden', label: t('show_hidden'), checked: state.showHidden },
+      { id: 'toggleHidden', label: t('show_hidden'), icon: 'eye', checked: state.showHidden },
       { id: 'nextTheme', label: t('next_theme'), icon: 'palette' },
       { sep: true },
-      { id: 'toggleDock', label: t('toggle_dock'), checked: state.dockVisible, shortcut: 'Ctrl+`' },
+      { id: 'toggleDock', label: t('toggle_dock'), icon: 'panelBottom', checked: state.dockVisible, shortcut: 'Ctrl+`' },
       { id: 'showLog', label: t('log'), icon: 'log' },
       { id: 'newTerminal', label: t('term_new'), icon: 'terminal', shortcut: 'Ctrl+Shift+`' },
     ],
@@ -44,15 +45,16 @@ export function MenuBar({ onAction, state }) {
     ],
   };
 
-  const titles = [['file', 'menu_file'], ['edit', 'menu_edit'], ['view', 'menu_view'], ['archive', 'menu_archive']];
+  // Each menu title carries an icon, as in MyEditor's menu bar.
+  const titles = [['file', 'menu_file', 'folder'], ['edit', 'menu_edit', 'edit'], ['view', 'menu_view', 'eye'], ['archive', 'menu_archive', 'archive']];
 
   return (
     <div className="menubar">
-      {titles.map(([id, label]) => (
+      {titles.map(([id, label, icon]) => (
         <button key={id} className={`menu-title ${open && open.id === id ? 'open' : ''}`}
           onMouseDown={(e) => { e.preventDefault(); setOpen(open && open.id === id ? null : { id, el: e.currentTarget }); }}
           onMouseEnter={(e) => { if (open && open.id !== id) setOpen({ id, el: e.currentTarget }); }}>
-          {t(label)}
+          <Icon name={icon} size={14} className="menu-icon" />{t(label)}
         </button>
       ))}
       {open && (

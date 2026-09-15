@@ -594,10 +594,13 @@ async function fileContains(p, needle) {
   }
 }
 
+// Finds folders and files whose name matches the glob below `root`; with
+// `matchContent` only files containing `content`. Hits: { path, isDir, size }.
 async function search(root, { pattern = '*', content = '', matchContent = false }, job) {
   const re = globToRegExp(pattern && pattern.trim() ? pattern.trim() : '*');
   const found = [];
   job.partial = { count: 0 };
+  const hit = (full, isDir, size) => { found.push({ path: full, isDir, size }); job.partial = { count: found.length }; job.progress(full); };
   async function walk(dir) {
     if (job.isCancelled()) throw cancelledError();
     let dirents = [];
@@ -606,14 +609,18 @@ async function search(root, { pattern = '*', content = '', matchContent = false 
     for (const d of dirents) {
       if (job.isCancelled()) throw cancelledError();
       const full = path.join(dir, d.name);
-      if (d.isDirectory()) { await walk(full); continue; }
+      if (d.isDirectory()) {
+        if (re.test(d.name) && !(matchContent && content)) hit(full, true, 0);
+        await walk(full);
+        continue;
+      }
       if (!re.test(d.name)) continue;
       if (matchContent && content) {
         if (!(await fileContains(full, content))) continue;
       }
-      found.push(full);
-      job.partial = { count: found.length };
-      job.progress(full);
+      let size = 0;
+      try { size = (await fsp.stat(full)).size; } catch { /* unreadable: listed without a size */ }
+      hit(full, false, size);
     }
   }
   await walk(root);
