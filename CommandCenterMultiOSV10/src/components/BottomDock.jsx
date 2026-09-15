@@ -72,41 +72,46 @@ function LogView({ entries, onClear, onCopy }) {
 // was. While a command runs the prompt is absent and typed lines go to that
 // command's stdin.
 
-// One prompt: [ 📁 dir ]▶[ ⎇ branch ✓ ]▶[ ↑ ]▶ — the command is typed right after the last arrow.
-// The git state is shown as colours (with one glyph each), no numbers:
-//   branch segment = the working tree
-//     green  ✓  nothing changed
-//     orange +  added (staged, waiting for a commit)
-//     red    ~  changed (modified / untracked, not added yet)
-//     crimson !  merge conflicts
-//   sync segment = the branch against its remote (absent when in sync = pushed, the normal state)
-//     yellow ↑  committed, not pushed
-//     blue   ↓  the remote has new commits — pull needed
-//     purple ⇅  diverged — pull, then push
-// The counts are in the tooltip.
+// One prompt: [ 📁 dir ]▶[ ⎇ main ✓ ↑ ]▶ — the command is typed right after the last arrow.
+// Colours as oh-my-posh draws them: the segment's BACKGROUND tells the state,
+// the text stays dark (the path segment is the agnoster theme's #91ddff, the
+// git segment the colours oh-my-posh themes use for their git
+// background_templates):
+//     #95ffa4  green   nothing changed (in sync with the remote — the normal state)
+//     #FF9248  orange  changes in the working tree: added (+) or modified / untracked (~)
+//     #B388FF  purple  committed, not pushed (↑) / the remote has new commits, pull needed (↓)
+//     #ff4500  red     diverged (⇅) or merge conflicts (!)
+// One glyph per state next to the branch name, no numbers; the counts are in
+// the tooltip. Working-tree changes win over the sync state for the colour,
+// the sync glyph is still shown.
 function gitState(git) {
   if (!git || !git.repo) return null;
   const tree = git.conflicts > 0 ? 'conflict' : git.changed + git.untracked > 0 ? 'changed' : git.staged > 0 ? 'added' : 'clean';
   const sync = git.ahead > 0 && git.behind > 0 ? 'diverged' : git.behind > 0 ? 'behind' : git.ahead > 0 ? 'ahead' : null;
-  return { tree, sync };
+  // background: working tree first (as oh-my-posh's templates do), then the sync state
+  const bg = tree === 'conflict' ? 'conflict' : tree !== 'clean' ? 'changed' : sync === 'diverged' ? 'diverged' : sync ? 'sync' : 'clean';
+  return { tree, sync, bg };
 }
 const GLYPH = { clean: '✓', added: '+', changed: '~', conflict: '!', ahead: '↑', behind: '↓', diverged: '⇅' };
 
 function Prompt({ cwd, git }) {
   const st = gitState(git);
-  const tip = (state) => t('term_git_tip', {
-    branch: git.branch || '(detached)', upstream: git.upstream ? ` → ${git.upstream}` : '', state: t(`term_git_${state}`),
-    ahead: git.ahead, behind: git.behind, staged: git.staged, changed: git.changed, untracked: git.untracked, conflicts: git.conflicts,
-  });
+  const tip = () => {
+    const states = [t(`term_git_${st.tree}`)];
+    if (st.sync) states.push(t(`term_git_${st.sync}`));
+    return t('term_git_tip', {
+      branch: git.branch || '(detached)', upstream: git.upstream ? ` → ${git.upstream}` : '', state: states.join(' · '),
+      ahead: git.ahead, behind: git.behind, staged: git.staged, changed: git.changed, untracked: git.untracked, conflicts: git.conflicts,
+    });
+  };
   return (
     <span className="term-prompt" title={cwd}>
       <span className="seg seg-path"><Icon name="folder" size={12} /> {cwd}</span>
       {st && (
-        <span className={`seg seg-git ${st.tree}`} title={tip(st.tree)}>
-          <Icon name="gitBranch" size={12} /> {git.branch || '(detached)'} {GLYPH[st.tree]}
+        <span className={`seg seg-git ${st.bg}`} title={tip()}>
+          <Icon name="gitBranch" size={12} /> {git.branch || '(detached)'} {GLYPH[st.tree]}{st.sync ? ` ${GLYPH[st.sync]}` : ''}
         </span>
       )}
-      {st && st.sync && <span className={`seg seg-sync ${st.sync}`} title={tip(st.sync)}>{GLYPH[st.sync]}</span>}
       {' '}
     </span>
   );

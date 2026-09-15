@@ -178,18 +178,13 @@ button:disabled { cursor: default; opacity: 0.45; }
 .term-out .seg { position: relative; display: inline-block; vertical-align: top; height: 1.45em; line-height: 1.45em; padding: 0 calc(0.8em + 4px) 0 8px; color: var(--bg); font-weight: 600; clip-path: polygon(0 0, calc(100% - 0.8em) 0, 100% 50%, calc(100% - 0.8em) 100%, 0 100%); }
 .term-out .seg + .seg { margin-left: -0.8em; padding-left: calc(0.8em + 6px); }
 .term-out .seg svg { vertical-align: -2px; }
-.term-out .seg-path { background: var(--accent); z-index: 2; }
-/* git segments: the branch is coloured by the working tree, a second segment by the sync with the remote */
-.term-out .seg-git { z-index: 1; }
-.term-out .seg-git.clean { background: #4ade80; }
-.term-out .seg-git.added { background: #fb923c; }
-.term-out .seg-git.changed { background: #ff6b6b; color: #ffffff; }
-.term-out .seg-git.conflict { background: #b91c1c; color: #ffffff; }
-.term-out .seg-sync { z-index: 0; }
-.term-out .seg-sync.ahead { background: #facc15; }
-.term-out .seg-sync.behind { background: #3b82f6; color: #ffffff; }
-.term-out .seg-sync.diverged { background: #a855f7; color: #ffffff; }
-/* opacity, not visibility: a focused input that turns visibility:hidden loses the focus */
+/* oh-my-posh (agnoster) colours: path #91ddff on #100e23; git text #193549 on a background that tells the state */
+.term-out .seg-path { background: #91ddff; color: #100e23; z-index: 2; }
+.term-out .seg-git { z-index: 1; color: #193549; }
+.term-out .seg-git.clean { background: #95ffa4; }
+.term-out .seg-git.changed { background: #FF9248; }
+.term-out .seg-git.sync { background: #B388FF; }
+.term-out .seg-git.diverged, .term-out .seg-git.conflict { background: #ff4500; }
 .term-out .term-live.pending { opacity: 0; }
 /* The input sits inline after the prompt; the ::after mirror of its value gives it the width of the text. */
 .term-out .term-inline { display: inline-grid; vertical-align: baseline; max-width: 100%; }

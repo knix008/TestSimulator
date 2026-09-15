@@ -1,0 +1,1 @@
+total=607 pass=607 fail=0 skip=0 result=PASS
