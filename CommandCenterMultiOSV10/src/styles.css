@@ -178,21 +178,16 @@ button:disabled { cursor: default; opacity: 0.45; }
 .term-out .seg { position: relative; display: inline-block; vertical-align: top; height: 1.45em; line-height: 1.45em; padding: 0 calc(0.8em + 4px) 0 8px; color: var(--bg); font-weight: 600; clip-path: polygon(0 0, calc(100% - 0.8em) 0, 100% 50%, calc(100% - 0.8em) 100%, 0 100%); }
 .term-out .seg + .seg { margin-left: -0.8em; padding-left: calc(0.8em + 6px); }
 .term-out .seg svg { vertical-align: -2px; }
-/* oh-my-posh (agnoster) colours: path #91ddff on #100e23; git text #193549 on a background that tells the state */
-.term-out .seg-path { background: #91ddff; color: #100e23; }
-.term-out .seg-git { color: #193549; }
-.term-out .seg-git.clean { background: #95ffa4; }      /* green: nothing pending, pushed */
-.term-out .seg-git.changed { background: #ff6b6b; }    /* the branch takes the colour of the furthest step reached … */
-.term-out .seg-git.added { background: #ffe66d; }
-.term-out .seg-git.ahead { background: #ffb020; }
-.term-out .seg-git.behind { background: #B388FF; }     /* … or of a warning */
-.term-out .seg-git.diverged, .term-out .seg-git.conflict { background: #ff4500; color: #ffffff; }
-.term-out .seg-state { color: #193549; padding-right: calc(0.8em + 2px); }
-.term-out .seg-state.changed { background: #ff6b6b; }  /* red: changed, add pending */
-.term-out .seg-state.added { background: #ffe66d; }    /* yellow: added, commit pending */
-.term-out .seg-state.ahead { background: #ffb020; }    /* amber: committed, push pending */
-.term-out .seg-state.behind { background: #B388FF; }   /* purple: pull needed */
-.term-out .seg-state.diverged, .term-out .seg-state.conflict { background: #ff4500; color: #ffffff; }
+/* the git block coloured by the state of the repository, as in MyEditor */
+.term-out .seg-path { background: var(--accent); z-index: 2; }
+.term-out .seg-git { z-index: 1; color: #1b1e24; }
+.term-out .seg-git.uptodate { background: #7CFC8B; }   /* clean and pushed: bright green */
+.term-out .seg-git.modified { background: #FF5C5C; }   /* changes in the working tree: red */
+.term-out .seg-git.staged { background: #FFD700; }     /* staged (added): yellow */
+.term-out .seg-git.ahead { background: #FFD700; }      /* committed, not pushed: yellow */
+.term-out .seg-git.behind { background: #7cc4ff; }     /* behind the remote */
+.term-out .seg-git.conflict { background: #D62828; color: #ffffff; }
+.term-out .seg-git .g-ahead, .term-out .seg-git .g-behind, .term-out .seg-git .g-staged, .term-out .seg-git .g-changed, .term-out .seg-git .g-untracked, .term-out .seg-git .g-conflict { font-weight: 800; margin-left: 1px; }
 .term-out .term-live.pending { opacity: 0; }
 /* The input sits inline after the prompt; the ::after mirror of its value gives it the width of the text. */
 .term-out .term-inline { display: inline-grid; vertical-align: baseline; max-width: 100%; }

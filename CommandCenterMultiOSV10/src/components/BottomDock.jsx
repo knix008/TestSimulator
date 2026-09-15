@@ -72,54 +72,42 @@ function LogView({ entries, onClear, onCopy }) {
 // was. While a command runs the prompt is absent and typed lines go to that
 // command's stdin.
 
-// One prompt: [ 📁 dir ]▶[ ⎇ main ]▶[ ~ ]▶[ + ]▶[ ↑ ]▶ — the command is typed right after the last arrow.
-// Colours as oh-my-posh draws them: segment BACKGROUNDS tell the state, the
-// text stays dark (#193549; the path segment is the agnoster theme's #91ddff).
-// Every pending step of the git workflow gets its own small segment, in
-// workflow order, so each add / commit / push is visible on its own even when
-// other files stay modified:
-//     red     ~  changed (modified / untracked), waiting for an add
-//     yellow  +  added (staged), waiting for a commit
-//     amber   ↑  committed, waiting for a push
-//     purple  ↓  the remote has new commits — pull needed
-//     deep red ⇅ diverged (pull, then push) · ! merge conflicts
-// The branch segment itself is coloured too: green with ✓ when nothing is
-// pending (pushed — the normal state), otherwise the colour of the step the
-// work has reached furthest (commit ↑ over add + over change ~), so that an
-// add, a commit and a push each change the branch colour even while other
-// files stay modified; pull-needed / diverged / conflict are warnings and
-// take precedence. No numbers; the counts are in the tooltip.
-function gitState(git) {
-  if (!git || !git.repo) return null;
-  const steps = [];
-  if (git.conflicts > 0) steps.push('conflict');
-  if (git.changed + git.untracked > 0) steps.push('changed');
-  if (git.staged > 0) steps.push('added');
-  if (git.ahead > 0 && git.behind > 0) steps.push('diverged');
-  else if (git.ahead > 0) steps.push('ahead');
-  else if (git.behind > 0) steps.push('behind');
-  return steps;
+// One prompt: [ 📁 dir ]▶[ ⎇ main ↑ + ~ ? ]▶ — the command is typed right after the last arrow.
+// The git block is drawn exactly as in MyEditor's TerminalPanel: the state of
+// the repository colours the whole block, from the branch name on (the first
+// that applies):
+//   conflicts — red · staged (added) — yellow · modified files — red ·
+//   committed but not pushed — yellow · behind the remote — blue · clean and pushed — bright green.
+// Untracked files do not colour the block (they are new files git does not
+// know yet, shown by the ? symbol only); otherwise a committed-but-not-pushed
+// or pushed repository would stay red because of them. After the branch one
+// bold symbol per kind of status that applies — no counts:
+//   ↑ ahead · ↓ behind · + staged · ~ changed · ? untracked · ! conflicts
+function gitClass(git) {
+  if (!git || !git.repo) return '';
+  return git.conflicts ? 'conflict' : git.staged ? 'staged' : git.changed ? 'modified' : git.ahead ? 'ahead' : git.behind ? 'behind' : 'uptodate';
 }
-// The colour of the branch segment: warnings first, then the furthest step reached.
-const BRANCH_ORDER = ['conflict', 'diverged', 'behind', 'ahead', 'added', 'changed'];
-const branchState = (steps) => BRANCH_ORDER.find((s) => steps.includes(s)) || 'clean';
-const GLYPH = { clean: '✓', added: '+', changed: '~', conflict: '!', ahead: '↑', behind: '↓', diverged: '⇅' };
 
 function Prompt({ cwd, git }) {
-  const steps = gitState(git);
-  const tip = (state) => t('term_git_tip', {
-    branch: git.branch || '(detached)', upstream: git.upstream ? ` → ${git.upstream}` : '', state: t(`term_git_${state}`),
+  const repo = git && git.repo;
+  const dirty = repo ? git.staged + git.changed + git.untracked + git.conflicts > 0 : false;
+  const cls = gitClass(git);
+  const tip = repo ? t('term_git_tip', {
+    branch: git.branch || '(detached)', upstream: git.upstream ? ` → ${git.upstream}` : '', state: t(`term_git_${cls}`),
     ahead: git.ahead, behind: git.behind, staged: git.staged, changed: git.changed, untracked: git.untracked, conflicts: git.conflicts,
-  });
+  }) : cwd;
   return (
     <span className="term-prompt" title={cwd}>
-      <span className="seg seg-path" style={{ zIndex: 9 }}><Icon name="folder" size={12} /> {cwd}</span>
-      {steps && (
-        <span className={`seg seg-git ${branchState(steps)}`} style={{ zIndex: 8 }} title={tip(branchState(steps))}>
-          <Icon name="gitBranch" size={12} /> {git.branch || '(detached)'}{steps.length ? '' : ` ${GLYPH.clean}`}
+      <span className="seg seg-path"><Icon name="folder" size={12} /> {cwd}</span>
+      {repo && (
+        <span className={`seg seg-git ${cls}`} title={tip}>
+          <span className="g-branch"><Icon name="gitBranch" size={12} /> {git.branch || '(detached)'}</span>
+          {(git.ahead > 0 || git.behind > 0 || dirty) && ' '}
+          {git.ahead > 0 && <span className="g-ahead">↑</span>}{git.behind > 0 && <span className="g-behind">↓</span>}
+          {git.staged > 0 && <span className="g-staged">+</span>}{git.changed > 0 && <span className="g-changed">~</span>}
+          {git.untracked > 0 && <span className="g-untracked">?</span>}{git.conflicts > 0 && <span className="g-conflict">!</span>}
         </span>
       )}
-      {steps && steps.map((st, i) => <span key={st} className={`seg seg-state ${st}`} style={{ zIndex: 7 - i }} title={tip(st)}>{GLYPH[st]}</span>)}
       {' '}
     </span>
   );
