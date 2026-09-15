@@ -20,6 +20,7 @@ export function PopupWindow({ kind }) {
   const [info, setInfo] = useState(null);
   const [shells, setShells] = useState([]);
   const [folder, setFolder] = useState('');
+  const [tools, setTools] = useState(null);   // the formatters per language, from the backend's one-time lookup (the 정렬 tab shows it as it is)
 
   useEffect(() => {
     let alive = true;
@@ -33,10 +34,14 @@ export function PopupWindow({ kind }) {
       setInfo(appInfo);
       setFolder(session.folder || '');
       document.title = t(kind === 'settings' ? 'settings_title' : kind === 'about' ? 'about_title' : 'shortcuts_title');
-      if (kind === 'settings') call('term.shells').then((x) => { if (alive) setShells(x || []); }).catch(() => {});
+      if (kind === 'settings') {
+        call('term.shells').then((x) => { if (alive) setShells(x || []); }).catch(() => {});
+        call('format.tools', { dir: session.folder || '' }).then((x) => { if (alive) setTools(x || {}); }).catch(() => {});
+      }
     })();
     // Changes made in another window.
     const off = onSettingsPatch((patch) => {
+      if (patch.formatToolsAt) return;   // a note for the main window only (see SettingsDialog onTools)
       setSettingsState((prev) => (prev ? { ...prev, ...patch } : prev));
       if (patch.theme !== undefined) applyTheme(patch.theme);
       if (patch.language !== undefined) setLanguage(patch.language);
@@ -56,7 +61,8 @@ export function PopupWindow({ kind }) {
   if (!settings) return <div className="popup-loading" />;
   if (kind === 'about') return <AboutDialog embedded info={info} onClose={close} />;
   if (kind === 'shortcuts') return <ShortcutsDialog embedded onClose={close} />;
-  return <SettingsDialog embedded settings={settings} encodings={(info && info.encodings) || []} shells={shells} formatDir={folder} onChange={change} onClose={close} />;
+  // A rescan / install in this window: the main window's toolbar label follows (it re-reads the backend's list).
+  return <SettingsDialog embedded settings={settings} encodings={(info && info.encodings) || []} shells={shells} formatDir={folder} tools={tools} onTools={(x) => { setTools(x); sendSettingsPatch({ formatToolsAt: Date.now() }); }} onChange={change} onClose={close} />;
 }
 
 export default PopupWindow;

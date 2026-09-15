@@ -31,6 +31,8 @@ contextBridge.exposeInMainWorld('myEditor', {
   isMaximized: () => ipcRenderer.invoke('win:isMaximized'),
   getWindowSize: () => ipcRenderer.invoke('win:getSize'),
   setWindowSize: (w, h) => ipcRenderer.send('win:setSize', w, h),
+  // Content width the toolbars need: the window's minimum width follows it.
+  setMinContentWidth: (w) => ipcRenderer.send('win:setMinWidth', w),
   setTitle: (title) => ipcRenderer.send('win:setTitle', title),
   onMaximized: on('win:maximized'),
   onFocus: on('win:focus'),

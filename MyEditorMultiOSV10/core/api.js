@@ -106,7 +106,7 @@ function createApi({ name = 'web', version = '', buildInfo = null, configDir, op
     'lint.cancel': async ({ id }) => linter.cancel({ id }),
     'lint.languages': async () => linter.languages(),
     // ── Code formatting ──
-    'format.tools': async ({ dir }) => formatter.tools({ dir }),
+    'format.tools': async ({ dir, refresh }) => formatter.tools({ dir, refresh: !!refresh }),
     'format.run': async (opts) => formatter.run(opts || {}),
     // ── Installing a missing formatter (progress popup) ──
     'install.start': async ({ tool, reinstall }) => installer.start({ tool, reinstall: !!reinstall }),

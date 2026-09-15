@@ -1,11 +1,14 @@
 // Positioned popup menu used for the menu-bar dropdowns, the tab / tree /
 // editor context menus and the status-bar pickers. Closes on outside click,
 // Escape, or when an item is picked. Items: { id, label, icon, iconEl, checked,
-// radio, disabled, shortcut, meta, swatch } | { sep: true } | { header: '…' }.
+// radio, disabled, shortcut, meta, swatch, remove, removeTip } | { sep: true } |
+// { header: '…' }. `remove` is an action id behind a small × at the row's end
+// (a recent file to forget): it goes to onAction when given — the menu stays
+// open — otherwise to onPick.
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Icon } from './Icons';
 
-export function ContextMenu({ x, y, items, onPick, onClose, anchorEl, above = false, className = '' }) {
+export function ContextMenu({ x, y, items, onPick, onAction, onClose, anchorEl, above = false, className = '' }) {
   const ref = useRef(null);
   const [pos, setPos] = useState({ left: x, top: y });
 
@@ -54,6 +57,7 @@ export function ContextMenu({ x, y, items, onPick, onClose, anchorEl, above = fa
             {(it.iconEl || it.icon) && it.checked && <Icon name="check" size={14} className="ctx-check" />}
             {it.meta && <span className="ctx-meta">{it.meta}</span>}
             {it.shortcut && <span className="ctx-shortcut">{it.shortcut}</span>}
+            {it.remove && <span className="ctx-remove" role="button" title={it.removeTip || ''} onClick={(e) => { e.stopPropagation(); (onAction || onPick)(it.remove); }}><Icon name="close" size={12} /></span>}
           </button>
         ))}
     </div>

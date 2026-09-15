@@ -8,6 +8,7 @@ import { Icon } from '../components/Icons';
 import { Dialog, ConfirmDialog } from './Dialogs';
 import { InstallDialog } from './InstallDialog';
 import { isElectron, nativeDialog, call } from '../lib/backend';
+import { toolLabel } from '../lib/formatters';
 
 function Check({ id, label, settings, onChange }) {
   return (
@@ -18,13 +19,17 @@ function Check({ id, label, settings, onChange }) {
   );
 }
 
-export function SettingsDialog({ settings, encodings, shells = [], formatDir = '', onChange, onClose, embedded = false }) {
+export function SettingsDialog({ settings, encodings, shells = [], formatDir = '', onChange, onClose, tools: knownTools = null, onTools, embedded = false }) {
   useLanguage();
   const [tab, setTab] = useState('general');
   const lang = getLanguage();
   const tabs = [['general', t('set_general')], ['editor', t('set_editor')], ['files', t('set_files')], ['terminal', t('set_terminal')], ['format', t('set_format')]];
-  // The formatters per language and which are installed (asked once, when the tab opens).
-  const [tools, setTools] = useState(null);
+  // The formatters per language and which are installed: the list the app
+  // already holds (looked up once at start, for the toolbar) is shown as it
+  // is; the backend is only asked when there is none yet, or to look again.
+  const [tools, setTools] = useState(knownTools);
+  const [rescan, setRescan] = useState(false);   // the next listing looks again instead of using the cached lookups (다시 찾기, after an install)
+  useEffect(() => { if (knownTools && !tools && !rescan) setTools(knownTools); }, [knownTools]);   // eslint-disable-line react-hooks/exhaustive-deps
   const [job, setJob] = useState(null);        // { tool, id } while a tool is being (re)installed from here
   const [installMsg, setInstallMsg] = useState(null);
   const [askReinstall, setAskReinstall] = useState(null);   // { lang, tool } — the tool is installed already: the user decides
@@ -45,9 +50,9 @@ export function SettingsDialog({ settings, encodings, shells = [], formatDir = '
     if (st.missing) { setInstallMsg(t('inst_missing_pm', { pm: st.missing, tool: tool.id })); return; }
     setJob({ tool: tool.id, id: st.id });
   };
-  useEffect(() => { if (tab === 'format' && !tools) call('format.tools', { dir: formatDir }).then(setTools).catch(() => setTools({})); }, [tab, tools, formatDir]);
+  // onTools lets the app refresh its own copy (the toolbar label) after a rescan or install.
+  useEffect(() => { if (tab === 'format' && !tools) { const again = rescan; setRescan(false); call('format.tools', { dir: formatDir, refresh: again }).then((r) => { setTools(r); if (onTools) onTools(r); }).catch(() => setTools({})); } }, [tab, tools, formatDir]);   // eslint-disable-line react-hooks/exhaustive-deps
   const setFormatter = (lang, id) => onChange({ formatters: { ...(settings.formatters || {}), [lang]: id } });
-  const toolLabel = (x) => ({ 'prettier-builtin': t('fmt_prettier_builtin'), prettier: t('fmt_prettier_ext'), 'builtin-json': t('fmt_builtin_json'), 'builtin-xml': t('fmt_builtin_xml') })[x.id] || x.label;
   // The folder picker is a native dialog on the desktop; the web version's fallback dialog would replace this one, so there the path is typed.
   const browseTermCwd = async () => { try { const p = await nativeDialog('openFolder', { defaultPath: settings.termCwd || undefined }); if (p) onChange({ termCwd: p }); } catch { /* cancelled */ } };
   return (
@@ -140,7 +145,7 @@ export function SettingsDialog({ settings, encodings, shells = [], formatDir = '
       {tab === 'format' && (
         <div className="settings-format">
           <label className="check settings-check"><input type="checkbox" checked={!!settings.formatOnSave} onChange={(e) => onChange({ formatOnSave: e.target.checked })} /><span>{t('set_format_on_save')}</span></label>
-          <p className="muted small">{t('set_format_hint')} <button className="btn small" onClick={() => setTools(null)}>{t('fmt_rescan')}</button></p>
+          <p className="muted small">{t('set_format_hint')} <button className="btn small" onClick={() => { setRescan(true); setTools(null); }}>{t('fmt_rescan')}</button></p>
           {installMsg && <div className="danger small">{installMsg}</div>}
           <div className="format-grid">
             {!tools && <span className="muted small">…</span>}
@@ -166,7 +171,7 @@ export function SettingsDialog({ settings, encodings, shells = [], formatDir = '
           buttons={[{ id: 'reinstall', label: t('inst_already_reinstall'), kind: 'primary' }, { id: 'keep', label: t('inst_already_keep') }, { id: 'cancel', label: t('cancel') }]}
           onResult={(r) => { const a = askReinstall; setAskReinstall(null); if (r === 'reinstall' || r === 'keep') installTool(a.lang, r); }} />
       )}
-      {job && <InstallDialog tool={job.tool} jobId={job.id} onResult={() => { setJob(null); setTools(null); }} />}
+      {job && <InstallDialog tool={job.tool} jobId={job.id} onResult={() => { setJob(null); setRescan(true); setTools(null); }} />}
       {tab === 'terminal' && (
         <div className="form-grid settings-grid">
           <label>{t('set_term_shell')}</label>

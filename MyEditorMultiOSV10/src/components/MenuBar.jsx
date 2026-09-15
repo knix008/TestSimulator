@@ -12,10 +12,10 @@
 // all 16), language toggle (the flag of the language you switch TO),
 // Settings and Info — sit at the right end of the toolbar row (Toolbar.jsx),
 // or here when the toolbar is hidden.
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useState } from 'react';
 import { t, useLanguage, getLanguage } from '../lib/i18n';
 import { THEMES, themeById, nextThemeId } from '../themes';
-import { isElectron, windowControl, onMaximized } from '../lib/backend';
+import { isElectron, windowControl, onMaximized, syncWindowMinWidth } from '../lib/backend';
 import { Icon, Flag } from './Icons';
 import { ContextMenu } from './ContextMenu';
 
@@ -77,6 +77,8 @@ export function AppControls({ onAction, theme, compact = false }) {   // compact
 // menus: [{ id, label, icon, items: () => [...] }]
 export function MenuBar({ menus, onAction, theme, controls = false }) {
   useLanguage();
+  // The window must stay wide enough for the menus (and the app controls when the icon toolbar is hidden).
+  useLayoutEffect(() => { syncWindowMinWidth(); });
   const [open, setOpen] = useState(null);        // { id, el }
   // Double-click on the empty part of the bar toggles maximize, like a title bar.
   const onDouble = (e) => { if (isElectron && !e.target.closest('button, select, input')) windowControl('maximize'); };
@@ -106,7 +108,7 @@ export function MenuBar({ menus, onAction, theme, controls = false }) {
       {controls && <AppControls onAction={onAction} theme={theme} />}
       {current && (
         <ContextMenu anchorEl={open.el} x={0} y={0} items={current.items()} className="menu-drop" onClose={() => setOpen(null)}
-          onPick={(id) => { setOpen(null); onAction(id); }} />
+          onPick={(id) => { setOpen(null); onAction(id); }} onAction={onAction} />
       )}
     </div>
     </>

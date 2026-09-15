@@ -11,8 +11,8 @@
 const path = require('path');
 const os = require('os');
 const fs = require('fs');
-const { execFileSync } = require('child_process');
-const { onPath, npmTool, exec, withTempFile } = require('./lint');
+const { execFile } = require('child_process');
+const { onPath, npmTool, resetPathIndex, exec, withTempFile } = require('./lint');
 const { RECIPES } = require('./install');
 
 // Extra places tools land when installed by cargo / go / pip (not always on PATH).
@@ -22,13 +22,38 @@ function inExtraDirs(name) {
   for (const d of EXTRA_DIRS) for (const e of exts) { const p = path.join(d, name + e); if (fs.existsSync(p)) return p; }
   return null;
 }
-const pyModules = new Map();   // module → true (a miss is not cached)
-function pythonModule(mod) {
-  if (pyModules.get(mod)) return pyModules.get(mod);
-  const py = onPath('python') || onPath('python3') || onPath('py');
-  if (!py) return null;
-  try { execFileSync(py, ['-c', `import ${mod}`], { stdio: 'ignore', windowsHide: true, timeout: 8000 }); pyModules.set(mod, py); return py; } catch { return null; }
+// The tools are looked for once per session and the answer — installed or
+// not — is kept: the executables on PATH / in the extra dirs (a miss too: the
+// settings tab lists ~30 tools at once and a PATH scan per tool per listing
+// added up) and the Python modules of the pip tools, which one python process
+// checks together (find_spec, no import; spawning python once per module was
+// what made the listing take seconds). Only refresh() looks again: the
+// "다시 찾기" button and a finished install.
+const exeMisses = new Set();   // name (or npm|name|dir) known to be absent
+function findExe(name) {
+  if (exeMisses.has(name)) return null;
+  const exe = onPath(name) || inExtraDirs(name);
+  if (!exe) exeMisses.add(name);
+  return exe;
 }
+const PIP_MODULES = [...new Set(Object.values(RECIPES).filter((r) => r.kind === 'pip' && r.module).map((r) => r.module))];
+let pyProbe = null;            // Promise<{ py, mods: Set }> — the modules python can find, checked once
+function probePython() {
+  if (pyProbe) return pyProbe;
+  const py = findExe('python') || findExe('python3') || findExe('py');
+  if (!py) { pyProbe = Promise.resolve({ py: null, mods: new Set() }); return pyProbe; }
+  const script = 'import importlib.util,sys\nprint(",".join(m for m in sys.argv[1:] if importlib.util.find_spec(m)))';
+  pyProbe = new Promise((resolve) => {
+    execFile(py, ['-c', script, ...PIP_MODULES], { windowsHide: true, timeout: 15000, encoding: 'utf-8' }, (err, stdout) => {
+      const mods = new Set(err ? [] : String(stdout).trim().split(',').filter(Boolean));
+      if (err) pyProbe = null;   // python failed to answer: asked again next time
+      resolve({ py, mods });
+    });
+  });
+  return pyProbe;
+}
+let pyKnown = { py: null, mods: new Set() };   // the last probe result, for the synchronous locate()
+function refresh() { exeMisses.clear(); resetPathIndex(); pyProbe = null; }
 
 // { id, label, npm?: name of an npm tool (project-local first), cmd?: executable on PATH,
 //   args(ctx): the arguments, stdin (default true), builtin?: (text, ctx) → text }
@@ -106,15 +131,18 @@ function formatXml(text, { tabSize = 2, insertSpaces = true } = {}) {
 function locate(tool, dir, toolsDir) {
   if (tool.builtin) return 'builtin';
   if (tool.npm) {
+    const key = `npm|${tool.npm}|${dir || ''}`;
+    if (exeMisses.has(key)) return null;
     const own = npmTool(tool.npm, dir);
-    if (own) return { exe: own, pre: [] };
     const app = path.join(toolsDir || '', 'node', 'node_modules', '.bin', process.platform === 'win32' ? `${tool.npm}.cmd` : tool.npm);
-    return toolsDir && fs.existsSync(app) ? { exe: app, pre: [] } : null;
+    const exe = own || (toolsDir && fs.existsSync(app) ? app : null);
+    if (!exe) exeMisses.add(key);
+    return exe ? { exe, pre: [] } : null;
   }
-  const exe = onPath(tool.cmd) || inExtraDirs(tool.cmd);
+  const exe = findExe(tool.cmd);
   if (exe) return { exe, pre: [] };
   const recipe = RECIPES[tool.id];
-  if (recipe && recipe.kind === 'pip' && recipe.module) { const py = pythonModule(recipe.module); if (py) return { exe: py, pre: ['-m', recipe.module] }; }
+  if (recipe && recipe.kind === 'pip' && recipe.module && pyKnown.py && pyKnown.mods.has(recipe.module)) return { exe: pyKnown.py, pre: ['-m', recipe.module] };
   return null;
 }
 const findTool = (tool, dir, toolsDir) => locate(tool, dir, toolsDir);
@@ -123,7 +151,9 @@ function createFormatter({ toolsDir } = {}) {
   return {
     languages: () => Object.keys(FORMATTERS),
     // Which tools exist for each language, and whether each is installed (project folder first for npm tools).
-    tools({ dir } = {}) {
+    async tools({ dir, refresh: again = false } = {}) {
+      if (again) refresh();
+      pyKnown = await probePython();
       const out = {};
       for (const [lang, list] of Object.entries(FORMATTERS)) out[lang] = list.map((t) => ({ id: t.id, label: t.label, available: !!findTool(t, dir, toolsDir), installable: !!(RECIPES[t.id] && RECIPES[t.id].kind !== 'manual'), hint: RECIPES[t.id] && RECIPES[t.id].hint ? RECIPES[t.id].hint : null }));
       return out;
@@ -133,6 +163,7 @@ function createFormatter({ toolsDir } = {}) {
       const list = FORMATTERS[language];
       if (!list) return { error: 'no formatter for this language', tool: null };
       const dir = file ? path.dirname(file) : undefined;
+      pyKnown = await probePython();
       let chosen = null;
       if (tool && tool !== 'auto') chosen = list.find((t) => t.id === tool) || null;
       else chosen = list.find((t) => findTool(t, dir, toolsDir)) || null;

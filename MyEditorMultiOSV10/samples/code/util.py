@@ -1,4 +1,5 @@
 """Python — type hints, dataclasses, comprehensions, f-strings."""
+
 from __future__ import annotations
 
 import sys

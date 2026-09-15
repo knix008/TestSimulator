@@ -50,8 +50,8 @@ const DEFAULTS = {
   paneDocs: [],            // which tab each pane showed (indices into tabs)
   activePane: 0,
   termVisible: false,      // terminal panel shown
-  termHeight: 180,         // terminal panel height (px)
-  sessionVersion: 2,       // see the migrations in load()
+  termHeight: 150,         // terminal panel height (px)
+  sessionVersion: 3,       // see the migrations in load()
   termCwd: '',             // where new terminals start; '' = the folder open in the sidebar (else the document's folder)
   termShell: '',           // shell of a new terminal (id from term.shells); '' = the first one offered
   userWords: [],           // words added to the dictionary by the user
@@ -90,6 +90,7 @@ function createSession(configDir) {
     // existing installation).
     const savedVersion = saved && typeof saved === 'object' ? Number(saved.sessionVersion) || 1 : 1;
     if (savedVersion < 2 && data.termHeight === 240) data.termHeight = DEFAULTS.termHeight;   // v2: the panel starts lower
+    if (savedVersion < 3 && data.termHeight === 180) data.termHeight = DEFAULTS.termHeight;   // v3: lower still
     data.sessionVersion = DEFAULTS.sessionVersion;
     return data;
   }

@@ -212,7 +212,7 @@ export function Sidebar({ folder, activePath, openPaths, onOpenFile, onOpenFolde
           const isOpen = openPaths.has(node.path);
           return (
             <div key={node.path}
-              className={`tree-row ${isActive ? 'active' : ''} ${selected === node.path ? 'selected' : ''} ${isOpen ? 'opened' : ''} ${node.hidden ? 'hidden-file' : ''}`}
+              className={`tree-row ${node.isDir ? 'dir' : 'file'} ${isActive ? 'active' : ''} ${selected === node.path ? 'selected' : ''} ${isOpen ? 'opened' : ''} ${node.hidden ? 'hidden-file' : ''}`}
               title={node.path}
               onClick={() => { setSelected(node.path); if (node.isDir) toggle(node); else onOpenFile(node.path); }}
               onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setSelected(node.path); setCtx({ node, x: e.clientX, y: e.clientY }); }}>

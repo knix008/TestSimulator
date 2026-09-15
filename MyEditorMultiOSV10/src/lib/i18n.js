@@ -11,7 +11,7 @@ const ko = {
   // file
   new_file: '새 문서', open_file: '열기…', open_folder: '폴더 열기…', close_folder: '폴더 닫기', save: '저장', save_as: '다른 이름으로 저장…', save_all: '모두 저장',
   reload: '다시 불러오기', close: '닫기', close_all: '모두 닫기', close_others: '다른 탭 모두 닫기', close_right: '오른쪽 탭 모두 닫기',
-  recent: '최근 파일', recent_empty: '(최근 파일 없음)', recent_clear: '최근 파일 목록 지우기', reveal: '탐색기에서 보기', open_with: '기본 앱으로 열기', copy_path: '경로 복사', copy_name: '파일 이름 복사',
+  recent: '최근 파일', recent_remove: '목록에서 제거', recent_empty: '(최근 파일 없음)', recent_clear: '최근 파일 목록 지우기', reveal: '탐색기에서 보기', open_with: '기본 앱으로 열기', copy_path: '경로 복사', copy_name: '파일 이름 복사',
   exit: '종료',
   // edit
   undo: '실행 취소', redo: '다시 실행', cut: '잘라내기', copy: '복사', paste: '붙여넣기', delete: '삭제', select_all: '모두 선택',
@@ -35,6 +35,7 @@ const ko = {
   tip_new: '새 문서 (Ctrl+N)', tip_open: '파일 열기 (Ctrl+O)', tip_open_folder: '폴더 열기 (Ctrl+Shift+O)', tip_save: '저장 (Ctrl+S)', tip_save_all: '모두 저장 (Ctrl+Shift+S)', tip_close: '탭 닫기 (Ctrl+W)',
   tip_undo: '실행 취소 (Ctrl+Z)', tip_redo: '다시 실행 (Ctrl+Y)', tip_cut: '잘라내기 (Ctrl+X)', tip_copy: '복사 (Ctrl+C)', tip_paste: '붙여넣기 (Ctrl+V)',
   tip_find: '찾기 (Ctrl+F)', tip_replace: '바꾸기 (Ctrl+H)', tip_wrap: '자동 줄 바꿈', tip_ws: '공백 문자 표시', tip_zoom_in: '확대 (Ctrl++)', tip_zoom_out: '축소 (Ctrl+-)', tip_sidebar: '폴더 트리 (Ctrl+B)',
+  tip_zoom_level: '현재 배율 {n}% — 누르면 기본 크기로 (Ctrl+0)', tip_formatter: '이 문서에 적용되는 정렬 도구: {tool}', tip_formatter_auto: '이 문서에 적용되는 정렬 도구: {tool} (자동 — 설치된 첫 도구; 설정 › 정렬)', tip_formatter_missing: '이 문서에 적용되는 정렬 도구: {tool} — 설치 안 됨 (정렬할 때 설치를 제안합니다)', tip_formatter_off: '이 문서의 정렬이 꺼져 있습니다 (설정 › 정렬)', tip_format_empty: '정렬할 내용이 없습니다', tip_format_done: '이미 정렬되어 있습니다 ({tool})', tip_formatter_pick: '누르면 이 언어의 정렬 방식을 고릅니다', set_format_for: '{lang} 정렬 방식',
   tip_theme: '테마 선택 (16종)', tip_next_theme: '다음 테마로 전환: {theme}', tip_language: '한국어 / English', tip_settings: '설정', tip_about: 'My Editor 정보',
   settings: '설정', menu_info: '정보',
   win_minimize: '최소화', win_maximize: '최대화', win_restore: '이전 크기로', win_close: '닫기', win_resize: '드래그하여 창 크기 조절',
@@ -103,7 +104,7 @@ const en = {
   m_file: 'File', m_edit: 'Edit', m_search: 'Search', m_view: 'View', m_lang: 'Language', m_enc: 'Encoding', m_help: 'Help',
   new_file: 'New', open_file: 'Open…', open_folder: 'Open folder…', close_folder: 'Close folder', save: 'Save', save_as: 'Save as…', save_all: 'Save all',
   reload: 'Reload from disk', close: 'Close', close_all: 'Close all', close_others: 'Close other tabs', close_right: 'Close tabs to the right',
-  recent: 'Recent files', recent_empty: '(no recent files)', recent_clear: 'Clear recent files', reveal: 'Show in file manager', open_with: 'Open with default app', copy_path: 'Copy path', copy_name: 'Copy file name',
+  recent: 'Recent files', recent_remove: 'Remove from the list', recent_empty: '(no recent files)', recent_clear: 'Clear recent files', reveal: 'Show in file manager', open_with: 'Open with default app', copy_path: 'Copy path', copy_name: 'Copy file name',
   exit: 'Exit',
   undo: 'Undo', redo: 'Redo', cut: 'Cut', copy: 'Copy', paste: 'Paste', delete: 'Delete', select_all: 'Select all',
   dup_line: 'Duplicate line', del_line: 'Delete line', move_up: 'Move line up', move_down: 'Move line down', toggle_comment: 'Toggle comment', indent: 'Indent', outdent: 'Outdent',
@@ -121,6 +122,7 @@ const en = {
   tip_new: 'New document (Ctrl+N)', tip_open: 'Open file (Ctrl+O)', tip_open_folder: 'Open folder (Ctrl+Shift+O)', tip_save: 'Save (Ctrl+S)', tip_save_all: 'Save all (Ctrl+Shift+S)', tip_close: 'Close tab (Ctrl+W)',
   tip_undo: 'Undo (Ctrl+Z)', tip_redo: 'Redo (Ctrl+Y)', tip_cut: 'Cut (Ctrl+X)', tip_copy: 'Copy (Ctrl+C)', tip_paste: 'Paste (Ctrl+V)',
   tip_find: 'Find (Ctrl+F)', tip_replace: 'Replace (Ctrl+H)', tip_wrap: 'Word wrap', tip_ws: 'Show whitespace', tip_zoom_in: 'Zoom in (Ctrl++)', tip_zoom_out: 'Zoom out (Ctrl+-)', tip_sidebar: 'Folder tree (Ctrl+B)',
+  tip_zoom_level: 'Zoom {n}% — click to reset (Ctrl+0)', tip_formatter: 'Formatter for this document: {tool}', tip_formatter_auto: 'Formatter for this document: {tool} (auto — the first one installed; Settings › Formatting)', tip_formatter_missing: 'Formatter for this document: {tool} — not installed (offered when formatting)', tip_formatter_off: 'Formatting is off for this document (Settings › Formatting)', tip_format_empty: 'Nothing to format', tip_format_done: 'Already formatted ({tool})', tip_formatter_pick: 'Click to choose the formatter for this language', set_format_for: '{lang} formatter',
   tip_theme: 'Choose a theme (16 built in)', tip_next_theme: 'Switch to the next theme: {theme}', tip_language: '한국어 / English', tip_settings: 'Settings', tip_about: 'About My Editor',
   settings: 'Settings', menu_info: 'Info',
   win_minimize: 'Minimize', win_maximize: 'Maximize', win_restore: 'Restore', win_close: 'Close', win_resize: 'Drag to resize the window',

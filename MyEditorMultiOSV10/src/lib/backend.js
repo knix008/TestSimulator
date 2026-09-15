@@ -94,6 +94,39 @@ export function setWindowSize(w, h) {
   if (isElectron && electron.setWindowSize) electron.setWindowSize(w, h);
 }
 
+// Keeps the window at least as wide as its toolbars: every bar that must stay
+// on one line (.toolbar.menubar, .icon-toolbar) is measured — the natural
+// width of its children, the spacer at its minimum — and the widest is sent
+// to the main process, which raises the window's minimum width to it. Called
+// after every render of those bars; the calls collapse into one measurement
+// per frame and only a changed value is sent. No-op in the browser.
+let minWidthRaf = 0, lastMinWidth = 0;
+export function syncWindowMinWidth() {
+  if (!isElectron || !electron.setMinContentWidth || minWidthRaf) return;
+  minWidthRaf = requestAnimationFrame(() => {
+    minWidthRaf = 0;
+    let need = 0;
+    for (const el of document.querySelectorAll('.toolbar.menubar, .icon-toolbar')) {
+      const cs = getComputedStyle(el);
+      let w = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight) + parseFloat(cs.borderLeftWidth) + parseFloat(cs.borderRightWidth);
+      const gap = parseFloat(cs.columnGap) || 0;
+      let n = 0;
+      for (const c of el.children) {
+        if (c.classList.contains('tb-spacer')) w += parseFloat(getComputedStyle(c).minWidth) || 0;
+        else w += c.getBoundingClientRect().width;
+        n++;
+      }
+      w += gap * Math.max(0, n - 1);
+      need = Math.max(need, w);
+    }
+    // The bars sit inside the app column: add whatever surrounds them (none today, but measured rather than assumed).
+    const app = document.querySelector('.app');
+    if (app) need += Math.max(0, document.documentElement.clientWidth - app.getBoundingClientRect().width);
+    need = Math.ceil(need) + 1;
+    if (need > 0 && need !== lastMinWidth) { lastMinWidth = need; electron.setMinContentWidth(need); }
+  });
+}
+
 export function setWindowTitle(title) {
   document.title = title;
   if (isElectron && electron.setTitle) electron.setTitle(title);

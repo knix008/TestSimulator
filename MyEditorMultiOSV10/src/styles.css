@@ -118,6 +118,13 @@ button:disabled { cursor: default; opacity: 0.45; }
 .tb-size input { width: 40px; height: 26px; padding: 2px 4px; text-align: center; font-size: 12px; -moz-appearance: textfield; }
 .tb-size input::-webkit-outer-spin-button, .tb-size input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .tool-btn.on { background: color-mix(in srgb, var(--accent) 22%, var(--bg-panel)); border-color: color-mix(in srgb, var(--accent) 55%, transparent); color: var(--accent); }
+/* Text next to a button: the formatter of the active document (after 문서 정렬), the zoom level (between zoom in / out). */
+.tb-label { flex: none; font-size: 12px; line-height: 20px; padding: 3px 5px; white-space: nowrap; color: var(--fg-muted); }
+.tb-formatter { max-width: 170px; gap: 3px; align-items: center; }
+.tb-formatter-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tb-formatter.off { font-style: italic; }
+.tb-formatter.missing { color: var(--danger); }
+.tb-zoom { min-width: 44px; justify-content: center; font-variant-numeric: tabular-nums; }
 
 /* ── Tabs ── */
 .tabbar { display: flex; align-items: stretch; border-bottom: 1px solid var(--border); background: var(--bg-panel); flex: none; min-height: 34px; }
@@ -266,6 +273,8 @@ button:disabled { cursor: default; opacity: 0.45; }
 .guide.v::before, .guide.mid::before { content: ''; position: absolute; left: 6px; top: 0; bottom: 0; border-left: 1px solid var(--border-strong); }
 .guide.end::before { content: ''; position: absolute; left: 6px; top: 0; height: 50%; border-left: 1px solid var(--border-strong); }
 .guide.mid::after, .guide.end::after { content: ''; position: absolute; left: 6px; top: 50%; width: 9px; border-top: 1px solid var(--border-strong); }
+/* A file has no expander box for the connector to meet: the stub runs on through the empty expander cell up to the file icon. */
+.tree-row.file .guide.mid::after, .tree-row.file .guide.end::after { width: 31px; }
 .tree-expander .icon { color: var(--fg-muted); background: var(--bg-panel); }
 .tree-row:hover .tree-expander .icon { color: var(--fg); }
 .tree-leaf { display: inline-block; width: 13px; }
@@ -349,6 +358,10 @@ button:disabled { cursor: default; opacity: 0.45; }
 .ctx-label { flex: 1; white-space: nowrap; }
 .ctx-shortcut { color: var(--fg-muted); font-size: 11px; margin-left: 16px; white-space: nowrap; }
 .ctx-meta { color: var(--fg-muted); font-size: 11px; margin-left: 8px; white-space: nowrap; max-width: 260px; overflow: hidden; text-overflow: ellipsis; }
+/* the × that forgets a recent file: shows on hover, at the row's end */
+.ctx-remove { margin-left: auto; padding: 2px; border-radius: 3px; color: var(--fg-muted); display: inline-flex; opacity: 0; }
+.ctx-item:hover .ctx-remove { opacity: 1; }
+.ctx-remove:hover { color: #fff; background: var(--danger); }
 .ctx-sep { height: 1px; background: var(--border); margin: 4px 6px; }
 .ctx-header { padding: 4px 10px 2px; font-size: 11px; color: var(--fg-muted); text-transform: uppercase; letter-spacing: 0.04em; }
 

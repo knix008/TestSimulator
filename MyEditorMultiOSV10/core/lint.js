@@ -21,6 +21,21 @@ const MAX_TEXT = 2 * 1024 * 1024;
 
 // ── finding an executable ──
 const exeCache = new Map();   // "name|dir" → full path | null
+// Each PATH directory is listed once (a minute at most, so a tool installed
+// while the app runs is still found) and lookups are set membership: a miss
+// used to cost a stat per directory per PATHEXT extension — a second per
+// listing of the formatter / linter tables on a long Windows PATH.
+const PATH_INDEX_TTL = 60000;
+const pathIndex = new Map();   // dir → { names: Map<lowercase name, real name> | null, at }
+function dirNames(dir) {
+  const hit = pathIndex.get(dir);
+  if (hit && Date.now() - hit.at < PATH_INDEX_TTL) return hit.names;
+  let names = null;
+  try { names = new Map(fs.readdirSync(dir).map((n) => [n.toLowerCase(), n])); } catch { names = null; }
+  pathIndex.set(dir, { names, at: Date.now() });
+  return names;
+}
+function resetPathIndex() { pathIndex.clear(); }
 function onPath(name) {
   const key = `path|${name}`;
   if (exeCache.has(key)) return exeCache.get(key);
@@ -28,10 +43,11 @@ function onPath(name) {
   let found = null;
   for (const dir of (process.env.PATH || '').split(path.delimiter)) {
     if (!dir) continue;
+    const names = dirNames(dir);
+    if (!names) continue;
     for (const ext of exts) {
-      const p = path.join(dir, name + ext.toLowerCase());
-      if (fs.existsSync(p)) { found = p; break; }
-      if (process.platform === 'win32' && fs.existsSync(path.join(dir, name + ext))) { found = path.join(dir, name + ext); break; }
+      const real = names.get((name + ext).toLowerCase());
+      if (real) { found = path.join(dir, real); break; }
     }
     if (found) break;
   }
@@ -339,4 +355,4 @@ function createLinter() {
   };
 }
 
-module.exports = { createLinter, LINTERS, onPath, npmTool, exec, withTempFile };
+module.exports = { createLinter, LINTERS, onPath, npmTool, resetPathIndex, exec, withTempFile };

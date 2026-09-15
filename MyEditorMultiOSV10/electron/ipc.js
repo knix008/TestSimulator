@@ -50,6 +50,19 @@ function registerIpc(api, getWindow, { dialogs, onRendererReady, openPopup, prin
     const [minW, minH] = win.getMinimumSize();
     win.setSize(Math.max(minW, Math.round(w)), Math.max(minH, Math.round(h)));
   });
+  // The renderer measures what the menu bar / icon toolbar need to show every
+  // control on one line and the minimum width follows (never below the one
+  // the window was created with); a window narrower than that is widened.
+  ipcMain.on('win:setMinWidth', (_event, w) => {
+    const win = getWindow();
+    if (!win || win.isDestroyed() || !Number.isFinite(w)) return;
+    if (win.baseMinWidth == null) win.baseMinWidth = win.getMinimumSize()[0];
+    const frame = win.getSize()[0] - win.getContentSize()[0];
+    const [, minH] = win.getMinimumSize();
+    const minW = Math.max(win.baseMinWidth, Math.ceil(w) + frame);
+    if (minW !== win.getMinimumSize()[0]) win.setMinimumSize(minW, minH);
+    if (!win.isMaximized() && !win.isFullScreen() && win.getSize()[0] < minW) win.setSize(minW, win.getSize()[1]);
+  });
   ipcMain.handle('win:isMaximized', () => { const win = getWindow(); return !!(win && !win.isDestroyed() && win.isMaximized()); });
   ipcMain.on('win:setTitle', (_event, title) => { const win = getWindow(); if (win && !win.isDestroyed()) win.setTitle(title || 'My Editor'); });
 

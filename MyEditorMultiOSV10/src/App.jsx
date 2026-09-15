@@ -22,6 +22,7 @@ import {
 import { createState, settingsEffects, languageEffect, readOnlyEffect, commands, searchApi, applySaveTransforms, cursorInfo } from './lib/editor';
 import { detectLanguage, languageByName, loadLanguage, FEATURED_LANGUAGES, PLAIN } from './lib/languages';
 import { commands as md } from './lib/markdown';
+import { resolveFormatter, toolLabel } from './lib/formatters';
 import { markdownLive, imageBase } from './lib/mdlive';
 import { fileToDataUrl, isImageFile, resolveImageSrc, analyzeImage, encodeImage } from './lib/images';
 import { renderMarkdown } from './lib/markdown';
@@ -180,6 +181,7 @@ export default function App() {
     setDocVersion((v) => v + 1);
     schedulePersist();
     scheduleLint(id);
+    scheduleFmtCheck(id);
   };
 
   // ── linting: the language's checker runs in the backend, a moment after the
@@ -280,7 +282,7 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
     const lang = doc.langName;
     const choice = (settingsRef.current.formatters || {})[lang] || 'auto';
     if (choice === 'none') { if (!quiet) setMessage(t('fmt_off', { lang })); return false; }
-    if (!lang || choice === 'indent') { reindentDoc(id); if (!quiet) setMessage(t('fmt_done', { tool: t('fmt_indent') })); return true; }
+    if (!lang || choice === 'indent') { reindentDoc(id); if (!quiet) setMessage(t('fmt_done', { tool: t('fmt_indent') })); { const after = getState(id); if (after) setFmtCheck({ id, doc: after.doc, formatted: true }); } return true; }
     const text = st.doc.toString();
     let r;
     try { r = await call('format.run', { path: doc.path || '', name: doc.name, language: lang, text, tool: choice, tabSize: settingsRef.current.tabSize, insertSpaces: settingsRef.current.insertSpaces }); } catch (e) { if (!quiet) setMessage(`${t('fmt_failed', { tool: lang })}: ${e.message}`); return false; }
@@ -298,6 +300,7 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
           if (st.missing) { await showError(t('inst_manual_title', { tool: r.tool }), t('inst_missing_pm', { pm: st.missing, tool: r.tool })); return false; }
           const ok = await ask({ type: 'install', tool: r.tool, jobId: st.id });
           if (!ok) return false;
+          try { setFmtTools(await call('format.tools', { dir: fmtDirRef.current, refresh: true })); } catch { /* the label catches up on the next listing */ }   // forget the cached "not installed"
           return formatDoc(id, { quiet });
         }
         await showError(t('inst_manual_title', { tool: r.tool }), r.hint || t('inst_no_recipe', { tool: r.tool }));
@@ -323,8 +326,63 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
       scheduleLint(id, 300);
     }
     if (!quiet) setMessage(t(next === text ? 'fmt_unchanged' : 'fmt_done', { tool: r.tool }));
+    { const after = getState(id); if (after) setFmtCheck({ id, doc: after.doc, formatted: true }); }
     return true;
   };
+
+  // ── which formatter each language gets (format.tools: the tools per
+  // language and whether each is installed) — for the toolbar label next to
+  // the format button. Looked up for the open folder (project-local npm tools
+  // first), again when settings › 정렬 rescans or installs one.
+  const [fmtTools, setFmtTools] = useState(null);
+  const fmtDir = folder || (activeDoc && activeDoc.path ? dirName(activeDoc.path) : '');
+  const fmtDirRef = useRef(''); fmtDirRef.current = fmtDir;
+  useEffect(() => {
+    let live = true;
+    call('format.tools', { dir: fmtDir }).then((r) => { if (live) setFmtTools(r); }).catch(() => { if (live) setFmtTools({}); });
+    return () => { live = false; };
+  }, [fmtDir]);
+
+  // ── "already formatted": a moment after the last edit the active document
+  // is run through its formatter (the same call as 문서 정렬, result thrown
+  // away) and the format button is disabled when nothing would change. A
+  // stale answer is harmless: it is keyed by the document's Text, which the
+  // editor replaces on every change.
+  const [fmtCheck, setFmtCheck] = useState(null);   // { id, doc: Text, formatted }
+  const fmtCheckTimer = useRef(null);
+  const fmtCheckRun = useRef(0);
+  // Would the editor's own re-indent (the 'indent' choice and the fallback) change anything?
+  const wouldReindent = (st) => {
+    let changed = false;
+    const all = st.update({ selection: { anchor: 0, head: st.doc.length } }).state;
+    indentSelection({ state: all, dispatch: (tr) => { changed = !tr.newDoc.eq(st.doc); } });
+    return changed;
+  };
+  const checkFormatted = async (id) => {
+    const doc = getDoc(id);
+    const st = getState(id);
+    if (!doc || !st || st.doc.length === 0) return;
+    const run = ++fmtCheckRun.current;
+    const lang = doc.langName;
+    const choice = (settingsRef.current.formatters || {})[lang] || 'auto';
+    if (choice === 'none') return;
+    if (!lang || choice === 'indent') { setFmtCheck({ id, doc: st.doc, formatted: !wouldReindent(st) }); return; }
+    const text = st.doc.toString();
+    let r = null;
+    try { r = await call('format.run', { path: doc.path || '', name: doc.name, language: lang, text, tool: choice, tabSize: settingsRef.current.tabSize, insertSpaces: settingsRef.current.insertSpaces }); } catch { r = null; }
+    if (run !== fmtCheckRun.current) return;
+    let formatted = false;
+    if (!r) formatted = false;
+    else if (r.error) formatted = !r.tool ? !wouldReindent(st) : false;   // no tool at all → the re-indent fallback; a missing tool → the button offers to install it
+    else formatted = String(r.text).replace(/\r\n?/g, '\n') === text;
+    setFmtCheck({ id, doc: st.doc, formatted });
+  };
+  const scheduleFmtCheck = (id, delay = 800) => {
+    if (fmtCheckTimer.current) clearTimeout(fmtCheckTimer.current);
+    fmtCheckTimer.current = setTimeout(() => { fmtCheckTimer.current = null; if (id === activeIdRef.current) checkFormatted(id); }, delay);
+  };
+  // A new active document, its language or the formatter choice: check again.
+  useEffect(() => { if (activeDoc) scheduleFmtCheck(activeDoc.id, 100); }, [activeDoc && activeDoc.id, activeDoc && activeDoc.langName, settings.formatters, fmtTools]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── find in files / in the open documents ──
   const searchOpenDocs = ({ query, regex, caseSensitive, wholeWord }) => {
@@ -881,7 +939,11 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
 
   // ── settings ──
   // Settings changed in a separate window (settings popup): apply, don't save again, don't echo back.
-  useEffect(() => onSettingsPatch((patch) => changeSettings(patch, { fromRemote: true })), []);   // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => onSettingsPatch((patch) => {
+    // The settings window looked the formatters up again (다시 찾기 / an install): take the backend's new list for the toolbar label.
+    if (patch.formatToolsAt) { call('format.tools', { dir: fmtDirRef.current }).then(setFmtTools).catch(() => {}); return; }
+    changeSettings(patch, { fromRemote: true });
+  }), []);   // eslint-disable-line react-hooks/exhaustive-deps
   const changeSettings = (patch, { fromRemote = false } = {}) => {
     const next = setSettings(patch);
     if (patch.language !== undefined) { setLanguage(next.language); setDocs((ds) => ds.map((d) => (d.path ? d : { ...d, name: t('untitled', { n: d.untitledNo }) }))); }
@@ -1003,7 +1065,9 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
     if (id.startsWith('enc:')) return setDocEncoding(cur, id.slice(4));
     if (id.startsWith('reopen:')) return reopenWith(cur, id.slice(7));
     if (id.startsWith('eol:')) return setDocEol(cur, id.slice(4));
+    if (id.startsWith('recentRemove:')) { call('recent.remove', { path: id.slice(13) }).then(setRecent).catch(() => {}); return; }   // the × on a recent-files entry (the menu stays open)
     if (id.startsWith('recent:')) return openPath(id.slice(7));
+    if (id.startsWith('formatter:')) { const d = getDoc(activeIdRef.current); if (d && d.langName) changeSettings({ formatters: { ...(settingsRef.current.formatters || {}), [d.langName]: id.slice(10) } }); return; }   // the toolbar picker next to 문서 정렬
     if (id.startsWith('indent:')) { const [kind, n] = id.slice(7).split('-'); return changeSettings({ insertSpaces: kind === 'spaces', tabSize: Number(n) }); }
     if (id.startsWith('tab:')) { const d = docsRef.current[Number(id.slice(4))]; if (d) activate(d.id); return; }
     if (id.startsWith('spell:')) {
@@ -1223,6 +1287,28 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
   // ── menus ──
   const sc = (win, mac) => (isMac ? (mac || win.replace('Ctrl', '⌘')) : win);
   const cur = activeDoc;
+  // 문서 정렬 (toolbar button + menu item): the formatter the active document
+  // gets, and whether there is anything for it to do.
+  const curState = cur ? getState(cur.id) : null;
+  const fmtInfo = cur ? resolveFormatter({ lang: cur.langName, settings, tools: fmtTools }) : null;
+  const fmtEmpty = !curState || curState.doc.length === 0;
+  const fmtDone = !!(fmtCheck && cur && curState && fmtCheck.id === cur.id && fmtCheck.doc === curState.doc && fmtCheck.formatted);
+  const canFormat = !!cur && !fmtEmpty && !(fmtInfo && fmtInfo.off) && !fmtDone;
+  const formatTip = !cur ? null : fmtEmpty ? t('tip_format_empty') : fmtInfo && fmtInfo.off ? t('tip_formatter_off') : fmtDone ? t('tip_format_done', { tool: fmtInfo.label }) : null;
+  // The choices for the document's language (as in settings › 정렬): auto, each tool, editor re-indent, off.
+  const formatterItems = cur && cur.langName ? () => {
+    const lang = cur.langName;
+    const choice = (settings.formatters || {})[lang] || 'auto';
+    const list = (fmtTools || {})[lang] || [];
+    const first = list.find((x) => x.available);
+    return [
+      { header: t('set_format_for', { lang }) },
+      { id: 'formatter:auto', label: t('fmt_auto', { tool: first ? toolLabel(first) : t('fmt_indent') }), checked: choice === 'auto', radio: true },
+      ...list.map((x) => ({ id: `formatter:${x.id}`, label: toolLabel(x), meta: x.available ? '' : (x.installable ? t('fmt_not_installed_auto') : t('fmt_not_installed_manual')), checked: choice === x.id, radio: true })),
+      { id: 'formatter:indent', label: t('fmt_indent'), checked: choice === 'indent', radio: true },
+      { id: 'formatter:none', label: t('fmt_none_opt'), checked: choice === 'none', radio: true },
+    ];
+  } : null;
   const menus = [
     { id: 'file', label: t('m_file'), icon: 'folder', items: () => [
       { id: 'new', label: t('new_file'), icon: 'filePlus', shortcut: sc('Ctrl+N') },
@@ -1246,7 +1332,7 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
       { id: 'copyPath', label: t('copy_path'), icon: 'copy', disabled: !cur || !cur.path },
       { sep: true },
       { header: t('recent') },
-      ...(recent.length ? recent.slice(0, 10).map((p) => ({ id: `recent:${p}`, label: baseName(p), meta: dirName(p), icon: 'clock' })) : [{ id: 'recentNone', icon: 'clock', label: t('recent_empty'), disabled: true }]),
+      ...(recent.length ? recent.slice(0, 10).map((p) => ({ id: `recent:${p}`, label: baseName(p), meta: dirName(p), icon: 'clock', remove: `recentRemove:${p}`, removeTip: t('recent_remove') })) : [{ id: 'recentNone', icon: 'clock', label: t('recent_empty'), disabled: true }]),
       ...(recent.length ? [{ id: 'recentClear', label: t('recent_clear'), icon: 'eraser' }] : []),
       { sep: true },
       { id: 'exit', icon: 'exit', label: t('exit'), shortcut: isMac ? '⌘Q' : 'Alt+F4' },
@@ -1277,7 +1363,7 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
       { id: 'removeEmpty', icon: 'removeEmpty', label: t('remove_empty') },
       { id: 'removeDup', icon: 'removeDup', label: t('remove_dup') },
       { sep: true },
-      { id: 'formatDoc', label: t('format_doc'), icon: 'format', shortcut: 'Shift+Alt+F', disabled: !cur },
+      { id: 'formatDoc', label: t('format_doc'), icon: 'format', shortcut: 'Shift+Alt+F', disabled: !canFormat },
       { sep: true },
       { id: 'insertDate', label: t('insert_date'), icon: 'calendar' },
       { id: 'insertPath', icon: 'link', label: t('insert_path'), disabled: !cur || !cur.path },
@@ -1485,7 +1571,7 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
 
   const openPaths = useMemo(() => new Set(docs.map((d) => d.path).filter(Boolean)), [docs]);
   const isMarkdown = !!cur && cur.langName === 'Markdown';
-  const toolbarState = { dirty: !!cur && cur.dirty, anyDirty: docs.some((d) => d.dirty) };
+  const toolbarState = { dirty: !!cur && cur.dirty, anyDirty: docs.some((d) => d.dirty), canFormat, formatter: fmtInfo, formatterItems, formatTip, zoom };
 
   if (!booted) return <div className="boot">{t('ready')}…</div>;
 
@@ -1578,7 +1664,7 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
       {dialog && dialog.type === 'prompt' && <PromptDialog title={dialog.title} label={dialog.label} initial={dialog.initial} okLabel={dialog.okLabel} icon={dialog.icon} validate={dialog.validate} onResult={closeDialog} />}
       {dialog && dialog.type === 'about' && <AboutDialog info={info} onClose={closeDialog} />}
       {dialog && dialog.type === 'shortcuts' && <ShortcutsDialog onClose={closeDialog} />}
-      {dialog && dialog.type === 'settings' && <SettingsDialog settings={settings} encodings={(info && info.encodings) || []} shells={shells} formatDir={cur && cur.path ? dirName(cur.path) : folder || ''} onChange={changeSettings} onClose={closeDialog} />}
+      {dialog && dialog.type === 'settings' && <SettingsDialog settings={settings} encodings={(info && info.encodings) || []} shells={shells} formatDir={cur && cur.path ? dirName(cur.path) : folder || ''} onChange={changeSettings} onClose={closeDialog} tools={fmtTools} onTools={setFmtTools} />}
       {dialog && dialog.type === 'goto' && <GotoLineDialog lines={cursor.lines} current={cursor.line} onClose={closeDialog} onGo={(l, c) => { closeDialog(); withView((v) => commands.gotoLine(v, l, c)); }} />}
       {dialog && dialog.type === 'language' && <LanguagePicker current={(getDoc(dialog.docId) || {}).language || 'auto'} onClose={closeDialog} onPick={(name) => { closeDialog(); setDocLanguage(dialog.docId, name); }} />}
       {dialog && dialog.type === 'encoding' && <EncodingPicker title={t('reopen_as')} encodings={(info && info.encodings) || []} current={cur && cur.encoding} onClose={closeDialog} onPick={(id) => { closeDialog(); reopenWith(activeIdRef.current, id); }} />}
