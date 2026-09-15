@@ -5,6 +5,7 @@
 //   language      — 'ko' | 'en'
 //   theme         — 'dark' | 'light' | 'system'
 //   showHidden    — list dot-files
+//   dockVisible, dockHeight — the bottom dock (log + terminal tabs)
 //
 // Electron passes app.getPath('userData'); the web server uses the XDG /
 // AppData equivalent so a browser session survives a server restart too.
@@ -25,6 +26,10 @@ const DEFAULTS = {
   leftSort: { column: 'name', asc: true },
   rightSort: { column: 'name', asc: true },
   windowBounds: null,
+  dockVisible: false,  // bottom dock (log + terminals)
+  dockHeight: 220,
+  termShell: '',       // shell of a new terminal (id from term.shells); '' = the first one offered
+  termCwd: '',         // where new terminals start; '' = the active panel's folder
 };
 
 function defaultConfigDir(appName = 'CommandCenter') {

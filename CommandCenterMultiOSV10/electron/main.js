@@ -5,7 +5,7 @@
 //   • native bits the core cannot do on its own: open with the default app,
 //     move to the OS trash, the system clipboard
 //   • smoke-test hook: --smoke-shot=<png> screenshots the window and quits
-const { app, BrowserWindow, Menu, shell, clipboard, nativeImage } = require('electron');
+const { app, BrowserWindow, Menu, shell, clipboard, nativeImage, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -160,7 +160,13 @@ if (!gotLock) {
       app.dock.setIcon(nativeImage.createFromPath(path.join(__dirname, '..', 'build', 'icons', 'icon.png')));
     }
     buildMenu();
-    registerIpc(api, () => mainWin);
+    registerIpc(api, () => mainWin, {
+      // Native folder picker (settings › terminal › start directory); the web version types the path.
+      openFolder: async ({ defaultPath } = {}) => {
+        const r = await dialog.showOpenDialog(mainWin, { defaultPath: defaultPath || undefined, properties: ['openDirectory'] });
+        return r.canceled ? null : r.filePaths[0];
+      },
+    });
     createWindow();
 
     app.on('activate', () => {
@@ -172,4 +178,6 @@ if (!gotLock) {
     if (api) api.jobs.cancelAll();
     app.quit();
   });
+  // Every way out (closing the window, Cmd+Q, the smoke test) kills the dock's shells.
+  app.on('will-quit', () => { if (api) api.shutdown(); });
 }

@@ -1,15 +1,17 @@
 // Command Center — application shell.
 //
-// Two FilePanels side by side, the menu bar / toolbar / status bar, and every
-// action that needs a dialog, a job with progress, or the other panel.
+// Two FilePanels side by side, the menu bar / toolbar / status bar, the
+// bottom dock (operation log + terminal tabs) and every action that needs a
+// dialog, a job with progress, or the other panel.
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { call, runJob, cancelJob, resolveConflict, readClipboardText, writeClipboardText, quitApp, hostName } from './lib/backend';
+import { call, runJob, cancelJob, resolveConflict, readClipboardText, writeClipboardText, quitApp, hostName, pickFolder } from './lib/backend';
 import { t, setLanguage, getLanguage, useLanguage } from './lib/i18n';
 import { setSeparator, joinPath, baseName, dirName } from './lib/format';
 import { FilePanel } from './components/FilePanel';
 import { MenuBar, Toolbar } from './components/Chrome';
 import { DialogHost, useDialogs } from './dialogs/Dialogs';
 import { SearchDialog } from './dialogs/SearchDialog';
+import { BottomDock } from './components/BottomDock';
 import { applyTheme, themeById, nextThemeId, DEFAULT_THEME } from './themes';
 import { SETTINGS_DEFAULTS } from './lib/settings';
 
@@ -32,6 +34,15 @@ function stripArchiveExt(name) {
   return name;
 }
 
+const MAX_LOG = 2000;
+let logSeq = 0;
+
+// Text of an error for the log tab (the dialog shows the full details).
+function errorText(err, extra) {
+  const msg = err && err.message ? err.message : (typeof err === 'string' ? err : String(err));
+  return typeof extra === 'string' && extra && extra !== msg ? `${extra}: ${msg}` : msg;
+}
+
 function toFileUri(p) {
   const norm = p.replace(/\\/g, '/');
   return 'file://' + (norm.startsWith('/') ? '' : '/') + norm.split('/').map((seg, i) => (i === 0 && /^[a-zA-Z]:$/.test(seg) ? seg : encodeURIComponent(seg))).join('/');
@@ -49,11 +60,18 @@ function fromFileUri(line) {
 
 export default function App() {
   useLanguage();
-  const dialogs = useDialogs();
+  const baseDialogs = useDialogs();
   const [info, setInfo] = useState(null);
   const [session, setSession] = useState(null);
   const [active, setActive] = useState('left');
-  const [status, setStatus] = useState('');
+  const [status, setStatusText] = useState('');
+  // Bottom dock: the log collects every status message and error; terminal
+  // sessions live in the host (core/terminal.js), here only their tabs.
+  const [log, setLog] = useState([]);
+  const [dockTab, setDockTab] = useState('log');
+  const [terms, setTerms] = useState([]);
+  const [shells, setShells] = useState([]);
+  const termNo = useRef(1);
   const [busy, setBusy] = useState(0);
   const [search, setSearch] = useState(null);
   const [selCount, setSelCount] = useState({ left: 0, right: 0 });
@@ -62,10 +80,23 @@ export default function App() {
   const inAppClipboard = useRef([]);
   const splitRef = useRef(null);
 
+  const addLog = useCallback((level, text) => {
+    if (!text) return;
+    setLog((l) => { const next = [...l, { id: ++logSeq, ts: Date.now(), level, text: String(text) }]; return next.length > MAX_LOG ? next.slice(-MAX_LOG) : next; });
+  }, []);
+  // Status bar messages are also kept in the log tab.
+  const setStatus = useCallback((msg) => { setStatusText(msg); addLog('info', msg); }, [addLog]);
+  // Every error dialog leaves a line in the log too.
+  const dialogs = useMemo(() => ({
+    ...baseDialogs,
+    error: (err, extra) => { addLog('error', errorText(err, extra)); return baseDialogs.error(err, extra); },
+  }), [baseDialogs, addLog]);
+
   // ── Boot ──
   useEffect(() => {
     (async () => {
       const i = await call('app.info');
+      call('term.shells').then(setShells).catch(() => {});
       setSeparator(i.sep);
       setInfo(i);
       const s = { ...SETTINGS_DEFAULTS, ...(await call('session.load')) };
@@ -106,8 +137,53 @@ export default function App() {
   const activatePanel = (side) => {
     if (side !== active) {
       setActive(side);
-      setStatus(t(side === 'left' ? 'left_active' : 'right_active', { path: pathOf(side) }));
+      setStatusText(t(side === 'left' ? 'left_active' : 'right_active', { path: pathOf(side) }));
     }
+  };
+
+  // ── Bottom dock: log + terminals ──
+  const showDock = (on) => saveSession({ dockVisible: on });
+  // New terminals start in the configured directory (settings › terminal), else the active panel's folder.
+  const newTerminal = async (shell) => {
+    try {
+      let cwd = session.termCwd || '';
+      if (cwd) {
+        const ok = await call('fs.exists', { path: cwd }).then((r) => r.isDir).catch(() => false);
+        if (!ok) { addLog('error', t('set_term_cwd_missing', { path: cwd })); cwd = ''; }
+      }
+      const r = await call('term.create', { cwd: cwd || pathOf(active), shell: shell || session.termShell || undefined });
+      const tm = { id: r.id, title: `${r.label} ${termNo.current++}`, shell: r.shell, cwd: r.cwd, exited: false, idle: true, buffer: [], seq: 0, git: null };
+      setTerms((ts) => [...ts, tm]);
+      setDockTab(r.id);
+      if (!session.dockVisible) showDock(true);
+      setStatus(t('term_opened', { name: tm.title, cwd: r.cwd }));
+    } catch (err) {
+      await dialogs.error(err);
+    }
+  };
+  const closeTerminal = (id) => {
+    call('term.kill', { id }).catch(() => {});
+    const gone = terms.find((x) => x.id === id);
+    const next = terms.filter((x) => x.id !== id);
+    setTerms(next);
+    if (dockTab === id) setDockTab(next.length ? next[next.length - 1].id : 'log');
+    if (gone) setStatus(t('term_closed', { name: gone.title }));
+  };
+  const onTermExit = (id) => setTerms((ts) => ts.map((x) => (x.id === id ? { ...x, exited: true } : x)));
+  const copyLog = async () => {
+    const text = log.map((e) => `${new Date(e.ts).toISOString()} ${e.level.toUpperCase().padEnd(5)} ${e.text}`).join('\n') + '\n';
+    await writeClipboardText(text);
+    setStatusText(t('log_copied'));
+  };
+  const onDockResizeStart = (e) => {
+    e.preventDefault();
+    const y0 = e.clientY, h0 = session.dockHeight || 220;
+    const clamp = (h) => Math.max(120, Math.min(window.innerHeight - 240, h));
+    let h = h0;
+    const move = (ev) => { h = clamp(h0 + (y0 - ev.clientY)); setSession((s) => ({ ...s, dockHeight: h })); };
+    const up = () => { window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up); saveSession({ dockHeight: h }); };
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
   };
 
   // ── Jobs with a progress dialog ──
@@ -376,16 +452,28 @@ export default function App() {
           language: getLanguage(), theme: session.theme, showHidden: !!session.showHidden, fontSize: session.fontSize || 13,
           confirmDelete: session.confirmDelete !== false, splitSizeMB: session.splitSizeMB || 10,
           restoreFolders: session.restoreFolders !== false, autoRefresh: session.autoRefresh !== false,
-        });
+          termShell: session.termShell || '', termCwd: session.termCwd || '',
+        }, { shells, pickFolder });
         if (!v) break;
         if (v.language !== getLanguage()) setLanguage(v.language);
         const theme = applyTheme(v.theme);
         applyFontSize(v.fontSize);
-        saveSession({ language: v.language, theme: theme.id, themeBg: theme.tokens['--bg'], showHidden: v.showHidden, fontSize: v.fontSize, confirmDelete: v.confirmDelete, splitSizeMB: v.splitSizeMB, restoreFolders: v.restoreFolders, autoRefresh: v.autoRefresh });
+        saveSession({ language: v.language, theme: theme.id, themeBg: theme.tokens['--bg'], showHidden: v.showHidden, fontSize: v.fontSize, confirmDelete: v.confirmDelete, splitSizeMB: v.splitSizeMB, restoreFolders: v.restoreFolders, autoRefresh: v.autoRefresh, termShell: v.termShell || '', termCwd: (v.termCwd || '').trim() });
         break;
       }
       case 'quit': quitApp(); break;
       case 'toggleHidden': saveSession({ showHidden: !session.showHidden }); break;
+      case 'toggleDock': showDock(!session.dockVisible); break;
+      case 'showLog': setDockTab('log'); showDock(true); break;
+      case 'newTerminal': await newTerminal(); break;
+      case 'terminal': {
+        // Toolbar button: show the dock on a terminal (starting one if there is none); hide it when a terminal is already showing.
+        if (session.dockVisible && dockTab !== 'log') { showDock(false); break; }
+        const live = terms.filter((x) => !x.exited);
+        if (!live.length) await newTerminal();
+        else { setDockTab(live[live.length - 1].id); showDock(true); }
+        break;
+      }
       case 'nextTheme': setTheme(nextThemeId(session.theme)); break;
       case 'toggleLanguage': {
         const language = getLanguage() === 'ko' ? 'en' : 'ko';
@@ -399,13 +487,15 @@ export default function App() {
 
   // Test hook (smoke scripts drive the UI through it; harmless otherwise).
   useEffect(() => {
-    window.__cc = { action: onAction, setActive, dialogs, panels, session, call, navigate };
+    window.__cc = { action: onAction, setActive, dialogs, panels, session, call, navigate, log, terms, setDockTab, closeTerminal };
   });
 
   // ── Global shortcuts (F-keys as in the GTK version) ──
   useEffect(() => {
     const handler = (e) => {
       if (dialogs.stack.length) return;
+      // Ctrl+` toggles the dock, Ctrl+Shift+` opens a terminal — also from inside the terminal's input.
+      if (e.key === '`' && (e.ctrlKey || e.metaKey) && !e.altKey) { e.preventDefault(); onAction(e.shiftKey ? 'newTerminal' : 'toggleDock'); return; }
       const tag = (e.target && e.target.tagName) || '';
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
       const map = { F2: 'rename', F5: 'copyOther', F6: 'moveOther', F7: 'newFolder', F8: 'delete', F9: 'search' };
@@ -439,6 +529,7 @@ export default function App() {
     theme: session ? session.theme : 'dark',
     hasSelection: selCount[active] > 0,
     canExtract: selCount[active] === 1 && extractable[active],
+    dockVisible: !!(session && session.dockVisible),
   }), [session, selCount, extractable, active]);
 
   if (!session) return <div className="boot">{status || '…'}</div>;
@@ -466,7 +557,7 @@ export default function App() {
   return (
     <div className="app">
       <MenuBar onAction={(id) => onAction(id)} state={menuState} />
-      <Toolbar onAction={(id) => onAction(id)} theme={session.theme} />
+      <Toolbar onAction={(id) => onAction(id)} theme={session.theme} dockVisible={!!session.dockVisible} />
       <div className="panels" ref={splitRef}>
         <div className="panel-slot" style={{ flexBasis: `${(session.splitter || 0.5) * 100}%` }}>
           <FilePanel ref={panels.left} {...panelProps('left')} />
@@ -476,6 +567,11 @@ export default function App() {
           <FilePanel ref={panels.right} {...panelProps('right')} />
         </div>
       </div>
+      {session.dockVisible && (
+        <BottomDock tab={dockTab} onTab={setDockTab} log={log} onClearLog={() => setLog([])} onCopyLog={copyLog}
+          terms={terms} shells={shells} onNewTerm={(shell) => newTerminal(shell)} onCloseTerm={closeTerminal} onTermExit={onTermExit}
+          onHide={() => showDock(false)} height={session.dockHeight || 220} onResizeStart={onDockResizeStart} />
+      )}
       <div className="statusbar ellipsis" title={status}>{status}</div>
       {search && (
         <SearchDialog root={search.root} onClose={() => setSearch(null)}

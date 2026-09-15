@@ -4,7 +4,7 @@ const { ipcMain } = require('electron');
 const fs = require('fs');
 const { serializeError } = require('../core/api');
 
-function registerIpc(api, getWindow) {
+function registerIpc(api, getWindow, dialogs = {}) {
   const send = (channel, payload) => {
     const win = getWindow();
     if (win && !win.isDestroyed()) win.webContents.send(channel, payload);
@@ -19,6 +19,16 @@ function registerIpc(api, getWindow) {
   });
 
   api.jobs.on('update', (snap) => send('job:update', snap));
+
+  // Native dialogs (only the folder picker so far).
+  ipcMain.handle('dialog', async (_event, kind, opts) => {
+    try {
+      if (!dialogs[kind]) throw new Error(`Unknown dialog: ${kind}`);
+      return { ok: true, data: await dialogs[kind](opts || {}) };
+    } catch (err) {
+      return { ok: false, error: serializeError(err) };
+    }
+  });
 
   // ── Directory watching (one watcher per panel) ──
   const watchers = new Map();

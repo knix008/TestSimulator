@@ -148,6 +148,12 @@ export async function writeClipboardText(text) {
   try { await navigator.clipboard.writeText(text); } catch { /* denied — in-app clipboard still works */ }
 }
 
+// Native folder picker — desktop only (the web version has no file dialogs; the path is typed).
+export async function pickFolder(defaultPath) {
+  if (!isElectron || !electron.dialog) return null;
+  return unwrap(await electron.dialog('openFolder', { defaultPath }), 'dialog error');
+}
+
 export function quitApp() {
   if (isElectron) electron.quit();
   else window.close();

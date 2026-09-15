@@ -7,6 +7,8 @@
 //
 //   npm run web              build + serve on http://127.0.0.1:5186
 //   node server/server.js --port 8080 --host 0.0.0.0 --token secret
+//   node server/server.js --host 0.0.0.0 --token secret --allow-open
+//                            (also let double-click open files on the server)
 //
 // Only the loopback interface is bound by default: the API gives full
 // read/write access to the server's files. Binding another interface should
@@ -17,6 +19,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const { createApi, serializeError } = require('../core/api');
+const fsops = require('../core/fsops');
 
 const root = path.join(__dirname, '..');
 const distDir = path.join(root, 'dist');
@@ -32,13 +35,19 @@ const PORT = Number(arg('port', 5186));
 const HOST = arg('host', '127.0.0.1');
 const TOKEN = arg('token', '');
 const OPEN = !process.argv.includes('--no-open') && !process.env.CC_NO_OPEN;
+// Double-click / Enter on a file launches the registered application — on
+// the machine this server runs on. That is what people expect when the server
+// is their own desktop (loopback), and a surprise on a remote box, so
+// elsewhere it needs an explicit --allow-open (or CC_ALLOW_OPEN=1).
+const LOOPBACK = HOST === '127.0.0.1' || HOST === 'localhost' || HOST === '::1';
+const ALLOW_OPEN = LOOPBACK || process.argv.includes('--allow-open') || !!process.env.CC_ALLOW_OPEN;
 
 let buildInfo = null;
 try { buildInfo = JSON.parse(fs.readFileSync(path.join(root, 'src', 'build-info.json'), 'utf-8')); } catch { /* none */ }
 let version = '';
 try { version = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf-8')).version; } catch { /* none */ }
 
-const api = createApi({ name: 'web', version, buildInfo });
+const api = createApi({ name: 'web', version, buildInfo, openPath: ALLOW_OPEN ? fsops.openWithDefaultApp : null });
 
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8',
@@ -116,7 +125,8 @@ server.listen(PORT, HOST, () => {
   const urlStr = `http://${shown}:${PORT}/${TOKEN ? `?token=${encodeURIComponent(TOKEN)}` : ''}`;
   console.log(`[web] Command Center web version: ${urlStr}`);
   if (!fs.existsSync(path.join(distDir, 'index.html'))) console.log('[web] dist/ is missing — run `npm run build` (or `npm run web`).');
-  if (HOST !== '127.0.0.1' && HOST !== 'localhost' && !TOKEN) console.log('[web] WARNING: listening on a non-loopback interface without --token.');
+  if (!LOOPBACK && !TOKEN) console.log('[web] WARNING: listening on a non-loopback interface without --token.');
+  if (!ALLOW_OPEN) console.log('[web] Opening files with their application is off on a non-loopback host (pass --allow-open to enable).');
   if (OPEN && !process.env.CC_SMOKE) openBrowser(urlStr);
 });
 
@@ -129,5 +139,6 @@ function openBrowser(u) {
   } catch { /* the URL is printed anyway */ }
 }
 
-process.on('SIGINT', () => { api.jobs.cancelAll(); server.close(); process.exit(0); });
-process.on('SIGTERM', () => { api.jobs.cancelAll(); server.close(); process.exit(0); });
+const stop = () => { api.jobs.cancelAll(); api.shutdown(); server.close(); process.exit(0); };
+process.on('SIGINT', stop);
+process.on('SIGTERM', stop);

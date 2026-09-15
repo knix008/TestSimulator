@@ -8,4 +8,6 @@ export const SETTINGS_DEFAULTS = {
   splitSizeMB: 10,
   restoreFolders: true,
   autoRefresh: true,
+  termShell: '',      // shell of a new terminal (id from term.shells); '' = the first one offered
+  termCwd: '',        // where new terminals start; '' = the active panel's folder
 };

@@ -110,9 +110,13 @@ const SCENARIOS = {
   themes: `document.querySelector('.tb-split-caret').click()`,
   drives: `document.querySelector('.drive-btn').click()`,
   settings: `window.__cc.action('settings')`,
+  settings_terminal: `(() => { window.__cc.action('settings'); setTimeout(() => document.querySelectorAll('.settings-tab')[1].click(), 300); })()`,
   theme_nord: `window.__cc.action('theme:nord')`,
   theme_sunset: `window.__cc.action('theme:sunset')`,
   error: `window.__cc.call('fs.mkdir', { dir: (window.__cc.session.left || '') + '/__no_such_dir__/x', name: 'y' }).then(() => 'unexpected: created', (e) => { window.__cc.dialogs.error(e); return 'error shown'; })`,
+  // Bottom dock: a terminal running a command (the prompt shows the git state of the project folder), and the log tab.
+  terminal: `(() => { const type = (cmd, enter) => { const inp = document.querySelector('.term-inline input'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(inp, cmd); inp.dispatchEvent(new Event('input', { bubbles: true })); if (enter) inp.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); }; window.__cc.action('newTerminal').then(() => setTimeout(() => { type('git log --oneline -n 3', true); setTimeout(() => type('git status --short 한글', false), 1500); }, 1500)); })()`,
+  log: `(() => { window.__cc.action('refresh'); window.__cc.action('newTerminal').then(() => setTimeout(() => { window.__cc.closeTerminal(window.__cc.terms[0].id); setTimeout(() => window.__cc.action('showLog'), 100); }, 800)); })()`,
   delete: `(() => { const rows = document.querySelectorAll('.file-panel')[1].querySelectorAll('tbody tr'); rows[4].dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0 })); rows[6].dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0, shiftKey: true })); setTimeout(() => window.__cc.action('delete', 'right'), 150); })()`,
 };
 

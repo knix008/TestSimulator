@@ -59,7 +59,7 @@ const ko = {
   about_title: '프로그램 정보', about_desc: 'Windows / macOS / Linux / 웹용 듀얼 패널 파일 관리자', version: '버전', author: '제작자', author_name: 'SHKWON (knix008@naver.com)', copyright: 'Copyright © 2026 SHKWON',
   about_build: '빌드', about_host: '실행 환경', host_electron: '데스크톱 (Electron)', host_web: '웹 브라우저',
   props_title: '속성', props_name: '이름', props_path: '경로', props_size: '크기', props_type: '종류', props_modified: '수정일', props_perm: '권한', props_contents: '내용', props_contents_val: '폴더 {dirs}개, 파일 {files}개', props_link: '링크 대상',
-  error_title: '오류', open_failed: '파일을 열 수 없습니다.', open_unsupported: '웹 버전에서는 파일을 열 수 없습니다.',
+  error_title: '오류', open_failed: '파일을 열 수 없습니다.', open_unsupported: '이 서버에서는 파일 열기가 꺼져 있습니다 (--allow-open).',
   cannot_open_dir: '폴더를 열 수 없습니다: {msg}',
   lang_toggle: 'EN', theme: '테마', next_theme: '다음 테마', tip_theme: '테마 선택 (16가지)', tip_next_theme: '다음 테마로 전환: {theme}', tip_language: '한국어 / English', tip_about: '프로그램 정보',
   units_kb: 'KB', units_mb: 'MB', units_gb: 'GB',
@@ -69,6 +69,12 @@ const ko = {
   copy_details: '자세한 내용 복사', copied_details: '오류 내용을 클립보드에 복사했습니다.', error_details: '자세한 내용',
   error_unexpected: '예상하지 못한 오류가 발생했습니다.', error_code: '코드', error_path: '경로', error_where: '위치',
   session_saved: '세션 저장됨',
+  dock: '하단 패널', toggle_dock: '하단 패널 (로그·터미널)', tip_dock: '로그 / 터미널 패널 표시 (Ctrl+`)', dock_hide: '하단 패널 닫기',
+  log: '로그', log_clear: '로그 지우기', log_copy: '로그 복사', log_copied: '로그를 클립보드에 복사했습니다.', log_empty: '아직 기록이 없습니다. 파일 작업의 결과와 오류가 여기에 쌓입니다.',
+  terminal: '터미널', term_new: '새 터미널', term_new_shell: '셸을 골라 새 터미널…', term_close: '터미널 닫기', term_empty: '열린 터미널이 없습니다. + 를 눌러 활성 패널 폴더에서 셸을 시작하세요.',
+  term_placeholder: '명령을 입력하고 Enter (Tab 자동 완성 · ↑↓ 기록 · Ctrl+L 지우기)', term_opened: "터미널 '{name}' 시작 — {cwd}", term_closed: "터미널 '{name}' 닫음",
+  set_general: '일반', set_terminal: '터미널', set_term_shell: '기본 셸', set_term_shell_default: '기본 ({name})', set_term_cwd: '시작 디렉터리', set_term_cwd_default: '(활성 패널의 폴더)',
+  set_term_cwd_hint: '새 터미널이 시작하는 디렉터리. 비우면 활성 패널에 열린 폴더에서 시작합니다.', set_browse: '찾아보기…', set_term_cwd_missing: "시작 디렉터리 '{path}'가 없어 활성 패널의 폴더에서 시작합니다.",
 };
 
 const en = {
@@ -129,7 +135,7 @@ const en = {
   about_title: 'About', about_desc: 'Dual-panel file manager for Windows / macOS / Linux / the web', version: 'Version', author: 'Author', author_name: 'SHKWON (knix008@naver.com)', copyright: 'Copyright © 2026 SHKWON',
   about_build: 'Build', about_host: 'Running on', host_electron: 'Desktop (Electron)', host_web: 'Web browser',
   props_title: 'Properties', props_name: 'Name', props_path: 'Path', props_size: 'Size', props_type: 'Type', props_modified: 'Modified', props_perm: 'Permissions', props_contents: 'Contents', props_contents_val: '{dirs} folders, {files} files', props_link: 'Link target',
-  error_title: 'Error', open_failed: 'The file could not be opened.', open_unsupported: 'Files cannot be opened from the web version.',
+  error_title: 'Error', open_failed: 'The file could not be opened.', open_unsupported: 'Opening files is disabled on this server (--allow-open).',
   cannot_open_dir: 'Cannot open folder: {msg}',
   lang_toggle: '한', theme: 'Theme', next_theme: 'Next theme', tip_theme: 'Choose a theme (16 built in)', tip_next_theme: 'Switch to the next theme: {theme}', tip_language: '한국어 / English', tip_about: 'About Command Center',
   units_kb: 'KB', units_mb: 'MB', units_gb: 'GB',
@@ -139,6 +145,12 @@ const en = {
   copy_details: 'Copy details', copied_details: 'Error details copied to the clipboard.', error_details: 'Details',
   error_unexpected: 'An unexpected error occurred.', error_code: 'Code', error_path: 'Path', error_where: 'Where',
   session_saved: 'Session saved',
+  dock: 'Bottom panel', toggle_dock: 'Bottom panel (log · terminals)', tip_dock: 'Show the log / terminal panel (Ctrl+`)', dock_hide: 'Close the bottom panel',
+  log: 'Log', log_clear: 'Clear log', log_copy: 'Copy log', log_copied: 'Log copied to the clipboard.', log_empty: 'Nothing yet. Results and errors of file operations collect here.',
+  terminal: 'Terminal', term_new: 'New terminal', term_new_shell: 'New terminal with a shell…', term_close: 'Close terminal', term_empty: 'No terminal is open. Press + to start a shell in the active panel\'s folder.',
+  term_placeholder: 'Type a command and press Enter (Tab completion · ↑↓ history · Ctrl+L clear)', term_opened: "Terminal '{name}' started — {cwd}", term_closed: "Terminal '{name}' closed",
+  set_general: 'General', set_terminal: 'Terminal', set_term_shell: 'Default shell', set_term_shell_default: 'Default ({name})', set_term_cwd: 'Start directory', set_term_cwd_default: "(the active panel's folder)",
+  set_term_cwd_hint: 'Where a new terminal starts. Leave empty for the folder open in the active panel.', set_browse: 'Browse…', set_term_cwd_missing: "Start directory '{path}' does not exist; starting in the active panel's folder.",
 };
 
 const dicts = { ko, en };

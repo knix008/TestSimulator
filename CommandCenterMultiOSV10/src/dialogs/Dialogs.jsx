@@ -315,7 +315,7 @@ export function useDialogs() {
     compress: (spec) => push({ type: 'compress', ...spec }),
     about: (info) => push({ type: 'about', info }),
     properties: (stat) => push({ type: 'properties', stat }),
-    settings: (values) => push({ type: 'settings', values }),
+    settings: (values, extra) => push({ type: 'settings', values, ...(extra || {}) }),
     get isOpen() { return stack.length > 0; },
   };
 }

@@ -26,5 +26,6 @@ contextBridge.exposeInMainWorld('commandCenter', {
     return () => ipcRenderer.removeListener('dir:changed', handler);
   },
 
+  dialog: (kind, opts) => ipcRenderer.invoke('dialog', kind, opts),
   quit: () => ipcRenderer.send('app:quit'),
 });

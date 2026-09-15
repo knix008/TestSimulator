@@ -15,11 +15,13 @@ const fsops = require('./fsops');
 const archive = require('./archive');
 const { JobRegistry } = require('./jobs');
 const { Session } = require('./session');
+const { createTerminals } = require('./terminal');
 
 function createApi(host = {}) {
   const jobs = host.jobs || new JobRegistry();
   const session = host.session || new Session(host.configDir);
   session.load();
+  const terminals = createTerminals();
 
   const methods = {
     // ── app ──
@@ -80,6 +82,17 @@ function createApi(host = {}) {
     'jobs.resolveConflict': async ({ id, answer, applyAll }) => ({ ok: jobs.resolveConflict(id, answer, !!applyAll) }),
     'jobs.running': async () => Array.from(jobs.jobs.values()).filter((j) => j.status === 'running').map((j) => j.snapshot()),
 
+    // ── terminal dock (core/terminal.js) ──
+    'term.shells': async () => terminals.shells(),
+    'term.create': async ({ cwd, shell }) => terminals.create({ cwd, shell }),
+    'term.run': async ({ id, line }) => ({ ok: terminals.run({ id, line: String(line == null ? '' : line) }) }),
+    'term.write': async ({ id, data }) => ({ ok: terminals.write({ id, data: String(data || '') }) }),
+    'term.read': async ({ id, since }) => terminals.read({ id, since: Number(since) || 0 }),
+    'term.kill': async ({ id }) => ({ ok: terminals.kill({ id }) }),
+    'term.list': async () => terminals.list(),
+    'term.complete': async ({ id, line, cursor }) => terminals.complete({ id, line: String(line || ''), cursor }),
+    'git.status': async ({ cwd }) => terminals.git({ cwd }),
+
     // ── session ──
     'session.load': async () => session.get(),
     'session.save': async ({ patch }) => session.save(patch),
@@ -95,7 +108,10 @@ function createApi(host = {}) {
     return fn(args || {});
   }
 
-  return { call, jobs, session, methods: Object.keys(methods) };
+  // Kills every shell the dock opened (called when the host quits).
+  function shutdown() { terminals.shutdown(); }
+
+  return { call, jobs, session, shutdown, methods: Object.keys(methods) };
 }
 
 // Turns an Error into the { code, message } shape the UI shows.

@@ -466,6 +466,37 @@ async function deletePaths(paths, job) {
   return { removed };
 }
 
+// Opens a file (or folder) with the application the OS has registered for
+// it — the double-click / Enter action of the file list. The Electron host
+// uses shell.openPath instead; this is the plain-Node fallback for the web
+// version. Resolves to '' on success or an error message (same contract as
+// shell.openPath) so core/api.js can treat both hosts alike.
+function openWithDefaultApp(p) {
+  const { execFile } = require('child_process');
+  let cmd, args;
+  if (isWin) {
+    // Invoke-Item is PowerShell's double-click: it resolves the association
+    // through the shell and fails loudly when there is none. (-LiteralPath so
+    // [ ] and other glob characters in names are taken literally.)
+    const q = String(p).replace(/'/g, "''");
+    cmd = 'powershell.exe';
+    args = ['-NoProfile', '-NonInteractive', '-Command',
+      '[Console]::OutputEncoding = [Text.Encoding]::UTF8; '
+      + `try { Invoke-Item -LiteralPath '${q}' -ErrorAction Stop } catch { [Console]::Error.WriteLine($_.Exception.Message); exit 1 }`];
+  } else if (process.platform === 'darwin') {
+    cmd = 'open'; args = [p];
+  } else {
+    cmd = 'xdg-open'; args = [p];
+  }
+  return new Promise((resolve) => {
+    execFile(cmd, args, { timeout: 15000, windowsHide: true }, (err, _stdout, stderr) => {
+      if (!err) return resolve('');
+      const msg = String(stderr || '').trim() || err.message || 'open failed';
+      resolve(err.code === 'ENOENT' && !isWin ? `${cmd} not found (${msg})` : msg);
+    });
+  });
+}
+
 // Moves paths to the OS trash. `trashFn(path)` is supplied by the host
 // (Electron's shell.trashItem); without one the freedesktop / macOS trash
 // folders are used directly, and Windows reports "unsupported".
@@ -609,6 +640,7 @@ module.exports = {
   transfer,
   deletePaths,
   trashPaths,
+  openWithDefaultApp,
   search,
   formatDate,
   samePath,

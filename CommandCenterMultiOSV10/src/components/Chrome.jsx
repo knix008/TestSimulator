@@ -1,5 +1,6 @@
 // Menu bar (파일/편집/보기/압축) and the icon toolbar, drawn in-app so they look
-// the same in the desktop app and in the browser. The right end of the
+// the same in the desktop app and in the browser. View holds the bottom dock
+// (log / terminals); the toolbar has a terminal button. The right end of the
 // toolbar holds the theme picker (16 themes), the language toggle and the
 // About button.
 import React, { useState } from 'react';
@@ -32,6 +33,10 @@ export function MenuBar({ onAction, state }) {
       { sep: true },
       { id: 'toggleHidden', label: t('show_hidden'), checked: state.showHidden },
       { id: 'nextTheme', label: t('next_theme'), icon: 'palette' },
+      { sep: true },
+      { id: 'toggleDock', label: t('toggle_dock'), checked: state.dockVisible, shortcut: 'Ctrl+`' },
+      { id: 'showLog', label: t('log'), icon: 'log' },
+      { id: 'newTerminal', label: t('term_new'), icon: 'terminal', shortcut: 'Ctrl+Shift+`' },
     ],
     archive: [
       { id: 'compress', label: t('compress'), icon: 'archive', disabled: !state.hasSelection },
@@ -58,7 +63,7 @@ export function MenuBar({ onAction, state }) {
   );
 }
 
-export function Toolbar({ onAction, theme }) {
+export function Toolbar({ onAction, theme, dockVisible }) {
   useLanguage();
   const [themeMenu, setThemeMenu] = useState(null);
   const lang = getLanguage();
@@ -71,6 +76,8 @@ export function Toolbar({ onAction, theme }) {
     ['delete', 'delete', 'tb_delete', 'tip_delete'],
     null,
     ['search', 'search', 'tb_search', 'tip_search'],
+    null,
+    ['terminal', 'terminal', 'terminal', 'tip_dock'],
   ];
   const themeLabel = (id) => { const th = themeById(id); return lang === 'ko' ? th.label : th.labelEn; };
   const themeItems = THEMES.map((th) => ({
@@ -83,7 +90,7 @@ export function Toolbar({ onAction, theme }) {
   return (
     <div className="toolbar">
       {items.map((it, i) => it
-        ? <button key={it[0]} className="tb-btn" onClick={() => onAction(it[0])} title={t(it[3])}><Icon name={it[1]} /><span>{t(it[2])}</span></button>
+        ? <button key={it[0]} className={`tb-btn ${it[0] === 'terminal' && dockVisible ? 'on' : ''}`} onClick={() => onAction(it[0])} title={t(it[3])}><Icon name={it[1]} /><span>{t(it[2])}</span></button>
         : <span key={`s${i}`} className="tb-sep" />)}
       <span className="tb-spacer" />
       {/* Split button: the main part cycles to the next theme, the caret opens the list of all 16. */}
