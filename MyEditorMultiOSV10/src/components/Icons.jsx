@@ -91,6 +91,41 @@ const paths = {
   minusBox: <><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M8 12h8" /></>,
   autoIndent: <><path d="M10 6h11M10 12h11M10 18h11M3 6h3M3 18h3" /><path d="M3 12h4M5 10l2 2-2 2" /></>,
   terminal: <><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M7 9l3 3-3 3M12 15h5" /></>,
+  terminalPlus: <><path d="M13 20H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h8" /><path d="M7 9l3 3-3 3" /><path d="M18 3v6M15 6h6" /><path d="M21 13v5a2 2 0 0 1-2 2h-3" /></>,
+  // menu items: tabs / files
+  closeAll: <><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M9 9l6 6M15 9l-6 6" /></>,
+  closeOthers: <><rect x="8" y="4" width="8" height="16" rx="1" /><path d="M2 10l3 4M5 10l-3 4M22 10l-3 4M19 10l3 4" /></>,
+  closeRight: <><rect x="3" y="4" width="9" height="16" rx="1" /><path d="M15 10l4 4M19 10l-4 4" /></>,
+  exit: <><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" /></>,
+  // menu items: editing
+  selectAll: <><rect x="4" y="4" width="16" height="16" rx="2" strokeDasharray="3.5 2.5" /><path d="M8.5 12l2.5 2.5 4.5-5" /></>,
+  dupLine: <><path d="M4 7h11M4 12h11M4 17h11" /><path d="M20 10v6M17 13h6" /></>,
+  delLine: <><path d="M4 7h16M4 12h8M4 17h16" /><path d="M16 9l5 5M21 9l-5 5" /></>,
+  comment: <><path d="M21 14a2 2 0 0 1-2 2H8l-5 4V6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /><path d="M10.5 7.5l-2 5M15.5 7.5l-2 5" /></>,
+  indent: <><path d="M12 6h9M12 12h9M12 18h9M3 6h5M3 18h5" /><path d="M3 12h4M5 9.5L7.5 12 5 14.5" /></>,
+  outdent: <><path d="M12 6h9M12 12h9M12 18h9M3 6h5M3 18h5" /><path d="M4 12h4M6.5 9.5L4 12l2.5 2.5" /></>,
+  upper: <><text x="12" y="17" textAnchor="middle" fontSize="14" fontWeight="700" fill="currentColor" stroke="none">AB</text></>,
+  lower: <><text x="12" y="17" textAnchor="middle" fontSize="14" fontWeight="700" fill="currentColor" stroke="none">ab</text></>,
+  sortDesc: <><path d="M11 5h10M11 9h7M11 13h4M3 7l3-3 3 3M6 4v16" /></>,
+  trimWs: <><path d="M3 6h18M3 12h8M3 18h18" /><path d="M14 9l6 6M20 9l-6 6" /></>,
+  removeEmpty: <><path d="M4 5h16M4 19h16" /><path d="M6 12h12" /><path d="M15 9l-6 6" /></>,
+  removeDup: <><path d="M4 7h12M4 12h12M4 17h12" /><path d="M19 10l3 4M22 10l-3 4" /></>,
+  // menu items: search
+  findNext: <><circle cx="9" cy="10" r="5" /><path d="M12.5 13.5L15 16" /><path d="M20 5v12M17 14l3 3 3-3" /></>,
+  findPrev: <><circle cx="9" cy="10" r="5" /><path d="M12.5 13.5L15 16" /><path d="M20 19V7M17 10l3-3 3 3" /></>,
+  selectMatches: <><path d="M4 6h9M4 12h9M4 18h9" /><path d="M16 5.5l2 2 3-3M16 11.5l2 2 3-3M16 17.5l2 2 3-3" /></>,
+  // menu items: view
+  activeLine: <><path d="M5 5h14M5 19h14" /><rect x="3" y="9" width="18" height="6" rx="1" /></>,
+  foldGutter: <><path d="M3 6h5M3 12h5M3 18h5" /><path d="M12 6h9M12 18h9" /><path d="M13 10l3 3 3-3" /></>,
+  splitView: <><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M12 4v16M6 9h3M6 12h3M15 9h3M15 12h3" /></>,
+  toolbar: <><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M3 9h18M7 6.5h.01M10 6.5h.01M13 6.5h.01" /></>,
+  statusbar: <><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M3 15h18M7 17.5h4M14 17.5h3" /></>,
+  zoomReset: <><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" /><text x="11" y="13.8" textAnchor="middle" fontSize="7.5" fontWeight="700" fill="currentColor" stroke="none">1:1</text></>,
+  // status-bar pickers
+  encoding: <><path d="M4 7V4h16v3M9 20h6M12 4v16" /><path d="M17 15h4M19 13v4" /></>,
+  eol: <><path d="M20 5v6a2 2 0 0 1-2 2H5" /><path d="M8 10l-3 3 3 3" /></>,
+  spaces: <><path d="M5 12h.01M12 12h.01M19 12h.01" strokeWidth="3" /></>,
+  tab: <><path d="M4 12h13M13 8l4 4-4 4M21 6v12" /></>,
   gitBranch: <><circle cx="6" cy="5" r="2.5" /><circle cx="6" cy="19" r="2.5" /><circle cx="18" cy="8" r="2.5" /><path d="M6 7.5v9M18 10.5c0 4-12 2-12 6" /></>,
   spell: <><path d="M3 17l3.5-10L10 17M4.6 13.5h3.8" /><path d="M12 13.5l2.5 2.5L21 9.5" /><path d="M3 21h18" /></>,
   list: <><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" /></>,
@@ -135,6 +170,47 @@ export function Flag({ country, width = 22, className = '' }) {
       </g>
       <rect width="36" height="24" rx="3" fill="none" stroke="#c8ccd4" strokeWidth="1" />
     </svg>
+  );
+}
+
+// Language badges for the language menus: a small rounded square in the
+// language's customary colour with a short label — no icon assets needed, and
+// every language of @codemirror/language-data gets one (unknown ones fall
+// back to grey with the first letters of the name).
+const DARK = '#1b1e24';
+const LANG_BADGES = {
+  JavaScript: ['JS', '#f7df1e', DARK], TypeScript: ['TS', '#3178c6'], JSX: ['JSX', '#61dafb', DARK], TSX: ['TSX', '#3178c6'],
+  HTML: ['<>', '#e34c26'], CSS: ['CSS', '#264de4'], SCSS: ['SCSS', '#c6538c'], Sass: ['Sass', '#c6538c'], LESS: ['LESS', '#1d365d'], Stylus: ['Styl', '#ff6347'],
+  JSON: ['{ }', '#cbcb41', DARK], 'JSON-LD': ['{LD}', '#cbcb41', DARK], Markdown: ['M↓', '#519aba'], XML: ['XML', '#0060ac'], YAML: ['YML', '#cb171e'], TOML: ['TOML', '#9c4221'],
+  Python: ['Py', '#3572a5'], Cython: ['Cy', '#3572a5'], C: ['C', '#555555'], 'C++': ['C++', '#f34b7d'], 'C#': ['C#', '#178600'], 'Objective-C': ['ObjC', '#438eff'], 'Objective-C++': ['ObjC', '#6866fb'],
+  Java: ['Java', '#b07219'], Kotlin: ['Kt', '#a97bff'], Scala: ['Sc', '#c22d40'], Groovy: ['Gvy', '#4298b8'], Clojure: ['Clj', '#db5855'], ClojureScript: ['Cljs', '#db5855'],
+  Go: ['Go', '#00add8'], Rust: ['Rs', '#dea584', DARK], Swift: ['Sw', '#f05138'], Dart: ['Dart', '#00b4ab'], Zig: ['Zig', '#ec915c', DARK], D: ['D', '#ba595e'], Nim: ['Nim', '#ffc200', DARK], Crystal: ['Cr', '#776791'],
+  PHP: ['PHP', '#4f5d95'], Ruby: ['Rb', '#701516'], Perl: ['Perl', '#0298c3'], Lua: ['Lua', '#000080'], R: ['R', '#198ce7'], Julia: ['Jl', '#a270ba'], Octave: ['Oct', '#e16737'], Mathematica: ['Mma', '#dd1100'],
+  Haskell: ['Hs', '#5e5086'], OCaml: ['ML', '#ef7a08'], SML: ['SML', '#ef7a08'], 'F#': ['F#', '#b845fc'], Elm: ['Elm', '#60b5cc'], Erlang: ['Erl', '#b83998'], Scheme: ['Scm', '#1e4aec'], 'Common Lisp': ['Lisp', '#3fb68b', DARK], Elixir: ['Ex', '#6e4a7e'],
+  Shell: ['$_', '#89e051', DARK], PowerShell: ['PS', '#012456'], Dockerfile: ['Dock', '#384d54'], CMake: ['CMk', '#064f8c'], Nginx: ['Ngx', '#009639'], NSIS: ['NSIS', '#0d6efd'], 'Properties files': ['.ini', '#6b7280'],
+  SQL: ['SQL', '#e38c00'], MySQL: ['MySQ', '#00758f'], 'MariaDB SQL': ['MDB', '#003545'], 'MS SQL': ['MSSQ', '#cc2927'], PostgreSQL: ['PgSQ', '#336791'], PLSQL: ['PL/S', '#f80000'], SQLite: ['SQLt', '#003b57'], CQL: ['CQL', '#1287b1'], Cypher: ['Cy', '#008cc1'], SPARQL: ['SPQ', '#0c479d'],
+  diff: ['±', '#41535b'], LaTeX: ['TeX', '#3d6117'], sTeX: ['TeX', '#3d6117'], Textile: ['Txt', '#ffe7ac', DARK], Troff: ['roff', '#6b7280'],
+  Vue: ['Vue', '#41b883'], 'Angular Template': ['Ng', '#dd0031'], Pug: ['Pug', '#a86454'], Jinja: ['Jnj', '#a52a22'], Liquid: ['Liq', '#67b8de'], Velocity: ['Vel', '#5b8fd8'],
+  WebAssembly: ['WA', '#654ff0'], Gas: ['asm', '#6e4c13'], Z80: ['Z80', '#6e4c13'], Fortran: ['F90', '#4d41b1'], Cobol: ['CBL', '#0b5aa5'], Pascal: ['Pas', '#e3f171', DARK], 'VB.NET': ['VB', '#945db7'], VBScript: ['VBS', '#945db7'],
+  Verilog: ['Vlog', '#b2b7f8', DARK], SystemVerilog: ['SV', '#b2b7f8', DARK], VHDL: ['VHDL', '#adb2cb', DARK], Tcl: ['Tcl', '#e4cc98', DARK], CoffeeScript: ['Cof', '#244776'], LiveScript: ['LS', '#499886'], Haxe: ['Hx', '#df7900'],
+  ProtoBuf: ['Prot', '#4285f4'], Solr: ['Solr', '#d9411e'], Puppet: ['Pup', '#302b6d'], Gherkin: ['Ghk', '#5b8c3a'], HTTP: ['HTTP', '#005c9c'], Smalltalk: ['St', '#596706'], Squirrel: ['Sq', '#800000'], Pig: ['Pig', '#fcd7de', DARK], Q: ['Q', '#0040cd'], APL: ['APL', '#5a8164'], Forth: ['4th', '#341708'], Factor: ['Fac', '#636746'], Eiffel: ['Eif', '#4d6977'], Dylan: ['Dyl', '#6c616e'], Oz: ['Oz', '#fab738', DARK], Modelica: ['Mo', '#de1d31'], Spreadsheet: ['=', '#1d6f42'], Brainfuck: ['BF', '#2f2530'], SAS: ['SAS', '#b34936'], Sieve: ['Sv', '#6b7280'], Mbox: ['@', '#6b7280'], PGP: ['PGP', '#6b7280'], EBNF: ['BNF', '#6b7280'], DTD: ['DTD', '#0060ac'], XQuery: ['XQ', '#5232e7'], Turtle: ['TTL', '#0c479d'], NTriples: ['NT', '#0c479d'], 'Web IDL': ['IDL', '#6b7280'], IDL: ['IDL', '#a3522f'], 'RPM Spec': ['RPM', '#b7212a'], 'RPM Changes': ['RPM', '#b7212a'], TiddlyWiki: ['TW', '#6b7280'], 'Tiki wiki': ['Tiki', '#6b7280'], MscGen: ['Msc', '#6b7280'], MsGenny: ['Msg', '#6b7280'], 'Xù': ['Xù', '#6b7280'], Yacas: ['Yac', '#6b7280'], MUMPS: ['M', '#6b7280'], mIRC: ['IRC', '#3d57c3'], Esper: ['EPL', '#6b7280'], ECL: ['ECL', '#8a1267'], FCL: ['FCL', '#6b7280'], HXML: ['HXML', '#df7900'], Asterisk: ['*', '#6b7280'], 'ASN.1': ['ASN', '#6b7280'], TTCN: ['TTCN', '#6b7280'], TTCN_CFG: ['TTCN', '#6b7280'], 'Closure Stylesheets (GSS)': ['GSS', '#264de4'], edn: ['edn', '#db5855'],
+  plain: ['Aa', '#6b7280'], auto: ['A?', '#6b7280'],
+};
+
+export function langBadge(name) {
+  const b = LANG_BADGES[name];
+  if (b) return { text: b[0], bg: b[1], fg: b[2] || '#ffffff' };
+  const words = String(name || '').split(/[\s-]+/).filter(Boolean);
+  const text = words.length > 1 ? words.map((w) => w[0]).join('').slice(0, 3).toUpperCase() : String(name || '?').slice(0, 3);
+  return { text, bg: '#6b7280', fg: '#ffffff' };
+}
+
+export function LangIcon({ name, size = 16, className = '' }) {
+  const b = langBadge(name);
+  const n = b.text.length;
+  const fontSize = n <= 1 ? size * 0.62 : n === 2 ? size * 0.5 : n === 3 ? size * 0.4 : size * 0.32;
+  return (
+    <span className={`lang-icon ${className}`} style={{ width: size, height: size, background: b.bg, color: b.fg, fontSize }} aria-hidden="true">{b.text}</span>
   );
 }
 

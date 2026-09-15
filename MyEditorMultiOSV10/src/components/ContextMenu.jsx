@@ -1,6 +1,6 @@
 // Positioned popup menu used for the menu-bar dropdowns, the tab / tree /
 // editor context menus and the status-bar pickers. Closes on outside click,
-// Escape, or when an item is picked. Items: { id, label, icon, checked,
+// Escape, or when an item is picked. Items: { id, label, icon, iconEl, checked,
 // radio, disabled, shortcut, meta, swatch } | { sep: true } | { header: '…' }.
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Icon } from './Icons';
@@ -48,9 +48,10 @@ export function ContextMenu({ x, y, items, onPick, onClose, anchorEl, above = fa
         : (
           <button key={it.id} className={`ctx-item ${it.checked ? 'checked' : ''}`} role="menuitem" disabled={it.disabled}
             onClick={() => { if (!it.disabled) onPick(it.id); }}>
-            <span className="ctx-icon">{it.checked ? <Icon name={it.radio ? 'circle' : 'check'} size={it.radio ? 10 : 14} /> : it.icon ? <Icon name={it.icon} size={14} /> : null}</span>
+            <span className="ctx-icon">{it.iconEl ? it.iconEl : it.icon ? <Icon name={it.icon} size={14} /> : it.checked ? <Icon name={it.radio ? 'circle' : 'check'} size={it.radio ? 10 : 14} /> : null}</span>
             {it.swatch && <span className="theme-swatch" style={{ background: `linear-gradient(135deg, ${it.swatchBg} 50%, ${it.swatch} 50%)` }} />}
             <span className="ctx-label">{it.label}</span>
+            {(it.iconEl || it.icon) && it.checked && <Icon name="check" size={14} className="ctx-check" />}
             {it.meta && <span className="ctx-meta">{it.meta}</span>}
             {it.shortcut && <span className="ctx-shortcut">{it.shortcut}</span>}
           </button>

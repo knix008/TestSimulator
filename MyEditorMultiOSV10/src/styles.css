@@ -273,6 +273,10 @@ button:disabled { cursor: default; opacity: 0.45; }
 .ctx-icon { width: 16px; display: inline-flex; justify-content: center; color: var(--fg-muted); flex: none; }
 .ctx-item:hover:not(:disabled) .ctx-icon { color: var(--fg); }
 .ctx-item.checked .ctx-icon { color: var(--accent); }
+.ctx-check { color: var(--accent); flex: none; }
+/* Language badge (Icons.jsx LangIcon): coloured square with a short label. */
+.lang-icon { display: inline-flex; align-items: center; justify-content: center; flex: none; border-radius: 3px; font-family: var(--mono); font-weight: 700; letter-spacing: -0.02em; line-height: 1; user-select: none; }
+.ctx-item.checked .lang-icon { box-shadow: 0 0 0 1.5px var(--accent); }
 .ctx-label { flex: 1; white-space: nowrap; }
 .ctx-shortcut { color: var(--fg-muted); font-size: 11px; margin-left: 16px; white-space: nowrap; }
 .ctx-meta { color: var(--fg-muted); font-size: 11px; margin-left: 8px; white-space: nowrap; max-width: 260px; overflow: hidden; text-overflow: ellipsis; }

@@ -5,7 +5,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { t, useLanguage, getLanguage } from '../lib/i18n';
 import { hostName, writeClipboardText } from '../lib/backend';
-import { Icon } from '../components/Icons';
+import { Icon, LangIcon } from '../components/Icons';
 import { ALL_LANGUAGES, FEATURED_LANGUAGES, PLAIN } from '../lib/languages';
 
 export function Dialog({ title, icon, kind = '', width, onClose, children, footer, onEnter, className = '' }) {
@@ -157,8 +157,9 @@ export function LanguagePicker({ current, onPick, onClose }) {
         <div className="listbox tall" ref={listRef}>
           {list.map((x, i) => (
             <div key={x.name} className={`listbox-item ${i === idx ? 'selected' : ''} ${x.name === current ? 'current' : ''}`} onMouseEnter={() => setIdx(i)} onClick={() => onPick(x.name)}>
-              <span className="ctx-icon">{x.name === current ? <Icon name="check" size={14} /> : null}</span>
+              <span className="ctx-icon"><LangIcon name={x.name} /></span>
               <span className="ellipsis">{x.label}</span>
+              {x.name === current && <Icon name="check" size={14} className="ctx-check" />}
               {x.ext && <span className="muted small mono">{x.ext}</span>}
             </div>
           ))}
