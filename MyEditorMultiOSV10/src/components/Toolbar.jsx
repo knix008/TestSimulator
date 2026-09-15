@@ -9,7 +9,8 @@ import { FontPicker } from './FontPicker';
 const GROUPS = [
   [
     { id: 'new', icon: 'filePlus', tip: 'tip_new' },
-    { id: 'open', icon: 'folderOpen', tip: 'tip_open' },
+    { id: 'open', icon: 'fileOpen', tip: 'tip_open' },
+    { id: 'openFolder', icon: 'folderOpen', tip: 'tip_open_folder' },
     { id: 'save', icon: 'fileSave', tip: 'tip_save', needs: 'dirty' },
     { id: 'saveAll', icon: 'saveAll', tip: 'tip_save_all', needs: 'anyDirty' },
     { id: 'close', icon: 'close', tip: 'tip_close' },
@@ -28,15 +29,17 @@ const GROUPS = [
     { id: 'replace', icon: 'replace', tip: 'tip_replace' },
   ],
   [
-    { id: 'toggle:wordWrap', icon: 'wrap', tip: 'tip_wrap', toggle: 'wordWrap' },
     { id: 'toggle:showWhitespace', icon: 'pilcrow', tip: 'tip_ws', toggle: 'showWhitespace' },
     { id: 'zoomIn', icon: 'zoomIn', tip: 'tip_zoom_in' },
     { id: 'zoomOut', icon: 'zoomOut', tip: 'tip_zoom_out' },
     { id: 'toggle:sidebarVisible', icon: 'sidebar', tip: 'tip_sidebar', toggle: 'sidebarVisible' },
+    { id: 'toggleSplit', icon: 'splitCols', tip: 'tip_split', on: (st) => st.split && st.split !== 'none' },
   ],
   [
+    { id: 'toggle:wordWrap', icon: 'wrap', tip: 'tip_wrap', toggle: 'wordWrap' },
     { id: 'toggle:autoIndent', icon: 'autoIndent', tip: 'tip_auto_indent', toggle: 'autoIndent' },
     { id: 'toggle:spellCheck', icon: 'spell', tip: 'tip_spell', toggle: 'spellCheck' },
+    { id: 'toggle:lint', icon: 'lint', tip: 'tip_lint', toggle: 'lint' },
     { id: 'toggle:termVisible', icon: 'terminal', tip: 'tip_terminal', toggle: 'termVisible' },
   ],
 ];
@@ -51,7 +54,7 @@ export function Toolbar({ onAction, onSetting, settings, state }) {
         <React.Fragment key={gi}>
           {gi > 0 && <span className="tb-sep" />}
           {g.map((b) => (
-            <button key={b.id} className={`tool-btn ${b.toggle && settings[b.toggle] ? 'on' : ''}`} title={t(b.tip)} aria-label={t(b.tip)}
+            <button key={b.id} className={`tool-btn ${(b.on ? b.on(settings) : b.toggle && settings[b.toggle]) ? 'on' : ''}`} title={t(b.tip)} aria-label={t(b.tip)}
               disabled={b.needs ? !state[b.needs] : false}
               onMouseDown={(e) => e.preventDefault()}   /* keep the editor focused */
               onClick={() => onAction(b.id)}>

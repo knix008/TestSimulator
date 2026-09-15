@@ -7,11 +7,29 @@
 // a box. The line(s) the cursor is on show the raw syntax again, so every
 // mark stays editable — the Typora / Obsidian "live preview" behaviour.
 //
+// Images — "![alt](src)" and "<img src alt width>" — are always shown as the
+// image itself, never as their syntax (local paths are resolved against the
+// document's folder, see imageBase / ../lib/images.js); the range is atomic,
+// so the cursor steps over it and Backspace / Delete remove it whole. A
+// handle at the bottom-right corner resizes the image; the result is written
+// back as an <img … width="N"> tag, the one form of a sized image every
+// Markdown renderer understands.
+//
 // Colours (headings, bold, italic…) come from the highlight style in
 // ./editor.js; the H1–H6 sizes and the inline-code box are applied here, so
 // the source view (WYSIWYG off) stays uniform monospace.
 import { ViewPlugin, Decoration, WidgetType, EditorView } from '@codemirror/view';
+import { Facet } from '@codemirror/state';
 import { syntaxTree } from '@codemirror/language';
+import { resolveImageSrc } from './images';
+
+// The folder relative image paths are resolved against (the document's folder).
+export const imageBase = Facet.define({ combine: (v) => v[0] || '' });
+
+const IMG_TAG = /^<img\s[^>]*>$/i;
+const attrOf = (tag, name) => { const m = tag.match(new RegExp(`\\s${name}\\s*=\\s*("([^"]*)"|'([^']*)'|([^\\s>]+))`, 'i')); return m ? (m[2] ?? m[3] ?? m[4]) : null; };
+const escAttr = (v) => String(v).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+export const imgTag = (src, alt, width) => `<img src="${escAttr(src)}" alt="${escAttr(alt)}"${width ? ` width="${Math.round(width)}"` : ''}>`;
 
 class BulletWidget extends WidgetType {
   eq() { return true; }
@@ -42,6 +60,47 @@ class HrWidget extends WidgetType {
   toDOM() { const s = document.createElement('span'); s.className = 'md-hr'; return s; }
 }
 
+// The image itself. `from`/`to` is the syntax it stands for (updated in place
+// on every rebuild, see updateDOM); dragging the handle rewrites that range.
+class ImageWidget extends WidgetType {
+  constructor(src, alt, width, from, to) { super(); this.src = src; this.alt = alt; this.width = width; this.from = from; this.to = to; }
+  eq(o) { return o.src === this.src && o.alt === this.alt && o.width === this.width; }
+  // Same picture at a new position: keep the element, only refresh the range it stands for.
+  updateDOM(dom) { const prev = dom.__mdImage; if (!prev || !this.eq(prev)) return false; dom.__mdImage = this; return true; }
+  get estimatedHeight() { return this.width ? this.width * 0.6 : 120; }
+  toDOM(view) {
+    const wrap = document.createElement('span');
+    wrap.className = 'md-image';
+    wrap.__mdImage = this;
+    const img = document.createElement('img');
+    img.alt = this.alt;
+    img.title = this.alt;
+    img.draggable = false;
+    if (this.width) img.style.width = `${this.width}px`;
+    resolveImageSrc(this.src, view.state.facet(imageBase)).then((u) => { img.src = u; }).catch(() => { wrap.classList.add('broken'); });
+    const handle = document.createElement('span');
+    handle.className = 'md-image-handle';
+    handle.title = 'Drag to resize';
+    handle.addEventListener('mousedown', (e) => {
+      e.preventDefault(); e.stopPropagation();
+      const x0 = e.clientX, w0 = Math.round(img.getBoundingClientRect().width);
+      let w = w0;
+      wrap.classList.add('resizing');
+      const move = (ev) => { w = Math.max(24, Math.round(w0 + ev.clientX - x0)); img.style.width = `${w}px`; };
+      const up = () => {
+        window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up);
+        wrap.classList.remove('resizing');
+        const cur = wrap.__mdImage || this;
+        if (w !== w0) view.dispatch({ changes: { from: cur.from, to: cur.to, insert: imgTag(cur.src, cur.alt, w) } });
+      };
+      window.addEventListener('mousemove', move); window.addEventListener('mouseup', up);
+    });
+    wrap.append(img, handle);
+    return wrap;
+  }
+  ignoreEvent(e) { return e.target && e.target.classList && e.target.classList.contains('md-image-handle'); }
+}
+
 const hide = Decoration.replace({});
 const bullet = Decoration.replace({ widget: new BulletWidget() });
 const hrDeco = Decoration.replace({ widget: new HrWidget() });
@@ -56,6 +115,14 @@ function build(view) {
   const tree = syntaxTree(state);
   const decos = [];
   const doc = state.doc;
+  const images = [];   // the image ranges, also served as atomic ranges
+
+  // An image at [from, to) is the picture, whether the cursor is on its line or not.
+  const addImage = (from, to, src, alt, width) => {
+    const deco = Decoration.replace({ widget: new ImageWidget(src, alt, width, from, to) });
+    decos.push(deco.range(from, to));
+    images.push(deco.range(from, to));
+  };
 
   // Lines touched by the selection show their raw syntax.
   const cursorLines = new Set();
@@ -119,16 +186,35 @@ function build(view) {
             }
             break;
           }
-          case 'Link': case 'Image': {
+          case 'Link': {
             if (revealed(node.from, node.to)) break;
-            // "[text](url)" → "text"; "![alt](url)" → "alt" with an image mark.
-            const c = node.node.firstChild;
-            let cur = c;
+            // "[text](url)" → "text".
+            let cur = node.node.firstChild;
             while (cur) {
               if (cur.name === 'LinkMark' || cur.name === 'URL' || cur.name === 'LinkTitle') decos.push(hide.range(cur.from, cur.to));
               cur = cur.nextSibling;
             }
             break;
+          }
+          case 'Image': {
+            // "![alt](src)" → the image.
+            const urlNode = node.node.getChild('URL');
+            const src = urlNode ? doc.sliceString(urlNode.from, urlNode.to) : '';
+            // The alt text is not a node of its own: it is what lies between the first two marks ("![" and "]").
+            const marks = node.node.getChildren('LinkMark');
+            const alt = marks.length >= 2 ? doc.sliceString(marks[0].to, marks[1].from) : '';
+            if (!src) break;
+            addImage(node.from, node.to, src, alt.trim(), null);
+            return false;
+          }
+          case 'HTMLTag': case 'HTMLBlock': {
+            const text = doc.sliceString(node.from, node.to).trim();
+            if (!IMG_TAG.test(text)) break;
+            const src = attrOf(text, 'src');
+            if (!src) break;
+            const w = Number(attrOf(text, 'width')) || null;
+            addImage(node.from, node.to, src, attrOf(text, 'alt') || '', w);
+            return false;
           }
           case 'ListMark': {
             if (!parent) break;
@@ -164,16 +250,16 @@ function build(view) {
       },
     });
   }
-  return Decoration.set(decos, true);
+  return { decorations: Decoration.set(decos, true), images: Decoration.set(images, true) };
 }
 
 export const markdownLive = [
   ViewPlugin.fromClass(class {
-    constructor(view) { this.decorations = build(view); }
+    constructor(view) { Object.assign(this, build(view)); }
     update(u) {
-      if (u.docChanged || u.viewportChanged || u.selectionSet || syntaxTree(u.state) !== syntaxTree(u.startState)) this.decorations = build(u.view);
+      if (u.docChanged || u.viewportChanged || u.selectionSet || syntaxTree(u.state) !== syntaxTree(u.startState)) Object.assign(this, build(u.view));
     }
-  }, { decorations: (v) => v.decorations }),
+  }, { decorations: (v) => v.decorations, provide: (plugin) => EditorView.atomicRanges.of((view) => { const v = view.plugin(plugin); return v ? v.images : Decoration.none; }) }),
   EditorView.baseTheme({
     '.md-bullet': { color: 'var(--accent)', fontWeight: 'bold' },
     '.md-check': { verticalAlign: '-2px', margin: '0 6px 0 0', accentColor: 'var(--accent)' },
@@ -185,5 +271,11 @@ export const markdownLive = [
     '.md-h1': { fontSize: '1.6em' }, '.md-h2': { fontSize: '1.4em' }, '.md-h3': { fontSize: '1.25em' }, '.md-h4': { fontSize: '1.12em' }, '.md-h5': { fontSize: '1.05em' }, '.md-h6': { fontSize: '1em' },
     '.md-h1, .md-h2': { borderBottom: '1px solid var(--border)' },
     '.md-inline-code': { background: 'color-mix(in srgb, var(--fg) 9%, transparent)', borderRadius: '3px', padding: '0 2px' },
+    '.md-image': { position: 'relative', display: 'inline-block', maxWidth: '100%', verticalAlign: 'bottom', lineHeight: '0' },
+    '.md-image img': { maxWidth: '100%', height: 'auto', borderRadius: '3px', minWidth: '24px', minHeight: '16px' },
+    '.md-image.broken img': { minHeight: '24px', background: 'color-mix(in srgb, var(--danger) 15%, transparent)', outline: '1px dashed var(--danger)' },
+    '.md-image .md-image-handle': { position: 'absolute', right: '-2px', bottom: '-2px', width: '12px', height: '12px', border: '2px solid var(--accent)', borderRadius: '3px', background: 'var(--bg)', cursor: 'nwse-resize', opacity: '0' },
+    '.md-image:hover .md-image-handle, .md-image.resizing .md-image-handle': { opacity: '1' },
+    '.md-image.resizing img': { outline: '1px solid var(--accent)' },
   }),
 ];

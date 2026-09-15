@@ -24,7 +24,7 @@ export function SettingsDialog({ settings, encodings, shells = [], onChange, onC
   // The folder picker is a native dialog on the desktop; the web version's fallback dialog would replace this one, so there the path is typed.
   const browseTermCwd = async () => { try { const p = await nativeDialog('openFolder', { defaultPath: settings.termCwd || undefined }); if (p) onChange({ termCwd: p }); } catch { /* cancelled */ } };
   return (
-    <Dialog title={t('settings_title')} icon="settings" kind="info" width={560} onClose={onClose} onEnter={onClose}
+    <Dialog title={t('settings_title')} icon="settings" kind="info" className="settings" width={560} onClose={onClose} onEnter={onClose}
       footer={<button className="btn primary" onClick={onClose}>{t('ok')}</button>}>
       <div className="settings-tabs">
         {tabs.map(([id, label]) => <button key={id} className={`settings-tab ${tab === id ? 'active' : ''}`} onClick={() => setTab(id)}>{label}</button>)}
@@ -51,6 +51,8 @@ export function SettingsDialog({ settings, encodings, shells = [], onChange, onC
           <Check id="restoreSession" label={t('set_restore')} settings={settings} onChange={onChange} />
           <label />
           <Check id="confirmClose" label={t('set_confirm_close')} settings={settings} onChange={onChange} />
+          <label />
+          <Check id="lint" label={t('set_lint')} settings={settings} onChange={onChange} />
         </div>
       )}
       {tab === 'editor' && (
@@ -85,6 +87,7 @@ export function SettingsDialog({ settings, encodings, shells = [], onChange, onC
           <Check id="spellCheck" label={t('set_spell')} settings={settings} onChange={onChange} />
           <label />
           <Check id="spellCodeAll" label={t('set_spell_code_all')} settings={settings} onChange={onChange} />
+
         </div>
       )}
       {tab === 'files' && (

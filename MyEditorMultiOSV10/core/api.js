@@ -13,6 +13,7 @@ const files = require('./files');
 const enc = require('./encoding');
 const { createSession } = require('./session');
 const { createTerminals } = require('./terminal');
+const { createLinter } = require('./lint');
 
 function serializeError(err) {
   if (!err) return { code: 'UNKNOWN', message: 'Unknown error' };
@@ -29,6 +30,7 @@ function serializeError(err) {
 function createApi({ name = 'web', version = '', buildInfo = null, configDir, openPath, revealPath, clipboard } = {}) {
   const session = createSession(configDir);
   const terminals = createTerminals();
+  const linter = createLinter();
 
   const methods = {
     // ── App ──
@@ -68,6 +70,7 @@ function createApi({ name = 'web', version = '', buildInfo = null, configDir, op
     },
     'file.canEncode': async ({ text, encoding }) => enc.canEncode(text, encoding),
     'file.stat': async ({ path: p }) => files.stat(p),
+    'file.dataUrl': async ({ path: p }) => files.dataUrl(p),
     'file.exists': async ({ path: p }) => files.exists(p),
 
     // ── Folders (sidebar tree, in-app file dialog) ──
@@ -91,6 +94,10 @@ function createApi({ name = 'web', version = '', buildInfo = null, configDir, op
     'term.kill': async ({ id }) => terminals.kill({ id }),
     'term.list': async () => terminals.list(),
     'git.status': async ({ cwd }) => terminals.git({ cwd }),
+    // ── Linting (the language's checker, run as a separate process) ──
+    'lint.run': async ({ id, path: p, name, language, text }) => linter.run({ id, path: p, name, language, text }),
+    'lint.cancel': async ({ id }) => linter.cancel({ id }),
+    'lint.languages': async () => linter.languages(),
 
     'clipboard.read': async () => (clipboard ? clipboard.readText() : ''),
     'clipboard.write': async ({ text }) => { if (clipboard) clipboard.writeText(text || ''); return true; },
@@ -104,7 +111,7 @@ function createApi({ name = 'web', version = '', buildInfo = null, configDir, op
       if (!fn) { const e = new Error(`Unknown API method: ${method}`); e.code = 'ENOMETHOD'; throw e; }
       return fn(args || {});
     },
-    async shutdown() { terminals.shutdown(); },
+    async shutdown() { terminals.shutdown(); linter.shutdown(); },
   };
 }
 

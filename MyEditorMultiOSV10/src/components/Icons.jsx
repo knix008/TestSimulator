@@ -53,6 +53,8 @@ const paths = {
   copy: <><rect x="9" y="9" width="12" height="12" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></>,
   eraser: <><path d="M20 20H8L3 15a2 2 0 0 1 0-3l8-8a2 2 0 0 1 3 0l7 7a2 2 0 0 1 0 3l-6 6" /><path d="M6 12l7 7" /></>,
   link: <><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1" /><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" /></>,
+  // a document with an arrow going into it: open a file (folderOpen is for folders)
+  fileOpen: <><path d="M14 3H7a2 2 0 0 0-2 2v4M5 19a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5" />{docCorner}<path d="M2 14h9M8 11l3 3-3 3" /></>,
   filePlus: <>{doc}{docCorner}<path d="M12 11v6M9 14h6" /></>,
   fileSave: <><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" /><path d="M17 21v-8H7v8M7 3v5h8" /></>,
   saveAll: <><path d="M17 20H6a2 2 0 0 1-2-2V7" /><path d="M20 17H9a2 2 0 0 1-2-2V4a1 1 0 0 1 1-1h8l4 4v9a1 1 0 0 1-1 1z" /><path d="M15 3v4h4M11 17v-5h5v5" /></>,
@@ -91,6 +93,13 @@ const paths = {
   minusBox: <><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M8 12h8" /></>,
   autoIndent: <><path d="M10 6h11M10 12h11M10 18h11M3 6h3M3 18h3" /><path d="M3 12h4M5 10l2 2-2 2" /></>,
   terminal: <><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M7 9l3 3-3 3M12 15h5" /></>,
+  splitNone: <><rect x="3" y="4" width="18" height="16" rx="2" /></>,
+  splitCols: <><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M12 4v16" /></>,
+  splitRows: <><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M3 12h18" /></>,
+  splitGrid: <><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M12 4v16M3 12h18" /></>,
+  nextPane: <><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M12 4v16" /><path d="M6 12h4M8.5 10l1.5 2-1.5 2" /></>,
+  lint: <><path d="M8 2l1.9 1.9M16 2l-1.9 1.9" /><path d="M9 7h6a3 3 0 0 1 3 3v5a6 6 0 0 1-12 0v-5a3 3 0 0 1 3-3z" /><path d="M3 13h3M18 13h3M12 7v14M4 20l3-2M20 20l-3-2M4 7l3 2M20 7l-3 2" /></>,
+  lintNext: <><path d="M9 7h6a3 3 0 0 1 3 3v5a6 6 0 0 1-12 0v-5a3 3 0 0 1 3-3z" /><path d="M12 7v14" /><path d="M20 3v6M17 6l3 3 3-3" /></>,
   terminalPlus: <><path d="M13 20H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h8" /><path d="M7 9l3 3-3 3" /><path d="M18 3v6M15 6h6" /><path d="M21 13v5a2 2 0 0 1-2 2h-3" /></>,
   // menu items: tabs / files
   closeAll: <><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M9 9l6 6M15 9l-6 6" /></>,

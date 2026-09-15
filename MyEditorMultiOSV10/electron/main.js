@@ -179,12 +179,12 @@ function buildMenu() {
 
 // Native dialogs used by the renderer through IPC.
 const dialogs = {
-  async open({ multi = true, defaultPath } = {}) {
+  async open({ multi = true, defaultPath, images = false } = {}) {
     const r = await dialog.showOpenDialog(mainWin, {
-      title: 'Open',
+      title: images ? 'Insert image' : 'Open',
       defaultPath: defaultPath || undefined,
       properties: ['openFile', ...(multi ? ['multiSelections'] : [])],
-      filters: [
+      filters: images ? [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'ico', 'avif'] }, { name: 'All files', extensions: ['*'] }] : [
         { name: 'Text files', extensions: ['txt', 'md', 'log', 'json', 'js', 'jsx', 'ts', 'tsx', 'css', 'html', 'htm', 'xml', 'yaml', 'yml', 'ini', 'cfg', 'csv', 'py', 'c', 'cpp', 'h', 'hpp', 'java', 'cs', 'go', 'rs', 'sh', 'bat', 'ps1', 'sql', 'php', 'rb'] },
         { name: 'All files', extensions: ['*'] },
       ],

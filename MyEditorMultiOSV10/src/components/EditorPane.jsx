@@ -26,14 +26,22 @@ export function EditorPane({ initialState, onView, onDropFiles, contextItems, on
     e.preventDefault();
     setDragOver(false);
     const files = Array.from(e.dataTransfer.files || []);
-    if (files.length) onDropFiles(files);
+    const v = viewRef.current;
+    if (files.length) onDropFiles(files, v ? v.posAtCoords({ x: e.clientX, y: e.clientY }) : null);
+  };
+  // An image on the clipboard (screenshot, copied picture) is handed over like a dropped file.
+  const onPaste = (e) => {
+    const files = Array.from((e.clipboardData && e.clipboardData.files) || []).filter((f) => /^image\//.test(f.type));
+    if (!files.length || !e.target.closest('.cm-editor')) return;
+    e.preventDefault();
+    onDropFiles(files, null);
   };
 
   return (
     <div className={`editor-pane ${dragOver ? 'drag-over' : ''} ${empty ? 'empty' : ''}`} style={style}
       onDragOver={(e) => { if (e.dataTransfer.types.includes('Files')) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; if (!dragOver) setDragOver(true); } }}
       onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setDragOver(false); }}
-      onDrop={onDrop}
+      onDrop={onDrop} onPaste={onPaste}
       onContextMenu={(e) => { if (e.target.closest('.cm-editor')) { e.preventDefault(); const v = viewRef.current; setCtx({ x: e.clientX, y: e.clientY, pos: v ? v.posAtCoords({ x: e.clientX, y: e.clientY }) : null }); } }}>
       <div className="cm-host" ref={hostRef} />
       {ctx && (

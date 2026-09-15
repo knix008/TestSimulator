@@ -32,7 +32,7 @@ const ko = {
   // help
   about: '정보', users_guide: '사용 설명서', shortcuts: '단축키',
   // toolbar tips
-  tip_new: '새 문서 (Ctrl+N)', tip_open: '파일 열기 (Ctrl+O)', tip_save: '저장 (Ctrl+S)', tip_save_all: '모두 저장 (Ctrl+Shift+S)', tip_close: '탭 닫기 (Ctrl+W)',
+  tip_new: '새 문서 (Ctrl+N)', tip_open: '파일 열기 (Ctrl+O)', tip_open_folder: '폴더 열기 (Ctrl+Shift+O)', tip_save: '저장 (Ctrl+S)', tip_save_all: '모두 저장 (Ctrl+Shift+S)', tip_close: '탭 닫기 (Ctrl+W)',
   tip_undo: '실행 취소 (Ctrl+Z)', tip_redo: '다시 실행 (Ctrl+Y)', tip_cut: '잘라내기 (Ctrl+X)', tip_copy: '복사 (Ctrl+C)', tip_paste: '붙여넣기 (Ctrl+V)',
   tip_find: '찾기 (Ctrl+F)', tip_replace: '바꾸기 (Ctrl+H)', tip_wrap: '자동 줄 바꿈', tip_ws: '공백 문자 표시', tip_zoom_in: '확대 (Ctrl++)', tip_zoom_out: '축소 (Ctrl+-)', tip_sidebar: '폴더 트리 (Ctrl+B)',
   tip_theme: '테마 선택 (16종)', tip_next_theme: '다음 테마로 전환: {theme}', tip_language: '한국어 / English', tip_settings: '설정', tip_about: 'My Editor 정보',
@@ -80,11 +80,13 @@ const ko = {
   shortcuts_title: '단축키',
   // markdown
   md_heading: '제목 {n} (H{n})', md_bold: '굵게', md_italic: '기울임', md_strike: '취소선', md_code: '인라인 코드', md_code_block: '코드 블록', md_quote: '인용',
-  md_ul: '글머리 기호 목록', md_ol: '번호 매기기 목록', md_task: '체크리스트', md_link: '링크', md_image: '이미지', md_table: '표', md_hr: '구분선', md_preview: '미리보기',
+  md_ul: '글머리 기호 목록', md_ol: '번호 매기기 목록', md_task: '체크리스트', md_link: '링크', md_image: '이미지', img_title: '이미지 넣기', img_file: '파일 / URL', img_file_hint: '이미지 파일 경로 또는 http(s) 주소', img_alt: '대체 텍스트', img_mode: '포함 방식', img_link: '링크', img_link_hint: '문서 폴더 기준 경로로 참조', img_embed: '내장', img_embed_hint: 'Base64 로 문서 안에 포함', img_width: '너비', img_width_hint: 'px — 비우면 원본 크기', img_insert: '넣기', img_not_found: '이미지를 읽을 수 없습니다.', img_preview_empty: '파일을 고르거나 주소를 입력하면 미리 보입니다.', md_table: '표', md_hr: '구분선', md_preview: '미리보기',
   spell_code_all: '코드 파일에서도 모든 단어 검사', set_spell_code_all: '코드 파일에서도 모든 단어 검사 (끄면 주석·문자열만)', tb_font: '편집기 글꼴', tb_font_size: '글꼴 크기 (px)', tb_font_smaller: '글꼴 작게', tb_font_larger: '글꼴 크게',
   terminal: '터미널', tip_terminal: '터미널 패널 (Ctrl+`)', term_new: '새 터미널', term_new_shell: '셸을 골라 새 터미널', term_hide: '터미널 패널 닫기', term_empty: '터미널이 없습니다. + 를 눌러 여세요.', term_placeholder: '명령을 입력하고 Enter (Tab 자동완성, ↑ ↓ 기록, Ctrl+L 지우기, Ctrl+C 중단)',
   set_terminal: '터미널', set_term_cwd: '시작 디렉터리', set_term_cwd_default: '(폴더 트리에 열린 폴더)', set_term_cwd_hint: '새 터미널이 시작하는 디렉터리. 비우면 폴더 트리에 열린 폴더, 그것도 없으면 현재 문서의 폴더에서 시작합니다.', set_browse: '찾아보기…', set_term_shell: '기본 셸', set_term_shell_default: '기본 ({name})',
   term_no_git: 'Git 저장소가 아닙니다', term_git_ahead: '원격보다 앞선 커밋', term_git_behind: '원격보다 뒤진 커밋', term_git_changes: '스테이지 {staged} · 수정 {changed} · 추적 안 함 {untracked}', term_git_clean: '변경 없음', term_git_conflicts: '충돌 {n}',
+  split_none: '편집 창 하나', split_cols: '좌우로 나누기', split_rows: '상하로 나누기', split_grid: '4개로 나누기', next_pane: '다음 편집 창', tip_lint: '코드 검사 (Lint) 켜기/끄기', pane_empty: '(비어 있음 — 문서를 고르세요)', pane_in: '창 {n}', tip_split: '편집 창 좌우 나누기 (Ctrl+\\)',
+  lint: '코드 검사 (Lint)', lint_next: '다음 문제', lint_panel: '문제 목록', set_lint: '코드 검사 — 언어별 검사 도구(eslint · ruff/pyflakes · gcc · shellcheck …)를 백그라운드로 돌려 문제를 줄 번호 옆에 표시', st_lint_tool: '코드 검사: {tool} — 클릭하면 문제 목록', st_lint_none: '이 언어의 검사 도구가 없거나 설치되지 않았습니다 (클릭: 다시 검사)',
   spell_check: '스펠링 체크 (영어)', tip_spell: '스펠링 체크 켜기/끄기 (F7)', set_spell: '영어 스펠링 체크 (내장 en_US 사전; 코드에서는 주석·문자열만)', spell_add: '"{word}" 사전에 추가', spell_ignore: '"{word}" 이번만 무시', spell_none: '(제안 없음)', spell_loading: '사전 불러오는 중…',
   md_preview_menu: 'Markdown 미리보기', md_wysiwyg: 'WYSIWYG 편집 (기호를 렌더링해서 표시)', md_wysiwyg_menu: 'Markdown WYSIWYG 편집', md_source: '소스',
 };
@@ -112,7 +114,7 @@ const en = {
   lang_auto: 'Auto (by extension)', lang_plain: 'Plain text', eol: 'Line ending', eol_crlf: 'Windows (CR LF)', eol_lf: 'Unix (LF)', eol_cr: 'Macintosh (CR)',
   reopen_as: 'Reopen with encoding', save_as_enc: 'Save with encoding', enc_current: 'Current encoding',
   about: 'About', users_guide: "User's guide", shortcuts: 'Keyboard shortcuts',
-  tip_new: 'New document (Ctrl+N)', tip_open: 'Open file (Ctrl+O)', tip_save: 'Save (Ctrl+S)', tip_save_all: 'Save all (Ctrl+Shift+S)', tip_close: 'Close tab (Ctrl+W)',
+  tip_new: 'New document (Ctrl+N)', tip_open: 'Open file (Ctrl+O)', tip_open_folder: 'Open folder (Ctrl+Shift+O)', tip_save: 'Save (Ctrl+S)', tip_save_all: 'Save all (Ctrl+Shift+S)', tip_close: 'Close tab (Ctrl+W)',
   tip_undo: 'Undo (Ctrl+Z)', tip_redo: 'Redo (Ctrl+Y)', tip_cut: 'Cut (Ctrl+X)', tip_copy: 'Copy (Ctrl+C)', tip_paste: 'Paste (Ctrl+V)',
   tip_find: 'Find (Ctrl+F)', tip_replace: 'Replace (Ctrl+H)', tip_wrap: 'Word wrap', tip_ws: 'Show whitespace', tip_zoom_in: 'Zoom in (Ctrl++)', tip_zoom_out: 'Zoom out (Ctrl+-)', tip_sidebar: 'Folder tree (Ctrl+B)',
   tip_theme: 'Choose a theme (16 built in)', tip_next_theme: 'Switch to the next theme: {theme}', tip_language: '한국어 / English', tip_settings: 'Settings', tip_about: 'About My Editor',
@@ -151,11 +153,13 @@ const en = {
   drop_hint: 'Drop files here to open them', web_native_unsupported: 'Not available in the web version.',
   shortcuts_title: 'Keyboard shortcuts',
   md_heading: 'Heading {n} (H{n})', md_bold: 'Bold', md_italic: 'Italic', md_strike: 'Strikethrough', md_code: 'Inline code', md_code_block: 'Code block', md_quote: 'Quote',
-  md_ul: 'Bullet list', md_ol: 'Numbered list', md_task: 'Task list', md_link: 'Link', md_image: 'Image', md_table: 'Table', md_hr: 'Horizontal rule', md_preview: 'Preview',
+  md_ul: 'Bullet list', md_ol: 'Numbered list', md_task: 'Task list', md_link: 'Link', md_image: 'Image', img_title: 'Insert image', img_file: 'File / URL', img_file_hint: 'Path of an image file or an http(s) address', img_alt: 'Alt text', img_mode: 'Insert as', img_link: 'Link', img_link_hint: 'a path relative to the document\'s folder', img_embed: 'Embedded', img_embed_hint: 'Base64 inside the document', img_width: 'Width', img_width_hint: 'px — empty for the original size', img_insert: 'Insert', img_not_found: 'The image cannot be read.', img_preview_empty: 'Pick a file or type an address to see a preview.', md_table: 'Table', md_hr: 'Horizontal rule', md_preview: 'Preview',
   spell_code_all: 'Check every word in code files too', set_spell_code_all: 'Check every word in code files too (off: comments and strings only)', tb_font: 'Editor font', tb_font_size: 'Font size (px)', tb_font_smaller: 'Smaller font', tb_font_larger: 'Larger font',
   terminal: 'Terminal', tip_terminal: 'Terminal panel (Ctrl+`)', term_new: 'New terminal', term_new_shell: 'New terminal with a shell…', term_hide: 'Close the terminal panel', term_empty: 'No terminal. Press + to open one.', term_placeholder: 'Type a command and press Enter (Tab completes, ↑ ↓ history, Ctrl+L clear, Ctrl+C interrupt)',
   set_terminal: 'Terminal', set_term_cwd: 'Start directory', set_term_cwd_default: '(the folder open in the sidebar)', set_term_cwd_hint: 'Where a new terminal starts. Leave empty for the folder open in the sidebar, or the folder of the current document.', set_browse: 'Browse…', set_term_shell: 'Default shell', set_term_shell_default: 'Default ({name})',
   term_no_git: 'Not a git repository', term_git_ahead: 'commits ahead of the remote', term_git_behind: 'commits behind the remote', term_git_changes: 'staged {staged} · modified {changed} · untracked {untracked}', term_git_clean: 'clean', term_git_conflicts: 'conflicts {n}',
+  split_none: 'Single editor', split_cols: 'Split left / right', split_rows: 'Split top / bottom', split_grid: 'Split into four', next_pane: 'Next editor pane', tip_lint: 'Code check (lint) on / off', pane_empty: '(empty — pick a document)', pane_in: 'pane {n}', tip_split: 'Split the editor left / right (Ctrl+\\)',
+  lint: 'Code check (lint)', lint_next: 'Next problem', lint_panel: 'Problems', set_lint: 'Code check — run the language\'s linter (eslint · ruff/pyflakes · gcc · shellcheck …) in the background and mark its findings next to the line numbers', st_lint_tool: 'Code check: {tool} — click for the list', st_lint_none: 'No checker for this language, or it is not installed (click: check again)',
   spell_check: 'Spell check (English)', tip_spell: 'Spell check on / off (F7)', set_spell: 'English spell check (bundled en_US dictionary; comments and strings only in code)', spell_add: 'Add "{word}" to dictionary', spell_ignore: 'Ignore "{word}" for now', spell_none: '(no suggestions)', spell_loading: 'Loading dictionary…',
   md_preview_menu: 'Markdown preview', md_wysiwyg: 'WYSIWYG editing (marks rendered in place)', md_wysiwyg_menu: 'Markdown WYSIWYG editing', md_source: 'Source',
 };
