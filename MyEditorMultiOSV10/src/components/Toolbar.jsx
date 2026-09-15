@@ -4,6 +4,7 @@
 import React from 'react';
 import { t, useLanguage } from '../lib/i18n';
 import { Icon } from './Icons';
+import { AppControls } from './MenuBar';
 import { FontPicker } from './FontPicker';
 
 const GROUPS = [
@@ -66,13 +67,15 @@ export function Toolbar({ onAction, onSetting, settings, state }) {
       <span className="tb-sep" />
       <span className="tb-font" title={t('tb_font')}>
         <Icon name="text" size={15} className="muted" />
-        <FontPicker value={settings.fontFamily} onChange={(f) => onSetting({ fontFamily: f })} width={190} />
+        <FontPicker value={settings.fontFamily} onChange={(f) => onSetting({ fontFamily: f })} width={140} />
       </span>
       <span className="tb-size" title={t('tb_font_size')}>
         <button className="tool-btn" title={t('tb_font_smaller')} onMouseDown={(e) => e.preventDefault()} onClick={() => setSize(size - 1)}><Icon name="minus" size={14} /></button>
         <input type="number" min={8} max={40} value={size} onChange={(e) => setSize(Number(e.target.value))} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === 'Escape') e.currentTarget.blur(); }} />
         <button className="tool-btn" title={t('tb_font_larger')} onMouseDown={(e) => e.preventDefault()} onClick={() => setSize(size + 1)}><Icon name="plus" size={14} /></button>
       </span>
+      <span className="tb-spacer" />
+      <AppControls onAction={onAction} theme={settings.theme} compact />
     </div>
   );
 }

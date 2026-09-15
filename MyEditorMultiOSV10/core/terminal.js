@@ -14,7 +14,8 @@
 // marker is stripped from the output.
 'use strict';
 
-const { spawn, execFile } = require('child_process');
+const { spawn, execFile, execFileSync } = require('child_process');
+const iconv = require('iconv-lite');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -55,28 +56,54 @@ function pathCommands() {
 
 function isDir(p) { try { return fs.statSync(p).isDirectory(); } catch { return false; } }
 
+// A non-interactive sh / bash / zsh exits on a syntax error; run through
+// eval the error is reported and the shell goes on (cd, variables … still
+// affect the shell, as eval runs in it).
+const shWrap = (line) => `eval '${line.replace(/'/g, "'\\''")}'`;
+
+// The console's code page on Windows (what cmd and PowerShell read / write
+// through a pipe), as an iconv-lite encoding name; utf8 elsewhere.
+let codePage = null;
+function consoleCodePage() {
+  if (codePage) return codePage;
+  codePage = 'utf8';
+  if (process.platform === 'win32') {
+    try {
+      const out = execFileSync('cmd.exe', ['/c', 'chcp'], { windowsHide: true, timeout: 3000 }).toString('latin1');
+      const m = out.match(/(\d{3,5})/);
+      const cp = m ? Number(m[1]) : 0;
+      if (cp && cp !== 65001 && iconv.encodingExists(`cp${cp}`)) codePage = `cp${cp}`;
+    } catch { /* keep utf8 */ }
+  }
+  return codePage;
+}
+
 function shells() {
   if (process.platform === 'win32') {
     const list = [
       // cmd prints the marker itself as its prompt (preceded by the blank line cmd always emits before a prompt).
-      { id: 'cmd', label: 'Command Prompt', cmd: 'cmd.exe', args: ['/Q', '/K', 'chcp 65001>nul'], env: { PROMPT: `${MARK}$P$_` }, cwdLine: '', blankBeforeMark: true, eol: '\r\n' },
-      { id: 'powershell', label: 'PowerShell', cmd: 'powershell.exe', args: ['-NoLogo', '-NoProfile', '-Command', '-'], cwdLine: `Write-Host "${MARK}$PWD"`, eol: '\r\n' },
+      // cmd and PowerShell read and write the console's code page (CP949 on a Korean Windows …): the text is
+      // converted both ways (see consoleCodePage). cmd with code page 65001 dies on multibyte input from a
+      // pipe, so it is left at the native code page.
+      { id: 'cmd', label: 'Command Prompt', cmd: 'cmd.exe', args: ['/Q', '/K', 'rem'], env: { PROMPT: `${MARK}$P$_` }, cwdLine: '', blankBeforeMark: true, eol: '\r\n', encoding: consoleCodePage() },
+      { id: 'powershell', label: 'PowerShell', cmd: 'powershell.exe', args: ['-NoLogo', '-NoProfile', '-Command', '-'], cwdLine: `Write-Host "${MARK}$PWD"`, eol: '\r\n', encoding: consoleCodePage() },
     ];
     for (const p of [process.env.ProgramFiles, process.env['ProgramFiles(x86)']]) {
       const bash = p && path.join(p, 'Git', 'bin', 'bash.exe');
-      if (bash && fs.existsSync(bash)) { list.push({ id: 'gitbash', label: 'Git Bash', cmd: bash, args: ['--norc', '-s'], cwdLine: `echo "${MARK}$PWD"`, eol: '\n' }); break; }
+      if (bash && fs.existsSync(bash)) { list.push({ id: 'gitbash', label: 'Git Bash', cmd: bash, args: ['--norc', '-s'], cwdLine: `echo "${MARK}$PWD"`, eol: '\n', wrap: shWrap }); break; }
     }
     return list;
   }
   const sh = process.env.SHELL || '/bin/bash';
-  const list = [{ id: 'default', label: path.basename(sh), cmd: sh, args: ['-s'], cwdLine: `echo "${MARK}$PWD"`, eol: '\n' }];
-  if (sh !== '/bin/bash' && fs.existsSync('/bin/bash')) list.push({ id: 'bash', label: 'bash', cmd: '/bin/bash', args: ['-s'], cwdLine: `echo "${MARK}$PWD"`, eol: '\n' });
-  if (fs.existsSync('/bin/sh')) list.push({ id: 'sh', label: 'sh', cmd: '/bin/sh', args: ['-s'], cwdLine: `echo "${MARK}$PWD"`, eol: '\n' });
+  const list = [{ id: 'default', label: path.basename(sh), cmd: sh, args: ['-s'], cwdLine: `echo "${MARK}$PWD"`, eol: '\n', wrap: shWrap }];
+  if (sh !== '/bin/bash' && fs.existsSync('/bin/bash')) list.push({ id: 'bash', label: 'bash', cmd: '/bin/bash', args: ['-s'], cwdLine: `echo "${MARK}$PWD"`, eol: '\n', wrap: shWrap });
+  if (fs.existsSync('/bin/sh')) list.push({ id: 'sh', label: 'sh', cmd: '/bin/sh', args: ['-s'], cwdLine: `echo "${MARK}$PWD"`, eol: '\n', wrap: shWrap });
   return list;
 }
 
 // eslint-disable-next-line no-control-regex
-const ANSI = /\x1b\[[0-9;?]*[ -/]*[@-~]|\x1b\][^\x07]*\x07|\r(?!\n)/g;
+// Colours (SGR, "\x1b[…m") are kept for the panel to render; cursor movement, OSC titles and the like are dropped.
+const ANSI = /\x1b\[[0-9;?]*[ -/]*[@-lnp-~]|\x1b\][^\x07]*(?:\x07|\x1b\\)|\x1b[^[\]]|\r(?!\n)/g;
 const MARK_RE = new RegExp(`${MARK}([^\\n]*)\\n`, 'g');
 const BLANK_MARK_RE = new RegExp(`\\n?${MARK}([^\\n]*)\\n`, 'g');
 
@@ -89,7 +116,7 @@ function createTerminals() {
     // marker (and, for cmd, the blank line before it) may be split across
     // chunks, so the tail that could still become one is held back.
     s.pending += text.replace(/\r\n/g, '\n').replace(ANSI, '');
-    s.pending = s.pending.replace(s.def.blankBeforeMark ? BLANK_MARK_RE : MARK_RE, (_m, dir) => { s.cwd = dir.trim() || s.cwd; s.idle = true; return ''; });
+    s.pending = s.pending.replace(s.def.blankBeforeMark ? BLANK_MARK_RE : MARK_RE, (_m, dir) => { let d = dir.trim(); if (process.platform === 'win32') d = d.replace(/^\/([a-zA-Z])(\/|$)/, (_x, l) => `${l.toUpperCase()}:/`); s.cwd = d || s.cwd; s.idle = true; return ''; });
     const nl = s.pending.lastIndexOf('\n');
     const tail = s.pending.slice(nl + 1);
     let cut = s.pending.length;
@@ -113,10 +140,13 @@ function createTerminals() {
       try { if (!fs.statSync(dir).isDirectory()) dir = path.dirname(dir); } catch { dir = os.homedir(); }
       const id = nextId++;
       const s = { id, shell: def.id, label: def.label, cwd: dir, chunks: [], seq: 0, pending: '', idle: !!def.cwdLine, exited: false, code: null, def, proc: null };
-      const proc = spawn(def.cmd, def.args, { cwd: dir, stdio: 'pipe', windowsHide: true, env: { ...process.env, TERM: 'dumb', GIT_PAGER: 'cat', PAGER: 'cat', LANG: process.env.LANG || 'C.UTF-8', ...(def.env || {}) } });
+      const proc = spawn(def.cmd, def.args, { cwd: dir, stdio: 'pipe', windowsHide: true, env: { ...process.env, TERM: 'xterm-256color', COLORTERM: 'truecolor', FORCE_COLOR: '1', CLICOLOR_FORCE: '1', GIT_CONFIG_PARAMETERS: "'color.ui=always'", GIT_PAGER: 'cat', PAGER: 'cat', LANG: process.env.LANG || 'C.UTF-8', ...(def.env || {}) } });
       s.proc = proc;
-      proc.stdout.on('data', (d) => push(s, d.toString('utf8')));
-      proc.stderr.on('data', (d) => push(s, d.toString('utf8')));
+      const enc = def.encoding || 'utf8';
+      s.enc = enc;
+      const decOut = iconv.getDecoder(enc), decErr = iconv.getDecoder(enc);   // streaming: a multibyte character split across chunks survives
+      proc.stdout.on('data', (d) => push(s, decOut.write(d)));
+      proc.stderr.on('data', (d) => push(s, decErr.write(d)));
       proc.on('error', (err) => { push(s, `\n[${err.message}]\n`); s.exited = true; });
       proc.on('exit', (code) => { s.exited = true; s.code = code; push(s, `\n[process exited with code ${code}]\n`); });
       sessions.set(id, s);
@@ -126,7 +156,7 @@ function createTerminals() {
     write({ id, data }) {
       const s = sessions.get(id);
       if (!s || s.exited) return false;
-      s.proc.stdin.write(data);
+      s.proc.stdin.write(iconv.encode(data, s.enc || 'utf8'));
       return true;
     },
 
@@ -137,9 +167,11 @@ function createTerminals() {
       const s = sessions.get(id);
       if (!s || s.exited) return false;
       const eol = s.def.eol;
-      if (!s.idle) { s.proc.stdin.write(`${line}${eol}`); return true; }
+      const send = (text) => s.proc.stdin.write(iconv.encode(text, s.enc || 'utf8'));
+      if (!s.idle) { send(`${line}${eol}`); return true; }
       s.idle = false;
-      s.proc.stdin.write(`${line}${eol}${s.def.cwdLine ? s.def.cwdLine + eol : ''}`);
+      const cmd = line.trim() && s.def.wrap ? s.def.wrap(line) : line;
+      send(`${cmd}${eol}${s.def.cwdLine ? s.def.cwdLine + eol : ''}`);
       return true;
     },
 

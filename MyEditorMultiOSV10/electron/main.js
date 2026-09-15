@@ -69,13 +69,13 @@ function createWindow() {
   const session = api.session.get();
   const saved = session.windowBounds || null;
   const win = new BrowserWindow({
-    width: saved && saved.width ? saved.width : 1180,
+    width: saved && saved.width ? Math.max(1200, saved.width) : 1200,
     height: saved && saved.height ? saved.height : 780,
     x: saved && Number.isFinite(saved.x) ? saved.x : undefined,
     y: saved && Number.isFinite(saved.y) ? saved.y : undefined,
     // Every menu, toolbar button and status-bar field stays visible at the
     // minimum size.
-    minWidth: 980,
+    minWidth: 1200,   // the toolbar (with the theme / language / settings / info controls) must fit on one line
     minHeight: 600,
     backgroundColor: session.themeBg || '#12161c',
     // No native title bar: the menu bar carries the window buttons and is the

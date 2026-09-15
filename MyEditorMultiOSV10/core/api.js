@@ -14,6 +14,7 @@ const enc = require('./encoding');
 const { createSession } = require('./session');
 const { createTerminals } = require('./terminal');
 const { createLinter } = require('./lint');
+const { createSearch } = require('./search');
 
 function serializeError(err) {
   if (!err) return { code: 'UNKNOWN', message: 'Unknown error' };
@@ -31,6 +32,7 @@ function createApi({ name = 'web', version = '', buildInfo = null, configDir, op
   const session = createSession(configDir);
   const terminals = createTerminals();
   const linter = createLinter();
+  const search = createSearch();
 
   const methods = {
     // ── App ──
@@ -98,6 +100,9 @@ function createApi({ name = 'web', version = '', buildInfo = null, configDir, op
     'lint.run': async ({ id, path: p, name, language, text }) => linter.run({ id, path: p, name, language, text }),
     'lint.cancel': async ({ id }) => linter.cancel({ id }),
     'lint.languages': async () => linter.languages(),
+    // ── Find in files ──
+    'search.files': async (opts) => search.files(opts || {}),
+    'search.cancel': async ({ id }) => search.cancel({ id }),
 
     'clipboard.read': async () => (clipboard ? clipboard.readText() : ''),
     'clipboard.write': async ({ text }) => { if (clipboard) clipboard.writeText(text || ''); return true; },

@@ -1,11 +1,17 @@
-// The top bar of the frameless window — it replaces the OS title bar:
-//   left   app icon + name, the menus (파일 · 편집 · 찾기 · 보기 · 언어 · 인코딩 · 도움말)
-//   right  theme picker (split button: main part cycles, caret lists all 16),
-//          language toggle (the flag of the language you switch TO), Settings,
-//          Info, and — in the desktop app — minimize / maximize / close.
-// The bar is the window's drag region; every control opts out of dragging.
-// Menus open on click and switch on hover while one is open, like a native
-// menu bar.
+// The top of the window, three rows:
+//   title bar  — replaces the OS title bar of the frameless window: app icon
+//                + name and, in the desktop app, minimize / maximize / close;
+//                the window's drag region (double-click maximizes)
+//   menu bar   — the menus (파일 · 편집 · 찾기 · 보기 · 언어 · 인코딩 · 도움말, each
+//                with an icon); they open on click and switch on hover while
+//                one is open, like a native menu bar
+//   toolbar    — Toolbar.jsx
+// Both bars are rendered here (MenuBar).
+//
+// AppControls — theme picker (split button: main part cycles, caret lists
+// all 16), language toggle (the flag of the language you switch TO),
+// Settings and Info — sit at the right end of the toolbar row (Toolbar.jsx),
+// or here when the toolbar is hidden.
 import React, { useEffect, useState } from 'react';
 import { t, useLanguage, getLanguage } from '../lib/i18n';
 import { THEMES, themeById, nextThemeId } from '../themes';
@@ -33,20 +39,45 @@ function WindowButtons() {
   );
 }
 
-// menus: [{ id, label, items: () => [...] }]
-export function MenuBar({ menus, onAction, theme }) {
+export function AppControls({ onAction, theme, compact = false }) {   // compact: icons only for Settings / Info (toolbar row)
   useLanguage();
-  const [open, setOpen] = useState(null);        // { id, el }
   const [themeMenu, setThemeMenu] = useState(null);
   const lang = getLanguage();
   const themeLabel = (id) => { const th = themeById(id); return lang === 'ko' ? th.label : th.labelEn; };
-  const themeItems = THEMES.map((th) => ({
-    id: `theme:${th.id}`,
-    label: lang === 'ko' ? th.label : th.labelEn,
-    checked: th.id === theme,
-    swatch: th.tokens['--accent'],
-    swatchBg: th.tokens['--bg'],
-  }));
+  const themeItems = THEMES.map((th) => ({ id: `theme:${th.id}`, label: lang === 'ko' ? th.label : th.labelEn, checked: th.id === theme, swatch: th.tokens['--accent'], swatchBg: th.tokens['--bg'] }));
+  const keep = (e) => e.preventDefault();   // keep the editor focused
+  return (
+    <span className="app-controls">
+      <span className="tb-split">
+        <button className="tb-btn tb-split-main" title={t('tip_next_theme', { theme: themeLabel(nextThemeId(theme)) })} onMouseDown={keep} onClick={() => onAction('nextTheme')}>
+          <Icon name="palette" /><span>{themeLabel(theme)}</span>
+        </button>
+        <button className="tb-btn tb-split-caret" title={t('tip_theme')} aria-label={t('tip_theme')} onMouseDown={keep} onClick={(e) => setThemeMenu(themeMenu ? null : e.currentTarget)}>
+          <Icon name="chevronDown" size={14} />
+        </button>
+      </span>
+      <button className="tb-btn tb-icon-only" title={lang === 'ko' ? 'Switch to English' : '한국어로 전환'} aria-label={t('tip_language')} onMouseDown={keep} onClick={() => onAction('toggleLanguage')}>
+        <Flag country={lang === 'ko' ? 'gb' : 'kr'} width={22} />
+      </button>
+      <button className={`tb-btn ${compact ? 'tb-icon-only' : ''}`} title={t('tip_settings')} onMouseDown={keep} onClick={() => onAction('settings')}>
+        <Icon name="settings" />{!compact && <span>{t('settings')}</span>}
+      </button>
+      <span className="tb-sep" />
+      <button className={`tb-btn ${compact ? 'tb-icon-only' : ''}`} title={t('tip_about')} onMouseDown={keep} onClick={() => onAction('about')}>
+        <Icon name="info" />{!compact && <span>{t('menu_info')}</span>}
+      </button>
+      {themeMenu && (
+        <ContextMenu anchorEl={themeMenu} x={0} y={0} items={themeItems} onClose={() => setThemeMenu(null)}
+          onPick={(id) => { setThemeMenu(null); onAction(id); }} />
+      )}
+    </span>
+  );
+}
+
+// menus: [{ id, label, icon, items: () => [...] }]
+export function MenuBar({ menus, onAction, theme, controls = false }) {
+  useLanguage();
+  const [open, setOpen] = useState(null);        // { id, el }
   // Double-click on the empty part of the bar toggles maximize, like a title bar.
   const onDouble = (e) => { if (isElectron && !e.target.closest('button, select, input')) windowControl('maximize'); };
   const openMenu = (m, el) => setOpen(open && open.id === m.id ? null : { id: m.id, el });
@@ -54,48 +85,31 @@ export function MenuBar({ menus, onAction, theme }) {
   const current = open ? menus.find((m) => m.id === open.id) : null;
 
   return (
-    <div className="toolbar menubar" onDoubleClick={onDouble}>
-      <img src="./icon.svg" alt="" width={20} height={20} className="tb-logo" />
+    <>
+    <div className="toolbar titlebar" onDoubleClick={onDouble}>
+      <img src="./icon.svg" alt="" width={18} height={18} className="tb-logo" />
       <span className="tb-title">{t('appName')}</span>
-      <span className="tb-sep" />
+      <span className="tb-spacer" />
+      {isElectron && <WindowButtons />}
+    </div>
+    <div className="toolbar menubar">
       <span className="menus">
         {menus.map((m) => (
           <button key={m.id} className={`menu-btn ${open && open.id === m.id ? 'open' : ''}`}
             onMouseDown={(e) => { e.preventDefault(); openMenu(m, e.currentTarget); }}
             onMouseEnter={(e) => hoverMenu(m, e.currentTarget)}>
-            {m.label}
+            {m.icon && <Icon name={m.icon} size={14} className="menu-icon" />}{m.label}
           </button>
         ))}
       </span>
       <span className="tb-spacer" />
-      <span className="tb-split">
-        <button className="tb-btn tb-split-main" title={t('tip_next_theme', { theme: themeLabel(nextThemeId(theme)) })} onClick={() => onAction('nextTheme')}>
-          <Icon name="palette" /><span>{themeLabel(theme)}</span>
-        </button>
-        <button className="tb-btn tb-split-caret" title={t('tip_theme')} aria-label={t('tip_theme')} onClick={(e) => setThemeMenu(themeMenu ? null : e.currentTarget)}>
-          <Icon name="chevronDown" size={14} />
-        </button>
-      </span>
-      <button className="tb-btn tb-icon-only" title={lang === 'ko' ? 'Switch to English' : '한국어로 전환'} aria-label={t('tip_language')} onClick={() => onAction('toggleLanguage')}>
-        <Flag country={lang === 'ko' ? 'gb' : 'kr'} width={22} />
-      </button>
-      <button className="tb-btn" title={t('tip_settings')} onClick={() => onAction('settings')}>
-        <Icon name="settings" /><span>{t('settings')}</span>
-      </button>
-      <span className="tb-sep" />
-      <button className="tb-btn" title={t('tip_about')} onClick={() => onAction('about')}>
-        <Icon name="info" /><span>{t('menu_info')}</span>
-      </button>
-      {isElectron && <><span className="tb-sep" /><WindowButtons /></>}
+      {controls && <AppControls onAction={onAction} theme={theme} />}
       {current && (
         <ContextMenu anchorEl={open.el} x={0} y={0} items={current.items()} className="menu-drop" onClose={() => setOpen(null)}
           onPick={(id) => { setOpen(null); onAction(id); }} />
       )}
-      {themeMenu && (
-        <ContextMenu anchorEl={themeMenu} x={0} y={0} items={themeItems} onClose={() => setThemeMenu(null)}
-          onPick={(id) => { setThemeMenu(null); onAction(id); }} />
-      )}
     </div>
+    </>
   );
 }
 

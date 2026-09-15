@@ -35,7 +35,7 @@ function fileIcon(name) {
 // A node: { path, name, isDir, children: null | [], open, loading, error }
 // The tree is a mutable object graph; `tick` forces a re-render after a
 // mutation (copying the root would freeze fields that later loads change).
-export function Sidebar({ folder, activePath, openPaths, onOpenFile, onOpenFolder, onCloseFolder, onError, onAction, width, showHidden, onToggleHidden, refreshKey }) {
+export function Sidebar({ folder, activePath, openPaths, onOpenFile, onOpenFolder, onCloseFolder, onError, onAction, width, showHidden, onToggleHidden, refreshKey, searchOn, onToggleSearch }) {
   useLanguage();
   const [root, setRoot] = useState(null);
   const [tick, setTick] = useState(0);
@@ -180,10 +180,11 @@ export function Sidebar({ folder, activePath, openPaths, onOpenFile, onOpenFolde
   }, [root, filterLower, tick]);
 
   return (
-    <div className="sidebar" style={{ width }}>
+    <div className="sidebar" style={width ? { width } : undefined}>
       <div className="sb-head">
         <span className="panel-title">{t('sb_title')}</span>
         <span className="spacer" />
+        <button className={`icon-btn ${searchOn ? 'on' : ''}`} title={t('search_title')} onClick={onToggleSearch}><Icon name="search" size={15} /></button>
         <button className="icon-btn" title={t('sb_open')} onClick={onOpenFolder}><Icon name="folderOpen" size={15} /></button>
         <button className="icon-btn" title={t('sb_refresh')} disabled={!root} onClick={() => setLocalRefresh((x) => x + 1)}><Icon name="refresh" size={15} /></button>
         <button className="icon-btn" title={t('sb_expand')} disabled={!root} onClick={expandAll}><Icon name="chevronDown" size={15} /></button>

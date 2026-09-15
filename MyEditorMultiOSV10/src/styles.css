@@ -61,13 +61,24 @@ button:disabled { cursor: default; opacity: 0.45; }
 .editor-area { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
 
 /* ── Menu bar (also the drag region of the frameless window) ── */
-.toolbar { display: flex; align-items: center; gap: 2px; padding: 0 0 0 8px; border-bottom: 1px solid var(--border); background: var(--bg-elev); -webkit-app-region: drag; min-height: 36px; }
+.toolbar { display: flex; align-items: center; gap: 2px; padding: 0 0 0 8px; border-bottom: 1px solid var(--border); background: var(--bg-elev); min-height: 36px; }
+/* Title bar: slim, the drag region. Menu bar: the menus only (no dragging, so the menus feel like buttons). */
+.toolbar.titlebar { min-height: 30px; -webkit-app-region: drag; background: color-mix(in srgb, var(--bg-elev) 70%, var(--bg)); font-size: 12px; }
+.toolbar.titlebar .win-buttons { align-self: stretch; }
+.toolbar.titlebar .win-btn { width: 40px; }
+.toolbar.menubar { min-height: 30px; padding-left: 2px; }
+.toolbar.menubar .menu-btn { padding: 0 11px; }
 .toolbar button, .toolbar select, .toolbar input { -webkit-app-region: no-drag; }
 .tb-logo { margin-right: 6px; }
 .tb-title { font-weight: 700; margin-right: 4px; white-space: nowrap; }
 .tb-sep, .tb-split, .win-buttons { flex: none; }
 .menus { display: inline-flex; align-items: stretch; align-self: stretch; }
-.menu-btn { background: none; border: 0; padding: 0 10px; color: var(--fg); border-radius: 0; white-space: nowrap; }
+.menu-btn { display: inline-flex; align-items: center; gap: 5px; background: none; border: 0; padding: 0 10px; color: var(--fg); border-radius: 0; white-space: nowrap; }
+.menu-btn .menu-icon { color: var(--fg-muted); }
+.menu-btn:hover .menu-icon, .menu-btn.open .menu-icon { color: inherit; }
+.app-controls { display: inline-flex; align-items: center; gap: 2px; flex: none; margin-left: 4px; }
+.icon-toolbar .app-controls .tb-btn { padding: 3px 6px; }
+.icon-toolbar .app-controls .tb-split-main span { max-width: 120px; overflow: hidden; text-overflow: ellipsis; }
 .menu-btn:hover, .menu-btn.open { background: var(--bg-hover); }
 .menu-btn.open { color: var(--accent); box-shadow: inset 0 -2px 0 var(--accent); }
 .menu-drop { min-width: 260px; }
@@ -88,8 +99,11 @@ button:disabled { cursor: default; opacity: 0.45; }
 .theme-swatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px; border: 1px solid rgba(0,0,0,0.3); }
 
 /* ── Icon toolbar ── */
-.icon-toolbar { display: flex; align-items: center; gap: 1px; padding: 3px 6px; border-bottom: 1px solid var(--border); background: var(--bg-panel); }
-.tool-btn { background: none; border: 1px solid transparent; padding: 4px; border-radius: 4px; color: var(--fg); display: inline-flex; }
+/* One line only — the window's minimum width (electron/main.js) is chosen so everything fits. */
+.icon-toolbar { display: flex; flex-wrap: nowrap; overflow: hidden; align-items: center; gap: 1px; padding: 3px 6px; border-bottom: 1px solid var(--border); background: var(--bg-panel); min-width: 0; }
+.icon-toolbar .tb-spacer { flex: 1; min-width: 2px; }
+.icon-toolbar .tb-sep { margin: 0 2px; }
+.tool-btn { background: none; border: 1px solid transparent; padding: 3px; border-radius: 4px; color: var(--fg); display: inline-flex; }
 .tool-btn:hover:not(:disabled) { background: var(--bg-hover); }
 .tb-font { display: inline-flex; align-items: center; gap: 4px; }
 .font-picker { position: relative; display: inline-flex; align-items: center; width: 100%; }
@@ -101,7 +115,7 @@ button:disabled { cursor: default; opacity: 0.45; }
 .fp-item.hover { background: var(--bg-sel); }
 .fp-item.current { color: var(--accent); }
 .tb-size { display: inline-flex; align-items: center; gap: 1px; }
-.tb-size input { width: 46px; height: 26px; padding: 2px 4px; text-align: center; font-size: 12px; -moz-appearance: textfield; }
+.tb-size input { width: 40px; height: 26px; padding: 2px 4px; text-align: center; font-size: 12px; -moz-appearance: textfield; }
 .tb-size input::-webkit-outer-spin-button, .tb-size input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .tool-btn.on { background: color-mix(in srgb, var(--accent) 22%, var(--bg-panel)); border-color: color-mix(in srgb, var(--accent) 55%, transparent); color: var(--accent); }
 
@@ -137,7 +151,9 @@ button:disabled { cursor: default; opacity: 0.45; }
 .md-btn.md-h sub { font-size: 9px; vertical-align: -3px; }
 .md-btn code { font-family: var(--mono); font-size: 12px; }
 .editor-split { flex: 1; min-height: 0; display: flex; }
-.md-preview { flex: none; min-width: 200px; overflow: auto; padding: 12px 22px 40vh; background: var(--bg-panel); border-left: 1px solid var(--border); line-height: 1.6; font-size: 14px; }
+.md-preview { flex: none; min-width: 200px; overflow: auto; position: relative; padding: 12px 22px 40vh; background: var(--bg-panel); border-left: 1px solid var(--border); line-height: 1.6; font-size: 14px; }
+.md-preview .md-block { position: relative; }
+.md-preview .md-block.current::before { content: ''; position: absolute; left: -12px; top: 2px; bottom: 2px; width: 3px; border-radius: 2px; background: color-mix(in srgb, var(--accent) 60%, transparent); }
 .md-preview h1, .md-preview h2 { border-bottom: 1px solid var(--border); padding-bottom: 4px; }
 .md-preview h1 { font-size: 1.8em; } .md-preview h2 { font-size: 1.5em; } .md-preview h3 { font-size: 1.25em; } .md-preview h4 { font-size: 1.1em; } .md-preview h5 { font-size: 1em; } .md-preview h6 { font-size: 0.9em; color: var(--fg-muted); }
 .md-preview a { color: var(--accent); }
@@ -154,6 +170,10 @@ button:disabled { cursor: default; opacity: 0.45; }
 .md-preview ul, .md-preview ol { padding-left: 24px; }
 
 /* ── Editor ── */
+.crash { padding: 32px; max-width: 900px; margin: 0 auto; color: var(--fg); font-family: var(--font); }
+.crash pre { background: var(--bg-elev); border: 1px solid var(--border); border-radius: 6px; padding: 12px; white-space: pre-wrap; font-size: 12px; max-height: 50vh; overflow: auto; }
+.ctx-menu.pane-menu { max-height: min(70vh, 560px); min-width: 240px; }
+.pane-empty { position: absolute; inset: 27px 0 0 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: var(--fg-muted); background: var(--bg); z-index: 2; }
 /* Split view: the panes fill the editor area as columns, rows or a 2 × 2 grid; the active one has an accent top edge. */
 .panes { flex: 1; min-width: 0; min-height: 0; display: grid; gap: 1px; background: var(--border); }
 .panes.none { grid-template-columns: 1fr; }
@@ -196,6 +216,37 @@ button:disabled { cursor: default; opacity: 0.45; }
 
 /* ── Sidebar (folder tree) ── */
 .sidebar { flex: none; display: flex; flex-direction: column; background: var(--bg-panel); border-right: 1px solid var(--border); min-width: 160px; max-width: 600px; }
+/* The sidebar column: the folder tree on top, the search section (Ctrl+Shift+F) under it. */
+.sidebar-column { flex: none; display: flex; flex-direction: column; min-width: 160px; max-width: 600px; border-right: 1px solid var(--border); background: var(--bg-panel); }
+.sidebar-column .sidebar { flex: calc(1 - var(--search-share, 0)) 1 0; min-height: 0; width: auto; border-right: 0; }
+.sidebar-column .sb-head .icon-btn.on { color: var(--accent); background: color-mix(in srgb, var(--accent) 18%, transparent); }
+.search-panel { flex: var(--search-share, 0.5) 1 0; min-height: 120px; display: flex; flex-direction: column; }
+/* The divider between the folder tree and the search section: a full-width line with a grip; drag it to resize. */
+.search-panel > .h-splitter { height: 7px; background: var(--bg-elev); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.search-panel > .h-splitter::after { top: 2px; left: calc(50% - 14px); right: calc(50% - 14px); height: 2px; background: var(--fg-muted); opacity: 0.6; }
+.search-panel > .h-splitter:hover { background: color-mix(in srgb, var(--accent) 25%, var(--bg-elev)); }
+.search-panel > .h-splitter:hover::after { background: var(--accent); opacity: 1; }
+.search-form { display: flex; flex-direction: column; gap: 6px; padding: 8px 8px 6px; border-bottom: 1px solid var(--border); }
+.search-scope { display: flex; }
+.seg-btn { flex: 1; background: var(--bg); border: 1px solid var(--border); padding: 3px 6px; color: var(--fg-muted); font-size: 12px; }
+.seg-btn:first-child { border-radius: 4px 0 0 4px; } .seg-btn:last-child { border-radius: 0 4px 4px 0; border-left: 0; }
+.seg-btn.on { color: var(--accent); background: color-mix(in srgb, var(--accent) 16%, var(--bg)); }
+.search-input { flex: none; min-width: 0; }
+.search-globs { display: flex; flex-direction: column; gap: 4px; }
+.search-globs input { font-size: 12px; padding: 3px 6px; }
+.search-actions { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.search-actions .btn { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; flex: none; }
+.search-error { padding: 0 2px; }
+.search-results { flex: 1; min-height: 0; overflow: auto; font-size: 12px; }
+.sr-file { display: flex; align-items: center; gap: 4px; padding: 3px 6px; cursor: default; background: var(--bg-elev); border-bottom: 1px solid var(--border); position: sticky; top: 0; }
+.sr-file:hover { background: var(--bg-hover); }
+.sr-name { font-weight: 600; }
+.sr-count { margin-left: auto; color: var(--fg-muted); font-size: 11px; background: var(--bg); border-radius: 8px; padding: 0 6px; }
+.sr-hit { display: flex; align-items: baseline; gap: 6px; padding: 2px 6px 2px 22px; cursor: pointer; white-space: nowrap; overflow: hidden; }
+.sr-hit:hover { background: var(--bg-hover); }
+.sr-ln { color: var(--fg-muted); min-width: 28px; text-align: right; font-size: 11px; flex: none; }
+.sr-line { overflow: hidden; text-overflow: ellipsis; font-size: 11.5px; }
+.sr-line mark { background: color-mix(in srgb, var(--folder) 45%, transparent); color: inherit; border-radius: 2px; }
 .sb-head { display: flex; align-items: center; gap: 2px; padding: 4px 6px 4px 10px; min-height: 30px; border-bottom: 1px solid var(--border); background: color-mix(in srgb, var(--accent) 10%, var(--bg-elev)); }
 .panel-title { font-weight: 700; white-space: nowrap; flex: none; }
 .icon-btn { background: none; border: 0; padding: 3px; border-radius: 4px; color: var(--fg); display: inline-flex; }
@@ -255,10 +306,18 @@ button:disabled { cursor: default; opacity: 0.45; }
 .term-out .seg + .seg { margin-left: -0.8em; padding-left: calc(0.8em + 6px); }
 .term-out .seg svg { vertical-align: -2px; }
 .term-out .seg-path { background: var(--accent); z-index: 2; }
-.term-out .seg-git { z-index: 1; }
-.term-out .seg-git.clean { background: var(--ok); }
-.term-out .seg-git.dirty { background: var(--folder); }
-.term-out .seg-git.conflict { background: var(--danger); }
+/* The git block's colour (from the branch name on) is the repository's state, after oh-my-posh's git segment:
+   dark red conflicts · yellow staged (added) · red changes in the working tree · red committed but not pushed ·
+   purple behind the remote · bright green clean and pushed. The symbols after the branch say which kinds of
+   status apply (no counts). */
+.term-out .seg-git { z-index: 1; color: #1b1e24; }
+.term-out .seg-git.uptodate { background: #95ffa4; }   /* clean and pushed */
+.term-out .seg-git.ahead { background: #ff6b6b; }      /* committed, not pushed */
+.term-out .seg-git.behind { background: #b388ff; }     /* behind the remote */
+.term-out .seg-git.modified { background: #ff6b6b; }   /* changes in the working tree (modified / untracked) */
+.term-out .seg-git.staged { background: #ffd700; }     /* staged (added) */
+.term-out .seg-git.conflict { background: #d64545; color: #ffffff; }
+.term-out .seg-git .g-ahead, .term-out .seg-git .g-behind, .term-out .seg-git .g-staged, .term-out .seg-git .g-changed, .term-out .seg-git .g-untracked, .term-out .seg-git .g-conflict { font-weight: 800; margin-left: 1px; }
 /* The input sits inline after the prompt; the ::after mirror of its value gives it the width of the text. */
 .term-out .term-inline { display: inline-grid; vertical-align: baseline; max-width: 100%; }
 .term-out .term-inline::after { content: attr(data-value) ' '; grid-area: 1 / 1; visibility: hidden; white-space: pre; }
