@@ -105,11 +105,11 @@ const SCENARIOS = {
   context: `(() => { const row = document.querySelectorAll('.file-panel')[0].querySelectorAll('tbody tr')[2]; row.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0 })); row.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: 260, clientY: 240 })); })()`,
   compress: `(() => { const row = document.querySelectorAll('.file-panel')[0].querySelectorAll('tbody tr')[2]; row.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0 })); setTimeout(() => window.__cc.action('compress', 'left'), 150); })()`,
   search: `window.__cc.action('search', 'left')`,
-  about: `window.__cc.action('about')`,
+  about: `(() => { window.__cc.action('about'); })()`,   // not returned: the promise settles only when the dialog closes
   light_en: `(() => { window.__cc.action('toggleTheme'); window.__cc.action('toggleLanguage'); setTimeout(() => { const lbl = document.querySelectorAll('.side-label')[1]; lbl.click(); }, 200); })()`,
   themes: `document.querySelector('.tb-split-caret').click()`,
   drives: `document.querySelector('.drive-btn').click()`,
-  settings: `window.__cc.action('settings')`,
+  settings: `(() => { window.__cc.action('settings'); })()`,
   settings_terminal: `(() => { window.__cc.action('settings'); setTimeout(() => document.querySelectorAll('.settings-tab')[1].click(), 300); })()`,
   theme_nord: `window.__cc.action('theme:nord')`,
   theme_sunset: `window.__cc.action('theme:sunset')`,

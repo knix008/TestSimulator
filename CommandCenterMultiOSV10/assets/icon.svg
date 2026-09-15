@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- Command Center application icon.
-     A polished "control-room" tile: a deep indigo→violet slab with a metallic
-     bevel ring, a faint grid, two frosted-glass file panels and a glowing
-     amber double-arrow (transfer between the panels) in the middle. The same
+     A "command deck" tile: the deep indigo→violet slab with a metallic bevel
+     ring (shared look of the family of apps), and inside it a radar — three
+     rings, a crosshair and a sweeping beam — with a glowing amber command
+     prompt (❯_) in the centre console. Four small panels sit on the rings,
+     wired to the console: everything is driven from one place. The same
      file drives the app, the installer and the uninstaller icons on every
      platform, plus the web favicon (see scripts/generate-icons.mjs). -->
 <svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
@@ -34,36 +36,48 @@
       <stop offset="0"   stop-color="#1b1f4a"/>
       <stop offset="1"   stop-color="#05061a"/>
     </linearGradient>
-    <!-- glass panels -->
+    <!-- radar sweep: bright at the leading edge, fading behind it -->
+    <linearGradient id="sweep" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0"   stop-color="#5cffd0" stop-opacity="0.55"/>
+      <stop offset="0.6" stop-color="#5cffd0" stop-opacity="0.12"/>
+      <stop offset="1"   stop-color="#5cffd0" stop-opacity="0"/>
+    </linearGradient>
+    <radialGradient id="radarFloor" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0"   stop-color="#0a0f3a" stop-opacity="0.75"/>
+      <stop offset="0.75" stop-color="#0a0f3a" stop-opacity="0.35"/>
+      <stop offset="1"   stop-color="#0a0f3a" stop-opacity="0"/>
+    </radialGradient>
+    <!-- centre console (dark glass) -->
+    <linearGradient id="console" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0"   stop-color="#1a2160"/>
+      <stop offset="1"   stop-color="#070a2a"/>
+    </linearGradient>
+    <linearGradient id="consoleEdge" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0"   stop-color="#ffffff" stop-opacity="0.75"/>
+      <stop offset="1"   stop-color="#ffffff" stop-opacity="0.12"/>
+    </linearGradient>
+    <!-- amber prompt -->
+    <linearGradient id="amber" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0"    stop-color="#ffe680"/>
+      <stop offset="0.45" stop-color="#ffb020"/>
+      <stop offset="1"    stop-color="#e55d00"/>
+    </linearGradient>
+    <linearGradient id="amberEdge" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff6c8"/>
+      <stop offset="1" stop-color="#ff9a1f"/>
+    </linearGradient>
+    <!-- node panels (frosted glass) -->
     <linearGradient id="glass" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0"   stop-color="#ffffff" stop-opacity="0.96"/>
-      <stop offset="1"   stop-color="#dfe5ff" stop-opacity="0.88"/>
+      <stop offset="1"   stop-color="#dfe5ff" stop-opacity="0.86"/>
     </linearGradient>
     <linearGradient id="glassHead" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0"   stop-color="#8ea2ff"/>
       <stop offset="1"   stop-color="#4f63f2"/>
     </linearGradient>
-    <linearGradient id="glassEdge" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0"   stop-color="#ffffff" stop-opacity="0.9"/>
-      <stop offset="1"   stop-color="#ffffff" stop-opacity="0.15"/>
-    </linearGradient>
     <linearGradient id="rowA" x1="0" y1="0" x2="1" y2="0">
       <stop offset="0" stop-color="#5b6cf0"/>
       <stop offset="1" stop-color="#8b98ff"/>
-    </linearGradient>
-    <!-- amber arrow -->
-    <linearGradient id="arrow" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0"    stop-color="#ffe680"/>
-      <stop offset="0.45" stop-color="#ffb020"/>
-      <stop offset="1"    stop-color="#e55d00"/>
-    </linearGradient>
-    <linearGradient id="arrowEdge" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#fff6c8"/>
-      <stop offset="1" stop-color="#ff9a1f"/>
-    </linearGradient>
-    <linearGradient id="folder" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0"   stop-color="#ffe08a"/>
-      <stop offset="1"   stop-color="#f5a623"/>
     </linearGradient>
     <filter id="drop" x="-25%" y="-25%" width="150%" height="150%">
       <feDropShadow dx="0" dy="30" stdDeviation="30" flood-color="#04051e" flood-opacity="0.6"/>
@@ -77,11 +91,17 @@
     <filter id="blur10" x="-20%" y="-20%" width="140%" height="140%">
       <feGaussianBlur stdDeviation="10"/>
     </filter>
+    <filter id="blur4" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="4"/>
+    </filter>
     <clipPath id="tile">
       <rect x="84" y="84" width="856" height="856" rx="200"/>
     </clipPath>
     <clipPath id="inner">
       <rect x="126" y="126" width="772" height="772" rx="164"/>
+    </clipPath>
+    <clipPath id="radar">
+      <circle cx="512" cy="500" r="318"/>
     </clipPath>
     <pattern id="grid" width="48" height="48" patternUnits="userSpaceOnUse">
       <path d="M48 0H0V48" fill="none" stroke="#ffffff" stroke-opacity="0.07" stroke-width="2"/>
@@ -99,65 +119,80 @@
     <rect x="126" y="126" width="772" height="772" fill="url(#grid)"/>
     <rect x="126" y="126" width="772" height="772" fill="url(#violet)"/>
     <rect x="126" y="126" width="772" height="772" fill="url(#glow)"/>
-    <!-- horizon sheen -->
     <path d="M126 126 H898 V430 Q 512 560 126 430 Z" fill="#ffffff" opacity="0.10"/>
   </g>
   <rect x="126" y="126" width="772" height="772" rx="164" fill="none" stroke="#ffffff" stroke-opacity="0.35" stroke-width="3"/>
 
-  <!-- ── Left glass panel ── -->
-  <g filter="url(#soft)">
-    <rect x="196" y="300" width="262" height="430" rx="30" fill="url(#glass)"/>
+  <!-- ── Radar: floor, sweep, rings, crosshair ── -->
+  <circle cx="512" cy="500" r="318" fill="url(#radarFloor)"/>
+  <g clip-path="url(#radar)">
+    <!-- the beam: a wedge from the centre, brightest along its leading edge -->
+    <path d="M512 500 L512 150 A350 350 0 0 1 842 372 Z" fill="url(#sweep)"/>
+    <path d="M512 500 L842 372" stroke="#8dffe0" stroke-opacity="0.9" stroke-width="5" stroke-linecap="round"/>
+    <path d="M512 500 L842 372" stroke="#8dffe0" stroke-opacity="0.6" stroke-width="14" stroke-linecap="round" filter="url(#blur10)"/>
   </g>
-  <path d="M196 330 a30 30 0 0 1 30 -30 h202 a30 30 0 0 1 30 30 v54 h-262 z" fill="url(#glassHead)"/>
-  <rect x="196" y="300" width="262" height="430" rx="30" fill="none" stroke="url(#glassEdge)" stroke-width="3"/>
-  <circle cx="226" cy="326" r="7" fill="#ff6b6b"/><circle cx="248" cy="326" r="7" fill="#ffd166"/><circle cx="270" cy="326" r="7" fill="#5cff9d"/>
-  <path d="M222 372 h32 l12 12 h58 a7 7 0 0 1 7 7 v28 a7 7 0 0 1 -7 7 h-102 a7 7 0 0 1 -7 -7 v-40 a7 7 0 0 1 7 -7 z" fill="url(#folder)" opacity="0.001"/>
-  <g>
-    <rect x="224" y="404" width="26" height="22" rx="5" fill="url(#folder)"/><rect x="262" y="408" width="160" height="14" rx="7" fill="url(#rowA)"/>
-    <rect x="224" y="450" width="26" height="22" rx="5" fill="url(#folder)"/><rect x="262" y="454" width="120" height="14" rx="7" fill="url(#rowA)" opacity="0.85"/>
-    <rect x="224" y="496" width="26" height="22" rx="5" fill="#9fb3ff"/><rect x="262" y="500" width="148" height="14" rx="7" fill="url(#rowA)" opacity="0.7"/>
-    <rect x="224" y="542" width="26" height="22" rx="5" fill="#9fb3ff"/><rect x="262" y="546" width="96" height="14" rx="7" fill="url(#rowA)" opacity="0.55"/>
-    <rect x="224" y="588" width="26" height="22" rx="5" fill="#9fb3ff"/><rect x="262" y="592" width="134" height="14" rx="7" fill="url(#rowA)" opacity="0.45"/>
-    <rect x="224" y="634" width="26" height="22" rx="5" fill="#9fb3ff"/><rect x="262" y="638" width="110" height="14" rx="7" fill="url(#rowA)" opacity="0.35"/>
+  <g fill="none" stroke="#c8d4ff" stroke-width="3">
+    <circle cx="512" cy="500" r="318" stroke-opacity="0.55"/>
+    <circle cx="512" cy="500" r="232" stroke-opacity="0.38" stroke-dasharray="14 12"/>
+    <circle cx="512" cy="500" r="146" stroke-opacity="0.45"/>
   </g>
-  <!-- highlighted (selected) row -->
-  <rect x="210" y="444" width="234" height="34" rx="8" fill="#4f63f2" opacity="0.18"/>
-
-  <!-- ── Right glass panel ── -->
-  <g filter="url(#soft)">
-    <rect x="566" y="300" width="262" height="430" rx="30" fill="url(#glass)"/>
+  <g stroke="#c8d4ff" stroke-opacity="0.22" stroke-width="3">
+    <path d="M512 182 V818 M194 500 H830"/>
   </g>
-  <path d="M566 330 a30 30 0 0 1 30 -30 h202 a30 30 0 0 1 30 30 v54 h-262 z" fill="url(#glassHead)"/>
-  <rect x="566" y="300" width="262" height="430" rx="30" fill="none" stroke="url(#glassEdge)" stroke-width="3"/>
-  <circle cx="596" cy="326" r="7" fill="#ff6b6b"/><circle cx="618" cy="326" r="7" fill="#ffd166"/><circle cx="640" cy="326" r="7" fill="#5cff9d"/>
-  <g>
-    <rect x="594" y="404" width="26" height="22" rx="5" fill="url(#folder)"/><rect x="632" y="408" width="130" height="14" rx="7" fill="url(#rowA)"/>
-    <rect x="594" y="450" width="26" height="22" rx="5" fill="#9fb3ff"/><rect x="632" y="454" width="164" height="14" rx="7" fill="url(#rowA)" opacity="0.85"/>
-    <rect x="594" y="496" width="26" height="22" rx="5" fill="#9fb3ff"/><rect x="632" y="500" width="104" height="14" rx="7" fill="url(#rowA)" opacity="0.7"/>
-    <rect x="594" y="542" width="26" height="22" rx="5" fill="#9fb3ff"/><rect x="632" y="546" width="150" height="14" rx="7" fill="url(#rowA)" opacity="0.55"/>
-    <rect x="594" y="588" width="26" height="22" rx="5" fill="#9fb3ff"/><rect x="632" y="592" width="118" height="14" rx="7" fill="url(#rowA)" opacity="0.45"/>
-    <rect x="594" y="634" width="26" height="22" rx="5" fill="#9fb3ff"/><rect x="632" y="638" width="140" height="14" rx="7" fill="url(#rowA)" opacity="0.35"/>
+  <!-- tick marks on the outer ring -->
+  <g stroke="#e4ebff" stroke-opacity="0.7" stroke-width="5" stroke-linecap="round">
+    <path d="M512 182 v22 M512 818 v-22 M194 500 h22 M830 500 h-22"/>
   </g>
 
-  <!-- ── Glowing amber double arrow ── -->
-  <path d="M412 512 L482 440 V480 H542 V440 L612 512 L542 584 V544 H482 V584 Z" fill="#ffb020" opacity="0.85" filter="url(#neon)"/>
-  <g filter="url(#soft)">
-    <path d="M412 512 L482 440 V480 H542 V440 L612 512 L542 584 V544 H482 V584 Z" fill="url(#arrow)"/>
+  <!-- ── Wires from the console to the four node panels ── -->
+  <g fill="none" stroke="#5cffd0" stroke-opacity="0.55" stroke-width="5" stroke-linecap="round">
+    <path d="M400 440 L300 322"/>
+    <path d="M624 440 L724 322"/>
+    <path d="M400 560 L300 678"/>
+    <path d="M624 560 L724 678"/>
   </g>
-  <path d="M412 512 L482 440 V480 H542 V440 L612 512 L542 584 V544 H482 V584 Z" fill="none" stroke="url(#arrowEdge)" stroke-width="4" stroke-linejoin="round"/>
-  <path d="M484 484 H540" stroke="#ffffff" stroke-opacity="0.7" stroke-width="7" stroke-linecap="round"/>
+
+  <!-- ── Node panels: small frosted screens on the rings ── -->
+  <g id="node">
+    <g filter="url(#soft)"><rect x="226" y="262" width="150" height="104" rx="18" fill="url(#glass)"/></g>
+    <path d="M226 280 a18 18 0 0 1 18 -18 h114 a18 18 0 0 1 18 18 v26 h-150 z" fill="url(#glassHead)"/>
+    <circle cx="246" cy="275" r="5" fill="#ff6b6b"/><circle cx="262" cy="275" r="5" fill="#ffd166"/><circle cx="278" cy="275" r="5" fill="#5cff9d"/>
+    <rect x="244" y="318" width="92" height="9" rx="4.5" fill="url(#rowA)"/>
+    <rect x="244" y="338" width="64" height="9" rx="4.5" fill="url(#rowA)" opacity="0.7"/>
+    <circle cx="358" cy="350" r="7" fill="#5cff9d"/>
+  </g>
+  <use href="#node" transform="translate(422 0)"/>
+  <use href="#node" transform="translate(0 356)"/>
+  <use href="#node" transform="translate(422 356)"/>
+
+  <!-- ── Centre console with the command prompt ── -->
+  <circle cx="512" cy="500" r="150" fill="#5cffd0" opacity="0.18" filter="url(#neon)"/>
+  <g filter="url(#soft)">
+    <rect x="362" y="400" width="300" height="200" rx="40" fill="url(#console)"/>
+  </g>
+  <rect x="362" y="400" width="300" height="200" rx="40" fill="none" stroke="url(#consoleEdge)" stroke-width="3"/>
+  <path d="M362 440 a40 40 0 0 1 40 -40 h220 a40 40 0 0 1 40 40 v12 h-300 z" fill="#ffffff" opacity="0.08"/>
+  <!-- ❯ chevron + blinking cursor, glowing amber -->
+  <g filter="url(#neon)" opacity="0.8">
+    <path d="M418 442 L516 504 L418 566" fill="none" stroke="#ffb020" stroke-width="40" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="538" y="546" width="80" height="24" rx="8" fill="#ffb020"/>
+  </g>
+  <path d="M418 442 L516 504 L418 566" fill="none" stroke="url(#amber)" stroke-width="40" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M418 442 L516 504 L418 566" fill="none" stroke="url(#amberEdge)" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" opacity="0.7" filter="url(#blur4)"/>
+  <rect x="538" y="546" width="80" height="24" rx="8" fill="url(#amber)"/>
+  <rect x="538" y="546" width="80" height="24" rx="8" fill="none" stroke="url(#amberEdge)" stroke-width="2"/>
 
   <!-- ── Bottom status strip ── -->
-  <rect x="196" y="770" width="632" height="52" rx="26" fill="#000000" opacity="0.28"/>
-  <rect x="196" y="770" width="632" height="52" rx="26" fill="none" stroke="#ffffff" stroke-opacity="0.18" stroke-width="2"/>
-  <circle cx="234" cy="796" r="11" fill="#5cff9d"/>
-  <circle cx="234" cy="796" r="11" fill="#5cff9d" opacity="0.6" filter="url(#blur10)"/>
-  <rect x="262" y="787" width="220" height="18" rx="9" fill="#ffffff" opacity="0.55"/>
-  <rect x="640" y="787" width="160" height="18" rx="9" fill="#ffffff" opacity="0.25"/>
+  <rect x="196" y="842" width="632" height="44" rx="22" fill="#000000" opacity="0.28"/>
+  <rect x="196" y="842" width="632" height="44" rx="22" fill="none" stroke="#ffffff" stroke-opacity="0.18" stroke-width="2"/>
+  <circle cx="230" cy="864" r="10" fill="#5cff9d"/>
+  <circle cx="230" cy="864" r="10" fill="#5cff9d" opacity="0.6" filter="url(#blur10)"/>
+  <rect x="256" y="856" width="200" height="16" rx="8" fill="#ffffff" opacity="0.55"/>
+  <rect x="640" y="856" width="160" height="16" rx="8" fill="#ffffff" opacity="0.25"/>
 
   <!-- ── Specular highlight over everything (glass dome feel) ── -->
   <g clip-path="url(#tile)">
-    <ellipse cx="330" cy="200" rx="260" ry="120" fill="#ffffff" opacity="0.22" filter="url(#blur10)" transform="rotate(-22 330 200)"/>
+    <ellipse cx="330" cy="200" rx="260" ry="120" fill="#ffffff" opacity="0.20" filter="url(#blur10)" transform="rotate(-22 330 200)"/>
     <path d="M84 84 H940 V330 Q 512 470 84 330 Z" fill="#ffffff" opacity="0.06"/>
   </g>
 </svg>
