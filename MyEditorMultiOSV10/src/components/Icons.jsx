@@ -31,7 +31,6 @@ const paths = {
   plug: <><path d="M9 3v4M15 3v4M6 7h12v4a6 6 0 0 1-12 0zM12 17v4" /></>,
   unplug: <><path d="M9 3v4M15 3v4M6 7h12v4a6 6 0 0 1-12 0zM12 17v4M4 20L20 4" /></>,
   upload: <><path d="M12 19V7M6 13l6-6 6 6" /><path d="M4 21h16" /></>,
-  download: <><path d="M12 5v12M6 11l6 6 6-6" /><path d="M4 21h16" /></>,
   refresh: <><path d="M20 12a8 8 0 1 1-2.3-5.7" /><path d="M20 4v5h-5" /></>,
   rename: <><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" /></>,
   trash: <><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" /><path d="M10 11v6M14 11v6" /></>,
