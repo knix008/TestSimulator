@@ -210,6 +210,22 @@ const SCENARIOS = {
     document.querySelector('.dlg .btn.primary').click(); await wait(400); const t1 = window.__med.getText();
     await open(); type(inputs()[0], 'logo.png'); await until(() => document.querySelector('.img-preview img'), 6000); document.querySelectorAll('.dlg input[type=radio]')[1].click(); type(document.querySelector('.dlg input[type=number]'), '80'); await wait(100); document.querySelector('.dlg .btn.primary').click(); await until(() => window.__med.getText().includes('width="80"'), 6000); const t2 = window.__med.getText();
     await open(); type(inputs()[0], 'logo.png'); await until(() => document.querySelector('.img-preview img'), 6000); await wait(300); return JSON.stringify({ alt, radios: radios.length, link: t1.includes(String.fromCharCode(33) + "[logo](logo.png)"), embed: t2.includes('<img src="data:image/png;base64,') && t2.includes('" alt="logo" width="80">'), pics: document.querySelectorAll('.md-image img').length }); })()`,
+  // Lint: the C fixture has a typo (retrn) — gcc's findings become gutter markers, underlines and the status-bar count; typing re-runs it in the background.
+  lint: `(async () => { ${PRELUDE} await window.__med.openPath(${wp(path.join(work, 'src', 'test.c'))}); await wait(300); await until(() => document.querySelector('.cm-lint-marker'), 20000); await wait(300);
+    const markers = document.querySelectorAll('.cm-lint-marker').length; const ranges = document.querySelectorAll('.cm-lintRange').length; const st = (document.querySelector('.st-lint') || {}).textContent; const tool = (window.__med.state.docs.find((d) => d.name === 'test.c').lint || {}).tool;
+    const gutters = [...document.querySelectorAll('.cm-gutter')].map((g) => g.className.replace('cm-gutter ', ''));
+    window.__med.setText('#include <stdio.h>' + String.fromCharCode(10) + 'int main(void) { return 0; }' + String.fromCharCode(10) + ''); await until(() => (document.querySelector('.st-lint') || {}).textContent === '✓', 20000); const stClean = (document.querySelector('.st-lint') || {}).textContent;
+    window.__med.setText('int main(void) { retrn 0; }' + String.fromCharCode(10) + ''); await until(() => document.querySelector('.cm-lint-marker'), 20000); await wait(300);
+    return JSON.stringify({ markers, ranges, st, tool, gutters, stClean }); })()`,
+  // Split view: two panes with different documents; the clicked pane is the active one (tab bar follows), typing goes there,
+  // a tab already shown in the other pane activates that pane, closing a pane's doc gives it another, back to one pane keeps everything.
+  split: `(async () => { ${PRELUDE} const S = () => window.__med.state; const names = () => window.__med.panes.map((p) => { const d = S().docs.find((x) => x.id === p.docId); return (d ? d.name : null) + (p.active ? '*' : ''); });
+    window.__med.action('split:cols'); await wait(800); const two = names(); const paneEls = document.querySelectorAll('.pane').length; 
+    const second = document.querySelectorAll('.pane')[1]; second.querySelector('.cm-content').dispatchEvent(new MouseEvent('mousedown', { bubbles: true })); await wait(200); const afterClick = names(); const activeTab = (document.querySelector('.tab.active') || {}).textContent;
+    const v = window.__med.view(); v.dispatch({ changes: { from: 0, insert: 'typed-in-pane-2 ' } }); await wait(200); const typedDoc = S().docs.find((d) => d.id === S().activeId); const typedOk = window.__med.getText().startsWith('typed-in-pane-2');
+    const first = S().docs[0]; window.__med.activate(first.id); await wait(200); const backToFirst = names();
+    window.__med.action('split:none'); await wait(400); const one = names(); window.__med.action('split:grid'); await wait(500); const four = names();
+    return JSON.stringify({ two, paneEls, afterClick, activeTab, typed: typedDoc && typedDoc.name, typedOk, dirty: typedDoc && typedDoc.dirty, backToFirst, four, one, docs: S().docs.length }); })()`,
   markdown_preview: `(async () => { ${PRELUDE} const s = window.__med.state; window.__med.activate(s.docs.find((d) => d.name === 'README.md').id); await wait(400);
     if (!window.__med.state.settings.mdPreview) window.__med.action('toggle:mdPreview'); await wait(500);
     const v = window.__med.view(); const pos = v.state.doc.toString().indexOf('tabbed'); v.dispatch({ selection: { anchor: pos, head: pos + 6 } });

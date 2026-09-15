@@ -41,6 +41,10 @@ const DEFAULTS = {
   spellCheck: true,        // English spell checking (bundled en_US dictionary)
   spellCodeAll: false,     // in code files check every word, not only comments / strings
   autoIndent: true,        // Enter keeps the indentation; Tab inserts spaces (insertSpaces) or a tab, tabSize wide
+  lint: true,              // run the language's checker in the background and mark its findings
+  split: 'none',           // editor panes: none · cols · rows · grid
+  paneDocs: [],            // which tab each pane showed (indices into tabs)
+  activePane: 0,
   termVisible: false,      // terminal panel shown
   termHeight: 240,
   termCwd: '',             // where new terminals start; '' = the folder open in the sidebar (else the document's folder)

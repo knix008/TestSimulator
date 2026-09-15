@@ -30,6 +30,8 @@ export const SETTINGS_DEFAULTS = {
   spellCheck: true,
   spellCodeAll: false,
   autoIndent: true,
+  lint: true,
+  split: 'none',
   termVisible: false,
   termHeight: 240,
   termCwd: '',

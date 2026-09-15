@@ -13,6 +13,7 @@ import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete';
 import { search, highlightSelectionMatches, SearchQuery, setSearchQuery, getSearchQuery, findNext, findPrevious, replaceNext, replaceAll, selectMatches, openSearchPanel, closeSearchPanel } from '@codemirror/search';
 import { tags as t } from '@lezer/highlight';
 import { spellChecker } from './spell';
+import { lintExtension } from './lint';
 
 // ── Compartments (reconfigured from the settings) ──
 export const comp = {
@@ -27,6 +28,7 @@ export const comp = {
   indent: new Compartment(),
   readOnly: new Compartment(),
   spell: new Compartment(),
+  lint: new Compartment(),
   autoIndent: new Compartment(),
 };
 
@@ -115,6 +117,7 @@ export function baseExtensions(settings, { onChange, onUpdate }) {
     comp.language.of([]),
     comp.wrap.of(settings.wordWrap ? EditorView.lineWrapping : []),
     comp.lineNumbers.of(settings.lineNumbers ? [lineNumbers(), highlightActiveLineGutter()] : []),
+    comp.lint.of(settings.lint !== false ? lintExtension : []),
     comp.whitespace.of(settings.showWhitespace ? [highlightWhitespace(), highlightTrailingWhitespace()] : []),
     comp.activeLine.of(settings.highlightActiveLine ? highlightActiveLine() : []),
     comp.closeBrackets.of(settings.autoCloseBrackets ? closeBrackets() : []),
@@ -159,6 +162,7 @@ export function settingsEffects(settings) {
     comp.foldGutter.reconfigure(settings.foldGutter ? foldGutter() : []),
     comp.indent.reconfigure(indentConfig(settings)),
     comp.spell.reconfigure(settings.spellCheck ? spellChecker : []),
+    comp.lint.reconfigure(settings.lint !== false ? lintExtension : []),
     comp.autoIndent.reconfigure(autoIndentConfig(settings)),
   ];
 }

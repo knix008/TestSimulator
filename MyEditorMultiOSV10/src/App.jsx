@@ -22,6 +22,7 @@ import { detectLanguage, languageByName, loadLanguage, FEATURED_LANGUAGES, PLAIN
 import { commands as md } from './lib/markdown';
 import { markdownLive, imageBase } from './lib/mdlive';
 import { fileToDataUrl, isImageFile } from './lib/images';
+import { applyDiagnostics, clearDiagnostics, countDiagnostics, openLintPanel, nextDiagnostic } from './lib/lint';
 import { wordAt as spellWordAt, suggest as spellSuggest, addUserWord, ignoreWord, setUserWords, setSpellOptions, refreshAll as spellRefreshAll, isReady as spellReady } from './lib/spell';
 import { MenuBar } from './components/MenuBar';
 import { Toolbar } from './components/Toolbar';
@@ -33,7 +34,7 @@ import { Preview } from './components/Preview';
 import { Sidebar } from './components/Sidebar';
 import { StatusBar } from './components/StatusBar';
 import { TerminalPanel } from './components/TerminalPanel';
-import { LangIcon } from './components/Icons';
+import { Icon, LangIcon } from './components/Icons';
 import { ConfirmDialog, ErrorDialog, AboutDialog, GotoLineDialog, PromptDialog, LanguagePicker, EncodingPicker, ShortcutsDialog } from './dialogs/Dialogs';
 import { SettingsDialog } from './dialogs/SettingsDialog';
 import { FileDialog } from './dialogs/FileDialog';
@@ -64,7 +65,20 @@ export default function App() {
   const activeIdRef = useRef(null);
   const viewRef = useRef(null);
   const [view, setView] = useState(null);
-  const statesRef = useRef(new Map());     // id → EditorState of inactive tabs
+  const statesRef = useRef(new Map());     // id → EditorState of docs not shown in a pane
+  // Split view: one or more panes (보기 › 편집 창 나누기), each showing one
+  // document; the active pane is the one the tab bar, find bar and preview
+  // follow, and viewRef is its view. A document is shown in at most one pane.
+  const [panes, setPanes] = useState([{ key: 1, docId: null }]);
+  const [paneMenu, setPaneMenu] = useState(null);
+  const panesRef = useRef(panes);
+  const paneKeyRef = useRef(2);
+  const paneViews = useRef(new Map());     // pane key → EditorView
+  const activePaneRef = useRef(0);
+  const [activePane, setActivePaneState] = useState(0);
+  const updatePanes = (fn) => { const next = fn(panesRef.current.map((p) => ({ ...p }))); panesRef.current = next; setPanes(next); return next; };
+  const paneOfDoc = (id) => panesRef.current.findIndex((p) => p.docId === id);
+  const viewOfDoc = (id) => { const i = paneOfDoc(id); return i >= 0 ? paneViews.current.get(panesRef.current[i].key) || null : null; };
   const savedRef = useRef(new Map());      // id → Text as loaded / last saved
   const checkedRef = useRef(new Map());    // id → last external-change check (ms)
   const untitledRef = useRef(1);
@@ -112,11 +126,12 @@ export default function App() {
   const confirm = (title, message, buttons, opts = {}) => ask({ type: 'confirm', title, message, buttons, ...opts });
 
   // ── editor state access (active doc = the view, others = the map) ──
-  const getState = (id) => (id === activeIdRef.current && viewRef.current ? viewRef.current.state : statesRef.current.get(id));
-  const putState = (id, state) => { if (id === activeIdRef.current && viewRef.current) viewRef.current.setState(state); else statesRef.current.set(id, state); };
+  const getState = (id) => { const v = viewOfDoc(id); return v ? v.state : statesRef.current.get(id); };
+  const putState = (id, state) => { const v = viewOfDoc(id); if (v) v.setState(state); else statesRef.current.set(id, state); };
   // Applies a transaction spec to a document, wherever its state lives.
   const dispatchTo = (id, spec) => {
-    if (id === activeIdRef.current && viewRef.current) viewRef.current.dispatch(spec);
+    const v = viewOfDoc(id);
+    if (v) v.dispatch(spec);
     else { const s = statesRef.current.get(id); if (s) statesRef.current.set(id, s.update(spec).state); }
   };
   const docText = (id) => { const s = getState(id); return s ? s.doc.toString() : ''; };
@@ -132,7 +147,44 @@ export default function App() {
     if (dirty !== doc.dirty) patchDoc(id, { dirty });
     setDocVersion((v) => v + 1);
     schedulePersist();
+    scheduleLint(id);
   };
+
+  // ── linting: the language's checker runs in the backend, a moment after the
+  // last edit, and its findings come back as gutter markers / underlines. The
+  // editor is never blocked: the run is a separate process and the result is
+  // applied only if the document has not changed meanwhile (then it is rerun).
+  const lintTimers = useRef(new Map());
+  const lintRuns = useRef(new Map());   // id → text that was sent
+  const scheduleLint = (id, delay = 700) => {
+    if (!settingsRef.current.lint) return;
+    const timers = lintTimers.current;
+    if (timers.has(id)) clearTimeout(timers.get(id));
+    timers.set(id, setTimeout(() => { timers.delete(id); runLint(id); }, delay));
+    const d = getDoc(id); if (d && d.lint && !d.lint.pending) patchDoc(id, { lint: { ...d.lint, pending: true } });
+  };
+  const runLint = async (id) => {
+    const doc = getDoc(id);
+    const state = getState(id);
+    if (!doc || !state || !settingsRef.current.lint) return;
+    if (!doc.langName || doc.langName === 'Markdown' && !doc.path) { return; }
+    const text = state.doc.toString();
+    lintRuns.current.set(id, text);
+    let r;
+    try { r = await call('lint.run', { id, path: doc.path || '', name: doc.name, language: doc.langName, text }); } catch { r = null; }
+    if (!r || r.cancelled || lintRuns.current.get(id) !== text) return;
+    lintRuns.current.delete(id);
+    const cur = getDoc(id);
+    const st = getState(id);
+    if (!cur || !st) return;
+    if (st.doc.toString() !== text) { scheduleLint(id, 300); return; }
+    dispatchTo(id, applyDiagnostics(st, r.diagnostics || []));
+    const after = getState(id);
+    const counts = after ? countDiagnostics(after) : { error: 0, warning: 0, info: 0, total: 0 };
+    patchDoc(id, { lint: { tool: r.tool, error: r.error || null, ...counts } });
+  };
+  const clearLint = (id) => { const st = getState(id); if (st) dispatchTo(id, clearDiagnostics(st)); patchDoc(id, { lint: null }); };
+  const lintAll = () => { for (const d of docsRef.current) { if (settingsRef.current.lint) scheduleLint(d.id, 50); else clearLint(d.id); } };
   handlersRef.current.onUpdate = (u) => { setCursor(cursorInfo(u.state)); };
 
   const newDocState = (text, { selection } = {}) => {
@@ -155,17 +207,42 @@ export default function App() {
       // Markdown documents get the WYSIWYG rendering on top of the grammar.
       const live = langName === 'Markdown' && settingsRef.current.mdWysiwyg ? [markdownLive, imageBase.of(cur.path ? dirName(cur.path) : folderRef.current || '')] : [];
       dispatchTo(doc.id, { effects: languageEffect([support, live]) });
+      scheduleLint(doc.id, 200);
     }).catch(() => { /* a grammar failed to load: plain text */ });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ── tabs ──
+  // Makes pane `i` the active one (its view becomes viewRef, its document the active document).
+  const focusPane = useCallback((i, { focus = true } = {}) => {
+    const pane = panesRef.current[i];
+    if (!pane) return;
+    const v = paneViews.current.get(pane.key) || null;
+    const changed = activePaneRef.current !== i || viewRef.current !== v;
+    activePaneRef.current = i;
+    setActivePaneState(i);
+    viewRef.current = v;
+    setView(v);
+    activeIdRef.current = pane.docId;
+    setActiveIdState(pane.docId);
+    if (v) setCursor(cursorInfo(v.state));
+    if (changed) setDocVersion((x) => x + 1);
+    if (focus && v) setTimeout(() => v.focus(), 0);
+    schedulePersist();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const activate = useCallback((id) => {
-    const v = viewRef.current;
-    const prev = activeIdRef.current;
-    // Already active: the live state is in the view — never replace it with the stored copy.
-    if (prev === id && v) { setTimeout(() => v.focus(), 0); return; }
+    // Shown in another pane: that pane becomes the active one.
+    const pi = paneOfDoc(id);
+    if (id != null && pi >= 0 && pi !== activePaneRef.current) { focusPane(pi); if (id != null) checkExternal(id); return; }
+    const pane = panesRef.current[activePaneRef.current];
+    const v = pane ? paneViews.current.get(pane.key) || null : null;
+    const prev = pane ? pane.docId : activeIdRef.current;
+    // Already shown here: the live state is in the view — never replace it with the stored copy.
+    if (prev === id && v) { activeIdRef.current = id; setActiveIdState(id); setTimeout(() => v.focus(), 0); return; }
     if (v && prev != null && prev !== id && getDoc(prev)) statesRef.current.set(prev, v.state);
+    if (pane) updatePanes((ps) => { ps[activePaneRef.current].docId = id; return ps; });
     activeIdRef.current = id;
     setActiveIdState(id);
     if (v && id != null) {
@@ -178,6 +255,34 @@ export default function App() {
     schedulePersist();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Shows document `id` in pane `i` (moving it there if another pane had it).
+  const showInPane = (i, id) => {
+    const from = paneOfDoc(id);
+    if (from === i) { focusPane(i); return; }
+    if (from >= 0) { const fv = paneViews.current.get(panesRef.current[from].key); if (fv) statesRef.current.set(id, fv.state); updatePanes((ps) => { ps[from].docId = null; return ps; }); if (fv) fv.setState(newDocState('')); }
+    focusPane(i, { focus: false });
+    activate(id);
+  };
+
+  // The layout: 'none' (one pane) · 'cols' · 'rows' · 'grid' (2 × 2). New
+  // panes take documents not shown elsewhere; removed panes hand theirs back.
+  const setSplit = (mode) => {
+    const count = mode === 'grid' ? 4 : mode === 'cols' || mode === 'rows' ? 2 : 1;
+    const cur = panesRef.current;
+    if (cur.length !== count) {
+      const shown = new Set(cur.slice(0, count).map((p) => p.docId));
+      const free = docsRef.current.map((d) => d.id).filter((id) => !shown.has(id));
+      const next = cur.slice(0, count).map((p) => ({ ...p }));
+      for (const p of cur.slice(count)) { const v = paneViews.current.get(p.key); if (v && p.docId != null && getDoc(p.docId)) statesRef.current.set(p.docId, v.state); }
+      while (next.length < count) { const id = free.shift(); next.push({ key: paneKeyRef.current++, docId: id == null ? null : id }); }
+      panesRef.current = next;
+      setPanes(next);
+      if (activePaneRef.current >= count) focusPane(0);
+    }
+    changeSettings({ split: mode });
+  };
+  const nextPane = () => { const n = panesRef.current.length; if (n > 1) focusPane((activePaneRef.current + 1) % n); };
 
   const addDoc = (meta, text, { activateIt = true, dirty = false, selection } = {}) => {
     const id = nextDocId++;
@@ -204,11 +309,28 @@ export default function App() {
     const idx = docsRef.current.findIndex((d) => d.id === activeIdRef.current);
     for (const id of ids) { statesRef.current.delete(id); savedRef.current.delete(id); checkedRef.current.delete(id); }
     setDocs(remaining);
+    // Other panes showing a removed document get one nobody shows, or go empty.
+    const shown = new Set(panesRef.current.map((p) => p.docId));
+    const free = remaining.map((d) => d.id).filter((id) => !shown.has(id));
+    updatePanes((ps) => {
+      ps.forEach((p, i) => {
+        if (!set.has(p.docId) || i === activePaneRef.current) return;
+        const id = free.shift();
+        p.docId = id == null ? null : id;
+        const v = paneViews.current.get(p.key);
+        if (v) { const st = id != null ? statesRef.current.get(id) : null; v.setState(st || newDocState('')); }
+      });
+      return ps;
+    });
     if (set.has(activeIdRef.current)) {
-      const next = remaining[Math.min(idx, remaining.length - 1)] || remaining[remaining.length - 1];
+      const elsewhere = new Set(panesRef.current.map((p, i) => (i === activePaneRef.current ? null : p.docId)));
+      const candidates = remaining.filter((d) => !elsewhere.has(d.id));
+      const next = candidates[Math.min(idx, candidates.length - 1)] || candidates[candidates.length - 1];
       activeIdRef.current = null;
+      updatePanes((ps) => { ps[activePaneRef.current].docId = null; return ps; });
       if (next) activate(next.id);
-      else { setActiveIdState(null); newUntitled(); }
+      else if (!remaining.length) { setActiveIdState(null); newUntitled(); }
+      else { const v = viewRef.current; if (v) v.setState(newDocState('')); setActiveIdState(null); setDocVersion((x) => x + 1); }
     } else schedulePersist();
   };
 
@@ -424,7 +546,8 @@ export default function App() {
       return tab;
     });
     const activeTab = docsRef.current.findIndex((d) => d.id === activeIdRef.current);
-    call('session.save', { tabs, activeTab: Math.max(0, activeTab), folder: folderRef.current, sidebarWidth: sidebarWidthRef.current }).catch(() => {});
+    const paneDocs = panesRef.current.map((p) => docsRef.current.findIndex((d) => d.id === p.docId));
+    call('session.save', { tabs, activeTab: Math.max(0, activeTab), folder: folderRef.current, sidebarWidth: sidebarWidthRef.current, paneDocs, activePane: activePaneRef.current }).catch(() => {});
   };
   const bootedRef = useRef(false);
   const activeDocRef = useRef(null);
@@ -486,6 +609,23 @@ export default function App() {
       const list = docsRef.current;
       const idx = Math.min(Math.max(0, session.activeTab || 0), list.length - 1);
       activate(list[idx].id);
+      // The split layout and what each pane showed.
+      const mode = s.split || 'none';
+      if (mode !== 'none' && Array.isArray(session.paneDocs)) {
+        const count = mode === 'grid' ? 4 : 2;
+        const used = new Set([list[idx].id]);
+        const next = [{ key: panesRef.current[0].key, docId: list[idx].id }];
+        for (let i = 1; i < count; i++) {
+          let d = list[session.paneDocs[i]];
+          if (!d || used.has(d.id)) d = list.find((x) => !used.has(x.id));
+          if (d) used.add(d.id);
+          next.push({ key: paneKeyRef.current++, docId: d ? d.id : null });
+        }
+        panesRef.current = next;
+        setPanes(next);
+        const ap = Math.min(Math.max(0, session.activePane || 0), count - 1);
+        if (ap !== 0) setTimeout(() => focusPane(ap), 50);
+      }
       bootedRef.current = true;
       setBooted(true);
       rendererReady();
@@ -518,7 +658,7 @@ export default function App() {
     const next = setSettings(patch);
     if (patch.language !== undefined) { setLanguage(next.language); setDocs((ds) => ds.map((d) => (d.path ? d : { ...d, name: t('untitled', { n: d.untitledNo }) }))); }
     if (patch.theme !== undefined) { const th = applyTheme(next.theme); call('session.save', { themeBg: th.tokens['--bg'] }).catch(() => {}); }
-    const editorKeys = ['tabSize', 'insertSpaces', 'wordWrap', 'lineNumbers', 'showWhitespace', 'highlightActiveLine', 'autoCloseBrackets', 'bracketMatching', 'foldGutter', 'spellCheck', 'autoIndent'];
+    const editorKeys = ['tabSize', 'insertSpaces', 'wordWrap', 'lineNumbers', 'showWhitespace', 'highlightActiveLine', 'autoCloseBrackets', 'bracketMatching', 'foldGutter', 'spellCheck', 'autoIndent', 'lint'];
     if (editorKeys.some((k) => patch[k] !== undefined)) {
       const effects = settingsEffects(next);
       if (viewRef.current) viewRef.current.dispatch({ effects });
@@ -526,6 +666,7 @@ export default function App() {
     }
     if (patch.mdWysiwyg !== undefined) for (const d of docsRef.current) if (d.langName === 'Markdown') applyLanguage(d);
     if (patch.spellCodeAll !== undefined) { setSpellOptions({ codeAll: !!next.spellCodeAll }); spellRefreshAll([viewRef.current]); }
+    if (patch.lint !== undefined) lintAll();
     call('session.save', patch).catch(() => {});
   };
   const toggleSetting = (k) => changeSettings({ [k]: !settingsRef.current[k] });
@@ -650,6 +791,12 @@ export default function App() {
     if (id === 'toggleTerminal') { const on = !settingsRef.current.termVisible; changeSettings({ termVisible: on }); if (on && !terms.length) newTerminal(); return undefined; }
     if (id.startsWith('md:heading:')) return withView((vw) => md.heading(vw, Number(id.slice(11))));
     if (id === 'md:image') { setDialog({ type: 'mdImage' }); return undefined; }
+    if (id.startsWith('split:')) { setSplit(id.slice(6)); return undefined; }
+    if (id === 'toggleSplit') { setSplit(settingsRef.current.split === 'none' ? 'cols' : 'none'); return undefined; }
+    if (id === 'nextPane') { nextPane(); return undefined; }
+    if (id === 'lintPanel') return withView((vw) => openLintPanel(vw));
+    if (id === 'lintNext') return withView((vw) => nextDiagnostic(vw));
+    if (id === 'lintNow') { if (v && activeIdRef.current != null) runLint(activeIdRef.current); return undefined; }
     if (id.startsWith('md:')) { const fn = md[id.slice(3)]; if (fn) withView((vw) => fn(vw)); return; }
     switch (id) {
       case 'new': newUntitled(); break;
@@ -811,6 +958,10 @@ export default function App() {
       else if (mod && e.key === '0') action('zoomReset');
       else if (e.key === 'F11') action('fullscreen');
       else if (e.key === 'F7') action('toggle:spellCheck');
+      else if (e.key === 'F8') action('lintNext');
+      else if (mod && !e.shiftKey && e.key === '\\') action(settingsRef.current.split === 'none' ? 'split:cols' : 'split:none');
+      else if (mod && e.altKey && /^[1-4]$/.test(e.key)) action(`split:${['none', 'cols', 'rows', 'grid'][Number(e.key) - 1]}`);
+      else if (e.key === 'F6' && !e.shiftKey && !mod) action('nextPane');
       else if (mod && e.key === '`' && !inMd) action('toggleTerminal');
       else if (mod && e.shiftKey && e.key === '`') action('newTerminal');
       else if (mod && e.key === ',') action('settings');
@@ -911,11 +1062,19 @@ export default function App() {
       { id: 'toggle:foldGutter', icon: 'foldGutter', label: t('fold_gutter'), checked: settings.foldGutter },
       { id: 'toggle:spellCheck', icon: 'spell', label: t('spell_check'), checked: settings.spellCheck, shortcut: 'F7' },
       { id: 'toggle:spellCodeAll', icon: 'code', label: t('spell_code_all'), checked: settings.spellCodeAll, disabled: !settings.spellCheck },
+      { id: 'toggle:lint', icon: 'lint', label: t('lint'), checked: settings.lint },
+      { id: 'lintNext', icon: 'lintNext', label: t('lint_next'), shortcut: 'F8', disabled: !settings.lint },
+      { id: 'lintPanel', icon: 'list', label: t('lint_panel'), disabled: !settings.lint },
       { sep: true },
       { id: 'foldAll', icon: 'minusBox', label: t('fold_all') },
       { id: 'unfoldAll', icon: 'plusBox', label: t('unfold_all') },
       { sep: true },
       { id: 'toggle:sidebarVisible', icon: 'sidebar', label: t('sidebar'), checked: settings.sidebarVisible, shortcut: sc('Ctrl+B') },
+      { id: 'split:none', icon: 'splitNone', label: t('split_none'), checked: settings.split === 'none', radio: true, shortcut: sc('Ctrl+Alt+1') },
+      { id: 'split:cols', icon: 'splitCols', label: t('split_cols'), checked: settings.split === 'cols', radio: true, shortcut: sc('Ctrl+Alt+2') },
+      { id: 'split:rows', icon: 'splitRows', label: t('split_rows'), checked: settings.split === 'rows', radio: true, shortcut: sc('Ctrl+Alt+3') },
+      { id: 'split:grid', icon: 'splitGrid', label: t('split_grid'), checked: settings.split === 'grid', radio: true, shortcut: sc('Ctrl+Alt+4') },
+      { id: 'nextPane', icon: 'nextPane', label: t('next_pane'), shortcut: 'F6', disabled: settings.split === 'none' },
       { id: 'toggle:mdWysiwyg', icon: 'eye', label: t('md_wysiwyg_menu'), checked: settings.mdWysiwyg, shortcut: sc('Ctrl+Shift+W'), disabled: !cur || cur.langName !== 'Markdown' },
       { id: 'toggle:mdPreview', icon: 'splitView', label: t('md_preview_menu'), checked: settings.mdPreview, shortcut: sc('Ctrl+Shift+M'), disabled: !cur || cur.langName !== 'Markdown' },
       { id: 'toggle:toolbarVisible', icon: 'toolbar', label: t('toolbar'), checked: settings.toolbarVisible },
@@ -1059,17 +1218,26 @@ export default function App() {
   useEffect(() => {
     window.__med = {
       get state() { return { docs: docsRef.current, activeId: activeIdRef.current, settings: settingsRef.current, folder, find: !!find, dialog: dialog ? dialog.type : null, cursor }; },
-      action, openFiles, openPath, newUntitled, activate, setText: (text) => { const v = viewRef.current; if (v) v.dispatch({ changes: { from: 0, to: v.state.doc.length, insert: text } }); },
+      action, openFiles, openPath, newUntitled, activate, focusPane, showInPane, get panes() { return panesRef.current.map((p, i) => ({ docId: p.docId, active: i === activePaneRef.current })); }, setText: (text) => { const v = viewRef.current; if (v) v.dispatch({ changes: { from: 0, to: v.state.doc.length, insert: text } }); },
       getText: () => (viewRef.current ? viewRef.current.state.doc.toString() : ''), setFolder: (p) => setFolder(p), view: () => viewRef.current, closeDialog,
     };
   });
 
   const initialState = useMemo(() => createState('', SETTINGS_DEFAULTS, handlers), [handlers]);
-  const onView = useCallback((v) => {
-    if (!v && viewRef.current && activeIdRef.current != null) statesRef.current.set(activeIdRef.current, viewRef.current.state);
-    viewRef.current = v;
-    setView(v);
-    if (v && activeIdRef.current != null) { const s = statesRef.current.get(activeIdRef.current); if (s) { v.setState(s); setCursor(cursorInfo(s)); } }
+  const onPaneView = useCallback((key, v) => {
+    const i = panesRef.current.findIndex((p) => p.key === key);
+    const pane = i >= 0 ? panesRef.current[i] : null;
+    if (!v) {
+      const old = paneViews.current.get(key);
+      if (old && pane && pane.docId != null && getDoc(pane.docId)) statesRef.current.set(pane.docId, old.state);
+      paneViews.current.delete(key);
+      if (viewRef.current === old) { viewRef.current = null; setView(null); }
+      return;
+    }
+    paneViews.current.set(key, v);
+    if (pane && pane.docId != null) { const s = statesRef.current.get(pane.docId); if (s) v.setState(s); }
+    if (i === activePaneRef.current) { viewRef.current = v; setView(v); if (pane && pane.docId != null) { activeIdRef.current = pane.docId; const s = v.state; setCursor(cursorInfo(s)); } }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const openPaths = useMemo(() => new Set(docs.map((d) => d.path).filter(Boolean)), [docs]);
@@ -1099,8 +1267,30 @@ export default function App() {
           {isMarkdown && <MarkdownBar onAction={action} preview={settings.mdPreview} wysiwyg={settings.mdWysiwyg} />}
           {find && view && <FindBar key={find.key} view={view} mode={find.mode} initial={find.initial} docVersion={docVersion} onClose={() => action('closeFind')} onModeChange={(mode) => setFind({ ...find, mode })} />}
           <div className="editor-split" ref={splitRef}>
-            <EditorPane initialState={initialState} onView={onView} onDropFiles={dropFiles} contextItems={editorContextItems} onAction={action}
-              fontFamily={settings.fontFamily} fontSize={settings.fontSize} empty={!docs.length} />
+            <div className={`panes ${settings.split || 'none'}`}>
+              {panes.map((p, i) => {
+                const pd = p.docId != null ? getDoc(p.docId) : null;
+                return (
+                  <div key={p.key} className={`pane ${i === activePane ? 'active' : ''}`} onMouseDownCapture={() => { if (activePaneRef.current !== i) focusPane(i, { focus: false }); }}>
+                    {panes.length > 1 && (
+                      <div className="pane-head">
+                        <button className="pane-title ellipsis" title={pd ? pd.path || pd.name : t('pane_empty')} onClick={(e) => setPaneMenu({ i, el: e.currentTarget })}>
+                          {pd ? <>{pd.name}{pd.dirty ? ' ●' : ''}</> : <span className="muted">{t('pane_empty')}</span>}<Icon name="chevronDown" size={12} />
+                        </button>
+                        <span className="spacer" />
+                        {pd && <button className="icon-btn" title={t('close')} onClick={() => closeDocs([pd.id])}><Icon name="close" size={13} /></button>}
+                      </div>
+                    )}
+                    <EditorPane initialState={initialState} onView={(v) => onPaneView(p.key, v)} onDropFiles={dropFiles} contextItems={editorContextItems} onAction={action}
+                      fontFamily={settings.fontFamily} fontSize={settings.fontSize} empty={!docs.length || p.docId == null} />
+                  </div>
+                );
+              })}
+            </div>
+            {paneMenu && (
+              <ContextMenu anchorEl={paneMenu.el} x={0} y={0} items={docs.map((d) => ({ id: `doc:${d.id}`, label: d.name + (d.dirty ? ' ●' : ''), meta: (() => { const j = paneOfDoc(d.id); return j >= 0 && j !== paneMenu.i ? t('pane_in', { n: j + 1 }) : undefined; })(), checked: panes[paneMenu.i].docId === d.id, radio: true, iconEl: <LangIcon name={d.langName || 'plain'} /> }))}
+                onClose={() => setPaneMenu(null)} onPick={(id) => { const i = paneMenu.i; setPaneMenu(null); showInPane(i, Number(id.slice(4))); }} />
+            )}
             {isMarkdown && settings.mdPreview && view && (
               <>
                 <div className="v-splitter" onMouseDown={onPreviewSplitDown} />
@@ -1117,7 +1307,7 @@ export default function App() {
         </div>
       </div>
       {settings.statusBarVisible && (
-        <StatusBar message={message} cursor={cursor} settings={settings} zoom={zoom} pickers={statusPickers} onAction={action}
+        <StatusBar message={message} cursor={cursor} settings={settings} zoom={zoom} pickers={statusPickers} onAction={action} lint={cur ? cur.lint : null}
           doc={cur ? { ...cur, encodingLabel: encodingLabel(cur.encoding) } : null} />
       )}
 

@@ -33,11 +33,13 @@ const GROUPS = [
     { id: 'zoomIn', icon: 'zoomIn', tip: 'tip_zoom_in' },
     { id: 'zoomOut', icon: 'zoomOut', tip: 'tip_zoom_out' },
     { id: 'toggle:sidebarVisible', icon: 'sidebar', tip: 'tip_sidebar', toggle: 'sidebarVisible' },
+    { id: 'toggleSplit', icon: 'splitCols', tip: 'tip_split', on: (st) => st.split && st.split !== 'none' },
   ],
   [
     { id: 'toggle:wordWrap', icon: 'wrap', tip: 'tip_wrap', toggle: 'wordWrap' },
     { id: 'toggle:autoIndent', icon: 'autoIndent', tip: 'tip_auto_indent', toggle: 'autoIndent' },
     { id: 'toggle:spellCheck', icon: 'spell', tip: 'tip_spell', toggle: 'spellCheck' },
+    { id: 'toggle:lint', icon: 'lint', tip: 'tip_lint', toggle: 'lint' },
     { id: 'toggle:termVisible', icon: 'terminal', tip: 'tip_terminal', toggle: 'termVisible' },
   ],
 ];
@@ -52,7 +54,7 @@ export function Toolbar({ onAction, onSetting, settings, state }) {
         <React.Fragment key={gi}>
           {gi > 0 && <span className="tb-sep" />}
           {g.map((b) => (
-            <button key={b.id} className={`tool-btn ${b.toggle && settings[b.toggle] ? 'on' : ''}`} title={t(b.tip)} aria-label={t(b.tip)}
+            <button key={b.id} className={`tool-btn ${(b.on ? b.on(settings) : b.toggle && settings[b.toggle]) ? 'on' : ''}`} title={t(b.tip)} aria-label={t(b.tip)}
               disabled={b.needs ? !state[b.needs] : false}
               onMouseDown={(e) => e.preventDefault()}   /* keep the editor focused */
               onClick={() => onAction(b.id)}>

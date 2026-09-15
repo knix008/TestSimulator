@@ -93,6 +93,13 @@ const paths = {
   minusBox: <><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M8 12h8" /></>,
   autoIndent: <><path d="M10 6h11M10 12h11M10 18h11M3 6h3M3 18h3" /><path d="M3 12h4M5 10l2 2-2 2" /></>,
   terminal: <><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M7 9l3 3-3 3M12 15h5" /></>,
+  splitNone: <><rect x="3" y="4" width="18" height="16" rx="2" /></>,
+  splitCols: <><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M12 4v16" /></>,
+  splitRows: <><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M3 12h18" /></>,
+  splitGrid: <><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M12 4v16M3 12h18" /></>,
+  nextPane: <><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M12 4v16" /><path d="M6 12h4M8.5 10l1.5 2-1.5 2" /></>,
+  lint: <><path d="M8 2l1.9 1.9M16 2l-1.9 1.9" /><path d="M9 7h6a3 3 0 0 1 3 3v5a6 6 0 0 1-12 0v-5a3 3 0 0 1 3-3z" /><path d="M3 13h3M18 13h3M12 7v14M4 20l3-2M20 20l-3-2M4 7l3 2M20 7l-3 2" /></>,
+  lintNext: <><path d="M9 7h6a3 3 0 0 1 3 3v5a6 6 0 0 1-12 0v-5a3 3 0 0 1 3-3z" /><path d="M12 7v14" /><path d="M20 3v6M17 6l3 3 3-3" /></>,
   terminalPlus: <><path d="M13 20H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h8" /><path d="M7 9l3 3-3 3" /><path d="M18 3v6M15 6h6" /><path d="M21 13v5a2 2 0 0 1-2 2h-3" /></>,
   // menu items: tabs / files
   closeAll: <><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M9 9l6 6M15 9l-6 6" /></>,
