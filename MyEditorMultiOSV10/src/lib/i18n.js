@@ -1,0 +1,174 @@
+// Tiny i18n: `t(key, params)` with Korean (the reference UI) and English.
+import { useSyncExternalStore } from 'react';
+
+const ko = {
+  appName: 'My Editor V1.0',
+  untitled: '새 문서 {n}',
+  ready: '준비됨',
+
+  // menu bar
+  m_file: '파일', m_edit: '편집', m_search: '찾기', m_view: '보기', m_lang: '언어', m_enc: '인코딩', m_help: '도움말',
+  // file
+  new_file: '새 문서', open_file: '열기…', open_folder: '폴더 열기…', close_folder: '폴더 닫기', save: '저장', save_as: '다른 이름으로 저장…', save_all: '모두 저장',
+  reload: '다시 불러오기', close: '닫기', close_all: '모두 닫기', close_others: '다른 탭 모두 닫기', close_right: '오른쪽 탭 모두 닫기',
+  recent: '최근 파일', recent_empty: '(최근 파일 없음)', recent_clear: '최근 파일 목록 지우기', reveal: '탐색기에서 보기', open_with: '기본 앱으로 열기', copy_path: '경로 복사', copy_name: '파일 이름 복사',
+  exit: '종료',
+  // edit
+  undo: '실행 취소', redo: '다시 실행', cut: '잘라내기', copy: '복사', paste: '붙여넣기', delete: '삭제', select_all: '모두 선택',
+  dup_line: '줄 복제', del_line: '줄 삭제', move_up: '줄 위로 이동', move_down: '줄 아래로 이동', toggle_comment: '주석 토글', indent: '들여쓰기', outdent: '내어쓰기',
+  upper: '대문자로', lower: '소문자로', sort_asc: '줄 정렬 (오름차순)', sort_desc: '줄 정렬 (내림차순)', trim_ws: '줄 끝 공백 제거', remove_empty: '빈 줄 제거', remove_dup: '중복 줄 제거',
+  insert_date: '날짜/시간 삽입', insert_path: '파일 경로 삽입',
+  // search
+  find: '찾기…', find_next: '다음 찾기', find_prev: '이전 찾기', replace: '바꾸기…', goto_line: '줄로 이동…', select_all_matches: '일치하는 항목 모두 선택',
+  find_ph: '찾을 내용', replace_ph: '바꿀 내용', match_case: '대/소문자 구분', regex: '정규식', whole_word: '단어 단위', replace_one: '바꾸기', replace_all: '모두 바꾸기',
+  matches: '{n}개 일치', match_of: '{i} / {n}', no_match: '일치 없음', close_find: '찾기 닫기', in_selection: '선택 영역 내',
+  goto_line_title: '줄로 이동', goto_line_hint: '줄 번호 (1 ~ {n}), 또는 줄:열', go: '이동',
+  // view
+  word_wrap: '자동 줄 바꿈', line_numbers: '줄 번호', show_ws: '공백 문자 표시', active_line: '현재 줄 강조', fold_gutter: '코드 접기', sidebar: '폴더 트리', toolbar: '도구 모음', statusbar: '상태 표시줄',
+  zoom_in: '확대', zoom_out: '축소', zoom_reset: '기본 크기', fullscreen: '전체 화면', fold_all: '모두 접기', unfold_all: '모두 펼치기',
+  // language / encoding / eol
+  lang_auto: '자동 (확장자로 판별)', lang_plain: '일반 텍스트', eol: '줄 끝', eol_crlf: 'Windows (CR LF)', eol_lf: 'Unix (LF)', eol_cr: 'Macintosh (CR)',
+  reopen_as: '다음 인코딩으로 다시 열기', save_as_enc: '다음 인코딩으로 저장', enc_current: '현재 인코딩',
+  // help
+  about: '정보', users_guide: '사용 설명서', shortcuts: '단축키',
+  // toolbar tips
+  tip_new: '새 문서 (Ctrl+N)', tip_open: '파일 열기 (Ctrl+O)', tip_save: '저장 (Ctrl+S)', tip_save_all: '모두 저장 (Ctrl+Shift+S)', tip_close: '탭 닫기 (Ctrl+W)',
+  tip_undo: '실행 취소 (Ctrl+Z)', tip_redo: '다시 실행 (Ctrl+Y)', tip_cut: '잘라내기 (Ctrl+X)', tip_copy: '복사 (Ctrl+C)', tip_paste: '붙여넣기 (Ctrl+V)',
+  tip_find: '찾기 (Ctrl+F)', tip_replace: '바꾸기 (Ctrl+H)', tip_wrap: '자동 줄 바꿈', tip_ws: '공백 문자 표시', tip_zoom_in: '확대 (Ctrl++)', tip_zoom_out: '축소 (Ctrl+-)', tip_sidebar: '폴더 트리 (Ctrl+B)',
+  tip_theme: '테마 선택 (16종)', tip_next_theme: '다음 테마로 전환: {theme}', tip_language: '한국어 / English', tip_settings: '설정', tip_about: 'My Editor 정보',
+  settings: '설정', menu_info: '정보',
+  win_minimize: '최소화', win_maximize: '최대화', win_restore: '이전 크기로', win_close: '닫기', win_resize: '드래그하여 창 크기 조절',
+  // tabs
+  tab_modified: '(수정됨)', tab_readonly: '(읽기 전용)', tab_new: '새 탭', tip_tab_close: '닫기 (가운데 클릭)', tab_scroll_left: '탭 왼쪽으로 스크롤', tab_scroll_right: '탭 오른쪽으로 스크롤',
+  // sidebar
+  sb_title: '폴더', sb_empty: '폴더를 열면 여기에 파일 트리가 표시됩니다.', sb_open: '폴더 열기…', sb_refresh: '새로 고침', sb_collapse: '모두 접기', sb_expand: '모두 펼치기', sb_hidden: '숨김 파일 표시',
+  sb_new_file: '새 파일…', sb_new_folder: '새 폴더…', sb_rename: '이름 바꾸기…', sb_delete: '삭제', sb_open_terminal: '탐색기에서 열기', sb_filter: '필터…',
+  // status bar
+  st_pos: '줄 {line}, 열 {col}', st_sel: '{n}자 선택', st_sel_lines: '{n}자 ({l}줄) 선택', st_size: '{chars}자 · {lines}줄', st_spaces: '공백: {n}', st_tabs: '탭: {n}', st_zoom: '{n}%',
+  st_lang: '언어 선택', st_enc: '인코딩 선택', st_eol: '줄 끝 선택', st_indent: '들여쓰기 선택', st_ins: 'INS', st_ovr: 'OVR',
+  // dialogs
+  ok: '확인', cancel: '취소', yes: '예', no: '아니요', dont_save: '저장 안 함', close_btn: '닫기',
+  unsaved_title: '저장하지 않은 변경 사항', unsaved_msg: '"{name}" 의 변경 사항을 저장할까요?', unsaved_many: '저장하지 않은 문서가 {n}개 있습니다. 저장할까요?',
+  save_all_and_close: '모두 저장', discard_all: '저장 안 함',
+  reload_title: '다시 불러오기', reload_msg: '"{name}" 을(를) 디스크에서 다시 읽으면 현재 변경 사항이 사라집니다. 계속할까요?',
+  changed_title: '파일이 바뀌었습니다', changed_msg: '"{name}" 이(가) 다른 프로그램에서 변경되었습니다. 다시 불러올까요? (아니요: 현재 내용 유지)',
+  deleted_title: '파일이 삭제되었습니다', deleted_msg: '"{name}" 이(가) 디스크에서 사라졌습니다. 탭을 그대로 유지합니다 — 저장하면 다시 만들어집니다.',
+  enc_lossy_title: '인코딩 경고', enc_lossy_msg: '일부 문자는 {enc} 로 표현할 수 없어 "?" 로 바뀝니다. 그래도 저장할까요?',
+  reopen_title: '다시 열기', reopen_msg: '"{name}" 을(를) {enc} 로 다시 읽으면 현재 변경 사항이 사라집니다. 계속할까요?',
+  delete_title: '삭제', delete_msg: '"{name}" 을(를) 삭제할까요? 이 작업은 되돌릴 수 없습니다.',
+  too_big_title: '파일이 너무 큽니다', too_big_msg: '"{name}" 은(는) 64 MB 를 넘습니다. 이 편집기는 그보다 큰 파일을 열지 않습니다.',
+  binary_title: '이진 파일', binary_msg: '"{name}" 은(는) 텍스트 파일이 아닌 것 같습니다. 그래도 열까요? (표시가 깨질 수 있습니다)',
+  error_title: '오류', error_unexpected: '예상하지 못한 오류가 발생했습니다.', error_details: '자세히', copy_details: '자세히 복사', copied_details: '오류 내용을 클립보드에 복사했습니다.', error_code: '코드', error_path: '경로',
+  open_failed: '"{name}" 을(를) 열 수 없습니다.', save_failed: '"{name}" 을(를) 저장할 수 없습니다.',
+  new_name: '이름', new_file_title: '새 파일', new_folder_title: '새 폴더', rename_title: '이름 바꾸기', create: '만들기',
+  // settings
+  settings_title: '설정', set_general: '일반', set_editor: '편집기', set_files: '파일',
+  set_language: 'UI 언어', set_theme: '테마', set_font: '글꼴', set_font_ph: '(기본 고정폭 글꼴)', set_font_size: '글꼴 크기', set_tab_size: '탭 크기', set_insert_spaces: 'Tab 키로 공백 입력',
+  set_word_wrap: '자동 줄 바꿈', set_line_numbers: '줄 번호', set_show_ws: '공백 문자 표시', set_active_line: '현재 줄 강조', set_auto_close: '괄호·따옴표 자동 닫기', set_bracket_match: '짝 괄호 강조', set_fold: '코드 접기',
+  set_default_enc: '새 문서 인코딩', set_default_eol: '새 문서 줄 끝', set_trim: '저장할 때 줄 끝 공백 제거', set_final_nl: '저장할 때 마지막 줄 바꿈 추가',
+  set_restore: '시작할 때 이전 세션 복원', set_reload: '외부에서 바뀐 파일 자동 다시 읽기 (수정하지 않은 경우)', set_confirm_close: '닫을 때 저장 여부 확인',
+  // about
+  about_title: '정보', about_desc: 'Windows / macOS / Linux / 웹용 텍스트 · 코드 편집기',
+  version: '버전', author: '작성자', author_name: 'SHKWON (knix008@naver.com)', copyright: 'Copyright © 2026 SHKWON',
+  about_build: '빌드', about_host: '실행 환경', host_electron: '데스크톱 (Electron)', host_web: '웹 브라우저', about_libs: '편집 엔진: CodeMirror 6 · 인코딩: iconv-lite',
+  // file dialog (web)
+  fd_open: '열기', fd_save: '다른 이름으로 저장', fd_folder: '폴더 선택', fd_name: '파일 이름', fd_up: '상위 폴더', fd_drives: '드라이브', fd_empty: '(빈 폴더)', fd_overwrite: '"{name}" 이(가) 이미 있습니다. 덮어쓸까요?', fd_select: '선택',
+  // misc
+  copied: '클립보드에 복사했습니다.', saved: '저장됨: {name}', opened: '열림: {name}', all_saved: '모든 문서를 저장했습니다.', nothing_to_save: '저장할 변경 사항이 없습니다.',
+  drop_hint: '파일을 여기에 놓으면 열립니다', web_native_unsupported: '웹 버전에서는 사용할 수 없습니다.',
+  shortcuts_title: '단축키',
+  // markdown
+  md_heading: '제목 {n} (H{n})', md_bold: '굵게', md_italic: '기울임', md_strike: '취소선', md_code: '인라인 코드', md_code_block: '코드 블록', md_quote: '인용',
+  md_ul: '글머리 기호 목록', md_ol: '번호 매기기 목록', md_task: '체크리스트', md_link: '링크', md_image: '이미지', md_table: '표', md_hr: '구분선', md_preview: '미리보기',
+  md_preview_menu: 'Markdown 미리보기', md_wysiwyg: 'WYSIWYG 편집 (기호를 렌더링해서 표시)', md_wysiwyg_menu: 'Markdown WYSIWYG 편집', md_source: '소스',
+};
+
+const en = {
+  appName: 'My Editor V1.0',
+  untitled: 'new {n}',
+  ready: 'Ready',
+
+  m_file: 'File', m_edit: 'Edit', m_search: 'Search', m_view: 'View', m_lang: 'Language', m_enc: 'Encoding', m_help: 'Help',
+  new_file: 'New', open_file: 'Open…', open_folder: 'Open folder…', close_folder: 'Close folder', save: 'Save', save_as: 'Save as…', save_all: 'Save all',
+  reload: 'Reload from disk', close: 'Close', close_all: 'Close all', close_others: 'Close other tabs', close_right: 'Close tabs to the right',
+  recent: 'Recent files', recent_empty: '(no recent files)', recent_clear: 'Clear recent files', reveal: 'Show in file manager', open_with: 'Open with default app', copy_path: 'Copy path', copy_name: 'Copy file name',
+  exit: 'Exit',
+  undo: 'Undo', redo: 'Redo', cut: 'Cut', copy: 'Copy', paste: 'Paste', delete: 'Delete', select_all: 'Select all',
+  dup_line: 'Duplicate line', del_line: 'Delete line', move_up: 'Move line up', move_down: 'Move line down', toggle_comment: 'Toggle comment', indent: 'Indent', outdent: 'Outdent',
+  upper: 'UPPERCASE', lower: 'lowercase', sort_asc: 'Sort lines ascending', sort_desc: 'Sort lines descending', trim_ws: 'Trim trailing whitespace', remove_empty: 'Remove empty lines', remove_dup: 'Remove duplicate lines',
+  insert_date: 'Insert date / time', insert_path: 'Insert file path',
+  find: 'Find…', find_next: 'Find next', find_prev: 'Find previous', replace: 'Replace…', goto_line: 'Go to line…', select_all_matches: 'Select all matches',
+  find_ph: 'Find', replace_ph: 'Replace with', match_case: 'Match case', regex: 'Regex', whole_word: 'Whole word', replace_one: 'Replace', replace_all: 'Replace all',
+  matches: '{n} matches', match_of: '{i} of {n}', no_match: 'No matches', close_find: 'Close find', in_selection: 'In selection',
+  goto_line_title: 'Go to line', goto_line_hint: 'Line number (1 – {n}), or line:column', go: 'Go',
+  word_wrap: 'Word wrap', line_numbers: 'Line numbers', show_ws: 'Show whitespace', active_line: 'Highlight current line', fold_gutter: 'Code folding', sidebar: 'Folder tree', toolbar: 'Toolbar', statusbar: 'Status bar',
+  zoom_in: 'Zoom in', zoom_out: 'Zoom out', zoom_reset: 'Reset zoom', fullscreen: 'Full screen', fold_all: 'Fold all', unfold_all: 'Unfold all',
+  lang_auto: 'Auto (by extension)', lang_plain: 'Plain text', eol: 'Line ending', eol_crlf: 'Windows (CR LF)', eol_lf: 'Unix (LF)', eol_cr: 'Macintosh (CR)',
+  reopen_as: 'Reopen with encoding', save_as_enc: 'Save with encoding', enc_current: 'Current encoding',
+  about: 'About', users_guide: "User's guide", shortcuts: 'Keyboard shortcuts',
+  tip_new: 'New document (Ctrl+N)', tip_open: 'Open file (Ctrl+O)', tip_save: 'Save (Ctrl+S)', tip_save_all: 'Save all (Ctrl+Shift+S)', tip_close: 'Close tab (Ctrl+W)',
+  tip_undo: 'Undo (Ctrl+Z)', tip_redo: 'Redo (Ctrl+Y)', tip_cut: 'Cut (Ctrl+X)', tip_copy: 'Copy (Ctrl+C)', tip_paste: 'Paste (Ctrl+V)',
+  tip_find: 'Find (Ctrl+F)', tip_replace: 'Replace (Ctrl+H)', tip_wrap: 'Word wrap', tip_ws: 'Show whitespace', tip_zoom_in: 'Zoom in (Ctrl++)', tip_zoom_out: 'Zoom out (Ctrl+-)', tip_sidebar: 'Folder tree (Ctrl+B)',
+  tip_theme: 'Choose a theme (16 built in)', tip_next_theme: 'Switch to the next theme: {theme}', tip_language: '한국어 / English', tip_settings: 'Settings', tip_about: 'About My Editor',
+  settings: 'Settings', menu_info: 'Info',
+  win_minimize: 'Minimize', win_maximize: 'Maximize', win_restore: 'Restore', win_close: 'Close', win_resize: 'Drag to resize the window',
+  tab_modified: '(modified)', tab_readonly: '(read-only)', tab_new: 'New tab', tip_tab_close: 'Close (middle click)', tab_scroll_left: 'Scroll tabs left', tab_scroll_right: 'Scroll tabs right',
+  sb_title: 'Folder', sb_empty: 'Open a folder to show its file tree here.', sb_open: 'Open folder…', sb_refresh: 'Refresh', sb_collapse: 'Collapse all', sb_expand: 'Expand all', sb_hidden: 'Show hidden files',
+  sb_new_file: 'New file…', sb_new_folder: 'New folder…', sb_rename: 'Rename…', sb_delete: 'Delete', sb_open_terminal: 'Show in file manager', sb_filter: 'Filter…',
+  st_pos: 'Ln {line}, Col {col}', st_sel: '{n} selected', st_sel_lines: '{n} chars ({l} lines) selected', st_size: '{chars} chars · {lines} lines', st_spaces: 'Spaces: {n}', st_tabs: 'Tab: {n}', st_zoom: '{n}%',
+  st_lang: 'Select language', st_enc: 'Select encoding', st_eol: 'Select line ending', st_indent: 'Select indentation', st_ins: 'INS', st_ovr: 'OVR',
+  ok: 'OK', cancel: 'Cancel', yes: 'Yes', no: 'No', dont_save: "Don't save", close_btn: 'Close',
+  unsaved_title: 'Unsaved changes', unsaved_msg: 'Save the changes to "{name}"?', unsaved_many: '{n} documents have unsaved changes. Save them?',
+  save_all_and_close: 'Save all', discard_all: "Don't save",
+  reload_title: 'Reload', reload_msg: 'Reloading "{name}" from disk discards your current changes. Continue?',
+  changed_title: 'File changed', changed_msg: '"{name}" was changed by another program. Reload it? (No keeps your version)',
+  deleted_title: 'File deleted', deleted_msg: '"{name}" no longer exists on disk. The tab is kept — saving recreates the file.',
+  enc_lossy_title: 'Encoding warning', enc_lossy_msg: 'Some characters cannot be represented in {enc} and will become "?". Save anyway?',
+  reopen_title: 'Reopen', reopen_msg: 'Reopening "{name}" as {enc} discards your current changes. Continue?',
+  delete_title: 'Delete', delete_msg: 'Delete "{name}"? This cannot be undone.',
+  too_big_title: 'File too large', too_big_msg: '"{name}" is larger than 64 MB — this editor does not open files that big.',
+  binary_title: 'Binary file', binary_msg: '"{name}" does not look like a text file. Open it anyway? (it may display garbled)',
+  error_title: 'Error', error_unexpected: 'An unexpected error occurred.', error_details: 'Details', copy_details: 'Copy details', copied_details: 'Error details copied to the clipboard.', error_code: 'Code', error_path: 'Path',
+  open_failed: 'Cannot open "{name}".', save_failed: 'Cannot save "{name}".',
+  new_name: 'Name', new_file_title: 'New file', new_folder_title: 'New folder', rename_title: 'Rename', create: 'Create',
+  settings_title: 'Settings', set_general: 'General', set_editor: 'Editor', set_files: 'Files',
+  set_language: 'UI language', set_theme: 'Theme', set_font: 'Font', set_font_ph: '(default monospace font)', set_font_size: 'Font size', set_tab_size: 'Tab size', set_insert_spaces: 'Insert spaces on Tab',
+  set_word_wrap: 'Word wrap', set_line_numbers: 'Line numbers', set_show_ws: 'Show whitespace', set_active_line: 'Highlight current line', set_auto_close: 'Auto-close brackets and quotes', set_bracket_match: 'Highlight matching brackets', set_fold: 'Code folding',
+  set_default_enc: 'Encoding for new documents', set_default_eol: 'Line ending for new documents', set_trim: 'Trim trailing whitespace on save', set_final_nl: 'Add a final newline on save',
+  set_restore: 'Restore the previous session on start', set_reload: 'Reload files changed outside (when unmodified)', set_confirm_close: 'Ask before closing unsaved documents',
+  about_title: 'About', about_desc: 'Text / code editor for Windows / macOS / Linux / the web',
+  version: 'Version', author: 'Author', author_name: 'SHKWON (knix008@naver.com)', copyright: 'Copyright © 2026 SHKWON',
+  about_build: 'Build', about_host: 'Running on', host_electron: 'Desktop (Electron)', host_web: 'Web browser', about_libs: 'Editing engine: CodeMirror 6 · Encodings: iconv-lite',
+  fd_open: 'Open', fd_save: 'Save as', fd_folder: 'Select folder', fd_name: 'File name', fd_up: 'Parent folder', fd_drives: 'Drives', fd_empty: '(empty folder)', fd_overwrite: '"{name}" already exists. Overwrite?', fd_select: 'Select',
+  copied: 'Copied to the clipboard.', saved: 'Saved: {name}', opened: 'Opened: {name}', all_saved: 'All documents saved.', nothing_to_save: 'Nothing to save.',
+  drop_hint: 'Drop files here to open them', web_native_unsupported: 'Not available in the web version.',
+  shortcuts_title: 'Keyboard shortcuts',
+  md_heading: 'Heading {n} (H{n})', md_bold: 'Bold', md_italic: 'Italic', md_strike: 'Strikethrough', md_code: 'Inline code', md_code_block: 'Code block', md_quote: 'Quote',
+  md_ul: 'Bullet list', md_ol: 'Numbered list', md_task: 'Task list', md_link: 'Link', md_image: 'Image', md_table: 'Table', md_hr: 'Horizontal rule', md_preview: 'Preview',
+  md_preview_menu: 'Markdown preview', md_wysiwyg: 'WYSIWYG editing (marks rendered in place)', md_wysiwyg_menu: 'Markdown WYSIWYG editing', md_source: 'Source',
+};
+
+const dicts = { ko, en };
+let current = 'ko';
+const listeners = new Set();
+
+export function setLanguage(lang) {
+  current = dicts[lang] ? lang : 'ko';
+  document.documentElement.lang = current;
+  for (const fn of listeners) fn();
+}
+
+export function getLanguage() { return current; }
+
+export function t(key, params) {
+  let s = (dicts[current] && dicts[current][key]) || ko[key] || key;
+  if (params) for (const [k, v] of Object.entries(params)) s = s.split(`{${k}}`).join(String(v));
+  return s;
+}
+
+export function useLanguage() {
+  return useSyncExternalStore(
+    (cb) => { listeners.add(cb); return () => listeners.delete(cb); },
+    () => current,
+  );
+}
