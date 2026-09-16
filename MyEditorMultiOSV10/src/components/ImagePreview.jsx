@@ -10,7 +10,7 @@ import { call } from '../lib/backend';
 import { Icon } from './Icons';
 import { IMAGE_MIME } from '../lib/images';
 
-const RENDER_DELAY = 250;   // ms after the last edit of an SVG
+const RENDER_DELAY = 120;   // ms after the last edit of an SVG — the preview follows the typing
 
 export const isSvgName = (name) => /\.svg$/i.test(String(name || ''));
 export const isBinaryImageName = (name) => { const m = /\.([a-z0-9]+)$/i.exec(String(name || '')); return !!(m && IMAGE_MIME[m[1].toLowerCase()] && m[1].toLowerCase() !== 'svg'); };

@@ -565,6 +565,15 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
     if (mode === 'multi') { const g = multiGrid(count); changeSettings({ split: mode, paneCount: count, colFracs: Array(g.cols).fill(1 / g.cols), rowFracs: Array(g.rows).fill(1 / g.rows) }); }
     else changeSettings({ split: mode });
   };
+  // The × of a pane showing a document: the document is closed (asking about unsaved changes first) and the
+  // pane goes with it — the remaining panes are laid out afresh.
+  const closePaneAndDoc = async (i) => {
+    const pane = panesRef.current[i];
+    if (!pane) return;
+    if (pane.docId != null) { if (!(await closeDocs([pane.docId]))) return; }
+    const j = panesRef.current.findIndex((p) => p.key === pane.key);
+    if (j >= 0 && panesRef.current.length > 1) closePane(j);
+  };
   // Closes one pane of a split (an empty one, from its "닫기"): the others stay as they are; the
   // layout follows the count — one pane left → no split, two → columns, three → the grid with the last spanning.
   const closePane = (i) => {
@@ -632,17 +641,13 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
       if (next) activate(next.id);
       else if (!remaining.length) { setActiveIdState(null); newUntitled(); }
       else { const v = viewRef.current; if (v) v.setState(newDocState('')); setActiveIdState(null); setDocVersion((x) => x + 1); }
-      if (panesRef.current.length === 2 && panesRef.current.some((p) => p.docId == null)) setTimeout(() => collapseEmpty(), 0);
-    } else { schedulePersist(); if (panesRef.current.length === 2 && panesRef.current.some((p) => p.docId == null)) setTimeout(() => collapseEmpty(), 0); }
+      if (panesRef.current.length > 1 && panesRef.current.some((p) => p.docId == null)) setTimeout(() => collapseEmpty(), 0);
+    } else { schedulePersist(); if (panesRef.current.length > 1 && panesRef.current.some((p) => p.docId == null)) setTimeout(() => collapseEmpty(), 0); }
   };
-  // Two panes and one of them has nothing to show: back to a single pane showing the other one's document.
+  // Panes left with nothing to show go away (the last one stays): the remaining panes are laid out afresh —
+  // one → no split, otherwise the layout for their number (closePane).
   const collapseEmpty = () => {
-    const ps = panesRef.current;
-    if (ps.length !== 2) return;
-    const keep = ps.find((p) => p.docId != null);
-    if (!keep) { setSplit('none'); return; }
-    focusPane(ps.indexOf(keep), { focus: false });
-    setSplit('none');
+    for (let i = panesRef.current.length - 1; i >= 0 && panesRef.current.length > 1; i--) if (panesRef.current[i].docId == null) closePane(i);
   };
 
   // ── open ──
@@ -1761,7 +1766,7 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
                           {pd ? <>{pd.name}{pd.dirty ? ' ●' : ''}</> : <span className="muted">{t('pane_empty')}</span>}<Icon name="chevronDown" size={12} />
                         </button>
                         <span className="spacer" />
-                        {pd ? <button className="icon-btn" title={t('close')} onClick={() => closeDocs([pd.id])}><Icon name="close" size={13} /></button>
+                        {pd ? <button className="icon-btn" title={t('pane_close_doc')} onClick={() => closePaneAndDoc(i)}><Icon name="close" size={13} /></button>
                           : <button className="icon-btn" title={t('pane_close')} onClick={() => closePane(i)}><Icon name="close" size={13} /></button>}
                       </div>
                     )}
