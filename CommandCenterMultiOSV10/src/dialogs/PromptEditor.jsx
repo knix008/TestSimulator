@@ -11,7 +11,7 @@
 // Every change goes to onChange; the settings dialog applies it right away.
 import React, { useMemo, useState } from 'react';
 import { t, useLanguage, getLanguage } from '../lib/i18n';
-import { PRESETS, SEGMENT_TYPES, SEGMENT_STYLES, SAMPLE_STATES, normalizePrompt, clonePrompt, importOmp, exportOmp, defaultTemplate } from '../lib/prompt';
+import { PRESETS, SEGMENT_TYPES, SEGMENT_STYLES, SAMPLE_STATES, GIT_STATE_NAMES, GIT_STATE_COLORS, normalizePrompt, clonePrompt, importOmp, exportOmp, defaultTemplate } from '../lib/prompt';
 import { Prompt } from '../components/Prompt';
 import { Icon } from '../components/Icons';
 import { call, isElectron, writeClipboardText } from '../lib/backend';
@@ -78,10 +78,14 @@ function SegmentFields({ seg, onChange }) {
   );
 }
 
-export function PromptEditor({ value, onChange, pickFile }) {
+// custom: the user's saved prompts [{ id, label, config }]; onCustomChange(list, cfgToApply?) stores them.
+export function PromptEditor({ value, onChange, pickFile, custom = [], onCustomChange }) {
   useLanguage();
   const lang = getLanguage();
   const cfg = useMemo(() => normalizePrompt(value), [value]);
+  // Built-in presets and the user's own, looked up alike (a custom one carries its label in both languages).
+  const presets = useMemo(() => ({ ...PRESETS, ...Object.fromEntries((custom || []).filter((c) => c && c.id && c.config).map((c) => [c.id, { label: c.label, labelEn: c.label, config: { ...normalizePrompt(c.config), preset: c.id }, custom: true }])) }), [custom]);
+  const customCur = cfg.preset && presets[cfg.preset] && presets[cfg.preset].custom ? (custom || []).find((c) => c.id === cfg.preset) : null;
   const advanced = true;   // the detail editor always fills the rest of the (fixed-size) window
   const [sel, setSel] = useState({ b: 0, s: 0 });
   const [json, setJson] = useState('');
@@ -90,11 +94,24 @@ export function PromptEditor({ value, onChange, pickFile }) {
   const allSegs = cfg.blocks.flatMap((b) => b.segments);
   const styleOf = allSegs.find((s) => s.type !== 'text') ? allSegs.find((s) => s.type !== 'text').style : 'powerline';
   const pathSeg = allSegs.find((s) => s.type === 'path');
-  const presetLabel = (id) => (PRESETS[id] ? (lang === 'ko' ? PRESETS[id].label : PRESETS[id].labelEn) : '');
-  const modified = !!(cfg.preset && PRESETS[cfg.preset]) && JSON.stringify(cfg) !== JSON.stringify(normalizePrompt(PRESETS[cfg.preset].config));
+  const presetLabel = (id) => (presets[id] ? (lang === 'ko' ? presets[id].label : presets[id].labelEn) : '');
+  const modified = !!(cfg.preset && presets[cfg.preset]) && JSON.stringify(cfg) !== JSON.stringify(normalizePrompt(presets[cfg.preset].config));
 
   // ── Presets ──
-  const applyPreset = (id) => { onChange(clonePrompt(PRESETS[id].config)); setSel({ b: 0, s: 0 }); setNote(''); };
+  const applyPreset = (id) => { onChange(clonePrompt(presets[id].config)); setSel({ b: 0, s: 0 }); setNote(''); };
+  // ── Custom prompts: the current prompt saved under a name; edited in place (save again), renamed, deleted ──
+  const saveCustom = () => {
+    if (!onCustomChange) return;
+    const id = `custom-${Date.now().toString(36)}`;
+    const base = cfg.preset && presets[cfg.preset] ? presetLabel(cfg.preset).replace(/\s*\(.*\)$/, '') : 'Prompt';
+    const label = `${base} ${t('pe_custom_copy')}`;
+    const config = { ...clonePrompt(cfg), preset: id };
+    onCustomChange([...(custom || []), { id, label, config }], config);
+    setNote(t('pe_custom_saved', { name: label }));
+  };
+  const updateCustom = () => { if (customCur) { onCustomChange((custom || []).map((c) => (c.id === customCur.id ? { ...c, config: { ...clonePrompt(cfg), preset: c.id } } : c))); setNote(t('pe_custom_saved', { name: customCur.label })); } };
+  const renameCustom = (label) => { if (customCur) onCustomChange((custom || []).map((c) => (c.id === customCur.id ? { ...c, label } : c))); };
+  const removeCustom = () => { if (customCur) { onCustomChange((custom || []).filter((c) => c.id !== customCur.id), clonePrompt(PRESETS.default.config)); setSel({ b: 0, s: 0 }); setNote(''); } };
 
   // ── Simple options ──
   const hasType = (ty) => allSegs.some((s) => s.type === ty && s.enabled !== false);
@@ -150,15 +167,28 @@ export function PromptEditor({ value, onChange, pickFile }) {
       </pre>
 
       {/* 2. presets */}
-      <div className="pe-section-title">{t('pe_presets')} <span className="muted small">{cfg.preset && PRESETS[cfg.preset] ? t(modified ? 'pe_current_modified' : 'pe_current', { name: presetLabel(cfg.preset) }) : t('pe_custom')}</span></div>
+      <div className="pe-section-title">{t('pe_presets')} <span className="muted small">{cfg.preset && presets[cfg.preset] ? t(modified ? 'pe_current_modified' : 'pe_current', { name: presetLabel(cfg.preset) }) : t('pe_custom')}</span></div>
       <div className="pe-presets">
-        {Object.entries(PRESETS).map(([id, p]) => (
-          <button type="button" key={id} className={`pe-preset ${cfg.preset === id ? 'active' : ''}`} onClick={() => applyPreset(id)} title={lang === 'ko' ? p.label : p.labelEn}>
+        {Object.entries(presets).map(([id, p]) => (
+          <button type="button" key={id} className={`pe-preset ${cfg.preset === id ? 'active' : ''} ${p.custom ? 'custom' : ''}`} onClick={() => applyPreset(id)} title={lang === 'ko' ? p.label : p.labelEn}>
             <pre className="term-out pe-preset-out"><Prompt config={p.config} state={SAMPLE_STATES.mini} /></pre>
-            <span className="pe-preset-name ellipsis">{lang === 'ko' ? p.label : p.labelEn}</span>
+            <span className="pe-preset-name ellipsis">{p.custom && <span className="theme-badge">★</span>}{lang === 'ko' ? p.label : p.labelEn}</span>
           </button>
         ))}
       </div>
+      {/* the user's own prompts: save the current one, rename / re-save / delete the selected one */}
+      {onCustomChange && (
+        <div className="pe-quick pe-custom-row">
+          <span className="muted small">{t('pe_custom_prompts')}</span>
+          <button type="button" className="btn small" onClick={saveCustom}><Icon name="plus" size={13} /> {t('pe_save_custom')}</button>
+          {customCur && <>
+            <input value={customCur.label} onChange={(e) => renameCustom(e.target.value)} spellCheck={false} placeholder={t('pe_custom_name')} style={{ width: 200 }} />
+            <button type="button" className="btn small" disabled={!modified} onClick={updateCustom} title={t('pe_update_custom_tip')}>{t('pe_update_custom')}</button>
+            <button type="button" className="btn small" onClick={removeCustom}><Icon name="close" size={13} /> {t('pe_delete_custom')}</button>
+          </>}
+          {!customCur && <span className="muted small ellipsis">{t('pe_custom_hint')}</span>}
+        </div>
+      )}
 
       {/* 3. simple options */}
       <div className="pe-section-title">{t('pe_customize')}</div>
@@ -174,6 +204,17 @@ export function PromptEditor({ value, onChange, pickFile }) {
           {[['full', t('pe_path_full')], ['folder', t('pe_path_folder')], ['agnoster_short', t('pe_path_short')], ['agnoster', t('pe_path_agnoster')]].map(([v, l]) => <option key={v} value={v}>{l}</option>)}
         </select>
         <label className="check"><input type="checkbox" checked={twoLines} onChange={(e) => setTwoLines(e.target.checked)} /> {t('pe_two_lines')}</label>
+      </div>
+      {/* the git block's colour per repository state (used by every preset while the box is ticked) */}
+      <div className="pe-quick pe-gitcolors">
+        <label className="check" title={t('pe_git_colors_tip')}><input type="checkbox" checked={cfg.git_state_colors !== false} onChange={(e) => update((c) => { c.git_state_colors = e.target.checked; })} /> {t('pe_git_colors')}</label>
+        {GIT_STATE_NAMES.map((k) => (
+          <label key={k} className="pe-gitcolor" title={t(`term_git_${k}`)}>
+            <input type="color" value={cfg.git_colors[k]} disabled={cfg.git_state_colors === false} onChange={(e) => update((c) => { c.git_colors[k] = e.target.value; })} />
+            <span style={{ color: cfg.git_colors[k] }}>{t(`pe_gs_${k}`)}</span>
+          </label>
+        ))}
+        <button type="button" className="btn small" disabled={GIT_STATE_NAMES.every((k) => cfg.git_colors[k] === GIT_STATE_COLORS[k])} onClick={() => update((c) => { c.git_colors = { ...GIT_STATE_COLORS }; })}>{t('pe_gs_reset')}</button>
       </div>
       <div className="pe-section-title">{t('pe_advanced')}</div>
 

@@ -835,12 +835,15 @@ export default function App() {
         break;
       }
       case 'about': await dialogs.about({ ...(info || {}), host: hostName }); break;
-      case 'settings': {
+      // 'settings' opens the general tab; 'settings:<tab>' (the dock's ⚙ uses settings:terminal) starts on that one.
+      case 'settings':
+      case 'settings:terminal': {
         const values = {};
         for (const k of SETTINGS_KEYS) values[k] = session[k] !== undefined ? session[k] : SETTINGS_DEFAULTS[k];
         values.language = getLanguage();
-        if (useWindows() && await openTool('settings', { values, shells }, { title: t('settings_title') })) break;
-        const result = await dialogs.settings(values, { shells, pickFolder, pickFile, platform: info && info.platform, onChange: (live) => applySettings(live, { quiet: true }) });
+        const startTab = id.startsWith('settings:') ? id.slice(9) : 'general';
+        if (useWindows() && await openTool('settings', { values, shells, tab: startTab }, { title: t('settings_title') })) break;
+        const result = await dialogs.settings(values, { shells, pickFolder, pickFile, tab: startTab, platform: info && info.platform, onChange: (live) => applySettings(live, { quiet: true }) });
         applySettings(result || values);
         break;
       }
@@ -1040,6 +1043,8 @@ export default function App() {
         terms={terms} shells={shells} onNewTerm={(shell) => newTerminal(shell)} onCloseTerm={closeTerminal} onTermExit={onTermExit}
         onHide={() => showDock(false)} height={session.dockHeight || 220} onResizeStart={onDockResizeStart}
         prompt={session.prompt || SETTINGS_DEFAULTS.prompt} env={termEnv} themeId={session.theme}
+        termColor={session.termColor !== false} termEol={session.termEol || SETTINGS_DEFAULTS.termEol} termCr={session.termCr || SETTINGS_DEFAULTS.termCr}
+        termScrollback={session.termScrollback || SETTINGS_DEFAULTS.termScrollback} onTermSettings={() => onAction('settings:terminal')}
         logOpen={logOpen} onCloseLog={() => { saveSession({ logOpen: false }); if (dockTab === 'log') afterTabClosed(dockTabs().filter((x) => x !== 'log')); }}
         search={dockSearch} onCloseSearch={() => { setDockSearch(null); if (dockTab === 'search') afterTabClosed(dockTabs().filter((x) => x !== 'search')); }}
         onSearchRoot={() => setDockSearch({ root: pathOf(active) })}

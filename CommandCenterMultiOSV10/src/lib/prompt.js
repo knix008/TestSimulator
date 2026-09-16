@@ -18,8 +18,13 @@ export const SEGMENT_TYPES = ['path', 'git', 'session', 'shell', 'os', 'time', '
 export const SEGMENT_STYLES = ['powerline', 'plain', 'diamond'];
 
 // Colours by git state (the classic Command Center prompt): used when a git
-// segment's background (or foreground) is 'auto'.
-export const GIT_STATE_COLORS = { conflict: '#D62828', staged: '#FFD700', modified: '#FF5C5C', ahead: '#FFD700', behind: '#7cc4ff', uptodate: '#7CFC8B', none: '#7CFC8B' };
+// segment's background (or foreground) is 'auto', and — while the prompt's
+// `git_state_colors` is on — for the git segment of any preset.
+export const GIT_STATE_COLORS = { conflict: '#D62828', staged: '#FFD700', modified: '#FF5C5C', ahead: '#FF9F43', behind: '#7cc4ff', uptodate: '#7CFC8B', none: '#7CFC8B' };
+// The states that colour the git (branch) segment — every state, a clean pushed repository included (green).
+export const GIT_STATE_NAMES = ['conflict', 'staged', 'modified', 'ahead', 'behind', 'uptodate'];
+// The state colours of a prompt: its own git_colors over the defaults.
+export const gitColorsOf = (cfg) => ({ ...GIT_STATE_COLORS, ...((cfg && cfg.git_colors) || {}) });
 
 export function gitState(git) {
   if (!git || !git.repo) return 'none';
@@ -245,6 +250,61 @@ export const PRESETS = {
       ] }],
     },
   },
+  forest: {
+    label: '포레스트 (녹색 계열)', labelEn: 'Forest (greens)',
+    config: {
+      version: PROMPT_VERSION, final_space: true, newline: false, palette: {},
+      blocks: [{ type: 'prompt', alignment: 'left', segments: [
+        seg('os', { foreground: '#e8f5e9', background: '#1b5e20', template: ' {{ .Icon }} ' }),
+        seg('path', { foreground: '#e8f5e9', background: '#2e7d32', template: ' [[icon:folder]] {{ .Path }} ', properties: { style: 'agnoster_short', max_depth: 2 } }),
+        seg('git', { foreground: '#1b5e20', background: '#a5d6a7', background_templates: ['{{ if or (.Working.Changed) (.Staging.Changed) }}#ffe082{{ end }}', '{{ if gt .Ahead 0 }}#c5e1a5{{ end }}'], template: ' [[icon:gitBranch]] {{ .Branch }}{{ if .Symbols }} {{ .Symbols }}{{ end }} ' }),
+        seg('executiontime', { foreground: '#e8f5e9', background: '#558b2f', template: ' {{ .FormattedMs }} ', properties: { threshold: 500 } }),
+        seg('status', { foreground: '#e8f5e9', background: '#33691e', background_templates: ['{{ if gt .Code 0 }}#c62828{{ end }}'], template: ' {{ if gt .Code 0 }}✘ {{ .Code }}{{ else }}✔{{ end }} ', properties: { always_enabled: true } }),
+      ] }],
+    },
+  },
+  sunset: {
+    label: '선셋 (주황·자주 다이아몬드)', labelEn: 'Sunset (orange · purple diamonds)',
+    config: {
+      version: PROMPT_VERSION, final_space: true, newline: false, palette: {},
+      blocks: [{ type: 'prompt', alignment: 'left', segments: [
+        seg('session', { style: 'diamond', foreground: '#ffffff', background: '#ef6c00', template: ' {{ .UserName }} ' }),
+        seg('path', { style: 'diamond', foreground: '#ffffff', background: '#d81b60', template: ' [[icon:folder]] {{ .Path }} ', properties: { style: 'folder' } }),
+        seg('git', { style: 'diamond', foreground: '#ffffff', background: '#8e24aa', background_templates: ['{{ if or (.Working.Changed) (.Staging.Changed) }}#f4511e{{ end }}'], template: ' {{ .HEAD }}{{ if .Symbols }} {{ .Symbols }}{{ end }} ' }),
+        seg('time', { style: 'diamond', foreground: '#ffffff', background: '#5e35b1', template: ' {{ .CurrentDate | date "15:04" }} ' }),
+      ] }],
+    },
+  },
+  nord: {
+    label: '노르드 (차분한 파랑·회색)', labelEn: 'Nord (calm blues and greys)',
+    config: {
+      version: PROMPT_VERSION, final_space: true, newline: false, palette: {},
+      blocks: [{ type: 'prompt', alignment: 'left', segments: [
+        seg('session', { foreground: '#eceff4', background: '#4c566a', template: ' {{ .UserName }}@{{ .HostName }} ' }),
+        seg('path', { foreground: '#2e3440', background: '#88c0d0', template: ' {{ .Path }} ', properties: { style: 'agnoster_short', max_depth: 3 } }),
+        seg('git', { foreground: '#2e3440', background: '#a3be8c', background_templates: ['{{ if or (.Working.Changed) (.Staging.Changed) }}#ebcb8b{{ end }}', '{{ if gt .Behind 0 }}#81a1c1{{ end }}'], template: ' [[icon:gitBranch]] {{ .Branch }}{{ if .Symbols }} {{ .Symbols }}{{ end }} ' }),
+        seg('status', { foreground: '#eceff4', background: '#5e81ac', background_templates: ['{{ if gt .Code 0 }}#bf616a{{ end }}'], template: ' {{ if gt .Code 0 }}✘ {{ .Code }}{{ else }}✔{{ end }} ', properties: { always_enabled: true } }),
+      ] }],
+    },
+  },
+  dev: {
+    label: '개발자 (셸 · 경로 · git · 시간, 두 줄)', labelEn: 'Developer (shell · path · git · time, two lines)',
+    config: {
+      version: PROMPT_VERSION, final_space: true, newline: false, palette: {},
+      blocks: [
+        { type: 'prompt', alignment: 'left', segments: [
+          seg('shell', { foreground: '#1b1e24', background: '#ffb74d', template: ' {{ .Name }} ' }),
+          seg('path', { foreground: '#ffffff', background: '#3949ab', template: ' [[icon:folder]] {{ .Path }} ', properties: { style: 'full' } }),
+          seg('git', { foreground: '#1b1e24', background: 'auto', template: ' [[icon:gitBranch]] {{ .Branch }}{{ if .Symbols }} {{ .Symbols }}{{ end }}{{ if gt .StashCount 0 }} ⚑{{ .StashCount }}{{ end }} ' }),
+          seg('executiontime', { foreground: '#ffffff', background: '#00838f', template: ' ⏱ {{ .FormattedMs }} ', properties: { threshold: 1000 } }),
+          seg('time', { foreground: '#ffffff', background: '#546e7a', template: ' {{ .CurrentDate | date "15:04:05" }} ' }),
+        ] },
+        { type: 'prompt', alignment: 'left', newline: true, segments: [
+          seg('status', { style: 'plain', foreground: '#7CFC8B', background: 'transparent', foreground_templates: ['{{ if gt .Code 0 }}#ff5c5c{{ end }}'], template: '{{ if gt .Code 0 }}✘ {{ .Code }} {{ end }}❯', properties: { always_enabled: true } }),
+        ] },
+      ],
+    },
+  },
 };
 
 for (const [id, p] of Object.entries(PRESETS)) p.config.preset = id;
@@ -260,6 +320,8 @@ export function normalizePrompt(cfg) {
   c.version = PROMPT_VERSION;
   c.preset = typeof c.preset === 'string' ? c.preset : '';
   c.final_space = c.final_space !== false;
+  c.git_state_colors = c.git_state_colors !== false;   // the git segment takes the state colours whatever its preset says
+  c.git_colors = Object.fromEntries(GIT_STATE_NAMES.map((k) => [k, (c.git_colors && typeof c.git_colors[k] === 'string' && c.git_colors[k]) || GIT_STATE_COLORS[k]]));   // one colour per state, editable
   c.palette = c.palette && typeof c.palette === 'object' ? c.palette : {};
   c.blocks = c.blocks.map((b) => ({ type: b.type || 'prompt', alignment: b.alignment || 'left', newline: !!b.newline, segments: (Array.isArray(b.segments) ? b.segments : []).map((s) => ({
     type: SEGMENT_TYPES.includes(s.type) ? s.type : 'text',
@@ -553,15 +615,15 @@ const NAMED = { black: '#000000', red: '#ff5555', green: '#50fa7b', yellow: '#f1
 
 // A colour spec → CSS colour. 'accent' / 'foreground' / 'background' follow the
 // theme, 'auto' the git state, 'p:name' the palette, 'transparent' is none.
-export function resolveColor(spec, { theme, gitStateName, palette, parentBackground }) {
+export function resolveColor(spec, { theme, gitStateName, palette, parentBackground, gitColors }) {
   const v = String(spec || '').trim();
   if (!v || v === 'transparent') return null;
   if (v === 'accent') return theme.accent;
   if (v === 'foreground') return theme.fg;
   if (v === 'background') return theme.bg;
   if (v === 'parentBackground') return parentBackground || null;
-  if (v === 'auto') return GIT_STATE_COLORS[gitStateName || 'none'];
-  if (v.startsWith('p:')) return resolveColor((palette || {})[v.slice(2)] || '', { theme, gitStateName, palette: {} , parentBackground });
+  if (v === 'auto') return (gitColors || GIT_STATE_COLORS)[gitStateName || 'none'];
+  if (v.startsWith('p:')) return resolveColor((palette || {})[v.slice(2)] || '', { theme, gitStateName, palette: {}, parentBackground, gitColors });
   if (NAMED[v]) return NAMED[v];
   return v;
 }
@@ -601,14 +663,22 @@ export function renderPrompt(config, state, theme) {
       if (!text) continue;
       const bgSpec = firstTemplate(s.background_templates, ctx) || s.background;
       const fgSpec = firstTemplate(s.foreground_templates, ctx) || s.foreground;
-      const bg = resolveColor(bgSpec, { theme: th, gitStateName: gs, palette: cfg.palette, parentBackground: prevBg });
-      const fg = resolveColor(fgSpec, { theme: th, gitStateName: gs, palette: cfg.palette, parentBackground: prevBg }) || th.fg;
+      const gitColors = gitColorsOf(cfg);
+      let bg = resolveColor(bgSpec, { theme: th, gitStateName: gs, palette: cfg.palette, parentBackground: prevBg, gitColors });
+      let fg = resolveColor(fgSpec, { theme: th, gitStateName: gs, palette: cfg.palette, parentBackground: prevBg, gitColors }) || th.fg;
+      // The git (branch) segment alone is coloured by the repository state — green clean → red modified → yellow
+      // staged → orange committed → green pushed (blue behind, crimson conflicts) — on its background when it has
+      // one (powerline / diamond, with dark text), else on its text; every other segment keeps the theme's colours.
+      // git_state_colors: false switches this off (the theme's own colours for the git segment too).
+      if (s.type === 'git' && cfg.git_state_colors !== false && gs !== 'none') {
+        if (bg) { bg = gitColors[gs]; fg = '#1b1e24'; } else fg = gitColors[gs];
+      }
       segments.push({ type: s.type, text, fg, bg, style: s.style, symbol: s.powerline_symbol, leading: s.leading_diamond, trailing: s.trailing_diamond });
       prevBg = bg;
     }
     if (segments.length) blocks.push({ newline: !!b.newline, segments });
   }
-  return { blocks, finalSpace: cfg.final_space !== false };
+  return { blocks, finalSpace: cfg.final_space !== false, gitState: gs };
 }
 
 // ── oh-my-posh import ─────────────────────────────────────
@@ -655,8 +725,8 @@ export function exportOmp(config) {
 
 // Sample states for the settings preview.
 export const SAMPLE_STATES = {
-  // short values for the small preset cards
-  mini: { cwd: 'C:\\Users\\me\\src', home: 'C:\\Users\\me', git: { repo: true, branch: 'main', upstream: 'origin/main', ahead: 1, behind: 0, staged: 0, changed: 2, untracked: 0, conflicts: 0, stashes: 0 }, user: 'me', host: 'pc', shell: 'pwsh', platform: 'win32', rc: 0, ms: 1500, now: new Date(2026, 8, 16, 10, 5, 42) },
+  // short values for the small preset cards — a clean repository, so each prompt shows its own colours
+  mini: { cwd: 'C:\\Users\\me\\src', home: 'C:\\Users\\me', git: { repo: true, branch: 'main', upstream: 'origin/main', ahead: 0, behind: 0, staged: 0, changed: 0, untracked: 0, conflicts: 0, stashes: 0 }, user: 'me', host: 'pc', shell: 'pwsh', platform: 'win32', rc: 0, ms: 1500, now: new Date(2026, 8, 16, 10, 5, 42) },
   clean: { cwd: 'C:\\Home\\Projects\\CommandCenter', home: 'C:\\Users\\user', git: { repo: true, branch: 'main', upstream: 'origin/main', ahead: 0, behind: 0, staged: 0, changed: 0, untracked: 0, conflicts: 0, stashes: 0 }, user: 'user', host: 'desktop', shell: 'pwsh', platform: 'win32', rc: 0, ms: 120, now: new Date(2026, 8, 16, 10, 5, 42) },
   dirty: { cwd: 'C:\\Home\\Projects\\CommandCenter\\src\\components', home: 'C:\\Users\\user', git: { repo: true, branch: 'feature/tabs', upstream: 'origin/feature/tabs', ahead: 2, behind: 0, staged: 1, changed: 3, untracked: 1, conflicts: 0, stashes: 1 }, user: 'user', host: 'desktop', shell: 'pwsh', platform: 'win32', rc: 1, ms: 3200, now: new Date(2026, 8, 16, 10, 5, 42) },
   plain: { cwd: 'C:\\Users\\user\\Downloads', home: 'C:\\Users\\user', git: { repo: false }, user: 'user', host: 'desktop', shell: 'pwsh', platform: 'win32', rc: 0, ms: 40, now: new Date(2026, 8, 16, 10, 5, 42) },

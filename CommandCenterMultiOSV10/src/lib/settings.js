@@ -37,7 +37,12 @@ export const SETTINGS_DEFAULTS = {
   // terminal
   termShell: '',      // shell of a new terminal (id from term.shells); '' = the first one offered
   termCwd: '',        // where new terminals start; '' = the active panel's folder
+  termColor: true,    // output in colour (the programs' ANSI colours + error / warning / link highlighting); false = plain
+  termEol: 'auto',    // line ending Enter sends to a running program: auto (the shell's own) | lf | crlf
+  termCr: 'overwrite', // a lone CR in the output: overwrite (redraw the line, like a terminal) | newline | strip
+  termScrollback: 10000, // lines kept per terminal transcript
   prompt: PROMPT_DEFAULT, // terminal prompt theme (oh-my-posh compatible, see prompt.js)
+  customPrompts: [],      // user-saved prompt themes (settings › terminal › prompt): [{ id, label, config }]
   customThemes: [],       // user-made themes (settings › theme): [{ id, label, mode, colors }]
 };
 

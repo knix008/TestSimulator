@@ -96,13 +96,14 @@ function createApi(host = {}) {
     // ── terminal dock (core/terminal.js) ──
     'term.shells': async () => terminals.shells(),
     'term.create': async ({ cwd, shell }) => terminals.create({ cwd, shell }),
-    'term.run': async ({ id, line }) => ({ ok: terminals.run({ id, line: String(line == null ? '' : line) }) }),
+    'term.run': async ({ id, line, eol }) => ({ ok: terminals.run({ id, line: String(line == null ? '' : line), eol }) }),
     'term.write': async ({ id, data }) => ({ ok: terminals.write({ id, data: String(data || '') }) }),
     'term.read': async ({ id, since, idle, wait }) => terminals.read({ id, since: Number(since) || 0, idle: idle === undefined ? undefined : !!idle, wait: Number(wait) || 0 }),
     'term.kill': async ({ id }) => ({ ok: terminals.kill({ id }) }),
     'term.list': async () => terminals.list(),
     'term.complete': async ({ id, line, cursor }) => terminals.complete({ id, line: String(line || ''), cursor }),
-    'git.status': async ({ cwd }) => terminals.git({ cwd }),
+    // `cmd` (the command that just ran) lets the backend answer from its cache after a read-only one.
+    'git.status': async ({ cwd, cmd }) => terminals.git({ cwd, cmd }),
 
     // ── session ──
     'session.load': async () => session.get(),
