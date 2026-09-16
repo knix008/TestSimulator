@@ -79,6 +79,19 @@ const ko = {
   term_git_uptodate: '변경 없음 · 푸시됨', term_git_staged: 'add 됨 — 커밋 필요', term_git_modified: '수정됨 — add 필요', term_git_conflict: '충돌 — 해결 필요', term_git_ahead: '커밋됨 — 푸시 필요', term_git_behind: '원격에 새 커밋 — pull 필요',
   set_general: '일반', set_terminal: '터미널', set_term_shell: '기본 셸', set_term_shell_default: '기본 ({name})', set_term_cwd: '시작 디렉터리', set_term_cwd_default: '(활성 패널의 폴더)',
   set_term_cwd_hint: '새 터미널이 시작하는 디렉터리. 비우면 활성 패널에 열린 폴더에서 시작합니다.', set_browse: '찾아보기…', set_term_cwd_missing: "시작 디렉터리 '{path}'가 없어 활성 패널의 폴더에서 시작합니다.",
+  // Undo / redo of file operations
+  undo: '실행 취소', redo: '다시 실행',
+  tip_undo: '실행 취소 (Ctrl+Z)', tip_redo: '다시 실행 (Ctrl+Y)',
+  tip_undo_none: '실행 취소할 작업이 없습니다 (Ctrl+Z)\n새 폴더·새 파일·이름 바꾸기·복사·이동·압축·압축 해제를 되돌릴 수 있습니다.',
+  tip_redo_none: '다시 실행할 작업이 없습니다 (Ctrl+Y)',
+  hist_new_folder: "새 폴더 '{name}'", hist_new_file: "새 파일 '{name}'", hist_rename: "이름 바꾸기 '{from}' → '{to}'",
+  hist_copy: "{n}개 항목 복사 → '{dest}'", hist_move: "{n}개 항목 이동 → '{dest}'", hist_compress: "압축 '{name}'", hist_extract: "압축 해제 → '{name}'",
+  undone: '실행 취소: {what}', redone: '다시 실행: {what}',
+  undo_nothing: '실행 취소할 작업이 없습니다.', redo_nothing: '다시 실행할 작업이 없습니다.',
+  undo_cancelled: '실행 취소가 취소되었습니다: {what}', redo_cancelled: '다시 실행이 취소되었습니다: {what}',
+  undo_failed: '실행 취소 실패: {what}', redo_failed: '다시 실행 실패: {what}',
+  undo_delete_confirm: '{what}\n\n이 작업으로 만들어진 {n}개 항목을 영구 삭제합니다. 계속하시겠습니까?',
+  undo_not_empty: "'{name}'에 내용이 있습니다. 그래도 영구 삭제하시겠습니까?",
 };
 
 const en = {
@@ -159,6 +172,19 @@ const en = {
   term_git_uptodate: 'clean · pushed', term_git_staged: 'staged — commit needed', term_git_modified: 'modified — add needed', term_git_conflict: 'conflicts — resolve needed', term_git_ahead: 'committed — push needed', term_git_behind: 'new commits on the remote — pull needed',
   set_general: 'General', set_terminal: 'Terminal', set_term_shell: 'Default shell', set_term_shell_default: 'Default ({name})', set_term_cwd: 'Start directory', set_term_cwd_default: "(the active panel's folder)",
   set_term_cwd_hint: 'Where a new terminal starts. Leave empty for the folder open in the active panel.', set_browse: 'Browse…', set_term_cwd_missing: "Start directory '{path}' does not exist; starting in the active panel's folder.",
+  // Undo / redo of file operations
+  undo: 'Undo', redo: 'Redo',
+  tip_undo: 'Undo (Ctrl+Z)', tip_redo: 'Redo (Ctrl+Y)',
+  tip_undo_none: 'Nothing to undo (Ctrl+Z)\nNew folder / file, rename, copy, move, compress and extract can be undone.',
+  tip_redo_none: 'Nothing to redo (Ctrl+Y)',
+  hist_new_folder: "New folder '{name}'", hist_new_file: "New file '{name}'", hist_rename: "Rename '{from}' → '{to}'",
+  hist_copy: "Copy {n} items → '{dest}'", hist_move: "Move {n} items → '{dest}'", hist_compress: "Compress '{name}'", hist_extract: "Extract → '{name}'",
+  undone: 'Undone: {what}', redone: 'Redone: {what}',
+  undo_nothing: 'Nothing to undo.', redo_nothing: 'Nothing to redo.',
+  undo_cancelled: 'Undo cancelled: {what}', redo_cancelled: 'Redo cancelled: {what}',
+  undo_failed: 'Undo failed: {what}', redo_failed: 'Redo failed: {what}',
+  undo_delete_confirm: '{what}\n\nThe {n} items this operation produced will be permanently deleted. Continue?',
+  undo_not_empty: "'{name}' is not empty. Permanently delete it anyway?",
 };
 
 const dicts = { ko, en };

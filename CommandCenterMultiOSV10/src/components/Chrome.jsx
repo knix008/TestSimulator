@@ -3,7 +3,8 @@
 // desktop app and in the browser. View holds the bottom dock (log /
 // terminals); the toolbar has a terminal button. The right end of the
 // toolbar holds the theme picker (16 themes), the language toggle and the
-// About button.
+// About button. Toolbar buttons are icon-only; the tooltip (and aria-label)
+// carries the description.
 import React, { useState } from 'react';
 import { t, useLanguage, getLanguage } from '../lib/i18n';
 import { THEMES, themeById, nextThemeId } from '../themes';
@@ -22,6 +23,9 @@ export function MenuBar({ onAction, state }) {
       { id: 'quit', label: t('quit'), icon: 'quit' },
     ],
     edit: [
+      { id: 'undo', label: t('undo'), icon: 'undo', shortcut: 'Ctrl+Z', disabled: !state.canUndo },
+      { id: 'redo', label: t('redo'), icon: 'redo', shortcut: 'Ctrl+Y', disabled: !state.canRedo },
+      { sep: true },
       { id: 'copyOther', label: t('copy_to_other'), icon: 'copy' },
       { id: 'moveOther', label: t('move_to_other'), icon: 'move' },
       { sep: true },
@@ -65,7 +69,7 @@ export function MenuBar({ onAction, state }) {
   );
 }
 
-export function Toolbar({ onAction, theme, dockVisible }) {
+export function Toolbar({ onAction, theme, dockVisible, history = {} }) {
   useLanguage();
   const [themeMenu, setThemeMenu] = useState(null);
   const lang = getLanguage();
@@ -89,16 +93,22 @@ export function Toolbar({ onAction, theme, dockVisible }) {
     swatch: th.tokens['--accent'],
     swatchBg: th.tokens['--bg'],
   }));
+  // Undo / redo: icon-only buttons whose tooltip names the operation they would reverse / replay.
+  const undoTip = history.canUndo ? `${t('tip_undo')}\n${history.undoWhat}` : t('tip_undo_none');
+  const redoTip = history.canRedo ? `${t('tip_redo')}\n${history.redoWhat}` : t('tip_redo_none');
   return (
     <div className="toolbar">
+      <button className="tb-btn tb-icon-only" title={undoTip} aria-label={t('undo')} disabled={!history.canUndo} onClick={() => onAction('undo')}><Icon name="undo" /></button>
+      <button className="tb-btn tb-icon-only" title={redoTip} aria-label={t('redo')} disabled={!history.canRedo} onClick={() => onAction('redo')}><Icon name="redo" /></button>
+      <span className="tb-sep" />
       {items.map((it, i) => it
-        ? <button key={it[0]} className={`tb-btn ${it[0] === 'terminal' && dockVisible ? 'on' : ''}`} onClick={() => onAction(it[0])} title={t(it[3])}><Icon name={it[1]} /><span>{t(it[2])}</span></button>
+        ? <button key={it[0]} className={`tb-btn tb-icon-only ${it[0] === 'terminal' && dockVisible ? 'on' : ''}`} onClick={() => onAction(it[0])} title={t(it[3])} aria-label={t(it[2])}><Icon name={it[1]} /></button>
         : <span key={`s${i}`} className="tb-sep" />)}
       <span className="tb-spacer" />
-      {/* Split button: the main part cycles to the next theme, the caret opens the list of all 16. */}
+      {/* Split button: the main part cycles to the next theme (the tooltip names the current and the next one), the caret opens the list of all 16. */}
       <span className="tb-split">
-        <button className="tb-btn tb-split-main" title={t('tip_next_theme', { theme: themeLabel(nextThemeId(theme)) })} onClick={() => onAction('nextTheme')}>
-          <Icon name="palette" /><span>{themeLabel(theme)}</span>
+        <button className="tb-btn tb-icon-only tb-split-main" title={`${t('theme')}: ${themeLabel(theme)}\n${t('tip_next_theme', { theme: themeLabel(nextThemeId(theme)) })}`} aria-label={t('next_theme')} onClick={() => onAction('nextTheme')}>
+          <Icon name="palette" />
         </button>
         <button className="tb-btn tb-split-caret" title={t('tip_theme')} aria-label={t('tip_theme')} onClick={(e) => setThemeMenu(themeMenu ? null : e.currentTarget)}>
           <Icon name="chevronDown" size={14} />
@@ -107,12 +117,12 @@ export function Toolbar({ onAction, theme, dockVisible }) {
       <button className="tb-btn tb-icon-only" title={lang === 'ko' ? 'Switch to English' : '한국어로 전환'} aria-label={t('tip_language')} onClick={() => onAction('toggleLanguage')}>
         <Flag country={lang === 'ko' ? 'gb' : 'kr'} width={22} />
       </button>
-      <button className="tb-btn" title={t('tip_settings')} onClick={() => onAction('settings')}>
-        <Icon name="settings" /><span>{t('settings')}</span>
+      <button className="tb-btn tb-icon-only" title={t('tip_settings')} aria-label={t('settings')} onClick={() => onAction('settings')}>
+        <Icon name="settings" />
       </button>
       <span className="tb-sep" />
-      <button className="tb-btn" title={t('tip_about')} onClick={() => onAction('about')}>
-        <Icon name="info" /><span>{t('menu_info')}</span>
+      <button className="tb-btn tb-icon-only" title={t('tip_about')} aria-label={t('menu_info')} onClick={() => onAction('about')}>
+        <Icon name="info" />
       </button>
       {themeMenu && (
         <ContextMenu anchorEl={themeMenu} x={0} y={0} items={themeItems} onClose={() => setThemeMenu(null)}

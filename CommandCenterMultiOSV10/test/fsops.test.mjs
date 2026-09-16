@@ -65,6 +65,8 @@ test('copy asks about conflicts; skip / overwrite / apply-to-all', async () => {
   assert.equal(fs.readFileSync(path.join(dst, 'c.txt'), 'utf8'), 'new c');
   assert.equal(s.result.copied, 2);
   assert.equal(s.result.skipped, 1);
+  // Per-item results for undo: the skipped one is absent, the overwrite is flagged.
+  assert.deepEqual(s.result.items.map((it) => [path.basename(it.dest), it.existed]), [['b.txt', true], ['c.txt', false]]);
   fs.rmSync(root, { recursive: true, force: true });
 });
 

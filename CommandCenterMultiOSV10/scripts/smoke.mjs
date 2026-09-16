@@ -121,6 +121,28 @@ const SCENARIOS = {
   // Bottom dock: a terminal running a command (the prompt shows the git state of the project folder), and the log tab.
   terminal: `(() => { const type = (cmd, enter) => { const inp = document.querySelector('.term-inline input'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(inp, cmd); inp.dispatchEvent(new Event('input', { bubbles: true })); if (enter) inp.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); }; window.__cc.action('newTerminal').then(() => setTimeout(() => { type('git log --oneline -n 3', true); setTimeout(() => type('git status --short 한글', false), 1500); }, 1500)); })()`,
   log: `(() => { window.__cc.action('refresh'); window.__cc.action('newTerminal').then(() => setTimeout(() => { window.__cc.closeTerminal(window.__cc.terms[0].id); setTimeout(() => window.__cc.action('showLog'), 100); }, 800)); })()`,
+  // Undo / redo: new folder → rename → undo ×2 → redo; every step drives the real action and answers its dialog.
+  undo: `(async () => {
+    const cc = () => window.__cc;
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const answer = async (value) => { for (let i = 0; i < 40 && !cc().dialogs.stack.length; i++) await sleep(50); const d = cc().dialogs.stack[0]; cc().dialogs.resolve(d.id, value); };
+    const settled = async () => { for (let i = 0; i < 100; i++) { await sleep(50); if (!cc().dialogs.stack.length) break; } await sleep(300); };
+    const exists = (p) => cc().call('fs.exists', { path: p }).then((r) => r.exists);
+    const sep = cc().session.left.includes('\\\\') ? '\\\\' : '/';
+    const a = cc().session.left + sep + 'UndoTest 폴더', b = cc().session.left + sep + 'UndoTest 바뀐이름';
+    const out = [];
+    const p1 = cc().action('newFolder', 'left'); await answer('UndoTest 폴더'); await p1; await sleep(300);
+    out.push(['create', await exists(a)]);
+    const p2 = cc().action('rename', 'left'); await answer('UndoTest 바뀐이름'); await p2; await sleep(300);
+    out.push(['rename', await exists(a), await exists(b)]);
+    await cc().action('undo'); await settled(); out.push(['undo rename', await exists(a), await exists(b)]);
+    await cc().action('undo'); await settled(); out.push(['undo create', await exists(a), await exists(b)]);
+    await cc().action('redo'); await settled(); out.push(['redo create', await exists(a), await exists(b)]);
+    out.push(['stacks', cc().history.undoStack.length, cc().history.redoStack.length]);
+    out.push(['tips', document.querySelectorAll('.toolbar .tb-btn')[0].title, document.querySelectorAll('.toolbar .tb-btn')[1].title]);
+    await cc().action('undo'); await settled(); out.push(['cleanup', await exists(a)]);
+    return out;
+  })()`,
   delete: `(() => { const rows = document.querySelectorAll('.file-panel')[1].querySelectorAll('tbody tr'); rows[4].dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0 })); rows[6].dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0, shiftKey: true })); setTimeout(() => window.__cc.action('delete', 'right'), 150); })()`,
 };
 

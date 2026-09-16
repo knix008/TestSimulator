@@ -366,7 +366,8 @@ async function transferEntry(src, destDir, { move, job, stats }) {
     throw new Error(`Cannot ${move ? 'move' : 'copy'} a folder into itself: ${name}`);
   }
 
-  if (await exists(dest)) {
+  const existed = await exists(dest);
+  if (existed) {
     const destIsDir = await isDirectory(dest);
     const answer = await job.askConflict({ name, destPath: dest, destIsDir, isMove: !!move });
     if (answer === 'cancel') throw cancelledError();
@@ -379,6 +380,9 @@ async function transferEntry(src, destDir, { move, job, stats }) {
     if (!(srcIsDir && destIsDir)) await removeRecursive(dest, job);
   }
 
+  // Every entry that ends up at `dest` is listed so the UI can undo the
+  // transfer; `existed` marks a merge / overwrite, which cannot be undone.
+  stats.items.push({ src, dest, existed });
   if (move) {
     try {
       await fsp.rename(src, dest);
@@ -430,7 +434,7 @@ async function copyTree(src, dest, job, st) {
 }
 
 async function transfer(sources, destDir, { move = false, job }) {
-  const stats = { copied: 0, skipped: 0, failed: 0 };
+  const stats = { copied: 0, skipped: 0, failed: 0, items: [] };
   if (!(await isDirectory(destDir))) throw new Error(`Destination is not a folder: ${destDir}`);
   job.setTotal(await countItems(sources, job));
   for (const src of sources) {

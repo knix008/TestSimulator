@@ -14,6 +14,7 @@ import { BottomDock } from './components/BottomDock';
 import { SearchDialog } from './dialogs/SearchDialog';
 import { applyTheme, themeById, nextThemeId, DEFAULT_THEME } from './themes';
 import { SETTINGS_DEFAULTS } from './lib/settings';
+import { History } from './lib/history';
 
 function applyFontSize(px) {
   document.documentElement.style.setProperty('--fs', `${Math.max(9, Number(px) || 13)}px`);
@@ -41,6 +42,20 @@ let logSeq = 0;
 function errorText(err, extra) {
   const msg = err && err.message ? err.message : (typeof err === 'string' ? err : String(err));
   return typeof extra === 'string' && extra && extra !== msg ? `${extra}: ${msg}` : msg;
+}
+
+// One line describing a history entry, for the undo / redo tooltips and the status bar.
+function describeHistory(entry) {
+  if (!entry) return '';
+  switch (entry.kind) {
+    case 'create': return t(entry.isDir ? 'hist_new_folder' : 'hist_new_file', { name: baseName(entry.path) });
+    case 'rename': return t('hist_rename', { from: entry.from, to: entry.to });
+    case 'copy': return t('hist_copy', { n: entry.items.length, dest: entry.destDir });
+    case 'move': return t('hist_move', { n: entry.items.length, dest: entry.destDir });
+    case 'compress': return t('hist_compress', { name: baseName(entry.parts[0] || '') });
+    case 'extract': return t('hist_extract', { name: baseName(entry.destDir) });
+    default: return entry.kind;
+  }
 }
 
 function toFileUri(p) {
@@ -79,6 +94,10 @@ export default function App() {
   const panels = { left: useRef(null), right: useRef(null) };
   const inAppClipboard = useRef([]);
   const splitRef = useRef(null);
+  // Undo / redo of file operations (src/lib/history.js); the tick re-renders the toolbar state.
+  const history = useRef(new History()).current;
+  const [, setHistTick] = useState(0);
+  useEffect(() => history.subscribe(() => setHistTick((n) => n + 1)), [history]);
 
   const addLog = useCallback((level, text) => {
     if (!text) return;
@@ -93,7 +112,12 @@ export default function App() {
   }), [baseDialogs, addLog]);
 
   // ── Boot ──
+  // StrictMode (dev) mounts twice; without this guard the boot ran twice and
+  // the log opened with two "ready" lines.
+  const booted = useRef(false);
   useEffect(() => {
+    if (booted.current) return;
+    booted.current = true;
     (async () => {
       const i = await call('app.info');
       call('term.shells').then(setShells).catch(() => {});
@@ -223,6 +247,13 @@ export default function App() {
 
   const refreshBoth = () => { panels.left.current && panels.left.current.refresh(); panels.right.current && panels.right.current.refresh(); };
 
+  // Records a finished transfer; only entries that landed on a fresh path are
+  // reversible (a merge or overwrite has nothing to go back to).
+  const recordTransfer = (final, destDir, move) => {
+    const items = ((final.result && final.result.items) || []).filter((it) => !it.existed).map(({ src, dest }) => ({ src, dest }));
+    if (items.length) history.push({ kind: move ? 'move' : 'copy', items, destDir });
+  };
+
   // ── Actions ──
   const transfer = async (side, move) => {
     const p = panel(side);
@@ -234,6 +265,7 @@ export default function App() {
     const final = await runWithProgress(t(move ? 'moving' : 'copying'), 'ops.transfer', { sources, dest, move });
     refreshBoth();
     if (final.status === 'done') {
+      recordTransfer(final, dest, move);
       const st = final.result || { copied: 0, skipped: 0 };
       if (st.copied + st.skipped === 0) setStatus(t(move ? 'nothing_move' : 'nothing_copy'));
       else if (st.skipped > 0) setStatus(t('transfer_skipped', { n: st.copied, verb, skipped: st.skipped, dest }));
@@ -253,6 +285,7 @@ export default function App() {
     const final = await runWithProgress(t('copying'), 'ops.transfer', { sources, dest, move: false });
     refreshBoth();
     if (final.status === 'done') {
+      recordTransfer(final, dest, false);
       const st = final.result || { copied: 0, skipped: 0 };
       setStatus(st.skipped ? t('transfer_skipped', { n: st.copied, verb: t('copy_verb'), skipped: st.skipped, dest }) : t('transfer_done', { n: st.copied, dest, verb: t('copy_verb') }));
     } else if (final.status === 'cancelled') setStatus(t('copy_cancelled'));
@@ -267,6 +300,7 @@ export default function App() {
     if (!name) return;
     try {
       const r = await call(kind === 'folder' ? 'fs.mkdir' : 'fs.createFile', { dir, name });
+      history.push({ kind: 'create', path: r.path, isDir: kind === 'folder' });
       await panel(side).refresh();
       panel(side).selectPaths([r.path]);
       setStatus(t(kind === 'folder' ? 'made_folder' : 'made_file', { name }));
@@ -283,6 +317,7 @@ export default function App() {
     if (!name || name === entry.name) return;
     try {
       const r = await call('fs.rename', { path: entry.path, newName: name });
+      history.push({ kind: 'rename', dir: dirName(entry.path), from: entry.name, to: name });
       await p.refresh();
       p.selectPaths([r.path]);
       setStatus(t('renamed', { name }));
@@ -302,6 +337,7 @@ export default function App() {
     if (!ok) return;
     const final = await runWithProgress(t('deleting'), 'ops.delete', { paths });
     await p.refresh();
+    history.mark();
     if (final.status === 'done') setStatus(t('deleted', { n: paths.length }));
     else if (final.status === 'cancelled') setStatus(t('delete_cancelled'));
     else await dialogs.error(final.error || t('delete_failed'), final.errorDetail);
@@ -313,6 +349,7 @@ export default function App() {
     if (!paths.length) { setStatus(t('trash_none')); return; }
     const final = await runWithProgress(t('trashing'), 'ops.trash', { paths });
     await p.refresh();
+    history.mark();
     if (final.status === 'done') setStatus(t('trashed', { n: paths.length }));
     else if (final.status === 'cancelled') setStatus(t('trash_cancelled'));
     else await dialogs.error(/TRASH_UNSUPPORTED/.test(final.error || '') ? t('trash_unsupported') : (final.error || t('trash_failed')), final.errorDetail);
@@ -339,6 +376,7 @@ export default function App() {
     const final = await runWithProgress(t('pasting'), 'ops.transfer', { sources: paths, dest, move: false });
     refreshBoth();
     if (final.status === 'done') {
+      recordTransfer(final, dest, false);
       const st = final.result || { copied: 0, skipped: 0 };
       setStatus(st.skipped ? t('pasted_skipped', { n: st.copied, skipped: st.skipped }) : t('pasted', { n: st.copied }));
     } else if (final.status === 'cancelled') setStatus(t('paste_cancelled'));
@@ -352,11 +390,15 @@ export default function App() {
     const opts = await dialogs.compress({ name: stripArchiveExt(baseName(sources[0])), splitSizeMB: session.splitSizeMB || 10 });
     if (!opts) return;
     const destBase = joinPath(pathOf(side), stripArchiveExt(opts.name));
-    const final = await runWithProgress(t('compressing'), 'archive.create', { sources, destBase, format: opts.format, split: opts.split, splitSize: opts.splitSize });
+    const args = { sources, destBase, format: opts.format, split: opts.split, splitSize: opts.splitSize };
+    const final = await runWithProgress(t('compressing'), 'archive.create', args);
     await p.refresh();
     if (final.status === 'done') {
       setStatus(t(opts.split ? 'compressed_split' : 'compressed', { n: sources.length }));
-      if (final.result && final.result.parts) p.selectPaths(final.result.parts);
+      if (final.result && final.result.parts) {
+        history.push({ kind: 'compress', parts: final.result.parts, args });
+        p.selectPaths(final.result.parts);
+      }
     } else if (final.status === 'cancelled') setStatus(t('compress_cancelled'));
     else await dialogs.error(final.error || t('compress_failed'), final.errorDetail);
   };
@@ -377,9 +419,15 @@ export default function App() {
     const name = await dialogs.prompt({ title: t('extract_title'), label: t('lbl_extract_dir'), value: suggested, icon: 'extract' });
     if (!name) return;
     const destDir = joinPath(pathOf(side), name);
+    // Undo removes the target folder, so only an extraction that created it is recorded.
+    const fresh = !(await call('fs.exists', { path: destDir }).then((r) => r.exists).catch(() => true));
     const final = await runWithProgress(t('extracting'), 'archive.extract', { archivePath, destDir });
     await p.refresh();
-    if (final.status === 'done') { setStatus(t('extracted', { name })); p.selectPaths([destDir]); }
+    if (final.status === 'done') {
+      if (fresh) history.push({ kind: 'extract', destDir, args: { archivePath, destDir } });
+      setStatus(t('extracted', { name }));
+      p.selectPaths([destDir]);
+    }
     else if (final.status === 'cancelled') setStatus(t('extract_cancelled'));
     else {
       const e = final.error || '';
@@ -426,6 +474,92 @@ export default function App() {
     }
   };
 
+  // ── Undo / redo ──
+  // Undoing a copy / compress / extract deletes what it produced (permanently,
+  // as the delete command does), so it asks first unless "confirm before
+  // deleting" is off in the settings.
+  const removeProduced = async (paths, what) => {
+    if (session.confirmDelete !== false) {
+      const ok = await dialogs.confirm({ title: t('undo'), danger: true, message: t('undo_delete_confirm', { n: paths.length, what }) });
+      if (!ok) return { status: 'cancelled' };
+    }
+    return runWithProgress(t('deleting'), 'ops.delete', { paths });
+  };
+
+  // Reverses (undo) or replays (redo) one history entry; returns a job-like
+  // { status } — 'done', 'cancelled' or 'error' — and throws on a plain failure.
+  const applyHistory = async (entry, undo) => {
+    const done = { status: 'done' };
+    switch (entry.kind) {
+      case 'create': {
+        if (!undo) { await call(entry.isDir ? 'fs.mkdir' : 'fs.createFile', { dir: dirName(entry.path), name: baseName(entry.path) }); return done; }
+        if (!(await call('fs.exists', { path: entry.path })).exists) return done;
+        // An empty folder / file goes quietly; one that gained content is confirmed.
+        const st = await call('fs.stat', { path: entry.path });
+        if (st.isDir ? st.files + st.dirs > 0 : st.size > 0) {
+          const ok = await dialogs.confirm({ title: t('undo'), danger: true, message: t('undo_not_empty', { name: baseName(entry.path) }) });
+          if (!ok) return { status: 'cancelled' };
+        }
+        return runWithProgress(t('deleting'), 'ops.delete', { paths: [entry.path] });
+      }
+      case 'rename': {
+        const [from, to] = undo ? [entry.to, entry.from] : [entry.from, entry.to];
+        await call('fs.rename', { path: joinPath(entry.dir, from), newName: to });
+        return done;
+      }
+      case 'copy':
+        if (!undo) return runWithProgress(t('copying'), 'ops.transfer', { sources: entry.items.map((it) => it.src), dest: entry.destDir, move: false });
+        return removeProduced(entry.items.map((it) => it.dest), describeHistory(entry));
+      case 'move': {
+        if (!undo) return runWithProgress(t('moving'), 'ops.transfer', { sources: entry.items.map((it) => it.src), dest: entry.destDir, move: true });
+        // Back to where each item came from — one job per source folder.
+        const groups = new Map();
+        for (const it of entry.items) { const d = dirName(it.src); if (!groups.has(d)) groups.set(d, []); groups.get(d).push(it.dest); }
+        for (const [dir, sources] of groups) {
+          const r = await runWithProgress(t('moving'), 'ops.transfer', { sources, dest: dir, move: true });
+          if (r.status !== 'done') return r;
+        }
+        return done;
+      }
+      case 'compress': {
+        if (undo) return removeProduced(entry.parts, describeHistory(entry));
+        const r = await runWithProgress(t('compressing'), 'archive.create', entry.args);
+        if (r.status === 'done' && r.result && r.result.parts) entry.parts = r.result.parts;
+        return r;
+      }
+      case 'extract':
+        if (undo) return removeProduced([entry.destDir], describeHistory(entry));
+        return runWithProgress(t('extracting'), 'archive.extract', entry.args);
+      default: return done;
+    }
+  };
+
+  const undoRedo = async (undo) => {
+    const entry = undo ? history.peekUndo() : history.peekRedo();
+    if (!entry) { setStatus(t(undo ? 'undo_nothing' : 'redo_nothing')); return; }
+    const what = describeHistory(entry);
+    let r;
+    try {
+      r = await applyHistory(entry, undo);
+    } catch (err) {
+      // The file system no longer matches the entry — it is dropped, not retried.
+      history.drop(entry);
+      refreshBoth();
+      await dialogs.error(err, t(undo ? 'undo_failed' : 'redo_failed', { what }));
+      return;
+    }
+    refreshBoth();
+    if (r.status === 'done') {
+      if (undo) history.commitUndo(entry); else history.commitRedo(entry);
+      setStatus(t(undo ? 'undone' : 'redone', { what }));
+    } else if (r.status === 'cancelled') {
+      setStatus(t(undo ? 'undo_cancelled' : 'redo_cancelled', { what }));
+    } else {
+      history.drop(entry);
+      await dialogs.error(r.error || t(undo ? 'undo_failed' : 'redo_failed', { what }), r.errorDetail);
+    }
+  };
+
   const setTheme = (id) => {
     const theme = applyTheme(id);
     saveSession({ theme: theme.id, themeBg: theme.tokens['--bg'] });
@@ -447,6 +581,8 @@ export default function App() {
       case 'newFolder': await newEntry(side, 'folder'); break;
       case 'newFile': await newEntry(side, 'file'); break;
       case 'rename': await rename(side); break;
+      case 'undo': await undoRedo(true); break;
+      case 'redo': await undoRedo(false); break;
       case 'delete': await remove(side); break;
       case 'trash': await trash(side); break;
       case 'copyOther': await transfer(side, false); break;
@@ -500,7 +636,7 @@ export default function App() {
 
   // Test hook (smoke scripts drive the UI through it; harmless otherwise).
   useEffect(() => {
-    window.__cc = { action: onAction, setActive, dialogs, panels, session, call, navigate, log, terms, setDockTab, closeTerminal };
+    window.__cc = { action: onAction, setActive, dialogs, panels, session, call, navigate, log, terms, setDockTab, closeTerminal, history };
   });
 
   // ── Global shortcuts (F-keys as in the GTK version) ──
@@ -511,6 +647,12 @@ export default function App() {
       if (e.key === '`' && (e.ctrlKey || e.metaKey) && !e.altKey) { e.preventDefault(); onAction(e.shiftKey ? 'newTerminal' : 'toggleDock'); return; }
       const tag = (e.target && e.target.tagName) || '';
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      // Ctrl+Z undoes the last file operation, Ctrl+Y (or Ctrl+Shift+Z) redoes it.
+      if ((e.ctrlKey || e.metaKey) && !e.altKey && /^[zy]$/i.test(e.key)) {
+        e.preventDefault();
+        onAction(e.key.toLowerCase() === 'y' || e.shiftKey ? 'redo' : 'undo');
+        return;
+      }
       const map = { F2: 'rename', F5: 'copyOther', F6: 'moveOther', F7: 'newFolder', F8: 'delete', F9: 'search' };
       if (map[e.key]) { e.preventDefault(); onAction(map[e.key]); }
       else if (e.key === 'Tab' && !e.ctrlKey && !e.altKey) { e.preventDefault(); const next = other(active); setActive(next); panel(next) && panel(next).focus(); }
@@ -543,7 +685,11 @@ export default function App() {
     hasSelection: selCount[active] > 0,
     canExtract: selCount[active] === 1 && extractable[active],
     dockVisible: !!(session && session.dockVisible),
-  }), [session, selCount, extractable, active]);
+    canUndo: history.canUndo,
+    canRedo: history.canRedo,
+    undoWhat: describeHistory(history.peekUndo()),
+    redoWhat: describeHistory(history.peekRedo()),
+  }), [session, selCount, extractable, active, history.version]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!session) return <div className="boot">{status || '…'}</div>;
 
@@ -570,7 +716,7 @@ export default function App() {
   return (
     <div className="app">
       <MenuBar onAction={(id) => onAction(id)} state={menuState} />
-      <Toolbar onAction={(id) => onAction(id)} theme={session.theme} dockVisible={!!session.dockVisible} />
+      <Toolbar onAction={(id) => onAction(id)} theme={session.theme} dockVisible={!!session.dockVisible} history={menuState} />
       <div className="panels" ref={splitRef}>
         <div className="panel-slot" style={{ flexBasis: `${(session.splitter || 0.5) * 100}%` }}>
           <FilePanel ref={panels.left} {...panelProps('left')} />
