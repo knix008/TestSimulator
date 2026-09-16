@@ -173,6 +173,17 @@ const SCENARIOS = {
   goto: `(async () => { ${PRELUDE} window.__med.action('gotoLine'); await wait(200); return document.querySelector('.dlg-title span').textContent; })()`,
   settings: `(async () => { ${PRELUDE} window.__med.action('settings'); await wait(200); return 'settings'; })()`,
   about: `(async () => { ${PRELUDE} window.__med.action('about'); await wait(200); return 'about'; })()`,
+  // The window shrunk as far as it goes: no toolbar / menu-bar control may be cut off (the minimum width follows the bars, src/lib/backend.js),
+  // and switching the UI language must not change that width (the bars are as wide as their widest translation, components/Widest.jsx).
+  min_width: `(async () => { ${PRELUDE} window.myEditor.setWindowSize(400, 600); await wait(800);
+    const measure = () => { const bars = ['.toolbar.menubar', '.icon-toolbar'].map((sel) => { const el = document.querySelector(sel); if (!el) return null; const r = el.getBoundingClientRect(); let right = 0; for (const c of el.children) { const cr = c.getBoundingClientRect(); if (cr.width) right = Math.max(right, cr.right); } return { sel, width: Math.round(r.width), right: Math.round(right), overflow: el.scrollWidth > el.clientWidth + 1 }; }).filter(Boolean);
+      const cut = bars.filter((b) => b.overflow || b.right > b.width); if (cut.length) throw new Error('cut off: ' + JSON.stringify(cut)); return { innerWidth: window.innerWidth, bars }; };
+    const first = measure();
+    window.__med.action('toggleLanguage'); await wait(800); const other = measure();
+    window.__med.action('toggleLanguage'); await wait(800); const back = measure();
+    if (other.innerWidth !== first.innerWidth || back.innerWidth !== first.innerWidth) throw new Error('width changed with the language: ' + JSON.stringify([first.innerWidth, other.innerWidth, back.innerWidth]));
+    return JSON.stringify({ innerWidth: first.innerWidth, bars: first.bars });
+  })()`,
   shortcuts: `(async () => { ${PRELUDE} window.__med.action('shortcuts'); await wait(300); const d = document.querySelector('.dlg'); const b = d.querySelector('.dlg-body'); return JSON.stringify({ cols: document.querySelectorAll('.shortcut-cols .shortcut-grid').length, rows: document.querySelectorAll('.shortcut-grid kbd').length, width: d.clientWidth, height: d.clientHeight, win: window.innerHeight, scrollbar: b.scrollHeight > b.clientHeight }); })()`,
   dirty_close: `(async () => { ${PRELUDE} window.__med.setText('changed'); await wait(100); window.__med.action('close'); await wait(300); return document.querySelector('.dlg .pre').textContent; })()`,
   light_en: `(async () => { ${PRELUDE} window.__med.action('theme:daylight'); window.__med.action('toggleLanguage'); await wait(300); return document.querySelector('.menu-btn').textContent; })()`,

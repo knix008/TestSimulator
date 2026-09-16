@@ -99,7 +99,10 @@ export function setWindowSize(w, h) {
 // width of its children, the spacer at its minimum — and the widest is sent
 // to the main process, which raises the window's minimum width to it. Called
 // after every render of those bars; the calls collapse into one measurement
-// per frame and only a changed value is sent. No-op in the browser.
+// per frame and only a larger value is sent. The bars themselves keep one
+// width whatever they show (labels as wide as their widest text, see
+// components/Widest.jsx; fixed-width formatter label), so in practice the
+// value is set once. No-op in the browser.
 let minWidthRaf = 0, lastMinWidth = 0;
 export function syncWindowMinWidth() {
   if (!isElectron || !electron.setMinContentWidth || minWidthRaf) return;
@@ -112,18 +115,22 @@ export function syncWindowMinWidth() {
       const gap = parseFloat(cs.columnGap) || 0;
       let n = 0;
       for (const c of el.children) {
-        if (c.classList.contains('tb-spacer')) w += parseFloat(getComputedStyle(c).minWidth) || 0;
-        else w += c.getBoundingClientRect().width;
+        const ccs = getComputedStyle(c);
+        if (ccs.display === 'none') continue;
+        // the box (a bounding rect has no margins: the separators and the app controls carry some)
+        w += (c.classList.contains('tb-spacer') ? parseFloat(ccs.minWidth) || 0 : c.getBoundingClientRect().width)
+          + (parseFloat(ccs.marginLeft) || 0) + (parseFloat(ccs.marginRight) || 0);
         n++;
       }
       w += gap * Math.max(0, n - 1);
-      need = Math.max(need, w);
+      need = Math.max(need, w + 4);   // a little slack: sub-pixel widths round
     }
     // The bars sit inside the app column: add whatever surrounds them (none today, but measured rather than assumed).
     const app = document.querySelector('.app');
     if (app) need += Math.max(0, document.documentElement.clientWidth - app.getBoundingClientRect().width);
     need = Math.ceil(need) + 1;
-    if (need > 0 && need !== lastMinWidth) { lastMinWidth = need; electron.setMinContentWidth(need); }
+    // Only ever up: whatever the bars show later, the window is never resized by them.
+    if (need > lastMinWidth) { lastMinWidth = need; electron.setMinContentWidth(need); }
   });
 }
 

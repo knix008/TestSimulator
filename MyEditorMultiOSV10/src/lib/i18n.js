@@ -186,6 +186,15 @@ export function setLanguage(lang) {
 
 export function getLanguage() { return current; }
 
+// The text in every language, the current one first (for labels that must
+// stay as wide as their widest translation — see components/Widest.jsx).
+export function tAll(key, params) {
+  const fill = (s) => { if (params) for (const [k, v] of Object.entries(params)) s = s.split(`{${k}}`).join(String(v)); return s; };
+  const out = [fill((dicts[current] && dicts[current][key]) || ko[key] || key)];
+  for (const d of Object.values(dicts)) { const s = fill(d[key] || ko[key] || key); if (!out.includes(s)) out.push(s); }
+  return out;
+}
+
 export function t(key, params) {
   let s = (dicts[current] && dicts[current][key]) || ko[key] || key;
   if (params) for (const [k, v] of Object.entries(params)) s = s.split(`{${k}}`).join(String(v));

@@ -1310,7 +1310,7 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
     ];
   } : null;
   const menus = [
-    { id: 'file', label: t('m_file'), icon: 'folder', items: () => [
+    { id: 'file', label: t('m_file'), labelKey: 'm_file', icon: 'folder', items: () => [
       { id: 'new', label: t('new_file'), icon: 'filePlus', shortcut: sc('Ctrl+N') },
       { id: 'open', label: t('open_file'), icon: 'fileOpen', shortcut: sc('Ctrl+O') },
       { id: 'openFolder', label: t('open_folder'), icon: 'folderOpen', shortcut: sc('Ctrl+Shift+O') },
@@ -1337,7 +1337,7 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
       { sep: true },
       { id: 'exit', icon: 'exit', label: t('exit'), shortcut: isMac ? '⌘Q' : 'Alt+F4' },
     ] },
-    { id: 'edit', label: t('m_edit'), icon: 'edit', items: () => [
+    { id: 'edit', label: t('m_edit'), labelKey: 'm_edit', icon: 'edit', items: () => [
       { id: 'undo', label: t('undo'), icon: 'undo', shortcut: sc('Ctrl+Z') },
       { id: 'redo', label: t('redo'), icon: 'redo', shortcut: sc('Ctrl+Y') },
       { sep: true },
@@ -1368,7 +1368,7 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
       { id: 'insertDate', label: t('insert_date'), icon: 'calendar' },
       { id: 'insertPath', icon: 'link', label: t('insert_path'), disabled: !cur || !cur.path },
     ] },
-    { id: 'search', label: t('m_search'), icon: 'search', items: () => [
+    { id: 'search', label: t('m_search'), labelKey: 'm_search', icon: 'search', items: () => [
       { id: 'find', label: t('find'), icon: 'search', shortcut: sc('Ctrl+F') },
       { id: 'findNext', icon: 'findNext', label: t('find_next'), shortcut: 'F3' },
       { id: 'findPrev', icon: 'findPrev', label: t('find_prev'), shortcut: 'Shift+F3' },
@@ -1380,7 +1380,7 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
       { sep: true },
       { id: 'gotoLine', label: t('goto_line'), icon: 'hash', shortcut: sc('Ctrl+G') },
     ] },
-    { id: 'view', label: t('m_view'), icon: 'eye', items: () => [
+    { id: 'view', label: t('m_view'), labelKey: 'm_view', icon: 'eye', items: () => [
       { id: 'toggle:autoIndent', icon: 'autoIndent', label: t('auto_indent'), checked: settings.autoIndent },
       { id: 'toggle:wordWrap', icon: 'wrap', label: t('word_wrap'), checked: settings.wordWrap },
       { id: 'toggle:lineNumbers', icon: 'listOrdered', label: t('line_numbers'), checked: settings.lineNumbers },
@@ -1415,7 +1415,7 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
       { sep: true },
       { id: 'fullscreen', label: t('fullscreen'), icon: 'fullscreen', shortcut: 'F11' },
     ] },
-    { id: 'lang', label: t('m_lang'), icon: 'code', items: () => [
+    { id: 'lang', label: t('m_lang'), labelKey: 'm_lang', icon: 'code', items: () => [
       { id: 'lang:auto', label: t('lang_auto'), checked: !!cur && !cur.language, radio: true, iconEl: <LangIcon name="auto" /> },
       { id: `lang:${PLAIN}`, label: t('lang_plain'), checked: !!cur && cur.language === PLAIN, radio: true, iconEl: <LangIcon name="plain" /> },
       { sep: true },
@@ -1423,7 +1423,7 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
       { sep: true },
       { id: 'languagePicker', label: `${t('m_lang')}…`, icon: 'search' },
     ] },
-    { id: 'enc', label: t('m_enc'), icon: 'encoding', items: () => [
+    { id: 'enc', label: t('m_enc'), labelKey: 'm_enc', icon: 'encoding', items: () => [
       { header: t('enc_current') },
       ...((info && info.encodings) || []).map((e) => ({ id: `enc:${e.id}`, icon: 'encoding', label: e.label, checked: !!cur && cur.encoding === e.id, radio: true })),
       { sep: true },
@@ -1432,7 +1432,7 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
       { header: t('eol') },
       ...EOLS.map((e) => ({ id: `eol:${e}`, icon: 'eol', label: t(`eol_${e}`), checked: !!cur && cur.eol === e, radio: true })),
     ] },
-    { id: 'help', label: t('m_help'), icon: 'help', items: () => [
+    { id: 'help', label: t('m_help'), labelKey: 'm_help', icon: 'help', items: () => [
       { id: 'shortcuts', label: t('shortcuts'), icon: 'keyboard' },
       { sep: true },
       { id: 'settings', label: t('settings'), icon: 'settings', shortcut: sc('Ctrl+,') },

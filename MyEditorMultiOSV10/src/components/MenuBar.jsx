@@ -18,6 +18,7 @@ import { THEMES, themeById, nextThemeId } from '../themes';
 import { isElectron, windowControl, onMaximized, syncWindowMinWidth } from '../lib/backend';
 import { Icon, Flag } from './Icons';
 import { ContextMenu } from './ContextMenu';
+import { Widest } from './Widest';
 
 function WindowButtons() {
   const [max, setMax] = useState(false);
@@ -50,7 +51,7 @@ export function AppControls({ onAction, theme, compact = false }) {   // compact
     <span className="app-controls">
       <span className="tb-split">
         <button className="tb-btn tb-split-main" title={t('tip_next_theme', { theme: themeLabel(nextThemeId(theme)) })} onMouseDown={keep} onClick={() => onAction('nextTheme')}>
-          <Icon name="palette" /><span>{themeLabel(theme)}</span>
+          <Icon name="palette" /><Widest texts={[themeLabel(theme), ...THEMES.flatMap((th) => [th.label, th.labelEn])]} />
         </button>
         <button className="tb-btn tb-split-caret" title={t('tip_theme')} aria-label={t('tip_theme')} onMouseDown={keep} onClick={(e) => setThemeMenu(themeMenu ? null : e.currentTarget)}>
           <Icon name="chevronDown" size={14} />
@@ -60,11 +61,11 @@ export function AppControls({ onAction, theme, compact = false }) {   // compact
         <Flag country={lang === 'ko' ? 'gb' : 'kr'} width={22} />
       </button>
       <button className={`tb-btn ${compact ? 'tb-icon-only' : ''}`} title={t('tip_settings')} onMouseDown={keep} onClick={() => onAction('settings')}>
-        <Icon name="settings" />{!compact && <span>{t('settings')}</span>}
+        <Icon name="settings" />{!compact && <Widest k="settings" />}
       </button>
       <span className="tb-sep" />
       <button className={`tb-btn ${compact ? 'tb-icon-only' : ''}`} title={t('tip_about')} onMouseDown={keep} onClick={() => onAction('about')}>
-        <Icon name="info" />{!compact && <span>{t('menu_info')}</span>}
+        <Icon name="info" />{!compact && <Widest k="menu_info" />}
       </button>
       {themeMenu && (
         <ContextMenu anchorEl={themeMenu} x={0} y={0} items={themeItems} onClose={() => setThemeMenu(null)}
@@ -100,7 +101,7 @@ export function MenuBar({ menus, onAction, theme, controls = false }) {
           <button key={m.id} className={`menu-btn ${open && open.id === m.id ? 'open' : ''}`}
             onMouseDown={(e) => { e.preventDefault(); openMenu(m, e.currentTarget); }}
             onMouseEnter={(e) => hoverMenu(m, e.currentTarget)}>
-            {m.icon && <Icon name={m.icon} size={14} className="menu-icon" />}{m.label}
+            {m.icon && <Icon name={m.icon} size={14} className="menu-icon" />}{m.labelKey ? <Widest k={m.labelKey} /> : m.label}
           </button>
         ))}
       </span>

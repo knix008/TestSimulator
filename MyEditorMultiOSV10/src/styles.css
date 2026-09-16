@@ -78,7 +78,10 @@ button:disabled { cursor: default; opacity: 0.45; }
 .menu-btn:hover .menu-icon, .menu-btn.open .menu-icon { color: inherit; }
 .app-controls { display: inline-flex; align-items: center; gap: 2px; flex: none; margin-left: 4px; }
 .icon-toolbar .app-controls .tb-btn { padding: 3px 6px; }
-.icon-toolbar .app-controls .tb-split-main span { max-width: 120px; overflow: hidden; text-overflow: ellipsis; }
+/* labels that keep the width of their widest text (components/Widest.jsx) */
+.widest { display: inline-grid; }
+.widest > span { grid-area: 1 / 1; white-space: nowrap; text-align: start; }   /* the text stays next to its icon; the slack is on the right */
+.widest > .ghost { visibility: hidden; }
 .menu-btn:hover, .menu-btn.open { background: var(--bg-hover); }
 .menu-btn.open { color: var(--accent); box-shadow: inset 0 -2px 0 var(--accent); }
 .menu-drop { min-width: 260px; }
@@ -115,13 +118,14 @@ button:disabled { cursor: default; opacity: 0.45; }
 .fp-item.hover { background: var(--bg-sel); }
 .fp-item.current { color: var(--accent); }
 .tb-size { display: inline-flex; align-items: center; gap: 1px; }
-.tb-size input { width: 40px; height: 26px; padding: 2px 4px; text-align: center; font-size: 12px; -moz-appearance: textfield; }
+/* [type=number] so that the generic form rule below (width: 100%) does not win: a percentage inside the shrink-to-fit box made the input grow on every layout. */
+.tb-size input[type="number"] { width: 40px; height: 26px; padding: 2px 4px; text-align: center; font-size: 12px; -moz-appearance: textfield; }
 .tb-size input::-webkit-outer-spin-button, .tb-size input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .tool-btn.on { background: color-mix(in srgb, var(--accent) 22%, var(--bg-panel)); border-color: color-mix(in srgb, var(--accent) 55%, transparent); color: var(--accent); }
 /* Text next to a button: the formatter of the active document (after 문서 정렬), the zoom level (between zoom in / out). */
 .tb-label { flex: none; font-size: 12px; line-height: 20px; padding: 3px 5px; white-space: nowrap; color: var(--fg-muted); }
-.tb-formatter { max-width: 170px; gap: 3px; align-items: center; }
-.tb-formatter-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tb-formatter { width: 150px; gap: 3px; align-items: center; }
+.tb-formatter-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: start; }
 .tb-formatter.off { font-style: italic; }
 .tb-formatter.missing { color: var(--danger); }
 .tb-zoom { min-width: 44px; justify-content: center; font-variant-numeric: tabular-nums; }
