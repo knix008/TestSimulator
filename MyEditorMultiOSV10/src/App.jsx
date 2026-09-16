@@ -38,6 +38,7 @@ import { FindBar } from './components/FindBar';
 import { MarkdownBar } from './components/MarkdownBar';
 import { Preview } from './components/Preview';
 import { HtmlPreview, HtmlBar } from './components/HtmlPreview';
+import { ImagePreview, ImageBar, isImageName, isSvgName } from './components/ImagePreview';
 import { withMenuIcons } from './lib/menuicons';
 import { Sidebar } from './components/Sidebar';
 import { SearchPanel } from './components/SearchPanel';
@@ -53,6 +54,8 @@ import { ImageExportDialog } from './dialogs/ImageExportDialog';
 import { InstallDialog } from './dialogs/InstallDialog';
 
 const BASE_FONT = 14;
+// split = multi: n panes as a balanced grid — columns = ceil(√n), rows = ceil(n / columns).
+const multiGrid = (n) => { const cols = Math.max(1, Math.ceil(Math.sqrt(n))); return { cols, rows: Math.max(1, Math.ceil(n / cols)) }; };
 const EOLS = ['crlf', 'lf', 'cr'];
 let nextDocId = 1;
 
@@ -536,8 +539,9 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
 
   // The layout: 'none' (one pane) · 'cols' · 'rows' · 'grid' (2 × 2). New
   // panes take documents not shown elsewhere; removed panes hand theirs back.
-  const setSplit = (mode) => {
-    const count = mode === 'grid' ? 4 : mode === 'cols' || mode === 'rows' ? 2 : 1;
+  // mode: none · cols · rows · grid (the View menu) · multi (the toolbar button: n panes in a balanced grid, 2‥9)
+  const setSplit = (mode, n) => {
+    const count = mode === 'grid' ? 4 : mode === 'multi' ? Math.max(2, Math.min(9, n || 2)) : mode === 'cols' || mode === 'rows' ? 2 : 1;
     const cur = panesRef.current;
     if (count > cur.length) {
       const shown = new Set(cur.map((p) => p.docId));
@@ -558,7 +562,8 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
       const ai = next.findIndex((p) => p.key === active.key);
       focusPane(ai >= 0 ? ai : 0, { focus: false });
     }
-    changeSettings({ split: mode });
+    if (mode === 'multi') { const g = multiGrid(count); changeSettings({ split: mode, paneCount: count, colFracs: Array(g.cols).fill(1 / g.cols), rowFracs: Array(g.rows).fill(1 / g.rows) }); }
+    else changeSettings({ split: mode });
   };
   // Closes one pane of a split (an empty one, from its "닫기"): the others stay as they are; the
   // layout follows the count — one pane left → no split, two → columns, three → the grid with the last spanning.
@@ -571,10 +576,12 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
     const next = cur.filter((_, j) => j !== i).map((p) => ({ ...p }));
     panesRef.current = next;
     setPanes(next);
-    const mode = next.length === 1 ? 'none' : next.length === 2 ? (settingsRef.current.split === 'rows' ? 'rows' : 'cols') : 'grid';
+    const st = settingsRef.current;
+    const mode = next.length === 1 ? 'none' : st.split === 'multi' ? 'multi' : next.length === 2 ? (st.split === 'rows' ? 'rows' : 'cols') : 'grid';
     const ai = Math.min(activePaneRef.current <= i ? activePaneRef.current : activePaneRef.current - 1, next.length - 1);
     focusPane(Math.max(0, ai), { focus: false });
-    changeSettings({ split: mode });
+    if (mode === 'multi') { const g = multiGrid(next.length); changeSettings({ split: mode, paneCount: next.length, colFracs: Array(g.cols).fill(1 / g.cols), rowFracs: Array(g.rows).fill(1 / g.rows) }); }
+    else changeSettings({ split: mode });
   };
   const nextPane = () => { const n = panesRef.current.length; if (n > 1) focusPane((activePaneRef.current + 1) % n); };
 
@@ -959,7 +966,7 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
       // The split layout and what each pane showed.
       const mode = s.split || 'none';
       if (mode !== 'none' && Array.isArray(session.paneDocs)) {
-        const count = mode === 'grid' ? 4 : 2;
+        const count = mode === 'grid' ? 4 : mode === 'multi' ? Math.max(2, Math.min(9, s.paneCount || 2)) : 2;
         const used = new Set([list[idx].id]);
         const next = [{ key: panesRef.current[0].key, docId: list[idx].id }];
         for (let i = 1; i < count; i++) {
@@ -1145,14 +1152,15 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
     }
     if (id === 'newTerminal') return newTerminal(arg);
     if (id === 'termSettings') { if (!openPopup('settings', 'terminal')) setDialog({ type: 'settings', tab: 'terminal' }); else sendSettingsPatch({ settingsTab: 'terminal' }); return undefined; }   // ⚙ in the terminal header: settings on the terminal tab (prompt, line endings)
-    if (id === 'togglePreview') { const d = getDoc(activeIdRef.current); if (d && d.langName === 'HTML') toggleSetting('htmlPreview'); else if (d && d.langName === 'Markdown') toggleSetting('mdPreview'); return undefined; }   // Ctrl+Shift+M: the preview pane of the document's kind
+    if (id === 'togglePreview') { const d = getDoc(activeIdRef.current); if (d && isImageName(d.name)) toggleSetting('imagePreview'); else if (d && d.langName === 'HTML') toggleSetting('htmlPreview'); else if (d && d.langName === 'Markdown') toggleSetting('mdPreview'); return undefined; }   // Ctrl+Shift+M: the preview pane of the document's kind
     if (id === 'toggle:termVisible') id = 'toggleTerminal';
     if (id === 'toggleTerminal') { const on = !settingsRef.current.termVisible; changeSettings({ termVisible: on }); if (on && !terms.length) newTerminal(); return undefined; }
     if (id.startsWith('md:heading:')) return withView((vw) => md.heading(vw, Number(id.slice(11))));
     if (id === 'md:image') { setDialog({ type: 'mdImage' }); return undefined; }
     if (id.startsWith('split:')) { setSplit(id.slice(6)); return undefined; }
     if (id === 'toggleStructure') { const d = getDoc(activeIdRef.current); toggleSetting(d && d.langName === 'Markdown' ? 'mdOutline' : 'minimap'); return undefined; }   // toolbar: the minimap, or a Markdown document's structure panel
-    if (id === 'toggleSplit') { setSplit(settingsRef.current.split === 'none' ? 'cols' : 'none'); return undefined; }
+    // The toolbar's split button (and Ctrl+\) steps through the layouts: one → left / right → top / bottom → four → one.
+    if (id === 'toggleSplit') { const st = settingsRef.current; setSplit('multi', st.split === 'multi' ? Math.min(9, (st.paneCount || 2) + 1) : 2); return undefined; }   // one more pane per press
     if (id === 'nextPane') { nextPane(); return undefined; }
     if (id === 'lintPanel') return withView((vw) => openLintPanel(vw));
     if (id === 'lintNext') return withView((vw) => nextDiagnostic(vw));
@@ -1473,6 +1481,7 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
       { id: 'toggle:mdPreview', icon: 'splitView', label: t('md_preview_menu'), checked: settings.mdPreview, shortcut: sc('Ctrl+Shift+M'), disabled: !cur || cur.langName !== 'Markdown' },
       { id: 'toggle:mdOutline', icon: 'listTree', label: t('md_outline_menu'), checked: settings.mdOutline, disabled: !cur || cur.langName !== 'Markdown' },
       { id: 'toggle:htmlPreview', icon: 'splitView', label: t('html_preview_menu'), checked: settings.htmlPreview, shortcut: sc('Ctrl+Shift+M'), disabled: !cur || cur.langName !== 'HTML' },
+      { id: 'toggle:imagePreview', icon: 'fileImage', label: t('img_pv_menu'), checked: settings.imagePreview, shortcut: sc('Ctrl+Shift+M'), disabled: !cur || !isImageName(cur.name) },
     ] },
     { id: 'view', label: t('m_view'), labelKey: 'm_view', icon: 'eye', items: () => [
       { id: 'toggle:sidebarVisible', icon: 'sidebar', label: t('sidebar'), checked: settings.sidebarVisible, shortcut: sc('Ctrl+B') },
@@ -1617,6 +1626,29 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
 
   // ── splitters between the editor panes (cols / rows / grid): drag to resize, kept as splitX / splitY ──
   const panesElRef = useRef(null);
+  // split = multi: n panes in a balanced grid (columns = ceil(√n), rows as needed; the last pane spans what is
+  // left of its row), column widths / row heights as fractions, a splitter between every two.
+  const multi = settings.split === 'multi' ? multiGrid(panes.length) : null;
+  const fracsOf = (arr, n) => (Array.isArray(arr) && arr.length === n ? arr : Array(n).fill(1 / n));
+  const colFracs = multi ? fracsOf(settings.colFracs, multi.cols) : [];
+  const rowFracs = multi ? fracsOf(settings.rowFracs, multi.rows) : [];
+  const onFracSplitDown = (key, fracs, i, axis) => (e) => {
+    e.preventDefault();
+    const box = panesElRef.current && panesElRef.current.getBoundingClientRect();
+    if (!box) return;
+    const p0 = axis === 'x' ? e.clientX : e.clientY, f0 = fracs.slice();
+    document.body.classList.add('dragging', axis === 'x' ? 'dragging-x' : 'dragging-y');
+    const move = (ev) => {
+      const d = ((axis === 'x' ? ev.clientX : ev.clientY) - p0) / (axis === 'x' ? box.width : box.height);
+      const a = Math.max(0.1, Math.min(f0[i] + f0[i + 1] - 0.1, f0[i] + d));
+      const next = f0.slice(); next[i] = a; next[i + 1] = f0[i] + f0[i + 1] - a;
+      setSettings({ [key]: next });
+    };
+    const up = () => { document.body.classList.remove('dragging', 'dragging-x', 'dragging-y'); window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up); call('session.save', { [key]: settingsRef.current[key] }).catch(() => {}); };
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+  };
+  const cum = (fr, i) => fr.slice(0, i + 1).reduce((a, b) => a + b, 0) * 100;
   const onPaneSplitDown = (axis) => (e) => {
     e.preventDefault();
     const box = panesElRef.current && panesElRef.current.getBoundingClientRect();
@@ -1678,6 +1710,7 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
   const openPaths = useMemo(() => new Set(docs.map((d) => d.path).filter(Boolean)), [docs]);
   const isMarkdown = !!cur && cur.langName === 'Markdown';
   const isHtml = !!cur && cur.langName === 'HTML';
+  const isImage = !!cur && isImageName(cur.name);   // SVG (text) or a binary image (hex view): the picture in the preview pane
   // What the prompt's session / os segments show (app.info): one object per app info, so the transcripts are not re-rendered for nothing.
   const termEnv = useMemo(() => ({ home: info ? info.home : '', user: info ? info.user : '', host: info ? info.hostname : '', platform: info ? info.platform : '' }), [info]);
   const toolbarState = { dirty: !!cur && cur.dirty, anyDirty: docs.some((d) => d.dirty), canFormat, formatter: fmtInfo, formatterItems, formatTip, zoom, structureOn: isMarkdown ? !!settings.mdOutline : !!settings.minimap };
@@ -1710,15 +1743,18 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
             onAction={(id, docId) => action(id, docId)} onContextItems={tabContextItems} />
           {isMarkdown && <MarkdownBar onAction={action} preview={settings.mdPreview} outline={settings.mdOutline} wysiwyg={settings.mdWysiwyg} />}
           {isHtml && <HtmlBar onAction={action} preview={settings.htmlPreview} />}
+          {isImage && <ImageBar onAction={action} preview={settings.imagePreview} svg={isSvgName(cur.name)} />}
           {find && view && <FindBar key={find.key} view={view} mode={find.mode} initial={find.initial} docVersion={docVersion} onClose={() => action('closeFind')} onModeChange={(mode) => setFind({ ...find, mode })} />}
           <div className="editor-split" ref={splitRef}>
-            <div className={`panes ${settings.split || 'none'}`} ref={panesElRef} style={{ '--split-x': settings.splitX || 0.5, '--split-y': settings.splitY || 0.5 }}>
+            <div className={`panes ${settings.split || 'none'}`} ref={panesElRef} style={{ '--split-x': settings.splitX || 0.5, '--split-y': settings.splitY || 0.5, ...(multi ? { gridTemplateColumns: colFracs.map((f) => `minmax(0, ${f}fr)`).join(' '), gridTemplateRows: rowFracs.map((f) => `minmax(0, ${f}fr)`).join(' ') } : {}) }}>
+              {multi && colFracs.slice(0, -1).map((_, i) => <div key={`x${i}`} className="pane-splitter x" style={{ left: `calc(${cum(colFracs, i)}% - 3px)` }} onMouseDown={onFracSplitDown('colFracs', colFracs, i, 'x')} title="↔" />)}
+              {multi && rowFracs.slice(0, -1).map((_, i) => <div key={`y${i}`} className="pane-splitter y" style={{ top: `calc(${cum(rowFracs, i)}% - 3px)` }} onMouseDown={onFracSplitDown('rowFracs', rowFracs, i, 'y')} title="↕" />)}
               {settings.split === 'cols' || settings.split === 'grid' ? <div className="pane-splitter x" onMouseDown={onPaneSplitDown('x')} title="↔" /> : null}
               {settings.split === 'rows' || settings.split === 'grid' ? <div className="pane-splitter y" onMouseDown={onPaneSplitDown('y')} title="↕" /> : null}
               {panes.map((p, i) => {
                 const pd = p.docId != null ? getDoc(p.docId) : null;
                 return (
-                  <div key={p.key} className={`pane ${i === activePane ? 'active' : ''}`} onMouseDownCapture={() => { if (activePaneRef.current !== i) focusPane(i, { focus: false }); }}>
+                  <div key={p.key} className={`pane ${i === activePane ? 'active' : ''}`} style={multi && i === panes.length - 1 && panes.length % multi.cols ? { gridColumn: `span ${multi.cols - (panes.length % multi.cols) + 1}` } : undefined} onMouseDownCapture={() => { if (activePaneRef.current !== i) focusPane(i, { focus: false }); }}>
                     {panes.length > 1 && (
                       <div className="pane-head">
                         <button className="pane-title ellipsis" title={pd ? pd.path || pd.name : t('pane_empty')} onClick={(e) => openPaneMenu(i, e.currentTarget)}>
@@ -1770,6 +1806,12 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
               <>
                 <div className="v-splitter" onMouseDown={onPreviewSplitDown} />
                 <HtmlPreview view={view} docVersion={docVersion} base={cur && cur.path ? dirName(cur.path) : folder || ''} name={cur.name} width={`${Math.round(settings.mdPreviewWidth * 100)}%`} />
+              </>
+            )}
+            {isImage && settings.imagePreview && (isSvgName(cur.name) ? !!view : !!cur.path) && (
+              <>
+                <div className="v-splitter" onMouseDown={onPreviewSplitDown} />
+                <ImagePreview view={view} docVersion={docVersion} path={cur.path} name={cur.name} mtime={cur.mtime} width={`${Math.round(settings.mdPreviewWidth * 100)}%`} />
               </>
             )}
           </div>

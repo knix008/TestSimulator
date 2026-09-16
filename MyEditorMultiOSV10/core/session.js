@@ -53,6 +53,9 @@ const DEFAULTS = {
   formatOnSave: false,     // format the document before every save
   split: 'none',           // editor panes: none · cols · rows · grid
   splitX: 0.5,             // share of the left column (cols / grid), dragged on the splitter
+  paneCount: 2,            // split = multi: how many panes (2..9), a balanced grid
+  colFracs: [],            // multi: column widths as fractions (empty = equal)
+  rowFracs: [],            // multi: row heights as fractions
   splitY: 0.5,             // share of the top row (rows / grid)
   paneDocs: [],            // which tab each pane showed (indices into tabs)
   activePane: 0,
@@ -66,6 +69,7 @@ const DEFAULTS = {
   prompt: null,            // terminal prompt theme (oh-my-posh compatible JSON, src/lib/prompt.js); null = the default preset
   customPrompts: [],       // user-saved prompt themes: [{ id, label, config }]
   htmlPreview: false,      // HTML live preview pane
+  imagePreview: true,      // image files: the picture next to the editor / hex view
   userWords: [],           // words added to the dictionary by the user
   mdPreviewWidth: 0.5,     // fraction of the editor area
   folder: '',

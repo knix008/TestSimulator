@@ -43,8 +43,8 @@ const GROUPS = [
     { id: 'zoomIn', icon: 'zoomIn', tip: 'tip_zoom_in' },
     { label: 'zoom' },        // the zoom level; a click resets it
     { id: 'zoomOut', icon: 'zoomOut', tip: 'tip_zoom_out' },
+    { id: 'toggleSplit', icon: 'splitCols', tip: 'tip_split' },   // an action, not a toggle: each press steps to the next pane layout
     { id: 'toggle:sidebarVisible', icon: 'sidebar', tip: 'tip_sidebar', toggle: 'sidebarVisible' },
-    { id: 'toggleSplit', icon: 'splitCols', tip: 'tip_split', on: (st) => st.split && st.split !== 'none' },
   ],
   [
     { id: 'toggle:wordWrap', icon: 'wrap', tip: 'tip_wrap', toggle: 'wordWrap' },

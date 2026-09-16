@@ -44,6 +44,9 @@ export const SETTINGS_DEFAULTS = {
   formatOnSave: false,
   split: 'none',
   splitX: 0.5,             // editor panes: share of the left column (cols / grid)
+  paneCount: 2,            // split = multi (the toolbar button): how many panes, laid out as a balanced grid (2‥9)
+  colFracs: [],            // multi: column widths as fractions (empty = equal), dragged on the splitters
+  rowFracs: [],            // multi: row heights as fractions
   splitY: 0.5,             // editor panes: share of the top row (rows / grid)
   termVisible: false,
   termHeight: 150,
@@ -55,6 +58,7 @@ export const SETTINGS_DEFAULTS = {
   customPrompts: [],       // user-saved prompt themes (settings › terminal): [{ id, label, config }]
   mdPreviewWidth: 0.5,
   htmlPreview: false,      // HTML live preview pane
+  imagePreview: true,      // image files (SVG, PNG …): the picture next to the editor / hex view
 };
 
 export const SETTING_KEYS = Object.keys(SETTINGS_DEFAULTS);
