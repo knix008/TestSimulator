@@ -65,6 +65,9 @@ function createApi({ name = 'web', version = '', buildInfo = null, configDir, op
       const r = await files.read(p, { encoding: encoding || null, defaultEol: defaultEol || session.get().defaultEol });
       return { path: path.resolve(p), name: path.basename(p), ...r };
     },
+    // The hex view: a piece of a file as base64 (any size of file), and whether a file looks binary.
+    'file.readRange': async ({ path: p, offset, length }) => ({ path: path.resolve(p), name: path.basename(p), ...(await files.readRange(p, offset, length)) }),
+    'file.sniff': async ({ path: p }) => ({ path: path.resolve(p), name: path.basename(p), ...(await files.sniff(p)) }),
     // `force` skips the lossy-encoding guard (the UI asked the user first).
     'file.write': async ({ path: p, text, encoding, eol, force }) => {
       if (!force && !enc.canEncode(text, encoding || 'utf8')) {

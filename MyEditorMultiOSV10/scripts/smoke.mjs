@@ -120,6 +120,7 @@ function seed() {
   fs.writeFileSync(path.join(work, 'notes.txt'), 'first line\r\nsecond line\r\n한글 메모\r\n', 'utf-8');
   fs.writeFileSync(path.join(work, 'legacy.txt'), Buffer.from([0xbe, 0xc8, 0xb3, 0xe7, 0x20, 0x45, 0x55, 0x43, 0x2d, 0x4b, 0x52, 0x0a]));   // "안녕 EUC-KR\n" in CP949
   fs.writeFileSync(path.join(work, 'data.json'), JSON.stringify({ name: 'smoke', ok: true, list: [1, 2, 3] }, null, 2));
+  if (opt('scenario') === 'hex_big') { const big = Buffer.alloc(200 * 1024 * 1024); for (let i = 0; i < big.length; i += 4096) big.writeUInt32LE(i, i); fs.writeFileSync(path.join(work, 'big.bin'), big); }   // 200 MB, the offset written every 4 KB
 }
 
 function seedProfile(name) {
@@ -127,7 +128,7 @@ function seedProfile(name) {
   fs.rmSync(profile, { recursive: true, force: true, maxRetries: 3, retryDelay: 200 });
   fs.mkdirSync(profile, { recursive: true });
   fs.writeFileSync(path.join(profile, 'session.json'), JSON.stringify({
-    language: opt('lang') || 'ko', theme: opt('theme') || 'midnight', folder: work, sidebarVisible: true,
+    language: opt('lang') || 'ko', theme: opt('theme') || 'midnight', folder: work, sidebarVisible: true, ...(opt('font') ? { fontFamily: opt('font') } : {}),
     tabs: [
       { path: path.join(work, 'src', 'app.js'), cursor: { anchor: 120, head: 120 } },
       { path: path.join(work, 'docs', 'README.md') },
@@ -173,6 +174,80 @@ const SCENARIOS = {
   goto: `(async () => { ${PRELUDE} window.__med.action('gotoLine'); await wait(200); return document.querySelector('.dlg-title span').textContent; })()`,
   settings: `(async () => { ${PRELUDE} window.__med.action('settings'); await wait(200); return 'settings'; })()`,
   about: `(async () => { ${PRELUDE} window.__med.action('about'); await wait(200); return 'about'; })()`,
+  // A binary file opens in the hex view: offset · bytes · text, PNG signature in the first row, a click selects a byte.
+  hex: `(async () => { ${PRELUDE} await window.__med.openPath(window.__med.state.folder + '/docs/logo.png'); await wait(600);
+    const v = document.querySelector('.hex-view'); if (!v) throw new Error('no hex view');
+    const row = v.querySelector('.hex-row'); const off = row.querySelector('.hex-off').textContent; const hex = Array.from(row.querySelectorAll('.hx')).map((e) => e.textContent).join(' ');
+    if (!hex.startsWith('89 50 4E 47 0D 0A 1A 0A')) throw new Error('not a PNG header: ' + hex);
+    row.querySelectorAll('.hx')[1].dispatchEvent(new MouseEvent('mousedown', { bubbles: true })); await wait(100);
+    const foot = v.querySelector('.hex-foot').textContent;
+    const doc = window.__med.state.docs.find((d) => d.name === 'logo.png');
+    // whatever the editor font, the view is monospace and every row's columns start at the same x
+    const font = getComputedStyle(v.querySelector('.hx')).fontFamily, editorFont = window.__med.state.settings.fontFamily || '(default)';
+    const xs = Array.from(v.querySelectorAll('.hex-row')).map((r) => ['.hex-off', '.hex-bytes', '.hex-ascii'].map((c) => Math.round(r.querySelector(c).getBoundingClientRect().left)).join(','));
+    if (new Set(xs).size !== 1) throw new Error('columns drift: ' + [...new Set(xs)].join(' | '));
+    return JSON.stringify({ off, hex: hex.slice(0, 23), sel: v.querySelectorAll('.sel').length, foot, kind: doc && doc.kind, readonly: doc && doc.readonly, rows: v.querySelectorAll('.hex-row').length, font, editorFont, columnsAt: xs[0] });
+  })()`,
+  hex_big: `(async () => { ${PRELUDE} const t0 = Date.now(); await window.__med.openPath(window.__med.state.folder + '/big.bin'); await wait(600);
+    const err = document.querySelector('.dlg-title span'); if (err) throw new Error('dialog: ' + err.textContent + ' / ' + (document.querySelector('.dlg-body') || {}).textContent);
+    const v = document.querySelector('.hex-view'); if (!v) throw new Error('no hex view');
+    // to the very end: the last row must be the file's last 16 bytes, its offset word (written every 4 KB) readable
+    const sc = v.querySelector('.hex-scroll'); sc.scrollTop = sc.scrollHeight; await wait(800);
+    const all = Array.from(v.querySelectorAll('.hex-row')); const lastRow = all[all.length - 1]; const off = parseInt(lastRow.querySelector('.hex-off').textContent, 16);
+    const expectLast = Math.floor((200 * 1024 * 1024 - 1) / 16) * 16; if (off !== expectLast) throw new Error('last row is ' + off.toString(16) + ', expected ' + expectLast.toString(16));
+    const bytes = () => Array.from(lastRow.querySelectorAll('.hx')).map((e) => e.textContent); let tries = 0; while (bytes().includes('··') && tries++ < 20) await wait(100);
+    // then to the row 0x0C7FF000 (a 4 KB boundary: the word written there is 00 F0 7F 0C, little-endian)
+    const rowH = lastRow.getBoundingClientRect().height, rows = Math.ceil(200 * 1024 * 1024 / 16), fileH = rows * rowH + rowH - sc.clientHeight, maxTop = sc.scrollHeight - sc.clientHeight;
+    sc.scrollTop = (0x0C7FF000 / 16 * rowH) / fileH * maxTop; await wait(800);
+    let target = null; tries = 0; while (!target && tries++ < 20) { target = Array.from(v.querySelectorAll('.hex-row')).find((r) => parseInt(r.querySelector('.hex-off').textContent, 16) === 0x0C7FF000); if (!target) await wait(100); }
+    if (!target) throw new Error('row 0C7FF000 not shown; first is ' + v.querySelector('.hex-row').querySelector('.hex-off').textContent);
+    tries = 0; while (target.textContent.includes('··') && tries++ < 20) await wait(100);
+    const hex = Array.from(target.querySelectorAll('.hx')).slice(0, 4).map((e) => e.textContent).join(' ');
+    if (hex !== '00 F0 7F 0C') throw new Error('bytes at 0x0C7FF000: ' + hex);
+    return JSON.stringify({ ms: Date.now() - t0, rows: all.length, scrollHeight: sc.scrollHeight, lastOff: off.toString(16).toUpperCase(), hex });
+  })()`,
+  // The minimap: drawn for the active document; a click on its lower part moves the cursor down the document, a drag scrolls with the pointer, hovering does nothing.
+  minimap: `(async () => { ${PRELUDE} window.__med.setText(Array.from({ length: 400 }, (_, i) => 'function f' + i + '(a, b) { // line ' + i + '\\n  return a + b * ' + i + '; // "str"\\n}').join('\\n')); await wait(500);
+    const mm = document.querySelector('.pane.active .minimap'); if (!mm) throw new Error('no minimap');
+    const r = mm.getBoundingClientRect(); const before = window.__med.state.cursor.line;
+    mm.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, clientX: r.left + 10, clientY: r.top + r.height * 0.6, buttons: 1 })); window.dispatchEvent(new MouseEvent('mouseup', { bubbles: true })); await wait(300);
+    const after = window.__med.state.cursor.line; if (!(after > before + 100)) throw new Error('click did not move the cursor: ' + before + ' → ' + after);
+    const sd = document.querySelector('.pane.active .cm-scroller'); const st0 = sd.scrollTop;
+    mm.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, clientX: r.left + 10, clientY: r.top + 4, buttons: 0 })); await wait(300);
+    if (sd.scrollTop !== st0) throw new Error('hover scrolled: ' + st0 + ' → ' + sd.scrollTop);
+    // drag from the middle to the top: the editor scrolls up with the pointer, the cursor stays
+    mm.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, clientX: r.left + 10, clientY: r.top + r.height * 0.5, button: 0, buttons: 1 })); await wait(200);
+    const pressed = sd.scrollTop;
+    window.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, clientX: r.left + 10, clientY: r.top + 4, buttons: 1 })); await wait(300);
+    const dragged = sd.scrollTop; window.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, clientX: r.left + 10, clientY: r.top + 4 })); await wait(200);
+    if (!(dragged < pressed)) throw new Error('drag did not scroll up: ' + pressed + ' → ' + dragged);
+    if (window.__med.state.cursor.line !== after) throw new Error('drag moved the cursor');
+    const ctx = mm.getContext('2d'); const px = ctx.getImageData(0, 0, mm.width, mm.height).data; let painted = 0; for (let i = 3; i < px.length; i += 4) if (px[i]) painted++;
+    return JSON.stringify({ width: Math.round(r.width), height: Math.round(r.height), before, after, clickScroll: st0, pressScroll: pressed, dragScroll: dragged, paintedPixels: painted });
+  })()`,
+  // Markdown structure panel: opened from the bar, lists the headings as a tree; a click on a heading moves the cursor there.
+  outline: `(async () => { ${PRELUDE} const s = window.__med.state; const md = s.docs.find((d) => d.name === 'README.md'); window.__med.activate(md.id); await wait(300);
+    window.__med.setText('# Title\\n\\ntext\\n\\n## Part one\\n\\ntext\\n\\n### Detail A\\n\\n\`\`\`\\n# not a heading\\n\`\`\`\\n\\n## Part two\\n\\nSetext heading\\n--------------\\n\\ntext\\n'); await wait(300);
+    const btn = Array.from(document.querySelectorAll('.mdbar .md-toggle')).find((b) => b.textContent.includes('구조')); if (!btn) throw new Error('no structure button'); btn.click(); await wait(300);
+    const panel = document.querySelector('.md-outline'); if (!panel) throw new Error('no outline panel');
+    const rows = Array.from(panel.querySelectorAll('.tree-row')); const names = rows.map((r) => r.querySelector('.tree-name').textContent);
+    if (names.join('|') !== 'Title|Part one|Detail A|Part two|Setext heading') throw new Error('headings: ' + names.join('|'));
+    const depths = rows.map((r) => r.querySelectorAll('.guide').length);
+    rows[3].click(); await wait(200);
+    const line = window.__med.state.cursor.line; if (line !== 15) throw new Error('click went to line ' + line);
+    rows[1].querySelector('.tree-expander').click(); await wait(200);
+    const foldedNames = Array.from(panel.querySelectorAll('.tree-row .tree-name')).map((e) => e.textContent);
+    return JSON.stringify({ names, depths, line, active: rows[3].className.includes('active'), afterFold: foldedNames });
+  })()`,
+  // A split pane with nothing in it can be closed from its own "닫기": the split goes away.
+  close_pane: `(async () => { ${PRELUDE} window.__med.action('split:grid'); await wait(400);
+    // four documents fill the four panes; closing one of them (not dirty) leaves its pane empty
+    const notes = window.__med.state.docs.find((d) => d.name === 'notes.txt'); await window.__med.action('close', notes.id); await wait(400);
+    const empties = document.querySelectorAll('.pane-empty'); if (empties.length !== 1) throw new Error('expected 1 empty pane, got ' + empties.length);
+    const closeBtn = Array.from(empties[0].querySelectorAll('button')).find((b) => b.textContent.includes('닫기')); if (!closeBtn) throw new Error('no close button');
+    closeBtn.click(); await wait(400);
+    return JSON.stringify({ panes: window.__med.panes.length, split: window.__med.state.settings.split, emptiesNow: document.querySelectorAll('.pane-empty').length });
+  })()`,
   // The window shrunk as far as it goes: no toolbar / menu-bar control may be cut off (the minimum width follows the bars, src/lib/backend.js),
   // and switching the UI language must not change that width (the bars are as wide as their widest translation, components/Widest.jsx).
   min_width: `(async () => { ${PRELUDE} window.myEditor.setWindowSize(400, 600); await wait(800);

@@ -39,6 +39,7 @@ const GROUPS = [
   ],
   [
     { id: 'toggle:showWhitespace', icon: 'pilcrow', tip: 'tip_ws', toggle: 'showWhitespace' },
+    { id: 'toggleStructure', icon: 'minimap', tip: 'tip_structure', on: (st, state) => state.structureOn },   // the document's structure: the minimap, or the headings tree of a Markdown document
     { id: 'zoomIn', icon: 'zoomIn', tip: 'tip_zoom_in' },
     { label: 'zoom' },        // the zoom level; a click resets it
     { id: 'zoomOut', icon: 'zoomOut', tip: 'tip_zoom_out' },
@@ -87,7 +88,7 @@ export function Toolbar({ onAction, onSetting, settings, state }) {
         <React.Fragment key={gi}>
           {gi > 0 && <span className="tb-sep" />}
           {g.map((b) => b.label ? labels[b.label]() : (
-            <button key={b.id} className={`tool-btn ${(b.on ? b.on(settings) : b.toggle && settings[b.toggle]) ? 'on' : ''}`} title={(b.tipOf && b.tipOf(state)) || t(b.tip)} aria-label={t(b.tip)}
+            <button key={b.id} className={`tool-btn ${(b.on ? b.on(settings, state) : b.toggle && settings[b.toggle]) ? 'on' : ''}`} title={(b.tipOf && b.tipOf(state)) || t(b.tip)} aria-label={t(b.tip)}
               disabled={b.needs ? !state[b.needs] : false}
               onMouseDown={(e) => e.preventDefault()}   /* keep the editor focused */
               onClick={() => onAction(b.id)}>

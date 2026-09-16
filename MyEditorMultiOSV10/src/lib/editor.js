@@ -11,7 +11,7 @@ import { defaultKeymap, history, historyKeymap, indentWithTab, undo, redo, selec
 import { foldGutter, foldKeymap, indentOnInput, bracketMatching, syntaxHighlighting, HighlightStyle, indentUnit, foldAll, unfoldAll, defaultHighlightStyle } from '@codemirror/language';
 import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete';
 import { search, highlightSelectionMatches, SearchQuery, setSearchQuery, getSearchQuery, findNext, findPrevious, replaceNext, replaceAll, selectMatches, openSearchPanel, closeSearchPanel } from '@codemirror/search';
-import { tags as t } from '@lezer/highlight';
+import { tags as t, tagHighlighter } from '@lezer/highlight';
 import { spellChecker } from './spell';
 import { lintExtension } from './lint';
 
@@ -33,7 +33,7 @@ export const comp = {
 };
 
 // ── Syntax colours → CSS variables set by src/themes.js ──
-const highlight = HighlightStyle.define([
+const SYNTAX_SPECS = [
   { tag: [t.keyword, t.modifier, t.operatorKeyword, t.controlKeyword, t.definitionKeyword, t.moduleKeyword], color: 'var(--syn-keyword)' },
   { tag: [t.string, t.special(t.string), t.character, t.docString], color: 'var(--syn-string)' },
   { tag: [t.number, t.integer, t.float, t.bool, t.null, t.atom, t.literal], color: 'var(--syn-number)' },
@@ -63,7 +63,10 @@ const highlight = HighlightStyle.define([
   { tag: [t.deleted], color: 'var(--danger)' },
   { tag: [t.changed], color: 'var(--syn-number)' },
   { tag: [t.self, t.constant(t.variableName), t.constant(t.name)], color: 'var(--syn-constant)' },
-]);
+];
+const highlight = HighlightStyle.define(SYNTAX_SPECS);
+// The same colours for the minimap (components/Minimap.jsx): a highlighter whose "class" is the CSS variable of the colour.
+export const minimapHighlighter = tagHighlighter(SYNTAX_SPECS.filter((s) => s.color && s.color.startsWith('var(')).flatMap((s) => (Array.isArray(s.tag) ? s.tag : [s.tag]).map((tag) => ({ tag, class: s.color.slice(4, -1) }))));
 
 // The editor chrome. `&` is the .cm-editor element.
 const editorTheme = EditorView.theme({

@@ -39,11 +39,13 @@ const DEFAULTS = {
   toolbarVisible: true,
   statusBarVisible: true,
   mdPreview: false,        // Markdown live preview pane
+  mdOutline: false,        // Markdown structure panel (the headings as a tree)
   mdWysiwyg: true,         // Markdown rendered in place while editing
   spellCheck: true,        // English spell checking (bundled en_US dictionary)
   spellCodeAll: false,     // in code files check every word, not only comments / strings
   autoIndent: true,        // Enter keeps the indentation; Tab inserts spaces (insertSpaces) or a tab, tabSize wide
   lint: true,              // run the language's checker in the background and mark its findings
+  minimap: true,           // the document drawn small at the right edge of the editor (click / hover to go there)
   formatters: {},          // language name → formatter id ('auto' = first installed, 'indent' = editor re-indent only, 'none')
   formatOnSave: false,     // format the document before every save
   split: 'none',           // editor panes: none · cols · rows · grid

@@ -9,6 +9,7 @@ import { Dialog, ConfirmDialog } from './Dialogs';
 import { InstallDialog } from './InstallDialog';
 import { isElectron, nativeDialog, call } from '../lib/backend';
 import { toolLabel } from '../lib/formatters';
+import { resetPatch } from '../lib/settings';
 
 function Check({ id, label, settings, onChange }) {
   return (
@@ -33,6 +34,7 @@ export function SettingsDialog({ settings, encodings, shells = [], formatDir = '
   const [job, setJob] = useState(null);        // { tool, id } while a tool is being (re)installed from here
   const [installMsg, setInstallMsg] = useState(null);
   const [askReinstall, setAskReinstall] = useState(null);   // { lang, tool } — the tool is installed already: the user decides
+  const [askReset, setAskReset] = useState(false);          // 기본값으로 되돌리기 asked
   // (Re)installs the tool chosen for a language. An installed one is only
   // replaced when the user chooses so (remove + fresh install).
   const installTool = async (lang, decided = null) => {
@@ -57,7 +59,7 @@ export function SettingsDialog({ settings, encodings, shells = [], formatDir = '
   const browseTermCwd = async () => { try { const p = await nativeDialog('openFolder', { defaultPath: settings.termCwd || undefined }); if (p) onChange({ termCwd: p }); } catch { /* cancelled */ } };
   return (
     <Dialog modal={false} embedded={embedded} title={t('settings_title')} icon="settings" kind="info" className="settings" width={780} onClose={onClose} onEnter={onClose}
-      footer={<button className="btn primary" onClick={onClose}>{t('ok')}</button>}>
+      footer={<><button className="btn" onClick={() => setAskReset(true)} title={t('set_reset_tip')}>{t('set_reset')}</button><span className="spacer" /><button className="btn primary" onClick={onClose}>{t('ok')}</button></>}>
       <div className="settings-tabs">
         {tabs.map(([id, label]) => <button key={id} className={`settings-tab ${tab === id ? 'active' : ''}`} onClick={() => setTab(id)}>{label}</button>)}
       </div>
@@ -103,6 +105,7 @@ export function SettingsDialog({ settings, encodings, shells = [], formatDir = '
           </span>
           <label />
           <Check id="wordWrap" label={t('set_word_wrap')} settings={settings} onChange={onChange} />
+          <Check id="minimap" label={t('set_minimap')} settings={settings} onChange={onChange} />
           <label />
           <Check id="lineNumbers" label={t('set_line_numbers')} settings={settings} onChange={onChange} />
           <label />
@@ -170,6 +173,11 @@ export function SettingsDialog({ settings, encodings, shells = [], formatDir = '
         <ConfirmDialog title={t('inst_already_title', { tool: askReinstall.tool.id })} message={t('inst_already_msg', { tool: askReinstall.tool.id })} icon="download" kind="info"
           buttons={[{ id: 'reinstall', label: t('inst_already_reinstall'), kind: 'primary' }, { id: 'keep', label: t('inst_already_keep') }, { id: 'cancel', label: t('cancel') }]}
           onResult={(r) => { const a = askReinstall; setAskReinstall(null); if (r === 'reinstall' || r === 'keep') installTool(a.lang, r); }} />
+      )}
+      {askReset && (
+        <ConfirmDialog title={t('set_reset_title')} message={t('set_reset_msg')} icon="refresh" kind="info"
+          buttons={[{ id: 'yes', label: t('set_reset_yes'), kind: 'primary' }, { id: 'cancel', label: t('cancel') }]}
+          onResult={(r) => { setAskReset(false); if (r === 'yes') onChange(resetPatch()); }} />
       )}
       {job && <InstallDialog tool={job.tool} jobId={job.id} onResult={() => { setJob(null); setRescan(true); setTools(null); }} />}
       {tab === 'terminal' && (

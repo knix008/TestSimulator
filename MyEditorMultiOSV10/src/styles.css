@@ -130,6 +130,29 @@ button:disabled { cursor: default; opacity: 0.45; }
 .tb-formatter.missing { color: var(--danger); }
 .tb-zoom { min-width: 44px; justify-content: center; font-variant-numeric: tabular-nums; }
 
+/* ── Hex view (binary documents) ── */
+/* Always the default monospace font, whatever the editor font is set to, and every column a fixed number of character cells: the columns start at the same x on every row. */
+.hex-view { position: absolute; inset: 0; z-index: 2; display: flex; flex-direction: column; background: var(--bg); color: var(--fg); font-family: var(--mono); font-variant-ligatures: none; }
+.hex-head { display: flex; align-items: center; gap: 8px; padding: 4px 10px; border-bottom: 1px solid var(--border); background: var(--bg-panel); font-family: system-ui, sans-serif; font-size: 12px; min-height: 30px; }
+.hex-head .hex-name { font-weight: 600; max-width: 40%; }
+.hex-scroll { flex: 1; min-height: 0; overflow: auto; position: relative; outline: none; }
+.hex-cols { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; gap: 0; padding: 0 12px; background: var(--bg-panel); border-bottom: 1px solid var(--border); color: var(--fg-muted); white-space: pre; }
+.hex-body { position: relative; }
+.hex-row { position: absolute; left: 0; right: 0; display: flex; align-items: center; padding: 0 12px; white-space: pre; line-height: 1; }
+.hex-row:hover { background: var(--bg-hover); }
+.hex-off { color: var(--fg-muted); margin-right: 20px; flex: none; overflow: hidden; }   /* a fixed number of columns: the bytes never shift */
+.hex-bytes { display: inline-flex; flex: none; width: calc(32ch + 16 * 6px + 8px); margin-right: 20px; }
+.hex-bytes .hx { width: calc(2ch + 6px); flex: none; padding: 0 3px; border-radius: 2px; text-align: center; }   /* border-box: the padding is inside the width */
+.hex-bytes .hx:nth-child(8) { margin-right: 8px; }
+.hex-bytes .hx.nul { color: var(--fg-muted); }
+.hex-bytes .hx.wait { color: var(--border-strong); }
+.hex-ascii { display: inline-flex; flex: none; width: 16ch; }
+.hex-ascii .hc { width: 1ch; flex: none; text-align: center; border-radius: 2px; }
+.hex-ascii .hc.np { color: var(--fg-muted); }
+.hex-row .sel { background: var(--bg-sel); color: var(--fg); outline: 1px solid color-mix(in srgb, var(--accent) 60%, transparent); }
+.hex-empty { padding: 20px; }
+.hex-foot { padding: 3px 12px; border-top: 1px solid var(--border); background: var(--bg-panel); font-family: system-ui, sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
 /* ── Tabs ── */
 .tabbar { display: flex; align-items: stretch; border-bottom: 1px solid var(--border); background: var(--bg-panel); flex: none; min-height: 34px; }
 /* No scrollbar: the strip scrolls with the "<" / ">" buttons (and the wheel). */
@@ -191,6 +214,7 @@ button:disabled { cursor: default; opacity: 0.45; }
 .panes.cols { grid-template-columns: 1fr 1fr; }
 .panes.rows { grid-template-rows: 1fr 1fr; }
 .panes.grid { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
+.panes.grid > .pane:nth-child(3):last-child { grid-column: 1 / -1; }   /* three panes (one closed): the last spans the bottom row */
 .pane { min-width: 0; min-height: 0; display: flex; flex-direction: column; background: var(--bg); position: relative; }
 .pane-head { display: flex; align-items: center; gap: 4px; padding: 0 4px 0 8px; min-height: 26px; font-size: 12px; border-bottom: 1px solid var(--border); background: var(--bg-elev); color: var(--fg-muted); }
 .pane.active .pane-head { color: var(--fg); box-shadow: inset 0 2px 0 var(--accent); }
@@ -198,7 +222,11 @@ button:disabled { cursor: default; opacity: 0.45; }
 .pane-title:hover { background: var(--bg-hover); }
 .pane-head .spacer { flex: 1; }
 .editor-pane { flex: 1; min-width: 0; min-height: 0; position: relative; display: flex; flex-direction: column; }
-.cm-host { flex: 1; min-height: 0; }
+.editor-body { flex: 1; min-height: 0; display: flex; }
+.cm-host { flex: 1; min-width: 0; min-height: 0; }
+/* the minimap: right of the editor's scrollbar, the document drawn small (components/Minimap.jsx) */
+.minimap { flex: none; width: 96px; height: 100%; background: var(--bg); border-left: 1px solid var(--border); cursor: pointer; display: block; }
+.minimap:hover { background: color-mix(in srgb, var(--fg) 3%, var(--bg)); }
 .cm-host .cm-editor { height: 100%; }
 .editor-pane.drag-over::after { content: ''; position: absolute; inset: 0; border: 2px dashed var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent); pointer-events: none; }
 .editor-pane .cm-content, .editor-pane .cm-line { user-select: text; }
@@ -292,6 +320,15 @@ button:disabled { cursor: default; opacity: 0.45; }
 .tree-err { color: var(--danger); display: inline-flex; }
 .ic-folder { color: var(--folder); flex: none; }
 .ic-file { color: var(--file); flex: none; }
+/* Markdown structure panel: the headings as a tree, drawn with the folder tree's rows */
+.md-outline { flex: none; width: 260px; min-width: 160px; display: flex; flex-direction: column; background: var(--bg-panel); border-left: 1px solid var(--border); }
+.md-outline-head { display: flex; align-items: center; gap: 6px; padding: 4px 6px 4px 10px; border-bottom: 1px solid var(--border); font-size: 12px; font-weight: 600; min-height: 30px; }
+.md-outline-list { flex: 1; min-height: 0; overflow: auto; padding: 4px 0; }
+.md-outline-empty { padding: 12px; }
+.md-outline .tree-row { cursor: pointer; }
+.md-outline-level { flex: none; font-size: 10px; font-weight: 700; color: var(--accent); width: 20px; text-align: center; align-self: center; border-radius: 3px; background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.md-outline-level.l1 { color: var(--syn-heading, var(--accent)); }
+.pane-empty-btns { display: flex; gap: 8px; }
 .v-splitter { width: 5px; cursor: col-resize; flex: none; background: transparent; margin-left: -2px; z-index: 1; }
 .v-splitter:hover { background: color-mix(in srgb, var(--accent) 45%, transparent); }
 

@@ -14,6 +14,7 @@ export const SETTINGS_DEFAULTS = {
   autoCloseBrackets: true,
   bracketMatching: true,
   foldGutter: true,
+  minimap: true,
   defaultEncoding: 'utf8',
   defaultEol: 'lf',
   trimTrailingOnSave: false,
@@ -28,6 +29,7 @@ export const SETTINGS_DEFAULTS = {
   toolbarVisible: true,
   statusBarVisible: true,
   mdPreview: false,
+  mdOutline: false,
   mdWysiwyg: true,
   spellCheck: true,
   spellCodeAll: false,
@@ -37,13 +39,24 @@ export const SETTINGS_DEFAULTS = {
   formatOnSave: false,
   split: 'none',
   termVisible: false,
-  termHeight: 180,
+  termHeight: 150,
   termCwd: '',
   termShell: '',
   mdPreviewWidth: 0.5,
 };
 
 export const SETTING_KEYS = Object.keys(SETTINGS_DEFAULTS);
+
+// What the Settings dialog's "기본값으로 되돌리기" resets: the preferences the
+// dialog edits. Not the UI language (chosen with the flag, a surprise to lose)
+// and not the window layout (sidebar, panes, terminal…, set from the View menu).
+export const RESET_KEYS = [
+  'theme', 'fontFamily', 'fontSize', 'tabSize', 'insertSpaces', 'wordWrap', 'lineNumbers', 'showWhitespace', 'highlightActiveLine',
+  'autoCloseBrackets', 'bracketMatching', 'foldGutter', 'minimap', 'defaultEncoding', 'defaultEol', 'trimTrailingOnSave', 'finalNewlineOnSave',
+  'restoreSession', 'reloadChangedFiles', 'confirmClose', 'mdWysiwyg', 'spellCheck', 'spellCodeAll', 'autoIndent', 'lint',
+  'formatters', 'formatOnSave', 'termCwd', 'termShell',
+];
+export const resetPatch = () => Object.fromEntries(RESET_KEYS.map((k) => [k, Array.isArray(SETTINGS_DEFAULTS[k]) ? [] : typeof SETTINGS_DEFAULTS[k] === 'object' && SETTINGS_DEFAULTS[k] ? {} : SETTINGS_DEFAULTS[k]]));
 
 export function pickSettings(obj) {
   const out = {};

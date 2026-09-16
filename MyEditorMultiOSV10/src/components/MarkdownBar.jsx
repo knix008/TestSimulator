@@ -1,7 +1,8 @@
 // Markdown formatting toolbar, shown above the editor while a Markdown
 // document is active: H1–H6, bold / italic / strikethrough / code, code
 // block, quote, lists, link / image / table / rule, the WYSIWYG toggle
-// (rendered in place — src/lib/mdlive.js) and the preview-pane toggle.
+// (rendered in place — src/lib/mdlive.js), the structure-panel toggle
+// (the headings as a tree — Outline.jsx) and the preview-pane toggle.
 // Each button applies the Markdown syntax to the selection (or toggles it
 // off again) — see src/lib/markdown.js.
 import React from 'react';
@@ -32,7 +33,7 @@ const GROUPS = [
   ],
 ];
 
-export function MarkdownBar({ onAction, preview, wysiwyg }) {
+export function MarkdownBar({ onAction, preview, outline, wysiwyg }) {
   useLanguage();
   const tip = (b) => `${t(b.tip)}${b.shortcut ? ` (${b.shortcut})` : ''}`;
   return (
@@ -57,6 +58,9 @@ export function MarkdownBar({ onAction, preview, wysiwyg }) {
       <span className="spacer" />
       <button className={`md-btn md-toggle ${wysiwyg ? 'on' : ''}`} title={`${t('md_wysiwyg')} (Ctrl+Shift+W)`} onMouseDown={(e) => e.preventDefault()} onClick={() => onAction('toggle:mdWysiwyg')}>
         <Icon name="text" size={16} /><span>{wysiwyg ? 'WYSIWYG' : t('md_source')}</span>
+      </button>
+      <button className={`md-btn md-toggle ${outline ? 'on' : ''}`} title={t('md_outline_tip')} onMouseDown={(e) => e.preventDefault()} onClick={() => onAction('toggle:mdOutline')}>
+        <Icon name="listTree" size={16} /><span>{t('md_outline')}</span>
       </button>
       <button className={`md-btn md-toggle ${preview ? 'on' : ''}`} title={`${t('md_preview')} (Ctrl+Shift+M)`} onMouseDown={(e) => e.preventDefault()} onClick={() => onAction('toggle:mdPreview')}>
         <Icon name="eye" size={16} /><span>{t('md_preview')}</span>

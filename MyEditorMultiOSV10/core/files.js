@@ -39,6 +39,30 @@ async function read(p, { encoding = null, defaultEol = 'lf' } = {}) {
   return { text: d.text, encoding: d.encoding, eol: d.eol, size: st.size, mtime: st.mtimeMs, readonly: !(await writable(p)) };
 }
 
+// The hex view reads a file in pieces, so its size does not matter (no
+// MAX_FILE here): readRange gives `length` bytes from `offset` as base64,
+// sniff says whether the file looks binary from its first 64 KB (for a file
+// too big to open as text: binary → hex view, text → refused as before).
+const MAX_RANGE = 4 * 1024 * 1024;
+async function readRange(p, offset = 0, length = 65536) {
+  const st = await fsp.stat(p);
+  if (st.isDirectory()) throw err('EISDIR', `Not a file: ${p}`, { path: p });
+  const start = Math.max(0, Math.min(Number(offset) || 0, st.size));
+  const len = Math.max(0, Math.min(Number(length) || 0, MAX_RANGE, st.size - start));
+  const buf = Buffer.alloc(len);
+  let read = 0;
+  if (len) {
+    const fh = await fsp.open(p, 'r');
+    try { read = (await fh.read(buf, 0, len, start)).bytesRead; } finally { await fh.close(); }
+  }
+  return { base64: buf.subarray(0, read).toString('base64'), offset: start, size: st.size, mtime: st.mtimeMs, readonly: !(await writable(p)) };
+}
+async function sniff(p) {
+  const r = await readRange(p, 0, 65536);
+  const d = enc.decode(Buffer.from(r.base64, 'base64'));
+  return { binary: !!d.binary, size: r.size, mtime: r.mtime, readonly: r.readonly };
+}
+
 // Writes atomically (temp file + rename) so a crash never leaves a half file.
 // Returns the new stat so the caller can track external modifications.
 async function write(p, text, { encoding = 'utf8', eol = 'lf' } = {}) {
@@ -158,4 +182,4 @@ async function writeDataUrl(p, url) {
   return { path: path.resolve(p), size: buf.length };
 }
 
-module.exports = { stat, read, write, list, drives, mkdir, rename, remove, exists, openExternal, dataUrl, writeDataUrl, MAX_FILE, homedir: () => os.homedir() };
+module.exports = { stat, read, readRange, sniff, write, list, drives, mkdir, rename, remove, exists, openExternal, dataUrl, writeDataUrl, MAX_FILE, homedir: () => os.homedir() };

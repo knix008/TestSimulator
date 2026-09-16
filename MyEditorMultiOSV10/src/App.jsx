@@ -23,6 +23,8 @@ import { createState, settingsEffects, languageEffect, readOnlyEffect, commands,
 import { detectLanguage, languageByName, loadLanguage, FEATURED_LANGUAGES, PLAIN } from './lib/languages';
 import { commands as md } from './lib/markdown';
 import { resolveFormatter, toolLabel } from './lib/formatters';
+import { HexView } from './components/HexView';
+import { Outline } from './components/Outline';
 import { markdownLive, imageBase } from './lib/mdlive';
 import { fileToDataUrl, isImageFile, resolveImageSrc, analyzeImage, encodeImage } from './lib/images';
 import { renderMarkdown } from './lib/markdown';
@@ -74,6 +76,7 @@ export default function App() {
   const viewRef = useRef(null);
   const [view, setView] = useState(null);
   const statesRef = useRef(new Map());     // id → EditorState of docs not shown in a pane
+  const hexRef = useRef(new Map());        // id → read(offset, length) of a binary document (kind 'hex'; its editor state stays empty)
   // Split view: one or more panes (보기 › 편집 창 나누기), each showing one
   // document; the active pane is the one the tab bar, find bar and preview
   // follow, and viewRef is its view. A document is shown in at most one pane.
@@ -555,6 +558,22 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
     }
     changeSettings({ split: mode });
   };
+  // Closes one pane of a split (an empty one, from its "닫기"): the others stay as they are; the
+  // layout follows the count — one pane left → no split, two → columns, three → the grid with the last spanning.
+  const closePane = (i) => {
+    const cur = panesRef.current;
+    if (cur.length < 2 || !cur[i]) return;
+    const gone = cur[i];
+    const v = paneViews.current.get(gone.key);
+    if (v && gone.docId != null && getDoc(gone.docId)) statesRef.current.set(gone.docId, v.state);
+    const next = cur.filter((_, j) => j !== i).map((p) => ({ ...p }));
+    panesRef.current = next;
+    setPanes(next);
+    const mode = next.length === 1 ? 'none' : next.length === 2 ? (settingsRef.current.split === 'rows' ? 'rows' : 'cols') : 'grid';
+    const ai = Math.min(activePaneRef.current <= i ? activePaneRef.current : activePaneRef.current - 1, next.length - 1);
+    focusPane(Math.max(0, ai), { focus: false });
+    changeSettings({ split: mode });
+  };
   const nextPane = () => { const n = panesRef.current.length; if (n > 1) focusPane((activePaneRef.current + 1) % n); };
 
   const addDoc = (meta, text, { activateIt = true, dirty = false, selection } = {}) => {
@@ -580,7 +599,7 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
     const set = new Set(ids);
     const remaining = docsRef.current.filter((d) => !set.has(d.id));
     const idx = docsRef.current.findIndex((d) => d.id === activeIdRef.current);
-    for (const id of ids) { statesRef.current.delete(id); savedRef.current.delete(id); checkedRef.current.delete(id); }
+    for (const id of ids) { statesRef.current.delete(id); savedRef.current.delete(id); checkedRef.current.delete(id); hexRef.current.delete(id); }
     setDocs(remaining);
     // Other panes showing a removed document get one nobody shows, or go empty.
     const shown = new Set(panesRef.current.map((p) => p.docId));
@@ -653,16 +672,48 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
       return doc;
     } catch (e) {
       const name = baseName(p);
-      if (e.code === 'ETOOBIG') await showError(t('too_big_title'), t('too_big_msg', { name }), e);
-      else if (e.code === 'EBINARY' && !force) {
-        const r = await confirm(t('binary_title'), t('binary_msg', { name }), [{ id: 'yes', label: t('yes'), kind: 'primary' }, { id: 'cancel', label: t('cancel') }], { icon: 'warning', kind: 'danger' });
-        if (r === 'yes') return openPath(p, { encoding, activateIt, force: true });
-      } else {
+      if (e.code === 'ETOOBIG') {
+        // Too big for the editor — but the hex view reads in pieces, so a binary file of any size opens there.
+        let s = null;
+        try { s = await call('file.sniff', { path: p }); } catch { s = null; }
+        if (s && s.binary && !force) return openHex(p, { activateIt });
+        await showError(t('too_big_title'), t('too_big_msg', { name }), e);
+      } else if (e.code === 'EBINARY' && !force) return openHex(p, { activateIt });
+      else {
         if (e.code === 'ENOENT') call('recent.remove', { path: p }).then(setRecent).catch(() => {});
         await showError(t('error_title'), t('open_failed', { name }), e);
       }
       return null;
     }
+  };
+
+  // A file that is not text: shown as a hex dump (components/HexView.jsx)
+  // in a read-only document whose editor state stays empty. The view fetches
+  // the bytes it shows through file.readRange (hexRef holds the reader), so
+  // the file's size does not matter. "텍스트로 열기" in its header reopens it as text.
+  const decodeBase64 = (b64) => { const bin = atob(b64); const out = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i); return out; };
+  const hexReader = (path) => async (offset, length) => decodeBase64((await call('file.readRange', { path, offset, length })).base64);
+  const openHex = async (p, { activateIt = true } = {}) => {
+    try {
+      const r = await call('file.readRange', { path: p, offset: 0, length: 0 });   // the resolved path, size and mtime
+      const existing = docsRef.current.find((d) => samePath(d.path, r.path));
+      if (existing) { if (activateIt) activate(existing.id); return existing; }
+      const id = nextDocId;   // addDoc takes the next id: the reader must be there before the first render
+      hexRef.current.set(id, hexReader(r.path));
+      const doc = addDoc({ path: r.path, name: r.name, kind: 'hex', language: PLAIN, mtime: r.mtime, size: r.size, readonly: true }, '', { activateIt });
+      call('recent.touch', { path: r.path }).then(setRecent).catch(() => {});
+      setMessage(t('hex_opened', { name: r.name }));
+      return doc;
+    } catch (e) {
+      await showError(t('error_title'), t('open_failed', { name: baseName(p) }), e);
+      return null;
+    }
+  };
+  const hexAsText = async (id) => {
+    const doc = getDoc(id);
+    if (!doc || !doc.path) return;
+    removeDocs([id]);
+    await openPath(doc.path, { force: true });
   };
 
   const openFiles = async (paths) => {
@@ -686,6 +737,7 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
   const saveDoc = async (id, { as = false, encoding = null } = {}) => {
     const doc = getDoc(id);
     if (!doc) return false;
+    if (doc.kind === 'hex') { setMessage(t('hex_readonly')); return false; }
     let target = doc.path;
     if (as || !target) {
       const f = folderRef.current, sep = (infoRef.current && infoRef.current.sep) || '/';
@@ -771,6 +823,11 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
   const reloadDoc = async (id, { encoding = null, keepSelection = true } = {}) => {
     const doc = getDoc(id);
     if (!doc || !doc.path) return;
+    if (doc.kind === 'hex') {
+      try { const r = await call('file.readRange', { path: doc.path, offset: 0, length: 0 }); patchDoc(id, { mtime: r.mtime, size: r.size, readonly: true, dirty: false, missing: false }); checkedRef.current.set(id, Date.now()); }   // the view refetches: its cache is keyed by mtime / size
+      catch (e) { await showError(t('error_title'), t('open_failed', { name: doc.name }), e); }
+      return;
+    }
     try {
       const r = await call('file.read', { path: doc.path, encoding: encoding || doc.encoding, defaultEol: settingsRef.current.defaultEol });
       const old = getState(id);
@@ -796,7 +853,7 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
       const st = await call('file.stat', { path: doc.path });
       const cur = getDoc(id);
       if (!cur) return;
-      if (cur.readonly !== st.readonly) { patchDoc(id, { readonly: st.readonly }); dispatchTo(id, { effects: readOnlyEffect(st.readonly) }); }
+      if (cur.kind !== 'hex' && cur.readonly !== st.readonly) { patchDoc(id, { readonly: st.readonly }); dispatchTo(id, { effects: readOnlyEffect(st.readonly) }); }
       if (Math.abs(st.mtime - cur.mtime) < 1 && st.size === cur.size) return;
       if (!cur.dirty && settingsRef.current.reloadChangedFiles) { await reloadDoc(id); return; }
       patchDoc(id, { mtime: st.mtime, size: st.size });   // ask once per change
@@ -1084,6 +1141,7 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
     if (id.startsWith('md:heading:')) return withView((vw) => md.heading(vw, Number(id.slice(11))));
     if (id === 'md:image') { setDialog({ type: 'mdImage' }); return undefined; }
     if (id.startsWith('split:')) { setSplit(id.slice(6)); return undefined; }
+    if (id === 'toggleStructure') { const d = getDoc(activeIdRef.current); toggleSetting(d && d.langName === 'Markdown' ? 'mdOutline' : 'minimap'); return undefined; }   // toolbar: the minimap, or a Markdown document's structure panel
     if (id === 'toggleSplit') { setSplit(settingsRef.current.split === 'none' ? 'cols' : 'none'); return undefined; }
     if (id === 'nextPane') { nextPane(); return undefined; }
     if (id === 'lintPanel') return withView((vw) => openLintPanel(vw));
@@ -1290,7 +1348,7 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
   // 문서 정렬 (toolbar button + menu item): the formatter the active document
   // gets, and whether there is anything for it to do.
   const curState = cur ? getState(cur.id) : null;
-  const fmtInfo = cur ? resolveFormatter({ lang: cur.langName, settings, tools: fmtTools }) : null;
+  const fmtInfo = cur && cur.kind !== 'hex' ? resolveFormatter({ lang: cur.langName, settings, tools: fmtTools }) : null;
   const fmtEmpty = !curState || curState.doc.length === 0;
   const fmtDone = !!(fmtCheck && cur && curState && fmtCheck.id === cur.id && fmtCheck.doc === curState.doc && fmtCheck.formatted);
   const canFormat = !!cur && !fmtEmpty && !(fmtInfo && fmtInfo.off) && !fmtDone;
@@ -1384,6 +1442,7 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
       { id: 'toggle:autoIndent', icon: 'autoIndent', label: t('auto_indent'), checked: settings.autoIndent },
       { id: 'toggle:wordWrap', icon: 'wrap', label: t('word_wrap'), checked: settings.wordWrap },
       { id: 'toggle:lineNumbers', icon: 'listOrdered', label: t('line_numbers'), checked: settings.lineNumbers },
+      { id: 'toggle:minimap', icon: 'minimap', label: t('minimap'), checked: settings.minimap },
       { id: 'toggle:showWhitespace', icon: 'pilcrow', label: t('show_ws'), checked: settings.showWhitespace },
       { id: 'toggle:highlightActiveLine', icon: 'activeLine', label: t('active_line'), checked: settings.highlightActiveLine },
       { id: 'toggle:foldGutter', icon: 'foldGutter', label: t('fold_gutter'), checked: settings.foldGutter },
@@ -1404,6 +1463,7 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
       { id: 'nextPane', icon: 'nextPane', label: t('next_pane'), shortcut: 'F6', disabled: settings.split === 'none' },
       { id: 'toggle:mdWysiwyg', icon: 'eye', label: t('md_wysiwyg_menu'), checked: settings.mdWysiwyg, shortcut: sc('Ctrl+Shift+W'), disabled: !cur || cur.langName !== 'Markdown' },
       { id: 'toggle:mdPreview', icon: 'splitView', label: t('md_preview_menu'), checked: settings.mdPreview, shortcut: sc('Ctrl+Shift+M'), disabled: !cur || cur.langName !== 'Markdown' },
+      { id: 'toggle:mdOutline', icon: 'listTree', label: t('md_outline_menu'), checked: settings.mdOutline, disabled: !cur || cur.langName !== 'Markdown' },
       { id: 'toggle:toolbarVisible', icon: 'toolbar', label: t('toolbar'), checked: settings.toolbarVisible },
       { id: 'toggle:statusBarVisible', icon: 'statusbar', label: t('statusbar'), checked: settings.statusBarVisible },
       { id: 'toggleTerminal', label: t('terminal'), icon: 'terminal', checked: settings.termVisible, shortcut: sc('Ctrl+`') },
@@ -1571,7 +1631,7 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
 
   const openPaths = useMemo(() => new Set(docs.map((d) => d.path).filter(Boolean)), [docs]);
   const isMarkdown = !!cur && cur.langName === 'Markdown';
-  const toolbarState = { dirty: !!cur && cur.dirty, anyDirty: docs.some((d) => d.dirty), canFormat, formatter: fmtInfo, formatterItems, formatTip, zoom };
+  const toolbarState = { dirty: !!cur && cur.dirty, anyDirty: docs.some((d) => d.dirty), canFormat, formatter: fmtInfo, formatterItems, formatTip, zoom, structureOn: isMarkdown ? !!settings.mdOutline : !!settings.minimap };
 
   if (!booted) return <div className="boot">{t('ready')}…</div>;
 
@@ -1599,7 +1659,7 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
           <TabBar docs={docs} activeId={activeId} onActivate={activate} onClose={(id) => closeDocs([id])} onNew={() => newUntitled()}
             onReorder={(from, to) => { setDocs((ds) => { const a = ds.slice(); const i = a.findIndex((d) => d.id === from), j = a.findIndex((d) => d.id === to); const [m] = a.splice(i, 1); a.splice(j, 0, m); return a; }); schedulePersist(); }}
             onAction={(id, docId) => action(id, docId)} onContextItems={tabContextItems} />
-          {isMarkdown && <MarkdownBar onAction={action} preview={settings.mdPreview} wysiwyg={settings.mdWysiwyg} />}
+          {isMarkdown && <MarkdownBar onAction={action} preview={settings.mdPreview} outline={settings.mdOutline} wysiwyg={settings.mdWysiwyg} />}
           {find && view && <FindBar key={find.key} view={view} mode={find.mode} initial={find.initial} docVersion={docVersion} onClose={() => action('closeFind')} onModeChange={(mode) => setFind({ ...find, mode })} />}
           <div className="editor-split" ref={splitRef}>
             <div className={`panes ${settings.split || 'none'}`}>
@@ -1613,14 +1673,20 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
                           {pd ? <>{pd.name}{pd.dirty ? ' ●' : ''}</> : <span className="muted">{t('pane_empty')}</span>}<Icon name="chevronDown" size={12} />
                         </button>
                         <span className="spacer" />
-                        {pd && <button className="icon-btn" title={t('close')} onClick={() => closeDocs([pd.id])}><Icon name="close" size={13} /></button>}
+                        {pd ? <button className="icon-btn" title={t('close')} onClick={() => closeDocs([pd.id])}><Icon name="close" size={13} /></button>
+                          : <button className="icon-btn" title={t('pane_close')} onClick={() => closePane(i)}><Icon name="close" size={13} /></button>}
                       </div>
                     )}
                     {panes.length > 1 && p.docId == null && (
-                      <div className="pane-empty"><Icon name="file" size={26} /><p>{t('pane_empty')}</p><button className="btn" onClick={(e) => openPaneMenu(i, e.currentTarget)}>{t('pane_pick')}</button></div>
+                      <div className="pane-empty"><Icon name="file" size={26} /><p>{t('pane_empty')}</p><div className="pane-empty-btns"><button className="btn" onClick={(e) => openPaneMenu(i, e.currentTarget)}>{t('pane_pick')}</button><button className="btn" onClick={() => closePane(i)}>{t('pane_close')}</button></div></div>
                     )}
                     <EditorPane initialState={initialState} onView={(v) => onPaneView(p.key, v)} onDropFiles={dropFiles} contextItems={editorContextItems} onAction={action}
-                      fontFamily={settings.fontFamily} fontSize={settings.fontSize} empty={!docs.length || p.docId == null} />
+                      fontFamily={settings.fontFamily} fontSize={settings.fontSize} empty={!docs.length || p.docId == null || (pd && pd.kind === 'hex')}
+                      minimap={settings.minimap && !(pd && pd.langName === 'Markdown')} version={`${p.docId}:${docVersion}:${settings.theme}:${cursor.line}`} />
+                    {pd && pd.kind === 'hex' && hexRef.current.has(pd.id) && (
+                      <HexView read={hexRef.current.get(pd.id)} version={pd.mtime} name={pd.name} size={pd.size} fontSize={settings.fontSize}
+                        onOpenAsText={() => hexAsText(pd.id)} onMessage={setMessage} />
+                    )}
                   </div>
                 );
               })}
@@ -1638,6 +1704,9 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
                 { id: 'open', label: t('open_file'), icon: 'fileOpen' },
               ]}
                 onClose={() => setPaneMenu(null)} onPick={(id) => { const i = paneMenu.i; setPaneMenu(null); paneMenuPick(i, id); }} />
+            )}
+            {isMarkdown && settings.mdOutline && view && (
+              <Outline view={view} docVersion={docVersion} cursorPos={cursor.pos} onClose={() => changeSettings({ mdOutline: false })} />
             )}
             {isMarkdown && settings.mdPreview && view && (
               <>
