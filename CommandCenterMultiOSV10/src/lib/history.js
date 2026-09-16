@@ -28,7 +28,7 @@ export class History {
   // A new operation: push it and forget what could have been redone.
   push(entry) {
     this.undoStack.push(entry);
-    if (this.undoStack.length > MAX_HISTORY) this.undoStack.shift();
+    while (this.undoStack.length > (this.max || MAX_HISTORY)) this.undoStack.shift();
     this.redoStack = [];
     this._changed();
   }

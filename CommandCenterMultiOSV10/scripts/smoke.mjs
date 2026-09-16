@@ -29,7 +29,8 @@ if (!fs.existsSync(path.join(root, 'dist', 'index.html'))) {
 // Seed the private profile so the panels open somewhere deterministic.
 const left = opt('left') || root;
 const right = opt('right') || path.join(root, 'src');
-fs.writeFileSync(path.join(profile, 'session.json'), JSON.stringify({ left, right, splitter: 0.5, language: opt('lang') || 'ko', theme: opt('theme') || 'dark' }, null, 2));
+// --width <px>: start the main window at that width (e.g. the minimum) to check the layout.
+fs.writeFileSync(path.join(profile, 'session.json'), JSON.stringify({ left, right, splitter: 0.5, language: opt('lang') || 'ko', theme: opt('theme') || 'dark', windowBounds: opt('width') ? { width: Number(opt('width')), height: 700 } : undefined }, null, 2));
 
 async function electronShot(name = 'main', script = null, url = null) {
   const electronPath = require('electron');
@@ -45,6 +46,7 @@ async function electronShot(name = 'main', script = null, url = null) {
   }
   // --probe <file.js>: evaluated after the scenario; its value is printed.
   if (opt('probe')) extra.push(`--smoke-probe=${path.resolve(opt('probe'))}`);
+  if (opt('tool-script')) extra.push(`--smoke-tool-script=${path.resolve(opt('tool-script'))}`);
   await new Promise((resolve, reject) => {
     const child = spawn(electronPath, ['.', `--smoke-shot=${shot}`, `--smoke-delay=${opt('delay') || 3000}`, ...extra], { cwd: root, stdio: 'inherit', env });
     const timer = setTimeout(() => { child.kill(); reject(new Error('electron smoke timed out')); }, 60_000);
@@ -121,6 +123,11 @@ const SCENARIOS = {
   // Bottom dock: a terminal running a command (the prompt shows the git state of the project folder), and the log tab.
   terminal: `(() => { const type = (cmd, enter) => { const inp = document.querySelector('.term-inline input'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(inp, cmd); inp.dispatchEvent(new Event('input', { bubbles: true })); if (enter) inp.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); }; window.__cc.action('newTerminal').then(() => setTimeout(() => { type('git log --oneline -n 3', true); setTimeout(() => type('git status --short 한글', false), 1500); }, 1500)); })()`,
   log: `(() => { window.__cc.action('refresh'); window.__cc.action('newTerminal').then(() => setTimeout(() => { window.__cc.closeTerminal(window.__cc.terms[0].id); setTimeout(() => window.__cc.action('showLog'), 100); }, 800)); })()`,
+  // Total Commander tools: the viewer on README.md, the multi-rename tool on three files, compare directories.
+  viewer: `(() => { const rows = document.querySelectorAll('.file-panel')[0].querySelectorAll('tbody tr'); const row = Array.from(rows).find((r) => r.textContent.includes('README.md')); row.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0 })); setTimeout(() => window.__cc.action('view', 'left'), 150); })()`,
+  multirename: `(() => { const rows = document.querySelectorAll('.file-panel')[1].querySelectorAll('tbody tr'); rows[3].dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0 })); rows[6].dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0, shiftKey: true })); setTimeout(() => window.__cc.action('multiRename', 'right'), 150); })()`,
+  compare: `window.__cc.action('compareDirs')`,
+  menu_select: `document.querySelectorAll('.menu-title')[2].dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0 }))`,
   // Undo / redo: new folder → rename → undo ×2 → redo; every step drives the real action and answers its dialog.
   undo: `(async () => {
     const cc = () => window.__cc;
@@ -148,6 +155,8 @@ const SCENARIOS = {
 
 (async () => {
   const scenario = opt('scenario');
+  // --script <file.js>: an ad-hoc scenario from a file (same rules as SCENARIOS).
+  if (opt('script')) { await electronShot(opt('name') || 'script', fs.readFileSync(opt('script'), 'utf-8')); console.log('[smoke] script done'); return; }
   if (scenario) {
     if (args.includes('--web')) await webSmoke(scenario);
     else if (scenario === 'all') { for (const [k, v] of Object.entries(SCENARIOS)) await electronShot(k, v); }

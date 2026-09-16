@@ -28,4 +28,16 @@ contextBridge.exposeInMainWorld('commandCenter', {
 
   dialog: (kind, opts) => ipcRenderer.invoke('dialog', kind, opts),
   quit: () => ipcRenderer.send('app:quit'),
+
+  // Tool windows (see ipc.js): open one, fetch this window's arguments, close
+  // this window, and the message bus between all windows of the app.
+  openWindow: (spec) => ipcRenderer.invoke('win:open', spec),
+  windowArgs: (id) => ipcRenderer.invoke('win:args', { id }),
+  closeWindow: () => ipcRenderer.send('win:close'),
+  postMessage: (msg) => ipcRenderer.send('win:message', msg),
+  onMessage: (cb) => {
+    const handler = (_e, msg) => cb(msg);
+    ipcRenderer.on('win:message', handler);
+    return () => ipcRenderer.removeListener('win:message', handler);
+  },
 });

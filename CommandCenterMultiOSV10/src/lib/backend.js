@@ -158,3 +158,72 @@ export function quitApp() {
   if (isElectron) electron.quit();
   else window.close();
 }
+
+// Native file picker (settings › text editor application) — desktop only.
+export async function pickFile(defaultPath, filters) {
+  if (!isElectron || !electron.dialog) return null;
+  return unwrap(await electron.dialog('openFile', { defaultPath, filters }), 'dialog error');
+}
+
+// ── Tool windows ──────────────────────────────────────────
+// The viewer, editor, multi-rename tool, search and settings open as
+// separate windows: BrowserWindows on the desktop, popups in the browser.
+// The page is the same bundle started with ?win=<kind>&id=<id>; its
+// arguments travel through the main process (desktop) or localStorage
+// (browser), and the windows talk to each other over a small message bus
+// (IPC relay / BroadcastChannel).
+
+const winParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams();
+export const windowKind = winParams.get('win') || '';
+export const windowId = winParams.get('id') || '';
+export const canOpenWindows = typeof window !== 'undefined' && (isElectron ? !!electron.openWindow : true);
+
+const webChildren = new Set();
+let bus = null;
+function channel() {
+  if (!bus && typeof BroadcastChannel !== 'undefined') { try { bus = new BroadcastChannel('command-center'); } catch { bus = null; } }
+  return bus;
+}
+
+export async function openWindow(kind, args, { title, width, height } = {}) {
+  if (isElectron) { const r = unwrap(await electron.openWindow({ kind, args, title, width, height }), 'window error'); return r.id; }
+  const id = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
+  try { localStorage.setItem(`cc-win:${id}`, JSON.stringify(args || {})); } catch { /* no storage — the page falls back to the URL */ }
+  const url = new URL(window.location.href);
+  url.searchParams.set('win', kind);
+  url.searchParams.set('id', id);
+  const w = window.open(url.toString(), `cc-${kind}-${id}`, `popup=yes,width=${width || 900},height=${height || 680}`);
+  if (!w) throw new Error('POPUP_BLOCKED');
+  webChildren.add(w);
+  return id;
+}
+
+export async function windowArgs() {
+  if (isElectron) return unwrap(await electron.windowArgs(windowId), 'window error');
+  try { const raw = localStorage.getItem(`cc-win:${windowId}`); if (raw) { localStorage.removeItem(`cc-win:${windowId}`); return JSON.parse(raw); } } catch { /* fall through */ }
+  return {};
+}
+
+export function closeWindow() {
+  if (isElectron) electron.closeWindow();
+  else window.close();
+}
+
+export function postToApp(msg) {
+  if (isElectron) electron.postMessage(msg);
+  else { const c = channel(); if (c) c.postMessage(msg); }
+}
+
+export function onAppMessage(cb) {
+  if (isElectron) return electron.onMessage(cb);
+  const c = channel();
+  if (!c) return () => {};
+  const handler = (e) => cb(e.data);
+  c.addEventListener('message', handler);
+  return () => c.removeEventListener('message', handler);
+}
+
+// Browser popups do not close with the opener on their own.
+if (typeof window !== 'undefined' && !isElectron && !windowKind) {
+  window.addEventListener('beforeunload', () => { for (const w of webChildren) { try { w.close(); } catch { /* gone */ } } });
+}

@@ -18,17 +18,27 @@ public/icon.svg
 *.zip
 *.blockmap
 
-# ── Smoke-test output (npm run smoke): screenshots, scripts, private profile ──
+# ── Smoke-test output (npm run smoke): screenshots (main + tool windows), scripts, private profile ──
 .smoke/
 .icons-preview.png
 .npm-install.log
+
+# ── Dev profiles (CC_USER_DATA=<folder>) and local env ──
+.profile*/
+.env
+.env.*
 
 # ── Local / editor / OS noise ───────────────────────────
 *.log
 npm-debug.log*
 .vite/
+.eslintcache
+coverage/
+*.tmp
+*~
 .DS_Store
 Thumbs.db
 .idea/
 .vscode/*
 !.vscode/extensions.json
+.claude/

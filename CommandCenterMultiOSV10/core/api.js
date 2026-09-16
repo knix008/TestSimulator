@@ -52,10 +52,19 @@ function createApi(host = {}) {
     'fs.mkdir': async ({ dir, name }) => ({ path: await fsops.makeDirectory(dir, name) }),
     'fs.createFile': async ({ dir, name }) => ({ path: await fsops.createFile(dir, name) }),
     'fs.rename': async ({ path: p, newName }) => ({ path: await fsops.renamePath(p, newName) }),
+    'fs.renameMany': async ({ items }) => ({ renamed: await fsops.renameMany(items || []) }),
+    'fs.readFile': async ({ path: p }) => fsops.readFile(p),
+    'fs.writeText': async ({ path: p, text }) => fsops.writeText(p, String(text == null ? '' : text)),
     'fs.open': async ({ path: p }) => {
       if (!host.openPath) throw new Error('OPEN_UNSUPPORTED');
       const result = await host.openPath(p);
       if (result) throw new Error(result);
+      return { ok: true };
+    },
+    'fs.openWith': async ({ path: p, app: appPath }) => {
+      if (!host.openPath) throw new Error('OPEN_UNSUPPORTED');
+      if (!appPath) throw new Error('No application configured');
+      await fsops.openWithApp(appPath, p);
       return { ok: true };
     },
 

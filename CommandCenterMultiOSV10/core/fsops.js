@@ -302,6 +302,108 @@ async function renamePath(oldPath, newName) {
   return newPath;
 }
 
+// Renames several entries at once (the multi-rename tool). Two phases —
+// everything to a temporary name first, then to its final name — so a set
+// that swaps or shifts names (a→b, b→a; 1→2, 2→3) works. Returns the
+// [{ from, to }] pairs actually applied (the undo of the tool).
+async function renameMany(items) {
+  for (const it of items) if (!validName(it.newName)) throw new Error(`Invalid name: ${it.newName}`);
+  const finals = items.map((it) => path.join(path.dirname(it.path), it.newName));
+  const seen = new Set();
+  for (const f of finals) {
+    const key = isWin ? f.toLowerCase() : f;
+    if (seen.has(key)) throw Object.assign(new Error(`Duplicate target: ${path.basename(f)}`), { code: 'EDUP', path: f });
+    seen.add(key);
+  }
+  const sources = new Set(items.map((it) => (isWin ? it.path.toLowerCase() : it.path)));
+  for (const f of finals) {
+    if (!sources.has(isWin ? f.toLowerCase() : f) && await exists(f)) throw Object.assign(new Error('EXISTS'), { code: 'EEXIST', path: f });
+  }
+  const stamp = `${process.pid.toString(36)}${Date.now().toString(36)}`;
+  const temps = items.map((it, i) => path.join(path.dirname(it.path), `.mrn-${stamp}-${i}`));
+  const done = [];
+  try {
+    for (let i = 0; i < items.length; i++) {
+      if (samePath(items[i].path, finals[i])) continue;
+      await fsp.rename(items[i].path, temps[i]);
+      done.push(i);
+    }
+    for (const i of done) await fsp.rename(temps[i], finals[i]);
+  } catch (err) {
+    // Put back whatever already moved so nothing is left under a temp name.
+    for (const i of done) {
+      if (await exists(temps[i])) await fsp.rename(temps[i], items[i].path).catch(() => {});
+      else if (await exists(finals[i]) && !samePath(finals[i], items[i].path)) await fsp.rename(finals[i], items[i].path).catch(() => {});
+    }
+    throw err;
+  }
+  return done.map((i) => ({ from: items[i].path, to: finals[i] }));
+}
+
+// ── Reading / writing files (the built-in viewer and editor) ──
+
+const IMAGE_TYPES = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp', '.bmp': 'image/bmp', '.svg': 'image/svg+xml', '.ico': 'image/x-icon', '.avif': 'image/avif' };
+const TEXT_LIMIT = 8 * 1024 * 1024;
+const IMAGE_LIMIT = 24 * 1024 * 1024;
+const HEX_LIMIT = 256 * 1024;
+
+function looksBinary(buf) {
+  const n = Math.min(buf.length, 8192);
+  let odd = 0;
+  for (let i = 0; i < n; i++) {
+    const c = buf[i];
+    if (c === 0) return true;
+    if (c < 7 || (c > 13 && c < 32 && c !== 27)) odd++;
+  }
+  return n > 0 && odd / n > 0.1;
+}
+
+function decodeText(buf) {
+  if (buf.length >= 2 && buf[0] === 0xff && buf[1] === 0xfe) return { text: buf.slice(2).toString('utf16le'), encoding: 'UTF-16 LE' };
+  if (buf.length >= 2 && buf[0] === 0xfe && buf[1] === 0xff) {
+    const swapped = Buffer.from(buf.slice(2));
+    for (let i = 0; i + 1 < swapped.length; i += 2) { const t = swapped[i]; swapped[i] = swapped[i + 1]; swapped[i + 1] = t; }
+    return { text: swapped.toString('utf16le'), encoding: 'UTF-16 BE' };
+  }
+  if (buf.length >= 3 && buf[0] === 0xef && buf[1] === 0xbb && buf[2] === 0xbf) return { text: buf.slice(3).toString('utf8'), encoding: 'UTF-8 BOM' };
+  const text = buf.toString('utf8');
+  // Invalid UTF-8 shows up as U+FFFD; fall back to latin1 so nothing is lost.
+  if (text.includes('\ufffd') && !buf.includes(Buffer.from('\ufffd'))) return { text: buf.toString('latin1'), encoding: 'Latin-1' };
+  return { text, encoding: 'UTF-8' };
+}
+
+// { kind: 'text' | 'image' | 'binary', size, truncated, text?, encoding?, mime?, base64? }
+async function readFile(p) {
+  const st = await fsp.stat(p);
+  if (st.isDirectory()) throw Object.assign(new Error('EISDIR'), { code: 'EISDIR', path: p });
+  const ext = path.extname(p).toLowerCase();
+  if (IMAGE_TYPES[ext]) {
+    if (st.size > IMAGE_LIMIT) return { kind: 'image', size: st.size, truncated: true, mime: IMAGE_TYPES[ext] };
+    const buf = await fsp.readFile(p);
+    return { kind: 'image', size: st.size, truncated: false, mime: IMAGE_TYPES[ext], base64: buf.toString('base64') };
+  }
+  const limit = Math.min(st.size, TEXT_LIMIT);
+  const fh = await fsp.open(p, 'r');
+  let buf;
+  try {
+    buf = Buffer.alloc(limit);
+    const { bytesRead } = await fh.read(buf, 0, limit, 0);
+    buf = buf.slice(0, bytesRead);
+  } finally { await fh.close(); }
+  const utf16 = buf.length >= 2 && ((buf[0] === 0xff && buf[1] === 0xfe) || (buf[0] === 0xfe && buf[1] === 0xff));
+  if (!utf16 && looksBinary(buf)) {
+    return { kind: 'binary', size: st.size, truncated: st.size > HEX_LIMIT, base64: buf.slice(0, HEX_LIMIT).toString('base64') };
+  }
+  const { text, encoding } = decodeText(buf);
+  return { kind: 'text', size: st.size, truncated: st.size > TEXT_LIMIT, text, encoding };
+}
+
+async function writeText(p, text) {
+  await fsp.writeFile(p, text, 'utf8');
+  const st = await fsp.stat(p);
+  return { size: st.size, mtime: st.mtimeMs };
+}
+
 // ── Counting (for progress totals) ────────────────────────
 
 async function countItems(paths, job) {
@@ -501,6 +603,20 @@ function openWithDefaultApp(p) {
   });
 }
 
+// Opens a file with a specific program (settings › text files › application).
+// The program is started detached, so the app never waits for it.
+function openWithApp(appPath, file) {
+  const { spawn } = require('child_process');
+  return new Promise((resolve, reject) => {
+    let child;
+    try {
+      child = spawn(appPath, [file], { detached: true, stdio: 'ignore', windowsHide: false });
+    } catch (err) { reject(err); return; }
+    child.once('error', (err) => reject(Object.assign(new Error(`Cannot start ${appPath}: ${err.message}`), { code: err.code, path: appPath })));
+    child.once('spawn', () => { child.unref(); resolve(''); });
+  });
+}
+
 // Moves paths to the OS trash. `trashFn(path)` is supplied by the host
 // (Electron's shell.trashItem); without one the freedesktop / macOS trash
 // folders are used directly, and Windows reports "unsupported".
@@ -647,11 +763,15 @@ module.exports = {
   makeDirectory,
   createFile,
   renamePath,
+  renameMany,
+  readFile,
+  writeText,
   countItems,
   transfer,
   deletePaths,
   trashPaths,
   openWithDefaultApp,
+  openWithApp,
   search,
   formatDate,
   samePath,

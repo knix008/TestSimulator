@@ -5,10 +5,15 @@
 // The panel owns its listing and selection; App drives it through the
 // imperative handle (refresh / getSelectedEntries / …) and receives
 // `onAction(name)` for everything that needs dialogs or the other panel.
+//
+// Keyboard follows Total Commander: Insert / Space toggle the entry under
+// the cursor (Space on a folder also measures it), Num+ / Num- select or
+// unselect by pattern, Num* inverts, Alt+Num+ selects the same extension,
+// typing letters quick-searches the list, Backspace goes up.
 import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { call, watchDir } from '../lib/backend';
 import { t, useLanguage } from '../lib/i18n';
-import { breadcrumbs, dirName, formatSize, sizeDisplay, typeDisplay, driveOf } from '../lib/format';
+import { breadcrumbs, dirName, formatSize, sizeDisplay, typeDisplay, driveOf, globToRegExp } from '../lib/format';
 import { Icon } from './Icons';
 import { FolderTree } from './FolderTree';
 import { ContextMenu } from './ContextMenu';
@@ -38,7 +43,7 @@ function compareEntries(a, b, sort) {
 }
 
 export const FilePanel = forwardRef(function FilePanel(props, ref) {
-  const { side, path, active, sort, showHidden, suspendWatch, onNavigate, onActivate, onSortChange, onSelectionChange, onOpenEntry, onAction, capabilities } = props;
+  const { side, path, active, sort, showHidden, suspendWatch, onNavigate, onActivate, onSortChange, onSelectionChange, onOpenEntry, onAction, capabilities, history = [], hotlist = [], onHotlistChange, columns, quickSearch = true, spaceMeasures = true } = props;
   useLanguage();
 
   const [entries, setEntries] = useState([]);
@@ -51,6 +56,11 @@ export const FilePanel = forwardRef(function FilePanel(props, ref) {
   const [extractable, setExtractable] = useState(false);
   const [driveMenu, setDriveMenu] = useState(null);   // anchor element
   const [drives, setDrives] = useState([]);
+  const [historyMenu, setHistoryMenu] = useState(null);   // anchor element
+  const [hotMenu, setHotMenu] = useState(null);           // anchor element
+  const [dirSizes, setDirSizes] = useState(() => new Map());  // folder → measured size (Space)
+  const [quick, setQuick] = useState('');                 // quick-search buffer
+  const quickTimer = useRef(null);
   const bodyRef = useRef(null);
   const selectedRef = useRef(selected);
   selectedRef.current = selected;
@@ -77,7 +87,7 @@ export const FilePanel = forwardRef(function FilePanel(props, ref) {
     }
   }, [path, showHidden]);
 
-  useEffect(() => { load(false); setCursor(-1); setAnchor(-1); setTreeOpen(false); }, [path, showHidden]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { load(false); setCursor(-1); setAnchor(-1); setTreeOpen(false); setDirSizes(new Map()); setQuick(''); }, [path, showHidden]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Directory watch (debounced refresh)
   useEffect(() => {
@@ -129,6 +139,33 @@ export const FilePanel = forwardRef(function FilePanel(props, ref) {
   };
 
   const selectAll = () => setSelected(new Set(sorted.filter((e) => !e.isUp).map((e) => e.path)));
+  const clearSelection = () => setSelected(new Set());
+  const invertSelection = () => setSelected(new Set(sorted.filter((e) => !e.isUp && !selected.has(e.path)).map((e) => e.path)));
+  // Num+ / Num-: add to or remove from the selection every file whose name matches the glob (folders too when `dirs`).
+  const selectByPattern = (pattern, add = true, dirs = false) => {
+    const re = globToRegExp(pattern || '*');
+    const next = new Set(selected);
+    for (const e of sorted) {
+      if (e.isUp || (e.isDir && !dirs)) continue;
+      if (re.test(e.name)) { if (add) next.add(e.path); else next.delete(e.path); }
+    }
+    setSelected(next);
+    return next.size;
+  };
+  // Alt+Num+ / Alt+Num-: every file with the same extension as the one under the cursor.
+  const selectSameExt = (add = true) => {
+    const e = sorted[cursor] || selectedEntries[0];
+    if (!e || e.isUp || e.isDir) return 0;
+    return selectByPattern(e.ext ? `*${e.ext}` : '*', add);
+  };
+  // Space on a folder: measure it (TC shows the size in place of <DIR>).
+  const measure = async (e) => {
+    if (!e || !e.isDir || e.isUp) return;
+    try {
+      const st = await call('fs.stat', { path: e.path });
+      setDirSizes((m) => new Map(m).set(e.path, st.size));
+    } catch { /* unreadable */ }
+  };
 
   // ── Navigation ──
   const activate = (e) => {
@@ -145,15 +182,42 @@ export const FilePanel = forwardRef(function FilePanel(props, ref) {
     getSelectedEntries: () => selectedEntries,
     getSelectedPaths: () => selectedEntries.map((e) => e.path),
     selectAll,
-    selectPaths: (paths) => setSelected(new Set(paths)),
+    clearSelection,
+    invertSelection,
+    selectByPattern,
+    selectSameExt,
+    // Selecting from the outside (after a rename, extraction, …) also moves the cursor there.
+    selectPaths: (paths) => { setSelected(new Set(paths)); const i = paths.length ? sorted.findIndex((e) => e.path === paths[0]) : -1; if (i >= 0) { setCursor(i); setAnchor(i); scrollCursorIntoView(i); } },
+    // The entry under the cursor (falls back to the single selected one) — F3 / F4 / Alt+Enter / Ctrl+← →.
+    getCursorEntry: () => { const e = sorted[cursor]; return e && !e.isUp ? e : (selectedEntries.length === 1 ? selectedEntries[0] : null); },
     focus: () => bodyRef.current && bodyRef.current.focus(),
     isExtractable: () => extractable,
-  }), [load, path, sorted, selectedEntries, extractable]); // eslint-disable-line react-hooks/exhaustive-deps
+    openDrives: () => { const el = bodyRef.current && bodyRef.current.closest('.file-panel').querySelector('.drive-btn'); if (el) openDriveMenu(el); },
+    openHistory: () => { const el = bodyRef.current && bodyRef.current.closest('.file-panel').querySelector('.hist-btn'); if (el) setHistoryMenu(el); },
+    openHotlist: () => { const el = bodyRef.current && bodyRef.current.closest('.file-panel').querySelector('.hot-btn'); if (el) setHotMenu(el); },
+    goUp: () => goUp(),
+  }), [load, path, sorted, selectedEntries, extractable, cursor, selected]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Keyboard ──
   const scrollCursorIntoView = (i) => {
     const row = bodyRef.current && bodyRef.current.querySelector(`tr[data-index="${i}"]`);
     if (row) row.scrollIntoView({ block: 'nearest' });
+  };
+  // Quick search: typed letters jump to the next name starting with them; the buffer clears after a pause.
+  const quickSearchKey = (ch) => {
+    const text = ch === '\b' ? quick.slice(0, -1) : quick + ch;
+    if (!text) { setQuick(''); return; }
+    if (quickTimer.current) clearTimeout(quickTimer.current);
+    quickTimer.current = setTimeout(() => setQuick(''), 1200);
+    const lower = text.toLowerCase();
+    const start = quick ? cursor : cursor + 1;
+    const n = sorted.length;
+    for (let k = 0; k < n; k++) {
+      const i = (Math.max(0, start) + k) % n;
+      const e = sorted[i];
+      if (!e.isUp && e.name.toLowerCase().startsWith(lower)) { setCursor(i); setAnchor(i); scrollCursorIntoView(i); setQuick(text); return; }
+    }
+    setQuick(text);
   };
   const onKeyDown = (e) => {
     if (e.target.tagName === 'INPUT') return;
@@ -164,6 +228,16 @@ export const FilePanel = forwardRef(function FilePanel(props, ref) {
       selectIndex(i, { range: e.shiftKey });
       scrollCursorIntoView(i);
     };
+    // Numpad + - * (or the same keys on the main keyboard) — selection by pattern, as in TC.
+    const pad = e.code === 'NumpadAdd' ? '+' : e.code === 'NumpadSubtract' ? '-' : e.code === 'NumpadMultiply' ? '*' : (['+', '-', '*'].includes(e.key) ? e.key : '');
+    if (pad && !quick) {
+      e.preventDefault();
+      if (pad === '*') invertSelection();
+      else if (ctrl) { if (pad === '+') selectAll(); else clearSelection(); }
+      else if (e.altKey) selectSameExt(pad === '+');
+      else onAction(pad === '+' ? 'selectPattern' : 'unselectPattern');
+      return;
+    }
     switch (e.key) {
       case 'ArrowDown': e.preventDefault(); move(cursor + 1); break;
       case 'ArrowUp': e.preventDefault(); move(cursor - 1); break;
@@ -171,16 +245,19 @@ export const FilePanel = forwardRef(function FilePanel(props, ref) {
       case 'End': e.preventDefault(); move(n - 1); break;
       case 'PageDown': e.preventDefault(); move(cursor + 20); break;
       case 'PageUp': e.preventDefault(); move(cursor - 20); break;
-      case 'Enter': e.preventDefault(); activate(sorted[cursor] || selectedEntries[0]); break;
-      case 'Backspace': e.preventDefault(); goUp(); break;
-      case ' ': if (cursor >= 0) { e.preventDefault(); selectIndex(cursor, { toggle: true }); } break;
+      case 'Enter': e.preventDefault(); if (e.altKey) onAction('properties'); else activate(sorted[cursor] || selectedEntries[0]); break;
+      case 'Backspace': e.preventDefault(); if (quick) quickSearchKey('\b'); else goUp(); break;
+      case 'Insert': if (cursor >= 0) { e.preventDefault(); selectIndex(cursor, { toggle: true }); move(cursor + 1); } break;
+      case ' ': if (cursor >= 0) { e.preventDefault(); selectIndex(cursor, { toggle: true }); if (spaceMeasures) measure(sorted[cursor]); } break;
       case 'Delete': e.preventDefault(); onAction('delete'); break;
       case 'F2': e.preventDefault(); onAction('rename'); break;
-      case 'a': case 'A': if (ctrl) { e.preventDefault(); selectAll(); } break;
-      case 'c': case 'C': if (ctrl) { e.preventDefault(); onAction('clipCopy'); } break;
-      case 'v': case 'V': if (ctrl) { e.preventDefault(); onAction('clipPaste'); } break;
-      case 'Escape': setMenu(null); break;
-      default: break;
+      case 'a': case 'A': if (ctrl) { e.preventDefault(); selectAll(); break; } if (quickSearch) quickSearchKey(e.key); break;
+      case 'c': case 'C': if (ctrl) { e.preventDefault(); onAction('clipCopy'); break; } if (quickSearch) quickSearchKey(e.key); break;
+      case 'v': case 'V': if (ctrl) { e.preventDefault(); onAction('clipPaste'); break; } if (quickSearch) quickSearchKey(e.key); break;
+      case 'Escape': setMenu(null); setQuick(''); break;
+      default:
+        if (quickSearch && e.key.length === 1 && !ctrl && !e.altKey) { e.preventDefault(); quickSearchKey(e.key); }
+        break;
     }
   };
 
@@ -213,15 +290,16 @@ export const FilePanel = forwardRef(function FilePanel(props, ref) {
     if (error) return t('panel_error', { msg: error });
     if (selectedEntries.length) {
       let d = 0, f = 0, s = 0;
-      for (const e of selectedEntries) { if (e.isDir) d++; else { f++; s += e.size; } }
+      for (const e of selectedEntries) { if (e.isDir) { d++; s += dirSizes.get(e.path) || 0; } else { f++; s += e.size; } }
       return t('panel_selected', { dirs: d, files: f, size: formatSize(s) });
     }
     let d = 0, f = 0, s = 0;
-    for (const e of entries) { if (e.isUp) continue; if (e.isDir) d++; else { f++; s += e.size; } }
+    for (const e of entries) { if (e.isUp) continue; if (e.isDir) { d++; s += dirSizes.get(e.path) || 0; } else { f++; s += e.size; } }
     return t('panel_counts', { dirs: d, files: f, size: formatSize(s) });
-  }, [entries, selectedEntries, error]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [entries, selectedEntries, error, dirSizes]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const crumbs = useMemo(() => breadcrumbs(path), [path]);
+  const cols = COLUMNS.filter((c) => c.key === 'name' || !columns || columns[c.key] !== false);
   const currentDrive = driveOf(path);
 
   // Drives are fetched ahead of time (the core caches them for a minute) so
@@ -250,8 +328,28 @@ export const FilePanel = forwardRef(function FilePanel(props, ref) {
   const hasSel = selectedEntries.length > 0;
   const single = selectedEntries.length === 1;
 
+  // Alt+↓: folders this panel visited; Ctrl+D: the directory hotlist (shared by both panels).
+  const historyItems = history.length
+    ? history.map((p) => ({ id: `go:${p}`, label: p, icon: 'folder', checked: p === path }))
+    : [{ id: 'none', label: t('history_empty'), disabled: true }];
+  const inHotlist = hotlist.includes(path);
+  const hotItems = [
+    ...hotlist.map((p) => ({ id: `go:${p}`, label: p, icon: 'star', checked: p === path })),
+    ...(hotlist.length ? [{ sep: true }] : []),
+    inHotlist ? { id: 'hot:remove', label: t('hot_remove'), icon: 'close' } : { id: 'hot:add', label: t('hot_add'), icon: 'plus' },
+  ];
+  const onHotPick = (id) => {
+    setHotMenu(null);
+    if (id === 'hot:add') onHotlistChange && onHotlistChange([...hotlist, path]);
+    else if (id === 'hot:remove') onHotlistChange && onHotlistChange(hotlist.filter((p) => p !== path));
+    else if (id.startsWith('go:')) onNavigate(id.slice(3));
+  };
+
   const menuItems = [
     { id: 'open', label: t('ctx_open'), icon: 'open', disabled: !hasSel },
+    { id: 'view', label: t('view_file'), icon: 'view', shortcut: 'F3', disabled: !(single && !selectedEntries[0].isDir) },
+    { id: 'edit', label: t('edit_file'), icon: 'edit', shortcut: 'F4', disabled: !(single && !selectedEntries[0].isDir) },
+    { sep: true },
     { id: 'copyOther', label: t('ctx_copy_other'), icon: 'copy', disabled: !hasSel },
     { id: 'moveOther', label: t('ctx_move_other'), icon: 'move', disabled: !hasSel },
     { sep: true },
@@ -259,6 +357,7 @@ export const FilePanel = forwardRef(function FilePanel(props, ref) {
     { id: 'clipPaste', label: t('ctx_paste'), icon: 'paste' },
     { sep: true },
     { id: 'rename', label: t('ctx_rename'), icon: 'rename', disabled: !single },
+    { id: 'multiRename', label: t('multi_rename'), icon: 'multiRename', shortcut: 'Ctrl+M', disabled: !hasSel },
     { id: 'trash', label: t('ctx_trash'), icon: 'trash', disabled: !hasSel || !(capabilities && capabilities.trash) },
     { id: 'delete', label: t('ctx_delete'), icon: 'delete', disabled: !hasSel },
     { sep: true },
@@ -278,6 +377,8 @@ export const FilePanel = forwardRef(function FilePanel(props, ref) {
           <Icon name="drive" size={14} /><span>{currentDrive}</span><Icon name="chevronDown" size={12} className="caret" />
         </button>
         <button className="icon-btn" title={t('home')} onClick={() => onAction('home')}><Icon name="home" /></button>
+        <button className="icon-btn hist-btn" title={t('tip_history')} onClick={(e) => { onActivate(); setHistoryMenu(historyMenu ? null : e.currentTarget); }}><Icon name="history" /></button>
+        <button className={`icon-btn hot-btn ${inHotlist ? 'on' : ''}`} title={t('tip_hotlist')} onClick={(e) => { onActivate(); setHotMenu(hotMenu ? null : e.currentTarget); }}><Icon name="star" /></button>
         <button className={`side-label ${treeOpen ? 'open' : ''}`} title={t('folder_tree')} onClick={() => setTreeOpen((v) => !v)}>
           <Icon name="tree" size={14} /> {t(side)}
         </button>
@@ -297,7 +398,7 @@ export const FilePanel = forwardRef(function FilePanel(props, ref) {
         <table className="file-table">
           <thead>
             <tr>
-              {COLUMNS.map((c) => (
+              {cols.map((c) => (
                 <th key={c.key} className={c.className} onClick={() => onSortChange({ column: c.key, asc: sort.column === c.key ? !sort.asc : true })}>
                   <span>{t(c.label)}</span>
                   {sort.column === c.key && <span className="sort-arrow">{sort.asc ? '▲' : '▼'}</span>}
@@ -315,15 +416,16 @@ export const FilePanel = forwardRef(function FilePanel(props, ref) {
                   <Icon name={e.isUp ? 'up' : e.isDir ? 'folder' : e.isSymlink ? 'link' : 'file'} size={14} className={e.isDir ? 'ic-folder' : 'ic-file'} />
                   <span className="ellipsis" title={e.isUp ? e.path : e.name}>{e.name}</span>
                 </td>
-                <td className="c-perm mono">{e.perm}</td>
-                <td className="c-date">{e.date}</td>
-                <td className="c-type">{e.isUp ? t('folder') : typeDisplay(e)}</td>
-                <td className="c-size">{e.isUp ? '' : sizeDisplay(e)}</td>
+                {(!columns || columns.perm !== false) && <td className="c-perm mono">{e.perm}</td>}
+                {(!columns || columns.date !== false) && <td className="c-date">{e.date}</td>}
+                {(!columns || columns.type !== false) && <td className="c-type">{e.isUp ? t('folder') : typeDisplay(e)}</td>}
+                {(!columns || columns.size !== false) && <td className="c-size">{e.isUp ? '' : (e.isDir && dirSizes.has(e.path) ? formatSize(dirSizes.get(e.path)) : sizeDisplay(e))}</td>}
               </tr>
             ))}
           </tbody>
         </table>
         {error && <div className="panel-empty">{t('panel_error', { msg: error })}</div>}
+        {quick && <div className="quick-search"><Icon name="search" size={12} /><span>{quick}</span></div>}
       </div>
 
       <div className="panel-status ellipsis" title={status}>{status}</div>
@@ -335,6 +437,13 @@ export const FilePanel = forwardRef(function FilePanel(props, ref) {
       {driveMenu && (
         <ContextMenu anchorEl={driveMenu} x={0} y={0} items={driveItems} onClose={() => setDriveMenu(null)}
           onPick={(id) => { setDriveMenu(null); if (id.startsWith('drive:')) onNavigate(id.slice(6)); }} />
+      )}
+      {historyMenu && (
+        <ContextMenu anchorEl={historyMenu} x={0} y={0} items={historyItems} onClose={() => setHistoryMenu(null)}
+          onPick={(id) => { setHistoryMenu(null); if (id.startsWith('go:')) onNavigate(id.slice(3)); }} />
+      )}
+      {hotMenu && (
+        <ContextMenu anchorEl={hotMenu} x={0} y={0} items={hotItems} onClose={() => setHotMenu(null)} onPick={onHotPick} />
       )}
     </div>
   );

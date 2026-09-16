@@ -167,3 +167,40 @@ test('api dispatch: jobs are followed through snapshots; session round trip', as
   await assert.rejects(() => api.call('nope.method', {}), /Unknown API method/);
   fs.rmSync(root, { recursive: true, force: true });
 });
+
+test('renameMany: swaps and shifts through temp names; rollback on a clash', async () => {
+  const root = tmpdir("mrn");
+  for (const n of ['a.txt', 'b.txt', 'c.txt', 'x.txt']) fs.writeFileSync(path.join(root, n), n);
+  const r = await fsops.renameMany([
+    { path: path.join(root, 'a.txt'), newName: 'b.txt' },
+    { path: path.join(root, 'b.txt'), newName: 'a.txt' },
+  ]);
+  assert.equal(r.length, 2);
+  assert.equal(fs.readFileSync(path.join(root, 'a.txt'), 'utf8'), 'b.txt');
+  assert.equal(fs.readFileSync(path.join(root, 'b.txt'), 'utf8'), 'a.txt');
+  await assert.rejects(fsops.renameMany([{ path: path.join(root, 'c.txt'), newName: 'x.txt' }]), /EXISTS/);
+  await assert.rejects(fsops.renameMany([{ path: path.join(root, 'c.txt'), newName: 'd' }, { path: path.join(root, 'x.txt'), newName: 'd' }]), /Duplicate/);
+  assert.ok(fs.existsSync(path.join(root, 'c.txt')));
+  assert.deepEqual(fs.readdirSync(root).filter((n) => n.startsWith('.mrn-')), []);
+  fs.rmSync(root, { recursive: true, force: true });
+});
+
+test('readFile: text with BOM / utf-16, binary as hex source, image as base64; writeText', async () => {
+  const root = tmpdir("mrn");
+  fs.writeFileSync(path.join(root, 'bom.txt'), Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from('한글 text')]));
+  fs.writeFileSync(path.join(root, 'u16.txt'), Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from('hi', 'utf16le')]));
+  fs.writeFileSync(path.join(root, 'bin.dat'), Buffer.from([0, 1, 2, 3, 65, 66]));
+  fs.writeFileSync(path.join(root, 'i.png'), Buffer.from([0x89, 0x50, 0x4e, 0x47]));
+  let r = await fsops.readFile(path.join(root, 'bom.txt'));
+  assert.deepEqual([r.kind, r.text, r.encoding], ['text', '한글 text', 'UTF-8 BOM']);
+  r = await fsops.readFile(path.join(root, 'u16.txt'));
+  assert.deepEqual([r.kind, r.text, r.encoding], ['text', 'hi', 'UTF-16 LE']);
+  r = await fsops.readFile(path.join(root, 'bin.dat'));
+  assert.deepEqual([r.kind, Buffer.from(r.base64, 'base64').length], ['binary', 6]);
+  r = await fsops.readFile(path.join(root, 'i.png'));
+  assert.deepEqual([r.kind, r.mime, r.base64], ['image', 'image/png', 'iVBORw=='] );
+  await fsops.writeText(path.join(root, 'new.txt'), 'written');
+  assert.equal(fs.readFileSync(path.join(root, 'new.txt'), 'utf8'), 'written');
+  await assert.rejects(fsops.readFile(root), /EISDIR/);
+  fs.rmSync(root, { recursive: true, force: true });
+});

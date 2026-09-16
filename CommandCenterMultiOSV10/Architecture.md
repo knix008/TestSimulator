@@ -3,19 +3,22 @@
 ## 1. 한눈에 보기
 
 ```
-                 ┌──────────────────────── src/ (React UI, Vite) ───────────────────────┐
-                 │ App.jsx ── FilePanel ×2 ── FolderTree · ContextMenu · Chrome(메뉴/툴바) │
-                 │           BottomDock(로그 탭 + 터미널 탭 ×N, oh-my-posh 프롬프트)       │
-                 │           Dialogs(프롬프트·확인·충돌·진행률·압축·정보·속성·오류) · Search │
-                 │           lib/backend.js  ←  유일한 호스트 분기점                        │
-                 └──────────────┬───────────────────────────────┬──────────────────────┘
-                     IPC (preload)                          fetch('/api/…') + 폴링
-                 ┌──────────────▼──────────────┐   ┌───────────▼──────────────────────┐
-                 │ electron/ main.js ipc.js     │   │ server/server.js (node:http 만)   │
-                 │ shell.openPath / trashItem   │   │ dist/ 정적 제공 + POST /api/<name> │
-                 └──────────────┬──────────────┘   └───────────┬──────────────────────┘
-                                └────────────► core/api.js ◄────┘
-                                        fsops · archive(tar/zip/bz2) · jobs · session · terminal
+                 ┌──────────────────────── src/ (React UI, Vite) ───────────────────────────┐
+                 │ 메인 창  App.jsx ── FilePanel ×2 ── FolderTree · ContextMenu · Chrome(메뉴/툴바/펑션키) │
+                 │           BottomDock(로그 탭 + 터미널 탭 ×N)  ·  lib/history.js(실행 취소)     │
+                 │           Dialogs(프롬프트·확인·충돌·진행률·압축·정보·속성·오류 — 앱 내 모달)   │
+                 │ 도구 창  ToolWindow.jsx (?win=viewer|editor|multiRename|search|settings)      │
+                 │           ToolDialogs · SearchDialog · SettingsDialog 를 창 전체에 렌더        │
+                 │           lib/backend.js  ←  유일한 호스트 분기점 (+ 창 열기 · 창 간 메시지 버스)│
+                 └──────────────┬─────────────────────────────────┬─────────────────────────┘
+                     IPC (preload)                            fetch('/api/…') + 폴링
+                 ┌──────────────▼──────────────┐     ┌───────────▼──────────────────────┐
+                 │ electron/ main.js ipc.js     │     │ server/server.js (node:http 만)   │
+                 │ BrowserWindow ×(1 + 도구 창) │     │ dist/ 정적 제공 + POST /api/<name> │
+                 │ openPath(+셸 폴백)/trashItem │     │ 도구 창 = window.open 팝업        │
+                 └──────────────┬──────────────┘     └───────────┬──────────────────────┘
+                                └────────────► core/api.js ◄──────┘
+                                  fsops(readFile/writeText/renameMany 포함) · archive · jobs · session · terminal
 ```
 
 같은 `core/` 가 두 호스트에서 그대로 실행되므로 데스크톱과 웹의 동작이 항상 같습니다.
@@ -26,12 +29,12 @@ UI 는 `window.commandCenter`(preload 가 노출) 유무로 전송 방식만 고
 | 파일 | 역할 |
 |---|---|
 | `api.js` | 메서드 이름 → 함수 표. `createApi(host)` 가 호스트 전용 기능(열기·휴지통·클립보드)을 주입받습니다. 긴 작업은 즉시 **잡 스냅샷**을 돌려줍니다. `term.*`/`git.status` 는 `terminal.js` 로, `shutdown()` 은 호스트 종료 시 셸 정리. `serializeError` 가 code/path/syscall/stack 을 UI 로 넘깁니다. |
-| `fsops.js` | 목록(권한 문자열, 날짜, 확장자), 루트 목록(홈·드라이브·/tmp·마운트), 드라이브 목록(`listDrives`: Windows 는 Win32_LogicalDisk 를 PowerShell 로 읽어 이름·종류·용량, 60초 캐시), 속성(폴더 합계), mkdir/새 파일/이름 바꾸기, 항목 수 세기, **복사/이동**(충돌 질문, 폴더 병합, 자기 자신 안으로 이동 금지, EXDEV 시 복사+삭제), 삭제, 휴지통(호스트 함수 없으면 freedesktop/macOS 휴지통 폴더), **검색**(글롭으로 폴더·파일, 내용 검색은 파일만, 64 MB 제한; 결과 `{path, isDir, size}`). |
+| `fsops.js` | 목록(권한 문자열, 날짜, 확장자), 루트 목록(홈·드라이브·/tmp·마운트), 드라이브 목록(`listDrives`: Windows 는 Win32_LogicalDisk 를 PowerShell 로 읽어 이름·종류·용량, 60초 캐시), 속성(폴더 합계), mkdir/새 파일/이름 바꾸기, **`renameMany`**(다중 이름 바꾸기 — 임시 이름을 거치는 2단계, 중복/기존 파일 사전 검사, 실패 시 롤백, 적용된 `{from,to}` 반환), **`readFile`**(뷰어/편집기 — 이미지는 base64, 텍스트는 BOM·UTF-16·Latin-1 감지, 이진은 16진수용 앞부분; 8/24 MB 제한), `writeText`(UTF-8), 항목 수 세기, **복사/이동**(충돌 질문, 폴더 병합, 자기 자신 안으로 이동 금지, EXDEV 시 복사+삭제; 결과에 항목별 `{src,dest,existed}` — 실행 취소용), 삭제, 휴지통(호스트 함수 없으면 freedesktop/macOS 휴지통 폴더), `openWithDefaultApp`(PowerShell `Invoke-Item` / `open` / `xdg-open`), `openWithApp`(지정 프로그램을 detached 로 실행), **검색**(글롭으로 폴더·파일, 내용 검색은 파일만, 64 MB 제한; 결과 `{path, isDir, size}`). |
 | `archive.js` | tar.gz / tar.bz2 / zip 생성·해제, 분할(`splitFile`)·결합(`joinParts`), 형식 감지(`describe`, `splitDetect`), 매직 바이트 스니핑, zip-slip 방지, ZIP 파일명 인코딩(UTF-8 플래그 → Info-ZIP 유니코드 필드 → EUC-KR → latin1). |
 | `tar.js` | 자체 스트리밍 tar 라이터/리더(ustar + pax `path`/`linkpath`/`mtime`, GNU `L`/`K` 읽기, base-256 크기). 긴 이름과 비ASCII 이름은 pax 로 기록해 libarchive/GNU tar/bsdtar 와 호환됩니다. |
 | `bzip2-worker.js` | `compressjs` 의 동기 bzip2 를 **worker_threads** 에서 실행(메인 프로세스 정지 방지). 1 MB 버퍼로 파일을 스트리밍하고 진행률을 postMessage. 취소는 `worker.terminate()`. 패키징 시 `asarUnpack` 대상. |
 | `jobs.js` | `Job`(진행률·취소·충돌 질문·결과·오류 상세)과 `JobRegistry`(`run`, 스냅샷, 60초 뒤 정리). 업데이트는 33 ms 로 병합. |
-| `session.js` | `session.json`(좌/우 경로, 분할, 언어, 테마, 정렬, 창 위치, 하단 패널 표시/높이, 터미널 기본 셸·시작 디렉터리). 존재하지 않는 폴더는 홈으로 대체. |
+| `session.js` | `session.json`(좌/우 경로, 분할, 정렬, 창 위치 `windowBounds`, 도구 창별 `toolBounds`, 하단 패널 표시/높이, 즐겨찾기 `hotlist`, 마지막 선택 패턴, 그리고 `src/lib/settings.js` 의 모든 설정 키). 존재하지 않는 폴더는 홈으로 대체. |
 | `terminal.js` | 터미널 세션(MyEditor 의 `core/terminal.js` 와 같은 설계): 탭마다 셸 프로세스 하나(`spawn`, **파이프 stdio** — pty 없음), 출력은 seq 번호가 붙은 청크로 버퍼링(`read({since})`, 4000개 유지), `run`(명령 실행 또는 실행 중 프로그램에 입력), `complete`(Tab 자동 완성), `git`(프롬프트용 상태), `kill`/`shutdown`. 자세한 흐름은 아래. |
 
 ### 터미널 흐름
@@ -68,32 +71,37 @@ UI runJob('ops.transfer', …)            core: jobs.run(kind, meta, fn)
 
 ## 3. electron/ — 데스크톱 호스트
 
-- `main.js`: 단일 인스턴스, 창 크기/위치 복원(`session.windowBounds`), `will-quit` 에서 `api.shutdown()`(터미널 셸 정리), 테마 배경색(`session.themeBg`)으로 첫 프레임 깜빡임 방지, macOS 만 애플리케이션 메뉴(Cmd+Q/C/V). `--smoke-shot=<png>` `--smoke-script=<js>` `--smoke-probe=<js>` `--smoke-url=<http>` 는 smoke 테스트용.
-- `ipc.js`: `ipcMain.handle('api')` → `api.call`(터미널 롱폴링 `term.read` 도 이 경로); `job:update` 푸시; `fs.watch` 기반 `watch:start/stop` → `dir:changed`; `ipcMain.handle('dialog')` → 네이티브 대화상자(현재는 `openFolder` 만, 설정의 시작 디렉터리 찾아보기).
-- `preload.js`: `window.commandCenter` (call / onJobUpdate / watchDir / onDirChanged / dialog / quit). `call` 은 `{ok,…}` 객체를 그대로 돌려주고 UI 가 Error 를 만듭니다 — contextBridge 를 넘는 Error 는 message 외의 속성을 잃기 때문입니다.
+- `main.js`: 단일 인스턴스, 창 크기/위치 복원(`session.windowBounds` — **최소 1000×600**(툴바의 모든 버튼이 두 언어에서 보이는 폭, 툴바 실측 ~965 px; Electron 은 저장된 bounds 를 min 으로 clamp 하지 않으므로 직접 clamp; CSS `.app{min-width:980px}` 가 같은 값을 웹에서 보장), `will-quit` 에서 `api.shutdown()`(터미널 셸 정리), 테마 배경색(`session.themeBg`)으로 첫 프레임 깜빡임 방지, macOS 만 애플리케이션 메뉴(Cmd+Q/C/V). **도구 창** `openToolWindow({kind})`: 같은 페이지를 `?win=<kind>&id=<BrowserWindow.id>` 로 여는 독립 `BrowserWindow`(부모 창 없음 → 자유롭게 이동·크기 조절; 종류별 기본 크기, 닫을 때 `session.toolBounds[kind]` 저장, 같은 종류가 이미 열려 있으면 24px 오프셋). 메인 창이 닫히면(`closed`) 열려 있는 도구 창을 모두 닫습니다. `openPath` 는 `shell.openPath` 가 실패 문자열을 돌려주면(Windows 11 스토어 앱 연결·연결 없음) `fsops.openWithDefaultApp` 으로 다시 시도. `--smoke-shot=<png>` `--smoke-script=<js>` `--smoke-tool-script=<js>`(도구 창 안에서 실행, 창이 닫히면 race 로 종료) `--smoke-probe=<js>` `--smoke-url=<http>` 는 smoke 테스트용 — 도구 창은 `<shot>-<kind>.png` 로 함께 캡처.
+- `ipc.js`: `ipcMain.handle('api')` → `api.call`(터미널 롱폴링 `term.read` 도 이 경로); `job:update` 는 **모든 창**에 푸시(검색 창이 자기 잡을 따라가야 하므로); `fs.watch` 기반 `watch:start/stop` → `dir:changed`; `ipcMain.handle('dialog')` → 네이티브 대화상자(`openFolder`, `openFile` — 요청한 창을 부모로); 도구 창: `win:open`(창 생성 + 인자 보관) · `win:args`(창이 자기 인자를 가져감) · `win:close` · `win:message`(모든 창에 릴레이 — 창 간 메시지 버스).
+- `preload.js`: `window.commandCenter` (call / onJobUpdate / watchDir / onDirChanged / dialog / quit / openWindow / windowArgs / closeWindow / postMessage / onMessage). `call` 은 `{ok,…}` 객체를 그대로 돌려주고 UI 가 Error 를 만듭니다 — contextBridge 를 넘는 Error 는 message 외의 속성을 잃기 때문입니다.
 
 ## 4. server/ — 웹 호스트
 
-`node:http` 만 사용합니다. `GET` 은 `dist/` 정적 파일(SPA 폴백), `POST /api/<name>` 은 JSON 본문을 `api.call` 로 넘깁니다.
+`node:http` 만 사용합니다. `GET` 은 `dist/` 정적 파일(SPA 폴백 — `/?win=viewer&id=…` 도 같은 `index.html`), `POST /api/<name>` 은 JSON 본문을 `api.call` 로 넘깁니다.
 `--host` `--port` `--token`(Bearer / `?token=`) 옵션, 기본 루프백 바인딩. 브라우저 세션 저장은 `session.js` 의 XDG/AppData 경로.
+도구 창은 브라우저 팝업(`window.open`)이며 인자는 `localStorage`(`cc-win:<id>`), 창 간 메시지는 `BroadcastChannel('command-center')`; 메인 페이지가 닫히면(`beforeunload`) 자기가 연 팝업을 닫습니다.
 
 ## 5. src/ — UI
 
 | 파일 | 역할 |
 |---|---|
-| `App.jsx` | 세션 로드/저장, 활성 패널, 모든 액션(`runAction`), 진행률+충돌을 묶는 `runWithProgress`, F-키 단축키, 분할선, 전역 오류 핸들러(`error`/`unhandledrejection` → 오류 팝업), smoke 훅 `window.__cc`. 하단 패널 상태: `log`(`setStatus` 와 `dialogs.error` 를 감싸 모든 상태 메시지·오류를 기록, 2000줄), `terms`(탭 목록 — 세션은 호스트에 있고 여기엔 id·제목·기록만), `dockTab`, `session.dockVisible/dockHeight`. |
-| `components/FilePanel.jsx` | 목록 로드·정렬·선택(Ctrl/Shift/키보드)·컨텍스트 메뉴·폴더 감시(`watchDir`, 250 ms 디바운스, 작업 중 일시 정지)·패널 상태줄. App 은 `ref`(refresh/getSelectedEntries/selectPaths…)와 `onAction(id)` 로만 상호작용. |
+| `App.jsx` | 세션 로드/저장(`saveSession` 은 테마·언어·글꼴 변경을 도구 창에 브로드캐스트), 활성 패널, 모든 액션(`runAction` — TC 액션 포함: view/edit/multiRename/compareDirs/swapPanels/targetLeft·Right/select*/dirHistory/hotlist/drives/parent/root), 진행률+충돌을 묶는 `runWithProgress`, **전역 단축키 표 한 곳**(F-키·Alt·Ctrl 조합), 분할선, 전역 오류 핸들러, smoke 훅 `window.__cc`. **실행 취소**: `history`(lib/history.js)에 create/rename/renameMany/copy/move/compress/extract 엔트리를 기록하고 `applyHistory` 가 되돌리기/다시 실행을 해석(삭제류는 `removeProduced` → 확인 후 삭제 잡). **도구 창**: `useWindows()`(설정 `separateWindows` ∧ 호스트 지원)이면 `openWindow(kind, args)`, 아니면 앱 내 대화상자; 도구 창에서 오는 메시지는 `busRef`(refresh · renamed → history+선택 · navigate · openFile · clipCopy · copyTo · settings → `applySettings`)가 처리. `openEntry` 는 텍스트 파일(설정 `textExts`)을 `textOpen` 설정대로(app/viewer/editor/custom) 엽니다. 하단 패널 상태: `log`, `terms`, `dockTab`, `session.dockVisible/dockHeight`. |
+| `components/FilePanel.jsx` | 목록 로드·정렬·선택(Ctrl/Shift/키보드)·컨텍스트 메뉴·폴더 감시(`watchDir`, 250 ms 디바운스, 작업 중 일시 정지)·패널 상태줄. **TC 키**: Insert/Space 토글(Space 는 `fs.stat` 으로 폴더 크기 → `dirSizes`), Num+/−/* 패턴 선택·반전(`globToRegExp`), Alt+Num+ 같은 확장자, 글자 입력 **빠른 검색**(`quick` 버퍼, 1.2 s), Alt+Enter 속성. 경로 표시줄의 🕘 폴더 기록·★ 즐겨찾기 메뉴(App 이 `history`/`hotlist` props 로 공급). 열 표시는 `columns` prop. App 은 `ref`(refresh/getSelectedEntries/getCursorEntry/selectPaths — **커서도 함께 이동**/selectByPattern/invertSelection/openHistory/openHotlist/openDrives/goUp…)와 `onAction(id)` 로만 상호작용. |
 | `components/FolderTree.jsx` | 루트(`fs.roots`) + 지연 로딩(`fs.subdirs`), 현재 경로까지 자동 확장. |
-| `components/Chrome.jsx` | 메뉴바(파일/편집/보기/압축 — 제목과 모든 항목에 아이콘, 체크 항목은 아이콘 + 오른쪽 체크 표시), 툴바(작업 버튼 · 검색 · 터미널 + 우측: 테마 분할 버튼 · 국기 언어 토글 · 설정 · 정보). |
+| `components/Chrome.jsx` | 메뉴바(파일/편집/선택/보기/압축 — 모든 항목에 아이콘·단축키, 선택 상태로 활성/비활성), **아이콘 전용 툴바**(`[action, icon, label, tooltip, disabled?, toggled?]` 표; 툴팁이 설명·단축키, `aria-label` 이 이름) + 우측: 테마 분할 버튼(툴팁에 현재/다음 테마) · 국기 언어 토글 · 설정 · 정보, **`FnBar`**(F3~F8·Alt+F4 펑션 키 바). |
 | `components/BottomDock.jsx` | 하단 패널: 탭 줄(로그 + 터미널 ×N, `+`/`+ ▾` 셸 선택, 가운데 클릭 닫기, 높이 조절 스플리터). `LogView` 는 시각·수준·메시지 줄(맨 아래 고정 스크롤, 복사/지우기). `TerminalView` 는 MyEditor 의 `TerminalPanel` 과 같은 콘솔 — 아래 "터미널 UI" 참고. |
 | `components/ContextMenu.jsx` | 위치 보정 팝업 메뉴(메뉴바 드롭다운·컨텍스트 메뉴·테마 목록 공용, 체크/스와치 지원). |
-| `dialogs/Dialogs.jsx` | `useDialogs()` — 프라미스 기반 스택(`prompt/confirm/error/conflict/compress/about/properties`, `open()` 은 진행률처럼 갱신형). `describeError` 가 Error → 메시지+상세. 오류 팝업에는 **자세한 내용 복사** 버튼. |
+| `dialogs/Dialogs.jsx` | `useDialogs()` — 프라미스 기반 스택(`prompt/confirm/error/conflict/compress/about/properties/settings/viewer/editor/multiRename`, `open()` 은 진행률처럼 갱신형). `DialogFrame` 의 **`windowed`** 모드: 배경·제목줄 없이 창 전체를 채우고 제목은 `document.title` 로 — 도구 창에서 같은 컴포넌트를 재사용. `describeError` 가 Error → 메시지+상세. |
+| `dialogs/ToolDialogs.jsx` | **뷰어**(텍스트 `<pre>` 줄 바꿈/16진수 덤프, 이미지 맞춤/원본, F3·Ctrl+W·Ctrl+H), **편집기**(textarea, Tab 유지, Ctrl+S → `spec.onSave`, 닫을 때 `spec.confirmDiscard`), **다중 이름 바꾸기**(`computeRenames`: `[N]` `[N2-5]` `[N3-]` `[E]` `[C]` `[P]` 마스크 → 찾기/바꾸기(정규식·대소문자 무시) → 대소문자 규칙; 미리보기와 중복/무효 표시). 모두 `spec.prefs`(글꼴·줄 바꿈·탭)와 `spec.windowed` 를 받습니다. |
+| `ToolWindow.jsx` | `?win=<kind>` 페이지: `app.info`·`session.load` 로 테마·언어·글꼴을 맞추고 `windowArgs()` 로 인자를 받아 도구 하나를 창 전체에 렌더. 결과는 `postToApp` 으로 메인 창에 전달(편집기 저장 → refresh, 다중 이름 바꾸기 → `fs.renameMany` 후 renamed, 검색 → navigate/openFile/clipCopy/copyTo, 설정 → settings(변경마다 `live`, 확인/취소 시 최종값)). 메인 창의 `session` 메시지로 테마·언어·글꼴을 따라갑니다. |
 | `dialogs/SearchDialog.jsx` | 비모달 검색 창(제목줄 드래그): `search.start` 잡(진행 중 개수), 결과 `{path,isDir,size}` 목록에 패널과 같은 선택(클릭/Ctrl/Shift/방향키/Ctrl+A). Enter·더블클릭 → 폴더 `onOpenDir`(App: 왼쪽 패널로 이동) / 파일 `onOpenFile`(`fs.open`); Ctrl+C·복사 버튼 → `onClipCopy`(패널의 클립보드 복사와 같은 `file://` 목록 + 앱 내부 클립보드 → 패널 Ctrl+V); 왼쪽/오른쪽 패널로 복사 버튼·우클릭 메뉴 → `onCopyTo`(App `copyPathsTo`: 진행률·충돌 처리하는 `ops.transfer`). |
-| `dialogs/SettingsDialog.jsx` | 설정 — 일반 탭(언어·테마·글꼴 크기·분할 기본 크기·숨김·삭제 확인·폴더 복원·자동 새로고침)과 터미널 탭(기본 셸 `termShell` — `term.shells` 목록, 시작 디렉터리 `termCwd` — 데스크톱은 `pickFolder`(IPC `dialog` → `dialog.showOpenDialog`)로 찾아보기). 값은 세션에 저장되고 App 이 적용(`applyTheme`, `--fs`, `suspendWatch`; 새 터미널은 `termCwd`(없으면 활성 패널 폴더)·`termShell`). |
-| `lib/backend.js` | 전송 분기: `call`, `runJob/followJob`(푸시 vs 폴링), `watchDir`(fs.watch vs mtime 폴링), 클립보드, `unwrap`(오류 객체 → Error, 스택 결합). |
+| `dialogs/SettingsDialog.jsx` | 설정 6개 탭(일반 · 패널 · 파일 열기 · 보기·편집 · 창 · 터미널). 키와 기본값은 `lib/settings.js` 의 `SETTINGS_DEFAULTS`/`SETTINGS_KEYS` 한 곳. **즉시 적용**: 값이 바뀔 때마다 `spec.onChange(values)` → App `applySettings(quiet)`(도구 창이면 `live` 메시지); 확인은 최종값, 취소는 원래 값으로 한 번 더 적용. 찾아보기는 `pickFolder`/`pickFile`(IPC `dialog`). |
+| `lib/backend.js` | 전송 분기: `call`, `runJob/followJob`(푸시 vs 폴링), `watchDir`(fs.watch vs mtime 폴링), 클립보드, `pickFolder/pickFile`, `unwrap`(오류 객체 → Error, 스택 결합). **도구 창**: `windowKind/windowId`(URL), `openWindow(kind, args)`(Electron IPC `win:open` / 브라우저 `window.open` + localStorage 인자), `windowArgs()`, `closeWindow()`, `postToApp(msg)`/`onAppMessage(cb)`(IPC 릴레이 / `BroadcastChannel`). |
+| `lib/history.js` | 실행 취소/다시 실행 스택(데이터 엔트리만 보관 — 해석은 App). `push`(redo 비움, `max` 까지 유지) · `mark`(되돌릴 수 없는 작업 후 redo 만 비움) · `commitUndo/commitRedo` · `drop`(실패한 엔트리 제거) · 구독. |
+| `lib/settings.js` | 설정 기본값·키 목록, `isTextFile(name, exts)`. |
 | `lib/i18n.js` | ko/en 사전 + `t()` + `useLanguage()`(useSyncExternalStore). |
 | `lib/ansi.jsx` | ANSI SGR → 스타일 런(`parseAnsi`)과 `AnsiText`(MyEditor 와 동일): 16/256/24-bit 색, 굵게·흐리게·기울임·밑줄·반전·취소선. |
-| `lib/format.js` | 크기/종류 표시, 경로 분리자(백엔드에서 받음), breadcrumb 분해. |
+| `lib/format.js` | 크기/종류 표시, 경로 분리자(백엔드에서 받음), breadcrumb 분해, `globToRegExp`(`*.txt;*.md`). |
 | `themes.js` | 16 테마 토큰 → `:root` CSS 변수(`applyTheme`), 순환(`nextThemeId`). |
 | `styles.css` | 변수 기반 스타일(기본값 = 미드나이트). |
 
@@ -119,13 +127,16 @@ UI runJob('ops.transfer', …)            core: jobs.run(kind, meta, fn)
 - `test/archive.test.mjs`: 세 형식 왕복(한글·긴 이름·심볼릭 링크 포함), 분할/결합, 취소 시 잔여 파일 없음, 확장자 헬퍼.
 - `test/fsops.test.mjs`: 목록 메타데이터, 충돌(건너뛰기/덮어쓰기/모두 적용), 이동·자기 자신 안으로 이동 금지, 취소, mkdir/생성/이름 바꾸기/삭제, 검색, API 디스패치·세션.
 - `test/terminal.test.mjs`: 셸 목록, 세션 왕복(한글 echo, `cd` 후 cwd·`idle` 갱신, 마커 누출 없음, 실행 중 프로그램에 입력, 변수 유지, Tab 완성(파일/명령), 증분 읽기, kill), git 상태(저장소/비저장소), `term.*`/`git.status` 디스패치, 롱폴링(타임아웃까지 대기 / 명령에 즉시 깨어남)과 `shutdown`.
-- `scripts/smoke.mjs`: 실제 Electron 을 별도 프로필로 띄워 스크린샷(`--scenario context|compress|search|about|light_en|delete|themes|error|theme_*|terminal|log|settings_terminal|menu_file|menu_edit|menu_view|menu_archive`), `--web` 이면 웹 서버를 띄우고 preload 없는 창으로 브라우저 모드를 캡처, `--probe <js>` 로 DOM 상태를 출력.
+- `test/fsops.test.mjs` 에 추가: `renameMany`(맞바꾸기, 기존 파일/중복 거부, 롤백 후 임시 파일 없음), `readFile`(BOM·UTF-16·이진·이미지)/`writeText`, `transfer` 의 항목별 결과.
+- `scripts/smoke.mjs`: 실제 Electron 을 별도 프로필로 띄워 스크린샷(`--scenario context|compress|search|about|light_en|delete|themes|error|theme_*|terminal|log|settings_terminal|menu_*|viewer|multirename|compare|undo`), `--script <js> --name <n>` 으로 임의 시나리오, `--tool-script <js>` 로 시나리오가 연 도구 창 안에서 실행(창은 `<name>-<kind>.png` 로 캡처), `--probe <js>` 로 마지막에 메인 창 상태를 출력, `--web` 이면 웹 서버를 띄우고 preload 없는 창으로 브라우저 모드를 캡처. 실행 취소·다중 이름 바꾸기·별도 창·즉시 적용 설정은 이 조합으로 검증했습니다(`undo` 시나리오: 새 폴더 → 이름 바꾸기 → 되돌리기 ×2 → 다시 실행).
 
 ## 8. 설계 메모
 
 - **왜 자체 tar 인가**: 네이티브 의존성 없이 Electron/서버에서 동일하게 동작하고, GTK 판(libarchive)과 서로 읽을 수 있어야 하기 때문.
 - **왜 bzip2 는 워커인가**: `compressjs` 는 동기·바이트 단위라 메인 프로세스에서 돌리면 IPC 가 멈춤.
 - **왜 분할 첫 조각이 `.zip`/`.tgz` 인가**: GTK 판의 규칙을 그대로 따라 두 프로그램이 서로의 분할 파일을 해제할 수 있게 함(7-Zip 순서와 다름 — README 의 `cat` 안내 참고).
-- **왜 대화상자가 앱 내부 모달인가**: 웹 버전에서도 같은 코드를 쓰기 위함. 충돌 질문은 진행률 창 위에 스택으로 쌓임. 검색 창만은 비모달이라 결과를 보며 패널을 계속 쓸 수 있습니다.
+- **왜 짧은 대화상자는 앱 내부 모달이고 도구는 별도 창인가**: 프롬프트·확인·충돌·진행률·오류는 순간적이라 앱 안 모달이 가장 빠르고 웹에서도 같습니다. 반면 뷰어·편집기·다중 이름 바꾸기·검색·설정은 오래 열어 두고 옮기거나 여러 개 띄우는 도구라 **독립 창**으로 만들었습니다(요구 사항: 앱에 종속되지 않고 위치·크기를 바꿀 수 있되 앱과 함께 종료). 같은 번들을 `?win=` 으로 띄우고 창 간 메시지 버스로 메인 창의 상태(패널 새로고침·실행 취소 기록·설정)를 맞추므로, 데스크톱(BrowserWindow)과 웹(팝업) 모두 같은 코드입니다. 설정에서 끄면 예전 방식(앱 내 대화상자)으로 돌아갑니다.
+- **왜 실행 취소 엔트리는 데이터인가**: 클로저를 저장하면 오래된 React 상태를 붙잡습니다. `{kind, paths…}` 만 저장하고 실행 시점의 App 함수가 해석하며, `fsops.transfer` 가 항목별 `existed` 를 돌려주므로 덮어쓰기/병합된 항목은 애초에 기록하지 않습니다.
+- **왜 설정이 즉시 적용되는가**: 사용자 요구. `SettingsDialog` 가 변경마다 `onChange` 를 부르고 App 이 조용히 적용·저장, 취소 시 원래 값으로 재적용. 도구 창에서는 같은 흐름이 메시지 버스를 탑니다.
 - **왜 터미널이 pty 가 아닌가**: `node-pty` 는 네이티브 모듈이라 세 OS × Electron/Node ABI 마다 빌드가 필요하고 웹 서버 쪽도 무거워집니다. 파일 관리자에서 필요한 것은 `git`·`npm`·`dir` 같은 줄 단위 명령이므로 파이프 stdio 로 충분하고, 대신 전체 화면 프로그램과 Ctrl+C 중단은 포기했습니다. 프롬프트·입력·Tab 완성은 MyEditor 의 터미널 패널과 같은 방식이며, 명령을 스크립트 파일로 source 해 stdin 을 비워 두므로 실행 중 프로그램과의 줄 단위 대화도 됩니다. 한글 입력은 Windows 셸마다 다른 우회(2장 "터미널 흐름")로 해결.
 - **오류 전달**: 백엔드 → `serializeError`(code/path/syscall/stack) → `unwrap` 이 렌더러 Error 로 재구성(스택 두 프로세스 결합) → `describeError` → 팝업 + 복사.

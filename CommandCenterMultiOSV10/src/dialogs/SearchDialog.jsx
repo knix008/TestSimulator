@@ -15,7 +15,7 @@ import { Icon } from '../components/Icons';
 import { ContextMenu } from '../components/ContextMenu';
 import { baseName, dirName, formatSize } from '../lib/format';
 
-export function SearchDialog({ root, onClose, onOpenDir, onOpenFile, onClipCopy, onCopyTo }) {
+export function SearchDialog({ root, onClose, onOpenDir, onOpenFile, onClipCopy, onCopyTo, windowed = false }) {
   useLanguage();
   const [pattern, setPattern] = useState('*');
   const [matchContent, setMatchContent] = useState(false);
@@ -34,6 +34,7 @@ export function SearchDialog({ root, onClose, onOpenDir, onOpenFile, onClipCopy,
   const winRef = useRef(null);
 
   useEffect(() => { if (patternRef.current) patternRef.current.focus(); }, []);
+  useEffect(() => { if (windowed) document.title = t('search_title', { root }); }, [windowed, root]);
   useEffect(() => () => { if (jobId.current) cancelJob(jobId.current).catch(() => {}); }, []);
 
   const start = async (e) => {
@@ -138,13 +139,15 @@ export function SearchDialog({ root, onClose, onOpenDir, onOpenFile, onClipCopy,
   const rel = (p) => { const d = dirName(p); const r = root.replace(/[\\/]+$/, ''); return d.toLowerCase().startsWith(r.toLowerCase()) ? (d.slice(r.length).replace(/^[\\/]/, '') || '.') : d; };
 
   return (
-    <div className={`search-window ${pos ? 'dragged' : ''}`} ref={winRef} style={pos || undefined} role="dialog" aria-label={t('search_title', { root })}
+    <div className={`search-window ${windowed ? 'windowed' : ''} ${pos ? 'dragged' : ''}`} ref={winRef} style={windowed ? undefined : (pos || undefined)} role="dialog" aria-label={t('search_title', { root })}
       onKeyDown={(e) => { if (e.key === 'Escape' && e.target.tagName !== 'INPUT') onClose(); e.stopPropagation(); }}>
-      <div className="dlg-title" onMouseDown={onTitleDown} style={{ cursor: 'move' }}>
-        <Icon name="search" />
-        <span className="ellipsis" title={root}>{t('search_title', { root })}</span>
-        <button className="dlg-x" onClick={onClose} title={t('close')}><Icon name="close" /></button>
-      </div>
+      {!windowed && (
+        <div className="dlg-title" onMouseDown={onTitleDown} style={{ cursor: 'move' }}>
+          <Icon name="search" />
+          <span className="ellipsis" title={root}>{t('search_title', { root })}</span>
+          <button className="dlg-x" onClick={onClose} title={t('close')}><Icon name="close" /></button>
+        </div>
+      )}
       <div className="dlg-body">
         <form onSubmit={start} className="form-grid">
           <label>{t('lbl_pattern')}</label>

@@ -50,6 +50,16 @@ const paths = {
   eraser: <><path d="M20 20H8L3 15a2 2 0 0 1 0-3l8-8a2 2 0 0 1 3 0l6 6a2 2 0 0 1 0 3l-6 7" /><path d="M6 12l7 7" /></>,
   undo: <><path d="M9 14L4 9l5-5" /><path d="M4 9h10a6 6 0 0 1 0 12h-4" /></>,
   redo: <><path d="M15 14l5-5-5-5" /><path d="M20 9H10a6 6 0 0 0 0 12h4" /></>,
+  star: <><path d="M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4l-5.9 3.1 1.2-6.5L2.5 9.4l6.6-.9z" /></>,
+  history: <><path d="M3 12a9 9 0 1 0 3-6.7" /><path d="M3 4v5h5" /><path d="M12 7v5l3 2" /></>,
+  view: <><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" /><path d="M14 3v5h5" /><circle cx="11.5" cy="14" r="2.5" /><path d="M13.5 16l2 2" /></>,
+  swap: <><path d="M4 8h13l-3-3" /><path d="M20 16H7l3 3" /></>,
+  compare: <><rect x="3" y="4" width="7" height="16" rx="1" /><rect x="14" y="4" width="7" height="16" rx="1" /><path d="M6.5 9v6M17.5 9v6M4.5 12h4M15.5 12h4" /></>,
+  multiRename: <><path d="M4 6h9M4 12h9M4 18h9" /><path d="M20.5 5.5a1.5 1.5 0 0 1 0 2L16 12l-3 1 1-3 4.5-4.5a1.5 1.5 0 0 1 2 0z" /></>,
+  select: <><rect x="3" y="3" width="18" height="18" rx="2" strokeDasharray="4 3" /><path d="M8 12l3 3 5-6" /></>,
+  save: <><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" /><path d="M17 21v-8H7v8M7 3v5h8" /></>,
+  wrap: <><path d="M4 6h16M4 12h11a3 3 0 0 1 0 6h-3" /><path d="M14 16l-2 2 2 2M4 18h5" /></>,
+  hex: <><path d="M4 7h4M6 5v4M14 7h6M4 17h6M14 15l4 4M18 15l-4 4" /></>,
   panelBottom: <><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M3 14h18" /></>,
 };
 

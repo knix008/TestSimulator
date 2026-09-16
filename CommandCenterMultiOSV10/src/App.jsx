@@ -4,16 +4,16 @@
 // bottom dock (operation log + terminal tabs) and every action that needs a
 // dialog, a job with progress, or the other panel.
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { call, runJob, cancelJob, resolveConflict, readClipboardText, writeClipboardText, quitApp, hostName, pickFolder } from './lib/backend';
+import { call, runJob, cancelJob, resolveConflict, readClipboardText, writeClipboardText, quitApp, hostName, pickFolder, pickFile, openWindow, onAppMessage, postToApp, canOpenWindows } from './lib/backend';
 import { t, setLanguage, getLanguage, useLanguage } from './lib/i18n';
-import { setSeparator, joinPath, baseName, dirName } from './lib/format';
+import { setSeparator, joinPath, baseName, dirName, getSeparator } from './lib/format';
 import { FilePanel } from './components/FilePanel';
-import { MenuBar, Toolbar } from './components/Chrome';
+import { MenuBar, Toolbar, FnBar } from './components/Chrome';
 import { DialogHost, useDialogs } from './dialogs/Dialogs';
 import { BottomDock } from './components/BottomDock';
 import { SearchDialog } from './dialogs/SearchDialog';
 import { applyTheme, themeById, nextThemeId, DEFAULT_THEME } from './themes';
-import { SETTINGS_DEFAULTS } from './lib/settings';
+import { SETTINGS_DEFAULTS, SETTINGS_KEYS, isTextFile } from './lib/settings';
 import { History } from './lib/history';
 
 function applyFontSize(px) {
@@ -54,6 +54,7 @@ function describeHistory(entry) {
     case 'move': return t('hist_move', { n: entry.items.length, dest: entry.destDir });
     case 'compress': return t('hist_compress', { name: baseName(entry.parts[0] || '') });
     case 'extract': return t('hist_extract', { name: baseName(entry.destDir) });
+    case 'renameMany': return t('hist_rename_many', { n: entry.pairs.length });
     default: return entry.kind;
   }
 }
@@ -90,6 +91,7 @@ export default function App() {
   const [busy, setBusy] = useState(0);
   const [selCount, setSelCount] = useState({ left: 0, right: 0 });
   const [extractable, setExtractable] = useState({ left: false, right: false });
+  const [selIsDir, setSelIsDir] = useState({ left: false, right: false });
   const [search, setSearch] = useState(null);   // { root } while the search window is open
   const panels = { left: useRef(null), right: useRef(null) };
   const inAppClipboard = useRef([]);
@@ -98,6 +100,21 @@ export default function App() {
   const history = useRef(new History()).current;
   const [, setHistTick] = useState(0);
   useEffect(() => history.subscribe(() => setHistTick((n) => n + 1)), [history]);
+  useEffect(() => { if (session) history.max = Math.max(1, Number(session.historyMax) || 50); }, [session && session.historyMax]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Folders each panel visited (Alt+↓), newest first.
+  const [dirHistory, setDirHistory] = useState({ left: [], right: [] });
+  useEffect(() => {
+    if (!session) return;
+    setDirHistory((h) => {
+      let next = h;
+      for (const side of ['left', 'right']) {
+        const p = session[side];
+        if (!p || (next[side][0] === p)) continue;
+        next = { ...next, [side]: [p, ...next[side].filter((x) => x !== p)].slice(0, 30) };
+      }
+      return next;
+    });
+  }, [session && session.left, session && session.right]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const addLog = useCallback((level, text) => {
     if (!text) return;
@@ -140,6 +157,8 @@ export default function App() {
   const saveSession = useCallback((patch) => {
     setSession((s) => (s ? { ...s, ...patch } : s));
     call('session.save', { patch }).catch(() => {});
+    // Tool windows follow theme / language / font changes.
+    if (patch.theme || patch.language || patch.fontSize) postToApp({ type: 'session', patch });
   }, []);
 
   const panel = (side = active) => panels[side].current;
@@ -444,9 +463,14 @@ export default function App() {
       const d = await call('archive.describe', { path: entry.path });
       if (d.isSplit) { await extract(side, entry.path); return; }
     } catch { /* fall through */ }
+    // Text files go where the settings say (system app / viewer / editor / a chosen program).
+    const how = isTextFile(entry.name, session.textExts) ? (session.textOpen || 'app') : 'app';
+    if (how === 'viewer') { await viewFile(side, entry); return; }
+    if (how === 'editor') { await editFile(side, entry); return; }
     if (!(info && info.capabilities.open)) { setStatus(t('open_unsupported')); return; }
     try {
-      await call('fs.open', { path: entry.path });
+      if (how === 'custom' && session.textApp) await call('fs.openWith', { path: entry.path, app: session.textApp });
+      else await call('fs.open', { path: entry.path });
     } catch (err) {
       await dialogs.error(err, `${t('open_failed')} (${entry.path})`);
     }
@@ -530,6 +554,9 @@ export default function App() {
       case 'extract':
         if (undo) return removeProduced([entry.destDir], describeHistory(entry));
         return runWithProgress(t('extracting'), 'archive.extract', entry.args);
+      case 'renameMany':
+        await call('fs.renameMany', { items: entry.pairs.map((p) => (undo ? { path: p.to, newName: baseName(p.from) } : { path: p.from, newName: baseName(p.to) })) });
+        return done;
       default: return done;
     }
   };
@@ -560,6 +587,123 @@ export default function App() {
     }
   };
 
+  // ── Total Commander style tools ──
+  // F3: the built-in viewer (text / image / hex). 'edit' from the viewer's footer opens the editor.
+  // Tools open as separate windows (settings › windows) when the host can; otherwise as in-app dialogs.
+  const useWindows = () => session.separateWindows !== false && canOpenWindows;
+  const openTool = async (kind, args, opts) => {
+    try { await openWindow(kind, args, opts); return true; }
+    catch (err) { if (err.message !== 'POPUP_BLOCKED') await dialogs.error(err); return false; }
+  };
+  const prefsOf = () => ({ viewerWrap: session.viewerWrap, viewerFontSize: session.viewerFontSize, editorFontSize: session.editorFontSize, editorTabSize: session.editorTabSize, editorWrap: session.editorWrap });
+  const viewFile = async (side, entry) => {
+    const p = panel(side);
+    const e = entry || (p && p.getCursorEntry());
+    if (!e || e.isDir) { setStatus(t('view_none')); return; }
+    if (useWindows() && await openTool('viewer', { path: e.path }, { title: `${t('viewer_title')} — ${e.name}` })) return;
+    setBusy((b) => b + 1);
+    let data;
+    try { data = await call('fs.readFile', { path: e.path }); } finally { setBusy((b) => Math.max(0, b - 1)); }
+    const r = await dialogs.viewer({ path: e.path, data, prefs: prefsOf(), canOpen: !!(info && info.capabilities.open), onOpen: () => call('fs.open', { path: e.path }).catch((err) => dialogs.error(err)) });
+    if (r === 'edit') await editFile(side, e, data);
+  };
+  // F4: a plain text editor; the file is written back as UTF-8.
+  const editFile = async (side, entry, data) => {
+    const p = panel(side);
+    const e = entry || (p && p.getCursorEntry());
+    if (!e || e.isDir) { setStatus(t('edit_none')); return; }
+    if (!data) data = await call('fs.readFile', { path: e.path });
+    if (data.kind !== 'text') { await dialogs.error(t('edit_not_text', { name: e.name })); return; }
+    if (data.truncated) { await dialogs.error(t('edit_too_large', { name: e.name })); return; }
+    if (useWindows() && await openTool('editor', { path: e.path }, { title: `${t('editor_title')} — ${e.name}` })) return;
+    await dialogs.editor({
+      path: e.path, text: data.text, encoding: data.encoding, prefs: prefsOf(),
+      onSave: async (text) => {
+        try { await call('fs.writeText', { path: e.path, text }); setStatus(t('saved_file', { name: e.name })); p && p.refresh(); }
+        catch (err) { await dialogs.error(err, t('save_failed')); throw err; }
+      },
+      confirmDiscard: () => dialogs.confirm({ title: t('editor_title'), message: t('editor_discard', { name: e.name }), danger: true, yesLabel: t('editor_discard_yes'), noLabel: t('cancel') }),
+    });
+  };
+  // Ctrl+M: rename every selected entry through masks / search-replace / counter; one undo step.
+  const multiRename = async (side) => {
+    const p = panel(side);
+    const entries = p ? p.getSelectedEntries() : [];
+    if (!entries.length) { setStatus(t('mrn_none')); return; }
+    const plain = entries.map(({ name, path, isDir }) => ({ name, path, isDir }));
+    if (useWindows() && await openTool('multiRename', { entries: plain, parent: baseName(pathOf(side)), side }, { title: t('multi_rename') })) return;
+    const items = await dialogs.multiRename({ entries, parent: baseName(pathOf(side)) });
+    if (!items || !items.length) return;
+    try {
+      const r = await call('fs.renameMany', { items });
+      afterRenameMany(r.renamed, side);
+    } catch (err) {
+      await dialogs.error(err.code === 'EEXIST' ? t('exists', { name: baseName(err.path || '') }) : err, t('rename_failed'));
+    }
+  };
+  const afterRenameMany = (pairs, side) => {
+    if (!pairs || !pairs.length) return;
+    history.push({ kind: 'renameMany', pairs });
+    const p = panel(side || active);
+    if (p) p.refresh().then(() => p.selectPaths(pairs.map((x) => x.to)));
+    setStatus(t('mrn_done', { n: pairs.length }));
+  };
+
+  // Settings (from the in-app dialog or the settings window): apply what changed and save.
+  // Called on every change while the dialog is open (live), then once more with
+  // the final values (OK) or the original ones (Cancel).
+  const applySettings = (v, { quiet = false } = {}) => {
+    if (!v) return;
+    if (v.language !== getLanguage()) setLanguage(v.language);
+    const theme = applyTheme(v.theme);
+    applyFontSize(v.fontSize);
+    const patch = {};
+    for (const k of SETTINGS_KEYS) if (k in v) patch[k] = v[k];
+    patch.theme = theme.id; patch.themeBg = theme.tokens['--bg'];
+    patch.termCwd = (v.termCwd || '').trim();
+    saveSession(patch);
+    if (!quiet) setStatus(t('settings_applied'));
+  };
+
+  // Shift+F2: mark what differs between the panels — entries missing on the
+  // other side, and files whose size differs or that are newer than their twin.
+  const compareDirs = () => {
+    const L = panels.left.current, Rp = panels.right.current;
+    if (!L || !Rp) return;
+    const ci = info && info.platform === 'win32';
+    const key = (e) => (ci ? e.name.toLowerCase() : e.name);
+    const le = L.getEntries(), re = Rp.getEntries();
+    const lm = new Map(le.map((e) => [key(e), e])), rm = new Map(re.map((e) => [key(e), e]));
+    const tol = Math.max(0, Number(session.compareToleranceSec) || 0) * 1000;
+    const differs = (a, b) => !a.isDir && !b.isDir && (a.size !== b.size || a.mtime > b.mtime + tol);
+    const ls = le.filter((e) => { const o = rm.get(key(e)); return !o || (e.isDir !== o.isDir) || differs(e, o); }).map((e) => e.path);
+    const rs = re.filter((e) => { const o = lm.get(key(e)); return !o || (e.isDir !== o.isDir) || differs(e, o); }).map((e) => e.path);
+    L.selectPaths(ls); Rp.selectPaths(rs);
+    setStatus(ls.length + rs.length ? t('compare_done', { left: ls.length, right: rs.length }) : t('compare_same'));
+  };
+  // Ctrl+U: the panels trade folders (sort orders travel with them).
+  const swapPanels = () => {
+    saveSession({ left: session.right, right: session.left, leftSort: session.rightSort, rightSort: session.leftSort });
+    setStatus(t('panels_swapped'));
+  };
+  // Ctrl+← / Ctrl+→: open the folder under the cursor (else the current one) in that panel.
+  const targetFrom = (side, target) => {
+    const p = panel(side);
+    const e = p && p.getCursorEntry();
+    const dir = e && e.isDir ? e.path : pathOf(side);
+    navigate(target, dir);
+  };
+  const selectPattern = async (side, add) => {
+    const p = panel(side);
+    if (!p) return;
+    const pattern = await dialogs.prompt({ title: t(add ? 'sel_pattern_title' : 'unsel_pattern_title'), label: t('sel_pattern_label'), value: session.lastPattern || '*.*', icon: 'select', okLabel: t('ok') });
+    if (!pattern) return;
+    saveSession({ lastPattern: pattern });
+    const n = p.selectByPattern(pattern, add, true);
+    setStatus(t('sel_count', { n }));
+  };
+  const rootOf = (p) => { const m = /^[a-zA-Z]:/.exec(p); return m ? m[0] + getSeparator() : getSeparator(); };
+
   const setTheme = (id) => {
     const theme = applyTheme(id);
     saveSession({ theme: theme.id, themeBg: theme.tokens['--bg'] });
@@ -583,6 +727,26 @@ export default function App() {
       case 'rename': await rename(side); break;
       case 'undo': await undoRedo(true); break;
       case 'redo': await undoRedo(false); break;
+      case 'view': await viewFile(side); break;
+      case 'edit': await editFile(side); break;
+      case 'multiRename': await multiRename(side); break;
+      case 'compareDirs': compareDirs(); break;
+      case 'swapPanels': swapPanels(); break;
+      case 'targetLeft': targetFrom(side, 'left'); break;
+      case 'targetRight': targetFrom(side, 'right'); break;
+      case 'selectPattern': await selectPattern(side, true); break;
+      case 'unselectPattern': await selectPattern(side, false); break;
+      case 'selectAll': panel(side) && panel(side).selectAll(); break;
+      case 'unselectAll': panel(side) && panel(side).clearSelection(); break;
+      case 'invertSelection': panel(side) && panel(side).invertSelection(); break;
+      case 'selectSameExt': panel(side) && panel(side).selectSameExt(true); break;
+      case 'dirHistory': panel(side) && panel(side).openHistory(); break;
+      case 'hotlist': panel(side) && panel(side).openHotlist(); break;
+      case 'drives': panel(side) && panel(side).openDrives(); break;
+      case 'parent': panel(side) && panel(side).goUp(); break;
+      case 'root': navigate(side, rootOf(pathOf(side))); break;
+      case 'toggleFnBar': saveSession({ fnBar: session.fnBar === false }); break;
+      case 'toggleToolbar': saveSession({ showToolbar: session.showToolbar === false }); break;
       case 'delete': await remove(side); break;
       case 'trash': await trash(side); break;
       case 'copyOther': await transfer(side, false); break;
@@ -594,20 +758,15 @@ export default function App() {
       case 'open': await openSelected(side); break;
       case 'properties': await properties(side); break;
       case 'refresh': refreshBoth(); setStatus(t('refreshed')); break;
-      case 'search': setSearch({ root: pathOf(side) }); break;
+      case 'search': if (!(useWindows() && await openTool('search', { root: pathOf(side) }, { title: t('search_title', { root: pathOf(side) }) }))) setSearch({ root: pathOf(side) }); break;
       case 'about': await dialogs.about({ ...(info || {}), host: hostName }); break;
       case 'settings': {
-        const v = await dialogs.settings({
-          language: getLanguage(), theme: session.theme, showHidden: !!session.showHidden, fontSize: session.fontSize || 13,
-          confirmDelete: session.confirmDelete !== false, splitSizeMB: session.splitSizeMB || 10,
-          restoreFolders: session.restoreFolders !== false, autoRefresh: session.autoRefresh !== false,
-          termShell: session.termShell || '', termCwd: session.termCwd || '',
-        }, { shells, pickFolder });
-        if (!v) break;
-        if (v.language !== getLanguage()) setLanguage(v.language);
-        const theme = applyTheme(v.theme);
-        applyFontSize(v.fontSize);
-        saveSession({ language: v.language, theme: theme.id, themeBg: theme.tokens['--bg'], showHidden: v.showHidden, fontSize: v.fontSize, confirmDelete: v.confirmDelete, splitSizeMB: v.splitSizeMB, restoreFolders: v.restoreFolders, autoRefresh: v.autoRefresh, termShell: v.termShell || '', termCwd: (v.termCwd || '').trim() });
+        const values = {};
+        for (const k of SETTINGS_KEYS) values[k] = session[k] !== undefined ? session[k] : SETTINGS_DEFAULTS[k];
+        values.language = getLanguage();
+        if (useWindows() && await openTool('settings', { values, shells }, { title: t('settings_title') })) break;
+        const result = await dialogs.settings(values, { shells, pickFolder, pickFile, platform: info && info.platform, onChange: (live) => applySettings(live, { quiet: true }) });
+        applySettings(result || values);
         break;
       }
       case 'quit': quitApp(); break;
@@ -636,8 +795,25 @@ export default function App() {
 
   // Test hook (smoke scripts drive the UI through it; harmless otherwise).
   useEffect(() => {
-    window.__cc = { action: onAction, setActive, dialogs, panels, session, call, navigate, log, terms, setDockTab, closeTerminal, history };
+    window.__cc = { action: onAction, setActive, dialogs, panels, session, call, navigate, log, terms, setDockTab, closeTerminal, history, dirHistory };
   });
+
+  // ── Messages from the tool windows ──
+  const busRef = useRef(null);
+  busRef.current = async (msg) => {
+    if (!msg || !session) return;
+    switch (msg.type) {
+      case 'refresh': refreshBoth(); if (msg.status) setStatus(msg.status); break;
+      case 'renamed': afterRenameMany(msg.pairs, msg.side); break;
+      case 'navigate': setActive(msg.side || 'left'); navigate(msg.side || 'left', msg.path); setStatus(t('search_opened_left', { path: msg.path })); break;
+      case 'openFile': await openEntry('left', { name: baseName(msg.path), path: msg.path, isDir: false }); break;
+      case 'clipCopy': inAppClipboard.current = msg.paths || []; setStatus(t('clip_copied', { n: (msg.paths || []).length })); break;
+      case 'copyTo': await copyPathsTo(msg.side, msg.paths || []); break;
+      case 'settings': applySettings(msg.values, { quiet: !!msg.live }); break;
+      default: break;
+    }
+  };
+  useEffect(() => onAppMessage((msg) => { busRef.current && busRef.current(msg).catch((err) => dialogs.error(err)); }), []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Global shortcuts (F-keys as in the GTK version) ──
   useEffect(() => {
@@ -653,9 +829,26 @@ export default function App() {
         onAction(e.key.toLowerCase() === 'y' || e.shiftKey ? 'redo' : 'undo');
         return;
       }
-      const map = { F2: 'rename', F5: 'copyOther', F6: 'moveOther', F7: 'newFolder', F8: 'delete', F9: 'search' };
-      if (map[e.key]) { e.preventDefault(); onAction(map[e.key]); }
-      else if (e.key === 'Tab' && !e.ctrlKey && !e.altKey) { e.preventDefault(); const next = other(active); setActive(next); panel(next) && panel(next).focus(); }
+      const ctrl = e.ctrlKey || e.metaKey;
+      // Total Commander keys: F3 view, F4 edit, Shift+F2 compare, Alt+F1/F2 drives, Alt+F5/F9 pack/unpack,
+      // Ctrl+U swap, Ctrl+←/→ target = source, Ctrl+D hotlist, Alt+↓ history, Ctrl+M multi-rename,
+      // Ctrl+PgUp / Ctrl+\ parent / root, Ctrl+R refresh, Ctrl+H hidden files.
+      let id = null;
+      if (e.altKey && !ctrl) {
+        id = { F1: 'drives:left', F2: 'drives:right', F4: 'quit', F5: 'compress', F9: 'extract', ArrowDown: 'dirHistory' }[e.key] || null;
+      } else if (ctrl && !e.altKey) {
+        id = { u: 'swapPanels', U: 'swapPanels', ArrowLeft: 'targetLeft', ArrowRight: 'targetRight', d: 'hotlist', D: 'hotlist', m: 'multiRename', M: 'multiRename',
+          PageUp: 'parent', PageDown: 'open', '\\': 'root', r: 'refresh', R: 'refresh', h: 'toggleHidden', H: 'toggleHidden' }[e.key] || null;
+      } else if (!ctrl && !e.altKey) {
+        id = e.shiftKey
+          ? { F2: 'compareDirs', F4: 'newFile', F6: 'rename' }[e.key] || null
+          : { F2: 'rename', F3: 'view', F4: 'edit', F5: 'copyOther', F6: 'moveOther', F7: 'newFolder', F8: 'delete', F9: 'search' }[e.key] || null;
+      }
+      if (id) {
+        e.preventDefault();
+        if (id.startsWith('drives:')) onAction('drives', id.slice(7));
+        else onAction(id);
+      } else if (e.key === 'Tab' && !ctrl && !e.altKey) { e.preventDefault(); const next = other(active); setActive(next); panel(next) && panel(next).focus(); }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
@@ -683,13 +876,18 @@ export default function App() {
     showHidden: !!(session && session.showHidden),
     theme: session ? session.theme : 'dark',
     hasSelection: selCount[active] > 0,
+    selCount: selCount[active],
+    oneFile: selCount[active] === 1 && !selIsDir[active],
     canExtract: selCount[active] === 1 && extractable[active],
+    canTrash: !!(info && info.capabilities.trash),
     dockVisible: !!(session && session.dockVisible),
+    fnBar: !(session && session.fnBar === false),
+    showToolbar: !(session && session.showToolbar === false),
     canUndo: history.canUndo,
     canRedo: history.canRedo,
     undoWhat: describeHistory(history.peekUndo()),
     redoWhat: describeHistory(history.peekRedo()),
-  }), [session, selCount, extractable, active, history.version]); // eslint-disable-line react-hooks/exhaustive-deps
+  }), [session, selCount, selIsDir, extractable, active, info, history.version]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!session) return <div className="boot">{status || '…'}</div>;
 
@@ -706,17 +904,25 @@ export default function App() {
     onSortChange: (sort) => saveSession({ [`${side}Sort`]: sort }),
     onSelectionChange: (entries) => {
       setSelCount((c) => (c[side] === entries.length ? c : { ...c, [side]: entries.length }));
+      const dir = entries.length === 1 && entries[0].isDir;
+      setSelIsDir((d) => (d[side] === dir ? d : { ...d, [side]: dir }));
       const p = panels[side].current;
       setTimeout(() => setExtractable((x) => ({ ...x, [side]: !!(p && p.isExtractable()) })), 60);
     },
     onOpenEntry: (entry) => openEntry(side, entry),
     onAction: (id) => onAction(id, side),
+    history: dirHistory[side],
+    hotlist: session.hotlist || [],
+    columns: { perm: session.showPerm !== false, date: session.showDate !== false, type: session.showType !== false, size: session.showSize !== false },
+    quickSearch: session.quickSearch !== false,
+    spaceMeasures: session.spaceMeasures !== false,
+    onHotlistChange: (hotlist) => { saveSession({ hotlist }); setStatus(t(hotlist.length > (session.hotlist || []).length ? 'hot_added' : 'hot_removed')); },
   });
 
   return (
     <div className="app">
       <MenuBar onAction={(id) => onAction(id)} state={menuState} />
-      <Toolbar onAction={(id) => onAction(id)} theme={session.theme} dockVisible={!!session.dockVisible} history={menuState} />
+      {session.showToolbar !== false && <Toolbar onAction={(id) => onAction(id)} theme={session.theme} dockVisible={!!session.dockVisible} state={menuState} />}
       <div className="panels" ref={splitRef}>
         <div className="panel-slot" style={{ flexBasis: `${(session.splitter || 0.5) * 100}%` }}>
           <FilePanel ref={panels.left} {...panelProps('left')} />
@@ -731,6 +937,7 @@ export default function App() {
           terms={terms} shells={shells} onNewTerm={(shell) => newTerminal(shell)} onCloseTerm={closeTerminal} onTermExit={onTermExit}
           onHide={() => showDock(false)} height={session.dockHeight || 220} onResizeStart={onDockResizeStart} />
       )}
+      {session.fnBar !== false && <FnBar onAction={(id) => onAction(id)} state={menuState} />}
       <div className="statusbar ellipsis" title={status}>{status}</div>
       {search && (
         <SearchDialog root={search.root} onClose={() => setSearch(null)}

@@ -90,3 +90,11 @@ export function truncateMiddle(s, max = 48) {
   const short = `…${sep}${base}`;
   return short.length <= max ? short : `${short.slice(0, max - 1)}…`;
 }
+
+// "*.txt;*.md" style pattern → case-insensitive RegExp over a file name (the
+// selection-by-pattern keys). Several patterns are separated by ; or space.
+export function globToRegExp(pattern) {
+  const parts = String(pattern || '*').split(/[;\s]+/).filter(Boolean);
+  const one = (p) => p.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*').replace(/\?/g, '.');
+  return new RegExp(`^(?:${parts.map(one).join('|') || '.*'})$`, 'i');
+}

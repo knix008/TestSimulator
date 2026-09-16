@@ -7,22 +7,35 @@ import { formatSize, truncateMiddle } from '../lib/format';
 import { Icon } from '../components/Icons';
 import { writeClipboardText } from '../lib/backend';
 import { SettingsDialog } from './SettingsDialog';
+import { ViewerDialog, EditorDialog, MultiRenameDialog } from './ToolDialogs';
 import { describeError } from '../lib/errors';
 
 // ── Frame ─────────────────────────────────────────────────
 
-export function DialogFrame({ title, children, footer, width = 440, onClose, className = '', icon }) {
+// `windowed`: the dialog is the whole page of a separate tool window — no
+// backdrop, no in-page title bar (the OS window has one; the title goes to
+// document.title), and it fills the window.
+export function DialogFrame({ title, children, footer, width = 440, onClose, className = '', icon, windowed = false }) {
   const ref = useRef(null);
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
     // First field, else the first footer button — never the title-bar X.
-    const focusable = el.querySelector('.dlg-body input, .dlg-body select, .dlg-footer button, .dlg-body button');
+    const focusable = el.querySelector('.dlg-body input, .dlg-body select, .dlg-footer button, .dlg-body button, .dlg-body textarea');
     if (focusable) focusable.focus();
   }, []);
+  useEffect(() => { if (windowed && title) document.title = title; }, [windowed, title]);
   const onKey = (e) => {
     if (e.key === 'Escape' && onClose) { e.stopPropagation(); onClose(); }
   };
+  if (windowed) {
+    return (
+      <div className={`dlg windowed ${className}`} ref={ref} role="dialog" aria-label={title} onKeyDown={onKey}>
+        <div className="dlg-body">{children}</div>
+        {footer && <div className="dlg-footer">{footer}</div>}
+      </div>
+    );
+  }
   return (
     <div className="dlg-backdrop" onMouseDown={(e) => e.stopPropagation()} onKeyDown={onKey}>
       <div className={`dlg ${className}`} style={{ width }} ref={ref} role="dialog" aria-modal="true" aria-label={title}>
@@ -260,6 +273,9 @@ const RENDERERS = {
   about: AboutDialog,
   properties: PropertiesDialog,
   settings: SettingsDialog,
+  viewer: ViewerDialog,
+  editor: EditorDialog,
+  multiRename: MultiRenameDialog,
 };
 
 export function DialogHost({ stack, resolve }) {
@@ -316,6 +332,9 @@ export function useDialogs() {
     about: (info) => push({ type: 'about', info }),
     properties: (stat) => push({ type: 'properties', stat }),
     settings: (values, extra) => push({ type: 'settings', values, ...(extra || {}) }),
+    viewer: (spec) => push({ type: 'viewer', ...spec }),
+    editor: (spec) => push({ type: 'editor', ...spec }),
+    multiRename: (spec) => push({ type: 'multiRename', ...spec }),
     get isOpen() { return stack.length > 0; },
   };
 }
