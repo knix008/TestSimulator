@@ -97,6 +97,21 @@
       <stop offset="0.6"  stop-color="#7fb4ff" stop-opacity="0.06"/>
       <stop offset="1"    stop-color="#7fb4ff" stop-opacity="0"/>
     </radialGradient>
+    <linearGradient id="gridFade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0"   stop-color="#4cc9f0" stop-opacity="0"/>
+      <stop offset="0.25" stop-color="#4cc9f0" stop-opacity="0.65"/>
+      <stop offset="1"   stop-color="#4cc9f0" stop-opacity="0.12"/>
+    </linearGradient>
+    <mask id="gridMask"><rect x="64" y="740" width="896" height="260" fill="url(#gridFade)"/></mask>
+    <radialGradient id="vignette" cx="0.5" cy="0.45" r="0.75">
+      <stop offset="0.55" stop-color="#000000" stop-opacity="0"/>
+      <stop offset="1"    stop-color="#000000" stop-opacity="0.55"/>
+    </radialGradient>
+    <linearGradient id="horizon" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4cc9f0" stop-opacity="0"/>
+      <stop offset="0.5" stop-color="#7fe0ff" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#4cc9f0" stop-opacity="0"/>
+    </linearGradient>
     <mask id="reflMask"><rect x="64" y="872" width="896" height="120" fill="url(#reflFade)"/></mask>
     <filter id="blur6"><feGaussianBlur stdDeviation="6"/></filter>
   </defs>
@@ -113,8 +128,17 @@
     <!-- a distant planet -->
     <circle cx="800" cy="230" r="70" fill="#5f7fd0" opacity="0.55"/>
     <circle cx="785" cy="215" r="70" fill="#8fb0ff" opacity="0.25"/>
+    <!-- distant ridges: two layers, the farther one paler (atmospheric depth) -->
+    <path d="M64 700 L150 640 L230 672 L320 600 L400 650 L470 620 L560 660 L640 610 L720 655 L800 620 L880 665 L960 630 V780 H64 Z" fill="#2a3a66" opacity="0.7"/>
+    <path d="M64 740 L130 700 L210 725 L300 690 L390 728 L480 705 L570 735 L660 700 L750 730 L840 698 L960 740 V800 H64 Z" fill="#1c2748"/>
     <!-- ground -->
     <ellipse cx="512" cy="1010" rx="620" ry="230" fill="url(#ground)"/>
+    <!-- depth: a perspective grid on the ground and a glowing horizon -->
+    <g mask="url(#gridMask)" stroke="#4cc9f0" stroke-width="3" fill="none">
+      <path d="M512 760 L-1400 1100 M512 760 L-1270 1100 M512 760 L-1140 1100 M512 760 L-1010 1100 M512 760 L-880 1100 M512 760 L-750 1100 M512 760 L-620 1100 M512 760 L-490 1100 M512 760 L-360 1100 M512 760 L-230 1100 M512 760 L-100 1100 M512 760 L30 1100 M512 760 L160 1100 M512 760 L290 1100 M512 760 L420 1100 M512 760 L550 1100 M512 760 L680 1100 M512 760 L810 1100 M512 760 L940 1100 M512 760 L1070 1100 M512 760 L1200 1100 M512 760 L1330 1100 M512 760 L1460 1100 M512 760 L1590 1100 M512 760 L1720 1100 M512 760 L1850 1100 M512 760 L1980 1100 M512 760 L2110 1100 M512 760 L2240 1100 M512 760 L2370 1100"/>
+      <path d="M0 772 H1024 M0 785 H1024 M0 801 H1024 M0 822 H1024 M0 849 H1024 M0 883 H1024 M0 927 H1024 M0 984 H1024" stroke-width="2.5"/>
+    </g>
+    <rect x="64" y="748" width="896" height="24" fill="url(#horizon)"/>
     <ellipse cx="512" cy="905" rx="410" ry="60" fill="#000" opacity="0.45" filter="url(#shadow)"/>
   </g>
 
@@ -191,6 +215,8 @@
   <g clip-path="url(#tileClip)" mask="url(#reflMask)" filter="url(#blur6)">
     <use href="#building" transform="translate(0 1744) scale(1 -1)"/>
   </g>
+  <!-- depth: darker towards the edges -->
+  <rect x="64" y="64" width="896" height="896" rx="200" fill="url(#vignette)"/>
   <!-- glass sheen over the whole tile -->
   <rect x="64" y="64" width="896" height="896" rx="200" fill="url(#gloss)"/>
 
