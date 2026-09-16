@@ -89,6 +89,39 @@ function consoleCodePage() {
   return codePage;
 }
 
+// cmd and PowerShell write the console's code page (CP949 …), but programs they run may write UTF-8 — node,
+// python with PYTHONIOENCODING, and the Cygwin / MSYS tools on the PATH (`ls -al` in cmd is Cygwin's ls with
+// our LANG=C.UTF-8): a chunk that is valid UTF-8 with multibyte characters is read as UTF-8, anything else
+// with the code page. A UTF-8 character split across chunks waits for its rest (carry). CP949 text is not
+// valid UTF-8 in practice (its trail bytes fall outside the continuation range), so cmd's own output is safe.
+const utf8Strict = new TextDecoder('utf-8', { fatal: true });
+function mixedDecoder(enc) {
+  const dec = iconv.getDecoder(enc);
+  if (enc === 'utf8' || enc === 'utf-8') return (buf) => dec.write(buf);
+  let carry = null;
+  return (buf) => {
+    if (carry) { buf = Buffer.concat([carry, buf]); carry = null; }
+    let high = false;
+    for (const b of buf) if (b >= 0x80) { high = true; break; }
+    if (!high) return dec.write(buf);
+    // an unfinished UTF-8 sequence at the end: lead byte within the last 3 bytes with too few continuation bytes
+    let cut = 0;
+    for (let i = 1; i <= Math.min(3, buf.length); i++) {
+      const b = buf[buf.length - i];
+      if ((b & 0xc0) === 0x80) continue;
+      const need = b >= 0xf0 ? 4 : b >= 0xe0 ? 3 : b >= 0xc0 ? 2 : 1;
+      if (need > i) cut = i;
+      break;
+    }
+    const head = cut ? buf.subarray(0, buf.length - cut) : buf;
+    try {
+      const text = utf8Strict.decode(head);
+      if (cut) carry = Buffer.from(buf.subarray(buf.length - cut));
+      return text;
+    } catch { return dec.write(buf); }
+  };
+}
+
 // The shells offered in the "+ ▾" menu. `ext` / `scriptEnc` / `bom` describe
 // the script file a command is written to, `source(file)` the stdin line
 // that runs it, `cwdLine` prints the marker — inside the script when
@@ -250,9 +283,9 @@ function createTerminals() {
       s.proc = proc;
       const enc = def.encoding || 'utf8';
       s.enc = enc;
-      const decOut = iconv.getDecoder(enc), decErr = iconv.getDecoder(enc);   // streaming: a multibyte character split across chunks survives
-      proc.stdout.on('data', (d) => push(s, decOut.write(d)));
-      proc.stderr.on('data', (d) => push(s, decErr.write(d)));
+      const decOut = mixedDecoder(enc), decErr = mixedDecoder(enc);   // streaming: a multibyte character split across chunks survives
+      proc.stdout.on('data', (d) => push(s, decOut(d)));
+      proc.stderr.on('data', (d) => push(s, decErr(d)));
       proc.stdin.on('error', () => { /* the exit handler reports it */ });
       proc.on('error', (err) => { push(s, `\n[${err.message}]\n`); s.exited = true; cleanup(s); wake(s); });
       proc.on('exit', (code) => { s.exited = true; s.code = code; push(s, `\n[process exited with code ${code}]\n`); cleanup(s); wake(s); });

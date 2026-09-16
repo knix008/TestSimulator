@@ -221,6 +221,10 @@ test('terminal: cwd + exit status markers, CR pass-through, input line ending', 
     T.run({ id: s.id, line: `node -e "const w = (t) => process.stdout.write(t); const E = String.fromCharCode(27); w(E + '[?25'); setTimeout(() => { w('l' + E + ']0;title' + String.fromCharCode(7) + E + '[3'); setTimeout(() => w('2mok' + E + '[0m' + String.fromCharCode(10)), 120); }, 120)"` });
     d = await drain(d.seq);
     assert.equal(d.text, String.fromCharCode(27) + '[32mok' + String.fromCharCode(27) + '[0m' + String.fromCharCode(10));
+    // a program writing UTF-8 inside a code-page session (cmd on a Korean Windows reads CP949): read as UTF-8
+    T.run({ id: s.id, line: 'node -e "process.stdout.write(String.fromCharCode(54620, 44544) + String.fromCharCode(10))"' });
+    d = await drain(d.seq);
+    assert.equal(d.text.trim(), String.fromCharCode(54620, 44544));
     // the colour environment: programs are told to colour although stdout is a pipe
     T.run({ id: s.id, line: 'node -e "process.stdout.write(process.env.FORCE_COLOR + process.env.CLICOLOR_FORCE + String(process.env.LANG) + String.fromCharCode(10))"' });
     d = await drain(d.seq);
