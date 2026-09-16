@@ -11,7 +11,7 @@
 // Every change goes to onChange; the settings dialog applies it right away.
 import React, { useMemo, useState } from 'react';
 import { t, useLanguage, getLanguage } from '../lib/i18n';
-import { PRESETS, SEGMENT_TYPES, SEGMENT_STYLES, SAMPLE_STATES, normalizePrompt, clonePrompt, importOmp, exportOmp, defaultTemplate } from '../lib/prompt';
+import { PRESETS, SEGMENT_TYPES, SEGMENT_STYLES, SAMPLE_STATES, GIT_STATE_NAMES, GIT_STATE_COLORS, normalizePrompt, clonePrompt, importOmp, exportOmp, defaultTemplate } from '../lib/prompt';
 import { Prompt } from '../components/Prompt';
 import { Icon } from '../components/Icons';
 import { call, isElectron, nativeDialog, writeClipboardText } from '../lib/backend';
@@ -204,7 +204,17 @@ export function PromptEditor({ value, onChange, custom = [], onCustomChange }) {
           {[['full', t('pe_path_full')], ['folder', t('pe_path_folder')], ['agnoster_short', t('pe_path_short')], ['agnoster', t('pe_path_agnoster')]].map(([v, l]) => <option key={v} value={v}>{l}</option>)}
         </select>
         <label className="check"><input type="checkbox" checked={twoLines} onChange={(e) => setTwoLines(e.target.checked)} /> {t('pe_two_lines')}</label>
+      </div>
+      {/* the git block's colour per repository state (used by every preset while the box is ticked) */}
+      <div className="pe-quick pe-gitcolors">
         <label className="check" title={t('pe_git_colors_tip')}><input type="checkbox" checked={cfg.git_state_colors !== false} onChange={(e) => update((c) => { c.git_state_colors = e.target.checked; })} /> {t('pe_git_colors')}</label>
+        {GIT_STATE_NAMES.map((k) => (
+          <label key={k} className="pe-gitcolor" title={t(`term_gs_${k === 'conflict' ? 'conflict' : k}`)}>
+            <input type="color" value={cfg.git_colors[k]} disabled={cfg.git_state_colors === false} onChange={(e) => update((c) => { c.git_colors[k] = e.target.value; })} />
+            <span style={{ color: cfg.git_colors[k] }}>{t(`pe_gs_${k}`)}</span>
+          </label>
+        ))}
+        <button type="button" className="btn small" disabled={GIT_STATE_NAMES.every((k) => cfg.git_colors[k] === GIT_STATE_COLORS[k])} onClick={() => update((c) => { c.git_colors = { ...GIT_STATE_COLORS }; })}>{t('pe_gs_reset')}</button>
       </div>
 
       {/* 4. advanced: master–detail + import/export */}

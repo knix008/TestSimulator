@@ -140,7 +140,8 @@ test('prompt: every preset colours the git segment by the repository state (git_
     for (const [name, git] of Object.entries(states)) {
       const seg = renderPrompt(p.config, { ...base, git }).blocks.flatMap((b) => b.segments).find((s) => s.type === 'git');
       assert.ok(seg, `${id} shows git`);
-      assert.equal(seg.bg || seg.fg, GIT_STATE_COLORS[name], `${id} / ${name}`);
+      if (name === 'uptodate') { const own = renderPrompt({ ...p.config, git_state_colors: false }, { ...base, git }).blocks.flatMap((b) => b.segments).find((s) => s.type === 'git'); assert.equal(seg.bg || seg.fg, own.bg || own.fg, `${id}: clean keeps the prompt's colour`); }
+      else assert.equal(seg.bg || seg.fg, GIT_STATE_COLORS[name], `${id} / ${name}`);
     }
   }
   const off = { ...PRESETS.rainbow.config, git_state_colors: false };
@@ -148,4 +149,22 @@ test('prompt: every preset colours the git segment by the repository state (git_
   assert.equal(seg.bg, '#1976d2', 'the preset keeps its own colour when the option is off');
   assert.equal(normalizePrompt({ blocks: PRESETS.rainbow.config.blocks }).git_state_colors, true, 'on by default');
   assert.equal(importOmp(exportOmp(off)).config.git_state_colors, false, 'survives export / import');
+});
+
+test('prompt: the state colours are green → red → yellow → orange → green along commit / push, and editable per prompt', () => {
+  const { GIT_STATE_NAMES } = prompt;
+  assert.deepEqual(GIT_STATE_NAMES, ['conflict', 'staged', 'modified', 'ahead', 'behind']);
+  assert.equal(GIT_STATE_COLORS.uptodate, '#7CFC8B');   // clean, pushed — green
+  assert.equal(GIT_STATE_COLORS.modified, '#FF5C5C');   // edited — red
+  assert.equal(GIT_STATE_COLORS.staged, '#FFD700');     // git add — yellow
+  assert.equal(GIT_STATE_COLORS.ahead, '#FF9F43');      // committed, not pushed — orange
+  const base = { cwd: 'C:/x', home: 'C:/u', user: 'u', host: 'h', shell: 'pwsh', platform: 'win32', rc: 0, ms: 0, now: new Date() };
+  const git = { repo: true, branch: 'main', upstream: 'origin/main', ahead: 1, behind: 0, staged: 0, changed: 0, untracked: 0, conflicts: 0 };
+  const own = normalizePrompt({ ...PRESETS.default.config, git_colors: { ahead: '#123456' } });
+  assert.equal(own.git_colors.ahead, '#123456');
+  assert.equal(own.git_colors.staged, GIT_STATE_COLORS.staged, 'the other states keep the defaults');
+  const seg = renderPrompt(own, { ...base, git }).blocks[0].segments.find((s) => s.type === 'git');
+  assert.equal(seg.bg, '#123456');
+  assert.equal(importOmp(exportOmp(own)).config.git_colors.ahead, '#123456', 'kept through export / import');
+  assert.equal(JSON.parse(exportOmp(PRESETS.default.config)).git_colors, undefined, 'defaults are not exported');
 });

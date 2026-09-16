@@ -105,10 +105,10 @@ const ko = {
   html_preview_menu: 'HTML 미리보기', html_preview: 'HTML 미리보기 — 옆 창에 렌더링 (스크립트는 격리 실행)', html_preview_hint: 'HTML 문서 — 미리보기를 켜면 옆 창에 렌더링됩니다 (이미지·CSS·스크립트 파일 포함)',
   // terminal line endings + prompt (settings › terminal)
   set_prompt: '프롬프트', term_settings: '터미널 설정 (셸 · 프롬프트)…',
-  term_gs_uptodate: '변경 없음 · 푸시됨', term_gs_staged: 'add 됨 — 커밋 필요', term_gs_modified: '수정됨 — add 필요', term_gs_conflict: '충돌 — 해결 필요', term_gs_ahead: '커밋됨 — 푸시 필요', term_gs_behind: '원격에 새 커밋 — pull 필요',
+  term_gs_uptodate: '변경 없음 · 푸시됨 (초록)', term_gs_staged: 'add 됨 — 커밋 필요 (노랑)', term_gs_modified: '수정됨 — add 필요 (빨강)', term_gs_conflict: '충돌 — 해결 필요 (진홍)', term_gs_ahead: '커밋됨 — 푸시 필요 (주황)', term_gs_behind: '원격에 새 커밋 — pull 필요 (파랑)',
   // prompt themes (settings › terminal › prompt)
   pe_presets: '프리셋 — 클릭하면 바로 적용', pe_current: '현재: {name}', pe_current_modified: '현재: {name} (수정됨)', pe_custom: '현재: 사용자 지정 (가져온 테마)',
-  pe_customize: '간단 설정', pe_show: '표시:', pe_shape: '모양:', pe_two_lines: '두 줄', pe_git_colors: 'git 상태색', pe_git_colors_tip: 'git 블록을 저장소 상태 색으로: 빨강 충돌 · 노랑 add 됨 / 커밋됨 · 빨강 수정됨 · 파랑 pull 필요 · 밝은 초록 정상 (끄면 프리셋 고유의 색)', pe_advanced: '고급 편집', pe_enabled: '표시', pe_type: '종류', pe_colors: '글자색 / 배경색',
+  pe_customize: '간단 설정', pe_show: '표시:', pe_shape: '모양:', pe_two_lines: '두 줄', pe_git_colors: 'git 상태색:', pe_git_colors_tip: '저장소 상태가 바뀌면 git 블록을 그 상태의 색으로 (정상 상태는 프롬프트 고유의 색). 오른쪽에서 상태마다 색을 정합니다. 끄면 항상 프롬프트 고유의 색.', pe_gs_conflict: '충돌', pe_gs_staged: 'add 됨', pe_gs_modified: '수정됨', pe_gs_ahead: '커밋됨', pe_gs_behind: 'pull 필요', pe_gs_uptodate: '정상', pe_gs_reset: '기본색', pe_advanced: '고급 편집', pe_enabled: '표시', pe_type: '종류', pe_colors: '글자색 / 배경색',
   pe_path_full: '전체 경로', pe_path_folder: '폴더 이름만', pe_path_short: '축약 (…\\상위\\폴더)', pe_path_agnoster: '첫 글자 (~\\P\\A\\src)',
   pe_select_hint: '왼쪽 목록에서 세그먼트를 고르세요.', pe_paste_json: 'oh-my-posh JSON 붙여넣기',
   pe_preview: '미리보기 — 깨끗한 저장소 / 변경된 저장소 / 저장소 아님', pe_sample_clean: '  git status 깨끗함', pe_sample_dirty: '  변경 있음 · 종료 코드 1 · 3.2초', pe_sample_plain: '  저장소 아님',
@@ -218,7 +218,7 @@ const en = {
   term_gs_uptodate: 'clean · pushed', term_gs_staged: 'staged — commit needed', term_gs_modified: 'modified — add needed', term_gs_conflict: 'conflicts — resolve needed', term_gs_ahead: 'committed — push needed', term_gs_behind: 'new commits on the remote — pull needed',
   // prompt themes (settings › terminal › prompt)
   pe_presets: 'Presets — click to apply', pe_current: 'Current: {name}', pe_current_modified: 'Current: {name} (modified)', pe_custom: 'Current: custom (imported theme)',
-  pe_customize: 'Quick options', pe_show: 'Show:', pe_shape: 'Shape:', pe_two_lines: 'Two lines', pe_git_colors: 'git state colours', pe_git_colors_tip: 'Colour the git block by the state of the repository: red conflicts · yellow staged / committed · red modified · blue behind · bright green clean (off: the preset\'s own colours)', pe_advanced: 'Advanced', pe_enabled: 'Shown', pe_type: 'Type', pe_colors: 'Text / background',
+  pe_customize: 'Quick options', pe_show: 'Show:', pe_shape: 'Shape:', pe_two_lines: 'Two lines', pe_git_colors: 'git state colours:', pe_git_colors_tip: 'A change of the repository state colours the git block (a clean repository keeps the prompt\'s own colour). Pick the colour of each state on the right; off: always the prompt\'s colours.', pe_gs_conflict: 'conflicts', pe_gs_staged: 'staged', pe_gs_modified: 'modified', pe_gs_ahead: 'committed', pe_gs_behind: 'behind', pe_gs_uptodate: 'clean', pe_gs_reset: 'Defaults', pe_advanced: 'Advanced', pe_enabled: 'Shown', pe_type: 'Type', pe_colors: 'Text / background',
   pe_path_full: 'Full path', pe_path_folder: 'Folder name only', pe_path_short: 'Short (…\\parent\\folder)', pe_path_agnoster: 'Initials (~\\P\\A\\src)',
   pe_select_hint: 'Pick a segment in the list on the left.', pe_paste_json: 'paste oh-my-posh JSON',
   pe_preview: 'Preview — clean repository / changed repository / no repository', pe_sample_clean: '  git status clean', pe_sample_dirty: '  changes · exit code 1 · 3.2 s', pe_sample_plain: '  not a repository',

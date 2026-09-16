@@ -400,7 +400,7 @@ const SCENARIOS = {
     const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
     const type = (text) => { const el = document.querySelector('.term-view:not(.hidden) .term-out input'); set.call(el, text); el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); };
     const prompts = () => [...document.querySelectorAll('.term-view:not(.hidden) .term-prompt')]; const state = () => { const p = prompts(); const g = p.length && p[p.length - 1].dataset.git; return g && g !== 'none' ? g : null; };
-    const run = async (cmd, want) => { const n = prompts().length; type(cmd); await until(() => prompts().length > n && (!want || state() === want), 15000); return state(); };
+    const colors = {}; const run = async (cmd, want) => { const n = prompts().length; type(cmd); await until(() => prompts().length > n && (!want || state() === want), 15000); await wait(150); const g = prompts()[prompts().length - 1].querySelector('.pseg[data-type=git]'); colors[state()] = g ? g.style.background : null; return state(); };
     const out = {};
     out.init = await run('git init -q repo && cd repo && git config user.email a@b.c && git config user.name t && echo a> f.txt && git add . && git commit -qm init && git branch -M main && git init -q --bare ../remote.git && git remote add origin ../remote.git && git push -q -u origin main', 'uptodate');
     out.modified = await run('echo b>> f.txt', 'modified');
@@ -408,13 +408,27 @@ const SCENARIOS = {
     out.committed = await run('git commit -qm c2', 'ahead');
     out.pushed = await run('git push -q', 'uptodate');
     out.untracked = await run('echo x> new.txt', 'uptodate'); out.untrackedSymbol = (() => { const p = document.querySelectorAll('.term-view:not(.hidden) .term-prompt'); return p[p.length - 1].querySelector('.pseg[data-type=git]').textContent.includes('?'); })(); out.commitWithUntracked = await run('echo d>> f.txt && git commit -qam c3', 'ahead'); out.pushWithUntracked = await run('git push -q', 'uptodate');
-    out.gitSegment = (() => { const p = prompts(); const g = p[p.length - 1].querySelector('.pseg[data-type=git]'); return g ? { text: g.textContent, bg: g.style.background } : null; })();
+    out.colors = colors; out.gitSegment = (() => { const p = prompts(); const g = p[p.length - 1].querySelector('.pseg[data-type=git]'); return g ? { text: g.textContent, bg: g.style.background } : null; })();
+    return JSON.stringify(out); })()`,
+  terminal_gitstate_bash: `(async () => { ${PRELUDE} window.__med.setFolder(${wp(work)}); await wait(300); window.__med.action('newTerminal', 'gitbash'); await until(() => document.querySelector('.term-out input')); await wait(800);
+    const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+    const type = (text) => { const el = document.querySelector('.term-view:not(.hidden) .term-out input'); set.call(el, text); el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); };
+    const prompts = () => [...document.querySelectorAll('.term-view:not(.hidden) .term-prompt')]; const state = () => { const p = prompts(); const g = p.length && p[p.length - 1].dataset.git; return g && g !== 'none' ? g : null; };
+    const colors = {}; const run = async (cmd, want) => { const n = prompts().length; type(cmd); await until(() => prompts().length > n && (!want || state() === want), 15000); await wait(150); const g = prompts()[prompts().length - 1].querySelector('.pseg[data-type=git]'); colors[state()] = g ? g.style.background : null; return state(); };
+    const out = {};
+    out.init = await run('git init -q repo && cd repo && git config user.email a@b.c && git config user.name t && echo a> f.txt && git add . && git commit -qm init && git branch -M main && git init -q --bare ../remote.git && git remote add origin ../remote.git && git push -q -u origin main', 'uptodate');
+    out.modified = await run('echo b>> f.txt', 'modified');
+    out.staged = await run('git add .', 'staged');
+    out.committed = await run('git commit -qm c2', 'ahead');
+    out.pushed = await run('git push -q', 'uptodate');
+    out.untracked = await run('echo x> new.txt', 'uptodate'); out.untrackedSymbol = (() => { const p = document.querySelectorAll('.term-view:not(.hidden) .term-prompt'); return p[p.length - 1].querySelector('.pseg[data-type=git]').textContent.includes('?'); })(); out.commitWithUntracked = await run('echo d>> f.txt && git commit -qam c3', 'ahead'); out.pushWithUntracked = await run('git push -q', 'uptodate');
+    out.colors = colors; out.gitSegment = (() => { const p = prompts(); const g = p[p.length - 1].querySelector('.pseg[data-type=git]'); return g ? { text: g.textContent, bg: g.style.background } : null; })();
     return JSON.stringify(out); })()`,
   terminal_gitstate_ps: `(async () => { ${PRELUDE} window.__med.setFolder(${wp(work)}); await wait(300); window.__med.action('newTerminal', 'powershell'); await until(() => document.querySelector('.term-out input')); await wait(800);
     const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
     const type = (text) => { const el = document.querySelector('.term-view:not(.hidden) .term-out input'); set.call(el, text); el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); };
     const prompts = () => [...document.querySelectorAll('.term-view:not(.hidden) .term-prompt')]; const state = () => { const p = prompts(); const g = p.length && p[p.length - 1].dataset.git; return g && g !== 'none' ? g : null; };
-    const run = async (cmd, want) => { const n = prompts().length; type(cmd); await until(() => prompts().length > n && (!want || state() === want), 15000); return state(); };
+    const colors = {}; const run = async (cmd, want) => { const n = prompts().length; type(cmd); await until(() => prompts().length > n && (!want || state() === want), 15000); await wait(150); const g = prompts()[prompts().length - 1].querySelector('.pseg[data-type=git]'); colors[state()] = g ? g.style.background : null; return state(); };
     const out = {};
     out.init = await run("git init -q repo; cd repo; git config user.email a@b.c; git config user.name t; 'a' | Out-File f.txt; git add .; git commit -qm init; git branch -M main; git init -q --bare ../remote.git; git remote add origin ../remote.git; git push -q -u origin main", 'uptodate');
     out.modified = await run("'b' | Add-Content f.txt", 'modified');
@@ -422,7 +436,7 @@ const SCENARIOS = {
     out.committed = await run('git commit -qm c2', 'ahead');
     out.pushed = await run('git push -q', 'uptodate');
     out.untracked = await run("'x' | Out-File new.txt", 'uptodate'); out.untrackedSymbol = (() => { const p = document.querySelectorAll('.term-view:not(.hidden) .term-prompt'); return p[p.length - 1].querySelector('.pseg[data-type=git]').textContent.includes('?'); })(); out.commitWithUntracked = await run("'d' | Add-Content f.txt; git commit -qam c3", 'ahead'); out.pushWithUntracked = await run('git push -q', 'uptodate');
-    out.gitSegment = (() => { const p = prompts(); const g = p[p.length - 1].querySelector('.pseg[data-type=git]'); return g ? { text: g.textContent, bg: g.style.background } : null; })();
+    out.colors = colors; out.gitSegment = (() => { const p = prompts(); const g = p[p.length - 1].querySelector('.pseg[data-type=git]'); return g ? { text: g.textContent, bg: g.style.background } : null; })();
     return JSON.stringify(out); })()`,
   // Format document: the bundled Prettier tidies a JavaScript document (cursor line kept), JSON with the built-in
   // formatter, a language without a formatter falls back to re-indenting; the settings tab lists a select per language.
@@ -482,6 +496,8 @@ const SCENARIOS = {
     window.__med.action('termSettings'); await until(() => document.querySelector('.dlg.settings .pe-presets')); await wait(200);
     out.tab = document.querySelector('.settings-tab.active').textContent; out.presets = document.querySelectorAll('.pe-preset').length;
     [...document.querySelectorAll('.pe-preset')].find((b) => /rainbow|레인보우/i.test(b.title)).click(); await wait(300); out.presetId = S().settings.prompt.preset; out.previewLines = document.querySelectorAll('.pe-preview-out .term-prompt').length;
+    const pv = document.querySelector('.pe-preview-out .term-prompt'); const pvSeg = (ty) => { const e = pv.querySelector('.pseg[data-type=' + ty + ']'); return e ? [e.style.background, e.style.color, e.className] : null; };
+    out.previewVsLive = ['os', 'session', 'shell', 'path', 'time'].map((ty) => { const l = live().querySelector('.pseg[data-type=' + ty + ']'); return [ty, !!l && JSON.stringify(pvSeg(ty)) === JSON.stringify([l.style.background, l.style.color, l.className])]; });
     window.__med.closeDialog(); await wait(300); out.rainbowSegs = segs(); out.statusShows3 = segs().some((x) => x.startsWith('status:') && x.includes('3'));
     await run('echo ok'); out.statusOk = segs().find((x) => x.startsWith('status:')); out.hasTime = segs().some((x) => /^time:\\d\\d:\\d\\d/.test(x)); out.hasShell = segs().some((x) => x.startsWith('shell:'));
     return JSON.stringify(out); })()`,

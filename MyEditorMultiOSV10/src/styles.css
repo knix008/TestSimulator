@@ -483,7 +483,7 @@ input:disabled, select:disabled { opacity: 0.55; }
 .check input { width: auto; }
 /* The settings dialog keeps one size whatever tab is shown: the body is as tall as the tallest tab (terminal, with
    the prompt editor) — no scrollbar; the general tab is laid out in two columns to fill it. */
-.dlg.settings .dlg-body { min-height: min(830px, calc(100vh - 140px)); }
+.dlg.settings .dlg-body { min-height: min(870px, calc(100vh - 140px)); }
 .settings-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px 28px; align-items: start; }
 .settings-cols .settings-grid { row-gap: 8px; }
 .settings-cols .settings-section:first-child { margin-top: 0; }
@@ -570,7 +570,7 @@ input:disabled, select:disabled { opacity: 0.55; }
 .settings-term { grid-template-columns: max-content minmax(180px, 2fr) max-content minmax(260px, 3fr); row-gap: 4px; }
 .pe-custom-row input { font-size: 12px; }
 /* fixed height: 3 samples × up to 2 lines — a two-line preset must not push the presets below it */
-.pe-preview-out { flex: none; height: auto; max-height: none; min-height: 0; padding: 5px 10px; border: 1px solid var(--border); border-radius: 6px; cursor: default; font-size: 12px; line-height: 1.4; margin-top: 2px; overflow: visible; }
+.pe-preview-out { flex: none; height: 118px; max-height: none; min-height: 0; padding: 5px 10px; border: 1px solid var(--border); border-radius: 6px; cursor: default; font-size: 12px; line-height: 1.4; margin-top: 2px; overflow: visible; }
 .pe-note { max-width: 100%; }
 .pe-color { display: inline-flex; align-items: center; gap: 3px; }
 .pe-color input[type=color] { width: 26px; height: 24px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: none; }
@@ -588,9 +588,12 @@ input:disabled, select:disabled { opacity: 0.55; }
 .pe-quick { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .pe-quick .check { white-space: nowrap; }
 .pe-quick select { max-width: 200px; }
-.pe-advanced { display: grid; grid-template-columns: 190px 1fr; grid-template-rows: auto; gap: 8px; align-items: stretch; }
+.pe-gitcolor { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; }
+.pe-gitcolor input[type=color] { width: 22px; height: 20px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: none; }
+.pe-advanced { display: grid; grid-template-columns: 190px 1fr; grid-template-rows: minmax(0, 1fr); gap: 8px; height: 272px; }   /* fixed: room for the largest preset (2 blocks, 8 segments) and the fullest segment fields */
+.pe-advanced > * { min-height: 0; }
 .pe-list { display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); }
-.pe-list-rows { flex: 1; }
+.pe-list-rows { flex: 1; min-height: 0; }
 .pe-list-block { display: flex; align-items: center; justify-content: space-between; padding: 2px 8px; font-size: 11px; color: var(--fg-muted); background: var(--bg-elev); border-bottom: 1px solid var(--border); }
 .pe-list-row { display: flex; align-items: center; gap: 6px; padding: 2px 8px; font-size: 12px; background: none; border: 0; color: var(--fg); text-align: left; width: 100%; }
 .pe-list-row:hover { background: var(--bg-hover); }

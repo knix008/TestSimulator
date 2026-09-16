@@ -19,7 +19,11 @@ export const SEGMENT_STYLES = ['powerline', 'plain', 'diamond'];
 
 // Colours by git state (the classic My Editor prompt): used when a git
 // segment's background (or foreground) is 'auto'.
-export const GIT_STATE_COLORS = { conflict: '#D62828', staged: '#FFD700', modified: '#FF5C5C', ahead: '#FFD700', behind: '#7cc4ff', uptodate: '#7CFC8B', none: '#7CFC8B' };
+export const GIT_STATE_COLORS = { conflict: '#D62828', staged: '#FFD700', modified: '#FF5C5C', ahead: '#FF9F43', behind: '#7cc4ff', uptodate: '#7CFC8B', none: '#7CFC8B' };
+// The states that recolour the git segment; a clean, pushed repository keeps the prompt's own colour.
+export const GIT_STATE_NAMES = ['conflict', 'staged', 'modified', 'ahead', 'behind'];
+// The state colours of a prompt: its own git_colors over the defaults.
+export const gitColorsOf = (cfg) => ({ ...GIT_STATE_COLORS, ...((cfg && cfg.git_colors) || {}) });
 
 export function gitState(git) {
   if (!git || !git.repo) return 'none';
@@ -315,7 +319,8 @@ export function normalizePrompt(cfg) {
   c.version = PROMPT_VERSION;
   c.preset = typeof c.preset === 'string' ? c.preset : '';
   c.final_space = c.final_space !== false;
-  c.git_state_colors = c.git_state_colors !== false;   // the git segment takes the state colours (GIT_STATE_COLORS) whatever its preset says
+  c.git_state_colors = c.git_state_colors !== false;   // the git segment takes the state colours whatever its preset says
+  c.git_colors = Object.fromEntries(GIT_STATE_NAMES.map((k) => [k, (c.git_colors && typeof c.git_colors[k] === 'string' && c.git_colors[k]) || GIT_STATE_COLORS[k]]));   // one colour per state, editable
   c.palette = c.palette && typeof c.palette === 'object' ? c.palette : {};
   c.blocks = c.blocks.map((b) => ({ type: b.type || 'prompt', alignment: b.alignment || 'left', newline: !!b.newline, segments: (Array.isArray(b.segments) ? b.segments : []).map((s) => ({
     type: SEGMENT_TYPES.includes(s.type) ? s.type : 'text',
@@ -609,15 +614,15 @@ const NAMED = { black: '#000000', red: '#ff5555', green: '#50fa7b', yellow: '#f1
 
 // A colour spec → CSS colour. 'accent' / 'foreground' / 'background' follow the
 // theme, 'auto' the git state, 'p:name' the palette, 'transparent' is none.
-export function resolveColor(spec, { theme, gitStateName, palette, parentBackground }) {
+export function resolveColor(spec, { theme, gitStateName, palette, parentBackground, gitColors }) {
   const v = String(spec || '').trim();
   if (!v || v === 'transparent') return null;
   if (v === 'accent') return theme.accent;
   if (v === 'foreground') return theme.fg;
   if (v === 'background') return theme.bg;
   if (v === 'parentBackground') return parentBackground || null;
-  if (v === 'auto') return GIT_STATE_COLORS[gitStateName || 'none'];
-  if (v.startsWith('p:')) return resolveColor((palette || {})[v.slice(2)] || '', { theme, gitStateName, palette: {} , parentBackground });
+  if (v === 'auto') return (gitColors || GIT_STATE_COLORS)[gitStateName || 'none'];
+  if (v.startsWith('p:')) return resolveColor((palette || {})[v.slice(2)] || '', { theme, gitStateName, palette: {}, parentBackground, gitColors });
   if (NAMED[v]) return NAMED[v];
   return v;
 }
@@ -657,12 +662,14 @@ export function renderPrompt(config, state, theme) {
       if (!text) continue;
       const bgSpec = firstTemplate(s.background_templates, ctx) || s.background;
       const fgSpec = firstTemplate(s.foreground_templates, ctx) || s.foreground;
-      let bg = resolveColor(bgSpec, { theme: th, gitStateName: gs, palette: cfg.palette, parentBackground: prevBg });
-      let fg = resolveColor(fgSpec, { theme: th, gitStateName: gs, palette: cfg.palette, parentBackground: prevBg }) || th.fg;
-      // The state colours the git segment: its background when it has one (powerline / diamond, with dark text),
-      // else its text — unless the theme switched that off (git_state_colors: false keeps the theme's own colours).
-      if (s.type === 'git' && cfg.git_state_colors !== false && gs !== 'none') {
-        if (bg) { bg = GIT_STATE_COLORS[gs]; fg = '#1b1e24'; } else fg = GIT_STATE_COLORS[gs];
+      const gitColors = gitColorsOf(cfg);
+      let bg = resolveColor(bgSpec, { theme: th, gitStateName: gs, palette: cfg.palette, parentBackground: prevBg, gitColors });
+      let fg = resolveColor(fgSpec, { theme: th, gitStateName: gs, palette: cfg.palette, parentBackground: prevBg, gitColors }) || th.fg;
+      // A change of state colours the git segment (red modified → yellow staged → orange committed → back), its
+      // background when it has one (powerline / diamond, with dark text), else its text; a clean, pushed
+      // repository shows the prompt's own colour — unless git_state_colors is off (the theme's colours always).
+      if (s.type === 'git' && cfg.git_state_colors !== false && gs !== 'none' && gs !== 'uptodate') {
+        if (bg) { bg = gitColors[gs]; fg = '#1b1e24'; } else fg = gitColors[gs];
       }
       segments.push({ type: s.type, text, fg, bg, style: s.style, symbol: s.powerline_symbol, leading: s.leading_diamond, trailing: s.trailing_diamond });
       prevBg = bg;
@@ -704,20 +711,21 @@ export function importOmp(theme) {
       };
     }).filter(Boolean),
   })).filter((b) => b.segments.length);
-  const config = normalizePrompt({ version: PROMPT_VERSION, final_space: src.final_space !== false, git_state_colors: src.git_state_colors !== false, palette: src.palette || {}, blocks });
+  const config = normalizePrompt({ version: PROMPT_VERSION, final_space: src.final_space !== false, git_state_colors: src.git_state_colors !== false, git_colors: src.git_colors, palette: src.palette || {}, blocks });
   return { config, mapped, skipped: Array.from(new Set(skipped)) };
 }
 
 export function exportOmp(config) {
   const c = normalizePrompt(config);
-  const out = { $schema: 'https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/schema.json', version: 2, final_space: c.final_space, ...(c.git_state_colors ? {} : { git_state_colors: false }), palette: c.palette, blocks: c.blocks.map((b) => ({ type: b.type, alignment: b.alignment, ...(b.newline ? { newline: true } : {}), segments: b.segments.filter((s) => s.enabled !== false).map((s) => { const o = { type: s.type, style: s.style, foreground: s.foreground, background: s.background, template: s.template }; if (s.foreground_templates) o.foreground_templates = s.foreground_templates; if (s.background_templates) o.background_templates = s.background_templates; if (s.style === 'powerline') o.powerline_symbol = s.powerline_symbol; if (s.style === 'diamond') { o.leading_diamond = s.leading_diamond; o.trailing_diamond = s.trailing_diamond; } if (Object.keys(s.properties || {}).length) o.properties = s.properties; return o; }) })) };
+  const out = { $schema: 'https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/schema.json', version: 2, final_space: c.final_space, ...(c.git_state_colors ? {} : { git_state_colors: false }), ...(GIT_STATE_NAMES.some((k) => c.git_colors[k] !== GIT_STATE_COLORS[k]) ? { git_colors: c.git_colors } : {}), palette: c.palette, blocks: c.blocks.map((b) => ({ type: b.type, alignment: b.alignment, ...(b.newline ? { newline: true } : {}), segments: b.segments.filter((s) => s.enabled !== false).map((s) => { const o = { type: s.type, style: s.style, foreground: s.foreground, background: s.background, template: s.template }; if (s.foreground_templates) o.foreground_templates = s.foreground_templates; if (s.background_templates) o.background_templates = s.background_templates; if (s.style === 'powerline') o.powerline_symbol = s.powerline_symbol; if (s.style === 'diamond') { o.leading_diamond = s.leading_diamond; o.trailing_diamond = s.trailing_diamond; } if (Object.keys(s.properties || {}).length) o.properties = s.properties; return o; }) })) };
   return JSON.stringify(out, null, 2);
 }
 
 // Sample states for the settings preview.
 export const SAMPLE_STATES = {
   // short values for the small preset cards
-  mini: { cwd: 'C:\\Users\\me\\src', home: 'C:\\Users\\me', git: { repo: true, branch: 'main', upstream: 'origin/main', ahead: 1, behind: 0, staged: 0, changed: 2, untracked: 0, conflicts: 0, stashes: 0 }, user: 'me', host: 'pc', shell: 'pwsh', platform: 'win32', rc: 0, ms: 1500, now: new Date(2026, 8, 16, 10, 5, 42) },
+  // the preset cards: a clean repository, so each prompt shows its own colours
+  mini: { cwd: 'C:\\Users\\me\\src', home: 'C:\\Users\\me', git: { repo: true, branch: 'main', upstream: 'origin/main', ahead: 0, behind: 0, staged: 0, changed: 0, untracked: 0, conflicts: 0, stashes: 0 }, user: 'me', host: 'pc', shell: 'pwsh', platform: 'win32', rc: 0, ms: 1500, now: new Date(2026, 8, 16, 10, 5, 42) },
   clean: { cwd: 'C:\\Home\\Projects\\MyEditor', home: 'C:\\Users\\user', git: { repo: true, branch: 'main', upstream: 'origin/main', ahead: 0, behind: 0, staged: 0, changed: 0, untracked: 0, conflicts: 0, stashes: 0 }, user: 'user', host: 'desktop', shell: 'pwsh', platform: 'win32', rc: 0, ms: 120, now: new Date(2026, 8, 16, 10, 5, 42) },
   dirty: { cwd: 'C:\\Home\\Projects\\MyEditor\\src\\components', home: 'C:\\Users\\user', git: { repo: true, branch: 'feature/tabs', upstream: 'origin/feature/tabs', ahead: 2, behind: 0, staged: 1, changed: 3, untracked: 1, conflicts: 0, stashes: 1 }, user: 'user', host: 'desktop', shell: 'pwsh', platform: 'win32', rc: 1, ms: 3200, now: new Date(2026, 8, 16, 10, 5, 42) },
   plain: { cwd: 'C:\\Users\\user\\Downloads', home: 'C:\\Users\\user', git: { repo: false }, user: 'user', host: 'desktop', shell: 'pwsh', platform: 'win32', rc: 0, ms: 40, now: new Date(2026, 8, 16, 10, 5, 42) },
