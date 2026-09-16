@@ -5,13 +5,28 @@
 // same in the desktop app and the web version.
 //
 // The shells are started so that they print neither a prompt nor an echo of
-// the command (cmd: /Q and a PROMPT made of the marker below, PowerShell:
-// -Command -, bash: -s): the panel draws the prompt itself, at the end of the
-// output, and types the command there. After every command a marker line
-// (`__MED_CWD__:<dir>`) arrives — printed by cmd as its prompt, requested
-// with an extra echo for the other shells — which tells the panel the shell's
-// current directory and that the shell is idle again (prompt shown); the
-// marker is stripped from the output.
+// the command (cmd: /Q and a PROMPT made of a marker that is stripped,
+// PowerShell: -Command -, bash: -s): the panel draws the prompt itself, at
+// the end of the output, and types the command there.
+//
+// Every command is written to a small script file that the shell sources
+// (`. file` / `call file`), so the shell's stdin carries only that one short
+// line: a program started by the command that reads stdin (Read-Host,
+// python, npm init …) gets what the user types next, not the following
+// line. After the command a marker line (`__MED_CWD__:<dir>;<exit code>`)
+// is printed — by the script (cmd) or by the rest of the stdin line (the
+// others) — which tells the panel the shell's current directory, the status
+// of the command (the prompt's status segment) and that the shell is idle
+// again (prompt shown); the marker is stripped from the output. Sourcing
+// keeps `cd`, shell variables and functions in the shell, as if typed, and
+// a syntax error in the script is reported without killing the shell.
+//
+// Line endings: CRLF in the output is normalised to LF here; a lone CR (a
+// progress bar redrawing its line) is passed on as it is — the panel decides
+// what to do with it (settings › terminal: overwrite the line like a
+// terminal, break the line, or drop it). The line ending Enter sends to a
+// running program is the shell's own unless `run` is told otherwise (the
+// same setting).
 'use strict';
 
 const { spawn, execFile, execFileSync } = require('child_process');
@@ -21,6 +36,7 @@ const os = require('os');
 const path = require('path');
 
 const MARK = '__MED_CWD__:';
+const PROMPT_MARK = '__MED_P__';   // cmd's PROMPT: printed before every read, stripped here
 const MAX_CHUNKS = 4000;
 
 // Tab completion (the shells run without a terminal, so the panel completes
@@ -56,11 +72,6 @@ function pathCommands() {
 
 function isDir(p) { try { return fs.statSync(p).isDirectory(); } catch { return false; } }
 
-// A non-interactive sh / bash / zsh exits on a syntax error; run through
-// eval the error is reported and the shell goes on (cd, variables … still
-// affect the shell, as eval runs in it).
-const shWrap = (line) => `eval '${line.replace(/'/g, "'\\''")}'`;
-
 // The console's code page on Windows (what cmd and PowerShell read / write
 // through a pipe), as an iconv-lite encoding name; utf8 elsewhere.
 let codePage = null;
@@ -78,34 +89,48 @@ function consoleCodePage() {
   return codePage;
 }
 
+// The shells offered in the "+ ▾" menu. `ext` / `scriptEnc` / `bom` describe
+// the script file a command is written to, `source(file)` the stdin line
+// that runs it, `cwdLine` prints the marker — inside the script when
+// `markerInFile`, else after `source` on the same stdin line — and `rcLine`
+// (PowerShell) reads the exit status inside the script.
 function shells() {
+  const posixSource = (f) => `. "${f.replace(/\\/g, '/')}";`;
   if (process.platform === 'win32') {
+    const cp = consoleCodePage();
     const list = [
-      // cmd prints the marker itself as its prompt (preceded by the blank line cmd always emits before a prompt).
-      // cmd and PowerShell read and write the console's code page (CP949 on a Korean Windows …): the text is
-      // converted both ways (see consoleCodePage). cmd with code page 65001 dies on multibyte input from a
-      // pipe, so it is left at the native code page.
-      { id: 'cmd', label: 'Command Prompt', cmd: 'cmd.exe', args: ['/Q', '/K', 'rem'], env: { PROMPT: `${MARK}$P$_` }, cwdLine: '', blankBeforeMark: true, eol: '\r\n', encoding: consoleCodePage() },
-      { id: 'powershell', label: 'PowerShell', cmd: 'powershell.exe', args: ['-NoLogo', '-NoProfile', '-Command', '-'], cwdLine: `Write-Host "${MARK}$PWD"`, eol: '\r\n', encoding: consoleCodePage() },
+      // cmd prints a prompt before every read: PROMPT is a marker that is stripped (with the blank line cmd
+      // always emits before it). The batch file holds the marker too (%ERRORLEVEL% expands when that line runs,
+      // after the command). cmd and PowerShell read and write the console's code page (CP949 on a Korean
+      // Windows …): the text — and cmd's batch file — is converted (see consoleCodePage). cmd with code page
+      // 65001 dies on multibyte input from a pipe, so it is left at the native code page.
+      // `(call )` first: it resets ERRORLEVEL, which cmd otherwise keeps from an earlier command (echo, cd … do not touch it).
+      { id: 'cmd', label: 'Command Prompt', cmd: 'cmd.exe', args: ['/Q', '/K', 'rem'], env: { PROMPT: PROMPT_MARK }, promptMark: true, ext: '.cmd', scriptEnc: cp, markerInFile: true, preLine: '(call )', source: (f) => `call "${f}"`, cwdLine: `echo ${MARK}%CD%;%ERRORLEVEL%`, eol: '\r\n', encoding: cp },
+      // PowerShell 5.1 reads a BOM-less script as ANSI, so the .ps1 gets a BOM. The exit status is read inside
+      // the script (after the dot-source, $? only says the sourcing worked): $? for a cmdlet, $LASTEXITCODE for a
+      // native program — reset first, so a stale code is not reported for a failed cmdlet.
+      { id: 'powershell', label: 'PowerShell', cmd: 'powershell.exe', args: ['-NoLogo', '-NoProfile', '-Command', '-'], ext: '.ps1', scriptEnc: 'utf8', bom: true, source: (f) => `$__medrc = 1; $global:LASTEXITCODE = 0; . "${f}";`, rcLine: '$__medrc = if ($?) { 0 } else { 1 }; if ($__medrc -and $LASTEXITCODE) { $__medrc = $LASTEXITCODE }', cwdLine: `Write-Host "${MARK}$PWD;$__medrc"`, eol: '\r\n', encoding: cp },
     ];
     for (const p of [process.env.ProgramFiles, process.env['ProgramFiles(x86)']]) {
       const bash = p && path.join(p, 'Git', 'bin', 'bash.exe');
-      if (bash && fs.existsSync(bash)) { list.push({ id: 'gitbash', label: 'Git Bash', cmd: bash, args: ['--norc', '-s'], cwdLine: `echo "${MARK}$PWD"`, eol: '\n', wrap: shWrap }); break; }
+      if (bash && fs.existsSync(bash)) { list.push({ id: 'gitbash', label: 'Git Bash', cmd: bash, args: ['--norc', '-s'], ext: '.sh', scriptEnc: 'utf8', source: posixSource, cwdLine: `echo "${MARK}$PWD;$?"`, eol: '\n' }); break; }
     }
     return list;
   }
   const sh = process.env.SHELL || '/bin/bash';
-  const list = [{ id: 'default', label: path.basename(sh), cmd: sh, args: ['-s'], cwdLine: `echo "${MARK}$PWD"`, eol: '\n', wrap: shWrap }];
-  if (sh !== '/bin/bash' && fs.existsSync('/bin/bash')) list.push({ id: 'bash', label: 'bash', cmd: '/bin/bash', args: ['-s'], cwdLine: `echo "${MARK}$PWD"`, eol: '\n', wrap: shWrap });
-  if (fs.existsSync('/bin/sh')) list.push({ id: 'sh', label: 'sh', cmd: '/bin/sh', args: ['-s'], cwdLine: `echo "${MARK}$PWD"`, eol: '\n', wrap: shWrap });
+  const posix = (cmd) => ({ cmd, args: ['-s'], ext: '.sh', scriptEnc: 'utf8', source: posixSource, cwdLine: `echo "${MARK}$PWD;$?"`, eol: '\n' });
+  const list = [{ id: 'default', label: path.basename(sh), ...posix(sh) }];
+  if (sh !== '/bin/bash' && fs.existsSync('/bin/bash')) list.push({ id: 'bash', label: 'bash', ...posix('/bin/bash') });
+  if (fs.existsSync('/bin/sh')) list.push({ id: 'sh', label: 'sh', ...posix('/bin/sh') });
   return list;
 }
 
 // eslint-disable-next-line no-control-regex
 // Colours (SGR, "\x1b[…m") are kept for the panel to render; cursor movement, OSC titles and the like are dropped.
-const ANSI = /\x1b\[[0-9;?]*[ -/]*[@-lnp-~]|\x1b\][^\x07]*(?:\x07|\x1b\\)|\x1b[^[\]]|\r(?!\n)/g;
+// A lone CR stays (the panel handles it — see the header).
+const ANSI = /\x1b\[[0-9;?]*[ -/]*[@-lnp-~]|\x1b\][^\x07]*(?:\x07|\x1b\\)|\x1b[^[\]]/g;
 const MARK_RE = new RegExp(`${MARK}([^\\n]*)\\n`, 'g');
-const BLANK_MARK_RE = new RegExp(`\\n?${MARK}([^\\n]*)\\n`, 'g');
+const PROMPT_RE = new RegExp(`\\n?${PROMPT_MARK}`, 'g');
 
 function createTerminals() {
   const sessions = new Map();
@@ -113,19 +138,44 @@ function createTerminals() {
 
   // Readers waiting in read({ wait }) are woken on any change of the session.
   function wake(s) { const w = s.waiters; s.waiters = []; for (const f of w) f(); }
+  function cleanup(s) { try { fs.unlinkSync(s.scriptFile); } catch { /* gone */ } }
 
   function push(s, text) {
-    // Pull the cwd markers out of the stream; everything else is output. A
-    // marker (and, for cmd, the blank line before it) may be split across
-    // chunks, so the tail that could still become one is held back.
+    // Pull the cwd markers (and cmd's prompt marks) out of the stream;
+    // everything else is output. A marker (and, for cmd, the blank line
+    // before its prompt) may be split across chunks, so the tail that could
+    // still become one is held back. A CR at the very end of a chunk is held
+    // too: its LF may come with the next chunk.
+    if (s.pendingCr) { text = '\r' + text; s.pendingCr = false; }
+    if (text.endsWith('\r')) { text = text.slice(0, -1); s.pendingCr = true; }
     s.pending += text.replace(/\r\n/g, '\n').replace(ANSI, '');
-    s.pending = s.pending.replace(s.def.blankBeforeMark ? BLANK_MARK_RE : MARK_RE, (_m, dir) => { let d = dir.trim(); if (process.platform === 'win32') d = d.replace(/^\/([a-zA-Z])(\/|$)/, (_x, l) => `${l.toUpperCase()}:/`); s.cwd = d || s.cwd; s.idle = true; s.changed = true; return ''; });
+    const stripPrompts = (str) => (s.def.promptMark ? str.replace(PROMPT_RE, () => { s.expectPrompt = false; return ''; }) : str);
+    let out = '';
+    // A marker line ends the command: everything before it is complete output (flushed as it is), what
+    // follows is cmd's next prompt mark (held back until it is whole — see below).
+    let m;
+    MARK_RE.lastIndex = 0;
+    while ((m = MARK_RE.exec(s.pending))) {
+      let d = m[1].trim();
+      // "<dir>;<exit code>" — the status of the command, for the prompt's status segment.
+      const semi = d.lastIndexOf(';');
+      if (semi >= 0 && /^-?\d+$/.test(d.slice(semi + 1))) { s.rc = Number(d.slice(semi + 1)); d = d.slice(0, semi); }
+      if (process.platform === 'win32') d = d.replace(/^\/([a-zA-Z])(\/|$)/, (_x, l) => `${l.toUpperCase()}:/`);   // Git Bash prints /c/…
+      s.cwd = d || s.cwd; s.idle = true; s.changed = true;
+      out += stripPrompts(s.pending.slice(0, m.index));
+      s.pending = s.pending.slice(m.index + m[0].length);
+      s.expectPrompt = !!s.def.promptMark;   // cmd prints "\n__MED_P__" before reading the next line
+      MARK_RE.lastIndex = 0;
+    }
+    s.pending = stripPrompts(s.pending);
     const nl = s.pending.lastIndexOf('\n');
     const tail = s.pending.slice(nl + 1);
     let cut = s.pending.length;
-    if (tail && (tail.startsWith(MARK) || MARK.startsWith(tail))) cut = nl + 1;
-    if (s.def.blankBeforeMark && !s.idle && cut > 0 && s.pending[cut - 1] === '\n') cut--;   // the blank line before the marker still to come
-    const t = s.pending.slice(0, cut);
+    const couldBe = (mark) => tail.startsWith(mark) || mark.startsWith(tail);
+    if (tail && (couldBe(MARK) || (s.def.promptMark && couldBe(PROMPT_MARK)))) cut = nl + 1;
+    // The blank line cmd emits before a prompt mark, when the mark itself is still to come.
+    if (s.def.promptMark && (!s.idle || s.expectPrompt) && cut > 0 && s.pending[cut - 1] === '\n') cut--;
+    const t = out + s.pending.slice(0, cut);
     s.pending = s.pending.slice(cut);
     if (!t) { if (s.changed) { s.changed = false; wake(s); } return; }
     s.seq++;
@@ -144,7 +194,8 @@ function createTerminals() {
       let dir = cwd && fs.existsSync(cwd) ? cwd : os.homedir();
       try { if (!fs.statSync(dir).isDirectory()) dir = path.dirname(dir); } catch { dir = os.homedir(); }
       const id = nextId++;
-      const s = { id, shell: def.id, label: def.label, cwd: dir, chunks: [], seq: 0, pending: '', idle: !!def.cwdLine, waiters: [], changed: false, exited: false, code: null, def, proc: null };
+      const s = { id, shell: def.id, label: def.label, cwd: dir, chunks: [], seq: 0, pending: '', pendingCr: false, expectPrompt: !!def.promptMark, idle: true, rc: 0, waiters: [], changed: false, exited: false, code: null, def, proc: null };
+      s.scriptFile = path.join(os.tmpdir(), `med-term-${process.pid}-${id}${def.ext}`);
       const proc = spawn(def.cmd, def.args, { cwd: dir, stdio: 'pipe', windowsHide: true, env: { ...process.env, TERM: 'xterm-256color', COLORTERM: 'truecolor', FORCE_COLOR: '1', CLICOLOR_FORCE: '1', GIT_CONFIG_PARAMETERS: "'color.ui=always'", GIT_PAGER: 'cat', PAGER: 'cat', LANG: process.env.LANG || 'C.UTF-8', ...(def.env || {}) } });
       s.proc = proc;
       const enc = def.encoding || 'utf8';
@@ -152,8 +203,9 @@ function createTerminals() {
       const decOut = iconv.getDecoder(enc), decErr = iconv.getDecoder(enc);   // streaming: a multibyte character split across chunks survives
       proc.stdout.on('data', (d) => push(s, decOut.write(d)));
       proc.stderr.on('data', (d) => push(s, decErr.write(d)));
-      proc.on('error', (err) => { push(s, `\n[${err.message}]\n`); s.exited = true; });
-      proc.on('exit', (code) => { s.exited = true; s.code = code; push(s, `\n[process exited with code ${code}]\n`); wake(s); });
+      proc.stdin.on('error', () => { /* the exit handler reports it */ });
+      proc.on('error', (err) => { push(s, `\n[${err.message}]\n`); s.exited = true; cleanup(s); wake(s); });
+      proc.on('exit', (code) => { s.exited = true; s.code = code; push(s, `\n[process exited with code ${code}]\n`); cleanup(s); wake(s); });
       sessions.set(id, s);
       return { id, shell: s.shell, label: s.label, cwd: s.cwd };
     },
@@ -165,19 +217,24 @@ function createTerminals() {
       return true;
     },
 
-    // Runs one command line and asks for the cwd afterwards. While a command
-    // is still running (no marker yet) the line is input for that command and
-    // goes to stdin as it is.
-    run({ id, line }) {
+    // Runs one command line and asks for the cwd (and the exit status)
+    // afterwards. While a command is still running (no marker yet) the line is
+    // input for that command and goes to stdin as it is — ended with `eol`
+    // ('lf' | 'crlf'; settings › terminal) or, by default, the shell's own.
+    run({ id, line, eol }) {
       const s = sessions.get(id);
       if (!s || s.exited) return false;
-      const eol = s.def.eol;
+      const { eol: shellEol, cwdLine, bom, markerInFile, source, rcLine, preLine, scriptEnc } = s.def;
       const send = (text) => s.proc.stdin.write(iconv.encode(text, s.enc || 'utf8'));
-      if (!s.idle) { send(`${line}${eol}`); return true; }
+      if (!s.idle) { send(`${line}${eol === 'lf' ? '\n' : eol === 'crlf' ? '\r\n' : shellEol}`); return true; }
       s.idle = false;
       wake(s);   // readers see the busy phase, so the return to idle (the prompt, a fresh git status) is never missed
-      const cmd = line.trim() && s.def.wrap ? s.def.wrap(line) : line;
-      send(`${cmd}${eol}${s.def.cwdLine ? s.def.cwdLine + eol : ''}`);
+      // The command goes into the script file (with the exit-status / marker lines that belong there), the
+      // stdin gets the one line that runs it — followed by the marker, unless the script prints it.
+      const body = `${preLine ? `${preLine}${shellEol}` : ''}${line}${shellEol}${rcLine ? `${rcLine}${shellEol}` : ''}${markerInFile ? `${cwdLine}${shellEol}` : ''}`;
+      const bytes = iconv.encode(body, scriptEnc || 'utf8');
+      fs.writeFileSync(s.scriptFile, bom ? Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), bytes]) : bytes);
+      send(`${source(s.scriptFile)}${markerInFile ? '' : ` ${cwdLine}`}${shellEol}`);
       return true;
     },
 
@@ -187,7 +244,7 @@ function createTerminals() {
     async read({ id, since = 0, idle, wait = 0 }) {
       const s = sessions.get(id);
       if (!s) return null;
-      const snapshot = () => ({ id, chunks: since ? s.chunks.filter((c) => c.seq > since) : s.chunks, seq: s.seq, cwd: s.cwd, idle: s.idle, exited: s.exited, code: s.code });
+      const snapshot = () => ({ id, chunks: since ? s.chunks.filter((c) => c.seq > since) : s.chunks, seq: s.seq, cwd: s.cwd, idle: s.idle, exited: s.exited, code: s.code, rc: s.rc });
       const fresh = () => s.seq > since || (idle !== undefined && s.idle !== idle) || s.exited;
       if (!wait || fresh()) return snapshot();
       await new Promise((resolve) => { const t = setTimeout(resolve, Math.min(wait, 5000)); s.waiters.push(() => { clearTimeout(t); resolve(); }); });
@@ -198,6 +255,7 @@ function createTerminals() {
       const s = sessions.get(id);
       if (!s) return false;
       try { s.proc.kill(); } catch { /* already gone */ }
+      cleanup(s);
       wake(s);
       sessions.delete(id);
       return true;
@@ -281,7 +339,7 @@ function createTerminals() {
     },
 
     shutdown() {
-      for (const s of sessions.values()) { try { s.proc.kill(); } catch { /* gone */ } }
+      for (const s of sessions.values()) { try { s.proc.kill(); } catch { /* gone */ } cleanup(s); wake(s); }
       sessions.clear();
     },
   };

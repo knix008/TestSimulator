@@ -7,7 +7,7 @@ const ko = {
   ready: '준비됨',
 
   // menu bar
-  m_file: '파일', m_edit: '편집', m_search: '찾기', m_view: '보기', m_lang: '언어', m_enc: '인코딩', m_help: '도움말',
+  m_file: '파일', m_edit: '편집', m_search: '찾기', m_editor: '편집기', m_view: '보기', m_lang: '언어', m_enc: '인코딩', m_help: '도움말',
   // file
   new_file: '새 문서', open_file: '열기…', open_folder: '폴더 열기…', close_folder: '폴더 닫기', save: '저장', save_as: '다른 이름으로 저장…', save_all: '모두 저장',
   reload: '다시 불러오기', close: '닫기', close_all: '모두 닫기', close_others: '다른 탭 모두 닫기', close_right: '오른쪽 탭 모두 닫기',
@@ -95,6 +95,37 @@ const ko = {
   lint: '코드 검사 (Lint)', lint_next: '다음 문제', lint_panel: '문제 목록', set_lint: '코드 검사 — 언어별 검사 도구(eslint · ruff/pyflakes · gcc · shellcheck …)를 백그라운드로 돌려 문제를 줄 번호 옆에 표시', st_lint_tool: '코드 검사: {tool} — 클릭하면 문제 목록', st_lint_none: '이 언어의 검사 도구가 없거나 설치되지 않았습니다 (클릭: 다시 검사)',
   spell_check: '스펠링 체크 (영어)', tip_spell: '스펠링 체크 켜기/끄기 (F7)', set_spell: '영어 스펠링 체크 (내장 en_US 사전; 코드에서는 주석·문자열만)', spell_add: '"{word}" 사전에 추가', spell_ignore: '"{word}" 이번만 무시', spell_none: '(제안 없음)', spell_loading: '사전 불러오는 중…',
   md_preview_menu: 'Markdown 미리보기', md_outline_menu: 'Markdown 구조', md_outline: '구조', md_outline_tip: '구조 — 제목을 트리로 보여 주고 누르면 그 위치로 이동', md_outline_empty: '제목이 없습니다 (# 제목 …)', md_outline_untitled: '(제목 없음)', md_wysiwyg: 'WYSIWYG 편집 (기호를 렌더링해서 표시)', md_wysiwyg_menu: 'Markdown WYSIWYG 편집', md_source: '소스',
+  // themes (settings › theme)
+  set_theme_dark: '어두운 테마', set_theme_light: '밝은 테마', set_custom_themes: '사용자 정의 테마', set_custom_add: "'{name}'을(를) 바탕으로 새 테마 만들기", set_custom_remove: '이 테마 삭제', set_custom_hint: '위에서 테마를 고른 뒤 "새 테마 만들기"를 누르면 그 색을 바탕으로 직접 색을 정할 수 있습니다. 만든 테마는 툴바의 테마 목록에도 나타납니다.',
+  set_custom_name: '이름', set_custom_dark: '어두운 테마', set_custom_light: '밝은 테마', set_custom_copy: '(사용자)',
+  set_color_bg: '편집기 배경', set_color_panel: '패널 배경', set_color_raised: '메뉴·툴바 배경', set_color_hover: '마우스 오버', set_color_active: '비활성 선택', set_color_border: '테두리', set_color_borderStrong: '진한 테두리', set_color_text: '글자', set_color_textDim: '흐린 글자', set_color_accent: '강조색', set_color_accentStrong: '진한 강조색', set_color_accentText: '강조색 위 글자', set_color_folder: '폴더 아이콘', set_color_file: '파일 아이콘', set_color_danger: '경고·오류',
+  // autocomplete
+  autocomplete: '자동 완성', tip_autocomplete: '자동 완성 켜기/끄기 — 언어별 키워드·태그·속성·이름 제안, Ctrl+Space 로 열기', set_autocomplete: '입력 중 자동 완성 (언어별 키워드·태그·속성·이름 + 문서의 단어; Ctrl+Space 로 열기)',
+  // HTML preview
+  html_preview_menu: 'HTML 미리보기', html_preview: 'HTML 미리보기 — 옆 창에 렌더링 (스크립트는 격리 실행)', html_preview_hint: 'HTML 문서 — 미리보기를 켜면 옆 창에 렌더링됩니다 (이미지·CSS·스크립트 파일 포함)',
+  // terminal line endings + prompt (settings › terminal)
+  set_prompt: '프롬프트', term_settings: '터미널 설정 (셸 · 프롬프트)…',
+  term_gs_uptodate: '변경 없음 · 푸시됨', term_gs_staged: 'add 됨 — 커밋 필요', term_gs_modified: '수정됨 — add 필요', term_gs_conflict: '충돌 — 해결 필요', term_gs_ahead: '커밋됨 — 푸시 필요', term_gs_behind: '원격에 새 커밋 — pull 필요',
+  // prompt themes (settings › terminal › prompt)
+  pe_presets: '프리셋 — 클릭하면 바로 적용', pe_current: '현재: {name}', pe_current_modified: '현재: {name} (수정됨)', pe_custom: '현재: 사용자 지정 (가져온 테마)',
+  pe_customize: '간단 설정', pe_show: '표시:', pe_shape: '모양:', pe_two_lines: '두 줄', pe_advanced: '고급 편집', pe_enabled: '표시', pe_type: '종류', pe_colors: '글자색 / 배경색',
+  pe_path_full: '전체 경로', pe_path_folder: '폴더 이름만', pe_path_short: '축약 (…\\상위\\폴더)', pe_path_agnoster: '첫 글자 (~\\P\\A\\src)',
+  pe_select_hint: '왼쪽 목록에서 세그먼트를 고르세요.', pe_paste_json: 'oh-my-posh JSON 붙여넣기',
+  pe_preview: '미리보기 — 깨끗한 저장소 / 변경된 저장소 / 저장소 아님', pe_sample_clean: '  git status 깨끗함', pe_sample_dirty: '  변경 있음 · 종료 코드 1 · 3.2초', pe_sample_plain: '  저장소 아님',
+  pe_preset: '프리셋', pe_apply: '적용', pe_preset_applied: "프리셋 '{name}'을(를) 적용했습니다.",
+  pe_import_file: 'oh-my-posh 테마 파일…', pe_import_json: 'oh-my-posh JSON', pe_import: '가져오기', pe_export: 'JSON 복사(내보내기)',
+  pe_imported: 'oh-my-posh 테마를 가져왔습니다: 세그먼트 {n}개 (지원하지 않아 건너뜀: {skipped})', pe_import_failed: '가져오기 실패: {msg}', pe_exported: '현재 프롬프트를 oh-my-posh JSON 으로 클립보드에 복사했습니다.',
+  pe_final_space: '프롬프트 뒤에 공백', pe_block: '블록 {n}', pe_newline: '새 줄에서 시작', pe_add_segment: '+ 세그먼트 추가…', pe_add_block: '블록(줄) 추가', pe_remove_block: '블록 삭제',
+  pe_template: '템플릿', pe_symbol: '파워라인 기호', pe_diamonds: '앞/뒤 기호', pe_fg_templates: '글자색 템플릿 (줄마다 하나, 처음 맞는 것)', pe_bg_templates: '배경색 템플릿 (줄마다 하나, 처음 맞는 것)',
+  pe_path_style: '경로 스타일', pe_max_depth: '최대 깊이', pe_folder_sep: '폴더 구분자', pe_folder_sep_hint: '(비우면 OS 구분자)', pe_home_icon: '홈 표시', pe_branch_icon: '브랜치 아이콘', pe_always_enabled: '성공(0)일 때도 표시', pe_threshold: '표시 최소 시간 (ms)', pe_os_icons: 'OS 아이콘 (windows / macos / linux)',
+  pe_pick_color: '색 고르기 (이름도 가능: accent · foreground · background · auto · transparent · p:이름)', pe_expand: '펼치기', pe_collapse: '접기', pe_up: '위로', pe_down: '아래로', pe_remove: '세그먼트 삭제',
+  pe_style_powerline: '파워라인', pe_style_plain: '일반', pe_style_diamond: '다이아몬드(둥근)',
+  pe_type_path: '경로', pe_type_git: 'git', pe_type_session: '사용자@호스트', pe_type_shell: '셸', pe_type_os: 'OS', pe_type_time: '시각', pe_type_status: '종료 코드', pe_type_executiontime: '실행 시간', pe_type_root: '관리자', pe_type_text: '텍스트',
+  pe_vars_path: '변수: .Path .Location .Folder .Parent — [[icon:folder]] 로 폴더 아이콘', pe_vars_git: '변수: .HEAD .Branch .Upstream .Ahead .Behind .BranchStatus .StashCount .Symbols .Working.Changed/.String .Staging.Changed/.String — 배경 auto = 상태색, [[icon:gitBranch]] 아이콘',
+  pe_vars_session: '변수: .UserName .HostName .Root', pe_vars_shell: '변수: .Name', pe_vars_os: '변수: .Icon .OS', pe_vars_time: '변수: .CurrentDate | date "15:04:05" (Go 레이아웃: 2006 01 02 15 04 05 Jan Mon PM)', pe_vars_status: '변수: .Code .Error .String', pe_vars_executiontime: '변수: .Ms .FormattedMs', pe_vars_root: '관리자 권한일 때만 표시 (현재는 표시되지 않음)', pe_vars_text: '템플릿 그대로 표시 — {{ if }}…{{ end }}, .UserName .HostName .Path 사용 가능',
+  set_grp_ui: '화면', set_grp_session: '세션', set_grp_indent: '들여쓰기', set_grp_display: '표시', set_grp_assist: '편집 보조',
+  set_eol_on_save: '저장할 때 줄 끝', set_eol_keep: '파일의 원래 줄 끝 유지', set_eol_always: '항상 {eol}', set_eol_on_save_hint: 'CR LF / LF 파일을 열어 저장할 때 어떤 줄 끝으로 쓸지 — "유지"는 열 때의 줄 끝 그대로 (상태 표시줄의 줄 끝 메뉴로 문서마다 바꿀 수도 있음)',
+  pe_custom_prompts: '사용자 정의 프롬프트:', pe_save_custom: '현재 프롬프트를 저장', pe_custom_name: '이름', pe_update_custom: '변경 내용 저장', pe_update_custom_tip: '이 사용자 정의 프롬프트를 지금 모양으로 다시 저장', pe_delete_custom: '삭제', pe_custom_copy: '(사용자)', pe_custom_saved: "'{name}' 저장됨", pe_custom_hint: '저장한 프롬프트는 ★ 카드로 프리셋 옆에 나타나고 툴바·세션에 남습니다.',
 };
 
 const en = {
@@ -102,7 +133,7 @@ const en = {
   untitled: 'new {n}',
   ready: 'Ready',
 
-  m_file: 'File', m_edit: 'Edit', m_search: 'Search', m_view: 'View', m_lang: 'Language', m_enc: 'Encoding', m_help: 'Help',
+  m_file: 'File', m_edit: 'Edit', m_search: 'Search', m_editor: 'Editor', m_view: 'View', m_lang: 'Language', m_enc: 'Encoding', m_help: 'Help',
   new_file: 'New', open_file: 'Open…', open_folder: 'Open folder…', close_folder: 'Close folder', save: 'Save', save_as: 'Save as…', save_all: 'Save all',
   reload: 'Reload from disk', close: 'Close', close_all: 'Close all', close_others: 'Close other tabs', close_right: 'Close tabs to the right',
   recent: 'Recent files', recent_remove: 'Remove from the list', recent_empty: '(no recent files)', recent_clear: 'Clear recent files', reveal: 'Show in file manager', open_with: 'Open with default app', copy_path: 'Copy path', copy_name: 'Copy file name',
@@ -174,6 +205,37 @@ const en = {
   lint: 'Code check (lint)', lint_next: 'Next problem', lint_panel: 'Problems', set_lint: 'Code check — run the language\'s linter (eslint · ruff/pyflakes · gcc · shellcheck …) in the background and mark its findings next to the line numbers', st_lint_tool: 'Code check: {tool} — click for the list', st_lint_none: 'No checker for this language, or it is not installed (click: check again)',
   spell_check: 'Spell check (English)', tip_spell: 'Spell check on / off (F7)', set_spell: 'English spell check (bundled en_US dictionary; comments and strings only in code)', spell_add: 'Add "{word}" to dictionary', spell_ignore: 'Ignore "{word}" for now', spell_none: '(no suggestions)', spell_loading: 'Loading dictionary…',
   md_preview_menu: 'Markdown preview', md_outline_menu: 'Markdown structure', md_outline: 'Structure', md_outline_tip: 'Structure — the headings as a tree; click one to go there', md_outline_empty: 'No headings (# Heading …)', md_outline_untitled: '(untitled)', md_wysiwyg: 'WYSIWYG editing (marks rendered in place)', md_wysiwyg_menu: 'Markdown WYSIWYG editing', md_source: 'Source',
+  // themes (settings › theme)
+  set_theme_dark: 'Dark themes', set_theme_light: 'Light themes', set_custom_themes: 'Custom themes', set_custom_add: "New theme based on '{name}'", set_custom_remove: 'Delete this theme', set_custom_hint: 'Pick a theme above, press "New theme" and set every colour yourself. Custom themes appear in the toolbar list as well.',
+  set_custom_name: 'Name', set_custom_dark: 'Dark theme', set_custom_light: 'Light theme', set_custom_copy: '(custom)',
+  set_color_bg: 'Editor background', set_color_panel: 'Panel background', set_color_raised: 'Menu / toolbar background', set_color_hover: 'Hover', set_color_active: 'Inactive selection', set_color_border: 'Border', set_color_borderStrong: 'Strong border', set_color_text: 'Text', set_color_textDim: 'Muted text', set_color_accent: 'Accent', set_color_accentStrong: 'Strong accent', set_color_accentText: 'Text on accent', set_color_folder: 'Folder icon', set_color_file: 'File icon', set_color_danger: 'Danger / error',
+  // autocomplete
+  autocomplete: 'Autocomplete', tip_autocomplete: 'Autocomplete on / off — the language\'s keywords, tags, properties and names; Ctrl+Space opens it', set_autocomplete: 'Complete while typing (the language\'s keywords, tags, properties, names + the words of the document; Ctrl+Space opens it)',
+  // HTML preview
+  html_preview_menu: 'HTML preview', html_preview: 'HTML preview — rendered next to the editor (scripts run isolated)', html_preview_hint: 'HTML document — turn the preview on to see it rendered next to the editor (with its image, CSS and script files)',
+  // terminal line endings + prompt (settings › terminal)s: CR LF for Windows shells, LF for bash)',
+  set_prompt: 'Prompt', term_settings: 'Terminal settings (shell · prompt)…',
+  term_gs_uptodate: 'clean · pushed', term_gs_staged: 'staged — commit needed', term_gs_modified: 'modified — add needed', term_gs_conflict: 'conflicts — resolve needed', term_gs_ahead: 'committed — push needed', term_gs_behind: 'new commits on the remote — pull needed',
+  // prompt themes (settings › terminal › prompt)
+  pe_presets: 'Presets — click to apply', pe_current: 'Current: {name}', pe_current_modified: 'Current: {name} (modified)', pe_custom: 'Current: custom (imported theme)',
+  pe_customize: 'Quick options', pe_show: 'Show:', pe_shape: 'Shape:', pe_two_lines: 'Two lines', pe_advanced: 'Advanced', pe_enabled: 'Shown', pe_type: 'Type', pe_colors: 'Text / background',
+  pe_path_full: 'Full path', pe_path_folder: 'Folder name only', pe_path_short: 'Short (…\\parent\\folder)', pe_path_agnoster: 'Initials (~\\P\\A\\src)',
+  pe_select_hint: 'Pick a segment in the list on the left.', pe_paste_json: 'paste oh-my-posh JSON',
+  pe_preview: 'Preview — clean repository / changed repository / no repository', pe_sample_clean: '  git status clean', pe_sample_dirty: '  changes · exit code 1 · 3.2 s', pe_sample_plain: '  not a repository',
+  pe_preset: 'Preset', pe_apply: 'Apply', pe_preset_applied: "Preset '{name}' applied.",
+  pe_import_file: 'oh-my-posh theme file…', pe_import_json: 'oh-my-posh JSON', pe_import: 'Import', pe_export: 'Copy JSON (export)',
+  pe_imported: 'oh-my-posh theme imported: {n} segments (unsupported, skipped: {skipped})', pe_import_failed: 'Import failed: {msg}', pe_exported: 'The current prompt was copied to the clipboard as oh-my-posh JSON.',
+  pe_final_space: 'Space after the prompt', pe_block: 'Block {n}', pe_newline: 'Start on a new line', pe_add_segment: '+ Add segment…', pe_add_block: 'Add block (line)', pe_remove_block: 'Remove block',
+  pe_template: 'Template', pe_symbol: 'Powerline symbol', pe_diamonds: 'Leading / trailing', pe_fg_templates: 'Foreground templates (one per line, first match wins)', pe_bg_templates: 'Background templates (one per line, first match wins)',
+  pe_path_style: 'Path style', pe_max_depth: 'Max depth', pe_folder_sep: 'Folder separator', pe_folder_sep_hint: '(empty = OS separator)', pe_home_icon: 'Home icon', pe_branch_icon: 'Branch icon', pe_always_enabled: 'Show on success (0) too', pe_threshold: 'Show from (ms)', pe_os_icons: 'OS icons (windows / macos / linux)',
+  pe_pick_color: 'Pick a colour (names work too: accent · foreground · background · auto · transparent · p:name)', pe_expand: 'Expand', pe_collapse: 'Collapse', pe_up: 'Up', pe_down: 'Down', pe_remove: 'Remove segment',
+  pe_style_powerline: 'Powerline', pe_style_plain: 'Plain', pe_style_diamond: 'Diamond (rounded)',
+  pe_type_path: 'Path', pe_type_git: 'git', pe_type_session: 'user@host', pe_type_shell: 'Shell', pe_type_os: 'OS', pe_type_time: 'Time', pe_type_status: 'Exit code', pe_type_executiontime: 'Execution time', pe_type_root: 'Root', pe_type_text: 'Text',
+  pe_vars_path: 'Variables: .Path .Location .Folder .Parent — [[icon:folder]] draws the folder icon', pe_vars_git: 'Variables: .HEAD .Branch .Upstream .Ahead .Behind .BranchStatus .StashCount .Symbols .Working.Changed/.String .Staging.Changed/.String — background auto = state colour, [[icon:gitBranch]] icon',
+  pe_vars_session: 'Variables: .UserName .HostName .Root', pe_vars_shell: 'Variables: .Name', pe_vars_os: 'Variables: .Icon .OS', pe_vars_time: 'Variables: .CurrentDate | date "15:04:05" (Go layout: 2006 01 02 15 04 05 Jan Mon PM)', pe_vars_status: 'Variables: .Code .Error .String', pe_vars_executiontime: 'Variables: .Ms .FormattedMs', pe_vars_root: 'Shown only when elevated (never at the moment)', pe_vars_text: 'The template as is — {{ if }}…{{ end }}, .UserName .HostName .Path available',
+  set_grp_ui: 'Appearance', set_grp_session: 'Session', set_grp_indent: 'Indentation', set_grp_display: 'Display', set_grp_assist: 'Editing aids',
+  set_eol_on_save: 'Line ending on save', set_eol_keep: "Keep the file's own", set_eol_always: 'Always {eol}', set_eol_on_save_hint: 'Which line ending a CR LF / LF file is written with when saved — "keep" writes what it had when opened (the status bar menu changes it per document)',
+  pe_custom_prompts: 'Custom prompts:', pe_save_custom: 'Save the current prompt', pe_custom_name: 'Name', pe_update_custom: 'Save changes', pe_update_custom_tip: 'Save this custom prompt as it looks now', pe_delete_custom: 'Delete', pe_custom_copy: '(custom)', pe_custom_saved: "'{name}' saved", pe_custom_hint: 'A saved prompt appears as a ★ card next to the presets and is kept in the session.',
 };
 
 const dicts = { ko, en };

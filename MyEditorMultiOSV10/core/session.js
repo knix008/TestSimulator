@@ -13,6 +13,7 @@ const path = require('path');
 const DEFAULTS = {
   language: 'ko',
   theme: 'midnight',
+  customThemes: [],        // user-made themes (settings > theme): [{ id, label, mode, colors }]
   fontFamily: '',
   fontSize: 14,
   tabSize: 4,
@@ -27,6 +28,7 @@ const DEFAULTS = {
   minimapLike: false,
   defaultEncoding: 'utf8',
   defaultEol: process.platform === 'win32' ? 'crlf' : 'lf',
+  eolOnSave: 'keep',       // line ending written on save: keep (the file's own) | lf | crlf
   trimTrailingOnSave: false,
   finalNewlineOnSave: false,
   restoreSession: true,
@@ -45,6 +47,7 @@ const DEFAULTS = {
   spellCodeAll: false,     // in code files check every word, not only comments / strings
   autoIndent: true,        // Enter keeps the indentation; Tab inserts spaces (insertSpaces) or a tab, tabSize wide
   lint: true,              // run the language's checker in the background and mark its findings
+  autocomplete: true,      // completion popup while typing (the language's completions + words of the document)
   minimap: true,           // the document drawn small at the right edge of the editor (click / hover to go there)
   formatters: {},          // language name → formatter id ('auto' = first installed, 'indent' = editor re-indent only, 'none')
   formatOnSave: false,     // format the document before every save
@@ -56,6 +59,11 @@ const DEFAULTS = {
   sessionVersion: 3,       // see the migrations in load()
   termCwd: '',             // where new terminals start; '' = the folder open in the sidebar (else the document's folder)
   termShell: '',           // shell of a new terminal (id from term.shells); '' = the first one offered
+  termEol: 'auto',         // line ending Enter sends to a running program: auto (the shell's own) | lf | crlf
+  termCr: 'overwrite',     // a lone CR in the output: overwrite (redraw the line, like a terminal) | newline | strip
+  prompt: null,            // terminal prompt theme (oh-my-posh compatible JSON, src/lib/prompt.js); null = the default preset
+  customPrompts: [],       // user-saved prompt themes: [{ id, label, config }]
+  htmlPreview: false,      // HTML live preview pane
   userWords: [],           // words added to the dictionary by the user
   mdPreviewWidth: 0.5,     // fraction of the editor area
   folder: '',

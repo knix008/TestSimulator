@@ -1,6 +1,6 @@
 // IPC bridge: exposes core/api.js to the renderer, the native dialogs and the
 // frameless-window controls.
-const { ipcMain, BrowserWindow } = require('electron');
+const { ipcMain, BrowserWindow, Menu, nativeImage } = require('electron');
 const { serializeError } = require('../core/api');
 
 function registerIpc(api, getWindow, { dialogs, onRendererReady, openPopup, printHtml } = {}) {
@@ -67,7 +67,38 @@ function registerIpc(api, getWindow, { dialogs, onRendererReady, openPopup, prin
   ipcMain.on('win:setTitle', (_event, title) => { const win = getWindow(); if (win && !win.isDestroyed()) win.setTitle(title || 'My Editor'); });
 
   // Separate windows for settings / info / shortcuts.
-  ipcMain.on('popup:open', (_event, kind) => { if (openPopup) openPopup(kind); });
+  ipcMain.on('popup:open', (_event, kind, tab) => { if (openPopup) openPopup(kind, tab); });
+
+  // The menu bar's dropdowns as native OS menus (they may extend beyond the window, unlike an HTML
+  // popup). The renderer sends its item list ({ id, label, checked, radio, disabled, shortcut, meta,
+  // sep, header }) and the position under the menu title; the answer is the picked item's id, or
+  // null when the menu was dismissed. Shortcuts are shown through `accelerator` (display only in a
+  // popup menu); an accelerator Electron cannot parse is shown in the label instead.
+  ipcMain.handle('menu:popup', (event, items, pos) => new Promise((resolve) => {
+    const win = senderWin(event);
+    if (!win) return resolve(null);
+    let picked = null;
+    // 'Ctrl+…' as Electron writes it; a label with a symbol (⌘ on macOS) or a key it cannot name is shown in the label instead.
+    const accel = (s) => { const a = String(s).replace(/^Ctrl\+/, 'CmdOrCtrl+').replace(/\+\+$/, '+Plus'); if (!/^[ -~]+$/.test(a)) throw new Error('not an accelerator'); return a; };
+    const build = (withAccel) => Menu.buildFromTemplate((items || []).map((it) => {
+      if (it.sep) return { type: 'separator' };
+      if (it.header) return { label: String(it.header), enabled: false };
+      const label = `${it.label}${it.meta ? `  (${it.meta})` : ''}${!withAccel && it.shortcut ? `\t${it.shortcut}` : ''}`;
+      let icon;
+      if (it.png) { try { icon = nativeImage.createFromBuffer(Buffer.from(it.png, 'base64'), { scaleFactor: Number(it.scale) || 1 }); } catch { icon = undefined; } }
+      return {
+        label, enabled: !it.disabled, ...(icon ? { icon } : {}),
+        type: it.radio ? 'radio' : it.checked !== undefined && !it.iconOnly ? 'checkbox' : 'normal',
+        checked: !!it.checked,
+        ...(withAccel && it.shortcut ? { accelerator: accel(it.shortcut) } : {}),
+        click: () => { picked = it.id; },
+      };
+    }));
+    let menu;
+    try { menu = build(true); } catch { menu = build(false); }
+    menu.popup({ window: win, x: Math.round(pos && pos.x || 0), y: Math.round(pos && pos.y || 0), callback: () => resolve(picked) });
+    if (pos && pos.autoClose) setTimeout(() => { try { menu.closePopup(win); } catch { /* gone */ } }, pos.autoClose);   // the smoke test: pop up, then close by itself
+  }));
   ipcMain.on('print:html', (_event, html, title) => { if (printHtml) printHtml(String(html || ''), title); });
   // A settings change in one window reaches every other window.
   ipcMain.on('settings:patch', (event, patch) => {

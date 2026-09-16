@@ -1,5 +1,5 @@
 // Icon toolbar under the menu bar: file · edit · find · view shortcuts, the
-// auto-indent / spell-check toggles and the editor font (family combo box +
+// auto-indent / spell-check / autocomplete toggles and the editor font (family combo box +
 // size). Next to the format button the formatter the active document will
 // get, between zoom in / out the current zoom. Hidden with 보기 › 도구 모음.
 import React, { useLayoutEffect, useState } from 'react';
@@ -50,6 +50,7 @@ const GROUPS = [
     { id: 'toggle:wordWrap', icon: 'wrap', tip: 'tip_wrap', toggle: 'wordWrap' },
     { id: 'toggle:autoIndent', icon: 'autoIndent', tip: 'tip_auto_indent', toggle: 'autoIndent' },
     { id: 'toggle:spellCheck', icon: 'spell', tip: 'tip_spell', toggle: 'spellCheck' },
+    { id: 'toggle:autocomplete', icon: 'autocomplete', tip: 'tip_autocomplete', toggle: 'autocomplete' },
     { id: 'toggle:lint', icon: 'lint', tip: 'tip_lint', toggle: 'lint' },
     { id: 'toggle:termVisible', icon: 'terminal', tip: 'tip_terminal', toggle: 'termVisible' },
   ],

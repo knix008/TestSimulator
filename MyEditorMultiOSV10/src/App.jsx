@@ -13,7 +13,7 @@ import { EditorSelection } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 import { indentSelection } from '@codemirror/commands';
 import { t, setLanguage, getLanguage, useLanguage } from './lib/i18n';
-import { applyTheme, nextThemeId, themeById } from './themes';
+import { applyTheme, nextThemeId, themeById, setCustomThemes } from './themes';
 import { SETTINGS_DEFAULTS, pickSettings } from './lib/settings';
 import {
   call, isElectron, nativeDialog, setDialogFallback, writeClipboardText, readClipboardText, onOpenFiles, rendererReady, pathForFile,
@@ -37,6 +37,8 @@ import { EditorPane } from './components/EditorPane';
 import { FindBar } from './components/FindBar';
 import { MarkdownBar } from './components/MarkdownBar';
 import { Preview } from './components/Preview';
+import { HtmlPreview, HtmlBar } from './components/HtmlPreview';
+import { withMenuIcons } from './lib/menuicons';
 import { Sidebar } from './components/Sidebar';
 import { SearchPanel } from './components/SearchPanel';
 import { StatusBar } from './components/StatusBar';
@@ -760,11 +762,14 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
         if (r !== 'yes') return false;
         force = true;
       }
-      const r = await call('file.write', { path: target, text, encoding: enc, eol: doc.eol, force });
+      // The line ending written: the document's own, or the one the settings force on every save (settings › files).
+      const policy = settingsRef.current.eolOnSave;
+      const eol = policy === 'lf' || policy === 'crlf' ? policy : doc.eol;
+      const r = await call('file.write', { path: target, text, encoding: enc, eol, force });
       const nowState = getState(id);
       savedRef.current.set(id, nowState.doc);
       const renamed = !samePath(doc.path, r.path);
-      patchDoc(id, { path: r.path, name: r.name, encoding: enc, dirty: false, mtime: r.mtime, size: r.size, readonly: false, missing: false });
+      patchDoc(id, { path: r.path, name: r.name, encoding: enc, eol, dirty: false, mtime: r.mtime, size: r.size, readonly: false, missing: false });
       if (renamed && !doc.language) applyLanguage({ ...doc, path: r.path, name: r.name });
       call('recent.touch', { path: r.path }).then(setRecent).catch(() => {});
       setMessage(t('saved', { name: r.name }));
@@ -908,6 +913,7 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
       const s = pickSettings(session);
       settingsRef.current = s; setSettingsState(s);
       setLanguage(s.language);
+      setCustomThemes(s.customThemes);
       applyTheme(s.theme);
       setRecent(Array.isArray(session.recent) ? session.recent : []);
       setUserWords(Array.isArray(session.userWords) ? session.userWords : []);
@@ -999,13 +1005,15 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
   useEffect(() => onSettingsPatch((patch) => {
     // The settings window looked the formatters up again (다시 찾기 / an install): take the backend's new list for the toolbar label.
     if (patch.formatToolsAt) { call('format.tools', { dir: fmtDirRef.current }).then(setFmtTools).catch(() => {}); return; }
+    if (patch.settingsTab) return;   // a note for the settings window only (which tab to show)
     changeSettings(patch, { fromRemote: true });
   }), []);   // eslint-disable-line react-hooks/exhaustive-deps
   const changeSettings = (patch, { fromRemote = false } = {}) => {
     const next = setSettings(patch);
     if (patch.language !== undefined) { setLanguage(next.language); setDocs((ds) => ds.map((d) => (d.path ? d : { ...d, name: t('untitled', { n: d.untitledNo }) }))); }
-    if (patch.theme !== undefined) { const th = applyTheme(next.theme); call('session.save', { themeBg: th.tokens['--bg'] }).catch(() => {}); }
-    const editorKeys = ['tabSize', 'insertSpaces', 'wordWrap', 'lineNumbers', 'showWhitespace', 'highlightActiveLine', 'autoCloseBrackets', 'bracketMatching', 'foldGutter', 'spellCheck', 'autoIndent', 'lint'];
+    if (patch.customThemes !== undefined) setCustomThemes(next.customThemes);
+    if (patch.theme !== undefined || patch.customThemes !== undefined) { const th = applyTheme(next.theme); call('session.save', { themeBg: th.tokens['--bg'] }).catch(() => {}); }
+    const editorKeys = ['tabSize', 'insertSpaces', 'wordWrap', 'lineNumbers', 'showWhitespace', 'highlightActiveLine', 'autoCloseBrackets', 'bracketMatching', 'foldGutter', 'spellCheck', 'autoIndent', 'lint', 'autocomplete'];
     if (editorKeys.some((k) => patch[k] !== undefined)) {
       const effects = settingsEffects(next);
       if (viewRef.current) viewRef.current.dispatch({ effects });
@@ -1136,6 +1144,8 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
       return undefined;
     }
     if (id === 'newTerminal') return newTerminal(arg);
+    if (id === 'termSettings') { if (!openPopup('settings', 'terminal')) setDialog({ type: 'settings', tab: 'terminal' }); else sendSettingsPatch({ settingsTab: 'terminal' }); return undefined; }   // ⚙ in the terminal header: settings on the terminal tab (prompt, line endings)
+    if (id === 'togglePreview') { const d = getDoc(activeIdRef.current); if (d && d.langName === 'HTML') toggleSetting('htmlPreview'); else if (d && d.langName === 'Markdown') toggleSetting('mdPreview'); return undefined; }   // Ctrl+Shift+M: the preview pane of the document's kind
     if (id === 'toggle:termVisible') id = 'toggleTerminal';
     if (id === 'toggleTerminal') { const on = !settingsRef.current.termVisible; changeSettings({ termVisible: on }); if (on && !terms.length) newTerminal(); return undefined; }
     if (id.startsWith('md:heading:')) return withView((vw) => md.heading(vw, Number(id.slice(11))));
@@ -1257,7 +1267,8 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
     e.preventDefault();
     const y0 = e.clientY, h0 = settingsRef.current.termHeight;
     const move = (ev) => setSettings({ termHeight: Math.max(120, Math.min(window.innerHeight - 200, h0 + (y0 - ev.clientY))) });
-    const up = () => { window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up); call('session.save', { termHeight: settingsRef.current.termHeight }).catch(() => {}); };
+    document.body.classList.add('dragging', 'dragging-y');
+    const up = () => { document.body.classList.remove('dragging', 'dragging-y'); window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up); call('session.save', { termHeight: settingsRef.current.termHeight }).catch(() => {}); };
     window.addEventListener('mousemove', move);
     window.addEventListener('mouseup', up);
   };
@@ -1286,7 +1297,7 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
       else if (inMd && mod && e.shiftKey && (e.key === '8' || e.key === '*')) action('md:bulletList');
       else if (inMd && mod && e.shiftKey && (e.key === '7' || e.key === '&')) action('md:orderedList');
       else if (inMd && mod && e.shiftKey && (e.key === '9' || e.key === '(')) action('md:taskList');
-      else if (mod && e.shiftKey && k === 'm') action('toggle:mdPreview');
+      else if (mod && e.shiftKey && k === 'm') action('togglePreview');
       else if (inMd && mod && e.shiftKey && k === 'w') action('toggle:mdWysiwyg');
       else if (mod && e.shiftKey && k === 'b') action('toggle:sidebarVisible');
       else if (mod && !e.shiftKey && !e.altKey && k === 'n') action('new');
@@ -1438,34 +1449,42 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
       { sep: true },
       { id: 'gotoLine', label: t('goto_line'), icon: 'hash', shortcut: sc('Ctrl+G') },
     ] },
-    { id: 'view', label: t('m_view'), labelKey: 'm_view', icon: 'eye', items: () => [
+    // Two menus instead of one long 보기: 편집기 = how the editor behaves and draws text, 보기 = the window's layout.
+    { id: 'editor', label: t('m_editor'), labelKey: 'm_editor', icon: 'edit', items: () => [
       { id: 'toggle:autoIndent', icon: 'autoIndent', label: t('auto_indent'), checked: settings.autoIndent },
+      { id: 'toggle:autocomplete', icon: 'autocomplete', label: t('autocomplete'), checked: settings.autocomplete },
       { id: 'toggle:wordWrap', icon: 'wrap', label: t('word_wrap'), checked: settings.wordWrap },
+      { sep: true },
       { id: 'toggle:lineNumbers', icon: 'listOrdered', label: t('line_numbers'), checked: settings.lineNumbers },
       { id: 'toggle:minimap', icon: 'minimap', label: t('minimap'), checked: settings.minimap },
       { id: 'toggle:showWhitespace', icon: 'pilcrow', label: t('show_ws'), checked: settings.showWhitespace },
       { id: 'toggle:highlightActiveLine', icon: 'activeLine', label: t('active_line'), checked: settings.highlightActiveLine },
       { id: 'toggle:foldGutter', icon: 'foldGutter', label: t('fold_gutter'), checked: settings.foldGutter },
+      { id: 'foldAll', icon: 'minusBox', label: t('fold_all') },
+      { id: 'unfoldAll', icon: 'plusBox', label: t('unfold_all') },
+      { sep: true },
       { id: 'toggle:spellCheck', icon: 'spell', label: t('spell_check'), checked: settings.spellCheck, shortcut: 'F7' },
       { id: 'toggle:spellCodeAll', icon: 'code', label: t('spell_code_all'), checked: settings.spellCodeAll, disabled: !settings.spellCheck },
       { id: 'toggle:lint', icon: 'lint', label: t('lint'), checked: settings.lint },
       { id: 'lintNext', icon: 'lintNext', label: t('lint_next'), shortcut: 'F8', disabled: !settings.lint },
       { id: 'lintPanel', icon: 'list', label: t('lint_panel'), disabled: !settings.lint },
       { sep: true },
-      { id: 'foldAll', icon: 'minusBox', label: t('fold_all') },
-      { id: 'unfoldAll', icon: 'plusBox', label: t('unfold_all') },
-      { sep: true },
+      { id: 'toggle:mdWysiwyg', icon: 'eye', label: t('md_wysiwyg_menu'), checked: settings.mdWysiwyg, shortcut: sc('Ctrl+Shift+W'), disabled: !cur || cur.langName !== 'Markdown' },
+      { id: 'toggle:mdPreview', icon: 'splitView', label: t('md_preview_menu'), checked: settings.mdPreview, shortcut: sc('Ctrl+Shift+M'), disabled: !cur || cur.langName !== 'Markdown' },
+      { id: 'toggle:mdOutline', icon: 'listTree', label: t('md_outline_menu'), checked: settings.mdOutline, disabled: !cur || cur.langName !== 'Markdown' },
+      { id: 'toggle:htmlPreview', icon: 'splitView', label: t('html_preview_menu'), checked: settings.htmlPreview, shortcut: sc('Ctrl+Shift+M'), disabled: !cur || cur.langName !== 'HTML' },
+    ] },
+    { id: 'view', label: t('m_view'), labelKey: 'm_view', icon: 'eye', items: () => [
       { id: 'toggle:sidebarVisible', icon: 'sidebar', label: t('sidebar'), checked: settings.sidebarVisible, shortcut: sc('Ctrl+B') },
+      { id: 'toggle:toolbarVisible', icon: 'toolbar', label: t('toolbar'), checked: settings.toolbarVisible },
+      { id: 'toggle:statusBarVisible', icon: 'statusbar', label: t('statusbar'), checked: settings.statusBarVisible },
+      { sep: true },
       { id: 'split:none', icon: 'splitNone', label: t('split_none'), checked: settings.split === 'none', radio: true, shortcut: sc('Ctrl+Alt+1') },
       { id: 'split:cols', icon: 'splitCols', label: t('split_cols'), checked: settings.split === 'cols', radio: true, shortcut: sc('Ctrl+Alt+2') },
       { id: 'split:rows', icon: 'splitRows', label: t('split_rows'), checked: settings.split === 'rows', radio: true, shortcut: sc('Ctrl+Alt+3') },
       { id: 'split:grid', icon: 'splitGrid', label: t('split_grid'), checked: settings.split === 'grid', radio: true, shortcut: sc('Ctrl+Alt+4') },
       { id: 'nextPane', icon: 'nextPane', label: t('next_pane'), shortcut: 'F6', disabled: settings.split === 'none' },
-      { id: 'toggle:mdWysiwyg', icon: 'eye', label: t('md_wysiwyg_menu'), checked: settings.mdWysiwyg, shortcut: sc('Ctrl+Shift+W'), disabled: !cur || cur.langName !== 'Markdown' },
-      { id: 'toggle:mdPreview', icon: 'splitView', label: t('md_preview_menu'), checked: settings.mdPreview, shortcut: sc('Ctrl+Shift+M'), disabled: !cur || cur.langName !== 'Markdown' },
-      { id: 'toggle:mdOutline', icon: 'listTree', label: t('md_outline_menu'), checked: settings.mdOutline, disabled: !cur || cur.langName !== 'Markdown' },
-      { id: 'toggle:toolbarVisible', icon: 'toolbar', label: t('toolbar'), checked: settings.toolbarVisible },
-      { id: 'toggle:statusBarVisible', icon: 'statusbar', label: t('statusbar'), checked: settings.statusBarVisible },
+      { sep: true },
       { id: 'toggleTerminal', label: t('terminal'), icon: 'terminal', checked: settings.termVisible, shortcut: sc('Ctrl+`') },
       { id: 'newTerminal', icon: 'terminalPlus', label: t('term_new'), shortcut: sc('Ctrl+Shift+`') },
       { sep: true },
@@ -1476,10 +1495,10 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
       { id: 'fullscreen', label: t('fullscreen'), icon: 'fullscreen', shortcut: 'F11' },
     ] },
     { id: 'lang', label: t('m_lang'), labelKey: 'm_lang', icon: 'code', items: () => [
-      { id: 'lang:auto', label: t('lang_auto'), checked: !!cur && !cur.language, radio: true, iconEl: <LangIcon name="auto" /> },
-      { id: `lang:${PLAIN}`, label: t('lang_plain'), checked: !!cur && cur.language === PLAIN, radio: true, iconEl: <LangIcon name="plain" /> },
+      { id: 'lang:auto', label: t('lang_auto'), checked: !!cur && !cur.language, radio: true, iconEl: <LangIcon name="auto" />, badge: 'auto' },
+      { id: `lang:${PLAIN}`, label: t('lang_plain'), checked: !!cur && cur.language === PLAIN, radio: true, iconEl: <LangIcon name="plain" />, badge: 'plain' },
       { sep: true },
-      ...FEATURED_LANGUAGES.map((d) => ({ id: `lang:${d.name}`, label: d.name, checked: !!cur && cur.language === d.name, radio: true, iconEl: <LangIcon name={d.name} />, meta: !cur || cur.language || cur.langName !== d.name ? undefined : t('lang_auto').split(' ')[0] })),
+      ...FEATURED_LANGUAGES.map((d) => ({ id: `lang:${d.name}`, label: d.name, checked: !!cur && cur.language === d.name, radio: true, iconEl: <LangIcon name={d.name} />, badge: d.name, meta: !cur || cur.language || cur.langName !== d.name ? undefined : t('lang_auto').split(' ')[0] })),
       { sep: true },
       { id: 'languagePicker', label: `${t('m_lang')}…`, icon: 'search' },
     ] },
@@ -1572,8 +1591,8 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
       { id: 'reopenPicker', label: `${t('reopen_as')}…`, icon: 'reload', disabled: !cur || !cur.path },
     ],
     language: () => [
-      { id: 'lang:auto', label: t('lang_auto'), checked: !!cur && !cur.language, radio: true, iconEl: <LangIcon name="auto" /> },
-      { id: `lang:${PLAIN}`, label: t('lang_plain'), checked: !!cur && cur.language === PLAIN, radio: true, iconEl: <LangIcon name="plain" /> },
+      { id: 'lang:auto', label: t('lang_auto'), checked: !!cur && !cur.language, radio: true, iconEl: <LangIcon name="auto" />, badge: 'auto' },
+      { id: `lang:${PLAIN}`, label: t('lang_plain'), checked: !!cur && cur.language === PLAIN, radio: true, iconEl: <LangIcon name="plain" />, badge: 'plain' },
       { sep: true },
       ...FEATURED_LANGUAGES.slice(0, 12).map((d) => ({ id: `lang:${d.name}`, label: d.name, checked: !!cur && cur.language === d.name, radio: true, iconEl: <LangIcon name={d.name} /> })),
       { sep: true },
@@ -1588,17 +1607,27 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
     const box = splitRef.current && splitRef.current.getBoundingClientRect();
     if (!box) return;
     const move = (ev) => { const frac = Math.max(0.2, Math.min(0.8, 1 - (ev.clientX - box.left) / box.width)); setSettings({ mdPreviewWidth: frac }); };
-    const up = () => { window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up); call('session.save', { mdPreviewWidth: settingsRef.current.mdPreviewWidth }).catch(() => {}); };
+    // An <iframe> (the HTML preview) would take the mouse as soon as the pointer crosses it and the drag would stop:
+    // pointer events are switched off on every iframe for the duration of the drag.
+    document.body.classList.add('dragging');
+    const up = () => { document.body.classList.remove('dragging'); window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up); call('session.save', { mdPreviewWidth: settingsRef.current.mdPreviewWidth }).catch(() => {}); };
     window.addEventListener('mousemove', move);
     window.addEventListener('mouseup', up);
   };
 
   // ── sidebar splitter ──
+  // The sidebar is never narrower than its header needs (the title and every
+  // icon button visible): the Sidebar measures that (onMinWidth) whenever the
+  // language or the buttons change, and the width is clamped to it.
+  const [sidebarMin, setSidebarMin] = useState(160);
+  const sidebarMinRef = useRef(160);
+  const onSidebarMin = useCallback((px) => { const m = Math.max(160, Math.ceil(px)); if (m === sidebarMinRef.current) return; sidebarMinRef.current = m; setSidebarMin(m); setSidebarWidth((w) => Math.max(m, w)); }, []);
   const onSplitDown = (e) => {
     e.preventDefault();
     const x0 = e.clientX, w0 = sidebarWidth;
-    const move = (ev) => setSidebarWidth(Math.max(160, Math.min(600, w0 + ev.clientX - x0)));
-    const up = () => { window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up); schedulePersist(); };
+    const move = (ev) => setSidebarWidth(Math.max(sidebarMinRef.current, Math.min(600, w0 + ev.clientX - x0)));
+    document.body.classList.add('dragging');
+    const up = () => { document.body.classList.remove('dragging'); window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up); schedulePersist(); };
     window.addEventListener('mousemove', move);
     window.addEventListener('mouseup', up);
   };
@@ -1609,6 +1638,7 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
       get state() { return { docs: docsRef.current, activeId: activeIdRef.current, settings: settingsRef.current, folder, find: !!find, dialog: dialog ? dialog.type : null, cursor }; },
       action, openFiles, openPath, newUntitled, activate, focusPane, showInPane, formatDoc, saveImage, exportImage: async (src, opts) => encodeImage((await analyzeImage(src)).canvas, opts), get panes() { return panesRef.current.map((p, i) => ({ docId: p.docId, active: i === activePaneRef.current })); }, setText: (text) => { const v = viewRef.current; if (v) v.dispatch({ changes: { from: 0, to: v.state.doc.length, insert: text } }); },
       getText: () => (viewRef.current ? viewRef.current.state.doc.toString() : ''), setFolder: (p) => setFolder(p), view: () => viewRef.current, closeDialog,
+      get menus() { return menus.map((m) => ({ id: m.id, items: m.items() })); }, menuIcons: withMenuIcons,
     };
   });
 
@@ -1631,6 +1661,9 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
 
   const openPaths = useMemo(() => new Set(docs.map((d) => d.path).filter(Boolean)), [docs]);
   const isMarkdown = !!cur && cur.langName === 'Markdown';
+  const isHtml = !!cur && cur.langName === 'HTML';
+  // What the prompt's session / os segments show (app.info): one object per app info, so the transcripts are not re-rendered for nothing.
+  const termEnv = useMemo(() => ({ home: info ? info.home : '', user: info ? info.user : '', host: info ? info.hostname : '', platform: info ? info.platform : '' }), [info]);
   const toolbarState = { dirty: !!cur && cur.dirty, anyDirty: docs.some((d) => d.dirty), canFormat, formatter: fmtInfo, formatterItems, formatTip, zoom, structureOn: isMarkdown ? !!settings.mdOutline : !!settings.minimap };
 
   if (!booted) return <div className="boot">{t('ready')}…</div>;
@@ -1642,8 +1675,8 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
       <div className="body">
         {settings.sidebarVisible && (
           <>
-            <div className="sidebar-column" ref={sidebarColumnRef} style={{ width: sidebarWidth, '--search-share': settings.searchVisible ? settings.searchRatio : 0 }}>
-              <Sidebar folder={folder} activePath={cur && cur.path} openPaths={openPaths} showHidden={showHidden} searchOn={settings.searchVisible} onToggleSearch={() => (settings.searchVisible ? changeSettings({ searchVisible: false }) : findInFiles())}
+            <div className="sidebar-column" ref={sidebarColumnRef} style={{ width: Math.max(sidebarWidth, sidebarMin), minWidth: sidebarMin, '--search-share': settings.searchVisible ? settings.searchRatio : 0 }}>
+              <Sidebar onMinWidth={onSidebarMin} folder={folder} activePath={cur && cur.path} openPaths={openPaths} showHidden={showHidden} searchOn={settings.searchVisible} onToggleSearch={() => (settings.searchVisible ? changeSettings({ searchVisible: false }) : findInFiles())}
                 onToggleHidden={() => setShowHidden(!showHidden)} onOpenFile={(p) => openPath(p)} onOpenFolder={openFolderDialog}
                 onCloseFolder={() => action('closeFolder')} onAction={sidebarAction} refreshKey={sbRefresh} />
               {settings.searchVisible && (
@@ -1660,6 +1693,7 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
             onReorder={(from, to) => { setDocs((ds) => { const a = ds.slice(); const i = a.findIndex((d) => d.id === from), j = a.findIndex((d) => d.id === to); const [m] = a.splice(i, 1); a.splice(j, 0, m); return a; }); schedulePersist(); }}
             onAction={(id, docId) => action(id, docId)} onContextItems={tabContextItems} />
           {isMarkdown && <MarkdownBar onAction={action} preview={settings.mdPreview} outline={settings.mdOutline} wysiwyg={settings.mdWysiwyg} />}
+          {isHtml && <HtmlBar onAction={action} preview={settings.htmlPreview} />}
           {find && view && <FindBar key={find.key} view={view} mode={find.mode} initial={find.initial} docVersion={docVersion} onClose={() => action('closeFind')} onModeChange={(mode) => setFind({ ...find, mode })} />}
           <div className="editor-split" ref={splitRef}>
             <div className={`panes ${settings.split || 'none'}`}>
@@ -1714,12 +1748,18 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
                 <Preview view={view} docVersion={docVersion} cursorPos={cursor.pos} onAction={action} onSaveImage={saveImage} onMessage={setMessage} base={cur && cur.path ? dirName(cur.path) : folder || ''} width={`${Math.round(settings.mdPreviewWidth * 100)}%`} />
               </>
             )}
+            {isHtml && settings.htmlPreview && view && (
+              <>
+                <div className="v-splitter" onMouseDown={onPreviewSplitDown} />
+                <HtmlPreview view={view} docVersion={docVersion} base={cur && cur.path ? dirName(cur.path) : folder || ''} name={cur.name} width={`${Math.round(settings.mdPreviewWidth * 100)}%`} />
+              </>
+            )}
           </div>
         </div>
         {settings.termVisible && (
           <TerminalPanel terms={terms} activeId={activeTerm} shells={shells} height={settings.termHeight} onResizeStart={onTermResizeStart}
             onActivate={setActiveTerm} onNew={(shell) => newTerminal(shell)} onClose={closeTerminal} onHide={() => changeSettings({ termVisible: false })}
-            onExit={() => {}} />
+            onExit={() => {}} onSettings={() => action('termSettings')} prompt={settings.prompt} env={termEnv} termEol={settings.termEol} termCr={settings.termCr} />
         )}
         </div>
       </div>
@@ -1733,7 +1773,7 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
       {dialog && dialog.type === 'prompt' && <PromptDialog title={dialog.title} label={dialog.label} initial={dialog.initial} okLabel={dialog.okLabel} icon={dialog.icon} validate={dialog.validate} onResult={closeDialog} />}
       {dialog && dialog.type === 'about' && <AboutDialog info={info} onClose={closeDialog} />}
       {dialog && dialog.type === 'shortcuts' && <ShortcutsDialog onClose={closeDialog} />}
-      {dialog && dialog.type === 'settings' && <SettingsDialog settings={settings} encodings={(info && info.encodings) || []} shells={shells} formatDir={cur && cur.path ? dirName(cur.path) : folder || ''} onChange={changeSettings} onClose={closeDialog} tools={fmtTools} onTools={setFmtTools} />}
+      {dialog && dialog.type === 'settings' && <SettingsDialog initialTab={dialog.tab} settings={settings} encodings={(info && info.encodings) || []} shells={shells} formatDir={cur && cur.path ? dirName(cur.path) : folder || ''} onChange={changeSettings} onClose={closeDialog} tools={fmtTools} onTools={setFmtTools} />}
       {dialog && dialog.type === 'goto' && <GotoLineDialog lines={cursor.lines} current={cursor.line} onClose={closeDialog} onGo={(l, c) => { closeDialog(); withView((v) => commands.gotoLine(v, l, c)); }} />}
       {dialog && dialog.type === 'language' && <LanguagePicker current={(getDoc(dialog.docId) || {}).language || 'auto'} onClose={closeDialog} onPick={(name) => { closeDialog(); setDocLanguage(dialog.docId, name); }} />}
       {dialog && dialog.type === 'encoding' && <EncodingPicker title={t('reopen_as')} encodings={(info && info.encodings) || []} current={cur && cur.encoding} onClose={closeDialog} onPick={(id) => { closeDialog(); reopenWith(activeIdRef.current, id); }} />}

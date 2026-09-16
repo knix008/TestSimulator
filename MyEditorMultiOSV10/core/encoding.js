@@ -63,11 +63,21 @@ function isValidUtf8(buf) {
   }
 }
 
-// A NUL byte in the first 8 KB of a non-UTF-16 file means binary data.
+// Binary data: control bytes text never uses (NUL, and C0 controls other
+// than tab / newline / form feed / escape …) make up more than 1% of the first
+// 8 KB — and there are more than a couple of them, so a tiny file is not
+// judged by one byte. Not "any NUL": a source file may carry a literal NUL (a
+// "\0" placeholder in a regex replace — core/search.js has one) and is still
+// text; a real binary (compressed data, an executable, an image) has hundreds
+// of them in its first kilobytes. UTF-16 without a BOM is sniffed before this.
 function looksBinary(buf) {
   const n = Math.min(buf.length, 8192);
-  for (let i = 0; i < n; i++) if (buf[i] === 0) return true;
-  return false;
+  let odd = 0;
+  for (let i = 0; i < n; i++) {
+    const c = buf[i];
+    if (c === 0 || c < 7 || (c > 13 && c < 32 && c !== 27)) odd++;
+  }
+  return odd > 2 && odd / n > 0.01;
 }
 
 // UTF-16 without a BOM: ASCII text shows up as "x\0y\0" (LE) or "\0x\0y" (BE).

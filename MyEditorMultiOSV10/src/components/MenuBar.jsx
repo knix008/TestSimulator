@@ -2,9 +2,10 @@
 //   title bar  — replaces the OS title bar of the frameless window: app icon
 //                + name and, in the desktop app, minimize / maximize / close;
 //                the window's drag region (double-click maximizes)
-//   menu bar   — the menus (파일 · 편집 · 찾기 · 보기 · 언어 · 인코딩 · 도움말, each
-//                with an icon); they open on click and switch on hover while
-//                one is open, like a native menu bar
+//   menu bar   — the menus (파일 · 편집 · 찾기 · 편집기 · 보기 · 언어 · 인코딩 · 도움말,
+//                each with an icon). On the desktop a click opens a native OS
+//                menu (it may reach beyond the window); on the web the in-page
+//                ContextMenu, which switches on hover while one is open
 //   toolbar    — Toolbar.jsx
 // Both bars are rendered here (MenuBar).
 //
@@ -14,11 +15,12 @@
 // or here when the toolbar is hidden.
 import React, { useEffect, useLayoutEffect, useState } from 'react';
 import { t, useLanguage, getLanguage } from '../lib/i18n';
-import { THEMES, themeById, nextThemeId } from '../themes';
-import { isElectron, windowControl, onMaximized, syncWindowMinWidth } from '../lib/backend';
+import { allThemes, themeById, nextThemeId } from '../themes';
+import { isElectron, windowControl, onMaximized, syncWindowMinWidth, nativeMenus, popupNativeMenu } from '../lib/backend';
 import { Icon, Flag } from './Icons';
 import { ContextMenu } from './ContextMenu';
 import { Widest } from './Widest';
+import { withMenuIcons } from '../lib/menuicons';
 
 function WindowButtons() {
   const [max, setMax] = useState(false);
@@ -45,13 +47,13 @@ export function AppControls({ onAction, theme, compact = false }) {   // compact
   const [themeMenu, setThemeMenu] = useState(null);
   const lang = getLanguage();
   const themeLabel = (id) => { const th = themeById(id); return lang === 'ko' ? th.label : th.labelEn; };
-  const themeItems = THEMES.map((th) => ({ id: `theme:${th.id}`, label: lang === 'ko' ? th.label : th.labelEn, checked: th.id === theme, swatch: th.tokens['--accent'], swatchBg: th.tokens['--bg'] }));
+  const themeItems = allThemes().map((th) => ({ id: `theme:${th.id}`, label: `${th.custom ? '★ ' : ''}${lang === 'ko' ? th.label : th.labelEn}`, checked: th.id === theme, swatch: th.tokens['--accent'], swatchBg: th.tokens['--bg'] }));   // built-in and custom (★) alike
   const keep = (e) => e.preventDefault();   // keep the editor focused
   return (
     <span className="app-controls">
       <span className="tb-split">
         <button className="tb-btn tb-split-main" title={t('tip_next_theme', { theme: themeLabel(nextThemeId(theme)) })} onMouseDown={keep} onClick={() => onAction('nextTheme')}>
-          <Icon name="palette" /><Widest texts={[themeLabel(theme), ...THEMES.flatMap((th) => [th.label, th.labelEn])]} />
+          <Icon name="palette" /><Widest texts={[themeLabel(theme), ...allThemes().flatMap((th) => [th.label, th.labelEn])]} />
         </button>
         <button className="tb-btn tb-split-caret" title={t('tip_theme')} aria-label={t('tip_theme')} onMouseDown={keep} onClick={(e) => setThemeMenu(themeMenu ? null : e.currentTarget)}>
           <Icon name="chevronDown" size={14} />
@@ -83,9 +85,27 @@ export function MenuBar({ menus, onAction, theme, controls = false }) {
   const [open, setOpen] = useState(null);        // { id, el }
   // Double-click on the empty part of the bar toggles maximize, like a title bar.
   const onDouble = (e) => { if (isElectron && !e.target.closest('button, select, input')) windowControl('maximize'); };
-  const openMenu = (m, el) => setOpen(open && open.id === m.id ? null : { id: m.id, el });
-  const hoverMenu = (m, el) => { if (open && open.id !== m.id) setOpen({ id: m.id, el }); };
-  const current = open ? menus.find((m) => m.id === open.id) : null;
+  // Desktop: a native OS menu under the title (it may reach beyond the window); the title stays
+  // highlighted while it is open. Web (and the smoke test): the in-page ContextMenu.
+  const openMenu = async (m, el) => {
+    if (nativeMenus) {
+      if (open) return;
+      setOpen({ id: m.id, el, native: true });
+      const r = el.getBoundingClientRect();
+      let id = null;
+      try { id = await popupNativeMenu(await withMenuIcons(m.items()), { x: r.left, y: r.bottom }); } catch { id = null; }
+      setOpen(null);
+      if (id) onAction(id);
+      return;
+    }
+    setOpen(open && open.id === m.id ? null : { id: m.id, el });
+  };
+  const hoverMenu = (m, el) => { if (open && !open.native && open.id !== m.id) setOpen({ id: m.id, el }); };
+  const current = open && !open.native ? menus.find((m) => m.id === open.id) : null;
+  // Every menu title reserves the same width — the widest title of the current language — so the titles sit at
+  // an even pitch without being wider than the longest of them (the window's minimum width only ever grows, so
+  // switching languages never shrinks the window).
+  const allTitles = menus.map((m) => (m.labelKey ? t(m.labelKey) : m.label));
 
   return (
     <>
@@ -101,7 +121,7 @@ export function MenuBar({ menus, onAction, theme, controls = false }) {
           <button key={m.id} className={`menu-btn ${open && open.id === m.id ? 'open' : ''}`}
             onMouseDown={(e) => { e.preventDefault(); openMenu(m, e.currentTarget); }}
             onMouseEnter={(e) => hoverMenu(m, e.currentTarget)}>
-            {m.icon && <Icon name={m.icon} size={14} className="menu-icon" />}{m.labelKey ? <Widest k={m.labelKey} /> : m.label}
+            {m.icon && <Icon name={m.icon} size={14} className="menu-icon" />}<Widest texts={[m.labelKey ? t(m.labelKey) : m.label, ...allTitles]} className="menu-title" />
           </button>
         ))}
       </span>

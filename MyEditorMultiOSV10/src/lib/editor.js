@@ -1,6 +1,6 @@
 // CodeMirror 6 setup shared by every tab: the base extensions, the
 // compartments the settings reconfigure at run time, the theme (all colours
-// come from the app's CSS variables, so the 16 themes of src/themes.js apply
+// come from the app's CSS variables, so the 20 themes of src/themes.js apply
 // to the editor as well) and a few editing commands the menus offer.
 import { EditorState, Compartment, EditorSelection, Prec } from '@codemirror/state';
 import {
@@ -9,7 +9,7 @@ import {
 } from '@codemirror/view';
 import { defaultKeymap, history, historyKeymap, indentWithTab, undo, redo, selectAll, copyLineDown, deleteLine, moveLineUp, moveLineDown, toggleComment, indentMore, indentLess, insertNewlineAndIndent, insertNewline } from '@codemirror/commands';
 import { foldGutter, foldKeymap, indentOnInput, bracketMatching, syntaxHighlighting, HighlightStyle, indentUnit, foldAll, unfoldAll, defaultHighlightStyle } from '@codemirror/language';
-import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete';
+import { closeBrackets, closeBracketsKeymap, autocompletion, completeAnyWord } from '@codemirror/autocomplete';
 import { search, highlightSelectionMatches, SearchQuery, setSearchQuery, getSearchQuery, findNext, findPrevious, replaceNext, replaceAll, selectMatches, openSearchPanel, closeSearchPanel } from '@codemirror/search';
 import { tags as t, tagHighlighter } from '@lezer/highlight';
 import { spellChecker } from './spell';
@@ -30,6 +30,7 @@ export const comp = {
   spell: new Compartment(),
   lint: new Compartment(),
   autoIndent: new Compartment(),
+  autocomplete: new Compartment(),
 };
 
 // ── Syntax colours → CSS variables set by src/themes.js ──
@@ -98,6 +99,14 @@ const editorTheme = EditorView.theme({
   '.cm-specialChar': { color: 'var(--danger)' },
 });
 
+// Completion while typing (settings.autocomplete; the toolbar toggles it):
+// every language's own completions — keywords, tags, properties, the names
+// in scope … from its @codemirror/lang-* package — plus, for a language
+// without any (or plain text), the words of the document itself.
+const wordFallback = (ctx) => (ctx.state.languageDataAt('autocomplete', ctx.pos).some((src) => src !== wordFallback) ? null : completeAnyWord(ctx));
+const autocompleteExt = [autocompletion({ activateOnTyping: true, maxRenderedOptions: 60 }), EditorState.languageData.of(() => [{ autocomplete: wordFallback }])];
+export function autocompleteConfig(settings) { return settings.autocomplete === false ? [] : autocompleteExt; }
+
 // The search extension with an invisible panel — see the note above.
 const searchExt = search({ top: true, createPanel: () => ({ dom: document.createElement('div'), top: true }) });
 
@@ -130,6 +139,7 @@ export function baseExtensions(settings, { onChange, onUpdate }) {
     comp.readOnly.of(EditorState.readOnly.of(false)),
     comp.spell.of(settings.spellCheck ? spellChecker : []),
     comp.autoIndent.of(autoIndentConfig(settings)),
+    comp.autocomplete.of(autocompleteConfig(settings)),
     EditorView.updateListener.of((u) => {
       if (u.docChanged && onChange) onChange(u);
       if (onUpdate && (u.docChanged || u.selectionSet || u.focusChanged)) onUpdate(u);
@@ -167,6 +177,7 @@ export function settingsEffects(settings) {
     comp.spell.reconfigure(settings.spellCheck ? spellChecker : []),
     comp.lint.reconfigure(settings.lint !== false ? lintExtension : []),
     comp.autoIndent.reconfigure(autoIndentConfig(settings)),
+    comp.autocomplete.reconfigure(autocompleteConfig(settings)),
   ];
 }
 

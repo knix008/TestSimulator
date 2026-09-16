@@ -8,6 +8,7 @@
 // the UI never touches Node APIs.
 'use strict';
 
+const os = require('os');
 const path = require('path');
 const files = require('./files');
 const enc = require('./encoding');
@@ -48,6 +49,8 @@ function createApi({ name = 'web', version = '', buildInfo = null, configDir, op
       platform: process.platform,
       configDir: session.dir,
       home: files.homedir(),
+      user: (() => { try { return os.userInfo().username; } catch { return process.env.USERNAME || process.env.USER || ''; } })(),
+      hostname: os.hostname(),
       sep: path.sep,
       encodings: enc.ENCODINGS.map((e) => ({ id: e.id, label: e.label })),
       legacyEncoding: enc.legacyEncoding(),

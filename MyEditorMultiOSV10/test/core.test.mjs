@@ -7,6 +7,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
 
 const require = createRequire(import.meta.url);
 const enc = require('../core/encoding');
@@ -132,4 +133,92 @@ test('api: surface, errors are serializable, encoding guard on write', async () 
   assert.ok(caught.message);
   assert.equal(await api.call('file.exists', { path: p }), true);
   assert.equal((await api.call('fs.list', { path: tmp })).entries.some((e) => e.name === 'api.txt'), true);
+});
+
+test('encoding: one NUL in a source file is still text; real binaries are not', () => {
+  // core/search.js itself holds a literal NUL (a placeholder in a regex replace) and used to open as binary.
+  const src = fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'core', 'search.js'));
+  assert.ok(src.includes(0), 'the fixture still contains a NUL');
+  assert.equal(enc.decode(src).binary, false);
+  assert.equal(enc.decode(Buffer.from('const A = "' + String.fromCharCode(0) + '";' + String.fromCharCode(10) + 'let b = 1;' + String.fromCharCode(10))).binary, false, 'a tiny file with one NUL');
+  const png = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.from(Array.from({ length: 4000 }, (_, i) => (i * 7919) & 0xff))]);
+  assert.equal(enc.decode(png).binary, true);
+  assert.equal(enc.decode(Buffer.alloc(64)).binary, true, 'all NULs');
+  assert.equal(enc.decode(Buffer.from('hello world\n', 'utf16le')).encoding, 'utf16le', 'UTF-16 without BOM is still sniffed first');
+});
+
+test('session: terminal / theme / preview defaults', () => {
+  const s = createSession(path.join(tmp, 'cfg3')).get();
+  assert.equal(s.termEol, 'auto');
+  assert.equal(s.termCr, 'overwrite');
+  assert.equal(s.prompt, null);
+  assert.equal(s.autocomplete, true);
+  assert.equal(s.htmlPreview, false);
+  assert.deepEqual(s.customThemes, []);
+});
+
+test('api: app.info carries the user and host for the prompt', async () => {
+  const api = createApi({ name: 'test', version: '0.0.0', configDir: path.join(tmp, 'cfg4') });
+  const info = await api.call('app.info');
+  assert.equal(typeof info.user, 'string');
+  assert.ok(info.hostname);
+  assert.ok(info.home);
+});
+
+// The terminal against a real shell: the marker after a command gives the
+// directory and the exit status, a lone CR reaches the panel as it is, CR LF
+// is normalised, and the line ending of input to a running program follows
+// the option. cmd on Windows, sh elsewhere.
+test('terminal: cwd + exit status markers, CR pass-through, input line ending', async () => {
+  const { createTerminals } = require('../core/terminal');
+  const T = createTerminals();
+  const win = process.platform === 'win32';
+  const s = T.create({ shell: win ? 'cmd' : 'sh', cwd: tmp });
+  const drain = async (since, ms = 4000) => {
+    let text = '', seq = since, last = null;
+    const t0 = Date.now();
+    while (Date.now() - t0 < ms) {
+      const r = await T.read({ id: s.id, since: seq, wait: 500 });
+      last = r;
+      if (r.chunks.length) { seq = r.seq; text += r.chunks.map((c) => c.text).join(''); }
+      if (r.idle && Date.now() - t0 > 300) break;
+    }
+    return { text, seq, r: last };
+  };
+  try {
+    let d = await drain(0, 1500);
+    assert.equal(d.text, '', 'no banner, no prompt in the output');
+    T.run({ id: s.id, line: 'echo hi' });
+    d = await drain(d.seq);
+    assert.equal(d.text, 'hi\n');
+    assert.equal(d.r.idle, true);
+    assert.equal(d.r.rc, 0);
+    assert.equal(path.resolve(d.r.cwd).toLowerCase(), path.resolve(tmp).toLowerCase());
+    T.run({ id: s.id, line: win ? 'dir nonexist_zz >nul' : 'ls nonexist_zz 2>/dev/null' });
+    d = await drain(d.seq);
+    assert.ok(d.r.rc > 0, `failure reported: rc=${d.r.rc}`);
+    T.run({ id: s.id, line: 'cd ..' });
+    d = await drain(d.seq);
+    assert.equal(d.r.rc, 0);
+    assert.equal(path.resolve(d.r.cwd).toLowerCase(), path.resolve(tmp, '..').toLowerCase());
+    // a lone CR is not stripped; CR LF becomes LF; the exit code of a program comes through
+    T.run({ id: s.id, line: `node -e "process.stdout.write('a' + String.fromCharCode(13) + 'b' + String.fromCharCode(13, 10) + 'c' + String.fromCharCode(10)); process.exit(4)"` });
+    d = await drain(d.seq);
+    assert.equal(d.text, 'a' + String.fromCharCode(13) + 'b' + String.fromCharCode(10) + 'c' + String.fromCharCode(10));
+    assert.equal(d.r.rc, 4);
+    // input to a running program: the line ending follows the option (bytes shown by the program)
+    T.run({ id: s.id, line: `node -e "process.stdin.once('data', (b) => { process.stdout.write(JSON.stringify(b.toString()) + String.fromCharCode(10)); process.exit(0); })"` });
+    await new Promise((r) => setTimeout(r, 700));
+    T.run({ id: s.id, line: 'typed', eol: 'lf' });
+    d = await drain(d.seq);
+    assert.equal(d.text.trim(), JSON.stringify('typed' + String.fromCharCode(10)));
+    T.run({ id: s.id, line: `node -e "process.stdin.once('data', (b) => { process.stdout.write(JSON.stringify(b.toString()) + String.fromCharCode(10)); process.exit(0); })"` });
+    await new Promise((r) => setTimeout(r, 700));
+    T.run({ id: s.id, line: 'typed', eol: 'crlf' });
+    d = await drain(d.seq);
+    assert.equal(d.text.trim(), JSON.stringify('typed' + String.fromCharCode(13, 10)));
+  } finally {
+    T.kill({ id: s.id });
+    T.shutdown();
+  }
 });

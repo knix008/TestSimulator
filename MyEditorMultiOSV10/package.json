@@ -1,7 +1,7 @@
 {
   "name": "myeditor",
   "version": "1.0.0",
-  "description": "My Editor — tabbed text / code editor for Windows, macOS, Linux and the web (syntax highlighting for 100+ languages, find & replace, encodings, line endings, folder tree, 16 themes, Korean / English UI).",
+  "description": "My Editor — tabbed text / code editor for Windows, macOS, Linux and the web (syntax highlighting for 100+ languages, autocomplete, find & replace, encodings, line endings, folder tree, terminal with oh-my-posh style prompts, HTML / Markdown preview, 20 themes + custom themes, Korean / English UI).",
   "author": {
     "name": "SHKWON",
     "email": "knix008@naver.com"

@@ -146,6 +146,7 @@ const paths = {
   tab: <><path d="M4 12h13M13 8l4 4-4 4M21 6v12" /></>,
   gitBranch: <><circle cx="6" cy="5" r="2.5" /><circle cx="6" cy="19" r="2.5" /><circle cx="18" cy="8" r="2.5" /><path d="M6 7.5v9M18 10.5c0 4-12 2-12 6" /></>,
   spell: <><path d="M3 17l3.5-10L10 17M4.6 13.5h3.8" /><path d="M12 13.5l2.5 2.5L21 9.5" /><path d="M3 21h18" /></>,
+  autocomplete: <><path d="M4 5h9" /><path d="M4 9h5" /><path d="M4 13h6" /><path d="M4 17h4" /><rect x="11" y="10" width="10" height="11" rx="1.5" /><path d="M14 14h4M14 17h4" /></>,
   list: <><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" /></>,
   listOrdered: <><path d="M10 6h11M10 12h11M10 18h11" /><path d="M4 6h1v4M4 10h2" /><path d="M6 18H4c0-1 2-2 2-3a1 1 0 0 0-2-.5" /></>,
   checkSquare: <><rect x="3" y="3" width="18" height="18" rx="3" /><path d="M8 12l3 3 5-6" /></>,

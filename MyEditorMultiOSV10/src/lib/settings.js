@@ -1,8 +1,11 @@
 // Default values of the Settings dialog / session (mirrors core/session.js).
 // The session file is the source of truth; these fill in until it loads.
+import { PROMPT_DEFAULT } from './prompt.js';
+
 export const SETTINGS_DEFAULTS = {
   language: 'ko',
   theme: 'midnight',
+  customThemes: [],        // user-made themes (settings › theme): [{ id, label, mode, colors }]
   fontFamily: '',
   fontSize: 14,
   tabSize: 4,
@@ -17,6 +20,7 @@ export const SETTINGS_DEFAULTS = {
   minimap: true,
   defaultEncoding: 'utf8',
   defaultEol: 'lf',
+  eolOnSave: 'keep',       // line ending written on save: keep (the file's own) | lf | crlf
   trimTrailingOnSave: false,
   finalNewlineOnSave: false,
   restoreSession: true,
@@ -35,6 +39,7 @@ export const SETTINGS_DEFAULTS = {
   spellCodeAll: false,
   autoIndent: true,
   lint: true,
+  autocomplete: true,      // completion popup while typing (the language's own completions + words of the document)
   formatters: {},
   formatOnSave: false,
   split: 'none',
@@ -42,7 +47,12 @@ export const SETTINGS_DEFAULTS = {
   termHeight: 150,
   termCwd: '',
   termShell: '',
+  termEol: 'auto',         // line ending Enter sends to a running program: auto (the shell's own) | lf | crlf
+  termCr: 'overwrite',     // a lone CR in the output: overwrite (redraw the line, like a terminal) | newline | strip
+  prompt: PROMPT_DEFAULT,  // terminal prompt theme (oh-my-posh compatible, see prompt.js)
+  customPrompts: [],       // user-saved prompt themes (settings › terminal): [{ id, label, config }]
   mdPreviewWidth: 0.5,
+  htmlPreview: false,      // HTML live preview pane
 };
 
 export const SETTING_KEYS = Object.keys(SETTINGS_DEFAULTS);
@@ -52,15 +62,15 @@ export const SETTING_KEYS = Object.keys(SETTINGS_DEFAULTS);
 // and not the window layout (sidebar, panes, terminal…, set from the View menu).
 export const RESET_KEYS = [
   'theme', 'fontFamily', 'fontSize', 'tabSize', 'insertSpaces', 'wordWrap', 'lineNumbers', 'showWhitespace', 'highlightActiveLine',
-  'autoCloseBrackets', 'bracketMatching', 'foldGutter', 'minimap', 'defaultEncoding', 'defaultEol', 'trimTrailingOnSave', 'finalNewlineOnSave',
-  'restoreSession', 'reloadChangedFiles', 'confirmClose', 'mdWysiwyg', 'spellCheck', 'spellCodeAll', 'autoIndent', 'lint',
-  'formatters', 'formatOnSave', 'termCwd', 'termShell',
+  'autoCloseBrackets', 'bracketMatching', 'foldGutter', 'minimap', 'defaultEncoding', 'defaultEol', 'eolOnSave', 'trimTrailingOnSave', 'finalNewlineOnSave',
+  'restoreSession', 'reloadChangedFiles', 'confirmClose', 'mdWysiwyg', 'spellCheck', 'spellCodeAll', 'autoIndent', 'lint', 'autocomplete',
+  'formatters', 'formatOnSave', 'termCwd', 'termShell', 'termEol', 'termCr', 'prompt',
 ];
-export const resetPatch = () => Object.fromEntries(RESET_KEYS.map((k) => [k, Array.isArray(SETTINGS_DEFAULTS[k]) ? [] : typeof SETTINGS_DEFAULTS[k] === 'object' && SETTINGS_DEFAULTS[k] ? {} : SETTINGS_DEFAULTS[k]]));
+export const resetPatch = () => Object.fromEntries(RESET_KEYS.map((k) => [k, k === 'prompt' ? PROMPT_DEFAULT : Array.isArray(SETTINGS_DEFAULTS[k]) ? [] : typeof SETTINGS_DEFAULTS[k] === 'object' && SETTINGS_DEFAULTS[k] ? {} : SETTINGS_DEFAULTS[k]]));
 
 export function pickSettings(obj) {
   const out = {};
-  for (const k of SETTING_KEYS) out[k] = obj && obj[k] !== undefined ? obj[k] : SETTINGS_DEFAULTS[k];
+  for (const k of SETTING_KEYS) out[k] = obj && obj[k] !== undefined && obj[k] !== null ? obj[k] : SETTINGS_DEFAULTS[k];   // null (the session's "unset" prompt) takes the default too
   return out;
 }
 

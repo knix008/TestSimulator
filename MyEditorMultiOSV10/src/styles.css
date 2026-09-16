@@ -67,7 +67,7 @@ button:disabled { cursor: default; opacity: 0.45; }
 .toolbar.titlebar .win-buttons { align-self: stretch; }
 .toolbar.titlebar .win-btn { width: 40px; }
 .toolbar.menubar { min-height: 30px; padding-left: 2px; }
-.toolbar.menubar .menu-btn { padding: 0 11px; }
+.toolbar.menubar .menu-btn { padding: 0 7px; }
 .toolbar button, .toolbar select, .toolbar input { -webkit-app-region: no-drag; }
 .tb-logo { margin-right: 6px; }
 .tb-title { font-weight: 700; margin-right: 4px; white-space: nowrap; }
@@ -81,6 +81,7 @@ button:disabled { cursor: default; opacity: 0.45; }
 /* labels that keep the width of their widest text (components/Widest.jsx) */
 .widest { display: inline-grid; }
 .widest > span { grid-area: 1 / 1; white-space: nowrap; text-align: start; }   /* the text stays next to its icon; the slack is on the right */
+.menu-btn .widest.menu-title > span { text-align: start; }   /* equal cells: icon + title at the left of each cell, slack on the right */
 .widest > .ghost { visibility: hidden; }
 .menu-btn:hover, .menu-btn.open { background: var(--bg-hover); }
 .menu-btn.open { color: var(--accent); box-shadow: inset 0 -2px 0 var(--accent); }
@@ -348,24 +349,21 @@ button:disabled { cursor: default; opacity: 0.45; }
 .term-view { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .term-view.hidden { display: none; }
 .term-out { flex: 1; min-height: 0; margin: 0; padding: 6px 10px; overflow: auto; font-family: var(--mono); font-size: 12.5px; line-height: 1.45; white-space: pre-wrap; word-break: break-all; background: var(--bg); color: var(--fg); }
-/* oh-my-posh / powerline style prompt. Each segment is ONE element cut by clip-path into a block with a
-   pointed right end; the next segment starts under that point (negative margin, lower z-index), so the
-   blocks nest like >> with no seam and no special font. */
+/* The prompt (components/Prompt.jsx, drawn from the prompt theme in the settings — src/lib/prompt.js):
+   a powerline segment is ONE element cut by clip-path into a block with a pointed right end; the next
+   segment starts under that point (negative margin, lower z-index), so the blocks nest like >> with no
+   seam and no special font. Diamond segments are rounded pills, plain segments coloured text. */
 .term-out .term-prompt { color: var(--accent); white-space: pre-wrap; }
-.term-out .seg { position: relative; display: inline-block; vertical-align: top; height: 1.45em; line-height: 1.45em; padding: 0 calc(0.8em + 4px) 0 8px; color: var(--bg); font-weight: 600; clip-path: polygon(0 0, calc(100% - 0.8em) 0, 100% 50%, calc(100% - 0.8em) 100%, 0 100%); }
-.term-out .seg + .seg { margin-left: -0.8em; padding-left: calc(0.8em + 6px); }
-.term-out .seg svg { vertical-align: -2px; }
-.term-out .seg-path { background: var(--accent); z-index: 2; }
-/* The git block's colour (from the branch name on) is the repository's state: red conflicts · yellow staged ·
-   red changes in the working tree · yellow committed but not pushed · blue behind · bright green clean and pushed. */
-.term-out .seg-git { z-index: 1; color: #1b1e24; }
-.term-out .seg-git.uptodate { background: #7CFC8B; }   /* clean and pushed: bright green */
-.term-out .seg-git.modified { background: #FF5C5C; }   /* changes in the working tree: red */
-.term-out .seg-git.staged { background: #FFD700; }     /* staged (added): yellow */
-.term-out .seg-git.ahead { background: #FFD700; }      /* committed, not pushed: yellow */
-.term-out .seg-git.behind { background: #7cc4ff; }     /* behind the remote */
-.term-out .seg-git.conflict { background: #D62828; color: #ffffff; }
-.term-out .seg-git .g-ahead, .term-out .seg-git .g-behind, .term-out .seg-git .g-staged, .term-out .seg-git .g-changed, .term-out .seg-git .g-untracked, .term-out .seg-git .g-conflict { font-weight: 800; margin-left: 1px; }
+.term-out .pseg { position: relative; display: inline-block; vertical-align: top; height: 1.45em; line-height: 1.45em; white-space: pre; font-weight: 600; }
+.term-out .pseg svg { vertical-align: -2px; }
+.term-out .pseg-pl { padding: 0 calc(0.8em + 2px) 0 4px; clip-path: polygon(0 0, calc(100% - 0.8em) 0, 100% 50%, calc(100% - 0.8em) 100%, 0 100%); }
+.term-out .pseg-pl.nobg { clip-path: none; padding-right: 4px; }
+.term-out .pseg-pl.after-pl { margin-left: -0.8em; padding-left: calc(0.8em + 4px); }
+.term-out .pseg-dm { border-radius: 0.72em; padding: 0 6px; margin: 0 1px; }
+.term-out .pseg-plain { padding: 0 2px; font-weight: 500; }
+.term-out .term-prompt.stale .pseg { opacity: 0.85; }
+/* the prompt line is invisible (not unmounted) while the first git status of a directory is read */
+.term-out .term-live.pending { opacity: 0; }
 /* The input sits inline after the prompt; the ::after mirror of its value gives it the width of the text. */
 .term-out .term-inline { display: inline-grid; vertical-align: baseline; max-width: 100%; }
 .term-out .term-inline::after { content: attr(data-value) ' '; grid-area: 1 / 1; visibility: hidden; white-space: pre; }
@@ -388,6 +386,9 @@ button:disabled { cursor: default; opacity: 0.45; }
 /* ── Context menu ── */
 .ctx-menu { position: fixed; z-index: 1000; min-width: 200px; max-height: calc(100vh - 16px); overflow-y: auto; background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 4px; }
 .ctx-item { display: flex; align-items: center; gap: 8px; width: 100%; background: none; border: 0; padding: 5px 10px; border-radius: 4px; text-align: left; color: var(--fg); }
+/* a menu too tall for the window: items in columns (rows set inline), each column as wide as its items */
+.ctx-menu.columns { display: grid; grid-auto-flow: column; grid-auto-columns: max-content; column-gap: 6px; max-height: none; overflow: visible; }
+.ctx-menu.columns .ctx-sep { align-self: center; }
 .ctx-item:hover:not(:disabled) { background: var(--bg-sel); }
 .ctx-icon { width: 16px; display: inline-flex; justify-content: center; color: var(--fg-muted); flex: none; }
 .ctx-item:hover:not(:disabled) .ctx-icon { color: var(--fg); }
@@ -473,8 +474,14 @@ input:disabled, select:disabled { opacity: 0.55; }
 .settings-grid { row-gap: 10px; }
 .check { display: inline-flex; align-items: center; gap: 6px; color: var(--fg); }
 .check input { width: auto; }
-/* The settings dialog keeps one size whatever tab is shown: the body is as tall as the tallest tab (editor). */
-.dlg.settings .dlg-body { min-height: 560px; }
+/* The settings dialog keeps one size whatever tab is shown: the body is as tall as the tallest tab (terminal, with
+   the prompt editor) — no scrollbar; the general tab is laid out in two columns to fill it. */
+.dlg.settings .dlg-body { min-height: min(830px, calc(100vh - 140px)); }
+.settings-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px 28px; align-items: start; }
+.settings-cols .settings-grid { row-gap: 8px; }
+.settings-cols .settings-section:first-child { margin-top: 0; }
+.settings-grid label.check { text-align: left; }
+.settings-cols select, .settings-cols input[type=text] { min-width: 0; }
 .settings-tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--border); margin-bottom: 14px; }
 .settings-tab { background: none; border: 0; padding: 6px 14px; color: var(--fg-muted); border-bottom: 2px solid transparent; }
 .settings-tab:hover { color: var(--fg); }
@@ -528,3 +535,77 @@ input:disabled, select:disabled { opacity: 0.55; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 6px; border: 2px solid transparent; background-clip: padding-box; }
 ::-webkit-scrollbar-thumb:hover { background: var(--fg-muted); background-clip: padding-box; border: 2px solid transparent; }
 ::-webkit-scrollbar-track { background: transparent; }
+
+/* ── Settings › theme: one card per theme in its own colours (click = apply) + the custom theme editor ── */
+.settings-section { grid-column: 1 / -1; margin-top: 6px; padding-bottom: 4px; border-bottom: 1px solid var(--border); font-weight: 600; color: var(--fg-muted); font-size: 12px; }
+.settings-wide { grid-column: 1 / -1; min-width: 0; }
+.theme-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
+.theme-section { margin-top: 8px; margin-bottom: 6px; }
+.theme-card { display: flex; flex-direction: column; gap: 4px; padding: 5px 6px; border: 2px solid transparent; border-radius: 7px; text-align: left; height: 74px; box-sizing: border-box; overflow: hidden; }
+.theme-badge { color: var(--accent); margin-right: 3px; }
+.theme-card:hover { filter: brightness(1.12); }
+.theme-card.active { box-shadow: 0 0 0 2px var(--accent); }
+.theme-sample { flex: 1; display: flex; flex-direction: column; gap: 3px; padding: 4px; border-radius: 4px; }
+.theme-bar { height: 8px; border-radius: 3px; display: flex; align-items: center; padding-left: 3px; }
+.theme-bar > span { display: block; width: 26px; height: 4px; border-radius: 2px; }
+.theme-line { height: 5px; border-radius: 3px; opacity: 0.8; }
+.theme-line.short { width: 55%; }
+.theme-name { font-size: 11px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.custom-theme { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.custom-theme-head { row-gap: 6px; }
+.custom-colors { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px 12px; }
+.custom-color { display: flex; align-items: center; justify-content: space-between; gap: 6px; min-width: 0; }
+.custom-color .pe-color input.mono { width: 92px; }
+.dlg.settings .btn.small { margin-left: 0; padding: 3px 8px; min-width: 0; font-size: 12px; display: inline-flex; align-items: center; gap: 4px; }
+
+/* ── Settings › terminal › prompt editor (dialogs/PromptEditor.jsx): preview, presets, quick options, master–detail ── */
+.prompt-editor { display: flex; flex-direction: column; gap: 6px; min-height: 0; }
+.settings-term { grid-template-columns: max-content minmax(180px, 2fr) max-content minmax(260px, 3fr); row-gap: 4px; }
+.pe-custom-row input { font-size: 12px; }
+/* fixed height: 3 samples × up to 2 lines — a two-line preset must not push the presets below it */
+.pe-preview-out { flex: none; height: auto; max-height: none; min-height: 0; padding: 5px 10px; border: 1px solid var(--border); border-radius: 6px; cursor: default; font-size: 12px; line-height: 1.4; margin-top: 2px; overflow: visible; }
+.pe-note { max-width: 100%; }
+.pe-color { display: inline-flex; align-items: center; gap: 3px; }
+.pe-color input[type=color] { width: 26px; height: 24px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: none; }
+.pe-color input.mono { width: 118px; font-size: 11px; }
+.pe-section-title { font-weight: 600; margin-top: 2px; display: flex; gap: 8px; align-items: baseline; }
+.pe-presets { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 5px; }
+.pe-preset { display: flex; flex-direction: column; gap: 0; padding: 2px 4px; overflow: hidden; height: auto; min-height: 48px; box-sizing: border-box; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; color: var(--fg); text-align: left; min-width: 0; }
+.pe-preset:hover { border-color: var(--accent); }
+.pe-preset.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+.pe-preset-out { display: flex; flex-direction: column; justify-content: center; align-items: flex-start; padding: 0 2px; border: 0; margin: 0; font-size: 9.5px; line-height: 1.45; overflow: hidden; white-space: pre; height: auto; min-height: 30px; pointer-events: none; width: 100%; box-sizing: border-box; flex: none; text-align: left; }
+.pe-preset-out .term-prompt { display: block; width: max-content; white-space: pre; }
+.pe-preset-out .pseg { height: 1.5em; line-height: 1.5em; }
+.pe-preset-name { font-size: 11px; color: var(--fg-muted); height: 14px; line-height: 14px; flex: none; padding-left: 2px; }
+.pe-preset.active .pe-preset-name { color: var(--fg); }
+.pe-quick { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.pe-quick .check { white-space: nowrap; }
+.pe-quick select { max-width: 200px; }
+.pe-advanced { display: grid; grid-template-columns: 190px 1fr; grid-template-rows: auto; gap: 8px; align-items: stretch; }
+.pe-list { display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); }
+.pe-list-rows { flex: 1; }
+.pe-list-block { display: flex; align-items: center; justify-content: space-between; padding: 2px 8px; font-size: 11px; color: var(--fg-muted); background: var(--bg-elev); border-bottom: 1px solid var(--border); }
+.pe-list-row { display: flex; align-items: center; gap: 6px; padding: 2px 8px; font-size: 12px; background: none; border: 0; color: var(--fg); text-align: left; width: 100%; }
+.pe-list-row:hover { background: var(--bg-hover); }
+.pe-list-row.active { background: var(--bg-sel); }
+.pe-list-row.off { opacity: 0.5; text-decoration: line-through; }
+.pe-swatch { width: 12px; height: 12px; border-radius: 3px; border: 1px solid var(--border); flex: none; }
+.pe-list-tools { flex: none; display: flex; align-items: center; gap: 2px; padding: 4px; border-top: 1px solid var(--border); background: var(--bg-elev); }
+.pe-list-tools select { flex: 1; min-width: 0; font-size: 12px; }
+.pe-detail { border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; background: var(--bg); }
+.pe-fields { grid-template-columns: max-content 1fr; gap: 4px 8px; align-items: center; }
+.pe-fields textarea { width: 100%; min-width: 0; font-size: 11px; resize: vertical; }
+.pe-fields .row { flex-wrap: nowrap; gap: 6px; }
+.pe-fields select { max-width: 140px; }
+.pe-fields input[type=number] { width: 70px; }
+.pe-vars { line-height: 1.3; min-width: 0; white-space: normal; }
+.prompt-editor .term-out { flex: none; }
+
+/* ── HTML preview (components/HtmlPreview.jsx): the page in a sandboxed iframe, white like a browser ── */
+.html-preview { flex: none; min-width: 200px; display: flex; border-left: 1px solid var(--border); background: #ffffff; }
+.html-preview iframe { flex: 1; width: 100%; height: 100%; border: 0; background: #ffffff; }
+/* while a splitter is dragged the iframe must not capture the mouse (the drag would stop at its edge) */
+body.dragging iframe { pointer-events: none; }
+body.dragging { cursor: col-resize; user-select: none; }
+body.dragging-y { cursor: row-resize; }
+.htmlbar .htmlbar-hint { padding: 3px 4px; }

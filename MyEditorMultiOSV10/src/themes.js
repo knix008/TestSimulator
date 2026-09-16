@@ -1,7 +1,8 @@
-// 16 built-in themes (10 dark, 6 light) — the same set as the sibling apps —
+// 20 built-in themes (12 dark, 8 light) — the same set as the sibling apps —
 // applied as CSS custom properties on :root. `mk` derives the secondary
 // tokens (selection, active-panel glow, shadow) from the few that define a
-// look, so a theme is just its base colours.
+// look, so a theme is just its base colours. Custom themes (settings › theme)
+// are made of the same base colours and registered with setCustomThemes().
 //
 // Each theme also carries a syntax palette (--syn-*), read by the CodeMirror
 // highlight style in src/lib/editor.js. Themes named after a well-known
@@ -125,17 +126,56 @@ export const THEMES = [
     border: '#3a302a', borderStrong: '#55463d', text: '#f1e9e2', textDim: '#bfae9f',
     accent: '#e0a458', accentStrong: '#c47f2b', accentText: '#221300', danger: '#ff7b6b', folder: '#e0a458', file: '#c9b5a2',
   }, { keyword: '#e0a458', string: '#b5d99c', number: '#f0b27a', comment: '#8a7a6d', function: '#f4d7a7', type: '#e6c384', variable: '#f1e9e2', property: '#c9b5a2', operator: '#d9b99b', bracket: '#f1e9e2', tag: '#e0a458', meta: '#bfae9f', regexp: '#f0b27a', heading: '#e0a458', link: '#e0a458', constant: '#ffb3a7' }),
+  mk('cherry', '체리', 'Cherry', 'dark', {
+    bg: '#1c1216', raised: '#271a20', panel: '#21161b', hover: '#33222a', active: '#402b35',
+    border: '#3b2530', borderStrong: '#5a3747', text: '#f6e7ec', textDim: '#c49aab',
+    accent: '#ff5c8a', accentStrong: '#e0245e', accentText: '#2b0410', danger: '#ff8c7a', folder: '#ff9db8', file: '#d9b3c0',
+  }, { keyword: '#ff5c8a', string: '#ffd6a5', number: '#f9a8d4', comment: '#8c6a77', function: '#ffb3c6', type: '#fcd5ce', variable: '#f6e7ec', property: '#e8a2b8', operator: '#ff8fab', bracket: '#f6e7ec', tag: '#ff5c8a', meta: '#c49aab', regexp: '#ffd6a5', heading: '#ff5c8a', link: '#ff9db8', constant: '#f9a8d4' }),
+  mk('cyber', '사이버', 'Cyber', 'dark', {
+    bg: '#0b0b12', raised: '#14121f', panel: '#100f1a', hover: '#1d1a2e', active: '#27233c',
+    border: '#252238', borderStrong: '#3d3860', text: '#eae6ff', textDim: '#9d94c9',
+    accent: '#ff2fd6', accentStrong: '#c400a8', accentText: '#2a0022', danger: '#ff6b6b', folder: '#7cf9ff', file: '#b9b0e6',
+  }, { keyword: '#ff2fd6', string: '#7cf9ff', number: '#ffd166', comment: '#6d63a3', function: '#a3a1ff', type: '#7cf9ff', variable: '#eae6ff', property: '#c9a8ff', operator: '#ff7ae6', bracket: '#eae6ff', tag: '#ff2fd6', meta: '#9d94c9', regexp: '#ffd166', heading: '#ff2fd6', link: '#7cf9ff', constant: '#ffd166' }),
+  mk('arctic', '아틱', 'Arctic', 'light', {
+    bg: '#f2f8fc', raised: '#ffffff', panel: '#e9f2f9', hover: '#dbe9f3', active: '#c9dcea',
+    border: '#cfdfeb', borderStrong: '#a3bfd3', text: '#122433', textDim: '#4f6d82',
+    accent: '#0aa2c0', accentStrong: '#0b7f96', accentText: '#ffffff', danger: '#d9484f', folder: '#2c9fd8', file: '#6f8ea6',
+  }),
+  mk('sand', '샌드', 'Sand', 'light', {
+    bg: '#f8f2e6', raised: '#fffaf1', panel: '#f1e8d8', hover: '#e8dcc6', active: '#dccbb0',
+    border: '#dccfb9', borderStrong: '#bfa98a', text: '#33271a', textDim: '#7d6a52',
+    accent: '#b45f06', accentStrong: '#8a4604', accentText: '#ffffff', danger: '#c8432f', folder: '#c98a2e', file: '#9a866c',
+  }),
 ];
 
 export const DEFAULT_THEME = 'midnight';
 
+// ── Custom themes ─────────────────────────────────────────
+// Made in settings › theme from any built-in one and kept in the session as
+// { id: 'custom-…', label, mode, colors } (the base colours `mk` takes; the
+// syntax palette follows the mode). setCustomThemes() registers them so
+// every lookup (picker, cycling, apply) sees built-in and custom alike.
+export const CUSTOM_COLOR_KEYS = ['bg', 'panel', 'raised', 'hover', 'active', 'border', 'borderStrong', 'text', 'textDim', 'accent', 'accentStrong', 'accentText', 'folder', 'file', 'danger'];
+let customThemes = [];
+export function setCustomThemes(list) {
+  customThemes = (Array.isArray(list) ? list : []).filter((c) => c && c.id && c.colors).map((c) => ({ ...mk(c.id, c.label || 'Custom', c.label || 'Custom', c.mode === 'light' ? 'light' : 'dark', c.colors), custom: true }));
+}
+export function getCustomThemes() { return customThemes; }
+export function allThemes() { return [...THEMES, ...customThemes]; }
+// The base colours of a theme (built-in ones are reconstructed from their tokens) — the starting point of a new custom theme.
+export function baseColorsOf(theme) {
+  const tk = theme.tokens;
+  return { bg: tk['--bg'], panel: tk['--bg-panel'], raised: tk['--bg-elev'], hover: tk['--bg-hover'], active: tk['--bg-sel-inactive'], border: tk['--border'], borderStrong: tk['--border-strong'], text: tk['--fg'], textDim: tk['--fg-muted'], accent: tk['--accent'], accentStrong: tk['--accent-strong'], accentText: tk['--accent-text'], folder: tk['--folder'], file: tk['--file'], danger: tk['--danger'] };
+}
+
 export function themeById(id) {
-  return THEMES.find((th) => th.id === id) || THEMES[0];
+  return allThemes().find((th) => th.id === id) || THEMES[0];
 }
 
 export function nextThemeId(id) {
-  const i = THEMES.findIndex((th) => th.id === id);
-  return THEMES[(i + 1) % THEMES.length].id;
+  const all = allThemes();
+  const i = all.findIndex((th) => th.id === id);
+  return all[(i + 1) % all.length].id;
 }
 
 export function applyTheme(id) {

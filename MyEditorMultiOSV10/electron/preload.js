@@ -43,7 +43,8 @@ contextBridge.exposeInMainWorld('myEditor', {
   quit: () => ipcRenderer.send('app:quit'),
 
   // Settings / info / shortcuts as separate windows, and the settings sync between windows.
-  openPopup: (kind) => ipcRenderer.send('popup:open', kind),
+  openPopup: (kind, tab) => ipcRenderer.send('popup:open', kind, tab),
+  popupMenu: (items, pos) => ipcRenderer.invoke('menu:popup', items, pos),
   printHtml: (html, title) => ipcRenderer.send('print:html', html, title),
   sendSettingsPatch: (patch) => ipcRenderer.send('settings:patch', patch),
   onSettingsPatch: on('settings:patch'),

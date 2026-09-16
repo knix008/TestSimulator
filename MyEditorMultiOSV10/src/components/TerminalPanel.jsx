@@ -2,50 +2,44 @@
 // a line-oriented console — the output of the shell (core/terminal.js,
 // polled through term.read) ending with a prompt drawn by the panel, where
 // the command is typed (history with ↑ / ↓, Tab completion through
-// term.complete). The prompt is drawn oh-my-posh style: coloured segments
-// for the directory and, inside a git repository, the branch with ahead /
-// behind and the number of staged / changed / untracked files. Typed lines
-// stay in the output with their prompt as it was. While a command runs the
-// prompt is absent and typed lines go to that command's stdin.
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+// term.complete). The prompt is drawn from the prompt theme in the settings
+// (settings › terminal › prompt — oh-my-posh compatible, src/lib/prompt.js;
+// components/Prompt.jsx draws it): by default coloured segments for the
+// directory and, inside a git repository, the branch coloured by the state
+// of the repository with one symbol per kind of change. Typed lines stay in
+// the output with their prompt as it was. While a command runs the prompt is
+// absent and typed lines go to that command's stdin.
+//
+// Line endings (settings › terminal): a lone CR in the output — a progress
+// bar redrawing its line — either overwrites the line (as a terminal does),
+// breaks it, or is dropped (termCr); the line ending Enter sends to a running
+// program is the shell's own, LF or CRLF (termEol).
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { t, useLanguage } from '../lib/i18n';
 import { call } from '../lib/backend';
 import { Icon } from './Icons';
 import { ContextMenu } from './ContextMenu';
 import { AnsiText } from '../lib/ansi.jsx';
+import { Prompt } from './Prompt';
+import { mergeOutput } from '../lib/termtext';
 
 const WAIT_MS = 1500;   // long poll: the backend answers as soon as something happens, or after this
 const MAX_LINES = 3000;
 
-// One prompt: [ 📁 dir ]▶[ ⎇ branch ↑1 ↓2 +3 ~4 ?5 !6 ]▶ — the command is typed right after the last arrow.
-function Prompt({ cwd, git, stale = false }) {
+// The git summary for the prompt's tooltip; the prompt itself comes from the theme.
+function gitClass(git) {
+  if (!git || !git.repo) return '';
+  return git.conflicts ? 'conflict' : git.staged ? 'staged' : git.changed ? 'modified' : git.ahead ? 'ahead' : git.behind ? 'behind' : 'uptodate';
+}
+function TermPrompt({ config, env, shell, cwd, git, rc, ms, at, stale = false }) {
   const repo = git && git.repo;
-  const dirty = repo ? git.staged + git.changed + git.untracked + git.conflicts > 0 : false;
-  // The state of the repository colours the whole block, from the branch name on (the first that applies):
-  // conflicts — red · staged (added) — yellow · modified files — red ·
-  // committed but not pushed — yellow · behind the remote — blue · clean and pushed — bright green.
-  // Untracked files do not colour the block (they are new files git does not know yet, shown by the ? symbol
-  // only); otherwise a committed-but-not-pushed or pushed repository would stay red because of them.
-  const cls = !repo ? '' : git.conflicts ? 'conflict' : git.staged ? 'staged' : git.changed ? 'modified' : git.ahead ? 'ahead' : git.behind ? 'behind' : 'uptodate';
-  return (
-    <span className="term-prompt" title={cwd}>
-      <span className="seg seg-path"><Icon name="folder" size={12} /> {cwd}</span>
-      {repo && (
-        <>
-          <span className={`seg seg-git ${cls} ${stale ? 'stale' : ''}`}>
-            {/* the branch coloured by the overall state (green clean · yellow changes · red conflicts), then one coloured
-                symbol per kind of status that applies — no counts: ↑ ahead · ↓ behind · + staged · ~ changed · ? untracked · ! conflicts */}
-            <span className="g-branch"><Icon name="gitBranch" size={12} /> {git.branch || '(detached)'}</span>
-            {(git.ahead > 0 || git.behind > 0 || dirty) && ' '}
-            {git.ahead > 0 && <span className="g-ahead" title={`ahead ${git.ahead}`}>↑</span>}{git.behind > 0 && <span className="g-behind" title={`behind ${git.behind}`}>↓</span>}
-            {git.staged > 0 && <span className="g-staged" title={`staged ${git.staged}`}>+</span>}{git.changed > 0 && <span className="g-changed" title={`changed ${git.changed}`}>~</span>}
-            {git.untracked > 0 && <span className="g-untracked" title={`untracked ${git.untracked}`}>?</span>}{git.conflicts > 0 && <span className="g-conflict" title={`conflicts ${git.conflicts}`}>!</span>}
-          </span>
-        </>
-      )}
-      {' '}
-    </span>
-  );
+  const cls = gitClass(git);
+  const tip = repo
+    ? `${git.branch || '(detached)'}${git.upstream ? ` → ${git.upstream}` : ''} — ${t(`term_gs_${cls}`)}\n${git.ahead} ${t('term_git_ahead')} · ${git.behind} ${t('term_git_behind')} · ${git.conflicts ? `${t('term_git_conflicts', { n: git.conflicts })} · ` : ''}${t('term_git_changes', { staged: git.staged, changed: git.changed, untracked: git.untracked })}`
+    : `${cwd}\n${t('term_no_git')}`;
+  const state = useMemo(() => ({ cwd, git, rc: rc || 0, ms: ms || 0, now: at ? new Date(at) : new Date(), home: env.home, user: env.user, host: env.host, platform: env.platform, shell, root: false }),
+    [cwd, git, rc, ms, at, env, shell]);
+  return <Prompt config={config} state={state} stale={stale} title={tip} />;
 }
 
 // The output is a list of entries: shell output text, or a line typed at a
@@ -67,11 +61,16 @@ function trimEntries(entries) {
   }
   return list;
 }
-function appendText(entries, text) {
+function appendText(entries, text, mode) {
   if (!text) return entries;
   const last = entries[entries.length - 1];
-  const next = last && last.k === 'out' ? [...entries.slice(0, -1), { k: 'out', text: last.text + text }] : [...entries, { k: 'out', text }];
+  const next = last && last.k === 'out' ? [...entries.slice(0, -1), { k: 'out', text: mergeOutput(last.text, text, mode) }] : [...entries, { k: 'out', text: mergeOutput('', text, mode) }];
   return trimEntries(next);
+}
+// A CR left pending at the end of the output when a prompt follows: nothing comes after it, so it is dropped.
+function settle(entries) {
+  const last = entries[entries.length - 1];
+  return last && last.k === 'out' && last.text.endsWith('\r') ? [...entries.slice(0, -1), { k: 'out', text: last.text.slice(0, -1) }] : entries;
 }
 
 // Candidates listed like a shell does: in columns as wide as the panel allows.
@@ -83,12 +82,12 @@ function columns(names, width) {
   return rows.join('\n');
 }
 
-function TerminalView({ term, active, onExit }) {
+function TerminalView({ term, active, onExit, prompt, env, termEol, termCr }) {
   useLanguage();
   const [entries, setEntries] = useState(() => (Array.isArray(term.buffer) ? term.buffer : []));
   const [git, setGit] = useState(null);
   const [input, setInput] = useState('');
-  const [hist, setHist] = useState({ list: [], idx: -1 });
+  const [hist, setHist] = useState({ list: [], idx: -1, draft: '' });
   const outRef = useRef(null);
   const inputRef = useRef(null);
   const seqRef = useRef(term.seq || 0);
@@ -98,8 +97,15 @@ function TerminalView({ term, active, onExit }) {
   const [idle, setIdle] = useState(true);
   const idleRef = useRef(true);
   const [exited, setExited] = useState(false);
-  const busyRef = useRef(false);
   const cmdSentRef = useRef(false);   // a command went to the shell since the last git status
+  const crRef = useRef(termCr); crRef.current = termCr;
+  const eolRef = useRef(termEol); eolRef.current = termEol;
+  // Status of the last command (from the shell marker) and how long it ran — the prompt's status / executiontime segments.
+  const [rc, setRc] = useState(0);
+  const [ms, setMs] = useState(0);
+  const rcRef = useRef(0);
+  const msRef = useRef(0);
+  const startedRef = useRef(0);
 
   // The git status of the current directory: the prompt never appears bare
   // and then grows a git block — while the first status of a directory is
@@ -118,10 +124,10 @@ function TerminalView({ term, active, onExit }) {
     call('git.status', { cwd: dir }).then((g) => { if (my !== gitSeq.current) return; gitRef.current = g; gitCwdRef.current = dir; setGit(g); setGitReady(true); setGitStale(false); })
       .catch(() => { if (my !== gitSeq.current) return; gitRef.current = null; gitCwdRef.current = dir; setGit(null); setGitReady(true); setGitStale(false); });
   }, []);
-  const append = useCallback((text) => setEntries((prev) => appendText(prev, text)), []);
+  const append = useCallback((text) => setEntries((prev) => appendText(prev, text, crRef.current)), []);
   // A line typed at the prompt (or, while a command runs, fed to it).
   const echo = useCallback((line) => {
-    if (idleRef.current) setEntries((prev) => trimEntries([...prev, { k: 'cmd', shell: term.shell, cwd: cwdRef.current, git: gitRef.current, line }]));
+    if (idleRef.current) setEntries((prev) => trimEntries([...settle(prev), { k: 'cmd', shell: term.shell, cwd: cwdRef.current, git: gitRef.current, rc: rcRef.current, ms: msRef.current, at: Date.now(), line }]));
     else append(line + '\n');
   }, [append, term.shell]);
 
@@ -140,7 +146,11 @@ function TerminalView({ term, active, onExit }) {
           const idleNow = r.idle !== false;
           const cwdChanged = r.cwd !== cwdRef.current;
           if (cwdChanged) { cwdRef.current = r.cwd; setCwd(r.cwd); }
-          if (idleNow !== idleRef.current) { idleRef.current = idleNow; setIdle(idleNow); }
+          if (idleNow !== idleRef.current) {
+            idleRef.current = idleNow; setIdle(idleNow);
+            if (idleNow && startedRef.current) { const took = Date.now() - startedRef.current; startedRef.current = 0; msRef.current = took; setMs(took); }
+          }
+          if (typeof r.rc === 'number' && r.rc !== rcRef.current) { rcRef.current = r.rc; setRc(r.rc); }
           // The git status is re-read when a command has finished — the shell is idle again after a command was
           // sent (a fast command without output never shows as busy, so the sent flag is what counts) — or the
           // directory changed.
@@ -159,17 +169,21 @@ function TerminalView({ term, active, onExit }) {
 
   useEffect(() => { refreshGit(); }, [refreshGit]);
   useEffect(() => { term.buffer = entries; term.seq = seqRef.current; }, [entries, term]);
-  useEffect(() => { const el = outRef.current; if (el) el.scrollTop = el.scrollHeight; }, [entries, input, idle]);
+  useEffect(() => { const el = outRef.current; if (el) el.scrollTop = el.scrollHeight; }, [entries, input, idle, gitReady]);
   useEffect(() => { if (active && inputRef.current) inputRef.current.focus(); }, [active]);
 
   const run = async (line) => {
-    const cmd = line.trim();
+    const wasIdle = idleRef.current;
+    const cmd = wasIdle ? line.trim() : line;
     echo(line);
-    if (!cmd) { await call('term.run', { id: term.id, line: '' }); return; }
-    setHist((h) => ({ list: [...h.list.filter((x) => x !== cmd), cmd].slice(-100), idx: -1 }));
-    if (idleRef.current && (cmd === 'clear' || cmd === 'cls')) { setEntries([]); await call('term.run', { id: term.id, line: '' }); return; }
-    cmdSentRef.current = true;
-    await call('term.run', { id: term.id, line: cmd });
+    if (wasIdle) {
+      startedRef.current = Date.now();
+      if (!cmd) { await call('term.run', { id: term.id, line: '' }); return; }
+      setHist((h) => ({ list: [...h.list.filter((x) => x !== cmd), cmd].slice(-200), idx: -1, draft: '' }));
+      if (cmd === 'clear' || cmd === 'cls') { setEntries([]); await call('term.run', { id: term.id, line: '' }); return; }
+      cmdSentRef.current = true;
+    }
+    try { await call('term.run', { id: term.id, line: cmd, eol: eolRef.current }); } catch (err) { append(`\n[${err.message}]\n`); }
   };
 
   // Tab: complete the word at the cursor — a single candidate is inserted (a
@@ -207,25 +221,50 @@ function TerminalView({ term, active, onExit }) {
   };
 
   const onKey = (e) => {
+    if (e.nativeEvent.isComposing) return;
     if (e.key === 'Enter') { e.preventDefault(); const v = input; setInput(''); run(v); }
     else if (e.key === 'Tab') { e.preventDefault(); complete(); }
-    else if (e.key === 'ArrowUp') { e.preventDefault(); setHist((h) => { const i = h.idx < 0 ? h.list.length - 1 : Math.max(0, h.idx - 1); if (h.list[i] !== undefined) setInput(h.list[i]); return { ...h, idx: i }; }); }
-    else if (e.key === 'ArrowDown') { e.preventDefault(); setHist((h) => { if (h.idx < 0) return h; const i = h.idx + 1; if (i >= h.list.length) { setInput(''); return { ...h, idx: -1 }; } setInput(h.list[i]); return { ...h, idx: i }; }); }
-    else if (e.key === 'c' && e.ctrlKey && !input) { e.preventDefault(); call('term.write', { id: term.id, data: '\x03' }).catch(() => {}); }
+    else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setHist((h) => { if (!h.list.length) return h; const i = h.idx < 0 ? h.list.length - 1 : Math.max(0, h.idx - 1); setInput(h.list[i]); return { ...h, idx: i, draft: h.idx < 0 ? input : h.draft }; });
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setHist((h) => { if (h.idx < 0) return h; const i = h.idx + 1; if (i >= h.list.length) { setInput(h.draft); return { ...h, idx: -1, draft: '' }; } setInput(h.list[i]); return { ...h, idx: i }; });
+    } else if (e.key === 'c' && e.ctrlKey && !input) { e.preventDefault(); call('term.write', { id: term.id, data: '\x03' }).catch(() => {}); }
     else if (e.key === 'l' && e.ctrlKey) { e.preventDefault(); setEntries([]); }
+    else if (e.key === 'Escape') { setInput(''); }
   };
+
+  // Multi-line paste: every complete line is run, the rest stays typed.
+  const onPaste = (e) => {
+    const text = (e.clipboardData && e.clipboardData.getData('text')) || '';
+    if (!text.includes('\n')) return;
+    e.preventDefault();
+    const el = inputRef.current;
+    const before = input.slice(0, el ? el.selectionStart : input.length), after = input.slice(el ? el.selectionEnd : input.length);
+    const parts = (before + text.replace(/\r/g, '') + after).split('\n');
+    const rest = parts.pop();
+    (async () => { for (const p of parts) await run(p); setInput(rest); })();
+  };
+
+  // The transcript only re-renders when it changes — not on every keystroke.
+  const transcript = useMemo(() => entries.map((e, i) => (e.k === 'cmd'
+    ? <React.Fragment key={i}><TermPrompt config={prompt} env={env} shell={term.shell} cwd={e.cwd} git={e.git} rc={e.rc} ms={e.ms} at={e.at} />{e.line}{'\n'}</React.Fragment>
+    : <React.Fragment key={i}><AnsiText text={e.text.endsWith('\r') ? e.text.slice(0, -1) : e.text} /></React.Fragment>)), [entries, prompt, env, term.shell]);   // a CR still pending is not drawn
 
   return (
     <div className={`term-view ${active ? '' : 'hidden'}`}>
       <pre className="term-out selectable" ref={outRef} onClick={() => { if (!window.getSelection().toString() && inputRef.current) inputRef.current.focus(); }}>
-        {entries.map((e, i) => (e.k === 'cmd'
-          ? <React.Fragment key={i}><Prompt cwd={e.cwd} git={e.git} />{e.line}{'\n'}</React.Fragment>
-          : <React.Fragment key={i}><AnsiText text={e.text} /></React.Fragment>))}
-        {!exited && idle && gitReady && <Prompt cwd={cwd} git={git} stale={gitStale} />}
+        {transcript}
         {!exited && (
-          <span className="term-inline" data-value={input}>
-            <input ref={inputRef} value={input} title={t('term_placeholder')} spellCheck={false} autoComplete="off" autoCapitalize="off"
-              onChange={(e) => setInput(e.target.value)} onKeyDown={onKey} />
+          // While the first git status of a directory is being read the prompt line is kept invisible
+          // (opacity, not unmounted: the input keeps the focus and what is typed meanwhile).
+          <span className={`term-live ${idle && !gitReady ? 'pending' : ''}`}>
+            {idle && gitReady && <TermPrompt config={prompt} env={env} shell={term.shell} cwd={cwd} git={git} rc={rc} ms={ms} stale={gitStale} />}
+            <span className="term-inline" data-value={input}>
+              <input ref={inputRef} value={input} title={t('term_placeholder')} spellCheck={false} autoComplete="off" autoCapitalize="off" autoCorrect="off"
+                onChange={(e) => setInput(e.target.value)} onKeyDown={onKey} onPaste={onPaste} />
+            </span>
           </span>
         )}
       </pre>
@@ -233,7 +272,7 @@ function TerminalView({ term, active, onExit }) {
   );
 }
 
-export function TerminalPanel({ terms, activeId, shells, onActivate, onNew, onClose, onHide, onExit, height, onResizeStart }) {
+export function TerminalPanel({ terms, activeId, shells, onActivate, onNew, onClose, onHide, onExit, onSettings, height, onResizeStart, prompt, env, termEol, termCr }) {
   useLanguage();
   const [menu, setMenu] = useState(null);
   const shellItems = shells.map((s) => ({ id: `shell:${s.id}`, label: s.label, icon: 'terminal' }));
@@ -253,11 +292,12 @@ export function TerminalPanel({ terms, activeId, shells, onActivate, onNew, onCl
         <button className="icon-btn" title={t('term_new')} onClick={() => onNew()}><Icon name="plus" size={15} /></button>
         {shells.length > 1 && <button className="icon-btn" title={t('term_new_shell')} onClick={(e) => setMenu(e.currentTarget)}><Icon name="chevronDown" size={14} /></button>}
         <span className="spacer" />
+        {onSettings && <button className="icon-btn" title={t('term_settings')} onClick={onSettings}><Icon name="settings" size={14} /></button>}
         <button className="icon-btn" title={t('term_hide')} onClick={onHide}><Icon name="close" size={15} /></button>
       </div>
       <div className="term-body">
         {terms.length === 0 && <div className="sb-empty"><Icon name="terminal" size={26} /><p>{t('term_empty')}</p><button className="btn" onClick={() => onNew()}>{t('term_new')}</button></div>}
-        {terms.map((tm) => <TerminalView key={tm.id} term={tm} active={tm.id === activeId} onExit={onExit} />)}
+        {terms.map((tm) => <TerminalView key={tm.id} term={tm} active={tm.id === activeId} onExit={onExit} prompt={prompt} env={env} termEol={termEol} termCr={termCr} />)}
       </div>
       {menu && <ContextMenu anchorEl={menu} above x={0} y={0} items={shellItems} onClose={() => setMenu(null)} onPick={(id) => { setMenu(null); onNew(id.slice(6)); }} />}
     </div>
