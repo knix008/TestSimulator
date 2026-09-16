@@ -369,6 +369,22 @@ body.dragging-x { cursor: col-resize; }
 .term-out .pseg-dm { border-radius: 0.72em; padding: 0 6px; margin: 0 1px; }
 .term-out .pseg-plain { padding: 0 2px; font-weight: 500; }
 .term-out .term-prompt.stale .pseg { opacity: 0.85; }
+/* output highlighting (lib/ansi.jsx smart): lines / words a tool marks as errors, warnings, success, and links */
+.term-out .t-err { color: #ff6b6b; }
+.term-out .t-warn { color: #ffd166; }
+.term-out .t-ok { color: #7CFC8B; }
+.term-out .t-info { color: #7cc4ff; }
+.term-out .t-url { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+.term-out .t-path { color: #c9a8ff; }
+/* directory listings (ls -l / dir / Get-ChildItem): the entry's kind colours its name, the columns are dimmed */
+.term-out .t-dim { opacity: 0.6; }
+.term-out .t-dir { color: #6cb6ff; font-weight: 600; }
+.term-out .t-link { color: #5fd7d7; }
+.term-out .t-exe { color: #7CFC8B; }
+.term-out .t-arch { color: #ff7b72; }
+.term-out .t-img { color: #d2a8ff; }
+.term-out .t-doc { color: #e3c07b; }
+.term-out .t-code { color: #a5d6ff; }
 /* the prompt line is invisible (not unmounted) while the first git status of a directory is read */
 .term-out .term-live.pending { opacity: 0; }
 /* The input sits inline after the prompt; the ::after mirror of its value gives it the width of the text. */
@@ -483,7 +499,7 @@ input:disabled, select:disabled { opacity: 0.55; }
 .check input { width: auto; }
 /* The settings dialog keeps one size whatever tab is shown: the body is as tall as the tallest tab (terminal, with
    the prompt editor) — no scrollbar; the general tab is laid out in two columns to fill it. */
-.dlg.settings .dlg-body { min-height: min(870px, calc(100vh - 140px)); }
+.dlg.settings .dlg-body { min-height: min(880px, calc(100vh - 140px)); }
 .settings-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px 28px; align-items: start; }
 .settings-cols .settings-grid { row-gap: 8px; }
 .settings-cols .settings-section:first-child { margin-top: 0; }

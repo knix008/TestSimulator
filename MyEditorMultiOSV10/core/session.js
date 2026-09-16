@@ -70,9 +70,10 @@ const DEFAULTS = {
   sessionVersion: 3,       // see the migrations in load()
   termCwd: '',             // where new terminals start; '' = the folder open in the sidebar (else the document's folder)
   termShell: '',           // shell of a new terminal (id from term.shells); '' = the first one offered
+  termColor: true,         // terminal output in colour (ANSI + error / warning / link highlighting); false = plain
   termEol: 'auto',         // line ending Enter sends to a running program: auto (the shell's own) | lf | crlf
   termCr: 'overwrite',     // a lone CR in the output: overwrite (redraw the line, like a terminal) | newline | strip
-  prompt: null,            // terminal prompt theme (oh-my-posh compatible JSON, src/lib/prompt.js); null = the default preset
+  prompt: null,            // terminal prompt theme (JSON, src/lib/prompt.js); null = the default preset
   customPrompts: [],       // user-saved prompt themes: [{ id, label, config }]
   htmlPreview: false,      // HTML live preview pane
   imagePreview: true,      // image files: the picture next to the editor / hex view

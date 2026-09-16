@@ -30,14 +30,14 @@ MyEditorMultiOSV10/
 │  ├ lib/mdlive.js      Markdown WYSIWYG: 구문 트리 기반 Decoration(기호 숨김·위젯·줄 스타일), 이미지 위젯(크기 조절 → <img width>)
 │  ├ dialogs/ImageDialog.jsx  이미지 넣기(파일/URL, 링크 또는 Base64 내장, 너비, 미리보기)
 │  ├ lib/lint.js        진단 표시(@codemirror/lint: 거터 마커·밑줄·툴팁·패널), 백엔드 결과 → Diagnostic 변환
-│  ├ lib/ansi.jsx       ANSI SGR(16/256/트루컬러·굵게·밑줄 …) → 색 span (터미널 출력)
+│  ├ lib/ansi.jsx       ANSI SGR(16/256/트루컬러·굵게·밑줄 …) → 색 span + 색 없는 출력의 강조(오류/경고/완료 줄, 링크, 파일:줄, dir/ls -l/Get-ChildItem 목록) (터미널 출력)
 │  ├ lib/images.js      이미지 경로 해석(문서 폴더 기준 → file.dataUrl, 캐시), 드롭/붙여넣기 파일 → data URL
 │  ├ lib/spell.js       스펠링 체크: nspell + assets/dict/en.{aff,dic}(지연 로드), 가시 범위만 검사, 제안·사용자 사전
 │  ├ lib/backend.js     전송 스위치(IPC ↔ fetch), 대화상자 폴백, 창 제어
 │  ├ lib/i18n.js        ko / en 사전
 │  ├ lib/settings.js    설정 기본값
 │  ├ themes.js          20 테마 + 사용자 정의 테마(setCustomThemes) → CSS 변수(구문 색 --syn-* 포함)
-│  ├ lib/prompt.js      oh-my-posh 호환 프롬프트 모델: 프리셋 20종, Go 템플릿 렌더, 세그먼트 컨텍스트, JSON 가져오기/내보내기
+│  ├ lib/prompt.js      프롬프트 테마 모델: 프리셋 20종, Go 스타일 템플릿 렌더, 세그먼트 컨텍스트
 │  ├ lib/termtext.js    터미널 출력의 CR 처리(덮어쓰기/줄 바꿈/제거)
 │  ├ components/        MenuBar · Toolbar · TabBar · EditorPane · FindBar · MarkdownBar · Preview · HtmlPreview(샌드박스 iframe, 로컬 자원 인라인) · Prompt(프롬프트 렌더) · Sidebar · SearchPanel · TerminalPanel · FontPicker · StatusBar · ContextMenu · Icons
 │  └ dialogs/           Dialogs(확인·오류·정보·줄 이동·프롬프트·언어·인코딩·단축키) · SettingsDialog(일반·테마·터미널·정렬) · PromptEditor(프리셋·사용자 정의·간단/고급 편집) · FileDialog(웹)

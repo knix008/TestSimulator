@@ -217,6 +217,14 @@ test('terminal: cwd + exit status markers, CR pass-through, input line ending', 
     T.run({ id: s.id, line: 'typed', eol: 'crlf' });
     d = await drain(d.seq);
     assert.equal(d.text.trim(), JSON.stringify('typed' + String.fromCharCode(13, 10)));
+    // escape sequences: colours (SGR) stay, cursor / OSC sequences go — even when one arrives in two chunks
+    T.run({ id: s.id, line: `node -e "const w = (t) => process.stdout.write(t); const E = String.fromCharCode(27); w(E + '[?25'); setTimeout(() => { w('l' + E + ']0;title' + String.fromCharCode(7) + E + '[3'); setTimeout(() => w('2mok' + E + '[0m' + String.fromCharCode(10)), 120); }, 120)"` });
+    d = await drain(d.seq);
+    assert.equal(d.text, String.fromCharCode(27) + '[32mok' + String.fromCharCode(27) + '[0m' + String.fromCharCode(10));
+    // the colour environment: programs are told to colour although stdout is a pipe
+    T.run({ id: s.id, line: 'node -e "process.stdout.write(process.env.FORCE_COLOR + process.env.CLICOLOR_FORCE + String(process.env.LANG) + String.fromCharCode(10))"' });
+    d = await drain(d.seq);
+    assert.match(d.text.trim(), /^11.*utf-?8$/i);
   } finally {
     T.kill({ id: s.id });
     T.shutdown();

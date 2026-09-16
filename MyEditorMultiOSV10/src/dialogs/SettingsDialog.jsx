@@ -359,6 +359,8 @@ export function SettingsDialog({ settings, encodings, shells = [], formatDir = '
             <option value="">{shells.length ? t('set_term_shell_default', { name: shells[0].label }) : t('set_term_shell_default', { name: '' })}</option>
             {shells.map((sh) => <option key={sh.id} value={sh.id}>{sh.label}</option>)}
           </select>
+          <label />
+          <Check id="termColor" label={t('set_term_color')} settings={settings} onChange={onChange} />
           <label>{t('set_term_cwd')}</label>
           <span className="row">
             <input type="text" className="mono" title={t('set_term_cwd_hint')} value={settings.termCwd || ''} placeholder={t('set_term_cwd_default')} spellCheck={false} onChange={(e) => onChange({ termCwd: e.target.value })} style={{ flex: 1, minWidth: 0 }} />

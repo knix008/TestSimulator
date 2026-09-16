@@ -26,6 +26,7 @@ import { resolveFormatter, toolLabel } from './lib/formatters';
 import { HexView } from './components/HexView';
 import { Outline } from './components/Outline';
 import { markdownLive, imageBase } from './lib/mdlive';
+import { dockerfileCompletion, kubernetesCompletion } from './lib/devops';
 import { fileToDataUrl, isImageFile, resolveImageSrc, analyzeImage, encodeImage } from './lib/images';
 import { renderMarkdown } from './lib/markdown';
 import { applyDiagnostics, clearDiagnostics, countDiagnostics, openLintPanel, nextDiagnostic } from './lib/lint';
@@ -494,7 +495,9 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
       if (!cur || (cur.langName || null) !== langName) return;
       // Markdown documents get the WYSIWYG rendering on top of the grammar.
       const live = langName === 'Markdown' && settingsRef.current.mdWysiwyg ? [markdownLive, imageBase.of(cur.path ? dirName(cur.path) : folderRef.current || '')] : [];
-      dispatchTo(doc.id, { effects: languageEffect([support, live]) });
+      // Dockerfiles and Kubernetes manifests (YAML) complete their own vocabulary (lib/devops.js) on top of the grammar.
+      const extra = support && support.language && (langName === 'Dockerfile' ? [support.language.data.of({ autocomplete: dockerfileCompletion })] : langName === 'YAML' ? [support.language.data.of({ autocomplete: kubernetesCompletion })] : []);
+      dispatchTo(doc.id, { effects: languageEffect([support, live, extra || []]) });
       scheduleLint(doc.id, 200);
     }).catch(() => { /* a grammar failed to load: plain text */ });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1843,7 +1846,7 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
         {settings.termVisible && (
           <TerminalPanel terms={terms} activeId={activeTerm} shells={shells} height={settings.termHeight} onResizeStart={onTermResizeStart}
             onActivate={setActiveTerm} onNew={(shell) => newTerminal(shell)} onClose={closeTerminal} onHide={() => changeSettings({ termVisible: false })}
-            onExit={() => {}} onSettings={() => action('termSettings')} prompt={settings.prompt} env={termEnv} termEol={settings.termEol} termCr={settings.termCr} />
+            onExit={() => {}} onSettings={() => action('termSettings')} prompt={settings.prompt} env={termEnv} termEol={settings.termEol} termCr={settings.termCr} termColor={settings.termColor !== false} />
         )}
         </div>
       </div>

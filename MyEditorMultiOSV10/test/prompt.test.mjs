@@ -9,7 +9,8 @@ import assert from 'node:assert/strict';
 const prompt = await import('../src/lib/prompt.js');
 const { mergeOutput } = await import('../src/lib/termtext.js');
 const themes = await import('../src/themes.js');
-const { PRESETS, PROMPT_DEFAULT, SAMPLE_STATES, renderPrompt, normalizePrompt, importOmp, exportOmp, gitState, GIT_STATE_COLORS } = prompt;
+const { PRESETS, PROMPT_DEFAULT, SAMPLE_STATES, renderPrompt, normalizePrompt, gitState, GIT_STATE_COLORS } = prompt;
+const roundTrip = (cfg) => normalizePrompt(JSON.parse(JSON.stringify(normalizePrompt(cfg))));
 
 const textOf = (r) => r.blocks.map((b) => b.segments.map((s) => s.text).join('|')).join(' // ');
 
@@ -62,22 +63,17 @@ test('prompt: status, execution time and time segments follow the state', () => 
   assert.doesNotMatch(textOf(ok), /10ms/, 'below the threshold the execution time is hidden');
 });
 
-test('prompt: oh-my-posh JSON import / export round trip; unsupported segments are skipped', () => {
-  const omp = { blocks: [{ type: 'prompt', alignment: 'left', segments: [
+test('prompt: a config survives the session (JSON) round trip; unknown segment types become text', () => {
+  const cfg = normalizePrompt({ blocks: [{ type: 'prompt', alignment: 'left', segments: [
     { type: 'path', style: 'powerline', foreground: '#fff', background: '#123456', template: ' {{ .Path }} ', properties: { style: 'folder' } },
     { type: 'battery', style: 'plain', template: '{{ .Percentage }}' },
-    { type: 'exit', style: 'plain', foreground: '#f00', template: '{{ .Text }}' },
-  ] }] };
-  const { config, mapped, skipped } = importOmp(JSON.stringify(omp));
-  assert.equal(mapped, 2);
-  assert.deepEqual(skipped, ['battery']);
-  assert.equal(config.blocks[0].segments[1].type, 'status');
-  assert.equal(config.blocks[0].segments[1].template, '{{ .String }}');
-  const back = JSON.parse(exportOmp(config));
-  assert.equal(back.blocks[0].segments.length, 2);
+    { type: 'status', style: 'plain', foreground: '#f00', template: '{{ .String }}' },
+  ] }] });
+  assert.equal(cfg.blocks[0].segments[1].type, 'text', 'an unknown type is kept as text');
+  const back = roundTrip(cfg);
+  assert.equal(back.blocks[0].segments.length, 3);
   assert.equal(back.blocks[0].segments[0].background, '#123456');
-  assert.equal(normalizePrompt(importOmp(exportOmp(config)).config).blocks[0].segments.length, 2);
-  assert.throws(() => importOmp('{"nope":1}'), /blocks/);
+  assert.deepEqual(back, cfg);
 });
 
 test('termtext: a lone CR overwrites the line, breaks it, or is dropped — CR LF is always a line break', () => {
@@ -150,7 +146,7 @@ test('prompt: every preset colours the git segment by the repository state (git_
   const seg = renderPrompt(off, { ...base, git: states.modified }).blocks.flatMap((b) => b.segments).find((s) => s.type === 'git');
   assert.equal(seg.bg, '#1976d2', 'the preset keeps its own colour when the option is off');
   assert.equal(normalizePrompt({ blocks: PRESETS.rainbow.config.blocks }).git_state_colors, true, 'on by default');
-  assert.equal(importOmp(exportOmp(off)).config.git_state_colors, false, 'survives export / import');
+  assert.equal(roundTrip(off).git_state_colors, false, 'survives the session round trip');
 });
 
 test('prompt: the state colours are green → red → yellow → orange → green along commit / push, and editable per prompt', () => {
@@ -167,6 +163,5 @@ test('prompt: the state colours are green → red → yellow → orange → gree
   assert.equal(own.git_colors.staged, GIT_STATE_COLORS.staged, 'the other states keep the defaults');
   const seg = renderPrompt(own, { ...base, git }).blocks[0].segments.find((s) => s.type === 'git');
   assert.equal(seg.bg, '#123456');
-  assert.equal(importOmp(exportOmp(own)).config.git_colors.ahead, '#123456', 'kept through export / import');
-  assert.equal(JSON.parse(exportOmp(PRESETS.default.config)).git_colors, undefined, 'defaults are not exported');
+  assert.equal(roundTrip(own).git_colors.ahead, '#123456', 'kept through the session round trip');
 });

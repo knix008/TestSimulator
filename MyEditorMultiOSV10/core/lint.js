@@ -190,6 +190,75 @@ const JSON_BUILTIN = T('json', '내장 JSON 검사', () => true, async ({ text }
     return { tool: 'json', diagnostics: [D(before.split('\n').length, pos - before.lastIndexOf('\n'), e.message.replace(/^JSON\.parse: /, ''))] };
   }
 });
+// YAML syntax through js-yaml (built in — always available), with the Kubernetes checks when the document is a
+// manifest: apiVersion / kind / metadata.name present, a known kind, containers with name + image, ports numeric.
+const K8S_KINDS = new Set(['Pod', 'Deployment', 'Service', 'ConfigMap', 'Secret', 'Namespace', 'Ingress', 'StatefulSet', 'DaemonSet', 'Job', 'CronJob', 'ReplicaSet', 'PersistentVolume', 'PersistentVolumeClaim', 'ServiceAccount', 'Role', 'RoleBinding', 'ClusterRole', 'ClusterRoleBinding', 'HorizontalPodAutoscaler', 'NetworkPolicy', 'StorageClass', 'LimitRange', 'ResourceQuota', 'Endpoints', 'PodDisruptionBudget', 'CustomResourceDefinition', 'Kustomization']);
+function yamlCheck(text, { kube = false } = {}) {
+  let yaml;
+  try { yaml = require('js-yaml'); } catch { return { tool: 'yaml', error: 'js-yaml not available' }; }
+  const diags = [];
+  let docs = [];
+  try { yaml.loadAll(text, (d) => docs.push(d)); } catch (e) {
+    const m = e.mark || {};
+    diags.push(D((m.line || 0) + 1, (m.column || 0) + 1, (e.reason || e.message || 'YAML error').replace(/\s+/g, ' ')));
+    return { tool: kube ? 'kube' : 'yaml', diagnostics: diags };
+  }
+  if (!kube) return { tool: 'yaml', diagnostics: [] };
+  // where a top-level key of document n sits (for the line of a finding)
+  const lines = text.split('\n');
+  const lineOf = (re, from = 0) => { for (let i = from; i < lines.length; i++) if (re.test(lines[i])) return i + 1; return from + 1; };
+  const starts = [0]; lines.forEach((l, i) => { if (/^---\s*$/.test(l)) starts.push(i + 1); });
+  docs.forEach((d, n) => {
+    if (!d || typeof d !== 'object' || Array.isArray(d)) return;
+    const at = (re) => lineOf(re, starts[n] || 0);
+    const w = (line, msg, sev = 'error') => diags.push(D(line, 1, msg, sev));
+    if (!d.apiVersion) w(at(/^kind\s*:/), 'apiVersion is missing');
+    if (!d.kind) w(at(/^apiVersion\s*:/), 'kind is missing');
+    else if (!K8S_KINDS.has(String(d.kind)) && !/^[A-Z]/.test(String(d.kind))) w(at(/^kind\s*:/), `unknown kind "${d.kind}" (kinds start with a capital: Pod, Deployment …)`, 'warning');
+    else if (!K8S_KINDS.has(String(d.kind))) w(at(/^kind\s*:/), `kind "${d.kind}" is not a built-in resource (a CRD?)`, 'info');
+    if (d.kind !== 'Kustomization' && (!d.metadata || !d.metadata.name) && !(d.metadata && d.metadata.generateName)) w(at(/^metadata\s*:/), 'metadata.name is missing');
+    const podSpec = d.kind === 'Pod' ? d.spec : d.spec && d.spec.template && d.spec.template.spec ? d.spec.template.spec : d.kind === 'CronJob' && d.spec && d.spec.jobTemplate && d.spec.jobTemplate.spec && d.spec.jobTemplate.spec.template ? d.spec.jobTemplate.spec.template.spec : null;
+    if (['Pod', 'Deployment', 'StatefulSet', 'DaemonSet', 'Job', 'ReplicaSet', 'CronJob'].includes(d.kind)) {
+      if (!d.spec) w(at(/^kind\s*:/), 'spec is missing');
+      else if (!podSpec) w(at(/^spec\s*:/), 'spec.template.spec (the pod) is missing');
+      else if (!Array.isArray(podSpec.containers) || !podSpec.containers.length) w(at(/^\s*spec\s*:/), 'the pod has no containers');
+      else podSpec.containers.forEach((c, i) => {
+        const cl = at(new RegExp(`^\\s*-\\s*name\\s*:\\s*${c && c.name ? String(c.name).replace(/[.*+?^${}()|[\]\\]/g, '\\$&') : '__'}`));
+        if (!c || typeof c !== 'object') { w(at(/containers\s*:/), `container ${i + 1} is not a mapping`); return; }
+        if (!c.name) w(at(/containers\s*:/), `container ${i + 1} has no name`);
+        if (!c.image) w(cl, `container "${c.name || i + 1}" has no image`);
+        else if (/:latest$/.test(String(c.image)) || !/[:@]/.test(String(c.image))) w(cl, `image "${c.image}" is not pinned to a tag or digest`, 'warning');
+        if (Array.isArray(c.ports)) for (const p of c.ports) if (p && p.containerPort != null && !Number.isInteger(p.containerPort)) w(cl, `containerPort must be a number (got ${JSON.stringify(p.containerPort)})`);
+        if (c.resources == null) w(cl, `container "${c.name || i + 1}" sets no resources (requests / limits)`, 'info');
+      });
+      if (['Deployment', 'StatefulSet', 'ReplicaSet', 'DaemonSet'].includes(d.kind) && d.spec && !d.spec.selector) w(at(/^spec\s*:/), 'spec.selector is required');
+      if (['Deployment', 'StatefulSet', 'ReplicaSet'].includes(d.kind) && d.spec && d.spec.selector && d.spec.selector.matchLabels && d.spec.template && d.spec.template.metadata) {
+        const ml = d.spec.selector.matchLabels, tl = d.spec.template.metadata.labels || {};
+        for (const k of Object.keys(ml)) if (tl[k] !== ml[k]) w(at(/matchLabels\s*:/), `selector.matchLabels.${k} does not match the pod template's labels`);
+      }
+    }
+    if (d.kind === 'Service' && d.spec && (!Array.isArray(d.spec.ports) || !d.spec.ports.length)) w(at(/^spec\s*:/), 'the Service has no ports', 'warning');
+    if (d.kind === 'Service' && d.spec && !d.spec.selector && d.spec.type !== 'ExternalName') w(at(/^spec\s*:/), 'the Service has no selector', 'warning');
+  });
+  return { tool: 'kube', diagnostics: diags };
+}
+const isKube = (text) => /^\s*apiVersion\s*:/m.test(text) && /^\s*kind\s*:/m.test(text);
+const YAML_BUILTIN = T('yaml', '내장 YAML 문법 검사', () => true, async ({ text }) => yamlCheck(text, { kube: isKube(text) }));
+const KUBE_BUILTIN = T('kube', '내장 Kubernetes 검사', () => true, async ({ text }) => yamlCheck(text, { kube: true }));
+const KUBECONFORM = T('kubeconform', 'kubeconform', () => onPath('kubeconform'), async ({ text, dir, signal }, kc) => {
+  const r = await exec(kc, ['-output', 'json', '-summary', '-'], { cwd: dir, input: text, signal, timeout: 60000 });
+  if (r.error && !r.stdout) return { tool: 'kubeconform', error: r.error };
+  let j; try { j = JSON.parse(r.stdout || '{}'); } catch { return { tool: 'kubeconform', error: (r.stderr || r.stdout).trim().split('\n')[0] || 'unreadable output' }; }
+  return { tool: 'kubeconform', diagnostics: (j.resources || []).filter((x) => x.status === 'statusInvalid' || x.status === 'statusError').map((x) => D(1, 1, `${x.kind || ''} ${x.name || ''}: ${x.msg || x.status}`.trim())) };
+});
+const KUBECTL = T('kubectl', 'kubectl apply --dry-run=client', () => onPath('kubectl'), async ({ text, dir, signal }, kubectl) => {
+  const r = await exec(kubectl, ['apply', '--dry-run=client', '--validate=true', '-f', '-'], { cwd: dir, input: text, signal, timeout: 60000 });
+  const err = (r.stderr || '').trim();
+  if (!err) return { tool: 'kubectl', diagnostics: [] };
+  const diags = [];
+  for (const l of err.split('\n')) { const m = /line (\d+)/.exec(l); if (/^error|^The .* is invalid|^Error/i.test(l) || m) diags.push(D(m ? m[1] : 1, 1, l.replace(/^error(?: validating .*?)?:\s*/i, ''))); }
+  return { tool: 'kubectl', diagnostics: diags.length ? diags : [D(1, 1, err.split('\n')[0])] };
+});
 const YAMLLINT = T('yamllint', 'yamllint', () => onPath('yamllint'), async ({ text, dir, signal }, yl) => {
   const r = await exec(yl, ['-f', 'parsable', '-'], { cwd: dir, input: text, signal });
   if (r.error) return { tool: 'yamllint', error: r.error };
@@ -278,7 +347,7 @@ const LINTERS = {
   TSX: [ESLINT],
   Python: [RUFF, PYFLAKES, PY_SYNTAX],
   JSON: [JSON_BUILTIN],
-  YAML: [YAMLLINT],
+  YAML: [YAML_BUILTIN, KUBE_BUILTIN, KUBECONFORM, KUBECTL, YAMLLINT],
   Shell: [SHELLCHECK],
   PowerShell: [PSSA],
   C: [cCompiler('gcc', 'c'), cCompiler('clang', 'c'), cCompiler('cc', 'c')],

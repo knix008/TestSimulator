@@ -70,7 +70,7 @@ function sendOpenFiles(list) {
 // anywhere on the screen. Each loads the same bundle with ?popup=<kind>
 // (src/main.jsx renders PopupWindow instead of App). One window per kind.
 // Fixed sizes (not resizable): large enough for their content, so nothing scrolls.
-const POPUPS = { settings: { width: 1000, height: 990 }, about: { width: 560, height: 420 }, shortcuts: { width: 1000, height: 780 } };
+const POPUPS = { settings: { width: 1000, height: 1000 }, about: { width: 560, height: 420 }, shortcuts: { width: 1000, height: 780 } };
 const popups = new Map();
 function openPopup(kind, tab) {
   const spec = POPUPS[kind];

@@ -94,6 +94,16 @@ function consoleCodePage() {
 // that runs it, `cwdLine` prints the marker — inside the script when
 // `markerInFile`, else after `source` on the same stdin line — and `rcLine`
 // (PowerShell) reads the exit status inside the script.
+// Programs see a pipe, not a terminal, so they print no colour on their own: the environment (create) asks
+// the ones that have a switch for it, and a posix shell gets these aliases (they expand inside the sourced
+// script too). `dir` (ls -C -b) would print non-ASCII names as octal escapes — it lists like ls instead.
+const POSIX_INIT = "shopt -s expand_aliases 2>/dev/null; if ls --color=always -d / >/dev/null 2>&1; then alias ls='ls --color=always'; alias dir='ls -C --color=always'; alias vdir='ls -l --color=always'; fi; alias grep='grep --color=always'; alias egrep='egrep --color=always'; alias fgrep='fgrep --color=always'; if diff --color=always /dev/null /dev/null >/dev/null 2>&1; then alias diff='diff --color=always'; fi; alias tree='tree -C'; alias ip='ip -c'";
+// Colour switches of common tools (for the ones that do not honour FORCE_COLOR / CLICOLOR_FORCE).
+const COLOR_ENV = { TERM: 'xterm-256color', COLORTERM: 'truecolor', FORCE_COLOR: '1', CLICOLOR_FORCE: '1', CLICOLOR: '1', GIT_CONFIG_PARAMETERS: "'color.ui=always'", GIT_PAGER: 'cat', PAGER: 'cat', npm_config_color: 'always', PY_COLORS: '1', CARGO_TERM_COLOR: 'always', CMAKE_COLOR_DIAGNOSTICS: 'ON', GCC_COLORS: 'error=01;31:warning=01;35:note=01;36:caret=01;32:locus=01:quote=01', DOTNET_SYSTEM_CONSOLE_ALLOW_ANSI_COLOR_REDIRECTION: '1', GTEST_COLOR: '1', PYTEST_ADDOPTS: [process.env.PYTEST_ADDOPTS, '--color=yes'].filter(Boolean).join(' ') };
+// A UTF-8 locale for the posix shells: with LANG=ko_KR (no charset) Git Bash writes file names in EUC-KR and
+// the panel — reading UTF-8 — shows them broken; without any locale ls prints them as "?" or octal escapes.
+const utf8Lang = () => { const l = process.env.LANG; return l && /utf-?8/i.test(l) ? l : 'C.UTF-8'; };
+
 function shells() {
   const posixSource = (f) => `. "${f.replace(/\\/g, '/')}";`;
   if (process.platform === 'win32') {
@@ -113,12 +123,12 @@ function shells() {
     ];
     for (const p of [process.env.ProgramFiles, process.env['ProgramFiles(x86)']]) {
       const bash = p && path.join(p, 'Git', 'bin', 'bash.exe');
-      if (bash && fs.existsSync(bash)) { list.push({ id: 'gitbash', label: 'Git Bash', cmd: bash, args: ['--norc', '-s'], ext: '.sh', scriptEnc: 'utf8', source: posixSource, cwdLine: `echo "${MARK}$PWD;$?"`, eol: '\n' }); break; }
+      if (bash && fs.existsSync(bash)) { list.push({ id: 'gitbash', label: 'Git Bash', cmd: bash, args: ['--norc', '-s'], ext: '.sh', scriptEnc: 'utf8', source: posixSource, cwdLine: `echo "${MARK}$PWD;$?"`, eol: '\n', init: POSIX_INIT }); break; }
     }
     return list;
   }
   const sh = process.env.SHELL || '/bin/bash';
-  const posix = (cmd) => ({ cmd, args: ['-s'], ext: '.sh', scriptEnc: 'utf8', source: posixSource, cwdLine: `echo "${MARK}$PWD;$?"`, eol: '\n' });
+  const posix = (cmd) => ({ cmd, args: ['-s'], ext: '.sh', scriptEnc: 'utf8', source: posixSource, cwdLine: `echo "${MARK}$PWD;$?"`, eol: '\n', init: POSIX_INIT });
   const list = [{ id: 'default', label: path.basename(sh), ...posix(sh) }];
   if (sh !== '/bin/bash' && fs.existsSync('/bin/bash')) list.push({ id: 'bash', label: 'bash', ...posix('/bin/bash') });
   if (fs.existsSync('/bin/sh')) list.push({ id: 'sh', label: 'sh', ...posix('/bin/sh') });
@@ -127,8 +137,10 @@ function shells() {
 
 // eslint-disable-next-line no-control-regex
 // Colours (SGR, "\x1b[…m") are kept for the panel to render; cursor movement, OSC titles and the like are dropped.
-// A lone CR stays (the panel handles it — see the header).
-const ANSI = /\x1b\[[0-9;?]*[ -/]*[@-lnp-~]|\x1b\][^\x07]*(?:\x07|\x1b\\)|\x1b[^[\]]/g;
+// A lone CR stays (the panel handles it — see the header). A sequence can arrive in two chunks: the stream
+// is cleaned after joining, and an unfinished sequence at the end (ESC_TAIL) waits for its rest.
+const ANSI = /\x1b\[[0-9;?]*[ -/]*[@-lnp-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b[()#%][@-~]|\x1b[^[\]()#%]/g;
+const ESC_TAIL = /\x1b(?:\[[0-9;?]*[ -/]*|\][^\x07\x1b]{0,256}\x1b?|[()#%])?$/;
 const MARK_RE = new RegExp(`${MARK}([^\\n]*)\\n`, 'g');
 const PROMPT_RE = new RegExp(`\\n?${PROMPT_MARK}`, 'g');
 
@@ -183,7 +195,7 @@ function createTerminals() {
     // too: its LF may come with the next chunk.
     if (s.pendingCr) { text = '\r' + text; s.pendingCr = false; }
     if (text.endsWith('\r')) { text = text.slice(0, -1); s.pendingCr = true; }
-    s.pending += text.replace(/\r\n/g, '\n').replace(ANSI, '');
+    s.pending = (s.pending + text.replace(/\r\n/g, '\n')).replace(ANSI, '');
     const stripPrompts = (str) => (s.def.promptMark ? str.replace(PROMPT_RE, () => { s.expectPrompt = false; return ''; }) : str);
     let out = '';
     // A marker line ends the command: everything before it is complete output (flushed as it is), what
@@ -211,6 +223,8 @@ function createTerminals() {
     if (tail && (couldBe(MARK) || (s.def.promptMark && couldBe(PROMPT_MARK)))) cut = nl + 1;
     // The blank line cmd emits before a prompt mark, when the mark itself is still to come.
     if (s.def.promptMark && (!s.idle || s.expectPrompt) && cut > 0 && s.pending[cut - 1] === '\n') cut--;
+    const esc = ESC_TAIL.exec(s.pending.slice(0, cut));
+    if (esc && esc[0].length < 300) cut = esc.index;   // an escape sequence still coming (a long unterminated one is shown)
     const t = out + s.pending.slice(0, cut);
     s.pending = s.pending.slice(cut);
     if (!t) { if (s.changed) { s.changed = false; wake(s); } return; }
@@ -232,7 +246,7 @@ function createTerminals() {
       const id = nextId++;
       const s = { id, shell: def.id, label: def.label, cwd: dir, chunks: [], seq: 0, pending: '', pendingCr: false, expectPrompt: !!def.promptMark, idle: true, rc: 0, waiters: [], changed: false, exited: false, code: null, def, proc: null };
       s.scriptFile = path.join(os.tmpdir(), `med-term-${process.pid}-${id}${def.ext}`);
-      const proc = spawn(def.cmd, def.args, { cwd: dir, stdio: 'pipe', windowsHide: true, env: { ...process.env, TERM: 'xterm-256color', COLORTERM: 'truecolor', FORCE_COLOR: '1', CLICOLOR_FORCE: '1', GIT_CONFIG_PARAMETERS: "'color.ui=always'", GIT_PAGER: 'cat', PAGER: 'cat', LANG: process.env.LANG || 'C.UTF-8', ...(def.env || {}) } });
+      const proc = spawn(def.cmd, def.args, { cwd: dir, stdio: 'pipe', windowsHide: true, env: { ...process.env, ...COLOR_ENV, LANG: utf8Lang(), ...Object.fromEntries(['LC_ALL', 'LC_CTYPE'].filter((k) => process.env[k] && !/utf-?8/i.test(process.env[k])).map((k) => [k, utf8Lang()])), ...(def.env || {}) } });
       s.proc = proc;
       const enc = def.encoding || 'utf8';
       s.enc = enc;
@@ -242,6 +256,7 @@ function createTerminals() {
       proc.stdin.on('error', () => { /* the exit handler reports it */ });
       proc.on('error', (err) => { push(s, `\n[${err.message}]\n`); s.exited = true; cleanup(s); wake(s); });
       proc.on('exit', (code) => { s.exited = true; s.code = code; push(s, `\n[process exited with code ${code}]\n`); cleanup(s); wake(s); });
+      if (def.init) proc.stdin.write(iconv.encode(`${def.init}${def.eol}`, enc));   // aliases (posix) — prints nothing
       sessions.set(id, s);
       return { id, shell: s.shell, label: s.label, cwd: s.cwd };
     },

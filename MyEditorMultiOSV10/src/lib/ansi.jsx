@@ -71,7 +71,70 @@ function css(st) {
   return o;
 }
 
-export function AnsiText({ text }) {
-  if (!hasAnsi(text)) return text;
-  return parseAnsi(text).map((r, i) => (r.style ? <span key={i} style={css(r.style)}>{r.text}</span> : <React.Fragment key={i}>{r.text}</React.Fragment>));
+// Colour the output has no colour for: lines a tool marks as an error / warning / success (from their first
+// word), and the words "error", "warning", "ok" … URLs and file:line references inside plain text. Applied to
+// the runs a program left uncoloured, so its own colours always win.
+const LINE_RE = /^(?:\s*)(?:(error|err!|fatal|failed|failure|exception|traceback|panic|✘|✗|×)|(warn|warning|deprecated|⚠)|(ok|success|succeeded|passed|done|completed|✔|✓)|(info|note|hint|debug))\b/i;
+const WORD_RE = /(https?:\/\/[^\s"'<>)\]]+)|((?:[A-Za-z]:)?[\w./\\~-]+\.[A-Za-z0-9]{1,8}:\d+(?::\d+)?)|\b(error|errors|fatal|failed|failure|exception|panic)\b|\b(warning|warnings|deprecated)\b|\b(ok|success|succeeded|passed|done)\b/gi;
+export function stripAnsi(text) { return text.replace(SGR, ''); }
+
+// Directory listings — `ls -l` (posix), `dir` (cmd) and Get-ChildItem (PowerShell) print no colour through a
+// pipe: the entry's kind colours its name (directory, link, executable, archive, image, document, code) and
+// the columns before it are dimmed, as a terminal with LS_COLORS would show them.
+const LS_LONG = /^([-dlcbps][rwxsStT-]{9}[+@.]?)(\s+\d+\s+\S+\s+\S+\s+[\d,.]+[KMGT]?\s+\S+\s+\d+\s+[\d:]+\s)(.*)$/;
+const DIR_CMD = /^(\d{4}[-./]\d{2}[-./]\d{2}\s+\S+(?:\s+\S+)?\s+)(<(?:DIR|JUNCTION|SYMLINKD?)>|[\d,.]+)(\s+)(.+)$/;
+const DIR_PS = /^([d-][a-][r-][h-][s-][l-]{1,2}\s+\S+\s+\S+(?:\s+\S+)?\s+)(\d*)(\s+)(\S.*?)\s*$/;
+const KIND_RE = { exe: /\.(?:exe|com|bat|cmd|ps1|sh|bash|zsh|msi|app|run|bin)$/i, arch: /\.(?:zip|7z|rar|tar|gz|tgz|bz2|xz|zst|jar|war|deb|rpm|dmg|iso)$/i, img: /\.(?:png|jpe?g|gif|bmp|webp|svg|ico|tiff?|avif|mp4|mkv|mov|avi|webm|mp3|wav|flac|ogg)$/i, doc: /\.(?:md|txt|pdf|docx?|xlsx?|pptx?|rtf|odt|html?)$/i, code: /\.(?:[cm]?[jt]sx?|py|java|kt|go|rs|c|h|cpp|hpp|cs|rb|php|swift|lua|sql|json|ya?ml|toml|xml|css|scss|vue|svelte|dockerfile)$/i };
+const nameKind = (name, perm) => {
+  if (perm && /^d/.test(perm)) return 't-dir';
+  if (perm && /^l/.test(perm)) return 't-link';
+  if (perm && /^[-]\S*x/.test(perm) && !/\.(?:txt|md|json|ya?ml|xml|html?|css)$/i.test(name)) return 't-exe';
+  for (const k of Object.keys(KIND_RE)) if (KIND_RE[k].test(name)) return `t-${k}`;
+  return '';
+};
+function listingLine(line, key) {
+  let m;
+  if ((m = LS_LONG.exec(line))) {
+    const kind = nameKind(m[3].replace(/\s->\s.*$/, '').replace(/[*/@=|]$/, ''), m[1]);
+    return [<span key={`${key}-p`} className={/^d/.test(m[1]) ? 't-dir' : 't-dim'}>{m[1]}</span>, <span key={`${key}-c`} className="t-dim">{m[2]}</span>, kind ? <span key={`${key}-n`} className={kind}>{m[3]}</span> : m[3]];
+  }
+  if ((m = DIR_CMD.exec(line))) {
+    const dir = m[2].startsWith('<');   // DIR, JUNCTION, SYMLINK(D) in angle brackets
+    const kind = dir ? (m[2].slice(1, -1) === 'DIR' ? 't-dir' : 't-link') : nameKind(m[4]);
+    return [<span key={`${key}-d`} className="t-dim">{m[1]}</span>, <span key={`${key}-s`} className={dir ? kind : 't-dim'}>{m[2]}</span>, m[3], kind ? <span key={`${key}-n`} className={kind}>{m[4]}</span> : m[4]];
+  }
+  if ((m = DIR_PS.exec(line))) {
+    const kind = /^d/.test(m[1]) ? 't-dir' : /l/.test(m[1].slice(0, 7)) ? 't-link' : nameKind(m[4]);
+    return [<span key={`${key}-m`} className={/^d/.test(m[1]) ? 't-dir' : 't-dim'}>{m[1]}</span>, <span key={`${key}-s`} className="t-dim">{m[2]}</span>, m[3], kind ? <span key={`${key}-n`} className={kind}>{m[4]}</span> : m[4]];
+  }
+  return null;
+}
+function smartLine(line, key) {
+  const listing = listingLine(line, key);
+  if (listing) return listing;
+  const m = LINE_RE.exec(line);
+  const cls = m ? (m[1] ? 't-err' : m[2] ? 't-warn' : m[3] ? 't-ok' : 't-info') : '';
+  const parts = [];
+  let last = 0, k = 0, w;
+  WORD_RE.lastIndex = 0;
+  while ((w = WORD_RE.exec(line))) {
+    if (w.index > last) parts.push(line.slice(last, w.index));
+    const c = w[1] ? 't-url' : w[2] ? 't-path' : w[3] ? 't-err' : w[4] ? 't-warn' : 't-ok';
+    parts.push(<span key={`${key}-${k++}`} className={c}>{w[0]}</span>);
+    last = w.index + w[0].length;
+  }
+  if (last < line.length) parts.push(line.slice(last));
+  return cls ? <span key={key} className={cls}>{parts}</span> : parts;
+}
+function smart(text, key) {
+  if (!/[A-Za-z✔✓✘✗×⚠<]/.test(text)) return text;
+  const lines = text.split('\n');
+  return lines.map((l, i) => <React.Fragment key={`${key}-${i}`}>{l ? smartLine(l, `${key}-${i}`) : null}{i < lines.length - 1 ? '\n' : null}</React.Fragment>);
+}
+
+// color: false → everything as plain text (the program's colours dropped too); smart → the highlighting above.
+export function AnsiText({ text, color = true, smart: smartOn = true }) {
+  if (!color) return stripAnsi(text);
+  if (!hasAnsi(text)) return smartOn ? smart(text, 'p') : text;
+  return parseAnsi(text).map((r, i) => (r.style ? <span key={i} style={css(r.style)}>{r.text}</span> : <React.Fragment key={i}>{smartOn ? smart(r.text, i) : r.text}</React.Fragment>));
 }

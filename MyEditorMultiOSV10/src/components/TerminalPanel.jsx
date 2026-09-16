@@ -3,7 +3,7 @@
 // polled through term.read) ending with a prompt drawn by the panel, where
 // the command is typed (history with ↑ / ↓, Tab completion through
 // term.complete). The prompt is drawn from the prompt theme in the settings
-// (settings › terminal › prompt — oh-my-posh compatible, src/lib/prompt.js;
+// (settings › terminal › prompt — src/lib/prompt.js;
 // components/Prompt.jsx draws it): by default coloured segments for the
 // directory and, inside a git repository, the branch coloured by the state
 // of the repository with one symbol per kind of change. Typed lines stay in
@@ -83,7 +83,7 @@ function columns(names, width) {
   return rows.join('\n');
 }
 
-function TerminalView({ term, active, onExit, prompt, env, termEol, termCr }) {
+function TerminalView({ term, active, onExit, prompt, env, termEol, termCr, termColor = true }) {
   useLanguage();
   const [entries, setEntries] = useState(() => (Array.isArray(term.buffer) ? term.buffer : []));
   const [git, setGit] = useState(null);
@@ -258,7 +258,7 @@ function TerminalView({ term, active, onExit, prompt, env, termEol, termCr }) {
   // The transcript only re-renders when it changes — not on every keystroke.
   const transcript = useMemo(() => entries.map((e, i) => (e.k === 'cmd'
     ? <React.Fragment key={i}><TermPrompt config={prompt} env={env} shell={term.shell} cwd={e.cwd} git={e.git} rc={e.rc} ms={e.ms} at={e.at} />{e.line}{'\n'}</React.Fragment>
-    : <React.Fragment key={i}><AnsiText text={e.text.endsWith('\r') ? e.text.slice(0, -1) : e.text} /></React.Fragment>)), [entries, prompt, env, term.shell]);   // a CR still pending is not drawn
+    : <React.Fragment key={i}><AnsiText text={e.text.endsWith('\r') ? e.text.slice(0, -1) : e.text} color={termColor} /></React.Fragment>)), [entries, prompt, env, term.shell, termColor]);   // a CR still pending is not drawn
 
   return (
     <div className={`term-view ${active ? '' : 'hidden'}`}>
@@ -280,7 +280,7 @@ function TerminalView({ term, active, onExit, prompt, env, termEol, termCr }) {
   );
 }
 
-export function TerminalPanel({ terms, activeId, shells, onActivate, onNew, onClose, onHide, onExit, onSettings, height, onResizeStart, prompt, env, termEol, termCr }) {
+export function TerminalPanel({ terms, activeId, shells, onActivate, onNew, onClose, onHide, onExit, onSettings, height, onResizeStart, prompt, env, termEol, termCr, termColor = true }) {
   useLanguage();
   const [menu, setMenu] = useState(null);
   const shellItems = shells.map((s) => ({ id: `shell:${s.id}`, label: s.label, icon: 'terminal' }));
@@ -305,7 +305,7 @@ export function TerminalPanel({ terms, activeId, shells, onActivate, onNew, onCl
       </div>
       <div className="term-body">
         {terms.length === 0 && <div className="sb-empty"><Icon name="terminal" size={26} /><p>{t('term_empty')}</p><button className="btn" onClick={() => onNew()}>{t('term_new')}</button></div>}
-        {terms.map((tm) => <TerminalView key={tm.id} term={tm} active={tm.id === activeId} onExit={onExit} prompt={prompt} env={env} termEol={termEol} termCr={termCr} />)}
+        {terms.map((tm) => <TerminalView key={tm.id} term={tm} active={tm.id === activeId} onExit={onExit} prompt={prompt} env={env} termEol={termEol} termCr={termCr} termColor={termColor} />)}
       </div>
       {menu && <ContextMenu anchorEl={menu} above x={0} y={0} items={shellItems} onClose={() => setMenu(null)} onPick={(id) => { setMenu(null); onNew(id.slice(6)); }} />}
     </div>

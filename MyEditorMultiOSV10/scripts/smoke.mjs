@@ -121,6 +121,8 @@ function seed(scenario = opt('scenario')) {
   fs.writeFileSync(path.join(work, 'legacy.txt'), Buffer.from([0xbe, 0xc8, 0xb3, 0xe7, 0x20, 0x45, 0x55, 0x43, 0x2d, 0x4b, 0x52, 0x0a]));   // "안녕 EUC-KR\n" in CP949
   fs.writeFileSync(path.join(work, 'data.json'), JSON.stringify({ name: 'smoke', ok: true, list: [1, 2, 3] }, null, 2));
   fs.writeFileSync(path.join(work, 'docs', 'logo.svg'), '<svg xmlns="http://www.w3.org/2000/svg" width="120" height="80" viewBox="0 0 120 80"><rect x="10" y="10" width="100" height="60" rx="12" fill="#3a86ff"/><circle cx="60" cy="40" r="18" fill="#ffbe0b"/></svg>' + String.fromCharCode(10));
+  fs.writeFileSync(path.join(work, 'Dockerfile'), 'FROM node:20-alpine' + String.fromCharCode(10) + 'WORKDIR /app' + String.fromCharCode(10) + 'COPY . .' + String.fromCharCode(10) + 'CMD ["node", "app.js"]' + String.fromCharCode(10));
+  fs.writeFileSync(path.join(work, 'pod.yaml'), ['apiVersion: v1', 'kind: Pod', 'metadata:', '  labels:', '    app: web', 'spec:', '  containers:', '    - name: web', '      image: nginx:latest', '      ports:', '        - containerPort: 80', ''].join(String.fromCharCode(10)));
   fs.writeFileSync(path.join(work, 'docs', 'style.css'), 'body { font-family: sans-serif; } h1 { color: #3a86ff; }\n');
   fs.writeFileSync(path.join(work, 'docs', 'page.html'), '<!DOCTYPE html>\n<html>\n<head>\n<meta charset="utf-8">\n<title>Smoke page</title>\n<link rel="stylesheet" href="style.css">\n</head>\n<body>\n<h1 id="title">Hello preview</h1>\n<p>An image: <img src="logo.png" alt="logo"></p>\n<script>document.getElementById("title").textContent += " (scripted)";</script>\n</body>\n</html>\n');
   fs.writeFileSync(path.join(work, 'src', 'nul.js'), Buffer.concat([Buffer.from("// a source file with a literal NUL placeholder\nconst SEP = '"), Buffer.from([0]), Buffer.from("';\nexport default SEP;\n")]));
@@ -519,6 +521,32 @@ const SCENARIOS = {
     const timeIt = async (cmd) => { const n = document.querySelectorAll('.term-view:not(.hidden) .term-prompt').length; const t0 = performance.now(); type(cmd); await until(() => document.querySelectorAll('.term-view:not(.hidden) .term-prompt').length > n && visible(), 15000); return Math.round(performance.now() - t0); };
     const out = {}; out.echo = [await timeIt('echo a'), await timeIt('echo b'), await timeIt('echo c')]; out.cd = await timeIt('cd .'); out.write = [await timeIt('echo x> t1.txt'), await timeIt('del t1.txt')]; out.gitlog = await timeIt('git log -1 --oneline');
     return JSON.stringify(out); })()`,
+  // colourful output: a program's ANSI colours are drawn, error / warning / ok lines and links are highlighted; the setting turns it all off
+  terminal_color: `(async () => { ${PRELUDE} const S = () => window.__med.state; window.__med.setFolder(${wp(work)}); await wait(300); window.__med.action('newTerminal', 'cmd'); await until(() => document.querySelector('.term-out input')); await until(() => document.querySelector('.term-live .pseg'), 8000); await wait(300);
+    const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+    const type = (text) => { const el = document.querySelector('.term-view:not(.hidden) .term-out input'); set.call(el, text); el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); };
+    const run = async (cmd) => { const n = document.querySelectorAll('.term-view:not(.hidden) .term-prompt').length; type(cmd); await until(() => document.querySelectorAll('.term-view:not(.hidden) .term-prompt').length > n && document.querySelector('.term-view:not(.hidden) .term-live .term-prompt'), 15000); await wait(200); };
+    const q = String.fromCharCode(39), nl = String.fromCharCode(92, 110); const cmd = 'node -e "process.stdout.write(String.fromCharCode(27)+' + q + '[31mred' + q + '+String.fromCharCode(27)+' + q + '[0m plain' + nl + 'error: something failed in src/app.js:12:5' + nl + 'warning: careful https://example.com/x' + nl + 'ok done' + nl + q + ')"';
+    const out = {}; await run(cmd); const o = () => document.querySelector('.term-view:not(.hidden) .term-out');
+    out.on = { ansi: !!o().querySelector('span[style*="rgb(224, 108, 117)"]'), err: o().querySelectorAll('.t-err').length, warn: o().querySelectorAll('.t-warn').length, ok: o().querySelectorAll('.t-ok').length, url: o().querySelectorAll('.t-url').length, path: o().querySelectorAll('.t-path').length };
+    window.__med.action('termSettings'); await until(() => document.querySelector('.dlg.settings .pe-presets')); const box = [...document.querySelectorAll('.dlg.settings input[type=checkbox]')].find((c) => /ANSI/.test(c.parentElement.textContent)); box.click(); await wait(300); window.__med.closeDialog(); await wait(300);
+    out.off = { setting: S().settings.termColor, ansi: !!o().querySelector('span[style*="rgb(224, 108, 117)"]'), err: o().querySelectorAll('.t-err').length, url: o().querySelectorAll('.t-url').length, textHasNoEsc: !o().textContent.includes(String.fromCharCode(27)) };
+    return JSON.stringify(out); })()`,
+  terminal_listing: `(async () => { ${PRELUDE} const S = () => window.__med.state; window.__med.setFolder(${wp(work)}); await wait(300); window.__med.action('newTerminal', 'cmd'); await until(() => document.querySelector('.term-out input')); await until(() => document.querySelector('.term-live .pseg'), 8000); await wait(300);
+    const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+    const type = (text) => { const el = document.querySelector('.term-view:not(.hidden) .term-out input'); set.call(el, text); el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); };
+    const run = async (cmd) => { const n = document.querySelectorAll('.term-view:not(.hidden) .term-prompt').length; type(cmd); await until(() => document.querySelectorAll('.term-view:not(.hidden) .term-prompt').length > n && document.querySelector('.term-view:not(.hidden) .term-live .term-prompt'), 15000); await wait(300); };
+    const o = () => document.querySelector('.term-view:not(.hidden) .term-out');
+    const odd = (t) => [...new Set([...t].filter((ch) => ch.charCodeAt(0) < 32 && ch !== String.fromCharCode(10)))].map((c) => c.charCodeAt(0));
+    const kor = String.fromCharCode(54620, 44544) + ' ' + String.fromCharCode(54028, 51068) + '.txt';   // 한글 파일.txt
+    await run('echo hi > "' + kor + '"'); await run('dir');
+    const out = { cmd: { dirs: o().querySelectorAll('.t-dir').length, dim: o().querySelectorAll('.t-dim').length, korean: o().textContent.includes(kor), odd: odd(o().textContent) } };
+    window.__med.action('newTerminal', 'gitbash'); await wait(300); await until(() => document.querySelector('.term-view:not(.hidden) .term-live .pseg'), 8000); await wait(300);
+    await run('ls -al'); out.bash = { ansiBlue: o().querySelectorAll('span[style*="rgb(97, 175, 239)"]').length, dim: o().querySelectorAll('.t-dim').length, korean: o().textContent.includes(kor), odd: odd(o().textContent), esc: o().textContent.includes(String.fromCharCode(27)) };
+    await run('dir'); out.bashDir = { korean: o().textContent.split('ls -al')[1].includes(kor), octal: o().textContent.includes(String.fromCharCode(92) + '3') };
+    await run('node -e "const w=(t)=>process.stdout.write(t); w(String.fromCharCode(27)+' + String.fromCharCode(39) + '[?25' + String.fromCharCode(39) + '); setTimeout(()=>{ w(' + String.fromCharCode(39) + 'l' + String.fromCharCode(39) + '+String.fromCharCode(27)+' + String.fromCharCode(39) + '[3' + String.fromCharCode(39) + '); setTimeout(()=>w(' + String.fromCharCode(39) + '2mgreen' + String.fromCharCode(39) + '+String.fromCharCode(27)+' + String.fromCharCode(39) + '[0m done' + String.fromCharCode(39) + '+String.fromCharCode(10)), 150); }, 150)"');
+    out.split = { esc: o().textContent.includes(String.fromCharCode(27)), leftover: o().textContent.includes('[?25l') || o().textContent.includes('[32m'), green: !!o().querySelector('span[style*="rgb(152, 195, 121)"]') };
+    return JSON.stringify(out); })()`,
   terminal_cr: `(async () => { ${PRELUDE} const S = () => window.__med.state; window.__med.setFolder(${wp(work)}); await wait(300); window.__med.action('newTerminal', 'cmd'); await until(() => document.querySelector('.term-out input')); await until(() => document.querySelector('.term-live .pseg'), 8000); await wait(300);
     const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
     const type = (text) => { const el = document.querySelector('.term-view:not(.hidden) .term-out input'); set.call(el, text); el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); };
@@ -558,6 +586,13 @@ const SCENARIOS = {
     out.svgBar = document.querySelectorAll('.htmlbar .svg-btn').length; const v2 = window.__med.view(); v2.dispatch({ selection: { anchor: v2.state.doc.toString().indexOf('</svg>') } }); window.__med.action('svg:circle'); await wait(150); out.inserted = /<circle cx="50" cy="50" r="30"/.test(window.__med.getText()); await until(() => document.querySelector('.image-preview img').src.includes(encodeURIComponent('r="30"')), 4000); out.redrawn = true;
     window.__med.action('togglePreview'); await wait(300); out.off = !!document.querySelector('.image-preview'); out.setting = S().settings.imagePreview; window.__med.action('togglePreview'); await wait(300); out.on = !!document.querySelector('.image-preview');
     return JSON.stringify(out); })()`,
+  // ── Dockerfile and Kubernetes manifests: their own completions, the built-in checks ──
+  devops: `(async () => { ${PRELUDE} const S = () => window.__med.state; const out = {}; const tip = () => document.querySelector('.cm-tooltip-autocomplete'); const labels = () => (tip() ? [...tip().querySelectorAll('.cm-completionLabel')].map((e) => e.textContent) : []);
+    const typeAt = async (v, pos, w) => { v.dispatch({ selection: { anchor: pos } }); for (const ch of w) { const h = v.state.selection.main.head; v.dispatch({ changes: { from: h, insert: ch }, selection: { anchor: h + 1 }, userEvent: 'input.type' }); await wait(60); } try { await until(() => tip() && tip().querySelector('.cm-completionLabel'), 3000); } catch { /* no completion */ } await wait(150); };
+    await window.__med.openPath(${wp(path.join(work, 'Dockerfile'))}); await wait(500); const d1 = S().docs.find((x) => x.name === 'Dockerfile'); out.dockerLang = d1.langName; let v = window.__med.view(); v.focus(); await typeAt(v, v.state.doc.length, 'EX'); out.dockerInstr = labels().slice(0, 3); v.dispatch({ changes: { from: v.state.doc.length - 2, to: v.state.doc.length, insert: '' } }); await typeAt(v, v.state.doc.length, 'FROM pyth'); out.dockerImages = labels().slice(0, 2);
+    await window.__med.openPath(${wp(path.join(work, 'pod.yaml'))}); await wait(500); const d2 = S().docs.find((x) => x.name === 'pod.yaml'); out.yamlLang = d2.langName; v = window.__med.view(); v.focus(); await typeAt(v, v.state.doc.length, '  rest'); out.k8sKeys = labels().slice(0, 3); v.dispatch({ changes: { from: v.state.doc.length - 6, to: v.state.doc.length, insert: '' } }); await typeAt(v, v.state.doc.length, '  restartPolicy: '); out.k8sValues = labels().slice(0, 3);
+    await until(() => document.querySelectorAll('.cm-lintRange, .cm-lint-marker').length > 0, 8000); out.k8sLint = document.querySelectorAll('.cm-lintRange').length; out.lintTool = (document.querySelector('.st-lint') || {}).textContent;
+    return JSON.stringify(out); })()`,
   // ── autocomplete: the language's completions appear while typing, the toolbar toggle turns them off ──
   autocomplete: `(async () => { ${PRELUDE} const S = () => window.__med.state; const v = window.__med.view(); const end = v.state.doc.length; v.dispatch({ selection: { anchor: end }, scrollIntoView: true }); v.focus(); await wait(200);
     const typeWord = async (w) => { for (const ch of w) { const at = v.state.selection.main.head; v.dispatch({ changes: { from: at, insert: ch }, selection: { anchor: at + 1 }, userEvent: 'input.type' }); await wait(60); } await wait(500); };
@@ -584,6 +619,17 @@ const SCENARIOS = {
     const last = v.state.doc.line(v.state.doc.lines); v.dispatch({ selection: { anchor: last.from } }); window.__med.action('md:taskList'); await wait(400);
     return JSON.stringify({ bar: !!document.querySelector('.mdbar'), preview: !!document.querySelector('.md-preview'), h1: document.querySelector('.md-preview h1') && document.querySelector('.md-preview h1').textContent, line3: v.state.doc.line(3).text, unbold: v.state.doc.toString().includes('A tabbed text'), task: v.state.doc.line(v.state.doc.lines).text });
   })()`,
+  preview_scroll_sync: `(async () => { ${PRELUDE} const s = window.__med.state; window.__med.activate(s.docs.find((d) => d.name === 'README.md').id); await wait(400);
+    const v = window.__med.view(); let md = ''; for (let i = 1; i <= 80; i++) md += '## Section ' + i + String.fromCharCode(10) + String.fromCharCode(10) + 'Paragraph of section ' + i + ' with some words in it.' + String.fromCharCode(10) + String.fromCharCode(10);
+    v.dispatch({ changes: { from: 0, to: v.state.doc.length, insert: md } }); await wait(300);
+    if (!window.__med.state.settings.mdPreview) window.__med.action('toggle:mdPreview'); await until(() => document.querySelector('.md-preview h2'), 5000); await wait(600);
+    const pv = document.querySelector('.md-preview'); const topLine = () => v.state.doc.lineAt(v.posAtCoords({ x: v.scrollDOM.getBoundingClientRect().left + 80, y: v.scrollDOM.getBoundingClientRect().top + 2 }, false) || 0).number;
+    const out = { before: topLine(), editorTop0: v.scrollDOM.scrollTop };
+    pv.scrollTop = Math.round(pv.scrollHeight * 0.5); await wait(500); out.afterHalf = topLine(); out.editorMoved = v.scrollDOM.scrollTop > 100;
+    const y = pv.getBoundingClientRect().top + 2; const hit = [...pv.querySelectorAll('.md-block')].find((b) => b.getBoundingClientRect().bottom > y); out.previewTopLine = hit ? v.state.doc.lineAt(Number(hit.dataset.from)).number : -1;
+    pv.scrollTop = pv.scrollHeight; await wait(500); out.afterEnd = topLine(); out.lines = v.state.doc.lines;
+    v.scrollDOM.scrollTop = 0; await wait(500); out.previewBackTop = pv.scrollTop; out.editorBackLine = topLine();
+    return JSON.stringify(out); })()`,
   dedupe: `(async () => { ${PRELUDE} const n0 = window.__med.state.docs.length; const p = ${wp(path.join(work, 'src', 'app.js'))};
     await Promise.all([window.__med.openPath(p), window.__med.openPath(p.toUpperCase()), window.__med.openPath(p.split(String.fromCharCode(92)).join('/'))]);
     await window.__med.openFiles([p, ${wp(path.join(work, 'notes.txt'))}, ${wp(path.join(work, 'data.json'))}, ${wp(path.join(work, 'data.json'))}]);
@@ -643,7 +689,7 @@ const SCENARIOS = {
   source_view: `(async () => { ${PRELUDE} const s = window.__med.state; window.__med.activate(s.docs.find((d) => d.name === 'README.md').id); await wait(400);
     const h1 = () => getComputedStyle(document.querySelector('.cm-line')).fontSize; const live = h1(); window.__med.action('toggle:mdWysiwyg'); await wait(400); const src = h1();
     return JSON.stringify({ live, source: src, body: getComputedStyle(document.querySelectorAll('.cm-line')[2]).fontSize }); })()`,
-  // Commands are typed at the oh-my-posh style prompt drawn at the end of the output (directory ▶ git branch ▶ >);
+  // Commands are typed at the prompt drawn at the end of the output (directory ▶ git branch ▶ >);
   // the typed line stays there with its prompt, `cd` moves the prompt, Tab completes a path.
   terminal: `(async () => { ${PRELUDE} window.__med.setFolder(${wp(root)}); await wait(300); window.__med.action('newTerminal'); await until(() => document.querySelector('.term-out input')); await wait(800);
     const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;

@@ -58,9 +58,10 @@ export const SETTINGS_DEFAULTS = {
   termHeight: 150,
   termCwd: '',
   termShell: '',
+  termColor: true,         // terminal output in colour: the programs' ANSI colours + errors / warnings / links highlighted; off = plain text
   termEol: 'auto',         // line ending Enter sends to a running program: auto (the shell's own) | lf | crlf
   termCr: 'overwrite',     // a lone CR in the output: overwrite (redraw the line, like a terminal) | newline | strip
-  prompt: PROMPT_DEFAULT,  // terminal prompt theme (oh-my-posh compatible, see prompt.js)
+  prompt: PROMPT_DEFAULT,  // terminal prompt theme (see prompt.js)
   customPrompts: [],       // user-saved prompt themes (settings › terminal): [{ id, label, config }]
   mdPreviewWidth: 0.5,
   htmlPreview: false,      // HTML live preview pane
@@ -76,7 +77,7 @@ export const RESET_KEYS = [
   'theme', 'fontFamily', 'fontSize', 'lineHeight', 'autoSave', 'autoSaveDelay', 'defaultLanguage', 'treeShowHidden', 'tabSize', 'insertSpaces', 'wordWrap', 'lineNumbers', 'showWhitespace', 'highlightActiveLine',
   'autoCloseBrackets', 'bracketMatching', 'foldGutter', 'minimap', 'defaultEncoding', 'defaultEol', 'eolOnSave', 'trimTrailingOnSave', 'finalNewlineOnSave',
   'restoreSession', 'reloadChangedFiles', 'confirmClose', 'mdWysiwyg', 'spellCheck', 'spellCodeAll', 'autoIndent', 'lint', 'autocomplete',
-  'formatters', 'linters', 'formatOnSave', 'termCwd', 'termShell', 'termEol', 'termCr', 'prompt',
+  'formatters', 'linters', 'formatOnSave', 'termCwd', 'termShell', 'termColor', 'termEol', 'termCr', 'prompt',
 ];
 export const resetPatch = () => Object.fromEntries(RESET_KEYS.map((k) => [k, k === 'prompt' ? PROMPT_DEFAULT : Array.isArray(SETTINGS_DEFAULTS[k]) ? [] : typeof SETTINGS_DEFAULTS[k] === 'object' && SETTINGS_DEFAULTS[k] ? {} : SETTINGS_DEFAULTS[k]]));
 

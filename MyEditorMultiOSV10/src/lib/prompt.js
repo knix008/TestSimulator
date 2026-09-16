@@ -1,11 +1,10 @@
-// Terminal prompt themes — an oh-my-posh compatible model.
+// Terminal prompt themes.
 //
 // A prompt is a list of blocks, each a list of segments; every segment has a
 // type (path, git, session, shell, os, time, status, executiontime, root,
 // text), a style (powerline | plain | diamond), colours and a Go-style
 // template ({{ .Path }}, {{ if gt .Ahead 0 }}…{{ end }}) rendered against the
-// segment's context — the same shape oh-my-posh uses, so its JSON themes can
-// be imported (importOmp) and our own exported (the config *is* that JSON).
+// segment's context. The config is plain JSON (kept in the session).
 //
 //   renderPrompt(config, ctx) → [{ newline, segments: [{ text, fg, bg, style, symbol, leading, trailing }] }]
 //
@@ -526,7 +525,7 @@ function splitPath(p) {
   return { parts, win, sep, absolute: s.startsWith('/') };
 }
 
-// oh-my-posh path styles: full, folder, agnoster, agnoster_full, agnoster_short, agnoster_left, letter, mixed, unique
+// path styles: full, folder, agnoster, agnoster_full, agnoster_short, agnoster_left, letter, mixed, unique
 export function formatPath(cwd, home, props = {}) {
   const style = props.style || 'full';
   const homeIcon = props.home_icon !== undefined ? props.home_icon : '~';
@@ -633,12 +632,12 @@ function firstTemplate(list, ctx) {
   return '';
 }
 
-// Segments that should not appear at all in some states (as in oh-my-posh).
+// Segments that should not appear at all in some states.
 function segmentVisible(type, ctx, props, state) {
   if (type === 'git') return !!ctx.Repo;
   if (type === 'root') return !!ctx.Root;
   if (type === 'executiontime') { const th = props.threshold !== undefined ? Number(props.threshold) : 500; return ctx.Ms >= th; }
-  if (type === 'status') return props.always_enabled ? true : ctx.Code !== 0;   // oh-my-posh: only on error unless always_enabled
+  if (type === 'status') return props.always_enabled ? true : ctx.Code !== 0;   // only on error unless always_enabled
   return true;
 }
 
@@ -678,48 +677,6 @@ export function renderPrompt(config, state, theme) {
     if (segments.length) blocks.push({ newline: !!b.newline, segments });
   }
   return { blocks, finalSpace: cfg.final_space !== false, gitState: gs };
-}
-
-// ── oh-my-posh import ─────────────────────────────────────
-// Takes a theme object (parsed JSON) and returns { config, mapped, skipped }.
-// Segment types oh-my-posh has that we cannot draw (battery, node, python, …)
-// are dropped and listed in `skipped`.
-
-const OMP_TYPE_MAP = { path: 'path', git: 'git', session: 'session', shell: 'shell', os: 'os', time: 'time', status: 'status', exit: 'status', executiontime: 'executiontime', root: 'root', text: 'text' };
-
-export function importOmp(theme) {
-  const src = typeof theme === 'string' ? JSON.parse(theme) : theme;
-  if (!src || !Array.isArray(src.blocks)) throw new Error('Not an oh-my-posh theme: no "blocks" array');
-  const skipped = [];
-  let mapped = 0;
-  const blocks = src.blocks.map((b) => ({
-    type: b.type === 'rprompt' ? 'rprompt' : 'prompt',
-    alignment: b.alignment || 'left',
-    newline: !!b.newline,
-    segments: (b.segments || []).map((s) => {
-      const type = OMP_TYPE_MAP[s.type];
-      if (!type) { skipped.push(s.type); return null; }
-      mapped++;
-      const props = { ...(s.properties || s.options || {}) };
-      let template = typeof s.template === 'string' ? s.template : defaultTemplate(type);
-      if (s.type === 'exit') template = template.replace(/\.Text\b/g, '.String');
-      return {
-        type, style: SEGMENT_STYLES.includes(s.style) ? s.style : (s.style === 'accordion' ? 'powerline' : 'powerline'),
-        foreground: s.foreground || 'foreground', background: s.background || 'transparent',
-        foreground_templates: s.foreground_templates, background_templates: s.background_templates,
-        powerline_symbol: s.powerline_symbol || '\ue0b0', leading_diamond: s.leading_diamond || '', trailing_diamond: s.trailing_diamond || '',
-        template, properties: props,
-      };
-    }).filter(Boolean),
-  })).filter((b) => b.segments.length);
-  const config = normalizePrompt({ version: PROMPT_VERSION, final_space: src.final_space !== false, git_state_colors: src.git_state_colors !== false, git_colors: src.git_colors, palette: src.palette || {}, blocks });
-  return { config, mapped, skipped: Array.from(new Set(skipped)) };
-}
-
-export function exportOmp(config) {
-  const c = normalizePrompt(config);
-  const out = { $schema: 'https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/schema.json', version: 2, final_space: c.final_space, ...(c.git_state_colors ? {} : { git_state_colors: false }), ...(GIT_STATE_NAMES.some((k) => c.git_colors[k] !== GIT_STATE_COLORS[k]) ? { git_colors: c.git_colors } : {}), palette: c.palette, blocks: c.blocks.map((b) => ({ type: b.type, alignment: b.alignment, ...(b.newline ? { newline: true } : {}), segments: b.segments.filter((s) => s.enabled !== false).map((s) => { const o = { type: s.type, style: s.style, foreground: s.foreground, background: s.background, template: s.template }; if (s.foreground_templates) o.foreground_templates = s.foreground_templates; if (s.background_templates) o.background_templates = s.background_templates; if (s.style === 'powerline') o.powerline_symbol = s.powerline_symbol; if (s.style === 'diamond') { o.leading_diamond = s.leading_diamond; o.trailing_diamond = s.trailing_diamond; } if (Object.keys(s.properties || {}).length) o.properties = s.properties; return o; }) })) };
-  return JSON.stringify(out, null, 2);
 }
 
 // Sample states for the settings preview.
