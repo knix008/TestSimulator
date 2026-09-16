@@ -487,6 +487,15 @@ input:disabled, select:disabled { opacity: 0.55; }
 .settings-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px 28px; align-items: start; }
 .settings-cols .settings-grid { row-gap: 8px; }
 .settings-cols .settings-section:first-child { margin-top: 0; }
+/* the general tab: every group in its own box */
+.settings-col { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.settings-group { margin: 0; padding: 8px 12px 10px; border: 1px solid var(--border-strong); border-radius: 8px; background: color-mix(in srgb, var(--bg) 40%, transparent); min-width: 0; }
+.settings-group > legend { padding: 0 6px; font-weight: 600; font-size: 12px; color: var(--fg-muted); }
+.settings-group .settings-grid { row-gap: 8px; }
+.stepper { gap: 2px; }
+.stepper input { text-align: center; }
+.stepper .icon-btn { border: 1px solid var(--border); background: var(--bg-elev); }
+.stepper .icon-btn:disabled { opacity: 0.4; }
 .settings-grid label.check { text-align: left; }
 .settings-cols select, .settings-cols input[type=text] { min-width: 0; }
 .settings-tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--border); margin-bottom: 14px; }
@@ -559,6 +568,8 @@ input:disabled, select:disabled { opacity: 0.55; }
 .theme-line.short { width: 55%; }
 .theme-name { font-size: 11px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .custom-theme { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.custom-theme-fields { display: flex; flex-direction: column; gap: 8px; }
+.custom-theme-fields.disabled { opacity: 0.55; }
 .custom-theme-head { row-gap: 6px; }
 .custom-colors { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px 12px; }
 .custom-color { display: flex; align-items: center; justify-content: space-between; gap: 6px; min-width: 0; }
@@ -619,6 +630,7 @@ body.dragging iframe { pointer-events: none; }
 body.dragging { cursor: col-resize; user-select: none; }
 body.dragging-y { cursor: row-resize; }
 .htmlbar .htmlbar-hint { padding: 3px 4px; }
+.svg-btn svg { display: block; }
 /* ── Image preview (components/ImagePreview.jsx): the picture on a checkerboard, fit or 1:1 ── */
 .image-preview { flex: none; min-width: 200px; display: flex; flex-direction: column; border-left: 1px solid var(--border); background: var(--bg-panel); }
 .image-preview-body { flex: 1; min-height: 0; overflow: auto; display: flex; align-items: center; justify-content: center; cursor: zoom-in; background-color: #ffffff; background-image: linear-gradient(45deg, #d0d0d0 25%, transparent 25%, transparent 75%, #d0d0d0 75%), linear-gradient(45deg, #d0d0d0 25%, transparent 25%, transparent 75%, #d0d0d0 75%); background-size: 16px 16px; background-position: 0 0, 8px 8px; }

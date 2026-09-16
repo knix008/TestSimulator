@@ -15,7 +15,8 @@ const DEFAULTS = {
   theme: 'midnight',
   customThemes: [],        // user-made themes (settings > theme): [{ id, label, mode, colors }]
   fontFamily: '',
-  fontSize: 14,
+  fontSize: 12,
+  lineHeight: 1.55,        // editor line height (x font size)
   tabSize: 4,
   insertSpaces: true,
   wordWrap: false,
@@ -27,14 +28,18 @@ const DEFAULTS = {
   foldGutter: true,
   minimapLike: false,
   defaultEncoding: 'utf8',
+  defaultLanguage: 'auto', // language of a new untitled document
   defaultEol: process.platform === 'win32' ? 'crlf' : 'lf',
   eolOnSave: 'keep',       // line ending written on save: keep (the file's own) | lf | crlf
   trimTrailingOnSave: false,
   finalNewlineOnSave: false,
   restoreSession: true,
+  autoSave: 'off',         // off | blur | delay
+  autoSaveDelay: 5,        // seconds after the last edit (autoSave = delay)
   reloadChangedFiles: true,
   confirmClose: true,
   sidebarVisible: true,
+  treeShowHidden: false,   // the folder tree shows hidden files
   sidebarWidth: 240,
   searchVisible: false,    // the search section under the folder tree
   searchRatio: 0.5,        // the search section's share of the sidebar column (the folder tree gets the rest)
@@ -50,6 +55,7 @@ const DEFAULTS = {
   autocomplete: true,      // completion popup while typing (the language's completions + words of the document)
   minimap: true,           // the document drawn small at the right edge of the editor (click / hover to go there)
   formatters: {},          // language name → formatter id ('auto' = first installed, 'indent' = editor re-indent only, 'none')
+  linters: {},             // language name → linter id ('auto' = first installed, 'none' = off for that language)
   formatOnSave: false,     // format the document before every save
   split: 'none',           // editor panes: none · cols · rows · grid
   splitX: 0.5,             // share of the left column (cols / grid), dragged on the splitter

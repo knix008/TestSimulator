@@ -132,8 +132,43 @@ const ANSI = /\x1b\[[0-9;?]*[ -/]*[@-lnp-~]|\x1b\][^\x07]*(?:\x07|\x1b\\)|\x1b[^
 const MARK_RE = new RegExp(`${MARK}([^\\n]*)\\n`, 'g');
 const PROMPT_RE = new RegExp(`\\n?${PROMPT_MARK}`, 'g');
 
+// The repository a directory belongs to: the nearest ancestor holding .git (a directory, or a file in a
+// worktree / submodule); null outside a repository.
+function repoRoot(dir) {
+  let d = path.resolve(dir);
+  for (;;) {
+    if (fs.existsSync(path.join(d, '.git'))) return d;
+    const up = path.dirname(d);
+    if (up === d) return null;
+    d = up;
+  }
+}
+// Commands that cannot change a repository's state (cd, listings, viewers, read-only git) — every part of a
+// compound line (&&, ||, ;, |) must be one; the prompt after them reuses the last git status.
+const READ_ONLY = /^\s*(?:cd|chdir|pushd|popd|ls|ll|dir|pwd|echo|cat|type|less|more|head|tail|wc|clear|cls|tree|which|where|whoami|date|time|hostname|uname|ver|find|grep|rg|findstr|env|set|printenv|history|man|help|get-childitem|gci|get-content|gc|get-location|gl|set-location|sl|write-host|write-output|get-date|get-item|gi|select-string|sls|node\s+-v|npm\s+-v|python\s+--version|git\s+(?:status|log|diff|show|blame|shortlog|rev-parse|ls-files|branch\s*$|remote\s*(?:-v)?\s*$|config\s+--get|describe|tag\s*$))(?:\s|$)/i;
+const isReadOnly = (line) => { const parts = String(line || '').split(/&&|\|\||;|\|/).map((p) => p.trim()).filter(Boolean); return parts.length > 0 && parts.every((p) => READ_ONLY.test(p)); };
+const gitCache = new Map();   // repository root → { at, status }
+const CACHE_MS = 60 * 1000;
+
 function createTerminals() {
   const sessions = new Map();
+  // The git status for a prompt: the cache after a read-only command, a request already running for the
+  // same directory and command (started when the marker arrived), or a fresh `git status`.
+  const inflight = new Map();   // `${cwd}|${cmd}` → { at, promise }
+  const gitFor = (cwd, cmd) => {
+    const root = cwd ? repoRoot(cwd) : null;
+    if (root && cmd !== undefined && isReadOnly(cmd)) {
+      const c = gitCache.get(root);
+      if (c && Date.now() - c.at < CACHE_MS) return Promise.resolve({ ...c.status, cached: true });
+    }
+    const key = `${cwd}|${cmd === undefined ? '' : cmd}`;
+    const running = inflight.get(key);
+    if (running && Date.now() - running.at < 3000) return running.promise;
+    const promise = gitStatus(cwd).then((st) => { if (root && st && st.repo) gitCache.set(root, { at: Date.now(), status: st }); else if (root) gitCache.delete(root); return st; }).finally(() => { if (inflight.get(key) && inflight.get(key).promise === promise) inflight.delete(key); });
+    inflight.set(key, { at: Date.now(), promise });
+    return promise;
+  };
+  const prefetchGit = (cwd, cmd) => { gitFor(cwd, cmd).catch(() => {}); };
   let nextId = 1;
 
   // Readers waiting in read({ wait }) are woken on any change of the session.
@@ -162,6 +197,7 @@ function createTerminals() {
       if (semi >= 0 && /^-?\d+$/.test(d.slice(semi + 1))) { s.rc = Number(d.slice(semi + 1)); d = d.slice(0, semi); }
       if (process.platform === 'win32') d = d.replace(/^\/([a-zA-Z])(\/|$)/, (_x, l) => `${l.toUpperCase()}:/`);   // Git Bash prints /c/…
       s.cwd = d || s.cwd; s.idle = true; s.changed = true;
+      prefetchGit(s.cwd, s.lastCmd);   // the prompt's git status starts now, not when the panel asks for it
       out += stripPrompts(s.pending.slice(0, m.index));
       s.pending = s.pending.slice(m.index + m[0].length);
       s.expectPrompt = !!s.def.promptMark;   // cmd prints "\n__MED_P__" before reading the next line
@@ -185,7 +221,7 @@ function createTerminals() {
     wake(s);
   }
 
-  return {
+  const api = {
     shells: () => shells().map(({ id, label }) => ({ id, label })),
 
     create({ cwd, shell } = {}) {
@@ -228,6 +264,7 @@ function createTerminals() {
       const send = (text) => s.proc.stdin.write(iconv.encode(text, s.enc || 'utf8'));
       if (!s.idle) { send(`${line}${eol === 'lf' ? '\n' : eol === 'crlf' ? '\r\n' : shellEol}`); return true; }
       s.idle = false;
+      s.lastCmd = line;
       wake(s);   // readers see the busy phase, so the return to idle (the prompt, a fresh git status) is never missed
       // The command goes into the script file (with the exit-status / marker lines that belong there), the
       // stdin gets the one line that runs it — followed by the marker, unless the script prints it.
@@ -265,7 +302,16 @@ function createTerminals() {
 
     // Git status of a directory: { repo:false } or { repo:true, root, branch, upstream, ahead, behind, staged, changed, untracked, conflicts }.
     // A dirty working tree inside a submodule is ignored (it would keep the parent repository "modified" forever).
-    git({ cwd }) {
+    //
+    // `cmd` is the command that just ran (for the prompt after it). `git status` scans the whole working
+    // tree (~0.2 s here, more in a big repository), so it is not run again when the command could not have
+    // changed the repository — a read-only command (cd, ls, cat, git log …) — and a status of the same
+    // repository is at hand: the prompt then comes up at once. Anything else (or an unknown command) runs
+    // git afresh. The cache is per repository root and forgotten after CACHE_MS regardless.
+    git({ cwd, cmd }) { return gitFor(cwd, cmd); },
+    gitFresh({ cwd }) { return gitStatus(cwd); },
+  };
+  function gitStatus(cwd) {
       return new Promise((resolve) => {
         if (!cwd || !fs.existsSync(cwd)) return resolve({ repo: false });
         // One git process: status itself says when this is not a repository.
@@ -292,8 +338,9 @@ function createTerminals() {
           });
         }
       });
-    },
+  }
 
+  Object.assign(api, {
     // Completions for the word at `cursor` in `line`: { start, quoted, word, lcp, items:[{ text, dir, cmd }] }.
     // `start` is where the word begins in the line, `lcp` the longest common
     // prefix of the candidates (what a Tab can safely insert).
@@ -342,7 +389,8 @@ function createTerminals() {
       for (const s of sessions.values()) { try { s.proc.kill(); } catch { /* gone */ } cleanup(s); wake(s); }
       sessions.clear();
     },
-  };
+  });
+  return api;
 }
 
-module.exports = { createTerminals };
+module.exports = { createTerminals, isReadOnly, repoRoot };

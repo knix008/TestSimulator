@@ -7,7 +7,8 @@ export const SETTINGS_DEFAULTS = {
   theme: 'midnight',
   customThemes: [],        // user-made themes (settings › theme): [{ id, label, mode, colors }]
   fontFamily: '',
-  fontSize: 14,
+  fontSize: 12,
+  lineHeight: 1.55,        // editor line height (× font size)
   tabSize: 4,
   insertSpaces: true,
   wordWrap: false,
@@ -19,14 +20,18 @@ export const SETTINGS_DEFAULTS = {
   foldGutter: true,
   minimap: true,
   defaultEncoding: 'utf8',
+  defaultLanguage: 'auto', // language of a new untitled document: auto (by what is typed / extension when saved) | plain | a language name
   defaultEol: 'lf',
   eolOnSave: 'keep',       // line ending written on save: keep (the file's own) | lf | crlf
   trimTrailingOnSave: false,
   finalNewlineOnSave: false,
   restoreSession: true,
+  autoSave: 'off',         // save edited files by itself: off | blur (when the window loses the focus) | delay (autoSaveDelay seconds after the last edit)
+  autoSaveDelay: 5,
   reloadChangedFiles: true,
   confirmClose: true,
   sidebarVisible: true,
+  treeShowHidden: false,   // the folder tree shows hidden (dot) files
   sidebarWidth: 240,
   searchVisible: false,
   searchRatio: 0.5,
@@ -41,6 +46,7 @@ export const SETTINGS_DEFAULTS = {
   lint: true,
   autocomplete: true,      // completion popup while typing (the language's own completions + words of the document)
   formatters: {},
+  linters: {},             // language name → linter id ('auto' = first installed, 'none' = off for that language)
   formatOnSave: false,
   split: 'none',
   splitX: 0.5,             // editor panes: share of the left column (cols / grid)
@@ -67,10 +73,10 @@ export const SETTING_KEYS = Object.keys(SETTINGS_DEFAULTS);
 // dialog edits. Not the UI language (chosen with the flag, a surprise to lose)
 // and not the window layout (sidebar, panes, terminal…, set from the View menu).
 export const RESET_KEYS = [
-  'theme', 'fontFamily', 'fontSize', 'tabSize', 'insertSpaces', 'wordWrap', 'lineNumbers', 'showWhitespace', 'highlightActiveLine',
+  'theme', 'fontFamily', 'fontSize', 'lineHeight', 'autoSave', 'autoSaveDelay', 'defaultLanguage', 'treeShowHidden', 'tabSize', 'insertSpaces', 'wordWrap', 'lineNumbers', 'showWhitespace', 'highlightActiveLine',
   'autoCloseBrackets', 'bracketMatching', 'foldGutter', 'minimap', 'defaultEncoding', 'defaultEol', 'eolOnSave', 'trimTrailingOnSave', 'finalNewlineOnSave',
   'restoreSession', 'reloadChangedFiles', 'confirmClose', 'mdWysiwyg', 'spellCheck', 'spellCodeAll', 'autoIndent', 'lint', 'autocomplete',
-  'formatters', 'formatOnSave', 'termCwd', 'termShell', 'termEol', 'termCr', 'prompt',
+  'formatters', 'linters', 'formatOnSave', 'termCwd', 'termShell', 'termEol', 'termCr', 'prompt',
 ];
 export const resetPatch = () => Object.fromEntries(RESET_KEYS.map((k) => [k, k === 'prompt' ? PROMPT_DEFAULT : Array.isArray(SETTINGS_DEFAULTS[k]) ? [] : typeof SETTINGS_DEFAULTS[k] === 'object' && SETTINGS_DEFAULTS[k] ? {} : SETTINGS_DEFAULTS[k]]));
 

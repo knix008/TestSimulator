@@ -100,7 +100,7 @@ test('session: defaults, persistence and recent list', () => {
   const s = createSession(dir);
   const first = s.get();
   assert.equal(first.language, 'ko');
-  assert.equal(first.fontSize, 14);
+  assert.equal(first.fontSize, 12);
   s.save({ theme: 'nord', tabs: [{ path: null, name: 'new 1', draft: 'x'.repeat(600 * 1024) }] });
   const s2 = createSession(dir);
   const g = s2.get();
@@ -221,4 +221,26 @@ test('terminal: cwd + exit status markers, CR pass-through, input line ending', 
     T.kill({ id: s.id });
     T.shutdown();
   }
+});
+
+test('api: term.read honours the long poll (idle + wait) and term.run passes the line ending on', async () => {
+  const api = createApi({ name: 'test', version: '0.0.0', configDir: path.join(tmp, 'cfg5') });
+  const s = await api.call('term.create', { cwd: tmp, shell: process.platform === 'win32' ? 'cmd' : 'sh' });
+  try {
+    await new Promise((r) => setTimeout(r, 600));
+    const t0 = Date.now();
+    const r = await api.call('term.read', { id: s.id, since: 0, idle: true, wait: 400 });
+    assert.ok(Date.now() - t0 >= 350, `the poll waited (${Date.now() - t0} ms)`);
+    assert.equal(r.idle, true);
+    const t1 = Date.now();
+    const r2 = await api.call('term.read', { id: s.id, since: 0, idle: false, wait: 400 });   // the state differs from what the caller knows: answered at once
+    assert.ok(Date.now() - t1 < 200);
+    assert.equal(r2.idle, true);
+    await api.call('term.run', { id: s.id, line: `node -e "process.stdin.once('data', (b) => { process.stdout.write(JSON.stringify(b.toString()) + String.fromCharCode(10)); process.exit(0); })"` });
+    await new Promise((r) => setTimeout(r, 700));
+    await api.call('term.run', { id: s.id, line: 'typed', eol: 'crlf' });
+    let text = '', seq = 0;
+    for (let i = 0; i < 20; i++) { const x = await api.call('term.read', { id: s.id, since: seq, idle: false, wait: 300 }); if (x.chunks.length) { seq = x.seq; text += x.chunks.map((c) => c.text).join(''); } if (x.idle) break; }
+    assert.equal(text.trim(), JSON.stringify('typed' + String.fromCharCode(13, 10)));
+  } finally { await api.call('term.kill', { id: s.id }); }
 });

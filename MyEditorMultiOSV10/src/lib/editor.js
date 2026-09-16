@@ -71,8 +71,8 @@ export const minimapHighlighter = tagHighlighter(SYNTAX_SPECS.filter((s) => s.co
 
 // The editor chrome. `&` is the .cm-editor element.
 const editorTheme = EditorView.theme({
-  '&': { height: '100%', background: 'var(--bg)', color: 'var(--fg)', fontSize: 'var(--editor-fs, 14px)' },
-  '.cm-scroller': { fontFamily: 'var(--editor-font, var(--mono))', lineHeight: '1.55', overflow: 'auto' },
+  '&': { height: '100%', background: 'var(--bg)', color: 'var(--fg)', fontSize: 'var(--editor-fs, 12px)' },
+  '.cm-scroller': { fontFamily: 'var(--editor-font, var(--mono))', lineHeight: 'var(--editor-lh, 1.55)', overflow: 'auto' },
   '.cm-content': { caretColor: 'var(--accent)', padding: '4px 0 40vh' },
   '&.cm-focused': { outline: 'none' },
   '.cm-line': { padding: '0 8px 0 4px' },

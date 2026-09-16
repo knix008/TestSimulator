@@ -38,7 +38,7 @@ import { FindBar } from './components/FindBar';
 import { MarkdownBar } from './components/MarkdownBar';
 import { Preview } from './components/Preview';
 import { HtmlPreview, HtmlBar } from './components/HtmlPreview';
-import { ImagePreview, ImageBar, isImageName, isSvgName } from './components/ImagePreview';
+import { ImagePreview, ImageBar, isImageName, isSvgName, insertSvgTag } from './components/ImagePreview';
 import { withMenuIcons } from './lib/menuicons';
 import { Sidebar } from './components/Sidebar';
 import { SearchPanel } from './components/SearchPanel';
@@ -53,7 +53,7 @@ import { ImageDialog } from './dialogs/ImageDialog';
 import { ImageExportDialog } from './dialogs/ImageExportDialog';
 import { InstallDialog } from './dialogs/InstallDialog';
 
-const BASE_FONT = 14;
+const BASE_FONT = 12;   // the font size that is 100 % zoom (the default)
 // split = multi: n panes as a balanced grid — columns = ceil(√n), rows = ceil(n / columns).
 const multiGrid = (n) => { const cols = Math.max(1, Math.ceil(Math.sqrt(n))); return { cols, rows: Math.max(1, Math.ceil(n / cols)) }; };
 const EOLS = ['crlf', 'lf', 'cr'];
@@ -129,7 +129,7 @@ export default function App() {
   const [find, setFind] = useState(null);           // { mode, initial }
   const [dialog, setDialog] = useState(null);       // { type, ...props }
   const [folder, setFolder] = useState('');
-  const [showHidden, setShowHidden] = useState(false);
+  const showHidden = !!settings.treeShowHidden;   // the folder tree's hidden files (settings › general › folder tree)
   const [sbRefresh, setSbRefresh] = useState(0);
   const [recent, setRecent] = useState([]);
   const [sidebarWidth, setSidebarWidth] = useState(240);
@@ -190,7 +190,23 @@ export default function App() {
     schedulePersist();
     scheduleLint(id);
     scheduleFmtCheck(id);
+    scheduleAutoSave(id);
   };
+  // Auto save (settings › general › session): 'delay' saves an edited file autoSaveDelay seconds after the last
+  // edit, 'blur' saves every edited file when the window loses the focus. Only files that exist on disk and
+  // are writable — a new untitled document still needs a name from you.
+  const autoSaveTimers = useRef(new Map());
+  const scheduleAutoSave = (id) => {
+    const st = settingsRef.current;
+    clearTimeout(autoSaveTimers.current.get(id));
+    if (st.autoSave !== 'delay') return;
+    autoSaveTimers.current.set(id, setTimeout(() => { const d = getDoc(id); if (d && d.dirty && d.path && !d.readonly && d.kind !== 'hex') saveDoc(id).catch(() => {}); }, Math.max(1, Number(st.autoSaveDelay) || 5) * 1000));
+  };
+  useEffect(() => {
+    const onBlur = () => { if (settingsRef.current.autoSave !== 'blur') return; for (const d of docsRef.current) if (d.dirty && d.path && !d.readonly && d.kind !== 'hex') saveDoc(d.id).catch(() => {}); };
+    window.addEventListener('blur', onBlur);
+    return () => window.removeEventListener('blur', onBlur);
+  }, []);   // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── linting: the language's checker runs in the backend, a moment after the
   // last edit, and its findings come back as gutter markers / underlines. The
@@ -213,7 +229,7 @@ export default function App() {
     const text = state.doc.toString();
     lintRuns.current.set(id, text);
     let r;
-    try { r = await call('lint.run', { id, path: doc.path || '', name: doc.name, language: doc.langName, text }); } catch { r = null; }
+    try { r = await call('lint.run', { id, path: doc.path || '', name: doc.name, language: doc.langName, text, tool: (settingsRef.current.linters || {})[doc.langName] || 'auto' }); } catch { r = null; }
     if (!r || r.cancelled || lintRuns.current.get(id) !== text) return;
     lintRuns.current.delete(id);
     const cur = getDoc(id);
@@ -611,7 +627,8 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
 
   const newUntitled = (text = '', opts = {}) => {
     const n = untitledRef.current++;
-    return addDoc({ untitledNo: n, name: t('untitled', { n }), ...opts.meta }, text, opts);
+    const dl = settingsRef.current.defaultLanguage;   // settings › general › files: the language a new document starts with
+    return addDoc({ untitledNo: n, name: t('untitled', { n }), ...(dl && dl !== 'auto' ? { language: dl } : {}), ...opts.meta }, text, opts);
   };
 
   const removeDocs = (ids) => {
@@ -1034,7 +1051,7 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
     }
     if (patch.mdWysiwyg !== undefined) for (const d of docsRef.current) if (d.langName === 'Markdown') applyLanguage(d);
     if (patch.spellCodeAll !== undefined) { setSpellOptions({ codeAll: !!next.spellCodeAll }); spellRefreshAll([viewRef.current]); }
-    if (patch.lint !== undefined) lintAll();
+    if (patch.lint !== undefined || patch.linters !== undefined) lintAll();
     if (!fromRemote) { call('session.save', patch).catch(() => {}); sendSettingsPatch(patch); }
   };
   const toggleSetting = (k) => changeSettings({ [k]: !settingsRef.current[k] });
@@ -1161,6 +1178,7 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
     if (id === 'togglePreview') { const d = getDoc(activeIdRef.current); if (d && isImageName(d.name)) toggleSetting('imagePreview'); else if (d && d.langName === 'HTML') toggleSetting('htmlPreview'); else if (d && d.langName === 'Markdown') toggleSetting('mdPreview'); return undefined; }   // Ctrl+Shift+M: the preview pane of the document's kind
     if (id === 'toggle:termVisible') id = 'toggleTerminal';
     if (id === 'toggleTerminal') { const on = !settingsRef.current.termVisible; changeSettings({ termVisible: on }); if (on && !terms.length) newTerminal(); return undefined; }
+    if (id.startsWith('svg:')) return withView((vw) => insertSvgTag(vw, id.slice(4)));   // the SVG bar: an element at the cursor
     if (id.startsWith('md:heading:')) return withView((vw) => md.heading(vw, Number(id.slice(11))));
     if (id === 'md:image') { setDialog({ type: 'mdImage' }); return undefined; }
     if (id.startsWith('split:')) { setSplit(id.slice(6)); return undefined; }
@@ -1732,7 +1750,7 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
           <>
             <div className="sidebar-column" ref={sidebarColumnRef} style={{ width: Math.max(sidebarWidth, sidebarMin), minWidth: sidebarMin, '--search-share': settings.searchVisible ? settings.searchRatio : 0 }}>
               <Sidebar onMinWidth={onSidebarMin} folder={folder} activePath={cur && cur.path} openPaths={openPaths} showHidden={showHidden} searchOn={settings.searchVisible} onToggleSearch={() => (settings.searchVisible ? changeSettings({ searchVisible: false }) : findInFiles())}
-                onToggleHidden={() => setShowHidden(!showHidden)} onOpenFile={(p) => openPath(p)} onOpenFolder={openFolderDialog}
+                onToggleHidden={() => changeSettings({ treeShowHidden: !showHidden })} onOpenFile={(p) => openPath(p)} onOpenFolder={openFolderDialog}
                 onCloseFolder={() => action('closeFolder')} onAction={sidebarAction} refreshKey={sbRefresh} />
               {settings.searchVisible && (
                 <SearchPanel folder={folder} request={searchRequest} searchOpen={searchOpenDocs} onOpen={openSearchHit} onClose={() => changeSettings({ searchVisible: false })}
@@ -1775,7 +1793,7 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
                       <div className="pane-empty"><Icon name="file" size={26} /><p>{t('pane_empty')}</p><div className="pane-empty-btns"><button className="btn" onClick={(e) => openPaneMenu(i, e.currentTarget)}>{t('pane_pick')}</button><button className="btn" onClick={() => closePane(i)}>{t('pane_close')}</button></div></div>
                     )}
                     <EditorPane initialState={initialState} onView={(v) => onPaneView(p.key, v)} onDropFiles={dropFiles} contextItems={editorContextItems} onAction={action}
-                      fontFamily={settings.fontFamily} fontSize={settings.fontSize} empty={!docs.length || p.docId == null || (pd && pd.kind === 'hex')}
+                      fontFamily={settings.fontFamily} fontSize={settings.fontSize} lineHeight={settings.lineHeight} empty={!docs.length || p.docId == null || (pd && pd.kind === 'hex')}
                       minimap={settings.minimap && !(pd && pd.langName === 'Markdown')} version={`${p.docId}:${docVersion}:${settings.theme}:${cursor.line}`} />
                     {pd && pd.kind === 'hex' && hexRef.current.has(pd.id) && (
                       <HexView read={hexRef.current.get(pd.id)} version={pd.mtime} name={pd.name} size={pd.size} fontSize={settings.fontSize}

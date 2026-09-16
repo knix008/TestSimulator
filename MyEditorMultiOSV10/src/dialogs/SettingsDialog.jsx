@@ -14,6 +14,21 @@ import { InstallDialog } from './InstallDialog';
 import { isElectron, nativeDialog, call } from '../lib/backend';
 import { toolLabel } from '../lib/formatters';
 import { resetPatch } from '../lib/settings';
+import { FEATURED_LANGUAGES, PLAIN } from '../lib/languages';
+
+// A number with − / + buttons at its sides (typing works too): value, step, min, max, digits after the point.
+function Stepper({ value, onChange, step = 1, min = 0, max = 100, digits = 0, width = 70, unit }) {
+  const clamp = (n) => Math.max(min, Math.min(max, Number(n.toFixed(digits))));
+  const cur = Number(value) || min;
+  return (
+    <span className="row stepper">
+      <button type="button" className="icon-btn" title="−" disabled={cur <= min} onClick={() => onChange(clamp(cur - step))}><Icon name="minus" size={14} /></button>
+      <input type="number" min={min} max={max} step={step} value={value} onChange={(e) => { const n = Number(e.target.value); if (Number.isFinite(n)) onChange(clamp(n)); }} style={{ width }} />
+      <button type="button" className="icon-btn" title="+" disabled={cur >= max} onClick={() => onChange(clamp(cur + step))}><Icon name="plus" size={14} /></button>
+      {unit && <span className="muted small">{unit}</span>}
+    </span>
+  );
+}
 
 function Check({ id, label, settings, onChange }) {
   return (
@@ -29,7 +44,7 @@ export function SettingsDialog({ settings, encodings, shells = [], formatDir = '
   const [tab, setTab] = useState((initialTab || 'general').split(':')[0]);
   useEffect(() => { if (initialTab) setTab(initialTab.split(':')[0]); }, [initialTab]);   // "tab:stamp" — asked for again while open
   const lang = getLanguage();
-  const tabs = [['general', t('set_general')], ['theme', t('set_theme')], ['terminal', t('set_terminal')], ['format', t('set_format')]];
+  const tabs = [['general', t('set_general')], ['theme', t('set_theme')], ['terminal', t('set_terminal')], ['format', t('set_format')], ['lint', t('set_lint_tab')]];
   // ── custom themes (settings › theme) ──
   const customList = (settings.customThemes || []).map((c) => ({ ...c, tokens: themeById(c.id).tokens, custom: true, labelEn: c.label }));
   const customCur = (settings.customThemes || []).find((c) => c.id === settings.theme) || null;
@@ -46,6 +61,9 @@ export function SettingsDialog({ settings, encodings, shells = [], formatDir = '
   // already holds (looked up once at start, for the toolbar) is shown as it
   // is; the backend is only asked when there is none yet, or to look again.
   const [tools, setTools] = useState(knownTools);
+  const [linters, setLinters] = useState(null);   // { language: [{ id, label, available }] } for the code checkers
+  useEffect(() => { if (tab === 'lint' && !linters) call('lint.tools', { dir: formatDir }).then(setLinters).catch(() => setLinters({})); }, [tab, linters, formatDir]);
+  const setLinter = (lang, id) => onChange({ linters: { ...(settings.linters || {}), [lang]: id } });
   const [rescan, setRescan] = useState(false);   // the next listing looks again instead of using the cached lookups (다시 찾기, after an install)
   useEffect(() => { if (knownTools && !tools && !rescan) setTools(knownTools); }, [knownTools]);   // eslint-disable-line react-hooks/exhaustive-deps
   const [job, setJob] = useState(null);        // { tool, id } while a tool is being (re)installed from here
@@ -82,8 +100,10 @@ export function SettingsDialog({ settings, encodings, shells = [], formatDir = '
       </div>
       {tab === 'general' && (
         <div className="settings-cols">
-          <div className="form-grid settings-grid">
-            <div className="settings-section">{t('set_grp_ui')}</div>
+          <div className="settings-col">
+            <fieldset className="settings-group">
+              <legend>{t('set_grp_ui')}</legend>
+              <div className="form-grid settings-grid">
             <label>{t('set_language')}</label>
             <select value={settings.language} onChange={(e) => onChange({ language: e.target.value })}>
               <option value="ko">한국어</option>
@@ -92,21 +112,51 @@ export function SettingsDialog({ settings, encodings, shells = [], formatDir = '
             <label>{t('set_font')}</label>
             <FontPicker value={settings.fontFamily} onChange={(f) => onChange({ fontFamily: f })} />
             <label>{t('set_font_size')}</label>
-            <span className="row">
-              <input type="number" min={8} max={40} value={settings.fontSize} onChange={(e) => onChange({ fontSize: Math.max(8, Math.min(40, Number(e.target.value) || 14)) })} style={{ width: 80 }} />
-              <span className="muted small">px</span>
+            <Stepper value={settings.fontSize} onChange={(n) => onChange({ fontSize: n })} min={8} max={40} unit="px" />
+            <label>{t('set_line_height')}</label>
+            <Stepper value={settings.lineHeight || 1.55} onChange={(n) => onChange({ lineHeight: n })} step={0.05} min={1} max={3} digits={2} />
+            <label>{t('set_layout')}</label>
+            <span className="row" style={{ flexWrap: 'wrap', gap: 10 }}>
+              <Check id="sidebarVisible" label={t('sidebar')} settings={settings} onChange={onChange} />
+              <Check id="toolbarVisible" label={t('toolbar')} settings={settings} onChange={onChange} />
+              <Check id="statusBarVisible" label={t('statusbar')} settings={settings} onChange={onChange} />
             </span>
-            <div className="settings-section">{t('set_grp_session')}</div>
+              </div>
+            </fieldset>
+            <fieldset className="settings-group">
+              <legend>{t('set_grp_session')}</legend>
+              <div className="form-grid settings-grid">
             <label />
             <Check id="restoreSession" label={t('set_restore')} settings={settings} onChange={onChange} />
             <label />
             <Check id="confirmClose" label={t('set_confirm_close')} settings={settings} onChange={onChange} />
             <label />
             <Check id="reloadChangedFiles" label={t('set_reload')} settings={settings} onChange={onChange} />
-            <div className="settings-section">{t('set_files')}</div>
+            <label>{t('set_auto_save')}</label>
+            <span className="row">
+              <select value={settings.autoSave || 'off'} onChange={(e) => onChange({ autoSave: e.target.value })}>
+                <option value="off">{t('set_auto_save_off')}</option>
+                <option value="blur">{t('set_auto_save_blur')}</option>
+                <option value="delay">{t('set_auto_save_delay')}</option>
+              </select>
+              {settings.autoSave === 'delay' && <><input type="number" min={1} max={600} value={settings.autoSaveDelay || 5} onChange={(e) => onChange({ autoSaveDelay: Math.max(1, Math.min(600, Number(e.target.value) || 5)) })} style={{ width: 70 }} /><span className="muted small">{t('set_seconds')}</span></>}
+            </span>
+            <label />
+            <span className="muted small">{t('set_auto_save_hint')}</span>
+              </div>
+            </fieldset>
+            <fieldset className="settings-group">
+              <legend>{t('set_files')}</legend>
+              <div className="form-grid settings-grid">
             <label>{t('set_default_enc')}</label>
             <select value={settings.defaultEncoding} onChange={(e) => onChange({ defaultEncoding: e.target.value })}>
               {encodings.map((e) => <option key={e.id} value={e.id}>{e.label}</option>)}
+            </select>
+            <label>{t('set_default_lang')}</label>
+            <select value={settings.defaultLanguage || 'auto'} onChange={(e) => onChange({ defaultLanguage: e.target.value })}>
+              <option value="auto">{t('lang_auto')}</option>
+              <option value={PLAIN}>{t('lang_plain')}</option>
+              {FEATURED_LANGUAGES.map((d) => <option key={d.name} value={d.name}>{d.name}</option>)}
             </select>
             <label>{t('set_default_eol')}</label>
             <select value={settings.defaultEol} onChange={(e) => onChange({ defaultEol: e.target.value })}>
@@ -126,22 +176,33 @@ export function SettingsDialog({ settings, encodings, shells = [], formatDir = '
             <Check id="trimTrailingOnSave" label={t('set_trim')} settings={settings} onChange={onChange} />
             <label />
             <Check id="finalNewlineOnSave" label={t('set_final_nl')} settings={settings} onChange={onChange} />
+            </div></fieldset>
+            <fieldset className="settings-group">
+              <legend>{t('set_grp_tree')}</legend>
+              <div className="form-grid settings-grid">
+            <label />
+            <Check id="treeShowHidden" label={t('set_tree_hidden')} settings={settings} onChange={onChange} />
+              </div>
+            </fieldset>
           </div>
-          <div className="form-grid settings-grid">
-            <div className="settings-section">{t('set_grp_indent')}</div>
+          <div className="settings-col">
+            <fieldset className="settings-group">
+              <legend>{t('set_grp_indent')}</legend>
+              <div className="form-grid settings-grid">
             <label>{t('set_indent_with')}</label>
             <span className="row">
               <label className="check"><input type="radio" name="indent-with" checked={!!settings.insertSpaces} onChange={() => onChange({ insertSpaces: true })} /><span>{t('set_indent_spaces')}</span></label>
               <label className="check"><input type="radio" name="indent-with" checked={!settings.insertSpaces} onChange={() => onChange({ insertSpaces: false })} /><span>{t('set_indent_tabs')}</span></label>
             </span>
             <label>{t('set_tab_size')}</label>
-            <span className="row">
-              <input type="number" min={1} max={16} value={settings.tabSize} onChange={(e) => onChange({ tabSize: Math.max(1, Math.min(16, Number(e.target.value) || 4)) })} style={{ width: 80 }} />
-              <span className="muted small">{t('set_tab_size_hint')}</span>
-            </span>
+            <Stepper value={settings.tabSize} onChange={(n) => onChange({ tabSize: n })} min={1} max={16} unit={t('set_tab_size_hint')} />
             <label />
             <Check id="autoIndent" label={t('set_auto_indent')} settings={settings} onChange={onChange} />
-            <div className="settings-section">{t('set_grp_display')}</div>
+              </div>
+            </fieldset>
+            <fieldset className="settings-group">
+              <legend>{t('set_grp_display')}</legend>
+              <div className="form-grid settings-grid">
             <label />
             <Check id="wordWrap" label={t('set_word_wrap')} settings={settings} onChange={onChange} />
             <label />
@@ -154,7 +215,11 @@ export function SettingsDialog({ settings, encodings, shells = [], formatDir = '
             <Check id="highlightActiveLine" label={t('set_active_line')} settings={settings} onChange={onChange} />
             <label />
             <Check id="foldGutter" label={t('set_fold')} settings={settings} onChange={onChange} />
-            <div className="settings-section">{t('set_grp_assist')}</div>
+              </div>
+            </fieldset>
+            <fieldset className="settings-group">
+              <legend>{t('set_grp_assist')}</legend>
+              <div className="form-grid settings-grid">
             <label />
             <Check id="autocomplete" label={t('set_autocomplete')} settings={settings} onChange={onChange} />
             <label />
@@ -167,6 +232,7 @@ export function SettingsDialog({ settings, encodings, shells = [], formatDir = '
             <Check id="spellCodeAll" label={t('set_spell_code_all')} settings={settings} onChange={onChange} />
             <label />
             <Check id="lint" label={t('set_lint')} settings={settings} onChange={onChange} />
+            </div></fieldset>
           </div>
         </div>
       )}
@@ -191,37 +257,43 @@ export function SettingsDialog({ settings, encodings, shells = [], formatDir = '
             </div>
           </React.Fragment>
         )))}
+        {/* the custom theme editor is always shown: "+" adds a theme (a copy of the current one, made active), the
+            fields edit the custom theme chosen in the list — choosing one makes it the active theme */}
         <div className="settings-section">{t('set_custom_themes')}</div>
-        <div className="pe-quick">
-          <button type="button" className="btn small" onClick={addCustom}><Icon name="plus" size={13} /> {t('set_custom_add', { name: themeLabel(settings.theme) })}</button>
-          {customCur && <button type="button" className="btn small" onClick={removeCustom}><Icon name="close" size={13} /> {t('set_custom_remove')}</button>}
-          {!customCur && <span className="muted small">{t('set_custom_hint')}</span>}
-        </div>
-        {customCur && (
-          <div className="custom-theme">
+        <div className="custom-theme">
+          <div className="pe-quick">
+            <button type="button" className="btn small" onClick={addCustom}><Icon name="plus" size={13} /> {t('set_custom_add', { name: themeLabel(settings.theme) })}</button>
+            <select value={customCur ? customCur.id : ''} disabled={!customList.length} onChange={(e) => { if (e.target.value) onChange({ theme: e.target.value }); }} style={{ minWidth: 200 }}>
+              {!customList.length && <option value="">{t('set_custom_none')}</option>}
+              {(settings.customThemes || []).map((c) => <option key={c.id} value={c.id}>★ {c.label}</option>)}
+            </select>
+            <button type="button" className="btn small" disabled={!customCur} onClick={removeCustom}><Icon name="close" size={13} /> {t('set_custom_remove')}</button>
+            {!customCur && <span className="muted small">{t('set_custom_hint')}</span>}
+          </div>
+          <div className={`custom-theme-fields ${customCur ? '' : 'disabled'}`}>
             <div className="form-grid settings-grid custom-theme-head">
               <label>{t('set_custom_name')}</label>
               <div className="row">
-                <input value={customCur.label} onChange={(e) => editCustom({ label: e.target.value })} style={{ flex: 1, minWidth: 0 }} />
-                <select value={customCur.mode} onChange={(e) => editCustom({ mode: e.target.value })} style={{ flex: 'none', width: 160 }}>
+                <input value={customCur ? customCur.label : ''} disabled={!customCur} onChange={(e) => editCustom({ label: e.target.value })} style={{ flex: 1, minWidth: 0 }} />
+                <select value={customCur ? customCur.mode : 'dark'} disabled={!customCur} onChange={(e) => editCustom({ mode: e.target.value })} style={{ flex: 'none', width: 160 }}>
                   <option value="dark">{t('set_custom_dark')}</option>
                   <option value="light">{t('set_custom_light')}</option>
                 </select>
               </div>
             </div>
             <div className="custom-colors">
-              {CUSTOM_COLOR_KEYS.map((k) => (
+              {CUSTOM_COLOR_KEYS.map((k) => { const v = customCur ? customCur.colors[k] || '' : themeById(settings.theme).tokens[{ bg: '--bg', panel: '--bg-panel', raised: '--bg-elev', hover: '--bg-hover', active: '--bg-sel-inactive', border: '--border', borderStrong: '--border-strong', text: '--fg', textDim: '--fg-muted', accent: '--accent', accentStrong: '--accent-strong', accentText: '--accent-text', folder: '--folder', file: '--file', danger: '--danger' }[k]] || ''; return (
                 <label key={k} className="custom-color">
                   <span className="muted small">{t(`set_color_${k}`)}</span>
                   <span className="pe-color">
-                    <input type="color" value={/^#[0-9a-fA-F]{6}$/.test(customCur.colors[k] || '') ? customCur.colors[k] : '#888888'} onChange={(e) => editCustom({ colors: { ...customCur.colors, [k]: e.target.value } })} />
-                    <input className="mono" value={customCur.colors[k] || ''} onChange={(e) => editCustom({ colors: { ...customCur.colors, [k]: e.target.value } })} spellCheck={false} />
+                    <input type="color" disabled={!customCur} value={/^#[0-9a-fA-F]{6}$/.test(v) ? v : '#888888'} onChange={(e) => editCustom({ colors: { ...customCur.colors, [k]: e.target.value } })} />
+                    <input className="mono" disabled={!customCur} value={v} onChange={(e) => editCustom({ colors: { ...customCur.colors, [k]: e.target.value } })} spellCheck={false} />
                   </span>
                 </label>
-              ))}
+              ); })}
             </div>
           </div>
-        )}
+        </div>
       </>)}
       {tab === 'format' && (
         <div className="settings-format">
@@ -258,6 +330,28 @@ export function SettingsDialog({ settings, encodings, shells = [], formatDir = '
           onResult={(r) => { setAskReset(false); if (r === 'yes') onChange(resetPatch()); }} />
       )}
       {job && <InstallDialog tool={job.tool} jobId={job.id} onResult={() => { setJob(null); setRescan(true); setTools(null); }} />}
+      {tab === 'lint' && (
+        <div className="settings-format">
+          <label className="check settings-check"><input type="checkbox" checked={!!settings.lint} onChange={(e) => onChange({ lint: e.target.checked })} /><span>{t('set_lint')}</span></label>
+          {/* the code checkers (lint): one dropdown per language — auto (the first installed), a tool, or off */}
+          <p className="muted small">{t('set_linters_hint')} <button className="btn small" onClick={() => setLinters(null)}>{t('fmt_rescan')}</button></p>
+          <div className="format-grid">
+            {!linters && <span className="muted small">…</span>}
+            {linters && Object.entries(linters).map(([lang, list]) => (
+              <React.Fragment key={lang}>
+                <label>{lang}</label>
+                <span className="row fmt-row">
+                  <select value={(settings.linters || {})[lang] || 'auto'} onChange={(e) => setLinter(lang, e.target.value)}>
+                    <option value="auto">{t('fmt_auto', { tool: list.some((x) => x.available) ? list.find((x) => x.available).label : t('lint_none_installed') })}</option>
+                    {list.map((x) => <option key={x.id} value={x.id}>{x.label}{x.available ? '' : ` — ${t('fmt_not_installed')}`}</option>)}
+                    <option value="none">{t('fmt_none_opt')}</option>
+                  </select>
+                </span>
+              </React.Fragment>
+            ))}
+          </div>
+        </div>
+      )}
       {tab === 'terminal' && (<>
         <div className="form-grid settings-grid settings-term">
           <label>{t('set_term_shell')}</label>

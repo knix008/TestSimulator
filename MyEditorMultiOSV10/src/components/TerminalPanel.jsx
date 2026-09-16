@@ -99,6 +99,7 @@ function TerminalView({ term, active, onExit, prompt, env, termEol, termCr }) {
   const idleRef = useRef(true);
   const [exited, setExited] = useState(false);
   const cmdSentRef = useRef(false);   // a command went to the shell since the last git status
+  const lastCmdRef = useRef(undefined);   // that command (undefined: none — a fresh status is read)
   const crRef = useRef(termCr); crRef.current = termCr;
   const eolRef = useRef(termEol); eolRef.current = termEol;
   // Status of the last command (from the shell marker) and how long it ran — the prompt's status / executiontime segments.
@@ -127,7 +128,9 @@ function TerminalView({ term, active, onExit, prompt, env, termEol, termCr }) {
     clearTimeout(gitTimer.current);
     if (gitCwdRef.current === dir && gitRef.current !== undefined) gitTimer.current = setTimeout(() => { if (my === gitSeq.current) { setGitStale(true); setGitReady(true); } }, STATUS_WAIT_MS);
     const done = (g) => { if (my !== gitSeq.current) return; clearTimeout(gitTimer.current); gitRef.current = g; gitCwdRef.current = dir; setGit(g); setGitReady(true); setGitStale(false); };
-    call('git.status', { cwd: dir }).then(done).catch(() => done(null));
+    // The command that just ran goes along: after a read-only one the backend answers from its cache at once.
+    call('git.status', { cwd: dir, cmd: lastCmdRef.current }).then(done).catch(() => done(null));
+    lastCmdRef.current = undefined;
   }, []);
   const append = useCallback((text) => setEntries((prev) => appendText(prev, text, crRef.current)), []);
   // A line typed at the prompt (or, while a command runs, fed to it).
@@ -186,7 +189,7 @@ function TerminalView({ term, active, onExit, prompt, env, termEol, termCr }) {
       if (!cmd) { await call('term.run', { id: term.id, line: '' }); return; }
       setHist((h) => ({ list: [...h.list.filter((x) => x !== cmd), cmd].slice(-200), idx: -1, draft: '' }));
       if (cmd === 'clear' || cmd === 'cls') { setEntries([]); await call('term.run', { id: term.id, line: '' }); return; }
-      cmdSentRef.current = true;
+      cmdSentRef.current = true; lastCmdRef.current = cmd;
     }
     try { await call('term.run', { id: term.id, line: cmd, eol: eolRef.current }); } catch (err) { append(`\n[${err.message}]\n`); }
   };

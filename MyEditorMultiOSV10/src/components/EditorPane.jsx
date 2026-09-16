@@ -7,7 +7,7 @@ import { EditorView } from '@codemirror/view';
 import { ContextMenu } from './ContextMenu';
 import { Minimap } from './Minimap';
 
-export function EditorPane({ initialState, onView, onDropFiles, contextItems, onAction, fontFamily, fontSize, empty, minimap = false, version }) {
+export function EditorPane({ initialState, onView, onDropFiles, contextItems, onAction, fontFamily, fontSize, lineHeight = 1.55, empty, minimap = false, version }) {
   const hostRef = useRef(null);
   const viewRef = useRef(null);
   const [view, setView] = useState(null);   // for the minimap, once the editor exists
@@ -23,7 +23,7 @@ export function EditorPane({ initialState, onView, onDropFiles, contextItems, on
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const style = { '--editor-fs': `${fontSize}px`, '--editor-font': fontFamily ? `'${fontFamily.replace(/'/g, '')}', var(--mono)` : 'var(--mono)' };
+  const style = { '--editor-fs': `${fontSize}px`, '--editor-lh': String(lineHeight), '--editor-font': fontFamily ? `'${fontFamily.replace(/'/g, '')}', var(--mono)` : 'var(--mono)' };
 
   const onDrop = (e) => {
     e.preventDefault();
