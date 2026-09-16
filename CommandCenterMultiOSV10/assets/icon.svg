@@ -70,10 +70,10 @@
     </filter>
     <clipPath id="tileClip"><rect x="64" y="64" width="896" height="896" rx="200"/></clipPath>
     <!-- light: a glossy glass sheen over the tile, specular highlights on the metal and the dome -->
-    <linearGradient id="gloss" x1="0" y1="0" x2="0.6" y2="1">
-      <stop offset="0"    stop-color="#ffffff" stop-opacity="0.34"/>
-      <stop offset="0.42" stop-color="#ffffff" stop-opacity="0.10"/>
-      <stop offset="0.5"  stop-color="#ffffff" stop-opacity="0"/>
+    <linearGradient id="gloss" x1="0" y1="0" x2="0.55" y2="1">
+      <stop offset="0"    stop-color="#ffffff" stop-opacity="0.30"/>
+      <stop offset="0.35" stop-color="#ffffff" stop-opacity="0.08"/>
+      <stop offset="0.6"  stop-color="#ffffff" stop-opacity="0"/>
     </linearGradient>
     <linearGradient id="sweep" x1="0" y1="0" x2="1" y2="0">
       <stop offset="0"   stop-color="#ffffff" stop-opacity="0"/>
@@ -90,12 +90,20 @@
       <stop offset="0"   stop-color="#ffffff" stop-opacity="0.45"/>
       <stop offset="1"   stop-color="#ffffff" stop-opacity="0"/>
     </linearGradient>
+    <!-- light falling on the background from the top-left -->
+    <radialGradient id="lightSpot" cx="0.18" cy="0.14" r="0.62">
+      <stop offset="0"    stop-color="#ffffff" stop-opacity="0.55"/>
+      <stop offset="0.25" stop-color="#cfe6ff" stop-opacity="0.22"/>
+      <stop offset="0.6"  stop-color="#7fb4ff" stop-opacity="0.06"/>
+      <stop offset="1"    stop-color="#7fb4ff" stop-opacity="0"/>
+    </radialGradient>
     <mask id="reflMask"><rect x="64" y="872" width="896" height="120" fill="url(#reflFade)"/></mask>
     <filter id="blur6"><feGaussianBlur stdDeviation="6"/></filter>
   </defs>
 
   <!-- tile: night sky over planet ground -->
   <rect x="64" y="64" width="896" height="896" rx="200" fill="url(#sky)"/>
+  <rect x="64" y="64" width="896" height="896" rx="200" fill="url(#lightSpot)"/>
   <g clip-path="url(#tileClip)">
     <g fill="#ffffff">
       <circle cx="180" cy="170" r="5" opacity="0.8"/><circle cx="300" cy="120" r="3.5" opacity="0.6"/><circle cx="840" cy="150" r="5" opacity="0.9"/>
@@ -156,10 +164,8 @@
 
   <!-- specular: dome highlight and rim light, light sweep on the platform and the deck -->
   <ellipse cx="462" cy="418" rx="42" ry="26" fill="url(#spec)" transform="rotate(-30 462 418)"/>
-  <path d="M600 420 A112 112 0 0 1 622 486" fill="none" stroke="#bfe9ff" stroke-opacity="0.7" stroke-width="7" stroke-linecap="round"/>
   <path d="M300 636 L724 636 L828 700 L724 764 L300 764 L196 700 Z" fill="url(#sweep)" opacity="0.5"/>
   <path d="M356 530 L430 490 L594 490 L668 530 L594 570 L430 570 Z" fill="url(#sweep)" opacity="0.6"/>
-  <path d="M430 494 L446 494 L372 700 L356 700 Z" fill="#ffffff" opacity="0.14"/>
   <!-- antenna mast -->
   <rect x="504" y="286" width="16" height="106" rx="6" fill="#9aa5b5"/>
   <circle cx="512" cy="280" r="18" fill="#ff3b30" filter="url(#glow)"/>
@@ -186,7 +192,7 @@
     <use href="#building" transform="translate(0 1744) scale(1 -1)"/>
   </g>
   <!-- glass sheen over the whole tile -->
-  <path d="M64 264 A200 200 0 0 1 264 64 H760 A200 200 0 0 1 960 264 V300 Q560 560 64 700 Z" fill="url(#gloss)" clip-path="url(#tileClip)"/>
+  <rect x="64" y="64" width="896" height="896" rx="200" fill="url(#gloss)"/>
 
   <!-- tile bevel on top of everything -->
   <rect x="76" y="76" width="872" height="872" rx="188" fill="none" stroke="url(#tileEdge)" stroke-width="24"/>
