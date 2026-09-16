@@ -204,6 +204,7 @@ export function PromptEditor({ value, onChange, custom = [], onCustomChange }) {
           {[['full', t('pe_path_full')], ['folder', t('pe_path_folder')], ['agnoster_short', t('pe_path_short')], ['agnoster', t('pe_path_agnoster')]].map(([v, l]) => <option key={v} value={v}>{l}</option>)}
         </select>
         <label className="check"><input type="checkbox" checked={twoLines} onChange={(e) => setTwoLines(e.target.checked)} /> {t('pe_two_lines')}</label>
+        <label className="check" title={t('pe_git_colors_tip')}><input type="checkbox" checked={cfg.git_state_colors !== false} onChange={(e) => update((c) => { c.git_state_colors = e.target.checked; })} /> {t('pe_git_colors')}</label>
       </div>
 
       {/* 4. advanced: master–detail + import/export */}

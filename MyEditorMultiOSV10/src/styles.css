@@ -210,11 +210,18 @@ button:disabled { cursor: default; opacity: 0.45; }
 .ctx-menu.pane-menu { max-height: min(70vh, 560px); min-width: 240px; }
 .pane-empty { position: absolute; inset: 27px 0 0 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: var(--fg-muted); background: var(--bg); z-index: 2; }
 /* Split view: the panes fill the editor area as columns, rows or a 2 × 2 grid; the active one has an accent top edge. */
-.panes { flex: 1; min-width: 0; min-height: 0; display: grid; gap: 1px; background: var(--border); }
+.panes { flex: 1; min-width: 0; min-height: 0; display: grid; gap: 1px; background: var(--border); position: relative; --split-x: 0.5; --split-y: 0.5; }
 .panes.none { grid-template-columns: 1fr; }
-.panes.cols { grid-template-columns: 1fr 1fr; }
-.panes.rows { grid-template-rows: 1fr 1fr; }
-.panes.grid { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
+/* the panes share the space by --split-x / --split-y (dragged on the splitters below) */
+.panes.cols { grid-template-columns: calc(var(--split-x) * 100%) 1fr; }
+.panes.rows { grid-template-rows: calc(var(--split-y) * 100%) 1fr; }
+.panes.grid { grid-template-columns: calc(var(--split-x) * 100%) 1fr; grid-template-rows: calc(var(--split-y) * 100%) 1fr; }
+/* the splitters sit on the 1px gap between the panes, a few px wide to grab */
+.pane-splitter { position: absolute; z-index: 5; background: transparent; }
+.pane-splitter.x { top: 0; bottom: 0; width: 7px; left: calc(var(--split-x) * 100% - 3px); cursor: col-resize; }
+.pane-splitter.y { left: 0; right: 0; height: 7px; top: calc(var(--split-y) * 100% - 3px); cursor: row-resize; }
+.pane-splitter:hover, body.dragging .pane-splitter { background: color-mix(in srgb, var(--accent) 45%, transparent); }
+body.dragging-x { cursor: col-resize; }
 .panes.grid > .pane:nth-child(3):last-child { grid-column: 1 / -1; }   /* three panes (one closed): the last spans the bottom row */
 .pane { min-width: 0; min-height: 0; display: flex; flex-direction: column; background: var(--bg); position: relative; }
 .pane-head { display: flex; align-items: center; gap: 4px; padding: 0 4px 0 8px; min-height: 26px; font-size: 12px; border-bottom: 1px solid var(--border); background: var(--bg-elev); color: var(--fg-muted); }

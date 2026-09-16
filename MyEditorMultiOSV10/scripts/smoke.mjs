@@ -251,6 +251,11 @@ const SCENARIOS = {
     return JSON.stringify({ names, depths, line, active: rows[3].className.includes('active'), afterFold: foldedNames });
   })()`,
   // A split pane with nothing in it can be closed from its own "닫기": the split goes away.
+  // the splitter between two editor panes: dragged, the left pane grows and the share is saved
+  pane_split_drag: `(async () => { ${PRELUDE} const S = () => window.__med.state; window.__med.action('split:cols'); await wait(400); const sp = document.querySelector('.pane-splitter.x'); if (!sp) throw new Error('no splitter'); const panes = document.querySelectorAll('.pane'); const w0 = panes[0].getBoundingClientRect().width; const r = sp.getBoundingClientRect();
+    sp.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, clientX: r.x + 3, clientY: r.y + 100 })); window.dispatchEvent(new MouseEvent('mousemove', { clientX: r.x + 203, clientY: r.y + 100 })); window.dispatchEvent(new MouseEvent('mouseup', { clientX: r.x + 203, clientY: r.y + 100 })); await wait(300);
+    const w1 = document.querySelectorAll('.pane')[0].getBoundingClientRect().width; window.__med.action('split:grid'); await wait(300); const ys = document.querySelector('.pane-splitter.y'); const ry = ys.getBoundingClientRect(); ys.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, clientX: ry.x + 100, clientY: ry.y + 3 })); window.dispatchEvent(new MouseEvent('mousemove', { clientX: ry.x + 100, clientY: ry.y - 120 })); window.dispatchEvent(new MouseEvent('mouseup', { clientX: ry.x + 100, clientY: ry.y - 120 })); await wait(300);
+    return JSON.stringify({ grew: Math.round(w1 - w0), splitX: Math.round(S().settings.splitX * 100), splitY: Math.round(S().settings.splitY * 100), splitters: document.querySelectorAll('.pane-splitter').length, topPane: Math.round(document.querySelectorAll('.pane')[0].getBoundingClientRect().height) }); })()`,
   close_pane: `(async () => { ${PRELUDE} window.__med.action('split:grid'); await wait(400);
     // four documents fill the four panes; closing one of them (not dirty) leaves its pane empty
     const notes = window.__med.state.docs.find((d) => d.name === 'notes.txt'); await window.__med.action('close', notes.id); await wait(400);
@@ -403,6 +408,20 @@ const SCENARIOS = {
     out.committed = await run('git commit -qm c2', 'ahead');
     out.pushed = await run('git push -q', 'uptodate');
     out.untracked = await run('echo x> new.txt', 'uptodate'); out.untrackedSymbol = (() => { const p = document.querySelectorAll('.term-view:not(.hidden) .term-prompt'); return p[p.length - 1].querySelector('.pseg[data-type=git]').textContent.includes('?'); })(); out.commitWithUntracked = await run('echo d>> f.txt && git commit -qam c3', 'ahead'); out.pushWithUntracked = await run('git push -q', 'uptodate');
+    out.gitSegment = (() => { const p = prompts(); const g = p[p.length - 1].querySelector('.pseg[data-type=git]'); return g ? { text: g.textContent, bg: g.style.background } : null; })();
+    return JSON.stringify(out); })()`,
+  terminal_gitstate_ps: `(async () => { ${PRELUDE} window.__med.setFolder(${wp(work)}); await wait(300); window.__med.action('newTerminal', 'powershell'); await until(() => document.querySelector('.term-out input')); await wait(800);
+    const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+    const type = (text) => { const el = document.querySelector('.term-view:not(.hidden) .term-out input'); set.call(el, text); el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); };
+    const prompts = () => [...document.querySelectorAll('.term-view:not(.hidden) .term-prompt')]; const state = () => { const p = prompts(); const g = p.length && p[p.length - 1].dataset.git; return g && g !== 'none' ? g : null; };
+    const run = async (cmd, want) => { const n = prompts().length; type(cmd); await until(() => prompts().length > n && (!want || state() === want), 15000); return state(); };
+    const out = {};
+    out.init = await run("git init -q repo; cd repo; git config user.email a@b.c; git config user.name t; 'a' | Out-File f.txt; git add .; git commit -qm init; git branch -M main; git init -q --bare ../remote.git; git remote add origin ../remote.git; git push -q -u origin main", 'uptodate');
+    out.modified = await run("'b' | Add-Content f.txt", 'modified');
+    out.staged = await run('git add .', 'staged');
+    out.committed = await run('git commit -qm c2', 'ahead');
+    out.pushed = await run('git push -q', 'uptodate');
+    out.untracked = await run("'x' | Out-File new.txt", 'uptodate'); out.untrackedSymbol = (() => { const p = document.querySelectorAll('.term-view:not(.hidden) .term-prompt'); return p[p.length - 1].querySelector('.pseg[data-type=git]').textContent.includes('?'); })(); out.commitWithUntracked = await run("'d' | Add-Content f.txt; git commit -qam c3", 'ahead'); out.pushWithUntracked = await run('git push -q', 'uptodate');
     out.gitSegment = (() => { const p = prompts(); const g = p[p.length - 1].querySelector('.pseg[data-type=git]'); return g ? { text: g.textContent, bg: g.style.background } : null; })();
     return JSON.stringify(out); })()`,
   // Format document: the bundled Prettier tidies a JavaScript document (cursor line kept), JSON with the built-in

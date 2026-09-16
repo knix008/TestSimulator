@@ -131,3 +131,21 @@ test('settings: new keys have defaults, a null prompt in the session takes the d
   assert.ok(!RESET_KEYS.includes('customThemes'), 'custom themes survive a reset');
   assert.equal(resetPatch().prompt, PROMPT_DEFAULT);
 });
+
+test('prompt: every preset colours the git segment by the repository state (git_state_colors), unless switched off', () => {
+  const base = { cwd: 'C:/x', home: 'C:/u', user: 'u', host: 'h', shell: 'pwsh', platform: 'win32', rc: 0, ms: 0, now: new Date() };
+  const g = (o) => ({ repo: true, branch: 'main', upstream: 'origin/main', ahead: 0, behind: 0, staged: 0, changed: 0, untracked: 0, conflicts: 0, ...o });
+  const states = { uptodate: g({}), modified: g({ changed: 1 }), staged: g({ staged: 1 }), ahead: g({ ahead: 1 }), behind: g({ behind: 1 }), conflict: g({ conflicts: 1 }) };
+  for (const [id, p] of Object.entries(PRESETS)) {
+    for (const [name, git] of Object.entries(states)) {
+      const seg = renderPrompt(p.config, { ...base, git }).blocks.flatMap((b) => b.segments).find((s) => s.type === 'git');
+      assert.ok(seg, `${id} shows git`);
+      assert.equal(seg.bg || seg.fg, GIT_STATE_COLORS[name], `${id} / ${name}`);
+    }
+  }
+  const off = { ...PRESETS.rainbow.config, git_state_colors: false };
+  const seg = renderPrompt(off, { ...base, git: states.modified }).blocks.flatMap((b) => b.segments).find((s) => s.type === 'git');
+  assert.equal(seg.bg, '#1976d2', 'the preset keeps its own colour when the option is off');
+  assert.equal(normalizePrompt({ blocks: PRESETS.rainbow.config.blocks }).git_state_colors, true, 'on by default');
+  assert.equal(importOmp(exportOmp(off)).config.git_state_colors, false, 'survives export / import');
+});

@@ -52,6 +52,8 @@ const DEFAULTS = {
   formatters: {},          // language name → formatter id ('auto' = first installed, 'indent' = editor re-indent only, 'none')
   formatOnSave: false,     // format the document before every save
   split: 'none',           // editor panes: none · cols · rows · grid
+  splitX: 0.5,             // share of the left column (cols / grid), dragged on the splitter
+  splitY: 0.5,             // share of the top row (rows / grid)
   paneDocs: [],            // which tab each pane showed (indices into tabs)
   activePane: 0,
   termVisible: false,      // terminal panel shown

@@ -1615,6 +1615,22 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
     window.addEventListener('mouseup', up);
   };
 
+  // ── splitters between the editor panes (cols / rows / grid): drag to resize, kept as splitX / splitY ──
+  const panesElRef = useRef(null);
+  const onPaneSplitDown = (axis) => (e) => {
+    e.preventDefault();
+    const box = panesElRef.current && panesElRef.current.getBoundingClientRect();
+    if (!box) return;
+    document.body.classList.add('dragging', axis === 'y' ? 'dragging-y' : 'dragging-x');
+    const move = (ev) => {
+      const frac = axis === 'x' ? (ev.clientX - box.left) / box.width : (ev.clientY - box.top) / box.height;
+      setSettings({ [axis === 'x' ? 'splitX' : 'splitY']: Math.max(0.15, Math.min(0.85, frac)) });
+    };
+    const up = () => { document.body.classList.remove('dragging', 'dragging-x', 'dragging-y'); window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up); call('session.save', { splitX: settingsRef.current.splitX, splitY: settingsRef.current.splitY }).catch(() => {}); };
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+  };
+
   // ── sidebar splitter ──
   // The sidebar is never narrower than its header needs (the title and every
   // icon button visible): the Sidebar measures that (onMinWidth) whenever the
@@ -1696,7 +1712,9 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
           {isHtml && <HtmlBar onAction={action} preview={settings.htmlPreview} />}
           {find && view && <FindBar key={find.key} view={view} mode={find.mode} initial={find.initial} docVersion={docVersion} onClose={() => action('closeFind')} onModeChange={(mode) => setFind({ ...find, mode })} />}
           <div className="editor-split" ref={splitRef}>
-            <div className={`panes ${settings.split || 'none'}`}>
+            <div className={`panes ${settings.split || 'none'}`} ref={panesElRef} style={{ '--split-x': settings.splitX || 0.5, '--split-y': settings.splitY || 0.5 }}>
+              {settings.split === 'cols' || settings.split === 'grid' ? <div className="pane-splitter x" onMouseDown={onPaneSplitDown('x')} title="↔" /> : null}
+              {settings.split === 'rows' || settings.split === 'grid' ? <div className="pane-splitter y" onMouseDown={onPaneSplitDown('y')} title="↕" /> : null}
               {panes.map((p, i) => {
                 const pd = p.docId != null ? getDoc(p.docId) : null;
                 return (

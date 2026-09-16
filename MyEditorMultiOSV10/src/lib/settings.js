@@ -43,6 +43,8 @@ export const SETTINGS_DEFAULTS = {
   formatters: {},
   formatOnSave: false,
   split: 'none',
+  splitX: 0.5,             // editor panes: share of the left column (cols / grid)
+  splitY: 0.5,             // editor panes: share of the top row (rows / grid)
   termVisible: false,
   termHeight: 150,
   termCwd: '',

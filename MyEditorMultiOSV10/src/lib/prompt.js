@@ -315,6 +315,7 @@ export function normalizePrompt(cfg) {
   c.version = PROMPT_VERSION;
   c.preset = typeof c.preset === 'string' ? c.preset : '';
   c.final_space = c.final_space !== false;
+  c.git_state_colors = c.git_state_colors !== false;   // the git segment takes the state colours (GIT_STATE_COLORS) whatever its preset says
   c.palette = c.palette && typeof c.palette === 'object' ? c.palette : {};
   c.blocks = c.blocks.map((b) => ({ type: b.type || 'prompt', alignment: b.alignment || 'left', newline: !!b.newline, segments: (Array.isArray(b.segments) ? b.segments : []).map((s) => ({
     type: SEGMENT_TYPES.includes(s.type) ? s.type : 'text',
@@ -656,8 +657,13 @@ export function renderPrompt(config, state, theme) {
       if (!text) continue;
       const bgSpec = firstTemplate(s.background_templates, ctx) || s.background;
       const fgSpec = firstTemplate(s.foreground_templates, ctx) || s.foreground;
-      const bg = resolveColor(bgSpec, { theme: th, gitStateName: gs, palette: cfg.palette, parentBackground: prevBg });
-      const fg = resolveColor(fgSpec, { theme: th, gitStateName: gs, palette: cfg.palette, parentBackground: prevBg }) || th.fg;
+      let bg = resolveColor(bgSpec, { theme: th, gitStateName: gs, palette: cfg.palette, parentBackground: prevBg });
+      let fg = resolveColor(fgSpec, { theme: th, gitStateName: gs, palette: cfg.palette, parentBackground: prevBg }) || th.fg;
+      // The state colours the git segment: its background when it has one (powerline / diamond, with dark text),
+      // else its text — unless the theme switched that off (git_state_colors: false keeps the theme's own colours).
+      if (s.type === 'git' && cfg.git_state_colors !== false && gs !== 'none') {
+        if (bg) { bg = GIT_STATE_COLORS[gs]; fg = '#1b1e24'; } else fg = GIT_STATE_COLORS[gs];
+      }
       segments.push({ type: s.type, text, fg, bg, style: s.style, symbol: s.powerline_symbol, leading: s.leading_diamond, trailing: s.trailing_diamond });
       prevBg = bg;
     }
@@ -698,13 +704,13 @@ export function importOmp(theme) {
       };
     }).filter(Boolean),
   })).filter((b) => b.segments.length);
-  const config = normalizePrompt({ version: PROMPT_VERSION, final_space: src.final_space !== false, palette: src.palette || {}, blocks });
+  const config = normalizePrompt({ version: PROMPT_VERSION, final_space: src.final_space !== false, git_state_colors: src.git_state_colors !== false, palette: src.palette || {}, blocks });
   return { config, mapped, skipped: Array.from(new Set(skipped)) };
 }
 
 export function exportOmp(config) {
   const c = normalizePrompt(config);
-  const out = { $schema: 'https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/schema.json', version: 2, final_space: c.final_space, palette: c.palette, blocks: c.blocks.map((b) => ({ type: b.type, alignment: b.alignment, ...(b.newline ? { newline: true } : {}), segments: b.segments.filter((s) => s.enabled !== false).map((s) => { const o = { type: s.type, style: s.style, foreground: s.foreground, background: s.background, template: s.template }; if (s.foreground_templates) o.foreground_templates = s.foreground_templates; if (s.background_templates) o.background_templates = s.background_templates; if (s.style === 'powerline') o.powerline_symbol = s.powerline_symbol; if (s.style === 'diamond') { o.leading_diamond = s.leading_diamond; o.trailing_diamond = s.trailing_diamond; } if (Object.keys(s.properties || {}).length) o.properties = s.properties; return o; }) })) };
+  const out = { $schema: 'https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/schema.json', version: 2, final_space: c.final_space, ...(c.git_state_colors ? {} : { git_state_colors: false }), palette: c.palette, blocks: c.blocks.map((b) => ({ type: b.type, alignment: b.alignment, ...(b.newline ? { newline: true } : {}), segments: b.segments.filter((s) => s.enabled !== false).map((s) => { const o = { type: s.type, style: s.style, foreground: s.foreground, background: s.background, template: s.template }; if (s.foreground_templates) o.foreground_templates = s.foreground_templates; if (s.background_templates) o.background_templates = s.background_templates; if (s.style === 'powerline') o.powerline_symbol = s.powerline_symbol; if (s.style === 'diamond') { o.leading_diamond = s.leading_diamond; o.trailing_diamond = s.trailing_diamond; } if (Object.keys(s.properties || {}).length) o.properties = s.properties; return o; }) })) };
   return JSON.stringify(out, null, 2);
 }
 
