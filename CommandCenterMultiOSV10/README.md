@@ -14,20 +14,20 @@ Windows · macOS · Linux · **웹** 용 듀얼 패널 파일 관리자.
 
 | 영역 | 내용 |
 |---|---|
-| 패널 | 좌/우 듀얼 패널(활성 패널 테두리 표시), 분할선 드래그, **드라이브 메뉴**(시스템의 모든 드라이브/볼륨 — 이름·여유/전체 용량), 경로 빵부스러기(breadcrumb), 홈 버튼, 패널 이름 클릭 → 폴더 트리(홈 · 드라이브/루트 · /tmp · 마운트) |
+| 패널 | 좌/우 듀얼 패널(활성 패널 테두리 표시), 분할선 드래그(더블클릭 = 50:50), **화면 분할 버튼**(좌우 ↔ 상하 배치), 창 우측 하단 **크기 변경 마커**, **드라이브 메뉴**(시스템의 모든 드라이브/볼륨 — 이름·여유/전체 용량), 경로 빵부스러기(breadcrumb), 홈 버튼, 패널 이름 클릭 → 폴더 트리(홈 · 드라이브/루트 · /tmp · 마운트) |
 | 목록 | 이름 · 권한 · 수정일 · 종류 · 크기, 열 머리글 클릭 정렬(폴더 우선, `..` 고정), 다중 선택(Ctrl/Shift), 숨김 파일 표시, 폴더 변경 자동 새로고침 |
 | 파일 작업 | 패널 간 복사(F5)/이동(F6), 새 폴더(F7)/새 파일(Shift+F4), 이름 바꾸기(F2), **다중 이름 바꾸기**(Ctrl+M — `[N]` `[E]` `[C]` 마스크·찾기/바꾸기·카운터·대소문자, 미리보기, 2단계 이름 변경), 삭제(F8), 휴지통, 클립보드 복사/붙여넣기(URI 목록), 열기(텍스트 파일은 설정에 따라 기본 앱 / 내장 뷰어 / 내장 편집기 / 지정 프로그램), 속성(Alt+Enter) |
 | 실행 취소 | **Ctrl+Z / Ctrl+Y** — 새 폴더·새 파일·이름 바꾸기·다중 이름 바꾸기·복사·이동·압축·압축 해제를 최근 50개까지 되돌리기/다시 실행. 툴팁과 상태줄에 되돌릴 작업 표시 |
 | 보기·편집 | **F3 내장 뷰어**(텍스트 — 인코딩 자동 감지·줄 바꿈·16진수, 이미지, 이진 파일 16진수 덤프), **F4 내장 편집기**(Ctrl+S 저장, UTF-8) |
 | Total Commander 방식 | **패널 탭**(Ctrl+T 새 탭 · Ctrl+W 닫기 · Ctrl+Tab 순환, 세션 복원), 펑션 키 바(F3~F8·Alt+F4), Insert/Space 선택(Space 는 폴더 크기 계산), Num+/Num−/Num* 패턴 선택·반전, Alt+Num+ 같은 확장자, Shift+F2 폴더 비교, Ctrl+U 패널 바꾸기, Ctrl+←/→ 대상=원본, Alt+↓ 폴더 기록, Ctrl+D 즐겨찾는 폴더, Alt+F1/F2 드라이브, 글자 입력 빠른 검색 |
-| 별도 창 | 뷰어·편집기·다중 이름 바꾸기·검색·설정은 **독립된 창**(위치·크기 자유, 종류별 기억, 여러 개 동시, 앱 종료 시 함께 닫힘). 설정에서 앱 내 대화상자로 전환 가능 |
+| 별도 창 | 뷰어·편집기·다중 이름 바꾸기·검색·설정은 **독립된 창**(위치·크기 자유, 종류별 기억, **도구마다 창 하나** — 다시 누르면 앞으로 오고 새 파일/폴더를 받음, 앱 종료 시 함께 닫힘). 설정 창은 크기 고정(920×990, 스크롤 없음)이며 각 도구 창은 제목줄에 자기 아이콘을 씁니다. 설정에서 앱 내 대화상자로 전환 가능 |
 | 충돌·진행 | 같은 이름이 있으면 덮어쓰기/건너뛰기/취소 + "이후 항목에도 동일하게 적용", 모든 긴 작업은 진행률 창(취소 가능) |
 | 압축 | `.tar.gz` `.tar.bz2` `.zip` 생성/해제, **분할 압축**(zip → `.zip`+`.z01`…, tar → `.tgz`+`.001`…; GTK 판과 호환), 분할 파일 더블클릭 시 자동 결합 해제, `.tar` `.gz` `.bz2` 해제, ZIP 한글 파일명(EUC-KR) 복원 |
 | 검색 | **별도 검색 창**(툴바 검색 / F9, 제목줄로 끌어 옮김, 열어 둔 채 패널 사용 가능): 활성 패널의 폴더와 그 아래 모든 폴더에서 폴더·파일을 이름 패턴(`*.txt`)으로, 파일은 내용으로도 검색. 결과에서 Enter/더블클릭 — **폴더는 왼쪽 패널에 열고, 파일은 시스템 기본 프로그램으로 실행**. 결과를 여러 개 선택해 Ctrl+C 로 복사한 뒤 패널에 Ctrl+V 로 붙여넣거나, 버튼/우클릭 메뉴로 왼쪽·오른쪽 패널 폴더에 바로 복사 |
-| UI | 메뉴바(파일·편집·선택·보기·압축, 모든 항목에 아이콘과 단축키), **아이콘 전용 툴바**(툴팁으로 설명, 선택 상태에 따라 활성/비활성), 20가지 테마(툴바 우측 분할 버튼: 클릭=다음 테마, ▾=목록), 한국어/영어(국기 아이콘 토글), **설정 6개 탭**(일반 · 패널 · 파일 열기 · 보기·편집 · 창 · 터미널) — **바꾸는 즉시 적용**, 취소 시 복원, 프로그램 정보 버튼, 상태 표시줄 |
-| 하단 패널 | 파일 목록 아래의 탭 패널(``Ctrl+` ``). **로그** 탭: 모든 상태 메시지와 오류가 시각과 함께 쌓임(복사/지우기). **터미널** 탭: 원하는 만큼 열 수 있고(Windows: PowerShell · Command Prompt · PowerShell 7 · Git Bash, macOS/Linux: 로그인 셸 · bash · zsh · sh) 활성 패널 폴더 또는 설정한 시작 디렉터리에서 시작. MyEditor 와 같은 콘솔 — **oh-my-posh 호환 프롬프트 테마**(설정 › 프롬프트: 세그먼트 · 파워라인/일반/다이아몬드 · 색·템플릿 · 프리셋 16종 · **oh-my-posh JSON 가져오기/내보내기** · 실시간 미리보기; 기본은 `[📁 경로]▶[⎇ main ↑ + ~ ?]▶` 에 저장소 상태 색 — 진홍 충돌 · 노랑 add 됨 / 커밋됨 · 빨강 수정됨 · 파랑 pull 필요 · 밝은 녹색 변경 없음; 종료 코드·실행 시간 세그먼트도 제공), 출력의 ANSI 색 표시 바로 뒤에서 입력(한글 IME 포함), **Tab 자동 완성**(명령·파일), ↑↓ 기록, 실행 중인 프로그램에 답 입력 가능 |
+| UI | 메뉴바(파일·편집·선택·보기·압축, 모든 항목에 아이콘과 단축키), **아이콘 전용 툴바**(툴팁으로 설명, 선택 상태에 따라 활성/비활성), **20가지 테마 + 사용자 정의 테마**(툴바 우측 분할 버튼: 클릭=다음 테마, ▾=목록; 설정 › 테마 탭의 카드에서 클릭 즉시 적용, 15가지 색을 직접 정한 테마 만들기), 한국어/영어(국기 아이콘 토글), **설정 4개 탭**(일반[패널·창·터미널] · 테마 · 파일 열기·편집 · 프롬프트) — **바꾸는 즉시 적용**, 취소 시 복원, 프로그램 정보 버튼, 상태 표시줄 |
+| 하단 패널 | 파일 목록 아래의 탭 패널(``Ctrl+` ``; 툴바에 로그·빠른 검색·터미널 버튼). **빠른 검색** 탭: 선택한 패널 폴더에서 바로 검색. **로그** 탭: 모든 상태 메시지와 오류가 시각과 함께 쌓임(복사/지우기). **터미널** 탭: 원하는 만큼 열 수 있고(Windows: PowerShell · Command Prompt · PowerShell 7 · Git Bash, macOS/Linux: 로그인 셸 · bash · zsh · sh) 활성 패널 폴더 또는 설정한 시작 디렉터리에서 시작. MyEditor 와 같은 콘솔 — **oh-my-posh 호환 프롬프트 테마**(설정 › 프롬프트: 세그먼트 · 파워라인/일반/다이아몬드 · 색·템플릿 · 프리셋 16종 · **oh-my-posh JSON 가져오기/내보내기** · 실시간 미리보기; 기본은 `[📁 경로]▶[⎇ main ↑ + ~ ?]▶` 에 저장소 상태 색 — 진홍 충돌 · 노랑 add 됨 / 커밋됨 · 빨강 수정됨 · 파랑 pull 필요 · 밝은 녹색 변경 없음; 종료 코드·실행 시간 세그먼트도 제공), 출력의 ANSI 색 표시 바로 뒤에서 입력(한글 IME 포함), **Tab 자동 완성**(명령·파일), ↑↓ 기록, 실행 중인 프로그램에 답 입력 가능 |
 | 오류 | 모든 오류는 팝업으로 — 메시지 + 자세한 내용(코드·경로·발생 프로세스의 스택) + **자세한 내용 복사** 버튼 |
-| 세션 | 마지막 좌/우 경로, 분할 위치, 정렬, 모든 설정 값, 창 위치, 도구 창별 위치/크기, 하단 패널 표시/높이, 즐겨찾는 폴더를 저장하고 복원 |
+| 세션 | 마지막 좌/우 경로와 패널 탭, 활성 패널, 분할 위치·방향, 정렬, 모든 설정 값(사용자 테마·프롬프트 포함), 창 위치, 도구 창별 위치/크기, 하단 패널 표시/높이, 즐겨찾는 폴더 — **마지막 종료 시점 그대로 복원** |
 
 ## 실행
 
@@ -59,8 +59,9 @@ npm run build:mac     # release/Command Center-1.0.0.dmg          (macOS 에서 
 npm run build:linux   # release/*.AppImage, *.deb                  (Linux 에서 실행)
 ```
 
-아이콘은 `assets/icon.svg` 하나에서 `npm run generate:icons` 로 `build/icons/` 의 ico · icns · png 세트가 생성되며,
-앱 · 설치 파일 · 언인스톨러 · macOS DMG · 웹 파비콘이 모두 같은 아이콘을 씁니다.
+아이콘(SF 커맨드 센터 기지 — 팔각 장갑 기지·돔·레이더·안테나·주황 경고등, 광택·반사·원근 배경)은 `assets/icon.svg` 하나에서 `npm run generate:icons` 로 `build/icons/` 의 ico · icns · png 세트가 생성되며,
+앱 실행 아이콘 · 설치 파일 · 언인스톨러 · 바탕화면/시작 메뉴 바로가기 · macOS DMG · 웹 파비콘이 모두 같은 아이콘을 씁니다.
+도구 창(뷰어·편집기·다중 이름 바꾸기·검색·설정)의 제목줄 아이콘은 `node scripts/generate-tool-icons.mjs` 가 UI 아이콘에서 만들어 `assets/tool-icons/` 에 커밋해 둡니다.
 
 ### 설치 동작
 
@@ -122,12 +123,13 @@ core/       api.js fsops.js archive.js tar.js bzip2-worker.js jobs.js session.js
 electron/   main.js ipc.js preload.js                                             ← 데스크톱 호스트
 server/     server.js                                                             ← 웹 호스트 (http 모듈만 사용)
 src/        App.jsx ToolWindow.jsx(별도 창 페이지) themes.js styles.css main.jsx
-  lib/      backend.js(전송 + 창 열기/메시지 버스) i18n.js format.js ansi.jsx history.js(실행 취소) settings.js(설정 기본값) prompt.js(프롬프트 테마 · oh-my-posh 호환)
+  lib/      backend.js(전송 + 창 열기/메시지 버스/창 크기) i18n.js format.js ansi.jsx history.js(실행 취소) settings.js(설정 기본값) prompt.js(프롬프트 테마 · oh-my-posh 호환)
+  themes.js(내장 20 + 사용자 정의 테마)
   components/ FilePanel.jsx FolderTree.jsx Chrome.jsx(메뉴·툴바·펑션 키 바) ContextMenu.jsx Icons.jsx BottomDock.jsx Prompt.jsx
   dialogs/  Dialogs.jsx SearchDialog.jsx SettingsDialog.jsx PromptEditor.jsx ToolDialogs.jsx(뷰어·편집기·다중 이름 바꾸기)
 assets/     icon.svg
 build/      installer.nsh linux/{after-install.sh, after-remove.sh}
-scripts/    generate-icons.mjs ico.mjs generate-build-info.mjs sync-public-svgs.mjs start-electron.mjs copy-installer.js free-port.mjs smoke.mjs clean.mjs
+scripts/    generate-icons.mjs generate-tool-icons.mjs ico.mjs generate-build-info.mjs sync-public-svgs.mjs start-electron.mjs copy-installer.js free-port.mjs smoke.mjs clean.mjs
 test/       archive.test.mjs fsops.test.mjs terminal.test.mjs prompt.test.mjs
 ```
 

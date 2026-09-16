@@ -676,19 +676,36 @@ async function uniqueName(p) {
 
 // ── Search ────────────────────────────────────────────────
 
-function globToRegExp(pattern) {
+function globToRegExp(pattern, { caseSensitive = false } = {}) {
   let re = '^';
   for (const ch of pattern) {
     if (ch === '*') re += '.*';
     else if (ch === '?') re += '.';
     else re += ch.replace(/[.+^${}()|[\]\\]/g, '\\$&');
   }
-  return new RegExp(re + '$', 'i');
+  return new RegExp(re + '$', caseSensitive ? '' : 'i');
+}
+
+// The name matcher of a search: 'contains' (default — the text anywhere in
+// the name; * and ? still work), 'exact' (the whole name, glob allowed) or
+// 'regex' (a regular expression). `caseSensitive` applies to all three.
+function nameMatcher(pattern, { matchMode = 'contains', caseSensitive = false } = {}) {
+  const p = (pattern || '').trim();
+  if (!p || p === '*') return () => true;
+  if (matchMode === 'regex') {
+    let re;
+    try { re = new RegExp(p, caseSensitive ? '' : 'i'); } catch { re = globToRegExp(p, { caseSensitive }); }
+    return (name) => re.test(name);
+  }
+  if (matchMode === 'exact') { const re = globToRegExp(p, { caseSensitive }); return (name) => re.test(name); }
+  const glob = /[*?]/.test(p) ? p : `*${p}*`;
+  const re = globToRegExp(glob, { caseSensitive });
+  return (name) => re.test(name);
 }
 
 const CONTENT_LIMIT = 64 * 1024 * 1024;
 
-async function fileContains(p, needle) {
+async function fileContains(p, needle, { caseSensitive = false } = {}) {
   let fh;
   try {
     const st = await fsp.stat(p);
@@ -697,12 +714,13 @@ async function fileContains(p, needle) {
     const buf = Buffer.alloc(Math.min(st.size, 1 << 20));
     let tail = '';
     let pos = 0;
-    const lower = needle.toLowerCase();
+    const lower = caseSensitive ? needle : needle.toLowerCase();
     while (pos < st.size) {
       const { bytesRead } = await fh.read(buf, 0, buf.length, pos);
       if (!bytesRead) break;
       pos += bytesRead;
-      const text = tail + buf.subarray(0, bytesRead).toString('utf8').toLowerCase();
+      const chunk = buf.subarray(0, bytesRead).toString('utf8');
+      const text = tail + (caseSensitive ? chunk : chunk.toLowerCase());
       if (text.includes(lower)) return true;
       tail = text.slice(-lower.length);
     }
@@ -716,11 +734,18 @@ async function fileContains(p, needle) {
 
 // Finds folders and files whose name matches the glob below `root`; with
 // `matchContent` only files containing `content`. Hits: { path, isDir, size }.
-async function search(root, { pattern = '*', content = '', matchContent = false }, job) {
-  const re = globToRegExp(pattern && pattern.trim() ? pattern.trim() : '*');
+async function search(root, { pattern = '*', content = '', matchContent = false, matchMode = 'contains', caseSensitive = false }, job) {
+  const match = nameMatcher(pattern, { matchMode, caseSensitive });
+  const re = { test: match };
   const found = [];
   job.partial = { count: 0 };
-  const hit = (full, isDir, size) => { found.push({ path: full, isDir, size }); job.partial = { count: found.length }; job.progress(full); };
+  // Every hit carries what the panels show: size, permissions, modification date, extension.
+  const hit = async (full, isDir) => {
+    let size = 0, mtime = 0, perm = '', date = '';
+    try { const st = await fsp.stat(full); size = isDir ? 0 : st.size; mtime = st.mtimeMs; perm = permString(st.mode, isDir); date = formatDate(st.mtimeMs); } catch { /* unreadable: listed without details */ }
+    found.push({ path: full, name: path.basename(full), isDir, size, mtime, perm, date, ext: isDir ? '' : path.extname(full) });
+    job.partial = { count: found.length }; job.progress(full);
+  };
   async function walk(dir) {
     if (job.isCancelled()) throw cancelledError();
     let dirents = [];
@@ -730,17 +755,15 @@ async function search(root, { pattern = '*', content = '', matchContent = false 
       if (job.isCancelled()) throw cancelledError();
       const full = path.join(dir, d.name);
       if (d.isDirectory()) {
-        if (re.test(d.name) && !(matchContent && content)) hit(full, true, 0);
+        if (re.test(d.name) && !(matchContent && content)) await hit(full, true);
         await walk(full);
         continue;
       }
       if (!re.test(d.name)) continue;
       if (matchContent && content) {
-        if (!(await fileContains(full, content))) continue;
+        if (!(await fileContains(full, content, { caseSensitive }))) continue;
       }
-      let size = 0;
-      try { size = (await fsp.stat(full)).size; } catch { /* unreadable: listed without a size */ }
-      hit(full, false, size);
+      await hit(full, false);
     }
   }
   await walk(root);

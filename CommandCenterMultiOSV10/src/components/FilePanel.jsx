@@ -369,6 +369,8 @@ export const FilePanel = forwardRef(function FilePanel(props, ref) {
     { id: 'newFile', label: t('ctx_new_file'), icon: 'fileNew' },
     { sep: true },
     { id: 'properties', label: t('ctx_properties'), icon: 'properties', disabled: !single },
+    { sep: true },
+    { id: 'search', label: t('ctx_search'), icon: 'search', shortcut: 'F9' },   // the search window (not the dock tab)
   ];
 
   // Tab label: the folder's name, or the drive / root itself.

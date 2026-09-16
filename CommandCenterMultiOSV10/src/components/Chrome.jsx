@@ -72,7 +72,9 @@ export function MenuBar({ onAction, state }) {
       { id: 'nextTheme', label: t('next_theme'), icon: 'palette' },
       { sep: true },
       { id: 'toggleDock', label: t('toggle_dock'), icon: 'panelBottom', checked: state.dockVisible, shortcut: 'Ctrl+`' },
-      { id: 'showLog', label: t('log'), icon: 'log' },
+      { id: 'showLog', label: t('log'), icon: 'log', checked: state.dockLog },
+      { id: 'dockSearch', label: t('dock_search_menu'), icon: 'searchDock', checked: state.dockSearch },
+      { id: 'terminal', label: t('terminal'), icon: 'terminal', checked: state.dockTerm },
       { id: 'newTerminal', label: t('term_new'), icon: 'terminal', shortcut: 'Ctrl+Shift+`' },
     ],
     archive: [
@@ -136,7 +138,9 @@ export function Toolbar({ onAction, theme, dockVisible, state = {} }) {
     ['toggleHidden', 'eye', 'show_hidden', 'tip_hidden', false, !!state.showHidden],
     ['properties', 'properties', 'ctx_properties', 'tip_properties', !one],
     null,
-    ['terminal', 'terminal', 'terminal', 'tip_dock', false, !!dockVisible],
+    ['dockSearch', 'searchDock', 'dock_search', 'tip_dock_search', false, !!state.dockSearch],
+    ['showLog', 'log', 'log', 'tip_log', false, !!state.dockLog],
+    ['terminal', 'terminal', 'terminal', 'tip_dock', false, !!state.dockTerm],
   ].filter((it) => it !== undefined);
   const themeLabel = (id) => { const th = themeById(id); return lang === 'ko' ? th.label : th.labelEn; };
   const themeItems = allThemes().map((th) => ({

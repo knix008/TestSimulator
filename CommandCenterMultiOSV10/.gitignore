@@ -4,9 +4,12 @@ node_modules/
 # ── Build output (reproducible: npm install && npm run build:<os>) ──
 dist/
 release/
+# app / installer / shortcut icons — generated from assets/icon.svg (npm run generate:icons)
 build/icons/
 src/build-info.json
+# synced copy of assets/icon.svg for the web favicon / About dialog
 public/icon.svg
+# (assets/tool-icons/*.png — title-bar icons of the tool windows — are committed on purpose: node scripts/generate-tool-icons.mjs)
 
 # ── Installers copied to the project root by scripts/copy-installer.js ──
 *.exe
@@ -23,10 +26,11 @@ public/icon.svg
 .icons-preview.png
 .npm-install.log
 
-# ── Dev profiles (CC_USER_DATA=<folder>) and local env ──
+# ── Dev profiles (CC_USER_DATA=<folder>), local env, exported prompt themes ──
 .profile*/
 .env
 .env.*
+*.local.json
 
 # ── Local / editor / OS noise ───────────────────────────
 *.log

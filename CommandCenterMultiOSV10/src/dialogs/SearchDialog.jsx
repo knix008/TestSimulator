@@ -13,13 +13,15 @@ import { t, useLanguage } from '../lib/i18n';
 import { runJob, cancelJob } from '../lib/backend';
 import { Icon } from '../components/Icons';
 import { ContextMenu } from '../components/ContextMenu';
-import { baseName, dirName, formatSize } from '../lib/format';
+import { baseName, dirName, formatSize, typeDisplay } from '../lib/format';
 
-export function SearchDialog({ root, onClose, onOpenDir, onOpenFile, onClipCopy, onCopyTo, windowed = false }) {
+export function SearchDialog({ root, onClose, onOpenDir, onOpenFile, onClipCopy, onCopyTo, windowed = false, docked = false, onRoot }) {
   useLanguage();
   const [pattern, setPattern] = useState('*');
   const [matchContent, setMatchContent] = useState(false);
   const [content, setContent] = useState('');
+  const [matchMode, setMatchMode] = useState('contains');   // contains | exact | regex
+  const [caseSensitive, setCaseSensitive] = useState(false);
   const [results, setResults] = useState([]);      // [{ path, isDir, size }]
   const [status, setStatus] = useState(t('search_hint'));
   const [running, setRunning] = useState(false);
@@ -34,7 +36,7 @@ export function SearchDialog({ root, onClose, onOpenDir, onOpenFile, onClipCopy,
   const winRef = useRef(null);
 
   useEffect(() => { if (patternRef.current) patternRef.current.focus(); }, []);
-  useEffect(() => { if (windowed) document.title = t('search_title', { root }); }, [windowed, root]);
+  useEffect(() => { if (windowed && !docked) document.title = t('search_title', { root }); }, [windowed, docked, root]);
   useEffect(() => () => { if (jobId.current) cancelJob(jobId.current).catch(() => {}); }, []);
 
   const start = async (e) => {
@@ -44,7 +46,7 @@ export function SearchDialog({ root, onClose, onOpenDir, onOpenFile, onClipCopy,
     setRunning(true);
     setStatus(t('searching', { n: 0, path: '' }));
     try {
-      const final = await runJob('search.start', { root, pattern: pattern || '*', content, matchContent }, (snap) => {
+      const final = await runJob('search.start', { root, pattern: pattern || '*', content, matchContent, matchMode, caseSensitive }, (snap) => {
         jobId.current = snap.id;
         if (snap.status === 'running') setStatus(t('searching', { n: (snap.result && snap.result.count) || 0, path: snap.detail || '' }));
       });
@@ -139,9 +141,12 @@ export function SearchDialog({ root, onClose, onOpenDir, onOpenFile, onClipCopy,
   const rel = (p) => { const d = dirName(p); const r = root.replace(/[\\/]+$/, ''); return d.toLowerCase().startsWith(r.toLowerCase()) ? (d.slice(r.length).replace(/^[\\/]/, '') || '.') : d; };
 
   return (
-    <div className={`search-window ${windowed ? 'windowed' : ''} ${pos ? 'dragged' : ''}`} ref={winRef} style={windowed ? undefined : (pos || undefined)} role="dialog" aria-label={t('search_title', { root })}
+    <div className={`search-window ${windowed || docked ? 'windowed' : ''} ${docked ? 'docked' : ''} ${pos ? 'dragged' : ''}`} ref={winRef} style={windowed || docked ? undefined : (pos || undefined)} role="dialog" aria-label={t('search_title', { root })}
       onKeyDown={(e) => { if (e.key === 'Escape' && e.target.tagName !== 'INPUT') onClose(); e.stopPropagation(); }}>
-      {!windowed && (
+      {docked && (
+        <div className="search-root"><Icon name="folder" size={13} /><span className="ellipsis" title={root}>{root}</span>{onRoot && <button type="button" className="btn small" onClick={onRoot} title={t('search_root_tip')}>{t('search_root_active')}</button>}</div>
+      )}
+      {!windowed && !docked && (
         <div className="dlg-title" onMouseDown={onTitleDown} style={{ cursor: 'move' }}>
           <Icon name="search" />
           <span className="ellipsis" title={root}>{t('search_title', { root })}</span>
@@ -149,23 +154,33 @@ export function SearchDialog({ root, onClose, onOpenDir, onOpenFile, onClipCopy,
         </div>
       )}
       <div className="dlg-body">
-        <form onSubmit={start} className="form-grid">
-          <label>{t('lbl_pattern')}</label>
-          <input ref={patternRef} value={pattern} onChange={(e) => setPattern(e.target.value)} spellCheck={false}
-            onKeyDown={(e) => { if (e.key === 'Escape') onClose(); }} />
-          <label className="check"><input type="checkbox" checked={matchContent} onChange={(e) => setMatchContent(e.target.checked)} /> {t('lbl_content')}</label>
-          <input value={content} onChange={(e) => setContent(e.target.value)} disabled={!matchContent} spellCheck={false} placeholder={t('search_content_hint')} />
+        {/* Enter in either field starts the search: the form always has a submit button (a form with two
+            text fields would not submit implicitly otherwise) — visible next to the name in the docked tab. */}
+        {/* Row 1: the name and, in the docked tab, start / clear. Row 2 (under the name): the options as
+            icon toggles with a label and a tooltip — content search + its text, whole-name, regex, match case.
+            Enter in any field submits: the form always contains a submit button. */}
+        <form onSubmit={start} className="search-form">
+          <div className="search-row">
+            <label>{t('lbl_pattern')}</label>
+            <input ref={patternRef} value={pattern} onChange={(e) => setPattern(e.target.value)} spellCheck={false} onKeyDown={(e) => { if (e.key === 'Escape') onClose(); }} />
+            {running
+              ? <button type="button" className="btn" onClick={stop}>{t('search_stop')}</button>
+              : <button type="submit" className="btn primary"><Icon name="search" size={14} /> {t('search_start')}</button>}
+            <button type="button" className="btn" onClick={clear} disabled={running || !results.length}>{t('search_clear')}</button>
+          </div>
+          <div className="search-row search-opts">
+            <button type="button" className={`opt-btn ${matchContent ? 'on' : ''}`} title={t('tip_opt_content')} aria-pressed={matchContent} onClick={() => setMatchContent(!matchContent)}><Icon name="contentSearch" size={14} /><span>{t('opt_content')}</span></button>
+            <input value={content} onChange={(e) => setContent(e.target.value)} disabled={!matchContent} spellCheck={false} placeholder={t('search_content_hint')} />
+            <button type="button" className={`opt-btn ${matchMode === 'exact' ? 'on' : ''}`} title={t('tip_opt_exact')} aria-pressed={matchMode === 'exact'} onClick={() => setMatchMode(matchMode === 'exact' ? 'contains' : 'exact')}><Icon name="exact" size={14} /><span>{t('opt_exact')}</span></button>
+            <button type="button" className={`opt-btn ${matchMode === 'regex' ? 'on' : ''}`} title={t('tip_opt_regex')} aria-pressed={matchMode === 'regex'} onClick={() => setMatchMode(matchMode === 'regex' ? 'contains' : 'regex')}><Icon name="regex" size={14} /><span>{t('opt_regex')}</span></button>
+            <button type="button" className={`opt-btn ${caseSensitive ? 'on' : ''}`} title={t('tip_opt_case')} aria-pressed={caseSensitive} onClick={() => setCaseSensitive(!caseSensitive)}><Icon name="caseAa" size={14} /><span>{t('opt_case')}</span></button>
+            <span className="tb-spacer" />
+            {/* result actions share this line */}
+            <button type="button" className="btn" onClick={copyClip} disabled={!any} title={t('search_copy_tip')}><Icon name="copy" size={14} /> {t('ctx_copy')}</button>
+            <button type="button" className="btn" onClick={() => onCopyTo('left', selectedPaths)} disabled={!any}>{t('search_copy_left')}</button>
+            <button type="button" className="btn" onClick={() => onCopyTo('right', selectedPaths)} disabled={!any}>{t('search_copy_right')}</button>
+          </div>
         </form>
-        <div className="row" style={{ marginTop: 8 }}>
-          {running
-            ? <button className="btn" onClick={stop}>{t('search_stop')}</button>
-            : <button className="btn primary" onClick={start}><Icon name="search" size={14} /> {t('search_start')}</button>}
-          <button className="btn" onClick={clear} disabled={running || !results.length}>{t('search_clear')}</button>
-          <span className="tb-spacer" />
-          <button className="btn" onClick={copyClip} disabled={!any} title={t('search_copy_tip')}><Icon name="copy" size={14} /> {t('ctx_copy')}</button>
-          <button className="btn" onClick={() => onCopyTo('left', selectedPaths)} disabled={!any}>{t('search_copy_left')}</button>
-          <button className="btn" onClick={() => onCopyTo('right', selectedPaths)} disabled={!any}>{t('search_copy_right')}</button>
-        </div>
         <div className="search-results" ref={listRef} tabIndex={0} onKeyDown={onListKey} onContextMenu={onContextMenu}
           onMouseDown={(e) => { if (e.target === listRef.current) { setSelected(new Set()); setCursor(-1); } }}>
           {results.map((e, i) => (
@@ -174,6 +189,9 @@ export function SearchDialog({ root, onClose, onOpenDir, onOpenFile, onClipCopy,
               <Icon name={e.isDir ? 'folder' : 'file'} size={14} className={e.isDir ? 'ic-folder' : 'ic-file'} />
               <span className="sr-name ellipsis">{baseName(e.path)}</span>
               <span className="sr-dir muted small ellipsis">{rel(e.path)}</span>
+              <span className="sr-perm mono muted small">{e.perm || ''}</span>
+              <span className="sr-date muted small">{e.date || ''}</span>
+              <span className="sr-type muted small ellipsis">{e.isDir ? t('folder') : typeDisplay({ isDir: false, ext: e.ext || '' })}</span>
               <span className="sr-size muted small">{e.isDir ? t('dir_marker') : formatSize(e.size || 0)}</span>
             </div>
           ))}
@@ -184,7 +202,7 @@ export function SearchDialog({ root, onClose, onOpenDir, onOpenFile, onClipCopy,
       <div className="dlg-footer">
         <span className="muted small ellipsis">{t('search_footer_hint')}</span>
         <span className="spacer" />
-        <button className="btn close-btn" onClick={onClose}>{t('close')}</button>
+        {!docked && <button className="btn close-btn" onClick={onClose}>{t('close')}</button>}
       </div>
       {menu && <ContextMenu x={menu.x} y={menu.y} items={menuItems} onClose={() => setMenu(null)} onPick={onMenuPick} />}
     </div>

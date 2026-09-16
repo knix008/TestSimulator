@@ -52,7 +52,7 @@ button:disabled { cursor: default; opacity: 0.45; }
 .row { display: flex; gap: 8px; align-items: center; }
 .boot { height: 100%; display: grid; place-items: center; color: var(--fg-muted); }
 
-.app { height: 100%; display: flex; flex-direction: column; min-width: 1020px; }   /* the toolbar needs ~1000 px in either language; the desktop window minimum (1040 outer ≈ 1024 inner) stays above this, the browser scrolls instead of clipping */
+.app { height: 100%; display: flex; flex-direction: column; min-width: 1090px; }   /* the toolbar needs ~1078 px in either language; the desktop window minimum (1110 outer ≈ 1094 inner) stays above this, the browser scrolls instead of clipping */
 
 /* ── Menu bar ── */
 .menubar { display: flex; align-items: center; background: var(--bg-elev); border-bottom: 1px solid var(--border); padding: 0 4px; height: 30px; }
@@ -286,6 +286,9 @@ input:disabled, select:disabled { opacity: 0.5; }
 .sr-name { flex: none; max-width: 45%; }
 .sr-dir { flex: 1; min-width: 0; }
 .sr-size { flex: none; min-width: 64px; text-align: right; }
+.sr-perm { flex: none; width: 84px; }
+.sr-date { flex: none; width: 118px; }
+.sr-type { flex: none; width: 90px; }
 .search-status { margin-top: 8px; color: var(--fg-muted); font-size: 12px; }
 
 /* scrollbars */
@@ -342,6 +345,31 @@ input:disabled, select:disabled { opacity: 0.5; }
 .dlg.windowed.mrn .dlg-body { max-height: none; }
 .dlg.windowed.mrn .mrn-preview { max-height: none; }
 .search-window.windowed { position: static; transform: none; width: 100%; height: 100%; max-width: none; max-height: none; border: 0; border-radius: 0; box-shadow: none; }
+/* quick search as a bottom-dock tab */
+.search-view { min-height: 0; }
+.search-window.docked { background: var(--bg-panel); }
+.search-window.docked .dlg-body { padding: 6px 10px; }
+.search-window.docked .dlg-footer { padding: 4px 10px; }
+.search-window.docked .search-results { margin-top: 6px; }
+.search-root { display: flex; align-items: center; gap: 6px; padding: 4px 10px; font-size: 12px; color: var(--fg-muted); border-bottom: 1px solid var(--border); background: var(--bg-elev); }
+.search-root .ellipsis { flex: 1; min-width: 0; font-family: var(--mono); }
+/* search form: name row + option row (icon toggles with labels) */
+.search-form { display: flex; flex-direction: column; gap: 6px; }
+.search-row { display: flex; align-items: center; gap: 8px; }
+.search-row > label { white-space: nowrap; color: var(--fg-muted); }
+.search-row > input { flex: 1; min-width: 80px; }
+.search-opts > input { flex: 1 1 320px; min-width: 200px; }
+.search-opts .tb-spacer { flex: 0 0 8px; }
+.search-row .btn { padding: 3px 10px; min-width: 0; font-size: 12px; white-space: nowrap; }
+.search-opts { gap: 6px; }
+.opt-btn { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; background: var(--bg-elev); border: 1px solid var(--border); border-radius: 4px; color: var(--fg-muted); font-size: 12px; white-space: nowrap; }
+.opt-btn:hover { background: var(--bg-hover); color: var(--fg); }
+.opt-btn.on { background: color-mix(in srgb, var(--accent) 22%, transparent); border-color: var(--accent); color: var(--fg); }
+.opt-btn svg { flex: none; }
+.search-window.docked .dlg-body > .row { margin-top: 4px !important; }
+.search-window.docked .dlg-body > .row .btn { padding: 3px 8px; min-width: 0; font-size: 12px; }
+.search-window.docked .search-status { margin-top: 4px; }
+.search-window.docked .dlg-footer { display: none; }
 .settings-pane textarea { width: 100%; min-width: 0; font-size: 12px; }
 
 /* ── Panel tabs (Ctrl+T) ── */

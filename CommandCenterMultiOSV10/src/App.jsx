@@ -114,6 +114,7 @@ export default function App() {
   const [extractable, setExtractable] = useState({ left: false, right: false });
   const [selIsDir, setSelIsDir] = useState({ left: false, right: false });
   const [search, setSearch] = useState(null);   // { root } while the search window is open
+  const [dockSearch, setDockSearch] = useState(null);   // { root } while the quick-search tab (bottom dock) is open
   const panels = { left: useRef(null), right: useRef(null) };
   const inAppClipboard = useRef([]);
   const splitRef = useRef(null);
@@ -171,6 +172,7 @@ export default function App() {
       if (s.themeBg !== theme.tokens['--bg']) call('session.save', { patch: { theme: theme.id, themeBg: theme.tokens['--bg'] } }).catch(() => {});
       setSession(s);
       if (s.activeSide === 'right') setActive('right');
+      if (s.logOpen === false) s.dockVisible = false;   // nothing to show yet (search and terminals start empty)
       setStatus(t('ready', { app: t('appName') }));
     })().catch((err) => setStatus(String(err && err.message ? err.message : err)));
   }, []);
@@ -249,12 +251,23 @@ export default function App() {
       await dialogs.error(err);
     }
   };
+  // The dock's tabs: log (session.logOpen), quick search (dockSearch) and the terminals. The
+  // toolbar buttons open / close their own tab; the dock stays as long as any tab is left and
+  // hides only when the last one closes (or with the header ✕).
+  const logOpen = !!session && session.logOpen !== false;
+  const dockTabs = () => [...(logOpen ? ['log'] : []), ...(dockSearch ? ['search'] : []), ...terms.map((x) => x.id)];
+  const showTab = (id) => { setDockTab(id); if (!session.dockVisible) showDock(true); };
+  // After a tab closed: show the next remaining one, or hide the dock when none is left.
+  const afterTabClosed = (remaining, preferred) => {
+    if (!remaining.length) { showDock(false); return; }
+    setDockTab(preferred && remaining.includes(preferred) ? preferred : remaining[remaining.length - 1]);
+  };
   const closeTerminal = (id) => {
     call('term.kill', { id }).catch(() => {});
     const gone = terms.find((x) => x.id === id);
     const next = terms.filter((x) => x.id !== id);
     setTerms(next);
-    if (dockTab === id) setDockTab(next.length ? next[next.length - 1].id : 'log');
+    if (dockTab === id) afterTabClosed(dockTabs().filter((x) => x !== id), next.length ? next[next.length - 1].id : null);
     if (gone) setStatus(t('term_closed', { name: gone.title }));
   };
   const onTermExit = (id) => setTerms((ts) => ts.map((x) => (x.id === id ? { ...x, exited: true } : x)));
@@ -815,6 +828,12 @@ export default function App() {
       case 'properties': await properties(side); break;
       case 'refresh': refreshBoth(); setStatus(t('refreshed')); break;
       case 'search': if (!(useWindows() && await openTool('search', { root: pathOf(side) }, { title: t('search_title', { root: pathOf(side) }) }))) setSearch({ root: pathOf(side) }); break;
+      case 'dockSearch': {
+        // Toggle the search tab: close it when it is the one showing; otherwise open it on the selected panel's folder.
+        if (dockSearch && session.dockVisible) { setDockSearch(null); if (dockTab === 'search') afterTabClosed(dockTabs().filter((x) => x !== 'search')); break; }
+        setDockSearch({ root: pathOf(side) }); showTab('search');
+        break;
+      }
       case 'about': await dialogs.about({ ...(info || {}), host: hostName }); break;
       case 'settings': {
         const values = {};
@@ -827,15 +846,30 @@ export default function App() {
       }
       case 'quit': quitApp(); break;
       case 'toggleHidden': saveSession({ showHidden: !session.showHidden }); break;
-      case 'toggleDock': showDock(!session.dockVisible); break;
-      case 'showLog': setDockTab('log'); showDock(true); break;
+      case 'toggleDock': if (!session.dockVisible && !dockTabs().length) { saveSession({ logOpen: true, dockVisible: true }); setDockTab('log'); break; } showDock(!session.dockVisible); break;
+      case 'showLog': {
+        // Toggle the log tab: close it when it is the one showing (the dock stays if other tabs remain).
+        if (logOpen && session.dockVisible) { saveSession({ logOpen: false }); if (dockTab === 'log') afterTabClosed(dockTabs().filter((x) => x !== 'log')); break; }
+        saveSession({ logOpen: true });
+        showTab('log');
+        break;
+      }
       case 'newTerminal': await newTerminal(); break;
       case 'terminal': {
-        // Toolbar button: show the dock on a terminal (starting one if there is none); hide it when a terminal is already showing.
-        if (session.dockVisible && dockTab !== 'log') { showDock(false); break; }
+        // Toolbar button = the terminal tabs as a whole: open one when there is none, otherwise close them all
+        // (asking first when a command is still running). The dock stays while log / search tabs remain.
+        if (terms.length && session.dockVisible) {
+          const busy = terms.some((x) => !x.exited && x.idle === false);
+          if (busy && !(await dialogs.confirm({ title: t('terminal'), message: t('term_close_all_busy'), danger: true }))) break;
+          for (const x of terms) call('term.kill', { id: x.id }).catch(() => {});
+          setTerms([]);
+          afterTabClosed(dockTabs().filter((x) => x === 'log' || x === 'search'), dockTab);
+          setStatus(t('term_closed_all', { n: terms.length }));
+          break;
+        }
         const live = terms.filter((x) => !x.exited);
         if (!live.length) await newTerminal();
-        else { setDockTab(live[live.length - 1].id); showDock(true); }
+        else showTab(live[live.length - 1].id);
         break;
       }
       case 'nextTheme': setTheme(nextThemeId(session.theme)); break;
@@ -941,12 +975,16 @@ export default function App() {
     fnBar: !(session && session.fnBar === false),
     showToolbar: !(session && session.showToolbar === false),
     vertical: !!(session && session.layout === 'vertical'),
+    // The toolbar buttons show which tabs are open (not just which one is in front).
+    dockLog: !!(session && session.dockVisible) && logOpen,
+    dockSearch: !!(session && session.dockVisible) && !!dockSearch,
+    dockTerm: !!(session && session.dockVisible) && terms.length > 0,
     tabCount: session ? tabsOf(active).length : 1,
     canUndo: history.canUndo,
     canRedo: history.canRedo,
     undoWhat: describeHistory(history.peekUndo()),
     redoWhat: describeHistory(history.peekRedo()),
-  }), [session, selCount, selIsDir, extractable, active, info, history.version]); // eslint-disable-line react-hooks/exhaustive-deps
+  }), [session, selCount, selIsDir, extractable, active, info, dockTab, dockSearch, terms, history.version]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!session) return <div className="boot">{status || '…'}</div>;
 
@@ -998,12 +1036,19 @@ export default function App() {
           <FilePanel ref={panels.right} {...panelProps('right')} />
         </div>
       </div>
-      {session.dockVisible && (
-        <BottomDock tab={dockTab} onTab={setDockTab} log={log} onClearLog={() => setLog([])} onCopyLog={copyLog}
-          terms={terms} shells={shells} onNewTerm={(shell) => newTerminal(shell)} onCloseTerm={closeTerminal} onTermExit={onTermExit}
-          onHide={() => showDock(false)} height={session.dockHeight || 220} onResizeStart={onDockResizeStart}
-          prompt={session.prompt || SETTINGS_DEFAULTS.prompt} env={termEnv} themeId={session.theme} />
-      )}
+      <BottomDock visible={!!session.dockVisible} tab={dockTab} onTab={setDockTab} log={log} onClearLog={() => setLog([])} onCopyLog={copyLog}
+        terms={terms} shells={shells} onNewTerm={(shell) => newTerminal(shell)} onCloseTerm={closeTerminal} onTermExit={onTermExit}
+        onHide={() => showDock(false)} height={session.dockHeight || 220} onResizeStart={onDockResizeStart}
+        prompt={session.prompt || SETTINGS_DEFAULTS.prompt} env={termEnv} themeId={session.theme}
+        logOpen={logOpen} onCloseLog={() => { saveSession({ logOpen: false }); if (dockTab === 'log') afterTabClosed(dockTabs().filter((x) => x !== 'log')); }}
+        search={dockSearch} onCloseSearch={() => { setDockSearch(null); if (dockTab === 'search') afterTabClosed(dockTabs().filter((x) => x !== 'search')); }}
+        onSearchRoot={() => setDockSearch({ root: pathOf(active) })}
+        searchHandlers={{
+          onOpenDir: (p) => { setActive('left'); navigate('left', p); setStatus(t('search_opened_left', { path: p })); },
+          onOpenFile: (p) => openEntry('left', { name: baseName(p), path: p, isDir: false }),
+          onClipCopy: async (paths) => { inAppClipboard.current = paths; await writeClipboardText(paths.map(toFileUri).join('\n') + '\n'); setStatus(t('clip_copied', { n: paths.length })); },
+          onCopyTo: (side, paths) => copyPathsTo(side, paths),
+        }} />
       {session.fnBar !== false && <FnBar onAction={(id) => onAction(id)} state={menuState} />}
       <div className="statusbar ellipsis" title={status}>
         {status}

@@ -113,14 +113,14 @@ function iconPath() {
 function createWindow() {
   const session = api.session.get();
   const saved = session.windowBounds || null;
-  const MIN_W = 1040, MIN_H = 600;   // outer size; ≈ 1024 px of content — see .app min-width in styles.css
+  const MIN_W = 1110, MIN_H = 600;   // outer size; ≈ 1094 px of content — see .app min-width in styles.css
   const win = new BrowserWindow({
     // Saved bounds from an older build may be smaller than today's minimum — Electron does not clamp them itself.
     width: Math.max(MIN_W, saved && saved.width ? saved.width : 1280),
     height: Math.max(MIN_H, saved && saved.height ? saved.height : 780),
     x: saved && Number.isFinite(saved.x) ? saved.x : undefined,
     y: saved && Number.isFinite(saved.y) ? saved.y : undefined,
-    // Wide enough for the full icon toolbar (measured ~1000 px) in either language, so
+    // Wide enough for the full icon toolbar (measured ~1078 px) in either language, so
     // switching the language never changes the window and no button is ever clipped.
     minWidth: MIN_W,
     minHeight: MIN_H,

@@ -14,6 +14,7 @@ import { AnsiText } from '../lib/ansi.jsx';
 import { Icon } from './Icons';
 import { Prompt } from './Prompt';
 import { ContextMenu } from './ContextMenu';
+import { SearchDialog } from '../dialogs/SearchDialog';
 
 const WAIT_MS = 1500;     // long poll: the backend answers as soon as something happens, or after this
 const MAX_LINES = 10000;  // lines kept per terminal transcript (a long `git log` stays complete)
@@ -333,22 +334,33 @@ function TerminalView({ term, active, onExit, prompt, env, themeId }) {
 }
 
 // ── The dock ──
-export function BottomDock({ tab, onTab, log, onClearLog, onCopyLog, terms, shells, onNewTerm, onCloseTerm, onTermExit, onHide, height, onResizeStart, prompt, env, themeId }) {
+// `search` ({ root } or null) is the quick-search tab: the SearchDialog docked here, searching under
+// the selected panel's folder; `visible` false keeps everything mounted (results, transcripts) but hidden.
+export function BottomDock({ visible = true, tab, onTab, log, onClearLog, onCopyLog, terms, shells, onNewTerm, onCloseTerm, onTermExit, onHide, height, onResizeStart, prompt, env, themeId, logOpen = true, onCloseLog, search, onCloseSearch, onSearchRoot, searchHandlers = {} }) {
   useLanguage();
   const [menu, setMenu] = useState(null);
   const shellItems = shells.map((s) => ({ id: `shell:${s.id}`, label: s.label, icon: 'terminal' }));
   const tabDown = (e, id) => {
-    if (e.button === 1 && id !== 'log') { e.preventDefault(); onCloseTerm(id); } else onTab(id);
+    if (e.button === 1) { e.preventDefault(); if (id === 'log') onCloseLog && onCloseLog(); else if (id === 'search') onCloseSearch(); else onCloseTerm(id); } else onTab(id);
   };
   return (
-    <div className="dock" style={{ height }}>
+    <div className="dock" style={{ height, display: visible ? undefined : 'none' }}>
       <div className="h-splitter" onMouseDown={onResizeStart} />
       <div className="dock-head">
         <div className="dock-tabs">
-          <div className={`dock-tab ${tab === 'log' ? 'active' : ''}`} onMouseDown={(e) => tabDown(e, 'log')}>
-            <Icon name="log" size={13} /><span>{t('log')}</span>
-            {log.some((e) => e.level === 'error') && tab !== 'log' && <span className="dock-dot" />}
-          </div>
+          {logOpen && (
+            <div className={`dock-tab ${tab === 'log' ? 'active' : ''}`} onMouseDown={(e) => tabDown(e, 'log')}>
+              <Icon name="log" size={13} /><span>{t('log')}</span>
+              {log.some((e) => e.level === 'error') && tab !== 'log' && <span className="dock-dot" />}
+              {onCloseLog && <button className="tab-close" title={t('close')} onMouseDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); onCloseLog(); }}><Icon name="close" size={11} /></button>}
+            </div>
+          )}
+          {search && (
+            <div className={`dock-tab ${tab === 'search' ? 'active' : ''}`} title={search.root} onMouseDown={(e) => tabDown(e, 'search')}>
+              <Icon name="search" size={13} /><span className="ellipsis">{t('dock_search')}</span>
+              <button className="tab-close" title={t('close')} onMouseDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); onCloseSearch(); }}><Icon name="close" size={11} /></button>
+            </div>
+          )}
           {terms.map((tm) => (
             <div key={tm.id} className={`dock-tab ${tab === tm.id ? 'active' : ''} ${tm.exited ? 'exited' : ''}`} title={tm.cwd} onMouseDown={(e) => tabDown(e, tm.id)}>
               <Icon name="terminal" size={13} /><span className="ellipsis">{tm.title}</span>
@@ -362,8 +374,13 @@ export function BottomDock({ tab, onTab, log, onClearLog, onCopyLog, terms, shel
         <button className="icon-btn" title={t('dock_hide')} onClick={onHide}><Icon name="close" size={15} /></button>
       </div>
       <div className="dock-body">
-        {tab === 'log' && <LogView entries={log} onClear={onClearLog} onCopy={onCopyLog} />}
-        {terms.length === 0 && tab !== 'log' && (
+        {tab === 'log' && logOpen && <LogView entries={log} onClear={onClearLog} onCopy={onCopyLog} />}
+        {search && (
+          <div className={`dock-view search-view ${tab === 'search' ? '' : 'hidden'}`}>
+            <SearchDialog key={search.root} root={search.root} docked onClose={onCloseSearch} onRoot={onSearchRoot} {...searchHandlers} />
+          </div>
+        )}
+        {terms.length === 0 && (tab === 'log' ? !logOpen : tab !== 'search') && (
           <div className="dock-empty"><Icon name="terminal" size={26} /><p>{t('term_empty')}</p><button className="btn" onClick={() => onNewTerm()}>{t('term_new')}</button></div>
         )}
         {terms.map((tm) => <TerminalView key={tm.id} term={tm} active={tab === tm.id} onExit={onTermExit} prompt={prompt} env={env} themeId={themeId} />)}

@@ -168,6 +168,25 @@ test('api dispatch: jobs are followed through snapshots; session round trip', as
   fs.rmSync(root, { recursive: true, force: true });
 });
 
+test('search: contains / exact / regex, case sensitivity (names and content)', async () => {
+  const root = tmpdir('searchopts');
+  fs.mkdirSync(path.join(root, 'sub'));
+  fs.writeFileSync(path.join(root, 'Report.TXT'), 'Hello World');
+  fs.writeFileSync(path.join(root, 'sub', 'report-2.txt'), 'hello world');
+  fs.writeFileSync(path.join(root, 'notes.md'), 'nothing');
+  const jobs = new JobRegistry();
+  const run = async (opts) => { const s = await waitJob(jobs.run('search', {}, (j) => fsops.search(root, opts, j))); return s.result.found.map((e) => path.basename(e.path)).sort(); };
+  assert.deepEqual(await run({ pattern: 'report' }), ['Report.TXT', 'report-2.txt']);
+  assert.deepEqual(await run({ pattern: 'report', caseSensitive: true }), ['report-2.txt']);
+  assert.deepEqual(await run({ pattern: 'report', matchMode: 'exact' }), []);
+  assert.deepEqual(await run({ pattern: 'Report.TXT', matchMode: 'exact' }), ['Report.TXT']);
+  assert.deepEqual(await run({ pattern: '*.txt', matchMode: 'exact', caseSensitive: true }), ['report-2.txt']);
+  assert.deepEqual(await run({ pattern: String.raw`^rep.*\.txt$`, matchMode: 'regex' }), ['Report.TXT', 'report-2.txt']);
+  assert.deepEqual(await run({ pattern: '*', content: 'Hello', matchContent: true, caseSensitive: true }), ['Report.TXT']);
+  assert.deepEqual(await run({ pattern: '*', content: 'hello', matchContent: true }), ['Report.TXT', 'report-2.txt']);
+  fs.rmSync(root, { recursive: true, force: true });
+});
+
 test('renameMany: swaps and shifts through temp names; rollback on a clash', async () => {
   const root = tmpdir("mrn");
   for (const n of ['a.txt', 'b.txt', 'c.txt', 'x.txt']) fs.writeFileSync(path.join(root, n), n);

@@ -84,8 +84,8 @@ function createApi(host = {}) {
       jobs.run('extract', { archivePath: opts.archivePath, destDir: opts.destDir }, (job) => archive.extract(opts, job)).snapshot(),
     'archive.describe': async ({ path: p }) => archive.describe(p),
     'archive.formats': async () => ({ formats: archive.FORMATS }),
-    'search.start': async ({ root, pattern, content, matchContent }) =>
-      jobs.run('search', { root }, (job) => fsops.search(root, { pattern, content, matchContent }, job)).snapshot(),
+    'search.start': async ({ root, pattern, content, matchContent, matchMode, caseSensitive }) =>
+      jobs.run('search', { root }, (job) => fsops.search(root, { pattern, content, matchContent, matchMode, caseSensitive: !!caseSensitive }, job)).snapshot(),
 
     // ── jobs ──
     'jobs.get': async ({ id }) => jobs.snapshot(id),
