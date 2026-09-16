@@ -4,7 +4,7 @@
 // bottom dock (operation log + terminal tabs) and every action that needs a
 // dialog, a job with progress, or the other panel.
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { call, runJob, cancelJob, resolveConflict, readClipboardText, writeClipboardText, quitApp, hostName, pickFolder, pickFile, openWindow, onAppMessage, postToApp, canOpenWindows } from './lib/backend';
+import { call, runJob, cancelJob, resolveConflict, readClipboardText, writeClipboardText, quitApp, hostName, pickFolder, pickFile, openWindow, onAppMessage, postToApp, canOpenWindows, canResizeWindow, windowSize, resizeWindow } from './lib/backend';
 import { t, setLanguage, getLanguage, useLanguage } from './lib/i18n';
 import { setSeparator, joinPath, baseName, dirName, getSeparator } from './lib/format';
 import { FilePanel } from './components/FilePanel';
@@ -42,6 +42,27 @@ let logSeq = 0;
 function errorText(err, extra) {
   const msg = err && err.message ? err.message : (typeof err === 'string' ? err : String(err));
   return typeof extra === 'string' && extra && extra !== msg ? `${extra}: ${msg}` : msg;
+}
+
+// The resize marker at the bottom-right corner of the main window: dragging it
+// resizes the window through the host (the native frame still works as well).
+function ResizeGrip() {
+  const onDown = async (e) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    const start = await windowSize();
+    const x0 = e.screenX, y0 = e.screenY;
+    let raf = 0, last = null;
+    const move = (ev) => { last = ev; if (!raf) raf = requestAnimationFrame(() => { raf = 0; resizeWindow(start.width + (last.screenX - x0), start.height + (last.screenY - y0)); }); };
+    const up = () => { window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up); };
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+  };
+  return (
+    <svg className="resize-grip" viewBox="0 0 16 16" onMouseDown={onDown} aria-hidden="true">
+      <path d="M15 1L1 15M15 6L6 15M15 11l-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" fill="none" />
+    </svg>
+  );
 }
 
 // One line describing a history entry, for the undo / redo tooltips and the status bar.
@@ -143,11 +164,12 @@ export default function App() {
       const s = { ...SETTINGS_DEFAULTS, ...(await call('session.load')) };
       setLanguage(s.language || 'ko');
       applyFontSize(s.fontSize);
-      if (s.restoreFolders === false) { s.left = i.home; s.right = i.home; }
+      if (s.restoreFolders === false) { s.left = i.home; s.right = i.home; s.leftTabs = [{ path: i.home }]; s.rightTabs = [{ path: i.home }]; s.leftTab = 0; s.rightTab = 0; }
       const theme = applyTheme(themeIdOf(s));
       s.theme = theme.id;
       if (s.themeBg !== theme.tokens['--bg']) call('session.save', { patch: { theme: theme.id, themeBg: theme.tokens['--bg'] } }).catch(() => {});
       setSession(s);
+      if (s.activeSide === 'right') setActive('right');
       setStatus(t('ready', { app: t('appName') }));
     })().catch((err) => setStatus(String(err && err.message ? err.message : err)));
   }, []);
@@ -161,9 +183,29 @@ export default function App() {
     if (patch.theme || patch.language || patch.fontSize) postToApp({ type: 'session', patch });
   }, []);
 
+  // What the prompt's session / os segments show (from app.info).
+  const termEnv = useMemo(() => ({ user: info ? info.user || '' : '', host: info ? info.hostname || '' : '', platform: info ? info.platform : '', home: info ? info.home : '' }), [info]);
   const panel = (side = active) => panels[side].current;
   const other = (side) => (side === 'left' ? 'right' : 'left');
   const pathOf = (side) => (session ? session[side] : '');
+  // ── Panel tabs (Total Commander Ctrl+T) ──
+  // Each side keeps `<side>Tabs` [{ path }] and `<side>Tab` (active index) in the
+  // session; `session[side]` is always the active tab's folder, so everything
+  // else keeps reading pathOf(side).
+  const tabsOf = (side) => { const t = session && session[`${side}Tabs`]; return Array.isArray(t) && t.length ? t : [{ path: pathOf(side) }]; };
+  const tabIndexOf = (side) => { const i = session ? Number(session[`${side}Tab`]) : 0; const n = tabsOf(side).length; return Number.isFinite(i) && i >= 0 && i < n ? i : 0; };
+  const setTabs = (side, tabs, index, extra) => saveSession({ [`${side}Tabs`]: tabs, [`${side}Tab`]: index, [side]: tabs[index].path, ...(extra || {}) });
+  const newTab = (side, p) => { const tabs = [...tabsOf(side), { path: p || pathOf(side) }]; setTabs(side, tabs, tabs.length - 1); setStatus(t('tab_opened', { n: tabs.length })); };
+  const closeTab = (side, i = tabIndexOf(side)) => {
+    const tabs = tabsOf(side);
+    if (tabs.length <= 1) { setStatus(t('tab_last')); return; }
+    const next = tabs.filter((_, k) => k !== i);
+    const cur = tabIndexOf(side);
+    setTabs(side, next, Math.min(cur > i ? cur - 1 : cur === i ? Math.max(0, i - 1) : cur, next.length - 1));
+  };
+  const closeOtherTabs = (side, i = tabIndexOf(side)) => { const tabs = tabsOf(side); setTabs(side, [tabs[i]], 0); };
+  const selectTab = (side, i) => { const tabs = tabsOf(side); if (i >= 0 && i < tabs.length) setTabs(side, tabs, i); };
+  const cycleTab = (side, delta) => { const n = tabsOf(side).length; selectTab(side, (tabIndexOf(side) + delta + n) % n); };
 
   // Only folders that exist are entered (and remembered for the next start).
   const navigate = async (side, p) => {
@@ -174,12 +216,14 @@ export default function App() {
       await dialogs.error(t('cannot_open_dir', { msg: err.message }));
       return;
     }
-    saveSession({ [side]: p });
+    const tabs = tabsOf(side).map((tb, k) => (k === tabIndexOf(side) ? { ...tb, path: p } : tb));
+    saveSession({ [side]: p, [`${side}Tabs`]: tabs });
   };
 
   const activatePanel = (side) => {
     if (side !== active) {
       setActive(side);
+      call('session.save', { patch: { activeSide: side } }).catch(() => {});
       setStatusText(t(side === 'left' ? 'left_active' : 'right_active', { path: pathOf(side) }));
     }
   };
@@ -683,7 +727,7 @@ export default function App() {
   };
   // Ctrl+U: the panels trade folders (sort orders travel with them).
   const swapPanels = () => {
-    saveSession({ left: session.right, right: session.left, leftSort: session.rightSort, rightSort: session.leftSort });
+    saveSession({ left: session.right, right: session.left, leftSort: session.rightSort, rightSort: session.leftSort, leftTabs: tabsOf('right'), rightTabs: tabsOf('left'), leftTab: tabIndexOf('right'), rightTab: tabIndexOf('left') });
     setStatus(t('panels_swapped'));
   };
   // Ctrl+← / Ctrl+→: open the folder under the cursor (else the current one) in that panel.
@@ -746,6 +790,12 @@ export default function App() {
       case 'parent': panel(side) && panel(side).goUp(); break;
       case 'root': navigate(side, rootOf(pathOf(side))); break;
       case 'toggleFnBar': saveSession({ fnBar: session.fnBar === false }); break;
+      case 'newTab': newTab(side); break;
+      case 'closeTab': closeTab(side); break;
+      case 'closeOtherTabs': closeOtherTabs(side); break;
+      case 'nextTab': cycleTab(side, 1); break;
+      case 'prevTab': cycleTab(side, -1); break;
+      case 'tabToOther': newTab(other(side), pathOf(side)); break;
       case 'toggleToolbar': saveSession({ showToolbar: session.showToolbar === false }); break;
       case 'delete': await remove(side); break;
       case 'trash': await trash(side); break;
@@ -838,7 +888,8 @@ export default function App() {
         id = { F1: 'drives:left', F2: 'drives:right', F4: 'quit', F5: 'compress', F9: 'extract', ArrowDown: 'dirHistory' }[e.key] || null;
       } else if (ctrl && !e.altKey) {
         id = { u: 'swapPanels', U: 'swapPanels', ArrowLeft: 'targetLeft', ArrowRight: 'targetRight', d: 'hotlist', D: 'hotlist', m: 'multiRename', M: 'multiRename',
-          PageUp: 'parent', PageDown: 'open', '\\': 'root', r: 'refresh', R: 'refresh', h: 'toggleHidden', H: 'toggleHidden' }[e.key] || null;
+          PageUp: 'parent', PageDown: 'open', '\\': 'root', r: 'refresh', R: 'refresh', h: 'toggleHidden', H: 'toggleHidden',
+          t: 'newTab', T: 'newTab', w: 'closeTab', W: 'closeTab', Tab: e.shiftKey ? 'prevTab' : 'nextTab' }[e.key] || null;
       } else if (!ctrl && !e.altKey) {
         id = e.shiftKey
           ? { F2: 'compareDirs', F4: 'newFile', F6: 'rename' }[e.key] || null
@@ -883,6 +934,7 @@ export default function App() {
     dockVisible: !!(session && session.dockVisible),
     fnBar: !(session && session.fnBar === false),
     showToolbar: !(session && session.showToolbar === false),
+    tabCount: session ? tabsOf(active).length : 1,
     canUndo: history.canUndo,
     canRedo: history.canRedo,
     undoWhat: describeHistory(history.peekUndo()),
@@ -914,6 +966,13 @@ export default function App() {
     history: dirHistory[side],
     hotlist: session.hotlist || [],
     columns: { perm: session.showPerm !== false, date: session.showDate !== false, type: session.showType !== false, size: session.showSize !== false },
+    tabs: tabsOf(side),
+    tabIndex: tabIndexOf(side),
+    onTabSelect: (i) => { activatePanel(side); selectTab(side, i); },
+    onTabNew: () => { activatePanel(side); newTab(side); },
+    onTabClose: (i) => closeTab(side, i),
+    onTabCloseOthers: (i) => closeOtherTabs(side, i),
+    onTabToOther: (i) => newTab(other(side), tabsOf(side)[i].path),
     quickSearch: session.quickSearch !== false,
     spaceMeasures: session.spaceMeasures !== false,
     onHotlistChange: (hotlist) => { saveSession({ hotlist }); setStatus(t(hotlist.length > (session.hotlist || []).length ? 'hot_added' : 'hot_removed')); },
@@ -935,10 +994,14 @@ export default function App() {
       {session.dockVisible && (
         <BottomDock tab={dockTab} onTab={setDockTab} log={log} onClearLog={() => setLog([])} onCopyLog={copyLog}
           terms={terms} shells={shells} onNewTerm={(shell) => newTerminal(shell)} onCloseTerm={closeTerminal} onTermExit={onTermExit}
-          onHide={() => showDock(false)} height={session.dockHeight || 220} onResizeStart={onDockResizeStart} />
+          onHide={() => showDock(false)} height={session.dockHeight || 220} onResizeStart={onDockResizeStart}
+          prompt={session.prompt || SETTINGS_DEFAULTS.prompt} env={termEnv} themeId={session.theme} />
       )}
       {session.fnBar !== false && <FnBar onAction={(id) => onAction(id)} state={menuState} />}
-      <div className="statusbar ellipsis" title={status}>{status}</div>
+      <div className="statusbar ellipsis" title={status}>
+        {status}
+        {canResizeWindow && <ResizeGrip />}
+      </div>
       {search && (
         <SearchDialog root={search.root} onClose={() => setSearch(null)}
           onOpenDir={(p) => { setActive('left'); navigate('left', p); setStatus(t('search_opened_left', { path: p })); }}

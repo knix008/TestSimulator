@@ -34,6 +34,9 @@ contextBridge.exposeInMainWorld('commandCenter', {
   openWindow: (spec) => ipcRenderer.invoke('win:open', spec),
   windowArgs: (id) => ipcRenderer.invoke('win:args', { id }),
   closeWindow: () => ipcRenderer.send('win:close'),
+  // Resize grip: the current outer size, and a new size while dragging.
+  windowSize: () => ipcRenderer.invoke('win:size'),
+  resizeWindow: (width, height) => ipcRenderer.send('win:resize', { width, height }),
   postMessage: (msg) => ipcRenderer.send('win:message', msg),
   onMessage: (cb) => {
     const handler = (_e, msg) => cb(msg);

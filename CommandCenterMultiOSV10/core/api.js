@@ -28,6 +28,8 @@ function createApi(host = {}) {
     'app.info': async () => ({
       platform: process.platform,
       home: os.homedir(),
+      user: (() => { try { return os.userInfo().username; } catch { return process.env.USERNAME || process.env.USER || ''; } })(),
+      hostname: os.hostname(),
       sep: path.sep,
       host: host.name || 'node',
       version: host.version || '',

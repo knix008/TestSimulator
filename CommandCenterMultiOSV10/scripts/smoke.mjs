@@ -30,7 +30,7 @@ if (!fs.existsSync(path.join(root, 'dist', 'index.html'))) {
 const left = opt('left') || root;
 const right = opt('right') || path.join(root, 'src');
 // --width <px>: start the main window at that width (e.g. the minimum) to check the layout.
-fs.writeFileSync(path.join(profile, 'session.json'), JSON.stringify({ left, right, splitter: 0.5, language: opt('lang') || 'ko', theme: opt('theme') || 'dark', windowBounds: opt('width') ? { width: Number(opt('width')), height: 700 } : undefined }, null, 2));
+fs.writeFileSync(path.join(profile, 'session.json'), JSON.stringify({ left, right, splitter: 0.5, language: opt('lang') || 'ko', theme: opt('theme') || 'dark', windowBounds: opt('width') ? { width: Number(opt('width')), height: 700 } : undefined, ...(opt('session') ? JSON.parse(opt('session')) : {}) }, null, 2));   // --session '{…}' merges extra keys
 
 async function electronShot(name = 'main', script = null, url = null) {
   const electronPath = require('electron');

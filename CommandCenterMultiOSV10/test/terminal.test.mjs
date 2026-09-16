@@ -77,6 +77,14 @@ test('session: echo (non-ASCII), cd updates cwd, markers are stripped, kill', as
   await waitFor(terms, s.id, (t) => t.includes('v=7'));
   assert.ok(terms.run({ id: s.id, line: 'echo "again:$v"' }));
   await waitFor(terms, s.id, (t) => t.includes('again:7'));
+  // The exit code of the last command travels with the marker (prompt status segment); the cwd stays clean.
+  assert.ok(terms.run({ id: s.id, line: process.platform === 'win32' ? 'cmd /c exit 3' : 'sh -c "exit 3"' }));
+  const { r: r3 } = await waitFor(terms, s.id, (_t, rr) => rr.idle && rr.rc === 3);
+  assert.equal(r3.rc, 3);
+  assert.ok(!String(r3.cwd).includes(';'));
+  assert.ok(terms.run({ id: s.id, line: 'echo ok' }));
+  const { r: r4 } = await waitFor(terms, s.id, (t, rr) => t.includes('ok') && rr.idle && rr.rc === 0);
+  assert.equal(r4.rc, 0);
   // Incremental reads only return new chunks.
   const all = await terms.read({ id: s.id });
   const none = await terms.read({ id: s.id, since: all.seq });

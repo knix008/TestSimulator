@@ -12,6 +12,7 @@ import { t, useLanguage } from '../lib/i18n';
 import { call, writeClipboardText } from '../lib/backend';
 import { AnsiText } from '../lib/ansi.jsx';
 import { Icon } from './Icons';
+import { Prompt } from './Prompt';
 import { ContextMenu } from './ContextMenu';
 
 const WAIT_MS = 1500;     // long poll: the backend answers as soon as something happens, or after this
@@ -84,29 +85,19 @@ function gitClass(git) {
   return git.conflicts ? 'conflict' : git.staged ? 'staged' : git.changed ? 'modified' : git.ahead ? 'ahead' : git.behind ? 'behind' : 'uptodate';
 }
 
-function Prompt({ cwd, git, stale = false }) {
+// The prompt is drawn by components/Prompt.jsx from the prompt theme in the
+// settings (session.prompt — oh-my-posh compatible, see lib/prompt.js); the
+// tooltip keeps the git summary of the classic prompt.
+function TermPrompt({ config, env, term, cwd, git, rc, ms, at, stale = false }) {
   const repo = git && git.repo;
-  const dirty = repo ? git.staged + git.changed + git.untracked + git.conflicts > 0 : false;
   const cls = gitClass(git);
   const tip = repo ? t('term_git_tip', {
     branch: git.branch || '(detached)', upstream: git.upstream ? ` → ${git.upstream}` : '', state: t(`term_git_${cls}`),
     ahead: git.ahead, behind: git.behind, staged: git.staged, changed: git.changed, untracked: git.untracked, conflicts: git.conflicts,
   }) : cwd;
-  return (
-    <span className="term-prompt" title={cwd}>
-      <span className="seg seg-path"><Icon name="folder" size={12} /> {cwd}</span>
-      {repo && (
-        <span className={`seg seg-git ${cls} ${stale ? 'stale' : ''}`} title={tip}>
-          <span className="g-branch"><Icon name="gitBranch" size={12} /> {git.branch || '(detached)'}</span>
-          {(git.ahead > 0 || git.behind > 0 || dirty) && ' '}
-          {git.ahead > 0 && <span className="g-ahead">↑</span>}{git.behind > 0 && <span className="g-behind">↓</span>}
-          {git.staged > 0 && <span className="g-staged">+</span>}{git.changed > 0 && <span className="g-changed">~</span>}
-          {git.untracked > 0 && <span className="g-untracked">?</span>}{git.conflicts > 0 && <span className="g-conflict">!</span>}
-        </span>
-      )}
-      {' '}
-    </span>
-  );
+  const state = useMemo(() => ({ cwd, git, rc: rc || 0, ms: ms || 0, now: at ? new Date(at) : new Date(), home: env.home, user: env.user, host: env.host, platform: env.platform, shell: term.shell, root: false }),
+    [cwd, git, rc, ms, at, env, term.shell]);
+  return <Prompt config={config} state={state} stale={stale} title={tip} />;
 }
 
 // The output is a list of entries: shell output text, or a line typed at a
@@ -144,7 +135,7 @@ function columns(names, width) {
   return rows.join('\n');
 }
 
-function TerminalView({ term, active, onExit }) {
+function TerminalView({ term, active, onExit, prompt, env, themeId }) {
   useLanguage();
   const [entries, setEntries] = useState(() => (Array.isArray(term.buffer) ? term.buffer : []));
   const [git, setGit] = useState(term.git === undefined ? null : term.git);
@@ -160,6 +151,12 @@ function TerminalView({ term, active, onExit }) {
   const idleRef = useRef(term.idle !== false);
   const [exited, setExited] = useState(!!term.exited);
   const cmdSentRef = useRef(false);   // a command went to the shell since the last git status
+  // Status of the last command (from the shell marker) and how long it ran — the prompt's status / executiontime segments.
+  const [rc, setRc] = useState(term.rc || 0);
+  const [ms, setMs] = useState(term.ms || 0);
+  const rcRef = useRef(term.rc || 0);
+  const msRef = useRef(term.ms || 0);
+  const startedRef = useRef(0);
 
   // The git status of the current directory (as in MyEditor): the prompt
   // never appears bare and then grows a git block — while the first status
@@ -181,7 +178,7 @@ function TerminalView({ term, active, onExit }) {
   const append = useCallback((text) => setEntries((prev) => appendText(prev, text)), []);
   // A line typed at the prompt (or, while a command runs, fed to it).
   const echo = useCallback((line) => {
-    if (idleRef.current) setEntries((prev) => trimEntries([...prev, { k: 'cmd', cwd: cwdRef.current, git: gitRef.current, line }]));
+    if (idleRef.current) setEntries((prev) => trimEntries([...prev, { k: 'cmd', cwd: cwdRef.current, git: gitRef.current, rc: rcRef.current, ms: msRef.current, at: Date.now(), line }]));
     else append(line + '\n');
   }, [append]);
 
@@ -200,7 +197,11 @@ function TerminalView({ term, active, onExit }) {
           const idleNow = r.idle !== false;
           const cwdChanged = r.cwd !== cwdRef.current;
           if (cwdChanged) { cwdRef.current = r.cwd; setCwd(r.cwd); term.cwd = r.cwd; }
-          if (idleNow !== idleRef.current) { idleRef.current = idleNow; setIdle(idleNow); term.idle = idleNow; }
+          if (idleNow !== idleRef.current) {
+            idleRef.current = idleNow; setIdle(idleNow); term.idle = idleNow;
+            if (idleNow && startedRef.current) { const took = Date.now() - startedRef.current; startedRef.current = 0; msRef.current = took; setMs(took); term.ms = took; }
+          }
+          if (typeof r.rc === 'number' && r.rc !== rcRef.current) { rcRef.current = r.rc; setRc(r.rc); term.rc = r.rc; }
           // The git status is re-read when a command has finished — the shell is idle again after a command was
           // sent (a fast command without output never shows as busy, so the sent flag is what counts) — or the
           // directory changed.
@@ -233,6 +234,7 @@ function TerminalView({ term, active, onExit }) {
     const cmd = idleRef.current ? line.trim() : line;
     echo(line);
     if (idleRef.current) {
+      startedRef.current = Date.now();
       if (!cmd) return;
       setHist((h) => ({ list: [...h.list.filter((x) => x !== cmd), cmd].slice(-200), idx: -1, draft: '' }));
       if (cmd === 'clear' || cmd === 'cls') { setEntries([]); return; }
@@ -307,8 +309,8 @@ function TerminalView({ term, active, onExit }) {
 
   // The transcript only re-renders when it changes — not on every keystroke.
   const transcript = useMemo(() => entries.map((e, i) => (e.k === 'cmd'
-    ? <React.Fragment key={i}><Prompt cwd={e.cwd} git={e.git} />{e.line}{'\n'}</React.Fragment>
-    : <React.Fragment key={i}><AnsiText text={e.text} /></React.Fragment>)), [entries]);
+    ? <React.Fragment key={i}><TermPrompt config={prompt} env={env} term={term} cwd={e.cwd} git={e.git} rc={e.rc} ms={e.ms} at={e.at} />{e.line}{'\n'}</React.Fragment>
+    : <React.Fragment key={i}><AnsiText text={e.text} /></React.Fragment>)), [entries, prompt, env, themeId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className={`dock-view term-view ${active ? '' : 'hidden'}`}>
@@ -318,7 +320,7 @@ function TerminalView({ term, active, onExit }) {
           // While the first git status of a directory is being read the prompt line is kept invisible
           // (opacity, not unmounted or visibility:hidden: the input keeps the focus and what is typed meanwhile).
           <span className={`term-live ${idle && !gitReady ? 'pending' : ''}`}>
-            {idle && gitReady && <Prompt cwd={cwd} git={git} stale={gitStale} />}
+            {idle && gitReady && <TermPrompt config={prompt} env={env} term={term} cwd={cwd} git={git} rc={rc} ms={ms} stale={gitStale} />}
             <span className="term-inline" data-value={input}>
               <input ref={inputRef} value={input} title={t('term_placeholder')} spellCheck={false} autoComplete="off" autoCapitalize="off" autoCorrect="off"
                 onChange={(e) => setInput(e.target.value)} onKeyDown={onKey} onPaste={onPaste} />
@@ -331,7 +333,7 @@ function TerminalView({ term, active, onExit }) {
 }
 
 // ── The dock ──
-export function BottomDock({ tab, onTab, log, onClearLog, onCopyLog, terms, shells, onNewTerm, onCloseTerm, onTermExit, onHide, height, onResizeStart }) {
+export function BottomDock({ tab, onTab, log, onClearLog, onCopyLog, terms, shells, onNewTerm, onCloseTerm, onTermExit, onHide, height, onResizeStart, prompt, env, themeId }) {
   useLanguage();
   const [menu, setMenu] = useState(null);
   const shellItems = shells.map((s) => ({ id: `shell:${s.id}`, label: s.label, icon: 'terminal' }));
@@ -364,7 +366,7 @@ export function BottomDock({ tab, onTab, log, onClearLog, onCopyLog, terms, shel
         {terms.length === 0 && tab !== 'log' && (
           <div className="dock-empty"><Icon name="terminal" size={26} /><p>{t('term_empty')}</p><button className="btn" onClick={() => onNewTerm()}>{t('term_new')}</button></div>
         )}
-        {terms.map((tm) => <TerminalView key={tm.id} term={tm} active={tab === tm.id} onExit={onTermExit} />)}
+        {terms.map((tm) => <TerminalView key={tm.id} term={tm} active={tab === tm.id} onExit={onTermExit} prompt={prompt} env={env} themeId={themeId} />)}
       </div>
       {menu && <ContextMenu anchorEl={menu} x={0} y={0} items={shellItems} onClose={() => setMenu(null)} onPick={(id) => { setMenu(null); onNewTerm(id.slice(6)); }} />}
     </div>

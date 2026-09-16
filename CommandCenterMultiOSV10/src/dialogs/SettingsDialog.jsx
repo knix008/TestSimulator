@@ -8,6 +8,7 @@ import { THEMES } from '../themes';
 import { DialogFrame } from './Dialogs';
 import { SETTINGS_DEFAULTS } from '../lib/settings';
 import { isElectron } from '../lib/backend';
+import { PromptEditor } from './PromptEditor';
 
 function Num({ value, onChange, min = 1, max = 9999, width = 90, unit }) {
   return (
@@ -29,7 +30,7 @@ export function SettingsDialog({ spec, done }) {
   const first = useRef(true);
   useEffect(() => { if (first.current) { first.current = false; return; } if (spec.onChange) spec.onChange(v); }, [v]); // eslint-disable-line react-hooks/exhaustive-deps
   const submit = (e) => { if (e) e.preventDefault(); done(v); };
-  const tabs = [['general', t('set_general')], ['panels', t('set_panels')], ['open', t('set_open')], ['viewer', t('set_viewer')], ['windows', t('set_windows')], ['terminal', t('set_terminal')]];
+  const tabs = [['general', t('set_general')], ['panels', t('set_panels')], ['open', t('set_open')], ['viewer', t('set_viewer')], ['windows', t('set_windows')], ['terminal', t('set_terminal')], ['prompt', t('set_prompt')]];
   // Pickers are native dialogs on the desktop; in the browser the path is typed.
   const browseFolder = async () => {
     try { const p = await spec.pickFolder(v.termCwd || undefined); if (p) set('termCwd', p); } catch { /* cancelled */ }
@@ -43,7 +44,7 @@ export function SettingsDialog({ spec, done }) {
   const Check = ({ k, label }) => (<><span /><label className="check"><input type="checkbox" checked={!!v[k]} onChange={(e) => set(k, e.target.checked)} /> {label}</label></>);
 
   return (
-    <DialogFrame title={t('settings_title')} onClose={() => done(null)} icon="settings" width={600} windowed={spec.windowed}
+    <DialogFrame title={t('settings_title')} onClose={() => done(null)} icon="settings" width={900} windowed={spec.windowed} className="settings"
       footer={<>
         <button className="btn" onClick={() => setV({ ...SETTINGS_DEFAULTS, language: v.language })}>{t('set_defaults')}</button>
         <span className="spacer" />
@@ -166,6 +167,9 @@ export function SettingsDialog({ spec, done }) {
             <span />
             <span className="muted small">{t('set_term_cwd_hint')}</span>
           </div>
+        )}
+        {tab === 'prompt' && (
+          <PromptEditor value={v.prompt} onChange={(cfg) => set('prompt', cfg)} pickFile={spec.pickFile} />
         )}
         <button type="submit" hidden />
       </form>

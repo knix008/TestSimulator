@@ -60,6 +60,8 @@ const paths = {
   save: <><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" /><path d="M17 21v-8H7v8M7 3v5h8" /></>,
   wrap: <><path d="M4 6h16M4 12h11a3 3 0 0 1 0 6h-3" /><path d="M14 16l-2 2 2 2M4 18h5" /></>,
   hex: <><path d="M4 7h4M6 5v4M14 7h6M4 17h6M14 15l4 4M18 15l-4 4" /></>,
+  tabs: <><path d="M3 8h18v12H3z" /><path d="M3 8V5a1 1 0 0 1 1-1h6l2 2M12 4h4a1 1 0 0 1 1 1v3" /></>,
+  tabNew: <><path d="M3 8h18v12H3z" /><path d="M3 8V5a1 1 0 0 1 1-1h6l2 2h4" /><path d="M12 11v6M9 14h6" /></>,
   panelBottom: <><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M3 14h18" /></>,
 };
 

@@ -84,6 +84,7 @@ export function EditorDialog({ spec, done }) {
   const [busy, setBusy] = useState(false);
   const ref = useRef(null);
   const dirty = text !== saved;
+  useEffect(() => { if (spec.onDirty) spec.onDirty(dirty); }, [dirty]); // eslint-disable-line react-hooks/exhaustive-deps
   const save = async () => {
     if (busy) return;
     setBusy(true);

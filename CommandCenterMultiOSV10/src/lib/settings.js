@@ -1,4 +1,6 @@
 // Default values of the Settings dialog / session.
+import { PROMPT_DEFAULT } from './prompt';
+
 export const SETTINGS_DEFAULTS = {
   // general
   language: 'ko',
@@ -35,6 +37,7 @@ export const SETTINGS_DEFAULTS = {
   // terminal
   termShell: '',      // shell of a new terminal (id from term.shells); '' = the first one offered
   termCwd: '',        // where new terminals start; '' = the active panel's folder
+  prompt: PROMPT_DEFAULT, // terminal prompt theme (oh-my-posh compatible, see prompt.js)
 };
 
 // Keys the Settings dialog edits (everything else in the session — paths, bounds, hotlist — is left alone).

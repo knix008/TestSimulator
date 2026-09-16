@@ -42,7 +42,16 @@ let api = null;
 // Tool windows (viewer, editor, multi-rename, search, settings): independent
 // top-level windows that close together with the main window.
 const toolWins = new Set();
-const TOOL_SIZES = { viewer: [960, 720], editor: [960, 720], multiRename: [920, 680], search: [760, 600], settings: [600, 620] };
+const TOOL_SIZES = { viewer: [960, 720], editor: [960, 720], multiRename: [920, 680], search: [760, 600], settings: [920, 990] };
+// Every tool window exists at most once: a second request focuses the open one
+// (and hands it the new arguments — see ipc.js). The settings window has a fixed size.
+const SINGLETON = new Set(['viewer', 'editor', 'multiRename', 'search', 'settings']);
+const FIXED_SIZE = new Set(['settings']);
+// Title-bar icon per tool (assets/tool-icons/<kind>.png, see scripts/generate-tool-icons.mjs).
+function toolIcon(kind) {
+  const p = path.join(__dirname, '..', 'assets', 'tool-icons', `${kind}.png`);
+  return fs.existsSync(p) ? p : (fs.existsSync(iconPath()) ? iconPath() : undefined);
+}
 
 function loadApp(win, query) {
   if (argValue('smoke-url')) { const u = new URL(argValue('smoke-url')); for (const [k, v] of Object.entries(query || {})) u.searchParams.set(k, v); win.loadURL(u.toString()); }
@@ -51,23 +60,31 @@ function loadApp(win, query) {
 }
 
 function openToolWindow({ kind, title, width, height }) {
+  if (SINGLETON.has(kind)) {
+    const open = Array.from(toolWins).find((w) => w.ccKind === kind && !w.isDestroyed());
+    if (open) { if (open.isMinimized()) open.restore(); open.focus(); return open; }
+  }
   const session = api.session.get();
-  const saved = (session.toolBounds || {})[kind] || null;
+  const fixed = FIXED_SIZE.has(kind);
+  const saved = fixed ? null : (session.toolBounds || {})[kind] || null;
+  const pos = (session.toolBounds || {})[kind] || null;
   const [dw, dh] = TOOL_SIZES[kind] || [800, 600];
   // A second window of the same kind opens slightly offset so it does not hide the first.
   const twins = Array.from(toolWins).filter((w) => w.ccKind === kind).length;
   const win = new BrowserWindow({
     width: saved && saved.width ? saved.width : width || dw,
     height: saved && saved.height ? saved.height : height || dh,
-    x: saved && Number.isFinite(saved.x) ? saved.x + twins * 24 : undefined,
-    y: saved && Number.isFinite(saved.y) ? saved.y + twins * 24 : undefined,
-    minWidth: 480,
-    minHeight: 360,
+    x: pos && Number.isFinite(pos.x) ? pos.x + twins * 24 : undefined,
+    y: pos && Number.isFinite(pos.y) ? pos.y + twins * 24 : undefined,
+    minWidth: fixed ? undefined : 480,
+    minHeight: fixed ? undefined : 360,
+    resizable: !fixed,
+    maximizable: !fixed,
     backgroundColor: session.themeBg || '#12161c',
     autoHideMenuBar: true,
     show: false,
     title: title || PRODUCT,
-    icon: fs.existsSync(iconPath()) ? iconPath() : undefined,
+    icon: toolIcon(kind),
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: false, spellcheck: false },
   });
   win.ccKind = kind;
@@ -96,14 +113,14 @@ function iconPath() {
 function createWindow() {
   const session = api.session.get();
   const saved = session.windowBounds || null;
-  const MIN_W = 1000, MIN_H = 600;   // outer size; ≈ 984 px of content — see .app min-width in styles.css
+  const MIN_W = 1040, MIN_H = 600;   // outer size; ≈ 1024 px of content — see .app min-width in styles.css
   const win = new BrowserWindow({
     // Saved bounds from an older build may be smaller than today's minimum — Electron does not clamp them itself.
     width: Math.max(MIN_W, saved && saved.width ? saved.width : 1280),
     height: Math.max(MIN_H, saved && saved.height ? saved.height : 780),
     x: saved && Number.isFinite(saved.x) ? saved.x : undefined,
     y: saved && Number.isFinite(saved.y) ? saved.y : undefined,
-    // Wide enough for the full icon toolbar (measured ~965 px) in either language, so
+    // Wide enough for the full icon toolbar (measured ~1000 px) in either language, so
     // switching the language never changes the window and no button is ever clipped.
     minWidth: MIN_W,
     minHeight: MIN_H,

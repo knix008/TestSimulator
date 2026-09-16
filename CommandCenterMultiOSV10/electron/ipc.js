@@ -59,13 +59,22 @@ function registerIpc(api, getWindow, dialogs = {}, windows = {}) {
   ipcMain.handle('win:open', (_event, { kind, args, title, width, height }) => {
     if (!windows.openToolWindow) return { ok: false, error: { code: 'UNSUPPORTED', message: 'no tool windows' } };
     const w = windows.openToolWindow({ kind, title, width, height });
-    winArgs.set(String(w.id), args || {});
-    w.on('closed', () => winArgs.delete(String(w.id)));
+    if (winArgs.has(String(w.id))) {
+      // The window already existed: give it the new arguments (a different file to view, another folder to search …).
+      winArgs.set(String(w.id), args || {});
+      w.webContents.send('win:message', { type: 'replaceArgs', id: String(w.id), kind });
+    } else {
+      winArgs.set(String(w.id), args || {});
+      w.on('closed', () => winArgs.delete(String(w.id)));
+    }
     return { ok: true, data: { id: w.id } };
   });
   ipcMain.handle('win:args', (event, { id }) => ({ ok: true, data: winArgs.get(String(id)) || winArgs.get(String(event.sender.id)) || {} }));
   ipcMain.on('win:close', (event) => { const w = BrowserWindow.fromWebContents(event.sender); if (w && !w.isDestroyed()) w.close(); });
   ipcMain.on('win:message', (_event, msg) => send('win:message', msg));
+  // The resize grip at the bottom-right of the main window.
+  ipcMain.handle('win:size', (event) => { const w = BrowserWindow.fromWebContents(event.sender); const [width, height] = w ? w.getSize() : [0, 0]; return { ok: true, data: { width, height } }; });
+  ipcMain.on('win:resize', (event, { width, height }) => { const w = BrowserWindow.fromWebContents(event.sender); if (w && !w.isDestroyed() && !w.isMaximized()) w.setSize(Math.max(200, Math.round(width)), Math.max(150, Math.round(height))); });
 }
 
 module.exports = { registerIpc };

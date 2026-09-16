@@ -1,198 +1,193 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- Command Center application icon.
-     A "command deck" tile: the deep indigo→violet slab with a metallic bevel
-     ring (shared look of the family of apps), and inside it a radar — three
-     rings, a crosshair and a sweeping beam — with a glowing amber command
-     prompt (❯_) in the centre console. Four small panels sit on the rings,
-     wired to the console: everything is driven from one place. The same
-     file drives the app, the installer and the uninstaller icons on every
-     platform, plus the web favicon (see scripts/generate-icons.mjs). -->
+     A sci-fi command center building in the spirit of the classic RTS base
+     (an original drawing): a wide armoured octagonal platform with hazard
+     stripes, a raised command deck with a domed roof, lit windows, a radar
+     dish and an antenna mast, standing on a dark planet ground under a night
+     sky. Strong silhouette (wide base + dome) and warm amber lights so it
+     still reads at 16–32 px. The same file drives the app, installer,
+     uninstaller and shortcut icons on every platform, plus the web favicon
+     (scripts/generate-icons.mjs). -->
 <svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <!-- body -->
-    <linearGradient id="body" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0"    stop-color="#3d4bff"/>
-      <stop offset="0.45" stop-color="#2431b8"/>
-      <stop offset="1"    stop-color="#12105a"/>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0"   stop-color="#0b1633"/>
+      <stop offset="0.6" stop-color="#101a3c"/>
+      <stop offset="1"   stop-color="#1a1f3f"/>
     </linearGradient>
-    <radialGradient id="glow" cx="0.22" cy="0.16" r="0.75">
-      <stop offset="0"   stop-color="#9fb0ff" stop-opacity="0.85"/>
-      <stop offset="0.35" stop-color="#6d7cff" stop-opacity="0.25"/>
-      <stop offset="1"   stop-color="#000000" stop-opacity="0"/>
+    <linearGradient id="ground" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0"   stop-color="#4a3b33"/>
+      <stop offset="1"   stop-color="#241b17"/>
+    </linearGradient>
+    <linearGradient id="tileEdge" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0"   stop-color="#ffffff" stop-opacity="0.32"/>
+      <stop offset="0.5" stop-color="#ffffff" stop-opacity="0.05"/>
+      <stop offset="1"   stop-color="#000000" stop-opacity="0.4"/>
+    </linearGradient>
+    <!-- armour plating -->
+    <linearGradient id="steelTop" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0"   stop-color="#c3ccd9"/>
+      <stop offset="1"   stop-color="#8e9aab"/>
+    </linearGradient>
+    <linearGradient id="steelSide" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0"   stop-color="#7c8797"/>
+      <stop offset="1"   stop-color="#3f4753"/>
+    </linearGradient>
+    <linearGradient id="steelDark" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0"   stop-color="#5b6473"/>
+      <stop offset="1"   stop-color="#2c313b"/>
+    </linearGradient>
+    <linearGradient id="deck" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0"   stop-color="#8fa3c2"/>
+      <stop offset="0.5" stop-color="#5f6f8c"/>
+      <stop offset="1"   stop-color="#3a455c"/>
+    </linearGradient>
+    <radialGradient id="dome" cx="0.35" cy="0.25" r="0.85">
+      <stop offset="0"   stop-color="#dbe6f5"/>
+      <stop offset="0.45" stop-color="#8ea2c4"/>
+      <stop offset="1"   stop-color="#3d4a66"/>
     </radialGradient>
-    <radialGradient id="violet" cx="0.85" cy="0.9" r="0.7">
-      <stop offset="0"   stop-color="#a24cff" stop-opacity="0.55"/>
-      <stop offset="1"   stop-color="#a24cff" stop-opacity="0"/>
-    </radialGradient>
-    <!-- metallic bevel ring -->
-    <linearGradient id="ring" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0"    stop-color="#ffffff"/>
-      <stop offset="0.25" stop-color="#c9d2e6"/>
-      <stop offset="0.5"  stop-color="#7d8aa8"/>
-      <stop offset="0.75" stop-color="#d6deee"/>
-      <stop offset="1"    stop-color="#5c6a8a"/>
-    </linearGradient>
-    <linearGradient id="ringInner" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0"   stop-color="#1b1f4a"/>
-      <stop offset="1"   stop-color="#05061a"/>
-    </linearGradient>
-    <!-- radar sweep: bright at the leading edge, fading behind it -->
-    <linearGradient id="sweep" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0"   stop-color="#5cffd0" stop-opacity="0.55"/>
-      <stop offset="0.6" stop-color="#5cffd0" stop-opacity="0.12"/>
-      <stop offset="1"   stop-color="#5cffd0" stop-opacity="0"/>
-    </linearGradient>
-    <radialGradient id="radarFloor" cx="0.5" cy="0.5" r="0.5">
-      <stop offset="0"   stop-color="#0a0f3a" stop-opacity="0.75"/>
-      <stop offset="0.75" stop-color="#0a0f3a" stop-opacity="0.35"/>
-      <stop offset="1"   stop-color="#0a0f3a" stop-opacity="0"/>
-    </radialGradient>
-    <!-- centre console (dark glass) -->
-    <linearGradient id="console" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0"   stop-color="#1a2160"/>
-      <stop offset="1"   stop-color="#070a2a"/>
-    </linearGradient>
-    <linearGradient id="consoleEdge" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0"   stop-color="#ffffff" stop-opacity="0.75"/>
-      <stop offset="1"   stop-color="#ffffff" stop-opacity="0.12"/>
-    </linearGradient>
-    <!-- amber prompt -->
     <linearGradient id="amber" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0"    stop-color="#ffe680"/>
-      <stop offset="0.45" stop-color="#ffb020"/>
-      <stop offset="1"    stop-color="#e55d00"/>
+      <stop offset="0"   stop-color="#ffd166"/>
+      <stop offset="1"   stop-color="#ff7a00"/>
     </linearGradient>
-    <linearGradient id="amberEdge" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#fff6c8"/>
-      <stop offset="1" stop-color="#ff9a1f"/>
+    <linearGradient id="hazard" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#ffb703"/><stop offset="0.125" stop-color="#ffb703"/>
+      <stop offset="0.125" stop-color="#1f232b"/><stop offset="0.25" stop-color="#1f232b"/>
+      <stop offset="0.25" stop-color="#ffb703"/><stop offset="0.375" stop-color="#ffb703"/>
+      <stop offset="0.375" stop-color="#1f232b"/><stop offset="0.5" stop-color="#1f232b"/>
+      <stop offset="0.5" stop-color="#ffb703"/><stop offset="0.625" stop-color="#ffb703"/>
+      <stop offset="0.625" stop-color="#1f232b"/><stop offset="0.75" stop-color="#1f232b"/>
+      <stop offset="0.75" stop-color="#ffb703"/><stop offset="0.875" stop-color="#ffb703"/>
+      <stop offset="0.875" stop-color="#1f232b"/><stop offset="1" stop-color="#1f232b"/>
     </linearGradient>
-    <!-- node panels (frosted glass) -->
-    <linearGradient id="glass" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0"   stop-color="#ffffff" stop-opacity="0.96"/>
-      <stop offset="1"   stop-color="#dfe5ff" stop-opacity="0.86"/>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="18" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="160%">
+      <feGaussianBlur stdDeviation="16"/>
+    </filter>
+    <clipPath id="tileClip"><rect x="64" y="64" width="896" height="896" rx="200"/></clipPath>
+    <!-- light: a glossy glass sheen over the tile, specular highlights on the metal and the dome -->
+    <linearGradient id="gloss" x1="0" y1="0" x2="0.6" y2="1">
+      <stop offset="0"    stop-color="#ffffff" stop-opacity="0.34"/>
+      <stop offset="0.42" stop-color="#ffffff" stop-opacity="0.10"/>
+      <stop offset="0.5"  stop-color="#ffffff" stop-opacity="0"/>
     </linearGradient>
-    <linearGradient id="glassHead" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0"   stop-color="#8ea2ff"/>
-      <stop offset="1"   stop-color="#4f63f2"/>
+    <linearGradient id="sweep" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0"   stop-color="#ffffff" stop-opacity="0"/>
+      <stop offset="0.45" stop-color="#ffffff" stop-opacity="0.55"/>
+      <stop offset="0.55" stop-color="#ffffff" stop-opacity="0.55"/>
+      <stop offset="1"   stop-color="#ffffff" stop-opacity="0"/>
     </linearGradient>
-    <linearGradient id="rowA" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="#5b6cf0"/>
-      <stop offset="1" stop-color="#8b98ff"/>
+    <radialGradient id="spec" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0"   stop-color="#ffffff" stop-opacity="0.95"/>
+      <stop offset="0.5" stop-color="#ffffff" stop-opacity="0.35"/>
+      <stop offset="1"   stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="reflFade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0"   stop-color="#ffffff" stop-opacity="0.45"/>
+      <stop offset="1"   stop-color="#ffffff" stop-opacity="0"/>
     </linearGradient>
-    <filter id="drop" x="-25%" y="-25%" width="150%" height="150%">
-      <feDropShadow dx="0" dy="30" stdDeviation="30" flood-color="#04051e" flood-opacity="0.6"/>
-    </filter>
-    <filter id="soft" x="-30%" y="-30%" width="160%" height="160%">
-      <feDropShadow dx="0" dy="14" stdDeviation="14" flood-color="#04051e" flood-opacity="0.5"/>
-    </filter>
-    <filter id="neon" x="-60%" y="-60%" width="220%" height="220%">
-      <feGaussianBlur stdDeviation="26"/>
-    </filter>
-    <filter id="blur10" x="-20%" y="-20%" width="140%" height="140%">
-      <feGaussianBlur stdDeviation="10"/>
-    </filter>
-    <filter id="blur4" x="-20%" y="-20%" width="140%" height="140%">
-      <feGaussianBlur stdDeviation="4"/>
-    </filter>
-    <clipPath id="tile">
-      <rect x="84" y="84" width="856" height="856" rx="200"/>
-    </clipPath>
-    <clipPath id="inner">
-      <rect x="126" y="126" width="772" height="772" rx="164"/>
-    </clipPath>
-    <clipPath id="radar">
-      <circle cx="512" cy="500" r="318"/>
-    </clipPath>
-    <pattern id="grid" width="48" height="48" patternUnits="userSpaceOnUse">
-      <path d="M48 0H0V48" fill="none" stroke="#ffffff" stroke-opacity="0.07" stroke-width="2"/>
-    </pattern>
+    <mask id="reflMask"><rect x="64" y="872" width="896" height="120" fill="url(#reflFade)"/></mask>
+    <filter id="blur6"><feGaussianBlur stdDeviation="6"/></filter>
   </defs>
 
-  <!-- ── Slab with metallic bevel ── -->
-  <g filter="url(#drop)">
-    <rect x="84" y="84" width="856" height="856" rx="200" fill="url(#ring)"/>
-  </g>
-  <rect x="84" y="84" width="856" height="856" rx="200" fill="none" stroke="#0b0d2a" stroke-opacity="0.55" stroke-width="4"/>
-  <rect x="112" y="112" width="800" height="800" rx="176" fill="url(#ringInner)"/>
-  <rect x="126" y="126" width="772" height="772" rx="164" fill="url(#body)"/>
-  <g clip-path="url(#inner)">
-    <rect x="126" y="126" width="772" height="772" fill="url(#grid)"/>
-    <rect x="126" y="126" width="772" height="772" fill="url(#violet)"/>
-    <rect x="126" y="126" width="772" height="772" fill="url(#glow)"/>
-    <path d="M126 126 H898 V430 Q 512 560 126 430 Z" fill="#ffffff" opacity="0.10"/>
-  </g>
-  <rect x="126" y="126" width="772" height="772" rx="164" fill="none" stroke="#ffffff" stroke-opacity="0.35" stroke-width="3"/>
-
-  <!-- ── Radar: floor, sweep, rings, crosshair ── -->
-  <circle cx="512" cy="500" r="318" fill="url(#radarFloor)"/>
-  <g clip-path="url(#radar)">
-    <!-- the beam: a wedge from the centre, brightest along its leading edge -->
-    <path d="M512 500 L512 150 A350 350 0 0 1 842 372 Z" fill="url(#sweep)"/>
-    <path d="M512 500 L842 372" stroke="#8dffe0" stroke-opacity="0.9" stroke-width="5" stroke-linecap="round"/>
-    <path d="M512 500 L842 372" stroke="#8dffe0" stroke-opacity="0.6" stroke-width="14" stroke-linecap="round" filter="url(#blur10)"/>
-  </g>
-  <g fill="none" stroke="#c8d4ff" stroke-width="3">
-    <circle cx="512" cy="500" r="318" stroke-opacity="0.55"/>
-    <circle cx="512" cy="500" r="232" stroke-opacity="0.38" stroke-dasharray="14 12"/>
-    <circle cx="512" cy="500" r="146" stroke-opacity="0.45"/>
-  </g>
-  <g stroke="#c8d4ff" stroke-opacity="0.22" stroke-width="3">
-    <path d="M512 182 V818 M194 500 H830"/>
-  </g>
-  <!-- tick marks on the outer ring -->
-  <g stroke="#e4ebff" stroke-opacity="0.7" stroke-width="5" stroke-linecap="round">
-    <path d="M512 182 v22 M512 818 v-22 M194 500 h22 M830 500 h-22"/>
+  <!-- tile: night sky over planet ground -->
+  <rect x="64" y="64" width="896" height="896" rx="200" fill="url(#sky)"/>
+  <g clip-path="url(#tileClip)">
+    <g fill="#ffffff">
+      <circle cx="180" cy="170" r="5" opacity="0.8"/><circle cx="300" cy="120" r="3.5" opacity="0.6"/><circle cx="840" cy="150" r="5" opacity="0.9"/>
+      <circle cx="700" cy="110" r="3" opacity="0.6"/><circle cx="900" cy="300" r="3.5" opacity="0.6"/><circle cx="130" cy="330" r="3" opacity="0.5"/>
+      <circle cx="540" cy="140" r="3" opacity="0.7"/><circle cx="420" cy="190" r="2.5" opacity="0.5"/>
+    </g>
+    <!-- a distant planet -->
+    <circle cx="800" cy="230" r="70" fill="#5f7fd0" opacity="0.55"/>
+    <circle cx="785" cy="215" r="70" fill="#8fb0ff" opacity="0.25"/>
+    <!-- ground -->
+    <ellipse cx="512" cy="1010" rx="620" ry="230" fill="url(#ground)"/>
+    <ellipse cx="512" cy="905" rx="410" ry="60" fill="#000" opacity="0.45" filter="url(#shadow)"/>
   </g>
 
-  <!-- ── Wires from the console to the four node panels ── -->
-  <g fill="none" stroke="#5cffd0" stroke-opacity="0.55" stroke-width="5" stroke-linecap="round">
-    <path d="M400 440 L300 322"/>
-    <path d="M624 440 L724 322"/>
-    <path d="M400 560 L300 678"/>
-    <path d="M624 560 L724 678"/>
+  <!-- ── building (scaled up so it fills the tile and stays readable when small) ── -->
+  <g id="building" transform="translate(512 770) scale(1.22) translate(-512 -770)">
+  <!-- octagonal armoured platform: side wall -->
+  <path d="M196 700 L300 636 L724 636 L828 700 L828 790 L724 854 L300 854 L196 790 Z" fill="url(#steelSide)"/>
+  <!-- hazard stripe band around the base -->
+  <path d="M196 760 L828 760 L828 796 L724 854 L300 854 L196 796 Z" fill="url(#hazard)" opacity="0.95"/>
+  <path d="M196 700 L828 700 L828 762 L196 762 Z" fill="url(#steelDark)"/>
+  <!-- platform top -->
+  <path d="M196 700 L300 636 L724 636 L828 700 L724 764 L300 764 Z" fill="url(#steelTop)"/>
+  <path d="M300 636 L724 636 L828 700" fill="none" stroke="#ffffff" stroke-opacity="0.55" stroke-width="8" stroke-linejoin="round"/>
+  <!-- rivets on the platform edge -->
+  <g fill="#2c313b" opacity="0.7">
+    <circle cx="240" cy="725" r="7"/><circle cx="300" cy="750" r="7"/><circle cx="370" cy="752" r="7"/><circle cx="450" cy="752" r="7"/>
+    <circle cx="574" cy="752" r="7"/><circle cx="654" cy="752" r="7"/><circle cx="724" cy="750" r="7"/><circle cx="784" cy="725" r="7"/>
+  </g>
+  <!-- landing pad on the left of the platform -->
+  <ellipse cx="292" cy="720" rx="62" ry="24" fill="#3a4250"/>
+  <ellipse cx="292" cy="714" rx="62" ry="24" fill="#6a7686"/>
+  <ellipse cx="292" cy="714" rx="34" ry="13" fill="none" stroke="#ffb703" stroke-width="8"/>
+
+  <!-- command deck (raised octagonal body) -->
+  <path d="M356 530 L430 490 L594 490 L668 530 L668 660 L594 700 L430 700 L356 660 Z" fill="url(#deck)"/>
+  <path d="M356 530 L430 490 L594 490 L668 530 L594 570 L430 570 Z" fill="url(#steelTop)"/>
+  <path d="M430 490 L594 490 L668 530" fill="none" stroke="#ffffff" stroke-opacity="0.5" stroke-width="7" stroke-linejoin="round"/>
+  <!-- deck windows (amber, lit) -->
+  <g fill="url(#amber)" filter="url(#glow)">
+    <rect x="392" y="596" width="40" height="46" rx="6"/>
+    <rect x="452" y="606" width="120" height="44" rx="6"/>
+    <rect x="592" y="596" width="40" height="46" rx="6"/>
+  </g>
+  <g fill="#1a1f2b" opacity="0.5">
+    <rect x="452" y="606" width="120" height="8"/>
   </g>
 
-  <!-- ── Node panels: small frosted screens on the rings ── -->
-  <g id="node">
-    <g filter="url(#soft)"><rect x="226" y="262" width="150" height="104" rx="18" fill="url(#glass)"/></g>
-    <path d="M226 280 a18 18 0 0 1 18 -18 h114 a18 18 0 0 1 18 18 v26 h-150 z" fill="url(#glassHead)"/>
-    <circle cx="246" cy="275" r="5" fill="#ff6b6b"/><circle cx="262" cy="275" r="5" fill="#ffd166"/><circle cx="278" cy="275" r="5" fill="#5cff9d"/>
-    <rect x="244" y="318" width="92" height="9" rx="4.5" fill="url(#rowA)"/>
-    <rect x="244" y="338" width="64" height="9" rx="4.5" fill="url(#rowA)" opacity="0.7"/>
-    <circle cx="358" cy="350" r="7" fill="#5cff9d"/>
-  </g>
-  <use href="#node" transform="translate(422 0)"/>
-  <use href="#node" transform="translate(0 356)"/>
-  <use href="#node" transform="translate(422 356)"/>
+  <!-- dome -->
+  <ellipse cx="512" cy="500" rx="122" ry="26" fill="#2c313b" opacity="0.6"/>
+  <path d="M400 496 A112 112 0 0 1 624 496 Z" fill="url(#dome)"/>
+  <path d="M400 496 A112 112 0 0 1 624 496" fill="none" stroke="#ffffff" stroke-opacity="0.35" stroke-width="6"/>
+  <!-- dome seams -->
+  <path d="M512 384 V496 M440 410 L512 496 L584 410" fill="none" stroke="#2c313b" stroke-opacity="0.35" stroke-width="5"/>
+  <!-- dome light -->
+  <circle cx="512" cy="392" r="16" fill="#ff7a00" filter="url(#glow)"/>
+  <circle cx="512" cy="392" r="9" fill="#ffd166"/>
 
-  <!-- ── Centre console with the command prompt ── -->
-  <circle cx="512" cy="500" r="150" fill="#5cffd0" opacity="0.18" filter="url(#neon)"/>
-  <g filter="url(#soft)">
-    <rect x="362" y="400" width="300" height="200" rx="40" fill="url(#console)"/>
-  </g>
-  <rect x="362" y="400" width="300" height="200" rx="40" fill="none" stroke="url(#consoleEdge)" stroke-width="3"/>
-  <path d="M362 440 a40 40 0 0 1 40 -40 h220 a40 40 0 0 1 40 40 v12 h-300 z" fill="#ffffff" opacity="0.08"/>
-  <!-- ❯ chevron + blinking cursor, glowing amber -->
-  <g filter="url(#neon)" opacity="0.8">
-    <path d="M418 442 L516 504 L418 566" fill="none" stroke="#ffb020" stroke-width="40" stroke-linecap="round" stroke-linejoin="round"/>
-    <rect x="538" y="546" width="80" height="24" rx="8" fill="#ffb020"/>
-  </g>
-  <path d="M418 442 L516 504 L418 566" fill="none" stroke="url(#amber)" stroke-width="40" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M418 442 L516 504 L418 566" fill="none" stroke="url(#amberEdge)" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" opacity="0.7" filter="url(#blur4)"/>
-  <rect x="538" y="546" width="80" height="24" rx="8" fill="url(#amber)"/>
-  <rect x="538" y="546" width="80" height="24" rx="8" fill="none" stroke="url(#amberEdge)" stroke-width="2"/>
+  <!-- specular: dome highlight and rim light, light sweep on the platform and the deck -->
+  <ellipse cx="462" cy="418" rx="42" ry="26" fill="url(#spec)" transform="rotate(-30 462 418)"/>
+  <path d="M600 420 A112 112 0 0 1 622 486" fill="none" stroke="#bfe9ff" stroke-opacity="0.7" stroke-width="7" stroke-linecap="round"/>
+  <path d="M300 636 L724 636 L828 700 L724 764 L300 764 L196 700 Z" fill="url(#sweep)" opacity="0.5"/>
+  <path d="M356 530 L430 490 L594 490 L668 530 L594 570 L430 570 Z" fill="url(#sweep)" opacity="0.6"/>
+  <path d="M430 494 L446 494 L372 700 L356 700 Z" fill="#ffffff" opacity="0.14"/>
+  <!-- antenna mast -->
+  <rect x="504" y="286" width="16" height="106" rx="6" fill="#9aa5b5"/>
+  <circle cx="512" cy="280" r="18" fill="#ff3b30" filter="url(#glow)"/>
+  <circle cx="512" cy="280" r="9" fill="#ffd8d6"/>
 
-  <!-- ── Bottom status strip ── -->
-  <rect x="196" y="842" width="632" height="44" rx="22" fill="#000000" opacity="0.28"/>
-  <rect x="196" y="842" width="632" height="44" rx="22" fill="none" stroke="#ffffff" stroke-opacity="0.18" stroke-width="2"/>
-  <circle cx="230" cy="864" r="10" fill="#5cff9d"/>
-  <circle cx="230" cy="864" r="10" fill="#5cff9d" opacity="0.6" filter="url(#blur10)"/>
-  <rect x="256" y="856" width="200" height="16" rx="8" fill="#ffffff" opacity="0.55"/>
-  <rect x="640" y="856" width="160" height="16" rx="8" fill="#ffffff" opacity="0.25"/>
+  <!-- radar dish, top right of the deck -->
+  <rect x="626" y="470" width="14" height="60" rx="5" fill="#9aa5b5"/>
+  <path d="M604 470 A48 42 0 0 1 700 470 L652 482 Z" fill="url(#steelTop)" stroke="#3f4753" stroke-width="5" stroke-linejoin="round"/>
+  <line x1="652" y1="482" x2="652" y2="440" stroke="#9aa5b5" stroke-width="7" stroke-linecap="round"/>
+  <circle cx="652" cy="436" r="8" fill="#4cc9f0" filter="url(#glow)"/>
 
-  <!-- ── Specular highlight over everything (glass dome feel) ── -->
-  <g clip-path="url(#tile)">
-    <ellipse cx="330" cy="200" rx="260" ry="120" fill="#ffffff" opacity="0.20" filter="url(#blur10)" transform="rotate(-22 330 200)"/>
-    <path d="M84 84 H940 V330 Q 512 470 84 330 Z" fill="#ffffff" opacity="0.06"/>
+  <!-- side pods with exhaust lights -->
+  <path d="M232 690 L280 662 L280 742 L232 770 Z" fill="url(#steelDark)"/>
+  <path d="M792 690 L744 662 L744 742 L792 770 Z" fill="url(#steelDark)"/>
+  <g fill="#4cc9f0" filter="url(#glow)">
+    <rect x="244" y="700" width="24" height="12" rx="4"/><rect x="244" y="726" width="24" height="12" rx="4"/>
+    <rect x="756" y="700" width="24" height="12" rx="4"/><rect x="756" y="726" width="24" height="12" rx="4"/>
   </g>
+
+  </g>
+
+  <!-- the building mirrored in the polished ground -->
+  <g clip-path="url(#tileClip)" mask="url(#reflMask)" filter="url(#blur6)">
+    <use href="#building" transform="translate(0 1744) scale(1 -1)"/>
+  </g>
+  <!-- glass sheen over the whole tile -->
+  <path d="M64 264 A200 200 0 0 1 264 64 H760 A200 200 0 0 1 960 264 V300 Q560 560 64 700 Z" fill="url(#gloss)" clip-path="url(#tileClip)"/>
+
+  <!-- tile bevel on top of everything -->
+  <rect x="76" y="76" width="872" height="872" rx="188" fill="none" stroke="url(#tileEdge)" stroke-width="24"/>
 </svg>

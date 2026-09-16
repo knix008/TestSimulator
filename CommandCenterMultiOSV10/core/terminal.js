@@ -89,19 +89,19 @@ function shells() {
   const posixSource = (f) => `. "${f.replace(/\\/g, '/')}";`;
   if (process.platform === 'win32') {
     const pf = [process.env.ProgramFiles, process.env['ProgramFiles(x86)'], process.env.LOCALAPPDATA && path.join(process.env.LOCALAPPDATA, 'Programs')];
-    const ps = (exe) => ({ cmd: 'cmd.exe', args: ['/Q', '/C', `chcp 65001>nul & "${exe}" -NoLogo -NoProfile -ExecutionPolicy Bypass -Command -`], verbatim: true, init: PS_INIT, ext: '.ps1', bom: true, source: (f) => `. "${f}";`, cwdLine: `Write-Host "${MARK}$PWD"`, eol: '\r\n' });
+    const ps = (exe) => ({ cmd: 'cmd.exe', args: ['/Q', '/C', `chcp 65001>nul & "${exe}" -NoLogo -NoProfile -ExecutionPolicy Bypass -Command -`], verbatim: true, init: PS_INIT, ext: '.ps1', bom: true, source: (f) => `$__ccrc = 1; . "${f}";`, rcLine: '$__ccrc = if ($?) { 0 } else { 1 }; if ($__ccrc -and $LASTEXITCODE) { $__ccrc = $LASTEXITCODE }', cwdLine: `Write-Host "${MARK}$PWD;$__ccrc"`, eol: '\r\n' });
     const list = [
       { id: 'powershell', label: 'PowerShell', ...ps('powershell.exe') },
-      { id: 'cmd', label: 'Command Prompt', cmd: 'cmd.exe', args: ['/Q', '/K', 'chcp 65001>nul'], batch: true, ext: '.cmd', markerInFile: true, source: (f) => `call "${f}"`, cwdLine: `echo ${MARK}%CD%`, eol: '\r\n' },
+      { id: 'cmd', label: 'Command Prompt', cmd: 'cmd.exe', args: ['/Q', '/K', 'chcp 65001>nul'], batch: true, ext: '.cmd', markerInFile: true, source: (f) => `call "${f}"`, cwdLine: `echo ${MARK}%CD%;%ERRORLEVEL%`, eol: '\r\n' },
     ];
     const pwsh = firstExisting(pf.map((p) => p && path.join(p, 'PowerShell', '7', 'pwsh.exe')));
     if (pwsh) list.push({ id: 'pwsh', label: 'PowerShell 7', ...ps(pwsh) });
     const bash = firstExisting(pf.map((p) => p && path.join(p, 'Git', 'bin', 'bash.exe')));
-    if (bash) list.push({ id: 'gitbash', label: 'Git Bash', cmd: bash, args: ['--norc', '-s'], ext: '.sh', source: posixSource, cwdLine: `echo "${MARK}$PWD"`, eol: '\n' });
+    if (bash) list.push({ id: 'gitbash', label: 'Git Bash', cmd: bash, args: ['--norc', '-s'], ext: '.sh', source: posixSource, cwdLine: `echo "${MARK}$PWD;$?"`, eol: '\n' });
     return list;
   }
   const sh = process.env.SHELL || '/bin/bash';
-  const posix = (cmd) => ({ cmd, args: ['-s'], ext: '.sh', source: posixSource, cwdLine: `echo "${MARK}$PWD"`, eol: '\n' });
+  const posix = (cmd) => ({ cmd, args: ['-s'], ext: '.sh', source: posixSource, cwdLine: `echo "${MARK}$PWD;$?"`, eol: '\n' });
   const list = [{ id: 'default', label: path.basename(sh), ...posix(sh) }];
   if (sh !== '/bin/bash' && fs.existsSync('/bin/bash')) list.push({ id: 'bash', label: 'bash', ...posix('/bin/bash') });
   if (sh !== '/bin/zsh' && fs.existsSync('/bin/zsh')) list.push({ id: 'zsh', label: 'zsh', ...posix('/bin/zsh') });
@@ -173,6 +173,9 @@ function createTerminals() {
     let marked = false;
     t = t.replace(CWD_RE, (_m, dir) => {
       let d = dir.trim();
+      // "<dir>;<exit code>" — the status of the last command, for the prompt's status segment.
+      const semi = d.lastIndexOf(';');
+      if (semi >= 0 && /^-?\d+$/.test(d.slice(semi + 1))) { s.rc = Number(d.slice(semi + 1)); d = d.slice(0, semi); }
       // Git Bash prints /d/Home/…; git and fs want D:/Home/…
       if (process.platform === 'win32') d = d.replace(/^\/([a-zA-Z])(\/|$)/, (_x, l) => `${l.toUpperCase()}:/`);
       s.cwd = d || s.cwd; s.idle = true; marked = true;
@@ -200,7 +203,7 @@ function createTerminals() {
       let dir = cwd && fs.existsSync(cwd) ? cwd : os.homedir();
       try { if (!fs.statSync(dir).isDirectory()) dir = path.dirname(dir); } catch { dir = os.homedir(); }
       const id = nextId++;
-      const s = { id, shell: def.id, label: def.label, cwd: dir, chunks: [], seq: 0, exited: false, code: null, def, proc: null, eatNewline: false, idle: true, waiters: [] };
+      const s = { id, shell: def.id, label: def.label, cwd: dir, chunks: [], seq: 0, exited: false, code: null, rc: 0, def, proc: null, eatNewline: false, idle: true, waiters: [] };
       s.scriptFile = path.join(os.tmpdir(), `cc-term-${process.pid}-${id}${def.ext}`);
       const env = { ...process.env, TERM: 'dumb', GIT_PAGER: 'cat', PAGER: 'cat', LANG: process.env.LANG || 'C.UTF-8' };
       if (def.batch) env.PROMPT = PROMPT_MARK;
@@ -230,11 +233,12 @@ function createTerminals() {
     run({ id, line }) {
       const s = sessions.get(id);
       if (!s || s.exited) return false;
-      const { eol, cwdLine, bom, markerInFile, source } = s.def;
+      const { eol, cwdLine, bom, markerInFile, source, rcLine } = s.def;
       if (!s.idle) { s.proc.stdin.write(`${line}${eol}`); return true; }
       s.idle = false;
       wake(s);   // readers see the busy phase, so the return to idle (the prompt, a fresh git status) is never missed
-      fs.writeFileSync(s.scriptFile, `${bom ? '\ufeff' : ''}${line}${eol}${markerInFile ? `${cwdLine}${eol}` : ''}`, 'utf8');
+      // rcLine (PowerShell): the exit status is read *inside* the script \u2014 after the dot-source, $? only says the sourcing worked.
+      fs.writeFileSync(s.scriptFile, `${bom ? '\ufeff' : ''}${line}${eol}${rcLine ? `${rcLine}${eol}` : ''}${markerInFile ? `${cwdLine}${eol}` : ''}`, 'utf8');
       s.proc.stdin.write(`${source(s.scriptFile)}${markerInFile ? '' : ` ${cwdLine}`}${eol}`);
       return true;
     },
@@ -245,7 +249,7 @@ function createTerminals() {
     async read({ id, since = 0, idle, wait = 0 }) {
       const s = sessions.get(id);
       if (!s) return null;
-      const snapshot = () => ({ id, chunks: since ? s.chunks.filter((c) => c.seq > since) : s.chunks, seq: s.seq, cwd: s.cwd, idle: s.idle, exited: s.exited, code: s.code });
+      const snapshot = () => ({ id, chunks: since ? s.chunks.filter((c) => c.seq > since) : s.chunks, seq: s.seq, cwd: s.cwd, idle: s.idle, exited: s.exited, code: s.code, rc: s.rc });
       const fresh = () => s.seq > since || (idle !== undefined && s.idle !== idle) || s.exited;
       if (!wait || fresh()) return snapshot();
       await new Promise((resolve) => { const t = setTimeout(resolve, Math.min(wait, 5000)); s.waiters.push(() => { clearTimeout(t); resolve(); }); });

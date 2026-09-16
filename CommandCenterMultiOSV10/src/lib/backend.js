@@ -179,6 +179,7 @@ export const windowId = winParams.get('id') || '';
 export const canOpenWindows = typeof window !== 'undefined' && (isElectron ? !!electron.openWindow : true);
 
 const webChildren = new Set();
+const SINGLETON_KINDS = new Set(['viewer', 'editor', 'multiRename', 'search', 'settings']);   // one popup per tool
 let bus = null;
 function channel() {
   if (!bus && typeof BroadcastChannel !== 'undefined') { try { bus = new BroadcastChannel('command-center'); } catch { bus = null; } }
@@ -189,10 +190,20 @@ export async function openWindow(kind, args, { title, width, height } = {}) {
   if (isElectron) { const r = unwrap(await electron.openWindow({ kind, args, title, width, height }), 'window error'); return r.id; }
   const id = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
   try { localStorage.setItem(`cc-win:${id}`, JSON.stringify(args || {})); } catch { /* no storage — the page falls back to the URL */ }
+  if (SINGLETON_KINDS.has(kind)) {
+    const open = Array.from(webChildren).find((c) => c.ccKind === kind && !c.closed);
+    if (open) {
+      try { localStorage.setItem(`cc-win:${open.ccId}`, JSON.stringify(args || {})); } catch { /* ignore */ }
+      const c = channel(); if (c) c.postMessage({ type: 'replaceArgs', id: open.ccId, kind });
+      try { open.focus(); } catch { /* ignore */ }
+      return open.ccId;
+    }
+  }
   const url = new URL(window.location.href);
   url.searchParams.set('win', kind);
   url.searchParams.set('id', id);
   const w = window.open(url.toString(), `cc-${kind}-${id}`, `popup=yes,width=${width || 900},height=${height || 680}`);
+  if (w) { w.ccKind = kind; w.ccId = id; }
   if (!w) throw new Error('POPUP_BLOCKED');
   webChildren.add(w);
   return id;
@@ -203,6 +214,11 @@ export async function windowArgs() {
   try { const raw = localStorage.getItem(`cc-win:${windowId}`); if (raw) { localStorage.removeItem(`cc-win:${windowId}`); return JSON.parse(raw); } } catch { /* fall through */ }
   return {};
 }
+
+// Resize grip (desktop only): the window's outer size and a resize while dragging.
+export const canResizeWindow = isElectron && !!electron.resizeWindow;
+export async function windowSize() { return isElectron ? unwrap(await electron.windowSize(), 'window error') : { width: window.outerWidth, height: window.outerHeight }; }
+export function resizeWindow(width, height) { if (isElectron) electron.resizeWindow(width, height); }
 
 export function closeWindow() {
   if (isElectron) electron.closeWindow();

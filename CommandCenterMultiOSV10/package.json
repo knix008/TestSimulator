@@ -72,6 +72,7 @@
       "electron/**/*",
       "core/**/*",
       "build/icons/**/*",
+      "assets/tool-icons/**/*",
       "package.json"
     ],
     "extraResources": [

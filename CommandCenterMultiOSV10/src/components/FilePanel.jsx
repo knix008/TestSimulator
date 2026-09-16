@@ -13,7 +13,7 @@
 import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { call, watchDir } from '../lib/backend';
 import { t, useLanguage } from '../lib/i18n';
-import { breadcrumbs, dirName, formatSize, sizeDisplay, typeDisplay, driveOf, globToRegExp } from '../lib/format';
+import { breadcrumbs, dirName, baseName, formatSize, sizeDisplay, typeDisplay, driveOf, globToRegExp } from '../lib/format';
 import { Icon } from './Icons';
 import { FolderTree } from './FolderTree';
 import { ContextMenu } from './ContextMenu';
@@ -43,7 +43,7 @@ function compareEntries(a, b, sort) {
 }
 
 export const FilePanel = forwardRef(function FilePanel(props, ref) {
-  const { side, path, active, sort, showHidden, suspendWatch, onNavigate, onActivate, onSortChange, onSelectionChange, onOpenEntry, onAction, capabilities, history = [], hotlist = [], onHotlistChange, columns, quickSearch = true, spaceMeasures = true } = props;
+  const { side, path, active, sort, showHidden, suspendWatch, onNavigate, onActivate, onSortChange, onSelectionChange, onOpenEntry, onAction, capabilities, history = [], hotlist = [], onHotlistChange, columns, quickSearch = true, spaceMeasures = true, tabs = [], tabIndex = 0, onTabSelect, onTabNew, onTabClose, onTabCloseOthers, onTabToOther } = props;
   useLanguage();
 
   const [entries, setEntries] = useState([]);
@@ -58,6 +58,7 @@ export const FilePanel = forwardRef(function FilePanel(props, ref) {
   const [drives, setDrives] = useState([]);
   const [historyMenu, setHistoryMenu] = useState(null);   // anchor element
   const [hotMenu, setHotMenu] = useState(null);           // anchor element
+  const [tabMenu, setTabMenu] = useState(null);           // { x, y, i }
   const [dirSizes, setDirSizes] = useState(() => new Map());  // folder → measured size (Space)
   const [quick, setQuick] = useState('');                 // quick-search buffer
   const quickTimer = useRef(null);
@@ -370,8 +371,38 @@ export const FilePanel = forwardRef(function FilePanel(props, ref) {
     { id: 'properties', label: t('ctx_properties'), icon: 'properties', disabled: !single },
   ];
 
+  // Tab label: the folder's name, or the drive / root itself.
+  const tabLabel = (p) => baseName(p) || p;
+  const tabMenuItems = tabMenu ? [
+    { id: 'new', label: t('tab_new'), icon: 'tabNew', shortcut: 'Ctrl+T' },
+    { id: 'other', label: t('tab_to_other'), icon: 'tabs' },
+    { sep: true },
+    { id: 'close', label: t('tab_close'), icon: 'close', shortcut: 'Ctrl+W', disabled: tabs.length <= 1 },
+    { id: 'others', label: t('tab_close_others'), icon: 'close', disabled: tabs.length <= 1 },
+  ] : [];
+  const onTabMenuPick = (id) => {
+    const i = tabMenu.i; setTabMenu(null);
+    if (id === 'new') onTabNew && onTabNew();
+    else if (id === 'other') onTabToOther && onTabToOther(i);
+    else if (id === 'close') onTabClose && onTabClose(i);
+    else if (id === 'others') onTabCloseOthers && onTabCloseOthers(i);
+  };
+
   return (
     <div className={`file-panel ${active ? 'active' : ''}`} onMouseDown={onActivate}>
+      {/* Tabs (TC): click = switch, middle click / × = close, right click = menu, double-click on the empty part or + = new tab */}
+      <div className="tab-bar" onDoubleClick={(e) => { if (e.target === e.currentTarget) onTabNew && onTabNew(); }}>
+        {tabs.map((tb, i) => (
+          <button key={`${i}:${tb.path}`} className={`tab ${i === tabIndex ? 'active' : ''}`} title={tb.path}
+            onClick={() => onTabSelect && onTabSelect(i)}
+            onMouseDown={(e) => { if (e.button === 1) { e.preventDefault(); onTabClose && onTabClose(i); } }}
+            onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setTabMenu({ x: e.clientX, y: e.clientY, i }); }}>
+            <Icon name="folder" size={13} className="ic-folder" /><span className="ellipsis">{tabLabel(tb.path)}</span>
+            {tabs.length > 1 && <span className="tab-close" title={t('tab_close')} onClick={(e) => { e.stopPropagation(); onTabClose && onTabClose(i); }}><Icon name="close" size={11} /></span>}
+          </button>
+        ))}
+        <button className="tab-add" title={t('tip_tab_new')} aria-label={t('tab_new')} onClick={() => onTabNew && onTabNew()}><Icon name="plus" size={14} /></button>
+      </div>
       <div className="path-bar">
         <button className="drive-btn" title={t('drives')} onClick={(e) => openDriveMenu(e.currentTarget)}>
           <Icon name="drive" size={14} /><span>{currentDrive}</span><Icon name="chevronDown" size={12} className="caret" />
@@ -444,6 +475,9 @@ export const FilePanel = forwardRef(function FilePanel(props, ref) {
       )}
       {hotMenu && (
         <ContextMenu anchorEl={hotMenu} x={0} y={0} items={hotItems} onClose={() => setHotMenu(null)} onPick={onHotPick} />
+      )}
+      {tabMenu && (
+        <ContextMenu x={tabMenu.x} y={tabMenu.y} items={tabMenuItems} onClose={() => setTabMenu(null)} onPick={onTabMenuPick} />
       )}
     </div>
   );
