@@ -140,8 +140,10 @@ test('prompt: every preset colours the git segment by the repository state (git_
     for (const [name, git] of Object.entries(states)) {
       const seg = renderPrompt(p.config, { ...base, git }).blocks.flatMap((b) => b.segments).find((s) => s.type === 'git');
       assert.ok(seg, `${id} shows git`);
-      if (name === 'uptodate') { const own = renderPrompt({ ...p.config, git_state_colors: false }, { ...base, git }).blocks.flatMap((b) => b.segments).find((s) => s.type === 'git'); assert.equal(seg.bg || seg.fg, own.bg || own.fg, `${id}: clean keeps the prompt's colour`); }
-      else assert.equal(seg.bg || seg.fg, GIT_STATE_COLORS[name], `${id} / ${name}`);
+      assert.equal(seg.bg || seg.fg, GIT_STATE_COLORS[name], `${id} / ${name}`);
+      const others = renderPrompt(p.config, { ...base, git }).blocks.flatMap((b) => b.segments).filter((s) => s.type !== 'git');
+      const own = renderPrompt({ ...p.config, git_state_colors: false }, { ...base, git }).blocks.flatMap((b) => b.segments).filter((s) => s.type !== 'git');
+      assert.deepEqual(others.map((s) => [s.bg, s.fg]), own.map((s) => [s.bg, s.fg]), `${id}: only the git segment changes`);
     }
   }
   const off = { ...PRESETS.rainbow.config, git_state_colors: false };
@@ -153,7 +155,7 @@ test('prompt: every preset colours the git segment by the repository state (git_
 
 test('prompt: the state colours are green → red → yellow → orange → green along commit / push, and editable per prompt', () => {
   const { GIT_STATE_NAMES } = prompt;
-  assert.deepEqual(GIT_STATE_NAMES, ['conflict', 'staged', 'modified', 'ahead', 'behind']);
+  assert.deepEqual(GIT_STATE_NAMES, ['conflict', 'staged', 'modified', 'ahead', 'behind', 'uptodate']);
   assert.equal(GIT_STATE_COLORS.uptodate, '#7CFC8B');   // clean, pushed — green
   assert.equal(GIT_STATE_COLORS.modified, '#FF5C5C');   // edited — red
   assert.equal(GIT_STATE_COLORS.staged, '#FFD700');     // git add — yellow

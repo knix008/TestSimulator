@@ -347,15 +347,16 @@ const TEXT_LIMIT = 8 * 1024 * 1024;
 const IMAGE_LIMIT = 24 * 1024 * 1024;
 const HEX_LIMIT = 256 * 1024;
 
+// Binary when control bytes text never uses (NUL included) make up more than 1% of the sample — not on
+// the first NUL: a source file may hold one (a " " placeholder), a real binary has hundreds.
 function looksBinary(buf) {
   const n = Math.min(buf.length, 8192);
   let odd = 0;
   for (let i = 0; i < n; i++) {
     const c = buf[i];
-    if (c === 0) return true;
-    if (c < 7 || (c > 13 && c < 32 && c !== 27)) odd++;
+    if (c === 0 || c < 7 || (c > 13 && c < 32 && c !== 27)) odd++;
   }
-  return n > 0 && odd / n > 0.1;
+  return odd > 2 && odd / n > 0.01;
 }
 
 function decodeText(buf) {

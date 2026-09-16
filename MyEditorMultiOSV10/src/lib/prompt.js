@@ -20,8 +20,8 @@ export const SEGMENT_STYLES = ['powerline', 'plain', 'diamond'];
 // Colours by git state (the classic My Editor prompt): used when a git
 // segment's background (or foreground) is 'auto'.
 export const GIT_STATE_COLORS = { conflict: '#D62828', staged: '#FFD700', modified: '#FF5C5C', ahead: '#FF9F43', behind: '#7cc4ff', uptodate: '#7CFC8B', none: '#7CFC8B' };
-// The states that recolour the git segment; a clean, pushed repository keeps the prompt's own colour.
-export const GIT_STATE_NAMES = ['conflict', 'staged', 'modified', 'ahead', 'behind'];
+// The states that colour the git (branch) segment — every state, a clean pushed repository included (green).
+export const GIT_STATE_NAMES = ['conflict', 'staged', 'modified', 'ahead', 'behind', 'uptodate'];
 // The state colours of a prompt: its own git_colors over the defaults.
 export const gitColorsOf = (cfg) => ({ ...GIT_STATE_COLORS, ...((cfg && cfg.git_colors) || {}) });
 
@@ -665,10 +665,11 @@ export function renderPrompt(config, state, theme) {
       const gitColors = gitColorsOf(cfg);
       let bg = resolveColor(bgSpec, { theme: th, gitStateName: gs, palette: cfg.palette, parentBackground: prevBg, gitColors });
       let fg = resolveColor(fgSpec, { theme: th, gitStateName: gs, palette: cfg.palette, parentBackground: prevBg, gitColors }) || th.fg;
-      // A change of state colours the git segment (red modified → yellow staged → orange committed → back), its
-      // background when it has one (powerline / diamond, with dark text), else its text; a clean, pushed
-      // repository shows the prompt's own colour — unless git_state_colors is off (the theme's colours always).
-      if (s.type === 'git' && cfg.git_state_colors !== false && gs !== 'none' && gs !== 'uptodate') {
+      // The git (branch) segment alone is coloured by the repository state — green clean → red modified → yellow
+      // staged → orange committed → green pushed (blue behind, crimson conflicts) — on its background when it has
+      // one (powerline / diamond, with dark text), else on its text; every other segment keeps the theme's colours.
+      // git_state_colors: false switches this off (the theme's own colours for the git segment too).
+      if (s.type === 'git' && cfg.git_state_colors !== false && gs !== 'none') {
         if (bg) { bg = gitColors[gs]; fg = '#1b1e24'; } else fg = gitColors[gs];
       }
       segments.push({ type: s.type, text, fg, bg, style: s.style, symbol: s.powerline_symbol, leading: s.leading_diamond, trailing: s.trailing_diamond });
