@@ -65,7 +65,7 @@ const ko = {
   props_title: '속성', props_name: '이름', props_path: '경로', props_size: '크기', props_type: '종류', props_modified: '수정일', props_perm: '권한', props_contents: '내용', props_contents_val: '폴더 {dirs}개, 파일 {files}개', props_link: '링크 대상',
   error_title: '오류', open_failed: '파일을 열 수 없습니다.', open_unsupported: '이 서버에서는 파일 열기가 꺼져 있습니다 (--allow-open).',
   cannot_open_dir: '폴더를 열 수 없습니다: {msg}',
-  lang_toggle: 'EN', theme: '테마', next_theme: '다음 테마', tip_theme: '테마 선택 (16가지)', tip_next_theme: '다음 테마로 전환: {theme}', tip_language: '한국어 / English', tip_about: '프로그램 정보',
+  lang_toggle: 'EN', theme: '테마', next_theme: '다음 테마', tip_theme: '테마 선택 (20가지)', tip_next_theme: '다음 테마로 전환: {theme}', tip_language: '한국어 / English', tip_about: '프로그램 정보',
   units_kb: 'KB', units_mb: 'MB', units_gb: 'GB',
   settings: '설정', tip_settings: '설정', settings_title: '설정',
   set_language: '언어', set_theme: '테마', set_font_size: '글꼴 크기', set_split_size: '분할 압축 기본 크기',
@@ -82,13 +82,16 @@ const ko = {
   set_general: '일반', set_terminal: '터미널', set_term_shell: '기본 셸', set_term_shell_default: '기본 ({name})', set_term_cwd: '시작 디렉터리', set_term_cwd_default: '(활성 패널의 폴더)',
   set_term_cwd_hint: '새 터미널이 시작하는 디렉터리. 비우면 활성 패널에 열린 폴더에서 시작합니다.', set_browse: '찾아보기…', set_term_cwd_missing: "시작 디렉터리 '{path}'가 없어 활성 패널의 폴더에서 시작합니다.",
   // Settings (extended)
-  set_panels: '패널', set_open: '파일 열기', set_viewer: '보기·편집', set_windows: '창', set_defaults: '기본값', settings_applied: '설정을 적용했습니다.',
+  set_panels: '패널', set_open: '파일 열기', set_files: '파일 열기·편집', set_viewer: '보기·편집', set_windows: '창', set_defaults: '기본값', settings_applied: '설정을 적용했습니다.',
   set_history_max: '실행 취소 기록 수', set_columns: '표시할 열', set_quick_search: '글자를 입력하면 빠른 검색 (파일 이름으로 커서 이동)', set_space_measures: 'Space 로 폴더 크기 계산',
   set_compare_tol: '폴더 비교 시간 허용 오차', set_seconds: '초', set_show_toolbar: '툴바 표시',
   set_text_open: '텍스트 파일 열기(Enter · 더블클릭)', set_text_open_app: '시스템 기본 프로그램', set_text_open_viewer: '내장 뷰어 (F3)', set_text_open_editor: '내장 편집기 (F4)', set_text_open_custom: '지정한 프로그램…',
   set_text_app: '텍스트 편집 프로그램', set_text_app_hint: '예: C:\\Program Files\\Notepad++\\notepad++.exe', set_text_exts: '텍스트 파일 확장자', set_text_exts_hint: '공백·쉼표로 구분. 여기 있는 확장자만 위 규칙으로 열리고, 나머지는 시스템 기본 프로그램으로 열립니다.',
   set_viewer_font: '뷰어 글꼴 크기', set_viewer_wrap: '뷰어: 기본으로 줄 바꿈', set_editor_font: '편집기 글꼴 크기', set_editor_tab: '편집기 탭 크기', set_editor_wrap: '편집기: 줄 바꿈',
   set_separate_windows: '보기·편집·다중 이름 바꾸기·검색·설정을 별도 창으로 열기', set_separate_windows_hint: '별도 창은 위치와 크기를 자유롭게 바꿀 수 있고 프로그램을 끝내면 함께 닫힙니다. 끄면 앱 안의 대화상자로 열립니다. (브라우저에서는 팝업 허용이 필요합니다.)',
+  set_custom_themes: '사용자 정의 테마', set_custom_add: "'{name}'을(를) 바탕으로 새 테마 만들기", set_custom_remove: '이 테마 삭제', set_custom_hint: '위에서 테마를 고른 뒤 "새 테마 만들기"를 누르면 그 색을 바탕으로 직접 색을 정할 수 있습니다. 만든 테마는 툴바의 테마 목록에도 나타납니다.',
+  set_custom_name: '이름', set_custom_dark: '어두운 테마', set_custom_light: '밝은 테마', set_custom_copy: '(사용자)',
+  set_color_bg: '배경', set_color_panel: '패널 배경', set_color_raised: '메뉴·툴바 배경', set_color_hover: '마우스 오버', set_color_active: '비활성 선택', set_color_border: '테두리', set_color_borderStrong: '진한 테두리', set_color_text: '글자', set_color_textDim: '흐린 글자', set_color_accent: '강조색', set_color_accentStrong: '진한 강조색', set_color_accentText: '강조색 위 글자', set_color_folder: '폴더 아이콘', set_color_file: '파일 아이콘', set_color_danger: '경고·오류',
   // Prompt themes (settings › prompt)
   set_prompt: '프롬프트',
   pe_presets: '프리셋 — 클릭하면 바로 적용', pe_current: '현재: {name}', pe_current_modified: '현재: {name} (수정됨)', pe_custom: '현재: 사용자 지정 (가져온 테마)',
@@ -108,6 +111,9 @@ const ko = {
   pe_type_path: '경로', pe_type_git: 'git', pe_type_session: '사용자@호스트', pe_type_shell: '셸', pe_type_os: 'OS', pe_type_time: '시각', pe_type_status: '종료 코드', pe_type_executiontime: '실행 시간', pe_type_root: '관리자', pe_type_text: '텍스트',
   pe_vars_path: '변수: .Path .Location .Folder .Parent — [[icon:folder]] 로 폴더 아이콘', pe_vars_git: '변수: .HEAD .Branch .Upstream .Ahead .Behind .BranchStatus .StashCount .Symbols .Working.Changed/.String .Staging.Changed/.String — 배경 auto = 상태색, [[icon:gitBranch]] 아이콘',
   pe_vars_session: '변수: .UserName .HostName .Root', pe_vars_shell: '변수: .Name', pe_vars_os: '변수: .Icon .OS', pe_vars_time: '변수: .CurrentDate | date "15:04:05" (Go 레이아웃: 2006 01 02 15 04 05 Jan Mon PM)', pe_vars_status: '변수: .Code .Error .String', pe_vars_executiontime: '변수: .Ms .FormattedMs', pe_vars_root: '관리자 권한일 때만 표시 (현재는 표시되지 않음)', pe_vars_text: '템플릿 그대로 표시 — {{ if }}…{{ end }}, .UserName .HostName .Path 사용 가능',
+  // Panel layout
+  split_toggle: '화면 분할', tip_split: '화면 분할 전환 — 좌우 ↔ 상하 (구분선 더블클릭 = 50:50)', split_horizontal: '좌우 분할', split_vertical: '상하 분할', split_reset: '분할 위치 50:50',
+  split_vertical_on: '상하 분할로 바꿨습니다.', split_horizontal_on: '좌우 분할로 바꿨습니다.', split_reset_done: '분할 위치를 50:50 으로 되돌렸습니다.',
   // Panel tabs
   tab_new: '새 탭', tip_tab_new: '활성 패널에 새 탭 — 현재 폴더를 하나 더 엽니다 (Ctrl+T)', tab_close: '탭 닫기', tab_close_others: '다른 탭 모두 닫기', tab_next: '다음 탭', tab_to_other: '반대 패널에 탭으로 열기',
   tab_opened: '새 탭을 열었습니다 (탭 {n}개).', tab_last: '마지막 탭은 닫을 수 없습니다.',
@@ -211,7 +217,7 @@ const en = {
   props_title: 'Properties', props_name: 'Name', props_path: 'Path', props_size: 'Size', props_type: 'Type', props_modified: 'Modified', props_perm: 'Permissions', props_contents: 'Contents', props_contents_val: '{dirs} folders, {files} files', props_link: 'Link target',
   error_title: 'Error', open_failed: 'The file could not be opened.', open_unsupported: 'Opening files is disabled on this server (--allow-open).',
   cannot_open_dir: 'Cannot open folder: {msg}',
-  lang_toggle: '한', theme: 'Theme', next_theme: 'Next theme', tip_theme: 'Choose a theme (16 built in)', tip_next_theme: 'Switch to the next theme: {theme}', tip_language: '한국어 / English', tip_about: 'About Command Center',
+  lang_toggle: '한', theme: 'Theme', next_theme: 'Next theme', tip_theme: 'Choose a theme (20 built in)', tip_next_theme: 'Switch to the next theme: {theme}', tip_language: '한국어 / English', tip_about: 'About Command Center',
   units_kb: 'KB', units_mb: 'MB', units_gb: 'GB',
   settings: 'Settings', tip_settings: 'Settings', settings_title: 'Settings',
   set_language: 'Language', set_theme: 'Theme', set_font_size: 'Font size', set_split_size: 'Default split size',
@@ -228,13 +234,16 @@ const en = {
   set_general: 'General', set_terminal: 'Terminal', set_term_shell: 'Default shell', set_term_shell_default: 'Default ({name})', set_term_cwd: 'Start directory', set_term_cwd_default: "(the active panel's folder)",
   set_term_cwd_hint: 'Where a new terminal starts. Leave empty for the folder open in the active panel.', set_browse: 'Browse…', set_term_cwd_missing: "Start directory '{path}' does not exist; starting in the active panel's folder.",
   // Settings (extended)
-  set_panels: 'Panels', set_open: 'Open files', set_viewer: 'Viewer / editor', set_windows: 'Windows', set_defaults: 'Defaults', settings_applied: 'Settings applied.',
+  set_panels: 'Panels', set_open: 'Open files', set_files: 'Files & editing', set_viewer: 'Viewer / editor', set_windows: 'Windows', set_defaults: 'Defaults', settings_applied: 'Settings applied.',
   set_history_max: 'Undo steps kept', set_columns: 'Columns', set_quick_search: 'Quick search by typing (moves the cursor to a name)', set_space_measures: 'Space measures folders',
   set_compare_tol: 'Compare directories: time tolerance', set_seconds: 's', set_show_toolbar: 'Show the toolbar',
   set_text_open: 'Open text files with (Enter · double-click)', set_text_open_app: 'System default program', set_text_open_viewer: 'Built-in viewer (F3)', set_text_open_editor: 'Built-in editor (F4)', set_text_open_custom: 'A chosen program…',
   set_text_app: 'Text editor program', set_text_app_hint: 'e.g. C:\\Program Files\\Notepad++\\notepad++.exe', set_text_exts: 'Text file extensions', set_text_exts_hint: 'Separated by spaces or commas. Only these extensions follow the rule above; everything else opens with the system default program.',
   set_viewer_font: 'Viewer font size', set_viewer_wrap: 'Viewer: wrap lines by default', set_editor_font: 'Editor font size', set_editor_tab: 'Editor tab size', set_editor_wrap: 'Editor: wrap lines',
   set_separate_windows: 'Open viewer, editor, multi-rename, search and settings as separate windows', set_separate_windows_hint: 'Separate windows can be moved and resized freely and close together with the program. Off: they open as dialogs inside the app. (Browsers must allow popups.)',
+  set_custom_themes: 'Custom themes', set_custom_add: "New theme based on '{name}'", set_custom_remove: 'Delete this theme', set_custom_hint: 'Pick a theme above, press "New theme" and set every colour yourself. Custom themes appear in the toolbar list as well.',
+  set_custom_name: 'Name', set_custom_dark: 'Dark theme', set_custom_light: 'Light theme', set_custom_copy: '(custom)',
+  set_color_bg: 'Background', set_color_panel: 'Panel background', set_color_raised: 'Menu / toolbar background', set_color_hover: 'Hover', set_color_active: 'Inactive selection', set_color_border: 'Border', set_color_borderStrong: 'Strong border', set_color_text: 'Text', set_color_textDim: 'Muted text', set_color_accent: 'Accent', set_color_accentStrong: 'Strong accent', set_color_accentText: 'Text on accent', set_color_folder: 'Folder icon', set_color_file: 'File icon', set_color_danger: 'Danger / error',
   // Prompt themes (settings › prompt)
   set_prompt: 'Prompt',
   pe_presets: 'Presets — click to apply', pe_current: 'Current: {name}', pe_current_modified: 'Current: {name} (modified)', pe_custom: 'Current: custom (imported theme)',
@@ -254,6 +263,9 @@ const en = {
   pe_type_path: 'Path', pe_type_git: 'git', pe_type_session: 'user@host', pe_type_shell: 'Shell', pe_type_os: 'OS', pe_type_time: 'Time', pe_type_status: 'Exit code', pe_type_executiontime: 'Execution time', pe_type_root: 'Root', pe_type_text: 'Text',
   pe_vars_path: 'Variables: .Path .Location .Folder .Parent — [[icon:folder]] draws the folder icon', pe_vars_git: 'Variables: .HEAD .Branch .Upstream .Ahead .Behind .BranchStatus .StashCount .Symbols .Working.Changed/.String .Staging.Changed/.String — background auto = state colour, [[icon:gitBranch]] icon',
   pe_vars_session: 'Variables: .UserName .HostName .Root', pe_vars_shell: 'Variables: .Name', pe_vars_os: 'Variables: .Icon .OS', pe_vars_time: 'Variables: .CurrentDate | date "15:04:05" (Go layout: 2006 01 02 15 04 05 Jan Mon PM)', pe_vars_status: 'Variables: .Code .Error .String', pe_vars_executiontime: 'Variables: .Ms .FormattedMs', pe_vars_root: 'Shown only when elevated (never at the moment)', pe_vars_text: 'The template as is — {{ if }}…{{ end }}, .UserName .HostName .Path available',
+  // Panel layout
+  split_toggle: 'Split view', tip_split: 'Switch the split — side by side ↔ stacked (double-click the divider = 50:50)', split_horizontal: 'Side by side', split_vertical: 'Stacked', split_reset: 'Divider to 50:50',
+  split_vertical_on: 'Panels are now stacked.', split_horizontal_on: 'Panels are now side by side.', split_reset_done: 'Divider reset to 50:50.',
   // Panel tabs
   tab_new: 'New tab', tip_tab_new: 'New tab in the active panel — opens the current folder once more (Ctrl+T)', tab_close: 'Close tab', tab_close_others: 'Close other tabs', tab_next: 'Next tab', tab_to_other: 'Open as a tab in the other panel',
   tab_opened: 'New tab opened ({n} tabs).', tab_last: 'The last tab cannot be closed.',

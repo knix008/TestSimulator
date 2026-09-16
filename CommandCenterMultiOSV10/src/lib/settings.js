@@ -38,6 +38,7 @@ export const SETTINGS_DEFAULTS = {
   termShell: '',      // shell of a new terminal (id from term.shells); '' = the first one offered
   termCwd: '',        // where new terminals start; '' = the active panel's folder
   prompt: PROMPT_DEFAULT, // terminal prompt theme (oh-my-posh compatible, see prompt.js)
+  customThemes: [],       // user-made themes (settings › theme): [{ id, label, mode, colors }]
 };
 
 // Keys the Settings dialog edits (everything else in the session — paths, bounds, hotlist — is left alone).

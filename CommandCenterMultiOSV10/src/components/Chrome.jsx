@@ -2,12 +2,12 @@
 // MyEditor) and the icon toolbar, drawn in-app so they look the same in the
 // desktop app and in the browser. View holds the bottom dock (log /
 // terminals); the toolbar has a terminal button. The right end of the
-// toolbar holds the theme picker (16 themes), the language toggle and the
+// toolbar holds the theme picker (20 themes), the language toggle and the
 // About button. Toolbar buttons are icon-only; the tooltip (and aria-label)
 // carries the description.
 import React, { useState } from 'react';
 import { t, useLanguage, getLanguage } from '../lib/i18n';
-import { THEMES, themeById, nextThemeId } from '../themes';
+import { allThemes, themeById, nextThemeId } from '../themes';
 import { Icon, Flag } from './Icons';
 import { ContextMenu } from './ContextMenu';
 
@@ -55,6 +55,10 @@ export function MenuBar({ onAction, state }) {
       { id: 'newTab', label: t('tab_new'), icon: 'tabNew', shortcut: 'Ctrl+T' },
       { id: 'closeTab', label: t('tab_close'), icon: 'close', shortcut: 'Ctrl+W', disabled: state.tabCount <= 1 },
       { id: 'nextTab', label: t('tab_next'), icon: 'tabs', shortcut: 'Ctrl+Tab', disabled: state.tabCount <= 1 },
+      { sep: true },
+      { id: 'splitHorizontal', label: t('split_horizontal'), icon: 'splitH', checked: !state.vertical },
+      { id: 'splitVertical', label: t('split_vertical'), icon: 'splitV', checked: state.vertical },
+      { id: 'splitReset', label: t('split_reset'), icon: 'compare' },
       { sep: true },
       { id: 'swapPanels', label: t('swap_panels'), icon: 'swap', shortcut: 'Ctrl+U' },
       { id: 'targetLeft', label: t('target_left'), icon: 'folder', shortcut: 'Ctrl+←' },
@@ -127,6 +131,7 @@ export function Toolbar({ onAction, theme, dockVisible, state = {} }) {
     ['search', 'search', 'tb_search', 'tip_search'],
     ['compareDirs', 'compare', 'compare_dirs', 'tip_compare'],
     ['swapPanels', 'swap', 'swap_panels', 'tip_swap'],
+    ['splitToggle', state.vertical ? 'splitV' : 'splitH', 'split_toggle', 'tip_split'],
     ['refresh', 'refresh', 'refresh', 'tip_refresh'],
     ['toggleHidden', 'eye', 'show_hidden', 'tip_hidden', false, !!state.showHidden],
     ['properties', 'properties', 'ctx_properties', 'tip_properties', !one],
@@ -134,7 +139,7 @@ export function Toolbar({ onAction, theme, dockVisible, state = {} }) {
     ['terminal', 'terminal', 'terminal', 'tip_dock', false, !!dockVisible],
   ].filter((it) => it !== undefined);
   const themeLabel = (id) => { const th = themeById(id); return lang === 'ko' ? th.label : th.labelEn; };
-  const themeItems = THEMES.map((th) => ({
+  const themeItems = allThemes().map((th) => ({
     id: `theme:${th.id}`,
     label: lang === 'ko' ? th.label : th.labelEn,
     checked: th.id === theme,

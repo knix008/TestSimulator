@@ -15,7 +15,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { call, windowKind, windowId, windowArgs, closeWindow, postToApp, onAppMessage, pickFolder, pickFile, writeClipboardText } from './lib/backend';
 import { t, setLanguage, useLanguage } from './lib/i18n';
 import { setSeparator, baseName } from './lib/format';
-import { applyTheme, themeById, DEFAULT_THEME } from './themes';
+import { applyTheme, themeById, DEFAULT_THEME, setCustomThemes } from './themes';
 import { SETTINGS_DEFAULTS } from './lib/settings';
 import { DialogHost, useDialogs } from './dialogs/Dialogs';
 import { ViewerDialog, EditorDialog, MultiRenameDialog } from './dialogs/ToolDialogs';
@@ -58,6 +58,7 @@ export default function ToolWindow() {
       const s = { ...SETTINGS_DEFAULTS, ...(await call('session.load')) };
       setLanguage(s.language || 'ko');
       applyFontSize(s.fontSize);
+      setCustomThemes(s.customThemes);
       applyTheme(s.theme && s.theme !== 'dark' ? themeById(s.theme).id : DEFAULT_THEME);
       setSession(s);
       await loadArgs();
@@ -82,6 +83,7 @@ export default function ToolWindow() {
   useEffect(() => onAppMessage((msg) => {
     if (!msg || msg.type !== 'session') return;
     const p = msg.patch || {};
+    if (p.customThemes) setCustomThemes(p.customThemes);
     if (p.theme) applyTheme(p.theme);
     if (p.language) setLanguage(p.language);
     if (p.fontSize) applyFontSize(p.fontSize);

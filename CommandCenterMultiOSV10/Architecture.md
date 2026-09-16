@@ -97,7 +97,7 @@ UI runJob('ops.transfer', …)            core: jobs.run(kind, meta, fn)
 | `ToolWindow.jsx` | `?win=<kind>` 페이지: `app.info`·`session.load` 로 테마·언어·글꼴을 맞추고 `windowArgs()` 로 인자를 받아 도구 하나를 창 전체에 렌더. 결과는 `postToApp` 으로 메인 창에 전달(편집기 저장 → refresh, 다중 이름 바꾸기 → `fs.renameMany` 후 renamed, 검색 → navigate/openFile/clipCopy/copyTo, 설정 → settings(변경마다 `live`, 확인/취소 시 최종값)). 메인 창의 `session` 메시지로 테마·언어·글꼴을 따라갑니다. |
 | `dialogs/SearchDialog.jsx` | 비모달 검색 창(제목줄 드래그): `search.start` 잡(진행 중 개수), 결과 `{path,isDir,size}` 목록에 패널과 같은 선택(클릭/Ctrl/Shift/방향키/Ctrl+A). Enter·더블클릭 → 폴더 `onOpenDir`(App: 왼쪽 패널로 이동) / 파일 `onOpenFile`(`fs.open`); Ctrl+C·복사 버튼 → `onClipCopy`(패널의 클립보드 복사와 같은 `file://` 목록 + 앱 내부 클립보드 → 패널 Ctrl+V); 왼쪽/오른쪽 패널로 복사 버튼·우클릭 메뉴 → `onCopyTo`(App `copyPathsTo`: 진행률·충돌 처리하는 `ops.transfer`). |
 | `dialogs/PromptEditor.jsx` | 설정 › 프롬프트 — 스크롤 없이 한 화면: (1) 3가지 상태 미리보기(`SAMPLE_STATES`) (2) 프리셋 버튼(실제 렌더러로 그린 미니 미리보기, 클릭 = 적용, `config.preset` 으로 현재/수정됨 표시) (3) 간단 설정 — 세그먼트 종류별 켜기/끄기(`enabled` 플래그: 지우지 않고 숨김, 없던 종류는 QUICK 순서·색으로 추가), 모양 일괄 변경, 경로 스타일, 두 줄(❯ 블록 추가/병합) (4) 고급 편집 — 마스터·디테일(왼쪽 세그먼트 목록 + 블록, 오른쪽 선택 세그먼트의 필드) + oh-my-posh JSON 가져오기(붙여넣기 / `pickFile`+`fs.readFile`)·내보내기(클립보드). 값은 `session.prompt`. |
-| `dialogs/SettingsDialog.jsx` | 설정 7개 탭(일반 · 패널 · 파일 열기 · 보기·편집 · 창 · 터미널 · 프롬프트). 키와 기본값은 `lib/settings.js` 의 `SETTINGS_DEFAULTS`/`SETTINGS_KEYS` 한 곳. **즉시 적용**: 값이 바뀔 때마다 `spec.onChange(values)` → App `applySettings(quiet)`(도구 창이면 `live` 메시지); 확인은 최종값, 취소는 원래 값으로 한 번 더 적용. 찾아보기는 `pickFolder`/`pickFile`(IPC `dialog`). |
+| `dialogs/SettingsDialog.jsx` | 설정 4개 탭(일반[+패널·창·터미널 섹션] · 테마[카드 20개 + 사용자 정의] · 파일 열기·편집 · 프롬프트). 키와 기본값은 `lib/settings.js` 의 `SETTINGS_DEFAULTS`/`SETTINGS_KEYS` 한 곳. **즉시 적용**: 값이 바뀔 때마다 `spec.onChange(values)` → App `applySettings(quiet)`(도구 창이면 `live` 메시지); 확인은 최종값, 취소는 원래 값으로 한 번 더 적용. 찾아보기는 `pickFolder`/`pickFile`(IPC `dialog`). |
 | `lib/backend.js` | 전송 분기: `call`, `runJob/followJob`(푸시 vs 폴링), `watchDir`(fs.watch vs mtime 폴링), 클립보드, `pickFolder/pickFile`, `unwrap`(오류 객체 → Error, 스택 결합). **도구 창**: `windowKind/windowId`(URL), `openWindow(kind, args)`(Electron IPC `win:open` / 브라우저 `window.open` + localStorage 인자), `windowArgs()`, `closeWindow()`, `postToApp(msg)`/`onAppMessage(cb)`(IPC 릴레이 / `BroadcastChannel`). |
 | `lib/history.js` | 실행 취소/다시 실행 스택(데이터 엔트리만 보관 — 해석은 App). `push`(redo 비움, `max` 까지 유지) · `mark`(되돌릴 수 없는 작업 후 redo 만 비움) · `commitUndo/commitRedo` · `drop`(실패한 엔트리 제거) · 구독. |
 | `lib/settings.js` | 설정 기본값·키 목록, `isTextFile(name, exts)`. |
@@ -105,7 +105,7 @@ UI runJob('ops.transfer', …)            core: jobs.run(kind, meta, fn)
 | `lib/i18n.js` | ko/en 사전 + `t()` + `useLanguage()`(useSyncExternalStore). |
 | `lib/ansi.jsx` | ANSI SGR → 스타일 런(`parseAnsi`)과 `AnsiText`(MyEditor 와 동일): 16/256/24-bit 색, 굵게·흐리게·기울임·밑줄·반전·취소선. |
 | `lib/format.js` | 크기/종류 표시, 경로 분리자(백엔드에서 받음), breadcrumb 분해, `globToRegExp`(`*.txt;*.md`). |
-| `themes.js` | 16 테마 토큰 → `:root` CSS 변수(`applyTheme`), 순환(`nextThemeId`). |
+| `themes.js` | 20 테마(다크 12 · 라이트 8) + **사용자 정의 테마**(`setCustomThemes(session.customThemes)` 로 등록 → `allThemes()/themeById/nextThemeId` 가 함께 봄; `baseColorsOf` 로 기존 테마의 기본 색을 복제) 토큰 → `:root` CSS 변수(`applyTheme`), 순환(`nextThemeId`). |
 | `styles.css` | 변수 기반 스타일(기본값 = 미드나이트). |
 
 ### 터미널 UI (`BottomDock.jsx` 의 `TerminalView`)

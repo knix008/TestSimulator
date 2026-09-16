@@ -12,7 +12,7 @@ import { MenuBar, Toolbar, FnBar } from './components/Chrome';
 import { DialogHost, useDialogs } from './dialogs/Dialogs';
 import { BottomDock } from './components/BottomDock';
 import { SearchDialog } from './dialogs/SearchDialog';
-import { applyTheme, themeById, nextThemeId, DEFAULT_THEME } from './themes';
+import { applyTheme, themeById, nextThemeId, DEFAULT_THEME, setCustomThemes, allThemes } from './themes';
 import { SETTINGS_DEFAULTS, SETTINGS_KEYS, isTextFile } from './lib/settings';
 import { History } from './lib/history';
 
@@ -165,6 +165,7 @@ export default function App() {
       setLanguage(s.language || 'ko');
       applyFontSize(s.fontSize);
       if (s.restoreFolders === false) { s.left = i.home; s.right = i.home; s.leftTabs = [{ path: i.home }]; s.rightTabs = [{ path: i.home }]; s.leftTab = 0; s.rightTab = 0; }
+      setCustomThemes(s.customThemes);
       const theme = applyTheme(themeIdOf(s));
       s.theme = theme.id;
       if (s.themeBg !== theme.tokens['--bg']) call('session.save', { patch: { theme: theme.id, themeBg: theme.tokens['--bg'] } }).catch(() => {});
@@ -180,7 +181,7 @@ export default function App() {
     setSession((s) => (s ? { ...s, ...patch } : s));
     call('session.save', { patch }).catch(() => {});
     // Tool windows follow theme / language / font changes.
-    if (patch.theme || patch.language || patch.fontSize) postToApp({ type: 'session', patch });
+    if (patch.theme || patch.language || patch.fontSize || patch.customThemes) postToApp({ type: 'session', patch });
   }, []);
 
   // What the prompt's session / os segments show (from app.info).
@@ -699,6 +700,7 @@ export default function App() {
   const applySettings = (v, { quiet = false } = {}) => {
     if (!v) return;
     if (v.language !== getLanguage()) setLanguage(v.language);
+    setCustomThemes(v.customThemes);
     const theme = applyTheme(v.theme);
     applyFontSize(v.fontSize);
     const patch = {};
@@ -797,6 +799,10 @@ export default function App() {
       case 'prevTab': cycleTab(side, -1); break;
       case 'tabToOther': newTab(other(side), pathOf(side)); break;
       case 'toggleToolbar': saveSession({ showToolbar: session.showToolbar === false }); break;
+      case 'splitToggle': saveSession({ layout: session.layout === 'vertical' ? 'horizontal' : 'vertical' }); setStatus(t(session.layout === 'vertical' ? 'split_horizontal_on' : 'split_vertical_on')); break;
+      case 'splitHorizontal': saveSession({ layout: 'horizontal' }); break;
+      case 'splitVertical': saveSession({ layout: 'vertical' }); break;
+      case 'splitReset': saveSession({ splitter: 0.5 }); setStatus(t('split_reset_done')); break;
       case 'delete': await remove(side); break;
       case 'trash': await trash(side); break;
       case 'copyOther': await transfer(side, false); break;
@@ -906,18 +912,17 @@ export default function App() {
   });
 
   // ── Splitter ──
+  // Panels side by side (default) or one above the other; the divider follows.
+  const vertical = session && session.layout === 'vertical';
   const onSplitDown = (e) => {
     e.preventDefault();
     const box = splitRef.current.getBoundingClientRect();
-    const move = (ev) => {
-      const frac = Math.min(0.8, Math.max(0.2, (ev.clientX - box.left) / box.width));
-      setSession((s) => ({ ...s, splitter: frac }));
-    };
+    const fracOf = (ev) => Math.min(0.8, Math.max(0.2, vertical ? (ev.clientY - box.top) / box.height : (ev.clientX - box.left) / box.width));
+    const move = (ev) => { const frac = fracOf(ev); setSession((s) => ({ ...s, splitter: frac })); };
     const up = (ev) => {
       window.removeEventListener('mousemove', move);
       window.removeEventListener('mouseup', up);
-      const frac = Math.min(0.8, Math.max(0.2, (ev.clientX - box.left) / box.width));
-      saveSession({ splitter: frac });
+      saveSession({ splitter: fracOf(ev) });
     };
     window.addEventListener('mousemove', move);
     window.addEventListener('mouseup', up);
@@ -926,6 +931,7 @@ export default function App() {
   const menuState = useMemo(() => ({
     showHidden: !!(session && session.showHidden),
     theme: session ? session.theme : 'dark',
+    themes: allThemes(),
     hasSelection: selCount[active] > 0,
     selCount: selCount[active],
     oneFile: selCount[active] === 1 && !selIsDir[active],
@@ -934,6 +940,7 @@ export default function App() {
     dockVisible: !!(session && session.dockVisible),
     fnBar: !(session && session.fnBar === false),
     showToolbar: !(session && session.showToolbar === false),
+    vertical: !!(session && session.layout === 'vertical'),
     tabCount: session ? tabsOf(active).length : 1,
     canUndo: history.canUndo,
     canRedo: history.canRedo,
@@ -982,11 +989,11 @@ export default function App() {
     <div className="app">
       <MenuBar onAction={(id) => onAction(id)} state={menuState} />
       {session.showToolbar !== false && <Toolbar onAction={(id) => onAction(id)} theme={session.theme} dockVisible={!!session.dockVisible} state={menuState} />}
-      <div className="panels" ref={splitRef}>
+      <div className={`panels ${vertical ? 'vertical' : ''}`} ref={splitRef}>
         <div className="panel-slot" style={{ flexBasis: `${(session.splitter || 0.5) * 100}%` }}>
           <FilePanel ref={panels.left} {...panelProps('left')} />
         </div>
-        <div className="splitter" onMouseDown={onSplitDown} title="⇔" />
+        <div className="splitter" onMouseDown={onSplitDown} onDoubleClick={() => saveSession({ splitter: 0.5 })} title={vertical ? '⇕' : '⇔'} />
         <div className="panel-slot" style={{ flex: 1 }}>
           <FilePanel ref={panels.right} {...panelProps('right')} />
         </div>
