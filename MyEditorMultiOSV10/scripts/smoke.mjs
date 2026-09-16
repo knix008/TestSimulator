@@ -255,8 +255,7 @@ const SCENARIOS = {
   // the splitter between two editor panes: dragged, the left pane grows and the share is saved
   // closing a pane's document (its ×) removes the pane; the rest are laid out again
   pane_close_relayout: `(async () => { ${PRELUDE} const S = () => window.__med.state; const seq = []; for (let i = 0; i < 4; i++) { window.__med.action('toggleSplit'); await wait(200); } await wait(300); seq.push('start:' + document.querySelectorAll('.pane').length + ':' + S().settings.split);
-    const closeBtn = () => document.querySelectorAll('.pane .pane-head .icon-btn')[document.querySelectorAll('.pane').length - 1]; closeBtn().click(); await wait(500); seq.push('after1:' + document.querySelectorAll('.pane').length + ':' + S().settings.split + ':' + S().settings.paneCount);
-    closeBtn().click(); await wait(500); seq.push('after2:' + document.querySelectorAll('.pane').length + ':' + S().settings.split); closeBtn().click(); await wait(500); seq.push('after3:' + document.querySelectorAll('.pane').length + ':' + S().settings.split); closeBtn().click(); await wait(500); seq.push('after4:' + document.querySelectorAll('.pane').length + ':' + S().settings.split + ':docs=' + S().docs.length);
+    const closeBtn = () => document.querySelectorAll('.pane .pane-head .icon-btn')[0]; for (let k = 1; k <= 4; k++) { const b = closeBtn(); if (!b) { seq.push('after' + k + ':single'); break; } b.click(); await wait(500); seq.push('after' + k + ':' + document.querySelectorAll('.pane').length + ':' + S().settings.split + ':' + document.querySelectorAll('.pane-empty').length + ':docs=' + S().docs.length + ':' + window.__med.panes.map((p) => p.docId == null ? '-' : 'd').join('')); }
     return JSON.stringify(seq); })()`,
   split_cycle: `(async () => { ${PRELUDE} const S = () => window.__med.state; const seq = []; for (let i = 0; i < 9; i++) { window.__med.action('toggleSplit'); await wait(250); seq.push(S().settings.split + ':' + document.querySelectorAll('.pane').length + ':' + document.querySelectorAll('.pane-splitter.x').length + 'x' + document.querySelectorAll('.pane-splitter.y').length); }
     const panes = () => [...document.querySelectorAll('.pane')].map((p) => { const r = p.getBoundingClientRect(); return [Math.round(r.x), Math.round(r.y), Math.round(r.width), Math.round(r.height)]; }); const before = panes();
@@ -267,12 +266,12 @@ const SCENARIOS = {
     const w1 = document.querySelectorAll('.pane')[0].getBoundingClientRect().width; window.__med.action('split:grid'); await wait(300); const ys = document.querySelector('.pane-splitter.y'); const ry = ys.getBoundingClientRect(); ys.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, clientX: ry.x + 100, clientY: ry.y + 3 })); window.dispatchEvent(new MouseEvent('mousemove', { clientX: ry.x + 100, clientY: ry.y - 120 })); window.dispatchEvent(new MouseEvent('mouseup', { clientX: ry.x + 100, clientY: ry.y - 120 })); await wait(300);
     return JSON.stringify({ grew: Math.round(w1 - w0), splitX: Math.round(S().settings.splitX * 100), splitY: Math.round(S().settings.splitY * 100), splitters: document.querySelectorAll('.pane-splitter').length, topPane: Math.round(document.querySelectorAll('.pane')[0].getBoundingClientRect().height) }); })()`,
   close_pane: `(async () => { ${PRELUDE} window.__med.action('split:grid'); await wait(400);
-    // four documents fill the four panes; closing one of them (not dirty) leaves its pane empty
-    const notes = window.__med.state.docs.find((d) => d.name === 'notes.txt'); await window.__med.action('close', notes.id); await wait(400);
-    const empties = document.querySelectorAll('.pane-empty'); if (empties.length !== 1) throw new Error('expected 1 empty pane, got ' + empties.length);
-    const closeBtn = Array.from(empties[0].querySelectorAll('button')).find((b) => b.textContent.includes('닫기')); if (!closeBtn) throw new Error('no close button');
-    closeBtn.click(); await wait(400);
-    return JSON.stringify({ panes: window.__med.panes.length, split: window.__med.state.settings.split, emptiesNow: document.querySelectorAll('.pane-empty').length });
+    // four documents fill the four panes; closing one of them (not dirty) removes its pane — three remain, the last spanning the bottom row
+    const notes = window.__med.state.docs.find((d) => d.name === 'notes.txt'); await window.__med.action('close', notes.id); await wait(500);
+    const empties = document.querySelectorAll('.pane-empty'); if (empties.length !== 0) throw new Error('expected no empty pane, got ' + empties.length);
+    const three = window.__med.panes.length; const wide = document.querySelectorAll('.pane')[2].getBoundingClientRect().width > document.querySelectorAll('.pane')[0].getBoundingClientRect().width * 1.5;
+    document.querySelectorAll('.pane .pane-head .icon-btn')[0].click(); await wait(500);   // the × of the first pane: document + pane gone
+    return JSON.stringify({ three, wide, panes: window.__med.panes.length, split: window.__med.state.settings.split, docs: window.__med.state.docs.length, emptiesNow: document.querySelectorAll('.pane-empty').length });
   })()`,
   // The window shrunk as far as it goes: no toolbar / menu-bar control may be cut off (the minimum width follows the bars, src/lib/backend.js),
   // and switching the UI language must not change that width (the bars are as wide as their widest translation, components/Widest.jsx).
@@ -352,7 +351,8 @@ const SCENARIOS = {
     // × on the right (non-active) pane head
     paneEl(1).querySelector('.pane-head .icon-btn').click(); await wait(500); out.s5 = names(); out.a5 = alive();
     // × on the right pane again (now active? no) then click it and close via tab ×
-    md(paneEl(1).querySelector('.cm-content')); await wait(200); const cur = S().docs.find((d) => d.id === S().activeId); const tb = [...document.querySelectorAll('.tab')].find((t) => cur && t.textContent.includes(cur.name)); if (tb) tb.querySelector('.tab-close').click(); await wait(500); out.s6 = names(); out.a6 = alive();
+    // (closing a pane's document removes the pane: with one pane left the tab × closes the active document instead)
+    if (paneEl(1)) { md(paneEl(1).querySelector('.cm-content')); await wait(200); } out.panes5 = document.querySelectorAll('.pane').length; const cur = S().docs.find((d) => d.id === S().activeId); const tb = [...document.querySelectorAll('.tab')].find((t) => cur && t.textContent.includes(cur.name)); if (tb) tb.querySelector('.tab-close').click(); await wait(500); out.s6 = names(); out.a6 = alive();
     out.docs = S().docs.map((d) => d.name); return JSON.stringify(out); })()`,
   split_restore: `(async () => { ${PRELUDE} await wait(800); const S = () => window.__med.state; const names = () => window.__med.panes.map((p) => { const d = S().docs.find((x) => x.id === p.docId); return (d ? d.name : null) + (p.active ? '*' : ''); }); const before = names(); if (document.querySelectorAll('.pane').length < 2) return JSON.stringify({ before, split: S().settings.split, panes: document.querySelectorAll('.pane').length, alive: document.querySelector('.app') ? 'ok' : 'blank' });
     document.querySelectorAll('.pane')[1].querySelector('.pane-head .icon-btn').click(); await wait(600); const after = names(); const alive = document.querySelector('.app') ? 'ok' : 'blank';

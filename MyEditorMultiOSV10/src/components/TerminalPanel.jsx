@@ -24,6 +24,7 @@ import { Prompt } from './Prompt';
 import { mergeOutput } from '../lib/termtext';
 
 const WAIT_MS = 1500;   // long poll: the backend answers as soon as something happens, or after this
+const STATUS_WAIT_MS = 700;   // the prompt waits this long for a fresh git status before showing the last known one
 const MAX_LINES = 3000;
 
 // The git summary for the prompt's tooltip; the prompt itself comes from the theme.
@@ -107,22 +108,26 @@ function TerminalView({ term, active, onExit, prompt, env, termEol, termCr }) {
   const msRef = useRef(0);
   const startedRef = useRef(0);
 
-  // The git status of the current directory: the prompt never appears bare
-  // and then grows a git block — while the first status of a directory is
-  // being read the prompt waits; after that (a command finished in the same
-  // directory) the prompt is drawn at once with the last known state and
-  // recoloured only if the fresh status differs (a
-  // status of a big repository takes a few hundred ms). A stale answer is ignored.
+  // The git status of the current directory: the prompt is drawn once, with
+  // the fresh state — while the status is being read (after every command and
+  // on a directory change) the prompt line stays invisible, so it never
+  // appears in one colour and then jumps to another. A status of a big
+  // repository can take a while: after STATUS_WAIT_MS the prompt is shown with
+  // the last known state and recoloured when the answer comes. A stale
+  // answer (an older request) is ignored.
   const [gitReady, setGitReady] = useState(false);
   const [gitStale, setGitStale] = useState(false);
   const gitSeq = useRef(0);
   const gitCwdRef = useRef(null);   // directory the current git state belongs to
+  const gitTimer = useRef(null);
   const refreshGit = useCallback(() => {
     const my = ++gitSeq.current;
     const dir = cwdRef.current;
-    if (gitCwdRef.current === dir && gitRef.current !== undefined) setGitStale(true); else { setGitReady(false); setGitStale(false); }
-    call('git.status', { cwd: dir }).then((g) => { if (my !== gitSeq.current) return; gitRef.current = g; gitCwdRef.current = dir; setGit(g); setGitReady(true); setGitStale(false); })
-      .catch(() => { if (my !== gitSeq.current) return; gitRef.current = null; gitCwdRef.current = dir; setGit(null); setGitReady(true); setGitStale(false); });
+    setGitReady(false); setGitStale(false);
+    clearTimeout(gitTimer.current);
+    if (gitCwdRef.current === dir && gitRef.current !== undefined) gitTimer.current = setTimeout(() => { if (my === gitSeq.current) { setGitStale(true); setGitReady(true); } }, STATUS_WAIT_MS);
+    const done = (g) => { if (my !== gitSeq.current) return; clearTimeout(gitTimer.current); gitRef.current = g; gitCwdRef.current = dir; setGit(g); setGitReady(true); setGitStale(false); };
+    call('git.status', { cwd: dir }).then(done).catch(() => done(null));
   }, []);
   const append = useCallback((text) => setEntries((prev) => appendText(prev, text, crRef.current)), []);
   // A line typed at the prompt (or, while a command runs, fed to it).

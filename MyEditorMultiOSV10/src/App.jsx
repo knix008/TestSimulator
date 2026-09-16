@@ -573,6 +573,7 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
     if (pane.docId != null) { if (!(await closeDocs([pane.docId]))) return; }
     const j = panesRef.current.findIndex((p) => p.key === pane.key);
     if (j >= 0 && panesRef.current.length > 1) closePane(j);
+    collapseEmpty();   // a pane that showed the closed document (or was empty already) goes too
   };
   // Closes one pane of a split (an empty one, from its "닫기"): the others stay as they are; the
   // layout follows the count — one pane left → no split, two → columns, three → the grid with the last spanning.
@@ -1759,7 +1760,7 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
               {panes.map((p, i) => {
                 const pd = p.docId != null ? getDoc(p.docId) : null;
                 return (
-                  <div key={p.key} className={`pane ${i === activePane ? 'active' : ''}`} style={multi && i === panes.length - 1 && panes.length % multi.cols ? { gridColumn: `span ${multi.cols - (panes.length % multi.cols) + 1}` } : undefined} onMouseDownCapture={() => { if (activePaneRef.current !== i) focusPane(i, { focus: false }); }}>
+                  <div key={p.key} className={`pane ${i === activePane ? 'active' : ''}`} style={multi && i === panes.length - 1 && panes.length % multi.cols ? { gridColumn: `span ${multi.cols - (panes.length % multi.cols) + 1}` } : settings.split === 'grid' && panes.length === 3 && i === 2 ? { gridColumn: '1 / -1' } : undefined} onMouseDownCapture={() => { if (activePaneRef.current !== i) focusPane(i, { focus: false }); }}>
                     {panes.length > 1 && (
                       <div className="pane-head">
                         <button className="pane-title ellipsis" title={pd ? pd.path || pd.name : t('pane_empty')} onClick={(e) => openPaneMenu(i, e.currentTarget)}>
