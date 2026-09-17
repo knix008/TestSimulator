@@ -17,6 +17,15 @@ release
 out
 *.tsbuildinfo
 
+# Generated before every build, never edited by hand.
+#   src/build-info.json   <- scripts/generate-build-info.cjs (changes every build)
+#   build/icon.*          <- scripts/create-icons.cjs, rendered from public/app-icon.svg
+# `npm test` regenerates both first, so a fresh clone still passes.
+src/build-info.json
+build/icon.ico
+build/icon.png
+build/icons/
+
 # Packaged installers copied to the project root by scripts/copy-installers.cjs
 /*.exe
 /*.dmg
@@ -24,6 +33,10 @@ out
 /*.deb
 /*.rpm
 /*.zip
+
+# Scratch output from the packaging and screenshot helpers
+screenshots/
+*.tmp
 
 # Editor directories and files
 .vscode/*

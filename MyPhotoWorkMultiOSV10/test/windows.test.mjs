@@ -6,6 +6,7 @@ import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import { firstTick, rulerSize, tickStep, visibleRange } from '../src/lib/view.ts'
+import { t } from '../src/i18n.ts'
 
 const root = new URL('..', import.meta.url)
 const read = (relative) => readFileSync(fileURLToPath(new URL(relative, root)), 'utf8')
@@ -150,7 +151,11 @@ test('every dialog is opened through openDialog, never by setting state directly
 })
 
 test('popups seeded from the old document are closed when it is replaced', () => {
-  assert.match(appSource, /closeAllDialogs\(\)\n    canvasesRef\.current = canvases/, 'stale popups survive a new document')
+  const replace = appSource.slice(
+    appSource.indexOf('const replaceDocument = useCallback'),
+    appSource.indexOf('const updateDoc = useCallback'),
+  )
+  assert.match(replace, /closeAllDialogs\(\)/, 'stale popups survive a new document')
 })
 
 /* ------------------------------------------------------------ grid/rulers */
@@ -242,13 +247,23 @@ test('a menu that cannot open as a window still drops down in page', () => {
   assert.match(button, /if \(!opened\) setMenu\(id\)/, 'the in-page dropdown is not used when the window fails')
 })
 
-test('a move gesture redraws from the untouched original', () => {
-  assert.match(appSource, /const moveSourceRef = useRef<HTMLCanvasElement \| null>\(null\)/, 'no original is kept')
+test('a move replays from a pristine copy, so dragging out of frame loses nothing', () => {
+  // Re-padding the already-shifted canvas cropped whatever left the edge, and
+  // the crop outlived the gesture — so dragging back in a second drag came up
+  // short. Every move is now replayed from an untouched copy of the layer.
+  assert.match(appSource, /const moveOriginRef = useRef\(new Map</, 'no pristine copy is kept')
   const drag = appSource.slice(appSource.indexOf("if (drag.mode === 'move') {"), appSource.indexOf("if (drag.mode === 'paint'"))
-  assert.match(drag, /const source = moveSourceRef\.current/, 'the move still re-pads the shifted canvas')
-  assert.match(drag, /point\.x - drag\.start\.x/, 'the offset must be measured from the start of the gesture')
+  assert.match(drag, /moveOriginRef\.current\.get\(doc\.activeLayerId\)/, 'the move still re-pads the shifted canvas')
+  assert.match(drag, /padCanvas\(origin\.canvas/, 'the move does not redraw from the original')
   assert.ok(!drag.includes('point.x - drag.last.x'), 'an incremental offset re-crops on every step')
-  assert.match(appSource, /moveSourceRef\.current = null/, 'the original is never released')
+})
+
+test('the pristine copy is dropped as soon as the layer changes another way', () => {
+  const withLayer = appSource.slice(appSource.indexOf('const withLayer = useCallback'), appSource.indexOf('const applyCrop'))
+  assert.match(withLayer, /moveOriginRef\.current\.delete\(layer\.id\)/, 'a painted layer would then be moved from stale pixels')
+  // Undo, redo, resize, rotate and open all swap the canvases wholesale.
+  const clears = (appSource.match(/moveOriginRef\.current\.clear\(\)/g) ?? []).length
+  assert.ok(clears >= 4, `expected the copies to be invalidated wherever canvases are replaced, found ${clears}`)
 })
 
 test('popup windows draw a single hairline frame, not a doubled edge', () => {
@@ -257,4 +272,108 @@ test('popup windows draw a single hairline frame, not a doubled edge', () => {
   assert.ok(cssSource.includes('.dialog-window {\n  box-shadow: inset 0 0 0 1px var(--border);'), 'no frame on the window itself')
   assert.ok(cssSource.includes('.dialog-window *::-webkit-scrollbar-track'), 'the scrollbar track draws a second line')
   assert.ok(cssSource.includes('.panel::-webkit-scrollbar-track'), 'the main panel scrollbar draws a second line')
+})
+
+/* ------------------------------------------------------------ popup layout */
+
+test('a popup window is sized to the dialog it contains', () => {
+  // Hand-picked sizes could not track the content: the hue dialog's buttons sat
+  // 100px below the window edge while the text dialog had 130px of dead space.
+  const host = read('src/DialogHost.tsx')
+  assert.match(host, /reportSize/, 'the dialog never reports its size')
+  assert.match(host, /ResizeObserver/, 'the dialog does not re-measure when it changes')
+  assert.match(host, /chrome \+ content\.scrollHeight/, 'the measurement ignores content that scrolls')
+  assert.match(childWindows, /ipcMain\.handle\('dialog:size'/, 'the main process does not resize the window')
+})
+
+test('the fit can grow a fixed-size window and stays on the display', () => {
+  const fit = childWindows.slice(childWindows.indexOf('function sizeDialogWindow'), childWindows.indexOf('function closeDialogWindow'))
+  // Windows pins a non-resizable window to its creation size, so setBounds is
+  // ignored while growing unless the flag is lifted for the call.
+  assert.match(fit, /win\.setResizable\(true\)/, 'a fixed window could never grow to fit')
+  assert.match(fit, /win\.setResizable\(false\)/, 'the window must stay fixed afterwards')
+  assert.match(fit, /area\.height - 40/, 'a tall dialog could grow off the screen')
+  assert.match(fit, /win\.setBounds/, 'nothing is resized')
+})
+
+test('the dialog keeps a natural height so the window can shrink to it', () => {
+  const window = cssSource.slice(cssSource.indexOf('.dialog-window {'))
+  assert.match(window.slice(0, window.indexOf('}')), /align-items: flex-start/,
+    'a stretched dialog always measures the window it is already in')
+  const inner = cssSource.slice(cssSource.indexOf('.dialog-window > .dialog {'))
+  const rule = inner.slice(0, inner.indexOf('}'))
+  assert.match(rule, /display: flex/, 'the content cannot shrink and scroll without a column flexbox')
+  assert.match(rule, /flex-direction: column/)
+  assert.match(rule, /max-height: 100vh/, 'a tall dialog would push past the window')
+})
+
+test('the buttons follow the content instead of being pushed to the bottom', () => {
+  const actions = cssSource.slice(cssSource.indexOf('.dialog-content > .dialog-actions {'))
+  const rule = actions.slice(0, actions.indexOf('}'))
+  assert.ok(!rule.includes('margin-top: auto'), 'stretching the gap is what produced the dead space')
+})
+
+test('the rulers mark every labelled number with a rule of its own', () => {
+  const rulers = appSource.slice(appSource.indexOf('function drawRulers('), appSource.indexOf('export default function App'))
+  assert.match(rulers, /const minor = step \/ 10/, 'there are no minor ticks between the numbers')
+  assert.match(rulers, /const tickDepth =/, 'every tick is the same length, so a number has no rule of its own')
+  assert.match(rulers, /index % 10 === 0\) return rulerSize - 2/, 'a labelled value gets no full-height rule')
+  assert.match(rulers, /index % 5 === 0\) return 8/, 'there is no half-way mark')
+})
+
+/* ------------------------------------------------------------ settings form */
+
+test('a number in the settings window has a step button either side', () => {
+  const stepper = dialogSource.slice(dialogSource.indexOf('export function NumberStepper'), dialogSource.indexOf('/* ------------------------------------------------------------ curve editor */'))
+  assert.match(stepper, /<Minus size=\{14\} \/>/, 'there is no decrease button')
+  assert.match(stepper, /<Plus size=\{14\} \/>/, 'there is no increase button')
+  assert.match(stepper, /disabled=\{value <= min\}/, 'the decrease button never disables at the floor')
+  assert.match(stepper, /disabled=\{value >= max\}/, 'the increase button never disables at the ceiling')
+  assert.match(stepper, /Math\.min\(max, Math\.max\(min, next\)\)/, 'typing could go out of range')
+  assert.match(stepper, /type="number"/, 'the value can no longer be typed')
+
+  // Both settings numbers use it, and so do the size dialogs.
+  const settings = dialogSource.slice(dialogSource.indexOf("case 'settings':"), dialogSource.indexOf("case 'helpGuide':"))
+  assert.equal((settings.match(/<NumberStepper/g) ?? []).length, 2, 'a settings number is still a bare input')
+  assert.ok(!settings.includes('type="number"'), 'a settings number still uses the browser spinner')
+})
+
+test('the step buttons keep the value on the step grid', () => {
+  const stepper = dialogSource.slice(dialogSource.indexOf('export function NumberStepper'), dialogSource.indexOf('/* ------------------------------------------------------------ curve editor */'))
+  assert.match(stepper, /Math\.round\(\(value \+ direction \* step\) \/ step\) \* step/, 'repeated clicks would drift off the step')
+})
+
+test('the browser spinners are hidden now that the buttons replace them', () => {
+  assert.ok(cssSource.includes('.number-stepper input[type=\'number\']::-webkit-inner-spin-button'), 'the native spinner still shows')
+  const rule = cssSource.slice(cssSource.indexOf(".number-stepper input[type='number'] {"))
+  assert.match(rule.slice(0, rule.indexOf('}')), /appearance: textfield/, 'the native spinner still shows in Firefox')
+})
+
+test('the settings labels say what the value means', () => {
+  for (const language of ['ko', 'en']) {
+    for (const key of ['settingsBrushSize', 'settingsBrushSizeHint', 'settingsTolerance', 'settingsToleranceHint']) {
+      assert.notEqual(t(language, key), key, `${language} has no text for "${key}"`)
+    }
+    // A bare "Size" says nothing; the hint has to explain the unit and the range.
+    assert.ok(t(language, 'settingsBrushSizeHint').length > 20, `${language} brush-size hint is too terse`)
+    assert.ok(/0/.test(t(language, 'settingsToleranceHint')), `${language} tolerance hint does not explain the range`)
+  }
+  const settings = dialogSource.slice(dialogSource.indexOf("case 'settings':"), dialogSource.indexOf("case 'helpGuide':"))
+  assert.ok(settings.includes("tr('settingsBrushSize')"), 'the brush size still uses the abbreviated label')
+  assert.ok(settings.includes("tr('settingsToleranceHint')"), 'the tolerance is not explained')
+})
+
+test('nothing in the settings window scrolls', () => {
+  // The window is sized to hold all of it, so a scrollbar would only ever be
+  // a sign that something is cut off.
+  const themes = cssSource.slice(cssSource.indexOf('.settings-themes {'))
+  const rule = themes.slice(0, themes.indexOf('}'))
+  assert.ok(!rule.includes('overflow-y: auto'), 'the theme list scrolls instead of the window growing')
+  assert.ok(!rule.includes('max-height'), 'the theme list is capped, so it would have to scroll')
+  assert.ok(cssSource.includes('.dialog-window .settings-dialog .dialog-content'), 'the settings content can still scroll')
+})
+
+test('each dialog carries its own class so a rule can target one of them', () => {
+  const frame = dialogSource.slice(dialogSource.indexOf('export function DialogFrame'), dialogSource.indexOf('/* ---------------------------------------------------------'))
+  assert.match(frame, /`\$\{name\}-dialog`/, 'the dialogs are indistinguishable in CSS')
 })

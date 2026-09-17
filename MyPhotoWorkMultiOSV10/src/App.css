@@ -1090,19 +1090,11 @@
 }
 
 .tool-bar {
+  /* One line, never scrolled: the window's minimum width is set to hold every
+     button, so nothing can end up out of reach. */
   gap: 0;
-  overflow-x: auto;
+  overflow: hidden;
   padding: 4px 10px;
-  scrollbar-width: thin;
-}
-
-.tool-bar::-webkit-scrollbar {
-  height: 5px;
-}
-
-.tool-bar::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 3px;
 }
 
 .tool-bar-group {
@@ -1145,9 +1137,13 @@
    browser build, so the same markup has to work both ways. */
 
 .dialog-window {
+  /* `flex-start`, not `stretch`: the dialog has to keep its natural height so
+     it can report what it needs, otherwise it always measures exactly the
+     window it is already in and the window can never shrink to fit. */
+  align-items: flex-start;
   background: var(--panel-bg);
   display: flex;
-  height: 100vh;
+  min-height: 100vh;
   overflow: hidden;
   width: 100vw;
 }
@@ -1155,13 +1151,22 @@
 .dialog-window > .dialog {
   /* No inner border: the OS window edge is already the boundary, and drawing
      both produced a doubled line down the right-hand side. */
+  --dialog-pad: 16px;
   border: none;
   border-radius: 0;
   box-shadow: none;
+  /* A column flexbox so `.dialog-content` is a child that can shrink and
+     scroll. Without it the content simply overflowed the dialog box, which
+     also made the measured height come out as the window height. */
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
   inset: 0;
   margin: 0;
-  max-height: none;
+  max-height: 100vh;
   max-width: none;
+  overflow: hidden;
+  padding: var(--dialog-pad);
   position: static;
   transform: none;
   width: 100%;
@@ -1202,7 +1207,8 @@
   display: flex;
   flex: 0 0 auto;
   gap: 8px;
-  margin: -16px -16px 12px;
+  /* Spans the full window width whatever the padding is. */
+  margin: calc(var(--dialog-pad, 16px) * -1) calc(var(--dialog-pad, 16px) * -1) 4px;
   padding: 8px 8px 8px 12px;
 }
 
@@ -1248,8 +1254,11 @@
   overflow-y: auto;
 }
 
+/* The action row follows the content instead of being pushed to the bottom:
+   the window is sized to fit, so stretching only produced dead space. */
 .dialog-content > .dialog-actions {
-  margin-top: auto;
+  flex: 0 0 auto;
+  margin-top: 2px;
 }
 
 .about-icon {
@@ -1271,8 +1280,6 @@
   gap: 6px;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   margin-top: 6px;
-  max-height: 210px;
-  overflow-y: auto;
 }
 
 .settings-themes button {
@@ -1345,4 +1352,242 @@
   pointer-events: none;
   position: fixed;
   z-index: 90;
+}
+
+/* ------------------------------------------------------------ error popup */
+.error-message {
+  font-weight: 600;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/* The detail block is the thing to paste, so it is selectable and monospaced. */
+.error-details {
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-primary);
+  flex: 1 1 auto;
+  font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  min-height: 180px;
+  padding: 10px;
+  resize: none;
+  user-select: text;
+  white-space: pre;
+}
+
+.error-dialog .dialog-content {
+  min-height: 0;
+}
+
+/* ---------------------------------------------------------- number stepper */
+/* A step button either side of the field: the browser's own spinners are a
+   hairline tall and invisible in several of the themes. */
+.number-stepper {
+  align-items: stretch;
+  display: inline-flex;
+  gap: 4px;
+}
+
+.number-stepper input[type='number'] {
+  flex: 1 1 auto;
+  min-width: 0;
+  text-align: center;
+  /* The native spinners are replaced by the buttons. */
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.number-stepper input[type='number']::-webkit-inner-spin-button,
+.number-stepper input[type='number']::-webkit-outer-spin-button {
+  appearance: none;
+  margin: 0;
+}
+
+.number-stepper button {
+  flex: 0 0 auto;
+  justify-content: center;
+  min-width: 32px;
+  padding: 4px;
+}
+
+/* ------------------------------------------------------------- settings row */
+.settings-field {
+  display: grid;
+  gap: 4px;
+}
+
+.settings-field-name {
+  font-weight: 600;
+}
+
+.settings-field-hint {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+/* Kept narrow so the two buttons read as a pair around their value rather than
+   sitting at opposite ends of the window. */
+.settings-field .number-stepper {
+  max-width: 220px;
+}
+
+/* Neither the settings nor the about window scrolls: each is sized to hold all
+   of its content, so a scrollbar would only ever mean something is cut off. */
+.dialog-window .settings-dialog .dialog-content,
+.dialog-window .about-dialog .dialog-content {
+  overflow-y: visible;
+}
+
+/* --------------------------------------- task buttons and colours, inline */
+/* The contextual actions and the colour controls share the toolbar row, so the
+   options bar below is left to the current tool alone. */
+.tool-bar-tasks,
+.tool-bar-colors {
+  flex: 0 0 auto;
+}
+
+.swatch-button {
+  min-width: 34px;
+  padding: 4px 5px;
+}
+
+.swatch-chip {
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  display: block;
+  height: 16px;
+  width: 22px;
+}
+
+/* ------------------------------------------------------------ resize grip */
+/* A frameless window has no visible corner, so the drag target is invisible
+   without one drawn here. */
+.resize-grip {
+  bottom: 0;
+  height: 16px;
+  /* The OS owns the corner; this only draws it. */
+  pointer-events: none;
+  position: fixed;
+  right: 0;
+  width: 16px;
+  z-index: 80;
+}
+
+.resize-grip::after {
+  border-right: 2px solid var(--border);
+  border-bottom: 2px solid var(--border);
+  content: '';
+  height: 5px;
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  width: 5px;
+}
+
+.resize-grip::before {
+  border-right: 2px solid var(--border);
+  border-bottom: 2px solid var(--border);
+  content: '';
+  height: 10px;
+  opacity: 0.55;
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  width: 10px;
+}
+
+/* ------------------------------------------------- settings window layout */
+/* Roomier rows, and a two-column grid for the short controls so nothing has to
+   be squeezed or cut off. */
+.settings-dialog .dialog-content {
+  gap: 14px;
+}
+
+.settings-dialog > .dialog-content > label,
+.settings-dialog .settings-theme-block {
+  display: grid;
+  gap: 6px;
+}
+
+.settings-dialog select,
+.settings-dialog input[type='number'] {
+  width: 100%;
+}
+
+.settings-dialog .dialog-grid {
+  align-items: center;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 1fr 1fr;
+}
+
+.settings-dialog .check-row {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+/* ----------------------------------------------------------- about window */
+/* The icon and what the program is, side by side; the facts below it. */
+.about-head {
+  align-items: flex-start;
+  display: flex;
+  gap: 14px;
+}
+
+.about-head .about-icon {
+  flex: 0 0 auto;
+  height: 72px;
+  margin: 0;
+  width: 72px;
+}
+
+.about-blurb {
+  min-width: 0;
+}
+
+.about-blurb h3 {
+  font-size: 15px;
+  margin: 0 0 6px;
+}
+
+.about-blurb p {
+  color: var(--muted);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.about-facts {
+  border-top: 1px solid var(--border);
+  display: grid;
+  gap: 0;
+  margin: 4px 0 0;
+  padding-top: 4px;
+}
+
+.about-fact {
+  align-items: baseline;
+  border-bottom: 1px solid var(--border);
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 96px 1fr;
+  padding: 7px 2px;
+}
+
+.about-fact:last-child {
+  border-bottom: none;
+}
+
+.about-fact dt {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.about-fact dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  /* Versions and hashes read better in a monospaced face. */
+  font-variant-numeric: tabular-nums;
 }

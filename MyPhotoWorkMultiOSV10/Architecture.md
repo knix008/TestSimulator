@@ -20,6 +20,11 @@ toolbar**, and the contextual **options bar**. The menu bar and the toolbar are
 both generated from `src/commands.ts`, so the toolbar is simply the commands
 flagged `toolbar`, still grouped by their menu category.
 
+Every popup window sizes itself to its content: `DialogHost` measures the
+dialog and the main process resizes the window to match, clamped to the display.
+Fixed sizes could not track the content — some dialogs clipped their buttons and
+others left a band of dead space beneath them.
+
 Popups are not rendered inside the app window. Each menu dropdown and each
 dialog is a child `BrowserWindow` that loads this same bundle with a hash route
 (`#menu=<id>` / `#dialog=<name>`), because a frameless window clips its own
@@ -38,12 +43,19 @@ index.html
         ├─ src/toolOptions.ts → what the contextual options bar shows per tool
         ├─ src/dialogs.tsx    → every popup body, shared by both renderings
         ├─ src/dialogMeta.ts  → popup names, icons and titles
+        ├─ src/aboutInfo.ts   → the facts the About window lists
         └─ src/lib/*
 electron/main.cjs           → window, native open/save, close confirm
 electron/childwindows.cjs   → menu popups and dialogs as separate windows
-electron/preload.cjs        → contextBridge file/window APIs
-scripts/create-icons.cjs    → public/app-icon.svg → installer icons
+electron/preload.cjs        → contextBridge file/window/menu/dialog APIs
+scripts/create-icons.cjs        → public/app-icon.svg → every platform's icons
+scripts/generate-build-info.cjs → src/build-info.json for the About window
+scripts/electron-dev.mjs        → starts Vite, then Electron
 ```
+
+`src/dialogs.tsx` and `src/dialogMeta.ts` are split so the dialog module exports
+components only; the same reason `aboutInfo.ts` is separate — it is plain logic,
+so the tests can import it without a JSX transform.
 
 `src/lib` holds the platform-independent engine:
 
@@ -55,14 +67,47 @@ scripts/create-icons.cjs    → public/app-icon.svg → installer icons
 | `paths` | vector paths: anchors, bezier handles, hit testing, stroke/fill, path→selection |
 | `transform` | the free-transform box, its handles, and the resampling that commits it |
 | `canvas` / `history` / `imageIO` | the document model, undo snapshots, `.mpw` and raster codecs |
+| `errors` | turning anything thrown into a report the user can read and paste |
+| `view` | the tick spacing shared by the grid and the rulers |
+
+## Errors
+
+Nothing fails silently. `reportError` in `App.tsx` is the single entry point: it
+builds a report with `lib/errors.ts` — the action, the error and its stack, the
+document, the tool and the environment — and opens the error popup, where the
+text is selectable and one button copies all of it.
+
+It is reached from four directions: the global `error` and `unhandledrejection`
+handlers, a `guard()` wrapper around every menu command, filter and dialog
+result, the explicit calls in the file paths, and an IPC channel that forwards
+failures out of the popup windows, which are separate renderers and would
+otherwise take their errors down with them.
+
+`copyText()` falls back to a hidden textarea and `execCommand`, because a
+packaged popup is loaded over `file://` — not a secure context — where
+`navigator.clipboard` does not exist.
+
+## Generated files
+
+Neither is committed; both are rebuilt by `npm test` and by every `build` and
+`dist:*` script.
+
+| File | Made by | Why |
+| ---- | ------- | --- |
+| `build/icon.ico`, `build/icon.png`, `build/icons/**` | `scripts/create-icons.cjs` | One render of `public/app-icon.svg` drives the executable, the installer, the uninstaller, the taskbar and both shortcuts, so they cannot drift apart |
+| `src/build-info.json` | `scripts/generate-build-info.cjs` | Version, build time and commit for the About window; it changes on every build, so tracking it would only create churn |
 
 ## Data model
 
 A document is a fixed-size canvas plus an ordered stack of raster layers. Pixel buffers live in a `Map<layerId, HTMLCanvasElement>` (not React state). React state holds only metadata:
 
 ```ts
-type LayerMeta = { id, name, visible, opacity, blendMode, locked }
-type PhotoDocument = { name, width, height, background, layers, activeLayerId, filePath? }
+type LayerMeta = { id, name, visible, opacity, fillOpacity, blendMode, locked, kind,
+                   clipped, maskEnabled, smart, parentId?, adjustment?, curves?,
+                   levels?, fill?, text?, shape?, effects, collapsed? }
+type PhotoDocument = { name, width, height, background, layers, activeLayerId, filePath?,
+                       guides, notes, samplers, counts, paths, slices, frames, measure,
+                       colorMode }
 ```
 
 Index 0 is the bottom layer. The right-hand panel lists layers from top to bottom, matching Photoshop.
@@ -71,9 +116,21 @@ Selection is a rectangle, ellipse, or per-pixel mask. Brush, eraser, fill, gradi
 
 ## Rendering
 
-1. Composite visible layers onto an offscreen canvas (`compositeDocument`) using each layer's opacity and Canvas blend mode.
-2. Draw a checkerboard, then the composite, scaled by zoom and pan, onto the viewport canvas.
-3. Overlay marching-ants / mask fill (`drawSelectionOverlay`) and live gradient previews.
+1. Composite visible layers onto an offscreen canvas (`compositeDocument`) using
+   each layer's opacity, blend mode and mask. An adjustment layer re-reads what
+   is beneath it and applies its sliders, curve or level table in place.
+2. Draw a checkerboard, then the composite, scaled by zoom, pan and view angle,
+   onto the viewport canvas.
+3. Overlay the grid and rulers, the marching ants, the vector paths, the
+   slice/frame/ruler regions, the free-transform box, and any live preview
+   (gradient, shape draft, lasso in progress).
+
+The grid and the rulers are painted onto the viewport, not behind it: the canvas
+fills the stage and is drawn opaque, so a CSS background was invisible.
+
+While a transform is live the layer's pixels are previewed by warping an
+untouched copy — the stored canvas is only rewritten when the transform is
+applied.
 
 The RGB histogram is computed from the active layer only.
 
@@ -89,15 +146,25 @@ from per-tool JSX, so each control renders and behaves identically wherever it
 appears, and every tool is guaranteed a row with a one-line hint in both
 languages.
 
-- **Move** shifts the active layer's pixels.
-- **Marquee / ellipse / lasso / wand** build a `Selection`.
-- **Brush / eraser** stamp a hardness-aware radial stroke, then clip to the selection.
-- **Fill** flood-fills by Chebyshev color distance.
-- **Gradient** paints a linear gradient from drag start to end.
-- **Text** rasterizes a string onto the active layer.
-- **Crop** stores a draft box; Enter applies it to every layer and the document size.
+- **Move** replays from a pristine copy of the layer at the accumulated offset,
+  so dragging out of frame and back is lossless however many drags it takes. The
+  copy is dropped as soon as the layer is edited any other way.
+- **Marquee / ellipse / lasso / polygonal / magnetic / wand** build a `Selection`.
+  The magnetic lasso snaps each sample to the strongest nearby Sobel edge.
+- **Brush family** runs through one `paintDab` switch, so blur, sharpen, clone,
+  heal and the rest each do their own work rather than falling through to a
+  plain stroke.
+- **Fill** flood-fills by Chebyshev colour distance.
+- **Gradient** paints linear, radial, angle, reflected or diamond.
+- **Pen / curvature / freeform** build a `PathShape` of bezier anchors, which can
+  then be stroked, filled or turned into a selection.
+- **Shape tools** create an editable shape layer rather than rasterising.
+- **Text** adds a live text layer, re-rasterised on every composite.
+- **Crop / perspective crop** apply to every layer and the document size.
+- **Slice / frame / ruler** add regions to the document; a slice can be exported
+  on its own, a frame clips its layer.
 - **Eyedropper** samples the composite.
-- **Hand / zoom / wheel** pan and scale the view.
+- **Hand / rotate view / zoom / wheel** pan, turn and scale the view.
 
 ## History and files
 
@@ -107,7 +174,18 @@ In Electron, `files:open` / `files:save` / `files:write` use native dialogs. In 
 
 ## Desktop shell
 
-`electron/main.cjs` creates a frameless window and exposes IPC over a `contextBridge` preload. Packaging uses electron-builder (NSIS / DMG+ZIP / AppImage+DEB+RPM). `scripts/create-icons.cjs` rasterizes `public/app-icon.svg` into `build/icon.png`, Linux `256x256/icon.png`, and a multi-resolution `build/icon.ico`.
+`electron/main.cjs` creates a frameless window and exposes IPC over a
+`contextBridge` preload. Its minimum size is set by the toolbar row, which holds
+every command, the contextual actions and the colour controls on one line and
+never scrolls — so no button can end up out of reach.
+
+Both the main window and the popups prefer the dev server when unpackaged but
+fall back to the built bundle: otherwise a popup opened while Vite was down came
+up blank while the main window, started earlier, still looked fine.
+
+Packaging uses electron-builder (NSIS / DMG+ZIP / AppImage+DEB+RPM), with the
+executable, installer, uninstaller and both shortcuts all pinned to the one
+generated `build/icon.ico`.
 
 ## Tests
 
@@ -153,3 +231,5 @@ filters that call `Math.random`.
 | `commands.test.mjs` | that the menu bar and toolbar agree, and every command has a handler |
 | `windows.test.mjs` | popup windows, the menu overhang, the viewport grid and rulers, drag & drop |
 | `scripts.test.mjs` | the `npm start` launchers |
+| `errors.test.mjs` | the error report, the clipboard fallback and the reporting wiring |
+| `icons.test.mjs` | that the installer, executable, taskbar and shortcut icons all come from one SVG |

@@ -19,27 +19,27 @@ const DIALOG_SPECS = {
   // Wider than the old in-page panel so each row fits label + control on one
   // line, and fixed: the layout is designed for exactly this size.
   settings: { width: 720, height: 640, resizable: false },
-  about: { width: 460, height: 470, resizable: false },
+  about: { width: 560, height: 470, resizable: false },
   helpGuide: { width: 660, height: 620, resizable: false },
-  error: { width: 620, height: 420, minWidth: 420, minHeight: 280 },
+  error: { width: 620, height: 420, minWidth: 420 },
   unsaved: { width: 460, height: 210, resizable: false },
-  new: { width: 520, height: 470, minWidth: 420, minHeight: 380 },
+  new: { width: 520, height: 470, minWidth: 420 },
   export: { width: 440, height: 250, resizable: false },
   imageSize: { width: 420, height: 230, resizable: false },
   canvasSize: { width: 420, height: 230, resizable: false },
-  text: { width: 460, height: 300, minWidth: 380, minHeight: 240 },
+  text: { width: 460, height: 300, minWidth: 380 },
   brightness: { width: 440, height: 240, resizable: false },
   hue: { width: 440, height: 280, resizable: false },
   blur: { width: 420, height: 200, resizable: false },
   sharpen: { width: 420, height: 200, resizable: false },
   feather: { width: 420, height: 200, resizable: false },
   cameraRaw: { width: 460, height: 300, resizable: false },
-  filterGallery: { width: 560, height: 520, minWidth: 420, minHeight: 360 },
-  curves: { width: 420, height: 560, minWidth: 360, minHeight: 460 },
-  levels: { width: 460, height: 460, minWidth: 380, minHeight: 380 },
+  filterGallery: { width: 560, height: 520, minWidth: 420 },
+  curves: { width: 420, height: 560, minWidth: 360 },
+  levels: { width: 460, height: 460, minWidth: 380 },
 }
 
-const DEFAULT_SPEC = { width: 480, height: 360, minWidth: 320, minHeight: 200 }
+const DEFAULT_SPEC = { width: 480, height: 360, minWidth: 320 }
 
 function isDev() {
   return !app.isPackaged
@@ -210,7 +210,7 @@ function openDialogWindow(name, payload, opener) {
   const win = new BrowserWindow({
     ...bounds,
     minWidth: spec.minWidth ?? Math.min(spec.width, 320),
-    minHeight: spec.minHeight ?? Math.min(spec.height, 180),
+    minHeight: 120,
     // Owned by the main window, so closing the app tears every dialog down too,
     // but still freely movable anywhere on the desktop.
     parent: parent && !parent.isDestroyed() ? parent : undefined,
@@ -251,6 +251,45 @@ function openDialogWindow(name, payload, opener) {
 
   load(win, `dialog=${encodeURIComponent(name)}`)
   return true
+}
+
+/**
+ * Fits a dialog window to the height its content actually needs.
+ *
+ * The hand-picked sizes could not keep up with the content: the hue dialog's
+ * buttons sat 100px below the window edge while the text dialog had 130px of
+ * dead space under them. The renderer measures itself and the window follows,
+ * clamped to the display so a tall dialog scrolls instead of growing off screen.
+ */
+function sizeDialogWindow(win, size) {
+  if (!win || win.isDestroyed()) return
+  const spec = DIALOG_SPECS[win.__dialogName] ?? DEFAULT_SPEC
+  const display = screen.getDisplayNearestPoint({ x: win.getBounds().x, y: win.getBounds().y })
+  const area = display.workArea
+
+  // A width of 0 means "keep what you have"; only the height tracks the content.
+  const current0 = win.getBounds()
+  const width = size.width
+    ? Math.min(Math.max(Math.ceil(size.width), spec.minWidth ?? 320), area.width - 40)
+    : current0.width
+  const height = Math.min(Math.max(Math.ceil(size.height), 120), area.height - 40)
+  const current = win.getBounds()
+  if (Math.abs(current.width - width) < 2 && Math.abs(current.height - height) < 2) {
+    return
+  }
+
+  // Grow around the middle so the window does not appear to crawl down the screen.
+  let x = Math.round(current.x + (current.width - width) / 2)
+  let y = Math.round(current.y + (current.height - height) / 2)
+  x = Math.min(Math.max(x, area.x), area.x + area.width - width)
+  y = Math.min(Math.max(y, area.y), area.y + area.height - height)
+  // Windows pins a non-resizable window to its creation size, so setBounds is
+  // ignored when growing. The flag is lifted only for the call itself; the
+  // dialog stays fixed as far as the user is concerned.
+  const wasResizable = win.isResizable()
+  if (!wasResizable) win.setResizable(true)
+  win.setBounds({ x, y, width, height })
+  if (!wasResizable) win.setResizable(false)
 }
 
 function closeDialogWindow(name) {
@@ -313,6 +352,19 @@ function registerChildWindowHandlers() {
   ipcMain.handle('dialog:close-all', () => {
     closeAllDialogWindows()
   })
+
+  ipcMain.handle('dialog:size', (event, size) => {
+    sizeDialogWindow(BrowserWindow.fromWebContents(event.sender), size)
+  })
+
+  ipcMain.handle('dialog:error', (event, report) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    const owner = win?.getParentWindow() ?? mainWindow
+    if (owner && !owner.isDestroyed()) {
+      owner.webContents.send('dialog:error', report)
+      owner.focus()
+    }
+  })
 }
 
 function setMainWindow(win) {
@@ -321,6 +373,7 @@ function setMainWindow(win) {
 
 module.exports = {
   registerChildWindowHandlers,
+  sizeDialogWindow,
   setMainWindow,
   openDialogWindow,
   closeDialogWindow,

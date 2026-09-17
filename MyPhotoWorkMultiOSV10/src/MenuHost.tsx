@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { commandsInMenu, type MenuId } from './commands'
 import { t } from './i18n'
 import { applyTheme } from './themes'
+import { buildErrorReport } from './lib/errors'
 import type { Language } from './lib/types'
 
 /**
@@ -58,9 +59,21 @@ export default function MenuHost({ menu }: { menu: MenuId }) {
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') void window.electronMenuApi?.close()
     }
+    const send = (error: unknown) => {
+      const report = buildErrorReport(error, { action: `menu:${menu}`, source: `menu:${menu}` })
+      void window.electronDialogApi?.reportError({ source: report.title, message: report.message, details: report.details })
+    }
+    const onError = (event: ErrorEvent) => send(event.error ?? event.message)
+    const onRejection = (event: PromiseRejectionEvent) => send(event.reason)
     window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [])
+    window.addEventListener('error', onError)
+    window.addEventListener('unhandledrejection', onRejection)
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      window.removeEventListener('error', onError)
+      window.removeEventListener('unhandledrejection', onRejection)
+    }
+  }, [menu])
 
   if (!payload) {
     return <div className="menu-window" ref={listRef} />

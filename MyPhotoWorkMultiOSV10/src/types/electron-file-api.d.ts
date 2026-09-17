@@ -36,6 +36,10 @@ interface Window {
     forceClose(): Promise<void>
     onCloseRequest(callback: () => void): () => void
   }
+  /** What the desktop shell itself is running. */
+  electronAppApi?: {
+    versions(): { electron: string; chrome: string; node: string; v8: string; platform: string; arch: string }
+  }
   /** Menu dropdowns rendered in their own window so they can overhang the app. */
   electronMenuApi?: {
     open(payload: unknown, anchor: { x: number; y: number; width: number; height: number }): Promise<boolean>
@@ -55,5 +59,8 @@ interface Window {
     onPayload(callback: (payload: unknown) => void): () => void
     onResult(callback: (message: { name: string; result: unknown }) => void): () => void
     onClosed(callback: (name: string) => void): () => void
+    reportSize(size: { width: number; height: number }): Promise<void>
+    reportError(report: { source: string; message: string; details: string }): Promise<void>
+    onError(callback: (report: { source: string; message: string; details: string }) => void): () => void
   }
 }

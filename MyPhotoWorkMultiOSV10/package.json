@@ -9,18 +9,20 @@
   "type": "module",
   "scripts": {
     "start": "npm run electron:dev",
-    "dev": "vite --host 127.0.0.1 --port 5173 --strictPort",
+    "dev": "npm run build:info && vite --host 127.0.0.1 --port 5173 --strictPort",
     "electron": "node scripts/start-electron.mjs",
     "electron:dev": "node scripts/electron-dev.mjs",
-    "build": "tsc -b && vite build",
+    "build": "npm run build:info && tsc -b && vite build",
     "build:web": "npm run build",
     "build:icons": "node scripts/create-icons.cjs",
+    "build:info": "node scripts/generate-build-info.cjs",
     "dist": "npm run build:icons && npm run build && electron-builder && node scripts/copy-installers.cjs",
     "dist:win": "npm run build:icons && npm run build && electron-builder --win nsis && node scripts/copy-installers.cjs",
     "build:win": "npm run dist:win",
     "dist:mac": "npm run build:icons && npm run build && electron-builder --mac dmg zip && node scripts/copy-installers.cjs",
     "dist:linux": "npm run build:icons && npm run build && electron-builder --linux AppImage deb rpm && node scripts/copy-installers.cjs",
     "postinstall": "node node_modules/electron/install.js",
+    "pretest": "npm run build:icons && npm run build:info",
     "test": "node --test --import ./test/helpers/setup.mjs test/*.test.mjs",
     "lint": "eslint .",
     "preview": "vite preview"
@@ -52,6 +54,7 @@
         "dmg",
         "zip"
       ],
+      "icon": "build/icon.png",
       "category": "public.app-category.photography"
     },
     "linux": {
@@ -69,7 +72,10 @@
       "perMachine": false,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "My Photo Work V1.0"
+      "shortcutName": "My Photo Work V1.0",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "installerHeaderIcon": "build/icon.ico"
     }
   },
   "dependencies": {

@@ -66,6 +66,7 @@ import { applyTransform, dragTransform, drawTransformOverlay, flipCanvas, hitTes
 import { clipToFrame, contentMove, createFrame, createSlice, cropToRect, drawRegionOverlay, measureInfo, patchSelection, perspectiveCrop, perspectiveSize, rectAt, snapToEdge } from './lib/regions'
 import { optionsForTool } from './toolOptions'
 import { firstTick, rulerSize, tickStep, visibleRange } from './lib/view'
+import { buildErrorReport } from './lib/errors'
 import { commands, commandsInMenu, menuIcons, menuOrder, toolbarGroups, type AppCommand, type MenuId as CommandMenuId } from './commands'
 import { DialogBody, DialogFrame, type DialogName, type DialogPayload, type DialogResult } from './dialogs'
 import { defaultAdjustment, defaultCurves, blendModes, rightPanelMaxWidth, rightPanelMinWidth, shapeKindForTool, type AdjustmentType, type AppSettings, type BlendMode, type ErrorDetails, type ExportFormat, type CurveData, type LevelsData, type PathShape, type PhotoDocument, type Point, type Selection, type SliceRect, type Tool, type TransformBox, type TransformHandle, type UnsavedChoice } from './lib/types'
@@ -333,37 +334,54 @@ function drawRulers(
   ctx.lineTo(rulerSize + 0.5, view.height)
   ctx.stroke()
 
-  // The span of document coordinates currently on screen.
+  // Three tick depths, so a number's exact position is unmistakable: a full
+  // rule at each labelled value, a half-height mark between two of them, and
+  // short marks every tenth.
+  const minor = step / 10
   const spanX = visibleRange(view.width, pan.x, zoom)
-  const firstX = firstTick(spanX.from, step)
-  const lastX = spanX.to
-  ctx.fillStyle = colors.text
-  ctx.strokeStyle = colors.line
-  for (let value = firstX; value <= lastX; value += step) {
-    const x = Math.round(pan.x + value * zoom) + 0.5
-    if (x < rulerSize) continue
-    ctx.beginPath()
-    ctx.moveTo(x, rulerSize - 6)
-    ctx.lineTo(x, rulerSize)
-    ctx.stroke()
-    ctx.fillText(String(Math.round(value)), x + 2, 3)
+  const spanY = visibleRange(view.height, pan.y, zoom)
+
+  const tickDepth = (value: number) => {
+    const index = Math.round(value / minor)
+    if (index % 10 === 0) return rulerSize - 2
+    if (index % 5 === 0) return 8
+    return 4
   }
 
-  const spanY = visibleRange(view.height, pan.y, zoom)
-  const firstY = firstTick(spanY.from, step)
-  const lastY = spanY.to
-  for (let value = firstY; value <= lastY; value += step) {
+  ctx.fillStyle = colors.text
+  ctx.strokeStyle = colors.line
+  ctx.beginPath()
+  for (let value = firstTick(spanX.from, minor); value <= spanX.to; value += minor) {
+    const x = Math.round(pan.x + value * zoom) + 0.5
+    if (x < rulerSize) continue
+    const depth = tickDepth(value)
+    ctx.moveTo(x, rulerSize - depth)
+    ctx.lineTo(x, rulerSize)
+  }
+  for (let value = firstTick(spanY.from, minor); value <= spanY.to; value += minor) {
     const y = Math.round(pan.y + value * zoom) + 0.5
     if (y < rulerSize) continue
-    ctx.beginPath()
-    ctx.moveTo(rulerSize - 6, y)
+    const depth = tickDepth(value)
+    ctx.moveTo(rulerSize - depth, y)
     ctx.lineTo(rulerSize, y)
-    ctx.stroke()
+  }
+  ctx.stroke()
+
+  // The labels sit just past their own full-height rule.
+  for (let value = firstTick(spanX.from, step); value <= spanX.to; value += step) {
+    const x = Math.round(pan.x + value * zoom) + 0.5
+    if (x < rulerSize) continue
+    ctx.textBaseline = 'top'
+    ctx.fillText(String(Math.round(value)), x + 3, 3)
+  }
+  for (let value = firstTick(spanY.from, step); value <= spanY.to; value += step) {
+    const y = Math.round(pan.y + value * zoom) + 0.5
+    if (y < rulerSize) continue
     ctx.save()
-    ctx.translate(3, y + 2)
+    ctx.translate(3, y + 3)
     ctx.rotate(-Math.PI / 2)
     ctx.textBaseline = 'bottom'
-    ctx.fillText(String(Math.round(value)), -22, 10)
+    ctx.fillText(String(Math.round(value)), -24, 10)
     ctx.restore()
   }
 
@@ -572,6 +590,9 @@ export default function App() {
   }, [dialogPayload])
 
   /** Popups seeded from the old document would show stale values. */
+  const openDialogRef = useRef<(name: DialogName) => void>(() => {})
+  useEffect(() => { openDialogRef.current = openDialog }, [openDialog])
+
   const closeAllDialogs = useCallback(() => {
     if (window.electronDialogApi) {
       void window.electronDialogApi.closeAll()
@@ -627,6 +648,75 @@ export default function App() {
     setDoc((current) => (current ? updater(current) : current))
     markDirty()
   }, [markDirty])
+
+
+  /* -------------------------------------------------------- error reports */
+
+  /**
+   * The single entry point for anything that went wrong. Builds a report the
+   * user can read and paste, and shows it in the error popup — silent failures
+   * left nothing to act on.
+   */
+  const reportError = useCallback((action: string, error: unknown, source = 'main') => {
+    const current = docRef.current
+    const report = buildErrorReport(error, {
+      action,
+      source,
+      extra: {
+        Document: current ? `${current.name} ${current.width}x${current.height}` : 'none',
+        Layers: current?.layers.length,
+        Tool: toolRef.current,
+        Zoom: settingsRef.current.zoom,
+      },
+    })
+    setError(report)
+    errorRef.current = report
+    openDialogRef.current('error')
+  }, [])
+
+  const reportErrorRef = useRef(reportError)
+  useEffect(() => { reportErrorRef.current = reportError }, [reportError])
+
+  /** Runs `fn`, reporting anything it throws (or rejects with) as `action`. */
+  const guard = useCallback(<T,>(action: string, fn: () => T): T | undefined => {
+    try {
+      const value = fn()
+      if (value && typeof (value as { catch?: unknown }).catch === 'function') {
+        void (value as unknown as Promise<unknown>).catch((error) => reportErrorRef.current(action, error))
+      }
+      return value
+    } catch (error) {
+      reportErrorRef.current(action, error)
+      return undefined
+    }
+  }, [])
+
+  // Anything that escapes a handler entirely — a bug in a filter, a broken
+  // image decode — still reaches the user instead of only the dev console.
+  useEffect(() => {
+    const onError = (event: ErrorEvent) => {
+      reportErrorRef.current(t(settingsRef.current.language, 'errorUnexpected'), event.error ?? event.message)
+    }
+    const onRejection = (event: PromiseRejectionEvent) => {
+      reportErrorRef.current(t(settingsRef.current.language, 'errorUnexpected'), event.reason)
+    }
+    window.addEventListener('error', onError)
+    window.addEventListener('unhandledrejection', onRejection)
+    return () => {
+      window.removeEventListener('error', onError)
+      window.removeEventListener('unhandledrejection', onRejection)
+    }
+  }, [])
+
+  // Failures inside a popup window are in another renderer; the main window
+  // shows them so they are not lost with the window that produced them.
+  useEffect(() => window.electronDialogApi?.onError?.(({ source, message, details }) => {
+    const report = { title: t(settingsRef.current.language, 'errorInWindow'), message, details }
+    setError(report)
+    errorRef.current = report
+    openDialogRef.current('error')
+    void source
+  }), [])
 
   const fitZoom = useCallback((document: PhotoDocument) => {
     const stage = stageRef.current
@@ -825,9 +915,8 @@ export default function App() {
   }, [doc.activeLayerId, frame])
 
   const showError = useCallback((title: string, message: string, details: unknown) => {
-    setError({ title, message, details: details instanceof Error ? `${details.message}\n${details.stack ?? ''}` : String(details) })
-    openDialog('error')
-  }, [openDialog])
+    reportErrorRef.current(`${title} — ${message}`, details)
+  }, [])
 
   const guardUnsaved = useCallback((action: 'new' | 'open' | 'close' | 'quit') => {
     if (dirty) {
@@ -987,6 +1076,7 @@ export default function App() {
     }
     pushHistory(redoRef.current, takeSnapshot(docRef.current, canvasesRef.current))
     canvasesRef.current = previous.canvases
+    moveOriginRef.current.clear()
     setDoc(previous.document)
     markDirty()
   }, [markDirty])
@@ -998,6 +1088,7 @@ export default function App() {
     }
     pushHistory(undoRef.current, takeSnapshot(docRef.current, canvasesRef.current))
     canvasesRef.current = next.canvases
+    moveOriginRef.current.clear()
     setDoc(next.document)
     markDirty()
   }, [markDirty])
@@ -1006,12 +1097,15 @@ export default function App() {
     const current = docRef.current
     const layer = current?.layers.find((item) => item.id === current.activeLayerId)
     const canvas = current ? canvasesRef.current.get(current.activeLayerId) : null
+    const language = settingsRef.current.language
     if (!current || !layer || !canvas) {
       setStatus('noLayer')
+      reportErrorRef.current(t(language, 'noLayerTitle'), new Error(t(language, 'noLayerBody')))
       return false
     }
     if (layer.locked) {
       setStatus('lockedLayer')
+      reportErrorRef.current(t(language, 'lockedLayerTitle'), new Error(t(language, 'lockedLayerBody')))
       return false
     }
     if (record) {
@@ -1044,6 +1138,7 @@ export default function App() {
       nextCanvases.set(layer.id, canvas)
     }
     canvasesRef.current = nextCanvases
+    moveOriginRef.current.clear()
     setDoc({ ...cloneDocument(current), width, height })
     setCrop(null)
     setSelection(null)
@@ -1096,6 +1191,7 @@ export default function App() {
     }
     snapshot()
     canvasesRef.current.set(current.activeLayerId, applyTransform(source, box, current.width, current.height))
+    moveOriginRef.current.delete(current.activeLayerId)
     transformSourceRef.current = null
     setTransformBox(null)
     setStatus('ready')
@@ -1857,6 +1953,10 @@ export default function App() {
   }
 
   const applyNamedFilter = (id: string) => {
+    guard(`${tr('errorWhileFilter')}: ${tr(id)}`, () => applyNamedFilterUnguarded(id))
+  }
+
+  const applyNamedFilterUnguarded = (id: string) => {
     if (id === 'cameraRaw') {
       openDialog('cameraRaw')
       return
@@ -1899,6 +1999,7 @@ export default function App() {
       next.set(layer.id, canvas)
     }
     canvasesRef.current = next
+    moveOriginRef.current.clear()
     setDoc({ ...doc, width, height })
     markDirty()
   }
@@ -1926,6 +2027,7 @@ export default function App() {
       next.set(layer.id, resizeCanvasContent(source, width, height))
     }
     canvasesRef.current = next
+    moveOriginRef.current.clear()
     setDoc({ ...doc, width, height })
     markDirty()
   }
@@ -1939,6 +2041,7 @@ export default function App() {
       next.set(layer.id, padCanvas(source, width, height, 0, 0))
     }
     canvasesRef.current = next
+    moveOriginRef.current.clear()
     setDoc({ ...doc, width, height })
     markDirty()
   }
@@ -2117,6 +2220,10 @@ export default function App() {
   // handler, and memoising it would pull every layer command into a dependency
   // array that changes on every render anyway.
   const runCommand = (id: string) => {
+    guard(`${tr('errorWhileCommand')}: ${id}`, () => runCommandUnguarded(id))
+  }
+
+  const runCommandUnguarded = (id: string) => {
     setMenu(null)
     setContextMenu(null)
     const current = docRef.current
@@ -2287,6 +2394,10 @@ export default function App() {
    * memoising it would pull every document command into its dependency array.
    */
   const applyDialogResult = (name: DialogName, result: DialogResult) => {
+    guard(`${tr('errorWhileDialog')}: ${name}`, () => applyDialogResultUnguarded(name, result))
+  }
+
+  const applyDialogResultUnguarded = (name: DialogName, result: DialogResult) => {
     if (result.action === 'settings') {
       setSettings((value) => ({ ...value, ...(result.patch as Partial<AppSettings>) }))
       return
@@ -2584,6 +2695,55 @@ export default function App() {
             })}
           </div>
         ))}
+
+          <div className="tool-bar-group tool-bar-tasks">
+            <span className="tool-bar-divider" aria-hidden="true" />
+            <button
+              data-tooltip={tr('selectSubject')}
+              aria-label={tr('selectSubject')}
+              onClick={() => { const source = canvasesRef.current.get(doc.activeLayerId) ?? compositeDocument(doc, canvasesRef.current); setSelection(selectSubject(source)) }}
+            ><Sparkles size={16} /></button>
+            <button
+              data-tooltip={tr('removeBg')}
+              aria-label={tr('removeBg')}
+              onClick={() => withLayer((canvas) => { const sub = selectSubject(canvas); clearSelectionPixels(canvas, invertSelection(sub, canvas.width, canvas.height)) })}
+            ><Eraser size={16} /></button>
+            <button
+              data-tooltip={tr('genFill')}
+              aria-label={tr('genFill')}
+              onClick={() => withLayer((canvas) => contentAwareFill(canvas, selectionRef.current))}
+            ><WandSparkles size={16} /></button>
+            <button
+              data-tooltip={tr('harmonize')}
+              aria-label={tr('harmonize')}
+              onClick={() => withLayer((canvas) => harmonize(canvas, selectionRef.current))}
+            ><Blend size={16} /></button>
+          </div>
+
+          <div className="tool-bar-group tool-bar-colors">
+            <span className="tool-bar-divider" aria-hidden="true" />
+            <button
+              className="swatch-button"
+              data-tooltip={tr('foreground')}
+              aria-label={tr('foreground')}
+              onClick={(event) => setColorPick({ target: 'fg', x: event.clientX, y: event.clientY })}
+            >
+              <span className="swatch-chip" style={{ background: settings.foreground }} />
+            </button>
+            <button
+              data-tooltip={tr('swap')}
+              aria-label={tr('swap')}
+              onClick={() => setSettings((c) => ({ ...c, foreground: c.background, background: c.foreground }))}
+            ><ArrowLeftRight size={16} /></button>
+            <button
+              className="swatch-button"
+              data-tooltip={tr('backgroundColor')}
+              aria-label={tr('backgroundColor')}
+              onClick={(event) => setColorPick({ target: 'bg', x: event.clientX, y: event.clientY })}
+            >
+              <span className="swatch-chip" style={{ background: settings.background }} />
+            </button>
+          </div>
       </div>
 
       <div className="options-bar">
@@ -2705,19 +2865,6 @@ export default function App() {
             </span>
           )}
         </div>
-        <div className="task-bar">
-          <button data-tooltip={tr('selectSubject')} onClick={() => { const source = canvasesRef.current.get(doc.activeLayerId) ?? compositeDocument(doc, canvasesRef.current); setSelection(selectSubject(source)) }}><Sparkles size={16} /><span>{tr('selectSubject')}</span></button>
-          <button data-tooltip={tr('removeBg')} onClick={() => withLayer((canvas) => { const sub = selectSubject(canvas); clearSelectionPixels(canvas, invertSelection(sub, canvas.width, canvas.height)) })}><Eraser size={16} /><span>{tr('removeBg')}</span></button>
-          <button data-tooltip={tr('genFill')} onClick={() => withLayer((canvas) => contentAwareFill(canvas, selectionRef.current))}><WandSparkles size={16} /><span>{tr('genFill')}</span></button>
-          <button data-tooltip={tr('harmonize')} onClick={() => withLayer((canvas) => harmonize(canvas, selectionRef.current))}><Blend size={16} /><span>{tr('harmonize')}</span></button>
-        </div>
-        <label data-tooltip={tr('foreground')}><Droplets size={14} />{tr('foreground')}
-          <button className="swatch" data-tooltip={tr('foreground')} style={{ background: settings.foreground, position: 'static', width: 28, height: 18 }} onClick={(event) => setColorPick({ target: 'fg', x: event.clientX, y: event.clientY })} />
-        </label>
-        <label data-tooltip={tr('backgroundColor')}><Droplets size={14} />{tr('backgroundColor')}
-          <button className="swatch" data-tooltip={tr('backgroundColor')} style={{ background: settings.background, position: 'static', width: 28, height: 18 }} onClick={(event) => setColorPick({ target: 'bg', x: event.clientX, y: event.clientY })} />
-        </label>
-        <button data-tooltip={tr('swap')} onClick={() => setSettings((c) => ({ ...c, foreground: c.background, background: c.foreground }))}><ArrowLeftRight size={16} /><span>{tr('swap')}</span></button>
       </div>
 
       <div className="workspace">
@@ -2988,6 +3135,11 @@ export default function App() {
           )}
         </DialogFrame>
       )}
+
+      {/* Purely a marker: the frameless window has no visible corner, but the
+          OS still resizes from the edge underneath, so this must not take the
+          pointer. */}
+      {desktop && <div className="resize-grip" aria-hidden="true" />}
 
       <input className="hidden-input" ref={fileRef} type="file" accept=".mpw,image/*" multiple onChange={(event) => { const files = event.target.files; if (files) void Promise.all([...files].map(fileToOpenItem)).then((items) => openFiles(items, 'open')); event.target.value = '' }} />
       <input className="hidden-input" ref={placeRef} type="file" accept="image/*" multiple onChange={(event) => { const files = event.target.files; if (files) void Promise.all([...files].map(fileToOpenItem)).then((items) => openFiles(items, 'place')); event.target.value = '' }} />

@@ -17,7 +17,8 @@ My Photo Work V1.0 is a Photoshop-style raster photo editor built with Vite, Rea
 - Save layered projects (`.mpw` v2) and export PNG, JPG, WebP, AVIF, GIF, or TIFF.
 - Separate title bar, menu bar and icon toolbar; every menu dropdown and dialog opens as its own movable window that can overhang the app and is closed with it.
 - Drag images or `.mpw` projects onto the window from the desktop.
-- Undo/redo, zoom/pan/rotate view, rulers, quick mask, transparency checkerboard, optional grid, RGB histogram, Korean/English UI, dark/light themes, contextual task bar.
+- Undo/redo, zoom/pan/rotate view, rulers with graduated ticks, quick mask, transparency checkerboard, optional grid, RGB histogram, Korean/English UI, 20 dark/light themes.
+- Every failure opens a window naming the action and showing the full error, stack and environment, ready to copy.
 - Desktop packaging for Windows (NSIS), macOS (DMG/ZIP), and Linux (AppImage/DEB/RPM) from the same codebase.
 
 See [UsersGuide.md](UsersGuide.md) for how to use the editor and [Architecture.md](Architecture.md) for the internal design.
@@ -41,11 +42,16 @@ npm run dev
 npm test
 ```
 
-Runs the unit suite under `test/` with `node --test`. It exercises the editing
-engine directly against a real 2D canvas — no browser and no bundler — so
-`npm test` covers colour maths, selections, adjustments, filters, layer
-compositing, the painting tools, history, settings, the `.mpw` format and the
-Korean/English tables. See [Architecture.md](Architecture.md) for how the
+Runs the suite under `test/` with `node --test`. It exercises the editing engine
+directly against a real 2D canvas — no browser and no bundler — covering colour
+maths, selections, adjustments, filters, layer compositing, the painting tools,
+paths, transforms, history, settings, the `.mpw` format, error reporting and the
+Korean/English tables. A second group reads the source to check the wiring: that
+every tool in the strip is reachable, that every menu command has a handler, and
+that the popup windows, icons and launchers are configured as they should be.
+
+`npm test` regenerates the build stamp and the icons first, so a fresh clone
+passes without a build. See [Architecture.md](Architecture.md) for how the
 harness works.
 
 ## Build
@@ -74,12 +80,33 @@ Linux packages:
 npm run dist:linux
 ```
 
-Each `dist:*` script generates icons, builds the web bundle, packages with electron-builder, and then runs `scripts/copy-installers.cjs`, which copies the freshly built installer into the project root. Build output lives under `release/`.
+Each `dist:*` script generates the icons and the build stamp, builds the web
+bundle, packages with electron-builder, and then runs
+`scripts/copy-installers.cjs`, which copies the freshly built installer into the
+project root. Build output lives under `release/`.
+
+Generated files are not committed. `scripts/create-icons.cjs` renders
+`build/icon.ico`, `build/icon.png` and the Linux icon set from
+`public/app-icon.svg` — one source for the executable, the installer, the
+uninstaller, the taskbar and both shortcuts — and
+`scripts/generate-build-info.cjs` writes `src/build-info.json` with the version,
+build time and commit that the About window shows.
 
 macOS packages should be built on macOS, and Linux packages should be built on Linux or a suitable CI runner.
+
+## Repository layout
+
+| Path | What is in it |
+| ---- | ------------- |
+| `src/lib/` | The platform-independent editing engine: colour, selections, filters, paths, transforms, the document model |
+| `src/` | The React app, the command catalog, the popup bodies and the i18n tables |
+| `electron/` | The desktop shell: the main window, native file dialogs and the popup windows |
+| `scripts/` | The launchers and the icon and build-stamp generators |
+| `test/` | The `node --test` suite and its DOM/canvas harness |
 
 ## Program Information
 
 - Program: My Photo Work V1.0
 - Version: 1.0.0
 - Creator: SHKWON(knix008@naver.com)
+- Licence: MIT

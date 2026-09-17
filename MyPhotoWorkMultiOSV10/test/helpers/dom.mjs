@@ -32,6 +32,10 @@ class FakeElement {
   setAttribute(name, value) { this[name] = value }
   addEventListener() {}
   removeEventListener() {}
+  // The clipboard fallback builds a throwaway textarea and selects it.
+  select() {}
+  focus() {}
+  blur() {}
   click() {
     if (this.tagName === 'A') {
       downloads.push({ href: this.href, download: this.download })

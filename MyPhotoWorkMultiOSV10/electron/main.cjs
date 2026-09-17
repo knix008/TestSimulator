@@ -7,6 +7,10 @@ const isDev = !app.isPackaged
 const appId = 'com.shkwon.myphotoworkmultios'
 const runtimeIcon = path.join(__dirname, '..', 'build', process.platform === 'win32' ? 'icon.ico' : 'icon.png')
 const currentWindowSize = { width: 1680, height: 940 }
+// The toolbar row holds every command, the contextual actions and the colour
+// controls on one line and never scrolls, so the window may not be made
+// narrower than that row needs (measured at 1277px) or buttons would vanish.
+const minimumWindowSize = { width: 1320, height: 720 }
 
 if (process.platform === 'win32') {
   app.setAppUserModelId(appId)
@@ -29,8 +33,8 @@ function createWindow() {
   const mainWindow = new BrowserWindow({
     width: currentWindowSize.width,
     height: currentWindowSize.height,
-    minWidth: currentWindowSize.width,
-    minHeight: currentWindowSize.height,
+    minWidth: minimumWindowSize.width,
+    minHeight: minimumWindowSize.height,
     title: 'My Photo Work V1.0',
     frame: false,
     autoHideMenuBar: true,

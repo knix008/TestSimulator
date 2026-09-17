@@ -1,6 +1,8 @@
 import { createElement, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { Contrast, Layers2, RotateCcw, Sparkles, X } from 'lucide-react'
+import { Copy, Layers2, Minus, Plus, RotateCcw, Sparkles, X } from 'lucide-react'
 import { t } from './i18n'
+import { copyText } from './lib/errors'
+import { aboutFacts } from './aboutInfo'
 import { dialogIcon, dialogTitle, type DialogName, type DialogPayload, type DialogResult } from './dialogMeta'
 import { themeLabel, themes } from './themes'
 import { curveLut, addCurvePoint, removeCurvePoint } from './lib/curves'
@@ -34,8 +36,10 @@ export function DialogFrame({
   children: ReactNode
   className?: string
 }) {
+  // Each dialog carries its own class, so a rule can target just one of them.
+  const classes = ['dialog', `${name}-dialog`, className].filter(Boolean).join(' ')
   return (
-    <div className={className ? `dialog ${className}` : 'dialog'}>
+    <div className={classes}>
       <header className="dialog-title-bar">
         {createElement(dialogIcon(name), { size: 16 })}
         <h2>{dialogTitle(name, language, payload)}</h2>
@@ -50,6 +54,69 @@ export function DialogFrame({
       </header>
       <div className="dialog-content">{children}</div>
     </div>
+  )
+}
+
+/* --------------------------------------------------------- number stepper */
+
+/**
+ * A number field with a step button either side.
+ *
+ * Typing still works — the buttons are there so a value can be nudged without
+ * aiming at the browser's own hairline spinners, which are easy to miss and
+ * invisible in some themes.
+ */
+export function NumberStepper({
+  value,
+  min,
+  max,
+  step = 1,
+  language,
+  onChange,
+}: {
+  value: number
+  min: number
+  max: number
+  step?: number
+  language: Language
+  onChange: (next: number) => void
+}) {
+  const clamp = (next: number) => Math.min(max, Math.max(min, next))
+  // Rounded to the step so repeated clicks cannot drift off the grid.
+  const nudge = (direction: 1 | -1) => onChange(clamp(Math.round((value + direction * step) / step) * step))
+
+  return (
+    <span className="number-stepper">
+      <button
+        type="button"
+        data-tooltip={t(language, 'decrease')}
+        aria-label={t(language, 'decrease')}
+        disabled={value <= min}
+        onClick={() => nudge(-1)}
+      >
+        <Minus size={14} />
+      </button>
+      <input
+        type="number"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(event) => {
+          const next = Number(event.target.value)
+          if (Number.isFinite(next)) onChange(clamp(next))
+        }}
+      />
+      <button
+        type="button"
+        data-tooltip={t(language, 'increase')}
+        aria-label={t(language, 'increase')}
+        disabled={value >= max}
+        onClick={() => nudge(1)}
+      >
+        <Plus size={14} />
+      </button>
+    </span>
   )
 }
 
@@ -178,6 +245,8 @@ export function DialogBody({
   const [curves, setCurves] = useState<CurveData>(() => payload.curves ?? defaultCurves())
   const [channel, setChannel] = useState<CurveChannel>('rgb')
   const [levels, setLevels] = useState<LevelsData>(() => payload.levels ?? { black: 0, gamma: 1, white: 255, outBlack: 0, outWhite: 255 })
+  /** Turns the Copy button into its own confirmation. */
+  const [copied, setCopied] = useState<'copied' | 'copyFailed' | null>(null)
   // The settings window owns its own copy so its controls stay live; each edit
   // is forwarded to the main window, which is what actually applies it.
   const [settings, setSettings] = useState<AppSettings | undefined>(payload.settings)
@@ -201,8 +270,8 @@ export function DialogBody({
             </select>
           </label>
           <div className="dialog-grid">
-            <label>{tr('width')}<input type="number" value={adjust.width} onChange={(event) => setAdjust((c) => ({ ...c, width: Number(event.target.value) }))} /></label>
-            <label>{tr('height')}<input type="number" value={adjust.height} onChange={(event) => setAdjust((c) => ({ ...c, height: Number(event.target.value) }))} /></label>
+            <label>{tr('width')}<NumberStepper language={language} min={1} max={20000} step={10} value={adjust.width} onChange={(width) => setAdjust((c) => ({ ...c, width }))} /></label>
+            <label>{tr('height')}<NumberStepper language={language} min={1} max={20000} step={10} value={adjust.height} onChange={(height) => setAdjust((c) => ({ ...c, height }))} /></label>
           </div>
           <label>{tr('background')}
             <select value={background} onChange={(event) => setBackground(event.target.value)}>
@@ -364,8 +433,8 @@ export function DialogBody({
       return (
         <>
           <div className="dialog-grid">
-            <label>{tr('width')}<input type="number" value={adjust.width} onChange={(event) => setAdjust((c) => ({ ...c, width: Number(event.target.value) }))} /></label>
-            <label>{tr('height')}<input type="number" value={adjust.height} onChange={(event) => setAdjust((c) => ({ ...c, height: Number(event.target.value) }))} /></label>
+            <label>{tr('width')}<NumberStepper language={language} min={1} max={20000} step={10} value={adjust.width} onChange={(width) => setAdjust((c) => ({ ...c, width }))} /></label>
+            <label>{tr('height')}<NumberStepper language={language} min={1} max={20000} step={10} value={adjust.height} onChange={(height) => setAdjust((c) => ({ ...c, height }))} /></label>
           </div>
           <div className="dialog-actions">
             <button onClick={onClose}>{tr('cancel')}</button>
@@ -438,14 +507,16 @@ export function DialogBody({
               {(['png', 'jpg', 'webp', 'avif', 'gif', 'tiff'] as ExportFormat[]).map((format) => <option key={format} value={format}>{format.toUpperCase()}</option>)}
             </select>
           </label>
-          <div className="dialog-grid">
-            <label>{tr('size')}
-              <input type="number" min={1} max={400} value={settings.brushSize} onChange={(event) => patchSettings({ brushSize: Number(event.target.value) })} />
-            </label>
-            <label>{tr('tolerance')}
-              <input type="number" min={0} max={255} value={settings.fillTolerance} onChange={(event) => patchSettings({ fillTolerance: Number(event.target.value) })} />
-            </label>
-          </div>
+          <label className="settings-field">
+            <span className="settings-field-name">{tr('settingsBrushSize')}</span>
+            <span className="settings-field-hint">{tr('settingsBrushSizeHint')}</span>
+            <NumberStepper language={settings.language} min={1} max={400} value={settings.brushSize} onChange={(brushSize) => patchSettings({ brushSize })} />
+          </label>
+          <label className="settings-field">
+            <span className="settings-field-name">{tr('settingsTolerance')}</span>
+            <span className="settings-field-hint">{tr('settingsToleranceHint')}</span>
+            <NumberStepper language={settings.language} min={0} max={255} value={settings.fillTolerance} onChange={(fillTolerance) => patchSettings({ fillTolerance })} />
+          </label>
           <div className="dialog-actions">
             <button className="primary" onClick={onClose}>{tr('close')}</button>
           </div>
@@ -470,26 +541,57 @@ export function DialogBody({
         </>
       )
 
-    case 'about':
+    case 'about': {
+      const facts = aboutFacts(language)
       return (
         <>
-          <img className="about-icon" src="./app-icon.svg" alt="" />
-          <p>{tr('aboutBody')}</p>
-          <p>{tr('version')}: {payload.version ?? '1.0.0'}<br />{tr('creator')}: {payload.creator ?? 'SHKWON (knix008@naver.com)'}</p>
+          {/* The icon and what the program is, side by side. */}
+          <div className="about-head">
+            <img className="about-icon" src="./app-icon.svg" alt="" />
+            <div className="about-blurb">
+              <h3>{t(language, 'appName')}</h3>
+              <p>{tr('aboutBody')}</p>
+            </div>
+          </div>
+          {/* Everything worth quoting in a bug report, one row per fact. */}
+          <dl className="about-facts">
+            {facts.map((fact) => (
+              <div key={fact.label} className="about-fact">
+                <dt>{fact.label}</dt>
+                <dd>{fact.value}</dd>
+              </div>
+            ))}
+          </dl>
           <div className="dialog-actions">
-            <button onClick={() => { void navigator.clipboard?.writeText(`${t(language, 'appName')}\nSHKWON <knix008@naver.com>`) }}><Contrast size={15} /><span>{tr('copy')}</span></button>
+            <button onClick={() => {
+              const text = facts.map((fact) => `${fact.label}: ${fact.value}`).join('\n')
+              void copyText(`${t(language, 'appName')}\n${text}`).then((ok) => setCopied(ok ? 'copied' : 'copyFailed'))
+            }}><Copy size={15} /><span>{copied ? tr(copied) : tr('copyDetails')}</span></button>
             <button className="primary" onClick={onClose}>{tr('close')}</button>
           </div>
         </>
       )
+    }
 
     case 'error':
       return (
         <>
-          <p>{payload.error?.message}</p>
-          <textarea readOnly value={payload.error?.details ?? ''} />
+          <p className="error-message">{payload.error?.message}</p>
+          <p className="dialog-hint">{tr('errorHint')}</p>
+          <textarea
+            className="error-details"
+            readOnly
+            spellCheck={false}
+            value={payload.error?.details ?? ''}
+            onFocus={(event) => event.currentTarget.select()}
+          />
           <div className="dialog-actions">
-            <button onClick={() => { void navigator.clipboard?.writeText(payload.error?.details ?? '') }}>{tr('copy')}</button>
+            <button onClick={() => {
+              void copyText(payload.error?.details ?? '').then((ok) => setCopied(ok ? 'copied' : 'copyFailed'))
+            }}>
+              <Copy size={15} />
+              <span>{copied ? tr(copied) : tr('copyDetails')}</span>
+            </button>
             <button className="primary" onClick={onClose}>{tr('close')}</button>
           </div>
         </>

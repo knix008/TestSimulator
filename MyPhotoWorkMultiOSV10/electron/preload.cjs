@@ -20,6 +20,18 @@ contextBridge.exposeInMainWorld('electronWindowApi', {
 
 // Menu dropdowns live in their own always-on-top window so a long menu can
 // overhang the app instead of being clipped by it.
+// What the shell itself is running, for the About window.
+contextBridge.exposeInMainWorld('electronAppApi', {
+  versions: () => ({
+    electron: process.versions.electron,
+    chrome: process.versions.chrome,
+    node: process.versions.node,
+    v8: process.versions.v8,
+    platform: process.platform,
+    arch: process.arch,
+  }),
+})
+
 contextBridge.exposeInMainWorld('electronMenuApi', {
   open: (payload, anchor) => ipcRenderer.invoke('menu:open', payload, anchor),
   close: () => ipcRenderer.invoke('menu:close'),
@@ -58,5 +70,14 @@ contextBridge.exposeInMainWorld('electronDialogApi', {
     const listener = (_event, name) => callback(name)
     ipcRenderer.on('dialog:closed', listener)
     return () => ipcRenderer.removeListener('dialog:closed', listener)
+  },
+  // A popup runs in its own renderer, so a failure there would otherwise die
+  // with the window. It is forwarded to the main window instead.
+  reportSize: (size) => ipcRenderer.invoke('dialog:size', size),
+  reportError: (report) => ipcRenderer.invoke('dialog:error', report),
+  onError: (callback) => {
+    const listener = (_event, report) => callback(report)
+    ipcRenderer.on('dialog:error', listener)
+    return () => ipcRenderer.removeListener('dialog:error', listener)
   },
 })
