@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * 시계 창 컨트롤러 — legacy-wpf/MainWindow.xaml.cs 이식.
+ * 시계 창 컨트롤러 — MyClockWinV10/MainWindow.xaml.cs 이식.
  *
  * 이 창이 앱 상태(설정·알람·타이머·스톱워치·일정)의 주인이다.
  * 설정 패널 창은 순수한 보기 역할이며 bus 를 통해 명령을 보내고 상태를 받아본다.

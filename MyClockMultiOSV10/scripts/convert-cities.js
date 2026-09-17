@@ -1,5 +1,5 @@
 'use strict';
-/** One-off: convert legacy-wpf/Models/CityDatabase.cs into src/js/data/cities.js (IANA zones). */
+/** One-off: convert MyClockWinV10/Models/CityDatabase.cs into src/js/data/cities.js (IANA zones). */
 const fs = require('fs');
 const path = require('path');
 
@@ -90,7 +90,7 @@ const WIN_TO_IANA = {
   'West Pacific Standard Time': 'Pacific/Port_Moresby'
 };
 
-const src = fs.readFileSync(path.join(__dirname, '..', 'legacy-wpf', 'Models', 'CityDatabase.cs'), 'utf8');
+const src = fs.readFileSync(path.join(__dirname, '..', '..', 'MyClockWinV10', 'Models', 'CityDatabase.cs'), 'utf8');
 const re = /new\("([^"]*)",\s*"([^"]*)",\s*"([^"]*)"(?:,\s*"([^"]*)")?\)/g;
 const rows = [];
 const unknown = new Set();
@@ -114,7 +114,7 @@ const out = `'use strict';
 
 /**
  * World city database — 도시, 국가, IANA 시간대, 영문 도시명.
- * legacy-wpf/Models/CityDatabase.cs 에서 변환 (Windows TZ ID → IANA).
+ * MyClockWinV10/Models/CityDatabase.cs 에서 변환 (Windows TZ ID → IANA).
  */
 const CITY_ROWS = [
 ${body}

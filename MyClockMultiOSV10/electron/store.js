@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * 설정 저장소 — legacy-wpf/Models/SettingsManager.cs 와 AppSettings.cs 의 이식.
+ * 설정 저장소 — MyClockWinV10/Models/SettingsManager.cs 와 AppSettings.cs 의 이식.
  * 저장 위치: app.getPath('userData')/settings.json
  */
 

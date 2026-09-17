@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * 타이머 / 스톱워치 — legacy-wpf/Services/TimerService.cs, StopwatchService.cs,
+ * 타이머 / 스톱워치 — MyClockWinV10/Services/TimerService.cs, StopwatchService.cs,
  * Models/TimerItem.cs 이식. 시계 창이 상태를 소유하고 패널 창은 보기만 한다.
  */
 

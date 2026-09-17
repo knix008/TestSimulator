@@ -1,5 +1,5 @@
 'use strict';
-/** One-off: convert legacy-wpf/Themes/*.xaml into src/js/data/themes.js CSS variables. */
+/** One-off: convert MyClockWinV10/Themes/*.xaml into src/js/data/themes.js CSS variables. */
 const fs = require('fs');
 const path = require('path');
 
@@ -17,7 +17,7 @@ function cssVar(brushKey) {
   return '--' + brushKey.replace(/Brush$/, '').replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();
 }
 
-const dir = path.join(__dirname, '..', 'legacy-wpf', 'Themes');
+const dir = path.join(__dirname, '..', '..', 'MyClockWinV10', 'Themes');
 const themes = {};
 for (const name of ORDER) {
   const xml = fs.readFileSync(path.join(dir, `${name}.xaml`), 'utf8');
@@ -38,7 +38,7 @@ const entries = ORDER.map((name) => {
 const out = `'use strict';
 
 /**
- * 18가지 색상 테마 — legacy-wpf/Themes/*.xaml 에서 변환.
+ * 18가지 색상 테마 — MyClockWinV10/Themes/*.xaml 에서 변환.
  * 각 브러시 키는 동일한 의미의 CSS 커스텀 속성으로 매핑된다.
  */
 const THEMES = {

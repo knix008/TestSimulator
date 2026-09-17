@@ -26,13 +26,6 @@ asset/icon-master.png
 build/icon.ico
 src/favicon.png
 
-# ── 참고용 WPF 원본의 빌드 잔재 ───────────────────────────────────
-legacy-wpf/bin/
-legacy-wpf/obj/
-legacy-wpf/Setup/bin/
-legacy-wpf/Setup/obj/
-legacy-wpf/.vs/
-
 # ── OS · 편집기 ─────────────────────────────────────────────────
 .DS_Store
 Thumbs.db

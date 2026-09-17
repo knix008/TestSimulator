@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * 알람음 생성기 — legacy-wpf/Services/WavToneGenerator.cs 이식.
+ * 알람음 생성기 — MyClockWinV10/Services/WavToneGenerator.cs 이식.
  * WAV 파일을 캐시하는 대신 같은 합성 공식을 Web Audio 버퍼로 만든다.
  */
 

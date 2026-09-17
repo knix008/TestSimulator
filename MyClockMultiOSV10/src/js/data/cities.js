@@ -2,7 +2,7 @@
 
 /**
  * World city database — 도시, 국가, IANA 시간대, 영문 도시명.
- * legacy-wpf/Models/CityDatabase.cs 에서 변환 (Windows TZ ID → IANA).
+ * MyClockWinV10/Models/CityDatabase.cs 에서 변환 (Windows TZ ID → IANA).
  */
 const CITY_ROWS = [
   ["서울", "대한민국", "Asia/Seoul", "Seoul"],

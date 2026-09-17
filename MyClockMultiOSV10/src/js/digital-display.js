@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * 캔버스 디지털 디스플레이 — legacy-wpf/Controls/SevenSegmentDisplay.xaml.cs 와
+ * 캔버스 디지털 디스플레이 — MyClockWinV10/Controls/SevenSegmentDisplay.xaml.cs 와
  * DotMatrixDisplay.xaml.cs 의 기하 구조를 그대로 옮겼다.
  * 두 함수 모두 디자인 좌표계로 그린 뒤 캔버스 크기에 맞춰 균일 배율을 적용한다.
  *

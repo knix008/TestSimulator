@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * 설정 사이드 패널 — legacy-wpf/SidePanelWindow.xaml.cs 와 WorldTimePanel 이식.
+ * 설정 사이드 패널 — MyClockWinV10/SidePanelWindow.xaml.cs 와 WorldTimePanel 이식.
  *
  * 상태는 시계 창이 소유한다. 이 창은 bus 로 명령을 보내고 돌아온 스냅샷을 그린다.
  * 실행 중인 타이머·스톱워치만 타임스탬프로 국소 보간해 매끄럽게 표시한다.

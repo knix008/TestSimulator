@@ -3,7 +3,7 @@
 /**
  * MyClock — Electron 메인 프로세스.
  *
- * 창 구성 (legacy-wpf 의 WPF 창과 1:1 대응)
+ * 창 구성 (MyClockWinV10 의 WPF 창과 1:1 대응)
  *   clockWin  — MainWindow            : 테두리 없는 투명 탁상시계
  *   panelWin  — SidePanelWindow       : 시계 좌/우에 붙는 400px 설정 패널
  *   alarmWin  — AlarmNotificationWindow: 알람·타이머 팝업

@@ -3,7 +3,7 @@
 가로형 탁상시계 스타일의 데스크톱 시계 애플리케이션 — **Windows · Linux · macOS** 공통.
 
 WPF/.NET 8 판([MyClockWinV10](../MyClockWinV10))을 JavaScript + Electron 으로 옮긴 것입니다.
-원본 소스는 참고용으로 [`legacy-wpf/`](legacy-wpf/)에 보관되어 있습니다.
+원본 WPF 소스는 이웃 폴더 [`../MyClockWinV10`](../MyClockWinV10)에 그대로 있습니다.
 
 ## 기능
 
@@ -120,8 +120,7 @@ MyClockMultiOSV10/
 ├── build/
 │   ├── installer.nsh      — Windows 설치 관리자 확장 (재설치 방식 · 바로가기 선택)
 │   └── license.txt        — 설치 관리자에 표시되는 라이선스
-├── scripts/               — 아이콘 생성, 설치 파일 복사, 데이터 변환 스크립트
-└── legacy-wpf/            — 원본 WPF 소스 (빌드에 포함되지 않음)
+└── scripts/               — 아이콘 생성, 설치 파일 복사, 데이터 변환 스크립트 (../MyClockWinV10 에서 읽음)
 ```
 
 자세한 설계는 [Architecture.md](Architecture.md), 사용법은 [UsersGuide.md](UsersGuide.md)를 참고하세요.

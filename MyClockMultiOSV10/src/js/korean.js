@@ -1,6 +1,6 @@
 'use strict';
 
-/** 시각을 한글로 표기 — legacy-wpf/Models/KoreanTimeText.cs 이식. */
+/** 시각을 한글로 표기 — MyClockWinV10/Models/KoreanTimeText.cs 이식. */
 
 const SINO_ONES = ['', '일', '이', '삼', '사', '오', '육', '칠', '팔', '구'];
 const NATIVE_HOURS = ['', '한', '두', '세', '네', '다섯', '여섯', '일곱', '여덟', '아홉', '열', '열한', '열두'];

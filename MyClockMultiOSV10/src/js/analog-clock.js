@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * 아날로그 시계 — legacy-wpf/Controls/AnalogClockControl.xaml.cs 이식.
+ * 아날로그 시계 — MyClockWinV10/Controls/AnalogClockControl.xaml.cs 이식.
  * 380×380 디자인 좌표계에서 그린 값을 창 크기에 맞춰 배율 조정한다.
  */
 
@@ -437,7 +437,7 @@ function drawAnalogClock(canvas, date, style, colors) {
 
 /**
  * 세계 시간 목록과 트레이 아이콘에 쓰는 미니 아날로그 시계.
- * legacy-wpf/Controls/MiniAnalogClockControl.xaml.cs 이식 (72×72 디자인).
+ * MyClockWinV10/Controls/MiniAnalogClockControl.xaml.cs 이식 (72×72 디자인).
  */
 function drawMiniAnalogClock(canvas, date, colors) {
   const dpr = window.devicePixelRatio || 1;

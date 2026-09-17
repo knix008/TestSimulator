@@ -1,8 +1,0 @@
-<UserControl x:Class="MyClockWinV10.Controls.SevenSegmentDisplay"
-             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             Background="Transparent">
-    <Viewbox Stretch="Uniform" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
-        <Canvas x:Name="SegCanvas"/>
-    </Viewbox>
-</UserControl>

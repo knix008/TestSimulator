@@ -1,6 +1,6 @@
 'use strict';
 
-/** 시계 스타일 / 알람음 카탈로그 — legacy-wpf/Models/ClockStyle.cs, AlarmSoundCatalog.cs 이식. */
+/** 시계 스타일 / 알람음 카탈로그 — MyClockWinV10/Models/ClockStyle.cs, AlarmSoundCatalog.cs 이식. */
 
 const DIGITAL_STYLES = [
   { id: 'SevenSegment', label: '7-세그먼트' },

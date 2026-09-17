@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * 18가지 색상 테마 — legacy-wpf/Themes/*.xaml 에서 변환.
+ * 18가지 색상 테마 — MyClockWinV10/Themes/*.xaml 에서 변환.
  * 각 브러시 키는 동일한 의미의 CSS 커스텀 속성으로 매핑된다.
  */
 const THEMES = {
