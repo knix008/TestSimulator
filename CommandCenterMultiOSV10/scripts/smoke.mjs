@@ -47,6 +47,10 @@ async function electronShot(name = 'main', script = null, url = null) {
   // --probe <file.js>: evaluated after the scenario; its value is printed.
   if (opt('probe')) extra.push(`--smoke-probe=${path.resolve(opt('probe'))}`);
   if (opt('tool-script')) extra.push(`--smoke-tool-script=${path.resolve(opt('tool-script'))}`);
+  // --menu-script <file.js>: runs inside the menu popup window (see main.js).
+  if (opt('menu-script')) extra.push(`--smoke-menu-script=${path.resolve(opt('menu-script'))}`);
+  // --quit close: end by closing the main window (checks that tool windows close with it).
+  if (opt('quit')) extra.push(`--smoke-quit=${opt('quit')}`);
   await new Promise((resolve, reject) => {
     const child = spawn(electronPath, ['.', `--smoke-shot=${shot}`, `--smoke-delay=${opt('delay') || 3000}`, ...extra], { cwd: root, stdio: 'inherit', env });
     const timer = setTimeout(() => { child.kill(); reject(new Error('electron smoke timed out')); }, 60_000);

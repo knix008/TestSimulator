@@ -37,6 +37,38 @@ contextBridge.exposeInMainWorld('commandCenter', {
   // Resize grip: the current outer size, and a new size while dragging.
   windowSize: () => ipcRenderer.invoke('win:size'),
   resizeWindow: (width, height) => ipcRenderer.send('win:resize', { width, height }),
+  // Size this window to the content height it asks for (a fixed-size window such as the settings one
+  // measures itself, so nothing in it ever scrolls or is cut off).
+  fitWindow: (height) => ipcRenderer.send('win:fit', { height }),
+  // Menu popup: a menu is drawn in its own frameless window so it can extend
+  // past the app window's edge. The owner window calls popupMenu and listens
+  // for the pick; the popup page (?win=menu) uses the onMenuShow / menuSize
+  // side and reports what the user picked.
+  popupMenu: (spec) => ipcRenderer.invoke('menu:popup', spec),
+  closeMenuPopup: (seq) => ipcRenderer.send('menu:close', { seq }),
+  onMenuPicked: (cb) => {
+    const handler = (_e, msg) => cb(msg);
+    ipcRenderer.on('menu:picked', handler);
+    return () => ipcRenderer.removeListener('menu:picked', handler);
+  },
+  onMenuShown: (cb) => {
+    const handler = (_e, msg) => cb(msg);
+    ipcRenderer.on('menu:shown', handler);
+    return () => ipcRenderer.removeListener('menu:shown', handler);
+  },
+  onMenuClosed: (cb) => {
+    const handler = (_e, msg) => cb(msg);
+    ipcRenderer.on('menu:closed', handler);
+    return () => ipcRenderer.removeListener('menu:closed', handler);
+  },
+  onMenuShow: (cb) => {
+    const handler = (_e, msg) => cb(msg);
+    ipcRenderer.on('menu:show', handler);
+    return () => ipcRenderer.removeListener('menu:show', handler);
+  },
+  menuSize: (width, height, seq) => ipcRenderer.send('menu:size', { width, height, seq }),
+  menuPick: (id, seq) => ipcRenderer.send('menu:pick', { id, seq }),
+
   postMessage: (msg) => ipcRenderer.send('win:message', msg),
   onMessage: (cb) => {
     const handler = (_e, msg) => cb(msg);

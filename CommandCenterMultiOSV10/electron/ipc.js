@@ -1,6 +1,6 @@
 // IPC bridge: exposes core/api.js to the renderer and pushes job updates and
 // directory-change notifications to it.
-const { ipcMain, BrowserWindow } = require('electron');
+const { ipcMain, BrowserWindow, screen } = require('electron');
 const fs = require('fs');
 const { serializeError } = require('../core/api');
 
@@ -75,6 +75,39 @@ function registerIpc(api, getWindow, dialogs = {}, windows = {}) {
   // The resize grip at the bottom-right of the main window.
   ipcMain.handle('win:size', (event) => { const w = BrowserWindow.fromWebContents(event.sender); const [width, height] = w ? w.getSize() : [0, 0]; return { ok: true, data: { width, height } }; });
   ipcMain.on('win:resize', (event, { width, height }) => { const w = BrowserWindow.fromWebContents(event.sender); if (w && !w.isDestroyed() && !w.isMaximized()) w.setSize(Math.max(200, Math.round(width)), Math.max(150, Math.round(height))); });
+
+  // A window sizing itself to its content: the settings window measures every tab and asks for the height
+  // of the tallest, so it needs no scrollbar. `resizable:false` blocks setContentSize, so it is lifted for
+  // the call; the height is kept within the screen the window is on.
+  ipcMain.on('win:fit', (event, { height }) => {
+    const w = BrowserWindow.fromWebContents(event.sender);
+    if (!w || w.isDestroyed() || w.isMaximized()) return;
+    const want = Math.round(Number(height) || 0);
+    if (!Number.isFinite(want) || want < 200) return;
+    const area = screen.getDisplayNearestPoint(w.getBounds()).workArea;
+    const chrome = w.getBounds().height - w.getContentBounds().height;
+    const h = Math.max(200, Math.min(want, area.height - chrome));
+    if (Math.abs(w.getContentBounds().height - h) < 2) return;
+    const wasResizable = w.isResizable();
+    if (!wasResizable) w.setResizable(true);
+    w.setContentSize(w.getContentBounds().width, h);
+    if (!wasResizable) w.setResizable(false);
+    // Keep it on screen after growing downwards.
+    const b = w.getBounds();
+    if (b.y + b.height > area.y + area.height) w.setPosition(b.x, Math.max(area.y, area.y + area.height - b.height));
+  });
+
+  // ── Menu popup (see main.js) ──
+  // A menu is drawn in its own frameless window, so it is never cut off by the
+  // app window: menu:popup sends the items, the popup page answers with the
+  // size it needs (menu:size) and the pick travels back as menu:picked.
+  ipcMain.handle('menu:popup', (event, spec) => {
+    if (!windows.showMenuPopup) return { ok: false, error: { code: 'UNSUPPORTED', message: 'no menu popup' } };
+    return { ok: true, data: windows.showMenuPopup(spec || {}, BrowserWindow.fromWebContents(event.sender)) };
+  });
+  ipcMain.on('menu:size', (_event, { width, height, seq }) => { if (windows.placeMenuPopup) windows.placeMenuPopup(width, height, seq); });
+  ipcMain.on('menu:pick', (_event, { id, seq }) => { if (windows.menuPopupPick) windows.menuPopupPick(id, seq); });
+  ipcMain.on('menu:close', (_event, { seq } = {}) => { if (windows.hideMenuPopup) windows.hideMenuPopup('close', seq); });
 }
 
 module.exports = { registerIpc };

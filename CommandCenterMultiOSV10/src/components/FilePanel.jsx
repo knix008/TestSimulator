@@ -59,12 +59,21 @@ export const FilePanel = forwardRef(function FilePanel(props, ref) {
   const [historyMenu, setHistoryMenu] = useState(null);   // anchor element
   const [hotMenu, setHotMenu] = useState(null);           // anchor element
   const [tabMenu, setTabMenu] = useState(null);           // { x, y, i }
+  const [tabList, setTabList] = useState(null);           // anchor element of the "every tab" menu
   const [dirSizes, setDirSizes] = useState(() => new Map());  // folder → measured size (Space)
   const [quick, setQuick] = useState('');                 // quick-search buffer
   const quickTimer = useRef(null);
   const bodyRef = useRef(null);
+  const tabScrollRef = useRef(null);
+  const activeTabRef = useRef(null);
   const selectedRef = useRef(selected);
   selectedRef.current = selected;
+  // Keep the current tab visible in the strip: after switching (‹ ›, the ▾ list, Ctrl+Tab) and after a tab
+  // is opened or closed, so the selection is never behind the edge of a panel that is too narrow for them all.
+  useEffect(() => {
+    const el = activeTabRef.current;
+    if (el && el.scrollIntoView) el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  }, [tabIndex, tabs.length]);
 
   // ── Listing ──
   const load = useCallback(async (keepSelection = true) => {
@@ -375,6 +384,10 @@ export const FilePanel = forwardRef(function FilePanel(props, ref) {
 
   // Tab label: the folder's name, or the drive / root itself.
   const tabLabel = (p) => baseName(p) || p;
+  // ‹ › step through the tabs and wrap around, as Ctrl+Tab does; the strip then scrolls the new tab into view.
+  const stepTab = (d) => { if (!onTabSelect || tabs.length < 2) return; onActivate(); onTabSelect((tabIndex + d + tabs.length) % tabs.length); };
+  // The strip scrolls sideways under the wheel (it has no scrollbar of its own).
+  const onTabWheel = (e) => { const el = tabScrollRef.current; if (!el || el.scrollWidth <= el.clientWidth) return; el.scrollLeft += (e.deltaY || e.deltaX); };
   const tabMenuItems = tabMenu ? [
     { id: 'new', label: t('tab_new'), icon: 'tabNew', shortcut: 'Ctrl+T' },
     { id: 'other', label: t('tab_to_other'), icon: 'tabs' },
@@ -389,21 +402,36 @@ export const FilePanel = forwardRef(function FilePanel(props, ref) {
     else if (id === 'close') onTabClose && onTabClose(i);
     else if (id === 'others') onTabCloseOthers && onTabCloseOthers(i);
   };
+  // The ▾ menu: every tab of this panel, the current one ticked — a hidden tab is one click away.
+  const tabListItems = tabs.map((tb, i) => ({ id: `tab:${i}`, label: tabLabel(tb.path), icon: 'folder', checked: i === tabIndex }));
 
   return (
     <div className={`file-panel ${active ? 'active' : ''}`} onMouseDown={onActivate}>
-      {/* Tabs (TC): click = switch, middle click / × = close, right click = menu, double-click on the empty part or + = new tab */}
-      <div className="tab-bar" onDoubleClick={(e) => { if (e.target === e.currentTarget) onTabNew && onTabNew(); }}>
-        {tabs.map((tb, i) => (
-          <button key={`${i}:${tb.path}`} className={`tab ${i === tabIndex ? 'active' : ''}`} title={tb.path}
-            onClick={() => onTabSelect && onTabSelect(i)}
-            onMouseDown={(e) => { if (e.button === 1) { e.preventDefault(); onTabClose && onTabClose(i); } }}
-            onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setTabMenu({ x: e.clientX, y: e.clientY, i }); }}>
-            <Icon name="folder" size={13} className="ic-folder" /><span className="ellipsis">{tabLabel(tb.path)}</span>
-            {tabs.length > 1 && <span className="tab-close" title={t('tab_close')} onClick={(e) => { e.stopPropagation(); onTabClose && onTabClose(i); }}><Icon name="close" size={11} /></span>}
-          </button>
-        ))}
-        <button className="tab-add" title={t('tip_tab_new')} aria-label={t('tab_new')} onClick={() => onTabNew && onTabNew()}><Icon name="plus" size={14} /></button>
+      {/* Tabs (TC): click = switch, middle click / × = close, right click = menu, double-click on the empty part or + = new tab.
+          More tabs than fit: the strip scrolls and the buttons on its right (‹ › and the ▾ list of every tab)
+          reach the hidden ones; the active tab is always scrolled into view. */}
+      <div className="tab-bar">
+        <div className="tab-scroll" ref={tabScrollRef} onWheel={onTabWheel}
+          onDoubleClick={(e) => { if (e.target === e.currentTarget) onTabNew && onTabNew(); }}>
+          {tabs.map((tb, i) => (
+            <button key={`${i}:${tb.path}`} ref={i === tabIndex ? activeTabRef : null} className={`tab ${i === tabIndex ? 'active' : ''}`} title={tb.path}
+              onClick={() => onTabSelect && onTabSelect(i)}
+              onMouseDown={(e) => { if (e.button === 1) { e.preventDefault(); onTabClose && onTabClose(i); } }}
+              onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setTabMenu({ x: e.clientX, y: e.clientY, i }); }}>
+              <Icon name="folder" size={13} className="ic-folder" /><span className="ellipsis">{tabLabel(tb.path)}</span>
+              {tabs.length > 1 && <span className="tab-close" title={t('tab_close')} onClick={(e) => { e.stopPropagation(); onTabClose && onTabClose(i); }}><Icon name="close" size={11} /></span>}
+            </button>
+          ))}
+        </div>
+        <div className="tab-nav">
+          {tabs.length > 1 && (<>
+            <button className="tab-nav-btn" title={t('tip_tab_prev')} aria-label={t('tab_prev')} onClick={() => stepTab(-1)}><Icon name="chevronLeft" size={14} /></button>
+            <button className="tab-nav-btn" title={t('tip_tab_next')} aria-label={t('tab_next')} onClick={() => stepTab(1)}><Icon name="chevronRight" size={14} /></button>
+            <button className={`tab-nav-btn ${tabList ? 'on' : ''}`} title={t('tip_tab_list')} aria-label={t('tab_list')}
+              onClick={(e) => { onActivate(); setTabList(tabList ? null : e.currentTarget); }}><Icon name="chevronDown" size={14} /></button>
+          </>)}
+          <button className="tab-add" title={t('tip_tab_new')} aria-label={t('tab_new')} onClick={() => onTabNew && onTabNew()}><Icon name="plus" size={14} /></button>
+        </div>
       </div>
       <div className="path-bar">
         <button className="drive-btn" title={t('drives')} onClick={(e) => openDriveMenu(e.currentTarget)}>
@@ -477,6 +505,10 @@ export const FilePanel = forwardRef(function FilePanel(props, ref) {
       )}
       {hotMenu && (
         <ContextMenu anchorEl={hotMenu} x={0} y={0} items={hotItems} onClose={() => setHotMenu(null)} onPick={onHotPick} />
+      )}
+      {tabList && (
+        <ContextMenu anchorEl={tabList} x={0} y={0} items={tabListItems} onClose={() => setTabList(null)}
+          onPick={(id) => { setTabList(null); onTabSelect && onTabSelect(Number(id.slice(4))); }} />
       )}
       {tabMenu && (
         <ContextMenu x={tabMenu.x} y={tabMenu.y} items={tabMenuItems} onClose={() => setTabMenu(null)} onPick={onTabMenuPick} />

@@ -22,9 +22,9 @@
   --radius: 6px;
   --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans KR', 'Malgun Gothic', 'Apple SD Gothic Neo', Roboto, Ubuntu, sans-serif;
   --mono: 'Cascadia Mono', 'JetBrains Mono', Consolas, 'D2Coding', 'Noto Sans Mono CJK KR', monospace;
-  /* the terminal: the same mono font, then Nerd Fonts if installed - imported oh-my-posh themes use their glyphs */
+  /* the terminal: the same mono font, then Nerd Fonts if installed - a prompt theme may use their glyphs */
   --mono-nerd: 'Cascadia Mono', 'JetBrains Mono', Consolas, 'D2Coding', 'Noto Sans Mono CJK KR', monospace, 'CaskaydiaCove Nerd Font', 'CaskaydiaCove NF', 'JetBrainsMono Nerd Font', 'FiraCode Nerd Font', 'MesloLGS NF', 'Hack Nerd Font', 'Symbols Nerd Font', 'Segoe UI Emoji', monospace;
-  --fs: 13px;
+  --fs: 12px;
   --active-border: rgba(76, 201, 240, 0.75);
   --active-glow: 0 0 0 1px rgba(76, 201, 240, 0.35);
 }
@@ -184,7 +184,7 @@ button:disabled { cursor: default; opacity: 0.45; }
 
 /* terminal — the same console as MyEditor's: output with the prompt at its end and the command typed there */
 .term-out { flex: 1; min-height: 0; margin: 0; padding: 6px 10px 8px; overflow: auto; cursor: text; font-family: var(--mono-nerd); font-size: 12.5px; line-height: 1.45; white-space: pre-wrap; word-break: break-all; background: var(--bg); color: var(--fg); }
-/* oh-my-posh / powerline style prompt. Each segment is ONE element cut by clip-path into a block with a
+/* Powerline style prompt. Each segment is ONE element cut by clip-path into a block with a
    pointed right end; the next segment starts under that point (negative margin, lower z-index), so the
    blocks nest like >> with no seam and no special font. */
 .term-out .term-prompt { color: var(--accent); white-space: pre-wrap; }
@@ -212,8 +212,15 @@ button:disabled { cursor: default; opacity: 0.45; }
 .term-out .t-code { color: #a5d6ff; }
 
 /* ── Context menu ── */
-.ctx-menu { position: fixed; z-index: 1000; min-width: 220px; max-height: calc(100vh - 16px); overflow-y: auto; background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 4px; }
-.ctx-item { display: flex; align-items: center; gap: 8px; width: 100%; background: none; border: 0; padding: 6px 10px; border-radius: 4px; text-align: left; color: var(--fg); }
+/* No scrollbar and nothing cut off: the menu is a flex column that, when it is taller than the window,
+   wraps into as many columns as it needs (.multi, with the column height set by ContextMenu.jsx). */
+.ctx-menu { position: fixed; z-index: 1000; min-width: 220px; display: flex; flex-direction: column; flex-wrap: nowrap; align-items: stretch; overflow: visible; background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 4px; }
+.ctx-menu.multi { flex-wrap: wrap; align-content: flex-start; column-gap: 4px; }
+.ctx-menu.multi .ctx-item { min-width: 200px; }
+/* The desktop menu window (src/MenuPopup.jsx): the menu sizes the window instead of sitting inside one,
+   so it is never positioned, clamped or folded — a long menu simply runs past the app window's edge. */
+.ctx-menu.popup { position: static; width: max-content; }
+.ctx-item { display: flex; align-items: center; gap: 8px; flex: none; background: none; border: 0; padding: 6px 10px; border-radius: 4px; text-align: left; color: var(--fg); }
 .ctx-item:hover:not(:disabled) { background: var(--bg-sel); }
 .ctx-icon { width: 16px; display: inline-flex; justify-content: center; color: var(--fg-muted); }
 .ctx-item:hover:not(:disabled) .ctx-icon { color: var(--fg); }
@@ -221,7 +228,7 @@ button:disabled { cursor: default; opacity: 0.45; }
 .ctx-shortcut { color: var(--fg-muted); font-size: 11px; }
 .ctx-item.checked .ctx-icon { color: var(--accent); }
 .ctx-check { color: var(--accent); flex: none; }
-.ctx-sep { height: 1px; background: var(--border); margin: 4px 6px; }
+.ctx-sep { height: 1px; flex: none; background: var(--border); margin: 4px 6px; }
 
 /* ── Dialogs ── */
 .dlg-backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.45); display: grid; place-items: center; z-index: 2000; }
@@ -389,8 +396,16 @@ input:disabled, select:disabled { opacity: 0.5; }
 .settings-pane textarea { width: 100%; min-width: 0; font-size: 12px; }
 
 /* ── Panel tabs (Ctrl+T) ── */
-.tab-bar { display: flex; align-items: stretch; gap: 2px; padding: 4px 6px 0; background: var(--bg-elev); border-bottom: 1px solid var(--border); overflow-x: auto; scrollbar-width: none; min-height: 30px; }
-.tab-bar::-webkit-scrollbar { display: none; }
+/* The tabs scroll inside .tab-scroll; the buttons on the right (‹ › ▾ +) stay put, so a tab hidden by a
+   narrow panel is always reachable — step through them, or pick one from the ▾ list of every tab. */
+.tab-bar { display: flex; align-items: stretch; padding: 4px 6px 0; background: var(--bg-elev); border-bottom: 1px solid var(--border); min-height: 30px; min-width: 0; }
+.tab-scroll { display: flex; align-items: stretch; gap: 2px; flex: 1; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.tab-scroll::-webkit-scrollbar { display: none; }
+.tab-nav { display: flex; align-items: center; gap: 1px; flex: none; padding-left: 4px; }
+.tab-nav-btn { display: inline-flex; align-items: center; align-self: center; background: none; border: 0; padding: 3px 3px; border-radius: 4px; color: var(--fg-muted); flex: none; }
+.tab-nav-btn:hover:not(:disabled) { background: var(--bg-hover); color: var(--fg); }
+.tab-nav-btn:disabled { opacity: 0.35; }
+.tab-nav-btn.on { background: var(--bg-sel); color: var(--fg); }
 .tab { display: inline-flex; align-items: center; gap: 5px; max-width: 200px; min-width: 60px; padding: 3px 6px 3px 9px; background: none; border: 1px solid transparent; border-bottom: 0; border-radius: 6px 6px 0 0; color: var(--fg-muted); flex: none; }
 .tab:hover { background: var(--bg-hover); color: var(--fg); }
 .tab.active { background: var(--bg-panel); border-color: var(--border); color: var(--fg); box-shadow: inset 0 2px 0 var(--accent); margin-bottom: -1px; }
@@ -411,10 +426,10 @@ input:disabled, select:disabled { opacity: 0.5; }
 .term-out .pseg-plain { padding: 0 2px; font-weight: 500; }
 .term-out .term-prompt.stale .pseg { opacity: 0.85; }
 /* ── Prompt editor (settings › prompt) ── */
-.dlg.settings .settings-pane { min-height: 320px; }
+.dlg.settings .settings-pane { min-height: 320px; display: flex; flex-direction: column; flex: 1; min-width: 0; }
 .prompt-editor { display: flex; flex-direction: column; gap: 10px; }
 /* fixed height: 3 samples × up to 2 lines — a two-line preset must not push the presets below it */
-.pe-preview-out { flex: none; height: 124px; max-height: none; min-height: 0; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; cursor: default; font-size: 12.5px; margin-top: 4px; overflow: hidden; }
+.pe-preview-out { flex: none; height: 92px; max-height: none; min-height: 0; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; cursor: default; font-size: 12.5px; margin-top: 4px; overflow: hidden; }
 .pe-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .pe-row > label { color: var(--fg-muted); }
 .pe-row textarea { flex: 1; min-width: 200px; }
@@ -435,11 +450,11 @@ input:disabled, select:disabled { opacity: 0.5; }
 /* ── Prompt editor v2: presets + quick options + master-detail, no scrolling ── */
 .prompt-editor { gap: 8px; flex: 1; min-height: 0; }
 .pe-section-title { font-weight: 600; margin-top: 2px; display: flex; gap: 8px; align-items: baseline; }
-.pe-presets { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.pe-presets { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 6px; }
 .pe-preset { display: flex; flex-direction: column; gap: 1px; padding: 3px 5px; overflow: hidden; height: 56px; box-sizing: border-box; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; color: var(--fg); text-align: left; min-width: 0; }
 .pe-preset:hover { border-color: var(--accent); }
 .pe-preset.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
-.pe-preset-out { display: flex; flex-direction: column; justify-content: center; align-items: flex-start; padding: 0 3px; border: 0; margin: 0; font-size: 10px; line-height: 1.5; overflow: hidden; white-space: pre; height: 32px; pointer-events: none; width: 100%; box-sizing: border-box; flex: none; text-align: left; }
+.pe-preset-out { display: flex; flex-direction: column; justify-content: center; align-items: flex-start; padding: 0 3px; border: 0; margin: 0; font-size: 10px; line-height: 1.5; overflow: hidden; white-space: pre; height: 28px; pointer-events: none; width: 100%; box-sizing: border-box; flex: none; text-align: left; }
 .pe-preset-out .term-prompt { display: block; width: max-content; white-space: pre; }
 .pe-preset-out .pseg { height: 1.5em; line-height: 1.5em; }
 .pe-preset-name { font-size: 11px; color: var(--fg-muted); height: 16px; line-height: 16px; flex: none; padding-left: 3px; }
@@ -456,7 +471,7 @@ input:disabled, select:disabled { opacity: 0.5; }
 .pe-gitcolor input[type="color"]:disabled { opacity: 0.4; }
 .pe-preset.custom .pe-preset-name { color: var(--fg); }
 .btn.small { padding: 3px 8px; min-width: 0; font-size: 12px; }
-.pe-advanced { display: grid; grid-template-columns: 190px 1fr; grid-template-rows: minmax(0, 1fr); gap: 8px; flex: 1; min-height: 200px; }
+.pe-advanced { display: grid; grid-template-columns: 190px 1fr; grid-template-rows: minmax(0, 1fr); gap: 8px; flex: 1; min-height: 190px; }
 .pe-advanced > * { min-height: 0; }
 .pe-list { display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); overflow: hidden; min-height: 0; }
 .pe-list-rows { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: thin; }
@@ -468,7 +483,7 @@ input:disabled, select:disabled { opacity: 0.5; }
 .pe-swatch { width: 12px; height: 12px; border-radius: 3px; border: 1px solid var(--border); flex: none; }
 .pe-list-tools { flex: none; display: flex; align-items: center; gap: 2px; padding: 4px; border-top: 1px solid var(--border); background: var(--bg-elev); }
 .pe-list-tools select { flex: 1; min-width: 0; font-size: 12px; }
-.pe-detail { border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; background: var(--bg); overflow: hidden; }
+.pe-detail { border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; background: var(--bg); overflow: auto; scrollbar-width: thin; }
 .pe-fields { grid-template-columns: max-content 1fr; gap: 6px 8px; align-items: center; }
 .pe-fields textarea { width: 100%; min-width: 0; font-size: 11px; resize: vertical; }
 .pe-fields .row { flex-wrap: wrap; gap: 6px; }
@@ -483,20 +498,31 @@ input:disabled, select:disabled { opacity: 0.5; }
 /* section heading inside a settings grid (spans both columns) */
 .settings-section { grid-column: 1 / -1; margin-top: 6px; padding-bottom: 4px; border-bottom: 1px solid var(--border); font-weight: 600; color: var(--fg-muted); font-size: 12px; }
 /* theme tab: one card per theme in its own colours; click = apply */
-.theme-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
-.theme-card { display: flex; flex-direction: column; gap: 4px; padding: 5px 6px; border: 2px solid transparent; border-radius: 7px; text-align: left; height: 74px; box-sizing: border-box; overflow: hidden; }
+.theme-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 5px; }
+.theme-card { display: flex; flex-direction: column; gap: 3px; padding: 4px 5px; border: 2px solid transparent; border-radius: 6px; text-align: left; height: 58px; box-sizing: border-box; overflow: hidden; }
 .theme-badge { color: var(--accent); margin-right: 3px; }
 .theme-card:hover { filter: brightness(1.12); }
 .theme-card.active { box-shadow: 0 0 0 2px var(--accent); }
-.theme-sample { flex: 1; display: flex; flex-direction: column; gap: 3px; padding: 4px; border-radius: 4px; }
-.theme-bar { height: 8px; border-radius: 3px; display: flex; align-items: center; padding-left: 3px; }
-.theme-bar > span { display: block; width: 26px; height: 4px; border-radius: 2px; }
-.theme-line { height: 5px; border-radius: 3px; opacity: 0.7; }
+.theme-sample { flex: 1; display: flex; flex-direction: column; gap: 2px; padding: 3px; border-radius: 3px; }
+.theme-bar { height: 6px; border-radius: 2px; display: flex; align-items: center; padding-left: 2px; }
+.theme-bar > span { display: block; width: 18px; height: 3px; border-radius: 2px; }
+.theme-line { height: 4px; border-radius: 2px; opacity: 0.7; }
 .theme-line.short { width: 55%; }
-.theme-name { font-size: 11px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.theme-name { font-size: 10.5px; font-weight: 600; line-height: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* the settings window never scrolls: the pane is sized to its content */
-.dlg.settings .dlg-body { overflow: hidden; }
+/* The settings window is sized to its tallest tab (SettingsDialog measures every tab and asks the main
+   process to fit the window), so nothing here scrolls and nothing is cut off. */
+.dlg.settings .dlg-body { overflow: visible; }
 .dlg.settings .settings-pane { min-height: 0; }
-.dlg.settings.windowed .dlg-body { display: flex; flex-direction: column; }
+.dlg.settings.windowed .dlg-body { display: flex; flex-direction: column; overflow: hidden; }
 .dlg.settings.windowed .settings-pane { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
 .dlg.settings.windowed .settings-pane > .form-grid { flex: none; }
+/* the measuring pass: the pane takes its natural height, out of sight, so each tab can be measured */
+.dlg.settings .settings-pane.measuring { visibility: hidden; flex: none; height: auto; overflow: visible; }
+/* number fields: − value + */
+.num-field { gap: 4px; }
+.num-btn { flex: none; width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center;
+  background: var(--bg-elev); border: 1px solid var(--border); border-radius: 4px; color: var(--fg); font-size: 14px; line-height: 1; padding: 0; }
+.num-btn:hover:not(:disabled) { background: var(--bg-hover); border-color: var(--border-strong); }
+.num-btn:disabled { opacity: 0.4; }
+.num-field input { text-align: center; }

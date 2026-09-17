@@ -146,10 +146,14 @@ export const DEFAULT_THEME = 'midnight';
 // sees built-in and custom themes alike.
 export const CUSTOM_COLOR_KEYS = ['bg', 'panel', 'raised', 'hover', 'active', 'border', 'borderStrong', 'text', 'textDim', 'accent', 'accentStrong', 'accentText', 'folder', 'file', 'danger'];
 let customThemes = [];
+let customThemesRaw = [];
 export function setCustomThemes(list) {
-  customThemes = (Array.isArray(list) ? list : []).filter((c) => c && c.id && c.colors).map((c) => ({ ...mk(c.id, c.label || 'Custom', c.label || 'Custom', c.mode === 'light' ? 'light' : 'dark', c.colors), custom: true }));
+  customThemesRaw = Array.isArray(list) ? list : [];
+  customThemes = customThemesRaw.filter((c) => c && c.id && c.colors).map((c) => ({ ...mk(c.id, c.label || 'Custom', c.label || 'Custom', c.mode === 'light' ? 'light' : 'dark', c.colors), custom: true }));
 }
 export function getCustomThemes() { return customThemes; }
+// The list as it came in ({ id, label, mode, colors }) — what another window needs to show the same themes.
+export function getCustomThemesRaw() { return customThemesRaw; }
 export function allThemes() { return [...THEMES, ...customThemes]; }
 // The base colours of a theme (built-in ones are reconstructed from their tokens) — the starting point of a new custom theme.
 export function baseColorsOf(theme) {

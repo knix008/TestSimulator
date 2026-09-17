@@ -177,12 +177,13 @@ function shells() {
       cwdLine: `Write-Host "${MARK}$PWD;$__ccrc"`, eol: '\r\n', encoding: enc,
     });
     const list = [
-      { id: 'powershell', label: 'PowerShell', ...ps('powershell.exe', cp) },
+    // Command Prompt first: it is what a new terminal opens with unless settings say otherwise.
       // cmd prints a prompt before every read: PROMPT is a marker that is stripped (with the blank line cmd
       // always emits before it). The batch file holds the marker too (%ERRORLEVEL% expands when that line runs,
       // after the command). `(call )` first: it resets ERRORLEVEL, which cmd otherwise keeps from an earlier
       // command (echo, cd … do not touch it).
       { id: 'cmd', label: 'Command Prompt', cmd: 'cmd.exe', args: ['/Q', '/K', 'rem'], env: { PROMPT: PROMPT_MARK }, promptMark: true, ext: '.cmd', scriptEnc: cp, markerInFile: true, preLine: '(call )', source: (f) => `call "${f}"`, cwdLine: `echo ${MARK}%CD%;%ERRORLEVEL%`, eol: '\r\n', encoding: cp },
+      { id: 'powershell', label: 'PowerShell', ...ps('powershell.exe', cp) },
     ];
     const pwsh = firstExisting(pf.map((p) => p && path.join(p, 'PowerShell', '7', 'pwsh.exe')));
     if (pwsh) list.push({ id: 'pwsh', label: 'PowerShell 7', ...ps(pwsh, 'utf8') });

@@ -1,5 +1,5 @@
 // Title-bar icons of the separate tool windows (settings, viewer, editor,
-// multi-rename, search): the same line icons the UI uses (src/components/
+// multi-rename, search, about): the same line icons the UI uses (src/components/
 // Icons.jsx), rasterized with sharp into assets/tool-icons/<kind>.png so the
 // settings window carries the gear, the viewer the viewer icon, and so on.
 // The PNGs are committed (tiny) — run this only when an icon changes:
@@ -18,6 +18,7 @@ const ICONS = {
   editor: '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>',
   multiRename: '<path d="M4 6h9M4 12h9M4 18h9"/><path d="M20.5 5.5a1.5 1.5 0 0 1 0 2L16 12l-3 1 1-3 4.5-4.5a1.5 1.5 0 0 1 2 0z"/>',
   search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>',
+  about: '<circle cx="12" cy="12" r="9"/><path d="M12 16v-5"/><path d="M12 8h.01"/>',
 };
 
 const sharp = (await import('sharp')).default;
