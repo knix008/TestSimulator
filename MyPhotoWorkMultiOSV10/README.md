@@ -4,12 +4,19 @@ My Photo Work V1.0 is a Photoshop-style raster photo editor built with Vite, Rea
 
 ## Features
 
-- Layer-based editing with visibility, lock, opacity, blend modes (including hue/saturation/color/luminosity), reorder, duplicate, merge down, flatten, **adjustment layers**, **fill layers**, **live text layers**, **layer masks**, and **layer styles**.
+- Layer-based editing with visibility, lock, opacity, blend modes (including hue/saturation/color/luminosity), reorder, duplicate, merge down, flatten, **groups**, **adjustment layers**, **fill layers**, **live text layers**, **shape layers**, **layer masks**, and **layer styles**.
 - Photoshop 2026-class tool strip with flyout groups: move/artboard, marquees, lassos, object/quick/wand, crop/slice/frame, sample tools, retouch (heal/remove/patch/clone), brushes, erasers, gradient/bucket, blur/sharpen/smudge, dodge/burn/sponge, pen/path, type, shapes, hand/rotate view/zoom.
+- **Free transform** (Ctrl+T) with scale, rotate, mirror and numeric W/H/angle entry; flip the document or a single layer.
+- **Curves and Levels** editors with per-channel control, a monotone spline, auto black/white points, and the option to apply destructively or as an adjustment layer.
+- **Vector paths**: pen, freeform pen and curvature pen, with anchor/handle editing, stroke, fill, and path-to-selection.
+- **Shape tools** (rectangle, rounded rectangle, ellipse, polygon, line, custom) that create editable shape layers.
+- **Polygonal and magnetic lassos**, **patch** and **content-aware move**, **perspective crop**, **slices** (with per-slice export), **frames**, and a **ruler** that reports distance and angle.
 - Adjustments and filters: Camera Raw-style develop, brightness/contrast, hue/saturation, invert, grayscale, auto levels, Gaussian/motion blur, sharpen, high pass, noise, mosaic, find edges, emboss, oil paint, solarize, clouds, vignette, offset, liquify, neural-style skin smooth.
 - Local generative-job tools: content-aware / generative fill, generative expand, generative upscale, Harmonize, Select Subject, Remove Background, Find Distractions. These run on-device and do not use Adobe Firefly.
 - Open PNG, JPG, GIF, WebP, AVIF, BMP, TIFF, and the native `.mpw` project format. Place extra images as new layers.
 - Save layered projects (`.mpw` v2) and export PNG, JPG, WebP, AVIF, GIF, or TIFF.
+- Separate title bar, menu bar and icon toolbar; every menu dropdown and dialog opens as its own movable window that can overhang the app and is closed with it.
+- Drag images or `.mpw` projects onto the window from the desktop.
 - Undo/redo, zoom/pan/rotate view, rulers, quick mask, transparency checkerboard, optional grid, RGB histogram, Korean/English UI, dark/light themes, contextual task bar.
 - Desktop packaging for Windows (NSIS), macOS (DMG/ZIP), and Linux (AppImage/DEB/RPM) from the same codebase.
 

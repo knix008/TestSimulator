@@ -106,9 +106,12 @@ test('free transform, flips, curves, levels and groups are all reachable from th
   }
 })
 
-test('the new dialogs are rendered', () => {
+test('the new dialogs exist and are reachable', () => {
+  // The bodies moved into src/dialogs.tsx when every popup became its own window.
+  const dialogSource = readFileSync(fileURLToPath(new URL('../src/dialogs.tsx', import.meta.url)), 'utf8')
   for (const id of ['curves', 'levels']) {
-    assert.ok(appSource.includes(`dialog === '${id}'`), `the ${id} dialog is never rendered`)
+    assert.ok(new RegExp(`case '${id}':`).test(dialogSource), `the ${id} dialog has no body`)
+    assert.ok(appSource.includes(`openDialog('${id}')`), `the ${id} dialog is never opened`)
   }
 })
 

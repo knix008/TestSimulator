@@ -6,11 +6,13 @@
     radial-gradient(circle at 12% 8%, var(--shine), transparent 26rem),
     linear-gradient(135deg, var(--app-bg-a), var(--app-bg-b));
   display: grid;
-  grid-template-rows: 52px 38px minmax(0, 1fr) 28px;
+  grid-template-rows: 38px 40px 40px 38px minmax(0, 1fr) 28px;
   overflow: hidden;
 }
 
-.toolbar,
+.title-bar,
+.menu-bar,
+.tool-bar,
 .options-bar {
   -webkit-app-region: drag;
   align-items: center;
@@ -23,16 +25,24 @@
   position: relative;
 }
 
-.toolbar {
+.title-bar {
+  z-index: 40;
+}
+
+.menu-bar {
   z-index: 30;
+}
+
+.tool-bar {
+  z-index: 20;
 }
 
 .options-bar {
   z-index: 10;
 }
 
-.toolbar .menu-group button {
-  padding: 6px 8px;
+.menu-bar .menu-group button {
+  padding: 5px 9px;
 }
 
 .options-bar {
@@ -49,8 +59,10 @@
   white-space: nowrap;
 }
 
-.toolbar button,
-.toolbar select,
+.menu-bar button,
+.menu-bar select,
+.tool-bar button,
+.title-bar button,
 .options-bar button,
 .options-bar select,
 .options-bar input,
@@ -71,19 +83,23 @@
   white-space: nowrap;
 }
 
-.toolbar button span,
+.menu-bar button span,
+.tool-bar button span,
 .options-bar button span,
 .panel button span {
   font-size: var(--control-font-size);
   line-height: 1.25;
 }
 
-.toolbar button:hover,
+.menu-bar button:hover,
+.tool-bar button:hover,
+.title-bar button:hover,
 .options-bar button:hover,
 .tool-strip > button:hover,
 .panel button:hover,
 .dialog button:hover,
-.toolbar button.active,
+.menu-bar button.active,
+.tool-bar button.active,
 .options-bar button.active,
 .panel button.active,
 .tool-strip > button.active,
@@ -92,7 +108,8 @@
   box-shadow: 0 0 0 2px var(--accent-soft);
 }
 
-.toolbar button:disabled,
+.menu-bar button:disabled,
+.tool-bar button:disabled,
 .options-bar button:disabled,
 .panel button:disabled {
   cursor: not-allowed;
@@ -197,7 +214,7 @@
   margin: 4px 0;
 }
 
-.toolbar-spacer {
+.menu-spacer {
   -webkit-app-region: drag;
   align-self: stretch;
   flex: 1 1 auto;
@@ -365,13 +382,6 @@
   position: relative;
 }
 
-.canvas-stage.show-grid {
-  background-image:
-    linear-gradient(var(--grid-line) 1px, transparent 1px),
-    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
-  background-size: var(--grid-size) var(--grid-size);
-}
-
 .canvas-stage canvas {
   display: block;
   height: 100%;
@@ -391,6 +401,23 @@
   overflow-x: hidden;
   overflow-y: auto;
   padding: 14px;
+  /* A thin overlay scrollbar: the default track drew a second vertical line
+     beside the window edge. */
+  scrollbar-color: var(--border) transparent;
+  scrollbar-width: thin;
+}
+
+.panel::-webkit-scrollbar {
+  width: 8px;
+}
+
+.panel::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.panel::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
 }
 
 .panel h2,
@@ -426,7 +453,7 @@
 .panel select,
 .dialog input,
 .dialog select,
-.toolbar select {
+.menu-bar select {
   background: var(--input-bg);
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -438,7 +465,7 @@
 
 .panel select option,
 .dialog select option,
-.toolbar select option {
+.menu-bar select option {
   background: var(--menu-bg);
   color: var(--text-primary);
 }
@@ -623,13 +650,6 @@
   font-size: 13px;
   gap: 6px;
   margin-bottom: 10px;
-}
-
-.settings-themes {
-  display: grid;
-  gap: 6px;
-  grid-template-columns: 1fr 1fr;
-  overflow: visible;
 }
 
 .settings-themes button {
@@ -1002,4 +1022,327 @@
 .region-meta {
   color: var(--muted);
   font-variant-numeric: tabular-nums;
+}
+
+/* ===================================================== title / menu / tool */
+/* Three separate rows: the title bar is the window's drag handle, the menu bar
+   groups every command by category, and the toolbar repeats the common ones as
+   icons in those same groups. */
+
+.title-bar {
+  gap: 12px;
+  padding: 0 0 0 10px;
+}
+
+.title-bar .brand {
+  font-size: 13px;
+  gap: 8px;
+}
+
+.title-bar .brand img {
+  height: 22px;
+  width: 22px;
+}
+
+.title-doc {
+  align-items: baseline;
+  color: var(--text-muted, var(--muted));
+  display: flex;
+  flex: 1 1 auto;
+  font-size: 12px;
+  gap: 8px;
+  justify-content: center;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.title-dirty {
+  color: var(--accent);
+  font-style: normal;
+  font-weight: 700;
+}
+
+.title-size {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.7;
+}
+
+.menu-bar,
+.tool-bar {
+  /* Only the title bar drags the window now, so a miss between two buttons
+     does not pick the whole window up. `.menu-spacer` re-opens a drag zone. */
+  -webkit-app-region: no-drag;
+}
+
+.menu-bar {
+  gap: 2px;
+  padding: 4px 10px;
+}
+
+.menu-bar button {
+  min-height: 28px;
+}
+
+.menu-bar .lang-toggle {
+  padding: 4px 6px;
+}
+
+.tool-bar {
+  gap: 0;
+  overflow-x: auto;
+  padding: 4px 10px;
+  scrollbar-width: thin;
+}
+
+.tool-bar::-webkit-scrollbar {
+  height: 5px;
+}
+
+.tool-bar::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+.tool-bar-group {
+  align-items: center;
+  display: flex;
+  flex: 0 0 auto;
+  gap: 2px;
+}
+
+.tool-bar-divider {
+  background: var(--border);
+  flex: 0 0 auto;
+  height: 18px;
+  margin: 0 7px;
+  width: 1px;
+}
+
+/* Icon-only buttons: square, no label column. */
+.tool-bar button {
+  gap: 0;
+  justify-content: center;
+  min-height: 28px;
+  min-width: 30px;
+  padding: 4px;
+}
+
+/* An accelerator hint sits at the right edge of a menu row. */
+.menu-drop button kbd {
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 11px;
+  margin-left: auto;
+  padding-left: 14px;
+  white-space: nowrap;
+}
+
+/* ================================================== popup / dialog windows */
+/* A dialog runs in its own OS window under Electron and in place in the
+   browser build, so the same markup has to work both ways. */
+
+.dialog-window {
+  background: var(--panel-bg);
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+  width: 100vw;
+}
+
+.dialog-window > .dialog {
+  /* No inner border: the OS window edge is already the boundary, and drawing
+     both produced a doubled line down the right-hand side. */
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  inset: 0;
+  margin: 0;
+  max-height: none;
+  max-width: none;
+  position: static;
+  transform: none;
+  width: 100%;
+}
+
+/* One hairline frame, on the window itself. */
+.dialog-window {
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
+/* Slim, unobtrusive scrollbars inside a popup: the default track drew a second
+   vertical line beside the window edge. */
+.dialog-window *::-webkit-scrollbar {
+  height: 8px;
+  width: 8px;
+}
+
+.dialog-window *::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.dialog-window *::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+
+.dialog-window * {
+  scrollbar-color: var(--border) transparent;
+  scrollbar-width: thin;
+}
+
+/* The window's own title strip: icon, name, close. Also the drag handle. */
+.dialog-title-bar {
+  -webkit-app-region: drag;
+  align-items: center;
+  background: var(--toolbar-bg);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex: 0 0 auto;
+  gap: 8px;
+  margin: -16px -16px 12px;
+  padding: 8px 8px 8px 12px;
+}
+
+.dialog-title-bar h2 {
+  flex: 1 1 auto;
+  font-size: 13px;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dialog-close {
+  -webkit-app-region: no-drag;
+  align-items: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--text-primary);
+  cursor: pointer;
+  display: inline-flex;
+  flex: 0 0 auto;
+  justify-content: center;
+  min-height: 26px;
+  min-width: 30px;
+  padding: 0;
+}
+
+.dialog-close:hover,
+.dialog-close:focus-visible {
+  background: #e11d48;
+  border-color: #e11d48;
+  box-shadow: none;
+  color: #ffffff;
+}
+
+.dialog-content {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.dialog-content > .dialog-actions {
+  margin-top: auto;
+}
+
+.about-icon {
+  height: 84px;
+  margin: 4px auto 0;
+  width: 84px;
+}
+
+.filter-gallery-list {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: 1fr 1fr;
+  overflow-y: auto;
+}
+
+/* Theme swatches wrap, several to a row, so the list stays short. */
+.settings-themes {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  margin-top: 6px;
+  max-height: 210px;
+  overflow-y: auto;
+}
+
+.settings-themes button {
+  justify-content: flex-start;
+  overflow: hidden;
+}
+
+.settings-themes button span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ------------------------------------------------------------ menu window */
+/* The dropdown rendered in its own always-on-top window, which is what lets a
+   long menu overhang the application window instead of being clipped by it. */
+.menu-window {
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.42);
+  display: inline-grid;
+  gap: 2px;
+  min-width: 200px;
+  padding: 6px;
+  width: max-content;
+}
+
+.menu-window button {
+  align-items: center;
+  appearance: none;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--text-primary);
+  cursor: pointer;
+  display: flex;
+  font: 600 var(--control-font-size) / 1.25 var(--ui-font);
+  gap: 8px;
+  padding: 6px 10px;
+  text-align: left;
+  white-space: nowrap;
+  width: 100%;
+}
+
+.menu-window button:hover,
+.menu-window button.active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+.menu-window button span {
+  flex: 1 1 auto;
+}
+
+.menu-window kbd {
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 11px;
+  padding-left: 16px;
+}
+
+/* -------------------------------------------------------------- drag drop */
+.app-shell.drop-active::after {
+  border: 2px dashed var(--accent);
+  border-radius: 10px;
+  content: '';
+  inset: 8px;
+  pointer-events: none;
+  position: fixed;
+  z-index: 90;
 }

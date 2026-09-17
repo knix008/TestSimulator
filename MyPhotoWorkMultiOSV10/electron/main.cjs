@@ -1,6 +1,7 @@
 const { app, BrowserWindow, Menu, dialog, ipcMain, nativeTheme, shell } = require('electron')
 const fs = require('node:fs/promises')
 const path = require('node:path')
+const childWindows = require('./childwindows.cjs')
 
 const isDev = !app.isPackaged
 const appId = 'com.shkwon.myphotoworkmultios'
@@ -48,18 +49,30 @@ function createWindow() {
     return { action: 'deny' }
   })
 
+  childWindows.setMainWindow(mainWindow)
+
   mainWindow.on('close', (event) => {
     if (mainWindow.forceClose) {
+      // Tear every popup down with the app, including the detached menu window
+      // that is deliberately not parented to us.
+      childWindows.closeAllChildWindows()
       return
     }
     event.preventDefault()
     mainWindow.webContents.send('window:close-request')
   })
 
+  // A dialog left open while the document changes would show stale values.
+  mainWindow.on('closed', () => childWindows.closeAllChildWindows())
+
+  const bundle = path.join(__dirname, '..', 'dist', 'index.html')
   if (isDev) {
-    mainWindow.loadURL('http://127.0.0.1:5173')
+    // Prefer the dev server, but do not leave a blank window when it is not up.
+    mainWindow.loadURL('http://127.0.0.1:5173').catch(() => {
+      if (!mainWindow.isDestroyed()) mainWindow.loadFile(bundle)
+    })
   } else {
-    mainWindow.loadFile(path.join(__dirname, '..', 'dist', 'index.html'))
+    mainWindow.loadFile(bundle)
   }
 }
 
@@ -187,6 +200,7 @@ if (gotSingleInstanceLock) {
 
   app.whenReady().then(() => {
     Menu.setApplicationMenu(null)
+    childWindows.registerChildWindowHandlers()
     createWindow()
 
     app.on('activate', () => {
@@ -196,6 +210,10 @@ if (gotSingleInstanceLock) {
     })
   })
 }
+
+app.on('before-quit', () => {
+  childWindows.closeAllChildWindows()
+})
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {

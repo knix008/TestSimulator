@@ -14,16 +14,47 @@ My Photo Work V1.0 is a cross-platform raster photo editor. The same React app r
 
 ## Process / module layout
 
+The window chrome is four stacked rows: a **title bar** (the window's drag
+handle and its minimise/maximise/close buttons), a **menu bar**, an **icon
+toolbar**, and the contextual **options bar**. The menu bar and the toolbar are
+both generated from `src/commands.ts`, so the toolbar is simply the commands
+flagged `toolbar`, still grouped by their menu category.
+
+Popups are not rendered inside the app window. Each menu dropdown and each
+dialog is a child `BrowserWindow` that loads this same bundle with a hash route
+(`#menu=<id>` / `#dialog=<name>`), because a frameless window clips its own
+HTML: the Layer menu is about thirty rows tall and could not otherwise be shown,
+and an in-page dialog cannot be dragged out of the way. `electron/childwindows.cjs`
+owns them — one window per dialog name (reopening raises the existing one), and
+every popup is destroyed with the main window.
+
 ```
 index.html
- └─ src/main.tsx            → mounts <App/>
-     └─ src/App.tsx         → chrome, tools, file/layer commands
+ └─ src/main.tsx            → routes on the hash: <App/> | <MenuHost/> | <DialogHost/>
+     └─ src/App.tsx         → chrome, pointer dispatch, file/layer commands
         ├─ src/i18n.ts
+        ├─ src/catalog.ts     → the tool strip's flyout groups
+        ├─ src/commands.ts    → the menu bar and toolbar commands
+        ├─ src/toolOptions.ts → what the contextual options bar shows per tool
+        ├─ src/dialogs.tsx    → every popup body, shared by both renderings
+        ├─ src/dialogMeta.ts  → popup names, icons and titles
         └─ src/lib/*
 electron/main.cjs           → window, native open/save, close confirm
+electron/childwindows.cjs   → menu popups and dialogs as separate windows
 electron/preload.cjs        → contextBridge file/window APIs
 scripts/create-icons.cjs    → public/app-icon.svg → installer icons
 ```
+
+`src/lib` holds the platform-independent engine:
+
+| Module | Responsibility |
+| ------ | -------------- |
+| `color` / `adjustments` / `curves` | colour maths, the Camera Raw sliders, real Curves and Levels tables |
+| `selection` / `regions` | marquees, lassos, wand, flood fill; magnetic-lasso edge snapping, patch, content-aware move, perspective crop, slices, frames, ruler |
+| `filters` / `effects` / `tools` / `ai` | the Filter menu, layer styles, the brush family, the on-device generative jobs |
+| `paths` | vector paths: anchors, bezier handles, hit testing, stroke/fill, path→selection |
+| `transform` | the free-transform box, its handles, and the resampling that commits it |
+| `canvas` / `history` / `imageIO` | the document model, undo snapshots, `.mpw` and raster codecs |
 
 ## Data model
 
@@ -49,6 +80,14 @@ The RGB histogram is computed from the active layer only.
 ## Tools
 
 Pointer events convert screen coordinates to document space (`(client - pan) / zoom`).
+`handlePointerDown` / `Move` / `Up` in `App.tsx` dispatch **every** tool in the
+catalog; `test/wiring.test.mjs` fails if a tool is ever added to the strip
+without a branch here.
+
+The contextual options bar is generated from the `toolOptions` table rather than
+from per-tool JSX, so each control renders and behaves identically wherever it
+appears, and every tool is guaranteed a row with a one-line hint in both
+languages.
 
 - **Move** shifts the active layer's pixels.
 - **Marquee / ellipse / lasso / wand** build a `Selection`.
@@ -106,3 +145,11 @@ filters that call `Math.random`.
 | `settings.test.mjs` | localStorage validation and the theme table |
 | `imageio.test.mjs` | `.mpw` round trip, v1 migration, TIFF, every export format |
 | `i18n.test.mjs` | Korean/English coverage for every tool, blend mode, adjustment and filter |
+| `paths.test.mjs` | the vector path model behind the pen and path-selection tools |
+| `curves.test.mjs` | Curves and Levels lookup tables, the editors' point maths, auto levels |
+| `transform.test.mjs` | free-transform box maths, handle hit testing, resampling, flips |
+| `regions.test.mjs` | magnetic-lasso edge snapping, patch, content-aware move, perspective crop, slices, frames, ruler |
+| `wiring.test.mjs` | that every catalogued tool has an options row and is reachable from the canvas dispatch |
+| `commands.test.mjs` | that the menu bar and toolbar agree, and every command has a handler |
+| `windows.test.mjs` | popup windows, the menu overhang, the viewport grid and rulers, drag & drop |
+| `scripts.test.mjs` | the `npm start` launchers |

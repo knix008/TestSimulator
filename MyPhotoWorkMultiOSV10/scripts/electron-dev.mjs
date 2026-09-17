@@ -41,8 +41,13 @@ async function waitForPort(timeoutMs = 30000) {
 }
 
 function spawnVite() {
-  const command = process.platform === 'win32' ? 'npm.cmd' : 'npm'
-  return spawn(command, ['run', 'dev'], {
+  // Run Vite's own entry point with this Node binary rather than going through
+  // `npm run dev`: since Node 20.12 spawning the `npm.cmd` shim without a shell
+  // fails outright with EINVAL on Windows, and a shell would leave an extra
+  // process between us and the server that `kill()` would not reach.
+  const require = createRequire(import.meta.url)
+  const viteBin = path.join(path.dirname(require.resolve('vite/package.json')), 'bin', 'vite.js')
+  return spawn(process.execPath, [viteBin, '--host', host, '--port', String(port), '--strictPort'], {
     cwd: root,
     env,
     stdio: 'inherit',

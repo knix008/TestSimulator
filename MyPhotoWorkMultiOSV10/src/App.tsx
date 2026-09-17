@@ -2,13 +2,10 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import { createPortal } from 'react-dom'
 import {
   Aperture,
-  AppWindow,
   ArrowDown,
   ArrowLeftRight,
   ArrowUp,
   Blend,
-  BookOpen,
-  Box,
   Camera,
   CircleDashed,
   CircleQuestionMark,
@@ -16,80 +13,62 @@ import {
   Contrast,
   Copy,
   Crop,
-  Download,
   Droplets,
   Eraser,
   Eye,
   EyeOff,
-  FilePlus,
-  FileX,
-  FolderOpen,
   Frame,
   FlipHorizontal,
   FlipVertical,
   Grid3x3,
-  Image as ImageIcon,
-  ImagePlus,
   Info,
-  Lasso,
   Layers,
   Layers2,
   LayoutGrid,
   Lock,
   LockOpen,
-  Maximize2,
   Minus,
   PaintBucket,
   Palette,
   PenTool,
-  Pencil,
   Plus,
-  Ratio,
   Redo2,
-  RotateCcw,
-  RotateCw,
-  Ruler,
-  Save,
-  SaveAll,
   ScanSearch,
   Scissors,
-  Search,
   Settings2,
   SlidersHorizontal,
-  Spline,
   Sparkles,
   Square,
   SquareDashed,
   Sun,
   Trash,
-  Type,
-  Ungroup,
   Undo2,
   WandSparkles,
   WavesHorizontal,
   X,
-  ZoomIn,
-  ZoomOut,
 } from 'lucide-react'
 import { blendLabel, t, toolLabel } from './i18n'
-import { adjustmentTypes, filterCatalog, iconForTool, toolGroups } from './catalog'
+import { adjustmentTypes, iconForTool, toolGroups } from './catalog'
 import { cloneCanvas, compositeDocument, context2d, createBlankDocument, createCanvas, createLayerMeta, padCanvas, resizeCanvasContent, sampleComposite } from './lib/canvas'
 import { hexToRgb, hsvToRgb, rgbToHex, rgbToHsv } from './lib/color'
 import { addNoise, adjustBrightnessContrast, adjustHueSaturation, clearSelectionPixels, clouds, emboss, findEdges, gaussianBlur, grayscale, highPass, histogram, invertColors, mosaic, motionBlur, offset, oilPaint, sharpen, solarize, vignette } from './lib/filters'
 import { applyAdjustmentCanvas, levelsStretch } from './lib/adjustments'
 import { cloneDocument, pushHistory, takeSnapshot, type HistorySnapshot } from './lib/history'
 import { decodeImageSource, downloadDataUrl, encodeExport, extensionFor, fileToOpenItem, restoreProject, serializeProject } from './lib/imageIO'
-import { colSelection, drawSelectionOverlay, ellipseSelection, invertSelection, maskFromLasso, paintBucket, rectSelection, rowSelection, selectionToMask, wandSelection } from './lib/selection'
+import { colSelection, drawSelectionOverlay, ellipseSelection, featherSelection, invertSelection, maskFromLasso, paintBucket, rectSelection, rowSelection, selectionToMask, wandSelection } from './lib/selection'
 import { loadSettings, saveSettings } from './lib/settings'
 import { colorReplace, dodgeBurn, healStamp, paintGradient, paintStroke, redEyeFix, smudge, spongeDesaturate } from './lib/tools'
 import { contentAwareFill, findDistractions, generativeExpand, generativeUpscale, harmonize, selectSubject, skinSmooth } from './lib/ai'
 import { cloneStamp } from './lib/tools'
 import { createPath, drawPathOverlay, fillPathOnto, hitTestPaths, movePathPoint, pathFromPoints, pathNode, pathToSelection, smoothNode, smoothPath, strokePathOnto, translatePath, type PathHit } from './lib/paths'
-import { addCurvePoint, applyCurves, applyLevels, autoLevels, curveLut, removeCurvePoint } from './lib/curves'
+import { applyCurves, applyLevels, autoLevels } from './lib/curves'
 import { applyTransform, dragTransform, drawTransformOverlay, flipCanvas, hitTestTransform, identityTransform } from './lib/transform'
 import { clipToFrame, contentMove, createFrame, createSlice, cropToRect, drawRegionOverlay, measureInfo, patchSelection, perspectiveCrop, perspectiveSize, rectAt, snapToEdge } from './lib/regions'
 import { optionsForTool } from './toolOptions'
-import { defaultAdjustment, defaultCurves, defaultLevels, blendModes, documentPresets, rightPanelMaxWidth, rightPanelMinWidth, shapeKindForTool, type AdjustmentType, type AppSettings, type BlendMode, type ErrorDetails, type ExportFormat, type CurveChannel, type CurveData, type Language, type LevelsData, type PathShape, type PhotoDocument, type Point, type Selection, type SliceRect, type Tool, type TransformBox, type TransformHandle, type UnsavedChoice } from './lib/types'
+import { firstTick, rulerSize, tickStep, visibleRange } from './lib/view'
+import { commands, commandsInMenu, menuIcons, menuOrder, toolbarGroups, type AppCommand, type MenuId as CommandMenuId } from './commands'
+import { DialogBody, DialogFrame, type DialogName, type DialogPayload, type DialogResult } from './dialogs'
+import { defaultAdjustment, defaultCurves, blendModes, rightPanelMaxWidth, rightPanelMinWidth, shapeKindForTool, type AdjustmentType, type AppSettings, type BlendMode, type ErrorDetails, type ExportFormat, type CurveData, type LevelsData, type PathShape, type PhotoDocument, type Point, type Selection, type SliceRect, type Tool, type TransformBox, type TransformHandle, type UnsavedChoice } from './lib/types'
 import { applyTheme, themeLabel, themes } from './themes'
 import './App.css'
 
@@ -119,7 +98,7 @@ type Dialog =
   | 'levels'
   | 'helpGuide'
 
-type MenuId = 'file' | 'edit' | 'image' | 'layer' | 'typeMenu' | 'selectMenu' | 'filter' | 'threeD' | 'view' | 'windowMenu' | 'help' | 'theme' | null
+type MenuId = CommandMenuId | 'theme' | null
 
 function ColorPopover({ color, x, y, onChange, onClose }: { color: string; x: number; y: number; onChange: (hex: string) => void; onClose: () => void }) {
   const rgb = hexToRgb(color)
@@ -186,20 +165,6 @@ function ColorPopover({ color, x, y, onChange, onClose }: { color: string; x: nu
   )
 }
 
-const menuIcons = {
-  file: FolderOpen,
-  edit: Pencil,
-  image: ImageIcon,
-  layer: Layers,
-  typeMenu: Type,
-  selectMenu: Lasso,
-  filter: WandSparkles,
-  threeD: Box,
-  view: Eye,
-  windowMenu: AppWindow,
-  help: CircleQuestionMark,
-} as const
-
 const panelTabIcons = {
   layers: Layers,
   adjust: SlidersHorizontal,
@@ -233,16 +198,19 @@ function MenuItem({
   label,
   onClick,
   active,
+  accel,
 }: {
   icon: ComponentType<{ size?: number }>
   label: string
   onClick: () => void
   active?: boolean
+  accel?: string
 }) {
   return (
     <button className={active ? 'active' : ''} data-tooltip={label} onClick={onClick}>
       <Icon size={16} />
       <span>{label}</span>
+      {accel && <kbd>{accel}</kbd>}
     </button>
   )
 }
@@ -337,96 +305,78 @@ function readTooltip(target: EventTarget | null) {
 }
 
 
-/** The 256x256 curve grid. Click to add a point, drag to move, double-click to remove. */
-function CurveEditor({ points, onChange, accent }: { points: { x: number; y: number }[]; onChange: (next: { x: number; y: number }[]) => void; accent: string }) {
-  const size = 236
-  const toView = (p: { x: number; y: number }) => ({ x: (p.x / 255) * size, y: size - (p.y / 255) * size })
-  const toData = (x: number, y: number) => ({ x: (x / size) * 255, y: ((size - y) / size) * 255 })
-  const dragIndex = useRef(-1)
 
-  const nearest = (x: number, y: number) => {
-    let best = -1
-    let bestDistance = 12
-    points.forEach((point, index) => {
-      const at = toView(point)
-      const distance = Math.hypot(at.x - x, at.y - y)
-      if (distance < bestDistance) {
-        bestDistance = distance
-        best = index
-      }
-    })
-    return best
+/** Ruler strips along the top and left edges, labelled in document pixels. */
+function drawRulers(
+  ctx: CanvasRenderingContext2D,
+  view: { width: number; height: number },
+  document: { width: number; height: number },
+  pan: { x: number; y: number },
+  zoom: number,
+  colors: { bg: string; line: string; text: string; accent: string },
+) {
+  const step = tickStep(zoom, 64)
+  ctx.save()
+  ctx.font = '10px system-ui, sans-serif'
+  ctx.textBaseline = 'top'
+
+  ctx.fillStyle = colors.bg
+  ctx.fillRect(0, 0, view.width, rulerSize)
+  ctx.fillRect(0, 0, rulerSize, view.height)
+
+  ctx.strokeStyle = colors.line
+  ctx.lineWidth = 1
+  ctx.beginPath()
+  ctx.moveTo(0, rulerSize + 0.5)
+  ctx.lineTo(view.width, rulerSize + 0.5)
+  ctx.moveTo(rulerSize + 0.5, 0)
+  ctx.lineTo(rulerSize + 0.5, view.height)
+  ctx.stroke()
+
+  // The span of document coordinates currently on screen.
+  const spanX = visibleRange(view.width, pan.x, zoom)
+  const firstX = firstTick(spanX.from, step)
+  const lastX = spanX.to
+  ctx.fillStyle = colors.text
+  ctx.strokeStyle = colors.line
+  for (let value = firstX; value <= lastX; value += step) {
+    const x = Math.round(pan.x + value * zoom) + 0.5
+    if (x < rulerSize) continue
+    ctx.beginPath()
+    ctx.moveTo(x, rulerSize - 6)
+    ctx.lineTo(x, rulerSize)
+    ctx.stroke()
+    ctx.fillText(String(Math.round(value)), x + 2, 3)
   }
 
-  const localPoint = (event: React.PointerEvent<SVGSVGElement> | React.MouseEvent<SVGSVGElement>) => {
-    const box = event.currentTarget.getBoundingClientRect()
-    return { x: event.clientX - box.left, y: event.clientY - box.top }
+  const spanY = visibleRange(view.height, pan.y, zoom)
+  const firstY = firstTick(spanY.from, step)
+  const lastY = spanY.to
+  for (let value = firstY; value <= lastY; value += step) {
+    const y = Math.round(pan.y + value * zoom) + 0.5
+    if (y < rulerSize) continue
+    ctx.beginPath()
+    ctx.moveTo(rulerSize - 6, y)
+    ctx.lineTo(rulerSize, y)
+    ctx.stroke()
+    ctx.save()
+    ctx.translate(3, y + 2)
+    ctx.rotate(-Math.PI / 2)
+    ctx.textBaseline = 'bottom'
+    ctx.fillText(String(Math.round(value)), -22, 10)
+    ctx.restore()
   }
 
-  const path = useMemo(() => {
-    const lut = curveLut(points)
-    let d = ''
-    for (let i = 0; i < 256; i += 1) {
-      const x = (i / 255) * size
-      const y = size - (lut[i] / 255) * size
-      d += `${i === 0 ? 'M' : 'L'}${x.toFixed(2)} ${y.toFixed(2)} `
-    }
-    return d
-  }, [points])
-
-  return (
-    <svg
-      className="curve-editor"
-      width={size}
-      height={size}
-      viewBox={`0 0 ${size} ${size}`}
-      onPointerDown={(event) => {
-        const at = localPoint(event)
-        const index = nearest(at.x, at.y)
-        if (index >= 0) {
-          dragIndex.current = index
-          return
-        }
-        const added = addCurvePoint(points, toData(at.x, at.y))
-        onChange(added)
-        dragIndex.current = added.findIndex((p) => Math.abs(p.x - toData(at.x, at.y).x) < 5)
-        event.currentTarget.setPointerCapture(event.pointerId)
-      }}
-      onPointerMove={(event) => {
-        if (dragIndex.current < 0) return
-        const at = localPoint(event)
-        const data = toData(at.x, at.y)
-        const index = dragIndex.current
-        const next = points.map((point, i) => {
-          if (i !== index) return point
-          // The two endpoints stay pinned to their input value.
-          const locked = i === 0 || i === points.length - 1
-          return { x: locked ? point.x : Math.max(0, Math.min(255, Math.round(data.x))), y: Math.max(0, Math.min(255, Math.round(data.y))) }
-        })
-        onChange([...next].sort((a, b) => a.x - b.x))
-      }}
-      onPointerUp={() => { dragIndex.current = -1 }}
-      onDoubleClick={(event) => {
-        const at = localPoint(event)
-        const index = nearest(at.x, at.y)
-        if (index >= 0) onChange(removeCurvePoint(points, index))
-      }}
-    >
-      <rect x={0} y={0} width={size} height={size} className="curve-bg" />
-      {[1, 2, 3].map((n) => (
-        <g key={n}>
-          <line x1={(size / 4) * n} y1={0} x2={(size / 4) * n} y2={size} className="curve-grid" />
-          <line x1={0} y1={(size / 4) * n} x2={size} y2={(size / 4) * n} className="curve-grid" />
-        </g>
-      ))}
-      <line x1={0} y1={size} x2={size} y2={0} className="curve-diagonal" />
-      <path d={path} className="curve-line" style={{ stroke: accent }} />
-      {points.map((point, index) => {
-        const at = toView(point)
-        return <circle key={index} cx={at.x} cy={at.y} r={4} className="curve-point" />
-      })}
-    </svg>
-  )
+  // The document's own extent, marked on both rulers.
+  ctx.strokeStyle = colors.accent
+  ctx.lineWidth = 2
+  ctx.beginPath()
+  ctx.moveTo(pan.x, rulerSize - 1)
+  ctx.lineTo(pan.x + document.width * zoom, rulerSize - 1)
+  ctx.moveTo(rulerSize - 1, pan.y)
+  ctx.lineTo(rulerSize - 1, pan.y + document.height * zoom)
+  ctx.stroke()
+  ctx.restore()
 }
 
 export default function App() {
@@ -461,6 +411,16 @@ export default function App() {
   // resample a resampled image.
   const [transformBox, setTransformBox] = useState<TransformBox | null>(null)
   const transformSourceRef = useRef<HTMLCanvasElement | null>(null)
+  /**
+   * Pristine pixels per layer, kept for the move tool.
+   *
+   * A layer canvas is document-sized, so shifting it crops whatever leaves the
+   * edge. Every move is therefore replayed from this untouched copy at the
+   * accumulated offset, which keeps dragging a layer out of frame and back
+   * lossless across as many separate drags as the user makes. The entry is
+   * dropped as soon as the layer is edited any other way.
+   */
+  const moveOriginRef = useRef(new Map<string, { canvas: HTMLCanvasElement; dx: number; dy: number }>())
   const [activePathId, setActivePathId] = useState<string | null>(null)
   // The pen tools build a path click by click before it joins doc.paths.
   const [draftPath, setDraftPath] = useState<PathShape | null>(null)
@@ -468,11 +428,9 @@ export default function App() {
   const [cropCorners, setCropCorners] = useState<Point[]>([])
   const [shapeDraft, setShapeDraft] = useState<{ x: number; y: number; width: number; height: number } | null>(null)
   const [activeSliceId, setActiveSliceId] = useState<string | null>(null)
-  const [curveDraft, setCurveDraft] = useState<CurveData>(defaultCurves)
-  const [curveChannel, setCurveChannel] = useState<CurveChannel>('rgb')
-  const [levelDraft, setLevelDraft] = useState<LevelsData>(defaultLevels)
   const [viewAngle, setViewAngle] = useState(0)
   const [quickMask, setQuickMask] = useState(false)
+  const [dropActive, setDropActive] = useState(false)
   const [tooltip, setTooltip] = useState<HoverTip | null>(null)
   const tooltipTimer = useRef(0)
   const viewRef = useRef<HTMLCanvasElement | null>(null)
@@ -506,6 +464,12 @@ export default function App() {
   const transformRef = useRef<TransformBox | null>(null)
   const cloneSourceRef = useRef<Point | null>(null)
   const cropCornersRef = useRef<Point[]>([])
+  const adjustRef = useRef({ brightness: 0, contrast: 0, hue: 0, saturation: 0, lightness: 0, radius: 4, amount: 60, width: 1280, height: 720 })
+  const textValueRef = useRef('Photo')
+  const textPointRef = useRef<Point>({ x: 40, y: 40 })
+  const errorRef = useRef<ErrorDetails | null>(null)
+  const dirtyRef = useRef(false)
+  const runPendingRef = useRef<((choice: UnsavedChoice) => Promise<void>) | null>(null)
 
   const language = settings.language
   const tr = useCallback((key: string) => t(language, key), [language])
@@ -543,7 +507,78 @@ export default function App() {
     transformRef.current = transformBox
     cloneSourceRef.current = cloneSource
     cropCornersRef.current = cropCorners
-  }, [cloneSource, cropCorners, doc, draftPath, polyPoints, selection, settings, shapeDraft, tool, transformBox])
+    adjustRef.current = adjust
+    textValueRef.current = textValue
+    textPointRef.current = textPoint
+    errorRef.current = error
+    dirtyRef.current = dirty
+  }, [adjust, cloneSource, cropCorners, dirty, doc, draftPath, error, polyPoints, selection, settings, shapeDraft, textPoint, textValue, tool, transformBox])
+
+
+  /* ------------------------------------------------------ popup windows */
+
+  /** True when popups can be real OS windows, i.e. under the desktop shell. */
+  const windowedDialogs = Boolean(window.electronDialogApi)
+
+  /** The seed values a popup needs, resolved at the moment it opens. */
+  const dialogPayload = useCallback((name: DialogName): DialogPayload => {
+    const current = docRef.current
+    const canvas = current ? canvasesRef.current.get(current.activeLayerId) : null
+    return {
+      language: settingsRef.current.language,
+      theme: settingsRef.current.theme,
+      settings: settingsRef.current,
+      adjust: { ...adjustRef.current, width: current?.width ?? 1280, height: current?.height ?? 720 },
+      curves: name === 'curves' ? defaultCurves() : undefined,
+      levels: name === 'levels' && canvas ? { ...autoLevels(canvas), gamma: 1 } : undefined,
+      autoLevels: canvas ? autoLevels(canvas) : undefined,
+      text: textValueRef.current,
+      error: errorRef.current ?? undefined,
+      version: '1.0.0',
+      creator: 'SHKWON (knix008@naver.com)',
+    }
+  }, [])
+
+  /**
+   * The browser build renders the popup in place. Its seeds are captured at the
+   * moment it opens: rebuilding them on every settings change would reset the
+   * editors' drafts mid-edit.
+   */
+  const [inPagePayload, setInPagePayload] = useState<DialogPayload | null>(null)
+
+  /**
+   * Opens a popup. On the desktop it becomes its own movable window; asking for
+   * one that is already open raises that window instead of making a second.
+   * The browser build has no second window, so it renders in place.
+   */
+  const openDialog = useCallback((name: DialogName) => {
+    const payload = dialogPayload(name)
+    if (window.electronDialogApi) {
+      // Never swallow a failure: if the window cannot be created the popup must
+      // still appear in page rather than the button doing nothing at all.
+      window.electronDialogApi.open(name, payload).then((opened) => {
+        if (!opened) {
+          setInPagePayload(payload)
+          setDialog(name)
+        }
+      }).catch(() => {
+        setInPagePayload(payload)
+        setDialog(name)
+      })
+      return
+    }
+    setInPagePayload(payload)
+    setDialog(name)
+  }, [dialogPayload])
+
+  /** Popups seeded from the old document would show stale values. */
+  const closeAllDialogs = useCallback(() => {
+    if (window.electronDialogApi) {
+      void window.electronDialogApi.closeAll()
+      return
+    }
+    setDialog(null)
+  }, [])
 
   useEffect(() => {
     applyTheme(settings.theme)
@@ -574,6 +609,8 @@ export default function App() {
   }, [])
 
   const replaceDocument = useCallback((next: PhotoDocument, canvases: Map<string, HTMLCanvasElement>, resetHistory = true) => {
+    closeAllDialogs()
+    moveOriginRef.current.clear()
     canvasesRef.current = canvases
     setDoc(next)
     setSelection(null)
@@ -584,7 +621,7 @@ export default function App() {
       redoRef.current = []
     }
     bump()
-  }, [bump])
+  }, [bump, closeAllDialogs])
 
   const updateDoc = useCallback((updater: (current: PhotoDocument) => PhotoDocument) => {
     setDoc((current) => (current ? updater(current) : current))
@@ -726,7 +763,40 @@ export default function App() {
     ctx.strokeStyle = 'rgba(255,255,255,0.35)'
     ctx.strokeRect(0.5, 0.5, dw - 1, dh - 1)
     ctx.restore()
-  }, [activePathId, crop, cropCorners, dash, doc, draftPath, frame, pan.x, pan.y, polyPoints, selection, settings.showPaths, settings.theme, settings.zoom, shapeDraft, transformBox, viewAngle])
+
+    if (settings.showGrid) {
+      // Drawn onto the viewport, not as a CSS background: the canvas is opaque
+      // and would hide anything painted behind it.
+      const step = tickStep(zoom, 48)
+      ctx.save()
+      ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--grid-line') || 'rgba(255,255,255,0.12)'
+      ctx.lineWidth = 1
+      ctx.beginPath()
+      for (let value = 0; value <= documentModel.width; value += step) {
+        const x = Math.round(left + value * zoom) + 0.5
+        ctx.moveTo(x, top)
+        ctx.lineTo(x, top + dh)
+      }
+      for (let value = 0; value <= documentModel.height; value += step) {
+        const y = Math.round(top + value * zoom) + 0.5
+        ctx.moveTo(left, y)
+        ctx.lineTo(left + dw, y)
+      }
+      ctx.stroke()
+      ctx.restore()
+    }
+
+    if (settings.showRulers) {
+      const style = getComputedStyle(document.documentElement)
+      drawRulers(ctx, { width, height }, documentModel, { x: left, y: top }, zoom, {
+        bg: style.getPropertyValue('--toolbar-bg') || '#151b22',
+        line: style.getPropertyValue('--border') || 'rgba(255,255,255,0.18)',
+        text: style.getPropertyValue('--muted') || '#94a3b8',
+        accent: style.getPropertyValue('--accent') || '#38bdf8',
+      })
+    }
+
+  }, [activePathId, crop, cropCorners, dash, doc, draftPath, frame, pan.x, pan.y, polyPoints, selection, settings.showGrid, settings.showPaths, settings.showRulers, settings.theme, settings.zoom, shapeDraft, transformBox, viewAngle])
 
   useEffect(() => {
     const canvas = document.getElementById('histogram-canvas') as HTMLCanvasElement | null
@@ -756,17 +826,17 @@ export default function App() {
 
   const showError = useCallback((title: string, message: string, details: unknown) => {
     setError({ title, message, details: details instanceof Error ? `${details.message}\n${details.stack ?? ''}` : String(details) })
-    setDialog('error')
-  }, [])
+    openDialog('error')
+  }, [openDialog])
 
   const guardUnsaved = useCallback((action: 'new' | 'open' | 'close' | 'quit') => {
     if (dirty) {
       setPendingAction(action)
-      setDialog('unsaved')
+      openDialog('unsaved')
       return false
     }
     return true
-  }, [dirty])
+  }, [dirty, openDialog])
 
   const openFiles = useCallback(async (files: { name: string; mime?: string; text?: string; dataUrl?: string; path?: string }[], mode: 'open' | 'place') => {
     try {
@@ -948,6 +1018,8 @@ export default function App() {
       snapshot()
     }
     fn(canvas, layer)
+    // The pristine copy the move tool replays from is no longer pristine.
+    moveOriginRef.current.delete(layer.id)
     markDirty()
     return true
   }, [markDirty, snapshot])
@@ -1094,17 +1166,9 @@ export default function App() {
 
   /* ------------------------------------------------------ curves & levels */
 
-  const openCurves = useCallback(() => {
-    setCurveDraft(defaultCurves())
-    setCurveChannel('rgb')
-    setDialog('curves')
-  }, [])
-
-  const openLevels = useCallback(() => {
-    const canvas = canvasesRef.current.get(docRef.current?.activeLayerId ?? '')
-    setLevelDraft(canvas ? { ...autoLevels(canvas), gamma: 1 } : defaultLevels())
-    setDialog('levels')
-  }, [])
+  // The drafts now live inside the popup itself; dialogPayload() seeds them.
+  const openCurves = useCallback(() => openDialog('curves'), [openDialog])
+  const openLevels = useCallback(() => openDialog('levels'), [openDialog])
 
   /* --------------------------------------------------------------- shapes */
 
@@ -1313,7 +1377,7 @@ export default function App() {
     }
     if (currentTool === 'text' || currentTool === 'vtext' || currentTool === 'textMask') {
       setTextPoint(point)
-      setDialog('text')
+      openDialog('text')
       return
     }
 
@@ -1461,7 +1525,16 @@ export default function App() {
       return
     }
     if (currentTool === 'move' || currentTool === 'artboard') {
-      dragRef.current = { mode: 'move', start: point, last: point, points: [], layerX: 0, layerY: 0 }
+      const layerId = doc.activeLayerId
+      if (!moveOriginRef.current.has(layerId)) {
+        const source = canvasesRef.current.get(layerId)
+        if (source) moveOriginRef.current.set(layerId, { canvas: cloneCanvas(source), dx: 0, dy: 0 })
+      }
+      const origin = moveOriginRef.current.get(layerId)
+      dragRef.current = {
+        mode: 'move', start: point, last: point, points: [],
+        layerX: origin?.dx ?? 0, layerY: origin?.dy ?? 0,
+      }
       snapshot()
       return
     }
@@ -1595,12 +1668,17 @@ export default function App() {
       return
     }
     if (drag.mode === 'move') {
-      const dx = Math.round(point.x - drag.last.x)
-      const dy = Math.round(point.y - drag.last.y)
-      const canvas = canvasesRef.current.get(doc.activeLayerId)
-      if (canvas && (dx || dy)) {
-        const shifted = padCanvas(canvas, canvas.width, canvas.height, dx, dy)
-        canvasesRef.current.set(doc.activeLayerId, shifted)
+      // Replayed from the pristine copy at the total offset, so pixels pushed
+      // off the canvas come back whenever the layer is dragged back — however
+      // many separate drags that takes.
+      const origin = moveOriginRef.current.get(doc.activeLayerId)
+      if (!origin) return
+      const dx = Math.round(point.x - drag.start.x) + drag.layerX
+      const dy = Math.round(point.y - drag.start.y) + drag.layerY
+      if (dx !== origin.dx || dy !== origin.dy) {
+        canvasesRef.current.set(doc.activeLayerId, padCanvas(origin.canvas, origin.canvas.width, origin.canvas.height, dx, dy))
+        origin.dx = dx
+        origin.dy = dy
         drag.last = point
         bump()
       }
@@ -1780,7 +1858,7 @@ export default function App() {
 
   const applyNamedFilter = (id: string) => {
     if (id === 'cameraRaw') {
-      setDialog('cameraRaw')
+      openDialog('cameraRaw')
       return
     }
     if (id === 'liquify') {
@@ -1884,7 +1962,7 @@ export default function App() {
     const action = pendingAction
     setDialog(null)
     setPendingAction(null)
-    if (action === 'new') setDialog('new')
+    if (action === 'new') openDialog('new')
     if (action === 'open') void pickFiles('open')
     if (action === 'close') closeDocument()
     if (action === 'quit') {
@@ -1893,15 +1971,19 @@ export default function App() {
   }
 
   useEffect(() => {
+    runPendingRef.current = runPending
+  })
+
+  useEffect(() => {
     return window.electronWindowApi?.onCloseRequest(() => {
       if (dirty) {
         setPendingAction('quit')
-        setDialog('unsaved')
+        openDialog('unsaved')
       } else {
         void window.electronWindowApi?.forceClose()
       }
     })
-  }, [dirty])
+  }, [dirty, openDialog])
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -1929,7 +2011,7 @@ export default function App() {
       }
       if (accel && key === 'n') {
         event.preventDefault()
-        if (guardUnsaved('new')) setDialog('new')
+        if (guardUnsaved('new')) openDialog('new')
       }
       if (accel && key === 'a' && doc) {
         event.preventDefault()
@@ -2024,15 +2106,345 @@ export default function App() {
       window.removeEventListener('keydown', onKey)
       window.removeEventListener('keyup', onUp)
     }
-  }, [applyCrop, applyPerspectiveCrop, beginTransform, cancelTransform, closePolySelection, commitDraftPath, commitTransform, crop, dialog, dirty, doc, guardUnsaved, pickFiles, redo, saveProject, undo, withLayer])
+  }, [applyCrop, applyPerspectiveCrop, beginTransform, cancelTransform, closePolySelection, commitDraftPath, commitTransform, crop, dialog, dirty, doc, guardUnsaved, openDialog, pickFiles, redo, saveProject, undo, withLayer])
+
+
+  /**
+   * Every menu-bar and toolbar entry funnels through here, so a command behaves
+   * identically wherever it is invoked from and `commands.ts` stays pure data.
+   */
+  // A plain function, not a useCallback: it is only ever called from a click
+  // handler, and memoising it would pull every layer command into a dependency
+  // array that changes on every render anyway.
+  const runCommand = (id: string) => {
+    setMenu(null)
+    setContextMenu(null)
+    const current = docRef.current
+    if (!current) return
+
+    if (id.startsWith('adjLayer.')) {
+      addAdjustment(id.slice('adjLayer.'.length) as AdjustmentType)
+      return
+    }
+
+    switch (id) {
+      /* file */
+      case 'file.new': if (guardUnsaved('new')) openDialog('new'); return
+      case 'file.open': if (guardUnsaved('open')) void pickFiles('open'); return
+      case 'file.place': void pickFiles('place'); return
+      case 'file.save': void saveProject(false); return
+      case 'file.saveAs': void saveProject(true); return
+      case 'file.export': openDialog('export'); return
+      case 'file.close': if (guardUnsaved('close')) closeDocument(); return
+
+      /* edit */
+      case 'edit.undo': undo(); return
+      case 'edit.redo': redo(); return
+      case 'edit.freeTransform': beginTransform(); return
+      case 'edit.deletePixels': withLayer((canvas) => clearSelectionPixels(canvas, selectionRef.current)); return
+      case 'edit.contentAware':
+      case 'edit.genFill': withLayer((canvas) => contentAwareFill(canvas, selectionRef.current)); return
+      case 'edit.genExpand': {
+        const layer = current.layers.find((item) => item.id === current.activeLayerId)
+        const source = layer ? canvasesRef.current.get(layer.id) : null
+        if (!source) return
+        snapshot()
+        const expanded = generativeExpand(source, current.width + 160, current.height + 160, 80, 80)
+        canvasesRef.current.set(layer!.id, expanded)
+        setDoc({ ...current, width: expanded.width, height: expanded.height })
+        markDirty()
+        return
+      }
+      case 'edit.genUpscale': {
+        const layer = current.layers.find((item) => item.id === current.activeLayerId)
+        const source = layer ? canvasesRef.current.get(layer.id) : null
+        if (!source) return
+        snapshot()
+        const up = generativeUpscale(source, 2)
+        canvasesRef.current.set(layer!.id, up)
+        setDoc({ ...current, width: up.width, height: up.height })
+        markDirty()
+        return
+      }
+      case 'edit.harmonize': withLayer((canvas) => harmonize(canvas, selectionRef.current)); return
+
+      /* image */
+      case 'image.size': setAdjust((c) => ({ ...c, width: current.width, height: current.height })); openDialog('imageSize'); return
+      case 'image.canvasSize': setAdjust((c) => ({ ...c, width: current.width, height: current.height })); openDialog('canvasSize'); return
+      case 'image.rotateCW': rotateDoc(1); return
+      case 'image.rotateCCW': rotateDoc(3); return
+      case 'image.flipH': flipDocument('x'); return
+      case 'image.flipV': flipDocument('y'); return
+      case 'image.colorMode': setDoc({ ...current, colorMode: current.colorMode === 'gray' ? 'rgb' : 'gray' }); markDirty(); return
+      case 'image.brightness': openDialog('brightness'); return
+      case 'image.hueSat': openDialog('hue'); return
+      case 'image.cameraRaw': openDialog('cameraRaw'); return
+      case 'image.curves': openCurves(); return
+      case 'image.levels': openLevels(); return
+      case 'image.autoLevels': withLayer((canvas) => levelsStretch(canvas)); return
+      case 'image.invert': withLayer((canvas) => invertColors(canvas, selectionRef.current)); return
+      case 'image.grayscale': withLayer((canvas) => grayscale(canvas, selectionRef.current)); return
+
+      /* layer */
+      case 'layer.new': addLayer(); return
+      case 'layer.duplicate': duplicateLayer(); return
+      case 'layer.delete': deleteLayer(); return
+      case 'layer.mergeDown': mergeDown(); return
+      case 'layer.flatten': flatten(); return
+      case 'layer.group': groupActiveLayer(); return
+      case 'layer.ungroup': ungroupActiveLayer(); return
+      case 'layer.flipH': flipLayer('x'); return
+      case 'layer.flipV': flipLayer('y'); return
+      case 'layer.fillLayer': addFillLayer(); return
+      case 'layer.mask': addMask(); return
+
+      /* type */
+      case 'type.horizontal': setTool('text'); return
+      case 'type.vertical': setTool('vtext'); return
+      case 'type.enter': openDialog('text'); return
+
+      /* select */
+      case 'select.all': setSelection(rectSelection(0, 0, current.width, current.height)); return
+      case 'select.none': setSelection(null); return
+      case 'select.invert': setSelection(invertSelection(selectionRef.current, current.width, current.height)); return
+      case 'select.subject': setSelection(selectSubject(canvasesRef.current.get(current.activeLayerId) ?? compositeDocument(current, canvasesRef.current))); return
+      case 'select.distractions': setSelection(findDistractions(canvasesRef.current.get(current.activeLayerId) ?? compositeDocument(current, canvasesRef.current))); return
+      case 'select.removeBg': withLayer((canvas) => { const subject = selectSubject(canvas); clearSelectionPixels(canvas, invertSelection(subject, canvas.width, canvas.height)) }); return
+
+      /* filter */
+      case 'filter.gallery': openDialog('filterGallery'); return
+      case 'filter.blur': openDialog('blur'); return
+      case 'filter.sharpen': openDialog('sharpen'); return
+      case 'filter.neural': applyNamedFilter('oil'); return
+      case 'filter.liquify': applyNamedFilter('liquify'); return
+      case 'filter.cameraRaw': applyNamedFilter('cameraRaw'); return
+
+      /* 3D */
+      case 'threeD.effects':
+        updateDoc((value) => ({
+          ...value,
+          layers: value.layers.map((layer) => (layer.id === value.activeLayerId
+            ? { ...layer, effects: { ...layer.effects, bevel: true, dropShadow: true } }
+            : layer)),
+        }))
+        return
+
+      /* view */
+      case 'view.zoomIn': setSettings((c) => ({ ...c, zoom: Math.min(8, c.zoom * 1.2) })); return
+      case 'view.zoomOut': setSettings((c) => ({ ...c, zoom: Math.max(0.05, c.zoom / 1.2) })); return
+      case 'view.zoomFit': fitZoom(current); return
+      case 'view.actualPixels': setSettings((c) => ({ ...c, zoom: 1 })); return
+      case 'view.grid': setSettings((c) => ({ ...c, showGrid: !c.showGrid })); return
+      case 'view.rulers': setSettings((c) => ({ ...c, showRulers: !c.showRulers })); return
+      case 'view.quickMask': setQuickMask((value) => !value); return
+      case 'view.rotateView': setViewAngle((value) => value + 15); return
+
+      /* window */
+      case 'window.layers': setSettings((c) => ({ ...c, rightTab: 'layers' })); return
+      case 'window.adjust': setSettings((c) => ({ ...c, rightTab: 'adjust' })); return
+      case 'window.history': setSettings((c) => ({ ...c, rightTab: 'history' })); return
+      case 'window.channels': setSettings((c) => ({ ...c, rightTab: 'channels' })); return
+      case 'window.info': setSettings((c) => ({ ...c, rightTab: 'info' })); return
+
+      default:
+        setStatus('ready')
+    }
+  }
+
+  /** Toggle commands that should read as pressed in the menu and on the toolbar. */
+  const isCommandActive = useCallback((id: string) => {
+    switch (id) {
+      case 'view.grid': return settings.showGrid
+      case 'view.rulers': return settings.showRulers
+      case 'view.quickMask': return quickMask
+      case 'window.layers': return settings.rightTab === 'layers'
+      case 'window.adjust': return settings.rightTab === 'adjust'
+      case 'window.history': return settings.rightTab === 'history'
+      case 'window.channels': return settings.rightTab === 'channels'
+      case 'window.info': return settings.rightTab === 'info'
+      case 'image.colorMode': return doc.colorMode === 'gray'
+      default: return false
+    }
+  }, [doc.colorMode, quickMask, settings.rightTab, settings.showGrid, settings.showRulers])
+
+  /** The Image menu's colour-mode row names the mode it switches to. */
+  const commandLabel = useCallback((command: AppCommand) => {
+    if (command.id === 'image.colorMode') {
+      return doc.colorMode === 'gray' ? tr('modeRgb') : tr('modeGray')
+    }
+    if (command.menu === 'layer' && command.id.startsWith('adjLayer.')) {
+      return `${tr('adjLayer')} · ${tr(command.label)}`
+    }
+    return tr(command.label)
+  }, [doc.colorMode, tr])
+
+
+  /* --------------------------------------------- popup window plumbing */
+
+  /**
+   * Applies whatever a popup sends back, from either rendering. A plain
+   * function: it is only ever reached from an event or an IPC message, and
+   * memoising it would pull every document command into its dependency array.
+   */
+  const applyDialogResult = (name: DialogName, result: DialogResult) => {
+    if (result.action === 'settings') {
+      setSettings((value) => ({ ...value, ...(result.patch as Partial<AppSettings>) }))
+      return
+    }
+    const current = docRef.current
+    if (!current) return
+    switch (name) {
+      case 'new':
+        createDocument(tr('untitled'), Number(result.width), Number(result.height), result.background as PhotoDocument['background'])
+        return
+      case 'export':
+        void exportImage(settingsRef.current.exportFormat)
+        return
+      case 'brightness':
+        withLayer((canvas) => adjustBrightnessContrast(canvas, Number(result.brightness), Number(result.contrast), selectionRef.current))
+        return
+      case 'hue':
+        withLayer((canvas) => adjustHueSaturation(canvas, Number(result.hue), Number(result.saturation), Number(result.lightness), selectionRef.current))
+        return
+      case 'blur':
+        withLayer((canvas) => gaussianBlur(canvas, Number(result.radius), selectionRef.current))
+        return
+      case 'feather':
+        setSelection(featherSelection(selectionRef.current, current.width, current.height, Number(result.radius)))
+        return
+      case 'sharpen':
+        withLayer((canvas) => sharpen(canvas, Number(result.amount), selectionRef.current))
+        return
+      case 'cameraRaw':
+        withLayer((canvas) => applyAdjustmentCanvas(canvas, {
+          ...defaultAdjustment('exposure'),
+          brightness: Number(result.brightness),
+          contrast: Number(result.contrast),
+          saturation: Number(result.saturation),
+          clarity: 20,
+          dehaze: 10,
+        }))
+        return
+      case 'curves':
+        if (result.action === 'layer') addAdjustment('curves', { curves: result.curves as CurveData })
+        else withLayer((canvas) => applyCurves(canvas, result.curves as CurveData, selectionRef.current))
+        return
+      case 'levels':
+        if (result.action === 'layer') addAdjustment('levels', { levels: result.levels as LevelsData })
+        else withLayer((canvas) => applyLevels(canvas, result.levels as LevelsData, selectionRef.current))
+        return
+      case 'filterGallery':
+        applyNamedFilter(String(result.id))
+        return
+      case 'imageSize':
+        resizeImage(Number(result.width), Number(result.height))
+        return
+      case 'canvasSize':
+        resizeCanvas(Number(result.width), Number(result.height))
+        return
+      case 'text': {
+        const value = String(result.text ?? '')
+        setTextValue(value)
+        snapshot()
+        const layer = createLayerMeta(tr('text'), 'text')
+        layer.text = {
+          text: value, x: textPointRef.current.x, y: textPointRef.current.y,
+          fontFamily, fontSize, color: settingsRef.current.foreground,
+          bold: true, italic: false, align: 'left', vertical: toolRef.current === 'vtext',
+        }
+        updateDoc((document) => ({ ...document, layers: [...document.layers, layer], activeLayerId: layer.id }))
+        return
+      }
+      case 'unsaved':
+        void runPendingRef.current?.(result.action as UnsavedChoice)
+        return
+      default:
+    }
+  }
+
+  const applyDialogResultRef = useRef(applyDialogResult)
+  const runCommandRef = useRef<(id: string) => void>(() => {})
+  const isCommandActiveRef = useRef<(id: string) => boolean>(() => false)
+  const commandLabelRef = useRef<(command: AppCommand) => string>(() => '')
+
+  useEffect(() => {
+    applyDialogResultRef.current = applyDialogResult
+    runCommandRef.current = runCommand
+    isCommandActiveRef.current = isCommandActive
+    commandLabelRef.current = commandLabel
+  })
+
+  // Results arriving from the separate popup windows.
+  useEffect(() => window.electronDialogApi?.onResult(({ name, result }) => {
+    applyDialogResultRef.current(name as DialogName, result as DialogResult)
+  }), [])
+
+  useEffect(() => window.electronMenuApi?.onChosen((commandId) => {
+    runCommandRef.current(commandId)
+  }), [])
+
+  /**
+   * Opens a menu in its own always-on-top window. That is the only way a long
+   * menu can overhang the app: a frameless window clips its own HTML, so the
+   * Layer menu used to be cut off at the window edge.
+   */
+  const openMenuWindow = async (id: CommandMenuId, anchor: HTMLElement | null) => {
+    if (!window.electronMenuApi || !anchor) return false
+    const box = anchor.getBoundingClientRect()
+    const active = commands.filter((command) => isCommandActive(command.id)).map((command) => command.id)
+    const overrides: Record<string, string> = {}
+    for (const command of commandsInMenu(id)) {
+      const label = commandLabel(command)
+      if (label !== tr(command.label)) overrides[command.id] = label
+    }
+    try {
+      // Awaited: a rejected invoke used to leave the button doing nothing,
+      // because the in-page dropdown had already been suppressed.
+      return await window.electronMenuApi.open(
+        { menu: id, language, theme: settings.theme, active, overrides },
+        { x: window.screenX + box.left, y: window.screenY + box.bottom + 2, width: box.width, height: box.height },
+      )
+    } catch {
+      return false
+    }
+  }
+
+  /* --------------------------------------------------- external drag & drop */
+
+  /** Accepts images and .mpw projects dropped onto the window from the desktop. */
+  const handleDrop = async (event: React.DragEvent) => {
+    event.preventDefault()
+    setDropActive(false)
+    const files = [...(event.dataTransfer?.files ?? [])]
+      .filter((file) => file.type.startsWith('image/') || /\.(mpw|tiff?|bmp|avif|webp)$/i.test(file.name))
+    if (files.length === 0) return
+    try {
+      const items = await Promise.all(files.map(fileToOpenItem))
+      // Dropping onto an edited document places the images as new layers;
+      // dropping onto an untouched one opens them instead.
+      await openFiles(items, dirtyRef.current ? 'place' : 'open')
+    } catch (error) {
+      showError(tr('open'), tr('openFailed'), error)
+    }
+  }
+
+  const handleDragOver = (event: React.DragEvent) => {
+    if (![...(event.dataTransfer?.types ?? [])].includes('Files')) return
+    event.preventDefault()
+    if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy'
+    if (!dropActive) setDropActive(true)
+  }
 
   const desktop = Boolean(window.electronWindowApi)
   const CurrentToolIcon = iconForTool(tool)
 
   return (
     <div
-      className="app-shell"
+      className={`app-shell${dropActive ? ' drop-active' : ''}`}
       style={{ '--right-width': `${settings.rightWidth}px`, '--right-min-width': `${minRight}px` } as React.CSSProperties}
+      onDragOver={handleDragOver}
+      onDragLeave={(event) => { if (event.currentTarget === event.target) setDropActive(false) }}
+      onDrop={(event) => void handleDrop(event)}
       onPointerDown={() => { setMenu(null); setContextMenu(null); hideTooltip() }}
       onPointerOver={showTooltip}
       onPointerOut={(event) => {
@@ -2042,170 +2454,76 @@ export default function App() {
         hideTooltip()
       }}
     >
-      <header className="toolbar">
+      <header className="title-bar">
         <div className="brand" data-tooltip={tr('appName')}>
           <img src="./app-icon.svg" alt="" />
           <span>{tr('appName')}</span>
         </div>
-        {(['file', 'edit', 'image', 'layer', 'typeMenu', 'selectMenu', 'filter', 'threeD', 'view', 'windowMenu', 'help'] as const).map((id) => {
+        <div className="title-doc">
+          {doc.name}
+          {dirty && <em className="title-dirty" aria-label={tr('unsavedTitle')}>*</em>}
+          <span className="title-size">{doc.width} × {doc.height}</span>
+        </div>
+        {desktop && (
+          <div className="window-controls">
+            <button data-tooltip={tr('minimize')} aria-label={tr('minimize')} onClick={() => void window.electronWindowApi?.minimize()}><Minus size={16} /></button>
+            <button data-tooltip={tr('maximize')} aria-label={tr('maximize')} onClick={() => void window.electronWindowApi?.toggleMaximize()}><Square size={14} /></button>
+            <button className="window-close" data-tooltip={tr('closeWindow')} aria-label={tr('closeWindow')} onClick={() => void window.electronWindowApi?.close()}><X size={16} /></button>
+          </div>
+        )}
+      </header>
+
+      <nav className="menu-bar">
+        {menuOrder.map((id) => {
           const MenuIcon = menuIcons[id]
           return (
-          <div className="menu-group" key={id}>
-            <button
-              ref={(node) => { menuAnchorRefs.current[id] = node }}
-              className={menu === id ? 'active' : ''}
-              data-tooltip={tr(id)}
-              onPointerDown={(event) => {
-                event.stopPropagation()
-                hideTooltip()
-                if (id === 'help') {
-                  setMenu(null)
-                  setDialog('helpGuide')
-                  return
-                }
-                setMenu(menu === id ? null : id)
-              }}
-            >
-              <MenuIcon size={16} />
-              <span>{tr(id)}</span>
-            </button>
-            {menu === id && id !== 'help' && (
-              <MenuDrop anchor={menuAnchorRefs.current[id] ?? null}>
-                {id === 'file' && (
-                  <>
-                    <MenuItem icon={FilePlus} label={tr('new')} onClick={() => { setMenu(null); if (guardUnsaved('new')) setDialog('new') }} />
-                    <MenuItem icon={FolderOpen} label={tr('open')} onClick={() => { setMenu(null); if (guardUnsaved('open')) void pickFiles('open') }} />
-                    <MenuItem icon={ImagePlus} label={tr('place')} onClick={() => { setMenu(null); void pickFiles('place') }} />
-                    <div className="menu-separator" />
-                    <MenuItem icon={Save} label={tr('save')} onClick={() => { setMenu(null); void saveProject(false) }} />
-                    <MenuItem icon={SaveAll} label={tr('saveAs')} onClick={() => { setMenu(null); void saveProject(true) }} />
-                    <MenuItem icon={Download} label={tr('export')} onClick={() => { setMenu(null); setDialog('export') }} />
-                    <div className="menu-separator" />
-                    <MenuItem icon={FileX} label={tr('closeDoc')} onClick={() => { setMenu(null); if (guardUnsaved('close')) closeDocument() }} />
-                  </>
-                )}
-                {id === 'edit' && (
-                  <>
-                    <MenuItem icon={Undo2} label={tr('undo')} onClick={() => { setMenu(null); undo() }} />
-                    <MenuItem icon={Redo2} label={tr('redo')} onClick={() => { setMenu(null); redo() }} />
-                    <div className="menu-separator" />
-                    <MenuItem icon={Trash} label={tr('deletePixels')} onClick={() => { setMenu(null); withLayer((canvas) => clearSelectionPixels(canvas, selectionRef.current)) }} />
-                    <MenuItem icon={Sparkles} label={tr('contentAware')} onClick={() => { setMenu(null); withLayer((canvas) => contentAwareFill(canvas, selectionRef.current)) }} />
-                    <MenuItem icon={WandSparkles} label={tr('genFill')} onClick={() => { setMenu(null); withLayer((canvas) => contentAwareFill(canvas, selectionRef.current)) }} />
-                    <MenuItem icon={Maximize2} label={tr('genExpand')} onClick={() => { setMenu(null); if (activeLayer) { const source = canvasesRef.current.get(activeLayer.id); if (source) { snapshot(); const expanded = generativeExpand(source, doc.width + 160, doc.height + 160, 80, 80); canvasesRef.current.set(activeLayer.id, expanded); setDoc({ ...doc, width: expanded.width, height: expanded.height }); markDirty() } } }} />
-                    <MenuItem icon={ScanSearch} label={tr('genUpscale')} onClick={() => { setMenu(null); if (activeLayer) { const source = canvasesRef.current.get(activeLayer.id); if (source) { snapshot(); const up = generativeUpscale(source, 2); canvasesRef.current.set(activeLayer.id, up); setDoc({ ...doc, width: up.width, height: up.height }); markDirty() } } }} />
-                    <MenuItem icon={Blend} label={tr('harmonize')} onClick={() => { setMenu(null); withLayer((canvas) => harmonize(canvas, selectionRef.current)) }} />
-                  </>
-                )}
-                {id === 'image' && (
-                  <>
-                    <MenuItem icon={Ratio} label={tr('imageSize')} onClick={() => { setMenu(null); if (doc) { setAdjust((c) => ({ ...c, width: doc.width, height: doc.height })); setDialog('imageSize') } }} />
-                    <MenuItem icon={Frame} label={tr('canvasSize')} onClick={() => { setMenu(null); if (doc) { setAdjust((c) => ({ ...c, width: doc.width, height: doc.height })); setDialog('canvasSize') } }} />
-                    <MenuItem icon={RotateCw} label={tr('rotateCW')} onClick={() => { setMenu(null); rotateDoc(1) }} />
-                    <MenuItem icon={RotateCcw} label={tr('rotateCCW')} onClick={() => { setMenu(null); rotateDoc(3) }} />
-                    <MenuItem icon={FlipHorizontal} label={tr('flipH')} onClick={() => { setMenu(null); flipDocument('x') }} />
-                    <MenuItem icon={FlipVertical} label={tr('flipV')} onClick={() => { setMenu(null); flipDocument('y') }} />
-                    <MenuItem icon={Contrast} label={doc.colorMode === 'gray' ? tr('modeRgb') : tr('modeGray')} onClick={() => { setMenu(null); setDoc({ ...doc, colorMode: doc.colorMode === 'gray' ? 'rgb' : 'gray' }); markDirty() }} />
-                    <div className="menu-separator" />
-                    <MenuItem icon={Sun} label={tr('brightness')} onClick={() => { setMenu(null); setDialog('brightness') }} />
-                    <MenuItem icon={Palette} label={tr('hueSat')} onClick={() => { setMenu(null); setDialog('hue') }} />
-                    <MenuItem icon={Camera} label={tr('cameraRaw')} onClick={() => { setMenu(null); setDialog('cameraRaw') }} />
-                    <MenuItem icon={Spline} label={tr('curves')} onClick={() => { setMenu(null); openCurves() }} />
-                    <MenuItem icon={SlidersHorizontal} label={tr('levels')} onClick={() => { setMenu(null); openLevels() }} />
-                    <MenuItem icon={SlidersHorizontal} label={tr('autoLevels')} onClick={() => { setMenu(null); withLayer((canvas) => levelsStretch(canvas)) }} />
-                    <MenuItem icon={CircleDashed} label={tr('invert')} onClick={() => { setMenu(null); withLayer((canvas) => invertColors(canvas, selectionRef.current)) }} />
-                    <MenuItem icon={Contrast} label={tr('grayscale')} onClick={() => { setMenu(null); withLayer((canvas) => grayscale(canvas, selectionRef.current)) }} />
-                  </>
-                )}
-                {id === 'layer' && (
-                  <>
-                    <MenuItem icon={Plus} label={tr('newLayer')} onClick={() => { setMenu(null); addLayer() }} />
-                    <MenuItem icon={Copy} label={tr('duplicateLayer')} onClick={() => { setMenu(null); duplicateLayer() }} />
-                    <MenuItem icon={Trash} label={tr('deleteLayer')} onClick={() => { setMenu(null); deleteLayer() }} />
-                    <MenuItem icon={Layers2} label={tr('mergeDown')} onClick={() => { setMenu(null); mergeDown() }} />
-                    <MenuItem icon={LayoutGrid} label={tr('groupLayers')} onClick={() => { setMenu(null); groupActiveLayer() }} />
-                    <MenuItem icon={Ungroup} label={tr('ungroupLayers')} onClick={() => { setMenu(null); ungroupActiveLayer() }} />
-                    <MenuItem icon={FlipHorizontal} label={tr('flipLayerH')} onClick={() => { setMenu(null); flipLayer('x') }} />
-                    <MenuItem icon={FlipVertical} label={tr('flipLayerV')} onClick={() => { setMenu(null); flipLayer('y') }} />
-                    <MenuItem icon={Layers} label={tr('flatten')} onClick={() => { setMenu(null); flatten() }} />
-                    <div className="menu-separator" />
-                    <MenuItem icon={PaintBucket} label={tr('fillLayer')} onClick={() => { setMenu(null); addFillLayer() }} />
-                    <MenuItem icon={SquareDashed} label={tr('layerMask')} onClick={() => { setMenu(null); addMask() }} />
-                    {adjustmentTypes.map((type) => {
-                      const AdjIcon = adjustmentIcons[type]
-                      return (
-                        <MenuItem
-                          key={type}
-                          icon={AdjIcon}
-                          label={`${tr('adjLayer')} · ${type}`}
-                          onClick={() => { setMenu(null); addAdjustment(type) }}
-                        />
-                      )
-                    })}
-                  </>
-                )}
-                {id === 'typeMenu' && (
-                  <>
-                    <MenuItem icon={Type} label={tr('text')} onClick={() => { setMenu(null); setTool('text') }} />
-                    <MenuItem icon={Type} label={toolLabel(language, 'vtext')} onClick={() => { setMenu(null); setTool('vtext') }} />
-                    <MenuItem icon={Pencil} label={tr('enterText')} onClick={() => { setMenu(null); setDialog('text') }} />
-                  </>
-                )}
-                {id === 'selectMenu' && (
-                  <>
-                    <MenuItem icon={Maximize2} label={tr('freeTransform')} onClick={() => { setMenu(null); beginTransform() }} />
-                    <MenuItem icon={SquareDashed} label={tr('selectAll')} onClick={() => { setMenu(null); setSelection(rectSelection(0, 0, doc.width, doc.height)) }} />
-                    <MenuItem icon={Square} label={tr('deselect')} onClick={() => { setMenu(null); setSelection(null) }} />
-                    <MenuItem icon={CircleDashed} label={tr('invertSel')} onClick={() => { setMenu(null); setSelection(invertSelection(selection, doc.width, doc.height)) }} />
-                    <MenuItem icon={ScanSearch} label={tr('selectSubject')} onClick={() => { setMenu(null); const source = canvasesRef.current.get(doc.activeLayerId) ?? compositeDocument(doc, canvasesRef.current); setSelection(selectSubject(source)) }} />
-                    <MenuItem icon={Search} label={tr('findDistractions')} onClick={() => { setMenu(null); const source = canvasesRef.current.get(doc.activeLayerId) ?? compositeDocument(doc, canvasesRef.current); setSelection(findDistractions(source)) }} />
-                    <MenuItem icon={Eraser} label={tr('removeBg')} onClick={() => { setMenu(null); withLayer((canvas) => { const sub = selectSubject(canvas); clearSelectionPixels(canvas, invertSelection(sub, canvas.width, canvas.height)) }) }} />
-                  </>
-                )}
-                {id === 'filter' && (
-                  <>
-                    <MenuItem icon={LayoutGrid} label={tr('filterGallery')} onClick={() => { setMenu(null); setDialog('filterGallery') }} />
-                    <MenuItem icon={Aperture} label={tr('blur')} onClick={() => { setMenu(null); setDialog('blur') }} />
-                    <MenuItem icon={Search} label={tr('sharpen')} onClick={() => { setMenu(null); setDialog('sharpen') }} />
-                    <MenuItem icon={Sparkles} label={tr('neural')} onClick={() => { setMenu(null); applyNamedFilter('oil') }} />
-                    <MenuItem icon={WavesHorizontal} label={tr('liquify')} onClick={() => { setMenu(null); applyNamedFilter('liquify') }} />
-                    <MenuItem icon={Camera} label={tr('cameraRaw')} onClick={() => { setMenu(null); applyNamedFilter('cameraRaw') }} />
-                  </>
-                )}
-                {id === 'threeD' && (
-                  <>
-                    <MenuItem icon={Box} label={tr('effects')} onClick={() => { setMenu(null); if (activeLayer) updateDoc((current) => ({ ...current, layers: current.layers.map((layer) => layer.id === current.activeLayerId ? { ...layer, effects: { ...layer.effects, bevel: true, dropShadow: true } } : layer) })) }} />
-                  </>
-                )}
-                {id === 'view' && (
-                  <>
-                    <MenuItem icon={ZoomIn} label={tr('zoomIn')} onClick={() => { setMenu(null); setSettings((c) => ({ ...c, zoom: Math.min(8, c.zoom * 1.2) })) }} />
-                    <MenuItem icon={ZoomOut} label={tr('zoomOut')} onClick={() => { setMenu(null); setSettings((c) => ({ ...c, zoom: Math.max(0.05, c.zoom / 1.2) })) }} />
-                    <MenuItem icon={Maximize2} label={tr('zoomFit')} onClick={() => { setMenu(null); if (doc) fitZoom(doc) }} />
-                    <MenuItem icon={Ratio} label={tr('actualPixels')} onClick={() => { setMenu(null); setSettings((c) => ({ ...c, zoom: 1 })) }} />
-                    <MenuItem icon={Grid3x3} label={tr('grid')} active={settings.showGrid} onClick={() => { setMenu(null); setSettings((c) => ({ ...c, showGrid: !c.showGrid })) }} />
-                    <MenuItem icon={Ruler} label={tr('rulers')} active={settings.showRulers} onClick={() => { setMenu(null); setSettings((c) => ({ ...c, showRulers: !c.showRulers })) }} />
-                    <MenuItem icon={CircleDashed} label={tr('quickMask')} active={quickMask} onClick={() => { setMenu(null); setQuickMask((value) => !value) }} />
-                    <MenuItem icon={RotateCw} label={tr('rotateView')} onClick={() => { setMenu(null); setViewAngle((value) => value + 15) }} />
-                  </>
-                )}
-                {id === 'windowMenu' && (
-                  <>
-                    <MenuItem icon={Layers} label={tr('layers')} active={settings.rightTab === 'layers'} onClick={() => { setMenu(null); setSettings((c) => ({ ...c, rightTab: 'layers' })) }} />
-                    <MenuItem icon={SlidersHorizontal} label={tr('adjustments')} active={settings.rightTab === 'adjust'} onClick={() => { setMenu(null); setSettings((c) => ({ ...c, rightTab: 'adjust' })) }} />
-                    <MenuItem icon={Clock} label={tr('history')} active={settings.rightTab === 'history'} onClick={() => { setMenu(null); setSettings((c) => ({ ...c, rightTab: 'history' })) }} />
-                    <MenuItem icon={LayoutGrid} label={tr('channels')} active={settings.rightTab === 'channels'} onClick={() => { setMenu(null); setSettings((c) => ({ ...c, rightTab: 'channels' })) }} />
-                    <MenuItem icon={Info} label={tr('info')} active={settings.rightTab === 'info'} onClick={() => { setMenu(null); setSettings((c) => ({ ...c, rightTab: 'info' })) }} />
-                  </>
-                )}
-              </MenuDrop>
-            )}
-          </div>
+            <div className="menu-group" key={id}>
+              <button
+                ref={(node) => { menuAnchorRefs.current[id] = node }}
+                className={menu === id ? 'active' : ''}
+                data-tooltip={tr(id)}
+                onPointerDown={(event) => {
+                  event.stopPropagation()
+                  hideTooltip()
+                  if (menu === id) {
+                    setMenu(null)
+                    void window.electronMenuApi?.close()
+                    return
+                  }
+                  // A real window first, so a long menu can overhang the app;
+                  // the in-page dropdown covers the browser build and any
+                  // failure to create that window.
+                  const anchor = event.currentTarget
+                  void openMenuWindow(id, anchor).then((opened) => {
+                    if (!opened) setMenu(id)
+                  })
+                }}
+              >
+                <MenuIcon size={15} />
+                <span>{tr(id)}</span>
+              </button>
+              {menu === id && (
+                <MenuDrop anchor={menuAnchorRefs.current[id] ?? null}>
+                  {commandsInMenu(id).map((command) => (
+                    <div key={command.id}>
+                      {command.separatorBefore && <div className="menu-separator" />}
+                      <MenuItem
+                        icon={command.icon}
+                        label={commandLabel(command)}
+                        accel={command.accel}
+                        active={isCommandActive(command.id)}
+                        onClick={() => runCommand(command.id)}
+                      />
+                    </div>
+                  ))}
+                </MenuDrop>
+              )}
+            </div>
           )
         })}
-        <button data-tooltip={tr('undo')} onClick={undo}><Undo2 size={16} /><span>{tr('undo')}</span></button>
-        <button data-tooltip={tr('redo')} onClick={redo}><Redo2 size={16} /><span>{tr('redo')}</span></button>
-        <div className="toolbar-spacer" />
+
+        <div className="menu-spacer" />
+
         <div className="menu-group theme-menu-group">
           <button
             ref={(node) => { menuAnchorRefs.current.theme = node }}
@@ -2213,7 +2531,7 @@ export default function App() {
             data-tooltip={`${tr('theme')}: ${themeLabel(language, settings.theme)}`}
             onPointerDown={(event) => { event.stopPropagation(); hideTooltip(); setMenu(menu === 'theme' ? null : 'theme') }}
           >
-            <Palette size={16} />
+            <Palette size={15} />
             <span>{themeLabel(language, settings.theme)}</span>
           </button>
           {menu === 'theme' && (
@@ -2240,16 +2558,33 @@ export default function App() {
         >
           {language === 'ko' ? <FlagEn size={18} /> : <FlagKo size={18} />}
         </button>
-        <button data-tooltip={tr('settings')} onClick={() => setDialog('settings')}><Settings2 size={16} /><span>{tr('settings')}</span></button>
-        <button data-tooltip={tr('about')} onClick={() => setDialog('about')}><Info size={16} /><span>{tr('about')}</span></button>
-        {desktop && (
-          <div className="window-controls">
-            <button data-tooltip={tr('minimize')} aria-label={tr('minimize')} onClick={() => void window.electronWindowApi?.minimize()}><Minus size={16} /></button>
-            <button data-tooltip={tr('maximize')} aria-label={tr('maximize')} onClick={() => void window.electronWindowApi?.toggleMaximize()}><Square size={14} /></button>
-            <button className="window-close" data-tooltip={tr('closeWindow')} aria-label={tr('closeWindow')} onClick={() => void window.electronWindowApi?.close()}><X size={16} /></button>
+        <button data-tooltip={tr('settings')} onClick={() => openDialog('settings')}><Settings2 size={15} /><span>{tr('settings')}</span></button>
+        <button data-tooltip={tr('help')} onClick={() => openDialog('helpGuide')}><CircleQuestionMark size={15} /><span>{tr('help')}</span></button>
+        <button data-tooltip={tr('about')} onClick={() => openDialog('about')}><Info size={15} /><span>{tr('about')}</span></button>
+      </nav>
+
+      <div className="tool-bar">
+        {toolbarGroups().map((group, index) => (
+          <div className="tool-bar-group" key={group.menu} data-menu={group.menu}>
+            {index > 0 && <span className="tool-bar-divider" aria-hidden="true" />}
+            {group.commands.map((command) => {
+              const CommandIcon = command.icon
+              return (
+                <button
+                  key={command.id}
+                  className={isCommandActive(command.id) ? 'active' : ''}
+                  data-tooltip={command.accel ? `${commandLabel(command)} (${command.accel})` : commandLabel(command)}
+                  aria-label={commandLabel(command)}
+                  aria-pressed={isCommandActive(command.id)}
+                  onClick={() => runCommand(command.id)}
+                >
+                  <CommandIcon size={16} />
+                </button>
+              )
+            })}
           </div>
-        )}
-      </header>
+        ))}
+      </div>
 
       <div className="options-bar">
         <strong className="current-tool" data-tooltip={toolLabel(language, tool)}>
@@ -2419,7 +2754,7 @@ export default function App() {
           </div>
         </aside>
 
-        <div ref={stageRef} className={`canvas-stage${settings.showGrid ? ' show-grid' : ''}`} onContextMenu={(event) => { event.preventDefault(); setContextMenu({ x: event.clientX, y: event.clientY }) }}>
+        <div ref={stageRef} className="canvas-stage" onContextMenu={(event) => { event.preventDefault(); setContextMenu({ x: event.clientX, y: event.clientY }) }}>
           <canvas
             ref={viewRef}
             onPointerDown={handlePointerDown}
@@ -2633,332 +2968,25 @@ export default function App() {
 
       {dialog && <div className="dialog-backdrop" onClick={() => { if (dialog !== 'unsaved') setDialog(null) }} />}
 
-      {dialog === 'new' && (
-        <div className="dialog">
-          <h2>{tr('newDocument')}</h2>
-          <label>{tr('preset')}
-            <select defaultValue="webHd" onChange={(event) => {
-              const preset = documentPresets.find((item) => item.id === event.target.value)
-              if (preset) setAdjust((current) => ({ ...current, width: preset.width, height: preset.height }))
-            }}>
-              {documentPresets.map((preset) => <option key={preset.id} value={preset.id}>{tr(preset.id)}</option>)}
-            </select>
-          </label>
-          <div className="dialog-grid">
-            <label>{tr('width')}<input type="number" value={adjust.width} onChange={(event) => setAdjust((c) => ({ ...c, width: Number(event.target.value) }))} /></label>
-            <label>{tr('height')}<input type="number" value={adjust.height} onChange={(event) => setAdjust((c) => ({ ...c, height: Number(event.target.value) }))} /></label>
-          </div>
-          <label>{tr('background')}
-            <select id="bg-choice" defaultValue="transparent">
-              <option value="transparent">{tr('transparent')}</option>
-              <option value="#ffffff">{tr('white')}</option>
-              <option value="#000000">{tr('black')}</option>
-            </select>
-          </label>
-          <div className="dialog-actions">
-            <button onClick={() => setDialog(null)}>{tr('cancel')}</button>
-            <button onClick={() => {
-              const background = (document.getElementById('bg-choice') as HTMLSelectElement).value as PhotoDocument['background']
-              createDocument(tr('untitled'), Math.max(1, adjust.width), Math.max(1, adjust.height), background)
-              setDialog(null)
-            }}>{tr('ok')}</button>
-          </div>
-        </div>
-      )}
-
-      {dialog === 'export' && (
-        <div className="dialog">
-          <h2>{tr('export')}</h2>
-          <label>{tr('exportFormat')}
-            <select value={settings.exportFormat} onChange={(event) => setSettings((c) => ({ ...c, exportFormat: event.target.value as ExportFormat }))}>
-              {(['png', 'jpg', 'webp', 'avif', 'gif', 'tiff'] as ExportFormat[]).map((format) => <option key={format} value={format}>{format.toUpperCase()}</option>)}
-            </select>
-          </label>
-          <div className="dialog-actions">
-            <button onClick={() => setDialog(null)}>{tr('cancel')}</button>
-            <button onClick={() => { void exportImage(settings.exportFormat); setDialog(null) }}>{tr('export')}</button>
-          </div>
-        </div>
-      )}
-
-      {dialog === 'brightness' && (
-        <div className="dialog">
-          <h2>{tr('brightness')}</h2>
-          <label>{tr('brightness')}<input type="range" min={-100} max={100} value={adjust.brightness} onChange={(event) => setAdjust((c) => ({ ...c, brightness: Number(event.target.value) }))} /></label>
-          <label>{tr('contrast')}<input type="range" min={-100} max={100} value={adjust.contrast} onChange={(event) => setAdjust((c) => ({ ...c, contrast: Number(event.target.value) }))} /></label>
-          <div className="dialog-actions">
-            <button onClick={() => setDialog(null)}>{tr('cancel')}</button>
-            <button onClick={() => { withLayer((canvas) => adjustBrightnessContrast(canvas, adjust.brightness, adjust.contrast, selectionRef.current)); setDialog(null) }}>{tr('apply')}</button>
-          </div>
-        </div>
-      )}
-
-      {dialog === 'hue' && (
-        <div className="dialog">
-          <h2>{tr('hueSat')}</h2>
-          <label>{tr('hue')}<input type="range" min={-180} max={180} value={adjust.hue} onChange={(event) => setAdjust((c) => ({ ...c, hue: Number(event.target.value) }))} /></label>
-          <label>{tr('saturation')}<input type="range" min={-100} max={100} value={adjust.saturation} onChange={(event) => setAdjust((c) => ({ ...c, saturation: Number(event.target.value) }))} /></label>
-          <label>{tr('lightness')}<input type="range" min={-100} max={100} value={adjust.lightness} onChange={(event) => setAdjust((c) => ({ ...c, lightness: Number(event.target.value) }))} /></label>
-          <div className="dialog-actions">
-            <button onClick={() => setDialog(null)}>{tr('cancel')}</button>
-            <button onClick={() => { withLayer((canvas) => adjustHueSaturation(canvas, adjust.hue, adjust.saturation, adjust.lightness, selectionRef.current)); setDialog(null) }}>{tr('apply')}</button>
-          </div>
-        </div>
-      )}
-
-      {dialog === 'blur' && (
-        <div className="dialog">
-          <h2>{tr('blur')}</h2>
-          <label>{tr('radius')}<input type="range" min={0.5} max={20} step={0.5} value={adjust.radius} onChange={(event) => setAdjust((c) => ({ ...c, radius: Number(event.target.value) }))} /></label>
-          <div className="dialog-actions">
-            <button onClick={() => setDialog(null)}>{tr('cancel')}</button>
-            <button onClick={() => { withLayer((canvas) => gaussianBlur(canvas, adjust.radius, selectionRef.current)); setDialog(null) }}>{tr('apply')}</button>
-          </div>
-        </div>
-      )}
-
-      {dialog === 'sharpen' && (
-        <div className="dialog">
-          <h2>{tr('sharpen')}</h2>
-          <label>{tr('amount')}<input type="range" min={10} max={150} value={adjust.amount} onChange={(event) => setAdjust((c) => ({ ...c, amount: Number(event.target.value) }))} /></label>
-          <div className="dialog-actions">
-            <button onClick={() => setDialog(null)}>{tr('cancel')}</button>
-            <button onClick={() => { withLayer((canvas) => sharpen(canvas, adjust.amount, selectionRef.current)); setDialog(null) }}>{tr('apply')}</button>
-          </div>
-        </div>
-      )}
-
-      {dialog === 'cameraRaw' && (
-        <div className="dialog">
-          <h2>{tr('cameraRaw')}</h2>
-          <label>{tr('brightness')}<input type="range" min={-100} max={100} value={adjust.brightness} onChange={(event) => setAdjust((c) => ({ ...c, brightness: Number(event.target.value) }))} /></label>
-          <label>{tr('contrast')}<input type="range" min={-100} max={100} value={adjust.contrast} onChange={(event) => setAdjust((c) => ({ ...c, contrast: Number(event.target.value) }))} /></label>
-          <label>{tr('saturation')}<input type="range" min={-100} max={100} value={adjust.saturation} onChange={(event) => setAdjust((c) => ({ ...c, saturation: Number(event.target.value) }))} /></label>
-          <div className="dialog-actions">
-            <button onClick={() => setDialog(null)}>{tr('cancel')}</button>
-            <button onClick={() => { withLayer((canvas) => applyAdjustmentCanvas(canvas, { ...defaultAdjustment('exposure'), brightness: adjust.brightness, contrast: adjust.contrast, saturation: adjust.saturation, clarity: 20, dehaze: 10 })); setDialog(null) }}>{tr('apply')}</button>
-          </div>
-        </div>
-      )}
-
-      {dialog === 'curves' && (
-        <div className="dialog curves-dialog">
-          <h2>{tr('curves')}</h2>
-          <label className="dialog-row">{tr('channel')}
-            <select value={curveChannel} onChange={(event) => setCurveChannel(event.target.value as CurveChannel)}>
-              <option value="rgb">{tr('channelRgb')}</option>
-              <option value="r">{tr('channelRed')}</option>
-              <option value="g">{tr('channelGreen')}</option>
-              <option value="b">{tr('channelBlue')}</option>
-            </select>
-          </label>
-          <CurveEditor
-            points={curveDraft[curveChannel]}
-            accent={curveChannel === 'r' ? '#f87171' : curveChannel === 'g' ? '#4ade80' : curveChannel === 'b' ? '#60a5fa' : '#e2e8f0'}
-            onChange={(next) => setCurveDraft((current) => ({ ...current, [curveChannel]: next }))}
-          />
-          <p className="dialog-hint">{tr('curveHint')}</p>
-          <div className="dialog-actions">
-            <button onClick={() => setCurveDraft((current) => ({ ...current, [curveChannel]: defaultCurves()[curveChannel] }))}><RotateCcw size={15} /><span>{tr('resetCurve')}</span></button>
-            <button onClick={() => { addAdjustment('curves', { curves: curveDraft }); setDialog(null) }}><Layers2 size={15} /><span>{tr('adjLayer')}</span></button>
-            <button className="primary" onClick={() => { withLayer((canvas) => applyCurves(canvas, curveDraft, selectionRef.current)); setDialog(null) }}>{tr('apply')}</button>
-            <button onClick={() => setDialog(null)}>{tr('cancel')}</button>
-          </div>
-        </div>
-      )}
-
-      {dialog === 'levels' && (
-        <div className="dialog levels-dialog">
-          <h2>{tr('levels')}</h2>
-          <fieldset>
-            <legend>{tr('inputLevels')}</legend>
-            <label>{tr('blackPoint')}<input type="range" min={0} max={254} value={levelDraft.black} onChange={(event) => setLevelDraft((c) => ({ ...c, black: Number(event.target.value) }))} /><span>{levelDraft.black}</span></label>
-            <label>{tr('gammaLabel')}<input type="range" min={10} max={300} value={Math.round(levelDraft.gamma * 100)} onChange={(event) => setLevelDraft((c) => ({ ...c, gamma: Number(event.target.value) / 100 }))} /><span>{levelDraft.gamma.toFixed(2)}</span></label>
-            <label>{tr('whitePoint')}<input type="range" min={1} max={255} value={levelDraft.white} onChange={(event) => setLevelDraft((c) => ({ ...c, white: Number(event.target.value) }))} /><span>{levelDraft.white}</span></label>
-          </fieldset>
-          <fieldset>
-            <legend>{tr('outputLevels')}</legend>
-            <label>{tr('blackPoint')}<input type="range" min={0} max={255} value={levelDraft.outBlack} onChange={(event) => setLevelDraft((c) => ({ ...c, outBlack: Number(event.target.value) }))} /><span>{levelDraft.outBlack}</span></label>
-            <label>{tr('whitePoint')}<input type="range" min={0} max={255} value={levelDraft.outWhite} onChange={(event) => setLevelDraft((c) => ({ ...c, outWhite: Number(event.target.value) }))} /><span>{levelDraft.outWhite}</span></label>
-          </fieldset>
-          <div className="dialog-actions">
-            <button onClick={() => { const canvas = canvasesRef.current.get(doc.activeLayerId); if (canvas) setLevelDraft({ ...autoLevels(canvas), gamma: 1 }) }}><Sparkles size={15} /><span>{tr('autoAction')}</span></button>
-            <button onClick={() => { addAdjustment('levels', { levels: levelDraft }); setDialog(null) }}><Layers2 size={15} /><span>{tr('adjLayer')}</span></button>
-            <button className="primary" onClick={() => { withLayer((canvas) => applyLevels(canvas, levelDraft, selectionRef.current)); setDialog(null) }}>{tr('apply')}</button>
-            <button onClick={() => setDialog(null)}>{tr('cancel')}</button>
-          </div>
-        </div>
-      )}
-
-      {dialog === 'filterGallery' && (
-        <div className="dialog filter-gallery-dialog">
-          <h2>{tr('filterGallery')}</h2>
-          {filterCatalog.map((item) => (
-            <button key={item.id} onClick={() => { applyNamedFilter(item.id); setDialog(null) }}>{tr(`group${item.group.charAt(0).toUpperCase()}${item.group.slice(1)}`)} · {tr(item.id)}</button>
-          ))}
-          <div className="dialog-actions">
-            <button onClick={() => setDialog(null)}>{tr('close')}</button>
-          </div>
-        </div>
-      )}
-
-      {(dialog === 'imageSize' || dialog === 'canvasSize') && (
-        <div className="dialog">
-          <h2>{tr(dialog)}</h2>
-          <div className="dialog-grid">
-            <label>{tr('width')}<input type="number" value={adjust.width} onChange={(event) => setAdjust((c) => ({ ...c, width: Number(event.target.value) }))} /></label>
-            <label>{tr('height')}<input type="number" value={adjust.height} onChange={(event) => setAdjust((c) => ({ ...c, height: Number(event.target.value) }))} /></label>
-          </div>
-          <div className="dialog-actions">
-            <button onClick={() => setDialog(null)}>{tr('cancel')}</button>
-            <button onClick={() => {
-              if (dialog === 'imageSize') {
-                resizeImage(adjust.width, adjust.height)
-              } else {
-                resizeCanvas(adjust.width, adjust.height)
-              }
-              setDialog(null)
-            }}>{tr('apply')}</button>
-          </div>
-        </div>
-      )}
-
-      {dialog === 'text' && (
-        <div className="dialog">
-          <h2>{tr('text')}</h2>
-          <label>{tr('enterText')}<input value={textValue} onChange={(event) => setTextValue(event.target.value)} /></label>
-          <div className="dialog-actions">
-            <button onClick={() => setDialog(null)}>{tr('cancel')}</button>
-            <button onClick={() => {
-              snapshot()
-              const layer = createLayerMeta(tr('text'), 'text')
-              layer.text = { text: textValue, x: textPoint.x, y: textPoint.y, fontFamily, fontSize, color: settings.foreground, bold: true, italic: false, align: 'left', vertical: tool === 'vtext' }
-              updateDoc((current) => ({ ...current, layers: [...current.layers, layer], activeLayerId: layer.id }))
-              setDialog(null)
-            }}>{tr('ok')}</button>
-          </div>
-        </div>
-      )}
-
-      {dialog === 'unsaved' && (
-        <div className="dialog">
-          <h2>{tr('unsavedTitle')}</h2>
-          <p>{tr('unsavedMessage')}</p>
-          <div className="dialog-actions">
-            <button onClick={() => void runPending('discard')}>{tr('discard')}</button>
-            <button onClick={() => void runPending('cancel')}>{tr('cancel')}</button>
-            <button onClick={() => void runPending('save')}>{tr('saveChanges')}</button>
-          </div>
-        </div>
-      )}
-
-      {dialog === 'settings' && (
-        <div className="dialog settings-dialog">
-          <h2>{tr('settings')}</h2>
-          <label>{tr('language')}
-            <select value={language} onChange={(event) => setSettings((current) => ({ ...current, language: event.target.value as Language }))}>
-              <option value="ko">한국어</option>
-              <option value="en">English</option>
-            </select>
-          </label>
-          <div className="settings-theme-block">
-            <span>{tr('theme')}</span>
-            <div className="settings-themes">
-              {themes.map((item) => (
-                <button
-                  key={item.id}
-                  className={settings.theme === item.id ? 'active' : ''}
-                  data-tooltip={themeLabel(language, item.id)}
-                  onClick={() => setSettings((current) => ({ ...current, theme: item.id }))}
-                >
-                  <span className="theme-swatch" style={{ background: `linear-gradient(135deg, ${item.appA}, ${item.accent})` }} />
-                  <span>{themeLabel(language, item.id)}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-          <label className="check-row">
-            <input type="checkbox" checked={settings.showGrid} onChange={(event) => setSettings((current) => ({ ...current, showGrid: event.target.checked }))} />
-            {tr('grid')}
-          </label>
-          <label className="check-row">
-            <input type="checkbox" checked={settings.showRulers} onChange={(event) => setSettings((current) => ({ ...current, showRulers: event.target.checked }))} />
-            {tr('rulers')}
-          </label>
-          <label>{tr('exportFormat')}
-            <select value={settings.exportFormat} onChange={(event) => setSettings((current) => ({ ...current, exportFormat: event.target.value as ExportFormat }))}>
-              {(['png', 'jpg', 'webp', 'avif', 'gif', 'tiff'] as ExportFormat[]).map((format) => <option key={format} value={format}>{format.toUpperCase()}</option>)}
-            </select>
-          </label>
-          <div className="dialog-grid">
-            <label>{tr('size')}
-              <input type="number" min={1} max={400} value={settings.brushSize} onChange={(event) => setSettings((current) => ({ ...current, brushSize: Number(event.target.value) }))} />
-            </label>
-            <label>{tr('tolerance')}
-              <input type="number" min={0} max={255} value={settings.fillTolerance} onChange={(event) => setSettings((current) => ({ ...current, fillTolerance: Number(event.target.value) }))} />
-            </label>
-          </div>
-          <div className="dialog-actions">
-            <button onClick={() => setDialog(null)}>{tr('close')}</button>
-          </div>
-        </div>
-      )}
-
-      {dialog === 'helpGuide' && (
-        <div className="dialog help-dialog">
-          <h2><BookOpen size={18} /> {tr('helpGuide')}</h2>
-          <div className="help-body">
-            <p>{tr('helpIntro')}</p>
-            <section>
-              <h3>{tr('helpToolsTitle')}</h3>
-              <p>{tr('helpToolsBody')}</p>
-            </section>
-            <section>
-              <h3>{tr('helpFilesTitle')}</h3>
-              <p>{tr('helpFilesBody')}</p>
-            </section>
-            <section>
-              <h3>{tr('helpLayersTitle')}</h3>
-              <p>{tr('helpLayersBody')}</p>
-            </section>
-            <section>
-              <h3>{tr('helpAdjustTitle')}</h3>
-              <p>{tr('helpAdjustBody')}</p>
-            </section>
-            <section>
-              <h3>{tr('helpViewTitle')}</h3>
-              <p>{tr('helpViewBody')}</p>
-            </section>
-          </div>
-          <div className="dialog-actions">
-            <button onClick={() => setDialog(null)}>{tr('close')}</button>
-          </div>
-        </div>
-      )}
-
-      {dialog === 'about' && (
-        <div className="dialog about-dialog">
-          <img src="./app-icon.svg" alt="" />
-          <h2>{tr('appName')}</h2>
-          <p>{tr('aboutBody')}</p>
-          <p>{tr('version')}: 1.0.0<br />{tr('creator')}: SHKWON (knix008@naver.com)</p>
-          <div className="dialog-actions">
-            <button onClick={() => { void navigator.clipboard.writeText('My Photo Work V1.0\nSHKWON <knix008@naver.com>') }}>{tr('copy')}</button>
-            <button onClick={() => setDialog(null)}>{tr('close')}</button>
-          </div>
-        </div>
-      )}
-
-      {dialog === 'error' && error && (
-        <div className="dialog error-dialog">
-          <h2>{error.title}</h2>
-          <p>{error.message}</p>
-          <textarea readOnly value={error.details} />
-          <div className="dialog-actions">
-            <button onClick={() => { void navigator.clipboard.writeText(error.details) }}>{tr('copy')}</button>
-            <button onClick={() => setDialog(null)}>{tr('close')}</button>
-          </div>
-        </div>
+      {dialog && !windowedDialogs && (
+        <DialogFrame
+          name={dialog as DialogName}
+          language={language}
+          payload={inPagePayload ?? undefined}
+          onClose={() => setDialog(null)}
+        >
+          {inPagePayload && (
+            <DialogBody
+              name={dialog as DialogName}
+              payload={inPagePayload}
+              onResult={(result) => {
+                applyDialogResult(dialog as DialogName, result)
+                if (result.action !== 'settings' && result.action !== 'filter') setDialog(null)
+              }}
+              onClose={() => setDialog(null)}
+            />
+          )}
+        </DialogFrame>
       )}
 
       <input className="hidden-input" ref={fileRef} type="file" accept=".mpw,image/*" multiple onChange={(event) => { const files = event.target.files; if (files) void Promise.all([...files].map(fileToOpenItem)).then((items) => openFiles(items, 'open')); event.target.value = '' }} />
