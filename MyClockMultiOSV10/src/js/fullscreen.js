@@ -55,10 +55,9 @@ function tick() {
   if (settings.isDigital) {
     ampmEl.textContent = settings.use24h ? '' : now.getHours() < 12 ? '오전' : '오후';
     if (usesCanvasDigital(settings.digitalStyle)) {
-      const dim = (getComputedStyle(document.documentElement).getPropertyValue('--seg-dim') || '').trim() || '#1a2040';
       const text = formatClockTime(now, settings.use24h, true);
-      if (settings.digitalStyle === 'DotMatrix') drawDotMatrix(canvasEl, text, settings.digitColor, dim);
-      else drawSevenSegment(canvasEl, text, settings.digitColor, dim);
+      if (settings.digitalStyle === 'DotMatrix') drawDotMatrix(canvasEl, text, settings.digitColor);
+      else drawSevenSegment(canvasEl, text, settings.digitColor);
     } else {
       const showSeconds = settings.digitalStyle !== 'Minimal';
       textEl.textContent =

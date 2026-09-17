@@ -198,9 +198,8 @@ function setAmPm(node, text) {
 }
 
 function drawCanvasDigital(text) {
-  const dim = (getComputedStyle(document.documentElement).getPropertyValue('--seg-dim') || '').trim() || '#1a2040';
-  if (settings.digitalStyle === 'DotMatrix') drawDotMatrix(el.digitalCanvas, text, settings.digitColor, dim);
-  else drawSevenSegment(el.digitalCanvas, text, settings.digitColor, dim);
+  if (settings.digitalStyle === 'DotMatrix') drawDotMatrix(el.digitalCanvas, text, settings.digitColor);
+  else drawSevenSegment(el.digitalCanvas, text, settings.digitColor);
 }
 
 function updateDigital(now) {

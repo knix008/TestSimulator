@@ -4,6 +4,10 @@
  * 캔버스 디지털 디스플레이 — legacy-wpf/Controls/SevenSegmentDisplay.xaml.cs 와
  * DotMatrixDisplay.xaml.cs 의 기하 구조를 그대로 옮겼다.
  * 두 함수 모두 디자인 좌표계로 그린 뒤 캔버스 크기에 맞춰 균일 배율을 적용한다.
+ *
+ * 꺼진 세그먼트·도트는 그리지 않는다. WPF 판은 흐린 색으로 칠했지만, 투명 창에서는
+ * 그 색이 배경과 겹쳐 검거나 엉뚱한 색 덩어리로 보여 시간을 읽기 어렵게 만든다.
+ * 켜진 부분만 그리면 나머지는 창 배경(투명)이 그대로 비친다.
  */
 
 // ── 7-세그먼트 ─────────────────────────────────────────────────────────
@@ -46,7 +50,8 @@ function polygon(ctx, points, fill) {
   ctx.fill();
 }
 
-function segH(ctx, x, y, w, h, on, onColor, dimColor) {
+function segH(ctx, x, y, w, h, on, onColor) {
+  if (!on) return;
   const c = h / 2;
   polygon(
     ctx,
@@ -58,11 +63,12 @@ function segH(ctx, x, y, w, h, on, onColor, dimColor) {
       [x + c, y + h],
       [x, y + c]
     ],
-    on ? onColor : dimColor
+    onColor
   );
 }
 
-function segV(ctx, x, y, w, h, on, onColor, dimColor) {
+function segV(ctx, x, y, w, h, on, onColor) {
+  if (!on) return;
   const c = w / 2;
   polygon(
     ctx,
@@ -74,25 +80,25 @@ function segV(ctx, x, y, w, h, on, onColor, dimColor) {
       [x, y + h - c],
       [x, y + c]
     ],
-    on ? onColor : dimColor
+    onColor
   );
 }
 
-function drawSevenSegmentDigit(ctx, x, s, onColor, dimColor) {
+function drawSevenSegmentDigit(ctx, x, s, onColor) {
   // a – 위
-  segH(ctx, x + SEG_GAP, 0, SEG_DW - 2 * SEG_GAP, SEG_ST, s[0], onColor, dimColor);
+  segH(ctx, x + SEG_GAP, 0, SEG_DW - 2 * SEG_GAP, SEG_ST, s[0], onColor);
   // b – 오른쪽 위
-  segV(ctx, x + SEG_DW - SEG_ST, SEG_GAP, SEG_ST, SEG_DH / 2 - 2 * SEG_GAP, s[1], onColor, dimColor);
+  segV(ctx, x + SEG_DW - SEG_ST, SEG_GAP, SEG_ST, SEG_DH / 2 - 2 * SEG_GAP, s[1], onColor);
   // c – 오른쪽 아래
-  segV(ctx, x + SEG_DW - SEG_ST, SEG_DH / 2 + SEG_GAP, SEG_ST, SEG_DH / 2 - 2 * SEG_GAP, s[2], onColor, dimColor);
+  segV(ctx, x + SEG_DW - SEG_ST, SEG_DH / 2 + SEG_GAP, SEG_ST, SEG_DH / 2 - 2 * SEG_GAP, s[2], onColor);
   // d – 아래
-  segH(ctx, x + SEG_GAP, SEG_DH - SEG_ST, SEG_DW - 2 * SEG_GAP, SEG_ST, s[3], onColor, dimColor);
+  segH(ctx, x + SEG_GAP, SEG_DH - SEG_ST, SEG_DW - 2 * SEG_GAP, SEG_ST, s[3], onColor);
   // e – 왼쪽 아래
-  segV(ctx, x, SEG_DH / 2 + SEG_GAP, SEG_ST, SEG_DH / 2 - 2 * SEG_GAP, s[4], onColor, dimColor);
+  segV(ctx, x, SEG_DH / 2 + SEG_GAP, SEG_ST, SEG_DH / 2 - 2 * SEG_GAP, s[4], onColor);
   // f – 왼쪽 위
-  segV(ctx, x, SEG_GAP, SEG_ST, SEG_DH / 2 - 2 * SEG_GAP, s[5], onColor, dimColor);
+  segV(ctx, x, SEG_GAP, SEG_ST, SEG_DH / 2 - 2 * SEG_GAP, s[5], onColor);
   // g – 가운데
-  segH(ctx, x + SEG_GAP, (SEG_DH - SEG_ST) / 2, SEG_DW - 2 * SEG_GAP, SEG_ST, s[6], onColor, dimColor);
+  segH(ctx, x + SEG_GAP, (SEG_DH - SEG_ST) / 2, SEG_DW - 2 * SEG_GAP, SEG_ST, s[6], onColor);
 }
 
 function drawSevenSegmentColon(ctx, x, onColor) {
@@ -161,8 +167,8 @@ function prepareCanvas(canvas, designW, designH) {
   return ctx;
 }
 
-/** 7-세그먼트 시각 표시. */
-function drawSevenSegment(canvas, text, onColor, dimColor) {
+/** 7-세그먼트 시각 표시 — 켜진 세그먼트만 그린다. */
+function drawSevenSegment(canvas, text, onColor) {
   const width = sevenSegmentWidth(text);
   const ctx = prepareCanvas(canvas, width, SEG_DH);
   if (!ctx) return;
@@ -174,14 +180,14 @@ function drawSevenSegment(canvas, text, onColor, dimColor) {
       x += SEG_CW;
     } else {
       const pattern = SEG_MAP[ch];
-      if (pattern) drawSevenSegmentDigit(ctx, x, pattern, onColor, dimColor);
+      if (pattern) drawSevenSegmentDigit(ctx, x, pattern, onColor);
       x += SEG_DW + SEG_CG;
     }
   }
 }
 
-/** 도트 매트릭스 시각 표시. */
-function drawDotMatrix(canvas, text, onColor, dimColor) {
+/** 도트 매트릭스 시각 표시 — 켜진 도트만 그린다. */
+function drawDotMatrix(canvas, text, onColor) {
   const width = dotMatrixWidth(text);
   const ctx = prepareCanvas(canvas, width, DOT_DIGIT_H);
   if (!ctx) return;
@@ -198,10 +204,10 @@ function drawDotMatrix(canvas, text, onColor, dimColor) {
     }
     const rows = DOT_PATTERNS[ch];
     if (rows) {
+      ctx.fillStyle = onColor;
       for (let r = 0; r < DOT_ROWS; r++) {
         for (let c = 0; c < DOT_COLS; c++) {
-          ctx.fillStyle = rows[r][c] === '1' ? onColor : dimColor;
-          ctx.fillRect(x + c * DOT_CELL, r * DOT_CELL, DOT_PX, DOT_PX);
+          if (rows[r][c] === '1') ctx.fillRect(x + c * DOT_CELL, r * DOT_CELL, DOT_PX, DOT_PX);
         }
       }
     }
