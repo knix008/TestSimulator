@@ -29,15 +29,17 @@ const {
   stashAdopt,
   takeAdopt,
   countSessionsForWindow,
+  listShells,
+  currentShell,
 } = require('./pty-manager');
 const {
-  PROMPT_PRESETS,
-  DEFAULT_PROMPT,
+  PRESETS,
   DEFAULT_PROMPT_GIT_MODE,
   normalizePromptGitMode,
-  asciiSafePromptGlyphs,
-  findPromptPresetId,
+  normalizePrompt,
+  normalizeCustomPrompts,
 } = require('./prompt');
+const { defaultShellId, shortName } = require('./shells');
 const { normalizeLsColors } = require('./ls-colors');
 const {
   createTray,
@@ -47,7 +49,40 @@ const {
   setQuitting,
   getIsQuitting,
 } = require('./tray');
-const { registerPopupIpc } = require('./popup');
+const { registerPopupIpc, closePopupsForOwner, closeAllPopups, getPopup } = require('./popup');
+const { describeError } = require('../shared/error-format');
+
+/**
+ * Show an error in a main window's error dialog. `target` is a BrowserWindow
+ * (a popup's error goes to the popup's owner); without one, the focused or
+ * first main window shows it.
+ */
+function reportErrorToWindow(target, err, context = 'main') {
+  try {
+    const info = err && typeof err === 'object' && typeof err.details === 'string' ? err : describeError(err, { context });
+    let win = target && !target.isDestroyed() ? target : null;
+    if (!win) win = BrowserWindow.getFocusedWindow();
+    if (!win || win.isDestroyed() || !windows.has(win)) win = [...windows].find((w) => !w.isDestroyed()) || null;
+    if (!win) {
+      console.error(`[${context}]`, info.details);
+      return false;
+    }
+    win.webContents.send('app:error', { message: info.message, details: info.details, context });
+    return true;
+  } catch (e) {
+    console.error('reportErrorToWindow failed', e);
+    return false;
+  }
+}
+
+process.on('uncaughtException', (err) => {
+  console.error('uncaughtException', err);
+  reportErrorToWindow(null, err, 'main');
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('unhandledRejection', reason);
+  reportErrorToWindow(null, reason, 'main');
+});
 const {
   registerDetachPreviewIpc,
   destroyDetachPreview,
@@ -149,11 +184,15 @@ function ensureBoundsOnScreen(bounds) {
   };
 }
 
+/** True until a window size has been saved: the renderer fits the terminal to its default cols × rows. */
+let firstLaunch = false;
+
 function getRestoredWindowOptions() {
   const settings = readSettings();
   const saved = settings.windowBounds;
   const defaults = { width: 1100, height: 720 };
   if (!saved || typeof saved !== 'object') {
+    firstLaunch = true;
     return { ...defaults, maximized: !!settings.windowMaximized };
   }
   const restored = ensureBoundsOnScreen({
@@ -282,12 +321,14 @@ function createWindow(options = {}) {
   win.on('move', () => scheduleSaveWindowState(win));
 
   // With tray enabled, close hides to tray instead of quitting.
-  win.on('close', (e) => {
+  // webContents.id is unavailable once the window is destroyed ('closed').
+  const ownerId = win.webContents.id;
+  win.on('close', () => {
     saveWindowState(win);
-    if (isTrayActive() && !getIsQuitting()) {
-      e.preventDefault();
-      win.hide();
-    }
+    // The window's dialogs (settings / SSH / About) go with it. Closing the
+    // window really closes it — the tray icon never keeps a closed window
+    // hidden around (closing the last window quits the app).
+    closePopupsForOwner(ownerId);
   });
 
   win.on('closed', () => {
@@ -295,6 +336,7 @@ function createWindow(options = {}) {
     if (timer) clearTimeout(timer);
     windowStateTimers.delete(win);
     killSessionsForWindow(win);
+    closePopupsForOwner(ownerId);
     windows.delete(win);
   });
 
@@ -383,6 +425,7 @@ if (!app.requestSingleInstanceLock()) {
 
 app.on('before-quit', () => {
   for (const win of windows) saveWindowState(win);
+  closeAllPopups();
   destroyDetachPreview();
   setQuitting(true);
   destroyTray();
@@ -390,8 +433,11 @@ app.on('before-quit', () => {
 });
 
 app.on('window-all-closed', () => {
+  // The last window closed → the program ends (the tray icon goes with it),
+  // except on macOS where apps stay in the Dock until Quit.
   if (process.platform === 'darwin') return;
-  if (isTrayActive()) return;
+  setQuitting(true);
+  destroyTray();
   killPty();
   app.quit();
 });
@@ -410,10 +456,7 @@ ipcMain.handle('window:maximize', (event) => {
 ipcMain.handle('window:close', (event) => {
   const win = winFromEvent(event);
   if (!win) return;
-  if (isTrayActive()) {
-    win.hide();
-    return;
-  }
+  closePopupsForOwner(win.webContents.id);
   win.close();
 });
 
@@ -431,6 +474,7 @@ ipcMain.handle('app:quit', (event) => {
   setQuitting(true);
   destroyTray();
   killPty();
+  closeAllPopups();
   for (const win of [...windows]) {
     if (win && !win.isDestroyed()) win.destroy();
   }
@@ -446,6 +490,25 @@ ipcMain.handle('window:setOpacity', (event, value) => {
   return true;
 });
 ipcMain.handle('window:isMaximized', (event) => winFromEvent(event)?.isMaximized() ?? false);
+// Terminal profiles: grow / shrink the window so the terminal shows cols × rows.
+ipcMain.handle('window:resizeBy', (event, payload = {}) => {
+  const win = winFromEvent(event);
+  if (!win || win.isDestroyed()) return null;
+  if (win.isMaximized()) win.unmaximize();
+  const [w, h] = win.getSize();
+  const [minW, minH] = win.getMinimumSize();
+  const area = screen.getDisplayMatching(win.getBounds()).workArea;
+  const width = Math.max(minW, Math.min(area.width, Math.round(w + (Number(payload.dw) || 0))));
+  const height = Math.max(minH, Math.min(area.height, Math.round(h + (Number(payload.dh) || 0))));
+  win.setSize(width, height);
+  const b = win.getBounds();
+  // Keep the window on screen after growing.
+  const x = Math.max(area.x, Math.min(b.x, area.x + area.width - b.width));
+  const y = Math.max(area.y, Math.min(b.y, area.y + area.height - b.height));
+  if (x !== b.x || y !== b.y) win.setPosition(x, y);
+  return { width, height };
+});
+
 ipcMain.handle('window:getBounds', (event) => {
   const win = winFromEvent(event);
   return win ? win.getBounds() : null;
@@ -575,6 +638,17 @@ ipcMain.handle('window:setMinSize', (event, payload = {}) => {
   return { minWidth, minHeight };
 });
 
+// A popup (settings / SSH / About) reports its own errors; the owner window shows them.
+ipcMain.handle('app:reportError', (event, info = {}) => {
+  let owner = winFromEvent(event);
+  if (!owner || !windows.has(owner)) {
+    for (const [, entry] of Object.entries({})) void entry;
+    const all = BrowserWindow.getAllWindows();
+    owner = all.find((w) => windows.has(w) && !w.isDestroyed()) || null;
+  }
+  return reportErrorToWindow(owner, { message: String(info.message || 'Error'), details: String(info.details || info.message || '') }, info.context || 'popup');
+});
+
 ipcMain.handle('app:getInfo', () => {
   let buildDate = '';
   try {
@@ -596,6 +670,7 @@ ipcMain.handle('app:getInfo', () => {
     v8: process.versions.v8,
     os: `${os.type()} ${os.release()}`,
     buildDate,
+    firstLaunch,
     homepage: 'https://github.com/knix008',
   };
 });
@@ -615,18 +690,69 @@ ipcMain.handle('settings:set', (_e, settings) => {
     patch.backgroundImageDir =
       typeof patch.backgroundImageDir === 'string' ? patch.backgroundImageDir : '';
   }
-  if ('promptTemplate' in patch) {
-    patch.promptTemplate =
-      typeof patch.promptTemplate === 'string' && patch.promptTemplate.length
-        ? asciiSafePromptGlyphs(patch.promptTemplate)
-        : DEFAULT_PROMPT;
-  }
   if ('promptGitMode' in patch) {
     patch.promptGitMode = normalizePromptGitMode(patch.promptGitMode);
   }
   if ('promptPresetId' in patch) {
     patch.promptPresetId =
       typeof patch.promptPresetId === 'string' ? patch.promptPresetId : '';
+  }
+  if ('promptConfig' in patch) {
+    patch.promptConfig =
+      patch.promptConfig && typeof patch.promptConfig === 'object'
+        ? normalizePrompt(patch.promptConfig)
+        : null;
+  }
+  if ('promptTheme' in patch) {
+    const t = patch.promptTheme;
+    patch.promptTheme =
+      t && typeof t === 'object'
+        ? { accent: String(t.accent || ''), fg: String(t.fg || ''), bg: String(t.bg || '') }
+        : null;
+  }
+  if ('customPrompts' in patch) {
+    patch.customPrompts = normalizeCustomPrompts(patch.customPrompts);
+  }
+  if ('termCols' in patch || 'termRows' in patch) {
+    if ('termCols' in patch) patch.termCols = Math.max(20, Math.min(500, Number.parseInt(patch.termCols, 10) || 120));
+    if ('termRows' in patch) patch.termRows = Math.max(5, Math.min(200, Number.parseInt(patch.termRows, 10) || 25));
+  }
+  if ('terminalProfiles' in patch) {
+    patch.terminalProfiles = (Array.isArray(patch.terminalProfiles) ? patch.terminalProfiles : [])
+      .filter((item) => item && typeof item === 'object' && typeof item.id === 'string' && item.id)
+      .map((item) => ({
+        id: item.id,
+        name: String(item.name || ''),
+        cols: Math.max(20, Math.min(500, Number.parseInt(item.cols, 10) || 80)),
+        rows: Math.max(5, Math.min(200, Number.parseInt(item.rows, 10) || 24)),
+        fontId: String(item.fontId || ''),
+        fontSize: Math.max(10, Math.min(28, Number.parseInt(item.fontSize, 10) || 14)),
+        scrollback: Math.max(100, Math.min(100000, Number.parseInt(item.scrollback, 10) || 10000)),
+        shellId: String(item.shellId || ''),
+      }));
+  }
+  if ('sshProfiles' in patch) {
+    patch.sshProfiles = (Array.isArray(patch.sshProfiles) ? patch.sshProfiles : [])
+      .filter((item) => item && typeof item === 'object' && typeof item.id === 'string' && item.id)
+      .map((item) => ({
+        id: item.id,
+        name: String(item.name || ''),
+        host: String(item.host || ''),
+        port: Math.max(1, Math.min(65535, Number.parseInt(item.port, 10) || 22)),
+        username: String(item.username || ''),
+        privateKey: String(item.privateKey || ''),
+      }));
+  }
+  if ('themeOverrides' in patch) {
+    patch.themeOverrides =
+      patch.themeOverrides && typeof patch.themeOverrides === 'object' ? patch.themeOverrides : {};
+  }
+  if ('shellId' in patch) {
+    patch.shellId = typeof patch.shellId === 'string' ? patch.shellId : '';
+  }
+  if ('shellCustomPath' in patch) {
+    patch.shellCustomPath =
+      typeof patch.shellCustomPath === 'string' ? patch.shellCustomPath.trim() : '';
   }
   if ('lsDirectoryColor' in patch || 'lsFileColor' in patch) {
     const current = readSettings();
@@ -1173,24 +1299,27 @@ ipcMain.handle('pty:resize', (_e, payload) => {
 
 ipcMain.handle('pty:kill', (_e, payload) => killPty(payload || {}));
 
-ipcMain.handle('prompt:getPresets', () => ({
-  default: DEFAULT_PROMPT,
-  presets: PROMPT_PRESETS,
-}));
+ipcMain.handle('prompt:getPresets', () => ({ presets: PRESETS }));
+
+// Command shells installed on this machine (settings › general › command shell).
+ipcMain.handle('shells:list', (_e, payload = {}) => {
+  const shells = listShells({ refresh: !!payload?.refresh }).map((s) => ({ ...s, short: shortName(s) }));
+  return {
+    shells,
+    defaultId: defaultShellId(process.platform, shells),
+    current: currentShell(),
+    platform: process.platform,
+  };
+});
 
 ipcMain.handle('prompt:set', (_e, payload) => {
   const result = setPromptTemplate(payload);
-  const presetId =
-    result.presetId ||
-    findPromptPresetId(result.template) ||
-    (typeof payload === 'object' && payload?.presetId) ||
-    '';
   updateSettings({
-    promptTemplate: result.template || DEFAULT_PROMPT,
+    promptConfig: result.config,
     promptGitMode: result.gitMode || DEFAULT_PROMPT_GIT_MODE,
-    promptPresetId: presetId,
+    promptPresetId: result.presetId,
   });
-  return { ...result, presetId };
+  return result;
 });
 
 ipcMain.handle('ssh:connect', async (event, config) => {
@@ -1214,7 +1343,7 @@ ipcMain.handle('session:detach', (event, payload = {}) => {
     title: payload.title || info.title || `Terminal ${sessionId}`,
     mode: payload.mode || info.mode || 'local',
     serialized: payload.serialized || '',
-    fontSize: payload.fontSize || 14,
+    fontSize: payload.fontSize || 13,
     fontFamily: payload.fontFamily || '',
   });
 
@@ -1280,7 +1409,7 @@ ipcMain.handle('session:attach', (event, payload = {}) => {
     title: payload.title || info.title || `Terminal ${sessionId}`,
     mode: payload.mode || info.mode || 'local',
     serialized: payload.serialized || '',
-    fontSize: payload.fontSize || 14,
+    fontSize: payload.fontSize || 13,
     fontFamily: payload.fontFamily || '',
   };
 

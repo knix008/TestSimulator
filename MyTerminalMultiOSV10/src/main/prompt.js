@@ -1,550 +1,193 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { execFileSync } = require('child_process');
+const { execFile, execFileSync } = require('child_process');
+const core = require('../shared/prompt-core');
 
-/** @typedef {'off'|'branch'|'status'} PromptGitMode */
+// Everything that needs the file system / git / os lives here; the prompt
+// engine (segments, templates, presets, ANSI rendering) is in
+// ../shared/prompt-core.js.
 
-const PROMPT_GIT_MODES = ['off', 'branch', 'status'];
-const DEFAULT_PROMPT_GIT_MODE = 'status';
+/** @type {Map<string, { at: number, status: object }>} */
+const gitCache = new Map();
+const GIT_CACHE_MS = 1500;
 
-function normalizePromptGitMode(mode) {
-  const value = String(mode || '').toLowerCase();
-  return PROMPT_GIT_MODES.includes(value) ? value : DEFAULT_PROMPT_GIT_MODE;
+function runGit(args, cwd, timeout = 1500) {
+  return execFileSync('git', ['--no-optional-locks', ...args], {
+    cwd,
+    encoding: 'utf8',
+    timeout,
+    windowsHide: true,
+    stdio: ['ignore', 'pipe', 'ignore'],
+    maxBuffer: 8 << 20,
+  });
 }
 
-const COLORS = {
-  reset: '\x1b[0m',
-  bold: '\x1b[1m',
-  dim: '\x1b[2m',
-  black: '\x1b[30m',
-  red: '\x1b[31m',
-  green: '\x1b[32m',
-  yellow: '\x1b[33m',
-  blue: '\x1b[34m',
-  magenta: '\x1b[35m',
-  cyan: '\x1b[36m',
-  white: '\x1b[37m',
-  bright_red: '\x1b[91m',
-  bright_green: '\x1b[92m',
-  bright_yellow: '\x1b[93m',
-  bright_blue: '\x1b[94m',
-  bright_magenta: '\x1b[95m',
-  bright_cyan: '\x1b[96m',
-  bright_white: '\x1b[97m',
-  bg_black: '\x1b[40m',
-  bg_red: '\x1b[41m',
-  bg_green: '\x1b[42m',
-  bg_yellow: '\x1b[43m',
-  bg_blue: '\x1b[44m',
-  bg_magenta: '\x1b[45m',
-  bg_cyan: '\x1b[46m',
-  bg_white: '\x1b[47m',
-  bg_bright_red: '\x1b[101m',
-  bg_bright_green: '\x1b[102m',
-  bg_bright_magenta: '\x1b[105m',
-};
+/** @type {Map<string, Promise<object>>} in-flight refreshes per directory */
+const gitInflight = new Map();
+/** @type {Set<(dir: string, status: object) => void>} */
+const gitListeners = new Set();
 
-const DEFAULT_PROMPT =
-  '{cyan}myterm{reset}:{yellow}{cwd:short}{reset}> ';
+const GIT_ARGS = ['--no-optional-locks', 'status', '--porcelain=v2', '--branch', '--show-stash', '--ignore-submodules=dirty'];
 
-const PROMPT_PRESETS = {
-  default: {
-    id: 'default',
-    group: 'basic',
-    template: DEFAULT_PROMPT,
-  },
-  classic: {
-    id: 'classic',
-    group: 'basic',
-    template: '{green}{user}{reset}@{host}:{blue}{cwd:short}{reset}$ ',
-  },
-  power: {
-    id: 'power',
-    group: 'basic',
-    template: '{bold}{magenta}{user}{reset}@{cyan}{host}{reset} {yellow}{cwd:short}{reset}> ',
-  },
-  path: {
-    id: 'path',
-    group: 'basic',
-    template: '{cwd}> ',
-  },
-  minimal: {
-    id: 'minimal',
-    group: 'basic',
-    template: '> ',
-  },
-  remote: {
-    id: 'remote',
-    group: 'basic',
-    template: '{red}{user}{reset}@{yellow}{host}{reset}:{cyan}{cwd:short}{reset}# ',
-  },
-  // Oh My Zsh-inspired themes (MyShell approximations; ASCII-safe glyphs).
-  // See https://ohmyz.sh/
-  ohmyzsh_robbyrussell: {
-    id: 'ohmyzsh_robbyrussell',
-    group: 'ohmyzsh',
-    template: '{bold}{green}>{reset}  {cyan}{cwd:tail}{reset}{git:info} ',
-  },
-  ohmyzsh_cloud: {
-    id: 'ohmyzsh_cloud',
-    group: 'ohmyzsh',
-    template:
-      '{cyan}{user}{reset}@{green}{host}{reset} {yellow}{cwd:short}{reset}{git:info} {magenta}~{reset} ',
-  },
-  ohmyzsh_arrow: {
-    id: 'ohmyzsh_arrow',
-    group: 'ohmyzsh',
-    template: '{bold}{yellow}>{reset} {cyan}{cwd:tail}{reset}{git:info} ',
-  },
-  ohmyzsh_half_life: {
-    id: 'ohmyzsh_half_life',
-    group: 'ohmyzsh',
-    template: '{green}>{reset} {cyan}{cwd:short}{reset}{git:info} ',
-  },
-  ohmyzsh_candy: {
-    id: 'ohmyzsh_candy',
-    group: 'ohmyzsh',
-    template:
-      '{green}{user}{reset}@{magenta}{host}{reset} {blue}{cwd:short}{reset} {yellow}[{time}]{reset}{git:info}\n{bold}{cyan}${reset} ',
-  },
-  ohmyzsh_af_magic: {
-    id: 'ohmyzsh_af_magic',
-    group: 'ohmyzsh',
-    template:
-      '{blue}------------------{reset}\n{blue}{cwd:short}{reset}{git:info}\n{bold}{magenta}>{reset} ',
-  },
-  ohmyzsh_fino: {
-    id: 'ohmyzsh_fino',
-    group: 'ohmyzsh',
-    template:
-      '{blue}+--{reset}{green}{user}{reset} {cyan}at{reset} {yellow}{host}{reset} {cyan}in{reset} {bold}{blue}{cwd:short}{reset}{git:info}\n{blue}+--{reset}{green}>{reset} ',
-  },
-  ohmyzsh_agnoster: {
-    id: 'ohmyzsh_agnoster',
-    group: 'ohmyzsh',
-    // Blue / yellow / git segments; right-edge  via applyPowerlineEnds().
-    // Trailing {reset} closes the last open bg (cwd or git) with a tip.
-    template:
-      '{bg_blue}{white} {user}@{host} {bg_yellow}{black} {cwd:short} {git:segment}{reset} ',
-  },
-  ohmyzsh_dallas: {
-    id: 'ohmyzsh_dallas',
-    group: 'ohmyzsh',
-    template:
-      '{bold}{magenta}[{time}]{reset} {cyan}{user}{reset}@{green}{host}{reset} {yellow}{cwd:short}{reset}{git:info}\n{red}${reset} ',
-  },
-  ohmyzsh_ys: {
-    id: 'ohmyzsh_ys',
-    group: 'ohmyzsh',
-    template:
-      '{blue}#{reset} {cyan}{user}{reset} {blue}in{reset} {yellow}{cwd:short}{reset}{git:info} {blue}[{time}]{reset}\n{red}${reset} ',
-  },
-};
-
-function shortCwd(cwd) {
-  const home = os.homedir();
-  let display = cwd;
-  if (cwd.toLowerCase().startsWith(home.toLowerCase())) {
-    display = '~' + cwd.slice(home.length);
-  }
-  if (process.platform === 'win32') {
-    display = display.replace(/\//g, '\\');
-  } else {
-    display = display.replace(/\\/g, '/');
-  }
-  return display;
-}
-
-function cwdTail(cwd) {
-  const home = os.homedir();
-  try {
-    if (path.resolve(cwd) === path.resolve(home)) return '~';
-  } catch (_) {
-    /* ignore */
-  }
-  const base = path.basename(cwd || '');
-  return base || cwd || '~';
-}
-
-const emptyGitTokens = Object.freeze({
-  'git:branch': '',
-  'git:dirty': '',
-  'git:clean': '',
-  'git:info': '',
-  'git:status': '',
-  // Agnoster: empty means no git segment (caller closes with {reset}).
-  'git:segment': '',
-});
-
-/** @type {Map<string, { at: number, root: string, branch: string }>} */
-const gitRootCache = new Map();
-/** @type {Map<string, { at: number, dirty: boolean }>} */
-const gitDirtyCache = new Map();
-/** @type {Map<string, { at: number, ahead: number }>} */
-const gitAheadCache = new Map();
-
-function findGitRepo(cwd) {
-  const start = path.resolve(cwd || process.cwd());
-  const cached = gitRootCache.get(start);
-  if (cached && Date.now() - cached.at < 3000) {
-    return cached.root ? { root: cached.root, branch: cached.branch } : null;
-  }
-  try {
-    let dir = start;
-    for (let i = 0; i < 48; i += 1) {
-      const gitPath = path.join(dir, '.git');
-      if (fs.existsSync(gitPath)) {
-        let headFile = path.join(gitPath, 'HEAD');
-        const stat = fs.statSync(gitPath);
-        if (stat.isFile()) {
-          const content = fs.readFileSync(gitPath, 'utf8');
-          const match = content.match(/gitdir:\s*(.+)\s*$/m);
-          if (!match) {
-            gitRootCache.set(start, { at: Date.now(), root: '', branch: '' });
-            return null;
-          }
-          headFile = path.resolve(dir, match[1].trim(), 'HEAD');
+/**
+ * Refresh the git status of a directory in the background (one process per
+ * directory at a time). Resolves with the status and notifies listeners.
+ */
+function refreshGitStatus(dir) {
+  const running = gitInflight.get(dir);
+  if (running) return running;
+  const promise = new Promise((resolve) => {
+    if (!fs.existsSync(dir)) return resolve({ repo: false });
+    execFile('git', GIT_ARGS, { cwd: dir, encoding: 'utf8', timeout: 5000, windowsHide: true, maxBuffer: 8 << 20 }, (err, out) => {
+      if (err) return resolve({ repo: false });
+      const st = parseGitStatus(out);
+      if (st.branch !== '(detached)') return resolve(st);
+      execFile('git', ['rev-parse', '--short', 'HEAD'], { cwd: dir, encoding: 'utf8', timeout: 1500, windowsHide: true }, (e2, sha) => {
+        if (!e2) st.branch = `@${String(sha).trim()}`;
+        resolve(st);
+      });
+    });
+  })
+    .then((st) => {
+      gitCache.set(dir, { at: Date.now(), status: st });
+      for (const fn of gitListeners) {
+        try {
+          fn(dir, st);
+        } catch (_) {
+          /* ignore */
         }
-        if (!fs.existsSync(headFile)) {
-          gitRootCache.set(start, { at: Date.now(), root: '', branch: '' });
-          return null;
-        }
-        const head = fs.readFileSync(headFile, 'utf8').trim();
-        let branch = '';
-        if (head.startsWith('ref:')) {
-          const parts = head.split('/');
-          branch = parts[parts.length - 1] || '';
-        } else {
-          branch = head.slice(0, 7);
-        }
-        gitRootCache.set(start, { at: Date.now(), root: dir, branch });
-        return { root: dir, branch };
       }
-      const parent = path.dirname(dir);
-      if (parent === dir) break;
-      dir = parent;
+      return st;
+    })
+    .finally(() => {
+      if (gitInflight.get(dir) === promise) gitInflight.delete(dir);
+    });
+  gitInflight.set(dir, promise);
+  return promise;
+}
+
+/** Subscribe to background git status results (`fn(dir, status)`); returns an unsubscribe function. */
+function onGitStatus(fn) {
+  gitListeners.add(fn);
+  return () => gitListeners.delete(fn);
+}
+
+/**
+ * Git status of a directory, for the prompt — never blocks: the cached value
+ * is returned (stale ones are refreshed in the background, a miss starts a
+ * refresh and answers `{ repo:false, pending:true }`; the shell redraws its
+ * prompt when the result arrives).
+ *   { repo:false } or { repo:true, branch, upstream, ahead, behind, staged, changed, untracked, conflicts, stashes }
+ */
+function gitStatus(cwd) {
+  const dir = path.resolve(cwd || process.cwd());
+  const cached = gitCache.get(dir);
+  if (cached) {
+    if (Date.now() - cached.at >= GIT_CACHE_MS) refreshGitStatus(dir);
+    return cached.status;
+  }
+  refreshGitStatus(dir);
+  return { repo: false, pending: true };
+}
+
+/** Blocking variant (tests / one-off tools). */
+function gitStatusSync(cwd) {
+  const dir = path.resolve(cwd || process.cwd());
+  let st = { repo: false };
+  try {
+    if (!fs.existsSync(dir)) throw new Error('missing');
+    st = parseGitStatus(runGit(GIT_ARGS.slice(1), dir));
+    if (st.branch === '(detached)') {
+      try {
+        st.branch = `@${runGit(['rev-parse', '--short', 'HEAD'], dir, 700).trim()}`;
+      } catch (_) {
+        /* keep (detached) */
+      }
     }
   } catch (_) {
-    /* ignore */
+    st = { repo: false };
   }
-  gitRootCache.set(start, { at: Date.now(), root: '', branch: '' });
-  return null;
+  gitCache.set(dir, { at: Date.now(), status: st });
+  return st;
+}
+
+/** Parse `git status --porcelain=v2 --branch --show-stash` output. */
+function parseGitStatus(out) {
+  const st = { repo: true, branch: '', upstream: '', ahead: 0, behind: 0, staged: 0, changed: 0, untracked: 0, conflicts: 0, stashes: 0 };
+  for (const line of String(out || '').split('\n')) {
+    if (!line) continue;
+    if (line.startsWith('# branch.head ')) st.branch = line.slice(14).trim();
+    else if (line.startsWith('# branch.upstream ')) st.upstream = line.slice(18).trim();
+    else if (line.startsWith('# branch.ab ')) {
+      const m = line.match(/\+(\d+) -(\d+)/);
+      if (m) {
+        st.ahead = Number(m[1]);
+        st.behind = Number(m[2]);
+      }
+    } else if (line.startsWith('# stash ')) st.stashes = Number(line.slice(8)) || 0;
+    else if (line[0] === '1' || line[0] === '2') {
+      const xy = line.slice(2, 4);
+      if (xy[0] !== '.') st.staged++;
+      if (xy[1] !== '.') st.changed++;
+    } else if (line[0] === 'u') st.conflicts++;
+    else if (line[0] === '?') st.untracked++;
+  }
+  return st;
 }
 
 function readGitBranch(cwd) {
-  return findGitRepo(cwd)?.branch || '';
+  const st = gitStatusSync(cwd);
+  return st.repo ? st.branch : '';
 }
 
-function isGitDirty(repoRoot) {
-  if (!repoRoot) return false;
-  const cached = gitDirtyCache.get(repoRoot);
-  if (cached && Date.now() - cached.at < 1500) return cached.dirty;
-  let dirty = false;
+function isRoot() {
   try {
-    const out = execFileSync('git', ['status', '--porcelain', '--ignore-submodules', '-uno'], {
-      cwd: repoRoot,
-      encoding: 'utf8',
-      timeout: 700,
-      windowsHide: true,
-      stdio: ['ignore', 'pipe', 'ignore'],
-    });
-    dirty = String(out || '').trim().length > 0;
+    return process.platform !== 'win32' && typeof process.getuid === 'function' && process.getuid() === 0;
   } catch (_) {
-    dirty = false;
-  }
-  gitDirtyCache.set(repoRoot, { at: Date.now(), dirty });
-  return dirty;
-}
-
-/** Commits on HEAD not yet on upstream (0 if no upstream / synced). */
-function gitAheadCount(repoRoot) {
-  if (!repoRoot) return 0;
-  const cached = gitAheadCache.get(repoRoot);
-  if (cached && Date.now() - cached.at < 1500) return cached.ahead;
-  let ahead = 0;
-  try {
-    const out = execFileSync('git', ['rev-list', '--count', '@{upstream}..HEAD'], {
-      cwd: repoRoot,
-      encoding: 'utf8',
-      timeout: 700,
-      windowsHide: true,
-      stdio: ['ignore', 'pipe', 'ignore'],
-    });
-    ahead = Math.max(0, Number.parseInt(String(out || '').trim(), 10) || 0);
-  } catch (_) {
-    // No upstream configured — treat as nothing left to push.
-    ahead = 0;
-  }
-  gitAheadCache.set(repoRoot, { at: Date.now(), ahead });
-  return ahead;
-}
-
-function gitTokens(cwd, mode = DEFAULT_PROMPT_GIT_MODE) {
-  const gitMode = normalizePromptGitMode(mode);
-  if (gitMode === 'off') return { ...emptyGitTokens };
-
-  const repo = findGitRepo(cwd);
-  if (!repo?.branch) return { ...emptyGitTokens };
-
-  const dirty = gitMode === 'status' ? isGitDirty(repo.root) : false;
-  const ahead = gitMode === 'status' ? gitAheadCount(repo.root) : 0;
-  const dirtyMark =
-    gitMode === 'status' && dirty ? ` ${COLORS.yellow}x${COLORS.reset}` : '';
-  const info = ` ${COLORS.bold}${COLORS.blue}git:(${COLORS.red}${repo.branch}${COLORS.blue})${COLORS.reset}${dirtyMark}`;
-  // Agnoster segment colors (status mode) — same paint path for all three:
-  // bright ANSI bg + black text + end tip `0;<brightFg>m` (see applyPowerlineEnds).
-  //   dirty  → bright red (101 / tip 91)
-  //   ahead  → bright magenta (105 / tip 95)
-  //   clean  → bright green (102 / tip 92)
-  let segmentBase;
-  if (dirty) {
-    segmentBase = `${COLORS.bg_bright_red}${COLORS.black} ${repo.branch} x `;
-  } else if (ahead > 0) {
-    segmentBase = `${COLORS.bg_bright_magenta}${COLORS.black} ${repo.branch} `;
-  } else {
-    segmentBase = `${COLORS.bg_bright_green}${COLORS.black} ${repo.branch} `;
-  }
-
-  return {
-    'git:branch': repo.branch,
-    'git:dirty': dirty ? 'x' : '',
-    'git:clean': dirty ? '' : '*',
-    'git:info': info,
-    'git:status': info,
-    'git:segment': segmentBase,
-  };
-}
-
-/** Map ANSI background color code → matching foreground code. */
-const BG_TO_FG = {
-  40: 30,
-  41: 31,
-  42: 32,
-  43: 33,
-  44: 34,
-  45: 35,
-  46: 36,
-  47: 37,
-  100: 90,
-  101: 91,
-  102: 92,
-  103: 93,
-  104: 94,
-  105: 95,
-  106: 96,
-  107: 97,
-};
-
-function isBgCode(code) {
-  return (code >= 40 && code <= 47) || (code >= 100 && code <= 107);
-}
-
-/**
- * Powerline right tip (U+E0B0). Drawn by xterm customGlyphs.
- * Do not use ASCII ">" or ▶.
- */
-const SEGMENT_TIP = '\uE0B0';
-
-/**
- * After any painted (background) segment, append a powerline tip cell.
- *
- * Mid tips: next segment ANSI bg + previous-color glyph (wedges = next color).
- * End tips: default/transparent bg + segment-colored  (agnoster taper).
- * Red / magenta / green all use this same ANSI path — no truecolor special case.
- */
-function applyPowerlineEnds(text, _endTipBg) {
-  const src = String(text ?? '');
-  if (!/\x1b\[[0-9;]*m/.test(src)) return src;
-
-  let out = '';
-  let i = 0;
-  let currentBg = null;
-
-  const readSgr = (from) => {
-    if (src[from] !== '\x1b' || src[from + 1] !== '[') return null;
-    const end = src.indexOf('m', from + 2);
-    if (end === -1) return null;
-    const params = src
-      .slice(from + 2, end)
-      .split(';')
-      .filter((p) => p !== '')
-      .map((p) => Number(p));
-    return { end, params, seq: src.slice(from, end + 1) };
-  };
-
-  const isTipChar = (ch) => ch === SEGMENT_TIP || ch === '\u25B6';
-
-  /** True if upcoming codes are only fg/style then an existing tip glyph. */
-  const tipAhead = (from) => {
-    let j = from;
-    while (j < src.length) {
-      const sgr = readSgr(j);
-      if (sgr) {
-        if (sgr.params.some((p) => p === 0 || isBgCode(p))) return false;
-        j = sgr.end + 1;
-        continue;
-      }
-      return isTipChar(src[j]);
-    }
     return false;
-  };
-
-  const writeTip = (fromBg, toBg) => {
-    const prevFg = BG_TO_FG[fromBg];
-    if (prevFg == null) return;
-    if (toBg != null) {
-      out += `\x1b[${toBg};${prevFg}m${SEGMENT_TIP}`;
-    } else {
-      out += `\x1b[0;${prevFg}m${SEGMENT_TIP}\x1b[0m`;
-    }
-  };
-
-  while (i < src.length) {
-    const sgr = readSgr(i);
-    if (!sgr) {
-      out += src[i];
-      i += 1;
-      continue;
-    }
-
-    let nextBg = currentBg;
-    let sawReset = false;
-    let sawBg = false;
-    for (const p of sgr.params) {
-      if (p === 0) {
-        sawReset = true;
-        nextBg = null;
-      } else if (isBgCode(p)) {
-        sawBg = true;
-        nextBg = p;
-      }
-    }
-
-    if (currentBg != null && nextBg !== currentBg && (sawReset || sawBg)) {
-      if (!tipAhead(sgr.end + 1)) {
-        writeTip(currentBg, nextBg);
-      }
-      // Skip emitting a bare reset that only existed to close a bg segment;
-      // writeTip already reset when ending the prompt.
-      if (sawReset && nextBg == null && sgr.params.every((p) => p === 0)) {
-        currentBg = null;
-        i = sgr.end + 1;
-        continue;
-      }
-    }
-
-    out += sgr.seq;
-    currentBg = nextBg;
-    i = sgr.end + 1;
   }
-
-  if (currentBg != null) {
-    writeTip(currentBg, null);
-  }
-
-  return out;
 }
 
-/** Map fancy OMZ glyphs to ASCII so common terminal fonts render them. */
-function asciiSafePromptGlyphs(text) {
-  return String(text ?? '')
-    .replace(/➜/g, '>')
-    .replace(/➤/g, '>')
-    .replace(/→/g, '>')
-    .replace(/»/g, '>')
-    .replace(/λ/g, '>')
-    .replace(/✗/g, 'x')
-    .replace(/✓/g, '*')
-    .replace(/☁/g, '~')
-    .replace(/╭─/g, '+--')
-    .replace(/╰─/g, '+--')
-    .replace(/╭/g, '+')
-    .replace(/╰/g, '+');
-}
-
-function renderPrompt(template, ctx = {}) {
-  const now = new Date();
+/**
+ * The state a prompt is rendered against (see prompt-core renderPrompt).
+ * ctx: { cwd, user, host, shell, rc, ms, ssh, gitMode }
+ */
+function promptState(ctx = {}) {
   const cwd = ctx.cwd || process.cwd();
-  const gitMode = normalizePromptGitMode(ctx.gitMode);
-  const git = gitTokens(cwd, gitMode);
-  const values = {
+  const state = {
+    cwd,
+    home: os.homedir(),
+    git: gitStatus(cwd),
     user: ctx.user || os.userInfo().username || 'user',
     host: ctx.host || os.hostname(),
-    cwd,
-    'cwd:short': shortCwd(cwd),
-    'cwd:tail': cwdTail(cwd),
-    time: now.toLocaleTimeString(),
-    date: now.toLocaleDateString(),
     shell: ctx.shell || 'MyShell',
-    remote: ctx.remote ? 'remote' : 'local',
-    ...COLORS,
-    ...git,
+    platform: process.platform,
+    rc: Number(ctx.rc) || 0,
+    ms: Number(ctx.ms) || 0,
+    now: new Date(),
+    root: isRoot(),
+    ssh: !!ctx.ssh,
   };
-
-  let source = asciiSafePromptGlyphs(template || DEFAULT_PROMPT);
-  const hasGitToken = /\{git(?::[a-zA-Z0-9_-]+)?\}/.test(source);
-  let out = source.replace(/\{([a-zA-Z0-9:_-]+)\}/g, (match, key) => {
-    if (Object.prototype.hasOwnProperty.call(values, key)) {
-      return String(values[key]);
-    }
-    return match;
-  });
-
-  // If git display is enabled but the template has no git token, append status.
-  if (gitMode !== 'off' && !hasGitToken && values['git:info']) {
-    out = out.replace(/(\s*)$/, `${values['git:info']}$1`);
-  }
-
-  // Allow literal escape sequences in custom templates: \n \r \e[
-  out = out
-    .replace(/\\n/g, '\n')
-    .replace(/\\r/g, '\r')
-    .replace(/\\e/g, '\x1b')
-    .replace(/\\033/g, '\x1b');
-
-  // Any background-painted segment ends with a powerline triangle tip.
-  return applyPowerlineEnds(out, ctx.endTipBg);
-}
-
-/** Resolve a preset id from a template string (exact match after ASCII normalize). */
-function findPromptPresetId(template, presets = PROMPT_PRESETS) {
-  const normalized = asciiSafePromptGlyphs(template || '');
-  for (const [id, preset] of Object.entries(presets || {})) {
-    if (asciiSafePromptGlyphs(preset?.template) === normalized) return id;
-  }
-  return '';
-}
-
-/** Built-in preset template, or '' if id is unknown/custom. */
-function builtinPresetTemplate(presetId) {
-  const preset = PROMPT_PRESETS[presetId];
-  return preset?.template ? String(preset.template) : '';
+  return core.applyGitMode(state, ctx.gitMode);
 }
 
 /**
- * When a known built-in preset is selected, always use the current built-in
- * template so theme fixes ship on upgrade without stale settings.json text.
+ * Render a prompt config to ANSI text for the terminal.
+ * ctx: { cwd, user, host, shell, rc, ms, gitMode, theme: { accent, fg, bg } }
  */
-function syncBuiltinPromptTemplate(presetId, currentTemplate) {
-  const builtin = builtinPresetTemplate(presetId);
-  return builtin || currentTemplate;
+function renderPrompt(config, ctx = {}) {
+  return core.renderPromptAnsi(config, promptState(ctx), ctx.theme);
 }
 
 module.exports = {
-  COLORS,
-  DEFAULT_PROMPT,
-  DEFAULT_PROMPT_GIT_MODE,
-  PROMPT_GIT_MODES,
-  PROMPT_PRESETS,
-  normalizePromptGitMode,
-  asciiSafePromptGlyphs,
-  findPromptPresetId,
-  builtinPresetTemplate,
-  syncBuiltinPromptTemplate,
-  renderPrompt,
-  shortCwd,
-  cwdTail,
+  ...core,
+  gitStatus,
+  gitStatusSync,
+  refreshGitStatus,
+  onGitStatus,
+  parseGitStatus,
   readGitBranch,
-  gitTokens,
+  promptState,
+  renderPrompt,
 };

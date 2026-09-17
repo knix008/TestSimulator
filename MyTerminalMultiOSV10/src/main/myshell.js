@@ -4,11 +4,17 @@ const path = require('path');
 const { spawn, execFileSync } = require('child_process');
 const { TextDecoder } = require('util');
 const {
-  DEFAULT_PROMPT,
+  PRESETS,
+  PROMPT_DEFAULT,
   DEFAULT_PROMPT_GIT_MODE,
+  normalizePrompt,
   normalizePromptGitMode,
-  asciiSafePromptGlyphs,
+  presetConfig,
   renderPrompt,
+  renderPromptAnsi,
+  renderPromptText,
+  promptState,
+  onGitStatus,
 } = require('./prompt');
 const {
   rememberWorkingDirectory,
@@ -22,6 +28,7 @@ const {
   normalizeLsColors,
   colorizeLsName,
 } = require('./ls-colors');
+const { resolveShell, buildShellSpawn, shortName } = require('./shells');
 
 const VERSION = '1.0.0';
 const AUTHOR = 'SHKWON <knix008@naver.com>';
@@ -419,37 +426,64 @@ class MyShell {
     this.escape = '';
     this.atLineStart = true;
     this.completionKey = '';
-    this.promptTemplate = asciiSafePromptGlyphs(
-      options.promptTemplate || DEFAULT_PROMPT
-    );
+    /** Prompt theme (segments; see ../shared/prompt-core.js). */
+    this.promptConfig = normalizePrompt(options.promptConfig || PROMPT_DEFAULT);
     this.promptGitMode = normalizePromptGitMode(
       options.promptGitMode || DEFAULT_PROMPT_GIT_MODE
     );
+    /** Theme colours the prompt's accent / foreground / background refer to. */
+    this.promptTheme = options.promptTheme || null;
     this.promptContext = {
       user: os.userInfo().username,
       host: os.hostname(),
-      shell: 'MyShell',
-      remote: false,
       ...(options.promptContext || {}),
     };
+    /** Exit code and duration of the last command line (status / executiontime segments). */
+    this.lastExitCode = 0;
+    this.lastDurationMs = 0;
     this.lsColors = normalizeLsColors({
       directory: options.lsDirectoryColor || DEFAULT_LS_DIRECTORY_COLOR,
       file: options.lsFileColor || DEFAULT_LS_FILE_COLOR,
     });
-    this.endTipBg =
-      typeof options.endTipBg === 'string' && options.endTipBg
-        ? options.endTipBg
-        : '#1E1E1E';
+    /** Command shell that interprets non-built-in lines (see ./shells.js). */
+    this.shell = options.shell && options.shell.path ? options.shell : resolveShell({});
   }
 
-  setPromptTemplate(template) {
-    if (typeof template === 'string' && template.length) {
-      this.promptTemplate = asciiSafePromptGlyphs(template);
-    }
+  /** Switch the command shell; applies to the next command line. */
+  setShell(shell) {
+    if (shell && shell.path) this.shell = shell;
+  }
+
+  setPromptConfig(config) {
+    if (config && typeof config === 'object') this.promptConfig = normalizePrompt(config);
   }
 
   setPromptGitMode(mode) {
     this.promptGitMode = normalizePromptGitMode(mode);
+  }
+
+  setPromptTheme(theme) {
+    if (theme && typeof theme === 'object') this.promptTheme = { ...theme };
+  }
+
+  /** Short shell name for the prompt's shell segment (cmd, pwsh, bash …). */
+  shellName() {
+    const sh = this.shell || {};
+    if (sh.id === 'gitbash') return 'bash';
+    return shortName(sh).toLowerCase();
+  }
+
+  /** Everything the prompt is rendered against (see prompt-core renderPrompt). */
+  promptRenderContext() {
+    return {
+      ...this.promptContext,
+      cwd: this.cwd,
+      shell: this.shellName(),
+      rc: this.lastExitCode,
+      ms: this.lastDurationMs,
+      gitMode: this.promptGitMode,
+      theme: this.promptTheme || undefined,
+    };
   }
 
   setLsColors(colors = {}) {
@@ -469,11 +503,6 @@ class MyShell {
     this.writeln(`\x1b[90m${this.cwd}\x1b[0m`);
     this.prompt();
     return this.cwd;
-  }
-
-  setEndTipBg(hex) {
-    // Empty string clears the tip bg (wallpaper mode → segment-colored tip cell).
-    if (typeof hex === 'string') this.endTipBg = hex.trim();
   }
 
   formatLsEntry(name, isDirectory, { trailingSlash = false } = {}) {
@@ -517,14 +546,54 @@ class MyShell {
 
   prompt() {
     this.ensureNewline();
-    const text = renderPrompt(this.promptTemplate, {
-      ...this.promptContext,
-      cwd: this.cwd,
-      gitMode: this.promptGitMode,
-      endTipBg: this.endTipBg,
-    });
+    this.writePrompt();
+  }
+
+  /** Render + write the prompt; remembers it so a late git status can redraw it in place. */
+  writePrompt() {
+    let text;
+    let pending = false;
+    try {
+      const state = promptState(this.promptRenderContext());
+      pending = !!(state.git && state.git.pending);
+      text = renderPromptAnsi(this.promptConfig, state, this.promptTheme || undefined);
+    } catch (err) {
+      text = `${this.cwd}> `;
+    }
+    this.lastPrompt = { text, lines: text.split('\n').length, cwd: this.cwd };
     this.sendRaw(toTerminalText(text));
     this.atLineStart = false;
+    if (pending) this.armPromptRefresh();
+  }
+
+  /**
+   * The git status for this prompt is still being computed: when it lands,
+   * redraw the prompt (and whatever was typed so far) in place — only while
+   * the shell is still idle at that prompt.
+   */
+  armPromptRefresh() {
+    if (this.gitUnsub) return;
+    const wanted = path.resolve(this.cwd);
+    this.gitUnsub = onGitStatus((dir, status) => {
+      if (dir !== wanted) return;
+      this.gitUnsub?.();
+      this.gitUnsub = null;
+      if (!this.alive || this.busy || path.resolve(this.cwd) !== wanted || !this.lastPrompt) return;
+      if (!status || !status.repo) return; // nothing to add to the prompt
+      let text;
+      try {
+        text = renderPromptAnsi(this.promptConfig, promptState(this.promptRenderContext()), this.promptTheme || undefined);
+      } catch (_) {
+        return;
+      }
+      if (text === this.lastPrompt.text) return;
+      // Back to the start of the prompt, clear to the end of the screen, redraw prompt + typed text.
+      const up = this.lastPrompt.lines - 1;
+      this.sendRaw(`\r${up > 0 ? `\x1b[${up}A` : ''}\x1b[J`);
+      this.lastPrompt = { text, lines: text.split('\n').length, cwd: this.cwd };
+      this.sendRaw(toTerminalText(text) + this.lineBuffer);
+      this.atLineStart = false;
+    });
   }
 
   start() {
@@ -543,6 +612,8 @@ class MyShell {
 
   kill() {
     this.alive = false;
+    this.gitUnsub?.();
+    this.gitUnsub = null;
     this.killChild();
   }
 
@@ -550,9 +621,28 @@ class MyShell {
     if (!this.child) return;
     try {
       if (process.platform === 'win32') {
-        spawn('taskkill', ['/pid', String(this.child.pid), '/f', '/t'], { windowsHide: true });
+        // Synchronous, whole tree: a still-running grandchild (ping, a build …)
+        // inherits our stdout handle and would keep `npm start`'s terminal
+        // waiting after the app has quit.
+        try {
+          execFileSync('taskkill', ['/pid', String(this.child.pid), '/f', '/t'], {
+            windowsHide: true,
+            timeout: 3000,
+            stdio: 'ignore',
+          });
+        } catch (_) {
+          /* already gone */
+        }
       } else {
         this.child.kill('SIGTERM');
+        const child = this.child;
+        setTimeout(() => {
+          try {
+            child.kill('SIGKILL');
+          } catch (_) {
+            /* ignore */
+          }
+        }, 500).unref?.();
       }
     } catch (_) {
       /* ignore */
@@ -884,12 +974,17 @@ class MyShell {
     const cmd = (tokens[0] || '').toLowerCase();
     const args = tokens.slice(1);
 
+    // Built-ins succeed unless they throw; cmdRun records the child's exit code.
+    const startedAt = Date.now();
+    this.lastExitCode = 0;
     let prompted = false;
     try {
       prompted = (await this.dispatch(cmd, args, trimmed)) === true;
     } catch (err) {
+      this.lastExitCode = 1;
       this.writeln(`\x1b[31merror:\x1b[0m ${err.message || err}`);
     }
+    this.lastDurationMs = Date.now() - startedAt;
 
     if (this.alive && !this.busy && !prompted) this.prompt();
   }
@@ -975,6 +1070,7 @@ class MyShell {
         this.writeln(`MyTerminal Shell v${VERSION}`);
         this.writeln(`Author: ${AUTHOR}`);
         this.writeln('A built-in cross-platform shell (not a wrapper around cmd/bash).');
+        this.writeln(`Command shell: ${this.shell.label} (${this.shell.path})`);
         break;
       case 'prompt':
         this.cmdPrompt(args);
@@ -994,8 +1090,9 @@ class MyShell {
         await this.cmdRun(args);
         break;
       default:
-        // Fall through to PATH / local executables (no `run` prefix required).
-        await this.cmdRun([cmd, ...args]);
+        // Fall through to the command shell (cmd / PowerShell / bash ...) with
+        // the line exactly as typed (no `run` prefix required).
+        await this.cmdRun([cmd, ...args], raw);
         break;
     }
   }
@@ -1024,7 +1121,7 @@ class MyShell {
       '  which, where <name>  Locate executable',
       '  open, start <path>   Open file/folder',
       '  about                About this shell',
-      '  prompt [show|set|reset]  View/change prompt template',
+      '  prompt [show|list|set <preset>|reset]  View/change the prompt theme',
       '  run, exec <cmd...>   Explicit external run (optional; bare names also work)',
       '  exit, quit           End session',
       '',
@@ -1039,27 +1136,39 @@ class MyShell {
   cmdPrompt(args) {
     const sub = (args[0] || 'show').toLowerCase();
     if (sub === 'show' || sub === 'get') {
-      this.writeln(this.promptTemplate);
+      const id = this.promptConfig.preset || '(custom)';
+      this.writeln(`preset: ${id}`);
+      this.writeln(renderPromptText(this.promptConfig, promptState(this.promptRenderContext())));
+      return;
+    }
+    if (sub === 'list') {
+      Object.entries(PRESETS).forEach(([id, p]) => this.writeln(`  ${pad(id, 14)} ${p.labelEn}`));
       return;
     }
     if (sub === 'reset') {
-      this.setPromptTemplate(DEFAULT_PROMPT);
+      this.setPromptConfig(PROMPT_DEFAULT);
       this.writeln('prompt reset to default');
       return;
     }
     if (sub === 'set') {
-      const template = args.slice(1).join(' ');
-      if (!template) {
-        this.writeln('usage: prompt set <template>');
+      const id = String(args[1] || '').toLowerCase();
+      const next = presetConfig(id);
+      if (!next) {
+        this.writeln('usage: prompt set <preset>   (see: prompt list)');
         return;
       }
-      this.setPromptTemplate(unescapeShellText(template));
-      this.writeln('prompt updated');
+      this.setPromptConfig(next);
+      this.writeln(`prompt preset: ${id}`);
       return;
     }
-    // Treat whole args as template: prompt {user}@{host}$
-    this.setPromptTemplate(unescapeShellText(args.join(' ')));
-    this.writeln('prompt updated');
+    // Treat the argument as a preset id: prompt agnoster
+    const next = presetConfig(sub);
+    if (next) {
+      this.setPromptConfig(next);
+      this.writeln(`prompt preset: ${sub}`);
+    } else {
+      this.writeln('usage: prompt [show|list|set <preset>|reset]');
+    }
   }
 
   cmdCd(target) {
@@ -1170,6 +1279,20 @@ class MyShell {
     let fileCount = 0;
     let dirCount = 0;
     let totalBytes = 0;
+    const withCommas = (n) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    // Unix style: the size column sits right before the name, right-aligned to
+    // the widest size in this listing.
+    let sizeWidth = 5;
+    if (!windowsStyle) {
+      entries.forEach((ent) => {
+        try {
+          const st = ent.stat || fs.statSync(ent.fullPath || path.join(target, ent.name));
+          if (!st.isDirectory()) sizeWidth = Math.max(sizeWidth, withCommas(st.size || 0).length);
+        } catch (_) {
+          /* ignore */
+        }
+      });
+    }
 
     entries.forEach((ent) => {
       const full = ent.fullPath || path.join(target, ent.name);
@@ -1189,21 +1312,17 @@ class MyShell {
         if (windowsStyle) {
           this.writeln(`${date}    <DIR>          ${name}`);
         } else {
-          this.writeln(
-            `drwxr-xr-x  1 ${pad(formatSize(0), 10)} ${date} ${name}`
-          );
+          this.writeln(`drwxr-xr-x  1 ${date} ${padLeft('<DIR>', sizeWidth)} ${name}`);
         }
       } else {
         fileCount += 1;
         totalBytes += stat.size || 0;
-        const sizeStr = String(stat.size || 0).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+        const sizeStr = withCommas(stat.size || 0);
         const name = this.formatLsEntry(ent.name, false);
         if (windowsStyle) {
           this.writeln(`${date} ${padLeft(sizeStr, 16)} ${name}`);
         } else {
-          this.writeln(
-            `-rw-r--r--  1 ${pad(formatSize(stat.size || 0), 10)} ${date} ${name}`
-          );
+          this.writeln(`-rw-r--r--  1 ${date} ${padLeft(sizeStr, sizeWidth)} ${name}`);
         }
       }
     });
@@ -1387,11 +1506,11 @@ class MyShell {
     this.writeln('Use: recent <n> | recent cd <n> | recent open <n>');
   }
 
-  cmdRun(args) {
+  cmdRun(args, raw = '') {
     return new Promise((resolve) => {
       this.busy = true;
-      // Launch a system program (also used for unknown built-in names).
-      // Re-quote each token so paths with spaces survive shell:true.
+      // Launch a system program (also used for unknown built-in names) through
+      // the configured command shell.
       let program = args[0];
       const rest = args.slice(1);
       const looksLikePath = /[\\/]/.test(program) || /^[A-Za-z]:/.test(program);
@@ -1402,10 +1521,15 @@ class MyShell {
         if (fs.existsSync(local) && fs.statSync(local).isFile()) program = local;
       }
       const cmdline = [program, ...rest].map(quoteForShell).join(' ');
-      const child = spawn(cmdline, {
+      // cmd.exe gets the re-quoted tokens (paths with spaces survive, `.\prog`
+      // resolves against cwd); every other shell gets the line as typed so its
+      // own quoting / expansion rules apply.
+      const line = this.shell.kind === 'cmd' || !raw ? cmdline : raw;
+      const { file, args: shellArgs, options } = buildShellSpawn(this.shell, line);
+      const child = spawn(file, shellArgs, {
+        ...options,
         cwd: this.cwd,
         env: childProcessEnv(this.env),
-        shell: true,
         windowsHide: true,
       });
       this.child = child;
@@ -1422,7 +1546,14 @@ class MyShell {
       child.on('error', (err) => {
         flush(outDec);
         flush(errDec);
+        this.lastExitCode = 127;
         this.writeln(`\x1b[31mfailed:\x1b[0m ${err.message}`);
+        // The shell program itself could not be started (missing / not executable): show the details.
+        this.emit('app:error', {
+          message: `${this.shell.label}: ${err.message}`,
+          details: `[shell: ${this.shell.path}]\n${line}\n\n${err.stack || err.message}${err.code ? `\ncode: ${err.code}` : ''}`,
+          context: 'shell',
+        });
         this.busy = false;
         this.child = null;
         resolve();
@@ -1431,6 +1562,7 @@ class MyShell {
         flush(outDec);
         flush(errDec);
         this.ensureNewline();
+        this.lastExitCode = Number(code) || 0;
         if (code) this.writeln(`\x1b[90m[exit ${code}]\x1b[0m`);
         this.busy = false;
         this.child = null;

@@ -1,3 +1,4 @@
+import { renderPromptAnsi, applyGitMode, promptThemeFrom } from '../../shared/prompt-core.js';
 import { colorizeLsName, normalizeLsColors } from './ls-colors.js';
 
 const WEB_BUILTINS = [
@@ -42,7 +43,7 @@ function longestCommonPrefix(items) {
  * Browser-side built-in shell (virtual FS), mirroring MyShell branding/commands.
  */
 export class WebShell {
-  constructor({ onData, onExit, promptTemplate, lsColors }) {
+  constructor({ onData, onExit, getPromptConfig, getPromptGitMode, getTheme, lsColors }) {
     this.onData = onData;
     this.onExit = onExit;
     this.cwd = '/home/user';
@@ -52,8 +53,11 @@ export class WebShell {
     this.historyIndex = -1;
     this.escape = '';
     this.completionKey = '';
-    this.promptTemplate =
-      promptTemplate || '{cyan}myterm{reset}:{yellow}{cwd:short}{reset}> ';
+    this.getPromptConfig = getPromptConfig || (() => null);
+    this.getPromptGitMode = getPromptGitMode || (() => 'status');
+    this.getTheme = getTheme || (() => null);
+    this.lastExitCode = 0;
+    this.lastDurationMs = 0;
     this.lsColors = normalizeLsColors(lsColors || {});
     this.fs = {
       '/home/user': { type: 'dir' },
@@ -101,42 +105,29 @@ export class WebShell {
   }
 
   prompt() {
-    const colors = {
-      reset: '\x1b[0m',
-      bold: '\x1b[1m',
-      dim: '\x1b[2m',
-      red: '\x1b[31m',
-      green: '\x1b[32m',
-      yellow: '\x1b[33m',
-      blue: '\x1b[34m',
-      magenta: '\x1b[35m',
-      cyan: '\x1b[36m',
-      white: '\x1b[37m',
-      black: '\x1b[30m',
-      bg_blue: '\x1b[44m',
-      bg_yellow: '\x1b[43m',
-      bg_magenta: '\x1b[45m',
-    };
-    const short = this.cwd.replace(/^\/home\/user/, '~');
-    const tail = this.cwd === '/home/user' ? '~' : this.cwd.split('/').filter(Boolean).pop() || short;
-    const values = {
-      user: 'webuser',
-      host: 'web',
-      cwd: this.cwd,
-      'cwd:short': short,
-      'cwd:tail': tail,
-      'git:branch': '',
-      'git:info': '',
-      'git:segment': '',
-      time: new Date().toLocaleTimeString(),
-      date: new Date().toLocaleDateString(),
-      shell: 'MyShell',
-      remote: 'local',
-      ...colors,
-    };
-    const text = String(this.promptTemplate).replace(/\{([a-zA-Z0-9:_-]+)\}/g, (m, key) =>
-      Object.prototype.hasOwnProperty.call(values, key) ? String(values[key]) : m
+    // The virtual file system has no repository → the git segment stays hidden.
+    const state = applyGitMode(
+      {
+        cwd: this.cwd,
+        home: '/home/user',
+        git: { repo: false },
+        user: 'webuser',
+        host: 'web',
+        shell: 'MyShell',
+        platform: 'linux',
+        rc: this.lastExitCode,
+        ms: this.lastDurationMs,
+        now: new Date(),
+        root: false,
+      },
+      this.getPromptGitMode()
     );
+    let text;
+    try {
+      text = renderPromptAnsi(this.getPromptConfig(), state, promptThemeFrom(this.getTheme()));
+    } catch (_) {
+      text = `${this.cwd}> `;
+    }
     this.onData(this.toTerminalText(text));
   }
 
@@ -330,6 +321,8 @@ export class WebShell {
 
     const [cmd, ...args] = trimmed.split(/\s+/);
     const rest = trimmed.slice(cmd.length).trim();
+    const startedAt = Date.now();
+    this.lastExitCode = 0;
 
     switch (cmd.toLowerCase()) {
       case 'help':
@@ -421,10 +414,12 @@ export class WebShell {
         this.writeLine('run/exec is available in the desktop app only.');
         break;
       default:
+        this.lastExitCode = 127;
         this.writeLine(`unknown command: ${cmd}`);
         this.writeLine('Type help for built-in commands.');
     }
 
+    this.lastDurationMs = Date.now() - startedAt;
     if (this.alive) this.prompt();
   }
 }

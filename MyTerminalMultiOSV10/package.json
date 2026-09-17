@@ -11,6 +11,8 @@
   "scripts": {
     "prestart": "node scripts/patch-xterm-powerline-aa.js && node scripts/build-renderer.js",
     "start": "electron .",
+    "test": "node --test test/*.test.mjs",
+    "smoke": "electron scripts/smoke-settings.js",
     "build:renderer": "node scripts/build-renderer.js",
     "patch:xterm": "node scripts/patch-xterm-powerline-aa.js",
     "icons": "node scripts/prepare-icons.js",

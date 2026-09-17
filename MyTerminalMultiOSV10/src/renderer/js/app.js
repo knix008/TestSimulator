@@ -7,6 +7,9 @@ import {
   defaultCustomFrom,
   getThemeList,
   clampTransparency,
+  themeOverridesFrom,
+  normalizeThemeOverrides,
+  ensureContrast,
 } from './themes.js';
 import { SessionManager } from './session-manager.js';
 import {
@@ -14,12 +17,18 @@ import {
   DEFAULT_LS_FILE_COLOR,
   normalizeLsColors,
 } from './ls-colors.js';
+import { openAboutModal, openSettingsModal, openSshModal } from './modals.js';
+import { SETTINGS_TABS, normalizeSshProfiles, normalizeTerminalProfiles } from './settings-view.js';
+import { configureErrorDialog, reportError, installGlobalErrorHandlers } from './error-dialog.js';
 import {
-  openAboutModal,
-  openSettingsModal,
-  openPromptModal,
-  openSshModal,
-} from './modals.js';
+  DEFAULT_PROMPT_GIT_MODE,
+  normalizePromptGitMode,
+  normalizePrompt,
+  resolvePromptFromSettings,
+  customPromptsAsPresets,
+  normalizeCustomPrompts,
+  promptThemeFrom,
+} from '../../shared/prompt-core.js';
 import { FONTS, DEFAULT_FONT_ID, getFontById } from './fonts.js';
 import {
   BG_FIT_MODES,
@@ -28,40 +37,16 @@ import {
   normalizeBgFit,
 } from './background-fit.js';
 
-const DEFAULT_PROMPT = '{cyan}myterm{reset}:{yellow}{cwd:short}{reset}> ';
 const DEFAULT_SCROLLBACK = 10000;
-const DEFAULT_PROMPT_GIT_MODE = 'status';
+const DEFAULT_FONT_SIZE = 13;
+const DEFAULT_TERM_COLS = 120;
+const DEFAULT_TERM_ROWS = 25;
 
-function normalizePromptGitMode(mode) {
-  const value = String(mode || '').toLowerCase();
-  return value === 'off' || value === 'branch' || value === 'status'
-    ? value
-    : DEFAULT_PROMPT_GIT_MODE;
-}
-
-/** Keep saved Oh My glyphs readable on common terminal fonts. */
-function asciiSafePromptGlyphs(text) {
-  return String(text ?? '')
-    .replace(/➜/g, '>')
-    .replace(/➤/g, '>')
-    .replace(/→/g, '>')
-    .replace(/»/g, '>')
-    .replace(/λ/g, '>')
-    .replace(/✗/g, 'x')
-    .replace(/✓/g, '*')
-    .replace(/☁/g, '~')
-    .replace(/╭─/g, '+--')
-    .replace(/╰─/g, '+--')
-    .replace(/╭/g, '+')
-    .replace(/╰/g, '+');
-}
-
-function findPromptPresetId(template, presets) {
-  const normalized = asciiSafePromptGlyphs(template || '');
-  for (const [id, preset] of Object.entries(presets || {})) {
-    if (asciiSafePromptGlyphs(preset?.template) === normalized) return id;
-  }
-  return '';
+function clampTermSize(cols, rows) {
+  return {
+    cols: Math.max(20, Math.min(500, Number.parseInt(cols, 10) || DEFAULT_TERM_COLS)),
+    rows: Math.max(5, Math.min(200, Number.parseInt(rows, 10) || DEFAULT_TERM_ROWS)),
+  };
 }
 
 function clampScrollback(value) {
@@ -111,9 +96,12 @@ const api = window.myTerminal || {
 const state = {
   themes: null,
   themeId: 'dark',
+  /** Effective colours of the current theme (theme + its overrides) — for popups / prompt. */
   custom: null,
+  /** Per-theme user colour overrides: { [themeId]: { background, accent, … } }. */
+  themeOverrides: {},
   lang: 'en',
-  fontSize: 14,
+  fontSize: DEFAULT_FONT_SIZE,
   fontId: DEFAULT_FONT_ID,
   scrollback: DEFAULT_SCROLLBACK,
   startDirectory: '',
@@ -127,15 +115,30 @@ const state = {
   backgroundLibrary: [],
   backgroundImageDir: '',
   backgroundFit: DEFAULT_BG_FIT,
-  promptTemplate: DEFAULT_PROMPT,
   promptGitMode: DEFAULT_PROMPT_GIT_MODE,
   /** Last non-off mode so the toolbar toggle can restore it. */
   promptGitModeOn: DEFAULT_PROMPT_GIT_MODE,
   promptPresetId: 'default',
+  /** Prompt theme (segments; see shared/prompt-core.js). */
+  promptConfig: null,
+  /** User-saved prompts: [{ id, label, config }]. */
+  customPrompts: [],
+  /** Command shell (settings › general); '' = platform default. */
+  shellId: '',
+  shellCustomPath: '',
+  /** Shells detected by main (Electron only). */
+  shells: [],
+  shellDefaultId: '',
   lsDirectoryColor: DEFAULT_LS_DIRECTORY_COLOR,
   lsFileColor: DEFAULT_LS_FILE_COLOR,
   ssh: null,
-  promptPresets: null,
+  /** Saved SSH hosts (settings › SSH): [{ id, name, host, port, username, privateKey }]. */
+  sshProfiles: [],
+  /** Terminal profiles (settings › terminal): [{ id, name, cols, rows, fontId, fontSize, scrollback, shellId }]. */
+  terminalProfiles: [],
+  /** Default terminal size (columns × rows) the window is fitted to on first launch. */
+  termCols: DEFAULT_TERM_COLS,
+  termRows: DEFAULT_TERM_ROWS,
 };
 
 const i18n = new I18n();
@@ -143,15 +146,26 @@ const i18n = new I18n();
 let sessions = null;
 
 function currentTheme() {
-  return resolveTheme(state.themes, state.themeId, state.custom);
+  return resolveTheme(state.themes, state.themeId, state.themeOverrides?.[state.themeId]);
 }
 
-/** Opaque tip bg when the terminal canvas is solid; empty with wallpaper. */
-function promptEndTipBg() {
-  const showWallpaper =
-    !!state.backgroundImage && state.backgroundFit !== 'none';
-  if (showWallpaper) return '';
-  return currentTheme().background || '#1E1E1E';
+/** Keep `state.custom` (effective colours) in step with the theme + overrides. */
+function syncCustomColors() {
+  state.custom = defaultCustomFrom(currentTheme());
+}
+
+/**
+ * Colour change for the current theme (colours tab, text-colour button):
+ * only the keys that differ from the theme's own colours are kept as its
+ * overrides; other themes, prompts and wallpapers are untouched.
+ */
+function setThemeColors(colors) {
+  const base = state.themes?.[state.themeId];
+  if (!base) return;
+  const next = themeOverridesFrom({ ...defaultCustomFrom(base), ...(colors || {}) }, base);
+  if (Object.keys(next).length) state.themeOverrides[state.themeId] = next;
+  else delete state.themeOverrides[state.themeId];
+  syncCustomColors();
 }
 
 function activePane() {
@@ -163,6 +177,7 @@ async function persist() {
   const payload = {
     themeId: state.themeId,
     custom: state.custom,
+    themeOverrides: state.themeOverrides,
     lang: state.lang,
     fontSize: state.fontSize,
     fontId: state.fontId,
@@ -174,15 +189,21 @@ async function persist() {
     bgImageTransparency: state.bgImageTransparency,
     backgroundImageDir: state.backgroundImageDir || '',
     backgroundFit: state.backgroundFit,
-    promptTemplate: state.promptTemplate,
     promptGitMode: state.promptGitMode,
     promptGitModeOn: state.promptGitModeOn || DEFAULT_PROMPT_GIT_MODE,
     promptPresetId: state.promptPresetId || '',
+    promptConfig: state.promptConfig,
+    // Colours the prompt's accent / foreground / background specs refer to.
+    promptTheme: promptThemeFrom(currentTheme()),
+    customPrompts: state.customPrompts,
+    shellId: state.shellId || '',
+    shellCustomPath: state.shellCustomPath || '',
     lsDirectoryColor: state.lsDirectoryColor,
     lsFileColor: state.lsFileColor,
-    // Solid theme bg for end tips when there is no wallpaper; empty with wallpaper
-    // so red/magenta tips keep segment bg (full height, no contrast-tip AA fringe).
-    promptEndTipBg: promptEndTipBg(),
+    sshProfiles: state.sshProfiles,
+    terminalProfiles: state.terminalProfiles,
+    termCols: state.termCols,
+    termRows: state.termRows,
     ssh: state.ssh
       ? {
           host: state.ssh.host,
@@ -333,16 +354,57 @@ async function applyPromptGitMode(mode) {
     state.promptGitModeOn = state.promptGitMode;
   }
   if (api.setPrompt) {
-    await api.setPrompt({
-      template: state.promptTemplate,
-      gitMode: state.promptGitMode,
-      presetId: state.promptPresetId,
-    });
+    await api.setPrompt({ gitMode: state.promptGitMode });
   }
   await persist();
   updateGitStatusButton();
+  settingsHost?.setGitMode?.(state.promptGitMode);
   const pane = activePane();
   if (pane && pane.mode !== 'ssh') pane.clear();
+}
+
+/** @type {{ setGitMode?: Function, showTab?: Function, onEvent?: Function, open?: boolean } | null} */
+let settingsHost = null;
+/** Open About / SSH popups by kind, so a second toolbar press brings the window to the front. */
+const popupHosts = { about: null, ssh: null };
+
+function focusOpenPopup(kind) {
+  const host = popupHosts[kind];
+  if (host?.open && host.focus) {
+    host.focus();
+    return true;
+  }
+  popupHosts[kind] = null;
+  return false;
+}
+let promptApplyTimer = null;
+
+/**
+ * Prompt change from the settings dialog: keep state, then (debounced) push
+ * the config to the shells and redraw the active prompt.
+ */
+function applyPromptChange({ config, gitMode, presetId, customPrompts }) {
+  const nextConfig = config ? normalizePrompt(config) : state.promptConfig;
+  const nextMode = normalizePromptGitMode(gitMode);
+  const changed =
+    JSON.stringify(nextConfig) !== JSON.stringify(state.promptConfig) || nextMode !== state.promptGitMode;
+  state.promptConfig = nextConfig;
+  state.promptGitMode = nextMode;
+  if (nextMode !== 'off') state.promptGitModeOn = nextMode;
+  state.promptPresetId = typeof presetId === 'string' ? presetId : '';
+  if (Array.isArray(customPrompts)) state.customPrompts = normalizeCustomPrompts(customPrompts);
+  if (!changed) return;
+  clearTimeout(promptApplyTimer);
+  promptApplyTimer = setTimeout(async () => {
+    if (api.setPrompt) {
+      await api.setPrompt({ config: state.promptConfig, gitMode: state.promptGitMode });
+    }
+    updateGitStatusButton();
+    const pane = activePane();
+    if (!pane || pane.mode === 'ssh') return;
+    // Redraw the prompt (Ctrl+L path: clears the screen and draws it again).
+    pane.clear();
+  }, 350);
 }
 
 function applyStatusBarVisibility() {
@@ -382,7 +444,8 @@ function updateStatusBar() {
   }
 
   const remote = pane.mode === 'ssh';
-  modeEl.textContent = remote ? i18n.t('settings.statusRemote') : i18n.t('settings.statusLocal');
+  const shellName = !remote && pane.shellInfo?.short ? ` · ${pane.shellInfo.short}` : '';
+  modeEl.textContent = (remote ? i18n.t('settings.statusRemote') : i18n.t('settings.statusLocal')) + shellName;
   sessionEl.textContent = pane.title || `${i18n.t('tabs.session')} ${pane.sessionId}`;
   fontEl.textContent = `${getFontById(state.fontId).label} ${pane.fontSize}px`;
   sizeEl.textContent = `${pane.term.cols}×${pane.term.rows}`;
@@ -400,6 +463,7 @@ function applyTheme() {
     getBgFitById(state.backgroundFit)
   );
   sessions?.applyTheme(theme);
+  sessions?.setLsColors?.(effectiveLsColors());
   updateBgFitUi();
   updateTextColorUi();
 }
@@ -433,9 +497,7 @@ function updateTextColorUi() {
 }
 
 function applyTextColor(color) {
-  if (!state.custom) state.custom = defaultCustomFrom(currentTheme());
-  state.custom = { ...state.custom, foreground: color };
-  state.themeId = 'custom';
+  setThemeColors({ foreground: color });
   applyTheme();
 }
 
@@ -505,18 +567,172 @@ function applyScrollback() {
   sessions?.setScrollback(state.scrollback);
 }
 
+/** Tab strip overflow: show ◀ ▶ on the right and enable them per scroll position. */
+function updateTabScrollButtons() {
+  const bar = document.getElementById('tab-bar');
+  const box = document.getElementById('tab-scroll');
+  if (!bar || !box) return;
+  const overflow = bar.scrollWidth > bar.clientWidth + 1;
+  box.hidden = !overflow;
+  if (!overflow) return;
+  const left = document.getElementById('tab-scroll-left');
+  const right = document.getElementById('tab-scroll-right');
+  if (left) left.disabled = bar.scrollLeft <= 0;
+  if (right) right.disabled = bar.scrollLeft + bar.clientWidth >= bar.scrollWidth - 1;
+}
+
+function bindTabScroll() {
+  const bar = document.getElementById('tab-bar');
+  if (!bar) return;
+  const step = () => Math.max(120, Math.round(bar.clientWidth * 0.6));
+  document.getElementById('tab-scroll-left')?.addEventListener('click', () => {
+    bar.scrollBy({ left: -step(), behavior: 'smooth' });
+  });
+  document.getElementById('tab-scroll-right')?.addEventListener('click', () => {
+    bar.scrollBy({ left: step(), behavior: 'smooth' });
+  });
+  bar.addEventListener('scroll', () => updateTabScrollButtons(), { passive: true });
+  // Mouse wheel over the strip scrolls it sideways.
+  bar.addEventListener(
+    'wheel',
+    (e) => {
+      if (bar.scrollWidth <= bar.clientWidth) return;
+      bar.scrollLeft += e.deltaY || e.deltaX;
+      e.preventDefault();
+    },
+    { passive: false }
+  );
+  if (typeof ResizeObserver === 'function') new ResizeObserver(() => updateTabScrollButtons()).observe(bar);
+  window.addEventListener('resize', () => updateTabScrollButtons());
+}
+
+/** The ls / dir colours, deepened when they would vanish on a light terminal background. */
+function effectiveLsColors() {
+  const bg = currentTheme().background || '#1e1e1e';
+  return {
+    directory: ensureContrast(state.lsDirectoryColor, bg, 4.5),
+    file: ensureContrast(state.lsFileColor, bg, 4.5),
+  };
+}
+
+/**
+ * Terminal profile → this window: font, size, scrollback, default shell, then
+ * the window is resized so the active terminal shows cols × rows.
+ */
+async function applyTerminalProfile(profile) {
+  const p = normalizeTerminalProfiles([profile])[0];
+  if (!p) return;
+  state.fontId = getFontById(p.fontId).id;
+  state.fontSize = p.fontSize;
+  state.scrollback = p.scrollback;
+  if (p.shellId) state.shellId = p.shellId;
+  sessions?.setFontSize(state.fontSize);
+  applyFont();
+  applyScrollback();
+  updateFontUi();
+  await persist();
+  await resizeTerminalTo(p.cols, p.rows);
+}
+
+/**
+ * Resize the window so the active terminal shows cols × rows. Grows / shrinks
+ * by whole cells over a few passes (a font change alters the cell size); the
+ * window's minimum width — the toolbar — can keep the terminal wider than asked.
+ */
+let resizeChain = Promise.resolve();
+async function resizeTerminalTo(cols, rows) {
+  // One resize at a time: a second request waits for the running one.
+  const run = resizeChain.then(() => resizeTerminalToNow(cols, rows)).catch(() => {});
+  resizeChain = run;
+  return run;
+}
+
+async function resizeTerminalToNow(cols, rows) {
+  const pane = activePane();
+  if (!pane || !api.resizeWindowBy) {
+    updateStatusBar();
+    return;
+  }
+  // Plain timers: requestAnimationFrame stalls while a dialog covers the window.
+  const settle = (ms) => new Promise((r) => setTimeout(r, ms));
+  /** Wait until the pane's pixel size actually changed (the window resize lands asynchronously). */
+  const waitForHostChange = async (before) => {
+    for (let i = 0; i < 10; i += 1) {
+      await settle(60);
+      const m = pane.cellMetrics();
+      if (m.hostWidth !== before.hostWidth || m.hostHeight !== before.hostHeight) return true;
+    }
+    return false;
+  };
+  let lastSize = '';
+  for (let pass = 0; pass < 8; pass += 1) {
+    await settle(120);
+    pane.fit();
+    const m = pane.cellMetrics();
+    if (!m.cellWidth || !m.cellHeight) break;
+    if (pane.term.cols === cols && pane.term.rows === rows) break;
+    const dw = Math.round((cols - pane.term.cols) * m.cellWidth);
+    const dh = Math.round((rows - pane.term.rows) * m.cellHeight);
+    if (!dw && !dh) break;
+    const res = await api.resizeWindowBy({ dw, dh });
+    // The window did not change (its minimum size — the toolbar width — is in the way): stop.
+    const size = res ? `${res.width}x${res.height}` : '';
+    if (size && size === lastSize) break;
+    lastSize = size;
+    if (!(await waitForHostChange(m))) break;
+  }
+  await settle(60);
+  pane.fit();
+  updateStatusBar();
+}
+
 function langLabel(lang = state.lang) {
   const id = lang === 'ko' ? 'ko' : 'en';
   return i18n.t(`language.${id}`, id.toUpperCase());
 }
 
+/** Toolbar language button: shows the current language's flag; a click switches to the next one. */
+const LANGS = ['ko', 'en'];
+/** Inline SVG flags (Windows has no flag emoji): 태극기 for Korean, the Union Jack for English. */
+const LANG_FLAGS = {
+  ko: `<svg viewBox="0 0 60 40" class="flag-ko">
+      <rect width="60" height="40" fill="#fff"/>
+      <g transform="translate(30 20) rotate(-33.7)">
+        <circle r="12" fill="#cd2e3a"/>
+        <path d="M-12 0a12 12 0 0 0 24 0a6 6 0 0 0-12 0a6 6 0 0 1-12 0z" fill="#0047a0"/>
+      </g>
+      <!-- trigrams as solid blocks: at icon size thin bars only blur -->
+      <g fill="#222">
+        <rect x="-6" y="-4" width="12" height="8" rx="1" transform="translate(12 8) rotate(-33.7)"/>
+        <rect x="-6" y="-4" width="12" height="8" rx="1" transform="translate(48 32) rotate(-33.7)"/>
+        <rect x="-6" y="-4" width="12" height="8" rx="1" transform="translate(48 8) rotate(33.7)"/>
+        <rect x="-6" y="-4" width="12" height="8" rx="1" transform="translate(12 32) rotate(33.7)"/>
+      </g>
+    </svg>`,
+  en: `<svg viewBox="0 0 60 30" class="flag-en">
+      <clipPath id="flag-en-clip"><rect width="60" height="30"/></clipPath>
+      <g clip-path="url(#flag-en-clip)">
+        <rect width="60" height="30" fill="#012169"/>
+        <path d="M0 0L60 30M60 0L0 30" stroke="#fff" stroke-width="6"/>
+        <path d="M0 0L60 30M60 0L0 30" stroke="#c8102e" stroke-width="2"/>
+        <path d="M30 0v30M0 15h60" stroke="#fff" stroke-width="10"/>
+        <path d="M30 0v30M0 15h60" stroke="#c8102e" stroke-width="6"/>
+      </g>
+    </svg>`,
+};
+
 function updateLangUi() {
   const btn = document.getElementById('btn-lang');
   if (btn) {
-    const tip = `${i18n.t('toolbar.language')}: ${langLabel()}`;
+    const tip = i18n.t('toolbar.languageToggle', 'Language: {name}').replace('{name}', langLabel());
     btn.removeAttribute('title');
     btn.setAttribute('aria-label', tip);
     btn.dataset.tooltip = tip;
+    btn.dataset.lang = state.lang;
+    // The flag shows the language a click switches TO: 태극기 while in English, the Union Jack while in Korean.
+    const next = LANGS[(LANGS.indexOf(state.lang) + 1) % LANGS.length];
+    const flag = document.getElementById('lang-flag');
+    if (flag) flag.innerHTML = LANG_FLAGS[next] || LANG_FLAGS.en;
   }
 }
 
@@ -526,10 +742,11 @@ async function applyLanguage(lang) {
   // Open dialogs keep old strings; close them so reopen uses the new language.
   const modalRoot = document.getElementById('modal-root');
   if (modalRoot) modalRoot.innerHTML = '';
-  // Refresh default local session titles that were baked in at create time.
+  // Refresh default local session titles that were baked in at create time
+  // (tabs opened with a specific shell keep that shell's name).
   if (sessions) {
     for (const pane of sessions.panes.values()) {
-      if (pane.mode !== 'ssh') {
+      if (pane.mode !== 'ssh' && !pane.shellInfo) {
         pane.title = `${i18n.t('tabs.session')} ${pane.sessionId}`;
       }
     }
@@ -591,16 +808,14 @@ function measureToolbarMinWidth() {
 }
 
 /** @param {{ resizeToMin?: boolean }} [opts] */
-function syncToolbarMinWidth(opts = {}) {
-  if (!api.isElectron || !api.setMinSize) return;
+async function syncToolbarMinWidth(opts = {}) {
+  if (!api.isElectron || !api.setMinSize) return null;
   const width = measureToolbarMinWidth();
-  api
-    .setMinSize({
-      width,
-      height: 420,
-      resizeToMin: !!opts.resizeToMin,
-    })
-    .catch?.(() => {});
+  try {
+    return await api.setMinSize({ width, height: 420, resizeToMin: !!opts.resizeToMin });
+  } catch (_) {
+    return null;
+  }
 }
 
 function updateBrandTitle(version) {
@@ -705,38 +920,49 @@ function menuSwatch(bg, fg, svgInner) {
   return `<span class="menu-ico menu-swatch" aria-hidden="true" style="background:${bg};border-color:${fg};color:${fg}"><svg viewBox="0 0 24 24">${svgInner}</svg></span>`;
 }
 
+/** "+ ▾" menu on the tab bar: one entry per installed command shell (default marked). */
+function populateShellMenu() {
+  const menu = document.getElementById('shell-menu');
+  const shells = state.shells || [];
+  const defaultId = state.shellId && shells.some((sh) => sh.id === state.shellId) ? state.shellId : state.shellDefaultId;
+  menu.innerHTML = shells
+    .map((sh) => {
+      const isDefault = sh.id === defaultId;
+      const tag = isDefault ? ` <span class="menu-tag">${i18n.t('tabs.defaultShell', 'default')}</span>` : '';
+      return `<button class="menu-item${isDefault ? ' active' : ''}" type="button" data-shell="${sh.id}" title="${sh.path}">${menuBadge(
+        (sh.short || sh.id).slice(0, 4)
+      )}<span class="menu-label">${sh.label}${tag}</span></button>`;
+    })
+    .join('');
+}
+
+async function openNewTabWithShell(shellId) {
+  const sh = (state.shells || []).find((x) => x.id === shellId);
+  await sessions.create({
+    fontSize: state.fontSize,
+    fontFamily: getFontById(state.fontId).family,
+    scrollback: state.scrollback,
+    shellId,
+    shellShort: sh?.short || shellId,
+  });
+  updateStatusBar();
+}
+
 function populateThemeMenu() {
   const menu = document.getElementById('theme-menu');
-  const ids = [...getThemeList(state.themes), 'custom'];
+  const ids = getThemeList(state.themes);
   menu.innerHTML = ids
     .map((id) => {
       const label = i18n.t(`themes.${id}`, id);
       const active = id === state.themeId ? ' active' : '';
       const glyph = THEME_ICONS[id] || THEME_ICONS.custom;
-      const lead =
-        id === 'custom' && !state.custom
-          ? menuIcon(glyph)
-          : (() => {
-              const t = resolveTheme(state.themes, id, state.custom);
-              return menuSwatch(t.background || '#1e1e1e', t.foreground || '#d4d4d4', glyph);
-            })();
+      const t = resolveTheme(state.themes, id, state.themeOverrides?.[id]);
+      const lead = menuSwatch(t.background || '#1e1e1e', t.foreground || '#d4d4d4', glyph);
       return `<button class="menu-item${active}" type="button" data-theme="${id}">${lead}<span class="menu-label">${label}</span></button>`;
     })
     .join('');
 }
 
-function populateLangMenu() {
-  const menu = document.getElementById('lang-menu');
-  menu.innerHTML = ['en', 'ko']
-    .map((lang) => {
-      const active = lang === state.lang ? ' active' : '';
-      const lead = menuBadge(lang === 'ko' ? '한' : 'EN');
-      return `<button class="menu-item${active}" type="button" data-lang="${lang}">${lead}<span class="menu-label">${i18n.t(
-        `language.${lang}`
-      )}</span></button>`;
-    })
-    .join('');
-}
 
 function populateFontMenu() {
   const menu = document.getElementById('font-menu');
@@ -781,9 +1007,11 @@ function bindToolbar() {
       return;
     }
 
-    openSshModal({
+    if (focusOpenPopup('ssh')) return;
+    const sshHost = await openSshModal({
       i18n,
       defaults: state.ssh || {},
+      profiles: state.sshProfiles,
       themes: state.themes,
       themeId: state.themeId,
       custom: state.custom,
@@ -794,6 +1022,12 @@ function bindToolbar() {
           cols: pane.term.cols,
           rows: pane.term.rows,
         });
+        if (!result?.ok) {
+          reportError(
+            { message: result?.error || i18n.t('ssh.failed'), details: `[ssh] ${config.username || ''}@${config.host}:${config.port}\n${result?.details || result?.error || i18n.t('ssh.failed')}` },
+            { context: 'ssh', title: i18n.t('ssh.title') }
+          );
+        }
         if (result?.ok) {
           pane.markRemote(`${config.username}@${config.host}`);
           sessions.renderTabs();
@@ -809,98 +1043,10 @@ function bindToolbar() {
         return result;
       },
     });
+    if (sshHost?.focus) popupHosts.ssh = sshHost;
   });
 
-  on('btn-prompt', async () => {
-    let presets = state.promptPresets;
-    if (!presets && api.getPromptPresets) {
-      const data = await api.getPromptPresets();
-      presets = data?.presets || {};
-      state.promptPresets = presets;
-    }
-    if (!presets) {
-      // Offline/web fallback — main process normally supplies the full list.
-      presets = {
-        default: { id: 'default', group: 'basic', template: DEFAULT_PROMPT },
-        classic: {
-          id: 'classic',
-          group: 'basic',
-          template: '{green}{user}{reset}@{host}:{blue}{cwd:short}{reset}$ ',
-        },
-        power: {
-          id: 'power',
-          group: 'basic',
-          template:
-            '{bold}{magenta}{user}{reset}@{cyan}{host}{reset} {yellow}{cwd:short}{reset}> ',
-        },
-        path: { id: 'path', group: 'basic', template: '{cwd}> ' },
-        minimal: { id: 'minimal', group: 'basic', template: '> ' },
-        remote: {
-          id: 'remote',
-          group: 'basic',
-          template: '{red}{user}{reset}@{yellow}{host}{reset}:{cyan}{cwd:short}{reset}# ',
-        },
-        ohmyzsh_robbyrussell: {
-          id: 'ohmyzsh_robbyrussell',
-          group: 'ohmyzsh',
-          template: '{bold}{green}>{reset}  {cyan}{cwd:tail}{reset}{git:info} ',
-        },
-        ohmyzsh_cloud: {
-          id: 'ohmyzsh_cloud',
-          group: 'ohmyzsh',
-          template:
-            '{cyan}{user}{reset}@{green}{host}{reset} {yellow}{cwd:short}{reset}{git:info} {magenta}~{reset} ',
-        },
-        ohmyzsh_arrow: {
-          id: 'ohmyzsh_arrow',
-          group: 'ohmyzsh',
-          template: '{bold}{yellow}>{reset} {cyan}{cwd:tail}{reset}{git:info} ',
-        },
-        ohmyzsh_agnoster: {
-          id: 'ohmyzsh_agnoster',
-          group: 'ohmyzsh',
-          template:
-            '{bg_blue}{white} {user}@{host} {bg_yellow}{black} {cwd:short} {git:segment}{reset} ',
-        },
-      };
-    }
-    openPromptModal({
-      i18n,
-      template: state.promptTemplate,
-      gitMode: state.promptGitMode,
-      presetId: state.promptPresetId,
-      presets,
-      themes: state.themes,
-      themeId: state.themeId,
-      custom: state.custom,
-      onApply: async (payload) => {
-        const value =
-          typeof payload === 'string' ? payload : payload?.template;
-        const gitMode =
-          typeof payload === 'object' && payload
-            ? payload.gitMode
-            : state.promptGitMode;
-        state.promptTemplate = asciiSafePromptGlyphs(value || DEFAULT_PROMPT);
-        state.promptGitMode = normalizePromptGitMode(gitMode);
-        if (state.promptGitMode !== 'off') {
-          state.promptGitModeOn = state.promptGitMode;
-        }
-        state.promptPresetId =
-          findPromptPresetId(state.promptTemplate, presets) || 'custom';
-        if (api.setPrompt) {
-          await api.setPrompt({
-            template: state.promptTemplate,
-            gitMode: state.promptGitMode,
-            presetId: state.promptPresetId,
-          });
-        }
-        await persist();
-        updateGitStatusButton();
-        const pane = activePane();
-        if (pane && pane.mode !== 'ssh') await pane.start();
-      },
-    });
-  });
+  on('btn-prompt', () => openSettings('prompt'));
 
   on('btn-git-status', async () => {
     if (state.promptGitMode === 'off') {
@@ -992,34 +1138,36 @@ function bindToolbar() {
     closeMenus();
   });
 
-  on('btn-lang', (e) => {
+  on('btn-lang', async (e) => {
     e.preventDefault();
     e.stopPropagation();
-    toggleMenu('lang-menu', populateLangMenu, e.currentTarget);
+    closeMenus();
+    // Cycle through the supported languages; the badge shows the new one.
+    const next = LANGS[(LANGS.indexOf(state.lang) + 1) % LANGS.length];
+    await applyLanguage(next);
+    await persist();
+  });
+
+  document.getElementById('shell-menu').addEventListener('click', async (e) => {
+    e.stopPropagation();
+    const btn = e.target.closest('[data-shell]');
+    if (!btn) return;
+    closeMenus();
+    await openNewTabWithShell(btn.dataset.shell);
   });
 
   document.getElementById('theme-menu').addEventListener('click', async (e) => {
     e.stopPropagation();
     const btn = e.target.closest('[data-theme]');
     if (!btn) return;
+    if (!state.themes?.[btn.dataset.theme]) return;
     state.themeId = btn.dataset.theme;
-    if (state.themeId === 'custom' && !state.custom) {
-      state.custom = defaultCustomFrom(state.themes.dark);
-    }
+    syncCustomColors();
     applyTheme();
     await persist();
     closeMenus();
   });
 
-  document.getElementById('lang-menu').addEventListener('click', async (e) => {
-    e.stopPropagation();
-    const btn = e.target.closest('[data-lang]');
-    if (!btn) return;
-    state.lang = btn.dataset.lang;
-    await applyLanguage(state.lang);
-    await persist();
-    closeMenus();
-  });
 
   const transparencySlider = document.getElementById('bg-transparency');
   if (transparencySlider) {
@@ -1031,14 +1179,39 @@ function bindToolbar() {
     });
   }
 
-  function openSettings() {
-    // Color pickers should reflect the active theme (or saved custom colors).
-    if (state.themeId !== 'custom' || !state.custom) {
-      state.custom = defaultCustomFrom(currentTheme());
+  async function openSettings(tab = 'general') {
+    const wanted = SETTINGS_TABS.includes(tab) ? tab : 'general';
+    // Already open (Electron popup): switch tabs and bring it to the front.
+    if (settingsHost?.open && settingsHost.showTab) {
+      settingsHost.showTab(wanted);
+      settingsHost.focus?.();
+      return;
     }
-    openSettingsModal({
+    // Color pickers reflect the active theme with its overrides.
+    syncCustomColors();
+    const host = await openSettingsModal({
       i18n,
+      tab: wanted,
       custom: state.custom,
+      themeOverrides: state.themeOverrides,
+      sshProfiles: state.sshProfiles,
+      terminalProfiles: state.terminalProfiles,
+      termCols: activePane()?.term?.cols || 80,
+      termRows: activePane()?.term?.rows || 24,
+      defaultTermCols: state.termCols,
+      defaultTermRows: state.termRows,
+      onApplyProfile: (profile) => applyTerminalProfile(profile),
+      shells: state.shells,
+      shellId: state.shellId,
+      shellCustomPath: state.shellCustomPath,
+      shellDefaultId: state.shellDefaultId,
+      platform: api.platform || 'web',
+      promptConfig: state.promptConfig,
+      promptGitMode: state.promptGitMode,
+      customPrompts: state.customPrompts,
+      // The preview uses the terminal's font family at the dialog's own size — the
+      // terminal font size never changes other windows.
+      previewFont: { family: getFontById(state.fontId).family, size: 13 },
       scrollback: state.scrollback,
       startDirectory: state.startDirectory,
       showStatusBar: state.showStatusBar,
@@ -1089,6 +1262,17 @@ function bindToolbar() {
         startDirectory,
         showStatusBar,
         showTrayIcon,
+        shellId,
+        shellCustomPath,
+        promptConfig,
+        promptGitMode,
+        promptPresetId,
+        customPrompts,
+        themeId,
+        sshProfiles,
+        terminalProfiles,
+        defaultTermCols,
+        defaultTermRows,
         backgroundImage,
         backgroundImageId,
         backgroundLibrary,
@@ -1100,8 +1284,11 @@ function bindToolbar() {
         lsDirectoryColor,
         lsFileColor,
       }) => {
-        state.custom = custom;
-        if (themeTouched) state.themeId = 'custom';
+        // Theme tab picks the theme; the colours tab edits the current theme's overrides.
+        if (typeof themeId === 'string' && state.themes?.[themeId]) state.themeId = themeId;
+        if (custom && typeof custom === 'object') setThemeColors(custom);
+        else syncCustomColors();
+        void themeTouched;
         state.scrollback = clampScrollback(scrollback);
         // Only update when provided, so other settings events cannot wipe it.
         if (typeof startDirectory === 'string') {
@@ -1109,6 +1296,25 @@ function bindToolbar() {
         }
         state.showStatusBar = !!showStatusBar;
         state.showTrayIcon = !!showTrayIcon;
+        if (typeof shellId === 'string' && shellId !== state.shellId) {
+          state.shellId = shellId;
+          const sh = (state.shells || []).find((x) => x.id === (shellId || state.shellDefaultId));
+          if (sh) sessions?.applyDefaultShellInfo({ id: sh.id, label: sh.label, short: sh.short || sh.id });
+        }
+        if (Array.isArray(sshProfiles)) state.sshProfiles = normalizeSshProfiles(sshProfiles);
+        if (Array.isArray(terminalProfiles)) state.terminalProfiles = normalizeTerminalProfiles(terminalProfiles);
+        if (defaultTermCols != null || defaultTermRows != null) {
+          const next = clampTermSize(defaultTermCols ?? state.termCols, defaultTermRows ?? state.termRows);
+          if (next.cols !== state.termCols || next.rows !== state.termRows) {
+            state.termCols = next.cols;
+            state.termRows = next.rows;
+            resizeTerminalTo(next.cols, next.rows);
+          }
+        }
+        if (typeof shellCustomPath === 'string') state.shellCustomPath = shellCustomPath;
+        if (promptConfig && typeof promptConfig === 'object') {
+          applyPromptChange({ config: promptConfig, gitMode: promptGitMode, presetId: promptPresetId, customPrompts });
+        }
         if (fontId) state.fontId = getFontById(fontId).id;
         if (fontSize != null) {
           state.fontSize = Math.max(10, Math.min(28, Number.parseInt(fontSize, 10) || state.fontSize));
@@ -1139,7 +1345,7 @@ function bindToolbar() {
           });
           state.lsDirectoryColor = colors.directory;
           state.lsFileColor = colors.file;
-          sessions?.setLsColors?.(colors);
+          sessions?.setLsColors?.(effectiveLsColors());
         }
         applyFont();
         applyTheme();
@@ -1148,25 +1354,43 @@ function bindToolbar() {
         updateStatusBar();
         await persist();
       },
+      // Reset: the current theme's own colours come back (its overrides are
+      // dropped) and the ls colours return to their defaults. Other themes'
+      // overrides, custom prompts, wallpapers and every other setting stay.
       onReset: () => {
-        state.custom = defaultCustomFrom(state.themes.dark);
+        delete state.themeOverrides[state.themeId];
+        syncCustomColors();
         state.lsDirectoryColor = DEFAULT_LS_DIRECTORY_COLOR;
         state.lsFileColor = DEFAULT_LS_FILE_COLOR;
+        applyTheme();
+        sessions?.setLsColors?.(effectiveLsColors());
+        persist();
         return {
+          themeId: state.themeId,
           custom: state.custom,
           lsDirectoryColor: state.lsDirectoryColor,
           lsFileColor: state.lsFileColor,
         };
       },
     });
+    if (host?.onEvent) {
+      settingsHost = { ...host, open: true };
+      host.onEvent((ev) => {
+        if (ev.type === 'closed') settingsHost = null;
+        if (ev.type === 'error') reportError({ message: ev.message, details: ev.details }, { context: 'settings' });
+      });
+    } else {
+      settingsHost = null; // in-page modal: no lifecycle events
+    }
   }
 
   on('btn-settings', () => openSettings());
   api.onOpenSettings?.(() => openSettings());
 
   on('btn-about', async () => {
+    if (focusOpenPopup('about')) return;
     const info = await api.getAppInfo();
-    openAboutModal({
+    const host = await openAboutModal({
       i18n,
       info,
       iconSrc: document.querySelector('link[rel="icon"]')?.href || './assets/icons/icon.png',
@@ -1174,6 +1398,7 @@ function bindToolbar() {
       themeId: state.themeId,
       custom: state.custom,
     });
+    if (host?.focus) popupHosts.about = host;
   });
 
   document.addEventListener('click', (e) => {
@@ -1232,11 +1457,25 @@ async function boot() {
     updateBrandTitle('1.0.0');
   }
 
+  configureErrorDialog({
+    i18n,
+    getTheme: () => ({ themes: state.themes, themeId: state.themeId, custom: state.custom }),
+  });
+  installGlobalErrorHandlers('renderer');
+  api.onAppError?.((info) => reportError({ message: info?.message, details: info?.details }, { context: info?.context || 'main' }));
+
   const saved = (await api.getSettings()) || {};
-  state.themeId = saved.themeId || 'dark';
-  state.custom = saved.custom || null;
+  state.themes = state.themes || (await loadThemes());
+  // A legacy "custom" theme (edited Dark) becomes Dark with overrides.
+  state.themeOverrides = normalizeThemeOverrides(saved.themeOverrides, state.themes);
+  if (saved.themeId === 'custom' && saved.custom && !state.themeOverrides.dark) {
+    const dark = themeOverridesFrom(saved.custom, state.themes.dark);
+    if (Object.keys(dark).length) state.themeOverrides.dark = dark;
+  }
+  state.themeId = state.themes[saved.themeId] ? saved.themeId : 'dark';
+  syncCustomColors();
   state.lang = saved.lang || (navigator.language?.startsWith('ko') ? 'ko' : 'en');
-  state.fontSize = saved.fontSize || 14;
+  state.fontSize = saved.fontSize || DEFAULT_FONT_SIZE;
   state.fontId = saved.fontId || DEFAULT_FONT_ID;
   state.scrollback = clampScrollback(saved.scrollback ?? DEFAULT_SCROLLBACK);
   state.startDirectory =
@@ -1250,12 +1489,27 @@ async function boot() {
   state.showStatusBar = saved.showStatusBar !== false;
   state.showTrayIcon = !!saved.showTrayIcon;
   await restoreBackgroundFromSettings(saved);
-  state.promptTemplate = asciiSafePromptGlyphs(
-    saved.promptTemplate || DEFAULT_PROMPT
-  );
+  state.customPrompts = normalizeCustomPrompts(saved.customPrompts);
+  {
+    const resolved = resolvePromptFromSettings(saved, customPromptsAsPresets(state.customPrompts));
+    state.promptConfig = resolved.config;
+    state.promptPresetId = resolved.presetId;
+  }
   state.promptGitMode = normalizePromptGitMode(
     saved.promptGitMode || DEFAULT_PROMPT_GIT_MODE
   );
+  state.shellId = typeof saved.shellId === 'string' ? saved.shellId : '';
+  state.shellCustomPath =
+    typeof saved.shellCustomPath === 'string' ? saved.shellCustomPath : '';
+  if (api.listShells) {
+    try {
+      const listed = await api.listShells();
+      state.shells = Array.isArray(listed?.shells) ? listed.shells : [];
+      state.shellDefaultId = listed?.defaultId || '';
+    } catch (_) {
+      state.shells = [];
+    }
+  }
   if (state.promptGitMode !== 'off') {
     state.promptGitModeOn = state.promptGitMode;
   } else if (
@@ -1264,8 +1518,6 @@ async function boot() {
   ) {
     state.promptGitModeOn = normalizePromptGitMode(saved.promptGitModeOn);
   }
-  state.promptPresetId =
-    typeof saved.promptPresetId === 'string' ? saved.promptPresetId : '';
   {
     const colors = normalizeLsColors({
       directory: saved.lsDirectoryColor,
@@ -1275,23 +1527,21 @@ async function boot() {
     state.lsFileColor = colors.file;
   }
   state.ssh = saved.ssh || null;
-
-  if (api.getPromptPresets) {
-    try {
-      const data = await api.getPromptPresets();
-      state.promptPresets = data?.presets || null;
-    } catch (_) {
-      /* ignore */
-    }
+  state.sshProfiles = normalizeSshProfiles(saved.sshProfiles);
+  state.terminalProfiles = normalizeTerminalProfiles(saved.terminalProfiles);
+  {
+    const size = clampTermSize(saved.termCols, saved.termRows);
+    state.termCols = size.cols;
+    state.termRows = size.rows;
   }
-  if (!state.promptPresetId) {
-    state.promptPresetId =
-      findPromptPresetId(state.promptTemplate, state.promptPresets) || 'custom';
-  }
-  // Refresh any built-in preset from main so OMZ theme fixes replace stale settings.
-  const builtinTemplate = state.promptPresets?.[state.promptPresetId]?.template;
-  if (builtinTemplate) {
-    state.promptTemplate = builtinTemplate;
+  // Main knows whether a window size had been saved before this launch (it
+  // saves bounds as soon as the window moves, so settings alone can't tell).
+  let firstLaunch = !saved.windowBounds;
+  try {
+    const info = await api.getAppInfo?.();
+    if (info && typeof info.firstLaunch === 'boolean') firstLaunch = info.firstLaunch;
+  } catch (_) {
+    /* keep the settings-based guess */
   }
 
   await applyLanguage(state.lang);
@@ -1308,13 +1558,10 @@ async function boot() {
     getTheme: currentTheme,
     getHasBackgroundImage: () =>
       !!state.backgroundImage && state.backgroundFit !== 'none',
-    getPromptTemplate: () => state.promptTemplate,
+    getPromptConfig: () => state.promptConfig,
     getPromptGitMode: () => state.promptGitMode,
     getStartDirectory: () => state.startDirectory || '',
-    getLsColors: () => ({
-      directory: state.lsDirectoryColor,
-      file: state.lsFileColor,
-    }),
+    getLsColors: () => effectiveLsColors(),
     getNewSessionOptions: () => ({
       fontSize: state.fontSize,
       fontFamily: getFontById(state.fontId).family,
@@ -1325,23 +1572,30 @@ async function boot() {
       updateStatusBar();
     },
     onPaneFit: () => updateStatusBar(),
+    onTabsRendered: () => updateTabScrollButtons(),
+    // "+ ▾": pick the shell for the new tab (Electron; the web shell has none).
+    onNewTabMenu:
+      api.isElectron
+        ? (anchor) => {
+            if (!state.shells?.length) return;
+            toggleMenu('shell-menu', populateShellMenu, anchor);
+          }
+        : null,
   });
 
   // Sync prompt prefs into settings + main runtime before the first shell starts.
   await api.setSettings({
-    promptTemplate: state.promptTemplate,
     promptGitMode: state.promptGitMode,
     promptPresetId: state.promptPresetId,
+    promptConfig: state.promptConfig,
+    promptTheme: promptThemeFrom(currentTheme()),
+    shellId: state.shellId || '',
+    shellCustomPath: state.shellCustomPath || '',
     lsDirectoryColor: state.lsDirectoryColor,
     lsFileColor: state.lsFileColor,
-    promptEndTipBg: promptEndTipBg(),
   });
   if (api.setPrompt) {
-    await api.setPrompt({
-      template: state.promptTemplate,
-      gitMode: state.promptGitMode,
-      presetId: state.promptPresetId,
-    });
+    await api.setPrompt({ config: state.promptConfig, gitMode: state.promptGitMode });
   }
 
   const adoptId = new URLSearchParams(window.location.search).get('adopt');
@@ -1381,12 +1635,19 @@ async function boot() {
   await persist();
 
   bindToolbar();
+  bindTabScroll();
+  // Test hooks (scripts/smoke-settings.js).
+  window.__myTerminal = { applyTerminalProfile, state };
   // After labels/fonts paint: lock min width to toolbar content and start at that size.
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      syncToolbarMinWidth({ resizeToMin: true });
-    });
-  });
+  setTimeout(async () => {
+    await syncToolbarMinWidth({ resizeToMin: true });
+    // First launch (no saved window size): fit the terminal to the default cols × rows
+    // once the window has settled at its start size.
+    if (firstLaunch && !saved.windowMaximized) {
+      await new Promise((r) => setTimeout(r, 350));
+      await resizeTerminalTo(state.termCols, state.termRows);
+    }
+  }, 50);
 
   window.addEventListener('resize', () => {
     requestAnimationFrame(() => updateStatusBar());
@@ -1395,5 +1656,6 @@ async function boot() {
 
 boot().catch((err) => {
   console.error(err);
-  document.body.innerHTML = `<pre style="padding:16px;color:#fff;background:#111">Failed to start MyTerminal:\n${err}</pre>`;
+  reportError(err, { context: 'boot' });
+  document.body.innerHTML = `<pre style="padding:16px;color:#fff;background:#111;user-select:text">Failed to start MyTerminal:\n${err?.stack || err}</pre>`;
 });

@@ -8,25 +8,33 @@ export class SessionManager {
     i18n,
     getTheme,
     getHasBackgroundImage,
-    getPromptTemplate,
+    getPromptConfig,
     getPromptGitMode,
     getStartDirectory,
     getLsColors,
     getNewSessionOptions,
+    onNewTabMenu,
+    onTabsRendered,
     onActiveChange,
     onPaneFit,
   }) {
     this.tabBar = tabBar;
+    /** The "+" / "▾" buttons live next to the strip so they never scroll out of view. */
+    this.tabActions = document.getElementById('tab-actions') || tabBar;
     this.panesHost = panesHost;
     this.api = api;
     this.i18n = i18n;
     this.getTheme = getTheme;
     this.getHasBackgroundImage = getHasBackgroundImage || (() => false);
-    this.getPromptTemplate = getPromptTemplate;
+    this.getPromptConfig = getPromptConfig;
     this.getPromptGitMode = getPromptGitMode || (() => 'status');
     this.getStartDirectory = getStartDirectory || (() => '');
     this.getLsColors = getLsColors || (() => ({}));
     this.getNewSessionOptions = getNewSessionOptions || (() => ({}));
+    /** Opens the "new tab with shell…" menu anchored at the given element (Electron only). */
+    this.onNewTabMenu = onNewTabMenu || null;
+    /** After the tab strip is (re)built — the app updates its scroll buttons. */
+    this.onTabsRendered = onTabsRendered || null;
     this.onActiveChange = onActiveChange || (() => {});
     this.onPaneFit = onPaneFit || (() => {});
     this.panes = new Map();
@@ -91,7 +99,7 @@ export class SessionManager {
       this.disposers.push(api.onMergePreviewClear(() => this.clearMergeGhost()));
     }
 
-    this.tabBar.addEventListener('click', (e) => {
+    const onStripClick = (e) => {
       const closeBtn = e.target.closest('[data-close-tab]');
       if (closeBtn) {
         e.stopPropagation();
@@ -99,6 +107,12 @@ export class SessionManager {
         return;
       }
       if (Date.now() < this.suppressClickUntil) return;
+      const menuBtn = e.target.closest('[data-new-tab-menu]');
+      if (menuBtn) {
+        e.stopPropagation();
+        this.onNewTabMenu?.(menuBtn);
+        return;
+      }
       const newBtn = e.target.closest('[data-new-tab]');
       if (newBtn) {
         e.stopPropagation();
@@ -109,7 +123,9 @@ export class SessionManager {
       }
       const tab = e.target.closest('[data-tab-id]');
       if (tab) this.activate(tab.dataset.tabId);
-    });
+    };
+    this.tabBar.addEventListener('click', onStripClick);
+    if (this.tabActions !== this.tabBar) this.tabActions.addEventListener('click', onStripClick);
 
     this.tabBar.addEventListener('pointerdown', (e) => this.onTabPointerDown(e));
     const onUp = (e) => this.onTabPointerUp(e);
@@ -144,8 +160,11 @@ export class SessionManager {
     host.dataset.sessionId = sessionId;
     this.panesHost.appendChild(host);
 
+    // A tab opened with a specific shell is named after it (cmd 2, PowerShell 3 …).
+    const shellId = typeof options.shellId === 'string' ? options.shellId : '';
+    const shellShort = options.shellShort || '';
     const title =
-      options.title || `${this.i18n.t('tabs.session')} ${sessionId}`;
+      options.title || `${shellId && shellShort ? shellShort : this.i18n.t('tabs.session')} ${sessionId}`;
     const pane = new TerminalPane({
       sessionId,
       host,
@@ -153,11 +172,13 @@ export class SessionManager {
       i18n: this.i18n,
       getTheme: this.getTheme,
       getHasBackgroundImage: this.getHasBackgroundImage,
-      getPromptTemplate: this.getPromptTemplate,
+      getPromptConfig: this.getPromptConfig,
       getPromptGitMode: this.getPromptGitMode,
       getStartDirectory: this.getStartDirectory,
       getLsColors: this.getLsColors,
       title,
+      shellId,
+      onTitle: () => this.renderTabs(),
     });
 
     if (options.fontSize) pane.setFontSize(options.fontSize);
@@ -310,6 +331,7 @@ export class SessionManager {
       })
       .join('');
     const newLabel = this.i18n.t('tabs.new', this.i18n.t('toolbar.newSession', 'New Session'));
+    const menuLabel = this.i18n.t('tabs.newWith', 'New terminal with…');
     const newTab = `
       <button
         type="button"
@@ -320,9 +342,25 @@ export class SessionManager {
       >
         <span class="tab-new-icon" aria-hidden="true">+</span>
       </button>
+      ${
+        this.onNewTabMenu
+          ? `<button type="button" class="tab-item tab-new tab-new-menu" data-new-tab-menu="1"
+        title="${escapeAttr(menuLabel)}" aria-label="${escapeAttr(menuLabel)}" aria-haspopup="true">
+        <span class="tab-new-icon" aria-hidden="true">▾</span>
+      </button>`
+          : ''
+      }
     `;
-    this.tabBar.innerHTML = tabs + newTab;
+    if (this.tabActions !== this.tabBar) {
+      this.tabBar.innerHTML = tabs;
+      if (this.tabActions.innerHTML.trim() !== newTab.trim()) this.tabActions.innerHTML = newTab;
+    } else {
+      this.tabBar.innerHTML = tabs + newTab;
+    }
     if (this.mergeGhost) this.mountMergeGhost();
+    // Keep the active tab in view when the strip overflows.
+    this.tabBar.querySelector('.tab-item.active')?.scrollIntoView?.({ inline: 'nearest', block: 'nearest' });
+    this.onTabsRendered?.();
   }
 
   placePaneInOrder(sessionId, pane, insertIndex) {
@@ -429,7 +467,7 @@ export class SessionManager {
     const items = [
       ...this.tabBar.querySelectorAll('.tab-item:not(.tab-new):not(.tab-ghost)'),
     ];
-    const newBtn = this.tabBar.querySelector('[data-new-tab]');
+    const newBtn = this.tabBar.querySelector('[data-new-tab]'); // null when the buttons are pinned outside
     const idx = Math.max(0, Math.min(ghost.insertIndex, items.length));
     const ref = items[idx] || newBtn;
     if (el.parentNode !== this.tabBar || el.nextSibling !== ref) {
@@ -578,26 +616,39 @@ export class SessionManager {
   async onTabPointerDown(e) {
     if (e.button !== 0) return;
     if (e.target.closest('[data-close-tab]')) return;
-    if (e.target.closest('[data-new-tab]')) return;
+    if (e.target.closest('[data-new-tab]') || e.target.closest('[data-new-tab-menu]')) return;
     if (!this.api?.isElectron || !this.api.detachSession) return;
     const tab = e.target.closest('[data-tab-id]');
     if (!tab) return;
 
-    const bounds = (await this.api.getWindowBounds?.()) || null;
+    // Capture synchronously: after an await the pointer may already be up (a
+    // plain click) or the tab element replaced by renderTabs, and
+    // setPointerCapture would throw InvalidStateError.
+    try {
+      tab.setPointerCapture?.(e.pointerId);
+    } catch (_) {
+      /* pointer already released — a click, not a drag */
+    }
     this.dragState = {
       sessionId: tab.dataset.tabId,
       startX: e.screenX,
       startY: e.screenY,
       moved: false,
       tabEl: tab,
-      bounds,
+      bounds: null,
       previewShown: false,
       mergeTargetId: null,
       mergePreviewTargetId: null,
       lastMergePreviewAt: 0,
     };
     tab.classList.add('dragging');
-    tab.setPointerCapture?.(e.pointerId);
+    const state = this.dragState;
+    try {
+      const bounds = (await this.api.getWindowBounds?.()) || null;
+      if (this.dragState === state) state.bounds = bounds;
+    } catch (_) {
+      /* bounds stay null: detach math falls back to screen coordinates */
+    }
   }
 
   onTabPointerMove(e) {
@@ -712,6 +763,17 @@ export class SessionManager {
 
   setFontSize(size) {
     for (const pane of this.panes.values()) pane.setFontSize(size);
+  }
+
+  /** Default-shell change: rename the tabs that follow the default shell. */
+  applyDefaultShellInfo(shell) {
+    if (!shell) return;
+    for (const pane of this.panes.values()) {
+      if (pane.mode === 'ssh' || pane.shellId) continue;
+      pane.shellInfo = shell;
+      pane.title = `${shell.short || shell.label} ${pane.sessionId}`;
+    }
+    this.renderTabs();
   }
 
   setLsColors(colors) {

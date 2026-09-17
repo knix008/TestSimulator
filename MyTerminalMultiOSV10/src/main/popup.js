@@ -120,6 +120,23 @@ function getPopup(id) {
   return popups.get(id) || null;
 }
 
+/** Close every popup owned by a window (its settings / SSH / About dialogs). */
+function closePopupsForOwner(ownerWebContentsId) {
+  for (const [id, entry] of [...popups]) {
+    if (entry.ownerId !== ownerWebContentsId) continue;
+    popups.delete(id);
+    if (!entry.win.isDestroyed()) entry.win.destroy();
+  }
+}
+
+/** Close every popup (app quit). */
+function closeAllPopups() {
+  for (const [id, entry] of [...popups]) {
+    popups.delete(id);
+    if (!entry.win.isDestroyed()) entry.win.destroy();
+  }
+}
+
 function closePopup(id) {
   const entry = popups.get(id);
   if (!entry || entry.win.isDestroyed()) return false;
@@ -162,6 +179,18 @@ function registerPopupIpc() {
 
   ipcMain.handle('popup:close', (_e, id) => closePopup(id));
 
+  // A toolbar button pressed while its dialog is already open: bring it to the front.
+  ipcMain.handle('popup:focus', (_e, id) => {
+    const entry = popups.get(id);
+    if (!entry || entry.win.isDestroyed()) return false;
+    if (entry.win.isMinimized()) entry.win.restore();
+    entry.show?.();
+    entry.win.show();
+    entry.win.moveTop();
+    entry.win.focus();
+    return true;
+  });
+
   ipcMain.handle('popup:show', (_e, id) => {
     const entry = popups.get(id);
     if (!entry || entry.win.isDestroyed()) return false;
@@ -172,6 +201,14 @@ function registerPopupIpc() {
   ipcMain.handle('popup:fit', (_e, payload = {}) =>
     fitPopup(payload.id, { width: payload.width, height: payload.height })
   );
+
+  // Fixed-size popups (settings) lock the frame once their content is measured.
+  ipcMain.handle('popup:setResizable', (_e, payload = {}) => {
+    const entry = popups.get(payload.id);
+    if (!entry || entry.win.isDestroyed()) return false;
+    entry.win.setResizable(payload.resizable !== false);
+    return true;
+  });
 
   ipcMain.handle('popup:send', (event, payload = {}) => {
     const { id, message } = payload;
@@ -207,6 +244,8 @@ function registerPopupIpc() {
 
 module.exports = {
   registerPopupIpc,
+  closePopupsForOwner,
+  closeAllPopups,
   createPopupWindow,
   closePopup,
   fitPopup,

@@ -48,6 +48,7 @@ export async function openPopupHost({ kind, title, width, height, minWidth, minH
 
   const send = (message) => api.popupSend(id, message);
   const close = () => api.closePopup(id);
+  const focus = () => api.focusPopup?.(id);
 
   // Wait until popup signals ready, then resolve.
   await new Promise((resolve) => {
@@ -71,5 +72,9 @@ export async function openPopupHost({ kind, title, width, height, minWidth, minH
     }
   });
 
-  return { id, kind, send, close, onEvent };
+  const host = { id, kind, send, close, focus, onEvent, open: true };
+  onEvent((ev) => {
+    if (ev.type === 'closed') host.open = false;
+  });
+  return host;
 }

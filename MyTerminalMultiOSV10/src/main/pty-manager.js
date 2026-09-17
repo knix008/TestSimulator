@@ -4,13 +4,12 @@ const path = require('path');
 const { MyShell } = require('./myshell');
 const { SshSession } = require('./ssh-session');
 const {
-  DEFAULT_PROMPT,
+  PROMPT_DEFAULT,
   DEFAULT_PROMPT_GIT_MODE,
-  PROMPT_PRESETS,
-  syncBuiltinPromptTemplate,
+  normalizePrompt,
   normalizePromptGitMode,
-  asciiSafePromptGlyphs,
-  findPromptPresetId,
+  resolvePromptFromSettings,
+  customPromptsAsPresets,
 } = require('./prompt');
 const {
   getCommandHistory,
@@ -20,6 +19,8 @@ const {
   DEFAULT_LS_FILE_COLOR,
   normalizeLsColors,
 } = require('./ls-colors');
+const { detectShells, resolveShell, shortName } = require('./shells');
+const { describeError } = require('../shared/error-format');
 
 let nextId = 1;
 /** @type {Map<string, { type: 'local'|'ssh', shell?: any, ssh?: any, win?: any }>} */
@@ -27,17 +28,53 @@ const sessions = new Map();
 /** @type {Map<string, object>} */
 const pendingAdopts = new Map();
 let lastOptions = {
-  promptTemplate: DEFAULT_PROMPT,
+  /** Prompt theme (segments; see ../shared/prompt-core.js). */
+  promptConfig: normalizePrompt(PROMPT_DEFAULT),
   promptGitMode: DEFAULT_PROMPT_GIT_MODE,
+  /** Theme colours the prompt's accent / foreground / background refer to. */
+  promptTheme: null,
   cols: 80,
   rows: 24,
   /** Raw configured start directory (empty = home). */
   startDirectory: '',
   lsDirectoryColor: DEFAULT_LS_DIRECTORY_COLOR,
   lsFileColor: DEFAULT_LS_FILE_COLOR,
-  /** Opaque theme background used for agnoster end tips (not transparent). */
-  endTipBg: '#1E1E1E',
+  /** Command shell (see ./shells.js): '' = platform default. */
+  shellId: '',
+  shellCustomPath: '',
 };
+
+/** @type {import('./shells').ShellDef[] | null} */
+let cachedShells = null;
+
+function listShells({ refresh = false } = {}) {
+  if (!cachedShells || refresh) cachedShells = detectShells();
+  return cachedShells;
+}
+
+/** The shell definition for the current preference (or an explicit id). */
+function currentShell(shellId = '') {
+  return resolveShell(
+    { shellId: shellId || lastOptions.shellId, shellCustomPath: lastOptions.shellCustomPath },
+    { shells: listShells() }
+  );
+}
+
+/** Default-shell setting changed: sessions opened with an explicit shell keep it. */
+function applyShellToSessions() {
+  const shell = currentShell();
+  for (const session of sessions.values()) {
+    if (session.type === 'local' && session.shell?.setShell && !session.shellId) {
+      session.shell.setShell(shell);
+    }
+  }
+  return shell;
+}
+
+/** What the renderer shows for a session's shell (tab title, status bar). */
+function shellInfoOf(shell) {
+  return shell ? { id: shell.id, label: shell.label, short: shortName(shell), path: shell.path } : null;
+}
 
 function sanitizeStartDirectory(dir) {
   let next = typeof dir === 'string' ? dir.trim() : '';
@@ -91,18 +128,25 @@ function loadDirectoryPrefsFromSettings(settings = {}) {
   if (typeof settings.startDirectory === 'string') {
     lastOptions.startDirectory = sanitizeStartDirectory(settings.startDirectory);
   }
-  if (typeof settings.promptTemplate === 'string' && settings.promptTemplate.length) {
-    lastOptions.promptTemplate = asciiSafePromptGlyphs(settings.promptTemplate);
-  }
-  // Built-in presets always refresh from prompt.js so OMZ theme fixes ship on upgrade.
-  if (typeof settings.promptPresetId === 'string' && settings.promptPresetId) {
-    lastOptions.promptTemplate = syncBuiltinPromptTemplate(
-      settings.promptPresetId,
-      lastOptions.promptTemplate
-    );
+  if (settings.promptConfig || settings.promptPresetId) {
+    const resolved = resolvePromptFromSettings(settings, customPromptsAsPresets(settings.customPrompts));
+    lastOptions.promptConfig = resolved.config;
+    for (const session of sessions.values()) {
+      if (session.type === 'local' && session.shell?.setPromptConfig) {
+        session.shell.setPromptConfig(lastOptions.promptConfig);
+      }
+    }
   }
   if (settings.promptGitMode != null) {
     lastOptions.promptGitMode = normalizePromptGitMode(settings.promptGitMode);
+  }
+  if (settings.promptTheme && typeof settings.promptTheme === 'object') {
+    lastOptions.promptTheme = { ...settings.promptTheme };
+    for (const session of sessions.values()) {
+      if (session.type === 'local' && session.shell?.setPromptTheme) {
+        session.shell.setPromptTheme(lastOptions.promptTheme);
+      }
+    }
   }
   if (
     settings.lsDirectoryColor != null ||
@@ -121,21 +165,21 @@ function loadDirectoryPrefsFromSettings(settings = {}) {
       }
     }
   }
-  if (typeof settings.promptEndTipBg === 'string') {
-    lastOptions.endTipBg = settings.promptEndTipBg;
-    for (const session of sessions.values()) {
-      if (session.type === 'local' && session.shell?.setEndTipBg) {
-        session.shell.setEndTipBg(lastOptions.endTipBg);
-      }
+  if (typeof settings.shellId === 'string' || typeof settings.shellCustomPath === 'string') {
+    if (typeof settings.shellId === 'string') lastOptions.shellId = settings.shellId;
+    if (typeof settings.shellCustomPath === 'string') {
+      lastOptions.shellCustomPath = settings.shellCustomPath.trim();
     }
+    applyShellToSessions();
   }
   return {
     startDirectory: lastOptions.startDirectory,
-    promptTemplate: lastOptions.promptTemplate,
+    promptConfig: lastOptions.promptConfig,
     promptGitMode: lastOptions.promptGitMode,
     lsDirectoryColor: lastOptions.lsDirectoryColor,
     lsFileColor: lastOptions.lsFileColor,
-    endTipBg: lastOptions.endTipBg,
+    shellId: lastOptions.shellId,
+    shellCustomPath: lastOptions.shellCustomPath,
   };
 }
 
@@ -160,8 +204,8 @@ function createPty(win, options = {}) {
   const cwd = resolveStartDirectory(requested);
   if (options.cols > 0) lastOptions.cols = options.cols;
   if (options.rows > 0) lastOptions.rows = options.rows;
-  if (typeof options.promptTemplate === 'string' && options.promptTemplate.length) {
-    lastOptions.promptTemplate = asciiSafePromptGlyphs(options.promptTemplate);
+  if (options.promptConfig && typeof options.promptConfig === 'object') {
+    lastOptions.promptConfig = normalizePrompt(options.promptConfig);
   }
   if (options.promptGitMode != null) {
     lastOptions.promptGitMode = normalizePromptGitMode(options.promptGitMode);
@@ -177,73 +221,62 @@ function createPty(win, options = {}) {
   }
   destroySession(sessionId);
 
+  // A tab opened from the "+" menu carries its own shell; otherwise the default applies.
+  const shellId = typeof options.shellId === 'string' ? options.shellId : '';
+  const shellDef = currentShell(shellId);
   const shell = new MyShell(win, {
     sessionId,
     cwd,
     cols: options.cols || lastOptions.cols || 80,
     rows: options.rows || lastOptions.rows || 24,
-    promptTemplate: lastOptions.promptTemplate,
+    promptConfig: lastOptions.promptConfig,
     promptGitMode: lastOptions.promptGitMode,
+    promptTheme: lastOptions.promptTheme,
     lsDirectoryColor: lastOptions.lsDirectoryColor,
     lsFileColor: lastOptions.lsFileColor,
-    endTipBg: lastOptions.endTipBg,
+    shell: shellDef,
     history: getCommandHistory(),
   });
-  sessions.set(sessionId, { type: 'local', shell, win });
+  sessions.set(sessionId, { type: 'local', shell, win, shellId });
   shell.start();
-  return { ok: true, mode: 'myshell', sessionId };
+  return { ok: true, mode: 'myshell', sessionId, shell: shellInfoOf(shellDef) };
 }
 
+/**
+ * Prompt change from the renderer: `{ config, gitMode }` (either optional).
+ * Applies to every local shell and redraws their prompt.
+ */
 function setPromptTemplate(payload) {
-  const templateRaw =
-    typeof payload === 'string'
-      ? payload
-      : payload && typeof payload.template === 'string'
-        ? payload.template
-        : null;
-  const template =
-    typeof templateRaw === 'string' && templateRaw.length
-      ? asciiSafePromptGlyphs(templateRaw)
+  const config =
+    payload && typeof payload === 'object' && payload.config && typeof payload.config === 'object'
+      ? normalizePrompt(payload.config)
       : null;
   const gitMode =
     payload && typeof payload === 'object' && payload.gitMode != null
       ? normalizePromptGitMode(payload.gitMode)
       : null;
-  const presetId =
-    payload && typeof payload === 'object' && typeof payload.presetId === 'string'
-      ? payload.presetId
-      : template
-        ? findPromptPresetId(template)
-        : '';
-
-  if (template) {
-    lastOptions.promptTemplate = syncBuiltinPromptTemplate(presetId, template);
-  }
-  if (gitMode != null) {
-    lastOptions.promptGitMode = gitMode;
-  }
+  if (config) lastOptions.promptConfig = config;
+  if (gitMode != null) lastOptions.promptGitMode = gitMode;
 
   for (const session of sessions.values()) {
     if (session.type !== 'local' || !session.shell) continue;
-    if (template) session.shell.setPromptTemplate(lastOptions.promptTemplate);
-    if (gitMode != null) {
-      session.shell.setPromptGitMode(gitMode);
-      // Git-only toggle: redraw the prompt without restarting the shell.
-      if (!template && typeof session.shell.prompt === 'function') {
-        try {
-          session.shell.prompt();
-        } catch (_) {
-          /* ignore */
-        }
+    if (config) session.shell.setPromptConfig(config);
+    if (gitMode != null) session.shell.setPromptGitMode(gitMode);
+    // Git-only toggle: redraw the prompt without restarting the shell.
+    if (!config && gitMode != null && typeof session.shell.prompt === 'function') {
+      try {
+        session.shell.prompt();
+      } catch (_) {
+        /* ignore */
       }
     }
   }
 
   return {
     ok: true,
-    template: lastOptions.promptTemplate,
+    config: lastOptions.promptConfig,
     gitMode: lastOptions.promptGitMode,
-    presetId,
+    presetId: lastOptions.promptConfig.preset || '',
   };
 }
 
@@ -364,14 +397,18 @@ async function connectSsh(win, config = {}) {
       cwd: resolveStartDirectory(preferredStartDirectory(null)),
       cols: config.cols || lastOptions.cols || 80,
       rows: config.rows || lastOptions.rows || 24,
-      promptTemplate: lastOptions.promptTemplate,
+      promptConfig: lastOptions.promptConfig,
       promptGitMode: lastOptions.promptGitMode,
+      promptTheme: lastOptions.promptTheme,
+      lsDirectoryColor: lastOptions.lsDirectoryColor,
+      lsFileColor: lastOptions.lsFileColor,
+      shell: currentShell(),
       history: getCommandHistory(),
     });
     sessions.set(sessionId, { type: 'local', shell, win });
     shell.writeln(`\x1b[31m[ssh]\x1b[0m connect failed: ${err.message || err}`);
     shell.start();
-    return { ok: false, sessionId, error: String(err.message || err) };
+    return { ok: false, sessionId, error: String(err.message || err), details: describeError(err, { context: 'ssh' }).details };
   }
 }
 
@@ -395,8 +432,12 @@ function disconnectSsh(payload = {}) {
       cwd: resolveStartDirectory(preferredStartDirectory(null)),
       cols: lastOptions.cols || 80,
       rows: lastOptions.rows || 24,
-      promptTemplate: lastOptions.promptTemplate,
+      promptConfig: lastOptions.promptConfig,
       promptGitMode: lastOptions.promptGitMode,
+      promptTheme: lastOptions.promptTheme,
+      lsDirectoryColor: lastOptions.lsDirectoryColor,
+      lsFileColor: lastOptions.lsFileColor,
+      shell: currentShell(),
       history: getCommandHistory(),
     });
     sessions.set(id, { type: 'local', shell, win });
@@ -413,7 +454,7 @@ function getSessionInfo(payload = {}) {
       sessionId,
       mode: session?.type || 'none',
       connected: session?.type === 'ssh' && !!(session.ssh && session.ssh.alive),
-      promptTemplate: lastOptions.promptTemplate,
+      promptPreset: lastOptions.promptConfig.preset || '',
       title:
         session?.type === 'ssh'
           ? `${session.ssh.username}@${session.ssh.host}`
@@ -428,11 +469,14 @@ function getSessionInfo(payload = {}) {
       connected: s.type === 'ssh' && !!(s.ssh && s.ssh.alive),
       title: s.type === 'ssh' ? `${s.ssh.username}@${s.ssh.host}` : null,
     })),
-    promptTemplate: lastOptions.promptTemplate,
+    promptPreset: lastOptions.promptConfig.preset || '',
   };
 }
 
 module.exports = {
+  listShells,
+  currentShell,
+  shellInfoOf,
   createPty,
   writePty,
   resizePty,

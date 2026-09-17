@@ -212,6 +212,77 @@ body.web .window-controls {
   display: none;
 }
 
+.tab-strip {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: stretch;
+  background: var(--toolbar-bg);
+  border-bottom: 1px solid var(--border);
+}
+
+.tab-strip .tab-bar {
+  flex: 1 1 auto;
+  min-width: 0;
+  border-bottom: 0;
+}
+
+/* "+" / "▾" pinned after the strip: always visible however many tabs there are. */
+.tab-actions {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  padding: 4px 6px 0 4px;
+}
+
+/* Tabs past the edge: scroll buttons on the right (shown only when needed). */
+.tab-scroll {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 6px 0;
+  border-left: 1px solid var(--border);
+}
+
+.tab-scroll[hidden] {
+  display: none;
+}
+
+.tab-scroll-btn {
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--button-hover);
+  color: var(--toolbar-fg);
+  cursor: pointer;
+}
+
+.tab-scroll-btn svg {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.tab-scroll-btn:hover:not(:disabled) {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.tab-scroll-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
 .tab-bar {
   flex: 0 0 auto;
   display: flex;
@@ -880,13 +951,17 @@ body.theme-light .tooltip {
   inset: 0;
   background: rgba(0, 0, 0, 0.45);
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   z-index: 100;
   padding: 16px;
+  /* Centred while it fits; the backdrop scrolls when the dialog is taller. */
+  overflow: auto;
+  box-sizing: border-box;
 }
 
 .modal {
+  margin: auto;
   width: min(480px, 100%);
   background: var(--toolbar-bg);
   color: var(--toolbar-fg);
@@ -1137,19 +1212,43 @@ body.theme-light .tooltip {
 }
 
 .settings-bg-library {
+  /* Two fixed rows of five (paged) so the dialog never needs to scroll. */
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 10px;
-  max-height: 220px;
-  overflow: auto;
   padding: 2px;
+  min-height: 190px;
 }
 
 .settings-bg-empty {
   grid-column: 1 / -1;
+  align-self: center;
+  text-align: center;
   font-size: 12px;
   opacity: 0.7;
   padding: 10px 4px;
+}
+
+.settings-bg-placeholder .settings-bg-thumb {
+  border-style: dashed;
+  opacity: 0.35;
+  cursor: default;
+  pointer-events: none;
+}
+
+.settings-bg-pager {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.settings-bg-page {
+  font-size: 12px;
+  min-width: 34px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.8;
 }
 
 .settings-bg-card {
@@ -1295,31 +1394,992 @@ body.theme-light .tooltip {
   font-size: 12px;
 }
 
-.preset-group {
-  margin-top: 12px;
-}
+/* ---------------- Settings: tabs + fixed panes ---------------- */
 
-.preset-group-title {
-  font-size: 12px;
-  font-weight: 600;
-  opacity: 0.85;
-  margin-bottom: 6px;
-}
-
-.preset-row {
+.settings-tabs {
   display: flex;
-  flex-wrap: wrap;
+  gap: 4px;
+  border-bottom: 1px solid var(--border);
+  margin: -4px 0 14px;
+}
+
+.settings-tab {
+  display: inline-flex;
+  align-items: center;
   gap: 6px;
-  margin: 0 0 4px;
+  padding: 8px 12px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  opacity: 0.75;
+  white-space: nowrap;
 }
 
-.preset-btn {
+.settings-tab svg {
+  width: 15px;
+  height: 15px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.settings-tab:hover {
+  opacity: 1;
+  background: var(--button-hover);
+  border-radius: 6px 6px 0 0;
+}
+
+.settings-tab.active {
+  opacity: 1;
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+/* Every pane shares one grid cell: the body is as tall as the tallest tab,
+   so the window can be sized once and never scrolls. */
+.settings-panes {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.settings-pane {
+  grid-area: 1 / 1;
+  min-width: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.settings-pane.active {
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.settings-pane .settings-section:first-child {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
+.settings-sub {
+  margin-left: 8px;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--toolbar-fg);
+  opacity: 0.7;
+}
+
+.settings-select-wide {
+  min-width: 260px;
+  max-width: 100%;
+}
+
+.settings-error {
+  color: var(--danger);
+  min-height: 1.4em;
+  visibility: hidden;
+}
+
+.settings-error.visible {
+  visibility: visible;
+}
+
+.mono {
+  font-family: Consolas, "Cascadia Mono", "D2Coding", monospace;
+}
+
+.modal-settings {
+  width: min(900px, 100%);
+}
+
+/* ---------------- Settings: prompt editor (Command Center port) ---------------- */
+
+.prompt-editor {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.muted {
+  opacity: 0.7;
+}
+
+.small {
+  font-size: 12px;
+}
+
+.ellipsis {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Rendered prompts (preview + preset cards): powerline segments are CSS
+   clip-path arrows, diamonds rounded pills, plain segments coloured text. */
+.term-out {
+  margin: 0;
+  font-family: Consolas, "Cascadia Mono", "D2Coding", monospace;
+  font-size: 12.5px;
+  line-height: 1.45;
+  white-space: pre;
+  overflow: hidden;
+  user-select: text;
+}
+
+.term-out .term-prompt {
+  white-space: pre;
+}
+
+.term-out {
+  /* one terminal cell: width 1ch of the monospace font, height the line box */
+  --cell-h: 1.25em;
+}
+
+.term-out .pseg {
+  position: relative;
+  display: inline-block;
+  vertical-align: top;
+  height: var(--cell-h);
+  line-height: var(--cell-h);
+  white-space: pre;
+  font-weight: 500;
+}
+
+/* powerline: the arrow occupies the next two character cells, drawn in this
+   segment's background over the following one (the terminal's U+E0D0+U+E0D1) */
+.term-out .pseg-pl {
+  padding: 0 2ch 0 0;
+  clip-path: polygon(0 0, calc(100% - 2ch) 0, 100% 50%, calc(100% - 2ch) 100%, 0 100%);
+}
+
+.term-out .pseg-pl.nobg {
+  clip-path: none;
+  padding-right: 0;
+}
+
+.term-out .pseg-pl.after-pl {
+  margin-left: -2ch;
+  padding-left: 2ch;
+}
+
+/* diamond: half-circle caps one cell wide (U+E0B6 … U+E0B4) */
+.term-out .pseg-dm {
+  border-radius: 999px;
+  padding: 0 1ch;
+}
+
+.term-out .pseg-plain {
+  padding: 0;
+}
+
+/* Preview: three fixed two-line slots, so the box never changes height. */
+.pe-preview-out {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: default;
+  line-height: var(--cell-h);
+}
+
+.pe-preview-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  height: calc(var(--cell-h) * 2);
+  overflow: hidden;
+}
+
+.pe-preview-line + .pe-preview-line {
+  border-top: 1px dashed color-mix(in srgb, currentColor 18%, transparent);
+  padding-top: 4px;
+}
+
+.pe-preview-line > .term-prompt {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.pe-preview-label {
+  flex: 0 0 auto;
+  font-family: "Segoe UI", "Malgun Gothic", sans-serif;
+  font-size: 11px;
+  opacity: 0.55;
+}
+
+/* Preset cards: 5 × 4 (fixed) */
+.pe-presets {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.pe-preset {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 3px 5px;
+  overflow: hidden;
+  height: 56px;
+  box-sizing: border-box;
+  background: var(--button-hover);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: inherit;
+  text-align: left;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.pe-preset:hover {
+  border-color: var(--accent);
+}
+
+.pe-preset.active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent) inset;
+}
+
+.pe-preset-out {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 0 3px;
+  border: 0;
+  margin: 0;
+  font-size: 10px;
+  line-height: 1.5;
+  overflow: hidden;
+  white-space: pre;
+  height: 28px;
+  pointer-events: none;
+  width: 100%;
+  box-sizing: border-box;
+  flex: none;
+  text-align: left;
+  border-radius: 4px;
+}
+
+.pe-preset-out .term-prompt {
+  display: block;
+  width: max-content;
+  white-space: pre;
+}
+
+.pe-preset-out {
+  --cell-h: 1.5em;
+}
+
+.pe-preset-name {
+  font-size: 11px;
+  opacity: 0.8;
+  height: 16px;
+  line-height: 16px;
+  flex: none;
+  padding-left: 3px;
+}
+
+.pe-preset.active .pe-preset-name {
+  opacity: 1;
+}
+
+/* Quick options rows */
+.pe-quick {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: nowrap;
+  min-height: 32px;
+  min-width: 0;
+}
+
+.pe-quick + .pe-quick {
+  margin-top: 4px;
+}
+
+.pe-quick .settings-select {
+  max-width: 170px;
+}
+
+.pe-check {
+  gap: 5px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.pe-btn {
+  padding: 5px 9px;
+  font-size: 12px;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+
+.pe-custom-row .pe-custom-select {
+  flex: 1 1 150px;
+  min-width: 110px;
+}
+
+.pe-custom-row .pe-custom-name {
+  flex: 1 1 110px;
+  min-width: 90px;
+  padding: 5px 8px;
+}
+
+.pe-hint-line {
+  height: 2.8em;
+  overflow: hidden;
+}
+
+/* the git block's colour per repository state: a swatch with the state's name in that colour */
+.pe-gitcolors {
+  gap: 8px;
+}
+
+.pe-gitcolor {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.pe-gitcolor input[type="color"] {
+  width: 22px;
+  height: 18px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: none;
+  cursor: pointer;
+}
+
+.pe-gitcolor input[type="color"]:disabled {
+  opacity: 0.4;
+}
+
+/* Advanced: master–detail (fixed height; the list scrolls only past ~10 rows) */
+.pe-advanced {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr);
+  gap: 8px;
+  height: 312px;
+}
+
+.pe-advanced > * {
+  min-height: 0;
+}
+
+.pe-list {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  overflow: hidden;
+}
+
+.pe-list-rows {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.pe-list-block {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px 8px;
+  font-size: 11px;
+  opacity: 0.85;
+  background: var(--toolbar-bg);
+  border-bottom: 1px solid var(--border);
+}
+
+.pe-x {
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  font-size: 11px;
+  padding: 0 2px;
+}
+
+.pe-x:hover {
+  color: var(--danger);
+}
+
+.pe-list-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  font-size: 12px;
+  background: none;
+  border: 0;
+  color: inherit;
+  text-align: left;
+  width: 100%;
+  cursor: pointer;
+}
+
+.pe-list-row:hover {
+  background: var(--button-hover);
+}
+
+.pe-list-row.active {
+  background: color-mix(in srgb, var(--accent) 28%, transparent);
+}
+
+.pe-list-row.off {
+  opacity: 0.5;
+  text-decoration: line-through;
+}
+
+.pe-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  flex: none;
+}
+
+.pe-list-tools {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  border-top: 1px solid var(--border);
+  background: var(--toolbar-bg);
+}
+
+.pe-list-tools .settings-select {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  padding: 4px 6px;
+}
+
+.pe-icon-btn {
+  padding: 4px 7px;
+  font-size: 11px;
+  line-height: 1;
+}
+
+.pe-detail {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  background: var(--bg);
+  overflow: hidden;
+}
+
+.pe-fields {
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 6px 8px;
+  align-items: center;
+}
+
+.pe-fields label {
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.pe-fields textarea {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  font-size: 11px;
+  resize: none;
+  height: 44px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--button-hover);
+  color: inherit;
+  padding: 5px 7px;
+}
+
+.pe-fields .settings-select {
+  max-width: 150px;
+}
+
+.pe-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  min-width: 0;
+  flex-wrap: nowrap;
+}
+
+.pe-row [hidden] {
+  display: none !important;
+}
+
+.pe-row .muted {
+  white-space: nowrap;
+}
+
+.pe-num {
+  width: 64px;
+  padding: 4px 6px;
+}
+
+.pe-short {
+  width: 70px;
+  flex: 0 0 auto;
+  padding: 4px 6px;
+}
+
+.pe-color {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.pe-color input[type="color"] {
+  width: 26px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: none;
+  cursor: pointer;
+}
+
+.pe-color input.mono {
+  width: 118px;
+  font-size: 11px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--button-hover);
+  color: inherit;
+  padding: 4px 6px;
+}
+
+.pe-vars {
+  line-height: 1.3;
+  min-width: 0;
+  height: 2.6em;
+  overflow: hidden;
+  font-size: 11px;
+}
+
+.pe-select-hint {
+  padding: 8px 2px;
+}
+
+.pe-note {
+  padding: 2px 0;
+  height: 18px;
+  line-height: 18px;
+  margin-top: 6px;
+}
+
+/* Every popup / modal close button turns red under the pointer (Windows style). */
+.popup-close:hover,
+.modal-x:hover {
+  background: #c42b1c !important;
+  color: #fff !important;
+}
+
+/* ---------------- Toolbar: language badge ---------------- */
+
+/* Language button: the current language's flag (SVG — Windows has no flag emoji). */
+.tb-lang-flag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+}
+
+/* Same footprint as the other 16 px toolbar icons. */
+.tb-lang-flag svg {
+  width: 16px;
+  height: 11px;
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+  stroke: none;
+  fill: none;
+  shape-rendering: geometricPrecision;
+}
+
+/* ---------------- Tab bar: "+ ▾" shell menu ---------------- */
+
+.tab-item.tab-new-menu {
+  min-width: 20px;
+  max-width: 22px;
+  width: 20px;
+  margin-left: -6px;
+}
+
+.tab-item.tab-new-menu .tab-new-icon {
+  font-size: 12px;
+}
+
+.tb-menu-wrap-shell {
+  width: 0;
+  height: 0;
+  overflow: visible;
+}
+
+.tb-menu .menu-tag {
+  margin-left: 6px;
+  font-size: 10px;
+  opacity: 0.65;
+}
+
+/* ---------------- Settings: theme cards (dark 8 × 2 + light 8 × 2) ---------------- */
+
+.tb-menu-themes:not([hidden]) {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  column-gap: 4px;
+  max-height: min(600px, calc(100vh - 60px));
+}
+
+/* Dark and light themes each sit in their own framed box. */
+.theme-group {
+  margin: 0;
+  padding: 6px 10px 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  min-width: 0;
+}
+
+.theme-group + .theme-group {
+  margin-top: 10px;
+}
+
+.theme-group-dark {
+  background: color-mix(in srgb, #000 12%, transparent);
+}
+
+.theme-group-light {
+  background: color-mix(in srgb, #fff 6%, transparent);
+}
+
+.theme-group-title {
+  font-size: 12px;
+  font-weight: 650;
+  padding: 0 6px;
+  color: var(--accent);
+}
+
+.theme-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.theme-card {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 4px 5px;
+  border: 2px solid transparent;
+  border-radius: 7px;
+  text-align: left;
+  height: 62px;
+  box-sizing: border-box;
+  overflow: hidden;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.theme-card:hover {
+  filter: brightness(1.12);
+}
+
+.theme-card.active {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+.theme-sample {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 4px;
+  border-radius: 4px;
+}
+
+.theme-bar {
+  height: 7px;
+  border-radius: 2px;
+  display: flex;
+  align-items: center;
+  padding-left: 3px;
+}
+
+.theme-bar > span {
+  display: block;
+  width: 20px;
+  height: 3px;
+  border-radius: 2px;
+}
+
+.theme-line {
+  height: 4px;
+  border-radius: 2px;
+  opacity: 0.75;
+}
+
+.theme-line.short {
+  width: 55%;
+}
+
+.theme-name {
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.theme-badge {
+  color: var(--accent);
+  margin-right: 3px;
+}
+
+/* ---------------- Settings: SSH hosts ---------------- */
+
+.ssh-profiles {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: 10px;
+  height: 300px;
+}
+
+.ssh-profiles > * {
+  min-height: 0;
+}
+
+.ssh-list {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  overflow: hidden;
+}
+
+.ssh-list-rows {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.ssh-row {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  width: 100%;
   padding: 6px 10px;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  background: none;
+  color: inherit;
+  text-align: left;
+  font-size: 12px;
+  cursor: pointer;
 }
 
-.preset-btn-active {
-  border-color: var(--accent, #3b82f6);
-  color: var(--accent, #3b82f6);
-  background: color-mix(in srgb, var(--accent, #3b82f6) 16%, transparent);
+.ssh-row:hover {
+  background: var(--button-hover);
 }
 
+.ssh-row.active {
+  background: color-mix(in srgb, var(--accent) 28%, transparent);
+}
+
+.ssh-row-sub {
+  font-size: 11px;
+  opacity: 0.65;
+  font-family: Consolas, "Cascadia Mono", monospace;
+}
+
+.ssh-empty {
+  padding: 12px 10px;
+}
+
+.ssh-list-tools {
+  flex: none;
+  display: flex;
+  gap: 6px;
+  padding: 6px;
+  border-top: 1px solid var(--border);
+  background: var(--toolbar-bg);
+}
+
+.ssh-detail {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px 14px;
+  background: var(--bg);
+}
+
+.ssh-fields {
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 8px 12px;
+}
+
+.ssh-fields input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* ---------------- Error dialog ---------------- */
+
+.error-box {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.error-icon {
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 16%, transparent);
+}
+
+.error-icon svg {
+  width: 20px;
+  height: 20px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.error-message {
+  margin: 0;
+  padding-top: 6px;
+  font-size: 13px;
+  line-height: 1.5;
+  font-weight: 600;
+  word-break: break-word;
+  user-select: text;
+  min-width: 0;
+}
+
+.error-details-label {
+  display: block;
+  font-size: 11px;
+  opacity: 0.7;
+  margin-bottom: 4px;
+}
+
+.error-details {
+  width: 100%;
+  box-sizing: border-box;
+  height: 220px;
+  resize: none;
+  font-size: 12px;
+  line-height: 1.45;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--fg);
+  padding: 8px 10px;
+  white-space: pre;
+  overflow: auto;
+  user-select: text;
+}
+
+.modal-error {
+  width: min(560px, 100%);
+}
+
+.ssh-apply-row {
+  margin-top: 12px;
+  gap: 10px;
+}
+
+.ssh-apply-row .settings-hint {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* ---------------- Number fields: − value + ---------------- */
+
+.num-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.num-field input[type="number"] {
+  text-align: center;
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.num-field input[type="number"]::-webkit-inner-spin-button,
+.num-field input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.num-btn {
+  flex: 0 0 auto;
+  width: 24px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--button-hover);
+  color: inherit;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  user-select: none;
+}
+
+.num-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.num-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+/* Number inputs sit in a grid cell: keep the field compact */
+.settings-grid .num-field .settings-number {
+  width: 88px;
+}
+
+.num-field .pe-num {
+  width: 56px;
+}
+
+.ssh-fields .num-field input[type="number"] {
+  width: 110px;
+}
+
+.ssh-fields .num-field input.pe-num {
+  width: 56px;
+}

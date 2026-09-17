@@ -12,6 +12,7 @@ contextBridge.exposeInMainWorld('myTerminal', {
   isMaximized: () => ipcRenderer.invoke('window:isMaximized'),
   getWindowBounds: () => ipcRenderer.invoke('window:getBounds'),
   setMinSize: (size) => ipcRenderer.invoke('window:setMinSize', size || {}),
+  resizeWindowBy: (delta) => ipcRenderer.invoke('window:resizeBy', delta || {}),
   onMaximized: (cb) => {
     const handler = (_e, value) => cb(value);
     ipcRenderer.on('window:maximized', handler);
@@ -24,6 +25,12 @@ contextBridge.exposeInMainWorld('myTerminal', {
   openExternal: (url) => ipcRenderer.invoke('shell:openExternal', url),
   clipboardWriteText: (text) => ipcRenderer.invoke('clipboard:writeText', text),
   clipboardReadText: () => ipcRenderer.invoke('clipboard:readText'),
+  reportError: (info) => ipcRenderer.invoke('app:reportError', info || {}),
+  onAppError: (cb) => {
+    const handler = (_e, info) => cb(info);
+    ipcRenderer.on('app:error', handler);
+    return () => ipcRenderer.removeListener('app:error', handler);
+  },
   onOpenSettings: (cb) => {
     const handler = () => cb();
     ipcRenderer.on('tray:openSettings', handler);
@@ -32,8 +39,11 @@ contextBridge.exposeInMainWorld('myTerminal', {
 
   openPopup: (options) => ipcRenderer.invoke('popup:open', options || {}),
   closePopup: (id) => ipcRenderer.invoke('popup:close', id),
+  focusPopup: (id) => ipcRenderer.invoke('popup:focus', id),
   showPopup: (id) => ipcRenderer.invoke('popup:show', id),
   fitPopup: (payload) => ipcRenderer.invoke('popup:fit', payload || {}),
+  setPopupResizable: (id, resizable) =>
+    ipcRenderer.invoke('popup:setResizable', { id, resizable: resizable !== false }),
   popupSend: (id, message) => ipcRenderer.invoke('popup:send', { id, message }),
   popupGetId: () => ipcRenderer.invoke('popup:getId'),
   onPopupEvent: (cb) => {
@@ -71,6 +81,7 @@ contextBridge.exposeInMainWorld('myTerminal', {
   },
 
   getPromptPresets: () => ipcRenderer.invoke('prompt:getPresets'),
+  listShells: (options) => ipcRenderer.invoke('shells:list', options || {}),
   setPrompt: (template) => ipcRenderer.invoke('prompt:set', template),
 
   sshConnect: (config) => ipcRenderer.invoke('ssh:connect', config),

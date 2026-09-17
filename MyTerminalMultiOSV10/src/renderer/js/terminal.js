@@ -4,8 +4,9 @@ import { WebLinksAddon } from '@xterm/addon-web-links';
 import { SerializeAddon } from '@xterm/addon-serialize';
 import { CanvasAddon } from '@xterm/addon-canvas';
 import { WebglAddon } from '@xterm/addon-webgl';
-import { toXtermTheme } from './themes.js';
+import { toXtermTheme, isLightColor } from './themes.js';
 import { WebShell } from './web-shell.js';
+import { reportError } from './error-dialog.js';
 
 /** Inline SVG glyphs for the terminal context menu (stroke inherits currentColor via CSS). */
 const CTX_ICONS = {
@@ -45,11 +46,13 @@ export class TerminalPane {
     i18n,
     getTheme,
     getHasBackgroundImage,
-    getPromptTemplate,
+    getPromptConfig,
     getPromptGitMode,
     getStartDirectory,
     getLsColors,
     title = '',
+    shellId = '',
+    onTitle = null,
   }) {
     this.sessionId = sessionId;
     this.host = host;
@@ -57,13 +60,19 @@ export class TerminalPane {
     this.i18n = i18n;
     this.getTheme = getTheme;
     this.getHasBackgroundImage = getHasBackgroundImage || (() => false);
-    this.getPromptTemplate = getPromptTemplate || (() => null);
+    this.getPromptConfig = getPromptConfig || (() => null);
     this.getPromptGitMode = getPromptGitMode || (() => 'status');
     this.getStartDirectory = getStartDirectory || (() => '');
     this.getLsColors = getLsColors || (() => ({}));
     this.title = title;
+    /** Command shell chosen for this tab ('' = the default from settings). */
+    this.shellId = shellId;
+    /** { id, label, short } of the shell the session runs (from main). */
+    this.shellInfo = null;
+    /** Called when the tab title changes (the shell name arrives with ptyStart). */
+    this.onTitle = onTitle;
     this.mode = 'local';
-    this.fontSize = 14;
+    this.fontSize = 13;
     this.fontFamily = 'Consolas, "Courier New", monospace';
     this.scrollback = 10000;
     this.webShell = null;
@@ -235,14 +244,22 @@ export class TerminalPane {
         sessionId: this.sessionId,
         cols,
         rows,
-        promptTemplate: this.getPromptTemplate(),
+        promptConfig: this.getPromptConfig(),
         promptGitMode: this.getPromptGitMode(),
         cwd: this.getStartDirectory(),
+        shellId: this.shellId,
       });
       if (!result?.ok) {
         this.term.writeln(`\r\nFailed to start shell: ${result?.error || 'unknown'}`);
+        reportError({ message: result?.error || 'Failed to start shell', details: `[pty:start]\nsession ${this.sessionId}\n${result?.error || 'unknown'}` }, { context: 'shell' });
       } else {
         this.mode = 'local';
+        if (result.shell) {
+          this.shellInfo = result.shell;
+          // Tabs are named after the shell they run: "cmd 1", "PowerShell 2" …
+          this.title = `${result.shell.short || result.shell.label} ${this.sessionId}`;
+          this.onTitle?.(this);
+        }
         this.title = this.title || `${this.i18n.t('tabs.session')} ${this.sessionId}`;
       }
       return result;
@@ -255,7 +272,9 @@ export class TerminalPane {
         this.term.writeln(this.i18n.t('terminal.restarted'));
         this.start();
       },
-      promptTemplate: this.getPromptTemplate(),
+      getPromptConfig: this.getPromptConfig,
+      getPromptGitMode: this.getPromptGitMode,
+      getTheme: this.getTheme,
       lsColors: this.getLsColors(),
     });
     this.term.clear();
@@ -312,6 +331,16 @@ export class TerminalPane {
     else this.webShell?.write(data);
   }
 
+  /** Pixel size of one cell and of the host, for "terminal size" profiles. */
+  cellMetrics() {
+    const screen = this.host.querySelector('.xterm-screen');
+    const cols = this.term.cols || 1;
+    const rows = this.term.rows || 1;
+    const w = screen?.clientWidth || this.host.clientWidth || 0;
+    const h = screen?.clientHeight || this.host.clientHeight || 0;
+    return { cellWidth: w / cols, cellHeight: h / rows, hostWidth: this.host.clientWidth, hostHeight: this.host.clientHeight, cols, rows };
+  }
+
   fit() {
     try {
       this.fitAddon.fit();
@@ -330,6 +359,11 @@ export class TerminalPane {
   applyTheme(theme) {
     this.term.options.theme = toXtermTheme(theme, !!this.getHasBackgroundImage());
     this.term.options.customGlyphs = true;
+    // Dark text on a light background reads thin at small sizes: weight it up a
+    // little (the colours themselves are contrast-checked in themes.js).
+    const light = isLightColor(theme?.background || '#000');
+    this.term.options.fontWeight = light ? '600' : 'normal';
+    this.term.options.fontWeightBold = light ? '800' : 'bold';
   }
 
   clear() {

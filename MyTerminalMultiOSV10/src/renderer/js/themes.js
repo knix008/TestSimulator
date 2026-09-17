@@ -1,4 +1,8 @@
+import { ensureContrast, contrastRatio } from '../../shared/prompt-core.js';
+
 let themes = null;
+
+export { ensureContrast, contrastRatio };
 
 const DARK_FG = '#1f1f1f';
 const DARK_TOOLBAR_FG = '#222222';
@@ -82,6 +86,15 @@ export function ensureReadableTheme(theme) {
     if (isLightColor(t.terminal.white, 0.55)) t.terminal.white = '#444444';
     if (isLightColor(t.terminal.brightWhite, 0.65)) t.terminal.brightWhite = '#333333';
   }
+  // Every ANSI colour (bright yellow, bright cyan …) must read on the
+  // terminal background — on a light theme the pale ones are deepened.
+  // Light backgrounds need more (AA 4.5): pale yellows / cyans otherwise wash out.
+  const minContrast = lightBg ? 4.5 : 3;
+  for (const key of Object.keys(t.terminal)) {
+    t.terminal[key] = ensureContrast(t.terminal[key], t.background, minContrast);
+  }
+  if (lightBg) t.foreground = ensureContrast(t.foreground, t.background, 7);
+  if (t.accent) t.accent = ensureContrast(t.accent, t.background, 2.5);
 
   if (lightToolbar && isLightColor(t.toolbarFg, 0.48)) {
     t.toolbarFg =
@@ -91,20 +104,51 @@ export function ensureReadableTheme(theme) {
   return t;
 }
 
+/** The colour keys a user may override per theme (settings › colours). */
+export const OVERRIDE_KEYS = ['background', 'foreground', 'cursor', 'selection', 'accent', 'toolbarBg'];
+
+/**
+ * A theme with the user's overrides merged in. `custom` is either the
+ * per-theme override set (a few keys) or a full colour set; either way it
+ * layers over the theme. A legacy "custom" theme id resolves to Dark.
+ */
 export function resolveTheme(themesMap, themeId, custom) {
-  let theme;
-  if (themeId === 'custom' && custom) {
-    const base = themesMap.dark || {};
-    theme = {
-      ...base,
-      ...custom,
-      id: 'custom',
-      terminal: { ...(base.terminal || {}), ...(custom.terminal || {}) },
-    };
-  } else {
-    theme = themesMap[themeId] || themesMap.dark;
-  }
+  const map = themesMap || {};
+  const base = map[themeId] || map.dark || {};
+  const theme = custom
+    ? {
+        ...base,
+        ...custom,
+        id: base.id || themeId,
+        terminal: { ...(base.terminal || {}), ...(custom.terminal || {}) },
+      }
+    : base;
   return ensureReadableTheme(theme);
+}
+
+/** Only the keys whose colour differs from the theme's own — what gets saved per theme. */
+export function themeOverridesFrom(custom, base) {
+  const out = {};
+  if (!custom || !base) return out;
+  for (const key of OVERRIDE_KEYS) {
+    const value = custom[key];
+    if (typeof value === 'string' && value && value.toLowerCase() !== String(base[key] || '').toLowerCase()) {
+      out[key] = value;
+    }
+  }
+  return out;
+}
+
+/** Sanitise a saved `{ themeId: { key: '#rrggbb' } }` map. */
+export function normalizeThemeOverrides(raw, themesMap) {
+  const out = {};
+  if (!raw || typeof raw !== 'object') return out;
+  for (const [id, colors] of Object.entries(raw)) {
+    if (!themesMap?.[id] || !colors || typeof colors !== 'object') continue;
+    const clean = themeOverridesFrom(colors, themesMap[id]);
+    if (Object.keys(clean).length) out[id] = clean;
+  }
+  return out;
 }
 
 export function clampTransparency(value) {

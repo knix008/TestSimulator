@@ -163,3 +163,46 @@ for (const { file, from, to } of bboxSpecs) {
     path.relative(root, file)
   );
 }
+
+// --- 5) Long (two-cell) powerline arrow: U+E0D0 (left half) + U+E0D1 (tip) ---
+// MyTerminal draws segment ends with this pair so the tip protrudes twice as
+// far as the single-cell E0B0. Both are inside xterm's powerline range
+// (E0A4-E0D6), so they get powerline placement; the halves meet at x=1 / x=0
+// (y .19 / .81, the same vertical overdraw as E0B0).
+{
+  const E0B0 = String.fromCharCode(0xe0b0);
+  const E0D0 = String.fromCharCode(0xe0d0);
+  const E0D1 = String.fromCharCode(0xe0d1);
+  const tipDef = 'M0,-.12 L1,.5 L0,1.12';
+  // The .mjs build keys the table with escaped "" strings, the .js builds with raw characters.
+  const variants = [
+    { key: (ch) => ch, label: 'raw' },
+    { key: (ch) => '\\u' + ch.charCodeAt(0).toString(16).toUpperCase(), label: 'escaped' },
+  ];
+  const targets = [
+    path.join(root, 'node_modules/@xterm/addon-webgl/lib/addon-webgl.js'),
+    path.join(root, 'node_modules/@xterm/addon-webgl/lib/addon-webgl.mjs'),
+    path.join(root, 'node_modules/@xterm/addon-canvas/lib/addon-canvas.js'),
+  ];
+  for (const target of targets) {
+    if (!fs.existsSync(target)) continue;
+    const src = read(target);
+    let done = false;
+    for (const v of variants) {
+      const anchor = `"${v.key(E0B0)}":{d:"${tipDef}",type:0,rightPadding:2},`;
+      const marker = `"${v.key(E0D0)}":{d:"M0,-.12 L1,.19 L1,.81 L0,1.12",type:0}`;
+      if (src.includes(marker)) {
+        console.log('[patch-xterm-powerline] long arrow OK:', path.relative(root, target));
+        done = true;
+        break;
+      }
+      if (!src.includes(anchor)) continue;
+      const defs = `${marker},"${v.key(E0D1)}":{d:"M0,.19 L1,.5 L0,.81",type:0,rightPadding:2},`;
+      write(target, src.replace(anchor, anchor + defs));
+      console.log(`[patch-xterm-powerline] added long arrow glyphs (${v.label}):`, path.relative(root, target));
+      done = true;
+      break;
+    }
+    if (!done) console.warn('[patch-xterm-powerline] long arrow anchor not found:', path.relative(root, target));
+  }
+}

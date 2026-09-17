@@ -31,7 +31,13 @@ body.popup-fixed .popup-app {
 body.popup-fixed .popup-body-content {
   flex: 1 1 auto;
   min-height: 0;
-  overflow: auto;
+  /* Sized once to the tallest tab: nothing scrolls. */
+  overflow: hidden;
+}
+
+/* Screen shorter than the dialog: scroll instead of cutting content off. */
+body.popup-fixed.popup-scroll .popup-body-content {
+  overflow-y: auto;
 }
 
 .popup-titlebar {
@@ -125,4 +131,8 @@ body.popup-fixed .popup-body-content {
 .popup-body-content textarea {
   resize: vertical;
   max-height: 160px;
+}
+
+.popup-body-content .pp-template {
+  resize: none;
 }

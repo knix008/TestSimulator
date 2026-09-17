@@ -1,11 +1,8 @@
 import { I18n } from './i18n.js';
 import { applyThemeToDocument, loadThemes, resolveTheme } from './themes.js';
-import {
-  mountAboutView,
-  mountPromptView,
-  mountSshView,
-  mountSettingsView,
-} from './modals.js';
+import { mountAboutView, mountSshView, mountSettingsView, addFooterButtons } from './modals.js';
+import { mountErrorView } from './error-dialog.js';
+import { describeError } from '../../shared/error-format.js';
 
 const api = window.myTerminal;
 const i18n = new I18n();
@@ -36,16 +33,27 @@ async function fitToContent() {
   // and leave dead space below the footer, so neutralize it while measuring.
   const prevHeight = app.style.height;
   const prevMinHeight = app.style.minHeight;
+  const prevMaxHeight = app.style.maxHeight;
   const prevOverflow = document.body.style.overflow;
   app.style.height = 'auto';
   app.style.minHeight = '0';
+  // popup-fixed caps the app at the window height; lift it while measuring.
+  app.style.maxHeight = 'none';
   document.body.style.overflow = 'hidden';
-  const width = Math.ceil(Math.min(Math.max(app.scrollWidth || app.offsetWidth, 400), 760));
-  const height = Math.ceil(Math.max(app.scrollHeight || app.offsetHeight, 140));
-  await api.fitPopup({ id: popupId, width, height });
+  // Bounding rect: content + padding + the app's 1px border on each side.
+  const rect = app.getBoundingClientRect();
+  const width = Math.ceil(Math.min(Math.max(app.scrollWidth || rect.width, 400), 960));
+  const height = Math.ceil(Math.max(rect.height, app.scrollHeight || 0, 140));
+  const fitted = await api.fitPopup({ id: popupId, width, height });
   app.style.height = prevHeight;
   app.style.minHeight = prevMinHeight;
+  app.style.maxHeight = prevMaxHeight;
   document.body.style.overflow = prevOverflow;
+  // Fixed-size popups never scroll — unless the screen is too small for the
+  // content, in which case the body scrolls rather than being cut off.
+  const short = fitted && Number(fitted.height) > 0 && fitted.height < height - 2;
+  document.body.classList.toggle('popup-scroll', !!short);
+  return fitted;
 }
 
 function send(message) {
@@ -60,6 +68,7 @@ const POPUP_TITLE_ICONS = {
   prompt: '<path d="M4 5h16v14H4zM7 9l3 2.5L7 14M12.5 14h4.5"/>',
   ssh: '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4M6.5 8l3 2.5-3 2.5M12.5 13h4"/>',
   about: '<circle cx="12" cy="12" r="9"/><path d="M12 10v6M12 7h.01"/>',
+  error: '<path d="M12 3l9.5 16.5h-19z"/><path d="M12 9v5M12 17h.01"/>',
 };
 
 function setTitleIcon(kind) {
@@ -90,9 +99,11 @@ async function mount(message) {
   await i18n.setLanguage(payload.lang || 'en');
   setTitleIcon(kind);
 
-  // Settings keeps a fixed window size; content scrolls inside.
-  autoFitEnabled = payload.autoFit !== false && kind !== 'settings';
-  document.body.classList.toggle('popup-fixed', !autoFitEnabled);
+  // Settings: sized once to its tallest tab, then locked (no inner scroll);
+  // the other popups keep following their content.
+  const fixedSize = kind === 'settings';
+  autoFitEnabled = payload.autoFit !== false || fixedSize;
+  document.body.classList.toggle('popup-fixed', fixedSize);
 
   if (payload.themes) {
     applyThemeVars(
@@ -124,14 +135,15 @@ async function mount(message) {
     setTitle,
     close: () => currentClose(),
     send,
-    fit: fitToContent,
+    // A fixed-size popup never re-fits after mount.
+    fit: fixedSize ? () => {} : fitToContent,
     setBeforeClose: (fn) => {
       beforeCloseHook = typeof fn === 'function' ? fn : async () => {};
     },
   };
 
   if (kind === 'about') mountAboutView(ctx, payload);
-  else if (kind === 'prompt') mountPromptView(ctx, payload);
+  else if (kind === 'error') mountErrorView(ctx, payload, addFooterButtons);
   else if (kind === 'ssh') mountSshView(ctx, payload);
   else if (kind === 'settings') mountSettingsView(ctx, payload);
   else {
@@ -152,6 +164,14 @@ async function mount(message) {
   };
   requestAnimationFrame(async () => {
     if (autoFitEnabled) await fitToContent();
+    if (fixedSize) {
+      autoFitEnabled = false;
+      try {
+        await api.setPopupResizable?.(popupId, false);
+      } catch (_) {
+        /* ignore */
+      }
+    }
     requestAnimationFrame(reveal);
   });
 }
@@ -176,6 +196,14 @@ async function boot() {
     if (msg?.type === 'ssh:result') {
       document.dispatchEvent(new CustomEvent('popup-ssh-result', { detail: msg }));
     }
+    if (msg?.type === 'settings:tab') {
+      document.dispatchEvent(new CustomEvent('popup-settings-tab', { detail: { tab: msg.tab } }));
+    }
+    if (msg?.type === 'settings:git-mode') {
+      document.dispatchEvent(
+        new CustomEvent('popup-settings-git-mode', { detail: { gitMode: msg.gitMode } })
+      );
+    }
   });
 
   // Themes fallback if payload omits them.
@@ -192,3 +220,16 @@ boot().catch((err) => {
   console.error(err);
   bodyEl.textContent = String(err);
 });
+
+// Anything that blows up inside a popup is shown by the owner window's error dialog.
+const forwardError = (err, context) => {
+  try {
+    const info = describeError(err, { context });
+    if (api?.reportError) api.reportError(info);
+    else send({ type: 'error', ...info });
+  } catch (_) {
+    /* ignore */
+  }
+};
+window.addEventListener('error', (e) => forwardError(e.error || e.message || 'Unknown error', 'popup'));
+window.addEventListener('unhandledrejection', (e) => forwardError(e.reason || 'Unhandled promise rejection', 'popup'));
