@@ -1,11 +1,13 @@
 // Writes samples/ — one small file per commonly used language / format, plus
-// encoding and line-ending variants — to try the editor with:
+// encoding and line-ending variants and a set of raster images — to try the
+// editor with:
 //   node scripts/make-samples.mjs
 // The files are committed; this script only exists to regenerate them.
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
+import { encodeIco } from './ico.mjs';
 
 const require = createRequire(import.meta.url);
 const iconv = require('iconv-lite');
@@ -25,6 +27,7 @@ My Editor 가 지원하는 파일 형식의 예제 모음입니다. 파일 › �
 | \`text/\` | 일반 텍스트, 로그, Markdown(WYSIWYG 도구 모음 · 미리보기), 스펠링 체크용 영어 문장 |
 | \`encodings/\` | UTF-8 (BOM 있음/없음), UTF-16 LE/BE, EUC-KR(CP949), Shift_JIS, Windows-1252 — 인코딩 자동 감지와 다시 열기 |
 | \`eol/\` | CRLF · LF · CR 줄 끝 — 상태 표시줄의 줄 끝 표시와 변환 |
+| \`images/\` | PNG · JPEG · GIF · WebP · AVIF · BMP · ICO — 그림으로 열기 / 16진수 보기. \`logo.svg\` 는 소스로 열림 |
 
 > \`text/spelling.txt\` 와 \`code/comments.c\` 에는 일부러 틀린 영어 단어가 들어 있습니다.
 `,
@@ -702,6 +705,38 @@ function hello(name) {
 ##### H5 제목
 ###### H6 제목
 `,
+
+  // ── images (raster files are written as bytes after this map; SVG is text) ──
+  'images/README.md': `# images
+
+래스터 그림 파일입니다. 열면 **그림이 편집 칸을 채우고**, 아래 **16진수** 버튼(또는 편집기 메뉴 › 이미지를 16진수로 보기)으로 바이트를 볼 수 있습니다. 미니맵·옆 미리보기 창은 쓰지 않습니다.
+
+| 파일 | 확인할 것 |
+|---|---|
+| \`sample.png\` | 불투명 PNG |
+| \`transparent.png\` | 투명 배경 — 바둑판 무늬 위에 그려지는지 |
+| \`sample.jpg\` | JPEG |
+| \`sample.gif\` | GIF |
+| \`sample.webp\` | WebP |
+| \`sample.avif\` | AVIF |
+| \`sample.bmp\` | BMP |
+| \`sample.ico\` | ICO (여러 크기) |
+| \`logo.svg\` | **예외** — SVG 는 텍스트 문서. 소스 편집 + 미리보기 (Ctrl+Shift+M) |
+
+클릭하면 창에 맞춤 ↔ 원본 크기(1:1)를 전환합니다.
+`,
+  'images/logo.svg': `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="200" viewBox="0 0 320 200">
+  <!-- SVG is edited as source; Ctrl+Shift+M draws this next to the editor. -->
+  <rect width="320" height="200" fill="#1a2744"/>
+  <rect x="28" y="28" width="264" height="144" rx="18" fill="#3a86ff"/>
+  <circle cx="118" cy="100" r="42" fill="#ffbe0b"/>
+  <g fill="#ffffff" font-family="Segoe UI, sans-serif">
+    <text x="175" y="96" font-size="28" font-weight="700">SVG</text>
+    <text x="175" y="126" font-size="13" fill="#d6e4ff">source + preview</text>
+  </g>
+</svg>
+`,
 };
 
 fs.rmSync(out, { recursive: true, force: true });
@@ -747,5 +782,146 @@ fs.writeFileSync(path.join(eol, 'README.md'), `# eol
 줄 끝 문자만 다른 파일들입니다. 상태 표시줄의 CRLF / LF / CR 버튼으로 확인하고 바꿔서 저장해 보세요. \`mixed.txt\` 는 가장 많이 쓰인 줄 끝(CRLF)으로 감지됩니다.
 `);
 
+await writeImages(path.join(out, 'images'));
+
 const count = fs.readdirSync(out, { recursive: true }).filter((n) => fs.statSync(path.join(out, String(n))).isFile()).length;
 console.log(`[samples] wrote ${count} files to ${path.relative(path.join(__dirname, '..'), out)}/`);
+
+// ── raster images (PNG · JPEG · GIF · WebP · AVIF · BMP · ICO) ──
+// SVG is a text sample (images/logo.svg above). These files open as a picture
+// in the editor, with an optional hex view.
+function sampleSvg(label, { transparent = false } = {}) {
+  const bg = transparent ? 'none' : '#1a2744';
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="400" viewBox="0 0 640 400">
+  <rect width="640" height="400" fill="${bg}"/>
+  <rect x="48" y="48" width="544" height="304" rx="28" fill="#3a86ff"/>
+  <circle cx="220" cy="200" r="78" fill="#ffbe0b"/>
+  <text x="330" y="188" fill="#ffffff" font-family="Segoe UI, Arial, sans-serif" font-size="52" font-weight="700">${label}</text>
+  <text x="330" y="232" fill="#d6e4ff" font-family="Segoe UI, Arial, sans-serif" font-size="22">My Editor sample</text>
+</svg>`;
+}
+
+function encodeBmp(w, h, rgba) {
+  const stride = (w * 3 + 3) & ~3;
+  const data = stride * h;
+  const buf = Buffer.alloc(54 + data);
+  buf.write('BM', 0);
+  buf.writeUInt32LE(54 + data, 2);
+  buf.writeUInt32LE(54, 10);
+  buf.writeUInt32LE(40, 14);
+  buf.writeInt32LE(w, 18);
+  buf.writeInt32LE(h, 22);
+  buf.writeUInt16LE(1, 26);
+  buf.writeUInt16LE(24, 28);
+  buf.writeUInt32LE(data, 34);
+  for (let y = 0; y < h; y++) {
+    const srcY = h - 1 - y;
+    let o = 54 + y * stride;
+    for (let x = 0; x < w; x++) {
+      const i = (srcY * w + x) * 4;
+      buf[o++] = rgba[i + 2];
+      buf[o++] = rgba[i + 1];
+      buf[o++] = rgba[i];
+    }
+  }
+  return buf;
+}
+
+function encodeGif(w, h, rgba) {
+  const index = Buffer.alloc(w * h);
+  const palette = [];
+  const map = new Map();
+  for (let i = 0; i < w * h; i++) {
+    const r = rgba[i * 4] & 0xf0, g = rgba[i * 4 + 1] & 0xf0, b = rgba[i * 4 + 2] & 0xf0;
+    const k = (r << 16) | (g << 8) | b;
+    let p = map.get(k);
+    if (p == null) {
+      p = palette.length < 256 ? palette.length : 0;
+      if (palette.length < 256) { palette.push([r, g, b]); map.set(k, p); }
+    }
+    index[i] = p;
+  }
+  const sizeBits = Math.max(2, Math.ceil(Math.log2(Math.max(palette.length, 2))));
+  const ncolors = 1 << sizeBits;
+  const pal = Buffer.alloc(ncolors * 3);
+  for (let i = 0; i < palette.length; i++) { pal[i * 3] = palette[i][0]; pal[i * 3 + 1] = palette[i][1]; pal[i * 3 + 2] = palette[i][2]; }
+
+  const clear = 1 << sizeBits, eoi = clear + 1, codeSize = sizeBits + 1;
+  const limit = (1 << codeSize) - 1 - eoi;
+  let acc = 0, bits = 0;
+  const bytes = [];
+  const put = (code, width) => {
+    acc |= code << bits;
+    bits += width;
+    while (bits >= 8) { bytes.push(acc & 255); acc >>= 8; bits -= 8; }
+  };
+  put(clear, codeSize);
+  let n = 0;
+  for (let i = 0; i < index.length; i++) {
+    put(index[i], codeSize);
+    if (++n >= limit) { put(clear, codeSize); n = 0; }
+  }
+  put(eoi, codeSize);
+  if (bits) bytes.push(acc & 255);
+
+  const blocks = [];
+  for (let i = 0; i < bytes.length; i += 255) {
+    const chunk = bytes.slice(i, i + 255);
+    blocks.push(Buffer.from([chunk.length, ...chunk]));
+  }
+  blocks.push(Buffer.from([0]));
+
+  const header = Buffer.alloc(13);
+  header.write('GIF89a', 0);
+  header.writeUInt16LE(w, 6);
+  header.writeUInt16LE(h, 8);
+  header[10] = 0x80 | ((sizeBits - 1) & 7);
+  const img = Buffer.alloc(10);
+  img[0] = 0x2c;
+  img.writeUInt16LE(w, 5);
+  img.writeUInt16LE(h, 7);
+  const min = Buffer.from([sizeBits]);
+  const trailer = Buffer.from([0x3b]);
+  return Buffer.concat([header, pal, img, min, ...blocks, trailer]);
+}
+
+async function writeImages(dir) {
+  fs.mkdirSync(dir, { recursive: true });
+  const sharp = (await import('sharp')).default;
+  const raster = async (label, opts) => {
+    const png = await sharp(Buffer.from(sampleSvg(label, opts))).png().toBuffer();
+    const { data, info } = await sharp(png).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+    return { png, rgba: data, w: info.width, h: info.height };
+  };
+
+  const png = await raster('PNG');
+  fs.writeFileSync(path.join(dir, 'sample.png'), png.png);
+
+  const jpeg = await raster('JPEG');
+  fs.writeFileSync(path.join(dir, 'sample.jpg'), await sharp(jpeg.png).jpeg({ quality: 85 }).toBuffer());
+
+  const gif = await raster('GIF');
+  fs.writeFileSync(path.join(dir, 'sample.gif'), encodeGif(gif.w, gif.h, gif.rgba));
+
+  const webp = await raster('WebP');
+  fs.writeFileSync(path.join(dir, 'sample.webp'), await sharp(webp.png).webp({ quality: 85 }).toBuffer());
+
+  try {
+    const avif = await raster('AVIF');
+    fs.writeFileSync(path.join(dir, 'sample.avif'), await sharp(avif.png).avif({ quality: 50 }).toBuffer());
+  } catch (e) {
+    console.warn('[samples] AVIF skipped:', e.message);
+  }
+
+  const bmp = await raster('BMP');
+  fs.writeFileSync(path.join(dir, 'sample.bmp'), encodeBmp(bmp.w, bmp.h, bmp.rgba));
+
+  const alpha = await raster('PNG', { transparent: true });
+  fs.writeFileSync(path.join(dir, 'transparent.png'), alpha.png);
+
+  const icoPng = async (size) => sharp(Buffer.from(sampleSvg('ICO'))).resize(size, size, { fit: 'cover' }).png().toBuffer();
+  const ico = [];
+  for (const size of [16, 32, 48, 256]) ico.push({ size, png: new Uint8Array(await icoPng(size)) });
+  fs.writeFileSync(path.join(dir, 'sample.ico'), Buffer.from(encodeIco(ico)));
+}

@@ -76,7 +76,7 @@ const DEFAULTS = {
   prompt: null,            // terminal prompt theme (JSON, src/lib/prompt.js); null = the default preset
   customPrompts: [],       // user-saved prompt themes: [{ id, label, config }]
   htmlPreview: false,      // HTML live preview pane
-  imagePreview: true,      // image files: the picture next to the editor / hex view
+  imagePreview: true,      // SVG: the picture next to the editor (binary images fill the pane themselves)
   userWords: [],           // words added to the dictionary by the user
   mdPreviewWidth: 0.5,     // fraction of the editor area
   folder: '',

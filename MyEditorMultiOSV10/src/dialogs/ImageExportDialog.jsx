@@ -21,7 +21,7 @@ export function ImageExportDialog({ src, alt, onResult }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const origMime = (/^data:([^;,]+)/.exec(src || '') || [])[1] || '';
-  const origExt = ({ 'image/png': 'png', 'image/jpeg': 'jpg', 'image/gif': 'gif', 'image/webp': 'webp', 'image/svg+xml': 'svg', 'image/bmp': 'bmp', 'image/avif': 'avif' })[origMime] || '';
+  const origExt = ({ 'image/png': 'png', 'image/jpeg': 'jpg', 'image/gif': 'gif', 'image/webp': 'webp', 'image/svg+xml': 'svg', 'image/bmp': 'bmp', 'image/avif': 'avif', 'image/x-icon': 'ico', 'image/vnd.microsoft.icon': 'ico' })[origMime] || '';
 
   useEffect(() => {
     let alive = true;

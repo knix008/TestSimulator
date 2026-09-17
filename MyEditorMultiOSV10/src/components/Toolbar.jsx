@@ -39,7 +39,7 @@ const GROUPS = [
   ],
   [
     { id: 'toggle:showWhitespace', icon: 'pilcrow', tip: 'tip_ws', toggle: 'showWhitespace' },
-    { id: 'toggleStructure', icon: 'minimap', tip: 'tip_structure', on: (st, state) => state.structureOn },   // the document's structure: the minimap, or the headings tree of a Markdown document
+    { id: 'toggleStructure', icon: 'minimap', tip: 'tip_structure', on: (st, state) => state.structureOn, needs: 'canStructure' },   // the document's structure: the minimap, or the headings tree of a Markdown document — off for an image (the picture fills the pane)
     { id: 'zoomIn', icon: 'zoomIn', tip: 'tip_zoom_in' },
     { label: 'zoom' },        // the zoom level; a click resets it
     { id: 'zoomOut', icon: 'zoomOut', tip: 'tip_zoom_out' },

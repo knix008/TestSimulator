@@ -14,7 +14,7 @@ import { ContextMenu } from './ContextMenu';
 
 const CODE_EXT = /\.(js|jsx|ts|tsx|mjs|cjs|py|c|cpp|h|hpp|cs|java|go|rs|php|rb|sh|bat|ps1|sql|kt|swift|lua|pl|r|m|scala|dart|vue|svelte)$/i;
 const MARKUP_EXT = /\.(html?|xml|svg|css|scss|less|json|ya?ml|toml|md|markdown|ini|cfg|conf|csv)$/i;
-const IMAGE_EXT = /\.(png|jpe?g|gif|bmp|webp|ico|icns|tiff?)$/i;
+const IMAGE_EXT = /\.(png|jpe?g|gif|bmp|webp|avif|ico|icns|tiff?)$/i;
 const ARCHIVE_EXT = /\.(zip|7z|rar|tar|gz|bz2|xz|tgz)$/i;
 const BIN_EXT = /\.(exe|dll|so|dylib|bin|msi|dmg|deb|rpm|appimage|pdf|docx?|xlsx?|pptx?|mp[34]|mkv|avi|wav|flac|ogg)$/i;
 

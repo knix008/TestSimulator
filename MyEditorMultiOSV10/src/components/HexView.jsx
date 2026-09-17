@@ -27,7 +27,7 @@ const MAX_SCROLL = 30 * 1000 * 1000;
 const fmtSize = (n) => (n < 1024 ? `${n} B` : n < 1024 * 1024 ? `${(n / 1024).toFixed(1)} KB` : n < 1024 * 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(2)} MB` : `${(n / 1024 / 1024 / 1024).toFixed(2)} GB`);
 
 // read(offset, length) → a promise of a Uint8Array; `version` changes when the file did (reload): the cache starts over.
-export function HexView({ size, name, read, version, fontSize, onOpenAsText, onMessage }) {
+export function HexView({ size, name, read, version, fontSize, onOpenAsText, onClose, onMessage, width }) {
   useLanguage();
   const scrollRef = useRef(null);
   const cache = useRef(new Map());              // chunk index → Uint8Array
@@ -146,13 +146,14 @@ export function HexView({ size, name, read, version, fontSize, onOpenAsText, onM
   const at = sel ? sel.head : null;
   const atByte = at != null ? byteAt(at) : -1;
   return (
-    <div className="hex-view" style={{ fontSize: fontSize ? `${fontSize}px` : undefined }}>   {/* always the default monospace font (styles: --mono), whatever the editor font: the columns must line up */}
+    <div className={`hex-view${width ? ' side' : ''}`} style={{ fontSize: fontSize ? `${fontSize}px` : undefined, ...(width ? { width } : {}) }}>   {/* always the default monospace font (styles: --mono), whatever the editor font: the columns must line up */}
       <div className="hex-head">
         <Icon name="binary" size={14} className="muted" />
         <span className="hex-name ellipsis" title={name}>{name}</span>
         <span className="muted small">{t('hex_info', { size: fmtSize(size), bytes: size.toLocaleString() })}</span>
         <span className="spacer" />
         {onOpenAsText && <button className="btn small" onClick={onOpenAsText} title={t('hex_as_text_tip')}>{t('hex_as_text')}</button>}
+        {onClose && <button type="button" className="icon-btn" onClick={onClose} title={t('close')}><Icon name="close" size={14} /></button>}
       </div>
       <div className="hex-scroll" ref={scrollRef} tabIndex={0} onScroll={(e) => setTop(e.currentTarget.scrollTop)} onKeyDown={onKey}>
         <div className="hex-cols" style={{ height: rowH }}>

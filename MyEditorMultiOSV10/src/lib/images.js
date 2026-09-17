@@ -131,6 +131,44 @@ export const IMAGE_MIME = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jp
 export function mimeOfName(name) { const m = String(name || '').match(/\.([a-z0-9]+)$/i); return (m && IMAGE_MIME[m[1].toLowerCase()]) || ''; }
 export function isImageFile(file) { return /^image\//.test(file.type || '') || !!mimeOfName(file.name); }
 
+function bytesOfDataUrl(url) {
+  const m = /^data:[^;]*;base64,(.+)$/s.exec(String(url || ''));
+  if (!m) return null;
+  const bin = atob(m[1]);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+
+function icoLargestPng(buf) {
+  if (!buf || buf.length < 6 || buf[0] !== 0 || buf[1] !== 0 || buf[2] !== 1 || buf[3] !== 0) return null;
+  const n = buf[4] | (buf[5] << 8);
+  let best = null, bestBytes = -1;
+  const u32 = (o) => (buf[o] | (buf[o + 1] << 8) | (buf[o + 2] << 16) | (buf[o + 3] << 24)) >>> 0;
+  for (let i = 0; i < n; i++) {
+    const o = 6 + i * 16;
+    if (o + 16 > buf.length) break;
+    const size = u32(o + 8), off = u32(o + 12);
+    if (off + size > buf.length || size < 8) continue;
+    if (buf[off] === 0x89 && buf[off + 1] === 0x50 && buf[off + 2] === 0x4e && buf[off + 3] === 0x47) {
+      if (size >= bestBytes) { bestBytes = size; best = buf.subarray(off, off + size); }
+    }
+  }
+  return best;
+}
+
+function pngDataUrl(bytes) {
+  let bin = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  return `data:image/png;base64,${btoa(bin)}`;
+}
+
+// <img> often cannot draw a PNG-inside-ICO from image/x-icon; unwrap the largest PNG frame.
+export function icoDisplaySrc(url) {
+  const png = icoLargestPng(bytesOfDataUrl(url));
+  return png ? pngDataUrl(png) : url;
+}
+
 // Reads a dropped / pasted image file as a data URL (for embedding in
 // Markdown). The MIME type comes from the file, or from its extension when
 // the OS reports none — PNG, JPEG, GIF, WebP, SVG, BMP, AVIF and ICO all work.
@@ -141,6 +179,7 @@ export function fileToDataUrl(file) {
       let u = String(r.result);
       const mime = (/^image\//.test(file.type || '') ? file.type : '') || mimeOfName(file.name);
       if (mime) u = u.replace(/^data:[^;,]*/, `data:${mime}`);
+      if (/\.ico$/i.test(file.name || '') || /icon/i.test(mime)) u = icoDisplaySrc(u);
       resolve(u);
     };
     r.onerror = () => reject(r.error || new Error('read failed'));

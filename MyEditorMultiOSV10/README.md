@@ -66,7 +66,7 @@ Windows 설치 프로그램은 바로가기 선택 다음에 **파일 형식 등
 
 ## 샘플 파일
 
-`samples/` 에 지원 형식별 예제(코드 18종, 웹, 데이터/설정, 텍스트·Markdown·스펠링, 인코딩 7종, 줄 끝 4종)가 있습니다. 파일 › 폴더 열기로 `samples` 를 열어 보세요. `node scripts/make-samples.mjs` 로 다시 생성합니다.
+`samples/` 에 지원 형식별 예제(코드 18종, 웹, 데이터/설정, 텍스트·Markdown·스펠링, 인코딩 7종, 줄 끝 4종, 이미지 PNG·JPEG·GIF·WebP·AVIF 등)가 있습니다. 파일 › 폴더 열기로 `samples` 를 열어 보세요. `node scripts/make-samples.mjs` 로 다시 생성합니다.
 
 ## 테스트
 

@@ -6,6 +6,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { t, useLanguage } from '../lib/i18n';
 import { Icon } from './Icons';
+import { isBinaryImageName } from './ImagePreview';
 import { ContextMenu } from './ContextMenu';
 
 const SCROLL_STEP = 180;
@@ -66,7 +67,7 @@ export function TabBar({ docs, activeId, onActivate, onClose, onNew, onReorder, 
             onDragEnd={() => setDrag(null)}
             onMouseDown={(e) => { if (e.button === 1) { e.preventDefault(); onClose(d.id); } else if (e.button === 0) onActivate(d.id); }}
             onContextMenu={(e) => { e.preventDefault(); onActivate(d.id); setCtx({ id: d.id, x: e.clientX, y: e.clientY }); }}>
-            <span className="tab-icon"><Icon name={d.kind === 'hex' ? 'binary' : d.path ? (d.langName ? 'fileCode' : 'fileText') : 'file'} size={14} /></span>
+            <span className="tab-icon"><Icon name={isBinaryImageName(d.name) ? 'fileImage' : d.kind === 'hex' ? 'binary' : d.path ? (d.langName ? 'fileCode' : 'fileText') : 'file'} size={14} /></span>
             <span className="tab-name ellipsis">{d.name}</span>
             {d.readonly && <span className="tab-ro" title={t('tab_readonly')}><Icon name="eye" size={12} /></span>}
             <button className="tab-close" title={t('tip_tab_close')} aria-label={t('close')}

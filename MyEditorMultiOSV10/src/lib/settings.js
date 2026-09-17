@@ -65,7 +65,7 @@ export const SETTINGS_DEFAULTS = {
   customPrompts: [],       // user-saved prompt themes (settings › terminal): [{ id, label, config }]
   mdPreviewWidth: 0.5,
   htmlPreview: false,      // HTML live preview pane
-  imagePreview: true,      // image files (SVG, PNG …): the picture next to the editor / hex view
+  imagePreview: true,      // SVG: the picture next to the editor (binary images fill the pane themselves)
 };
 
 export const SETTING_KEYS = Object.keys(SETTINGS_DEFAULTS);

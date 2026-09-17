@@ -1,33 +1,44 @@
-// Image preview next to the editor (Ctrl+Shift+M on an image file): the
-// picture itself, whatever the file — an SVG (text, edited on the left;
-// the preview follows every change) or a binary image (PNG · JPEG · GIF ·
-// WebP · BMP · ICO · AVIF, shown as a hex dump on the left, the picture read
-// once through the backend). Fit to the pane or 1:1 (click toggles), a
-// checkerboard behind transparent pixels, the pixel size underneath.
-import React, { useEffect, useRef, useState } from 'react';
+// A picture file: PNG · JPEG · GIF · WebP · BMP · ICO · AVIF fill the editor
+// pane (no minimap). The Hexa button opens a hex dump of the same bytes beside
+// the picture. SVG is still a text document — the source is edited on the left
+// and this pane (Ctrl+Shift+M) draws it as you type. Left click zooms in, right
+// click zooms out; Ctrl+wheel does the same. Drag pans when the picture is
+// larger than the pane. The picture stays centred in the pane after a zoom.
+// A checkerboard sits behind transparent pixels, the pixel size underneath.
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { t, useLanguage } from '../lib/i18n';
 import { call } from '../lib/backend';
 import { Icon } from './Icons';
-import { IMAGE_MIME } from '../lib/images';
+import { IMAGE_MIME, icoDisplaySrc } from '../lib/images';
 
 const RENDER_DELAY = 120;   // ms after the last edit of an SVG — the preview follows the typing
+const ZOOM_MIN = 0.05;
+const ZOOM_MAX = 16;
+const ZOOM_FACTOR = 1.1;
+const DRAG_MIN = 5;   // px: below this a press is a click (zoom), above it a pan
 
 export const isSvgName = (name) => /\.svg$/i.test(String(name || ''));
 export const isBinaryImageName = (name) => { const m = /\.([a-z0-9]+)$/i.exec(String(name || '')); return !!(m && IMAGE_MIME[m[1].toLowerCase()] && m[1].toLowerCase() !== 'svg'); };
 export const isImageName = (name) => isSvgName(name) || isBinaryImageName(name);
 
-export function ImagePreview({ view, docVersion, path, name, mtime, width }) {
+export function ImagePreview({ view, docVersion, path, name, mtime, width, fill }) {
   useLanguage();
   const [src, setSrc] = useState('');
   const [err, setErr] = useState('');
   const [dim, setDim] = useState(null);   // [w, h] once loaded
-  const [fit, setFit] = useState(true);
+  const [scale, setScale] = useState(null);   // null = fit in the pane; a number is a multiple of the natural size
   const timer = useRef(null);
+  const bodyRef = useRef(null);
+  const imgRef = useRef(null);
+  const drag = useRef(null);   // a press: click zooms, a drag pans when the bitmap is larger than the pane
+  const [panning, setPanning] = useState(false);
+  const [overflow, setOverflow] = useState(false);
   const svg = isSvgName(name);
 
   // The source: an SVG document's text as a data URL (re-made a moment after each change), a binary file's bytes from the backend.
   useEffect(() => {
     setErr('');
+    setScale(null);
     if (svg) {
       if (!view) return undefined;
       clearTimeout(timer.current);
@@ -36,21 +47,114 @@ export function ImagePreview({ view, docVersion, path, name, mtime, width }) {
     }
     let alive = true;
     setSrc('');
-    call('file.dataUrl', { path }).then((r) => { if (alive) setSrc(r.dataUrl); }).catch((e) => { if (alive) setErr(e.message || String(e)); });
+    call('file.dataUrl', { path }).then((r) => { if (alive) setSrc(/\.(ico)$/i.test(name) ? icoDisplaySrc(r.dataUrl) : r.dataUrl); }).catch((e) => { if (alive) setErr(e.message || String(e)); });
     return () => { alive = false; };
   }, [svg, view, docVersion, path, mtime]);   // eslint-disable-line react-hooks/exhaustive-deps
 
+  // After a zoom, keep the picture in the middle of the pane (smaller than the
+  // pane: CSS centres it; larger: scroll so the middle of the bitmap is shown).
+  useLayoutEffect(() => {
+    const el = bodyRef.current;
+    if (!el) return;
+    if (scale != null) {
+      el.scrollLeft = Math.max(0, (el.scrollWidth - el.clientWidth) / 2);
+      el.scrollTop = Math.max(0, (el.scrollHeight - el.clientHeight) / 2);
+    }
+    setOverflow(el.scrollWidth > el.clientWidth + 1 || el.scrollHeight > el.clientHeight + 1);
+  }, [scale, dim]);
+
+  useEffect(() => {
+    const el = bodyRef.current;
+    if (!el) return undefined;
+    const measure = () => setOverflow(el.scrollWidth > el.clientWidth + 1 || el.scrollHeight > el.clientHeight + 1);
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [src]);
+
+  const zoomBy = (factor) => {
+    const img = imgRef.current;
+    if (!img || !img.naturalWidth) return;
+    const from = img.clientWidth / img.naturalWidth;
+    if (!from) return;
+    setScale(Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, from * factor)));
+  };
+
+  // Ctrl+wheel (⌘+wheel on macOS): zoom; do not change the editor font size.
+  useEffect(() => {
+    const el = bodyRef.current;
+    if (!el) return undefined;
+    const onWheel = (e) => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const img = imgRef.current;
+      if (!img || !img.naturalWidth) return;
+      const from = img.clientWidth / img.naturalWidth;
+      if (!from) return;
+      const steps = Math.max(1, Math.min(8, Math.round(Math.abs(e.deltaY) / 40) || 1));
+      let next = from;
+      for (let i = 0; i < steps; i++) next *= e.deltaY < 0 ? ZOOM_FACTOR : 1 / ZOOM_FACTOR;
+      setScale(Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, next)));
+    };
+    el.addEventListener('wheel', onWheel, { passive: false, capture: true });
+    return () => el.removeEventListener('wheel', onWheel, { capture: true });
+  }, [src]);
+
+  const zoomed = scale != null;
+  const imgStyle = zoomed && dim ? { width: dim[0] * scale, height: dim[1] * scale } : undefined;
+
+  const endDrag = (e) => {
+    const d = drag.current;
+    drag.current = null;
+    if (panning) setPanning(false);
+    if (!d) return;
+    if (d.moved) { e.preventDefault(); return; }
+    if (d.button === 0) zoomBy(ZOOM_FACTOR);
+    else if (d.button === 2) zoomBy(1 / ZOOM_FACTOR);
+  };
+
+  const onPointerDown = (e) => {
+    if (e.button !== 0 && e.button !== 2) return;
+    const el = bodyRef.current;
+    if (!el) return;
+    const canPan = el.scrollWidth > el.clientWidth + 1 || el.scrollHeight > el.clientHeight + 1;
+    drag.current = { x: e.clientX, y: e.clientY, sl: el.scrollLeft, st: el.scrollTop, moved: false, button: e.button, pan: canPan };
+    try { el.setPointerCapture(e.pointerId); } catch (_) { /* capture is best-effort */ }
+    if (canPan) e.preventDefault();
+  };
+
+  const onPointerMove = (e) => {
+    const d = drag.current, el = bodyRef.current;
+    if (!d || !el) return;
+    const dx = e.clientX - d.x, dy = e.clientY - d.y;
+    if (!d.moved && dx * dx + dy * dy < DRAG_MIN * DRAG_MIN) return;
+    d.moved = true;
+    if (!d.pan) return;
+    el.scrollLeft = d.sl - dx;
+    el.scrollTop = d.st - dy;
+    if (!panning) setPanning(true);
+  };
+
   return (
-    <div className="image-preview" style={{ width }}>
-      <div className={`image-preview-body ${fit ? 'fit' : 'natural'}`} onClick={() => setFit((f) => !f)} title={t(fit ? 'img_pv_natural' : 'img_pv_fit')}>
-        {src && !err && <img src={src} alt={name} onLoad={(e) => setDim([e.target.naturalWidth, e.target.naturalHeight])} onError={() => setErr(t('img_pv_broken'))} />}
+    <div className={`image-preview${fill ? ' fill' : ''}`} style={fill ? undefined : { width }}>
+      <div className={`image-preview-body ${zoomed ? 'zoomed' : 'fit'}${overflow ? ' overflow' : ''}${panning ? ' panning' : ''}`} ref={bodyRef}
+        onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={endDrag} onPointerCancel={endDrag}
+        onContextMenu={(e) => e.preventDefault()}
+        title={t('img_pv_zoom_tip')}>
+        {src && !err && (
+          <div className="image-preview-sizer">
+            <img ref={imgRef} src={src} alt={name} style={imgStyle} draggable={false}
+              onLoad={(e) => setDim([e.target.naturalWidth, e.target.naturalHeight])} onError={() => setErr(t('img_pv_broken'))} />
+          </div>
+        )}
         {err && <div className="image-preview-err"><Icon name="warning" size={18} /> {err}</div>}
       </div>
       <div className="image-preview-foot muted small">
         <span>{name}</span>
-        <span className="spacer" />
         {dim && <span>{dim[0]} × {dim[1]} px</span>}
-        <span>{fit ? t('img_pv_fit_on') : '1:1'}</span>
+        <span>{zoomed ? t('img_pv_zoom', { n: Math.round(scale * 100) }) : t('img_pv_fit_on')}</span>
+        <span className="spacer" />
       </div>
     </div>
   );
@@ -91,8 +195,8 @@ export function insertSvgTag(view, id) {
   view.focus();
 }
 
-// The slim bar above an image file: for an SVG the elements to insert (as icons), then the preview toggle.
-export function ImageBar({ onAction, preview, svg }) {
+// The slim bar above an SVG document: the elements to insert (as icons), then the preview toggle.
+export function ImageBar({ onAction, preview, svg, imageHex }) {
   useLanguage();
   return (
     <div className="mdbar htmlbar">
@@ -103,9 +207,15 @@ export function ImageBar({ onAction, preview, svg }) {
       ))}
       {!svg && <span className="muted small htmlbar-hint">{t('img_pv_hint')}</span>}
       <span className="spacer" />
-      <button className={`md-btn md-toggle ${preview ? 'on' : ''}`} title={`${t('img_pv_menu')} (Ctrl+Shift+M)`} onMouseDown={(e) => e.preventDefault()} onClick={() => onAction('toggle:imagePreview')}>
-        <Icon name="fileImage" size={16} /><span>{t('md_preview')}</span>
-      </button>
+      {svg ? (
+        <button className={`md-btn md-toggle ${preview ? 'on' : ''}`} title={`${t('img_pv_menu')} (Ctrl+Shift+M)`} onMouseDown={(e) => e.preventDefault()} onClick={() => onAction('toggle:imagePreview')}>
+          <Icon name="fileImage" size={16} /><span>{t('md_preview')}</span>
+        </button>
+      ) : (
+        <button className={`md-btn md-toggle ${imageHex ? 'on' : ''}`} title={t('img_hex_tip')} onMouseDown={(e) => e.preventDefault()} onClick={() => onAction('toggleImageHex')}>
+          <Icon name="binary" size={16} /><span>{t('img_hex')}</span>
+        </button>
+      )}
     </div>
   );
 }

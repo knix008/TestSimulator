@@ -160,15 +160,40 @@ function openExternal(p) {
 }
 
 // An image file as a data URL, for the Markdown WYSIWYG view / preview (the
-// renderer cannot load local files itself).
+// renderer cannot load local files itself). A Windows .ico often stores PNG
+// frames that <img> cannot draw from image/x-icon, so those are unwrapped.
 const IMAGE_MIME = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp', '.svg': 'image/svg+xml', '.bmp': 'image/bmp', '.ico': 'image/x-icon', '.avif': 'image/avif' };
 const MAX_IMAGE = 32 * 1024 * 1024;
+
+function icoLargestPng(buf) {
+  if (buf.length < 6 || buf[0] !== 0 || buf[1] !== 0 || buf[2] !== 1 || buf[3] !== 0) return null;
+  const n = buf.readUInt16LE(4);
+  let best = null, bestBytes = -1;
+  for (let i = 0; i < n; i++) {
+    const o = 6 + i * 16;
+    if (o + 16 > buf.length) break;
+    const size = buf.readUInt32LE(o + 8);
+    const off = buf.readUInt32LE(o + 12);
+    if (off + size > buf.length || size < 8) continue;
+    if (buf[off] === 0x89 && buf[off + 1] === 0x50 && buf[off + 2] === 0x4e && buf[off + 3] === 0x47) {
+      if (size >= bestBytes) { bestBytes = size; best = buf.subarray(off, off + size); }
+    }
+  }
+  return best;
+}
+
 async function dataUrl(p) {
-  const mime = IMAGE_MIME[path.extname(p).toLowerCase()];
+  const ext = path.extname(p).toLowerCase();
+  let mime = IMAGE_MIME[ext];
   if (!mime) throw Object.assign(new Error('Not an image: ' + p), { code: 'ENOTIMAGE' });
   const st = await fsp.stat(p);
   if (st.size > MAX_IMAGE) throw Object.assign(new Error('Image too large: ' + p), { code: 'ETOOLARGE' });
-  const buf = await fsp.readFile(p);
+  let buf = await fsp.readFile(p);
+  if (ext === '.ico') {
+    const png = icoLargestPng(buf);
+    if (png) { mime = 'image/png'; buf = png; }
+    else mime = 'image/vnd.microsoft.icon';
+  }
   return { dataUrl: `data:${mime};base64,${buf.toString('base64')}`, size: st.size, mtime: st.mtimeMs };
 }
 

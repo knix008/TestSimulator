@@ -60,6 +60,9 @@ const ko = {
   too_big_title: '파일이 너무 큽니다', too_big_msg: '"{name}" 은(는) 64 MB 를 넘습니다. 이 편집기는 그보다 큰 파일을 열지 않습니다.',
   binary_title: '이진 파일', binary_msg: '"{name}" 은(는) 텍스트 파일이 아닌 것 같습니다. 그래도 열까요? (표시가 깨질 수 있습니다)',
   hex_info: '이진 파일 · {size} ({bytes} 바이트)', hex_as_text: '텍스트로 열기', hex_as_text_tip: '이 파일을 텍스트로 다시 엽니다 (NUL 문자가 섞인 텍스트 파일일 때)', hex_offset: '오프셋', hex_text: 'ASCII', hex_empty: '빈 파일', hex_at: '오프셋 0x{hex} ({dec})', hex_value: '값 0x{hex} ({dec}) \'{chr}\'', hex_selected: '{n} 바이트 선택', hex_hint: '바이트를 누르면 선택, Shift+클릭으로 범위, Ctrl+C 로 16진수 복사', hex_copied: '{n} 바이트를 16진수로 복사했습니다', hex_copied_max: '처음 {n} 바이트만 16진수로 복사했습니다 (한 번에 1 MB 까지)', hex_readonly: '이진 파일은 여기서 편집·저장할 수 없습니다 (16진수 보기 전용)', hex_opened: '이진 파일을 16진수로 엽니다: {name}',
+  img_opened: '이미지를 엽니다: {name}',
+  img_hex: 'Hexa', img_hex_tip: '옆에 파일의 바이트를 Hexa(16진수)로 보여 줍니다', img_hex_menu: 'Hexa',
+  img_show: '그림으로 보기', img_show_tip: '그림을 보여 줍니다',
   error_title: '오류', error_unexpected: '예상하지 못한 오류가 발생했습니다.', error_details: '자세히', copy_details: '자세히 복사', copied_details: '오류 내용을 클립보드에 복사했습니다.', error_code: '코드', error_path: '경로',
   open_failed: '"{name}" 을(를) 열 수 없습니다.', save_failed: '"{name}" 을(를) 저장할 수 없습니다.',
   new_name: '이름', new_file_title: '새 파일', new_folder_title: '새 폴더', rename_title: '이름 바꾸기', create: '만들기',
@@ -104,7 +107,7 @@ const ko = {
   // HTML preview
   set_devops_hint: 'Dockerfile(Dockerfile · Containerfile · *.dockerfile)과 Kubernetes 매니페스트(YAML)는 명령어·이미지·키·값 자동 완성과 내장 검사를 제공합니다.',
   svg_rect: '사각형', svg_circle: '원', svg_ellipse: '타원', svg_line: '선', svg_polyline: '꺾은선', svg_polygon: '다각형', svg_path: '경로(곡선)', svg_text: '텍스트', svg_image: '이미지', svg_group: '그룹 (선택 영역을 감쌈)', svg_gradient: '그러데이션 정의', svg_use: '재사용 (use)', svg_transform: '변형 속성 (회전·이동)',
-  img_pv_menu: '이미지 미리보기', img_pv_hint: '이미지 파일 — 왼쪽은 16진수, 오른쪽 미리보기에 그림 (클릭: 맞춤 ↔ 1:1)', img_pv_hint_svg: 'SVG 문서 — 편집하는 대로 오른쪽 미리보기에 그려집니다 (클릭: 맞춤 ↔ 1:1)', img_pv_fit: '창에 맞춤', img_pv_natural: '원본 크기 (1:1)', img_pv_fit_on: '창에 맞춤', img_pv_broken: '이미지를 그릴 수 없습니다',
+  img_pv_menu: '이미지 미리보기', img_pv_hint: '이미지 파일 — 창에 그림을 보여 줍니다 (왼쪽 클릭: 확대, 오른쪽 클릭: 축소, 드래그: 이동, Ctrl+휠: 확대·축소, Hexa: 옆에 바이트)', img_pv_hint_svg: 'SVG 문서 — 편집하는 대로 오른쪽 미리보기에 그려집니다 (왼쪽 클릭: 확대, 오른쪽 클릭: 축소, 드래그: 이동)', img_pv_fit: '창에 맞춤', img_pv_natural: '원본 크기 (1:1)', img_pv_fit_on: '창에 맞춤', img_pv_zoom: '{n}%', img_pv_zoom_tip: '왼쪽 클릭 확대 · 오른쪽 클릭 축소 · 드래그로 이동 · Ctrl+휠', img_pv_broken: '이미지를 그릴 수 없습니다',
   html_preview_menu: 'HTML 미리보기', html_preview: 'HTML 미리보기 — 옆 창에 렌더링 (스크립트는 격리 실행)', html_preview_hint: 'HTML 문서 — 미리보기를 켜면 옆 창에 렌더링됩니다 (이미지·CSS·스크립트 파일 포함)',
   // terminal line endings + prompt (settings › terminal)
   set_term_color: '출력을 색으로 표시 — 프로그램의 ANSI 색 그대로 + 오류(빨강)·경고(노랑)·완료(초록) 줄과 링크·파일:줄 강조 (끄면 흑백)', set_prompt: '프롬프트', term_settings: '터미널 설정 (셸 · 프롬프트)…',
@@ -178,6 +181,9 @@ const en = {
   too_big_title: 'File too large', too_big_msg: '"{name}" is larger than 64 MB — this editor does not open files that big.',
   binary_title: 'Binary file', binary_msg: '"{name}" does not look like a text file. Open it anyway? (it may display garbled)',
   hex_info: 'binary · {size} ({bytes} bytes)', hex_as_text: 'Open as text', hex_as_text_tip: 'Reopen this file as text (for a text file with a stray NUL byte)', hex_offset: 'Offset', hex_text: 'ASCII', hex_empty: 'empty file', hex_at: 'offset 0x{hex} ({dec})', hex_value: 'value 0x{hex} ({dec}) \'{chr}\'', hex_selected: '{n} bytes selected', hex_hint: 'Click a byte to select it, Shift+click for a range, Ctrl+C copies as hex', hex_copied: 'Copied {n} bytes as hex', hex_copied_max: 'Copied the first {n} bytes as hex (1 MB at a time)', hex_readonly: 'A binary file cannot be edited or saved here (hex view only)', hex_opened: 'Binary file opened in the hex view: {name}',
+  img_opened: 'Opened image: {name}',
+  img_hex: 'Hexa', img_hex_tip: 'Show the file\'s bytes as hexadecimal beside the picture', img_hex_menu: 'Hexa',
+  img_show: 'Show picture', img_show_tip: 'Show the picture',
   error_title: 'Error', error_unexpected: 'An unexpected error occurred.', error_details: 'Details', copy_details: 'Copy details', copied_details: 'Error details copied to the clipboard.', error_code: 'Code', error_path: 'Path',
   open_failed: 'Cannot open "{name}".', save_failed: 'Cannot save "{name}".',
   new_name: 'Name', new_file_title: 'New file', new_folder_title: 'New folder', rename_title: 'Rename', create: 'Create',
@@ -217,7 +223,7 @@ const en = {
   // HTML preview
   set_devops_hint: 'Dockerfiles (Dockerfile · Containerfile · *.dockerfile) and Kubernetes manifests (YAML) get completions for instructions, images, keys and values, plus built-in checks.',
   svg_rect: 'Rectangle', svg_circle: 'Circle', svg_ellipse: 'Ellipse', svg_line: 'Line', svg_polyline: 'Polyline', svg_polygon: 'Polygon', svg_path: 'Path (curve)', svg_text: 'Text', svg_image: 'Image', svg_group: 'Group (wraps the selection)', svg_gradient: 'Gradient definition', svg_use: 'Reuse (use)', svg_transform: 'Transform attribute (rotate / move)',
-  img_pv_menu: 'Image preview', img_pv_hint: 'Image file — hex on the left, the picture in the preview on the right (click: fit ↔ 1:1)', img_pv_hint_svg: 'SVG document — drawn in the preview on the right as you edit (click: fit ↔ 1:1)', img_pv_fit: 'Fit to pane', img_pv_natural: 'Natural size (1:1)', img_pv_fit_on: 'fit', img_pv_broken: 'The image cannot be drawn',
+  img_pv_menu: 'Image preview', img_pv_hint: 'Image file — the picture fills the pane (left click: zoom in, right click: zoom out, drag: pan, Ctrl+wheel: zoom, Hexa: bytes beside)', img_pv_hint_svg: 'SVG document — drawn in the preview on the right as you edit (left click: zoom in, right click: zoom out, drag: pan)', img_pv_fit: 'Fit to pane', img_pv_natural: 'Natural size (1:1)', img_pv_fit_on: 'fit', img_pv_zoom: '{n}%', img_pv_zoom_tip: 'Left click zoom in · right click zoom out · drag to pan · Ctrl+wheel', img_pv_broken: 'The image cannot be drawn',
   html_preview_menu: 'HTML preview', html_preview: 'HTML preview — rendered next to the editor (scripts run isolated)', html_preview_hint: 'HTML document — turn the preview on to see it rendered next to the editor (with its image, CSS and script files)',
   // terminal line endings + prompt (settings › terminal)s: CR LF for Windows shells, LF for bash)',
   set_term_color: 'Colour the output — the programs\' ANSI colours, plus error (red) / warning (yellow) / success (green) lines and links, file:line references highlighted (off: plain text)', set_prompt: 'Prompt', term_settings: 'Terminal settings (shell · prompt)…',

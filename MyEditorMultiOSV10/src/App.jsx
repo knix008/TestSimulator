@@ -39,7 +39,7 @@ import { FindBar } from './components/FindBar';
 import { MarkdownBar } from './components/MarkdownBar';
 import { Preview } from './components/Preview';
 import { HtmlPreview, HtmlBar } from './components/HtmlPreview';
-import { ImagePreview, ImageBar, isImageName, isSvgName, insertSvgTag } from './components/ImagePreview';
+import { ImagePreview, ImageBar, isBinaryImageName, isSvgName, insertSvgTag } from './components/ImagePreview';
 import { withMenuIcons } from './lib/menuicons';
 import { Sidebar } from './components/Sidebar';
 import { SearchPanel } from './components/SearchPanel';
@@ -722,10 +722,12 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
     }
   };
 
-  // A file that is not text: shown as a hex dump (components/HexView.jsx)
-  // in a read-only document whose editor state stays empty. The view fetches
-  // the bytes it shows through file.readRange (hexRef holds the reader), so
-  // the file's size does not matter. "텍스트로 열기" in its header reopens it as text.
+  // A file that is not text: a binary picture (PNG · JPEG · GIF · WebP · AVIF · BMP · ICO) fills the
+  // pane as the image itself (Hexa opens a hex dump beside it); anything
+  // else is a hex dump (components/HexView.jsx) in a read-only document whose
+  // editor state stays empty. The hex view fetches the bytes it shows through
+  // file.readRange (hexRef holds the reader), so the file's size does not
+  // matter. "텍스트로 열기" in its header reopens it as text.
   const decodeBase64 = (b64) => { const bin = atob(b64); const out = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i); return out; };
   const hexReader = (path) => async (offset, length) => decodeBase64((await call('file.readRange', { path, offset, length })).base64);
   const openHex = async (p, { activateIt = true } = {}) => {
@@ -734,10 +736,11 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
       const existing = docsRef.current.find((d) => samePath(d.path, r.path));
       if (existing) { if (activateIt) activate(existing.id); return existing; }
       const id = nextDocId;   // addDoc takes the next id: the reader must be there before the first render
+      const image = isBinaryImageName(r.name);   // PNG · JPEG · GIF · WebP · AVIF · BMP · ICO: the picture fills the pane; Hexa shows the bytes beside it
       hexRef.current.set(id, hexReader(r.path));
-      const doc = addDoc({ path: r.path, name: r.name, kind: 'hex', language: PLAIN, mtime: r.mtime, size: r.size, readonly: true }, '', { activateIt });
+      const doc = addDoc({ path: r.path, name: r.name, kind: 'hex', language: PLAIN, mtime: r.mtime, size: r.size, readonly: true, imageHex: false }, '', { activateIt });
       call('recent.touch', { path: r.path }).then(setRecent).catch(() => {});
-      setMessage(t('hex_opened', { name: r.name }));
+      setMessage(t(image ? 'img_opened' : 'hex_opened', { name: r.name }));
       return doc;
     } catch (e) {
       await showError(t('error_title'), t('open_failed', { name: baseName(p) }), e);
@@ -1178,14 +1181,15 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
     }
     if (id === 'newTerminal') return newTerminal(arg);
     if (id === 'termSettings') { if (!openPopup('settings', 'terminal')) setDialog({ type: 'settings', tab: 'terminal' }); else sendSettingsPatch({ settingsTab: 'terminal' }); return undefined; }   // ⚙ in the terminal header: settings on the terminal tab (prompt, line endings)
-    if (id === 'togglePreview') { const d = getDoc(activeIdRef.current); if (d && isImageName(d.name)) toggleSetting('imagePreview'); else if (d && d.langName === 'HTML') toggleSetting('htmlPreview'); else if (d && d.langName === 'Markdown') toggleSetting('mdPreview'); return undefined; }   // Ctrl+Shift+M: the preview pane of the document's kind
+    if (id === 'togglePreview') { const d = getDoc(activeIdRef.current); if (d && isSvgName(d.name)) toggleSetting('imagePreview'); else if (d && isBinaryImageName(d.name)) return undefined; else if (d && d.langName === 'HTML') toggleSetting('htmlPreview'); else if (d && d.langName === 'Markdown') toggleSetting('mdPreview'); return undefined; }   // Ctrl+Shift+M: the preview pane (SVG / HTML / Markdown). A binary image is the picture itself.
+    if (id === 'toggleImageHex') { const d = getDoc(typeof arg === 'number' ? arg : activeIdRef.current); if (d && d.kind === 'hex' && isBinaryImageName(d.name)) patchDoc(d.id, { imageHex: !d.imageHex }); return undefined; }   // a picture file: Hexa opens the bytes beside the image
     if (id === 'toggle:termVisible') id = 'toggleTerminal';
     if (id === 'toggleTerminal') { const on = !settingsRef.current.termVisible; changeSettings({ termVisible: on }); if (on && !terms.length) newTerminal(); return undefined; }
     if (id.startsWith('svg:')) return withView((vw) => insertSvgTag(vw, id.slice(4)));   // the SVG bar: an element at the cursor
     if (id.startsWith('md:heading:')) return withView((vw) => md.heading(vw, Number(id.slice(11))));
     if (id === 'md:image') { setDialog({ type: 'mdImage' }); return undefined; }
     if (id.startsWith('split:')) { setSplit(id.slice(6)); return undefined; }
-    if (id === 'toggleStructure') { const d = getDoc(activeIdRef.current); toggleSetting(d && d.langName === 'Markdown' ? 'mdOutline' : 'minimap'); return undefined; }   // toolbar: the minimap, or a Markdown document's structure panel
+    if (id === 'toggleStructure') { const d = getDoc(activeIdRef.current); if (d && isBinaryImageName(d.name)) return undefined; toggleSetting(d && d.langName === 'Markdown' ? 'mdOutline' : 'minimap'); return undefined; }   // toolbar: the minimap, or a Markdown document's structure panel — not for a raster image (PNG · JPEG · GIF · WebP · AVIF · BMP · ICO). SVG is a text document.
     // The toolbar's split button (and Ctrl+\) steps through the layouts: one → left / right → top / bottom → four → one.
     if (id === 'toggleSplit') { const st = settingsRef.current; setSplit('multi', st.split === 'multi' ? Math.min(9, (st.paneCount || 2) + 1) : 2); return undefined; }   // one more pane per press
     if (id === 'nextPane') { nextPane(); return undefined; }
@@ -1248,6 +1252,7 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
       case 'unfoldAll': withView(commands.unfoldAll); break;
       // search
       case 'find': case 'replace': {
+        if (getDoc(activeIdRef.current) && getDoc(activeIdRef.current).kind === 'hex') break;   // a hex dump / a picture: nothing to search
         const sel = v ? v.state.sliceDoc(v.state.selection.main.from, v.state.selection.main.to) : '';
         setFind({ mode: id, initial: sel && !sel.includes('\n') ? sel : (findRef.current ? findRef.current.initial : ''), key: Date.now() });
         break;
@@ -1382,7 +1387,11 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
 
   // Ctrl+wheel over the editor zooms.
   useEffect(() => {
-    const h = (e) => { if ((isMac ? e.metaKey : e.ctrlKey) && e.target.closest && e.target.closest('.editor-pane')) { e.preventDefault(); zoomBy(e.deltaY < 0 ? 1 : -1); } };
+    const h = (e) => {
+      if (!(isMac ? e.metaKey : e.ctrlKey) || !e.target.closest) return;
+      if (e.target.closest('.image-preview')) return;   // the picture zooms itself (Ctrl+wheel)
+      if (e.target.closest('.editor-pane')) { e.preventDefault(); zoomBy(e.deltaY < 0 ? 1 : -1); }
+    };
     window.addEventListener('wheel', h, { passive: false });
     return () => window.removeEventListener('wheel', h);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1508,7 +1517,7 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
       { id: 'toggle:mdPreview', icon: 'splitView', label: t('md_preview_menu'), checked: settings.mdPreview, shortcut: sc('Ctrl+Shift+M'), disabled: !cur || cur.langName !== 'Markdown' },
       { id: 'toggle:mdOutline', icon: 'listTree', label: t('md_outline_menu'), checked: settings.mdOutline, disabled: !cur || cur.langName !== 'Markdown' },
       { id: 'toggle:htmlPreview', icon: 'splitView', label: t('html_preview_menu'), checked: settings.htmlPreview, shortcut: sc('Ctrl+Shift+M'), disabled: !cur || cur.langName !== 'HTML' },
-      { id: 'toggle:imagePreview', icon: 'fileImage', label: t('img_pv_menu'), checked: settings.imagePreview, shortcut: sc('Ctrl+Shift+M'), disabled: !cur || !isImageName(cur.name) },
+      { id: 'toggle:imagePreview', icon: 'fileImage', label: t('img_pv_menu'), checked: settings.imagePreview, shortcut: sc('Ctrl+Shift+M'), disabled: !cur || !isSvgName(cur.name) },
     ] },
     { id: 'view', label: t('m_view'), labelKey: 'm_view', icon: 'eye', items: () => [
       { id: 'toggle:sidebarVisible', icon: 'sidebar', label: t('sidebar'), checked: settings.sidebarVisible, shortcut: sc('Ctrl+B') },
@@ -1529,6 +1538,8 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
       { id: 'zoomReset', icon: 'zoomReset', label: t('zoom_reset'), shortcut: sc('Ctrl+0') },
       { sep: true },
       { id: 'fullscreen', label: t('fullscreen'), icon: 'fullscreen', shortcut: 'F11' },
+      { sep: true },
+      { id: 'toggleImageHex', icon: 'binary', label: t('img_hex_menu'), checked: !!cur && !!cur.imageHex, disabled: !cur || !isBinaryImageName(cur.name) },
     ] },
     { id: 'lang', label: t('m_lang'), labelKey: 'm_lang', icon: 'code', items: () => [
       { id: 'lang:auto', label: t('lang_auto'), checked: !!cur && !cur.language, radio: true, iconEl: <LangIcon name="auto" />, badge: 'auto' },
@@ -1569,6 +1580,7 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
       { id: 'closeRight', icon: 'closeRight', label: t('close_right'), disabled: i >= docs.length - 1 },
       { id: 'closeAll', icon: 'closeAll', label: t('close_all') },
       { sep: true },
+      ...(d && d.kind === 'hex' && isBinaryImageName(d.name) ? [{ id: 'toggleImageHex', icon: 'binary', label: t('img_hex_menu'), checked: !!d.imageHex }, { sep: true }] : []),
       { id: 'reveal', label: t('reveal'), icon: 'explorer', disabled: !d || !d.path || !isElectron },
       { id: 'openWith', label: t('open_with'), icon: 'open', disabled: !d || !d.path || !isElectron },
       { id: 'copyPath', label: t('copy_path'), icon: 'copy', disabled: !d || !d.path },
@@ -1737,10 +1749,11 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
   const openPaths = useMemo(() => new Set(docs.map((d) => d.path).filter(Boolean)), [docs]);
   const isMarkdown = !!cur && cur.langName === 'Markdown';
   const isHtml = !!cur && cur.langName === 'HTML';
-  const isImage = !!cur && isImageName(cur.name);   // SVG (text) or a binary image (hex view): the picture in the preview pane
+  const isSvg = !!cur && isSvgName(cur.name);                 // SVG source on the left, live picture in the preview pane
+  const isBinaryImage = !!cur && isBinaryImageName(cur.name); // PNG · JPEG · GIF · WebP · AVIF · … — the picture (or hex), no minimap
   // What the prompt's session / os segments show (app.info): one object per app info, so the transcripts are not re-rendered for nothing.
   const termEnv = useMemo(() => ({ home: info ? info.home : '', user: info ? info.user : '', host: info ? info.hostname : '', platform: info ? info.platform : '' }), [info]);
-  const toolbarState = { dirty: !!cur && cur.dirty, anyDirty: docs.some((d) => d.dirty), canFormat, formatter: fmtInfo, formatterItems, formatTip, zoom, structureOn: isMarkdown ? !!settings.mdOutline : !!settings.minimap };
+  const toolbarState = { dirty: !!cur && cur.dirty, anyDirty: docs.some((d) => d.dirty), canFormat, formatter: fmtInfo, formatterItems, formatTip, zoom, structureOn: isBinaryImage ? false : (isMarkdown ? !!settings.mdOutline : !!settings.minimap), canStructure: !isBinaryImage };
 
   if (!booted) return <div className="boot">{t('ready')}…</div>;
 
@@ -1770,8 +1783,8 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
             onAction={(id, docId) => action(id, docId)} onContextItems={tabContextItems} />
           {isMarkdown && <MarkdownBar onAction={action} preview={settings.mdPreview} outline={settings.mdOutline} wysiwyg={settings.mdWysiwyg} />}
           {isHtml && <HtmlBar onAction={action} preview={settings.htmlPreview} />}
-          {isImage && <ImageBar onAction={action} preview={settings.imagePreview} svg={isSvgName(cur.name)} />}
-          {find && view && <FindBar key={find.key} view={view} mode={find.mode} initial={find.initial} docVersion={docVersion} onClose={() => action('closeFind')} onModeChange={(mode) => setFind({ ...find, mode })} />}
+          {(isSvg || isBinaryImage) && <ImageBar onAction={action} preview={settings.imagePreview} svg={isSvg} imageHex={!!cur.imageHex} />}
+          {find && view && !(cur && cur.kind === 'hex') && <FindBar key={find.key} view={view} mode={find.mode} initial={find.initial} docVersion={docVersion} onClose={() => action('closeFind')} onModeChange={(mode) => setFind({ ...find, mode })} />}
           <div className="editor-split" ref={splitRef}>
             <div className={`panes ${settings.split || 'none'}`} ref={panesElRef} style={{ '--split-x': settings.splitX || 0.5, '--split-y': settings.splitY || 0.5, ...(multi ? { gridTemplateColumns: colFracs.map((f) => `minmax(0, ${f}fr)`).join(' '), gridTemplateRows: rowFracs.map((f) => `minmax(0, ${f}fr)`).join(' ') } : {}) }}>
               {multi && colFracs.slice(0, -1).map((_, i) => <div key={`x${i}`} className="pane-splitter x" style={{ left: `calc(${cum(colFracs, i)}% - 3px)` }} onMouseDown={onFracSplitDown('colFracs', colFracs, i, 'x')} title="↔" />)}
@@ -1797,8 +1810,11 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
                     )}
                     <EditorPane initialState={initialState} onView={(v) => onPaneView(p.key, v)} onDropFiles={dropFiles} contextItems={editorContextItems} onAction={action}
                       fontFamily={settings.fontFamily} fontSize={settings.fontSize} lineHeight={settings.lineHeight} empty={!docs.length || p.docId == null || (pd && pd.kind === 'hex')}
-                      minimap={settings.minimap && !(pd && pd.langName === 'Markdown')} version={`${p.docId}:${docVersion}:${settings.theme}:${cursor.line}`} />
-                    {pd && pd.kind === 'hex' && hexRef.current.has(pd.id) && (
+                      minimap={settings.minimap && !(pd && (pd.langName === 'Markdown' || isBinaryImageName(pd.name)))} version={`${p.docId}:${docVersion}:${settings.theme}:${cursor.line}`} />
+                    {pd && pd.kind === 'hex' && isBinaryImageName(pd.name) && (
+                      <ImagePreview fill path={pd.path} name={pd.name} mtime={pd.mtime} />
+                    )}
+                    {pd && pd.kind === 'hex' && hexRef.current.has(pd.id) && !isBinaryImageName(pd.name) && (
                       <HexView read={hexRef.current.get(pd.id)} version={pd.mtime} name={pd.name} size={pd.size} fontSize={settings.fontSize}
                         onOpenAsText={() => hexAsText(pd.id)} onMessage={setMessage} />
                     )}
@@ -1835,10 +1851,18 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
                 <HtmlPreview view={view} docVersion={docVersion} base={cur && cur.path ? dirName(cur.path) : folder || ''} name={cur.name} width={`${Math.round(settings.mdPreviewWidth * 100)}%`} />
               </>
             )}
-            {isImage && settings.imagePreview && (isSvgName(cur.name) ? !!view : !!cur.path) && (
+            {isSvg && settings.imagePreview && view && (
               <>
                 <div className="v-splitter" onMouseDown={onPreviewSplitDown} />
                 <ImagePreview view={view} docVersion={docVersion} path={cur.path} name={cur.name} mtime={cur.mtime} width={`${Math.round(settings.mdPreviewWidth * 100)}%`} />
+              </>
+            )}
+            {isBinaryImage && cur.imageHex && hexRef.current.has(cur.id) && (
+              <>
+                <div className="v-splitter" onMouseDown={onPreviewSplitDown} />
+                <HexView read={hexRef.current.get(cur.id)} version={cur.mtime} name={cur.name} size={cur.size} fontSize={settings.fontSize}
+                  width={`${Math.round(settings.mdPreviewWidth * 100)}%`}
+                  onClose={() => patchDoc(cur.id, { imageHex: false })} onMessage={setMessage} />
               </>
             )}
           </div>
