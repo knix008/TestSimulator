@@ -5,7 +5,7 @@ export const SETTINGS_DEFAULTS = {
   // general
   language: 'ko',
   theme: 'midnight',
-  fontSize: 13,
+  fontSize: 12,
   confirmDelete: true,
   restoreFolders: true,
   autoRefresh: true,
@@ -41,7 +41,7 @@ export const SETTINGS_DEFAULTS = {
   termEol: 'auto',    // line ending Enter sends to a running program: auto (the shell's own) | lf | crlf
   termCr: 'overwrite', // a lone CR in the output: overwrite (redraw the line, like a terminal) | newline | strip
   termScrollback: 10000, // lines kept per terminal transcript
-  prompt: PROMPT_DEFAULT, // terminal prompt theme (oh-my-posh compatible, see prompt.js)
+  prompt: PROMPT_DEFAULT, // terminal prompt theme (see prompt.js)
   customPrompts: [],      // user-saved prompt themes (settings › terminal › prompt): [{ id, label, config }]
   customThemes: [],       // user-made themes (settings › theme): [{ id, label, mode, colors }]
 };

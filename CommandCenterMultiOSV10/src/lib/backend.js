@@ -5,6 +5,8 @@
 //   web      — fetch('/api/<method>'), jobs and directories are polled
 //
 // Everything above this file is host-agnostic.
+import { getCustomThemesRaw } from '../themes';
+
 const electron = typeof window !== 'undefined' ? window.commandCenter : null;
 
 export const isElectron = !!electron;
@@ -178,8 +180,34 @@ export const windowKind = winParams.get('win') || '';
 export const windowId = winParams.get('id') || '';
 export const canOpenWindows = typeof window !== 'undefined' && (isElectron ? !!electron.openWindow : true);
 
+// Menu popup: on the desktop a menu is drawn in a frameless window of its own
+// (electron/main.js, src/MenuPopup.jsx) so it is never cut off by the app
+// window. `null` in the browser and in the popup page itself — the menu is
+// then drawn in the page (ContextMenu folds it into columns instead).
+// The theme and font size travel with every menu: the popup keeps no session.
+export const menuPopup = (isElectron && electron.popupMenu && windowKind !== 'menu') ? {
+  show: async ({ items, anchor }) => {
+    const root = document.documentElement;
+    const r = await electron.popupMenu({
+      items, anchor,
+      theme: root.dataset.theme || '',
+      customThemes: getCustomThemesRaw(),
+      fontSize: parseFloat(getComputedStyle(root).getPropertyValue('--fs')) || 13,
+    });
+    return r && r.ok && r.data && r.data.ok ? r.data.seq : null;
+  },
+  close: (seq) => electron.closeMenuPopup(seq),
+  onShown: (cb) => electron.onMenuShown(cb),
+  onPicked: (cb) => electron.onMenuPicked(cb),
+  onClosed: (cb) => electron.onMenuClosed(cb),
+} : null;
+
+// A window that sizes itself to its content (the settings window). Desktop only — a browser popup keeps
+// whatever size it was opened with.
+export const fitWindow = (isElectron && electron.fitWindow) ? ((height) => electron.fitWindow(height)) : null;
+
 const webChildren = new Set();
-const SINGLETON_KINDS = new Set(['viewer', 'editor', 'multiRename', 'search', 'settings']);   // one popup per tool
+const SINGLETON_KINDS = new Set(['viewer', 'editor', 'multiRename', 'search', 'settings', 'about']);   // one popup per tool
 let bus = null;
 function channel() {
   if (!bus && typeof BroadcastChannel !== 'undefined') { try { bus = new BroadcastChannel('command-center'); } catch { bus = null; } }

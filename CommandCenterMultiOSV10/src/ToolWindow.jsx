@@ -7,6 +7,7 @@
 //   multiRename  { entries, parent }            Ctrl+M
 //   search       { root }                       F9
 //   settings     { values, shells, platform }   ⚙
+//   about        { info }                        정보
 //
 // Anything that must happen in the main window (refresh a panel, record an
 // undo step, navigate, apply settings) is posted over the window message bus
@@ -17,13 +18,13 @@ import { t, setLanguage, useLanguage } from './lib/i18n';
 import { setSeparator, baseName } from './lib/format';
 import { applyTheme, themeById, DEFAULT_THEME, setCustomThemes } from './themes';
 import { SETTINGS_DEFAULTS } from './lib/settings';
-import { DialogHost, useDialogs } from './dialogs/Dialogs';
+import { DialogHost, useDialogs, AboutDialog } from './dialogs/Dialogs';
 import { ViewerDialog, EditorDialog, MultiRenameDialog } from './dialogs/ToolDialogs';
 import { SearchDialog } from './dialogs/SearchDialog';
 import { SettingsDialog } from './dialogs/SettingsDialog';
 
 function applyFontSize(px) {
-  document.documentElement.style.setProperty('--fs', `${Math.max(9, Number(px) || 13)}px`);
+  document.documentElement.style.setProperty('--fs', `${Math.max(9, Number(px) || 12)}px`);
 }
 
 export default function ToolWindow() {
@@ -156,6 +157,8 @@ export default function ToolWindow() {
         closeWindow();
       }} />
     );
+  } else if (mode === 'about') {
+    body = <AboutDialog spec={{ info: args.info || {}, windowed: true }} done={() => closeWindow()} />;
   } else {
     body = <div className="boot">?</div>;
   }

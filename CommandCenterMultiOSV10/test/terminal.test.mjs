@@ -13,6 +13,8 @@ const { createTerminals } = require('../core/terminal.js');
 const { createApi } = require('../core/api.js');
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+// cmd expands a line's variables before running it, so a value set on one line is read on the next.
+const CRLF = String.fromCharCode(13, 10);
 function tmpdir(name) { return fs.mkdtempSync(path.join(os.tmpdir(), `cc-term-${name}-`)); }
 // A killed shell releases its working directory a moment after taskkill returns.
 async function rmrf(dir) {
@@ -39,6 +41,8 @@ test('shells: at least one shell is offered, each with id and label', () => {
   const list = terms.shells();
   assert.ok(list.length >= 1);
   for (const s of list) { assert.ok(s.id); assert.ok(s.label); }
+  // The first one is what a new terminal opens with: Command Prompt on Windows.
+  if (process.platform === 'win32') assert.equal(list[0].id, 'cmd');
 });
 
 test('session: echo (non-ASCII), cd updates cwd, markers are stripped, kill', async () => {
@@ -59,7 +63,9 @@ test('session: echo (non-ASCII), cd updates cwd, markers are stripped, kill', as
   assert.equal(path.basename(r.cwd), '한글 폴더');
   assert.equal(r.idle, true);
   // A program reading stdin gets the next line typed while the shell is busy, not the marker.
-  const ask = process.platform === 'win32' ? '$n = Read-Host; echo "got:$n"' : 'read n; echo "got:$n"';
+  // The syntax is the default shell's (Command Prompt on Windows); %n% must be on its own line, since cmd
+  // expands a line's variables before it runs.
+  const ask = process.platform === 'win32' ? 'set /p n=' + CRLF + 'echo got:%n%' : 'read n; echo "got:$n"';
   assert.ok(terms.run({ id: s.id, line: ask }));
   await sleep(600);
   assert.equal((await terms.read({ id: s.id })).idle, false, 'busy while waiting for input');
@@ -73,9 +79,9 @@ test('session: echo (non-ASCII), cd updates cwd, markers are stripped, kill', as
   const c2 = terms.complete({ id: s.id, line: 'ech', cursor: 3 });
   assert.ok(c2.items.some((it) => it.cmd && it.text === 'echo'));
   // Shell state set by a command survives (the script is sourced, not run in a child).
-  assert.ok(terms.run({ id: s.id, line: process.platform === 'win32' ? '$v = 7; echo "v=$v"' : 'v=7; echo "v=$v"' }));
+  assert.ok(terms.run({ id: s.id, line: process.platform === 'win32' ? 'set v=7' + CRLF + 'echo v=%v%' : 'v=7; echo "v=$v"' }));
   await waitFor(terms, s.id, (t) => t.includes('v=7'));
-  assert.ok(terms.run({ id: s.id, line: 'echo "again:$v"' }));
+  assert.ok(terms.run({ id: s.id, line: process.platform === 'win32' ? 'echo again:%v%' : 'echo "again:$v"' }));
   await waitFor(terms, s.id, (t) => t.includes('again:7'));
   // The exit code of the last command travels with the marker (prompt status segment); the cwd stays clean.
   assert.ok(terms.run({ id: s.id, line: process.platform === 'win32' ? 'cmd /c exit 3' : 'sh -c "exit 3"' }));

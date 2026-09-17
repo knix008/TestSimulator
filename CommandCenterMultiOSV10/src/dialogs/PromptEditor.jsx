@@ -1,20 +1,18 @@
-// Settings › Prompt — sized to fit the settings window without scrolling.
+// Settings › Prompt — the terminal prompt theme editor.
 //
 //   1. Preview of the current prompt (three sample states).
 //   2. Presets: a card per preset, drawn with the real renderer; click = apply.
 //   3. Simple options: which segments to show, shape, path style, two lines.
 //      They edit the current theme in place (segments are switched off, not
 //      removed, so a preset's colours and templates survive).
-//   4. "고급 편집" (optional): a master–detail editor — segment list on the
-//      left, the selected segment's fields on the right — plus oh-my-posh
-//      JSON import / export.
+//   4. "고급 편집": a master–detail editor — the segment list on the left,
+//      the selected segment's fields on the right.
 // Every change goes to onChange; the settings dialog applies it right away.
 import React, { useMemo, useState } from 'react';
 import { t, useLanguage, getLanguage } from '../lib/i18n';
-import { PRESETS, SEGMENT_TYPES, SEGMENT_STYLES, SAMPLE_STATES, GIT_STATE_NAMES, GIT_STATE_COLORS, normalizePrompt, clonePrompt, importOmp, exportOmp, defaultTemplate } from '../lib/prompt';
+import { PRESETS, SEGMENT_TYPES, SEGMENT_STYLES, SAMPLE_STATES, GIT_STATE_NAMES, GIT_STATE_COLORS, normalizePrompt, clonePrompt, defaultTemplate } from '../lib/prompt';
 import { Prompt } from '../components/Prompt';
 import { Icon } from '../components/Icons';
-import { call, isElectron, writeClipboardText } from '../lib/backend';
 
 const PATH_STYLES = ['full', 'folder', 'agnoster', 'agnoster_full', 'agnoster_short', 'agnoster_left', 'letter', 'mixed', 'unique'];
 // Order and default colours of the segments the simple switches can add.
@@ -79,16 +77,15 @@ function SegmentFields({ seg, onChange }) {
 }
 
 // custom: the user's saved prompts [{ id, label, config }]; onCustomChange(list, cfgToApply?) stores them.
-export function PromptEditor({ value, onChange, pickFile, custom = [], onCustomChange }) {
+export function PromptEditor({ value, onChange, custom = [], onCustomChange }) {
   useLanguage();
   const lang = getLanguage();
   const cfg = useMemo(() => normalizePrompt(value), [value]);
   // Built-in presets and the user's own, looked up alike (a custom one carries its label in both languages).
   const presets = useMemo(() => ({ ...PRESETS, ...Object.fromEntries((custom || []).filter((c) => c && c.id && c.config).map((c) => [c.id, { label: c.label, labelEn: c.label, config: { ...normalizePrompt(c.config), preset: c.id }, custom: true }])) }), [custom]);
   const customCur = cfg.preset && presets[cfg.preset] && presets[cfg.preset].custom ? (custom || []).find((c) => c.id === cfg.preset) : null;
-  const advanced = true;   // the detail editor always fills the rest of the (fixed-size) window
+  const advanced = true;   // the detail editor always fills the rest of the window
   const [sel, setSel] = useState({ b: 0, s: 0 });
-  const [json, setJson] = useState('');
   const [note, setNote] = useState('');
   const update = (fn) => { const c = clonePrompt(cfg); fn(c); onChange(normalizePrompt(c)); };
   const allSegs = cfg.blocks.flatMap((b) => b.segments);
@@ -136,21 +133,6 @@ export function PromptEditor({ value, onChange, pickFile, custom = [], onCustomC
     else if (!on && c.blocks.length > 1) { const first = c.blocks[0]; for (const b of c.blocks.slice(1)) for (const s of b.segments) if (s.type !== 'status' || s.template !== '❯') first.segments.push(s); c.blocks = [first]; }
   });
 
-  // ── Advanced: import / export ──
-  const doImport = (text) => {
-    try { const { config, mapped, skipped } = importOmp(text); onChange(config); setSel({ b: 0, s: 0 }); setNote(t('pe_imported', { n: mapped, skipped: skipped.length ? skipped.join(', ') : '-' })); }
-    catch (err) { setNote(t('pe_import_failed', { msg: err.message })); }
-  };
-  const importFile = async () => {
-    try {
-      const p = await pickFile(undefined, [{ name: 'oh-my-posh theme', extensions: ['json', 'omp.json'] }, { name: 'All files', extensions: ['*'] }]);
-      if (!p) return;
-      const r = await call('fs.readFile', { path: p });
-      if (r.kind !== 'text') throw new Error('not a text file');
-      doImport(r.text);
-    } catch (err) { setNote(t('pe_import_failed', { msg: err.message })); }
-  };
-  const doExport = async () => { await writeClipboardText(exportOmp(cfg)); setNote(t('pe_exported')); };
   const selected = cfg.blocks[sel.b] && cfg.blocks[sel.b].segments[sel.s] ? cfg.blocks[sel.b].segments[sel.s] : null;
   const newSeg = (type) => ({ type, enabled: true, style: styleOf, powerline_symbol: '', foreground: '#ffffff', background: (QUICK.find((q) => q[0] === type) || [0, '#4cc9f0'])[1], template: defaultTemplate(type), properties: {} });
   const swatch = (s) => (s.background && s.background !== 'transparent' && /^#/.test(s.background) ? s.background : 'var(--bg-hover)');
@@ -159,7 +141,8 @@ export function PromptEditor({ value, onChange, pickFile, custom = [], onCustomC
     <div className="prompt-editor">
       <datalist id="pe-color-names">{['accent', 'foreground', 'background', 'auto', 'transparent', 'parentBackground'].map((x) => <option key={x} value={x} />)}</datalist>
 
-      {/* 1. preview */}
+      {/* 1. preview — the current prompt in three sample states, under its own heading like the other sections */}
+      <div className="pe-section-title">{t('pe_preview_label')} <span className="muted small">{t('pe_preview')}</span></div>
       <pre className="term-out pe-preview-out">
         {['clean', 'dirty', 'plain'].map((k) => (
           <React.Fragment key={k}><Prompt config={cfg} state={SAMPLE_STATES[k]} title={t(`pe_sample_${k}`)} /><span className="muted">{t(`pe_sample_${k}`)}</span>{'\n'}</React.Fragment>
@@ -253,16 +236,6 @@ export function PromptEditor({ value, onChange, pickFile, custom = [], onCustomC
               ? <SegmentFields seg={selected} onChange={(ns) => update((c) => { c.blocks[sel.b].segments[sel.s] = ns; })} />
               : <div className="muted small">{t('pe_select_hint')}</div>}
           </div>
-        </div>
-      )}
-      {advanced && (
-        <div className="pe-quick">
-          <span className="muted small">oh-my-posh</span>
-          {isElectron && pickFile && <button type="button" className="btn small" onClick={importFile}><Icon name="folderOpen" size={13} /> {t('pe_import_file')}</button>}
-          <input className="mono" value={json} onChange={(e) => setJson(e.target.value)} spellCheck={false} placeholder={t('pe_paste_json')} style={{ flex: 1, minWidth: 120 }} />
-          <button type="button" className="btn small" disabled={!json.trim()} onClick={() => { doImport(json); setJson(''); }}>{t('pe_import')}</button>
-          <button type="button" className="btn small" onClick={doExport}><Icon name="clipboard" size={13} /> {t('pe_export')}</button>
-          <label className="check"><input type="checkbox" checked={cfg.final_space !== false} onChange={(e) => update((c) => { c.final_space = e.target.checked; })} /> {t('pe_final_space')}</label>
         </div>
       )}
       {advanced && <div className="pe-note muted small ellipsis" title={note}>{note || ' '}</div>}

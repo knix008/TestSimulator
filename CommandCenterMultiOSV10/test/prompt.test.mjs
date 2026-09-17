@@ -1,7 +1,7 @@
-// Prompt themes (src/lib/prompt.js): template engine, path styles, rendering, oh-my-posh import.
+// Prompt themes (src/lib/prompt.js): template engine, path styles, rendering.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { renderTemplate, formatPath, renderPrompt, importOmp, exportOmp, PRESETS, SAMPLE_STATES, GIT_STATE_COLORS, gitState, goDate, segmentContext } from '../src/lib/prompt.js';
+import { renderTemplate, formatPath, renderPrompt, normalizePrompt, PRESETS, SAMPLE_STATES, GIT_STATE_COLORS, GIT_STATE_NAMES, gitState, goDate, segmentContext } from '../src/lib/prompt.js';
 
 test('template: fields, if/else if/else, comparisons, and/or/not, pipes', () => {
   const ctx = { A: 3, B: 0, S: 'main', W: { Changed: true, String: '~2' }, D: new Date(2026, 0, 5, 7, 8, 9) };
@@ -85,36 +85,22 @@ test('powerline preset: background_templates, status, execution time threshold, 
   assert.equal(px.blocks[1].segments[0].fg, '#7CFC8B');
 });
 
-test('oh-my-posh import: known types mapped, unknown skipped, exit → status, export round trip', () => {
-  const omp = {
-    $schema: 'x', final_space: true, palette: { blue: '#0000ff' },
-    blocks: [
-      { type: 'prompt', alignment: 'left', segments: [
-        { type: 'path', style: 'powerline', powerline_symbol: '\ue0b0', foreground: '#ffffff', background: 'p:blue', template: ' {{ .Path }} ', properties: { style: 'folder' } },
-        { type: 'git', style: 'powerline', foreground: '#000', background: '#95ffa4', background_templates: ['{{ if .Working.Changed }}#ff9248{{ end }}'], template: ' {{ .HEAD }} ' },
-        { type: 'battery', style: 'powerline', template: ' {{ .Percentage }} ' },
-        { type: 'exit', style: 'diamond', leading_diamond: '\ue0b6', trailing_diamond: '\ue0b4', foreground: '#fff', background: '#e91e63', template: ' {{ .Text }} ' },
-      ] },
-      { type: 'rprompt', segments: [{ type: 'time', style: 'plain', template: '{{ .CurrentDate | date "15:04" }}' }] },
-    ],
-  };
-  const { config, mapped, skipped } = importOmp(omp);
-  assert.equal(mapped, 4);
-  assert.deepEqual(skipped, ['battery']);
-  assert.equal(config.blocks[0].segments.length, 3);
-  assert.equal(config.blocks[0].segments[2].type, 'status');
-  assert.equal(config.blocks[0].segments[2].template, ' {{ .String }} ');
-  const r = renderPrompt(config, SAMPLE_STATES.dirty, { accent: '#4cc9f0', fg: '#fff', bg: '#000' });
-  assert.equal(r.blocks.length, 1);   // rprompt not drawn
-  assert.equal(r.blocks[0].segments[0].bg, '#0000ff');   // palette
-  assert.equal(r.blocks[0].segments[0].text, ' components ');
-  assert.equal(r.blocks[0].segments[1].bg, GIT_STATE_COLORS.staged);   // the git block takes the state colour
-  assert.equal(renderPrompt({ ...config, git_state_colors: false }, SAMPLE_STATES.dirty, { accent: '#4cc9f0', fg: '#fff', bg: '#000' }).blocks[0].segments[1].bg, '#ff9248');   // the imported template
-  assert.equal(r.blocks[0].segments[2].text, ' 1 ');
-  const clean = renderPrompt(config, SAMPLE_STATES.clean, { accent: '#4cc9f0', fg: '#fff', bg: '#000' });
-  assert.equal(clean.blocks[0].segments.length, 2);   // status hidden when the code is 0
-  const json = exportOmp(config);
-  const again = importOmp(JSON.parse(json));
-  assert.deepEqual(again.config.blocks[0].segments.map((s) => s.type), ['path', 'git', 'status']);
-  assert.throws(() => importOmp({ nope: 1 }), /blocks/);
+test('every preset renders, and the git block follows the repository state', () => {
+  const theme = { accent: '#4cc9f0', fg: '#fff', bg: '#000' };
+  for (const [id, p] of Object.entries(PRESETS)) {
+    const r = renderPrompt(p.config, SAMPLE_STATES.dirty, theme);
+    assert.ok(r.blocks.length >= 1, `${id}: no block`);
+    assert.ok(r.blocks.some((b) => b.segments.length), `${id}: no segment`);
+    const git = r.blocks.flatMap((b) => b.segments).find((s) => s.type === 'git');
+    // 'dirty' has a staged file: the branch block is yellow, on its background when it has one.
+    if (git) assert.equal(git.bg ? git.bg : git.fg, GIT_STATE_COLORS.staged, `${id}: git colour`);
+  }
+});
+
+test('normalizePrompt fills in the git state colours and keeps the ones set', () => {
+  const c = normalizePrompt({ blocks: [], git_colors: { staged: '#010203' } });
+  assert.equal(c.git_state_colors, true);
+  assert.deepEqual(Object.keys(c.git_colors).sort(), [...GIT_STATE_NAMES].sort());
+  assert.equal(c.git_colors.staged, '#010203');
+  assert.equal(c.git_colors.modified, GIT_STATE_COLORS.modified);
 });

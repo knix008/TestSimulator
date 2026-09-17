@@ -5,7 +5,7 @@
 //
 // A terminal is a line-oriented console: the shell's output (core/terminal.js,
 // fetched through term.read while the tab is visible) ending with an
-// oh-my-posh style prompt where the command is typed.
+// themed prompt where the command is typed.
 //
 // Settings › terminal decide how the output is shown: `termColor` (the
 // programs' ANSI colours plus the error / warning / link highlighting of
@@ -69,7 +69,7 @@ function LogView({ entries, onClear, onCopy }) {
 
 // ── Terminal tab (the same console as MyEditor's TerminalPanel) ──
 //
-// The shell's output ends with a prompt drawn here, oh-my-posh style:
+// The shell's output ends with a prompt drawn here:
 // coloured powerline segments for the directory and, inside a git
 // repository, the branch with ahead / behind and the number of staged /
 // changed / untracked files. The command is typed in an <input> placed inline
@@ -95,7 +95,7 @@ function gitClass(git) {
 }
 
 // The prompt is drawn by components/Prompt.jsx from the prompt theme in the
-// settings (session.prompt — oh-my-posh compatible, see lib/prompt.js); the
+// settings (session.prompt — see lib/prompt.js); the
 // tooltip keeps the git summary of the classic prompt.
 function TermPrompt({ config, env, term, cwd, git, rc, ms, at, stale = false }) {
   const repo = git && git.repo;

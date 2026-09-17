@@ -17,7 +17,7 @@ import { SETTINGS_DEFAULTS, SETTINGS_KEYS, isTextFile } from './lib/settings';
 import { History } from './lib/history';
 
 function applyFontSize(px) {
-  document.documentElement.style.setProperty('--fs', `${Math.max(9, Number(px) || 13)}px`);
+  document.documentElement.style.setProperty('--fs', `${Math.max(9, Number(px) || 12)}px`);
 }
 
 // Sessions written by an early build stored 'dark' / 'light'.
@@ -834,7 +834,12 @@ export default function App() {
         setDockSearch({ root: pathOf(side) }); showTab('search');
         break;
       }
-      case 'about': await dialogs.about({ ...(info || {}), host: hostName }); break;
+      case 'about': {
+        const about = { ...(info || {}), host: hostName };
+        if (useWindows() && await openTool('about', { info: about }, { title: t('about_title') })) break;
+        await dialogs.about(about);
+        break;
+      }
       // 'settings' opens the general tab; 'settings:<tab>' (the dock's ⚙ uses settings:terminal) starts on that one.
       case 'settings':
       case 'settings:terminal': {
