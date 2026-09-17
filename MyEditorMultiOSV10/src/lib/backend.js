@@ -164,10 +164,19 @@ export function onWindowFocus(cb) {
   return () => { window.removeEventListener('focus', h); off(); };
 }
 
+// The menu bar's dropdowns as native OS menus (desktop only — they can reach beyond the window).
+// Not under the smoke test: a native menu would block the page script that drives the menus.
+export const nativeMenus = !!(isElectron && electron.popupMenu && !electron.smoke);
+// `items` may carry `png` (base64 PNG) + `scale` for an icon (lib/menuicons.js draws them).
+export function popupNativeMenu(items, pos) {
+  const plain = items.map((it) => (it.sep ? { sep: true } : it.header ? { header: it.header } : { id: it.id, label: it.label, checked: it.checked, radio: !!it.radio, disabled: !!it.disabled, shortcut: it.shortcut || '', meta: it.meta || '', png: it.png || '', scale: it.scale || 1 }));
+  return electron.popupMenu(plain, pos);
+}
 // Settings / info / shortcuts in a separate window (desktop only; false when
 // there is none — the caller shows the dialog inside the page instead).
-export function openPopup(kind) {
-  if (isElectron && electron.openPopup && !electron.smoke) { electron.openPopup(kind); return true; }
+// `tab`: which tab the settings window opens on (a new window reads it from its URL, an open one is told through a settings patch).
+export function openPopup(kind, tab) {
+  if (isElectron && electron.openPopup && !electron.smoke) { electron.openPopup(kind, tab || ''); return true; }
   return false;
 }
 // Prints an HTML document: the desktop app renders it in a hidden window and

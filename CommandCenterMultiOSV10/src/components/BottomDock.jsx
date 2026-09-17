@@ -3,21 +3,29 @@
 // opened with "+" (or "+ ▾" to pick the shell); each starts in the active
 // panel's folder.
 //
-// A terminal is the same line-oriented console as MyEditor's terminal panel:
-// the shell's output (core/terminal.js, fetched through term.read while the
-// tab is visible) ending with an oh-my-posh style prompt where the command
-// is typed.
+// A terminal is a line-oriented console: the shell's output (core/terminal.js,
+// fetched through term.read while the tab is visible) ending with an
+// oh-my-posh style prompt where the command is typed.
+//
+// Settings › terminal decide how the output is shown: `termColor` (the
+// programs' ANSI colours plus the error / warning / link highlighting of
+// lib/ansi.jsx, or plain text), `termCr` — what a lone CR does, a progress bar
+// redrawing its line: overwrite the line as a terminal does, break it, or drop
+// it — `termEol` (the line ending Enter sends to a running program) and
+// `termScrollback` (lines kept per transcript).
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { t, useLanguage } from '../lib/i18n';
 import { call, writeClipboardText } from '../lib/backend';
 import { AnsiText } from '../lib/ansi.jsx';
+import { mergeOutput } from '../lib/termtext';
 import { Icon } from './Icons';
 import { Prompt } from './Prompt';
 import { ContextMenu } from './ContextMenu';
 import { SearchDialog } from '../dialogs/SearchDialog';
 
 const WAIT_MS = 1500;     // long poll: the backend answers as soon as something happens, or after this
-const MAX_LINES = 10000;  // lines kept per terminal transcript (a long `git log` stays complete)
+const STATUS_WAIT_MS = 700;   // the prompt waits this long for a fresh git status before showing the last known one
+const DEFAULT_LINES = 10000;  // lines kept per terminal transcript (a long `git log` stays complete)
 
 function timeOf(ts) {
   const d = new Date(ts);
@@ -104,13 +112,13 @@ function TermPrompt({ config, env, term, cwd, git, rc, ms, at, stale = false }) 
 // The output is a list of entries: shell output text, or a line typed at a
 // prompt (kept with the prompt of that moment so it is redrawn the same way).
 function lineCount(entries) { let n = 0; for (const e of entries) n += e.k === 'cmd' ? 1 : (e.text.match(/\n/g) || []).length; return n; }
-function trimEntries(entries) {
+function trimEntries(entries, max = DEFAULT_LINES) {
   let n = lineCount(entries);
   let list = entries;
-  while (n > MAX_LINES && list.length) {
+  while (n > max && list.length) {
     const e = list[0];
     if (e.k === 'cmd') { list = list.slice(1); n--; continue; }
-    const drop = Math.min(n - MAX_LINES, (e.text.match(/\n/g) || []).length);
+    const drop = Math.min(n - max, (e.text.match(/\n/g) || []).length);
     if (drop === 0) { list = list.slice(1); continue; }
     let i = 0, p = -1;
     while (i < drop) { p = e.text.indexOf('\n', p + 1); i++; }
@@ -120,11 +128,16 @@ function trimEntries(entries) {
   }
   return list;
 }
-function appendText(entries, text) {
+function appendText(entries, text, mode, max) {
   if (!text) return entries;
   const last = entries[entries.length - 1];
-  const next = last && last.k === 'out' ? [...entries.slice(0, -1), { k: 'out', text: last.text + text }] : [...entries, { k: 'out', text }];
-  return trimEntries(next);
+  const next = last && last.k === 'out' ? [...entries.slice(0, -1), { k: 'out', text: mergeOutput(last.text, text, mode) }] : [...entries, { k: 'out', text: mergeOutput('', text, mode) }];
+  return trimEntries(next, max);
+}
+// A CR left pending at the end of the output when a prompt follows: nothing comes after it, so it is dropped.
+function settle(entries) {
+  const last = entries[entries.length - 1];
+  return last && last.k === 'out' && last.text.endsWith('\r') ? [...entries.slice(0, -1), { k: 'out', text: last.text.slice(0, -1) }] : entries;
 }
 
 // Candidates listed like a shell does: in columns as wide as the panel allows.
@@ -136,7 +149,7 @@ function columns(names, width) {
   return rows.join('\n');
 }
 
-function TerminalView({ term, active, onExit, prompt, env, themeId }) {
+function TerminalView({ term, active, onExit, prompt, env, themeId, termColor = true, termEol = 'auto', termCr = 'overwrite', scrollback = DEFAULT_LINES }) {
   useLanguage();
   const [entries, setEntries] = useState(() => (Array.isArray(term.buffer) ? term.buffer : []));
   const [git, setGit] = useState(term.git === undefined ? null : term.git);
@@ -152,6 +165,10 @@ function TerminalView({ term, active, onExit, prompt, env, themeId }) {
   const idleRef = useRef(term.idle !== false);
   const [exited, setExited] = useState(!!term.exited);
   const cmdSentRef = useRef(false);   // a command went to the shell since the last git status
+  const lastCmdRef = useRef(undefined);   // that command (undefined: none — a fresh status is read)
+  const crRef = useRef(termCr); crRef.current = termCr;
+  const eolRef = useRef(termEol); eolRef.current = termEol;
+  const maxRef = useRef(scrollback); maxRef.current = scrollback;
   // Status of the last command (from the shell marker) and how long it ran — the prompt's status / executiontime segments.
   const [rc, setRc] = useState(term.rc || 0);
   const [ms, setMs] = useState(term.ms || 0);
@@ -159,27 +176,35 @@ function TerminalView({ term, active, onExit, prompt, env, themeId }) {
   const msRef = useRef(term.ms || 0);
   const startedRef = useRef(0);
 
-  // The git status of the current directory (as in MyEditor): the prompt
-  // never appears bare and then grows a git block — while the first status
-  // of a directory is being read the prompt waits; after that (a command
-  // finished in the same directory) the prompt is drawn at once with the last
-  // known state and recoloured only if the fresh status differs (a status of
-  // a big repository takes a few hundred ms). A stale answer is ignored.
+  // The git status of the current directory: the prompt is drawn once, with
+  // the fresh state — while the status is being read (after every command and
+  // on a directory change) the prompt line stays invisible, so it never
+  // appears in one colour and then jumps to another. A status of a big
+  // repository can take a while: after STATUS_WAIT_MS the prompt is shown with
+  // the last known state and recoloured when the answer comes. A stale answer
+  // (an older request) is ignored. The command that just ran goes along: after
+  // a read-only one (cd, ls, git log …) the backend answers from its cache at
+  // once and the prompt is there without waiting for a `git status` at all.
   const [gitReady, setGitReady] = useState(term.gitCwd === term.cwd);
   const [gitStale, setGitStale] = useState(false);
   const gitSeq = useRef(0);
   const gitCwdRef = useRef(term.gitCwd || null);   // directory the current git state belongs to
+  const gitTimer = useRef(null);
   const refreshGit = useCallback(() => {
     const my = ++gitSeq.current;
     const dir = cwdRef.current;
-    if (gitCwdRef.current === dir && gitRef.current !== undefined) setGitStale(true); else { setGitReady(false); setGitStale(false); }
-    call('git.status', { cwd: dir }).then((g) => { if (my !== gitSeq.current) return; gitRef.current = g; gitCwdRef.current = dir; setGit(g); setGitReady(true); setGitStale(false); })
-      .catch(() => { if (my !== gitSeq.current) return; gitRef.current = null; gitCwdRef.current = dir; setGit(null); setGitReady(true); setGitStale(false); });
+    setGitReady(false); setGitStale(false);
+    clearTimeout(gitTimer.current);
+    if (gitCwdRef.current === dir && gitRef.current !== undefined) gitTimer.current = setTimeout(() => { if (my === gitSeq.current) { setGitStale(true); setGitReady(true); } }, STATUS_WAIT_MS);
+    const done = (g) => { if (my !== gitSeq.current) return; clearTimeout(gitTimer.current); gitRef.current = g; gitCwdRef.current = dir; setGit(g); setGitReady(true); setGitStale(false); };
+    call('git.status', { cwd: dir, cmd: lastCmdRef.current }).then(done).catch(() => done(null));
+    lastCmdRef.current = undefined;
   }, []);
-  const append = useCallback((text) => setEntries((prev) => appendText(prev, text)), []);
+  useEffect(() => () => clearTimeout(gitTimer.current), []);
+  const append = useCallback((text) => setEntries((prev) => appendText(prev, text, crRef.current, maxRef.current)), []);
   // A line typed at the prompt (or, while a command runs, fed to it).
   const echo = useCallback((line) => {
-    if (idleRef.current) setEntries((prev) => trimEntries([...prev, { k: 'cmd', cwd: cwdRef.current, git: gitRef.current, rc: rcRef.current, ms: msRef.current, at: Date.now(), line }]));
+    if (idleRef.current) setEntries((prev) => trimEntries([...settle(prev), { k: 'cmd', cwd: cwdRef.current, git: gitRef.current, rc: rcRef.current, ms: msRef.current, at: Date.now(), line }], maxRef.current));
     else append(line + '\n');
   }, [append]);
 
@@ -232,16 +257,17 @@ function TerminalView({ term, active, onExit, prompt, env, themeId }) {
   useEffect(() => { if (active && inputRef.current) inputRef.current.focus(); }, [active]);
 
   const run = async (line) => {
-    const cmd = idleRef.current ? line.trim() : line;
+    const wasIdle = idleRef.current;
+    const cmd = wasIdle ? line.trim() : line;
     echo(line);
-    if (idleRef.current) {
+    if (wasIdle) {
       startedRef.current = Date.now();
       if (!cmd) return;
       setHist((h) => ({ list: [...h.list.filter((x) => x !== cmd), cmd].slice(-200), idx: -1, draft: '' }));
       if (cmd === 'clear' || cmd === 'cls') { setEntries([]); return; }
-      cmdSentRef.current = true;
+      cmdSentRef.current = true; lastCmdRef.current = cmd;
     }
-    try { await call('term.run', { id: term.id, line: cmd }); } catch (err) { append(`\n[${err.message}]\n`); }
+    try { await call('term.run', { id: term.id, line: cmd, eol: eolRef.current }); } catch (err) { append(`\n[${err.message}]\n`); }
   };
 
   // Tab: complete the word at the cursor — a single candidate is inserted (a
@@ -311,7 +337,8 @@ function TerminalView({ term, active, onExit, prompt, env, themeId }) {
   // The transcript only re-renders when it changes — not on every keystroke.
   const transcript = useMemo(() => entries.map((e, i) => (e.k === 'cmd'
     ? <React.Fragment key={i}><TermPrompt config={prompt} env={env} term={term} cwd={e.cwd} git={e.git} rc={e.rc} ms={e.ms} at={e.at} />{e.line}{'\n'}</React.Fragment>
-    : <React.Fragment key={i}><AnsiText text={e.text} /></React.Fragment>)), [entries, prompt, env, themeId]); // eslint-disable-line react-hooks/exhaustive-deps
+    // a CR still pending (the line it would overwrite is not final yet) is not drawn
+    : <React.Fragment key={i}><AnsiText text={e.text.endsWith('\r') ? e.text.slice(0, -1) : e.text} color={termColor} /></React.Fragment>)), [entries, prompt, env, themeId, termColor]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className={`dock-view term-view ${active ? '' : 'hidden'}`}>
@@ -336,7 +363,7 @@ function TerminalView({ term, active, onExit, prompt, env, themeId }) {
 // ── The dock ──
 // `search` ({ root } or null) is the quick-search tab: the SearchDialog docked here, searching under
 // the selected panel's folder; `visible` false keeps everything mounted (results, transcripts) but hidden.
-export function BottomDock({ visible = true, tab, onTab, log, onClearLog, onCopyLog, terms, shells, onNewTerm, onCloseTerm, onTermExit, onHide, height, onResizeStart, prompt, env, themeId, logOpen = true, onCloseLog, search, onCloseSearch, onSearchRoot, searchHandlers = {} }) {
+export function BottomDock({ visible = true, tab, onTab, log, onClearLog, onCopyLog, terms, shells, onNewTerm, onCloseTerm, onTermExit, onHide, height, onResizeStart, prompt, env, themeId, termColor = true, termEol = 'auto', termCr = 'overwrite', termScrollback = DEFAULT_LINES, onTermSettings, logOpen = true, onCloseLog, search, onCloseSearch, onSearchRoot, searchHandlers = {} }) {
   useLanguage();
   const [menu, setMenu] = useState(null);
   const shellItems = shells.map((s) => ({ id: `shell:${s.id}`, label: s.label, icon: 'terminal' }));
@@ -371,6 +398,7 @@ export function BottomDock({ visible = true, tab, onTab, log, onClearLog, onCopy
         <button className="icon-btn" title={t('term_new')} onClick={() => onNewTerm()}><Icon name="plus" size={15} /></button>
         {shells.length > 1 && <button className="icon-btn" title={t('term_new_shell')} onClick={(e) => setMenu(e.currentTarget)}><Icon name="chevronDown" size={14} /></button>}
         <span className="spacer" />
+        {onTermSettings && <button className="icon-btn" title={t('term_settings')} onClick={onTermSettings}><Icon name="settings" size={14} /></button>}
         <button className="icon-btn" title={t('dock_hide')} onClick={onHide}><Icon name="close" size={15} /></button>
       </div>
       <div className="dock-body">
@@ -383,7 +411,8 @@ export function BottomDock({ visible = true, tab, onTab, log, onClearLog, onCopy
         {terms.length === 0 && (tab === 'log' ? !logOpen : tab !== 'search') && (
           <div className="dock-empty"><Icon name="terminal" size={26} /><p>{t('term_empty')}</p><button className="btn" onClick={() => onNewTerm()}>{t('term_new')}</button></div>
         )}
-        {terms.map((tm) => <TerminalView key={tm.id} term={tm} active={tab === tm.id} onExit={onTermExit} prompt={prompt} env={env} themeId={themeId} />)}
+        {terms.map((tm) => <TerminalView key={tm.id} term={tm} active={tab === tm.id} onExit={onTermExit} prompt={prompt} env={env} themeId={themeId}
+          termColor={termColor} termEol={termEol} termCr={termCr} scrollback={termScrollback} />)}
       </div>
       {menu && <ContextMenu anchorEl={menu} x={0} y={0} items={shellItems} onClose={() => setMenu(null)} onPick={(id) => { setMenu(null); onNewTerm(id.slice(6)); }} />}
     </div>

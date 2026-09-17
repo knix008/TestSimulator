@@ -1,11 +1,10 @@
-// Terminal prompt themes — an oh-my-posh compatible model.
+// Terminal prompt themes.
 //
 // A prompt is a list of blocks, each a list of segments; every segment has a
 // type (path, git, session, shell, os, time, status, executiontime, root,
 // text), a style (powerline | plain | diamond), colours and a Go-style
 // template ({{ .Path }}, {{ if gt .Ahead 0 }}…{{ end }}) rendered against the
-// segment's context — the same shape oh-my-posh uses, so its JSON themes can
-// be imported (importOmp) and our own exported (the config *is* that JSON).
+// segment's context. The config is plain JSON (kept in the session).
 //
 //   renderPrompt(config, ctx) → [{ newline, segments: [{ text, fg, bg, style, symbol, leading, trailing }] }]
 //
@@ -17,9 +16,8 @@ export const PROMPT_VERSION = 1;
 export const SEGMENT_TYPES = ['path', 'git', 'session', 'shell', 'os', 'time', 'status', 'executiontime', 'root', 'text'];
 export const SEGMENT_STYLES = ['powerline', 'plain', 'diamond'];
 
-// Colours by git state (the classic Command Center prompt): used when a git
-// segment's background (or foreground) is 'auto', and — while the prompt's
-// `git_state_colors` is on — for the git segment of any preset.
+// Colours by git state (the classic My Editor prompt): used when a git
+// segment's background (or foreground) is 'auto'.
 export const GIT_STATE_COLORS = { conflict: '#D62828', staged: '#FFD700', modified: '#FF5C5C', ahead: '#FF9F43', behind: '#7cc4ff', uptodate: '#7CFC8B', none: '#7CFC8B' };
 // The states that colour the git (branch) segment — every state, a clean pushed repository included (green).
 export const GIT_STATE_NAMES = ['conflict', 'staged', 'modified', 'ahead', 'behind', 'uptodate'];
@@ -37,7 +35,7 @@ const seg = (type, extra) => ({ type, style: 'powerline', powerline_symbol: '\ue
 
 export const PRESETS = {
   default: {
-    label: '기본 (Command Center)', labelEn: 'Default (Command Center)',
+    label: '기본 (My Editor)', labelEn: 'Default (My Editor)',
     config: {
       version: PROMPT_VERSION, final_space: true, newline: false, palette: {},
       blocks: [{ type: 'prompt', alignment: 'left', segments: [
@@ -527,7 +525,7 @@ function splitPath(p) {
   return { parts, win, sep, absolute: s.startsWith('/') };
 }
 
-// oh-my-posh path styles: full, folder, agnoster, agnoster_full, agnoster_short, agnoster_left, letter, mixed, unique
+// path styles: full, folder, agnoster, agnoster_full, agnoster_short, agnoster_left, letter, mixed, unique
 export function formatPath(cwd, home, props = {}) {
   const style = props.style || 'full';
   const homeIcon = props.home_icon !== undefined ? props.home_icon : '~';
@@ -634,12 +632,12 @@ function firstTemplate(list, ctx) {
   return '';
 }
 
-// Segments that should not appear at all in some states (as in oh-my-posh).
+// Segments that should not appear at all in some states.
 function segmentVisible(type, ctx, props, state) {
   if (type === 'git') return !!ctx.Repo;
   if (type === 'root') return !!ctx.Root;
   if (type === 'executiontime') { const th = props.threshold !== undefined ? Number(props.threshold) : 500; return ctx.Ms >= th; }
-  if (type === 'status') return props.always_enabled ? true : ctx.Code !== 0;   // oh-my-posh: only on error unless always_enabled
+  if (type === 'status') return props.always_enabled ? true : ctx.Code !== 0;   // only on error unless always_enabled
   return true;
 }
 
@@ -681,53 +679,12 @@ export function renderPrompt(config, state, theme) {
   return { blocks, finalSpace: cfg.final_space !== false, gitState: gs };
 }
 
-// ── oh-my-posh import ─────────────────────────────────────
-// Takes a theme object (parsed JSON) and returns { config, mapped, skipped }.
-// Segment types oh-my-posh has that we cannot draw (battery, node, python, …)
-// are dropped and listed in `skipped`.
-
-const OMP_TYPE_MAP = { path: 'path', git: 'git', session: 'session', shell: 'shell', os: 'os', time: 'time', status: 'status', exit: 'status', executiontime: 'executiontime', root: 'root', text: 'text' };
-
-export function importOmp(theme) {
-  const src = typeof theme === 'string' ? JSON.parse(theme) : theme;
-  if (!src || !Array.isArray(src.blocks)) throw new Error('Not an oh-my-posh theme: no "blocks" array');
-  const skipped = [];
-  let mapped = 0;
-  const blocks = src.blocks.map((b) => ({
-    type: b.type === 'rprompt' ? 'rprompt' : 'prompt',
-    alignment: b.alignment || 'left',
-    newline: !!b.newline,
-    segments: (b.segments || []).map((s) => {
-      const type = OMP_TYPE_MAP[s.type];
-      if (!type) { skipped.push(s.type); return null; }
-      mapped++;
-      const props = { ...(s.properties || s.options || {}) };
-      let template = typeof s.template === 'string' ? s.template : defaultTemplate(type);
-      if (s.type === 'exit') template = template.replace(/\.Text\b/g, '.String');
-      return {
-        type, style: SEGMENT_STYLES.includes(s.style) ? s.style : (s.style === 'accordion' ? 'powerline' : 'powerline'),
-        foreground: s.foreground || 'foreground', background: s.background || 'transparent',
-        foreground_templates: s.foreground_templates, background_templates: s.background_templates,
-        powerline_symbol: s.powerline_symbol || '\ue0b0', leading_diamond: s.leading_diamond || '', trailing_diamond: s.trailing_diamond || '',
-        template, properties: props,
-      };
-    }).filter(Boolean),
-  })).filter((b) => b.segments.length);
-  const config = normalizePrompt({ version: PROMPT_VERSION, final_space: src.final_space !== false, palette: src.palette || {}, blocks });
-  return { config, mapped, skipped: Array.from(new Set(skipped)) };
-}
-
-export function exportOmp(config) {
-  const c = normalizePrompt(config);
-  const out = { $schema: 'https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/schema.json', version: 2, final_space: c.final_space, palette: c.palette, blocks: c.blocks.map((b) => ({ type: b.type, alignment: b.alignment, ...(b.newline ? { newline: true } : {}), segments: b.segments.filter((s) => s.enabled !== false).map((s) => { const o = { type: s.type, style: s.style, foreground: s.foreground, background: s.background, template: s.template }; if (s.foreground_templates) o.foreground_templates = s.foreground_templates; if (s.background_templates) o.background_templates = s.background_templates; if (s.style === 'powerline') o.powerline_symbol = s.powerline_symbol; if (s.style === 'diamond') { o.leading_diamond = s.leading_diamond; o.trailing_diamond = s.trailing_diamond; } if (Object.keys(s.properties || {}).length) o.properties = s.properties; return o; }) })) };
-  return JSON.stringify(out, null, 2);
-}
-
 // Sample states for the settings preview.
 export const SAMPLE_STATES = {
-  // short values for the small preset cards — a clean repository, so each prompt shows its own colours
+  // short values for the small preset cards
+  // the preset cards: a clean repository, so each prompt shows its own colours
   mini: { cwd: 'C:\\Users\\me\\src', home: 'C:\\Users\\me', git: { repo: true, branch: 'main', upstream: 'origin/main', ahead: 0, behind: 0, staged: 0, changed: 0, untracked: 0, conflicts: 0, stashes: 0 }, user: 'me', host: 'pc', shell: 'pwsh', platform: 'win32', rc: 0, ms: 1500, now: new Date(2026, 8, 16, 10, 5, 42) },
-  clean: { cwd: 'C:\\Home\\Projects\\CommandCenter', home: 'C:\\Users\\user', git: { repo: true, branch: 'main', upstream: 'origin/main', ahead: 0, behind: 0, staged: 0, changed: 0, untracked: 0, conflicts: 0, stashes: 0 }, user: 'user', host: 'desktop', shell: 'pwsh', platform: 'win32', rc: 0, ms: 120, now: new Date(2026, 8, 16, 10, 5, 42) },
-  dirty: { cwd: 'C:\\Home\\Projects\\CommandCenter\\src\\components', home: 'C:\\Users\\user', git: { repo: true, branch: 'feature/tabs', upstream: 'origin/feature/tabs', ahead: 2, behind: 0, staged: 1, changed: 3, untracked: 1, conflicts: 0, stashes: 1 }, user: 'user', host: 'desktop', shell: 'pwsh', platform: 'win32', rc: 1, ms: 3200, now: new Date(2026, 8, 16, 10, 5, 42) },
+  clean: { cwd: 'C:\\Home\\Projects\\MyEditor', home: 'C:\\Users\\user', git: { repo: true, branch: 'main', upstream: 'origin/main', ahead: 0, behind: 0, staged: 0, changed: 0, untracked: 0, conflicts: 0, stashes: 0 }, user: 'user', host: 'desktop', shell: 'pwsh', platform: 'win32', rc: 0, ms: 120, now: new Date(2026, 8, 16, 10, 5, 42) },
+  dirty: { cwd: 'C:\\Home\\Projects\\MyEditor\\src\\components', home: 'C:\\Users\\user', git: { repo: true, branch: 'feature/tabs', upstream: 'origin/feature/tabs', ahead: 2, behind: 0, staged: 1, changed: 3, untracked: 1, conflicts: 0, stashes: 1 }, user: 'user', host: 'desktop', shell: 'pwsh', platform: 'win32', rc: 1, ms: 3200, now: new Date(2026, 8, 16, 10, 5, 42) },
   plain: { cwd: 'C:\\Users\\user\\Downloads', home: 'C:\\Users\\user', git: { repo: false }, user: 'user', host: 'desktop', shell: 'pwsh', platform: 'win32', rc: 0, ms: 40, now: new Date(2026, 8, 16, 10, 5, 42) },
 };

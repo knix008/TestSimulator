@@ -6,17 +6,19 @@
 // the other windows (settings:patch), and patches from them — a theme or
 // language change made in the editor — are applied here too. The window
 // closes with the main window (it is its child).
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { call, windowControl, sendSettingsPatch, onSettingsPatch } from './lib/backend';
 import { setLanguage, useLanguage, t } from './lib/i18n';
-import { applyTheme } from './themes';
+import { applyTheme, setCustomThemes } from './themes';
 import { pickSettings } from './lib/settings';
 import { SettingsDialog } from './dialogs/SettingsDialog';
 import { AboutDialog, ShortcutsDialog } from './dialogs/Dialogs';
 
-export function PopupWindow({ kind }) {
+export function PopupWindow({ kind, tab = '' }) {
   useLanguage();
   const [settings, setSettingsState] = useState(null);
+  const settingsRef = useRef(null); settingsRef.current = settings;
+  const [showTab, setShowTab] = useState(tab);   // the settings tab asked for (URL, or a settingsTab patch from the main window)
   const [info, setInfo] = useState(null);
   const [shells, setShells] = useState([]);
   const [folder, setFolder] = useState('');
@@ -29,6 +31,7 @@ export function PopupWindow({ kind }) {
       if (!alive) return;
       const s = pickSettings(session);
       setLanguage(s.language);
+      setCustomThemes(s.customThemes);
       applyTheme(s.theme);
       setSettingsState(s);
       setInfo(appInfo);
@@ -42,8 +45,10 @@ export function PopupWindow({ kind }) {
     // Changes made in another window.
     const off = onSettingsPatch((patch) => {
       if (patch.formatToolsAt) return;   // a note for the main window only (see SettingsDialog onTools)
+      if (patch.settingsTab) { setShowTab(patch.settingsTab + ':' + Date.now()); return; }   // the main window asks for a tab (⚙ in the terminal header)
       setSettingsState((prev) => (prev ? { ...prev, ...patch } : prev));
-      if (patch.theme !== undefined) applyTheme(patch.theme);
+      if (patch.customThemes !== undefined) setCustomThemes(patch.customThemes);
+      if (patch.theme !== undefined || patch.customThemes !== undefined) { const cur = { ...(settingsRef.current || {}), ...patch }; if (cur.theme) applyTheme(cur.theme); }
       if (patch.language !== undefined) setLanguage(patch.language);
     });
     return () => { alive = false; off(); };
@@ -51,7 +56,8 @@ export function PopupWindow({ kind }) {
 
   const change = (patch) => {
     setSettingsState((prev) => ({ ...prev, ...patch }));
-    if (patch.theme !== undefined) { const th = applyTheme(patch.theme); call('session.save', { themeBg: th.tokens['--bg'] }).catch(() => {}); }
+    if (patch.customThemes !== undefined) setCustomThemes(patch.customThemes);
+    if (patch.theme !== undefined || patch.customThemes !== undefined) { const th = applyTheme({ ...(settingsRef.current || {}), ...patch }.theme); call('session.save', { themeBg: th.tokens['--bg'] }).catch(() => {}); }
     if (patch.language !== undefined) setLanguage(patch.language);
     call('session.save', patch).catch(() => {});
     sendSettingsPatch(patch);
@@ -62,7 +68,7 @@ export function PopupWindow({ kind }) {
   if (kind === 'about') return <AboutDialog embedded info={info} onClose={close} />;
   if (kind === 'shortcuts') return <ShortcutsDialog embedded onClose={close} />;
   // A rescan / install in this window: the main window's toolbar label follows (it re-reads the backend's list).
-  return <SettingsDialog embedded settings={settings} encodings={(info && info.encodings) || []} shells={shells} formatDir={folder} tools={tools} onTools={(x) => { setTools(x); sendSettingsPatch({ formatToolsAt: Date.now() }); }} onChange={change} onClose={close} />;
+  return <SettingsDialog embedded initialTab={showTab} settings={settings} encodings={(info && info.encodings) || []} shells={shells} formatDir={folder} tools={tools} onTools={(x) => { setTools(x); sendSettingsPatch({ formatToolsAt: Date.now() }); }} onChange={change} onClose={close} />;
 }
 
 export default PopupWindow;

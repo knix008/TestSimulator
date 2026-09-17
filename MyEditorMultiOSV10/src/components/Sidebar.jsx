@@ -6,7 +6,7 @@
 // the whole tree. Click opens a file; right-click gives new file /
 // folder, rename, delete, reveal, copy path. The filter box narrows the
 // loaded tree to matching names.
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { t, useLanguage } from '../lib/i18n';
 import { call } from '../lib/backend';
 import { Icon } from './Icons';
@@ -35,8 +35,20 @@ function fileIcon(name) {
 // A node: { path, name, isDir, children: null | [], open, loading, error }
 // The tree is a mutable object graph; `tick` forces a re-render after a
 // mutation (copying the root would freeze fields that later loads change).
-export function Sidebar({ folder, activePath, openPaths, onOpenFile, onOpenFolder, onCloseFolder, onError, onAction, width, showHidden, onToggleHidden, refreshKey, searchOn, onToggleSearch }) {
-  useLanguage();
+export function Sidebar({ folder, activePath, openPaths, onOpenFile, onOpenFolder, onCloseFolder, onError, onAction, width, showHidden, onToggleHidden, refreshKey, searchOn, onToggleSearch, onMinWidth }) {
+  const lang = useLanguage();
+  // The narrowest the panel may get: the header with its title and every icon button visible (measured
+  // after each render that could change it — the language, the buttons — and reported to the app).
+  const headRef = useRef(null);
+  useLayoutEffect(() => {
+    const el = headRef.current;
+    if (!el || !onMinWidth) return;
+    let w = 0;
+    for (const c of el.children) { if (c.classList.contains('spacer')) continue; w += c.getBoundingClientRect().width; }
+    const cs = getComputedStyle(el);
+    w += parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight) + (parseFloat(cs.columnGap) || 0) * (el.children.length - 1) + 2;
+    onMinWidth(w);
+  }, [lang, folder, onMinWidth]);
   const [root, setRoot] = useState(null);
   const [tick, setTick] = useState(0);
   const refresh = useCallback(() => setTick((x) => x + 1), []);
@@ -181,7 +193,7 @@ export function Sidebar({ folder, activePath, openPaths, onOpenFile, onOpenFolde
 
   return (
     <div className="sidebar" style={width ? { width } : undefined}>
-      <div className="sb-head">
+      <div className="sb-head" ref={headRef}>
         <span className="panel-title">{t('sb_title')}</span>
         <span className="spacer" />
         <button className={`icon-btn ${searchOn ? 'on' : ''}`} title={t('search_title')} onClick={onToggleSearch}><Icon name="search" size={15} /></button>

@@ -13,7 +13,7 @@ import { EditorSelection } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 import { indentSelection } from '@codemirror/commands';
 import { t, setLanguage, getLanguage, useLanguage } from './lib/i18n';
-import { applyTheme, nextThemeId, themeById } from './themes';
+import { applyTheme, nextThemeId, themeById, setCustomThemes } from './themes';
 import { SETTINGS_DEFAULTS, pickSettings } from './lib/settings';
 import {
   call, isElectron, nativeDialog, setDialogFallback, writeClipboardText, readClipboardText, onOpenFiles, rendererReady, pathForFile,
@@ -26,6 +26,7 @@ import { resolveFormatter, toolLabel } from './lib/formatters';
 import { HexView } from './components/HexView';
 import { Outline } from './components/Outline';
 import { markdownLive, imageBase } from './lib/mdlive';
+import { dockerfileCompletion, kubernetesCompletion } from './lib/devops';
 import { fileToDataUrl, isImageFile, resolveImageSrc, analyzeImage, encodeImage } from './lib/images';
 import { renderMarkdown } from './lib/markdown';
 import { applyDiagnostics, clearDiagnostics, countDiagnostics, openLintPanel, nextDiagnostic } from './lib/lint';
@@ -37,6 +38,9 @@ import { EditorPane } from './components/EditorPane';
 import { FindBar } from './components/FindBar';
 import { MarkdownBar } from './components/MarkdownBar';
 import { Preview } from './components/Preview';
+import { HtmlPreview, HtmlBar } from './components/HtmlPreview';
+import { ImagePreview, ImageBar, isImageName, isSvgName, insertSvgTag } from './components/ImagePreview';
+import { withMenuIcons } from './lib/menuicons';
 import { Sidebar } from './components/Sidebar';
 import { SearchPanel } from './components/SearchPanel';
 import { StatusBar } from './components/StatusBar';
@@ -50,7 +54,9 @@ import { ImageDialog } from './dialogs/ImageDialog';
 import { ImageExportDialog } from './dialogs/ImageExportDialog';
 import { InstallDialog } from './dialogs/InstallDialog';
 
-const BASE_FONT = 14;
+const BASE_FONT = 12;   // the font size that is 100 % zoom (the default)
+// split = multi: n panes as a balanced grid — columns = ceil(√n), rows = ceil(n / columns).
+const multiGrid = (n) => { const cols = Math.max(1, Math.ceil(Math.sqrt(n))); return { cols, rows: Math.max(1, Math.ceil(n / cols)) }; };
 const EOLS = ['crlf', 'lf', 'cr'];
 let nextDocId = 1;
 
@@ -124,7 +130,7 @@ export default function App() {
   const [find, setFind] = useState(null);           // { mode, initial }
   const [dialog, setDialog] = useState(null);       // { type, ...props }
   const [folder, setFolder] = useState('');
-  const [showHidden, setShowHidden] = useState(false);
+  const showHidden = !!settings.treeShowHidden;   // the folder tree's hidden files (settings › general › folder tree)
   const [sbRefresh, setSbRefresh] = useState(0);
   const [recent, setRecent] = useState([]);
   const [sidebarWidth, setSidebarWidth] = useState(240);
@@ -185,7 +191,23 @@ export default function App() {
     schedulePersist();
     scheduleLint(id);
     scheduleFmtCheck(id);
+    scheduleAutoSave(id);
   };
+  // Auto save (settings › general › session): 'delay' saves an edited file autoSaveDelay seconds after the last
+  // edit, 'blur' saves every edited file when the window loses the focus. Only files that exist on disk and
+  // are writable — a new untitled document still needs a name from you.
+  const autoSaveTimers = useRef(new Map());
+  const scheduleAutoSave = (id) => {
+    const st = settingsRef.current;
+    clearTimeout(autoSaveTimers.current.get(id));
+    if (st.autoSave !== 'delay') return;
+    autoSaveTimers.current.set(id, setTimeout(() => { const d = getDoc(id); if (d && d.dirty && d.path && !d.readonly && d.kind !== 'hex') saveDoc(id).catch(() => {}); }, Math.max(1, Number(st.autoSaveDelay) || 5) * 1000));
+  };
+  useEffect(() => {
+    const onBlur = () => { if (settingsRef.current.autoSave !== 'blur') return; for (const d of docsRef.current) if (d.dirty && d.path && !d.readonly && d.kind !== 'hex') saveDoc(d.id).catch(() => {}); };
+    window.addEventListener('blur', onBlur);
+    return () => window.removeEventListener('blur', onBlur);
+  }, []);   // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── linting: the language's checker runs in the backend, a moment after the
   // last edit, and its findings come back as gutter markers / underlines. The
@@ -208,7 +230,7 @@ export default function App() {
     const text = state.doc.toString();
     lintRuns.current.set(id, text);
     let r;
-    try { r = await call('lint.run', { id, path: doc.path || '', name: doc.name, language: doc.langName, text }); } catch { r = null; }
+    try { r = await call('lint.run', { id, path: doc.path || '', name: doc.name, language: doc.langName, text, tool: (settingsRef.current.linters || {})[doc.langName] || 'auto' }); } catch { r = null; }
     if (!r || r.cancelled || lintRuns.current.get(id) !== text) return;
     lintRuns.current.delete(id);
     const cur = getDoc(id);
@@ -473,7 +495,9 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
       if (!cur || (cur.langName || null) !== langName) return;
       // Markdown documents get the WYSIWYG rendering on top of the grammar.
       const live = langName === 'Markdown' && settingsRef.current.mdWysiwyg ? [markdownLive, imageBase.of(cur.path ? dirName(cur.path) : folderRef.current || '')] : [];
-      dispatchTo(doc.id, { effects: languageEffect([support, live]) });
+      // Dockerfiles and Kubernetes manifests (YAML) complete their own vocabulary (lib/devops.js) on top of the grammar.
+      const extra = support && support.language && (langName === 'Dockerfile' ? [support.language.data.of({ autocomplete: dockerfileCompletion })] : langName === 'YAML' ? [support.language.data.of({ autocomplete: kubernetesCompletion })] : []);
+      dispatchTo(doc.id, { effects: languageEffect([support, live, extra || []]) });
       scheduleLint(doc.id, 200);
     }).catch(() => { /* a grammar failed to load: plain text */ });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -534,8 +558,9 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
 
   // The layout: 'none' (one pane) · 'cols' · 'rows' · 'grid' (2 × 2). New
   // panes take documents not shown elsewhere; removed panes hand theirs back.
-  const setSplit = (mode) => {
-    const count = mode === 'grid' ? 4 : mode === 'cols' || mode === 'rows' ? 2 : 1;
+  // mode: none · cols · rows · grid (the View menu) · multi (the toolbar button: n panes in a balanced grid, 2‥9)
+  const setSplit = (mode, n) => {
+    const count = mode === 'grid' ? 4 : mode === 'multi' ? Math.max(2, Math.min(9, n || 2)) : mode === 'cols' || mode === 'rows' ? 2 : 1;
     const cur = panesRef.current;
     if (count > cur.length) {
       const shown = new Set(cur.map((p) => p.docId));
@@ -556,7 +581,18 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
       const ai = next.findIndex((p) => p.key === active.key);
       focusPane(ai >= 0 ? ai : 0, { focus: false });
     }
-    changeSettings({ split: mode });
+    if (mode === 'multi') { const g = multiGrid(count); changeSettings({ split: mode, paneCount: count, colFracs: Array(g.cols).fill(1 / g.cols), rowFracs: Array(g.rows).fill(1 / g.rows) }); }
+    else changeSettings({ split: mode });
+  };
+  // The × of a pane showing a document: the document is closed (asking about unsaved changes first) and the
+  // pane goes with it — the remaining panes are laid out afresh.
+  const closePaneAndDoc = async (i) => {
+    const pane = panesRef.current[i];
+    if (!pane) return;
+    if (pane.docId != null) { if (!(await closeDocs([pane.docId]))) return; }
+    const j = panesRef.current.findIndex((p) => p.key === pane.key);
+    if (j >= 0 && panesRef.current.length > 1) closePane(j);
+    collapseEmpty();   // a pane that showed the closed document (or was empty already) goes too
   };
   // Closes one pane of a split (an empty one, from its "닫기"): the others stay as they are; the
   // layout follows the count — one pane left → no split, two → columns, three → the grid with the last spanning.
@@ -569,10 +605,12 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
     const next = cur.filter((_, j) => j !== i).map((p) => ({ ...p }));
     panesRef.current = next;
     setPanes(next);
-    const mode = next.length === 1 ? 'none' : next.length === 2 ? (settingsRef.current.split === 'rows' ? 'rows' : 'cols') : 'grid';
+    const st = settingsRef.current;
+    const mode = next.length === 1 ? 'none' : st.split === 'multi' ? 'multi' : next.length === 2 ? (st.split === 'rows' ? 'rows' : 'cols') : 'grid';
     const ai = Math.min(activePaneRef.current <= i ? activePaneRef.current : activePaneRef.current - 1, next.length - 1);
     focusPane(Math.max(0, ai), { focus: false });
-    changeSettings({ split: mode });
+    if (mode === 'multi') { const g = multiGrid(next.length); changeSettings({ split: mode, paneCount: next.length, colFracs: Array(g.cols).fill(1 / g.cols), rowFracs: Array(g.rows).fill(1 / g.rows) }); }
+    else changeSettings({ split: mode });
   };
   const nextPane = () => { const n = panesRef.current.length; if (n > 1) focusPane((activePaneRef.current + 1) % n); };
 
@@ -592,7 +630,8 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
 
   const newUntitled = (text = '', opts = {}) => {
     const n = untitledRef.current++;
-    return addDoc({ untitledNo: n, name: t('untitled', { n }), ...opts.meta }, text, opts);
+    const dl = settingsRef.current.defaultLanguage;   // settings › general › files: the language a new document starts with
+    return addDoc({ untitledNo: n, name: t('untitled', { n }), ...(dl && dl !== 'auto' ? { language: dl } : {}), ...opts.meta }, text, opts);
   };
 
   const removeDocs = (ids) => {
@@ -623,17 +662,13 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
       if (next) activate(next.id);
       else if (!remaining.length) { setActiveIdState(null); newUntitled(); }
       else { const v = viewRef.current; if (v) v.setState(newDocState('')); setActiveIdState(null); setDocVersion((x) => x + 1); }
-      if (panesRef.current.length === 2 && panesRef.current.some((p) => p.docId == null)) setTimeout(() => collapseEmpty(), 0);
-    } else { schedulePersist(); if (panesRef.current.length === 2 && panesRef.current.some((p) => p.docId == null)) setTimeout(() => collapseEmpty(), 0); }
+      if (panesRef.current.length > 1 && panesRef.current.some((p) => p.docId == null)) setTimeout(() => collapseEmpty(), 0);
+    } else { schedulePersist(); if (panesRef.current.length > 1 && panesRef.current.some((p) => p.docId == null)) setTimeout(() => collapseEmpty(), 0); }
   };
-  // Two panes and one of them has nothing to show: back to a single pane showing the other one's document.
+  // Panes left with nothing to show go away (the last one stays): the remaining panes are laid out afresh —
+  // one → no split, otherwise the layout for their number (closePane).
   const collapseEmpty = () => {
-    const ps = panesRef.current;
-    if (ps.length !== 2) return;
-    const keep = ps.find((p) => p.docId != null);
-    if (!keep) { setSplit('none'); return; }
-    focusPane(ps.indexOf(keep), { focus: false });
-    setSplit('none');
+    for (let i = panesRef.current.length - 1; i >= 0 && panesRef.current.length > 1; i--) if (panesRef.current[i].docId == null) closePane(i);
   };
 
   // ── open ──
@@ -760,11 +795,14 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
         if (r !== 'yes') return false;
         force = true;
       }
-      const r = await call('file.write', { path: target, text, encoding: enc, eol: doc.eol, force });
+      // The line ending written: the document's own, or the one the settings force on every save (settings › files).
+      const policy = settingsRef.current.eolOnSave;
+      const eol = policy === 'lf' || policy === 'crlf' ? policy : doc.eol;
+      const r = await call('file.write', { path: target, text, encoding: enc, eol, force });
       const nowState = getState(id);
       savedRef.current.set(id, nowState.doc);
       const renamed = !samePath(doc.path, r.path);
-      patchDoc(id, { path: r.path, name: r.name, encoding: enc, dirty: false, mtime: r.mtime, size: r.size, readonly: false, missing: false });
+      patchDoc(id, { path: r.path, name: r.name, encoding: enc, eol, dirty: false, mtime: r.mtime, size: r.size, readonly: false, missing: false });
       if (renamed && !doc.language) applyLanguage({ ...doc, path: r.path, name: r.name });
       call('recent.touch', { path: r.path }).then(setRecent).catch(() => {});
       setMessage(t('saved', { name: r.name }));
@@ -908,6 +946,7 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
       const s = pickSettings(session);
       settingsRef.current = s; setSettingsState(s);
       setLanguage(s.language);
+      setCustomThemes(s.customThemes);
       applyTheme(s.theme);
       setRecent(Array.isArray(session.recent) ? session.recent : []);
       setUserWords(Array.isArray(session.userWords) ? session.userWords : []);
@@ -953,7 +992,7 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
       // The split layout and what each pane showed.
       const mode = s.split || 'none';
       if (mode !== 'none' && Array.isArray(session.paneDocs)) {
-        const count = mode === 'grid' ? 4 : 2;
+        const count = mode === 'grid' ? 4 : mode === 'multi' ? Math.max(2, Math.min(9, s.paneCount || 2)) : 2;
         const used = new Set([list[idx].id]);
         const next = [{ key: panesRef.current[0].key, docId: list[idx].id }];
         for (let i = 1; i < count; i++) {
@@ -999,13 +1038,15 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
   useEffect(() => onSettingsPatch((patch) => {
     // The settings window looked the formatters up again (다시 찾기 / an install): take the backend's new list for the toolbar label.
     if (patch.formatToolsAt) { call('format.tools', { dir: fmtDirRef.current }).then(setFmtTools).catch(() => {}); return; }
+    if (patch.settingsTab) return;   // a note for the settings window only (which tab to show)
     changeSettings(patch, { fromRemote: true });
   }), []);   // eslint-disable-line react-hooks/exhaustive-deps
   const changeSettings = (patch, { fromRemote = false } = {}) => {
     const next = setSettings(patch);
     if (patch.language !== undefined) { setLanguage(next.language); setDocs((ds) => ds.map((d) => (d.path ? d : { ...d, name: t('untitled', { n: d.untitledNo }) }))); }
-    if (patch.theme !== undefined) { const th = applyTheme(next.theme); call('session.save', { themeBg: th.tokens['--bg'] }).catch(() => {}); }
-    const editorKeys = ['tabSize', 'insertSpaces', 'wordWrap', 'lineNumbers', 'showWhitespace', 'highlightActiveLine', 'autoCloseBrackets', 'bracketMatching', 'foldGutter', 'spellCheck', 'autoIndent', 'lint'];
+    if (patch.customThemes !== undefined) setCustomThemes(next.customThemes);
+    if (patch.theme !== undefined || patch.customThemes !== undefined) { const th = applyTheme(next.theme); call('session.save', { themeBg: th.tokens['--bg'] }).catch(() => {}); }
+    const editorKeys = ['tabSize', 'insertSpaces', 'wordWrap', 'lineNumbers', 'showWhitespace', 'highlightActiveLine', 'autoCloseBrackets', 'bracketMatching', 'foldGutter', 'spellCheck', 'autoIndent', 'lint', 'autocomplete'];
     if (editorKeys.some((k) => patch[k] !== undefined)) {
       const effects = settingsEffects(next);
       if (viewRef.current) viewRef.current.dispatch({ effects });
@@ -1013,7 +1054,7 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
     }
     if (patch.mdWysiwyg !== undefined) for (const d of docsRef.current) if (d.langName === 'Markdown') applyLanguage(d);
     if (patch.spellCodeAll !== undefined) { setSpellOptions({ codeAll: !!next.spellCodeAll }); spellRefreshAll([viewRef.current]); }
-    if (patch.lint !== undefined) lintAll();
+    if (patch.lint !== undefined || patch.linters !== undefined) lintAll();
     if (!fromRemote) { call('session.save', patch).catch(() => {}); sendSettingsPatch(patch); }
   };
   const toggleSetting = (k) => changeSettings({ [k]: !settingsRef.current[k] });
@@ -1136,13 +1177,17 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
       return undefined;
     }
     if (id === 'newTerminal') return newTerminal(arg);
+    if (id === 'termSettings') { if (!openPopup('settings', 'terminal')) setDialog({ type: 'settings', tab: 'terminal' }); else sendSettingsPatch({ settingsTab: 'terminal' }); return undefined; }   // ⚙ in the terminal header: settings on the terminal tab (prompt, line endings)
+    if (id === 'togglePreview') { const d = getDoc(activeIdRef.current); if (d && isImageName(d.name)) toggleSetting('imagePreview'); else if (d && d.langName === 'HTML') toggleSetting('htmlPreview'); else if (d && d.langName === 'Markdown') toggleSetting('mdPreview'); return undefined; }   // Ctrl+Shift+M: the preview pane of the document's kind
     if (id === 'toggle:termVisible') id = 'toggleTerminal';
     if (id === 'toggleTerminal') { const on = !settingsRef.current.termVisible; changeSettings({ termVisible: on }); if (on && !terms.length) newTerminal(); return undefined; }
+    if (id.startsWith('svg:')) return withView((vw) => insertSvgTag(vw, id.slice(4)));   // the SVG bar: an element at the cursor
     if (id.startsWith('md:heading:')) return withView((vw) => md.heading(vw, Number(id.slice(11))));
     if (id === 'md:image') { setDialog({ type: 'mdImage' }); return undefined; }
     if (id.startsWith('split:')) { setSplit(id.slice(6)); return undefined; }
     if (id === 'toggleStructure') { const d = getDoc(activeIdRef.current); toggleSetting(d && d.langName === 'Markdown' ? 'mdOutline' : 'minimap'); return undefined; }   // toolbar: the minimap, or a Markdown document's structure panel
-    if (id === 'toggleSplit') { setSplit(settingsRef.current.split === 'none' ? 'cols' : 'none'); return undefined; }
+    // The toolbar's split button (and Ctrl+\) steps through the layouts: one → left / right → top / bottom → four → one.
+    if (id === 'toggleSplit') { const st = settingsRef.current; setSplit('multi', st.split === 'multi' ? Math.min(9, (st.paneCount || 2) + 1) : 2); return undefined; }   // one more pane per press
     if (id === 'nextPane') { nextPane(); return undefined; }
     if (id === 'lintPanel') return withView((vw) => openLintPanel(vw));
     if (id === 'lintNext') return withView((vw) => nextDiagnostic(vw));
@@ -1257,7 +1302,8 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
     e.preventDefault();
     const y0 = e.clientY, h0 = settingsRef.current.termHeight;
     const move = (ev) => setSettings({ termHeight: Math.max(120, Math.min(window.innerHeight - 200, h0 + (y0 - ev.clientY))) });
-    const up = () => { window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up); call('session.save', { termHeight: settingsRef.current.termHeight }).catch(() => {}); };
+    document.body.classList.add('dragging', 'dragging-y');
+    const up = () => { document.body.classList.remove('dragging', 'dragging-y'); window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up); call('session.save', { termHeight: settingsRef.current.termHeight }).catch(() => {}); };
     window.addEventListener('mousemove', move);
     window.addEventListener('mouseup', up);
   };
@@ -1286,7 +1332,7 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
       else if (inMd && mod && e.shiftKey && (e.key === '8' || e.key === '*')) action('md:bulletList');
       else if (inMd && mod && e.shiftKey && (e.key === '7' || e.key === '&')) action('md:orderedList');
       else if (inMd && mod && e.shiftKey && (e.key === '9' || e.key === '(')) action('md:taskList');
-      else if (mod && e.shiftKey && k === 'm') action('toggle:mdPreview');
+      else if (mod && e.shiftKey && k === 'm') action('togglePreview');
       else if (inMd && mod && e.shiftKey && k === 'w') action('toggle:mdWysiwyg');
       else if (mod && e.shiftKey && k === 'b') action('toggle:sidebarVisible');
       else if (mod && !e.shiftKey && !e.altKey && k === 'n') action('new');
@@ -1438,34 +1484,43 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
       { sep: true },
       { id: 'gotoLine', label: t('goto_line'), icon: 'hash', shortcut: sc('Ctrl+G') },
     ] },
-    { id: 'view', label: t('m_view'), labelKey: 'm_view', icon: 'eye', items: () => [
+    // Two menus instead of one long 보기: 편집기 = how the editor behaves and draws text, 보기 = the window's layout.
+    { id: 'editor', label: t('m_editor'), labelKey: 'm_editor', icon: 'edit', items: () => [
       { id: 'toggle:autoIndent', icon: 'autoIndent', label: t('auto_indent'), checked: settings.autoIndent },
+      { id: 'toggle:autocomplete', icon: 'autocomplete', label: t('autocomplete'), checked: settings.autocomplete },
       { id: 'toggle:wordWrap', icon: 'wrap', label: t('word_wrap'), checked: settings.wordWrap },
+      { sep: true },
       { id: 'toggle:lineNumbers', icon: 'listOrdered', label: t('line_numbers'), checked: settings.lineNumbers },
       { id: 'toggle:minimap', icon: 'minimap', label: t('minimap'), checked: settings.minimap },
       { id: 'toggle:showWhitespace', icon: 'pilcrow', label: t('show_ws'), checked: settings.showWhitespace },
       { id: 'toggle:highlightActiveLine', icon: 'activeLine', label: t('active_line'), checked: settings.highlightActiveLine },
       { id: 'toggle:foldGutter', icon: 'foldGutter', label: t('fold_gutter'), checked: settings.foldGutter },
+      { id: 'foldAll', icon: 'minusBox', label: t('fold_all') },
+      { id: 'unfoldAll', icon: 'plusBox', label: t('unfold_all') },
+      { sep: true },
       { id: 'toggle:spellCheck', icon: 'spell', label: t('spell_check'), checked: settings.spellCheck, shortcut: 'F7' },
       { id: 'toggle:spellCodeAll', icon: 'code', label: t('spell_code_all'), checked: settings.spellCodeAll, disabled: !settings.spellCheck },
       { id: 'toggle:lint', icon: 'lint', label: t('lint'), checked: settings.lint },
       { id: 'lintNext', icon: 'lintNext', label: t('lint_next'), shortcut: 'F8', disabled: !settings.lint },
       { id: 'lintPanel', icon: 'list', label: t('lint_panel'), disabled: !settings.lint },
       { sep: true },
-      { id: 'foldAll', icon: 'minusBox', label: t('fold_all') },
-      { id: 'unfoldAll', icon: 'plusBox', label: t('unfold_all') },
-      { sep: true },
+      { id: 'toggle:mdWysiwyg', icon: 'eye', label: t('md_wysiwyg_menu'), checked: settings.mdWysiwyg, shortcut: sc('Ctrl+Shift+W'), disabled: !cur || cur.langName !== 'Markdown' },
+      { id: 'toggle:mdPreview', icon: 'splitView', label: t('md_preview_menu'), checked: settings.mdPreview, shortcut: sc('Ctrl+Shift+M'), disabled: !cur || cur.langName !== 'Markdown' },
+      { id: 'toggle:mdOutline', icon: 'listTree', label: t('md_outline_menu'), checked: settings.mdOutline, disabled: !cur || cur.langName !== 'Markdown' },
+      { id: 'toggle:htmlPreview', icon: 'splitView', label: t('html_preview_menu'), checked: settings.htmlPreview, shortcut: sc('Ctrl+Shift+M'), disabled: !cur || cur.langName !== 'HTML' },
+      { id: 'toggle:imagePreview', icon: 'fileImage', label: t('img_pv_menu'), checked: settings.imagePreview, shortcut: sc('Ctrl+Shift+M'), disabled: !cur || !isImageName(cur.name) },
+    ] },
+    { id: 'view', label: t('m_view'), labelKey: 'm_view', icon: 'eye', items: () => [
       { id: 'toggle:sidebarVisible', icon: 'sidebar', label: t('sidebar'), checked: settings.sidebarVisible, shortcut: sc('Ctrl+B') },
+      { id: 'toggle:toolbarVisible', icon: 'toolbar', label: t('toolbar'), checked: settings.toolbarVisible },
+      { id: 'toggle:statusBarVisible', icon: 'statusbar', label: t('statusbar'), checked: settings.statusBarVisible },
+      { sep: true },
       { id: 'split:none', icon: 'splitNone', label: t('split_none'), checked: settings.split === 'none', radio: true, shortcut: sc('Ctrl+Alt+1') },
       { id: 'split:cols', icon: 'splitCols', label: t('split_cols'), checked: settings.split === 'cols', radio: true, shortcut: sc('Ctrl+Alt+2') },
       { id: 'split:rows', icon: 'splitRows', label: t('split_rows'), checked: settings.split === 'rows', radio: true, shortcut: sc('Ctrl+Alt+3') },
       { id: 'split:grid', icon: 'splitGrid', label: t('split_grid'), checked: settings.split === 'grid', radio: true, shortcut: sc('Ctrl+Alt+4') },
       { id: 'nextPane', icon: 'nextPane', label: t('next_pane'), shortcut: 'F6', disabled: settings.split === 'none' },
-      { id: 'toggle:mdWysiwyg', icon: 'eye', label: t('md_wysiwyg_menu'), checked: settings.mdWysiwyg, shortcut: sc('Ctrl+Shift+W'), disabled: !cur || cur.langName !== 'Markdown' },
-      { id: 'toggle:mdPreview', icon: 'splitView', label: t('md_preview_menu'), checked: settings.mdPreview, shortcut: sc('Ctrl+Shift+M'), disabled: !cur || cur.langName !== 'Markdown' },
-      { id: 'toggle:mdOutline', icon: 'listTree', label: t('md_outline_menu'), checked: settings.mdOutline, disabled: !cur || cur.langName !== 'Markdown' },
-      { id: 'toggle:toolbarVisible', icon: 'toolbar', label: t('toolbar'), checked: settings.toolbarVisible },
-      { id: 'toggle:statusBarVisible', icon: 'statusbar', label: t('statusbar'), checked: settings.statusBarVisible },
+      { sep: true },
       { id: 'toggleTerminal', label: t('terminal'), icon: 'terminal', checked: settings.termVisible, shortcut: sc('Ctrl+`') },
       { id: 'newTerminal', icon: 'terminalPlus', label: t('term_new'), shortcut: sc('Ctrl+Shift+`') },
       { sep: true },
@@ -1476,10 +1531,10 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
       { id: 'fullscreen', label: t('fullscreen'), icon: 'fullscreen', shortcut: 'F11' },
     ] },
     { id: 'lang', label: t('m_lang'), labelKey: 'm_lang', icon: 'code', items: () => [
-      { id: 'lang:auto', label: t('lang_auto'), checked: !!cur && !cur.language, radio: true, iconEl: <LangIcon name="auto" /> },
-      { id: `lang:${PLAIN}`, label: t('lang_plain'), checked: !!cur && cur.language === PLAIN, radio: true, iconEl: <LangIcon name="plain" /> },
+      { id: 'lang:auto', label: t('lang_auto'), checked: !!cur && !cur.language, radio: true, iconEl: <LangIcon name="auto" />, badge: 'auto' },
+      { id: `lang:${PLAIN}`, label: t('lang_plain'), checked: !!cur && cur.language === PLAIN, radio: true, iconEl: <LangIcon name="plain" />, badge: 'plain' },
       { sep: true },
-      ...FEATURED_LANGUAGES.map((d) => ({ id: `lang:${d.name}`, label: d.name, checked: !!cur && cur.language === d.name, radio: true, iconEl: <LangIcon name={d.name} />, meta: !cur || cur.language || cur.langName !== d.name ? undefined : t('lang_auto').split(' ')[0] })),
+      ...FEATURED_LANGUAGES.map((d) => ({ id: `lang:${d.name}`, label: d.name, checked: !!cur && cur.language === d.name, radio: true, iconEl: <LangIcon name={d.name} />, badge: d.name, meta: !cur || cur.language || cur.langName !== d.name ? undefined : t('lang_auto').split(' ')[0] })),
       { sep: true },
       { id: 'languagePicker', label: `${t('m_lang')}…`, icon: 'search' },
     ] },
@@ -1572,8 +1627,8 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
       { id: 'reopenPicker', label: `${t('reopen_as')}…`, icon: 'reload', disabled: !cur || !cur.path },
     ],
     language: () => [
-      { id: 'lang:auto', label: t('lang_auto'), checked: !!cur && !cur.language, radio: true, iconEl: <LangIcon name="auto" /> },
-      { id: `lang:${PLAIN}`, label: t('lang_plain'), checked: !!cur && cur.language === PLAIN, radio: true, iconEl: <LangIcon name="plain" /> },
+      { id: 'lang:auto', label: t('lang_auto'), checked: !!cur && !cur.language, radio: true, iconEl: <LangIcon name="auto" />, badge: 'auto' },
+      { id: `lang:${PLAIN}`, label: t('lang_plain'), checked: !!cur && cur.language === PLAIN, radio: true, iconEl: <LangIcon name="plain" />, badge: 'plain' },
       { sep: true },
       ...FEATURED_LANGUAGES.slice(0, 12).map((d) => ({ id: `lang:${d.name}`, label: d.name, checked: !!cur && cur.language === d.name, radio: true, iconEl: <LangIcon name={d.name} /> })),
       { sep: true },
@@ -1588,17 +1643,66 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
     const box = splitRef.current && splitRef.current.getBoundingClientRect();
     if (!box) return;
     const move = (ev) => { const frac = Math.max(0.2, Math.min(0.8, 1 - (ev.clientX - box.left) / box.width)); setSettings({ mdPreviewWidth: frac }); };
-    const up = () => { window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up); call('session.save', { mdPreviewWidth: settingsRef.current.mdPreviewWidth }).catch(() => {}); };
+    // An <iframe> (the HTML preview) would take the mouse as soon as the pointer crosses it and the drag would stop:
+    // pointer events are switched off on every iframe for the duration of the drag.
+    document.body.classList.add('dragging');
+    const up = () => { document.body.classList.remove('dragging'); window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up); call('session.save', { mdPreviewWidth: settingsRef.current.mdPreviewWidth }).catch(() => {}); };
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+  };
+
+  // ── splitters between the editor panes (cols / rows / grid): drag to resize, kept as splitX / splitY ──
+  const panesElRef = useRef(null);
+  // split = multi: n panes in a balanced grid (columns = ceil(√n), rows as needed; the last pane spans what is
+  // left of its row), column widths / row heights as fractions, a splitter between every two.
+  const multi = settings.split === 'multi' ? multiGrid(panes.length) : null;
+  const fracsOf = (arr, n) => (Array.isArray(arr) && arr.length === n ? arr : Array(n).fill(1 / n));
+  const colFracs = multi ? fracsOf(settings.colFracs, multi.cols) : [];
+  const rowFracs = multi ? fracsOf(settings.rowFracs, multi.rows) : [];
+  const onFracSplitDown = (key, fracs, i, axis) => (e) => {
+    e.preventDefault();
+    const box = panesElRef.current && panesElRef.current.getBoundingClientRect();
+    if (!box) return;
+    const p0 = axis === 'x' ? e.clientX : e.clientY, f0 = fracs.slice();
+    document.body.classList.add('dragging', axis === 'x' ? 'dragging-x' : 'dragging-y');
+    const move = (ev) => {
+      const d = ((axis === 'x' ? ev.clientX : ev.clientY) - p0) / (axis === 'x' ? box.width : box.height);
+      const a = Math.max(0.1, Math.min(f0[i] + f0[i + 1] - 0.1, f0[i] + d));
+      const next = f0.slice(); next[i] = a; next[i + 1] = f0[i] + f0[i + 1] - a;
+      setSettings({ [key]: next });
+    };
+    const up = () => { document.body.classList.remove('dragging', 'dragging-x', 'dragging-y'); window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up); call('session.save', { [key]: settingsRef.current[key] }).catch(() => {}); };
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+  };
+  const cum = (fr, i) => fr.slice(0, i + 1).reduce((a, b) => a + b, 0) * 100;
+  const onPaneSplitDown = (axis) => (e) => {
+    e.preventDefault();
+    const box = panesElRef.current && panesElRef.current.getBoundingClientRect();
+    if (!box) return;
+    document.body.classList.add('dragging', axis === 'y' ? 'dragging-y' : 'dragging-x');
+    const move = (ev) => {
+      const frac = axis === 'x' ? (ev.clientX - box.left) / box.width : (ev.clientY - box.top) / box.height;
+      setSettings({ [axis === 'x' ? 'splitX' : 'splitY']: Math.max(0.15, Math.min(0.85, frac)) });
+    };
+    const up = () => { document.body.classList.remove('dragging', 'dragging-x', 'dragging-y'); window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up); call('session.save', { splitX: settingsRef.current.splitX, splitY: settingsRef.current.splitY }).catch(() => {}); };
     window.addEventListener('mousemove', move);
     window.addEventListener('mouseup', up);
   };
 
   // ── sidebar splitter ──
+  // The sidebar is never narrower than its header needs (the title and every
+  // icon button visible): the Sidebar measures that (onMinWidth) whenever the
+  // language or the buttons change, and the width is clamped to it.
+  const [sidebarMin, setSidebarMin] = useState(160);
+  const sidebarMinRef = useRef(160);
+  const onSidebarMin = useCallback((px) => { const m = Math.max(160, Math.ceil(px)); if (m === sidebarMinRef.current) return; sidebarMinRef.current = m; setSidebarMin(m); setSidebarWidth((w) => Math.max(m, w)); }, []);
   const onSplitDown = (e) => {
     e.preventDefault();
     const x0 = e.clientX, w0 = sidebarWidth;
-    const move = (ev) => setSidebarWidth(Math.max(160, Math.min(600, w0 + ev.clientX - x0)));
-    const up = () => { window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up); schedulePersist(); };
+    const move = (ev) => setSidebarWidth(Math.max(sidebarMinRef.current, Math.min(600, w0 + ev.clientX - x0)));
+    document.body.classList.add('dragging');
+    const up = () => { document.body.classList.remove('dragging'); window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up); schedulePersist(); };
     window.addEventListener('mousemove', move);
     window.addEventListener('mouseup', up);
   };
@@ -1609,6 +1713,7 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
       get state() { return { docs: docsRef.current, activeId: activeIdRef.current, settings: settingsRef.current, folder, find: !!find, dialog: dialog ? dialog.type : null, cursor }; },
       action, openFiles, openPath, newUntitled, activate, focusPane, showInPane, formatDoc, saveImage, exportImage: async (src, opts) => encodeImage((await analyzeImage(src)).canvas, opts), get panes() { return panesRef.current.map((p, i) => ({ docId: p.docId, active: i === activePaneRef.current })); }, setText: (text) => { const v = viewRef.current; if (v) v.dispatch({ changes: { from: 0, to: v.state.doc.length, insert: text } }); },
       getText: () => (viewRef.current ? viewRef.current.state.doc.toString() : ''), setFolder: (p) => setFolder(p), view: () => viewRef.current, closeDialog,
+      get menus() { return menus.map((m) => ({ id: m.id, items: m.items() })); }, menuIcons: withMenuIcons,
     };
   });
 
@@ -1631,6 +1736,10 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
 
   const openPaths = useMemo(() => new Set(docs.map((d) => d.path).filter(Boolean)), [docs]);
   const isMarkdown = !!cur && cur.langName === 'Markdown';
+  const isHtml = !!cur && cur.langName === 'HTML';
+  const isImage = !!cur && isImageName(cur.name);   // SVG (text) or a binary image (hex view): the picture in the preview pane
+  // What the prompt's session / os segments show (app.info): one object per app info, so the transcripts are not re-rendered for nothing.
+  const termEnv = useMemo(() => ({ home: info ? info.home : '', user: info ? info.user : '', host: info ? info.hostname : '', platform: info ? info.platform : '' }), [info]);
   const toolbarState = { dirty: !!cur && cur.dirty, anyDirty: docs.some((d) => d.dirty), canFormat, formatter: fmtInfo, formatterItems, formatTip, zoom, structureOn: isMarkdown ? !!settings.mdOutline : !!settings.minimap };
 
   if (!booted) return <div className="boot">{t('ready')}…</div>;
@@ -1642,9 +1751,9 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
       <div className="body">
         {settings.sidebarVisible && (
           <>
-            <div className="sidebar-column" ref={sidebarColumnRef} style={{ width: sidebarWidth, '--search-share': settings.searchVisible ? settings.searchRatio : 0 }}>
-              <Sidebar folder={folder} activePath={cur && cur.path} openPaths={openPaths} showHidden={showHidden} searchOn={settings.searchVisible} onToggleSearch={() => (settings.searchVisible ? changeSettings({ searchVisible: false }) : findInFiles())}
-                onToggleHidden={() => setShowHidden(!showHidden)} onOpenFile={(p) => openPath(p)} onOpenFolder={openFolderDialog}
+            <div className="sidebar-column" ref={sidebarColumnRef} style={{ width: Math.max(sidebarWidth, sidebarMin), minWidth: sidebarMin, '--search-share': settings.searchVisible ? settings.searchRatio : 0 }}>
+              <Sidebar onMinWidth={onSidebarMin} folder={folder} activePath={cur && cur.path} openPaths={openPaths} showHidden={showHidden} searchOn={settings.searchVisible} onToggleSearch={() => (settings.searchVisible ? changeSettings({ searchVisible: false }) : findInFiles())}
+                onToggleHidden={() => changeSettings({ treeShowHidden: !showHidden })} onOpenFile={(p) => openPath(p)} onOpenFolder={openFolderDialog}
                 onCloseFolder={() => action('closeFolder')} onAction={sidebarAction} refreshKey={sbRefresh} />
               {settings.searchVisible && (
                 <SearchPanel folder={folder} request={searchRequest} searchOpen={searchOpenDocs} onOpen={openSearchHit} onClose={() => changeSettings({ searchVisible: false })}
@@ -1660,20 +1769,26 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
             onReorder={(from, to) => { setDocs((ds) => { const a = ds.slice(); const i = a.findIndex((d) => d.id === from), j = a.findIndex((d) => d.id === to); const [m] = a.splice(i, 1); a.splice(j, 0, m); return a; }); schedulePersist(); }}
             onAction={(id, docId) => action(id, docId)} onContextItems={tabContextItems} />
           {isMarkdown && <MarkdownBar onAction={action} preview={settings.mdPreview} outline={settings.mdOutline} wysiwyg={settings.mdWysiwyg} />}
+          {isHtml && <HtmlBar onAction={action} preview={settings.htmlPreview} />}
+          {isImage && <ImageBar onAction={action} preview={settings.imagePreview} svg={isSvgName(cur.name)} />}
           {find && view && <FindBar key={find.key} view={view} mode={find.mode} initial={find.initial} docVersion={docVersion} onClose={() => action('closeFind')} onModeChange={(mode) => setFind({ ...find, mode })} />}
           <div className="editor-split" ref={splitRef}>
-            <div className={`panes ${settings.split || 'none'}`}>
+            <div className={`panes ${settings.split || 'none'}`} ref={panesElRef} style={{ '--split-x': settings.splitX || 0.5, '--split-y': settings.splitY || 0.5, ...(multi ? { gridTemplateColumns: colFracs.map((f) => `minmax(0, ${f}fr)`).join(' '), gridTemplateRows: rowFracs.map((f) => `minmax(0, ${f}fr)`).join(' ') } : {}) }}>
+              {multi && colFracs.slice(0, -1).map((_, i) => <div key={`x${i}`} className="pane-splitter x" style={{ left: `calc(${cum(colFracs, i)}% - 3px)` }} onMouseDown={onFracSplitDown('colFracs', colFracs, i, 'x')} title="↔" />)}
+              {multi && rowFracs.slice(0, -1).map((_, i) => <div key={`y${i}`} className="pane-splitter y" style={{ top: `calc(${cum(rowFracs, i)}% - 3px)` }} onMouseDown={onFracSplitDown('rowFracs', rowFracs, i, 'y')} title="↕" />)}
+              {settings.split === 'cols' || settings.split === 'grid' ? <div className="pane-splitter x" onMouseDown={onPaneSplitDown('x')} title="↔" /> : null}
+              {settings.split === 'rows' || settings.split === 'grid' ? <div className="pane-splitter y" onMouseDown={onPaneSplitDown('y')} title="↕" /> : null}
               {panes.map((p, i) => {
                 const pd = p.docId != null ? getDoc(p.docId) : null;
                 return (
-                  <div key={p.key} className={`pane ${i === activePane ? 'active' : ''}`} onMouseDownCapture={() => { if (activePaneRef.current !== i) focusPane(i, { focus: false }); }}>
+                  <div key={p.key} className={`pane ${i === activePane ? 'active' : ''}`} style={multi && i === panes.length - 1 && panes.length % multi.cols ? { gridColumn: `span ${multi.cols - (panes.length % multi.cols) + 1}` } : settings.split === 'grid' && panes.length === 3 && i === 2 ? { gridColumn: '1 / -1' } : undefined} onMouseDownCapture={() => { if (activePaneRef.current !== i) focusPane(i, { focus: false }); }}>
                     {panes.length > 1 && (
                       <div className="pane-head">
                         <button className="pane-title ellipsis" title={pd ? pd.path || pd.name : t('pane_empty')} onClick={(e) => openPaneMenu(i, e.currentTarget)}>
                           {pd ? <>{pd.name}{pd.dirty ? ' ●' : ''}</> : <span className="muted">{t('pane_empty')}</span>}<Icon name="chevronDown" size={12} />
                         </button>
                         <span className="spacer" />
-                        {pd ? <button className="icon-btn" title={t('close')} onClick={() => closeDocs([pd.id])}><Icon name="close" size={13} /></button>
+                        {pd ? <button className="icon-btn" title={t('pane_close_doc')} onClick={() => closePaneAndDoc(i)}><Icon name="close" size={13} /></button>
                           : <button className="icon-btn" title={t('pane_close')} onClick={() => closePane(i)}><Icon name="close" size={13} /></button>}
                       </div>
                     )}
@@ -1681,7 +1796,7 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
                       <div className="pane-empty"><Icon name="file" size={26} /><p>{t('pane_empty')}</p><div className="pane-empty-btns"><button className="btn" onClick={(e) => openPaneMenu(i, e.currentTarget)}>{t('pane_pick')}</button><button className="btn" onClick={() => closePane(i)}>{t('pane_close')}</button></div></div>
                     )}
                     <EditorPane initialState={initialState} onView={(v) => onPaneView(p.key, v)} onDropFiles={dropFiles} contextItems={editorContextItems} onAction={action}
-                      fontFamily={settings.fontFamily} fontSize={settings.fontSize} empty={!docs.length || p.docId == null || (pd && pd.kind === 'hex')}
+                      fontFamily={settings.fontFamily} fontSize={settings.fontSize} lineHeight={settings.lineHeight} empty={!docs.length || p.docId == null || (pd && pd.kind === 'hex')}
                       minimap={settings.minimap && !(pd && pd.langName === 'Markdown')} version={`${p.docId}:${docVersion}:${settings.theme}:${cursor.line}`} />
                     {pd && pd.kind === 'hex' && hexRef.current.has(pd.id) && (
                       <HexView read={hexRef.current.get(pd.id)} version={pd.mtime} name={pd.name} size={pd.size} fontSize={settings.fontSize}
@@ -1714,12 +1829,24 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
                 <Preview view={view} docVersion={docVersion} cursorPos={cursor.pos} onAction={action} onSaveImage={saveImage} onMessage={setMessage} base={cur && cur.path ? dirName(cur.path) : folder || ''} width={`${Math.round(settings.mdPreviewWidth * 100)}%`} />
               </>
             )}
+            {isHtml && settings.htmlPreview && view && (
+              <>
+                <div className="v-splitter" onMouseDown={onPreviewSplitDown} />
+                <HtmlPreview view={view} docVersion={docVersion} base={cur && cur.path ? dirName(cur.path) : folder || ''} name={cur.name} width={`${Math.round(settings.mdPreviewWidth * 100)}%`} />
+              </>
+            )}
+            {isImage && settings.imagePreview && (isSvgName(cur.name) ? !!view : !!cur.path) && (
+              <>
+                <div className="v-splitter" onMouseDown={onPreviewSplitDown} />
+                <ImagePreview view={view} docVersion={docVersion} path={cur.path} name={cur.name} mtime={cur.mtime} width={`${Math.round(settings.mdPreviewWidth * 100)}%`} />
+              </>
+            )}
           </div>
         </div>
         {settings.termVisible && (
           <TerminalPanel terms={terms} activeId={activeTerm} shells={shells} height={settings.termHeight} onResizeStart={onTermResizeStart}
             onActivate={setActiveTerm} onNew={(shell) => newTerminal(shell)} onClose={closeTerminal} onHide={() => changeSettings({ termVisible: false })}
-            onExit={() => {}} />
+            onExit={() => {}} onSettings={() => action('termSettings')} prompt={settings.prompt} env={termEnv} termEol={settings.termEol} termCr={settings.termCr} termColor={settings.termColor !== false} />
         )}
         </div>
       </div>
@@ -1733,7 +1860,7 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
       {dialog && dialog.type === 'prompt' && <PromptDialog title={dialog.title} label={dialog.label} initial={dialog.initial} okLabel={dialog.okLabel} icon={dialog.icon} validate={dialog.validate} onResult={closeDialog} />}
       {dialog && dialog.type === 'about' && <AboutDialog info={info} onClose={closeDialog} />}
       {dialog && dialog.type === 'shortcuts' && <ShortcutsDialog onClose={closeDialog} />}
-      {dialog && dialog.type === 'settings' && <SettingsDialog settings={settings} encodings={(info && info.encodings) || []} shells={shells} formatDir={cur && cur.path ? dirName(cur.path) : folder || ''} onChange={changeSettings} onClose={closeDialog} tools={fmtTools} onTools={setFmtTools} />}
+      {dialog && dialog.type === 'settings' && <SettingsDialog initialTab={dialog.tab} settings={settings} encodings={(info && info.encodings) || []} shells={shells} formatDir={cur && cur.path ? dirName(cur.path) : folder || ''} onChange={changeSettings} onClose={closeDialog} tools={fmtTools} onTools={setFmtTools} />}
       {dialog && dialog.type === 'goto' && <GotoLineDialog lines={cursor.lines} current={cursor.line} onClose={closeDialog} onGo={(l, c) => { closeDialog(); withView((v) => commands.gotoLine(v, l, c)); }} />}
       {dialog && dialog.type === 'language' && <LanguagePicker current={(getDoc(dialog.docId) || {}).language || 'auto'} onClose={closeDialog} onPick={(name) => { closeDialog(); setDocLanguage(dialog.docId, name); }} />}
       {dialog && dialog.type === 'encoding' && <EncodingPicker title={t('reopen_as')} encodings={(info && info.encodings) || []} current={cur && cur.encoding} onClose={closeDialog} onPick={(id) => { closeDialog(); reopenWith(activeIdRef.current, id); }} />}

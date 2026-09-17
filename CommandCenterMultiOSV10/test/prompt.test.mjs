@@ -1,7 +1,7 @@
 // Prompt themes (src/lib/prompt.js): template engine, path styles, rendering, oh-my-posh import.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { renderTemplate, formatPath, renderPrompt, importOmp, exportOmp, PRESETS, SAMPLE_STATES, goDate, segmentContext } from '../src/lib/prompt.js';
+import { renderTemplate, formatPath, renderPrompt, importOmp, exportOmp, PRESETS, SAMPLE_STATES, GIT_STATE_COLORS, gitState, goDate, segmentContext } from '../src/lib/prompt.js';
 
 test('template: fields, if/else if/else, comparisons, and/or/not, pipes', () => {
   const ctx = { A: 3, B: 0, S: 'main', W: { Changed: true, String: '~2' }, D: new Date(2026, 0, 5, 7, 8, 9) };
@@ -62,8 +62,18 @@ test('powerline preset: background_templates, status, execution time threshold, 
   const r = renderPrompt(PRESETS.powerline.config, SAMPLE_STATES.dirty, theme);
   const types = r.blocks[0].segments.map((s) => s.type);
   assert.deepEqual(types, ['session', 'path', 'git', 'executiontime', 'status', 'time']);
+  // git_state_colors (on by default): the branch block takes the repository's state colour — 'dirty' has a
+  // staged file, so yellow — whatever the preset's own background_templates say.
   const git = r.blocks[0].segments[2];
-  assert.equal(git.bg, '#FF9248');   // working/staging changed
+  assert.equal(gitState(SAMPLE_STATES.dirty.git), 'staged');
+  assert.equal(git.bg, GIT_STATE_COLORS.staged);
+  assert.equal(git.fg, '#1b1e24');   // dark text on the state colour
+  // switched off, the preset's own colours are used again
+  const off = renderPrompt({ ...PRESETS.powerline.config, git_state_colors: false }, SAMPLE_STATES.dirty, theme);
+  assert.equal(off.blocks[0].segments[2].bg, '#FF9248');   // working/staging changed
+  // the state colours are editable per prompt
+  const mine = renderPrompt({ ...PRESETS.powerline.config, git_colors: { staged: '#123456' } }, SAMPLE_STATES.dirty, theme);
+  assert.equal(mine.blocks[0].segments[2].bg, '#123456');
   assert.ok(r.blocks[0].segments[4].text.includes('1'));   // exit code 1
   assert.equal(r.blocks[0].segments[4].bg, '#e91e63');
   assert.ok(r.blocks[0].segments[5].text.includes('10:05'));
@@ -98,7 +108,8 @@ test('oh-my-posh import: known types mapped, unknown skipped, exit → status, e
   assert.equal(r.blocks.length, 1);   // rprompt not drawn
   assert.equal(r.blocks[0].segments[0].bg, '#0000ff');   // palette
   assert.equal(r.blocks[0].segments[0].text, ' components ');
-  assert.equal(r.blocks[0].segments[1].bg, '#ff9248');
+  assert.equal(r.blocks[0].segments[1].bg, GIT_STATE_COLORS.staged);   // the git block takes the state colour
+  assert.equal(renderPrompt({ ...config, git_state_colors: false }, SAMPLE_STATES.dirty, { accent: '#4cc9f0', fg: '#fff', bg: '#000' }).blocks[0].segments[1].bg, '#ff9248');   // the imported template
   assert.equal(r.blocks[0].segments[2].text, ' 1 ');
   const clean = renderPrompt(config, SAMPLE_STATES.clean, { accent: '#4cc9f0', fg: '#fff', bg: '#000' });
   assert.equal(clean.blocks[0].segments.length, 2);   // status hidden when the code is 0

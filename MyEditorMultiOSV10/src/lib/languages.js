@@ -37,7 +37,7 @@ export function detectLanguage(fileName) {
   if (!fileName) return null;
   const base = fileName.replace(/^.*[\\/]/, '');
   const lower = base.toLowerCase();
-  if (lower === 'dockerfile' || lower.startsWith('dockerfile.')) return byName.get('Dockerfile');
+  if (lower === 'dockerfile' || lower === 'containerfile' || lower.startsWith('dockerfile.') || lower.endsWith('.dockerfile')) return byName.get('Dockerfile');
   if (lower === 'makefile' || lower === 'cmakelists.txt') return byName.get(lower === 'makefile' ? 'Shell' : 'CMake');
   const ext = lower.includes('.') ? lower.slice(lower.lastIndexOf('.') + 1) : lower;
   if (EXTRA[ext] !== undefined) return EXTRA[ext] === PLAIN ? null : byName.get(EXTRA[ext]) || null;

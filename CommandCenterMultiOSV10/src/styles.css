@@ -194,6 +194,22 @@ button:disabled { cursor: default; opacity: 0.45; }
 .term-out .term-inline { display: inline-grid; vertical-align: baseline; max-width: 100%; }
 .term-out .term-inline::after { content: attr(data-value) ' '; grid-area: 1 / 1; visibility: hidden; white-space: pre; }
 .term-out .term-inline input, .term-out .term-inline input:focus { grid-area: 1 / 1; width: 100%; min-width: 2ch; background: none; border: 0; outline: none; padding: 0; margin: 0; font: inherit; color: inherit; caret-color: var(--fg); border-radius: 0; }
+/* Colour the output has none of its own (lib/ansi.jsx smart highlighting): a tool's error / warning /
+   success lines, links and file:line references, and the columns of a ls -l / dir / Get-ChildItem listing. */
+.term-out .t-err { color: #ff6b6b; }
+.term-out .t-warn { color: #ffd166; }
+.term-out .t-ok { color: #7CFC8B; }
+.term-out .t-info { color: #7cc4ff; }
+.term-out .t-url { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+.term-out .t-path { color: #c9a8ff; }
+.term-out .t-dim { opacity: 0.6; }
+.term-out .t-dir { color: #6cb6ff; font-weight: 600; }
+.term-out .t-link { color: #5fd7d7; }
+.term-out .t-exe { color: #7CFC8B; }
+.term-out .t-arch { color: #ff7b72; }
+.term-out .t-img { color: #d2a8ff; }
+.term-out .t-doc { color: #e3c07b; }
+.term-out .t-code { color: #a5d6ff; }
 
 /* ── Context menu ── */
 .ctx-menu { position: fixed; z-index: 1000; min-width: 220px; max-height: calc(100vh - 16px); overflow-y: auto; background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 4px; }
@@ -431,6 +447,14 @@ input:disabled, select:disabled { opacity: 0.5; }
 .pe-quick { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .pe-quick .check { white-space: nowrap; }
 .pe-quick select { max-width: 170px; }
+.pe-custom-row { margin-top: 4px; min-width: 0; }
+.pe-custom-row .ellipsis { flex: 1; min-width: 0; }
+/* the git block's colour per repository state: a swatch with the state's name in that colour */
+.pe-gitcolors { gap: 8px; }
+.pe-gitcolor { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; white-space: nowrap; }
+.pe-gitcolor input[type="color"] { width: 22px; height: 18px; padding: 0; border: 1px solid var(--border); border-radius: 3px; background: none; }
+.pe-gitcolor input[type="color"]:disabled { opacity: 0.4; }
+.pe-preset.custom .pe-preset-name { color: var(--fg); }
 .btn.small { padding: 3px 8px; min-width: 0; font-size: 12px; }
 .pe-advanced { display: grid; grid-template-columns: 190px 1fr; grid-template-rows: minmax(0, 1fr); gap: 8px; flex: 1; min-height: 200px; }
 .pe-advanced > * { min-height: 0; }

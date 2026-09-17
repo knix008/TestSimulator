@@ -11,7 +11,7 @@ const cache = new Map();
 
 export function isRemote(src) { return /^(data:|https?:|blob:)/i.test(src); }
 
-function joinPath(base, rel) {
+export function joinPath(base, rel) {
   let p = rel.replace(/^file:\/\/\/?/i, '');
   try { p = decodeURI(p); } catch { /* keep as typed */ }
   if (/^([a-zA-Z]:[\\/]|\\\\|\/)/.test(p)) return p;          // absolute

@@ -69,9 +69,10 @@ function sendOpenFiles(list) {
 // window (always above it, minimized and closed with it) that can be moved
 // anywhere on the screen. Each loads the same bundle with ?popup=<kind>
 // (src/main.jsx renders PopupWindow instead of App). One window per kind.
-const POPUPS = { settings: { width: 820, height: 730, min: [700, 560] }, about: { width: 560, height: 420, min: [420, 360] }, shortcuts: { width: 1000, height: 780, min: [720, 500] } };
+// Fixed sizes (not resizable): large enough for their content, so nothing scrolls.
+const POPUPS = { settings: { width: 1000, height: 1000 }, about: { width: 560, height: 420 }, shortcuts: { width: 1000, height: 780 } };
 const popups = new Map();
-function openPopup(kind) {
+function openPopup(kind, tab) {
   const spec = POPUPS[kind];
   if (!spec || !mainWin || mainWin.isDestroyed()) return null;
   const existing = popups.get(kind);
@@ -79,7 +80,7 @@ function openPopup(kind) {
   const session = api.session.get();
   const pb = mainWin.getBounds();
   const win = new BrowserWindow({
-    width: spec.width, height: spec.height, minWidth: spec.min[0], minHeight: spec.min[1],
+    width: spec.width, height: spec.height, resizable: false, maximizable: false, fullscreenable: false, useContentSize: true,
     x: Math.round(pb.x + (pb.width - spec.width) / 2), y: Math.round(pb.y + Math.max(40, (pb.height - spec.height) / 2)),
     parent: mainWin, modal: false, frame: false, autoHideMenuBar: true, show: false, title: PRODUCT,
     backgroundColor: session.themeBg || '#12161c',
@@ -90,8 +91,9 @@ function openPopup(kind) {
   win.once('ready-to-show', () => win.show());
   win.on('closed', () => { if (popups.get(kind) === win) popups.delete(kind); });
   win.webContents.setWindowOpenHandler(({ url }) => { if (/^https?:/.test(url)) shell.openExternal(url); return { action: 'deny' }; });
-  if (isDev) win.loadURL(`${DEV_URL}?popup=${kind}`);
-  else win.loadFile(path.join(__dirname, '..', 'dist', 'index.html'), { query: { popup: kind } });
+  const query = { popup: kind, ...(tab ? { tab } : {}) };
+  if (isDev) win.loadURL(`${DEV_URL}?${new URLSearchParams(query)}`);
+  else win.loadFile(path.join(__dirname, '..', 'dist', 'index.html'), { query });
   return win;
 }
 // Printing: the HTML built by the renderer (a rendered Markdown document with

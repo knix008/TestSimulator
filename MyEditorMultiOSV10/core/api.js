@@ -8,6 +8,7 @@
 // the UI never touches Node APIs.
 'use strict';
 
+const os = require('os');
 const path = require('path');
 const files = require('./files');
 const enc = require('./encoding');
@@ -48,6 +49,8 @@ function createApi({ name = 'web', version = '', buildInfo = null, configDir, op
       platform: process.platform,
       configDir: session.dir,
       home: files.homedir(),
+      user: (() => { try { return os.userInfo().username; } catch { return process.env.USERNAME || process.env.USER || ''; } })(),
+      hostname: os.hostname(),
       sep: path.sep,
       encodings: enc.ENCODINGS.map((e) => ({ id: e.id, label: e.label })),
       legacyEncoding: enc.legacyEncoding(),
@@ -97,15 +100,17 @@ function createApi({ name = 'web', version = '', buildInfo = null, configDir, op
     // ── Terminal panel ──
     'term.shells': async () => terminals.shells(),
     'term.create': async ({ cwd, shell }) => terminals.create({ cwd, shell }),
-    'term.run': async ({ id, line }) => terminals.run({ id, line }),
+    'term.run': async ({ id, line, eol }) => terminals.run({ id, line, eol }),
     'term.write': async ({ id, data }) => terminals.write({ id, data }),
-    'term.read': async ({ id, since }) => terminals.read({ id, since }),
+    // the long poll: `idle` (the state the panel knows) and `wait` (ms) must go through, or the panel spins
+    'term.read': async ({ id, since, idle, wait }) => terminals.read({ id, since, idle, wait }),
     'term.complete': async ({ id, line, cursor }) => terminals.complete({ id, line, cursor }),
     'term.kill': async ({ id }) => terminals.kill({ id }),
     'term.list': async () => terminals.list(),
-    'git.status': async ({ cwd }) => terminals.git({ cwd }),
+    'git.status': async ({ cwd, cmd }) => terminals.git({ cwd, cmd }),
     // ── Linting (the language's checker, run as a separate process) ──
-    'lint.run': async ({ id, path: p, name, language, text }) => linter.run({ id, path: p, name, language, text }),
+    'lint.run': async ({ id, path: p, name, language, text, tool }) => linter.run({ id, path: p, name, language, text, tool }),
+    'lint.tools': async ({ dir }) => linter.tools({ dir }),
     'lint.cancel': async ({ id }) => linter.cancel({ id }),
     'lint.languages': async () => linter.languages(),
     // ── Code formatting ──

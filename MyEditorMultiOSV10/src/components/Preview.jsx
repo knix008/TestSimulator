@@ -4,10 +4,12 @@
 // element that remembers its source range; inside lists and tables the items
 // / rows are mapped too — so the preview can be kept at the same place as
 // the editor: the element under the cursor is scrolled to where the cursor's
-// line is on screen (interpolated by line inside the element), and scrolling
-// the editor scrolls the preview to the element at its top. Re-renders a
-// moment after the document changes.
+// line is on screen (interpolated by line inside the element), scrolling
+// the editor scrolls the preview to the element at its top — and scrolling
+// the preview scrolls the editor to the line at the preview's top. Re-renders
+// a moment after the document changes.
 import React, { useEffect, useRef, useState } from 'react';
+import { EditorView } from '@codemirror/view';
 import { t } from '../lib/i18n';
 import { ContextMenu } from './ContextMenu';
 import { syntaxTree, ensureSyntaxTree } from '@codemirror/language';
@@ -56,6 +58,7 @@ export function Preview({ view, docVersion, cursorPos, width, base, onAction, on
   const lock = useRef(0);          // > now: a programmatic scroll, ignore the scroll event
   const lastTarget = useRef(null);
   const cursorLock = useRef(0);    // > now: the editor is scrolling because the cursor moved — the cursor sync wins
+  const editorLock = useRef(0);    // > now: the editor is scrolling because the preview was scrolled — not echoed back
 
   // The element for a source position: the block containing it (or the
   // nearest before), then the item / row inside it that contains it.
@@ -136,13 +139,46 @@ export function Preview({ view, docVersion, cursorPos, width, base, onAction, on
   // Cursor moved: follow it.
   useEffect(() => { if (cursorPos !== lastTarget.current) { lastTarget.current = cursorPos; syncCursor(); } }, [cursorPos]);   // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Preview scrolled (by the user — not by the syncs above): the source line of what is at the preview's
+  // top, interpolated by line inside that element, goes to the editor's top.
+  useEffect(() => {
+    const el = ref.current;
+    if (!view || !el) return undefined;
+    const posAtTop = () => {
+      if (el.scrollTop <= 0) return 0;
+      const y = el.getBoundingClientRect().top + 2;
+      let block = null;
+      for (const b of el.children) { if (b.getBoundingClientRect().bottom > y) { block = b; break; } }
+      if (!block) return null;
+      let target = block;
+      for (const it of block.querySelectorAll('[data-from]')) { const r = it.getBoundingClientRect(); if (r.top <= y && r.bottom > y) { target = it; break; } }
+      const doc = view.state.doc;
+      const from = Number(target.dataset.from), to = Math.min(Number(target.dataset.to), doc.length);
+      let anchor = target === block ? (block.firstElementChild || block) : target;
+      let l0 = doc.lineAt(from).number, l1 = doc.lineAt(to).number;
+      if (anchor.tagName === 'PRE') { anchor = anchor.querySelector('code') || anchor; if (l1 - l0 >= 2) { l0 += 1; l1 -= 1; } }
+      const r = anchor.getBoundingClientRect();
+      const f = r.height > 0 ? Math.max(0, Math.min(1, (y - r.top) / r.height)) : 0;
+      return doc.line(Math.min(l1, l0 + Math.floor(f * (l1 - l0 + 1)))).from;
+    };
+    const onScroll = () => {
+      if (Date.now() < lock.current) return;
+      const pos = posAtTop();
+      if (pos == null) return;
+      editorLock.current = Date.now() + 300;
+      view.dispatch({ effects: EditorView.scrollIntoView(pos, { y: 'start' }) });
+    };
+    el.addEventListener('scroll', onScroll);
+    return () => el.removeEventListener('scroll', onScroll);
+  }, [view]);
+
   // Editor scrolled: the element at the editor's top goes to the preview's top.
   useEffect(() => {
     if (!view) return undefined;
     const scroller = view.scrollDOM;
     const onScroll = () => {
       const el = ref.current;
-      if (!el || Date.now() < cursorLock.current) return;
+      if (!el || Date.now() < cursorLock.current || Date.now() < editorLock.current) return;
       const r = scroller.getBoundingClientRect();
       const pos = view.posAtCoords({ x: r.left + 80, y: r.top + 2 }, false);
       if (pos == null) return;

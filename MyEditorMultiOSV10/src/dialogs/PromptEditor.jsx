@@ -1,20 +1,18 @@
-// Settings › Prompt — sized to fit the settings window without scrolling.
+// Settings › Terminal › Prompt — the terminal prompt theme editor.
 //
 //   1. Preview of the current prompt (three sample states).
 //   2. Presets: a card per preset, drawn with the real renderer; click = apply.
 //   3. Simple options: which segments to show, shape, path style, two lines.
 //      They edit the current theme in place (segments are switched off, not
 //      removed, so a preset's colours and templates survive).
-//   4. "고급 편집" (optional): a master–detail editor — segment list on the
-//      left, the selected segment's fields on the right — plus oh-my-posh
-//      JSON import / export.
+//   4. Advanced: a master–detail editor — segment list on the left, the
+//      selected segment's fields on the right.
 // Every change goes to onChange; the settings dialog applies it right away.
 import React, { useMemo, useState } from 'react';
 import { t, useLanguage, getLanguage } from '../lib/i18n';
-import { PRESETS, SEGMENT_TYPES, SEGMENT_STYLES, SAMPLE_STATES, GIT_STATE_NAMES, GIT_STATE_COLORS, normalizePrompt, clonePrompt, importOmp, exportOmp, defaultTemplate } from '../lib/prompt';
+import { PRESETS, SEGMENT_TYPES, SEGMENT_STYLES, SAMPLE_STATES, GIT_STATE_NAMES, GIT_STATE_COLORS, normalizePrompt, clonePrompt, defaultTemplate } from '../lib/prompt';
 import { Prompt } from '../components/Prompt';
 import { Icon } from '../components/Icons';
-import { call, isElectron, writeClipboardText } from '../lib/backend';
 
 const PATH_STYLES = ['full', 'folder', 'agnoster', 'agnoster_full', 'agnoster_short', 'agnoster_left', 'letter', 'mixed', 'unique'];
 // Order and default colours of the segments the simple switches can add.
@@ -73,13 +71,13 @@ function SegmentFields({ seg, onChange }) {
       {seg.type === 'os' && <><label>{t('pe_os_icons')}</label><div className="row"><input className="mono" placeholder="windows" value={p.windows || ''} onChange={(e) => setProp('windows', e.target.value)} style={{ width: 70 }} /><input className="mono" placeholder="macos" value={p.macos || ''} onChange={(e) => setProp('macos', e.target.value)} style={{ width: 70 }} /><input className="mono" placeholder="linux" value={p.linux || ''} onChange={(e) => setProp('linux', e.target.value)} style={{ width: 70 }} /></div></>}
       {seg.style === 'diamond' && <><label>{t('pe_diamonds')}</label><div className="row"><input className="mono" value={seg.leading_diamond} onChange={(e) => set('leading_diamond', e.target.value)} style={{ width: 60 }} /><input className="mono" value={seg.trailing_diamond} onChange={(e) => set('trailing_diamond', e.target.value)} style={{ width: 60 }} /></div></>}
       <span />
-      <span className="muted small pe-vars ellipsis" title={t(`pe_vars_${seg.type}`)}>{t(`pe_vars_${seg.type}`)}</span>
+      <span className="muted small pe-vars">{t(`pe_vars_${seg.type}`)}</span>
     </div>
   );
 }
 
 // custom: the user's saved prompts [{ id, label, config }]; onCustomChange(list, cfgToApply?) stores them.
-export function PromptEditor({ value, onChange, pickFile, custom = [], onCustomChange }) {
+export function PromptEditor({ value, onChange, custom = [], onCustomChange }) {
   useLanguage();
   const lang = getLanguage();
   const cfg = useMemo(() => normalizePrompt(value), [value]);
@@ -88,7 +86,6 @@ export function PromptEditor({ value, onChange, pickFile, custom = [], onCustomC
   const customCur = cfg.preset && presets[cfg.preset] && presets[cfg.preset].custom ? (custom || []).find((c) => c.id === cfg.preset) : null;
   const advanced = true;   // the detail editor always fills the rest of the (fixed-size) window
   const [sel, setSel] = useState({ b: 0, s: 0 });
-  const [json, setJson] = useState('');
   const [note, setNote] = useState('');
   const update = (fn) => { const c = clonePrompt(cfg); fn(c); onChange(normalizePrompt(c)); };
   const allSegs = cfg.blocks.flatMap((b) => b.segments);
@@ -136,21 +133,6 @@ export function PromptEditor({ value, onChange, pickFile, custom = [], onCustomC
     else if (!on && c.blocks.length > 1) { const first = c.blocks[0]; for (const b of c.blocks.slice(1)) for (const s of b.segments) if (s.type !== 'status' || s.template !== '❯') first.segments.push(s); c.blocks = [first]; }
   });
 
-  // ── Advanced: import / export ──
-  const doImport = (text) => {
-    try { const { config, mapped, skipped } = importOmp(text); onChange(config); setSel({ b: 0, s: 0 }); setNote(t('pe_imported', { n: mapped, skipped: skipped.length ? skipped.join(', ') : '-' })); }
-    catch (err) { setNote(t('pe_import_failed', { msg: err.message })); }
-  };
-  const importFile = async () => {
-    try {
-      const p = await pickFile(undefined, [{ name: 'oh-my-posh theme', extensions: ['json', 'omp.json'] }, { name: 'All files', extensions: ['*'] }]);
-      if (!p) return;
-      const r = await call('fs.readFile', { path: p });
-      if (r.kind !== 'text') throw new Error('not a text file');
-      doImport(r.text);
-    } catch (err) { setNote(t('pe_import_failed', { msg: err.message })); }
-  };
-  const doExport = async () => { await writeClipboardText(exportOmp(cfg)); setNote(t('pe_exported')); };
   const selected = cfg.blocks[sel.b] && cfg.blocks[sel.b].segments[sel.s] ? cfg.blocks[sel.b].segments[sel.s] : null;
   const newSeg = (type) => ({ type, enabled: true, style: styleOf, powerline_symbol: '', foreground: '#ffffff', background: (QUICK.find((q) => q[0] === type) || [0, '#4cc9f0'])[1], template: defaultTemplate(type), properties: {} });
   const swatch = (s) => (s.background && s.background !== 'transparent' && /^#/.test(s.background) ? s.background : 'var(--bg-hover)');
@@ -186,7 +168,9 @@ export function PromptEditor({ value, onChange, pickFile, custom = [], onCustomC
             <button type="button" className="btn small" disabled={!modified} onClick={updateCustom} title={t('pe_update_custom_tip')}>{t('pe_update_custom')}</button>
             <button type="button" className="btn small" onClick={removeCustom}><Icon name="close" size={13} /> {t('pe_delete_custom')}</button>
           </>}
-          {!customCur && <span className="muted small ellipsis">{t('pe_custom_hint')}</span>}
+          {!customCur && <span className="muted small">{t('pe_custom_hint')}</span>}
+          <label className="check"><input type="checkbox" checked={cfg.final_space !== false} onChange={(e) => update((c) => { c.final_space = e.target.checked; })} /> {t('pe_final_space')}</label>
+          {note && <span className="pe-note muted small ellipsis" title={note}>{note}</span>}
         </div>
       )}
 
@@ -209,14 +193,13 @@ export function PromptEditor({ value, onChange, pickFile, custom = [], onCustomC
       <div className="pe-quick pe-gitcolors">
         <label className="check" title={t('pe_git_colors_tip')}><input type="checkbox" checked={cfg.git_state_colors !== false} onChange={(e) => update((c) => { c.git_state_colors = e.target.checked; })} /> {t('pe_git_colors')}</label>
         {GIT_STATE_NAMES.map((k) => (
-          <label key={k} className="pe-gitcolor" title={t(`term_git_${k}`)}>
+          <label key={k} className="pe-gitcolor" title={t(`term_gs_${k === 'conflict' ? 'conflict' : k}`)}>
             <input type="color" value={cfg.git_colors[k]} disabled={cfg.git_state_colors === false} onChange={(e) => update((c) => { c.git_colors[k] = e.target.value; })} />
             <span style={{ color: cfg.git_colors[k] }}>{t(`pe_gs_${k}`)}</span>
           </label>
         ))}
         <button type="button" className="btn small" disabled={GIT_STATE_NAMES.every((k) => cfg.git_colors[k] === GIT_STATE_COLORS[k])} onClick={() => update((c) => { c.git_colors = { ...GIT_STATE_COLORS }; })}>{t('pe_gs_reset')}</button>
       </div>
-      <div className="pe-section-title">{t('pe_advanced')}</div>
 
       {/* 4. advanced: master–detail + import/export */}
       {advanced && (
@@ -255,17 +238,6 @@ export function PromptEditor({ value, onChange, pickFile, custom = [], onCustomC
           </div>
         </div>
       )}
-      {advanced && (
-        <div className="pe-quick">
-          <span className="muted small">oh-my-posh</span>
-          {isElectron && pickFile && <button type="button" className="btn small" onClick={importFile}><Icon name="folderOpen" size={13} /> {t('pe_import_file')}</button>}
-          <input className="mono" value={json} onChange={(e) => setJson(e.target.value)} spellCheck={false} placeholder={t('pe_paste_json')} style={{ flex: 1, minWidth: 120 }} />
-          <button type="button" className="btn small" disabled={!json.trim()} onClick={() => { doImport(json); setJson(''); }}>{t('pe_import')}</button>
-          <button type="button" className="btn small" onClick={doExport}><Icon name="clipboard" size={13} /> {t('pe_export')}</button>
-          <label className="check"><input type="checkbox" checked={cfg.final_space !== false} onChange={(e) => update((c) => { c.final_space = e.target.checked; })} /> {t('pe_final_space')}</label>
-        </div>
-      )}
-      {advanced && <div className="pe-note muted small ellipsis" title={note}>{note || ' '}</div>}
     </div>
   );
 }

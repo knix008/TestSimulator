@@ -30,6 +30,10 @@ const DEFAULTS = {
   dockHeight: 220,
   termShell: '',       // shell of a new terminal (id from term.shells); '' = the first one offered
   termCwd: '',         // where new terminals start; '' = the active panel's folder
+  termColor: true,     // terminal output in colour (ANSI + error / warning / link highlighting); false = plain
+  termEol: 'auto',     // line ending Enter sends to a running program: auto (the shell's own) | lf | crlf
+  termCr: 'overwrite', // a lone CR in the output: overwrite (redraw the line, like a terminal) | newline | strip
+  termScrollback: 10000, // lines kept per terminal transcript
 };
 
 function defaultConfigDir(appName = 'CommandCenter') {

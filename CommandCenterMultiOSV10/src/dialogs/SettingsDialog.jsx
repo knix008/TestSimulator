@@ -23,7 +23,7 @@ function Num({ value, onChange, min = 1, max = 9999, width = 90, unit }) {
 
 export function SettingsDialog({ spec, done }) {
   const lang = useLanguage();
-  const [tab, setTab] = useState('general');
+  const [tab, setTab] = useState(spec.tab || 'general');
   const [v, setV] = useState({ ...SETTINGS_DEFAULTS, ...(spec.values || {}) });
   const shells = spec.shells || [];
   const set = (k, val) => setV((s) => ({ ...s, [k]: val }));
@@ -31,8 +31,9 @@ export function SettingsDialog({ spec, done }) {
   const first = useRef(true);
   useEffect(() => { if (first.current) { first.current = false; return; } if (spec.onChange) spec.onChange(v); }, [v]); // eslint-disable-line react-hooks/exhaustive-deps
   const submit = (e) => { if (e) e.preventDefault(); done(v); };
-  // Four tabs: general (+ panels, windows, terminal sections), theme, files (open + viewer / editor), prompt.
-  const tabs = [['general', t('set_general')], ['theme', t('set_theme')], ['open', t('set_files')], ['prompt', t('set_prompt')]];
+  // Four tabs: general (+ panels, windows), theme, files (open + viewer / editor), terminal (shell, output,
+  // prompt — everything about the terminal in one place; the dock's ⚙ opens this one).
+  const tabs = [['general', t('set_general')], ['theme', t('set_theme')], ['open', t('set_files')], ['terminal', t('set_terminal')]];
   const Section = ({ label }) => <div className="settings-section">{label}</div>;
   // Pickers are native dialogs on the desktop; in the browser the path is typed.
   const browseFolder = async () => {
@@ -114,21 +115,6 @@ export function SettingsDialog({ spec, done }) {
             <Check k="separateWindows" label={t('set_separate_windows')} />
             <span />
             <span className="muted small">{t('set_separate_windows_hint')}</span>
-
-            <Section label={t('set_terminal')} />
-            <label>{t('set_term_shell')}</label>
-            <select value={v.termShell || ''} onChange={(e) => set('termShell', e.target.value)}>
-              <option value="">{t('set_term_shell_default', { name: shells.length ? shells[0].label : '' })}</option>
-              {shells.map((sh) => <option key={sh.id} value={sh.id}>{sh.label}</option>)}
-            </select>
-            <label>{t('set_term_cwd')}</label>
-            <div className="row">
-              <input type="text" className="mono" value={v.termCwd || ''} placeholder={t('set_term_cwd_default')} spellCheck={false}
-                onChange={(e) => set('termCwd', e.target.value)} style={{ flex: 1, minWidth: 0 }} />
-              {isElectron && spec.pickFolder && <button type="button" className="btn" onClick={browseFolder}>{t('set_browse')}</button>}
-            </div>
-            <span />
-            <span className="muted small">{t('set_term_cwd_hint')}</span>
           </div>
         )}
         {tab === 'theme' && (<>
@@ -217,9 +203,47 @@ export function SettingsDialog({ spec, done }) {
             <Check k="editorWrap" label={t('set_editor_wrap')} />
           </div>
         )}
-        {tab === 'prompt' && (
-          <PromptEditor value={v.prompt} onChange={(cfg) => set('prompt', cfg)} pickFile={spec.pickFile} />
-        )}
+        {/* Everything about the terminal in one place: which shell starts where, how the output is shown,
+            and the prompt drawn at the end of it. */}
+        {tab === 'terminal' && (<>
+          <div className="form-grid settings-grid">
+            <label>{t('set_term_shell')}</label>
+            <select value={v.termShell || ''} onChange={(e) => set('termShell', e.target.value)}>
+              <option value="">{t('set_term_shell_default', { name: shells.length ? shells[0].label : '' })}</option>
+              {shells.map((sh) => <option key={sh.id} value={sh.id}>{sh.label}</option>)}
+            </select>
+            <label>{t('set_term_cwd')}</label>
+            <div className="row">
+              <input type="text" className="mono" value={v.termCwd || ''} placeholder={t('set_term_cwd_default')} spellCheck={false}
+                onChange={(e) => set('termCwd', e.target.value)} style={{ flex: 1, minWidth: 0 }} />
+              {isElectron && spec.pickFolder && <button type="button" className="btn" onClick={browseFolder}>{t('set_browse')}</button>}
+            </div>
+            <span />
+            <span className="muted small">{t('set_term_cwd_hint')}</span>
+
+            <Section label={t('set_term_output')} />
+            <Check k="termColor" label={t('set_term_color')} />
+            <label>{t('set_term_cr')}</label>
+            <select value={v.termCr} onChange={(e) => set('termCr', e.target.value)}>
+              {[['overwrite', t('set_term_cr_overwrite')], ['newline', t('set_term_cr_newline')], ['strip', t('set_term_cr_strip')]].map(([x, l]) => <option key={x} value={x}>{l}</option>)}
+            </select>
+            <span />
+            <span className="muted small">{t('set_term_cr_hint')}</span>
+            <label>{t('set_term_eol')}</label>
+            <select value={v.termEol} onChange={(e) => set('termEol', e.target.value)}>
+              {[['auto', t('set_term_eol_auto')], ['lf', 'LF (\\n)'], ['crlf', 'CRLF (\\r\\n)']].map(([x, l]) => <option key={x} value={x}>{l}</option>)}
+            </select>
+            <span />
+            <span className="muted small">{t('set_term_eol_hint')}</span>
+            <label>{t('set_term_scrollback')}</label>
+            <Num value={v.termScrollback} onChange={(n) => set('termScrollback', n)} min={200} max={200000} unit={t('set_term_lines')} />
+            <span />
+            <span className="muted small">{t('set_term_scrollback_hint')}</span>
+          </div>
+          <div className="settings-section">{t('set_prompt')}</div>
+          <PromptEditor value={v.prompt} onChange={(cfg) => set('prompt', cfg)} pickFile={spec.pickFile}
+            custom={v.customPrompts || []} onCustomChange={(list, cfg) => setV((s) => ({ ...s, customPrompts: list, ...(cfg ? { prompt: cfg } : {}) }))} />
+        </>)}
         <button type="submit" hidden />
       </form>
     </DialogFrame>
