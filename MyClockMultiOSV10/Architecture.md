@@ -57,6 +57,11 @@ WPF 의 `Canvas` + `Shape` 트리는 HTML5 Canvas 2D 로 옮겼습니다.
 | `digital-display.js` | `SevenSegmentDisplay` | 숫자 52×96, 육각형 세그먼트 7개 |
 | `digital-display.js` | `DotMatrixDisplay` | 7×7 도트 패턴 |
 
+7세그먼트·도트 매트릭스는 **켜진 부분만** 그립니다. WPF 판은 꺼진 세그먼트를
+흐린 색(`SegDimBrush`)으로 칠했지만, 투명 창에서는 그 색이 뒤의 화면과 겹쳐
+검거나 엉뚱한 색 덩어리로 보여 시간을 읽기 어려웠습니다. 켜진 부분만 그리면
+나머지는 창 배경(투명)이 그대로 비칩니다.
+
 텍스트 계열 디지털 스타일(LCD·네온·한글 등)은 캔버스가 아니라 DOM 텍스트입니다.
 WPF 의 `Viewbox(Stretch=Uniform)` 에 해당하는 동작은 `fitTextClock()` 이
 내용 크기를 재서 `transform: scale()` 을 계산하는 것으로 대신합니다.
@@ -80,6 +85,11 @@ WPF 의 `ResourceDictionary` 18개(`SolidColorBrush` 27종)를 CSS 커스텀 속
 
 > WPF 판은 테마와 무관하게 숫자 색을 고정했지만, 그러면 선셋 테마에 파란 숫자처럼
 > 어긋난 조합이 남습니다. 테마를 따라가되 사용자가 덮어쓸 수 있게 바꿨습니다.
+
+설정 탭의 테마 버튼은 `renderThemeGrid()` 가 각 테마의 변수로 **직접 칠합니다**
+(배경 `--window-background`, 글자 `--foreground`, 작은 문자판 스와치 안에 `--digital-text`).
+고르기 전에 색을 볼 수 있게 하기 위해서이며, 그래서 선택 표시는 배경이 아니라
+테두리 두께로 합니다 — 배경은 테마 색을 보여줘야 하니까요.
 
 ## 5. 알람음
 
@@ -181,11 +191,37 @@ WPF 판에는 Windows 전용 `.scr` 화면 보호기가 있었습니다(`Screens
 > `appIconPath()` 가 패키징본에서 `extraResources` 로 풀린 실제 파일을
 > 먼저 찾는 이유입니다.
 
-설치 관리자는 `build/installer.nsh` 로 확장했습니다. electron-builder 의
-`createDesktopShortcut` / `createStartMenuShortcut` 은 켜고 끄는 값일 뿐
-사용자가 고를 수는 없어서, 두 옵션을 끄고 nsDialogs 체크박스 페이지를 직접 만든 뒤
-`customInstall` 에서 고른 것만 만듭니다. 사용자 정의 페이지는 앞 페이지의 머리말을
-물려받으므로, 머리말 컨트롤(1037/1038)에 직접 문구를 써 넣습니다.
+설치 관리자는 `build/installer.nsh` 로 확장했습니다. 두 개의 사용자 정의 페이지가 있습니다.
+
+**바로가기 선택.** electron-builder 의 `createDesktopShortcut` /
+`createStartMenuShortcut` 은 켜고 끄는 값일 뿐 사용자가 고를 수는 없어서,
+두 옵션을 끄고 nsDialogs 체크박스 페이지를 직접 만든 뒤 `customInstall` 에서
+고른 것만 만듭니다.
+
+**재설치 방식 선택.** `customInit` 에서 등록된 설치 위치(`InstallLocation`)나
+설정 파일(`%AppData%\MyClockMultiOS\settings.json`)이 있는지 보고, 있을 때만 이
+페이지를 보여줍니다(없으면 페이지 생성 함수에서 `Abort` 로 건너뜁니다).
+두 선택지의 의미는 이렇습니다.
+
+| 선택 | 하는 일 |
+|------|---------|
+| 기존 설정 유지 (기본) | electron-builder 기본 동작 — 옛 제거 프로그램을 `/KEEP_APP_DATA --updated` 로 돌려 프로그램 파일만 바꾼다 |
+| 완전히 삭제 | 위에 더해 `customInstall` 에서 설정·데이터 폴더, 옛 설치 폴더(새 `$INSTDIR` 과 다를 때만), 기존 바로가기를 지운다 |
+
+> **주의:** `customInstall` 은 새 파일을 복사한 **뒤에** 실행됩니다. 그래서 완전 삭제에서도
+> `$INSTDIR` 자체는 절대 지우지 않습니다 — 지우면 방금 설치한 파일이 사라집니다.
+
+> **주의:** 이전 설치가 있으면 electron-builder 가 설치 옵션·설치 위치 페이지를
+> 건너뜁니다(등록된 값을 그대로 씀). 그래서 재설치 때 페이지 순서는
+> 사용권 → 재설치 방식 → 바로가기 → 설치 로 짧아집니다.
+
+사용자 정의 페이지는 앞 페이지의 머리말을 물려받으므로, `MC_SetHeader` 매크로가
+머리말 컨트롤(1037/1038)에 직접 문구를 써 넣습니다.
+
+제거할 때는 electron-builder 의 `deleteAppDataOnUninstall` 이 productName 폴더만
+알기 때문에, `customUnInstall` 에서 같은 조건(`$isDeleteAppData`)으로
+`MyClockMultiOS` 폴더를 함께 지웁니다. 업데이트 중 실행되는 제거에서는 이 값이 0 이라
+설정이 남습니다.
 
 ## 11. 이식하면서 달라진 점
 
@@ -202,6 +238,9 @@ WPF 판에는 Windows 전용 `.scr` 화면 보호기가 있었습니다(`Screens
 | 디지털 표시 색 | 테마와 무관하게 고정 | 테마를 따라가되 덮어쓰기 가능 | 테마와 어긋난 색 조합이 남지 않도록 |
 | 패널 닫기 | 우클릭 메뉴의 "설정 닫기" | 패널의 ✕ 버튼 · Esc · 우클릭 메뉴 | 연 곳에서 바로 닫을 수 있도록 |
 | 작업 표시줄 | `ShowInTaskbar=False` (트레이 전용) | 실행 중 표시 | 실행 여부를 바로 알 수 있도록 |
+| 꺼진 세그먼트 | 흐린 색으로 표시 | 그리지 않음 (투명) | 투명 창에서 배경과 겹쳐 읽기 어려웠음 |
+| 테마 버튼 | 이름만 | 테마 색으로 칠한 버튼 + 숫자 색 스와치 | 고르기 전에 색을 볼 수 있도록 |
+| 재설치 | 항상 덮어쓰기 | 설정 유지 / 완전 삭제 선택 | 처음 상태로 돌릴 수단 제공 |
 
 ## 12. 코드를 고칠 때 알아둘 점
 
@@ -212,6 +251,11 @@ WPF 판에는 Windows 전용 `.scr` 화면 보호기가 있었습니다(`Screens
   0에 가깝게 보고될 수 있는데, 그 값을 저장하면 다음 실행에서 창이 사라집니다.
 - **`src/js/data/` 는 생성된 파일입니다.** 원본을 고쳤다면 손으로 고치지 말고
   `scripts/convert-*.js` 를 다시 돌리세요.
+- **꺼진 세그먼트는 그리지 않는 것이 의도입니다.** `digital-display.js` 에 다시
+  흐린 색을 넣으면 투명 창에서 색 덩어리가 되살아납니다.
+- **`build/installer.nsh` 는 문자열 이스케이프에 민감합니다.** 줄바꿈은 `$\r$\n`,
+  경로 구분자는 `\` 하나입니다. 셸 heredoc 을 거쳐 쓰면 역슬래시가 줄어들기 쉬우니
+  파일을 직접 편집하세요.
 - **메뉴 항목을 늘리면 창 크기는 자동으로 맞춰집니다.** `menu.js` 가 내용을 잰 뒤
   메인 프로세스에 알리므로, 크기를 코드에 적어 둘 필요가 없습니다.
 - **패널에서 설정을 바꿀 때는 `patchSettings()` 하나만 씁니다.** 이 함수가

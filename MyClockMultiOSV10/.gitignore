@@ -1,6 +1,22 @@
+# ── 의존성 · 빌드 산출물 ────────────────────────────────────────
 node_modules/
 dist/
 release/
+out/
+*.asar
+*.log
+npm-debug.log*
+yarn-error.log*
+
+# 빌드 후 프로젝트 루트로 복사되는 설치 파일 (scripts/copy-installer-to-root.js)
+MyClock-Setup-*.exe
+MyClock-*.dmg
+MyClock-*.AppImage
+MyClock_*.deb
+MyClock-*-mac.zip
+MyClock-*-win.zip
+
+# ── 생성되는 아이콘 (원본은 asset/icon.svg 하나, `npm run icons` 로 재생성) ──
 asset/icons/
 asset/icon.ico
 asset/icon.png
@@ -8,10 +24,36 @@ asset/icon-256.png
 asset/icon-1024.png
 asset/icon-master.png
 build/icon.ico
-*.exe
-*.dmg
-*.AppImage
-*.deb
-*.zip
+src/favicon.png
+
+# ── 참고용 WPF 원본의 빌드 잔재 ───────────────────────────────────
+legacy-wpf/bin/
+legacy-wpf/obj/
+legacy-wpf/Setup/bin/
+legacy-wpf/Setup/obj/
+legacy-wpf/.vs/
+
+# ── OS · 편집기 ─────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
+Desktop.ini
+.vs/
+.vscode/
+.idea/
+.cursor/
+*.swp
+*~
+
+# ── 환경 변수 · 비밀 ────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ── 임시 · 캐시 ─────────────────────────────────────────────────
+*.tmp
+*.temp
+.cache/
+
+# ── Electron 크래시 덤프 ────────────────────────────────────────
+*.dmp
+crashpad/
