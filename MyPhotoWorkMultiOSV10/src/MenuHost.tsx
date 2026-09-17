@@ -4,6 +4,9 @@ import { t } from './i18n'
 import { applyTheme } from './themes'
 import { buildErrorReport } from './lib/errors'
 import type { Language } from './lib/types'
+// Its own chunk now, so it has to ask for the stylesheet itself rather than
+// relying on the editor having already pulled it in.
+import './App.css'
 
 /**
  * The contents of one menu, rendered inside its own always-on-top window.

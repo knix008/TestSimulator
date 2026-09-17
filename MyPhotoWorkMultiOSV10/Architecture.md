@@ -33,9 +33,17 @@ and an in-page dialog cannot be dragged out of the way. `electron/childwindows.c
 owns them — one window per dialog name (reopening raises the existing one), and
 every popup is destroyed with the main window.
 
+Each route is a lazy chunk (`src/routes.ts`), so a popup window downloads and
+parses only what it needs. A menu listing a dozen rows has no use for the canvas
+engine, the filters or the file codecs — splitting took the largest chunk from
+506 kB to 223 kB. Because each route is now its own chunk, `MenuHost` and
+`DialogHost` import `App.css` themselves rather than relying on the editor
+having already pulled it in.
+
 ```
 index.html
  └─ src/main.tsx            → routes on the hash: <App/> | <MenuHost/> | <DialogHost/>
+     └─ src/routes.ts       → the three lazily-loaded entry points
      └─ src/App.tsx         → chrome, pointer dispatch, file/layer commands
         ├─ src/i18n.ts
         ├─ src/catalog.ts     → the tool strip's flyout groups

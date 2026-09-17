@@ -377,3 +377,29 @@ test('each dialog carries its own class so a rule can target one of them', () =>
   const frame = dialogSource.slice(dialogSource.indexOf('export function DialogFrame'), dialogSource.indexOf('/* ---------------------------------------------------------'))
   assert.match(frame, /`\$\{name\}-dialog`/, 'the dialogs are indistinguishable in CSS')
 })
+
+/* -------------------------------------------------------------- bundling */
+
+test('each window route is loaded on demand, not bundled into one chunk', () => {
+  const routes = read('src/routes.ts')
+  for (const route of ['App', 'MenuHost', 'DialogHost']) {
+    assert.ok(
+      routes.includes(`export const ${route} = lazy(() => import('./${route}.tsx'))`),
+      `the ${route} route is not split out`,
+    )
+  }
+  assert.match(read('src/main.tsx'), /<Suspense fallback=\{null\}>/, 'a lazy route needs a Suspense boundary')
+})
+
+test('every popup host asks for the stylesheet itself', () => {
+  // Each route is its own chunk now, so relying on the editor having already
+  // pulled the stylesheet in leaves the popup unstyled.
+  for (const file of ['src/MenuHost.tsx', 'src/DialogHost.tsx']) {
+    assert.match(read(file), /import '\.\/App\.css'/, `${file} would render unstyled in its own window`)
+  }
+})
+
+test('the popup windows load by relative path, which is what file:// needs', () => {
+  const config = read('vite.config.ts')
+  assert.match(config, /base: '\.\/'/, "an absolute base would make the split chunks unreachable from file://")
+})
