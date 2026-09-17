@@ -1,0 +1,30 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <SolidColorBrush x:Key="WindowBackgroundBrush" Color="#0A1628"/>
+    <SolidColorBrush x:Key="PanelBackgroundBrush"  Color="#112240"/>
+    <SolidColorBrush x:Key="ForegroundBrush"       Color="#CCD6F6"/>
+    <SolidColorBrush x:Key="SubtleForegroundBrush" Color="#8892B0"/>
+    <SolidColorBrush x:Key="AccentBrush"           Color="#64FFDA"/>
+    <SolidColorBrush x:Key="ClockFaceBrush"        Color="#0A1628"/>
+    <SolidColorBrush x:Key="ClockBorderBrush"      Color="#64FFDA"/>
+    <SolidColorBrush x:Key="HourHandBrush"         Color="#CCD6F6"/>
+    <SolidColorBrush x:Key="MinuteHandBrush"       Color="#64FFDA"/>
+    <SolidColorBrush x:Key="SecondHandBrush"       Color="#FF6B6B"/>
+    <SolidColorBrush x:Key="TickMarkBrush"         Color="#1D3461"/>
+    <SolidColorBrush x:Key="HourTickBrush"         Color="#8892B0"/>
+    <SolidColorBrush x:Key="NumberBrush"           Color="#8892B0"/>
+    <SolidColorBrush x:Key="TabBackgroundBrush"    Color="#050D1F"/>
+    <SolidColorBrush x:Key="TabSelectedBrush"      Color="#0A1628"/>
+    <SolidColorBrush x:Key="ButtonBackgroundBrush" Color="#1D3461"/>
+    <SolidColorBrush x:Key="ButtonHoverBrush"      Color="#2D5198"/>
+    <SolidColorBrush x:Key="ButtonForegroundBrush" Color="#CCD6F6"/>
+    <SolidColorBrush x:Key="BorderBrush"           Color="#1D3461"/>
+    <SolidColorBrush x:Key="AlarmEnabledBrush"     Color="#64FFDA"/>
+    <SolidColorBrush x:Key="AlarmDisabledBrush"    Color="#1D3461"/>
+    <SolidColorBrush x:Key="DangerBrush"           Color="#FF6B6B"/>
+    <SolidColorBrush x:Key="DigitalTextBrush"      Color="#64FFDA"/>
+    <SolidColorBrush x:Key="CenterDotBrush"        Color="#FF6B6B"/>
+    <SolidColorBrush x:Key="ActiveBtnBrush"        Color="#64FFDA"/>
+    <SolidColorBrush x:Key="ActiveBtnFgBrush"      Color="#0A1628"/>
+    <SolidColorBrush x:Key="SegDimBrush"           Color="#091830"/>
+</ResourceDictionary>

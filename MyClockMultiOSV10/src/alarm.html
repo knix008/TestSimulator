@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;"
+    />
+    <title>알람</title>
+    <link rel="stylesheet" href="styles/alarm.css" />
+  </head>
+  <body class="alarm-body">
+    <div class="alarm-card">
+      <div id="alarmHeader" class="alarm-header">알람</div>
+      <div class="alarm-main">
+        <div id="alarmTime" class="alarm-time"></div>
+        <div id="alarmLabel" class="alarm-label"></div>
+      </div>
+      <button id="alarmConfirm" class="alarm-confirm" type="button">확인</button>
+    </div>
+
+    <script src="js/data/themes.js"></script>
+    <script src="js/tones.js"></script>
+    <script src="js/alarm.js"></script>
+  </body>
+</html>

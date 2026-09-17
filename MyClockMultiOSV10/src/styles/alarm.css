@@ -1,0 +1,78 @@
+/* 알람 / 타이머 팝업 — legacy-wpf/AlarmNotificationWindow.xaml 대응. */
+
+* {
+  box-sizing: border-box;
+}
+
+/* display 를 지정한 규칙이 hidden 속성을 덮어쓰지 않도록 한다. */
+[hidden] {
+  display: none !important;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--window-background, #1e1e2e);
+  font-family: 'Segoe UI', 'Noto Sans KR', 'Malgun Gothic', sans-serif;
+  user-select: none;
+}
+
+.alarm-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  margin: 2px;
+  padding: 16px 20px;
+  border: 2px solid var(--accent, #89b4fa);
+  border-radius: 10px;
+  background: var(--panel-background, #313244);
+  -webkit-app-region: drag;
+}
+
+.alarm-header {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--subtle-foreground, #a6adc8);
+}
+
+.alarm-main {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  margin: 8px 0;
+  text-align: center;
+}
+
+.alarm-time {
+  font-size: 44px;
+  font-weight: 700;
+  font-family: Consolas, 'DejaVu Sans Mono', monospace;
+  color: var(--digital-text, #89b4fa);
+}
+
+.alarm-label {
+  margin-top: 6px;
+  font-size: 15px;
+  color: var(--foreground, #cdd6f4);
+  word-break: break-word;
+}
+
+.alarm-confirm {
+  height: 40px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--accent, #89b4fa);
+  color: var(--active-btn-fg, #1e1e2e);
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-app-region: no-drag;
+}
+
+.alarm-confirm:hover {
+  filter: brightness(1.08);
+}

@@ -1,0 +1,17 @@
+node_modules/
+dist/
+release/
+asset/icons/
+asset/icon.ico
+asset/icon.png
+asset/icon-256.png
+asset/icon-1024.png
+asset/icon-master.png
+build/icon.ico
+*.exe
+*.dmg
+*.AppImage
+*.deb
+*.zip
+.DS_Store
+Thumbs.db

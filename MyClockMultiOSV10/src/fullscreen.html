@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;"
+    />
+    <title>MyClock — 전체 화면</title>
+    <link rel="stylesheet" href="styles/fullscreen.css" />
+  </head>
+  <body class="full-body">
+    <div class="full-stage">
+      <div id="fullDate" class="full-date"></div>
+      <div id="fullDigital" class="full-digital">
+        <div id="fullAmPm" class="full-ampm"></div>
+        <canvas id="fullCanvas" class="full-canvas"></canvas>
+        <div id="fullText" class="full-text" hidden></div>
+      </div>
+      <canvas id="fullAnalog" class="full-analog" hidden></canvas>
+    </div>
+    <div class="full-hint">아무 키나 누르거나 클릭하면 닫힙니다</div>
+
+    <script src="js/data/themes.js"></script>
+    <script src="js/data/styles.js"></script>
+    <script src="js/korean.js"></script>
+    <script src="js/digital-display.js"></script>
+    <script src="js/analog-clock.js"></script>
+    <script src="js/fullscreen.js"></script>
+  </body>
+</html>

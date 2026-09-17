@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;"
+    />
+    <title>MyClock 설정</title>
+    <link rel="stylesheet" href="styles/panel.css" />
+  </head>
+  <body class="panel-body">
+    <nav class="tab-strip" id="tabStrip">
+      <button class="tab" data-tab="world" type="button">세계 시간</button>
+      <button class="tab" data-tab="alarm" type="button">알람</button>
+      <button class="tab" data-tab="timer" type="button">타이머</button>
+      <button class="tab" data-tab="stopwatch" type="button">스톱워치</button>
+      <button class="tab" data-tab="calendar" type="button">캘린더</button>
+      <button class="tab" data-tab="settings" type="button">설정</button>
+      <button id="panelCloseBtn" class="tab-close" type="button" title="패널 닫기 (Esc)">✕</button>
+    </nav>
+
+    <main class="tab-content">
+      <!-- ── 세계 시간 ─────────────────────────────────────────────── -->
+      <section class="tab-page" data-page="world">
+        <div class="world-header" id="worldHeader"></div>
+        <div class="search-row">
+          <div class="search-wrap">
+            <input
+              id="citySearch"
+              class="text-input"
+              type="text"
+              placeholder="도시 또는 국가 (예: Tokyo, 뉴욕)"
+              autocomplete="off"
+            />
+            <ul id="citySuggestions" class="suggestions" hidden></ul>
+          </div>
+          <button id="cityAddBtn" class="btn btn-accent" type="button">추가</button>
+        </div>
+        <ul id="worldList" class="world-list"></ul>
+      </section>
+
+      <!-- ── 알람 ──────────────────────────────────────────────────── -->
+      <section class="tab-page" data-page="alarm">
+        <div class="section-title">알람</div>
+        <ul id="alarmList" class="alarm-list"></ul>
+        <button id="alarmAddBtn" class="btn btn-accent block" type="button">알람 추가</button>
+
+        <form id="alarmForm" class="inline-form" hidden>
+          <div class="form-row">
+            <label class="form-label" for="alarmTime">시간</label>
+            <input id="alarmTime" class="text-input" type="time" required />
+          </div>
+          <div class="form-row">
+            <label class="form-label" for="alarmLabel">레이블</label>
+            <input id="alarmLabel" class="text-input" type="text" placeholder="선택 사항" />
+          </div>
+          <label class="check-row">
+            <input id="alarmRepeat" type="checkbox" />
+            <span>반복</span>
+          </label>
+          <div id="alarmDays" class="day-picker"></div>
+          <div class="form-actions">
+            <button class="btn btn-accent" type="submit">저장</button>
+            <button id="alarmCancelBtn" class="btn" type="button">취소</button>
+          </div>
+        </form>
+      </section>
+
+      <!-- ── 타이머 ────────────────────────────────────────────────── -->
+      <section class="tab-page" data-page="timer">
+        <div class="section-title">타이머</div>
+        <ul id="timerList" class="timer-list"></ul>
+        <button id="timerAddBtn" class="btn btn-accent block" type="button">타이머 추가</button>
+      </section>
+
+      <!-- ── 스톱워치 ──────────────────────────────────────────────── -->
+      <section class="tab-page" data-page="stopwatch">
+        <div id="swDisplay" class="stopwatch-display">00:00:00.00</div>
+        <div class="stopwatch-buttons">
+          <button id="swStartBtn" class="btn btn-accent" type="button">시작</button>
+          <button id="swLapBtn" class="btn" type="button">기록</button>
+          <button id="swStopBtn" class="btn" type="button">정지</button>
+          <button id="swResetBtn" class="btn" type="button">초기화</button>
+        </div>
+        <ul id="swLaps" class="lap-list"></ul>
+      </section>
+
+      <!-- ── 캘린더 ────────────────────────────────────────────────── -->
+      <section class="tab-page" data-page="calendar">
+        <div class="cal-nav">
+          <button id="calPrevBtn" class="btn btn-icon" type="button">◀</button>
+          <div id="calTitle" class="cal-title"></div>
+          <button id="calNextBtn" class="btn btn-icon" type="button">▶</button>
+        </div>
+        <div class="cal-weekdays">
+          <span class="cal-sun">일</span><span>월</span><span>화</span><span>수</span><span>목</span
+          ><span>금</span><span class="cal-sat">토</span>
+        </div>
+        <div id="calGrid" class="cal-grid"></div>
+        <div class="cal-day-header">
+          <span id="calDayTitle" class="cal-day-title"></span>
+          <button id="eventAddBtn" class="btn btn-accent btn-small" type="button">일정 추가</button>
+        </div>
+        <ul id="calDayEvents" class="event-list"></ul>
+
+        <form id="eventForm" class="inline-form" hidden>
+          <div class="form-row">
+            <label class="form-label" for="eventTitle">제목</label>
+            <input id="eventTitle" class="text-input" type="text" required />
+          </div>
+          <div class="form-row">
+            <label class="form-label" for="eventDate">날짜</label>
+            <input id="eventDate" class="text-input" type="date" required />
+          </div>
+          <label class="check-row">
+            <input id="eventAllDay" type="checkbox" />
+            <span>종일</span>
+          </label>
+          <div class="form-row" id="eventTimeRow">
+            <label class="form-label" for="eventStart">시간</label>
+            <input id="eventStart" class="text-input time-input" type="time" />
+            <span class="form-sep">~</span>
+            <input id="eventEnd" class="text-input time-input" type="time" />
+          </div>
+          <div class="form-row">
+            <label class="form-label" for="eventEndDate">종료일</label>
+            <input id="eventEndDate" class="text-input" type="date" />
+          </div>
+          <div class="form-row">
+            <label class="form-label" for="eventRecurrence">반복</label>
+            <select id="eventRecurrence" class="select-input">
+              <option value="None">없음</option>
+              <option value="Daily">매일</option>
+              <option value="Weekly">매주</option>
+              <option value="Monthly">매월</option>
+              <option value="Yearly">매년</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label class="form-label" for="eventReminder">미리 알림</label>
+            <select id="eventReminder" class="select-input">
+              <option value="">없음</option>
+              <option value="0">정각</option>
+              <option value="5">5분 전</option>
+              <option value="10">10분 전</option>
+              <option value="30">30분 전</option>
+              <option value="60">1시간 전</option>
+              <option value="1440">1일 전</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label class="form-label" for="eventColor">색상</label>
+            <input id="eventColor" class="color-input" type="color" value="#4A90D9" />
+          </div>
+          <div class="form-row">
+            <label class="form-label" for="eventDesc">메모</label>
+            <input id="eventDesc" class="text-input" type="text" />
+          </div>
+          <div class="form-actions">
+            <button class="btn btn-accent" type="submit">저장</button>
+            <button id="eventCancelBtn" class="btn" type="button">취소</button>
+          </div>
+        </form>
+      </section>
+
+      <!-- ── 설정 ──────────────────────────────────────────────────── -->
+      <section class="tab-page" data-page="settings">
+        <div class="section-title">알람 / 타이머 종료음</div>
+        <select id="soundSelect" class="select-input block"></select>
+        <div class="slider-row">
+          <span class="slider-label">볼륨</span>
+          <input id="volumeSlider" class="slider" type="range" min="0" max="100" />
+          <span id="volumeValue" class="slider-value"></span>
+        </div>
+        <button id="soundPreviewBtn" class="btn block" type="button">미리듣기</button>
+
+        <div class="section-title">시계 모드</div>
+        <div class="segmented" id="modeGroup">
+          <button class="seg-btn" data-value="digital" type="button">디지털</button>
+          <button class="seg-btn" data-value="analog" type="button">아날로그</button>
+        </div>
+
+        <div class="section-title">디지털 표시 밝기</div>
+        <div class="slider-row">
+          <input id="brightnessSlider" class="slider" type="range" min="10" max="100" />
+          <span id="brightnessValue" class="slider-value"></span>
+        </div>
+        <div class="hint">디지털 시계 위에서 마우스 휠을 굴려도 조절됩니다.</div>
+
+        <div class="section-title">시간 형식</div>
+        <div class="segmented" id="formatGroup">
+          <button class="seg-btn" data-value="12" type="button">12시간</button>
+          <button class="seg-btn" data-value="24" type="button">24시간</button>
+        </div>
+
+        <div class="section-title">오전/오후 색상</div>
+        <div class="color-row">
+          <input id="amPmColor" class="color-input" type="color" />
+          <span id="amPmColorValue" class="color-value"></span>
+        </div>
+
+        <div class="section-title">테마</div>
+        <div id="themeGrid" class="theme-grid"></div>
+
+        <div class="section-title">디지털 숫자 색상</div>
+        <div class="color-row">
+          <input id="digitColor" class="color-input" type="color" />
+          <span id="digitColorValue" class="color-value"></span>
+        </div>
+        <div class="hint">
+          테마를 고르면 그 테마의 색으로 바뀝니다. 직접 고른 색은 다음 테마 변경 전까지
+          유지되며, 같은 테마를 다시 누르면 테마 색으로 되돌아갑니다.
+        </div>
+
+        <div class="section-title">디지털 스타일</div>
+        <select id="digitalStyleSelect" class="select-input block"></select>
+
+        <div class="section-title">아날로그 스타일</div>
+        <select id="analogStyleSelect" class="select-input block"></select>
+
+        <div class="section-title">세계 시간 형식</div>
+        <label class="check-row">
+          <input id="worldUse24h" type="checkbox" />
+          <span>세계 시간 24시간 표기</span>
+        </label>
+
+        <div class="section-title">전체 화면 시계</div>
+        <div class="hint">
+          디지털·아날로그 시계를 전체 화면으로 띄웁니다. 아무 키나 누르거나 클릭하면 닫힙니다.
+        </div>
+        <button id="fullscreenBtn" class="btn block" type="button">전체 화면으로 보기</button>
+
+        <div class="section-title">시스템</div>
+        <label class="check-row">
+          <input id="alwaysOnTop" type="checkbox" />
+          <span>항상 위에 표시</span>
+        </label>
+        <label class="check-row">
+          <input id="startWithSystem" type="checkbox" />
+          <span>시작 시 자동 실행</span>
+        </label>
+
+        <button id="resetBtn" class="btn btn-danger block" type="button">기본값으로 초기화</button>
+      </section>
+    </main>
+
+    <script src="js/data/themes.js"></script>
+    <script src="js/data/styles.js"></script>
+    <script src="js/data/cities.js"></script>
+    <script src="js/timers.js"></script>
+    <script src="js/analog-clock.js"></script>
+    <script src="js/tones.js"></script>
+    <script src="js/panel.js"></script>
+  </body>
+</html>

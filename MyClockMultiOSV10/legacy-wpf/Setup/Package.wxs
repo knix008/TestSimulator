@@ -1,0 +1,98 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+
+  <Package Name="MyClock"
+           Manufacturer="MyClock"
+           Version="1.0.0.0"
+           Language="1042"
+           Codepage="949"
+           UpgradeCode="A1B2C3D4-E5F6-7890-ABCD-EF1234567890">
+
+    <MajorUpgrade DowngradeErrorMessage="더 최신 버전이 이미 설치되어 있습니다."/>
+    <MediaTemplate EmbedCab="yes"/>
+
+    <!-- Analog clock icon for shortcuts and Add/Remove Programs -->
+    <Icon Id="AppIcon" SourceFile="..\AppIcon.ico"/>
+    <Property Id="ARPPRODUCTICON" Value="AppIcon"/>
+
+    <!-- Mondo UI: Typical / Custom / Complete — Custom shows the feature tree -->
+    <ui:WixUI Id="WixUI_Mondo"/>
+    <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER"/>
+
+    <Feature Id="Main" Title="MyClock" Level="1"
+             Description="MyClock 응용 프로그램 파일">
+      <ComponentGroupRef Id="AppFiles"/>
+
+      <Feature Id="StartMenuFeature" Title="시작 메뉴 바로가기" Level="1"
+               Description="시작 메뉴에 MyClock 바로가기를 추가합니다."
+               AllowAdvertise="no">
+        <ComponentRef Id="ProgramMenuShortcut"/>
+      </Feature>
+
+      <Feature Id="DesktopFeature" Title="바탕화면 바로가기" Level="1"
+               Description="바탕화면에 MyClock 바로가기를 추가합니다."
+               AllowAdvertise="no">
+        <ComponentRef Id="DesktopShortcut"/>
+      </Feature>
+
+      <Feature Id="AutoStartFeature" Title="시작 시 자동 실행" Level="2"
+               Description="Windows 시작 시 MyClock을 자동으로 실행합니다. (설치 후 앱 설정에서도 변경 가능)"
+               AllowAdvertise="no">
+        <ComponentRef Id="AutoStartComponent"/>
+      </Feature>
+    </Feature>
+  </Package>
+
+  <Fragment>
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="MyClock"/>
+    </StandardDirectory>
+    <StandardDirectory Id="ProgramMenuFolder"/>
+    <StandardDirectory Id="DesktopFolder"/>
+  </Fragment>
+
+  <Fragment>
+    <ComponentGroup Id="AppFiles" Directory="INSTALLFOLDER">
+      <Component Id="MainExe" Bitness="always64">
+        <File Source="$(var.MyClockWinV10.TargetDir)MyClockWinV10.exe" KeyPath="yes"/>
+      </Component>
+      <Component Id="AppDll" Bitness="always64">
+        <File Source="$(var.MyClockWinV10.TargetPath)"/>
+      </Component>
+      <Component Id="RuntimeConfig" Bitness="always64">
+        <File Source="$(var.MyClockWinV10.TargetDir)MyClockWinV10.runtimeconfig.json"/>
+      </Component>
+      <Component Id="DepsJson" Bitness="always64">
+        <File Source="$(var.MyClockWinV10.TargetDir)MyClockWinV10.deps.json"/>
+      </Component>
+    </ComponentGroup>
+
+    <Component Id="ProgramMenuShortcut" Directory="ProgramMenuFolder" Bitness="always64">
+      <Shortcut Id="StartMenuSC" Name="MyClock"
+                Target="[INSTALLFOLDER]MyClockWinV10.exe"
+                WorkingDirectory="INSTALLFOLDER"
+                Icon="AppIcon"/>
+      <RegistryValue Root="HKCU" Key="Software\MyClock" Name="StartMenu"
+                     Value="1" Type="integer" KeyPath="yes"/>
+    </Component>
+
+    <Component Id="DesktopShortcut" Directory="DesktopFolder" Bitness="always64">
+      <Shortcut Id="DesktopSC" Name="MyClock"
+                Target="[INSTALLFOLDER]MyClockWinV10.exe"
+                WorkingDirectory="INSTALLFOLDER"
+                Icon="AppIcon"/>
+      <RegistryValue Root="HKCU" Key="Software\MyClock" Name="Desktop"
+                     Value="1" Type="integer" KeyPath="yes"/>
+    </Component>
+
+    <Component Id="AutoStartComponent" Directory="INSTALLFOLDER" Bitness="always64">
+      <RegistryValue Root="HKCU"
+                     Key="Software\Microsoft\Windows\CurrentVersion\Run"
+                     Name="MyClock"
+                     Value="&quot;[INSTALLFOLDER]MyClockWinV10.exe&quot;"
+                     Type="string"
+                     KeyPath="yes"/>
+    </Component>
+  </Fragment>
+
+</Wix>

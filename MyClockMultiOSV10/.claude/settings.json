@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Start-Process \"d:\\\\Home\\\\Projects\\\\TestSimulator\\\\MyClockWinV10\\\\bin\\\\Debug\\\\net8.0-windows\\\\MyClockWinV10.exe\"; Start-Sleep -Seconds 3; Get-Process | Where-Object { $_.MainWindowTitle -ne \"\" } | Select-Object Name, MainWindowTitle, Id)",
+      "PowerShell([ScreenCap2]::Capture\\(\"MyClock\", \"C:\\\\Users\\\\shkwon\\\\AppData\\\\Local\\\\Temp\\\\myclock_startup.png\"\\))",
+      "PowerShell(Get-Process MyClockWinV10)",
+      "PowerShell($p = Start-Process \"d:\\\\Home\\\\Projects\\\\TestSimulator\\\\MyClockWinV10\\\\bin\\\\Debug\\\\net8.0-windows\\\\MyClockWinV10.exe\" -PassThru; Start-Sleep 4; if \\($p.HasExited\\) { \"Crashed: exit $\\($p.ExitCode\\)\" } else { \"Running PID $\\($p.Id\\)\" })",
+      "PowerShell([WinCap]::Capture\\(\"MyClock\", \"C:\\\\Users\\\\shkwon\\\\AppData\\\\Local\\\\Temp\\\\myclock_startup.png\"\\))",
+      "PowerShell(Get-Process | Where-Object { $_.MainWindowTitle -eq \"MyClock\" } | Select-Object Id, MainWindowTitle; Stop-Process -Name MyClockWinV10 -Force -ErrorAction SilentlyContinue; Start-Sleep 1; Start-Process \"d:\\\\Home\\\\Projects\\\\TestSimulator\\\\MyClockWinV10\\\\bin\\\\Debug\\\\net8.0-windows\\\\MyClockWinV10.exe\"; Start-Sleep 3; Get-Process | Where-Object { $_.MainWindowTitle -eq \"MyClock\" } | Select-Object Id)",
+      "PowerShell(Start-Sleep 2; [WinCap3]::Cap\\(\"MyClock\", \"C:\\\\Users\\\\shkwon\\\\AppData\\\\Local\\\\Temp\\\\myclock_startup2.png\"\\))",
+      "PowerShell($p = Start-Process \"d:\\\\Home\\\\Projects\\\\TestSimulator\\\\MyClockWinV10\\\\bin\\\\Debug\\\\net8.0-windows\\\\MyClockWinV10.exe\" -PassThru; Start-Sleep -Seconds 3; Write-Host \"PID: $\\($p.Id\\)\"; Get-Process -Id $p.Id -ErrorAction SilentlyContinue | Select-Object Id, Name, MainWindowTitle, HasExited)",
+      "PowerShell($p = Get-Process -Id 85868 -ErrorAction SilentlyContinue; if \\($p\\) { Write-Host \"Still running: $\\($p.Name\\) MainWindowHandle=$\\($p.MainWindowHandle\\)\" } else { Write-Host \"Process ended\" })",
+      "PowerShell($p = Start-Process \"d:\\\\Home\\\\Projects\\\\TestSimulator\\\\MyClockWinV10\\\\bin\\\\Debug\\\\net8.0-windows\\\\MyClockWinV10.exe\" -PassThru -RedirectStandardError \"C:\\\\Users\\\\shkwon\\\\Desktop\\\\mce.txt\" -ErrorAction SilentlyContinue; Start-Sleep -Seconds 4; if \\($p.HasExited\\) { Write-Host \"Exited with code $\\($p.ExitCode\\)\"; Get-Content \"C:\\\\Users\\\\shkwon\\\\Desktop\\\\mce.txt\" -ErrorAction SilentlyContinue } else { Write-Host \"Running PID=$\\($p.Id\\)\" })",
+      "PowerShell($p = Get-Process -Id 65952 -ErrorAction SilentlyContinue; if \\($p\\) { \"Running: $\\($p.MainWindowHandle\\)\" } else { \"Dead\" })",
+      "PowerShell(cd \"d:\\\\Home\\\\Projects\\\\TestSimulator\\\\MyClockWinV10\\\\bin\\\\Debug\\\\net8.0-windows\"; $output = & \".\\\\MyClockWinV10.exe\" 2>&1; Write-Host \"Exit: $LASTEXITCODE\"; $output | Select-Object -First 30)",
+      "PowerShell($p = Get-Process -Id 73464 -ErrorAction SilentlyContinue; if \\($p\\) { $p.Refresh\\(\\); \"alive MainHandle=$\\($p.MainWindowHandle\\)\" } else { \"dead\" })",
+      "PowerShell($p = Start-Process \"d:\\\\Home\\\\Projects\\\\TestSimulator\\\\MyClockWinV10\\\\bin\\\\Debug\\\\net8.0-windows\\\\MyClockWinV10.exe\" -PassThru; Start-Sleep -Seconds 3; if \\($p.HasExited\\) { \"Crashed: $\\($p.ExitCode\\)\" } else { \"Running PID=$\\($p.Id\\)\" })",
+      "PowerShell(dotnet package search \"WixToolset.Sdk\" --take 5 2>&1)",
+      "PowerShell(dotnet package search \"WixToolset.UI.wixext\" --take 3 2>&1)",
+      "PowerShell($g1 = [System.Guid]::NewGuid\\(\\).ToString\\(\\).ToUpper\\(\\); $g2 = [System.Guid]::NewGuid\\(\\).ToString\\(\\).ToUpper\\(\\); Write-Host \"MAIN: $g1\"; Write-Host \"SETUP: $g2\")",
+      "Bash(Get-ChildItem \"d:/Home/Projects/TestSimulator/MyClockWinV10/Services/\")",
+      "Bash(Select-Object Name)",
+      "Bash(dotnet remove *)"
+    ]
+  }
+}

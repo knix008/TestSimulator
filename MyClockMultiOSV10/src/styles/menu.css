@@ -1,0 +1,65 @@
+/* 컨텍스트 메뉴 — 시계 창과 별개의 팝업 창이라 창 경계에 잘리지 않는다. */
+
+* {
+  box-sizing: border-box;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background: transparent;
+  font-family: 'Segoe UI', 'Noto Sans KR', 'Malgun Gothic', sans-serif;
+  user-select: none;
+  cursor: default;
+}
+
+/* 그림자가 잘리지 않도록 창 안쪽에 여백을 둔다. */
+.menu {
+  display: inline-block;
+  min-width: 210px;
+  margin: 6px;
+  padding: 4px;
+  border: 1px solid var(--border, #45475a);
+  border-radius: 6px;
+  background: var(--panel-background, #313244);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--foreground, #cdd6f4);
+  font-family: inherit;
+  font-size: 14px;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.menu-item:hover {
+  background: var(--button-hover, #585b70);
+}
+
+.menu-icon {
+  width: 20px;
+  text-align: center;
+  opacity: 0.9;
+}
+
+.menu-separator {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--border, #45475a);
+}

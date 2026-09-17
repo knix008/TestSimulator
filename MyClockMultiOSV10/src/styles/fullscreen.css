@@ -1,0 +1,88 @@
+/* 전체 화면 시계 — Windows 전용 .scr 화면 보호기를 대신하는 크로스플랫폼 모드. */
+
+* {
+  box-sizing: border-box;
+}
+
+/* display 를 지정한 규칙이 hidden 속성을 덮어쓰지 않도록 한다. */
+[hidden] {
+  display: none !important;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--window-background, #000);
+  color: var(--foreground, #cdd6f4);
+  font-family: 'Segoe UI', 'Noto Sans KR', 'Malgun Gothic', sans-serif;
+  cursor: none;
+  user-select: none;
+}
+
+.full-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2vh;
+  height: 100%;
+  padding: 6vh 6vw;
+}
+
+.full-date {
+  font-size: clamp(16px, 2.4vw, 40px);
+  color: var(--subtle-foreground, #a6adc8);
+}
+
+.full-digital {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  height: 60%;
+  min-height: 0;
+}
+
+.full-ampm {
+  font-size: clamp(18px, 2.6vw, 44px);
+  font-weight: 700;
+  color: var(--digital-ampm-color, var(--accent, #89b4fa));
+}
+
+.full-ampm:empty {
+  display: none;
+}
+
+.full-canvas {
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 0;
+}
+
+.full-text {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  font-size: clamp(48px, 12vw, 260px);
+  font-weight: 700;
+  line-height: 1.1;
+  white-space: nowrap;
+  color: var(--digital-text-color, var(--digital-text, #89b4fa));
+}
+
+.full-analog {
+  width: min(70vh, 70vw);
+  height: min(70vh, 70vw);
+}
+
+.full-hint {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 3vh;
+  text-align: center;
+  font-size: 14px;
+  opacity: 0.35;
+}

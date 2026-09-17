@@ -1,0 +1,211 @@
+/* 시계 창 — 평소에는 완전히 투명하고, 마우스를 올리면 창 배경과 조작 힌트가 나타난다. */
+
+* {
+  box-sizing: border-box;
+}
+
+/* display 를 지정한 규칙이 hidden 속성을 덮어쓰지 않도록 한다. */
+[hidden] {
+  display: none !important;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+  font-family: 'Segoe UI', 'Noto Sans KR', 'Malgun Gothic', sans-serif;
+  user-select: none;
+  cursor: default;
+}
+
+.clock-root {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  /* 완전 투명한 픽셀은 마우스 이벤트를 받지 못하므로 아주 옅게 칠한다. */
+  background: rgba(0, 0, 0, 0.004);
+}
+
+.chrome-background {
+  position: absolute;
+  inset: 0;
+  background: var(--window-background, #1e1e2e);
+  opacity: 0.82;
+  pointer-events: none;
+}
+
+/* ── 디지털 ─────────────────────────────────────────────────────────── */
+
+.digital-panel {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  pointer-events: none;
+}
+
+.canvas-digital {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+.ampm-text {
+  flex: 0 0 auto;
+  text-align: center;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.1;
+  margin-bottom: 2px;
+  color: var(--digital-ampm-color, var(--accent, #89b4fa));
+}
+
+.ampm-text:empty {
+  display: none;
+}
+
+.digital-canvas {
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 0;
+}
+
+.text-clock-box {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+/* WPF Viewbox(Stretch=Uniform) 대응 — JS가 scale 배율을 계산해 넣는다. */
+.text-clock-inner {
+  display: inline-block;
+  text-align: center;
+  white-space: nowrap;
+  transform-origin: center center;
+}
+
+.text-ampm {
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 2px;
+  color: var(--digital-ampm-color, var(--accent, #89b4fa));
+}
+
+.text-ampm:empty {
+  display: none;
+}
+
+.text-time {
+  font-size: 60px;
+  font-weight: 700;
+  line-height: 1.1;
+  font-family: Consolas, 'DejaVu Sans Mono', monospace;
+  color: var(--digital-text-color, var(--digital-text, #89b4fa));
+}
+
+/* ── 아날로그 ───────────────────────────────────────────────────────── */
+
+.analog-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+/* ── 호버 오버레이 ──────────────────────────────────────────────────── */
+
+.header-date,
+.clock-status {
+  position: absolute;
+  left: 0;
+  right: 0;
+  text-align: center;
+  color: var(--subtle-foreground, #a6adc8);
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.header-date {
+  top: 2px;
+  font-size: 14px;
+}
+
+.clock-status {
+  bottom: 2px;
+  font-size: 14px;
+  font-family: Consolas, 'DejaVu Sans Mono', monospace;
+}
+
+.resize-outline {
+  position: absolute;
+  inset: 0;
+  border: 1px solid var(--subtle-foreground, #a6adc8);
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.resize-grip {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  /* 아이콘(16px)보다 넉넉하게 잡아 끌기 쉽도록 한다 */
+  width: 22px;
+  height: 22px;
+  padding: 2px;
+  color: var(--subtle-foreground, #a6adc8);
+  cursor: nwse-resize;
+  pointer-events: auto;
+}
+
+.resize-grip svg {
+  display: block;
+}
+
+.offscreen {
+  position: absolute;
+  left: -9999px;
+  top: -9999px;
+  pointer-events: none;
+}
+
+/* ── 호버 툴바 (디지털 ↔ 아날로그 토글) ────────────────────────────── */
+
+.chrome-toolbar {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  display: flex;
+  gap: 2px;
+  z-index: 10;
+}
+
+.chrome-btn {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--subtle-foreground, #a6adc8);
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.chrome-btn:hover {
+  background: var(--button-hover, #585b70);
+  color: var(--foreground, #cdd6f4);
+}
