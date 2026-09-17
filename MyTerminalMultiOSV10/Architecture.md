@@ -212,7 +212,7 @@ settings › prompt (renderer)            main
 
 ### 5.3c 종료
 
-마지막 창을 닫으면(`window-all-closed`) 트레이 아이콘과 무관하게 종료합니다. `before-quit` → `killPty()` → `MyShell.killChild()`는 Windows에서 `taskkill /t /f`를 **동기**로 실행합니다: 자식 프로세스(cmd → ping 등)가 Electron의 stdout 핸들을 상속받아 살아 있으면 `npm start`를 띄운 터미널이 앱 종료 후에도 프롬프트로 돌아오지 않기 때문입니다.
+마지막 터미널 창이 닫히면(`closed` 핸들러에서 `windows.size === 0` → `quitApp()`) 트레이 아이콘과 무관하게 종료합니다. `window-all-closed`에만 의존하지 않는 이유: 탭 분리(드래그) 중 만들어져 숨겨진 미리보기 창(`detach-preview.js`)이나 대화상자가 남아 있으면 그 이벤트가 영영 오지 않아 프로세스(와 `npm start`)가 남기 때문입니다. `quitApp()`은 트레이·팝업·미리보기 창을 지우고 `killPty()`로 셸을 정리한 뒤 `app.quit()`합니다. `MyShell.killChild()`는 Windows에서 `taskkill /t /f`를 **동기**로 실행합니다: 자식 프로세스(cmd → ping 등)가 Electron의 stdout 핸들을 상속받아 살아 있으면 `npm start`를 띄운 터미널이 앱 종료 후에도 프롬프트로 돌아오지 않기 때문입니다.
 
 
 ### 5.4 파워라인 화살표

@@ -338,6 +338,12 @@ function createWindow(options = {}) {
     killSessionsForWindow(win);
     closePopupsForOwner(ownerId);
     windows.delete(win);
+    // Last terminal window gone → quit now. Helper windows (the hidden
+    // tab-detach preview, dialogs) would otherwise keep 'window-all-closed'
+    // from firing and leave the process — and `npm start` — hanging.
+    if (windows.size === 0 && process.platform !== 'darwin' && !getIsQuitting()) {
+      quitApp();
+    }
   });
 
   return win;
@@ -423,6 +429,19 @@ if (!app.requestSingleInstanceLock()) {
   });
 }
 
+/** Tear everything down and quit (tray, popups, preview, shells). */
+function quitApp() {
+  setQuitting(true);
+  destroyTray();
+  closeAllPopups();
+  destroyDetachPreview();
+  killPty();
+  for (const win of [...windows]) {
+    if (win && !win.isDestroyed()) win.destroy();
+  }
+  app.quit();
+}
+
 app.on('before-quit', () => {
   for (const win of windows) saveWindowState(win);
   closeAllPopups();
@@ -436,10 +455,7 @@ app.on('window-all-closed', () => {
   // The last window closed → the program ends (the tray icon goes with it),
   // except on macOS where apps stay in the Dock until Quit.
   if (process.platform === 'darwin') return;
-  setQuitting(true);
-  destroyTray();
-  killPty();
-  app.quit();
+  quitApp();
 });
 
 ipcMain.handle('window:minimize', (event) => winFromEvent(event)?.minimize());

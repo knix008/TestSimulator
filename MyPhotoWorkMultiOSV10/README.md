@@ -28,6 +28,19 @@ For the web-only Vite server during development:
 npm run dev
 ```
 
+## Tests
+
+```bash
+npm test
+```
+
+Runs the unit suite under `test/` with `node --test`. It exercises the editing
+engine directly against a real 2D canvas — no browser and no bundler — so
+`npm test` covers colour maths, selections, adjustments, filters, layer
+compositing, the painting tools, history, settings, the `.mpw` format and the
+Korean/English tables. See [Architecture.md](Architecture.md) for how the
+harness works.
+
 ## Build
 
 Web build:

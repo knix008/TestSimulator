@@ -211,11 +211,32 @@ export type LayerMeta = {
   smart: boolean
   parentId?: string
   adjustment?: Adjustment
+  curves?: CurveData
+  levels?: LevelsData
   fill?: FillData
   text?: TextData
   shape?: ShapeData
   effects: LayerEffects
+  /** Set on a group folder that is collapsed in the layers panel. */
+  collapsed?: boolean
 }
+
+/** One anchor of a vector path. The handles are absolute document coordinates. */
+export type PathNode = { x: number; y: number; inX: number; inY: number; outX: number; outY: number }
+export type PathShape = { id: string; name: string; nodes: PathNode[]; closed: boolean }
+
+export type SliceRect = { id: string; name: string; x: number; y: number; width: number; height: number }
+export type FrameRect = { id: string; name: string; x: number; y: number; width: number; height: number; layerId?: string }
+export type Measure = { x1: number; y1: number; x2: number; y2: number }
+
+/** Free transform state: the destination box the layer's original pixels map onto. */
+export type TransformBox = { x: number; y: number; width: number; height: number; angle: number; flipX: boolean; flipY: boolean }
+export type TransformHandle = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w' | 'rotate' | 'move'
+
+export type CurveChannel = 'rgb' | 'r' | 'g' | 'b'
+export type CurvePoint = { x: number; y: number }
+export type CurveData = Record<CurveChannel, CurvePoint[]>
+export type LevelsData = { black: number; gamma: number; white: number; outBlack: number; outWhite: number }
 
 export type Guide = { id: string; axis: 'x' | 'y'; position: number }
 export type NoteMarker = { id: string; x: number; y: number; text: string }
@@ -234,6 +255,10 @@ export type PhotoDocument = {
   notes: NoteMarker[]
   samplers: Sampler[]
   counts: CountMarker[]
+  paths: PathShape[]
+  slices: SliceRect[]
+  frames: FrameRect[]
+  measure: Measure | null
   colorMode: 'rgb' | 'gray'
 }
 
@@ -252,6 +277,10 @@ export type ProjectFile = {
   notes?: NoteMarker[]
   samplers?: Sampler[]
   counts?: CountMarker[]
+  paths?: PathShape[]
+  slices?: SliceRect[]
+  frames?: FrameRect[]
+  measure?: Measure | null
   colorMode?: 'rgb' | 'gray'
 }
 
@@ -280,6 +309,17 @@ export type AppSettings = {
   background: string
   gradientKind: GradientKind
   rightTab: 'layers' | 'adjust' | 'history' | 'channels' | 'info'
+  /** Shape tools. */
+  shapeStroke: number
+  shapeSides: number
+  shapeCorner: number
+  shapeFilled: boolean
+  /** Pen tools: width used when stroking a path. */
+  pathWidth: number
+  /** Magnetic lasso: how far from the cursor to look for an edge. */
+  magneticWidth: number
+  /** Slice/frame tools draw guides only; this is the label prefix. */
+  showPaths: boolean
 }
 
 export type ErrorDetails = { title: string; message: string; details: string }
@@ -350,6 +390,32 @@ export const defaultAdjustment = (type: AdjustmentType): Adjustment => ({
   blue: 0,
 })
 
+/** An identity curve per channel: two endpoints on the diagonal. */
+export const defaultCurves = (): CurveData => ({
+  rgb: [{ x: 0, y: 0 }, { x: 255, y: 255 }],
+  r: [{ x: 0, y: 0 }, { x: 255, y: 255 }],
+  g: [{ x: 0, y: 0 }, { x: 255, y: 255 }],
+  b: [{ x: 0, y: 0 }, { x: 255, y: 255 }],
+})
+
+export const defaultLevels = (): LevelsData => ({ black: 0, gamma: 1, white: 255, outBlack: 0, outWhite: 255 })
+
+export const shapeTools: Tool[] = ['rect', 'roundRect', 'ellipse', 'polygon', 'line', 'customShape']
+export const penTools: Tool[] = ['pen', 'freeformPen', 'curvaturePen']
+
+/** Which ShapeKind each shape tool draws. */
+export const shapeKindForTool: Partial<Record<Tool, ShapeKind>> = {
+  rect: 'rect',
+  roundRect: 'roundRect',
+  ellipse: 'ellipse',
+  polygon: 'polygon',
+  line: 'line',
+  customShape: 'star',
+}
+
+export const rightPanelMinWidth = 280
+export const rightPanelMaxWidth = 480
+
 export const defaultSettings: AppSettings = {
   language: 'ko',
   theme: 'dark',
@@ -366,6 +432,13 @@ export const defaultSettings: AppSettings = {
   background: '#ffffff',
   gradientKind: 'linear',
   rightTab: 'layers',
+  shapeStroke: 2,
+  shapeSides: 5,
+  shapeCorner: 12,
+  shapeFilled: true,
+  pathWidth: 2,
+  magneticWidth: 12,
+  showPaths: true,
 }
 
 export const documentPresets: { id: string; width: number; height: number }[] = [

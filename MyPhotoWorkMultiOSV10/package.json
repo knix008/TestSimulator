@@ -11,7 +11,7 @@
     "start": "npm run electron:dev",
     "dev": "vite --host 127.0.0.1 --port 5173 --strictPort",
     "electron": "node scripts/start-electron.mjs",
-    "electron:dev": "concurrently -k \"npm run dev\" \"wait-on tcp:127.0.0.1:5173 && node scripts/start-electron.mjs\"",
+    "electron:dev": "node scripts/electron-dev.mjs",
     "build": "tsc -b && vite build",
     "build:web": "npm run build",
     "build:icons": "node scripts/create-icons.cjs",
@@ -21,6 +21,7 @@
     "dist:mac": "npm run build:icons && npm run build && electron-builder --mac dmg zip && node scripts/copy-installers.cjs",
     "dist:linux": "npm run build:icons && npm run build && electron-builder --linux AppImage deb rpm && node scripts/copy-installers.cjs",
     "postinstall": "node node_modules/electron/install.js",
+    "test": "node --test --import ./test/helpers/setup.mjs test/*.test.mjs",
     "lint": "eslint .",
     "preview": "vite preview"
   },
@@ -79,6 +80,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@napi-rs/canvas": "^1.0.9",
     "@resvg/resvg-js": "^2.6.2",
     "@types/node": "^24.13.3",
     "@types/react": "^19.2.17",

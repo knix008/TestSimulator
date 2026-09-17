@@ -15,6 +15,10 @@ export function cloneDocument(document: PhotoDocument): PhotoDocument {
       ...layer,
       effects: { ...layer.effects },
       adjustment: layer.adjustment ? { ...layer.adjustment } : undefined,
+      curves: layer.curves
+        ? { rgb: layer.curves.rgb.map((p) => ({ ...p })), r: layer.curves.r.map((p) => ({ ...p })), g: layer.curves.g.map((p) => ({ ...p })), b: layer.curves.b.map((p) => ({ ...p })) }
+        : undefined,
+      levels: layer.levels ? { ...layer.levels } : undefined,
       fill: layer.fill ? { ...layer.fill, start: { ...layer.fill.start }, end: { ...layer.fill.end } } : undefined,
       text: layer.text ? { ...layer.text } : undefined,
       shape: layer.shape ? { ...layer.shape } : undefined,
@@ -23,6 +27,10 @@ export function cloneDocument(document: PhotoDocument): PhotoDocument {
     notes: document.notes.map((item) => ({ ...item })),
     samplers: document.samplers.map((item) => ({ ...item })),
     counts: document.counts.map((item) => ({ ...item })),
+    paths: document.paths.map((path) => ({ ...path, nodes: path.nodes.map((node) => ({ ...node })) })),
+    slices: document.slices.map((item) => ({ ...item })),
+    frames: document.frames.map((item) => ({ ...item })),
+    measure: document.measure ? { ...document.measure } : null,
   }
 }
 

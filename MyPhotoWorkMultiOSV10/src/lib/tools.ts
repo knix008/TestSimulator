@@ -23,11 +23,13 @@ export function paintStroke(
   options: { size: number; hardness: number; color: string; opacity: number; erase?: boolean; pencil?: boolean; selection: Selection | null },
 ) {
   const distance = Math.hypot(to.x - from.x, to.y - from.y)
-  const steps = Math.max(1, Math.ceil(distance / Math.max(1, options.size * 0.25)))
+  // 0 for a single click, so a dab is stamped once and deposits exactly the
+  // requested opacity rather than compositing two coincident stamps.
+  const steps = Math.ceil(distance / Math.max(1, options.size * 0.25))
   const stroke = createCanvas(layer.width, layer.height)
   const strokeCtx = context2d(stroke)
   for (let i = 0; i <= steps; i += 1) {
-    const t = i / steps
+    const t = steps === 0 ? 0 : i / steps
     stamp(strokeCtx, from.x + (to.x - from.x) * t, from.y + (to.y - from.y) * t, options.size, options.pencil ? 1 : options.hardness, options.erase ? '#ffffff' : options.color, options.opacity)
   }
   clipCanvasToSelection(stroke, options.selection)

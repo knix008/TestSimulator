@@ -18,10 +18,13 @@ function metaFromSerialized(layer: SerializedLayer): LayerMeta {
     smart: layer.smart ?? false,
     parentId: layer.parentId,
     adjustment: layer.adjustment,
+    curves: layer.curves,
+    levels: layer.levels,
     fill: layer.fill,
     text: layer.text,
     shape: layer.shape,
     effects: layer.effects ?? defaultEffects(),
+    collapsed: layer.collapsed ?? false,
   }
 }
 
@@ -54,8 +57,13 @@ export function decodeTiff(buffer: ArrayBuffer) {
   }
   UTIF.decodeImage(buffer, ifds[0])
   const rgba = UTIF.toRGBA8(ifds[0])
-  const width = ifds[0].width ?? 1
-  const height = ifds[0].height ?? 1
+  const width = ifds[0].width ?? 0
+  const height = ifds[0].height ?? 0
+  // A truncated or non-TIFF buffer still parses into an IFD, just one with no
+  // dimensions. Report that rather than handing back a blank 1x1 document.
+  if (!width || !height) {
+    throw new Error('TIFF file has no image data')
+  }
   const canvas = createCanvas(width, height)
   const image = context2d(canvas).createImageData(width, height)
   image.data.set(rgba)
@@ -86,6 +94,10 @@ export function serializeProject(document: PhotoDocument, canvases: Map<string, 
     notes: document.notes,
     samplers: document.samplers,
     counts: document.counts,
+    paths: document.paths,
+    slices: document.slices,
+    frames: document.frames,
+    measure: document.measure,
     colorMode: document.colorMode,
   }
 }
@@ -114,6 +126,10 @@ export async function restoreProject(project: ProjectFile) {
     notes: project.notes ?? [],
     samplers: project.samplers ?? [],
     counts: project.counts ?? [],
+    paths: project.paths ?? [],
+    slices: project.slices ?? [],
+    frames: project.frames ?? [],
+    measure: project.measure ?? null,
     colorMode: project.colorMode ?? 'rgb',
   }
   return { document, canvases }

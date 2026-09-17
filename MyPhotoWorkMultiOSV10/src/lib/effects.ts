@@ -34,13 +34,24 @@ export function applyLayerEffects(source: HTMLCanvasElement, effects: LayerEffec
     ctx.restore()
   }
   if (effects.innerGlow) {
+    // Punch the layer's own silhouette out of a filled block and blur what is
+    // left: the soft edge that bleeds back inward becomes the glow. Stroking the
+    // canvas border instead would miss any layer whose pixels stop short of it.
+    const halo = createCanvas(out.width, out.height)
+    const haloCtx = context2d(halo)
+    haloCtx.fillStyle = '#ffffff'
+    haloCtx.fillRect(0, 0, out.width, out.height)
+    haloCtx.globalCompositeOperation = 'destination-out'
+    haloCtx.drawImage(source, 0, 0)
+
+    const glow = createCanvas(out.width, out.height)
+    const glowCtx = context2d(glow)
+    glowCtx.filter = 'blur(7px)'
+    glowCtx.drawImage(halo, 0, 0)
+
     ctx.save()
     ctx.globalCompositeOperation = 'source-atop'
-    ctx.shadowColor = '#ffffff'
-    ctx.shadowBlur = 14
-    ctx.strokeStyle = '#ffffff'
-    ctx.lineWidth = 8
-    ctx.strokeRect(4, 4, out.width - 8, out.height - 8)
+    ctx.drawImage(glow, 0, 0)
     ctx.restore()
   }
   if (effects.bevel) {

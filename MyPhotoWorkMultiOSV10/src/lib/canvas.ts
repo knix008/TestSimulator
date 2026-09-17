@@ -1,6 +1,7 @@
 import type { FillData, LayerMeta, PhotoDocument, Point } from './types'
 import { defaultEffects } from './types'
 import { applyAdjustment } from './adjustments'
+import { applyCurvesData, applyLevelsData } from './curves'
 import { applyLayerEffects, rasterizeShape, rasterizeTextLayer } from './effects'
 
 export function createId(prefix: string) {
@@ -101,6 +102,10 @@ export function createBlankDocument(name: string, width: number, height: number,
       notes: [],
       samplers: [],
       counts: [],
+      paths: [],
+      slices: [],
+      frames: [],
+      measure: null,
       colorMode: 'rgb',
     },
     canvases: new Map([[layer.id, canvas]]),
@@ -162,9 +167,13 @@ export function compositeDocument(document: PhotoDocument, canvases: Map<string,
     if (!layer.visible || layer.kind === 'group') {
       continue
     }
-    if (layer.kind === 'adjustment' && layer.adjustment) {
+    if (layer.kind === 'adjustment' && (layer.adjustment || layer.curves || layer.levels)) {
       const image = ctx.getImageData(0, 0, document.width, document.height)
-      applyAdjustment(image.data, layer.adjustment)
+      // A Curves or Levels layer carries its own table; anything else runs the
+      // slider pipeline.
+      if (layer.curves) applyCurvesData(image.data, layer.curves)
+      else if (layer.levels) applyLevelsData(image.data, layer.levels)
+      else if (layer.adjustment) applyAdjustment(image.data, layer.adjustment)
       const mask = layer.maskEnabled ? canvases.get(`${layer.id}:mask`) : null
       if (mask) {
         const maskData = context2d(mask).getImageData(0, 0, document.width, document.height).data

@@ -11,6 +11,19 @@ if (process.platform === 'win32') {
   app.setAppUserModelId(appId)
 }
 
+// Chromium GPU/HTTP disk cache throws Access Denied (0x5) on Windows when two
+// instances share the same userData folder, or when a leftover GPUCache lock
+// remains. Isolate the unpackaged profile and skip the shader disk cache.
+if (isDev) {
+  app.setPath('userData', path.join(app.getPath('appData'), 'My Photo Work V1.0 Dev'))
+}
+app.commandLine.appendSwitch('disable-gpu-shader-disk-cache')
+
+const gotSingleInstanceLock = app.requestSingleInstanceLock()
+if (!gotSingleInstanceLock) {
+  app.quit()
+}
+
 function createWindow() {
   const mainWindow = new BrowserWindow({
     width: currentWindowSize.width,
@@ -155,16 +168,34 @@ ipcMain.handle('window:force-close', (event) => {
   }
 })
 
-app.whenReady().then(() => {
-  Menu.setApplicationMenu(null)
-  createWindow()
+function focusExistingWindow() {
+  const window = BrowserWindow.getAllWindows()[0]
+  if (!window) {
+    return
+  }
+  if (window.isMinimized()) {
+    window.restore()
+  }
+  window.show()
+  window.focus()
+}
 
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow()
-    }
+if (gotSingleInstanceLock) {
+  app.on('second-instance', () => {
+    focusExistingWindow()
   })
-})
+
+  app.whenReady().then(() => {
+    Menu.setApplicationMenu(null)
+    createWindow()
+
+    app.on('activate', () => {
+      if (BrowserWindow.getAllWindows().length === 0) {
+        createWindow()
+      }
+    })
+  })
+}
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {

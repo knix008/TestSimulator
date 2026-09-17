@@ -1,6 +1,6 @@
 import { clamp } from './color'
 import { isTheme } from '../themes'
-import { defaultSettings, type AppSettings, type ExportFormat } from './types'
+import { defaultSettings, rightPanelMaxWidth, rightPanelMinWidth, type AppSettings, type ExportFormat } from './types'
 
 const settingsStorageKey = 'my-photo-work-v1-settings'
 const exportFormats: ExportFormat[] = ['png', 'jpg', 'webp', 'avif', 'gif', 'tiff']
@@ -21,7 +21,7 @@ export function loadSettings(): AppSettings {
       zoom: clamp(typeof parsed.zoom === 'number' ? parsed.zoom : defaultSettings.zoom, 0.05, 8),
       showGrid: typeof parsed.showGrid === 'boolean' ? parsed.showGrid : defaultSettings.showGrid,
       showRulers: typeof parsed.showRulers === 'boolean' ? parsed.showRulers : defaultSettings.showRulers,
-      rightWidth: clamp(typeof parsed.rightWidth === 'number' ? parsed.rightWidth : defaultSettings.rightWidth, 240, 480),
+      rightWidth: clamp(typeof parsed.rightWidth === 'number' ? parsed.rightWidth : defaultSettings.rightWidth, rightPanelMinWidth, rightPanelMaxWidth),
       exportFormat: parsed.exportFormat && exportFormats.includes(parsed.exportFormat) ? parsed.exportFormat : defaultSettings.exportFormat,
       brushSize: clamp(typeof parsed.brushSize === 'number' ? parsed.brushSize : defaultSettings.brushSize, 1, 400),
       brushHardness: clamp(typeof parsed.brushHardness === 'number' ? parsed.brushHardness : defaultSettings.brushHardness, 0, 1),
@@ -31,6 +31,13 @@ export function loadSettings(): AppSettings {
       background: typeof parsed.background === 'string' ? parsed.background : defaultSettings.background,
       gradientKind: parsed.gradientKind === 'radial' || parsed.gradientKind === 'angle' || parsed.gradientKind === 'reflected' || parsed.gradientKind === 'diamond' ? parsed.gradientKind : 'linear',
       rightTab: parsed.rightTab === 'adjust' || parsed.rightTab === 'history' || parsed.rightTab === 'channels' || parsed.rightTab === 'info' ? parsed.rightTab : 'layers',
+      shapeStroke: clamp(typeof parsed.shapeStroke === 'number' ? parsed.shapeStroke : defaultSettings.shapeStroke, 0, 100),
+      shapeSides: clamp(typeof parsed.shapeSides === 'number' ? Math.round(parsed.shapeSides) : defaultSettings.shapeSides, 3, 32),
+      shapeCorner: clamp(typeof parsed.shapeCorner === 'number' ? parsed.shapeCorner : defaultSettings.shapeCorner, 0, 400),
+      shapeFilled: typeof parsed.shapeFilled === 'boolean' ? parsed.shapeFilled : defaultSettings.shapeFilled,
+      pathWidth: clamp(typeof parsed.pathWidth === 'number' ? parsed.pathWidth : defaultSettings.pathWidth, 1, 100),
+      magneticWidth: clamp(typeof parsed.magneticWidth === 'number' ? Math.round(parsed.magneticWidth) : defaultSettings.magneticWidth, 1, 64),
+      showPaths: typeof parsed.showPaths === 'boolean' ? parsed.showPaths : defaultSettings.showPaths,
     }
   } catch {
     return defaultSettings

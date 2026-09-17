@@ -82,7 +82,7 @@ export function applyAdjustment(data: Uint8ClampedArray, adj: Adjustment) {
     gg = next.g
     bb = next.b
 
-    if (adj.type === 'photoFilter' || adj.filterDensity) {
+    if (adj.type === 'photoFilter') {
       const den = adj.filterDensity
       const cr = Number.parseInt(adj.filterColor.slice(1, 3), 16)
       const cg = Number.parseInt(adj.filterColor.slice(3, 5), 16)
