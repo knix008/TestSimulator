@@ -12,6 +12,7 @@
 // typing letters quick-searches the list, Backspace goes up.
 import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { call, watchDir } from '../lib/backend';
+import { isImageName } from '../lib/images';
 import { t, useLanguage } from '../lib/i18n';
 import { breadcrumbs, dirName, baseName, formatSize, sizeDisplay, typeDisplay, driveOf, globToRegExp } from '../lib/format';
 import { Icon } from './Icons';
@@ -43,7 +44,7 @@ function compareEntries(a, b, sort) {
 }
 
 export const FilePanel = forwardRef(function FilePanel(props, ref) {
-  const { side, path, active, sort, showHidden, suspendWatch, onNavigate, onActivate, onSortChange, onSelectionChange, onOpenEntry, onAction, capabilities, history = [], hotlist = [], onHotlistChange, columns, quickSearch = true, spaceMeasures = true, tabs = [], tabIndex = 0, onTabSelect, onTabNew, onTabClose, onTabCloseOthers, onTabToOther } = props;
+  const { side, path, active, sort, showHidden, suspendWatch, onNavigate, onActivate, onSortChange, onSelectionChange, onOpenEntry, onPreview, onAction, capabilities, history = [], hotlist = [], onHotlistChange, columns, quickSearch = true, spaceMeasures = true, tabs = [], tabIndex = 0, onTabSelect, onTabNew, onTabClose, onTabCloseOthers, onTabToOther } = props;
   useLanguage();
 
   const [entries, setEntries] = useState([]);
@@ -282,6 +283,9 @@ export const FilePanel = forwardRef(function FilePanel(props, ref) {
     }
     if (e.button !== 0) return;
     selectIndex(i, { toggle: e.ctrlKey || e.metaKey, range: e.shiftKey });
+    // A plain click on an image file: the preview window (App decides whether the name is an image).
+    const entry = sorted[i];
+    if (onPreview && entry && !entry.isUp && !entry.isDir && !e.ctrlKey && !e.metaKey && !e.shiftKey) onPreview(entry);
   };
   const onContextMenu = (e) => {
     e.preventDefault();
@@ -359,6 +363,8 @@ export const FilePanel = forwardRef(function FilePanel(props, ref) {
     { id: 'open', label: t('ctx_open'), icon: 'open', disabled: !hasSel },
     { id: 'view', label: t('view_file'), icon: 'view', shortcut: 'F3', disabled: !(single && !selectedEntries[0].isDir) },
     { id: 'edit', label: t('edit_file'), icon: 'edit', shortcut: 'F4', disabled: !(single && !selectedEntries[0].isDir) },
+    { id: 'print', label: t('print'), icon: 'print', shortcut: 'Ctrl+P', disabled: !(single && !selectedEntries[0].isDir) },
+    { id: 'preview', label: t('preview'), icon: 'image', disabled: !(single && !selectedEntries[0].isDir && isImageName(selectedEntries[0].name)) },
     { sep: true },
     { id: 'copyOther', label: t('ctx_copy_other'), icon: 'copy', disabled: !hasSel },
     { id: 'moveOther', label: t('ctx_move_other'), icon: 'move', disabled: !hasSel },

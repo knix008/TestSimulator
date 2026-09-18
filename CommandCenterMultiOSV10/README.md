@@ -19,8 +19,11 @@ Windows · macOS · Linux · **웹** 용 듀얼 패널 파일 관리자.
 | 파일 작업 | 패널 간 복사(F5)/이동(F6), 새 폴더(F7)/새 파일(Shift+F4), 이름 바꾸기(F2), **다중 이름 바꾸기**(Ctrl+M — `[N]` `[E]` `[C]` 마스크·찾기/바꾸기·카운터·대소문자, 미리보기, 2단계 이름 변경), 삭제(F8), 휴지통, 클립보드 복사/붙여넣기(URI 목록), 열기(텍스트 파일은 설정에 따라 기본 앱 / 내장 뷰어 / 내장 편집기 / 지정 프로그램), 속성(Alt+Enter) |
 | 실행 취소 | **Ctrl+Z / Ctrl+Y** — 새 폴더·새 파일·이름 바꾸기·다중 이름 바꾸기·복사·이동·압축·압축 해제를 최근 50개까지 되돌리기/다시 실행. 툴팁과 상태줄에 되돌릴 작업 표시 |
 | 보기·편집 | **F3 내장 뷰어**(텍스트 — 인코딩 자동 감지·줄 바꿈·16진수, 이미지, 이진 파일 16진수 덤프), **F4 내장 편집기**(Ctrl+S 저장, UTF-8) |
+| 이미지 | **이미지 미리 보기·뷰어**: 목록에서 이미지를 클릭하면 **미리 보기 창**(포커스를 빼앗지 않는 별도 창, 다음 이미지를 클릭하면 갱신) — png·jpg·gif·webp·bmp·svg·ico·avif·apng 에 더해 **HEIC/HEIF**(libheif WASM)·**DICOM(.dcm)**(모든 표준 전송 구문: 비압축 LE/BE·RLE·JPEG baseline/12비트·JPEG 무손실·JPEG-LS·JPEG 2000/HTJ2K; 다중 프레임 탐색; 윈도우/레벨 프리셋·입력·Ctrl+드래그·반전)·**TIFF**(LZW·PackBits·Deflate 등, 다중 페이지). 확대/축소(Ctrl+휠·+/−·0 맞춤·1 실제 크기·더블클릭), 드래그 이동, 회전(R), 인쇄, 클립보드 복사, **PNG/JPEG/WebP/BMP 로 저장(변환)**, 우클릭 컨텍스트 메뉴 |
+| 파일 정보 | **Alt+Enter · 우클릭 메뉴 › 파일 정보 보기 · 툴바 ⓘ** — 일반(위치·종류·MIME·크기·디스크 사용)·시간(만든/수정/접근)·권한/속성·**내용**(이미지 크기·형식·EXIF(카메라·노출·촬영 일시·GPS)·DICOM 태그·TIFF 태그, 텍스트 인코딩·줄 수·줄 끝, 압축 파일 여부, 이진 시그니처)·**해시**(MD5/SHA-1/SHA-256, 버튼으로 계산). 창은 내용에 맞춰 크기가 정해져 스크롤 바가 없음 |
+| 인쇄 | **Ctrl+P · 툴바 🖨 · 파일 메뉴 · 우클릭 메뉴** — 텍스트·이미지는 앱이 직접 시스템 인쇄 대화상자로(파일 이름·인코딩 머리글, 인쇄 글꼴 크기 설정), 뷰어·편집기에도 인쇄 버튼(편집 중인 내용 그대로). PDF·오피스 문서 등은 확인 후 **연결 프로그램으로 인쇄**(데스크톱) |
 | Total Commander 방식 | **패널 탭**(Ctrl+T 새 탭 · Ctrl+W 닫기 · Ctrl+Tab 순환, 세션 복원), 펑션 키 바(F3~F8·Alt+F4), Insert/Space 선택(Space 는 폴더 크기 계산), Num+/Num−/Num* 패턴 선택·반전, Alt+Num+ 같은 확장자, Shift+F2 폴더 비교, Ctrl+U 패널 바꾸기, Ctrl+←/→ 대상=원본, Alt+↓ 폴더 기록, Ctrl+D 즐겨찾는 폴더, Alt+F1/F2 드라이브, 글자 입력 빠른 검색 |
-| 별도 창 | 뷰어·편집기·다중 이름 바꾸기·검색·설정은 **독립된 창**(위치·크기 자유, 종류별 기억, **도구마다 창 하나** — 다시 누르면 앞으로 오고 새 파일/폴더를 받음, 앱 종료 시 함께 닫힘). 설정 창은 크기 고정(920×990, 스크롤 없음)이며 각 도구 창은 제목줄에 자기 아이콘을 씁니다. 설정에서 앱 내 대화상자로 전환 가능 |
+| 별도 창 | 뷰어·편집기·**미리 보기·파일 정보**·다중 이름 바꾸기·검색·설정은 **독립된 창**(위치·크기 자유, 종류별 기억, **도구마다 창 하나** — 다시 누르면 앞으로 오고 새 파일/폴더를 받음, 앱 종료 시 함께 닫힘; 미리 보기 창은 포커스를 빼앗지 않고 메인 창 위에 머묾). 크기 조절이 되는 창마다 **우측 하단 크기 변경 마커**. 설정 창은 크기 고정(920×990, 스크롤 없음)이며 각 도구 창은 제목줄에 자기 아이콘을 씁니다. 설정에서 앱 내 대화상자로 전환 가능 |
 | 충돌·진행 | 같은 이름이 있으면 덮어쓰기/건너뛰기/취소 + "이후 항목에도 동일하게 적용", 모든 긴 작업은 진행률 창(취소 가능) |
 | 압축 | `.tar.gz` `.tar.bz2` `.zip` 생성/해제, **분할 압축**(zip → `.zip`+`.z01`…, tar → `.tgz`+`.001`…; GTK 판과 호환), 분할 파일 더블클릭 시 자동 결합 해제, `.tar` `.gz` `.bz2` 해제, ZIP 한글 파일명(EUC-KR) 복원 |
 | 검색 | **별도 검색 창**(툴바 검색 / F9, 제목줄로 끌어 옮김, 열어 둔 채 패널 사용 가능): 활성 패널의 폴더와 그 아래 모든 폴더에서 폴더·파일을 이름 패턴(`*.txt`)으로, 파일은 내용으로도 검색. 결과에서 Enter/더블클릭 — **폴더는 왼쪽 패널에 열고, 파일은 시스템 기본 프로그램으로 실행**. 결과를 여러 개 선택해 Ctrl+C 로 복사한 뒤 패널에 Ctrl+V 로 붙여넣거나, 버튼/우클릭 메뉴로 왼쪽·오른쪽 패널 폴더에 바로 복사 |
@@ -61,7 +64,7 @@ npm run build:linux   # release/*.AppImage, *.deb                  (Linux 에서
 
 아이콘(SF 커맨드 센터 기지 — 팔각 장갑 기지·돔·레이더·안테나·주황 경고등, 광택·반사·원근 배경)은 `assets/icon.svg` 하나에서 `npm run generate:icons` 로 `build/icons/` 의 ico · icns · png 세트가 생성되며,
 앱 실행 아이콘 · 설치 파일 · 언인스톨러 · 바탕화면/시작 메뉴 바로가기 · macOS DMG · 웹 파비콘이 모두 같은 아이콘을 씁니다.
-도구 창(뷰어·편집기·다중 이름 바꾸기·검색·설정)의 제목줄 아이콘은 `node scripts/generate-tool-icons.mjs` 가 UI 아이콘에서 만들어 `assets/tool-icons/` 에 커밋해 둡니다.
+도구 창(뷰어·편집기·미리 보기·파일 정보·다중 이름 바꾸기·검색·설정)의 제목줄 아이콘은 `node scripts/generate-tool-icons.mjs` 가 UI 아이콘에서 만들어 `assets/tool-icons/` 에 커밋해 둡니다.
 
 ### 설치 동작
 
@@ -79,7 +82,8 @@ npm run clean:all     # 위 항목 + node_modules/
 ```bash
 npm test                            # 단위 테스트: tar/zip/bz2 왕복, 분할 압축, 복사 충돌, 다중 이름 바꾸기, 파일 읽기/쓰기, 검색, API, 터미널
 npm run build && npm run smoke      # 실제 앱을 띄워 스크린샷(.smoke/main.png) + 웹 서버 API/UI 확인
-npm run smoke -- --scenario all     # 컨텍스트 메뉴·압축·검색·정보·삭제·테마·오류·터미널·로그·설정·뷰어·다중 이름 바꾸기·폴더 비교·실행 취소 화면을 각각 캡처
+npm run smoke -- --scenario all     # 컨텍스트 메뉴·압축·검색·정보·삭제·테마·오류·터미널·로그·설정·뷰어·다중 이름 바꾸기·폴더 비교·실행 취소·미리 보기·파일 정보 화면을 각각 캡처
+npm run smoke -- --scenario preview --left D:\Pictures   # 그 폴더의 첫 이미지를 미리 보기 창에 (HEIC·DICOM·TIFF 도)
 npm run smoke -- --scenario compress --web   # 같은 시나리오를 웹 모드로
 npm run smoke -- --script my.js --name x --left C:\folder --tool-script tool.js --probe probe.js
 #   --script      : 파일에 든 임의 시나리오를 메인 창에서 실행
@@ -95,6 +99,10 @@ smoke 테스트는 별도 프로필(`.smoke/profile`)로 실행되므로 실행 
 |----|------|
 | F2 · Shift+F6 | 이름 바꾸기 |
 | F3 / F4 | 내장 뷰어 / 내장 편집기 |
+| Ctrl+P | 인쇄 (뷰어·편집기 안에서도) |
+| Alt+Enter | 파일 정보 |
+| 이미지: Ctrl+휠 · + / − · 0 · 1 · R · 더블클릭 | 확대/축소 · 창에 맞춤 · 실제 크기 · 회전 · 맞춤⇄실제 |
+| DICOM: ← → · Home/End · I · W · Ctrl+드래그 | 프레임 · 첫/끝 프레임 · 반전 · 윈도우 초기화 · 윈도우 조절(좌우 폭, 상하 중심) |
 | F5 / F6 | 반대 패널로 복사 / 이동 |
 | F7 / Shift+F4 | 새 폴더 / 새 파일 |
 | F8 · Delete | 삭제 |
@@ -122,16 +130,19 @@ smoke 테스트는 별도 프로필(`.smoke/profile`)로 실행되므로 실행 
 core/       api.js fsops.js archive.js tar.js bzip2-worker.js jobs.js session.js terminal.js   ← 플랫폼 무관 (Node)
 electron/   main.js ipc.js preload.js                                             ← 데스크톱 호스트
 server/     server.js                                                             ← 웹 호스트 (http 모듈만 사용)
-src/        App.jsx ToolWindow.jsx(별도 창 페이지) themes.js styles.css main.jsx
-  lib/      backend.js(전송 + 창 열기/메시지 버스/창 크기) i18n.js format.js ansi.jsx history.js(실행 취소) settings.js(설정 기본값) prompt.js(프롬프트 테마 · oh-my-posh 호환)
+src/        App.jsx ToolWindow.jsx(별도 창 페이지: viewer·editor·preview·info·multiRename·search·settings·about) themes.js styles.css main.jsx
+  lib/      backend.js(전송 + 창 열기/메시지 버스/창 크기/저장 대화상자) i18n.js format.js ansi.jsx history.js(실행 취소) settings.js(설정 기본값) prompt.js(프롬프트 테마 · oh-my-posh 호환)
+            print.js(인쇄 문서 + 시스템 인쇄 대화상자) images.js(이미지 형식·HEIC/TIFF 디코딩·회전·PNG/JPEG/WebP/BMP 인코딩) dicom.js(DICOM 태그·전송 구문별 코덱·프레임·윈도우) exif.js(JPEG EXIF) fileinfo.js(파일 정보 "내용" 행)
   themes.js(내장 20 + 사용자 정의 테마)
-  components/ FilePanel.jsx FolderTree.jsx Chrome.jsx(메뉴·툴바·펑션 키 바) ContextMenu.jsx Icons.jsx BottomDock.jsx Prompt.jsx
-  dialogs/  Dialogs.jsx SearchDialog.jsx SettingsDialog.jsx PromptEditor.jsx ToolDialogs.jsx(뷰어·편집기·다중 이름 바꾸기)
+  components/ FilePanel.jsx FolderTree.jsx Chrome.jsx(메뉴·툴바·펑션 키 바) ContextMenu.jsx Icons.jsx BottomDock.jsx Prompt.jsx ImageView.jsx(그림 창: 확대·회전·인쇄·저장·DICOM 막대) ResizeGrip.jsx(크기 변경 마커)
+  dialogs/  Dialogs.jsx SearchDialog.jsx SettingsDialog.jsx PromptEditor.jsx ToolDialogs.jsx(뷰어·편집기·다중 이름 바꾸기) InfoDialog.jsx(파일 정보)
 assets/     icon.svg
 build/      installer.nsh linux/{after-install.sh, after-remove.sh}
 scripts/    generate-icons.mjs generate-tool-icons.mjs ico.mjs generate-build-info.mjs sync-public-svgs.mjs start-electron.mjs copy-installer.js free-port.mjs smoke.mjs clean.mjs
 test/       archive.test.mjs fsops.test.mjs terminal.test.mjs prompt.test.mjs
 ```
+
+이미지 디코딩은 렌더러에서 합니다(데스크톱·웹 동일): `libheif-js`(HEIC/HEIF, WebAssembly) · `utif`(TIFF) · `dicom-parser` + `@cornerstonejs/codec-openjpeg`(JPEG 2000) · `@cornerstonejs/codec-charls`(JPEG-LS) · `@cornerstonejs/codec-libjpeg-turbo-8bit`/`-12bit`(JPEG) · `jpeg-lossless-decoder-js`(무손실 JPEG). 모두 첫 사용 때만 로드되는 별도 청크입니다.
 
 자세한 설명은 [Architecture.md](Architecture.md) 를 보세요.
 

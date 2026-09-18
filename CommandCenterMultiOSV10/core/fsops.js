@@ -244,6 +244,58 @@ async function statPath(p) {
   };
 }
 
+// Everything the file-info window shows about a path (the viewer's decoders add what is *in* an
+// image or text file). Times are formatted here so every host shows them the same way.
+const MIME_BY_EXT = {
+  '.txt': 'text/plain', '.md': 'text/markdown', '.html': 'text/html', '.htm': 'text/html', '.css': 'text/css', '.js': 'text/javascript', '.mjs': 'text/javascript', '.jsx': 'text/javascript', '.ts': 'text/typescript', '.tsx': 'text/typescript',
+  '.json': 'application/json', '.xml': 'application/xml', '.yml': 'application/yaml', '.yaml': 'application/yaml', '.csv': 'text/csv', '.pdf': 'application/pdf',
+  '.zip': 'application/zip', '.gz': 'application/gzip', '.tgz': 'application/gzip', '.bz2': 'application/x-bzip2', '.tar': 'application/x-tar', '.7z': 'application/x-7z-compressed', '.rar': 'application/vnd.rar',
+  '.mp3': 'audio/mpeg', '.wav': 'audio/wav', '.flac': 'audio/flac', '.ogg': 'audio/ogg', '.mp4': 'video/mp4', '.mkv': 'video/x-matroska', '.webm': 'video/webm', '.avi': 'video/x-msvideo', '.mov': 'video/quicktime',
+  '.doc': 'application/msword', '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', '.xls': 'application/vnd.ms-excel', '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', '.ppt': 'application/vnd.ms-powerpoint', '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  '.exe': 'application/vnd.microsoft.portable-executable', '.dll': 'application/vnd.microsoft.portable-executable', '.msi': 'application/x-msi', '.sh': 'application/x-sh', '.ps1': 'text/plain', '.bat': 'text/plain', '.cmd': 'text/plain', '.py': 'text/x-python', '.java': 'text/x-java', '.c': 'text/x-c', '.cpp': 'text/x-c++', '.h': 'text/x-c', '.rs': 'text/rust', '.go': 'text/x-go',
+};
+async function fileInfo(p) {
+  const base = await statPath(p);
+  const lst = await fsp.lstat(p);
+  const st = base.isSymlink ? await fsp.stat(p).catch(() => lst) : lst;
+  const ext = base.isDir ? '' : path.extname(p).toLowerCase();
+  // Windows keeps hidden / read-only / system in attributes Node does not expose; the dot rule and the
+  // owner-write bit cover POSIX, and on Windows the write bit mirrors the read-only attribute.
+  const readOnly = !(st.mode & 0o200);
+  const hidden = path.basename(p).startsWith('.');
+  return {
+    ...base,
+    ext: ext ? ext.slice(1) : '',
+    mime: IMAGE_TYPES[ext] || MIME_BY_EXT[ext] || (base.isDir ? 'inode/directory' : 'application/octet-stream'),
+    parent: path.dirname(p),
+    sizeOnDisk: st.blocks ? st.blocks * 512 : null,   // null on Windows (no block count)
+    created: st.birthtimeMs ? formatDate(st.birthtimeMs) : '',
+    modified: formatDate(st.mtimeMs),
+    accessed: formatDate(st.atimeMs),
+    changed: formatDate(st.ctimeMs),   // metadata change (POSIX); on Windows the same as created
+    createdMs: st.birthtimeMs || 0, modifiedMs: st.mtimeMs, accessedMs: st.atimeMs,
+    modeOctal: (st.mode & 0o7777).toString(8).padStart(4, '0'),
+    readOnly, hidden,
+    links: st.nlink,
+    inode: isWin ? null : st.ino,
+    owner: isWin ? null : `${st.uid}:${st.gid}`,
+    linkTarget: base.isSymlink ? base.target : '',
+    linkBroken: base.isSymlink ? !(await exists(p)) : false,
+    truncatedCount: base.isDir ? base.files + base.dirs >= 20000 : false,
+  };
+}
+
+// MD5 and SHA-256 of a file, streamed (the info window computes them on request only).
+async function hashFile(p) {
+  const crypto = require('crypto');
+  const md5 = crypto.createHash('md5'), sha256 = crypto.createHash('sha256'), sha1 = crypto.createHash('sha1');
+  let bytes = 0;
+  await new Promise((resolve, reject) => {
+    fs.createReadStream(p).on('data', (c) => { md5.update(c); sha256.update(c); sha1.update(c); bytes += c.length; }).on('end', resolve).on('error', reject);
+  });
+  return { bytes, md5: md5.digest('hex'), sha1: sha1.digest('hex'), sha256: sha256.digest('hex') };
+}
+
 async function sumTree(root, limit) {
   const acc = { size: 0, files: 0, dirs: 0, visited: 0 };
   const stack = [root];
@@ -342,7 +394,13 @@ async function renameMany(items) {
 
 // ── Reading / writing files (the built-in viewer and editor) ──
 
-const IMAGE_TYPES = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp', '.bmp': 'image/bmp', '.svg': 'image/svg+xml', '.ico': 'image/x-icon', '.avif': 'image/avif' };
+// Read whole and handed to the UI as base64 (kind 'image'). The browser draws the first group itself;
+// HEIC / HEIF, DICOM and TIFF are decoded in the renderer (src/lib/images.js). Keep in step with IMAGE_EXTS there.
+const IMAGE_TYPES = {
+  '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.jfif': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp', '.bmp': 'image/bmp',
+  '.svg': 'image/svg+xml', '.ico': 'image/x-icon', '.avif': 'image/avif', '.apng': 'image/apng',
+  '.heic': 'image/heic', '.heif': 'image/heif', '.hif': 'image/heif', '.dcm': 'application/dicom', '.dicom': 'application/dicom', '.tif': 'image/tiff', '.tiff': 'image/tiff',
+};
 const TEXT_LIMIT = 8 * 1024 * 1024;
 const IMAGE_LIMIT = 24 * 1024 * 1024;
 const HEX_LIMIT = 256 * 1024;
@@ -397,6 +455,13 @@ async function readFile(p) {
   }
   const { text, encoding } = decodeText(buf);
   return { kind: 'text', size: st.size, truncated: st.size > TEXT_LIMIT, text, encoding };
+}
+
+// Binary write (image save-as / convert): the bytes arrive base64-encoded from the UI.
+async function writeBytes(p, base64) {
+  await fsp.writeFile(p, Buffer.from(String(base64 || ''), 'base64'));
+  const st = await fsp.stat(p);
+  return { size: st.size, mtime: st.mtimeMs };
 }
 
 async function writeText(p, text) {
@@ -604,6 +669,32 @@ function openWithDefaultApp(p) {
   });
 }
 
+// Prints a file through the OS: the shell's "Print" verb on Windows (the
+// associated program prints it to the default printer — PDF, Office files,
+// …), lp / lpr (CUPS) on macOS and Linux. Text and images are printed by the
+// app itself (src/lib/print.js); this is the fallback for everything else.
+// Resolves with '' on success or an error message.
+function printWithDefaultApp(p) {
+  const { execFile } = require('child_process');
+  let cmd, args;
+  if (isWin) {
+    const q = String(p).replace(/'/g, "''");
+    cmd = 'powershell.exe';
+    args = ['-NoProfile', '-NonInteractive', '-Command',
+      '[Console]::OutputEncoding = [Text.Encoding]::UTF8; '
+      + `try { Start-Process -FilePath '${q}' -Verb Print -ErrorAction Stop } catch { [Console]::Error.WriteLine($_.Exception.Message); exit 1 }`];
+  } else {
+    cmd = 'lp'; args = ['--', p];
+  }
+  return new Promise((resolve) => {
+    execFile(cmd, args, { timeout: 15000, windowsHide: true }, (err, _stdout, stderr) => {
+      if (!err) return resolve('');
+      const msg = String(stderr || '').trim() || err.message || 'print failed';
+      resolve(err.code === 'ENOENT' && !isWin ? `${cmd} not found (${msg})` : msg);
+    });
+  });
+}
+
 // Opens a file with a specific program (settings › text files › application).
 // The program is started detached, so the app never waits for it.
 function openWithApp(appPath, file) {
@@ -790,11 +881,15 @@ module.exports = {
   renameMany,
   readFile,
   writeText,
+  writeBytes,
+  fileInfo,
+  hashFile,
   countItems,
   transfer,
   deletePaths,
   trashPaths,
   openWithDefaultApp,
+  printWithDefaultApp,
   openWithApp,
   search,
   formatDate,

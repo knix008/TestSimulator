@@ -8,6 +8,7 @@ import { Icon } from '../components/Icons';
 import { writeClipboardText, fitWindow } from '../lib/backend';
 import { SettingsDialog } from './SettingsDialog';
 import { ViewerDialog, EditorDialog, MultiRenameDialog } from './ToolDialogs';
+import { InfoDialog } from './InfoDialog';
 import { describeError } from '../lib/errors';
 
 // ── Frame ─────────────────────────────────────────────────
@@ -259,28 +260,6 @@ export function AboutDialog({ spec, done }) {
 
 // ── Properties ──
 
-function PropertiesDialog({ spec, done }) {
-  const s = spec.stat;
-  const rows = [
-    [t('props_name'), s.name],
-    [t('props_path'), s.path],
-    [t('props_type'), s.isDir ? t('folder') : (s.name.includes('.') ? t('file_of', { ext: s.name.split('.').pop().toUpperCase() }) : t('file'))],
-    [t('props_size'), `${formatSize(s.size)} (${s.size.toLocaleString()} B)`],
-    s.isDir ? [t('props_contents'), t('props_contents_val', { dirs: s.dirs, files: s.files })] : null,
-    [t('props_modified'), s.date],
-    [t('props_perm'), s.perm],
-    s.isSymlink ? [t('props_link'), s.target] : null,
-  ].filter(Boolean);
-  return (
-    <DialogFrame title={t('props_title')} onClose={() => done()} icon="properties" width={520}
-      footer={<button className="btn primary" onClick={() => done()} autoFocus>{t('ok')}</button>}>
-      <table className="props">
-        <tbody>{rows.map(([k, v]) => <tr key={k}><th>{k}</th><td className="mono">{v}</td></tr>)}</tbody>
-      </table>
-    </DialogFrame>
-  );
-}
-
 // ── Host ──
 
 const RENDERERS = {
@@ -291,7 +270,7 @@ const RENDERERS = {
   progress: ProgressDialog,
   compress: CompressDialog,
   about: AboutDialog,
-  properties: PropertiesDialog,
+  properties: InfoDialog,
   settings: SettingsDialog,
   viewer: ViewerDialog,
   editor: EditorDialog,
@@ -350,7 +329,7 @@ export function useDialogs() {
     conflict: (info) => push({ type: 'conflict', info }),
     compress: (spec) => push({ type: 'compress', ...spec }),
     about: (info) => push({ type: 'about', info }),
-    properties: (stat) => push({ type: 'properties', stat }),
+    properties: (info) => push({ type: 'properties', info }),
     settings: (values, extra) => push({ type: 'settings', values, ...(extra || {}) }),
     viewer: (spec) => push({ type: 'viewer', ...spec }),
     editor: (spec) => push({ type: 'editor', ...spec }),

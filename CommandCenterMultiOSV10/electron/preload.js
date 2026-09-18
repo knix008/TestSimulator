@@ -27,6 +27,8 @@ contextBridge.exposeInMainWorld('commandCenter', {
   },
 
   dialog: (kind, opts) => ipcRenderer.invoke('dialog', kind, opts),
+  // Prints a self-contained HTML document through the system print dialog (see ipc.js print:html).
+  printHtml: (spec) => ipcRenderer.invoke('print:html', spec),
   quit: () => ipcRenderer.send('app:quit'),
 
   // Tool windows (see ipc.js): open one, fetch this window's arguments, close

@@ -3,6 +3,8 @@
 // size), fetches its arguments from the host and renders one tool full-size:
 //
 //   viewer       { path }                       F3
+//   preview      { path }                       a click on an image in the list
+//   info         { path }                       Alt+Enter (file info)
 //   editor       { path }                       F4
 //   multiRename  { entries, parent }            Ctrl+M
 //   search       { root }                       F9
@@ -19,6 +21,8 @@ import { setSeparator, baseName } from './lib/format';
 import { applyTheme, themeById, DEFAULT_THEME, setCustomThemes } from './themes';
 import { SETTINGS_DEFAULTS } from './lib/settings';
 import { DialogHost, useDialogs, AboutDialog } from './dialogs/Dialogs';
+import { InfoDialog } from './dialogs/InfoDialog';
+import { ResizeGrip } from './components/ResizeGrip';
 import { ViewerDialog, EditorDialog, MultiRenameDialog } from './dialogs/ToolDialogs';
 import { SearchDialog } from './dialogs/SearchDialog';
 import { SettingsDialog } from './dialogs/SettingsDialog';
@@ -44,9 +48,14 @@ export default function ToolWindow() {
     const a = await windowArgs();
     setArgs(a || {});
     setMode(windowKind);
-    if ((windowKind === 'viewer' || windowKind === 'editor') && a && a.path) {
+    if ((windowKind === 'viewer' || windowKind === 'editor' || windowKind === 'preview') && a && a.path) {
       setData(null);
       try { setData(await call('fs.readFile', { path: a.path })); }
+      catch (err) { setError(err.message || String(err)); }
+    }
+    if (windowKind === 'info' && a && a.path) {
+      setData(null);
+      try { setData(await call('fs.info', { path: a.path })); }
       catch (err) { setError(err.message || String(err)); }
     }
   };
@@ -95,15 +104,18 @@ export default function ToolWindow() {
   const path = args && args.path;
 
   if (error) return <div className="boot">{error}</div>;
-  if (!session || !args || ((mode === 'viewer' || mode === 'editor') && !data)) return <div className="boot">…</div>;
+  if (!session || !args || ((mode === 'viewer' || mode === 'editor' || mode === 'preview' || mode === 'info') && !data)) return <div className="boot">…</div>;
 
   let body = null;
-  if (mode === 'viewer') {
+  if (mode === 'viewer' || mode === 'preview') {
     body = (
       <ViewerDialog key={path} spec={{
-        path, data, windowed: true, prefs,
+        path, data, windowed: true, prefs, preview: mode === 'preview',
         canOpen: !!(info && info.capabilities.open),
         onOpen: () => call('fs.open', { path }).catch((err) => dialogs.error(err)),
+        onPrintError: (err) => dialogs.error(err, t('print_failed')),
+        onStatus: (text) => postToApp({ type: 'status', status: text }),
+        onSaved: (p) => postToApp({ type: 'refresh', status: t('img_saved', { name: baseName(p) }) }),
       }} done={(r) => {
         if (r === 'edit' && data.kind === 'text' && !data.truncated) setMode('editor');
         else closeWindow();
@@ -122,6 +134,7 @@ export default function ToolWindow() {
             catch (err) { await dialogs.error(err, t('save_failed')); throw err; }
           },
           confirmDiscard: () => dialogs.confirm({ title: t('editor_title'), message: t('editor_discard', { name: baseName(path) }), danger: true, yesLabel: t('editor_discard_yes'), noLabel: t('cancel') }),
+          onPrintError: (err) => dialogs.error(err, t('print_failed')),
         }} done={() => closeWindow()} />
       );
     }
@@ -157,6 +170,8 @@ export default function ToolWindow() {
         closeWindow();
       }} />
     );
+  } else if (mode === 'info') {
+    body = <InfoDialog key={path} spec={{ info: data, windowed: true }} done={() => closeWindow()} />;
   } else if (mode === 'about') {
     body = <AboutDialog spec={{ info: args.info || {}, windowed: true }} done={() => closeWindow()} />;
   } else {
@@ -166,6 +181,8 @@ export default function ToolWindow() {
   return (
     <div className="tool-window">
       {body}
+      {/* The resize marker at the bottom-right corner; the fixed-size windows (settings, about) have none. */}
+      {mode !== 'settings' && mode !== 'about' && <ResizeGrip />}
       <DialogHost stack={dialogs.stack} resolve={dialogs.resolve} />
     </div>
   );

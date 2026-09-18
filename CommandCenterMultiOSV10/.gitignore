@@ -22,6 +22,7 @@ public/icon.svg
 *.blockmap
 
 # ── Smoke-test output (npm run smoke): screenshots (main + tool windows), scripts, private profile ──
+# (.smoke/images/ holds the HEIC / DICOM / TIFF samples fetched for the preview and file-info checks — see UsersGuide § 3)
 .smoke/
 .icons-preview.png
 .npm-install.log

@@ -19,6 +19,8 @@ export function MenuBar({ onAction, state }) {
     file: [
       { id: 'view', label: t('view_file'), icon: 'view', shortcut: 'F3', disabled: !state.oneFile },
       { id: 'edit', label: t('edit_file'), icon: 'edit', shortcut: 'F4', disabled: !state.oneFile },
+      { id: 'print', label: t('print'), icon: 'print', shortcut: 'Ctrl+P', disabled: !state.oneFile },
+      { id: 'preview', label: t('preview'), icon: 'image', disabled: !state.oneImage },
       { id: 'properties', label: t('ctx_properties'), icon: 'properties', shortcut: 'Alt+Enter', disabled: state.selCount !== 1 },
       { sep: true },
       { id: 'newFolder', label: t('new_folder'), icon: 'folderNew', shortcut: 'F7' },
@@ -112,6 +114,7 @@ export function Toolbar({ onAction, theme, dockVisible, state = {} }) {
   const items = [
     ['view', 'view', 'view_file', 'tip_view', !state.oneFile],
     ['edit', 'edit', 'edit_file', 'tip_edit', !state.oneFile],
+    ['print', 'print', 'print', 'tip_print', !state.oneFile],
     null,
     ['newFolder', 'folderNew', 'tb_new_folder', 'tip_new_folder'],
     ['newFile', 'fileNew', 'tb_new_file', 'tip_new_file'],

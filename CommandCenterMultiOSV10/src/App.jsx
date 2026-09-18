@@ -4,7 +4,7 @@
 // bottom dock (operation log + terminal tabs) and every action that needs a
 // dialog, a job with progress, or the other panel.
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { call, runJob, cancelJob, resolveConflict, readClipboardText, writeClipboardText, quitApp, hostName, pickFolder, pickFile, openWindow, onAppMessage, postToApp, canOpenWindows, canResizeWindow, windowSize, resizeWindow } from './lib/backend';
+import { call, runJob, cancelJob, resolveConflict, readClipboardText, writeClipboardText, quitApp, hostName, pickFolder, pickFile, openWindow, onAppMessage, postToApp, canOpenWindows } from './lib/backend';
 import { t, setLanguage, getLanguage, useLanguage } from './lib/i18n';
 import { setSeparator, joinPath, baseName, dirName, getSeparator } from './lib/format';
 import { FilePanel } from './components/FilePanel';
@@ -15,6 +15,9 @@ import { SearchDialog } from './dialogs/SearchDialog';
 import { applyTheme, themeById, nextThemeId, DEFAULT_THEME, setCustomThemes, allThemes } from './themes';
 import { SETTINGS_DEFAULTS, SETTINGS_KEYS, isTextFile } from './lib/settings';
 import { History } from './lib/history';
+import { ResizeGrip } from './components/ResizeGrip';
+import { canPrintData, buildPrintHtml, printDocument } from './lib/print';
+import { isImageName, decodeImage, renderImage } from './lib/images';
 
 function applyFontSize(px) {
   document.documentElement.style.setProperty('--fs', `${Math.max(9, Number(px) || 12)}px`);
@@ -42,27 +45,6 @@ let logSeq = 0;
 function errorText(err, extra) {
   const msg = err && err.message ? err.message : (typeof err === 'string' ? err : String(err));
   return typeof extra === 'string' && extra && extra !== msg ? `${extra}: ${msg}` : msg;
-}
-
-// The resize marker at the bottom-right corner of the main window: dragging it
-// resizes the window through the host (the native frame still works as well).
-function ResizeGrip() {
-  const onDown = async (e) => {
-    if (e.button !== 0) return;
-    e.preventDefault();
-    const start = await windowSize();
-    const x0 = e.screenX, y0 = e.screenY;
-    let raf = 0, last = null;
-    const move = (ev) => { last = ev; if (!raf) raf = requestAnimationFrame(() => { raf = 0; resizeWindow(start.width + (last.screenX - x0), start.height + (last.screenY - y0)); }); };
-    const up = () => { window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up); };
-    window.addEventListener('mousemove', move);
-    window.addEventListener('mouseup', up);
-  };
-  return (
-    <svg className="resize-grip" viewBox="0 0 16 16" onMouseDown={onDown} aria-hidden="true">
-      <path d="M15 1L1 15M15 6L6 15M15 11l-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" fill="none" />
-    </svg>
-  );
 }
 
 // One line describing a history entry, for the undo / redo tooltips and the status bar.
@@ -111,6 +93,7 @@ export default function App() {
   const termNo = useRef(1);
   const [busy, setBusy] = useState(0);
   const [selCount, setSelCount] = useState({ left: 0, right: 0 });
+  const [selImage, setSelImage] = useState({ left: false, right: false });   // the one selected entry is an image (File › Preview)
   const [extractable, setExtractable] = useState({ left: false, right: false });
   const [selIsDir, setSelIsDir] = useState({ left: false, right: false });
   const [search, setSearch] = useState(null);   // { root } while the search window is open
@@ -545,12 +528,14 @@ export default function App() {
     if (firstDir) navigate(side, firstDir.path);
   };
 
+  // Alt+Enter / context menu › File info: the file-info window (or dialog): fs.info + what is inside the file.
   const properties = async (side) => {
     const [entry] = panel(side) ? panel(side).getSelectedEntries() : [];
     if (!entry) return;
+    if (useWindows() && await openTool('info', { path: entry.path }, { title: `${t('info_title')} — ${entry.name}` })) return;
     try {
-      const st = await call('fs.stat', { path: entry.path });
-      await dialogs.properties(st);
+      const info = await call('fs.info', { path: entry.path });
+      await dialogs.properties(info);
     } catch (err) {
       await dialogs.error(err);
     }
@@ -653,7 +638,7 @@ export default function App() {
     try { await openWindow(kind, args, opts); return true; }
     catch (err) { if (err.message !== 'POPUP_BLOCKED') await dialogs.error(err); return false; }
   };
-  const prefsOf = () => ({ viewerWrap: session.viewerWrap, viewerFontSize: session.viewerFontSize, editorFontSize: session.editorFontSize, editorTabSize: session.editorTabSize, editorWrap: session.editorWrap });
+  const prefsOf = () => ({ viewerWrap: session.viewerWrap, viewerFontSize: session.viewerFontSize, editorFontSize: session.editorFontSize, editorTabSize: session.editorTabSize, editorWrap: session.editorWrap, printFontSize: session.printFontSize });
   const viewFile = async (side, entry) => {
     const p = panel(side);
     const e = entry || (p && p.getCursorEntry());
@@ -662,8 +647,17 @@ export default function App() {
     setBusy((b) => b + 1);
     let data;
     try { data = await call('fs.readFile', { path: e.path }); } finally { setBusy((b) => Math.max(0, b - 1)); }
-    const r = await dialogs.viewer({ path: e.path, data, prefs: prefsOf(), canOpen: !!(info && info.capabilities.open), onOpen: () => call('fs.open', { path: e.path }).catch((err) => dialogs.error(err)) });
+    const r = await dialogs.viewer({ path: e.path, data, prefs: prefsOf(), canOpen: !!(info && info.capabilities.open), onOpen: () => call('fs.open', { path: e.path }).catch((err) => dialogs.error(err)), onPrintError: (err) => dialogs.error(err, t('print_failed')), onStatus: setStatus, onSaved: () => { p && p.refresh(); } });
     if (r === 'edit') await editFile(side, e, data);
+  };
+  // A click on an image in the list (and the 'preview' action): the preview window — one for the app,
+  // shown without taking the focus, following every image clicked. HEIC / DICOM / TIFF are decoded in it.
+  const previewImage = async (side, entry, explicit) => {
+    const p = panel(side);
+    const e = entry || (p && p.getCursorEntry());
+    if (!e || e.isDir) { if (explicit) setStatus(t('view_none')); return; }
+    if (!isImageName(e.name)) { if (explicit) setStatus(t('preview_not_image', { name: e.name })); return; }
+    if (explicit || canOpenWindows) { await openTool('preview', { path: e.path }, { title: `${t('preview_title')} — ${e.name}` }); return; }
   };
   // F4: a plain text editor; the file is written back as UTF-8.
   const editFile = async (side, entry, data) => {
@@ -681,7 +675,42 @@ export default function App() {
         catch (err) { await dialogs.error(err, t('save_failed')); throw err; }
       },
       confirmDiscard: () => dialogs.confirm({ title: t('editor_title'), message: t('editor_discard', { name: e.name }), danger: true, yesLabel: t('editor_discard_yes'), noLabel: t('cancel') }),
+      onPrintError: (err) => dialogs.error(err, t('print_failed')),
     });
+  };
+  // Ctrl+P: print the file under the cursor. Text and images are printed by the app (src/lib/print.js —
+  // system print dialog); anything else (PDF, Office documents, …) is handed to the OS after a
+  // confirmation, since the shell's print verb may go straight to the default printer.
+  const printFile = async (side, entry) => {
+    const p = panel(side);
+    const e = entry || (p && p.getCursorEntry());
+    if (!e || e.isDir) { setStatus(t('print_none')); return; }
+    setBusy((b) => b + 1);
+    let data;
+    try { data = await call('fs.readFile', { path: e.path }); } finally { setBusy((b) => Math.max(0, b - 1)); }
+    if (canPrintData(data)) {
+      // A picture goes through the decoder (HEIC / DICOM / TIFF are not something the print page can draw).
+      let mime = data.mime, base64 = data.base64;
+      if (data.kind === 'image') {
+        try { const d = await decodeImage(data, e.name); mime = 'image/png'; base64 = renderImage(d, 0).toDataURL('image/png').split(',')[1]; }
+        catch (err) { await dialogs.error(err, t('img_decode_failed', { name: e.name })); return; }
+      }
+      const html = buildPrintHtml({
+        title: e.name, kind: data.kind, text: data.text, mime, base64,
+        wrap: session.viewerWrap !== false, fontSize: session.printFontSize, tabSize: session.editorTabSize,
+        meta: data.kind === 'text' ? data.encoding : data.mime,
+      });
+      try {
+        const r = await printDocument({ html, title: e.name });
+        setStatus(t(r && r.cancelled ? 'print_cancelled' : 'print_sent', { name: e.name }));
+      } catch (err) { await dialogs.error(err, t('print_failed')); }
+      return;
+    }
+    if (!(info && info.capabilities.print)) { await dialogs.error(t(data.truncated ? 'print_too_large' : 'print_unsupported', { name: e.name })); return; }
+    const ok = await dialogs.confirm({ title: t('print_via_app_title'), message: t('print_via_app', { name: e.name }), yesLabel: t('print_via_app_yes'), noLabel: t('cancel') });
+    if (!ok) return;
+    try { await call('fs.print', { path: e.path }); setStatus(t('print_sent', { name: e.name })); }
+    catch (err) { await dialogs.error(err, t('print_failed')); }
   };
   // Ctrl+M: rename every selected entry through masks / search-replace / counter; one undo step.
   const multiRename = async (side) => {
@@ -788,6 +817,8 @@ export default function App() {
       case 'redo': await undoRedo(false); break;
       case 'view': await viewFile(side); break;
       case 'edit': await editFile(side); break;
+      case 'print': await printFile(side); break;
+      case 'preview': await previewImage(side, null, true); break;
       case 'multiRename': await multiRename(side); break;
       case 'compareDirs': compareDirs(); break;
       case 'swapPanels': swapPanels(); break;
@@ -902,6 +933,7 @@ export default function App() {
     if (!msg || !session) return;
     switch (msg.type) {
       case 'refresh': refreshBoth(); if (msg.status) setStatus(msg.status); break;
+      case 'status': if (msg.status) setStatus(msg.status); break;
       case 'renamed': afterRenameMany(msg.pairs, msg.side); break;
       case 'navigate': setActive(msg.side || 'left'); navigate(msg.side || 'left', msg.path); setStatus(t('search_opened_left', { path: msg.path })); break;
       case 'openFile': await openEntry('left', { name: baseName(msg.path), path: msg.path, isDir: false }); break;
@@ -930,13 +962,13 @@ export default function App() {
       const ctrl = e.ctrlKey || e.metaKey;
       // Total Commander keys: F3 view, F4 edit, Shift+F2 compare, Alt+F1/F2 drives, Alt+F5/F9 pack/unpack,
       // Ctrl+U swap, Ctrl+←/→ target = source, Ctrl+D hotlist, Alt+↓ history, Ctrl+M multi-rename,
-      // Ctrl+PgUp / Ctrl+\ parent / root, Ctrl+R refresh, Ctrl+H hidden files.
+      // Ctrl+PgUp / Ctrl+\ parent / root, Ctrl+R refresh, Ctrl+H hidden files, Ctrl+P print.
       let id = null;
       if (e.altKey && !ctrl) {
         id = { F1: 'drives:left', F2: 'drives:right', F4: 'quit', F5: 'compress', F9: 'extract', ArrowDown: 'dirHistory' }[e.key] || null;
       } else if (ctrl && !e.altKey) {
         id = { u: 'swapPanels', U: 'swapPanels', ArrowLeft: 'targetLeft', ArrowRight: 'targetRight', d: 'hotlist', D: 'hotlist', m: 'multiRename', M: 'multiRename',
-          PageUp: 'parent', PageDown: 'open', '\\': 'root', r: 'refresh', R: 'refresh', h: 'toggleHidden', H: 'toggleHidden',
+          PageUp: 'parent', PageDown: 'open', '\\': 'root', r: 'refresh', R: 'refresh', h: 'toggleHidden', H: 'toggleHidden', p: 'print', P: 'print',
           t: 'newTab', T: 'newTab', w: 'closeTab', W: 'closeTab', Tab: e.shiftKey ? 'prevTab' : 'nextTab' }[e.key] || null;
       } else if (!ctrl && !e.altKey) {
         id = e.shiftKey
@@ -977,6 +1009,7 @@ export default function App() {
     hasSelection: selCount[active] > 0,
     selCount: selCount[active],
     oneFile: selCount[active] === 1 && !selIsDir[active],
+    oneImage: selImage[active],
     canExtract: selCount[active] === 1 && extractable[active],
     canTrash: !!(info && info.capabilities.trash),
     dockVisible: !!(session && session.dockVisible),
@@ -992,7 +1025,7 @@ export default function App() {
     canRedo: history.canRedo,
     undoWhat: describeHistory(history.peekUndo()),
     redoWhat: describeHistory(history.peekRedo()),
-  }), [session, selCount, selIsDir, extractable, active, info, dockTab, dockSearch, terms, history.version]); // eslint-disable-line react-hooks/exhaustive-deps
+  }), [session, selCount, selIsDir, selImage, extractable, active, info, dockTab, dockSearch, terms, history.version]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!session) return <div className="boot">{status || '…'}</div>;
 
@@ -1011,10 +1044,13 @@ export default function App() {
       setSelCount((c) => (c[side] === entries.length ? c : { ...c, [side]: entries.length }));
       const dir = entries.length === 1 && entries[0].isDir;
       setSelIsDir((d) => (d[side] === dir ? d : { ...d, [side]: dir }));
+      const img = entries.length === 1 && !entries[0].isDir && isImageName(entries[0].name);
+      setSelImage((x) => (x[side] === img ? x : { ...x, [side]: img }));
       const p = panels[side].current;
       setTimeout(() => setExtractable((x) => ({ ...x, [side]: !!(p && p.isExtractable()) })), 60);
     },
     onOpenEntry: (entry) => openEntry(side, entry),
+    onPreview: session.imagePreview !== false ? (entry) => { previewImage(side, entry, false).catch(() => {}); } : undefined,
     onAction: (id) => onAction(id, side),
     history: dirHistory[side],
     hotlist: session.hotlist || [],
@@ -1062,7 +1098,7 @@ export default function App() {
       {session.fnBar !== false && <FnBar onAction={(id) => onAction(id)} state={menuState} />}
       <div className="statusbar ellipsis" title={status}>
         {status}
-        {canResizeWindow && <ResizeGrip />}
+        <ResizeGrip />
       </div>
       {search && (
         <SearchDialog root={search.root} onClose={() => setSearch(null)}

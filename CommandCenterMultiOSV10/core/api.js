@@ -36,8 +36,11 @@ function createApi(host = {}) {
       buildInfo: host.buildInfo || null,
       capabilities: {
         open: !!host.openPath,
+        // Printing through the OS (files the app cannot render itself): desktop only.
+        print: !!host.printPath,
         trash: !!host.trashPath || process.platform === 'linux' || process.platform === 'darwin',
         clipboard: !!host.clipboard,
+        clipboardImage: !!(host.clipboard && host.clipboard.writeImage),
         watch: true,
       },
     }),
@@ -49,6 +52,8 @@ function createApi(host = {}) {
     'fs.roots': async () => fsops.listRoots(),
     'fs.drives': async () => fsops.listDrives(),
     'fs.stat': async ({ path: p }) => fsops.statPath(p),
+    'fs.info': async ({ path: p }) => fsops.fileInfo(p),
+    'fs.hash': async ({ path: p }) => fsops.hashFile(p),
     'fs.mtime': async ({ path: p }) => ({ mtime: await fsops.directoryMtime(p) }),
     'fs.exists': async ({ path: p }) => ({ exists: await fsops.exists(p), isDir: await fsops.isDirectory(p) }),
     'fs.mkdir': async ({ dir, name }) => ({ path: await fsops.makeDirectory(dir, name) }),
@@ -57,9 +62,17 @@ function createApi(host = {}) {
     'fs.renameMany': async ({ items }) => ({ renamed: await fsops.renameMany(items || []) }),
     'fs.readFile': async ({ path: p }) => fsops.readFile(p),
     'fs.writeText': async ({ path: p, text }) => fsops.writeText(p, String(text == null ? '' : text)),
+    'fs.writeBytes': async ({ path: p, base64 }) => fsops.writeBytes(p, base64),
     'fs.open': async ({ path: p }) => {
       if (!host.openPath) throw new Error('OPEN_UNSUPPORTED');
       const result = await host.openPath(p);
+      if (result) throw new Error(result);
+      return { ok: true };
+    },
+    // Hands a file to the OS to print (PDF, Office documents, …); text and images the app prints itself.
+    'fs.print': async ({ path: p }) => {
+      if (!host.printPath) throw new Error('PRINT_UNSUPPORTED');
+      const result = await host.printPath(p);
       if (result) throw new Error(result);
       return { ok: true };
     },
@@ -112,6 +125,12 @@ function createApi(host = {}) {
     // ── clipboard (host-provided; the browser uses navigator.clipboard) ──
     'clipboard.read': async () => ({ text: host.clipboard ? host.clipboard.readText() : '' }),
     'clipboard.write': async ({ text }) => { if (host.clipboard) host.clipboard.writeText(text || ''); return { ok: true }; },
+    // A picture (data: URL) onto the system clipboard — the desktop host only.
+    'clipboard.writeImage': async ({ dataUrl }) => {
+      if (!host.clipboard || !host.clipboard.writeImage) throw new Error('CLIPBOARD_UNSUPPORTED');
+      host.clipboard.writeImage(String(dataUrl || ''));
+      return { ok: true };
+    },
   };
 
   async function call(name, args) {

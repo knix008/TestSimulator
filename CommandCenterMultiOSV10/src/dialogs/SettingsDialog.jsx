@@ -253,6 +253,9 @@ export function SettingsDialog({ spec, done }) {
               {[10, 11, 12, 13, 14, 15, 16, 18, 20].map((n) => <option key={n} value={n}>{n} px</option>)}
             </select>
             <Check k="viewerWrap" label={t('set_viewer_wrap')} />
+            <Check k="imagePreview" label={t('set_image_preview')} />
+            <span />
+            <span className="muted small">{t('set_image_preview_hint')}</span>
             <label>{t('set_editor_font')}</label>
             <select value={v.editorFontSize} onChange={(e) => set('editorFontSize', Number(e.target.value))}>
               {[10, 11, 12, 13, 14, 15, 16, 18, 20].map((n) => <option key={n} value={n}>{n} px</option>)}
@@ -262,6 +265,12 @@ export function SettingsDialog({ spec, done }) {
               {[2, 4, 8].map((n) => <option key={n} value={n}>{n}</option>)}
             </select>
             <Check k="editorWrap" label={t('set_editor_wrap')} />
+            <label>{t('set_print_font')}</label>
+            <select value={v.printFontSize || 10} onChange={(e) => set('printFontSize', Number(e.target.value))}>
+              {[7, 8, 9, 10, 11, 12, 14].map((n) => <option key={n} value={n}>{n} pt</option>)}
+            </select>
+            <span />
+            <span className="muted small">{t('set_print_font_hint')}</span>
           </div>
         )}
         {/* The terminal itself: which shell starts where and how its output is shown. The prompt drawn at

@@ -6,6 +6,8 @@ import { DialogFrame } from './Dialogs';
 import { t } from '../lib/i18n';
 import { formatSize, baseName } from '../lib/format';
 import { Icon } from '../components/Icons';
+import { buildPrintHtml, printDocument } from '../lib/print';
+import { ImageView } from '../components/ImageView';
 
 // ── Viewer (F3) ───────────────────────────────────────────
 // spec.data is the fs.readFile result: text (with encoding), image (base64)
@@ -32,40 +34,57 @@ export function ViewerDialog({ spec, done }) {
   const prefs = spec.prefs || {};
   const [wrap, setWrap] = useState(prefs.viewerWrap !== false);
   const [hex, setHex] = useState(data.kind === 'binary');
-  const [fit, setFit] = useState(true);
+  const imageRef = useRef(null);
+  const [imageInfo, setImageInfo] = useState('');
   const hexText = useMemo(() => (hex ? hexDump(bytesOf(data).subarray(0, 256 * 1024)) : ''), [hex, data]);
   const lines = useMemo(() => (data.kind === 'text' ? (data.text.match(/\n/g) || []).length + 1 : 0), [data]);
+  const [printing, setPrinting] = useState(false);
+  // Ctrl+P prints what is shown: the image, the text (wrapped as on screen) or the hex dump.
+  const canPrint = data.kind === 'image' ? !data.truncated && !!data.base64 : true;
+  const print = async () => {
+    if (!canPrint || printing) return;
+    // A picture is printed by its pane (decoded, rotated as shown).
+    if (data.kind === 'image') { if (imageRef.current) imageRef.current.print(); return; }
+    const name = baseName(path);
+    const html = buildPrintHtml({ title: name, kind: 'text', text: hex ? hexText : data.text, wrap: wrap && !hex, fontSize: prefs.printFontSize, tabSize: prefs.editorTabSize, meta: hex ? t('viewer_hex') : `${data.encoding}${data.truncated ? ` · ${t('viewer_truncated')}` : ''}` });
+    setPrinting(true);
+    try { await printDocument({ html, title: name }); }
+    catch (err) { if (spec.onPrintError) spec.onPrintError(err); }
+    finally { setPrinting(false); }
+  };
+  const printRef = useRef(print); printRef.current = print;
   useEffect(() => {
-    // F3 closes the viewer again (as in TC); Ctrl+W wraps, Ctrl+H hex.
+    // F3 closes the viewer again (as in TC); Ctrl+W wraps, Ctrl+H hex, Ctrl+P prints.
     const onKey = (e) => {
       if (e.key === 'F3') { e.preventDefault(); done(); }
       else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'w') { e.preventDefault(); setWrap((w) => !w); }
       else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'h') { e.preventDefault(); if (data.kind !== 'image') setHex((h) => !h); }
+      else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') { e.preventDefault(); printRef.current(); }
     };
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
   }, [done, data.kind]);
   const info = data.kind === 'image'
-    ? `${data.mime}  ·  ${formatSize(data.size)}`
+    ? `${data.mime}  ·  ${formatSize(data.size)}${imageInfo ? `  ·  ${imageInfo}` : ''}`
     : data.kind === 'text'
       ? `${data.encoding}  ·  ${t('viewer_lines', { n: lines })}  ·  ${formatSize(data.size)}${data.truncated ? `  ·  ${t('viewer_truncated')}` : ''}`
       : `${t('viewer_binary')}  ·  ${formatSize(data.size)}${data.truncated ? `  ·  ${t('viewer_truncated')}` : ''}`;
   return (
-    <DialogFrame title={`${t('viewer_title')} — ${baseName(path)}`} onClose={() => done()} icon="view" width={900} className="viewer" windowed={spec.windowed}
+    <DialogFrame title={`${spec.preview ? t('preview_title') : t('viewer_title')} — ${baseName(path)}`} onClose={() => done()} icon={spec.preview ? 'image' : 'view'} width={900} className={spec.preview ? 'viewer preview' : 'viewer'} windowed={spec.windowed}
       footer={<>
         <span className="muted small ellipsis" title={path}>{info}</span>
         <span className="spacer" />
-        {data.kind === 'image' && <label className="check"><input type="checkbox" checked={fit} onChange={(e) => setFit(e.target.checked)} /> {t('viewer_fit')}</label>}
         {data.kind !== 'image' && !hex && <label className="check"><input type="checkbox" checked={wrap} onChange={(e) => setWrap(e.target.checked)} /> {t('viewer_wrap')}</label>}
         {data.kind !== 'image' && <label className="check"><input type="checkbox" checked={hex} onChange={(e) => setHex(e.target.checked)} /> {t('viewer_hex')}</label>}
         {spec.canOpen && <button className="btn" onClick={() => { spec.onOpen(); }}><Icon name="open" /> {t('viewer_open_app')}</button>}
+        {data.kind !== 'image' && <button className="btn" onClick={print} disabled={!canPrint || printing} title={t('tip_print_view')}><Icon name="print" /> {t('print')} (Ctrl+P)</button>}
         {data.kind === 'text' && <button className="btn" onClick={() => done('edit')}><Icon name="edit" /> {t('edit_file')} (F4)</button>}
         <button className="btn primary" onClick={() => done()}>{t('close')}</button>
       </>}>
       {data.kind === 'image' && (
         data.truncated
           ? <p className="muted">{t('viewer_too_large')}</p>
-          : <div className={`viewer-image ${fit ? 'fit' : ''}`}><img src={`data:${data.mime};base64,${data.base64}`} alt={baseName(path)} /></div>
+          : <ImageView ref={imageRef} spec={{ data, path, canOpen: spec.canOpen, onOpen: spec.onOpen, onInfo: setImageInfo, onStatus: spec.onStatus, onError: spec.onPrintError, onSaved: spec.onSaved }} />
       )}
       {data.kind !== 'image' && (
         <pre className={`viewer-text ${wrap && !hex ? 'wrap' : ''}`} style={{ fontSize: prefs.viewerFontSize ? `${prefs.viewerFontSize}px` : undefined }}>{hex ? hexText : data.text}</pre>
@@ -82,8 +101,19 @@ export function EditorDialog({ spec, done }) {
   const [text, setText] = useState(spec.text);
   const [saved, setSaved] = useState(spec.text);
   const [busy, setBusy] = useState(false);
+  const [printing, setPrinting] = useState(false);
   const ref = useRef(null);
   const dirty = text !== saved;
+  // Ctrl+P prints the text as it is in the editor — unsaved changes included.
+  const print = async () => {
+    if (printing) return;
+    const name = baseName(spec.path);
+    const html = buildPrintHtml({ title: dirty ? `${name} *` : name, kind: 'text', text, wrap: !!prefs.editorWrap, fontSize: prefs.printFontSize, tabSize: prefs.editorTabSize, meta: 'UTF-8' });
+    setPrinting(true);
+    try { await printDocument({ html, title: name }); }
+    catch (err) { if (spec.onPrintError) spec.onPrintError(err); }
+    finally { setPrinting(false); }
+  };
   useEffect(() => { if (spec.onDirty) spec.onDirty(dirty); }, [dirty]); // eslint-disable-line react-hooks/exhaustive-deps
   const save = async () => {
     if (busy) return;
@@ -97,6 +127,7 @@ export function EditorDialog({ spec, done }) {
   useEffect(() => { const el = ref.current; if (el) { el.focus(); el.setSelectionRange(0, 0); } }, []);
   const onKey = (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); e.stopPropagation(); save(); }
+    else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') { e.preventDefault(); e.stopPropagation(); print(); }
     else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); }
     else if (e.key === 'Tab') { // keep Tab inside the editor
       e.preventDefault();
@@ -113,6 +144,7 @@ export function EditorDialog({ spec, done }) {
         <span className="muted small ellipsis">{spec.encoding && spec.encoding !== 'UTF-8' ? t('editor_saved_as_utf8', { enc: spec.encoding }) : 'UTF-8'}  ·  {t('viewer_lines', { n: lines })}  ·  {formatSize(new TextEncoder().encode(text).length)}</span>
         <span className="spacer" />
         <button className="btn primary" onClick={save} disabled={!dirty || busy}><Icon name="save" /> {t('save')} (Ctrl+S)</button>
+        <button className="btn" onClick={print} disabled={printing} title={t('tip_print_edit')}><Icon name="print" /> {t('print')} (Ctrl+P)</button>
         <button className="btn" onClick={close}>{t('close')}</button>
       </>}>
       <textarea ref={ref} className="editor-text" value={text} onChange={(e) => setText(e.target.value)} onKeyDown={onKey} spellCheck={false} wrap={prefs.editorWrap ? 'soft' : 'off'}

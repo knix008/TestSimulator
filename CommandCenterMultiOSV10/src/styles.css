@@ -52,7 +52,7 @@ button:disabled { cursor: default; opacity: 0.45; }
 .row { display: flex; gap: 8px; align-items: center; }
 .boot { height: 100%; display: grid; place-items: center; color: var(--fg-muted); }
 
-.app { height: 100%; display: flex; flex-direction: column; min-width: 1090px; }   /* the toolbar needs ~1078 px in either language; the desktop window minimum (1110 outer ≈ 1094 inner) stays above this, the browser scrolls instead of clipping */
+.app { height: 100%; display: flex; flex-direction: column; min-width: 1122px; }   /* the toolbar needs ~1110 px in either language; the desktop window minimum (1142 outer ≈ 1126 inner) stays above this, the browser scrolls instead of clipping */
 
 /* ── Menu bar ── */
 .menubar { display: flex; align-items: center; background: var(--bg-elev); border-bottom: 1px solid var(--border); padding: 0 4px; height: 30px; }
@@ -292,6 +292,13 @@ input:disabled, select:disabled { opacity: 0.5; }
 .props { border-collapse: collapse; width: 100%; user-select: text; }
 .props th { text-align: right; color: var(--fg-muted); padding: 4px 10px 4px 0; white-space: nowrap; vertical-align: top; font-weight: 600; }
 .props td { padding: 4px 0; word-break: break-all; }
+/* File info: sections of label / value rows. */
+.info-sections { display: grid; gap: 14px; }
+.info-sections h4 { margin: 0 0 4px; padding-bottom: 3px; border-bottom: 1px solid var(--border); color: var(--accent); font-size: var(--fs); font-weight: 600; }
+.info-sections .props th { width: 120px; }
+/* No scrollbar in the file-info window: it is sized to its content (InfoDialog fits the window). */
+.dlg.fileinfo .dlg-body { max-height: calc(100vh - 160px); overflow: hidden; }
+.dlg.windowed.fileinfo .dlg-body { max-height: none; flex: 1; overflow: hidden; }
 
 /* search window (non-modal, draggable by its title bar) */
 .search-window { position: fixed; z-index: 1500; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 720px; max-width: calc(100vw - 32px); height: 560px; max-height: calc(100vh - 32px); background: var(--bg-panel); border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow); display: flex; flex-direction: column; }
@@ -331,11 +338,36 @@ input:disabled, select:disabled { opacity: 0.5; }
 .fn-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dlg.viewer .dlg-body, .dlg.editor .dlg-body { display: flex; flex-direction: column; min-height: 0; height: calc(100vh - 140px); padding: 0; }
 .dlg.viewer .dlg-footer, .dlg.editor .dlg-footer { align-items: center; }
+.dlg.viewer .dlg-footer .btn { white-space: nowrap; flex: none; }
 .viewer-text { flex: 1; margin: 0; padding: 12px 14px; overflow: auto; font-family: var(--mono); font-size: 12px; line-height: 1.5; user-select: text; white-space: pre; tab-size: 4; }
 .viewer-text.wrap { white-space: pre-wrap; word-break: break-all; }
 .viewer-image { flex: 1; overflow: auto; display: grid; place-items: center; padding: 12px; background: repeating-conic-gradient(color-mix(in srgb, var(--fg) 6%, transparent) 0 25%, transparent 0 50%) 0 0 / 20px 20px; }
 .viewer-image.fit img { max-width: 100%; max-height: 100%; object-fit: contain; }
 .viewer-image:not(.fit) { display: block; }
+/* Image pane (viewer F3 / preview window): a small toolbar over a scrollable stage. The picture box is
+   sized to the zoomed, rotated picture; margin:auto centres it when small and lets it scroll when big. */
+.imgview { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.imgview-bar { display: flex; align-items: center; gap: 1px; padding: 3px 8px; border-bottom: 1px solid var(--border); background: var(--bg); flex: none; flex-wrap: nowrap; overflow: hidden; white-space: nowrap; }
+.imgview-bar .tb-btn, .imgview-bar .tb-sep { flex: none; }
+.imgview-pct { min-width: 54px; padding: 3px 6px; border: 0; border-radius: 4px; background: none; color: var(--fg); font-variant-numeric: tabular-nums; font-size: var(--fs); }
+.imgview-pct:hover { background: var(--bg-hover); }
+.imgview-info { margin-left: 8px; }
+.imgview-dicom { gap: 4px; }
+.imgview-frames { width: 110px; min-width: 60px; flex: 0 1 auto; margin: 0 2px; }
+.imgview-frameno { font-variant-numeric: tabular-nums; margin-right: 4px; white-space: nowrap; }
+.imgview-preset { max-width: 200px; min-width: 80px; flex: 0 1 auto; font-size: var(--fs); padding: 2px 4px; margin-right: 4px; }
+.imgview-wl { display: inline-flex; align-items: center; gap: 3px; color: var(--fg-muted); font-size: var(--fs); }
+.imgview-wl input { width: 60px; padding: 2px 4px; font-size: var(--fs); }
+.imgview-wl { margin-right: 4px; }
+.imgview-hint { margin-left: auto; padding-left: 6px; flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.imgview-stage { flex: 1; min-height: 0; overflow: auto; display: flex; padding: 12px; background: repeating-conic-gradient(color-mix(in srgb, var(--fg) 6%, transparent) 0 25%, transparent 0 50%) 0 0 / 20px 20px; user-select: none; }
+.imgview-stage:active { cursor: grabbing !important; }
+.imgview-canvas { position: relative; margin: auto; flex: none; }
+.imgview-canvas img { position: absolute; left: 50%; top: 50%; max-width: none; display: block; }
+.imgview-error { margin: auto; text-align: center; display: grid; gap: 8px; justify-items: center; color: var(--fg-muted); padding: 24px; }
+.dlg.preview .dlg-body { display: flex; flex-direction: column; min-height: 0; height: calc(100vh - 140px); padding: 0; }
+.dlg.preview .dlg-footer { align-items: center; }
+.dlg.windowed.preview .dlg-body { height: auto; }
 .editor-text { flex: 1; width: 100%; min-height: 0; resize: none; border: 0; border-radius: 0; padding: 12px 14px; font-family: var(--mono); font-size: 12px; line-height: 1.5; tab-size: 4; background: var(--bg); color: var(--fg); outline: none; }
 .dlg.mrn .dlg-body { display: flex; flex-direction: column; gap: 10px; max-height: calc(100vh - 140px); }
 .dlg.mrn .dlg-footer { align-items: center; }
@@ -361,7 +393,8 @@ input:disabled, select:disabled { opacity: 0.5; }
 @media (max-width: 900px) { .mrn-grid { grid-template-columns: 1fr 1fr; } }
 
 /* ── Separate tool windows (?win=…): the dialog fills the page ── */
-.tool-window { height: 100%; display: flex; flex-direction: column; }
+.tool-window { height: 100%; display: flex; flex-direction: column; position: relative; }
+.tool-window > .resize-grip { z-index: 5; }
 .dlg.windowed { width: 100%; height: 100%; max-width: none; max-height: none; border: 0; border-radius: 0; box-shadow: none; }
 .dlg.windowed .dlg-body { flex: 1; min-height: 0; overflow: auto; }
 .dlg.windowed.viewer .dlg-body, .dlg.windowed.editor .dlg-body { height: auto; }

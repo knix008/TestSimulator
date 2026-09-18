@@ -161,6 +161,12 @@ export function quitApp() {
   else window.close();
 }
 
+// Native save-as picker (image save / convert) — desktop only; the browser downloads instead.
+export async function pickSavePath(defaultPath, filters) {
+  if (!isElectron || !electron.dialog) return null;
+  return unwrap(await electron.dialog('saveFile', { defaultPath, filters }), 'dialog error');
+}
+
 // Native file picker (settings › text editor application) — desktop only.
 export async function pickFile(defaultPath, filters) {
   if (!isElectron || !electron.dialog) return null;
@@ -207,7 +213,8 @@ export const menuPopup = (isElectron && electron.popupMenu && windowKind !== 'me
 export const fitWindow = (isElectron && electron.fitWindow) ? ((height) => electron.fitWindow(height)) : null;
 
 const webChildren = new Set();
-const SINGLETON_KINDS = new Set(['viewer', 'editor', 'multiRename', 'search', 'settings', 'about']);   // one popup per tool
+const SINGLETON_KINDS = new Set(['viewer', 'editor', 'preview', 'info', 'multiRename', 'search', 'settings', 'about']);   // one popup per tool
+const QUIET_KINDS = new Set(['preview']);   // re-used without taking the focus (it follows clicks in the file list)
 let bus = null;
 function channel() {
   if (!bus && typeof BroadcastChannel !== 'undefined') { try { bus = new BroadcastChannel('command-center'); } catch { bus = null; } }
@@ -223,7 +230,7 @@ export async function openWindow(kind, args, { title, width, height } = {}) {
     if (open) {
       try { localStorage.setItem(`cc-win:${open.ccId}`, JSON.stringify(args || {})); } catch { /* ignore */ }
       const c = channel(); if (c) c.postMessage({ type: 'replaceArgs', id: open.ccId, kind });
-      try { open.focus(); } catch { /* ignore */ }
+      if (!QUIET_KINDS.has(kind)) { try { open.focus(); } catch { /* ignore */ } }
       return open.ccId;
     }
   }

@@ -3,7 +3,7 @@
 //   • main window lifecycle (single instance, persisted bounds)
 //   • hands the renderer the core API over IPC (see ./ipc.js)
 //   • native bits the core cannot do on its own: open with the default app,
-//     move to the OS trash, the system clipboard
+//     move to the OS trash, the system clipboard, printing
 //   • smoke-test hook: --smoke-shot=<png> screenshots the window and quits
 const { app, BrowserWindow, Menu, shell, clipboard, nativeImage, dialog, screen } = require('electron');
 const path = require('path');
@@ -42,10 +42,14 @@ let api = null;
 // Tool windows (viewer, editor, multi-rename, search, settings): independent
 // top-level windows that close together with the main window.
 const toolWins = new Set();
-const TOOL_SIZES = { viewer: [960, 720], editor: [960, 720], multiRename: [920, 680], search: [760, 600], settings: [1280, 960], about: [560, 400] };   // fits the tallest tab (theme / prompt: ~760 px of content + 130 chrome) with no scrollbar and no waste; clamped to the screen below
+const TOOL_SIZES = { viewer: [960, 720], editor: [960, 720], preview: [720, 560], info: [660, 720], multiRename: [920, 680], search: [760, 600], settings: [1280, 960], about: [560, 400] };   // fits the tallest tab (theme / prompt: ~760 px of content + 130 chrome) with no scrollbar and no waste; clamped to the screen below
 // Every tool window exists at most once: a second request focuses the open one
 // (and hands it the new arguments — see ipc.js). The settings window has a fixed size.
-const SINGLETON = new Set(['viewer', 'editor', 'multiRename', 'search', 'settings', 'about']);
+const SINGLETON = new Set(['viewer', 'editor', 'preview', 'info', 'multiRename', 'search', 'settings', 'about']);
+// The image preview follows the mouse: it opens on a click in the file list and must not take the
+// focus away from it, so it is shown inactive and never focused on a repeat request. As a child of
+// the main window it stays above it all the same.
+const QUIET = new Set(['preview']);
 // The settings window has a fixed size: it is sized so that every tab fits whole, with no scrollbar and
 // nothing cut off (see TOOL_SIZES), so there is nothing for the user to resize it for.
 const FIXED_SIZE = new Set(['settings', 'about']);
@@ -66,7 +70,7 @@ function loadApp(win, query) {
 function openToolWindow({ kind, title, width, height }) {
   if (SINGLETON.has(kind)) {
     const open = Array.from(toolWins).find((w) => w.ccKind === kind && !w.isDestroyed());
-    if (open) { if (open.isMinimized()) open.restore(); open.focus(); return open; }
+    if (open) { if (open.isMinimized()) open.restore(); if (!QUIET.has(kind)) open.focus(); return open; }
   }
   const session = api.session.get();
   const fixed = FIXED_SIZE.has(kind);
@@ -99,11 +103,12 @@ function openToolWindow({ kind, title, width, height }) {
     show: false,
     title: title || PRODUCT,
     icon: toolIcon(kind),
+    parent: QUIET.has(kind) && mainWin && !mainWin.isDestroyed() ? mainWin : undefined,
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: false, spellcheck: false },
   });
   win.ccKind = kind;
   toolWins.add(win);
-  win.once('ready-to-show', () => win.show());
+  win.once('ready-to-show', () => (QUIET.has(kind) ? win.showInactive() : win.show()));
   // The page sets document.title; keep it (Electron would otherwise reset it on navigation).
   win.on('page-title-updated', (e) => e.preventDefault());
   win.webContents.on('page-title-updated', (_e, t) => { if (!win.isDestroyed()) win.setTitle(t); });
@@ -231,6 +236,48 @@ function menuPopupPick(id, seq) {
   if (owner && !owner.isDestroyed()) owner.webContents.send('menu:picked', { id });
 }
 
+// ── Printing ──
+// The renderer builds a self-contained HTML document (src/lib/print.js: a text file as a <pre>, an
+// image as an <img>) and hands it here. It is rendered in a hidden window of its own — the app's
+// theme and chrome never reach the paper — and the system print dialog is opened for it. The
+// document goes through a temporary file: a data: URL would hit Chromium's limit with a big image.
+let printSeq = 0;
+function printHtml({ html, title }, owner) {
+  return new Promise((resolve) => {
+    const dir = path.join(app.getPath('temp'), 'command-center-print');
+    fs.mkdirSync(dir, { recursive: true });
+    const file = path.join(dir, `print-${process.pid}-${++printSeq}.html`);
+    fs.writeFileSync(file, String(html || ''), 'utf-8');
+    const win = new BrowserWindow({
+      width: 800, height: 600, show: false, parent: owner && !owner.isDestroyed() ? owner : undefined,
+      title: title || PRODUCT, backgroundColor: '#ffffff',
+      webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true, spellcheck: false },
+    });
+    let settled = false;
+    const finish = (result) => {
+      if (settled) return;
+      settled = true;
+      if (!win.isDestroyed()) win.destroy();
+      try { fs.unlinkSync(file); } catch { /* already gone */ }
+      resolve(result);
+    };
+    win.on('closed', () => finish({ ok: false, cancelled: true }));
+    win.webContents.on('did-fail-load', (_e, code, desc) => finish({ ok: false, error: `${desc || 'load failed'} (${code})` }));
+    win.webContents.once('did-finish-load', () => {
+      // Give images a frame to decode before the dialog snapshots the page.
+      setTimeout(() => {
+        if (settled) return;
+        win.webContents.print({ silent: false, printBackground: true }, (success, reason) => {
+          // Chromium reports "cancelled" when the user backs out of the dialog — not an error.
+          if (success) finish({ ok: true });
+          else finish(/cancel/i.test(reason || '') ? { ok: false, cancelled: true } : { ok: false, error: reason || 'print failed' });
+        });
+      }, 150);
+    });
+    win.loadFile(file);
+  });
+}
+
 function iconPath() {
   const dir = path.join(__dirname, '..', 'build', 'icons');
   return path.join(dir, process.platform === 'win32' ? 'icon.ico' : 'icon.png');
@@ -239,14 +286,14 @@ function iconPath() {
 function createWindow() {
   const session = api.session.get();
   const saved = session.windowBounds || null;
-  const MIN_W = 1110, MIN_H = 600;   // outer size; ≈ 1094 px of content — see .app min-width in styles.css
+  const MIN_W = 1142, MIN_H = 600;   // outer size; ≈ 1126 px of content — see .app min-width in styles.css
   const win = new BrowserWindow({
     // Saved bounds from an older build may be smaller than today's minimum — Electron does not clamp them itself.
     width: Math.max(MIN_W, saved && saved.width ? saved.width : 1280),
     height: Math.max(MIN_H, saved && saved.height ? saved.height : 780),
     x: saved && Number.isFinite(saved.x) ? saved.x : undefined,
     y: saved && Number.isFinite(saved.y) ? saved.y : undefined,
-    // Wide enough for the full icon toolbar (measured ~1078 px) in either language, so
+    // Wide enough for the full icon toolbar (measured ~1110 px) in either language, so
     // switching the language never changes the window and no button is ever clipped.
     minWidth: MIN_W,
     minHeight: MIN_H,
@@ -405,7 +452,9 @@ if (!gotLock) {
       // verb is tried through PowerShell / open / xdg-open as a fallback.
       openPath: async (p) => { const r = await shell.openPath(p); return r ? fsops.openWithDefaultApp(p) : ''; },
       trashPath: (p) => shell.trashItem(p),
-      clipboard: { readText: () => clipboard.readText(), writeText: (t) => clipboard.writeText(t) },
+      // Files the app cannot print itself (PDF, Office documents …) go through the OS (see fsops).
+      printPath: (p) => fsops.printWithDefaultApp(p),
+      clipboard: { readText: () => clipboard.readText(), writeText: (t) => clipboard.writeText(t), writeImage: (dataUrl) => clipboard.writeImage(nativeImage.createFromDataURL(dataUrl)) },
     });
     if (process.platform === 'darwin' && fs.existsSync(path.join(__dirname, '..', 'build', 'icons', 'icon.png'))) {
       app.dock.setIcon(nativeImage.createFromPath(path.join(__dirname, '..', 'build', 'icons', 'icon.png')));
@@ -417,12 +466,17 @@ if (!gotLock) {
         const r = await dialog.showOpenDialog(owner || mainWin, { defaultPath: defaultPath || undefined, properties: ['openDirectory'] });
         return r.canceled ? null : r.filePaths[0];
       },
+      // Save-as picker (image save / convert). Returns the chosen path or null.
+      saveFile: async ({ defaultPath, filters } = {}, owner) => {
+        const r = await dialog.showSaveDialog(owner || mainWin, { defaultPath: defaultPath || undefined, filters: filters || undefined });
+        return r.canceled ? null : r.filePath;
+      },
       // Program picker (settings › file open › text editor application).
       openFile: async ({ defaultPath, filters } = {}, owner) => {
         const r = await dialog.showOpenDialog(owner || mainWin, { defaultPath: defaultPath || undefined, properties: ['openFile'], filters: filters || undefined });
         return r.canceled ? null : r.filePaths[0];
       },
-    }, { openToolWindow, toolWins: () => toolWins, showMenuPopup, placeMenuPopup, menuPopupPick, hideMenuPopup });
+    }, { openToolWindow, toolWins: () => toolWins, showMenuPopup, placeMenuPopup, menuPopupPick, hideMenuPopup, printHtml });
     createWindow();
     // The menu popup is kept alive and hidden, so opening a menu never waits for a page to load.
     if (!argValue('smoke-url')) mainWin.once('ready-to-show', () => { try { menuPopupWindow(); } catch { /* menus fall back to drawing in the window */ } });

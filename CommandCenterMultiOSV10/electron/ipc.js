@@ -97,6 +97,18 @@ function registerIpc(api, getWindow, dialogs = {}, windows = {}) {
     if (b.y + b.height > area.y + area.height) w.setPosition(b.x, Math.max(area.y, area.y + area.height - b.height));
   });
 
+  // ── Printing (see main.js printHtml) ──
+  // The renderer sends a finished HTML document; the main process renders it in a hidden window and
+  // opens the system print dialog. Resolves { ok } / { ok:false, cancelled } / { ok:false, error }.
+  ipcMain.handle('print:html', async (event, spec) => {
+    if (!windows.printHtml) return { ok: false, error: { code: 'UNSUPPORTED', message: 'no printing' } };
+    try {
+      return { ok: true, data: await windows.printHtml(spec || {}, BrowserWindow.fromWebContents(event.sender)) };
+    } catch (err) {
+      return { ok: false, error: serializeError(err) };
+    }
+  });
+
   // ── Menu popup (see main.js) ──
   // A menu is drawn in its own frameless window, so it is never cut off by the
   // app window: menu:popup sends the items, the popup page answers with the
