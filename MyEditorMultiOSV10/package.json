@@ -107,6 +107,20 @@
         ]
       }
     ],
+    "extraFiles": [
+      {
+        "from": "build/icons/icon.ico",
+        "to": "MyEditor.ico"
+      },
+      {
+        "from": "build/icons/icon.png",
+        "to": "app-icon.png"
+      },
+      {
+        "from": "build/MyEditor.VisualElementsManifest.xml",
+        "to": "MyEditor.VisualElementsManifest.xml"
+      }
+    ],
     "asar": true,
     "icon": "build/icons/icon.png",
     "win": {

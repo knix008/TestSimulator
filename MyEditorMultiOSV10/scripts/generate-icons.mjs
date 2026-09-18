@@ -64,7 +64,7 @@ async function main() {
       ico.push({ size, png: new Uint8Array(pngBuf), rgba: data });
     }
     fs.writeFileSync(path.join(outDir, `${name}.ico`), Buffer.from(encodeIco(ico)));
-    console.log(`[icons] Wrote ${name}.ico`);
+    console.log(`[icons] Wrote ${name}.ico (${ICO_SIZES.join(', ')} px BMP)`);
 
     if (icns) {
       const entries = [];

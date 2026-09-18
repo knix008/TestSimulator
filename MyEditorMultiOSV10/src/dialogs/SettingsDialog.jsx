@@ -104,6 +104,12 @@ export function SettingsDialog({ settings, encodings, shells = [], formatDir = '
   // is; the backend is only asked when there is none yet, or to look again.
   const [tools, setTools] = useState(knownTools);
   const [linters, setLinters] = useState(null);   // { language: [{ id, label, available }] } for the code checkers
+  const [liveShells, setLiveShells] = useState(shells);
+  useEffect(() => { setLiveShells(shells); }, [shells]);
+  useEffect(() => {
+    if (tab !== 'terminal') return undefined;
+    call('term.shells', { refresh: true }).then((x) => { if (Array.isArray(x)) setLiveShells(x); }).catch(() => {});
+  }, [tab]);
   useEffect(() => { if (tab === 'lint' && !linters) call('lint.tools', { dir: formatDir }).then(setLinters).catch(() => setLinters({})); }, [tab, linters, formatDir]);
   const setLinter = (lang, id) => onChange({ linters: { ...(settings.linters || {}), [lang]: id } });
   const [rescan, setRescan] = useState(false);   // the next listing looks again instead of using the cached lookups (다시 찾기, after an install)
@@ -450,9 +456,11 @@ export function SettingsDialog({ settings, encodings, shells = [], formatDir = '
         <div className="form-grid settings-grid settings-term">
           <label>{t('set_term_shell')}</label>
           <select value={settings.termShell || ''} onChange={(e) => onChange({ termShell: e.target.value })}>
-            <option value="">{shells.length ? t('set_term_shell_default', { name: shells[0].label }) : t('set_term_shell_default', { name: '' })}</option>
-            {shells.map((sh) => <option key={sh.id} value={sh.id}>{sh.label}</option>)}
+            <option value="">{liveShells.length ? t('set_term_shell_default', { name: liveShells[0].label }) : t('set_term_shell_default', { name: '' })}</option>
+            {liveShells.map((sh) => <option key={sh.id} value={sh.id}>{sh.label}</option>)}
           </select>
+          <label />
+          <p className="muted small">{t('set_term_shell_hint')}</p>
           <label />
           <Check id="termColor" label={t('set_term_color')} settings={settings} onChange={onChange} />
           <label>{t('set_term_cwd')}</label>

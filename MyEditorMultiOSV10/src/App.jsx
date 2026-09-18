@@ -1306,6 +1306,7 @@ img{max-width:100%;height:auto;page-break-inside:avoid}table{border-collapse:col
       if (on && settingsRef.current.termHeight === 75) patch.termHeight = SETTINGS_DEFAULTS.termHeight;
       changeSettings(patch);
       if (on && !terms.length) newTerminal();
+      if (on) call('term.shells', { refresh: true }).then(setShells).catch(() => {});
       return undefined;
     }
     if (id.startsWith('svg:')) return withView((vw) => insertSvgTag(vw, id.slice(4)));   // the SVG bar: an element at the cursor

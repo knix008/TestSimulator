@@ -139,8 +139,17 @@ const utf8Lang = () => { const l = process.env.LANG; return l && /utf-?8/i.test(
 
 function resolveExe(p) {
   if (!p) return '';
-  try { if (fs.existsSync(p)) return fs.realpathSync(p); } catch { try { if (fs.existsSync(p)) return p; } catch { /* missing */ } }
-  return '';
+  try {
+    const st = fs.lstatSync(p);
+    if (!st.isFile() && !st.isSymbolicLink()) return '';
+    if (st.size === 0 && !st.isSymbolicLink()) return '';   // WindowsApps execution aliases are empty stubs
+    try {
+      const real = fs.realpathSync(p);
+      const rst = fs.statSync(real);
+      if (!rst.isFile() || rst.size === 0) return '';
+      return real;
+    } catch { return st.isFile() && st.size > 0 ? p : ''; }
+  } catch { return ''; }
 }
 function findOnPath(name) {
   const win = process.platform === 'win32';
@@ -157,6 +166,10 @@ function findOnPath(name) {
 }
 function firstExisting(cands) {
   for (const p of cands) { const hit = resolveExe(p); if (hit) return hit; }
+  return '';
+}
+function firstDir(cands) {
+  for (const p of cands) { if (p && isDir(p)) return p; }
   return '';
 }
 
@@ -188,9 +201,114 @@ function listWslDistros(wsl) {
   } catch { return []; }
 }
 
+function parseEtcShells(text) {
+  return String(text || '').split(/\r?\n/).map((s) => s.trim()).filter((s) => s && !s.startsWith('#') && s.startsWith('/'));
+}
+
+function parseWtCommandLine(cmd) {
+  const s = String(cmd || '').trim();
+  if (!s) return '';
+  if (s.startsWith('"')) {
+    const m = s.match(/^"([^"]+)"/);
+    return m ? m[1] : '';
+  }
+  return s.split(/\s+/)[0] || '';
+}
+
+function parseJsonc(text) {
+  const stripped = String(text || '').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  try { return JSON.parse(stripped); } catch {
+    try { return JSON.parse(stripped.replace(/,\s*([}\]])/g, '$1')); } catch { return null; }
+  }
+}
+
+function parseWtProfiles(text) {
+  const data = typeof text === 'string' ? parseJsonc(text) : text;
+  const list = data && Array.isArray(data.profiles) ? data.profiles : (data && data.profiles && Array.isArray(data.profiles.list) ? data.profiles.list : []);
+  return list.filter((p) => p && !p.hidden && p.commandline && !/Windows\.Terminal\.(Azure|Wsl)/i.test(p.source || '')).map((p) => ({
+    name: String(p.name || '').trim(),
+    exe: parseWtCommandLine(p.commandline),
+  })).filter((p) => p.exe);
+}
+
+function regValue(key, name) {
+  if (process.platform !== 'win32') return '';
+  try {
+    const out = execFileSync('reg.exe', ['query', key, '/v', name], { windowsHide: true, timeout: 3000, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+    const m = String(out).match(new RegExp(`${name}\\s+REG_\\w+\\s+(.+)`, 'i'));
+    return m ? m[1].trim().replace(/^"|"$/g, '') : '';
+  } catch { return ''; }
+}
+
+function dirJoin(root, ...parts) {
+  return root ? path.join(root, ...parts) : '';
+}
+
+function pwshIn(dir) {
+  if (!dir || !isDir(dir)) return [];
+  try { return fs.readdirSync(dir).sort().reverse().map((v) => path.join(dir, v, 'pwsh.exe')); } catch { return []; }
+}
+
+function labelForExe(exe, fallback) {
+  const n = path.basename(exe).replace(/\.exe$/i, '');
+  if (/[\\/]Git[\\/]/i.test(exe) && /^bash$/i.test(n)) return 'Git Bash';
+  if (/msys64/i.test(exe) && /^bash$/i.test(n)) return 'MSYS2';
+  if (/cygwin/i.test(exe) && /^bash$/i.test(n)) return 'Cygwin';
+  if (/^powershell$/i.test(n)) return 'Windows PowerShell';
+  if (/^pwsh$/i.test(n)) return 'PowerShell';
+  if (/^cmd$/i.test(n)) return 'Command Prompt';
+  return fallback || n;
+}
+
+function specForExe(exe, { id, label, encoding } = {}) {
+  const base = path.basename(exe).replace(/\.exe$/i, '').toLowerCase();
+  const nice = label || labelForExe(exe, base);
+  if (base === 'cmd') return { id: id || 'cmd', label: nice, ...cmdDef(exe, encoding ? { encoding } : {}) };
+  if (base === 'powershell' || base === 'pwsh') {
+    const extra = base === 'pwsh' ? { encoding: encoding || 'utf8' } : (encoding ? { encoding } : {});
+    if (process.platform !== 'win32') extra.eol = '\n';
+    return { id: id || (base === 'pwsh' ? 'pwsh' : 'powershell'), label: nice, ...psDef(exe, extra) };
+  }
+  if (base === 'fish') return { id: id || 'fish', label: nice, ...fishDef(exe) };
+  return { id: id || base, label: nice, ...posixDef(exe, { args: base === 'bash' ? ['--norc', '-s'] : ['-s'] }) };
+}
+
+let wslCache = { at: 0, list: null, exe: '' };
+function wslDistros(wsl, refresh) {
+  if (!refresh && wslCache.list && wslCache.exe === wsl && Date.now() - wslCache.at < 60000) return wslCache.list;
+  const list = listWslDistros(wsl);
+  wslCache = { at: Date.now(), list, exe: wsl };
+  return list;
+}
+
+function wtProfileExes() {
+  const local = process.env.LOCALAPPDATA || '';
+  if (!local) return [];
+  const files = [path.join(local, 'Microsoft', 'Windows Terminal', 'settings.json')];
+  try {
+    const pkg = path.join(local, 'Packages');
+    for (const e of fs.readdirSync(pkg)) {
+      if (/^Microsoft\.WindowsTerminal/i.test(e)) files.push(path.join(pkg, e, 'LocalState', 'settings.json'));
+    }
+  } catch { /* no store packages */ }
+  const out = [];
+  const seen = new Set();
+  for (const f of files) {
+    let text = '';
+    try { text = fs.readFileSync(f, 'utf8'); } catch { continue; }
+    for (const p of parseWtProfiles(text)) {
+      const exe = resolveExe(p.exe) || findOnPath(p.exe);
+      if (!exe || seen.has(exe.toLowerCase())) continue;
+      seen.add(exe.toLowerCase());
+      out.push({ exe, name: p.name });
+    }
+  }
+  return out;
+}
+
 let shellsCache = { at: 0, list: null };
-function shells() {
-  if (shellsCache.list && Date.now() - shellsCache.at < 8000) return shellsCache.list;
+function shells(refresh) {
+  if (!refresh && shellsCache.list && Date.now() - shellsCache.at < 8000) return shellsCache.list;
   const list = [];
   const seenId = new Set();
   const seenCmd = new Set();
@@ -212,23 +330,30 @@ function shells() {
     const pf86 = process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)';
     const local = process.env.LOCALAPPDATA || '';
     const home = os.homedir();
+    const gitRoot = firstDir([
+      regValue('HKLM\\SOFTWARE\\GitForWindows', 'InstallPath'),
+      regValue('HKCU\\SOFTWARE\\GitForWindows', 'InstallPath'),
+      path.join(pf, 'Git'),
+      path.join(pf86, 'Git'),
+      path.join(local, 'Programs', 'Git'),
+      path.join(home, 'scoop', 'apps', 'git', 'current'),
+      path.join(home, 'AppData', 'Local', 'Programs', 'Git'),
+    ]);
+    const cygwinRoot = firstDir([
+      regValue('HKLM\\SOFTWARE\\Cygwin\\setup', 'rootdir'),
+      'C:\\cygwin64', 'C:\\cygwin', path.join(pf, 'cygwin64'),
+    ]);
     add({ id: 'cmd', label: 'Command Prompt', ...cmdDef(process.env.ComSpec || path.join(sys32, 'cmd.exe'), { encoding: cp }) });
     add({ id: 'powershell', label: 'Windows PowerShell', ...psDef(path.join(sys32, 'WindowsPowerShell', 'v1.0', 'powershell.exe'), { encoding: cp }) });
     add({ id: 'pwsh', label: 'PowerShell', ...psDef(firstExisting([
-      path.join(pf, 'PowerShell', '7', 'pwsh.exe'),
-      path.join(pf, 'PowerShell', '7-preview', 'pwsh.exe'),
-      path.join(pf, 'PowerShell', '6', 'pwsh.exe'),
+      ...pwshIn(path.join(pf, 'PowerShell')),
       path.join(home, 'scoop', 'apps', 'pwsh', 'current', 'pwsh.exe'),
-      path.join(local, 'Microsoft', 'WindowsApps', 'pwsh.exe'),
       findOnPath('pwsh.exe'),
     ]), { encoding: 'utf8' }) });
     add({ id: 'gitbash', label: 'Git Bash', ...posixDef(firstExisting([
-      path.join(pf, 'Git', 'bin', 'bash.exe'),
-      path.join(pf86, 'Git', 'bin', 'bash.exe'),
-      path.join(local, 'Programs', 'Git', 'bin', 'bash.exe'),
-      path.join(home, 'scoop', 'apps', 'git', 'current', 'bin', 'bash.exe'),
-      path.join(home, 'AppData', 'Local', 'Programs', 'Git', 'bin', 'bash.exe'),
-    ]), { args: ['--norc', '-s'] }) });
+      dirJoin(gitRoot, 'bin', 'bash.exe'),
+      dirJoin(gitRoot, 'usr', 'bin', 'bash.exe'),
+    ].filter(Boolean)), { args: ['--norc', '-s'] }) });
     add({ id: 'msys2', label: 'MSYS2', ...posixDef(firstExisting([
       path.join('C:\\msys64', 'usr', 'bin', 'bash.exe'),
       path.join(pf, 'msys64', 'usr', 'bin', 'bash.exe'),
@@ -237,13 +362,11 @@ function shells() {
       path.join(home, 'scoop', 'apps', 'msys2', 'current', 'usr', 'bin', 'bash.exe'),
     ]), { args: ['--norc', '-s'] }) });
     add({ id: 'cygwin', label: 'Cygwin', ...posixDef(firstExisting([
-      path.join('C:\\cygwin64', 'bin', 'bash.exe'),
-      path.join('C:\\cygwin', 'bin', 'bash.exe'),
-      path.join(pf, 'cygwin64', 'bin', 'bash.exe'),
-    ]), { args: ['--norc', '-s'] }) });
+      dirJoin(cygwinRoot, 'bin', 'bash.exe'),
+    ].filter(Boolean)), { args: ['--norc', '-s'] }) });
     const wsl = firstExisting([path.join(sys32, 'wsl.exe'), findOnPath('wsl.exe')]);
     if (wsl) {
-      for (const name of listWslDistros(wsl)) {
+      for (const name of wslDistros(wsl, refresh)) {
         add({
           id: `wsl:${name}`, label: `WSL: ${name}`, ...posixDef(wsl, {
             args: ['-d', name, '--', 'bash', '--norc', '-s'],
@@ -253,18 +376,27 @@ function shells() {
       }
     }
     const isWslLauncher = (exe) => /[\\/](?:system32|syswow64)[\\/](?:bash|wsl)\.exe$/i.test(exe);
-    for (const [id, label, names, kind] of [
-      ['bash', 'bash', ['bash.exe', 'bash'], 'posix'],
-      ['zsh', 'zsh', ['zsh.exe', 'zsh'], 'posix'],
-      ['dash', 'dash', ['dash.exe', 'dash'], 'posix'],
-      ['sh', 'sh', ['sh.exe', 'sh'], 'posix'],
-      ['ksh', 'ksh', ['ksh.exe', 'ksh'], 'posix'],
-      ['fish', 'fish', ['fish.exe', 'fish'], 'fish'],
+    const bundledPosix = (exe) => /[\\/]Git[\\/]/i.test(exe) || /msys64/i.test(exe) || /cygwin/i.test(exe);
+    for (const [id, names, kind] of [
+      ['bash', ['bash.exe', 'bash'], 'posix'],
+      ['zsh', ['zsh.exe', 'zsh'], 'posix'],
+      ['dash', ['dash.exe', 'dash'], 'posix'],
+      ['sh', ['sh.exe', 'sh'], 'posix'],
+      ['ksh', ['ksh.exe', 'ksh'], 'posix'],
+      ['fish', ['fish.exe', 'fish'], 'fish'],
     ]) {
       const exe = names.map(findOnPath).find(Boolean);
-      if (!exe || isWslLauncher(exe)) continue;
-      if (kind === 'fish') add({ id, label, ...fishDef(exe) });
-      else add({ id, label, ...posixDef(exe, { args: id === 'bash' ? ['--norc', '-s'] : ['-s'] }) });
+      if (!exe || isWslLauncher(exe) || bundledPosix(exe)) continue;
+      if (kind === 'fish') add({ id, label: id, ...fishDef(exe) });
+      else add({ id, label: id, ...posixDef(exe, { args: id === 'bash' ? ['--norc', '-s'] : ['-s'] }) });
+    }
+    let extra = 0;
+    for (const p of wtProfileExes()) {
+      if (isWslLauncher(p.exe) || bundledPosix(p.exe)) continue;
+      const base = path.basename(p.exe).replace(/\.exe$/i, '').toLowerCase();
+      if (seenId.has(base) || seenId.has(p.name)) continue;
+      extra += 1;
+      add(specForExe(p.exe, { id: `wt:${extra}`, label: p.name || labelForExe(p.exe) }));
     }
   } else {
     const sh = process.env.SHELL || '/bin/bash';
@@ -285,6 +417,16 @@ function shells() {
       else if (id === 'pwsh') add({ id, label: 'PowerShell', ...psDef(exe, { encoding: 'utf8', eol: '\n' }) });
       else add({ id, label: id, ...posixDef(exe, id === 'zsh' ? { args: ['-s'] } : {}) });
     }
+    try {
+      const listed = parseEtcShells(fs.readFileSync('/etc/shells', 'utf8'));
+      let n = 0;
+      for (const p of listed) {
+        const exe = resolveExe(p);
+        if (!exe) continue;
+        n += 1;
+        add(specForExe(exe, { id: `etc:${n}`, label: path.basename(exe) }));
+      }
+    } catch { /* no /etc/shells */ }
   }
   shellsCache = { at: Date.now(), list };
   return list;
@@ -391,7 +533,7 @@ function createTerminals() {
   }
 
   const api = {
-    shells: () => shells().map(({ id, label }) => ({ id, label })),
+    shells: (opts) => shells(!!(opts && opts.refresh)).map(({ id, label }) => ({ id, label })),
 
     create({ cwd, shell } = {}) {
       const all = shells();
@@ -564,4 +706,4 @@ function createTerminals() {
   return api;
 }
 
-module.exports = { createTerminals, isReadOnly, repoRoot };
+module.exports = { createTerminals, isReadOnly, repoRoot, parseEtcShells, parseWtCommandLine, parseWtProfiles, parseJsonc };

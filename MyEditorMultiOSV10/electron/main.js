@@ -58,13 +58,16 @@ let pendingFiles = filesFromArgv(process.argv);   // opened once the renderer is
 let rendererReady = false;
 
 function iconPath() {
-  const name = process.platform === 'win32' ? 'icon.ico' : 'icon.png';
-  const candidates = [
-    process.resourcesPath && path.join(process.resourcesPath, name),
-    process.resourcesPath && path.join(process.resourcesPath, 'icon.png'),
-    path.join(__dirname, '..', 'build', 'icons', name),
-    path.join(__dirname, '..', 'build', 'icons', 'icon.png'),
+  // Chromium's ICO decoder is unreliable with BMP-in-ICO frames; a PNG is
+  // used for the window / taskbar. The .ico stays for Explorer shortcuts.
+  const names = process.platform === 'win32' ? ['icon.png', 'icon.ico'] : ['icon.png'];
+  const dirs = [
+    process.resourcesPath,
+    path.join(__dirname, '..', 'build', 'icons'),
+    path.join(__dirname, '..'),
   ].filter(Boolean);
+  const candidates = [];
+  for (const dir of dirs) for (const name of names) candidates.push(path.join(dir, name));
   return candidates.find((p) => { try { return fs.existsSync(p); } catch { return false; } }) || candidates[candidates.length - 1];
 }
 function printIconPath() {

@@ -40,7 +40,7 @@ export function PopupWindow({ kind, tab = '' }) {
       setFolder(session.folder || '');
       document.title = t(kind === 'settings' ? 'settings_title' : kind === 'about' ? 'about_title' : kind === 'print' ? 'print_title' : 'shortcuts_title');
       if (kind === 'settings') {
-        call('term.shells').then((x) => { if (alive) setShells(x || []); }).catch(() => {});
+        call('term.shells', { refresh: true }).then((x) => { if (alive) setShells(x || []); }).catch(() => {});
         call('format.tools', { dir: session.folder || '' }).then((x) => { if (alive) setTools(x || {}); }).catch(() => {});
       }
     })();

@@ -343,8 +343,12 @@ FunctionEnd
     MedKeepData:
   ${EndIf}
 
-  StrCpy $R0 "$INSTDIR\resources\icon.ico"
-  ${If} ${FileExists} $R0
+  ; Prefer an .ico next to the exe (new filename so Windows does not keep a
+  ; blank icon cache entry from an older install of the same MyEditor.exe).
+  StrCpy $R0 "$INSTDIR\MyEditor.ico"
+  ${If} ${FileExists} "$R0"
+  ${ElseIf} ${FileExists} "$INSTDIR\resources\icon.ico"
+    StrCpy $R0 "$INSTDIR\resources\icon.ico"
   ${Else}
     StrCpy $R0 "$INSTDIR\${APP_EXECUTABLE_FILENAME}"
   ${EndIf}
@@ -362,11 +366,13 @@ FunctionEnd
   ${EndIf}
 
   WriteRegStr HKCU "Software\Classes\Applications\${APP_EXECUTABLE_FILENAME}" "FriendlyAppName" "${PRODUCT_NAME}"
+  WriteRegStr HKCU "Software\Classes\Applications\${APP_EXECUTABLE_FILENAME}\DefaultIcon" "" "$R0,0"
   WriteRegStr HKCU "Software\Classes\Applications\${APP_EXECUTABLE_FILENAME}\shell\open\command" "" '"$INSTDIR\${APP_EXECUTABLE_FILENAME}" "%1"'
   WriteRegStr HKCU "Software\MyEditor\Capabilities" "ApplicationName" "${PRODUCT_NAME}"
   WriteRegStr HKCU "Software\MyEditor\Capabilities" "ApplicationDescription" "${APP_DESCRIPTION}"
-  WriteRegStr HKCU "Software\MyEditor\Capabilities" "ApplicationIcon" "$INSTDIR\${APP_EXECUTABLE_FILENAME},0"
+  WriteRegStr HKCU "Software\MyEditor\Capabilities" "ApplicationIcon" "$R0,0"
   WriteRegStr HKCU "Software\RegisteredApplications" "${PRODUCT_NAME}" "Software\MyEditor\Capabilities"
+  nsExec::ExecToLog '"$SYSDIR\ie4uinit.exe" -show'
 
   ; ── File associations (build/fileicons/file-types.nsh, generated) ──
   !include "${BUILD_RESOURCES_DIR}\fileicons\file-types.nsh"

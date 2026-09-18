@@ -256,3 +256,29 @@ test('api: term.read honours the long poll (idle + wait) and term.run passes the
     assert.equal(text.trim(), JSON.stringify('typed' + String.fromCharCode(13, 10)));
   } finally { await api.call('term.kill', { id: s.id }); }
 });
+
+test('term.shells lists only shells found on this computer', async () => {
+  const { parseEtcShells, parseWtCommandLine, parseWtProfiles } = require('../core/terminal');
+  assert.deepEqual(parseEtcShells('# comment\n/bin/bash\n/usr/bin/zsh\n\n'), ['/bin/bash', '/usr/bin/zsh']);
+  assert.equal(parseWtCommandLine('"C:\\\\Program Files\\\\Git\\\\bin\\\\bash.exe" -i -l'), 'C:\\\\Program Files\\\\Git\\\\bin\\\\bash.exe');
+  assert.equal(parseWtCommandLine('pwsh.exe -NoLogo'), 'pwsh.exe');
+  const wt = parseWtProfiles(`{
+    "profiles": { "list": [
+      { "name": "Git Bash", "commandline": "C:\\\\Git\\\\bin\\\\bash.exe -i -l" },
+      { "name": "Ubuntu", "source": "Windows.Terminal.Wsl", "commandline": "wsl.exe -d Ubuntu" },
+      { "name": "Hidden", "hidden": true, "commandline": "cmd.exe" }
+    ]}
+  }`);
+  assert.equal(wt.length, 1);
+  assert.equal(wt[0].name, 'Git Bash');
+  const api = createApi({ name: 'test', version: '0.0.0', configDir: path.join(tmp, 'cfg-shells') });
+  const list = await api.call('term.shells', { refresh: true });
+  assert.ok(Array.isArray(list) && list.length >= 1);
+  const ids = new Set();
+  for (const s of list) {
+    assert.ok(s.id && s.label, JSON.stringify(s));
+    assert.equal(ids.has(s.id), false, s.id);
+    ids.add(s.id);
+  }
+  if (process.platform === 'win32') assert.ok(list.some((s) => s.id === 'cmd'));
+});

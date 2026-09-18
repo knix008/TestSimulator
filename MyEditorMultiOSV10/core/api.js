@@ -99,7 +99,7 @@ function createApi({ name = 'web', version = '', buildInfo = null, configDir, op
     'os.open': async ({ path: p }) => { if (openPath) { const r = await openPath(p); if (r) throw new Error(r); return true; } return files.openExternal(p); },
     'os.reveal': async ({ path: p }) => { if (revealPath) { await revealPath(p); return true; } return files.openExternal(path.dirname(p)); },
     // ── Terminal panel ──
-    'term.shells': async () => terminals.shells(),
+    'term.shells': async (args) => terminals.shells(args || {}),
     'term.create': async ({ cwd, shell }) => terminals.create({ cwd, shell }),
     'term.run': async ({ id, line, eol }) => terminals.run({ id, line, eol }),
     'term.write': async ({ id, data }) => terminals.write({ id, data }),

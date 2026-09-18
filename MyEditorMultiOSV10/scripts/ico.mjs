@@ -1,8 +1,8 @@
 // Pure-JS ICO (Windows) and ICNS (macOS) encoders.
 //
-// Shortcuts and the Windows taskbar often ignore PNG-compressed ICO frames
-// under 256 px (blank desktop / taskbar icon). Small sizes are written as
-// 32-bit BMP (DIB + AND mask) when `rgba` is given; 256 px stays PNG.
+// Shortcuts, the EXE resource (rcedit) and the Windows taskbar often ignore
+// or reject PNG-compressed ICO frames (blank desktop / Start / taskbar icon).
+// Every size is written as a 32-bit BMP (DIB + AND mask) when `rgba` is given.
 
 function bmpIcon(size, rgba) {
   const xorStride = size * 4;
@@ -39,7 +39,7 @@ export function encodeIco(entries) {
   if (!usable.length) throw new Error('ICO requires at least one image of size <= 256.');
 
   const blobs = usable.map((e) => {
-    if (e.size < 256 && e.rgba && e.rgba.length >= e.size * e.size * 4) return bmpIcon(e.size, e.rgba);
+    if (e.rgba && e.rgba.length >= e.size * e.size * 4) return bmpIcon(e.size, e.rgba);
     return e.png;
   });
 

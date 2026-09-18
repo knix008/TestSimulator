@@ -287,7 +287,7 @@ export function TerminalPanel({ terms, activeId, shells, onActivate, onNew, onCl
   useEffect(() => { setShellList(shells); }, [shells]);
   const openShellMenu = (e) => {
     setMenu(e.currentTarget);
-    call('term.shells').then((x) => { if (Array.isArray(x) && x.length) setShellList(x); }).catch(() => {});
+    call('term.shells', { refresh: true }).then((x) => { if (Array.isArray(x)) setShellList(x); }).catch(() => {});
   };
   const shellItems = shellList.map((s) => ({ id: `shell:${s.id}`, label: s.label, icon: 'terminal' }));
   return (
