@@ -50,6 +50,7 @@ export const toolOptions: Record<Tool, OptionControl[]> = {
   /* navigation and view */
   move: [{ kind: 'hint', label: 'hintMove' }],
   artboard: [{ kind: 'hint', label: 'hintMove' }],
+  puppet: [{ kind: 'hint', label: 'hintPuppet' }],
   hand: [{ kind: 'hint', label: 'hintHand' }],
   rotateView: [{ kind: 'hint', label: 'hintRotateView' }],
   zoom: [{ kind: 'hint', label: 'hintZoom' }],

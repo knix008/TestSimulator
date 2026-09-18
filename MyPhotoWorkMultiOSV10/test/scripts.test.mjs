@@ -72,3 +72,45 @@ test('npm test runs the suite through the harness entry point', () => {
   assert.ok(pkg.scripts.test.includes('--import ./test/helpers/setup.mjs'), 'the DOM/TS harness is not loaded')
   assert.ok(pkg.scripts.test.includes('node --test'))
 })
+
+/* ------------------------------------------------------------- packaging */
+
+test('every dist script packages through the retrying wrapper', () => {
+  // Calling electron-builder directly is what left a Windows build dying on a
+  // locked file with nothing to clear it.
+  const pkg = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8'))
+  for (const name of ['dist', 'dist:win', 'dist:mac', 'dist:linux']) {
+    const script = pkg.scripts[name]
+    assert.ok(script, `there is no ${name} script`)
+    assert.ok(script.includes('scripts/package-app.cjs'), `${name} does not go through package-app.cjs`)
+    assert.ok(!/(^|&&\s*)electron-builder\b/.test(script), `${name} still calls electron-builder directly`)
+  }
+  assert.equal(pkg.scripts['build:win'], 'npm run dist:win')
+  assert.ok(existsSync(path.join(root, 'scripts', 'package-app.cjs')))
+})
+
+test('the packaging wrapper spawns the builder the way the launchers do', () => {
+  const source = read('package-app.cjs')
+  assert.ok(source.includes('process.execPath'), 'the builder is not launched with this Node binary')
+  assert.ok(/electron-builder\/package\.json/.test(source), 'the builder entry is not resolved from the package')
+  assert.ok(!/['"][\w.-]*\.cmd['"]/.test(source), 'it names a .cmd shim')
+  assert.ok(!/['"]npm['"]/.test(source), 'it spawns npm')
+})
+
+test('a lock is retried and anything else is reported at once', () => {
+  const source = read('package-app.cjs')
+  // The failure arrives as text on stdout, so the wrapper has to read it.
+  assert.match(source, /EPERM/, 'the lock is not recognised')
+  assert.match(source, /EBUSY/, 'a locked delete is not recognised')
+  assert.match(source, /lockPattern\.test\(output\)/, 'the output is never tested for a lock')
+  assert.match(source, /const retryWaits = \[/, 'there is no backoff between attempts')
+})
+
+test('clearing the staging folder leaves the installers alone', () => {
+  const source = read('clean-release.cjs')
+  // Only the unpacked trees go; a build that wiped the installers next to them
+  // would throw away the thing it was asked to make.
+  assert.match(source, /-unpacked\$/, 'the unpacked tree is not matched')
+  assert.match(source, /\.tmp/, 'the staging directory is not matched')
+  assert.ok(!/\.exe/.test(source), 'it reaches for the installers')
+})

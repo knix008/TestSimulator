@@ -247,6 +247,8 @@ export function drawSelectionOverlay(ctx: CanvasRenderingContext2D, selection: S
 }
 
 export function invertSelection(selection: Selection | null, width: number, height: number): Selection {
+  // Inverting nothing selects everything, so this one starts from an empty
+  // mask rather than the full-canvas one the Modify commands use.
   const mask = selectionToMask(selection, width, height) ?? emptyMask(width, height)
   const next = emptyMask(width, height)
   for (let i = 0; i < mask.length; i += 1) {
@@ -285,4 +287,260 @@ export function rowSelection(y: number, width: number): Selection {
 
 export function colSelection(x: number, height: number): Selection {
   return { kind: 'rect', x: Math.floor(x), y: 0, width: 1, height }
+}
+
+/* ------------------------------------------------------- modifying a selection */
+
+function maskSelection(mask: Uint8Array, width: number, height: number): Selection {
+  return { kind: 'mask', x: 0, y: 0, width, height, mask }
+}
+
+/**
+ * The mask a modifier works on. No selection means the whole canvas — that is
+ * what "nothing is selected" means everywhere else in the editor, and the
+ * modifiers have to agree with it or Expand would quietly select nothing.
+ */
+function modifierMask(selection: Selection | null, width: number, height: number) {
+  const mask = selectionToMask(selection, width, height)
+  if (mask) {
+    return mask
+  }
+  return new Uint8Array(width * height).fill(255)
+}
+
+/**
+ * Distance from every pixel to the nearest one that is `inside` (or outside).
+ *
+ * A two-pass chamfer transform with 3-4 weights: close enough to a circle for
+ * an edge a few pixels wide, and linear in the number of pixels, which a
+ * per-pixel radius search is not.
+ */
+function distanceField(mask: Uint8Array, width: number, height: number, toward: 0 | 1) {
+  const far = (width + height + 4) * 3
+  const distance = new Float32Array(width * height)
+  for (let i = 0; i < distance.length; i += 1) {
+    const on = mask[i] ? 1 : 0
+    distance[i] = on === toward ? 0 : far
+  }
+  // What lies beyond the canvas. Nothing is selected out there, so a selection
+  // running off the edge is still treated as having an edge: Contract pulls it
+  // in there too, rather than leaving a straight side untouched.
+  const beyond = toward === 0 ? 0 : far
+  const at = (x: number, y: number) => (
+    x < 0 || y < 0 || x >= width || y >= height ? beyond : distance[y * width + x]
+  )
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const i = y * width + x
+      distance[i] = Math.min(
+        distance[i],
+        at(x - 1, y) + 3,
+        at(x, y - 1) + 3,
+        at(x - 1, y - 1) + 4,
+        at(x + 1, y - 1) + 4,
+      )
+    }
+  }
+  for (let y = height - 1; y >= 0; y -= 1) {
+    for (let x = width - 1; x >= 0; x -= 1) {
+      const i = y * width + x
+      distance[i] = Math.min(
+        distance[i],
+        at(x + 1, y) + 3,
+        at(x, y + 1) + 3,
+        at(x + 1, y + 1) + 4,
+        at(x - 1, y + 1) + 4,
+      )
+    }
+  }
+  for (let i = 0; i < distance.length; i += 1) {
+    distance[i] /= 3
+  }
+  return distance
+}
+
+/** Grows the selection outwards by `radius` pixels in every direction. */
+export function expandSelection(selection: Selection | null, width: number, height: number, radius: number): Selection {
+  const mask = modifierMask(selection, width, height)
+  const distance = distanceField(mask, width, height, 1)
+  const next = emptyMask(width, height)
+  for (let i = 0; i < next.length; i += 1) {
+    next[i] = distance[i] <= radius ? 255 : 0
+  }
+  return maskSelection(next, width, height)
+}
+
+/** Pulls the selection in by `radius` pixels, the mirror of expanding it. */
+export function contractSelection(selection: Selection | null, width: number, height: number, radius: number): Selection {
+  const mask = modifierMask(selection, width, height)
+  const distance = distanceField(mask, width, height, 0)
+  const next = emptyMask(width, height)
+  for (let i = 0; i < next.length; i += 1) {
+    next[i] = mask[i] && distance[i] > radius ? 255 : 0
+  }
+  return maskSelection(next, width, height)
+}
+
+/** Replaces the selection with a band of `width` pixels straddling its edge. */
+export function borderSelection(selection: Selection | null, width: number, height: number, thickness: number): Selection {
+  const mask = modifierMask(selection, width, height)
+  const outward = distanceField(mask, width, height, 1)
+  const inward = distanceField(mask, width, height, 0)
+  const half = Math.max(0.5, thickness / 2)
+  const next = emptyMask(width, height)
+  for (let i = 0; i < next.length; i += 1) {
+    const distance = mask[i] ? inward[i] : outward[i]
+    next[i] = distance <= half ? 255 : 0
+  }
+  return maskSelection(next, width, height)
+}
+
+/**
+ * Rounds off the selection: each pixel takes the majority vote of the square
+ * around it, which fills pinholes and shaves off single-pixel spurs. The
+ * running sum makes the window size free.
+ */
+export function smoothSelection(selection: Selection | null, width: number, height: number, radius: number): Selection {
+  const mask = modifierMask(selection, width, height)
+  const step = Math.max(1, Math.round(radius))
+  // Summed-area table, one cell of padding so the corners need no special case.
+  const sums = new Int32Array((width + 1) * (height + 1))
+  for (let y = 0; y < height; y += 1) {
+    let row = 0
+    for (let x = 0; x < width; x += 1) {
+      row += mask[y * width + x] ? 1 : 0
+      sums[(y + 1) * (width + 1) + x + 1] = sums[y * (width + 1) + x + 1] + row
+    }
+  }
+  const area = (x0: number, y0: number, x1: number, y1: number) => (
+    sums[(y1 + 1) * (width + 1) + x1 + 1] - sums[y0 * (width + 1) + x1 + 1]
+    - sums[(y1 + 1) * (width + 1) + x0] + sums[y0 * (width + 1) + x0]
+  )
+  const next = emptyMask(width, height)
+  for (let y = 0; y < height; y += 1) {
+    const y0 = Math.max(0, y - step)
+    const y1 = Math.min(height - 1, y + step)
+    for (let x = 0; x < width; x += 1) {
+      const x0 = Math.max(0, x - step)
+      const x1 = Math.min(width - 1, x + step)
+      const cells = (x1 - x0 + 1) * (y1 - y0 + 1)
+      next[y * width + x] = area(x0, y0, x1, y1) * 2 > cells ? 255 : 0
+    }
+  }
+  return maskSelection(next, width, height)
+}
+
+/* --------------------------------------------- selecting by what the pixels are */
+
+/**
+ * Extends the selection into the pixels touching it that look like the pixel
+ * they touch. Region growing, so it only ever spreads through connected colour
+ * — a second patch of the same blue elsewhere is left alone.
+ */
+export function growSelection(canvas: HTMLCanvasElement, selection: Selection | null, tolerance: number): Selection {
+  const { width, height } = canvas
+  const mask = modifierMask(selection, width, height)
+  const next = Uint8Array.from(mask)
+  const data = context2d(canvas).getImageData(0, 0, width, height).data
+  const stack: number[] = []
+  for (let i = 0; i < next.length; i += 1) {
+    if (next[i]) stack.push(i)
+  }
+  while (stack.length) {
+    const index = stack.pop() as number
+    const x = index % width
+    const y = (index - x) / width
+    const from = index * 4
+    const neighbours = [
+      x > 0 ? index - 1 : -1,
+      x + 1 < width ? index + 1 : -1,
+      y > 0 ? index - width : -1,
+      y + 1 < height ? index + width : -1,
+    ]
+    for (const neighbour of neighbours) {
+      if (neighbour < 0 || next[neighbour]) {
+        continue
+      }
+      const to = neighbour * 4
+      if (colorDistance(data[to], data[to + 1], data[to + 2], data[to + 3], data[from], data[from + 1], data[from + 2], data[from + 3]) > tolerance) {
+        continue
+      }
+      next[neighbour] = 255
+      stack.push(neighbour)
+    }
+  }
+  return maskSelection(next, width, height)
+}
+
+/** Quantises a channel into the 32 buckets the colour-set tests work in. */
+function bucket(value: number) {
+  return Math.min(31, value >> 3)
+}
+
+/**
+ * Selects every pixel anywhere in the image that looks like something already
+ * selected — the same idea as Grow, without the requirement that it be next
+ * door. The colours in the selection go into a coarse 32x32x32 cube which is
+ * then widened by the tolerance, so the per-pixel test is one lookup.
+ */
+export function similarSelection(canvas: HTMLCanvasElement, selection: Selection | null, tolerance: number): Selection {
+  const { width, height } = canvas
+  const mask = selectionToMask(selection, width, height)
+  if (!mask) {
+    return { kind: 'rect', x: 0, y: 0, width, height }
+  }
+  const data = context2d(canvas).getImageData(0, 0, width, height).data
+  const cube = new Uint8Array(32 * 32 * 32)
+  for (let i = 0; i < mask.length; i += 1) {
+    if (!mask[i]) continue
+    const p = i * 4
+    cube[(bucket(data[p]) << 10) | (bucket(data[p + 1]) << 5) | bucket(data[p + 2])] = 1
+  }
+  const spread = Math.round(tolerance / 8)
+  const widened = spread > 0 ? new Uint8Array(cube.length) : cube
+  if (spread > 0) {
+    for (let r = 0; r < 32; r += 1) {
+      for (let g = 0; g < 32; g += 1) {
+        for (let b = 0; b < 32; b += 1) {
+          if (!cube[(r << 10) | (g << 5) | b]) continue
+          for (let dr = -spread; dr <= spread; dr += 1) {
+            const rr = r + dr
+            if (rr < 0 || rr > 31) continue
+            for (let dg = -spread; dg <= spread; dg += 1) {
+              const gg = g + dg
+              if (gg < 0 || gg > 31) continue
+              for (let db = -spread; db <= spread; db += 1) {
+                const bb = b + db
+                if (bb < 0 || bb > 31) continue
+                widened[(rr << 10) | (gg << 5) | bb] = 1
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  const next = emptyMask(width, height)
+  for (let i = 0; i < next.length; i += 1) {
+    const p = i * 4
+    next[i] = widened[(bucket(data[p]) << 10) | (bucket(data[p + 1]) << 5) | bucket(data[p + 2])] ? 255 : 0
+  }
+  return maskSelection(next, width, height)
+}
+
+/** Selects every pixel within `tolerance` of one colour, wherever it is. */
+export function colorRangeSelection(canvas: HTMLCanvasElement, color: { r: number; g: number; b: number }, tolerance: number): Selection {
+  const { width, height } = canvas
+  const data = context2d(canvas).getImageData(0, 0, width, height).data
+  const next = emptyMask(width, height)
+  for (let i = 0; i < next.length; i += 1) {
+    const p = i * 4
+    const distance = Math.max(
+      Math.abs(data[p] - color.r),
+      Math.abs(data[p + 1] - color.g),
+      Math.abs(data[p + 2] - color.b),
+    )
+    next[i] = data[p + 3] > 0 && distance <= tolerance ? 255 : 0
+  }
+  return maskSelection(next, width, height)
 }

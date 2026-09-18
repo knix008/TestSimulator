@@ -970,6 +970,108 @@
   text-align: center;
 }
 
+/* -------------------------------------------------------- theme button */
+/* A split button: a wide half that steps the theme, and a narrow arrow that
+   opens the list. They read as one control, so the seam between them is a
+   hairline rather than a gap. */
+.theme-menu-group {
+  display: flex;
+  gap: 0;
+}
+
+.theme-menu-group .theme-step {
+  border-bottom-right-radius: 0;
+  border-top-right-radius: 0;
+}
+
+.theme-menu-group .theme-pick {
+  border-bottom-left-radius: 0;
+  border-left: 1px solid var(--border);
+  border-top-left-radius: 0;
+  padding-left: 6px;
+  padding-right: 6px;
+}
+
+/* ------------------------------------------------------------ channels */
+.channel-grid {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(2, 1fr);
+  margin-bottom: 8px;
+}
+
+.channel-grid figure {
+  margin: 0;
+}
+
+.channel-grid img {
+  background: var(--panel-2, #10151b);
+  border: 1px solid var(--border);
+  display: block;
+  width: 100%;
+}
+
+.channel-grid figcaption {
+  color: var(--muted);
+  font-size: 10px;
+  padding-top: 2px;
+  text-align: center;
+}
+
+.action-row {
+  align-items: center;
+  display: grid;
+  gap: 6px;
+  grid-template-columns: 1fr auto auto auto;
+  margin-bottom: 4px;
+}
+
+.action-row span {
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.frame-row {
+  align-items: center;
+  display: grid;
+  gap: 6px;
+  grid-template-columns: auto 1fr auto;
+  margin-bottom: 4px;
+}
+
+.channel-row {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: 1fr auto;
+  margin-bottom: 4px;
+}
+
+/* ------------------------------------------------------- smart filters */
+/* One row per filter on a smart layer: a switch, its strength, and a bin. */
+.smart-filter {
+  align-items: center;
+  display: grid;
+  gap: 6px;
+  grid-template-columns: 1fr auto;
+  margin-bottom: 6px;
+}
+
+.smart-filter .check-row {
+  grid-column: 1 / -1;
+}
+
+.smart-filter button {
+  padding: 4px 6px;
+}
+
+.panel-hint {
+  color: var(--muted);
+  font-size: 11px;
+  margin: 2px 0 8px;
+}
+
 /* --------------------------------------------------- image information */
 /* The one window in the app that is meant to be read top to bottom, so it
    scrolls rather than squeezing four blocks of facts into a fixed height. */

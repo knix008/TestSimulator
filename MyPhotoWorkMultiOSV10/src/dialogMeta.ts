@@ -1,10 +1,11 @@
 import type { ComponentType } from 'react'
 import {
-  BookOpen, Camera, Crop, Download, Droplets, FilePlus, Frame, Info, LayoutGrid, Palette, Printer,
-  Ratio, Settings2, SlidersHorizontal, Sparkles, Spline, Sun, TriangleAlert, Type,
+  Blend, BookOpen, Box, Camera, Crop, Download, Droplets, FilePlus, Frame, Info, LayoutGrid, PaintBucket,
+  Palette, Printer, Ratio, Settings2, SlidersHorizontal, Sparkles, Spline, Square, SquareDashed,
+  Sun, TriangleAlert, Type,
 } from 'lucide-react'
 import { t } from './i18n'
-import type { AppSettings, CurveData, Language, LevelsData, PageOrientation } from './lib/types'
+import type { AppSettings, CurveData, Language, LevelsData, PageOrientation, TextData, ThreeDData } from './lib/types'
 import type { MetaSection } from './lib/metadata'
 
 /** Names, icons and titles for every popup. Kept apart from the components so
@@ -14,6 +15,9 @@ export type DialogName =
   | 'new' | 'export' | 'brightness' | 'hue' | 'blur' | 'sharpen' | 'cameraRaw' | 'curves' | 'levels'
   | 'filterGallery' | 'imageSize' | 'canvasSize' | 'text' | 'unsaved' | 'settings' | 'helpGuide'
   | 'about' | 'error' | 'feather' | 'print' | 'imageInfo'
+  | 'fill' | 'stroke' | 'selectModify' | 'colorRange' | 'saveSelection' | 'loadSelection'
+  | 'skew' | 'distort' | 'perspective' | 'warp' | 'contentScale' | 'colorProfile' | 'threeD'
+  | 'channelMixer' | 'selectiveColor' | 'gradientMap' | 'replaceColor'
 
 export type DialogResult = { action: string; [key: string]: unknown }
 
@@ -32,6 +36,20 @@ export type DialogPayload = {
   print?: { dataUrl: string; orientation: PageOrientation; width: number; height: number }
   /** Everything the image information window lists, already grouped. */
   info?: MetaSection[]
+  /** Which Modify command the shared radius window is standing in for. */
+  modify?: 'expand' | 'contract' | 'border' | 'smooth'
+  /** The document's saved selections, for the load window to choose from. */
+  channels?: { id: string; name: string }[]
+  /** The paths type can be set along. */
+  paths?: { id: string; name: string }[]
+  /** The tiles Fill can repeat. */
+  patterns?: { id: string; name: string }[]
+  /** The type layer being edited, so the window opens on its own settings. */
+  textData?: TextData
+  /** The working space now in force, and any profile the file carried. */
+  profile?: { current: string; embedded?: string }
+  /** The 3D settings of the layer being edited. */
+  threeD?: ThreeDData
   version?: string
   creator?: string
 }
@@ -58,6 +76,23 @@ const DIALOG_ICONS: Record<DialogName, ComponentType<{ size?: number }>> = {
   feather: Crop,
   print: Printer,
   imageInfo: Info,
+  fill: PaintBucket,
+  stroke: Square,
+  selectModify: SquareDashed,
+  colorRange: Palette,
+  channelMixer: Blend,
+  selectiveColor: Droplets,
+  gradientMap: Blend,
+  replaceColor: Palette,
+  saveSelection: SquareDashed,
+  loadSelection: SquareDashed,
+  skew: Ratio,
+  distort: Ratio,
+  perspective: Ratio,
+  warp: Spline,
+  contentScale: Ratio,
+  colorProfile: Palette,
+  threeD: Box,
 }
 
 const DIALOG_TITLE_KEYS: Record<DialogName, string> = {
@@ -82,6 +117,23 @@ const DIALOG_TITLE_KEYS: Record<DialogName, string> = {
   feather: 'feather',
   print: 'printPreview',
   imageInfo: 'imageInfo',
+  fill: 'fillCommand',
+  stroke: 'strokeCommand',
+  selectModify: 'expandSel',
+  colorRange: 'colorRange',
+  channelMixer: 'channelMixer',
+  selectiveColor: 'selectiveColor',
+  gradientMap: 'gradientMap',
+  replaceColor: 'replaceColor',
+  saveSelection: 'saveSelection',
+  loadSelection: 'loadSelection',
+  skew: 'skew',
+  distort: 'distort',
+  perspective: 'perspective',
+  warp: 'warpCommand',
+  contentScale: 'contentScale',
+  colorProfile: 'colorProfile',
+  threeD: 'extrude',
 }
 
 export function dialogIcon(name: DialogName) {
@@ -91,6 +143,9 @@ export function dialogIcon(name: DialogName) {
 export function dialogTitle(name: DialogName, language: Language, payload?: DialogPayload) {
   if (name === 'error') return payload?.error?.title ?? t(language, 'error')
   if (name === 'about') return t(language, 'appName')
+  // One window serves all four Modify commands, under the name of whichever
+  // one opened it.
+  if (name === 'selectModify') return t(language, `${payload?.modify ?? 'expand'}Sel`)
   return t(language, DIALOG_TITLE_KEYS[name] ?? name)
 }
 

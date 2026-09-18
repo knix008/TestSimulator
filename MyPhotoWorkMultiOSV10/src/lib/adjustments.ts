@@ -1,5 +1,9 @@
 import { clamp, hslToRgb, rgbToHsl } from './color'
 import { context2d } from './canvas'
+import {
+  channelMixerPixel, defaultChannelMix, defaultInkShift, equalizePixel, equalizeTable,
+  gradientMapPixel, selectiveColorPixel,
+} from './colorMath'
 import type { Adjustment } from './types'
 
 export function mapImage(data: Uint8ClampedArray, fn: (r: number, g: number, b: number, a: number, i: number) => [number, number, number, number]) {
@@ -17,6 +21,26 @@ function luma(r: number, g: number, b: number) {
 }
 
 export function applyAdjustment(data: Uint8ClampedArray, adj: Adjustment) {
+  // The operations with their own settings hand the work to colorMath, which
+  // is the same code the Image menu's one-off commands run.
+  if (adj.type === 'channelMixer') {
+    mapImage(data, channelMixerPixel(adj.mix ?? defaultChannelMix()))
+    return
+  }
+  if (adj.type === 'selectiveColor') {
+    mapImage(data, selectiveColorPixel(adj.family ?? 'reds', adj.ink ?? defaultInkShift()))
+    return
+  }
+  if (adj.type === 'gradientMap') {
+    mapImage(data, gradientMapPixel(adj.mapFrom ?? '#000000', adj.mapTo ?? '#ffffff'))
+    return
+  }
+  if (adj.type === 'equalize') {
+    // The table is read off whatever is beneath the layer at this moment, so
+    // the layer keeps up as the pixels under it change.
+    mapImage(data, equalizePixel(equalizeTable(data)))
+    return
+  }
   if (adj.type === 'invert') {
     mapImage(data, (r, g, b, a) => [255 - r, 255 - g, 255 - b, a])
     return

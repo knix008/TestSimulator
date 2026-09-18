@@ -1,8 +1,11 @@
-import type { FillData, LayerMeta, PhotoDocument, Point } from './types'
+import type { FillData, LayerMeta, PhotoDocument, Point, SmartFilter, SmartTransform } from './types'
 import { defaultEffects } from './types'
 import { applyAdjustment } from './adjustments'
 import { applyCurvesData, applyLevelsData } from './curves'
 import { applyLayerEffects, rasterizeShape, rasterizeTextLayer } from './effects'
+import { applyColorMode } from './colorModes'
+import { patternKey, tileOnto } from './patterns'
+import { renderExtrude } from './three'
 
 export function createId(prefix: string) {
   return `${prefix}-${Math.random().toString(36).slice(2, 10)}`
@@ -112,13 +115,20 @@ export function createBlankDocument(name: string, width: number, height: number,
   }
 }
 
-function paintFill(width: number, height: number, fill: FillData) {
+function paintFill(width: number, height: number, fill: FillData, canvases: Map<string, HTMLCanvasElement>) {
   const canvas = createCanvas(width, height)
   const ctx = context2d(canvas)
   if (fill.kind === 'solid' || fill.kind === 'pattern') {
     ctx.fillStyle = fill.color
     ctx.fillRect(0, 0, width, height)
     if (fill.kind === 'pattern') {
+      // A defined pattern is tiled; without one the layer shows the chequer
+      // that says "a pattern belongs here".
+      const tile = fill.patternId ? canvases.get(patternKey(fill.patternId)) : undefined
+      if (tile) {
+        tileOnto(canvas, tile, null)
+        return canvas
+      }
       ctx.fillStyle = 'rgba(255,255,255,0.08)'
       for (let y = 0; y < height; y += 16) {
         for (let x = 0; x < width; x += 16) {
@@ -138,17 +148,100 @@ function paintFill(width: number, height: number, fill: FillData) {
   return canvas
 }
 
+/**
+ * Draws a smart object's untouched original into the document at the size and
+ * angle it has been placed at. Nothing is resampled twice: scaling down and
+ * back up goes through this from the original every time, which is the whole
+ * reason a smart object is worth having.
+ */
+export function placeSmartObject(source: HTMLCanvasElement, width: number, height: number, transform?: SmartTransform) {
+  const placed = transform ?? { scaleX: 1, scaleY: 1, rotate: 0, x: 0, y: 0 }
+  const canvas = createCanvas(width, height)
+  const ctx = context2d(canvas)
+  const w = source.width * placed.scaleX
+  const h = source.height * placed.scaleY
+  ctx.save()
+  ctx.translate(placed.x + w / 2, placed.y + h / 2)
+  ctx.rotate(placed.rotate)
+  ctx.drawImage(source, -w / 2, -h / 2, w, h)
+  ctx.restore()
+  return canvas
+}
+
+/**
+ * Smart filters are re-run on every composite, so the result is cached per
+ * layer and only recomputed when the pixels it was built from, the placement
+ * or the stack itself changes. Without this a blur on a smart layer would be
+ * recalculated on every pointer move.
+ */
+let stampCounter = 0
+const canvasStamps = new WeakMap<HTMLCanvasElement, number>()
+const smartCache = new Map<string, { key: string; result: HTMLCanvasElement }>()
+
+function stampOf(canvas: HTMLCanvasElement) {
+  let stamp = canvasStamps.get(canvas)
+  if (stamp === undefined) {
+    stampCounter += 1
+    stamp = stampCounter
+    canvasStamps.set(canvas, stamp)
+  }
+  return stamp
+}
+
+/** Set by the app at start-up; the compositor has no filter knowledge itself. */
+let runSmartFilter: ((canvas: HTMLCanvasElement, filter: SmartFilter) => void) | null = null
+
+export function setSmartFilterRunner(runner: (canvas: HTMLCanvasElement, filter: SmartFilter) => void) {
+  runSmartFilter = runner
+}
+
+export function applySmartFilters(layerId: string, source: HTMLCanvasElement, filters: SmartFilter[] | undefined) {
+  const active = (filters ?? []).filter((filter) => filter.enabled)
+  if (!active.length || !runSmartFilter) {
+    return source
+  }
+  const key = `${stampOf(source)}:${JSON.stringify(active)}`
+  const cached = smartCache.get(layerId)
+  if (cached && cached.key === key) {
+    return cached.result
+  }
+  const result = cloneCanvas(source)
+  for (const filter of active) {
+    runSmartFilter(result, filter)
+  }
+  smartCache.set(layerId, { key, result })
+  return result
+}
+
 function layerSource(layer: LayerMeta, document: PhotoDocument, canvases: Map<string, HTMLCanvasElement>) {
   if (layer.kind === 'text' && layer.text) {
-    return rasterizeTextLayer(document.width, document.height, layer.text)
+    return rasterizeTextLayer(document.width, document.height, layer.text, document.paths)
   }
   if (layer.kind === 'shape' && layer.shape) {
     return rasterizeShape(document.width, document.height, layer.shape)
   }
   if (layer.kind === 'fill' && layer.fill) {
-    return paintFill(document.width, document.height, layer.fill)
+    return paintFill(document.width, document.height, layer.fill, canvases)
   }
-  return canvases.get(layer.id) ?? null
+  // A 3D layer is its own picture given depth; the flat pixels are the skin.
+  if (layer.threeD) {
+    const flat = canvases.get(layer.id)
+    if (flat) {
+      return applySmartFilters(layer.id, renderExtrude(flat, document.width, document.height, layer.threeD), layer.smartFilters)
+    }
+  }
+  // A smart layer is drawn from its original, never from a placed copy.
+  const original = layer.smart ? canvases.get(smartSourceKey(layer.id)) : undefined
+  if (original) {
+    return applySmartFilters(layer.id, placeSmartObject(original, document.width, document.height, layer.smartTransform), layer.smartFilters)
+  }
+  const pixels = canvases.get(layer.id) ?? null
+  return pixels ? applySmartFilters(layer.id, pixels, layer.smartFilters) : null
+}
+
+/** Where a smart object's untouched pixels are kept in the canvas map. */
+export function smartSourceKey(layerId: string) {
+  return `${layerId}:source`
 }
 
 export function compositeDocument(document: PhotoDocument, canvases: Map<string, HTMLCanvasElement>, target?: HTMLCanvasElement) {
@@ -163,6 +256,13 @@ export function compositeDocument(document: PhotoDocument, canvases: Map<string,
     ctx.fillStyle = document.background
     ctx.fillRect(0, 0, document.width, document.height)
   }
+  /**
+   * The layer a clipping group hangs off: the last one drawn that was not
+   * itself clipped. A clipped layer is only visible where that one has pixels,
+   * which is the whole point of the feature.
+   */
+  let clipBase: HTMLCanvasElement | null = null
+
   for (const layer of document.layers) {
     if (!layer.visible || layer.kind === 'group') {
       continue
@@ -175,11 +275,15 @@ export function compositeDocument(document: PhotoDocument, canvases: Map<string,
       else if (layer.levels) applyLevelsData(image.data, layer.levels)
       else if (layer.adjustment) applyAdjustment(image.data, layer.adjustment)
       const mask = layer.maskEnabled ? canvases.get(`${layer.id}:mask`) : null
-      if (mask) {
-        const maskData = context2d(mask).getImageData(0, 0, document.width, document.height).data
+      const clip = layer.clipped ? clipBase : null
+      if (mask || clip) {
+        // How much of the adjustment reaches each pixel: the mask's brightness
+        // and, for a clipped layer, the base layer's own coverage.
+        const maskData = mask ? context2d(mask).getImageData(0, 0, document.width, document.height).data : null
+        const clipData = clip ? context2d(clip).getImageData(0, 0, document.width, document.height).data : null
         const current = ctx.getImageData(0, 0, document.width, document.height)
         for (let i = 0; i < image.data.length; i += 4) {
-          const m = maskData[i] / 255
+          const m = (maskData ? maskData[i] / 255 : 1) * (clipData ? clipData[i + 3] / 255 : 1)
           image.data[i] = current.data[i] * (1 - m) + image.data[i] * m
           image.data[i + 1] = current.data[i + 1] * (1 - m) + image.data[i + 1] * m
           image.data[i + 2] = current.data[i + 2] * (1 - m) + image.data[i + 2] * m
@@ -192,38 +296,32 @@ export function compositeDocument(document: PhotoDocument, canvases: Map<string,
     if (!source) {
       continue
     }
-    const effected = applyLayerEffects(source, layer.effects ?? defaultEffects())
+    let painted = applyLayerEffects(source, layer.effects ?? defaultEffects())
+    const mask = layer.maskEnabled ? canvases.get(`${layer.id}:mask`) : null
+    const clip = layer.clipped ? clipBase : null
+    if (mask || clip) {
+      // Both are cut out the same way: keep the pixels the mask, or the base
+      // layer, has something at.
+      const temp = createCanvas(document.width, document.height)
+      const tctx = context2d(temp)
+      tctx.drawImage(painted, 0, 0)
+      tctx.globalCompositeOperation = 'destination-in'
+      if (mask) tctx.drawImage(mask, 0, 0)
+      if (clip) tctx.drawImage(clip, 0, 0)
+      painted = temp
+    }
+    if (!layer.clipped) {
+      clipBase = painted
+    }
     ctx.save()
     ctx.globalAlpha = layer.opacity * (layer.fillOpacity ?? 1)
     ctx.globalCompositeOperation = layer.blendMode as GlobalCompositeOperation
-    if (layer.maskEnabled) {
-      const mask = canvases.get(`${layer.id}:mask`)
-      if (mask) {
-        ctx.globalCompositeOperation = 'source-over'
-        const temp = createCanvas(document.width, document.height)
-        const tctx = context2d(temp)
-        tctx.drawImage(effected, 0, 0)
-        tctx.globalCompositeOperation = 'destination-in'
-        tctx.drawImage(mask, 0, 0)
-        ctx.globalCompositeOperation = layer.blendMode as GlobalCompositeOperation
-        ctx.drawImage(temp, 0, 0)
-        ctx.restore()
-        continue
-      }
-    }
-    ctx.drawImage(effected, 0, 0)
+    ctx.drawImage(painted, 0, 0)
     ctx.restore()
   }
-  if (document.colorMode === 'gray') {
-    const image = ctx.getImageData(0, 0, document.width, document.height)
-    for (let i = 0; i < image.data.length; i += 4) {
-      const v = 0.299 * image.data[i] + 0.587 * image.data[i + 1] + 0.114 * image.data[i + 2]
-      image.data[i] = v
-      image.data[i + 1] = v
-      image.data[i + 2] = v
-    }
-    ctx.putImageData(image, 0, 0)
-  }
+  // Greyscale, CMYK and Lab are applied to the finished composite, so the
+  // layers themselves stay RGBA and switching back to RGB costs nothing.
+  applyColorMode(canvas, document.colorMode)
   return canvas
 }
 

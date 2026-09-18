@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ComponentType, type PointerEvent as ReactPointerEvent } from 'react'
+import { createElement, useCallback, useEffect, useMemo, useReducer, useRef, useState, type ComponentType, type PointerEvent as ReactPointerEvent } from 'react'
 import { createPortal } from 'react-dom'
 import {
   Aperture,
@@ -7,9 +7,14 @@ import {
   ArrowUp,
   Blend,
   Camera,
+  Circle,
+  ChevronDown,
   CircleDashed,
   CircleQuestionMark,
   Clock,
+  Download,
+  Play,
+  Save,
   Contrast,
   Copy,
   Crop,
@@ -50,16 +55,24 @@ import {
 import { blendLabel, t, toolLabel } from './i18n'
 import { aspectRatio, formatBytes, formatName, imageStatistics, type MetaRow, type MetaSection } from './lib/metadata'
 import { adjustmentTypes, iconForTool, toolGroups } from './catalog'
-import { canvasToDataUrl, cloneCanvas, compositeDocument, context2d, createBlankDocument, createCanvas, createLayerMeta, padCanvas, resizeCanvasContent, sampleComposite } from './lib/canvas'
+import { canvasToDataUrl, cloneCanvas, compositeDocument, context2d, createBlankDocument, createCanvas, createId, createLayerMeta, padCanvas, resizeCanvasContent, sampleComposite, setSmartFilterRunner, smartSourceKey } from './lib/canvas'
 import { hexToRgb, hsvToRgb, rgbToHex, rgbToHsv } from './lib/color'
-import { addNoise, adjustBrightnessContrast, adjustHueSaturation, clearSelectionPixels, clouds, emboss, findEdges, gaussianBlur, grayscale, highPass, histogram, invertColors, mosaic, motionBlur, offset, oilPaint, sharpen, solarize, vignette } from './lib/filters'
+import { adjustBrightnessContrast, adjustHueSaturation, clearSelectionPixels, gaussianBlur, grayscale, histogram, invertColors, sharpen } from './lib/filters'
+import { applyGalleryFilter } from './lib/gallery'
 import { applyAdjustmentCanvas, levelsStretch } from './lib/adjustments'
 import { cloneDocument, pushHistory, takeSnapshot, type HistorySnapshot } from './lib/history'
 import { decodeImageSource, downloadDataUrl, encodeExport, extensionFor, fileToOpenItem, flattenOnto, naturalOrientation, previewSheet, printDataUrl, restoreProject, serializeProject } from './lib/imageIO'
-import { colSelection, drawSelectionOverlay, ellipseSelection, featherSelection, invertSelection, maskFromLasso, paintBucket, rectSelection, rowSelection, selectionToMask, wandSelection } from './lib/selection'
+import { borderSelection, clipCanvasToSelection, colSelection, colorRangeSelection, contractSelection, drawSelectionOverlay, ellipseSelection, expandSelection, featherSelection, growSelection, invertSelection, maskBounds, maskFromLasso, paintBucket, rectSelection, rowSelection, selectionBounds, selectionToMask, similarSelection, smoothSelection, wandSelection } from './lib/selection'
+import { autoColor, channelMixer, equalize, gradientMap, replaceColor, selectiveColor, type ChannelMix, type ColorFamily, type InkShift } from './lib/colorTools'
+import { channelCanvas, combineMasks, selectionToChannel, type ChannelCombine } from './lib/channels'
+import { builtInProfiles, convertProfile } from './lib/colorModes'
+import { contentAwareScaleLayers, cornerTransform, perspective as perspectiveCanvas, puppetWarp, skew as skewCanvas, warpCanvas, type Pin } from './lib/warp'
+import { definePattern, makePatternTile, patternKey, tileOnto } from './lib/patterns'
+import { gifDataUrl } from './lib/gif'
+import { extractVideoFrames, recordFrames } from './lib/video'
 import { loadSettings, saveSettings } from './lib/settings'
 import { colorReplace, dodgeBurn, healStamp, paintGradient, paintStroke, redEyeFix, smudge, spongeDesaturate } from './lib/tools'
-import { contentAwareFill, findDistractions, generativeExpand, generativeUpscale, harmonize, selectSubject, skinSmooth } from './lib/ai'
+import { contentAwareFill, findDistractions, generativeExpand, generativeUpscale, harmonize, selectSubject } from './lib/ai'
 import { cloneStamp } from './lib/tools'
 import { createPath, drawPathOverlay, fillPathOnto, hitTestPaths, movePathPoint, pathFromPoints, pathNode, pathToSelection, smoothNode, smoothPath, strokePathOnto, translatePath, type PathHit } from './lib/paths'
 import { applyCurves, applyLevels, autoLevels } from './lib/curves'
@@ -70,7 +83,7 @@ import { firstTick, rulerSize, tickStep, visibleRange } from './lib/view'
 import { buildErrorReport } from './lib/errors'
 import { commands, commandsInMenu, menuIcons, menuOrder, toolbarGroups, type AppCommand, type MenuId as CommandMenuId } from './commands'
 import { DialogBody, DialogFrame, type DialogName, type DialogPayload, type DialogResult } from './dialogs'
-import { defaultAdjustment, defaultCurves, blendModes, rightPanelMaxWidth, rightPanelMinWidth, shapeKindForTool, type AdjustmentType, type AppSettings, type BlendMode, type ErrorDetails, type ExportFormat, type CurveData, type Language, type LevelsData, type PageOrientation, type PathShape, type PhotoDocument, type Point, type Selection, type SliceRect, type Tool, type TransformBox, type TransformHandle, type UnsavedChoice } from './lib/types'
+import { defaultAdjustment, defaultCurves, blendModes, rightPanelMaxWidth, rightPanelMinWidth, shapeKindForTool, type AdjustmentType, type AppSettings, type BlendMode, type ErrorDetails, type ExportFormat, type CurveData, type Language, type LevelsData, type PageOrientation, type PathShape, type PhotoDocument, type Point, type Selection, type SliceRect, type ActionScript, type ActionStep, type AnimationFrame, type LayerComp, type LayerMeta, type SmartFilter, type TextData, type TextWarpStyle, type ThreeDData, type Tool, type TransformBox, type TransformHandle, type UnsavedChoice } from './lib/types'
 import { applyTheme, themeLabel, themes } from './themes'
 import './App.css'
 
@@ -154,6 +167,8 @@ const panelTabIcons = {
   adjust: SlidersHorizontal,
   history: Clock,
   channels: LayoutGrid,
+  actions: Play,
+  timeline: Clock,
   info: Info,
 } as const
 
@@ -175,6 +190,10 @@ const adjustmentIcons: Record<AdjustmentType, ComponentType<{ size?: number }>> 
   grain: Grid3x3,
   colorLookup: Palette,
   shadowsHighlights: Contrast,
+  channelMixer: Blend,
+  selectiveColor: Droplets,
+  gradientMap: Blend,
+  equalize: SlidersHorizontal,
 }
 
 function MenuItem({
@@ -210,19 +229,20 @@ function MenuDrop({
   className?: string
   children: React.ReactNode
 }) {
-  const [box, setBox] = useState<DOMRect | null>(() => anchor?.getBoundingClientRect() ?? null)
+  // The dropdown hangs off a button, so it has to know where that button is.
+  // Measuring while rendering puts it in the right place on its first paint;
+  // holding the rectangle in state instead cost a second render, and setting
+  // that state from an effect is what React warns about. The button cannot move
+  // while the menu is open except when the window resizes, which is the one
+  // thing worth re-measuring for.
+  const [, remeasure] = useReducer((tick: number) => tick + 1, 0)
 
-  useLayoutEffect(() => {
-    if (!anchor) {
-      setBox(null)
-      return
-    }
-    const update = () => setBox(anchor.getBoundingClientRect())
-    update()
-    window.addEventListener('resize', update)
-    return () => window.removeEventListener('resize', update)
-  }, [anchor])
+  useEffect(() => {
+    window.addEventListener('resize', remeasure)
+    return () => window.removeEventListener('resize', remeasure)
+  }, [])
 
+  const box = anchor?.getBoundingClientRect() ?? null
   if (!box) return null
 
   const minWidth = className?.includes('theme-menu') ? 420 : 220
@@ -315,6 +335,22 @@ function imageInfoSections(document: PhotoDocument, canvases: Map<string, HTMLCa
   })
   return sections
 }
+
+/**
+ * The compositor re-runs a smart layer's filter stack itself, but knows nothing
+ * about filters. This hands it the gallery, once, when the module loads —
+ * before any document can be composited.
+ */
+setSmartFilterRunner((canvas, filter) => {
+  applyGalleryFilter(canvas, filter.filter, { radius: filter.radius, amount: filter.amount }, null)
+})
+
+/**
+ * True while an action is replaying. It lives outside the component because it
+ * is not state anything renders from — it only tells `openDialog` that nobody
+ * is watching, so a window would stop the run rather than serve it.
+ */
+let replayingAction = false
 
 /** What the print preview window is handed: a small opaque copy of the page. */
 function printPreview(document: PhotoDocument, canvases: Map<string, HTMLCanvasElement>) {
@@ -439,7 +475,15 @@ export default function App() {
   const [selection, setSelection] = useState<Selection | null>(null)
   const [dirty, setDirty] = useState(false)
   const [menu, setMenu] = useState<MenuId>(null)
-  const menuAnchorRefs = useRef<Partial<Record<Exclude<MenuId, null>, HTMLButtonElement | null>>>({})
+  /**
+   * The menu-bar button the open dropdown hangs off.
+   *
+   * Only one menu is open at a time, and the button that opened it is right
+   * there on the event, so it is captured when the menu opens rather than
+   * collected from a ref on every button. Render then reads plain state, which
+   * is what positioning a dropdown honestly depends on.
+   */
+  const [menuAnchor, setMenuAnchor] = useState<HTMLButtonElement | null>(null)
   const [status, setStatus] = useState('ready')
   const [savedNote, setSavedNote] = useState(false)
   const [pan, setPan] = useState({ x: 72, y: 56 })
@@ -475,6 +519,14 @@ export default function App() {
   // The pen tools build a path click by click before it joins doc.paths.
   const [draftPath, setDraftPath] = useState<PathShape | null>(null)
   const [polyPoints, setPolyPoints] = useState<Point[]>([])
+  /** Names typed into the Actions panel before the thing they name exists. */
+  const [actionName, setActionName] = useState('')
+  const [compName, setCompName] = useState('')
+  /** The pins the puppet tool is holding the picture with. */
+  const [pins, setPins] = useState<Pin[]>([])
+  const pinsRef = useRef<Pin[]>([])
+  /** The name of the ICC profile the opened file carried, if it had one. */
+  const embeddedProfileRef = useRef<string | null>(null)
   const [cropCorners, setCropCorners] = useState<Point[]>([])
   const [shapeDraft, setShapeDraft] = useState<{ x: number; y: number; width: number; height: number } | null>(null)
   const [activeSliceId, setActiveSliceId] = useState<string | null>(null)
@@ -487,12 +539,15 @@ export default function App() {
   const stageRef = useRef<HTMLDivElement | null>(null)
   const fileRef = useRef<HTMLInputElement | null>(null)
   const placeRef = useRef<HTMLInputElement | null>(null)
+  const videoRef = useRef<HTMLInputElement | null>(null)
   const dragRef = useRef<{
     mode:
       | 'paint' | 'erase' | 'select' | 'lasso' | 'crop' | 'pan' | 'move' | 'gradient' | 'none'
       | 'magnetic' | 'shape' | 'path' | 'freeformPen' | 'transform' | 'slice' | 'frame'
-      | 'ruler' | 'patch' | 'contentMove' | 'rotateView' | 'pathMove'
+      | 'ruler' | 'patch' | 'contentMove' | 'rotateView' | 'pathMove' | 'puppet'
     handle?: TransformHandle
+    /** Which puppet pin the drag has hold of. */
+    pin?: number
     hit?: PathHit | null
     shift?: boolean
     alt?: boolean
@@ -554,6 +609,7 @@ export default function App() {
     settingsRef.current = settings
     draftPathRef.current = draftPath
     polyPointsRef.current = polyPoints
+    pinsRef.current = pins
     transformRef.current = transformBox
     cloneSourceRef.current = cloneSource
     cropCornersRef.current = cropCorners
@@ -562,7 +618,7 @@ export default function App() {
     textPointRef.current = textPoint
     errorRef.current = error
     dirtyRef.current = dirty
-  }, [adjust, cloneSource, cropCorners, dirty, doc, draftPath, error, polyPoints, selection, settings, shapeDraft, textPoint, textValue, tool, transformBox])
+  }, [adjust, cloneSource, cropCorners, dirty, doc, draftPath, error, pins, polyPoints, selection, settings, shapeDraft, textPoint, textValue, tool, transformBox])
 
 
   /* ------------------------------------------------------ popup windows */
@@ -586,6 +642,12 @@ export default function App() {
       error: errorRef.current ?? undefined,
       print: name === 'print' && current ? printPreview(current, canvasesRef.current) : undefined,
       info: name === 'imageInfo' && current ? imageInfoSections(current, canvasesRef.current, settingsRef.current.language) : undefined,
+      channels: current?.channels?.map(({ id, name: label }) => ({ id, name: label })),
+      paths: current?.paths.map(({ id, name: label }) => ({ id, name: label })),
+      patterns: current?.patterns?.map(({ id, name: label }) => ({ id, name: label })),
+      textData: current?.layers.find((layer) => layer.id === current.activeLayerId && layer.kind === 'text')?.text,
+      profile: { current: current?.profile ?? 'srgb', embedded: embeddedProfileRef.current ?? undefined },
+      threeD: current?.layers.find((layer) => layer.id === current.activeLayerId)?.threeD,
       version: '1.0.0',
       creator: 'SHKWON (knix008@naver.com)',
     }
@@ -603,8 +665,15 @@ export default function App() {
    * one that is already open raises that window instead of making a second.
    * The browser build has no second window, so it renders in place.
    */
-  const openDialog = useCallback((name: DialogName) => {
-    const payload = dialogPayload(name)
+  /** `extra` carries the one or two facts a shared window needs to know which
+   *  command opened it — there is no ref to reach for at that point. */
+  const openDialog = useCallback((name: DialogName, extra?: Partial<DialogPayload>) => {
+    // An action replays the answer a window was given, so opening the window
+    // would only stop and wait for someone who is not there.
+    if (replayingAction) {
+      return
+    }
+    const payload = { ...dialogPayload(name), ...extra }
     if (window.electronDialogApi) {
       // Never swallow a failure: if the window cannot be created the popup must
       // still appear in page rather than the button doing nothing at all.
@@ -846,6 +915,26 @@ export default function App() {
       ctx.stroke()
       ctx.restore()
     }
+    if (pins.length > 0) {
+      // Puppet pins: a ring where the pin was put down, and a line to where it
+      // has been dragged, so the pull is visible before it is applied.
+      ctx.save()
+      ctx.setLineDash([])
+      ctx.lineWidth = 1.5 / zoom
+      for (const pin of pins) {
+        ctx.strokeStyle = 'rgba(56, 189, 248, 0.9)'
+        ctx.beginPath()
+        ctx.moveTo(pin.from.x, pin.from.y)
+        ctx.lineTo(pin.to.x, pin.to.y)
+        ctx.stroke()
+        ctx.beginPath()
+        ctx.arc(pin.to.x, pin.to.y, 5 / zoom, 0, Math.PI * 2)
+        ctx.fillStyle = 'rgba(56, 189, 248, 0.35)'
+        ctx.fill()
+        ctx.stroke()
+      }
+      ctx.restore()
+    }
     if (cropCorners.length > 0) {
       ctx.save()
       ctx.setLineDash([])
@@ -920,7 +1009,34 @@ export default function App() {
       })
     }
 
-  }, [activePathId, crop, cropCorners, dash, doc, draftPath, frame, pan.x, pan.y, polyPoints, selection, settings.showGrid, settings.showPaths, settings.showRulers, settings.theme, settings.zoom, shapeDraft, transformBox, viewAngle])
+  }, [activePathId, crop, cropCorners, dash, doc, draftPath, frame, pan.x, pan.y, pins, polyPoints, selection, settings.showGrid, settings.showPaths, settings.showRulers, settings.theme, settings.zoom, shapeDraft, transformBox, viewAngle])
+
+  /** The four thumbnails in the channels panel, in the order they are shown. */
+  const channelPreviews = [
+    { key: 'rgb', label: 'channelRgb' },
+    { key: 'r', label: 'channelRed' },
+    { key: 'g', label: 'channelGreen' },
+    { key: 'b', label: 'channelBlue' },
+  ] as const
+
+  useEffect(() => {
+    if (settings.rightTab !== 'channels') {
+      return
+    }
+    const composite = compositeDocument(doc, canvasesRef.current)
+    const width = 96
+    const height = Math.max(1, Math.round((width * composite.height) / composite.width))
+    const small = resizeCanvasContent(composite, width, height)
+    for (const preview of channelPreviews) {
+      const target = document.getElementById(`channel-canvas-${preview.key}`) as HTMLCanvasElement | null
+      if (!target) continue
+      target.width = width
+      target.height = height
+      const ctx = context2d(target)
+      ctx.clearRect(0, 0, width, height)
+      ctx.drawImage(preview.key === 'rgb' ? small : channelCanvas(small, preview.key), 0, 0)
+    }
+  })
 
   useEffect(() => {
     const canvas = document.getElementById('histogram-canvas') as HTMLCanvasElement | null
@@ -965,6 +1081,10 @@ export default function App() {
     try {
       for (const file of files) {
         const decoded = await decodeImageSource(file)
+        // The profile the file was tagged with, for the profile window to show.
+        embeddedProfileRef.current = decoded.kind === 'canvas'
+          ? decoded.details?.find((row) => row.label === 'Colour profile')?.value ?? null
+          : null
         if (decoded.kind === 'project') {
           const restored = await restoreProject(decoded.project)
           if (file.path) {
@@ -1009,6 +1129,7 @@ export default function App() {
               byteSize: file.size,
               details: decoded.details ?? [],
             },
+            profile: 'srgb',
           }
           replaceDocument(next, new Map([[layer.id, canvas]]))
           requestAnimationFrame(() => fitZoom(next))
@@ -1076,7 +1197,7 @@ export default function App() {
     }
     try {
       const composite = compositeDocument(doc, canvasesRef.current)
-      const dataUrl = await encodeExport(composite, format, undefined, settingsRef.current.exportTransparent)
+      const dataUrl = await encodeExport(composite, format, undefined, settingsRef.current.exportTransparent, doc.depth ?? 8)
       const fileName = `${doc.name || tr('untitled')}.${extensionFor(format)}`
       if (window.electronFileApi) {
         const result = await window.electronFileApi.saveFile({
@@ -1470,6 +1591,12 @@ export default function App() {
           erase: currentTool === 'eraser',
           pencil: currentTool === 'pencil',
           selection,
+          shape: {
+            spacing: options.brushSpacing,
+            angle: options.brushAngle,
+            roundness: options.brushRoundness,
+            scatter: options.brushScatter,
+          },
         })
     }
   }, [brushArea, intersectWithBrush])
@@ -1490,6 +1617,18 @@ export default function App() {
         dragRef.current = { mode: 'transform', handle, start: point, last: point, points: [], layerX: 0, layerY: 0, shift: event.shiftKey, alt: event.altKey }
         return
       }
+    }
+
+    if (currentTool === 'puppet') {
+      // Near an existing pin, this drag moves it; anywhere else it puts a new
+      // pin down, which is what holds that part of the picture still.
+      const near = pinsRef.current.findIndex((pin) => Math.hypot(pin.to.x - point.x, pin.to.y - point.y) < 12 / options.zoom)
+      if (near < 0) {
+        setPins((current) => [...current, { from: point, to: point }])
+        return
+      }
+      dragRef.current = { mode: 'puppet', pin: near, start: point, last: point, points: [], layerX: 0, layerY: 0 }
+      return
     }
 
     if (currentTool === 'hand') {
@@ -1538,7 +1677,7 @@ export default function App() {
 
     /* ------------------------------------------------------------- paths */
     if (currentTool === 'pen' || currentTool === 'curvaturePen') {
-      // Clicking the first anchor again closes the path, as in Photoshop.
+      // Clicking the first anchor again closes the path, as pen tools do.
       const draft = draftPathRef.current
       if (draft && draft.nodes.length > 1) {
         const first = draft.nodes[0]
@@ -1730,6 +1869,11 @@ export default function App() {
     const point = screenToDoc(event.clientX, event.clientY)
     const options = settingsRef.current
 
+    if (drag.mode === 'puppet') {
+      const index = drag.pin ?? -1
+      setPins((current) => current.map((pin, at) => (at === index ? { ...pin, to: point } : pin)))
+      return
+    }
     if (drag.mode === 'pan') {
       setPan({ x: drag.layerX + (event.clientX - drag.start.x), y: drag.layerY + (event.clientY - drag.start.y) })
       return
@@ -1985,6 +2129,290 @@ export default function App() {
     markDirty()
   }
 
+  /* --------------------------------------------------------- puppet warp */
+
+  const commitPuppet = useCallback(() => {
+    const placed = pinsRef.current
+    setPins([])
+    if (placed.length < 2 || !placed.some((pin) => pin.from.x !== pin.to.x || pin.from.y !== pin.to.y)) {
+      return
+    }
+    withLayer((canvas) => {
+      const warped = puppetWarp(cloneCanvas(canvas), placed)
+      const ctx = context2d(canvas)
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
+      ctx.drawImage(warped, 0, 0)
+    })
+  }, [withLayer])
+
+  const cancelPuppet = useCallback(() => setPins([]), [])
+
+  /* --------------------------------------------------------------- actions */
+
+  /**
+   * Recording and replaying commands.
+   *
+   * Every menu and toolbar click already funnels through `runCommand`, and
+   * every window answer through `applyDialogResult`, so recording is a matter
+   * of noting what went past. Replaying pushes the same things back through,
+   * with the windows suppressed: the recorded answer is applied in place of
+   * opening one, which is what makes an action run without anyone watching.
+   */
+  const [recording, setRecording] = useState<ActionStep[] | null>(null)
+  const recordingRef = useRef<ActionStep[] | null>(null)
+  useEffect(() => { recordingRef.current = recording }, [recording])
+
+  const noteCommand = (command: string) => {
+    if (!recordingRef.current || replayingAction) return
+    // The recorder's own controls would otherwise record themselves.
+    if (command.startsWith('action.')) return
+    setRecording((steps) => (steps ? [...steps, { command }] : steps))
+  }
+
+  const noteDialogResult = (dialog: DialogName, result: DialogResult) => {
+    if (!recordingRef.current || replayingAction) return
+    setRecording((steps) => (steps ? [...steps, { command: '', dialog, result: result as Record<string, unknown> }] : steps))
+  }
+
+  const saveRecording = (name: string) => {
+    const steps = recordingRef.current ?? []
+    setRecording(null)
+    if (!steps.length) return
+    const action: ActionScript = { id: createId('action'), name, steps }
+    setSettings((current) => ({ ...current, actions: [...current.actions, action] }))
+  }
+
+  const playAction = useCallback((action: ActionScript) => {
+    replayingAction = true
+    try {
+      for (const step of action.steps) {
+        if (step.dialog) {
+          applyDialogResultRef.current(step.dialog as DialogName, (step.result ?? {}) as DialogResult)
+        } else if (step.command) {
+          runCommandRef.current(step.command)
+        }
+      }
+    } finally {
+      replayingAction = false
+    }
+  }, [])
+
+  const deleteAction = (id: string) => {
+    setSettings((current) => ({ ...current, actions: current.actions.filter((action) => action.id !== id) }))
+  }
+
+  /**
+   * Runs an action over a folder of files: each is opened, put through the
+   * steps and exported in the current format. The files are handled one at a
+   * time so a failure names the file it happened on.
+   */
+  const runBatch = useCallback(async (action: ActionScript) => {
+    const picker = window.electronFileApi
+    if (!picker) {
+      showError(tr('batch'), tr('batchDesktopOnly'), new Error(tr('batchDesktopOnly')))
+      return
+    }
+    const chosen = await picker.openFiles()
+    if (chosen.canceled || !chosen.files.length) {
+      return
+    }
+    setStatus('working')
+    for (const file of chosen.files) {
+      try {
+        await openFiles([file], 'open')
+        playAction(action)
+        await exportImage(settingsRef.current.exportFormat)
+      } catch (cause) {
+        showError(tr('batch'), file.name, cause)
+        break
+      }
+    }
+    setStatus('ready')
+  }, [exportImage, openFiles, playAction, showError, tr])
+
+  /* ------------------------------------------------------- layer comps */
+
+  /** Remembers which layers are showing, and how, so it can be put back. */
+  const captureComp = (name: string) => {
+    const current = docRef.current
+    if (!current) return
+    snapshot()
+    const comp: LayerComp = {
+      id: createId('comp'),
+      name,
+      states: current.layers.map((layer) => ({
+        layerId: layer.id,
+        visible: layer.visible,
+        opacity: layer.opacity,
+        blendMode: layer.blendMode,
+      })),
+    }
+    updateDoc((document) => ({ ...document, comps: [...(document.comps ?? []), comp] }))
+  }
+
+  const applyComp = (id: string) => {
+    const current = docRef.current
+    const comp = current?.comps?.find((item) => item.id === id)
+    if (!current || !comp) return
+    snapshot()
+    updateDoc((document) => ({
+      ...document,
+      layers: document.layers.map((layer) => {
+        const state = comp.states.find((item) => item.layerId === layer.id)
+        // A layer added after the comp was taken is left as it is.
+        return state ? { ...layer, visible: state.visible, opacity: state.opacity, blendMode: state.blendMode } : layer
+      }),
+    }))
+  }
+
+  const deleteComp = (id: string) => {
+    snapshot()
+    updateDoc((document) => ({ ...document, comps: (document.comps ?? []).filter((item) => item.id !== id) }))
+  }
+
+  /* ------------------------------------------------------------ transforms */
+
+  /**
+   * Runs a transform that hands back a new canvas, and puts the result into the
+   * layer. The transforms themselves never work in place, so this is the one
+   * place that decides a preview has been accepted.
+   */
+  const replaceLayerWith = (make: (source: HTMLCanvasElement) => HTMLCanvasElement) => {
+    withLayer((canvas) => {
+      const result = make(cloneCanvas(canvas))
+      const ctx = context2d(canvas)
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
+      ctx.drawImage(result, 0, 0)
+    })
+  }
+
+  /**
+   * Seam carving resizes the document, so every layer has to be carved with the
+   * same seams — which are chosen from the flattened image, not from one layer.
+   */
+  const applyContentAwareScale = (width: number, height: number) => {
+    const current = docRef.current
+    if (!current || width < 8 || height < 8) return
+    snapshot()
+    const order = current.layers.map((layer) => layer.id)
+    const sources = order.map((id) => canvasesRef.current.get(id) ?? createCanvas(current.width, current.height))
+    const carved = contentAwareScaleLayers(sources, compositeDocument(current, canvasesRef.current), width, height)
+    const next = new Map<string, HTMLCanvasElement>()
+    order.forEach((id, index) => next.set(id, carved[index]))
+    canvasesRef.current = next
+    moveOriginRef.current.clear()
+    setDoc({ ...cloneDocument(current), width: carved[0]?.width ?? width, height: carved[0]?.height ?? height })
+    markDirty()
+  }
+
+  /* ------------------------------------------------------------- channels */
+
+  /** Keeps the current selection as an alpha channel on the document. */
+  const saveSelectionAs = (name: string) => {
+    const current = docRef.current
+    if (!current) return
+    snapshot()
+    const channel = selectionToChannel(createId('channel'), name, selectionRef.current, current.width, current.height)
+    updateDoc((document) => ({ ...document, channels: [...(document.channels ?? []), channel] }))
+  }
+
+  /** Brings a saved channel back, on its own or combined with what is selected. */
+  const loadSelectionFrom = (channelId: string, mode: ChannelCombine) => {
+    const current = docRef.current
+    const channel = current?.channels?.find((item) => item.id === channelId)
+    if (!current || !channel) return
+    const existing = selectionToMask(selectionRef.current, current.width, current.height)
+    const mask = combineMasks(existing, channel.mask, mode)
+    setSelection({ kind: 'mask', ...maskBounds(mask, current.width, current.height), mask })
+  }
+
+  const deleteChannel = (channelId: string) => {
+    snapshot()
+    updateDoc((document) => ({ ...document, channels: (document.channels ?? []).filter((item) => item.id !== channelId) }))
+  }
+
+  /* ---------------------------------------------------- smart objects and filters */
+
+  /**
+   * Freezes what the layer draws now as an untouched original, which the
+   * compositor then places into the document on every render. Scaling the layer
+   * after this only changes how the original is placed, so the pixels never
+   * lose anything.
+   */
+  const convertToSmartObject = () => {
+    const current = docRef.current
+    const layer = current?.layers.find((item) => item.id === current.activeLayerId)
+    if (!current || !layer || layer.smart || layer.kind === 'group' || layer.kind === 'adjustment') {
+      return
+    }
+    snapshot()
+    const alone = { ...layer, opacity: 1, blendMode: 'source-over' as const, clipped: false, maskEnabled: false, smartFilters: [] }
+    const original = compositeDocument({ ...current, background: 'transparent', layers: [alone] }, canvasesRef.current)
+    canvasesRef.current.set(smartSourceKey(layer.id), original)
+    updateDoc((document) => ({
+      ...document,
+      layers: document.layers.map((item) => (
+        item.id === layer.id
+          ? {
+            ...item,
+            kind: 'raster' as const,
+            smart: true,
+            smartTransform: { scaleX: 1, scaleY: 1, rotate: 0, x: 0, y: 0 },
+            smartFilters: item.smartFilters ?? [],
+            text: undefined,
+            shape: undefined,
+            fill: undefined,
+          }
+          : item
+      )),
+    }))
+  }
+
+  /** Puts a gallery filter on the active smart layer instead of into its pixels. */
+  const addSmartFilter = (filterId: string) => {
+    const current = docRef.current
+    if (!current) return
+    snapshot()
+    const entry: SmartFilter = {
+      id: createId('smart'),
+      filter: filterId,
+      enabled: true,
+      radius: adjustRef.current.radius,
+      amount: adjustRef.current.amount,
+    }
+    updateDoc((document) => ({
+      ...document,
+      layers: document.layers.map((layer) => (
+        layer.id === document.activeLayerId
+          ? { ...layer, smartFilters: [...(layer.smartFilters ?? []), entry] }
+          : layer
+      )),
+    }))
+  }
+
+  const patchSmartFilter = (filterId: string, patch: Partial<SmartFilter>) => {
+    updateDoc((document) => ({
+      ...document,
+      layers: document.layers.map((layer) => (
+        layer.id === document.activeLayerId
+          ? { ...layer, smartFilters: (layer.smartFilters ?? []).map((item) => (item.id === filterId ? { ...item, ...patch } : item)) }
+          : layer
+      )),
+    }))
+  }
+
+  const removeSmartFilter = (filterId: string) => {
+    snapshot()
+    updateDoc((document) => ({
+      ...document,
+      layers: document.layers.map((layer) => (
+        layer.id === document.activeLayerId
+          ? { ...layer, smartFilters: (layer.smartFilters ?? []).filter((item) => item.id !== filterId) }
+          : layer
+      )),
+    }))
+  }
+
   const addAdjustment = (type: AdjustmentType, payload?: { curves?: CurveData; levels?: LevelsData }) => {
     snapshot()
     const layer = createLayerMeta(tr('adjLayer'), 'adjustment')
@@ -2011,6 +2439,481 @@ export default function App() {
     updateDoc((current) => ({ ...current, layers: current.layers.map((layer) => layer.id === current.activeLayerId ? { ...layer, maskEnabled: true } : layer) }))
   }
 
+  /* --------------------------------------------------------------- clipboard */
+
+  /** What the last copy took. Kept here so a paste works with no OS permission. */
+  const clipboardRef = useRef<HTMLCanvasElement | null>(null)
+  /** The selection Deselect threw away, so Reselect can put it back. */
+  const lastSelectionRef = useRef<Selection | null>(null)
+  /** Deselect keeps what it dropped, so Reselect has something to restore. */
+  const deselect = () => {
+    if (selectionRef.current) lastSelectionRef.current = selectionRef.current
+    setSelection(null)
+  }
+
+  /** What the selection commands read: the active layer, or the flat image. */
+  const selectionSource = () => {
+    const current = docRef.current
+    if (!current) return null
+    return canvasesRef.current.get(current.activeLayerId) ?? compositeDocument(current, canvasesRef.current)
+  }
+
+  /** Just the selected pixels, cropped to the selection's own bounds. */
+  const selectedPixels = (merged: boolean) => {
+    const current = docRef.current
+    if (!current) return null
+    const source = merged
+      ? compositeDocument(current, canvasesRef.current)
+      : canvasesRef.current.get(current.activeLayerId)
+    if (!source) return null
+    const bounds = selectionBounds(selectionRef.current, current)
+    const clipped = clipCanvasToSelection(cloneCanvas(source), selectionRef.current)
+    const cut = createCanvas(bounds.width, bounds.height)
+    context2d(cut).drawImage(clipped, -bounds.x, -bounds.y)
+    return cut
+  }
+
+  /**
+   * Copies to the editor's own clipboard, and to the system's where the browser
+   * allows it — so the pixels can be pasted into another program too. A refusal
+   * there is not a reason to lose the copy, so it is deliberately swallowed.
+   */
+  const copySelection = useCallback((merged: boolean) => {
+    const pixels = selectedPixels(merged)
+    if (!pixels) return
+    clipboardRef.current = pixels
+    try {
+      if (navigator.clipboard?.write && typeof ClipboardItem === 'function') {
+        pixels.toBlob((blob) => {
+          if (blob) void navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]).catch(() => {})
+        })
+      }
+    } catch {
+      // No system clipboard here; the in-app one still has the pixels.
+    }
+  }, [])
+
+  /** Opaque white where the selection is: what a layer mask reads. */
+  const maskCanvasFromSelection = (selection: Selection | null, width: number, height: number) => {
+    const canvas = createCanvas(width, height)
+    const ctx = context2d(canvas)
+    const mask = selectionToMask(selection, width, height)
+    if (!mask) {
+      ctx.fillStyle = '#ffffff'
+      ctx.fillRect(0, 0, width, height)
+      return canvas
+    }
+    const image = ctx.createImageData(width, height)
+    for (let i = 0; i < mask.length; i += 1) {
+      image.data[i * 4] = 255
+      image.data[i * 4 + 1] = 255
+      image.data[i * 4 + 2] = 255
+      image.data[i * 4 + 3] = mask[i]
+    }
+    ctx.putImageData(image, 0, 0)
+    return canvas
+  }
+
+  /** Drops the clipboard in as a new layer; `into` masks it with the selection. */
+  const pasteClipboard = useCallback((into: boolean) => {
+    const current = docRef.current
+    const pixels = clipboardRef.current
+    if (!current) return
+    if (!pixels) {
+      showError(tr('paste'), tr('clipboardEmpty'), new Error(tr('clipboardEmpty')))
+      return
+    }
+    snapshot()
+    const selection = selectionRef.current
+    const bounds = selectionBounds(selection, current)
+    const layer = createLayerMeta(tr('paste'))
+    const canvas = createCanvas(current.width, current.height)
+    // Into a selection it lands there; otherwise in the middle of the document.
+    const x = selection ? bounds.x : Math.round((current.width - pixels.width) / 2)
+    const y = selection ? bounds.y : Math.round((current.height - pixels.height) / 2)
+    context2d(canvas).drawImage(pixels, x, y)
+    canvasesRef.current.set(layer.id, canvas)
+    if (into && selection) {
+      canvasesRef.current.set(`${layer.id}:mask`, maskCanvasFromSelection(selection, current.width, current.height))
+      layer.maskEnabled = true
+    }
+    updateDoc((document) => ({ ...document, layers: [...document.layers, layer], activeLayerId: layer.id }))
+  }, [showError, snapshot, tr, updateDoc])
+
+  /* ------------------------------------------------------------ animation */
+
+  /** Which frame the preview is showing, or null when it is not running. */
+  const [playingFrame, setPlayingFrame] = useState<number | null>(null)
+  const playTimerRef = useRef<number | null>(null)
+
+  /** Keeps what is showing now as a frame of the animation. */
+  const captureAnimationFrame = () => {
+    const current = docRef.current
+    if (!current) return
+    snapshot()
+    const visible: Record<string, boolean> = {}
+    for (const layer of current.layers) {
+      visible[layer.id] = layer.visible
+    }
+    const frame: AnimationFrame = { id: createId('frame'), delayMs: 120, visible }
+    updateDoc((document) => ({ ...document, animation: [...(document.animation ?? []), frame] }))
+  }
+
+  /** Shows one frame by switching the layers to what it recorded. */
+  const showAnimationFrame = useCallback((id: string) => {
+    const current = docRef.current
+    const frame = current?.animation?.find((item) => item.id === id)
+    if (!current || !frame) return
+    updateDoc((document) => ({
+      ...document,
+      layers: document.layers.map((layer) => ({ ...layer, visible: frame.visible[layer.id] ?? layer.visible })),
+    }))
+  }, [updateDoc])
+
+  const patchAnimationFrame = (id: string, patch: Partial<AnimationFrame>) => {
+    updateDoc((document) => ({
+      ...document,
+      animation: (document.animation ?? []).map((frame) => (frame.id === id ? { ...frame, ...patch } : frame)),
+    }))
+  }
+
+  const deleteAnimationFrame = (id: string) => {
+    snapshot()
+    updateDoc((document) => ({ ...document, animation: (document.animation ?? []).filter((frame) => frame.id !== id) }))
+  }
+
+  const stopPlayback = useCallback(() => {
+    if (playTimerRef.current !== null) {
+      window.clearTimeout(playTimerRef.current)
+      playTimerRef.current = null
+    }
+    setPlayingFrame(null)
+  }, [])
+
+  /**
+   * Runs the animation in the document itself, one frame at a time. Each frame
+   * schedules the next from its own delay, so frames of different lengths play
+   * at the lengths they were given.
+   */
+  const startPlayback = useCallback(() => {
+    const frames = docRef.current?.animation ?? []
+    if (frames.length < 2) return
+    let index = 0
+    const step = () => {
+      const list = docRef.current?.animation ?? []
+      if (!list.length) {
+        stopPlayback()
+        return
+      }
+      const frame = list[index % list.length]
+      setPlayingFrame(index % list.length)
+      showAnimationFrame(frame.id)
+      index += 1
+      playTimerRef.current = window.setTimeout(step, Math.max(20, frame.delayMs))
+    }
+    step()
+  }, [showAnimationFrame, stopPlayback])
+
+  useEffect(() => () => {
+    if (playTimerRef.current !== null) window.clearTimeout(playTimerRef.current)
+  }, [])
+
+  /** Each frame composited on its own, which is what an encoder is handed. */
+  const animationFrameCanvases = () => {
+    const current = docRef.current
+    if (!current?.animation?.length) return []
+    return current.animation.map((frame) => ({
+      canvas: compositeDocument(
+        { ...current, layers: current.layers.map((layer) => ({ ...layer, visible: frame.visible[layer.id] ?? layer.visible })) },
+        canvasesRef.current,
+      ),
+      delayMs: frame.delayMs,
+    }))
+  }
+
+  const exportAnimatedGif = async () => {
+    const frames = animationFrameCanvases()
+    if (!frames.length) return
+    try {
+      const dataUrl = gifDataUrl(frames)
+      const fileName = `${docRef.current?.name || tr('untitled')}.gif`
+      if (window.electronFileApi) {
+        await window.electronFileApi.saveFile({ fileName, filters: [{ name: 'GIF', extensions: ['gif'] }], dataUrl })
+      } else {
+        downloadDataUrl(dataUrl, fileName)
+      }
+      setSavedNote(true)
+    } catch (cause) {
+      showError(tr('exportGif'), tr('exportFailed'), cause)
+    }
+  }
+
+  /* ---------------------------------------------------------------- video */
+
+  /** Samples a video file and drops each frame in as a layer and a frame. */
+  const importVideo = async (file: Blob, name: string) => {
+    try {
+      setStatus('working')
+      const frames = await extractVideoFrames(file, 12)
+      if (!frames.length) return
+      snapshot()
+      const first = frames[0].canvas
+      const layers: LayerMeta[] = []
+      const canvases = new Map<string, HTMLCanvasElement>()
+      const animation: AnimationFrame[] = []
+      frames.forEach((frame, index) => {
+        const layer = createLayerMeta(`${name} ${index + 1}`)
+        layer.visible = index === 0
+        canvases.set(layer.id, frame.canvas)
+        layers.push(layer)
+      })
+      // One animation frame per layer, each showing only its own.
+      layers.forEach((layer) => {
+        const visible: Record<string, boolean> = {}
+        for (const other of layers) visible[other.id] = other.id === layer.id
+        animation.push({ id: createId('frame'), delayMs: 120, visible })
+      })
+      const next: PhotoDocument = {
+        name: name.replace(/\.[^.]+$/, ''),
+        width: first.width,
+        height: first.height,
+        background: 'transparent',
+        layers,
+        activeLayerId: layers[0].id,
+        guides: [],
+        notes: [],
+        samplers: [],
+        counts: [],
+        paths: [],
+        slices: [],
+        frames: [],
+        measure: null,
+        colorMode: 'rgb',
+        animation,
+      }
+      replaceDocument(next, canvases)
+      requestAnimationFrame(() => fitZoom(next))
+      setSettings((current) => ({ ...current, rightTab: 'timeline' }))
+    } catch (cause) {
+      showError(tr('importVideo'), tr('openFailed'), cause)
+    } finally {
+      setStatus('ready')
+    }
+  }
+
+  const exportVideo = async () => {
+    const frames = animationFrameCanvases()
+    if (!frames.length) return
+    try {
+      setStatus('working')
+      const blob = await recordFrames(frames)
+      const reader = new FileReader()
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        reader.onload = () => resolve(String(reader.result))
+        reader.onerror = () => reject(new Error('The recording could not be read back'))
+        reader.readAsDataURL(blob)
+      })
+      const fileName = `${docRef.current?.name || tr('untitled')}.webm`
+      if (window.electronFileApi) {
+        await window.electronFileApi.saveFile({ fileName, filters: [{ name: 'WebM', extensions: ['webm'] }], dataUrl })
+      } else {
+        downloadDataUrl(dataUrl, fileName)
+      }
+      setSavedNote(true)
+    } catch (cause) {
+      showError(tr('exportVideo'), tr('exportFailed'), cause)
+    } finally {
+      setStatus('ready')
+    }
+  }
+
+  /* ------------------------------------------------------------- patterns */
+
+  /** Takes the selection (or the whole layer) and keeps it as a tile. */
+  const definePatternFromSelection = () => {
+    const current = docRef.current
+    const source = current ? canvasesRef.current.get(current.activeLayerId) : null
+    if (!current || !source) return
+    snapshot()
+    const tile = makePatternTile(source, selectionRef.current)
+    const pattern = definePattern(createId('pattern'), `${tr('pattern')} ${(current.patterns?.length ?? 0) + 1}`, tile)
+    canvasesRef.current.set(patternKey(pattern.id), tile)
+    updateDoc((document) => ({ ...document, patterns: [...(document.patterns ?? []), pattern] }))
+  }
+
+  /* ------------------------------------------------------------ fill / stroke */
+
+  const fillSelection = (color: string, opacity: number, patternId?: string) => {
+    const tile = patternId ? canvasesRef.current.get(patternKey(patternId)) : undefined
+    withLayer((canvas) => {
+      const paint = createCanvas(canvas.width, canvas.height)
+      const pctx = context2d(paint)
+      if (tile) {
+        tileOnto(paint, tile, null)
+      } else {
+        pctx.fillStyle = color
+        pctx.fillRect(0, 0, canvas.width, canvas.height)
+      }
+      clipCanvasToSelection(paint, selectionRef.current)
+      const ctx = context2d(canvas)
+      ctx.save()
+      ctx.globalAlpha = opacity
+      ctx.drawImage(paint, 0, 0)
+      ctx.restore()
+    })
+  }
+
+  /**
+   * Draws a line along the edge of the selection. The band of pixels it covers
+   * is worked out from the selection itself, so it follows a lasso as readily
+   * as a rectangle, and `where` picks the side of the edge it sits on.
+   */
+  const strokeSelection = (color: string, thickness: number, where: 'inside' | 'center' | 'outside') => {
+    const current = docRef.current
+    if (!current) return
+    const selection = selectionRef.current
+    if (!selection) {
+      showError(tr('strokeCommand'), tr('noSelection'), new Error(tr('noSelection')))
+      return
+    }
+    const { width, height } = current
+    // Centred, the band is the whole width; on one side it is half of a band
+    // twice as wide, with the other half dropped below.
+    const band = borderSelection(selection, width, height, where === 'center' ? thickness : thickness * 2)
+    const bandMask = selectionToMask(band, width, height)
+    const inside = selectionToMask(selection, width, height)
+    if (!bandMask) return
+    const keep = new Uint8Array(bandMask.length)
+    for (let i = 0; i < keep.length; i += 1) {
+      if (!bandMask[i]) continue
+      const isInside = inside ? inside[i] > 0 : true
+      keep[i] = where === 'center' || (where === 'inside') === isInside ? 255 : 0
+    }
+    const rgb = hexToRgb(color)
+    withLayer((canvas) => {
+      const paint = createCanvas(width, height)
+      const pctx = context2d(paint)
+      const image = pctx.createImageData(width, height)
+      for (let i = 0; i < keep.length; i += 1) {
+        image.data[i * 4] = rgb.r
+        image.data[i * 4 + 1] = rgb.g
+        image.data[i * 4 + 2] = rgb.b
+        image.data[i * 4 + 3] = keep[i]
+      }
+      pctx.putImageData(image, 0, 0)
+      context2d(canvas).drawImage(paint, 0, 0)
+    })
+  }
+
+  /* ----------------------------------------------------------- image / layers */
+
+  /** Crops away the fully transparent border around everything visible. */
+  const trimTransparent = () => {
+    const current = docRef.current
+    if (!current) return
+    const composite = compositeDocument(current, canvasesRef.current)
+    const data = context2d(composite).getImageData(0, 0, composite.width, composite.height).data
+    let minX = composite.width
+    let minY = composite.height
+    let maxX = -1
+    let maxY = -1
+    for (let y = 0; y < composite.height; y += 1) {
+      for (let x = 0; x < composite.width; x += 1) {
+        if (data[(y * composite.width + x) * 4 + 3] === 0) continue
+        if (x < minX) minX = x
+        if (x > maxX) maxX = x
+        if (y < minY) minY = y
+        if (y > maxY) maxY = y
+      }
+    }
+    // Nothing visible, or nothing to cut away: leave the document alone.
+    if (maxX < 0 || (minX === 0 && minY === 0 && maxX === composite.width - 1 && maxY === composite.height - 1)) {
+      return
+    }
+    applyCrop({ kind: 'rect', x: minX, y: minY, width: maxX - minX + 1, height: maxY - minY + 1 })
+  }
+
+  /** Flattens the visible layers into one, leaving the hidden ones alone. */
+  const mergeVisible = () => {
+    const current = docRef.current
+    if (!current) return
+    const visible = current.layers.filter((layer) => layer.visible && layer.kind !== 'group')
+    if (visible.length < 2) return
+    snapshot()
+    const flat = compositeDocument({ ...current, background: 'transparent', layers: visible }, canvasesRef.current)
+    const merged = createLayerMeta(tr('mergeVisible'))
+    canvasesRef.current.set(merged.id, flat)
+    const lowest = current.layers.findIndex((layer) => layer.id === visible[0].id)
+    const kept = current.layers.filter((layer) => !visible.includes(layer))
+    const layers = [...kept]
+    layers.splice(Math.max(0, Math.min(lowest, kept.length)), 0, merged)
+    updateDoc((document) => ({ ...document, layers, activeLayerId: merged.id }))
+  }
+
+  /**
+   * Bakes what the layer draws into plain pixels: a text, shape or fill layer,
+   * or a smart layer with its placement and filter stack applied for good.
+   */
+  const rasterizeLayer = () => {
+    const current = docRef.current
+    const layer = current?.layers.find((item) => item.id === current.activeLayerId)
+    const alreadyFlat = layer?.kind === 'raster' && !layer.smart && !(layer.smartFilters ?? []).length
+    if (!current || !layer || alreadyFlat || layer.kind === 'group' || layer.kind === 'adjustment') {
+      return
+    }
+    snapshot()
+    const alone = { ...layer, opacity: 1, blendMode: 'source-over' as const, clipped: false, maskEnabled: false }
+    const flat = compositeDocument({ ...current, background: 'transparent', layers: [alone] }, canvasesRef.current)
+    canvasesRef.current.delete(smartSourceKey(layer.id))
+    canvasesRef.current.set(layer.id, flat)
+    updateDoc((document) => ({
+      ...document,
+      layers: document.layers.map((item) => (
+        item.id === layer.id
+          ? {
+            ...item,
+            kind: 'raster' as const,
+            smart: false,
+            smartFilters: [],
+            smartTransform: undefined,
+            text: undefined,
+            shape: undefined,
+            fill: undefined,
+          }
+          : item
+      )),
+    }))
+  }
+
+  /** Clips the layer to the one below it, or lets it go again. */
+  const toggleClipMask = () => {
+    const current = docRef.current
+    if (!current) return
+    const index = current.layers.findIndex((layer) => layer.id === current.activeLayerId)
+    // The bottom layer has nothing under it to be clipped to.
+    if (index < 1) return
+    snapshot()
+    updateDoc((document) => ({
+      ...document,
+      layers: document.layers.map((layer, at) => (at === index ? { ...layer, clipped: !layer.clipped } : layer)),
+    }))
+  }
+
+  const moveLayerToEdge = (edge: 'front' | 'back') => {
+    const current = docRef.current
+    if (!current) return
+    const index = current.layers.findIndex((layer) => layer.id === current.activeLayerId)
+    if (index < 0) return
+    snapshot()
+    updateDoc((document) => {
+      const layers = [...document.layers]
+      const [item] = layers.splice(index, 1)
+      if (edge === 'front') layers.push(item)
+      else layers.unshift(item)
+      return { ...document, layers }
+    })
+  }
+
   const applyNamedFilter = (id: string) => {
     guard(`${tr('errorWhileFilter')}: ${tr(id)}`, () => applyNamedFilterUnguarded(id))
   }
@@ -2024,21 +2927,14 @@ export default function App() {
       setTool('smudge')
       return
     }
+    // A smart layer takes the filter onto its stack instead of into its pixels.
+    const layer = docRef.current?.layers.find((item) => item.id === docRef.current?.activeLayerId)
+    if (layer?.smart) {
+      addSmartFilter(id)
+      return
+    }
     withLayer((canvas) => {
-      if (id === 'gaussian') gaussianBlur(canvas, adjust.radius, selectionRef.current)
-      else if (id === 'motion') motionBlur(canvas, adjust.radius * 3, selectionRef.current)
-      else if (id === 'sharpen') sharpen(canvas, adjust.amount, selectionRef.current)
-      else if (id === 'highPass') highPass(canvas, adjust.radius, selectionRef.current)
-      else if (id === 'addNoise') addNoise(canvas, adjust.amount, selectionRef.current)
-      else if (id === 'mosaic') mosaic(canvas, 12, selectionRef.current)
-      else if (id === 'findEdges') findEdges(canvas, selectionRef.current)
-      else if (id === 'emboss') emboss(canvas, selectionRef.current)
-      else if (id === 'oil') oilPaint(canvas, selectionRef.current)
-      else if (id === 'solarize') solarize(canvas, selectionRef.current)
-      else if (id === 'clouds') clouds(canvas, selectionRef.current)
-      else if (id === 'vignette') vignette(canvas, 0.65, selectionRef.current)
-      else if (id === 'offset') offset(canvas, 40, 40)
-      else if (id === 'skinSmooth') skinSmooth(canvas, 2.4)
+      applyGalleryFilter(canvas, id, { radius: adjust.radius, amount: adjust.amount }, selectionRef.current)
     })
   }
 
@@ -2151,6 +3047,8 @@ export default function App() {
     const onKey = (event: KeyboardEvent) => {
       const key = event.key.toLowerCase()
       const accel = event.ctrlKey || event.metaKey
+      const target = event.target as HTMLElement | null
+      const typing = Boolean(target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable))
       if (event.code === 'Space') {
         spaceRef.current = true
       }
@@ -2186,7 +3084,23 @@ export default function App() {
       }
       if (accel && key === 'd') {
         event.preventDefault()
-        setSelection(null)
+        // Shift restores what the last Deselect dropped.
+        if (event.shiftKey) {
+          if (lastSelectionRef.current) setSelection(lastSelectionRef.current)
+        } else {
+          if (selectionRef.current) lastSelectionRef.current = selectionRef.current
+          setSelection(null)
+        }
+      }
+      // The clipboard keys, but never while the caret is in a field: there the
+      // browser's own cut and paste is the one the user means.
+      if (accel && (key === 'x' || key === 'c' || key === 'v') && !typing) {
+        event.preventDefault()
+        if (key === 'v') pasteClipboard(false)
+        else {
+          copySelection(key === 'c' && event.shiftKey)
+          if (key === 'x') withLayer((canvas) => clearSelectionPixels(canvas, selectionRef.current))
+        }
       }
       if (key === 'delete' || key === 'backspace') {
         if (dialog) return
@@ -2201,6 +3115,11 @@ export default function App() {
         beginTransform()
       }
       if (key === 'enter') {
+        if (pinsRef.current.length) {
+          event.preventDefault()
+          commitPuppet()
+          return
+        }
         if (transformRef.current) {
           event.preventDefault()
           commitTransform()
@@ -2223,6 +3142,7 @@ export default function App() {
         }
       }
       if (key === 'escape') {
+        cancelPuppet()
         setCrop(null)
         setCropCorners([])
         setPolyPoints([])
@@ -2273,7 +3193,7 @@ export default function App() {
       window.removeEventListener('keydown', onKey)
       window.removeEventListener('keyup', onUp)
     }
-  }, [applyCrop, applyPerspectiveCrop, beginTransform, cancelTransform, closePolySelection, commitDraftPath, commitTransform, crop, dialog, dirty, doc, guardUnsaved, openDialog, pickFiles, redo, saveProject, undo, withLayer])
+  }, [applyCrop, applyPerspectiveCrop, beginTransform, cancelPuppet, cancelTransform, closePolySelection, commitDraftPath, commitPuppet, commitTransform, copySelection, crop, dialog, dirty, doc, guardUnsaved, openDialog, pasteClipboard, pickFiles, redo, saveProject, undo, withLayer])
 
 
   /**
@@ -2284,6 +3204,7 @@ export default function App() {
   // handler, and memoising it would pull every layer command into a dependency
   // array that changes on every render anyway.
   const runCommand = (id: string) => {
+    noteCommand(id)
     guard(`${tr('errorWhileCommand')}: ${id}`, () => runCommandUnguarded(id))
   }
 
@@ -2307,6 +3228,9 @@ export default function App() {
       case 'file.saveAs': void saveProject(true); return
       case 'file.export': openDialog('export'); return
       case 'file.print': openDialog('print'); return
+      case 'file.importVideo': videoRef.current?.click(); return
+      case 'file.exportGif': void exportAnimatedGif(); return
+      case 'file.exportVideo': void exportVideo(); return
       case 'file.close': if (guardUnsaved('close')) closeDocument(); return
 
       /* edit */
@@ -2314,6 +3238,20 @@ export default function App() {
       case 'edit.redo': redo(); return
       case 'edit.freeTransform': beginTransform(); return
       case 'edit.deletePixels': withLayer((canvas) => clearSelectionPixels(canvas, selectionRef.current)); return
+      case 'edit.cut': copySelection(false); withLayer((canvas) => clearSelectionPixels(canvas, selectionRef.current)); return
+      case 'edit.copy': copySelection(false); return
+      case 'edit.copyMerged': copySelection(true); return
+      case 'edit.paste': pasteClipboard(false); return
+      case 'edit.pasteInto': pasteClipboard(true); return
+      case 'edit.fill': openDialog('fill'); return
+      case 'edit.definePattern': definePatternFromSelection(); return
+      case 'edit.skew': openDialog('skew'); return
+      case 'edit.distort': openDialog('distort'); return
+      case 'edit.perspective': openDialog('perspective'); return
+      case 'edit.warp': openDialog('warp'); return
+      case 'edit.puppet': setTool('puppet'); return
+      case 'edit.contentScale': openDialog('contentScale'); return
+      case 'edit.stroke': openDialog('stroke'); return
       case 'edit.contentAware':
       case 'edit.genFill': withLayer((canvas) => contentAwareFill(canvas, selectionRef.current)); return
       case 'edit.genExpand': {
@@ -2347,7 +3285,13 @@ export default function App() {
       case 'image.rotateCCW': rotateDoc(3); return
       case 'image.flipH': flipDocument('x'); return
       case 'image.flipV': flipDocument('y'); return
-      case 'image.colorMode': setDoc({ ...current, colorMode: current.colorMode === 'gray' ? 'rgb' : 'gray' }); markDirty(); return
+      case 'image.modeRgb': updateDoc((document) => ({ ...document, colorMode: 'rgb' })); return
+      case 'image.modeGray': updateDoc((document) => ({ ...document, colorMode: 'gray' })); return
+      case 'image.modeCmyk': updateDoc((document) => ({ ...document, colorMode: 'cmyk' })); return
+      case 'image.modeLab': updateDoc((document) => ({ ...document, colorMode: 'lab' })); return
+      case 'image.depth8': updateDoc((document) => ({ ...document, depth: 8 })); return
+      case 'image.depth16': updateDoc((document) => ({ ...document, depth: 16 })); return
+      case 'image.profile': openDialog('colorProfile'); return
       case 'image.brightness': openDialog('brightness'); return
       case 'image.hueSat': openDialog('hue'); return
       case 'image.cameraRaw': openDialog('cameraRaw'); return
@@ -2356,6 +3300,14 @@ export default function App() {
       case 'image.autoLevels': withLayer((canvas) => levelsStretch(canvas)); return
       case 'image.invert': withLayer((canvas) => invertColors(canvas, selectionRef.current)); return
       case 'image.info': openDialog('imageInfo'); return
+      case 'image.rotate180': rotateDoc(2); return
+      case 'image.trim': trimTransparent(); return
+      case 'image.autoColor': withLayer((canvas) => autoColor(canvas)); return
+      case 'image.equalize': withLayer((canvas) => equalize(canvas, selectionRef.current)); return
+      case 'image.channelMixer': openDialog('channelMixer'); return
+      case 'image.selectiveColor': openDialog('selectiveColor'); return
+      case 'image.gradientMap': openDialog('gradientMap'); return
+      case 'image.replaceColor': openDialog('replaceColor'); return
       case 'image.grayscale': withLayer((canvas) => grayscale(canvas, selectionRef.current)); return
 
       /* layer */
@@ -2370,6 +3322,14 @@ export default function App() {
       case 'layer.flipV': flipLayer('y'); return
       case 'layer.fillLayer': addFillLayer(); return
       case 'layer.mask': addMask(); return
+      case 'layer.mergeVisible': mergeVisible(); return
+      case 'layer.rasterize': rasterizeLayer(); return
+      case 'layer.toSmart': convertToSmartObject(); return
+      case 'layer.clipMask': toggleClipMask(); return
+      case 'layer.bringForward': moveLayer(1); return
+      case 'layer.sendBackward': moveLayer(-1); return
+      case 'layer.bringToFront': moveLayerToEdge('front'); return
+      case 'layer.sendToBack': moveLayerToEdge('back'); return
 
       /* type */
       case 'type.horizontal': setTool('text'); return
@@ -2378,8 +3338,27 @@ export default function App() {
 
       /* select */
       case 'select.all': setSelection(rectSelection(0, 0, current.width, current.height)); return
-      case 'select.none': setSelection(null); return
+      case 'select.none': deselect(); return
       case 'select.invert': setSelection(invertSelection(selectionRef.current, current.width, current.height)); return
+      case 'select.reselect': if (lastSelectionRef.current) setSelection(lastSelectionRef.current); return
+      case 'select.grow': {
+        const source = selectionSource()
+        if (source) setSelection(growSelection(source, selectionRef.current, settingsRef.current.fillTolerance))
+        return
+      }
+      case 'select.similar': {
+        const source = selectionSource()
+        if (source) setSelection(similarSelection(source, selectionRef.current, settingsRef.current.fillTolerance))
+        return
+      }
+      case 'select.expand': openDialog('selectModify', { modify: 'expand' }); return
+      case 'select.contract': openDialog('selectModify', { modify: 'contract' }); return
+      case 'select.border': openDialog('selectModify', { modify: 'border' }); return
+      case 'select.smooth': openDialog('selectModify', { modify: 'smooth' }); return
+      case 'select.feather': openDialog('feather'); return
+      case 'select.colorRange': openDialog('colorRange'); return
+      case 'select.save': openDialog('saveSelection'); return
+      case 'select.load': openDialog('loadSelection'); return
       case 'select.subject': setSelection(selectSubject(canvasesRef.current.get(current.activeLayerId) ?? compositeDocument(current, canvasesRef.current))); return
       case 'select.distractions': setSelection(findDistractions(canvasesRef.current.get(current.activeLayerId) ?? compositeDocument(current, canvasesRef.current))); return
       case 'select.removeBg': withLayer((canvas) => { const subject = selectSubject(canvas); clearSelectionPixels(canvas, invertSelection(subject, canvas.width, canvas.height)) }); return
@@ -2393,6 +3372,13 @@ export default function App() {
       case 'filter.cameraRaw': applyNamedFilter('cameraRaw'); return
 
       /* 3D */
+      case 'threeD.extrude': openDialog('threeD'); return
+      case 'threeD.remove':
+        updateDoc((value) => ({
+          ...value,
+          layers: value.layers.map((layer) => (layer.id === value.activeLayerId ? { ...layer, threeD: undefined } : layer)),
+        }))
+        return
       case 'threeD.effects':
         updateDoc((value) => ({
           ...value,
@@ -2417,6 +3403,8 @@ export default function App() {
       case 'window.adjust': setSettings((c) => ({ ...c, rightTab: 'adjust' })); return
       case 'window.history': setSettings((c) => ({ ...c, rightTab: 'history' })); return
       case 'window.channels': setSettings((c) => ({ ...c, rightTab: 'channels' })); return
+      case 'window.actions': setSettings((c) => ({ ...c, rightTab: 'actions' })); return
+      case 'window.timeline': setSettings((c) => ({ ...c, rightTab: 'timeline' })); return
       case 'window.info': setSettings((c) => ({ ...c, rightTab: 'info' })); return
 
       default:
@@ -2434,22 +3422,25 @@ export default function App() {
       case 'window.adjust': return settings.rightTab === 'adjust'
       case 'window.history': return settings.rightTab === 'history'
       case 'window.channels': return settings.rightTab === 'channels'
+      case 'window.actions': return settings.rightTab === 'actions'
+      case 'window.timeline': return settings.rightTab === 'timeline'
       case 'window.info': return settings.rightTab === 'info'
-      case 'image.colorMode': return doc.colorMode === 'gray'
+      case 'image.modeRgb': return doc.colorMode === 'rgb'
+      case 'image.modeGray': return doc.colorMode === 'gray'
+      case 'image.modeCmyk': return doc.colorMode === 'cmyk'
+      case 'image.modeLab': return doc.colorMode === 'lab'
+      case 'image.depth8': return (doc.depth ?? 8) === 8
+      case 'image.depth16': return doc.depth === 16
       default: return false
     }
-  }, [doc.colorMode, quickMask, settings.rightTab, settings.showGrid, settings.showRulers])
+  }, [doc.colorMode, doc.depth, quickMask, settings.rightTab, settings.showGrid, settings.showRulers])
 
-  /** The Image menu's colour-mode row names the mode it switches to. */
   const commandLabel = useCallback((command: AppCommand) => {
-    if (command.id === 'image.colorMode') {
-      return doc.colorMode === 'gray' ? tr('modeRgb') : tr('modeGray')
-    }
     if (command.menu === 'layer' && command.id.startsWith('adjLayer.')) {
       return `${tr('adjLayer')} · ${tr(command.label)}`
     }
     return tr(command.label)
-  }, [doc.colorMode, tr])
+  }, [tr])
 
 
   /* --------------------------------------------- popup window plumbing */
@@ -2460,6 +3451,7 @@ export default function App() {
    * memoising it would pull every document command into its dependency array.
    */
   const applyDialogResult = (name: DialogName, result: DialogResult) => {
+    noteDialogResult(name, result)
     guard(`${tr('errorWhileDialog')}: ${name}`, () => applyDialogResultUnguarded(name, result))
   }
 
@@ -2479,6 +3471,99 @@ export default function App() {
         return
       case 'print':
         void printDocument(result.orientation as PageOrientation)
+        return
+      case 'fill':
+        fillSelection(String(result.color), Number(result.opacity), result.patternId ? String(result.patternId) : undefined)
+        return
+      case 'stroke':
+        strokeSelection(String(result.color), Number(result.width), result.where as 'inside' | 'center' | 'outside')
+        return
+      case 'selectModify': {
+        const radius = Number(result.radius)
+        const { width, height } = current
+        // The window says which command opened it, so nothing has to be
+        // remembered between opening it and getting an answer back.
+        const operation = String(result.modify ?? 'expand')
+        if (operation === 'expand') setSelection(expandSelection(selectionRef.current, width, height, radius))
+        else if (operation === 'contract') setSelection(contractSelection(selectionRef.current, width, height, radius))
+        else if (operation === 'border') setSelection(borderSelection(selectionRef.current, width, height, radius))
+        else setSelection(smoothSelection(selectionRef.current, width, height, radius))
+        return
+      }
+      case 'colorRange': {
+        const source = selectionSource()
+        if (source) setSelection(colorRangeSelection(source, hexToRgb(settingsRef.current.foreground), Number(result.tolerance)))
+        return
+      }
+      case 'skew':
+        replaceLayerWith((source) => skewCanvas(source, Number(result.horizontal), Number(result.vertical)))
+        return
+      case 'perspective':
+        replaceLayerWith((source) => perspectiveCanvas(source, Number(result.amount)))
+        return
+      case 'distort': {
+        const offsets = result.corners as Point[]
+        replaceLayerWith((source) => cornerTransform(source, [
+          { x: offsets[0].x, y: offsets[0].y },
+          { x: source.width + offsets[1].x, y: offsets[1].y },
+          { x: source.width + offsets[2].x, y: source.height + offsets[2].y },
+          { x: offsets[3].x, y: source.height + offsets[3].y },
+        ]))
+        return
+      }
+      case 'warp':
+        replaceLayerWith((source) => warpCanvas(
+          source,
+          result.style as TextWarpStyle,
+          Number(result.bend),
+          Number(result.horizontal),
+          Number(result.vertical),
+        ))
+        return
+      case 'contentScale':
+        applyContentAwareScale(Number(result.width), Number(result.height))
+        return
+      case 'threeD':
+        snapshot()
+        updateDoc((document) => ({
+          ...document,
+          layers: document.layers.map((layer) => (
+            layer.id === document.activeLayerId ? { ...layer, threeD: result.threeD as ThreeDData } : layer
+          )),
+        }))
+        return
+      case 'colorProfile': {
+        const chosen = builtInProfiles[String(result.profile)] ?? builtInProfiles.srgb
+        if (result.action === 'convert') {
+          // Keep the colours looking the same: the numbers are rewritten.
+          const from = builtInProfiles[current.profile ?? 'srgb'] ?? builtInProfiles.srgb
+          snapshot()
+          for (const layer of current.layers) {
+            const canvas = canvasesRef.current.get(layer.id)
+            if (canvas) convertProfile(canvas, from, chosen)
+          }
+        }
+        // Assigning only records which space the numbers are to be read in.
+        updateDoc((document) => ({ ...document, profile: String(result.profile) }))
+        return
+      }
+      case 'saveSelection':
+        saveSelectionAs(String(result.name))
+        return
+      case 'loadSelection':
+        loadSelectionFrom(String(result.channelId), result.combine as ChannelCombine)
+        return
+      case 'channelMixer':
+        withLayer((canvas) => channelMixer(canvas, result.mix as ChannelMix, selectionRef.current))
+        return
+      case 'selectiveColor':
+        withLayer((canvas) => selectiveColor(canvas, result.family as ColorFamily, result.shift as InkShift, selectionRef.current))
+        return
+      case 'gradientMap':
+        withLayer((canvas) => gradientMap(canvas, String(result.from), String(result.to), selectionRef.current))
+        return
+      case 'replaceColor':
+        withLayer((canvas) => replaceColor(canvas, hexToRgb(settingsRef.current.foreground), String(result.to), Number(result.tolerance), selectionRef.current))
         return
       case 'brightness':
         withLayer((canvas) => adjustBrightnessContrast(canvas, Number(result.brightness), Number(result.contrast), selectionRef.current))
@@ -2526,12 +3611,43 @@ export default function App() {
         const value = String(result.text ?? '')
         setTextValue(value)
         snapshot()
-        const layer = createLayerMeta(tr('text'), 'text')
-        layer.text = {
-          text: value, x: textPointRef.current.x, y: textPointRef.current.y,
-          fontFamily, fontSize, color: settingsRef.current.foreground,
-          bold: true, italic: false, align: 'left', vertical: toolRef.current === 'vtext',
+        const active = current.layers.find((layer) => layer.id === current.activeLayerId)
+        const editing = active?.kind === 'text' ? active.text : undefined
+        const data: TextData = {
+          text: value,
+          // Editing a layer keeps it where it is; a new one lands where the
+          // type tool was last clicked.
+          x: editing?.x ?? textPointRef.current.x,
+          y: editing?.y ?? textPointRef.current.y,
+          fontFamily,
+          fontSize: Number(result.fontSize ?? fontSize),
+          color: settingsRef.current.foreground,
+          bold: Boolean(result.bold),
+          italic: Boolean(result.italic),
+          align: (result.align as TextData['align']) ?? 'left',
+          vertical: editing?.vertical ?? toolRef.current === 'vtext',
+          lineHeight: Number(result.lineHeight ?? 1.2),
+          letterSpacing: Number(result.letterSpacing ?? 0),
+          indent: Number(result.indent ?? 0),
+          paragraphSpacing: Number(result.paragraphSpacing ?? 0),
+          pathId: String(result.pathId ?? '') || undefined,
+          pathOffset: editing?.pathOffset ?? 0,
+          warp: {
+            style: (result.warpStyle as TextWarpStyle) ?? 'none',
+            bend: Number(result.warpBend ?? 0),
+            horizontal: 0,
+            vertical: 0,
+          },
         }
+        if (active?.kind === 'text') {
+          updateDoc((document) => ({
+            ...document,
+            layers: document.layers.map((layer) => (layer.id === active.id ? { ...layer, text: data } : layer)),
+          }))
+          return
+        }
+        const layer = createLayerMeta(tr('text'), 'text')
+        layer.text = data
         updateDoc((document) => ({ ...document, layers: [...document.layers, layer], activeLayerId: layer.id }))
         return
       }
@@ -2615,8 +3731,16 @@ export default function App() {
     if (!dropActive) setDropActive(true)
   }
 
+  /** The theme the button would move to, which is also what its tooltip says. */
+  const nextThemeId = themes[(themes.findIndex((item) => item.id === settings.theme) + 1) % themes.length].id
+
+  /** Clicking the theme button takes the next one in the list, and wraps. */
+  const stepTheme = () => setSettings((current) => {
+    const index = themes.findIndex((item) => item.id === current.theme)
+    return { ...current, theme: themes[(index + 1) % themes.length].id }
+  })
+
   const desktop = Boolean(window.electronWindowApi)
-  const CurrentToolIcon = iconForTool(tool)
 
   return (
     <div
@@ -2662,7 +3786,6 @@ export default function App() {
           return (
             <div className="menu-group" key={id}>
               <button
-                ref={(node) => { menuAnchorRefs.current[id] = node }}
                 className={menu === id ? 'active' : ''}
                 data-tooltip={tr(id)}
                 onPointerDown={(event) => {
@@ -2677,6 +3800,7 @@ export default function App() {
                   // the in-page dropdown covers the browser build and any
                   // failure to create that window.
                   const anchor = event.currentTarget
+                  setMenuAnchor(anchor)
                   void openMenuWindow(id, anchor).then((opened) => {
                     if (!opened) setMenu(id)
                   })
@@ -2686,7 +3810,7 @@ export default function App() {
                 <span>{tr(id)}</span>
               </button>
               {menu === id && (
-                <MenuDrop anchor={menuAnchorRefs.current[id] ?? null}>
+                <MenuDrop anchor={menuAnchor}>
                   {commandsInMenu(id).map((command) => (
                     <div key={command.id}>
                       {command.separatorBefore && <div className="menu-separator" />}
@@ -2707,18 +3831,27 @@ export default function App() {
 
         <div className="menu-spacer" />
 
+        {/* A split button: the wide half steps to the next theme, the arrow
+            opens the full list. */}
         <div className="menu-group theme-menu-group">
           <button
-            ref={(node) => { menuAnchorRefs.current.theme = node }}
-            className={menu === 'theme' ? 'active' : ''}
-            data-tooltip={`${tr('theme')}: ${themeLabel(language, settings.theme)}`}
-            onPointerDown={(event) => { event.stopPropagation(); hideTooltip(); setMenu(menu === 'theme' ? null : 'theme') }}
+            className="theme-step"
+            data-tooltip={`${tr('nextTheme')}: ${themeLabel(language, nextThemeId)}`}
+            onPointerDown={(event) => { event.stopPropagation(); hideTooltip(); stepTheme() }}
           >
             <Palette size={15} />
             <span>{themeLabel(language, settings.theme)}</span>
           </button>
+          <button
+            className={`theme-pick${menu === 'theme' ? ' active' : ''}`}
+            data-tooltip={tr('chooseTheme')}
+            aria-label={tr('chooseTheme')}
+            onPointerDown={(event) => { event.stopPropagation(); hideTooltip(); setMenuAnchor(event.currentTarget); setMenu(menu === 'theme' ? null : 'theme') }}
+          >
+            <ChevronDown size={13} />
+          </button>
           {menu === 'theme' && (
-            <MenuDrop className="theme-menu" align="end" anchor={menuAnchorRefs.current.theme ?? null}>
+            <MenuDrop className="theme-menu" align="end" anchor={menuAnchor}>
               {themes.map((item) => (
                 <button
                   key={item.id}
@@ -2820,7 +3953,9 @@ export default function App() {
 
       <div className="options-bar">
         <strong className="current-tool" data-tooltip={toolLabel(language, tool)}>
-          <CurrentToolIcon size={16} />
+          {/* Built with createElement: naming the looked-up icon as a component
+              reads to React as a component declared inside render. */}
+          {createElement(iconForTool(tool), { size: 16 })}
           <span>{toolLabel(language, tool)}</span>
         </strong>
         <div className="tool-options">
@@ -3003,7 +4138,7 @@ export default function App() {
 
         <aside className="panel">
           <div className="panel-tabs">
-            {(['layers', 'adjust', 'history', 'channels', 'info'] as const).map((tab) => {
+            {(['layers', 'adjust', 'history', 'channels', 'actions', 'timeline', 'info'] as const).map((tab) => {
               const TabIcon = panelTabIcons[tab]
               const label = tr(tab === 'adjust' ? 'adjustments' : tab)
               return (
@@ -3041,10 +4176,136 @@ export default function App() {
               <button data-tooltip={tr('redo')} onClick={redo}><Redo2 size={14} /><span>{tr('redo')}</span></button>
             </>
           )}
+          {settings.rightTab === 'timeline' && (
+            <>
+              <h2>{tr('timeline')}</h2>
+              <div className="channel-row">
+                <button data-tooltip={tr('addFrame')} onClick={captureAnimationFrame}>
+                  <Plus size={13} /><span>{tr('addFrame')}</span>
+                </button>
+                <button
+                  data-tooltip={playingFrame === null ? tr('playAnimation') : tr('stopAnimation')}
+                  aria-label={playingFrame === null ? tr('playAnimation') : tr('stopAnimation')}
+                  onClick={() => (playingFrame === null ? startPlayback() : stopPlayback())}
+                >
+                  {playingFrame === null ? <Play size={13} /> : <Square size={13} />}
+                </button>
+              </div>
+              {(doc.animation ?? []).length === 0
+                ? <p className="panel-hint">{tr('noFrames')}</p>
+                : (doc.animation ?? []).map((frame, index) => (
+                  <div className="frame-row" key={frame.id}>
+                    <button
+                      className={playingFrame === index ? 'active' : ''}
+                      onClick={() => showAnimationFrame(frame.id)}
+                    >
+                      {index + 1}
+                    </button>
+                    {/* The delay is in milliseconds, which is what the GIF and
+                        the preview both work in. */}
+                    <input
+                      type="number"
+                      min={20}
+                      max={5000}
+                      step={20}
+                      value={frame.delayMs}
+                      onChange={(event) => patchAnimationFrame(frame.id, { delayMs: Number(event.target.value) })}
+                    />
+                    <button data-tooltip={tr('deleteLayer')} aria-label={tr('deleteLayer')} onClick={() => deleteAnimationFrame(frame.id)}>
+                      <Trash size={13} />
+                    </button>
+                  </div>
+                ))}
+              <button data-tooltip={tr('exportGif')} onClick={() => void exportAnimatedGif()}>
+                <Download size={13} /><span>{tr('exportGif')}</span>
+              </button>
+              <button data-tooltip={tr('exportVideo')} onClick={() => void exportVideo()}>
+                <Download size={13} /><span>{tr('exportVideo')}</span>
+              </button>
+            </>
+          )}
+          {settings.rightTab === 'actions' && (
+            <>
+              <h2>{tr('actions')}</h2>
+              {/* Recording is deliberately plain: start, do the work in the
+                  menus as usual, then give what was recorded a name. */}
+              {recording
+                ? (
+                  <>
+                    <p className="panel-hint">{`${tr('recording')} · ${recording.length}`}</p>
+                    <div className="channel-row">
+                      <input
+                        value={actionName}
+                        placeholder={tr('actionName')}
+                        onChange={(event) => setActionName(event.target.value)}
+                      />
+                      <button data-tooltip={tr('stopRecording')} onClick={() => { saveRecording(actionName.trim() || tr('action')); setActionName('') }}>
+                        <Save size={13} />
+                      </button>
+                    </div>
+                    <button onClick={() => setRecording(null)}>{tr('cancel')}</button>
+                  </>
+                )
+                : <button data-tooltip={tr('startRecording')} onClick={() => setRecording([])}><Circle size={13} /><span>{tr('startRecording')}</span></button>}
+
+              {settings.actions.length === 0
+                ? <p className="panel-hint">{tr('noActions')}</p>
+                : settings.actions.map((action) => (
+                  <div className="action-row" key={action.id}>
+                    <span>{`${action.name} · ${action.steps.length}`}</span>
+                    <button data-tooltip={tr('playAction')} aria-label={tr('playAction')} onClick={() => playAction(action)}><Play size={13} /></button>
+                    <button data-tooltip={tr('batch')} aria-label={tr('batch')} onClick={() => void runBatch(action)}><Layers size={13} /></button>
+                    <button data-tooltip={tr('deleteLayer')} aria-label={tr('deleteLayer')} onClick={() => deleteAction(action.id)}><Trash size={13} /></button>
+                  </div>
+                ))}
+
+              <h3>{tr('layerComps')}</h3>
+              <div className="channel-row">
+                <input value={compName} placeholder={tr('compName')} onChange={(event) => setCompName(event.target.value)} />
+                <button data-tooltip={tr('captureComp')} onClick={() => { captureComp(compName.trim() || tr('comp')); setCompName('') }}>
+                  <Camera size={13} />
+                </button>
+              </div>
+              {(doc.comps ?? []).length === 0
+                ? <p className="panel-hint">{tr('noComps')}</p>
+                : (doc.comps ?? []).map((comp) => (
+                  <div className="channel-row" key={comp.id}>
+                    <button onClick={() => applyComp(comp.id)}>{comp.name}</button>
+                    <button data-tooltip={tr('deleteLayer')} aria-label={tr('deleteLayer')} onClick={() => deleteComp(comp.id)}><Trash size={13} /></button>
+                  </div>
+                ))}
+            </>
+          )}
           {settings.rightTab === 'channels' && (
             <>
               <h2>{tr('channels')}</h2>
-              <p>RGB · R · G · B{activeLayer?.maskEnabled ? ' · Mask' : ''}</p>
+              <h3>{tr('colorChannels')}</h3>
+              {/* Drawn into by the effect below, the way the histogram is: the
+                  pixels live in a ref, which render may not read. */}
+              <div className="channel-grid">
+                {channelPreviews.map((item) => (
+                  <figure key={item.key}>
+                    <canvas id={`channel-canvas-${item.key}`} width={96} height={64} />
+                    <figcaption>{tr(item.label)}</figcaption>
+                  </figure>
+                ))}
+              </div>
+              <h3>{tr('savedSelections')}</h3>
+              {(doc.channels ?? []).length === 0
+                ? <p className="panel-hint">{tr('noChannels')}</p>
+                : (doc.channels ?? []).map((channel) => (
+                  <div className="channel-row" key={channel.id}>
+                    {/* Clicking the name loads it; the combine modes are in the
+                        Select menu's own window. */}
+                    <button onClick={() => loadSelectionFrom(channel.id, 'replace')}>{channel.name}</button>
+                    <button data-tooltip={tr('deleteLayer')} aria-label={tr('deleteLayer')} onClick={() => deleteChannel(channel.id)}>
+                      <Trash size={13} />
+                    </button>
+                  </div>
+                ))}
+              <button data-tooltip={tr('saveSelection')} onClick={() => openDialog('saveSelection')}>
+                <SquareDashed size={14} /><span>{tr('saveSelection')}</span>
+              </button>
             </>
           )}
           {settings.rightTab === 'info' && (
@@ -3142,6 +4403,40 @@ export default function App() {
               <label className="check-row"><input type="checkbox" checked={activeLayer.effects.stroke} onChange={(event) => updateDoc((current) => ({ ...current, layers: current.layers.map((layer) => layer.id === current.activeLayerId ? { ...layer, effects: { ...layer.effects, stroke: event.target.checked } } : layer) }))} />{tr('strokeFx')}</label>
               <label className="check-row"><input type="checkbox" checked={activeLayer.effects.colorOverlay} onChange={(event) => updateDoc((current) => ({ ...current, layers: current.layers.map((layer) => layer.id === current.activeLayerId ? { ...layer, effects: { ...layer.effects, colorOverlay: event.target.checked } } : layer) }))} />{tr('overlayFx')}</label>
               <button data-tooltip={tr('layerMask')} onClick={addMask}><SquareDashed size={14} /><span>{tr('layerMask')}</span></button>
+              {/* A smart layer's filter stack: each one can be switched off,
+                  re-tuned or thrown away without the pixels ever changing. */}
+              {activeLayer.smart && (
+                <>
+                  <h3>{tr('smartFilters')}</h3>
+                  {(activeLayer.smartFilters ?? []).length === 0
+                    ? <p className="panel-hint">{tr('smartFilterHint')}</p>
+                    : (activeLayer.smartFilters ?? []).map((filter) => (
+                      <div className="smart-filter" key={filter.id}>
+                        <label className="check-row">
+                          <input
+                            type="checkbox"
+                            checked={filter.enabled}
+                            onChange={(event) => patchSmartFilter(filter.id, { enabled: event.target.checked })}
+                          />
+                          {tr(filter.filter)}
+                        </label>
+                        <div className="range-field">
+                          <input
+                            type="range"
+                            min={1}
+                            max={100}
+                            value={Math.round(filter.amount)}
+                            onChange={(event) => patchSmartFilter(filter.id, { amount: Number(event.target.value) })}
+                          />
+                          <span className="range-value">{Math.round(filter.amount)}</span>
+                        </div>
+                        <button data-tooltip={tr('deleteLayer')} aria-label={tr('deleteLayer')} onClick={() => removeSmartFilter(filter.id)}>
+                          <Trash size={13} />
+                        </button>
+                      </div>
+                    ))}
+                </>
+              )}
             </>
           )}
           <h3>{tr('histogram')}</h3>
@@ -3214,6 +4509,17 @@ export default function App() {
       {desktop && <div className="resize-grip" aria-hidden="true" />}
 
       <input className="hidden-input" ref={fileRef} type="file" accept=".mpw,.heic,.heif,.hif,.dcm,.dicom,image/*" multiple onChange={(event) => { const files = event.target.files; if (files) void Promise.all([...files].map(fileToOpenItem)).then((items) => openFiles(items, 'open')); event.target.value = '' }} />
+      <input
+        className="hidden-input"
+        ref={videoRef}
+        type="file"
+        accept="video/*"
+        onChange={(event) => {
+          const file = event.target.files?.[0]
+          if (file) void importVideo(file, file.name)
+          event.target.value = ''
+        }}
+      />
       <input className="hidden-input" ref={placeRef} type="file" accept=".heic,.heif,.hif,.dcm,.dicom,image/*" multiple onChange={(event) => { const files = event.target.files; if (files) void Promise.all([...files].map(fileToOpenItem)).then((items) => openFiles(items, 'place')); event.target.value = '' }} />
     </div>
   )

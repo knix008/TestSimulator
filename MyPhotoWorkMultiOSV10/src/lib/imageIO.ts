@@ -2,6 +2,9 @@ import * as UTIF from 'utif'
 import type { LibHeif } from 'libheif-js/wasm-bundle.js'
 import { canvasToDataUrl, canvasFromUrl, context2d, createCanvas, resizeCanvasContent } from './canvas'
 import { hasDicomMagic, isDicomSource, readDicom } from './dicom'
+import { greyCanvasToMask, maskToGreyCanvas } from './channels'
+import { deepFromCanvas, encodeTiff16 } from './depth'
+import { patternKey } from './patterns'
 import { describeFile, type MetaRow } from './metadata'
 import { defaultEffects } from './types'
 import type { ExportFormat, LayerMeta, PageOrientation, PhotoDocument, ProjectFile, SerializedLayer } from './types'
@@ -196,6 +199,18 @@ export function serializeProject(document: PhotoDocument, canvases: Map<string, 
     frames: document.frames,
     measure: document.measure,
     colorMode: document.colorMode,
+    // A saved selection is a byte per pixel, which JSON cannot hold; it goes
+    // out as the grey picture it already is.
+    channels: document.channels?.map((channel) => ({
+      id: channel.id,
+      name: channel.name,
+      dataUrl: canvasToDataUrl(maskToGreyCanvas(channel.mask, document.width, document.height)),
+    })),
+    comps: document.comps,
+    animation: document.animation,
+    patterns: document.patterns,
+    depth: document.depth,
+    profile: document.profile,
   }
 }
 
@@ -228,6 +243,25 @@ export async function restoreProject(project: ProjectFile) {
     frames: project.frames ?? [],
     measure: project.measure ?? null,
     colorMode: project.colorMode ?? 'rgb',
+    comps: project.comps ?? [],
+    animation: project.animation ?? [],
+    patterns: project.patterns ?? [],
+    depth: project.depth ?? 8,
+    profile: project.profile,
+  }
+  // Pattern tiles are decoded once, here, so the compositor can reach them
+  // without waiting on an image.
+  for (const pattern of project.patterns ?? []) {
+    canvases.set(patternKey(pattern.id), await canvasFromUrl(pattern.dataUrl))
+  }
+  if (project.channels?.length) {
+    document.channels = await Promise.all(project.channels.map(async (channel) => ({
+      id: channel.id,
+      name: channel.name,
+      mask: greyCanvasToMask(await canvasFromUrl(channel.dataUrl)),
+    })))
+  } else {
+    document.channels = []
   }
   return { document, canvases }
 }
@@ -272,8 +306,18 @@ export function flattenOnto(canvas: HTMLCanvasElement, color = '#ffffff') {
  * the file for the formats that can store alpha; JPEG is flattened regardless,
  * because the encoder would otherwise turn see-through pixels black.
  */
-export async function encodeExport(canvas: HTMLCanvasElement, format: ExportFormat, quality = 0.92, transparent = true) {
+export async function encodeExport(canvas: HTMLCanvasElement, format: ExportFormat, quality = 0.92, transparent = true, depth: 8 | 16 = 8) {
   const source = transparent && supportsTransparency(format) ? canvas : flattenOnto(canvas)
+  if (format === 'tiff' && depth === 16) {
+    // A 16-bit document writes 16-bit TIFF; the 8-bit encoder cannot.
+    const bytes = encodeTiff16(deepFromCanvas(source))
+    let deepBinary = ''
+    const chunk = 0x8000
+    for (let i = 0; i < bytes.length; i += chunk) {
+      deepBinary += String.fromCharCode(...bytes.subarray(i, i + chunk))
+    }
+    return `data:image/tiff;base64,${btoa(deepBinary)}`
+  }
   if (format === 'tiff') {
     const image = context2d(source).getImageData(0, 0, source.width, source.height)
     const encoded = UTIF.encodeImage(new Uint8Array(image.data), source.width, source.height)

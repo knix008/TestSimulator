@@ -3,34 +3,74 @@ import { context2d, createCanvas } from './canvas'
 import { clipCanvasToSelection } from './selection'
 import type { GradientKind, Point, Selection } from './types'
 
-function stamp(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, hardness: number, color: string, opacity: number) {
+/** The shape of a brush tip beyond its size: what the Brushes panel sets. */
+export type BrushShape = {
+  /** Gap between dabs, as a fraction of the brush size. */
+  spacing?: number
+  /** The tip's rotation in degrees, which only shows on a flattened tip. */
+  angle?: number
+  /** 1 is round; below that the tip is squashed across its angle. */
+  roundness?: number
+  /** How far dabs are thrown off the line, as a fraction of the size. */
+  scatter?: number
+}
+
+function stamp(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, hardness: number, color: string, opacity: number, shape?: BrushShape) {
   const radius = Math.max(0.5, size / 2)
   const inner = radius * hardness
-  const gradient = ctx.createRadialGradient(x, y, inner, x, y, radius)
   const { r, g, b } = hexToRgb(color)
+  const roundness = clamp(shape?.roundness ?? 1, 0.05, 1)
+  const angle = ((shape?.angle ?? 0) * Math.PI) / 180
+
+  ctx.save()
+  if (roundness < 1 || angle) {
+    // A flattened tip is a circle drawn under a squash: turn to the brush
+    // angle, scale one axis, and everything else stays the same.
+    ctx.translate(x, y)
+    ctx.rotate(angle)
+    ctx.scale(1, roundness)
+    ctx.translate(-x, -y)
+  }
+  const gradient = ctx.createRadialGradient(x, y, inner, x, y, radius)
   gradient.addColorStop(0, `rgba(${r},${g},${b},${opacity})`)
   gradient.addColorStop(1, `rgba(${r},${g},${b},0)`)
   ctx.fillStyle = gradient
   ctx.beginPath()
   ctx.arc(x, y, radius, 0, Math.PI * 2)
   ctx.fill()
+  ctx.restore()
 }
 
 export function paintStroke(
   layer: HTMLCanvasElement,
   from: Point,
   to: Point,
-  options: { size: number; hardness: number; color: string; opacity: number; erase?: boolean; pencil?: boolean; selection: Selection | null },
+  options: { size: number; hardness: number; color: string; opacity: number; erase?: boolean; pencil?: boolean; selection: Selection | null; shape?: BrushShape },
 ) {
   const distance = Math.hypot(to.x - from.x, to.y - from.y)
+  const spacing = clamp(options.shape?.spacing ?? 0.25, 0.02, 2)
   // 0 for a single click, so a dab is stamped once and deposits exactly the
   // requested opacity rather than compositing two coincident stamps.
-  const steps = Math.ceil(distance / Math.max(1, options.size * 0.25))
+  const steps = Math.ceil(distance / Math.max(1, options.size * spacing))
+  const scatter = (options.shape?.scatter ?? 0) * options.size
   const stroke = createCanvas(layer.width, layer.height)
   const strokeCtx = context2d(stroke)
   for (let i = 0; i <= steps; i += 1) {
     const t = steps === 0 ? 0 : i / steps
-    stamp(strokeCtx, from.x + (to.x - from.x) * t, from.y + (to.y - from.y) * t, options.size, options.pencil ? 1 : options.hardness, options.erase ? '#ffffff' : options.color, options.opacity)
+    // Scatter throws each dab off the line, which is what turns a solid stroke
+    // into a spray without changing where the stroke goes.
+    const jitterX = scatter ? (Math.random() - 0.5) * scatter : 0
+    const jitterY = scatter ? (Math.random() - 0.5) * scatter : 0
+    stamp(
+      strokeCtx,
+      from.x + (to.x - from.x) * t + jitterX,
+      from.y + (to.y - from.y) * t + jitterY,
+      options.size,
+      options.pencil ? 1 : options.hardness,
+      options.erase ? '#ffffff' : options.color,
+      options.opacity,
+      options.shape,
+    )
   }
   clipCanvasToSelection(stroke, options.selection)
   const layerCtx = context2d(layer)

@@ -1,18 +1,31 @@
 # My Photo Work V1.0
 
-My Photo Work V1.0 is a Photoshop-style raster photo editor built with Vite, React, and Electron. The same codebase runs in the browser and as a desktop app on Windows, macOS, and Linux.
+My Photo Work V1.0 is a professional-grade layered raster photo editor built with Vite, React, and Electron. The same codebase runs in the browser and as a desktop app on Windows, macOS, and Linux.
 
 ## Features
 
 - Layer-based editing with visibility, lock, opacity, blend modes (including hue/saturation/color/luminosity), reorder, duplicate, merge down, flatten, **groups**, **adjustment layers**, **fill layers**, **live text layers**, **shape layers**, **layer masks**, and **layer styles**.
-- Photoshop 2026-class tool strip with flyout groups: move/artboard, marquees, lassos, object/quick/wand, crop/slice/frame, sample tools, retouch (heal/remove/patch/clone), brushes, erasers, gradient/bucket, blur/sharpen/smudge, dodge/burn/sponge, pen/path, type, shapes, hand/rotate view/zoom.
+- Full tool strip with flyout groups: move/artboard, marquees, lassos, object/quick/wand, crop/slice/frame, sample tools, retouch (heal/remove/patch/clone), brushes, erasers, gradient/bucket, blur/sharpen/smudge, dodge/burn/sponge, pen/path, type, shapes, hand/rotate view/zoom.
+- **Clipboard**: cut, copy, copy merged, paste and paste-into-selection, with the system clipboard used as well where the browser allows it. **Fill** and **Stroke** paint a selection or draw a line along its edge, inside, outside or centred.
+- **Selection modifiers**: expand, contract, border, smooth, feather, grow, similar, colour range, and reselect.
 - **Free transform** (Ctrl+T) with scale, rotate, mirror and numeric W/H/angle entry; flip the document or a single layer.
 - **Curves and Levels** editors with per-channel control, a monotone spline, auto black/white points, and the option to apply destructively or as an adjustment layer.
+- **Channel mixer, selective colour, gradient map, replace colour, equalize and auto colour**, plus rotate 180 and trim.
+- **Clipping masks**: a layer, including an adjustment layer, can be confined to the shape of the one below it.
+- **Smart objects and smart filters**: a layer can be placed from an untouched original, so scaling never loses anything, and filters sit on a stack that can be switched off, re-tuned or removed at any time.
+- **Channels**: the three colour channels shown separately, plus saved selections as alpha channels that survive the project file and can be loaded back to replace, add to, subtract from or intersect the selection.
+- **Transform**: skew, distort, perspective, warp (eleven preset shapes), puppet warp with pins, and content-aware scale by seam carving, which carves every layer with the same seams so they stay lined up.
+- **Type**: paragraphs with line height, letter spacing, indents and paragraph spacing; type warped into the same eleven shapes; type set along a path.
+- **Colour modes and management**: RGB, greyscale, CMYK and Lab; 8 or 16 bits per channel, with 16-bit TIFF written at full depth; four RGB working spaces that can be assigned or converted to, and ICC profiles read out of the files that carry them.
+- **Actions**: record what you do, play it back, and run it over a folder of files. **Layer comps** remember an arrangement of the layers and restore it.
+- **Timeline**: frame-by-frame animation, exported as an animated GIF written by the app itself, or recorded as video; video files can be imported as frames.
+- **Patterns and brushes**: define a pattern from a selection and tile it; save brush tips with size, hardness, opacity, spacing, angle, roundness and scatter.
+- **3D**: a layer extruded into a lit solid that can be turned in space, with adjustable depth, rotation, perspective and light direction.
 - **Vector paths**: pen, freeform pen and curvature pen, with anchor/handle editing, stroke, fill, and path-to-selection.
 - **Shape tools** (rectangle, rounded rectangle, ellipse, polygon, line, custom) that create editable shape layers.
 - **Polygonal and magnetic lassos**, **patch** and **content-aware move**, **perspective crop**, **slices** (with per-slice export), **frames**, and a **ruler** that reports distance and angle.
-- Adjustments and filters: Camera Raw-style develop, brightness/contrast, hue/saturation, invert, grayscale, auto levels, Gaussian/motion blur, sharpen, high pass, noise, mosaic, find edges, emboss, oil paint, solarize, clouds, vignette, offset, liquify, neural-style skin smooth.
-- Local generative-job tools: content-aware / generative fill, generative expand, generative upscale, Harmonize, Select Subject, Remove Background, Find Distractions. These run on-device and do not use Adobe Firefly.
+- Adjustments and filters: Camera Raw-style develop, brightness/contrast, hue/saturation, invert, grayscale, auto levels, Gaussian/motion/box/radial blur, sharpen, unsharp mask, high pass, noise, median, dust and scratches, mosaic, crystallize, find edges, emboss, oil paint, solarize, clouds, vignette, lens flare, offset, minimum, maximum, twirl, ripple, wave, spherize, pinch, liquify, neural-style skin smooth.
+- Local generative-job tools: content-aware / generative fill, generative expand, generative upscale, Harmonize, Select Subject, Remove Background, Find Distractions. These run on-device; no cloud service is contacted and no account is needed.
 - Open PNG, JPG, GIF, WebP, AVIF, BMP, TIFF, **HEIC/HEIF** (`.heic`, `.heif`, `.hif` — decoded in-app with libheif, since no browser reads them), **DICOM** (`.dcm`, with rescale, windowing and MONOCHROME1 handled), and the native `.mpw` project format. Place extra images as new layers.
 - Save layered projects (`.mpw` v2) and export PNG, JPG, WebP, AVIF, GIF, or TIFF, with a **transparent background** option for the formats that can store alpha.
 - **Print** (Ctrl+P) with a **print preview**: the page on its sheet, portrait or landscape, then the system print dialog.
@@ -97,6 +110,16 @@ bundle, packages with electron-builder, and then runs
 `scripts/copy-installers.cjs`, which copies the freshly built installer into the
 project root. Build output lives under `release/`.
 
+The `dist:*` scripts package through `scripts/package-app.cjs` rather than
+calling electron-builder directly. Packaging writes about a hundred megabytes of
+`.exe`, `.dll` and archive into `release/` and then renames and deletes those
+files moments later; on Windows, whatever scans new executables can still have
+one open at that point, and the build dies with `EPERM: operation not permitted`
+on a rename or `EBUSY: resource busy or locked` on a delete — on files nothing
+else is using. The wrapper clears what an earlier run left behind, and retries a
+lock three times with a growing wait. Any other failure is reported the first
+time. `npm run clean:release` does the clearing on its own.
+
 Generated files are not committed. `scripts/create-icons.cjs` renders
 `build/icon.ico`, `build/icon.png` and the Linux icon set from
 `public/app-icon.svg` — one source for the executable, the installer, the
@@ -113,7 +136,7 @@ macOS packages should be built on macOS, and Linux packages should be built on L
 | `src/lib/` | The platform-independent editing engine: colour, selections, filters, paths, transforms, the document model |
 | `src/` | The React app, the command catalog, the popup bodies and the i18n tables |
 | `electron/` | The desktop shell: the main window, native file dialogs and the popup windows |
-| `scripts/` | The launchers, the icon and build-stamp generators and the image verification run |
+| `scripts/` | The launchers, the packaging wrapper, the icon and build-stamp generators and the image verification run |
 | `test/` | The `node --test` suite and its DOM/canvas harness |
 | `images/` | Sample photos, including a HEIC and a DICOM slice, used by `npm run verify:images` |
 

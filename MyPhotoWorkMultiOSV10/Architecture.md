@@ -78,6 +78,10 @@ so the tests can import it without a JSX transform.
 | `transform` | the free-transform box, its handles, and the resampling that commits it |
 | `canvas` / `history` / `imageIO` | the document model, undo snapshots, `.mpw` and raster codecs |
 | `dicom` / `metadata` | the DICOM reader, and the header facts the information window lists |
+| `colorTools` / `colorMath` / `distort` / `detail` | the colour operations with more than one setting, the maths behind them, the filters that move pixels, and the filters that read a pixel's neighbours |
+| `warp` / `typeset` / `three` | the four-corner and mesh transforms, setting type, and the 3D extrusion |
+| `colorModes` / `depth` / `channels` | colour spaces and ICC profiles, 16-bit buffers, and channels |
+| `gif` / `video` / `patterns` / `gallery` | the GIF encoder, video in and out, pattern tiles, and the one place a filter id becomes a call |
 | `errors` | turning anything thrown into a report the user can read and paste |
 | `view` | the tick spacing shared by the grid and the rulers |
 
@@ -121,7 +125,21 @@ type PhotoDocument = { name, width, height, background, layers, activeLayerId, f
                        colorMode }
 ```
 
-Index 0 is the bottom layer. The right-hand panel lists layers from top to bottom, matching Photoshop.
+Index 0 is the bottom layer. The right-hand panel lists layers from top to bottom, the way every layered editor shows them.
+
+The compositor keeps one extra value as it walks the stack: `clipBase`, the last
+layer drawn that was not itself clipped. A layer marked `clipped` is cut to that
+one's alpha before it is drawn, and a clipped *adjustment* layer multiplies its
+coverage by the same alpha. That is the whole of clipping masks; consecutive
+clipped layers all hang off the same base, which is what a clipping group is.
+
+The four Select ▸ Modify commands share one distance field: a two-pass chamfer
+transform over the selection mask, which gives every pixel its distance to the
+nearest pixel of the opposite state in one pass over the image rather than a
+radius search per pixel. Expand keeps what is within the radius of the inside,
+Contract drops what is within the radius of the outside, and Border keeps the
+band that straddles the edge. Beyond the canvas counts as unselected, so a
+selection running off the edge is still contracted there.
 
 Selection is a rectangle, ellipse, or per-pixel mask. Brush, eraser, fill, gradient, text, and filters all clip to that selection.
 
@@ -265,6 +283,14 @@ filters that call `Math.random`.
 | `history.test.mjs` | snapshot isolation and the 30-state cap |
 | `settings.test.mjs` | localStorage validation and the theme table |
 | `imageio.test.mjs` | `.mpw` round trip, v1 migration, TIFF, HEIF decoding, transparent export, the print page and preview, every export format |
+| `selectionOps.test.mjs` | expand, contract, border, smooth, grow, similar and colour range |
+| `colorTools.test.mjs` | the channel mixer, selective colour, gradient map, replace colour, equalize and auto colour |
+| `newFilters.test.mjs` | the distortions and the neighbourhood filters, including that a backward mapping leaves no holes |
+| `smart.test.mjs` | smart filters, smart objects and the alpha channels a saved selection becomes |
+| `warp.test.mjs` | skew, distort, perspective, the warp shapes, puppet pins and seam carving |
+| `typeset.test.mjs` | paragraphs, letter spacing, type on a path and the type warp |
+| `colorModes.test.mjs` | Lab and CMYK round trips, profile conversion, ICC parsing, and the 16-bit TIFF |
+| `media.test.mjs` | the GIF encoder against a real decoder, the 3D lighting, and pattern tiling |
 | `dicom.test.mjs` | the DICOM magic, windowing, the tag rows, and the routing into them |
 | `metadata.test.mjs` | EXIF read out of a JPEG built for the test, PNG headers, pixel statistics |
 | `i18n.test.mjs` | Korean/English coverage for every tool, blend mode, adjustment and filter |
