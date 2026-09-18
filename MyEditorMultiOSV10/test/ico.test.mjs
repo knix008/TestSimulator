@@ -57,3 +57,27 @@ test('the installer pins shortcuts to MyEditor.ico next to the exe', () => {
   assert.ok(extra.some((x) => x.to === 'MyEditor.ico'));
   assert.ok(extra.some((x) => String(x.to).includes('VisualElementsManifest')));
 });
+
+test('CreateShortCut must not pass the long package description', () => {
+  const nsh = fs.readFileSync(path.join(root, 'build', 'installer.nsh'), 'utf8');
+  const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
+  assert.ok(pkg.description.length > 260, 'package description is long enough to overflow an .lnk comment');
+  const creates = nsh.match(/^\s*CreateShortCut[^\n]+/gm) || [];
+  assert.ok(creates.length >= 2);
+  for (const line of creates) {
+    assert.doesNotMatch(line, /APP_DESCRIPTION/);
+    assert.match(line, /\$\{PRODUCT_NAME\}/);
+  }
+});
+
+test('Windows taskbar identity is stamped onto shortcuts', () => {
+  const main = fs.readFileSync(path.join(root, 'electron', 'main.js'), 'utf8');
+  const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
+  const ps1 = fs.readFileSync(path.join(root, 'scripts', 'set-lnk-aumi.ps1'), 'utf8');
+  assert.match(main, /stampShortcutAumi/);
+  assert.match(main, /setAppUserModelId\(APP_ID\)/);
+  assert.doesNotMatch(main, /setOpacity\(0\)/);
+  assert.match(ps1, /PKEY_AppUserModel|9F4C2855-9F79-4B39-A8D0-E1D42DE1D5F3/);
+  const extra = pkg.build.extraResources || [];
+  assert.ok(extra.some((x) => x.to === 'set-lnk-aumi.ps1'));
+});

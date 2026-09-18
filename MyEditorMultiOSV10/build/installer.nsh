@@ -353,15 +353,23 @@ FunctionEnd
     StrCpy $R0 "$INSTDIR\${APP_EXECUTABLE_FILENAME}"
   ${EndIf}
 
+  ; NSIS CreateShortCut stores the last argument in a 260-char comment field.
+  ; Passing ${APP_DESCRIPTION} (package.json, ~288 chars) overflows that field
+  ; and corrupts IconLocation / WorkingDirectory — Explorer then shows a blank
+  ; Desktop and Start Menu icon. Keep the comment at PRODUCT_NAME only.
+  SetOutPath "$INSTDIR"
+  Delete "$SMPROGRAMS\${SHORTCUT_NAME}.lnk"
+  Delete "$DESKTOP\${SHORTCUT_NAME}.lnk"
+
   ${If} $DoCreateStartMenuShortcut == "1"
     CreateDirectory "$SMPROGRAMS"
-    CreateShortCut "$SMPROGRAMS\${SHORTCUT_NAME}.lnk" "$INSTDIR\${APP_EXECUTABLE_FILENAME}" "" "$R0" 0 "" "" "${APP_DESCRIPTION}"
+    CreateShortCut "$SMPROGRAMS\${SHORTCUT_NAME}.lnk" "$INSTDIR\${APP_EXECUTABLE_FILENAME}" "" "$R0" 0 SW_SHOWNORMAL "" "${PRODUCT_NAME}"
     WinShell::SetLnkAUMI "$SMPROGRAMS\${SHORTCUT_NAME}.lnk" "${APP_ID}"
     StrCpy $launchLink "$SMPROGRAMS\${SHORTCUT_NAME}.lnk"
   ${EndIf}
 
   ${If} $DoCreateDesktopShortcut == "1"
-    CreateShortCut "$DESKTOP\${SHORTCUT_NAME}.lnk" "$INSTDIR\${APP_EXECUTABLE_FILENAME}" "" "$R0" 0 "" "" "${APP_DESCRIPTION}"
+    CreateShortCut "$DESKTOP\${SHORTCUT_NAME}.lnk" "$INSTDIR\${APP_EXECUTABLE_FILENAME}" "" "$R0" 0 SW_SHOWNORMAL "" "${PRODUCT_NAME}"
     WinShell::SetLnkAUMI "$DESKTOP\${SHORTCUT_NAME}.lnk" "${APP_ID}"
   ${EndIf}
 

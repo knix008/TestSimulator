@@ -10,6 +10,7 @@
 const { app, BrowserWindow, Menu, shell, clipboard, nativeImage, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const { spawnSync } = require('child_process');
 
 const { registerIpc } = require('./ipc');
 const { createApi } = require('../core/api');
@@ -58,8 +59,6 @@ let pendingFiles = filesFromArgv(process.argv);   // opened once the renderer is
 let rendererReady = false;
 
 function iconPath() {
-  // Chromium's ICO decoder is unreliable with BMP-in-ICO frames; a PNG is
-  // used for the window / taskbar. The .ico stays for Explorer shortcuts.
   const names = process.platform === 'win32' ? ['icon.png', 'icon.ico'] : ['icon.png'];
   const dirs = [
     process.resourcesPath,
@@ -69,6 +68,52 @@ function iconPath() {
   const candidates = [];
   for (const dir of dirs) for (const name of names) candidates.push(path.join(dir, name));
   return candidates.find((p) => { try { return fs.existsSync(p); } catch { return false; } }) || candidates[candidates.length - 1];
+}
+function loadWindowIcon() {
+  const img = nativeImage.createEmpty();
+  const dir = path.join(__dirname, '..', 'build', 'icons', 'png');
+  let added = 0;
+  for (const size of [16, 24, 32, 48, 256]) {
+    const p = path.join(dir, `${size}x${size}.png`);
+    if (!fs.existsSync(p)) continue;
+    try {
+      img.addRepresentation({ width: size, height: size, scaleFactor: 1, buffer: fs.readFileSync(p) });
+      added += 1;
+    } catch { /* skip a missing size */ }
+  }
+  if (added && !img.isEmpty()) return img;
+  const p = iconPath();
+  if (p && fs.existsSync(p)) {
+    try {
+      const n = nativeImage.createFromPath(p);
+      if (!n.isEmpty()) return n;
+    } catch { /* fall through */ }
+  }
+  return undefined;
+}
+function applyWindowIcon(win) {
+  if (!win || win.isDestroyed()) return;
+  const img = loadWindowIcon();
+  if (img) { try { win.setIcon(img); } catch { /* icon is best-effort */ } }
+}
+// Windows shows a blank taskbar button when the process AppUserModelId does
+// not match any .lnk. Stamp the Desktop / Start Menu shortcuts (NSIS already
+// does this; WScript.Shell.Save strips it).
+function stampShortcutAumi() {
+  if (process.platform !== 'win32') return;
+  const ps1 = app.isPackaged
+    ? path.join(process.resourcesPath || '', 'set-lnk-aumi.ps1')
+    : path.join(__dirname, '..', 'scripts', 'set-lnk-aumi.ps1');
+  if (!fs.existsSync(ps1)) return;
+  const marker = path.join(app.getPath('userData'), 'aumi-stamped');
+  const token = `${APP_ID}\n${app.isPackaged ? process.execPath : 'dev'}`;
+  try { if (fs.readFileSync(marker, 'utf8') === token) return; } catch { /* stamp */ }
+  try {
+    spawnSync('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ps1, '-AppId', APP_ID], {
+      windowsHide: true, timeout: 8000,
+    });
+    fs.writeFileSync(marker, token);
+  } catch { /* best-effort */ }
 }
 function printIconPath() {
   const candidates = [
@@ -106,16 +151,26 @@ function openPopup(kind, tab) {
   const session = api.session.get();
   const pb = mainWin.getBounds();
   const resizable = !!spec.resizable;
-  const printIcon = kind === 'print' && printIconPath();
+  let icon = loadWindowIcon();
+  if (kind === 'print') {
+    const p = printIconPath();
+    if (p) {
+      try {
+        const n = nativeImage.createFromPath(p);
+        if (!n.isEmpty()) icon = n;
+      } catch { /* keep app icon */ }
+    }
+  }
   const win = new BrowserWindow({
     width: spec.width, height: spec.height, resizable, maximizable: resizable, fullscreenable: false, useContentSize: true,
     x: Math.round(pb.x + (pb.width - spec.width) / 2), y: Math.round(pb.y + Math.max(40, (pb.height - spec.height) / 2)),
     parent: mainWin, modal: false, frame: false, autoHideMenuBar: true, show: false, title: kind === 'print' ? '인쇄' : PRODUCT,
     backgroundColor: session.themeBg || '#12161c',
-    icon: (printIcon && fs.existsSync(printIcon) ? printIcon : undefined) || (fs.existsSync(iconPath()) ? iconPath() : undefined),
+    icon: icon || undefined,
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: false, spellcheck: false },
   });
   popups.set(kind, win);
+  if (icon) { try { win.setIcon(icon); } catch { /* best-effort */ } }
   win.once('ready-to-show', () => win.show());
   win.on('closed', () => { if (popups.get(kind) === win) popups.delete(kind); });
   win.webContents.setWindowOpenHandler(({ url }) => { if (/^https?:/.test(url)) shell.openExternal(url); return { action: 'deny' }; });
@@ -211,7 +266,7 @@ function createWindow() {
     autoHideMenuBar: true,
     show: false,
     title: PRODUCT,
-    icon: fs.existsSync(iconPath()) ? iconPath() : undefined,
+    icon: loadWindowIcon() || undefined,
     webPreferences: {
       // --smoke-url=<http://…> loads the web version instead (no preload, so
       // the UI runs exactly as it does in a browser) — used by the smoke test.
@@ -223,15 +278,12 @@ function createWindow() {
     },
   });
   mainWin = win;
-  try { if (fs.existsSync(iconPath())) win.setIcon(iconPath()); } catch { /* icon is best-effort */ }
+  applyWindowIcon(win);
   if (saved && saved.maximized) win.maximize();
 
-  // Windows paints a white frame for a frameless window's first frame:
-  // show it transparent and fade in once it is painted.
   win.once('ready-to-show', () => {
-    win.setOpacity(0);
+    applyWindowIcon(win);
     win.show();
-    setTimeout(() => { if (!win.isDestroyed()) win.setOpacity(1); }, 50);
   });
   const sendMax = () => { if (!win.isDestroyed()) win.webContents.send('win:maximized', win.isMaximized()); };
   win.on('maximize', sendMax);
@@ -374,6 +426,10 @@ if (!gotLock) {
       },
       clipboard: { readText: () => clipboard.readText(), writeText: (t) => clipboard.writeText(t) },
     });
+    if (process.platform === 'win32') {
+      app.setAppUserModelId(APP_ID);
+      stampShortcutAumi();
+    }
     if (process.platform === 'darwin' && fs.existsSync(path.join(__dirname, '..', 'build', 'icons', 'icon.png'))) {
       app.dock.setIcon(nativeImage.createFromPath(path.join(__dirname, '..', 'build', 'icons', 'icon.png')));
     }
