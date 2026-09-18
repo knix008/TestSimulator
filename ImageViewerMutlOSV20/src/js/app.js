@@ -29,8 +29,15 @@
     isDirty:      false,
     imageMeta:    null,
     dicomMeta:    null,
+    dicomTags:    null,
+    dicom:        null,   // decoded DICOM session (frames / window) — see _setDicomSession
     metaForFile:  null,
   };
+
+  // Declared before the first await: rAF callbacks below may run before later lets initialise
+  let _appliedMinWidth = 0;
+  let _ewFitW = 0, _ewFitH = 0;
+  let _savedMainBounds = null;
 
   function _isEditableImage() {
     return (Editor.isLoaded() || state.isAnimated) && !state.isVideo && !state.isAudio;
@@ -78,6 +85,22 @@
   const animFreeze       = document.getElementById('animated-freeze');
   const videoEl          = document.getElementById('video-player');
   const mediaControls    = document.getElementById('media-controls');
+  const menubarEl        = document.getElementById('menubar');
+  let _menubarOpen = null;   // id of the open menu bar menu, or null
+  const dicomBar       = document.getElementById('dicom-controls');
+  const dcmFramesWrap  = document.getElementById('dcm-frames-wrap');
+  const dcmWindowWrap  = document.getElementById('dcm-window-wrap');
+  const dcmFrameSeek   = document.getElementById('dcm-frame');
+  const dcmFrameLabel  = document.getElementById('dcm-frame-label');
+  const dcmPreset      = document.getElementById('dcm-preset');
+  const dcmWc          = document.getElementById('dcm-wc');
+  const dcmWw          = document.getElementById('dcm-ww');
+  const dcmInvertBtn   = document.getElementById('dcm-invert');
+  const dcmPlayBtn     = document.getElementById('dcm-play');
+  const dcmRange       = document.getElementById('dcm-range');
+  let _dicomBusy = false;
+  let _dicomNext = null;
+  let _dicomCineTimer = null;
   const mcPlayBtn        = document.getElementById('mc-play');
   const mcPauseBtn       = document.getElementById('mc-pause');
   const mcStopBtn        = document.getElementById('mc-stop');
@@ -193,6 +216,7 @@
 
   /* ─── Tooltip: toolbar buttons ─── */
   _buildToolbar();
+  _buildMenubar();
   _initWindowChrome();
   document.addEventListener('click', (e) => {
     const btn = e.target.closest?.('button.is-disabled, button[aria-disabled="true"]');
@@ -219,6 +243,7 @@
   /* ─── Keyboard shortcuts ─── */
   _initKeyboard();
   _initMediaCues();
+  _initDicomBar();
 
   /* ─── Context menu ─── */
   // Capture phase so Chromium's native <video> menu is suppressed
@@ -356,6 +381,12 @@
     await _openFolder(p);
     await FileTree.refresh();
   });
+  window.addEventListener('app-open-file', async (e) => {
+    const p = e.detail;
+    if (!p) return;
+    await _openFile(p, { center: true });
+    FileTree.setSelected(p, { center: true });
+  });
   window.electronAPI.onMenuAction(async (action) => _handleMenuAction(action));
 
   /* ─── File / directory watching ─── */
@@ -444,11 +475,8 @@
      Toolbar
   ════════════════════════════════════════════ */
   function _buildToolbar() {
+    // File / folder / save / export / print live in the menu bar's File menu (see _buildMenubar)
     const buttons = [
-      { id:'btn-open-file',   icon:'openFile',   tip:'toolbar.openFile',   action: () => _pickOpenFile() },
-      { id:'btn-open-folder', icon:'openFolder', tip:'toolbar.openFolder', action: (e) => { e?.stopPropagation?.(); _showRecentFoldersMenu(e?.currentTarget); } },
-      { id:'btn-save',        icon:'save',       tip:'toolbar.save',       action: _saveAs, disabled: true },
-      { separator: true },
       { id:'btn-undo',        icon:'undo',       tip:'toolbar.undo',       action: () => { _undoEdit(); }, disabled: true },
       { id:'btn-redo',        icon:'redo',       tip:'toolbar.redo',       action: () => { _redoEdit(); }, disabled: true },
       { separator: true },
@@ -474,12 +502,9 @@
       { id:'btn-lang',        icon:null,         tip:'toolbar.lang',       action: _toggleLang, langBtn: true },
     ];
 
-    // Keep chrome elements before clearing
-    const brand = document.getElementById('app-brand');
+    // Keep the zoom input before clearing
     const zoomWrap = document.getElementById('zoom-input-wrap');
-    const gutter = document.getElementById('win-ctrl-gutter');
     toolbar.innerHTML = '';
-    if (brand) toolbar.appendChild(brand);
     for (const b of buttons) {
       if (b.separator) {
         const sep = document.createElement('div');
@@ -508,6 +533,19 @@
         span.className = 'lang-text';
         span.textContent = _langSwitchLabel();
         btn.appendChild(span);
+      } else if (b.menuBtn) {
+        btn.classList.add('menu-btn');
+        btn.innerHTML = Icons[b.icon] || '';
+        const span = document.createElement('span');
+        span.className = 'menu-text';
+        span.setAttribute('data-i18n', b.menuBtn);
+        span.textContent = I18n.t(b.menuBtn);
+        btn.appendChild(span);
+        const caret = document.createElement('span');
+        caret.className = 'menu-caret';
+        caret.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z"/></svg>';
+        btn.appendChild(caret);
+        btn.setAttribute('aria-haspopup', 'menu');
       } else {
         btn.innerHTML = Icons[b.icon] || '';
       }
@@ -539,13 +577,258 @@
       zw.appendChild(zi);
       toolbar.appendChild(zw);
     }
-    if (gutter) toolbar.appendChild(gutter);
 
     _updateZoomDisplay();
     _lockBarScroll(toolbar);
     _updateToolbarForMedia();
     _updateNavButtons();
     requestAnimationFrame(() => _syncWindowMinSize());
+  }
+
+  /* ════════════════════════════════════════════
+     Menu bar (File · Edit · View · Effects · Help)
+     Each menu is a ContextMenu dropdown; every item carries an icon.
+  ════════════════════════════════════════════ */
+  function _menubarDefs() {
+    return [
+    { id: 'file',    labelKey: 'menu.file',    icon: 'file',    items: () => _fileMenuItems() },
+    { id: 'edit',    labelKey: 'menu.edit',    icon: 'edit',    items: () => _editMenuItems() },
+    { id: 'view',    labelKey: 'menu.view',    icon: 'image',   items: () => _viewMenuItems() },
+    { id: 'effects', labelKey: 'menu.effects', icon: 'effects', items: () => _effectsMenuItems() },
+    { id: 'help',    labelKey: 'menu.help',    icon: 'help',    items: () => _helpMenuItems() },
+    ];
+  }
+
+  function _buildMenubar() {
+    if (!menubarEl) return;
+    menubarEl.innerHTML = '';
+    for (const m of _menubarDefs()) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'menubar-btn';
+      btn.id = `menubar-${m.id}`;
+      btn.setAttribute('aria-haspopup', 'menu');
+      btn.innerHTML = Icons[m.icon] || '';
+      const span = document.createElement('span');
+      span.setAttribute('data-i18n', m.labelKey);
+      span.textContent = I18n.t(m.labelKey);
+      btn.appendChild(span);
+      // mousedown (not click) so the document-level click that closes menus cannot race us
+      btn.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (_menubarOpen === m.id) ContextMenu.hide();
+        else _openMenubarMenu(m);
+      });
+      btn.addEventListener('click', (e) => e.stopPropagation());
+      btn.addEventListener('mouseenter', () => {
+        if (_menubarOpen && _menubarOpen !== m.id) _openMenubarMenu(m);
+      });
+      menubarEl.appendChild(btn);
+    }
+  }
+
+  function _openMenubarMenu(m) {
+    const btn = document.getElementById(`menubar-${m.id}`);
+    if (!btn) return;
+    const r = btn.getBoundingClientRect();
+    menubarEl.querySelectorAll('.menubar-btn.is-open').forEach((b) => b.classList.remove('is-open'));
+    btn.classList.add('is-open');
+    _menubarOpen = m.id;
+    ContextMenu.show(r.left, r.bottom + 2, m.items(), {
+      onHide: () => {
+        if (_menubarOpen === m.id) _menubarOpen = null;
+        btn.classList.remove('is-open');
+      },
+    });
+  }
+
+  const _isWeb = () => window.electronAPI.platform === 'web';
+
+  function _fileMenuItems() {
+    const t = I18n.t.bind(I18n);
+    const hasImg = _isEditableImage();
+    const hasFile = !!state.currentFile;
+    const isWeb = _isWeb();
+    return [
+      { icon: Icons.openFile,   label: t('menu.openFile'),   shortcut: 'Ctrl+O',       action: () => _pickOpenFile() },
+      // Click = browse for a new folder; hover = the folders opened before (each removable)
+      { icon: Icons.openFolder, label: t('menu.openFolder'), shortcut: 'Ctrl+Shift+O', action: () => _pickOpenFolder(), submenu: () => _recentFolderItems() },
+      { separator: true },
+      { icon: Icons.saveAs,     label: t('menu.saveAs'),     shortcut: 'Ctrl+Shift+S', disabled: !hasImg, action: () => _saveAs() },
+      { icon: Icons.export,     label: t('menu.export'),     disabled: !hasImg, submenu: () => _exportMenuItems() },
+      { icon: Icons.print,      label: t('menu.print'),      shortcut: 'Ctrl+P',       disabled: !_canPrint(), action: () => _printImage() },
+      { separator: true },
+      { icon: Icons.fileInfo,   label: t('menu.fileInfo'),   shortcut: 'Ctrl+I',       disabled: !hasFile, action: () => _showFileInfoDialog() },
+      !isWeb && { icon: Icons.explorer, label: t('context.showInExplorer'), disabled: !hasFile, action: () => _showInExplorer() },
+      !isWeb && { icon: Icons.delete,   label: t('context.deleteFile'), danger: true, disabled: !hasFile, action: () => state.currentFile && _deleteFile(state.currentFile) },
+      !isWeb && { separator: true },
+      !isWeb && { icon: Icons.exit,     label: t('menu.exit'), shortcut: 'Alt+F4', action: () => window.electronAPI.windowClose() },
+    ].filter(Boolean);
+  }
+
+  async function _recentFolderItems() {
+    const t = I18n.t.bind(I18n);
+    const raw = _getRecentDirs();
+    const existing = [];
+    for (const p of raw) {
+      try {
+        const stats = await window.electronAPI.getFileStats(p);
+        if (stats && !stats.error && stats.isDirectory) existing.push(p);
+      } catch { /* gone */ }
+    }
+    if (existing.length !== raw.length) localStorage.setItem(RECENT_DIRS_KEY, JSON.stringify(existing));
+
+    const items = [
+      { icon: Icons.folderOpen, label: t('toolbar.openFolderBrowse') || t('menu.openFolder'), action: () => _pickOpenFolder() },
+    ];
+    if (existing.length) {
+      items.push({ separator: true });
+      for (const p of existing) {
+        items.push({
+          icon: Icons.recent,
+          inline: true,
+          label: _dirBaseName(p),
+          detail: p,
+          title: p,
+          action: () => _openFolder(p),
+          remove: {
+            title: t('toolbar.removeRecentFolder') || 'Remove from history',
+            action: () => { _removeRecentDir(p); ContextMenu.refreshSubmenu(0); },
+          },
+        });
+      }
+      items.push({ separator: true });
+      items.push({
+        icon: Icons.delete,
+        danger: true,
+        label: `${t('toolbar.clearRecentFolders') || 'Clear recent folders'} (${existing.length})`,
+        action: () => _clearRecentFolderHistory(),
+      });
+    }
+    return items;
+  }
+
+  function _exportMenuItems() {
+    const t = I18n.t.bind(I18n);
+    const hasImg = _isEditableImage();
+    return [
+      { icon: Icons.fmtPng,  label: t('menu.exportPng'),  disabled: !hasImg, action: () => _exportAs('png') },
+      { icon: Icons.fmtJpg,  label: t('menu.exportJpeg'), disabled: !hasImg, action: () => _exportAs('jpg') },
+      { icon: Icons.fmtWebp, label: t('menu.exportWebp'), disabled: !hasImg, action: () => _exportAs('webp') },
+      { icon: Icons.fmtBmp,  label: t('menu.exportBmp'),  disabled: !hasImg, action: () => _exportAs('bmp') },
+      { separator: true },
+      { icon: Icons.copy,    label: t('menu.copyToClipboard'), shortcut: 'Ctrl+C', disabled: !hasImg, action: () => _copyToClipboard() },
+    ];
+  }
+
+  function _editMenuItems() {
+    const t = I18n.t.bind(I18n);
+    const hasImg = _isEditableImage();
+    const hasSel = hasImg && Editor.hasSelection();
+    return [
+      { icon: Icons.undo,  label: t('menu.undo'), shortcut: 'Ctrl+Z', disabled: !(hasImg && Editor.canUndo()), action: () => _undoEdit() },
+      { icon: Icons.redo,  label: t('menu.redo'), shortcut: 'Ctrl+Y', disabled: !(hasImg && Editor.canRedo()), action: () => _redoEdit() },
+      { separator: true },
+      { icon: Icons.cut,   label: t('context.cut'),  shortcut: 'Ctrl+X', disabled: !hasSel, action: () => _cutToClipboard() },
+      { icon: Icons.copy,  label: t('context.copy'), shortcut: 'Ctrl+C', disabled: !hasImg, action: () => _copyToClipboard() },
+      { separator: true },
+      { icon: Icons.rotateLeft,  label: t('menu.rotateLeft'),     shortcut: 'Ctrl+[', disabled: !hasImg, action: () => _rotate(-90) },
+      { icon: Icons.rotateRight, label: t('menu.rotateRight'),    shortcut: 'Ctrl+]', disabled: !hasImg, action: () => _rotate(90) },
+      { icon: Icons.flipH,       label: t('menu.flipHorizontal'), disabled: !hasImg, action: () => _flip('h') },
+      { icon: Icons.flipV,       label: t('menu.flipVertical'),   disabled: !hasImg, action: () => _flip('v') },
+      { icon: Icons.resize,      label: t('menu.resize'),         shortcut: 'Ctrl+Shift+R', disabled: !hasImg, action: () => _openResizeDialog() },
+      { separator: true },
+      { icon: Icons.bgRemove,    label: t('context.bgRemove'),    disabled: !hasImg, action: () => _removeBackground() },
+      { icon: Icons.reset,       label: t('menu.resetEdits'),     disabled: !hasImg, action: () => _resetAll() },
+      { separator: true },
+      { icon: Icons.edit,        label: t('menu.editImage'),      shortcut: 'Ctrl+E', disabled: !hasImg, action: () => _openEditWindow() },
+    ];
+  }
+
+  function _viewMenuItems() {
+    const t = I18n.t.bind(I18n);
+    const hasVisual = _hasViewerVisual();
+    const hasImg = _isEditableImage();
+    const canPrev = state.fileIndex > 0;
+    const canNext = state.fileIndex >= 0 && state.fileIndex < state.fileList.length - 1;
+    return [
+      { icon: Icons.zoomIn,     label: t('menu.zoomIn'),      shortcut: 'Ctrl++', disabled: !hasVisual, action: () => _zoom(1.25) },
+      { icon: Icons.zoomOut,    label: t('menu.zoomOut'),     shortcut: 'Ctrl+-', disabled: !hasVisual, action: () => _zoom(0.8) },
+      { icon: Icons.fitWindow,  label: t('menu.fitToWindow'), shortcut: 'Ctrl+0', disabled: !hasVisual, action: () => _fitToWindow() },
+      { icon: Icons.actualSize, label: t('menu.actualSize'),  shortcut: 'Ctrl+1', disabled: !hasImg,    action: () => _actualSize() },
+      { separator: true },
+      { icon: Icons.prev, label: t('menu.previousImage'), shortcut: '←', disabled: !canPrev, action: () => _prevImage() },
+      { icon: Icons.next, label: t('menu.nextImage'),     shortcut: '→', disabled: !canNext, action: () => _nextImage() },
+      { separator: true },
+      ..._dicomContextItems(),
+      !_isWeb() && { icon: Icons.fullscreen, label: t('menu.fullscreen'), shortcut: 'F11', action: () => window.electronAPI.toggleFullscreen?.() },
+      !_isWeb() && { separator: true },
+      { icon: Icons.moon, label: t('menu.darkTheme'),  checked: state.theme === 'dark',  action: () => _applyTheme('dark') },
+      { icon: Icons.sun,  label: t('menu.lightTheme'), checked: state.theme !== 'dark',  action: () => _applyTheme('light') },
+      { separator: true },
+      { icon: Icons.language, label: t('menu.language'), submenu: () => [
+        { icon: Icons.language, label: 'English', checked: state.lang === 'en', action: () => _handleMenuAction('lang-en') },
+        { icon: Icons.language, label: '한글',    checked: state.lang === 'ko', action: () => _handleMenuAction('lang-ko') },
+      ] },
+    ].filter(Boolean);
+  }
+
+  function _effectsMenuItems() {
+    const t = I18n.t.bind(I18n);
+    const hasImg = _isEditableImage();
+    return [
+      { icon: Icons.sliders,      label: t('menu.adjustments'), disabled: !hasImg, action: () => _handleMenuAction('show-effects') },
+      { separator: true },
+      { icon: Icons.grayscale,    label: t('menu.grayscale'),   disabled: !hasImg, action: () => _handleMenuAction('effect-grayscale') },
+      { icon: Icons.sepia,        label: t('menu.sepia'),       disabled: !hasImg, action: () => _handleMenuAction('effect-sepia') },
+      { icon: Icons.invertColors, label: t('menu.invert'),      disabled: !hasImg, action: () => _handleMenuAction('effect-invert') },
+      { separator: true },
+      { icon: Icons.reset,        label: t('menu.resetEffects'), disabled: !hasImg, action: () => _resetEffects() },
+    ];
+  }
+
+  function _helpMenuItems() {
+    const t = I18n.t.bind(I18n);
+    return [
+      { icon: Icons.keyboard, label: t('menu.shortcuts'), action: () => _showDialog('shortcuts-overlay') },
+      { separator: true },
+      { icon: Icons.info,     label: t('menu.about'),     action: () => _showDialog('about-overlay') },
+    ];
+  }
+
+  /* ─── Export (Save As with a preset format) ─── */
+  function _exportAs(ext) {
+    return _saveAs(false, { ext });
+  }
+
+  /* ─── Print ─── */
+  function _canPrint() {
+    return !state.isVideo && !state.isAudio && (Editor.isLoaded() || !!state.isAnimated);
+  }
+
+  function _printableDataUrl() {
+    if (Editor.isLoaded()) return Editor.exportAsDataUrl('image/png');
+    if (state.isAnimated) {
+      if (animFreeze && animFreeze.width) { try { return animFreeze.toDataURL('image/png'); } catch { /* fall through */ } }
+      return state.animatedDataUrl || null;
+    }
+    return null;
+  }
+
+  async function _printImage() {
+    if (!_canPrint()) return;
+    const dataUrl = _printableDataUrl();
+    if (!dataUrl) return;
+    const title = state.currentFile ? state.currentFile.split(/[/\\]/).pop() : (I18n.t('app.title') || 'Image');
+    try {
+      const res = await window.electronAPI.printImage({ dataUrl, title });
+      if (res && res.error && res.error !== 'cancelled') {
+        _showError(I18n.t('error.print') || 'Could not print the image.', res.error);
+      }
+    } catch (e) {
+      _showError(I18n.t('error.print') || 'Could not print the image.', e);
+    }
   }
 
   function _lockBarScroll(el) {
@@ -597,9 +880,6 @@
     return width;
   }
 
-  let _appliedMinWidth = 0;
-  let _ewFitW = 0, _ewFitH = 0;
-  let _savedMainBounds = null;
 
   function _mainMinWidth() {
     return Math.max(_measureFlexContentWidth(toolbar, 'toolbar-spacer'), 1100) + 12;
@@ -886,6 +1166,8 @@
       state.isVideo     = result.type === 'video';
       state.isAudio     = result.type === 'audio';
       state.isAnimated  = result.type === 'animated';
+      state.dicomTags   = result.dicomTags || null;
+      _setDicomSession(result.dicom || null);
       localStorage.setItem('lastOpenedFile', filePath);
 
       let mediaKind = 'none';
@@ -902,7 +1184,7 @@
       } else {
         _showVideoPlayer(null);
         _showAudioPlayer(null);
-        if (!result.dataUrl) {
+        if (!result.dataUrl && !result.canvas) {
           _showPlaceholder(true);
           _updateToolbarForMedia('none');
           _showError(
@@ -917,7 +1199,7 @@
           mediaKind = 'image';
         } else {
           state.isAnimated = false;
-          await _loadImageDataUrl(result.dataUrl, filePath, result.dicomMeta);
+          await _loadImageDataUrl(result.canvas || result.dataUrl, filePath, result.dicomMeta);
           mediaKind = _isEditableImage() ? 'image' : 'none';
         }
       }
@@ -984,6 +1266,25 @@
         resolve();
         return;
       }
+      const show = (source) => {
+        _showPlaceholder(false);
+        _showVideoPlayer(null);
+        _showAudioPlayer(null);
+        _hideAnimatedImage();
+        displayCanvas.style.display  = 'block';
+        selCanvas.style.display      = 'block';
+        videoEl.style.display        = 'none';
+        Editor.loadImage(source);
+        _fitToWindow();
+        _updateStatus({ filePath, dicomMeta });
+        _dicomSyncBar();
+      };
+      // A ready canvas (DICOM rendering) needs no decoding round-trip
+      if (typeof dataUrl !== 'string' && dataUrl.getContext) {
+        show(dataUrl);
+        resolve();
+        return;
+      }
       const img = new Image();
       const done = () => resolve();
       // Safety: never leave the loading overlay waiting forever
@@ -993,16 +1294,7 @@
       }, 15000);
       img.onload = () => {
         clearTimeout(timer);
-        _showPlaceholder(false);
-        _showVideoPlayer(null);
-        _showAudioPlayer(null);
-        _hideAnimatedImage();
-        displayCanvas.style.display  = 'block';
-        selCanvas.style.display      = 'block';
-        videoEl.style.display        = 'none';
-        Editor.loadImage(img);
-        _fitToWindow();
-        _updateStatus({ filePath, dicomMeta });
+        show(img);
         done();
       };
       img.onerror = () => {
@@ -1012,6 +1304,306 @@
       };
       img.src = dataUrl;
     });
+  }
+
+  /* ════════════════════════════════════════════
+     DICOM: frames + window (centre / width)
+     The decoded session (state.dicom) keeps the raw samples; a window or
+     frame change re-renders in the renderer and swaps the Editor source
+     without touching the file or marking it dirty.
+  ════════════════════════════════════════════ */
+
+  function _setDicomSession(image) {
+    if (state.dicom && state.dicom !== image) {
+      try { state.dicom.release?.(); } catch { /* ignore */ }
+    }
+    _dicomStopCine();
+    state.dicom = image || null;
+    _dicomBusy = false;
+    _dicomNext = null;
+    _dicomSyncBar();
+  }
+
+  function _dicomHasBar() {
+    const d = state.dicom;
+    return !!(d && Editor.isLoaded() && !state.isVideo && !state.isAudio && !state.editMode && (d.frames > 1 || d.gray));
+  }
+
+  function _dicomFmt(v) {
+    if (!Number.isFinite(v)) return '';
+    return Math.abs(v) >= 100 || Math.abs(v - Math.round(v)) < 0.05 ? String(Math.round(v)) : v.toFixed(1);
+  }
+
+  function _dicomPresetId() {
+    const d = state.dicom;
+    if (!d) return '';
+    const same = (a, b) => Math.abs(a - b) < 0.5;
+    const fi = d.fileWindows.findIndex((w) => same(w.wc, d.state.wc) && same(w.ww, d.state.ww));
+    if (fi >= 0) return `file:${fi}`;
+    const p = (d.presets || []).find((x) => same(x.wc, d.state.wc) && same(x.ww, d.state.ww));
+    if (p) return p.id;
+    const auto = d.autoWindow?.();
+    if (auto && same(auto.wc, d.state.wc) && same(auto.ww, d.state.ww)) return 'auto';
+    return '';
+  }
+
+  function _dicomBuildPresetOptions() {
+    const d = state.dicom;
+    if (!d || !dcmPreset) return;
+    const t = I18n.t.bind(I18n);
+    const opts = [];
+    opts.push(`<option value="" disabled>${_escHtml(t('dicom.preset.custom'))}</option>`);
+    d.fileWindows.forEach((w, i) => {
+      const label = w.label ? ` — ${w.label}` : (d.fileWindows.length > 1 ? ` ${i + 1}` : '');
+      opts.push(`<option value="file:${i}">${_escHtml(`${t('dicom.preset.file')}${label} (C ${_dicomFmt(w.wc)} / W ${_dicomFmt(w.ww)})`)}</option>`);
+    });
+    opts.push(`<option value="auto">${_escHtml(t('dicom.preset.auto'))}</option>`);
+    (d.presets || []).forEach((p) => {
+      opts.push(`<option value="${p.id}">${_escHtml(`${t(`dicom.preset.${p.id}`)} (C ${p.wc} / W ${p.ww})`)}</option>`);
+    });
+    dcmPreset.innerHTML = opts.join('');
+  }
+
+  function _dicomSyncBar() {
+    if (!dicomBar) return;
+    const d = state.dicom;
+    const on = _dicomHasBar();
+    dicomBar.hidden = !on;
+    dicomBar.style.display = on ? 'flex' : 'none';
+    dicomBar.classList.toggle('is-on', on);
+    if (!on) {
+      _dicomStopCine();
+      return;
+    }
+    const st = d.state;
+    // Frames
+    const multi = d.frames > 1;
+    if (dcmFramesWrap) dcmFramesWrap.hidden = !multi;
+    if (multi) {
+      if (dcmFrameSeek) {
+        dcmFrameSeek.max = String(d.frames - 1);
+        if (document.activeElement !== dcmFrameSeek) dcmFrameSeek.value = String(st.frame);
+      }
+      if (dcmFrameLabel) dcmFrameLabel.textContent = `${I18n.t('dicom.frame')} ${st.frame + 1} / ${d.frames}`;
+      document.getElementById('dcm-prev-frame')?.toggleAttribute('disabled', st.frame <= 0);
+      document.getElementById('dcm-next-frame')?.toggleAttribute('disabled', st.frame >= d.frames - 1);
+      dcmPlayBtn?.classList.toggle('is-active', !!_dicomCineTimer);
+      dcmPlayBtn?.setAttribute('aria-pressed', _dicomCineTimer ? 'true' : 'false');
+      const sep = document.getElementById('dcm-frames-sep');
+      if (sep) sep.hidden = !d.gray;
+    }
+    // Window
+    if (dcmWindowWrap) dcmWindowWrap.hidden = !d.gray;
+    if (d.gray) {
+      if (dcmPreset && (!dcmPreset.options.length || dcmPreset.dataset.for !== state.currentFile)) {
+        _dicomBuildPresetOptions();
+        dcmPreset.dataset.for = state.currentFile || '';
+      }
+      if (dcmPreset) dcmPreset.value = _dicomPresetId();
+      if (dcmWc && document.activeElement !== dcmWc) dcmWc.value = _dicomFmt(st.wc);
+      if (dcmWw && document.activeElement !== dcmWw) dcmWw.value = _dicomFmt(st.ww);
+      dcmInvertBtn?.classList.toggle('is-active', !!st.invert);
+      dcmInvertBtn?.setAttribute('aria-pressed', st.invert ? 'true' : 'false');
+      if (dcmRange) dcmRange.textContent = d.range ? `${_dicomFmt(d.range.min)} … ${_dicomFmt(d.range.max)}` : '';
+    }
+    _updateStatus({});
+  }
+
+  // Re-render (another frame / window). One at a time: a request made while one is
+  // being drawn is kept and applied afterwards, so dragging never queues up.
+  function _dicomApply(opts) {
+    const d = state.dicom;
+    if (!d || !Editor.isLoaded()) return;
+    if (_dicomBusy) { _dicomNext = { ...(_dicomNext || {}), ...opts }; return; }
+    _dicomBusy = true;
+    d.toCanvas(opts).then(({ canvas }) => {
+      if (state.dicom !== d) return;
+      // Windowing is a view setting, not an edit: keep the file's dirty state as it was
+      const wasDirty = state.isDirty;
+      Editor.replaceSource(canvas);
+      if (!wasDirty) _clearDirty();
+      _updateUndoRedoBtns();
+      _dicomSyncBar();
+    }).catch((e) => {
+      console.error('DICOM re-render failed:', e);
+      _updateStatus({ msg: e && e.message ? e.message : String(e) });
+    }).finally(() => {
+      _dicomBusy = false;
+      const next = _dicomNext;
+      _dicomNext = null;
+      if (next && state.dicom === d) _dicomApply(next);
+    });
+  }
+
+  function _dicomFrame(i) {
+    const d = state.dicom;
+    if (!d || d.frames <= 1) return;
+    const frame = Math.max(0, Math.min(d.frames - 1, i));
+    if (frame === d.state.frame) return;
+    _dicomApply({ frame });
+  }
+
+  function _dicomWindow(wc, ww) {
+    const d = state.dicom;
+    if (!d || !d.gray) return;
+    _dicomApply({ wc, ww: Math.max(1, ww) });
+  }
+
+  function _dicomPresetApply(id) {
+    const d = state.dicom;
+    if (!d || !id) return;
+    if (id === 'auto') {
+      const a = d.autoWindow?.();
+      if (a) _dicomWindow(a.wc, a.ww);
+      return;
+    }
+    if (id.startsWith('file:')) {
+      const w = d.fileWindows[Number(id.slice(5))];
+      if (w) _dicomWindow(w.wc, w.ww);
+      return;
+    }
+    const p = (d.presets || []).find((x) => x.id === id);
+    if (p) _dicomWindow(p.wc, p.ww);
+  }
+
+  function _dicomResetWindow() {
+    const d = state.dicom;
+    if (!d) return;
+    const w = d.defaultWindow?.();
+    if (w) _dicomApply({ wc: w.wc, ww: w.ww, invert: d.photometric === 'MONOCHROME1' });
+  }
+
+  function _dicomToggleInvert() {
+    const d = state.dicom;
+    if (!d) return;
+    _dicomApply({ invert: !d.state.invert });
+  }
+
+  function _dicomStopCine() {
+    if (_dicomCineTimer) {
+      clearInterval(_dicomCineTimer);
+      _dicomCineTimer = null;
+      dcmPlayBtn?.classList.remove('is-active');
+      dcmPlayBtn?.setAttribute('aria-pressed', 'false');
+    }
+  }
+
+  function _dicomToggleCine() {
+    const d = state.dicom;
+    if (!d || d.frames <= 1) return;
+    if (_dicomCineTimer) { _dicomStopCine(); return; }
+    // Frame Time (0018,1063) when present, otherwise ~10 fps
+    const ft = parseFloat((state.dicomTags || []).find((t) => t.tag === '(0018,1063)')?.value);
+    const interval = Number.isFinite(ft) && ft > 0 ? Math.max(20, ft) : 100;
+    _dicomCineTimer = setInterval(() => {
+      const cur = state.dicom;
+      if (!cur || cur !== d || !_dicomHasBar()) { _dicomStopCine(); return; }
+      if (_dicomBusy) return;
+      _dicomApply({ frame: (cur.state.frame + 1) % cur.frames });
+    }, interval);
+    dcmPlayBtn?.classList.add('is-active');
+    dcmPlayBtn?.setAttribute('aria-pressed', 'true');
+  }
+
+  // Ctrl+drag (or the middle button) on a grey DICOM: left/right = width, up/down = centre.
+  function _dicomBeginWindowDrag(e) {
+    const d = state.dicom;
+    if (!d || !d.gray || !_dicomHasBar()) return false;
+    const wantsDrag = (e.button === 0 && (e.ctrlKey || e.metaKey)) || e.button === 1;
+    if (!wantsDrag) return false;
+    e.preventDefault();
+    const wc0 = d.state.wc, ww0 = d.state.ww, x0 = e.clientX, y0 = e.clientY;
+    const span = d.range ? d.range.max - d.range.min : ww0;
+    const k = Math.max(0.05, (span || 256) / 400);   // units per pixel
+    viewerContainer.classList.add('dicom-windowing');
+    const move = (ev) => _dicomWindow(wc0 + (ev.clientY - y0) * k, ww0 + (ev.clientX - x0) * k);
+    const up = () => {
+      window.removeEventListener('mousemove', move);
+      window.removeEventListener('mouseup', up);
+      viewerContainer.classList.remove('dicom-windowing');
+    };
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+    return true;
+  }
+
+  function _initDicomBar() {
+    if (!dicomBar) return;
+    document.getElementById('dcm-prev-frame')?.addEventListener('click', () => _dicomFrame((state.dicom?.state.frame ?? 0) - 1));
+    document.getElementById('dcm-next-frame')?.addEventListener('click', () => _dicomFrame((state.dicom?.state.frame ?? 0) + 1));
+    dcmFrameSeek?.addEventListener('input', () => _dicomFrame(Number(dcmFrameSeek.value)));
+    dcmPlayBtn?.addEventListener('click', _dicomToggleCine);
+    dcmPreset?.addEventListener('change', () => _dicomPresetApply(dcmPreset.value));
+    const commitWl = () => {
+      const d = state.dicom;
+      if (!d) return;
+      const wc = parseFloat(dcmWc?.value);
+      const ww = parseFloat(dcmWw?.value);
+      _dicomWindow(Number.isFinite(wc) ? wc : d.state.wc, Number.isFinite(ww) ? ww : d.state.ww);
+    };
+    dcmWc?.addEventListener('change', commitWl);
+    dcmWw?.addEventListener('change', commitWl);
+    [dcmWc, dcmWw].forEach((el) => el?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); el.blur(); }
+      e.stopPropagation();
+    }));
+    dcmInvertBtn?.addEventListener('click', _dicomToggleInvert);
+    document.getElementById('dcm-reset')?.addEventListener('click', _dicomResetWindow);
+    // Wheel over the frame slider steps frames instead of zooming the viewer
+    dcmFramesWrap?.addEventListener('wheel', (e) => {
+      if (!state.dicom || state.dicom.frames <= 1) return;
+      e.preventDefault();
+      e.stopPropagation();
+      _dicomFrame(state.dicom.state.frame + (e.deltaY > 0 ? 1 : -1));
+    }, { passive: false });
+    dicomBar.addEventListener('mousedown', (e) => e.stopPropagation());
+  }
+
+  function _dicomKeydown(e) {
+    const d = state.dicom;
+    if (!d || !_dicomHasBar() || state.editMode) return false;
+    const tag = (e.target && e.target.tagName) || '';
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || e.target?.isContentEditable) return false;
+    if (e.ctrlKey || e.metaKey || e.altKey) return false;
+    if (d.frames > 1) {
+      if (e.key === 'PageUp')   { _dicomFrame(d.state.frame - 1); return true; }
+      if (e.key === 'PageDown') { _dicomFrame(d.state.frame + 1); return true; }
+      if (e.key === 'Home')     { _dicomFrame(0); return true; }
+      if (e.key === 'End')      { _dicomFrame(d.frames - 1); return true; }
+      if (e.key === ' ' || e.code === 'Space') { _dicomToggleCine(); return true; }
+    }
+    if (d.gray) {
+      if (e.key === 'i' || e.key === 'I') { _dicomToggleInvert(); return true; }
+      if (e.key === 'w' || e.key === 'W') { _dicomResetWindow(); return true; }
+    }
+    return false;
+  }
+
+  function _dicomContextItems() {
+    const d = state.dicom;
+    if (!d || !_dicomHasBar()) return [];
+    const t = I18n.t.bind(I18n);
+    const items = [];
+    if (d.frames > 1) {
+      items.push({ icon: Icons.prev, label: t('dicom.prevFrame'), shortcut: 'PgUp', disabled: d.state.frame <= 0, action: () => _dicomFrame(d.state.frame - 1) });
+      items.push({ icon: Icons.next, label: t('dicom.nextFrame'), shortcut: 'PgDn', disabled: d.state.frame >= d.frames - 1, action: () => _dicomFrame(d.state.frame + 1) });
+      items.push({ icon: _dicomCineTimer ? Icons.mediaPause : Icons.mediaPlay, label: t(_dicomCineTimer ? 'dicom.cineStop' : 'dicom.cine'), shortcut: 'Space', action: _dicomToggleCine });
+    }
+    if (d.gray) {
+      if (items.length) items.push({ separator: true });
+      items.push({ icon: Icons.effects, label: t('dicom.invert'), shortcut: 'I', checked: !!d.state.invert, action: _dicomToggleInvert });
+      items.push({ icon: Icons.reset, label: t('dicom.resetWindow'), shortcut: 'W', action: _dicomResetWindow });
+      const cur = _dicomPresetId();
+      d.fileWindows.forEach((w, i) => {
+        items.push({ label: `${t('dicom.preset.file')}${w.label ? ` — ${w.label}` : ''}  (C ${_dicomFmt(w.wc)} / W ${_dicomFmt(w.ww)})`, checked: cur === `file:${i}`, action: () => _dicomPresetApply(`file:${i}`) });
+      });
+      items.push({ label: t('dicom.preset.auto'), checked: cur === 'auto', action: () => _dicomPresetApply('auto') });
+      (d.presets || []).forEach((p) => {
+        items.push({ label: `${t(`dicom.preset.${p.id}`)}  (C ${p.wc} / W ${p.ww})`, checked: cur === p.id, action: () => _dicomPresetApply(p.id) });
+      });
+    }
+    if (items.length) items.push({ separator: true });
+    return items;
   }
 
   function _hideAnimatedFreeze() {
@@ -1914,47 +2506,16 @@
     window.electronAPI.setLastOpenDir('');
   }
 
-  async function _showRecentFoldersMenu(anchorEl) {
-    const raw = _getRecentDirs();
-    const existing = [];
-    for (const p of raw) {
-      try {
-        const stats = await window.electronAPI.getFileStats(p);
-        if (stats && !stats.error && stats.isDirectory) existing.push(p);
-      } catch { /* gone */ }
+  function _removeRecentDir(dirPath) {
+    const key = _normDirKey(dirPath);
+    const next = _getRecentDirs().filter((p) => _normDirKey(p) !== key);
+    localStorage.setItem(RECENT_DIRS_KEY, JSON.stringify(next));
+    if (_normDirKey(localStorage.getItem('lastOpenedDir') || '') === key) {
+      const first = next[0] || '';
+      if (first) localStorage.setItem('lastOpenedDir', first);
+      else localStorage.removeItem('lastOpenedDir');
+      window.electronAPI.setLastOpenDir(first);
     }
-    if (existing.length !== raw.length) {
-      localStorage.setItem(RECENT_DIRS_KEY, JSON.stringify(existing));
-    }
-
-    const items = existing.map((p) => ({
-      icon: Icons.folder,
-      label: _dirBaseName(p),
-      detail: p,
-      title: p,
-      action: () => _openFolder(p),
-    }));
-    if (items.length) items.push({ separator: true });
-    items.push({
-      icon: Icons.openFolder,
-      label: I18n.t('toolbar.openFolderBrowse') || I18n.t('menu.openFolder'),
-      action: () => _pickOpenFolder(),
-    });
-    if (existing.length) {
-      items.push({ separator: true });
-      items.push({
-        icon: Icons.delete,
-        label: I18n.t('toolbar.clearRecentFolders') || 'Clear recent folders',
-        danger: true,
-        action: () => _clearRecentFolderHistory(),
-      });
-    }
-
-    const el = anchorEl || document.getElementById('btn-open-folder');
-    const r = el?.getBoundingClientRect?.();
-    const x = r ? r.left : 8;
-    const y = r ? r.bottom + 4 : 40;
-    ContextMenu.show(x, y, items);
   }
 
   function _isFileDialogOpen() {
@@ -2141,7 +2702,9 @@
       if (state.currentTool !== 'pointer') return;
       if (e.button !== 0 && e.button !== 1) return;
       // Don't start pan from transport controls
-      if (e.target.closest?.('#media-controls')) return;
+      if (e.target.closest?.('#media-controls') || e.target.closest?.('#dicom-controls')) return;
+      // Ctrl+drag / middle button on a grey DICOM adjusts the window instead of panning
+      if (_dicomBeginWindowDrag(e)) return;
       if (!Editor.isLoaded() && !state.isVideo && !state.isAnimated) return;
       _panDidMove = false;
       _panDownX = e.clientX;
@@ -3797,6 +4360,7 @@
     state.editMode = true;
     document.body.classList.add('edit-mode');
     _updateMediaControlsVisibility();
+    _dicomSyncBar();
     document.getElementById('edit-window-title').textContent =
       (state.currentFile ? state.currentFile.split(/[/\\]/).pop() + ' — ' : '') +
       I18n.t('editWindow.title');
@@ -3935,6 +4499,7 @@
     _updateToolbarForMedia();
     _updateNavButtons();
     _updateUndoRedoBtns();
+    _dicomSyncBar();
 
     const saved = _savedMainBounds;
     _savedMainBounds = null;
@@ -4264,6 +4829,11 @@
       ? state.currentFile.split(/[/\\]/).pop()
       : I18n.t('app.title');
     document.title = state.isDirty ? `● ${base}` : base;
+    const tf = document.getElementById('titlebar-file');
+    if (tf) {
+      tf.textContent = state.currentFile ? (state.isDirty ? `● ${base}` : base) : '';
+      tf.title = state.currentFile || '';
+    }
   }
 
   async function _saveEditedAs(andClose = false) {
@@ -4323,6 +4893,8 @@
       const stem = srcName ? srcName.replace(/\.[^.]+$/, '') : 'image';
       defaultPath = isHeicSrc ? `${stem}.jpg` : `${stem}.png`;
     }
+    // Export: force the chosen format's extension on the suggested name
+    if (opts.ext) defaultPath = defaultPath.replace(/\.[^./\\]+$/, '') + '.' + String(opts.ext).replace(/^\./, '');
 
     const dlgResult = await window.FileDialog.save({ defaultPath });
     if (!dlgResult || dlgResult.canceled || !dlgResult.filePath) return false;
@@ -4825,25 +5397,49 @@
     const dicomRows = [];
     const cleanDicom = isDicom ? _sanitizeDicomMeta(dicomMeta) : null;
     if (cleanDicom) {
-      _pushRow(dicomRows, 'info.patient', cleanDicom.patientName);
-      _pushRow(dicomRows, 'info.modality', cleanDicom.modality);
-      _pushRow(dicomRows, 'info.studyDate', cleanDicom.studyDate);
-      for (const [key, raw] of Object.entries(cleanDicom)) {
-        if (['patientName', 'modality', 'studyDate'].includes(key)) continue;
-        const value = _dumpValue(raw);
-        if (!value) continue;
-        dicomRows.push({ label: _humanizeTagKey(key), value, full: true });
+      // Summary keys in display order; each maps to an info.* label (see dicomDecoder buildMeta)
+      const ORDER = [
+        'patientName', 'patientId', 'patientSex', 'patientBirthDate', 'patientAge',
+        'modality', 'sopClass', 'bodyPart', 'studyDate', 'studyTime', 'studyDescription', 'seriesDescription',
+        'seriesNumber', 'instanceNumber', 'accessionNumber', 'protocolName', 'patientPosition',
+        'manufacturer', 'institution', 'stationName',
+        'imageSize', 'frames', 'photometric', 'bitDepth', 'pixelSpacing', 'sliceThickness', 'sliceLocation',
+        'window', 'rescale', 'transferSyntax', 'lossyCompression',
+        'studyInstanceUid', 'seriesInstanceUid', 'sopInstanceUid',
+      ];
+      const LABEL = { patientName: 'info.patient' };
+      const WIDE = new Set(['transferSyntax', 'studyInstanceUid', 'seriesInstanceUid', 'sopInstanceUid']);
+      const seen = new Set();
+      const push = (key) => {
+        if (seen.has(key)) return;
+        seen.add(key);
+        const value = _dumpValue(cleanDicom[key]);
+        if (!value) return;
+        const labelKey = LABEL[key] || `info.${key}`;
+        const label = I18n.t(labelKey);
+        dicomRows.push({ label: label && label !== labelKey ? label : _humanizeTagKey(key), value, full: WIDE.has(key) });
+      };
+      ORDER.forEach(push);
+      Object.keys(cleanDicom).forEach(push);
+    }
+
+    const dicomTagRows = [];
+    if (isDicom && Array.isArray(state.dicomTags)) {
+      for (const t of state.dicomTags) {
+        if (!t || !t.value) continue;
+        dicomTagRows.push({ label: `${t.tag} ${t.name}${t.vr ? ` [${t.vr}]` : ''}`, value: t.value, full: true });
       }
     }
 
     return [
-      { titleKey: 'info.section.file',     rows: fileRows },
-      { titleKey: 'info.section.media',    rows: mediaRows },
-      { titleKey: 'info.section.tags',     rows: tagRows },
-      { titleKey: 'info.section.capture',  rows: captureRows },
-      { titleKey: 'info.section.location', rows: locRows },
-      { titleKey: 'info.section.dicom',    rows: dicomRows },
-      { titleKey: 'info.section.other',    rows: otherRows },
+      { titleKey: 'info.section.file',      rows: fileRows },
+      { titleKey: 'info.section.media',     rows: mediaRows },
+      { titleKey: 'info.section.tags',      rows: tagRows },
+      { titleKey: 'info.section.capture',   rows: captureRows },
+      { titleKey: 'info.section.location',  rows: locRows },
+      { titleKey: 'info.section.dicom',     rows: dicomRows },
+      { titleKey: 'info.section.dicomTags', rows: dicomTagRows },
+      { titleKey: 'info.section.other',     rows: otherRows },
     ];
   }
 
@@ -5005,7 +5601,16 @@
     }
 
     if (state.currentFile && statusFmt) {
-      statusFmt.textContent = FormatSupport.getExtension(state.currentFile).toUpperCase();
+      let fmt = FormatSupport.getExtension(state.currentFile).toUpperCase();
+      const d = state.dicom;
+      if (d) {
+        const bits = [];
+        if (d.modality) bits.push(d.modality);
+        if (d.frames > 1) bits.push(`${I18n.t('dicom.frame')} ${d.state.frame + 1}/${d.frames}`);
+        if (d.gray && Number.isFinite(d.state.wc)) bits.push(`C ${_dicomFmt(d.state.wc)} / W ${_dicomFmt(d.state.ww)}`);
+        if (bits.length) fmt += ` · ${bits.join(' · ')}`;
+      }
+      statusFmt.textContent = fmt;
     }
 
     if (msg && statusMsg) statusMsg.textContent = msg;
@@ -5024,6 +5629,7 @@
       _showAudioPlayer(null);
       state.isAnimated = false;
       if (Editor.isLoaded()) Editor.clear();
+      _setDicomSession(null);
       _updateMediaControlsVisibility();
       return;
     }
@@ -5466,6 +6072,7 @@
       canTransport && { icon: Icons.mediaPause, label: t('toolbar.pause'), disabled: !playing, shortcut: 'Space', action: () => _pauseMedia() },
       canTransport && { icon: Icons.mediaStop,  label: t('toolbar.stop'),  action: () => _stopMedia() },
       canTransport && { separator: true },
+      ..._dicomContextItems(),
       { icon: Icons.openFile,   label: t('context.openFile'),   action: () => _pickOpenFile() },
       { icon: Icons.openFolder, label: t('context.openFolder'), action: () => _pickOpenFolder() },
       { separator: true },
@@ -5627,6 +6234,8 @@
         return;
       }
       if (ctrl && e.shiftKey && e.key === 'S') { e.preventDefault(); _saveAs(); return; }
+      if (ctrl && (e.key === 'p' || e.key === 'P')) { e.preventDefault(); _printImage(); return; }
+      if (ctrl && (e.key === 'i' || e.key === 'I')) { e.preventDefault(); if (state.currentFile) _showFileInfoDialog(); return; }
       if (ctrl && e.shiftKey && (e.key === 'z' || e.key === 'Z')) {
         e.preventDefault();
         _redoEdit();
@@ -5644,6 +6253,9 @@
       }
       if (ctrl && e.key === 'x') { e.preventDefault(); if (_isEditableImage()) _cutToClipboard(); return; }
       if (ctrl && e.key === 'c') { e.preventDefault(); if (_isEditableImage()) _copyToClipboard(); return; }
+
+      // DICOM: PgUp / PgDn / Home / End = frames, Space = cine, I = invert, W = reset window
+      if (_dicomKeydown(e)) { e.preventDefault(); return; }
 
       if (e.key === 'ArrowLeft')  { e.preventDefault(); _prevImage(); return; }
       if (e.key === 'ArrowRight') { e.preventDefault(); _nextImage(); return; }

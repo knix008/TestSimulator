@@ -26,6 +26,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   readMediaMeta: (filePath) => ipcRenderer.invoke('read-media-meta', filePath),
   getFileUrl: (filePath) => ipcRenderer.invoke('get-file-url', filePath),
   readFileBase64: (filePath) => ipcRenderer.invoke('read-file-base64', filePath),
+  readFileBytes:  (filePath) => ipcRenderer.invoke('read-file-bytes', filePath),
   convertToPng: (filePath) => ipcRenderer.invoke('convert-to-png', filePath),
   rembgRemove: (opts) => ipcRenderer.invoke('rembg-remove', opts),
   onRembgProgress: (cb) => {
@@ -41,6 +42,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   decodeDicom:  (filePath) => ipcRenderer.invoke('decode-dicom', filePath),
   saveFile: (data) => ipcRenderer.invoke('save-file', data),
   showSaveDialog: (data) => ipcRenderer.invoke('show-save-dialog', data),
+  printImage: (data) => ipcRenderer.invoke('print-image', data),
   writeFile: (data) => ipcRenderer.invoke('write-file', data),
 
   // Dialogs

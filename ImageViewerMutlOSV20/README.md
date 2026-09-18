@@ -8,6 +8,7 @@ A multi-platform image viewer and editor built with **Electron** and vanilla Jav
 
 - **Multi-format support / 다양한 형식 지원**
   - Images: JPEG, PNG, GIF, BMP, WebP, AVIF, SVG, ICO, TIFF, HEIC/HEIF/HIF, DICOM (DCM)
+  - DICOM: every common transfer syntax (uncompressed LE/BE, deflated, RLE, JPEG baseline / extended / lossless, JPEG-LS, JPEG 2000 / HTJ2K), MONOCHROME / RGB / YBR / PALETTE, 8–32-bit, multi-frame
   - Video / Audio: MP4, WebM, MOV, MKV, AVI, MP3, WAV, FLAC, and more (playback)
 
 - **Image Editing / 이미지 편집**
@@ -53,8 +54,17 @@ A multi-platform image viewer and editor built with **Electron** and vanilla Jav
 - **File information / 파일 정보**
   - Images: name, size, dimensions, dates, color space, DPI; capture / GPS / full EXIF·IPTC·XMP
   - A/V: File / Media / Tags (container, codecs, duration, channels, estimated bitrate, …)
-  - DICOM patient / modality / study date
+  - DICOM: patient / study / series / equipment / pixel-format summary plus an **All DICOM tags** listing
   - Explorer and info panels share equal height by default (splitter is resizable)
+
+- **DICOM viewer / DICOM 뷰어**
+  - Frame navigation + cine playback for multi-frame files (`PgUp` / `PgDn`, `Home` / `End`, `Space`)
+  - Window centre / width: file windows, auto, CT presets (brain, lung, bone, …), numeric input, **Ctrl+drag** / middle-drag, invert (`I`), reset (`W`)
+  - Same decoder in desktop and web mode; codecs load on first use
+
+- **Window chrome / 창 구성**
+  - Title bar (app icon · name · version · current file · window buttons), **menu bar** (File / Edit / View / Effects / Help — every item with an icon and shortcut) and an icon toolbar
+  - File menu: open file, open folder (browse **or** pick a recent folder — each removable, clear all), save as, **export** (PNG / JPEG / WebP / BMP / clipboard), **print** (`Ctrl+P`), file info, show in Explorer, delete, exit
 
 - **Viewer / 뷰어**
   - Mouse-wheel zoom, pan, fit to window, actual size, zoom input

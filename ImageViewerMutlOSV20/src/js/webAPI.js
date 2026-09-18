@@ -191,6 +191,28 @@
       catch (e) { return { error: e.message }; }
     },
 
+    // Print through the browser: a popup with just the picture, closed after the dialog
+    printImage: async ({ dataUrl, title } = {}) => {
+      if (!dataUrl) return { error: 'Nothing to print' };
+      const w = window.open('', '_blank', 'width=900,height=700');
+      if (!w) return { error: 'Popup blocked' };
+      const esc = (s) => String(s || '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+      w.document.open();
+      w.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>' + esc(title) + '</title>'
+        + '<style>@page{margin:10mm}html,body{margin:0;padding:0;width:100%;height:100%;background:#fff}body{display:flex;align-items:center;justify-content:center}img{max-width:100%;max-height:100vh;object-fit:contain}</style>'
+        + '</head><body><img src="' + dataUrl + '" alt=""></body></html>');
+      w.document.close();
+      await new Promise((r) => { const i = w.document.querySelector('img'); if (!i || i.complete) r(); else { i.onload = () => r(); i.onerror = () => r(); } });
+      w.focus();
+      w.addEventListener('afterprint', () => { try { w.close(); } catch { /* ignore */ } });
+      w.print();
+      return { success: true };
+    },
+    readFileBytes: async (filePath) => {
+      try { return new Uint8Array(await R().readAsArrayBuffer(filePath)); }
+      catch (e) { return { error: e.message }; }
+    },
+
     convertToPng: async (filePath) => {
       // Prefer client-side decoders in FormatSupport (called by loadImageFile fallback)
       try {
@@ -233,10 +255,7 @@
     decodeDicom: async (filePath) => {
       try {
         const buf = await R().readAsArrayBuffer(filePath);
-        // Use FormatSupport client parser if available via temporary exposure
-        if (window.FormatSupport && typeof window.FormatSupport.decodeDicomBuffer === 'function') {
-          return await window.FormatSupport.decodeDicomBuffer(buf);
-        }
+        if (window.DicomDecoder) return await window.DicomDecoder.decodeToDisplay(new Uint8Array(buf));
         return { error: 'DICOM decoder not available in web mode' };
       } catch (e) {
         return { error: e.message };

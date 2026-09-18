@@ -105,169 +105,6 @@ window.FormatSupport = (() => {
     return null;
   }
 
-  /* ── Minimal DICOM parser ── */
-  function parseDicom(buffer) {
-    const bytes = new Uint8Array(buffer);
-    const view  = new DataView(buffer);
-
-    // Verify DICOM signature (offset 128..131 = "DICM")
-    if (bytes.length < 132) return null;
-    const sig = String.fromCharCode(bytes[128], bytes[129], bytes[130], bytes[131]);
-    if (sig !== 'DICM') {
-      // Some DICOM files omit the preamble – try to parse from offset 0
-      // (simplified: just report unsupported)
-      return null;
-    }
-
-    let offset = 132;
-    const tags = { rows: 0, cols: 0, bitsAllocated: 8, bitsStored: 8,
-                   samplesPerPixel: 1, pixelRepresentation: 0,
-                   photometric: 'MONOCHROME2', pixelData: null,
-                   patientName: '', studyDate: '', modality: '' };
-
-    const readStr = (off, len) => {
-      let s = '';
-      for (let i = 0; i < len; i++) {
-        const c = bytes[off + i];
-        if (c === 0) break;
-        s += String.fromCharCode(c);
-      }
-      return s.trim();
-    };
-
-    let explicit = true;
-
-    while (offset < bytes.length - 8) {
-      if (offset + 4 > bytes.length) break;
-
-      const group   = view.getUint16(offset,     true);
-      const element = view.getUint16(offset + 2, true);
-      offset += 4;
-
-      let vr = '', length = 0;
-
-      if (explicit) {
-        if (offset + 2 > bytes.length) break;
-        vr = String.fromCharCode(bytes[offset], bytes[offset + 1]);
-        if (/^[A-Z]{2}$/.test(vr)) {
-          offset += 2;
-          if (['OB','OD','OF','OL','OW','SQ','UC','UN','UR','UT'].includes(vr)) {
-            offset += 2; // reserved
-            if (offset + 4 > bytes.length) break;
-            length = view.getUint32(offset, true);
-            offset += 4;
-          } else {
-            if (offset + 2 > bytes.length) break;
-            length = view.getUint16(offset, true);
-            offset += 2;
-          }
-        } else {
-          // Implicit VR fallback
-          explicit = false;
-          offset -= 2;
-          if (offset + 4 > bytes.length) break;
-          length = view.getUint32(offset, true);
-          offset += 4;
-        }
-      } else {
-        if (offset + 4 > bytes.length) break;
-        length = view.getUint32(offset, true);
-        offset += 4;
-      }
-
-      if (length === 0xFFFFFFFF) { length = 0; } // undefined length – skip
-
-      const valueStart = offset;
-
-      if (group === 0x0028) {
-        if      (element === 0x0010) tags.rows              = view.getUint16(offset, true);
-        else if (element === 0x0011) tags.cols              = view.getUint16(offset, true);
-        else if (element === 0x0100) tags.bitsAllocated     = view.getUint16(offset, true);
-        else if (element === 0x0101) tags.bitsStored        = view.getUint16(offset, true);
-        else if (element === 0x0103) tags.pixelRepresentation = view.getUint16(offset, true);
-        else if (element === 0x0002) tags.samplesPerPixel   = view.getUint16(offset, true);
-        else if (element === 0x0004) tags.photometric       = readStr(offset, length);
-      } else if (group === 0x0010 && element === 0x0010) {
-        tags.patientName = readStr(offset, length);
-      } else if (group === 0x0008 && element === 0x0020) {
-        tags.studyDate = readStr(offset, length);
-      } else if (group === 0x0008 && element === 0x0060) {
-        tags.modality = readStr(offset, length);
-      } else if (group === 0x7FE0 && element === 0x0010) {
-        // Pixel data
-        if (length > 0 && offset + length <= bytes.length) {
-          tags.pixelData = bytes.slice(offset, offset + length);
-        }
-        break; // pixel data is the last element we need
-      }
-
-      offset = valueStart + length;
-      if (offset % 2 !== 0) offset++; // DICOM alignment
-    }
-
-    return tags;
-  }
-
-  function renderDicomToDataUrl(tags) {
-    if (!tags || !tags.pixelData || tags.rows === 0 || tags.cols === 0) return null;
-
-    const canvas = document.createElement('canvas');
-    canvas.width  = tags.cols;
-    canvas.height = tags.rows;
-    const ctx = canvas.getContext('2d');
-    const imgData = ctx.createImageData(tags.cols, tags.rows);
-    const data    = imgData.data;
-    const px      = tags.pixelData;
-    const bits    = tags.bitsAllocated;
-    const isMono  = !tags.photometric.includes('RGB');
-    const isSigned = tags.pixelRepresentation === 1;
-    const pixelCount = tags.cols * tags.rows;
-
-    if (bits === 8 && tags.samplesPerPixel === 3 && !isMono) {
-      // RGB
-      for (let i = 0; i < pixelCount; i++) {
-        data[i * 4]     = px[i * 3];
-        data[i * 4 + 1] = px[i * 3 + 1];
-        data[i * 4 + 2] = px[i * 3 + 2];
-        data[i * 4 + 3] = 255;
-      }
-    } else {
-      // Grayscale (8 or 16 bit)
-      let minVal = Infinity, maxVal = -Infinity;
-      const rawVals = new Array(pixelCount);
-
-      for (let i = 0; i < pixelCount; i++) {
-        let val;
-        if (bits <= 8) {
-          val = isSigned ? (px[i] > 127 ? px[i] - 256 : px[i]) : px[i];
-        } else {
-          // 16-bit
-          const lo = px[i * 2], hi = px[i * 2 + 1];
-          const raw = lo | (hi << 8);
-          val = isSigned ? (raw > 32767 ? raw - 65536 : raw) : raw;
-        }
-        rawVals[i] = val;
-        if (val < minVal) minVal = val;
-        if (val > maxVal) maxVal = val;
-      }
-
-      const range = maxVal - minVal || 1;
-      const invert = tags.photometric === 'MONOCHROME1';
-
-      for (let i = 0; i < pixelCount; i++) {
-        let gray = Math.round(((rawVals[i] - minVal) / range) * 255);
-        if (invert) gray = 255 - gray;
-        data[i * 4]     = gray;
-        data[i * 4 + 1] = gray;
-        data[i * 4 + 2] = gray;
-        data[i * 4 + 3] = 255;
-      }
-    }
-
-    ctx.putImageData(imgData, 0, 0);
-    return { dataUrl: canvas.toDataURL('image/png'), meta: tags };
-  }
-
   /* ── Convert ArrayBuffer to base64 data URL ── */
   function bufferToDataUrl(buffer, mimeType) {
     const bytes = new Uint8Array(buffer);
@@ -326,41 +163,7 @@ window.FormatSupport = (() => {
       };
     }
 
-    if (isDcm(filePath)) {
-      const result = await window.electronAPI.decodeDicom(filePath);
-      if (result && !result.error) {
-        if (typeof result === 'string') return { type: 'image', dataUrl: result };
-        if (result.dataUrl) return { type: 'image', dataUrl: result.dataUrl, dicomMeta: result.meta };
-        return { type: 'image', dataUrl: result };
-      }
-      const dataUrl = await window.electronAPI.readFileBase64(filePath);
-      if (dataUrl && dataUrl.error) return { type: 'error', message: dataUrl.error };
-      try {
-        const raw = (dataUrl && dataUrl.includes(',')) ? dataUrl.split(',')[1] : null;
-        if (raw) {
-          const bin = atob(raw);
-          const buf = new ArrayBuffer(bin.length);
-          const u8 = new Uint8Array(buf);
-          for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
-          if (window.DicomDecoder) {
-            const decoded = DicomDecoder.decodeToDisplay(u8);
-            if (decoded && decoded.dataUrl) {
-              return { type: 'image', dataUrl: decoded.dataUrl, dicomMeta: decoded.meta };
-            }
-          }
-          const tags = parseDicom(buf);
-          if (tags && tags.pixelData) {
-            const rendered = renderDicomToDataUrl(tags);
-            if (rendered) {
-              return { type: 'image', dataUrl: rendered.dataUrl, dicomMeta: rendered.meta || tags };
-            }
-          }
-        }
-      } catch (e) {
-        console.error('Client DICOM decode failed:', e);
-      }
-      return { type: 'error', message: result?.error || 'Could not decode DICOM file' };
-    }
+    if (isDcm(filePath)) return loadDicomFile(filePath);
 
     const dataUrl = await window.electronAPI.readFileBase64(filePath);
     if (dataUrl && dataUrl.error) return { type: 'error', message: dataUrl.error };
@@ -381,23 +184,61 @@ window.FormatSupport = (() => {
     } catch { return isoStr; }
   }
 
-  async function decodeDicomBuffer(buffer) {
-    if (window.DicomDecoder) {
-      const decoded = DicomDecoder.decodeToDisplay(buffer);
-      if (decoded && decoded.dataUrl) return decoded;
-      if (decoded && decoded.error) return { error: decoded.error };
+  /* ── DICOM: decoded in the renderer so window / frame changes never re-read the file ── */
+  async function readFileBytes(filePath) {
+    if (typeof window.electronAPI.readFileBytes === 'function') {
+      const bytes = await window.electronAPI.readFileBytes(filePath);
+      if (bytes && bytes.error) throw new Error(bytes.error);
+      if (bytes instanceof Uint8Array) return bytes;
+      if (bytes instanceof ArrayBuffer) return new Uint8Array(bytes);
+      if (bytes && bytes.buffer) return new Uint8Array(bytes.buffer, bytes.byteOffset || 0, bytes.byteLength);
     }
-    const tags = parseDicom(buffer);
-    if (!tags || !tags.pixelData) return { error: 'Could not parse DICOM file' };
-    const rendered = renderDicomToDataUrl(tags);
-    if (!rendered) return { error: 'Could not render DICOM pixels' };
-    return { dataUrl: rendered.dataUrl, meta: rendered.meta || tags };
+    const dataUrl = await window.electronAPI.readFileBase64(filePath);
+    if (dataUrl && dataUrl.error) throw new Error(dataUrl.error);
+    const b64 = (typeof dataUrl === 'string' && dataUrl.includes(',')) ? dataUrl.split(',')[1] : null;
+    if (!b64) throw new Error('Could not read file');
+    const bin = atob(b64);
+    const u8 = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+    return u8;
+  }
+
+  async function loadDicomFile(filePath) {
+    let rendererError = null;
+    if (window.DicomDecoder && typeof DicomDecoder.load === 'function') {
+      try {
+        const bytes = await readFileBytes(filePath);
+        const image = await DicomDecoder.load(bytes);
+        const { canvas } = await image.toCanvas({});
+        return { type: 'image', canvas, dicom: image, dicomMeta: image.meta, dicomTags: image.tags };
+      } catch (e) {
+        rendererError = e;
+        console.error('Renderer DICOM decode failed:', e);
+      }
+    }
+    // Fallback: main-process decode (desktop) — a plain picture without window / frame controls
+    try {
+      const result = await window.electronAPI.decodeDicom(filePath);
+      if (result && !result.error) {
+        if (typeof result === 'string') return { type: 'image', dataUrl: result };
+        if (result.dataUrl) return { type: 'image', dataUrl: result.dataUrl, dicomMeta: result.meta, dicomTags: result.tags };
+      }
+      if (result && result.error && !rendererError) rendererError = new Error(result.error);
+    } catch (e) {
+      if (!rendererError) rendererError = e;
+    }
+    return { type: 'error', message: (rendererError && rendererError.message) || 'Could not decode DICOM file' };
+  }
+
+  async function decodeDicomBuffer(buffer) {
+    if (!window.DicomDecoder) return { error: 'DICOM decoder not available' };
+    return DicomDecoder.decodeToDisplay(buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer));
   }
 
   return {
     getExtension, isImage, isVideo, isAudio, isSupportedFile,
     isNativeImage, isTiff, isHeic, isDcm, isAnimatedImage,
-    loadImageFile, formatFileSize, formatDate, decodeDicomBuffer,
+    loadImageFile, loadDicomFile, readFileBytes, formatFileSize, formatDate, decodeDicomBuffer,
     IMAGE_EXTS, VIDEO_EXTS, AUDIO_EXTS,
   };
 })();

@@ -28,7 +28,7 @@ Desktop mode uses Electron’s security model (`contextIsolation: true`, `nodeIn
 │  index.html → app.js                                          │
 │    ├─ Editor (history = pixels + effects + transforms)        │
 │    ├─ Media transport + cues (video / audio / animated GIF)   │
-│    ├─ FileTree (drive-rooted), FormatSupport, DicomDecoder    │
+│    ├─ FileTree (drive-rooted), FormatSupport, DicomDecoder + codecs │
 │    ├─ Info panel (file / capture / media / tags / DICOM)      │
 │    ├─ I18n, ContextMenu, Tooltip, Icons                       │
 │    └─ fileRegistry / webAPI (web mode only)                   │
@@ -59,7 +59,7 @@ Detection: if `window.electronAPI` is missing at page load, `webAPI.js` installs
 - **Single-instance lock**: a second launch with a file path focuses the existing window and sends `open-file`.
 - Startup file from `process.argv` (Windows/Linux) or `open-file` (macOS); renderer reads it via `get-launch-file`.
 - Persists `lastOpenDir` under userData for open/save dialogs.
-- IPC: directory listing, **list-drives**, path helpers, file read/write, TIFF/HEIC via **sharp** / **heic-convert** / **heic-decode**, DICOM decode, **read-image-meta** (exifr + sharp), **read-media-meta** (A/V container/codecs/duration/bitrate), dialogs, watchers, drag-out, window min/max/close.
+- IPC: directory listing, **list-drives**, path helpers, file read/write (`read-file-base64`, `read-file-bytes` → raw `Uint8Array` for renderer-side decoders), TIFF/HEIC via **sharp** / **heic-convert** / **heic-decode**, DICOM decode (fallback only — the renderer decodes DICOM itself), **read-image-meta** (exifr + sharp), **read-media-meta** (A/V container/codecs/duration/bitrate), dialogs, watchers, drag-out, window min/max/close.
 - Close intercept for unsaved changes (`window-close` vs force close).
 - **AI background removal** (`rembg-remove`): spawns `scripts/rembg_worker.py` (`rembg1`=U2Net, `rembg2`=RMBG-2.0, `rembg3`=ISNet) and streams `rembg-progress` events.
   - **Auto-provisioning**: `_resolvePython` prefers the machine's existing Python (env override → `python`/`py` → previously app-installed); `_ensureRembgPackages` pip-installs `rembg`/`onnxruntime` on demand into that interpreter. Only if **no** Python exists does `_installManagedPython` download the official installer (Windows, per-user, isolated under `userData/python`) — it never replaces or downgrades a system Python.
@@ -72,6 +72,7 @@ Detection: if `window.electronAPI` is missing at page load, `webAPI.js` installs
 ### `server.js` — Web Static Server
 - Serves `src/` on `127.0.0.1` (default port **8080**, increments if busy).
 - No conversion backend; decoding stays in the renderer / optional vendor scripts.
+- Exposes only the DICOM vendor packages under `/node_modules/<pkg>/…` (`dicom-parser`, the four `@cornerstonejs/codec-*` packages, `jpeg-lossless-decoder-js`) so the page's `../node_modules/…` script URLs resolve in both modes.
 
 ### `src/js/webAPI.js` + `fileRegistry.js` — Web Shim
 - Implements the same `electronAPI` surface for the browser.
@@ -82,11 +83,14 @@ Detection: if `window.electronAPI` is missing at page load, `webAPI.js` installs
 
 ### `src/js/app.js` — Orchestrator
 - State: lang, theme, currentFile, fileList, zoom/pan, dirty flag, cached `imageMeta` / `mediaMeta` / `dicomMeta`.
-- Custom title bar (`#app-brand`, `#window-controls`); `-webkit-app-region: drag` on the toolbar with `no-drag` on controls.
+- **Chrome** is three rows: `#titlebar` (brand = icon · name · version, centred current-file name, drag region, fixed `#window-controls` at the right — 32 px, 40 px while the edit window is open), `#menubar` (built by `_buildMenubar()`), `#toolbar` (icon buttons + zoom input, no drag).
+- **Menu bar**: `_menubarDefs()` → File / Edit / View / Effects / Help; each menu is a `ContextMenu` dropdown built on open (`_fileMenuItems()` …) so enabled / checked state is always current. Every item has an icon (`icons.js`). `mousedown` on a menu button opens / toggles it (so the document click that closes menus cannot race), `mouseenter` on a sibling switches menus while one is open; `ContextMenu.show(x, y, items, { onHide })` clears the highlight. File menu: open file, open folder (click = browse; hover = **recent folders** flyout with per-row × via `item.remove` and `ContextMenu.refreshSubmenu()`), save as, **Export ▸** (`_exportAs(ext)` → `_saveAs(false, { ext })` presets the extension), **Print…** (`_printImage`), file info, show in Explorer, delete, exit (desktop only).
+- **Print**: renderer exports the current view as PNG (`Editor.exportAsDataUrl`, or the frozen GIF frame) → `printImage` IPC. Main opens a hidden `BrowserWindow` with a `data:` page (image fit to page, 10 mm margins), waits for the image, then `webContents.print({ silent: false })` and destroys the window on callback. Web mode opens a popup and calls `window.print()`.
 - Language button label is the **target** language (`English` when UI is Korean, `한글` when UI is English).
 - Toolbar, viewer, edit window, dirty title (`●`), save-as MIME by extension.
 - **Edit session dirty**: previews inside the edit window do not mark the file dirty; **Cancel** / Esc discards with no Save dialog; **Apply** commits the session and marks dirty only if something changed.
-- Info panel: images → file / capture / location / DICOM / all metadata; A/V → **File / Media / Tags** (HTML-escaped).
+- Info panel: images → file / capture / location / DICOM / all metadata; A/V → **File / Media / Tags** (HTML-escaped). DICOM shows the summary (`meta`, labelled through `info.<key>`) and an **All DICOM tags** section (`state.dicomTags`).
+- **DICOM bar** (`#dicom-controls`, same styling as the media bar): `state.dicom` holds the decoder session; `_dicomApply()` re-renders one request at a time (a request made while busy is coalesced), swaps the picture with `Editor.replaceSource()` (keeps rotation / flip / effects, drops pixel edits) and restores the previous dirty state — windowing never marks the file changed. Frames: buttons / slider / wheel / `PgUp` `PgDn` `Home` `End`, cine (`Space`, Frame Time or 10 fps). Window: preset select (file windows, auto, CT presets), C / W inputs, invert (`I`), reset (`W`), **Ctrl+drag / middle-drag** (`_dicomBeginWindowDrag`, runs before the pan handler). The context menu gets the same items (`_dicomContextItems`, `checked` marks the active preset). The bar hides in edit mode and for colour single-frame files.
 - **Media transport** (`#media-controls`): Play / Pause / Stop, seek + time for video; same play/pause/stop for animated GIF. Overlay cues (`#media-cue`): play/stop flash; pause badge persists only while actually paused (not on first open). Video click (without drag) toggles playback; context menu includes Play/Pause/Stop.
 - Sidebar: explorer and info panels `flex: 1 1 0` (equal height); vertical splitter persists `sidebarTreeHeightV2`.
 - Effect sliders: `input` → live preview (`setEffect(..., false)`); `change` → history commit. Wheel over a slider scrolls the panel.
@@ -107,6 +111,7 @@ Detection: if `window.electronAPI` is missing at page load, `webAPI.js` installs
 | Overlay | Yellow dashed selection on `#sel-canvas`; stroke width / dash / handles are divided by the canvas-to-display scale (`_selScale`) so outlines keep a constant on-screen thickness at any zoom or image size |
 | BG remove / crop | Algorithmic (mask-guided alpha, flood/chroma) + AI (`rembg` via main-process worker); crop uses off-screen canvas |
 | Undo/Redo | Snapshots of pixels **and** effects / rotation / flip (`MAX_HISTORY` 20) |
+| Source swap | `replaceSource(img)` — new picture (DICOM window / frame) keeping transforms and effects; resets history |
 
 ### `src/js/formatSupport.js` — Format Loader
 | Format | Desktop | Web |
@@ -114,11 +119,19 @@ Detection: if `window.electronAPI` is missing at page load, `webAPI.js` installs
 | JPEG/PNG/GIF/BMP/WebP/SVG/ICO/AVIF | Native load; WebP/AVIF may fall back to `convertToPng` (sharp) | `FileReader` data URL |
 | TIFF | sharp in main | Optional UTIF; canvas fallback |
 | HEIC/HEIF/HIF | heic-convert / heic-decode | Optional heic2any |
-| DICOM | `dicomDecoder.js` (Node) via `decode-dicom` | Same decoder in the renderer |
+| DICOM | `dicomDecoder.js` in the renderer (`read-file-bytes` → `DicomDecoder.load`); `decode-dicom` (main) only as fallback | Same decoder in the renderer |
 | Video/Audio | `file://` URL | `blob:` object URL |
 
-### `src/js/dicomDecoder.js`
-- Shared Node/browser decoder: preamble optional, implicit/explicit VR, encapsulated JPEG pixel data, basic tags (patient, modality, study date, rows/cols).
+### `src/js/dicomDecoder.js` — DICOM session decoder
+- Shared Node / browser UMD module. `DicomDecoder.load(bytes)` parses with **dicom-parser** and returns an *image session* that keeps the decoded samples per frame (cached) and re-renders on demand: `render({ frame, wc, ww, invert })` → RGBA, `toCanvas()` / `toDataUrl()` in the browser.
+- **Transfer syntaxes**: implicit / explicit LE, explicit BE, deflated (own RFC 1951 inflater — the browser's `DecompressionStream` aborts on trailing bytes), RLE (own PackBits-per-plane decoder), JPEG baseline / extended (**libjpeg-turbo** 8-bit and 12-bit builds, tried in turn), JPEG lossless (**jpeg-lossless-decoder-js**), JPEG-LS (**CharLS**), JPEG 2000 / HTJ2K (**OpenJPEG**).
+- **Codec loading**: `vendor(kind)` — `require()` in Node; in the renderer a `<script>` tag from `../node_modules/…` (relative to `document.baseURI`, override with `setVendorBase()`). The pure-JS (`*_decode.js`) Emscripten builds are used so no `.wasm` fetch is needed on `file://`. The CommonJS lossless decoder is loaded through a temporary `window.module` shim. Each module loads once and is cached.
+- **Frames**: uncompressed frames are sliced by size; encapsulated frames use the basic offset table, one-fragment-per-frame, a JPEG-marker–built table, or an even fragment split.
+- **Pixels**: 1 / 8 / 12 (packed) / 16 / 32-bit, signed / unsigned, planar or interleaved; YBR → RGB (uncompressed only — JPEG codecs already return RGB); PALETTE COLOR LUTs; pixel padding value excluded from the auto range.
+- **Window**: modality rescale (slope / intercept) → window centre / width → 0–255; MONOCHROME1 inverts by default. `fileWindows` (several, with labels), `presets` (CT Hounsfield presets), `autoWindow()` (frame min / max), `defaultWindow()`.
+- **Metadata**: `meta` (flat summary keyed like the `info.*` i18n labels) and `tags` (every top-level element with a built-in name dictionary, VR-aware formatting, sequences / binary summarised).
+- Partial datasets thrown by dicom-parser (`{ exception, dataSet }`) are used when they still carry pixel data (truncated files).
+- `decode()` / `decodeToDisplay()` remain for the main-process fallback and old callers.
 
 ### `src/js/fileTree.js` — Explorer
 - Roots from `listDrives()` (Windows letters, macOS volumes, Linux mounts; web → **Local Files**).
@@ -129,7 +142,8 @@ Detection: if `window.electronAPI` is missing at page load, `webAPI.js` installs
 ### Other renderer modules
 - `i18n.js` — `en.json` / `ko.json`, `localStorage` lang
 - `icons.js` — inline SVG (undo/redo, rotate, drive, window controls)
-- `contextMenu.js`, `tooltip.js`
+- `contextMenu.js` — dropdown / context menus: rows with icon, label, detail, shortcut, `checked`, `danger`, `inline` (one-line label + detail), `remove` (× button), and `submenu` (array or (async) function → flyout appended to `body`, opened on hover / click, closed with a short delay); `show(x, y, items, { onHide })`, `hide()`, `refreshSubmenu(level)`.
+- `tooltip.js`
 
 ### `scripts/`
 | Script | Role |
@@ -173,6 +187,8 @@ Shared contract (`preload` and `webAPI`):
 |---|---|
 | `listDrives` / `readDirectory` / `pathAncestors` | Explorer |
 | `getFileStats` / `getFileUrl` / `readFileBase64` | Load media |
+| `readFileBytes` | Raw file bytes as `Uint8Array` (DICOM decoding in the renderer) |
+| `printImage` | Print a data-URL picture through the system dialog (desktop: hidden window; web: popup) |
 | `readImageMeta` | EXIF / IPTC / XMP / sharp basic (desktop) |
 | `readMediaMeta` | A/V container / codecs / duration / bitrate (desktop) |
 | `getLaunchFile` | Path passed on process start |
@@ -197,7 +213,7 @@ Shared contract (`preload` and `webAPI`):
 | `src/assets/icon.ico` | Windows window, installer, electron.exe patch, file-type default icon |
 | `src/assets/icon.png` | About dialog, favicon, toolbar brand, drag icon |
 | `src/assets/icon_512.png` | macOS/Linux electron-builder icon source |
-| `src/assets/icon.svg` | Source artwork |
+| `src/assets/icon.svg` | Source artwork — 3D glass tile (thickness, bevel, drop shadow), top-left specular reflection, tilted photo card, glossy lens. `npm run create-icons` regenerates PNG / ICO; `npm run patch:icon` re-brands the dev exe; the installer, portable exe and shortcuts pick the ICO up at `npm run build:win` |
 
 Packaged builds use `package.json → build.win/mac/linux.icon`. Toolbar shows **V1.0.2** next to the product name.
 

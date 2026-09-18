@@ -1294,6 +1294,15 @@ ipcMain.handle('get-file-url', async (event, filePath) => {
   }
 });
 
+ipcMain.handle('read-file-bytes', async (event, filePath) => {
+  try {
+    const data = await fs.promises.readFile(filePath);
+    return new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
+  } catch (err) {
+    return { error: err.message };
+  }
+});
+
 ipcMain.handle('read-file-base64', async (event, filePath) => {
   try {
     const data = await fs.promises.readFile(filePath);
@@ -1742,37 +1751,62 @@ ipcMain.handle('decode-dicom', async (event, filePath) => {
     note(10, 'reading');
     const data = await fs.promises.readFile(filePath);
     note(35, 'decoding');
-    const decoded = DicomDecoder.decode(data);
-    if (decoded.error) return { error: decoded.error };
-
-    const meta = {
-      patientName: decoded.meta?.patientName || '',
-      studyDate: decoded.meta?.studyDate || '',
-      modality: decoded.meta?.modality || '',
-      rows: decoded.height,
-      cols: decoded.width,
-    };
-
-    if (decoded.jpegBytes) {
-      note(92, 'displaying');
-      return {
-        dataUrl: `data:image/jpeg;base64,${Buffer.from(decoded.jpegBytes).toString('base64')}`,
-        meta,
-      };
-    }
-
-    if (!decoded.rgba || !decoded.width || !decoded.height) {
-      return { error: 'Could not render DICOM pixels' };
-    }
+    const decoded = await DicomDecoder.decode(data);
+    if (decoded.error) return { error: decoded.error, meta: decoded.meta };
 
     note(70, 'converting');
     const sharp = require('sharp');
-    const pngBuf = await sharp(Buffer.from(decoded.rgba), {
+    const pngBuf = await sharp(Buffer.from(decoded.rgba.buffer, decoded.rgba.byteOffset, decoded.rgba.byteLength), {
       raw: { width: decoded.width, height: decoded.height, channels: 4 },
     }).png().toBuffer();
     note(92, 'displaying');
-    return { dataUrl: `data:image/png;base64,${pngBuf.toString('base64')}`, meta };
+    const image = decoded.image;
+    return {
+      dataUrl: `data:image/png;base64,${pngBuf.toString('base64')}`,
+      meta: image.meta,
+      tags: image.tags,
+      frames: image.frames,
+      state: image.state,
+    };
   } catch (err) {
+    return { error: err.message };
+  }
+});
+
+/* Print: render the picture in a hidden window and hand it to the system print dialog. */
+function _printPageHtml(dataUrl, title) {
+  const esc = (s) => String(s || '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${esc(title)}</title>
+<style>
+  @page { margin: 10mm; }
+  html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: #fff; }
+  body { display: flex; align-items: center; justify-content: center; }
+  img { max-width: 100%; max-height: 100vh; object-fit: contain; }
+</style></head><body><img src="${dataUrl}" alt=""></body></html>`;
+}
+
+ipcMain.handle('print-image', async (event, { dataUrl, title } = {}) => {
+  if (!dataUrl || typeof dataUrl !== 'string' || !dataUrl.startsWith('data:image/')) return { error: 'Nothing to print' };
+  let win = null;
+  try {
+    win = new BrowserWindow({
+      show: false,
+      parent: mainWindow || undefined,
+      webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false },
+    });
+    await win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(_printPageHtml(dataUrl, title)));
+    await win.webContents.executeJavaScript(
+      'new Promise((r) => { const i = document.querySelector("img"); if (!i || i.complete) r(); else { i.onload = () => r(); i.onerror = () => r(); } })'
+    );
+    return await new Promise((resolve) => {
+      win.webContents.print({ silent: false, printBackground: false }, (success, reason) => {
+        try { win.destroy(); } catch {}
+        win = null;
+        resolve(success ? { success: true } : { error: reason || 'cancelled' });
+      });
+    });
+  } catch (err) {
+    try { win && win.destroy(); } catch {}
     return { error: err.message };
   }
 });

@@ -13,14 +13,22 @@
 <body>
   <div id="app">
 
-    <!-- ═══ Toolbar ═══ -->
-    <div id="toolbar">
+    <!-- ═══ Title bar: icon · name · version (drag region; window buttons at the right) ═══ -->
+    <div id="titlebar">
       <div id="app-brand" class="app-brand">
         <img src="./assets/icon.png" alt="" draggable="false">
         <span class="app-brand-name" data-i18n="app.title">Image Viewer</span>
         <span class="app-brand-ver">V1.0.2</span>
       </div>
+      <div id="titlebar-file" class="titlebar-file" title=""></div>
       <div id="win-ctrl-gutter"></div>
+    </div>
+
+    <!-- ═══ Menu bar (File · Edit · View · Effects · Help — built by app.js) ═══ -->
+    <div id="menubar" role="menubar"></div>
+
+    <!-- ═══ Toolbar ═══ -->
+    <div id="toolbar">
       <div id="zoom-input-wrap">
         <input id="zoom-display" type="text" value="100%" title="Zoom level">
       </div>
@@ -144,6 +152,41 @@
               <input type="range" id="mc-volume" class="media-ctrl-volume" min="0" max="100" value="100" step="1"
                 data-i18n-title="toolbar.volume" title="Volume" aria-label="Volume">
               <span id="mc-vol-label" class="media-ctrl-vol-label">100%</span>
+            </div>
+          </div>
+
+          <!-- DICOM bar: frame navigation (multi-frame) + window centre / width -->
+          <div id="dicom-controls" class="media-controls dicom-controls" style="display:none;" hidden>
+            <div class="dicom-frames" id="dcm-frames-wrap" hidden>
+              <button type="button" class="media-ctrl-btn" id="dcm-prev-frame" data-i18n-title="dicom.prevFrame" title="Previous frame">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.4 7.4 14 6l-6 6 6 6 1.4-1.4L10.8 12z"/></svg>
+              </button>
+              <input type="range" id="dcm-frame" class="media-ctrl-seek dicom-frame-seek" min="0" max="0" value="0" step="1" aria-label="Frame">
+              <button type="button" class="media-ctrl-btn" id="dcm-next-frame" data-i18n-title="dicom.nextFrame" title="Next frame">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.6 16.6 10 18l6-6-6-6-1.4 1.4 4.6 4.6z"/></svg>
+              </button>
+              <span id="dcm-frame-label" class="media-ctrl-time dicom-frame-label">1 / 1</span>
+              <button type="button" class="media-ctrl-btn" id="dcm-play" data-i18n-title="dicom.cine" title="Play frames" aria-pressed="false">
+                <svg class="dcm-play-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.14v13.72L19.5 12 8 5.14z"/></svg>
+                <svg class="dcm-pause-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5h4.2v14H6zm7.8 0H18v14h-4.2z"/></svg>
+              </button>
+              <span class="dicom-sep" id="dcm-frames-sep"></span>
+            </div>
+            <div class="dicom-window" id="dcm-window-wrap" hidden>
+              <select id="dcm-preset" class="media-ctrl-subtitle-select dicom-preset" data-i18n-title="dicom.presetTitle" title="Window preset" aria-label="Window preset"></select>
+              <label class="dicom-wl" data-i18n-title="dicom.center" title="Window center">
+                <span>C</span><input type="number" id="dcm-wc" step="1" aria-label="Window center">
+              </label>
+              <label class="dicom-wl" data-i18n-title="dicom.width" title="Window width">
+                <span>W</span><input type="number" id="dcm-ww" step="1" min="1" aria-label="Window width">
+              </label>
+              <button type="button" class="media-ctrl-btn" id="dcm-invert" data-i18n-title="dicom.invert" title="Invert (I)" aria-pressed="false">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 18V4a8 8 0 0 1 0 16z"/></svg>
+              </button>
+              <button type="button" class="media-ctrl-btn" id="dcm-reset" data-i18n-title="dicom.resetWindow" title="Reset window (W)">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5V2L7 6l5 4V7a5 5 0 1 1-5 5H5a7 7 0 1 0 7-7z"/></svg>
+              </button>
+              <span id="dcm-range" class="dicom-range" data-i18n-title="dicom.dragHint" title="Ctrl+drag: window"></span>
             </div>
           </div>
 
@@ -434,6 +477,8 @@
           <tr><td>Open File</td><td><kbd>Ctrl</kbd>+<kbd>O</kbd></td></tr>
           <tr><td>Open Folder</td><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>O</kbd></td></tr>
           <tr><td>Save As</td><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd></td></tr>
+          <tr><td data-i18n="menu.print">Print...</td><td><kbd>Ctrl</kbd>+<kbd>P</kbd></td></tr>
+          <tr><td data-i18n="menu.fileInfo">File Information...</td><td><kbd>Ctrl</kbd>+<kbd>I</kbd></td></tr>
           <tr><td>Edit Image</td><td><kbd>Ctrl</kbd>+<kbd>E</kbd></td></tr>
           <tr><td>Zoom In</td><td><kbd>Ctrl</kbd>+<kbd>+</kbd></td></tr>
           <tr><td>Zoom Out</td><td><kbd>Ctrl</kbd>+<kbd>-</kbd></td></tr>
@@ -449,6 +494,11 @@
           <tr><td>Copy</td><td><kbd>Ctrl</kbd>+<kbd>C</kbd></td></tr>
           <tr><td>Clear Selection / Cancel</td><td><kbd>Esc</kbd></td></tr>
           <tr><td>Fullscreen</td><td><kbd>F11</kbd></td></tr>
+          <tr><td>DICOM: Previous / Next Frame</td><td><kbd>PgUp</kbd> / <kbd>PgDn</kbd></td></tr>
+          <tr><td>DICOM: First / Last Frame</td><td><kbd>Home</kbd> / <kbd>End</kbd></td></tr>
+          <tr><td>DICOM: Play Frames</td><td><kbd>Space</kbd></td></tr>
+          <tr><td>DICOM: Invert / Reset Window</td><td><kbd>I</kbd> / <kbd>W</kbd></td></tr>
+          <tr><td>DICOM: Window (center / width)</td><td><kbd>Ctrl</kbd>+drag</td></tr>
         </table>
       </div>
       <div class="dialog-footer">

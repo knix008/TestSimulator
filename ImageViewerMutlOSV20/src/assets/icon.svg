@@ -1,103 +1,210 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!--
+    Image Viewer app icon — 3D glass tile with a top-left light reflection,
+    a tilted photo card and a glossy camera lens. Rebuild PNG / ICO with
+    `npm run create-icons` (scripts/create-icons.js).
+  -->
   <defs>
-    <linearGradient id="cardBack" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#7ec8ea"/>
-      <stop offset="100%" stop-color="#3a86b8"/>
+    <!-- ── Tile (background plate) ── -->
+    <linearGradient id="tileBody" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0"    stop-color="#63b6ff"/>
+      <stop offset="0.42" stop-color="#2f7be8"/>
+      <stop offset="0.78" stop-color="#2148c4"/>
+      <stop offset="1"    stop-color="#1a2a86"/>
     </linearGradient>
-    <linearGradient id="cardMid" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#f4fbff"/>
-      <stop offset="100%" stop-color="#c5dff0"/>
+    <linearGradient id="tileSide" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1d3f9c"/>
+      <stop offset="1" stop-color="#0a153f"/>
     </linearGradient>
-    <linearGradient id="frame3d" x1="12%" y1="8%" x2="88%" y2="92%">
-      <stop offset="0%" stop-color="#ffffff"/>
-      <stop offset="42%" stop-color="#f3f8fc"/>
-      <stop offset="100%" stop-color="#c8d7e4"/>
+    <linearGradient id="tileRim" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0"    stop-color="#ffffff" stop-opacity="0.95"/>
+      <stop offset="0.45" stop-color="#ffffff" stop-opacity="0.18"/>
+      <stop offset="1"    stop-color="#000a33" stop-opacity="0.35"/>
     </linearGradient>
-    <linearGradient id="frameEdge" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.95"/>
-      <stop offset="100%" stop-color="#8aa4b8" stop-opacity="0.55"/>
-    </linearGradient>
-    <linearGradient id="sky" x1="0%" y1="0%" x2="18%" y2="100%">
-      <stop offset="0%" stop-color="#6ec4f5"/>
-      <stop offset="48%" stop-color="#c7ebff"/>
-      <stop offset="100%" stop-color="#eef8ff"/>
-    </linearGradient>
-    <linearGradient id="mountA" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#6aa8d4"/>
-      <stop offset="100%" stop-color="#3d7eab"/>
-    </linearGradient>
-    <linearGradient id="mountB" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#3cb07a"/>
-      <stop offset="100%" stop-color="#1e6d4c"/>
-    </linearGradient>
-    <radialGradient id="sun" cx="50%" cy="50%" r="50%">
-      <stop offset="0%" stop-color="#fff7b0"/>
-      <stop offset="60%" stop-color="#ffc94a"/>
-      <stop offset="100%" stop-color="#ef9a1c"/>
+    <radialGradient id="tileGlowTL" cx="0.2" cy="0.14" r="0.8">
+      <stop offset="0"    stop-color="#ffffff" stop-opacity="0.62"/>
+      <stop offset="0.32" stop-color="#ffffff" stop-opacity="0.22"/>
+      <stop offset="0.68" stop-color="#ffffff" stop-opacity="0"/>
     </radialGradient>
-    <linearGradient id="lensMetal" x1="20%" y1="15%" x2="80%" y2="90%">
-      <stop offset="0%" stop-color="#f8fcff"/>
-      <stop offset="45%" stop-color="#8eb4cc"/>
-      <stop offset="100%" stop-color="#3d6a86"/>
-    </linearGradient>
-    <radialGradient id="lensGlass" cx="38%" cy="32%" r="70%">
-      <stop offset="0%" stop-color="#d9f3ff"/>
-      <stop offset="40%" stop-color="#4aa3d6"/>
-      <stop offset="100%" stop-color="#1b5f88"/>
+    <radialGradient id="tileGlowBR" cx="0.85" cy="0.9" r="0.6">
+      <stop offset="0"   stop-color="#7dd3ff" stop-opacity="0.35"/>
+      <stop offset="1"   stop-color="#7dd3ff" stop-opacity="0"/>
     </radialGradient>
-    <filter id="softShadow" x="-35%" y="-25%" width="170%" height="170%">
-      <feDropShadow dx="0" dy="10" stdDeviation="8" flood-color="#0b2a40" flood-opacity="0.38"/>
+    <linearGradient id="sheen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.42"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0.03"/>
+    </linearGradient>
+    <radialGradient id="specular" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0"   stop-color="#ffffff" stop-opacity="0.95"/>
+      <stop offset="0.5" stop-color="#ffffff" stop-opacity="0.45"/>
+      <stop offset="1"   stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="innerShade" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0.55" stop-color="#000a33" stop-opacity="0"/>
+      <stop offset="1"    stop-color="#000a33" stop-opacity="0.32"/>
+    </linearGradient>
+
+    <!-- ── Photo cards ── -->
+    <linearGradient id="cardBack" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#dbeeff"/>
+      <stop offset="1" stop-color="#8fb8dc"/>
+    </linearGradient>
+    <linearGradient id="cardFrame" x1="0.1" y1="0.05" x2="0.9" y2="0.95">
+      <stop offset="0"    stop-color="#ffffff"/>
+      <stop offset="0.5"  stop-color="#f6fafe"/>
+      <stop offset="1"    stop-color="#d3e0ec"/>
+    </linearGradient>
+    <linearGradient id="cardEdge" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#9db6cc"/>
+    </linearGradient>
+    <linearGradient id="sky" x1="0" y1="0" x2="0.15" y2="1">
+      <stop offset="0"    stop-color="#3f9df5"/>
+      <stop offset="0.55" stop-color="#9fdcff"/>
+      <stop offset="1"    stop-color="#eaf8ff"/>
+    </linearGradient>
+    <linearGradient id="mountFar" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#7fb4e0"/>
+      <stop offset="1" stop-color="#3f7fb5"/>
+    </linearGradient>
+    <linearGradient id="mountNear" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4cc48a"/>
+      <stop offset="1" stop-color="#1c6d4a"/>
+    </linearGradient>
+    <linearGradient id="mountNearLit" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0"   stop-color="#ffffff" stop-opacity="0.35"/>
+      <stop offset="0.5" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="water" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#bfe9ff"/>
+      <stop offset="1" stop-color="#5eb1e6"/>
+    </linearGradient>
+    <radialGradient id="sun" cx="0.4" cy="0.35" r="0.65">
+      <stop offset="0"   stop-color="#fffbe0"/>
+      <stop offset="0.5" stop-color="#ffd25a"/>
+      <stop offset="1"   stop-color="#ff9d1c"/>
+    </radialGradient>
+    <radialGradient id="sunGlow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0"   stop-color="#ffe89a" stop-opacity="0.9"/>
+      <stop offset="1"   stop-color="#ffe89a" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- ── Lens ── -->
+    <linearGradient id="lensRing" x1="0.15" y1="0.1" x2="0.85" y2="0.95">
+      <stop offset="0"    stop-color="#ffffff"/>
+      <stop offset="0.35" stop-color="#c8dcea"/>
+      <stop offset="0.6"  stop-color="#7d9fb8"/>
+      <stop offset="1"    stop-color="#2f5674"/>
+    </linearGradient>
+    <linearGradient id="lensRingInner" x1="0.85" y1="0.9" x2="0.15" y2="0.1">
+      <stop offset="0"   stop-color="#ffffff"/>
+      <stop offset="0.5" stop-color="#9ab8cf"/>
+      <stop offset="1"   stop-color="#3a637f"/>
+    </linearGradient>
+    <radialGradient id="lensGlass" cx="0.36" cy="0.3" r="0.75">
+      <stop offset="0"    stop-color="#bfe8ff"/>
+      <stop offset="0.35" stop-color="#3f9be0"/>
+      <stop offset="0.75" stop-color="#174f85"/>
+      <stop offset="1"    stop-color="#0b2f55"/>
+    </radialGradient>
+    <radialGradient id="lensCore" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0"   stop-color="#0a2a4d"/>
+      <stop offset="0.7" stop-color="#0d3d6e"/>
+      <stop offset="1"   stop-color="#2a7ac0"/>
+    </radialGradient>
+
+    <!-- ── Filters ── -->
+    <filter id="tileShadow" x="-30%" y="-30%" width="160%" height="170%">
+      <feDropShadow dx="0" dy="12" stdDeviation="9" flood-color="#04102e" flood-opacity="0.5"/>
     </filter>
-    <filter id="cardShadow" x="-20%" y="-20%" width="140%" height="150%">
-      <feDropShadow dx="2" dy="6" stdDeviation="4" flood-color="#0b2a40" flood-opacity="0.28"/>
+    <filter id="cardShadow" x="-30%" y="-30%" width="160%" height="170%">
+      <feDropShadow dx="2" dy="8" stdDeviation="5" flood-color="#04102e" flood-opacity="0.45"/>
     </filter>
+    <filter id="lensShadow" x="-40%" y="-40%" width="180%" height="180%">
+      <feDropShadow dx="0" dy="5" stdDeviation="4" flood-color="#04102e" flood-opacity="0.5"/>
+    </filter>
+    <filter id="blur8" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="8"/>
+    </filter>
+    <filter id="blur3" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3"/>
+    </filter>
+
+    <clipPath id="tileClip">
+      <rect x="18" y="14" width="220" height="220" rx="58" ry="58"/>
+    </clipPath>
     <clipPath id="photoClip">
-      <rect x="62" y="70" width="132" height="96" rx="8" ry="8"/>
+      <rect x="68" y="66" width="120" height="88" rx="7" ry="7"/>
     </clipPath>
   </defs>
 
-  <!-- Ground contact shadow (no outer tile / no opaque border) -->
-  <ellipse cx="128" cy="228" rx="78" ry="12" fill="#0b2a40" opacity="0.18"/>
-
-  <!-- Rear card -->
-  <g transform="rotate(-16 128 128)" filter="url(#cardShadow)">
-    <rect x="58" y="46" width="140" height="164" rx="14" fill="url(#cardBack)"/>
+  <!-- ═══ 3D tile ═══ -->
+  <g filter="url(#tileShadow)">
+    <!-- thickness (bottom edge) -->
+    <rect x="18" y="22" width="220" height="220" rx="58" ry="58" fill="url(#tileSide)"/>
+    <!-- top face -->
+    <rect x="18" y="14" width="220" height="220" rx="58" ry="58" fill="url(#tileBody)"/>
   </g>
-
-  <!-- Middle card -->
-  <g transform="rotate(11 128 128)" filter="url(#cardShadow)">
-    <rect x="60" y="48" width="136" height="160" rx="13" fill="url(#cardMid)"/>
+  <g clip-path="url(#tileClip)">
+    <!-- ambient light from the top-left, cool bounce from the bottom-right -->
+    <rect x="18" y="14" width="220" height="220" fill="url(#tileGlowTL)"/>
+    <rect x="18" y="14" width="220" height="220" fill="url(#tileGlowBR)"/>
+    <!-- shading towards the far corner -->
+    <rect x="18" y="14" width="220" height="220" fill="url(#innerShade)"/>
+    <!-- glass sheen over the upper half -->
+    <path d="M18 14 H238 V88 C190 118 100 128 18 104 Z" fill="url(#sheen)" filter="url(#blur3)"/>
+    <!-- specular reflection, top-left -->
+    <ellipse cx="70" cy="46" rx="44" ry="22" fill="url(#specular)" transform="rotate(-28 70 46)" filter="url(#blur3)"/>
+    <ellipse cx="58" cy="40" rx="18" ry="9" fill="#ffffff" opacity="0.85" transform="rotate(-28 58 40)" filter="url(#blur3)"/>
   </g>
+  <!-- bevel rim -->
+  <rect x="19.5" y="15.5" width="217" height="217" rx="57" ry="57" fill="none" stroke="url(#tileRim)" stroke-width="3"/>
+  <rect x="22.5" y="18.5" width="211" height="211" rx="54" ry="54" fill="none" stroke="#ffffff" stroke-opacity="0.14" stroke-width="1"/>
 
-  <!-- Front 3D photo frame -->
-  <g filter="url(#softShadow)">
-    <rect x="50" y="54" width="156" height="148" rx="16" fill="url(#frame3d)"/>
-    <rect x="50" y="54" width="156" height="148" rx="16" fill="url(#frameEdge)" opacity="0.35"/>
-    <!-- Inner well -->
-    <rect x="62" y="70" width="132" height="96" rx="8" fill="#0d3a55"/>
-
-    <g clip-path="url(#photoClip)">
-      <rect x="62" y="70" width="132" height="96" fill="url(#sky)"/>
-      <circle cx="164" cy="92" r="16" fill="#ffe080" opacity="0.28"/>
-      <circle cx="164" cy="92" r="12" fill="url(#sun)"/>
-      <polygon points="62,166 98,112 136,166" fill="url(#mountA)" opacity="0.92"/>
-      <polygon points="108,166 150,104 194,166" fill="url(#mountB)"/>
-      <polygon points="162,166 194,128 194,166" fill="#1f5f82" opacity="0.7"/>
-      <rect x="62" y="152" width="132" height="14" fill="#3d9ec4" opacity="0.42"/>
-      <rect x="70" y="156" width="70" height="1.6" fill="#ffffff" opacity="0.5"/>
+  <!-- ═══ Photo cards ═══ -->
+  <!-- back card (tinted, offset) -->
+  <g transform="rotate(7 128 116)" filter="url(#cardShadow)">
+    <rect x="66" y="58" width="124" height="104" rx="10" ry="10" fill="url(#cardBack)"/>
+    <rect x="66" y="58" width="124" height="104" rx="10" ry="10" fill="none" stroke="#ffffff" stroke-opacity="0.6" stroke-width="1"/>
+  </g>
+  <!-- front card -->
+  <g transform="rotate(-5 128 116)">
+    <g filter="url(#cardShadow)">
+      <rect x="60" y="58" width="136" height="104" rx="10" ry="10" fill="url(#cardFrame)"/>
     </g>
+    <rect x="60.5" y="58.5" width="135" height="103" rx="9.5" ry="9.5" fill="none" stroke="url(#cardEdge)" stroke-width="1.2"/>
 
-    <!-- Frame bevel highlight -->
-    <path d="M66 58h124a10 10 0 0 1 10 10v8H56v-8a10 10 0 0 1 10-10z" fill="#ffffff" opacity="0.42"/>
-    <rect x="50" y="54" width="156" height="148" rx="16" fill="none" stroke="#ffffff" stroke-width="1.2" opacity="0.35"/>
+    <!-- photo -->
+    <g clip-path="url(#photoClip)">
+      <rect x="68" y="66" width="120" height="88" fill="url(#sky)"/>
+      <!-- sun -->
+      <circle cx="160" cy="88" r="20" fill="url(#sunGlow)"/>
+      <circle cx="160" cy="88" r="11" fill="url(#sun)"/>
+      <!-- far mountains -->
+      <path d="M68 132 L92 96 L110 118 L126 92 L146 122 L160 108 L188 136 V154 H68 Z" fill="url(#mountFar)"/>
+      <!-- near mountains -->
+      <path d="M68 154 V138 L104 106 L128 128 L150 114 L188 146 V154 Z" fill="url(#mountNear)"/>
+      <path d="M68 154 V138 L104 106 L128 128 L150 114 L188 146 V154 Z" fill="url(#mountNearLit)"/>
+      <!-- water -->
+      <rect x="68" y="144" width="120" height="10" fill="url(#water)" opacity="0.95"/>
+      <rect x="68" y="146" width="120" height="1.2" fill="#ffffff" opacity="0.55"/>
+      <!-- glass sheen on the print -->
+      <path d="M68 66 H188 V92 C150 106 100 108 68 96 Z" fill="#ffffff" opacity="0.14"/>
+    </g>
+    <rect x="68" y="66" width="120" height="88" rx="7" ry="7" fill="none" stroke="#1c4a70" stroke-opacity="0.25" stroke-width="1"/>
   </g>
 
-  <!-- 3D lens badge -->
-  <g transform="translate(168 168)">
-    <circle r="26" fill="url(#lensMetal)" filter="url(#cardShadow)"/>
-    <circle r="18" fill="url(#lensGlass)"/>
-    <circle r="8" fill="#0e3d5c" opacity="0.35"/>
-    <ellipse cx="-6" cy="-7" rx="8" ry="5" fill="#ffffff" opacity="0.45"/>
-    <circle r="26" fill="none" stroke="#ffffff" stroke-width="1.4" opacity="0.4"/>
+  <!-- ═══ Lens ═══ -->
+  <g filter="url(#lensShadow)">
+    <circle cx="176" cy="172" r="34" fill="url(#lensRing)"/>
   </g>
+  <circle cx="176" cy="172" r="34" fill="none" stroke="#ffffff" stroke-opacity="0.7" stroke-width="1"/>
+  <circle cx="176" cy="172" r="27" fill="url(#lensRingInner)"/>
+  <circle cx="176" cy="172" r="23" fill="url(#lensGlass)"/>
+  <circle cx="176" cy="172" r="23" fill="none" stroke="#0b2f55" stroke-opacity="0.5" stroke-width="1"/>
+  <circle cx="176" cy="172" r="9" fill="url(#lensCore)"/>
+  <!-- lens highlights -->
+  <ellipse cx="166" cy="160" rx="10" ry="6" fill="#ffffff" opacity="0.85" transform="rotate(-35 166 160)"/>
+  <ellipse cx="186" cy="185" rx="5" ry="2.6" fill="#bfe8ff" opacity="0.55" transform="rotate(-35 186 185)"/>
+  <circle cx="171.5" cy="167.5" r="2.2" fill="#ffffff" opacity="0.9"/>
 </svg>

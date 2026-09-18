@@ -102,6 +102,30 @@ window.Editor = (() => {
     _saveHistory();
   }
 
+  /**
+   * Swap the source picture (same size) while keeping rotation / flip / effects —
+   * used when a DICOM is re-rendered with another window or frame. Pixel edits
+   * (crop, background removal …) belong to the previous rendering and are dropped.
+   */
+  function replaceSource(img) {
+    if (!img) return false;
+    const w = img.naturalWidth || img.width;
+    const h = img.naturalHeight || img.height;
+    if (!w || !h) return false;
+    const sameSize = w === naturalW && h === naturalH;
+    originalImg = img;
+    naturalW = w;
+    naturalH = h;
+    originalPixels = null;
+    if (!sameSize) clearSelection();
+    history.length = 0; histIndex = -1;
+    _resizeCanvases();
+    _drawOriginalToWorking();
+    _render();
+    _saveHistory();
+    return true;
+  }
+
   function _resizeCanvases() {
     // Canvas size accounts for 90/270 rotation swap
     const isRotated90 = rotation === 90 || rotation === 270;
@@ -2684,7 +2708,7 @@ window.Editor = (() => {
   function getFlipState()  { return { flipH, flipV }; }
 
   return {
-    init, setCallbacks, loadImage,
+    init, setCallbacks, loadImage, replaceSource,
     setEffect, getEffects, getCaptionFonts, setCaptionLines, setCaptionValues, resetEffects, applyPreset,
     rotate, flip, resetTransform, resetAll, shouldShowOpProgress,
     setTool, getTool, clearSelection, hasSelection,
