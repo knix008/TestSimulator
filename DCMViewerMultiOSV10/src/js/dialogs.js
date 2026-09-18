@@ -12,7 +12,7 @@ window.Dialogs = (function () {
   const fmt = (v, d = 1) => (Number.isFinite(v) ? (+v.toFixed(d)).toString() : '');
   const P = () => window.Platform;
 
-  const SIZES = { about: { width: 480 }, shortcuts: { width: 720 }, error: { width: 600 }, prompt: { width: 440 }, settings: { width: 860 }, batch: { width: 600 }, mpr: { width: 1180 }, anonymize: { width: 560 } };
+  const SIZES = { about: { width: 480 }, shortcuts: { width: 720 }, error: { width: 600 }, prompt: { width: 440 }, settings: { width: 860 }, batch: { width: 600 }, mpr: { width: 1180 }, anonymize: { width: 560 }, progress: { width: 460 }, print: { width: 900 } };
 
   function actions(box, ...buttons) { const a = el('div', 'modal-actions'); buttons.forEach((b) => a.append(b)); box.append(a); return a; }
 
@@ -198,7 +198,7 @@ window.Dialogs = (function () {
 
   /* ── Batch conversion (runs here: decoder + encoders + platform are loaded in the popup too) ── */
   const DICOM_EXTS = new Set(['dcm', 'dicm', 'dicom', 'dic']);
-  const IMAGE_EXTS = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tif', 'tiff', 'ico', 'svg', 'avif']);
+  const IMAGE_EXTS = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tif', 'tiff', 'ico', 'svg', 'avif', 'heic', 'heif', 'hif', 'jp2', 'j2k', 'jpc', 'jpx', 'j2c']);
   const EXPORT_EXT = { png: 'png', jpeg: 'jpg', webp: 'webp', bmp: 'bmp', tiff: 'tif', gif: 'gif' };
   const EXPORT_MIME = { png: 'image/png', jpeg: 'image/jpeg', webp: 'image/webp', bmp: 'image/bmp', tiff: 'image/tiff', gif: 'image/gif' };
 
@@ -514,7 +514,76 @@ window.Dialogs = (function () {
     build();
   }
 
-  const RENDERERS = { about, shortcuts, error, prompt, settings, batch, anonymize, mpr };
+  /* ── Progress (long operations): bar + percentage, optional cancel ── */
+  function progress(box, payload, ctx) {
+    box.classList.add('progress-dialog');
+    box.innerHTML = `<h2 id="pgTitle"></h2><div class="progress show"><div class="bar" id="pgBar"></div><span id="pgText"></span></div><div class="pg-detail" id="pgDetail"></div>`;
+    const q = (id) => box.querySelector('#' + id);
+    const apply = (p) => {
+      if (p.title) q('pgTitle').textContent = p.title;
+      const total = p.total || 0, done = p.done || 0;
+      const pct = total ? Math.round(done / total * 100) : (p.percent != null ? Math.round(p.percent) : null);
+      q('pgBar').style.width = `${pct == null ? 0 : pct}%`;
+      q('pgText').textContent = pct == null ? (total ? `${done} / ${total}` : '…') : `${pct}%${total ? `  (${done} / ${total})` : ''}`;
+      q('pgDetail').textContent = p.text || '';
+    };
+    apply(payload);
+    const cancel = btn(t('dlg.cancel'), '', () => { ctx.send('cancel'); cancel.disabled = true; });
+    const a = actions(box, cancel);
+    if (payload.cancellable === false) a.style.display = 'none';
+    ctx.onMessage((event, data) => {
+      if (event === 'update') apply(data || {});
+      if (event === 'finish') ctx.close();
+    });
+    ctx.send('ready');
+  }
+
+  /* ── Print: preview + print to the default printer (silent) or through the system dialog ── */
+  function printHtml(payload, o) {
+    const rows = (payload.info || []).map(([k, v]) => `<tr><th>${esc(k)}</th><td>${esc(v)}</td></tr>`).join('');
+    return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${esc(payload.name || '')}</title>
+<style>@page{size:${o.paper} ${o.landscape ? 'landscape' : 'portrait'};margin:12mm}html,body{margin:0;padding:0;color:#000;background:#fff;font-family:Segoe UI,system-ui,sans-serif}
+.page{display:flex;flex-direction:column;height:100%;min-height:calc(100vh - 2px)}h1{font-size:15px;margin:0 0 6px}table{border-collapse:collapse;font-size:11px;margin-bottom:8px}th{text-align:left;padding:1px 12px 1px 0;color:#444;font-weight:600}td{padding:1px 0}
+.img{flex:1;display:flex;align-items:${o.center ? 'center' : 'flex-start'};justify-content:center;min-height:0}img{width:100%;max-height:${o.header ? '80vh' : '94vh'};object-fit:contain;display:block}
+.foot{font-size:10px;color:#666;margin-top:6px;text-align:right}</style></head>
+<body><div class="page">${o.header ? `<h1>${esc(payload.name || '')}</h1>${rows ? `<table>${rows}</table>` : ''}` : ''}<div class="img"><img src="${payload.dataUrl}"></div>${o.footer ? `<div class="foot">DCM Viewer · ${esc(payload.name || '')} · ${esc(new Date().toLocaleString())}</div>` : ''}</div></body></html>`;
+  }
+  function print(box, payload, ctx) {
+    box.classList.add('print');
+    box.innerHTML = `<h2>${esc(t('print.title'))}</h2>
+      <div class="print-layout">
+        <div class="print-preview"><iframe id="prFrame" title="preview"></iframe></div>
+        <div class="print-options">
+          <div class="form-row"><label>${esc(t('print.orientation'))}</label><div class="row radios"><label><input type="radio" name="prOri" value="portrait" checked>${esc(t('print.portrait'))}</label><label><input type="radio" name="prOri" value="landscape">${esc(t('print.landscape'))}</label></div></div>
+          <div class="form-row"><label>${esc(t('print.paper'))}</label><select id="prPaper"><option value="A4">A4</option><option value="Letter">Letter</option><option value="A3">A3</option><option value="Legal">Legal</option></select></div>
+          <div class="form-row"><label>${esc(t('print.options'))}</label><div class="row checks">
+            <label><input type="checkbox" id="prHeader" checked><span>${esc(t('print.header'))}</span></label>
+            <label><input type="checkbox" id="prFooter" checked><span>${esc(t('print.footer'))}</span></label>
+            <label><input type="checkbox" id="prCenter" checked><span>${esc(t('print.center'))}</span></label>
+            <label><input type="checkbox" id="prCopiesOne" disabled checked><span>${esc(t('print.fit'))}</span></label>
+          </div></div>
+          <div class="form-row"><label>${esc(t('print.copies'))}</label><input id="prCopies" type="number" min="1" max="99" value="1" style="width:70px"></div>
+          <p class="hint">${esc(t('print.hint'))}</p>
+        </div>
+      </div>`;
+    const q = (id) => box.querySelector('#' + id);
+    const opts = () => ({ landscape: box.querySelector('input[name=prOri]:checked').value === 'landscape', paper: q('prPaper').value, header: q('prHeader').checked, footer: q('prFooter').checked, center: q('prCenter').checked, copies: Math.max(1, Math.min(99, +q('prCopies').value || 1)) });
+    const frame = q('prFrame');
+    const refresh = () => {
+      const o = opts();
+      const pv = box.querySelector('.print-preview');
+      pv.classList.toggle('landscape', o.landscape);
+      frame.srcdoc = printHtml(payload, o).replace('</head>', '<style>html,body{height:100%}</style></head>');
+    };
+    box.querySelectorAll('input, select').forEach((el) => el.addEventListener('change', refresh));
+    refresh();
+    actions(box,
+      btn(t('dlg.cancel'), '', ctx.close),
+      btn(t('print.system'), '', () => { const o = opts(); ctx.send('print', { html: printHtml(payload, o), silent: false, ...o }); }),
+      btn(t('print.now'), 'primary', () => { const o = opts(); ctx.send('print', { html: printHtml(payload, o), silent: true, ...o }); ctx.close(); }));
+  }
+
+  const RENDERERS = { about, shortcuts, error, prompt, settings, batch, anonymize, mpr, progress, print };
   return {
     render(kind, box, payload, ctx) { const r = RENDERERS[kind]; if (!r) throw new Error(`Unknown dialog ${kind}`); box.dataset.kind = kind; r(box, payload || {}, ctx); },
     size(kind) { return SIZES[kind] || { width: 520 }; },

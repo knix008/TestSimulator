@@ -2,7 +2,7 @@
   "name": "dcm-viewer-multios",
   "productName": "DCM Viewer",
   "version": "1.0.0",
-  "description": "Cross-platform (Web / Windows / macOS / Linux) DICOM viewer: window/level, presets, VOI LUTs, colour maps, overlays, cine, series stacks, measurements, tag browser, export and batch conversion.",
+  "description": "Cross-platform (Web / Windows / macOS / Linux) DICOM and image viewer (TIFF, HEIF, JPEG 2000, …): window/level, presets, VOI LUTs, colour maps, overlays, cine, series stacks, MPR, measurements, tag browser, export and batch conversion.",
   "author": "SHKWON <knix008@naver.com>",
   "license": "MIT",
   "private": true,
@@ -11,13 +11,14 @@
     "start": "node scripts/start-dev.js",
     "dev": "node scripts/start-dev.js",
     "web": "node server.js",
-    "test": "node --test test/*.test.js",
+    "test": "node --test --test-reporter=./test/reporter.js test/*.test.js",
     "create-icons": "node scripts/create-icons.js",
     "build:web": "node scripts/build-web.js",
     "build:win": "electron-builder --win --publish never && node scripts/copy-dist.js",
     "build:mac": "electron-builder --mac --publish never && node scripts/copy-dist.js",
     "build:linux": "electron-builder --linux --publish never && node scripts/copy-dist.js",
-    "build:all": "electron-builder --win --mac --linux --publish never && node scripts/copy-dist.js"
+    "build:all": "electron-builder --win --mac --linux --publish never && node scripts/copy-dist.js",
+    "test:tap": "node --test test/*.test.js"
   },
   "dependencies": {
     "@cornerstonejs/codec-charls": "^1.2.7",
@@ -25,7 +26,10 @@
     "@cornerstonejs/codec-libjpeg-turbo-8bit": "^1.2.8",
     "@cornerstonejs/codec-openjpeg": "^1.3.6",
     "dicom-parser": "^1.8.21",
-    "jpeg-lossless-decoder-js": "^2.1.2"
+    "jpeg-lossless-decoder-js": "^2.1.2",
+    "libheif-js": "^1.23.2",
+    "pako": "^2.2.0",
+    "utif": "^3.1.0"
   },
   "devDependencies": {
     "electron": "^28.3.3",
@@ -54,14 +58,24 @@
       "!node_modules/@cornerstonejs/codec-openjpeg/dist/openjpegjs.js",
       "!node_modules/@cornerstonejs/codec-charls/dist/charlsjs.js",
       "!node_modules/@cornerstonejs/codec-libjpeg-turbo-8bit/dist/libjpegturbojs.js",
-      "!node_modules/jpeg-lossless-decoder-js/{src,tests}/**"
+      "!node_modules/jpeg-lossless-decoder-js/{src,tests}/**",
+      "!node_modules/libheif-js/{libheif,scripts,test}/**",
+      "!node_modules/libheif-js/libheif-wasm/*.{mjs,wasm,d.ts}",
+      "!node_modules/pako/{lib,dist/pako_*.js,dist/pako.js}"
     ],
-    "electronLanguages": ["en-US", "ko"],
+    "electronLanguages": [
+      "en-US",
+      "ko"
+    ],
     "compression": "maximum",
     "npmRebuild": false,
     "fileAssociations": [
       {
-        "ext": ["dcm", "dicm", "dicom"],
+        "ext": [
+          "dcm",
+          "dicm",
+          "dicom"
+        ],
         "name": "DICOM Image",
         "description": "DICOM Image",
         "mimeType": "application/dicom",
@@ -73,8 +87,18 @@
     "win": {
       "artifactName": "DCMViewer-${version}.${ext}",
       "target": [
-        { "target": "nsis", "arch": ["x64"] },
-        { "target": "portable", "arch": ["x64"] }
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
       ],
       "icon": "build/icon.ico"
     },
@@ -92,21 +116,44 @@
       "uninstallerIcon": "build/icon.ico",
       "installerHeaderIcon": "build/icon.ico",
       "perMachine": false,
-      "installerLanguages": ["en_US", "ko_KR"]
+      "installerLanguages": [
+        "en_US",
+        "ko_KR"
+      ]
     },
     "mac": {
-      "target": [{ "target": "dmg", "arch": ["x64", "arm64"] }],
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
       "icon": "build/icon.png",
       "category": "public.app-category.medical"
     },
     "linux": {
       "target": [
-        { "target": "AppImage", "arch": ["x64"] },
-        { "target": "deb", "arch": ["x64"] }
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "deb",
+          "arch": [
+            "x64"
+          ]
+        }
       ],
       "icon": "build/icon.png",
       "category": "Graphics;MedicalSoftware",
-      "mimeTypes": ["application/dicom"]
+      "mimeTypes": [
+        "application/dicom"
+      ]
     }
   }
 }

@@ -17,7 +17,7 @@ const PKG = require('./package.json');
 const ASSETS = path.join(__dirname, 'src', 'assets');
 
 const DICOM_EXTS = new Set(['dcm', 'dicm', 'dicom', 'dic']);
-const IMAGE_EXTS = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tif', 'tiff', 'ico', 'svg', 'avif']);
+const IMAGE_EXTS = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tif', 'tiff', 'ico', 'svg', 'avif', 'heic', 'heif', 'hif', 'jp2', 'j2k', 'jpc', 'jpx', 'j2c']);
 
 let mainWindow = null;
 let pendingOpenPath = null;
@@ -308,11 +308,16 @@ ipcMain.handle('window-min-size', (_e, w, hgt) => {
 });
 ipcMain.handle('window-fullscreen', () => { if (mainWindow) mainWindow.setFullScreen(!mainWindow.isFullScreen()); });
 ipcMain.handle('window-devtools', () => { if (mainWindow) mainWindow.webContents.toggleDevTools(); });
-ipcMain.handle('print-html', async (_e, html) => {
-  const win = new BrowserWindow({ show: false, webPreferences: { sandbox: true } });
+ipcMain.handle('print-html', async (_e, html, opts = {}) => {
+  const win = new BrowserWindow({ show: false, parent: mainWindow || undefined, webPreferences: { sandbox: true } });
   await win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html));
+  await new Promise((r) => setTimeout(r, 150));   // let the image decode before printing
+  const printOpts = { silent: !!opts.silent, printBackground: true, landscape: !!opts.landscape, copies: opts.copies || 1, margins: { marginType: 'default' } };
+  if (opts.paper) printOpts.pageSize = opts.paper;
   return new Promise((resolve) => {
-    win.webContents.print({ silent: false, printBackground: true }, (ok, reason) => { win.close(); resolve({ ok, reason }); });
+    try {
+      win.webContents.print(printOpts, (ok, reason) => { if (!win.isDestroyed()) win.close(); resolve({ ok, reason }); });
+    } catch (err) { if (!win.isDestroyed()) win.close(); resolve({ ok: false, reason: err.message }); }
   });
 });
 ipcMain.handle('clipboard-write-image', (_e, dataUrl) => {

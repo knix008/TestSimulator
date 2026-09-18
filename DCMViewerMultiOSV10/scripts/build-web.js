@@ -16,6 +16,9 @@ const VENDOR = {
   '@cornerstonejs/codec-libjpeg-turbo-8bit': ['dist/libjpegturbojs_decode.js'],
   '@cornerstonejs/codec-libjpeg-turbo-12bit': ['dist/libjpegturbo12js.js'],
   'jpeg-lossless-decoder-js': ['release/cjs/lossless.cjs'],
+  'pako': ['dist/pako.min.js'],
+  'utif': ['UTIF.js'],
+  'libheif-js': ['libheif-wasm/libheif-bundle.js'],
 };
 
 fs.rmSync(OUT, { recursive: true, force: true });

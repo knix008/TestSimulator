@@ -42,7 +42,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   toggleFullscreen: () => ipcRenderer.invoke('window-fullscreen'),
   setMinSize: (w, h) => ipcRenderer.invoke('window-min-size', w, h),
   toggleDevTools: () => ipcRenderer.invoke('window-devtools'),
-  printHtml: (html) => ipcRenderer.invoke('print-html', html),
+  printHtml: (html, opts) => ipcRenderer.invoke('print-html', html, opts || {}),
   clipboardWriteImage: (dataUrl) => ipcRenderer.invoke('clipboard-write-image', dataUrl),
   clipboardWriteText: (text) => ipcRenderer.invoke('clipboard-write-text', text),
 

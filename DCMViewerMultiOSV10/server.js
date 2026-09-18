@@ -20,6 +20,9 @@ const VENDOR_PKGS = [
   '@cornerstonejs/codec-libjpeg-turbo-8bit',
   '@cornerstonejs/codec-libjpeg-turbo-12bit',
   'jpeg-lossless-decoder-js',
+  'pako',
+  'utif',
+  'libheif-js',
 ];
 
 const app = express();

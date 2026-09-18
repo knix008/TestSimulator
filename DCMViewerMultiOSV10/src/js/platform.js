@@ -335,13 +335,16 @@ window.Platform = (function () {
       await navigator.clipboard.writeText(text);
       return true;
     },
-    async print(html) {
-      if (isElectron) return api.printHtml(html);
-      const w = window.open('', '_blank');
-      if (!w) throw new Error('Popup blocked');
-      w.document.write(html); w.document.close();
-      w.focus();
-      setTimeout(() => { w.print(); }, 300);
+    async print(html, opts = {}) {
+      if (isElectron) return api.printHtml(html, opts);
+      // Browser: print through a hidden iframe (the browser's own dialog; silent printing is not possible here).
+      const frame = document.createElement('iframe');
+      frame.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
+      document.body.appendChild(frame);
+      frame.srcdoc = html;
+      await new Promise((r) => { frame.onload = r; setTimeout(r, 1500); });
+      await new Promise((r) => setTimeout(r, 300));
+      try { frame.contentWindow.focus(); frame.contentWindow.print(); } finally { setTimeout(() => frame.remove(), 60000); }
       return { ok: true };
     },
     /** Sample files served by server.js (web only). */

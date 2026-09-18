@@ -8,8 +8,8 @@
   const $ = (id) => document.getElementById(id);
 
   const DICOM_EXTS = new Set(['dcm', 'dicm', 'dicom', 'dic']);
-  const IMAGE_EXTS = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tif', 'tiff', 'ico', 'svg', 'avif']);
-  const MIME = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', webp: 'image/webp', bmp: 'image/bmp', tif: 'image/tiff', tiff: 'image/tiff', ico: 'image/x-icon', svg: 'image/svg+xml', avif: 'image/avif' };
+  const IMAGE_EXTS = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tif', 'tiff', 'ico', 'svg', 'avif', 'heic', 'heif', 'hif', 'jp2', 'j2k', 'jpc', 'jpx', 'j2c']);
+  const MIME = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', webp: 'image/webp', bmp: 'image/bmp', tif: 'image/tiff', tiff: 'image/tiff', ico: 'image/x-icon', svg: 'image/svg+xml', avif: 'image/avif', heic: 'image/heic', heif: 'image/heif', hif: 'image/heif', jp2: 'image/jp2', j2k: 'image/jp2', jpc: 'image/jp2', jpx: 'image/jpx', j2c: 'image/jp2' };
   const EXPORT_MIME = { png: 'image/png', jpeg: 'image/jpeg', webp: 'image/webp', bmp: 'image/bmp', tiff: 'image/tiff', gif: 'image/gif' };
   const EXPORT_EXT = { png: 'png', jpeg: 'jpg', webp: 'webp', bmp: 'bmp', tiff: 'tif', gif: 'gif' };
   const EXTRA_PRESETS = [{ id: 'abdomen', wc: 40, ww: 400 }, { id: 'spine', wc: 50, ww: 250 }, { id: 'angio', wc: 300, ww: 600 }];
@@ -246,7 +246,7 @@
     document.body.classList.toggle('has-file', !!S.file);
     document.body.classList.toggle('has-dicom', !!img);
     document.body.classList.toggle('has-gray', !!(img && img.gray && !img.palette));
-    document.body.classList.toggle('multi-frame', !!(img && img.frames > 1));
+    document.body.classList.toggle('multi-frame', frameCount() > 1);
     document.body.classList.toggle('has-series', S.series.files.length > 1);
     $('playBtn').textContent = S.cine ? '❚❚' : '▶';
     $('colormapSelect').value = st ? st.colormap : 'gray';
@@ -621,7 +621,18 @@
     updateFrameBar();
   }
 
-  async function openImage(path, name, bytes, ext) {
+  /* Decode a general image (page = TIFF page) to a canvas: TIFF / HEIF / JPEG 2000 through ImageFormats, the rest natively. */
+  async function decodeImageCanvas(bytes, ext, page = 0) {
+    const IF = window.ImageFormats;
+    if (IF && IF.EXTS.has(ext)) {
+      const r = await IF.decode(bytes, ext, { page });
+      const c = document.createElement('canvas');
+      c.width = r.width; c.height = r.height;
+      const id = c.getContext('2d').createImageData(r.width, r.height);
+      id.data.set(r.rgba);
+      c.getContext('2d').putImageData(id, 0, 0);
+      return { canvas: c, pages: r.pages || 1 };
+    }
     const blob = new Blob([bytes], { type: MIME[ext] || 'application/octet-stream' });
     let bitmap;
     try { bitmap = await createImageBitmap(blob); }
@@ -630,8 +641,13 @@
     c.width = bitmap.width; c.height = bitmap.height;
     c.getContext('2d').drawImage(bitmap, 0, 0);
     if (bitmap.close) bitmap.close();
+    return { canvas: c, pages: 1 };
+  }
+
+  async function openImage(path, name, bytes, ext) {
+    const { canvas: c, pages } = await decodeImageCanvas(bytes, ext, 0);
     if (S.file && S.file.image && S.file.image.release) S.file.image.release();
-    S.file = { path, name, size: bytes.length, kind: 'image', bitmapCanvas: c, ext };
+    S.file = { path, name, size: bytes.length, kind: 'image', bitmapCanvas: c, ext, pages, bytes: pages > 1 ? bytes : null };
     S.frame = 0;
     viewer.annotations = [];
     await renderImage(true);
@@ -727,13 +743,25 @@
   }
 
   /* ══════════════ Frames / cine ══════════════ */
-  function frameCount() { const img = S.file && S.file.kind === 'dicom' ? S.file.image : null; return img ? img.frames : 1; }
-  function setFrame(i) {
+  function frameCount() {
+    if (!S.file) return 1;
+    if (S.file.kind === 'dicom') return S.file.image.frames;
+    return S.file.pages || 1;
+  }
+  async function setFrame(i) {
     const n = frameCount();
     if (n <= 1) return;
     i = Math.max(0, Math.min(n - 1, i));
     if (i === S.frame) return;
-    renderDicom({ frame: i });
+    if (S.file.kind === 'image') {   // multi-page TIFF: decode the page on demand
+      const f = S.file;
+      S.frame = i;
+      const { canvas } = await decodeImageCanvas(f.bytes, f.ext, i);
+      if (S.file !== f) return;
+      f.bitmapCanvas = canvas;
+      await renderImage(false);
+      renderInfo();
+    } else renderDicom({ frame: i });
     updateFrameBar();
   }
   function stepFrame(d) {
@@ -815,10 +843,11 @@
     if (!dir) return;
     const names = tree.files();
     if (!names.length) { toast(t('series.none')); return; }
-    showLoading(t('series.scanning', { done: 0, total: names.length }));
+    Progress.start(t('series.load'));
     const items = [];
     try {
       for (let i = 0; i < names.length; i++) {
+        if (Progress.cancelled) break;
         const p = names[i];
         try {
           const head = new Uint8Array(await P.readFileHead(p, 4096));
@@ -827,9 +856,9 @@
           const h = await D.scanHeader(bytes);
           items.push({ path: p, name: P.basename(p), ...h });
         } catch { /* not a DICOM */ }
-        if (i % 5 === 0) $('loadingText').textContent = t('series.scanning', { done: i + 1, total: names.length });
+        Progress.update(i + 1, names.length, P.basename(p));
       }
-    } finally { hideLoading(); }
+    } finally { Progress.finish(); }
     if (!items.length) { toast(t('series.none')); return; }
     const groups = new Map();
     for (const it of items) {
@@ -1060,6 +1089,7 @@
     } else {
       add(t('meta.format'), (f.ext || '').toUpperCase());
       add(t('meta.dimensions'), `${f.bitmapCanvas.width} × ${f.bitmapCanvas.height}`);
+      if (f.pages > 1) add(t('meta.frames'), `${S.frame + 1} / ${f.pages}`);
     }
     el.append(dl);
   }
@@ -1188,29 +1218,31 @@
     const img = S.file && S.file.kind === 'dicom' ? S.file.image : null;
     if (!img) { toast(t('export.notDicom')); return; }
     if (img.frames < 2) { toast(t('export.singleFrame')); return; }
-    showLoading();
+    Progress.start(t('file.exportAllFrames'));
     try {
       const files = [];
       for (let i = 0; i < img.frames; i++) {
-        $('loadingText').textContent = `${i + 1} / ${img.frames}`;
+        if (Progress.cancelled) return;
+        Progress.update(i, img.frames, t('status.frame', { n: i + 1, total: img.frames }));
         const c = await renderFrameCanvas(img, i, true);
         files.push({ name: `${stem()}_${t('export.frameSuffix')}${String(i + 1).padStart(3, '0')}.png`, data: await encodeCanvas(c, 'png') });
       }
       const name = `${stem()}_frames.zip`;
       const saved = await P.saveFile({ name, bytes: E.zip(files), mime: 'application/zip', filters: [{ name: 'ZIP', extensions: ['zip'] }] });
       if (saved) toast(t('export.zipDone', { n: files.length, name: P.basename(saved) }));
-    } finally { hideLoading(); await renderDicom({ frame: S.frame }); }
+    } finally { Progress.finish(); await renderDicom({ frame: S.frame }); }
   }
 
   async function exportAnimatedGif() {
     const img = S.file && S.file.kind === 'dicom' ? S.file.image : null;
     if (!img) { toast(t('export.notDicom')); return; }
     if (img.frames < 2) { toast(t('export.singleFrame')); return; }
-    showLoading();
+    Progress.start(t('file.exportGifAnimated'));
     try {
       const frames = [];
       for (let i = 0; i < img.frames; i++) {
-        $('loadingText').textContent = `${i + 1} / ${img.frames}`;
+        if (Progress.cancelled) return;
+        Progress.update(i, img.frames, t('status.frame', { n: i + 1, total: img.frames }));
         const c = await renderFrameCanvas(img, i, true);
         frames.push(c.getContext('2d').getImageData(0, 0, c.width, c.height).data);
       }
@@ -1218,7 +1250,7 @@
       const name = `${stem()}_cine.gif`;
       const saved = await P.saveFile({ name, bytes, mime: 'image/gif', filters: [{ name: 'GIF', extensions: ['gif'] }] });
       if (saved) toast(t('export.done', { name: P.basename(saved) }));
-    } finally { hideLoading(); await renderDicom({ frame: S.frame }); }
+    } finally { Progress.finish(); await renderDicom({ frame: S.frame }); }
   }
 
   async function exportTags(format) {
@@ -1239,17 +1271,21 @@
     toast(t('msg.copied'));
   }
 
+  /* Print: a preview popup; "Print" goes straight to the system default printer, "System dialog…" lets the user pick. */
   async function printImage() {
     const canvas = currentCanvas();
     if (!canvas) { toast(t('export.noImage')); return; }
     const img = S.file.kind === 'dicom' ? S.file.image : null;
     const m = img ? img.meta : {};
-    const rows = img ? ['patientName', 'patientId', 'modality', 'studyDate', 'studyDescription', 'seriesDescription', 'institution'].filter((k) => m[k]).map((k) => `<tr><th>${esc(t(`meta.${k}`))}</th><td>${esc(m[k])}</td></tr>`).join('') : '';
-    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${esc(S.file.name)}</title>
-      <style>body{font-family:Segoe UI,system-ui,sans-serif;margin:16px;color:#000}h1{font-size:16px;margin:0 0 8px}table{border-collapse:collapse;font-size:12px;margin-bottom:12px}th{text-align:left;padding:2px 12px 2px 0;color:#444}td{padding:2px 0}img{max-width:100%;max-height:85vh;display:block}@page{margin:12mm}</style></head>
-      <body><h1>${esc(S.file.name)}</h1>${rows ? `<table>${rows}</table>` : ''}<img src="${canvas.toDataURL('image/png')}"></body></html>`;
-    const r = await P.print(html);
-    if (r && r.ok === false && r.reason && r.reason !== 'cancelled') toast(t('msg.printFailed', { reason: r.reason }), true);
+    const info = img ? ['patientName', 'patientId', 'modality', 'studyDate', 'studyDescription', 'seriesDescription', 'institution'].filter((k) => m[k]).map((k) => [t(`meta.${k}`), m[k]]) : [[t('meta.dimensions'), `${canvas.width} × ${canvas.height}`]];
+    if (img && img.gray && !img.palette) info.push([t('meta.window'), `W ${fmt(img.state.ww)} / L ${fmt(img.state.wc)}`]);
+    const dataUrl = canvas.toDataURL(canvas.width * canvas.height > 4e6 ? 'image/jpeg' : 'image/png', 0.92);
+    Dlg.open('print', { dataUrl, name: S.file.name, info }, async (event, data) => {
+      if (event !== 'print') return;
+      const r = await P.print(data.html, { silent: data.silent, landscape: data.landscape, paper: data.paper, copies: data.copies });
+      if (r && r.ok === false && r.reason && r.reason !== 'cancelled') toast(t('msg.printFailed', { reason: r.reason }), true);
+      else if (data.silent) toast(t('print.sent'));
+    });
   }
 
   /* ══════════════ Tree operations ══════════════ */
@@ -1370,6 +1406,25 @@
     dispatch({ kind, event, data }) { const h = this.handlers.get(kind); if (h) h(event, data); },
   };
 
+  /* Long operations show a progress popup (bar + %), optionally cancellable. */
+  const Progress = {
+    last: null, cancelled: false, open: false,
+    start(title, { cancellable = true } = {}) {
+      this.cancelled = false; this.open = true;
+      this.last = { title, done: 0, total: 0, text: '', cancellable };
+      Dlg.open('progress', this.last, (event) => {
+        if (event === 'ready') Dlg.send('progress', 'update', this.last);
+        if (event === 'cancel' || (event === 'closed' && this.open)) this.cancelled = true;
+      });
+    },
+    update(done, total, text) {
+      if (!this.open) return;
+      this.last = { ...this.last, done, total, text: text || '' };
+      Dlg.send('progress', 'update', this.last);
+    },
+    finish() { if (!this.open) return; this.open = false; Dlg.close('progress'); },
+  };
+
   function showError(err, title, detail) {
     console.error(err);
     const message = title || (err && err.message) || String(err);
@@ -1475,12 +1530,13 @@
     const chunks = [];
     rec.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
     const finished = new Promise((r) => { rec.onstop = r; });
-    showLoading();
+    Progress.start(t('file.exportWebm'));
     try {
       rec.start();
       const n = frames > 1 ? frames : stackFiles;
       for (let i = 0; i < n; i++) {
-        $('loadingText').textContent = `${i + 1} / ${n}`;
+        if (Progress.cancelled) break;
+        Progress.update(i, n, t('status.frame', { n: i + 1, total: n }));
         let c;
         if (frames > 1) c = await renderFrameCanvas(img, i, true);
         else {
@@ -1500,7 +1556,7 @@
       const bytes = new Uint8Array(await blob.arrayBuffer());
       const saved = await P.saveFile({ name: `${stem()}_cine.webm`, bytes, mime: 'video/webm', filters: [{ name: 'WebM', extensions: ['webm'] }] });
       if (saved) toast(t('export.done', { name: P.basename(saved) }));
-    } finally { hideLoading(); if (frames > 1) await renderDicom({ frame: S.frame }); }
+    } finally { Progress.finish(); if (frames > 1) await renderDicom({ frame: S.frame }); }
   }
 
   /* ══════════════ Settings (applied from the dialog) ══════════════ */
@@ -1611,6 +1667,6 @@
     }
   };
 
-  window.App = { state: S, get viewer() { return viewer; }, get tree() { return tree; }, openPath, runAction, renderDicom, setTool };
+  window.App = { state: S, get viewer() { return viewer; }, get tree() { return tree; }, openPath, runAction, renderDicom, setTool, Progress, Dlg };
   document.addEventListener('DOMContentLoaded', () => { init().catch((err) => showError(err)); });
 })();

@@ -34,7 +34,8 @@
   api.onPopupInit(({ payload, theme, lang }) => {
     window.Themes.apply(theme || 'midnight');
     window.I18n.setLang(lang || 'ko');
-    document.title = window.I18n.t(`popup.${kind}`) !== `popup.${kind}` ? window.I18n.t(`popup.${kind}`) : 'DCM Viewer';
+    const name = window.I18n.t(`popup.${kind}`) !== `popup.${kind}` ? window.I18n.t(`popup.${kind}`) : (payload && payload.title) || '';
+    document.title = name ? `${name} — DCM Viewer` : 'DCM Viewer';
     box.innerHTML = '';
     window.Dialogs.render(kind, box, payload, ctx);
     window.Icons.decorate(box);

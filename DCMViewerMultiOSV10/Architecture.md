@@ -19,7 +19,7 @@ DCM Viewer는 **하나의 렌더러 코드**(`src/`)를 두 가지 호스트에�
 │   ├─ fileTree.js    폴더 트리                                                │
 │   ├─ dialogs.js     대화상자 내용 (about/settings/batch/error/…/mpr/anonymize)│
 │   ├─ dicomDecoder.js 파서·코덱·LUT·렌더·통계·헤더 스캔                        │
-│   ├─ encoders.js    BMP/TIFF/GIF/ZIP                                        │
+│   ├─ encoders.js    BMP/TIFF/GIF/ZIP · imageFormats.js TIFF/HEIF/JP2 디코더  │
 │   ├─ themes.js · icons.js · i18n.js (+ i18n/ko.js, en.js)                   │
 │   └─ platform.js ───────────────┬───────────────────────────────┐          │
 └─────────────────────────────────┼───────────────────────────────┼──────────┘
@@ -57,6 +57,9 @@ ImageViewerMutlOSV20의 디코더를 가져와 확장했습니다(UMD: Node 테�
 - 분석: `valueAt`, `stats(region)`, `histogram`, `dirLabel`(방향 표시), `valuesOf(frame)`(볼륨 구성용 Float32), `samplesOf`(16-bit TIFF)
 - 추가 API: `isDicom(bytes)`, `scanHeader(bytes)`(픽셀 데이터 전까지만 파싱 → 시리즈 정렬 키), `sortSeries`, `parseRaw`(오프셋 유지 파싱 → 익명화 덮어쓰기), `tagsToText(tags, txt|json|csv)`
 
+### `src/js/imageFormats.js`
+브라우저가 열지 못하는 이미지의 디코더: TIFF(UTIF.js + pako, 다중 페이지·16-bit), HEIF/HEIC(libheif wasm 번들), JPEG 2000 파일(.jp2 컨테이너에서 `jp2c` 코드스트림 추출 → DICOM과 같은 OpenJPEG 코덱). 모듈은 `DicomDecoder.vendor()`로 처음 필요할 때 로드됩니다. `app.js`의 `decodeImageCanvas`가 확장자에 따라 이 모듈 또는 `createImageBitmap`을 사용하고, 다중 페이지 TIFF는 프레임 바로 페이지를 넘깁니다.
+
 ### `src/js/encoders.js`
 의존성 없는 인코더: 24-bit BMP, TIFF(8-bit RGB / 16-bit 회색, 해상도 태그), GIF(≤256색은 정확한 팔레트, 그 이상은 median-cut, LZW), 애니메이션 GIF(NETSCAPE 루프), ZIP(store, CRC32). PNG/JPEG/WebP는 `canvas.toBlob`.
 
@@ -71,6 +74,8 @@ ImageViewerMutlOSV20의 디코더를 가져와 확장했습니다(UMD: Node 테�
 - 상태 `S`: 현재 파일(`kind: dicom | dicom-meta | image`), 프레임, 렌더된 프레임 캔버스, 설정, 도구, 시네 타이머, 시리즈(파일 목록·정렬 여부·그룹)
 - 렌더링 파이프라인: `openFile` → 바이트 읽기 → DICOM 판별 → `DicomDecoder.load` → `renderDicom(opts)` → 프레임 캔버스 → `viewer.setSource` → 모서리 정보·상태·히스토그램·측정 라벨 갱신. 렌더 토큰으로 뒤늦은 결과를 버림
 - 시리즈: 폴더의 파일 목록(이름순) 또는 `scanSeries()`로 정렬된 스택. 스택 이동 시 `openFileKeepView`가 W/L·배율·이동을 유지
+- 진행률 `Progress`(start/update/finish): 오래 걸리는 작업이 `progress` 팝업(막대·%·취소)을 띄우고 `Dlg.send`로 갱신. 팝업이 준비되면 `ready` 이벤트로 마지막 상태를 다시 보냄
+- 인쇄: `print` 팝업이 iframe 미리보기(용지·방향·머리글)를 보여 주고, `print` 이벤트로 HTML을 넘기면 `main.js`가 숨은 창에서 `webContents.print({ silent })` — silent = 시스템 기본 프린터
 - 대화상자 파사드 `Dlg`: Electron이면 `electronAPI.popupOpen`, 웹이면 `#modalHost`에 `Dialogs.render`. 이벤트는 kind별 핸들러로 전달(`setting`, `reset`, `done`, `result`, `run`, `closed`). 테마/언어 변경은 `Dlg.broadcast`로 모든 팝업에 전파
 - 고급 기능: `openMpr`(정렬된 시리즈 파일 목록 또는 다중 프레임 경로를 payload로 전달 — 팝업이 직접 파일을 읽어 볼륨 구성), `anonymizeAndSave`(`parseRaw` 오프셋에 같은 길이로 덮어쓰기), `exportWebm`(`canvas.captureStream` + `MediaRecorder`)
 - 설정: `DEFAULTS` + `Platform.settings`, `applySetting(key, value)`가 즉시 반영, `resetSettings`
@@ -111,6 +116,9 @@ tree click / drop / open-path
 - `test/decoder.test.js` — `samples/*.dcm` 전부 디코딩, 렌더, 통계, 히스토그램, 헤더 스캔, 태그 내보내기
 - `test/encoders.test.js` — BMP/TIFF 헤더, GIF LZW 라운드트립(자체 디코더), 애니메이션 GIF, ZIP 구조, 양자화
 - `test/synthetic.test.js` + `test/helpers/makeDicom.js` — 합성 CT 시리즈(구 팬텀)·다중 프레임 작성기: 정렬, HU 값, `parseRaw` 제자리 편집
+- `test/imageFormats.test.js` — TIFF 라운드트립(RGB·16-bit), JP2 박스 파싱, libheif 로드
+- `test/ui-modules.test.js` + `test/helpers/dom.js` — 가짜 window로 렌더러 모듈 로드: 테마 20종, ko/en 키 동일성과 HTML의 i18n 키, data-icon 아이콘 존재, 대화상자 레지스트리, 웹 가상 파일 시스템, 툴바 아이콘 전용, package.json 일관성
+- `test/reporter.js` — node:test 커스텀 리포터: 파일별 ✔/✘ 목록, 실패 상세, 요약 표(`npm run test:tap`은 기본 TAP)
 
 UI는 Electron을 `--remote-debugging-port`로 띄워 CDP로 조작·스크린샷하는 방식으로 검증했습니다(팝업 창은 별도 페이지 타깃).
 

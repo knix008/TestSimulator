@@ -225,6 +225,10 @@
     jpeg8:    { node: '@cornerstonejs/codec-libjpeg-turbo-8bit/decode', browser: '@cornerstonejs/codec-libjpeg-turbo-8bit/dist/libjpegturbojs_decode.js', global: 'libjpegturbojs_decode', factory: true },
     jpeg12:   { node: '@cornerstonejs/codec-libjpeg-turbo-12bit', browser: '@cornerstonejs/codec-libjpeg-turbo-12bit/dist/libjpegturbo12js.js', global: 'libjpegturbo12js', factory: true },
     lossless: { node: 'jpeg-lossless-decoder-js', browser: 'jpeg-lossless-decoder-js/release/cjs/lossless.cjs', cjs: true },
+    // general image formats (see imageFormats.js)
+    pako:     { node: 'pako', browser: 'pako/dist/pako.min.js', global: 'pako' },
+    utif:     { node: 'utif', browser: 'utif/UTIF.js', global: 'UTIF' },
+    libheif:  { node: 'libheif-js/libheif-wasm/libheif-bundle.js', browser: 'libheif-js/libheif-wasm/libheif-bundle.js', global: 'libheif', factory: true },
   };
   const vendorCache = {};
   let vendorBase = null;
@@ -276,6 +280,7 @@
         }
         if (!mod) throw new Error(`Vendor module ${kind} did not load`);
         if (v.factory) mod = await mod({ print() {}, printErr() {} });
+        if (mod && mod.ready && typeof mod.ready.then === 'function') await mod.ready;
         return mod;
       })().catch((err) => { delete vendorCache[kind]; throw err; });
     }
@@ -1591,5 +1596,5 @@
     }
   }
 
-  return { load, decode, decodeToDisplay, preload, setVendorBase, isDicom, scanHeader, parseRaw, sortSeries, tagsToText, colormap, TS, TS_NAME, CT_PRESETS, COLORMAP_IDS, DICT };
+  return { load, decode, decodeToDisplay, preload, vendor, setVendorBase, isDicom, scanHeader, parseRaw, sortSeries, tagsToText, colormap, TS, TS_NAME, CT_PRESETS, COLORMAP_IDS, DICT };
 });

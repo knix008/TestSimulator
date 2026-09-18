@@ -42,7 +42,7 @@ window.I18N_DATA.en = {
 
   "about.text": "A cross-platform DICOM viewer for Web, Windows, macOS and Linux. Reads uncompressed, RLE, JPEG, JPEG-LS and JPEG 2000 DICOM images with window / level, VOI LUTs, colour maps, overlays, cine, series stacks, measurements, a tag browser, export and batch conversion.",
   "about.version": "Version", "about.platform": "Platform", "about.runtime": "Runtime", "about.formats": "Formats",
-  "about.formatsList": "DICOM (.dcm, .dicm, .dicom) · JPEG · PNG · GIF · WebP · BMP · TIFF · ICO · SVG",
+  "about.formatsList": "DICOM (.dcm, .dicm, .dicom) · JPEG · PNG · GIF · WebP · AVIF · BMP · ICO · SVG · TIFF (multi-page) · HEIF / HEIC · JPEG 2000 (.jp2 / .j2k)",
 
   "dlg.close": "Close", "dlg.ok": "OK", "dlg.cancel": "Cancel", "dlg.copy": "Copy", "dlg.errorTitle": "Error",
 
@@ -88,7 +88,7 @@ window.I18N_DATA.en = {
   "settings.startupDirHint": "(last folder / Pictures)", "settings.confirmDelete": "Confirm before moving files to the trash",
 
   "tools.mpr": "MPR / MIP volume view…", "tools.anonymize": "Save anonymised copy…", "file.exportWebm": "Cine video (WebM)…", "view.languageToggle": "Switch language (한국어 / English)", "sc.settings": "Settings",
-  "popup.about": "About DCM Viewer", "popup.settings": "Settings", "popup.batch": "Batch convert", "popup.error": "Error", "popup.shortcuts": "Keyboard shortcuts", "popup.mpr": "MPR / MIP", "popup.anonymize": "Anonymise", "popup.prompt": "Input",
+  "popup.progress": "Working…", "popup.print": "Print", "print.title": "Print preview", "print.orientation": "Orientation", "print.portrait": "Portrait", "print.landscape": "Landscape", "print.paper": "Paper", "print.options": "Options", "print.header": "File / patient header", "print.footer": "Footer (program · date)", "print.center": "Centre image vertically", "print.fit": "Fit to page", "print.copies": "Copies", "print.hint": "Print sends the page straight to the system default printer. Use 'Choose printer…' for another printer or detailed settings.", "print.now": "Print", "print.system": "Choose printer…", "print.sent": "Sent to the default printer.", "popup.about": "About DCM Viewer", "popup.settings": "Settings", "popup.batch": "Batch convert", "popup.error": "Error", "popup.shortcuts": "Keyboard shortcuts", "popup.mpr": "MPR / MIP", "popup.anonymize": "Anonymise", "popup.prompt": "Input",
   "mpr.title": "MPR / MIP volume view", "mpr.mode": "Mode", "mpr.avg": "Average", "mpr.slab": "Slab", "mpr.crosshair": "Crosshair", "mpr.export": "Export views (PNG)",
   "mpr.axial": "Axial", "mpr.coronal": "Coronal", "mpr.sagittal": "Sagittal", "mpr.loading": "Loading slice {done} / {total}…", "mpr.noSlices": "No slices to reconstruct.",
   "mpr.notGray": "MPR needs greyscale slices.", "mpr.sizeMismatch": "All slices must have the same size.", "mpr.needSeries": "Sort the folder as a DICOM series first (Cine → Sort folder), or open a multi-frame file.",

@@ -344,3 +344,15 @@ body.popup-page { background: var(--panel-bg); overflow: hidden; }
 .menubar { min-width: 0; }
 
 .zoom-label { min-width: 48px; justify-content: center; font-variant-numeric: tabular-nums; font-size: 12px; padding: 0 4px; }
+
+/* progress dialog */
+.progress-dialog .progress { margin-top: 4px; height: 30px; }
+.progress-dialog .pg-detail { margin-top: 8px; color: var(--text-dim); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 420px; }
+/* print dialog */
+.print-layout { display: grid; grid-template-columns: 1fr 300px; gap: 16px; }
+.print-preview { background: #555; border: 1px solid var(--border); border-radius: 6px; padding: 14px; display: flex; align-items: center; justify-content: center; height: 520px; }
+.print-preview iframe { background: #fff; border: 0; width: 360px; height: 509px; box-shadow: 0 6px 18px rgba(0,0,0,0.5); }
+.print-preview.landscape iframe { width: 509px; height: 360px; }
+.print-options .form-row { grid-template-columns: 90px 1fr; }
+.print-options select { background: var(--panel-bg2); border: 1px solid var(--border); border-radius: 6px; padding: 5px 8px; color: var(--text); }
+.print-options input[type=number] { background: var(--panel-bg2); border: 1px solid var(--border); border-radius: 6px; padding: 5px 8px; color: var(--text); }

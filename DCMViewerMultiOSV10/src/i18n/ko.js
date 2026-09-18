@@ -42,7 +42,7 @@ window.I18N_DATA.ko = {
 
   "about.text": "Web, Windows, macOS, Linux에서 동작하는 DICOM 뷰어입니다. 비압축·RLE·JPEG·JPEG-LS·JPEG 2000 DICOM 이미지를 읽고 윈도우/레벨, VOI LUT, 컬러맵, 오버레이, 시네 재생, 시리즈 스택, 측정, 태그 브라우저, 내보내기와 일괄 변환을 지원합니다.",
   "about.version": "버전", "about.platform": "플랫폼", "about.runtime": "런타임", "about.formats": "지원 형식",
-  "about.formatsList": "DICOM (.dcm, .dicm, .dicom) · JPEG · PNG · GIF · WebP · BMP · TIFF · ICO · SVG",
+  "about.formatsList": "DICOM (.dcm, .dicm, .dicom) · JPEG · PNG · GIF · WebP · AVIF · BMP · ICO · SVG · TIFF (multi-page) · HEIF / HEIC · JPEG 2000 (.jp2 / .j2k)",
 
   "dlg.close": "닫기", "dlg.ok": "확인", "dlg.cancel": "취소", "dlg.copy": "복사", "dlg.errorTitle": "오류",
 
@@ -88,7 +88,7 @@ window.I18N_DATA.ko = {
   "settings.startupDirHint": "(마지막 폴더 / 사진)", "settings.confirmDelete": "휴지통으로 이동하기 전에 확인",
 
   "tools.mpr": "MPR / MIP 볼륨 보기…", "tools.anonymize": "익명화 사본 저장…", "file.exportWebm": "시네 동영상 (WebM)…", "view.languageToggle": "언어 전환 (한국어 / English)", "sc.settings": "설정",
-  "popup.about": "DCM Viewer 정보", "popup.settings": "프로그램 설정", "popup.batch": "일괄 변환", "popup.error": "오류", "popup.shortcuts": "키보드 단축키", "popup.mpr": "MPR / MIP", "popup.anonymize": "익명화", "popup.prompt": "입력",
+  "popup.progress": "진행 중", "popup.print": "인쇄", "print.title": "인쇄 미리보기", "print.orientation": "방향", "print.portrait": "세로", "print.landscape": "가로", "print.paper": "용지", "print.options": "옵션", "print.header": "파일·환자 정보 머리글", "print.footer": "바닥글 (프로그램·날짜)", "print.center": "이미지 세로 가운데", "print.fit": "페이지에 맞춤", "print.copies": "매수", "print.hint": "인쇄 버튼은 시스템 기본 프린터로 바로 인쇄합니다. 다른 프린터나 세부 설정은 '프린터 선택…'을 사용하세요.", "print.now": "인쇄", "print.system": "프린터 선택…", "print.sent": "기본 프린터로 인쇄를 보냈습니다.", "popup.about": "DCM Viewer 정보", "popup.settings": "프로그램 설정", "popup.batch": "일괄 변환", "popup.error": "오류", "popup.shortcuts": "키보드 단축키", "popup.mpr": "MPR / MIP", "popup.anonymize": "익명화", "popup.prompt": "입력",
   "mpr.title": "MPR / MIP 볼륨 보기", "mpr.mode": "모드", "mpr.avg": "평균", "mpr.slab": "슬랩 두께", "mpr.crosshair": "십자선", "mpr.export": "3면 내보내기 (PNG)",
   "mpr.axial": "축상면 (Axial)", "mpr.coronal": "관상면 (Coronal)", "mpr.sagittal": "시상면 (Sagittal)", "mpr.loading": "슬라이스 읽는 중 {done} / {total}…", "mpr.noSlices": "재구성할 슬라이스가 없습니다.",
   "mpr.notGray": "MPR은 회색조 슬라이스가 필요합니다.", "mpr.sizeMismatch": "모든 슬라이스의 크기가 같아야 합니다.", "mpr.needSeries": "먼저 폴더를 DICOM 시리즈로 정렬(시네 → 시리즈로 정렬)하거나 다중 프레임 파일을 여세요.",

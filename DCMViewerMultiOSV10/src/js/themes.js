@@ -50,7 +50,7 @@ window.Themes = (function () {
   ];
   const byId = new Map(THEMES.map((th) => [th.id, th]));
 
-  function get(id) { return byId.get(id) || (id === 'dark' ? byId.get('midnight') : byId.get('light')) || THEMES[0]; }
+  function get(id) { return byId.get(id) || (id === 'light' ? byId.get('light') : byId.get('midnight')) || THEMES[0]; }
 
   function apply(id) {
     const th = get(id);
