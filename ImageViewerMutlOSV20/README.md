@@ -72,8 +72,9 @@ A multi-platform image viewer and editor built with **Electron** and vanilla Jav
   - Fullscreen (`F11`)
 
 - **UI**
-  - Dark / Light theme
-  - Korean / English — language button shows the language you can switch **to** (`English` / `한글`)
+  - 20 themes (10 dark, 10 light) — palette button steps to the next one, ▾ opens the full list
+  - Korean / English — language button shows the flag of the language you can switch **to**
+  - Settings dialog (gear button): theme, language, background-removal algorithm, subtitles
   - Toolbar, context menus, custom app icon (`src/assets`)
 
 - **Installer / 설치**

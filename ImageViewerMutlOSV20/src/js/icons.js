@@ -56,6 +56,26 @@ window.Icons = {
   bgRemove: `<svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" opacity=".5"/><path d="M21 3H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 2v.93l-7 7-2.29-2.29 5.08-5.64H21zm-11.71 6L7 8.71V5h7.62l-5.33 6zM3 19v-5.34l3.66 3.66L3 19zm1.41 0L19 4.41V5H5.41L4.41 5 3 6.41V5H4.41z" opacity=".3"/><path d="M3 5h2v2H3zm16 0h2v2h-2zM3 17h2v2H3zm16 0h2v2h-2z"/></svg>`,
   cut: `<svg viewBox="0 0 24 24"><path d="M9.64 7.64c.23-.5.36-1.05.36-1.64C10 4.01 8.99 3 7.5 3S5 4.01 5 5.5 6.01 8 7.5 8c.59 0 1.14-.13 1.64-.36L11 9.94 9.15 11.79A3.504 3.504 0 0 0 7.5 11.5C6.01 11.5 5 12.51 5 14s1.01 2.5 2.5 2.5S10 15.49 10 14c0-.59-.13-1.14-.36-1.64L11.5 11l6.5 6.5H21l-7.36-7.36 1.5-1.5L18.5 12H21l-4-4 2.64-2.64C18.86 4.86 18.31 4.5 17.72 4.5c-.49 0-.91.22-1.21.56L15 6.59 13.5 5.09C13.22 4.73 12.79 4.5 12.28 4.5c-.59 0-1.14.13-1.64.36L9.06 6.44 9.64 7.64z"/></svg>`,
   crop: `<svg viewBox="0 0 24 24"><path d="M7 1H5v4H1v2h4v10a2 2 0 0 0 2 2h10v4h2v-4h4v-2H7zM17 15h2V7a2 2 0 0 0-2-2H9v2h8z"/></svg>`,
+  palette: `<svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 0 0 0 18c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01a1.49 1.49 0 0 1 1.11-2.49H16a5 5 0 0 0 5-5c0-4.42-4.03-8-9-8zm-5.5 9a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm3-4a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm3 4a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z"/></svg>`,
+  settings: `<svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>`,
+  caretDown: `<svg viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z"/></svg>`,
+  warning: `<svg viewBox="0 0 24 24"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>`,
+  /* Flags (language switch). Drawn with fills only so the toolbar's currentColor
+     stroke rules cannot recolour them. 3:2 aspect. */
+  flagKo: `<svg viewBox="0 0 36 24" class="flag-icon"><rect width="36" height="24" fill="#fff"/>`
+    + `<g transform="translate(18 12) rotate(-56.3)"><circle r="6" fill="#cd2e3a"/><path fill="#0047a0" d="M0-6A3 3 0 0 0 0 0A3 3 0 0 1 0 6A6 6 0 0 1 0-6Z"/>`
+    + `<g fill="#000"><rect x="-3" y="-13.2" width="6" height="1.1"/><rect x="-3" y="-11.55" width="6" height="1.1"/><rect x="-3" y="-9.9" width="6" height="1.1"/>`
+    + `<rect x="-3" y="8.8" width="2.4" height="1.1"/><rect x=".6" y="8.8" width="2.4" height="1.1"/><rect x="-3" y="10.45" width="2.4" height="1.1"/><rect x=".6" y="10.45" width="2.4" height="1.1"/><rect x="-3" y="12.1" width="2.4" height="1.1"/><rect x=".6" y="12.1" width="2.4" height="1.1"/></g></g>`
+    + `<g transform="translate(18 12) rotate(56.3)" fill="#000"><rect x="-3" y="-13.2" width="2.4" height="1.1"/><rect x=".6" y="-13.2" width="2.4" height="1.1"/><rect x="-3" y="-11.55" width="6" height="1.1"/><rect x="-3" y="-9.9" width="2.4" height="1.1"/><rect x=".6" y="-9.9" width="2.4" height="1.1"/>`
+    + `<rect x="-3" y="8.8" width="6" height="1.1"/><rect x="-3" y="10.45" width="2.4" height="1.1"/><rect x=".6" y="10.45" width="2.4" height="1.1"/><rect x="-3" y="12.1" width="6" height="1.1"/></g></svg>`,
+  flagUs: `<svg viewBox="0 0 36 24" class="flag-icon"><rect width="36" height="24" fill="#fff"/>`
+    + `<path fill="#b22234" d="M0 0h36v1.85H0zM0 3.69h36v1.85H0zM0 7.38h36v1.85H0zM0 11.08h36v1.84H0zM0 14.77h36v1.85H0zM0 18.46h36v1.85H0zM0 22.15h36V24H0z"/>`
+    + `<rect width="14.4" height="12.92" fill="#3c3b6e"/>`
+    + `<g fill="#fff"><circle cx="2.4" cy="2.2" r=".6"/><circle cx="5.3" cy="2.2" r=".6"/><circle cx="8.2" cy="2.2" r=".6"/><circle cx="11.1" cy="2.2" r=".6"/>`
+    + `<circle cx="3.85" cy="4.4" r=".6"/><circle cx="6.75" cy="4.4" r=".6"/><circle cx="9.65" cy="4.4" r=".6"/><circle cx="12.55" cy="4.4" r=".6"/>`
+    + `<circle cx="2.4" cy="6.6" r=".6"/><circle cx="5.3" cy="6.6" r=".6"/><circle cx="8.2" cy="6.6" r=".6"/><circle cx="11.1" cy="6.6" r=".6"/>`
+    + `<circle cx="3.85" cy="8.8" r=".6"/><circle cx="6.75" cy="8.8" r=".6"/><circle cx="9.65" cy="8.8" r=".6"/><circle cx="12.55" cy="8.8" r=".6"/>`
+    + `<circle cx="2.4" cy="11" r=".6"/><circle cx="5.3" cy="11" r=".6"/><circle cx="8.2" cy="11" r=".6"/><circle cx="11.1" cy="11" r=".6"/></g></svg>`,
 
   /* ── Format-specific file icons (tree view) ── */
   fmtJpg: `<svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/><path d="M8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>`,

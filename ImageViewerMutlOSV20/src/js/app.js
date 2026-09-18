@@ -3,7 +3,7 @@
   /* ─── State ─── */
   const state = {
     lang:         localStorage.getItem('lang')  || 'en',
-    theme:        localStorage.getItem('theme') || 'dark',
+    theme:        Themes.normalize(localStorage.getItem('theme')),
     currentFile:  null,
     fileList:     [],   // all image/video files in current dir
     fileIndex:    -1,
@@ -70,6 +70,9 @@
   Tooltip.init();
   ContextMenu.init();
   _initErrorDialog();
+  _initSettingsDialog();
+  // Popup title bars: icon + label (static dialogs; the file dialog swaps its own per mode)
+  document.querySelectorAll('.dialog-title-icon[data-icon]').forEach((el) => { el.innerHTML = Icons[el.dataset.icon] || ''; });
 
   /* ─── DOM refs ─── */
   const app              = document.getElementById('app');
@@ -480,8 +483,6 @@
       { id:'btn-undo',        icon:'undo',       tip:'toolbar.undo',       action: () => { _undoEdit(); }, disabled: true },
       { id:'btn-redo',        icon:'redo',       tip:'toolbar.redo',       action: () => { _redoEdit(); }, disabled: true },
       { separator: true },
-      { id:'btn-zoom-in',     icon:'zoomIn',     tip:'toolbar.zoomIn',     action: () => _zoom(1.25), disabled: true },
-      { id:'btn-zoom-out',    icon:'zoomOut',    tip:'toolbar.zoomOut',    action: () => _zoom(0.8),  disabled: true },
       { id:'btn-fit',         icon:'fitWindow',  tip:'toolbar.fitWindow',  action: _fitToWindow,      disabled: true },
       { id:'btn-actual',      icon:'actualSize', tip:'toolbar.actualSize', action: _actualSize,       disabled: true },
       { separator: true },
@@ -495,15 +496,30 @@
       { id:'btn-next',        icon:'next',       tip:'toolbar.next',       action: _nextImage, disabled: true },
       { separator: true },
       { id:'btn-edit',        icon:'edit',       tip:'toolbar.edit',       action: _openEditWindow, disabled: true },
+      { separator: true },
+      // Zoom: [−] [100%] [+] — the percentage box sits between the two buttons
+      { id:'btn-zoom-out',    icon:'zoomOut',    tip:'toolbar.zoomOut',    action: () => _zoom(0.8),  disabled: true },
+      { zoomDisplay: true },
+      { id:'btn-zoom-in',     icon:'zoomIn',     tip:'toolbar.zoomIn',     action: () => _zoom(1.25), disabled: true },
       { spacer: true },
       { id:'btn-info',        icon:'info',       tip:'menu.about',         action: () => _showDialog('about-overlay') },
       { separator: true },
-      { id:'btn-theme',       icon: state.theme === 'dark' ? 'sun' : 'moon', tip:'toolbar.theme', action: _toggleTheme },
+      // Theme: palette = jump to the next theme, ▾ = pick one from the list
+      { id:'btn-theme',       icon:'palette',    tip: _themeButtonTip,     action: _nextTheme },
+      { id:'btn-theme-menu',  icon:'caretDown',  tip:'toolbar.themeMenu',  action: null, caretBtn: true, openMenu: (btn) => _openThemeMenu(btn) },
       { id:'btn-lang',        icon:null,         tip:'toolbar.lang',       action: _toggleLang, langBtn: true },
+      { id:'btn-settings',    icon:'settings',   tip:'toolbar.settings',   action: _openSettings },
     ];
 
     // Keep the zoom input before clearing
-    const zoomWrap = document.getElementById('zoom-input-wrap');
+    const zoomWrap = document.getElementById('zoom-input-wrap') || (() => {
+      const zw = document.createElement('div');
+      zw.id = 'zoom-input-wrap';
+      const zi = document.createElement('input');
+      zi.id = 'zoom-display'; zi.type = 'text'; zi.value = '100%';
+      zw.appendChild(zi);
+      return zw;
+    })();
     toolbar.innerHTML = '';
     for (const b of buttons) {
       if (b.separator) {
@@ -518,6 +534,10 @@
         toolbar.appendChild(sp);
         continue;
       }
+      if (b.zoomDisplay) {
+        toolbar.appendChild(zoomWrap);
+        continue;
+      }
 
       const hit = document.createElement('div');
       hit.className = 'toolbar-hit';
@@ -529,10 +549,18 @@
 
       if (b.langBtn) {
         btn.classList.add('lang-btn');
-        const span = document.createElement('span');
-        span.className = 'lang-text';
-        span.textContent = _langSwitchLabel();
-        btn.appendChild(span);
+        _setLangButtonLabel(btn);
+      } else if (b.caretBtn) {
+        // Dropdown opener: mousedown (not click) so the document-level click that closes menus cannot race us
+        btn.classList.add('caret-btn');
+        btn.innerHTML = Icons[b.icon] || '';
+        btn.setAttribute('aria-haspopup', 'menu');
+        btn.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (btn.classList.contains('is-open')) ContextMenu.hide();
+          else b.openMenu(btn);
+        });
       } else if (b.menuBtn) {
         btn.classList.add('menu-btn');
         btn.innerHTML = Icons[b.icon] || '';
@@ -555,27 +583,16 @@
       }
 
       btn.addEventListener('click', (e) => {
+        if (b.caretBtn) e.stopPropagation();   // keep the document-level "click closes menus" from undoing mousedown
         if (btn.classList.contains('is-disabled') || btn.getAttribute('aria-disabled') === 'true') {
           e.preventDefault();
           return;
         }
-        b.action(e);
+        if (b.action) b.action(e);
       });
-      Tooltip.attach(btn, () => I18n.t(b.tip));
+      Tooltip.attach(btn, typeof b.tip === 'function' ? b.tip : () => I18n.t(b.tip));
       hit.appendChild(btn);
       toolbar.appendChild(hit);
-    }
-
-    // Re-insert zoom display
-    if (zoomWrap) {
-      toolbar.appendChild(zoomWrap);
-    } else {
-      const zw = document.createElement('div');
-      zw.id = 'zoom-input-wrap';
-      const zi = document.createElement('input');
-      zi.id = 'zoom-display'; zi.type = 'text'; zi.value = '100%';
-      zw.appendChild(zi);
-      toolbar.appendChild(zw);
     }
 
     _updateZoomDisplay();
@@ -764,14 +781,37 @@
       ..._dicomContextItems(),
       !_isWeb() && { icon: Icons.fullscreen, label: t('menu.fullscreen'), shortcut: 'F11', action: () => window.electronAPI.toggleFullscreen?.() },
       !_isWeb() && { separator: true },
-      { icon: Icons.moon, label: t('menu.darkTheme'),  checked: state.theme === 'dark',  action: () => _applyTheme('dark') },
-      { icon: Icons.sun,  label: t('menu.lightTheme'), checked: state.theme !== 'dark',  action: () => _applyTheme('light') },
+      { icon: Icons.palette, label: t('menu.theme'), submenu: () => _themeMenuItems() },
       { separator: true },
-      { icon: Icons.language, label: t('menu.language'), submenu: () => [
-        { icon: Icons.language, label: 'English', checked: state.lang === 'en', action: () => _handleMenuAction('lang-en') },
-        { icon: Icons.language, label: '한글',    checked: state.lang === 'ko', action: () => _handleMenuAction('lang-ko') },
-      ] },
+      { icon: Icons.language, label: t('menu.language'), submenu: () => _langMenuItems() },
+      { separator: true },
+      { icon: Icons.settings, label: t('menu.settings'), action: () => _openSettings() },
     ].filter(Boolean);
+  }
+
+  /** Theme picker rows: dark themes, separator, light themes — swatch icon, check on the current one. */
+  function _themeMenuItems() {
+    const t = I18n.t.bind(I18n);
+    const row = (th) => ({
+      icon: Themes.swatchSvg(th.id),
+      label: Themes.label(th.id, t),
+      checked: state.theme === th.id,
+      action: () => _applyTheme(th.id),
+    });
+    return [
+      { icon: Icons.moon, label: t('menu.darkThemes'), disabled: true },
+      ...Themes.ofKind('dark').map(row),
+      { separator: true },
+      { icon: Icons.sun, label: t('menu.lightThemes'), disabled: true },
+      ...Themes.ofKind('light').map(row),
+    ];
+  }
+
+  function _langMenuItems() {
+    return [
+      { icon: Icons.flagUs, label: 'English', checked: state.lang === 'en', action: () => _handleMenuAction('lang-en') },
+      { icon: Icons.flagKo, label: '한국어',  checked: state.lang === 'ko', action: () => _handleMenuAction('lang-ko') },
+    ];
   }
 
   function _effectsMenuItems() {
@@ -974,6 +1014,8 @@
     set('btn-zoom-out', isImage || k === 'video' || state.isAnimated);
     set('btn-fit', isImage || k === 'video' || state.isAnimated);
     set('btn-actual', isImage || state.isAnimated);
+    const zd = document.getElementById('zoom-display');
+    if (zd) zd.disabled = !(isImage || k === 'video' || state.isAnimated);
     set('btn-prev', canPrev);
     set('btn-next', canNext);
 
@@ -4587,10 +4629,24 @@
     });
 
     _syncEditThemeLangBtns();
-    document.getElementById('ew-theme')?.addEventListener('click', () => { _toggleTheme(); });
+    document.getElementById('ew-theme')?.addEventListener('click', () => { _nextTheme(); });
     document.getElementById('ew-lang')?.addEventListener('click', () => { _toggleLang(); });
-    Tooltip.attach(document.getElementById('ew-theme'), () => I18n.t('toolbar.theme'));
+    document.getElementById('ew-settings')?.addEventListener('click', () => { _openSettings(); });
+    const ewThemeMenu = document.getElementById('ew-theme-menu');
+    if (ewThemeMenu) {
+      ewThemeMenu.innerHTML = Icons.caretDown;
+      ewThemeMenu.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (ewThemeMenu.classList.contains('is-open')) ContextMenu.hide();
+        else _openThemeMenu(ewThemeMenu);
+      });
+      ewThemeMenu.addEventListener('click', (e) => e.stopPropagation());
+    }
+    Tooltip.attach(document.getElementById('ew-theme'), _themeButtonTip);
+    Tooltip.attach(ewThemeMenu, () => I18n.t('toolbar.themeMenu'));
     Tooltip.attach(document.getElementById('ew-lang'), () => I18n.t('toolbar.lang'));
+    Tooltip.attach(document.getElementById('ew-settings'), () => I18n.t('toolbar.settings'));
 
     _populateBgAlgoSelect();
     document.getElementById('ew-bg-algo')?.addEventListener('change', (e) => {
@@ -6157,49 +6213,142 @@
   /* ════════════════════════════════════════════
      Theme / Language
   ════════════════════════════════════════════ */
-  function _langSwitchLabel() {
-    return state.lang === 'ko' ? 'English' : '한글';
-  }
-
+  /** The language button shows the flag of the language it switches TO. */
   function _setLangButtonLabel(btn) {
     if (!btn) return;
-    let span = btn.querySelector('.lang-text');
-    if (!span) {
-      span = document.createElement('span');
-      span.className = 'lang-text';
-      btn.textContent = '';
-      btn.appendChild(span);
-    }
-    span.textContent = _langSwitchLabel();
+    btn.innerHTML = state.lang === 'ko' ? Icons.flagUs : Icons.flagKo;
   }
 
   function _syncEditThemeLangBtns() {
-    const themeBtn = document.getElementById('ew-theme');
-    if (themeBtn) {
-      themeBtn.innerHTML = Icons[state.theme === 'dark' ? 'sun' : 'moon'] || '';
+    for (const id of ['btn-theme', 'ew-theme']) {
+      const btn = document.getElementById(id);
+      if (btn) btn.innerHTML = Icons.palette;
     }
+    const ewSettings = document.getElementById('ew-settings');
+    if (ewSettings) ewSettings.innerHTML = Icons.settings;
     _setLangButtonLabel(document.getElementById('ew-lang'));
     _setLangButtonLabel(document.getElementById('btn-lang'));
+    _syncSettingsDialog();
+  }
+
+  function _themeButtonTip() {
+    return `${I18n.t('toolbar.theme')} (${I18n.t('toolbar.themeCurrent')}: ${Themes.label(state.theme, I18n.t.bind(I18n))})`;
   }
 
   function _applyTheme(theme) {
-    document.documentElement.setAttribute('data-theme', theme === 'light' ? 'light' : '');
-    state.theme = theme;
-    localStorage.setItem('theme', theme);
-    const btn = document.getElementById('btn-theme');
-    if (btn) btn.innerHTML = Icons[theme === 'dark' ? 'sun' : 'moon'];
+    const id = Themes.normalize(theme);
+    document.documentElement.setAttribute('data-theme', id);
+    document.documentElement.setAttribute('data-theme-kind', Themes.kindOf(id));
+    state.theme = id;
+    localStorage.setItem('theme', id);
     _syncEditThemeLangBtns();
+    _syncMenu();
   }
 
-  function _toggleTheme() {
-    _applyTheme(state.theme === 'dark' ? 'light' : 'dark');
-    _syncMenu();
+  /** Palette button: step to the next theme in the list (10 dark, then 10 light, wrapping). */
+  function _nextTheme() {
+    _applyTheme(Themes.next(state.theme));
+  }
+
+  /** ▾ button next to the palette: dropdown with every theme. */
+  function _openThemeMenu(anchorBtn) {
+    if (!anchorBtn) return;
+    const r = anchorBtn.getBoundingClientRect();
+    anchorBtn.classList.add('is-open');
+    ContextMenu.show(r.left, r.bottom + 2, _themeMenuItems(), {
+      onHide: () => anchorBtn.classList.remove('is-open'),
+    });
   }
 
   async function _toggleLang() {
     state.lang = state.lang === 'en' ? 'ko' : 'en';
     localStorage.setItem('lang', state.lang);
     await _refreshLang();
+  }
+
+  async function _setLang(lang) {
+    if (lang !== 'ko' && lang !== 'en') return;
+    if (state.lang === lang) return;
+    state.lang = lang;
+    localStorage.setItem('lang', lang);
+    await _refreshLang();
+  }
+
+  /* ─── Settings dialog (theme · language · bg-removal algorithm · subtitles) ─── */
+  function _initSettingsDialog() {
+    const themeSel = document.getElementById('settings-theme');
+    if (themeSel) {
+      themeSel.addEventListener('change', () => _applyTheme(themeSel.value));
+    }
+    document.querySelectorAll('#settings-overlay .settings-lang-btn').forEach((btn) => {
+      const flag = btn.querySelector('.settings-lang-flag');
+      if (flag) flag.innerHTML = btn.dataset.lang === 'ko' ? Icons.flagKo : Icons.flagUs;
+      btn.addEventListener('click', () => _setLang(btn.dataset.lang));
+    });
+    const algoSel = document.getElementById('settings-bg-algo');
+    if (algoSel) {
+      algoSel.addEventListener('change', () => {
+        localStorage.setItem('bgRemoveAlgo', algoSel.value);
+        const ewSel = document.getElementById('ew-bg-algo');
+        if (ewSel) ewSel.value = algoSel.value;
+      });
+    }
+    const subs = document.getElementById('settings-subtitles');
+    if (subs) {
+      subs.addEventListener('change', () => {
+        state.subtitlesEnabled = subs.checked;
+        try { localStorage.setItem('subtitlesEnabled', subs.checked ? '1' : '0'); } catch {}
+        _syncSubtitleControls();
+      });
+    }
+    _syncSettingsDialog();
+  }
+
+  /** Refill the settings controls from the current state (called on open, theme/lang change). */
+  function _syncSettingsDialog() {
+    const t = I18n.t.bind(I18n);
+    const themeSel = document.getElementById('settings-theme');
+    if (themeSel) {
+      themeSel.innerHTML = '';
+      for (const kind of ['dark', 'light']) {
+        const group = document.createElement('optgroup');
+        group.label = t(kind === 'dark' ? 'menu.darkThemes' : 'menu.lightThemes');
+        for (const th of Themes.ofKind(kind)) {
+          const opt = document.createElement('option');
+          opt.value = th.id;
+          opt.textContent = Themes.label(th.id, t);
+          if (th.id === state.theme) opt.selected = true;
+          group.appendChild(opt);
+        }
+        themeSel.appendChild(group);
+      }
+    }
+    const swatch = document.getElementById('settings-theme-swatch');
+    if (swatch) swatch.innerHTML = Themes.swatchSvg(state.theme);
+
+    document.querySelectorAll('#settings-overlay .settings-lang-btn').forEach((btn) => {
+      btn.classList.toggle('active', btn.dataset.lang === state.lang);
+    });
+
+    const algoSel = document.getElementById('settings-bg-algo');
+    if (algoSel) {
+      const current = localStorage.getItem('bgRemoveAlgo') || 'rembg1';
+      algoSel.innerHTML = '';
+      for (const id of Editor.listBgAlgorithms()) {
+        const opt = document.createElement('option');
+        opt.value = id;
+        opt.textContent = t(`bgAlgo.${id}`) || id;
+        if (id === current) opt.selected = true;
+        algoSel.appendChild(opt);
+      }
+    }
+    const subs = document.getElementById('settings-subtitles');
+    if (subs) subs.checked = !!state.subtitlesEnabled;
+  }
+
+  function _openSettings() {
+    _syncSettingsDialog();
+    _showDialog('settings-overlay');
   }
 
   function _syncMenu() {
@@ -6334,11 +6483,14 @@
       'effect-reset':     _resetEffects,
       'theme-dark':    () => _applyTheme('dark'),
       'theme-light':   () => _applyTheme('light'),
+      'theme-next':    _nextTheme,
+      'show-settings': _openSettings,
       'lang-ko': async () => { state.lang = 'ko'; localStorage.setItem('lang','ko'); await _refreshLang(); },
       'lang-en': async () => { state.lang = 'en'; localStorage.setItem('lang','en'); await _refreshLang(); },
       'show-about':    () => _showDialog('about-overlay'),
       'show-shortcuts':() => _showDialog('shortcuts-overlay'),
     };
+    if (action.startsWith('theme:')) { _applyTheme(action.slice(6)); return; }
     if (map[action]) await map[action]();
   }
 

@@ -35,8 +35,9 @@
   "menu.previousImage": "Previous Image",
   "menu.nextImage": "Next Image",
   "menu.fullscreen": "Fullscreen",
-  "menu.darkTheme": "Dark Theme",
-  "menu.lightTheme": "Light Theme",
+  "menu.theme": "Theme",
+  "menu.darkThemes": "Dark Themes",
+  "menu.lightThemes": "Light Themes",
   "menu.effects": "Effects",
   "menu.adjustments": "Adjustments Panel...",
   "menu.grayscale": "Grayscale",
@@ -44,6 +45,7 @@
   "menu.invert": "Invert Colors",
   "menu.resetEffects": "Reset Effects",
   "menu.help": "Help",
+  "menu.settings": "Settings...",
   "menu.about": "About",
   "menu.shortcuts": "Keyboard Shortcuts",
 
@@ -79,8 +81,11 @@
   "toolbar.subtitleLanguage": "Subtitle language",
   "toolbar.chooseSubtitle": "Choose subtitle file",
   "toolbar.effects": "Effects Panel",
-  "toolbar.theme": "Toggle Theme",
+  "toolbar.theme": "Next Theme",
+  "toolbar.themeCurrent": "Current",
+  "toolbar.themeMenu": "Choose Theme",
   "toolbar.lang": "Switch Language",
+  "toolbar.settings": "Settings",
   "toolbar.delete": "Delete File",
 
   "context.openFile": "Open File...",
@@ -689,5 +694,19 @@
   "error.ok": "OK",
   "error.openFile": "Failed to open file",
   "error.clipboardCopy": "Failed to copy to clipboard",
-  "error.clipboardCut": "Failed to cut to clipboard"
+  "error.clipboardCut": "Failed to cut to clipboard",
+
+  "theme.dark": "Dark (Default)",
+  "theme.light": "Light (Default)",
+  "theme.paper": "Paper",
+  "theme.sky": "Sky",
+
+  "settings.title": "Settings",
+  "settings.appearance": "Appearance",
+  "settings.theme": "Theme",
+  "settings.themeHint": "10 dark and 10 light themes",
+  "settings.language": "Language",
+  "settings.editing": "Editing",
+  "settings.media": "Media",
+  "settings.subtitles": "Show subtitles when available"
 }

@@ -402,6 +402,8 @@ window.FileDialog = (() => {
       save: _t('fd.saveAs', 'Save As'),
     };
     if (e.title) e.title.textContent = title || titles[mode] || titles.openFile;
+    const titleIcon = document.getElementById('fd-title-icon');
+    if (titleIcon) titleIcon.innerHTML = Icons[mode === 'save' ? 'saveAs' : mode === 'openFolder' ? 'openFolder' : 'openFile'] || '';
     if (e.okLabel) {
       e.okLabel.textContent = mode === 'save'
         ? _t('fd.save', 'Save')
