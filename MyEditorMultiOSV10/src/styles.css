@@ -353,6 +353,29 @@ body.dragging-x { cursor: col-resize; }
 .term-tab { display: inline-flex; align-items: center; gap: 4px; padding: 0 4px 0 10px; max-width: 200px; color: var(--fg-muted); border-right: 1px solid var(--border); cursor: default; flex: none; }
 .term-tab:hover { background: var(--bg-hover); color: var(--fg); }
 .term-tab.active { background: var(--bg); color: var(--fg); box-shadow: inset 0 -2px 0 var(--accent); }
+.panel-modes { display: flex; align-items: stretch; flex: none; gap: 0; margin-right: 6px; }
+.panel-mode { background: none; border: 0; color: var(--fg-muted); padding: 0 10px; min-height: 30px; display: inline-flex; align-items: center; gap: 5px; font: inherit; cursor: pointer; }
+.panel-mode:hover { background: var(--bg-hover); color: var(--fg); }
+.panel-mode.active { color: var(--fg); box-shadow: inset 0 -2px 0 var(--accent); background: var(--bg); }
+.panel-badge { font-size: 10px; font-weight: 700; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; background: var(--accent); color: var(--accent-text, #fff); }
+.panel-badge.err { background: var(--danger); }
+.panel-badge.warn { background: var(--folder); color: #111; }
+.lint-panel .sb-empty, .log-panel .sb-empty { flex: 1; }
+.lint-meta { display: flex; align-items: center; gap: 10px; padding: 4px 10px; border-bottom: 1px solid var(--border); font-size: 12px; min-height: 28px; flex: none; }
+.lint-list { list-style: none; margin: 0; padding: 0; overflow: auto; flex: 1; min-height: 0; }
+.lint-row { display: flex; align-items: baseline; gap: 10px; padding: 4px 12px; cursor: pointer; font-family: var(--mono); font-size: 12.5px; border-bottom: 1px solid color-mix(in srgb, var(--border) 55%, transparent); }
+.lint-row:hover { background: var(--bg-hover); }
+.lint-sev { flex: none; width: 1.2em; text-align: center; font-weight: 700; }
+.lint-row.sev-error .lint-sev, .lint-row.sev-error .lint-loc { color: var(--danger); }
+.lint-row.sev-warning .lint-sev, .lint-row.sev-warning .lint-loc { color: var(--folder); }
+.lint-row.sev-info .lint-sev, .lint-row.sev-info .lint-loc { color: var(--accent); }
+.lint-loc { flex: none; color: var(--fg-muted); min-width: 4.5em; }
+.lint-msg { flex: 1; min-width: 0; }
+.lint-src { flex: none; color: var(--fg-muted); font-size: 11px; }
+.log-out { flex: 1; min-height: 0; margin: 0; padding: 6px 10px; overflow: auto; font-family: var(--mono); font-size: 12.5px; line-height: 1.45; background: var(--bg); color: var(--fg); }
+.log-line { white-space: pre-wrap; word-break: break-all; }
+.log-time { color: var(--fg-muted); margin-right: 8px; }
+.log-line.log-error { color: var(--danger); }
 .term-body { flex: 1; min-height: 0; display: flex; flex-direction: column; position: relative; }
 .term-view { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .term-view.hidden { display: none; }

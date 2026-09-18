@@ -66,6 +66,7 @@ const DEFAULTS = {
   paneDocs: [],            // which tab each pane showed (indices into tabs)
   activePane: 0,
   termVisible: false,      // terminal panel shown
+  bottomTab: 'terminal',   // bottom panel tab: terminal | log | lint
   termHeight: 195,         // ~8 output lines (12.5px × 1.45) + header, splitter, padding
   sessionVersion: 5,       // see the migrations in load()
   termCwd: '',             // where new terminals start; '' = the folder open in the sidebar (else the document's folder)

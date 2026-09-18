@@ -55,6 +55,7 @@ export const SETTINGS_DEFAULTS = {
   rowFracs: [],            // multi: row heights as fractions
   splitY: 0.5,             // editor panes: share of the top row (rows / grid)
   termVisible: false,
+  bottomTab: 'terminal',   // bottom panel: terminal | log | lint
   termHeight: 195,         // ~8 output lines (12.5px × 1.45) + header, splitter, padding
   termCwd: '',
   termShell: '',

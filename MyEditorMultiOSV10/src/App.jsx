@@ -31,7 +31,7 @@ import { fileToDataUrl, isImageFile, resolveImageSrc, analyzeImage, encodeImage,
 import { buildCodePrintHtmlAsync, highlightCodeLinesAsync, printOptsOf } from './lib/print';
 import { withProgress, yieldToUi } from './lib/progress';
 import { renderMarkdown } from './lib/markdown';
-import { applyDiagnostics, clearDiagnostics, countDiagnostics, openLintPanel, nextDiagnostic } from './lib/lint';
+import { applyDiagnostics, clearDiagnostics, countDiagnostics, nextDiagnostic } from './lib/lint';
 import { wordAt as spellWordAt, suggest as spellSuggest, addUserWord, ignoreWord, setUserWords, setSpellOptions, refreshAll as spellRefreshAll, isReady as spellReady } from './lib/spell';
 import { MenuBar } from './components/MenuBar';
 import { Toolbar } from './components/Toolbar';
@@ -131,6 +131,7 @@ export default function App() {
   const [cursor, setCursor] = useState({ line: 1, col: 1, selected: 0, selLines: 0, ranges: 1, chars: 0, lines: 1 });
   const [docVersion, setDocVersion] = useState(0);
   const [message, setMessageState] = useState('');
+  const [appLog, setAppLog] = useState([]);
   const messageTimer = useRef(null);
   const [find, setFind] = useState(null);           // { mode, initial }
   const [dialog, setDialog] = useState(null);       // { type, ...props }
@@ -162,7 +163,10 @@ export default function App() {
   const setMessage = (msg) => {
     setMessageState(msg);
     if (messageTimer.current) clearTimeout(messageTimer.current);
-    if (msg) messageTimer.current = setTimeout(() => setMessageState(''), 5000);
+    if (msg) {
+      setAppLog((xs) => [...xs, { t: Date.now(), kind: 'info', msg: String(msg) }].slice(-400));
+      messageTimer.current = setTimeout(() => setMessageState(''), 5000);
+    }
   };
   const encodingLabel = (id) => { const e = infoRef.current && infoRef.current.encodings.find((x) => x.id === id); return e ? e.label : id; };
 
@@ -231,6 +235,7 @@ export default function App() {
     const doc = getDoc(id);
     const state = getState(id);
     if (!doc || !state || !settingsRef.current.lint) return;
+    if (doc.kind === 'hex') { patchDoc(id, { lint: null }); return; }
     if (!doc.langName || doc.langName === 'Markdown' && !doc.path) { return; }
     const text = state.doc.toString();
     lintRuns.current.set(id, text);
@@ -245,7 +250,7 @@ export default function App() {
     dispatchTo(id, applyDiagnostics(st, r.diagnostics || []));
     const after = getState(id);
     const counts = after ? countDiagnostics(after) : { error: 0, warning: 0, info: 0, total: 0 };
-    patchDoc(id, { lint: { tool: r.tool, error: r.error || null, ...counts } });
+    patchDoc(id, { lint: { tool: r.tool, error: r.error || null, error_msg: r.error || null, items: r.diagnostics || [], ...counts } });
   };
   const clearLint = (id) => { const st = getState(id); if (st) dispatchTo(id, clearDiagnostics(st)); patchDoc(id, { lint: null }); };
   // ── printing (파일 › 인쇄, Ctrl+P): the desktop app opens a separate
@@ -516,6 +521,11 @@ img{max-width:100%;height:auto;page-break-inside:avoid}table{border-collapse:col
   };
 
   const lintAll = () => { for (const d of docsRef.current) { if (settingsRef.current.lint) scheduleLint(d.id, 50); else clearLint(d.id); } };
+  useEffect(() => {
+    if (activeId == null || !settings.lint) return undefined;
+    scheduleLint(activeId, 80);
+    return undefined;
+  }, [activeId, settings.lint]);   // eslint-disable-line react-hooks/exhaustive-deps
   handlersRef.current.onUpdate = (u) => { setCursor(cursorInfo(u.state)); };
 
   const newDocState = (text, { selection } = {}) => {
@@ -1300,13 +1310,23 @@ img{max-width:100%;height:auto;page-break-inside:avoid}table{border-collapse:col
       return undefined;
     }   // a picture file: Hexa opens the bytes beside the image
     if (id === 'toggle:termVisible') id = 'toggleTerminal';
-    if (id === 'toggleTerminal') {
-      const on = !settingsRef.current.termVisible;
-      const patch = { termVisible: on };
-      if (on && settingsRef.current.termHeight === 75) patch.termHeight = SETTINGS_DEFAULTS.termHeight;
+    if (id === 'toggleTerminal' || id === 'toggleLog' || id === 'toggleLintPanel' || id === 'lintPanel') {
+      const tab = id === 'toggleLog' ? 'log' : (id === 'toggleLintPanel' || id === 'lintPanel' ? 'lint' : 'terminal');
+      const st = settingsRef.current;
+      const showing = st.termVisible && (st.bottomTab || 'terminal') === tab;
+      if (id !== 'lintPanel' && showing) {
+        changeSettings({ termVisible: false });
+        return undefined;
+      }
+      const patch = { termVisible: true, bottomTab: tab };
+      if (st.termHeight === 75) patch.termHeight = SETTINGS_DEFAULTS.termHeight;
+      if (tab === 'lint' && !st.lint) patch.lint = true;
       changeSettings(patch);
-      if (on && !terms.length) newTerminal();
-      if (on) call('term.shells', { refresh: true }).then(setShells).catch(() => {});
+      if (tab === 'terminal') {
+        if (!terms.length) newTerminal();
+        call('term.shells', { refresh: true }).then(setShells).catch(() => {});
+      }
+      if (tab === 'lint' && settingsRef.current.lint && activeIdRef.current != null) runLint(activeIdRef.current);
       return undefined;
     }
     if (id.startsWith('svg:')) return withView((vw) => insertSvgTag(vw, id.slice(4)));   // the SVG bar: an element at the cursor
@@ -1317,7 +1337,6 @@ img{max-width:100%;height:auto;page-break-inside:avoid}table{border-collapse:col
     // The toolbar's split button (and Ctrl+\) steps through the layouts: one → left / right → top / bottom → four → one.
     if (id === 'toggleSplit') { const st = settingsRef.current; setSplit('multi', st.split === 'multi' ? Math.min(9, (st.paneCount || 2) + 1) : 2); return undefined; }   // one more pane per press
     if (id === 'nextPane') { nextPane(); return undefined; }
-    if (id === 'lintPanel') return withView((vw) => openLintPanel(vw));
     if (id === 'lintNext') return withView((vw) => nextDiagnostic(vw));
     if (id === 'lintNow') { if (v && activeIdRef.current != null) runLint(activeIdRef.current); return undefined; }
     if (id.startsWith('md:')) { const fn = md[id.slice(3)]; if (fn) withView((vw) => fn(vw)); return; }
@@ -1419,8 +1438,8 @@ img{max-width:100%;height:auto;page-break-inside:avoid}table{border-collapse:col
       const tm = { id: r.id, title: `${r.label} ${termNo.current++}`, shell: r.shell, cwd: r.cwd, buffer: [], seq: 0 };
       setTerms((ts) => [...ts, tm]);
       setActiveTerm(r.id);
-      if (!settingsRef.current.termVisible) {
-        const patch = { termVisible: true };
+      if (!settingsRef.current.termVisible || settingsRef.current.bottomTab !== 'terminal') {
+        const patch = { termVisible: true, bottomTab: 'terminal' };
         if (settingsRef.current.termHeight === 75) patch.termHeight = SETTINGS_DEFAULTS.termHeight;
         changeSettings(patch);
       }
@@ -1658,7 +1677,9 @@ img{max-width:100%;height:auto;page-break-inside:avoid}table{border-collapse:col
       { id: 'split:grid', icon: 'splitGrid', label: t('split_grid'), checked: settings.split === 'grid', radio: true, shortcut: sc('Ctrl+Alt+4') },
       { id: 'nextPane', icon: 'nextPane', label: t('next_pane'), shortcut: 'F6', disabled: settings.split === 'none' },
       { sep: true },
-      { id: 'toggleTerminal', label: t('terminal'), icon: 'terminal', checked: settings.termVisible, shortcut: sc('Ctrl+`') },
+      { id: 'toggleTerminal', label: t('terminal'), icon: 'terminal', checked: settings.termVisible && (settings.bottomTab || 'terminal') === 'terminal', shortcut: sc('Ctrl+`') },
+      { id: 'toggleLog', label: t('log_tab'), icon: 'log', checked: settings.termVisible && settings.bottomTab === 'log' },
+      { id: 'toggleLintPanel', label: t('lint_tab'), icon: 'lint', checked: settings.termVisible && settings.bottomTab === 'lint' },
       { id: 'newTerminal', icon: 'terminalPlus', label: t('term_new'), shortcut: sc('Ctrl+Shift+`') },
       { sep: true },
       { id: 'zoomIn', label: t('zoom_in'), icon: 'zoomIn', shortcut: sc('Ctrl++') },
@@ -2010,7 +2031,12 @@ img{max-width:100%;height:auto;page-break-inside:avoid}table{border-collapse:col
         {settings.termVisible && (
           <TerminalPanel terms={terms} activeId={activeTerm} shells={shells} height={settings.termHeight} onResizeStart={onTermResizeStart}
             onActivate={setActiveTerm} onNew={(shell) => newTerminal(shell)} onClose={closeTerminal} onHide={() => changeSettings({ termVisible: false })}
-            onExit={() => {}} onSettings={() => action('termSettings')} prompt={settings.prompt} env={termEnv} termEol={settings.termEol} termCr={settings.termCr} termColor={settings.termColor !== false} />
+            onExit={() => {}} onSettings={() => action('termSettings')} prompt={settings.prompt} env={termEnv} termEol={settings.termEol} termCr={settings.termCr} termColor={settings.termColor !== false}
+            panel={settings.bottomTab || 'terminal'} onPanel={(tab) => { changeSettings({ bottomTab: tab }); if (tab === 'terminal' && !terms.length) newTerminal(); if (tab === 'lint' && settings.lint && activeIdRef.current != null) runLint(activeIdRef.current); }}
+            lintDoc={cur} lint={cur ? cur.lint : null} lintEnabled={!!settings.lint}
+            onLintGoto={(d) => { withView((vw) => { const ln = Math.min(Math.max(1, d.line || 1), vw.state.doc.lines); const line = vw.state.doc.line(ln); const pos = Math.min(line.from + Math.max(0, (d.col || 1) - 1), line.to); vw.dispatch({ selection: { anchor: pos }, effects: EditorView.scrollIntoView(pos, { y: 'center' }) }); vw.focus(); }); }}
+            onLintRefresh={() => { if (activeIdRef.current != null) runLint(activeIdRef.current); }}
+            logEntries={appLog} onLogClear={() => setAppLog([])} />
         )}
         </div>
       </div>
