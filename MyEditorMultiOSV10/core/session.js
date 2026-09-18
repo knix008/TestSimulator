@@ -66,8 +66,8 @@ const DEFAULTS = {
   paneDocs: [],            // which tab each pane showed (indices into tabs)
   activePane: 0,
   termVisible: false,      // terminal panel shown
-  termHeight: 150,         // terminal panel height (px)
-  sessionVersion: 3,       // see the migrations in load()
+  termHeight: 195,         // ~8 output lines (12.5px × 1.45) + header, splitter, padding
+  sessionVersion: 5,       // see the migrations in load()
   termCwd: '',             // where new terminals start; '' = the folder open in the sidebar (else the document's folder)
   termShell: '',           // shell of a new terminal (id from term.shells); '' = the first one offered
   termColor: true,         // terminal output in colour (ANSI + error / warning / link highlighting); false = plain
@@ -126,6 +126,8 @@ function createSession(configDir) {
     const savedVersion = saved && typeof saved === 'object' ? Number(saved.sessionVersion) || 1 : 1;
     if (savedVersion < 2 && data.termHeight === 240) data.termHeight = DEFAULTS.termHeight;   // v2: the panel starts lower
     if (savedVersion < 3 && data.termHeight === 180) data.termHeight = DEFAULTS.termHeight;   // v3: lower still
+    if (savedVersion < 4 && data.termHeight === 150) data.termHeight = DEFAULTS.termHeight;   // v4: half of the previous default
+    if (savedVersion < 5 && data.termHeight === 75) data.termHeight = DEFAULTS.termHeight;    // v5: about eight output lines
     data.sessionVersion = DEFAULTS.sessionVersion;
     return data;
   }

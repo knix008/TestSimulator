@@ -342,7 +342,7 @@ body.dragging-x { cursor: col-resize; }
 .v-splitter:hover { background: color-mix(in srgb, var(--accent) 45%, transparent); }
 
 /* ── Terminal panel ── */
-.term-panel { flex: none; display: flex; flex-direction: column; border-top: 1px solid var(--border); background: var(--bg-panel); min-height: 120px; position: relative; }
+.term-panel { flex: none; display: flex; flex-direction: column; border-top: 1px solid var(--border); background: var(--bg-panel); min-height: 75px; position: relative; }
 .h-splitter { height: 6px; cursor: row-resize; flex: none; position: relative; }
 .h-splitter::after { content: ''; position: absolute; top: 2px; left: 45%; right: 45%; height: 2px; background: var(--border); border-radius: 2px; }
 .h-splitter:hover::after { background: var(--accent); }
@@ -433,6 +433,7 @@ body.dragging-x { cursor: col-resize; }
 
 /* ── Dialogs ── */
 .dlg-backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.45); display: grid; place-items: center; z-index: 2000; }
+.dlg-backdrop:has(.progress-dlg) { z-index: 2200; }
 /* A dialog that is a window of its own (?popup=…): fills the page, its title bar drags the window. */
 html, body, #root { height: 100%; }
 .dlg.embedded { position: fixed; inset: 0; width: auto !important; max-width: none; max-height: none; border-radius: 0; border: 1px solid var(--border); box-shadow: none; }
@@ -456,7 +457,10 @@ html, body, #root { height: 100%; }
 .dlg.danger .dlg-title .icon, .dlg.error .dlg-title .icon { color: var(--danger); }
 .dlg.info .dlg-title .icon { color: var(--accent); }
 .dlg.print-preview { height: min(860px, calc(100vh - 40px)); }
+.dlg.embedded.print-preview { height: auto; }
 .dlg.print-preview .dlg-body { padding: 0; overflow: hidden; flex: 1; }
+.dlg.embedded.print-preview .dlg-body { display: flex; flex-direction: column; }
+.print-pv-main { flex: 1; min-height: 0; display: flex; }
 .print-pv-bar { display: flex; align-items: center; gap: 6px; padding: 6px 12px; border-bottom: 1px solid var(--border); background: var(--bg-elev); flex: none; }
 .print-pv-name { flex: 1; min-width: 0; }
 .print-pv-zoom { width: 40px; text-align: center; }
@@ -470,6 +474,11 @@ html, body, #root { height: 100%; }
 .print-pv-scale { margin: 0 auto; }
 .print-pv-sheet { background: #fff; box-shadow: 0 2px 18px rgba(0, 0, 0, 0.35); transform-origin: top left; }
 .print-pv-sheet iframe { display: block; width: 100%; height: 100%; border: 0; background: #fff; }
+.print-pv-sheet.landscape { box-shadow: 0 2px 18px rgba(0, 0, 0, 0.35); }
+.print-pv-side { width: 260px; flex: none; overflow: auto; padding: 10px 14px 16px; border-left: 1px solid var(--border); background: var(--bg-elev); box-sizing: border-box; }
+.print-pv-side label { display: block; margin: 10px 0 4px; font-size: 12px; color: var(--fg-muted); }
+.print-pv-side select, .print-pv-side input[type=number] { width: 100%; box-sizing: border-box; height: 30px; padding: 0 8px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); color: var(--fg); font: inherit; }
+.print-pv-err { margin: 12px 0 0; color: var(--danger); font-size: 12px; }
 .detail { font-family: var(--mono); font-size: 11px; background: var(--bg-elev); border: 1px solid var(--border); padding: 8px; border-radius: 4px; max-height: 240px; overflow: auto; user-select: text; white-space: pre-wrap; word-break: break-all; margin: 8px 0 0; }
 .dlg-footer .spacer { flex: 1; }
 
@@ -493,6 +502,11 @@ input:disabled, select:disabled { opacity: 0.55; }
 @keyframes inst-slide { 0% { left: -30%; } 100% { left: 100%; } }
 .inst-cmd { white-space: pre-wrap; word-break: break-all; }
 .inst-log { margin: 0; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 8px; font-size: 11.5px; height: 240px; overflow: auto; white-space: pre-wrap; word-break: break-all; }
+.prog { display: flex; flex-direction: column; gap: 8px; }
+.prog-bar { height: 6px; border-radius: 3px; background: var(--bg-elev); overflow: hidden; position: relative; }
+.prog-bar span { position: absolute; top: 0; bottom: 0; width: 30%; border-radius: 3px; background: var(--accent); animation: inst-slide 1.2s ease-in-out infinite; }
+.prog-bar:not(.indet) span { width: 0; }
+.prog-pct { text-align: right; }
 .settings-format { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
 .settings-format p { margin: 0; }
 .btn.small { padding: 1px 8px; font-size: 11px; margin-left: 6px; }
@@ -681,7 +695,10 @@ body.dragging-y { cursor: row-resize; }
 /* ── Image preview (components/ImagePreview.jsx): the picture on a checkerboard, fit or 1:1 ── */
 .image-preview { flex: none; min-width: 200px; display: flex; flex-direction: column; border-left: 1px solid var(--border); background: var(--bg-panel); }
 .image-preview:focus { outline: none; }
-.image-preview.fill { position: absolute; inset: 0; z-index: 2; width: auto; min-width: 0; border-left: 0; }   /* a binary image: the picture is the document (overlays the empty editor, like .hex-view) */
+.pane-body { flex: 1; min-width: 0; min-height: 0; display: flex; position: relative; }
+.pane-media { position: absolute; inset: 0; z-index: 2; display: flex; min-width: 0; min-height: 0; background: var(--bg); }
+.pane-media .hex-view.side { max-width: 55%; min-width: 140px; }
+.image-preview.fill { position: relative; inset: auto; z-index: 1; flex: 1; width: auto; min-width: 0; min-height: 0; border-left: 0; }   /* a binary image: the picture is the document; Hexa sits beside it in .pane-media */
 .image-preview-body { flex: 1; min-height: 0; overflow: auto; display: flex; align-items: center; justify-content: center; cursor: zoom-in; touch-action: none; scrollbar-width: none; background-color: #ffffff; background-image: linear-gradient(45deg, #d0d0d0 25%, transparent 25%, transparent 75%, #d0d0d0 75%), linear-gradient(45deg, #d0d0d0 25%, transparent 25%, transparent 75%, #d0d0d0 75%); background-size: 16px 16px; background-position: 0 0, 8px 8px; }
 .image-preview-body::-webkit-scrollbar { display: none; }
 .image-preview-sizer { min-width: 100%; min-height: 100%; display: flex; align-items: center; justify-content: center; }

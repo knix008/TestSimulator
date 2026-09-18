@@ -179,16 +179,28 @@ export function openPopup(kind, tab) {
   if (isElectron && electron.openPopup && !electron.smoke) { electron.openPopup(kind, tab || ''); return true; }
   return false;
 }
-// Prints an HTML document: the desktop app renders it in a hidden window and
-// opens the print dialog; the browser opens it in a new window and prints.
-export function printHtml(html, title) {
-  if (isElectron && electron.smoke) { window.__lastPrint = { html, title }; return; }   // the smoke test inspects instead of printing
-  if (isElectron && electron.printHtml) { electron.printHtml(html, title); return; }
+// Desktop print preview is a separate window (like settings). The smoke test
+// and the web app keep the dialog inside the page.
+export function openPrintWindow(job) {
+  if (isElectron && electron.openPrint && !electron.smoke) { electron.openPrint(job); return true; }
+  return false;
+}
+export function onPrintJob(cb) { return isElectron && electron.onPrintJob ? electron.onPrintJob(cb) : () => {}; }
+export function takePrintJob() { return isElectron && electron.takePrintJob ? electron.takePrintJob() : Promise.resolve(null); }
+export function listPrinters() { return isElectron && electron.listPrinters ? electron.listPrinters() : Promise.resolve([]); }
+// Sends the HTML to a printer: desktop prints silently with the chosen
+// destination; the browser opens a window and uses its own print preview.
+export function printHtml(html, title, labels, opts) {
+  if (isElectron && electron.smoke) { window.__lastPrint = { html, title, labels, opts }; return Promise.resolve({ success: true }); }
+  if (isElectron && electron.printHtml) return Promise.resolve(electron.printHtml(html, title, labels, opts));
   const w = window.open('', '_blank');
-  if (!w) return;
+  if (!w) return Promise.resolve({ success: false, failureReason: 'popup-blocked' });
   w.document.open(); w.document.write(html); w.document.close();
   w.document.title = title || '';
-  setTimeout(() => { w.focus(); w.print(); }, 400);
+  const go = () => { try { w.print(); } catch { /* popup print blocked */ } };
+  w.addEventListener('load', go);
+  if (w.document.readyState === 'complete') go();
+  return Promise.resolve({ success: true });
 }
 export function sendSettingsPatch(patch) { if (isElectron && electron.sendSettingsPatch) electron.sendSettingsPatch(patch); }
 export function onSettingsPatch(cb) { return isElectron && electron.onSettingsPatch ? electron.onSettingsPatch(cb) : () => {}; }

@@ -58,7 +58,11 @@ async function main() {
     }
 
     const ico = [];
-    for (const size of ICO_SIZES) ico.push({ size, png: new Uint8Array(await png(size)) });
+    for (const size of ICO_SIZES) {
+      const pngBuf = await png(size);
+      const { data } = await sharp(pngBuf).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+      ico.push({ size, png: new Uint8Array(pngBuf), rgba: data });
+    }
     fs.writeFileSync(path.join(outDir, `${name}.ico`), Buffer.from(encodeIco(ico)));
     console.log(`[icons] Wrote ${name}.ico`);
 

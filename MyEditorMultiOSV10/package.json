@@ -96,6 +96,10 @@
         "to": "icon.png"
       },
       {
+        "from": "build/icons/icon.ico",
+        "to": "icon.ico"
+      },
+      {
         "from": "build/fileicons",
         "to": "fileicons",
         "filter": [
@@ -105,38 +109,6 @@
     ],
     "asar": true,
     "icon": "build/icons/icon.png",
-    "fileAssociations": [
-      {
-        "ext": [
-          "txt",
-          "md",
-          "log",
-          "json",
-          "js",
-          "ts",
-          "css",
-          "html",
-          "xml",
-          "yaml",
-          "yml",
-          "ini",
-          "cfg",
-          "csv",
-          "py",
-          "c",
-          "cpp",
-          "h",
-          "java",
-          "cs",
-          "sh",
-          "bat",
-          "ps1",
-          "sql"
-        ],
-        "name": "Text document",
-        "role": "Editor"
-      }
-    ],
     "win": {
       "icon": "build/icons/icon.ico",
       "target": [
@@ -166,6 +138,13 @@
     "mac": {
       "icon": "build/icons/icon.icns",
       "category": "public.app-category.developer-tools",
+      "fileAssociations": [
+        {
+          "ext": ["txt", "md", "log", "json", "js", "ts", "css", "html", "xml", "yaml", "yml", "ini", "cfg", "csv", "py", "c", "cpp", "h", "java", "cs", "sh", "bat", "ps1", "sql"],
+          "name": "Text document",
+          "role": "Editor"
+        }
+      ],
       "target": [
         {
           "target": "dmg",
@@ -183,6 +162,13 @@
     "linux": {
       "icon": "build/icons/png",
       "category": "Utility;TextEditor;Development",
+      "fileAssociations": [
+        {
+          "ext": ["txt", "md", "log", "json", "js", "ts", "css", "html", "xml", "yaml", "yml", "ini", "cfg", "csv", "py", "c", "cpp", "h", "java", "cs", "sh", "bat", "ps1", "sql"],
+          "name": "Text document",
+          "role": "Editor"
+        }
+      ],
       "maintainer": "SHKWON <knix008@naver.com>",
       "desktop": {
         "Name": "My Editor",

@@ -1,4 +1,4 @@
-// A separate desktop window (Electron only): settings, info or shortcuts,
+// A separate desktop window (Electron only): settings, info, shortcuts or print,
 // opened by the main window through popup:open and loaded with
 // ?popup=<kind>. It shows the same dialog content, embedded (no backdrop, the
 // title bar is the window's drag region), reads the session itself and
@@ -7,12 +7,14 @@
 // language change made in the editor — are applied here too. The window
 // closes with the main window (it is its child).
 import React, { useEffect, useRef, useState } from 'react';
-import { call, windowControl, sendSettingsPatch, onSettingsPatch } from './lib/backend';
+import { call, windowControl, sendSettingsPatch, onSettingsPatch, onPrintJob, takePrintJob } from './lib/backend';
 import { setLanguage, useLanguage, t } from './lib/i18n';
 import { applyTheme, setCustomThemes } from './themes';
 import { pickSettings } from './lib/settings';
 import { SettingsDialog } from './dialogs/SettingsDialog';
 import { AboutDialog, ShortcutsDialog } from './dialogs/Dialogs';
+import { PrintPreviewDialog } from './dialogs/PrintPreviewDialog';
+import { ProgressHost } from './dialogs/ProgressDialog';
 
 export function PopupWindow({ kind, tab = '' }) {
   useLanguage();
@@ -36,7 +38,7 @@ export function PopupWindow({ kind, tab = '' }) {
       setSettingsState(s);
       setInfo(appInfo);
       setFolder(session.folder || '');
-      document.title = t(kind === 'settings' ? 'settings_title' : kind === 'about' ? 'about_title' : 'shortcuts_title');
+      document.title = t(kind === 'settings' ? 'settings_title' : kind === 'about' ? 'about_title' : kind === 'print' ? 'print_title' : 'shortcuts_title');
       if (kind === 'settings') {
         call('term.shells').then((x) => { if (alive) setShells(x || []); }).catch(() => {});
         call('format.tools', { dir: session.folder || '' }).then((x) => { if (alive) setTools(x || {}); }).catch(() => {});
@@ -67,8 +69,26 @@ export function PopupWindow({ kind, tab = '' }) {
   if (!settings) return <div className="popup-loading" />;
   if (kind === 'about') return <AboutDialog embedded info={info} onClose={close} />;
   if (kind === 'shortcuts') return <ShortcutsDialog embedded onClose={close} />;
+  if (kind === 'print') return <PrintPopup settings={settings} onPrintOpts={change} onClose={close} />;
   // A rescan / install in this window: the main window's toolbar label follows (it re-reads the backend's list).
   return <SettingsDialog embedded initialTab={showTab} settings={settings} encodings={(info && info.encodings) || []} shells={shells} formatDir={folder} tools={tools} onTools={(x) => { setTools(x); sendSettingsPatch({ formatToolsAt: Date.now() }); }} onChange={change} onClose={close} />;
+}
+
+function PrintPopup({ settings, onPrintOpts, onClose }) {
+  const [job, setJob] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    takePrintJob().then((j) => { if (alive && j) setJob(j); }).catch(() => {});
+    const off = onPrintJob((j) => { if (alive && j) setJob(j); });
+    return () => { alive = false; off(); };
+  }, []);
+  if (!job) return <div className="popup-loading" />;
+  return (
+    <>
+      <PrintPreviewDialog embedded html={job.html} title={job.title} path={job.path} lang={job.lang} text={job.text} lineHtml={job.lineHtml} code={job.code} settings={settings} onPrintOpts={onPrintOpts} onResult={onClose} />
+      <ProgressHost />
+    </>
+  );
 }
 
 export default PopupWindow;

@@ -137,34 +137,156 @@ const COLOR_ENV = { TERM: 'xterm-256color', COLORTERM: 'truecolor', FORCE_COLOR:
 // the panel — reading UTF-8 — shows them broken; without any locale ls prints them as "?" or octal escapes.
 const utf8Lang = () => { const l = process.env.LANG; return l && /utf-?8/i.test(l) ? l : 'C.UTF-8'; };
 
+function resolveExe(p) {
+  if (!p) return '';
+  try { if (fs.existsSync(p)) return fs.realpathSync(p); } catch { try { if (fs.existsSync(p)) return p; } catch { /* missing */ } }
+  return '';
+}
+function findOnPath(name) {
+  const win = process.platform === 'win32';
+  const exts = win ? (process.env.PATHEXT || '.EXE;.CMD;.BAT').split(';').filter(Boolean) : [''];
+  const names = win && !path.extname(name) ? exts.map((e) => name + (e.startsWith('.') ? e : `.${e}`)) : [name];
+  for (const dir of (process.env.PATH || '').split(path.delimiter)) {
+    if (!dir) continue;
+    for (const n of names) {
+      const hit = resolveExe(path.join(dir, n));
+      if (hit) return hit;
+    }
+  }
+  return '';
+}
+function firstExisting(cands) {
+  for (const p of cands) { const hit = resolveExe(p); if (hit) return hit; }
+  return '';
+}
+
+const posixSource = (f) => `. "${String(f).replace(/\\/g, '/')}";`;
+const posixDef = (cmd, extra = {}) => ({ cmd, args: extra.args || ['-s'], ext: '.sh', scriptEnc: 'utf8', source: posixSource, cwdLine: `echo "${MARK}$PWD;$?"`, eol: '\n', init: POSIX_INIT, kind: 'sh', ...extra });
+const fishDef = (cmd, extra = {}) => ({ cmd, args: extra.args || ['--no-config'], ext: '.fish', scriptEnc: 'utf8', source: (f) => `source "${String(f).replace(/\\/g, '/')}"`, cwdLine: `echo "${MARK}$PWD;$status"`, eol: '\n', kind: 'sh', ...extra });
+function psDef(cmd, extra = {}) {
+  const cp = extra.encoding || 'utf8';
+  return {
+    cmd, args: ['-NoLogo', '-NoProfile', '-Command', '-'], ext: '.ps1', scriptEnc: 'utf8', bom: true, kind: 'powershell',
+    source: (f) => `$__medrc = 1; $global:LASTEXITCODE = 0; . "${f}";`,
+    rcLine: '$__medrc = if ($?) { 0 } else { 1 }; if ($__medrc -and $LASTEXITCODE) { $__medrc = $LASTEXITCODE }',
+    cwdLine: `Write-Host "${MARK}$PWD;$__medrc"`, eol: '\r\n', encoding: cp, ...extra,
+  };
+}
+function cmdDef(cmd, extra = {}) {
+  const cp = extra.encoding || consoleCodePage();
+  return {
+    cmd, args: ['/Q', '/K', 'rem'], env: { PROMPT: PROMPT_MARK }, promptMark: true, ext: '.cmd', scriptEnc: cp, markerInFile: true,
+    preLine: '(call )', source: (f) => `call "${f}"`, cwdLine: `echo ${MARK}%CD%;%ERRORLEVEL%`, eol: '\r\n', encoding: cp, kind: 'cmd', ...extra,
+  };
+}
+
+function listWslDistros(wsl) {
+  try {
+    const buf = execFileSync(wsl, ['-l', '-q'], { windowsHide: true, timeout: 4000 });
+    const text = (buf[0] === 0xff && buf[1] === 0xfe) || (buf.includes(0) && buf[1] === 0) ? buf.toString('utf16le') : buf.toString('utf8');
+    return text.split(/\r?\n/).map((s) => s.replace(/\u0000/g, '').trim()).filter((s) => s && !/docker-desktop/i.test(s) && !/has no installed/i.test(s) && !/^wsl\.exe$/i.test(s));
+  } catch { return []; }
+}
+
+let shellsCache = { at: 0, list: null };
 function shells() {
-  const posixSource = (f) => `. "${f.replace(/\\/g, '/')}";`;
+  if (shellsCache.list && Date.now() - shellsCache.at < 8000) return shellsCache.list;
+  const list = [];
+  const seenId = new Set();
+  const seenCmd = new Set();
+  const add = (spec) => {
+    if (!spec || !spec.id || seenId.has(spec.id)) return;
+    const exe = resolveExe(spec.cmd) || (path.isAbsolute(spec.cmd) ? '' : findOnPath(spec.cmd));
+    if (!exe) return;
+    const key = `${exe}|${JSON.stringify(spec.args || spec.makeArgs && spec.id)}`.toLowerCase();
+    if (seenCmd.has(key) && spec.id !== 'default') return;
+    seenId.add(spec.id);
+    seenCmd.add(key);
+    list.push({ ...spec, cmd: exe });
+  };
+
   if (process.platform === 'win32') {
     const cp = consoleCodePage();
-    const list = [
-      // cmd prints a prompt before every read: PROMPT is a marker that is stripped (with the blank line cmd
-      // always emits before it). The batch file holds the marker too (%ERRORLEVEL% expands when that line runs,
-      // after the command). cmd and PowerShell read and write the console's code page (CP949 on a Korean
-      // Windows …): the text — and cmd's batch file — is converted (see consoleCodePage). cmd with code page
-      // 65001 dies on multibyte input from a pipe, so it is left at the native code page.
-      // `(call )` first: it resets ERRORLEVEL, which cmd otherwise keeps from an earlier command (echo, cd … do not touch it).
-      { id: 'cmd', label: 'Command Prompt', cmd: 'cmd.exe', args: ['/Q', '/K', 'rem'], env: { PROMPT: PROMPT_MARK }, promptMark: true, ext: '.cmd', scriptEnc: cp, markerInFile: true, preLine: '(call )', source: (f) => `call "${f}"`, cwdLine: `echo ${MARK}%CD%;%ERRORLEVEL%`, eol: '\r\n', encoding: cp },
-      // PowerShell 5.1 reads a BOM-less script as ANSI, so the .ps1 gets a BOM. The exit status is read inside
-      // the script (after the dot-source, $? only says the sourcing worked): $? for a cmdlet, $LASTEXITCODE for a
-      // native program — reset first, so a stale code is not reported for a failed cmdlet.
-      { id: 'powershell', label: 'PowerShell', cmd: 'powershell.exe', args: ['-NoLogo', '-NoProfile', '-Command', '-'], ext: '.ps1', scriptEnc: 'utf8', bom: true, source: (f) => `$__medrc = 1; $global:LASTEXITCODE = 0; . "${f}";`, rcLine: '$__medrc = if ($?) { 0 } else { 1 }; if ($__medrc -and $LASTEXITCODE) { $__medrc = $LASTEXITCODE }', cwdLine: `Write-Host "${MARK}$PWD;$__medrc"`, eol: '\r\n', encoding: cp },
-    ];
-    for (const p of [process.env.ProgramFiles, process.env['ProgramFiles(x86)']]) {
-      const bash = p && path.join(p, 'Git', 'bin', 'bash.exe');
-      if (bash && fs.existsSync(bash)) { list.push({ id: 'gitbash', label: 'Git Bash', cmd: bash, args: ['--norc', '-s'], ext: '.sh', scriptEnc: 'utf8', source: posixSource, cwdLine: `echo "${MARK}$PWD;$?"`, eol: '\n', init: POSIX_INIT }); break; }
+    const sys32 = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32');
+    const pf = process.env.ProgramFiles || 'C:\\Program Files';
+    const pf86 = process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)';
+    const local = process.env.LOCALAPPDATA || '';
+    const home = os.homedir();
+    add({ id: 'cmd', label: 'Command Prompt', ...cmdDef(process.env.ComSpec || path.join(sys32, 'cmd.exe'), { encoding: cp }) });
+    add({ id: 'powershell', label: 'Windows PowerShell', ...psDef(path.join(sys32, 'WindowsPowerShell', 'v1.0', 'powershell.exe'), { encoding: cp }) });
+    add({ id: 'pwsh', label: 'PowerShell', ...psDef(firstExisting([
+      path.join(pf, 'PowerShell', '7', 'pwsh.exe'),
+      path.join(pf, 'PowerShell', '7-preview', 'pwsh.exe'),
+      path.join(pf, 'PowerShell', '6', 'pwsh.exe'),
+      path.join(home, 'scoop', 'apps', 'pwsh', 'current', 'pwsh.exe'),
+      path.join(local, 'Microsoft', 'WindowsApps', 'pwsh.exe'),
+      findOnPath('pwsh.exe'),
+    ]), { encoding: 'utf8' }) });
+    add({ id: 'gitbash', label: 'Git Bash', ...posixDef(firstExisting([
+      path.join(pf, 'Git', 'bin', 'bash.exe'),
+      path.join(pf86, 'Git', 'bin', 'bash.exe'),
+      path.join(local, 'Programs', 'Git', 'bin', 'bash.exe'),
+      path.join(home, 'scoop', 'apps', 'git', 'current', 'bin', 'bash.exe'),
+      path.join(home, 'AppData', 'Local', 'Programs', 'Git', 'bin', 'bash.exe'),
+    ]), { args: ['--norc', '-s'] }) });
+    add({ id: 'msys2', label: 'MSYS2', ...posixDef(firstExisting([
+      path.join('C:\\msys64', 'usr', 'bin', 'bash.exe'),
+      path.join(pf, 'msys64', 'usr', 'bin', 'bash.exe'),
+      path.join(home, 'msys64', 'usr', 'bin', 'bash.exe'),
+      path.join(local, 'msys64', 'usr', 'bin', 'bash.exe'),
+      path.join(home, 'scoop', 'apps', 'msys2', 'current', 'usr', 'bin', 'bash.exe'),
+    ]), { args: ['--norc', '-s'] }) });
+    add({ id: 'cygwin', label: 'Cygwin', ...posixDef(firstExisting([
+      path.join('C:\\cygwin64', 'bin', 'bash.exe'),
+      path.join('C:\\cygwin', 'bin', 'bash.exe'),
+      path.join(pf, 'cygwin64', 'bin', 'bash.exe'),
+    ]), { args: ['--norc', '-s'] }) });
+    const wsl = firstExisting([path.join(sys32, 'wsl.exe'), findOnPath('wsl.exe')]);
+    if (wsl) {
+      for (const name of listWslDistros(wsl)) {
+        add({
+          id: `wsl:${name}`, label: `WSL: ${name}`, ...posixDef(wsl, {
+            args: ['-d', name, '--', 'bash', '--norc', '-s'],
+            makeArgs: (cwd) => ['-d', name, '--cd', cwd, '--', 'bash', '--norc', '-s'],
+          }),
+        });
+      }
     }
-    return list;
+    const isWslLauncher = (exe) => /[\\/](?:system32|syswow64)[\\/](?:bash|wsl)\.exe$/i.test(exe);
+    for (const [id, label, names, kind] of [
+      ['bash', 'bash', ['bash.exe', 'bash'], 'posix'],
+      ['zsh', 'zsh', ['zsh.exe', 'zsh'], 'posix'],
+      ['dash', 'dash', ['dash.exe', 'dash'], 'posix'],
+      ['sh', 'sh', ['sh.exe', 'sh'], 'posix'],
+      ['ksh', 'ksh', ['ksh.exe', 'ksh'], 'posix'],
+      ['fish', 'fish', ['fish.exe', 'fish'], 'fish'],
+    ]) {
+      const exe = names.map(findOnPath).find(Boolean);
+      if (!exe || isWslLauncher(exe)) continue;
+      if (kind === 'fish') add({ id, label, ...fishDef(exe) });
+      else add({ id, label, ...posixDef(exe, { args: id === 'bash' ? ['--norc', '-s'] : ['-s'] }) });
+    }
+  } else {
+    const sh = process.env.SHELL || '/bin/bash';
+    add({ id: 'default', label: path.basename(sh), ...(/fish$/.test(sh) ? fishDef(sh) : posixDef(sh, /zsh$/.test(sh) ? { args: ['-s'] } : {})) });
+    const extras = [
+      ['bash', '/bin/bash', '/usr/bin/bash', '/usr/local/bin/bash', '/opt/homebrew/bin/bash'],
+      ['sh', '/bin/sh', '/usr/bin/sh'],
+      ['zsh', '/bin/zsh', '/usr/bin/zsh', '/usr/local/bin/zsh', '/opt/homebrew/bin/zsh'],
+      ['dash', '/bin/dash', '/usr/bin/dash'],
+      ['ksh', '/bin/ksh', '/usr/bin/ksh'],
+      ['fish', '/usr/bin/fish', '/usr/local/bin/fish', '/opt/homebrew/bin/fish'],
+      ['pwsh', '/usr/bin/pwsh', '/usr/local/bin/pwsh', '/opt/homebrew/bin/pwsh'],
+    ];
+    for (const [id, ...cands] of extras) {
+      const exe = firstExisting(cands) || findOnPath(id);
+      if (!exe) continue;
+      if (id === 'fish') add({ id, label: id, ...fishDef(exe) });
+      else if (id === 'pwsh') add({ id, label: 'PowerShell', ...psDef(exe, { encoding: 'utf8', eol: '\n' }) });
+      else add({ id, label: id, ...posixDef(exe, id === 'zsh' ? { args: ['-s'] } : {}) });
+    }
   }
-  const sh = process.env.SHELL || '/bin/bash';
-  const posix = (cmd) => ({ cmd, args: ['-s'], ext: '.sh', scriptEnc: 'utf8', source: posixSource, cwdLine: `echo "${MARK}$PWD;$?"`, eol: '\n', init: POSIX_INIT });
-  const list = [{ id: 'default', label: path.basename(sh), ...posix(sh) }];
-  if (sh !== '/bin/bash' && fs.existsSync('/bin/bash')) list.push({ id: 'bash', label: 'bash', ...posix('/bin/bash') });
-  if (fs.existsSync('/bin/sh')) list.push({ id: 'sh', label: 'sh', ...posix('/bin/sh') });
+  shellsCache = { at: Date.now(), list };
   return list;
 }
 
@@ -279,7 +401,8 @@ function createTerminals() {
       const id = nextId++;
       const s = { id, shell: def.id, label: def.label, cwd: dir, chunks: [], seq: 0, pending: '', pendingCr: false, expectPrompt: !!def.promptMark, idle: true, rc: 0, waiters: [], changed: false, exited: false, code: null, def, proc: null };
       s.scriptFile = path.join(os.tmpdir(), `med-term-${process.pid}-${id}${def.ext}`);
-      const proc = spawn(def.cmd, def.args, { cwd: dir, stdio: 'pipe', windowsHide: true, env: { ...process.env, ...COLOR_ENV, LANG: utf8Lang(), ...Object.fromEntries(['LC_ALL', 'LC_CTYPE'].filter((k) => process.env[k] && !/utf-?8/i.test(process.env[k])).map((k) => [k, utf8Lang()])), ...(def.env || {}) } });
+      const args = typeof def.makeArgs === 'function' ? def.makeArgs(dir) : (def.args || []);
+      const proc = spawn(def.cmd, args, { cwd: dir, stdio: 'pipe', windowsHide: true, env: { ...process.env, ...COLOR_ENV, LANG: utf8Lang(), ...Object.fromEntries(['LC_ALL', 'LC_CTYPE'].filter((k) => process.env[k] && !/utf-?8/i.test(process.env[k])).map((k) => [k, utf8Lang()])), ...(def.env || {}) } });
       s.proc = proc;
       const enc = def.encoding || 'utf8';
       s.enc = enc;
@@ -408,11 +531,11 @@ function createTerminals() {
       const sepIdx = Math.max(word.lastIndexOf('/'), word.lastIndexOf('\\'));
       const dirPart = sepIdx >= 0 ? word.slice(0, sepIdx + 1) : '';
       const prefix = word.slice(sepIdx + 1);
-      const sep = sepIdx >= 0 ? word[sepIdx] : (s.shell === 'cmd' || s.shell === 'powershell' ? '\\' : '/');
+      const sep = sepIdx >= 0 ? word[sepIdx] : ((s.def && (s.def.kind === 'cmd' || s.def.kind === 'powershell')) && win ? '\\' : '/');
       const match = (name) => fold(name).startsWith(fold(prefix));
       const items = [];
       if (firstWord && sepIdx < 0) {
-        const kind = s.shell === 'cmd' ? 'cmd' : s.shell === 'powershell' ? 'powershell' : 'sh';
+        const kind = (s.def && s.def.kind) || (s.shell === 'cmd' ? 'cmd' : /^(powershell|pwsh)$/i.test(s.shell) ? 'powershell' : 'sh');
         for (const c of [...BUILTINS[kind], ...pathCommands()]) if (match(c)) items.push({ text: c, dir: false, cmd: true });
       }
       let base = dirPart;

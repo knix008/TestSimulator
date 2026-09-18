@@ -1,48 +1,67 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-  <!-- My Editor — a glossy 3D tile (lit from the top-left) holding a fan of documents: an image, a binary
-       (hex) dump and, in front, a code / text sheet — everything the editor shows — with the pencil.
-       Rasterized by scripts/generate-icons.mjs (sharp). -->
+  <!-- My Editor — a thick 3D squircle (extruded, lit from the top-left) with a
+       recessed well. A small fan of documents (image · hex · code) and a pencil
+       sit in the well. Rasterized by scripts/generate-icons.mjs (sharp). -->
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#3b82f6"/>
-      <stop offset="0.45" stop-color="#1d4ed8"/>
-      <stop offset="1" stop-color="#0f2a6e"/>
+    <linearGradient id="face" x1="0.08" y1="0" x2="0.95" y2="1">
+      <stop offset="0" stop-color="#7dd3fc"/>
+      <stop offset="0.22" stop-color="#3b82f6"/>
+      <stop offset="0.55" stop-color="#1d4ed8"/>
+      <stop offset="0.82" stop-color="#1e3a8a"/>
+      <stop offset="1" stop-color="#312e81"/>
     </linearGradient>
-    <radialGradient id="light" cx="0.22" cy="0.16" r="0.75">
-      <stop offset="0" stop-color="#ffffff" stop-opacity="0.55"/>
-      <stop offset="0.35" stop-color="#ffffff" stop-opacity="0.16"/>
+    <linearGradient id="faceTop" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#e0f2fe"/>
+      <stop offset="0.18" stop-color="#60a5fa"/>
+      <stop offset="1" stop-color="#1d4ed8" stop-opacity="0"/>
+    </linearGradient>
+    <radialGradient id="spec" cx="0.22" cy="0.14" r="0.7">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.72"/>
+      <stop offset="0.28" stop-color="#ffffff" stop-opacity="0.22"/>
       <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
     </radialGradient>
-    <linearGradient id="gloss" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#ffffff" stop-opacity="0.38"/>
-      <stop offset="1" stop-color="#ffffff" stop-opacity="0.02"/>
-    </linearGradient>
     <linearGradient id="bevel" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#ffffff" stop-opacity="0.85"/>
-      <stop offset="0.5" stop-color="#ffffff" stop-opacity="0.12"/>
-      <stop offset="1" stop-color="#000000" stop-opacity="0.45"/>
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.92"/>
+      <stop offset="0.38" stop-color="#ffffff" stop-opacity="0.18"/>
+      <stop offset="0.7" stop-color="#000000" stop-opacity="0.08"/>
+      <stop offset="1" stop-color="#000000" stop-opacity="0.55"/>
     </linearGradient>
-    <linearGradient id="page" x1="0" y1="0" x2="0.6" y2="1">
+    <linearGradient id="sideR" x1="0" y1="0" x2="1" y2="0.3">
+      <stop offset="0" stop-color="#2563eb"/>
+      <stop offset="1" stop-color="#0f172a"/>
+    </linearGradient>
+    <linearGradient id="sideB" x1="0.2" y1="0" x2="0.6" y2="1">
+      <stop offset="0" stop-color="#1e3a8a"/>
+      <stop offset="1" stop-color="#020617"/>
+    </linearGradient>
+    <linearGradient id="well" x1="0.2" y1="0" x2="0.8" y2="1">
+      <stop offset="0" stop-color="#1e3a8a" stop-opacity="0.08"/>
+      <stop offset="0.5" stop-color="#0f172a" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#020617" stop-opacity="0.32"/>
+    </linearGradient>
+    <linearGradient id="page" x1="0" y1="0" x2="0.5" y2="1">
       <stop offset="0" stop-color="#ffffff"/>
-      <stop offset="0.7" stop-color="#eef2f7"/>
-      <stop offset="1" stop-color="#cfd8e3"/>
+      <stop offset="0.65" stop-color="#eef2ff"/>
+      <stop offset="1" stop-color="#c7d2fe"/>
+    </linearGradient>
+    <linearGradient id="pageSide" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#94a3b8"/>
+      <stop offset="1" stop-color="#475569"/>
     </linearGradient>
     <linearGradient id="fold" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#e2e8f0"/>
-      <stop offset="1" stop-color="#94a3b8"/>
+      <stop offset="1" stop-color="#64748b"/>
     </linearGradient>
-    <!-- the image card: a sky -->
     <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#7dd3fc"/>
       <stop offset="1" stop-color="#e0f2fe"/>
     </linearGradient>
-    <!-- the binary card: dark, with a faint sheen -->
     <linearGradient id="hex" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#334155"/>
+      <stop offset="0" stop-color="#475569"/>
       <stop offset="1" stop-color="#0f172a"/>
     </linearGradient>
-    <linearGradient id="wood" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="#fbbf24"/>
+    <linearGradient id="woodL" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#fde68a"/>
       <stop offset="0.45" stop-color="#f59e0b"/>
       <stop offset="1" stop-color="#b45309"/>
     </linearGradient>
@@ -53,87 +72,109 @@
     <linearGradient id="ferrule" x1="0" y1="0" x2="1" y2="0">
       <stop offset="0" stop-color="#fde68a"/>
       <stop offset="0.5" stop-color="#d97706"/>
-      <stop offset="1" stop-color="#92400e"/>
+      <stop offset="1" stop-color="#78350f"/>
     </linearGradient>
     <linearGradient id="tip" x1="0" y1="0" x2="1" y2="0">
       <stop offset="0" stop-color="#fde7d0"/>
-      <stop offset="1" stop-color="#d4a373"/>
+      <stop offset="1" stop-color="#b45309"/>
     </linearGradient>
-    <filter id="tileShadow" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="14" stdDeviation="14" flood-color="#000" flood-opacity="0.45"/>
+    <filter id="ground" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="10"/>
     </filter>
-    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
-      <feDropShadow dx="6" dy="12" stdDeviation="9" flood-color="#000" flood-opacity="0.45"/>
+    <filter id="tileSh" x="-25%" y="-25%" width="150%" height="160%">
+      <feDropShadow dx="0" dy="18" stdDeviation="12" flood-color="#020617" flood-opacity="0.5"/>
     </filter>
-    <filter id="softShadow" x="-30%" y="-30%" width="160%" height="160%">
-      <feDropShadow dx="4" dy="8" stdDeviation="6" flood-color="#000" flood-opacity="0.4"/>
+    <filter id="cardSh" x="-40%" y="-40%" width="180%" height="180%">
+      <feDropShadow dx="3" dy="8" stdDeviation="5" flood-color="#020617" flood-opacity="0.45"/>
     </filter>
-    <clipPath id="tileClip"><rect x="24" y="20" width="464" height="464" rx="100"/></clipPath>
-    <clipPath id="imgClip"><rect x="0" y="0" width="150" height="190" rx="14"/></clipPath>
+    <filter id="penSh" x="-40%" y="-40%" width="180%" height="180%">
+      <feDropShadow dx="2" dy="6" stdDeviation="4" flood-color="#020617" flood-opacity="0.4"/>
+    </filter>
+    <clipPath id="faceClip"><rect x="46" y="30" width="396" height="396" rx="92"/></clipPath>
+    <clipPath id="imgClip"><rect x="0" y="0" width="86" height="108" rx="10"/></clipPath>
   </defs>
 
-  <!-- the tile, its depth and its lighting -->
-  <rect x="24" y="20" width="464" height="464" rx="100" fill="url(#bg)" filter="url(#tileShadow)"/>
-  <g clip-path="url(#tileClip)">
-    <rect x="24" y="20" width="464" height="464" fill="url(#light)"/>
-    <ellipse cx="180" cy="60" rx="300" ry="150" fill="url(#gloss)"/>
-    <ellipse cx="420" cy="470" rx="260" ry="120" fill="#000" fill-opacity="0.18"/>
-  </g>
-  <rect x="27" y="23" width="458" height="458" rx="97" fill="none" stroke="url(#bevel)" stroke-width="5"/>
-  <rect x="24" y="20" width="464" height="464" rx="100" fill="none" stroke="#000" stroke-opacity="0.25" stroke-width="2"/>
+  <!-- ground contact shadow: the tile is sitting in space -->
+  <ellipse cx="268" cy="486" rx="176" ry="22" fill="#020617" fill-opacity="0.42" filter="url(#ground)"/>
 
-  <!-- back left: an image (sky, sun, hills) — tilted a little -->
-  <g transform="translate(84 104) rotate(-12)" filter="url(#shadow)">
-    <g clip-path="url(#imgClip)">
-      <rect x="0" y="0" width="150" height="190" fill="url(#sky)"/>
-      <circle cx="108" cy="46" r="20" fill="#fbbf24"/>
-      <path d="M0 150 L42 96 L78 138 L104 112 L150 160 L150 190 L0 190 Z" fill="#16a34a"/>
-      <path d="M0 165 L30 132 L64 162 L94 140 L150 176 L150 190 L0 190 Z" fill="#15803d"/>
+  <!-- extruded body: darker copies offset down-right = thickness -->
+  <rect x="78" y="78" width="396" height="396" rx="92" fill="#020617"/>
+  <rect x="70" y="66" width="396" height="396" rx="92" fill="url(#sideB)"/>
+  <rect x="58" y="50" width="396" height="396" rx="92" fill="url(#sideR)"/>
+  <rect x="52" y="40" width="396" height="396" rx="92" fill="#1d4ed8"/>
+
+  <!-- front face -->
+  <g filter="url(#tileSh)">
+    <rect x="46" y="30" width="396" height="396" rx="92" fill="url(#face)"/>
+  </g>
+  <g clip-path="url(#faceClip)">
+    <rect x="46" y="30" width="396" height="150" fill="url(#faceTop)"/>
+    <rect x="46" y="30" width="396" height="396" fill="url(#spec)"/>
+    <ellipse cx="150" cy="70" rx="210" ry="88" fill="#ffffff" fill-opacity="0.22"/>
+    <ellipse cx="390" cy="390" rx="200" ry="110" fill="#020617" fill-opacity="0.28"/>
+    <!-- shallow well: a dent in the 3D face, small enough that the tile still reads -->
+    <rect x="108" y="108" width="272" height="248" rx="56" fill="url(#well)"/>
+    <rect x="112" y="112" width="264" height="240" rx="52" fill="none" stroke="#020617" stroke-opacity="0.28" stroke-width="3"/>
+    <rect x="110" y="110" width="264" height="36" rx="18" fill="#ffffff" fill-opacity="0.1"/>
+  </g>
+  <rect x="49" y="33" width="390" height="390" rx="89" fill="none" stroke="url(#bevel)" stroke-width="6"/>
+  <rect x="46" y="30" width="396" height="396" rx="92" fill="none" stroke="#020617" stroke-opacity="0.28" stroke-width="2"/>
+
+  <!-- documents: small, so the 3D tile reads first -->
+  <g transform="translate(256 226) scale(0.72) translate(-256 -228)">
+    <!-- image card, back left -->
+    <g transform="translate(132 118) rotate(-16)" filter="url(#cardSh)">
+      <rect x="6" y="8" width="86" height="108" rx="10" fill="#075985"/>
+      <g clip-path="url(#imgClip)">
+        <rect x="0" y="0" width="86" height="108" fill="url(#sky)"/>
+        <circle cx="62" cy="26" r="12" fill="#fbbf24"/>
+        <path d="M0 84 L24 54 L44 76 L60 62 L86 90 L86 108 L0 108 Z" fill="#16a34a"/>
+        <path d="M0 94 L18 74 L36 90 L54 78 L86 100 L86 108 L0 108 Z" fill="#15803d"/>
+      </g>
+      <rect x="0" y="0" width="86" height="108" rx="10" fill="none" stroke="#ffffff" stroke-opacity="0.9" stroke-width="3"/>
     </g>
-    <rect x="0" y="0" width="150" height="190" rx="14" fill="none" stroke="#ffffff" stroke-opacity="0.9" stroke-width="4"/>
-  </g>
 
-  <!-- back right: binary data (a hex dump) — tilted the other way -->
-  <g transform="translate(292 92) rotate(11)" filter="url(#shadow)">
-    <rect x="0" y="0" width="150" height="190" rx="14" fill="url(#hex)"/>
-    <rect x="0" y="0" width="150" height="190" rx="14" fill="none" stroke="#94a3b8" stroke-opacity="0.6" stroke-width="3"/>
-    <g font-family="Consolas, 'Courier New', monospace" font-size="21" font-weight="700" fill="#7dd3fc">
-      <text x="14" y="42">4D 5A 90</text>
-      <text x="14" y="72" fill="#a5f3fc">00 03 00</text>
-      <text x="14" y="102">FF FE 0D</text>
-      <text x="14" y="132" fill="#a5f3fc">0A 1A 0A</text>
-      <text x="14" y="162">89 50 4E</text>
+    <!-- hex card, back right -->
+    <g transform="translate(292 108) rotate(14)" filter="url(#cardSh)">
+      <rect x="5" y="8" width="86" height="108" rx="10" fill="#020617"/>
+      <rect x="0" y="0" width="86" height="108" rx="10" fill="url(#hex)"/>
+      <rect x="0" y="0" width="86" height="108" rx="10" fill="none" stroke="#94a3b8" stroke-opacity="0.7" stroke-width="2.5"/>
+      <g font-family="Consolas, 'Courier New', monospace" font-size="13" font-weight="700" fill="#7dd3fc">
+        <text x="8" y="28">4D 5A</text>
+        <text x="8" y="46" fill="#a5f3fc">00 03</text>
+        <text x="8" y="64">FF FE</text>
+        <text x="8" y="82" fill="#a5f3fc">89 50</text>
+        <text x="8" y="100">0A 1A</text>
+      </g>
+    </g>
+
+    <!-- code sheet, front — smaller than the cards behind it -->
+    <g transform="translate(186 142)" filter="url(#cardSh)">
+      <rect x="6" y="10" width="118" height="148" rx="10" fill="url(#pageSide)"/>
+      <path d="M0 12 h78 l32 32 v104 a10 10 0 0 1-10 10 H10 a10 10 0 0 1-10-10 V22 a10 10 0 0 1 10-10z" fill="url(#page)"/>
+      <path d="M78 12 v22 a10 10 0 0 0 10 10 h22z" fill="url(#fold)"/>
+      <rect x="0" y="12" width="110" height="146" rx="10" fill="none" stroke="#ffffff" stroke-opacity="0.65" stroke-width="1.6"/>
+      <rect x="14" y="58" width="28" height="8" rx="4" fill="#7c3aed"/>
+      <rect x="46" y="58" width="44" height="8" rx="4" fill="#94a3b8"/>
+      <rect x="22" y="76" width="40" height="8" rx="4" fill="#15803d"/>
+      <rect x="66" y="76" width="24" height="8" rx="4" fill="#94a3b8"/>
+      <rect x="22" y="94" width="26" height="8" rx="4" fill="#c2410c"/>
+      <rect x="52" y="94" width="42" height="8" rx="4" fill="#1d4ed8"/>
+      <rect x="14" y="112" width="58" height="8" rx="4" fill="#94a3b8"/>
+      <rect x="58" y="126" width="6" height="16" rx="2" fill="#0ea5e9"/>
     </g>
   </g>
 
-  <!-- front: the code / text sheet with a folded corner (scaled to 0.82, so the cards behind it show) -->
-  <g transform="translate(58 78) scale(0.82)">
-    <g filter="url(#shadow)">
-      <path d="M144 150h150l74 74v200a20 20 0 0 1-20 20H144a20 20 0 0 1-20-20V170a20 20 0 0 1 20-20z" fill="url(#page)"/>
-      <path d="M294 150v54a20 20 0 0 0 20 20h54z" fill="url(#fold)"/>
-    </g>
-    <path d="M144 150h150l74 74v200a20 20 0 0 1-20 20H144a20 20 0 0 1-20-20V170a20 20 0 0 1 20-20z" fill="none" stroke="#ffffff" stroke-opacity="0.7" stroke-width="2.4"/>
-    <!-- code lines: a keyword, a string, a tag … and an ordinary text line -->
-    <rect x="160" y="248" width="52" height="16" rx="8" fill="#7c3aed"/>
-    <rect x="220" y="248" width="86" height="16" rx="8" fill="#94a3b8"/>
-    <rect x="178" y="282" width="78" height="16" rx="8" fill="#15803d"/>
-    <rect x="264" y="282" width="44" height="16" rx="8" fill="#94a3b8"/>
-    <rect x="178" y="316" width="48" height="16" rx="8" fill="#c2410c"/>
-    <rect x="234" y="316" width="96" height="16" rx="8" fill="#1d4ed8"/>
-    <rect x="160" y="350" width="112" height="16" rx="8" fill="#94a3b8"/>
-    <rect x="160" y="384" width="70" height="16" rx="8" fill="#94a3b8"/>
-    <!-- text cursor -->
-    <rect x="240" y="378" width="9" height="30" rx="3" fill="#0ea5e9"/>
-  </g>
-
-  <!-- pencil: a shaded cylinder with its own shadow on the sheet -->
-  <g transform="translate(318 292) rotate(45)" filter="url(#softShadow)">
-    <rect x="-22" y="-10" width="44" height="150" rx="6" fill="url(#wood)"/>
-    <rect x="-22" y="-10" width="44" height="26" rx="6" fill="url(#eraser)"/>
-    <rect x="-22" y="14" width="44" height="8" fill="url(#ferrule)"/>
-    <rect x="-22" y="118" width="44" height="22" fill="url(#ferrule)"/>
-    <path d="M-22 140h44l-22 40z" fill="url(#tip)"/>
-    <path d="M-8 166h16l-8 14z" fill="#1f2937"/>
-    <rect x="-16" y="24" width="8" height="92" rx="4" fill="#ffffff" fill-opacity="0.45"/>
+  <!-- pencil: a short 3D cylinder (wood + highlight + dark side) -->
+  <g transform="translate(308 276) rotate(42) scale(0.86)" filter="url(#penSh)">
+    <rect x="-11" y="-6" width="26" height="96" rx="5" fill="#78350f"/>
+    <rect x="-13" y="-8" width="26" height="96" rx="5" fill="url(#woodL)"/>
+    <rect x="-13" y="-8" width="26" height="16" rx="5" fill="url(#eraser)"/>
+    <rect x="-13" y="7" width="26" height="5" fill="url(#ferrule)"/>
+    <rect x="-13" y="74" width="26" height="14" fill="url(#ferrule)"/>
+    <path d="M-13 88h26l-13 26z" fill="url(#tip)"/>
+    <path d="M-5 106h10l-5 10z" fill="#1f2937"/>
+    <rect x="-9" y="14" width="5" height="58" rx="2.5" fill="#ffffff" fill-opacity="0.5"/>
+    <rect x="6" y="16" width="4" height="54" rx="2" fill="#000000" fill-opacity="0.18"/>
   </g>
 </svg>

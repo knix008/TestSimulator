@@ -12,8 +12,11 @@ import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { t, useLanguage } from '../lib/i18n';
 import { call } from '../lib/backend';
 import { Icon } from './Icons';
-import { IMAGE_MIME, icoDisplaySrc } from '../lib/images';
+import { icoDisplaySrc } from '../lib/images';
+import { isSvgName, isHeicName, isDicomName, isBinaryImageName, isImageName } from '../lib/imagekind';
 import { WINDOW_PRESETS, pixelsFromB64, applyWindow, valueAt } from '../lib/dicomview';
+
+export { isSvgName, isHeicName, isDicomName, isBinaryImageName, isImageName };
 
 const RENDER_DELAY = 120;   // ms after the last edit of an SVG — the preview follows the typing
 const ZOOM_MIN = 0.05;
@@ -22,11 +25,6 @@ const ZOOM_FACTOR = 1.1;
 const DRAG_MIN = 5;   // px: below this a press is a click (zoom), above it a pan
 const CINE_MS = 120;
 
-export const isSvgName = (name) => /\.svg$/i.test(String(name || ''));
-export const isHeicName = (name) => /\.(heic|heif)$/i.test(String(name || ''));
-export const isDicomName = (name) => /\.(dcm|dicom)$/i.test(String(name || ''));
-export const isBinaryImageName = (name) => { const m = /\.([a-z0-9]+)$/i.exec(String(name || '')); return !!(m && IMAGE_MIME[m[1].toLowerCase()] && m[1].toLowerCase() !== 'svg'); };
-export const isImageName = (name) => isSvgName(name) || isBinaryImageName(name);
 const isMediaName = (name) => isHeicName(name) || isDicomName(name);
 
 function picSize(el) {
@@ -34,7 +32,7 @@ function picSize(el) {
   return el.naturalWidth || el.width || 0;
 }
 
-export function ImagePreview({ view, docVersion, path, name, mtime, width, fill }) {
+export function ImagePreview({ view, docVersion, path, name, mtime, width, fill, imageHex, onToggleHex }) {
   useLanguage();
   const [src, setSrc] = useState('');
   const [err, setErr] = useState('');
@@ -93,6 +91,7 @@ export function ImagePreview({ view, docVersion, path, name, mtime, width, fill 
       return () => { alive = false; };
     }
     pixels.current = null;
+    if (!path) return undefined;
     call('file.dataUrl', { path }).then((r) => { if (alive) setSrc(/\.(ico)$/i.test(name) ? icoDisplaySrc(r.dataUrl) : r.dataUrl); }).catch((e) => { if (alive) setErr(e.message || String(e)); });
     return () => { alive = false; };
   }, [svg, view, docVersion, path, mtime, media, slice]);   // eslint-disable-line react-hooks/exhaustive-deps
@@ -268,6 +267,7 @@ export function ImagePreview({ view, docVersion, path, name, mtime, width, fill 
             <canvas ref={canvasRef} style={imgStyle} />
           </div>
         )}
+        {!src && !err && <div className="image-preview-err muted"><span className="inst-spinner" /> {t('prog_image_load')}</div>}
         {err && <div className="image-preview-err"><Icon name="warning" size={18} /> {err}</div>}
       </div>
       {info && (count > 1 || dicom) && !err && (
@@ -331,6 +331,12 @@ export function ImagePreview({ view, docVersion, path, name, mtime, width, fill 
         {probe && probe.hu != null && <span className="img-hu">{t('img_pv_hu', { n: Math.round(probe.hu) })}</span>}
         {probe && probe.hu == null && Array.isArray(probe.stored) && <span className="img-hu">{probe.stored.join(', ')}</span>}
         <span className="spacer" />
+        {fill && onToggleHex && (
+          <button type="button" className={`md-btn md-toggle ${imageHex ? 'on' : ''}`} title={t('img_hex_tip')}
+            onMouseDown={(e) => e.preventDefault()} onClick={(e) => { e.stopPropagation(); onToggleHex(); }}>
+            <Icon name="binary" size={14} /><span>{t('img_hex')}</span>
+          </button>
+        )}
       </div>
     </div>
   );

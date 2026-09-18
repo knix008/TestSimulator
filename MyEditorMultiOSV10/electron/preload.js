@@ -45,7 +45,11 @@ contextBridge.exposeInMainWorld('myEditor', {
   // Settings / info / shortcuts as separate windows, and the settings sync between windows.
   openPopup: (kind, tab) => ipcRenderer.send('popup:open', kind, tab),
   popupMenu: (items, pos) => ipcRenderer.invoke('menu:popup', items, pos),
-  printHtml: (html, title) => ipcRenderer.send('print:html', html, title),
+  openPrint: (job) => ipcRenderer.send('print:open', job),
+  onPrintJob: on('print:job'),
+  takePrintJob: () => ipcRenderer.invoke('print:takeJob'),
+  listPrinters: () => ipcRenderer.invoke('print:printers'),
+  printHtml: (html, title, labels, opts) => ipcRenderer.invoke('print:html', html, title, labels, opts),
   sendSettingsPatch: (patch) => ipcRenderer.send('settings:patch', patch),
   onSettingsPatch: on('settings:patch'),
   // The smoke test keeps the dialogs inside the main window so it can drive them.

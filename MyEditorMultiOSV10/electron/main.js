@@ -17,6 +17,9 @@ const { createApi } = require('../core/api');
 const isDev = !app.isPackaged && process.env.ELECTRON_DEV === '1';
 const DEV_URL = 'http://localhost:5189';
 const PRODUCT = 'My Editor';
+const APP_ID = 'com.shkwon.myeditor';
+app.setName(PRODUCT);
+app.setAppUserModelId(APP_ID);
 
 app.commandLine.appendSwitch('disable-features', 'Autofill');
 // A separate profile for tests / parallel runs (settings + instance lock).
@@ -55,8 +58,22 @@ let pendingFiles = filesFromArgv(process.argv);   // opened once the renderer is
 let rendererReady = false;
 
 function iconPath() {
-  const dir = path.join(__dirname, '..', 'build', 'icons');
-  return path.join(dir, process.platform === 'win32' ? 'icon.ico' : 'icon.png');
+  const name = process.platform === 'win32' ? 'icon.ico' : 'icon.png';
+  const candidates = [
+    process.resourcesPath && path.join(process.resourcesPath, name),
+    process.resourcesPath && path.join(process.resourcesPath, 'icon.png'),
+    path.join(__dirname, '..', 'build', 'icons', name),
+    path.join(__dirname, '..', 'build', 'icons', 'icon.png'),
+  ].filter(Boolean);
+  return candidates.find((p) => { try { return fs.existsSync(p); } catch { return false; } }) || candidates[candidates.length - 1];
+}
+function printIconPath() {
+  const candidates = [
+    path.join(__dirname, '..', 'assets', 'print-icon.png'),
+    path.join(__dirname, '..', 'build', 'icons', 'print.png'),
+    iconPath(),
+  ];
+  return candidates.find((p) => fs.existsSync(p));
 }
 
 function sendOpenFiles(list) {
@@ -70,8 +87,14 @@ function sendOpenFiles(list) {
 // anywhere on the screen. Each loads the same bundle with ?popup=<kind>
 // (src/main.jsx renders PopupWindow instead of App). One window per kind.
 // Fixed sizes (not resizable): large enough for their content, so nothing scrolls.
-const POPUPS = { settings: { width: 1000, height: 1000 }, about: { width: 560, height: 420 }, shortcuts: { width: 1000, height: 780 } };
+const POPUPS = {
+  settings: { width: 1000, height: 1000 },
+  about: { width: 560, height: 420 },
+  shortcuts: { width: 1000, height: 780 },
+  print: { width: 1100, height: 800, resizable: true },
+};
 const popups = new Map();
+let pendingPrintJob = null;
 function openPopup(kind, tab) {
   const spec = POPUPS[kind];
   if (!spec || !mainWin || mainWin.isDestroyed()) return null;
@@ -79,12 +102,14 @@ function openPopup(kind, tab) {
   if (existing && !existing.isDestroyed()) { existing.focus(); return existing; }
   const session = api.session.get();
   const pb = mainWin.getBounds();
+  const resizable = !!spec.resizable;
+  const printIcon = kind === 'print' && printIconPath();
   const win = new BrowserWindow({
-    width: spec.width, height: spec.height, resizable: false, maximizable: false, fullscreenable: false, useContentSize: true,
+    width: spec.width, height: spec.height, resizable, maximizable: resizable, fullscreenable: false, useContentSize: true,
     x: Math.round(pb.x + (pb.width - spec.width) / 2), y: Math.round(pb.y + Math.max(40, (pb.height - spec.height) / 2)),
-    parent: mainWin, modal: false, frame: false, autoHideMenuBar: true, show: false, title: PRODUCT,
+    parent: mainWin, modal: false, frame: false, autoHideMenuBar: true, show: false, title: kind === 'print' ? '인쇄' : PRODUCT,
     backgroundColor: session.themeBg || '#12161c',
-    icon: fs.existsSync(iconPath()) ? iconPath() : undefined,
+    icon: (printIcon && fs.existsSync(printIcon) ? printIcon : undefined) || (fs.existsSync(iconPath()) ? iconPath() : undefined),
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: false, spellcheck: false },
   });
   popups.set(kind, win);
@@ -96,18 +121,71 @@ function openPopup(kind, tab) {
   else win.loadFile(path.join(__dirname, '..', 'dist', 'index.html'), { query });
   return win;
 }
-// Printing: the HTML built by the renderer (shown first in the print-preview
-// dialog) is loaded into a hidden window and sent to the system print dialog.
-function printHtml(html, title) {
-  const win = new BrowserWindow({ show: false, width: 900, height: 1200, parent: mainWin || undefined, webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false } });
-  win.webContents.once('did-finish-load', () => {
-    setTimeout(() => {
-      if (win.isDestroyed()) return;
-      win.webContents.print({ printBackground: true, silent: false }, () => { if (!win.isDestroyed()) win.close(); });
-    }, 300);
+function openPrint(job) {
+  pendingPrintJob = job && typeof job === 'object' ? job : null;
+  const win = openPopup('print');
+  if (!win || !pendingPrintJob) return win;
+  const send = () => { if (!win.isDestroyed()) win.webContents.send('print:job', pendingPrintJob); };
+  if (win.webContents.isLoading()) win.webContents.once('did-finish-load', send);
+  else send();
+  return win;
+}
+function takePrintJob() { return pendingPrintJob; }
+// Printing: Electron's Windows dialog has no page preview ("this app doesn't
+// support print preview"). This window is the printer dialog — destination,
+// copies, colour, layout — with the page on the left. Print sends the
+// document from a hidden window so the native dialog never opens.
+function listPrinters() {
+  const src = (mainWin && !mainWin.isDestroyed() && mainWin.webContents) || webContentsWithPrinters();
+  return src ? src.getPrintersAsync() : Promise.resolve([]);
+}
+function webContentsWithPrinters() {
+  for (const w of BrowserWindow.getAllWindows()) {
+    if (!w.isDestroyed() && w.webContents) return w.webContents;
+  }
+  return null;
+}
+function runPrintJob(html, opts) {
+  return new Promise((resolve) => {
+    const hidden = new BrowserWindow({
+      show: false,
+      width: 900,
+      height: 1200,
+      webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false },
+    });
+    const done = (success, failureReason) => {
+      if (!hidden.isDestroyed()) hidden.destroy();
+      resolve({ success: !!success, failureReason: failureReason || '' });
+    };
+    hidden.webContents.once('did-fail-load', () => done(false, 'load-failed'));
+    hidden.webContents.once('did-finish-load', async () => {
+      try {
+        await hidden.webContents.executeJavaScript(`Promise.all([
+          document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve(),
+          Promise.all([...document.images].map((img) => img.complete ? 1 : new Promise((r) => { img.onload = img.onerror = () => r(1); })))
+        ])`);
+      } catch { /* print what is already there */ }
+      const copies = Math.max(1, Math.min(99, Number(opts && opts.copies) || 1));
+      hidden.webContents.print({
+        silent: true,
+        printBackground: true,
+        deviceName: String((opts && opts.deviceName) || ''),
+        copies,
+        color: !(opts && opts.color === false),
+        landscape: !!(opts && opts.landscape),
+        pageSize: 'A4',
+      }, (success, failureReason) => done(success, failureReason));
+    });
+    hidden.loadURL(`data:text/html;charset=utf-8;base64,${Buffer.from(String(html || ''), 'utf8').toString('base64')}`);
   });
-  win.setTitle(title || PRODUCT);
-  win.loadURL(`data:text/html;charset=utf-8;base64,${Buffer.from(html, 'utf8').toString('base64')}`);
+}
+function printRun(_event, opts) {
+  const html = opts && opts.html;
+  if (!html) return Promise.resolve({ success: false, failureReason: 'no-job' });
+  return runPrintJob(html, opts);
+}
+function printHtml(html, _title, _labels, opts) {
+  return runPrintJob(html, opts || {});
 }
 function closePopups() { for (const w of popups.values()) { if (!w.isDestroyed()) w.close(); } popups.clear(); }
 
@@ -142,6 +220,7 @@ function createWindow() {
     },
   });
   mainWin = win;
+  try { if (fs.existsSync(iconPath())) win.setIcon(iconPath()); } catch { /* icon is best-effort */ }
   if (saved && saved.maximized) win.maximize();
 
   // Windows paints a white frame for a frameless window's first frame:
@@ -299,7 +378,11 @@ if (!gotLock) {
     registerIpc(api, () => mainWin, {
       dialogs,
       openPopup,
+      openPrint,
+      takePrintJob,
+      listPrinters,
       printHtml,
+      printRun,
       // The renderer reports it is ready to receive files (its session is
       // restored); anything queued so far is delivered then.
       onRendererReady: () => {

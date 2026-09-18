@@ -283,7 +283,13 @@ function TerminalView({ term, active, onExit, prompt, env, termEol, termCr, term
 export function TerminalPanel({ terms, activeId, shells, onActivate, onNew, onClose, onHide, onExit, onSettings, height, onResizeStart, prompt, env, termEol, termCr, termColor = true }) {
   useLanguage();
   const [menu, setMenu] = useState(null);
-  const shellItems = shells.map((s) => ({ id: `shell:${s.id}`, label: s.label, icon: 'terminal' }));
+  const [shellList, setShellList] = useState(shells);
+  useEffect(() => { setShellList(shells); }, [shells]);
+  const openShellMenu = (e) => {
+    setMenu(e.currentTarget);
+    call('term.shells').then((x) => { if (Array.isArray(x) && x.length) setShellList(x); }).catch(() => {});
+  };
+  const shellItems = shellList.map((s) => ({ id: `shell:${s.id}`, label: s.label, icon: 'terminal' }));
   return (
     <div className="term-panel" style={{ height }}>
       <div className="h-splitter" onMouseDown={onResizeStart} />
@@ -298,7 +304,7 @@ export function TerminalPanel({ terms, activeId, shells, onActivate, onNew, onCl
           ))}
         </div>
         <button className="icon-btn" title={t('term_new')} onClick={() => onNew()}><Icon name="plus" size={15} /></button>
-        {shells.length > 1 && <button className="icon-btn" title={t('term_new_shell')} onClick={(e) => setMenu(e.currentTarget)}><Icon name="chevronDown" size={14} /></button>}
+        {shellList.length > 0 && <button className="icon-btn" title={t('term_new_shell')} onClick={openShellMenu}><Icon name="chevronDown" size={14} /></button>}
         <span className="spacer" />
         {onSettings && <button className="icon-btn" title={t('term_settings')} onClick={onSettings}><Icon name="settings" size={14} /></button>}
         <button className="icon-btn" title={t('term_hide')} onClick={onHide}><Icon name="close" size={15} /></button>
