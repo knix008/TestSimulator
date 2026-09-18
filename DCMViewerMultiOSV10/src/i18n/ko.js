@@ -13,7 +13,7 @@ window.I18N_DATA.ko = {
   "view.zoomLabel": "현재 배율 (클릭: 실제 크기 100%)", "view.ruler": "눈금자 (스케일 바)", "view.grid": "격자 (10 mm)", "view.sidebar": "사이드바", "view.fullscreen": "전체 화면", "view.themeNext": "다음 테마로 전환 (클릭)", "view.theme": "테마", "view.themeDark": "다크", "view.themeLight": "라이트",
   "view.language": "언어", "view.devtools": "개발자 도구",
 
-  "tools.pan": "이동 (드래그) — 1", "tools.wl": "윈도우 / 레벨 (드래그) — 2", "tools.zoom": "확대/축소 (드래그) — 3", "tools.stack": "프레임 / 슬라이스 스크롤 (휠, 드래그) — 4",
+  "edit.undo": "실행 취소", "edit.redo": "다시 실행", "tools.pan": "이동 (드래그) — 1", "tools.wl": "윈도우 / 레벨 (드래그) — 2", "tools.zoom": "확대/축소 (드래그) — 3", "tools.stack": "프레임 / 슬라이스 스크롤 (휠, 드래그) — 4",
   "tools.probe": "픽셀 값 조사 — 5", "tools.length": "길이 측정 — 6", "tools.angle": "각도 측정 — 7", "tools.rect": "사각형 ROI — 8", "tools.ellipse": "타원 ROI — 9",
   "tools.text": "텍스트 주석 — 0", "tools.deleteLast": "마지막 측정 삭제", "tools.clear": "측정 모두 지우기",
 

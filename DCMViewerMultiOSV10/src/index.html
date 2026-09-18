@@ -95,6 +95,9 @@
       </div>
       <div class="menu" data-menu="tools"><button class="menu-title" data-icon="tools" data-i18n="menu.tools">Tools</button>
         <div class="menu-panel">
+          <button data-action="undo" data-icon="undo"><span data-i18n="edit.undo">Undo</span><kbd>Ctrl+Z</kbd></button>
+          <button data-action="redo" data-icon="redo"><span data-i18n="edit.redo">Redo</span><kbd>Ctrl+Y</kbd></button>
+          <div class="menu-sep"></div>
           <button data-action="tool" data-tool="pan" class="radio" data-icon="pan"><span data-i18n="tools.pan">Pan</span><kbd>1</kbd></button>
           <button data-action="tool" data-tool="wl" class="radio" data-icon="wl"><span data-i18n="tools.wl">Window / Level</span><kbd>2</kbd></button>
           <button data-action="tool" data-tool="zoom" class="radio" data-icon="zoom"><span data-i18n="tools.zoom">Zoom</span><kbd>3</kbd></button>
@@ -156,6 +159,10 @@
       </div>
     </nav>
     <div class="menubar-right">
+      <div class="wl-bar dicom-only" id="wlBar">
+        <span class="tb-field wl-field" data-i18n-title="status.wlWidth"><span class="wl-key">W</span><button class="wl-step" data-action="wl-step" data-what="ww" data-dir="-1">−</button><input id="wwInput" type="number" step="1"><button class="wl-step" data-action="wl-step" data-what="ww" data-dir="1">+</button></span>
+        <span class="tb-field wl-field" data-i18n-title="status.wlCenter"><span class="wl-key">L</span><button class="wl-step" data-action="wl-step" data-what="wc" data-dir="-1">−</button><input id="wcInput" type="number" step="1"><button class="wl-step" data-action="wl-step" data-what="wc" data-dir="1">+</button></span>
+      </div>
       <div class="theme-control">
         <button class="tb-btn theme-title" id="themeBtn" data-action="theme-toggle" data-i18n-title="view.themeNext"><span class="theme-dot"></span><span id="themeName">Theme</span></button>
         <div class="menu theme-menu" id="themeDropdown">
@@ -164,7 +171,8 @@
         </div>
       </div>
       <button class="tb-btn settings-btn" data-action="settings" data-i18n-title="view.settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><span data-i18n="tb.settings">Settings</span></button>
-      <button class="tb-btn lang-btn" id="langBtn" data-action="lang-toggle"><span class="flag"></span><span class="lang-code">한국어</span></button>
+      <button class="tb-btn lang-btn" id="langBtn" data-action="lang-toggle"><span class="flag"></span></button>
+      <button class="tb-btn about-btn" data-action="about" data-i18n-title="help.about"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg></button>
     </div>
   </header>
 
@@ -173,6 +181,11 @@
     <div class="tb-group">
       <button class="tb-btn" data-action="open-file" data-i18n-title="file.open"><svg viewBox="0 0 24 24"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9l-7-7z"/><path d="M13 2v7h7"/></svg></button>
       <button class="tb-btn" data-action="open-folder" data-i18n-title="file.openFolder"><svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></button>
+    </div>
+    <div class="tb-sep"></div>
+    <div class="tb-group">
+      <button class="tb-btn" id="undoBtn" data-action="undo" data-i18n-title="edit.undo"><svg viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg></button>
+      <button class="tb-btn" id="redoBtn" data-action="redo" data-i18n-title="edit.redo"><svg viewBox="0 0 24 24"><path d="M15 14l5-5-5-5"/><path d="M20 9H10a6 6 0 0 0 0 12h3"/></svg></button>
     </div>
     <div class="tb-sep"></div>
     <div class="tb-group tools" id="toolButtons">
@@ -215,8 +228,6 @@
     <div class="tb-group dicom-only">
       <label class="tb-field" data-i18n-title="tb.preset"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/><circle cx="8" cy="6" r="2" fill="currentColor"/><circle cx="15" cy="12" r="2" fill="currentColor"/><circle cx="10" cy="18" r="2" fill="currentColor"/></svg><select id="presetSelect"></select></label>
       <label class="tb-field" data-i18n-title="tb.colormap"><svg viewBox="0 0 24 24"><rect x="3" y="8" width="18" height="8" rx="2"/><path d="M8 8v8M13 8v8M18 8v8" stroke-opacity="0.5"/></svg><select id="colormapSelect"></select></label>
-      <label class="tb-field wl-field" data-i18n-title="status.wlWidth"><svg viewBox="0 0 24 24"><path d="M3 12h18M7 8l-4 4 4 4M17 8l4 4-4 4"/></svg><input id="wwInput" type="number" step="1"></label>
-      <label class="tb-field wl-field" data-i18n-title="status.wlCenter"><svg viewBox="0 0 24 24"><path d="M12 3v18M8 7l4-4 4 4M8 17l4 4 4-4"/><path d="M4 12h16" stroke-opacity="0.5"/></svg><input id="wcInput" type="number" step="1"></label>
     </div>
     <div class="tb-spacer"></div>
     <div class="tb-group export-group">

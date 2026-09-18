@@ -13,7 +13,7 @@ window.I18N_DATA.en = {
   "view.zoomLabel": "Current zoom (click: actual size 100%)", "view.ruler": "Scale ruler", "view.grid": "Grid (10 mm)", "view.sidebar": "Sidebar", "view.fullscreen": "Full Screen", "view.themeNext": "Switch to the next theme (click)", "view.theme": "Theme", "view.themeDark": "Dark", "view.themeLight": "Light",
   "view.language": "Language", "view.devtools": "Developer Tools",
 
-  "tools.pan": "Pan (drag) — 1", "tools.wl": "Window / Level (drag) — 2", "tools.zoom": "Zoom (drag) — 3", "tools.stack": "Scroll frames / slices (wheel, drag) — 4",
+  "edit.undo": "Undo", "edit.redo": "Redo", "tools.pan": "Pan (drag) — 1", "tools.wl": "Window / Level (drag) — 2", "tools.zoom": "Zoom (drag) — 3", "tools.stack": "Scroll frames / slices (wheel, drag) — 4",
   "tools.probe": "Pixel probe — 5", "tools.length": "Length — 6", "tools.angle": "Angle — 7", "tools.rect": "Rectangle ROI — 8", "tools.ellipse": "Ellipse ROI — 9",
   "tools.text": "Text annotation — 0", "tools.deleteLast": "Delete last measurement", "tools.clear": "Clear measurements",
 

@@ -222,10 +222,11 @@ body.has-series .series-bar { display: flex; }
 ::-webkit-scrollbar-thumb:hover { background: var(--text-dim); background-clip: content-box; border: 2px solid transparent; }
 
 /* ── Theme dropdown / theme lists ── */
-.theme-control { display: inline-flex; align-items: center; height: 28px; border: 1px solid var(--border); border-radius: 5px; overflow: hidden; }
-.theme-control .theme-title { height: 26px; border: 0; border-radius: 0; padding: 0 8px; }
-.theme-control .theme-menu { height: 26px; border-left: 1px solid var(--border); }
-.theme-control .theme-caret { height: 26px; padding: 0 6px; border-radius: 0; font-size: 11px; }
+.theme-control { display: inline-flex; align-items: stretch; height: 28px; border: 1px solid var(--border); border-radius: 5px; }
+.theme-control .theme-title { height: 26px; border: 0; border-radius: 4px 0 0 4px; padding: 0 8px; }
+.theme-control .theme-menu { height: 26px; border-left: 1px solid var(--border); position: relative; }
+.theme-control .theme-caret { height: 26px; padding: 0 6px; border-radius: 0 4px 4px 0; font-size: 11px; }
+.theme-control .menu-panel.themes { top: calc(100% + 3px); right: -1px; left: auto; z-index: 60; }
 .theme-menu { height: 100%; }
 .theme-title { display: inline-flex; align-items: center; gap: 6px; }
 .theme-dot { width: 12px; height: 12px; border-radius: 50%; background: var(--accent); border: 1px solid var(--border); }
@@ -287,8 +288,10 @@ body.has-series .series-bar { display: flex; }
 
 /* ── Language toggle ── */
 .lang-btn { height: 28px; gap: 6px; }
-.lang-btn .flag { display: inline-flex; width: 24px; height: 16px; border-radius: 2px; overflow: hidden; box-shadow: 0 0 0 1px rgba(0,0,0,0.25); }
-.lang-btn .flag svg, .flag-svg { width: 24px; height: 16px; }
+.lang-btn { padding: 0 5px; }
+.about-btn { height: 28px; width: 30px; padding: 0; justify-content: center; }
+.lang-btn .flag { display: inline-flex; width: 28px; height: 19px; border-radius: 2px; overflow: hidden; box-shadow: 0 0 0 1px rgba(0,0,0,0.25); }
+.lang-btn .flag svg, .flag-svg { width: 28px; height: 19px; }
 .lang-btn .lang-code { font-size: 12px; }
 
 /* ── Dialog host (in-page, browser mode) — sized to content, no scrollbars ── */
@@ -364,3 +367,19 @@ body.popup-page { background: var(--panel-bg); overflow: hidden; }
 .drive-btn:hover { background: var(--hover); }
 .drive-btn.active { border-color: var(--accent); color: var(--accent); background: var(--active); }
 .drive-btn.active svg { color: var(--accent); }
+
+/* keep the corner texts / markers clear of the rulers */
+body.ruler-on .corner.tl, body.ruler-on .corner.tr, body.ruler-on .zoom-badge { top: 24px; }
+body.ruler-on .corner.tl, body.ruler-on .corner.bl { left: 34px; }
+body.ruler-on .marker.left { left: 40px; }
+body.ruler-on .marker.top { top: 28px; }
+
+/* window centre / width inputs in the menu bar */
+.wl-bar { display: inline-flex; align-items: center; gap: 4px; margin-right: 6px; -webkit-app-region: no-drag; }
+.wl-bar .tb-field input[type=number] { width: 66px; height: 24px; padding: 2px 4px; }
+.wl-key { font-weight: 700; font-size: 11px; color: var(--text-dim); }
+.wl-step { width: 20px; height: 24px; border: 1px solid var(--border); background: var(--panel-bg2); color: var(--text); border-radius: 4px; font-size: 13px; line-height: 1; padding: 0; }
+.wl-step:hover { background: var(--hover); }
+.wl-bar .tb-field { gap: 2px; }
+body:not(.has-gray) .wl-bar { opacity: 0.45; pointer-events: none; }
+#undoBtn:disabled, #redoBtn:disabled { opacity: 0.35; }

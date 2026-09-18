@@ -54,7 +54,7 @@ test('icons: every data-icon used in the HTML has an SVG, flags exist', () => {
   assert.deepEqual(missing, []);
   assert.ok(w.Icons.svg('open').startsWith('<svg'));
   assert.equal(w.Icons.svg('nope'), '');
-  assert.ok(w.Icons.flag('kr').includes('<svg') && w.Icons.flag('us').includes('<svg'));
+  assert.ok(w.Icons.flag('kr').includes('<svg') && w.Icons.flag('gb').includes('<svg') && w.Icons.flag('us').includes('<svg'));
   assert.ok(w.Icons.names().length > 60);
 });
 

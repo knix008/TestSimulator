@@ -57,6 +57,7 @@
     viewer.interpolate = !!opt('interpolate');
     viewer.showAnnotations = !!opt('measurements');
     viewer.showRuler = !!opt('ruler');
+    document.body.classList.toggle('ruler-on', !!opt('ruler'));
     viewer.showGrid = !!opt('grid');
     viewer.wheelMode = opt('wheelMode');
     viewer.colors = { line: opt('annotationColor') };
@@ -101,6 +102,7 @@
     }
     D.preload(['parser']).catch(() => {});
     setStatus('status.ready');
+    History.sync();
     applyMinWindowSize();
   }
 
@@ -397,6 +399,8 @@
     if (ctrl && !e.shiftKey && key.toLowerCase() === 'o') return act('open-file');
     if (ctrl && e.shiftKey && key.toLowerCase() === 'o') return act('open-folder');
     if (ctrl && key.toLowerCase() === 'e') return act('export', { dataset: { format: 'png' } });
+    if (ctrl && !e.shiftKey && key.toLowerCase() === 'z') return act('undo');
+    if (ctrl && (key.toLowerCase() === 'y' || (e.shiftKey && key.toLowerCase() === 'z'))) return act('redo');
     if (ctrl && key.toLowerCase() === 'p') return act('print');
     if (ctrl && key === '0') return act('fit');
     if (ctrl && key === '1') return act('actual');
@@ -476,11 +480,11 @@
         case 'actual': viewer.actual(); break;
         case 'zoom-in': viewer.zoomBy(1.25); break;
         case 'zoom-out': viewer.zoomBy(0.8); break;
-        case 'rotate-left': viewer.rotate(-90); break;
-        case 'rotate-right': viewer.rotate(90); break;
-        case 'flip-h': viewer.flip('h'); break;
-        case 'flip-v': viewer.flip('v'); break;
-        case 'reset-view': viewer.reset(); break;
+        case 'rotate-left': viewer.rotate(-90); History.push(); break;
+        case 'rotate-right': viewer.rotate(90); History.push(); break;
+        case 'flip-h': viewer.flip('h'); History.push(); break;
+        case 'flip-v': viewer.flip('v'); History.push(); break;
+        case 'reset-view': viewer.reset(); History.push(); break;
         case 'toggle': await toggleOption(ds.key); break;
         case 'fullscreen': P.toggleFullscreen(); break;
         case 'devtools': P.toggleDevTools(); break;
@@ -490,8 +494,19 @@
         case 'settings-reset': await resetSettings(); break;
         case 'lang': await setLang(ds.value); break;
         case 'tool': setTool(ds.tool); break;
-        case 'delete-last': viewer.deleteLast(); break;
-        case 'clear-measurements': viewer.clear(); break;
+        case 'delete-last': viewer.deleteLast(); History.push(); break;
+        case 'clear-measurements': viewer.clear(); History.push(); break;
+        case 'wl-step': {
+          if (!img || !img.gray) break;
+          const range = img.range ? img.range.max - img.range.min : 256;
+          const step = (range > 2000 ? 10 : range > 200 ? 5 : 1) * (ds.big ? 10 : 1) * (+ds.dir || 1);
+          const st = img.state;
+          if (ds.what === 'ww') await renderDicom({ ww: Math.max(1, (st.ww || 1) + step), voiLut: -1 });
+          else await renderDicom({ wc: (st.wc || 0) + step, voiLut: -1 });
+          break;
+        }
+        case 'undo': await History.undo(); break;
+        case 'redo': await History.redo(); break;
         case 'wl-auto': if (img) { const a = img.autoWindow(); if (a) await renderDicom({ wc: a.wc, ww: a.ww, voiLut: -1 }); } break;
         case 'wl-file': if (img) { const w = img.windowsFor(S.frame)[+(ds.index || 0)]; if (w) await renderDicom({ wc: w.wc, ww: w.ww, voiLut: -1 }); else await renderDicom({ resetWindow: true }); } break;
         case 'wl-reset': if (img) await renderDicom({ resetWindow: true, invert: img.defaultInvert(), colormap: 'gray' }); break;
@@ -530,7 +545,7 @@
     const img = S.file && S.file.kind === 'dicom' ? S.file.image : null;
     if (key === 'invert') {
       if (img) await renderDicom({ invert: !img.state.invert });
-      else if (S.file) { await setOpt({ invert: !opt('invert') }); await renderImage(); }
+      else if (S.file) { await setOpt({ invert: !opt('invert') }); await renderImage(); History.push(); }
       syncMenuState();
       return;
     }
@@ -541,7 +556,7 @@
       case 'sidebar': document.body.classList.toggle('no-sidebar', !value); viewer.resize(); break;
       case 'interpolate': viewer.interpolate = value; break;
       case 'measurements': viewer.showAnnotations = value; break;
-      case 'ruler': viewer.showRuler = value; break;
+      case 'ruler': viewer.showRuler = value; document.body.classList.toggle('ruler-on', value); break;
       case 'grid': viewer.showGrid = value; break;
       case 'overlays': if (img) await renderDicom({ overlays: value }); break;
       case 'cornerInfo': case 'markers': updateCorners(); break;
@@ -622,6 +637,7 @@
     refreshPanels();
     syncMenuState();
     updateFrameBar();
+    History.reset();
   }
 
   /* Decode a general image (page = TIFF page) to a canvas: TIFF / HEIF / JPEG 2000 through ImageFormats, the rest natively. */
@@ -658,6 +674,7 @@
     refreshPanels();
     syncMenuState();
     updateFrameBar();
+    History.reset();
   }
 
   function loadViaImg(blob) {
@@ -694,6 +711,7 @@
     viewer.setSource(null);
     refreshPanels(); syncMenuState(); updateCorners(); updateStatus(); updateFrameBar();
     buildWindowMenus();
+    History.reset();
   }
 
   /* ══════════════ DICOM rendering ══════════════ */
@@ -721,7 +739,7 @@
     updateStatus();
     scheduleHistogram();
     relabelAnnotations();
-    if (opts.wc !== undefined || opts.ww !== undefined || opts.voiLut !== undefined || opts.resetWindow || opts.colormap || opts.voiFunction || opts.invert !== undefined) syncMenuState();
+    if (opts.wc !== undefined || opts.ww !== undefined || opts.voiLut !== undefined || opts.resetWindow || opts.colormap || opts.voiFunction || opts.invert !== undefined) { syncMenuState(); if (!opts._drag && !newFile) History.push(); }
   }
 
   function applyPresetValue(value) {
@@ -742,7 +760,7 @@
     const k = Math.max(range > 2 ? 1 : 0.01, range / 1024);
     const ww = Math.max(1, (st.ww || 1) + dx * k);
     const wc = (st.wc || 0) + dy * k;
-    renderDicom({ ww, wc, voiLut: -1 });
+    renderDicom({ ww, wc, voiLut: -1, _drag: true });
   }
 
   /* ══════════════ Frames / cine ══════════════ */
@@ -907,6 +925,64 @@
     }
   }
 
+  /* ══════════════ Undo / redo (measurements, view transform, window / colour) ══════════════ */
+  const History = {
+    stack: [], index: -1, restoring: false, MAX: 100,
+    snapshot() {
+      const img = S.file && S.file.kind === 'dicom' ? S.file.image : null;
+      const st = img ? img.state : null;
+      const vv = viewer.view;
+      return {
+        annotations: JSON.parse(JSON.stringify(viewer.annotations.map((x) => ({ ...x, selected: false })))),
+        view: { rotation: vv.rotation, flipH: vv.flipH, flipV: vv.flipV },
+        win: st ? { wc: st.wc, ww: st.ww, voiLut: st.voiLut, voiFunction: st.voiFunction, invert: st.invert, colormap: st.colormap, custom: img.isWindowCustom() } : null,
+        imageInvert: !img && S.file ? !!opt('invert') : undefined,
+      };
+    },
+    reset() { this.stack = []; this.index = -1; if (S.file) this.push(); this.sync(); },
+    push() {
+      if (this.restoring || !S.file) return;
+      const snap = this.snapshot();
+      const key = JSON.stringify(snap);
+      if (this.index >= 0 && JSON.stringify(this.stack[this.index]) === key) return;
+      this.stack = this.stack.slice(0, this.index + 1);
+      this.stack.push(snap);
+      if (this.stack.length > this.MAX) this.stack.shift();
+      this.index = this.stack.length - 1;
+      this.sync();
+    },
+    canUndo() { return this.index > 0; },
+    canRedo() { return this.index < this.stack.length - 1; },
+    async undo() { if (this.canUndo()) { this.index--; await this.apply(this.stack[this.index]); } },
+    async redo() { if (this.canRedo()) { this.index++; await this.apply(this.stack[this.index]); } },
+    async apply(snap) {
+      this.restoring = true;
+      try {
+        viewer.annotations = JSON.parse(JSON.stringify(snap.annotations));
+        Object.assign(viewer.view, snap.view);
+        viewer.redraw();
+        const img = S.file && S.file.kind === 'dicom' ? S.file.image : null;
+        if (img && snap.win) {
+          const w = snap.win;
+          const o = { invert: w.invert, colormap: w.colormap, voiFunction: w.voiFunction };
+          if (w.voiLut >= 0) o.voiLut = w.voiLut;
+          else if (w.custom && Number.isFinite(w.wc)) { o.wc = w.wc; o.ww = w.ww; }
+          else o.resetWindow = true;
+          await renderDicom(o);
+          if (w.voiLut < 0 && !w.custom) await renderDicom({ invert: w.invert, colormap: w.colormap, voiFunction: w.voiFunction });
+        } else if (!img && S.file && snap.imageInvert !== undefined && snap.imageInvert !== !!opt('invert')) {
+          await setOpt({ invert: snap.imageInvert }); await renderImage();
+        }
+        relabelAnnotations(); updateCorners(); updateStatus(); syncMenuState();
+      } finally { this.restoring = false; this.sync(); }
+    },
+    sync() {
+      const u = $('undoBtn'), r = $('redoBtn');
+      if (u) u.disabled = !this.canUndo();
+      if (r) r.disabled = !this.canRedo();
+    },
+  };
+
   /* ══════════════ Viewer events ══════════════ */
   function onViewerEvent(ev, payload) {
     switch (ev) {
@@ -914,8 +990,9 @@
       case 'wl': onWlDrag(payload); break;
       case 'stack': stepFrame(payload.delta); break;
       case 'hover': S.hover = payload; updateProbe(); break;
-      case 'measure': labelAnnotation(payload.annotation); viewer.redraw(); break;
-      case 'text': promptText(t('msg.textPrompt')).then((text) => { if (text) { viewer.annotations.push({ type: 'text', points: [{ x: payload.x, y: payload.y }], text }); viewer.redraw(); } }); break;
+      case 'measure': labelAnnotation(payload.annotation); viewer.redraw(); if (payload.done) History.push(); break;
+      case 'wlend': History.push(); break;
+      case 'text': promptText(t('msg.textPrompt')).then((text) => { if (text) { viewer.annotations.push({ type: 'text', points: [{ x: payload.x, y: payload.y }], text }); viewer.redraw(); History.push(); } }); break;
       case 'context': showContextMenu($('ctxViewer'), payload.clientX, payload.clientY); break;
       default: break;
     }
@@ -1665,9 +1742,9 @@
     const b = $('langBtn');
     if (!b) return;
     const lang = window.I18n.lang;
-    b.querySelector('.flag').innerHTML = lang === 'ko' ? window.Icons.flag('kr') : window.Icons.flag('us');
-    b.querySelector('.lang-code').textContent = lang === 'ko' ? '한국어' : 'English';
-    b.setAttribute('data-tip', t('view.languageToggle'));
+    // the flag shows the language the click switches TO: UK flag while Korean, Korean flag while English
+    b.querySelector('.flag').innerHTML = lang === 'ko' ? window.Icons.flag('gb') : window.Icons.flag('kr');
+    b.setAttribute('data-tip', lang === 'ko' ? 'Switch to English' : '한국어로 전환');
   }
 
   /* ══════════════ Utilities ══════════════ */
@@ -1699,6 +1776,6 @@
     }
   };
 
-  window.App = { state: S, get viewer() { return viewer; }, get tree() { return tree; }, openPath, runAction, renderDicom, setTool, Progress, Dlg };
+  window.App = { state: S, get viewer() { return viewer; }, get tree() { return tree; }, openPath, runAction, renderDicom, setTool, Progress, Dlg, History };
   document.addEventListener('DOMContentLoaded', () => { init().catch((err) => showError(err)); });
 })();

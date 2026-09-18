@@ -87,6 +87,7 @@ window.Icons = (function () {
     'history': '<path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/><path d="M12 7v5l3 2"/>',
     'grid': '<rect x="3" y="3" width="18" height="18" rx="1"/><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/>',
     'drive': '<rect x="3" y="7" width="18" height="10" rx="2"/><circle cx="17" cy="12" r="1"/><path d="M6 12h6" stroke-opacity="0.5"/>',
+    'redo': '<path d="M15 14l5-5-5-5"/><path d="M20 9H10a6 6 0 0 0 0 12h3"/>',
     'series': '<rect x="4" y="8" width="12" height="12" rx="1"/><path d="M8 4h12v12"/>',
   };
   function svg(name) {
@@ -96,11 +97,12 @@ window.Icons = (function () {
   }
   /* Flags for the language toggle (filled, 3:2). */
   const FLAGS = {
-    kr: '<svg viewBox="0 0 30 20" class="flag-svg"><rect width="30" height="20" fill="#fff"/>'
-      + '<g transform="translate(15 10)"><circle r="5" fill="#cd2e3a"/><path d="M-5 0a5 5 0 0 0 10 0a2.5 2.5 0 0 0-5 0a2.5 2.5 0 0 1-5 0z" fill="#0047a0"/>'
-      + '<g stroke="#000" stroke-width="1"><g transform="rotate(-56)"><path d="M-8 -1.5h4M-8 0h4M-8 1.5h4"/></g><g transform="rotate(56)"><path d="M-8 -1.5h4M-8 0h4M-8 1.5h4"/></g>'
-      + '<g transform="rotate(-124)"><path d="M-8 -1.5h4M-8 0h4M-8 1.5h4"/></g><g transform="rotate(124)"><path d="M-8 -1.5h4M-8 0h4M-8 1.5h4"/></g></g></g></svg>',
-    us: '<svg viewBox="0 0 30 20" class="flag-svg"><rect width="30" height="20" fill="#fff"/>'
+    kr: '<svg viewBox=\"0 0 72 48\" class=\"flag-svg\"><rect width=\"72\" height=\"48\" fill=\"#fff\"/><g transform=\"translate(36 24) rotate(-33.69)\"><circle r=\"12\" fill=\"#0047a0\"/><path d=\"M-12 0A12 12 0 0 1 12 0A6 6 0 0 1 0 0A6 6 0 0 0 -12 0Z\" fill=\"#cd2e3a\"/></g><g fill=\"#000\"><g transform=\"translate(18.11 12.07) rotate(303.69)\"><rect x=\"-6\" y=\"-4\" width=\"12\" height=\"2\"/><rect x=\"-6\" y=\"-1\" width=\"12\" height=\"2\"/><rect x=\"-6\" y=\"2\" width=\"12\" height=\"2\"/></g><g transform=\"translate(53.89 12.07) rotate(56.31)\"><rect x=\"-6\" y=\"-4\" width=\"5.5\" height=\"2\"/><rect x=\"0.5\" y=\"-4\" width=\"5.5\" height=\"2\"/><rect x=\"-6\" y=\"-1\" width=\"12\" height=\"2\"/><rect x=\"-6\" y=\"2\" width=\"5.5\" height=\"2\"/><rect x=\"0.5\" y=\"2\" width=\"5.5\" height=\"2\"/></g><g transform=\"translate(18.11 35.93) rotate(236.31)\"><rect x=\"-6\" y=\"-4\" width=\"12\" height=\"2\"/><rect x=\"-6\" y=\"-1\" width=\"5.5\" height=\"2\"/><rect x=\"0.5\" y=\"-1\" width=\"5.5\" height=\"2\"/><rect x=\"-6\" y=\"2\" width=\"12\" height=\"2\"/></g><g transform=\"translate(53.89 35.93) rotate(123.69)\"><rect x=\"-6\" y=\"-4\" width=\"5.5\" height=\"2\"/><rect x=\"0.5\" y=\"-4\" width=\"5.5\" height=\"2\"/><rect x=\"-6\" y=\"-1\" width=\"5.5\" height=\"2\"/><rect x=\"0.5\" y=\"-1\" width=\"5.5\" height=\"2\"/><rect x=\"-6\" y=\"2\" width=\"5.5\" height=\"2\"/><rect x=\"0.5\" y=\"2\" width=\"5.5\" height=\"2\"/></g></g></svg>',
+    gb: '<svg viewBox="0 0 60 30" class="flag-svg" preserveAspectRatio="xMidYMid slice"><clipPath id="gbc"><path d="M30 15h30v15zv15H0zH0V0zV0h30z"/></clipPath>'
+      + '<rect width="60" height="30" fill="#012169"/><path d="M0 0L60 30M60 0L0 30" stroke="#fff" stroke-width="6"/>'
+      + '<path d="M0 0L60 30M60 0L0 30" clip-path="url(#gbc)" stroke="#C8102E" stroke-width="4"/>'
+      + '<path d="M30 0v30M0 15h60" stroke="#fff" stroke-width="10"/><path d="M30 0v30M0 15h60" stroke="#C8102E" stroke-width="6"/></svg>',
+    us: '<svg viewBox="0 0 30 20" class="flag-svg" preserveAspectRatio="xMidYMid slice"><rect width="30" height="20" fill="#fff"/>'
       + '<g fill="#b22234">' + [0, 2, 4, 6, 8, 10, 12].map((y) => `<rect y="${y * 20 / 13}" width="30" height="${20 / 13}"/>`).join('') + '</g>'
       + '<rect width="12" height="10.77" fill="#3c3b6e"/>'
       + '<g fill="#fff">' + Array.from({ length: 5 }, (_, r) => Array.from({ length: 6 }, (_, c) => `<circle cx="${1 + c * 2}" cy="${1 + r * 2.15}" r="0.5"/>`).join('')).join('') + '</g></svg>',

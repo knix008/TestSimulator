@@ -131,38 +131,86 @@ window.Viewer = (function () {
       c.restore();
     }
 
-    /* Scale ruler (bottom centre + left centre): a round length in mm (or px) that spans 80–220 screen px. */
+    /* Rulers along the whole top (x) and left (y) edges of the viewport. Graduated in mm when the pixel
+     * spacing is known (px otherwise), measured from the image origin; the tick unit adapts to the zoom so
+     * that major ticks stay 60–150 screen px apart. The hovered position is marked on both rulers. */
+    const RULER_H = 22, RULER_W = 34;
     function drawRuler(c) {
       const sp = source.spacing;
-      const draw = (horizontal) => {
-        const pxPerUnit = sp ? view.scale / (horizontal ? sp[1] : sp[0]) : view.scale;   // screen px per mm (or per image px)
-        const steps = sp ? [0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500] : [5, 10, 20, 50, 100, 200, 500, 1000];
-        let len = steps[0];
-        for (const s of steps) { if (s * pxPerUnit <= 220) len = s; }
-        const px = len * pxPerUnit;
-        const text = sp ? `${len} mm` : `${len} px`;
-        c.save();
-        c.strokeStyle = '#facc15'; c.fillStyle = '#facc15'; c.lineWidth = 2; c.font = '12px "Segoe UI", system-ui, sans-serif';
-        c.shadowColor = 'rgba(0,0,0,0.8)'; c.shadowBlur = 3;
-        if (horizontal) {
-          const x0 = (vw - px) / 2, y = vh - 34;
-          c.beginPath(); c.moveTo(x0, y); c.lineTo(x0 + px, y); c.moveTo(x0, y - 6); c.lineTo(x0, y + 6); c.moveTo(x0 + px, y - 6); c.lineTo(x0 + px, y + 6);
-          const ticks = len >= 10 ? 10 : len >= 2 ? len * 2 : 5;
-          for (let i = 1; i < ticks; i++) { const tx = x0 + px * i / ticks; c.moveTo(tx, y - 3); c.lineTo(tx, y + 3); }
-          c.stroke();
-          c.textAlign = 'center'; c.textBaseline = 'bottom'; c.fillText(text, x0 + px / 2, y - 8);
-        } else {
-          const y0 = (vh - px) / 2, x = 36;
-          c.beginPath(); c.moveTo(x, y0); c.lineTo(x, y0 + px); c.moveTo(x - 6, y0); c.lineTo(x + 6, y0); c.moveTo(x - 6, y0 + px); c.lineTo(x + 6, y0 + px);
-          const ticks = len >= 10 ? 10 : len >= 2 ? len * 2 : 5;
-          for (let i = 1; i < ticks; i++) { const ty = y0 + px * i / ticks; c.moveTo(x - 3, ty); c.lineTo(x + 3, ty); }
-          c.stroke();
-          c.save(); c.translate(x + 10, y0 + px / 2); c.rotate(-Math.PI / 2); c.textAlign = 'center'; c.textBaseline = 'top'; c.fillText(text, 0, 0); c.restore();
+      const unit = sp ? 'mm' : 'px';
+      // which image axis runs along each screen axis, and the scale (screen px per unit) along it
+      const o = clientToImage(0, 0), px = clientToImage(1, 0), py = clientToImage(0, 1);
+      const axisOf = (dx, dy) => (Math.abs(dx) >= Math.abs(dy) ? 'x' : 'y');
+      const ax = axisOf(px.x - o.x, px.y - o.y), ay = axisOf(py.x - o.x, py.y - o.y);
+      const unitPerImgPx = (axis) => (sp ? (axis === 'x' ? sp[1] : sp[0]) : 1);
+      const valueAt = (axis, cx, cy) => { const p = clientToImage(cx, cy); return (axis === 'x' ? p.x : p.y) * unitPerImgPx(axis); };
+      const steps = sp ? [0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500, 1000] : [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000];
+      const pick = (screenPerUnit) => { let s = steps[steps.length - 1]; for (const st of steps) { if (st * screenPerUnit >= 60) { s = st; break; } } return s; };
+      const fmtV = (v) => (Math.abs(v - Math.round(v)) < 1e-6 ? String(Math.round(v)) : String(+v.toFixed(2)));
+
+      c.save();
+      c.font = '10px "Segoe UI", system-ui, sans-serif';
+      c.lineWidth = 1;
+      // ── top ruler (screen x) ──
+      {
+        const v0 = valueAt(ax, RULER_W, RULER_H), v1 = valueAt(ax, vw, RULER_H);
+        const perUnit = Math.abs(vw - RULER_W) / Math.max(1e-9, Math.abs(v1 - v0));
+        const step = pick(perUnit);
+        const minor = step / (step / Math.pow(10, Math.floor(Math.log10(step))) === 2 ? 4 : 5);
+        c.fillStyle = 'rgba(15, 23, 42, 0.78)';
+        c.fillRect(0, 0, vw, RULER_H);
+        c.strokeStyle = '#facc15'; c.fillStyle = '#fde68a';
+        c.beginPath();
+        const lo = Math.min(v0, v1), hi = Math.max(v0, v1);
+        const dir = v1 >= v0 ? 1 : -1;
+        const xOf = (v) => RULER_W + (v - v0) * dir * perUnit;
+        for (let v = Math.floor(lo / minor) * minor; v <= hi + 1e-9; v += minor) {
+          const major = Math.abs(v / step - Math.round(v / step)) < 1e-6;
+          const x = Math.round(xOf(v)) + 0.5;
+          if (x < RULER_W) continue;
+          c.moveTo(x, RULER_H); c.lineTo(x, RULER_H - (major ? 10 : 5));
+          if (major) { c.textAlign = 'left'; c.textBaseline = 'top'; c.fillText(fmtV(v), x + 3, 2); }
         }
-        c.restore();
-      };
-      draw(true);
-      draw(false);
+        c.moveTo(RULER_W, RULER_H - 0.5); c.lineTo(vw, RULER_H - 0.5);
+        c.stroke();
+      }
+      // ── left ruler (screen y) ──
+      {
+        const v0 = valueAt(ay, RULER_W, RULER_H), v1 = valueAt(ay, RULER_W, vh);
+        const perUnit = Math.abs(vh - RULER_H) / Math.max(1e-9, Math.abs(v1 - v0));
+        const step = pick(perUnit);
+        const minor = step / (step / Math.pow(10, Math.floor(Math.log10(step))) === 2 ? 4 : 5);
+        c.fillStyle = 'rgba(15, 23, 42, 0.78)';
+        c.fillRect(0, 0, RULER_W, vh);
+        c.strokeStyle = '#facc15'; c.fillStyle = '#fde68a';
+        c.beginPath();
+        const lo = Math.min(v0, v1), hi = Math.max(v0, v1);
+        const dir = v1 >= v0 ? 1 : -1;
+        const yOf = (v) => RULER_H + (v - v0) * dir * perUnit;
+        for (let v = Math.floor(lo / minor) * minor; v <= hi + 1e-9; v += minor) {
+          const major = Math.abs(v / step - Math.round(v / step)) < 1e-6;
+          const y = Math.round(yOf(v)) + 0.5;
+          if (y < RULER_H) continue;
+          c.moveTo(RULER_W, y); c.lineTo(RULER_W - (major ? 10 : 5), y);
+          if (major) {
+            c.save(); c.translate(9, y - 3); c.rotate(-Math.PI / 2); c.textAlign = 'left'; c.textBaseline = 'middle'; c.fillText(fmtV(v), 0, 0); c.restore();
+          }
+        }
+        c.moveTo(RULER_W - 0.5, RULER_H); c.lineTo(RULER_W - 0.5, vh);
+        c.stroke();
+      }
+      // corner: unit
+      c.fillStyle = 'rgba(15, 23, 42, 0.9)'; c.fillRect(0, 0, RULER_W, RULER_H);
+      c.fillStyle = '#fde68a'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(unit, RULER_W / 2, RULER_H / 2);
+      // hover marker
+      if (hoverPt) {
+        const h = imageToClient(hoverPt.x, hoverPt.y);
+        c.strokeStyle = '#4ade80'; c.beginPath();
+        c.moveTo(Math.round(h.x) + 0.5, 0); c.lineTo(Math.round(h.x) + 0.5, RULER_H);
+        c.moveTo(0, Math.round(h.y) + 0.5); c.lineTo(RULER_W, Math.round(h.y) + 0.5);
+        c.stroke();
+      }
+      c.restore();
     }
 
     function label(c, text, x, y, align = 'left') {
@@ -287,7 +335,7 @@ window.Viewer = (function () {
       emit('hover', inside(img) ? img : null);
       if (!drag) {
         if (drawing && drawing.type === 'angle' && drawing.points.length === 2) { drawing.points[1] = img; drawOverlay(); }
-        else if (tool === 'probe') drawOverlay();
+        else if (tool === 'probe' || showRuler) drawOverlay();
         const hit = hitHandle(local);
         viewport.style.cursor = hit ? 'move' : cursorFor(tool);
         return;
@@ -321,6 +369,7 @@ window.Viewer = (function () {
       const d = drag;
       drag = null;
       if (d.kind === 'wl-maybe' && !d.moved) { emit('context', { clientX: e.clientX, clientY: e.clientY }); return; }
+      if (d.kind === 'wl' || d.kind === 'wl-maybe') { emit('wlend'); return; }
       if (d.kind === 'draw') {
         const a = drawing; drawing = null;
         const p0 = a.points[0], p1 = a.points[1];
@@ -353,7 +402,7 @@ window.Viewer = (function () {
     window.addEventListener('mouseup', onUp);
     viewport.addEventListener('wheel', onWheel, { passive: false });
     viewport.addEventListener('contextmenu', (e) => e.preventDefault());
-    viewport.addEventListener('mouseleave', () => { hoverPt = null; emit('hover', null); if (tool === 'probe') drawOverlay(); });
+    viewport.addEventListener('mouseleave', () => { hoverPt = null; emit('hover', null); if (tool === 'probe' || showRuler) drawOverlay(); });
     viewport.addEventListener('dblclick', (e) => { if (e.button === 0 && source && tool === 'pan') fit(); });
 
     /* ── Public view operations ── */
