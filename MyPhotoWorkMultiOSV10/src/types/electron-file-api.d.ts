@@ -29,6 +29,11 @@ interface Window {
     saveFile(options: { defaultDirectory?: string; fileName: string; filters?: ElectronSaveFilter[]; text?: string; dataUrl?: string }): Promise<ElectronSaveResult>
     writeFile(options: { filePath: string; text?: string; dataUrl?: string }): Promise<ElectronSaveResult>
   }
+  /** One print window, so the job goes straight to the printer from there. */
+  electronPrintApi?: {
+    printers(): Promise<{ name: string; displayName: string; isDefault: boolean }[]>
+    print(options: { html: string; deviceName?: string; landscape?: boolean; copies?: number }): Promise<{ ok: boolean; message?: string }>
+  }
   electronWindowApi?: {
     minimize(): Promise<void>
     toggleMaximize(): Promise<void>
@@ -47,6 +52,7 @@ interface Window {
     payload(): Promise<unknown>
     reportSize(size: { width: number; height: number }): Promise<void>
     choose(commandId: string): Promise<void>
+    onPayload(callback: (payload: unknown) => void): () => void
     onChosen(callback: (commandId: string) => void): () => void
   }
   /** Dialogs rendered as separate, movable windows. */

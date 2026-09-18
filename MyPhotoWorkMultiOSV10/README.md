@@ -28,7 +28,7 @@ My Photo Work V1.0 is a professional-grade layered raster photo editor built wit
 - Local generative-job tools: content-aware / generative fill, generative expand, generative upscale, Harmonize, Select Subject, Remove Background, Find Distractions. These run on-device; no cloud service is contacted and no account is needed.
 - Open PNG, JPG, GIF, WebP, AVIF, BMP, TIFF, **HEIC/HEIF** (`.heic`, `.heif`, `.hif` — decoded in-app with libheif, since no browser reads them), **DICOM** (`.dcm`, with rescale, windowing and MONOCHROME1 handled), and the native `.mpw` project format. Place extra images as new layers.
 - Save layered projects (`.mpw` v2) and export PNG, JPG, WebP, AVIF, GIF, or TIFF, with a **transparent background** option for the formats that can store alpha.
-- **Print** (Ctrl+P) with a **print preview**: the page on its sheet, portrait or landscape, then the system print dialog.
+- **Print** (Ctrl+P) in one window: the page on its sheet, the printer, the orientation and the number of copies together, then straight to the printer. In a browser the system print dialog is used instead, since nothing else can reach a printer there.
 - **Image information** window: the file, the document, pixel statistics, and the header the file itself carried — EXIF for a photo, IHDR for a PNG, the tag set for a DICOM.
 - Separate title bar, menu bar and icon toolbar; every menu dropdown and dialog opens as its own movable window that can overhang the app and is closed with it.
 - Drag images or `.mpw` projects onto the window from the desktop.
@@ -74,10 +74,16 @@ npm run verify:images
 ```
 
 Walks the real open → composite → export → print pipeline over every photo in
-`images/`, at full camera resolution, including the HEIC. It asserts as it goes
-— a non-zero exit means a feature is broken — and writes the composites, the
-exports in each format, a transparent/opaque pair and the print page into a temp
-folder whose path it prints, so the results can be looked at as well as checked.
+`images/`, at full camera resolution, including the HEIC and the DICOM slice. It
+asserts as it goes — a non-zero exit means a feature is broken — and leaves
+everything it produced in **`out/`**: the composites, the exports in each
+format, a transparent/opaque pair, the 3D, warp, carve, animation, 16-bit and
+pattern results, and the print preview and page. `out/index.html` shows them
+side by side, `out/report.md` lists what each file is evidence of, and
+`out/verify-images.log` is the transcript. The directory is rebuilt on every run
+and is committed: an assertion that passed is not the same as a result somebody
+has looked at, and the seam-carving bug in Content-Aware Scale was found by
+looking rather than by asserting.
 
 ## Build
 
@@ -139,6 +145,7 @@ macOS packages should be built on macOS, and Linux packages should be built on L
 | `scripts/` | The launchers, the packaging wrapper, the icon and build-stamp generators and the image verification run |
 | `test/` | The `node --test` suite and its DOM/canvas harness |
 | `images/` | Sample photos, including a HEIC and a DICOM slice, used by `npm run verify:images` |
+| `out/` | What that run produced, kept to be looked at: a gallery, a report and every file it wrote |
 
 ## Program Information
 

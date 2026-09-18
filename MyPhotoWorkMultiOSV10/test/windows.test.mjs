@@ -7,6 +7,7 @@ import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import { firstTick, rulerSize, tickStep, visibleRange } from '../src/lib/view.ts'
 import { t } from '../src/i18n.ts'
+import { commandsInMenu, menuColumns } from '../src/commands.ts'
 
 const root = new URL('..', import.meta.url)
 const read = (relative) => readFileSync(fileURLToPath(new URL(relative, root)), 'utf8')
@@ -35,14 +36,49 @@ test('every dialog has a window size, and the settings window is wide and fixed'
     assert.ok(specs[name].width >= 320, `${name} is too narrow`)
     assert.ok(specs[name].height >= 180, `${name} is too short`)
   }
-  assert.ok(specs.settings.width >= 640, 'the settings window should be wide enough for label + control rows')
+  // The settings are on tabs now, so the window holds one page at a time: wide
+  // enough for a label and its control side by side, and no wider.
+  assert.ok(specs.settings.width >= 480, 'the settings window should be wide enough for label + control rows')
+  assert.ok(specs.settings.width <= 640, 'the settings window has grown back into a scroll of everything')
   assert.equal(specs.settings.resizable, false, 'the settings window must be a fixed size')
 })
 
 test('a dialog window is owned by the main window and is movable', () => {
-  assert.match(childWindows, /parent: parent && !parent\.isDestroyed\(\)/, 'dialogs are not parented to the main window')
+  // The window is built before it knows which dialog it will hold, so the
+  // parent is attached when it is handed its identity rather than at creation.
+  assert.match(childWindows, /win\.setParentWindow\(parent\)/, 'dialogs are not parented to the main window')
   assert.match(childWindows, /movable: true/, 'dialogs must be movable')
   assert.match(childWindows, /frame: false/, 'dialogs draw their own title bar')
+})
+
+test('a dismissed dialog is pooled rather than destroyed', () => {
+  const recycle = childWindows.slice(childWindows.indexOf('function recycleDialogWindow'), childWindows.indexOf('function closeDialogWindow'))
+  assert.match(recycle, /win\.hide\(\)/, 'a dismissed dialog is not hidden')
+  assert.match(recycle, /spareDialogs\.push\(win\)/, 'the window is not returned to the pool')
+  assert.match(recycle, /shuttingDown \|\| spareDialogs\.length >= SPARE_LIMIT/, 'the pool can grow without limit')
+  const close = childWindows.slice(childWindows.indexOf('function closeDialogWindow'), childWindows.indexOf('function closeAllDialogWindows'))
+  assert.match(close, /recycleDialogWindow\(win\)/, 'closing a dialog still destroys its window')
+})
+
+test('a popup window takes its identity from the main process, not its url', () => {
+  assert.match(childWindows, /load\(win, 'dialog='\)/, 'the dialog window still names itself in its route')
+  assert.match(childWindows, /load\(win, 'menu='\)/, 'the menu window still names itself in its route')
+  const open = childWindows.slice(childWindows.indexOf('function openDialogWindow'), childWindows.indexOf('function sizeDialogWindow'))
+  assert.match(open, /takeSpareDialog\(\)/, 'an opening dialog does not draw on the warm pool')
+  assert.match(open, /webContents\.send\('dialog:payload', message\)/, 'the window is never told which dialog it is')
+  assert.match(open, /warmDialogPool\(\)/, 'the pool is never refilled')
+  // Reusing a renderer means the previous dialog's form state is still there.
+  const host = read('src/DialogHost.tsx')
+  assert.match(host, /key=\{message\?\.openId \?\? 0\}/, 'a reopened dialog would keep the last one’s answers')
+})
+
+test('the popup renderers are started before the first click', () => {
+  assert.match(childWindows, /function warmChildWindows/, 'nothing warms the popups')
+  const warm = childWindows.slice(childWindows.indexOf('function warmChildWindows'))
+  assert.match(warm, /ensureMenuWindow\(\)/, 'the menu popup is not warmed')
+  assert.match(warm, /warmDialogPool\(\)/, 'the dialog pool is not warmed')
+  assert.match(mainProcess, /childWindows\.warmChildWindows\(\)/, 'the main process never warms the popups')
+  assert.match(mainProcess, /once\('did-finish-load'/, 'warming would compete with the editor’s own start-up')
 })
 
 test('opening a dialog twice reuses and raises the one window', () => {
@@ -59,8 +95,11 @@ test('closing the app tears every popup down', () => {
   assert.match(mainProcess, /app\.on\('before-quit'/, 'nothing closes the popups on quit')
   assert.match(mainProcess, /mainWindow\.on\('closed', \(\) => childWindows\.closeAllChildWindows\(\)\)/,
     'popups survive the main window closing')
-  const closeAll = childWindows.slice(childWindows.indexOf('function closeAllDialogWindows'), childWindows.indexOf('function closeAllChildWindows'))
-  assert.match(closeAll, /win\.destroy\(\)/, 'dialog windows are not destroyed')
+  // Dismissing dialogs pools them; only the app going away really destroys one.
+  const teardown = childWindows.slice(childWindows.indexOf('function closeAllChildWindows'), childWindows.indexOf('function warmChildWindows'))
+  assert.match(teardown, /shuttingDown = true/, 'popups would still be recycled while the app quits')
+  assert.match(teardown, /win\.destroy\(\)/, 'dialog windows are not destroyed')
+  assert.match(teardown, /spareDialogs/, 'the warm pool would outlive the app')
 })
 
 test('the preload exposes the menu and dialog bridges', () => {
@@ -74,20 +113,35 @@ test('the preload exposes the menu and dialog bridges', () => {
 
 test('the bundle routes the popup windows by hash', () => {
   const main = read('src/main.tsx')
-  assert.match(main, /params\.get\('menu'\)/, 'no menu route')
-  assert.match(main, /params\.get\('dialog'\)/, 'no dialog route')
+  // `has`, not `get`: the route says which kind of window this is and nothing
+  // more, so `#dialog=` with no name still has to reach the dialog host.
+  assert.match(main, /params\.has\('menu'\)/, 'no menu route')
+  assert.match(main, /params\.has\('dialog'\)/, 'no dialog route')
   assert.ok(main.includes('<MenuHost') && main.includes('<DialogHost'), 'the hosts are not mounted')
-  assert.match(childWindows, /menu=\$\{encodeURIComponent/, 'the menu window loads no route')
-  assert.match(childWindows, /dialog=\$\{encodeURIComponent/, 'the dialog window loads no route')
+  assert.match(childWindows, /'menu='/, 'the menu window loads no route')
+  assert.match(childWindows, /'dialog='/, 'the dialog window loads no route')
 })
 
 /* ------------------------------------------------------------ menu popups */
 
 test('the menu popup is its own always-on-top window, not a child of the app', () => {
-  const open = childWindows.slice(childWindows.indexOf('function openMenuWindow'), childWindows.indexOf('function sizeMenuWindow'))
-  assert.match(open, /alwaysOnTop: true/, 'the menu would fall behind the app')
-  assert.ok(!/^\s*parent:/m.test(open), 'a parented window is clamped inside the app, which is the clipping we are escaping')
-  assert.match(open, /win\.on\('blur'/, 'the menu never dismisses itself')
+  const build = childWindows.slice(childWindows.indexOf('function ensureMenuWindow'), childWindows.indexOf('/** Dismisses the menu'))
+  assert.match(build, /alwaysOnTop: true/, 'the menu would fall behind the app')
+  assert.ok(!/^\s*parent:/m.test(build), 'a parented window is clamped inside the app, which is the clipping we are escaping')
+  assert.match(build, /win\.on\('blur'/, 'the menu never dismisses itself')
+})
+
+test('one menu window serves every dropdown', () => {
+  const ensure = childWindows.slice(childWindows.indexOf('function ensureMenuWindow'), childWindows.indexOf('/** Dismisses the menu'))
+  assert.match(ensure, /if \(menuWindow && !menuWindow\.win\.isDestroyed\(\)\)/, 'a window is built per dropdown again')
+  const hide = childWindows.slice(childWindows.indexOf('function hideMenuWindow'), childWindows.indexOf('function closeMenuWindow'))
+  assert.match(hide, /win\.hide\(\)/, 'dismissing a menu destroys its renderer')
+  assert.match(hide, /send\('menu:payload', null\)/, 'the next menu would flash the last one’s rows')
+  const open = childWindows.slice(childWindows.indexOf('function openMenuWindow'), childWindows.indexOf('/** Fits the popup'))
+  assert.match(open, /ensureMenuWindow\(\)/, 'the dropdown does not reuse the menu window')
+  assert.match(open, /send\('menu:payload', message\)/, 'the window is never told which menu it is')
+  const host = read('src/MenuHost.tsx')
+  assert.match(host, /electronMenuApi\?\.onPayload/, 'the menu popup cannot be re-targeted')
 })
 
 test('the menu window is sized from the measured content and kept on screen', () => {
@@ -334,7 +388,7 @@ test('a number in the settings window has a step button either side', () => {
   assert.match(stepper, /type="number"/, 'the value can no longer be typed')
 
   // Both settings numbers use it, and so do the size dialogs.
-  const settings = dialogSource.slice(dialogSource.indexOf("case 'settings':"), dialogSource.indexOf("case 'helpGuide':"))
+  const settings = dialogSource.slice(dialogSource.indexOf("case 'settings': {"), dialogSource.indexOf("case 'helpGuide':"))
   assert.equal((settings.match(/<NumberStepper/g) ?? []).length, 2, 'a settings number is still a bare input')
   assert.ok(!settings.includes('type="number"'), 'a settings number still uses the browser spinner')
 })
@@ -359,7 +413,7 @@ test('the settings labels say what the value means', () => {
     assert.ok(t(language, 'settingsBrushSizeHint').length > 20, `${language} brush-size hint is too terse`)
     assert.ok(/0/.test(t(language, 'settingsToleranceHint')), `${language} tolerance hint does not explain the range`)
   }
-  const settings = dialogSource.slice(dialogSource.indexOf("case 'settings':"), dialogSource.indexOf("case 'helpGuide':"))
+  const settings = dialogSource.slice(dialogSource.indexOf("case 'settings': {"), dialogSource.indexOf("case 'helpGuide':"))
   assert.ok(settings.includes("tr('settingsBrushSize')"), 'the brush size still uses the abbreviated label')
   assert.ok(settings.includes("tr('settingsToleranceHint')"), 'the tolerance is not explained')
 })
@@ -403,4 +457,93 @@ test('every popup host asks for the stylesheet itself', () => {
 test('the popup windows load by relative path, which is what file:// needs', () => {
   const config = read('vite.config.ts')
   assert.match(config, /base: '\.\/'/, "an absolute base would make the split chunks unreachable from file://")
+})
+
+/* ------------------------------------------- long menus, print, zoom, out */
+
+test('a long menu is dealt into columns instead of running off the screen', () => {
+  // Image is the longest at thirty rows; File is short and stays one column.
+  for (const menu of ['image', 'layer', 'edit']) {
+    assert.ok(menuColumns(commandsInMenu(menu)).columns > 1, `the ${menu} menu is still one column`)
+  }
+  assert.equal(menuColumns(commandsInMenu('file')).columns, 1, 'a short menu should not be split')
+  assert.equal(menuColumns(commandsInMenu('threeD')).columns, 1, 'a three-row menu should not be split')
+
+  // Separators are cells of their own, so they count towards the row total.
+  const layer = commandsInMenu('layer')
+  const cells = layer.length + layer.filter((command) => command.separatorBefore).length
+  assert.equal(menuColumns(layer).rowCount, Math.ceil(cells / menuColumns(layer).columns),
+    'the rows are not shared out evenly between the columns')
+
+  const host = read('src/MenuHost.tsx')
+  assert.match(host, /menu-window menu-columns/, 'the popup never asks for the column layout')
+  assert.match(host, /<Fragment key=\{command\.id\}>/,
+    'a wrapper element per row would make each column drift out of step with the next')
+  assert.match(cssSource, /\.menu-window\.menu-columns \{[^}]*grid-auto-flow: column/,
+    'the column layout has no stylesheet rule')
+  assert.match(cssSource, /grid-template-rows: repeat\(var\(--menu-rows\), auto\)/,
+    'the columns do not share one set of row tracks')
+  // The browser build's own dropdown gets the same treatment.
+  assert.match(appSource, /<MenuDrop anchor=\{menuAnchor\} rows=\{commandsInMenu\(id\)\}>/,
+    'the in-page dropdown is still a single column')
+  assert.match(cssSource, /\.menu-drop\.menu-columns/, 'the in-page dropdown has no column rule')
+})
+
+test('the print window is fixed, fits its content and never scrolls', () => {
+  const spec = require('../electron/childwindows.cjs').DIALOG_SPECS.print
+  assert.equal(spec.resizable, false, 'the print window must not be resizable')
+  assert.ok(spec.height >= 700, 'the print window is too short to hold the sheet and the buttons')
+  assert.match(cssSource, /\.print-dialog \.dialog-content \{\s*overflow: hidden;/,
+    'the print window would show a scrollbar')
+  // The preview is what gives way, driven from the long side of the sheet.
+  assert.match(cssSource, /\.print-dialog \.print-sheet \{[^}]*max-height: 430px/,
+    'the preview is not capped, so the buttons could be pushed off the window')
+  assert.match(cssSource, /\.print-dialog \.print-sheet\.landscape \{[^}]*width: 100%/,
+    'a landscape sheet would be stretched out of its aspect ratio')
+})
+
+test('the print window selects the printer the system calls default', () => {
+  // Chromium's own list carries no `isDefault`, so the OS is asked directly.
+  assert.match(mainProcess, /function defaultPrinterName/, 'nothing asks the OS which printer is default')
+  assert.match(mainProcess, /CurrentVersion.+Windows/s, 'the Windows default printer is never read')
+  assert.match(mainProcess, /'lpstat'/, 'the CUPS default printer is never read')
+  const handler = mainProcess.slice(mainProcess.indexOf("ipcMain.handle('print:printers'"), mainProcess.indexOf("ipcMain.handle('print:job'"))
+  assert.match(handler, /defaultPrinterName\(\)/, 'the printer list is not told which one is default')
+  assert.match(handler, /printer\.name === preferred/, 'the OS answer is never matched against the list')
+  assert.match(dialogSource, /payload\.printers\?\.find\(\(item\) => item\.isDefault\)\?\.name/,
+    'the print window does not preselect the default printer')
+})
+
+test('the zoom percentage sits between the two zoom buttons', () => {
+  const toolbar = appSource.slice(appSource.indexOf('className="tool-bar"'))
+  assert.match(toolbar, /className="zoom-readout"/, 'there is no zoom readout')
+  assert.match(toolbar, /command\.id !== 'view\.zoomIn'/,
+    'the readout is not anchored to the zoom-in button, so it could land anywhere in the row')
+  assert.match(toolbar, /Math\.round\(settings\.zoom \* 100\)\}%/, 'the readout shows no percentage')
+  // Zoom in is listed before zoom out, so rendering after zoom in puts the
+  // number between the two.
+  const view = commandsInMenu('view').filter((command) => command.toolbar).map((command) => command.id)
+  assert.deepEqual(view.slice(0, 2), ['view.zoomIn', 'view.zoomOut'], 'the zoom buttons are no longer adjacent')
+  assert.match(cssSource, /\.tool-bar button\.zoom-readout \{[^}]*font-variant-numeric: tabular-nums/,
+    'the buttons either side would shift as the number changes')
+  assert.equal(typeof t('ko', 'zoomLevel'), 'string')
+  assert.notEqual(t('en', 'zoomLevel'), t('ko', 'zoomLevel'), 'the readout label is not translated')
+})
+
+test('the real-image run leaves its results in out/', () => {
+  const verify = read('scripts/verify-images.mjs')
+  assert.match(verify, /path\.join\(root, 'out'\)/, 'the results are not written beside the project')
+  assert.match(verify, /rmSync\(outDir/, 'a stale result from an earlier run would be left behind')
+  for (const artifact of ['index.html', 'report.md', 'verify-images.log']) {
+    assert.ok(verify.includes(`'${artifact}'`), `the run leaves no ${artifact}`)
+  }
+  assert.match(verify, /function save\(name, data\)/, 'the artifacts are not recorded as they are written')
+  // The results are kept rather than ignored: an assertion that passed is not
+  // the same as a result somebody has looked at. The repository root ignores
+  // `[Oo]ut/` for everything under it, so both lines are needed — a directory
+  // that is excluded cannot have its contents re-included one at a time.
+  const ignore = read('.gitignore')
+  assert.ok(!/^out$/m.test(ignore), 'the run output is ignored again, so nobody can look at it')
+  assert.match(ignore, /^!out\/$/m, 'the out directory itself is still excluded by the repository root')
+  assert.match(ignore, /^!out\/\*\*$/m, 'the files inside out/ are still excluded')
 })

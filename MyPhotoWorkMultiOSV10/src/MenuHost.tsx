@@ -1,5 +1,5 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { commandsInMenu, type MenuId } from './commands'
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { commandsInMenu, menuColumns, type MenuId } from './commands'
 import { t } from './i18n'
 import { applyTheme } from './themes'
 import { buildErrorReport } from './lib/errors'
@@ -34,9 +34,15 @@ export default function MenuHost({ menu }: { menu: MenuId }) {
   useEffect(() => {
     let cancelled = false
     void window.electronMenuApi?.payload().then((value) => {
-      if (!cancelled && value) setPayload(value as MenuPayload)
+      if (!cancelled) setPayload((value ?? null) as MenuPayload | null)
     })
-    return () => { cancelled = true }
+    // One popup window serves every dropdown, rather than one being created and
+    // destroyed per click; it is told which menu to show, and `null` when the
+    // menu is dismissed so the next one never flashes the last one's rows.
+    const off = window.electronMenuApi?.onPayload((next) => {
+      if (!cancelled) setPayload((next ?? null) as MenuPayload | null)
+    })
+    return () => { cancelled = true; off?.() }
   }, [])
 
   useEffect(() => {
@@ -84,13 +90,22 @@ export default function MenuHost({ menu }: { menu: MenuId }) {
 
   const language = payload.language
   const label = (key: string) => payload.overrides[key] ?? t(language, key)
+  const rows = commandsInMenu(payload.menu ?? menu)
+  const { columns, rowCount } = menuColumns(rows)
 
   return (
-    <div className="menu-window" ref={listRef}>
-      {commandsInMenu(payload.menu ?? menu).map((command) => {
+    <div
+      className={columns > 1 ? 'menu-window menu-columns' : 'menu-window'}
+      ref={listRef}
+      style={columns > 1 ? ({ '--menu-rows': rowCount } as React.CSSProperties) : undefined}
+    >
+      {rows.map((command) => {
         const Icon = command.icon
         return (
-          <div key={command.id}>
+          // A fragment, not a wrapper: in column layout the separators and the
+          // buttons are the grid's own cells, so the rows line up across the
+          // columns instead of each group drifting out of step.
+          <Fragment key={command.id}>
             {command.separatorBefore && <div className="menu-separator" />}
             <button
               className={payload.active.includes(command.id) ? 'active' : ''}
@@ -100,7 +115,7 @@ export default function MenuHost({ menu }: { menu: MenuId }) {
               <span>{payload.overrides[command.id] ?? label(command.label)}</span>
               {command.accel && <kbd>{command.accel}</kbd>}
             </button>
-          </div>
+          </Fragment>
         )
       })}
     </div>

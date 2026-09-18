@@ -4,8 +4,16 @@
 // clips its own HTML, so a long menu (the Layer menu runs to ~27 rows) cannot
 // spill past the app window; and an in-page dialog cannot be dragged out of the
 // way. Both become child windows that load the same bundle with a hash route —
-// `#menu=<id>` or `#dialog=<name>` — so they can be positioned anywhere on the
-// desktop while still being owned by, and torn down with, the main window.
+// `#menu=` or `#dialog=` — so they can be positioned anywhere on the desktop
+// while still being owned by, and torn down with, the main window.
+//
+// Those routes carry no name. Creating a BrowserWindow is cheap; starting the
+// renderer behind it is not — the bundle is parsed, React mounts and the popup
+// chunk is fetched, and paying that on every click is what made popups feel
+// slow. A nameless route makes every popup window interchangeable, so the main
+// process can hand one its identity over IPC. Two things follow: a dismissed
+// popup is hidden and put back in a pool instead of destroyed, and the pool can
+// be filled in the background before the user clicks anything.
 const { BrowserWindow, ipcMain, screen, app } = require('electron')
 const path = require('node:path')
 
@@ -15,17 +23,31 @@ const dialogWindows = new Map()
 let menuWindow = null
 let mainWindow = null
 
+/** @type {BrowserWindow[]} Loaded and hidden, waiting to be given an identity. */
+const spareDialogs = []
+/** How many to keep ready. Two covers a dialog opened on top of another. */
+const SPARE_TARGET = 2
+/** Past this a recycled window is destroyed rather than kept around. */
+const SPARE_LIMIT = 3
+/** Set while the app tears down, so popups stop being recycled and go away. */
+let shuttingDown = false
+let warmTimer = null
+/** Distinguishes one opening from the next, so a reused window remounts. */
+let openSequence = 0
+
 const DIALOG_SPECS = {
   // Wider than the old in-page panel so each row fits label + control on one
   // line, and fixed: the layout is designed for exactly this size.
-  settings: { width: 720, height: 900, resizable: false },
+  settings: { width: 540, height: 512, resizable: false },
   about: { width: 560, height: 470, resizable: false },
   helpGuide: { width: 660, height: 620, resizable: false },
   error: { width: 620, height: 420, minWidth: 420 },
   unsaved: { width: 460, height: 210, resizable: false },
   new: { width: 520, height: 470, minWidth: 420 },
   export: { width: 440, height: 290, resizable: false },
-  print: { width: 520, height: 720, minWidth: 420 },
+  // Fixed, and tall enough for the preview sheet, the three controls and the
+  // buttons together: this window must never scroll.
+  print: { width: 560, height: 760, resizable: false },
   imageInfo: { width: 540, height: 680, minWidth: 380 },
   fill: { width: 440, height: 250, resizable: false },
   stroke: { width: 440, height: 290, resizable: false },
@@ -98,25 +120,18 @@ function preloadPath() {
 
 /* ------------------------------------------------------------------ menus */
 
-function closeMenuWindow() {
-  const current = menuWindow
-  menuWindow = null
-  if (current && !current.win.isDestroyed()) {
-    current.win.close()
-  }
-}
-
 /**
- * Opens the dropdown for `payload.menu` at `anchor` (screen coordinates).
- * The window starts small and is resized once the renderer reports how tall the
- * list actually is, so it fits its contents exactly and can overhang the app.
+ * The one menu popup, created on first use and kept for the life of the app.
+ *
+ * It used to be created and destroyed per click, so every dropdown waited for a
+ * renderer to start. Now it is told which menu to show and simply re-renders,
+ * which means only the very first menu of a session is ever slow.
  */
-function openMenuWindow(payload, anchor, opener) {
-  closeMenuWindow()
-  const parent = opener && !opener.isDestroyed() ? opener : mainWindow
+function ensureMenuWindow() {
+  if (menuWindow && !menuWindow.win.isDestroyed()) {
+    return menuWindow.win
+  }
   const win = new BrowserWindow({
-    x: Math.round(anchor.x),
-    y: Math.round(anchor.y),
     width: 240,
     height: 80,
     frame: false,
@@ -142,26 +157,69 @@ function openMenuWindow(payload, anchor, opener) {
     },
   })
 
-  menuWindow = { win, openerId: parent && !parent.isDestroyed() ? parent.id : -1 }
-  win.__menuPayload = { ...payload, anchor }
+  menuWindow = { win, openerId: -1 }
+  win.__menuMessage = null
 
   win.on('blur', () => {
     // Clicking anywhere else dismisses the menu, as a native one would.
-    if (menuWindow && menuWindow.win === win) closeMenuWindow()
+    if (menuWindow && menuWindow.win === win) hideMenuWindow()
+  })
+  win.on('close', (event) => {
+    // Dismissing a menu hides it; only the app quitting really closes it.
+    if (shuttingDown) return
+    event.preventDefault()
+    hideMenuWindow()
   })
   win.on('closed', () => {
     if (menuWindow && menuWindow.win === win) menuWindow = null
   })
 
-  load(win, `menu=${encodeURIComponent(payload.menu)}`)
+  load(win, 'menu=')
+  return win
+}
+
+/** Dismisses the menu without giving up its renderer. */
+function hideMenuWindow() {
+  const current = menuWindow
+  if (!current || current.win.isDestroyed()) return
+  current.openerId = -1
+  current.win.__menuMessage = null
+  if (current.win.isVisible()) current.win.hide()
+  // Emptied, so the next menu never flashes the previous one's rows.
+  current.win.webContents.send('menu:payload', null)
+}
+
+function closeMenuWindow() {
+  hideMenuWindow()
+}
+
+/**
+ * Shows the dropdown for `payload.menu` at `anchor` (screen coordinates).
+ * The window stays hidden until the renderer reports how tall the list actually
+ * is, so it fits its contents exactly and can overhang the app.
+ */
+function openMenuWindow(payload, anchor, opener) {
+  const parent = opener && !opener.isDestroyed() ? opener : mainWindow
+  const win = ensureMenuWindow()
+  // Hidden while it re-renders: otherwise the outgoing menu would be seen for a
+  // frame at the incoming menu's size and place.
+  if (win.isVisible()) win.hide()
+  openSequence += 1
+  const message = { ...payload, anchor, openId: openSequence }
+  win.__menuMessage = message
+  menuWindow.openerId = parent && !parent.isDestroyed() ? parent.id : -1
+  win.webContents.send('menu:payload', message)
   return true
 }
 
 /** Fits the popup to its content and keeps it on the anchor's display. */
 function sizeMenuWindow(win, size) {
   if (!win || win.isDestroyed()) return
-  const payload = win.__menuPayload
-  const anchor = payload?.anchor ?? { x: 0, y: 0, width: 0, height: 0 }
+  const message = win.__menuMessage
+  // A menu that has been dismissed must not be put back on screen by a late
+  // measurement arriving from its own renderer.
+  if (!message) return
+  const anchor = message.anchor ?? { x: 0, y: 0, width: 0, height: 0 }
   const width = Math.max(180, Math.ceil(size.width))
   const height = Math.max(40, Math.ceil(size.height))
   const display = screen.getDisplayNearestPoint({ x: Math.round(anchor.x), y: Math.round(anchor.y) })
@@ -186,63 +244,23 @@ function sizeMenuWindow(win, size) {
 
 /* ---------------------------------------------------------------- dialogs */
 
-function closeAllDialogWindows() {
-  for (const win of dialogWindows.values()) {
-    if (!win.isDestroyed()) win.destroy()
-  }
-  dialogWindows.clear()
-}
-
-function closeAllChildWindows() {
-  closeMenuWindow()
-  closeAllDialogWindows()
-}
-
-/**
- * Opens `name` as its own window. If it is already open the existing window is
- * reused: it takes the fresh payload, is raised and focused. One button press
- * can therefore never produce a second copy.
- */
-function openDialogWindow(name, payload, opener) {
-  const existing = dialogWindows.get(name)
-  if (existing && !existing.isDestroyed()) {
-    existing.webContents.send('dialog:payload', payload)
-    if (existing.isMinimized()) existing.restore()
-    existing.show()
-    existing.focus()
-    existing.moveTop()
-    return true
-  }
-
-  const spec = DIALOG_SPECS[name] ?? DEFAULT_SPEC
-  const parent = opener && !opener.isDestroyed() ? opener : mainWindow
-  let bounds = { width: spec.width, height: spec.height }
-  if (parent && !parent.isDestroyed()) {
-    const pb = parent.getBounds()
-    bounds = {
-      ...bounds,
-      x: Math.round(pb.x + (pb.width - spec.width) / 2),
-      y: Math.round(pb.y + (pb.height - spec.height) / 2),
-    }
-  }
-
+/** Builds one nameless popup window and starts its renderer loading. */
+function createDialogWindow() {
   const win = new BrowserWindow({
-    ...bounds,
-    minWidth: spec.minWidth ?? Math.min(spec.width, 320),
+    width: DEFAULT_SPEC.width,
+    height: DEFAULT_SPEC.height,
+    minWidth: 320,
     minHeight: 120,
-    // Owned by the main window, so closing the app tears every dialog down too,
-    // but still freely movable anywhere on the desktop.
-    parent: parent && !parent.isDestroyed() ? parent : undefined,
     modal: false,
     movable: true,
-    resizable: spec.resizable !== false,
+    resizable: true,
     minimizable: false,
-    maximizable: spec.resizable !== false,
+    maximizable: false,
     fullscreenable: false,
     skipTaskbar: true,
     show: false,
     frame: false,
-    backgroundColor: payload?.background ?? '#11161d',
+    backgroundColor: '#11161d',
     icon: iconPath(),
     webPreferences: {
       preload: preloadPath(),
@@ -252,23 +270,115 @@ function openDialogWindow(name, payload, opener) {
     },
   })
 
-  win.__dialogPayload = payload
-  win.__dialogName = name
-  dialogWindows.set(name, win)
+  win.__dialogName = null
+  win.__dialogMessage = null
+  win.__ownerId = -1
+  win.__ready = false
 
-  win.once('ready-to-show', () => {
-    win.show()
-    win.focus()
+  win.once('ready-to-show', () => { win.__ready = true })
+  win.on('close', (event) => {
+    // The X button, Escape and Alt+F4 all arrive here. A popup in use goes back
+    // to the pool instead of being destroyed, so opening it again is instant.
+    if (shuttingDown || !win.__dialogName) return
+    event.preventDefault()
+    recycleDialogWindow(win)
   })
   win.on('closed', () => {
-    if (dialogWindows.get(name) === win) dialogWindows.delete(name)
-    const owner = parent && !parent.isDestroyed() ? parent : mainWindow
-    if (owner && !owner.isDestroyed()) {
-      owner.webContents.send('dialog:closed', name)
-    }
+    releaseDialogWindow(win)
+    const index = spareDialogs.indexOf(win)
+    if (index >= 0) spareDialogs.splice(index, 1)
   })
 
-  load(win, `dialog=${encodeURIComponent(name)}`)
+  load(win, 'dialog=')
+  return win
+}
+
+/** Refills the pool, off the critical path of the click that emptied it. */
+function warmDialogPool() {
+  if (shuttingDown || warmTimer) return
+  warmTimer = setTimeout(() => {
+    warmTimer = null
+    if (shuttingDown) return
+    while (spareDialogs.length < SPARE_TARGET) {
+      spareDialogs.push(createDialogWindow())
+    }
+  }, 400)
+  if (typeof warmTimer.unref === 'function') warmTimer.unref()
+}
+
+function takeSpareDialog() {
+  while (spareDialogs.length > 0) {
+    const win = spareDialogs.pop()
+    if (win && !win.isDestroyed()) return win
+  }
+  return createDialogWindow()
+}
+
+/** Gives a pooled window the size, limits and place its dialog asks for. */
+function applyDialogSpec(win, name, parent) {
+  const spec = DIALOG_SPECS[name] ?? DEFAULT_SPEC
+  const resizable = spec.resizable !== false
+  // Windows pins a non-resizable window to its current size, so the flag has to
+  // come off before the bounds are set and go back on afterwards.
+  win.setResizable(true)
+  win.setMinimumSize(spec.minWidth ?? Math.min(spec.width, 320), 120)
+  const bounds = { width: spec.width, height: spec.height }
+  if (parent && !parent.isDestroyed()) {
+    const pb = parent.getBounds()
+    bounds.x = Math.round(pb.x + (pb.width - spec.width) / 2)
+    bounds.y = Math.round(pb.y + (pb.height - spec.height) / 2)
+    // Owned by the main window, so closing the app tears every dialog down too,
+    // but still freely movable anywhere on the desktop.
+    win.setParentWindow(parent)
+  }
+  win.setBounds(bounds)
+  win.setResizable(resizable)
+  win.setMaximizable(resizable)
+}
+
+/**
+ * Opens `name` as its own window. If it is already open the existing window is
+ * reused: it takes the fresh payload, is raised and focused. One button press
+ * can therefore never produce a second copy.
+ */
+function openDialogWindow(name, payload, opener) {
+  const parent = opener && !opener.isDestroyed() ? opener : mainWindow
+  openSequence += 1
+  const message = { name, payload, openId: openSequence }
+
+  const existing = dialogWindows.get(name)
+  if (existing && !existing.isDestroyed()) {
+    existing.__dialogMessage = message
+    existing.webContents.send('dialog:payload', message)
+    if (existing.isMinimized()) existing.restore()
+    existing.show()
+    existing.focus()
+    existing.moveTop()
+    return true
+  }
+
+  const win = takeSpareDialog()
+  win.__dialogName = name
+  win.__dialogMessage = message
+  win.__ownerId = parent && !parent.isDestroyed() ? parent.id : -1
+  dialogWindows.set(name, win)
+  applyDialogSpec(win, name, parent)
+  if (payload && payload.background) {
+    win.setBackgroundColor(payload.background)
+  }
+  // A warm window is listening; a cold one is not, and picks the message up
+  // through the `dialog:payload` request it makes as soon as it mounts.
+  win.webContents.send('dialog:payload', message)
+
+  const reveal = () => {
+    if (win.isDestroyed() || win.__dialogName !== name) return
+    win.show()
+    win.focus()
+  }
+  if (win.__ready) reveal()
+  else win.once('ready-to-show', reveal)
+
+  warmDialogPool()
   return true
 }
 
@@ -281,7 +391,7 @@ function openDialogWindow(name, payload, opener) {
  * clamped to the display so a tall dialog scrolls instead of growing off screen.
  */
 function sizeDialogWindow(win, size) {
-  if (!win || win.isDestroyed()) return
+  if (!win || win.isDestroyed() || !win.__dialogName) return
   const spec = DIALOG_SPECS[win.__dialogName] ?? DEFAULT_SPEC
   const display = screen.getDisplayNearestPoint({ x: win.getBounds().x, y: win.getBounds().y })
   const area = display.workArea
@@ -311,9 +421,73 @@ function sizeDialogWindow(win, size) {
   if (!wasResizable) win.setResizable(false)
 }
 
+/** Takes a popup out of the open set and tells its opener it has gone. */
+function releaseDialogWindow(win) {
+  const name = win.__dialogName
+  win.__dialogName = null
+  win.__dialogMessage = null
+  if (!name) return
+  if (dialogWindows.get(name) === win) dialogWindows.delete(name)
+  const owner = win.__ownerId >= 0 ? BrowserWindow.fromId(win.__ownerId) : mainWindow
+  if (owner && !owner.isDestroyed()) {
+    owner.webContents.send('dialog:closed', name)
+  }
+}
+
+/** Hides a dialog and puts its window back in the pool. */
+function recycleDialogWindow(win) {
+  if (!win || win.isDestroyed()) return
+  releaseDialogWindow(win)
+  win.hide()
+  // Emptying the renderer frees the dialog's DOM and gives the next dialog a
+  // clean slate; the window, and the warm renderer behind it, stay.
+  win.webContents.send('dialog:payload', { name: null, payload: null, openId: 0 })
+  win.setParentWindow(null)
+  win.__ownerId = -1
+  if (shuttingDown || spareDialogs.length >= SPARE_LIMIT) {
+    win.destroy()
+    return
+  }
+  spareDialogs.push(win)
+}
+
 function closeDialogWindow(name) {
   const win = dialogWindows.get(name)
-  if (win && !win.isDestroyed()) win.close()
+  if (win && !win.isDestroyed()) recycleDialogWindow(win)
+}
+
+function closeAllDialogWindows() {
+  for (const win of [...dialogWindows.values()]) {
+    if (!win.isDestroyed()) recycleDialogWindow(win)
+  }
+  dialogWindows.clear()
+}
+
+/** Really tears everything down: the app is going away. */
+function closeAllChildWindows() {
+  shuttingDown = true
+  if (warmTimer) {
+    clearTimeout(warmTimer)
+    warmTimer = null
+  }
+  const current = menuWindow
+  menuWindow = null
+  if (current && !current.win.isDestroyed()) current.win.destroy()
+  for (const win of [...dialogWindows.values(), ...spareDialogs]) {
+    if (!win.isDestroyed()) win.destroy()
+  }
+  dialogWindows.clear()
+  spareDialogs.length = 0
+}
+
+/**
+ * Starts the popup renderers while the user is still looking at the editor, so
+ * the first menu and the first dialog of a session open as fast as the rest.
+ */
+function warmChildWindows() {
+  if (shuttingDown) return
+  ensureMenuWindow()
+  warmDialogPool()
 }
 
 /* -------------------------------------------------------------------- ipc */
@@ -323,10 +497,10 @@ function registerChildWindowHandlers() {
     openMenuWindow(payload, anchor, BrowserWindow.fromWebContents(event.sender)))
 
   ipcMain.handle('menu:close', () => {
-    closeMenuWindow()
+    hideMenuWindow()
   })
 
-  ipcMain.handle('menu:payload', (event) => BrowserWindow.fromWebContents(event.sender)?.__menuPayload ?? null)
+  ipcMain.handle('menu:payload', (event) => BrowserWindow.fromWebContents(event.sender)?.__menuMessage ?? null)
 
   ipcMain.handle('menu:size', (event, size) => {
     sizeMenuWindow(BrowserWindow.fromWebContents(event.sender), size)
@@ -335,26 +509,24 @@ function registerChildWindowHandlers() {
   ipcMain.handle('menu:choose', (event, commandId) => {
     const current = menuWindow
     const opener = current && current.openerId >= 0 ? BrowserWindow.fromId(current.openerId) : mainWindow
-    closeMenuWindow()
+    hideMenuWindow()
     if (opener && !opener.isDestroyed()) {
       opener.webContents.send('menu:chosen', commandId)
       opener.focus()
     }
-    // `event` is the popup itself; it is already closing.
+    // `event` is the popup itself; it is already hidden.
     void event
   })
 
   ipcMain.handle('dialog:open', (event, name, payload) =>
     openDialogWindow(name, payload, BrowserWindow.fromWebContents(event.sender)))
 
-  ipcMain.handle('dialog:payload', (event) => {
-    const win = BrowserWindow.fromWebContents(event.sender)
-    return win ? { name: win.__dialogName, payload: win.__dialogPayload } : null
-  })
+  ipcMain.handle('dialog:payload', (event) =>
+    BrowserWindow.fromWebContents(event.sender)?.__dialogMessage ?? null)
 
   ipcMain.handle('dialog:result', (event, name, result) => {
     const win = BrowserWindow.fromWebContents(event.sender)
-    const owner = win?.getParentWindow() ?? mainWindow
+    const owner = win && win.__ownerId >= 0 ? BrowserWindow.fromId(win.__ownerId) : mainWindow
     if (owner && !owner.isDestroyed()) {
       owner.webContents.send('dialog:result', { name, result })
     }
@@ -365,7 +537,8 @@ function registerChildWindowHandlers() {
       closeDialogWindow(name)
       return
     }
-    BrowserWindow.fromWebContents(event.sender)?.close()
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (win) recycleDialogWindow(win)
   })
 
   ipcMain.handle('dialog:close-all', () => {
@@ -378,7 +551,7 @@ function registerChildWindowHandlers() {
 
   ipcMain.handle('dialog:error', (event, report) => {
     const win = BrowserWindow.fromWebContents(event.sender)
-    const owner = win?.getParentWindow() ?? mainWindow
+    const owner = win && win.__ownerId >= 0 ? BrowserWindow.fromId(win.__ownerId) : mainWindow
     if (owner && !owner.isDestroyed()) {
       owner.webContents.send('dialog:error', report)
       owner.focus()
@@ -399,6 +572,7 @@ module.exports = {
   closeAllChildWindows,
   closeAllDialogWindows,
   closeMenuWindow,
+  warmChildWindows,
   dialogWindows,
   DIALOG_SPECS,
 }

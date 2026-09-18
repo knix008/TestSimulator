@@ -4,7 +4,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   contentAwareScale, contentAwareScaleLayers, cornerTransform, homography, meshWarp, perspective,
-  puppetWarp, skew, warpCanvas, warpPoint,
+  puppetWarp, skew, skinLikelihood, skinMap, warpCanvas, warpPoint,
 } from '../src/lib/warp.ts'
 import { assertPixel, canvasFrom, canvasOf, meanDiff, px } from './helpers/pixels.mjs'
 
@@ -150,4 +150,119 @@ test('a scale that changes nothing hands the layers back untouched', () => {
   const source = marked(16)
   const [same] = contentAwareScaleLayers([source], source, 16, 16)
   assert.equal(same, source)
+})
+
+/* ------------------------------------------- the seam path, and skin tones */
+
+test('the seam that is removed is the one that was costed', () => {
+  // A wall of expensive noise with one cheap lane running diagonally through
+  // it. Only a path that follows the lane is cheap, and the lane moves a column
+  // per row, so the carve can only find it by walking the cost table the right
+  // way round. Tracing it backwards produced a mirror image of that path, which
+  // left the lane at once and tore through the noise instead.
+  const width = 41
+  const height = 20
+  const lane = (y) => 4 + y
+  // Red-channel noise: neighbouring columns differ, so the energy operator can
+  // see it. The lane is flat grey, and its middle costs nothing at all.
+  const noise = (x) => [(x * 53) % 256, 0, 0, 255]
+  const source = canvasFrom(width, height, (x, y) => (
+    Math.abs(x - lane(y)) <= 1 ? [128, 128, 128, 255] : noise(x)
+  ))
+  const laneCount = (canvas) => {
+    let found = 0
+    for (let y = 0; y < canvas.height; y += 1) {
+      for (let x = 0; x < canvas.width; x += 1) if (px(canvas, x, y)[1] === 128) found += 1
+    }
+    return found
+  }
+  assert.equal(laneCount(source), height * 3, 'the lane is not three pixels wide')
+
+  const narrow = contentAwareScale(source, width - 1, height, false)
+  assert.equal(narrow.width, width - 1)
+  // One pixel comes out of every row; every one of them should be the lane's.
+  assert.equal(laneCount(narrow), height * 2,
+    'the carve wandered out of the cheap lane, so the seam removed is not the seam costed')
+})
+
+test('skin tones are recognised by hue, not by how saturated they are', () => {
+  // Measured off the photos in images/: a desaturated edit and a plain render.
+  const skin = [
+    [114, 98, 99], [155, 128, 109], [169, 145, 131], [189, 159, 147],
+    [241, 194, 168], [198, 134, 107], [120, 82, 62],
+  ]
+  for (const [r, g, b] of skin) {
+    assert.ok(skinLikelihood(r, g, b) > 0.3, `skin ${r},${g},${b} scored ${skinLikelihood(r, g, b).toFixed(2)}`)
+  }
+  const notSkin = [
+    [110, 186, 204], // pool water
+    [153, 159, 171], // overcast sky
+    [245, 254, 251], // white stone
+    [40, 80, 40], // foliage
+    [30, 30, 30], // shadow
+  ]
+  for (const [r, g, b] of notSkin) {
+    assert.equal(skinLikelihood(r, g, b), 0, `${r},${g},${b} was taken for skin`)
+  }
+})
+
+test('a grey picture has no skin in it at all', () => {
+  // Otherwise a DICOM slice or a black-and-white scan would be carved as if it
+  // were full of faces, and the protection would only get in the way.
+  for (let value = 0; value <= 255; value += 5) {
+    assert.equal(skinLikelihood(value, value, value), 0, `grey ${value} was taken for skin`)
+  }
+})
+
+test('the skin map covers a patch out to its edge', () => {
+  const source = canvasFrom(24, 24, (x, y) => (
+    x >= 10 && x < 14 && y >= 10 && y < 14 ? [198, 134, 107, 255] : [110, 186, 204, 255]
+  ))
+  const data = source.getContext('2d').getImageData(0, 0, 24, 24).data
+  const map = skinMap(data, 24, 24, 3)
+  const at = (x, y) => map[y * 24 + x]
+  assert.ok(at(11, 11) > 0.5, 'the middle of the patch is not protected')
+  // Spread by three, so the ring around the patch is protected too and a seam
+  // cannot slide along the edge of a face.
+  assert.ok(at(8, 11) > 0.5, 'the protection stops at the edge of the patch')
+  assert.equal(at(0, 0), 0, 'the protection has leaked across the whole frame')
+})
+
+test('protecting skin keeps the subject its own width', () => {
+  // Flat skin in front of a busy background. Gradient energy alone reads the
+  // subject as the cheapest thing in the frame and carves it away — which is
+  // exactly backwards, and is why colour has to have a say.
+  const width = 60
+  const subject = (x) => x >= 26 && x < 34
+  const noise = (x) => [(x * 53) % 256, (x * 53) % 256, 255, 255]
+  const source = canvasFrom(width, 16, (x) => (subject(x) ? [198, 134, 107, 255] : noise(x)))
+  for (let x = 0; x < width; x += 1) {
+    if (subject(x)) continue
+    const [r, g, b] = noise(x)
+    assert.equal(skinLikelihood(r, g, b), 0, `the background at ${x} counts as skin, so this proves nothing`)
+  }
+
+  const countSkin = (canvas) => {
+    let found = 0
+    for (let x = 0; x < canvas.width; x += 1) {
+      const [r, g, b] = px(canvas, x, 8)
+      if (skinLikelihood(r, g, b) > 0.3) found += 1
+    }
+    return found
+  }
+  const unprotected = contentAwareScale(source, 40, 16, false)
+  const guarded = contentAwareScale(source, 40, 16, true)
+  assert.equal(guarded.width, 40)
+  assert.ok(countSkin(unprotected) < 8,
+    'this case proves nothing unless the subject is carved away without protection')
+  assert.equal(countSkin(guarded), 8, 'the protected subject was carved anyway')
+})
+
+test('carving still works when the whole frame is skin', () => {
+  // The protection makes skin expensive, not forbidden: with nowhere cheaper
+  // to go the carve has to take the least bad path rather than give up.
+  const source = canvasFrom(30, 10, () => [198, 134, 107, 255])
+  const narrow = contentAwareScale(source, 22, 10, true)
+  assert.equal(narrow.width, 22)
+  assert.equal(px(narrow, 11, 5)[3], 255, 'the carve left a hole')
 })

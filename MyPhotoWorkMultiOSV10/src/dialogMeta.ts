@@ -34,6 +34,8 @@ export type DialogPayload = {
   error?: { title: string; message: string; details: string }
   /** The print preview: a small opaque copy of the composite, and its shape. */
   print?: { dataUrl: string; orientation: PageOrientation; width: number; height: number }
+  /** The printers the print window can send the job to. */
+  printers?: { name: string; displayName: string; isDefault: boolean }[]
   /** Everything the image information window lists, already grouped. */
   info?: MetaSection[]
   /** Which Modify command the shared radius window is standing in for. */
@@ -115,7 +117,7 @@ const DIALOG_TITLE_KEYS: Record<DialogName, string> = {
   about: 'about',
   error: 'error',
   feather: 'feather',
-  print: 'printPreview',
+  print: 'print',
   imageInfo: 'imageInfo',
   fill: 'fillCommand',
   stroke: 'strokeCommand',

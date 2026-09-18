@@ -1,0 +1,70 @@
+Verifying 5 file(s) from images/ into C:\Home\Projects\TestSimulator\MyPhotoWorkMultiOSV10\out
+
+test01.jpg: opened 736x736, 75.9 kB, ratio 1 : 1, tonal spread 255
+  stats 143, 173, 183 | 165.3 | 0 – 255 | 0.0% / 0.0%
+  export png  835 kB
+  export jpg  125 kB
+  export webp 136 kB
+  export tiff 2823 kB
+  transparent png  on: alpha 0  off: alpha 255
+  transparent webp on: alpha 0  off: alpha 255
+  transparent jpg  on: alpha 255  off: alpha 255
+  3D, warp, carve 589px, GIF 546 kB, 16-bit 5643 kB, pattern 64x64
+  print portrait, preview 109 kB, page 836 kB
+
+test02.jpg: opened 1080x1349, 104.5 kB, ratio 0.80 : 1, tonal spread 254
+  stats 143, 190, 189 | 175.6 | 0 – 255 | 0.0% / 0.0%
+  export png  1419 kB
+  export jpg  174 kB
+  export webp 156 kB
+  export tiff 7589 kB
+  transparent png  on: alpha 0  off: alpha 255
+  transparent webp on: alpha 0  off: alpha 255
+  transparent jpg  on: alpha 255  off: alpha 255
+  3D, warp, carve 864px, GIF 957 kB, 16-bit 15177 kB, pattern 64x64
+  print portrait, preview 91 kB, page 1419 kB
+
+test03.jpg: opened 381x524, 39.9 kB, ratio 0.73 : 1, tonal spread 255
+  stats 107, 102, 79 | 100.9 | 0 – 255 | 0.0% / 0.0%
+  export png  507 kB
+  export jpg  72 kB
+  export webp 84 kB
+  export tiff 1041 kB
+  transparent png  on: alpha 0  off: alpha 255
+  transparent webp on: alpha 0  off: alpha 255
+  transparent jpg  on: alpha 255  off: alpha 255
+  3D, warp, carve 305px, GIF 318 kB, 16-bit 2080 kB, pattern 64x64
+  print portrait, preview 63 kB, page 507 kB
+
+test04.heic (HEIF): opened 1280x720, 109.3 kB, ratio 16 : 9, tonal spread 253
+  detail Primary image: 1280 x 720
+  detail Alpha channel: No
+  stats 147, 165, 171 | 160.3 | 1 – 255 | 0.0% / 0.0%
+  export png  1517 kB
+  export jpg  290 kB
+  export webp 237 kB
+  export tiff 4801 kB
+  transparent png  on: alpha 0  off: alpha 255
+  transparent webp on: alpha 0  off: alpha 255
+  transparent jpg  on: alpha 255  off: alpha 255
+  3D, warp, carve 1024px, GIF 1177 kB, 16-bit 9600 kB, pattern 64x64
+  print landscape, preview 113 kB, page 1517 kB
+
+test05.dcm (DICOM): opened 512x512, 518.2 kB, ratio 1 : 1, tonal spread 255
+  detail Modality: CT
+  detail Study description: e+1
+  detail Study date: 2004-08-26
+  detail Study time: 18:50:59
+  detail Patient name: CT1 CompressedSamples
+  detail Patient ID: 1CT1
+  stats 128, 128, 128 | 128.3 | 0 – 255 | 0.0% / 0.0%
+  export png  159 kB
+  export jpg  45 kB
+  export webp 20 kB
+  export tiff 1367 kB
+  transparent png  on: alpha 0  off: alpha 255
+  transparent webp on: alpha 0  off: alpha 255
+  transparent jpg  on: alpha 255  off: alpha 255
+  3D, warp, carve 410px, GIF 200 kB, 16-bit 2731 kB, pattern 64x64
+  print portrait, preview 32 kB, page 159 kB
+

@@ -29,11 +29,37 @@ others left a band of dead space beneath them.
 
 Popups are not rendered inside the app window. Each menu dropdown and each
 dialog is a child `BrowserWindow` that loads this same bundle with a hash route
-(`#menu=<id>` / `#dialog=<name>`), because a frameless window clips its own
-HTML: the Layer menu is about thirty rows tall and could not otherwise be shown,
-and an in-page dialog cannot be dragged out of the way. `electron/childwindows.cjs`
-owns them — one window per dialog name (reopening raises the existing one), and
+(`#menu=` / `#dialog=`), because a frameless window clips its own HTML: the
+Layer menu is about forty rows tall and could not otherwise be shown, and an
+in-page dialog cannot be dragged out of the way. `electron/childwindows.cjs`
+owns them — one window per dialog name, reopening raises the existing one, and
 every popup is destroyed with the main window.
+
+**Those routes carry no name, and that is the whole of why popups open fast.**
+Creating a `BrowserWindow` is cheap; starting the renderer behind it is not —
+the bundle is parsed, React mounts and the popup chunk is fetched. Paying that
+per click is what made popups feel slow, and closing a dialog used to destroy
+its window, so the second open of the same dialog cost exactly as much as the
+first. A nameless route makes every popup window interchangeable, so the main
+process can hand one its identity over IPC (`dialog:payload` / `menu:payload`).
+Three things follow:
+
+- A dismissed dialog is **hidden and returned to a pool**, not destroyed.
+- The pool is **filled in the background** 1.2s after the editor finishes
+  loading, along with the single menu window, so even the first click is warm.
+- One menu window serves **every** dropdown; it is told which menu to show.
+
+Measured end to end — click to painted popup — that is 20–60 ms for a dialog
+and 13–45 ms for a menu, against a full renderer start-up before.
+
+Because a pooled renderer keeps its React tree between uses, each opening
+carries an `openId` and `DialogHost` keys the dialog on it. Without that a
+reopened form would come back holding whatever was typed into it last time.
+
+A long menu is dealt into columns (`menuColumns` in `src/commands.ts`) rather
+than running off the screen. The rows and the separators are the grid's own
+cells — hence the `Fragment` rather than a wrapper element per row — so the
+columns share one set of row tracks and stay in step with each other.
 
 Each route is a lazy chunk (`src/routes.ts`), so a popup window downloads and
 parses only what it needs. A menu listing a dozen rows has no use for the canvas
@@ -227,9 +253,14 @@ uses — "FNumber" and "Modality" are what the reader expects to see.
 `encodeExport(canvas, format, quality, transparent)` decides the background:
 `transparent` only reaches the file for the formats in `transparentFormats`
 (PNG, WebP, AVIF, GIF, TIFF), and anything else — JPEG always — goes through
-`flattenOnto`, which lays the picture on white. `printDataUrl` flattens the same
-way and hands `printableDocument`'s markup to an off-screen iframe, so the
-platform's print dialog prints the image alone rather than the editor window.
+`flattenOnto`, which lays the picture on white. `printableDocument` builds the page — the flattened image on a white sheet,
+inside a `@page` margin — and where it goes depends on the shell. Under Electron
+the print window has already asked for the printer, the orientation and the
+copies, so `print:job` loads that markup into a hidden window and calls
+`webContents.print({ silent: true })`: one window, no second dialog asking the
+same questions. In a browser nothing can reach a printer except the system
+dialog, so `printDataUrl` hands the same markup to an off-screen iframe and
+calls `print()` on it — which prints the image alone rather than the editor.
 
 In Electron, `files:open` / `files:save` / `files:write` use native dialogs. In the browser, `<input type=file>` and Blob downloads replace them. Closing a dirty document asks to save first (`window:close-request`).
 
@@ -244,9 +275,56 @@ Both the main window and the popups prefer the dev server when unpackaged but
 fall back to the built bundle: otherwise a popup opened while Vite was down came
 up blank while the main window, started earlier, still looked fine.
 
+Printing goes straight to the printer: the print window has already asked for
+the printer, the orientation and the copies, so a second system dialog would
+only ask again. The default printer is read from the OS — the Windows registry's
+`Device` value, or `lpstat -d` on CUPS — because Chromium's `getPrintersAsync()`
+returns only `name`, `displayName`, `description` and `options`, with no
+`isDefault` at all, and the window would otherwise preselect whichever printer
+the OS happened to list first.
+
 Packaging uses electron-builder (NSIS / DMG+ZIP / AppImage+DEB+RPM), with the
 executable, installer, uninstaller and both shortcuts all pinned to the one
 generated `build/icon.ico`.
+
+`npm run verify:images` walks every file in `images/` through the real open →
+composite → export → transparency → 3D/warp/carve/GIF/16-bit/pattern → print
+pipeline, asserting as it goes, and leaves what it produced in `out/`:
+`index.html` as a gallery, `report.md` as the written record and
+`verify-images.log` as the transcript. The directory is rebuilt each run and is
+committed, because an assertion that passed is not the same as a result somebody
+has looked at — and looking at them is how the seam-carving bug below was found.
+
+### Content-Aware Scale
+
+Seam carving removes the cheapest top-to-bottom path through an energy map, over
+and over. Two things were wrong with it, and only the pictures showed either.
+
+**The seam removed was not the seam that was costed.** The dynamic-programming
+pass records, for each pixel, the offset to its cheapest predecessor in the row
+above; the backtrack then subtracted that offset instead of adding it, so the
+path traced back was a mirror image of the path the cost table had chosen. It
+left the cheap region immediately and tore through whatever lay in the other
+direction — which is why a carve used to rip a ragged edge through the subject
+while leaving empty background untouched. `test/warp.test.mjs` now sends a cheap
+diagonal lane through expensive noise: only a correct backtrack can follow it.
+
+**Gradient energy alone protects the wrong things.** Skin is smooth, so a cheek
+has less local contrast than the foliage behind it, and the seams went through
+the person rather than the background. `skinLikelihood` adds the colour the
+gradient cannot see, and `skinMap` spreads it with a max filter — not a blur, so
+a face stays covered to its outline — after which skin costs `SKIN_COST` on top
+of its gradient. Expensive, not forbidden: when the whole frame is skin the
+carve still has to take the least bad path rather than fail.
+
+The detector keys on **hue angle in the Cb/Cr plane**, not on a box around the
+textbook Cb 77–127 / Cr 133–173 ranges. Those ranges describe skin straight out
+of a camera; measured on the photos in `images/`, a desaturated edit puts the
+same face at Cb 126 / Cr 136, well outside them, and a fixed box found 0.7% of
+that frame. Keyed on hue — a band 40° either side of 118°, weighted by how far
+the colour is from grey — it finds 15%, and still finds nothing at all in a
+greyscale DICOM slice, which is what keeps the protection out of the way where
+it has no business being.
 
 ## Tests
 

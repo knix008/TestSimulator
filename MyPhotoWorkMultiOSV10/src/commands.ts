@@ -1,7 +1,7 @@
 import type { ComponentType } from 'react'
 import {
   Aperture, ArrowDownToLine, ArrowUpToLine, Blend, Box, Camera, ChevronDown, ChevronUp,
-  CircleDashed, ClipboardPaste, Clock, Contrast, Copy, Crop, Download, Droplets, Eraser, Expand, Eye,
+  CircleDashed, CircleQuestionMark, ClipboardPaste, Clock, Contrast, Copy, Crop, Download, Droplets, Eraser, Expand, Eye,
   FilePlus, FileX, FlipHorizontal, FlipVertical, FolderOpen, Frame, Grid3x3, ImagePlus, Info,
   Layers, Layers2, LayoutGrid, Lasso, Maximize2, PaintBucket, Palette, Pencil, Plus, Printer, Ratio, Redo2,
   Scissors, Shrink,
@@ -213,10 +213,26 @@ export const commands: AppCommand[] = [
   { id: 'window.actions', menu: 'windowMenu', icon: Clock, label: 'actions' },
   { id: 'window.timeline', menu: 'windowMenu', icon: Clock, label: 'timeline' },
   { id: 'window.info', menu: 'windowMenu', icon: Info, label: 'info' },
+  // The guide used to be a button of its own in the top bar; it lives here now.
+  { id: 'window.guide', menu: 'windowMenu', icon: CircleQuestionMark, label: 'help', separatorBefore: true },
 ]
 
 export function commandsInMenu(menu: MenuId) {
   return commands.filter((command) => command.menu === menu)
+}
+
+/**
+ * How to lay a dropdown out.
+ *
+ * Image runs to thirty rows and Layer and Edit are not far behind, which makes
+ * a single column taller than the screen and slower to read than a phone book.
+ * Past a threshold the rows are dealt into columns instead. Separators count as
+ * cells of their own, because in the grid that is exactly what they are.
+ */
+export function menuColumns(rows: { separatorBefore?: boolean }[]) {
+  const cells = rows.length + rows.filter((row) => row.separatorBefore).length
+  const columns = cells > 32 ? 3 : cells > 16 ? 2 : 1
+  return { columns, rowCount: Math.ceil(cells / columns) }
 }
 
 export function findCommand(id: string) {

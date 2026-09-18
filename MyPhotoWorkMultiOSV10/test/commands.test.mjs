@@ -150,15 +150,20 @@ test('the toolbar builds its groups from the catalog', () => {
   assert.ok(toolBar.includes('tool-bar-divider'), 'the toolbar groups are not separated')
 })
 
-test('Help sits immediately to the left of About in the menu bar', () => {
+test('Settings and About are the only buttons in the menu bar cluster', () => {
   const menuBar = appSource.slice(appSource.indexOf('className="menu-bar"'), appSource.indexOf('className="tool-bar"'))
   // The right-hand cluster, read left to right by each button's tooltip key.
   const cluster = [...menuBar.matchAll(/data-tooltip=\{tr\('(\w+)'\)\}/g)].map((match) => match[1])
-  assert.deepEqual(cluster.slice(-3), ['settings', 'help', 'about'],
-    `expected the trailing buttons to read settings, help, about — got ${cluster.join(', ')}`)
+  assert.deepEqual(cluster.slice(-2), ['settings', 'about'],
+    `expected the trailing buttons to read settings, about — got ${cluster.join(', ')}`)
+  assert.ok(!cluster.includes('help'), 'the Help button was asked for and removed; it is back')
 })
 
-test('Help is a plain button, not a dropdown menu', () => {
+test('the guide is on the Window menu, not a button of its own', () => {
   assert.ok(!menuOrder.includes('help'), 'help should not be one of the dropdown menus')
-  assert.ok(appSource.includes("openDialog('helpGuide')"), 'the Help button does not open the guide')
+  const guide = commands.find((command) => command.id === 'window.guide')
+  assert.ok(guide, 'nothing opens the guide any more')
+  assert.equal(guide.menu, 'windowMenu', 'the guide should be reachable from the Window menu')
+  assert.equal(guide.label, 'help', 'the guide row should read as Help')
+  assert.ok(appSource.includes("openDialog('helpGuide')"), 'the guide command does not open the guide')
 })
