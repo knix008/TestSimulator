@@ -115,6 +115,8 @@ const state = {
   backgroundLibrary: [],
   backgroundImageDir: '',
   backgroundFit: DEFAULT_BG_FIT,
+  /** Last non-none fit so the toolbar show/hide toggle can restore it. */
+  backgroundFitOn: DEFAULT_BG_FIT,
   promptGitMode: DEFAULT_PROMPT_GIT_MODE,
   /** Last non-off mode so the toolbar toggle can restore it. */
   promptGitModeOn: DEFAULT_PROMPT_GIT_MODE,
@@ -189,6 +191,10 @@ async function persist() {
     bgImageTransparency: state.bgImageTransparency,
     backgroundImageDir: state.backgroundImageDir || '',
     backgroundFit: state.backgroundFit,
+    backgroundFitOn:
+      state.backgroundFit !== 'none'
+        ? state.backgroundFit
+        : state.backgroundFitOn || DEFAULT_BG_FIT,
     promptGitMode: state.promptGitMode,
     promptGitModeOn: state.promptGitModeOn || DEFAULT_PROMPT_GIT_MODE,
     promptPresetId: state.promptPresetId || '',
@@ -236,6 +242,16 @@ async function restoreBackgroundFromSettings(saved = {}) {
   state.bgTransparency = clampTransparency(saved.bgTransparency ?? 0);
   state.bgImageTransparency = clampTransparency(saved.bgImageTransparency ?? 0);
   state.backgroundFit = normalizeBgFit(saved.backgroundFit || DEFAULT_BG_FIT);
+  if (state.backgroundFit !== 'none') {
+    state.backgroundFitOn = state.backgroundFit;
+  } else if (
+    typeof saved.backgroundFitOn === 'string' &&
+    saved.backgroundFitOn !== 'none'
+  ) {
+    state.backgroundFitOn = normalizeBgFit(saved.backgroundFitOn);
+  } else {
+    state.backgroundFitOn = DEFAULT_BG_FIT;
+  }
   state.backgroundImageDir =
     typeof saved.backgroundImageDir === 'string' ? saved.backgroundImageDir : '';
   state.backgroundImage = '';
@@ -465,6 +481,7 @@ function applyTheme() {
   sessions?.applyTheme(theme);
   sessions?.setLsColors?.(effectiveLsColors());
   updateBgFitUi();
+  updateBgImageButton();
   updateTextColorUi();
 }
 
@@ -515,11 +532,41 @@ function updateBgFitUi() {
   }
 }
 
+function updateBgImageButton() {
+  const btn = document.getElementById('btn-bg-image');
+  if (!btn) return;
+  const on = state.backgroundFit !== 'none';
+  const key = on ? 'toolbar.bgImageOn' : 'toolbar.bgImageOff';
+  const text = i18n.t(key);
+  btn.removeAttribute('title');
+  btn.setAttribute('aria-label', text);
+  btn.dataset.tooltip = text;
+  btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+  btn.classList.toggle('tb-active', on);
+  const iconOn = btn.querySelector('.tb-bg-image-on');
+  const iconOff = btn.querySelector('.tb-bg-image-off');
+  if (iconOn) iconOn.hidden = !on;
+  if (iconOff) iconOff.hidden = on;
+}
+
 function applyBackgroundFit(fitId, { persistSettings = true } = {}) {
   state.backgroundFit = normalizeBgFit(fitId);
+  if (state.backgroundFit !== 'none') {
+    state.backgroundFitOn = state.backgroundFit;
+  }
   applyTheme();
   syncToolbarMinWidth();
   if (persistSettings) persist();
+}
+
+/** Toolbar toggle: hide wallpaper (fit=none) or restore the last fit mode. */
+function toggleBackgroundImage() {
+  if (state.backgroundFit === 'none') {
+    applyBackgroundFit(state.backgroundFitOn || DEFAULT_BG_FIT);
+  } else {
+    state.backgroundFitOn = state.backgroundFit;
+    applyBackgroundFit('none');
+  }
 }
 
 function updateTransparencyUi(value = state.bgTransparency) {
@@ -756,6 +803,7 @@ async function applyLanguage(lang) {
   updateGitStatusButton();
   updateStatusBar();
   updateBgFitUi();
+  updateBgImageButton();
   updateLangUi();
   updateFontUi();
   updateTextColorUi();
@@ -1124,6 +1172,10 @@ function bindToolbar() {
     toggleMenu('theme-menu', populateThemeMenu, e.currentTarget);
   });
 
+  on('btn-bg-image', () => {
+    toggleBackgroundImage();
+  });
+
   on('btn-bg-fit', (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -1221,6 +1273,7 @@ function bindToolbar() {
       backgroundImageId: state.backgroundImageId,
       backgroundLibrary: state.backgroundLibrary,
       backgroundFit: state.backgroundFit,
+      backgroundFitOn: state.backgroundFitOn || DEFAULT_BG_FIT,
       bgImageTransparency: state.bgImageTransparency,
       bgFitModes: BG_FIT_MODES,
       themes: state.themes,
@@ -1277,6 +1330,7 @@ function bindToolbar() {
         backgroundImageId,
         backgroundLibrary,
         backgroundFit,
+        backgroundFitOn,
         bgImageTransparency,
         themeTouched,
         fontId,
@@ -1335,6 +1389,14 @@ function bindToolbar() {
         }
         state.backgroundImage = nextImage;
         state.backgroundFit = normalizeBgFit(backgroundFit || state.backgroundFit);
+        if (state.backgroundFit !== 'none') {
+          state.backgroundFitOn = state.backgroundFit;
+        } else if (
+          typeof backgroundFitOn === 'string' &&
+          backgroundFitOn !== 'none'
+        ) {
+          state.backgroundFitOn = normalizeBgFit(backgroundFitOn);
+        }
         if (bgImageTransparency != null) {
           state.bgImageTransparency = clampTransparency(bgImageTransparency);
         }

@@ -241,6 +241,13 @@ export function createSettingsUi(
 
   let currentBgImage = payload.backgroundImage || '';
   let currentBgFit = payload.backgroundFit || 'cover';
+  /** Last non-none fit so the show/hide toggle can restore it. */
+  let bgFitOn =
+    currentBgFit !== 'none'
+      ? currentBgFit
+      : payload.backgroundFitOn && payload.backgroundFitOn !== 'none'
+        ? payload.backgroundFitOn
+        : 'cover';
   let bgItems = Array.isArray(payload.backgroundLibrary)
     ? payload.backgroundLibrary.map((item) => ({ ...item }))
     : [];
@@ -253,9 +260,10 @@ export function createSettingsUi(
   let bgPage = 0;
 
   const fitOptions = (bgFitModes.length ? bgFitModes : [{ id: 'cover' }])
+    .filter((mode) => mode.id !== 'none')
     .map((mode) => {
       const label = i18n.t(`settings.bgFitModes.${mode.id}`, mode.id);
-      const selected = mode.id === currentBgFit ? ' selected' : '';
+      const selected = mode.id === (currentBgFit === 'none' ? bgFitOn : currentBgFit) ? ' selected' : '';
       return `<option value="${mode.id}"${selected}>${label}</option>`;
     })
     .join('');
@@ -400,6 +408,11 @@ export function createSettingsUi(
     <div class="settings-section">
       <h3 class="settings-section-title">${t('settings.backgroundImage')}</h3>
       <p class="settings-hint">${t('settings.backgroundImageHint')}</p>
+      <label class="settings-check" for="setting-bg-enabled" style="margin-bottom:12px">
+        <input id="setting-bg-enabled" type="checkbox" ${currentBgFit !== 'none' ? 'checked' : ''} />
+        <span>${t('settings.backgroundImageShow')}</span>
+      </label>
+      <p class="settings-hint">${t('settings.backgroundImageShowHint')}</p>
       <div class="settings-bg-image">
         <div id="setting-bg-library" class="settings-bg-library"></div>
         <div class="settings-bg-actions">
@@ -420,7 +433,7 @@ export function createSettingsUi(
       }
       <div class="settings-grid" style="margin-top:12px">
         <label for="setting-bg-fit">${t('settings.backgroundFit')}</label>
-        <select id="setting-bg-fit" class="settings-select">${fitOptions}</select>
+        <select id="setting-bg-fit" class="settings-select"${currentBgFit === 'none' ? ' disabled' : ''}>${fitOptions}</select>
       </div>
       <p class="settings-hint">${t('settings.backgroundFitHint')}</p>
       <div class="settings-grid" style="margin-top:12px">
@@ -428,7 +441,7 @@ export function createSettingsUi(
         <div class="settings-range-row">
           <span class="settings-range-bound">0</span>
           <input id="setting-bg-image-transparency" class="settings-range" type="range" min="0" max="100" step="1"
-            value="${bgImageTransparency}" aria-describedby="setting-bg-image-transparency-value" />
+            value="${bgImageTransparency}" aria-describedby="setting-bg-image-transparency-value" ${currentBgFit === 'none' ? 'disabled' : ''}/>
           <span class="settings-range-bound">100</span>
           <span class="settings-range-value" id="setting-bg-image-transparency-value">${bgImageTransparency}%</span>
         </div>
@@ -655,6 +668,7 @@ export function createSettingsUi(
       backgroundImageId: activeBgId || '',
       backgroundLibrary: bgItems,
       backgroundFit: currentBgFit,
+      backgroundFitOn: bgFitOn,
       bgImageTransparency,
       fontId: getFontById(selectedFont).id,
       fontSize: clampFontSize(q('#setting-font-size')?.value),
@@ -1197,9 +1211,32 @@ ${message}` });
   });
 
   const fitSelect = q('#setting-bg-fit');
+  const bgEnabled = q('#setting-bg-enabled');
+
+  function syncBgEnabledControls() {
+    const on = currentBgFit !== 'none';
+    if (bgEnabled) bgEnabled.checked = on;
+    if (fitSelect) fitSelect.disabled = !on;
+    if (bgAlphaInput) bgAlphaInput.disabled = !on;
+    applyBgFitToLibrary(host, bgFitModes, on ? currentBgFit : bgFitOn);
+  }
+
+  bgEnabled?.addEventListener('change', () => {
+    if (bgEnabled.checked) {
+      currentBgFit = bgFitOn || 'cover';
+      if (fitSelect) fitSelect.value = currentBgFit;
+    } else {
+      if (currentBgFit !== 'none') bgFitOn = currentBgFit;
+      currentBgFit = 'none';
+    }
+    syncBgEnabledControls();
+    immediate(false);
+  });
+
   fitSelect?.addEventListener('change', () => {
     currentBgFit = fitSelect.value || 'cover';
-    applyBgFitToLibrary(host, bgFitModes, currentBgFit);
+    if (currentBgFit !== 'none') bgFitOn = currentBgFit;
+    syncBgEnabledControls();
     immediate(false);
   });
 

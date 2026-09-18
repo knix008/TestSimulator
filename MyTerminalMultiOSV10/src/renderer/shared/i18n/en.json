@@ -20,6 +20,9 @@
     "transparency": "Image opacity",
     "transparencyCurrent": "{value}%",
     "bgFit": "Background fit",
+    "bgImage": "Background image",
+    "bgImageOn": "Background image on — click to hide",
+    "bgImageOff": "Background image off — click to show",
     "settings": "Settings",
     "bgFitModes": {
       "none": "Hidden",
@@ -118,6 +121,8 @@
     "backgroundImageFailed": "Could not load the image.",
     "backgroundFit": "Display mode",
     "backgroundFitHint": "How the background image is placed in the terminal area.",
+    "backgroundImageShow": "Show background image",
+    "backgroundImageShowHint": "Turn the wallpaper on or off without removing it from the library.",
     "bgFitModes": {
       "none": "Hidden",
       "cover": "Fill",

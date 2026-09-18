@@ -20,6 +20,9 @@
     "transparency": "이미지 투명도",
     "transparencyCurrent": "{value}%",
     "bgFit": "배경 표시",
+    "bgImage": "배경 이미지",
+    "bgImageOn": "배경 이미지 켜짐 — 클릭하여 끄기",
+    "bgImageOff": "배경 이미지 꺼짐 — 클릭하여 켜기",
     "settings": "설정",
     "bgFitModes": {
       "none": "표시 안함",
@@ -118,6 +121,8 @@
     "backgroundImageFailed": "이미지를 불러오지 못했습니다.",
     "backgroundFit": "표시 방법",
     "backgroundFitHint": "배경 이미지를 터미널 영역에 어떻게 배치할지 선택합니다.",
+    "backgroundImageShow": "배경 이미지 표시",
+    "backgroundImageShowHint": "라이브러리에서 지우지 않고 배경 이미지만 켜거나 끕니다.",
     "bgFitModes": {
       "none": "표시 안함",
       "cover": "가득채움",
