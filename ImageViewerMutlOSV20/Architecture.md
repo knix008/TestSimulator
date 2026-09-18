@@ -168,6 +168,8 @@ Detection: if `window.electronAPI` is missing at page load, `webAPI.js` installs
 | `patch-electron-icon.js` | Embed `src/assets/icon.ico` via **rcedit** (`postinstall` / `patch:icon`) |
 | `after-pack.js` | Embed the same ICO into packaged `Image Viewer.exe` |
 | `copy-dist.js` | Copy installers from `dist/` to the project root |
+| `stamp-version.js` | Write the build date as `buildNumber` before a build |
+| `build-report.js` | Size report of the last Windows build (`npm run build:report`) |
 | `rembg_worker.py` | Optional Python helper for background removal |
 
 Packaged Windows: runtime `AppUserModelId` matches `build.appId`. Taskbar icon prefers an unpacked `.ico` or `process.execPath` (Shell cannot load icons from `app.asar`). Assets `icon.ico` / `icon.png` / `icon_512.png` are `asarUnpack`ed as a fallback.
@@ -237,7 +239,14 @@ Packaged builds use `package.json → build.win/mac/linux.icon`. Toolbar shows *
 
 ## Build & Distribution
 
-**electron-builder** packages the app; `afterAllArtifactBuild` (`scripts/copy-dist.js`) copies installer files (`.exe`, `.dmg`, `.AppImage`, …) from `dist/` to the project root. `npm run build:win` also runs the copy step explicitly after packaging.
+**electron-builder** packages the app; `afterAllArtifactBuild` (`scripts/copy-dist.js`) copies installer files (`.exe`, `.dmg`, `.AppImage`, …) from `dist/` to the project root. `npm run build:win` also runs the copy step explicitly after packaging; `build:win:setup` builds the NSIS installer only.
+
+Package size / speed (`package.json` → `build`):
+- `files`: the app sources plus negative globs that drop `.map` / `.d.ts` / tests / docs, the unused **exifr** bundles (only `dist/full.umd.js` is required), the asm.js **libheif** build and `.mjs` duplicate, the **cornerstone** codec `.wasm` variants and full (encoder) builds — the app only loads the pure-JS `*_decode.js` files in both Node and the renderer — plus sharp's C++ sources and pngjs's browser bundle.
+- `electronLanguages: ["en-US", "ko"]` keeps two Chromium locale packs instead of 55 (~35 MB uncompressed).
+- `npmRebuild: false` — sharp / codecs are prebuilt, so electron-builder skips the native rebuild step.
+- `compression: "maximum"` for the NSIS / 7z payload (slower packaging, smaller installer).
+- `scripts/stamp-version.js` runs before every build and writes the build date into `buildNumber` (package.json + `src/version.json`); `scripts/build-report.js` (`npm run build:report`) prints installer sizes and a breakdown of `dist/win-unpacked` and `app.asar` so regressions after a dependency update are easy to spot.
 
 Windows NSIS (`build/installer.nsh` + `fileAssocPage.nsh`):
 

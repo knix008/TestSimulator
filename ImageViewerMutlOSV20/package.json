@@ -1,7 +1,7 @@
 {
   "name": "image-viewer-multios",
   "version": "1.0.2",
-  "buildNumber": "20260818",
+  "buildNumber": "20260918",
   "description": "Multi-platform image viewer and editor with dark/light themes and Korean/English support",
   "author": "SHKWON",
   "main": "main.js",
@@ -11,10 +11,13 @@
     "postinstall": "node scripts/patch-electron-icon.js",
     "patch:icon": "node scripts/patch-electron-icon.js --force",
     "create-icons": "node scripts/create-icons.js",
-    "build:win": "electron-builder --win && node scripts/copy-dist.js win",
-    "build:mac": "electron-builder --mac && node scripts/copy-dist.js mac",
-    "build:linux": "electron-builder --linux && node scripts/copy-dist.js linux",
-    "build:all": "electron-builder --win --mac --linux && node scripts/copy-dist.js",
+    "stamp": "node scripts/stamp-version.js",
+    "build:win": "node scripts/stamp-version.js && electron-builder --win --publish never && node scripts/copy-dist.js win",
+    "build:win:setup": "node scripts/stamp-version.js && electron-builder --win nsis --publish never && node scripts/copy-dist.js win",
+    "build:mac": "node scripts/stamp-version.js && electron-builder --mac --publish never && node scripts/copy-dist.js mac",
+    "build:linux": "node scripts/stamp-version.js && electron-builder --linux --publish never && node scripts/copy-dist.js linux",
+    "build:all": "node scripts/stamp-version.js && electron-builder --win --mac --linux --publish never && node scripts/copy-dist.js",
+    "build:report": "node scripts/build-report.js",
     "copy-dist": "node scripts/copy-dist.js"
   },
   "devDependencies": {
@@ -36,8 +39,30 @@
       "popupPreload.js",
       "src/**/*",
       "scripts/rembg_worker.py",
-      "package.json"
+      "package.json",
+      "!**/*.{map,d.ts,ts,tsbuildinfo,markdown,md,mdx,txt.orig}",
+      "!**/{test,tests,__tests__,spec,docs,doc,example,examples,benchmark,coverage,.github,.vscode}/**",
+      "!**/{.npmignore,.eslintrc*,.prettierrc*,.editorconfig,.travis.yml,tsconfig*.json,*.tgz}",
+      "!node_modules/exifr/{src,dist}/**",
+      "node_modules/exifr/dist/full.umd.js",
+      "!node_modules/libheif-js/{libheif,scripts,test}/**",
+      "!node_modules/libheif-js/libheif-wasm/*.mjs",
+      "!node_modules/@cornerstonejs/**/dist/*.wasm",
+      "!node_modules/@cornerstonejs/**/dist/*wasm*",
+      "!node_modules/@cornerstonejs/codec-openjpeg/dist/openjpegjs.js",
+      "!node_modules/@cornerstonejs/codec-charls/dist/charlsjs.js",
+      "!node_modules/@cornerstonejs/codec-libjpeg-turbo-8bit/dist/libjpegturbojs.js",
+      "!node_modules/sharp/{src,install}/**",
+      "!node_modules/pngjs/browser.js",
+      "!node_modules/jpeg-lossless-decoder-js/{src,tests}/**",
+      "!node_modules/jpeg-lossless-decoder-js/release/lossless*.js"
     ],
+    "electronLanguages": [
+      "en-US",
+      "ko"
+    ],
+    "compression": "maximum",
+    "npmRebuild": false,
     "asarUnpack": [
       "src/assets/icon.ico",
       "src/assets/icon.png",

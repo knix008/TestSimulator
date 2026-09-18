@@ -129,12 +129,16 @@ Use **Open File** / **Open Folder** (or drag-and-drop) to load images. The explo
 ### Build / 빌드
 
 ```bash
-npm run build:win      # Windows NSIS + portable → root에 설치 파일 복사
-npm run copy-dist      # dist/ 설치 파일을 루트로 재복사
-npm run build:mac      # macOS DMG
-npm run build:linux    # AppImage + deb
-npm run build:all      # all platforms
+npm run build:win        # Windows NSIS + portable → root에 설치 파일 복사
+npm run build:win:setup  # NSIS 설치 파일만 (절반 시간)
+npm run copy-dist        # dist/ 설치 파일을 루트로 재복사
+npm run build:mac        # macOS DMG
+npm run build:linux      # AppImage + deb
+npm run build:all        # all platforms
+npm run build:report     # 마지막 빌드의 용량 분석 (설치 파일 · 런타임 / 로케일 / app.asar · 큰 패키지)
 ```
+
+Every `build:*` first runs `scripts/stamp-version.js`, which writes the build date (`YYYYMMDD`) as `buildNumber` into `package.json` and `src/version.json` (shown in the title bar / About). The package is kept lean: only the `en-US` / `ko` Chromium locales ship (`electronLanguages`), unused codec builds (encoders, `.wasm` variants, asm.js libheif, extra exifr bundles), sources, tests, typings and source maps are excluded through `build.files`, native modules are not rebuilt (`npmRebuild: false` — sharp ships prebuilt) and the NSIS / 7z compression is set to maximum.
 
 The Windows Setup wizard includes a **file associations** page (checked by default) so Image Viewer can be the default app for JPEG, PNG, WebP, HEIC, TIFF, DICOM, and other supported images.
 
@@ -143,7 +147,9 @@ The Windows Setup wizard includes a **file associations** page (checked by defau
 | `npm start` | Electron desktop app (`scripts/start-dev.js`) |
 | `npm run web` | Web server (Express → `src/`) |
 | `npm run patch:icon` | Re-apply Windows dev icon to Electron |
-| `npm run build:win` / `mac` / `linux` | Package with electron-builder |
+| `npm run build:win` / `mac` / `linux` | Package with electron-builder (`build:win:setup` = NSIS only) |
+| `npm run build:report` | Size breakdown of the last Windows build |
+| `npm run stamp` | Refresh `buildNumber` (build date) in `package.json` / `src/version.json` |
 
 ## Web mode notes / 웹 모드 안내
 
@@ -207,6 +213,8 @@ ImageViewerMutlOSV20/
 │   ├── patch-electron-icon.js   # Embed icon into electron.exe
 │   ├── after-pack.js            # Packaged exe icon
 │   ├── copy-dist.js             # Copy installers to project root
+│   ├── stamp-version.js         # buildNumber = build date (runs before every build)
+│   ├── build-report.js          # Size breakdown of dist/win-unpacked + app.asar
 │   └── rembg_worker.py          # Optional background-removal helper
 ├── src/
 │   ├── index.html
