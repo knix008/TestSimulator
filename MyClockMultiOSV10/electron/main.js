@@ -18,7 +18,8 @@ const {
   Menu,
   nativeImage,
   screen,
-  shell
+  shell,
+  powerMonitor
 } = require('electron');
 const fs = require('fs');
 const os = require('os');
@@ -71,6 +72,20 @@ let panelOpensRight = true;
 /** @type {NodeJS.Timeout | null} */ let gestureTimer = null;
 /** @type {NodeJS.Timeout | null} */ let gestureGuard = null;
 
+// 사용자가 트레이로 숨긴 경우에만 true. 노트북 덮개·절전으로 창이 사라진 것과 구분한다.
+let hiddenByUser = startInTray;
+let lastHideAt = 0;
+let lastDisplayChangeAt = 0;
+let displayRecovering = false;
+/** @type {NodeJS.Timeout | null} */ let recoverTimer = null;
+/** @type {NodeJS.Timeout | null} */ let recoverSettleTimer = null;
+let pendingRecover = { remount: false, forceShow: false };
+
+/** @type {{ displayId: number, rx: number, ry: number, width: number, height: number } | null} */
+let clockPlacement = null;
+let applyingPlacement = false;
+/** @type {NodeJS.Timeout | null} */ let persistPlacementTimer = null;
+
 // ── 경로 helpers ────────────────────────────────────────────────────────
 
 function assetPath(...parts) {
@@ -107,9 +122,35 @@ function minSizeFor(settings) {
   return { width: DIGITAL_MIN_WIDTH, height: DIGITAL_MIN_HEIGHT + extra };
 }
 
+function boundsOverlap(a, b, minPx) {
+  const overlapX = Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x);
+  const overlapY = Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y);
+  return overlapX >= minPx && overlapY >= minPx;
+}
+
+function hasUsableDisplays() {
+  try {
+    return screen.getAllDisplays().some((d) => d.workArea && d.workArea.width >= 80 && d.workArea.height >= 80);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * 현재 연결된 화면에 겹치면 그 작업 영역, 아니면 주 화면.
+ * 노트북 덮개를 닫았다 열면 옛 좌표가 사라진 모니터에 남을 수 있다.
+ */
+function workAreaForBounds(bounds) {
+  const displays = screen.getAllDisplays();
+  if (!displays.length) return null;
+  const visible = displays.find((d) => boundsOverlap(bounds, d.workArea, 40));
+  if (visible) return visible.workArea;
+  return screen.getPrimaryDisplay().workArea;
+}
+
 function clampToWorkArea(bounds) {
-  const display = screen.getDisplayMatching(bounds) || screen.getPrimaryDisplay();
-  const area = display.workArea;
+  const area = workAreaForBounds(bounds);
+  if (!area || area.width < 80 || area.height < 80) return bounds;
   const width = Math.min(bounds.width, area.width);
   const height = Math.min(bounds.height, area.height);
   return {
@@ -120,24 +161,152 @@ function clampToWorkArea(bounds) {
   };
 }
 
+function unit(n) {
+  if (!Number.isFinite(n)) return 0;
+  return Math.min(1, Math.max(0, n));
+}
+
+function placementFromSettings(settings) {
+  if (!settings || !Number.isFinite(settings.windowRelX) || !Number.isFinite(settings.windowRelY)) {
+    return null;
+  }
+  return {
+    displayId: Number.isFinite(settings.windowRelDisplayId) ? settings.windowRelDisplayId : null,
+    rx: settings.windowRelX,
+    ry: settings.windowRelY,
+    width: Math.round(settings.windowWidth),
+    height: Math.round(settings.windowHeight)
+  };
+}
+
+/**
+ * 절대 픽셀이 아니라, 그 화면에서 창이 움직일 수 있는 여유 공간의 비율로 위치를 기억한다.
+ * 오른쪽 끝에 둔 시계는 해상도가 바뀌어도 오른쪽 끝에 남는다.
+ */
+function capturePlacement(bounds) {
+  if (!bounds || !hasUsableDisplays()) return null;
+  const displays = screen.getAllDisplays();
+  const display =
+    displays.find((d) => boundsOverlap(bounds, d.workArea, 1)) ||
+    screen.getDisplayMatching(bounds) ||
+    screen.getPrimaryDisplay();
+  const area = display.workArea;
+  if (!area || area.width < 80 || area.height < 80) return null;
+  const moveX = area.width - bounds.width;
+  const moveY = area.height - bounds.height;
+  return {
+    displayId: display.id,
+    rx: moveX <= 0 ? 0 : unit((bounds.x - area.x) / moveX),
+    ry: moveY <= 0 ? 0 : unit((bounds.y - area.y) / moveY),
+    width: bounds.width,
+    height: bounds.height
+  };
+}
+
+function applyPlacement(placement) {
+  if (!placement || !hasUsableDisplays()) return null;
+  const displays = screen.getAllDisplays();
+  const display =
+    (Number.isFinite(placement.displayId) && displays.find((d) => d.id === placement.displayId)) ||
+    screen.getPrimaryDisplay();
+  const area = display.workArea;
+  if (!area || area.width < 80 || area.height < 80) return null;
+  let minW = DIGITAL_MIN_WIDTH;
+  let minH = DIGITAL_MIN_HEIGHT;
+  if (clockWin && !clockWin.isDestroyed()) {
+    const min = clockWin.getMinimumSize();
+    minW = min[0] || minW;
+    minH = min[1] || minH;
+  }
+  const width = Math.min(Math.max(Math.round(placement.width), minW), area.width);
+  const height = Math.min(Math.max(Math.round(placement.height), minH), area.height);
+  const moveX = Math.max(0, area.width - width);
+  const moveY = Math.max(0, area.height - height);
+  return {
+    x: Math.round(area.x + unit(placement.rx) * moveX),
+    y: Math.round(area.y + unit(placement.ry) * moveY),
+    width,
+    height
+  };
+}
+
+function persistPlacement(placement) {
+  if (!placement) return;
+  store.saveSettings({
+    windowRelX: placement.rx,
+    windowRelY: placement.ry,
+    windowRelDisplayId: placement.displayId
+  });
+}
+
+function schedulePersistPlacement() {
+  if (!clockPlacement) return;
+  if (persistPlacementTimer) clearTimeout(persistPlacementTimer);
+  persistPlacementTimer = setTimeout(() => {
+    persistPlacementTimer = null;
+    persistPlacement(clockPlacement);
+  }, 400);
+}
+
+function rememberClockPlacement(bounds) {
+  if (displayRecovering || applyingPlacement) return;
+  if (!clockWin || clockWin.isDestroyed()) return;
+  if (clockWin.isMinimized() || !clockWin.isVisible()) return;
+  const next = capturePlacement(bounds || clockWin.getBounds());
+  if (!next) return;
+  clockPlacement = next;
+  schedulePersistPlacement();
+}
+
+function setClockBounds(next) {
+  if (!clockWin || clockWin.isDestroyed() || !next) return;
+  const bounds = clockWin.getBounds();
+  if (
+    next.x === bounds.x &&
+    next.y === bounds.y &&
+    next.width === bounds.width &&
+    next.height === bounds.height
+  ) {
+    return;
+  }
+  applyingPlacement = true;
+  try {
+    clockWin.setBounds(next);
+  } finally {
+    applyingPlacement = false;
+  }
+}
+
 function initialClockBounds(settings) {
   const width = Math.round(settings.windowWidth);
   const height = Math.round(settings.windowHeight);
+  const rel = placementFromSettings(settings);
+  if (rel) {
+    const next = applyPlacement(rel);
+    if (next) {
+      clockPlacement = rel;
+      return next;
+    }
+  }
   if (settings.windowLeft == null || settings.windowTop == null) {
     const area = screen.getPrimaryDisplay().workArea;
-    return {
+    const bounds = {
       width,
       height,
       x: Math.round(area.x + area.width - width - 40),
       y: Math.round(area.y + 40)
     };
+    clockPlacement = capturePlacement(bounds);
+    return bounds;
   }
-  return clampToWorkArea({
+  const clamped = clampToWorkArea({
     width,
     height,
     x: Math.round(settings.windowLeft),
     y: Math.round(settings.windowTop)
   });
+  clockPlacement = capturePlacement(clamped);
+  return clamped;
 }
 
 function createClockWindow() {
@@ -173,11 +342,27 @@ function createClockWindow() {
   clockWin.loadFile(path.join(__dirname, '..', 'src', 'index.html'));
 
   clockWin.once('ready-to-show', () => {
-    if (!startInTray) clockWin.show();
+    if (!clockPlacement) clockPlacement = capturePlacement(clockWin.getBounds());
+    if (startInTray) return;
+    hiddenByUser = false;
+    clockWin.show();
   });
 
   clockWin.on('move', onClockGeometryChanged);
   clockWin.on('resize', onClockGeometryChanged);
+
+  // WPF 판과 같이 최소화 = 트레이로 숨기기. 작업 표시줄에 최소화된 창을 남기지 않는다.
+  // 다만 덮개 닫힘·디스플레이 전환으로 OS 가 최소화하는 경우는 사용자 숨김이 아니다.
+  clockWin.on('minimize', () => {
+    setTimeout(() => {
+      if (!clockWin || clockWin.isDestroyed() || isQuitting) return;
+      if (displayRecovering || Date.now() - lastDisplayChangeAt < 2500) {
+        recoverClockOnScreen();
+        return;
+      }
+      hideToTray();
+    }, 200);
+  });
 
   clockWin.on('close', (event) => {
     if (isQuitting) return;
@@ -188,10 +373,16 @@ function createClockWindow() {
   clockWin.on('closed', () => {
     clockWin = null;
   });
+
+  clockWin.webContents.on('render-process-gone', (_e, details) => {
+    if (isQuitting || !details || details.reason === 'clean-exit') return;
+    clockWin.webContents.reload();
+  });
 }
 
 function onClockGeometryChanged() {
   if (!clockWin || clockWin.isDestroyed()) return;
+  rememberClockPlacement();
   positionPanel();
   clockWin.webContents.send('clock:bounds', clockWin.getBounds());
 }
@@ -445,16 +636,134 @@ function createTray() {
   });
 }
 
+/**
+ * 트레이 전용 상태로 들어간다.
+ * 숨긴 창은 작업 표시줄에서도 사라지므로, 트레이에서 동작하는 동안에는
+ * 작업 표시줄에 아무것도 남지 않는다. 최소화(창 버튼·Win+D 등)도 이 경로를 탄다.
+ */
 function hideToTray() {
+  hiddenByUser = true;
+  lastHideAt = Date.now();
   closePanel();
-  clockWin?.hide();
+  closeMenuWindow();
+  if (!clockWin || clockWin.isDestroyed()) return;
+  // 최소화된 채로 hide 하면 다음 show 때 최소화 상태로 나오므로 먼저 되돌린다.
+  if (clockWin.isMinimized()) clockWin.restore();
+  // 숨기기 직전의 상대 위치를 고정한다. 복원·해상도 변경은 이 비율로 한다.
+  const placement = capturePlacement(clockWin.getBounds());
+  if (placement) {
+    clockPlacement = placement;
+    persistPlacement(placement);
+  }
+  clockWin.hide();
 }
 
 function restoreFromTray() {
   if (!clockWin || clockWin.isDestroyed()) return;
-  if (clockWin.isMinimized()) clockWin.restore();
+  hiddenByUser = false;
+  recoverClockOnScreen({ forceShow: true, remount: true });
+  if (clockWin && !clockWin.isDestroyed()) clockWin.focus();
+}
+
+function ensureClockOnScreen() {
+  if (!clockWin || clockWin.isDestroyed() || !hasUsableDisplays()) return;
+  if (!clockPlacement) {
+    const live = clockWin.isVisible() && !clockWin.isMinimized() ? clockWin.getBounds() : null;
+    clockPlacement = (live && capturePlacement(live)) || placementFromSettings(store.loadSettings());
+  }
+  const next = applyPlacement(clockPlacement) || clampToWorkArea(clockWin.getBounds());
+  setClockBounds(next);
+}
+
+function reapplyAlwaysOnTop() {
+  if (!clockWin || clockWin.isDestroyed()) return;
+  if (clockWin.isAlwaysOnTop()) {
+    clockWin.setAlwaysOnTop(false);
+    clockWin.setAlwaysOnTop(true);
+  }
+}
+
+/**
+ * 절전 복귀 뒤 투명 창이 isVisible 인데도 안 그려지는 경우를 위해
+ * HWND 를 한 번 다시 붙인다.
+ */
+function remountClockSurface() {
+  if (!clockWin || clockWin.isDestroyed()) return;
+  if (clockWin.webContents.isCrashed()) {
+    clockWin.webContents.reload();
+  }
+  const bounds = clockWin.getBounds();
+  applyingPlacement = true;
+  try {
+    clockWin.setBounds({ ...bounds, x: bounds.x + 1, y: bounds.y });
+    clockWin.setBounds(bounds);
+  } finally {
+    applyingPlacement = false;
+  }
+  if (clockWin.isVisible()) clockWin.hide();
   clockWin.show();
-  clockWin.focus();
+  try {
+    clockWin.webContents.invalidate();
+  } catch {
+    /* ignore */
+  }
+  clockWin.webContents.send('clock:bounds', clockWin.getBounds());
+}
+
+function recoverClockOnScreen(opts = {}) {
+  if (!clockWin || clockWin.isDestroyed() || !hasUsableDisplays()) return;
+
+  ensureClockOnScreen();
+
+  if (hiddenByUser && !opts.forceShow) return;
+
+  if (clockWin.isMinimized()) clockWin.restore();
+
+  if (opts.remount) remountClockSurface();
+  else if (!clockWin.isVisible()) clockWin.show();
+
+  reapplyAlwaysOnTop();
+}
+
+function markDisplayChange() {
+  lastDisplayChangeAt = Date.now();
+  displayRecovering = true;
+}
+
+function scheduleClockRecover(opts = {}) {
+  if (opts.remount) pendingRecover.remount = true;
+  if (opts.forceShow) pendingRecover.forceShow = true;
+  markDisplayChange();
+  if (recoverTimer) clearTimeout(recoverTimer);
+  if (recoverSettleTimer) clearTimeout(recoverSettleTimer);
+  recoverTimer = setTimeout(() => {
+    recoverTimer = null;
+    const run = pendingRecover;
+    pendingRecover = { remount: false, forceShow: false };
+    recoverClockOnScreen(run);
+    recoverSettleTimer = setTimeout(() => {
+      recoverSettleTimer = null;
+      displayRecovering = false;
+    }, 1500);
+  }, 400);
+}
+
+function onSystemSuspend() {
+  markDisplayChange();
+  // 절전 직전에 OS 가 창을 최소화하면 hideToTray 가 먼저 실행된다.
+  // 그 직후 덮개를 닫은 것이면 사용자 숨김이 아니다.
+  if (hiddenByUser && lastHideAt > 0 && Date.now() - lastHideAt < 8000) {
+    hiddenByUser = false;
+  }
+}
+
+function registerDisplayRecovery() {
+  screen.on('display-added', () => scheduleClockRecover({ remount: true }));
+  screen.on('display-removed', () => scheduleClockRecover());
+  screen.on('display-metrics-changed', () => scheduleClockRecover());
+  powerMonitor.on('suspend', onSystemSuspend);
+  powerMonitor.on('resume', () => scheduleClockRecover({ remount: true }));
+  powerMonitor.on('unlock-screen', () => scheduleClockRecover({ remount: true }));
 }
 
 function quitApp() {
@@ -603,7 +912,7 @@ function registerIpc() {
   ipcMain.on('window:resize-start', startResize);
   ipcMain.on('window:gesture-end', stopGesture);
 
-  ipcMain.on('window:minimize', () => clockWin?.minimize());
+  ipcMain.on('window:minimize', () => hideToTray());
   ipcMain.on('window:hide-to-tray', () => hideToTray());
   ipcMain.on('window:toggle-maximize', () => {
     if (!clockWin || clockWin.isDestroyed()) return;
@@ -706,6 +1015,7 @@ app.whenReady().then(() => {
   registerIpc();
   createClockWindow();
   createTray();
+  registerDisplayRecovery();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createClockWindow();
@@ -720,4 +1030,11 @@ app.on('window-all-closed', () => {
 app.on('before-quit', () => {
   isQuitting = true;
   stopGesture();
+  if (recoverTimer) clearTimeout(recoverTimer);
+  if (recoverSettleTimer) clearTimeout(recoverSettleTimer);
+  if (persistPlacementTimer) {
+    clearTimeout(persistPlacementTimer);
+    persistPlacementTimer = null;
+  }
+  persistPlacement(clockPlacement);
 });

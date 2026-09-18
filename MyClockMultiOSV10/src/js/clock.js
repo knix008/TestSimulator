@@ -594,7 +594,6 @@ async function openContextMenu() {
       },
       { id: 'fullscreen', icon: '⛶', label: '전체 화면 시계' },
       { separator: true },
-      { id: 'minimize', icon: '﹘', label: '최소화' },
       { id: 'maximize', icon: '▢', label: maximized ? '창 크기 복원' : '최대화' },
       { id: 'tray', icon: '▾', label: '트레이로 숨기기' },
       { separator: true },
@@ -617,7 +616,6 @@ const menuActions = {
   },
   mode: () => toggleClockMode(),
   fullscreen: () => api.fullscreen.open(),
-  minimize: () => api.window.minimize(),
   maximize: () => api.window.toggleMaximize(),
   tray: () => api.window.hideToTray(),
   quit: () => api.app.quit()

@@ -41,6 +41,10 @@ const DEFAULT_SETTINGS = {
   windowTop: null,
   windowWidth: 300,
   windowHeight: 300,
+  // 작업 영역에서 창이 움직일 수 있는 여유 공간 대비 비율 (0=왼쪽/위, 1=오른쪽/아래).
+  windowRelX: null,
+  windowRelY: null,
+  windowRelDisplayId: null,
   digitalWindowWidth: null,
   digitalWindowHeight: null,
   digitalWindowLeft: null,
@@ -108,6 +112,12 @@ function clamp(value, lo, hi) {
   return Math.min(hi, Math.max(lo, value));
 }
 
+function nullableUnit(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return null;
+  return clamp(n, 0, 1);
+}
+
 function normalizeAlarm(raw) {
   const src = raw && typeof raw === 'object' ? raw : {};
   const time = typeof src.time === 'string' && /^\d{1,2}:\d{2}$/.test(src.time) ? src.time : '07:00';
@@ -163,6 +173,9 @@ function normalizeSettings(raw) {
     windowTop: nullableNum(src.windowTop),
     windowWidth: clamp(num(src.windowWidth, DEFAULT_SETTINGS.windowWidth), 140, 4000),
     windowHeight: clamp(num(src.windowHeight, DEFAULT_SETTINGS.windowHeight), 50, 4000),
+    windowRelX: nullableUnit(src.windowRelX),
+    windowRelY: nullableUnit(src.windowRelY),
+    windowRelDisplayId: nullableNum(src.windowRelDisplayId),
     digitalWindowWidth: nullablePositive(src.digitalWindowWidth),
     digitalWindowHeight: nullablePositive(src.digitalWindowHeight),
     digitalWindowLeft: nullableNum(src.digitalWindowLeft),
