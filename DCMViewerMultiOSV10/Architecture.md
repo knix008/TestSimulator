@@ -66,7 +66,8 @@ ImageViewerMutlOSV20의 디코더를 가져와 확장했습니다(UMD: Node 테�
 ### `src/js/viewer.js`
 - 뷰 행렬 = T(중심+이동) · R(회전) · S(반전) · S(배율, 배율×종횡비) · T(−w/2, −h/2). `DOMMatrix`로 화면↔이미지 좌표 변환
 - HiDPI 캔버스 2장(이미지 / 오버레이). 확대 시 nearest, 축소 시 smoothing
-- 도구: pan / wl / zoom / stack / probe / length / angle / rect / ellipse / text. 가운데 버튼=이동, 오른쪽 드래그=W/L(움직이지 않으면 컨텍스트 메뉴)
+- 도구: pan / wl / zoom / stack / probe / length / angle / rect / ellipse / text. 가운데 버튼=이동, 오른쪽 드래그=W/L(움직이지 않으면 컨텍스트 메뉴), 휠=확대(설정으로 프레임 이동과 교체)
+- 오버레이: 측정, 프로브 십자선, `showGrid`(이미지 좌표 10 mm/50 px 격자), `showRuler`(위·왼쪽 가장자리 전체 눈금자 — `clientToImage`로 화면 축을 이미지 축에 대응시켜 mm 값 계산, 주 눈금 간격 60–150 px가 되도록 단위 자동 선택, 마우스 위치 표시)
 - 측정은 이미지 좌표로 보관(`annotations`), 핸들 드래그, `exportCanvas(burn)`으로 회전/반전 적용본에 주석을 구워 냄
 - 이벤트: `view`, `wl{dx,dy}`, `stack{delta}`, `hover`, `measure`, `text`, `context`
 
@@ -80,7 +81,11 @@ ImageViewerMutlOSV20의 디코더를 가져와 확장했습니다(UMD: Node 테�
 - 고급 기능: `openMpr`(정렬된 시리즈 파일 목록 또는 다중 프레임 경로를 payload로 전달 — 팝업이 직접 파일을 읽어 볼륨 구성), `anonymizeAndSave`(`parseRaw` 오프셋에 같은 길이로 덮어쓰기), `exportWebm`(`canvas.captureStream` + `MediaRecorder`)
 - 설정: `DEFAULTS` + `Platform.settings`, `applySetting(key, value)`가 즉시 반영, `resetSettings`
 - 툴팁(`bindTooltips`): `title`을 `data-tip`으로 옮겨 커스텀 툴팁 표시
-- 언어: `lang-toggle` 액션이 ko ↔ en 전환, 국기 아이콘(`Icons.flag`) 갱신
+- 언어: `lang-toggle` 액션이 ko ↔ en 전환; 버튼에는 전환될 언어의 국기(`Icons.flag('gb' | 'kr')`)만 표시
+- 실행 취소 `History`: 스냅샷(측정 배열, 회전/반전, 윈도우·LUT·컬러맵·반전) 스택. 측정 완료·삭제, 회전/반전, 윈도우 변경(드래그는 `wlend` 이벤트에서 한 번), 컬러맵 등에서 `push()`; `undo/redo`가 스냅샷을 다시 적용(`restoring` 플래그로 재귀 push 방지). 파일당 최대 100단계, 파일 열기 시 `reset()`
+- 드라이브 바 `renderDriveBar`: `Platform.roots()`(Electron: 드라이브, 웹: 마운트된 루트)를 폴더 제목 옆 버튼으로; 현재 루트를 강조
+- 최근 폴더 `pushRecent`: 설정 `recentDirs`(최대 10) → 파일 메뉴 하위 메뉴, 항목의 × 로 개별 삭제(메뉴 유지), 전체 삭제
+- 창 최소 크기 `applyMinWindowSize`: 툴바·메뉴 바 자식 폭의 합을 `window-min-size` IPC로 전달
 
 ### `src/js/dialogs.js` · `src/popup.html` · `src/js/popup.js`
 대화상자 내용은 `Dialogs.render(kind, box, payload, ctx)` 하나로 정의되고, ctx(`send/close/onMessage/resize`)만 호스트에 따라 다릅니다.
@@ -105,7 +110,8 @@ tree click / drop / open-path
 
 ## 4. 빌드
 
-- `electron-builder` (package.json `build`): NSIS + portable(Windows), DMG(x64/arm64), AppImage + deb(Linux), `fileAssociations`로 `.dcm/.dicm/.dicom` 연결, `build/icon.*`, `build/dcmfile.ico`
+- `electron-builder` (package.json `build`): NSIS + portable(Windows), DMG(x64/arm64), AppImage + deb(Linux), `fileAssociations`로 `.dcm/.dicm/.dicom` 연결(아이콘 `build/dcmfile.ico` → 설치 폴더 `resources/`에 복사되어 탐색기 아이콘으로 등록), `build/icon.*`
+- NSIS 커스터마이즈 `build/installer.nsh`(`nsis.include`): `customInit`에서 언인스톨 레지스트리 키(`UNINSTALL_REGISTRY_KEY`)로 기존 설치를 감지해 완전 삭제 / 덮어쓰기 / 취소를 묻고(무인 설치는 설정 유지), `preInstall`에서 설치 폴더·userData 삭제, `customPageAfterChangeDir`로 옵션 페이지(`build/optionsPage.nsh`: 바탕 화면·시작 메뉴 바로 가기, DICOM 기본 프로그램 등록 체크박스), `customInstall`에서 선택하지 않은 바로 가기 삭제와 파일 연결 해제(`APP_UNASSOCIATE`) 또는 Default Programs Capabilities 등록, `customUnInstall`에서 사용자 데이터 삭제 여부 확인. `warningsAsErrors: false`(언인스톨러 빌드에서 미사용 변수 경고)
 - 코덱 패키지 중 wasm 파일과 비-`_decode` 빌드는 제외(`files` 패턴) — 디코더는 JS(asm/wasm 인라인) 빌드만 사용
 - `scripts/create-icons.js`: `icon.svg`/`dcmfile.svg` → PNG(512) + ICO(16…256; sharp)
 - `scripts/build-web.js`: `src/` + 필요한 코덱 스크립트 + `samples/`를 `dist-web/`로 복사 → 정적 호스팅

@@ -9,14 +9,14 @@ C# WinForms 버전(`../DCMViewerV10`)의 기능을 모두 옮기고, DICOM 전�
 |------|------|
 | 파일 | DICOM(.dcm/.dicm/.dicom, 확장자 없는 파일 자동 감지) + JPEG/PNG/GIF/WebP/AVIF/BMP/ICO/SVG, **TIFF(다중 페이지, LZW/PackBits/Deflate/JPEG, 16-bit)**, **HEIF/HEIC**, **JPEG 2000(.jp2/.j2k)** 등 고해상도 이미지 열기, 폴더 트리 탐색, 드래그 앤 드롭, `.dcm` 파일 연결(설치판), 마지막 폴더·최근 폴더 기억 |
 | 디코딩 | 비압축(LE/BE), Deflated, RLE, JPEG Baseline/Extended(12-bit), JPEG Lossless, JPEG-LS, JPEG 2000 / HTJ2K · MONOCHROME1/2, RGB, YBR, PALETTE COLOR · 8/12/16/32-bit, float · 다중 프레임, Enhanced multi-frame(functional groups), Modality LUT, VOI LUT/Window, Presentation LUT, 오버레이 평면(60xx) |
-| 보기 | 확대/축소 버튼·배율 표시·휠 확대, 좌클릭 드래그 이동, 화면 맞춤/실제 크기, 회전, 좌우/상하 반전, 보간, 눈금자(스케일 바)·격자(10 mm) 켜기/끄기, 모서리 정보(환자·검사·W/L·배율), 방향 표시(R/L/A/P/H/F), 픽셀 값 조사, 컨텍스트 메뉴 |
-| 윈도우 | 마우스 드래그 W/L, 파일 윈도우, CT 프리셋(뇌/폐/뼈/…), VOI LUT, LINEAR/LINEAR_EXACT/SIGMOID, 반전, 컬러맵 8종, 히스토그램 |
+| 보기 | 확대/축소 버튼·배율 표시·휠 확대, 좌클릭 드래그 이동, 화면 맞춤/실제 크기, 회전, 좌우/상하 반전, 보간, x/y축 전체 **눈금자**(배율에 따라 mm 단위 자동 조정, 마우스 위치 표시)·**격자**(10 mm) 켜기/끄기, 모서리 정보(환자·검사·W/L·배율), 방향 표시(R/L/A/P/H/F), 픽셀 값 조사, 컨텍스트 메뉴, **실행 취소/다시 실행**(측정·회전·반전·윈도우·컬러맵) |
+| 윈도우 | 마우스 드래그 W/L, 메뉴 바의 W/L 입력창(−/+ 단계 버튼), 파일 윈도우, CT 프리셋(뇌/폐/뼈/…), VOI LUT, LINEAR/LINEAR_EXACT/SIGMOID, 반전, 컬러맵 8종, 히스토그램 |
 | 시네·스택 | 다중 프레임 슬라이더/재생(fps·반복), 폴더를 DICOM 시리즈로 정렬(SeriesInstanceUID·InstanceNumber·위치), 스택 스크롤(휠/키보드), 보기 상태 유지 |
 | 측정 | 길이(mm), 각도, 사각형/타원 ROI(면적·평균·표준편차·최소·최대, HU 단위), 텍스트 주석, 핸들 드래그 편집 |
 | 고급 | **MPR / MIP / MinIP / 평균** 볼륨 보기(축상·관상·시상, 슬랩 두께, 십자선), **익명화 사본 저장**(PHI 태그·private 태그 덮어쓰기), **시네 동영상(WebM)** 내보내기 |
 | 내보내기 | PNG/JPEG/WebP/BMP/TIFF/GIF, 16-bit TIFF(원본 값), 모든 프레임 ZIP, 애니메이션 GIF, 태그 TXT/JSON/CSV, 클립보드 복사, **인쇄 미리보기**(용지·방향·머리글, 기본 프린터로 즉시 인쇄 또는 프린터 선택) |
 | 일괄 변환 | 폴더(하위 폴더 포함 옵션)의 DCM을 선택 형식으로 변환 → `converted_<형식>` 폴더(브라우저에서 읽기 전용이면 ZIP 다운로드) |
-| UI | 아이콘 메뉴 + 아이콘만 있는 한 줄 툴바(툴팁, 내보내기 드롭다운), 한국어/영어 토글(국기 버튼), **테마 20종**(클릭 순환 + 드롭다운 선택), 프로그램 설정 대화상자(고정 크기), 최근 폴더 10개(개별/전체 삭제), 마지막 폴더 자동 열기, 창 제목에 파일·환자 정보, 컨텍스트 메뉴, 단축키 |
+| UI | 아이콘 메뉴 + 아이콘만 있는 한 줄 툴바(툴팁, 내보내기 드롭다운, 실행 취소/다시 실행), 메뉴 바 오른쪽에 W/L 입력·테마 버튼(클릭 순환)+드롭다운·설정·언어 토글(전환될 언어의 국기: 🇬🇧/🇰🇷)·프로그램 정보, **테마 20종**, 프로그램 설정 대화상자(고정 크기), 폴더 패널의 드라이브 버튼(한 번 클릭으로 선택), 최근 폴더 10개(개별/전체 삭제), 마지막 폴더 자동 열기, 창 제목에 파일·환자 정보, 컨텍스트 메뉴, 단축키 |
 | 팝업 | 데스크톱에서는 모든 대화상자(정보·설정·일괄 변환·오류·단축키·MPR·익명화·인쇄·진행률)가 아이콘과 제목이 있는 **독립된 창**으로 열리고(메인 창에 가려지지 않음) 메인 창이 닫히면 함께 닫힙니다. 창 크기는 내용에 맞춰 스크롤 없이 표시됩니다. 오래 걸리는 작업(시리즈 정렬, 프레임/GIF/동영상 내보내기 등)은 진행률 팝업(막대 + %)을 표시하며 취소할 수 있습니다. |
 
 ## 실행
@@ -41,7 +41,13 @@ npm run build:linux    # AppImage + deb
 npm run build:web      # 정적 웹 배포용 dist-web/ (index.html + 코덱)
 ```
 
-설치판은 `.dcm` / `.dicm` / `.dicom` 파일 연결을 등록합니다(Windows·macOS·Linux MIME `application/dicom`).
+### Windows 설치 프로그램 (NSIS, `build/installer.nsh` + `build/optionsPage.nsh`)
+
+- **이미 설치되어 있으면** 설치 시작 시 선택: **[예]** 기존 프로그램·설정·캐시를 완전히 삭제하고 새로 설치 / **[아니오]** 설정을 유지한 채 덮어쓰기 / **[취소]**
+- **설치 옵션 페이지**: 바탕 화면 바로 가기, 시작 메뉴 바로 가기, **DICOM 파일(.dcm/.dicm/.dicom)의 기본 프로그램 등록** — 각각 선택 가능
+- 기본 프로그램으로 등록하면 전용 **DCM 파일 아이콘**(`build/dcmfile.ico`, 설치 폴더 `resources/`에 복사)이 탐색기에 표시되고, Windows 기본 앱 목록(RegisteredApplications)에도 등록됩니다.
+- 제거 시 사용자 데이터(설정·최근 폴더·캐시) 삭제 여부를 묻습니다. 무인(`/S`) 설치·업그레이드는 설정을 유지합니다.
+- macOS/Linux 패키지는 `application/dicom` MIME 연결을 등록합니다.
 
 ## 요구 사항
 
@@ -75,7 +81,8 @@ DCMViewerMultiOSV10/
 │       ├── i18n.js         번역 유틸
 │       └── app.js          애플리케이션 (메뉴, 툴바, 패널, 렌더링 파이프라인, 내보내기, 시네, 시리즈)
 ├── scripts/                start-dev, create-icons, build-web, copy-dist
-├── test/                   node --test: 디코더·인코더·이미지 포맷·합성 DICOM·UI 모듈(테마/i18n/아이콘/대화상자/플랫폼) + reporter.js
+├── test/                   node --test: 디코더·인코더·이미지 포맷·합성 DICOM·UI 모듈(테마/i18n/아이콘/대화상자/플랫폼) + reporter.js (요약 표)
+├── .gitignore              node_modules·dist·생성 아이콘·앱 출력물(converted_*, *_anon.dcm …)·테스트 임시 파일 제외
 └── samples/                테스트용 DICOM
 ```
 

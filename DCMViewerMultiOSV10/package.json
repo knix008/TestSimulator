@@ -81,7 +81,7 @@
         "mimeType": "application/dicom",
         "role": "Viewer",
         "rank": "Owner",
-        "icon": "build/dcmfile.ico"
+        "icon": "dcmfile.ico"
       }
     ],
     "win": {
@@ -119,7 +119,11 @@
       "installerLanguages": [
         "en_US",
         "ko_KR"
-      ]
+      ],
+      "include": "build/installer.nsh",
+      "deleteAppDataOnUninstall": false,
+      "runAfterFinish": true,
+      "warningsAsErrors": false
     },
     "mac": {
       "target": [

@@ -1,33 +1,62 @@
-# Dependencies / build outputs
+# ── Dependencies / build outputs ──
 node_modules/
 dist/
 dist-web/
+release/
+out/
 *.tgz
+package-lock.json.bak
 
 # Installers copied to the project root by scripts/copy-dist.js
 DCMViewer-*.exe
+DCMViewer-*.msi
 DCMViewer-*.dmg
+DCMViewer-*.pkg
 DCMViewer-*.AppImage
 DCMViewer-*.deb
 DCMViewer-*.rpm
 DCMViewer-*.zip
+*.blockmap
+latest*.yml
 
-# Generated icons (regenerate with `npm run create-icons`)
+# ── Generated icons (regenerate with `npm run create-icons`; src/assets/icon.png is committed for the UI) ──
 build/*.ico
 build/*.png
 src/assets/icon.ico
 
-# Batch-convert output folders (created next to the source DCM files)
+# ── Output of the app itself ──
+# batch-convert folders created next to the source DCM files, anonymised copies, exported frames / videos
 **/converted_*/
+**/converted_*.zip
+*_anon.dcm
+*_frames.zip
+*_cine.gif
+*_cine.webm
+*_tags.json
+*_tags.csv
+*_tags.txt
 
-# IDE / OS
+# Electron user data / settings used during local runs and tests
+userdata/
+dcmviewer-settings.json
+
+# Test fixtures written at runtime (synthetic series, TIFF / batch scratch)
+test/tmp/
+test/fixtures/generated/
+phantom/
+phantom_mf/
+batchsrc/
+
+# ── IDE / OS ──
 .vs/
 .vscode/
 .idea/
 .DS_Store
 Thumbs.db
+desktop.ini
 *.log
 *.tmp
 *.bak
+*.swp
 .env
 .env.*
