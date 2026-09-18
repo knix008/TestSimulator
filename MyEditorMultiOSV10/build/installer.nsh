@@ -373,6 +373,13 @@ FunctionEnd
     WinShell::SetLnkAUMI "$DESKTOP\${SHORTCUT_NAME}.lnk" "${APP_ID}"
   ${EndIf}
 
+  ; Re-pin the program .ico after SetLnkAUMI so Desktop / Start Menu (and the
+  ; taskbar button that matches those shortcuts) show the same icon as the app
+  ; — not Electron's default baked into an older MyEditor.exe.
+  ${If} ${FileExists} "$INSTDIR\resources\set-lnk-aumi.ps1"
+    nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\resources\set-lnk-aumi.ps1" -AppId "${APP_ID}" -ExePath "$INSTDIR\${APP_EXECUTABLE_FILENAME}" -IconPath "$R0"'
+  ${EndIf}
+
   WriteRegStr HKCU "Software\Classes\Applications\${APP_EXECUTABLE_FILENAME}" "FriendlyAppName" "${PRODUCT_NAME}"
   WriteRegStr HKCU "Software\Classes\Applications\${APP_EXECUTABLE_FILENAME}\DefaultIcon" "" "$R0,0"
   WriteRegStr HKCU "Software\Classes\Applications\${APP_EXECUTABLE_FILENAME}\shell\open\command" "" '"$INSTDIR\${APP_EXECUTABLE_FILENAME}" "%1"'

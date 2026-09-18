@@ -1,8 +1,11 @@
 # Stamp System.AppUserModel.ID onto a .lnk so the Windows taskbar can
 # match a running process (app.setAppUserModelId) to its shortcut icon.
+# WScript.Shell.Save() strips AppUserModelId, so the program .ico is written
+# first and the AUMI is written afterwards through the property store.
 param(
   [Parameter(Mandatory = $true)][string]$AppId,
-  [Parameter(Mandatory = $false)][string]$ExePath
+  [Parameter(Mandatory = $false)][string]$ExePath,
+  [Parameter(Mandatory = $false)][string]$IconPath
 )
 
 $ErrorActionPreference = 'Stop'
@@ -77,13 +80,45 @@ public static class LnkAumi {
 }
 "@
 
+function Resolve-Icon($lnk) {
+  $dirs = @()
+  try {
+    $sh = New-Object -ComObject WScript.Shell
+    $sc = $sh.CreateShortcut($lnk)
+    if ($sc.TargetPath) { $dirs += Split-Path -Parent $sc.TargetPath }
+  } catch { }
+  if ($ExePath) { $dirs += Split-Path -Parent $ExePath }
+  foreach ($dir in $dirs) {
+    if (-not $dir) { continue }
+    foreach ($name in @('MyEditor.ico', 'icon.ico')) {
+      $c = Join-Path $dir $name
+      if (Test-Path -LiteralPath $c) { return $c }
+    }
+    $c = Join-Path $dir 'resources\icon.ico'
+    if (Test-Path -LiteralPath $c) { return $c }
+  }
+  if ($IconPath -and (Test-Path -LiteralPath $IconPath)) {
+    return [System.IO.Path]::GetFullPath($IconPath)
+  }
+  return $null
+}
+
 function Set-One($lnk) {
   if (-not (Test-Path -LiteralPath $lnk)) { return }
-  # WScript.Shell.Save() strips AppUserModelId — only write the property store.
-  [LnkAumi]::Set($lnk, $AppId)
+  $ico = Resolve-Icon $lnk
+  if ($ico) {
+    # Save() drops AppUserModelId; AUMI is written afterwards.
+    $sh = New-Object -ComObject WScript.Shell
+    $sc = $sh.CreateShortcut($lnk)
+    $sc.IconLocation = "$ico,0"
+    $sc.Save()
+  }
   $got = ''
-  try { $got = [LnkAumi]::Get($lnk) } catch { $got = '(unread)' }
-  Write-Output ("OK " + $lnk + " aumi=" + $got)
+  try {
+    [LnkAumi]::Set($lnk, $AppId)
+    $got = [LnkAumi]::Get($lnk)
+  } catch { $got = '(unread)' }
+  Write-Output ("OK " + $lnk + " aumi=" + $got + " icon=" + $ico)
 }
 
 Set-One (Join-Path $env:USERPROFILE "Desktop\My Editor.lnk")

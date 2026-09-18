@@ -74,10 +74,23 @@ test('Windows taskbar identity is stamped onto shortcuts', () => {
   const main = fs.readFileSync(path.join(root, 'electron', 'main.js'), 'utf8');
   const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
   const ps1 = fs.readFileSync(path.join(root, 'scripts', 'set-lnk-aumi.ps1'), 'utf8');
+  const nsh = fs.readFileSync(path.join(root, 'build', 'installer.nsh'), 'utf8');
   assert.match(main, /stampShortcutAumi/);
   assert.match(main, /setAppUserModelId\(APP_ID\)/);
+  assert.match(main, /shortcutIconPath/);
   assert.doesNotMatch(main, /setOpacity\(0\)/);
   assert.match(ps1, /PKEY_AppUserModel|9F4C2855-9F79-4B39-A8D0-E1D42DE1D5F3/);
+  assert.match(ps1, /IconLocation/);
+  assert.match(ps1, /MyEditor\.ico/);
+  assert.match(nsh, /set-lnk-aumi\.ps1/);
   const extra = pkg.build.extraResources || [];
   assert.ok(extra.some((x) => x.to === 'set-lnk-aumi.ps1'));
+});
+
+test('prepare:assets keeps the window / shortcut icon in sync with assets/icon.svg', () => {
+  const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
+  assert.match(pkg.scripts['prepare:assets'], /generate-icons\.mjs --if-needed/);
+  const gen = fs.readFileSync(path.join(root, 'scripts', 'generate-icons.mjs'), 'utf8');
+  assert.match(gen, /copyForBuilder/);
+  assert.match(gen, /for \(const name of \['icon\.ico', 'icon\.png'\]\)/);
 });

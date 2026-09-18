@@ -10,8 +10,8 @@
   "private": true,
   "main": "electron/main.js",
   "scripts": {
-    "postinstall": "node scripts/sync-public-svgs.mjs && node scripts/generate-build-info.mjs",
-    "prepare:assets": "node scripts/sync-public-svgs.mjs && node scripts/generate-build-info.mjs",
+    "postinstall": "node scripts/generate-icons.mjs --if-needed && node scripts/sync-public-svgs.mjs && node scripts/generate-build-info.mjs",
+    "prepare:assets": "node scripts/generate-icons.mjs --if-needed && node scripts/sync-public-svgs.mjs && node scripts/generate-build-info.mjs",
     "prestart": "npm run free:port && npm run prepare:assets",
     "start": "cross-env NODE_OPTIONS=--disable-warning=DEP0060 concurrently -k \"vite --port 5189\" \"wait-on tcp:5189 && cross-env ELECTRON_DEV=1 node scripts/start-electron.mjs\"",
     "predev": "npm run free:port && npm run prepare:assets",

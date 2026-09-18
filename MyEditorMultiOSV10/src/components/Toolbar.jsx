@@ -47,6 +47,9 @@ const GROUPS = [
     { id: 'toggle:sidebarVisible', icon: 'sidebar', tip: 'tip_sidebar', toggle: 'sidebarVisible' },
   ],
   [
+    { id: 'toggle:indentGuides', icon: 'indentGuides', tip: 'tip_indent_guides', toggle: 'indentGuides', on: (st) => st.indentGuides !== false },
+  ],
+  [
     { id: 'toggle:wordWrap', icon: 'wrap', tip: 'tip_wrap', toggle: 'wordWrap' },
     { id: 'toggle:autoIndent', icon: 'autoIndent', tip: 'tip_auto_indent', toggle: 'autoIndent' },
     { id: 'toggle:spellCheck', icon: 'spell', tip: 'tip_spell', toggle: 'spellCheck' },

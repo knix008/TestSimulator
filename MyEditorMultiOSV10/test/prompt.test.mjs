@@ -116,6 +116,7 @@ test('settings: new keys have defaults, a null prompt in the session takes the d
   assert.equal(SETTINGS_DEFAULTS.termEol, 'auto');
   assert.equal(SETTINGS_DEFAULTS.termCr, 'overwrite');
   assert.equal(SETTINGS_DEFAULTS.autocomplete, true);
+  assert.equal(SETTINGS_DEFAULTS.indentGuides, true);
   assert.equal(SETTINGS_DEFAULTS.htmlPreview, false);
   assert.deepEqual(SETTINGS_DEFAULTS.customThemes, []);
   assert.equal(SETTINGS_DEFAULTS.prompt, PROMPT_DEFAULT);
@@ -123,9 +124,86 @@ test('settings: new keys have defaults, a null prompt in the session takes the d
   assert.equal(s.prompt, PROMPT_DEFAULT);
   assert.equal(s.termCr, 'strip');
   assert.equal(s.theme, 'cyber');
-  for (const k of ['prompt', 'termEol', 'termCr', 'autocomplete']) assert.ok(RESET_KEYS.includes(k), `${k} is reset`);
+  for (const k of ['prompt', 'termEol', 'termCr', 'autocomplete', 'indentGuides']) assert.ok(RESET_KEYS.includes(k), `${k} is reset`);
   assert.ok(!RESET_KEYS.includes('customThemes'), 'custom themes survive a reset');
   assert.equal(resetPatch().prompt, PROMPT_DEFAULT);
+});
+
+test('indent guides sit on every tab stop of the leading whitespace', async () => {
+  const {
+    indentColumns, guideColumns, computeIndentLevel, whitespaceIndentLevel, indentLevelFromColumns,
+    lineIndentLevels, activeIndentGuide, detectIndentSize,
+  } = await import('../src/lib/indentguides.js');
+  assert.equal(indentColumns('code', 4), 0);
+  assert.equal(indentColumns('    code', 4), 4);
+  assert.equal(indentColumns('        code', 4), 8);
+  assert.equal(indentColumns('\tcode', 4), 4);
+  assert.equal(indentColumns('\t\tcode', 4), 8);
+  assert.equal(indentColumns('  \tcode', 4), 4);
+  assert.equal(computeIndentLevel('      ', 2), -1);
+  assert.equal(computeIndentLevel('    code', 4), 4);
+  assert.deepEqual(guideColumns(0, 4), []);
+  assert.deepEqual(guideColumns(4, 4), [0]);
+  assert.deepEqual(guideColumns(8, 4), [0, 4]);
+  assert.deepEqual(guideColumns(12, 2), [0, 2, 4, 6, 8, 10]);
+  // VS Code: whitespace between indent 4 and 8 is inside the outer block → 2 levels
+  assert.equal(whitespaceIndentLevel(4, 8, 4), 2);
+  // same indent on both sides
+  assert.equal(whitespaceIndentLevel(8, 8, 4), 2);
+  // leaving a deeper block (not offSide)
+  assert.equal(whitespaceIndentLevel(8, 4, 4), 2);
+  assert.equal(whitespaceIndentLevel(-1, 8, 4), 0);
+  assert.equal(indentLevelFromColumns(6, 4), 2);
+
+  const sample = [
+    'function foo() {',
+    '',
+    '    if (x) {',
+    '',
+    '        return 1;',
+    '    }',
+    '}',
+  ];
+  const mock = {
+    doc: {
+      lines: sample.length,
+      line(n) { return { text: sample[n - 1], number: n, from: 0 }; },
+    },
+  };
+  assert.deepEqual(lineIndentLevels(mock, 1, 7, 4), [0, 1, 1, 2, 2, 1, 0]);
+  assert.deepEqual(activeIndentGuide(mock, 5, 4), { start: 4, end: 5, level: 2 });
+  assert.deepEqual(activeIndentGuide(mock, 3, 4), { start: 4, end: 5, level: 2 });
+  assert.deepEqual(activeIndentGuide(mock, 1, 4), { start: 2, end: 6, level: 1 });
+  assert.equal(detectIndentSize(mock, 4), 4);
+
+  const js2 = {
+    doc: {
+      lines: 5,
+      line(n) {
+        return { text: [
+          'export async function countLines(file) {',
+          '  const text = await readFile(file, "utf-8");',
+          '  const lines = text.split(/\\r?\\n/);',
+          '  return { file, lines: lines.length };',
+          '}',
+        ][n - 1], number: n, from: 0 };
+      },
+    },
+  };
+  assert.equal(detectIndentSize(js2, 4), 2);
+  assert.deepEqual(lineIndentLevels(js2, 1, 5, 4, 2), [0, 1, 1, 1, 0]);
+  assert.deepEqual(guideColumns(2, 2), [0]);
+  assert.deepEqual(guideColumns(4, 2), [0, 2]);
+
+  const go = {
+    doc: {
+      lines: 4,
+      line(n) {
+        return { text: ['func main() {', '\tjobs := make()', '\tfor i := 0; i < 2; i++ {', '\t}'][n - 1], number: n, from: 0 };
+      },
+    },
+  };
+  assert.equal(detectIndentSize(go, 4), 4);
 });
 
 test('prompt: every preset colours the git segment by the repository state (git_state_colors), unless switched off', () => {

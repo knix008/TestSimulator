@@ -28,6 +28,7 @@ MyEditorMultiOSV10/
 │  ├ App.jsx            문서 모델·탭·열기/저장/닫기·세션 복원·메뉴·단축키·대화상자 흐름·인쇄 HTML 생성
 │  ├ PopupWindow.jsx    별도 창 페이지(설정·정보·단축키): 세션 읽기, settings:patch 로 창 간 동기화
 │  ├ lib/editor.js      CodeMirror 확장 세트, Compartment, 테마(CSS 변수), 검색 API, 편집 명령
+│  ├ lib/indentguides.js 탭 크기마다 세로 안내선 (현재 줄의 들여쓰기 강조)
 │  ├ lib/languages.js   @codemirror/language-data 150+ 언어 지연 로드, 확장자 판별
 │  ├ lib/markdown.js    Markdown 서식 명령(감싸기/접두사 토글/블록 삽입), marked+DOMPurify 렌더러
 │  ├ lib/mdlive.js      Markdown WYSIWYG: 구문 트리 기반 Decoration(기호 숨김·위젯·줄 스타일), 이미지 위젯(크기 조절 → <img width>)

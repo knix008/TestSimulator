@@ -14,6 +14,7 @@ export const SETTINGS_DEFAULTS = {
   wordWrap: false,
   lineNumbers: true,
   showWhitespace: false,
+  indentGuides: true,      // vertical lines at every tab stop of the indent
   highlightActiveLine: true,
   autoCloseBrackets: true,
   bracketMatching: true,
@@ -87,7 +88,7 @@ export const SETTING_KEYS = Object.keys(SETTINGS_DEFAULTS);
 // dialog edits. Not the UI language (chosen with the flag, a surprise to lose)
 // and not the window layout (sidebar, panes, terminal…, set from the View menu).
 export const RESET_KEYS = [
-  'theme', 'fontFamily', 'fontSize', 'lineHeight', 'autoSave', 'autoSaveDelay', 'defaultLanguage', 'treeShowHidden', 'tabSize', 'insertSpaces', 'wordWrap', 'lineNumbers', 'showWhitespace', 'highlightActiveLine',
+  'theme', 'fontFamily', 'fontSize', 'lineHeight', 'autoSave', 'autoSaveDelay', 'defaultLanguage', 'treeShowHidden', 'tabSize', 'insertSpaces', 'wordWrap', 'lineNumbers', 'showWhitespace', 'indentGuides', 'highlightActiveLine',
   'autoCloseBrackets', 'bracketMatching', 'foldGutter', 'minimap', 'defaultEncoding', 'defaultEol', 'eolOnSave', 'trimTrailingOnSave', 'finalNewlineOnSave',
   'restoreSession', 'reloadChangedFiles', 'confirmClose', 'mdWysiwyg', 'spellCheck', 'spellCodeAll', 'autoIndent', 'lint', 'autocomplete',
   'formatters', 'linters', 'formatOnSave', 'termCwd', 'termShell', 'termColor', 'termEol', 'termCr', 'prompt',

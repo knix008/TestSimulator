@@ -65,6 +65,7 @@ const paths = {
   replace: <><path d="M4 7h9a3 3 0 0 1 3 3v1" /><path d="M13 4l3 3-3 3" /><path d="M20 17h-9a3 3 0 0 1-3-3v-1" /><path d="M11 20l-3-3 3-3" /></>,
   wrap: <><path d="M3 6h18M3 12h13a3 3 0 0 1 0 6h-4M3 18h6" /><path d="M14 16l-2 2 2 2" /></>,
   pilcrow: <><path d="M13 4v16M17 4v16M17 4h-6.5a3.5 3.5 0 0 0 0 7H13" /></>,
+  indentGuides: <><path d="M6 4v16M12 4v16M18 8v12" /><path d="M12 8h7M18 16h3" opacity="0.45" /></>,
   zoomIn: <><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3M11 8v6M8 11h6" /></>,
   zoomOut: <><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3M8 11h6" /></>,
   sidebar: <><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M9 4v16M5.5 8h1.5M5.5 11h1.5M5.5 14h1.5" /></>,

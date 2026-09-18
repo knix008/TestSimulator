@@ -2,6 +2,7 @@
 // the app, the installer, the uninstaller and the web favicon:
 //
 //   build/icons/icon.ico             (Windows app + NSIS installer/uninstaller)
+//   build/icon.ico                   (electron-builder default buildResources)
 //   build/icons/icon.icns            (macOS app bundle + DMG)
 //   build/icons/icon.png             (512, generic / Linux resources)
 //   build/icons/png/<size>x<size>.png (Linux icon set)
@@ -23,15 +24,41 @@ const LINUX_SIZES = [16, 24, 32, 48, 64, 128, 256, 512, 1024];
 const ICO_SIZES = [16, 24, 32, 48, 64, 128, 256];
 const ICNS_SIZES = [16, 32, 64, 128, 256, 512, 1024];
 
-async function main() {
-  const sharp = (await import('sharp')).default;
-  fs.mkdirSync(pngDir, { recursive: true });
+function copyForBuilder() {
+  // electron-builder's default buildResources is `build/`, so keep a copy at
+  // the well-known names as well as build/icons/ (win.icon / extraFiles).
+  for (const name of ['icon.ico', 'icon.png']) {
+    const src = path.join(outDir, name);
+    if (fs.existsSync(src)) fs.copyFileSync(src, path.join(root, 'build', name));
+  }
+}
 
+function isFresh(appSvg) {
+  const srcM = fs.statSync(appSvg).mtimeMs;
+  const needed = [
+    path.join(outDir, 'icon.ico'),
+    path.join(outDir, 'icon.png'),
+    path.join(pngDir, '32x32.png'),
+    path.join(root, 'build', 'icon.ico'),
+  ];
+  return needed.every((p) => fs.existsSync(p) && fs.statSync(p).mtimeMs >= srcM);
+}
+
+async function main() {
   const appSvg = path.join(root, 'assets', 'icon.svg');
   if (!fs.existsSync(appSvg)) {
     console.error(`[icons] Source not found: ${appSvg}`);
     process.exit(1);
   }
+
+  if (process.argv.includes('--if-needed') && isFresh(appSvg)) {
+    copyForBuilder();
+    console.log('[icons] Up to date');
+    return;
+  }
+
+  const sharp = (await import('sharp')).default;
+  fs.mkdirSync(pngDir, { recursive: true });
 
   // Rasterize the app icon at `size`, optionally compositing a badge SVG on top.
   const rasterize = (badgeSvg) => async (size) => {
@@ -75,6 +102,7 @@ async function main() {
   }
 
   await writeSet('icon', rasterize(null), { linuxSet: true });
+  copyForBuilder();
 
   console.log(`[icons] Synced public/${syncPublicSvgs().join(', public/')}`);
 }

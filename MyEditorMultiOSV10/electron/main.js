@@ -58,38 +58,63 @@ let api = null;
 let pendingFiles = filesFromArgv(process.argv);   // opened once the renderer is ready
 let rendererReady = false;
 
-function iconPath() {
-  const names = process.platform === 'win32' ? ['icon.png', 'icon.ico'] : ['icon.png'];
+function existingPath(p) {
+  try { return p && fs.existsSync(p) ? p : null; } catch { return null; }
+}
+function iconCandidates() {
+  const exeDir = path.dirname(process.execPath);
+  const names = process.platform === 'win32'
+    ? ['MyEditor.ico', 'icon.ico', 'icon.png']
+    : ['icon.png', 'icon.ico'];
   const dirs = [
+    exeDir,
     process.resourcesPath,
+    path.join(exeDir, 'resources'),
     path.join(__dirname, '..', 'build', 'icons'),
+    path.join(__dirname, '..', 'build'),
     path.join(__dirname, '..'),
   ].filter(Boolean);
-  const candidates = [];
-  for (const dir of dirs) for (const name of names) candidates.push(path.join(dir, name));
-  return candidates.find((p) => { try { return fs.existsSync(p); } catch { return false; } }) || candidates[candidates.length - 1];
+  const out = [];
+  for (const dir of dirs) for (const name of names) out.push(path.join(dir, name));
+  return out;
+}
+function iconPath() {
+  return iconCandidates().find((p) => existingPath(p)) || null;
+}
+function shortcutIconPath() {
+  if (process.platform !== 'win32') return iconPath();
+  const icos = iconCandidates().filter((p) => /\.ico$/i.test(p));
+  return icos.find((p) => existingPath(p)) || iconPath();
+}
+function loadFromIcoOrPng(p) {
+  if (!existingPath(p)) return null;
+  try {
+    const n = nativeImage.createFromPath(p);
+    return n && !n.isEmpty() ? n : null;
+  } catch { return null; }
 }
 function loadWindowIcon() {
+  // Windows: the .ico is what Explorer, the taskbar, the EXE (rcedit) and the
+  // Desktop / Start Menu shortcuts all display — same file as MyEditor.ico.
+  if (process.platform === 'win32') {
+    for (const p of iconCandidates().filter((c) => /\.ico$/i.test(c))) {
+      const img = loadFromIcoOrPng(p);
+      if (img) return img;
+    }
+  }
   const img = nativeImage.createEmpty();
   const dir = path.join(__dirname, '..', 'build', 'icons', 'png');
   let added = 0;
   for (const size of [16, 24, 32, 48, 256]) {
     const p = path.join(dir, `${size}x${size}.png`);
-    if (!fs.existsSync(p)) continue;
+    if (!existingPath(p)) continue;
     try {
       img.addRepresentation({ width: size, height: size, scaleFactor: 1, buffer: fs.readFileSync(p) });
       added += 1;
     } catch { /* skip a missing size */ }
   }
   if (added && !img.isEmpty()) return img;
-  const p = iconPath();
-  if (p && fs.existsSync(p)) {
-    try {
-      const n = nativeImage.createFromPath(p);
-      if (!n.isEmpty()) return n;
-    } catch { /* fall through */ }
-  }
-  return undefined;
+  return loadFromIcoOrPng(iconPath()) || undefined;
 }
 function applyWindowIcon(win) {
   if (!win || win.isDestroyed()) return;
@@ -98,20 +123,23 @@ function applyWindowIcon(win) {
 }
 // Windows shows a blank taskbar button when the process AppUserModelId does
 // not match any .lnk. Stamp the Desktop / Start Menu shortcuts (NSIS already
-// does this; WScript.Shell.Save strips it).
+// does this; WScript.Shell.Save strips AppUserModelId, so the script sets the
+// icon first, then the AUMI via the property store).
 function stampShortcutAumi() {
   if (process.platform !== 'win32') return;
   const ps1 = app.isPackaged
     ? path.join(process.resourcesPath || '', 'set-lnk-aumi.ps1')
     : path.join(__dirname, '..', 'scripts', 'set-lnk-aumi.ps1');
-  if (!fs.existsSync(ps1)) return;
+  if (!existingPath(ps1)) return;
+  const ico = shortcutIconPath();
   const marker = path.join(app.getPath('userData'), 'aumi-stamped');
-  const token = `${APP_ID}\n${app.isPackaged ? process.execPath : 'dev'}`;
+  const token = `${APP_ID}\n${app.isPackaged ? process.execPath : 'dev'}\n${ico || ''}`;
   try { if (fs.readFileSync(marker, 'utf8') === token) return; } catch { /* stamp */ }
   try {
-    spawnSync('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ps1, '-AppId', APP_ID], {
-      windowsHide: true, timeout: 8000,
-    });
+    const args = ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ps1, '-AppId', APP_ID];
+    if (app.isPackaged) args.push('-ExePath', process.execPath);
+    if (ico) args.push('-IconPath', ico);
+    spawnSync('powershell.exe', args, { windowsHide: true, timeout: 8000 });
     fs.writeFileSync(marker, token);
   } catch { /* best-effort */ }
 }
@@ -121,7 +149,7 @@ function printIconPath() {
     path.join(__dirname, '..', 'build', 'icons', 'print.png'),
     iconPath(),
   ];
-  return candidates.find((p) => fs.existsSync(p));
+  return candidates.find((p) => p && fs.existsSync(p));
 }
 
 function sendOpenFiles(list) {

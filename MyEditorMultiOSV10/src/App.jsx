@@ -536,6 +536,22 @@ img{max-width:100%;height:auto;page-break-inside:avoid}table{border-collapse:col
     }
     return state;
   };
+  // Global editor options (indent guides, wrap, …) live in compartments. A
+  // tab's stored state can predate the last toggle, so every swap onto a
+  // view re-applies the current settings — the toolbar button then wins.
+  const applyEditorSettings = (settings = settingsRef.current) => {
+    const effects = settingsEffects(settings);
+    const live = new Set(panesRef.current.map((p) => p.docId).filter((id) => id != null));
+    for (const v of paneViews.current.values()) v.dispatch({ effects });
+    for (const [id, s] of statesRef.current) {
+      if (!live.has(id)) statesRef.current.set(id, s.update({ effects }).state);
+    }
+  };
+  const loadViewState = (v, state) => {
+    if (!v) return;
+    v.setState(state);
+    v.dispatch({ effects: settingsEffects(settingsRef.current) });
+  };
 
   // ── language (async: grammars load on first use) ──
   const applyLanguage = useCallback((doc) => {
@@ -590,7 +606,7 @@ img{max-width:100%;height:auto;page-break-inside:avoid}table{border-collapse:col
     setActiveIdState(id);
     if (v && id != null) {
       const s = statesRef.current.get(id);
-      if (s) { v.setState(s); setCursor(cursorInfo(s)); }
+      if (s) { loadViewState(v, s); setCursor(cursorInfo(v.state)); }
       setTimeout(() => v.focus(), 0);
     }
     setDocVersion((x) => x + 1);
@@ -701,7 +717,7 @@ img{max-width:100%;height:auto;page-break-inside:avoid}table{border-collapse:col
         const id = free.shift();
         p.docId = id == null ? null : id;
         const v = paneViews.current.get(p.key);
-        if (v) { const st = id != null ? statesRef.current.get(id) : null; v.setState(st || newDocState('')); }
+        if (v) { const st = id != null ? statesRef.current.get(id) : null; loadViewState(v, st || newDocState('')); }
       });
       return ps;
     });
@@ -1168,12 +1184,8 @@ img{max-width:100%;height:auto;page-break-inside:avoid}table{border-collapse:col
     if (patch.language !== undefined) { setLanguage(next.language); setDocs((ds) => ds.map((d) => (d.path ? d : { ...d, name: t('untitled', { n: d.untitledNo }) }))); }
     if (patch.customThemes !== undefined) setCustomThemes(next.customThemes);
     if (patch.theme !== undefined || patch.customThemes !== undefined) { const th = applyTheme(next.theme); call('session.save', { themeBg: th.tokens['--bg'] }).catch(() => {}); }
-    const editorKeys = ['tabSize', 'insertSpaces', 'wordWrap', 'lineNumbers', 'showWhitespace', 'highlightActiveLine', 'autoCloseBrackets', 'bracketMatching', 'foldGutter', 'spellCheck', 'autoIndent', 'lint', 'autocomplete'];
-    if (editorKeys.some((k) => patch[k] !== undefined)) {
-      const effects = settingsEffects(next);
-      if (viewRef.current) viewRef.current.dispatch({ effects });
-      for (const [id, s] of statesRef.current) if (id !== activeIdRef.current) statesRef.current.set(id, s.update({ effects: settingsEffects(next) }).state);
-    }
+    const editorKeys = ['tabSize', 'insertSpaces', 'wordWrap', 'lineNumbers', 'showWhitespace', 'indentGuides', 'highlightActiveLine', 'autoCloseBrackets', 'bracketMatching', 'foldGutter', 'spellCheck', 'autoIndent', 'lint', 'autocomplete'];
+    if (editorKeys.some((k) => patch[k] !== undefined)) applyEditorSettings(next);
     if (patch.mdWysiwyg !== undefined) for (const d of docsRef.current) if (d.langName === 'Markdown') applyLanguage(d);
     if (patch.spellCodeAll !== undefined) { setSpellOptions({ codeAll: !!next.spellCodeAll }); spellRefreshAll([viewRef.current]); }
     if (patch.lint !== undefined || patch.linters !== undefined) lintAll();
@@ -1670,6 +1682,7 @@ img{max-width:100%;height:auto;page-break-inside:avoid}table{border-collapse:col
       { id: 'toggle:sidebarVisible', icon: 'sidebar', label: t('sidebar'), checked: settings.sidebarVisible, shortcut: sc('Ctrl+B') },
       { id: 'toggle:toolbarVisible', icon: 'toolbar', label: t('toolbar'), checked: settings.toolbarVisible },
       { id: 'toggle:statusBarVisible', icon: 'statusbar', label: t('statusbar'), checked: settings.statusBarVisible },
+      { id: 'toggle:indentGuides', icon: 'indentGuides', label: t('indent_guides'), checked: settings.indentGuides !== false },
       { sep: true },
       { id: 'split:none', icon: 'splitNone', label: t('split_none'), checked: settings.split === 'none', radio: true, shortcut: sc('Ctrl+Alt+1') },
       { id: 'split:cols', icon: 'splitCols', label: t('split_cols'), checked: settings.split === 'cols', radio: true, shortcut: sc('Ctrl+Alt+2') },
@@ -1890,7 +1903,10 @@ img{max-width:100%;height:auto;page-break-inside:avoid}table{border-collapse:col
       return;
     }
     paneViews.current.set(key, v);
-    if (pane && pane.docId != null) { const s = statesRef.current.get(pane.docId); if (s) v.setState(s); }
+    if (pane && pane.docId != null) {
+      const s = statesRef.current.get(pane.docId);
+      loadViewState(v, s || v.state);
+    }
     if (i === activePaneRef.current) { viewRef.current = v; setView(v); if (pane && pane.docId != null) { activeIdRef.current = pane.docId; const s = v.state; setCursor(cursorInfo(s)); } }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

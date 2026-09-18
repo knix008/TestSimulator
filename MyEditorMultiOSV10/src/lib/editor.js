@@ -14,6 +14,7 @@ import { search, highlightSelectionMatches, SearchQuery, setSearchQuery, getSear
 import { tags as t, tagHighlighter } from '@lezer/highlight';
 import { spellChecker } from './spell';
 import { lintExtension } from './lint';
+import { indentGuides as indentGuidesExt } from './indentguides';
 
 // ── Compartments (reconfigured from the settings) ──
 export const comp = {
@@ -31,6 +32,7 @@ export const comp = {
   lint: new Compartment(),
   autoIndent: new Compartment(),
   autocomplete: new Compartment(),
+  indentGuides: new Compartment(),
 };
 
 // ── Syntax colours → CSS variables set by src/themes.js ──
@@ -140,6 +142,7 @@ export function baseExtensions(settings, { onChange, onUpdate }) {
     comp.spell.of(settings.spellCheck ? spellChecker : []),
     comp.autoIndent.of(autoIndentConfig(settings)),
     comp.autocomplete.of(autocompleteConfig(settings)),
+    comp.indentGuides.of(settings.indentGuides === false ? [] : indentGuidesExt()),
     EditorView.updateListener.of((u) => {
       if (u.docChanged && onChange) onChange(u);
       if (onUpdate && (u.docChanged || u.selectionSet || u.focusChanged)) onUpdate(u);
@@ -178,6 +181,7 @@ export function settingsEffects(settings) {
     comp.lint.reconfigure(settings.lint !== false ? lintExtension : []),
     comp.autoIndent.reconfigure(autoIndentConfig(settings)),
     comp.autocomplete.reconfigure(autocompleteConfig(settings)),
+    comp.indentGuides.reconfigure(settings.indentGuides === false ? [] : indentGuidesExt()),
   ];
 }
 

@@ -22,6 +22,7 @@ const DEFAULTS = {
   wordWrap: false,
   lineNumbers: true,
   showWhitespace: false,
+  indentGuides: true,      // vertical lines at every tab stop of the indent
   highlightActiveLine: true,
   autoCloseBrackets: true,
   bracketMatching: true,
