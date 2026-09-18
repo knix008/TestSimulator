@@ -719,6 +719,102 @@
     </div>
   </div>
 
+  <!-- ═══ Print Preview Dialog ═══ -->
+  <div id="print-overlay" class="dialog-overlay" style="display:none;">
+    <div class="dialog-box print-dialog-box">
+      <div class="dialog-header">
+        <span class="dialog-title">
+          <span class="dialog-title-icon" data-icon="print"></span>
+          <span data-i18n="print.title">Print Preview</span>
+        </span>
+        <button class="dialog-close-btn" data-close-dialog>
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </div>
+      <div class="dialog-body print-dialog-body">
+        <div class="print-preview-col">
+          <div class="print-preview-stage" id="print-preview-stage">
+            <div class="print-paper" id="print-paper">
+              <div class="print-content" id="print-content">
+                <img id="print-preview-img" alt="" draggable="false">
+              </div>
+            </div>
+          </div>
+          <div class="print-page-info" id="print-page-info"></div>
+        </div>
+        <div class="print-controls-col">
+          <div class="resize-label" data-i18n="print.printer">Printer</div>
+          <select id="print-printer" class="resize-select"></select>
+
+          <div class="resize-label" data-i18n="print.paper">Paper size</div>
+          <select id="print-paper-size" class="resize-select">
+            <option value="A4">A4 (210 × 297 mm)</option>
+            <option value="Letter">Letter (216 × 279 mm)</option>
+            <option value="Legal">Legal (216 × 356 mm)</option>
+            <option value="A3">A3 (297 × 420 mm)</option>
+            <option value="A5">A5 (148 × 210 mm)</option>
+            <option value="Tabloid">Tabloid (279 × 432 mm)</option>
+          </select>
+
+          <div class="resize-label" data-i18n="print.orientation">Orientation</div>
+          <div class="resize-mode-row" role="radiogroup">
+            <label class="resize-chip"><input type="radio" name="print-orient" value="auto" checked> <span data-i18n="print.auto">Auto</span></label>
+            <label class="resize-chip"><input type="radio" name="print-orient" value="portrait"> <span data-i18n="print.portrait">Portrait</span></label>
+            <label class="resize-chip"><input type="radio" name="print-orient" value="landscape"> <span data-i18n="print.landscape">Landscape</span></label>
+          </div>
+
+          <div class="resize-label" data-i18n="print.margins">Margins</div>
+          <select id="print-margins" class="resize-select">
+            <option value="0" data-i18n="print.marginNone">None</option>
+            <option value="5" data-i18n="print.marginNarrow">Narrow (5 mm)</option>
+            <option value="10" selected data-i18n="print.marginNormal">Normal (10 mm)</option>
+            <option value="20" data-i18n="print.marginWide">Wide (20 mm)</option>
+          </select>
+
+          <div class="resize-label" data-i18n="print.scale">Scale</div>
+          <div class="resize-mode-row" role="radiogroup">
+            <label class="resize-chip"><input type="radio" name="print-scale" value="fit" checked> <span data-i18n="print.fit">Fit to page</span></label>
+            <label class="resize-chip"><input type="radio" name="print-scale" value="actual"> <span data-i18n="print.actual">Actual size</span></label>
+            <label class="resize-chip"><input type="radio" name="print-scale" value="custom"> <span data-i18n="print.custom">Custom</span></label>
+          </div>
+          <div class="resize-fields" id="print-scale-custom-wrap" hidden>
+            <label class="resize-field">
+              <span data-i18n="print.scalePct">Scale (% of fit)</span>
+              <span class="resize-field-inline">
+                <input id="print-scale-pct" type="number" min="5" max="400" step="1" value="100">
+                <span>%</span>
+              </span>
+            </label>
+          </div>
+
+          <div class="resize-fields">
+            <label class="resize-field">
+              <span data-i18n="print.copies">Copies</span>
+              <input id="print-copies" type="number" min="1" max="99" step="1" value="1">
+            </label>
+            <label class="resize-field">
+              <span data-i18n="print.color">Color</span>
+              <select id="print-color" class="resize-select">
+                <option value="color" data-i18n="print.colorColor">Color</option>
+                <option value="gray" data-i18n="print.grayscale">Grayscale</option>
+              </select>
+            </label>
+          </div>
+        </div>
+      </div>
+      <div class="dialog-footer">
+        <button class="btn-icon" data-close-dialog>
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+          <span data-i18n="print.cancel">Cancel</span>
+        </button>
+        <button class="btn-icon primary" id="print-go">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 8H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zm-3 11H8v-5h8v5zm3-7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-1-9H6v4h12V3z"/></svg>
+          <span data-i18n="print.print">Print</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- ═══ File / Folder / Save Dialog ═══ -->
   <div id="file-dialog-overlay" class="dialog-overlay" style="display:none;">
     <div class="dialog-box file-dialog-box">

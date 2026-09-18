@@ -71,6 +71,7 @@
   ContextMenu.init();
   _initErrorDialog();
   _initSettingsDialog();
+  _initPrintDialog();
   // Popup title bars: icon + label (static dialogs; the file dialog swaps its own per mode)
   document.querySelectorAll('.dialog-title-icon[data-icon]').forEach((el) => { el.innerHTML = Icons[el.dataset.icon] || ''; });
 
@@ -496,6 +497,7 @@
       { id:'btn-next',        icon:'next',       tip:'toolbar.next',       action: _nextImage, disabled: true },
       { separator: true },
       { id:'btn-edit',        icon:'edit',       tip:'toolbar.edit',       action: _openEditWindow, disabled: true },
+      { id:'btn-print',       icon:'print',      tip:'toolbar.print',      action: _openPrintPreview, disabled: true },
       { separator: true },
       // Zoom: [−] [100%] [+] — the percentage box sits between the two buttons
       { id:'btn-zoom-out',    icon:'zoomOut',    tip:'toolbar.zoomOut',    action: () => _zoom(0.8),  disabled: true },
@@ -674,7 +676,7 @@
       { separator: true },
       { icon: Icons.saveAs,     label: t('menu.saveAs'),     shortcut: 'Ctrl+Shift+S', disabled: !hasImg, action: () => _saveAs() },
       { icon: Icons.export,     label: t('menu.export'),     disabled: !hasImg, submenu: () => _exportMenuItems() },
-      { icon: Icons.print,      label: t('menu.print'),      shortcut: 'Ctrl+P',       disabled: !_canPrint(), action: () => _printImage() },
+      { icon: Icons.print,      label: t('menu.print'),      shortcut: 'Ctrl+P',       disabled: !_canPrint(), action: () => _openPrintPreview() },
       { separator: true },
       { icon: Icons.fileInfo,   label: t('menu.fileInfo'),   shortcut: 'Ctrl+I',       disabled: !hasFile, action: () => _showFileInfoDialog() },
       !isWeb && { icon: Icons.explorer, label: t('context.showInExplorer'), disabled: !hasFile, action: () => _showInExplorer() },
@@ -850,24 +852,206 @@
   function _printableDataUrl() {
     if (Editor.isLoaded()) return Editor.exportAsDataUrl('image/png');
     if (state.isAnimated) {
-      if (animFreeze && animFreeze.width) { try { return animFreeze.toDataURL('image/png'); } catch { /* fall through */ } }
+      // Paused → the frozen frame; playing → snapshot the <img> (the freeze canvas is blank until first pause)
+      if (animFreeze && animFreeze.style.display !== 'none' && animFreeze.width) {
+        try { return animFreeze.toDataURL('image/png'); } catch { /* fall through */ }
+      }
+      if (animImg && animImg.naturalWidth) {
+        try {
+          const c = document.createElement('canvas');
+          c.width = animImg.naturalWidth; c.height = animImg.naturalHeight;
+          c.getContext('2d').drawImage(animImg, 0, 0);
+          return c.toDataURL('image/png');
+        } catch { /* fall through */ }
+      }
       return state.animatedDataUrl || null;
     }
     return null;
   }
 
-  async function _printImage() {
+  /* Print preview: paper / orientation / margins / scale are chosen here, the page is
+   * drawn to scale, and "Print" sends the picture straight to the selected printer
+   * (the system default is pre-selected). */
+  const PRINT_PAPERS = { A4: [210, 297], Letter: [215.9, 279.4], Legal: [215.9, 355.6], A3: [297, 420], A5: [148, 210], Tabloid: [279.4, 431.8] };
+  const PRINT_PREFS_KEY = 'printPrefs';
+  const _print = { dataUrl: null, imgW: 0, imgH: 0, printers: [], busy: false };
+
+  function _loadPrintPrefs() {
+    try { return JSON.parse(localStorage.getItem(PRINT_PREFS_KEY) || '{}') || {}; } catch { return {}; }
+  }
+
+  function _readPrintForm() {
+    const q = (id) => document.getElementById(id);
+    const radio = (name) => document.querySelector(`input[name="${name}"]:checked`)?.value;
+    return {
+      printer:  q('print-printer')?.value || '',
+      paper:    PRINT_PAPERS[q('print-paper-size')?.value] ? q('print-paper-size').value : 'A4',
+      orient:   radio('print-orient') || 'auto',
+      marginMm: Math.max(0, parseFloat(q('print-margins')?.value) || 0),
+      scale:    radio('print-scale') || 'fit',
+      scalePct: Math.min(400, Math.max(5, parseFloat(q('print-scale-pct')?.value) || 100)),
+      copies:   Math.min(99, Math.max(1, parseInt(q('print-copies')?.value, 10) || 1)),
+      color:    q('print-color')?.value === 'gray' ? 'gray' : 'color',
+    };
+  }
+
+  function _writePrintForm(f) {
+    const q = (id) => document.getElementById(id);
+    if (q('print-paper-size') && PRINT_PAPERS[f.paper]) q('print-paper-size').value = f.paper;
+    const orient = document.querySelector(`input[name="print-orient"][value="${f.orient}"]`);
+    if (orient) orient.checked = true;
+    if (q('print-margins')) q('print-margins').value = String(f.marginMm);
+    const scale = document.querySelector(`input[name="print-scale"][value="${f.scale}"]`);
+    if (scale) scale.checked = true;
+    if (q('print-scale-pct')) q('print-scale-pct').value = String(f.scalePct);
+    if (q('print-copies')) q('print-copies').value = String(f.copies);
+    if (q('print-color')) q('print-color').value = f.color;
+  }
+
+  /** Page geometry (mm) for the current form: paper, orientation and the image box. */
+  function _printLayout(f) {
+    const [pw0, ph0] = PRINT_PAPERS[f.paper] || PRINT_PAPERS.A4;
+    const imgLandscape = _print.imgW > _print.imgH;
+    const landscape = f.orient === 'landscape' || (f.orient === 'auto' && imgLandscape);
+    const pw = landscape ? ph0 : pw0;
+    const ph = landscape ? pw0 : ph0;
+    const cw = Math.max(1, pw - 2 * f.marginMm);
+    const ch = Math.max(1, ph - 2 * f.marginMm);
+    let iw = 0, ih = 0;
+    if (_print.imgW && _print.imgH) {
+      const fit = Math.min(cw / _print.imgW, ch / _print.imgH);
+      let k = fit;
+      if (f.scale === 'actual') k = 25.4 / 96;              // CSS px → mm (100 % on screen)
+      else if (f.scale === 'custom') k = fit * f.scalePct / 100;
+      iw = _print.imgW * k;
+      ih = _print.imgH * k;
+    }
+    return { pw, ph, cw, ch, iw, ih, landscape };
+  }
+
+  function _renderPrintPreview() {
+    const f = _readPrintForm();
+    const L = _printLayout(f);
+    const stage = document.getElementById('print-preview-stage');
+    const paper = document.getElementById('print-paper');
+    const content = document.getElementById('print-content');
+    const img = document.getElementById('print-preview-img');
+    if (!stage || !paper || !content || !img) return;
+
+    const sw = stage.clientWidth - 32, sh = stage.clientHeight - 32;
+    const k = Math.max(0.01, Math.min(sw / L.pw, sh / L.ph));      // mm → preview px
+    paper.style.width = `${L.pw * k}px`;
+    paper.style.height = `${L.ph * k}px`;
+    paper.classList.toggle('gray', f.color === 'gray');
+    content.style.left = content.style.top = `${f.marginMm * k}px`;
+    content.style.width = `${L.cw * k}px`;
+    content.style.height = `${L.ch * k}px`;
+    img.style.width = `${L.iw * k}px`;
+    img.style.height = `${L.ih * k}px`;
+
+    document.getElementById('print-scale-custom-wrap')?.toggleAttribute('hidden', f.scale !== 'custom');
+    const info = document.getElementById('print-page-info');
+    if (info) {
+      const t = I18n.t.bind(I18n);
+      info.textContent = (t('print.pageInfo') || '')
+        .replace('{paper}', f.paper)
+        .replace('{orient}', t(L.landscape ? 'print.landscape' : 'print.portrait'))
+        .replace('{pw}', Math.round(L.pw)).replace('{ph}', Math.round(L.ph))
+        .replace('{iw}', Math.round(L.iw)).replace('{ih}', Math.round(L.ih));
+    }
+    try { localStorage.setItem(PRINT_PREFS_KEY, JSON.stringify({ ...f, printer: undefined })); } catch {}
+  }
+
+  async function _fillPrinterList() {
+    const sel = document.getElementById('print-printer');
+    if (!sel) return;
+    const t = I18n.t.bind(I18n);
+    sel.innerHTML = '';
+    let printers = [];
+    try { printers = (await window.electronAPI.getPrinters?.()) || []; } catch { printers = []; }
+    _print.printers = printers;
+    if (!printers.length) {
+      const opt = document.createElement('option');
+      opt.value = '';
+      opt.textContent = _isWeb() ? t('print.browserPrinter') : t('print.noPrinters');
+      sel.appendChild(opt);
+      return;
+    }
+    // System default printer first and pre-selected
+    printers = [...printers].sort((a, b) => (b.isDefault ? 1 : 0) - (a.isDefault ? 1 : 0));
+    for (const pr of printers) {
+      const opt = document.createElement('option');
+      opt.value = pr.name;
+      opt.textContent = pr.displayName + (pr.isDefault ? ` ${t('print.default')}` : '');
+      if (pr.isDefault) opt.selected = true;
+      sel.appendChild(opt);
+    }
+    if (!printers.some((pr) => pr.isDefault)) sel.selectedIndex = 0;
+  }
+
+  function _initPrintDialog() {
+    const overlay = document.getElementById('print-overlay');
+    if (!overlay) return;
+    overlay.querySelectorAll('select, input').forEach((el) => {
+      el.addEventListener('change', _renderPrintPreview);
+      if (el.type === 'number') el.addEventListener('input', _renderPrintPreview);
+    });
+    document.getElementById('print-go')?.addEventListener('click', () => _printImage());
+    window.addEventListener('resize', () => { if (overlay.classList.contains('visible')) _renderPrintPreview(); });
+  }
+
+  async function _openPrintPreview() {
     if (!_canPrint()) return;
     const dataUrl = _printableDataUrl();
     if (!dataUrl) return;
+    const img = document.getElementById('print-preview-img');
+    if (!img) return;
+    _print.dataUrl = dataUrl;
+    await new Promise((resolve) => {
+      img.onload = () => { _print.imgW = img.naturalWidth; _print.imgH = img.naturalHeight; resolve(); };
+      img.onerror = () => { _print.imgW = _print.imgH = 0; resolve(); };
+      img.src = dataUrl;
+    });
+    _writePrintForm({ paper: 'A4', orient: 'auto', marginMm: 10, scale: 'fit', scalePct: 100, copies: 1, color: 'color', ..._loadPrintPrefs() });
+    _showDialog('print-overlay');
+    _renderPrintPreview();
+    await _fillPrinterList();
+  }
+
+  /** "Print" in the preview: send to the selected printer without another dialog. */
+  async function _printImage() {
+    if (_print.busy || !_print.dataUrl) return;
+    const f = _readPrintForm();
+    const L = _printLayout(f);
     const title = state.currentFile ? state.currentFile.split(/[/\\]/).pop() : (I18n.t('app.title') || 'Image');
+    const goBtn = document.getElementById('print-go');
+    _print.busy = true;
+    if (goBtn) { goBtn.disabled = true; goBtn.querySelector('span').textContent = I18n.t('print.printing'); }
     try {
-      const res = await window.electronAPI.printImage({ dataUrl, title });
+      const res = await window.electronAPI.printImage({
+        dataUrl: _print.dataUrl,
+        title,
+        deviceName: f.printer || undefined,
+        copies: f.copies,
+        landscape: L.landscape,
+        pageSize: f.paper,
+        marginMm: f.marginMm,
+        imgWmm: Math.round(L.iw * 100) / 100,
+        imgHmm: Math.round(L.ih * 100) / 100,
+        color: f.color,
+      });
       if (res && res.error && res.error !== 'cancelled') {
         _showError(I18n.t('error.print') || 'Could not print the image.', res.error);
+      } else if (!res || !res.error) {
+        _hideDialog('print-overlay');
+        const pr = _print.printers.find((x) => x.name === f.printer);
+        if (pr) _updateStatus({ msg: (I18n.t('print.sent') || 'Sent to {printer}').replace('{printer}', pr.displayName) });
       }
     } catch (e) {
       _showError(I18n.t('error.print') || 'Could not print the image.', e);
+    } finally {
+      _print.busy = false;
+      if (goBtn) { goBtn.disabled = false; goBtn.querySelector('span').textContent = I18n.t('print.print'); }
     }
   }
 
@@ -1027,6 +1211,7 @@
     set('btn-flip-v', isImage);
     set('btn-resize', isImage);
     set('btn-edit', isImage);
+    set('btn-print', isImage || !!state.isAnimated);
     if (!isImage) {
       set('btn-undo', false);
       set('btn-redo', false);
@@ -6383,7 +6568,7 @@
         return;
       }
       if (ctrl && e.shiftKey && e.key === 'S') { e.preventDefault(); _saveAs(); return; }
-      if (ctrl && (e.key === 'p' || e.key === 'P')) { e.preventDefault(); _printImage(); return; }
+      if (ctrl && (e.key === 'p' || e.key === 'P')) { e.preventDefault(); _openPrintPreview(); return; }
       if (ctrl && (e.key === 'i' || e.key === 'I')) { e.preventDefault(); if (state.currentFile) _showFileInfoDialog(); return; }
       if (ctrl && e.shiftKey && (e.key === 'z' || e.key === 'Z')) {
         e.preventDefault();

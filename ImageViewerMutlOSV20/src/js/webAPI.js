@@ -191,15 +191,22 @@
       catch (e) { return { error: e.message }; }
     },
 
-    // Print through the browser: a popup with just the picture, closed after the dialog
-    printImage: async ({ dataUrl, title } = {}) => {
+    // No printer enumeration in the browser — the preview's Print button opens the browser dialog
+    getPrinters: async () => [],
+
+    // Print through the browser: a popup with just the picture (sized like the preview), closed after the dialog
+    printImage: async ({ dataUrl, title, pageSize, landscape, marginMm, imgWmm, imgHmm, color } = {}) => {
       if (!dataUrl) return { error: 'Nothing to print' };
       const w = window.open('', '_blank', 'width=900,height=700');
       if (!w) return { error: 'Popup blocked' };
       const esc = (s) => String(s || '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+      const m = Number.isFinite(marginMm) ? marginMm : 10;
+      const size = pageSize ? (pageSize + ' ' + (landscape ? 'landscape' : 'portrait')) : 'auto';
+      const imgCss = (imgWmm && imgHmm) ? 'width:' + imgWmm + 'mm;height:' + imgHmm + 'mm' : 'max-width:100%;max-height:100vh;object-fit:contain';
+      const filter = color === 'gray' ? 'filter:grayscale(1);' : '';
       w.document.open();
       w.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>' + esc(title) + '</title>'
-        + '<style>@page{margin:10mm}html,body{margin:0;padding:0;width:100%;height:100%;background:#fff}body{display:flex;align-items:center;justify-content:center}img{max-width:100%;max-height:100vh;object-fit:contain}</style>'
+        + '<style>@page{size:' + size + ';margin:' + m + 'mm}html,body{margin:0;padding:0;width:100%;height:100%;background:#fff}body{display:flex;align-items:center;justify-content:center;overflow:hidden}img{' + imgCss + ';' + filter + '}</style>'
         + '</head><body><img src="' + dataUrl + '" alt=""></body></html>');
       w.document.close();
       await new Promise((r) => { const i = w.document.querySelector('img'); if (!i || i.complete) r(); else { i.onload = () => r(); i.onerror = () => r(); } });

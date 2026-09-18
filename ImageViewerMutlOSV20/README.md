@@ -64,7 +64,7 @@ A multi-platform image viewer and editor built with **Electron** and vanilla Jav
 
 - **Window chrome / 창 구성**
   - Title bar (app icon · name · version · current file · window buttons), **menu bar** (File / Edit / View / Effects / Help — every item with an icon and shortcut) and an icon toolbar
-  - File menu: open file, open folder (browse **or** pick a recent folder — each removable, clear all), save as, **export** (PNG / JPEG / WebP / BMP / clipboard), **print** (`Ctrl+P`), file info, show in Explorer, delete, exit
+  - File menu: open file, open folder (browse **or** pick a recent folder — each removable, clear all), save as, **export** (PNG / JPEG / WebP / BMP / clipboard), **print** (`Ctrl+P`, also a toolbar button — opens a print preview: printer with the system default pre-selected, paper, orientation, margins, scale, copies, colour; prints directly to the chosen printer), file info, show in Explorer, delete, exit
 
 - **Viewer / 뷰어**
   - Mouse-wheel zoom, pan, fit to window, actual size, zoom input

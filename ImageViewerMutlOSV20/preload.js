@@ -43,6 +43,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   saveFile: (data) => ipcRenderer.invoke('save-file', data),
   showSaveDialog: (data) => ipcRenderer.invoke('show-save-dialog', data),
   printImage: (data) => ipcRenderer.invoke('print-image', data),
+  getPrinters: () => ipcRenderer.invoke('get-printers'),
   writeFile: (data) => ipcRenderer.invoke('write-file', data),
 
   // Dialogs

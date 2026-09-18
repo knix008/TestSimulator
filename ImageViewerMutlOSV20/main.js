@@ -1779,19 +1779,45 @@ ipcMain.handle('decode-dicom', async (event, filePath) => {
   }
 });
 
-/* Print: render the picture in a hidden window and hand it to the system print dialog. */
-function _printPageHtml(dataUrl, title) {
+/* Print: the renderer's preview dialog decides paper / orientation / margins / image size;
+ * the picture is rendered at exactly that size in a hidden window and sent straight to the
+ * chosen printer (silent) — no second system dialog. */
+const PRINT_PAGE_SIZES = new Set(['A3', 'A4', 'A5', 'Legal', 'Letter', 'Tabloid']);
+
+function _printPageHtml(dataUrl, title, { marginMm = 10, imgWmm, imgHmm, color } = {}) {
   const esc = (s) => String(s || '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const imgCss = (imgWmm > 0 && imgHmm > 0)
+    ? `width: ${imgWmm}mm; height: ${imgHmm}mm;`
+    : 'max-width: 100%; max-height: 100vh; object-fit: contain;';
+  const filter = color === 'gray' ? 'filter: grayscale(1);' : '';
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${esc(title)}</title>
 <style>
-  @page { margin: 10mm; }
+  @page { margin: ${marginMm}mm; }
   html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: #fff; }
-  body { display: flex; align-items: center; justify-content: center; }
-  img { max-width: 100%; max-height: 100vh; object-fit: contain; }
+  body { display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  img { ${imgCss} ${filter} }
 </style></head><body><img src="${dataUrl}" alt=""></body></html>`;
 }
 
-ipcMain.handle('print-image', async (event, { dataUrl, title } = {}) => {
+ipcMain.handle('get-printers', async () => {
+  try {
+    const wc = mainWindow && !mainWindow.isDestroyed() ? mainWindow.webContents : null;
+    if (!wc) return [];
+    const list = await wc.getPrintersAsync();
+    return list.map((p) => ({
+      name: p.name,
+      displayName: p.displayName || p.name,
+      description: p.description || '',
+      isDefault: !!p.isDefault,
+    }));
+  } catch (err) {
+    console.warn('getPrinters failed:', err.message);
+    return [];
+  }
+});
+
+ipcMain.handle('print-image', async (event, opts = {}) => {
+  const { dataUrl, title, deviceName, copies, landscape, pageSize, marginMm, imgWmm, imgHmm, color } = opts;
   if (!dataUrl || typeof dataUrl !== 'string' || !dataUrl.startsWith('data:image/')) return { error: 'Nothing to print' };
   let win = null;
   try {
@@ -1800,12 +1826,24 @@ ipcMain.handle('print-image', async (event, { dataUrl, title } = {}) => {
       parent: mainWindow || undefined,
       webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false },
     });
-    await win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(_printPageHtml(dataUrl, title)));
+    const mm = Number.isFinite(marginMm) ? Math.max(0, marginMm) : 10;
+    await win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(_printPageHtml(dataUrl, title, { marginMm: mm, imgWmm, imgHmm, color })));
     await win.webContents.executeJavaScript(
       'new Promise((r) => { const i = document.querySelector("img"); if (!i || i.complete) r(); else { i.onload = () => r(); i.onerror = () => r(); } })'
     );
+    const px = (v) => Math.round(v * 96 / 25.4);
+    const printOpts = {
+      silent: !!deviceName,            // a printer was chosen in the preview → print directly
+      printBackground: false,
+      color: color !== 'gray',
+      landscape: !!landscape,
+      copies: Math.min(99, Math.max(1, parseInt(copies, 10) || 1)),
+      margins: { marginType: 'custom', top: px(mm), bottom: px(mm), left: px(mm), right: px(mm) },
+    };
+    if (deviceName) printOpts.deviceName = deviceName;
+    if (PRINT_PAGE_SIZES.has(pageSize)) printOpts.pageSize = pageSize;
     return await new Promise((resolve) => {
-      win.webContents.print({ silent: false, printBackground: false }, (success, reason) => {
+      win.webContents.print(printOpts, (success, reason) => {
         try { win.destroy(); } catch {}
         win = null;
         resolve(success ? { success: true } : { error: reason || 'cancelled' });
