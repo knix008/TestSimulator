@@ -46,7 +46,7 @@ export function transformHandles(box: TransformBox): Record<TransformHandle, Poi
     s: { x: midX, y: bottom },
     sw: { x: left, y: bottom },
     w: { x: left, y: midY },
-    // Floating above the top edge, the way Photoshop's rotate grip sits outside the box.
+    // Floating above the top edge, the way a rotate grip sits outside the box.
     rotate: { x: midX, y: top - Math.max(18, Math.abs(box.height) * 0.16) },
     move: center,
   }
@@ -78,7 +78,7 @@ export function containsPoint(box: TransformBox, point: Point) {
 
 /**
  * Applies one drag to the box. `shift` keeps the aspect ratio for corner grips
- * and snaps rotation to 15 degrees, matching the modifier in Photoshop.
+ * and snaps rotation to 15 degrees, which is what the modifier is for.
  */
 export function dragTransform(
   box: TransformBox,

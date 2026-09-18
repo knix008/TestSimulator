@@ -2,9 +2,13 @@
 ;
 ;  • a page letting the user choose Desktop / Start Menu shortcuts
 ;    (Korean when the installer runs in Korean, English otherwise)
-;  • a page for the file associations: "Open with" entries with a file-type
-;    icon per language (build/fileicons, generated) and — if the user wants —
-;    My Editor as the default editor of those files (per user, HKCU)
+;  • a page for file associations: the user picks which source-code /
+;    text types My Editor should own as the default program (per type,
+;    listed in build/fileicons/assoc-list.nsh). Those types are written
+;    to HKCU Classes + Capabilities and Explorer's UserChoice is cleared
+;    so Windows actually uses them. Unchecked types stay with whatever
+;    program they had. An optional "Open with" box still lists My Editor
+;    for every type.
 ;  • a clean reinstall: electron-builder runs the previous version's
 ;    uninstaller first, and this script sweeps whatever it left behind
 ;  • asks before deleting the data (session, settings) an earlier
@@ -14,6 +18,26 @@
 
 !include "nsDialogs.nsh"
 !include "LogicLib.nsh"
+!include "WinMessages.nsh"
+
+!ifndef LBS_MULTIPLESEL
+  !define LBS_MULTIPLESEL 0x00000008
+!endif
+!ifndef LBS_NOINTEGRALHEIGHT
+  !define LBS_NOINTEGRALHEIGHT 0x00000100
+!endif
+!ifndef LB_ADDSTRING
+  !define LB_ADDSTRING 0x0180
+!endif
+!ifndef LB_SETSEL
+  !define LB_SETSEL 0x0185
+!endif
+!ifndef LB_GETSEL
+  !define LB_GETSEL 0x0187
+!endif
+!ifndef LB_GETCOUNT
+  !define LB_GETCOUNT 0x018B
+!endif
 
 !ifndef BUILD_UNINSTALLER
 Var DesktopShortcutCheckbox
@@ -22,15 +46,19 @@ Var DoCreateDesktopShortcut
 Var DoCreateStartMenuShortcut
 Var PrevInstallDir
 Var AssocCheckbox
-Var DefaultCheckbox
+Var TypeList
+Var AssocAllBtn
+Var AssocNoneBtn
 Var DoAssoc
-Var DoDefault
+Var DoDefaultKeys
+Var AppExeName
 
 !macro customInit
   StrCpy $DoCreateDesktopShortcut "1"
   StrCpy $DoCreateStartMenuShortcut "1"
   StrCpy $DoAssoc "1"
-  StrCpy $DoDefault "0"
+  StrCpy $DoDefaultKeys "*"
+  StrCpy $AppExeName "${APP_EXECUTABLE_FILENAME}"
 
   StrCpy $PrevInstallDir ""
   ReadRegStr $0 HKCU "${UNINSTALL_REGISTRY_KEY}" "InstallLocation"
@@ -49,6 +77,8 @@ Var DoDefault
   Page custom AssocPageCreate AssocPageLeave
 !macroend
 
+!include "${BUILD_RESOURCES_DIR}\fileicons\assoc-list.nsh"
+
 ; ── File associations page ────────────────────────────────
 Function AssocPageCreate
   nsDialogs::Create 1018
@@ -57,26 +87,67 @@ Function AssocPageCreate
     Abort
   ${EndIf}
   ${If} $LANGUAGE == 1042
-    ${NSD_CreateLabel} 0 0u 100% 36u "파일 형식 등록을 선택하세요.$\r$\n소스 코드·텍스트 파일(JavaScript · Python · C/C++ · Markdown · JSON · SQL 등 35가지 형식, 90여 개 확장자)을 My Editor 와 연결합니다. 현재 사용자 계정에만 등록되며 제거 시 함께 지워집니다."
+    ${NSD_CreateLabel} 0 0u 100% 20u "소스 코드·텍스트 형식마다 My Editor 를 기본 프로그램으로 등록할지 고르세요. 선택한 형식만 시스템에 연결됩니다 (현재 사용자, 제거 시 해제)."
     Pop $0
-    ${NSD_CreateCheckbox} 0 44u 100% 12u "'연결 프로그램' 목록에 My Editor 추가 (언어별 파일 아이콘 포함)"
+    ${NSD_CreateCheckbox} 0 20u 100% 12u "'연결 프로그램' 목록에 My Editor 추가 (모든 형식, 언어별 아이콘)"
     Pop $AssocCheckbox
-    ${NSD_CreateCheckbox} 0 62u 100% 12u "My Editor 를 이 파일들의 기본 편집기로 등록 (더블클릭으로 열림, 탐색기에 언어별 아이콘 표시)"
-    Pop $DefaultCheckbox
-    ${NSD_CreateLabel} 0 84u 100% 40u "기본 편집기로 등록하지 않으면 각 파일의 아이콘은 기존 프로그램의 것이 유지되고, 오른쪽 클릭 › 연결 프로그램에서 My Editor 를 고를 수 있습니다. 나중에 Windows 설정 › 앱 › 기본 앱에서 언제든 바꿀 수 있습니다."
+    ${NSD_CreateLabel} 0 34u 52% 12u "기본 프로그램으로 등록할 형식:"
+    Pop $0
+    ${NSD_CreateButton} 54% 32u 22% 14u "모두 선택"
+    Pop $AssocAllBtn
+    ${NSD_CreateButton} 78% 32u 22% 14u "선택 해제"
+    Pop $AssocNoneBtn
+    ${NSD_CreateLabel} 0 118u 100% 22u "목록에서 고른 형식은 더블클릭 시 My Editor 로 열리고 탐색기 아이콘이 바뀝니다. 고르지 않은 형식은 기존 프로그램이 그대로입니다."
     Pop $0
   ${Else}
-    ${NSD_CreateLabel} 0 0u 100% 36u "Choose how My Editor registers file types.$\r$\nSource and text files (JavaScript, Python, C/C++, Markdown, JSON, SQL … 35 types, 90+ extensions) are associated for the current user only and removed on uninstall."
+    ${NSD_CreateLabel} 0 0u 100% 20u "Choose which source and text types should open with My Editor by default. Only the types you select are registered for this user (cleared on uninstall)."
     Pop $0
-    ${NSD_CreateCheckbox} 0 44u 100% 12u "Add My Editor to the 'Open with' list (with an icon per language)"
+    ${NSD_CreateCheckbox} 0 20u 100% 12u "Also add My Editor to 'Open with' for every type (language icons)"
     Pop $AssocCheckbox
-    ${NSD_CreateCheckbox} 0 62u 100% 12u "Make My Editor the default editor of these files (double-click opens them, Explorer shows the language icons)"
-    Pop $DefaultCheckbox
-    ${NSD_CreateLabel} 0 84u 100% 40u "Without the default registration the files keep their current program and icon; My Editor appears under right-click › Open with. You can change this any time in Windows Settings › Apps › Default apps."
+    ${NSD_CreateLabel} 0 34u 52% 12u "Register as the default program:"
+    Pop $0
+    ${NSD_CreateButton} 54% 32u 22% 14u "Select all"
+    Pop $AssocAllBtn
+    ${NSD_CreateButton} 78% 32u 22% 14u "Select none"
+    Pop $AssocNoneBtn
+    ${NSD_CreateLabel} 0 118u 100% 22u "Selected types open with a double-click and show My Editor's icon. Unselected types keep their current program."
     Pop $0
   ${EndIf}
-  ${NSD_Check} $AssocCheckbox
+  ${If} $DoAssoc == "1"
+    ${NSD_Check} $AssocCheckbox
+  ${EndIf}
+  ${NSD_OnClick} $AssocAllBtn AssocSelectAll
+  ${NSD_OnClick} $AssocNoneBtn AssocSelectNone
+  nsDialogs::CreateControl ${__NSD_ListBox_CLASS} ${__NSD_ListBox_STYLE}|${LBS_MULTIPLESEL}|${LBS_NOINTEGRALHEIGHT} ${__NSD_ListBox_EXSTYLE} 0 48u 100% 68u
+  Pop $TypeList
+  Call MedAssocFill
+  Call AssocRestoreSel
   nsDialogs::Show
+FunctionEnd
+
+Function AssocSelectAll
+  SendMessage $TypeList ${LB_SETSEL} 1 -1
+FunctionEnd
+
+Function AssocSelectNone
+  SendMessage $TypeList ${LB_SETSEL} 0 -1
+FunctionEnd
+
+Function AssocRestoreSel
+  SendMessage $TypeList ${LB_GETCOUNT} 0 0 $R0
+  StrCpy $R1 0
+  AssocRestLoop:
+    IntCmp $R1 $R0 AssocRestDone
+    StrCpy $0 $R1
+    Call MedAssocKeyAt
+    StrCpy $R8 $1
+    Call MedKeyChosen
+    ${If} $R7 == "1"
+      SendMessage $TypeList ${LB_SETSEL} 1 $R1
+    ${EndIf}
+    IntOp $R1 $R1 + 1
+    Goto AssocRestLoop
+  AssocRestDone:
 FunctionEnd
 
 Function AssocPageLeave
@@ -86,21 +157,58 @@ Function AssocPageLeave
   ${Else}
     StrCpy $DoAssoc "0"
   ${EndIf}
-  ${NSD_GetState} $DefaultCheckbox $0
-  ${If} $0 == 1
-    StrCpy $DoAssoc "1"
-    StrCpy $DoDefault "1"
-  ${Else}
-    StrCpy $DoDefault "0"
+  SendMessage $TypeList ${LB_GETCOUNT} 0 0 $R0
+  StrCpy $DoDefaultKeys "|"
+  StrCpy $R1 0
+  AssocLeaveLoop:
+    IntCmp $R1 $R0 AssocLeaveDone
+    SendMessage $TypeList ${LB_GETSEL} $R1 0 $R2
+    ${If} $R2 != 0
+      StrCpy $0 $R1
+      Call MedAssocKeyAt
+      ${If} $1 != ""
+        StrCpy $DoDefaultKeys "$DoDefaultKeys$1|"
+      ${EndIf}
+    ${EndIf}
+    IntOp $R1 $R1 + 1
+    Goto AssocLeaveLoop
+  AssocLeaveDone:
+FunctionEnd
+
+; $R8 = type key; $R7 = 1 if that type should become the default program.
+Function MedKeyChosen
+  ${If} $DoDefaultKeys == "*"
+    StrCpy $R7 1
+    Return
   ${EndIf}
+  StrCpy $R6 "|$R8|"
+  StrLen $R5 $R6
+  StrCpy $R4 0
+  MedKeyScan:
+    StrCpy $R3 $DoDefaultKeys $R5 $R4
+    ${If} $R3 == ""
+      StrCpy $R7 0
+      Return
+    ${EndIf}
+    ${If} $R3 == $R6
+      StrCpy $R7 1
+      Return
+    ${EndIf}
+    IntOp $R4 $R4 + 1
+    Goto MedKeyScan
 FunctionEnd
 
 ; One file type (build/fileicons/file-types.nsh): a ProgID with the icon and
-; the open command; every extension gets the ProgID in its "Open with" list
-; and, if chosen, as its default.
+; the open command. Open-with is written when the user asked for it or when
+; the type is a chosen default; the Classes default + UserChoice reset run
+; only for chosen defaults so Explorer actually opens them with this app.
 !macro MED_FILE_TYPE key name exts
+  StrCpy $R8 "${key}"
+  Call MedKeyChosen
   ${If} $DoAssoc == "1"
+  ${OrIf} $R7 == "1"
     WriteRegStr HKCU "Software\Classes\MyEditor.${key}" "" "${name} — ${PRODUCT_NAME}"
+    WriteRegStr HKCU "Software\Classes\MyEditor.${key}" "FriendlyTypeName" "${name} — ${PRODUCT_NAME}"
     WriteRegStr HKCU "Software\Classes\MyEditor.${key}\DefaultIcon" "" "$INSTDIR\resources\fileicons\${key}.ico,0"
     WriteRegStr HKCU "Software\Classes\MyEditor.${key}\shell\open" "" "${PRODUCT_NAME}"
     WriteRegStr HKCU "Software\Classes\MyEditor.${key}\shell\open\command" "" '"$INSTDIR\${APP_EXECUTABLE_FILENAME}" "%1"'
@@ -138,8 +246,15 @@ Function MedForEachExt
     MedExtGot:
     ${If} $MedExtOne != ""
       WriteRegStr HKCU "Software\Classes\.$MedExtOne\OpenWithProgids" "MyEditor.$MedExtKey" ""
-      ${If} $DoDefault == "1"
+      WriteRegStr HKCU "Software\Classes\Applications\$AppExeName\SupportedTypes" ".$MedExtOne" ""
+      WriteRegStr HKCU "Software\MyEditor\Capabilities\FileAssociations" ".$MedExtOne" "MyEditor.$MedExtKey"
+      StrCpy $R8 $MedExtKey
+      Call MedKeyChosen
+      ${If} $R7 == "1"
         WriteRegStr HKCU "Software\Classes\.$MedExtOne" "" "MyEditor.$MedExtKey"
+        WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.$MedExtOne\OpenWithProgids" "MyEditor.$MedExtKey" ""
+        DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.$MedExtOne\UserChoice"
+        DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.$MedExtOne\UserChoiceLatest"
       ${EndIf}
     ${EndIf}
     ${If} $MedExtList != ""
@@ -228,20 +343,44 @@ FunctionEnd
     MedKeepData:
   ${EndIf}
 
+  ; Prefer an .ico next to the exe (new filename so Windows does not keep a
+  ; blank icon cache entry from an older install of the same MyEditor.exe).
+  StrCpy $R0 "$INSTDIR\MyEditor.ico"
+  ${If} ${FileExists} "$R0"
+  ${ElseIf} ${FileExists} "$INSTDIR\resources\icon.ico"
+    StrCpy $R0 "$INSTDIR\resources\icon.ico"
+  ${Else}
+    StrCpy $R0 "$INSTDIR\${APP_EXECUTABLE_FILENAME}"
+  ${EndIf}
+
+  ; NSIS CreateShortCut stores the last argument in a 260-char comment field.
+  ; Passing ${APP_DESCRIPTION} (package.json, ~288 chars) overflows that field
+  ; and corrupts IconLocation / WorkingDirectory — Explorer then shows a blank
+  ; Desktop and Start Menu icon. Keep the comment at PRODUCT_NAME only.
+  SetOutPath "$INSTDIR"
+  Delete "$SMPROGRAMS\${SHORTCUT_NAME}.lnk"
+  Delete "$DESKTOP\${SHORTCUT_NAME}.lnk"
+
   ${If} $DoCreateStartMenuShortcut == "1"
     CreateDirectory "$SMPROGRAMS"
-    CreateShortCut "$SMPROGRAMS\${SHORTCUT_NAME}.lnk" "$INSTDIR\${APP_EXECUTABLE_FILENAME}" "" "$INSTDIR\${APP_EXECUTABLE_FILENAME}" 0 "" "" "${APP_DESCRIPTION}"
+    CreateShortCut "$SMPROGRAMS\${SHORTCUT_NAME}.lnk" "$INSTDIR\${APP_EXECUTABLE_FILENAME}" "" "$R0" 0 SW_SHOWNORMAL "" "${PRODUCT_NAME}"
     WinShell::SetLnkAUMI "$SMPROGRAMS\${SHORTCUT_NAME}.lnk" "${APP_ID}"
     StrCpy $launchLink "$SMPROGRAMS\${SHORTCUT_NAME}.lnk"
   ${EndIf}
 
   ${If} $DoCreateDesktopShortcut == "1"
-    CreateShortCut "$DESKTOP\${SHORTCUT_NAME}.lnk" "$INSTDIR\${APP_EXECUTABLE_FILENAME}" "" "$INSTDIR\${APP_EXECUTABLE_FILENAME}" 0 "" "" "${APP_DESCRIPTION}"
+    CreateShortCut "$DESKTOP\${SHORTCUT_NAME}.lnk" "$INSTDIR\${APP_EXECUTABLE_FILENAME}" "" "$R0" 0 SW_SHOWNORMAL "" "${PRODUCT_NAME}"
     WinShell::SetLnkAUMI "$DESKTOP\${SHORTCUT_NAME}.lnk" "${APP_ID}"
   ${EndIf}
 
   WriteRegStr HKCU "Software\Classes\Applications\${APP_EXECUTABLE_FILENAME}" "FriendlyAppName" "${PRODUCT_NAME}"
+  WriteRegStr HKCU "Software\Classes\Applications\${APP_EXECUTABLE_FILENAME}\DefaultIcon" "" "$R0,0"
   WriteRegStr HKCU "Software\Classes\Applications\${APP_EXECUTABLE_FILENAME}\shell\open\command" "" '"$INSTDIR\${APP_EXECUTABLE_FILENAME}" "%1"'
+  WriteRegStr HKCU "Software\MyEditor\Capabilities" "ApplicationName" "${PRODUCT_NAME}"
+  WriteRegStr HKCU "Software\MyEditor\Capabilities" "ApplicationDescription" "${APP_DESCRIPTION}"
+  WriteRegStr HKCU "Software\MyEditor\Capabilities" "ApplicationIcon" "$R0,0"
+  WriteRegStr HKCU "Software\RegisteredApplications" "${PRODUCT_NAME}" "Software\MyEditor\Capabilities"
+  nsExec::ExecToLog '"$SYSDIR\ie4uinit.exe" -show'
 
   ; ── File associations (build/fileicons/file-types.nsh, generated) ──
   !include "${BUILD_RESOURCES_DIR}\fileicons\file-types.nsh"
@@ -284,6 +423,7 @@ Function un.MedForEachExt
     UnExtGot:
     ${If} $UnExtOne != ""
       DeleteRegValue HKCU "Software\Classes\.$UnExtOne\OpenWithProgids" "MyEditor.$UnExtKey"
+      DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.$UnExtOne\OpenWithProgids" "MyEditor.$UnExtKey"
       ReadRegStr $4 HKCU "Software\Classes\.$UnExtOne" ""
       ${If} $4 == "MyEditor.$UnExtKey"
         DeleteRegValue HKCU "Software\Classes\.$UnExtOne" ""
@@ -302,6 +442,8 @@ FunctionEnd
   Delete "$DESKTOP\${SHORTCUT_NAME}.lnk"
   Delete "$SMPROGRAMS\${SHORTCUT_NAME}.lnk"
   DeleteRegKey HKCU "Software\Classes\Applications\${APP_EXECUTABLE_FILENAME}"
+  DeleteRegValue HKCU "Software\RegisteredApplications" "${PRODUCT_NAME}"
+  DeleteRegKey HKCU "Software\MyEditor"
   WinShell::UninstAppUserModelId "${APP_ID}"
   System::Call 'Shell32::SHChangeNotify(i 0x8000000, i 0, i 0, i 0)'
 !macroend

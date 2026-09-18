@@ -1,6 +1,8 @@
 import { colorWithAlpha } from './color'
 import { context2d, createCanvas } from './canvas'
-import type { LayerEffects, ShapeData, TextData } from './types'
+import { drawTextBlock, drawTextOnPath, textFont } from './typeset'
+import { warpCanvas } from './warp'
+import type { LayerEffects, PathShape, ShapeData, TextData } from './types'
 
 export function applyLayerEffects(source: HTMLCanvasElement, effects: LayerEffects) {
   if (!effects.dropShadow && !effects.stroke && !effects.colorOverlay && !effects.innerGlow && !effects.outerGlow && !effects.bevel) {
@@ -75,20 +77,33 @@ export function applyLayerEffects(source: HTMLCanvasElement, effects: LayerEffec
   return out
 }
 
-export function rasterizeTextLayer(width: number, height: number, text: TextData) {
+/**
+ * Draws a text layer: paragraphs with their own line height and indents, type
+ * running along a path when one is named, and the whole thing bent afterwards
+ * if the layer carries a warp.
+ */
+export function rasterizeTextLayer(width: number, height: number, text: TextData, paths: PathShape[] = []) {
   const canvas = createCanvas(width, height)
   const ctx = context2d(canvas)
-  ctx.font = `${text.italic ? 'italic ' : ''}${text.bold ? '700' : '500'} ${text.fontSize}px ${text.fontFamily}`
+  ctx.font = textFont(text)
   ctx.fillStyle = text.color
   ctx.textAlign = text.align
   ctx.textBaseline = 'top'
-  if (text.vertical) {
-    const chars = [...text.text]
-    chars.forEach((ch, index) => ctx.fillText(ch, text.x, text.y + index * text.fontSize * 1.15))
+
+  const path = text.pathId ? paths.find((item) => item.id === text.pathId) : undefined
+  if (path) {
+    drawTextOnPath(ctx, text, path)
   } else {
-    ctx.fillText(text.text, text.x, text.y)
+    drawTextBlock(ctx, text)
   }
-  return canvas
+
+  const warp = text.warp
+  if (!warp || warp.style === 'none' || (!warp.bend && !warp.horizontal && !warp.vertical)) {
+    return canvas
+  }
+  // Warping the drawn glyphs is what gives the same shapes as the layer Warp
+  // command; the two share the maths in warp.ts.
+  return warpCanvas(canvas, warp.style, warp.bend, warp.horizontal, warp.vertical)
 }
 
 export function rasterizeShape(width: number, height: number, shape: ShapeData) {

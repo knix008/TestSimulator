@@ -55,7 +55,8 @@ export const SETTINGS_DEFAULTS = {
   rowFracs: [],            // multi: row heights as fractions
   splitY: 0.5,             // editor panes: share of the top row (rows / grid)
   termVisible: false,
-  termHeight: 150,
+  bottomTab: 'terminal',   // bottom panel: terminal | log | lint
+  termHeight: 195,         // ~8 output lines (12.5px × 1.45) + header, splitter, padding
   termCwd: '',
   termShell: '',
   termColor: true,         // terminal output in colour: the programs' ANSI colours + errors / warnings / links highlighted; off = plain text
@@ -98,6 +99,7 @@ export const resetPatch = () => Object.fromEntries(RESET_KEYS.map((k) => [k, k =
 export function pickSettings(obj) {
   const out = {};
   for (const k of SETTING_KEYS) out[k] = obj && obj[k] !== undefined && obj[k] !== null ? obj[k] : SETTINGS_DEFAULTS[k];   // null (the session's "unset" prompt) takes the default too
+  if (out.termHeight === 75) out.termHeight = SETTINGS_DEFAULTS.termHeight;   // previous default: too short for eight lines
   return out;
 }
 

@@ -11,6 +11,7 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { t, useLanguage } from '../lib/i18n';
 import { writeClipboardText } from '../lib/backend';
+import { withProgress, yieldToUi } from '../lib/progress';
 import { Icon } from './Icons';
 
 const COLS = 16;
@@ -107,12 +108,21 @@ export function HexView({ size, name, read, version, fontSize, onOpenAsText, onC
   const copy = async () => {
     if (!sel) return;
     const n = Math.min(hi - lo + 1, COPY_MAX);
-    let bytes;
-    try { bytes = await read(lo, n); } catch { return; }
-    const parts = new Array(bytes.length);
-    for (let i = 0; i < bytes.length; i++) parts[i] = HEX[bytes[i]];
-    await writeClipboardText(parts.join(' '));
-    if (onMessage) onMessage(t(n < hi - lo + 1 ? 'hex_copied_max' : 'hex_copied', { n: bytes.length.toLocaleString() }));
+    try {
+      await withProgress({ title: t('prog_hex'), message: t('prog_hex_copy'), detail: name, delay: n > 8192 ? 0 : 160 }, async ({ report }) => {
+        report({ message: t('prog_hex_read'), value: 0.1 });
+        const bytes = await read(lo, n);
+        report({ message: t('prog_hex_format'), value: 0.35 });
+        const parts = new Array(bytes.length);
+        for (let i = 0; i < bytes.length; i++) {
+          parts[i] = HEX[bytes[i]];
+          if (i && i % 32768 === 0) { report({ value: 0.35 + 0.5 * (i / bytes.length) }); await yieldToUi(); }
+        }
+        report({ value: 0.9 });
+        await writeClipboardText(parts.join(' '));
+      });
+    } catch { return; }
+    if (onMessage) onMessage(t(n < hi - lo + 1 ? 'hex_copied_max' : 'hex_copied', { n: n.toLocaleString() }));
   };
   const onKey = (e) => {
     const mod = e.ctrlKey || e.metaKey;

@@ -1,4 +1,5 @@
 import { context2d } from './canvas'
+import { iccFromJpeg, parseIccProfile } from './colorModes'
 
 /**
  * What the Image information window shows.
@@ -313,7 +314,12 @@ export function describeFile(name: string, mime: string | undefined, buffer: Arr
   const bytes = new Uint8Array(buffer)
   const lower = name.toLowerCase()
   if (bytes[0] === 0xff && bytes[1] === 0xd8) {
-    return readJpegExif(bytes)
+    const rows = readJpegExif(bytes)
+    // A tagged photo says which space its numbers are in; without this an
+    // Adobe RGB file opens looking flat and nothing explains why.
+    const profile = embeddedProfileName(bytes)
+    if (profile) rows.push({ label: 'Colour profile', value: profile })
+    return rows
   }
   if (bytes[0] === 0x89 && bytes[1] === 0x50) {
     return readPng(bytes)
@@ -328,6 +334,15 @@ export function describeFile(name: string, mime: string | undefined, buffer: Arr
     }
   }
   return []
+}
+
+/** The name of the ICC profile a JPEG carries, if it carries one we can read. */
+export function embeddedProfileName(bytes: Uint8Array) {
+  const icc = iccFromJpeg(bytes)
+  if (!icc) {
+    return null
+  }
+  return parseIccProfile(icc)?.name ?? 'Embedded profile'
 }
 
 export function formatName(name: string, mime?: string) {

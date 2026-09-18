@@ -137,34 +137,298 @@ const COLOR_ENV = { TERM: 'xterm-256color', COLORTERM: 'truecolor', FORCE_COLOR:
 // the panel — reading UTF-8 — shows them broken; without any locale ls prints them as "?" or octal escapes.
 const utf8Lang = () => { const l = process.env.LANG; return l && /utf-?8/i.test(l) ? l : 'C.UTF-8'; };
 
-function shells() {
-  const posixSource = (f) => `. "${f.replace(/\\/g, '/')}";`;
+function resolveExe(p) {
+  if (!p) return '';
+  try {
+    const st = fs.lstatSync(p);
+    if (!st.isFile() && !st.isSymbolicLink()) return '';
+    if (st.size === 0 && !st.isSymbolicLink()) return '';   // WindowsApps execution aliases are empty stubs
+    try {
+      const real = fs.realpathSync(p);
+      const rst = fs.statSync(real);
+      if (!rst.isFile() || rst.size === 0) return '';
+      return real;
+    } catch { return st.isFile() && st.size > 0 ? p : ''; }
+  } catch { return ''; }
+}
+function findOnPath(name) {
+  const win = process.platform === 'win32';
+  const exts = win ? (process.env.PATHEXT || '.EXE;.CMD;.BAT').split(';').filter(Boolean) : [''];
+  const names = win && !path.extname(name) ? exts.map((e) => name + (e.startsWith('.') ? e : `.${e}`)) : [name];
+  for (const dir of (process.env.PATH || '').split(path.delimiter)) {
+    if (!dir) continue;
+    for (const n of names) {
+      const hit = resolveExe(path.join(dir, n));
+      if (hit) return hit;
+    }
+  }
+  return '';
+}
+function firstExisting(cands) {
+  for (const p of cands) { const hit = resolveExe(p); if (hit) return hit; }
+  return '';
+}
+function firstDir(cands) {
+  for (const p of cands) { if (p && isDir(p)) return p; }
+  return '';
+}
+
+const posixSource = (f) => `. "${String(f).replace(/\\/g, '/')}";`;
+const posixDef = (cmd, extra = {}) => ({ cmd, args: extra.args || ['-s'], ext: '.sh', scriptEnc: 'utf8', source: posixSource, cwdLine: `echo "${MARK}$PWD;$?"`, eol: '\n', init: POSIX_INIT, kind: 'sh', ...extra });
+const fishDef = (cmd, extra = {}) => ({ cmd, args: extra.args || ['--no-config'], ext: '.fish', scriptEnc: 'utf8', source: (f) => `source "${String(f).replace(/\\/g, '/')}"`, cwdLine: `echo "${MARK}$PWD;$status"`, eol: '\n', kind: 'sh', ...extra });
+function psDef(cmd, extra = {}) {
+  const cp = extra.encoding || 'utf8';
+  return {
+    cmd, args: ['-NoLogo', '-NoProfile', '-Command', '-'], ext: '.ps1', scriptEnc: 'utf8', bom: true, kind: 'powershell',
+    source: (f) => `$__medrc = 1; $global:LASTEXITCODE = 0; . "${f}";`,
+    rcLine: '$__medrc = if ($?) { 0 } else { 1 }; if ($__medrc -and $LASTEXITCODE) { $__medrc = $LASTEXITCODE }',
+    cwdLine: `Write-Host "${MARK}$PWD;$__medrc"`, eol: '\r\n', encoding: cp, ...extra,
+  };
+}
+function cmdDef(cmd, extra = {}) {
+  const cp = extra.encoding || consoleCodePage();
+  return {
+    cmd, args: ['/Q', '/K', 'rem'], env: { PROMPT: PROMPT_MARK }, promptMark: true, ext: '.cmd', scriptEnc: cp, markerInFile: true,
+    preLine: '(call )', source: (f) => `call "${f}"`, cwdLine: `echo ${MARK}%CD%;%ERRORLEVEL%`, eol: '\r\n', encoding: cp, kind: 'cmd', ...extra,
+  };
+}
+
+function listWslDistros(wsl) {
+  try {
+    const buf = execFileSync(wsl, ['-l', '-q'], { windowsHide: true, timeout: 4000 });
+    const text = (buf[0] === 0xff && buf[1] === 0xfe) || (buf.includes(0) && buf[1] === 0) ? buf.toString('utf16le') : buf.toString('utf8');
+    return text.split(/\r?\n/).map((s) => s.replace(/\u0000/g, '').trim()).filter((s) => s && !/docker-desktop/i.test(s) && !/has no installed/i.test(s) && !/^wsl\.exe$/i.test(s));
+  } catch { return []; }
+}
+
+function parseEtcShells(text) {
+  return String(text || '').split(/\r?\n/).map((s) => s.trim()).filter((s) => s && !s.startsWith('#') && s.startsWith('/'));
+}
+
+function parseWtCommandLine(cmd) {
+  const s = String(cmd || '').trim();
+  if (!s) return '';
+  if (s.startsWith('"')) {
+    const m = s.match(/^"([^"]+)"/);
+    return m ? m[1] : '';
+  }
+  return s.split(/\s+/)[0] || '';
+}
+
+function parseJsonc(text) {
+  const stripped = String(text || '').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  try { return JSON.parse(stripped); } catch {
+    try { return JSON.parse(stripped.replace(/,\s*([}\]])/g, '$1')); } catch { return null; }
+  }
+}
+
+function parseWtProfiles(text) {
+  const data = typeof text === 'string' ? parseJsonc(text) : text;
+  const list = data && Array.isArray(data.profiles) ? data.profiles : (data && data.profiles && Array.isArray(data.profiles.list) ? data.profiles.list : []);
+  return list.filter((p) => p && !p.hidden && p.commandline && !/Windows\.Terminal\.(Azure|Wsl)/i.test(p.source || '')).map((p) => ({
+    name: String(p.name || '').trim(),
+    exe: parseWtCommandLine(p.commandline),
+  })).filter((p) => p.exe);
+}
+
+function regValue(key, name) {
+  if (process.platform !== 'win32') return '';
+  try {
+    const out = execFileSync('reg.exe', ['query', key, '/v', name], { windowsHide: true, timeout: 3000, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+    const m = String(out).match(new RegExp(`${name}\\s+REG_\\w+\\s+(.+)`, 'i'));
+    return m ? m[1].trim().replace(/^"|"$/g, '') : '';
+  } catch { return ''; }
+}
+
+function dirJoin(root, ...parts) {
+  return root ? path.join(root, ...parts) : '';
+}
+
+function pwshIn(dir) {
+  if (!dir || !isDir(dir)) return [];
+  try { return fs.readdirSync(dir).sort().reverse().map((v) => path.join(dir, v, 'pwsh.exe')); } catch { return []; }
+}
+
+function labelForExe(exe, fallback) {
+  const n = path.basename(exe).replace(/\.exe$/i, '');
+  if (/[\\/]Git[\\/]/i.test(exe) && /^bash$/i.test(n)) return 'Git Bash';
+  if (/msys64/i.test(exe) && /^bash$/i.test(n)) return 'MSYS2';
+  if (/cygwin/i.test(exe) && /^bash$/i.test(n)) return 'Cygwin';
+  if (/^powershell$/i.test(n)) return 'Windows PowerShell';
+  if (/^pwsh$/i.test(n)) return 'PowerShell';
+  if (/^cmd$/i.test(n)) return 'Command Prompt';
+  return fallback || n;
+}
+
+function specForExe(exe, { id, label, encoding } = {}) {
+  const base = path.basename(exe).replace(/\.exe$/i, '').toLowerCase();
+  const nice = label || labelForExe(exe, base);
+  if (base === 'cmd') return { id: id || 'cmd', label: nice, ...cmdDef(exe, encoding ? { encoding } : {}) };
+  if (base === 'powershell' || base === 'pwsh') {
+    const extra = base === 'pwsh' ? { encoding: encoding || 'utf8' } : (encoding ? { encoding } : {});
+    if (process.platform !== 'win32') extra.eol = '\n';
+    return { id: id || (base === 'pwsh' ? 'pwsh' : 'powershell'), label: nice, ...psDef(exe, extra) };
+  }
+  if (base === 'fish') return { id: id || 'fish', label: nice, ...fishDef(exe) };
+  return { id: id || base, label: nice, ...posixDef(exe, { args: base === 'bash' ? ['--norc', '-s'] : ['-s'] }) };
+}
+
+let wslCache = { at: 0, list: null, exe: '' };
+function wslDistros(wsl, refresh) {
+  if (!refresh && wslCache.list && wslCache.exe === wsl && Date.now() - wslCache.at < 60000) return wslCache.list;
+  const list = listWslDistros(wsl);
+  wslCache = { at: Date.now(), list, exe: wsl };
+  return list;
+}
+
+function wtProfileExes() {
+  const local = process.env.LOCALAPPDATA || '';
+  if (!local) return [];
+  const files = [path.join(local, 'Microsoft', 'Windows Terminal', 'settings.json')];
+  try {
+    const pkg = path.join(local, 'Packages');
+    for (const e of fs.readdirSync(pkg)) {
+      if (/^Microsoft\.WindowsTerminal/i.test(e)) files.push(path.join(pkg, e, 'LocalState', 'settings.json'));
+    }
+  } catch { /* no store packages */ }
+  const out = [];
+  const seen = new Set();
+  for (const f of files) {
+    let text = '';
+    try { text = fs.readFileSync(f, 'utf8'); } catch { continue; }
+    for (const p of parseWtProfiles(text)) {
+      const exe = resolveExe(p.exe) || findOnPath(p.exe);
+      if (!exe || seen.has(exe.toLowerCase())) continue;
+      seen.add(exe.toLowerCase());
+      out.push({ exe, name: p.name });
+    }
+  }
+  return out;
+}
+
+let shellsCache = { at: 0, list: null };
+function shells(refresh) {
+  if (!refresh && shellsCache.list && Date.now() - shellsCache.at < 8000) return shellsCache.list;
+  const list = [];
+  const seenId = new Set();
+  const seenCmd = new Set();
+  const add = (spec) => {
+    if (!spec || !spec.id || seenId.has(spec.id)) return;
+    const exe = resolveExe(spec.cmd) || (path.isAbsolute(spec.cmd) ? '' : findOnPath(spec.cmd));
+    if (!exe) return;
+    const key = `${exe}|${JSON.stringify(spec.args || spec.makeArgs && spec.id)}`.toLowerCase();
+    if (seenCmd.has(key) && spec.id !== 'default') return;
+    seenId.add(spec.id);
+    seenCmd.add(key);
+    list.push({ ...spec, cmd: exe });
+  };
+
   if (process.platform === 'win32') {
     const cp = consoleCodePage();
-    const list = [
-      // cmd prints a prompt before every read: PROMPT is a marker that is stripped (with the blank line cmd
-      // always emits before it). The batch file holds the marker too (%ERRORLEVEL% expands when that line runs,
-      // after the command). cmd and PowerShell read and write the console's code page (CP949 on a Korean
-      // Windows …): the text — and cmd's batch file — is converted (see consoleCodePage). cmd with code page
-      // 65001 dies on multibyte input from a pipe, so it is left at the native code page.
-      // `(call )` first: it resets ERRORLEVEL, which cmd otherwise keeps from an earlier command (echo, cd … do not touch it).
-      { id: 'cmd', label: 'Command Prompt', cmd: 'cmd.exe', args: ['/Q', '/K', 'rem'], env: { PROMPT: PROMPT_MARK }, promptMark: true, ext: '.cmd', scriptEnc: cp, markerInFile: true, preLine: '(call )', source: (f) => `call "${f}"`, cwdLine: `echo ${MARK}%CD%;%ERRORLEVEL%`, eol: '\r\n', encoding: cp },
-      // PowerShell 5.1 reads a BOM-less script as ANSI, so the .ps1 gets a BOM. The exit status is read inside
-      // the script (after the dot-source, $? only says the sourcing worked): $? for a cmdlet, $LASTEXITCODE for a
-      // native program — reset first, so a stale code is not reported for a failed cmdlet.
-      { id: 'powershell', label: 'PowerShell', cmd: 'powershell.exe', args: ['-NoLogo', '-NoProfile', '-Command', '-'], ext: '.ps1', scriptEnc: 'utf8', bom: true, source: (f) => `$__medrc = 1; $global:LASTEXITCODE = 0; . "${f}";`, rcLine: '$__medrc = if ($?) { 0 } else { 1 }; if ($__medrc -and $LASTEXITCODE) { $__medrc = $LASTEXITCODE }', cwdLine: `Write-Host "${MARK}$PWD;$__medrc"`, eol: '\r\n', encoding: cp },
-    ];
-    for (const p of [process.env.ProgramFiles, process.env['ProgramFiles(x86)']]) {
-      const bash = p && path.join(p, 'Git', 'bin', 'bash.exe');
-      if (bash && fs.existsSync(bash)) { list.push({ id: 'gitbash', label: 'Git Bash', cmd: bash, args: ['--norc', '-s'], ext: '.sh', scriptEnc: 'utf8', source: posixSource, cwdLine: `echo "${MARK}$PWD;$?"`, eol: '\n', init: POSIX_INIT }); break; }
+    const sys32 = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32');
+    const pf = process.env.ProgramFiles || 'C:\\Program Files';
+    const pf86 = process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)';
+    const local = process.env.LOCALAPPDATA || '';
+    const home = os.homedir();
+    const gitRoot = firstDir([
+      regValue('HKLM\\SOFTWARE\\GitForWindows', 'InstallPath'),
+      regValue('HKCU\\SOFTWARE\\GitForWindows', 'InstallPath'),
+      path.join(pf, 'Git'),
+      path.join(pf86, 'Git'),
+      path.join(local, 'Programs', 'Git'),
+      path.join(home, 'scoop', 'apps', 'git', 'current'),
+      path.join(home, 'AppData', 'Local', 'Programs', 'Git'),
+    ]);
+    const cygwinRoot = firstDir([
+      regValue('HKLM\\SOFTWARE\\Cygwin\\setup', 'rootdir'),
+      'C:\\cygwin64', 'C:\\cygwin', path.join(pf, 'cygwin64'),
+    ]);
+    add({ id: 'cmd', label: 'Command Prompt', ...cmdDef(process.env.ComSpec || path.join(sys32, 'cmd.exe'), { encoding: cp }) });
+    add({ id: 'powershell', label: 'Windows PowerShell', ...psDef(path.join(sys32, 'WindowsPowerShell', 'v1.0', 'powershell.exe'), { encoding: cp }) });
+    add({ id: 'pwsh', label: 'PowerShell', ...psDef(firstExisting([
+      ...pwshIn(path.join(pf, 'PowerShell')),
+      path.join(home, 'scoop', 'apps', 'pwsh', 'current', 'pwsh.exe'),
+      findOnPath('pwsh.exe'),
+    ]), { encoding: 'utf8' }) });
+    add({ id: 'gitbash', label: 'Git Bash', ...posixDef(firstExisting([
+      dirJoin(gitRoot, 'bin', 'bash.exe'),
+      dirJoin(gitRoot, 'usr', 'bin', 'bash.exe'),
+    ].filter(Boolean)), { args: ['--norc', '-s'] }) });
+    add({ id: 'msys2', label: 'MSYS2', ...posixDef(firstExisting([
+      path.join('C:\\msys64', 'usr', 'bin', 'bash.exe'),
+      path.join(pf, 'msys64', 'usr', 'bin', 'bash.exe'),
+      path.join(home, 'msys64', 'usr', 'bin', 'bash.exe'),
+      path.join(local, 'msys64', 'usr', 'bin', 'bash.exe'),
+      path.join(home, 'scoop', 'apps', 'msys2', 'current', 'usr', 'bin', 'bash.exe'),
+    ]), { args: ['--norc', '-s'] }) });
+    add({ id: 'cygwin', label: 'Cygwin', ...posixDef(firstExisting([
+      dirJoin(cygwinRoot, 'bin', 'bash.exe'),
+    ].filter(Boolean)), { args: ['--norc', '-s'] }) });
+    const wsl = firstExisting([path.join(sys32, 'wsl.exe'), findOnPath('wsl.exe')]);
+    if (wsl) {
+      for (const name of wslDistros(wsl, refresh)) {
+        add({
+          id: `wsl:${name}`, label: `WSL: ${name}`, ...posixDef(wsl, {
+            args: ['-d', name, '--', 'bash', '--norc', '-s'],
+            makeArgs: (cwd) => ['-d', name, '--cd', cwd, '--', 'bash', '--norc', '-s'],
+          }),
+        });
+      }
     }
-    return list;
+    const isWslLauncher = (exe) => /[\\/](?:system32|syswow64)[\\/](?:bash|wsl)\.exe$/i.test(exe);
+    const bundledPosix = (exe) => /[\\/]Git[\\/]/i.test(exe) || /msys64/i.test(exe) || /cygwin/i.test(exe);
+    for (const [id, names, kind] of [
+      ['bash', ['bash.exe', 'bash'], 'posix'],
+      ['zsh', ['zsh.exe', 'zsh'], 'posix'],
+      ['dash', ['dash.exe', 'dash'], 'posix'],
+      ['sh', ['sh.exe', 'sh'], 'posix'],
+      ['ksh', ['ksh.exe', 'ksh'], 'posix'],
+      ['fish', ['fish.exe', 'fish'], 'fish'],
+    ]) {
+      const exe = names.map(findOnPath).find(Boolean);
+      if (!exe || isWslLauncher(exe) || bundledPosix(exe)) continue;
+      if (kind === 'fish') add({ id, label: id, ...fishDef(exe) });
+      else add({ id, label: id, ...posixDef(exe, { args: id === 'bash' ? ['--norc', '-s'] : ['-s'] }) });
+    }
+    let extra = 0;
+    for (const p of wtProfileExes()) {
+      if (isWslLauncher(p.exe) || bundledPosix(p.exe)) continue;
+      const base = path.basename(p.exe).replace(/\.exe$/i, '').toLowerCase();
+      if (seenId.has(base) || seenId.has(p.name)) continue;
+      extra += 1;
+      add(specForExe(p.exe, { id: `wt:${extra}`, label: p.name || labelForExe(p.exe) }));
+    }
+  } else {
+    const sh = process.env.SHELL || '/bin/bash';
+    add({ id: 'default', label: path.basename(sh), ...(/fish$/.test(sh) ? fishDef(sh) : posixDef(sh, /zsh$/.test(sh) ? { args: ['-s'] } : {})) });
+    const extras = [
+      ['bash', '/bin/bash', '/usr/bin/bash', '/usr/local/bin/bash', '/opt/homebrew/bin/bash'],
+      ['sh', '/bin/sh', '/usr/bin/sh'],
+      ['zsh', '/bin/zsh', '/usr/bin/zsh', '/usr/local/bin/zsh', '/opt/homebrew/bin/zsh'],
+      ['dash', '/bin/dash', '/usr/bin/dash'],
+      ['ksh', '/bin/ksh', '/usr/bin/ksh'],
+      ['fish', '/usr/bin/fish', '/usr/local/bin/fish', '/opt/homebrew/bin/fish'],
+      ['pwsh', '/usr/bin/pwsh', '/usr/local/bin/pwsh', '/opt/homebrew/bin/pwsh'],
+    ];
+    for (const [id, ...cands] of extras) {
+      const exe = firstExisting(cands) || findOnPath(id);
+      if (!exe) continue;
+      if (id === 'fish') add({ id, label: id, ...fishDef(exe) });
+      else if (id === 'pwsh') add({ id, label: 'PowerShell', ...psDef(exe, { encoding: 'utf8', eol: '\n' }) });
+      else add({ id, label: id, ...posixDef(exe, id === 'zsh' ? { args: ['-s'] } : {}) });
+    }
+    try {
+      const listed = parseEtcShells(fs.readFileSync('/etc/shells', 'utf8'));
+      let n = 0;
+      for (const p of listed) {
+        const exe = resolveExe(p);
+        if (!exe) continue;
+        n += 1;
+        add(specForExe(exe, { id: `etc:${n}`, label: path.basename(exe) }));
+      }
+    } catch { /* no /etc/shells */ }
   }
-  const sh = process.env.SHELL || '/bin/bash';
-  const posix = (cmd) => ({ cmd, args: ['-s'], ext: '.sh', scriptEnc: 'utf8', source: posixSource, cwdLine: `echo "${MARK}$PWD;$?"`, eol: '\n', init: POSIX_INIT });
-  const list = [{ id: 'default', label: path.basename(sh), ...posix(sh) }];
-  if (sh !== '/bin/bash' && fs.existsSync('/bin/bash')) list.push({ id: 'bash', label: 'bash', ...posix('/bin/bash') });
-  if (fs.existsSync('/bin/sh')) list.push({ id: 'sh', label: 'sh', ...posix('/bin/sh') });
+  shellsCache = { at: Date.now(), list };
   return list;
 }
 
@@ -269,7 +533,7 @@ function createTerminals() {
   }
 
   const api = {
-    shells: () => shells().map(({ id, label }) => ({ id, label })),
+    shells: (opts) => shells(!!(opts && opts.refresh)).map(({ id, label }) => ({ id, label })),
 
     create({ cwd, shell } = {}) {
       const all = shells();
@@ -279,7 +543,8 @@ function createTerminals() {
       const id = nextId++;
       const s = { id, shell: def.id, label: def.label, cwd: dir, chunks: [], seq: 0, pending: '', pendingCr: false, expectPrompt: !!def.promptMark, idle: true, rc: 0, waiters: [], changed: false, exited: false, code: null, def, proc: null };
       s.scriptFile = path.join(os.tmpdir(), `med-term-${process.pid}-${id}${def.ext}`);
-      const proc = spawn(def.cmd, def.args, { cwd: dir, stdio: 'pipe', windowsHide: true, env: { ...process.env, ...COLOR_ENV, LANG: utf8Lang(), ...Object.fromEntries(['LC_ALL', 'LC_CTYPE'].filter((k) => process.env[k] && !/utf-?8/i.test(process.env[k])).map((k) => [k, utf8Lang()])), ...(def.env || {}) } });
+      const args = typeof def.makeArgs === 'function' ? def.makeArgs(dir) : (def.args || []);
+      const proc = spawn(def.cmd, args, { cwd: dir, stdio: 'pipe', windowsHide: true, env: { ...process.env, ...COLOR_ENV, LANG: utf8Lang(), ...Object.fromEntries(['LC_ALL', 'LC_CTYPE'].filter((k) => process.env[k] && !/utf-?8/i.test(process.env[k])).map((k) => [k, utf8Lang()])), ...(def.env || {}) } });
       s.proc = proc;
       const enc = def.encoding || 'utf8';
       s.enc = enc;
@@ -408,11 +673,11 @@ function createTerminals() {
       const sepIdx = Math.max(word.lastIndexOf('/'), word.lastIndexOf('\\'));
       const dirPart = sepIdx >= 0 ? word.slice(0, sepIdx + 1) : '';
       const prefix = word.slice(sepIdx + 1);
-      const sep = sepIdx >= 0 ? word[sepIdx] : (s.shell === 'cmd' || s.shell === 'powershell' ? '\\' : '/');
+      const sep = sepIdx >= 0 ? word[sepIdx] : ((s.def && (s.def.kind === 'cmd' || s.def.kind === 'powershell')) && win ? '\\' : '/');
       const match = (name) => fold(name).startsWith(fold(prefix));
       const items = [];
       if (firstWord && sepIdx < 0) {
-        const kind = s.shell === 'cmd' ? 'cmd' : s.shell === 'powershell' ? 'powershell' : 'sh';
+        const kind = (s.def && s.def.kind) || (s.shell === 'cmd' ? 'cmd' : /^(powershell|pwsh)$/i.test(s.shell) ? 'powershell' : 'sh');
         for (const c of [...BUILTINS[kind], ...pathCommands()]) if (match(c)) items.push({ text: c, dir: false, cmd: true });
       }
       let base = dirPart;
@@ -441,4 +706,4 @@ function createTerminals() {
   return api;
 }
 
-module.exports = { createTerminals, isReadOnly, repoRoot };
+module.exports = { createTerminals, isReadOnly, repoRoot, parseEtcShells, parseWtCommandLine, parseWtProfiles, parseJsonc };

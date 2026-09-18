@@ -23,7 +23,13 @@ import {
 } from '../src/lib/imageIO.ts'
 import { isDicomSource } from '../src/lib/dicom.ts'
 import { aspectRatio, formatBytes, imageStatistics } from '../src/lib/metadata.ts'
-import { canvasFromUrl, compositeDocument, context2d, createLayerMeta } from '../src/lib/canvas.ts'
+import { canvasFromUrl, cloneCanvas, compositeDocument, context2d, createLayerMeta } from '../src/lib/canvas.ts'
+import { contentAwareScale, warpCanvas } from '../src/lib/warp.ts'
+import { defaultThreeD, renderExtrude } from '../src/lib/three.ts'
+import { encodeGif } from '../src/lib/gif.ts'
+import { makePatternTile, patternFill } from '../src/lib/patterns.ts'
+import { applyColorMode } from '../src/lib/colorModes.ts'
+import { rectSelection } from '../src/lib/selection.ts'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
 const imagesDir = path.join(root, 'images')
@@ -59,6 +65,15 @@ function spread(canvas) {
 
 function alphaAt(canvas, x, y) {
   return context2d(canvas).getImageData(x, y, 1, 1).data[3]
+}
+
+/** Mean absolute difference per channel, for "did this actually change it". */
+function meanDifference(a, b) {
+  const first = context2d(a).getImageData(0, 0, a.width, a.height).data
+  const second = context2d(b).getImageData(0, 0, b.width, b.height).data
+  let sum = 0
+  for (let i = 0; i < first.length; i += 1) sum += Math.abs(first[i] - second[i])
+  return sum / first.length
 }
 
 const files = readdirSync(imagesDir).filter((name) => path.extname(name).toLowerCase() in mimes)
@@ -127,6 +142,41 @@ for (const file of files) {
   }
   writeFileSync(path.join(outDir, `${document.name}-transparent.png`), Buffer.from((await encodeExport(holed, 'png', 0.92, true)).split(',')[1], 'base64'))
   writeFileSync(path.join(outDir, `${document.name}-opaque.png`), Buffer.from((await encodeExport(holed, 'png', 0.92, false)).split(',')[1], 'base64'))
+
+  // The subsystems added on top of open-and-export, each run over this photo.
+  const solid = renderExtrude(canvas, canvas.width, canvas.height, { ...defaultThreeD(), depth: 40 })
+  assert.equal(solid.width, canvas.width, `${file} 3D render changed the canvas size`)
+  assert.ok(spread(solid) > 10, `${file} extruded to something flat`)
+  writeFileSync(path.join(outDir, `${document.name}-3d.png`), solid.toBuffer('image/png'))
+
+  const bent = warpCanvas(canvas, 'arch', 60, 0, 0)
+  assert.ok(meanDifference(bent, canvas) > 1, `${file} did not warp`)
+  assert.equal(alphaAt(bent, Math.round(canvas.width / 2), Math.round(canvas.height / 2)), 255, `${file} warp left a hole`)
+  writeFileSync(path.join(outDir, `${document.name}-warp.png`), bent.toBuffer('image/png'))
+
+  const carved = contentAwareScale(canvas, Math.round(canvas.width * 0.8), canvas.height)
+  assert.equal(carved.width, Math.round(canvas.width * 0.8), `${file} carving missed its target width`)
+  writeFileSync(path.join(outDir, `${document.name}-carved.png`), carved.toBuffer('image/png'))
+
+  // A two-frame animation from this photo and a darkened copy of it.
+  const dimmed = cloneCanvas(canvas)
+  applyColorMode(dimmed, 'gray')
+  const gif = encodeGif([{ canvas, delayMs: 200 }, { canvas: dimmed, delayMs: 200 }])
+  assert.equal(String.fromCharCode(...gif.slice(0, 6)), 'GIF89a', `${file} produced no GIF`)
+  writeFileSync(path.join(outDir, `${document.name}.gif`), gif)
+
+  // Sixteen bits: the same picture, written at full depth.
+  const deepTiff = await encodeExport(composite, 'tiff', 0.92, true, 16)
+  assert.ok(deepTiff.startsWith('data:image/tiff;base64,'), `${file} produced no 16-bit TIFF`)
+  writeFileSync(path.join(outDir, `${document.name}-16bit.tif`), Buffer.from(deepTiff.split(',')[1], 'base64'))
+
+  // A pattern cut from the middle of the photo, tiled back out.
+  const tile = makePatternTile(canvas, rectSelection(0, 0, Math.min(64, canvas.width), Math.min(64, canvas.height)))
+  const tiled = patternFill(canvas.width, canvas.height, tile)
+  assert.equal(tiled.width, canvas.width)
+  writeFileSync(path.join(outDir, `${document.name}-pattern.png`), tiled.toBuffer('image/png'))
+
+  console.log(`  3D, warp, carve ${carved.width}px, GIF ${(gif.length / 1024).toFixed(0)} kB, 16-bit ${(deepTiff.length / 1024).toFixed(0)} kB, pattern ${tile.width}x${tile.height}`)
 
   // Print: the preview the dialog shows, then the page the printer is handed.
   const orientation = naturalOrientation(composite)

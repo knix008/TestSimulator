@@ -1,18 +1,52 @@
-// Pure-JS ICO (Windows) and ICNS (macOS) encoders that pack PNG images.
-// Modern Windows and macOS both accept PNG-compressed icon entries, so we
-// simply rasterize the SVG at each size, export PNG, and wrap them in the
-// containers.
+// Pure-JS ICO (Windows) and ICNS (macOS) encoders.
+//
+// Shortcuts, the EXE resource (rcedit) and the Windows taskbar often ignore
+// or reject PNG-compressed ICO frames (blank desktop / Start / taskbar icon).
+// Every size is written as a 32-bit BMP (DIB + AND mask) when `rgba` is given.
 
-// entries: Array<{ size: number, png: Uint8Array }>
+function bmpIcon(size, rgba) {
+  const xorStride = size * 4;
+  const andStride = ((size + 31) >> 5) * 4;
+  const xorLen = xorStride * size;
+  const andLen = andStride * size;
+  const out = new Uint8Array(40 + xorLen + andLen);
+  const view = new DataView(out.buffer);
+  view.setUint32(0, 40, true);
+  view.setInt32(4, size, true);
+  view.setInt32(8, size * 2, true);   // XOR + AND
+  view.setUint16(12, 1, true);
+  view.setUint16(14, 32, true);
+  view.setUint32(20, xorLen, true);
+  for (let y = 0; y < size; y++) {
+    const src = (size - 1 - y) * size * 4;
+    const dst = 40 + y * xorStride;
+    for (let x = 0; x < size; x++) {
+      const i = src + x * 4;
+      const o = dst + x * 4;
+      out[o] = rgba[i + 2];
+      out[o + 1] = rgba[i + 1];
+      out[o + 2] = rgba[i];
+      out[o + 3] = rgba[i + 3];
+    }
+  }
+  return out;
+}
+
+// entries: Array<{ size: number, png: Uint8Array, rgba?: Uint8Array }>
 export function encodeIco(entries) {
   // ICO stores width/height in a single byte; 256 is encoded as 0. Max 256.
   const usable = entries.filter((e) => e.size <= 256).sort((a, b) => a.size - b.size);
   if (!usable.length) throw new Error('ICO requires at least one image of size <= 256.');
 
+  const blobs = usable.map((e) => {
+    if (e.rgba && e.rgba.length >= e.size * e.size * 4) return bmpIcon(e.size, e.rgba);
+    return e.png;
+  });
+
   const count = usable.length;
   const headerSize = 6 + count * 16;
   let offset = headerSize;
-  const total = usable.reduce((sum, e) => sum + e.png.length, headerSize);
+  const total = blobs.reduce((sum, b) => sum + b.length, headerSize);
 
   const buf = new Uint8Array(total);
   const view = new DataView(buf.buffer);
@@ -23,7 +57,8 @@ export function encodeIco(entries) {
   view.setUint16(4, count, true);  // image count
 
   let dirPos = 6;
-  for (const e of usable) {
+  for (let i = 0; i < usable.length; i++) {
+    const e = usable[i], data = blobs[i];
     const dim = e.size >= 256 ? 0 : e.size;
     buf[dirPos + 0] = dim;         // width
     buf[dirPos + 1] = dim;         // height
@@ -31,10 +66,10 @@ export function encodeIco(entries) {
     buf[dirPos + 3] = 0;           // reserved
     view.setUint16(dirPos + 4, 1, true);   // color planes
     view.setUint16(dirPos + 6, 32, true);  // bits per pixel
-    view.setUint32(dirPos + 8, e.png.length, true);  // size of image data
-    view.setUint32(dirPos + 12, offset, true);       // offset of image data
-    buf.set(e.png, offset);
-    offset += e.png.length;
+    view.setUint32(dirPos + 8, data.length, true);
+    view.setUint32(dirPos + 12, offset, true);
+    buf.set(data, offset);
+    offset += data.length;
     dirPos += 16;
   }
   return buf;

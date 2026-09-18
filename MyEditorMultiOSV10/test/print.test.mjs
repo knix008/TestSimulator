@@ -1,6 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { buildCodePrintHtml, isPagedPrint, printOptsOf } from '../src/lib/print.js';
+import { buildPrintDialogHtml, normalizePrinters, printerOptionsHtml } from '../electron/print-dialog.js';
+
+const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 const text = 'int x = 1;\nint y = 2;';
 
@@ -44,4 +50,46 @@ test('a page border or page numbers split the listing into A4 pages', () => {
   assert.match(html, /class="ln"/);
   assert.match(html, /\/tmp\/t\.c/);
   assert.match(html, /framed/);
+});
+
+test('the printer dialog embeds the page preview and destination list', () => {
+  const printers = normalizePrinters([
+    { name: 'Office', displayName: 'Office Laser', isDefault: false },
+    { name: 'Home', displayName: 'Home Inkjet', isDefault: true },
+  ]);
+  assert.equal(printers[1].isDefault, true);
+  assert.match(printerOptionsHtml(printers), /selected[^>]*>Home Inkjet/);
+  const page = buildPrintDialogHtml({
+    title: '인쇄',
+    html: '<!doctype html><html><body><h1>Hello print</h1></body></html>',
+    printers,
+    labels: { print: '인쇄', close: '취소', destination: '프린터' },
+  });
+  assert.match(page, /id="med-print-dialog"/);
+  assert.match(page, /id="med-preview"/);
+  assert.match(page, /id="med-printer"/);
+  assert.match(page, /Hello print/);
+  assert.match(page, /Office Laser/);
+  assert.match(page, /Home Inkjet/);
+  assert.doesNotMatch(page, /window\.print\s*\(/);
+});
+
+test('an empty printer list still offers the default destination', () => {
+  const page = buildPrintDialogHtml({ title: 'Print', html: '<p>x</p>', printers: [] });
+  assert.match(page, /id="med-noprinter"/);
+  assert.match(page, /<option value="">/);
+});
+
+test('the desktop print dialog is a separate window, not an overlay on the editor', () => {
+  const app = fs.readFileSync(path.join(root, 'src', 'App.jsx'), 'utf8');
+  const main = fs.readFileSync(path.join(root, 'electron', 'main.js'), 'utf8');
+  const popup = fs.readFileSync(path.join(root, 'src', 'PopupWindow.jsx'), 'utf8');
+  const preview = fs.readFileSync(path.join(root, 'src', 'dialogs', 'PrintPreviewDialog.jsx'), 'utf8');
+  assert.match(app, /openPrintWindow\(job\)/);
+  assert.match(main, /print:\s*\{\s*width:/);
+  assert.match(main, /function openPrint\(/);
+  assert.match(popup, /kind === 'print'/);
+  assert.match(popup, /<PrintPreviewDialog embedded/);
+  assert.match(preview, /print-pv-side/);
+  assert.match(preview, /embedded=\{embedded\}/);
 });

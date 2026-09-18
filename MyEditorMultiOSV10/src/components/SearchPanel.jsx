@@ -6,6 +6,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { t, useLanguage } from '../lib/i18n';
 import { call } from '../lib/backend';
+import { withProgress } from '../lib/progress';
 import { Icon } from './Icons';
 
 const baseName = (p) => (p || '').replace(/[\\/]+$/, '').split(/[\\/]/).pop();
@@ -55,7 +56,11 @@ export function SearchPanel({ folder, request, searchOpen, onOpen, onClose, onEr
       if (sc === 'open') r = searchOpen({ query: text, regex, caseSensitive, wholeWord });
       else {
         if (!folder) { setResult({ hits: [], error: t('search_no_folder') }); return; }
-        r = await call('search.files', { id: 1, dir: folder, query: text, regex, caseSensitive, wholeWord, include, exclude });
+        r = await withProgress({ title: t('search_title'), message: t('search_running'), detail: folder, delay: 200, cancellable: true }, async ({ isCancelled }) => {
+          const job = call('search.files', { id: 1, dir: folder, query: text, regex, caseSensitive, wholeWord, include, exclude });
+          const poll = setInterval(() => { if (isCancelled()) call('search.cancel', { id: 1 }).catch(() => {}); }, 200);
+          try { return await job; } finally { clearInterval(poll); if (isCancelled()) seq.current++; }
+        });
       }
       if (my !== seq.current) return;
       setResult(r);

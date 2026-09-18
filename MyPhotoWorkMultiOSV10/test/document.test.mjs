@@ -325,3 +325,52 @@ test('padCanvas crops what leaves the canvas, which is why a move must keep the 
   const fromOriginal = padCanvas(source, 8, 8, 0, 0)
   assert.deepEqual(px(fromOriginal, 0, 4), [255, 0, 0, 255], 'redrawing from the original keeps it')
 })
+
+/* --------------------------------------------------------- clipping masks */
+
+/** A base layer covering only the left half, with a full-bleed layer above it. */
+function clipPair(clipped) {
+  const { document, canvases } = createBlankDocument('doc', 8, 4, 'transparent', 'base')
+  const base = document.layers[0]
+  const half = canvasFrom(8, 4, (x) => (x < 4 ? [0, 0, 255, 255] : [0, 0, 0, 0]))
+  canvases.set(base.id, half)
+
+  const top = createLayerMeta('top')
+  top.clipped = clipped
+  canvases.set(top.id, canvasOf(8, 4, '#ff0000'))
+  document.layers.push(top)
+  return { document, canvases }
+}
+
+test('a clipped layer only shows where the layer below it has pixels', () => {
+  const { document, canvases } = clipPair(true)
+  const flat = compositeDocument(document, canvases)
+  assert.deepEqual(px(flat, 1, 2), [255, 0, 0, 255], 'over the base, the clipped layer shows')
+  assert.deepEqual(px(flat, 6, 2), [0, 0, 0, 0], 'past its edge, it is cut away')
+})
+
+test('the same pair with the clip off covers everything, as before', () => {
+  const { document, canvases } = clipPair(false)
+  const flat = compositeDocument(document, canvases)
+  assert.deepEqual(px(flat, 6, 2), [255, 0, 0, 255], 'an unclipped layer is not cut back')
+})
+
+test('a clipped adjustment layer only adjusts what the base layer covers', () => {
+  const { document, canvases } = createBlankDocument('doc', 8, 4, 'transparent', 'base')
+  const base = document.layers[0]
+  canvases.set(base.id, canvasFrom(8, 4, (x) => (x < 4 ? [120, 120, 120, 255] : [0, 0, 0, 0])))
+
+  const mid = createLayerMeta('mid')
+  canvases.set(mid.id, canvasFrom(8, 4, (x) => (x < 4 ? [0, 0, 0, 0] : [120, 120, 120, 255])))
+  document.layers.push(mid)
+
+  const invert = createLayerMeta('invert', 'adjustment')
+  invert.clipped = true
+  invert.adjustment = { ...defaultAdjustment(), type: 'invert' }
+  document.layers.push(invert)
+
+  // The adjustment is clipped to `mid`, which covers only the right-hand half.
+  const flat = compositeDocument(document, canvases)
+  assert.deepEqual(px(flat, 1, 2).slice(0, 3), [120, 120, 120], 'the left half is untouched')
+  assert.deepEqual(px(flat, 6, 2).slice(0, 3), [135, 135, 135], 'the right half was inverted')
+})

@@ -45,7 +45,7 @@ export function iconForTool(id: Tool) {
 }
 
 export const toolGroups: ToolGroup[] = [
-  { id: 'move', tools: [{ id: 'move', icon: MousePointer2, key: 'V' }, { id: 'artboard', icon: Frame, key: 'Shift+V' }] },
+  { id: 'move', tools: [{ id: 'move', icon: MousePointer2, key: 'V' }, { id: 'artboard', icon: Frame, key: 'Shift+V' }, { id: 'puppet', icon: Spline, key: 'Shift+V' }] },
   { id: 'marquee', tools: [{ id: 'marquee', icon: Square, key: 'M' }, { id: 'ellipseMarquee', icon: Circle, key: 'Shift+M' }, { id: 'rowMarquee', icon: Ratio, key: 'M' }, { id: 'colMarquee', icon: Ratio, key: 'M' }] },
   { id: 'lasso', tools: [{ id: 'lasso', icon: Lasso, key: 'L' }, { id: 'polyLasso', icon: Spline, key: 'L' }, { id: 'magneticLasso', icon: Magnet, key: 'L' }] },
   { id: 'select', tools: [{ id: 'objectSelect', icon: Sparkles, key: 'W' }, { id: 'quickSelect', icon: Highlighter, key: 'W' }, { id: 'wand', icon: WandSparkles, key: 'W' }] },
@@ -69,23 +69,39 @@ export const toolGroups: ToolGroup[] = [
 
 export const adjustmentTypes: AdjustmentType[] = [
   'brightness', 'levels', 'curves', 'hue', 'colorBalance', 'vibrance', 'bw', 'invert', 'posterize', 'threshold', 'exposure', 'photoFilter', 'clarity', 'dehaze', 'grain', 'shadowsHighlights',
+  'channelMixer', 'selectiveColor', 'gradientMap', 'equalize',
 ]
 
 export const filterCatalog = [
   { id: 'gaussian', group: 'blur' },
   { id: 'motion', group: 'blur' },
+  { id: 'boxBlur', group: 'blur' },
+  { id: 'radialSpin', group: 'blur' },
+  { id: 'radialZoom', group: 'blur' },
   { id: 'sharpen', group: 'sharpen' },
+  { id: 'unsharp', group: 'sharpen' },
   { id: 'highPass', group: 'sharpen' },
   { id: 'addNoise', group: 'noise' },
+  { id: 'median', group: 'noise' },
+  { id: 'dust', group: 'noise' },
   { id: 'mosaic', group: 'pixelate' },
+  { id: 'crystallize', group: 'pixelate' },
   { id: 'findEdges', group: 'stylize' },
   { id: 'emboss', group: 'stylize' },
   { id: 'oil', group: 'artistic' },
   { id: 'solarize', group: 'stylize' },
   { id: 'clouds', group: 'render' },
   { id: 'vignette', group: 'render' },
+  { id: 'lensFlare', group: 'render' },
   { id: 'offset', group: 'other' },
+  { id: 'minimum', group: 'other' },
+  { id: 'maximum', group: 'other' },
   { id: 'liquify', group: 'distort' },
+  { id: 'twirl', group: 'distort' },
+  { id: 'ripple', group: 'distort' },
+  { id: 'wave', group: 'distort' },
+  { id: 'spherize', group: 'distort' },
+  { id: 'pinch', group: 'distort' },
   { id: 'cameraRaw', group: 'raw' },
   { id: 'skinSmooth', group: 'neural' },
 ] as const

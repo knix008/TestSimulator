@@ -12,7 +12,7 @@ import { ALL_LANGUAGES, FEATURED_LANGUAGES, PLAIN } from '../lib/languages';
 // non-modal one (modal={false}: settings, info, shortcuts) leaves the editor
 // usable underneath — it behaves like a small separate window that closes
 // with the app — while the others keep their dimmed, click-to-close backdrop.
-export function Dialog({ title, icon, kind = '', width, onClose, children, footer, onEnter, className = '', modal = true, embedded = false }) {
+export function Dialog({ title, icon, kind = '', width, onClose, children, footer, onEnter, className = '', modal = true, embedded = false, closable = true }) {
   useLanguage();
   const ref = useRef(null);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
@@ -41,7 +41,7 @@ export function Dialog({ title, icon, kind = '', width, onClose, children, foote
     if (focusable) focusable.focus();
   }, []);
   const onKey = (e) => {
-    if (e.key === 'Escape') { e.stopPropagation(); onClose(); }
+    if (e.key === 'Escape') { e.stopPropagation(); if (closable) onClose(); }
     else if (e.key === 'Enter' && onEnter && !(e.target.tagName === 'TEXTAREA') && !(e.target.tagName === 'BUTTON' && e.target !== document.activeElement)) {
       if (e.target.tagName === 'BUTTON') return;   // let the focused button act
       e.preventDefault(); onEnter();
@@ -54,7 +54,7 @@ export function Dialog({ title, icon, kind = '', width, onClose, children, foote
         <div className="dlg-title drag-region">
           {icon && <Icon name={icon} />}
           <span>{title}</span>
-          <button className="dlg-x" onClick={onClose} title={t('close_btn')} aria-label={t('close_btn')}><Icon name="close" size={14} /></button>
+          {closable && <button className="dlg-x" onClick={onClose} title={t('close_btn')} aria-label={t('close_btn')}><Icon name="close" size={14} /></button>}
         </div>
         <div className="dlg-body">{children}</div>
         {footer && <div className="dlg-footer">{footer}</div>}
@@ -62,12 +62,12 @@ export function Dialog({ title, icon, kind = '', width, onClose, children, foote
     );
   }
   return (
-    <div className={`dlg-backdrop ${modal ? '' : 'nomodal'}`} onMouseDown={(e) => { if (modal && e.target === e.currentTarget) onClose(); }}>
+    <div className={`dlg-backdrop ${modal ? '' : 'nomodal'}`} onMouseDown={(e) => { if (modal && closable && e.target === e.currentTarget) onClose(); }}>
       <div className={`dlg ${kind} ${className}`} style={{ ...(width ? { width } : {}), transform: offset.x || offset.y ? `translate(${offset.x}px, ${offset.y}px)` : undefined }} ref={ref} role="dialog" aria-modal={modal ? 'true' : 'false'} onKeyDown={onKey}>
         <div className="dlg-title" onMouseDown={onTitleDown}>
           {icon && <Icon name={icon} />}
           <span>{title}</span>
-          <button className="dlg-x" onClick={onClose} title={t('close_btn')} aria-label={t('close_btn')}><Icon name="close" size={14} /></button>
+          {closable && <button className="dlg-x" onClick={onClose} title={t('close_btn')} aria-label={t('close_btn')}><Icon name="close" size={14} /></button>}
         </div>
         <div className="dlg-body">{children}</div>
         {footer && <div className="dlg-footer">{footer}</div>}

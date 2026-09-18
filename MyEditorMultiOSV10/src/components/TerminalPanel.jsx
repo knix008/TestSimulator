@@ -22,6 +22,8 @@ import { ContextMenu } from './ContextMenu';
 import { AnsiText } from '../lib/ansi.jsx';
 import { Prompt } from './Prompt';
 import { mergeOutput } from '../lib/termtext';
+import { LintPanel } from './LintPanel';
+import { LogPanel } from './LogPanel';
 
 const WAIT_MS = 1500;   // long poll: the backend answers as soon as something happens, or after this
 const STATUS_WAIT_MS = 700;   // the prompt waits this long for a fresh git status before showing the last known one
@@ -280,32 +282,60 @@ function TerminalView({ term, active, onExit, prompt, env, termEol, termCr, term
   );
 }
 
-export function TerminalPanel({ terms, activeId, shells, onActivate, onNew, onClose, onHide, onExit, onSettings, height, onResizeStart, prompt, env, termEol, termCr, termColor = true }) {
+export function TerminalPanel({
+  terms, activeId, shells, onActivate, onNew, onClose, onHide, onExit, onSettings, height, onResizeStart,
+  prompt, env, termEol, termCr, termColor = true,
+  panel = 'terminal', onPanel,
+  lintDoc, lint, lintEnabled, onLintGoto, onLintRefresh,
+  logEntries, onLogClear,
+}) {
   useLanguage();
   const [menu, setMenu] = useState(null);
-  const shellItems = shells.map((s) => ({ id: `shell:${s.id}`, label: s.label, icon: 'terminal' }));
+  const [shellList, setShellList] = useState(shells);
+  useEffect(() => { setShellList(shells); }, [shells]);
+  const openShellMenu = (e) => {
+    setMenu(e.currentTarget);
+    call('term.shells', { refresh: true }).then((x) => { if (Array.isArray(x)) setShellList(x); }).catch(() => {});
+  };
+  const shellItems = shellList.map((s) => ({ id: `shell:${s.id}`, label: s.label, icon: 'terminal' }));
+  const tab = panel === 'log' || panel === 'lint' ? panel : 'terminal';
+  const mode = (id) => `panel-mode ${tab === id ? 'active' : ''}`;
+  const lintCount = lint && lint.total ? lint.total : 0;
   return (
     <div className="term-panel" style={{ height }}>
       <div className="h-splitter" onMouseDown={onResizeStart} />
       <div className="term-head">
-        <span className="panel-title"><Icon name="terminal" size={14} /> {t('terminal')}</span>
-        <div className="term-tabs">
-          {terms.map((tm) => (
-            <div key={tm.id} className={`term-tab ${tm.id === activeId ? 'active' : ''}`} title={tm.cwd} onMouseDown={(e) => { if (e.button === 1) { e.preventDefault(); onClose(tm.id); } else onActivate(tm.id); }}>
-              <span className="ellipsis">{tm.title}</span>
-              <button className="tab-close" title={t('close')} onMouseDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); onClose(tm.id); }}><Icon name="close" size={12} /></button>
-            </div>
-          ))}
+        <div className="panel-modes" role="tablist">
+          <button type="button" className={mode('terminal')} onClick={() => onPanel && onPanel('terminal')}><Icon name="terminal" size={14} /> {t('terminal')}</button>
+          <button type="button" className={mode('log')} onClick={() => onPanel && onPanel('log')}><Icon name="log" size={14} /> {t('log_tab')}</button>
+          <button type="button" className={mode('lint')} onClick={() => onPanel && onPanel('lint')}>
+            <Icon name="lint" size={14} /> {t('lint_tab')}
+            {lintCount > 0 ? <span className={`panel-badge ${lint.error ? 'err' : lint.warning ? 'warn' : ''}`}>{lintCount}</span> : null}
+          </button>
         </div>
-        <button className="icon-btn" title={t('term_new')} onClick={() => onNew()}><Icon name="plus" size={15} /></button>
-        {shells.length > 1 && <button className="icon-btn" title={t('term_new_shell')} onClick={(e) => setMenu(e.currentTarget)}><Icon name="chevronDown" size={14} /></button>}
+        {tab === 'terminal' && (
+          <>
+            <div className="term-tabs">
+              {terms.map((tm) => (
+                <div key={tm.id} className={`term-tab ${tm.id === activeId ? 'active' : ''}`} title={tm.cwd} onMouseDown={(e) => { if (e.button === 1) { e.preventDefault(); onClose(tm.id); } else onActivate(tm.id); }}>
+                  <span className="ellipsis">{tm.title}</span>
+                  <button className="tab-close" title={t('close')} onMouseDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); onClose(tm.id); }}><Icon name="close" size={12} /></button>
+                </div>
+              ))}
+            </div>
+            <button className="icon-btn" title={t('term_new')} onClick={() => onNew()}><Icon name="plus" size={15} /></button>
+            {shellList.length > 0 && <button className="icon-btn" title={t('term_new_shell')} onClick={openShellMenu}><Icon name="chevronDown" size={14} /></button>}
+          </>
+        )}
         <span className="spacer" />
-        {onSettings && <button className="icon-btn" title={t('term_settings')} onClick={onSettings}><Icon name="settings" size={14} /></button>}
+        {tab === 'terminal' && onSettings && <button className="icon-btn" title={t('term_settings')} onClick={onSettings}><Icon name="settings" size={14} /></button>}
         <button className="icon-btn" title={t('term_hide')} onClick={onHide}><Icon name="close" size={15} /></button>
       </div>
       <div className="term-body">
-        {terms.length === 0 && <div className="sb-empty"><Icon name="terminal" size={26} /><p>{t('term_empty')}</p><button className="btn" onClick={() => onNew()}>{t('term_new')}</button></div>}
-        {terms.map((tm) => <TerminalView key={tm.id} term={tm} active={tm.id === activeId} onExit={onExit} prompt={prompt} env={env} termEol={termEol} termCr={termCr} termColor={termColor} />)}
+        {tab === 'terminal' && terms.length === 0 && <div className="sb-empty"><Icon name="terminal" size={26} /><p>{t('term_empty')}</p><button className="btn" onClick={() => onNew()}>{t('term_new')}</button></div>}
+        {tab === 'terminal' && terms.map((tm) => <TerminalView key={tm.id} term={tm} active={tm.id === activeId} onExit={onExit} prompt={prompt} env={env} termEol={termEol} termCr={termCr} termColor={termColor} />)}
+        {tab === 'log' && <LogPanel entries={logEntries || []} onClear={onLogClear} />}
+        {tab === 'lint' && <LintPanel doc={lintDoc} lint={lint} enabled={lintEnabled} onGoto={onLintGoto} onRefresh={onLintRefresh} />}
       </div>
       {menu && <ContextMenu anchorEl={menu} above x={0} y={0} items={shellItems} onClose={() => setMenu(null)} onPick={(id) => { setMenu(null); onNew(id.slice(6)); }} />}
     </div>

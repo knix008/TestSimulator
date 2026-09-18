@@ -17,7 +17,7 @@ import { applyTheme, nextThemeId, themeById, setCustomThemes } from './themes';
 import { SETTINGS_DEFAULTS, pickSettings } from './lib/settings';
 import {
   call, isElectron, nativeDialog, setDialogFallback, writeClipboardText, readClipboardText, onOpenFiles, rendererReady, pathForFile,
-  onCloseRequest, replyClose, onWindowFocus, setWindowTitle, windowControl, quitApp, isMac, openPopup, sendSettingsPatch, onSettingsPatch, printHtml,
+  onCloseRequest, replyClose, onWindowFocus, setWindowTitle, windowControl, quitApp, isMac, openPopup, openPrintWindow, sendSettingsPatch, onSettingsPatch, printHtml,
 } from './lib/backend';
 import { createState, settingsEffects, languageEffect, readOnlyEffect, commands, searchApi, applySaveTransforms, cursorInfo } from './lib/editor';
 import { detectLanguage, languageByName, loadLanguage, FEATURED_LANGUAGES, PLAIN } from './lib/languages';
@@ -28,9 +28,10 @@ import { Outline } from './components/Outline';
 import { markdownLive, imageBase } from './lib/mdlive';
 import { dockerfileCompletion, kubernetesCompletion } from './lib/devops';
 import { fileToDataUrl, isImageFile, resolveImageSrc, analyzeImage, encodeImage, icoDisplaySrc } from './lib/images';
-import { buildCodePrintHtml, highlightCodeLines, printOptsOf } from './lib/print';
+import { buildCodePrintHtmlAsync, highlightCodeLinesAsync, printOptsOf } from './lib/print';
+import { withProgress, yieldToUi } from './lib/progress';
 import { renderMarkdown } from './lib/markdown';
-import { applyDiagnostics, clearDiagnostics, countDiagnostics, openLintPanel, nextDiagnostic } from './lib/lint';
+import { applyDiagnostics, clearDiagnostics, countDiagnostics, nextDiagnostic } from './lib/lint';
 import { wordAt as spellWordAt, suggest as spellSuggest, addUserWord, ignoreWord, setUserWords, setSpellOptions, refreshAll as spellRefreshAll, isReady as spellReady } from './lib/spell';
 import { MenuBar } from './components/MenuBar';
 import { Toolbar } from './components/Toolbar';
@@ -41,6 +42,7 @@ import { MarkdownBar } from './components/MarkdownBar';
 import { Preview } from './components/Preview';
 import { HtmlPreview, HtmlBar, buildHtmlDocument } from './components/HtmlPreview';
 import { ImagePreview, ImageBar, isBinaryImageName, isSvgName, insertSvgTag } from './components/ImagePreview';
+import { restoreAsPicture } from './lib/imagekind';
 import { withMenuIcons } from './lib/menuicons';
 import { Sidebar } from './components/Sidebar';
 import { SearchPanel } from './components/SearchPanel';
@@ -55,6 +57,7 @@ import { ImageDialog } from './dialogs/ImageDialog';
 import { ImageExportDialog } from './dialogs/ImageExportDialog';
 import { InstallDialog } from './dialogs/InstallDialog';
 import { PrintPreviewDialog } from './dialogs/PrintPreviewDialog';
+import { ProgressHost } from './dialogs/ProgressDialog';
 
 const BASE_FONT = 12;   // the font size that is 100 % zoom (the default)
 // split = multi: n panes as a balanced grid — columns = ceil(√n), rows = ceil(n / columns).
@@ -128,6 +131,7 @@ export default function App() {
   const [cursor, setCursor] = useState({ line: 1, col: 1, selected: 0, selLines: 0, ranges: 1, chars: 0, lines: 1 });
   const [docVersion, setDocVersion] = useState(0);
   const [message, setMessageState] = useState('');
+  const [appLog, setAppLog] = useState([]);
   const messageTimer = useRef(null);
   const [find, setFind] = useState(null);           // { mode, initial }
   const [dialog, setDialog] = useState(null);       // { type, ...props }
@@ -159,7 +163,10 @@ export default function App() {
   const setMessage = (msg) => {
     setMessageState(msg);
     if (messageTimer.current) clearTimeout(messageTimer.current);
-    if (msg) messageTimer.current = setTimeout(() => setMessageState(''), 5000);
+    if (msg) {
+      setAppLog((xs) => [...xs, { t: Date.now(), kind: 'info', msg: String(msg) }].slice(-400));
+      messageTimer.current = setTimeout(() => setMessageState(''), 5000);
+    }
   };
   const encodingLabel = (id) => { const e = infoRef.current && infoRef.current.encodings.find((x) => x.id === id); return e ? e.label : id; };
 
@@ -228,6 +235,7 @@ export default function App() {
     const doc = getDoc(id);
     const state = getState(id);
     if (!doc || !state || !settingsRef.current.lint) return;
+    if (doc.kind === 'hex') { patchDoc(id, { lint: null }); return; }
     if (!doc.langName || doc.langName === 'Markdown' && !doc.path) { return; }
     const text = state.doc.toString();
     lintRuns.current.set(id, text);
@@ -242,13 +250,14 @@ export default function App() {
     dispatchTo(id, applyDiagnostics(st, r.diagnostics || []));
     const after = getState(id);
     const counts = after ? countDiagnostics(after) : { error: 0, warning: 0, info: 0, total: 0 };
-    patchDoc(id, { lint: { tool: r.tool, error: r.error || null, ...counts } });
+    patchDoc(id, { lint: { tool: r.tool, error: r.error || null, error_msg: r.error || null, items: r.diagnostics || [], ...counts } });
   };
   const clearLint = (id) => { const st = getState(id); if (st) dispatchTo(id, clearDiagnostics(st)); patchDoc(id, { lint: null }); };
-  // ── printing (파일 › 인쇄, Ctrl+P): a preview of the page is shown first;
-  // Print then sends it to the system dialog. Markdown and HTML print as
-  // rendered (local images embedded as data URLs), a picture / SVG as the
-  // picture, anything else as a listing with line numbers.
+  // ── printing (파일 › 인쇄, Ctrl+P): the desktop app opens a separate
+  // print window (preview + destination). The web / smoke test keep the
+  // dialog in the page. Markdown and HTML print as rendered (local images
+  // embedded as data URLs), a picture / SVG as the picture, anything else
+  // as a listing with line numbers.
   const esc = (x) => String(x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const printDoc = async (id = activeIdRef.current) => {
     const doc = getDoc(id);
@@ -259,13 +268,21 @@ export default function App() {
     const base = doc.path ? dirName(doc.path) : folderRef.current || '';
     const isCode = doc.langName !== 'Markdown' && doc.langName !== 'HTML' && !isBinaryImageName(doc.name) && !isSvgName(doc.name);
     const printOpts = printOptsOf(settingsRef.current);
-    const lineHtml = isCode ? highlightCodeLines(st, printOpts.tabSize) : undefined;
+    const big = text.length > 40000 || st.doc.lines > 800;
+    let lineHtml;
     let html;
-    if (doc.langName === 'HTML') {
-      html = await buildHtmlDocument(text, base);
-    } else {
+    const built = await withProgress({ title: t('prog_print'), message: t('prog_print_build'), detail: title, delay: big ? 0 : 160 }, async ({ report }) => {
+      if (isCode) {
+        report({ message: t('prog_print_highlight'), value: 0.05 });
+        lineHtml = await highlightCodeLinesAsync(st, printOpts.tabSize, (v) => report({ value: v, message: t('prog_print_highlight') }));
+      }
+      if (doc.langName === 'HTML') {
+        report({ message: t('prog_print_build'), value: 0.4 });
+        return buildHtmlDocument(text, base);
+      }
       let body;
       if (isBinaryImageName(doc.name) && doc.path) {
+        report({ message: t('prog_image_load'), value: 0.3 });
         try {
           const r = await call('file.dataUrl', { path: doc.path });
           const src = /\.ico$/i.test(doc.name) ? icoDisplaySrc(r.dataUrl) : r.dataUrl;
@@ -274,24 +291,31 @@ export default function App() {
       } else if (isSvgName(doc.name)) {
         body = `<div class="pic"><img src="data:image/svg+xml;charset=utf-8,${encodeURIComponent(text)}" alt="${esc(title)}"></div>`;
       } else if (doc.langName === 'Markdown') {
+        report({ message: t('prog_print_build'), value: 0.25 });
         const host = document.createElement('div');
         host.innerHTML = renderMarkdown(text);
-        await Promise.all([...host.querySelectorAll('img[src]')].map(async (img) => { try { img.setAttribute('src', await resolveImageSrc(img.getAttribute('src'), base)); } catch { /* left as is */ } }));
+        const imgs = [...host.querySelectorAll('img[src]')];
+        for (let i = 0; i < imgs.length; i++) {
+          try { imgs[i].setAttribute('src', await resolveImageSrc(imgs[i].getAttribute('src'), base)); } catch { /* left as is */ }
+          report({ value: 0.25 + 0.5 * ((i + 1) / Math.max(1, imgs.length)) });
+        }
         body = `<article class="md">${host.innerHTML}</article>`;
       } else {
-        html = buildCodePrintHtml({ title, path: doc.path || doc.name, lang: doc.langName, text, lineHtml, opts: printOpts });
+        report({ message: t('prog_print_pages'), value: 0.7 });
+        return buildCodePrintHtmlAsync({ title, path: doc.path || doc.name, lang: doc.langName, text, lineHtml, opts: printOpts }, (v) => report({ value: v, message: t('prog_print_pages') }));
       }
-      if (!html) {
-        const css = `body{font-family:Segoe UI,Malgun Gothic,Apple SD Gothic Neo,Noto Sans KR,Helvetica,Arial,sans-serif;color:#111;margin:18mm 16mm;font-size:12pt;line-height:1.55}
+      const css = `body{font-family:Segoe UI,Malgun Gothic,Apple SD Gothic Neo,Noto Sans KR,Helvetica,Arial,sans-serif;color:#111;margin:18mm 16mm;font-size:12pt;line-height:1.55}
 h1{font-size:1.8em;border-bottom:1px solid #999;padding-bottom:4px}h2{font-size:1.45em;border-bottom:1px solid #bbb;padding-bottom:3px}h3{font-size:1.2em}
 pre,code{font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospace;font-size:10.5pt}pre{background:#f4f4f4;border:1px solid #ddd;border-radius:4px;padding:8px;white-space:pre-wrap;word-break:break-all}
 img{max-width:100%;height:auto;page-break-inside:avoid}table{border-collapse:collapse}.md table td,.md table th{border:1px solid #bbb;padding:3px 8px}blockquote{border-left:3px solid #999;margin:0;padding:2px 12px;color:#444}
 .pic{display:flex;justify-content:center}.title{font-size:10pt;color:#666;border-bottom:1px solid #ccc;margin-bottom:12px;padding-bottom:4px}@page{margin:0}`;
-        html = `<!doctype html><html><head><meta charset="utf-8"><title>${esc(title)}</title><style>${css}</style></head><body><div class="title">${esc(doc.path || doc.name)}</div>${body}</body></html>`;
-      }
-    }
-    const ok = await ask({ type: 'printPreview', html, title, code: isCode, text: isCode ? text : undefined, path: doc.path || doc.name, lang: isCode ? doc.langName : undefined, lineHtml });
-    if (ok) printHtml((ok && ok.html) || html, title);
+      return `<!doctype html><html><head><meta charset="utf-8"><title>${esc(title)}</title><style>${css}</style></head><body><div class="title">${esc(doc.path || doc.name)}</div>${body}</body></html>`;
+    });
+    html = built;
+    const job = { html, title, code: isCode, text: isCode ? text : undefined, path: doc.path || doc.name, lang: isCode ? doc.langName : undefined, lineHtml };
+    if (openPrintWindow(job)) return;
+    const ok = await ask({ type: 'printPreview', ...job });
+    if (ok) printHtml((ok && ok.html) || html, t('print_title'), { print: t('print_title'), close: t('cancel') }, ok && typeof ok === 'object' ? ok : undefined);
   };
   // An image of the preview saved as a file: the export dialog picks the
   // format / quality / transparency, then the save dialog the place.
@@ -330,7 +354,10 @@ img{max-width:100%;height:auto;page-break-inside:avoid}table{border-collapse:col
     if (!lang || choice === 'indent') { reindentDoc(id); if (!quiet) setMessage(t('fmt_done', { tool: t('fmt_indent') })); { const after = getState(id); if (after) setFmtCheck({ id, doc: after.doc, formatted: true }); } return true; }
     const text = st.doc.toString();
     let r;
-    try { r = await call('format.run', { path: doc.path || '', name: doc.name, language: lang, text, tool: choice, tabSize: settingsRef.current.tabSize, insertSpaces: settingsRef.current.insertSpaces }); } catch (e) { if (!quiet) setMessage(`${t('fmt_failed', { tool: lang })}: ${e.message}`); return false; }
+    try {
+      r = await withProgress({ title: t('prog_format'), message: t('prog_format_run'), detail: doc.name, delay: text.length > 20000 ? 0 : 160 },
+        () => call('format.run', { path: doc.path || '', name: doc.name, language: lang, text, tool: choice, tabSize: settingsRef.current.tabSize, insertSpaces: settingsRef.current.insertSpaces }));
+    } catch (e) { if (!quiet) setMessage(`${t('fmt_failed', { tool: lang })}: ${e.message}`); return false; }
     if (r.error) {
       if (!r.tool) { reindentDoc(id); if (!quiet) setMessage(t('fmt_none', { lang })); return true; }
       // The chosen tool is not installed: offer to install it (package manager, progress popup), then format.
@@ -494,6 +521,11 @@ img{max-width:100%;height:auto;page-break-inside:avoid}table{border-collapse:col
   };
 
   const lintAll = () => { for (const d of docsRef.current) { if (settingsRef.current.lint) scheduleLint(d.id, 50); else clearLint(d.id); } };
+  useEffect(() => {
+    if (activeId == null || !settings.lint) return undefined;
+    scheduleLint(activeId, 80);
+    return undefined;
+  }, [activeId, settings.lint]);   // eslint-disable-line react-hooks/exhaustive-deps
   handlersRef.current.onUpdate = (u) => { setCursor(cursorInfo(u.state)); };
 
   const newDocState = (text, { selection } = {}) => {
@@ -706,40 +738,60 @@ img{max-width:100%;height:auto;page-break-inside:avoid}table{border-collapse:col
   const openPathNow = async (p, { encoding = null, activateIt = true, force = false } = {}) => {
     let existing = docsRef.current.find((d) => samePath(d.path, p));
     if (existing && !encoding) { if (activateIt) activate(existing.id); return existing; }
-    try {
-      const r = await call('file.read', { path: p, encoding: encoding || (force ? 'utf8' : null), defaultEol: settingsRef.current.defaultEol });
-      // The resolved path may differ from what was asked for (relative path, "..", case).
-      if (!existing) existing = docsRef.current.find((d) => samePath(d.path, r.path));
-      if (existing && !encoding) { if (activateIt) activate(existing.id); return existing; }
-      if (existing) {
-        // Reopen with another encoding: replace the text in place.
-        const state = newDocState(r.text, { selection: { anchor: 0 } });
-        putState(existing.id, state);
-        savedRef.current.set(existing.id, state.doc);
-        patchDoc(existing.id, { encoding: r.encoding, eol: r.eol, dirty: false, mtime: r.mtime, size: r.size, readonly: r.readonly, missing: false });
-        if (activateIt) activate(existing.id);
-        setCursor(cursorInfo(state));
-        return existing;
+    const name = baseName(p);
+    const MAX_TEXT = 64 * 1024 * 1024;
+    let err = null;
+    const doc = await withProgress({ title: t('prog_open'), message: t('prog_open_file'), detail: name, delay: 180 }, async ({ report }) => {
+      try {
+        if (!force && !encoding && isBinaryImageName(name)) {
+          report({ message: t('prog_hex') });
+          return await openHex(p, { activateIt });
+        }
+        if (!force && !encoding) {
+          report({ message: t('prog_sniff') });
+          let s = null;
+          try { s = await call('file.sniff', { path: p }); } catch { s = null; }
+          if (s && s.binary) { report({ message: t('prog_hex') }); return await openHex(p, { activateIt }); }
+          if (s && s.size > MAX_TEXT) { err = { code: 'ETOOBIG', name }; return null; }
+        }
+        report({ message: t('prog_read') });
+        const r = await call('file.read', { path: p, encoding: encoding || (force ? 'utf8' : null), defaultEol: settingsRef.current.defaultEol });
+        if (!existing) existing = docsRef.current.find((d) => samePath(d.path, r.path));
+        if (existing && !encoding) { if (activateIt) activate(existing.id); return existing; }
+        report({ message: t('prog_prepare'), value: 0.85 });
+        await yieldToUi();
+        if (existing) {
+          const state = newDocState(r.text, { selection: { anchor: 0 } });
+          putState(existing.id, state);
+          savedRef.current.set(existing.id, state.doc);
+          patchDoc(existing.id, { encoding: r.encoding, eol: r.eol, dirty: false, mtime: r.mtime, size: r.size, readonly: r.readonly, missing: false });
+          if (activateIt) activate(existing.id);
+          setCursor(cursorInfo(state));
+          return existing;
+        }
+        const opened = addDoc({ path: r.path, name: r.name, encoding: r.encoding, eol: r.eol, mtime: r.mtime, size: r.size, readonly: r.readonly }, r.text, { activateIt });
+        call('recent.touch', { path: r.path }).then(setRecent).catch(() => {});
+        setMessage(t('opened', { name: r.name }));
+        return opened;
+      } catch (e) {
+        err = e;
+        if (e.code === 'ETOOBIG') {
+          let s = null;
+          try { s = await call('file.sniff', { path: p }); } catch { s = null; }
+          if (s && s.binary && !force) return openHex(p, { activateIt });
+        } else if (e.code === 'EBINARY' && !force) return openHex(p, { activateIt });
+        return null;
       }
-      const doc = addDoc({ path: r.path, name: r.name, encoding: r.encoding, eol: r.eol, mtime: r.mtime, size: r.size, readonly: r.readonly }, r.text, { activateIt });
-      call('recent.touch', { path: r.path }).then(setRecent).catch(() => {});
-      setMessage(t('opened', { name: r.name }));
-      return doc;
-    } catch (e) {
-      const name = baseName(p);
-      if (e.code === 'ETOOBIG') {
-        // Too big for the editor — but the hex view reads in pieces, so a binary file of any size opens there.
-        let s = null;
-        try { s = await call('file.sniff', { path: p }); } catch { s = null; }
-        if (s && s.binary && !force) return openHex(p, { activateIt });
-        await showError(t('too_big_title'), t('too_big_msg', { name }), e);
-      } else if (e.code === 'EBINARY' && !force) return openHex(p, { activateIt });
+    });
+    if (doc) return doc;
+    if (err) {
+      if (err.code === 'ETOOBIG') await showError(t('too_big_title'), t('too_big_msg', { name }), err);
       else {
-        if (e.code === 'ENOENT') call('recent.remove', { path: p }).then(setRecent).catch(() => {});
-        await showError(t('error_title'), t('open_failed', { name }), e);
+        if (err.code === 'ENOENT') call('recent.remove', { path: p }).then(setRecent).catch(() => {});
+        await showError(t('error_title'), t('open_failed', { name }), err);
       }
-      return null;
     }
+    return null;
   };
 
   // A file that is not text: a binary picture (PNG · JPEG · GIF · WebP · AVIF · BMP · ICO · HEIC · HEIF · DCM) fills the
@@ -750,11 +802,21 @@ img{max-width:100%;height:auto;page-break-inside:avoid}table{border-collapse:col
   // matter. "텍스트로 열기" in its header reopens it as text.
   const decodeBase64 = (b64) => { const bin = atob(b64); const out = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i); return out; };
   const hexReader = (path) => async (offset, length) => decodeBase64((await call('file.readRange', { path, offset, length })).base64);
+  const ensureHexReader = (doc) => {
+    if (!doc || !doc.path) return null;
+    let read = hexRef.current.get(doc.id);
+    if (!read) { read = hexReader(doc.path); hexRef.current.set(doc.id, read); }
+    return read;
+  };
   const openHex = async (p, { activateIt = true } = {}) => {
     try {
       const r = await call('file.readRange', { path: p, offset: 0, length: 0 });   // the resolved path, size and mtime
       const existing = docsRef.current.find((d) => samePath(d.path, r.path));
-      if (existing) { if (activateIt) activate(existing.id); return existing; }
+      if (existing) {
+        ensureHexReader(existing);
+        if (activateIt) activate(existing.id);
+        return existing;
+      }
       const id = nextDocId;   // addDoc takes the next id: the reader must be there before the first render
       const image = isBinaryImageName(r.name);   // PNG · JPEG · GIF · WebP · AVIF · BMP · ICO · HEIC · HEIF · DCM: the picture fills the pane; Hexa shows the bytes beside it
       hexRef.current.set(id, hexReader(r.path));
@@ -775,9 +837,17 @@ img{max-width:100%;height:auto;page-break-inside:avoid}table{border-collapse:col
   };
 
   const openFiles = async (paths) => {
-    let last = null;
-    for (const p of paths) { const d = await openPath(p, { activateIt: false }); if (d) last = d; }
-    if (last) activate(last.id);
+    const run = async (report) => {
+      let last = null;
+      for (let i = 0; i < paths.length; i++) {
+        if (report) report({ message: t('prog_open_file'), detail: baseName(paths[i]), value: paths.length ? i / paths.length : 0 });
+        const d = await openPath(paths[i], { activateIt: false });
+        if (d) last = d;
+      }
+      if (last) activate(last.id);
+    };
+    if (paths.length > 1) await withProgress({ title: t('prog_open'), message: t('prog_open_file'), delay: 0 }, ({ report }) => run(report));
+    else await run();
   };
 
   const openDialog = async () => {
@@ -821,7 +891,8 @@ img{max-width:100%;height:auto;page-break-inside:avoid}table{border-collapse:col
       // The line ending written: the document's own, or the one the settings force on every save (settings › files).
       const policy = settingsRef.current.eolOnSave;
       const eol = policy === 'lf' || policy === 'crlf' ? policy : doc.eol;
-      const r = await call('file.write', { path: target, text, encoding: enc, eol, force });
+      const r = await withProgress({ title: t('prog_save'), message: t('prog_save_file'), detail: baseName(target), delay: text.length > 200000 ? 0 : 200 },
+        () => call('file.write', { path: target, text, encoding: enc, eol, force }));
       const nowState = getState(id);
       savedRef.current.set(id, nowState.doc);
       const renamed = !samePath(doc.path, r.path);
@@ -841,9 +912,15 @@ img{max-width:100%;height:auto;page-break-inside:avoid}table{border-collapse:col
   const saveAll = async () => {
     const dirty = docsRef.current.filter((d) => d.dirty);
     if (!dirty.length) { setMessage(t('nothing_to_save')); return true; }
-    for (const d of dirty) { if (!(await saveDoc(d.id))) return false; }
-    setMessage(t('all_saved'));
-    return true;
+    const ok = await withProgress({ title: t('prog_save'), message: t('prog_save_all'), delay: dirty.length > 1 ? 0 : 200 }, async ({ report }) => {
+      for (let i = 0; i < dirty.length; i++) {
+        report({ message: t('prog_save_file'), detail: dirty[i].name, value: i / dirty.length });
+        if (!(await saveDoc(dirty[i].id))) return false;
+      }
+      return true;
+    });
+    if (ok) setMessage(t('all_saved'));
+    return !!ok;
   };
 
   // ── close ──
@@ -890,7 +967,8 @@ img{max-width:100%;height:auto;page-break-inside:avoid}table{border-collapse:col
       return;
     }
     try {
-      const r = await call('file.read', { path: doc.path, encoding: encoding || doc.encoding, defaultEol: settingsRef.current.defaultEol });
+      const r = await withProgress({ title: t('prog_open'), message: t('prog_read'), detail: doc.name, delay: 160 },
+        () => call('file.read', { path: doc.path, encoding: encoding || doc.encoding, defaultEol: settingsRef.current.defaultEol }));
       const old = getState(id);
       const sel = keepSelection && old ? { anchor: old.selection.main.anchor, head: old.selection.main.head } : { anchor: 0 };
       const state = newDocState(r.text, { selection: sel });
@@ -944,6 +1022,7 @@ img{max-width:100%;height:auto;page-break-inside:avoid}table{border-collapse:col
       const s = getState(d.id);
       const sel = s ? s.selection.main : null;
       const tab = { path: d.path, name: d.name, untitledNo: d.untitledNo, encoding: d.encoding, eol: d.eol, language: d.language, cursor: sel ? { anchor: sel.anchor, head: sel.head } : null };
+      if (d.kind === 'hex') { tab.kind = 'hex'; tab.imageHex = !!d.imageHex; }
       if (d.dirty && s && s.doc.length <= 512 * 1024) tab.draft = s.doc.toString();
       return tab;
     });
@@ -984,29 +1063,49 @@ img{max-width:100%;height:auto;page-break-inside:avoid}table{border-collapse:col
       const tabs = s.restoreSession && Array.isArray(session.tabs) ? session.tabs : [];
       let restored = 0;
       const seen = new Set();
-      for (const tab of tabs) {
-        if (!tab) continue;
-        if (tab.path) { const k = pathKey(tab.path); if (seen.has(k)) continue; seen.add(k); }
-        try {
-          if (tab.path) {
-            let r = null;
-            try { r = await call('file.read', { path: tab.path, encoding: tab.encoding || null, defaultEol: s.defaultEol }); } catch { /* gone */ }
-            if (r) {
-              const hasDraft = typeof tab.draft === 'string';
-              addDoc({ path: r.path, name: r.name, encoding: r.encoding, eol: tab.eol || r.eol, language: tab.language || null, mtime: r.mtime, size: r.size, readonly: r.readonly, savedText: hasDraft ? r.text : undefined }, hasDraft ? tab.draft : r.text, { activateIt: false, dirty: hasDraft && tab.draft !== r.text, selection: tab.cursor });
-              restored++;
-            } else if (typeof tab.draft === 'string' && tab.draft.trim()) {
-              newUntitled(tab.draft, { activateIt: false, dirty: true, selection: tab.cursor, meta: { encoding: tab.encoding || s.defaultEncoding, eol: tab.eol || s.defaultEol, language: tab.language || null } });
+      await withProgress({ title: t('prog_restore'), message: t('prog_restore_file'), delay: tabs.length > 1 ? 0 : 400 }, async ({ report }) => {
+        for (let i = 0; i < tabs.length; i++) {
+          const tab = tabs[i];
+          if (!tab) continue;
+          if (tab.path) { const k = pathKey(tab.path); if (seen.has(k)) continue; seen.add(k); }
+          report({ detail: tab.path || tab.name || '', value: tabs.length ? i / tabs.length : 0 });
+          try {
+            if (tab.path) {
+              // Same path as File › Open (`openPath`): a raster goes to openHex
+              // (picture fill). Do not file.read with the tab's encoding — that
+              // skips the binary sniff and pastes the bytes into the editor.
+              if (restoreAsPicture(tab)) {
+                const hex = await openPath(tab.path, { activateIt: false });
+                if (hex) {
+                  if (tab.imageHex) patchDoc(hex.id, { imageHex: true });
+                  restored++;
+                  continue;
+                }
+              }
+              let r = null;
+              let readErr = null;
+              try { r = await call('file.read', { path: tab.path, encoding: tab.encoding || null, defaultEol: s.defaultEol }); } catch (e) { readErr = e; }
+              if (!r && readErr && (readErr.code === 'EBINARY' || readErr.code === 'ETOOBIG') && !tab.draft) {
+                const hex = await openPath(tab.path, { activateIt: false });
+                if (hex) { restored++; continue; }
+              }
+              if (r) {
+                const hasDraft = typeof tab.draft === 'string';
+                addDoc({ path: r.path, name: r.name, encoding: r.encoding, eol: tab.eol || r.eol, language: tab.language || null, mtime: r.mtime, size: r.size, readonly: r.readonly, savedText: hasDraft ? r.text : undefined }, hasDraft ? tab.draft : r.text, { activateIt: false, dirty: hasDraft && tab.draft !== r.text, selection: tab.cursor });
+                restored++;
+              } else if (typeof tab.draft === 'string' && tab.draft.trim()) {
+                newUntitled(tab.draft, { activateIt: false, dirty: true, selection: tab.cursor, meta: { encoding: tab.encoding || s.defaultEncoding, eol: tab.eol || s.defaultEol, language: tab.language || null } });
+                restored++;
+              }
+            } else {
+              const n = tab.untitledNo || untitledRef.current;
+              untitledRef.current = Math.max(untitledRef.current, n + 1);
+              addDoc({ untitledNo: n, name: t('untitled', { n }), encoding: tab.encoding || s.defaultEncoding, eol: tab.eol || s.defaultEol, language: tab.language || null }, tab.draft || '', { activateIt: false, dirty: !!tab.draft, selection: tab.cursor });
               restored++;
             }
-          } else {
-            const n = tab.untitledNo || untitledRef.current;
-            untitledRef.current = Math.max(untitledRef.current, n + 1);
-            addDoc({ untitledNo: n, name: t('untitled', { n }), encoding: tab.encoding || s.defaultEncoding, eol: tab.eol || s.defaultEol, language: tab.language || null }, tab.draft || '', { activateIt: false, dirty: !!tab.draft, selection: tab.cursor });
-            restored++;
-          }
-        } catch (e) { console.error('restore failed', e); }
-      }
+          } catch (e) { console.error('restore failed', e); }
+        }
+      });
       if (cancelled) return;
       if (!restored) newUntitled('', { activateIt: false });
       const list = docsRef.current;
@@ -1202,9 +1301,34 @@ img{max-width:100%;height:auto;page-break-inside:avoid}table{border-collapse:col
     if (id === 'newTerminal') return newTerminal(arg);
     if (id === 'termSettings') { if (!openPopup('settings', 'terminal')) setDialog({ type: 'settings', tab: 'terminal' }); else sendSettingsPatch({ settingsTab: 'terminal' }); return undefined; }   // ⚙ in the terminal header: settings on the terminal tab (prompt, line endings)
     if (id === 'togglePreview') { const d = getDoc(activeIdRef.current); if (d && isSvgName(d.name)) toggleSetting('imagePreview'); else if (d && isBinaryImageName(d.name)) return undefined; else if (d && d.langName === 'HTML') toggleSetting('htmlPreview'); else if (d && d.langName === 'Markdown') toggleSetting('mdPreview'); return undefined; }   // Ctrl+Shift+M: the preview pane (SVG / HTML / Markdown). A binary image is the picture itself.
-    if (id === 'toggleImageHex') { const d = getDoc(typeof arg === 'number' ? arg : activeIdRef.current); if (d && d.kind === 'hex' && isBinaryImageName(d.name)) patchDoc(d.id, { imageHex: !d.imageHex }); return undefined; }   // a picture file: Hexa opens the bytes beside the image
+    if (id === 'toggleImageHex') {
+      const d = getDoc(typeof arg === 'number' ? arg : activeIdRef.current);
+      if (d && d.kind === 'hex' && isBinaryImageName(d.name)) {
+        ensureHexReader(d);
+        patchDoc(d.id, { imageHex: !d.imageHex });
+      }
+      return undefined;
+    }   // a picture file: Hexa opens the bytes beside the image
     if (id === 'toggle:termVisible') id = 'toggleTerminal';
-    if (id === 'toggleTerminal') { const on = !settingsRef.current.termVisible; changeSettings({ termVisible: on }); if (on && !terms.length) newTerminal(); return undefined; }
+    if (id === 'toggleTerminal' || id === 'toggleLog' || id === 'toggleLintPanel' || id === 'lintPanel') {
+      const tab = id === 'toggleLog' ? 'log' : (id === 'toggleLintPanel' || id === 'lintPanel' ? 'lint' : 'terminal');
+      const st = settingsRef.current;
+      const showing = st.termVisible && (st.bottomTab || 'terminal') === tab;
+      if (id !== 'lintPanel' && showing) {
+        changeSettings({ termVisible: false });
+        return undefined;
+      }
+      const patch = { termVisible: true, bottomTab: tab };
+      if (st.termHeight === 75) patch.termHeight = SETTINGS_DEFAULTS.termHeight;
+      if (tab === 'lint' && !st.lint) patch.lint = true;
+      changeSettings(patch);
+      if (tab === 'terminal') {
+        if (!terms.length) newTerminal();
+        call('term.shells', { refresh: true }).then(setShells).catch(() => {});
+      }
+      if (tab === 'lint' && settingsRef.current.lint && activeIdRef.current != null) runLint(activeIdRef.current);
+      return undefined;
+    }
     if (id.startsWith('svg:')) return withView((vw) => insertSvgTag(vw, id.slice(4)));   // the SVG bar: an element at the cursor
     if (id.startsWith('md:heading:')) return withView((vw) => md.heading(vw, Number(id.slice(11))));
     if (id === 'md:image') { setDialog({ type: 'mdImage' }); return undefined; }
@@ -1213,7 +1337,6 @@ img{max-width:100%;height:auto;page-break-inside:avoid}table{border-collapse:col
     // The toolbar's split button (and Ctrl+\) steps through the layouts: one → left / right → top / bottom → four → one.
     if (id === 'toggleSplit') { const st = settingsRef.current; setSplit('multi', st.split === 'multi' ? Math.min(9, (st.paneCount || 2) + 1) : 2); return undefined; }   // one more pane per press
     if (id === 'nextPane') { nextPane(); return undefined; }
-    if (id === 'lintPanel') return withView((vw) => openLintPanel(vw));
     if (id === 'lintNext') return withView((vw) => nextDiagnostic(vw));
     if (id === 'lintNow') { if (v && activeIdRef.current != null) runLint(activeIdRef.current); return undefined; }
     if (id.startsWith('md:')) { const fn = md[id.slice(3)]; if (fn) withView((vw) => fn(vw)); return; }
@@ -1315,7 +1438,11 @@ img{max-width:100%;height:auto;page-break-inside:avoid}table{border-collapse:col
       const tm = { id: r.id, title: `${r.label} ${termNo.current++}`, shell: r.shell, cwd: r.cwd, buffer: [], seq: 0 };
       setTerms((ts) => [...ts, tm]);
       setActiveTerm(r.id);
-      if (!settingsRef.current.termVisible) changeSettings({ termVisible: true });
+      if (!settingsRef.current.termVisible || settingsRef.current.bottomTab !== 'terminal') {
+        const patch = { termVisible: true, bottomTab: 'terminal' };
+        if (settingsRef.current.termHeight === 75) patch.termHeight = SETTINGS_DEFAULTS.termHeight;
+        changeSettings(patch);
+      }
     } catch (e) { await showError(t('error_title'), e.message, e); }
   };
   const closeTerminal = (id) => {
@@ -1326,7 +1453,7 @@ img{max-width:100%;height:auto;page-break-inside:avoid}table{border-collapse:col
   const onTermResizeStart = (e) => {
     e.preventDefault();
     const y0 = e.clientY, h0 = settingsRef.current.termHeight;
-    const move = (ev) => setSettings({ termHeight: Math.max(120, Math.min(window.innerHeight - 200, h0 + (y0 - ev.clientY))) });
+    const move = (ev) => setSettings({ termHeight: Math.max(75, Math.min(window.innerHeight - 200, h0 + (y0 - ev.clientY))) });
     document.body.classList.add('dragging', 'dragging-y');
     const up = () => { document.body.classList.remove('dragging', 'dragging-y'); window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up); call('session.save', { termHeight: settingsRef.current.termHeight }).catch(() => {}); };
     window.addEventListener('mousemove', move);
@@ -1550,7 +1677,9 @@ img{max-width:100%;height:auto;page-break-inside:avoid}table{border-collapse:col
       { id: 'split:grid', icon: 'splitGrid', label: t('split_grid'), checked: settings.split === 'grid', radio: true, shortcut: sc('Ctrl+Alt+4') },
       { id: 'nextPane', icon: 'nextPane', label: t('next_pane'), shortcut: 'F6', disabled: settings.split === 'none' },
       { sep: true },
-      { id: 'toggleTerminal', label: t('terminal'), icon: 'terminal', checked: settings.termVisible, shortcut: sc('Ctrl+`') },
+      { id: 'toggleTerminal', label: t('terminal'), icon: 'terminal', checked: settings.termVisible && (settings.bottomTab || 'terminal') === 'terminal', shortcut: sc('Ctrl+`') },
+      { id: 'toggleLog', label: t('log_tab'), icon: 'log', checked: settings.termVisible && settings.bottomTab === 'log' },
+      { id: 'toggleLintPanel', label: t('lint_tab'), icon: 'lint', checked: settings.termVisible && settings.bottomTab === 'lint' },
       { id: 'newTerminal', icon: 'terminalPlus', label: t('term_new'), shortcut: sc('Ctrl+Shift+`') },
       { sep: true },
       { id: 'zoomIn', label: t('zoom_in'), icon: 'zoomIn', shortcut: sc('Ctrl++') },
@@ -1775,7 +1904,7 @@ img{max-width:100%;height:auto;page-break-inside:avoid}table{border-collapse:col
   const termEnv = useMemo(() => ({ home: info ? info.home : '', user: info ? info.user : '', host: info ? info.hostname : '', platform: info ? info.platform : '' }), [info]);
   const toolbarState = { dirty: !!cur && cur.dirty, anyDirty: docs.some((d) => d.dirty), canFormat, formatter: fmtInfo, formatterItems, formatTip, zoom, structureOn: isBinaryImage ? false : (isMarkdown ? !!settings.mdOutline : !!settings.minimap), canStructure: !isBinaryImage };
 
-  if (!booted) return <div className="boot">{t('ready')}…</div>;
+  if (!booted) return <><div className="boot">{t('ready')}…</div><ProgressHost /></>;
 
   return (
     <div className="app">
@@ -1821,6 +1950,12 @@ img{max-width:100%;height:auto;page-break-inside:avoid}table{border-collapse:col
                           {pd ? <>{pd.name}{pd.dirty ? ' ●' : ''}</> : <span className="muted">{t('pane_empty')}</span>}<Icon name="chevronDown" size={12} />
                         </button>
                         <span className="spacer" />
+                        {pd && isBinaryImageName(pd.name) && (
+                          <button className={`icon-btn ${pd.imageHex ? 'on' : ''}`} title={t('img_hex_tip')}
+                            onClick={() => { ensureHexReader(pd); patchDoc(pd.id, { imageHex: !pd.imageHex }); }}>
+                            <Icon name="binary" size={13} />
+                          </button>
+                        )}
                         {pd ? <button className="icon-btn" title={t('pane_close_doc')} onClick={() => closePaneAndDoc(i)}><Icon name="close" size={13} /></button>
                           : <button className="icon-btn" title={t('pane_close')} onClick={() => closePane(i)}><Icon name="close" size={13} /></button>}
                       </div>
@@ -1828,16 +1963,30 @@ img{max-width:100%;height:auto;page-break-inside:avoid}table{border-collapse:col
                     {panes.length > 1 && p.docId == null && (
                       <div className="pane-empty"><Icon name="file" size={26} /><p>{t('pane_empty')}</p><div className="pane-empty-btns"><button className="btn" onClick={(e) => openPaneMenu(i, e.currentTarget)}>{t('pane_pick')}</button><button className="btn" onClick={() => closePane(i)}>{t('pane_close')}</button></div></div>
                     )}
+                    <div className="pane-body">
                     <EditorPane initialState={initialState} onView={(v) => onPaneView(p.key, v)} onDropFiles={dropFiles} contextItems={editorContextItems} onAction={action}
                       fontFamily={settings.fontFamily} fontSize={settings.fontSize} lineHeight={settings.lineHeight} empty={!docs.length || p.docId == null || (pd && pd.kind === 'hex')}
                       minimap={settings.minimap && !(pd && (pd.langName === 'Markdown' || isBinaryImageName(pd.name)))} version={`${p.docId}:${docVersion}:${settings.theme}:${cursor.line}`} />
                     {pd && pd.kind === 'hex' && isBinaryImageName(pd.name) && (
-                      <ImagePreview fill path={pd.path} name={pd.name} mtime={pd.mtime} />
+                      <div className="pane-media"
+                        onDragOver={(e) => { if (e.dataTransfer.types.includes('Files')) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; } }}
+                        onDrop={(e) => { e.preventDefault(); const files = Array.from(e.dataTransfer.files || []); if (files.length) dropFiles(files, null); }}>
+                        <ImagePreview fill path={pd.path} name={pd.name} mtime={pd.mtime} imageHex={!!pd.imageHex}
+                          onToggleHex={() => { ensureHexReader(pd); patchDoc(pd.id, { imageHex: !pd.imageHex }); }} />
+                        {pd.imageHex && ensureHexReader(pd) && (
+                          <HexView read={hexRef.current.get(pd.id)} version={pd.mtime} name={pd.name} size={pd.size} fontSize={settings.fontSize}
+                            width={`${Math.round((settings.mdPreviewWidth || 0.5) * 100)}%`}
+                            onClose={() => patchDoc(pd.id, { imageHex: false })} onMessage={setMessage} />
+                        )}
+                      </div>
                     )}
-                    {pd && pd.kind === 'hex' && hexRef.current.has(pd.id) && !isBinaryImageName(pd.name) && (
-                      <HexView read={hexRef.current.get(pd.id)} version={pd.mtime} name={pd.name} size={pd.size} fontSize={settings.fontSize}
-                        onOpenAsText={() => hexAsText(pd.id)} onMessage={setMessage} />
+                    {pd && pd.kind === 'hex' && !isBinaryImageName(pd.name) && ensureHexReader(pd) && (
+                      <div className="pane-media">
+                        <HexView read={hexRef.current.get(pd.id)} version={pd.mtime} name={pd.name} size={pd.size} fontSize={settings.fontSize}
+                          onOpenAsText={() => hexAsText(pd.id)} onMessage={setMessage} />
+                      </div>
                     )}
+                    </div>
                   </div>
                 );
               })}
@@ -1877,20 +2026,17 @@ img{max-width:100%;height:auto;page-break-inside:avoid}table{border-collapse:col
                 <ImagePreview view={view} docVersion={docVersion} path={cur.path} name={cur.name} mtime={cur.mtime} width={`${Math.round(settings.mdPreviewWidth * 100)}%`} />
               </>
             )}
-            {isBinaryImage && cur.imageHex && hexRef.current.has(cur.id) && (
-              <>
-                <div className="v-splitter" onMouseDown={onPreviewSplitDown} />
-                <HexView read={hexRef.current.get(cur.id)} version={cur.mtime} name={cur.name} size={cur.size} fontSize={settings.fontSize}
-                  width={`${Math.round(settings.mdPreviewWidth * 100)}%`}
-                  onClose={() => patchDoc(cur.id, { imageHex: false })} onMessage={setMessage} />
-              </>
-            )}
           </div>
         </div>
         {settings.termVisible && (
           <TerminalPanel terms={terms} activeId={activeTerm} shells={shells} height={settings.termHeight} onResizeStart={onTermResizeStart}
             onActivate={setActiveTerm} onNew={(shell) => newTerminal(shell)} onClose={closeTerminal} onHide={() => changeSettings({ termVisible: false })}
-            onExit={() => {}} onSettings={() => action('termSettings')} prompt={settings.prompt} env={termEnv} termEol={settings.termEol} termCr={settings.termCr} termColor={settings.termColor !== false} />
+            onExit={() => {}} onSettings={() => action('termSettings')} prompt={settings.prompt} env={termEnv} termEol={settings.termEol} termCr={settings.termCr} termColor={settings.termColor !== false}
+            panel={settings.bottomTab || 'terminal'} onPanel={(tab) => { changeSettings({ bottomTab: tab }); if (tab === 'terminal' && !terms.length) newTerminal(); if (tab === 'lint' && settings.lint && activeIdRef.current != null) runLint(activeIdRef.current); }}
+            lintDoc={cur} lint={cur ? cur.lint : null} lintEnabled={!!settings.lint}
+            onLintGoto={(d) => { withView((vw) => { const ln = Math.min(Math.max(1, d.line || 1), vw.state.doc.lines); const line = vw.state.doc.line(ln); const pos = Math.min(line.from + Math.max(0, (d.col || 1) - 1), line.to); vw.dispatch({ selection: { anchor: pos }, effects: EditorView.scrollIntoView(pos, { y: 'center' }) }); vw.focus(); }); }}
+            onLintRefresh={() => { if (activeIdRef.current != null) runLint(activeIdRef.current); }}
+            logEntries={appLog} onLogClear={() => setAppLog([])} />
         )}
         </div>
       </div>
@@ -1914,6 +2060,7 @@ img{max-width:100%;height:auto;page-break-inside:avoid}table{border-collapse:col
       {dialog && dialog.type === 'mdImage' && <ImageDialog base={cur && cur.path ? dirName(cur.path) : folder || ''} home={info && info.home} sep={(info && info.sep) || '/'}
         onResult={(text) => { closeDialog(); if (!text) return; withView((vw) => { const r = vw.state.selection.main; vw.dispatch({ changes: { from: r.from, to: r.to, insert: text }, selection: { anchor: r.from + text.length }, scrollIntoView: true }); }); }} />}
       {dialog && dialog.type === 'file' && <FileDialog kind={dialog.kind} startPath={dialog.opts.defaultPath || folder || (info && info.home)} defaultName={dialog.opts.name} sep={(info && info.sep) || '/'} onResult={closeDialog} />}
+      <ProgressHost />
     </div>
   );
 }

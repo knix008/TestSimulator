@@ -47,7 +47,7 @@ export function StatusBar({ message, cursor, doc, settings, zoom, pickers, onAct
       {sel && <span className="st-field st-sel">{sel}</span>}
       <span className="st-field muted">{t('st_size', { chars: fmt(cursor.chars), lines: fmt(cursor.lines) })}</span>
       {settings.lint && doc && (
-        <button className={`st-btn st-lint ${lint && lint.pending ? 'pending' : ''} ${lint && lint.error ? 'has-error' : lint && lint.warning ? 'has-warning' : ''}`} title={lint ? (lint.error_msg || (lint.tool ? t('st_lint_tool', { tool: lint.tool }) : t('st_lint_none'))) : t('st_lint_none')} onClick={() => onAction(lint && lint.total ? 'lintPanel' : 'lintNow')}>
+        <button className={`st-btn st-lint ${lint && lint.pending ? 'pending' : ''} ${lint && lint.error ? 'has-error' : lint && lint.warning ? 'has-warning' : ''}`} title={lint ? (lint.error_msg || (lint.tool ? t('st_lint_tool', { tool: lint.tool }) : t('st_lint_none'))) : t('st_lint_none')} onClick={() => onAction('lintPanel')}>
           <Icon name="lint" size={13} />
           {lint && lint.tool ? (lint.total ? `${lint.error ? `✕ ${lint.error}` : ''}${lint.error && lint.warning ? ' ' : ''}${lint.warning ? `⚠ ${lint.warning}` : ''}${lint.info ? ` ℹ ${lint.info}` : ''}` : '✓') : '—'}
         </button>

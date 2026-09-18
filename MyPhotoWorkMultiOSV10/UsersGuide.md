@@ -19,12 +19,12 @@ Four rows sit above the canvas:
 | Row | What it holds |
 | --- | --- |
 | Title bar | The app icon, the document name and size, and the window buttons |
-| Menu bar | Every command, grouped: File, Edit, Image, Layer, Type, Select, Filter, 3D, View, Window — then the theme picker, the language switch, Settings, Help and About |
+| Menu bar | Every command, grouped: File, Edit, Image, Layer, Type, Select, Filter, 3D, View, Window — then the theme button (click to step, arrow to pick), the language switch, Settings, Help and About |
 | Toolbar | The commands you reach for constantly, as icons, followed by Select subject / Remove background / Generative fill / Harmonize and the foreground–swap–background colours |
 | Options bar | The current tool and its own settings, with a one-line reminder of what the tool does |
 
 The tool strip runs down the left edge. Clicking a group that is already active
-cycles through its tools, exactly like Photoshop's flyouts.
+cycles through its tools, the way a flyout group does.
 
 Menus and every dialog open as **separate windows**. They can be dragged
 anywhere, a long menu can overhang the app, and they all close with it. Pressing
@@ -45,8 +45,52 @@ making a second.
 | W | Magic wand, quick select | Click to take a similar-coloured area; Tolerance sets how similar |
 | W | Object select | One click takes the subject |
 
-Ctrl/Cmd+A selects everything, Ctrl/Cmd+D deselects, and **선택 / Select** can
-invert the selection, find distractions, or remove the background.
+Ctrl/Cmd+A selects everything and Ctrl/Cmd+D deselects. **Ctrl/Cmd+Shift+D**
+brings the last selection back, which is what to reach for after deselecting by
+mistake.
+
+#### Changing a selection you already have
+
+Every entry below is on the **선택 / Select** menu and works on whatever is
+selected, whether it was drawn with the marquee, traced with a lasso or taken
+with the wand.
+
+| Command | What it does |
+| --- | --- |
+| **선택 영역 넓히기 / Expand** | Pushes the edge out by the number of pixels you give |
+| **선택 영역 좁히기 / Contract** | Pulls it in by the same amount, including where it meets the canvas edge |
+| **선택 테두리 / Border** | Replaces the selection with a band straddling its edge — select the outline of a shape rather than the shape |
+| **선택 매끄럽게 / Smooth** | Rounds the corners off, fills pinholes and removes single-pixel spurs; the cure for a ragged wand selection |
+| **잔물결 / Feather** | Softens the edge so what you do next fades out instead of stopping dead |
+| **인접 영역 확장 / Grow** | Spreads into the touching pixels that look like the ones already selected |
+| **유사 영역 선택 / Similar** | Takes every pixel of that colour anywhere in the image, connected or not |
+| **색상 범위 / Colour range** | Selects by colour alone: everything close to the current foreground colour |
+
+Grow and Similar use the same **Tolerance** as the magic wand, set in Settings.
+Colour range has its own tolerance slider, so you can widen or narrow the catch
+without leaving the window. All of them can be undone with Ctrl/Cmd+Z.
+
+**선택 / Select** also inverts the selection, finds distractions, and removes the
+background in one step.
+
+### Copying, pasting, filling and stroking
+
+These live on the **편집 / Edit** menu.
+
+| Command | Keys | What it does |
+| --- | --- | --- |
+| **잘라내기 / Cut** | Ctrl/Cmd+X | Takes the selected pixels out of the active layer |
+| **복사 / Copy** | Ctrl/Cmd+C | Copies them from the active layer |
+| **병합하여 복사 / Copy merged** | Ctrl/Cmd+Shift+C | Copies what the selection shows of the *whole* image, every layer flattened together |
+| **붙여넣기 / Paste** | Ctrl/Cmd+V | Drops what was copied in as a new layer |
+| **선택 영역 안에 붙여넣기 / Paste into** | — | The same, masked by the current selection, so it only shows inside it |
+| **칠 / Fill** | — | Floods the selection with the foreground, background, white or black, at the opacity you choose |
+| **선 / Stroke** | — | Draws a line along the edge of the selection, inside it, outside it or centred on it |
+
+A copy also goes to the system clipboard where the browser allows it, so it can
+be pasted into another program. With nothing selected, Copy takes the whole
+layer. Paste puts the pixels where the selection is, or in the middle of the
+document when there is none.
 
 ### Painting and retouching
 
@@ -119,8 +163,12 @@ The right-hand panel lists layers top to bottom.
 - The eye and the padlock control visibility and editing
 - Opacity, fill opacity and the blend mode apply while compositing
 - **레이어 / Layer** adds, duplicates, deletes, merges, flattens, groups and ungroups
+- **보이는 레이어 병합 / Merge visible** flattens the layers that are switched on and leaves the hidden ones alone; **이미지 병합 / Flatten** takes everything
+- **레이어 래스터화 / Rasterize** bakes a text, shape or fill layer down to pixels, after which it paints like any other layer
+- **맨 앞으로 / 앞으로 / 뒤로 / 맨 뒤로** move the layer up and down the stack
 - Layer styles: drop shadow, stroke, colour overlay, inner and outer glow, bevel
 - A layer mask hides part of a layer without deleting it
+- **클리핑 마스크 / Clipping mask** makes the layer show only where the layer below it has pixels — the way to confine a texture, a colour wash or an adjustment to the shape underneath it
 
 Beyond ordinary raster layers there are **adjustment**, **fill**, **live text**,
 **shape** and **group** layers. An adjustment layer changes everything painted
@@ -129,10 +177,164 @@ beneath it and can be switched off at any time.
 Dragging a layer out of frame and back does not clip it: the move always
 replays from the layer's untouched pixels.
 
+## Smart objects and smart filters
+
+A layer can be made **스마트 오브젝트 / smart object** from 레이어 ▸ 스마트
+오브젝트로 변환. What the layer draws at that moment is frozen as an untouched
+original, and the document draws from that original every time. Scale it down to
+a thumbnail and back up and it comes back sharp, because nothing was ever
+resampled twice.
+
+Apply a filter to a smart layer and it does not touch the pixels: it goes onto
+the layer's **스마트 필터 / smart filter** stack, listed in the Layers panel.
+Each entry has a switch and a strength, and a bin. Turn one off and the image
+underneath is exactly what it was. **레이어 래스터화 / Rasterize** bakes the
+placement and the whole stack down to plain pixels when you want it permanent.
+
+## Channels
+
+The **채널 / Channels** tab of the right-hand panel shows the picture split into
+red, green and blue, and keeps the selections you save.
+
+- **선택 ▸ 선택 영역 저장** keeps the current selection as a named alpha channel.
+- **선택 ▸ 선택 영역 불러오기** brings one back, either on its own or combined
+  with what is selected: **바꾸기 / 더하기 / 빼기 / 교차**.
+- The panel lists what has been saved; clicking a name loads it, and the bin
+  next to it throws it away.
+
+Saved selections travel in the `.mpw` file, so a mask you spent time on is still
+there tomorrow.
+
+## Transforming further
+
+편집 ▸ 자유 변형 handles scale and rotation. The rest of the Edit menu covers
+what it cannot:
+
+| Command | What it does |
+| --- | --- |
+| **기울이기 / Skew** | Slides the top and bottom, or the sides, past each other |
+| **왜곡 / Distort** | Moves each of the four corners on its own, x and y |
+| **원근 / Perspective** | Narrows one edge, so the image leans away |
+| **뒤틀기 / Warp** | Bends it into one of eleven shapes — arch, bulge, flag, wave, fish and the rest — with a bend slider and two distortion sliders |
+| **퍼펫 뒤틀기 / Puppet warp** | Pin the parts that should stay put, drag a pin to move that part. Enter applies, Esc cancels |
+| **내용 인식 비율 / Content-aware scale** | Changes the size by carving away the least interesting columns first, so the subject keeps its shape. Every layer is carved with the same seams, so they stay lined up |
+
+## Type
+
+문자 ▸ 문자 입력 (or the type tool) opens one window for the whole type layer:
+
+- The text itself, over as many lines as you like.
+- **글자 크기 / 행간 / 자간 / 들여쓰기 / 단락 간격** — a blank line starts a new
+  paragraph, and the indent applies to the first line of each.
+- **정렬**, bold and italic.
+- **패스 위의 문자 / Type on a path** — pick a path and the text follows it,
+  each character turned to face along the curve.
+- **모양 / Shape** and **구부리기 / Bend** warp the finished type into the same
+  eleven shapes the layer Warp command uses.
+
+Opening the window with a type layer selected edits that layer rather than
+adding another.
+
+## Colour modes, depth and profiles
+
+이미지 ▸ 모드 switches the document between **RGB**, **회색조**, **CMYK** and
+**Lab**. The layers themselves stay RGBA; the mode is applied when the document
+is composited, so switching back costs nothing and loses nothing.
+
+이미지 ▸ **8비트/채널** and **16비트/채널** set the working depth. At 16 bits,
+adjustments are computed at full precision and TIFF is written with sixteen bits
+per channel, which is what to use when a photo will be corrected hard or handed
+to something else.
+
+이미지 ▸ **색상 프로파일** picks the working space from the four the editor
+knows, by the names the ICC standard gives them, and does one of two things:
+
+- **프로파일 지정 / Assign** leaves the numbers alone and changes how they are
+  read. Use it when a file arrived untagged and you know what it is.
+- **프로파일 변환 / Convert** rewrites the numbers so the colours keep looking
+  the same in the new space.
+
+A JPEG that carries an ICC profile is read and its name shown here and in the
+image information window, so a photo that looks flat can be explained rather
+than guessed at.
+
+## Actions, batches and layer comps
+
+The **액션 / Actions** tab records what you do and plays it back.
+
+1. **기록 시작 / Start recording**, then work as usual: every menu command and
+   every window answer is noted.
+2. Give it a name and save it. The action is kept with your settings, so it is
+   still there next time.
+3. **▶** replays it on the open document. Windows do not open during a replay —
+   the answers they were given the first time are used again.
+4. The layers button next to it runs the action over a folder of files, saving
+   each one in the current export format. That needs the desktop app.
+
+**레이어 컴프 / Layer comps** in the same tab remember which layers are showing,
+at what opacity and blend mode. Capture as many arrangements as you like and
+click one to put it back — the way to keep three versions of a design in one
+document.
+
+## Animation and video
+
+The **타임라인 / Timeline** tab builds a frame-by-frame animation.
+
+- Set the layers to what the frame should show, then **프레임 추가**.
+- Each frame has its own delay in milliseconds.
+- **▶** plays it in the document itself; the square stops it.
+- **GIF로 내보내기** writes an animated GIF — encoded by the app, with a palette
+  chosen per frame, so no colour is borrowed from the first frame.
+- **동영상으로 내보내기** records the frames as a WebM video.
+
+파일 ▸ **동영상 가져오기** samples a video file into twelve evenly spaced frames,
+each becoming a layer and a timeline frame, ready to edit or re-export.
+
+## Patterns and brushes
+
+편집 ▸ **패턴 정의** takes the selection — or the whole layer when nothing is
+selected — and keeps it as a tile. Defined patterns appear in the 편집 ▸ 칠
+window, where choosing one tiles it across the selection instead of flooding it
+with a colour. A pattern fill layer repeats it as well.
+
+The Settings window's **브러시 / Brushes** section shapes the tip: **간격**
+between dabs, **각도**, **원형률** (below 100 the tip is flattened) and
+**분산**, which throws the dabs off the line and turns a stroke into a spray.
+Save the current tip under a name and it is one click away afterwards.
+
+## 3D
+
+3D ▸ **돌출(3D)** turns the active layer into a lit solid: the flat artwork
+becomes the face, and the depth is built behind it.
+
+- **두께 / Depth** is how far back it goes.
+- **X축 / Y축 / Z축 회전** turn it in space.
+- **원근 강도** is how strongly the far side shrinks; at 0 the view is flat.
+- **조명 X / Y** move the light, which brightens the face turned towards it and
+  darkens the sides.
+
+The layer stays editable — paint on it, and the solid is rebuilt from the new
+artwork. 3D ▸ **3D 해제** puts it back flat, and 레이어 ▸ 래스터화 bakes the
+render into pixels.
+
 ## Adjustments and filters
 
 **이미지 / Image** holds brightness/contrast, hue/saturation, Camera Raw,
-**Curves**, **Levels**, auto levels, invert and greyscale.
+**Curves**, **Levels**, auto levels, invert and greyscale, and the colour work
+below.
+
+| Command | What it is for |
+| --- | --- |
+| **자동 색상 / Auto colour** | Stretches each of red, green and blue on its own, which pulls a colour cast out of a photo. Auto Levels moves all three together and so keeps the cast |
+| **평준화 / Equalize** | Spreads the tones so every brightness is equally common; opens up a flat, hazy image |
+| **채널 혼합 / Channel mixer** | Builds each output channel from the three input ones, with a constant. The route to a proper black and white conversion, or to swapping channels outright |
+| **선택 색상 / Selective colour** | Shifts the cyan, magenta, yellow and black in one family of colours — the reds, the blues, the neutrals — and leaves the rest alone |
+| **그레이디언트 맵 / Gradient map** | Repaints the image from its own brightness, reading a two-colour gradient. Duotones and split-tones come from here |
+| **색상 바꾸기 / Replace colour** | Swaps everything close to the foreground colour for another colour, fading out at the edge of the tolerance so no hard rim is left |
+
+**180도 회전 / Rotate 180** and **여백 잘라내기 / Trim** are on the same menu:
+Trim crops away the fully transparent border around everything visible, which is
+what to run after erasing a background.
 
 - **Curves** edits each channel on a 256×256 grid. Click to add a point, drag to
   move it, double-click to remove it.
@@ -141,9 +343,23 @@ replays from the layer's untouched pixels.
 
 Either can be applied to the layer or added as an adjustment layer.
 
-**필터 / Filter** holds the gallery — blur, motion blur, sharpen, high pass,
-noise, mosaic, find edges, emboss, oil paint, solarize, clouds, vignette,
-offset, liquify and skin smoothing.
+**필터 / Filter** holds the gallery, grouped the way the menu lists them:
+
+- **흐림 / Blur** — Gaussian, motion, box, and radial blur as a spin or a zoom
+- **선명 / Sharpen** — sharpen, **unsharp mask** (a threshold, so an edge is
+  sharpened and the flat areas are not), high pass
+- **노이즈 / Noise** — add noise, **median** (kills speckle), **dust and
+  scratches** (a median that only fires where a pixel is far from its
+  neighbours, so real detail survives)
+- **픽셀화 / Pixelate** — mosaic, crystallize
+- **왜곡 / Distort** — liquify, twirl, ripple, wave, spherize, pinch
+- **스타일화 / Stylize** — find edges, emboss, solarize
+- **렌더 / Render** — clouds, vignette, lens flare
+- **기타 / Other** — offset, minimum (spreads the dark), maximum (spreads the light)
+- **예술 효과 / Artistic** — oil paint; **뉴럴 / Neural** — skin smoothing
+
+The gallery takes its radius and amount from the last Blur and Sharpen windows
+you used, so set those first if the default is too strong.
 
 The generative jobs — content-aware fill, generative expand, generative upscale,
 Harmonize, Select Subject, Remove Background, Find Distractions — run on your own
@@ -307,7 +523,15 @@ reopen it after an edit to see the new numbers.
 
 ## Settings, Help and About
 
-The right-hand end of the menu bar holds the theme picker, the language switch
+The right-hand panel has seven tabs: **레이어**, **조정**, **작업 내역**,
+**채널**, **액션**, **타임라인** and **정보**. The 창 / Window menu switches
+between them, and so does clicking a tab.
+
+The theme control at the right-hand end of the menu bar is two buttons in one:
+clicking the wide half **steps to the next theme** — its tooltip names the one
+coming up — and the arrow beside it opens the full list of twenty to pick from.
+
+The right-hand end of the menu bar holds the theme control, the language switch
 (Korean / English) and the Settings, Help and About windows.
 
 Settings covers the language, the theme, the grid and rulers, the default export
@@ -334,6 +558,9 @@ clipboard.
 | Ctrl/Cmd+P | Open the print preview |
 | Ctrl/Cmd+Z / Shift+Z or Y | Undo, Redo |
 | Ctrl/Cmd+A / D | Select all, Deselect |
+| Ctrl/Cmd+Shift+D | Reselect what was just deselected |
+| Ctrl/Cmd+X / C / V | Cut, Copy, Paste |
+| Ctrl/Cmd+Shift+C | Copy merged — every layer, flattened |
 | Ctrl/Cmd+T | Free transform |
 | Delete / Backspace | Clear the selected pixels |
 | Enter | Apply a crop, a transform, or close a path or lasso |

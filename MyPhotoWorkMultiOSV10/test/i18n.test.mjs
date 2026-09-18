@@ -79,7 +79,7 @@ test('tool ids are unique across all flyout groups', () => {
   assert.equal(new Set(allTools).size, allTools.length, 'a tool appears in two groups')
 })
 
-test('the tool strip covers the Photoshop groups the README advertises', () => {
+test('the tool strip covers every group the README advertises', () => {
   const groups = toolGroups.map((group) => group.id)
   for (const id of ['move', 'marquee', 'lasso', 'select', 'crop', 'sample', 'heal', 'paint', 'stamp',
     'erase', 'fill', 'focus', 'tone', 'pen', 'type', 'shape', 'nav']) {

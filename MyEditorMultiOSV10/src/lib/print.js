@@ -5,6 +5,13 @@
 import { highlightTree, tags as t, tagHighlighter } from '@lezer/highlight';
 import { syntaxTree, ensureSyntaxTree } from '@codemirror/language';
 
+function yieldToUi() {
+  return new Promise((resolve) => {
+    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(() => setTimeout(resolve, 0));
+    else setTimeout(resolve, 0);
+  });
+}
+
 function pageOf(n, total) { return `${n} / ${total}`; }
 
 export const PRINT_DEFAULTS = {
@@ -92,6 +99,45 @@ export function highlightCodeLines(state, tabSize = 4) {
     if (pos < line.to) html += expand(text.slice(pos, line.to), tabSize);
     out.push(html || ' ');
   }
+  return out;
+}
+
+// Same listing as highlightCodeLines, yielding so a progress popup can paint.
+export async function highlightCodeLinesAsync(state, tabSize = 4, onProgress) {
+  if (!state || !state.doc) return null;
+  if (onProgress) onProgress(0.02);
+  await yieldToUi();
+  const text = state.doc.toString();
+  const tree = ensureSyntaxTree(state, state.doc.length, 800) || syntaxTree(state);
+  const marks = [];
+  if (tree && tree.length) {
+    try { highlightTree(tree, PRINT_HI, (from, to, cls) => { if (cls) marks.push({ from, to, cls }); }); }
+    catch { /* a partial tree is fine — the listing stays plain */ }
+  }
+  if (onProgress) onProgress(0.15);
+  await yieldToUi();
+  const out = [];
+  let mi = 0;
+  const total = state.doc.lines;
+  for (let i = 1; i <= total; i++) {
+    const line = state.doc.line(i);
+    let html = '', pos = line.from;
+    while (mi < marks.length && marks[mi].to <= line.from) mi++;
+    for (let j = mi; j < marks.length && marks[j].from < line.to; j++) {
+      const m = marks[j];
+      const a = Math.max(m.from, line.from), b = Math.min(m.to, line.to);
+      if (a > pos) html += expand(text.slice(pos, a), tabSize);
+      html += `<span class="${m.cls}">${expand(text.slice(a, b), tabSize)}</span>`;
+      pos = b;
+    }
+    if (pos < line.to) html += expand(text.slice(pos, line.to), tabSize);
+    out.push(html || ' ');
+    if (i % 400 === 0) {
+      if (onProgress) onProgress(0.15 + 0.55 * (i / total));
+      await yieldToUi();
+    }
+  }
+  if (onProgress) onProgress(0.7);
   return out;
 }
 
@@ -199,6 +245,62 @@ export function buildCodePrintHtml({ title, path, lang, text, lineHtml, opts }) 
     body = `<div class="sheet${o.printBorder ? ' framed' : ''}">${head}${codeTable(lines, 1, o, digits, htmlLines, 0)}</div>`;
   }
   return `<!doctype html><html><head><meta charset="utf-8"><title>${esc(title || '')}</title><style>${codeCss(o)}</style></head><body class="${cls}">${body}</body></html>`;
+}
+
+function wrapPrintHtml(title, o, cls, body) {
+  return `<!doctype html><html><head><meta charset="utf-8"><title>${esc(title || '')}</title><style>${codeCss(o)}</style></head><body class="${cls}">${body}</body></html>`;
+}
+
+export async function buildCodePrintHtmlAsync({ title, path, lang, text, lineHtml, opts }, onProgress) {
+  const o = { ...PRINT_DEFAULTS, tabSize: 4, printFont: '', ...opts };
+  const useHi = o.printSyntax && Array.isArray(lineHtml);
+  const lines = String(text || '').split('\n');
+  const htmlLines = useHi ? lineHtml : null;
+  const digits = String(Math.max(1, lines.length)).length;
+  const label = path || title || '';
+  const date = formatDate();
+  const paginate = o.printBorder || o.printPageNumbers;
+  const cls = [paginate ? 'paged' : '', o.printColor ? '' : 'bw'].filter(Boolean).join(' ');
+  if (onProgress) onProgress(0.7);
+  await yieldToUi();
+  const total = Math.max(1, lines.length);
+  let done = 0;
+  const tick = async (n) => {
+    done += n;
+    if (onProgress) onProgress(0.7 + 0.28 * Math.min(1, done / total));
+    if (done % 200 < n) await yieldToUi();
+  };
+  let body;
+  if (paginate) {
+    const per = linesPerPage(o);
+    const chunks = [];
+    for (let i = 0; i < lines.length; i += per) chunks.push(lines.slice(i, i + per));
+    if (!chunks.length) chunks.push(['']);
+    const pages = [];
+    for (let i = 0; i < chunks.length; i++) {
+      const rows = chunks[i];
+      const head = pageHead(label, lang, o, date);
+      const foot = o.printPageNumbers ? `<div class="page-foot">${pageOf(i + 1, chunks.length)}</div>` : '';
+      const frame = o.printBorder ? ' framed' : '';
+      pages.push(`<div class="page">${head}<div class="page-body${frame}">${codeTable(rows, i * per + 1, o, digits, htmlLines, i * per)}</div>${foot}</div>`);
+      await tick(rows.length);
+    }
+    body = pages.join('');
+  } else {
+    const head = (o.printHeader || o.printDate)
+      ? `<div class="title"><span class="file">${o.printHeader ? `${esc(label)}${lang ? `<span class="lang">${esc(lang)}</span>` : ''}` : ''}</span><span>${o.printDate ? esc(date) : ''}</span></div>`
+      : '';
+    const parts = [];
+    const step = 250;
+    for (let i = 0; i < lines.length; i += step) {
+      const slice = lines.slice(i, i + step);
+      parts.push(codeTable(slice, i + 1, o, digits, htmlLines, i).replace(/^<table class="code"><tbody>/, '').replace(/<\/tbody><\/table>$/, ''));
+      await tick(slice.length);
+    }
+    body = `<div class="sheet${o.printBorder ? ' framed' : ''}">${head}<table class="code"><tbody>${parts.join('')}</tbody></table></div>`;
+  }
+  if (onProgress) onProgress(1);
+  return wrapPrintHtml(title, o, cls, body);
 }
 
 export function isPagedPrint(html) {

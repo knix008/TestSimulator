@@ -96,6 +96,14 @@
         "to": "icon.png"
       },
       {
+        "from": "build/icons/icon.ico",
+        "to": "icon.ico"
+      },
+      {
+        "from": "scripts/set-lnk-aumi.ps1",
+        "to": "set-lnk-aumi.ps1"
+      },
+      {
         "from": "build/fileicons",
         "to": "fileicons",
         "filter": [
@@ -103,40 +111,22 @@
         ]
       }
     ],
-    "asar": true,
-    "icon": "build/icons/icon.png",
-    "fileAssociations": [
+    "extraFiles": [
       {
-        "ext": [
-          "txt",
-          "md",
-          "log",
-          "json",
-          "js",
-          "ts",
-          "css",
-          "html",
-          "xml",
-          "yaml",
-          "yml",
-          "ini",
-          "cfg",
-          "csv",
-          "py",
-          "c",
-          "cpp",
-          "h",
-          "java",
-          "cs",
-          "sh",
-          "bat",
-          "ps1",
-          "sql"
-        ],
-        "name": "Text document",
-        "role": "Editor"
+        "from": "build/icons/icon.ico",
+        "to": "MyEditor.ico"
+      },
+      {
+        "from": "build/icons/icon.png",
+        "to": "app-icon.png"
+      },
+      {
+        "from": "build/MyEditor.VisualElementsManifest.xml",
+        "to": "MyEditor.VisualElementsManifest.xml"
       }
     ],
+    "asar": true,
+    "icon": "build/icons/icon.png",
     "win": {
       "icon": "build/icons/icon.ico",
       "target": [
@@ -166,6 +156,13 @@
     "mac": {
       "icon": "build/icons/icon.icns",
       "category": "public.app-category.developer-tools",
+      "fileAssociations": [
+        {
+          "ext": ["txt", "md", "log", "json", "js", "ts", "css", "html", "xml", "yaml", "yml", "ini", "cfg", "csv", "py", "c", "cpp", "h", "java", "cs", "sh", "bat", "ps1", "sql"],
+          "name": "Text document",
+          "role": "Editor"
+        }
+      ],
       "target": [
         {
           "target": "dmg",
@@ -183,6 +180,13 @@
     "linux": {
       "icon": "build/icons/png",
       "category": "Utility;TextEditor;Development",
+      "fileAssociations": [
+        {
+          "ext": ["txt", "md", "log", "json", "js", "ts", "css", "html", "xml", "yaml", "yml", "ini", "cfg", "csv", "py", "c", "cpp", "h", "java", "cs", "sh", "bat", "ps1", "sql"],
+          "name": "Text document",
+          "role": "Editor"
+        }
+      ],
       "maintainer": "SHKWON <knix008@naver.com>",
       "desktop": {
         "Name": "My Editor",

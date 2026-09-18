@@ -51,7 +51,7 @@ const GROUPS = [
     { id: 'toggle:autoIndent', icon: 'autoIndent', tip: 'tip_auto_indent', toggle: 'autoIndent' },
     { id: 'toggle:spellCheck', icon: 'spell', tip: 'tip_spell', toggle: 'spellCheck' },
     { id: 'toggle:autocomplete', icon: 'autocomplete', tip: 'tip_autocomplete', toggle: 'autocomplete' },
-    { id: 'toggle:lint', icon: 'lint', tip: 'tip_lint', toggle: 'lint' },
+    { id: 'lintPanel', icon: 'lint', tip: 'tip_lint', on: (st) => st.termVisible && (st.bottomTab || 'terminal') === 'lint' },
     { id: 'toggle:termVisible', icon: 'terminal', tip: 'tip_terminal', toggle: 'termVisible' },
   ],
 ];

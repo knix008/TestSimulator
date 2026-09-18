@@ -3,7 +3,7 @@
 const { ipcMain, BrowserWindow, Menu, nativeImage } = require('electron');
 const { serializeError } = require('../core/api');
 
-function registerIpc(api, getWindow, { dialogs, onRendererReady, openPopup, printHtml } = {}) {
+function registerIpc(api, getWindow, { dialogs, onRendererReady, openPopup, openPrint, takePrintJob, listPrinters, printHtml, printRun } = {}) {
   // The window a message came from (a popup or the main window).
   const senderWin = (event) => { const w = BrowserWindow.fromWebContents(event.sender); return w && !w.isDestroyed() ? w : getWindow(); };
   ipcMain.handle('api', async (_event, name, args) => {
@@ -99,7 +99,13 @@ function registerIpc(api, getWindow, { dialogs, onRendererReady, openPopup, prin
     menu.popup({ window: win, x: Math.round(pos && pos.x || 0), y: Math.round(pos && pos.y || 0), callback: () => resolve(picked) });
     if (pos && pos.autoClose) setTimeout(() => { try { menu.closePopup(win); } catch { /* gone */ } }, pos.autoClose);   // the smoke test: pop up, then close by itself
   }));
-  ipcMain.on('print:html', (_event, html, title) => { if (printHtml) printHtml(String(html || ''), title); });
+  ipcMain.on('print:open', (_event, job) => { if (openPrint) openPrint(job); });
+  ipcMain.handle('print:takeJob', () => (takePrintJob ? takePrintJob() : null));
+  ipcMain.handle('print:printers', async () => {
+    try { return listPrinters ? await listPrinters() : []; } catch { return []; }
+  });
+  ipcMain.handle('print:html', (_event, html, title, labels, opts) => (printHtml ? printHtml(String(html || ''), title, labels && typeof labels === 'object' ? labels : undefined, opts && typeof opts === 'object' ? opts : undefined) : { success: false, failureReason: 'unavailable' }));
+  ipcMain.handle('print:run', (event, opts) => (printRun ? printRun(event, opts && typeof opts === 'object' ? opts : {}) : { success: false, failureReason: 'unavailable' }));
   // A settings change in one window reaches every other window.
   ipcMain.on('settings:patch', (event, patch) => {
     for (const w of BrowserWindow.getAllWindows()) if (!w.isDestroyed() && w.webContents !== event.sender) w.webContents.send('settings:patch', patch);

@@ -10,6 +10,7 @@
 const { app, BrowserWindow, Menu, shell, clipboard, nativeImage, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const { spawnSync } = require('child_process');
 
 const { registerIpc } = require('./ipc');
 const { createApi } = require('../core/api');
@@ -17,6 +18,9 @@ const { createApi } = require('../core/api');
 const isDev = !app.isPackaged && process.env.ELECTRON_DEV === '1';
 const DEV_URL = 'http://localhost:5189';
 const PRODUCT = 'My Editor';
+const APP_ID = 'com.shkwon.myeditor';
+app.setName(PRODUCT);
+app.setAppUserModelId(APP_ID);
 
 app.commandLine.appendSwitch('disable-features', 'Autofill');
 // A separate profile for tests / parallel runs (settings + instance lock).
@@ -55,8 +59,69 @@ let pendingFiles = filesFromArgv(process.argv);   // opened once the renderer is
 let rendererReady = false;
 
 function iconPath() {
-  const dir = path.join(__dirname, '..', 'build', 'icons');
-  return path.join(dir, process.platform === 'win32' ? 'icon.ico' : 'icon.png');
+  const names = process.platform === 'win32' ? ['icon.png', 'icon.ico'] : ['icon.png'];
+  const dirs = [
+    process.resourcesPath,
+    path.join(__dirname, '..', 'build', 'icons'),
+    path.join(__dirname, '..'),
+  ].filter(Boolean);
+  const candidates = [];
+  for (const dir of dirs) for (const name of names) candidates.push(path.join(dir, name));
+  return candidates.find((p) => { try { return fs.existsSync(p); } catch { return false; } }) || candidates[candidates.length - 1];
+}
+function loadWindowIcon() {
+  const img = nativeImage.createEmpty();
+  const dir = path.join(__dirname, '..', 'build', 'icons', 'png');
+  let added = 0;
+  for (const size of [16, 24, 32, 48, 256]) {
+    const p = path.join(dir, `${size}x${size}.png`);
+    if (!fs.existsSync(p)) continue;
+    try {
+      img.addRepresentation({ width: size, height: size, scaleFactor: 1, buffer: fs.readFileSync(p) });
+      added += 1;
+    } catch { /* skip a missing size */ }
+  }
+  if (added && !img.isEmpty()) return img;
+  const p = iconPath();
+  if (p && fs.existsSync(p)) {
+    try {
+      const n = nativeImage.createFromPath(p);
+      if (!n.isEmpty()) return n;
+    } catch { /* fall through */ }
+  }
+  return undefined;
+}
+function applyWindowIcon(win) {
+  if (!win || win.isDestroyed()) return;
+  const img = loadWindowIcon();
+  if (img) { try { win.setIcon(img); } catch { /* icon is best-effort */ } }
+}
+// Windows shows a blank taskbar button when the process AppUserModelId does
+// not match any .lnk. Stamp the Desktop / Start Menu shortcuts (NSIS already
+// does this; WScript.Shell.Save strips it).
+function stampShortcutAumi() {
+  if (process.platform !== 'win32') return;
+  const ps1 = app.isPackaged
+    ? path.join(process.resourcesPath || '', 'set-lnk-aumi.ps1')
+    : path.join(__dirname, '..', 'scripts', 'set-lnk-aumi.ps1');
+  if (!fs.existsSync(ps1)) return;
+  const marker = path.join(app.getPath('userData'), 'aumi-stamped');
+  const token = `${APP_ID}\n${app.isPackaged ? process.execPath : 'dev'}`;
+  try { if (fs.readFileSync(marker, 'utf8') === token) return; } catch { /* stamp */ }
+  try {
+    spawnSync('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ps1, '-AppId', APP_ID], {
+      windowsHide: true, timeout: 8000,
+    });
+    fs.writeFileSync(marker, token);
+  } catch { /* best-effort */ }
+}
+function printIconPath() {
+  const candidates = [
+    path.join(__dirname, '..', 'assets', 'print-icon.png'),
+    path.join(__dirname, '..', 'build', 'icons', 'print.png'),
+    iconPath(),
+  ];
+  return candidates.find((p) => fs.existsSync(p));
 }
 
 function sendOpenFiles(list) {
@@ -70,8 +135,14 @@ function sendOpenFiles(list) {
 // anywhere on the screen. Each loads the same bundle with ?popup=<kind>
 // (src/main.jsx renders PopupWindow instead of App). One window per kind.
 // Fixed sizes (not resizable): large enough for their content, so nothing scrolls.
-const POPUPS = { settings: { width: 1000, height: 1000 }, about: { width: 560, height: 420 }, shortcuts: { width: 1000, height: 780 } };
+const POPUPS = {
+  settings: { width: 1000, height: 1000 },
+  about: { width: 560, height: 420 },
+  shortcuts: { width: 1000, height: 780 },
+  print: { width: 1100, height: 800, resizable: true },
+};
 const popups = new Map();
+let pendingPrintJob = null;
 function openPopup(kind, tab) {
   const spec = POPUPS[kind];
   if (!spec || !mainWin || mainWin.isDestroyed()) return null;
@@ -79,15 +150,27 @@ function openPopup(kind, tab) {
   if (existing && !existing.isDestroyed()) { existing.focus(); return existing; }
   const session = api.session.get();
   const pb = mainWin.getBounds();
+  const resizable = !!spec.resizable;
+  let icon = loadWindowIcon();
+  if (kind === 'print') {
+    const p = printIconPath();
+    if (p) {
+      try {
+        const n = nativeImage.createFromPath(p);
+        if (!n.isEmpty()) icon = n;
+      } catch { /* keep app icon */ }
+    }
+  }
   const win = new BrowserWindow({
-    width: spec.width, height: spec.height, resizable: false, maximizable: false, fullscreenable: false, useContentSize: true,
+    width: spec.width, height: spec.height, resizable, maximizable: resizable, fullscreenable: false, useContentSize: true,
     x: Math.round(pb.x + (pb.width - spec.width) / 2), y: Math.round(pb.y + Math.max(40, (pb.height - spec.height) / 2)),
-    parent: mainWin, modal: false, frame: false, autoHideMenuBar: true, show: false, title: PRODUCT,
+    parent: mainWin, modal: false, frame: false, autoHideMenuBar: true, show: false, title: kind === 'print' ? '인쇄' : PRODUCT,
     backgroundColor: session.themeBg || '#12161c',
-    icon: fs.existsSync(iconPath()) ? iconPath() : undefined,
+    icon: icon || undefined,
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: false, spellcheck: false },
   });
   popups.set(kind, win);
+  if (icon) { try { win.setIcon(icon); } catch { /* best-effort */ } }
   win.once('ready-to-show', () => win.show());
   win.on('closed', () => { if (popups.get(kind) === win) popups.delete(kind); });
   win.webContents.setWindowOpenHandler(({ url }) => { if (/^https?:/.test(url)) shell.openExternal(url); return { action: 'deny' }; });
@@ -96,18 +179,71 @@ function openPopup(kind, tab) {
   else win.loadFile(path.join(__dirname, '..', 'dist', 'index.html'), { query });
   return win;
 }
-// Printing: the HTML built by the renderer (shown first in the print-preview
-// dialog) is loaded into a hidden window and sent to the system print dialog.
-function printHtml(html, title) {
-  const win = new BrowserWindow({ show: false, width: 900, height: 1200, parent: mainWin || undefined, webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false } });
-  win.webContents.once('did-finish-load', () => {
-    setTimeout(() => {
-      if (win.isDestroyed()) return;
-      win.webContents.print({ printBackground: true, silent: false }, () => { if (!win.isDestroyed()) win.close(); });
-    }, 300);
+function openPrint(job) {
+  pendingPrintJob = job && typeof job === 'object' ? job : null;
+  const win = openPopup('print');
+  if (!win || !pendingPrintJob) return win;
+  const send = () => { if (!win.isDestroyed()) win.webContents.send('print:job', pendingPrintJob); };
+  if (win.webContents.isLoading()) win.webContents.once('did-finish-load', send);
+  else send();
+  return win;
+}
+function takePrintJob() { return pendingPrintJob; }
+// Printing: Electron's Windows dialog has no page preview ("this app doesn't
+// support print preview"). This window is the printer dialog — destination,
+// copies, colour, layout — with the page on the left. Print sends the
+// document from a hidden window so the native dialog never opens.
+function listPrinters() {
+  const src = (mainWin && !mainWin.isDestroyed() && mainWin.webContents) || webContentsWithPrinters();
+  return src ? src.getPrintersAsync() : Promise.resolve([]);
+}
+function webContentsWithPrinters() {
+  for (const w of BrowserWindow.getAllWindows()) {
+    if (!w.isDestroyed() && w.webContents) return w.webContents;
+  }
+  return null;
+}
+function runPrintJob(html, opts) {
+  return new Promise((resolve) => {
+    const hidden = new BrowserWindow({
+      show: false,
+      width: 900,
+      height: 1200,
+      webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false },
+    });
+    const done = (success, failureReason) => {
+      if (!hidden.isDestroyed()) hidden.destroy();
+      resolve({ success: !!success, failureReason: failureReason || '' });
+    };
+    hidden.webContents.once('did-fail-load', () => done(false, 'load-failed'));
+    hidden.webContents.once('did-finish-load', async () => {
+      try {
+        await hidden.webContents.executeJavaScript(`Promise.all([
+          document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve(),
+          Promise.all([...document.images].map((img) => img.complete ? 1 : new Promise((r) => { img.onload = img.onerror = () => r(1); })))
+        ])`);
+      } catch { /* print what is already there */ }
+      const copies = Math.max(1, Math.min(99, Number(opts && opts.copies) || 1));
+      hidden.webContents.print({
+        silent: true,
+        printBackground: true,
+        deviceName: String((opts && opts.deviceName) || ''),
+        copies,
+        color: !(opts && opts.color === false),
+        landscape: !!(opts && opts.landscape),
+        pageSize: 'A4',
+      }, (success, failureReason) => done(success, failureReason));
+    });
+    hidden.loadURL(`data:text/html;charset=utf-8;base64,${Buffer.from(String(html || ''), 'utf8').toString('base64')}`);
   });
-  win.setTitle(title || PRODUCT);
-  win.loadURL(`data:text/html;charset=utf-8;base64,${Buffer.from(html, 'utf8').toString('base64')}`);
+}
+function printRun(_event, opts) {
+  const html = opts && opts.html;
+  if (!html) return Promise.resolve({ success: false, failureReason: 'no-job' });
+  return runPrintJob(html, opts);
+}
+function printHtml(html, _title, _labels, opts) {
+  return runPrintJob(html, opts || {});
 }
 function closePopups() { for (const w of popups.values()) { if (!w.isDestroyed()) w.close(); } popups.clear(); }
 
@@ -130,7 +266,7 @@ function createWindow() {
     autoHideMenuBar: true,
     show: false,
     title: PRODUCT,
-    icon: fs.existsSync(iconPath()) ? iconPath() : undefined,
+    icon: loadWindowIcon() || undefined,
     webPreferences: {
       // --smoke-url=<http://…> loads the web version instead (no preload, so
       // the UI runs exactly as it does in a browser) — used by the smoke test.
@@ -142,14 +278,12 @@ function createWindow() {
     },
   });
   mainWin = win;
+  applyWindowIcon(win);
   if (saved && saved.maximized) win.maximize();
 
-  // Windows paints a white frame for a frameless window's first frame:
-  // show it transparent and fade in once it is painted.
   win.once('ready-to-show', () => {
-    win.setOpacity(0);
+    applyWindowIcon(win);
     win.show();
-    setTimeout(() => { if (!win.isDestroyed()) win.setOpacity(1); }, 50);
   });
   const sendMax = () => { if (!win.isDestroyed()) win.webContents.send('win:maximized', win.isMaximized()); };
   win.on('maximize', sendMax);
@@ -292,6 +426,10 @@ if (!gotLock) {
       },
       clipboard: { readText: () => clipboard.readText(), writeText: (t) => clipboard.writeText(t) },
     });
+    if (process.platform === 'win32') {
+      app.setAppUserModelId(APP_ID);
+      stampShortcutAumi();
+    }
     if (process.platform === 'darwin' && fs.existsSync(path.join(__dirname, '..', 'build', 'icons', 'icon.png'))) {
       app.dock.setIcon(nativeImage.createFromPath(path.join(__dirname, '..', 'build', 'icons', 'icon.png')));
     }
@@ -299,7 +437,11 @@ if (!gotLock) {
     registerIpc(api, () => mainWin, {
       dialogs,
       openPopup,
+      openPrint,
+      takePrintJob,
+      listPrinters,
       printHtml,
+      printRun,
       // The renderer reports it is ready to receive files (its session is
       // restored); anything queued so far is delivered then.
       onRendererReady: () => {

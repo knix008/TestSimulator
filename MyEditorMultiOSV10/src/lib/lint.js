@@ -63,4 +63,15 @@ export function countDiagnostics(state) {
   forEachDiagnostic(state, (d) => { c[d.severity] = (c[d.severity] || 0) + 1; });
   return { ...c, total: diagnosticCount(state) };
 }
+const SEV_ORDER = { error: 0, warning: 1, info: 2 };
+export function sortLintItems(list) {
+  return [...(list || [])].sort((a, b) => {
+    const sa = SEV_ORDER[a.severity] ?? 9;
+    const sb = SEV_ORDER[b.severity] ?? 9;
+    if (sa !== sb) return sa - sb;
+    const la = Number(a.line) || 0, lb = Number(b.line) || 0;
+    if (la !== lb) return la - lb;
+    return (Number(a.col) || 0) - (Number(b.col) || 0);
+  });
+}
 export { openLintPanel, nextDiagnostic };

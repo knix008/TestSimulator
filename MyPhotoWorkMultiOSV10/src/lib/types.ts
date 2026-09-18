@@ -22,6 +22,10 @@ export type AdjustmentType =
   | 'grain'
   | 'colorLookup'
   | 'shadowsHighlights'
+  | 'channelMixer'
+  | 'selectiveColor'
+  | 'gradientMap'
+  | 'equalize'
 
 export type GradientKind = 'linear' | 'radial' | 'angle' | 'reflected' | 'diamond'
 export type ShapeKind = 'rect' | 'roundRect' | 'ellipse' | 'polygon' | 'line' | 'star' | 'heart' | 'arrow'
@@ -30,6 +34,7 @@ export type FillKind = 'solid' | 'gradient' | 'pattern'
 export type Tool =
   | 'move'
   | 'artboard'
+  | 'puppet'
   | 'marquee'
   | 'ellipseMarquee'
   | 'rowMarquee'
@@ -167,6 +172,41 @@ export type Adjustment = {
   red: number
   green: number
   blue: number
+  /** Channel mixer: how much of each input channel feeds each output one. */
+  mix?: ChannelMix
+  /** Selective colour: which family is being shifted, and by how much ink. */
+  family?: ColorFamily
+  ink?: InkShift
+  /** Gradient map: the two ends of the ramp the brightness is read into. */
+  mapFrom?: string
+  mapTo?: string
+}
+
+/** Percentages, one row per output channel. */
+export type ChannelMix = {
+  red: { r: number; g: number; b: number; constant: number }
+  green: { r: number; g: number; b: number; constant: number }
+  blue: { r: number; g: number; b: number; constant: number }
+}
+
+export type ColorFamily = 'reds' | 'yellows' | 'greens' | 'cyans' | 'blues' | 'magentas' | 'whites' | 'neutrals' | 'blacks'
+
+export type InkShift = { cyan: number; magenta: number; yellow: number; black: number }
+
+/** The shapes text can be bent into, and how far. */
+export type TextWarpStyle =
+  | 'none' | 'arc' | 'arcLower' | 'arcUpper' | 'arch' | 'bulge' | 'flag' | 'wave' | 'fish' | 'rise' | 'squeeze'
+
+export const warpStyles: TextWarpStyle[] = [
+  'none', 'arc', 'arcLower', 'arcUpper', 'arch', 'bulge', 'flag', 'wave', 'fish', 'rise', 'squeeze',
+]
+
+export type TextWarp = {
+  style: TextWarpStyle
+  /** -100..100. */
+  bend: number
+  horizontal: number
+  vertical: number
 }
 
 export type TextData = {
@@ -180,6 +220,15 @@ export type TextData = {
   italic: boolean
   align: 'left' | 'center' | 'right'
   vertical: boolean
+  /** Paragraph settings; older projects leave them out and take the defaults. */
+  lineHeight?: number
+  letterSpacing?: number
+  indent?: number
+  paragraphSpacing?: number
+  warp?: TextWarp
+  /** Set when the type runs along a path instead of a straight baseline. */
+  pathId?: string
+  pathOffset?: number
 }
 
 export type ShapeData = {
@@ -202,6 +251,32 @@ export type FillData = {
   start: Point
   end: Point
   endColor: string
+  /** Which defined pattern a pattern fill repeats. */
+  patternId?: string
+}
+
+/**
+ * One filter in a layer's non-destructive stack. The pixels are never touched:
+ * the stack is re-run every time the document is composited, so a filter can be
+ * switched off, re-ordered or re-tuned at any point.
+ */
+export type SmartFilter = {
+  id: string
+  /** The filter's id in the gallery catalog. */
+  filter: string
+  enabled: boolean
+  radius: number
+  amount: number
+}
+
+/** What a smart object remembers so a resize can be undone without loss. */
+export type SmartTransform = {
+  /** The size the placed copy is drawn at, as a fraction of the original. */
+  scaleX: number
+  scaleY: number
+  rotate: number
+  x: number
+  y: number
 }
 
 export type LayerMeta = {
@@ -226,6 +301,84 @@ export type LayerMeta = {
   effects: LayerEffects
   /** Set on a group folder that is collapsed in the layers panel. */
   collapsed?: boolean
+  /** Re-applied on every composite, in order, when the layer is smart. */
+  smartFilters?: SmartFilter[]
+  /** How the smart object's untouched source is placed into the document. */
+  smartTransform?: SmartTransform
+  /** Set on a 3D layer; the mesh is built from the text or shape it carries. */
+  threeD?: ThreeDData
+}
+
+/** A 3D layer: a flat outline given depth, lit and turned in space. */
+export type ThreeDData = {
+  depth: number
+  rotateX: number
+  rotateY: number
+  rotateZ: number
+  /** Where the light comes from, in the same space as the mesh. */
+  lightX: number
+  lightY: number
+  lightZ: number
+  color: string
+  /** Perspective strength, 0 for an orthographic view. */
+  perspective: number
+}
+
+/** A stored selection, kept alongside the layers as Photoshop keeps channels. */
+export type AlphaChannel = {
+  id: string
+  name: string
+  /** One byte per pixel; 255 is fully selected. */
+  mask: Uint8Array
+}
+
+/** A remembered arrangement of the layers, restored in one click. */
+export type LayerComp = {
+  id: string
+  name: string
+  states: { layerId: string; visible: boolean; opacity: number; blendMode: BlendMode }[]
+}
+
+/** One frame of a frame-by-frame animation: which layers it shows, and for how long. */
+export type AnimationFrame = {
+  id: string
+  delayMs: number
+  visible: Record<string, boolean>
+}
+
+/** A tile that a fill layer or the pattern stamp can repeat. */
+export type PatternDef = {
+  id: string
+  name: string
+  dataUrl: string
+  width: number
+  height: number
+}
+
+/** A saved brush tip, from the Brushes panel. */
+export type BrushPreset = {
+  id: string
+  name: string
+  size: number
+  hardness: number
+  opacity: number
+  spacing: number
+  angle: number
+  roundness: number
+  scatter: number
+}
+
+/** One recorded command, with the dialog answer it was given. */
+export type ActionStep = {
+  command: string
+  dialog?: string
+  result?: Record<string, unknown>
+}
+
+export type ActionScript = {
+  id: string
+  name: string
+  steps: ActionStep[]
 }
 
 /** One anchor of a vector path. The handles are absolute document coordinates. */
@@ -266,10 +419,31 @@ export type PhotoDocument = {
   slices: SliceRect[]
   frames: FrameRect[]
   measure: Measure | null
-  colorMode: 'rgb' | 'gray'
+  colorMode: ColorMode
   /** What the document was opened from, for the image information window. */
   source?: SourceInfo
+  /** Saved selections, the way a channels palette keeps them. */
+  channels?: AlphaChannel[]
+  /** Remembered layer arrangements. */
+  comps?: LayerComp[]
+  /** Frame-by-frame animation, if this document has one. */
+  animation?: AnimationFrame[]
+  /** Tiles defined from this document, available to fills and the stamp. */
+  patterns?: PatternDef[]
+  /** 8 bits per channel unless the document was opened from deeper data. */
+  depth?: 8 | 16
+  /** The working colour space, by name; see lib/colorModes.ts. */
+  profile?: string
 }
+
+/**
+ * The colour space the document is edited in. RGB is the working space;
+ * greyscale, CMYK and Lab are conversions applied when the document is
+ * composited, so the layers themselves stay RGBA.
+ */
+export type ColorMode = 'rgb' | 'gray' | 'cmyk' | 'lab'
+
+export const colorModes: ColorMode[] = ['rgb', 'gray', 'cmyk', 'lab']
 
 export type SerializedLayer = LayerMeta & { dataUrl?: string; maskUrl?: string }
 
@@ -292,7 +466,14 @@ export type ProjectFile = {
   slices?: SliceRect[]
   frames?: FrameRect[]
   measure?: Measure | null
-  colorMode?: 'rgb' | 'gray'
+  colorMode?: ColorMode
+  /** Saved selections, as greyscale PNG data URLs. */
+  channels?: { id: string; name: string; dataUrl: string }[]
+  comps?: LayerComp[]
+  animation?: AnimationFrame[]
+  patterns?: PatternDef[]
+  depth?: 8 | 16
+  profile?: string
 }
 
 export type Selection = {
@@ -321,7 +502,15 @@ export type AppSettings = {
   foreground: string
   background: string
   gradientKind: GradientKind
-  rightTab: 'layers' | 'adjust' | 'history' | 'channels' | 'info'
+  rightTab: 'layers' | 'adjust' | 'history' | 'channels' | 'actions' | 'timeline' | 'info'
+  /** Recorded command sequences, replayable and usable on a folder of files. */
+  actions: ActionScript[]
+  /** Saved brush tips, and the shape the brush is set to now. */
+  brushes: BrushPreset[]
+  brushSpacing: number
+  brushAngle: number
+  brushRoundness: number
+  brushScatter: number
   /** Shape tools. */
   shapeStroke: number
   shapeSides: number
@@ -401,6 +590,15 @@ export const defaultAdjustment = (type: AdjustmentType): Adjustment => ({
   red: 0,
   green: 0,
   blue: 0,
+  mix: {
+    red: { r: 100, g: 0, b: 0, constant: 0 },
+    green: { r: 0, g: 100, b: 0, constant: 0 },
+    blue: { r: 0, g: 0, b: 100, constant: 0 },
+  },
+  family: 'reds',
+  ink: { cyan: 0, magenta: 0, yellow: 0, black: 0 },
+  mapFrom: '#10203a',
+  mapTo: '#f2d9a0',
 })
 
 /** An identity curve per channel: two endpoints on the diagonal. */
@@ -438,6 +636,12 @@ export const defaultSettings: AppSettings = {
   rightWidth: 320,
   exportFormat: 'png',
   exportTransparent: true,
+  actions: [],
+  brushes: [],
+  brushSpacing: 0.25,
+  brushAngle: 0,
+  brushRoundness: 1,
+  brushScatter: 0,
   brushSize: 24,
   brushHardness: 0.75,
   brushOpacity: 1,

@@ -133,7 +133,7 @@ test('restoring a project brings back the layer pixels and the mask', async () =
 
 test('restoreProject rejects a file that is not a My Photo Work project', async () => {
   await assert.rejects(
-    () => restoreProject({ format: 'photoshop', version: 2, layers: [] }),
+    () => restoreProject({ format: 'someothereditor', version: 2, layers: [] }),
     /Not a My Photo Work project/,
   )
 })

@@ -145,9 +145,10 @@ test('every dialog is opened through openDialog, never by setting state directly
   const opener = appSource.slice(appSource.indexOf('const openDialog = useCallback'), appSource.indexOf('const closeAllDialogs'))
   const stray = [...appSource.replace(opener, '').matchAll(/setDialog\('(\w+)'\)/g)].map((match) => match[1])
   assert.deepEqual(stray, [], `these dialogs bypass the window opener: ${stray.join(', ')}`)
-  assert.match(appSource, /const openDialog = useCallback\(\(name: DialogName\)/, 'there is no single dialog opener')
+  assert.match(appSource, /const openDialog = useCallback\(\(name: DialogName, extra\?: Partial<DialogPayload>\)/, 'there is no single dialog opener')
   assert.match(appSource, /window\.electronDialogApi\.open\(name, payload\)/, 'openDialog never opens a window')
-  assert.match(appSource, /const payload = dialogPayload\(name\)/, 'the popup is opened without its seeds')
+  // The seeds, plus whatever a shared window needs to know which command opened it.
+  assert.match(appSource, /const payload = \{ \.\.\.dialogPayload\(name\), \.\.\.extra \}/, 'the popup is opened without its seeds')
 })
 
 test('popups seeded from the old document are closed when it is replaced', () => {

@@ -121,7 +121,7 @@ test('the viewport draws the path, region and transform overlays', () => {
   }
 })
 
-test('keyboard shortcuts cover the tool families Photoshop assigns letters to', () => {
+test('keyboard shortcuts cover the tool families that expect a letter', () => {
   const keys = appSource.slice(appSource.indexOf("if (key === 'v') setTool"), appSource.indexOf("if (key === '[')"))
   for (const [key, tool] of [
     ['p', 'pen'], ['u', 'rect'], ['a', 'pathSelect'], ['k', 'frame'],
