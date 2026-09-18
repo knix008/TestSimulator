@@ -11,6 +11,7 @@ import { encodeIco } from './ico.mjs';
 
 const require = createRequire(import.meta.url);
 const iconv = require('iconv-lite');
+const dicom = require('../core/dicom');
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const out = path.join(__dirname, '..', 'samples');
 
@@ -27,7 +28,7 @@ My Editor 가 지원하는 파일 형식의 예제 모음입니다. 파일 › �
 | \`text/\` | 일반 텍스트, 로그, Markdown(WYSIWYG 도구 모음 · 미리보기), 스펠링 체크용 영어 문장 |
 | \`encodings/\` | UTF-8 (BOM 있음/없음), UTF-16 LE/BE, EUC-KR(CP949), Shift_JIS, Windows-1252 — 인코딩 자동 감지와 다시 열기 |
 | \`eol/\` | CRLF · LF · CR 줄 끝 — 상태 표시줄의 줄 끝 표시와 변환 |
-| \`images/\` | PNG · JPEG · GIF · WebP · AVIF · BMP · ICO — 그림으로 열기 / 16진수 보기. \`logo.svg\` 는 소스로 열림 |
+| \`images/\` | PNG · JPEG · GIF · WebP · AVIF · BMP · ICO · DICOM — 그림으로 열기 / 16진수 보기. HEIC/HEIF 는 카메라 파일을 직접 여세요. \`logo.svg\` 는 소스로 열림 |
 
 > \`text/spelling.txt\` 와 \`code/comments.c\` 에는 일부러 틀린 영어 단어가 들어 있습니다.
 `,
@@ -721,9 +722,12 @@ function hello(name) {
 | \`sample.avif\` | AVIF |
 | \`sample.bmp\` | BMP |
 | \`sample.ico\` | ICO (여러 크기) |
+| \`sample.dcm\` | DICOM 한 장 — 윈도우/레벨 · 프리셋 · 반전 · HU |
+| \`multi.dcm\` | DICOM 여러 프레임 — 슬라이더 · 연속 재생 |
+| \`series/ct-001.dcm\` … | 같은 시리즈 3장 — 슬라이더로 넘김 |
 | \`logo.svg\` | **예외** — SVG 는 텍스트 문서. 소스 편집 + 미리보기 (Ctrl+Shift+M) |
 
-클릭하면 창에 맞춤 ↔ 원본 크기(1:1)를 전환합니다.
+클릭하면 창에 맞춤 ↔ 원본 크기(1:1)를 전환합니다. HEIC/HEIF 는 샘플을 넣지 않습니다(카메라 파일을 열어 보세요).
 `,
   'images/logo.svg': `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="320" height="200" viewBox="0 0 320 200">
@@ -924,4 +928,28 @@ async function writeImages(dir) {
   const ico = [];
   for (const size of [16, 32, 48, 256]) ico.push({ size, png: new Uint8Array(await icoPng(size)) });
   fs.writeFileSync(path.join(dir, 'sample.ico'), Buffer.from(encodeIco(ico)));
+
+  const dcmPix = new Uint8Array(160 * 100);
+  for (let y = 0; y < 100; y++) for (let x = 0; x < 160; x++) dcmPix[y * 160 + x] = Math.round((x / 159) * 220);
+  fs.writeFileSync(path.join(dir, 'sample.dcm'), dicom.encodeUncompressed({
+    width: 160, height: 100, pixels: dcmPix, patientName: 'Sample^Patient', patientId: 'S1',
+    modality: 'CT', studyDesc: 'My Editor', seriesDesc: 'Single', ww: 220, wl: 110,
+  }));
+  const cine = new Uint8Array(80 * 60 * 6);
+  for (let f = 0; f < 6; f++) {
+    for (let y = 0; y < 60; y++) for (let x = 0; x < 80; x++) cine[f * 80 * 60 + y * 80 + x] = Math.min(255, x * 2 + f * 20);
+  }
+  fs.writeFileSync(path.join(dir, 'multi.dcm'), dicom.encodeUncompressed({
+    width: 80, height: 60, pixels: cine, frames: 6, modality: 'XA', seriesDesc: 'Cine', ww: 255, wl: 127,
+  }));
+  const seriesDir = path.join(dir, 'series');
+  fs.mkdirSync(seriesDir, { recursive: true });
+  const seriesUid = '1.2.826.0.1.3680043.8.498.1001';
+  for (let i = 1; i <= 3; i++) {
+    const p = new Uint8Array(64 * 48);
+    p.fill(40 + i * 50);
+    fs.writeFileSync(path.join(seriesDir, `ct-00${i}.dcm`), dicom.encodeUncompressed({
+      width: 64, height: 48, pixels: p, instance: i, seriesUid, seriesDesc: 'Chest', modality: 'CT', ww: 200, wl: 90,
+    }));
+  }
 }

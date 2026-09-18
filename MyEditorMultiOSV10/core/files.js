@@ -9,6 +9,8 @@ const os = require('os');
 const path = require('path');
 const { execFile } = require('child_process');
 const enc = require('./encoding');
+const heic = require('./heic');
+const dicom = require('./dicom');
 
 const MAX_FILE = 64 * 1024 * 1024;   // refuse to open anything bigger than 64 MB
 
@@ -162,8 +164,15 @@ function openExternal(p) {
 // An image file as a data URL, for the Markdown WYSIWYG view / preview (the
 // renderer cannot load local files itself). A Windows .ico often stores PNG
 // frames that <img> cannot draw from image/x-icon, so those are unwrapped.
-const IMAGE_MIME = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp', '.svg': 'image/svg+xml', '.bmp': 'image/bmp', '.ico': 'image/x-icon', '.avif': 'image/avif' };
+// HEIC / HEIF / DICOM are decoded here to PNG — Chromium cannot draw them.
+const IMAGE_MIME = {
+  '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif',
+  '.webp': 'image/webp', '.svg': 'image/svg+xml', '.bmp': 'image/bmp', '.ico': 'image/x-icon',
+  '.avif': 'image/avif', '.heic': 'image/heic', '.heif': 'image/heif',
+  '.dcm': 'application/dicom', '.dicom': 'application/dicom',
+};
 const MAX_IMAGE = 32 * 1024 * 1024;
+const MAX_MEDIA = 128 * 1024 * 1024;
 
 function icoLargestPng(buf) {
   if (buf.length < 6 || buf[0] !== 0 || buf[1] !== 0 || buf[2] !== 1 || buf[3] !== 0) return null;
@@ -187,7 +196,15 @@ async function dataUrl(p) {
   let mime = IMAGE_MIME[ext];
   if (!mime) throw Object.assign(new Error('Not an image: ' + p), { code: 'ENOTIMAGE' });
   const st = await fsp.stat(p);
-  if (st.size > MAX_IMAGE) throw Object.assign(new Error('Image too large: ' + p), { code: 'ETOOLARGE' });
+  const cap = (ext === '.heic' || ext === '.heif' || ext === '.dcm' || ext === '.dicom') ? MAX_MEDIA : MAX_IMAGE;
+  if (st.size > cap) throw Object.assign(new Error('Image too large: ' + p), { code: 'ETOOLARGE' });
+  if (ext === '.heic' || ext === '.heif') {
+    return { dataUrl: await heic.firstPng(p), size: st.size, mtime: st.mtimeMs };
+  }
+  if (ext === '.dcm' || ext === '.dicom') {
+    const r = await dicom.preview(p, { index: 0 });
+    return { dataUrl: r.src, size: st.size, mtime: st.mtimeMs };
+  }
   let buf = await fsp.readFile(p);
   if (ext === '.ico') {
     const png = icoLargestPng(buf);
@@ -195,6 +212,19 @@ async function dataUrl(p) {
     else mime = 'image/vnd.microsoft.icon';
   }
   return { dataUrl: `data:${mime};base64,${buf.toString('base64')}`, size: st.size, mtime: st.mtimeMs };
+}
+
+// One frame of a picture that needs a decoder (HEIC / HEIF / DICOM) — the
+// renderer uses this for the slider, window/level, and metadata panel.
+async function imagePreview(p, { index = null } = {}) {
+  const ext = path.extname(p).toLowerCase();
+  const st = await fsp.stat(p);
+  const cap = (ext === '.heic' || ext === '.heif' || ext === '.dcm' || ext === '.dicom') ? MAX_MEDIA : MAX_IMAGE;
+  if (st.size > cap) throw Object.assign(new Error('Image too large: ' + p), { code: 'ETOOLARGE' });
+  if (ext === '.heic' || ext === '.heif') return heic.preview(p, { index: index == null ? 0 : index });
+  if (ext === '.dcm' || ext === '.dicom') return dicom.preview(p, { index });
+  const r = await dataUrl(p);
+  return { kind: 'raster', mode: 'frames', index: 0, count: 1, src: r.dataUrl, path: p };
 }
 
 // Writes the bytes of a data URL (an exported image).
@@ -207,4 +237,4 @@ async function writeDataUrl(p, url) {
   return { path: path.resolve(p), size: buf.length };
 }
 
-module.exports = { stat, read, readRange, sniff, write, list, drives, mkdir, rename, remove, exists, openExternal, dataUrl, writeDataUrl, MAX_FILE, homedir: () => os.homedir() };
+module.exports = { stat, read, readRange, sniff, write, list, drives, mkdir, rename, remove, exists, openExternal, dataUrl, writeDataUrl, imagePreview, MAX_FILE, homedir: () => os.homedir() };

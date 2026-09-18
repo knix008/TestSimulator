@@ -8,7 +8,10 @@
 MyEditorMultiOSV10/
 ├ core/                 플랫폼 무관 (Node 전용, 두 호스트가 공유)
 │  ├ encoding.js        인코딩 감지·변환(iconv-lite), 줄 끝 감지·정규화
-│  ├ files.js           읽기/쓰기(원자적), 디렉터리 목록, 드라이브, mkdir/rename/remove, 이미지 → data URL
+│  ├ files.js           읽기/쓰기(원자적), 디렉터리 목록, 드라이브, mkdir/rename/remove, 이미지 → data URL (HEIC/HEIF/DICOM 은 PNG 로 디코드)
+│  ├ png.js             RGBA → PNG (HEIC·DICOM 미리보기)
+│  ├ heic.js            HEIC/HEIF 디코드(libheif-js wasm-bundle) → PNG, 여러 장
+│  ├ dicom.js           DICOM 파싱·프레임 디코드·윈도우/레벨·시리즈 목록, 샘플 인코더
 │  ├ session.js         session.json (설정 · 탭 · 초안 · 최근 파일 · 창 위치)
 │  ├ search.js          폴더 전체 찾기(재귀 탐색, 바이너리/대용량/빌드 폴더 제외, 포함·제외 글롭, 취소, 결과 상한)
 │  ├ install.js         정렬 도구 자동 설치(레시피: npm→<config>/tools/node · pip --user · cargo · go · gem · rustup · Install-Module; 진행 로그 롱폴, 취소)
@@ -17,7 +20,7 @@ MyEditorMultiOSV10/
 │  ├ terminal.js        터미널 세션(파이프 셸 — 프롬프트·에코 없이 기동, 명령은 스크립트 파일로 source/call, 콘솔 코드 페이지 변환, SGR 색 유지, 단독 CR 은 통과, 출력 버퍼, cwd/종료 코드/idle 마커) + Tab 자동완성(내장 명령·PATH·경로) + git status 파싱
 │  └ api.js             메서드 테이블 `api.call(name, args)` + 오류 직렬화
 ├ electron/             데스크톱 호스트
-│  ├ main.js            창, 단일 인스턴스, argv 파일 열기, 네이티브 대화상자, 닫기 확인, 팝업 창(설정·정보·단축키 — ?popup=, 자식 창), 인쇄(숨은 창 → 시스템 대화상자), 스모크 훅
+│  ├ main.js            창, 단일 인스턴스, argv 파일 열기, 네이티브 대화상자, 닫기 확인, 팝업 창(설정·정보·단축키 — ?popup=, 자식 창), 인쇄(미리보기 대화상자 → 숨은 창 → 시스템 대화상자), 스모크 훅
 │  ├ ipc.js             ipcMain: 'api' · 'dialog' · 창 제어
 │  └ preload.js         contextBridge → window.myEditor
 ├ server/server.js      웹 호스트: dist/ 정적 서빙 + POST /api/<name>
@@ -31,16 +34,18 @@ MyEditorMultiOSV10/
 │  ├ dialogs/ImageDialog.jsx  이미지 넣기(파일/URL, 링크 또는 Base64 내장, 너비, 미리보기)
 │  ├ lib/lint.js        진단 표시(@codemirror/lint: 거터 마커·밑줄·툴팁·패널), 백엔드 결과 → Diagnostic 변환
 │  ├ lib/ansi.jsx       ANSI SGR(16/256/트루컬러·굵게·밑줄 …) → 색 span + 색 없는 출력의 강조(오류/경고/완료 줄, 링크, 파일:줄, dir/ls -l/Get-ChildItem 목록) (터미널 출력)
-│  ├ lib/images.js      이미지 경로 해석(문서 폴더 기준 → file.dataUrl, 캐시), 드롭/붙여넣기 파일 → data URL
+│  ├ lib/images.js      이미지 경로 해석(문서 폴더 기준 → file.dataUrl, 캐시), 드롭/붙여넣기 파일 → data URL (HEIC/HEIF/DCM 포함)
+│  ├ lib/dicomview.js   DICOM 윈도우/레벨·HU 읽기 (렌더러)
 │  ├ lib/spell.js       스펠링 체크: nspell + assets/dict/en.{aff,dic}(지연 로드), 가시 범위만 검사, 제안·사용자 사전
 │  ├ lib/backend.js     전송 스위치(IPC ↔ fetch), 대화상자 폴백, 창 제어
 │  ├ lib/i18n.js        ko / en 사전
 │  ├ lib/settings.js    설정 기본값
+│  ├ lib/print.js       코드 목록 인쇄 HTML(구문 강조·줄무늬·여백·글꼴 크기, 경로·줄 번호·테두리·페이지 번호, A4 쪽 나누기)
 │  ├ themes.js          20 테마 + 사용자 정의 테마(setCustomThemes) → CSS 변수(구문 색 --syn-* 포함)
 │  ├ lib/prompt.js      프롬프트 테마 모델: 프리셋 20종, Go 스타일 템플릿 렌더, 세그먼트 컨텍스트
 │  ├ lib/termtext.js    터미널 출력의 CR 처리(덮어쓰기/줄 바꿈/제거)
-│  ├ components/        MenuBar · Toolbar · TabBar · EditorPane · FindBar · MarkdownBar · Preview · HtmlPreview(샌드박스 iframe, 로컬 자원 인라인) · Prompt(프롬프트 렌더) · Sidebar · SearchPanel · TerminalPanel · FontPicker · StatusBar · ContextMenu · Icons
-│  └ dialogs/           Dialogs(확인·오류·정보·줄 이동·프롬프트·언어·인코딩·단축키) · SettingsDialog(일반·테마·터미널·정렬) · PromptEditor(프리셋·사용자 정의·간단/고급 편집) · FileDialog(웹)
+│  ├ components/        MenuBar · Toolbar · TabBar · EditorPane · FindBar · MarkdownBar · Preview · HtmlPreview · ImagePreview(래스터·HEIC·DICOM 슬라이더·윈도우/레벨) · Prompt · Sidebar · SearchPanel · TerminalPanel · FontPicker · StatusBar · ContextMenu · Icons
+│  └ dialogs/           Dialogs(확인·오류·정보·줄 이동·프롬프트·언어·인코딩·단축키) · SettingsDialog(일반·테마·터미널·정렬·검사·인쇄) · PromptEditor(프리셋·사용자 정의·간단/고급 편집) · FileDialog(웹) · PrintPreviewDialog(인쇄 미리보기)
 ├ scripts/              start-electron · free-port · generate-icons(+ico) · generate-file-icons(언어별 .ico + NSIS 목록) · build-info · smoke · clean …
 ├ test/core.test.mjs    코어 단위 테스트
 └ build/                installer.nsh, linux 설치 스크립트, icons/(생성됨)

@@ -96,9 +96,8 @@ function openPopup(kind, tab) {
   else win.loadFile(path.join(__dirname, '..', 'dist', 'index.html'), { query });
   return win;
 }
-// Printing: the HTML built by the renderer (a rendered Markdown document with
-// its images, or the code as a listing) is loaded into a hidden window and
-// sent to the system print dialog.
+// Printing: the HTML built by the renderer (shown first in the print-preview
+// dialog) is loaded into a hidden window and sent to the system print dialog.
 function printHtml(html, title) {
   const win = new BrowserWindow({ show: false, width: 900, height: 1200, parent: mainWin || undefined, webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false } });
   win.webContents.once('did-finish-load', () => {
@@ -242,7 +241,7 @@ const dialogs = {
       title: images ? 'Insert image' : 'Open',
       defaultPath: defaultPath || undefined,
       properties: ['openFile', ...(multi ? ['multiSelections'] : [])],
-      filters: images ? [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'ico', 'avif'] }, { name: 'All files', extensions: ['*'] }] : [
+      filters: images ? [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'ico', 'avif', 'heic', 'heif', 'dcm', 'dicom'] }, { name: 'All files', extensions: ['*'] }] : [
         { name: 'Text files', extensions: ['txt', 'md', 'log', 'json', 'js', 'jsx', 'ts', 'tsx', 'css', 'html', 'htm', 'xml', 'yaml', 'yml', 'ini', 'cfg', 'csv', 'py', 'c', 'cpp', 'h', 'hpp', 'java', 'cs', 'go', 'rs', 'sh', 'bat', 'ps1', 'sql', 'php', 'rb'] },
         { name: 'All files', extensions: ['*'] },
       ],

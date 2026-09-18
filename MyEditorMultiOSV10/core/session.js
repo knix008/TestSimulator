@@ -79,6 +79,18 @@ const DEFAULTS = {
   imagePreview: true,      // SVG: the picture next to the editor (binary images fill the pane themselves)
   userWords: [],           // words added to the dictionary by the user
   mdPreviewWidth: 0.5,     // fraction of the editor area
+  printHeader: true,       // code print: file name / path at the top of the page
+  printLineNumbers: true,  // code print: a line-number column
+  printBorder: false,      // code print: a frame around each page
+  printPageNumbers: false, // code print: "n / total" at the bottom of each page
+  printDate: false,        // code print: the date in the header
+  printSyntax: true,       // code print: keyword / string / comment colours
+  printColor: true,        // code print: colour (off: grayscale, bold kept)
+  printZebra: true,        // code print: alternating row tint
+  printGutter: true,       // code print: shaded line-number column
+  printWrap: true,         // code print: wrap long lines
+  printFontSize: 9.5,      // code print: type size in pt
+  printLineHeight: 1.45,   // code print: line height
   folder: '',
   windowBounds: null,
   tabs: [],          // [{ path, name, cursor, scrollTop, draft, encoding, eol, language }]

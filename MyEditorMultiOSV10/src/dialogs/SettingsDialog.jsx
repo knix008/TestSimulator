@@ -1,8 +1,7 @@
-// Settings dialog (Ctrl+,) — four tabs, each filling the (fixed-size)
-// window: general (general · files · editor, in two columns), theme (one
-// card per theme + custom themes), terminal (shell, line endings, the prompt
-// theme editor) and formatting. Changes apply immediately (the editor
-// reconfigures live) and are persisted.
+// Settings dialog (Ctrl+,) — tabs filling the (fixed-size) window: general
+// (general · files · editor, in two columns), theme, terminal, formatting,
+// lint and print (code-listing options). Changes apply immediately and are
+// persisted.
 import React, { useEffect, useState } from 'react';
 import { t, useLanguage, getLanguage } from '../lib/i18n';
 import { THEMES, themeById, baseColorsOf, setCustomThemes, CUSTOM_COLOR_KEYS } from '../themes';
@@ -39,12 +38,55 @@ function Check({ id, label, settings, onChange }) {
   );
 }
 
+const SAMPLE_ROWS = [
+  ['<span class="k">int</span> <span class="f">main</span>(<span class="ty">void</span>) {', 'int main(void) {'],
+  ['  <span class="f">printf</span>(<span class="s">"hello"</span>);', '  printf("hello");'],
+  ['  <span class="k">return</span> <span class="n">0</span>;', '  return 0;'],
+  ['}', '}'],
+];
+
+function PrintSettingsSample({ settings }) {
+  const o = {
+    printHeader: settings.printHeader !== false,
+    printLineNumbers: settings.printLineNumbers !== false,
+    printBorder: !!settings.printBorder,
+    printPageNumbers: !!settings.printPageNumbers,
+    printDate: !!settings.printDate,
+    printSyntax: settings.printSyntax !== false,
+    printColor: settings.printColor !== false,
+    printZebra: settings.printZebra !== false,
+    printGutter: settings.printGutter !== false,
+  };
+  const cls = `print-sample${o.printBorder ? ' framed' : ''}${o.printZebra ? ' zebra' : ''}${o.printGutter && o.printLineNumbers ? ' gutter' : ''}${o.printColor ? '' : ' bw'}`;
+  return (
+    <div className={cls}>
+      {(o.printHeader || o.printDate) && (
+        <div className="print-sample-head">
+          <span>{o.printHeader ? <>main.c <span className="lang">C</span></> : ''}</span>
+          <span>{o.printDate ? '2026-09-18' : ''}</span>
+        </div>
+      )}
+      <table className="print-sample-code">
+        <tbody>
+          {SAMPLE_ROWS.map(([hi, plain], i) => (
+            <tr key={i} className={o.printZebra && (i + 1) % 2 === 0 ? 'z' : ''}>
+              {o.printLineNumbers && <td className="ln">{i + 1}</td>}
+              <td className="src" dangerouslySetInnerHTML={{ __html: o.printSyntax ? hi : plain }} />
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {o.printPageNumbers && <div className="print-sample-foot">{t('print_page_of', { n: 1, total: 1 })}</div>}
+    </div>
+  );
+}
+
 export function SettingsDialog({ settings, encodings, shells = [], formatDir = '', onChange, onClose, tools: knownTools = null, onTools, embedded = false, initialTab = '' }) {
   useLanguage();
   const [tab, setTab] = useState((initialTab || 'general').split(':')[0]);
   useEffect(() => { if (initialTab) setTab(initialTab.split(':')[0]); }, [initialTab]);   // "tab:stamp" — asked for again while open
   const lang = getLanguage();
-  const tabs = [['general', t('set_general')], ['theme', t('set_theme')], ['terminal', t('set_terminal')], ['format', t('set_format')], ['lint', t('set_lint_tab')]];
+  const tabs = [['general', t('set_general')], ['theme', t('set_theme')], ['terminal', t('set_terminal')], ['format', t('set_format')], ['lint', t('set_lint_tab')], ['print', t('set_print')]];
   // ── custom themes (settings › theme) ──
   const customList = (settings.customThemes || []).map((c) => ({ ...c, tokens: themeById(c.id).tokens, custom: true, labelEn: c.label }));
   const customCur = (settings.customThemes || []).find((c) => c.id === settings.theme) || null;
@@ -349,6 +391,58 @@ export function SettingsDialog({ settings, encodings, shells = [], formatDir = '
                 </span>
               </React.Fragment>
             ))}
+          </div>
+        </div>
+      )}
+      {tab === 'print' && (
+        <div className="settings-cols">
+          <div className="settings-col">
+            <fieldset className="settings-group">
+              <legend>{t('set_print_code')}</legend>
+              <p className="muted small" style={{ margin: '0 0 10px' }}>{t('set_print_hint')}</p>
+              <div className="form-grid settings-grid">
+                <label />
+                <Check id="printHeader" label={t('set_print_header')} settings={settings} onChange={onChange} />
+                <label />
+                <Check id="printLineNumbers" label={t('set_print_linenos')} settings={settings} onChange={onChange} />
+                <label />
+                <Check id="printBorder" label={t('set_print_border')} settings={settings} onChange={onChange} />
+                <label />
+                <Check id="printPageNumbers" label={t('set_print_pages')} settings={settings} onChange={onChange} />
+                <label />
+                <Check id="printDate" label={t('set_print_date')} settings={settings} onChange={onChange} />
+              </div>
+            </fieldset>
+            <fieldset className="settings-group">
+              <legend>{t('set_print_type')}</legend>
+              <div className="form-grid settings-grid">
+                <label>{t('set_print_font_size')}</label>
+                <Stepper value={settings.printFontSize || 9.5} onChange={(n) => onChange({ printFontSize: n })} step={0.5} min={7} max={14} digits={1} unit="pt" />
+                <label>{t('set_print_line_height')}</label>
+                <Stepper value={settings.printLineHeight || 1.45} onChange={(n) => onChange({ printLineHeight: n })} step={0.05} min={1.1} max={2} digits={2} />
+                <label />
+                <Check id="printWrap" label={t('set_print_wrap')} settings={settings} onChange={onChange} />
+              </div>
+            </fieldset>
+          </div>
+          <div className="settings-col">
+            <fieldset className="settings-group">
+              <legend>{t('set_print_look')}</legend>
+              <div className="form-grid settings-grid">
+                <label />
+                <Check id="printSyntax" label={t('set_print_syntax')} settings={settings} onChange={onChange} />
+                <label />
+                <Check id="printColor" label={t('set_print_color')} settings={settings} onChange={onChange} />
+                <label />
+                <Check id="printZebra" label={t('set_print_zebra')} settings={settings} onChange={onChange} />
+                <label />
+                <Check id="printGutter" label={t('set_print_gutter')} settings={settings} onChange={onChange} />
+              </div>
+            </fieldset>
+            <fieldset className="settings-group">
+              <legend>{t('set_print_sample')}</legend>
+              <PrintSettingsSample settings={settings} />
+            </fieldset>
           </div>
         </div>
       )}

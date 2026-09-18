@@ -42,15 +42,28 @@ async function inlineResources(dom, base) {
   await Promise.all(jobs);
 }
 
-// The page with its local resources inlined and the scroll-keeping script appended.
-export async function buildPreviewHtml(text, base, scrollY = 0) {
+async function parseHtml(text, base) {
   const dom = new DOMParser().parseFromString(text, 'text/html');
   if (base) await inlineResources(dom, base);
+  return dom;
+}
+function serializeHtml(text, dom) {
+  const doctype = /^\s*<!doctype[^>]*>/i.exec(text);
+  return (doctype ? doctype[0] : '<!DOCTYPE html>') + '\n' + dom.documentElement.outerHTML;
+}
+
+// The page with its local resources inlined (no live-preview scroll script) — used for printing.
+export async function buildHtmlDocument(text, base) {
+  return serializeHtml(text, await parseHtml(text, base));
+}
+
+// The page with its local resources inlined and the scroll-keeping script appended.
+export async function buildPreviewHtml(text, base, scrollY = 0) {
+  const dom = await parseHtml(text, base);
   const keep = dom.createElement('script');
   keep.textContent = `(function(){var y=${Math.max(0, Math.round(scrollY))};if(y)requestAnimationFrame(function(){scrollTo(0,y)});addEventListener('scroll',function(){try{parent.postMessage({medScroll:scrollY},'*')}catch(e){}},{passive:true});})();`;
   (dom.body || dom.documentElement).appendChild(keep);
-  const doctype = /^\s*<!doctype[^>]*>/i.exec(text);
-  return (doctype ? doctype[0] : '<!DOCTYPE html>') + '\n' + dom.documentElement.outerHTML;
+  return serializeHtml(text, dom);
 }
 
 export function HtmlPreview({ view, docVersion, base, name, width }) {

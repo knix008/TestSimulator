@@ -127,7 +127,12 @@ export async function copyImage(src) {
   return call('clipboard.writeImage', { dataUrl: png });
 }
 
-export const IMAGE_MIME = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml', bmp: 'image/bmp', ico: 'image/x-icon', avif: 'image/avif' };
+export const IMAGE_MIME = {
+  png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif',
+  webp: 'image/webp', svg: 'image/svg+xml', bmp: 'image/bmp', ico: 'image/x-icon',
+  avif: 'image/avif', heic: 'image/heic', heif: 'image/heif',
+  dcm: 'application/dicom', dicom: 'application/dicom',
+};
 export function mimeOfName(name) { const m = String(name || '').match(/\.([a-z0-9]+)$/i); return (m && IMAGE_MIME[m[1].toLowerCase()]) || ''; }
 export function isImageFile(file) { return /^image\//.test(file.type || '') || !!mimeOfName(file.name); }
 
@@ -171,7 +176,7 @@ export function icoDisplaySrc(url) {
 
 // Reads a dropped / pasted image file as a data URL (for embedding in
 // Markdown). The MIME type comes from the file, or from its extension when
-// the OS reports none — PNG, JPEG, GIF, WebP, SVG, BMP, AVIF and ICO all work.
+// the OS reports none — PNG, JPEG, GIF, WebP, SVG, BMP, AVIF, ICO, HEIC, HEIF and DICOM all work.
 export function fileToDataUrl(file) {
   return new Promise((resolve, reject) => {
     const r = new FileReader();

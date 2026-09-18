@@ -12,6 +12,9 @@
 | `sample.avif` | AVIF |
 | `sample.bmp` | BMP |
 | `sample.ico` | ICO (여러 크기) |
+| `sample.dcm` | DICOM 한 장 — 윈도우/레벨 · 프리셋 · 반전 · HU |
+| `multi.dcm` | DICOM 여러 프레임 — 슬라이더 · 연속 재생 |
+| `series/ct-001.dcm` … | 같은 시리즈 3장 — 슬라이더로 넘김 |
 | `logo.svg` | **예외** — SVG 는 텍스트 문서. 소스 편집 + 미리보기 (Ctrl+Shift+M) |
 
-클릭하면 창에 맞춤 ↔ 원본 크기(1:1)를 전환합니다.
+클릭하면 창에 맞춤 ↔ 원본 크기(1:1)를 전환합니다. HEIC/HEIF 는 샘플을 넣지 않습니다(카메라 파일을 열어 보세요).

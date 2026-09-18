@@ -20,7 +20,7 @@
 - **자동 들여쓰기**(도구 모음·설정에서 ON/OFF): Enter 시 들여쓰기 유지, 공백/탭 삽입 선택, 탭 = 공백 n자리
 - **글꼴**: 도구 모음에서 시스템에 설치된 모든 글꼴 중 선택(스크롤·검색되는 목록, 직접 입력도 가능) + 크기(px) −/+
 - **폴더/열린 문서에서 찾기**(Ctrl+Shift+F / Ctrl+Alt+F): 폴더 패널 아래 검색 영역에 파일별 결과, 클릭하면 그 자리로
-- **인쇄**(Ctrl+P): Markdown 은 이미지 포함 렌더 결과, 코드는 줄 번호 목록 · 미리보기 우클릭으로 이미지 복사/내보내기
+- **인쇄**(Ctrl+P): 인쇄 미리보기(용지 모습)를 확인한 뒤 시스템 대화상자 — 코드 목록은 구문 강조·줄무늬·테두리·줄 번호 등 설정 › 인쇄에서, Markdown · HTML 은 이미지 포함 렌더 결과, 그림은 그림 그대로 · 미리보기 우클릭으로 이미지 복사/내보내기
 - **문서 정렬**(Shift+Alt+F): 내장 Prettier(JS/TS/JSON/HTML/CSS/Markdown/YAML) + 언어별 외부 도구(black · clang-format · gofmt · rustfmt · shfmt …), 설정에서 언어별 도구 선택, 저장 시 자동 정렬
 - **코드 검사(Lint)**: 언어별 도구(eslint · ruff/pyflakes · gcc · shellcheck · yamllint · hadolint …)를 백그라운드로 돌려 줄 번호 옆 마커·밑줄·메시지로 표시, 상태 표시줄에 오류/경고 수
 - **편집 창 나누기**: 좌우 · 상하 · 2×2 로 여러 문서를 동시에 보고 편집(창마다 문서 선택, 클릭한 창이 활성)
@@ -66,12 +66,12 @@ Windows 설치 프로그램은 바로가기 선택 다음에 **파일 형식 등
 
 ## 샘플 파일
 
-`samples/` 에 지원 형식별 예제(코드 18종, 웹, 데이터/설정, 텍스트·Markdown·스펠링, 인코딩 7종, 줄 끝 4종, 이미지 PNG·JPEG·GIF·WebP·AVIF 등)가 있습니다. 파일 › 폴더 열기로 `samples` 를 열어 보세요. `node scripts/make-samples.mjs` 로 다시 생성합니다.
+`samples/` 에 지원 형식별 예제(코드 18종, 웹, 데이터/설정, 텍스트·Markdown·스펠링, 인코딩 7종, 줄 끝 4종, 이미지 PNG·JPEG·GIF·WebP·AVIF·DICOM 등)가 있습니다. 파일 › 폴더 열기로 `samples` 를 열어 보세요. `node scripts/make-samples.mjs` 로 다시 생성합니다.
 
 ## 테스트
 
 ```bash
-npm test                          # 코어: 인코딩·줄 끝·파일 읽기/쓰기·세션·API (7개)
+npm test                          # 코어: 인코딩·줄 끝·파일 읽기/쓰기·세션·API·인쇄·미리보기 (DICOM/HEIC)
 npm run build && npm run smoke    # 데스크톱 + 웹 스모크: 실제 창에서 편집·저장·찾기 후 .smoke/*.png 스크린샷
 npm run smoke -- --scenario all   # 모든 시나리오(메뉴·대화상자·테마·탭 오버플로·Markdown…)
 ```

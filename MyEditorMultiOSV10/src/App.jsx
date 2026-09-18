@@ -27,7 +27,8 @@ import { HexView } from './components/HexView';
 import { Outline } from './components/Outline';
 import { markdownLive, imageBase } from './lib/mdlive';
 import { dockerfileCompletion, kubernetesCompletion } from './lib/devops';
-import { fileToDataUrl, isImageFile, resolveImageSrc, analyzeImage, encodeImage } from './lib/images';
+import { fileToDataUrl, isImageFile, resolveImageSrc, analyzeImage, encodeImage, icoDisplaySrc } from './lib/images';
+import { buildCodePrintHtml, highlightCodeLines, printOptsOf } from './lib/print';
 import { renderMarkdown } from './lib/markdown';
 import { applyDiagnostics, clearDiagnostics, countDiagnostics, openLintPanel, nextDiagnostic } from './lib/lint';
 import { wordAt as spellWordAt, suggest as spellSuggest, addUserWord, ignoreWord, setUserWords, setSpellOptions, refreshAll as spellRefreshAll, isReady as spellReady } from './lib/spell';
@@ -38,7 +39,7 @@ import { EditorPane } from './components/EditorPane';
 import { FindBar } from './components/FindBar';
 import { MarkdownBar } from './components/MarkdownBar';
 import { Preview } from './components/Preview';
-import { HtmlPreview, HtmlBar } from './components/HtmlPreview';
+import { HtmlPreview, HtmlBar, buildHtmlDocument } from './components/HtmlPreview';
 import { ImagePreview, ImageBar, isBinaryImageName, isSvgName, insertSvgTag } from './components/ImagePreview';
 import { withMenuIcons } from './lib/menuicons';
 import { Sidebar } from './components/Sidebar';
@@ -53,6 +54,7 @@ import { FileDialog } from './dialogs/FileDialog';
 import { ImageDialog } from './dialogs/ImageDialog';
 import { ImageExportDialog } from './dialogs/ImageExportDialog';
 import { InstallDialog } from './dialogs/InstallDialog';
+import { PrintPreviewDialog } from './dialogs/PrintPreviewDialog';
 
 const BASE_FONT = 12;   // the font size that is 100 % zoom (the default)
 // split = multi: n panes as a balanced grid — columns = ceil(√n), rows = ceil(n / columns).
@@ -243,9 +245,10 @@ export default function App() {
     patchDoc(id, { lint: { tool: r.tool, error: r.error || null, ...counts } });
   };
   const clearLint = (id) => { const st = getState(id); if (st) dispatchTo(id, clearDiagnostics(st)); patchDoc(id, { lint: null }); };
-  // ── printing (파일 › 인쇄, Ctrl+P): a Markdown document prints as rendered,
-  // images included (local ones embedded as data URLs); anything else as a
-  // listing with line numbers.
+  // ── printing (파일 › 인쇄, Ctrl+P): a preview of the page is shown first;
+  // Print then sends it to the system dialog. Markdown and HTML print as
+  // rendered (local images embedded as data URLs), a picture / SVG as the
+  // picture, anything else as a listing with line numbers.
   const esc = (x) => String(x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const printDoc = async (id = activeIdRef.current) => {
     const doc = getDoc(id);
@@ -253,25 +256,42 @@ export default function App() {
     if (!doc || !st) return;
     const text = st.doc.toString();
     const title = doc.name;
-    let body;
-    if (doc.langName === 'Markdown') {
-      const host = document.createElement('div');
-      host.innerHTML = renderMarkdown(text);
-      const base = doc.path ? dirName(doc.path) : folderRef.current || '';
-      await Promise.all([...host.querySelectorAll('img[src]')].map(async (img) => { try { img.setAttribute('src', await resolveImageSrc(img.getAttribute('src'), base)); } catch { /* left as is */ } }));
-      body = `<article class="md">${host.innerHTML}</article>`;
+    const base = doc.path ? dirName(doc.path) : folderRef.current || '';
+    const isCode = doc.langName !== 'Markdown' && doc.langName !== 'HTML' && !isBinaryImageName(doc.name) && !isSvgName(doc.name);
+    const printOpts = printOptsOf(settingsRef.current);
+    const lineHtml = isCode ? highlightCodeLines(st, printOpts.tabSize) : undefined;
+    let html;
+    if (doc.langName === 'HTML') {
+      html = await buildHtmlDocument(text, base);
     } else {
-      const lines = text.split('\n');
-      body = `<table class="code"><tbody>${lines.map((l, i) => `<tr><td class="ln">${i + 1}</td><td class="src">${esc(l) || ' '}</td></tr>`).join('')}</tbody></table>`;
-    }
-    const css = `body{font-family:Segoe UI,Malgun Gothic,Apple SD Gothic Neo,Noto Sans KR,Helvetica,Arial,sans-serif;color:#111;margin:18mm 16mm;font-size:12pt;line-height:1.55}
+      let body;
+      if (isBinaryImageName(doc.name) && doc.path) {
+        try {
+          const r = await call('file.dataUrl', { path: doc.path });
+          const src = /\.ico$/i.test(doc.name) ? icoDisplaySrc(r.dataUrl) : r.dataUrl;
+          body = `<div class="pic"><img src="${src}" alt="${esc(title)}"></div>`;
+        } catch { body = `<p class="muted">${esc(t('img_pv_broken'))}</p>`; }
+      } else if (isSvgName(doc.name)) {
+        body = `<div class="pic"><img src="data:image/svg+xml;charset=utf-8,${encodeURIComponent(text)}" alt="${esc(title)}"></div>`;
+      } else if (doc.langName === 'Markdown') {
+        const host = document.createElement('div');
+        host.innerHTML = renderMarkdown(text);
+        await Promise.all([...host.querySelectorAll('img[src]')].map(async (img) => { try { img.setAttribute('src', await resolveImageSrc(img.getAttribute('src'), base)); } catch { /* left as is */ } }));
+        body = `<article class="md">${host.innerHTML}</article>`;
+      } else {
+        html = buildCodePrintHtml({ title, path: doc.path || doc.name, lang: doc.langName, text, lineHtml, opts: printOpts });
+      }
+      if (!html) {
+        const css = `body{font-family:Segoe UI,Malgun Gothic,Apple SD Gothic Neo,Noto Sans KR,Helvetica,Arial,sans-serif;color:#111;margin:18mm 16mm;font-size:12pt;line-height:1.55}
 h1{font-size:1.8em;border-bottom:1px solid #999;padding-bottom:4px}h2{font-size:1.45em;border-bottom:1px solid #bbb;padding-bottom:3px}h3{font-size:1.2em}
 pre,code{font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospace;font-size:10.5pt}pre{background:#f4f4f4;border:1px solid #ddd;border-radius:4px;padding:8px;white-space:pre-wrap;word-break:break-all}
 img{max-width:100%;height:auto;page-break-inside:avoid}table{border-collapse:collapse}.md table td,.md table th{border:1px solid #bbb;padding:3px 8px}blockquote{border-left:3px solid #999;margin:0;padding:2px 12px;color:#444}
-table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospace;font-size:9.5pt}table.code td{vertical-align:top;padding:0 6px;white-space:pre-wrap;word-break:break-all}table.code td.ln{color:#888;text-align:right;user-select:none;width:1%;border-right:1px solid #ddd}
-.title{font-size:10pt;color:#666;border-bottom:1px solid #ccc;margin-bottom:12px;padding-bottom:4px}@page{margin:0}`;
-    const html = `<!doctype html><html><head><meta charset="utf-8"><title>${esc(title)}</title><style>${css}</style></head><body><div class="title">${esc(doc.path || doc.name)}</div>${body}</body></html>`;
-    printHtml(html, title);
+.pic{display:flex;justify-content:center}.title{font-size:10pt;color:#666;border-bottom:1px solid #ccc;margin-bottom:12px;padding-bottom:4px}@page{margin:0}`;
+        html = `<!doctype html><html><head><meta charset="utf-8"><title>${esc(title)}</title><style>${css}</style></head><body><div class="title">${esc(doc.path || doc.name)}</div>${body}</body></html>`;
+      }
+    }
+    const ok = await ask({ type: 'printPreview', html, title, code: isCode, text: isCode ? text : undefined, path: doc.path || doc.name, lang: isCode ? doc.langName : undefined, lineHtml });
+    if (ok) printHtml((ok && ok.html) || html, title);
   };
   // An image of the preview saved as a file: the export dialog picks the
   // format / quality / transparency, then the save dialog the place.
@@ -722,7 +742,7 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
     }
   };
 
-  // A file that is not text: a binary picture (PNG · JPEG · GIF · WebP · AVIF · BMP · ICO) fills the
+  // A file that is not text: a binary picture (PNG · JPEG · GIF · WebP · AVIF · BMP · ICO · HEIC · HEIF · DCM) fills the
   // pane as the image itself (Hexa opens a hex dump beside it); anything
   // else is a hex dump (components/HexView.jsx) in a read-only document whose
   // editor state stays empty. The hex view fetches the bytes it shows through
@@ -736,7 +756,7 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
       const existing = docsRef.current.find((d) => samePath(d.path, r.path));
       if (existing) { if (activateIt) activate(existing.id); return existing; }
       const id = nextDocId;   // addDoc takes the next id: the reader must be there before the first render
-      const image = isBinaryImageName(r.name);   // PNG · JPEG · GIF · WebP · AVIF · BMP · ICO: the picture fills the pane; Hexa shows the bytes beside it
+      const image = isBinaryImageName(r.name);   // PNG · JPEG · GIF · WebP · AVIF · BMP · ICO · HEIC · HEIF · DCM: the picture fills the pane; Hexa shows the bytes beside it
       hexRef.current.set(id, hexReader(r.path));
       const doc = addDoc({ path: r.path, name: r.name, kind: 'hex', language: PLAIN, mtime: r.mtime, size: r.size, readonly: true, imageHex: false }, '', { activateIt });
       call('recent.touch', { path: r.path }).then(setRecent).catch(() => {});
@@ -1889,6 +1909,7 @@ table.code{width:100%;font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospac
       {dialog && dialog.type === 'language' && <LanguagePicker current={(getDoc(dialog.docId) || {}).language || 'auto'} onClose={closeDialog} onPick={(name) => { closeDialog(); setDocLanguage(dialog.docId, name); }} />}
       {dialog && dialog.type === 'encoding' && <EncodingPicker title={t('reopen_as')} encodings={(info && info.encodings) || []} current={cur && cur.encoding} onClose={closeDialog} onPick={(id) => { closeDialog(); reopenWith(activeIdRef.current, id); }} />}
       {dialog && dialog.type === 'install' && <InstallDialog tool={dialog.tool} jobId={dialog.jobId} doneLabel={t('inst_use')} onResult={closeDialog} />}
+      {dialog && dialog.type === 'printPreview' && <PrintPreviewDialog html={dialog.html} title={dialog.title} path={dialog.path} lang={dialog.lang} text={dialog.text} lineHtml={dialog.lineHtml} code={dialog.code} settings={settings} onPrintOpts={changeSettings} onResult={closeDialog} />}
       {dialog && dialog.type === 'imageExport' && <ImageExportDialog src={dialog.src} alt={dialog.alt} onResult={closeDialog} />}
       {dialog && dialog.type === 'mdImage' && <ImageDialog base={cur && cur.path ? dirName(cur.path) : folder || ''} home={info && info.home} sep={(info && info.sep) || '/'}
         onResult={(text) => { closeDialog(); if (!text) return; withView((vw) => { const r = vw.state.selection.main; vw.dispatch({ changes: { from: r.from, to: r.to, insert: text }, selection: { anchor: r.from + text.length }, scrollIntoView: true }); }); }} />}

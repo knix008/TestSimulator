@@ -84,7 +84,7 @@ export function stripAnsi(text) { return text.replace(SGR, ''); }
 const LS_LONG = /^([-dlcbps][rwxsStT-]{9}[+@.]?)(\s+\d+\s+\S+\s+\S+\s+[\d,.]+[KMGT]?\s+\S+\s+\d+\s+[\d:]+\s)(.*)$/;
 const DIR_CMD = /^(\d{4}[-./]\d{2}[-./]\d{2}\s+\S+(?:\s+\S+)?\s+)(<(?:DIR|JUNCTION|SYMLINKD?)>|[\d,.]+)(\s+)(.+)$/;
 const DIR_PS = /^([d-][a-][r-][h-][s-][l-]{1,2}\s+\S+\s+\S+(?:\s+\S+)?\s+)(\d*)(\s+)(\S.*?)\s*$/;
-const KIND_RE = { exe: /\.(?:exe|com|bat|cmd|ps1|sh|bash|zsh|msi|app|run|bin)$/i, arch: /\.(?:zip|7z|rar|tar|gz|tgz|bz2|xz|zst|jar|war|deb|rpm|dmg|iso)$/i, img: /\.(?:png|jpe?g|gif|bmp|webp|svg|ico|tiff?|avif|mp4|mkv|mov|avi|webm|mp3|wav|flac|ogg)$/i, doc: /\.(?:md|txt|pdf|docx?|xlsx?|pptx?|rtf|odt|html?)$/i, code: /\.(?:[cm]?[jt]sx?|py|java|kt|go|rs|c|h|cpp|hpp|cs|rb|php|swift|lua|sql|json|ya?ml|toml|xml|css|scss|vue|svelte|dockerfile)$/i };
+const KIND_RE = { exe: /\.(?:exe|com|bat|cmd|ps1|sh|bash|zsh|msi|app|run|bin)$/i, arch: /\.(?:zip|7z|rar|tar|gz|tgz|bz2|xz|zst|jar|war|deb|rpm|dmg|iso)$/i, img: /\.(?:png|jpe?g|gif|bmp|webp|svg|ico|tiff?|avif|heic|heif|dcm|dicom|mp4|mkv|mov|avi|webm|mp3|wav|flac|ogg)$/i, doc: /\.(?:md|txt|pdf|docx?|xlsx?|pptx?|rtf|odt|html?)$/i, code: /\.(?:[cm]?[jt]sx?|py|java|kt|go|rs|c|h|cpp|hpp|cs|rb|php|swift|lua|sql|json|ya?ml|toml|xml|css|scss|vue|svelte|dockerfile)$/i };
 const nameKind = (name, perm) => {
   if (perm && /^d/.test(perm)) return 't-dir';
   if (perm && /^l/.test(perm)) return 't-link';

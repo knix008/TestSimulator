@@ -66,6 +66,18 @@ export const SETTINGS_DEFAULTS = {
   mdPreviewWidth: 0.5,
   htmlPreview: false,      // HTML live preview pane
   imagePreview: true,      // SVG: the picture next to the editor (binary images fill the pane themselves)
+  printHeader: true,       // code print: file name / path at the top of the page
+  printLineNumbers: true,  // code print: a line-number column
+  printBorder: false,      // code print: a frame around each page
+  printPageNumbers: false, // code print: "n / total" at the bottom of each page
+  printDate: false,        // code print: the date in the header
+  printSyntax: true,       // code print: keyword / string / comment colours
+  printColor: true,        // code print: colour (off: grayscale, bold kept)
+  printZebra: true,        // code print: alternating row tint
+  printGutter: true,       // code print: shaded line-number column
+  printWrap: true,         // code print: wrap long lines
+  printFontSize: 9.5,      // code print: type size in pt
+  printLineHeight: 1.45,   // code print: line height
 };
 
 export const SETTING_KEYS = Object.keys(SETTINGS_DEFAULTS);
@@ -78,6 +90,8 @@ export const RESET_KEYS = [
   'autoCloseBrackets', 'bracketMatching', 'foldGutter', 'minimap', 'defaultEncoding', 'defaultEol', 'eolOnSave', 'trimTrailingOnSave', 'finalNewlineOnSave',
   'restoreSession', 'reloadChangedFiles', 'confirmClose', 'mdWysiwyg', 'spellCheck', 'spellCodeAll', 'autoIndent', 'lint', 'autocomplete',
   'formatters', 'linters', 'formatOnSave', 'termCwd', 'termShell', 'termColor', 'termEol', 'termCr', 'prompt',
+  'printHeader', 'printLineNumbers', 'printBorder', 'printPageNumbers', 'printDate',
+  'printSyntax', 'printColor', 'printZebra', 'printGutter', 'printWrap', 'printFontSize', 'printLineHeight',
 ];
 export const resetPatch = () => Object.fromEntries(RESET_KEYS.map((k) => [k, k === 'prompt' ? PROMPT_DEFAULT : Array.isArray(SETTINGS_DEFAULTS[k]) ? [] : typeof SETTINGS_DEFAULTS[k] === 'object' && SETTINGS_DEFAULTS[k] ? {} : SETTINGS_DEFAULTS[k]]));
 
