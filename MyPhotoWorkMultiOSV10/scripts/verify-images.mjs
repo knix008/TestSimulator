@@ -7,14 +7,15 @@
  * with full-size camera files, so a decoder that only copes with toy input, or
  * an export that quietly drops a channel, shows up here. Everything is
  * asserted, so a non-zero exit means a feature is broken; the PNG and HTML it
- * leaves behind are there to be looked at.
+ * leaves behind are kept in `out/` so the run can be looked at afterwards
+ * rather than only believed: `out/index.html` is the gallery, `out/report.md`
+ * the written record, and `out/verify-images.log` everything that was printed.
  *
  * Load through the test harness, which supplies the browser globals:
  *   node --import ./test/helpers/setup.mjs scripts/verify-images.mjs [outDir]
  */
 import assert from 'node:assert/strict'
-import { mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
@@ -33,8 +34,53 @@ import { rectSelection } from '../src/lib/selection.ts'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
 const imagesDir = path.join(root, 'images')
-const outDir = process.argv[2] ?? path.join(tmpdir(), 'myphotowork-verify')
+// `out/` beside the project, not a temp folder: the point of these files is
+// that somebody can open them later and see for themselves.
+const outDir = process.argv[2] ?? path.join(root, 'out')
+// A stale result from an earlier run would be indistinguishable from this one.
+rmSync(outDir, { recursive: true, force: true })
 mkdirSync(outDir, { recursive: true })
+
+/** Everything printed, kept so the run can be read back. */
+const transcript = []
+const say = (line = '') => {
+  transcript.push(line)
+  process.stdout.write(String(line) + String.fromCharCode(10))
+}
+/** What each source file produced, for the report and the gallery. */
+const produced = []
+const startedAt = new Date()
+/** The source file being worked on, so every artifact knows where it came from. */
+let currentSource = ''
+
+/**
+ * Writes one result into `out/` and remembers it.
+ *
+ * What a caption says is what the file is evidence of, so the gallery can be
+ * read without going back to this script to work out what each name meant.
+ */
+const captions = {
+  composite: 'the document as the editor composites it',
+  transparent: 'exported with the transparent-background box ticked',
+  opaque: 'exported with that box cleared — the hole filled in',
+  '3d': 'extruded through the 3D renderer',
+  warp: 'bent with the arch warp',
+  carved: 'content-aware scaled to 80% width',
+  '16bit': 'exported at 16 bits a channel',
+  pattern: 'a tile cut from the middle and laid back out',
+  print: 'the page handed to the printer',
+  preview: 'the preview sheet the print window shows',
+}
+function save(name, data) {
+  writeFileSync(path.join(outDir, name), data)
+  const stem = path.parse(name).name
+  const suffix = stem.includes('-') ? stem.slice(stem.lastIndexOf('-') + 1) : ''
+  const extension = path.extname(name).slice(1).toLowerCase()
+  const caption = captions[suffix] ?? (extension === 'gif'
+    ? 'a two-frame animation, colour and greyscale'
+    : `exported as ${extension.toUpperCase()}`)
+  produced.push({ source: currentSource, name, caption, bytes: data.length })
+}
 
 const mimes = {
   '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.gif': 'image/gif',
@@ -78,9 +124,10 @@ function meanDifference(a, b) {
 
 const files = readdirSync(imagesDir).filter((name) => path.extname(name).toLowerCase() in mimes)
 assert.ok(files.length > 0, `no images to verify in ${imagesDir}`)
-console.log(`Verifying ${files.length} file(s) from images/ into ${outDir}\n`)
+say(`Verifying ${files.length} file(s) from images/ into ${outDir}\n`)
 
 for (const file of files) {
+  currentSource = file
   const label = isHeifSource(file) ? `${file} (HEIF)` : isDicomSource(file) ? `${file} (DICOM)` : file
   const item = openItem(file)
   const decoded = await decodeImageSource(item)
@@ -88,21 +135,21 @@ for (const file of files) {
   const canvas = decoded.canvas
   assert.ok(canvas.width > 1 && canvas.height > 1, `${file} opened at ${canvas.width}x${canvas.height}`)
   assert.ok(spread(canvas) > 20, `${file} decoded to a flat sheet — the decoder gave up`)
-  console.log(`${label}: opened ${canvas.width}x${canvas.height}, ${formatBytes(item.size)}, ratio ${aspectRatio(canvas.width, canvas.height)}, tonal spread ${spread(canvas).toFixed(0)}`)
+  say(`${label}: opened ${canvas.width}x${canvas.height}, ${formatBytes(item.size)}, ratio ${aspectRatio(canvas.width, canvas.height)}, tonal spread ${spread(canvas).toFixed(0)}`)
 
   // Image information: the header rows the file itself carried, plus the
   // measurements the window computes.
   const details = decoded.details ?? []
   assert.ok(Array.isArray(details), `${file} returned no details list`)
   for (const row of details.slice(0, 6)) {
-    console.log(`  detail ${row.label ?? row.key}: ${row.value}`)
+    say(`  detail ${row.label ?? row.key}: ${row.value}`)
   }
   if (isDicomSource(file)) {
     assert.ok(details.some((row) => row.label === 'Modality'), `${file} produced no DICOM tags`)
   }
   const stats = imageStatistics(canvas)
   assert.equal(stats.length, 4, `${file} produced ${stats.length} statistics`)
-  console.log(`  stats ${stats.map((row) => row.value).join(' | ')}`)
+  say(`  stats ${stats.map((row) => row.value).join(' | ')}`)
 
   // One raster layer, the way File ▸ Open builds a document.
   const layer = createLayerMeta(file)
@@ -115,15 +162,15 @@ for (const file of files) {
   const composite = compositeDocument(document, new Map([[layer.id, canvas]]))
   assert.equal(composite.width, canvas.width, `${file} lost width when composited`)
   assert.ok(spread(composite) > 20, `${file} composited to a flat sheet`)
-  writeFileSync(path.join(outDir, `${document.name}-composite.png`), composite.toBuffer('image/png'))
+  save(`${document.name}-composite.png`, composite.toBuffer('image/png'))
 
   // Every export format, round tripped back to pixels.
   for (const format of ['png', 'jpg', 'webp', 'tiff']) {
     const dataUrl = await encodeExport(composite, format)
     const prefix = `data:image/${format === 'jpg' ? 'jpeg' : format}`
     assert.ok(dataUrl.startsWith(prefix) || dataUrl.startsWith('data:image/png'), `${file} → ${format} produced ${dataUrl.slice(0, 24)}`)
-    writeFileSync(path.join(outDir, `${document.name}.${extensionFor(format)}`), Buffer.from(dataUrl.split(',')[1], 'base64'))
-    console.log(`  export ${format.padEnd(4)} ${(dataUrl.length / 1024).toFixed(0)} kB`)
+    save(`${document.name}.${extensionFor(format)}`, Buffer.from(dataUrl.split(',')[1], 'base64'))
+    say(`  export ${format.padEnd(4)} ${(dataUrl.length / 1024).toFixed(0)} kB`)
   }
 
   // Transparency: rub a hole in a copy, then export it both ways.
@@ -138,45 +185,45 @@ for (const file of files) {
     }
     assert.equal(alphaAt(filled, 2, 2), 255, `${file} → ${format} stayed see-through with the box cleared`)
     assert.equal(alphaAt(filled, holed.width - 2, holed.height - 2), 255, `${file} → ${format} damaged the picture itself`)
-    console.log(`  transparent ${format.padEnd(4)} on: alpha ${alphaAt(kept, 2, 2)}  off: alpha ${alphaAt(filled, 2, 2)}`)
+    say(`  transparent ${format.padEnd(4)} on: alpha ${alphaAt(kept, 2, 2)}  off: alpha ${alphaAt(filled, 2, 2)}`)
   }
-  writeFileSync(path.join(outDir, `${document.name}-transparent.png`), Buffer.from((await encodeExport(holed, 'png', 0.92, true)).split(',')[1], 'base64'))
-  writeFileSync(path.join(outDir, `${document.name}-opaque.png`), Buffer.from((await encodeExport(holed, 'png', 0.92, false)).split(',')[1], 'base64'))
+  save(`${document.name}-transparent.png`, Buffer.from((await encodeExport(holed, 'png', 0.92, true)).split(',')[1], 'base64'))
+  save(`${document.name}-opaque.png`, Buffer.from((await encodeExport(holed, 'png', 0.92, false)).split(',')[1], 'base64'))
 
   // The subsystems added on top of open-and-export, each run over this photo.
   const solid = renderExtrude(canvas, canvas.width, canvas.height, { ...defaultThreeD(), depth: 40 })
   assert.equal(solid.width, canvas.width, `${file} 3D render changed the canvas size`)
   assert.ok(spread(solid) > 10, `${file} extruded to something flat`)
-  writeFileSync(path.join(outDir, `${document.name}-3d.png`), solid.toBuffer('image/png'))
+  save(`${document.name}-3d.png`, solid.toBuffer('image/png'))
 
   const bent = warpCanvas(canvas, 'arch', 60, 0, 0)
   assert.ok(meanDifference(bent, canvas) > 1, `${file} did not warp`)
   assert.equal(alphaAt(bent, Math.round(canvas.width / 2), Math.round(canvas.height / 2)), 255, `${file} warp left a hole`)
-  writeFileSync(path.join(outDir, `${document.name}-warp.png`), bent.toBuffer('image/png'))
+  save(`${document.name}-warp.png`, bent.toBuffer('image/png'))
 
   const carved = contentAwareScale(canvas, Math.round(canvas.width * 0.8), canvas.height)
   assert.equal(carved.width, Math.round(canvas.width * 0.8), `${file} carving missed its target width`)
-  writeFileSync(path.join(outDir, `${document.name}-carved.png`), carved.toBuffer('image/png'))
+  save(`${document.name}-carved.png`, carved.toBuffer('image/png'))
 
   // A two-frame animation from this photo and a darkened copy of it.
   const dimmed = cloneCanvas(canvas)
   applyColorMode(dimmed, 'gray')
   const gif = encodeGif([{ canvas, delayMs: 200 }, { canvas: dimmed, delayMs: 200 }])
   assert.equal(String.fromCharCode(...gif.slice(0, 6)), 'GIF89a', `${file} produced no GIF`)
-  writeFileSync(path.join(outDir, `${document.name}.gif`), gif)
+  save(`${document.name}.gif`, gif)
 
   // Sixteen bits: the same picture, written at full depth.
   const deepTiff = await encodeExport(composite, 'tiff', 0.92, true, 16)
   assert.ok(deepTiff.startsWith('data:image/tiff;base64,'), `${file} produced no 16-bit TIFF`)
-  writeFileSync(path.join(outDir, `${document.name}-16bit.tif`), Buffer.from(deepTiff.split(',')[1], 'base64'))
+  save(`${document.name}-16bit.tif`, Buffer.from(deepTiff.split(',')[1], 'base64'))
 
   // A pattern cut from the middle of the photo, tiled back out.
   const tile = makePatternTile(canvas, rectSelection(0, 0, Math.min(64, canvas.width), Math.min(64, canvas.height)))
   const tiled = patternFill(canvas.width, canvas.height, tile)
   assert.equal(tiled.width, canvas.width)
-  writeFileSync(path.join(outDir, `${document.name}-pattern.png`), tiled.toBuffer('image/png'))
+  save(`${document.name}-pattern.png`, tiled.toBuffer('image/png'))
 
-  console.log(`  3D, warp, carve ${carved.width}px, GIF ${(gif.length / 1024).toFixed(0)} kB, 16-bit ${(deepTiff.length / 1024).toFixed(0)} kB, pattern ${tile.width}x${tile.height}`)
+  say(`  3D, warp, carve ${carved.width}px, GIF ${(gif.length / 1024).toFixed(0)} kB, 16-bit ${(deepTiff.length / 1024).toFixed(0)} kB, pattern ${tile.width}x${tile.height}`)
 
   // Print: the preview the dialog shows, then the page the printer is handed.
   const orientation = naturalOrientation(composite)
@@ -187,9 +234,86 @@ for (const file of files) {
   assert.match(page, /object-fit: contain/, `${file} print page does not fit the sheet`)
   assert.match(page, new RegExp(`size: ${orientation}`), `${file} print page ignores the orientation`)
   assert.ok(page.includes('data:image/png;base64,'), `${file} print page carries no image`)
-  writeFileSync(path.join(outDir, `${document.name}-print.html`), page)
-  writeFileSync(path.join(outDir, `${document.name}-preview.jpg`), Buffer.from(preview.split(',')[1], 'base64'))
-  console.log(`  print ${orientation}, preview ${(preview.length / 1024).toFixed(0)} kB, page ${(page.length / 1024).toFixed(0)} kB\n`)
+  save(`${document.name}-print.html`, page)
+  save(`${document.name}-preview.jpg`, Buffer.from(preview.split(',')[1], 'base64'))
+  say(`  print ${orientation}, preview ${(preview.length / 1024).toFixed(0)} kB, page ${(page.length / 1024).toFixed(0)} kB\n`)
 }
 
-console.log(`All checks passed. Output written to ${outDir}`)
+/* -------------------------------------------------- the record of the run */
+
+const finishedAt = new Date()
+const kb = (bytes) => `${(bytes / 1024).toFixed(0)} kB`
+const bySource = files.map((file) => ({
+  file,
+  items: produced.filter((item) => item.source === file),
+}))
+// Only the pictures go in the gallery; the HTML print pages are linked instead.
+const viewable = /\.(png|jpe?g|gif|webp)$/i
+
+writeFileSync(path.join(outDir, 'verify-images.log'), `${transcript.join('\n')}\n`, 'utf8')
+
+writeFileSync(path.join(outDir, 'report.md'), [
+  '# Image verification run',
+  '',
+  `- Run: ${startedAt.toISOString()} (${((finishedAt - startedAt) / 1000).toFixed(1)}s)`,
+  `- Source images: ${files.length}, from \`images/\``,
+  `- Files produced: ${produced.length}`,
+  '- Result: **every assertion passed**',
+  '',
+  'Each source image is opened through the real decoder, composited, exported to',
+  'every format both with and without a transparent background, then put through',
+  'the 3D, warp, content-aware scale, animation, 16-bit and pattern paths and',
+  'finally the print preview and the printable page. The files below are what',
+  'came out; `index.html` shows the pictures side by side.',
+  '',
+  ...bySource.flatMap(({ file, items }) => [
+    `## ${file}`,
+    '',
+    '| File | What it shows | Size |',
+    '| --- | --- | --- |',
+    ...items.map((item) => `| \`${item.name}\` | ${item.caption} | ${kb(item.bytes)} |`),
+    '',
+  ]),
+].join('\n'), 'utf8')
+
+writeFileSync(path.join(outDir, 'index.html'), `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>My Photo Work — image verification</title>
+<style>
+  :root { color-scheme: dark; --bg: #11161d; --panel: #18202a; --line: #2a3440; --text: #e6edf3; --muted: #93a1b1; }
+  body { background: var(--bg); color: var(--text); font: 14px/1.5 system-ui, sans-serif; margin: 0; padding: 32px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  h2 { border-bottom: 1px solid var(--line); font-size: 17px; margin: 36px 0 14px; padding-bottom: 8px; }
+  p.lead { color: var(--muted); margin: 0 0 8px; }
+  .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); }
+  figure { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; margin: 0; overflow: hidden; }
+  figure img { background: #0c1014; display: block; height: 190px; object-fit: contain; width: 100%; }
+  figcaption { padding: 9px 11px; }
+  figcaption b { display: block; font-size: 12px; word-break: break-all; }
+  figcaption span { color: var(--muted); font-size: 12px; }
+  ul.files { color: var(--muted); list-style: none; padding: 0; }
+  ul.files a { color: var(--text); }
+</style>
+</head>
+<body>
+<h1>Image verification</h1>
+<p class="lead">${files.length} source image(s) from <code>images/</code>, ${produced.length} files produced, every assertion passed.</p>
+<p class="lead">${startedAt.toISOString()} &middot; see <a href="report.md">report.md</a> and <a href="verify-images.log">verify-images.log</a>.</p>
+${bySource.map(({ file, items }) => `<h2>${file}</h2>
+<div class="grid">
+${items.filter((item) => viewable.test(item.name)).map((item) => `  <figure>
+    <img src="${item.name}" alt="${item.caption}" loading="lazy">
+    <figcaption><b>${item.name}</b><span>${item.caption} &middot; ${kb(item.bytes)}</span></figcaption>
+  </figure>`).join('\n')}
+</div>
+<ul class="files">
+${items.filter((item) => !viewable.test(item.name)).map((item) => `  <li><a href="${item.name}">${item.name}</a> — ${item.caption} (${kb(item.bytes)})</li>`).join('\n')}
+</ul>`).join('\n')}
+</body>
+</html>
+`, 'utf8')
+
+say(`All checks passed. ${produced.length} files written to ${outDir}`)
+say('Open out/index.html to see them, or read out/report.md.')

@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>My Photo Work — image verification</title>
+<style>
+  :root { color-scheme: dark; --bg: #11161d; --panel: #18202a; --line: #2a3440; --text: #e6edf3; --muted: #93a1b1; }
+  body { background: var(--bg); color: var(--text); font: 14px/1.5 system-ui, sans-serif; margin: 0; padding: 32px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  h2 { border-bottom: 1px solid var(--line); font-size: 17px; margin: 36px 0 14px; padding-bottom: 8px; }
+  p.lead { color: var(--muted); margin: 0 0 8px; }
+  .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); }
+  figure { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; margin: 0; overflow: hidden; }
+  figure img { background: #0c1014; display: block; height: 190px; object-fit: contain; width: 100%; }
+  figcaption { padding: 9px 11px; }
+  figcaption b { display: block; font-size: 12px; word-break: break-all; }
+  figcaption span { color: var(--muted); font-size: 12px; }
+  ul.files { color: var(--muted); list-style: none; padding: 0; }
+  ul.files a { color: var(--text); }
+</style>
+</head>
+<body>
+<h1>Image verification</h1>
+<p class="lead">5 source image(s) from <code>images/</code>, 75 files produced, every assertion passed.</p>
+<p class="lead">2026-09-18T09:14:19.299Z &middot; see <a href="report.md">report.md</a> and <a href="verify-images.log">verify-images.log</a>.</p>
+<h2>test01.jpg</h2>
+<div class="grid">
+  <figure>
+    <img src="test01-composite.png" alt="the document as the editor composites it" loading="lazy">
+    <figcaption><b>test01-composite.png</b><span>the document as the editor composites it &middot; 626 kB</span></figcaption>
+  </figure>
+  <figure>
+    <img src="test01.png" alt="exported as PNG" loading="lazy">
+    <figcaption><b>test01.png</b><span>exported as PNG &middot; 626 kB</span></figcaption>
+  </figure>
+  <figure>
+    <img src="test01.jpg" alt="exported as JPG" loading="lazy">
+    <figcaption><b>test01.jpg</b><span>exported as JPG &middot; 93 kB</span></figcaption>
+  </figure>
+  <figure>
+    <img src="test01.webp" alt="exported as WEBP" loading="lazy">
+    <figcaption><b>test01.webp</b><span>exported as WEBP &middot; 102 kB</span></figcaption>
+  </figure>
+  <figure>
+    <img src="test01-transparent.png" alt="exported with the transparent-background box ticked" loading="lazy">
+    <figcaption><b>test01-transparent.png</b><span>exported with the transparent-background box ticked &middot; 611 kB</span></figcaption>
+  </figure>
+  <figure>
+    <img src="test01-opaque.png" alt="exported with that box cleared — the hole filled in" loading="lazy">
+    <figcaption><b>test01-opaque.png</b><span>exported with that box cleared — the hole filled in &middot; 611 kB</span></figcaption>
+  </figure>
+  <figure>
+    <img src="test01-3d.png" alt="extruded through the 3D renderer" loading="lazy">
+    <figcaption><b>test01-3d.png</b><span>extruded through the 3D renderer &middot; 518 kB</span></figcaption>
+  </figure>
+  <figure>
+    <img src="test01-warp.png" alt="bent with the arch warp" loading="lazy">
+    <figcaption><b>test01-warp.png</b><span>bent with the arch warp &middot; 698 kB</span></figcaption>
+  </figure>
+  <figure>
+    <img src="test01-carved.png" alt="content-aware scaled to 80% width" loading="lazy">
+    <figcaption><b>test01-carved.png</b><span>content-aware scaled to 80% width &middot; 552 kB</span></figcaption>
+  </figure>
+  <figure>
+    <img src="test01.gif" alt="a two-frame animation, colour and greyscale" loading="lazy">
+    <figcaption><b>test01.gif</b><span>a two-frame animation, colour and greyscale &middot; 546 kB</span></figcaption>
+  </figure>
+  <figure>
+    <img src="test01-pattern.png" alt="a tile cut from the middle and laid back out" loading="lazy">
+    <figcaption><b>test01-pattern.png</b><span>a tile cut from the middle and laid back out &middot; 25 kB</span></figcaption>
+  </figure>
+  <figure>
+    <img src="test01-preview.jpg" alt="the preview sheet the print window shows" loading="lazy">
+    <figcaption><b>test01-preview.jpg</b><span>the preview sheet the print window shows &middot; 82 kB</span></figcaption>
+  </figure>
+</div>
+<ul class="files">
+  <li><a href="test01.tiff">test01.tiff</a> — exported as TIFF (2117 kB)</li>
+  <li><a href="test01-16bit.tif">test01-16bit.tif</a> — exported at 16 bits a channel (4232 kB)</li>
+  <li><a href="test01-print.html">test01-print.html</a> — the page handed to the printer (836 kB)</li>
+</ul>
+<h2>test02.jpg</h2>
+<div class="grid">
+  <figure>
+    <img src="test02-composite.png" alt="the document as the editor composites it" loading="lazy">
+    <figcaption><b>test02-composite.png</b><span>the document as the editor composites it &middot; 1064 kB</span></figcaption>
+  </figure>
+  <figure>
+    <img src="test02.png" alt="exported as PNG" loading="lazy">
+    <figcaption><b>test02.png</b><span>exported as PNG &middot; 1064 kB</span></figcaption>
+  </figure>
+  <figure>
+    <img src="test02.jpg" alt="exported as JPG" loading="lazy">
+    <figcaption><b>test02.jpg</b><span>exported as JPG &middot; 131 kB</span></figcaption>
+  </figure>
+  <figure>
+    <img src="test02.webp" alt="exported as WEBP" loading="lazy">
+    <figcaption><b>test02.webp</b><span>exported as WEBP &middot; 117 kB</span></figcaption>
+  </figure>
+  <figure>
+    <img src="test02-transparent.png" alt="exported with the transparent-background box ticked" loading="lazy">
+    <figcaption><b>test02-transparent.png</b><span>exported with the transparent-background box ticked &middot; 1046 kB</span></figcaption>
+  </figure>
+  <figure>
+    <img src="test02-opaque.png" alt="exported with that box cleared — the hole filled in" loading="lazy">
+    <figcaption><b>test02-opaque.png</b><span>exported with that box cleared — the hole filled in &middot; 1046 kB</span></figcaption>
+  </figure>
+  <figure>
+    <img src="test02-3d.png" alt="extruded through the 3D renderer" loading="lazy">
+    <figcaption><b>test02-3d.png</b><span>extruded through the 3D renderer &middot; 944 kB</span></figcaption>
+  </figure>
+  <figure>
+    <img src="test02-warp.png" alt="bent with the arch warp" loading="lazy">
+    <figcaption><b>test02-warp.png</b><span>bent with the arch warp &middot; 1305 kB</span></figcaption>
+  </figure>
+  <figure>
+    <img src="test02-carved.png" alt="content-aware scaled to 80% width" loading="lazy">
+    <figcaption><b>test02-carved.png</b><span>content-aware scaled to 80% width &middot; 988 kB</span></figcaption>
+  </figure>
+  <figure>
+    <img src="test02.gif" alt="a two-frame animation, colour and greyscale" loading="lazy">
+    <figcaption><b>test02.gif</b><span>a two-frame animation, colour and greyscale &middot; 957 kB</span></figcaption>
+  </figure>
+  <figure>
+    <img src="test02-pattern.png" alt="a tile cut from the middle and laid back out" loading="lazy">
+    <figcaption><b>test02-pattern.png</b><span>a tile cut from the middle and laid back out &middot; 60 kB</span></figcaption>
+  </figure>
+  <figure>
+    <img src="test02-preview.jpg" alt="the preview sheet the print window shows" loading="lazy">
+    <figcaption><b>test02-preview.jpg</b><span>the preview sheet the print window shows &middot; 69 kB</span></figcaption>
+  </figure>
+</div>
+<ul class="files">
+  <li><a href="test02.tiff">test02.tiff</a> — exported as TIFF (5692 kB)</li>
+  <li><a href="test02-16bit.tif">test02-16bit.tif</a> — exported at 16 bits a channel (11382 kB)</li>
+  <li><a href="test02-print.html">test02-print.html</a> — the page handed to the printer (1419 kB)</li>
+</ul>
+<h2>test03.jpg</h2>
+<div class="grid">
+  <figure>
+    <img src="test03-composite.png" alt="the document as the editor composites it" loading="lazy">
+    <figcaption><b>test03-composite.png</b><span>the document as the editor composites it &middot; 380 kB</span></figcaption>
+  </figure>
+  <figure>
+    <img src="test03.png" alt="exported as PNG" loading="lazy">
+    <figcaption><b>test03.png</b><span>exported as PNG &middot; 380 kB</span></figcaption>
+  </figure>
+  <figure>
+    <img src="test03.jpg" alt="exported as JPG" loading="lazy">
+    <figcaption><b>test03.jpg</b><span>exported as JPG &middot; 54 kB</span></figcaption>
+  </figure>
+  <figure>
+    <img src="test03.webp" alt="exported as WEBP" loading="lazy">
+    <figcaption><b>test03.webp</b><span>exported as WEBP &middot; 63 kB</span></figcaption>
+  </figure>
+  <figure>
+    <img src="test03-transparent.png" alt="exported with the transparent-background box ticked" loading="lazy">
+    <figcaption><b>test03-transparent.png</b><span>exported with the transparent-background box ticked &middot; 362 kB</span></figcaption>
+  </figure>
+  <figure>
+    <img src="test03-opaque.png" alt="exported with that box cleared — the hole filled in" loading="lazy">
+    <figcaption><b>test03-opaque.png</b><span>exported with that box cleared — the hole filled in &middot; 361 kB</span></figcaption>
+  </figure>
+  <figure>
+    <img src="test03-3d.png" alt="extruded through the 3D renderer" loading="lazy">
+    <figcaption><b>test03-3d.png</b><span>extruded through the 3D renderer &middot; 285 kB</span></figcaption>
+  </figure>
+  <figure>
+    <img src="test03-warp.png" alt="bent with the arch warp" loading="lazy">
+    <figcaption><b>test03-warp.png</b><span>bent with the arch warp &middot; 368 kB</span></figcaption>
+  </figure>
+  <figure>
+    <img src="test03-carved.png" alt="content-aware scaled to 80% width" loading="lazy">
+    <figcaption><b>test03-carved.png</b><span>content-aware scaled to 80% width &middot; 312 kB</span></figcaption>
+  </figure>
+  <figure>
+    <img src="test03.gif" alt="a two-frame animation, colour and greyscale" loading="lazy">
+    <figcaption><b>test03.gif</b><span>a two-frame animation, colour and greyscale &middot; 318 kB</span></figcaption>
+  </figure>
+  <figure>
+    <img src="test03-pattern.png" alt="a tile cut from the middle and laid back out" loading="lazy">
+    <figcaption><b>test03-pattern.png</b><span>a tile cut from the middle and laid back out &middot; 93 kB</span></figcaption>
+  </figure>
+  <figure>
+    <img src="test03-preview.jpg" alt="the preview sheet the print window shows" loading="lazy">
+    <figcaption><b>test03-preview.jpg</b><span>the preview sheet the print window shows &middot; 47 kB</span></figcaption>
+  </figure>
+</div>
+<ul class="files">
+  <li><a href="test03.tiff">test03.tiff</a> — exported as TIFF (781 kB)</li>
+  <li><a href="test03-16bit.tif">test03-16bit.tif</a> — exported at 16 bits a channel (1560 kB)</li>
+  <li><a href="test03-print.html">test03-print.html</a> — the page handed to the printer (507 kB)</li>
+</ul>
+<h2>test04.heic</h2>
+<div class="grid">
+  <figure>
+    <img src="test04-composite.png" alt="the document as the editor composites it" loading="lazy">
+    <figcaption><b>test04-composite.png</b><span>the document as the editor composites it &middot; 1138 kB</span></figcaption>
+  </figure>
+  <figure>
+    <img src="test04.png" alt="exported as PNG" loading="lazy">
+    <figcaption><b>test04.png</b><span>exported as PNG &middot; 1138 kB</span></figcaption>
+  </figure>
+  <figure>
+    <img src="test04.jpg" alt="exported as JPG" loading="lazy">
+    <figcaption><b>test04.jpg</b><span>exported as JPG &middot; 217 kB</span></figcaption>
+  </figure>
+  <figure>
+    <img src="test04.webp" alt="exported as WEBP" loading="lazy">
+    <figcaption><b>test04.webp</b><span>exported as WEBP &middot; 178 kB</span></figcaption>
+  </figure>
+  <figure>
+    <img src="test04-transparent.png" alt="exported with the transparent-background box ticked" loading="lazy">
+    <figcaption><b>test04-transparent.png</b><span>exported with the transparent-background box ticked &middot; 1098 kB</span></figcaption>
+  </figure>
+  <figure>
+    <img src="test04-opaque.png" alt="exported with that box cleared — the hole filled in" loading="lazy">
+    <figcaption><b>test04-opaque.png</b><span>exported with that box cleared — the hole filled in &middot; 1098 kB</span></figcaption>
+  </figure>
+  <figure>
+    <img src="test04-3d.png" alt="extruded through the 3D renderer" loading="lazy">
+    <figcaption><b>test04-3d.png</b><span>extruded through the 3D renderer &middot; 856 kB</span></figcaption>
+  </figure>
+  <figure>
+    <img src="test04-warp.png" alt="bent with the arch warp" loading="lazy">
+    <figcaption><b>test04-warp.png</b><span>bent with the arch warp &middot; 1003 kB</span></figcaption>
+  </figure>
+  <figure>
+    <img src="test04-carved.png" alt="content-aware scaled to 80% width" loading="lazy">
+    <figcaption><b>test04-carved.png</b><span>content-aware scaled to 80% width &middot; 1016 kB</span></figcaption>
+  </figure>
+  <figure>
+    <img src="test04.gif" alt="a two-frame animation, colour and greyscale" loading="lazy">
+    <figcaption><b>test04.gif</b><span>a two-frame animation, colour and greyscale &middot; 1177 kB</span></figcaption>
+  </figure>
+  <figure>
+    <img src="test04-pattern.png" alt="a tile cut from the middle and laid back out" loading="lazy">
+    <figcaption><b>test04-pattern.png</b><span>a tile cut from the middle and laid back out &middot; 94 kB</span></figcaption>
+  </figure>
+  <figure>
+    <img src="test04-preview.jpg" alt="the preview sheet the print window shows" loading="lazy">
+    <figcaption><b>test04-preview.jpg</b><span>the preview sheet the print window shows &middot; 85 kB</span></figcaption>
+  </figure>
+</div>
+<ul class="files">
+  <li><a href="test04.tiff">test04.tiff</a> — exported as TIFF (3601 kB)</li>
+  <li><a href="test04-16bit.tif">test04-16bit.tif</a> — exported at 16 bits a channel (7200 kB)</li>
+  <li><a href="test04-print.html">test04-print.html</a> — the page handed to the printer (1517 kB)</li>
+</ul>
+<h2>test05.dcm</h2>
+<div class="grid">
+  <figure>
+    <img src="test05-composite.png" alt="the document as the editor composites it" loading="lazy">
+    <figcaption><b>test05-composite.png</b><span>the document as the editor composites it &middot; 119 kB</span></figcaption>
+  </figure>
+  <figure>
+    <img src="test05.png" alt="exported as PNG" loading="lazy">
+    <figcaption><b>test05.png</b><span>exported as PNG &middot; 119 kB</span></figcaption>
+  </figure>
+  <figure>
+    <img src="test05.jpg" alt="exported as JPG" loading="lazy">
+    <figcaption><b>test05.jpg</b><span>exported as JPG &middot; 34 kB</span></figcaption>
+  </figure>
+  <figure>
+    <img src="test05.webp" alt="exported as WEBP" loading="lazy">
+    <figcaption><b>test05.webp</b><span>exported as WEBP &middot; 15 kB</span></figcaption>
+  </figure>
+  <figure>
+    <img src="test05-transparent.png" alt="exported with the transparent-background box ticked" loading="lazy">
+    <figcaption><b>test05-transparent.png</b><span>exported with the transparent-background box ticked &middot; 117 kB</span></figcaption>
+  </figure>
+  <figure>
+    <img src="test05-opaque.png" alt="exported with that box cleared — the hole filled in" loading="lazy">
+    <figcaption><b>test05-opaque.png</b><span>exported with that box cleared — the hole filled in &middot; 117 kB</span></figcaption>
+  </figure>
+  <figure>
+    <img src="test05-3d.png" alt="extruded through the 3D renderer" loading="lazy">
+    <figcaption><b>test05-3d.png</b><span>extruded through the 3D renderer &middot; 92 kB</span></figcaption>
+  </figure>
+  <figure>
+    <img src="test05-warp.png" alt="bent with the arch warp" loading="lazy">
+    <figcaption><b>test05-warp.png</b><span>bent with the arch warp &middot; 160 kB</span></figcaption>
+  </figure>
+  <figure>
+    <img src="test05-carved.png" alt="content-aware scaled to 80% width" loading="lazy">
+    <figcaption><b>test05-carved.png</b><span>content-aware scaled to 80% width &middot; 106 kB</span></figcaption>
+  </figure>
+  <figure>
+    <img src="test05.gif" alt="a two-frame animation, colour and greyscale" loading="lazy">
+    <figcaption><b>test05.gif</b><span>a two-frame animation, colour and greyscale &middot; 200 kB</span></figcaption>
+  </figure>
+  <figure>
+    <img src="test05-pattern.png" alt="a tile cut from the middle and laid back out" loading="lazy">
+    <figcaption><b>test05-pattern.png</b><span>a tile cut from the middle and laid back out &middot; 2 kB</span></figcaption>
+  </figure>
+  <figure>
+    <img src="test05-preview.jpg" alt="the preview sheet the print window shows" loading="lazy">
+    <figcaption><b>test05-preview.jpg</b><span>the preview sheet the print window shows &middot; 24 kB</span></figcaption>
+  </figure>
+</div>
+<ul class="files">
+  <li><a href="test05.tiff">test05.tiff</a> — exported as TIFF (1025 kB)</li>
+  <li><a href="test05-16bit.tif">test05-16bit.tif</a> — exported at 16 bits a channel (2048 kB)</li>
+  <li><a href="test05-print.html">test05-print.html</a> — the page handed to the printer (159 kB)</li>
+</ul>
+</body>
+</html>

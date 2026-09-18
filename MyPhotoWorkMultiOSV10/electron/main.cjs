@@ -1,5 +1,6 @@
 const { app, BrowserWindow, Menu, dialog, ipcMain, nativeTheme, shell } = require('electron')
 const fs = require('node:fs/promises')
+const { spawn } = require('node:child_process')
 const path = require('node:path')
 const childWindows = require('./childwindows.cjs')
 
@@ -68,6 +69,16 @@ function createWindow() {
 
   // A dialog left open while the document changes would show stale values.
   mainWindow.on('closed', () => childWindows.closeAllChildWindows())
+
+  // Popups run in renderers of their own, and starting one is what used to make
+  // the first click on a menu or a dialog feel slow. They are started here
+  // instead, once the editor itself is on screen and the user is still reading
+  // it, so the wait falls where nobody is waiting.
+  mainWindow.webContents.once('did-finish-load', () => {
+    setTimeout(() => {
+      if (!mainWindow.isDestroyed()) childWindows.warmChildWindows()
+    }, 1200).unref?.()
+  })
 
   const bundle = path.join(__dirname, '..', 'dist', 'index.html')
   if (isDev) {
@@ -160,6 +171,119 @@ ipcMain.handle('files:write', async (_event, options = {}) => {
     await fs.writeFile(options.filePath, options.text ?? '', 'utf8')
   }
   return { canceled: false, filePath: options.filePath }
+})
+
+/*
+ * Printing.
+ *
+ * The app shows one print window: the preview, the printer, the orientation and
+ * the number of copies together. Because those choices have already been made
+ * there, the job is sent straight to the printer rather than through a second
+ * system dialog that would ask for them again.
+ */
+/**
+ * The name of the printer the operating system treats as the default.
+ *
+ * Chromium's own printer list does not carry it: `getPrintersAsync()` returns
+ * `name`, `displayName`, `description` and `options` and nothing else, so
+ * `isDefault` is always undefined and the print window would simply select
+ * whichever printer the OS happened to list first. Each platform is asked the
+ * question in its own way instead.
+ */
+function defaultPrinterName() {
+  return new Promise((resolve) => {
+    const done = (value) => resolve(typeof value === 'string' ? value.trim() : '')
+    let command
+    let args
+    if (process.platform === 'win32') {
+      // "Device"="<printer>,<driver>,<port>" under the per-user Windows key.
+      command = 'reg'
+      args = ['query', 'HKCU' + String.fromCharCode(92) + 'Software' + String.fromCharCode(92)
+        + 'Microsoft' + String.fromCharCode(92) + 'Windows NT' + String.fromCharCode(92)
+        + 'CurrentVersion' + String.fromCharCode(92) + 'Windows', '/v', 'Device']
+    } else {
+      // CUPS: "system default destination: <printer>".
+      command = 'lpstat'
+      args = ['-d']
+    }
+    let child
+    try {
+      child = spawn(command, args, { windowsHide: true })
+    } catch {
+      done('')
+      return
+    }
+    let output = ''
+    child.stdout?.on('data', (chunk) => { output += String(chunk) })
+    child.on('error', () => done(''))
+    child.on('close', () => {
+      if (process.platform === 'win32') {
+        const match = /Device\s+REG_SZ\s+(.+)/i.exec(output)
+        done(match ? String(match[1]).split(',')[0] : '')
+        return
+      }
+      const match = /:\s*(.+)\s*$/.exec(output.split('\n').find((line) => line.includes(':')) ?? '')
+      done(match ? match[1] : '')
+    })
+    // A hung shell must not keep the print window waiting.
+    setTimeout(() => { try { child.kill() } catch { /* already gone */ } done('') }, 2500)
+  })
+}
+
+ipcMain.handle('print:printers', async (event) => {
+  try {
+    const [printers, preferred] = await Promise.all([
+      event.sender.getPrintersAsync(),
+      defaultPrinterName(),
+    ])
+    const list = printers.map((printer) => ({
+      name: printer.name,
+      displayName: printer.displayName || printer.name,
+      isDefault: Boolean(printer.isDefault) || (preferred !== '' && printer.name === preferred),
+    }))
+    // The OS answer is authoritative, so nothing else may claim the flag.
+    if (list.some((printer) => printer.isDefault && printer.name === preferred)) {
+      for (const printer of list) printer.isDefault = printer.name === preferred
+    }
+    return list
+  } catch {
+    return []
+  }
+})
+
+ipcMain.handle('print:job', async (_event, options = {}) => {
+  // The page is loaded from a file rather than a data URL: a full-size photo
+  // makes a data URL of several megabytes, which is not what those are for.
+  const sheetPath = path.join(app.getPath('temp'), `myphotowork-print-${Date.now()}.html`)
+  let sheet = null
+  try {
+    await fs.writeFile(sheetPath, String(options.html ?? ''), 'utf8')
+    sheet = new BrowserWindow({ show: false, webPreferences: { sandbox: true } })
+    await sheet.loadFile(sheetPath)
+    await new Promise((resolve, reject) => {
+      sheet.webContents.print(
+        {
+          silent: true,
+          deviceName: options.deviceName || undefined,
+          landscape: Boolean(options.landscape),
+          copies: Math.max(1, Number(options.copies) || 1),
+          printBackground: true,
+          // The page carries its own margin in CSS; this stops the printer
+          // adding a second one on top of it.
+          margins: { marginType: 'none' },
+        },
+        (success, reason) => (success ? resolve() : reject(new Error(reason || 'The printer refused the job'))),
+      )
+    })
+    return { ok: true }
+  } catch (error) {
+    return { ok: false, message: error.message }
+  } finally {
+    if (sheet && !sheet.isDestroyed()) {
+      sheet.destroy()
+    }
+    await fs.rm(sheetPath, { force: true }).catch(() => {})
+  }
 })
 
 ipcMain.handle('window:minimize', (event) => {

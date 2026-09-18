@@ -388,8 +388,99 @@ export function puppetWarp(source: HTMLCanvasElement, pins: Pin[], stiffness = 1
 
 /* ------------------------------------------------- content-aware scale */
 
+/**
+ * How much a pixel looks like skin, from 0 (not at all) to 1 (squarely in the
+ * middle of the range), in YCbCr.
+ *
+ * Gradient energy alone does not protect a face. Skin is smooth — a cheek has
+ * less local contrast than the foliage behind it — so the seams went straight
+ * through the subject and left the busy background untouched, which is exactly
+ * backwards. Skin sits in a small, well-behaved region of the chroma plane
+ * whatever the lighting, so the colour says what the gradient cannot.
+ *
+ * The answer is graded rather than a yes/no mask: a hard edge to the protected
+ * region would just move the damage to the edge of the face.
+ */
+/** The middle of the skin band, as an angle in the Cb/Cr plane. */
+const SKIN_HUE = 118
+/** How far either side of it the band reaches before it is worth nothing. */
+const SKIN_HUE_SPREAD = 40
+/** Below this the colour is grey and says nothing; above it, it is decisive. */
+const SKIN_CHROMA_FLOOR = 3
+const SKIN_CHROMA_FULL = 9
+
+export function skinLikelihood(r: number, g: number, b: number) {
+  const luma = 0.299 * r + 0.587 * g + 0.114 * b
+  // Crushed black and blown-out white carry no colour to judge, so they are not
+  // claimed either way.
+  if (luma < 25 || luma > 250) return 0
+  const cb = 128 - 0.168736 * r - 0.331264 * g + 0.5 * b - 128
+  const cr = 128 + 0.5 * r - 0.418688 * g - 0.081312 * b - 128
+
+  // How far the colour is from grey. A pixel with no chroma is not evidence of
+  // anything — this is what keeps a greyscale scan, or a DICOM slice, out of
+  // the map entirely rather than colouring it in at random.
+  const chroma = Math.sqrt(cb * cb + cr * cr)
+  if (chroma <= SKIN_CHROMA_FLOOR) return 0
+  const strength = Math.min(1, (chroma - SKIN_CHROMA_FLOOR) / (SKIN_CHROMA_FULL - SKIN_CHROMA_FLOOR))
+
+  // Skin is identified by its hue, not by how saturated it is. A tight box
+  // around the textbook Cb/Cr ranges only finds skin in a picture straight out
+  // of a camera; it misses the same face in a photo that has been desaturated
+  // or given a cool cast, which is most of them. The angle survives both.
+  const hue = Math.atan2(cr, cb) * (180 / Math.PI)
+  const off = Math.abs(hue - SKIN_HUE)
+  if (off >= SKIN_HUE_SPREAD) return 0
+  // Smoothstep, so the protection fades out instead of ending at a line — a
+  // hard edge would only move the damage to the edge of the face.
+  const t = 1 - off / SKIN_HUE_SPREAD
+  return t * t * (3 - 2 * t) * strength
+}
+
+/**
+ * The skin map, spread a little so a seam cannot graze the edge of a face.
+ *
+ * The spreading is a max filter, not a blur: a face has to be covered to its
+ * outline, and averaging would thin the protection exactly where it is needed.
+ */
+export function skinMap(data: Uint8ClampedArray, width: number, height: number, spread = 3) {
+  const raw = new Float32Array(width * height)
+  for (let i = 0, p = 0; p < raw.length; i += 4, p += 1) {
+    raw[p] = skinLikelihood(data[i], data[i + 1], data[i + 2])
+  }
+  if (spread < 1) return raw
+  // Separable, so the cost is linear in the radius rather than square.
+  const pass = (from: Float32Array, horizontal: boolean) => {
+    const to = new Float32Array(from.length)
+    for (let y = 0; y < height; y += 1) {
+      for (let x = 0; x < width; x += 1) {
+        let best = 0
+        for (let d = -spread; d <= spread; d += 1) {
+          const sx = horizontal ? Math.min(width - 1, Math.max(0, x + d)) : x
+          const sy = horizontal ? y : Math.min(height - 1, Math.max(0, y + d))
+          const value = from[sy * width + sx]
+          if (value > best) best = value
+        }
+        to[y * width + x] = best
+      }
+    }
+    return to
+  }
+  return pass(pass(raw, true), false)
+}
+
+/**
+ * What a pixel of skin is worth next to an edge.
+ *
+ * Gradient energy runs to about 510 for the hardest edge in a picture, so this
+ * makes the middle of a face cost more than any single edge without making it
+ * infinite: when there is nowhere else left to go the carve still succeeds,
+ * it just takes the cheapest path across the skin rather than failing.
+ */
+const SKIN_COST = 900
+
 /** How much each pixel differs from its neighbours: the busy parts to protect. */
-function energyMap(data: Uint8ClampedArray, width: number, height: number) {
+function energyMap(data: Uint8ClampedArray, width: number, height: number, protectSkin = true) {
   const energy = new Float32Array(width * height)
   const at = (x: number, y: number) => {
     const i = (Math.min(height - 1, Math.max(0, y)) * width + Math.min(width - 1, Math.max(0, x))) * 4
@@ -399,6 +490,11 @@ function energyMap(data: Uint8ClampedArray, width: number, height: number) {
     for (let x = 0; x < width; x += 1) {
       energy[y * width + x] = Math.abs(at(x - 1, y) - at(x + 1, y)) + Math.abs(at(x, y - 1) - at(x, y + 1))
     }
+  }
+  if (!protectSkin) return energy
+  const skin = skinMap(data, width, height)
+  for (let p = 0; p < energy.length; p += 1) {
+    energy[p] += skin[p] * SKIN_COST
   }
   return energy
 }
@@ -431,7 +527,12 @@ function lowestSeam(energy: Float32Array, width: number, height: number) {
   let x = end
   for (let y = height - 1; y >= 0; y -= 1) {
     seam[y] = x
-    x -= came[y * width + x]
+    // `came` holds the offset *to* the cheapest predecessor, so following it
+    // means adding. Subtracting traced a mirror image of the path that was
+    // costed: the seam that came back wandered wherever the reflection led,
+    // which is why carving used to tear straight through the subject while
+    // leaving the empty background alone.
+    x += came[y * width + x]
     x = Math.min(width - 1, Math.max(0, x))
   }
   return seam
@@ -442,8 +543,13 @@ function lowestSeam(energy: Float32Array, width: number, height: number) {
  * and over, so the subject keeps its shape while the empty parts give way.
  * Widening repeats the cheapest seams instead.
  */
-export function contentAwareScale(source: HTMLCanvasElement, targetWidth: number, targetHeight: number) {
-  return contentAwareScaleLayers([source], source, targetWidth, targetHeight)[0]
+export function contentAwareScale(
+  source: HTMLCanvasElement,
+  targetWidth: number,
+  targetHeight: number,
+  protectSkin = true,
+) {
+  return contentAwareScaleLayers([source], source, targetWidth, targetHeight, protectSkin)[0]
 }
 
 /**
@@ -453,25 +559,31 @@ export function contentAwareScale(source: HTMLCanvasElement, targetWidth: number
  * then taken out of every layer, so the layers stay lined up with each other.
  * Carving each one on its own would tear the composite apart.
  */
-export function contentAwareScaleLayers(sources: HTMLCanvasElement[], energy: HTMLCanvasElement, targetWidth: number, targetHeight: number) {
+export function contentAwareScaleLayers(
+  sources: HTMLCanvasElement[],
+  energy: HTMLCanvasElement,
+  targetWidth: number,
+  targetHeight: number,
+  protectSkin = true,
+) {
   const wide = Math.max(1, Math.round(targetWidth))
   const tall = Math.max(1, Math.round(targetHeight))
   let layers = sources
   let guide = energy
   if (wide !== guide.width) {
-    const carved = carveAll(layers, guide, wide)
+    const carved = carveAll(layers, guide, wide, protectSkin)
     layers = carved.layers
     guide = carved.guide
   }
   if (tall !== guide.height) {
     // Height is the same problem turned on its side.
-    const turned = carveAll(layers.map((layer) => rotateQuarter(layer, 1)), rotateQuarter(guide, 1), tall)
+    const turned = carveAll(layers.map((layer) => rotateQuarter(layer, 1)), rotateQuarter(guide, 1), tall, protectSkin)
     layers = turned.layers.map((layer) => rotateQuarter(layer, -1))
   }
   return layers
 }
 
-function carveAll(sources: HTMLCanvasElement[], energy: HTMLCanvasElement, targetWidth: number) {
+function carveAll(sources: HTMLCanvasElement[], energy: HTMLCanvasElement, targetWidth: number, protectSkin: boolean) {
   const height = energy.height
   let width = energy.width
   let guideData = context2d(energy).getImageData(0, 0, width, height).data
@@ -479,7 +591,7 @@ function carveAll(sources: HTMLCanvasElement[], energy: HTMLCanvasElement, targe
   const shrinking = targetWidth < width
   const steps = Math.abs(targetWidth - width)
   for (let step = 0; step < steps; step += 1) {
-    const seam = lowestSeam(energyMap(guideData, width, height), width, height)
+    const seam = lowestSeam(energyMap(guideData, width, height, protectSkin), width, height)
     const nextWidth = shrinking ? width - 1 : width + 1
     datas = datas.map((data) => applySeam(data, width, height, nextWidth, seam, shrinking))
     guideData = applySeam(guideData, width, height, nextWidth, seam, shrinking)

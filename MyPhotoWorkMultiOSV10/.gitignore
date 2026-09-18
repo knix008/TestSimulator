@@ -14,8 +14,19 @@ dist-ssr
 
 # Build output
 release
-out
 *.tsbuildinfo
+
+# `out/` is deliberately NOT ignored. It holds the results of
+# `npm run verify:images` — the real photos in images/ taken through the whole
+# open → edit → export → print pipeline — and those are kept so the run can be
+# looked at rather than merely believed. `out/index.html` is the gallery and
+# `out/report.md` the record. The directory is rebuilt from scratch every run.
+#
+# The repository root ignores `[Oo]ut/` for every project under it, and a
+# directory that is excluded cannot have its contents re-included one by one.
+# So the directory itself has to be un-excluded first, and its contents after.
+!out/
+!out/**
 
 # Generated before every build, never edited by hand.
 #   src/build-info.json   <- scripts/generate-build-info.cjs (changes every build)

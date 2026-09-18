@@ -1,4 +1,4 @@
-import { createElement, useCallback, useEffect, useMemo, useReducer, useRef, useState, type ComponentType, type PointerEvent as ReactPointerEvent } from 'react'
+import { createElement, Fragment, useCallback, useEffect, useMemo, useReducer, useRef, useState, type ComponentType, type PointerEvent as ReactPointerEvent } from 'react'
 import { createPortal } from 'react-dom'
 import {
   Aperture,
@@ -10,7 +10,7 @@ import {
   Circle,
   ChevronDown,
   CircleDashed,
-  CircleQuestionMark,
+
   Clock,
   Download,
   Play,
@@ -61,7 +61,7 @@ import { adjustBrightnessContrast, adjustHueSaturation, clearSelectionPixels, ga
 import { applyGalleryFilter } from './lib/gallery'
 import { applyAdjustmentCanvas, levelsStretch } from './lib/adjustments'
 import { cloneDocument, pushHistory, takeSnapshot, type HistorySnapshot } from './lib/history'
-import { decodeImageSource, downloadDataUrl, encodeExport, extensionFor, fileToOpenItem, flattenOnto, naturalOrientation, previewSheet, printDataUrl, restoreProject, serializeProject } from './lib/imageIO'
+import { decodeImageSource, downloadDataUrl, encodeExport, extensionFor, fileToOpenItem, flattenOnto, naturalOrientation, previewSheet, printDataUrl, printableDocument, restoreProject, serializeProject } from './lib/imageIO'
 import { borderSelection, clipCanvasToSelection, colSelection, colorRangeSelection, contractSelection, drawSelectionOverlay, ellipseSelection, expandSelection, featherSelection, growSelection, invertSelection, maskBounds, maskFromLasso, paintBucket, rectSelection, rowSelection, selectionBounds, selectionToMask, similarSelection, smoothSelection, wandSelection } from './lib/selection'
 import { autoColor, channelMixer, equalize, gradientMap, replaceColor, selectiveColor, type ChannelMix, type ColorFamily, type InkShift } from './lib/colorTools'
 import { channelCanvas, combineMasks, selectionToChannel, type ChannelCombine } from './lib/channels'
@@ -81,7 +81,7 @@ import { clipToFrame, contentMove, createFrame, createSlice, cropToRect, drawReg
 import { optionsForTool } from './toolOptions'
 import { firstTick, rulerSize, tickStep, visibleRange } from './lib/view'
 import { buildErrorReport } from './lib/errors'
-import { commands, commandsInMenu, menuIcons, menuOrder, toolbarGroups, type AppCommand, type MenuId as CommandMenuId } from './commands'
+import { commands, commandsInMenu, menuColumns, menuIcons, menuOrder, toolbarGroups, type AppCommand, type MenuId as CommandMenuId } from './commands'
 import { DialogBody, DialogFrame, type DialogName, type DialogPayload, type DialogResult } from './dialogs'
 import { defaultAdjustment, defaultCurves, blendModes, rightPanelMaxWidth, rightPanelMinWidth, shapeKindForTool, type AdjustmentType, type AppSettings, type BlendMode, type ErrorDetails, type ExportFormat, type CurveData, type Language, type LevelsData, type PageOrientation, type PathShape, type PhotoDocument, type Point, type Selection, type SliceRect, type ActionScript, type ActionStep, type AnimationFrame, type LayerComp, type LayerMeta, type SmartFilter, type TextData, type TextWarpStyle, type ThreeDData, type Tool, type TransformBox, type TransformHandle, type UnsavedChoice } from './lib/types'
 import { applyTheme, themeLabel, themes } from './themes'
@@ -222,11 +222,14 @@ function MenuDrop({
   anchor,
   align = 'start',
   className,
+  rows,
   children,
 }: {
   anchor: HTMLElement | null
   align?: 'start' | 'end'
   className?: string
+  /** Column layout for a long list; the theme picker lays itself out. */
+  rows?: { separatorBefore?: boolean }[]
   children: React.ReactNode
 }) {
   // The dropdown hangs off a button, so it has to know where that button is.
@@ -245,14 +248,20 @@ function MenuDrop({
   const box = anchor?.getBoundingClientRect() ?? null
   if (!box) return null
 
-  const minWidth = className?.includes('theme-menu') ? 420 : 220
+  const layout = rows ? menuColumns(rows) : { columns: 1, rowCount: 0 }
+  const minWidth = (className?.includes('theme-menu') ? 420 : 220) * layout.columns
   const preferred = align === 'end' ? box.right - minWidth : box.left
   const left = Math.max(8, Math.min(preferred, window.innerWidth - minWidth - 8))
 
+  const names = ['menu-drop', className, layout.columns > 1 ? 'menu-columns' : null].filter(Boolean)
   return createPortal(
     <div
-      className={className ? `menu-drop ${className}` : 'menu-drop'}
-      style={{ top: box.bottom + 6, left }}
+      className={names.join(' ')}
+      style={{
+        top: box.bottom + 6,
+        left,
+        ...(layout.columns > 1 ? ({ '--menu-rows': layout.rowCount } as React.CSSProperties) : null),
+      }}
       onPointerDown={(event) => event.stopPropagation()}
     >
       {children}
@@ -527,6 +536,8 @@ export default function App() {
   const pinsRef = useRef<Pin[]>([])
   /** The name of the ICC profile the opened file carried, if it had one. */
   const embeddedProfileRef = useRef<string | null>(null)
+  /** The printer list, for the print window's payload. */
+  const printersRef = useRef<{ name: string; displayName: string; isDefault: boolean }[]>([])
   const [cropCorners, setCropCorners] = useState<Point[]>([])
   const [shapeDraft, setShapeDraft] = useState<{ x: number; y: number; width: number; height: number } | null>(null)
   const [activeSliceId, setActiveSliceId] = useState<string | null>(null)
@@ -641,6 +652,7 @@ export default function App() {
       text: textValueRef.current,
       error: errorRef.current ?? undefined,
       print: name === 'print' && current ? printPreview(current, canvasesRef.current) : undefined,
+      printers: name === 'print' ? printersRef.current : undefined,
       info: name === 'imageInfo' && current ? imageInfoSections(current, canvasesRef.current, settingsRef.current.language) : undefined,
       channels: current?.channels?.map(({ id, name: label }) => ({ id, name: label })),
       paths: current?.paths.map(({ id, name: label }) => ({ id, name: label })),
@@ -1223,18 +1235,52 @@ export default function App() {
    * has no meaning on paper, so the image goes onto white first — the same
    * sheet the preview shows.
    */
-  const printDocument = useCallback(async (orientation: PageOrientation) => {
+  /**
+   * Prints the flattened document.
+   *
+   * On the desktop the print window has already asked for the printer, the
+   * orientation and the number of copies, so the job goes straight out — there
+   * is no second dialog asking the same questions again. In a browser there is
+   * no way to print except through the system dialog, so that one is opened,
+   * and it carries its own preview.
+   */
+  const printDocument = useCallback(async (orientation: PageOrientation, deviceName?: string, copies = 1) => {
     const current = docRef.current
     if (!current) {
       return
     }
     try {
       const composite = flattenOnto(compositeDocument(current, canvasesRef.current))
-      await printDataUrl(canvasToDataUrl(composite), current.name || tr('untitled'), orientation)
+      const title = current.name || tr('untitled')
+      const html = printableDocument(canvasToDataUrl(composite), title, orientation)
+      if (window.electronPrintApi) {
+        const result = await window.electronPrintApi.print({
+          html,
+          deviceName,
+          landscape: orientation === 'landscape',
+          copies,
+        })
+        if (!result.ok) {
+          throw new Error(result.message ?? tr('printFailed'))
+        }
+        setSavedNote(true)
+        window.setTimeout(() => setSavedNote(false), 1600)
+        return
+      }
+      await printDataUrl(canvasToDataUrl(composite), title, orientation)
     } catch (cause) {
       showError(tr('print'), tr('printFailed'), cause)
     }
   }, [showError, tr])
+
+  /** The printers the desktop shell can see, read once when the app starts. */
+  useEffect(() => {
+    let live = true
+    void window.electronPrintApi?.printers().then((list) => {
+      if (live) printersRef.current = list
+    }).catch(() => {})
+    return () => { live = false }
+  }, [])
 
   const exportSlice = useCallback(async (slice: SliceRect) => {
     const current = docRef.current
@@ -2290,13 +2336,13 @@ export default function App() {
    * Seam carving resizes the document, so every layer has to be carved with the
    * same seams — which are chosen from the flattened image, not from one layer.
    */
-  const applyContentAwareScale = (width: number, height: number) => {
+  const applyContentAwareScale = (width: number, height: number, protectSkin = true) => {
     const current = docRef.current
     if (!current || width < 8 || height < 8) return
     snapshot()
     const order = current.layers.map((layer) => layer.id)
     const sources = order.map((id) => canvasesRef.current.get(id) ?? createCanvas(current.width, current.height))
-    const carved = contentAwareScaleLayers(sources, compositeDocument(current, canvasesRef.current), width, height)
+    const carved = contentAwareScaleLayers(sources, compositeDocument(current, canvasesRef.current), width, height, protectSkin)
     const next = new Map<string, HTMLCanvasElement>()
     order.forEach((id, index) => next.set(id, carved[index]))
     canvasesRef.current = next
@@ -3072,7 +3118,9 @@ export default function App() {
       if (accel && key === 'p') {
         // Chromium would otherwise print the editor window itself.
         event.preventDefault()
-        if (doc) openDialog('print')
+        if (!doc) return
+        if (window.electronPrintApi) openDialog('print')
+        else void printDocument(naturalOrientation(compositeDocument(doc, canvasesRef.current)))
       }
       if (accel && key === 'n') {
         event.preventDefault()
@@ -3193,7 +3241,7 @@ export default function App() {
       window.removeEventListener('keydown', onKey)
       window.removeEventListener('keyup', onUp)
     }
-  }, [applyCrop, applyPerspectiveCrop, beginTransform, cancelPuppet, cancelTransform, closePolySelection, commitDraftPath, commitPuppet, commitTransform, copySelection, crop, dialog, dirty, doc, guardUnsaved, openDialog, pasteClipboard, pickFiles, redo, saveProject, undo, withLayer])
+  }, [applyCrop, applyPerspectiveCrop, beginTransform, cancelPuppet, cancelTransform, closePolySelection, commitDraftPath, commitPuppet, commitTransform, copySelection, crop, dialog, dirty, doc, guardUnsaved, openDialog, pasteClipboard, pickFiles, printDocument, redo, saveProject, undo, withLayer])
 
 
   /**
@@ -3227,7 +3275,12 @@ export default function App() {
       case 'file.save': void saveProject(false); return
       case 'file.saveAs': void saveProject(true); return
       case 'file.export': openDialog('export'); return
-      case 'file.print': openDialog('print'); return
+      // The desktop print window prints for itself; a browser can only reach
+      // the system dialog, so going through ours first would ask twice.
+      case 'file.print':
+        if (window.electronPrintApi) openDialog('print')
+        else void printDocument(naturalOrientation(current))
+        return
       case 'file.importVideo': videoRef.current?.click(); return
       case 'file.exportGif': void exportAnimatedGif(); return
       case 'file.exportVideo': void exportVideo(); return
@@ -3406,6 +3459,7 @@ export default function App() {
       case 'window.actions': setSettings((c) => ({ ...c, rightTab: 'actions' })); return
       case 'window.timeline': setSettings((c) => ({ ...c, rightTab: 'timeline' })); return
       case 'window.info': setSettings((c) => ({ ...c, rightTab: 'info' })); return
+      case 'window.guide': openDialog('helpGuide'); return
 
       default:
         setStatus('ready')
@@ -3470,7 +3524,11 @@ export default function App() {
         void exportImage(settingsRef.current.exportFormat)
         return
       case 'print':
-        void printDocument(result.orientation as PageOrientation)
+        void printDocument(
+          result.orientation as PageOrientation,
+          result.deviceName ? String(result.deviceName) : undefined,
+          Number(result.copies ?? 1),
+        )
         return
       case 'fill':
         fillSelection(String(result.color), Number(result.opacity), result.patternId ? String(result.patternId) : undefined)
@@ -3521,7 +3579,7 @@ export default function App() {
         ))
         return
       case 'contentScale':
-        applyContentAwareScale(Number(result.width), Number(result.height))
+        applyContentAwareScale(Number(result.width), Number(result.height), result.protectSkin !== false)
         return
       case 'threeD':
         snapshot()
@@ -3810,9 +3868,11 @@ export default function App() {
                 <span>{tr(id)}</span>
               </button>
               {menu === id && (
-                <MenuDrop anchor={menuAnchor}>
+                <MenuDrop anchor={menuAnchor} rows={commandsInMenu(id)}>
                   {commandsInMenu(id).map((command) => (
-                    <div key={command.id}>
+                    // A fragment, so the separators and the rows are the grid's
+                    // own cells and the columns stay in step with each other.
+                    <Fragment key={command.id}>
                       {command.separatorBefore && <div className="menu-separator" />}
                       <MenuItem
                         icon={command.icon}
@@ -3821,7 +3881,7 @@ export default function App() {
                         active={isCommandActive(command.id)}
                         onClick={() => runCommand(command.id)}
                       />
-                    </div>
+                    </Fragment>
                   ))}
                 </MenuDrop>
               )}
@@ -3875,7 +3935,6 @@ export default function App() {
           {language === 'ko' ? <FlagEn size={18} /> : <FlagKo size={18} />}
         </button>
         <button data-tooltip={tr('settings')} onClick={() => openDialog('settings')}><Settings2 size={15} /><span>{tr('settings')}</span></button>
-        <button data-tooltip={tr('help')} onClick={() => openDialog('helpGuide')}><CircleQuestionMark size={15} /><span>{tr('help')}</span></button>
         <button data-tooltip={tr('about')} onClick={() => openDialog('about')}><Info size={15} /><span>{tr('about')}</span></button>
       </nav>
 
@@ -3885,7 +3944,7 @@ export default function App() {
             {index > 0 && <span className="tool-bar-divider" aria-hidden="true" />}
             {group.commands.map((command) => {
               const CommandIcon = command.icon
-              return (
+              const button = (
                 <button
                   key={command.id}
                   className={isCommandActive(command.id) ? 'active' : ''}
@@ -3896,6 +3955,23 @@ export default function App() {
                 >
                   <CommandIcon size={16} />
                 </button>
+              )
+              if (command.id !== 'view.zoomIn') return button
+              // The percentage sits between the two zoom buttons, where it
+              // reads as the value those buttons are changing. Clicking it
+              // goes back to 100%, which is what the number invites.
+              return (
+                <Fragment key={command.id}>
+                  {button}
+                  <button
+                    className="zoom-readout"
+                    data-tooltip={tr('zoomLevel')}
+                    aria-label={`${tr('zoomLevel')} ${Math.round(settings.zoom * 100)}%`}
+                    onClick={() => runCommand('view.actualPixels')}
+                  >
+                    {Math.round(settings.zoom * 100)}%
+                  </button>
+                </Fragment>
               )
             })}
           </div>

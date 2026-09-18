@@ -6,6 +6,12 @@ contextBridge.exposeInMainWorld('electronFileApi', {
   writeFile: (options) => ipcRenderer.invoke('files:write', options),
 })
 
+// One print window: the preview and the settings, then straight to the printer.
+contextBridge.exposeInMainWorld('electronPrintApi', {
+  printers: () => ipcRenderer.invoke('print:printers'),
+  print: (options) => ipcRenderer.invoke('print:job', options),
+})
+
 contextBridge.exposeInMainWorld('electronWindowApi', {
   minimize: () => ipcRenderer.invoke('window:minimize'),
   toggleMaximize: () => ipcRenderer.invoke('window:toggle-maximize'),
@@ -39,6 +45,13 @@ contextBridge.exposeInMainWorld('electronMenuApi', {
   payload: () => ipcRenderer.invoke('menu:payload'),
   reportSize: (size) => ipcRenderer.invoke('menu:size', size),
   choose: (commandId) => ipcRenderer.invoke('menu:choose', commandId),
+  // The popup is reused for every menu, so it is told which one to show rather
+  // than being recreated each time.
+  onPayload: (callback) => {
+    const listener = (_event, payload) => callback(payload)
+    ipcRenderer.on('menu:payload', listener)
+    return () => ipcRenderer.removeListener('menu:payload', listener)
+  },
   // Called from the main window:
   onChosen: (callback) => {
     const listener = (_event, commandId) => callback(commandId)

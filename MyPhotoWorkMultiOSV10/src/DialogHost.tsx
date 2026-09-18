@@ -4,6 +4,14 @@ import { applyTheme } from './themes'
 import { buildErrorReport } from './lib/errors'
 import './App.css'
 
+/** What the main process tells a popup window to be. */
+type DialogMessage = {
+  name: string | null
+  payload: DialogPayload | null
+  /** Counts openings, so reopening a dialog starts its form over. */
+  openId: number
+}
+
 /**
  * A dialog running in its own OS window.
  *
@@ -11,21 +19,32 @@ import './App.css'
  * which guarantees one window per dialog name and raises an existing one rather
  * than making a second. Results travel back over IPC; closing is always allowed
  * from the frame's own X button.
+ *
+ * Which dialog this is comes from the main process, not from the URL. Popup
+ * windows are pooled — a dismissed one is hidden and handed to whichever dialog
+ * opens next — so the same renderer has to be able to become any of them.
  */
-export default function DialogHost({ name }: { name: string }) {
-  const [payload, setPayload] = useState<DialogPayload | null>(null)
+export default function DialogHost({ name: routeName }: { name: string }) {
+  const [message, setMessage] = useState<DialogMessage | null>(null)
+  // The settings window drives the theme live; a new message drops that, so the
+  // next dialog to use this window is not left wearing the previous one's.
+  const [theme, setTheme] = useState<string | undefined>(undefined)
+  const name = message?.name ?? routeName
+  const payload = message?.payload ?? null
 
   useEffect(() => {
     let cancelled = false
+    const arrive = (value: DialogMessage | null) => {
+      setMessage(value)
+      setTheme(undefined)
+    }
     void window.electronDialogApi?.payload().then((value) => {
-      if (!cancelled && value) setPayload(value.payload as DialogPayload)
+      if (!cancelled && value) arrive(value as DialogMessage)
     })
-    // A reopened window is handed a fresh payload instead of being recreated.
-    const off = window.electronDialogApi?.onPayload((next) => setPayload(next as DialogPayload))
+    // A reopened window is handed a fresh message instead of being recreated.
+    const off = window.electronDialogApi?.onPayload((next) => arrive(next as DialogMessage))
     return () => { cancelled = true; off?.() }
   }, [])
-
-  const [theme, setTheme] = useState<string | undefined>(undefined)
 
   useEffect(() => {
     const next = theme ?? payload?.theme
@@ -92,7 +111,7 @@ export default function DialogHost({ name }: { name: string }) {
     }
   }, [name])
 
-  if (!payload) {
+  if (!payload || !name) {
     return <div className="dialog-window" ref={shellRef} />
   }
 
@@ -106,7 +125,10 @@ export default function DialogHost({ name }: { name: string }) {
 
   return (
     <div className="dialog-window" ref={shellRef}>
-      <DialogFrame name={name as DialogName} language={payload.language} payload={payload} onClose={close}>
+      {/* Keyed on the opening, not just the dialog: a pooled window keeps its
+          React tree between uses, and without this a form would come back
+          holding whatever was typed into it the last time round. */}
+      <DialogFrame key={message?.openId ?? 0} name={name as DialogName} language={payload.language} payload={payload} onClose={close}>
         <DialogBody name={name as DialogName} payload={payload} onResult={send} onClose={close} onThemeChange={setTheme} />
       </DialogFrame>
     </div>

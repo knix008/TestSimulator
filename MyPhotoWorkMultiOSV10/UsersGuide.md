@@ -19,8 +19,8 @@ Four rows sit above the canvas:
 | Row | What it holds |
 | --- | --- |
 | Title bar | The app icon, the document name and size, and the window buttons |
-| Menu bar | Every command, grouped: File, Edit, Image, Layer, Type, Select, Filter, 3D, View, Window — then the theme button (click to step, arrow to pick), the language switch, Settings, Help and About |
-| Toolbar | The commands you reach for constantly, as icons, followed by Select subject / Remove background / Generative fill / Harmonize and the foreground–swap–background colours |
+| Menu bar | Every command, grouped: File, Edit, Image, Layer, Type, Select, Filter, 3D, View, Window — then the theme button (click to step, arrow to pick), the language switch, Settings and About |
+| Toolbar | The commands you reach for constantly, as icons — with the zoom percentage between the zoom-out and zoom-in buttons — followed by Select subject / Remove background / Generative fill / Harmonize and the foreground–swap–background colours |
 | Options bar | The current tool and its own settings, with a one-line reminder of what the tool does |
 
 The tool strip runs down the left edge. Clicking a group that is already active
@@ -30,6 +30,14 @@ Menus and every dialog open as **separate windows**. They can be dragged
 anywhere, a long menu can overhang the app, and they all close with it. Pressing
 a button that opens a dialog raises the one that is already open rather than
 making a second.
+
+A long menu is dealt into **columns** rather than running off the bottom of the
+screen: Image, Layer and Edit come up two or three columns wide, with the whole
+menu readable at a glance, while the short menus stay a single list.
+
+The zoom percentage sits in the toolbar between **축소 / Zoom out** and
+**확대 / Zoom in**, where it reads as the number those two buttons are changing.
+Clicking it goes back to 100%.
 
 ## Tools
 
@@ -217,7 +225,30 @@ what it cannot:
 | **원근 / Perspective** | Narrows one edge, so the image leans away |
 | **뒤틀기 / Warp** | Bends it into one of eleven shapes — arch, bulge, flag, wave, fish and the rest — with a bend slider and two distortion sliders |
 | **퍼펫 뒤틀기 / Puppet warp** | Pin the parts that should stay put, drag a pin to move that part. Enter applies, Esc cancels |
-| **내용 인식 비율 / Content-aware scale** | Changes the size by carving away the least interesting columns first, so the subject keeps its shape. Every layer is carved with the same seams, so they stay lined up |
+| **내용 인식 비율 / Content-aware scale** | Changes the size by carving away the least interesting columns first, so the subject keeps its shape. **피부톤 보호 / Protect skin tones** is on by default and keeps the seams off faces and arms; turn it off for a picture with nobody in it. Every layer is carved with the same seams, so they stay lined up |
+
+### Content-aware scale, and protecting people
+
+Ordinary scaling squashes everything equally. This one looks for the emptiest
+column of pixels running top to bottom — a stretch of sky, a flat wall, still
+water — takes that out, and repeats until the picture is the width you asked
+for. The subject keeps its proportions and the empty parts give way.
+
+Left to itself that goes wrong on a photograph of a person, because it measures
+how busy a part of the picture is and skin is smooth: a cheek has less going on
+in it than the leaves behind it, so the carving eats the face and leaves the
+hedge alone. **피부톤 보호 / Protect skin tones** is the answer and it is on by
+default. It recognises skin by its colour rather than by its texture, covers it
+out to its outline, and makes the seams go round.
+
+Turn it off for a picture with nobody in it — a landscape, a still life, a
+diagram — where there is nothing to protect and the protection can only get in
+the way. It already switches itself off in effect for anything greyscale, such
+as a black-and-white scan or a DICOM slice, because there is no colour there to
+mistake for skin.
+
+Every layer is carved with the same seams, chosen from the flattened picture, so
+a stack of layers stays lined up instead of tearing apart.
 
 ## Type
 
@@ -437,29 +468,37 @@ only the exported file differs.
 Both choices are remembered and are also on the Settings window, where they
 decide the format a single slice is exported with.
 
-### Printing, and the print preview
+### Printing
 
 파일 ▸ 인쇄, the printer button on the toolbar, or **Ctrl/Cmd+P**.
 
-Nothing is sent to a printer straight away. A **인쇄 미리보기 / Print preview**
-window opens first, showing the page exactly as it will come out:
+One window opens, and it is both the preview and the print dialog — the page as
+it will come out, with the settings beside it:
 
-1. The sheet is drawn to paper proportions with the same 10 mm margin the
-   printed page uses, and the picture sits inside it, flattened onto white —
-   transparency means nothing on paper.
-2. **용지 방향 / Orientation** starts on the way round that suits the picture:
-   landscape for a wide photo, portrait for a tall one. Change it and the sheet
-   in the preview turns with it, as the paper will.
-3. **인쇄 / Print** hands the page to your system's own print dialog, where you
-   choose the printer, the paper size and the number of copies. **취소 / Cancel**
-   closes the preview and prints nothing.
+- The **sheet** is drawn to paper proportions with the same 10 mm margin the
+  printed page uses, and the picture sits inside it, flattened onto white —
+  transparency means nothing on paper.
+- **프린터 / Printer** lists the printers this computer has, with the one your
+  system calls the default already chosen.
+- **용지 방향 / Orientation** starts on the way round that suits the picture:
+  landscape for a wide photo, portrait for a tall one. Change it and the sheet
+  in the preview turns with it, as the paper will.
+- **매수 / Copies** is how many to print.
+- **인쇄 / Print** sends the job straight to that printer. **취소 / Cancel**
+  closes the window and prints nothing.
+
+The window is a fixed size and never scrolls: the sheet, all three settings and
+both buttons are on screen together, and turning the page to landscape shortens
+the sheet rather than pushing anything out of reach.
 
 The image is scaled to fill the page inside the margin, keeping its proportions,
 so nothing is cropped and nothing is stretched. Only the picture is printed: no
 toolbar, no panels, no background.
 
-Choosing **Save as PDF** (or **Microsoft Print to PDF**) in the system dialog is
-the quickest way to get a PDF of the document.
+In a browser there is no way to print except through the browser's own print
+dialog, so that one opens instead — it carries its own preview, and the printer
+and paper are chosen there. Choosing **Save as PDF** (or **Microsoft Print to
+PDF**) in it is the quickest way to get a PDF of the document.
 
 ### DICOM (.dcm) medical images
 
@@ -521,7 +560,7 @@ text, which is what to paste into a note or a bug report.
 The window reads the document as it is at the moment it opens, so close and
 reopen it after an edit to see the new numbers.
 
-## Settings, Help and About
+## Settings, the guide and About
 
 The right-hand panel has seven tabs: **레이어**, **조정**, **작업 내역**,
 **채널**, **액션**, **타임라인** and **정보**. The 창 / Window menu switches
@@ -532,12 +571,16 @@ clicking the wide half **steps to the next theme** — its tooltip names the one
 coming up — and the arrow beside it opens the full list of twenty to pick from.
 
 The right-hand end of the menu bar holds the theme control, the language switch
-(Korean / English) and the Settings, Help and About windows.
+(Korean / English) and the Settings and About windows. The guide you are reading
+is on the 창 / Window menu, at the bottom.
 
-Settings covers the language, the theme, the grid and rulers, the default export
-format and its transparent-background setting, the brush size and the colour
-tolerance. Each number has a decrease and an increase button, and each says what
-it controls.
+Settings is on five tabs — **일반 / General** (language and theme), **보기 /
+View** (grid and rulers), **내보내기 / Export** (format and the
+transparent-background setting), **브러시 / Brush** (size, spacing, angle,
+roundness, scatter and the saved tips) and **도구 / Tools** (the colour
+tolerance). One page at a time keeps the window small. Each number has a
+decrease and an increase button, and the ones that need it say what they
+control.
 
 About lists the version, build time, commit, author, licence, the Electron and
 Chromium versions and the platform — and copies all of it in one click, which is

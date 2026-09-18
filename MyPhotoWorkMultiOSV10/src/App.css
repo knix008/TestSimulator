@@ -151,6 +151,15 @@
   z-index: 70;
 }
 
+/* The browser build's own dropdown, dealt into columns on the same rule as the
+   popup window so a thirty-row menu does not run off the bottom of the page. */
+.menu-drop.menu-columns {
+  align-content: start;
+  column-gap: 10px;
+  grid-auto-flow: column;
+  grid-template-rows: repeat(var(--menu-rows), auto);
+}
+
 .menu-drop button,
 .context-menu button {
   -webkit-app-region: no-drag;
@@ -449,6 +458,19 @@
   margin-bottom: 8px;
 }
 
+/* A slider reads as one line — its name, the track and its value side by side.
+   Stacked on three rows it turns every window into a long scroll. */
+.dialog label:has(> input[type='range']) {
+  align-items: center;
+  gap: 8px;
+  grid-template-columns: minmax(64px, max-content) 1fr minmax(28px, max-content);
+}
+
+.dialog label:has(> input[type='range']) > span {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
 .panel input,
 .panel select,
 .dialog input,
@@ -641,7 +663,35 @@
 }
 
 .settings-dialog {
-  width: 560px;
+  width: 520px;
+}
+
+/* One page of settings at a time; the tabs sit above the page they switch. */
+.settings-tabs {
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  gap: 2px;
+  margin-bottom: 10px;
+}
+
+.settings-tabs button {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  color: var(--muted);
+  padding: 6px 10px;
+}
+
+.settings-tabs button.active {
+  border-bottom-color: var(--accent);
+  color: var(--text);
+}
+
+/* Tall enough for the theme swatches, so switching tabs does not resize the
+   window under the pointer. */
+.settings-page {
+  min-height: 300px;
 }
 
 .settings-theme-block {
@@ -1145,6 +1195,29 @@
   width: 100%;
 }
 
+/* The print window never scrolls: every control and both buttons are on screen
+   at once, and the window is sized to whatever that comes to. The preview is
+   what gives, so it is capped and driven from whichever side is the long one —
+   the height for a portrait sheet, the width for a landscape one — leaving the
+   aspect ratio to settle the other. */
+.print-dialog .dialog-content {
+  overflow: hidden;
+}
+
+.print-dialog .print-sheet {
+  align-self: center;
+  flex: 0 0 auto;
+  height: 430px;
+  max-height: 430px;
+  max-width: 100%;
+  width: auto;
+}
+
+.print-dialog .print-sheet.landscape {
+  height: auto;
+  width: 100%;
+}
+
 /* ----------------------------------------------- paths / slices / frames */
 .info-block {
   border-top: 1px solid var(--border);
@@ -1294,6 +1367,21 @@
   min-height: 28px;
   min-width: 30px;
   padding: 4px;
+}
+
+/* The zoom percentage, between the zoom-out and zoom-in buttons. A fixed width
+   keeps the buttons either side of it from shifting as the number changes. */
+.tool-bar button.zoom-readout {
+  color: var(--muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.2px;
+  min-width: 46px;
+  padding: 4px 2px;
+}
+
+.tool-bar button.zoom-readout:hover {
+  color: var(--text);
 }
 
 /* An accelerator hint sits at the right edge of a menu row. */
@@ -1518,6 +1606,21 @@
   padding-left: 16px;
 }
 
+/* A long menu is dealt into columns rather than running off the screen. Every
+   row and every separator is a cell, and the columns share one set of row
+   tracks, so the rows line up across the whole popup. */
+.menu-window.menu-columns {
+  align-content: start;
+  column-gap: 10px;
+  grid-auto-flow: column;
+  grid-template-rows: repeat(var(--menu-rows), auto);
+}
+
+/* The divider belongs to its own column, not across the whole popup. */
+.menu-window.menu-columns .menu-separator {
+  margin: 2px 0;
+}
+
 /* -------------------------------------------------------------- drag drop */
 .app-shell.drop-active::after {
   border: 2px dashed var(--accent);
@@ -1678,6 +1781,10 @@
    be squeezed or cut off. */
 .settings-dialog .dialog-content {
   gap: 14px;
+  /* The window is sized to the measured content, and a bottom margin does not
+     count towards that, so the Close button ended up flush against the window
+     edge. Padding does count, and buys the row the air it was missing. */
+  padding-bottom: 12px;
 }
 
 .settings-dialog > .dialog-content > label,
