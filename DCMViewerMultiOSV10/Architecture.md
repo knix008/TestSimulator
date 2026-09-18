@@ -82,6 +82,7 @@ ImageViewerMutlOSV20의 디코더를 가져와 확장했습니다(UMD: Node 테�
 - 설정: `DEFAULTS` + `Platform.settings`, `applySetting(key, value)`가 즉시 반영, `resetSettings`
 - 툴팁(`bindTooltips`): `title`을 `data-tip`으로 옮겨 커스텀 툴팁 표시
 - 언어: `lang-toggle` 액션이 ko ↔ en 전환; 버튼에는 전환될 언어의 국기(`Icons.flag('gb' | 'kr')`)만 표시
+- 파일 탭 `S.tabs[{ id, path, name, file, snap }]`: `openFile`은 새 탭(또는 `replace`로 현재 탭, 스택 탐색)에 파일을 넣고, 이미 열린 경로는 `activateTab`. 탭을 떠날 때 `saveTabState`(프레임·뷰·윈도우·측정·History)를 저장하고 돌아오면 `restoreTabState`. 디코딩 결과는 최근 6개 탭만 유지(`trimRetained`), 오래된 탭은 `image.release()` 후 전환 시 다시 읽음. 탭 스트립은 `overflow:hidden`이며 넘치면 ◀ ▶ 버튼 표시(`updateTabOverflow`)
 - 실행 취소 `History`: 스냅샷(측정 배열, 회전/반전, 윈도우·LUT·컬러맵·반전) 스택. 측정 완료·삭제, 회전/반전, 윈도우 변경(드래그는 `wlend` 이벤트에서 한 번), 컬러맵 등에서 `push()`; `undo/redo`가 스냅샷을 다시 적용(`restoring` 플래그로 재귀 push 방지). 파일당 최대 100단계, 파일 열기 시 `reset()`
 - 드라이브 바 `renderDriveBar`: `Platform.roots()`(Electron: 드라이브, 웹: 마운트된 루트)를 폴더 제목 옆 버튼으로; 현재 루트를 강조
 - 최근 폴더 `pushRecent`: 설정 `recentDirs`(최대 10) → 파일 메뉴 하위 메뉴, 항목의 × 로 개별 삭제(메뉴 유지), 전체 삭제

@@ -25,6 +25,8 @@
     fps: 10,
     series: { files: [], index: -1, dir: null, sorted: false, groups: [] },
     treeClipboard: null, // { paths, cut }
+    tabs: [],            // open files: { id, path, name, file, snap, used }
+    tabId: 0,            // active tab id (0 = none)
     hover: null,
     renderToken: 0,
     loadToken: 0,
@@ -79,7 +81,7 @@
     if (P.isElectron) window.electronAPI.onPopupEvent((msg) => Dlg.dispatch(msg));
     setTool('pan');
     syncMenuState();
-    window.addEventListener('resize', () => viewer.resize());
+    window.addEventListener('resize', () => { viewer.resize(); updateTabOverflow(); });
 
     P.onOpenPath((p) => openPath(p));
     P.onMenuAction((a) => runAction(a));
@@ -399,6 +401,8 @@
     if (ctrl && !e.shiftKey && key.toLowerCase() === 'o') return act('open-file');
     if (ctrl && e.shiftKey && key.toLowerCase() === 'o') return act('open-folder');
     if (ctrl && key.toLowerCase() === 'e') return act('export', { dataset: { format: 'png' } });
+    if (ctrl && key === 'Tab') return act(e.shiftKey ? 'tab-prev' : 'tab-next');
+    if (ctrl && key.toLowerCase() === 'w' && P.isElectron) return act('close-file');
     if (ctrl && !e.shiftKey && key.toLowerCase() === 'z') return act('undo');
     if (ctrl && (key.toLowerCase() === 'y' || (e.shiftKey && key.toLowerCase() === 'z'))) return act('redo');
     if (ctrl && key.toLowerCase() === 'p') return act('print');
@@ -463,6 +467,9 @@
         case 'recent-remove': { await setOpt({ recentDirs: (opt('recentDirs') || []).filter((d) => d !== ds.path) }); buildRecentMenu(); break; }
         case 'recent-clear': await setOpt({ recentDirs: [] }); buildRecentMenu(); break;
         case 'close-file': closeFile(); break;
+        case 'tabs-scroll': scrollTabs(+ds.dir || 1); break;
+        case 'tab-next': stepTab(1); break;
+        case 'tab-prev': stepTab(-1); break;
         case 'exit': window.close(); break;
         case 'export': await exportImage(ds.format || 'png'); break;
         case 'export-tiff16': await exportTiff16(); break;
@@ -588,8 +595,11 @@
     await openFile(p);
   }
 
-  async function openFile(path) {
+  /* Every opened file gets a tab. replace = load into the current tab (stack browsing); tab = load into that tab. */
+  async function openFile(path, { replace = false, tab = null } = {}) {
     const name = P.basename(path);
+    const existing = S.tabs.find((x) => samePath(x.path, path));
+    if (!replace && !tab && existing) { await activateTab(existing); return; }
     stopCine();
     showLoading(t('status.decoding', { name }));
     const token = ++S.loadToken;
@@ -599,9 +609,17 @@
       const bytes = new Uint8Array(buf);
       const ext = P.extname(name);
       const dicom = DICOM_EXTS.has(ext) || (!IMAGE_EXTS.has(ext) && D.isDicom(bytes));
+      const target = tab || (replace ? currentTab() : null) || newTab(path, name);
+      if (target.file && target.file !== S.file) releaseFile(target.file);
+      const prevFile = S.file;
+      S.tabId = target.id;
       if (dicom) await openDicom(path, name, bytes);
       else if (IMAGE_EXTS.has(ext)) await openImage(path, name, bytes, ext);
       else throw new Error(t('msg.unsupported', { name }));
+      if (prevFile && prevFile !== S.file && !S.tabs.some((x) => x.file === prevFile)) releaseFile(prevFile);
+      target.file = S.file; target.path = path; target.name = name; target.used = Date.now();
+      renderTabs();
+      trimRetained();
       // Keep the tree in sync (a file opened from the OS or a drop may live in another folder).
       const dir = P.dirname(path);
       if (tree.root() !== dir && P.isElectron) await tree.setRoot(dir);
@@ -611,6 +629,9 @@
     } catch (err) {
       if (err && err.meta) {   // DICOM without pixel data: still show the tags
         S.file = { path, name, size: 0, kind: 'dicom-meta', meta: err.meta, tags: err.tags || [] };
+        const target = tab || (replace ? currentTab() : null) || newTab(path, name);
+        S.tabId = target.id; target.file = S.file; target.path = path; target.name = name; target.used = Date.now();
+        renderTabs();
         viewer.setSource(null);
         refreshPanels();
         syncMenuState();
@@ -625,7 +646,6 @@
 
   async function openDicom(path, name, bytes) {
     const image = await D.load(bytes);
-    if (S.file && S.file.image && S.file.image.release) S.file.image.release();
     S.file = { path, name, size: bytes.length, kind: 'dicom', image, warning: image.warning };
     S.frame = 0;
     S.fps = image.frameRate ? Math.round(image.frameRate) : 10;
@@ -665,7 +685,6 @@
 
   async function openImage(path, name, bytes, ext) {
     const { canvas: c, pages } = await decodeImageCanvas(bytes, ext, 0);
-    if (S.file && S.file.image && S.file.image.release) S.file.image.release();
     S.file = { path, name, size: bytes.length, kind: 'image', bitmapCanvas: c, ext, pages, bytes: pages > 1 ? bytes : null };
     S.frame = 0;
     viewer.annotations = [];
@@ -705,13 +724,133 @@
   }
 
   function closeFile() {
+    const tab = currentTab();
+    if (tab) { closeTab(tab); return; }
+    clearViewer();
+  }
+  function clearViewer() {
     stopCine();
-    if (S.file && S.file.image && S.file.image.release) S.file.image.release();
-    S.file = null; S.frameCanvas = null; S.frame = 0;
+    S.file = null; S.frameCanvas = null; S.frame = 0; S.tabId = 0;
     viewer.setSource(null);
     refreshPanels(); syncMenuState(); updateCorners(); updateStatus(); updateFrameBar();
     buildWindowMenus();
     History.reset();
+    renderTabs();
+  }
+
+  /* ══════════════ File tabs ══════════════ */
+  const RETAIN_MAX = 6;   // decoded files kept in memory for instant switching; older tabs reload from disk
+  const samePath = (a, b) => String(a || '').replace(/\\/g, '/').toLowerCase() === String(b || '').replace(/\\/g, '/').toLowerCase();
+  function currentTab() { return S.tabs.find((x) => x.id === S.tabId) || null; }
+  function newTab(path, name) {
+    const cur = currentTab();
+    if (cur) saveTabState(cur);
+    const tab = { id: (S.tabSeq = (S.tabSeq || 0) + 1), path, name, file: null, snap: null, used: Date.now() };
+    S.tabs.push(tab);
+    return tab;
+  }
+  function releaseFile(f) { if (f && f.image && f.image.release) f.image.release(); }
+  function saveTabState(tab) {
+    if (!tab || tab.file !== S.file || !S.file) return;
+    tab.snap = {
+      frame: S.frame, view: { ...viewer.view }, fps: S.fps,
+      annotations: JSON.parse(JSON.stringify(viewer.annotations)),
+      win: History.snapshot().win, imageInvert: S.file.kind === 'image' ? !!opt('invert') : undefined,
+      history: { stack: History.stack.slice(), index: History.index },
+    };
+  }
+  async function restoreTabState(tab) {
+    const snap = tab.snap;
+    if (!snap) return;
+    const img = S.file && S.file.kind === 'dicom' ? S.file.image : null;
+    History.restoring = true;
+    try {
+      if (img && snap.win) {
+        const w = snap.win;
+        const o = { frame: snap.frame, invert: w.invert, colormap: w.colormap, voiFunction: w.voiFunction };
+        if (w.voiLut >= 0) o.voiLut = w.voiLut; else if (w.custom && Number.isFinite(w.wc)) { o.wc = w.wc; o.ww = w.ww; } else o.resetWindow = true;
+        await renderDicom(o);
+      } else if (S.file && S.file.kind === 'image' && snap.frame && S.file.pages > 1) await setFrame(snap.frame);
+      S.fps = snap.fps || S.fps; $('fpsInput').value = S.fps;
+      viewer.annotations = JSON.parse(JSON.stringify(snap.annotations || []));
+      Object.assign(viewer.view, snap.view);
+      viewer.redraw();
+      if (snap.history) { History.stack = snap.history.stack.slice(); History.index = snap.history.index; }
+      relabelAnnotations(); updateCorners(); updateStatus(); updateFrameBar(); syncMenuState();
+    } finally { History.restoring = false; History.sync(); }
+  }
+  async function activateTab(tab) {
+    if (!tab) return;
+    if (tab.id === S.tabId && tab.file === S.file) { renderTabs(); return; }
+    const cur = currentTab();
+    if (cur && cur !== tab) saveTabState(cur);
+    stopCine();
+    S.tabId = tab.id;
+    tab.used = Date.now();
+    if (tab.file) {
+      S.file = tab.file;
+      S.frame = tab.snap ? tab.snap.frame : 0;
+      History.reset();
+      if (S.file.kind === 'dicom') await renderDicom({ frame: S.frame }, { newFile: true });
+      else if (S.file.kind === 'image') await renderImage(true);
+      else viewer.setSource(null);
+      buildWindowMenus(); window.I18n.apply($('wlMenu')); refreshPanels(); syncMenuState(); updateFrameBar();
+      await restoreTabState(tab);
+      tree.select(tab.path); updateSeriesFromTree(tab.path);
+      renderTabs();
+    } else {
+      await openFile(tab.path, { tab });   // released earlier to save memory → decode again
+      await restoreTabState(tab);
+    }
+  }
+  function closeTab(tab) {
+    const i = S.tabs.indexOf(tab);
+    if (i < 0) return;
+    S.tabs.splice(i, 1);
+    const wasActive = tab.id === S.tabId;
+    releaseFile(tab.file);
+    tab.file = null;
+    if (!wasActive) { renderTabs(); return; }
+    const next = S.tabs[Math.min(i, S.tabs.length - 1)];
+    if (next) { S.tabId = 0; S.file = null; activateTab(next); }
+    else clearViewer();
+  }
+  function trimRetained() {
+    const retained = S.tabs.filter((x) => x.file && x.id !== S.tabId).sort((p, q) => p.used - q.used);
+    while (retained.length > RETAIN_MAX - 1) { const old = retained.shift(); saveTabState(old); releaseFile(old.file); old.file = null; }
+  }
+  function renderTabs() {
+    const scroll = $('tabScroll');
+    scroll.innerHTML = '';
+    document.body.classList.toggle('has-tabs', S.tabs.length > 0);
+    for (const tab of S.tabs) {
+      const el = document.createElement('div');
+      el.className = `file-tab${tab.id === S.tabId ? ' active' : ''}`;
+      el.dataset.id = tab.id;
+      el.title = tab.path;
+      const isDicom = !tab.file || tab.file.kind !== 'image';
+      el.innerHTML = `<span class="tab-icon">${window.Icons.svg(isDicom ? 'file' : 'image')}</span><span class="tab-name">${esc(tab.name)}</span><span class="tab-close" title="${esc(t('tabs.close'))}">×</span>`;
+      el.addEventListener('click', (e) => { if (e.target.closest('.tab-close')) closeTab(tab); else activateTab(tab); });
+      el.addEventListener('auxclick', (e) => { if (e.button === 1) { e.preventDefault(); closeTab(tab); } });
+      scroll.append(el);
+    }
+    updateTabOverflow();
+    const active = scroll.querySelector('.file-tab.active');
+    if (active) {   // keep the active tab in view (the strip is overflow:hidden, so scroll it ourselves)
+      const left = active.offsetLeft, right = left + active.offsetWidth;
+      if (left < scroll.scrollLeft) scroll.scrollLeft = Math.max(0, left - 8);
+      else if (right > scroll.scrollLeft + scroll.clientWidth) scroll.scrollLeft = right - scroll.clientWidth + 8;
+    }
+  }
+  function updateTabOverflow() {
+    const scroll = $('tabScroll');
+    $('tabBar').classList.toggle('overflow', scroll.scrollWidth > scroll.clientWidth + 1);
+  }
+  function scrollTabs(dir) { $('tabScroll').scrollBy({ left: dir * 220, behavior: 'smooth' }); }
+  function stepTab(delta) {
+    if (S.tabs.length < 2) return;
+    const i = S.tabs.findIndex((x) => x.id === S.tabId);
+    activateTab(S.tabs[(i + delta + S.tabs.length) % S.tabs.length]);
   }
 
   /* ══════════════ DICOM rendering ══════════════ */
@@ -855,7 +994,7 @@
     const img = S.file && S.file.kind === 'dicom' ? S.file.image : null;
     const keep = img ? { wc: img.state.wc, ww: img.state.ww, invert: img.state.invert, colormap: img.state.colormap, custom: img.isWindowCustom(), voiFunction: img.state.voiFunction, view: { ...viewer.view } } : null;
     S.keepNext = keep;
-    await openFile(path);
+    await openFile(path, { replace: true });
     S.keepNext = null;
   }
 
@@ -1776,6 +1915,6 @@
     }
   };
 
-  window.App = { state: S, get viewer() { return viewer; }, get tree() { return tree; }, openPath, runAction, renderDicom, setTool, Progress, Dlg, History };
+  window.App = { state: S, get viewer() { return viewer; }, get tree() { return tree; }, openPath, runAction, renderDicom, setTool, Progress, Dlg, History, get tabs() { return S.tabs; }, activateTab, closeTab };
   document.addEventListener('DOMContentLoaded', () => { init().catch((err) => showError(err)); });
 })();

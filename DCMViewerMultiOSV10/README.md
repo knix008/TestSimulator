@@ -7,7 +7,7 @@ C# WinForms 버전(`../DCMViewerV10`)의 기능을 모두 옮기고, DICOM 전�
 
 | 분류 | 기능 |
 |------|------|
-| 파일 | DICOM(.dcm/.dicm/.dicom, 확장자 없는 파일 자동 감지) + JPEG/PNG/GIF/WebP/AVIF/BMP/ICO/SVG, **TIFF(다중 페이지, LZW/PackBits/Deflate/JPEG, 16-bit)**, **HEIF/HEIC**, **JPEG 2000(.jp2/.j2k)** 등 고해상도 이미지 열기, 폴더 트리 탐색, 드래그 앤 드롭, `.dcm` 파일 연결(설치판), 마지막 폴더·최근 폴더 기억 |
+| 파일 | 열린 파일마다 **탭**(파일별 프레임·윈도우·보기·측정·실행 취소 상태 유지, 탭이 많으면 ◀ ▶ 스크롤, `Ctrl+Tab`/`Ctrl+W`), DICOM(.dcm/.dicm/.dicom, 확장자 없는 파일 자동 감지) + JPEG/PNG/GIF/WebP/AVIF/BMP/ICO/SVG, **TIFF(다중 페이지, LZW/PackBits/Deflate/JPEG, 16-bit)**, **HEIF/HEIC**, **JPEG 2000(.jp2/.j2k)** 등 고해상도 이미지 열기, 폴더 트리 탐색, 드래그 앤 드롭, `.dcm` 파일 연결(설치판), 마지막 폴더·최근 폴더 기억 |
 | 디코딩 | 비압축(LE/BE), Deflated, RLE, JPEG Baseline/Extended(12-bit), JPEG Lossless, JPEG-LS, JPEG 2000 / HTJ2K · MONOCHROME1/2, RGB, YBR, PALETTE COLOR · 8/12/16/32-bit, float · 다중 프레임, Enhanced multi-frame(functional groups), Modality LUT, VOI LUT/Window, Presentation LUT, 오버레이 평면(60xx) |
 | 보기 | 확대/축소 버튼·배율 표시·휠 확대, 좌클릭 드래그 이동, 화면 맞춤/실제 크기, 회전, 좌우/상하 반전, 보간, x/y축 전체 **눈금자**(배율에 따라 mm 단위 자동 조정, 마우스 위치 표시)·**격자**(10 mm) 켜기/끄기, 모서리 정보(환자·검사·W/L·배율), 방향 표시(R/L/A/P/H/F), 픽셀 값 조사, 컨텍스트 메뉴, **실행 취소/다시 실행**(측정·회전·반전·윈도우·컬러맵) |
 | 윈도우 | 마우스 드래그 W/L, 메뉴 바의 W/L 입력창(−/+ 단계 버튼), 파일 윈도우, CT 프리셋(뇌/폐/뼈/…), VOI LUT, LINEAR/LINEAR_EXACT/SIGMOID, 반전, 컬러맵 8종, 히스토그램 |

@@ -2,7 +2,7 @@ window.I18N_DATA = window.I18N_DATA || {};
 window.I18N_DATA.ko = {
   "menu.file": "파일", "menu.view": "보기", "menu.tools": "도구", "menu.window": "윈도우", "menu.cine": "시네", "menu.help": "도움말",
 
-  "file.recent": "최근 폴더", "file.recentNone": "(없음)", "file.recentClear": "모두 지우기", "file.recentRemove": "목록에서 제거", "file.recentMissing": "폴더를 찾을 수 없습니다: {dir}", "file.open": "파일 열기…", "file.openFolder": "폴더 열기…", "file.export": "이미지 내보내기", "file.exportTags": "DICOM 태그 내보내기",
+  "file.recent": "최근 폴더", "file.recentNone": "(없음)", "file.recentClear": "모두 지우기", "file.recentRemove": "목록에서 제거", "file.recentMissing": "폴더를 찾을 수 없습니다: {dir}", "tabs.close": "탭 닫기", "tabs.scrollLeft": "이전 탭 보기", "tabs.scrollRight": "다음 탭 보기", "file.open": "파일 열기…", "file.openFolder": "폴더 열기…", "file.export": "이미지 내보내기", "file.exportTags": "DICOM 태그 내보내기",
   "file.exportTiff16": "16비트 TIFF (원본 픽셀 값)", "file.exportAllFrames": "모든 프레임을 PNG로 (ZIP)…", "file.exportGifAnimated": "애니메이션 GIF (모든 프레임)…",
   "file.copyImage": "이미지 복사", "file.batch": "폴더 일괄 변환…", "file.print": "인쇄…", "file.close": "파일 닫기", "file.exit": "종료",
 

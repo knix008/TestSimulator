@@ -383,3 +383,22 @@ body.ruler-on .marker.top { top: 28px; }
 .wl-bar .tb-field { gap: 2px; }
 body:not(.has-gray) .wl-bar { opacity: 0.45; pointer-events: none; }
 #undoBtn:disabled, #redoBtn:disabled { opacity: 0.35; }
+/* W / L inputs: no native up/down spinners — the −/+ buttons next to them do that */
+#wwInput, #wcInput { -moz-appearance: textfield; appearance: textfield; text-align: center; }
+#wwInput::-webkit-inner-spin-button, #wwInput::-webkit-outer-spin-button, #wcInput::-webkit-inner-spin-button, #wcInput::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+
+/* ── file tabs ── */
+.tab-bar { display: none; align-items: stretch; height: 30px; background: var(--panel-bg); border-bottom: 1px solid var(--border); min-width: 0; }
+body.has-tabs .tab-bar { display: flex; }
+.tab-scroll { display: flex; flex: 1; min-width: 0; overflow: hidden; position: relative; }
+.file-tab { display: inline-flex; align-items: center; gap: 6px; max-width: 220px; min-width: 90px; padding: 0 6px 0 10px; border-right: 1px solid var(--border); border-bottom: 2px solid transparent; color: var(--text-dim); background: var(--panel-bg); cursor: pointer; user-select: none; flex-shrink: 0; }
+.file-tab:hover { background: var(--hover); color: var(--text); }
+.file-tab.active { color: var(--text); background: var(--panel-bg2); border-bottom-color: var(--accent); }
+.file-tab .tab-icon { display: inline-flex; flex-shrink: 0; }
+.file-tab .tab-icon svg { width: 14px; height: 14px; color: var(--accent); }
+.file-tab .tab-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+.file-tab .tab-close { width: 18px; height: 18px; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center; font-size: 13px; color: var(--text-dim); flex-shrink: 0; }
+.file-tab .tab-close:hover { background: var(--active); color: var(--danger); }
+.tab-nav { display: none; align-items: center; gap: 2px; padding: 0 4px; border-left: 1px solid var(--border); flex-shrink: 0; }
+.tab-bar.overflow .tab-nav { display: flex; }
+.tab-nav .icon-btn { width: 24px; height: 24px; font-size: 11px; }

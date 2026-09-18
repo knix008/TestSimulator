@@ -299,6 +299,13 @@
     <div class="sidebar-resizer" id="sidebarResizer"></div>
 
     <main class="viewer-area" id="viewerArea">
+      <div class="tab-bar" id="tabBar">
+        <div class="tab-scroll" id="tabScroll"></div>
+        <div class="tab-nav" id="tabNav">
+          <button class="icon-btn" data-action="tabs-scroll" data-dir="-1" data-i18n-title="tabs.scrollLeft">◀</button>
+          <button class="icon-btn" data-action="tabs-scroll" data-dir="1" data-i18n-title="tabs.scrollRight">▶</button>
+        </div>
+      </div>
       <div class="viewport" id="viewport" tabindex="0">
         <canvas id="imageCanvas"></canvas>
         <canvas id="overlayCanvas"></canvas>

@@ -2,7 +2,7 @@ window.I18N_DATA = window.I18N_DATA || {};
 window.I18N_DATA.en = {
   "menu.file": "File", "menu.view": "View", "menu.tools": "Tools", "menu.window": "Window", "menu.cine": "Cine", "menu.help": "Help",
 
-  "file.recent": "Recent Folders", "file.recentNone": "(none)", "file.recentClear": "Clear all", "file.recentRemove": "Remove from list", "file.recentMissing": "Folder not found: {dir}", "file.open": "Open File…", "file.openFolder": "Open Folder…", "file.export": "Export Image", "file.exportTags": "Export DICOM Tags",
+  "file.recent": "Recent Folders", "file.recentNone": "(none)", "file.recentClear": "Clear all", "file.recentRemove": "Remove from list", "file.recentMissing": "Folder not found: {dir}", "tabs.close": "Close tab", "tabs.scrollLeft": "Scroll tabs left", "tabs.scrollRight": "Scroll tabs right", "file.open": "Open File…", "file.openFolder": "Open Folder…", "file.export": "Export Image", "file.exportTags": "Export DICOM Tags",
   "file.exportTiff16": "16-bit TIFF (raw pixel values)", "file.exportAllFrames": "All frames as PNG (ZIP)…", "file.exportGifAnimated": "Animated GIF (all frames)…",
   "file.copyImage": "Copy Image", "file.batch": "Batch Convert Folder…", "file.print": "Print…", "file.close": "Close File", "file.exit": "Exit",
 
