@@ -322,9 +322,9 @@ function createClockWindow() {
     transparent: true,
     resizable: true,
     maximizable: true,
-    // 작업 표시줄에 앱 아이콘이 보이도록 한다. "트레이로 숨기기" 로 창을 감추면
-    // 작업 표시줄에서도 함께 사라지고 트레이 아이콘만 남는다.
-    skipTaskbar: false,
+    // WPF 판(ShowInTaskbar=False)과 같이 트레이 전용 앱이다.
+    // 시계가 보이는 동안에도 작업 표시줄에는 아이콘을 두지 않고 트레이 아이콘만 쓴다.
+    skipTaskbar: true,
     title: APP_NAME,
     show: false,
     hasShadow: false,
@@ -350,6 +350,15 @@ function createClockWindow() {
 
   clockWin.on('move', onClockGeometryChanged);
   clockWin.on('resize', onClockGeometryChanged);
+
+  // Windows 에서는 최소화→복원, hide→show 를 거치며 skipTaskbar 가 풀려
+  // 작업 표시줄 버튼이 되살아나는 경우가 있어 보일 때마다 다시 못 박는다.
+  clockWin.on('show', () => {
+    if (clockWin && !clockWin.isDestroyed()) clockWin.setSkipTaskbar(true);
+  });
+  clockWin.on('restore', () => {
+    if (clockWin && !clockWin.isDestroyed()) clockWin.setSkipTaskbar(true);
+  });
 
   // WPF 판과 같이 최소화 = 트레이로 숨기기. 작업 표시줄에 최소화된 창을 남기지 않는다.
   // 다만 덮개 닫힘·디스플레이 전환으로 OS 가 최소화하는 경우는 사용자 숨김이 아니다.
@@ -1011,6 +1020,9 @@ app.whenReady().then(() => {
       `[migrate] WPF settings imported (settings=${migrated.settings}, events=${migrated.events})`
     );
   }
+
+  // macOS 의 Dock 아이콘도 작업 표시줄과 마찬가지로 감추고 메뉴 막대 트레이만 쓴다.
+  if (process.platform === 'darwin' && app.dock) app.dock.hide();
 
   registerIpc();
   createClockWindow();
