@@ -5,6 +5,7 @@ const url = require('url');
 const os = require('os');
 const crypto = require('crypto');
 const DicomDecoder = require('./src/js/dicomDecoder');
+const Themes = require('./src/js/themes');
 
 let mainWindow;
 let currentLang = 'en';
@@ -374,6 +375,16 @@ function _isWindowMaximized() {
 
 function buildMenu(translations) {
   const t = (key) => (translations && translations[key]) ? translations[key] : key;
+  const themeItem = (th) => ({
+    label: Themes.label(th.id, t),
+    type: 'radio',
+    checked: currentTheme === th.id,
+    click: () => {
+      currentTheme = th.id;
+      mainWindow && mainWindow.webContents.send('menu-action', `theme:${th.id}`);
+      buildMenu(translations);
+    },
+  });
 
   const template = [
     {
@@ -399,6 +410,11 @@ function buildMenu(translations) {
           label: t('menu.copyToClipboard'),
           accelerator: 'CmdOrCtrl+C',
           click: () => mainWindow && mainWindow.webContents.send('menu-action', 'copy-clipboard'),
+        },
+        { type: 'separator' },
+        {
+          label: t('menu.settings'),
+          click: () => mainWindow && mainWindow.webContents.send('menu-action', 'show-settings'),
         },
         { type: 'separator' },
         {
@@ -505,24 +521,14 @@ function buildMenu(translations) {
         },
         { type: 'separator' },
         {
-          label: t('menu.darkTheme'),
-          type: 'radio',
-          checked: currentTheme === 'dark',
-          click: () => {
-            currentTheme = 'dark';
-            mainWindow && mainWindow.webContents.send('menu-action', 'theme-dark');
-            buildMenu(translations);
-          },
-        },
-        {
-          label: t('menu.lightTheme'),
-          type: 'radio',
-          checked: currentTheme === 'light',
-          click: () => {
-            currentTheme = 'light';
-            mainWindow && mainWindow.webContents.send('menu-action', 'theme-light');
-            buildMenu(translations);
-          },
+          label: t('menu.theme'),
+          submenu: [
+            { label: t('menu.darkThemes'), enabled: false },
+            ...Themes.ofKind('dark').map((th) => themeItem(th)),
+            { type: 'separator' },
+            { label: t('menu.lightThemes'), enabled: false },
+            ...Themes.ofKind('light').map((th) => themeItem(th)),
+          ],
         },
         { type: 'separator' },
         {
@@ -1919,7 +1925,7 @@ ipcMain.handle('path-basename', async (event, p) => path.basename(p));
 
 ipcMain.handle('update-menu', async (event, { lang, translations, theme }) => {
   if (lang) currentLang = lang;
-  if (theme) currentTheme = theme;
+  if (theme) currentTheme = Themes.normalize(theme);
   if (process.platform === 'darwin') buildMenu(translations || {});
 });
 

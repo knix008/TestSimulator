@@ -248,7 +248,10 @@
   <div id="error-overlay" class="dialog-overlay" style="display:none;">
     <div class="dialog-box" style="min-width:480px;max-width:640px;">
       <div class="dialog-header error-header">
-        <span id="error-title" data-i18n="error.title">Error</span>
+        <span class="dialog-title">
+          <span class="dialog-title-icon" data-icon="warning" id="error-title-icon"></span>
+          <span id="error-title" data-i18n="error.title">Error</span>
+        </span>
         <button class="dialog-close-btn" id="error-close-btn">
           <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
         </button>
@@ -282,7 +285,10 @@
   <div id="progress-overlay" class="dialog-overlay progress-overlay" style="display:none;" aria-busy="true" aria-live="polite">
     <div class="dialog-box progress-dialog-box">
       <div class="dialog-header">
-        <span id="progress-title" data-i18n="progress.title">Working…</span>
+        <span class="dialog-title">
+          <span class="dialog-title-icon" data-icon="recent"></span>
+          <span id="progress-title" data-i18n="progress.title">Working…</span>
+        </span>
       </div>
       <div class="dialog-body progress-dialog-body">
         <p id="progress-message" class="progress-message"></p>
@@ -300,7 +306,10 @@
   <div id="about-overlay" class="dialog-overlay" style="display:none;">
     <div class="dialog-box" style="min-width:400px;max-width:480px;">
       <div class="dialog-header">
-        <span data-i18n="about.title">About Image Viewer</span>
+        <span class="dialog-title">
+          <span class="dialog-title-icon" data-icon="info"></span>
+          <span data-i18n="about.title">About Image Viewer</span>
+        </span>
         <button class="dialog-close-btn" data-close-dialog>
           <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
         </button>
@@ -404,10 +413,12 @@
 
         <div class="ew-sep"></div>
 
-        <!-- Theme / Language -->
+        <!-- Theme / Language / Settings -->
         <div class="ew-group" role="group">
           <button class="ew-btn" id="ew-theme" data-i18n-title="toolbar.theme"></button>
-          <button class="ew-btn ew-lang-btn" id="ew-lang" data-i18n-title="toolbar.lang"><span class="lang-text">한글</span></button>
+          <button class="ew-btn caret-btn" id="ew-theme-menu" data-i18n-title="toolbar.themeMenu" aria-haspopup="menu"></button>
+          <button class="ew-btn ew-lang-btn" id="ew-lang" data-i18n-title="toolbar.lang"></button>
+          <button class="ew-btn" id="ew-settings" data-i18n-title="toolbar.settings"></button>
         </div>
       </div>
 
@@ -463,11 +474,71 @@
     </button>
   </div>
 
+  <!-- ═══ Settings Dialog ═══ -->
+  <div id="settings-overlay" class="dialog-overlay" style="display:none;">
+    <div class="dialog-box settings-dialog-box">
+      <div class="dialog-header">
+        <span class="dialog-title">
+          <span class="dialog-title-icon" data-icon="settings"></span>
+          <span data-i18n="settings.title">Settings</span>
+        </span>
+        <button class="dialog-close-btn" data-close-dialog>
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </div>
+      <div class="dialog-body">
+        <div class="settings-section">
+          <div class="resize-label" data-i18n="settings.appearance">Appearance</div>
+          <div class="settings-row">
+            <label for="settings-theme">
+              <span data-i18n="settings.theme">Theme</span>
+              <span class="settings-hint" data-i18n="settings.themeHint">10 dark and 10 light themes</span>
+            </label>
+            <div class="settings-theme-row">
+              <span id="settings-theme-swatch"></span>
+              <select id="settings-theme" class="resize-select"></select>
+            </div>
+          </div>
+          <div class="settings-row">
+            <span data-i18n="settings.language">Language</span>
+            <div class="settings-lang-row" role="radiogroup">
+              <button type="button" class="settings-lang-btn" data-lang="ko"><span class="settings-lang-flag"></span><span>한국어</span></button>
+              <button type="button" class="settings-lang-btn" data-lang="en"><span class="settings-lang-flag"></span><span>English</span></button>
+            </div>
+          </div>
+        </div>
+        <div class="settings-section">
+          <div class="resize-label" data-i18n="settings.editing">Editing</div>
+          <div class="settings-row">
+            <label for="settings-bg-algo" data-i18n="toolbar.bgAlgo">Background removal algorithm</label>
+            <select id="settings-bg-algo" class="resize-select"></select>
+          </div>
+        </div>
+        <div class="settings-section">
+          <div class="resize-label" data-i18n="settings.media">Media</div>
+          <div class="settings-row">
+            <label for="settings-subtitles" data-i18n="settings.subtitles">Show subtitles when available</label>
+            <input type="checkbox" id="settings-subtitles" class="settings-toggle">
+          </div>
+        </div>
+      </div>
+      <div class="dialog-footer">
+        <button class="btn-icon primary" data-close-dialog>
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+          <span data-i18n="shortcuts.close">Close</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- ═══ Shortcuts Dialog ═══ -->
   <div id="shortcuts-overlay" class="dialog-overlay" style="display:none;">
     <div class="dialog-box" style="min-width:440px;">
       <div class="dialog-header">
-        <span data-i18n="shortcuts.title">Keyboard Shortcuts</span>
+        <span class="dialog-title">
+          <span class="dialog-title-icon" data-icon="keyboard"></span>
+          <span data-i18n="shortcuts.title">Keyboard Shortcuts</span>
+        </span>
         <button class="dialog-close-btn" data-close-dialog>
           <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
         </button>
@@ -514,7 +585,10 @@
   <div id="resize-overlay" class="dialog-overlay" style="display:none;">
     <div class="dialog-box resize-dialog-box">
       <div class="dialog-header">
-        <span data-i18n="resize.title">Resize Image</span>
+        <span class="dialog-title">
+          <span class="dialog-title-icon" data-icon="resize"></span>
+          <span data-i18n="resize.title">Resize Image</span>
+        </span>
         <button class="dialog-close-btn" id="resize-close" type="button" data-close-dialog>
           <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
         </button>
@@ -649,7 +723,10 @@
   <div id="file-dialog-overlay" class="dialog-overlay" style="display:none;">
     <div class="dialog-box file-dialog-box">
       <div class="dialog-header">
-        <span id="fd-title">Open File</span>
+        <span class="dialog-title">
+          <span class="dialog-title-icon" data-icon="openFile" id="fd-title-icon"></span>
+          <span id="fd-title">Open File</span>
+        </span>
         <button class="dialog-close-btn" id="fd-close" type="button">
           <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
         </button>
@@ -684,6 +761,7 @@
     window.__IS_WEB__ = typeof window.electronAPI === 'undefined';
   </script>
   <script src="./js/icons.js"></script>
+  <script src="./js/themes.js"></script>
   <script src="./js/i18n.js"></script>
   <script src="./js/dicomDecoder.js"></script>
   <script src="./js/formatSupport.js"></script>

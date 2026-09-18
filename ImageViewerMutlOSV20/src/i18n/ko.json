@@ -35,8 +35,9 @@
   "menu.previousImage": "이전 이미지",
   "menu.nextImage": "다음 이미지",
   "menu.fullscreen": "전체 화면",
-  "menu.darkTheme": "다크 테마",
-  "menu.lightTheme": "라이트 테마",
+  "menu.theme": "테마",
+  "menu.darkThemes": "다크 테마",
+  "menu.lightThemes": "라이트 테마",
   "menu.effects": "효과",
   "menu.adjustments": "조정 패널...",
   "menu.grayscale": "흑백",
@@ -44,6 +45,7 @@
   "menu.invert": "색상 반전",
   "menu.resetEffects": "효과 초기화",
   "menu.help": "도움말",
+  "menu.settings": "설정...",
   "menu.about": "정보",
   "menu.shortcuts": "단축키",
 
@@ -79,8 +81,11 @@
   "toolbar.subtitleLanguage": "자막 언어",
   "toolbar.chooseSubtitle": "자막 파일 선택",
   "toolbar.effects": "효과 패널",
-  "toolbar.theme": "테마 전환",
+  "toolbar.theme": "다음 테마",
+  "toolbar.themeCurrent": "현재",
+  "toolbar.themeMenu": "테마 선택",
   "toolbar.lang": "언어 전환",
+  "toolbar.settings": "설정",
   "toolbar.delete": "파일 삭제",
 
   "context.openFile": "파일 열기...",
@@ -689,5 +694,19 @@
   "error.ok": "확인",
   "error.openFile": "파일을 열 수 없습니다",
   "error.clipboardCopy": "클립보드에 복사할 수 없습니다",
-  "error.clipboardCut": "클립보드로 잘라낼 수 없습니다"
+  "error.clipboardCut": "클립보드로 잘라낼 수 없습니다",
+
+  "theme.dark": "다크 (기본)",
+  "theme.light": "라이트 (기본)",
+  "theme.paper": "종이",
+  "theme.sky": "하늘",
+
+  "settings.title": "설정",
+  "settings.appearance": "화면",
+  "settings.theme": "테마",
+  "settings.themeHint": "다크 10개, 라이트 10개",
+  "settings.language": "언어",
+  "settings.editing": "편집",
+  "settings.media": "미디어",
+  "settings.subtitles": "자막이 있으면 표시"
 }
