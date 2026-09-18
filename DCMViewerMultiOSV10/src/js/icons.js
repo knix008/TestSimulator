@@ -86,6 +86,7 @@ window.Icons = (function () {
     'histogram': '<path d="M4 20V10M9 20V4M14 20v-8M19 20v-5M3 20h18"/>',
     'history': '<path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/><path d="M12 7v5l3 2"/>',
     'grid': '<rect x="3" y="3" width="18" height="18" rx="1"/><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/>',
+    'drive': '<rect x="3" y="7" width="18" height="10" rx="2"/><circle cx="17" cy="12" r="1"/><path d="M6 12h6" stroke-opacity="0.5"/>',
     'series': '<rect x="4" y="8" width="12" height="12" rx="1"/><path d="M8 4h12v12"/>',
   };
   function svg(name) {

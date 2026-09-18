@@ -30,7 +30,7 @@ window.I18N_DATA.en = {
   "help.shortcuts": "Keyboard shortcuts", "help.about": "About DCM Viewer",
   "tb.open": "Open", "tb.folder": "Folder", "tb.preset": "Preset", "tb.colormap": "Colour", "tb.export": "Export", "tb.batch": "Batch",
 
-  "sidebar.folder": "Folder", "sidebar.up": "Parent folder", "sidebar.refresh": "Refresh", "sidebar.choose": "Choose folder…",
+  "sidebar.drives": "Drives (click to select)", "sidebar.folder": "Folder", "sidebar.up": "Parent folder", "sidebar.refresh": "Refresh", "sidebar.choose": "Choose folder…",
   "sidebar.info": "Info", "sidebar.tags": "Tags", "sidebar.histogram": "Histogram", "sidebar.series": "Series", "sidebar.search": "Search tags…", "sidebar.noFile": "No file opened",
   "sidebar.noRoots": "No folder mounted. Use Open Folder… or drop a folder here.", "tags.copy": "Copy tags to clipboard", "tags.count": "{n} tags",
   "tree.parent": ".. (parent folder)", "tree.empty": "(empty)", "tree.drives": "Drives",

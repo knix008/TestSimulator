@@ -88,6 +88,7 @@
     S.appInfo = info;
     updateTitle();
 
+    renderDriveBar();
     if (P.isElectron) {
       let dir = opt('startupDir');
       if (dir) { const st = await P.stat(dir); if (!st.exists || !st.isDir) dir = ''; }
@@ -96,6 +97,7 @@
     } else {
       const root = await P.mountSamples();
       if (root) tree.setRoot(root); else tree.showRoots();
+      renderDriveBar();
     }
     D.preload(['parser']).catch(() => {});
     setStatus('status.ready');
@@ -358,6 +360,7 @@
         e.preventDefault(); el.classList.remove('drag-over');
         const paths = await P.mountDropped(e.dataTransfer);
         if (paths.length) openPath(paths[0]);
+        if (!P.isElectron) renderDriveBar();
       });
     }
 
@@ -451,7 +454,7 @@
     try {
       switch (action) {
         case 'open-file': { const files = await P.pickFiles({ multiple: false }); if (files[0]) openPath(files[0]); break; }
-        case 'open-folder': { const dir = await P.pickFolder(); if (dir) tree.setRoot(dir); break; }
+        case 'open-folder': { const dir = await P.pickFolder(); if (dir) { await tree.setRoot(dir); if (!P.isElectron) renderDriveBar(); } break; }
         case 'open-recent': { const st = await P.stat(ds.path); if (st.exists && st.isDir) tree.setRoot(ds.path); else { toast(t('file.recentMissing', { dir: ds.path }), true); await runAction('recent-remove', el); } break; }
         case 'recent-remove': { await setOpt({ recentDirs: (opt('recentDirs') || []).filter((d) => d !== ds.path) }); buildRecentMenu(); break; }
         case 'recent-clear': await setOpt({ recentDirs: [] }); buildRecentMenu(); break;
@@ -1321,9 +1324,38 @@
     tree.refresh();
   }
 
+  /* Drive buttons in the folder header: every drive (Electron) or mounted root (browser); the current one is highlighted. */
+  async function renderDriveBar() {
+    const bar = $('driveBar');
+    let roots = [];
+    try { roots = await P.roots(); } catch { roots = []; }
+    bar.innerHTML = '';
+    for (const r of roots) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'drive-btn';
+      b.dataset.path = r.path;
+      const label = P.isElectron ? String(r.name).replace(/[\\/]+$/, '') : r.name;
+      b.innerHTML = `${window.Icons.svg('drive')}<span>${esc(label)}</span>`;
+      b.setAttribute('data-tip', r.path);
+      b.addEventListener('click', () => tree.setRoot(r.path));
+      bar.append(b);
+    }
+    markDrive(tree.root());
+  }
+  function markDrive(dir) {
+    const norm = (p) => String(p || '').replace(/[\\/]+$/, '').toLowerCase();
+    const cur = norm(dir);
+    $('driveBar').querySelectorAll('.drive-btn').forEach((b) => {
+      const d = norm(b.dataset.path);
+      b.classList.toggle('active', !!cur && (cur === d || cur.startsWith(d + (P.isElectron ? '\\' : '/')) || cur.startsWith(d + '/')));
+    });
+  }
+
   function onTreeRoot(dir) {
-    $('treePath').textContent = dir || '';
+    $('treePathText').textContent = dir || '';
     $('treePath').title = dir || '';
+    markDrive(dir);
     if (S.watchedDir && S.watchedDir !== dir) P.unwatchDir(S.watchedDir);
     if (dir) { P.watchDir(dir); S.watchedDir = dir; }
     if (dir && P.isElectron && opt('rememberLastDir')) setOpt({ lastDir: dir });
@@ -1618,7 +1650,7 @@
     };
     const hide = () => { clearTimeout(timer); tip.classList.remove('show'); };
     document.addEventListener('mouseover', (e) => {
-      const el = e.target.closest('.toolbar [title], .toolbar [data-tip], .menubar-right [title], .menubar-right [data-tip], .side-header [title], .side-header [data-tip], .frame-bar [title], .frame-bar [data-tip], .series-bar [title], .series-bar [data-tip], .tags-toolbar [title], .tags-toolbar [data-tip]');
+      const el = e.target.closest('.toolbar [title], .toolbar [data-tip], .menubar-right [title], .menubar-right [data-tip], .side-header [title], .side-header [data-tip], .drive-bar [data-tip], .frame-bar [title], .frame-bar [data-tip], .series-bar [title], .series-bar [data-tip], .tags-toolbar [title], .tags-toolbar [data-tip]');
       if (!el) { hide(); return; }
       clearTimeout(timer);
       timer = setTimeout(() => show(el), 350);

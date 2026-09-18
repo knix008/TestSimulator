@@ -30,7 +30,7 @@ window.I18N_DATA.ko = {
   "help.shortcuts": "키보드 단축키", "help.about": "DCM Viewer 정보",
   "tb.open": "열기", "tb.folder": "폴더", "tb.preset": "프리셋", "tb.colormap": "컬러", "tb.export": "내보내기", "tb.batch": "일괄 변환",
 
-  "sidebar.folder": "폴더", "sidebar.up": "상위 폴더", "sidebar.refresh": "새로 고침", "sidebar.choose": "폴더 선택…",
+  "sidebar.drives": "드라이브 (클릭하여 선택)", "sidebar.folder": "폴더", "sidebar.up": "상위 폴더", "sidebar.refresh": "새로 고침", "sidebar.choose": "폴더 선택…",
   "sidebar.info": "정보", "sidebar.tags": "태그", "sidebar.histogram": "히스토그램", "sidebar.series": "시리즈", "sidebar.search": "태그 검색…", "sidebar.noFile": "열린 파일이 없습니다",
   "sidebar.noRoots": "연결된 폴더가 없습니다. 폴더 열기… 를 사용하거나 폴더를 끌어다 놓으세요.", "tags.copy": "태그를 클립보드에 복사", "tags.count": "태그 {n}개",
   "tree.parent": ".. (상위 폴더)", "tree.empty": "(비어 있음)", "tree.drives": "드라이브",

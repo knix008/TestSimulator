@@ -249,13 +249,14 @@
       <section class="side-section tree-section" id="treeSection">
         <header class="side-header">
           <span data-i18n="sidebar.folder">Folder</span>
+          <span class="drive-bar" id="driveBar" data-i18n-title="sidebar.drives"></span>
           <span class="side-actions">
             <button class="icon-btn" data-action="tree-up" data-i18n-title="sidebar.up">↑</button>
             <button class="icon-btn" data-action="tree-refresh" data-i18n-title="sidebar.refresh">⟳</button>
             <button class="icon-btn" data-action="open-folder" data-i18n-title="sidebar.choose">…</button>
           </span>
         </header>
-        <div class="tree-path" id="treePath" title=""></div>
+        <div class="tree-path" id="treePath" title=""><bdi id="treePathText"></bdi></div>
         <div class="tree" id="fileTree" tabindex="0"></div>
       </section>
       <div class="side-splitter" id="sideSplitter"></div>
