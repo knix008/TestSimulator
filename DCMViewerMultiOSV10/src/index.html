@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' blob: data:; script-src 'self' 'wasm-unsafe-eval' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self' blob: data:; worker-src 'self' blob:;">
+  <title>DCM Viewer</title>
+  <link rel="icon" href="assets/icon.png">
+  <link rel="stylesheet" href="styles/main.css">
+</head>
+<body data-theme="dark">
+<div id="app" class="app">
+
+  <!-- ── Menu bar ── -->
+  <header class="menubar" id="menubar">
+    <nav class="menus" id="menus">
+      <div class="menu" data-menu="file"><button class="menu-title" data-icon="file" data-i18n="menu.file">File</button>
+        <div class="menu-panel">
+          <button data-action="open-file" data-icon="open"><span data-i18n="file.open">Open File…</span><kbd>Ctrl+O</kbd></button>
+          <button data-action="open-folder" data-icon="folder-open"><span data-i18n="file.openFolder">Open Folder…</span><kbd>Ctrl+Shift+O</kbd></button>
+          <div class="menu-sub" id="recentMenu"><button class="menu-sub-title" data-icon="history"><span data-i18n="file.recent">Recent Folders</span><span class="chev">▸</span></button>
+            <div class="menu-panel recent"></div>
+          </div>
+          <div class="menu-sep"></div>
+          <div class="menu-sub"><button class="menu-sub-title" data-icon="export"><span data-i18n="file.export">Export Image</span><span class="chev">▸</span></button>
+            <div class="menu-panel">
+              <button data-action="export" data-format="png" data-icon="image"><span>PNG</span><kbd>Ctrl+E</kbd></button>
+              <button data-action="export" data-format="jpeg" data-icon="image">JPEG</button>
+              <button data-action="export" data-format="webp" data-icon="image">WebP</button>
+              <button data-action="export" data-format="bmp" data-icon="image">BMP</button>
+              <button data-action="export" data-format="tiff" data-icon="image">TIFF</button>
+              <button data-action="export" data-format="gif" data-icon="image">GIF</button>
+              <div class="menu-sep"></div>
+              <button data-action="export-tiff16" data-icon="tiff" data-i18n="file.exportTiff16">16-bit TIFF (raw pixel values)</button>
+              <button data-action="export-frames" data-icon="zip" data-i18n="file.exportAllFrames">All frames as PNG (ZIP)…</button>
+              <button data-action="export-gif-anim" data-icon="gif" data-i18n="file.exportGifAnimated">Animated GIF (all frames)…</button>
+              <button data-action="export-webm" data-icon="video" data-i18n="file.exportWebm">Cine video (WebM)…</button>
+            </div>
+          </div>
+          <div class="menu-sub"><button class="menu-sub-title" data-icon="tags"><span data-i18n="file.exportTags">Export DICOM Tags</span><span class="chev">▸</span></button>
+            <div class="menu-panel">
+              <button data-action="export-tags" data-format="txt" data-icon="tags">Text</button>
+              <button data-action="export-tags" data-format="json" data-icon="tags">JSON</button>
+              <button data-action="export-tags" data-format="csv" data-icon="tags">CSV</button>
+            </div>
+          </div>
+          <button data-action="copy-image" data-icon="copy"><span data-i18n="file.copyImage">Copy Image</span><kbd>Ctrl+C</kbd></button>
+          <div class="menu-sep"></div>
+          <button data-action="batch" data-icon="batch" data-i18n="file.batch">Batch Convert Folder…</button>
+          <button data-action="print" data-icon="print"><span data-i18n="file.print">Print…</span><kbd>Ctrl+P</kbd></button>
+          <div class="menu-sep"></div>
+          <button data-action="close-file" data-icon="close" data-i18n="file.close">Close File</button>
+          <button data-action="exit" data-icon="exit" class="electron-only" data-i18n="file.exit">Exit</button>
+        </div>
+      </div>
+      <div class="menu" data-menu="view"><button class="menu-title" data-icon="view" data-i18n="menu.view">View</button>
+        <div class="menu-panel">
+          <button data-action="fit" data-icon="fit"><span data-i18n="view.fit">Fit to Window</span><kbd>Ctrl+0</kbd></button>
+          <button data-action="actual" data-icon="actual"><span data-i18n="view.actual">Actual Size (100%)</span><kbd>Ctrl+1</kbd></button>
+          <button data-action="zoom-in" data-icon="zoom-in"><span data-i18n="view.zoomIn">Zoom In</span><kbd>+</kbd></button>
+          <button data-action="zoom-out" data-icon="zoom-out"><span data-i18n="view.zoomOut">Zoom Out</span><kbd>−</kbd></button>
+          <div class="menu-sep"></div>
+          <button data-action="rotate-left" data-icon="rotate-left"><span data-i18n="view.rotateLeft">Rotate Left</span><kbd>Ctrl+←</kbd></button>
+          <button data-action="rotate-right" data-icon="rotate-right"><span data-i18n="view.rotateRight">Rotate Right</span><kbd>Ctrl+→</kbd></button>
+          <button data-action="flip-h" data-icon="flip-h"><span data-i18n="view.flipH">Flip Horizontal</span><kbd>H</kbd></button>
+          <button data-action="flip-v" data-icon="flip-v"><span data-i18n="view.flipV">Flip Vertical</span><kbd>V</kbd></button>
+          <button data-action="reset-view" data-icon="reset"><span data-i18n="view.resetView">Reset View</span><kbd>R</kbd></button>
+          <div class="menu-sep"></div>
+          <button data-action="toggle" data-key="invert" data-icon="invert" class="check"><span data-i18n="view.invert">Invert</span><kbd>I</kbd></button>
+          <button data-action="toggle" data-key="interpolate" data-icon="smooth" class="check" data-i18n="view.interpolation">Smooth interpolation</button>
+          <button data-action="toggle" data-key="cornerInfo" data-icon="info" class="check" data-i18n="view.cornerInfo">Corner information</button>
+          <button data-action="toggle" data-key="markers" data-icon="compass" class="check" data-i18n="view.orientationMarkers">Orientation markers</button>
+          <button data-action="toggle" data-key="overlays" data-icon="layers" class="check" data-i18n="view.overlays">DICOM overlay planes</button>
+          <button data-action="toggle" data-key="measurements" data-icon="ruler" class="check" data-i18n="view.measurements">Measurements</button>
+          <button data-action="toggle" data-key="burnAnnotations" data-icon="burn" class="check" data-i18n="view.burnAnnotations">Include annotations in export</button>
+          <button data-action="toggle" data-key="ruler" data-icon="ruler" class="check"><span data-i18n="view.ruler">Scale ruler</span><kbd>K</kbd></button>
+          <button data-action="toggle" data-key="grid" data-icon="grid" class="check"><span data-i18n="view.grid">Grid</span><kbd>G</kbd></button>
+          <div class="menu-sep"></div>
+          <button data-action="toggle" data-key="sidebar" data-icon="sidebar" class="check"><span data-i18n="view.sidebar">Sidebar</span><kbd>F9</kbd></button>
+          <button data-action="fullscreen" data-icon="fullscreen"><span data-i18n="view.fullscreen">Full Screen</span><kbd>F11</kbd></button>
+          <div class="menu-sep"></div>
+          <div class="menu-sub" id="themeMenu"><button class="menu-sub-title" data-icon="palette"><span data-i18n="view.theme">Theme</span><span class="chev">▸</span></button>
+            <div class="menu-panel themes"></div>
+          </div>
+          <div class="menu-sub"><button class="menu-sub-title" data-icon="globe"><span data-i18n="view.language">Language</span><span class="chev">▸</span></button>
+            <div class="menu-panel">
+              <button data-action="lang" data-value="ko" class="radio" data-icon="globe">한국어</button>
+              <button data-action="lang" data-value="en" class="radio" data-icon="globe">English</button>
+            </div>
+          </div>
+          <div class="menu-sep"></div>
+          <button data-action="settings" data-icon="settings"><span data-i18n="view.settings">Settings…</span><kbd>Ctrl+,</kbd></button>
+          <button data-action="devtools" data-icon="devtools" class="electron-only" data-i18n="view.devtools">Developer Tools</button>
+        </div>
+      </div>
+      <div class="menu" data-menu="tools"><button class="menu-title" data-icon="tools" data-i18n="menu.tools">Tools</button>
+        <div class="menu-panel">
+          <button data-action="tool" data-tool="pan" class="radio" data-icon="pan"><span data-i18n="tools.pan">Pan</span><kbd>1</kbd></button>
+          <button data-action="tool" data-tool="wl" class="radio" data-icon="wl"><span data-i18n="tools.wl">Window / Level</span><kbd>2</kbd></button>
+          <button data-action="tool" data-tool="zoom" class="radio" data-icon="zoom"><span data-i18n="tools.zoom">Zoom</span><kbd>3</kbd></button>
+          <button data-action="tool" data-tool="stack" class="radio" data-icon="stack"><span data-i18n="tools.stack">Scroll frames / slices</span><kbd>4</kbd></button>
+          <button data-action="tool" data-tool="probe" class="radio" data-icon="probe"><span data-i18n="tools.probe">Pixel probe</span><kbd>5</kbd></button>
+          <div class="menu-sep"></div>
+          <button data-action="tool" data-tool="length" class="radio" data-icon="length"><span data-i18n="tools.length">Length</span><kbd>6</kbd></button>
+          <button data-action="tool" data-tool="angle" class="radio" data-icon="angle"><span data-i18n="tools.angle">Angle</span><kbd>7</kbd></button>
+          <button data-action="tool" data-tool="rect" class="radio" data-icon="rect"><span data-i18n="tools.rect">Rectangle ROI</span><kbd>8</kbd></button>
+          <button data-action="tool" data-tool="ellipse" class="radio" data-icon="ellipse"><span data-i18n="tools.ellipse">Ellipse ROI</span><kbd>9</kbd></button>
+          <button data-action="tool" data-tool="text" class="radio" data-icon="text"><span data-i18n="tools.text">Text annotation</span><kbd>0</kbd></button>
+          <div class="menu-sep"></div>
+          <button data-action="delete-last" data-icon="undo"><span data-i18n="tools.deleteLast">Delete last measurement</span><kbd>Backspace</kbd></button>
+          <button data-action="clear-measurements" data-icon="trash"><span data-i18n="tools.clear">Clear measurements</span><kbd>Del</kbd></button>
+          <div class="menu-sep"></div>
+          <button data-action="mpr" data-icon="mpr"><span data-i18n="tools.mpr">MPR / MIP volume view…</span><kbd>M</kbd></button>
+          <button data-action="anonymize" data-icon="anonymize" data-i18n="tools.anonymize">Save anonymised copy…</button>
+        </div>
+      </div>
+      <div class="menu" data-menu="wl"><button class="menu-title" data-icon="window" data-i18n="menu.window">Window</button>
+        <div class="menu-panel" id="wlMenu">
+          <button data-action="wl-auto" data-icon="auto"><span data-i18n="wl.auto">Auto (min – max)</span><kbd>A</kbd></button>
+          <button data-action="wl-file" data-icon="file-window"><span data-i18n="wl.file">From file</span><kbd>W</kbd></button>
+          <div class="menu-sep"></div>
+          <div class="menu-sub" id="wlPresetsMenu"><button class="menu-sub-title" data-icon="presets"><span data-i18n="wl.presets">Presets</span><span class="chev">▸</span></button><div class="menu-panel"></div></div>
+          <div class="menu-sub" id="wlLutMenu"><button class="menu-sub-title" data-icon="lut"><span data-i18n="wl.lut">VOI LUT</span><span class="chev">▸</span></button><div class="menu-panel"></div></div>
+          <div class="menu-sub"><button class="menu-sub-title" data-icon="function"><span data-i18n="wl.function">VOI function</span><span class="chev">▸</span></button>
+            <div class="menu-panel">
+              <button data-action="voi-function" data-value="LINEAR" class="radio" data-icon="function">LINEAR</button>
+              <button data-action="voi-function" data-value="LINEAR_EXACT" class="radio" data-icon="function">LINEAR_EXACT</button>
+              <button data-action="voi-function" data-value="SIGMOID" class="radio" data-icon="function">SIGMOID</button>
+            </div>
+          </div>
+          <div class="menu-sub" id="colormapMenu"><button class="menu-sub-title" data-icon="colormap"><span data-i18n="wl.colormap">Colour map</span><span class="chev">▸</span></button><div class="menu-panel"></div></div>
+          <div class="menu-sep"></div>
+          <button data-action="toggle" data-key="invert" data-icon="invert" class="check"><span data-i18n="view.invert">Invert</span><kbd>I</kbd></button>
+          <button data-action="wl-reset" data-icon="reset"><span data-i18n="wl.reset">Reset window</span><kbd>Shift+W</kbd></button>
+        </div>
+      </div>
+      <div class="menu" data-menu="cine"><button class="menu-title" data-icon="cine" data-i18n="menu.cine">Cine</button>
+        <div class="menu-panel">
+          <button data-action="cine-toggle" data-icon="play"><span data-i18n="cine.playPause">Play / Pause</span><kbd>Space</kbd></button>
+          <button data-action="frame-first" data-icon="first"><span data-i18n="cine.first">First frame</span><kbd>Home</kbd></button>
+          <button data-action="frame-prev" data-icon="prev"><span data-i18n="cine.prev">Previous frame</span><kbd>↑</kbd></button>
+          <button data-action="frame-next" data-icon="next"><span data-i18n="cine.next">Next frame</span><kbd>↓</kbd></button>
+          <button data-action="frame-last" data-icon="last"><span data-i18n="cine.last">Last frame</span><kbd>End</kbd></button>
+          <button data-action="toggle" data-key="loop" data-icon="loop" class="check" data-i18n="cine.loop">Loop</button>
+          <div class="menu-sep"></div>
+          <button data-action="series-prev" data-icon="prev"><span data-i18n="series.prev">Previous file in series</span><kbd>PgUp</kbd></button>
+          <button data-action="series-next" data-icon="next"><span data-i18n="series.next">Next file in series</span><kbd>PgDn</kbd></button>
+          <button data-action="series-scan" data-icon="sort" data-i18n="series.load">Sort folder as DICOM series</button>
+        </div>
+      </div>
+      <div class="menu" data-menu="help"><button class="menu-title" data-icon="help" data-i18n="menu.help">Help</button>
+        <div class="menu-panel">
+          <button data-action="shortcuts" data-icon="keyboard"><span data-i18n="help.shortcuts">Keyboard shortcuts</span><kbd>F1</kbd></button>
+          <button data-action="about" data-icon="about" data-i18n="help.about">About DCM Viewer</button>
+        </div>
+      </div>
+    </nav>
+    <div class="menubar-right">
+      <div class="theme-control">
+        <button class="tb-btn theme-title" id="themeBtn" data-action="theme-toggle" data-i18n-title="view.themeNext"><span class="theme-dot"></span><span id="themeName">Theme</span></button>
+        <div class="menu theme-menu" id="themeDropdown">
+          <button class="menu-title theme-caret" data-i18n-title="view.theme">▾</button>
+          <div class="menu-panel themes right"></div>
+        </div>
+      </div>
+      <button class="tb-btn settings-btn" data-action="settings" data-i18n-title="view.settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><span data-i18n="tb.settings">Settings</span></button>
+      <button class="tb-btn lang-btn" id="langBtn" data-action="lang-toggle"><span class="flag"></span><span class="lang-code">한국어</span></button>
+    </div>
+  </header>
+
+  <!-- ── Toolbar ── -->
+  <div class="toolbar" id="toolbar">
+    <div class="tb-group">
+      <button class="tb-btn" data-action="open-file" data-i18n-title="file.open"><svg viewBox="0 0 24 24"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9l-7-7z"/><path d="M13 2v7h7"/></svg></button>
+      <button class="tb-btn" data-action="open-folder" data-i18n-title="file.openFolder"><svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></button>
+    </div>
+    <div class="tb-sep"></div>
+    <div class="tb-group tools" id="toolButtons">
+      <button class="tb-btn tool" data-action="tool" data-tool="pan" data-i18n-title="tools.pan"><svg viewBox="0 0 24 24"><path d="M12 2v20M2 12h20M12 2l-3 3M12 2l3 3M12 22l-3-3M12 22l3-3M2 12l3-3M2 12l3 3M22 12l-3-3M22 12l-3 3"/></svg></button>
+      <button class="tb-btn tool" data-action="tool" data-tool="wl" data-i18n-title="tools.wl"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></svg></button>
+      <button class="tb-btn tool" data-action="tool" data-tool="zoom" data-i18n-title="tools.zoom"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-5-5M11 8v6M8 11h6"/></svg></button>
+      <button class="tb-btn tool" data-action="tool" data-tool="stack" data-i18n-title="tools.stack"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/><path d="M20 3l2 3-2 3M20 15l2 3-2 3"/></svg></button>
+      <button class="tb-btn tool" data-action="tool" data-tool="probe" data-i18n-title="tools.probe"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v5M12 17v5M2 12h5M17 12h5"/></svg></button>
+      <span class="tb-mini-sep"></span>
+      <button class="tb-btn tool" data-action="tool" data-tool="length" data-i18n-title="tools.length"><svg viewBox="0 0 24 24"><path d="M3 21L21 3M6 18l2 2M10 14l2 2M14 10l2 2M18 6l2 2"/></svg></button>
+      <button class="tb-btn tool" data-action="tool" data-tool="angle" data-i18n-title="tools.angle"><svg viewBox="0 0 24 24"><path d="M4 20L20 4M4 20h16"/><path d="M12 20a8 8 0 0 0-2.3-5.7"/></svg></button>
+      <button class="tb-btn tool" data-action="tool" data-tool="rect" data-i18n-title="tools.rect"><svg viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="12" rx="1"/></svg></button>
+      <button class="tb-btn tool" data-action="tool" data-tool="ellipse" data-i18n-title="tools.ellipse"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="12" rx="8" ry="6"/></svg></button>
+      <button class="tb-btn tool" data-action="tool" data-tool="text" data-i18n-title="tools.text"><svg viewBox="0 0 24 24"><path d="M5 5h14M12 5v14M9 19h6"/></svg></button>
+      <button class="tb-btn" data-action="clear-measurements" data-i18n-title="tools.clear"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg></button>
+    </div>
+    <div class="tb-sep"></div>
+    <div class="tb-group">
+      <button class="tb-btn" data-action="fit" data-i18n-title="view.fit"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+      <button class="tb-btn" data-action="actual" data-i18n-title="view.actual"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 15V9l-1 1M14 9h2v6"/></svg></button>
+      <button class="tb-btn" data-action="zoom-out" data-i18n-title="view.zoomOut"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-5-5M8 11h6"/></svg></button>
+      <button class="tb-btn zoom-label" id="zoomLabel" data-action="actual" data-i18n-title="view.zoomLabel">100%</button>
+      <button class="tb-btn" data-action="zoom-in" data-i18n-title="view.zoomIn"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-5-5M11 8v6M8 11h6"/></svg></button>
+      <span class="tb-mini-sep"></span>
+      <button class="tb-btn toggle" data-action="toggle" data-key="ruler" data-i18n-title="view.ruler"><svg viewBox="0 0 24 24"><rect x="2" y="9" width="20" height="6" rx="1"/><path d="M6 9v3M10 9v2M14 9v3M18 9v2"/></svg></button>
+      <button class="tb-btn toggle" data-action="toggle" data-key="grid" data-i18n-title="view.grid"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="1"/><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/></svg></button>
+      <button class="tb-btn" data-action="rotate-left" data-i18n-title="view.rotateLeft"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg></button>
+      <button class="tb-btn" data-action="rotate-right" data-i18n-title="view.rotateRight"><svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg></button>
+      <button class="tb-btn" data-action="flip-h" data-i18n-title="view.flipH"><svg viewBox="0 0 24 24"><path d="M12 3v18M4 8l5 4-5 4zM20 8l-5 4 5 4z"/></svg></button>
+      <button class="tb-btn" data-action="flip-v" data-i18n-title="view.flipV"><svg viewBox="0 0 24 24"><path d="M3 12h18M8 4l4 5 4-5zM8 20l4-5 4 5z"/></svg></button>
+      <button class="tb-btn toggle" data-action="toggle" data-key="invert" data-i18n-title="view.invert"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 4l16 16" /><path d="M20 4v16H4z" fill="currentColor"/></svg></button>
+    </div>
+    <div class="tb-sep"></div>
+    <div class="tb-group">
+      <button class="tb-btn" data-action="mpr" data-i18n-title="tools.mpr"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="8" height="8"/><rect x="13" y="3" width="8" height="8"/><rect x="3" y="13" width="8" height="8"/><path d="M13 17h8M17 13v8"/></svg></button>
+      <button class="tb-btn" data-action="anonymize" data-i18n-title="tools.anonymize"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/><path d="M3 3l18 18" stroke-opacity="0.6"/></svg></button>
+      <button class="tb-btn" data-action="export-webm" data-i18n-title="file.exportWebm"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="M16 10l5-3v10l-5-3z"/></svg></button>
+    </div>
+    <div class="tb-sep"></div>
+    <div class="tb-group dicom-only">
+      <label class="tb-field" data-i18n-title="tb.preset"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/><circle cx="8" cy="6" r="2" fill="currentColor"/><circle cx="15" cy="12" r="2" fill="currentColor"/><circle cx="10" cy="18" r="2" fill="currentColor"/></svg><select id="presetSelect"></select></label>
+      <label class="tb-field" data-i18n-title="tb.colormap"><svg viewBox="0 0 24 24"><rect x="3" y="8" width="18" height="8" rx="2"/><path d="M8 8v8M13 8v8M18 8v8" stroke-opacity="0.5"/></svg><select id="colormapSelect"></select></label>
+      <label class="tb-field wl-field" data-i18n-title="status.wlWidth"><svg viewBox="0 0 24 24"><path d="M3 12h18M7 8l-4 4 4 4M17 8l4 4-4 4"/></svg><input id="wwInput" type="number" step="1"></label>
+      <label class="tb-field wl-field" data-i18n-title="status.wlCenter"><svg viewBox="0 0 24 24"><path d="M12 3v18M8 7l4-4 4 4M8 17l4 4 4-4"/><path d="M4 12h16" stroke-opacity="0.5"/></svg><input id="wcInput" type="number" step="1"></label>
+    </div>
+    <div class="tb-spacer"></div>
+    <div class="tb-group export-group">
+      <div class="menu tb-menu" id="exportMenu">
+        <button class="menu-title tb-btn accent" data-i18n-title="file.export"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 8l5-5 5 5"/><path d="M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></svg><span class="caret">▾</span></button>
+        <div class="menu-panel right">
+          <button data-action="export" data-format="png" data-icon="image">PNG</button>
+          <button data-action="export" data-format="jpeg" data-icon="image">JPEG</button>
+          <button data-action="export" data-format="webp" data-icon="image">WebP</button>
+          <button data-action="export" data-format="bmp" data-icon="image">BMP</button>
+          <button data-action="export" data-format="tiff" data-icon="image">TIFF</button>
+          <button data-action="export" data-format="gif" data-icon="image">GIF</button>
+          <div class="menu-sep"></div>
+          <button data-action="export-tiff16" data-icon="tiff" data-i18n="file.exportTiff16">16-bit TIFF (raw pixel values)</button>
+          <button data-action="export-frames" data-icon="zip" data-i18n="file.exportAllFrames">All frames as PNG (ZIP)…</button>
+          <button data-action="export-gif-anim" data-icon="gif" data-i18n="file.exportGifAnimated">Animated GIF (all frames)…</button>
+          <button data-action="export-webm" data-icon="video" data-i18n="file.exportWebm">Cine video (WebM)…</button>
+          <div class="menu-sep"></div>
+          <button data-action="export-tags" data-format="txt" data-icon="tags" data-i18n="file.exportTags">Export DICOM Tags</button>
+          <button data-action="copy-image" data-icon="copy" data-i18n="file.copyImage">Copy Image</button>
+        </div>
+      </div>
+      <button class="tb-btn" data-action="batch" data-i18n-title="file.batch"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="12" height="12" rx="2"/><path d="M8 19h9a2 2 0 0 0 2-2V9"/><path d="M6 11l2 2 4-4"/></svg></button>
+    </div>
+  </div>
+
+  <!-- ── Workspace ── -->
+  <div class="workspace">
+    <aside class="sidebar" id="sidebar">
+      <section class="side-section tree-section" id="treeSection">
+        <header class="side-header">
+          <span data-i18n="sidebar.folder">Folder</span>
+          <span class="side-actions">
+            <button class="icon-btn" data-action="tree-up" data-i18n-title="sidebar.up">↑</button>
+            <button class="icon-btn" data-action="tree-refresh" data-i18n-title="sidebar.refresh">⟳</button>
+            <button class="icon-btn" data-action="open-folder" data-i18n-title="sidebar.choose">…</button>
+          </span>
+        </header>
+        <div class="tree-path" id="treePath" title=""></div>
+        <div class="tree" id="fileTree" tabindex="0"></div>
+      </section>
+      <div class="side-splitter" id="sideSplitter"></div>
+      <section class="side-section info-section" id="infoSection">
+        <header class="side-header tabs">
+          <button class="tab active" data-tab="info" data-i18n="sidebar.info">Info</button>
+          <button class="tab" data-tab="tags" data-i18n="sidebar.tags">Tags</button>
+          <button class="tab" data-tab="histogram" data-i18n="sidebar.histogram">Histogram</button>
+          <button class="tab" data-tab="series" data-i18n="sidebar.series">Series</button>
+        </header>
+        <div class="tab-panel active" id="panel-info"><div class="info-empty" data-i18n="sidebar.noFile">No file opened</div></div>
+        <div class="tab-panel" id="panel-tags">
+          <div class="tags-toolbar">
+            <input id="tagSearch" type="search" data-i18n-placeholder="sidebar.search" placeholder="Search tags…">
+            <button class="icon-btn" data-action="copy-tags" data-i18n-title="tags.copy">⧉</button>
+          </div>
+          <div class="tags-list" id="tagsList"></div>
+        </div>
+        <div class="tab-panel" id="panel-histogram">
+          <canvas id="histCanvas" width="280" height="160"></canvas>
+          <div class="hist-info" id="histInfo"></div>
+        </div>
+        <div class="tab-panel" id="panel-series">
+          <div class="series-toolbar"><button class="tb-btn text" data-action="series-scan" data-i18n="series.load">Sort folder as DICOM series</button></div>
+          <div class="series-list" id="seriesList"></div>
+        </div>
+      </section>
+    </aside>
+    <div class="sidebar-resizer" id="sidebarResizer"></div>
+
+    <main class="viewer-area" id="viewerArea">
+      <div class="viewport" id="viewport" tabindex="0">
+        <canvas id="imageCanvas"></canvas>
+        <canvas id="overlayCanvas"></canvas>
+        <div class="corner tl" id="cornerTL"></div>
+        <div class="corner tr" id="cornerTR"></div>
+        <div class="corner bl" id="cornerBL"></div>
+        <div class="corner br" id="cornerBR"></div>
+        <div class="marker top" id="markerTop"></div>
+        <div class="marker bottom" id="markerBottom"></div>
+        <div class="marker left" id="markerLeft"></div>
+        <div class="marker right" id="markerRight"></div>
+        <div class="zoom-badge" id="zoomBadge">100%</div>
+        <div class="drop-hint" id="dropHint">
+          <div class="drop-hint-box">
+            <img src="assets/icon.png" alt="">
+            <h2 data-i18n="msg.dropTitle">Open a DICOM file</h2>
+            <p data-i18n="msg.dropHint">Drop a .dcm file or folder here, or use File → Open.</p>
+            <div class="drop-actions">
+              <button class="btn primary" data-action="open-file" data-i18n="file.open">Open File…</button>
+              <button class="btn" data-action="open-folder" data-i18n="file.openFolder">Open Folder…</button>
+            </div>
+          </div>
+        </div>
+        <div class="loading" id="loading"><div class="spinner"></div><span id="loadingText" data-i18n="status.loading">Loading…</span></div>
+      </div>
+      <div class="frame-bar" id="frameBar">
+        <button class="icon-btn" data-action="frame-first" title="Home">⏮</button>
+        <button class="icon-btn" data-action="frame-prev" title="↑">◀</button>
+        <button class="icon-btn play" id="playBtn" data-action="cine-toggle" title="Space">▶</button>
+        <button class="icon-btn" data-action="frame-next" title="↓">▶</button>
+        <button class="icon-btn" data-action="frame-last" title="End">⏭</button>
+        <input type="range" id="frameSlider" min="0" max="0" value="0">
+        <span class="frame-label" id="frameLabel">1 / 1</span>
+        <label class="fps"><span data-i18n="cine.fps">fps</span><input id="fpsInput" type="number" min="1" max="120" step="1" value="10"></label>
+        <label class="loop"><input type="checkbox" id="loopCheck" checked><span data-i18n="cine.loop">Loop</span></label>
+      </div>
+      <div class="series-bar" id="seriesBar">
+        <button class="icon-btn" data-action="series-prev" title="PgUp">◀</button>
+        <input type="range" id="seriesSlider" min="0" max="0" value="0">
+        <span class="frame-label" id="seriesLabel"></span>
+        <button class="icon-btn" data-action="series-next" title="PgDn">▶</button>
+      </div>
+    </main>
+  </div>
+
+  <!-- ── Status bar ── -->
+  <footer class="statusbar">
+    <span class="status-path" id="statusPath" data-i18n="status.ready">Ready</span>
+    <span class="status-item" id="statusPatient"></span>
+    <span class="status-item" id="statusSize"></span>
+    <span class="status-item" id="statusWL"></span>
+    <span class="status-item" id="statusProbe"></span>
+    <span class="status-item" id="statusZoom"></span>
+  </footer>
+</div>
+
+<!-- ── Context menus ── -->
+<div class="ctx-menu" id="ctxViewer">
+  <button data-action="open-file" data-icon="open" data-i18n="file.open">Open File…</button>
+  <div class="menu-sep"></div>
+  <button data-action="fit" data-icon="fit" data-i18n="view.fit">Fit to Window</button>
+  <button data-action="actual" data-icon="actual" data-i18n="view.actual">Actual Size (100%)</button>
+  <button data-action="reset-view" data-icon="reset" data-i18n="view.resetView">Reset View</button>
+  <div class="menu-sep"></div>
+  <button data-action="copy-image" data-icon="copy" data-i18n="file.copyImage">Copy Image</button>
+  <div class="menu-sub"><button class="menu-sub-title" data-icon="export"><span data-i18n="file.export">Export Image</span><span class="chev">▸</span></button>
+    <div class="menu-panel">
+      <button data-action="export" data-format="png" data-icon="image">PNG</button>
+      <button data-action="export" data-format="jpeg" data-icon="image">JPEG</button>
+      <button data-action="export" data-format="webp" data-icon="image">WebP</button>
+      <button data-action="export" data-format="bmp" data-icon="image">BMP</button>
+      <button data-action="export" data-format="tiff" data-icon="image">TIFF</button>
+      <button data-action="export" data-format="gif" data-icon="image">GIF</button>
+    </div>
+  </div>
+  <div class="menu-sep"></div>
+  <button data-action="delete-last" data-icon="undo" data-i18n="tools.deleteLast">Delete last measurement</button>
+  <button data-action="clear-measurements" data-icon="trash" data-i18n="tools.clear">Clear measurements</button>
+</div>
+<div class="ctx-menu" id="ctxTree">
+  <button data-action="tree-open" data-icon="open" data-i18n="ctx.open">Open</button>
+  <button data-action="tree-show" data-icon="show-folder" class="electron-only" data-i18n="ctx.showInFolder">Show in file manager</button>
+  <div class="menu-sep"></div>
+  <button data-action="tree-copy" data-icon="copy" class="electron-only"><span data-i18n="ctx.copy">Copy</span><kbd>Ctrl+C</kbd></button>
+  <button data-action="tree-cut" data-icon="cut" class="electron-only"><span data-i18n="ctx.cut">Cut</span><kbd>Ctrl+X</kbd></button>
+  <button data-action="tree-paste" data-icon="paste" class="electron-only"><span data-i18n="ctx.paste">Paste</span><kbd>Ctrl+V</kbd></button>
+  <button data-action="tree-delete" data-icon="trash" class="electron-only"><span data-i18n="ctx.delete">Delete</span><kbd>Del</kbd></button>
+  <button data-action="tree-copy-path" data-icon="path" data-i18n="ctx.copyPath">Copy path</button>
+  <div class="menu-sep"></div>
+  <button data-action="open-folder" data-icon="folder-open" data-i18n="ctx.chooseFolder">Choose folder…</button>
+  <button data-action="tree-refresh" data-icon="refresh" data-i18n="sidebar.refresh">Refresh</button>
+</div>
+
+<!-- ── Dialog host (browser mode: dialogs render here; Electron opens separate popup windows) ── -->
+<div class="modal" id="modalHost"><div class="modal-box" id="modalBox"></div></div>
+<div class="tooltip" id="tooltip"></div>
+<div class="toast" id="toast"></div>
+
+<script src="js/dicomDecoder.js"></script>
+<script src="js/encoders.js"></script>
+<script src="js/platform.js"></script>
+<script src="js/themes.js"></script>
+<script src="i18n/en.js"></script>
+<script src="i18n/ko.js"></script>
+<script src="js/i18n.js"></script>
+<script src="js/icons.js"></script>
+<script src="js/dialogs.js"></script>
+<script src="js/fileTree.js"></script>
+<script src="js/viewer.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

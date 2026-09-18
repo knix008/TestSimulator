@@ -1,0 +1,33 @@
+# Dependencies / build outputs
+node_modules/
+dist/
+dist-web/
+*.tgz
+
+# Installers copied to the project root by scripts/copy-dist.js
+DCMViewer-*.exe
+DCMViewer-*.dmg
+DCMViewer-*.AppImage
+DCMViewer-*.deb
+DCMViewer-*.rpm
+DCMViewer-*.zip
+
+# Generated icons (regenerate with `npm run create-icons`)
+build/*.ico
+build/*.png
+src/assets/icon.ico
+
+# Batch-convert output folders (created next to the source DCM files)
+**/converted_*/
+
+# IDE / OS
+.vs/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+*.bak
+.env
+.env.*
