@@ -1,9 +1,8 @@
 import { clamp } from './color'
 import { isTheme } from '../themes'
-import { defaultSettings, rightPanelMaxWidth, rightPanelMinWidth, type AppSettings, type ExportFormat } from './types'
+import { defaultSettings, exportFormats, rightPanelMaxWidth, rightPanelMinWidth, type AppSettings } from './types'
 
 const settingsStorageKey = 'my-photo-work-v1-settings'
-const exportFormats: ExportFormat[] = ['png', 'jpg', 'webp', 'avif', 'gif', 'tiff']
 
 export function loadSettings(): AppSettings {
   if (typeof window === 'undefined') {
@@ -23,6 +22,7 @@ export function loadSettings(): AppSettings {
       showRulers: typeof parsed.showRulers === 'boolean' ? parsed.showRulers : defaultSettings.showRulers,
       rightWidth: clamp(typeof parsed.rightWidth === 'number' ? parsed.rightWidth : defaultSettings.rightWidth, rightPanelMinWidth, rightPanelMaxWidth),
       exportFormat: parsed.exportFormat && exportFormats.includes(parsed.exportFormat) ? parsed.exportFormat : defaultSettings.exportFormat,
+      exportTransparent: typeof parsed.exportTransparent === 'boolean' ? parsed.exportTransparent : defaultSettings.exportTransparent,
       brushSize: clamp(typeof parsed.brushSize === 'number' ? parsed.brushSize : defaultSettings.brushSize, 1, 400),
       brushHardness: clamp(typeof parsed.brushHardness === 'number' ? parsed.brushHardness : defaultSettings.brushHardness, 0, 1),
       brushOpacity: clamp(typeof parsed.brushOpacity === 'number' ? parsed.brushOpacity : defaultSettings.brushOpacity, 0.05, 1),

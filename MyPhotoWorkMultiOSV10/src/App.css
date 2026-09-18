@@ -970,6 +970,79 @@
   text-align: center;
 }
 
+/* --------------------------------------------------- image information */
+/* The one window in the app that is meant to be read top to bottom, so it
+   scrolls rather than squeezing four blocks of facts into a fixed height. */
+.info-sheet {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-height: 520px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.info-sheet h3 {
+  color: var(--accent);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  margin: 0 0 4px;
+  text-transform: uppercase;
+}
+
+.info-sheet dl {
+  border-top: 1px solid var(--border);
+  display: grid;
+  margin: 0;
+}
+
+.info-sheet dl > div {
+  align-items: baseline;
+  border-bottom: 1px solid var(--border);
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 140px 1fr;
+  padding: 6px 2px;
+}
+
+.info-sheet dt {
+  color: var(--muted);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.info-sheet dd {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/* ------------------------------------------------------- print preview */
+/* A4 proportions, with the printed page's 10mm margin drawn to scale. */
+.print-sheet {
+  align-items: center;
+  aspect-ratio: 210 / 297;
+  background: #ffffff;
+  border: 1px solid var(--line);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  display: flex;
+  justify-content: center;
+  margin: 0 auto;
+  max-height: 460px;
+  padding: 4.8%;
+}
+
+.print-sheet.landscape {
+  aspect-ratio: 297 / 210;
+}
+
+.print-sheet img {
+  height: 100%;
+  object-fit: contain;
+  width: 100%;
+}
+
 /* ----------------------------------------------- paths / slices / frames */
 .info-block {
   border-top: 1px solid var(--border);

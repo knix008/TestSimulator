@@ -1,4 +1,5 @@
 import type { Theme as ThemeId } from '../themes'
+import type { SourceInfo } from './metadata'
 
 export type Language = 'ko' | 'en'
 export type Theme = ThemeId
@@ -113,6 +114,12 @@ export type BlendMode =
   | 'xor'
 
 export type ExportFormat = 'png' | 'jpg' | 'webp' | 'avif' | 'gif' | 'tiff'
+
+/** Offered in the export dialog and in settings, in this order. */
+export const exportFormats: ExportFormat[] = ['png', 'jpg', 'webp', 'avif', 'gif', 'tiff']
+
+/** Which way round the paper goes. `auto` leaves it to the print dialog. */
+export type PageOrientation = 'auto' | 'portrait' | 'landscape'
 export type UnsavedChoice = 'save' | 'discard' | 'cancel'
 export type Point = { x: number; y: number }
 export type Size = { width: number; height: number }
@@ -260,9 +267,13 @@ export type PhotoDocument = {
   frames: FrameRect[]
   measure: Measure | null
   colorMode: 'rgb' | 'gray'
+  /** What the document was opened from, for the image information window. */
+  source?: SourceInfo
 }
 
 export type SerializedLayer = LayerMeta & { dataUrl?: string; maskUrl?: string }
+
+export type { MetaRow, SourceInfo } from './metadata'
 
 export type ProjectFile = {
   format: 'myphotowork'
@@ -301,6 +312,8 @@ export type AppSettings = {
   showRulers: boolean
   rightWidth: number
   exportFormat: ExportFormat
+  /** Keep see-through pixels see-through when the format can store them. */
+  exportTransparent: boolean
   brushSize: number
   brushHardness: number
   brushOpacity: number
@@ -424,6 +437,7 @@ export const defaultSettings: AppSettings = {
   showRulers: true,
   rightWidth: 320,
   exportFormat: 'png',
+  exportTransparent: true,
   brushSize: 24,
   brushHardness: 0.75,
   brushOpacity: 1,

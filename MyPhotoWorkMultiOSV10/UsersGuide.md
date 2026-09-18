@@ -158,9 +158,152 @@ active layer.**
 - **이미지 가져오기 / Place** adds a file as a new layer
 - **저장 / 다른 이름으로 저장** writes a layered `.mpw` project
 - **내보내기 / Export** flattens to PNG, JPG, WebP, AVIF, GIF or TIFF
+- **인쇄 / Print** previews the page, then sends it to your printer
+- **이미지 정보 / Image information** lists everything known about what is open
 - With the slice-select tool, a single slice can be exported on its own
 
 Unsaved changes are confirmed before New, Open, Close, or quitting.
+
+### Opening a photo
+
+파일 ▸ 열기 (Ctrl/Cmd+O), the folder button on the toolbar, and dragging a file
+onto the window all do the same thing. You can also drop several files at once:
+onto an untouched document they open one after another, and onto a document you
+have already edited they arrive as new layers.
+
+The editor reads PNG, JPG, GIF, BMP, WebP, AVIF, TIFF, **HEIC / HEIF** and
+**DICOM**, plus its own `.mpw` projects.
+
+### HEIC and HEIF photos
+
+Phones and mirrorless cameras save their full-quality stills as HEIF — `.heic`
+on an iPhone, `.heif` elsewhere, `.hif` on Fujifilm bodies. No browser can show
+those files, so the editor decodes them itself:
+
+1. 파일 ▸ 열기, pick the `.heic` file, or drag it onto the window.
+2. The first HEIC of a session takes a moment longer while the decoder loads —
+   about two megabytes, fetched once and then kept for every file after it.
+3. The photo opens as a normal raster layer at its full resolution. From there
+   every tool, adjustment and filter works exactly as it does on a JPG.
+
+A HEIC holding several frames — a burst, or the stills of a Live Photo — opens
+at its **primary** frame, the one the camera shows in its gallery; the image
+information window says how many frames the file held.
+
+Saving back to HEIC is not offered: the format's encoder is patent-encumbered
+and is not part of the app. Use 내보내기 to write the edited photo as PNG (no
+quality loss), TIFF (no quality loss, larger) or JPG.
+
+`images/test04.heic` in the project folder is a sample you can open to try this.
+It comes from Nokia's public HEIF conformance set; replace it with a photo from
+your own phone whenever you like.
+
+### Exporting, and the transparent background
+
+파일 ▸ 내보내기 (or the download button on the toolbar) opens a small window
+with two controls:
+
+- **형식 / Format** — PNG, JPG, WebP, AVIF, GIF or TIFF.
+- **투명 배경 유지 / Keep transparent background** — whether the see-through
+  parts of the picture stay see-through in the file.
+
+Tick the box and erased areas, a document created on a transparent background
+and any layer you have faded are written with their transparency intact. Clear
+it and the same picture is laid on a white sheet first, which is what you want
+for a photo that will be printed, emailed or put on a white page.
+
+The box only applies to the formats that can actually store transparency: PNG,
+WebP, AVIF, GIF and TIFF. Choose **JPG** and the box greys out with a line
+explaining why — JPEG has no alpha channel at all, so a JPG is always written on
+white, whatever the box says. Nothing about your document changes either way;
+only the exported file differs.
+
+Both choices are remembered and are also on the Settings window, where they
+decide the format a single slice is exported with.
+
+### Printing, and the print preview
+
+파일 ▸ 인쇄, the printer button on the toolbar, or **Ctrl/Cmd+P**.
+
+Nothing is sent to a printer straight away. A **인쇄 미리보기 / Print preview**
+window opens first, showing the page exactly as it will come out:
+
+1. The sheet is drawn to paper proportions with the same 10 mm margin the
+   printed page uses, and the picture sits inside it, flattened onto white —
+   transparency means nothing on paper.
+2. **용지 방향 / Orientation** starts on the way round that suits the picture:
+   landscape for a wide photo, portrait for a tall one. Change it and the sheet
+   in the preview turns with it, as the paper will.
+3. **인쇄 / Print** hands the page to your system's own print dialog, where you
+   choose the printer, the paper size and the number of copies. **취소 / Cancel**
+   closes the preview and prints nothing.
+
+The image is scaled to fill the page inside the margin, keeping its proportions,
+so nothing is cropped and nothing is stretched. Only the picture is printed: no
+toolbar, no panels, no background.
+
+Choosing **Save as PDF** (or **Microsoft Print to PDF**) in the system dialog is
+the quickest way to get a PDF of the document.
+
+### DICOM (.dcm) medical images
+
+A CT, MR, ultrasound or X-ray study is stored as DICOM, one file per slice. Open
+`.dcm` (or `.dicom`) the same way as any other image; files written without an
+extension at all are recognised by their contents.
+
+A DICOM file holds measurements rather than screen colours, so the editor does
+what a viewer does before it can show anything:
+
+- **Rescale** — the slope and intercept in the file turn stored values into real
+  units, such as Hounsfield numbers on a CT.
+- **Window** — the centre and width in the file pick the slice of that range the
+  screen shows. Files that name no window are windowed from their own data, so
+  the whole range is visible; from there, 이미지 ▸ 밝기/대비 or Levels adjusts it
+  the way a radiologist's window control would.
+- **MONOCHROME1** files, where zero means white, are inverted to match.
+
+Uncompressed studies — implicit and explicit VR, little and big endian — and
+baseline JPEG are read. A study compressed with JPEG 2000, JPEG-LS or RLE is
+named in the error rather than opened as a blank image. Colour (RGB) images,
+such as an ultrasound capture, keep their colour; multi-frame files open at
+their first frame.
+
+Everything the file says about the patient, the study and the equipment is in
+the image information window, described below. `images/test05.dcm` is a sample
+CT slice you can open to try this — one of the DICOM standard's own
+"CompressedSamples" study files, as redistributed for conformance testing.
+
+Saving back to DICOM is not offered — the editor is a photo editor, and a slice
+you have painted on is no longer a record of anything. Export to PNG or TIFF
+instead.
+
+### Image information
+
+이미지 ▸ 이미지 정보, or the ⓘ button on the toolbar, opens a window with four
+blocks of facts about what is open:
+
+- **파일 / File** — the name it was opened from, where it lives on disk, the
+  format and the size of the file.
+- **이미지 / Image** — the pixel size, the megapixel count, the aspect ratio,
+  the colour mode, how many layers there are and what the background is.
+- **픽셀 / Pixels** — measured from the flattened document as it stands now, not
+  from the file: the mean R, G and B, the mean brightness, the range from the
+  darkest pixel to the lightest, and how much of the picture is fully or partly
+  see-through. Watching the range while you work is the quickest way to see
+  whether an adjustment has crushed the blacks or blown the highlights.
+- **상세 정보 / Details** — whatever the file's own header carried. A photo from
+  a camera shows its EXIF: the camera and lens, the date it was taken, the
+  exposure, aperture, ISO and focal length, the metering and white balance. A
+  PNG shows its bit depth and colour type. A DICOM shows its tags — modality,
+  study and series, the patient, the equipment, the slice thickness and pixel
+  spacing, the transfer syntax and the window that was applied. A file that
+  carries nothing says so rather than showing invented values.
+
+**내용 복사 / Copy details** puts the whole window on the clipboard as plain
+text, which is what to paste into a note or a bug report.
+
+The window reads the document as it is at the moment it opens, so close and
+reopen it after an edit to see the new numbers.
 
 ## Settings, Help and About
 
@@ -168,8 +311,9 @@ The right-hand end of the menu bar holds the theme picker, the language switch
 (Korean / English) and the Settings, Help and About windows.
 
 Settings covers the language, the theme, the grid and rulers, the default export
-format, the brush size and the colour tolerance. Each number has a decrease and
-an increase button, and each says what it controls.
+format and its transparent-background setting, the brush size and the colour
+tolerance. Each number has a decrease and an increase button, and each says what
+it controls.
 
 About lists the version, build time, commit, author, licence, the Electron and
 Chromium versions and the platform — and copies all of it in one click, which is
@@ -187,6 +331,7 @@ clipboard.
 | Keys | Action |
 | --- | --- |
 | Ctrl/Cmd+N / O / S / Shift+S | New, Open, Save, Save As |
+| Ctrl/Cmd+P | Open the print preview |
 | Ctrl/Cmd+Z / Shift+Z or Y | Undo, Redo |
 | Ctrl/Cmd+A / D | Select all, Deselect |
 | Ctrl/Cmd+T | Free transform |

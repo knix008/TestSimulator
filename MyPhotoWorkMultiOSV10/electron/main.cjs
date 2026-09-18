@@ -82,9 +82,10 @@ function createWindow() {
 
 function fileFilters() {
   return [
-    { name: 'Photo Work and Images', extensions: ['mpw', 'png', 'jpg', 'jpeg', 'gif', 'tif', 'tiff', 'webp', 'avif', 'bmp'] },
+    { name: 'Photo Work and Images', extensions: ['mpw', 'png', 'jpg', 'jpeg', 'gif', 'tif', 'tiff', 'webp', 'avif', 'bmp', 'heic', 'heif', 'hif', 'dcm', 'dicom'] },
     { name: 'Photo Work Project', extensions: ['mpw'] },
-    { name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'gif', 'tif', 'tiff', 'webp', 'avif', 'bmp'] },
+    { name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'gif', 'tif', 'tiff', 'webp', 'avif', 'bmp', 'heic', 'heif', 'hif'] },
+    { name: 'DICOM', extensions: ['dcm', 'dicom'] },
     { name: 'All Files', extensions: ['*'] },
   ]
 }
@@ -99,6 +100,10 @@ function mimeFor(filePath) {
   if (ext === '.avif') return 'image/avif'
   if (ext === '.bmp') return 'image/bmp'
   if (ext === '.tif' || ext === '.tiff') return 'image/tiff'
+  if (ext === '.heic') return 'image/heic'
+  // Fujifilm cameras write HEIF stills as .hif.
+  if (ext === '.heif' || ext === '.hif') return 'image/heif'
+  if (ext === '.dcm' || ext === '.dicom') return 'application/dicom'
   return 'application/octet-stream'
 }
 
@@ -118,7 +123,7 @@ ipcMain.handle('files:open', async (_event, options = {}) => {
       return { path: filePath, name: path.basename(filePath), mime: 'application/json', text: await fs.readFile(filePath, 'utf8') }
     }
     const buffer = await fs.readFile(filePath)
-    return { path: filePath, name: path.basename(filePath), mime, dataUrl: `data:${mime};base64,${buffer.toString('base64')}` }
+    return { path: filePath, name: path.basename(filePath), mime, size: buffer.length, dataUrl: `data:${mime};base64,${buffer.toString('base64')}` }
   }))
 
   return { canceled: false, directory: path.dirname(result.filePaths[0]), files }

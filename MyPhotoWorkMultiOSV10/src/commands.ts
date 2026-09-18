@@ -2,7 +2,7 @@ import type { ComponentType } from 'react'
 import {
   Aperture, Blend, Box, Camera, CircleDashed, Clock, Contrast, Copy, Download, Eraser, Eye,
   FilePlus, FileX, FlipHorizontal, FlipVertical, FolderOpen, Frame, Grid3x3, ImagePlus, Info,
-  Layers, Layers2, LayoutGrid, Lasso, Maximize2, PaintBucket, Palette, Pencil, Plus, Ratio, Redo2,
+  Layers, Layers2, LayoutGrid, Lasso, Maximize2, PaintBucket, Palette, Pencil, Plus, Printer, Ratio, Redo2,
   RotateCcw, RotateCw, Ruler, Save, SaveAll, ScanSearch, Search, SlidersHorizontal, Sparkles,
   Spline, Square, SquareDashed, Sun, Trash, Type, Undo2, Ungroup, WandSparkles, WavesHorizontal,
   Image as ImageIcon, ZoomIn, ZoomOut,
@@ -71,6 +71,7 @@ export const commands: AppCommand[] = [
   { id: 'file.save', menu: 'file', icon: Save, label: 'save', toolbar: true, separatorBefore: true, accel: 'Ctrl+S' },
   { id: 'file.saveAs', menu: 'file', icon: SaveAll, label: 'saveAs', accel: 'Ctrl+Shift+S' },
   { id: 'file.export', menu: 'file', icon: Download, label: 'export', toolbar: true },
+  { id: 'file.print', menu: 'file', icon: Printer, label: 'print', toolbar: true, separatorBefore: true, accel: 'Ctrl+P' },
   { id: 'file.close', menu: 'file', icon: FileX, label: 'closeDoc', separatorBefore: true },
 
   /* -------------------------------------------------------------- edit */
@@ -100,6 +101,7 @@ export const commands: AppCommand[] = [
   { id: 'image.autoLevels', menu: 'image', icon: SlidersHorizontal, label: 'autoLevels' },
   { id: 'image.invert', menu: 'image', icon: CircleDashed, label: 'invert' },
   { id: 'image.grayscale', menu: 'image', icon: Contrast, label: 'grayscale' },
+  { id: 'image.info', menu: 'image', icon: Info, label: 'imageInfo', toolbar: true, separatorBefore: true },
 
   /* ------------------------------------------------------------- layer */
   { id: 'layer.new', menu: 'layer', icon: Plus, label: 'newLayer', toolbar: true },

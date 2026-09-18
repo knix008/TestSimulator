@@ -1,10 +1,11 @@
 import type { ComponentType } from 'react'
 import {
-  BookOpen, Camera, Crop, Download, Droplets, FilePlus, Frame, Info, LayoutGrid, Palette, Ratio,
-  Settings2, SlidersHorizontal, Sparkles, Spline, Sun, TriangleAlert, Type,
+  BookOpen, Camera, Crop, Download, Droplets, FilePlus, Frame, Info, LayoutGrid, Palette, Printer,
+  Ratio, Settings2, SlidersHorizontal, Sparkles, Spline, Sun, TriangleAlert, Type,
 } from 'lucide-react'
 import { t } from './i18n'
-import type { AppSettings, CurveData, Language, LevelsData } from './lib/types'
+import type { AppSettings, CurveData, Language, LevelsData, PageOrientation } from './lib/types'
+import type { MetaSection } from './lib/metadata'
 
 /** Names, icons and titles for every popup. Kept apart from the components so
  *  the dialog module exports components only. */
@@ -12,7 +13,7 @@ import type { AppSettings, CurveData, Language, LevelsData } from './lib/types'
 export type DialogName =
   | 'new' | 'export' | 'brightness' | 'hue' | 'blur' | 'sharpen' | 'cameraRaw' | 'curves' | 'levels'
   | 'filterGallery' | 'imageSize' | 'canvasSize' | 'text' | 'unsaved' | 'settings' | 'helpGuide'
-  | 'about' | 'error' | 'feather'
+  | 'about' | 'error' | 'feather' | 'print' | 'imageInfo'
 
 export type DialogResult = { action: string; [key: string]: unknown }
 
@@ -27,6 +28,10 @@ export type DialogPayload = {
   autoLevels?: LevelsData
   text?: string
   error?: { title: string; message: string; details: string }
+  /** The print preview: a small opaque copy of the composite, and its shape. */
+  print?: { dataUrl: string; orientation: PageOrientation; width: number; height: number }
+  /** Everything the image information window lists, already grouped. */
+  info?: MetaSection[]
   version?: string
   creator?: string
 }
@@ -51,6 +56,8 @@ const DIALOG_ICONS: Record<DialogName, ComponentType<{ size?: number }>> = {
   about: Info,
   error: TriangleAlert,
   feather: Crop,
+  print: Printer,
+  imageInfo: Info,
 }
 
 const DIALOG_TITLE_KEYS: Record<DialogName, string> = {
@@ -73,6 +80,8 @@ const DIALOG_TITLE_KEYS: Record<DialogName, string> = {
   about: 'about',
   error: 'error',
   feather: 'feather',
+  print: 'printPreview',
+  imageInfo: 'imageInfo',
 }
 
 export function dialogIcon(name: DialogName) {

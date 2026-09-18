@@ -11,6 +11,8 @@ My Photo Work V1.0 is a cross-platform raster photo editor. The same React app r
 | Desktop    | Electron 43 (`electron/main.cjs`), packaged with electron-builder |
 | Icons      | lucide-react                                           |
 | TIFF codec | `utif`                                                 |
+| HEIC/HEIF codec | `libheif-js` (WASM, decode only, loaded on demand) |
+| DICOM reader | `dicom-parser` for the data set; the pixel pipeline is our own |
 
 ## Process / module layout
 
@@ -75,6 +77,7 @@ so the tests can import it without a JSX transform.
 | `paths` | vector paths: anchors, bezier handles, hit testing, stroke/fill, path→selection |
 | `transform` | the free-transform box, its handles, and the resampling that commits it |
 | `canvas` / `history` / `imageIO` | the document model, undo snapshots, `.mpw` and raster codecs |
+| `dicom` / `metadata` | the DICOM reader, and the header facts the information window lists |
 | `errors` | turning anything thrown into a report the user can read and paste |
 | `view` | the tick spacing shared by the grid and the rulers |
 
@@ -178,6 +181,38 @@ languages.
 
 Undo/redo snapshots clone document metadata and every layer canvas (capped at 30). The native project format `.mpw` is JSON with PNG data URLs per layer. Raster export flattens the composite; TIFF is encoded with `utif`.
 
+`decodeImageSource` routes a file by extension and MIME type: `.mpw` to the
+project reader, TIFF to `utif`, HEIF to `libheif-js`, and everything else to the
+browser's own `<img>` decoder. HEIF has no browser decoder anywhere, so the
+1.9 MB WASM build is reached through a dynamic `import()` — Rollup gives it its
+own chunk, which is fetched the first time a `.heic` is opened and kept for the
+rest of the session. The decoder returns every top-level frame; the one flagged
+primary becomes the layer, and all of them are freed, since each holds WASM heap.
+There is no HEIF encoder in the build, so export offers PNG/TIFF/JPG instead.
+
+DICOM is its own module because the work is not decoding but display: a data set
+holds measurements, so `readDicom` applies the modality LUT (rescale slope and
+intercept), then the VOI LUT (window centre and width, taken from the data when
+the file names none), inverts MONOCHROME1, and reads the pixels through a
+`DataView` so explicit big-endian files come out the same as little-endian ones.
+Encapsulated pixel data is only unwrapped for baseline JPEG, which the browser
+can decode; anything else is reported by the name of its transfer syntax rather
+than opened blank. The tags it reads out travel with the image, as the rows the
+information window shows.
+
+`metadata.ts` holds the rest of what that window lists: an EXIF reader that
+walks a JPEG's markers to its APP1 segment and then the TIFF IFDs inside it
+(including the Exif sub-directory), a PNG header reader, and the pixel
+statistics. Rows carry either a translated key or the label the format itself
+uses — "FNumber" and "Modality" are what the reader expects to see.
+
+`encodeExport(canvas, format, quality, transparent)` decides the background:
+`transparent` only reaches the file for the formats in `transparentFormats`
+(PNG, WebP, AVIF, GIF, TIFF), and anything else — JPEG always — goes through
+`flattenOnto`, which lays the picture on white. `printDataUrl` flattens the same
+way and hands `printableDocument`'s markup to an off-screen iframe, so the
+platform's print dialog prints the image alone rather than the editor window.
+
 In Electron, `files:open` / `files:save` / `files:write` use native dialogs. In the browser, `<input type=file>` and Blob downloads replace them. Closing a dirty document asks to save first (`window:close-request`).
 
 ## Desktop shell
@@ -229,7 +264,9 @@ filters that call `Math.random`.
 | `generative.test.mjs` | content-aware fill, expand, upscale, Harmonize, Select Subject, Find Distractions, Liquify |
 | `history.test.mjs` | snapshot isolation and the 30-state cap |
 | `settings.test.mjs` | localStorage validation and the theme table |
-| `imageio.test.mjs` | `.mpw` round trip, v1 migration, TIFF, every export format |
+| `imageio.test.mjs` | `.mpw` round trip, v1 migration, TIFF, HEIF decoding, transparent export, the print page and preview, every export format |
+| `dicom.test.mjs` | the DICOM magic, windowing, the tag rows, and the routing into them |
+| `metadata.test.mjs` | EXIF read out of a JPEG built for the test, PNG headers, pixel statistics |
 | `i18n.test.mjs` | Korean/English coverage for every tool, blend mode, adjustment and filter |
 | `paths.test.mjs` | the vector path model behind the pen and path-selection tools |
 | `curves.test.mjs` | Curves and Levels lookup tables, the editors' point maths, auto levels |

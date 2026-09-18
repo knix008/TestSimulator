@@ -2,12 +2,14 @@ import { createElement, useEffect, useMemo, useRef, useState, type ReactNode } f
 import { Copy, Layers2, Minus, Plus, RotateCcw, Sparkles, X } from 'lucide-react'
 import { t } from './i18n'
 import { copyText } from './lib/errors'
+import type { MetaSection } from './lib/metadata'
 import { aboutFacts } from './aboutInfo'
 import { dialogIcon, dialogTitle, type DialogName, type DialogPayload, type DialogResult } from './dialogMeta'
 import { themeLabel, themes } from './themes'
 import { curveLut, addCurvePoint, removeCurvePoint } from './lib/curves'
 import { filterCatalog } from './catalog'
-import { defaultCurves, documentPresets, type AppSettings, type CurveChannel, type CurveData, type CurvePoint, type ExportFormat, type Language, type LevelsData } from './lib/types'
+import { supportsTransparency } from './lib/imageIO'
+import { defaultCurves, documentPresets, exportFormats, type AppSettings, type CurveChannel, type CurveData, type CurvePoint, type ExportFormat, type Language, type LevelsData, type PageOrientation } from './lib/types'
 
 export type { DialogName, DialogPayload, DialogResult } from './dialogMeta'
 
@@ -16,6 +18,13 @@ export type { DialogName, DialogPayload, DialogResult } from './dialogMeta'
  * real OS window under Electron (src/DialogHost.tsx) and an in-page panel in the
  * browser build, where there is no second window to open.
  */
+
+/** The information window as plain text, for pasting into a note or a report. */
+function infoAsText(sections: MetaSection[], tr: (key: string) => string) {
+  return sections.map((section) => (
+    [tr(section.key), ...section.rows.map((row) => `  ${row.key ? tr(row.key) : row.label}: ${row.value}`)].join('\n')
+  )).join('\n\n')
+}
 
 /**
  * The chrome around a dialog: its own icon and title, a draggable strip so the
@@ -250,6 +259,9 @@ export function DialogBody({
   // The settings window owns its own copy so its controls stay live; each edit
   // is forwarded to the main window, which is what actually applies it.
   const [settings, setSettings] = useState<AppSettings | undefined>(payload.settings)
+  const [orientation, setOrientation] = useState<PageOrientation>(
+    () => (payload.print?.orientation === 'landscape' ? 'landscape' : 'portrait'),
+  )
   useEffect(() => { onThemeChange?.(settings?.theme) }, [onThemeChange, settings?.theme])
 
   const patchSettings = (patch: Partial<AppSettings>) => {
@@ -287,20 +299,88 @@ export function DialogBody({
         </>
       )
 
-    case 'export':
+    case 'imageInfo': {
+      const sections = payload.info ?? []
+      return (
+        <>
+          <div className="info-sheet">
+            {sections.map((section) => (
+              <section key={section.key}>
+                <h3>{tr(section.key)}</h3>
+                <dl>
+                  {section.rows.map((row, index) => (
+                    <div key={`${row.key ?? row.label}-${index}`}>
+                      {/* A translated name where there is one, otherwise the
+                          name the file itself gives the field. */}
+                      <dt>{row.key ? tr(row.key) : row.label}</dt>
+                      <dd>{row.value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </section>
+            ))}
+          </div>
+          <div className="dialog-actions">
+            <button onClick={() => void copyText(infoAsText(sections, tr))}>{tr('copyDetails')}</button>
+            <button className="primary" onClick={onClose}>{tr('close')}</button>
+          </div>
+        </>
+      )
+    }
+
+    case 'print': {
+      const preview = payload.print
+      return (
+        <>
+          {/* The sheet is drawn to A4 proportions with the same 10 mm margin
+              the printed page uses, so what is shown is what comes out. */}
+          <div className={`print-sheet ${orientation}`}>
+            {preview ? <img src={preview.dataUrl} alt="" /> : null}
+          </div>
+          <label>{tr('orientation')}
+            <select value={orientation} onChange={(event) => setOrientation(event.target.value as PageOrientation)}>
+              <option value="portrait">{tr('portrait')}</option>
+              <option value="landscape">{tr('landscape')}</option>
+            </select>
+          </label>
+          <p className="dialog-hint">{tr('printPreviewHint')}</p>
+          <div className="dialog-actions">
+            <button onClick={onClose}>{tr('cancel')}</button>
+            <button className="primary" disabled={!preview} onClick={() => onResult({ action: 'print', orientation })}>{tr('print')}</button>
+          </div>
+        </>
+      )
+    }
+
+    case 'export': {
+      // The checkbox only means anything for the formats that can store alpha;
+      // for the others it reads as off and says why.
+      const format = settings?.exportFormat ?? 'png'
+      const keepsAlpha = supportsTransparency(format)
       return (
         <>
           <label>{tr('exportFormat')}
-            <select value={settings?.exportFormat ?? 'png'} onChange={(event) => patchSettings({ exportFormat: event.target.value as ExportFormat })}>
-              {(['png', 'jpg', 'webp', 'avif', 'gif', 'tiff'] as ExportFormat[]).map((format) => <option key={format} value={format}>{format.toUpperCase()}</option>)}
+            <select value={format} onChange={(event) => patchSettings({ exportFormat: event.target.value as ExportFormat })}>
+              {exportFormats.map((item) => <option key={item} value={item}>{item.toUpperCase()}</option>)}
             </select>
           </label>
+          <label className="check-row">
+            <input
+              type="checkbox"
+              checked={keepsAlpha && (settings?.exportTransparent ?? true)}
+              disabled={!keepsAlpha}
+              onChange={(event) => patchSettings({ exportTransparent: event.target.checked })}
+            />
+            {tr('exportTransparent')}
+          </label>
+          {keepsAlpha ? null : <p className="dialog-hint">{tr('exportOpaqueHint')}</p>}
           <div className="dialog-actions">
             <button onClick={onClose}>{tr('cancel')}</button>
             <button className="primary" onClick={() => onResult({ action: 'export' })}>{tr('export')}</button>
           </div>
         </>
       )
+    }
 
     case 'brightness':
       return (
@@ -504,8 +584,17 @@ export function DialogBody({
           </div>
           <label>{tr('exportFormat')}
             <select value={settings.exportFormat} onChange={(event) => patchSettings({ exportFormat: event.target.value as ExportFormat })}>
-              {(['png', 'jpg', 'webp', 'avif', 'gif', 'tiff'] as ExportFormat[]).map((format) => <option key={format} value={format}>{format.toUpperCase()}</option>)}
+              {exportFormats.map((format) => <option key={format} value={format}>{format.toUpperCase()}</option>)}
             </select>
+          </label>
+          <label className="check-row">
+            <input
+              type="checkbox"
+              checked={supportsTransparency(settings.exportFormat) && settings.exportTransparent}
+              disabled={!supportsTransparency(settings.exportFormat)}
+              onChange={(event) => patchSettings({ exportTransparent: event.target.checked })}
+            />
+            {tr('exportTransparent')}
           </label>
           <label className="settings-field">
             <span className="settings-field-name">{tr('settingsBrushSize')}</span>

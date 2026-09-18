@@ -2,14 +2,17 @@
 // work, so it is exercised with a document that uses every layer kind.
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import {
-  decodeImageSource, decodeTiff, downloadDataUrl, encodeExport, extensionFor, restoreProject,
-  serializeProject,
+  decodeHeif, decodeImageSource, decodeTiff, downloadDataUrl, encodeExport, extensionFor,
+  flattenOnto, isHeifSource, isTiffSource, naturalOrientation, previewSheet, printableDocument,
+  restoreProject, serializeProject, supportsTransparency,
 } from '../src/lib/imageIO.ts'
-import { createBlankDocument, createLayerMeta, canvasToDataUrl, context2d } from '../src/lib/canvas.ts'
+import { canvasFromUrl, createBlankDocument, createLayerMeta, canvasToDataUrl, context2d } from '../src/lib/canvas.ts'
 import { defaultAdjustment, defaultEffects } from '../src/lib/types.ts'
 import { downloads } from './helpers/dom.mjs'
-import { canvasFrom, canvasOf, px } from './helpers/pixels.mjs'
+import { assertPixel, canvasFrom, canvasOf, px } from './helpers/pixels.mjs'
 
 /** A document exercising raster, adjustment, fill, text and shape layers plus a mask. */
 function fullDocument() {
@@ -314,4 +317,168 @@ test('a v1 project without the newer regions restores them empty', async () => {
   assert.deepEqual(restored.document.frames, [])
   assert.equal(restored.document.measure, null)
   assert.equal(restored.document.layers[0].collapsed, false)
+})
+
+/* ------------------------------------------------------------------ HEIF */
+
+/** The sample photo shipped in images/, decoded straight from disk. */
+function heicBytes() {
+  const buffer = readFileSync(fileURLToPath(new URL('../images/test04.heic', import.meta.url)))
+  return buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength)
+}
+
+test('isHeifSource recognises the family by name and by type, and nothing else', () => {
+  for (const name of ['photo.heic', 'photo.HEIC', 'shot.heif', 'fuji.hif', 'burst.heics']) {
+    assert.ok(isHeifSource(name), `${name} should be read as HEIF`)
+  }
+  for (const mime of ['image/heic', 'image/heif', 'image/heic-sequence']) {
+    assert.ok(isHeifSource('download', mime), `${mime} should be read as HEIF`)
+  }
+  for (const name of ['photo.png', 'photo.avif', 'scan.tiff', 'notes.mpw', 'heic.txt']) {
+    assert.ok(!isHeifSource(name), `${name} should not be read as HEIF`)
+  }
+  assert.ok(!isHeifSource('photo.png', 'image/png'))
+  assert.ok(isTiffSource('scan.tif') && isTiffSource('x', 'image/tiff') && !isTiffSource('photo.heic'))
+})
+
+test('a real HEIC photo decodes to its full size with sane pixels', async () => {
+  const canvas = await decodeHeif(heicBytes())
+  assert.equal(canvas.width, 1280)
+  assert.equal(canvas.height, 720)
+
+  // A failed decode hands back a blank sheet, so the picture has to vary.
+  const [r, g, b, a] = px(canvas, 640, 360)
+  assert.equal(a, 255, 'an opaque photo stays opaque')
+  const corner = px(canvas, 4, 4)
+  assert.ok(
+    Math.abs(r - corner[0]) + Math.abs(g - corner[1]) + Math.abs(b - corner[2]) > 20,
+    `the decoded image is flat: centre [${[r, g, b]}] vs corner [${corner.slice(0, 3)}]`,
+  )
+})
+
+test('decodeImageSource routes HEIC through libheif, by name or by mime type', async () => {
+  const arrayBuffer = heicBytes()
+  const byName = await decodeImageSource({ name: 'IMG_0001.HEIC', arrayBuffer })
+  assert.equal(byName.kind, 'canvas')
+  assert.equal(byName.canvas.width, 1280)
+
+  // Electron hands the renderer a data URL rather than the bytes.
+  const base64 = Buffer.from(arrayBuffer).toString('base64')
+  const byMime = await decodeImageSource({ name: 'download', mime: 'image/heic', dataUrl: `data:image/heic;base64,${base64}` })
+  assert.equal(byMime.canvas.height, 720)
+})
+
+test('a file that only claims to be HEIC fails with a clear message', async () => {
+  const bytes = new TextEncoder().encode('this is not a HEIF container at all')
+  await assert.rejects(
+    () => decodeImageSource({ name: 'photo.heic', arrayBuffer: bytes.buffer }),
+    /HEIF file has no image data/,
+  )
+})
+
+/* ------------------------------------------- transparency on export */
+
+test('only the formats that can store alpha offer a transparent background', () => {
+  for (const format of ['png', 'webp', 'avif', 'gif', 'tiff']) {
+    assert.ok(supportsTransparency(format), `${format} can carry alpha`)
+  }
+  assert.ok(!supportsTransparency('jpg'), 'JPEG has no alpha channel')
+})
+
+test('flattenOnto replaces transparency with the sheet colour', () => {
+  const source = canvasFrom(4, 4, (x) => (x < 2 ? [255, 0, 0, 255] : [0, 0, 0, 0]))
+  const flat = flattenOnto(source)
+  assert.deepEqual(px(flat, 0, 0), [255, 0, 0, 255], 'opaque pixels are untouched')
+  assert.deepEqual(px(flat, 3, 0), [255, 255, 255, 255], 'clear pixels become white')
+  assert.deepEqual(px(source, 3, 0), [0, 0, 0, 0], 'the original canvas is left alone')
+})
+
+test('a PNG keeps its holes when transparency is on and loses them when it is off', async () => {
+  const source = canvasFrom(4, 4, (x) => (x < 2 ? [20, 90, 200, 255] : [0, 0, 0, 0]))
+
+  const kept = await canvasFromUrl(await encodeExport(source, 'png', 0.92, true))
+  assert.deepEqual(px(kept, 3, 1), [0, 0, 0, 0], 'the clear half survives the export')
+
+  const filled = await canvasFromUrl(await encodeExport(source, 'png', 0.92, false))
+  assert.deepEqual(px(filled, 3, 1), [255, 255, 255, 255], 'the clear half is painted white')
+  assert.deepEqual(px(filled, 0, 1), [20, 90, 200, 255], 'the drawn half is unchanged')
+})
+
+test('transparency defaults to on, and JPEG is flattened either way', async () => {
+  const source = canvasFrom(4, 4, (x) => (x < 2 ? [20, 90, 200, 255] : [0, 0, 0, 0]))
+  const byDefault = await canvasFromUrl(await encodeExport(source, 'png'))
+  assert.deepEqual(px(byDefault, 3, 1), [0, 0, 0, 0])
+
+  for (const transparent of [true, false]) {
+    const jpeg = await canvasFromUrl(await encodeExport(source, 'jpg', 0.92, transparent))
+    assertPixel(jpeg, 3, 1, [255, 255, 255, 255], 4, `JPEG with transparent=${transparent}`)
+  }
+})
+
+test('a TIFF written with transparency off carries an opaque background', async () => {
+  const source = canvasFrom(4, 4, (x) => (x < 2 ? [10, 20, 30, 255] : [0, 0, 0, 0]))
+  const dataUrl = await encodeExport(source, 'tiff', 0.92, false)
+  const binary = atob(dataUrl.split(',')[1])
+  const bytes = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i)
+  assert.deepEqual(px(decodeTiff(bytes.buffer), 3, 1), [255, 255, 255, 255])
+})
+
+/* ------------------------------------------------------------------ print */
+
+test('the printed page holds the image alone, scaled to fit the sheet', () => {
+  const markup = printableDocument('data:image/png;base64,AAAA', 'Holiday')
+  assert.match(markup, /<title>Holiday<\/title>/)
+  assert.match(markup, /src="data:image\/png;base64,AAAA"/)
+  assert.match(markup, /@page \{ margin: 10mm; \}/, 'the sheet gets a margin')
+  assert.match(markup, /object-fit: contain/, 'the photo is never cropped or stretched')
+  assert.ok(!markup.includes('app-shell'), 'none of the editor chrome is printed')
+})
+
+test('a document name with markup in it cannot break the printed page', () => {
+  const markup = printableDocument('data:image/png;base64,AAAA', '<script>"x" & y')
+  assert.match(markup, /<title>&lt;script&gt;&quot;x&quot; &amp; y<\/title>/)
+  assert.ok(!markup.includes('<script>'), 'the name is escaped, not executed')
+})
+
+/* --------------------------------------------------- the print preview */
+
+test('the preview is a small opaque copy, not the document itself', async () => {
+  const big = canvasFrom(1800, 900, (x) => (x < 900 ? [10, 20, 30, 255] : [0, 0, 0, 0]))
+  const url = previewSheet(big)
+  assert.ok(url.startsWith('data:image/jpeg;base64,'), 'a photo-sized PNG is too big to hand a popup window')
+
+  const preview = await canvasFromUrl(url)
+  assert.equal(preview.width, 900, 'the long side is capped')
+  assert.equal(preview.height, 450, 'the proportions are kept')
+  assertPixel(preview, 700, 225, [255, 255, 255, 255], 6, 'the clear half is on white, as paper would be')
+})
+
+test('a picture smaller than the cap is not blown up to reach it', async () => {
+  const small = canvasOf(120, 80, '#204080')
+  const preview = await canvasFromUrl(previewSheet(small))
+  assert.equal(preview.width, 120)
+  assert.equal(preview.height, 80)
+})
+
+test('the paper follows the picture unless the user says otherwise', () => {
+  assert.equal(naturalOrientation({ width: 1600, height: 900 }), 'landscape')
+  assert.equal(naturalOrientation({ width: 900, height: 1600 }), 'portrait')
+  assert.equal(naturalOrientation({ width: 500, height: 500 }), 'portrait', 'a square page is upright')
+})
+
+test('the chosen orientation reaches the printed page, and only then', () => {
+  const url = 'data:image/png;base64,AAAA'
+  assert.match(printableDocument(url, 'Doc', 'landscape'), /@page \{ size: landscape; margin: 10mm; \}/)
+  assert.match(printableDocument(url, 'Doc', 'portrait'), /@page \{ size: portrait; margin: 10mm; \}/)
+  // Left to the print dialog when nobody has chosen.
+  assert.match(printableDocument(url, 'Doc'), /@page \{ margin: 10mm; \}/)
+  assert.ok(!printableDocument(url, 'Doc').includes('size:'))
+})
+
+test('a HEIC carries its own details into the information window', async () => {
+  const result = await decodeImageSource({ name: 'holiday.heic', arrayBuffer: heicBytes() })
+  const value = (label) => result.details.find((row) => row.label === label)?.value
+  assert.equal(value('Primary image'), '1280 x 720')
+  assert.equal(value('Alpha channel'), 'No', 'this sample is an opaque photo')
 })

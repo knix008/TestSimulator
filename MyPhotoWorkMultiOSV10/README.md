@@ -13,8 +13,10 @@ My Photo Work V1.0 is a Photoshop-style raster photo editor built with Vite, Rea
 - **Polygonal and magnetic lassos**, **patch** and **content-aware move**, **perspective crop**, **slices** (with per-slice export), **frames**, and a **ruler** that reports distance and angle.
 - Adjustments and filters: Camera Raw-style develop, brightness/contrast, hue/saturation, invert, grayscale, auto levels, Gaussian/motion blur, sharpen, high pass, noise, mosaic, find edges, emboss, oil paint, solarize, clouds, vignette, offset, liquify, neural-style skin smooth.
 - Local generative-job tools: content-aware / generative fill, generative expand, generative upscale, Harmonize, Select Subject, Remove Background, Find Distractions. These run on-device and do not use Adobe Firefly.
-- Open PNG, JPG, GIF, WebP, AVIF, BMP, TIFF, and the native `.mpw` project format. Place extra images as new layers.
-- Save layered projects (`.mpw` v2) and export PNG, JPG, WebP, AVIF, GIF, or TIFF.
+- Open PNG, JPG, GIF, WebP, AVIF, BMP, TIFF, **HEIC/HEIF** (`.heic`, `.heif`, `.hif` — decoded in-app with libheif, since no browser reads them), **DICOM** (`.dcm`, with rescale, windowing and MONOCHROME1 handled), and the native `.mpw` project format. Place extra images as new layers.
+- Save layered projects (`.mpw` v2) and export PNG, JPG, WebP, AVIF, GIF, or TIFF, with a **transparent background** option for the formats that can store alpha.
+- **Print** (Ctrl+P) with a **print preview**: the page on its sheet, portrait or landscape, then the system print dialog.
+- **Image information** window: the file, the document, pixel statistics, and the header the file itself carried — EXIF for a photo, IHDR for a PNG, the tag set for a DICOM.
 - Separate title bar, menu bar and icon toolbar; every menu dropdown and dialog opens as its own movable window that can overhang the app and is closed with it.
 - Drag images or `.mpw` projects onto the window from the desktop.
 - Undo/redo, zoom/pan/rotate view, rulers with graduated ticks, quick mask, transparency checkerboard, optional grid, RGB histogram, Korean/English UI, 20 dark/light themes.
@@ -53,6 +55,16 @@ that the popup windows, icons and launchers are configured as they should be.
 `npm test` regenerates the build stamp and the icons first, so a fresh clone
 passes without a build. See [Architecture.md](Architecture.md) for how the
 harness works.
+
+```bash
+npm run verify:images
+```
+
+Walks the real open → composite → export → print pipeline over every photo in
+`images/`, at full camera resolution, including the HEIC. It asserts as it goes
+— a non-zero exit means a feature is broken — and writes the composites, the
+exports in each format, a transparent/opaque pair and the print page into a temp
+folder whose path it prints, so the results can be looked at as well as checked.
 
 ## Build
 
@@ -101,8 +113,9 @@ macOS packages should be built on macOS, and Linux packages should be built on L
 | `src/lib/` | The platform-independent editing engine: colour, selections, filters, paths, transforms, the document model |
 | `src/` | The React app, the command catalog, the popup bodies and the i18n tables |
 | `electron/` | The desktop shell: the main window, native file dialogs and the popup windows |
-| `scripts/` | The launchers and the icon and build-stamp generators |
+| `scripts/` | The launchers, the icon and build-stamp generators and the image verification run |
 | `test/` | The `node --test` suite and its DOM/canvas harness |
+| `images/` | Sample photos, including a HEIC and a DICOM slice, used by `npm run verify:images` |
 
 ## Program Information
 

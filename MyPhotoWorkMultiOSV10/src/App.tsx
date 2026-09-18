@@ -48,13 +48,14 @@ import {
   X,
 } from 'lucide-react'
 import { blendLabel, t, toolLabel } from './i18n'
+import { aspectRatio, formatBytes, formatName, imageStatistics, type MetaRow, type MetaSection } from './lib/metadata'
 import { adjustmentTypes, iconForTool, toolGroups } from './catalog'
-import { cloneCanvas, compositeDocument, context2d, createBlankDocument, createCanvas, createLayerMeta, padCanvas, resizeCanvasContent, sampleComposite } from './lib/canvas'
+import { canvasToDataUrl, cloneCanvas, compositeDocument, context2d, createBlankDocument, createCanvas, createLayerMeta, padCanvas, resizeCanvasContent, sampleComposite } from './lib/canvas'
 import { hexToRgb, hsvToRgb, rgbToHex, rgbToHsv } from './lib/color'
 import { addNoise, adjustBrightnessContrast, adjustHueSaturation, clearSelectionPixels, clouds, emboss, findEdges, gaussianBlur, grayscale, highPass, histogram, invertColors, mosaic, motionBlur, offset, oilPaint, sharpen, solarize, vignette } from './lib/filters'
 import { applyAdjustmentCanvas, levelsStretch } from './lib/adjustments'
 import { cloneDocument, pushHistory, takeSnapshot, type HistorySnapshot } from './lib/history'
-import { decodeImageSource, downloadDataUrl, encodeExport, extensionFor, fileToOpenItem, restoreProject, serializeProject } from './lib/imageIO'
+import { decodeImageSource, downloadDataUrl, encodeExport, extensionFor, fileToOpenItem, flattenOnto, naturalOrientation, previewSheet, printDataUrl, restoreProject, serializeProject } from './lib/imageIO'
 import { colSelection, drawSelectionOverlay, ellipseSelection, featherSelection, invertSelection, maskFromLasso, paintBucket, rectSelection, rowSelection, selectionToMask, wandSelection } from './lib/selection'
 import { loadSettings, saveSettings } from './lib/settings'
 import { colorReplace, dodgeBurn, healStamp, paintGradient, paintStroke, redEyeFix, smudge, spongeDesaturate } from './lib/tools'
@@ -69,7 +70,7 @@ import { firstTick, rulerSize, tickStep, visibleRange } from './lib/view'
 import { buildErrorReport } from './lib/errors'
 import { commands, commandsInMenu, menuIcons, menuOrder, toolbarGroups, type AppCommand, type MenuId as CommandMenuId } from './commands'
 import { DialogBody, DialogFrame, type DialogName, type DialogPayload, type DialogResult } from './dialogs'
-import { defaultAdjustment, defaultCurves, blendModes, rightPanelMaxWidth, rightPanelMinWidth, shapeKindForTool, type AdjustmentType, type AppSettings, type BlendMode, type ErrorDetails, type ExportFormat, type CurveData, type LevelsData, type PathShape, type PhotoDocument, type Point, type Selection, type SliceRect, type Tool, type TransformBox, type TransformHandle, type UnsavedChoice } from './lib/types'
+import { defaultAdjustment, defaultCurves, blendModes, rightPanelMaxWidth, rightPanelMinWidth, shapeKindForTool, type AdjustmentType, type AppSettings, type BlendMode, type ErrorDetails, type ExportFormat, type CurveData, type Language, type LevelsData, type PageOrientation, type PathShape, type PhotoDocument, type Point, type Selection, type SliceRect, type Tool, type TransformBox, type TransformHandle, type UnsavedChoice } from './lib/types'
 import { applyTheme, themeLabel, themes } from './themes'
 import './App.css'
 
@@ -77,27 +78,9 @@ const minRight = rightPanelMinWidth
 const maxRight = rightPanelMaxWidth
 const presets = ['#1d4ed8', '#0f766e', '#b45309', '#be123c', '#7c3aed', '#111827', '#ffffff', '#94a3b8', '#22c55e', '#eab308', '#06b6d4', '#f97316', '#ec4899', '#84cc16', '#6366f1', '#64748b']
 
-type Dialog =
-  | null
-  | 'new'
-  | 'about'
-  | 'settings'
-  | 'unsaved'
-  | 'error'
-  | 'brightness'
-  | 'hue'
-  | 'blur'
-  | 'sharpen'
-  | 'imageSize'
-  | 'canvasSize'
-  | 'text'
-  | 'export'
-  | 'cameraRaw'
-  | 'filterGallery'
-  | 'feather'
-  | 'curves'
-  | 'levels'
-  | 'helpGuide'
+/** Which popup is open, if any. The catalog in dialogMeta.ts is the one list:
+ *  a second copy here only ever drifted out of step with it. */
+type Dialog = DialogName | null
 
 type MenuId = CommandMenuId | 'theme' | null
 
@@ -294,6 +277,55 @@ function FlagEn({ size = 18 }: { size?: number }) {
 }
 
 type HoverTip = { text: string; x: number; y: number; place: 'bottom' | 'right' }
+
+/**
+ * Everything the image information window lists, grouped into its four blocks:
+ * the file it came from, the document it became, what the pixels measure, and
+ * whatever the file's own header had to say (EXIF, a PNG header, DICOM tags).
+ */
+function imageInfoSections(document: PhotoDocument, canvases: Map<string, HTMLCanvasElement>, language: Language): MetaSection[] {
+  const tr = (key: string) => t(language, key)
+  const source = document.source
+  const composite = compositeDocument(document, canvases)
+  const sections: MetaSection[] = []
+
+  const file: MetaRow[] = [{ key: 'infoFileName', value: source?.name ?? `${document.name}.mpw` }]
+  if (source?.path ?? document.filePath) file.push({ key: 'infoFilePath', value: source?.path ?? document.filePath ?? '' })
+  file.push({ key: 'infoFormat', value: formatName(source?.name ?? document.name, source?.mime) })
+  if (source?.byteSize) file.push({ key: 'infoFileSize', value: formatBytes(source.byteSize) })
+  sections.push({ key: 'infoFile', rows: file })
+
+  sections.push({
+    key: 'infoImage',
+    rows: [
+      { key: 'infoDimensions', value: `${document.width} × ${document.height} px` },
+      { key: 'infoMegapixels', value: `${((document.width * document.height) / 1_000_000).toFixed(2)} MP` },
+      { key: 'infoAspect', value: aspectRatio(document.width, document.height) },
+      { key: 'infoColorMode', value: document.colorMode === 'gray' ? tr('grayscale') : 'RGB' },
+      { key: 'infoLayers', value: String(document.layers.length) },
+      { key: 'infoBackground', value: document.background === 'transparent' ? tr('transparent') : document.background },
+    ],
+  })
+
+  sections.push({ key: 'infoPixels', rows: imageStatistics(composite) })
+
+  sections.push({
+    key: 'infoDetails',
+    rows: source?.details?.length ? source.details : [{ key: 'infoNoDetails', value: '—' }],
+  })
+  return sections
+}
+
+/** What the print preview window is handed: a small opaque copy of the page. */
+function printPreview(document: PhotoDocument, canvases: Map<string, HTMLCanvasElement>) {
+  const composite = compositeDocument(document, canvases)
+  return {
+    dataUrl: previewSheet(composite),
+    orientation: naturalOrientation(composite),
+    width: composite.width,
+    height: composite.height,
+  }
+}
 
 function readTooltip(target: EventTarget | null) {
   const node = (target as HTMLElement | null)?.closest?.('button, select, [data-tooltip]') as HTMLElement | null
@@ -552,6 +584,8 @@ export default function App() {
       autoLevels: canvas ? autoLevels(canvas) : undefined,
       text: textValueRef.current,
       error: errorRef.current ?? undefined,
+      print: name === 'print' && current ? printPreview(current, canvasesRef.current) : undefined,
+      info: name === 'imageInfo' && current ? imageInfoSections(current, canvasesRef.current, settingsRef.current.language) : undefined,
       version: '1.0.0',
       creator: 'SHKWON (knix008@naver.com)',
     }
@@ -927,7 +961,7 @@ export default function App() {
     return true
   }, [dirty, openDialog])
 
-  const openFiles = useCallback(async (files: { name: string; mime?: string; text?: string; dataUrl?: string; path?: string }[], mode: 'open' | 'place') => {
+  const openFiles = useCallback(async (files: { name: string; mime?: string; text?: string; dataUrl?: string; arrayBuffer?: ArrayBuffer; path?: string; size?: number }[], mode: 'open' | 'place') => {
     try {
       for (const file of files) {
         const decoded = await decodeImageSource(file)
@@ -968,6 +1002,13 @@ export default function App() {
             frames: [],
             measure: null,
             colorMode: 'rgb',
+            source: {
+              name: file.name,
+              path: file.path,
+              mime: file.mime,
+              byteSize: file.size,
+              details: decoded.details ?? [],
+            },
           }
           replaceDocument(next, new Map([[layer.id, canvas]]))
           requestAnimationFrame(() => fitZoom(next))
@@ -1035,7 +1076,7 @@ export default function App() {
     }
     try {
       const composite = compositeDocument(doc, canvasesRef.current)
-      const dataUrl = await encodeExport(composite, format)
+      const dataUrl = await encodeExport(composite, format, undefined, settingsRef.current.exportTransparent)
       const fileName = `${doc.name || tr('untitled')}.${extensionFor(format)}`
       if (window.electronFileApi) {
         const result = await window.electronFileApi.saveFile({
@@ -1056,12 +1097,30 @@ export default function App() {
   }, [doc, showError, tr])
 
 
+  /**
+   * Hands the flattened document to the platform's print dialog. Transparency
+   * has no meaning on paper, so the image goes onto white first — the same
+   * sheet the preview shows.
+   */
+  const printDocument = useCallback(async (orientation: PageOrientation) => {
+    const current = docRef.current
+    if (!current) {
+      return
+    }
+    try {
+      const composite = flattenOnto(compositeDocument(current, canvasesRef.current))
+      await printDataUrl(canvasToDataUrl(composite), current.name || tr('untitled'), orientation)
+    } catch (cause) {
+      showError(tr('print'), tr('printFailed'), cause)
+    }
+  }, [showError, tr])
+
   const exportSlice = useCallback(async (slice: SliceRect) => {
     const current = docRef.current
     if (!current) return
     try {
       const flat = compositeDocument(current, canvasesRef.current)
-      const dataUrl = await encodeExport(cropToRect(flat, slice), settingsRef.current.exportFormat)
+      const dataUrl = await encodeExport(cropToRect(flat, slice), settingsRef.current.exportFormat, undefined, settingsRef.current.exportTransparent)
       downloadDataUrl(dataUrl, `${current.name}-${slice.name}.${extensionFor(settingsRef.current.exportFormat)}`)
       setSavedNote(true)
     } catch (error) {
@@ -2112,6 +2171,11 @@ export default function App() {
         event.preventDefault()
         if (guardUnsaved('open')) void pickFiles('open')
       }
+      if (accel && key === 'p') {
+        // Chromium would otherwise print the editor window itself.
+        event.preventDefault()
+        if (doc) openDialog('print')
+      }
       if (accel && key === 'n') {
         event.preventDefault()
         if (guardUnsaved('new')) openDialog('new')
@@ -2242,6 +2306,7 @@ export default function App() {
       case 'file.save': void saveProject(false); return
       case 'file.saveAs': void saveProject(true); return
       case 'file.export': openDialog('export'); return
+      case 'file.print': openDialog('print'); return
       case 'file.close': if (guardUnsaved('close')) closeDocument(); return
 
       /* edit */
@@ -2290,6 +2355,7 @@ export default function App() {
       case 'image.levels': openLevels(); return
       case 'image.autoLevels': withLayer((canvas) => levelsStretch(canvas)); return
       case 'image.invert': withLayer((canvas) => invertColors(canvas, selectionRef.current)); return
+      case 'image.info': openDialog('imageInfo'); return
       case 'image.grayscale': withLayer((canvas) => grayscale(canvas, selectionRef.current)); return
 
       /* layer */
@@ -2411,6 +2477,9 @@ export default function App() {
       case 'export':
         void exportImage(settingsRef.current.exportFormat)
         return
+      case 'print':
+        void printDocument(result.orientation as PageOrientation)
+        return
       case 'brightness':
         withLayer((canvas) => adjustBrightnessContrast(canvas, Number(result.brightness), Number(result.contrast), selectionRef.current))
         return
@@ -2527,7 +2596,7 @@ export default function App() {
     event.preventDefault()
     setDropActive(false)
     const files = [...(event.dataTransfer?.files ?? [])]
-      .filter((file) => file.type.startsWith('image/') || /\.(mpw|tiff?|bmp|avif|webp)$/i.test(file.name))
+      .filter((file) => file.type.startsWith('image/') || /\.(mpw|tiff?|bmp|avif|webp|heic|heif|hif|dcm|dicom)$/i.test(file.name))
     if (files.length === 0) return
     try {
       const items = await Promise.all(files.map(fileToOpenItem))
@@ -2577,9 +2646,12 @@ export default function App() {
         </div>
         {desktop && (
           <div className="window-controls">
-            <button data-tooltip={tr('minimize')} aria-label={tr('minimize')} onClick={() => void window.electronWindowApi?.minimize()}><Minus size={16} /></button>
-            <button data-tooltip={tr('maximize')} aria-label={tr('maximize')} onClick={() => void window.electronWindowApi?.toggleMaximize()}><Square size={14} /></button>
-            <button className="window-close" data-tooltip={tr('closeWindow')} aria-label={tr('closeWindow')} onClick={() => void window.electronWindowApi?.close()}><X size={16} /></button>
+            {/* No tooltips here: the three window buttons are universal, and a
+                hint following the pointer to the corner only gets in the way.
+                The accessible name stays, for readers that need it. */}
+            <button aria-label={tr('minimize')} onClick={() => void window.electronWindowApi?.minimize()}><Minus size={16} /></button>
+            <button aria-label={tr('maximize')} onClick={() => void window.electronWindowApi?.toggleMaximize()}><Square size={14} /></button>
+            <button className="window-close" aria-label={tr('closeWindow')} onClick={() => void window.electronWindowApi?.close()}><X size={16} /></button>
           </div>
         )}
       </header>
@@ -3141,8 +3213,8 @@ export default function App() {
           pointer. */}
       {desktop && <div className="resize-grip" aria-hidden="true" />}
 
-      <input className="hidden-input" ref={fileRef} type="file" accept=".mpw,image/*" multiple onChange={(event) => { const files = event.target.files; if (files) void Promise.all([...files].map(fileToOpenItem)).then((items) => openFiles(items, 'open')); event.target.value = '' }} />
-      <input className="hidden-input" ref={placeRef} type="file" accept="image/*" multiple onChange={(event) => { const files = event.target.files; if (files) void Promise.all([...files].map(fileToOpenItem)).then((items) => openFiles(items, 'place')); event.target.value = '' }} />
+      <input className="hidden-input" ref={fileRef} type="file" accept=".mpw,.heic,.heif,.hif,.dcm,.dicom,image/*" multiple onChange={(event) => { const files = event.target.files; if (files) void Promise.all([...files].map(fileToOpenItem)).then((items) => openFiles(items, 'open')); event.target.value = '' }} />
+      <input className="hidden-input" ref={placeRef} type="file" accept=".heic,.heif,.hif,.dcm,.dicom,image/*" multiple onChange={(event) => { const files = event.target.files; if (files) void Promise.all([...files].map(fileToOpenItem)).then((items) => openFiles(items, 'place')); event.target.value = '' }} />
     </div>
   )
 }
