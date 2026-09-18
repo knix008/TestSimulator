@@ -339,6 +339,14 @@ function createWindow() {
 
   mainWindow.on('closed', () => {
     mainWindow = null;
+    _destroyPopupWindow();
+  });
+  // The detached menu follows the app window: any move / minimise / focus loss closes it
+  mainWindow.on('move', _hidePopupWindow);
+  mainWindow.on('minimize', _hidePopupWindow);
+  mainWindow.on('blur', () => {
+    // Clicking inside the popup does not blur us (it is non-focusable); anything else does
+    setTimeout(() => { if (!popupWindow || popupWindow.isDestroyed() || !popupWindow.isFocused()) _hidePopupWindow(); }, 0);
   });
 
   const sendMaxState = () => {
@@ -1960,6 +1968,91 @@ ipcMain.handle('get-path-sep', async () => path.sep);
 ipcMain.handle('path-join', async (event, ...parts) => path.join(...parts.flat()));
 ipcMain.handle('path-dirname', async (event, p) => path.dirname(p));
 ipcMain.handle('path-basename', async (event, p) => path.basename(p));
+
+/* ── Detached context-menu window ──
+ * A transparent, frameless, non-focusable window that covers the work area of the display
+ * under the cursor; src/popup.html draws the menu (same module as the in-page menu) so it
+ * can extend beyond the app window. Mouse events outside the menu rows pass through. */
+let popupWindow = null;
+let popupReady = null;
+let popupSeq = null;   // sequence number of the menu on screen (events of older menus are stale)
+
+function _ensurePopupWindow() {
+  if (popupWindow && !popupWindow.isDestroyed()) return popupReady;
+  popupWindow = new BrowserWindow({
+    show: false,
+    frame: false,
+    transparent: true,
+    hasShadow: false,
+    resizable: false,
+    movable: false,
+    minimizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    skipTaskbar: true,
+    focusable: false,
+    parent: mainWindow || undefined,
+    backgroundColor: '#00000000',
+    title: 'Menu',
+    webPreferences: {
+      preload: path.join(__dirname, 'popupPreload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+  popupWindow.setMenuBarVisibility(false);
+  popupWindow.on('closed', () => { popupWindow = null; popupReady = null; });
+  popupReady = new Promise((resolve) => {
+    popupWindow.webContents.once('did-finish-load', () => resolve());
+    popupWindow.loadFile(path.join(__dirname, 'src', 'popup.html')).catch((err) => { console.error('popup menu page:', err.message); resolve(); });
+  });
+  return popupReady;
+}
+
+function _hidePopupWindow() {
+  if (!popupWindow || popupWindow.isDestroyed()) return;
+  try { popupWindow.webContents.send('popup-hide'); } catch { /* ignore */ }
+  if (popupWindow.isVisible()) popupWindow.hide();
+}
+
+function _destroyPopupWindow() {
+  if (popupWindow && !popupWindow.isDestroyed()) { try { popupWindow.destroy(); } catch { /* ignore */ } }
+  popupWindow = null;
+  popupReady = null;
+}
+
+ipcMain.handle('popup-menu', async (event, payload = {}) => {
+  if (!mainWindow || mainWindow.isDestroyed()) return false;
+  await _ensurePopupWindow();
+  if (!popupWindow || popupWindow.isDestroyed()) return false;
+  const cb = mainWindow.getContentBounds();
+  const sx = cb.x + Math.round(Number(payload.x) || 0);
+  const sy = cb.y + Math.round(Number(payload.y) || 0);
+  const wa = screen.getDisplayNearestPoint({ x: sx, y: sy }).workArea;
+  popupSeq = payload.seq;
+  popupWindow.setBounds({ x: wa.x, y: wa.y, width: wa.width, height: wa.height });
+  popupWindow.setIgnoreMouseEvents(true, { forward: true });
+  popupWindow.webContents.send('popup-show', { ...payload, x: sx - wa.x, y: sy - wa.y });
+  if (!popupWindow.isVisible()) popupWindow.showInactive();
+  return true;
+});
+
+ipcMain.handle('popup-menu-hide', () => { _hidePopupWindow(); });
+
+ipcMain.handle('popup-menu-refresh', (event, payload = {}) => {
+  if (popupWindow && !popupWindow.isDestroyed() && popupWindow.isVisible()) popupWindow.webContents.send('popup-refresh', payload);
+});
+
+ipcMain.on('popup-event', (event, ev) => {
+  if (!ev) return;
+  const stale = ev.seq !== undefined && popupSeq !== null && ev.seq !== popupSeq;
+  if (ev.type === 'closed' && !stale && popupWindow && !popupWindow.isDestroyed() && popupWindow.isVisible()) popupWindow.hide();
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('popup-menu-event', ev);
+});
+
+ipcMain.on('popup-ignore-mouse', (event, ignore) => {
+  if (popupWindow && !popupWindow.isDestroyed()) popupWindow.setIgnoreMouseEvents(!!ignore, { forward: true });
+});
 
 ipcMain.handle('update-menu', async (event, { lang, translations, theme }) => {
   if (lang) currentLang = lang;

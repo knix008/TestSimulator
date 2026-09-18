@@ -63,6 +63,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Menu
   updateMenu: (data) => ipcRenderer.invoke('update-menu', data),
+  // Detached context-menu window (see src/js/contextMenu.js, src/popup.html)
+  popupMenu: (data) => ipcRenderer.invoke('popup-menu', data),
+  popupMenuHide: () => ipcRenderer.invoke('popup-menu-hide'),
+  popupMenuRefresh: (data) => ipcRenderer.invoke('popup-menu-refresh', data),
+  onPopupMenuEvent: (cb) => ipcRenderer.on('popup-menu-event', (_, ev) => cb(ev)),
 
   windowMinimize: () => ipcRenderer.invoke('window-minimize'),
   windowMaximize: () => ipcRenderer.invoke('window-maximize'),

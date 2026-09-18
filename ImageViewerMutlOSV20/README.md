@@ -8,7 +8,7 @@ A multi-platform image viewer and editor built with **Electron** and vanilla Jav
 
 - **Multi-format support / 다양한 형식 지원**
   - Images: JPEG, PNG, GIF, BMP, WebP, AVIF, SVG, ICO, TIFF, HEIC/HEIF/HIF, DICOM (DCM)
-  - DICOM: every common transfer syntax (uncompressed LE/BE, deflated, RLE, JPEG baseline / extended / lossless, JPEG-LS, JPEG 2000 / HTJ2K), MONOCHROME / RGB / YBR / PALETTE, 8–32-bit, multi-frame
+  - DICOM: every common transfer syntax (uncompressed LE/BE, deflated, RLE, JPEG baseline / extended / lossless, JPEG-LS, JPEG 2000 / HTJ2K), MONOCHROME / RGB / YBR / PALETTE, 8–32-bit integer and 32/64-bit **float** pixel data, multi-frame and **enhanced multi-frame** (per-frame functional groups)
   - Video / Audio: MP4, WebM, MOV, MKV, AVI, MP3, WAV, FLAC, and more (playback)
 
 - **Image Editing / 이미지 편집**
@@ -18,6 +18,7 @@ A multi-platform image viewer and editor built with **Electron** and vanilla Jav
   - Background removal (algorithmic + **AI**), crop to selection
   - Undo / Redo (`Ctrl+Z` / `Ctrl+Y`) — pixels, effects, and transforms (up to 20 steps)
   - Edit window: **Cancel** discards the session; **Apply** commits — dirty/save prompt only after Apply with unsaved changes
+  - Edit window has the same chrome as the main window: title bar (file name, window buttons), menu bar (File / Edit / View / Effects / Help) and toolbar with undo / redo
 
 - **Background removal / 배경 제거**
   - Algorithmic: corner/border flood, color key, chroma, brightness, selection-guided
@@ -58,8 +59,14 @@ A multi-platform image viewer and editor built with **Electron** and vanilla Jav
   - Explorer and info panels share equal height by default (splitter is resizable)
 
 - **DICOM viewer / DICOM 뷰어**
-  - Frame navigation + cine playback for multi-frame files (`PgUp` / `PgDn`, `Home` / `End`, `Space`)
-  - Window centre / width: file windows, auto, CT presets (brain, lung, bone, …), numeric input, **Ctrl+drag** / middle-drag, invert (`I`), reset (`W`)
+  - Frame navigation + cine playback for multi-frame files (`PgUp` / `PgDn`, `Home` / `End`, `Space`) — speed from Frame Time (Vector) / Cine Rate / Recommended Display Frame Rate, adjustable **fps** box
+  - Window centre / width: file windows (per frame in enhanced files), **VOI LUT** tables, auto, CT presets (brain, lung, bone, …), numeric input, **Ctrl+drag** / middle-drag, invert (`I`), reset (`W`); Modality LUT, VOI LUT Function (LINEAR / LINEAR_EXACT / SIGMOID) and Presentation LUT Shape are honoured
+  - **Pseudo-colour maps** (`M`): hot iron, PET, hot metal blue, PET 20-step, jet, rainbow, bone
+  - **Overlay planes** (60xx, embedded high-bit overlays too) with a toggle (`V`) and configurable colour
+  - **Annotations** overlay (`O`): patient / study / series text, image geometry, window, orientation markers (R/L/A/P/H/F, follow rotation and flip) and a scale bar
+  - **Pixel probe** in the status bar: coordinates, stored value, rescaled value (HU …), RGB
+  - **Measurements** on the image: ruler (`R`, mm via pixel spacing), angle (`A`), ellipse / rectangle ROI (`E` / `T`) with mean ± SD, min / max, area; delete one from its right-click menu or the Measure list, undo / redo with the toolbar buttons / `Ctrl+Z` / `Ctrl+Y`
+  - **Export**: every frame as PNG, the tag listing as JSON / CSV / text, copy tags to the clipboard; the info panel lists nested sequences and has a tag filter box
   - Same decoder in desktop and web mode; codecs load on first use
 
 - **Window chrome / 창 구성**
@@ -74,8 +81,9 @@ A multi-platform image viewer and editor built with **Electron** and vanilla Jav
 - **UI**
   - 20 themes (10 dark, 10 light) — palette button steps to the next one, ▾ opens the full list
   - Korean / English — language button shows the flag of the language you can switch **to**
-  - Settings dialog (gear button): theme, language, background-removal algorithm, subtitles
-  - Toolbar, context menus, custom app icon (`src/assets`)
+  - Settings dialog (gear button, fixed-size with tabs): theme, language, startup restore, recent-folder history, wheel zoom step, checkerboard, pixel smoothing, DICOM annotations / cine speed / overlay colour, background-removal algorithm, subtitles, volume — plus **Reset all settings**
+  - Context and menu-bar menus open in a **detached popup window** (desktop) so they are never clipped by the app window; the viewer context menu keeps everyday actions top-level and groups the rest (Transform / Zoom / More tools, DICOM Frames / Window / Colour map / Measure / Export)
+  - Toolbar, custom app icon (`src/assets`)
 
 - **Installer / 설치**
   - Windows NSIS can register Image Viewer as the default app for supported **image** formats
@@ -188,6 +196,7 @@ Uncomment the script tags in `src/index.html` after downloading.
 ImageViewerMutlOSV20/
 ├── main.js                 # Electron main process
 ├── preload.js              # contextBridge → window.electronAPI
+├── popupPreload.js         # bridge of the detached menu window (src/popup.html)
 ├── server.js               # Express static server (web mode)
 ├── package.json            # v1.0.2, electron-builder, fileAssociations
 ├── build/
@@ -201,6 +210,7 @@ ImageViewerMutlOSV20/
 │   └── rembg_worker.py          # Optional background-removal helper
 ├── src/
 │   ├── index.html
+│   ├── popup.html          # Detached context / menu-bar menu window (desktop)
 │   ├── assets/             # App icons (icon.ico, icon.png, icon_512.png, …)
 │   ├── styles/main.css
 │   ├── js/
@@ -208,10 +218,11 @@ ImageViewerMutlOSV20/
 │   │   ├── editor.js       # Canvas, effects, miniature DOF, border caption
 │   │   ├── fileTree.js     # Drive-rooted explorer
 │   │   ├── formatSupport.js
-│   │   ├── dicomDecoder.js
+│   │   ├── dicomDecoder.js # DICOM session decoder (LUTs, overlays, enhanced multi-frame, probe / stats)
 │   │   ├── fileRegistry.js # Virtual FS (web)
 │   │   ├── webAPI.js       # electronAPI shim (web)
-│   │   ├── contextMenu.js
+│   │   ├── contextMenu.js  # Menus (in-page or serialised to the popup window)
+│   │   ├── popupMenu.js    # Popup-window side of the menus
 │   │   ├── tooltip.js
 │   │   ├── icons.js
 │   │   └── i18n.js

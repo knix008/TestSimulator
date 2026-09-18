@@ -38,6 +38,7 @@
   let _appliedMinWidth = 0;
   let _ewFitW = 0, _ewFitH = 0;
   let _savedMainBounds = null;
+  let _settingsReady = false;   // _syncSettingsDialog() is a no-op until _initSettingsDialog() ran
 
   function _isEditableImage() {
     return (Editor.isLoaded() || state.isAnimated) && !state.isVideo && !state.isAudio;
@@ -70,7 +71,6 @@
   Tooltip.init();
   ContextMenu.init();
   _initErrorDialog();
-  _initSettingsDialog();
   _initPrintDialog();
   // Popup title bars: icon + label (static dialogs; the file dialog swaps its own per mode)
   document.querySelectorAll('.dialog-title-icon[data-icon]').forEach((el) => { el.innerHTML = Icons[el.dataset.icon] || ''; });
@@ -102,9 +102,27 @@
   const dcmInvertBtn   = document.getElementById('dcm-invert');
   const dcmPlayBtn     = document.getElementById('dcm-play');
   const dcmRange       = document.getElementById('dcm-range');
+  const dcmFps         = document.getElementById('dcm-fps');
+  const dcmColormap    = document.getElementById('dcm-colormap');
+  const dcmOverlaysBtn = document.getElementById('dcm-overlays');
+  const dcmAnnotBtn    = document.getElementById('dcm-annot');
+  const dcmToolsWrap   = document.getElementById('dcm-tools-wrap');
+  const dcmOverlay     = document.getElementById('dcm-overlay');
+  const statusProbe    = document.getElementById('status-probe');
+  const statusProbeSep = document.getElementById('status-probe-sep');
   let _dicomBusy = false;
   let _dicomNext = null;
   let _dicomCineTimer = null;
+  let _dicomCineFps = null;   // user override of the cine speed (null → the file's frame timing)
+  let _dicomAnnotOn = localStorage.getItem('dicomAnnotations') !== '0';   // corner annotations / markers / scale bar
+  let _dicomTool = null;      // active measurement tool: null | 'ruler' | 'angle' | 'ellipse' | 'rect'
+  let _dicomMeas = [];        // measurements [{ type, frame, pts: [{ x, y }] }] in image pixels
+  let _dicomDraft = null;     // the measurement being drawn
+  let _dicomProbePt = null;   // image pixel under the cursor (pixel probe)
+  let _dicomOverlayRaf = 0;
+  const _dicomMeasHist = { undo: [], redo: [], seq: 0 };   // measurement history (snapshots of _dicomMeas)
+  let _actionSeq = 0;         // ordering between measurement actions and Editor history changes
+  let _editorSeq = 0;
   const mcPlayBtn        = document.getElementById('mc-play');
   const mcPauseBtn       = document.getElementById('mc-pause');
   const mcStopBtn        = document.getElementById('mc-stop');
@@ -148,6 +166,27 @@
   })();
   const RECENT_DIRS_KEY = 'recentOpenedDirs';
   const RECENT_DIRS_MAX = 10;
+  /* ─── Preferences (Settings dialog) — every persisted option lives in localStorage under these keys ─── */
+  const PREF_DEFAULTS = {
+    restoreSession: '1',        // reopen the last folder / file at startup
+    zoomStep: '10',             // mouse-wheel zoom step (%)
+    viewerChecker: '1',         // checkerboard behind transparent images
+    imageSmoothing: '1',        // smooth pixels when zoomed in
+    dicomDefaultFps: '10',      // cine speed when the file has none
+    dicomOverlayColor: '#00ff80',
+  };
+  const PREF_KEYS = [
+    'theme', 'lang', 'bgRemoveAlgo', 'subtitlesEnabled', 'subtitleLanguage', MEDIA_VOL_KEY, MEDIA_MUTE_KEY,
+    'dicomAnnotations', 'sidebarWidth', 'sidebarTreeHeightV2', 'editEffectsPanelWidth', 'editAdjustPanelWidth',
+    ...Object.keys(PREF_DEFAULTS),
+  ];
+  function _pref(key) {
+    try { const v = localStorage.getItem(key); return v == null ? PREF_DEFAULTS[key] : v; } catch { return PREF_DEFAULTS[key]; }
+  }
+  function _setPref(key, value) {
+    try { localStorage.setItem(key, String(value)); } catch { /* ignore */ }
+  }
+  const _prefOn = (key) => _pref(key) !== '0';
   const statusDims       = document.getElementById('status-dims');
   const statusIdx        = document.getElementById('status-idx');
   const statusFmt        = document.getElementById('status-format');
@@ -248,6 +287,9 @@
   _initKeyboard();
   _initMediaCues();
   _initDicomBar();
+  _initDicomOverlay();
+  _initSettingsDialog();   // after the DOM refs / preference constants above
+  _initInfoTagFilter();
 
   /* ─── Context menu ─── */
   // Capture phase so Chromium's native <video> menu is suppressed
@@ -446,7 +488,7 @@
       } catch (_) { /* folder may be gone */ }
       _openFile(launchFile, { center: true }).catch(() => {});
     } else {
-      const lastDir = localStorage.getItem('lastOpenedDir');
+      const lastDir = _prefOn('restoreSession') ? localStorage.getItem('lastOpenedDir') : null;
       if (lastDir) {
         try {
           const stats = await window.electronAPI.getFileStats(lastDir);
@@ -618,14 +660,31 @@
     ];
   }
 
+  // Edit-window menu bar: the same five menus with the editor's own actions
+  function _ewMenubarDefs() {
+    return [
+      { id: 'file',    labelKey: 'menu.file',    icon: 'file',    prefix: 'ew-', items: () => _ewFileMenuItems() },
+      { id: 'edit',    labelKey: 'menu.edit',    icon: 'edit',    prefix: 'ew-', items: () => _ewEditMenuItems() },
+      { id: 'view',    labelKey: 'menu.view',    icon: 'image',   prefix: 'ew-', items: () => _ewViewMenuItems() },
+      { id: 'effects', labelKey: 'menu.effects', icon: 'effects', prefix: 'ew-', items: () => _effectsMenuItems() },
+      { id: 'help',    labelKey: 'menu.help',    icon: 'help',    prefix: 'ew-', items: () => _helpMenuItems() },
+    ];
+  }
+
   function _buildMenubar() {
-    if (!menubarEl) return;
-    menubarEl.innerHTML = '';
-    for (const m of _menubarDefs()) {
+    _buildMenubarInto(menubarEl, _menubarDefs());
+    _buildMenubarInto(document.getElementById('ew-menubar'), _ewMenubarDefs());
+  }
+
+  function _buildMenubarInto(container, defs) {
+    if (!container) return;
+    container.innerHTML = '';
+    for (const m of defs) {
+      const key = (m.prefix || '') + m.id;
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'menubar-btn';
-      btn.id = `menubar-${m.id}`;
+      btn.id = `menubar-${key}`;
       btn.setAttribute('aria-haspopup', 'menu');
       btn.innerHTML = Icons[m.icon] || '';
       const span = document.createElement('span');
@@ -636,30 +695,84 @@
       btn.addEventListener('mousedown', (e) => {
         e.preventDefault();
         e.stopPropagation();
-        if (_menubarOpen === m.id) ContextMenu.hide();
-        else _openMenubarMenu(m);
+        if (_menubarOpen === key) ContextMenu.hide();
+        else _openMenubarMenu(m, container);
       });
       btn.addEventListener('click', (e) => e.stopPropagation());
       btn.addEventListener('mouseenter', () => {
-        if (_menubarOpen && _menubarOpen !== m.id) _openMenubarMenu(m);
+        if (_menubarOpen && _menubarOpen !== key) _openMenubarMenu(m, container);
       });
-      menubarEl.appendChild(btn);
+      container.appendChild(btn);
     }
   }
 
-  function _openMenubarMenu(m) {
-    const btn = document.getElementById(`menubar-${m.id}`);
+  function _openMenubarMenu(m, container = menubarEl) {
+    const key = (m.prefix || '') + m.id;
+    const btn = document.getElementById(`menubar-${key}`);
     if (!btn) return;
     const r = btn.getBoundingClientRect();
-    menubarEl.querySelectorAll('.menubar-btn.is-open').forEach((b) => b.classList.remove('is-open'));
+    container?.querySelectorAll('.menubar-btn.is-open').forEach((b) => b.classList.remove('is-open'));
     btn.classList.add('is-open');
-    _menubarOpen = m.id;
+    _menubarOpen = key;
     ContextMenu.show(r.left, r.bottom + 2, m.items(), {
       onHide: () => {
-        if (_menubarOpen === m.id) _menubarOpen = null;
+        if (_menubarOpen === key) _menubarOpen = null;
         btn.classList.remove('is-open');
       },
     });
+  }
+
+  function _ewFileMenuItems() {
+    const t = I18n.t.bind(I18n);
+    return [
+      { icon: Icons.saveAs,  label: t('editWindow.saveNew'), shortcut: 'Ctrl+S', action: () => _saveAsNewFile() },
+      { icon: Icons.print,   label: t('menu.print'),         shortcut: 'Ctrl+P', action: () => _openPrintPreview() },
+      { icon: Icons.copy,    label: t('menu.copyToClipboard'), shortcut: 'Ctrl+C', action: () => _ewCopy() },
+      { separator: true },
+      { icon: Icons.fileInfo, label: t('menu.fileInfo'),     shortcut: 'Ctrl+I', disabled: !state.currentFile, action: () => _showFileInfoDialog() },
+      { icon: Icons.settings, label: t('menu.settings'),     action: () => _openSettings() },
+      { separator: true },
+      { icon: Icons.edit,    label: t('editWindow.apply'),   action: () => _requestCloseEditWindow(true) },
+      { icon: Icons.close,   label: t('editWindow.cancel'),  shortcut: 'Esc', action: () => _requestCloseEditWindow(false) },
+    ];
+  }
+
+  function _ewEditMenuItems() {
+    const t = I18n.t.bind(I18n);
+    const hasSel = Editor.hasSelection();
+    return [
+      { icon: Icons.undo,  label: t('menu.undo'), shortcut: 'Ctrl+Z', disabled: !Editor.canUndo(), action: () => _undoEdit() },
+      { icon: Icons.redo,  label: t('menu.redo'), shortcut: 'Ctrl+Y', disabled: !Editor.canRedo(), action: () => _redoEdit() },
+      { separator: true },
+      { icon: Icons.cut,   label: t('context.cut'),  shortcut: 'Ctrl+X', disabled: !hasSel, action: () => _ewCut() },
+      { icon: Icons.copy,  label: t('context.copy'), shortcut: 'Ctrl+C', action: () => _ewCopy() },
+      { icon: Icons.crop,  label: t('editWindow.cropSel'),  disabled: !hasSel, action: () => _cropToSelection() },
+      { icon: Icons.close, label: t('editWindow.clearSel'), disabled: !hasSel, action: () => { Editor.clearSelection(); _ewUpdateSelBtns(); } },
+      { separator: true },
+      { icon: Icons.rotateLeft,  label: t('menu.rotateLeft'),     shortcut: 'Ctrl+[', action: () => _rotate(-90) },
+      { icon: Icons.rotateRight, label: t('menu.rotateRight'),    shortcut: 'Ctrl+]', action: () => _rotate(90) },
+      { icon: Icons.flipH,       label: t('menu.flipHorizontal'), action: () => _flip('h') },
+      { icon: Icons.flipV,       label: t('menu.flipVertical'),   action: () => _flip('v') },
+      { icon: Icons.resize,      label: t('menu.resize'),         shortcut: 'Ctrl+Shift+R', action: () => _openResizeDialog() },
+      { separator: true },
+      { icon: Icons.bgRemove,    label: t('context.bgRemove'),    action: () => _removeBackground() },
+      { icon: Icons.reset,       label: t('menu.resetEdits'),     action: () => _resetAll() },
+    ];
+  }
+
+  function _ewViewMenuItems() {
+    const t = I18n.t.bind(I18n);
+    return [
+      { icon: Icons.zoomIn,     label: t('menu.zoomIn'),      shortcut: 'Ctrl++', action: () => _ewZoomBy(1.25) },
+      { icon: Icons.zoomOut,    label: t('menu.zoomOut'),     shortcut: 'Ctrl+-', action: () => _ewZoomBy(0.8) },
+      { icon: Icons.fitWindow,  label: t('menu.fitToWindow'), shortcut: 'Ctrl+0', action: () => _ewFit() },
+      { icon: Icons.actualSize, label: t('menu.actualSize'),  shortcut: 'Ctrl+1', action: () => _ewZoomTo(1) },
+      { separator: true },
+      !_isWeb() && { icon: Icons.fullscreen, label: t('menu.fullscreen'), shortcut: 'F11', action: () => window.electronAPI.toggleFullscreen?.() },
+      !_isWeb() && { separator: true },
+      { icon: Icons.palette,  label: t('menu.theme'),    submenu: () => _themeMenuItems() },
+      { icon: Icons.language, label: t('menu.language'), submenu: () => _langMenuItems() },
+    ].filter(Boolean);
   }
 
   const _isWeb = () => window.electronAPI.platform === 'web';
@@ -1087,6 +1200,9 @@
         const cssW = parseFloat(cs.width) || 0;
         w += Math.max(child.scrollWidth, child.getBoundingClientRect().width, minW, cssW);
       }
+      // Horizontal margins (separators, action groups) take room too
+      const mcs = getComputedStyle(child);
+      w += (parseFloat(mcs.marginLeft) || 0) + (parseFloat(mcs.marginRight) || 0);
       if (i < kids.length - 1) w += gap;
     });
     return Math.ceil(w);
@@ -1094,12 +1210,12 @@
 
   function _measureEditTitlebarWidth() {
     const win = document.getElementById('edit-window');
-    const bar = document.getElementById('edit-window-titlebar');
+    const bar = document.getElementById('ew-toolbar-row');
     if (!win || !bar) return 0;
 
     const temp = !win.classList.contains('visible');
     if (temp) win.classList.add('measuring');
-    const width = _measureFlexContentWidth(bar);
+    const width = _measureFlexContentWidth(bar, 'ew-spacer');
     if (temp) win.classList.remove('measuring');
     return width;
   }
@@ -1230,15 +1346,16 @@
   }
 
   function _updateUndoRedoBtns() {
-    const canUndo = Editor.canUndo();
-    const canRedo = Editor.canRedo();
+    const canUndo = Editor.canUndo() || (!state.editMode && _dicomMeasCanUndo());
+    const canRedo = Editor.canRedo() || (!state.editMode && _dicomMeasCanRedo());
     _setChromeBtn(document.getElementById('btn-undo'), canUndo);
     _setChromeBtn(document.getElementById('btn-redo'), canRedo);
-    _setChromeBtn(document.getElementById('ew-undo'), canUndo);
-    _setChromeBtn(document.getElementById('ew-redo'), canRedo);
+    _setChromeBtn(document.getElementById('ew-undo'), Editor.canUndo());
+    _setChromeBtn(document.getElementById('ew-redo'), Editor.canRedo());
   }
 
   function _onHistoryChange() {
+    _editorSeq = ++_actionSeq;
     _updateUndoRedoBtns();
     _syncSlidersFromEffects('eff');
     _syncSlidersFromEffects('ew-eff');
@@ -1548,12 +1665,21 @@
     state.dicom = image || null;
     _dicomBusy = false;
     _dicomNext = null;
+    _dicomCineFps = null;
+    _dicomMeasReset();
     _dicomSyncBar();
+    _dicomOverlayRequest();
+    // Overlay planes take the colour chosen in Settings (the first render used the decoder default)
+    if (image && image.overlays && image.overlays.length) {
+      const rgb = _dicomOverlayRgb();
+      const cur = image.state.overlayColor || [];
+      if (rgb.some((c, i) => c !== cur[i])) _dicomApply({ overlayColor: rgb });
+    }
   }
 
   function _dicomHasBar() {
     const d = state.dicom;
-    return !!(d && Editor.isLoaded() && !state.isVideo && !state.isAudio && !state.editMode && (d.frames > 1 || d.gray));
+    return !!(d && Editor.isLoaded() && !state.isVideo && !state.isAudio && !state.editMode);
   }
 
   function _dicomFmt(v) {
@@ -1561,11 +1687,18 @@
     return Math.abs(v) >= 100 || Math.abs(v - Math.round(v)) < 0.05 ? String(Math.round(v)) : v.toFixed(1);
   }
 
+  // The windows that apply to the frame on screen (enhanced multi-frame files carry them per frame)
+  function _dicomFrameWindows(d) {
+    if (!d) return [];
+    try { return d.windowsFor ? d.windowsFor(d.state.frame) : d.fileWindows; } catch { return d.fileWindows || []; }
+  }
+
   function _dicomPresetId() {
     const d = state.dicom;
     if (!d) return '';
+    if (d.state.voiLut >= 0) return `lut:${d.state.voiLut}`;
     const same = (a, b) => Math.abs(a - b) < 0.5;
-    const fi = d.fileWindows.findIndex((w) => same(w.wc, d.state.wc) && same(w.ww, d.state.ww));
+    const fi = _dicomFrameWindows(d).findIndex((w) => same(w.wc, d.state.wc) && same(w.ww, d.state.ww));
     if (fi >= 0) return `file:${fi}`;
     const p = (d.presets || []).find((x) => same(x.wc, d.state.wc) && same(x.ww, d.state.ww));
     if (p) return p.id;
@@ -1580,15 +1713,32 @@
     const t = I18n.t.bind(I18n);
     const opts = [];
     opts.push(`<option value="" disabled>${_escHtml(t('dicom.preset.custom'))}</option>`);
-    d.fileWindows.forEach((w, i) => {
-      const label = w.label ? ` — ${w.label}` : (d.fileWindows.length > 1 ? ` ${i + 1}` : '');
+    const wins = _dicomFrameWindows(d);
+    wins.forEach((w, i) => {
+      const label = w.label ? ` — ${w.label}` : (wins.length > 1 ? ` ${i + 1}` : '');
       opts.push(`<option value="file:${i}">${_escHtml(`${t('dicom.preset.file')}${label} (C ${_dicomFmt(w.wc)} / W ${_dicomFmt(w.ww)})`)}</option>`);
+    });
+    (d.voiLuts || []).forEach((l, i) => {
+      opts.push(`<option value="lut:${i}">${_escHtml(`${t('dicom.preset.lut')} — ${l.label}`)}</option>`);
     });
     opts.push(`<option value="auto">${_escHtml(t('dicom.preset.auto'))}</option>`);
     (d.presets || []).forEach((p) => {
       opts.push(`<option value="${p.id}">${_escHtml(`${t(`dicom.preset.${p.id}`)} (C ${p.wc} / W ${p.ww})`)}</option>`);
     });
     dcmPreset.innerHTML = opts.join('');
+    dcmPreset.dataset.frame = String(d.state.frame);
+  }
+
+  function _dicomBuildColormapOptions() {
+    const d = state.dicom;
+    if (!d || !dcmColormap) return;
+    const t = I18n.t.bind(I18n);
+    dcmColormap.innerHTML = (d.colormaps || ['gray']).map((id) => {
+      const key = `dicom.cm.${id}`;
+      const label = t(key);
+      return `<option value="${id}">${_escHtml(label && label !== key ? label : id)}</option>`;
+    }).join('');
+    dcmColormap.dataset.lang = state.lang;
   }
 
   function _dicomSyncBar() {
@@ -1600,6 +1750,7 @@
     dicomBar.classList.toggle('is-on', on);
     if (!on) {
       _dicomStopCine();
+      _dicomProbeShow(null);
       return;
     }
     const st = d.state;
@@ -1616,23 +1767,55 @@
       document.getElementById('dcm-next-frame')?.toggleAttribute('disabled', st.frame >= d.frames - 1);
       dcmPlayBtn?.classList.toggle('is-active', !!_dicomCineTimer);
       dcmPlayBtn?.setAttribute('aria-pressed', _dicomCineTimer ? 'true' : 'false');
+      if (dcmFps && document.activeElement !== dcmFps) dcmFps.value = String(Math.round(_dicomCineRate()));
       const sep = document.getElementById('dcm-frames-sep');
       if (sep) sep.hidden = !d.gray;
     }
     // Window
     if (dcmWindowWrap) dcmWindowWrap.hidden = !d.gray;
     if (d.gray) {
-      if (dcmPreset && (!dcmPreset.options.length || dcmPreset.dataset.for !== state.currentFile)) {
+      if (dcmPreset && (!dcmPreset.options.length || dcmPreset.dataset.for !== state.currentFile
+          || (d.enhanced && dcmPreset.dataset.frame !== String(st.frame)))) {
         _dicomBuildPresetOptions();
         dcmPreset.dataset.for = state.currentFile || '';
       }
       if (dcmPreset) dcmPreset.value = _dicomPresetId();
-      if (dcmWc && document.activeElement !== dcmWc) dcmWc.value = _dicomFmt(st.wc);
-      if (dcmWw && document.activeElement !== dcmWw) dcmWw.value = _dicomFmt(st.ww);
+      const lutOn = st.voiLut >= 0;
+      if (dcmWc && document.activeElement !== dcmWc) dcmWc.value = lutOn ? '' : _dicomFmt(st.wc);
+      if (dcmWw && document.activeElement !== dcmWw) dcmWw.value = lutOn ? '' : _dicomFmt(st.ww);
+      dcmWc?.toggleAttribute('disabled', lutOn);
+      dcmWw?.toggleAttribute('disabled', lutOn);
       dcmInvertBtn?.classList.toggle('is-active', !!st.invert);
       dcmInvertBtn?.setAttribute('aria-pressed', st.invert ? 'true' : 'false');
-      if (dcmRange) dcmRange.textContent = d.range ? `${_dicomFmt(d.range.min)} … ${_dicomFmt(d.range.max)}` : '';
+      if (dcmColormap) {
+        if (!dcmColormap.options.length || dcmColormap.dataset.lang !== state.lang) _dicomBuildColormapOptions();
+        dcmColormap.value = st.colormap || 'gray';
+      }
+      if (dcmRange) {
+        const fn = st.voiFunction && st.voiFunction !== 'LINEAR' ? ` · ${st.voiFunction}` : '';
+        dcmRange.textContent = d.range ? `${_dicomFmt(d.range.min)} … ${_dicomFmt(d.range.max)}${d.units ? ` ${d.units}` : ''}${fn}` : '';
+      }
     }
+    // Tools: overlay planes, annotations, measurement tools
+    if (dcmOverlaysBtn) {
+      const has = !!(d.overlays && d.overlays.length);
+      dcmOverlaysBtn.hidden = !has;
+      dcmOverlaysBtn.classList.toggle('is-active', has && !!st.overlays);
+      dcmOverlaysBtn.setAttribute('aria-pressed', has && st.overlays ? 'true' : 'false');
+    }
+    if (dcmAnnotBtn) {
+      dcmAnnotBtn.classList.toggle('is-active', _dicomAnnotOn);
+      dcmAnnotBtn.setAttribute('aria-pressed', _dicomAnnotOn ? 'true' : 'false');
+    }
+    const toolsOk = _dicomGeomValid();
+    dcmToolsWrap?.querySelectorAll('.dcm-tool').forEach((b) => {
+      b.toggleAttribute('disabled', !toolsOk);
+      b.classList.toggle('is-active', toolsOk && b.dataset.tool === _dicomTool);
+      b.setAttribute('aria-pressed', toolsOk && b.dataset.tool === _dicomTool ? 'true' : 'false');
+    });
+    document.getElementById('dcm-meas-clear')?.toggleAttribute('disabled', !_dicomMeas.length);
+    const toolsSep = document.getElementById('dcm-tools-sep');
+    if (toolsSep) toolsSep.hidden = !(multi || d.gray);
     _updateStatus({});
   }
 
@@ -1651,6 +1834,8 @@
       if (!wasDirty) _clearDirty();
       _updateUndoRedoBtns();
       _dicomSyncBar();
+      _dicomOverlayRequest();
+      _dicomProbeRefresh();
     }).catch((e) => {
       console.error('DICOM re-render failed:', e);
       _updateStatus({ msg: e && e.message ? e.message : String(e) });
@@ -1685,8 +1870,12 @@
       return;
     }
     if (id.startsWith('file:')) {
-      const w = d.fileWindows[Number(id.slice(5))];
+      const w = _dicomFrameWindows(d)[Number(id.slice(5))];
       if (w) _dicomWindow(w.wc, w.ww);
+      return;
+    }
+    if (id.startsWith('lut:')) {
+      _dicomApply({ voiLut: Number(id.slice(4)) });
       return;
     }
     const p = (d.presets || []).find((x) => x.id === id);
@@ -1696,8 +1885,27 @@
   function _dicomResetWindow() {
     const d = state.dicom;
     if (!d) return;
-    const w = d.defaultWindow?.();
-    if (w) _dicomApply({ wc: w.wc, ww: w.ww, invert: d.photometric === 'MONOCHROME1' });
+    const invert = d.defaultInvert ? d.defaultInvert() : d.photometric === 'MONOCHROME1';
+    _dicomApply({ resetWindow: true, invert, colormap: 'gray' });
+  }
+
+  function _dicomSetColormap(id) {
+    const d = state.dicom;
+    if (!d || !d.gray || !(d.colormaps || []).includes(id)) return;
+    _dicomApply({ colormap: id });
+  }
+
+  function _dicomCycleColormap() {
+    const d = state.dicom;
+    if (!d || !d.gray) return;
+    const list = d.colormaps || ['gray'];
+    _dicomSetColormap(list[(list.indexOf(d.state.colormap) + 1) % list.length]);
+  }
+
+  function _dicomToggleOverlays() {
+    const d = state.dicom;
+    if (!d || !(d.overlays && d.overlays.length)) return;
+    _dicomApply({ overlays: !d.state.overlays });
   }
 
   function _dicomToggleInvert() {
@@ -1708,26 +1916,54 @@
 
   function _dicomStopCine() {
     if (_dicomCineTimer) {
-      clearInterval(_dicomCineTimer);
+      clearTimeout(_dicomCineTimer);
       _dicomCineTimer = null;
       dcmPlayBtn?.classList.remove('is-active');
       dcmPlayBtn?.setAttribute('aria-pressed', 'false');
     }
   }
 
+  // Cine speed in fps: the user's override, else the file's Recommended Display Frame Rate /
+  // Cine Rate / Frame Time (Vector), else 10 fps.
+  function _dicomCineRate() {
+    if (Number.isFinite(_dicomCineFps) && _dicomCineFps > 0) return _dicomCineFps;
+    const d = state.dicom;
+    if (d && Number.isFinite(d.frameRate) && d.frameRate > 0) return d.frameRate;
+    const def = parseFloat(_pref('dicomDefaultFps'));
+    return Number.isFinite(def) && def > 0 ? Math.min(120, def) : 10;
+  }
+
+  function _dicomOverlayRgb() {
+    const m = /^#?([0-9a-f]{6})$/i.exec(String(_pref('dicomOverlayColor') || '').trim());
+    if (!m) return [0, 255, 128];
+    const n = parseInt(m[1], 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  }
+
+  function _dicomSetCineFps(fps) {
+    _dicomCineFps = Number.isFinite(fps) && fps > 0 ? Math.min(120, fps) : null;
+    if (_dicomCineTimer) { _dicomStopCine(); _dicomToggleCine(); }
+    _dicomSyncBar();
+  }
+
   function _dicomToggleCine() {
     const d = state.dicom;
     if (!d || d.frames <= 1) return;
     if (_dicomCineTimer) { _dicomStopCine(); return; }
-    // Frame Time (0018,1063) when present, otherwise ~10 fps
-    const ft = parseFloat((state.dicomTags || []).find((t) => t.tag === '(0018,1063)')?.value);
-    const interval = Number.isFinite(ft) && ft > 0 ? Math.max(20, ft) : 100;
-    _dicomCineTimer = setInterval(() => {
+    // Delay before showing frame i: the Frame Time Vector entry when the file has one and
+    // the speed is not overridden, otherwise 1000 / fps.
+    const delayFor = (frame) => {
+      if (_dicomCineFps == null && d.frameTimes && d.frameTimes[frame] > 0) return Math.max(20, d.frameTimes[frame]);
+      return Math.max(1000 / 120, 1000 / _dicomCineRate());
+    };
+    const tick = () => {
       const cur = state.dicom;
       if (!cur || cur !== d || !_dicomHasBar()) { _dicomStopCine(); return; }
-      if (_dicomBusy) return;
-      _dicomApply({ frame: (cur.state.frame + 1) % cur.frames });
-    }, interval);
+      const next = (cur.state.frame + 1) % cur.frames;
+      if (!_dicomBusy) _dicomApply({ frame: next });
+      _dicomCineTimer = setTimeout(tick, delayFor(next));
+    };
+    _dicomCineTimer = setTimeout(tick, delayFor((d.state.frame + 1) % d.frames));
     dcmPlayBtn?.classList.add('is-active');
     dcmPlayBtn?.setAttribute('aria-pressed', 'true');
   }
@@ -1776,6 +2012,18 @@
     }));
     dcmInvertBtn?.addEventListener('click', _dicomToggleInvert);
     document.getElementById('dcm-reset')?.addEventListener('click', _dicomResetWindow);
+    dcmColormap?.addEventListener('change', () => _dicomSetColormap(dcmColormap.value));
+    dcmFps?.addEventListener('change', () => _dicomSetCineFps(parseFloat(dcmFps.value)));
+    dcmFps?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); dcmFps.blur(); }
+      e.stopPropagation();
+    });
+    dcmOverlaysBtn?.addEventListener('click', _dicomToggleOverlays);
+    dcmAnnotBtn?.addEventListener('click', _dicomToggleAnnotations);
+    dcmToolsWrap?.querySelectorAll('.dcm-tool').forEach((b) => {
+      b.addEventListener('click', () => _dicomSetTool(_dicomTool === b.dataset.tool ? null : b.dataset.tool));
+    });
+    document.getElementById('dcm-meas-clear')?.addEventListener('click', () => _dicomMeasClear());
     // Wheel over the frame slider steps frames instead of zooming the viewer
     dcmFramesWrap?.addEventListener('wheel', (e) => {
       if (!state.dicom || state.dicom.frames <= 1) return;
@@ -1786,12 +2034,685 @@
     dicomBar.addEventListener('mousedown', (e) => e.stopPropagation());
   }
 
+  /* ════════════════════════════════════════════
+     DICOM overlay layer
+     Corner annotations, orientation markers, scale bar, measurements
+     (ruler / angle / ellipse / rectangle ROI) and the pixel probe.
+     Drawn in screen space on #dcm-overlay (covers the viewer) so text and
+     line widths stay constant while the image zooms; redrawn on every
+     transform change (_applyTransform) and DICOM re-render (_dicomApply).
+  ════════════════════════════════════════════ */
+  function _dicomMeasReset() {
+    _dicomMeas = [];
+    _dicomDraft = null;
+    _dicomTool = null;
+    _dicomProbePt = null;
+    _dicomMeasHist.undo = [];
+    _dicomMeasHist.redo = [];
+    _dicomMeasHist.seq = 0;
+    dcmOverlay?.classList.remove('is-tool');
+  }
+
+  /* ── Measurement history (add / delete / clear are undoable — Ctrl+Z / Ctrl+Y, toolbar, context menu) ── */
+  function _dicomMeasSnapshot() {
+    return _dicomMeas.map((m) => ({ ...m, pts: m.pts.map((pt) => ({ ...pt })) }));
+  }
+  function _dicomMeasCommit(next) {
+    _dicomMeasHist.undo.push(_dicomMeasSnapshot());
+    if (_dicomMeasHist.undo.length > 50) _dicomMeasHist.undo.shift();
+    _dicomMeasHist.redo = [];
+    _dicomMeasHist.seq = ++_actionSeq;
+    _dicomMeas = next;
+    _dicomSyncBar();
+    _dicomOverlayRequest();
+    _updateUndoRedoBtns();
+  }
+  function _dicomMeasCanUndo() { return !!(state.dicom && _dicomMeasHist.undo.length); }
+  function _dicomMeasCanRedo() { return !!(state.dicom && _dicomMeasHist.redo.length); }
+  function _dicomMeasUndo() {
+    if (!_dicomMeasCanUndo()) return false;
+    _dicomMeasHist.redo.push(_dicomMeasSnapshot());
+    _dicomMeas = _dicomMeasHist.undo.pop();
+    _dicomMeasHist.seq = ++_actionSeq;
+    _dicomDraft = null;
+    _dicomSyncBar();
+    _dicomOverlayRequest();
+    _updateUndoRedoBtns();
+    return true;
+  }
+  function _dicomMeasRedo() {
+    if (!_dicomMeasCanRedo()) return false;
+    _dicomMeasHist.undo.push(_dicomMeasSnapshot());
+    _dicomMeas = _dicomMeasHist.redo.pop();
+    _dicomMeasHist.seq = ++_actionSeq;
+    _dicomDraft = null;
+    _dicomSyncBar();
+    _dicomOverlayRequest();
+    _updateUndoRedoBtns();
+    return true;
+  }
+  function _dicomMeasAdd(m) { _dicomMeasCommit([..._dicomMeas, m]); }
+  function _dicomMeasDelete(index) {
+    if (index < 0 || index >= _dicomMeas.length) return;
+    _dicomMeasCommit(_dicomMeas.filter((_, i) => i !== index));
+  }
+  function _dicomMeasDeleteLast() {
+    if (_dicomDraft) { _dicomDraft = null; _dicomOverlayRequest(); return; }
+    if (_dicomMeas.length) _dicomMeasDelete(_dicomMeas.length - 1);
+  }
+
+  // Short description of a measurement for menus ("Ruler 32.0 mm", "Angle 43.4°" …)
+  function _dicomMeasLabel(m) {
+    const t = I18n.t.bind(I18n);
+    const name = (t(`dicom.tool.${m.type}`) || m.type).replace(/\s*\(.*\)$/, '');
+    if (m.type === 'ruler') return `${name} ${_dicomFmtLen(_dicomDist(m.pts[0], m.pts[1]))}`;
+    if (m.type === 'angle') {
+      const sp = _dicomSpacing() || [1, 1];
+      const ax = (m.pts[0].x - m.pts[1].x) * sp[1], ay = (m.pts[0].y - m.pts[1].y) * sp[0];
+      const bx = (m.pts[2].x - m.pts[1].x) * sp[1], by = (m.pts[2].y - m.pts[1].y) * sp[0];
+      const la = Math.hypot(ax, ay), lb = Math.hypot(bx, by);
+      const deg = la && lb ? Math.acos(Math.max(-1, Math.min(1, (ax * bx + ay * by) / (la * lb)))) * 180 / Math.PI : 0;
+      return `${name} ${deg.toFixed(1)}°`;
+    }
+    const w = Math.abs(m.pts[1].x - m.pts[0].x), h = Math.abs(m.pts[1].y - m.pts[0].y);
+    return `${name} ${_dicomFmtLen(_dicomDist({ x: 0, y: 0 }, { x: w, y: 0 }))} × ${_dicomFmtLen(_dicomDist({ x: 0, y: 0 }, { x: 0, y: h }))}`;
+  }
+
+  // Index of the measurement under a viewer point (within ~12 px of its outline, or inside an ROI), else -1
+  function _dicomMeasHitTest(clientX, clientY) {
+    const d = state.dicom;
+    const map = _dicomMapping();
+    if (!d || !map) return -1;
+    const vr = viewerContainer.getBoundingClientRect();
+    const px = clientX - vr.left, py = clientY - vr.top;
+    const ip = map.toImage(px, py);
+    const segDist = (a, b) => {
+      const dx = b.x - a.x, dy = b.y - a.y, L2 = dx * dx + dy * dy;
+      const u = L2 ? Math.max(0, Math.min(1, ((px - a.x) * dx + (py - a.y) * dy) / L2)) : 0;
+      return Math.hypot(px - (a.x + u * dx), py - (a.y + u * dy));
+    };
+    let best = -1, bestD = 12;
+    _dicomMeas.forEach((m, i) => {
+      if (m.frame !== d.state.frame) return;
+      const S = m.pts.map((pt) => map.toScreen(pt.x, pt.y));
+      let dist = Infinity;
+      if (m.type === 'ruler' || m.type === 'angle') {
+        for (let k = 0; k + 1 < S.length; k++) dist = Math.min(dist, segDist(S[k], S[k + 1]));
+      } else {
+        const x0 = Math.min(m.pts[0].x, m.pts[1].x), y0 = Math.min(m.pts[0].y, m.pts[1].y);
+        const w = Math.abs(m.pts[1].x - m.pts[0].x), h = Math.abs(m.pts[1].y - m.pts[0].y);
+        let inside;
+        if (m.type === 'ellipse') {
+          const nx = (ip.x - (x0 + w / 2)) / (w / 2 || 1e-6), ny = (ip.y - (y0 + h / 2)) / (h / 2 || 1e-6);
+          inside = nx * nx + ny * ny <= 1;
+        } else {
+          inside = ip.x >= x0 && ip.x <= x0 + w && ip.y >= y0 && ip.y <= y0 + h;
+        }
+        if (inside) dist = 0;
+        else {
+          const c = [[x0, y0], [x0 + w, y0], [x0 + w, y0 + h], [x0, y0 + h]].map(([x, y]) => map.toScreen(x, y));
+          for (let k = 0; k < 4; k++) dist = Math.min(dist, segDist(c[k], c[(k + 1) % 4]));
+        }
+      }
+      if (dist < bestD) { bestD = dist; best = i; }
+    });
+    return best;
+  }
+
+  // The overlay geometry is only meaningful while the Editor shows the DICOM frame unchanged
+  // (rotation / flip are fine; a crop or resize is not) and the viewer is not in edit mode.
+  function _dicomGeomValid() {
+    const d = state.dicom;
+    if (!d || !Editor.isLoaded() || state.editMode || state.isVideo || state.isAudio) return false;
+    const rot = Editor.getRotation();
+    const p = Editor.getPhotoDimensions();
+    const swap = rot === 90 || rot === 270;
+    return p.w === (swap ? d.height : d.width) && p.h === (swap ? d.width : d.height);
+  }
+
+  // Mapping between image pixels and overlay (viewer) pixels — follows zoom, pan, rotation, flip
+  // and a border frame around the photo.
+  function _dicomMapping() {
+    const d = state.dicom;
+    if (!d || !_dicomGeomValid()) return null;
+    const r = displayCanvas.getBoundingClientRect();
+    const vr = viewerContainer.getBoundingClientRect();
+    if (!r.width || !displayCanvas.width) return null;
+    const scale = r.width / displayCanvas.width;
+    const photo = Editor.getPhotoDimensions();
+    const padX = (displayCanvas.width - photo.w) / 2, padY = (displayCanvas.height - photo.h) / 2;
+    const rot = Editor.getRotation() * Math.PI / 180;
+    const { flipH, flipV } = Editor.getFlipState();
+    const cos = Math.cos(rot), sin = Math.sin(rot);
+    const ox = r.left - vr.left, oy = r.top - vr.top;
+    const nW = d.width, nH = d.height;
+    const toScreen = (sx, sy) => {
+      let px = sx - nW / 2, py = sy - nH / 2;
+      if (flipH) px = -px;
+      if (flipV) py = -py;
+      const cx = px * cos - py * sin + photo.w / 2;
+      const cy = px * sin + py * cos + photo.h / 2;
+      return { x: ox + (padX + cx) * scale, y: oy + (padY + cy) * scale };
+    };
+    const toImage = (X, Y) => {
+      const cx = (X - ox) / scale - padX - photo.w / 2;
+      const cy = (Y - oy) / scale - padY - photo.h / 2;
+      let px = cx * cos + cy * sin;
+      let py = -cx * sin + cy * cos;
+      if (flipH) px = -px;
+      if (flipV) py = -py;
+      return { x: px + nW / 2, y: py + nH / 2 };
+    };
+    // A screen direction as an image-space direction (no translation)
+    const dirToImage = (dx, dy) => {
+      let px = dx * cos + dy * sin, py = -dx * sin + dy * cos;
+      if (flipH) px = -px;
+      if (flipV) py = -py;
+      return { x: px, y: py };
+    };
+    return {
+      scale, toScreen, toImage, dirToImage,
+      imageRect: { x: ox + padX * scale, y: oy + padY * scale, w: photo.w * scale, h: photo.h * scale },
+      view: { w: vr.width, h: vr.height },
+    };
+  }
+
+  function _dicomSpacing() {
+    const d = state.dicom;
+    if (!d) return null;
+    try { const fi = d.frameInfo ? d.frameInfo(d.state.frame) : null; if (fi && fi.pixelSpacing) return fi.pixelSpacing; } catch { /* ignore */ }
+    return (d.geometry && d.geometry.pixelSpacing) || null;
+  }
+
+  // Distance between two image points: pixels, and millimetres when the file has a pixel spacing
+  function _dicomDist(a, b) {
+    const sp = _dicomSpacing();
+    const dx = b.x - a.x, dy = b.y - a.y;
+    return { px: Math.hypot(dx, dy), mm: sp ? Math.hypot(dx * sp[1], dy * sp[0]) : null };
+  }
+
+  function _dicomFmtLen(len) {
+    if (len.mm != null) return `${len.mm >= 100 ? len.mm.toFixed(0) : len.mm >= 10 ? len.mm.toFixed(1) : len.mm.toFixed(2)} mm`;
+    return `${len.px.toFixed(1)} px`;
+  }
+
+  function _dicomFmtVal(v) {
+    if (!Number.isFinite(v)) return '';
+    if (Math.abs(v) >= 100 || Number.isInteger(v)) return String(Math.round(v));
+    return String(+v.toFixed(Math.abs(v) >= 10 ? 1 : 3));
+  }
+
+  function _dicomToggleAnnotations() {
+    _dicomAnnotOn = !_dicomAnnotOn;
+    localStorage.setItem('dicomAnnotations', _dicomAnnotOn ? '1' : '0');
+    _dicomSyncBar();
+    _dicomOverlayRequest();
+  }
+
+  function _dicomSetTool(tool) {
+    if (tool && !_dicomGeomValid()) tool = null;
+    _dicomTool = tool;
+    _dicomDraft = null;
+    dcmOverlay?.classList.toggle('is-tool', !!tool);
+    _dicomSyncBar();
+    _dicomOverlayRequest();
+    if (tool) _updateStatus({ msg: I18n.t(`dicom.toolHint.${tool}`) });
+    else if (statusMsg && /Esc/.test(statusMsg.textContent || '')) statusMsg.textContent = '';
+  }
+
+  function _dicomMeasClear() {
+    _dicomDraft = null;
+    if (_dicomMeas.length) _dicomMeasCommit([]);
+    else { _dicomSyncBar(); _dicomOverlayRequest(); }
+  }
+
+  function _dicomOverlayRequest() {
+    if (_dicomOverlayRaf) return;
+    _dicomOverlayRaf = requestAnimationFrame(() => { _dicomOverlayRaf = 0; _dicomOverlayDraw(); });
+  }
+
+  function _dicomOverlayDraw() {
+    if (!dcmOverlay) return;
+    const d = state.dicom;
+    const map = _dicomMapping();
+    const on = !!(d && map && _dicomHasBar() && (_dicomAnnotOn || _dicomMeas.length || _dicomDraft || _dicomTool));
+    dcmOverlay.classList.toggle('is-on', on);
+    if (!on) return;
+    const dpr = window.devicePixelRatio || 1;
+    const W = viewerContainer.clientWidth, H = viewerContainer.clientHeight;
+    const pw = Math.max(1, Math.round(W * dpr)), ph = Math.max(1, Math.round(H * dpr));
+    if (dcmOverlay.width !== pw || dcmOverlay.height !== ph) { dcmOverlay.width = pw; dcmOverlay.height = ph; }
+    const ctx = dcmOverlay.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+    ctx.font = '12px system-ui, "Segoe UI", sans-serif';
+    ctx.textBaseline = 'top';
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    // Keep clear of the DICOM bar at the bottom
+    let bottom = H - 10;
+    if (dicomBar && !dicomBar.hidden) {
+      const br = dicomBar.getBoundingClientRect(), vr = viewerContainer.getBoundingClientRect();
+      if (br.height) bottom = Math.min(bottom, br.top - vr.top - 8);
+    }
+    if (_dicomAnnotOn) _dicomDrawAnnotations(ctx, d, map, W, H, bottom);
+    _dicomDrawMeasurements(ctx, d, map, W, bottom);
+  }
+
+  function _dcmText(ctx, text, x, y, align = 'left', color = '#fff') {
+    if (!text) return;
+    ctx.textAlign = align;
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
+    ctx.strokeText(text, x, y);
+    ctx.fillStyle = color;
+    ctx.fillText(text, x, y);
+  }
+
+  // A block of text lines on a translucent box (measurement labels); kept inside the view
+  function _dcmLabel(ctx, lines, x, y, W, H) {
+    lines = lines.filter(Boolean);
+    if (!lines.length) return;
+    const lh = 15, padX = 6, padY = 4;
+    ctx.textAlign = 'left';
+    const w = Math.max(...lines.map((l) => ctx.measureText(l).width)) + padX * 2;
+    const h = lines.length * lh + padY * 2;
+    x = Math.max(4, Math.min(W - w - 4, x));
+    y = Math.max(4, Math.min(H - h - 4, y));
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.62)';
+    ctx.beginPath();
+    ctx.roundRect ? ctx.roundRect(x, y, w, h, 5) : ctx.rect(x, y, w, h);
+    ctx.fill();
+    ctx.fillStyle = '#ffe08a';
+    lines.forEach((l, i) => ctx.fillText(l, x + padX, y + padY + i * lh));
+  }
+
+  function _dicomDrawAnnotations(ctx, d, map, W, H, bottom) {
+    const m = d.meta || {};
+    const st = d.state;
+    const t = I18n.t.bind(I18n);
+    let fi = null;
+    try { fi = d.frameInfo ? d.frameInfo(st.frame) : null; } catch { fi = null; }
+    const lh = 15, margin = 10;
+    // Top-left: patient
+    const tl = [
+      m.patientName,
+      m.patientId,
+      [m.patientSex, m.patientAge || m.patientBirthDate].filter(Boolean).join(' · '),
+    ].filter(Boolean);
+    tl.forEach((s, i) => _dcmText(ctx, s, margin, margin + i * lh));
+    // Top-right: study / series / equipment
+    const tr = [
+      m.institution,
+      [m.studyDate, m.studyTime].filter(Boolean).join(' '),
+      [d.modality, m.sopClass && m.sopClass !== d.modality ? m.sopClass : ''].filter(Boolean).join(' · '),
+      m.studyDescription,
+      m.seriesDescription,
+      [m.seriesNumber ? `Se ${m.seriesNumber}` : '', m.instanceNumber ? `Im ${m.instanceNumber}` : ''].filter(Boolean).join(' · '),
+    ].filter(Boolean);
+    tr.forEach((s, i) => _dcmText(ctx, s, W - margin, margin + i * lh, 'right'));
+    // Bottom-left: image geometry
+    const sp = _dicomSpacing();
+    const bl = [
+      `${d.width} × ${d.height}${d.frames > 1 ? `  ·  ${t('dicom.frame')} ${st.frame + 1} / ${d.frames}` : ''}`,
+      [fi && Number.isFinite(fi.sliceLocation) ? `SL ${_dicomFmtVal(fi.sliceLocation)}` : '',
+       fi && Number.isFinite(fi.sliceThickness) ? `Th ${_dicomFmtVal(fi.sliceThickness)} mm` : ''].filter(Boolean).join('  ·  '),
+      sp ? `${_dicomFmtVal(sp[1])} × ${_dicomFmtVal(sp[0])} mm/px` : '',
+      m.bitDepth || '',
+    ].filter(Boolean);
+    bl.forEach((s, i) => _dcmText(ctx, s, margin, bottom - bl.length * lh + i * lh));
+    // Bottom-right: window / LUT / colour map / zoom
+    const br = [];
+    if (d.gray) {
+      if (st.voiLut >= 0 && d.voiLuts && d.voiLuts[st.voiLut]) br.push(`LUT ${d.voiLuts[st.voiLut].label}`);
+      else if (Number.isFinite(st.wc)) br.push(`C ${_dicomFmt(st.wc)} / W ${_dicomFmt(st.ww)}${st.voiFunction && st.voiFunction !== 'LINEAR' ? ` (${st.voiFunction})` : ''}`);
+      if (st.colormap && st.colormap !== 'gray') { const key = `dicom.cm.${st.colormap}`; const l = t(key); br.push(l && l !== key ? l : st.colormap); }
+      if (st.invert !== (d.defaultInvert ? d.defaultInvert() : d.photometric === 'MONOCHROME1')) br.push(t('dicom.invert').replace(/\s*\(.*\)$/, ''));
+    }
+    br.push(`${Math.round(state.zoom * 100)}%`);
+    br.forEach((s, i) => _dcmText(ctx, s, W - margin, bottom - br.length * lh + i * lh, 'right'));
+    // Orientation markers at the middle of each edge
+    if (d.dirLabel) {
+      ctx.font = 'bold 15px system-ui, "Segoe UI", sans-serif';
+      const mk = (dx, dy) => { const v = map.dirToImage(dx, dy); try { return d.dirLabel(v.x, v.y) || ''; } catch { return ''; } };
+      const right = mk(1, 0), left = mk(-1, 0), down = mk(0, 1), up = mk(0, -1);
+      const cy = (bottom + margin) / 2;
+      ctx.textBaseline = 'middle';
+      _dcmText(ctx, left, margin + 4, cy, 'left', '#9be7ff');
+      _dcmText(ctx, right, W - margin - 4, cy, 'right', '#9be7ff');
+      ctx.textBaseline = 'top';
+      _dcmText(ctx, up, W / 2, margin, 'center', '#9be7ff');
+      _dcmText(ctx, down, W / 2, bottom - 16, 'center', '#9be7ff');
+      ctx.font = '12px system-ui, "Segoe UI", sans-serif';
+    }
+    // Scale bar: vertical along the right edge (row spacing), when the pixel spacing is known
+    if (sp && sp[0] > 0) {
+      const pxPerMm = map.scale / sp[0];
+      const choices = [0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500];
+      const mm = choices.find((c) => c * pxPerMm >= 60) || choices[choices.length - 1];
+      const len = mm * pxPerMm;
+      const avail = bottom - br.length * lh - 12 - ((bottom + margin) / 2 + 22);
+      if (len <= avail) {
+        const x = W - margin - 6, y0 = (bottom + margin) / 2 + 22;
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
+        ctx.beginPath(); ctx.moveTo(x, y0); ctx.lineTo(x, y0 + len); ctx.moveTo(x - 6, y0); ctx.lineTo(x + 6, y0); ctx.moveTo(x - 6, y0 + len); ctx.lineTo(x + 6, y0 + len); ctx.stroke();
+        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = '#fff';
+        ctx.stroke();
+        ctx.textBaseline = 'middle';
+        _dcmText(ctx, mm >= 10 ? `${mm / 10} cm` : `${mm} mm`, x - 10, y0 + len / 2, 'right');
+        ctx.textBaseline = 'top';
+      }
+    }
+  }
+
+  function _dicomDrawMeasurements(ctx, d, map, W, H) {
+    const frame = d.state.frame;
+    const items = _dicomMeas.filter((m) => m.frame === frame);
+    if (_dicomDraft && _dicomDraft.frame === frame) items.push(_dicomDraft);
+    const units = d.units || '';
+    for (const m of items) {
+      const draft = m === _dicomDraft;
+      ctx.setLineDash(draft ? [6, 4] : []);
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = draft ? '#ffd166' : '#ffb703';
+      ctx.fillStyle = ctx.strokeStyle;
+      const S = m.pts.map((p) => map.toScreen(p.x, p.y));
+      if (m.type === 'ruler') {
+        const [a, b] = S;
+        ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+        const dx = b.x - a.x, dy = b.y - a.y, L = Math.hypot(dx, dy) || 1;
+        const nx = -dy / L * 6, ny = dx / L * 6;
+        ctx.beginPath();
+        ctx.moveTo(a.x - nx, a.y - ny); ctx.lineTo(a.x + nx, a.y + ny);
+        ctx.moveTo(b.x - nx, b.y - ny); ctx.lineTo(b.x + nx, b.y + ny);
+        ctx.stroke();
+        _dcmLabel(ctx, [_dicomFmtLen(_dicomDist(m.pts[0], m.pts[1]))], (a.x + b.x) / 2 + 8, (a.y + b.y) / 2 + 8, W, H);
+      } else if (m.type === 'angle') {
+        if (S.length < 2) continue;
+        const v = S[1];
+        ctx.beginPath(); ctx.moveTo(S[0].x, S[0].y); ctx.lineTo(v.x, v.y);
+        if (S[2]) ctx.lineTo(S[2].x, S[2].y);
+        ctx.stroke();
+        if (S[2]) {
+          const sp = _dicomSpacing() || [1, 1];
+          const ax = (m.pts[0].x - m.pts[1].x) * sp[1], ay = (m.pts[0].y - m.pts[1].y) * sp[0];
+          const bx = (m.pts[2].x - m.pts[1].x) * sp[1], by = (m.pts[2].y - m.pts[1].y) * sp[0];
+          const la = Math.hypot(ax, ay), lb = Math.hypot(bx, by);
+          if (la > 0 && lb > 0) {
+            const deg = Math.acos(Math.max(-1, Math.min(1, (ax * bx + ay * by) / (la * lb)))) * 180 / Math.PI;
+            const a0 = Math.atan2(S[0].y - v.y, S[0].x - v.x), a1 = Math.atan2(S[2].y - v.y, S[2].x - v.x);
+            let sweep = a1 - a0;
+            while (sweep > Math.PI) sweep -= 2 * Math.PI;
+            while (sweep < -Math.PI) sweep += 2 * Math.PI;
+            ctx.beginPath(); ctx.arc(v.x, v.y, 18, a0, a0 + sweep, sweep < 0); ctx.stroke();
+            _dcmLabel(ctx, [`${deg.toFixed(1)}°`], v.x + 22, v.y + 6, W, H);
+          }
+        }
+      } else {
+        const x0 = Math.min(m.pts[0].x, m.pts[1].x), y0 = Math.min(m.pts[0].y, m.pts[1].y);
+        const w = Math.abs(m.pts[1].x - m.pts[0].x), h = Math.abs(m.pts[1].y - m.pts[0].y);
+        ctx.beginPath();
+        if (m.type === 'ellipse') {
+          const cx = x0 + w / 2, cy = y0 + h / 2, N = 64;
+          for (let i = 0; i <= N; i++) {
+            const a = i / N * Math.PI * 2;
+            const p = map.toScreen(cx + Math.cos(a) * w / 2, cy + Math.sin(a) * h / 2);
+            if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+          }
+        } else {
+          const c = [[x0, y0], [x0 + w, y0], [x0 + w, y0 + h], [x0, y0 + h]].map(([x, y]) => map.toScreen(x, y));
+          ctx.moveTo(c[0].x, c[0].y); c.slice(1).forEach((p) => ctx.lineTo(p.x, p.y)); ctx.closePath();
+        }
+        ctx.stroke();
+        const lines = [];
+        const sp = _dicomSpacing();
+        if (d.gray && w >= 1 && h >= 1) {
+          const s = d.stats ? d.stats({ x: x0, y: y0, w, h, shape: m.type }) : null;
+          if (s && s.n) {
+            lines.push(`${I18n.t('dicom.mean')} ${_dicomFmtVal(s.mean)} ± ${_dicomFmtVal(s.std)}${units ? ' ' + units : ''}`);
+            lines.push(`${_dicomFmtVal(s.min)} … ${_dicomFmtVal(s.max)}  ·  n ${s.n}`);
+          }
+        }
+        const areaPx = m.type === 'ellipse' ? Math.PI * (w / 2) * (h / 2) : w * h;
+        lines.push(`${I18n.t('dicom.area')} ${sp ? `${_dicomFmtVal(areaPx * sp[0] * sp[1])} mm²` : `${Math.round(areaPx)} px²`}`
+          + `  ·  ${_dicomFmtLen(_dicomDist({ x: 0, y: 0 }, { x: w, y: 0 }))} × ${_dicomFmtLen(_dicomDist({ x: 0, y: 0 }, { x: 0, y: h }))}`);
+        const ys = [[x0, y0], [x0 + w, y0], [x0 + w, y0 + h], [x0, y0 + h]].map(([x, y]) => map.toScreen(x, y));
+        const maxY = Math.max(...ys.map((p) => p.y)), minX = Math.min(...ys.map((p) => p.x));
+        _dcmLabel(ctx, lines, minX, maxY + 6, W, H);
+      }
+    }
+    ctx.setLineDash([]);
+  }
+
+  // One row per measurement on the current frame (× deletes it; the row itself deletes too)
+  function _dicomMeasRows() {
+    const d = state.dicom;
+    if (!d) return [];
+    const t = I18n.t.bind(I18n);
+    const rows = [];
+    _dicomMeas.forEach((m, i) => {
+      if (m.frame !== d.state.frame) return;
+      const icon = m.type === 'ruler' ? Icons.ruler : m.type === 'angle' ? Icons.angle : m.type === 'ellipse' ? Icons.ellipse : Icons.rectRoi;
+      rows.push({
+        icon, inline: true, label: `${rows.length + 1}. ${_dicomMeasLabel(m)}`, detail: '', title: t('dicom.deleteMeasurement'),
+        action: () => _dicomMeasDelete(i),
+        remove: { title: t('dicom.deleteMeasurement'), action: () => { _dicomMeasDelete(i); ContextMenu.refreshSubmenu(0); } },
+      });
+    });
+    if (rows.length) rows.unshift({ separator: true });
+    return rows;
+  }
+
+  function _dicomEventPoint(e, map) {
+    const vr = viewerContainer.getBoundingClientRect();
+    return map.toImage(e.clientX - vr.left, e.clientY - vr.top);
+  }
+
+  /* Pixel probe: coordinates + stored / rescaled value under the cursor in the status bar */
+  function _dicomProbeRefresh() {
+    const d = state.dicom;
+    if (!d || !_dicomProbePt || !_dicomHasBar()) { _dicomProbeShow(null); return; }
+    const x = Math.floor(_dicomProbePt.x), y = Math.floor(_dicomProbePt.y);
+    if (x < 0 || y < 0 || x >= d.width || y >= d.height) { _dicomProbeShow(null); return; }
+    let v = null;
+    try { v = d.valueAt(x, y); } catch { v = null; }
+    if (!v) { _dicomProbeShow(null); return; }
+    let text;
+    if (v.value !== undefined) {
+      text = `${_dicomFmtVal(v.value)}${v.units ? ' ' + v.units : ''}`;
+      if (v.raw !== v.value) text += ` (${_dicomFmtVal(v.raw)})`;
+      if (v.padding) text += ' · pad';
+      if (v.r !== undefined) text += ` · RGB ${v.r}, ${v.g}, ${v.b}`;
+    } else {
+      text = `RGB ${v.r}, ${v.g}, ${v.b}`;
+    }
+    _dicomProbeShow(`(${x}, ${y})  ${text}`);
+  }
+
+  function _dicomProbeShow(text) {
+    if (!statusProbe) return;
+    const on = !!text;
+    statusProbe.hidden = !on;
+    if (statusProbeSep) statusProbeSep.hidden = !on;
+    statusProbe.textContent = on ? `${I18n.t('dicom.probe')} ${text}` : '';
+  }
+
+  function _initDicomOverlay() {
+    if (!dcmOverlay) return;
+    // Measurement tools draw on the overlay while a tool is active (left button only —
+    // Ctrl+drag / middle button keep their windowing / pan meaning)
+    dcmOverlay.addEventListener('mousedown', (e) => {
+      if (!_dicomTool || e.button !== 0 || e.ctrlKey || e.metaKey) return;
+      const map = _dicomMapping();
+      if (!map) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const p = _dicomEventPoint(e, map);
+      const frame = state.dicom.state.frame;
+      if (_dicomTool === 'angle') {
+        if (!_dicomDraft) _dicomDraft = { type: 'angle', frame, pts: [p, p] };
+        else if (_dicomDraft.pts.length === 2) _dicomDraft.pts = [_dicomDraft.pts[0], p, p];
+        else { _dicomDraft.pts[2] = p; const done = _dicomDraft; _dicomDraft = null; _dicomMeasAdd(done); }
+        _dicomOverlayRequest();
+        return;
+      }
+      _dicomDraft = { type: _dicomTool, frame, pts: [p, p], dragging: true };
+      _dicomOverlayRequest();
+    });
+    window.addEventListener('mousemove', (e) => {
+      if (!_dicomDraft) return;
+      const map = _dicomMapping();
+      if (!map) return;
+      const p = _dicomEventPoint(e, map);
+      if (_dicomDraft.type === 'angle') _dicomDraft.pts[_dicomDraft.pts.length - 1] = p;
+      else if (_dicomDraft.dragging) _dicomDraft.pts[1] = p;
+      _dicomOverlayRequest();
+    });
+    window.addEventListener('mouseup', (e) => {
+      if (!_dicomDraft || !_dicomDraft.dragging) return;
+      const map = _dicomMapping();
+      if (map) _dicomDraft.pts[1] = _dicomEventPoint(e, map);
+      const a = map && map.toScreen(_dicomDraft.pts[0].x, _dicomDraft.pts[0].y);
+      const b = map && map.toScreen(_dicomDraft.pts[1].x, _dicomDraft.pts[1].y);
+      const done = _dicomDraft;
+      _dicomDraft = null;
+      if (a && b && Math.hypot(b.x - a.x, b.y - a.y) >= 3) {
+        delete done.dragging;
+        _dicomMeasAdd(done);
+      }
+      _dicomSyncBar();
+      _dicomOverlayRequest();
+    });
+    // Pixel probe (any DICOM, whatever the tool)
+    viewerContainer.addEventListener('mousemove', (e) => {
+      if (!state.dicom || !_dicomHasBar()) return;
+      if (e.target.closest?.('#dicom-controls, #media-controls')) { _dicomProbePt = null; _dicomProbeShow(null); return; }
+      const map = _dicomMapping();
+      if (!map) { _dicomProbePt = null; _dicomProbeShow(null); return; }
+      _dicomProbePt = _dicomEventPoint(e, map);
+      _dicomProbeRefresh();
+    });
+    viewerContainer.addEventListener('mouseleave', () => { _dicomProbePt = null; _dicomProbeShow(null); });
+    window.addEventListener('resize', () => _dicomOverlayRequest());
+  }
+
+  /* ── DICOM export: every frame as PNG, the tag listing as JSON / CSV / text ── */
+  function _dicomStem() {
+    const name = state.currentFile ? state.currentFile.split(/[/\\]/).pop() : 'dicom';
+    return name.replace(/\.[^.]+$/, '') || 'dicom';
+  }
+
+  async function _dicomExportFrames() {
+    const d = state.dicom;
+    if (!d || d.frames <= 1) return;
+    _dicomStopCine();
+    let dir = null;
+    if (!_isWeb()) {
+      const r = await window.electronAPI.pickDirectory({ title: I18n.t('dicom.exportFrames') });
+      if (!r || r.canceled || !r.path) return;
+      dir = r.path;
+    }
+    const stem = _dicomStem();
+    const pad = String(d.frames).length;
+    const startFrame = d.state.frame;
+    let written = 0;
+    let failure = null;
+    await _runOpWithProgress(async (dlg) => {
+      dlg?.set(2, `0 / ${d.frames}`);
+      for (let i = 0; i < d.frames; i++) {
+        if (state.dicom !== d) break;
+        const { canvas } = await d.toCanvas({ frame: i });
+        const name = `${stem}_f${String(i + 1).padStart(pad, '0')}.png`;
+        const filePath = dir ? await window.electronAPI.pathJoin(dir, name) : name;
+        const wr = await window.electronAPI.writeFile({ filePath, dataUrl: canvas.toDataURL('image/png') });
+        if (!wr || !wr.success) { failure = (wr && wr.error) || name; break; }
+        written++;
+        dlg?.set(Math.round(2 + (i + 1) / d.frames * 95), `${i + 1} / ${d.frames}`);
+      }
+      // Back to the frame on screen (the Editor still shows it; only the session state moved)
+      if (state.dicom === d) await d.render({ frame: startFrame });
+    }, { messageKey: 'dicom.exportingFrames', force: true });
+    if (failure) {
+      await _showError(I18n.t('dialog.save.error') || 'Could not save the file.', failure);
+      return;
+    }
+    try { await FileTree.refresh(); } catch { /* ignore */ }
+    _updateStatus({ msg: `${written} ${I18n.t('dicom.framesExported')}` });
+    await window.electronAPI.showMessageBox({
+      type: 'info',
+      title: I18n.t('dicom.exportFrames').replace(/…$/, ''),
+      message: `${written} ${I18n.t('dicom.framesExported')}`,
+      detail: dir || '',
+      buttons: ['OK'],
+    });
+  }
+
+  function _dicomTagsText(format) {
+    const d = state.dicom;
+    const tags = Array.isArray(state.dicomTags) ? state.dicomTags : (d && d.tags) || [];
+    const name = state.currentFile ? state.currentFile.split(/[/\\]/).pop() : '';
+    if (format === 'json') {
+      return JSON.stringify({
+        file: name,
+        summary: d ? d.meta : (state.dicomMeta || {}),
+        tags: tags.map((t) => ({ tag: t.tag, name: t.name, vr: t.vr, value: t.value, depth: t.depth || 0 })),
+      }, null, 2);
+    }
+    if (format === 'csv') {
+      const q = (s) => `"${String(s ?? '').replace(/"/g, '""')}"`;
+      return ['tag,name,vr,depth,value', ...tags.map((t) => [t.tag, t.name, t.vr, t.depth || 0, t.value].map(q).join(','))].join('\r\n');
+    }
+    return [name, '', ...tags.map((t) => `${'  '.repeat(t.depth || 0)}${t.tag ? `${t.tag} ` : ''}${t.name}${t.vr ? ` [${t.vr}]` : ''}${t.value ? ` = ${t.value}` : ''}`)].join('\n');
+  }
+
+  function _dicomTextDataUrl(text, mime) {
+    const bytes = new TextEncoder().encode(text);
+    let bin = '';
+    for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+    return `data:${mime};base64,${btoa(bin)}`;
+  }
+
+  async function _dicomExportTags() {
+    if (!state.dicom && !Array.isArray(state.dicomTags)) return;
+    const t = I18n.t.bind(I18n);
+    const dlg = await window.FileDialog.save({
+      defaultPath: `${_dicomStem()}_tags.json`,
+      title: t('dicom.exportTags').replace(/…$/, ''),
+      saveTypes: [['json', t('fd.filterJson')], ['csv', t('fd.filterCsv')], ['txt', t('fd.filterTxt')]],
+    });
+    if (!dlg || dlg.canceled || !dlg.filePath) return;
+    const ext = (dlg.filePath.split('.').pop() || 'json').toLowerCase();
+    const format = ext === 'csv' ? 'csv' : ext === 'txt' ? 'txt' : 'json';
+    const mime = format === 'json' ? 'application/json' : format === 'csv' ? 'text/csv' : 'text/plain';
+    const wr = await window.electronAPI.writeFile({ filePath: dlg.filePath, dataUrl: _dicomTextDataUrl(_dicomTagsText(format), mime) });
+    if (wr && wr.success) {
+      try { await FileTree.refresh(); } catch { /* ignore */ }
+      _updateStatus({ msg: t('dicom.tagsExported') });
+    } else {
+      await _showError(t('dialog.save.error') || 'Could not save the file.', (wr && wr.error) || '');
+    }
+  }
+
+  async function _dicomCopyTags() {
+    if (!state.dicom && !Array.isArray(state.dicomTags)) return;
+    try {
+      await navigator.clipboard.writeText(_dicomTagsText('txt'));
+      _updateStatus({ msg: I18n.t('dicom.tagsCopied') });
+    } catch (e) {
+      _showError(I18n.t('dicom.copyTags'), e);
+    }
+  }
+
   function _dicomKeydown(e) {
     const d = state.dicom;
     if (!d || !_dicomHasBar() || state.editMode) return false;
     const tag = (e.target && e.target.tagName) || '';
     if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || e.target?.isContentEditable) return false;
     if (e.ctrlKey || e.metaKey || e.altKey) return false;
+    // Measurement tool in progress: Esc leaves it (before the viewer's own Esc handling)
+    if (e.key === 'Escape' && (_dicomTool || _dicomDraft)) { _dicomSetTool(null); return true; }
     if (d.frames > 1) {
       if (e.key === 'PageUp')   { _dicomFrame(d.state.frame - 1); return true; }
       if (e.key === 'PageDown') { _dicomFrame(d.state.frame + 1); return true; }
@@ -1802,34 +2723,90 @@
     if (d.gray) {
       if (e.key === 'i' || e.key === 'I') { _dicomToggleInvert(); return true; }
       if (e.key === 'w' || e.key === 'W') { _dicomResetWindow(); return true; }
+      if (e.key === 'm' || e.key === 'M') { _dicomCycleColormap(); return true; }
+    }
+    if (e.key === 'o' || e.key === 'O') { _dicomToggleAnnotations(); return true; }
+    if ((e.key === 'v' || e.key === 'V') && d.overlays && d.overlays.length) { _dicomToggleOverlays(); return true; }
+    if (_dicomGeomValid()) {
+      const tools = { r: 'ruler', a: 'angle', e: 'ellipse', t: 'rect' };
+      const tool = tools[e.key.toLowerCase()];
+      if (tool && e.key.length === 1) { _dicomSetTool(_dicomTool === tool ? null : tool); return true; }
+      if ((e.key === 'Delete' || e.key === 'Backspace') && (_dicomMeas.length || _dicomDraft)) {
+        _dicomMeasDeleteLast();
+        return true;
+      }
     }
     return false;
   }
 
+  // Compact DICOM entries for the context / View menu: one row per feature group,
+  // the long lists (presets, tools, frames …) live in flyouts.
   function _dicomContextItems() {
     const d = state.dicom;
     if (!d || !_dicomHasBar()) return [];
     const t = I18n.t.bind(I18n);
     const items = [];
     if (d.frames > 1) {
-      items.push({ icon: Icons.prev, label: t('dicom.prevFrame'), shortcut: 'PgUp', disabled: d.state.frame <= 0, action: () => _dicomFrame(d.state.frame - 1) });
-      items.push({ icon: Icons.next, label: t('dicom.nextFrame'), shortcut: 'PgDn', disabled: d.state.frame >= d.frames - 1, action: () => _dicomFrame(d.state.frame + 1) });
-      items.push({ icon: _dicomCineTimer ? Icons.mediaPause : Icons.mediaPlay, label: t(_dicomCineTimer ? 'dicom.cineStop' : 'dicom.cine'), shortcut: 'Space', action: _dicomToggleCine });
+      items.push({ icon: Icons.mediaPlay, label: t('dicom.frames'), submenu: () => [
+        { icon: Icons.prev, label: t('dicom.prevFrame'), shortcut: 'PgUp', disabled: d.state.frame <= 0, action: () => _dicomFrame(d.state.frame - 1) },
+        { icon: Icons.next, label: t('dicom.nextFrame'), shortcut: 'PgDn', disabled: d.state.frame >= d.frames - 1, action: () => _dicomFrame(d.state.frame + 1) },
+        { label: t('dicom.firstFrame'), shortcut: 'Home', disabled: d.state.frame <= 0, action: () => _dicomFrame(0) },
+        { label: t('dicom.lastFrame'), shortcut: 'End', disabled: d.state.frame >= d.frames - 1, action: () => _dicomFrame(d.frames - 1) },
+        { separator: true },
+        { icon: _dicomCineTimer ? Icons.mediaPause : Icons.mediaPlay, label: t(_dicomCineTimer ? 'dicom.cineStop' : 'dicom.cine'), shortcut: 'Space', action: _dicomToggleCine },
+      ] });
     }
     if (d.gray) {
-      if (items.length) items.push({ separator: true });
-      items.push({ icon: Icons.effects, label: t('dicom.invert'), shortcut: 'I', checked: !!d.state.invert, action: _dicomToggleInvert });
-      items.push({ icon: Icons.reset, label: t('dicom.resetWindow'), shortcut: 'W', action: _dicomResetWindow });
-      const cur = _dicomPresetId();
-      d.fileWindows.forEach((w, i) => {
-        items.push({ label: `${t('dicom.preset.file')}${w.label ? ` — ${w.label}` : ''}  (C ${_dicomFmt(w.wc)} / W ${_dicomFmt(w.ww)})`, checked: cur === `file:${i}`, action: () => _dicomPresetApply(`file:${i}`) });
-      });
-      items.push({ label: t('dicom.preset.auto'), checked: cur === 'auto', action: () => _dicomPresetApply('auto') });
-      (d.presets || []).forEach((p) => {
-        items.push({ label: `${t(`dicom.preset.${p.id}`)}  (C ${p.wc} / W ${p.ww})`, checked: cur === p.id, action: () => _dicomPresetApply(p.id) });
-      });
+      items.push({ icon: Icons.sliders, label: t('dicom.window'), submenu: () => {
+        const cur = _dicomPresetId();
+        const sub = [
+          { icon: Icons.effects, label: t('dicom.invert'), shortcut: 'I', checked: !!d.state.invert, action: _dicomToggleInvert },
+          { icon: Icons.reset, label: t('dicom.resetWindow'), shortcut: 'W', action: _dicomResetWindow },
+          { separator: true },
+        ];
+        _dicomFrameWindows(d).forEach((w, i) => {
+          sub.push({ label: `${t('dicom.preset.file')}${w.label ? ` — ${w.label}` : ''}  (C ${_dicomFmt(w.wc)} / W ${_dicomFmt(w.ww)})`, checked: cur === `file:${i}`, action: () => _dicomPresetApply(`file:${i}`) });
+        });
+        (d.voiLuts || []).forEach((l, i) => {
+          sub.push({ label: `${t('dicom.preset.lut')} — ${l.label}`, checked: cur === `lut:${i}`, action: () => _dicomPresetApply(`lut:${i}`) });
+        });
+        sub.push({ label: t('dicom.preset.auto'), checked: cur === 'auto', action: () => _dicomPresetApply('auto') });
+        (d.presets || []).forEach((p) => {
+          sub.push({ label: `${t(`dicom.preset.${p.id}`)}  (C ${p.wc} / W ${p.ww})`, checked: cur === p.id, action: () => _dicomPresetApply(p.id) });
+        });
+        return sub;
+      } });
+      items.push({ icon: Icons.palette, label: t('dicom.colormap'), shortcut: 'M', submenu: () => (d.colormaps || ['gray']).map((id) => {
+        const key = `dicom.cm.${id}`;
+        const label = t(key);
+        return { label: label && label !== key ? label : id, checked: (d.state.colormap || 'gray') === id, action: () => _dicomSetColormap(id) };
+      }) });
     }
-    if (items.length) items.push({ separator: true });
+    items.push({ icon: Icons.annotations, label: t('dicom.annotations'), shortcut: 'O', checked: _dicomAnnotOn, action: _dicomToggleAnnotations });
+    if (d.overlays && d.overlays.length) {
+      items.push({ icon: Icons.layers, label: t('dicom.overlays'), shortcut: 'V', checked: !!d.state.overlays, action: _dicomToggleOverlays });
+    }
+    if (_dicomGeomValid()) {
+      items.push({ icon: Icons.ruler, label: t('dicom.tools'), submenu: () => [
+        { icon: Icons.pointer, label: t('dicom.tool.off'),     shortcut: 'Esc', checked: !_dicomTool,            action: () => _dicomSetTool(null) },
+        { icon: Icons.ruler,   label: t('dicom.tool.ruler'),   shortcut: 'R',   checked: _dicomTool === 'ruler',   action: () => _dicomSetTool('ruler') },
+        { icon: Icons.angle,   label: t('dicom.tool.angle'),   shortcut: 'A',   checked: _dicomTool === 'angle',   action: () => _dicomSetTool('angle') },
+        { icon: Icons.ellipse, label: t('dicom.tool.ellipse'), shortcut: 'E',   checked: _dicomTool === 'ellipse', action: () => _dicomSetTool('ellipse') },
+        { icon: Icons.rectRoi, label: t('dicom.tool.rect'),    shortcut: 'T',   checked: _dicomTool === 'rect',    action: () => _dicomSetTool('rect') },
+        { separator: true },
+        { icon: Icons.undo,    label: t('dicom.undoMeasurement'), shortcut: 'Ctrl+Z', disabled: !_dicomMeasCanUndo(), action: () => _dicomMeasUndo() },
+        { icon: Icons.redo,    label: t('dicom.redoMeasurement'), shortcut: 'Ctrl+Y', disabled: !_dicomMeasCanRedo(), action: () => _dicomMeasRedo() },
+        { icon: Icons.delete,  label: t('dicom.removeLastMeasurement'), shortcut: 'Del', disabled: !_dicomMeas.length, action: () => _dicomMeasDeleteLast() },
+        { icon: Icons.delete,  label: t('dicom.clearMeasurements'), danger: true, disabled: !_dicomMeas.length, action: () => _dicomMeasClear() },
+        ..._dicomMeasRows(),
+      ] });
+    }
+    items.push({ icon: Icons.export, label: t('dicom.export'), submenu: () => [
+      d.frames > 1 && { icon: Icons.fmtPng, label: t('dicom.exportFrames'), action: () => _dicomExportFrames() },
+      { icon: Icons.saveAs, label: t('dicom.exportTags'), action: () => _dicomExportTags() },
+      { icon: Icons.copy,   label: t('dicom.copyTags'),   action: () => _dicomCopyTags() },
+    ].filter(Boolean) });
+    items.push({ separator: true });
     return items;
   }
 
@@ -2900,6 +3877,7 @@
     }
 
     _placeImageWrapper(viewerContainer, state.panX, state.panY, state.zoom, dims);
+    if (state.dicom) _dicomOverlayRequest();
   }
 
   function _updateZoomDisplay() {
@@ -2920,7 +3898,8 @@
       const rect = viewerContainer.getBoundingClientRect();
       const cx = e.clientX - rect.left - rect.width  / 2 + state.panX;
       const cy = e.clientY - rect.top  - rect.height / 2 + state.panY;
-      const factor = e.deltaY < 0 ? 1.1 : 0.9;
+      const step = Math.max(1, Math.min(100, parseFloat(_pref('zoomStep')) || 10)) / 100;
+      const factor = e.deltaY < 0 ? 1 + step : 1 / (1 + step);
       _zoom(factor, cx, cy);
     }, { passive: false });
 
@@ -3200,13 +4179,17 @@
     _updateUndoRedoBtns();
   }
 
+  // Undo / redo cover the Editor history and, in the viewer, the DICOM measurements:
+  // whichever changed more recently goes first.
   async function _undoEdit() {
+    if (!state.editMode && _dicomMeasCanUndo() && (!Editor.canUndo() || _dicomMeasHist.seq > _editorSeq)) { _dicomMeasUndo(); return; }
     if (!_isEditableImage()) return;
     await Editor.undo();
     _updateUndoRedoBtns();
   }
 
   async function _redoEdit() {
+    if (!state.editMode && _dicomMeasCanRedo() && (!Editor.canRedo() || _dicomMeasHist.seq > _editorSeq)) { _dicomMeasRedo(); return; }
     if (!_isEditableImage()) return;
     await Editor.redo();
     _updateUndoRedoBtns();
@@ -4588,9 +5571,7 @@
     document.body.classList.add('edit-mode');
     _updateMediaControlsVisibility();
     _dicomSyncBar();
-    document.getElementById('edit-window-title').textContent =
-      (state.currentFile ? state.currentFile.split(/[/\\]/).pop() + ' — ' : '') +
-      I18n.t('editWindow.title');
+    _ewSyncTitle();
 
     Editor.clearSelection();
     _setTool('pointer');
@@ -4776,6 +5757,14 @@
     ['ew-fit',       'fitWindow',   'toolbar.fitWindow',    () => _ewFit()],
   ];
 
+  function _ewSyncTitle() {
+    const el = document.getElementById('edit-window-title');
+    if (!el) return;
+    const name = state.currentFile ? state.currentFile.split(/[/\\]/).pop() : '';
+    el.textContent = name;
+    el.title = state.currentFile || '';
+  }
+
   function _applyEditWindowIcons() {
     _ewToolIconMap.forEach(({ id, icon }) => {
       const btn = document.getElementById(id);
@@ -4792,6 +5781,7 @@
     if (_ewInitDone) return;
     _ewInitDone = true;
     _lockBarScroll(document.getElementById('edit-window-titlebar'));
+    _lockBarScroll(document.getElementById('ew-toolbar-row'));
 
     _ewToolIconMap.forEach(({ id, tool, tip }) => {
       const btn = document.getElementById(id);
@@ -4930,6 +5920,10 @@
     _ewApplyTransform();
     _updateZoomDisplay();
     _updateStatus({ zoom: true });
+  }
+
+  function _ewZoomTo(zoom) {
+    _ewZoomBy(zoom / (_ewZoom || 1));
   }
 
   function _ewZoomBy(factor) {
@@ -5644,12 +6638,13 @@
         'modality', 'sopClass', 'bodyPart', 'studyDate', 'studyTime', 'studyDescription', 'seriesDescription',
         'seriesNumber', 'instanceNumber', 'accessionNumber', 'protocolName', 'patientPosition',
         'manufacturer', 'institution', 'stationName',
-        'imageSize', 'frames', 'photometric', 'bitDepth', 'pixelSpacing', 'sliceThickness', 'sliceLocation',
-        'window', 'rescale', 'transferSyntax', 'lossyCompression',
+        'imageSize', 'frames', 'frameRate', 'photometric', 'bitDepth', 'pixelSpacing', 'sliceThickness', 'sliceLocation',
+        'imagePosition', 'imageOrientation', 'window', 'voiLut', 'rescale', 'units', 'presentationLut', 'overlays',
+        'transferSyntax', 'lossyCompression',
         'studyInstanceUid', 'seriesInstanceUid', 'sopInstanceUid',
       ];
       const LABEL = { patientName: 'info.patient' };
-      const WIDE = new Set(['transferSyntax', 'studyInstanceUid', 'seriesInstanceUid', 'sopInstanceUid']);
+      const WIDE = new Set(['transferSyntax', 'studyInstanceUid', 'seriesInstanceUid', 'sopInstanceUid', 'voiLut', 'overlays', 'window']);
       const seen = new Set();
       const push = (key) => {
         if (seen.has(key)) return;
@@ -5667,8 +6662,11 @@
     const dicomTagRows = [];
     if (isDicom && Array.isArray(state.dicomTags)) {
       for (const t of state.dicomTags) {
-        if (!t || !t.value) continue;
-        dicomTagRows.push({ label: `${t.tag} ${t.name}${t.vr ? ` [${t.vr}]` : ''}`, value: t.value, full: true });
+        if (!t) continue;
+        // Sequence items are headers for the nested rows that follow; empty leaf values are skipped
+        if (t.item) { dicomTagRows.push({ label: t.name, value: '', full: true, indent: t.depth || 0, item: true }); continue; }
+        if (!t.value) continue;
+        dicomTagRows.push({ label: `${t.tag} ${t.name}${t.vr ? ` [${t.vr}]` : ''}`, value: t.value, full: true, indent: t.depth || 0 });
       }
     }
 
@@ -5687,15 +6685,37 @@
   function _renderInfoSections(sections) {
     return sections.map((sec) => {
       if (!sec.rows.length) return '';
-      const header = `<div class="info-section">${_escHtml(I18n.t(sec.titleKey))}</div>`;
+      const filterable = sec.titleKey === 'info.section.dicomTags';
+      const header = filterable
+        ? `<div class="info-section info-section-tags"><span>${_escHtml(I18n.t(sec.titleKey))}</span>
+            <input type="search" class="info-filter" placeholder="${_escHtml(I18n.t('info.filterTags'))}" aria-label="${_escHtml(I18n.t('info.filterTags'))}" spellcheck="false"></div>`
+        : `<div class="info-section">${_escHtml(I18n.t(sec.titleKey))}</div>`;
       const rows = sec.rows.map((r) =>
-        `<div class="info-row${r.full ? ' info-row-full' : ''}">
+        `<div class="info-row${r.full ? ' info-row-full' : ''}${r.item ? ' info-row-item' : ''}"${r.indent ? ` style="padding-left:${r.indent * 14}px"` : ''}${filterable ? ` data-search="${_escHtml(`${r.label} ${r.value}`.toLowerCase())}"` : ''}>
           <div class="info-label">${_escHtml(r.label)}</div>
           <div class="info-value" title="${_escHtml(r.value)}">${_escHtml(r.value)}</div>
         </div>`
       ).join('');
-      return header + rows;
+      return header + (filterable ? `<div class="info-tag-rows">${rows}</div>` : rows);
     }).join('');
+  }
+
+  // Filter box in the "All DICOM tags" section: hides rows that do not contain the text
+  function _initInfoTagFilter() {
+    if (!infoContent) return;
+    infoContent.addEventListener('input', (e) => {
+      const input = e.target;
+      if (!input.classList || !input.classList.contains('info-filter')) return;
+      const q = (input.value || '').trim().toLowerCase();
+      const wrap = input.closest('.info-section')?.nextElementSibling;
+      if (!wrap || !wrap.classList.contains('info-tag-rows')) return;
+      wrap.querySelectorAll('.info-row').forEach((row) => {
+        row.classList.toggle('is-filtered', !!q && !(row.dataset.search || '').includes(q));
+      });
+    });
+    infoContent.addEventListener('keydown', (e) => {
+      if (e.target.classList?.contains('info-filter')) e.stopPropagation();
+    });
   }
 
   async function _ensureImageMeta(filePath, dicomMeta) {
@@ -5752,6 +6772,15 @@
       }
     }
     return state.imageMeta;
+  }
+
+  // Serialised info-panel refresh for media 'loadedmetadata' events (they may fire in bursts)
+  let _infoQueue = Promise.resolve();
+  function _updateInfoQueue(filePath) {
+    _infoQueue = _infoQueue
+      .then(() => (state.currentFile === filePath ? _updateInfoPanel(filePath) : undefined))
+      .catch((e) => console.warn('Info panel refresh failed:', e));
+    return _infoQueue;
   }
 
   async function _updateInfoPanel(filePath, dicomMeta) {
@@ -5848,7 +6877,8 @@
         const bits = [];
         if (d.modality) bits.push(d.modality);
         if (d.frames > 1) bits.push(`${I18n.t('dicom.frame')} ${d.state.frame + 1}/${d.frames}`);
-        if (d.gray && Number.isFinite(d.state.wc)) bits.push(`C ${_dicomFmt(d.state.wc)} / W ${_dicomFmt(d.state.ww)}`);
+        if (d.gray && d.state.voiLut >= 0 && d.voiLuts && d.voiLuts[d.state.voiLut]) bits.push(`LUT ${d.voiLuts[d.state.voiLut].label}`);
+        else if (d.gray && Number.isFinite(d.state.wc)) bits.push(`C ${_dicomFmt(d.state.wc)} / W ${_dicomFmt(d.state.ww)}`);
         if (bits.length) fmt += ` · ${bits.join(' · ')}`;
       }
       statusFmt.textContent = fmt;
@@ -6308,7 +7338,11 @@
     const canTransport = isVideo || isAnim;
     const playing = canTransport && _isMediaPlaying();
 
+    const hitMeas = state.dicom && !state.editMode ? _dicomMeasHitTest(x, y) : -1;
+
     ContextMenu.show(x, y, [
+      hitMeas >= 0 && { icon: Icons.delete, label: `${t('dicom.deleteMeasurement')} — ${_dicomMeasLabel(_dicomMeas[hitMeas])}`, danger: true, action: () => _dicomMeasDelete(hitMeas) },
+      hitMeas >= 0 && { separator: true },
       canTransport && { icon: Icons.mediaPlay,  label: t('toolbar.play'),  disabled: playing,  shortcut: 'Space', action: () => _playMedia() },
       canTransport && { icon: Icons.mediaPause, label: t('toolbar.pause'), disabled: !playing, shortcut: 'Space', action: () => _pauseMedia() },
       canTransport && { icon: Icons.mediaStop,  label: t('toolbar.stop'),  action: () => _stopMedia() },
@@ -6317,27 +7351,33 @@
       { icon: Icons.openFile,   label: t('context.openFile'),   action: () => _pickOpenFile() },
       { icon: Icons.openFolder, label: t('context.openFolder'), action: () => _pickOpenFolder() },
       { separator: true },
+      // Everyday actions stay top-level; transforms, zoom and the rest are grouped in flyouts
       hasImg && { icon: Icons.edit, label: t('toolbar.edit'), shortcut: 'Ctrl+E', action: _openEditWindow },
       hasImg && { icon: Icons.save,   label: t('context.saveAs'), action: _saveAs },
-      hasImg && { icon: Icons.cut,    label: t('context.cut'),    disabled: !hasSel, action: _cutToClipboard },
-      hasImg && { icon: Icons.copy,   label: t('context.copy'),   action: _copyToClipboard },
-      hasImg && { separator: true },
-      hasImg && { icon: Icons.rotateLeft,  label: t('context.rotateLeft'),  action: () => _rotate(-90) },
-      hasImg && { icon: Icons.rotateRight, label: t('context.rotateRight'), action: () => _rotate(90) },
-      hasImg && { icon: Icons.flipH,       label: t('context.flipH'),       action: () => _flip('h') },
-      hasImg && { icon: Icons.flipV,       label: t('context.flipV'),       action: () => _flip('v') },
-      hasImg && { icon: Icons.resize,      label: t('context.resize'),      shortcut: 'Ctrl+Shift+R', action: () => _openResizeDialog() },
-      hasImg && { separator: true },
-      (hasImg || isVideo) && { icon: Icons.zoomIn,    label: t('context.zoomIn'),    shortcut:'Ctrl++', action: () => _zoom(1.25) },
-      (hasImg || isVideo) && { icon: Icons.zoomOut,   label: t('context.zoomOut'),   shortcut:'Ctrl+-', action: () => _zoom(0.8) },
-      (hasImg || isVideo) && { icon: Icons.fitWindow, label: t('context.fitWindow'), shortcut:'Ctrl+0', action: _fitToWindow },
-      hasImg && { icon: Icons.actualSize,label: t('context.actualSize'),shortcut:'Ctrl+1', action: _actualSize },
-      hasImg && { separator: true },
-      hasImg && { icon: Icons.bgRemove, label: t('context.bgRemove'), action: _removeBackground },
-      hasImg && { icon: Icons.reset,    label: t('context.resetAll'), action: _resetAll },
+      hasImg && { icon: Icons.copy,   label: t('context.copy'),   shortcut: 'Ctrl+C', action: _copyToClipboard },
+      hasImg && { icon: Icons.rotateRight, label: t('context.transform'), submenu: () => [
+        { icon: Icons.rotateLeft,  label: t('context.rotateLeft'),  shortcut: 'Ctrl+[', action: () => _rotate(-90) },
+        { icon: Icons.rotateRight, label: t('context.rotateRight'), shortcut: 'Ctrl+]', action: () => _rotate(90) },
+        { icon: Icons.flipH,       label: t('context.flipH'),       action: () => _flip('h') },
+        { icon: Icons.flipV,       label: t('context.flipV'),       action: () => _flip('v') },
+        { separator: true },
+        { icon: Icons.resize,      label: t('context.resize'),      shortcut: 'Ctrl+Shift+R', action: () => _openResizeDialog() },
+      ] },
+      (hasImg || isVideo) && { icon: Icons.zoomIn, label: t('context.zoomMenu'), submenu: () => [
+        { icon: Icons.zoomIn,    label: t('context.zoomIn'),    shortcut: 'Ctrl++', action: () => _zoom(1.25) },
+        { icon: Icons.zoomOut,   label: t('context.zoomOut'),   shortcut: 'Ctrl+-', action: () => _zoom(0.8) },
+        { icon: Icons.fitWindow, label: t('context.fitWindow'), shortcut: 'Ctrl+0', action: _fitToWindow },
+        hasImg && { icon: Icons.actualSize, label: t('context.actualSize'), shortcut: 'Ctrl+1', action: _actualSize },
+      ].filter(Boolean) },
+      hasImg && { icon: Icons.sliders, label: t('context.more'), submenu: () => [
+        { icon: Icons.cut,      label: t('context.cut'),      shortcut: 'Ctrl+X', disabled: !hasSel, action: _cutToClipboard },
+        { icon: Icons.bgRemove, label: t('context.bgRemove'), action: _removeBackground },
+        { separator: true },
+        { icon: Icons.reset,    label: t('context.resetAll'), action: _resetAll },
+      ] },
       !isAv && { separator: true },
-      { icon: Icons.prev,    label: t('context.prev'), disabled: state.fileIndex <= 0,                           action: _prevImage },
-      { icon: Icons.next,    label: t('context.next'), disabled: state.fileIndex >= state.fileList.length - 1,   action: _nextImage },
+      { icon: Icons.prev,    label: t('context.prev'), shortcut: '←', disabled: state.fileIndex <= 0,                         action: _prevImage },
+      { icon: Icons.next,    label: t('context.next'), shortcut: '→', disabled: state.fileIndex >= state.fileList.length - 1, action: _nextImage },
       !isWeb && { separator: true },
       !isWeb && { icon: Icons.explorer, label: t('context.showInExplorer'), disabled: !state.currentFile,
         action: () => state.currentFile && _showInExplorer() },
@@ -6486,11 +7526,101 @@
         _syncSubtitleControls();
       });
     }
+    const subLang = document.getElementById('settings-subtitle-lang');
+    if (subLang) {
+      subLang.addEventListener('change', () => {
+        state.subtitleLang = subLang.value;
+        try { localStorage.setItem('subtitleLanguage', subLang.value); } catch {}
+        if (subLang.value && state.subtitles.some((sub) => sub.lang === subLang.value)) _setSubtitleLanguage(subLang.value);
+      });
+    }
+    const vol = document.getElementById('settings-volume');
+    const volLabel = document.getElementById('settings-volume-label');
+    const mute = document.getElementById('settings-mute');
+    vol?.addEventListener('input', () => {
+      _setMediaVolume(vol.value);
+      if (volLabel) volLabel.textContent = `${vol.value}%`;
+      if (mute) mute.checked = _mediaMuted || _mediaVolume <= 0;
+    });
+    mute?.addEventListener('change', () => {
+      if (mute.checked !== (_mediaMuted || _mediaVolume <= 0)) _toggleMediaMute();
+      _syncSettingsDialog();
+    });
+    // Startup & history
+    const restore = document.getElementById('settings-restore-session');
+    restore?.addEventListener('change', () => _setPref('restoreSession', restore.checked ? '1' : '0'));
+    document.getElementById('settings-clear-recent')?.addEventListener('click', async () => {
+      await _clearRecentFolderHistory();
+      _syncSettingsDialog();
+    });
+    // Viewer
+    const zoomStep = document.getElementById('settings-zoom-step');
+    zoomStep?.addEventListener('change', () => _setPref('zoomStep', zoomStep.value));
+    const checker = document.getElementById('settings-checker');
+    checker?.addEventListener('change', () => { _setPref('viewerChecker', checker.checked ? '1' : '0'); _applyViewerPrefs(); });
+    const smoothing = document.getElementById('settings-smoothing');
+    smoothing?.addEventListener('change', () => { _setPref('imageSmoothing', smoothing.checked ? '1' : '0'); _applyViewerPrefs(); });
+    // DICOM
+    const annot = document.getElementById('settings-dicom-annot');
+    annot?.addEventListener('change', () => { if (annot.checked !== _dicomAnnotOn) _dicomToggleAnnotations(); });
+    const fps = document.getElementById('settings-dicom-fps');
+    fps?.addEventListener('change', () => {
+      const v = Math.max(1, Math.min(120, parseInt(fps.value, 10) || 10));
+      fps.value = String(v);
+      _setPref('dicomDefaultFps', v);
+      _dicomSyncBar();
+    });
+    const ovColor = document.getElementById('settings-dicom-overlay-color');
+    const applyOverlayColor = (value) => {
+      _setPref('dicomOverlayColor', value);
+      if (ovColor) ovColor.value = value;
+      if (state.dicom && state.dicom.overlays && state.dicom.overlays.length) _dicomApply({ overlayColor: _dicomOverlayRgb() });
+    };
+    ovColor?.addEventListener('change', () => applyOverlayColor(ovColor.value));
+    document.getElementById('settings-dicom-overlay-reset')?.addEventListener('click', () => applyOverlayColor(PREF_DEFAULTS.dicomOverlayColor));
+    document.getElementById('settings-reset')?.addEventListener('click', _resetAllSettings);
+    // Tabs: one panel at a time (the dialog is fixed-size and never scrolls)
+    document.querySelectorAll('#settings-overlay .settings-tab').forEach((tab) => {
+      tab.addEventListener('click', () => _settingsSelectTab(tab.dataset.tab));
+    });
+    _applyViewerPrefs();
+    _settingsReady = true;
     _syncSettingsDialog();
+  }
+
+  function _settingsSelectTab(id) {
+    document.querySelectorAll('#settings-overlay .settings-tab').forEach((tab) => {
+      const on = tab.dataset.tab === id;
+      tab.classList.toggle('active', on);
+      tab.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+    document.querySelectorAll('#settings-overlay .settings-panel').forEach((panel) => panel.classList.toggle('active', panel.dataset.panel === id));
+  }
+
+  /** Viewer options that are plain CSS switches. */
+  function _applyViewerPrefs() {
+    viewerContainer?.classList.toggle('no-checker', !_prefOn('viewerChecker'));
+    imageWrapper?.classList.toggle('pixelated', !_prefOn('imageSmoothing'));
+  }
+
+  async function _resetAllSettings() {
+    const t = I18n.t.bind(I18n);
+    const result = await window.electronAPI.showMessageBox({
+      type: 'warning',
+      title: t('settings.resetAll'),
+      message: t('settings.resetConfirm'),
+      buttons: [t('settings.resetYes'), t('dialog.unsaved.cancel') || 'Cancel'],
+      defaultId: 1,
+      cancelId: 1,
+    });
+    if (!result || result.response !== 0) return;
+    for (const key of PREF_KEYS) { try { localStorage.removeItem(key); } catch { /* ignore */ } }
+    window.location.reload();
   }
 
   /** Refill the settings controls from the current state (called on open, theme/lang change). */
   function _syncSettingsDialog() {
+    if (!_settingsReady) return;
     const t = I18n.t.bind(I18n);
     const themeSel = document.getElementById('settings-theme');
     if (themeSel) {
@@ -6529,6 +7659,42 @@
     }
     const subs = document.getElementById('settings-subtitles');
     if (subs) subs.checked = !!state.subtitlesEnabled;
+    const subLang = document.getElementById('settings-subtitle-lang');
+    if (subLang) {
+      const langs = [['', t('settings.subtitleLangAuto')], ['ko', '한국어'], ['en', 'English'], ['ja', '日本語'], ['zh', '中文'], ['es', 'Español'], ['fr', 'Français'], ['de', 'Deutsch']];
+      const cur = state.subtitleLang || '';
+      if (cur && !langs.some(([c]) => c === cur)) langs.push([cur, cur]);
+      subLang.innerHTML = langs.map(([c, l]) => `<option value="${_escHtml(c)}"${c === cur ? ' selected' : ''}>${_escHtml(l)}</option>`).join('');
+    }
+    const vol = document.getElementById('settings-volume');
+    if (vol) vol.value = String(Math.round(_mediaVolume * 100));
+    const volLabel = document.getElementById('settings-volume-label');
+    if (volLabel) volLabel.textContent = `${Math.round(_mediaVolume * 100)}%`;
+    const mute = document.getElementById('settings-mute');
+    if (mute) mute.checked = _mediaMuted || _mediaVolume <= 0;
+    // Startup & history
+    const restore = document.getElementById('settings-restore-session');
+    if (restore) restore.checked = _prefOn('restoreSession');
+    const recentCount = document.getElementById('settings-recent-count');
+    if (recentCount) {
+      const n = _getRecentDirs().length;
+      recentCount.textContent = (t('settings.recentCount') || '{n}').replace('{n}', String(n));
+    }
+    document.getElementById('settings-clear-recent')?.toggleAttribute('disabled', !_getRecentDirs().length);
+    // Viewer
+    const zoomStep = document.getElementById('settings-zoom-step');
+    if (zoomStep) zoomStep.value = String(parseInt(_pref('zoomStep'), 10) || 10);
+    const checker = document.getElementById('settings-checker');
+    if (checker) checker.checked = _prefOn('viewerChecker');
+    const smoothing = document.getElementById('settings-smoothing');
+    if (smoothing) smoothing.checked = _prefOn('imageSmoothing');
+    // DICOM
+    const annot = document.getElementById('settings-dicom-annot');
+    if (annot) annot.checked = _dicomAnnotOn;
+    const fps = document.getElementById('settings-dicom-fps');
+    if (fps) fps.value = String(parseInt(_pref('dicomDefaultFps'), 10) || 10);
+    const ovColor = document.getElementById('settings-dicom-overlay-color');
+    if (ovColor) ovColor.value = /^#[0-9a-f]{6}$/i.test(_pref('dicomOverlayColor')) ? _pref('dicomOverlayColor').toLowerCase() : PREF_DEFAULTS.dicomOverlayColor;
   }
 
   function _openSettings() {
@@ -6591,8 +7757,11 @@
       // DICOM: PgUp / PgDn / Home / End = frames, Space = cine, I = invert, W = reset window
       if (_dicomKeydown(e)) { e.preventDefault(); return; }
 
-      if (e.key === 'ArrowLeft')  { e.preventDefault(); _prevImage(); return; }
-      if (e.key === 'ArrowRight') { e.preventDefault(); _nextImage(); return; }
+      // Arrow keys inside a text / number field or a select (Settings, DICOM bar …) edit that field
+      const tagName = (e.target && e.target.tagName) || '';
+      const typing = tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT' || e.target?.isContentEditable;
+      if (e.key === 'ArrowLeft'  && !typing) { e.preventDefault(); _prevImage(); return; }
+      if (e.key === 'ArrowRight' && !typing) { e.preventDefault(); _nextImage(); return; }
       if (e.key === ' ' || e.code === 'Space') {
         const tag = (e.target && e.target.tagName) || '';
         if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target?.isContentEditable) return;
@@ -6685,12 +7854,14 @@
     _buildEffectsPanel();
     _populateBgAlgoSelect();
     _updateStatus();
-    if (state.editMode) {
-      document.getElementById('edit-window-title').textContent =
-        (state.currentFile ? state.currentFile.split(/[/\\]/).pop() + ' — ' : '') +
-        I18n.t('editWindow.title');
-    }
+    if (state.editMode) _ewSyncTitle();
+    _buildMenubar();
     if (state.currentFile) await _updateInfoPanel(state.currentFile);
+    // DICOM bar option labels are built per language
+    if (dcmPreset) dcmPreset.dataset.for = '';
+    if (dcmColormap) dcmColormap.dataset.lang = '';
+    _dicomSyncBar();
+    _dicomOverlayRequest();
     _syncEditThemeLangBtns();
     _syncMenu();
     requestAnimationFrame(() => _syncWindowMinSize());

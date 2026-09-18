@@ -170,6 +170,9 @@
                 <svg class="dcm-play-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.14v13.72L19.5 12 8 5.14z"/></svg>
                 <svg class="dcm-pause-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5h4.2v14H6zm7.8 0H18v14h-4.2z"/></svg>
               </button>
+              <label class="dicom-wl dicom-fps" data-i18n-title="dicom.fps" title="Cine speed (frames per second)">
+                <input type="number" id="dcm-fps" min="1" max="120" step="1" aria-label="Frames per second"><span>fps</span>
+              </label>
               <span class="dicom-sep" id="dcm-frames-sep"></span>
             </div>
             <div class="dicom-window" id="dcm-window-wrap" hidden>
@@ -186,9 +189,38 @@
               <button type="button" class="media-ctrl-btn" id="dcm-reset" data-i18n-title="dicom.resetWindow" title="Reset window (W)">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5V2L7 6l5 4V7a5 5 0 1 1-5 5H5a7 7 0 1 0 7-7z"/></svg>
               </button>
+              <select id="dcm-colormap" class="media-ctrl-subtitle-select dicom-colormap" data-i18n-title="dicom.colormapTitle" title="Colour map (M)" aria-label="Colour map"></select>
               <span id="dcm-range" class="dicom-range" data-i18n-title="dicom.dragHint" title="Ctrl+drag: window"></span>
             </div>
+            <div class="dicom-tools" id="dcm-tools-wrap">
+              <span class="dicom-sep" id="dcm-tools-sep"></span>
+              <button type="button" class="media-ctrl-btn" id="dcm-overlays" data-i18n-title="dicom.overlays" title="Overlay planes (V)" aria-pressed="false" hidden>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2 8.5l10 5.5 10-5.5L12 3zm0 2.3 5.9 3.2L12 11.7 6.1 8.5 12 5.3zM4.2 12.6 2 13.8l10 5.5 10-5.5-2.2-1.2L12 17l-7.8-4.4z"/></svg>
+              </button>
+              <button type="button" class="media-ctrl-btn" id="dcm-annot" data-i18n-title="dicom.annotations" title="Annotations (O)" aria-pressed="false">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3h6v2H5v4H3V3zm12 0h6v6h-2V5h-4V3zM3 15h2v4h4v2H3v-6zm16 0h2v6h-6v-2h4v-4zM9 8h6v2h-2v6h-2v-6H9V8z"/></svg>
+              </button>
+              <span class="dicom-sep"></span>
+              <button type="button" class="media-ctrl-btn dcm-tool" id="dcm-tool-ruler" data-tool="ruler" data-i18n-title="dicom.tool.ruler" title="Ruler (R)" aria-pressed="false">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.7 6.3 17.7 3.3a1 1 0 0 0-1.4 0L3.3 16.3a1 1 0 0 0 0 1.4l3 3a1 1 0 0 0 1.4 0l13-13a1 1 0 0 0 0-1.4zM7 18.6 5.4 17l1.8-1.8 1.1 1.1.7-.7-1.1-1.1 1.8-1.8 1.1 1.1.7-.7-1.1-1.1 1.8-1.8 1.1 1.1.7-.7-1.1-1.1 1.8-1.8 1.1 1.1.7-.7-1.1-1.1L17 5.4 18.6 7 7 18.6z"/></svg>
+              </button>
+              <button type="button" class="media-ctrl-btn dcm-tool" id="dcm-tool-angle" data-tool="angle" data-i18n-title="dicom.tool.angle" title="Angle (A)" aria-pressed="false">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V4h2v11.2A9 9 0 0 1 12.8 18H20v2H4zm2-2h4.6A7 7 0 0 0 6 13.4V18z"/></svg>
+              </button>
+              <button type="button" class="media-ctrl-btn dcm-tool" id="dcm-tool-ellipse" data-tool="ellipse" data-i18n-title="dicom.tool.ellipse" title="Ellipse ROI (E)" aria-pressed="false">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5c-5 0-9 3.1-9 7s4 7 9 7 9-3.1 9-7-4-7-9-7zm0 2c3.9 0 7 2.2 7 5s-3.1 5-7 5-7-2.2-7-5 3.1-5 7-5z"/></svg>
+              </button>
+              <button type="button" class="media-ctrl-btn dcm-tool" id="dcm-tool-rect" data-tool="rect" data-i18n-title="dicom.tool.rect" title="Rectangle ROI (T)" aria-pressed="false">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18v14H3V5zm2 2v10h14V7H5z"/></svg>
+              </button>
+              <button type="button" class="media-ctrl-btn" id="dcm-meas-clear" data-i18n-title="dicom.clearMeasurements" title="Clear measurements">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM8 9h8v10H8V9zm7.5-5-1-1h-5l-1 1H5v2h14V4h-3.5z"/></svg>
+              </button>
+            </div>
           </div>
+
+          <!-- DICOM overlay layer: corner annotations, orientation markers, scale bar, measurements -->
+          <canvas id="dcm-overlay" class="dcm-overlay" aria-hidden="true"></canvas>
 
           <!-- Play / pause / stop cue overlay -->
           <div id="media-cue" class="media-cue" aria-hidden="true">
@@ -232,6 +264,8 @@
       <div class="status-item" id="status-format">—</div>
       <div class="status-sep"></div>
       <div class="status-item" id="status-idx"></div>
+      <div class="status-sep" id="status-probe-sep" hidden></div>
+      <div class="status-item" id="status-probe" hidden></div>
       <div id="status-spacer"></div>
       <div class="status-item" id="status-msg"></div>
     </div>
@@ -350,13 +384,21 @@
 
   <!-- ═══ Edit Window ═══ -->
   <div id="edit-window">
-    <!-- Title bar / toolbar -->
+    <!-- Title bar (icon · Edit Image · file name · window buttons), like the main window -->
     <div id="edit-window-titlebar">
       <div class="app-brand ew-brand" id="ew-brand">
         <img src="./assets/icon.png" alt="" draggable="false">
+        <span class="app-brand-name" data-i18n="editWindow.title">Edit Image</span>
       </div>
-      <span id="edit-window-title" data-i18n="editWindow.title">Edit Image</span>
+      <span id="edit-window-title" class="titlebar-file" title=""></span>
+      <div id="ew-win-gutter"></div>
+    </div>
 
+    <!-- Menu bar (File · Edit · View · Effects · Help — built by app.js) -->
+    <div id="ew-menubar" role="menubar"></div>
+
+    <!-- Toolbar row: tools · actions · Save / Apply / Cancel -->
+    <div id="ew-toolbar-row">
       <div class="ew-toolbar">
         <!-- Selection tools -->
         <div class="ew-group" role="group">
@@ -422,13 +464,13 @@
         </div>
       </div>
 
+      <span class="ew-spacer"></span>
       <!-- Save / Apply / Cancel -->
       <div class="ew-actions">
         <button type="button" class="ew-action-btn" id="ew-save" data-i18n="editWindow.saveNew" data-i18n-title="editWindow.saveNew">Save as new file</button>
         <button type="button" class="ew-action-btn danger" id="ew-cancel" data-i18n="editWindow.cancel">Cancel</button>
         <button type="button" class="ew-action-btn primary" id="ew-apply" data-i18n="editWindow.apply">Apply</button>
       </div>
-      <div id="ew-win-gutter"></div>
     </div>
 
     <!-- Body: presets (left) + canvas + adjustments (right) -->
@@ -486,9 +528,15 @@
           <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
         </button>
       </div>
-      <div class="dialog-body">
-        <div class="settings-section">
-          <div class="resize-label" data-i18n="settings.appearance">Appearance</div>
+      <!-- Fixed-size, tabbed body: every tab fits without scrolling -->
+      <div class="settings-tabs" role="tablist">
+        <button type="button" class="settings-tab active" role="tab" data-tab="general" aria-selected="true" data-i18n="settings.tab.general">General</button>
+        <button type="button" class="settings-tab" role="tab" data-tab="viewer" aria-selected="false" data-i18n="settings.tab.viewer">Viewer &amp; editing</button>
+        <button type="button" class="settings-tab" role="tab" data-tab="dicom" aria-selected="false">DICOM</button>
+        <button type="button" class="settings-tab" role="tab" data-tab="media" aria-selected="false" data-i18n="settings.tab.media">Media</button>
+      </div>
+      <div class="dialog-body settings-body">
+        <div class="settings-panel active" data-panel="general" role="tabpanel">
           <div class="settings-row">
             <label for="settings-theme">
               <span data-i18n="settings.theme">Theme</span>
@@ -506,23 +554,105 @@
               <button type="button" class="settings-lang-btn" data-lang="en"><span class="settings-lang-flag"></span><span>English</span></button>
             </div>
           </div>
+          <div class="settings-row">
+            <label for="settings-restore-session">
+              <span data-i18n="settings.restoreSession">Reopen the last folder and file at startup</span>
+            </label>
+            <input type="checkbox" id="settings-restore-session" class="settings-toggle">
+          </div>
+          <div class="settings-row">
+            <label for="settings-clear-recent">
+              <span data-i18n="settings.recentFolders">Recent folders</span>
+              <span class="settings-hint" id="settings-recent-count"></span>
+            </label>
+            <button type="button" class="settings-btn" id="settings-clear-recent" data-i18n="toolbar.clearRecentFolders">Clear recent folders</button>
+          </div>
         </div>
-        <div class="settings-section">
-          <div class="resize-label" data-i18n="settings.editing">Editing</div>
+        <div class="settings-panel" data-panel="viewer" role="tabpanel">
+          <div class="settings-row">
+            <label for="settings-zoom-step">
+              <span data-i18n="settings.zoomStep">Mouse-wheel zoom step</span>
+            </label>
+            <select id="settings-zoom-step" class="resize-select">
+              <option value="5">5%</option>
+              <option value="10">10%</option>
+              <option value="25">25%</option>
+              <option value="50">50%</option>
+            </select>
+          </div>
+          <div class="settings-row">
+            <label for="settings-checker">
+              <span data-i18n="settings.checker">Checkerboard behind transparent images</span>
+            </label>
+            <input type="checkbox" id="settings-checker" class="settings-toggle">
+          </div>
+          <div class="settings-row">
+            <label for="settings-smoothing">
+              <span data-i18n="settings.smoothing">Smooth pixels when zoomed in</span>
+              <span class="settings-hint" data-i18n="settings.smoothingHint">Off shows the individual pixels (medical / pixel-art images)</span>
+            </label>
+            <input type="checkbox" id="settings-smoothing" class="settings-toggle">
+          </div>
           <div class="settings-row">
             <label for="settings-bg-algo" data-i18n="toolbar.bgAlgo">Background removal algorithm</label>
             <select id="settings-bg-algo" class="resize-select"></select>
           </div>
         </div>
-        <div class="settings-section">
-          <div class="resize-label" data-i18n="settings.media">Media</div>
+        <div class="settings-panel" data-panel="dicom" role="tabpanel">
+          <div class="settings-row">
+            <label for="settings-dicom-annot">
+              <span data-i18n="settings.dicomAnnotations">Show annotations on DICOM images</span>
+              <span class="settings-hint" data-i18n="settings.dicomAnnotationsHint">Patient / study text, orientation markers, scale bar (O)</span>
+            </label>
+            <input type="checkbox" id="settings-dicom-annot" class="settings-toggle">
+          </div>
+          <div class="settings-row">
+            <label for="settings-dicom-fps">
+              <span data-i18n="settings.dicomFps">Default cine speed</span>
+              <span class="settings-hint" data-i18n="settings.dicomFpsHint">Used when the file carries no frame rate</span>
+            </label>
+            <div class="settings-inline">
+              <input type="number" id="settings-dicom-fps" class="resize-input" min="1" max="120" step="1"><span>fps</span>
+            </div>
+          </div>
+          <div class="settings-row">
+            <label for="settings-dicom-overlay-color">
+              <span data-i18n="settings.dicomOverlayColor">Overlay plane colour</span>
+            </label>
+            <div class="settings-inline">
+              <input type="color" id="settings-dicom-overlay-color" class="settings-color">
+              <button type="button" class="settings-btn" id="settings-dicom-overlay-reset" data-i18n="settings.default">Default</button>
+            </div>
+          </div>
+        </div>
+        <div class="settings-panel" data-panel="media" role="tabpanel">
           <div class="settings-row">
             <label for="settings-subtitles" data-i18n="settings.subtitles">Show subtitles when available</label>
             <input type="checkbox" id="settings-subtitles" class="settings-toggle">
           </div>
+          <div class="settings-row">
+            <label for="settings-subtitle-lang" data-i18n="settings.subtitleLang">Preferred subtitle language</label>
+            <select id="settings-subtitle-lang" class="resize-select"></select>
+          </div>
+          <div class="settings-row">
+            <label for="settings-volume">
+              <span data-i18n="settings.volume">Volume</span>
+              <span class="settings-hint" data-i18n="settings.volumeHint">Remembered between sessions</span>
+            </label>
+            <div class="settings-inline">
+              <input type="range" id="settings-volume" min="0" max="100" step="1" class="settings-range">
+              <span id="settings-volume-label" class="settings-value">100%</span>
+              <label class="settings-check"><input type="checkbox" id="settings-mute"><span data-i18n="settings.mute">Mute</span></label>
+            </div>
+          </div>
         </div>
       </div>
-      <div class="dialog-footer">
+      <div class="dialog-footer settings-footer">
+        <button class="btn-icon settings-reset-btn" id="settings-reset">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 5V2L7 6l5 4V7a5 5 0 1 1-5 5H5a7 7 0 1 0 7-7z"/></svg>
+          <span data-i18n="settings.resetAll">Reset all settings</span>
+        </button>
+        <span class="settings-footer-spacer"></span>
         <button class="btn-icon primary" data-close-dialog>
           <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
           <span data-i18n="shortcuts.close">Close</span>

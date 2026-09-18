@@ -33,6 +33,7 @@
     "files": [
       "main.js",
       "preload.js",
+      "popupPreload.js",
       "src/**/*",
       "scripts/rembg_worker.py",
       "package.json"

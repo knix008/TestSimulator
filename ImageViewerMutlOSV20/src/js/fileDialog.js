@@ -10,6 +10,11 @@ window.FileDialog = (() => {
   let _bound = false;
 
   const SAVE_EXTS = ['png', 'jpg', 'webp', 'bmp'];
+  let _saveTypes = null;   // [[ext, label], …] for a non-image save (e.g. DICOM tag export); null → images
+
+  function _saveExts() {
+    return _saveTypes ? _saveTypes.map((t) => t[0]) : SAVE_EXTS;
+  }
 
   function _t(key, fallback) {
     const v = window.I18n && I18n.t(key);
@@ -137,7 +142,7 @@ window.FileDialog = (() => {
     if (_mode === 'openFolder') return false;
     const ext = _extOf(entry.name);
     if (_mode === 'save') {
-      if (_filter === 'all') return SAVE_EXTS.includes(ext);
+      if (_filter === 'all') return _saveExts().includes(ext);
       return ext === _filter || (_filter === 'jpg' && ext === 'jpeg');
     }
     if (_filter === 'images') return FormatSupport.IMAGE_EXTS.has(ext);
@@ -185,7 +190,9 @@ window.FileDialog = (() => {
     const e = _els();
     if (!e.filter) return;
     e.filter.innerHTML = '';
-    const opts = _mode === 'save'
+    const opts = _mode === 'save' && _saveTypes
+      ? _saveTypes.map(([ext, label]) => [ext, label || ext.toUpperCase()])
+      : _mode === 'save'
       ? [
           ['png', _t('fd.filterPng', 'PNG (*.png)')],
           ['jpg', _t('fd.filterJpeg', 'JPEG (*.jpg)')],
@@ -218,7 +225,7 @@ window.FileDialog = (() => {
     if (!name) name = 'image';
     const ext = _extOf(name);
     const want = _filter === 'jpg' ? 'jpg' : _filter;
-    if (!SAVE_EXTS.includes(ext) && ext !== 'jpeg') {
+    if (!_saveExts().includes(ext) && ext !== 'jpeg') {
       e.name.value = `${name.replace(/\.[^.]+$/, '')}.${want}`;
     } else if (want === 'jpg' && ext === 'jpeg') {
       /* ok */
@@ -386,7 +393,7 @@ window.FileDialog = (() => {
     if (done) done(result);
   }
 
-  async function show({ mode = 'openFile', defaultPath = '', title = '' } = {}) {
+  async function show({ mode = 'openFile', defaultPath = '', title = '', saveTypes = null } = {}) {
     _bindOnce();
     _overlay = document.getElementById('file-dialog-overlay');
     if (!_overlay) return { canceled: true };
@@ -395,6 +402,7 @@ window.FileDialog = (() => {
     try { _sep = await window.electronAPI.getPathSep(); } catch { _sep = '\\'; }
 
     _mode = mode;
+    _saveTypes = mode === 'save' && Array.isArray(saveTypes) && saveTypes.length ? saveTypes : null;
     const e = _els();
     const titles = {
       openFile: _t('fd.openFile', 'Open File'),
@@ -423,7 +431,7 @@ window.FileDialog = (() => {
     if (mode === 'save' && defaultPath) {
       nameHint = await _basename(defaultPath);
       const ext = _extOf(nameHint);
-      if (SAVE_EXTS.includes(ext) || ext === 'jpeg') {
+      if (_saveExts().includes(ext) || ext === 'jpeg') {
         _filter = ext === 'jpeg' ? 'jpg' : ext;
         if (e.filter) e.filter.value = _filter;
       }

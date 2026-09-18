@@ -64,3 +64,14 @@ __pycache__/
 *.pyc
 .venv/
 venv/
+
+# Large / downloaded sample sets — the small format samples in samples/ stay tracked
+samples/ct-lung-screening-nlst-series/
+samples/*-series/
+samples/image-*.dcm
+samples/**/*.zip
+
+# Test-driver artifacts (CDP screenshots, synthetic DICOM fixtures, scratch copies)
+shots/
+scratch/
+*.orig.js

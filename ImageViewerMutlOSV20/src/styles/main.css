@@ -312,7 +312,7 @@ body.frameless #win-ctrl-gutter { display: block; }
   line-height: 1;
 }
 .ew-brand {
-  padding: 0 6px 0 2px;
+  padding: 0 10px 0 6px;
   margin-right: 0;
   height: 100%;
 }
@@ -574,6 +574,81 @@ body.maximized #window-controls #win-max .win-restore-icon { display: block; }
   align-items: center;
 }
 .settings-theme-row .resize-select { flex: 1; min-width: 0; }
+.settings-dialog-box { width: 560px; min-width: 560px; max-width: 560px; height: 430px; max-height: none; }
+.settings-dialog-box .dialog-body.settings-body { flex: 1; overflow: hidden; padding: 6px 16px 10px; }
+.settings-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--border);
+}
+.settings-tab {
+  height: 34px;
+  padding: 0 14px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  margin-bottom: -1px;
+}
+.settings-tab:hover { color: var(--text-primary); }
+.settings-tab.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+.settings-panel { display: none; }
+.settings-panel.active { display: block; }
+.settings-panel .settings-row { padding: 9px 0; min-height: 50px; box-sizing: border-box; }
+.settings-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-self: end;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.settings-inline .resize-input {
+  width: 72px;
+  height: 30px;
+  padding: 0 8px;
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-size: 13px;
+  outline: none;
+}
+.settings-inline .resize-input:focus { border-color: var(--accent); }
+.settings-range { flex: 1; min-width: 90px; }
+.settings-value { min-width: 38px; text-align: right; font-variant-numeric: tabular-nums; color: var(--text-primary); }
+.settings-check { display: inline-flex; align-items: center; gap: 4px; color: var(--text-primary); }
+.settings-color {
+  width: 36px;
+  height: 30px;
+  padding: 2px;
+  border: 1px solid var(--input-border);
+  border-radius: 4px;
+  background: var(--input-bg);
+  cursor: pointer;
+}
+.settings-btn {
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  font-size: 12px;
+  cursor: pointer;
+  justify-self: end;
+  white-space: nowrap;
+}
+.settings-btn:hover { border-color: var(--accent); }
+.settings-footer .settings-footer-spacer { flex: 1; }
+.settings-reset-btn { color: var(--text-secondary); }
+/* Viewer options (Settings) */
+#viewer-container.no-checker { background-image: none; }
+#image-wrapper.pixelated canvas, #image-wrapper.pixelated img { image-rendering: pixelated; }
 .settings-theme-row .theme-swatch { width: 20px; height: 20px; flex-shrink: 0; }
 .settings-lang-row {
   display: flex;
@@ -2286,7 +2361,36 @@ kbd {
   animation: none;
 }
 
+/* Edit window chrome: title bar (32px, drag) · menu bar (26px) · toolbar row (36px) — same as the main window */
 #edit-window-titlebar {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  height: 32px;
+  min-height: 32px;
+  background: var(--titlebar-bg, var(--toolbar-bg));
+  border-bottom: 1px solid var(--toolbar-border);
+  padding: 0 0 0 4px;
+  flex-shrink: 0;
+  overflow: hidden;
+  -webkit-app-region: drag;
+  app-region: drag;
+}
+#edit-window-titlebar::-webkit-scrollbar { display: none; width: 0; height: 0; }
+#ew-menubar {
+  display: flex;
+  align-items: center;
+  height: 26px;
+  min-height: 26px;
+  background: var(--toolbar-bg);
+  border-bottom: 1px solid var(--toolbar-border);
+  padding: 0 4px;
+  gap: 1px;
+  flex-shrink: 0;
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+#ew-toolbar-row {
   display: flex;
   align-items: center;
   flex-wrap: nowrap;
@@ -2300,11 +2404,11 @@ kbd {
   overflow: hidden;
   overscroll-behavior: none;
   scrollbar-width: none;
-  -webkit-app-region: drag;
-  app-region: drag;
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
 }
-#edit-window-titlebar::-webkit-scrollbar { display: none; width: 0; height: 0; }
-body.frameless #edit-window-titlebar { padding-right: 0; }
+#ew-toolbar-row::-webkit-scrollbar { display: none; width: 0; height: 0; }
+#ew-toolbar-row .ew-spacer { flex: 1 1 auto; min-width: 8px; }
 #ew-win-gutter {
   display: none;
   flex: 0 0 138px;
@@ -2314,33 +2418,29 @@ body.frameless #edit-window-titlebar { padding-right: 0; }
   app-region: no-drag;
 }
 body.frameless #ew-win-gutter { display: block; }
-#edit-window-titlebar button,
-#edit-window-titlebar input,
-#edit-window-titlebar select,
-#edit-window-titlebar .ew-toolbar,
-#edit-window-titlebar .ew-group,
-#edit-window-titlebar .ew-actions,
-#edit-window-titlebar .ew-btn,
+#ew-toolbar-row button,
+#ew-toolbar-row input,
+#ew-toolbar-row select,
+#ew-toolbar-row .ew-toolbar,
+#ew-toolbar-row .ew-group,
+#ew-toolbar-row .ew-actions,
+#ew-toolbar-row .ew-btn,
 #edit-window-body {
   -webkit-app-region: no-drag;
   app-region: no-drag;
 }
 
 #edit-window-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin: 0 4px 0 2px;
+  font-size: 12px;
+  color: var(--text-secondary);
   white-space: nowrap;
-  flex-shrink: 1;
-  min-width: 72px;
-  max-width: 168px;
+  flex: 1 1 auto;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
-  display: flex;
-  align-items: center;
-  height: 100%;
-  line-height: 1;
+  text-align: center;
+  padding: 0 12px;
+  line-height: 32px;
 }
 
 .ew-toolbar {
@@ -2996,7 +3096,85 @@ body.frameless #ew-win-gutter { display: block; }
 #viewer-container.dicom-windowing #sel-canvas {
   cursor: ns-resize !important;
 }
+.dicom-controls .dicom-tools {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+.dicom-controls .dicom-tools[hidden] {
+  display: none;
+}
+.dicom-controls .dicom-tools .dicom-sep {
+  margin: 0 4px;
+}
+.dicom-colormap {
+  max-width: 150px;
+}
+.dicom-fps input {
+  width: 52px;
+}
+.dicom-fps span {
+  font-size: 11px;
+  opacity: 0.75;
+}
+.dcm-tool.is-active {
+  background: rgba(255, 196, 64, 0.35) !important;
+}
 
-/* Edit window keeps a 40px title bar: the fixed window buttons stretch to match while it is open */
-body.edit-mode #window-controls { height: 40px; }
-body.edit-mode #window-controls button { height: 40px; }
+/* DICOM overlay layer (annotations, orientation markers, scale bar, measurements) */
+.dcm-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 6;
+  display: none;
+}
+.dcm-overlay.is-on {
+  display: block;
+}
+.dcm-overlay.is-tool {
+  pointer-events: auto;
+  cursor: crosshair;
+}
+#status-probe {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Info panel: DICOM tag filter + nested sequence items */
+.info-section-tags {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.info-section-tags .info-filter {
+  flex: 1 1 60px;
+  min-width: 0;
+  height: 20px;
+  font-size: 11px;
+  padding: 0 6px;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  background: var(--input-bg);
+  color: var(--text-primary);
+  outline: none;
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 400;
+}
+.info-section-tags .info-filter:focus {
+  border-color: #6cb6ff;
+}
+.info-row.info-row-item .info-label {
+  opacity: 0.6;
+  font-style: italic;
+}
+.info-row.is-filtered {
+  display: none;
+}
+
+/* Edit window title bar is 32px like the main one: the fixed window buttons match it */
+body.edit-mode #window-controls { height: 32px; }
+body.edit-mode #window-controls button { height: 32px; }

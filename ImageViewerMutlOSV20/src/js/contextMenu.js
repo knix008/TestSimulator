@@ -5,6 +5,13 @@
  *           remove: { title, action },            — × button at the right of the row
  *           submenu: items | () => items | () => Promise<items> }  — flyout on hover / click
  *   { separator: true }
+ *   `items` may also be a function returning the items (re-run by refreshSubmenu).
+ *
+ * In Electron the menu is shown in a detached popup window (electronAPI.popupMenu →
+ * main.js → src/popup.html, which draws it with this same module): it can extend past
+ * the app window instead of being clipped. Actions are kept here by id and run when the
+ * popup reports a click. In web mode (and inside the popup page) the menu is drawn in
+ * the page itself (#context-menu).
  */
 window.ContextMenu = (() => {
   const CHEVRON = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8.6 16.6 10 18l6-6-6-6-1.4 1.4 4.6 4.6z"/></svg>';
@@ -16,6 +23,10 @@ window.ContextMenu = (() => {
   let _subs   = [];          // open flyouts, outermost first
   let _closeTimer = null;
   let _onHide = null;        // callback for the current menu (menu bar highlight)
+  let _actions = new Map();  // remote menu: id → action
+  let _lastItems = null;     // remote menu: root items (array or function) for refresh
+  let _seq = 0;
+  let _idSeq = 0;
 
   function init() {
     _menu = document.getElementById('context-menu');
@@ -23,10 +34,85 @@ window.ContextMenu = (() => {
 
     document.addEventListener('click', hide);
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') hide();
+      // Escape closes an open menu and nothing else (the app's own Escape handling runs after us)
+      if (e.key === 'Escape' && _active) { hide(); e.preventDefault(); e.stopImmediatePropagation(); }
     });
     window.addEventListener('blur', hide);
-    window.addEventListener('resize', hide);
+    // (the popup page is resized to the work area right before a menu is shown)
+    if (!document.documentElement.classList.contains('popup-host')) window.addEventListener('resize', hide);
+
+    // Detached popup window (Electron): clicks come back by id
+    if (_remote()) {
+      window.electronAPI.onPopupMenuEvent((ev) => {
+        if (!ev) return;
+        // Events carry the sequence number of the menu they belong to; a stale "closed"
+        // (the menu that was just replaced by another one) must not close the current one.
+        if (ev.seq !== undefined && ev.seq !== _seq) return;
+        if (ev.type === 'closed') { _active = false; _fireHide(); return; }
+        const fn = _actions.get(ev.id);
+        if (ev.type === 'action') {
+          _active = false;
+          _fireHide();
+          if (fn) requestAnimationFrame(() => { try { fn(); } catch (err) { console.error(err); } });
+        } else if (ev.type === 'remove' && fn) {
+          try { fn(); } catch (err) { console.error(err); }
+        }
+      });
+    }
+  }
+
+  function _remote() {
+    return !!(window.electronAPI && typeof window.electronAPI.popupMenu === 'function');
+  }
+
+  // Serializable copy of the items for the popup window; actions are kept here by id.
+  async function _serialize(items) {
+    const out = [];
+    for (const it of items || []) {
+      if (!it) continue;
+      if (it.separator) { out.push({ separator: true }); continue; }
+      const o = {
+        label: it.label, icon: it.icon || '', detail: it.detail, title: it.title, shortcut: it.shortcut,
+        disabled: !!it.disabled, danger: !!it.danger, checked: !!it.checked, inline: !!it.inline,
+      };
+      if (typeof it.action === 'function') { o.id = `a${++_idSeq}`; _actions.set(o.id, it.action); }
+      if (it.remove && typeof it.remove.action === 'function') {
+        const rid = `r${++_idSeq}`;
+        _actions.set(rid, it.remove.action);
+        o.remove = { title: it.remove.title, id: rid };
+      }
+      if (it.submenu) {
+        let sub = it.submenu;
+        if (typeof sub === 'function') { try { sub = await sub(); } catch (err) { console.error(err); sub = []; } }
+        o.submenu = await _serialize(Array.isArray(sub) ? sub : []);
+      }
+      out.push(o);
+    }
+    return out;
+  }
+
+  function _payload(items) {
+    const root = document.documentElement;
+    return { seq: _seq, items, theme: root.getAttribute('data-theme') || '', kind: root.getAttribute('data-theme-kind') || '', lang: root.getAttribute('lang') || '' };
+  }
+
+  async function _showRemote(x, y, items) {
+    const seq = ++_seq;
+    _lastItems = items;
+    _actions = new Map();
+    const list = await _serialize(typeof items === 'function' ? await items() : items);
+    if (seq !== _seq) return;   // another menu was requested meanwhile
+    _active = true;
+    try { await window.electronAPI.popupMenu({ x, y, ...(_payload(list)) }); } catch (err) { console.error(err); _active = false; }
+  }
+
+  async function _refreshRemote() {
+    if (!_active || _lastItems == null) return;
+    const seq = _seq;
+    _actions = new Map();
+    const list = await _serialize(typeof _lastItems === 'function' ? await _lastItems() : _lastItems);
+    if (seq !== _seq || !_active) return;
+    try { await window.electronAPI.popupMenuRefresh(_payload(list)); } catch (err) { console.error(err); }
   }
 
   function _place(el, x, y) {
@@ -42,6 +128,13 @@ window.ContextMenu = (() => {
   }
 
   function _runAction(item) {
+    if (document.documentElement.classList.contains('popup-host')) {
+      // Popup page: report the click before the window hides — a deferred callback would
+      // never run in a hidden window. The app side defers the real work itself.
+      try { item.action(); } catch (err) { console.error(err); }
+      hide();
+      return;
+    }
     hide();
     // Let the menu unpaint before long-running actions (progress popup, image ops).
     requestAnimationFrame(() => {
@@ -53,6 +146,7 @@ window.ContextMenu = (() => {
     const el = document.createElement('div');
     el.className = `ctx-item${item.disabled ? ' disabled' : ''}${item.danger ? ' danger' : ''}`
       + `${item.checked ? ' checked' : ''}${item.inline ? ' inline' : ''}${item.submenu ? ' has-sub' : ''}`;
+    el._ctxItem = item;
 
     const iconWrap = document.createElement('div');
     iconWrap.className = 'ctx-icon' + (item.checked ? ' ctx-check' : '');
@@ -196,6 +290,7 @@ window.ContextMenu = (() => {
 
   /** Rebuild the currently open flyout at `level` (after its content changed). */
   function refreshSubmenu(level = 0) {
+    if (_remote()) { _refreshRemote(); return; }
     const s = _subs[level];
     if (!s) return;
     const owner = s.owner, item = s.item;
@@ -203,10 +298,24 @@ window.ContextMenu = (() => {
     _openSub(owner, item, level);
   }
 
+  /** Popup page: swap the rows of the open menu, keeping the open flyout (same root row) open. */
+  function replaceItems(items) {
+    if (!_menu || !_active) return;
+    const openIdx = _subs[0] ? Array.prototype.indexOf.call(_menu.children, _subs[0].owner) : -1;
+    _closeFrom(0);
+    _fill(_menu, items, 0);
+    if (openIdx >= 0) {
+      const el = _menu.children[openIdx];
+      if (el && el._ctxItem && el._ctxItem.submenu) _openSub(el, el._ctxItem, 0);
+    }
+  }
+
   function show(x, y, items, opts) {
     if (!_menu) return;
     _fireHide();
     _onHide = (opts && typeof opts.onHide === 'function') ? opts.onHide : null;
+    if (_remote()) { _showRemote(x, y, items); return; }
+    if (typeof items === 'function') items = items();
     _closeFrom(0);
     _fill(_menu, items, 0);
     _place(_menu, x, y);
@@ -221,6 +330,14 @@ window.ContextMenu = (() => {
 
   function hide() {
     if (!_menu) return;
+    if (_remote()) {
+      const was = _active;
+      _seq++;
+      _active = false;
+      _fireHide();
+      if (was) window.electronAPI.popupMenuHide();
+      return;
+    }
     _cancelClose();
     _closeFrom(0);
     _menu.style.display = 'none';
@@ -230,5 +347,5 @@ window.ContextMenu = (() => {
 
   function isOpen() { return _active; }
 
-  return { init, show, hide, isOpen, refreshSubmenu };
+  return { init, show, hide, isOpen, refreshSubmenu, replaceItems };
 })();

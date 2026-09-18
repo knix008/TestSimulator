@@ -3,21 +3,37 @@
  *   DicomDecoder.load(bytes) → Promise<image>
  *     image.width / height / frames / gray / photometric / modality …
  *     image.fileWindows          [{ wc, ww, label }] from the file (may be empty)
+ *     image.windowsFor(frame)    the windows that apply to one frame (enhanced multi-frame: per-frame)
+ *     image.voiLuts              [{ label, n, first, bits }] VOI LUT Sequence entries (non-linear windows)
  *     image.presets              window presets for the modality (CT: brain, lung, bone …)
- *     image.state                { frame, wc, ww, invert } currently rendered
+ *     image.colormaps            pseudo-colour maps ('gray', 'hotiron', 'pet', 'hotmetalblue', 'pet20', 'jet', 'rainbow', 'bone')
+ *     image.overlays             overlay planes (60xx): [{ group, rows, cols, origin, type, label, frames }]
+ *     image.geometry             { pixelSpacing: [row, col] mm, spacingSource, sliceThickness, markers: { left, right, top, bottom } … }
+ *     image.frameInfo(frame)     per-frame values: windows, slope / intercept, position, orientation, spacing, slice location
+ *     image.frameTimes / frameRate  cine timing from Frame Time (Vector), Cine Rate or Recommended Display Frame Rate
+ *     image.units                units of the rescaled values ('HU' for CT, Rescale Type / PET Units otherwise)
+ *     image.state                { frame, wc, ww, invert, voiLut, voiFunction, colormap, overlays } currently rendered
  *     image.range                { min, max } of the rendered frame (rescaled units)
  *     image.meta                 summary for the info panel (patient, study, series, pixel format …)
- *     image.tags                 every top-level element: [{ tag, name, vr, value }]
- *     image.render({ frame, wc, ww, invert }) → Promise<{ rgba, width, height, state }>
+ *     image.tags                 every element (sequences nested): [{ tag, name, vr, value, depth }]
+ *     image.render(opts)         → Promise<{ rgba, width, height, state }>
+ *       opts: { frame, wc, ww, invert, voiLut (index | -1), voiFunction ('LINEAR' | 'LINEAR_EXACT' | 'SIGMOID'),
+ *               colormap, overlays (bool), overlayColor, resetWindow (bool) }
  *     image.toCanvas(opts)       browser only → Promise<{ canvas, state }>
  *     image.toDataUrl(opts)      browser only → Promise<{ dataUrl, state }>
+ *     image.valueAt(x, y)        pixel probe on the rendered frame: { raw, value, units } or { r, g, b } (null while undecoded)
+ *     image.stats(region)        ROI statistics: { n, mean, std, min, max, areaPx, areaMm2 } — region { x, y, w, h, shape: 'rect' | 'ellipse' }
+ *     image.histogram(bins)      { counts, min, max, binWidth } of the rendered frame's values
+ *     image.dirLabel(sx, sy)     anatomical label ('R', 'L', 'A', 'P', 'H', 'F', or two letters) of a direction in image space
  *
  * Tags are read with dicom-parser. Pixel data is decoded with the codec the transfer
  * syntax asks for: implicit / explicit little endian, explicit big endian, deflated,
  * RLE lossless (here), JPEG baseline / extended 12-bit (libjpeg-turbo), JPEG lossless
  * (jpeg-lossless-decoder-js), JPEG-LS (CharLS), JPEG 2000 / HTJ2K (OpenJPEG).
  * Photometric interpretations: MONOCHROME1 / 2, RGB, YBR_FULL / YBR_FULL_422, PALETTE COLOR.
- * 8 / 16 / 32-bit samples, signed or unsigned, multi-frame, modality rescale, VOI windows.
+ * 8 / 16 / 32-bit integer and 32 / 64-bit float samples, signed or unsigned, multi-frame,
+ * modality rescale or Modality LUT, VOI windows / VOI LUTs (LINEAR, LINEAR_EXACT, SIGMOID),
+ * Presentation LUT Shape, enhanced multi-frame functional groups, overlay planes.
  *
  * Codecs are loaded on first use: `require()` in Node, a <script> tag from
  * `../node_modules/` (relative to the page) in the browser — see setVendorBase().
@@ -151,6 +167,15 @@
     '00281202': 'Green Palette Color Lookup Table Data', '00281203': 'Blue Palette Color Lookup Table Data', '00282110': 'Lossy Image Compression',
     '00282112': 'Lossy Image Compression Ratio', '00282114': 'Lossy Image Compression Method', '00283000': 'Modality LUT Sequence', '00283010': 'VOI LUT Sequence',
     '00286010': 'Representative Frame Number', '00286020': 'Frame Numbers of Interest', '00289001': 'Data Point Rows', '00289002': 'Data Point Columns',
+    '00283002': 'LUT Descriptor', '00283003': 'LUT Explanation', '00283004': 'Modality LUT Type', '00283006': 'LUT Data',
+    '00289110': 'Pixel Measures Sequence', '00289132': 'Frame VOI LUT Sequence', '00289145': 'Pixel Value Transformation Sequence',
+    '00180040': 'Cine Rate', '00082144': 'Recommended Display Frame Rate',
+    '00180072': 'Effective Duration', '00181242': 'Actual Frame Duration', '00181244': 'Preferred Playback Sequencing', '00189004': 'Content Qualification',
+    '00209111': 'Frame Content Sequence', '00209113': 'Plane Position Sequence', '00209116': 'Plane Orientation Sequence', '00209156': 'Frame Acquisition Number',
+    '00209157': 'Dimension Index Values', '00209128': 'Temporal Position Index', '00209221': 'Dimension Organization Sequence', '00209222': 'Dimension Index Sequence',
+    '00209071': 'Frame Anatomy Sequence', '00189226': 'MR Image Frame Type Sequence', '00189329': 'MR Metabolite Map Sequence', '00189477': 'Irradiation Event Identification Sequence',
+    '00082143': 'Stop Trim', '00082142': 'Start Trim', '00182010': 'Nominal Scanned Pixel Spacing',
+    '00281300': 'Breast Implant Present', '00281350': 'Partial View', '00281351': 'Partial View Description',
     '00321032': 'Requesting Physician', '00321060': 'Requested Procedure Description', '00321064': 'Requested Procedure Code Sequence', '00324000': 'Study Comments',
     '00380010': 'Admission ID', '00380050': 'Special Needs', '00380300': 'Current Patient Location', '00380500': 'Patient State',
     '00400002': 'Scheduled Procedure Step Start Date', '00400244': 'Performed Procedure Step Start Date', '00400245': 'Performed Procedure Step Start Time',
@@ -188,6 +213,8 @@
     '0020000D': 'UI', '0020000E': 'UI', '00200020': 'CS', '00200052': 'UI', '00200060': 'CS', '00200062': 'CS', '00204000': 'LT', '00282110': 'CS', '00282112': 'DS',
     '00282114': 'CS', '00280004': 'CS', '00280301': 'CS', '00280300': 'CS', '00020010': 'UI', '00020002': 'UI', '00020003': 'UI', '00020012': 'UI', '00020013': 'SH',
     '00380010': 'LO', '00400244': 'DA', '00400245': 'TM', '00400253': 'SH', '00400254': 'LO', '00321060': 'LO', '00324000': 'LT', '00120062': 'CS', '00120063': 'LO',
+    '00283002': 'US', '00283003': 'LO', '00283004': 'LO', '00281056': 'CS', '20500020': 'CS', '00180040': 'IS', '00181065': 'DS', '00082144': 'IS',
+    '00209156': 'US', '00209157': 'UL', '00209128': 'UL', '00541001': 'CS', '00182010': 'DS', '00280121': 'US',
   };
 
   /* ── Vendor modules (parser + codecs) ── */
@@ -442,8 +469,16 @@
 
   /* ── Pixel unpacking ── */
   // Raw bytes → one typed array of samples.
-  function unpack(raw, { n, spp, bitsAllocated, signed, bigEndian }) {
+  function unpack(raw, { n, spp, bitsAllocated, signed, bigEndian, float }) {
     const count = n * spp;
+    if (float) {   // Float Pixel Data (7FE0,0008) / Double Float Pixel Data (7FE0,0009)
+      const bytes = bitsAllocated === 64 ? 8 : 4;
+      const out = bytes === 8 ? new Float64Array(count) : new Float32Array(count);
+      const dv = new DataView(raw.buffer, raw.byteOffset, raw.byteLength);
+      const m = Math.min(count, Math.floor(raw.length / bytes));
+      for (let i = 0; i < m; i++) out[i] = bytes === 8 ? dv.getFloat64(i * 8, !bigEndian) : dv.getFloat32(i * 4, !bigEndian);
+      return out;
+    }
     if (bitsAllocated === 8) {
       const len = Math.min(count, raw.length);
       return signed ? new Int8Array(raw.buffer, raw.byteOffset, len) : new Uint8Array(raw.buffer, raw.byteOffset, len);
@@ -600,6 +635,127 @@
     throw new Error(`Unsupported transfer syntax ${ts}${TS_NAME[ts] ? ` (${TS_NAME[ts]})` : ''}`);
   }
 
+  /* ── Tag listing ── */
+  function elementValue(ds, el, tagHex, explicit) {
+    const vr = el.vr || IMPLICIT_VR[tagHex] || '';
+    if (el.items) return { vr: vr || 'SQ', value: `[sequence: ${el.items.length} item${el.items.length === 1 ? '' : 's'}]` };
+    if (el.fragments || el.encapsulatedPixelData) return { vr: vr || 'OB', value: `[encapsulated: ${el.fragments ? el.fragments.length : 0} fragments]` };
+    if (tagHex === '7FE00010' || tagHex === '7FE00008' || tagHex === '7FE00009') return { vr: vr || 'OW', value: `[pixel data: ${el.length} bytes]` };
+    if (/^60[0-9A-F]{2}3000$/.test(tagHex)) return { vr: vr || 'OW', value: `[overlay data: ${el.length} bytes]` };
+    if (el.length === 0) return { vr, value: '' };
+    if (el.length > 512 && !STRING_VR.has(vr)) return { vr, value: `[binary ${el.length} bytes]` };
+    try {
+      if (vr === 'US') { const vals = []; for (let i = 0; i < el.length / 2 && i < 16; i++) vals.push(ds.uint16(el.tag, i)); return { vr, value: vals.join('\\') }; }
+      if (vr === 'SS') { const vals = []; for (let i = 0; i < el.length / 2 && i < 16; i++) vals.push(ds.int16(el.tag, i)); return { vr, value: vals.join('\\') }; }
+      if (vr === 'UL') { const vals = []; for (let i = 0; i < el.length / 4 && i < 16; i++) vals.push(ds.uint32(el.tag, i)); return { vr, value: vals.join('\\') }; }
+      if (vr === 'SL') { const vals = []; for (let i = 0; i < el.length / 4 && i < 16; i++) vals.push(ds.int32(el.tag, i)); return { vr, value: vals.join('\\') }; }
+      if (vr === 'FL') { const vals = []; for (let i = 0; i < el.length / 4 && i < 16; i++) vals.push(fmtNum(ds.float(el.tag, i))); return { vr, value: vals.join('\\') }; }
+      if (vr === 'FD') { const vals = []; for (let i = 0; i < el.length / 8 && i < 16; i++) vals.push(fmtNum(ds.double(el.tag, i))); return { vr, value: vals.join('\\') }; }
+      if (vr === 'AT') { return { vr, value: `(${ds.uint16(el.tag, 0).toString(16).padStart(4, '0')},${ds.uint16(el.tag, 1).toString(16).padStart(4, '0')})`.toUpperCase() }; }
+      if (STRING_VR.has(vr) || (!vr && !explicit)) {
+        const s = clean(ds.string(el.tag));
+        // Implicit files: an unreadable "string" is binary — show bytes instead.
+        if (!vr && /[^\x09\x0A\x0D\x20-\x7E-￿]/.test(s)) return { vr: 'UN', value: `[binary ${el.length} bytes]` };
+        return { vr: vr || 'UN', value: vr === 'PN' ? person(s) : vr === 'DA' ? fmtDate(s) : vr === 'TM' ? fmtTime(s) : s };
+      }
+      if (vr === 'OB' || vr === 'OW' || vr === 'UN' || vr === 'OF' || vr === 'OD' || vr === 'OL') {
+        const bytes = [];
+        for (let i = 0; i < Math.min(el.length, 16); i++) bytes.push(ds.byteArray[el.dataOffset + i].toString(16).padStart(2, '0'));
+        return { vr, value: bytes.join(' ').toUpperCase() + (el.length > 16 ? ` … (${el.length} bytes)` : '') };
+      }
+      return { vr, value: clean(ds.string(el.tag)) };
+    } catch {
+      return { vr, value: `[${el.length} bytes]` };
+    }
+  }
+
+  // Overlay groups (6000–601E) share one dictionary — the element half names them.
+  const OVERLAY_DICT = {
+    '0010': 'Overlay Rows', '0011': 'Overlay Columns', '0012': 'Overlay Planes', '0015': 'Number of Frames in Overlay', '0022': 'Overlay Description',
+    '0040': 'Overlay Type', '0045': 'Overlay Subtype', '0050': 'Overlay Origin', '0051': 'Image Frame Origin', '0052': 'Overlay Plane Origin',
+    '0100': 'Overlay Bits Allocated', '0102': 'Overlay Bit Position', '1500': 'Overlay Label', '3000': 'Overlay Data',
+    '1301': 'ROI Area', '1302': 'ROI Mean', '1303': 'ROI Standard Deviation',
+  };
+
+  function tagName(hex) {
+    if (DICT[hex]) return DICT[hex];
+    const group = hex.slice(0, 4), element = hex.slice(4);
+    if (/^60[0-9A-F][02468ACE]$/.test(group) && OVERLAY_DICT[element]) return OVERLAY_DICT[element];
+    if (parseInt(group, 16) % 2 === 1) return 'Private tag';
+    if (hex === 'FFFEE000') return 'Item';
+    return `Tag ${group},${element}`;
+  }
+
+  const TAG_LIST_MAX = 6000;
+  const TAG_DEPTH_MAX = 4;
+
+  // Every element of a data set, with sequence items nested below their sequence (depth ≥ 1).
+  function listTags(ds, explicit, depth = 0, out = []) {
+    const keys = Object.keys(ds.elements).sort();
+    for (const key of keys) {
+      if (out.length >= TAG_LIST_MAX) break;
+      const el = ds.elements[key];
+      const hex = key.slice(1).toUpperCase();
+      const { vr, value } = elementValue(ds, el, hex, explicit);
+      const group = hex.slice(0, 4), element = hex.slice(4);
+      out.push({ tag: `(${group},${element})`, name: tagName(hex), vr, value: value == null ? '' : String(value), depth });
+      if (el.items && depth < TAG_DEPTH_MAX) {
+        el.items.forEach((item, i) => {
+          if (!item.dataSet || out.length >= TAG_LIST_MAX) return;
+          out.push({ tag: '', name: `Item ${i + 1}`, vr: '', value: '', depth: depth + 1, item: true });
+          listTags(item.dataSet, explicit, depth + 1, out);
+        });
+      }
+    }
+    return out;
+  }
+
+  /* ── Lookup tables ── */
+  // LUT Descriptor (entries, first mapped value, bits) + LUT Data → { n, first, bits, max, data }
+  function readLut(item, descTag, dataTag, signed) {
+    if (!item || !item.elements[descTag] || !item.elements[dataTag]) return null;
+    try {
+      const n0 = item.uint16(descTag, 0);
+      let first = item.uint16(descTag, 1);
+      if (signed && first > 32767) first -= 65536;
+      const bits = item.uint16(descTag, 2) || 16;
+      const n = n0 === 0 ? 65536 : n0;
+      const el = item.elements[dataTag];
+      const data = new Float64Array(n);
+      let max = 0;
+      if (bits <= 8 && el.length === n) {
+        for (let i = 0; i < n; i++) { data[i] = item.byteArray[el.dataOffset + i]; if (data[i] > max) max = data[i]; }
+      } else {
+        const m = Math.min(n, el.length >> 1);
+        for (let i = 0; i < m; i++) { data[i] = item.uint16(dataTag, i); if (data[i] > max) max = data[i]; }
+        for (let i = m; i < n; i++) data[i] = m ? data[m - 1] : 0;
+      }
+      return { n, first, bits, max: Math.max(max, 1), data };
+    } catch { return null; }
+  }
+
+  function readModalityLut(ds, signed) {
+    const item = ds.elements.x00283000 && ds.elements.x00283000.items && ds.elements.x00283000.items[0];
+    if (!item || !item.dataSet) return null;
+    const lut = readLut(item.dataSet, 'x00283002', 'x00283006', signed);
+    if (lut) lut.type = clean(item.dataSet.string('x00283004'));
+    return lut;
+  }
+
+  function readVoiLuts(ds, signed) {
+    const seq = ds.elements.x00283010;
+    if (!seq || !seq.items) return [];
+    const out = [];
+    seq.items.forEach((item, i) => {
+      if (!item.dataSet) return;
+      const lut = readLut(item.dataSet, 'x00283002', 'x00283006', signed);
+      if (!lut) return;
+      lut.label = clean(item.dataSet.string('x00283003')) || `LUT ${i + 1}`;
+      out.push(lut);
+    });
+    return out;
+  }
+
   // PALETTE COLOR: the three lookup tables (descriptor: entries, first value, bits).
   function readPalette(ds) {
     if (!ds.elements.x00281101) return null;
@@ -619,89 +775,305 @@
     return r && g && b ? { n, first: first > 32767 ? first - 65536 : first, r, g, b } : null;
   }
 
-  /* ── Tag listing ── */
-  function elementValue(ds, el, tagHex, explicit) {
-    const vr = el.vr || IMPLICIT_VR[tagHex] || '';
-    if (el.items) return { vr: vr || 'SQ', value: `[sequence: ${el.items.length} item${el.items.length === 1 ? '' : 's'}]` };
-    if (el.fragments || el.encapsulatedPixelData) return { vr: vr || 'OB', value: `[encapsulated: ${el.fragments ? el.fragments.length : 0} fragments]` };
-    if (tagHex === '7FE00010' || tagHex === '7FE00008' || tagHex === '7FE00009') return { vr: vr || 'OW', value: `[pixel data: ${el.length} bytes]` };
-    if (el.length === 0) return { vr, value: '' };
-    if (el.length > 512 && !STRING_VR.has(vr)) return { vr, value: `[binary ${el.length} bytes]` };
-    try {
-      if (vr === 'US') { const vals = []; for (let i = 0; i < el.length / 2 && i < 16; i++) vals.push(ds.uint16(el.tag, i)); return { vr, value: vals.join('\\') }; }
-      if (vr === 'SS') { const vals = []; for (let i = 0; i < el.length / 2 && i < 16; i++) vals.push(ds.int16(el.tag, i)); return { vr, value: vals.join('\\') }; }
-      if (vr === 'UL') { const vals = []; for (let i = 0; i < el.length / 4 && i < 16; i++) vals.push(ds.uint32(el.tag, i)); return { vr, value: vals.join('\\') }; }
-      if (vr === 'SL') { const vals = []; for (let i = 0; i < el.length / 4 && i < 16; i++) vals.push(ds.int32(el.tag, i)); return { vr, value: vals.join('\\') }; }
-      if (vr === 'FL') { const vals = []; for (let i = 0; i < el.length / 4 && i < 16; i++) vals.push(fmtNum(ds.float(el.tag, i))); return { vr, value: vals.join('\\') }; }
-      if (vr === 'FD') { const vals = []; for (let i = 0; i < el.length / 8 && i < 16; i++) vals.push(fmtNum(ds.double(el.tag, i))); return { vr, value: vals.join('\\') }; }
-      if (vr === 'AT') { return { vr, value: `(${ds.uint16(el.tag, 0).toString(16).padStart(4, '0')},${ds.uint16(el.tag, 1).toString(16).padStart(4, '0')})`.toUpperCase() }; }
-      if (STRING_VR.has(vr) || (!vr && !explicit)) {
-        const s = clean(ds.string(el.tag));
-        // Implicit files: an unreadable "string" is binary — show bytes instead.
-        if (!vr && /[^\x09\x0A\x0D\x20-\x7E-￿]/.test(s)) return { vr: 'UN', value: `[binary ${el.length} bytes]` };
-        return { vr: vr || 'UN', value: vr === 'PN' ? person(s) : vr === 'DA' ? fmtDate(s) : vr === 'TM' ? fmtTime(s) : s };
-      }
-      if (vr === 'OB' || vr === 'OW' || vr === 'UN' || vr === 'OF' || vr === 'OD' || vr === 'OL') {
-        const bytes = [];
-        for (let i = 0; i < Math.min(el.length, 16); i++) bytes.push(ds.byteArray[el.dataOffset + i].toString(16).padStart(2, '0'));
-        return { vr, value: bytes.join(' ').toUpperCase() + (el.length > 16 ? ` … (${el.length} bytes)` : '') };
-      }
-      return { vr, value: clean(ds.string(el.tag)) };
-    } catch {
-      return { vr, value: `[${el.length} bytes]` };
-    }
+  /* ── Pseudo-colour maps (256 × RGB) ── */
+  const CM_POINTS = {
+    hotiron:      [[0, 0, 0, 0], [0.5, 255, 0, 0], [0.8, 255, 255, 0], [1, 255, 255, 255]],
+    pet:          [[0, 0, 0, 0], [0.18, 0, 0, 220], [0.38, 190, 0, 220], [0.55, 255, 0, 0], [0.75, 255, 160, 0], [0.9, 255, 255, 0], [1, 255, 255, 255]],
+    hotmetalblue: [[0, 0, 0, 0], [0.35, 0, 0, 255], [0.6, 255, 0, 255], [1, 255, 255, 255]],
+    jet:          [[0, 0, 0, 131], [0.125, 0, 0, 255], [0.375, 0, 255, 255], [0.625, 255, 255, 0], [0.875, 255, 0, 0], [1, 128, 0, 0]],
+    bone:         [[0, 0, 0, 0], [0.375, 81, 81, 113], [0.75, 166, 198, 198], [1, 255, 255, 255]],
+  };
+  const COLORMAP_IDS = ['gray', 'hotiron', 'pet', 'hotmetalblue', 'pet20', 'jet', 'rainbow', 'bone'];
+  const cmCache = {};
+
+  function hsvToRgb(h, s, v) {
+    const i = Math.floor(h * 6), f = h * 6 - i;
+    const p = v * (1 - s), q = v * (1 - f * s), t = v * (1 - (1 - f) * s);
+    const c = [[v, t, p], [q, v, p], [p, v, t], [p, q, v], [t, p, v], [v, p, q]][i % 6];
+    return c.map((x) => Math.round(x * 255));
   }
 
-  function listTags(ds, explicit) {
+  function interpPoints(points, t) {
+    let a = points[0], b = points[points.length - 1];
+    for (let i = 1; i < points.length; i++) if (t <= points[i][0]) { a = points[i - 1]; b = points[i]; break; }
+    const k = b[0] === a[0] ? 0 : (t - a[0]) / (b[0] - a[0]);
+    return [1, 2, 3].map((c) => Math.round(a[c] + (b[c] - a[c]) * k));
+  }
+
+  function colormap(id) {
+    if (!id || id === 'gray') return null;
+    if (cmCache[id]) return cmCache[id];
+    const table = new Uint8Array(256 * 3);
+    for (let i = 0; i < 256; i++) {
+      let rgb;
+      if (id === 'rainbow') rgb = hsvToRgb(0.75 * (1 - i / 255), 1, i === 0 ? 0 : 1);
+      else if (id === 'pet20') rgb = interpPoints(CM_POINTS.pet, Math.floor(i / 256 * 20) / 19);
+      else if (CM_POINTS[id]) rgb = interpPoints(CM_POINTS[id], i / 255);
+      else return null;
+      table[i * 3] = rgb[0]; table[i * 3 + 1] = rgb[1]; table[i * 3 + 2] = rgb[2];
+    }
+    cmCache[id] = table;
+    return table;
+  }
+
+  /* ── Overlay planes (6000–601E) ── */
+  function readOverlays(ds, { rows, cols, frames, bitsAllocated }) {
     const out = [];
-    const keys = Object.keys(ds.elements).sort();
-    for (const key of keys) {
-      const el = ds.elements[key];
-      const hex = key.slice(1).toUpperCase();
-      const { vr, value } = elementValue(ds, el, hex, explicit);
-      const group = hex.slice(0, 4), element = hex.slice(4);
-      const isPrivate = parseInt(group, 16) % 2 === 1;
-      const name = DICT[hex] || (isPrivate ? 'Private tag' : `Tag ${group},${element}`);
-      out.push({ tag: `(${group},${element})`, name, vr, value: value == null ? '' : String(value) });
+    for (let g = 0x6000; g <= 0x601E; g += 2) {
+      const gh = g.toString(16).padStart(4, '0');
+      const tag = (e) => `x${gh}${e}`;
+      const u16 = (t) => { try { return ds.elements[t] ? ds.uint16(t) : undefined; } catch { return undefined; } };
+      const s16 = (t, i) => { try { return ds.elements[t] ? ds.int16(t, i) : undefined; } catch { return undefined; } };
+      const str = (t) => { try { return clean(ds.string(t)); } catch { return ''; } };
+      const orows = u16(tag('0010')), ocols = u16(tag('0011'));
+      if (!orows || !ocols) continue;
+      const dataEl = ds.elements[tag('3000')];
+      const bitPos = u16(tag('0102'));
+      const obits = u16(tag('0100')) || 1;
+      const oframes = Math.max(1, parseInt(str(tag('0015')), 10) || 1);
+      const frameOriginEl = ds.elements[tag('0051')];
+      const frameOrigin = Math.max(1, u16(tag('0051')) || 1);
+      const origin = [s16(tag('0050'), 0) ?? 1, s16(tag('0050'), 1) ?? 1];
+      const ov = {
+        group: `(${gh.toUpperCase()},xxxx)`, rows: orows, cols: ocols, origin, frames: oframes, frameOrigin,
+        allFrames: !frameOriginEl && oframes === 1 && frames > 1,
+        type: str(tag('0040')), label: str(tag('1500')), description: str(tag('0022')),
+        bits: null, embedded: false, bitPos: undefined,
+      };
+      if (dataEl && dataEl.length) {
+        const n = orows * ocols * oframes;
+        const bits = new Uint8Array(n);
+        const raw = ds.byteArray;
+        const off = dataEl.dataOffset, len = dataEl.length;
+        for (let i = 0; i < n && (i >> 3) < len; i++) bits[i] = (raw[off + (i >> 3)] >> (i & 7)) & 1;
+        ov.bits = bits;
+      } else if (bitPos !== undefined && obits === bitsAllocated && orows === rows && ocols === cols) {
+        ov.embedded = true;   // stored in an unused high bit of the pixel samples
+        ov.bitPos = bitPos;
+      } else {
+        continue;
+      }
+      out.push(ov);
     }
     return out;
+  }
+
+  /* ── Enhanced multi-frame: Shared / Per-frame Functional Groups ── */
+  function readGroupItem(item) {
+    if (!item) return {};
+    const o = {};
+    const str = (ds, t) => { try { return clean(ds.string(t)); } catch { return ''; } };
+    const nums = (ds, t) => str(ds, t).split('\\').map(num).filter((v) => v !== undefined);
+    const first = (t) => (item.elements[t] && item.elements[t].items && item.elements[t].items[0] && item.elements[t].items[0].dataSet) || null;
+    const voi = first('x00289132');
+    if (voi) {
+      const wcs = nums(voi, 'x00281050'), wws = nums(voi, 'x00281051'), labels = str(voi, 'x00281055').split('\\');
+      o.windows = wcs.map((wc, i) => ({ wc, ww: wws[i], label: (labels[i] || '').trim() })).filter((w) => Number.isFinite(w.wc) && Number.isFinite(w.ww) && w.ww > 0);
+      const fn = str(voi, 'x00281056').toUpperCase();
+      if (fn) o.voiFunction = fn;
+    }
+    const pvt = first('x00289145');
+    if (pvt) {
+      const s = num(str(pvt, 'x00281053')), b = num(str(pvt, 'x00281052'));
+      if (s !== undefined) o.slope = s;
+      if (b !== undefined) o.intercept = b;
+      const type = str(pvt, 'x00281054');
+      if (type) o.rescaleType = type;
+    }
+    const pos = first('x00209113');
+    if (pos) { const p = nums(pos, 'x00200032'); if (p.length === 3) o.position = p; }
+    const ori = first('x00209116');
+    if (ori) { const c = nums(ori, 'x00200037'); if (c.length === 6) o.orientation = c; }
+    const pm = first('x00289110');
+    if (pm) {
+      const sp = nums(pm, 'x00280030'); if (sp.length === 2) o.pixelSpacing = sp;
+      const th = num(str(pm, 'x00180050')); if (th !== undefined) o.sliceThickness = th;
+      const sb = num(str(pm, 'x00180088')); if (sb !== undefined) o.spacingBetweenSlices = sb;
+    }
+    const fc = first('x00209111');
+    if (fc) {
+      const stack = str(fc, 'x00209056'); if (stack) o.stackId = stack;
+      try { if (fc.elements.x00209057) o.inStackPosition = fc.uint32('x00209057'); } catch { /* ignore */ }
+      try { if (fc.elements.x00209128) o.temporalPosition = fc.uint32('x00209128'); } catch { /* ignore */ }
+      try {
+        const el = fc.elements.x00209157;
+        if (el) { const vals = []; for (let i = 0; i < el.length / 4; i++) vals.push(fc.uint32('x00209157', i)); o.dimensionIndex = vals; }
+      } catch { /* ignore */ }
+    }
+    return o;
+  }
+
+  function readFunctionalGroups(ds) {
+    const sharedSeq = ds.elements.x52009229, perSeq = ds.elements.x52009230;
+    const shared = sharedSeq && sharedSeq.items && sharedSeq.items[0] && sharedSeq.items[0].dataSet;
+    const per = (perSeq && perSeq.items) || [];
+    if (!shared && !per.length) return null;
+    return { shared: readGroupItem(shared || null), perFrame: per.map((it) => readGroupItem(it.dataSet || null)) };
+  }
+
+  /* ── Geometry ── */
+  // Anatomical label of a patient-space direction: R/L (x), A/P (y), F/H (z); two letters when oblique.
+  function dirLabelOf(v) {
+    if (!v || v.length < 3) return '';
+    const axes = [
+      { a: Math.abs(v[0]), l: v[0] < 0 ? 'R' : 'L' },
+      { a: Math.abs(v[1]), l: v[1] < 0 ? 'A' : 'P' },
+      { a: Math.abs(v[2]), l: v[2] < 0 ? 'F' : 'H' },
+    ].sort((p, q) => q.a - p.a);
+    if (axes[0].a < 1e-4) return '';
+    let s = axes[0].l;
+    if (axes[1].a >= 0.25 * axes[0].a && axes[1].a > 1e-4) s += axes[1].l;
+    return s;
+  }
+
+  function markersFrom(orientation, patientOrientation) {
+    if (orientation && orientation.length === 6) {
+      const row = orientation.slice(0, 3), col = orientation.slice(3, 6);
+      const neg = (a) => a.map((x) => -x);
+      return { right: dirLabelOf(row), left: dirLabelOf(neg(row)), bottom: dirLabelOf(col), top: dirLabelOf(neg(col)) };
+    }
+    if (patientOrientation) {
+      const [r, b] = patientOrientation.split('\\').map((s) => s.trim());
+      const opp = { R: 'L', L: 'R', A: 'P', P: 'A', H: 'F', F: 'H' };
+      const flip = (s) => (s || '').split('').map((c) => opp[c] || '').join('');
+      if (r || b) return { right: r || '', left: flip(r), bottom: b || '', top: flip(b) };
+    }
+    return null;
+  }
+
+  /* ── VOI (window) transfer functions → 0..255 ── */
+  function voiMapper(state, voiLuts) {
+    const lut = state.voiLut >= 0 ? voiLuts[state.voiLut] : null;
+    if (lut) {
+      const { first, n, data, max } = lut;
+      const k = 255 / max;
+      return (v) => {
+        let i = Math.round(v) - first;
+        i = i < 0 ? 0 : i >= n ? n - 1 : i;
+        return data[i] * k;
+      };
+    }
+    const c = state.wc, w = Math.max(1e-6, state.ww);
+    if (state.voiFunction === 'SIGMOID') return (v) => 255 / (1 + Math.exp(-4 * (v - c) / w));
+    if (state.voiFunction === 'LINEAR_EXACT') {
+      const lo = c - w / 2, k = 255 / w;
+      return (v) => (v - lo) * k;
+    }
+    // LINEAR (DICOM C.11.2.1.2.1): y = ((x - (c - 0.5)) / (w - 1) + 0.5) * 255
+    const c2 = c - 0.5, w2 = Math.max(1e-6, w - 1);
+    return (v) => ((v - c2) / w2 + 0.5) * 255;
   }
 
   /* ── Load ── */
   async function load(input) {
     const raw = toU8(input);
     const { ds, bytes, dicomParser } = await parseDataSet(raw);
-    const str = (tag) => clean(ds.string(tag));
+    const str = (tag) => { try { return clean(ds.string(tag)); } catch { return ''; } };
     const u16 = (tag, i) => { try { const v = ds.uint16(tag, i); return v == null ? undefined : v; } catch { return undefined; } };
+    const nums = (tag) => str(tag).split('\\').map(num).filter((v) => v !== undefined);
 
     const rows = u16('x00280010'), cols = u16('x00280011');
     const spp = u16('x00280002') || 1;
     const photometric = (str('x00280004') || 'MONOCHROME2').toUpperCase();
-    const bitsAllocated = u16('x00280100') || 8;
-    const bitsStored = u16('x00280101') || bitsAllocated;
-    const signed = u16('x00280103') === 1;
+    const pxFloat = !ds.elements.x7fe00010 && (ds.elements.x7fe00008 || ds.elements.x7fe00009);
+    const isFloat = !!pxFloat;
+    const bitsAllocated = isFloat ? (ds.elements.x7fe00009 ? 64 : 32) : (u16('x00280100') || 8);
+    const bitsStored = isFloat ? bitsAllocated : (u16('x00280101') || bitsAllocated);
+    const signed = isFloat ? true : u16('x00280103') === 1;
     const planar = u16('x00280006') === 1;
     const frames = Math.max(1, parseInt(str('x00280008'), 10) || 1);
-    const slope = num(str('x00281053')) ?? 1;
-    const intercept = num(str('x00281052')) ?? 0;
+    const slopeTop = num(str('x00281053'));
+    const interceptTop = num(str('x00281052'));
+    const slope = slopeTop ?? 1;
+    const intercept = interceptTop ?? 0;
+    const rescaleType = str('x00281054');
     const ts = str('x00020010') || TS.IMPLICIT_LE;
     const explicit = ts !== TS.IMPLICIT_LE;
-    const px = ds.elements.x7fe00010;
+    const px = ds.elements.x7fe00010 || pxFloat;
     const modality = str('x00080060');
     const gray = photometric.startsWith('MONOCHROME') || photometric === 'PALETTE COLOR';
     const palette = photometric === 'PALETTE COLOR' ? readPalette(ds) : null;
-    const padding = ds.elements.x00280120 ? (signed ? ds.int16('x00280120') : u16('x00280120')) : undefined;
+    const padding = ds.elements.x00280120 && !isFloat ? (signed ? ds.int16('x00280120') : u16('x00280120')) : undefined;
+    const paddingLimit = ds.elements.x00280121 && !isFloat ? (signed ? ds.int16('x00280121') : u16('x00280121')) : undefined;
+    const modalityLut = (slopeTop === undefined && interceptTop === undefined) ? readModalityLut(ds, signed) : null;
+    const voiLuts = gray ? readVoiLuts(ds, signed) : [];
+    const voiFunctionTop = (str('x00281056') || 'LINEAR').toUpperCase();
+    const presentationLut = str('x20500020').toUpperCase();
+    const groups = readFunctionalGroups(ds);
+    const overlays = rows && cols ? readOverlays(ds, { rows, cols, frames, bitsAllocated }) : [];
 
     // Windows the file suggests (several allowed, each may carry a label).
-    const wcs = str('x00281050').split('\\').map(num);
-    const wws = str('x00281051').split('\\').map(num);
+    const wcs = nums('x00281050');
+    const wws = nums('x00281051');
     const labels = str('x00281055').split('\\');
     const fileWindows = wcs
       .map((wc, i) => ({ wc, ww: wws[i], label: (labels[i] || '').trim() }))
       .filter((w) => Number.isFinite(w.wc) && Number.isFinite(w.ww) && w.ww > 0);
 
+    // ── Per-frame information (enhanced multi-frame groups over the top-level values) ──
+    const top = {
+      windows: fileWindows, voiFunction: voiFunctionTop, slope, intercept, rescaleType,
+      position: (() => { const p = nums('x00200032'); return p.length === 3 ? p : null; })(),
+      orientation: (() => { const c = nums('x00200037'); return c.length === 6 ? c : null; })(),
+      pixelSpacing: null, spacingSource: '',
+      sliceThickness: num(str('x00180050')), spacingBetweenSlices: num(str('x00180088')), sliceLocation: num(str('x00201041')),
+    };
+    {
+      const cand = [['x00280030', 'PixelSpacing'], ['x00181164', 'ImagerPixelSpacing'], ['x00182010', 'NominalScannedPixelSpacing']];
+      for (const [tag, name] of cand) {
+        const sp = nums(tag);
+        if (sp.length === 2 && sp[0] > 0 && sp[1] > 0) { top.pixelSpacing = sp; top.spacingSource = name; break; }
+      }
+    }
+    const frameInfoCache = new Map();
+    const frameInfo = (i) => {
+      i = Math.max(0, Math.min(frames - 1, i | 0));
+      if (frameInfoCache.has(i)) return frameInfoCache.get(i);
+      const shared = groups ? groups.shared : {};
+      const per = groups ? (groups.perFrame[i] || {}) : {};
+      const fi = { ...top, ...shared, ...per };
+      if (!fi.windows || !fi.windows.length) fi.windows = fileWindows;
+      if (per.pixelSpacing || shared.pixelSpacing) fi.spacingSource = 'PixelMeasures';
+      if (fi.sliceLocation === undefined && fi.position && fi.orientation) {
+        // Distance along the slice normal
+        const r = fi.orientation.slice(0, 3), c = fi.orientation.slice(3, 6);
+        const n = [r[1] * c[2] - r[2] * c[1], r[2] * c[0] - r[0] * c[2], r[0] * c[1] - r[1] * c[0]];
+        fi.sliceLocation = fi.position[0] * n[0] + fi.position[1] * n[1] + fi.position[2] * n[2];
+      }
+      fi.frame = i;
+      frameInfoCache.set(i, fi);
+      return fi;
+    };
+
+    // Cine timing
+    const frameTimeVector = nums('x00181065');
+    const frameTime = num(str('x00181063'));
+    const cineRate = num(str('x00180040'));
+    const recommendedRate = num(str('x00082144'));
+    const frameTimes = frames > 1 && frameTimeVector.length >= frames ? frameTimeVector.slice(0, frames) : null;
+    let frameRate = null;
+    if (Number.isFinite(recommendedRate) && recommendedRate > 0) frameRate = recommendedRate;
+    else if (Number.isFinite(cineRate) && cineRate > 0) frameRate = cineRate;
+    else if (Number.isFinite(frameTime) && frameTime > 0) frameRate = 1000 / frameTime;
+    else if (frameTimes) { const avg = frameTimes.reduce((a, b) => a + b, 0) / frameTimes.length; if (avg > 0) frameRate = 1000 / avg; }
+
+    // Units of the rescaled values
+    let units = '';
+    if (modality === 'CT' && (slopeTop !== undefined || interceptTop !== undefined || (groups && groups.shared.slope !== undefined))) units = 'HU';
+    if (rescaleType && rescaleType !== 'US') units = rescaleType;
+    if (modality === 'PT' && str('x00541001')) units = str('x00541001');
+
+    const geometry = {
+      pixelSpacing: frameInfo(0).pixelSpacing, spacingSource: frameInfo(0).spacingSource,
+      sliceThickness: frameInfo(0).sliceThickness, spacingBetweenSlices: top.spacingBetweenSlices,
+      orientation: frameInfo(0).orientation, position: frameInfo(0).position,
+      markers: markersFrom(frameInfo(0).orientation, str('x00200020')),
+      aspect: (() => { const a = nums('x00280034'); return a.length === 2 && a[0] > 0 && a[1] > 0 ? a[0] / a[1] : 1; })(),
+    };
+
     const meta = buildMeta(ds, str, {
       rows, cols, spp, photometric, bitsAllocated, bitsStored, signed, planar, frames, slope, intercept, ts, modality, fileWindows,
+      isFloat, modalityLut, voiLuts, voiFunction: voiFunctionTop, presentationLut, overlays, groups, geometry, frameRate, units, frameInfo0: frameInfo(0),
     });
     const tags = listTags(ds, explicit);
 
@@ -716,6 +1088,7 @@
     const encapsulated = !!(px.encapsulatedPixelData || px.fragments);
     const frameBytes = Math.ceil(rows * cols * spp * bitsAllocated / 8);
     const cache = new Map();
+    const rangeCache = new Map();
     const frameSamples = async (i) => {
       if (cache.has(i)) return cache.get(i);
       let s;
@@ -723,7 +1096,7 @@
         const off = px.dataOffset + i * frameBytes;
         const len = Math.min(frameBytes, Math.max(0, px.length - i * frameBytes));
         const rawFrame = new Uint8Array(bytes.buffer, bytes.byteOffset + off, len);
-        s = { samples: unpack(rawFrame, { n: rows * cols, spp, bitsAllocated, signed, bigEndian: ts === TS.EXPLICIT_BE }), planar };
+        s = { samples: unpack(rawFrame, { n: rows * cols, spp, bitsAllocated, signed, bigEndian: ts === TS.EXPLICIT_BE, float: isFloat }), planar };
       } else {
         const frag = encapsulatedFrame(dicomParser, ds, px, i, frames, ts);
         s = await decodeFragment(frag, ts, { rows, cols, spp, bitsAllocated, signed });
@@ -734,28 +1107,141 @@
       return s;
     };
 
+    // Bits above High Bit are not pixel data (they may hold embedded overlays): keep the stored
+    // bits only — masked for unsigned samples, sign-extended from bit (Bits Stored − 1) for signed.
+    const maskRaw = (!isFloat && bitsStored < bitsAllocated && bitsAllocated <= 32)
+      ? (signed
+        ? ((sh) => (r) => (r << sh) >> sh)(32 - bitsStored)
+        : ((m) => (r) => r & m)(bitsStored >= 31 ? 0x7FFFFFFF : (1 << bitsStored) - 1))
+      : (r) => r;
+    // Stored value → rescaled value for one frame (rescale slope / intercept or Modality LUT)
+    const valueFnFor = (i) => {
+      const fi = frameInfo(i);
+      if (modalityLut && fi.slope === slope && fi.intercept === intercept && slopeTop === undefined) {
+        const { first, n, data } = modalityLut;
+        return (r) => { let k = Math.round(maskRaw(r)) - first; k = k < 0 ? 0 : k >= n ? n - 1 : k; return data[k]; };
+      }
+      const s = fi.slope, b = fi.intercept;
+      return (r) => maskRaw(r) * s + b;
+    };
+    const isPad = (r0) => {
+      if (padding === undefined) return false;
+      const r = maskRaw(r0);
+      return paddingLimit === undefined ? r === padding : (r >= Math.min(padding, paddingLimit) && r <= Math.max(padding, paddingLimit));
+    };
+    const rangeOf = (i, samples) => {
+      if (rangeCache.has(i)) return rangeCache.get(i);
+      const f = valueFnFor(i);
+      const n = rows * cols;
+      let min = Infinity, max = -Infinity;
+      for (let p = 0; p < n; p++) {
+        const s = samples[p];
+        if (isPad(s) || s !== s) continue;
+        const v = f(s);
+        if (v < min) min = v;
+        if (v > max) max = v;
+      }
+      if (!Number.isFinite(min)) { min = 0; max = 1; }
+      const r = { min, max };
+      rangeCache.set(i, r);
+      return r;
+    };
+
     // ── Rendering ──
-    const state = { frame: 0, wc: undefined, ww: undefined, invert: photometric === 'MONOCHROME1' };
+    const invertDefault = (photometric === 'MONOCHROME1') !== (presentationLut === 'INVERSE');
+    const state = {
+      frame: 0, wc: undefined, ww: undefined, invert: invertDefault,
+      voiLut: -1, voiFunction: voiFunctionTop, colormap: 'gray', overlays: true, overlayColor: [0, 255, 128],
+    };
+    let windowCustom = false;   // false: the window follows each frame's own values
     const image = {
-      width: cols, height: rows, frames, samplesPerPixel: spp, photometric, bitsAllocated, bitsStored, signed, planar,
+      width: cols, height: rows, frames, samplesPerPixel: spp, photometric, bitsAllocated, bitsStored, signed, planar, isFloat,
       transferSyntax: ts, transferSyntaxName: TS_NAME[ts] || '', modality, gray, isColor: !gray,
-      slope, intercept, fileWindows, presets: modality === 'CT' ? CT_PRESETS.slice() : [],
+      slope, intercept, rescaleType, units, modalityLut: modalityLut ? { n: modalityLut.n, first: modalityLut.first, type: modalityLut.type } : null,
+      fileWindows, voiLuts: voiLuts.map((l) => ({ label: l.label, n: l.n, first: l.first, bits: l.bits })),
+      presets: modality === 'CT' ? CT_PRESETS.slice() : [],
+      colormaps: COLORMAP_IDS.slice(), overlays: overlays.map((o) => ({ ...o, bits: undefined })),
+      presentationLut, geometry, frameTimes, frameRate, enhanced: !!groups,
       state, range: null, meta, tags,
     };
 
-    image.render = async (opts = {}) => {
+    image.frameInfo = frameInfo;
+    image.windowsFor = (i) => frameInfo(i).windows;
+    image.dirLabel = (sx, sy, frame) => {
+      const o = frameInfo(Number.isFinite(frame) ? frame : state.frame).orientation;
+      if (!o) {
+        const m = geometry.markers;
+        if (!m) return '';
+        const ax = Math.abs(sx) >= Math.abs(sy);
+        return ax ? (sx >= 0 ? m.right : m.left) : (sy >= 0 ? m.bottom : m.top);
+      }
+      return dirLabelOf([0, 1, 2].map((k) => sx * o[k] + sy * o[3 + k]));
+    };
+
+    function parseOpts(opts) {
       if (Number.isFinite(opts.frame)) state.frame = Math.max(0, Math.min(frames - 1, Math.round(opts.frame)));
-      if (Number.isFinite(opts.wc)) state.wc = opts.wc;
-      if (Number.isFinite(opts.ww)) state.ww = Math.max(1e-6, opts.ww);
+      if (opts.resetWindow) { windowCustom = false; state.voiLut = -1; state.wc = undefined; state.ww = undefined; state.voiFunction = frameInfo(state.frame).voiFunction || voiFunctionTop; }
+      if (Number.isFinite(opts.wc) || Number.isFinite(opts.ww)) {
+        if (Number.isFinite(opts.wc)) state.wc = opts.wc;
+        if (Number.isFinite(opts.ww)) state.ww = Math.max(1e-6, opts.ww);
+        state.voiLut = -1;
+        windowCustom = true;
+      }
+      if (Number.isInteger(opts.voiLut)) {
+        state.voiLut = opts.voiLut >= 0 && opts.voiLut < voiLuts.length ? opts.voiLut : -1;
+        windowCustom = state.voiLut >= 0 ? true : windowCustom;
+      }
+      if (typeof opts.voiFunction === 'string' && /^(LINEAR|LINEAR_EXACT|SIGMOID)$/.test(opts.voiFunction)) state.voiFunction = opts.voiFunction;
       if (typeof opts.invert === 'boolean') state.invert = opts.invert;
+      if (typeof opts.colormap === 'string' && COLORMAP_IDS.includes(opts.colormap)) state.colormap = opts.colormap;
+      if (typeof opts.overlays === 'boolean') state.overlays = opts.overlays;
+      if (Array.isArray(opts.overlayColor) && opts.overlayColor.length === 3) state.overlayColor = opts.overlayColor.map((c) => Math.max(0, Math.min(255, c | 0)));
+    }
+
+    // Blend the overlay planes that apply to the frame into the RGBA buffer.
+    const drawOverlays = (out, frame, samples) => {
+      if (!state.overlays || !overlays.length) return;
+      const [cr, cg, cb] = state.overlayColor;
+      for (const ov of overlays) {
+        let plane = null;
+        if (ov.embedded) {
+          const bit = ov.bitPos;
+          for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < cols; c++) {
+              const p = r * cols + c;
+              if ((samples[p] >> bit) & 1) { const o = p * 4; out[o] = cr; out[o + 1] = cg; out[o + 2] = cb; }
+            }
+          }
+          continue;
+        }
+        if (!ov.bits) continue;
+        if (ov.allFrames) plane = 0;
+        else { const k = frame - (ov.frameOrigin - 1); if (k < 0 || k >= ov.frames) continue; plane = k; }
+        const base = plane * ov.rows * ov.cols;
+        const r0 = ov.origin[0] - 1, c0 = ov.origin[1] - 1;
+        for (let r = 0; r < ov.rows; r++) {
+          const y = r0 + r;
+          if (y < 0 || y >= rows) continue;
+          for (let c = 0; c < ov.cols; c++) {
+            const x = c0 + c;
+            if (x < 0 || x >= cols) continue;
+            if (ov.bits[base + r * ov.cols + c]) { const o = (y * cols + x) * 4; out[o] = cr; out[o + 1] = cg; out[o + 2] = cb; }
+          }
+        }
+      }
+    };
+
+    image.render = async (opts = {}) => {
+      parseOpts(opts);
       const { samples, planar: pl } = await frameSamples(state.frame);
       const n = rows * cols;
       const out = new Uint8ClampedArray(n * 4);
+      const fi = frameInfo(state.frame);
 
       if (!gray) {
         const ybr = photometric.startsWith('YBR') && !JPEG_FAMILY.has(ts);   // a JPEG codec already gave RGB
         const shift = bitsAllocated > 8 ? Math.max(0, bitsStored - 8) : 0;
-        const inv = state.invert && photometric !== 'MONOCHROME1';
+        const inv = state.invert;
         for (let p = 0; p < n; p++) {
           let r = samples[pl ? p : p * spp] >> shift;
           let g = samples[pl ? n + p : p * spp + 1] >> shift;
@@ -766,6 +1252,7 @@
           out[o] = r; out[o + 1] = g; out[o + 2] = b; out[o + 3] = 255;
         }
         image.range = null;
+        drawOverlays(out, state.frame, samples);
         return { rgba: out, width: cols, height: rows, state: { ...state } };
       }
 
@@ -780,33 +1267,45 @@
           out[o + 3] = 255;
         }
         image.range = null;
+        drawOverlays(out, state.frame, samples);
         return { rgba: out, width: cols, height: rows, state: { ...state } };
       }
 
-      // Grey: modality rescale → window → 0..255 (inverted for MONOCHROME1 or on request).
-      let min = Infinity, max = -Infinity;
+      // Grey: modality rescale / LUT → VOI (window or LUT) → 0..255 → optional colour map (inverted for MONOCHROME1 or on request).
+      image.range = rangeOf(state.frame, samples);
+      const { min, max } = image.range;
+      if (!windowCustom || !Number.isFinite(state.wc) || !Number.isFinite(state.ww)) {
+        const wins = fi.windows || [];
+        if (wins.length) { state.wc = wins[0].wc; state.ww = wins[0].ww; }
+        else { state.wc = (min + max) / 2; state.ww = Math.max(1, max - min); }
+        if (!windowCustom) state.voiFunction = fi.voiFunction || voiFunctionTop;
+      }
+      const valueFn = valueFnFor(state.frame);
+      const voi = voiMapper(state, voiLuts);
+      const inv = state.invert;
+      const cm = colormap(state.colormap);
+      const toGray = (raw) => {
+        let g = Math.round(voi(valueFn(raw)));
+        g = g < 0 ? 0 : g > 255 ? 255 : g;
+        return inv ? 255 - g : g;
+      };
+      // Integer samples up to 16 bits: one lookup table for the whole frame.
+      let lut = null, lutOffset = 0;
+      if (!isFloat && bitsAllocated <= 16) {
+        const size = bitsAllocated <= 8 ? 256 : 65536;
+        lutOffset = signed ? size >> 1 : 0;
+        lut = new Uint8Array(size);
+        for (let i = 0; i < size; i++) lut[i] = toGray(i - lutOffset);
+      }
       for (let p = 0; p < n; p++) {
         const s = samples[p];
-        if (padding !== undefined && s === padding) continue;
-        const v = s * slope + intercept;
-        if (v < min) min = v;
-        if (v > max) max = v;
-      }
-      if (!Number.isFinite(min)) { min = 0; max = 1; }
-      image.range = { min, max };
-      if (!Number.isFinite(state.wc) || !Number.isFinite(state.ww)) {
-        if (fileWindows.length) { state.wc = fileWindows[0].wc; state.ww = fileWindows[0].ww; }
-        else { state.wc = (min + max) / 2; state.ww = Math.max(1, max - min); }
-      }
-      const lo = state.wc - state.ww / 2, scale = 255 / state.ww;
-      const inv = state.invert;
-      for (let p = 0; p < n; p++) {
-        let g = Math.round((samples[p] * slope + intercept - lo) * scale);
-        g = g < 0 ? 0 : g > 255 ? 255 : g;
-        if (inv) g = 255 - g;
+        const g = lut ? lut[(s + lutOffset) & (lut.length - 1)] : toGray(s);
         const o = p * 4;
-        out[o] = out[o + 1] = out[o + 2] = g; out[o + 3] = 255;
+        if (cm) { const k = g * 3; out[o] = cm[k]; out[o + 1] = cm[k + 1]; out[o + 2] = cm[k + 2]; }
+        else { out[o] = out[o + 1] = out[o + 2] = g; }
+        out[o + 3] = 255;
       }
+      drawOverlays(out, state.frame, samples);
       return { rgba: out, width: cols, height: rows, state: { ...state } };
     };
 
@@ -832,16 +1331,105 @@
       ? { wc: (image.range.min + image.range.max) / 2, ww: Math.max(1, image.range.max - image.range.min) }
       : null);
 
-    image.defaultWindow = () => (fileWindows.length ? { wc: fileWindows[0].wc, ww: fileWindows[0].ww } : image.autoWindow());
+    image.defaultWindow = (frame) => {
+      const wins = frameInfo(Number.isFinite(frame) ? frame : state.frame).windows;
+      return wins.length ? { wc: wins[0].wc, ww: wins[0].ww } : image.autoWindow();
+    };
+    image.defaultInvert = () => invertDefault;
+    image.isWindowCustom = () => windowCustom;
 
-    image.release = () => cache.clear();
+    // ── Pixel probe / ROI statistics / histogram (rendered frame; sync, from the sample cache) ──
+    const currentSamples = () => cache.get(state.frame) || null;
+
+    image.valueAt = (x, y, frame) => {
+      const f = Number.isFinite(frame) ? frame : state.frame;
+      const s = cache.get(f);
+      if (!s) return null;
+      x = Math.floor(x); y = Math.floor(y);
+      if (x < 0 || y < 0 || x >= cols || y >= rows) return null;
+      const p = y * cols + x;
+      if (!gray) {
+        const n = rows * cols, pl = s.planar, k = s.spp || spp;
+        return { r: s.samples[pl ? p : p * k], g: s.samples[pl ? n + p : p * k + 1], b: s.samples[pl ? 2 * n + p : p * k + 2] };
+      }
+      const raw0 = s.samples[p];
+      const raw = maskRaw(raw0);
+      const out = { raw, value: valueFnFor(f)(raw0), units, padding: isPad(raw0) };
+      if (palette) {
+        const i = Math.max(0, Math.min(palette.n - 1, raw - palette.first));
+        out.r = palette.r[i]; out.g = palette.g[i]; out.b = palette.b[i];
+      }
+      return out;
+    };
+
+    image.stats = (region, frame) => {
+      const f = Number.isFinite(frame) ? frame : state.frame;
+      const s = cache.get(f);
+      if (!s || !gray || !region) return null;
+      const valueFn = valueFnFor(f);
+      const x0 = Math.max(0, Math.floor(Math.min(region.x, region.x + region.w)));
+      const y0 = Math.max(0, Math.floor(Math.min(region.y, region.y + region.h)));
+      const x1 = Math.min(cols, Math.ceil(Math.max(region.x, region.x + region.w)));
+      const y1 = Math.min(rows, Math.ceil(Math.max(region.y, region.y + region.h)));
+      const ellipse = region.shape === 'ellipse';
+      const cx = region.x + region.w / 2, cy = region.y + region.h / 2;
+      const rx = Math.abs(region.w) / 2, ry = Math.abs(region.h) / 2;
+      let n = 0, sum = 0, sum2 = 0, min = Infinity, max = -Infinity;
+      for (let y = y0; y < y1; y++) {
+        for (let x = x0; x < x1; x++) {
+          if (ellipse) {
+            const dx = (x + 0.5 - cx) / (rx || 1e-6), dy = (y + 0.5 - cy) / (ry || 1e-6);
+            if (dx * dx + dy * dy > 1) continue;
+          }
+          const raw = s.samples[y * cols + x];
+          if (isPad(raw) || raw !== raw) continue;
+          const v = valueFn(raw);
+          n++; sum += v; sum2 += v * v;
+          if (v < min) min = v;
+          if (v > max) max = v;
+        }
+      }
+      if (!n) return { n: 0, mean: NaN, std: NaN, min: NaN, max: NaN, areaPx: 0, areaMm2: null, units };
+      const mean = sum / n;
+      const variance = Math.max(0, sum2 / n - mean * mean);
+      const sp = frameInfo(f).pixelSpacing;
+      const areaPx = ellipse ? Math.PI * rx * ry : Math.abs(region.w * region.h);
+      return { n, mean, std: Math.sqrt(variance), min, max, areaPx, areaMm2: sp ? areaPx * sp[0] * sp[1] : null, units };
+    };
+
+    image.histogram = (bins, frame) => {
+      const f = Number.isFinite(frame) ? frame : state.frame;
+      const s = cache.get(f);
+      if (!s || !gray) return null;
+      const nb = Math.max(2, Math.min(4096, bins | 0 || 256));
+      const { min, max } = rangeOf(f, s.samples);
+      const valueFn = valueFnFor(f);
+      const counts = new Uint32Array(nb);
+      const span = max - min || 1;
+      const n = rows * cols;
+      for (let p = 0; p < n; p++) {
+        const raw = s.samples[p];
+        if (isPad(raw) || raw !== raw) continue;
+        let k = Math.floor((valueFn(raw) - min) / span * nb);
+        if (k >= nb) k = nb - 1;
+        if (k < 0) k = 0;
+        counts[k]++;
+      }
+      return { counts, min, max, binWidth: span / nb, units };
+    };
+
+    image.hasFrame = (i) => cache.has(Number.isFinite(i) ? i : state.frame);
+    image.release = () => { cache.clear(); rangeCache.clear(); };
+    void currentSamples;
 
     return image;
   }
 
   function buildMeta(ds, str, p) {
     const sop = str('x00080016');
-    const spacing = str('x00280030');
+    const fi = p.frameInfo0 || {};
+    const spacing = fi.pixelSpacing;
+    const g = p.geometry || {};
     const m = {
       patientName: person(str('x00100010')),
       patientId: str('x00100020'),
@@ -865,14 +1453,25 @@
       patientPosition: str('x00185100'),
       imageSize: `${p.cols} × ${p.rows}`,
       photometric: `${p.photometric} · ${p.spp} ${p.spp > 1 ? 'samples' : 'sample'}${p.planar ? ' · planar' : ''}`,
-      bitDepth: `${p.bitsStored} / ${p.bitsAllocated} bit${p.signed ? ' signed' : ' unsigned'}`,
-      frames: p.frames > 1 ? String(p.frames) : '',
+      bitDepth: p.isFloat ? `${p.bitsAllocated}-bit float` : `${p.bitsStored} / ${p.bitsAllocated} bit${p.signed ? ' signed' : ' unsigned'}`,
+      frames: p.frames > 1 ? `${p.frames}${p.groups ? ' (enhanced multi-frame)' : ''}` : (p.groups ? '1 (enhanced)' : ''),
+      frameRate: p.frames > 1 && p.frameRate ? `${fmtNum(+p.frameRate.toFixed(2))} fps` : '',
       transferSyntax: `${TS_NAME[p.ts] || 'Unknown'} (${p.ts})`,
-      pixelSpacing: spacing ? `${spacing.split('\\').map((v) => fmtNum(num(v))).join(' × ')} mm` : '',
-      sliceThickness: str('x00180050') ? `${fmtNum(num(str('x00180050')))} mm` : '',
-      sliceLocation: str('x00201041') ? fmtNum(num(str('x00201041'))) : '',
-      window: p.fileWindows.map((w) => `C ${fmtNum(w.wc)} / W ${fmtNum(w.ww)}${w.label ? ` (${w.label})` : ''}`).join(' · '),
-      rescale: (str('x00281053') || str('x00281052')) ? `× ${fmtNum(p.slope)} + ${fmtNum(p.intercept)}${str('x00281054') ? ` (${str('x00281054')})` : ''}` : '',
+      pixelSpacing: spacing ? `${spacing.map((v) => fmtNum(v)).join(' × ')} mm${fi.spacingSource && fi.spacingSource !== 'PixelSpacing' ? ` (${fi.spacingSource.replace(/([a-z])([A-Z])/g, '$1 $2')})` : ''}` : '',
+      sliceThickness: Number.isFinite(fi.sliceThickness) ? `${fmtNum(fi.sliceThickness)} mm` : '',
+      sliceLocation: Number.isFinite(fi.sliceLocation) ? fmtNum(fi.sliceLocation) : '',
+      imagePosition: fi.position ? fi.position.map((v) => fmtNum(+v.toFixed(3))).join(' \\ ') : '',
+      imageOrientation: g.markers ? `${g.markers.left || '?'} → ${g.markers.right || '?'} · ${g.markers.top || '?'} → ${g.markers.bottom || '?'}` : '',
+      window: (fi.windows || p.fileWindows).map((w) => `C ${fmtNum(w.wc)} / W ${fmtNum(w.ww)}${w.label ? ` (${w.label})` : ''}`).join(' · ')
+        + (p.voiFunction && p.voiFunction !== 'LINEAR' ? ` · ${p.voiFunction}` : ''),
+      voiLut: (p.voiLuts || []).map((l) => `${l.label} (${l.n} × ${l.bits} bit)`).join(' · '),
+      rescale: p.modalityLut
+        ? `Modality LUT (${p.modalityLut.n} entries${p.modalityLut.type ? `, ${p.modalityLut.type}` : ''})`
+        : ((str('x00281053') || str('x00281052') || Number.isFinite(fi.slope) && (fi.slope !== 1 || fi.intercept !== 0))
+          ? `× ${fmtNum(fi.slope ?? p.slope)} + ${fmtNum(fi.intercept ?? p.intercept)}${(fi.rescaleType || str('x00281054')) ? ` (${fi.rescaleType || str('x00281054')})` : ''}` : ''),
+      units: p.units || '',
+      presentationLut: p.presentationLut || '',
+      overlays: (p.overlays || []).length ? p.overlays.map((o) => `${o.group.slice(1, 5)}: ${o.cols} × ${o.rows}${o.label || o.description ? ` — ${o.label || o.description}` : ''}${o.embedded ? ' (embedded)' : ''}`).join(' · ') : '',
       lossyCompression: str('x00282110') === '01' ? `Yes${str('x00282112') ? ` (${str('x00282112')}:1)` : ''}` : '',
       studyInstanceUid: str('x0020000d'),
       seriesInstanceUid: str('x0020000e'),
@@ -903,5 +1502,5 @@
     }
   }
 
-  return { load, decode, decodeToDisplay, preload, setVendorBase, TS, TS_NAME, CT_PRESETS, DICT };
+  return { load, decode, decodeToDisplay, preload, setVendorBase, colormap, TS, TS_NAME, CT_PRESETS, COLORMAP_IDS, DICT };
 });
