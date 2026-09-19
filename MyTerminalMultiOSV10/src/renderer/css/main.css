@@ -175,18 +175,6 @@ body {
   box-shadow: inset 0 0 0 1px var(--accent);
 }
 
-.tb-btn .tb-bg-image-off {
-  display: none;
-}
-
-.tb-btn[aria-pressed='false'] .tb-bg-image-on {
-  display: none;
-}
-
-.tb-btn[aria-pressed='false'] .tb-bg-image-off {
-  display: block;
-}
-
 .tb-sep {
   width: 1px;
   height: 18px;
@@ -623,6 +611,58 @@ body.has-bg-image .terminal-pane .xterm-viewport {
   app-region: no-drag;
 }
 
+.tb-prompt-switch,
+.tb-theme-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex: 0 0 auto;
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
+.tb-btn-prompt-pick,
+.tb-btn-theme-pick {
+  width: auto;
+  min-width: 92px;
+  max-width: 148px;
+  padding: 0 6px 0 8px;
+  gap: 4px;
+  justify-content: space-between;
+}
+
+.tb-prompt-pick-label,
+.tb-theme-pick-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.tb-btn .tb-prompt-pick-caret,
+.tb-btn .tb-theme-pick-caret {
+  width: 12px;
+  height: 12px;
+  flex: 0 0 auto;
+  opacity: 0.7;
+}
+
+.tb-menu-prompts {
+  min-width: 188px;
+}
+
+.tb-menu .menu-heading {
+  grid-column: 1 / -1;
+  padding: 8px 10px 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.55;
+}
+
 .settings-select {
   min-width: 160px;
   max-width: 220px;
@@ -814,8 +854,11 @@ body.statusbar-hidden .status-bar {
   top: calc(100% + 6px);
   left: 0;
   min-width: 160px;
-  max-height: min(360px, calc(100vh - 60px));
-  overflow-y: auto;
+  grid-template-columns: 1fr 1fr;
+  grid-auto-rows: min-content;
+  column-gap: 4px;
+  row-gap: 2px;
+  overflow: hidden;
   background: var(--toolbar-bg);
   color: var(--toolbar-fg);
   border: 1px solid var(--border);
@@ -823,6 +866,11 @@ body.statusbar-hidden .status-bar {
   box-shadow: var(--shadow);
   padding: 4px;
   z-index: 50;
+}
+
+.tb-menu.tb-menu-open,
+.tb-menu:not([hidden]) {
+  display: grid;
 }
 
 .tb-menu.tb-menu-open {
@@ -2056,7 +2104,7 @@ body.theme-light .tooltip {
   display: grid;
   grid-template-columns: 1fr 1fr;
   column-gap: 4px;
-  max-height: min(600px, calc(100vh - 60px));
+  overflow: hidden;
 }
 
 /* Dark and light themes each sit in their own framed box. */

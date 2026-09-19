@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data:;"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Menu</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        background: var(--toolbar-bg, #252526);
+        color: var(--toolbar-fg, #cccccc);
+        font: 13px/1.3 system-ui, "Segoe UI", sans-serif;
+        user-select: none;
+      }
+      #menu {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        grid-auto-rows: min-content;
+        column-gap: 4px;
+        row-gap: 2px;
+        padding: 4px;
+        overflow: hidden;
+        box-sizing: border-box;
+        min-width: 280px;
+      }
+      .menu-item {
+        appearance: none;
+        width: 100%;
+        min-width: 148px;
+        border: 0;
+        background: transparent;
+        color: inherit;
+        text-align: left;
+        padding: 7px 10px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 13px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        white-space: nowrap;
+      }
+      .menu-item:hover,
+      .menu-item.active {
+        background: var(--button-hover, #2a2d2e);
+      }
+      .menu-item.active {
+        color: var(--accent, #3b82f6);
+        font-weight: 600;
+      }
+      .menu-ico {
+        flex: 0 0 auto;
+        width: 18px;
+        height: 18px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .menu-ico svg {
+        width: 16px;
+        height: 16px;
+        stroke: currentColor;
+        fill: none;
+        stroke-width: 1.8;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      .menu-swatch {
+        border: 1px solid currentColor;
+        border-radius: 4px;
+      }
+      .menu-badge {
+        border: 1px solid color-mix(in srgb, currentColor 35%, transparent);
+        border-radius: 4px;
+        font-size: 10px;
+        font-weight: 700;
+        line-height: 1;
+        color: var(--accent, #3b82f6);
+      }
+      .menu-label {
+        flex: 1 1 auto;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .menu-heading {
+        grid-column: 1 / -1;
+        padding: 8px 10px 4px;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        opacity: 0.55;
+      }
+      .menu-tag {
+        margin-left: 6px;
+        font-size: 10px;
+        opacity: 0.65;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="menu"></div>
+    <script src="./js/dropdown-app.js"></script>
+  </body>
+</html>

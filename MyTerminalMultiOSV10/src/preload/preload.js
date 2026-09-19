@@ -124,4 +124,19 @@ contextBridge.exposeInMainWorld('myTerminal', {
   showDetachPreview: (options) => ipcRenderer.invoke('detachPreview:show', options || {}),
   moveDetachPreview: (options) => ipcRenderer.send('detachPreview:move', options || {}),
   hideDetachPreview: () => ipcRenderer.invoke('detachPreview:hide'),
+
+  openDropdown: (payload) => ipcRenderer.invoke('dropdown:open', payload || {}),
+  closeDropdown: () => ipcRenderer.invoke('dropdown:close'),
+  fitDropdown: (size) => ipcRenderer.invoke('dropdown:fit', size || {}),
+  pickDropdown: (payload) => ipcRenderer.invoke('dropdown:pick', payload || {}),
+  onDropdownInit: (cb) => {
+    const handler = (_e, payload) => cb(payload);
+    ipcRenderer.on('dropdown:init', handler);
+    return () => ipcRenderer.removeListener('dropdown:init', handler);
+  },
+  onDropdownEvent: (cb) => {
+    const handler = (_e, payload) => cb(payload);
+    ipcRenderer.on('dropdown:event', handler);
+    return () => ipcRenderer.removeListener('dropdown:event', handler);
+  },
 });

@@ -28,6 +28,8 @@ import {
   customPromptsAsPresets,
   normalizeCustomPrompts,
   promptThemeFrom,
+  PRESETS,
+  presetConfig,
 } from '../../shared/prompt-core.js';
 import { FONTS, DEFAULT_FONT_ID, getFontById } from './fonts.js';
 import {
@@ -409,6 +411,7 @@ function applyPromptChange({ config, gitMode, presetId, customPrompts }) {
   if (nextMode !== 'off') state.promptGitModeOn = nextMode;
   state.promptPresetId = typeof presetId === 'string' ? presetId : '';
   if (Array.isArray(customPrompts)) state.customPrompts = normalizeCustomPrompts(customPrompts);
+  updatePromptPickUi();
   if (!changed) return;
   clearTimeout(promptApplyTimer);
   promptApplyTimer = setTimeout(async () => {
@@ -421,6 +424,107 @@ function applyPromptChange({ config, gitMode, presetId, customPrompts }) {
     // Redraw the prompt (Ctrl+L path: clears the screen and draws it again).
     pane.clear();
   }, 350);
+}
+
+function escapeMenuText(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function listPromptChoices() {
+  const builtins = Object.entries(PRESETS).map(([id, preset]) => ({
+    id,
+    label: preset.label,
+    labelEn: preset.labelEn || preset.label,
+    custom: false,
+  }));
+  const customs = (state.customPrompts || []).map((item) => ({
+    id: item.id,
+    label: item.label,
+    labelEn: item.label,
+    custom: true,
+  }));
+  return { builtins, customs, all: [...builtins, ...customs] };
+}
+
+function promptChoiceLabel(choice) {
+  if (!choice) return i18n.t('toolbar.promptCustom');
+  return state.lang === 'ko' ? choice.label : choice.labelEn || choice.label;
+}
+
+function currentPromptChoice() {
+  const { all } = listPromptChoices();
+  return all.find((item) => item.id === state.promptPresetId) || null;
+}
+
+function updatePromptPickUi() {
+  const label = document.getElementById('prompt-pick-label');
+  const btn = document.getElementById('btn-prompt-pick');
+  const name = promptChoiceLabel(currentPromptChoice());
+  if (label) label.textContent = name;
+  if (btn) {
+    const tip = `${i18n.t('toolbar.promptPick')}: ${name}`;
+    btn.removeAttribute('title');
+    btn.setAttribute('aria-label', tip);
+    btn.dataset.tooltip = tip;
+  }
+  const cycle = document.getElementById('btn-prompt-cycle');
+  if (cycle) {
+    const text = i18n.t('toolbar.promptCycle');
+    cycle.removeAttribute('title');
+    cycle.setAttribute('aria-label', text);
+    cycle.dataset.tooltip = text;
+  }
+}
+
+function populatePromptMenu() {
+  const menu = document.getElementById('prompt-menu');
+  if (!menu) return;
+  const { builtins, customs } = listPromptChoices();
+  const current = state.promptPresetId;
+  const renderItems = (list) =>
+    list
+      .map((item) => {
+        const name = promptChoiceLabel(item);
+        const active = item.id === current ? ' active' : '';
+        const icon = item.custom ? menuIcon(MENU_ICONS.custom) : menuBadge('$');
+        return `<button class="menu-item${active}" type="button" data-prompt="${escapeMenuText(item.id)}">${icon}<span class="menu-label">${escapeMenuText(name)}</span></button>`;
+      })
+      .join('');
+  let html = renderItems(builtins);
+  if (customs.length) {
+    html += `<div class="menu-heading">${escapeMenuText(i18n.t('toolbar.promptCustomGroup'))}</div>`;
+    html += renderItems(customs);
+  }
+  menu.innerHTML = html;
+}
+
+async function applyPromptPreset(id) {
+  const customs = customPromptsAsPresets(state.customPrompts);
+  const entry = PRESETS[id] || customs[id];
+  if (!entry) return;
+  const config = presetConfig(id) || normalizePrompt({ ...entry.config, preset: id });
+  state.promptConfig = config;
+  state.promptPresetId = id;
+  clearTimeout(promptApplyTimer);
+  if (api.setPrompt) {
+    await api.setPrompt({ config: state.promptConfig, gitMode: state.promptGitMode });
+  }
+  await persist();
+  updatePromptPickUi();
+  const pane = activePane();
+  if (pane && pane.mode !== 'ssh') pane.clear();
+}
+
+async function cyclePromptPreset() {
+  const { all } = listPromptChoices();
+  if (!all.length) return;
+  const idx = all.findIndex((item) => item.id === state.promptPresetId);
+  const next = all[(idx + 1) % all.length];
+  await applyPromptPreset(next.id);
 }
 
 function applyStatusBarVisibility() {
@@ -481,8 +585,47 @@ function applyTheme() {
   sessions?.applyTheme(theme);
   sessions?.setLsColors?.(effectiveLsColors());
   updateBgFitUi();
-  updateBgImageButton();
+  updateThemePickUi();
   updateTextColorUi();
+}
+
+function themeLabel(id = state.themeId) {
+  return i18n.t(`themes.${id}`, id);
+}
+
+function updateThemePickUi() {
+  const label = document.getElementById('theme-pick-label');
+  const btn = document.getElementById('btn-theme-pick');
+  const name = themeLabel();
+  if (label) label.textContent = name;
+  if (btn) {
+    const tip = `${i18n.t('toolbar.themePick')}: ${name}`;
+    btn.removeAttribute('title');
+    btn.setAttribute('aria-label', tip);
+    btn.dataset.tooltip = tip;
+  }
+  const cycle = document.getElementById('btn-theme');
+  if (cycle) {
+    const text = i18n.t('toolbar.themeCycle');
+    cycle.removeAttribute('title');
+    cycle.setAttribute('aria-label', text);
+    cycle.dataset.tooltip = text;
+  }
+}
+
+async function applyThemeById(id) {
+  if (!state.themes?.[id]) return;
+  state.themeId = id;
+  syncCustomColors();
+  applyTheme();
+  await persist();
+}
+
+async function cycleTheme() {
+  const ids = getThemeList(state.themes);
+  if (!ids.length) return;
+  const idx = ids.indexOf(state.themeId);
+  await applyThemeById(ids[(idx + 1) % ids.length]);
 }
 
 function updateFontUi() {
@@ -532,23 +675,6 @@ function updateBgFitUi() {
   }
 }
 
-function updateBgImageButton() {
-  const btn = document.getElementById('btn-bg-image');
-  if (!btn) return;
-  const on = state.backgroundFit !== 'none';
-  const key = on ? 'toolbar.bgImageOn' : 'toolbar.bgImageOff';
-  const text = i18n.t(key);
-  btn.removeAttribute('title');
-  btn.setAttribute('aria-label', text);
-  btn.dataset.tooltip = text;
-  btn.setAttribute('aria-pressed', on ? 'true' : 'false');
-  btn.classList.toggle('tb-active', on);
-  const iconOn = btn.querySelector('.tb-bg-image-on');
-  const iconOff = btn.querySelector('.tb-bg-image-off');
-  if (iconOn) iconOn.hidden = !on;
-  if (iconOff) iconOff.hidden = on;
-}
-
 function applyBackgroundFit(fitId, { persistSettings = true } = {}) {
   state.backgroundFit = normalizeBgFit(fitId);
   if (state.backgroundFit !== 'none') {
@@ -557,16 +683,6 @@ function applyBackgroundFit(fitId, { persistSettings = true } = {}) {
   applyTheme();
   syncToolbarMinWidth();
   if (persistSettings) persist();
-}
-
-/** Toolbar toggle: hide wallpaper (fit=none) or restore the last fit mode. */
-function toggleBackgroundImage() {
-  if (state.backgroundFit === 'none') {
-    applyBackgroundFit(state.backgroundFitOn || DEFAULT_BG_FIT);
-  } else {
-    state.backgroundFitOn = state.backgroundFit;
-    applyBackgroundFit('none');
-  }
 }
 
 function updateTransparencyUi(value = state.bgTransparency) {
@@ -803,16 +919,18 @@ async function applyLanguage(lang) {
   updateGitStatusButton();
   updateStatusBar();
   updateBgFitUi();
-  updateBgImageButton();
   updateLangUi();
   updateFontUi();
+  updatePromptPickUi();
+  updateThemePickUi();
   updateTextColorUi();
   updateMaxButton(await (api.isMaximized?.() ?? false));
-  syncToolbarMinWidth();
+  // Do not sync min-size here: Korean/English labels differ in width and
+  // setMinimumSize would enlarge the window when the new floor is bigger.
 }
 
 /** Fallback / floor until layout is measured (brand + actions + opacity + win btns). */
-const TOOLBAR_MIN_WIDTH_FLOOR = 920;
+const TOOLBAR_MIN_WIDTH_FLOOR = 1040;
 const TOOLBAR_MIN_WIDTH_CAP = 1800;
 
 /**
@@ -873,6 +991,20 @@ function updateBrandTitle(version) {
   el.textContent = `MyTerminal V${ver}`;
 }
 
+let overlayMenuId = null;
+let overlayIgnoreUntil = 0;
+
+function menuOverlayColors() {
+  const theme = currentTheme();
+  return {
+    toolbarBg: theme.toolbarBg || '#252526',
+    toolbarFg: theme.toolbarFg || '#cccccc',
+    border: theme.border || '#3c3c3c',
+    buttonHover: theme.buttonHover || '#2a2d2e',
+    accent: theme.accent || '#3b82f6',
+  };
+}
+
 function closeMenus() {
   document.querySelectorAll('.tb-menu').forEach((m) => {
     m.hidden = true;
@@ -882,6 +1014,33 @@ function closeMenus() {
       m._menuHome.appendChild(m);
     }
   });
+  overlayMenuId = null;
+  api.closeDropdown?.();
+}
+
+async function applyDropdownPick(dataset = {}) {
+  if (dataset.theme) {
+    await applyThemeById(dataset.theme);
+    return;
+  }
+  if (dataset.prompt) {
+    await applyPromptPreset(dataset.prompt);
+    return;
+  }
+  if (dataset.font) {
+    state.fontId = dataset.font;
+    applyFont();
+    updateStatusBar();
+    await persist();
+    return;
+  }
+  if (dataset.bgFit) {
+    applyBackgroundFit(dataset.bgFit);
+    return;
+  }
+  if (dataset.shell) {
+    await openNewTabWithShell(dataset.shell);
+  }
 }
 
 function positionMenu(menu, anchor) {
@@ -906,15 +1065,36 @@ function positionMenu(menu, anchor) {
 
 function toggleMenu(menuId, populate, anchor) {
   const menu = document.getElementById(menuId);
-  const willOpen = menu.hidden;
+  if (!menu) return;
+  const inPageOpen = !menu.hidden && menu.classList.contains('tb-menu-open');
+  const willOpen = overlayMenuId !== menuId && !inPageOpen;
   closeMenus();
+  if (!willOpen) return;
+  if (Date.now() < overlayIgnoreUntil) return;
   if (populate) populate();
-  if (willOpen && anchor) {
-    // Defer open so a bubbling document click cannot instantly re-close it.
-    requestAnimationFrame(() => {
-      positionMenu(menu, anchor);
+  if (!anchor) return;
+  if (api.isElectron && api.openDropdown) {
+    const rect = anchor.getBoundingClientRect();
+    overlayMenuId = menuId;
+    api.openDropdown({
+      menuId,
+      html: menu.innerHTML,
+      colors: menuOverlayColors(),
+      anchor: {
+        left: rect.left,
+        top: rect.top,
+        right: rect.right,
+        bottom: rect.bottom,
+        width: rect.width,
+        height: rect.height,
+      },
     });
+    return;
   }
+  // Web fallback: keep the menu in-page (cannot leave the browser tab).
+  requestAnimationFrame(() => {
+    positionMenu(menu, anchor);
+  });
 }
 
 /** Inline SVG glyphs used inside the toolbar dropdown menus. */
@@ -1095,6 +1275,22 @@ function bindToolbar() {
   });
 
   on('btn-prompt', () => openSettings('prompt'));
+  on('btn-prompt-cycle', async () => {
+    closeMenus();
+    await cyclePromptPreset();
+  });
+  on('btn-prompt-pick', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    toggleMenu('prompt-menu', populatePromptMenu, e.currentTarget);
+  });
+  document.getElementById('prompt-menu')?.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    const btn = e.target.closest('[data-prompt]');
+    if (!btn) return;
+    closeMenus();
+    await applyPromptPreset(btn.dataset.prompt);
+  });
 
   on('btn-git-status', async () => {
     if (state.promptGitMode === 'off') {
@@ -1166,14 +1362,14 @@ function bindToolbar() {
     });
   }
 
-  on('btn-theme', (e) => {
+  on('btn-theme', async () => {
+    closeMenus();
+    await cycleTheme();
+  });
+  on('btn-theme-pick', (e) => {
     e.preventDefault();
     e.stopPropagation();
     toggleMenu('theme-menu', populateThemeMenu, e.currentTarget);
-  });
-
-  on('btn-bg-image', () => {
-    toggleBackgroundImage();
   });
 
   on('btn-bg-fit', (e) => {
@@ -1213,11 +1409,8 @@ function bindToolbar() {
     const btn = e.target.closest('[data-theme]');
     if (!btn) return;
     if (!state.themes?.[btn.dataset.theme]) return;
-    state.themeId = btn.dataset.theme;
-    syncCustomColors();
-    applyTheme();
-    await persist();
     closeMenus();
+    await applyThemeById(btn.dataset.theme);
   });
 
 
@@ -1471,9 +1664,22 @@ function bindToolbar() {
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
     const open = document.querySelector('.tb-menu.tb-menu-open, .tb-menu:not([hidden])');
-    if (!open || open.hidden) return;
+    if (!overlayMenuId && (!open || open.hidden)) return;
     e.preventDefault();
     closeMenus();
+  });
+
+  api.onDropdownEvent?.((payload = {}) => {
+    if (payload.type === 'closed') {
+      if (overlayMenuId && payload.menuId && overlayMenuId !== payload.menuId) return;
+      overlayMenuId = null;
+      overlayIgnoreUntil = Date.now() + 250;
+      return;
+    }
+    if (payload.type === 'pick') {
+      overlayMenuId = null;
+      applyDropdownPick(payload.dataset || {});
+    }
   });
 
   if (api.isElectron) {

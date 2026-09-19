@@ -50,6 +50,7 @@ const {
   getIsQuitting,
 } = require('./tray');
 const { registerPopupIpc, closePopupsForOwner, closeAllPopups, getPopup } = require('./popup');
+const { registerDropdownIpc, closeDropdown, closeDropdownForOwner } = require('./dropdown-menu');
 const { describeError } = require('../shared/error-format');
 
 /**
@@ -329,6 +330,7 @@ function createWindow(options = {}) {
     // window really closes it — the tray icon never keeps a closed window
     // hidden around (closing the last window quits the app).
     closePopupsForOwner(ownerId);
+    closeDropdownForOwner(ownerId);
   });
 
   win.on('closed', () => {
@@ -337,6 +339,7 @@ function createWindow(options = {}) {
     windowStateTimers.delete(win);
     killSessionsForWindow(win);
     closePopupsForOwner(ownerId);
+    closeDropdownForOwner(ownerId);
     windows.delete(win);
     // Last terminal window gone → quit now. Helper windows (the hidden
     // tab-detach preview, dialogs) would otherwise keep 'window-all-closed'
@@ -416,6 +419,7 @@ if (!app.requestSingleInstanceLock()) {
 
   app.whenReady().then(() => {
     registerPopupIpc();
+    registerDropdownIpc();
     registerDetachPreviewIpc();
     const settings = bootstrapSettings();
     syncBackgroundSelectionFromSettings(settings);
@@ -434,6 +438,7 @@ function quitApp() {
   setQuitting(true);
   destroyTray();
   closeAllPopups();
+  closeDropdown();
   destroyDetachPreview();
   killPty();
   for (const win of [...windows]) {
@@ -445,6 +450,7 @@ function quitApp() {
 app.on('before-quit', () => {
   for (const win of windows) saveWindowState(win);
   closeAllPopups();
+  closeDropdown();
   destroyDetachPreview();
   setQuitting(true);
   destroyTray();
@@ -473,6 +479,7 @@ ipcMain.handle('window:close', (event) => {
   const win = winFromEvent(event);
   if (!win) return;
   closePopupsForOwner(win.webContents.id);
+  closeDropdownForOwner(win.webContents.id);
   win.close();
 });
 
@@ -491,6 +498,7 @@ ipcMain.handle('app:quit', (event) => {
   destroyTray();
   killPty();
   closeAllPopups();
+  closeDropdown();
   for (const win of [...windows]) {
     if (win && !win.isDestroyed()) win.destroy();
   }

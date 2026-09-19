@@ -34,6 +34,7 @@ Web 모드에서는 Main/Preload 없이 Renderer + `WebShell`이 동작합니다
 src/
   main/
     main.js           # 앱 진입, BrowserWindow, IPC 핸들러
+    dropdown-menu.js  # 툴바 드롭다운(메인 창 밖 2열 팝업)
     pty-manager.js    # 세션 맵, 소유 창, adopt/detach
     myshell.js        # 자체 로컬 셸 (내장 명령 + 명령 셸 위임)
     shells.js         # 명령 셸 카탈로그(cmd/PowerShell/Git Bash/WSL/bash/zsh…) · spawn 규칙
@@ -44,6 +45,7 @@ src/
   renderer/
     index.html
     popup.html        # 분리형 팝업(설정/프롬프트/SSH/About) 셸
+    dropdown.html     # 툴바 드롭다운 오버레이
     css/main.css, css/popup.css
     js/
       app.js          # UI 부트스트랩·설정·툴바
@@ -53,6 +55,7 @@ src/
       settings-view.js  # 설정 본문(탭·고정 레이아웃) — 팝업/웹 모달 공용
       prompt-editor.js  # 프롬프트 테마 편집기(프리셋·간단 설정·고급 마스터-디테일)
       popup-app.js    # 팝업 창 부트스트랩
+      dropdown-app.js # 툴바 드롭다운 오버레이
       popup-host.js   # 소유 창 ↔ 팝업 메시지 브리지
       tooltip.js      # 커스텀 툴팁
       themes.js
@@ -230,7 +233,7 @@ xterm의 내장 파워라인 글리프(U+E0B0)는 한 셀 폭이라 끝이 짧�
 └── #status-bar
 ```
 
-- 드롭다운(글꼴/테마/언어/배경 fit)은 툴바 `overflow` 클리핑을 피하기 위해 열릴 때 `document.body`로 포털됩니다. 각 항목은 아이콘과 함께 표시됩니다(테마는 색상 스와치 + 글리프, 언어는 텍스트 배지).
+- 드롭다운(글꼴/테마/배경 fit/프롬프트/셸)은 데스크톱에서 별도 팝업 창으로 열려 메인 창 밖으로 나갈 수 있습니다. 항목은 두 줄(2열)로 모두 보이고 스크롤바는 없습니다. 웹에서는 같은 2열 레이아웃을 페이지 안에 표시합니다. 테마·프롬프트 순환 버튼은 목록을 순서대로 적용하고, 옆 드롭다운에서 하나를 고를 수 있습니다.
 - 창 최소 폭은 툴바 콘텐츠 폭을 측정해 `window:setMinSize`로 반영합니다.
 
 ## 7. 빌드 파이프라인
