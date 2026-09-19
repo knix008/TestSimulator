@@ -123,7 +123,7 @@ function solve(a: number[][], b: number[]) {
   return matrix.map((row, i) => row[n] / row[i])
 }
 
-function invert3(m: number[]) {
+export function invert3(m: number[]) {
   const [a, b, c, d, e, f, g, h, i] = m
   const det = a * (e * i - f * h) - b * (d * i - f * g) + c * (d * h - e * g)
   if (Math.abs(det) < 1e-12) {

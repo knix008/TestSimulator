@@ -89,35 +89,58 @@ export const builtInLuts: Record<string, () => ColorLut> = {
   negative: () => lutFromFunction('Negative', (r, g, b) => [1 - r, 1 - g, 1 - b]),
 }
 
-/** Trilinear lookup into the cube. */
-export function applyLut(canvas: HTMLCanvasElement, lut: ColorLut, selection: Selection | null, strength = 1) {
-  const ctx = context2d(canvas)
-  const image = ctx.getImageData(0, 0, canvas.width, canvas.height)
-  const { width, height } = canvas
+/** Trilinear lookup into the cube, over raw RGBA data. */
+export function applyLutData(data: Uint8ClampedArray, lut: ColorLut, strength = 1, mask: Uint8Array | null = null) {
   const n = lut.size
   const t = lut.table
   const sample = (ri: number, gi: number, bi: number, c: number) => t[((bi * n + gi) * n + ri) * 3 + c]
-  for (let y = 0; y < height; y += 1) {
-    for (let x = 0; x < width; x += 1) {
-      if (!pointInSelection(selection, x, y, width, height)) continue
-      const i = (y * width + x) * 4
-      const rp = (image.data[i] / 255) * (n - 1)
-      const gp = (image.data[i + 1] / 255) * (n - 1)
-      const bp = (image.data[i + 2] / 255) * (n - 1)
-      const r0 = Math.floor(rp); const g0 = Math.floor(gp); const b0 = Math.floor(bp)
-      const r1 = Math.min(n - 1, r0 + 1); const g1 = Math.min(n - 1, g0 + 1); const b1 = Math.min(n - 1, b0 + 1)
-      const fr = rp - r0; const fg = gp - g0; const fb = bp - b0
-      for (let c = 0; c < 3; c += 1) {
-        const c00 = sample(r0, g0, b0, c) * (1 - fr) + sample(r1, g0, b0, c) * fr
-        const c10 = sample(r0, g1, b0, c) * (1 - fr) + sample(r1, g1, b0, c) * fr
-        const c01 = sample(r0, g0, b1, c) * (1 - fr) + sample(r1, g0, b1, c) * fr
-        const c11 = sample(r0, g1, b1, c) * (1 - fr) + sample(r1, g1, b1, c) * fr
-        const value = ((c00 * (1 - fg) + c10 * fg) * (1 - fb) + (c01 * (1 - fg) + c11 * fg) * fb) * 255
-        image.data[i + c] = clamp(image.data[i + c] * (1 - strength) + value * strength, 0, 255)
-      }
+  for (let i = 0, p = 0; i < data.length; i += 4, p += 1) {
+    if (mask && !mask[p]) continue
+    const rp = (data[i] / 255) * (n - 1)
+    const gp = (data[i + 1] / 255) * (n - 1)
+    const bp = (data[i + 2] / 255) * (n - 1)
+    const r0 = Math.floor(rp); const g0 = Math.floor(gp); const b0 = Math.floor(bp)
+    const r1 = Math.min(n - 1, r0 + 1); const g1 = Math.min(n - 1, g0 + 1); const b1 = Math.min(n - 1, b0 + 1)
+    const fr = rp - r0; const fg = gp - g0; const fb = bp - b0
+    for (let c = 0; c < 3; c += 1) {
+      const c00 = sample(r0, g0, b0, c) * (1 - fr) + sample(r1, g0, b0, c) * fr
+      const c10 = sample(r0, g1, b0, c) * (1 - fr) + sample(r1, g1, b0, c) * fr
+      const c01 = sample(r0, g0, b1, c) * (1 - fr) + sample(r1, g0, b1, c) * fr
+      const c11 = sample(r0, g1, b1, c) * (1 - fr) + sample(r1, g1, b1, c) * fr
+      const value = ((c00 * (1 - fg) + c10 * fg) * (1 - fb) + (c01 * (1 - fg) + c11 * fg) * fb) * 255
+      data[i + c] = clamp(data[i + c] * (1 - strength) + value * strength, 0, 255)
     }
   }
+}
+
+export function applyLut(canvas: HTMLCanvasElement, lut: ColorLut, selection: Selection | null, strength = 1) {
+  const ctx = context2d(canvas)
+  const image = ctx.getImageData(0, 0, canvas.width, canvas.height)
+  applyLutData(image.data, lut, strength, selectionToMask(selection, canvas.width, canvas.height))
   ctx.putImageData(image, 0, 0)
+}
+
+/** The tables available by id: the built-in looks plus any .cube files loaded. */
+const lutRegistry = new Map<string, ColorLut>()
+
+export function registerLut(id: string, lut: ColorLut) {
+  lutRegistry.set(id, lut)
+}
+
+export function lutById(id: string | undefined): ColorLut | null {
+  if (!id) return null
+  const known = lutRegistry.get(id)
+  if (known) return known
+  const make = builtInLuts[id]
+  if (!make) return null
+  const lut = make()
+  lutRegistry.set(id, lut)
+  return lut
+}
+
+export function lutChoices() {
+  const ids = new Set<string>([...Object.keys(builtInLuts), ...lutRegistry.keys()])
+  return [...ids].map((id) => ({ id, name: lutById(id)?.name ?? id }))
 }
 
 /* ------------------------------------------------------------ HDR toning */

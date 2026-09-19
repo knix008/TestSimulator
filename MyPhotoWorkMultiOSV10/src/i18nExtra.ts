@@ -12,14 +12,14 @@ export const koExtra: Record<string, string> = {
   placeLinked: '연결 가져오기', importNotes: '메모 가져오기', contactSheet: '밀착 인화', cropStraighten: '사진 자르고 똑바르게', fitImage: '이미지 맞추기',
   mergeHdr: 'HDR Pro로 병합', photomerge: 'Photomerge', imageProcessor: '이미지 프로세서', loadStack: '파일을 스택으로 불러오기', statistics: '통계',
   fileInfo: '파일 정보', printOne: '한 부 인쇄', exit: '종료',
-  sectionAutomate: '자동화', sectionScripts: '스크립트',
+  sectionAutomate: '자동화', sectionScripts: '스크립트', sectionExport: '내보내기', sectionImport: '가져오기',
   /* edit */
   stepForward: '앞으로 한 단계', stepBackward: '뒤로 한 단계', fade: '페이드', pasteInPlace: '제자리에 붙여넣기', pasteOutside: '바깥에 붙여넣기',
   checkSpelling: '맞춤법 검사', findReplace: '텍스트 찾기 및 바꾸기', skyReplace: '하늘 대체', perspectiveWarp: '원근 뒤틀기',
   rotateLayer180: '레이어 180° 회전', rotateLayer90: '레이어 시계 방향 90°', rotateLayer270: '레이어 반시계 방향 90°',
   autoAlign: '레이어 자동 정렬', autoBlend: '레이어 자동 혼합', defineBrush: '브러시 사전 설정 정의', defineShape: '사용자 정의 모양 정의',
   purge: '제거(메모리 비우기)', colorSettings: '색상 설정', keyboardShortcuts: '키보드 단축키', preferences: '환경 설정',
-  sectionTransform: '변형',
+  sectionTransform: '변형', sectionPasteSpecial: '특수 붙여넣기', sectionGenerative: '생성형',
   /* image */
   modeBitmap: '비트맵', modeDuotone: '듀오톤', modeIndexed: '인덱스 색상', hdrToning: 'HDR 토닝', desaturate: '채도 감소', matchColor: '색상 일치',
   autoTone: '자동 톤', autoContrast: '자동 대비', rotateArbitrary: '임의 각도 회전', cropToSelection: '선택 영역으로 자르기', revealAll: '모두 나타내기',
@@ -94,6 +94,15 @@ export const koExtra: Record<string, string> = {
   hintCropRatio: '드래그해 자르고, 비율을 고르거나 Shift로 고정, 밖에서 드래그해 똑바르게',
   hintMarqueeMod: 'Shift 추가, Alt 빼기, Shift+Alt 교차; Shift 드래그로 정사각/정원',
   hintSamplerReal: '클릭한 지점의 RGB 값이 정보 패널에 표시됩니다',
+  /* keys the panels, tables and status bar reach for */
+  align: '정렬', cloneNeedsSource: 'Alt+클릭으로 복제 원본을 먼저 지정하세요', color: '색상', crop: '자르기', fillColor: '채움색', fillSolid: '단색',
+  neuralHint: '이 기기에서 실행되는 알고리즘입니다: 피부 매끄럽게(표면 흐림), 색상화(밝기→색 램프), 슈퍼 줌(2배 확대+선명), 복원(얼룩 제거+선명+자동 톤), 깊이 흐림(기울기-이동)',
+  noOptions: '이 조정에는 설정이 없습니다', perspectiveCrop: '원근 자르기', shape: '모양', strokeColor: '선 색', styleOff: '왼쪽의 체크 상자로 이 스타일을 켭니다',
+  transforming: '변형 중: Enter로 적용, Esc로 취소', working: '작업 중…',
+  fromLeft: '왼쪽에서', fromRight: '오른쪽에서', rectToPolar: '직교→극좌표', polarToRect: '극좌표→직교', rgbToHsb: 'RGB→HSB', hsbToRgb: 'HSB→RGB',
+  patternDot: '점', patternLine: '선', patternCircle: '원', grainRegular: '일반', grainSoft: '부드럽게', grainSprinkles: '흩뿌리기', grainClumped: '뭉침',
+  grainContrasty: '대비', grainHorizontal: '가로', grainVertical: '세로', grainSpeckle: '얼룩', textureCanvas: '캔버스', textureBrick: '벽돌', textureBurlap: '삼베', textureSandstone: '사암',
+  density: '밀도', temperature: '색온도', tint: '색조', shadows: '어두운 영역', highlights: '밝은 영역',
   /* dialogs */
   filterParams: '필터 설정', livePreview: '미리보기', radiusLabel: '반경', amountLabel: '양', extraLabel: '추가', angleParam: '각도', thresholdParam: '임계값',
   adjustmentDialog: '조정', lutDialog: '색상 조회', lutPreset: '조회 테이블', lutLoad: '.cube 파일 불러오기', lutStrength: '강도',
@@ -120,7 +129,7 @@ export const koExtra: Record<string, string> = {
   fadeOpacity: '불투명도', skySource: '하늘', skyGradient: '그레이디언트 하늘', skyFromLayer: '다른 레이어에서', skyBlend: '가장자리 흐림',
   perspectiveCorners: '네 모서리를 끌어 원근을 바꿉니다', duotoneInk1: '잉크 1', duotoneInk2: '잉크 2', indexedColors: '색상 수', indexedDither: '디더',
   spellingNone: '맞춤법 문제가 없습니다(사전은 내장 영어 목록)', spellingFound: '의심되는 단어',
-  vanishingHint: '네 점을 클릭해 평면을 정의한 뒤 적용하면 클립보드의 픽셀이 그 평면의 원근으로 붙습니다',
+  vanishingHint: '네 점을 클릭해 평면을 정의합니다. 적용하면 클립보드의 픽셀이 그 평면의 원근으로 붙고, 복제 도장(S, Alt+클릭으로 원본 지정)은 평면의 원근을 따라 복제합니다',
   vanishingApply: '평면에 붙여넣기', adaptiveHint: '어안·광각 왜곡을 펴고 수평·수직선을 바로잡습니다', wideAngleAmount: '펴기', verticalLabel: '세로', horizontalLabel: '가로',
   historyStates: '작업 내역 상태 수', snapshotNew: '스냅숏 만들기', snapshotHint: '스냅숏은 되돌리기 한도와 무관하게 남습니다', currentState: '현재 상태', openState: '열기',
   navigatorHint: '축소판을 드래그해 이동하고 슬라이더로 확대합니다', addSwatch: '견본 추가', removeSwatch: '견본 삭제', noSwatches: '견본이 없습니다',
@@ -137,7 +146,7 @@ export const koExtra: Record<string, string> = {
   noSelectionForCrop: '자를 선택 영역이 없습니다', noClipboardPlane: '먼저 복사해 두세요', matchNeedsLayer: '다른 레이어가 필요합니다', autoAlignDone: '레이어를 정렬했습니다',
   hdrNeedsLayers: '노출이 다른 레이어가 두 개 이상 필요합니다', photomergeDone: '파노라마를 만들었습니다', statisticsMode: '스택 모드', modeMean: '평균', modeMedian: '중앙값',
   modeMax: '최대', modeMin: '최소', modeRange: '범위', linkedLayers: '연결됨', freeTransformSel: '선택 영역 변형 중: Enter로 적용', straightenHint: '자르기 도구로 캔버스 밖에서 드래그하면 똑바르게 회전',
-  edgeSmooth: '가장자리', targetChannelLabel: '대상',
+  edgeSmooth: '가장자리', targetChannelLabel: '대상', rulerUnits: '자 단위', sampleSize1: '1×1 픽셀', sampleSize3: '3×3 평균', sampleSize5: '5×5 평균',
 }
 
 export const enExtra: Record<string, string> = {
@@ -147,14 +156,14 @@ export const enExtra: Record<string, string> = {
   placeLinked: 'Place Linked', importNotes: 'Import Notes', contactSheet: 'Contact Sheet', cropStraighten: 'Crop and Straighten Photos', fitImage: 'Fit Image',
   mergeHdr: 'Merge to HDR Pro', photomerge: 'Photomerge', imageProcessor: 'Image Processor', loadStack: 'Load Files into Stack', statistics: 'Statistics',
   fileInfo: 'File Info', printOne: 'Print One Copy', exit: 'Exit',
-  sectionAutomate: 'Automate', sectionScripts: 'Scripts',
+  sectionAutomate: 'Automate', sectionScripts: 'Scripts', sectionExport: 'Export', sectionImport: 'Import',
   /* edit */
   stepForward: 'Step Forward', stepBackward: 'Step Backward', fade: 'Fade', pasteInPlace: 'Paste in Place', pasteOutside: 'Paste Outside',
   checkSpelling: 'Check Spelling', findReplace: 'Find and Replace Text', skyReplace: 'Sky Replacement', perspectiveWarp: 'Perspective Warp',
   rotateLayer180: 'Rotate Layer 180°', rotateLayer90: 'Rotate Layer 90° CW', rotateLayer270: 'Rotate Layer 90° CCW',
   autoAlign: 'Auto-Align Layers', autoBlend: 'Auto-Blend Layers', defineBrush: 'Define Brush Preset', defineShape: 'Define Custom Shape',
   purge: 'Purge', colorSettings: 'Color Settings', keyboardShortcuts: 'Keyboard Shortcuts', preferences: 'Preferences',
-  sectionTransform: 'Transform',
+  sectionTransform: 'Transform', sectionPasteSpecial: 'Paste Special', sectionGenerative: 'Generative',
   /* image */
   modeBitmap: 'Bitmap', modeDuotone: 'Duotone', modeIndexed: 'Indexed Color', hdrToning: 'HDR Toning', desaturate: 'Desaturate', matchColor: 'Match Color',
   autoTone: 'Auto Tone', autoContrast: 'Auto Contrast', rotateArbitrary: 'Arbitrary Rotation', cropToSelection: 'Crop to Selection', revealAll: 'Reveal All',
@@ -229,6 +238,15 @@ export const enExtra: Record<string, string> = {
   hintCropRatio: 'Drag to crop, pick a ratio or hold Shift, drag outside the box to straighten',
   hintMarqueeMod: 'Shift adds, Alt subtracts, Shift+Alt intersects; Shift-drag for a square or circle',
   hintSamplerReal: 'The RGB values at each click show in the Info panel',
+  /* keys the panels, tables and status bar reach for */
+  align: 'Align', cloneNeedsSource: 'Alt+click to set the clone source first', color: 'Color', crop: 'Crop', fillColor: 'Fill', fillSolid: 'Solid color',
+  neuralHint: 'These run on this machine as algorithms: skin smoothing (surface blur), colorize (a tone ramp), Super Zoom (2× upscale + sharpen), restoration (despeckle + sharpen + auto tone), depth blur (tilt-shift)',
+  noOptions: 'This adjustment has no settings', perspectiveCrop: 'Perspective crop', shape: 'Shape', strokeColor: 'Stroke', styleOff: 'Turn this style on with its checkbox on the left',
+  transforming: 'Transforming: Enter applies, Esc cancels', working: 'Working…',
+  fromLeft: 'From the left', fromRight: 'From the right', rectToPolar: 'Rectangular to polar', polarToRect: 'Polar to rectangular', rgbToHsb: 'RGB to HSB', hsbToRgb: 'HSB to RGB',
+  patternDot: 'Dot', patternLine: 'Line', patternCircle: 'Circle', grainRegular: 'Regular', grainSoft: 'Soft', grainSprinkles: 'Sprinkles', grainClumped: 'Clumped',
+  grainContrasty: 'Contrasty', grainHorizontal: 'Horizontal', grainVertical: 'Vertical', grainSpeckle: 'Speckle', textureCanvas: 'Canvas', textureBrick: 'Brick', textureBurlap: 'Burlap', textureSandstone: 'Sandstone',
+  density: 'Density', temperature: 'Temperature', tint: 'Tint', shadows: 'Shadows', highlights: 'Highlights',
   /* dialogs */
   filterParams: 'Filter settings', livePreview: 'Preview', radiusLabel: 'Radius', amountLabel: 'Amount', extraLabel: 'Option', angleParam: 'Angle', thresholdParam: 'Threshold',
   adjustmentDialog: 'Adjustment', lutDialog: 'Color Lookup', lutPreset: 'Lookup table', lutLoad: 'Load .cube file', lutStrength: 'Strength',
@@ -255,7 +273,7 @@ export const enExtra: Record<string, string> = {
   fadeOpacity: 'Opacity', skySource: 'Sky', skyGradient: 'Gradient sky', skyFromLayer: 'From another layer', skyBlend: 'Edge fade',
   perspectiveCorners: 'Drag the four corners to change the perspective', duotoneInk1: 'Ink 1', duotoneInk2: 'Ink 2', indexedColors: 'Colors', indexedDither: 'Dither',
   spellingNone: 'No spelling problems found (built-in English word list)', spellingFound: 'Suspect words',
-  vanishingHint: 'Click four points to define a plane, then Apply pastes the clipboard into that perspective',
+  vanishingHint: 'Click four points to define a plane. Apply pastes the clipboard into that perspective, and the Clone Stamp (S, Alt-click a source) clones along the plane',
   vanishingApply: 'Paste into plane', adaptiveHint: 'Straightens fisheye and wide-angle distortion and squares up verticals and horizontals', wideAngleAmount: 'Straighten', verticalLabel: 'Vertical', horizontalLabel: 'Horizontal',
   historyStates: 'History states', snapshotNew: 'New snapshot', snapshotHint: 'Snapshots survive beyond the undo limit', currentState: 'Current state', openState: 'Open',
   navigatorHint: 'Drag the thumbnail to pan, use the slider to zoom', addSwatch: 'Add swatch', removeSwatch: 'Remove swatch', noSwatches: 'No swatches yet',
@@ -272,5 +290,5 @@ export const enExtra: Record<string, string> = {
   noSelectionForCrop: 'No selection to crop to', noClipboardPlane: 'Copy something first', matchNeedsLayer: 'Another layer is needed', autoAlignDone: 'Layers aligned',
   hdrNeedsLayers: 'Two or more layers at different exposures are needed', photomergeDone: 'Panorama built', statisticsMode: 'Stack mode', modeMean: 'Mean', modeMedian: 'Median',
   modeMax: 'Maximum', modeMin: 'Minimum', modeRange: 'Range', linkedLayers: 'Linked', freeTransformSel: 'Transforming selection: Enter applies', straightenHint: 'Drag outside the crop box to straighten',
-  edgeSmooth: 'Edge', targetChannelLabel: 'Target',
+  edgeSmooth: 'Edge', targetChannelLabel: 'Target', rulerUnits: 'Ruler units', sampleSize1: 'Point sample', sampleSize3: '3 by 3 average', sampleSize5: '5 by 5 average',
 }

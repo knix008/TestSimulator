@@ -5,6 +5,7 @@ import {
   gradientMapPixel, selectiveColorPixel,
 } from './colorMath'
 import type { Adjustment } from './types'
+import { applyLutData, lutById } from './adjustExtra'
 
 export function mapImage(data: Uint8ClampedArray, fn: (r: number, g: number, b: number, a: number, i: number) => [number, number, number, number]) {
   for (let i = 0; i < data.length; i += 4) {
@@ -39,6 +40,11 @@ export function applyAdjustment(data: Uint8ClampedArray, adj: Adjustment) {
     // The table is read off whatever is beneath the layer at this moment, so
     // the layer keeps up as the pixels under it change.
     mapImage(data, equalizePixel(equalizeTable(data)))
+    return
+  }
+  if (adj.type === 'colorLookup') {
+    const lut = lutById(adj.lutId ?? 'filmstock')
+    if (lut) applyLutData(data, lut, adj.lutStrength ?? 1)
     return
   }
   if (adj.type === 'invert') {

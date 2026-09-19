@@ -401,12 +401,9 @@ export function readPsd(buffer: ArrayBuffer): PsdReadResult {
           pendingChildren.length = 0
           continue
         }
-        let canvas: HTMLCanvasElement | null = null
-        if (w > 0 && h > 0 && planes.size) {
-          canvas = placeInDocument(planesToCanvas(planes, w, h, mode, palette), record.left, record.top, width, height)
-        } else {
-          canvas = createCanvas(width, height)
-        }
+        const canvas = w > 0 && h > 0 && planes.size
+          ? placeInDocument(planesToCanvas(planes, w, h, mode, palette), record.left, record.top, width, height)
+          : createCanvas(width, height)
         let mask: HTMLCanvasElement | null = null
         if (record.mask && maskPlane) {
           const mw = record.mask.right - record.mask.left

@@ -6,6 +6,7 @@ import { greyCanvasToMask, maskToGreyCanvas } from './channels'
 import { deepFromCanvas, encodeTiff16 } from './depth'
 import { patternKey } from './patterns'
 import { describeFile, type MetaRow } from './metadata'
+import { hasPsdMagic, isPsdSource, readPsd } from './psd'
 import { defaultEffects } from './types'
 import type { ExportFormat, LayerMeta, PageOrientation, PhotoDocument, ProjectFile, SerializedLayer } from './types'
 
@@ -68,6 +69,10 @@ export async function decodeImageSource(file: { name: string; mime?: string; tex
     return { kind: 'project' as const, project: JSON.parse(file.text) as ProjectFile }
   }
   const buffer = file.arrayBuffer ?? (file.dataUrl ? bytesFromDataUrl(file.dataUrl) : null)
+  if (buffer && (isPsdSource(file.name, file.mime) || hasPsdMagic(buffer))) {
+    const psd = readPsd(buffer)
+    return { kind: 'psd' as const, psd, details: describeFile(file.name, file.mime, buffer) }
+  }
   if (buffer && isTiffSource(file.name, file.mime)) {
     return { kind: 'canvas' as const, canvas: decodeTiff(buffer), details: describeFile(file.name, file.mime, buffer) }
   }

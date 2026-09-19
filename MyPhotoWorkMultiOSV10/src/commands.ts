@@ -77,9 +77,10 @@ const filterIcons: Record<string, IconComponent> = {
 }
 
 /** Every filter added in moreFilters.ts, as one Filter-menu row each. */
-const extraFilterCommands: AppCommand[] = extraFilterIds.map((id, index) => {
+const genericFilterIds = extraFilterIds.filter((id) => id !== 'lensCorrection')
+const extraFilterCommands: AppCommand[] = genericFilterIds.map((id, index) => {
   const group = extraFilters[id].group
-  const previous = index > 0 ? extraFilters[extraFilterIds[index - 1]].group : null
+  const previous = index > 0 ? extraFilters[genericFilterIds[index - 1]].group : null
   return {
     id: `filter.${id}`,
     menu: 'filter',
@@ -104,16 +105,16 @@ export const commands: AppCommand[] = [
   { id: 'file.savePsd', menu: 'file', icon: SaveAll, label: 'savePsd' },
   { id: 'file.revert', menu: 'file', icon: RotateCcw, label: 'revert', accel: 'F12' },
   { id: 'file.export', menu: 'file', icon: Download, label: 'export', toolbar: true, separatorBefore: true },
-  { id: 'file.exportAs', menu: 'file', icon: Download, label: 'exportAs' },
-  { id: 'file.quickExport', menu: 'file', icon: Download, label: 'quickExport' },
-  { id: 'file.layersToFiles', menu: 'file', icon: Layers, label: 'layersToFiles' },
-  { id: 'file.artboardsToFiles', menu: 'file', icon: Frame, label: 'artboardsToFiles' },
+  { id: 'file.exportAs', menu: 'file', section: 'sectionExport', icon: Download, label: 'exportAs' },
+  { id: 'file.quickExport', menu: 'file', section: 'sectionExport', icon: Download, label: 'quickExport' },
+  { id: 'file.layersToFiles', menu: 'file', section: 'sectionExport', icon: Layers, label: 'layersToFiles' },
+  { id: 'file.artboardsToFiles', menu: 'file', section: 'sectionExport', icon: Frame, label: 'artboardsToFiles' },
   { id: 'file.place', menu: 'file', icon: ImagePlus, label: 'place', separatorBefore: true },
   { id: 'file.placeLinked', menu: 'file', icon: Link, label: 'placeLinked' },
-  { id: 'file.importVideo', menu: 'file', icon: Clock, label: 'importVideo' },
-  { id: 'file.importNotes', menu: 'file', icon: StickyNote, label: 'importNotes' },
-  { id: 'file.exportGif', menu: 'file', icon: Download, label: 'exportGif' },
-  { id: 'file.exportVideo', menu: 'file', icon: Download, label: 'exportVideo' },
+  { id: 'file.importVideo', menu: 'file', section: 'sectionImport', icon: Clock, label: 'importVideo' },
+  { id: 'file.importNotes', menu: 'file', section: 'sectionImport', icon: StickyNote, label: 'importNotes' },
+  { id: 'file.exportGif', menu: 'file', section: 'sectionExport', icon: Download, label: 'exportGif' },
+  { id: 'file.exportVideo', menu: 'file', section: 'sectionExport', icon: Download, label: 'exportVideo' },
   { id: 'file.batch', menu: 'file', icon: Layers2, label: 'batch', separatorBefore: true, section: 'sectionAutomate' },
   { id: 'file.contactSheet', menu: 'file', icon: LayoutGrid, label: 'contactSheet', section: 'sectionAutomate' },
   { id: 'file.cropStraighten', menu: 'file', icon: Crop, label: 'cropStraighten', section: 'sectionAutomate' },
@@ -138,19 +139,19 @@ export const commands: AppCommand[] = [
   { id: 'edit.copy', menu: 'edit', icon: Copy, label: 'copy', accel: 'Ctrl+C' },
   { id: 'edit.copyMerged', menu: 'edit', icon: Layers, label: 'copyMerged', accel: 'Ctrl+Shift+C' },
   { id: 'edit.paste', menu: 'edit', icon: ClipboardPaste, label: 'paste', accel: 'Ctrl+V' },
-  { id: 'edit.pasteInPlace', menu: 'edit', icon: ClipboardPaste, label: 'pasteInPlace', accel: 'Ctrl+Shift+V' },
-  { id: 'edit.pasteInto', menu: 'edit', icon: ClipboardPaste, label: 'pasteInto', accel: 'Ctrl+Alt+Shift+V' },
-  { id: 'edit.pasteOutside', menu: 'edit', icon: ClipboardPaste, label: 'pasteOutside' },
+  { id: 'edit.pasteInPlace', menu: 'edit', section: 'sectionPasteSpecial', icon: ClipboardPaste, label: 'pasteInPlace', accel: 'Ctrl+Shift+V' },
+  { id: 'edit.pasteInto', menu: 'edit', section: 'sectionPasteSpecial', icon: ClipboardPaste, label: 'pasteInto', accel: 'Ctrl+Alt+Shift+V' },
+  { id: 'edit.pasteOutside', menu: 'edit', section: 'sectionPasteSpecial', icon: ClipboardPaste, label: 'pasteOutside' },
   { id: 'edit.deletePixels', menu: 'edit', icon: Trash, label: 'deletePixels', accel: 'Del' },
   { id: 'edit.checkSpelling', menu: 'edit', icon: Book, label: 'checkSpelling', separatorBefore: true },
   { id: 'edit.findReplace', menu: 'edit', icon: Search, label: 'findReplace' },
   { id: 'edit.fill', menu: 'edit', icon: PaintBucket, label: 'fillCommand', separatorBefore: true, accel: 'Shift+F5' },
   { id: 'edit.stroke', menu: 'edit', icon: Square, label: 'strokeCommand' },
   { id: 'edit.contentAware', menu: 'edit', icon: Sparkles, label: 'contentAware' },
-  { id: 'edit.genFill', menu: 'edit', icon: WandSparkles, label: 'genFill' },
-  { id: 'edit.genExpand', menu: 'edit', icon: Maximize2, label: 'genExpand' },
-  { id: 'edit.genUpscale', menu: 'edit', icon: ScanSearch, label: 'genUpscale' },
-  { id: 'edit.harmonize', menu: 'edit', icon: Blend, label: 'harmonize' },
+  { id: 'edit.genFill', menu: 'edit', section: 'sectionGenerative', icon: WandSparkles, label: 'genFill' },
+  { id: 'edit.genExpand', menu: 'edit', section: 'sectionGenerative', icon: Maximize2, label: 'genExpand' },
+  { id: 'edit.genUpscale', menu: 'edit', section: 'sectionGenerative', icon: ScanSearch, label: 'genUpscale' },
+  { id: 'edit.harmonize', menu: 'edit', section: 'sectionGenerative', icon: Blend, label: 'harmonize' },
   { id: 'edit.skyReplace', menu: 'edit', icon: Sunrise, label: 'skyReplace' },
   { id: 'edit.contentScale', menu: 'edit', icon: Ratio, label: 'contentScale', separatorBefore: true, accel: 'Ctrl+Alt+Shift+C' },
   { id: 'edit.puppet', menu: 'edit', icon: Spline, label: 'puppetWarp' },
@@ -422,17 +423,48 @@ export function commandsInMenu(menu: MenuId) {
   return commands.filter((command) => command.menu === menu)
 }
 
+/** One row of a dropdown: a command, or a section folded into a submenu. */
+export type MenuEntry =
+  | { kind: 'command'; command: AppCommand; separatorBefore: boolean }
+  | { kind: 'submenu'; section: string; commands: AppCommand[]; separatorBefore: boolean }
+
 /**
- * How to lay a dropdown out.
+ * A menu's rows in Photoshop's shape. The Filter menu alone has ninety rows,
+ * which no one can scan at once; every `section` becomes one row that opens
+ * a submenu beside it, so the top level reads as a short list of choices.
+ * The section's first command lends it its separator and its icon.
+ */
+export function menuEntries(rows: AppCommand[]): MenuEntry[] {
+  const entries: MenuEntry[] = []
+  const open = new Map<string, Extract<MenuEntry, { kind: 'submenu' }>>()
+  for (const command of rows) {
+    if (!command.section) {
+      entries.push({ kind: 'command', command, separatorBefore: Boolean(command.separatorBefore) })
+      continue
+    }
+    const existing = open.get(command.section)
+    if (existing) {
+      existing.commands.push(command)
+      continue
+    }
+    const entry = { kind: 'submenu' as const, section: command.section, commands: [command], separatorBefore: Boolean(command.separatorBefore) }
+    open.set(command.section, entry)
+    entries.push(entry)
+  }
+  return entries
+}
+
+/**
+ * How to lay the top level of a dropdown out.
  *
- * Image runs to thirty rows and Layer and Edit are not far behind, which makes
- * a single column taller than the screen and slower to read than a phone book.
- * Past a threshold the rows are dealt into columns instead. Separators count as
- * cells of their own, because in the grid that is exactly what they are.
+ * With the sections folded away a menu is at most forty-odd rows, which fits
+ * a single column on any screen the app supports; only a list past that is
+ * dealt into columns. Separators count as cells of their own, because in the
+ * grid that is exactly what they are.
  */
 export function menuColumns(rows: { separatorBefore?: boolean }[]) {
   const cells = rows.length + rows.filter((row) => row.separatorBefore).length
-  const columns = cells > 96 ? 5 : cells > 64 ? 4 : cells > 32 ? 3 : cells > 16 ? 2 : 1
+  const columns = cells > 144 ? 4 : cells > 96 ? 3 : cells > 48 ? 2 : 1
   return { columns, rowCount: Math.ceil(cells / columns) }
 }
 

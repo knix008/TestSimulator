@@ -26,6 +26,7 @@ type ElectronSaveFilter = {
 interface Window {
   electronFileApi?: {
     openFiles(options?: { defaultPath?: string }): Promise<ElectronOpenResult>
+    readFile(options: { filePath: string }): Promise<ElectronOpenResult & { message?: string }>
     saveFile(options: { defaultDirectory?: string; fileName: string; filters?: ElectronSaveFilter[]; text?: string; dataUrl?: string }): Promise<ElectronSaveResult>
     writeFile(options: { filePath: string; text?: string; dataUrl?: string }): Promise<ElectronSaveResult>
   }

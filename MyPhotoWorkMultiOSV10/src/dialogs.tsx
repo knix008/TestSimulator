@@ -4,7 +4,9 @@ import { t } from './i18n'
 import { copyText } from './lib/errors'
 import type { MetaSection } from './lib/metadata'
 import { aboutFacts } from './aboutInfo'
-import { dialogIcon, dialogTitle, type DialogName, type DialogPayload, type DialogResult } from './dialogMeta'
+import { dialogIcon, dialogTitle, previewDialogs, type DialogName, type DialogPayload, type DialogResult } from './dialogMeta'
+import { ExtraDialogBody } from './dialogsExtra'
+import { useLivePreview } from './usePreview'
 import { themeLabel, themes } from './themes'
 import { curveLut, addCurvePoint, removeCurvePoint } from './lib/curves'
 import { filterCatalog } from './catalog'
@@ -324,6 +326,38 @@ export function DialogBody({
     onResult({ action: 'settings', patch })
   }
 
+  // The original adjustment windows preview live too: whatever their Apply
+  // button would send is sent as the sliders move.
+  const [livePreview, setLivePreview] = useState(true)
+  const previewTable: Record<string, Record<string, unknown>> = {
+    brightness: { brightness: adjust.brightness, contrast: adjust.contrast },
+    hue: { hue: adjust.hue, saturation: adjust.saturation, lightness: adjust.lightness },
+    blur: { radius: adjust.radius },
+    sharpen: { amount: adjust.amount },
+    curves: { curves },
+    levels: { levels },
+    channelMixer: { mix },
+    selectiveColor: { family, shift: ink },
+    gradientMap: { from: mapFrom, to: mapTo },
+    replaceColor: { to: replaceWith, tolerance },
+    skew: { horizontal: skewH, vertical: skewV },
+    perspective: { amount: perspectiveAmount },
+    warp: { style: warpStyle, bend: warpBend, horizontal: warpH, vertical: warpV },
+  }
+  const previewValues: Record<string, unknown> | null = previewTable[name] ?? null
+  useLivePreview(livePreview && previewValues !== null && previewDialogs.has(name), previewValues ?? {}, onResult)
+  const previewRow = previewValues !== null
+    ? (
+      <label className="check-row">
+        <input type="checkbox" checked={livePreview} onChange={(event) => setLivePreview(event.target.checked)} />
+        {tr('livePreview')}
+      </label>
+    )
+    : null
+
+  const extra = ExtraDialogBody({ name, payload, onResult, onClose })
+  if (extra) return <>{extra}</>
+
   switch (name) {
     case 'new':
       return (
@@ -347,6 +381,18 @@ export function DialogBody({
               <option value="#000000">{tr('black')}</option>
             </select>
           </label>
+          {previewRow}
+          {previewRow}
+          {previewRow}
+          {previewRow}
+          {previewRow}
+          {previewRow}
+          {previewRow}
+          {previewRow}
+          {previewRow}
+          {previewRow}
+          {previewRow}
+          {previewRow}
           <div className="dialog-actions">
             <button onClick={onClose}>{tr('cancel')}</button>
             <button className="primary" onClick={() => onResult({ action: 'ok', width: Math.max(1, adjust.width), height: Math.max(1, adjust.height), background })}>{tr('ok')}</button>
@@ -871,6 +917,7 @@ export function DialogBody({
       return (
         <>
           <label>{tr('radius')}<input type="range" min={0.5} max={20} step={0.5} value={adjust.radius} onChange={(event) => setAdjust((c) => ({ ...c, radius: Number(event.target.value) }))} /><span>{adjust.radius}</span></label>
+          {name === 'blur' ? previewRow : null}
           <div className="dialog-actions">
             <button onClick={onClose}>{tr('cancel')}</button>
             <button className="primary" onClick={() => onResult({ action: 'apply', radius: adjust.radius })}>{tr('apply')}</button>
@@ -1072,6 +1119,11 @@ export function DialogBody({
           <div className="settings-page">
             {settingsTab === 'general' && (
               <>
+                <label className="settings-field">
+                  <span className="settings-field-name">{tr('historyStates')}</span>
+                  <span className="settings-field-hint">{tr('snapshotHint')}</span>
+                  <NumberStepper language={settings.language} min={5} max={500} step={5} value={settings.historyStates} onChange={(historyStates) => patchSettings({ historyStates })} />
+                </label>
                 <label>{t(settings.language, 'language')}
                   <select value={settings.language} onChange={(event) => patchSettings({ language: event.target.value as Language })}>
                     <option value="ko">한국어</option>
@@ -1098,16 +1150,39 @@ export function DialogBody({
             )}
 
             {settingsTab === 'view' && (
-              <div className="dialog-grid">
-                <label className="check-row">
-                  <input type="checkbox" checked={settings.showGrid} onChange={(event) => patchSettings({ showGrid: event.target.checked })} />
-                  {tr('grid')}
+              <>
+                <div className="dialog-grid">
+                  <label className="check-row">
+                    <input type="checkbox" checked={settings.showGrid} onChange={(event) => patchSettings({ showGrid: event.target.checked })} />
+                    {tr('grid')}
+                  </label>
+                  <label className="check-row">
+                    <input type="checkbox" checked={settings.showRulers} onChange={(event) => patchSettings({ showRulers: event.target.checked })} />
+                    {tr('rulers')}
+                  </label>
+                  <label className="check-row">
+                    <input type="checkbox" checked={settings.showGuides} onChange={(event) => patchSettings({ showGuides: event.target.checked })} />
+                    {tr('showGuides')}
+                  </label>
+                  <label className="check-row">
+                    <input type="checkbox" checked={settings.snapEnabled} onChange={(event) => patchSettings({ snapEnabled: event.target.checked })} />
+                    {tr('snap')}
+                  </label>
+                  <label className="check-row">
+                    <input type="checkbox" checked={settings.showPixelGrid} onChange={(event) => patchSettings({ showPixelGrid: event.target.checked })} />
+                    {tr('pixelGrid')}
+                  </label>
+                  <label className="check-row">
+                    <input type="checkbox" checked={settings.smartGuides} onChange={(event) => patchSettings({ smartGuides: event.target.checked })} />
+                    {tr('smartGuides')}
+                  </label>
+                </div>
+                <label>{tr('rulerUnits')}
+                  <select value={settings.rulerUnits} onChange={(event) => patchSettings({ rulerUnits: event.target.value as AppSettings['rulerUnits'] })}>
+                    {(['px', 'in', 'cm', 'mm', 'pt'] as const).map((unit) => <option key={unit} value={unit}>{unit}</option>)}
+                  </select>
                 </label>
-                <label className="check-row">
-                  <input type="checkbox" checked={settings.showRulers} onChange={(event) => patchSettings({ showRulers: event.target.checked })} />
-                  {tr('rulers')}
-                </label>
-              </div>
+              </>
             )}
 
             {settingsTab === 'export' && (

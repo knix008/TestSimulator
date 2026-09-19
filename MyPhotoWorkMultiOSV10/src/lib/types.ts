@@ -220,6 +220,9 @@ export type Adjustment = {
   /** Gradient map: the two ends of the ramp the brightness is read into. */
   mapFrom?: string
   mapTo?: string
+  /** Colour lookup: which table, and how much of it. */
+  lutId?: string
+  lutStrength?: number
 }
 
 /** Percentages, one row per output channel. */
@@ -421,6 +424,8 @@ export type BrushPreset = {
   angle: number
   roundness: number
   scatter: number
+  /** A sampled tip as a PNG data URL, for brushes defined from pixels. */
+  tipUrl?: string
 }
 
 /** One recorded command, with the dialog answer it was given. */
@@ -646,6 +651,8 @@ export type AppSettings = {
   shortcuts: Record<string, string>
   patternPreview: boolean
   paintTarget: 'layer' | 'mask'
+  /** The brush preset whose sampled tip the brush paints with; empty for a round tip. */
+  brushTipId: string
 }
 
 export type ErrorDetails = { title: string; message: string; details: string }
@@ -864,6 +871,7 @@ export const defaultSettings: AppSettings = {
   shortcuts: {},
   patternPreview: false,
   paintTarget: 'layer',
+  brushTipId: '',
 }
 
 export const documentPresets: { id: string; width: number; height: number }[] = [

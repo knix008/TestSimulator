@@ -7,10 +7,11 @@ import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import { firstTick, rulerSize, tickStep, visibleRange } from '../src/lib/view.ts'
 import { t } from '../src/i18n.ts'
-import { commandsInMenu, menuColumns } from '../src/commands.ts'
+import { commandsInMenu, menuColumns, menuEntries, menuOrder } from '../src/commands.ts'
 
 const root = new URL('..', import.meta.url)
-const read = (relative) => readFileSync(fileURLToPath(new URL(relative, root)), 'utf8')
+// Normalised to LF, so a CRLF checkout on Windows reads the same as the repository.
+const read = (relative) => readFileSync(fileURLToPath(new URL(relative, root)), 'utf8').replace(/\r\n/g, '\n')
 const require = createRequire(import.meta.url)
 
 const appSource = read('src/App.tsx')
@@ -368,12 +369,19 @@ test('the buttons follow the content instead of being pushed to the bottom', () 
   assert.ok(!rule.includes('margin-top: auto'), 'stretching the gap is what produced the dead space')
 })
 
-test('the rulers mark every labelled number with a rule of its own', () => {
-  const rulers = appSource.slice(appSource.indexOf('function drawRulers('), appSource.indexOf('export default function App'))
-  assert.match(rulers, /const minor = step \/ 10/, 'there are no minor ticks between the numbers')
-  assert.match(rulers, /const tickDepth =/, 'every tick is the same length, so a number has no rule of its own')
-  assert.match(rulers, /index % 10 === 0\) return rulerSize - 2/, 'a labelled value gets no full-height rule')
-  assert.match(rulers, /index % 5 === 0\) return 8/, 'there is no half-way mark')
+test('the rulers are graduated like a tape: numbered, half and fine ticks on both axes', () => {
+  const rulers = appSource.slice(appSource.indexOf('function drawRulers('), appSource.indexOf('/** Pixels per unit for the ruler labels'))
+  assert.match(rulers, /const minor = step \* zoom >= 50 \? step \/ 10 : step \* zoom >= 25 \? step \/ 5 : step \/ 2/,
+    'the fine graduation does not adapt to the zoom, so the ticks either crowd or vanish')
+  assert.match(rulers, /const depthOf = /, 'every tick is the same length, so a number has no rule of its own')
+  assert.match(rulers, /index % perStep === 0\) return rulerSize - 6/, 'a labelled value gets no full-height rule')
+  assert.match(rulers, /index % \(perStep \/ 2\) === 0\) return 8/, 'there is no half-way mark')
+  // Both axes get the ticks, and the ticks are drawn in the text colour, not
+  // the faint border colour that made them invisible.
+  assert.equal((rulers.match(/const depth = depthOf\(index\)/g) ?? []).length, 2, 'one axis has no ticks')
+  assert.match(rulers, /ctx\.strokeStyle = colors\.text\s+ctx\.lineWidth = 1/, 'the ticks are drawn too faintly to see')
+  assert.match(rulers, /ctx\.rotate\(-Math\.PI \/ 2\)/, 'the vertical numbers are not turned along the ruler')
+  assert.match(appSource, /text: style\.getPropertyValue\('--text-muted'\)/, 'the ruler reads a colour token that does not exist')
 })
 
 /* ------------------------------------------------------------ settings form */
@@ -389,7 +397,7 @@ test('a number in the settings window has a step button either side', () => {
 
   // Both settings numbers use it, and so do the size dialogs.
   const settings = dialogSource.slice(dialogSource.indexOf("case 'settings': {"), dialogSource.indexOf("case 'helpGuide':"))
-  assert.equal((settings.match(/<NumberStepper/g) ?? []).length, 2, 'a settings number is still a bare input')
+  assert.equal((settings.match(/<NumberStepper/g) ?? []).length, 3, 'a settings number is still a bare input')
   assert.ok(!settings.includes('type="number"'), 'a settings number still uses the browser spinner')
 })
 
@@ -461,32 +469,40 @@ test('the popup windows load by relative path, which is what file:// needs', () 
 
 /* ------------------------------------------- long menus, print, zoom, out */
 
-test('a long menu is dealt into columns instead of running off the screen', () => {
-  // Image is the longest at thirty rows; File is short and stays one column.
-  for (const menu of ['image', 'layer', 'edit']) {
-    assert.ok(menuColumns(commandsInMenu(menu)).columns > 1, `the ${menu} menu is still one column`)
+test('a menu folds its sections into submenus, so the top level stays short', () => {
+  // Filter has ninety-odd rows; folded, it is a couple of dozen choices.
+  for (const menu of menuOrder) {
+    const rows = commandsInMenu(menu)
+    const entries = menuEntries(rows)
+    assert.ok(entries.length <= 40, `the ${menu} menu still shows ${entries.length} rows at once`)
+    assert.equal(menuColumns(entries).columns, 1, `the ${menu} menu is dealt into columns`)
+    // Every command is reachable: at the top level or inside exactly one submenu.
+    const reachable = entries.flatMap((entry) => (entry.kind === 'command' ? [entry.command.id] : entry.commands.map((command) => command.id)))
+    assert.deepEqual([...reachable].sort(), rows.map((command) => command.id).sort(), `the ${menu} menu loses or duplicates commands when folded`)
   }
-  assert.equal(menuColumns(commandsInMenu('file')).columns, 1, 'a short menu should not be split')
-  assert.equal(menuColumns(commandsInMenu('threeD')).columns, 1, 'a three-row menu should not be split')
+  const filter = menuEntries(commandsInMenu('filter'))
+  assert.ok(filter.filter((entry) => entry.kind === 'submenu').length >= 10, 'the filter groups are not submenus')
+  const artistic = filter.find((entry) => entry.kind === 'submenu' && entry.section === 'groupArtistic')
+  assert.ok(artistic && artistic.commands.length >= 10, 'the Artistic submenu is missing its filters')
 
-  // Separators are cells of their own, so they count towards the row total.
-  const layer = commandsInMenu('layer')
-  const cells = layer.length + layer.filter((command) => command.separatorBefore).length
-  assert.equal(menuColumns(layer).rowCount, Math.ceil(cells / menuColumns(layer).columns),
-    'the rows are not shared out evenly between the columns')
+  // A section takes its separator from its first command, and no command
+  // appears twice.
+  const file = menuEntries(commandsInMenu('file'))
+  const automate = file.find((entry) => entry.kind === 'submenu' && entry.section === 'sectionAutomate')
+  assert.ok(automate?.separatorBefore, 'the Automate submenu lost the separator above it')
+  assert.equal(new Set(file.map((entry) => (entry.kind === 'command' ? entry.command.id : entry.section))).size, file.length)
 
-  const host = read('src/MenuHost.tsx')
-  assert.match(host, /menu-window menu-columns/, 'the popup never asks for the column layout')
-  assert.match(host, /<Fragment key=\{command\.id\}>/,
-    'a wrapper element per row would make each column drift out of step with the next')
-  assert.match(cssSource, /\.menu-window\.menu-columns \{[^}]*grid-auto-flow: column/,
-    'the column layout has no stylesheet rule')
-  assert.match(cssSource, /grid-template-rows: repeat\(var\(--menu-rows\), auto\)/,
-    'the columns do not share one set of row tracks')
-  // The browser build's own dropdown gets the same treatment.
-  assert.match(appSource, /<MenuDrop anchor=\{menuAnchor\} rows=\{commandsInMenu\(id\)\}>/,
-    'the in-page dropdown is still a single column')
-  assert.match(cssSource, /\.menu-drop\.menu-columns/, 'the in-page dropdown has no column rule')
+  // Both hosts render one shared tree, which opens a submenu beside its row.
+  const tree = read('src/MenuTree.tsx')
+  assert.match(tree, /onPointerEnter=\{\(event\) => setOpen\(/, 'hovering a section row does not open its submenu')
+  assert.match(tree, /onPointerEnter=\{inSubmenu \? undefined : \(\) => setOpen\(null\)\}/, 'hovering another row does not close the submenu')
+  assert.match(tree, /className="menu-column menu-sub"/, 'there is no submenu column')
+  assert.match(tree, /<ChevronRight size=\{14\} className="menu-chevron" \/>/, 'a section row does not show it opens a submenu')
+  assert.match(read('src/MenuHost.tsx'), /<MenuTree/, 'the popup window does not use the tree')
+  assert.match(appSource, /<MenuDrop anchor=\{menuAnchor\} className="menu-tree-drop">\s*<MenuTree/, 'the in-page dropdown does not use the tree')
+  assert.match(cssSource, /\.menu-tree \{[^}]*display: flex/, 'the submenu cannot sit beside the top level')
+  assert.match(cssSource, /\.menu-column\.menu-columns \{[^}]*grid-auto-flow: column/, 'an overlong top level has no column rule')
+  assert.match(cssSource, /grid-template-rows: repeat\(var\(--menu-rows\), auto\)/, 'the columns do not share one set of row tracks')
 })
 
 test('the print window is fixed, fits its content and never scrolls', () => {

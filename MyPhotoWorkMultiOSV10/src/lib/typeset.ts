@@ -17,7 +17,20 @@ export function textFont(text: TextData) {
 
 /** The paragraphs of a text layer, in the order they are drawn. */
 export function textLines(text: TextData) {
-  return text.text.split(/\r?\n/)
+  const value = text.allCaps ? text.text.toUpperCase() : text.text
+  return value.split(/\r?\n/)
+}
+
+/** Underline and strikethrough: a rule under, or through, the line just drawn. */
+export function decorateLine(ctx: CanvasRenderingContext2D, text: TextData, x: number, y: number, width: number) {
+  if (!text.underline && !text.strike) return
+  const left = text.align === 'center' ? x - width / 2 : text.align === 'right' ? x - width : x
+  ctx.save()
+  ctx.fillStyle = text.color
+  const thickness = Math.max(1, text.fontSize / 16)
+  if (text.underline) ctx.fillRect(left, y + text.fontSize * 1.02, width, thickness)
+  if (text.strike) ctx.fillRect(left, y + text.fontSize * 0.55, width, thickness)
+  ctx.restore()
 }
 
 /** How far down each line sits from the one above it. */
@@ -68,7 +81,7 @@ export function drawTextBlock(ctx: CanvasRenderingContext2D, text: TextData) {
     return
   }
 
-  let y = text.y
+  let y = text.y - (text.baselineShift ?? 0)
   let startOfParagraph = true
   for (const line of textLines(text)) {
     if (line === '') {
@@ -77,7 +90,10 @@ export function drawTextBlock(ctx: CanvasRenderingContext2D, text: TextData) {
       startOfParagraph = true
       continue
     }
-    drawSpacedText(ctx, line, text.x + (startOfParagraph ? indent : 0), y, spacing, text.align)
+    const x = text.x + (startOfParagraph ? indent : 0)
+    drawSpacedText(ctx, line, x, y, spacing, text.align)
+    const width = [...line].reduce((total, character) => total + ctx.measureText(character).width + spacing, -spacing)
+    decorateLine(ctx, text, x, y, Math.max(0, width))
     y += step
     startOfParagraph = false
   }

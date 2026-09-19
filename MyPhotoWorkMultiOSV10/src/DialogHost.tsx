@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { DialogBody, DialogFrame, type DialogName, type DialogPayload, type DialogResult } from './dialogs'
+import { keepsWindowOpen } from './dialogMeta'
 import { applyTheme } from './themes'
 import { buildErrorReport } from './lib/errors'
 import './App.css'
@@ -117,8 +118,8 @@ export default function DialogHost({ name: routeName }: { name: string }) {
 
   const send = (result: DialogResult) => {
     void window.electronDialogApi?.send(name, result)
-    // Live edits (settings, and the filter gallery) keep the window open.
-    if (result.action !== 'settings' && result.action !== 'filter') {
+    // Live edits (settings, previews, the filter gallery) keep the window open.
+    if (!keepsWindowOpen(result.action)) {
       close()
     }
   }

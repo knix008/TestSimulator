@@ -122,13 +122,16 @@ test('the viewport draws the path, region and transform overlays', () => {
 })
 
 test('keyboard shortcuts cover the tool families that expect a letter', () => {
-  const keys = appSource.slice(appSource.indexOf("if (key === 'v') setTool"), appSource.indexOf("if (key === '[')"))
+  // The letters live in one table, which the shortcuts window can rebind.
+  const keys = appSource.slice(appSource.indexOf('const defaultToolKeys'), appSource.indexOf('const cropRatios'))
   for (const [key, tool] of [
+    ['v', 'move'], ['m', 'marquee'], ['l', 'lasso'], ['w', 'wand'], ['c', 'crop'], ['b', 'brush'], ['e', 'eraser'], ['g', 'fill'],
+    ['t', 'text'], ['i', 'eyedropper'], ['h', 'hand'], ['z', 'zoom'],
     ['p', 'pen'], ['u', 'rect'], ['a', 'pathSelect'], ['k', 'frame'],
     ['j', 'spotHeal'], ['s', 'clone'], ['o', 'dodge'], ['y', 'historyBrush'], ['r', 'rotateView'],
   ]) {
-    assert.ok(new RegExp(`key === '${key}'`).test(keys), `no shortcut bound to "${key}"`)
-    assert.ok(new RegExp(`'${tool}'`).test(keys), `"${key}" does not reach the ${tool} tool`)
+    assert.ok(new RegExp(`${key}: '${tool}'`).test(keys), `"${key}" does not reach the ${tool} tool`)
   }
+  assert.ok(appSource.includes('defaultToolKeys[key]'), 'the table is never consulted on a key press')
   assert.ok(/accel && key === 't'/.test(appSource), 'Ctrl+T does not start a free transform')
 })

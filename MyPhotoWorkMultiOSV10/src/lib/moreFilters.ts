@@ -2,7 +2,7 @@ import { clamp, hexToRgb, hslToRgb, rgbToHsl } from './color'
 import { cloneCanvas, context2d, createCanvas } from './canvas'
 import { gaussianBlur, mosaic } from './filters'
 import { crystallize, medianFilter } from './detail'
-import { pointInSelection, selectionToMask } from './selection'
+import { pointInSelection } from './selection'
 import type { Selection } from './types'
 
 /**
@@ -192,7 +192,7 @@ export function averageFilter(canvas: HTMLCanvasElement, selection: Selection | 
     }
   }
   if (!n) return
-  mapSource(canvas, selection, (src, out, i) => {
+  mapSource(canvas, selection, (_src, out, i) => {
     out[i] = r / n; out[i + 1] = g / n; out[i + 2] = b / n
   })
 }
@@ -588,10 +588,9 @@ export function tree(canvas: HTMLCanvasElement, selection: Selection | null, col
 
 /** Picture Frame: a bevelled border inside the edge, in the foreground colour. */
 export function pictureFrame(canvas: HTMLCanvasElement, size: number, selection: Selection | null, color = '#5b3a1e') {
-  const { width, height } = canvas
   const rgb = hexToRgb(color)
   const s = Math.max(4, size)
-  mapSource(canvas, selection, (src, out, i, x, y, w, h) => {
+  mapSource(canvas, selection, (_src, out, i, x, y, w, h) => {
     const inset = Math.min(x, y, w - 1 - x, h - 1 - y)
     if (inset >= s) return
     // A ridge in the middle of the frame, light on one side and dark on the other.
@@ -1179,7 +1178,7 @@ export function halftonePattern(canvas: HTMLCanvasElement, params: FilterParams,
   const cell = Math.max(3, params.radius * 2)
   mapSource(canvas, selection, (src, out, i, x, y, w, h) => {
     const l = luma(src, i) / 255
-    let t = 0
+    let t: number
     if (pattern === 'line') {
       t = (y % cell) / cell < 1 - l ? 1 : 0
     } else if (pattern === 'circle') {
@@ -1349,7 +1348,7 @@ export function texturizer(canvas: HTMLCanvasElement, kind: 'brick' | 'burlap' |
   const k = relief / 10
   const noise = valueNoise(width, height, Math.max(2, s * 2), 23)
   mapSource(canvas, selection, (src, out, i, x, y, w) => {
-    let bump = 0
+    let bump: number
     if (kind === 'brick') {
       const row = Math.floor(y / (6 * s))
       const offset = row % 2 ? 9 * s : 0

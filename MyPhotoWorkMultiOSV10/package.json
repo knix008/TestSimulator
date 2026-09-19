@@ -81,6 +81,7 @@
     }
   },
   "dependencies": {
+    "@techstark/opencv-js": "^5.0.0-release.1",
     "dicom-parser": "^1.8.21",
     "libheif-js": "^1.23.2",
     "lucide-react": "^1.28.0",

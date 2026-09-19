@@ -13,6 +13,8 @@ export type BrushShape = {
   roundness?: number
   /** How far dabs are thrown off the line, as a fraction of the size. */
   scatter?: number
+  /** A sampled tip (Define Brush Preset): drawn in the colour instead of a round dab. */
+  tip?: HTMLCanvasElement | null
 }
 
 function stamp(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, hardness: number, color: string, opacity: number, shape?: BrushShape) {
@@ -23,6 +25,21 @@ function stamp(ctx: CanvasRenderingContext2D, x: number, y: number, size: number
   const angle = ((shape?.angle ?? 0) * Math.PI) / 180
 
   ctx.save()
+  if (shape?.tip) {
+    // The tip's own alpha is the dab; the colour is laid through it.
+    const tip = shape.tip
+    const scale = size / Math.max(tip.width, tip.height)
+    ctx.translate(x, y)
+    ctx.rotate(angle)
+    ctx.scale(scale, scale * roundness)
+    ctx.globalAlpha = opacity
+    ctx.drawImage(tip, -tip.width / 2, -tip.height / 2)
+    ctx.globalCompositeOperation = 'source-atop'
+    ctx.fillStyle = `rgb(${r},${g},${b})`
+    ctx.fillRect(-tip.width / 2, -tip.height / 2, tip.width, tip.height)
+    ctx.restore()
+    return
+  }
   if (roundness < 1 || angle) {
     // A flattened tip is a circle drawn under a squash: turn to the brush
     // angle, scale one axis, and everything else stays the same.

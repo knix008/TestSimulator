@@ -1,5 +1,6 @@
-import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { commandsInMenu, menuColumns, type MenuId } from './commands'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { commandsInMenu, type MenuId } from './commands'
+import { MenuTree } from './MenuTree'
 import { t } from './i18n'
 import { applyTheme } from './themes'
 import { buildErrorReport } from './lib/errors'
@@ -14,7 +15,8 @@ import './App.css'
  * A frameless BrowserWindow clips its HTML, so the Layer menu (which runs to
  * about thirty rows) could not be shown from inside the app window. Here the
  * list measures itself, asks the main process to size the window to match, and
- * the popup is free to overhang the application.
+ * the popup is free to overhang the application. Opening a submenu widens the
+ * tree, and the window follows it.
  */
 
 export type MenuPayload = {
@@ -91,33 +93,17 @@ export default function MenuHost({ menu }: { menu: MenuId }) {
   const language = payload.language
   const label = (key: string) => payload.overrides[key] ?? t(language, key)
   const rows = commandsInMenu(payload.menu ?? menu)
-  const { columns, rowCount } = menuColumns(rows)
 
   return (
-    <div
-      className={columns > 1 ? 'menu-window menu-columns' : 'menu-window'}
-      ref={listRef}
-      style={columns > 1 ? ({ '--menu-rows': rowCount } as React.CSSProperties) : undefined}
-    >
-      {rows.map((command) => {
-        const Icon = command.icon
-        return (
-          // A fragment, not a wrapper: in column layout the separators and the
-          // buttons are the grid's own cells, so the rows line up across the
-          // columns instead of each group drifting out of step.
-          <Fragment key={command.id}>
-            {command.separatorBefore && <div className="menu-separator" />}
-            <button
-              className={payload.active.includes(command.id) ? 'active' : ''}
-              onClick={() => void window.electronMenuApi?.choose(command.id)}
-            >
-              <Icon size={16} />
-              <span>{payload.overrides[command.id] ?? label(command.label)}</span>
-              {command.accel && <kbd>{command.accel}</kbd>}
-            </button>
-          </Fragment>
-        )
-      })}
+    <div className="menu-window" ref={listRef}>
+      <MenuTree
+        key={payload.menu ?? menu}
+        rows={rows}
+        label={(command) => payload.overrides[command.id] ?? label(command.label)}
+        sectionLabel={(section) => t(language, section)}
+        isActive={(id) => payload.active.includes(id)}
+        onChoose={(id) => void window.electronMenuApi?.choose(id)}
+      />
     </div>
   )
 }

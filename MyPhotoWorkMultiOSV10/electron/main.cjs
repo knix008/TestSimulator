@@ -20,7 +20,7 @@ if (process.platform === 'win32') {
 // Chromium GPU/HTTP disk cache throws Access Denied (0x5) on Windows when two
 // instances share the same userData folder, or when a leftover GPUCache lock
 // remains. Isolate the unpackaged profile and skip the shader disk cache.
-if (isDev) {
+if (isDev && !app.commandLine.hasSwitch('user-data-dir')) {
   app.setPath('userData', path.join(app.getPath('appData'), 'My Photo Work V1.0 Dev'))
 }
 app.commandLine.appendSwitch('disable-gpu-shader-disk-cache')
@@ -93,7 +93,8 @@ function createWindow() {
 
 function fileFilters() {
   return [
-    { name: 'Photo Work and Images', extensions: ['mpw', 'png', 'jpg', 'jpeg', 'gif', 'tif', 'tiff', 'webp', 'avif', 'bmp', 'heic', 'heif', 'hif', 'dcm', 'dicom'] },
+    { name: 'Photo Work and Images', extensions: ['mpw', 'psd', 'psb', 'png', 'jpg', 'jpeg', 'gif', 'tif', 'tiff', 'webp', 'avif', 'bmp', 'heic', 'heif', 'hif', 'dcm', 'dicom', 'cube'] },
+    { name: 'Photoshop', extensions: ['psd', 'psb'] },
     { name: 'Photo Work Project', extensions: ['mpw'] },
     { name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'gif', 'tif', 'tiff', 'webp', 'avif', 'bmp', 'heic', 'heif', 'hif'] },
     { name: 'DICOM', extensions: ['dcm', 'dicom'] },
@@ -115,6 +116,8 @@ function mimeFor(filePath) {
   // Fujifilm cameras write HEIF stills as .hif.
   if (ext === '.heif' || ext === '.hif') return 'image/heif'
   if (ext === '.dcm' || ext === '.dicom') return 'application/dicom'
+  if (ext === '.psd' || ext === '.psb') return 'image/vnd.adobe.photoshop'
+  if (ext === '.cube') return 'text/plain'
   return 'application/octet-stream'
 }
 
@@ -138,6 +141,22 @@ ipcMain.handle('files:open', async (_event, options = {}) => {
   }))
 
   return { canceled: false, directory: path.dirname(result.filePaths[0]), files }
+})
+
+/** Reads one file by path, for Open Recent and Revert: the same shape the open dialog returns. */
+ipcMain.handle('files:read', async (_event, options = {}) => {
+  const filePath = String(options.filePath ?? '')
+  if (!filePath) return { canceled: true, files: [] }
+  try {
+    const mime = mimeFor(filePath)
+    if (mime === 'application/json' || path.extname(filePath).toLowerCase() === '.mpw') {
+      return { canceled: false, files: [{ path: filePath, name: path.basename(filePath), mime: 'application/json', text: await fs.readFile(filePath, 'utf8') }] }
+    }
+    const buffer = await fs.readFile(filePath)
+    return { canceled: false, files: [{ path: filePath, name: path.basename(filePath), mime, size: buffer.length, dataUrl: `data:${mime};base64,${buffer.toString('base64')}` }] }
+  } catch (error) {
+    return { canceled: true, files: [], message: String(error && error.message ? error.message : error) }
+  }
 })
 
 ipcMain.handle('files:save', async (_event, options = {}) => {

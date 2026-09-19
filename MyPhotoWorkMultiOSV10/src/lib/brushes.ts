@@ -3,6 +3,7 @@ import { context2d, createCanvas } from './canvas'
 import { gaussianBlur } from './filters'
 import { clipCanvasToSelection, floodFillMask, selectionToMask } from './selection'
 import { paintStroke, type BrushShape } from './tools'
+import { homography, invert3 } from './warp'
 import { tileOnto } from './patterns'
 import type { Point, Selection } from './types'
 
@@ -408,4 +409,86 @@ export function liquifyDab(
     }
   }
   ctx.putImageData(image, 0, 0)
+}
+
+/* ------------------------------------------------------ perspective clone */
+
+/** A point through a 3x3 projective matrix. */
+function project(m: number[], p: Point): Point {
+  const w = m[6] * p.x + m[7] * p.y + m[8]
+  return { x: (m[0] * p.x + m[1] * p.y + m[2]) / w, y: (m[3] * p.x + m[4] * p.y + m[5]) / w }
+}
+
+/**
+ * The clone stamp inside a Vanishing Point plane. The plane's four corners
+ * map a unit square onto the picture; the source and the stroke are related
+ * by a fixed offset in that square, not on the screen, so what is cloned
+ * shrinks and leans with the plane as the stroke moves towards the horizon.
+ * `origin` is where the stroke began (the point the source is aligned to).
+ */
+export function perspectiveCloneDab(
+  layer: HTMLCanvasElement,
+  to: Point,
+  source: Point,
+  origin: Point,
+  plane: Point[],
+  options: { size: number; hardness: number; opacity: number; selection: Selection | null },
+) {
+  const forward = homography(1, 1, plane)
+  const inverse = forward ? invert3(forward) : null
+  if (!forward || !inverse) return
+  const sourceU = project(inverse, source)
+  const originU = project(inverse, origin)
+  const offset = { x: sourceU.x - originU.x, y: sourceU.y - originU.y }
+  const radius = Math.max(1, options.size / 2)
+  const x0 = Math.max(0, Math.floor(to.x - radius))
+  const y0 = Math.max(0, Math.floor(to.y - radius))
+  const x1 = Math.min(layer.width - 1, Math.ceil(to.x + radius))
+  const y1 = Math.min(layer.height - 1, Math.ceil(to.y + radius))
+  if (x1 <= x0 || y1 <= y0) return
+  const ctx = context2d(layer)
+  const whole = ctx.getImageData(0, 0, layer.width, layer.height)
+  const data = whole.data
+  const width = layer.width
+  const sample = (x: number, y: number, out: number[]) => {
+    const fx = Math.floor(x)
+    const fy = Math.floor(y)
+    if (fx < 0 || fy < 0 || fx >= width - 1 || fy >= layer.height - 1) { out[3] = 0; return }
+    const tx = x - fx
+    const ty = y - fy
+    for (let c = 0; c < 4; c += 1) {
+      const a = data[(fy * width + fx) * 4 + c]
+      const b = data[(fy * width + fx + 1) * 4 + c]
+      const d = data[((fy + 1) * width + fx) * 4 + c]
+      const e = data[((fy + 1) * width + fx + 1) * 4 + c]
+      out[c] = (a * (1 - tx) + b * tx) * (1 - ty) + (d * (1 - tx) + e * tx) * ty
+    }
+  }
+  const stroke = createCanvas(layer.width, layer.height)
+  const sctx = context2d(stroke)
+  const patch = sctx.createImageData(x1 - x0 + 1, y1 - y0 + 1)
+  const pixel = [0, 0, 0, 0]
+  const hard = clamp(options.hardness, 0, 1)
+  for (let y = y0; y <= y1; y += 1) {
+    for (let x = x0; x <= x1; x += 1) {
+      const distance = Math.hypot(x + 0.5 - to.x, y + 0.5 - to.y) / radius
+      if (distance > 1) continue
+      // The same falloff as the round brush: solid to `hardness`, then fading.
+      const cover = distance <= hard ? 1 : 1 - (distance - hard) / Math.max(1e-6, 1 - hard)
+      const u = project(inverse, { x: x + 0.5, y: y + 0.5 })
+      const s = project(forward, { x: u.x + offset.x, y: u.y + offset.y })
+      sample(s.x, s.y, pixel)
+      const i = ((y - y0) * patch.width + (x - x0)) * 4
+      patch.data[i] = pixel[0]
+      patch.data[i + 1] = pixel[1]
+      patch.data[i + 2] = pixel[2]
+      patch.data[i + 3] = pixel[3] * cover
+    }
+  }
+  sctx.putImageData(patch, x0, y0)
+  clipCanvasToSelection(stroke, options.selection)
+  ctx.save()
+  ctx.globalAlpha = clamp(options.opacity, 0, 1)
+  ctx.drawImage(stroke, 0, 0)
+  ctx.restore()
 }

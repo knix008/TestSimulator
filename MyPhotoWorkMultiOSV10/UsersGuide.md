@@ -593,6 +593,56 @@ detail: the error, its stack, the document, the tool and the environment. The
 text is selectable, and **내용 복사 / Copy details** puts all of it on the
 clipboard.
 
+## Photoshop's way of working
+
+Everything in the Photoshop menus has a row here of the same name, so the guide
+only lists what behaves differently from the older release.
+
+- **Selections combine.** Shift adds, Alt subtracts and Shift+Alt intersects with
+  every selection tool, or pick the mode in the option bar; feather and
+  anti-alias are there too. The Quick Selection brush grows into similar pixels as
+  you drag; the Object Selection tool takes a box and keeps what stands out from
+  its rim; Select ▸ Sky, Focus Area and Select and Mask do what their names say.
+- **Masks are painted.** Click the mask thumbnail in the Layers panel (or make a
+  mask) and the brushes, gradient and fill write into the mask — white reveals,
+  black hides — until you click the layer thumbnail again. Layer ▸ Layer Mask
+  has disable, invert, apply and delete. Q enters Quick Mask.
+- **Windows preview live.** Every adjustment and filter window shows its effect
+  on the picture as you move the sliders; Cancel puts it back.
+- **History.** The History panel lists every state with the tool or command that
+  made it; click one to go back. Camera makes a named snapshot. The circle beside
+  a state makes it the History Brush source.
+- **Layer styles.** Layer ▸ Layer Style (or double-click a layer) opens all ten
+  effects with their settings; save one as a style and re-apply it from the
+  Styles panel.
+- **Guides.** Drag out of a ruler to make one, drag it back to remove it; View ▸
+  New Guide, New Guide Layout, Lock Guides, and Snap to guides and grid.
+- **Documents.** Open several; tabs above the picture switch between them
+  (Ctrl+Tab). Edit Smart Object Contents opens the original in its own tab and
+  Save writes it back.
+- **PSD.** Open and Save as PSD keep layers, groups, masks, opacity and blend
+  modes; text, styles and smart objects travel as their rendered pixels.
+- **Liquify** is a brush: choose forward warp, twirl, pucker, bloat, reconstruct,
+  freeze or thaw in the option bar, then Enter applies and Esc cancels.
+- **Menus fold.** A menu shows its main commands; a row with a ▸ opens a
+  submenu beside it when you hover or click it, the way Photoshop's do.
+- **The picture-analysis commands are real, and run on this machine.**
+  Photomerge and Auto-Align match features between frames and warp each into
+  place (rotation and perspective included); Auto-Blend fades each layer at its
+  edge; Merge to HDR fuses the exposures; Content-Aware Fill, Generative Fill
+  and the Remove tool rebuild a hole from the texture around it (PatchMatch);
+  Harmonize re-solves a pasted layer's colours so its edge meets the background
+  (Poisson blending); Object Selection and Select Subject cut the object out with
+  GrabCut; Crop & Straighten finds each print on a scanned page and opens it
+  upright in its own tab. The first of these you use loads OpenCV (a moment's
+  pause); nothing is downloaded and nothing leaves the computer.
+- **Vanishing Point clones in perspective.** Define the plane with four
+  clicks, press S for the Clone Stamp, Alt-click a source on the plane and
+  paint: what you clone shrinks and leans with the plane. Apply still pastes the
+  clipboard into the plane.
+- **Neural Filters and the other "AI" windows** remain algorithms and say so;
+  no model is downloaded.
+
 ## Keyboard
 
 | Keys | Action |

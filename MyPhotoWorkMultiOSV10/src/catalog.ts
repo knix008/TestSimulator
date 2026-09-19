@@ -71,7 +71,7 @@ export const toolGroups: ToolGroup[] = [
 
 export const adjustmentTypes: AdjustmentType[] = [
   'brightness', 'levels', 'curves', 'hue', 'colorBalance', 'vibrance', 'bw', 'invert', 'posterize', 'threshold', 'exposure', 'photoFilter', 'clarity', 'dehaze', 'grain', 'shadowsHighlights',
-  'channelMixer', 'selectiveColor', 'gradientMap', 'equalize',
+  'channelMixer', 'selectiveColor', 'gradientMap', 'equalize', 'colorLookup',
 ]
 
 export type FilterCatalogEntry = { id: string; group: string }

@@ -361,7 +361,7 @@ export function selectFocusArea(canvas: HTMLCanvasElement, sensitivity = 1): Sel
   // Otsu's threshold on the smoothed energy.
   const hist = new Uint32Array(256)
   for (let i = 0; i < smooth.length; i += 1) hist[smooth[i]] += 1
-  let total = smooth.length
+  const total = smooth.length
   let sum = 0
   for (let i = 0; i < 256; i += 1) sum += i * hist[i]
   let sumB = 0
@@ -379,7 +379,6 @@ export function selectFocusArea(canvas: HTMLCanvasElement, sensitivity = 1): Sel
     const between = wB * wF * (mB - mF) ** 2
     if (between > best) { best = between; threshold = i }
   }
-  total = 0
   let mask = new Uint8Array(width * height)
   for (let i = 0; i < mask.length; i += 1) if (smooth[i] > threshold && data[i * 4 + 3] > 8) mask[i] = 255
   const scale = Math.max(1, Math.round(Math.min(width, height) / 150))

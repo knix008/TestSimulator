@@ -10,6 +10,7 @@ import {
   commandLabelKeys, commands, commandsInMenu, findCommand, menuIcons, menuOrder, toolbarGroups,
 } from '../src/commands.ts'
 import { adjustmentTypes } from '../src/catalog.ts'
+import { extraFilters } from '../src/lib/moreFilters.ts'
 import { t } from '../src/i18n.ts'
 
 const appSource = readFileSync(fileURLToPath(new URL('../src/App.tsx', import.meta.url)), 'utf8')
@@ -17,7 +18,7 @@ const appSource = readFileSync(fileURLToPath(new URL('../src/App.tsx', import.me
 /** The single switch every menu and toolbar click funnels into. */
 function runCommandBody() {
   const start = appSource.indexOf('const runCommand = (id: string)')
-  const end = appSource.indexOf('const isCommandActive = useCallback')
+  const end = appSource.indexOf('const isCommandActive = ')
   assert.ok(start > 0 && end > start, 'runCommand was not found in App.tsx')
   return appSource.slice(start, end)
 }
@@ -93,8 +94,9 @@ test('the toolbar covers the categories a user reaches for constantly', () => {
 test('every command is handled by runCommand', () => {
   const body = runCommandBody()
   const unhandled = commands
-    // Adjustment layers are dispatched by prefix rather than one case each.
+    // Adjustment layers and the moreFilters.ts filters are dispatched by prefix rather than one case each.
     .filter((command) => !command.id.startsWith('adjLayer.'))
+    .filter((command) => !(command.id.startsWith('filter.') && extraFilters[command.id.slice('filter.'.length)]))
     .filter((command) => !body.includes(`case '${command.id}':`))
   assert.deepEqual(unhandled, [], `these commands have no handler: ${unhandled.map((c) => c.id).join(', ')}`)
 })
@@ -109,6 +111,7 @@ test('the adjustment-layer commands cover every adjustment type', () => {
   const ids = commands.filter((command) => command.id.startsWith('adjLayer.')).map((command) => command.id)
   assert.deepEqual(ids.sort(), adjustmentTypes.map((type) => `adjLayer.${type}`).sort())
   assert.ok(runCommandBody().includes("id.startsWith('adjLayer.')"), 'adjustment layers are not dispatched')
+  assert.ok(runCommandBody().includes("id.startsWith('filter.')"), 'the extra filters are not dispatched')
 })
 
 test('accelerator hints only appear on commands, and the menu renders them', () => {
@@ -117,7 +120,8 @@ test('accelerator hints only appear on commands, and the menu renders them', () 
   for (const command of withAccel) {
     assert.match(command.accel, /^[\w+\-. \[\]';]+$/, `${command.id} has an odd accelerator "${command.accel}"`)
   }
-  assert.ok(appSource.includes('accel={command.accel}'), 'the menu never renders the accelerator')
+  const tree = readFileSync(fileURLToPath(new URL('../src/MenuTree.tsx', import.meta.url)), 'utf8')
+  assert.ok(tree.includes('{command.accel && <kbd>{command.accel}</kbd>}'), 'the menu never renders the accelerator')
 })
 
 test('the shell is split into a title bar, a menu bar and a tool bar', () => {
@@ -141,7 +145,7 @@ test('the window controls live in the title bar', () => {
 test('the menu bar builds its rows from the catalog, not from hand-written JSX', () => {
   const menuBar = appSource.slice(appSource.indexOf('className="menu-bar"'), appSource.indexOf('className="tool-bar"'))
   assert.ok(menuBar.includes('menuOrder.map'), 'the menu bar does not iterate the catalog')
-  assert.ok(menuBar.includes('commandsInMenu(id).map'), 'the dropdowns do not iterate the catalog')
+  assert.ok(menuBar.includes('<MenuTree') && menuBar.includes('rows={commandsInMenu(id)}'), 'the dropdowns do not iterate the catalog')
 })
 
 test('the toolbar builds its groups from the catalog', () => {

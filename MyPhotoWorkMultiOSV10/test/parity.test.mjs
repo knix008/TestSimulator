@@ -5,7 +5,8 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { extraFilterIds, extraFilters } from '../src/lib/moreFilters.ts'
 import { objectSelectRect, selectSubjectAuto, selectSky, selectFocusArea, refineMask, fillHoles, removeSmallComponents } from '../src/lib/segment.ts'
-import { mixerDab, loadMixer, historyBrushDab, artHistoryDab, patternStampDab, healingBrushDab, quickSelectDab, liquifyDab } from '../src/lib/brushes.ts'
+import { mixerDab, loadMixer, historyBrushDab, artHistoryDab, patternStampDab, healingBrushDab, quickSelectDab, liquifyDab, perspectiveCloneDab } from '../src/lib/brushes.ts'
+import { homography, invert3 } from '../src/lib/warp.ts'
 import { applyLut, builtInLuts, parseCube, hdrToning, matchColor, desaturate, autoContrast, autoTone, rotateArbitrary, applyImage, calculations, fadeTo } from '../src/lib/adjustExtra.ts'
 import { gradientPresets, paintGradientDef, resolveGradient, sampleGradient } from '../src/lib/gradients.ts'
 import { canvasOf, meanDiff, px, withSeededRandom } from './helpers/pixels.mjs'
@@ -263,4 +264,41 @@ test('a multi-stop gradient samples between its stops and paints every geometry'
   paintGradientDef(canvas, { x: 0, y: 4 }, { x: 31, y: 4 }, fade, 'linear', null)
   assert.ok(px(canvas, 30, 4)[3] < 40, 'the far end is transparent')
   assert.ok(px(canvas, 1, 4)[3] > 200, 'the near end is solid')
+})
+
+test('the perspective clone follows the Vanishing Point plane rather than the screen', () => {
+  // Left half red, right half blue. A source on the red side, a stroke on the blue.
+  const layer = canvasOf(100, 100)
+  const ctx = layer.getContext('2d')
+  ctx.fillStyle = '#ff0000'
+  ctx.fillRect(0, 0, 50, 100)
+  ctx.fillStyle = '#0000ff'
+  ctx.fillRect(50, 0, 50, 100)
+  // On a square plane the clone is the ordinary clone: the same offset everywhere.
+  const square = [{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 100 }, { x: 0, y: 100 }]
+  perspectiveCloneDab(layer, { x: 70, y: 50 }, { x: 20, y: 50 }, { x: 70, y: 50 }, square, { size: 10, hardness: 1, opacity: 1, selection: null })
+  assert.deepEqual(px(layer, 70, 50).slice(0, 3), [255, 0, 0], 'the dab should carry red from 50px to the left')
+  assert.deepEqual(px(layer, 80, 50).slice(0, 3), [0, 0, 255], 'outside the dab nothing changes')
+
+  // On a plane that narrows towards the top the offset shrinks with it: the
+  // same 50px screen offset at the origin becomes less further up the plane,
+  // so a dab high up samples from nearer to itself. Both sides are worked out
+  // with the plane's own homography and must agree with the brush.
+  const fresh = canvasOf(100, 100)
+  const fctx = fresh.getContext('2d')
+  for (let x = 0; x < 100; x += 10) { fctx.fillStyle = x % 20 === 0 ? '#00ff00' : '#000000'; fctx.fillRect(x, 0, 10, 100) }
+  const plane = [{ x: 30, y: 0 }, { x: 70, y: 0 }, { x: 100, y: 100 }, { x: 0, y: 100 }]
+  const forward = homography(1, 1, plane)
+  const inverse = invert3(forward)
+  const project = (m, p) => { const w = m[6] * p.x + m[7] * p.y + m[8]; return { x: (m[0] * p.x + m[1] * p.y + m[2]) / w, y: (m[3] * p.x + m[4] * p.y + m[5]) / w } }
+  const origin = { x: 60, y: 90 }
+  const source = { x: 30, y: 90 }
+  const to = { x: 52, y: 20 }
+  const offset = (() => { const s = project(inverse, source); const o = project(inverse, origin); return { x: s.x - o.x, y: s.y - o.y } })()
+  const u = project(inverse, { x: to.x + 0.5, y: to.y + 0.5 })
+  const expectedFrom = project(forward, { x: u.x + offset.x, y: u.y + offset.y })
+  const expected = px(fresh, Math.floor(expectedFrom.x), Math.floor(expectedFrom.y)).slice(0, 3)
+  assert.ok(Math.abs(expectedFrom.x - to.x) < 30, 'high on the plane the source should be nearer than the 30px it was at the origin')
+  perspectiveCloneDab(fresh, to, source, origin, plane, { size: 4, hardness: 1, opacity: 1, selection: null })
+  assert.deepEqual(px(fresh, to.x, to.y).slice(0, 3), expected, 'the dab should carry the colour from where the plane says the source is')
 })

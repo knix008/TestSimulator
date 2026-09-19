@@ -153,11 +153,10 @@
 
 /* The browser build's own dropdown, dealt into columns on the same rule as the
    popup window so a thirty-row menu does not run off the bottom of the page. */
-.menu-drop.menu-columns {
-  align-content: start;
-  column-gap: 10px;
-  grid-auto-flow: column;
-  grid-template-rows: repeat(var(--menu-rows), auto);
+/* The in-page dropdown hands its inside over to the menu tree. */
+.menu-drop.menu-tree-drop {
+  display: block;
+  padding: 0;
 }
 
 .menu-drop button,
@@ -1564,11 +1563,42 @@
   border: 1px solid var(--border);
   border-radius: 8px;
   box-shadow: 0 18px 42px rgba(0, 0, 0, 0.42);
-  display: inline-grid;
-  gap: 2px;
+  display: inline-block;
+  width: max-content;
+}
+
+/* ------------------------------------------------------------- menu tree */
+/* A short top level with a submenu beside the row that opened it, the way
+   Photoshop's menus read. Both the popup window and the in-page dropdown
+   hold one of these. */
+.menu-tree {
+  align-items: flex-start;
+  display: flex;
+}
+
+.menu-column {
+  display: grid;
+  gap: 1px;
   min-width: 200px;
   padding: 6px;
-  width: max-content;
+  position: relative;
+}
+
+.menu-column.menu-sub {
+  border-left: 1px solid var(--border);
+  min-width: 220px;
+}
+
+.menu-parent .menu-chevron {
+  flex: 0 0 auto;
+  margin-left: auto;
+  opacity: 0.7;
+}
+
+.menu-window .menu-parent.open,
+.menu-drop .menu-parent.open {
+  background: var(--control-bg);
+  color: var(--accent);
 }
 
 .menu-window button {
@@ -1582,7 +1612,7 @@
   display: flex;
   font: 600 var(--control-font-size) / 1.25 var(--ui-font);
   gap: 8px;
-  padding: 6px 10px;
+  padding: 4px 10px;
   text-align: left;
   white-space: nowrap;
   width: 100%;
@@ -1606,10 +1636,10 @@
   padding-left: 16px;
 }
 
-/* A long menu is dealt into columns rather than running off the screen. Every
-   row and every separator is a cell, and the columns share one set of row
-   tracks, so the rows line up across the whole popup. */
-.menu-window.menu-columns {
+/* A top level too long for one column is dealt into several. Every row and
+   every separator is a cell, and the columns share one set of row tracks, so
+   the rows line up across the whole popup. */
+.menu-column.menu-columns {
   align-content: start;
   column-gap: 10px;
   grid-auto-flow: column;
@@ -1617,8 +1647,8 @@
 }
 
 /* The divider belongs to its own column, not across the whole popup. */
-.menu-window.menu-columns .menu-separator {
-  margin: 2px 0;
+.menu-column .menu-separator {
+  margin: 3px 0;
 }
 
 /* -------------------------------------------------------------- drag drop */
@@ -1872,4 +1902,420 @@
   overflow-wrap: anywhere;
   /* Versions and hashes read better in a monospaced face. */
   font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------------------------------------------------
+   Added for Photoshop parity: document tabs, the wider panel set, the layer
+   thumbnails, the History list, the Layer Style and Filter Gallery windows.
+   ------------------------------------------------------------------------ */
+
+.stage-column {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+}
+
+.stage-column > .canvas-stage {
+  flex: 1 1 0;
+}
+
+.doc-tabs {
+  background: var(--toolbar-bg);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  gap: 2px;
+  overflow-x: auto;
+  padding: 4px 6px 0;
+}
+
+.doc-tabs button {
+  align-items: center;
+  border-radius: 6px 6px 0 0;
+  display: inline-flex;
+  gap: 8px;
+  min-height: 26px;
+  padding: 2px 10px;
+  white-space: nowrap;
+}
+
+.doc-tabs button.active {
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  border-bottom-color: var(--panel-bg);
+  color: var(--accent);
+}
+
+.panel-tabs {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  max-height: 168px;
+  overflow-y: auto;
+}
+
+.panel-tabs button {
+  font-size: 11px;
+  min-height: 24px;
+  padding: 2px 6px;
+}
+
+.panel-tabs button span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.panel-body {
+  display: grid;
+  gap: 6px;
+}
+
+.layer-row {
+  display: flex;
+  flex-wrap: nowrap;
+}
+
+.layer-row input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.layer-row > button {
+  flex: 0 0 22px;
+}
+
+.layer-row.dragging {
+  opacity: 0.5;
+}
+
+.thumb-wrap {
+  border: 2px solid transparent;
+  border-radius: 4px;
+  display: inline-flex;
+  line-height: 0;
+}
+
+.thumb-wrap.target {
+  border-color: var(--accent);
+}
+
+.thumb {
+  background:
+    linear-gradient(45deg, rgba(128,128,128,0.35) 25%, transparent 25%, transparent 75%, rgba(128,128,128,0.35) 75%),
+    linear-gradient(45deg, rgba(128,128,128,0.35) 25%, transparent 25%, transparent 75%, rgba(128,128,128,0.35) 75%);
+  background-position: 0 0, 4px 4px;
+  background-size: 8px 8px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  height: 30px;
+  width: 30px;
+}
+
+.thumb.mask {
+  background: #000;
+}
+
+.thumb-group {
+  align-items: center;
+  color: var(--muted);
+  display: inline-flex;
+  height: 30px;
+  justify-content: center;
+  width: 30px;
+}
+
+.layer-badges {
+  align-items: center;
+  color: var(--muted);
+  display: inline-flex;
+  font-size: 11px;
+  gap: 4px;
+}
+
+.layer-badges em {
+  font-style: normal;
+}
+
+.layer-row .layer-badges button.fx {
+  color: var(--accent);
+  font-size: 10px;
+  font-weight: 700;
+  width: auto;
+  padding: 0 4px;
+}
+
+.lock-row {
+  display: grid;
+  gap: 4px;
+  grid-template-columns: 1fr 1fr;
+}
+
+.history-list {
+  display: grid;
+  gap: 2px;
+  max-height: 340px;
+  overflow-y: auto;
+}
+
+.history-row {
+  align-items: center;
+  display: grid;
+  gap: 4px;
+  grid-template-columns: 24px minmax(0, 1fr);
+}
+
+.history-row.snapshot {
+  grid-template-columns: minmax(0, 1fr) 24px;
+}
+
+.history-row button {
+  min-height: 24px;
+  padding: 2px 6px;
+}
+
+.history-row button.source {
+  color: var(--accent);
+}
+
+.history-row .state.active {
+  border-color: var(--accent);
+}
+
+.history-row.redo .state {
+  opacity: 0.55;
+}
+
+.navigator {
+  border: 1px solid var(--border);
+  cursor: crosshair;
+  display: block;
+  width: 100%;
+}
+
+.color-targets {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: 1fr 1fr;
+}
+
+.color-targets button {
+  gap: 6px;
+}
+
+.swatch-grid {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(auto-fill, minmax(28px, 1fr));
+}
+
+.swatch-grid .preset-swatch {
+  aspect-ratio: 1;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  min-height: 0;
+  padding: 0;
+  width: 100%;
+}
+
+.pattern-tile,
+.shape-tile {
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  display: grid;
+  font-size: 11px;
+  gap: 4px;
+  justify-items: center;
+  padding: 4px;
+  text-align: center;
+}
+
+.shape-tile.active {
+  border-color: var(--accent);
+}
+
+.gradient-list {
+  display: grid;
+  gap: 4px;
+}
+
+.gradient-row {
+  gap: 8px;
+  justify-content: flex-start;
+}
+
+.gradient-row.active {
+  border-color: var(--accent);
+}
+
+.gradient-chip {
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  display: inline-block;
+  height: 16px;
+  width: 48px;
+}
+
+.gradient-preview {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  height: 28px;
+  margin: 6px 0;
+  width: 100%;
+}
+
+.brush-preview {
+  background: var(--control-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  display: block;
+  width: 100%;
+}
+
+.glyph-grid {
+  display: grid;
+  gap: 4px;
+  grid-template-columns: repeat(auto-fill, minmax(30px, 1fr));
+}
+
+.glyph-grid button {
+  font-size: 15px;
+  justify-content: center;
+  min-height: 28px;
+  padding: 0;
+}
+
+.note-row {
+  align-items: center;
+  display: grid;
+  gap: 6px;
+  grid-template-columns: minmax(0, 1fr) auto 24px;
+}
+
+.quick-mask-toggle {
+  min-height: 24px;
+  width: 46px;
+}
+
+.quick-mask-toggle.active {
+  color: #f43f5e;
+}
+
+/* Full screen mode: the picture alone. */
+.app-shell.screen-full .tool-strip,
+.app-shell.screen-full .panel,
+.app-shell.screen-full .resize-handle,
+.app-shell.screen-full .status-bar,
+.app-shell.screen-full .doc-tabs {
+  display: none;
+}
+
+.app-shell.screen-full .workspace {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* The Layer Style window: a list of effects on the left, one page on the right. */
+.style-layout {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 180px minmax(0, 1fr);
+}
+
+.style-tabs {
+  display: grid;
+  gap: 2px;
+  align-content: start;
+}
+
+.style-tab {
+  align-items: center;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  gap: 8px;
+  padding: 4px 6px;
+}
+
+.style-tab.active {
+  background: var(--control-bg);
+  border-color: var(--accent);
+}
+
+.style-tab input {
+  margin: 0;
+}
+
+.style-page {
+  display: grid;
+  gap: 6px;
+  align-content: start;
+}
+
+.style-page h3 {
+  margin: 0 0 4px;
+}
+
+/* The Filter Gallery: folders of effects beside the controls. */
+.gallery-layout {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) 200px;
+}
+
+.gallery-groups {
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.gallery-groups details summary {
+  cursor: pointer;
+  font-weight: 600;
+  padding: 4px 0;
+}
+
+.gallery-groups button.active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.gallery-controls {
+  display: grid;
+  gap: 6px;
+  align-content: start;
+}
+
+.kernel-grid {
+  display: grid;
+  gap: 4px;
+  grid-template-columns: repeat(5, 1fr);
+}
+
+.kernel-grid input {
+  min-width: 0;
+  text-align: center;
+}
+
+.shortcut-list {
+  display: grid;
+  gap: 4px;
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+.shortcut-row {
+  align-items: center;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) 48px auto;
+}
+
+.shortcut-row input {
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.shortcut-row em {
+  color: #f43f5e;
+  font-size: 11px;
+  font-style: normal;
 }

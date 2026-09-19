@@ -89,6 +89,20 @@ scripts/generate-build-info.cjs → src/build-info.json for the About window
 scripts/electron-dev.mjs        → starts Vite, then Electron
 ```
 
+`src/dialogsExtra.tsx` holds the windows added for Photoshop parity, one
+component per window, and `src/panels.tsx` the right-hand panels, which read the
+editor's state through one `PanelContext` object. `src/usePreview.ts` is the hook
+every pixel-changing window uses: each edit is sent as a `preview` result, the
+editor draws the active layer as the sliders would leave it, and only Apply
+writes it (`pixelOperation` in App.tsx is the one place a window's answer becomes
+a pixel operation, for both). `src/adjustmentFields.ts` lists the sliders each
+adjustment shows, shared by the Adjustment window and the Properties panel.
+
+Several documents can be open at once: each is a `DocumentSlot` (model, pixels,
+history, file) parked in a map while another is shown, and the tab strip above
+the stage switches between them. A smart object's contents open as a slot of
+their own that writes back into the parent on save.
+
 `src/dialogs.tsx` and `src/dialogMeta.ts` are split so the dialog module exports
 components only; the same reason `aboutInfo.ts` is separate — it is plain logic,
 so the tests can import it without a JSX transform.
@@ -109,6 +123,15 @@ so the tests can import it without a JSX transform.
 | `colorModes` / `depth` / `channels` | colour spaces and ICC profiles, 16-bit buffers, and channels |
 | `gif` / `video` / `patterns` / `gallery` | the GIF encoder, video in and out, pattern tiles, and the one place a filter id becomes a call |
 | `errors` | turning anything thrown into a report the user can read and paste |
+| `brushes` | the brushes that read from somewhere else: mixer, history, art history, pattern stamp, healing brush, quick selection, Liquify |
+| `segment` | the segmenters: Object Selection, Select Subject, Sky, Focus Area, Select and Mask's refinements, morphology |
+| `moreFilters` | the rest of the Filter menu and the Filter Gallery: ninety filters composed from one small kit (source copy, blur, edge map, noise, backward remap) |
+| `adjustExtra` | Colour Lookup (`.cube` parsing, built-in looks, a LUT registry), HDR Toning, Match Color, Desaturate, Auto Tone/Contrast, arbitrary rotation, Apply Image, Calculations, Fade |
+| `gradients` | multi-stop gradient definitions, presets, the ramp and the five geometries |
+| `documentOps` | align/distribute, matting, tracing pixels to paths, alignment search, Photomerge, Auto-Blend, Merge to HDR, contact sheet, Duotone/Indexed/Bitmap, gamut and proof, spelling |
+| `psd` | Photoshop's file format, read and written (layers, groups, masks, RLE, 8/16-bit, RGB/Gray/CMYK/Indexed/Lab) |
+| `cv` | the OpenCV-backed commands: ORB + RANSAC homographies for alignment and stitching, distance-transform blending, Mertens exposure fusion, GrabCut, Telea inpainting, the scanner-bed photo finder, a bilateral denoiser. OpenCV (`@techstark/opencv-js`, ~13MB of WebAssembly) is a separate chunk that loads on first use; every Mat is freed by the `scope` helper |
+| `inpaint` | pure TypeScript: PatchMatch hole filling (coarse to fine, nearest-neighbour field search alternating with patch voting) behind Content-Aware Fill, and the Poisson solver (multigrid-warmed Gauss-Seidel) behind Harmonize |
 | `view` | the tick spacing shared by the grid and the rulers |
 
 ## Errors
