@@ -1,25 +1,25 @@
-const { spawn } = require('child_process');
-const fs = require('fs');
-const path = require('path');
-const { pipeline } = require('stream/promises');
-const { Readable } = require('stream');
+const { spawn } = require("child_process");
+const fs = require("fs");
+const path = require("path");
+const { pipeline } = require("stream/promises");
+const { Readable } = require("stream");
 
 const YT_URL_RE =
   /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?(?:[^&\s]*&)*v=|embed\/|shorts\/|live\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
 
 /** Clients that often still expose progressive (muxed) MP4 streams. */
-const DOWNLOAD_CLIENTS = ['ANDROID', 'MWEB', 'WEB'];
+const DOWNLOAD_CLIENTS = ["ANDROID", "MWEB", "WEB"];
 
 const DOWNLOAD_OPTION_SETS = [
-  { type: 'video+audio', quality: 'best', format: 'mp4' },
-  { type: 'video+audio', quality: 'bestefficiency', format: 'mp4' },
-  { type: 'video+audio', quality: 'best', format: 'any' },
-  { type: 'video+audio', quality: '360p', format: 'mp4' },
-  { type: 'video+audio', quality: 'bestefficiency', format: 'any' }
+  { type: "video+audio", quality: "best", format: "mp4" },
+  { type: "video+audio", quality: "bestefficiency", format: "mp4" },
+  { type: "video+audio", quality: "best", format: "any" },
+  { type: "video+audio", quality: "360p", format: "mp4" },
+  { type: "video+audio", quality: "bestefficiency", format: "any" },
 ];
 
 function extractVideoId(input) {
-  if (!input || typeof input !== 'string') return null;
+  if (!input || typeof input !== "string") return null;
   const trimmed = input.trim();
   if (/^[a-zA-Z0-9_-]{11}$/.test(trimmed)) return trimmed;
   const m = trimmed.match(YT_URL_RE);
@@ -32,11 +32,13 @@ function normalizeWatchUrl(input) {
 }
 
 function sanitizeFilename(name) {
-  return String(name || 'youtube-video')
-    .replace(/[<>:"/\\|?*\x00-\x1F]/g, '_')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, 180) || 'youtube-video';
+  return (
+    String(name || "youtube-video")
+      .replace(/[<>:"/\\|?*\x00-\x1F]/g, "_")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 180) || "youtube-video"
+  );
 }
 
 /** @type {null | {
@@ -51,8 +53,8 @@ let activeDownload = null;
 
 class DownloadCancelledError extends Error {
   constructor() {
-    super('Download cancelled');
-    this.name = 'DownloadCancelledError';
+    super("Download cancelled");
+    this.name = "DownloadCancelledError";
     this.cancelled = true;
   }
 }
@@ -68,13 +70,13 @@ function throwIfCancelled() {
 function killChild(child) {
   if (!child || child.killed) return;
   try {
-    if (process.platform === 'win32') {
-      spawn('taskkill', ['/pid', String(child.pid), '/f', '/t'], {
+    if (process.platform === "win32") {
+      spawn("taskkill", ["/pid", String(child.pid), "/f", "/t"], {
         windowsHide: true,
-        stdio: 'ignore'
+        stdio: "ignore",
       });
     } else {
-      child.kill('SIGTERM');
+      child.kill("SIGTERM");
     }
   } catch {
     /* ignore */
@@ -95,7 +97,8 @@ function relatedDownloadFiles(outputPath) {
         const full = path.join(dir, f);
         try {
           const st = fs.statSync(full);
-          if (st.isFile() && st.size > 0) out.push({ path: full, size: st.size });
+          if (st.isFile() && st.size > 0)
+            out.push({ path: full, size: st.size });
         } catch {
           /* ignore */
         }
@@ -119,7 +122,7 @@ function deleteRelatedDownloadFiles(outputPath) {
 }
 
 function remuxToPlayableMp4(inputPath, preferredOutputPath) {
-  const { resolveFfmpegPath } = require('./media-compat');
+  const { resolveFfmpegPath } = require("./media-compat");
   return new Promise((resolve) => {
     try {
       if (!fs.existsSync(inputPath) || fs.statSync(inputPath).size < 1024) {
@@ -133,31 +136,37 @@ function remuxToPlayableMp4(inputPath, preferredOutputPath) {
 
     const outputPath = preferredOutputPath || inputPath;
     const tmpPath =
-      outputPath === inputPath ? `${outputPath}.playable.mp4` : `${outputPath}.tmp.mp4`;
+      outputPath === inputPath
+        ? `${outputPath}.playable.mp4`
+        : `${outputPath}.tmp.mp4`;
     const ffmpeg = resolveFfmpegPath();
     const child = spawn(
       ffmpeg,
       [
-        '-y',
-        '-hide_banner',
-        '-loglevel',
-        'error',
-        '-err_detect',
-        'ignore_err',
-        '-i',
+        "-y",
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-err_detect",
+        "ignore_err",
+        "-i",
         inputPath,
-        '-c',
-        'copy',
-        '-movflags',
-        '+faststart',
-        tmpPath
+        "-c",
+        "copy",
+        "-movflags",
+        "+faststart",
+        tmpPath,
       ],
-      { windowsHide: true, stdio: ['ignore', 'ignore', 'pipe'] }
+      { windowsHide: true, stdio: ["ignore", "ignore", "pipe"] },
     );
 
-    child.on('close', (code) => {
+    child.on("close", (code) => {
       try {
-        if (code === 0 && fs.existsSync(tmpPath) && fs.statSync(tmpPath).size > 0) {
+        if (
+          code === 0 &&
+          fs.existsSync(tmpPath) &&
+          fs.statSync(tmpPath).size > 0
+        ) {
           if (fs.existsSync(outputPath) && outputPath !== tmpPath) {
             try {
               fs.unlinkSync(outputPath);
@@ -190,7 +199,7 @@ function remuxToPlayableMp4(inputPath, preferredOutputPath) {
           fs.copyFileSync(inputPath, outputPath);
           resolve({
             ok: fs.existsSync(outputPath) && fs.statSync(outputPath).size > 0,
-            path: outputPath
+            path: outputPath,
           });
           return;
         } catch {
@@ -199,14 +208,14 @@ function remuxToPlayableMp4(inputPath, preferredOutputPath) {
       }
       resolve({
         ok: fs.existsSync(inputPath) && fs.statSync(inputPath).size > 0,
-        path: inputPath
+        path: inputPath,
       });
     });
 
-    child.on('error', () => {
+    child.on("error", () => {
       resolve({
         ok: fs.existsSync(inputPath) && fs.statSync(inputPath).size > 0,
-        path: inputPath
+        path: inputPath,
       });
     });
   });
@@ -214,7 +223,9 @@ function remuxToPlayableMp4(inputPath, preferredOutputPath) {
 
 async function finalizeStoppedDownload(outputPath) {
   await new Promise((r) => setTimeout(r, 350));
-  const candidates = relatedDownloadFiles(outputPath).filter((c) => c.size >= 1024);
+  const candidates = relatedDownloadFiles(outputPath).filter(
+    (c) => c.size >= 1024,
+  );
   if (!candidates.length) return { ok: false, path: outputPath };
 
   const best = candidates[0];
@@ -241,7 +252,7 @@ async function finalizeStoppedDownload(outputPath) {
     ok: size > 0,
     path: remuxed.path,
     size,
-    name: path.basename(remuxed.path)
+    name: path.basename(remuxed.path),
   };
 }
 
@@ -268,7 +279,8 @@ function stopYouTubeDownload(options = {}) {
     } catch {
       /* ignore */
     }
-    if (activeDownload.outputPath) deleteRelatedDownloadFiles(activeDownload.outputPath);
+    if (activeDownload.outputPath)
+      deleteRelatedDownloadFiles(activeDownload.outputPath);
   } else {
     try {
       activeDownload.nodeStream?.destroy?.();
@@ -289,66 +301,78 @@ function stopYouTubeDownload(options = {}) {
 /** @deprecated Prefer stopYouTubeDownload({ discard: true|false }) */
 function cancelYouTubeDownload(options = {}) {
   // Default discard when called with no args (legacy cancel).
-  if (options == null || (typeof options === 'object' && !('discard' in options))) {
+  if (
+    options == null ||
+    (typeof options === "object" && !("discard" in options))
+  ) {
     return stopYouTubeDownload({ discard: true });
   }
   return stopYouTubeDownload(options);
 }
 
-function runCommand(command, args, { onStdout, onStderr, trackDownload = false } = {}) {
+function runCommand(
+  command,
+  args,
+  { onStdout, onStderr, trackDownload = false } = {},
+) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
       windowsHide: true,
-      shell: false
+      shell: false,
     });
     if (trackDownload && activeDownload) {
       activeDownload.child = child;
     }
-    let stdout = '';
-    let stderr = '';
-    child.stdout.on('data', (chunk) => {
+    let stdout = "";
+    let stderr = "";
+    child.stdout.on("data", (chunk) => {
       const text = chunk.toString();
       stdout += text;
       onStdout?.(text);
     });
-    child.stderr.on('data', (chunk) => {
+    child.stderr.on("data", (chunk) => {
       const text = chunk.toString();
       stderr += text;
       onStderr?.(text);
     });
-    child.on('error', reject);
-    child.on('close', (code) => {
+    child.on("error", reject);
+    child.on("close", (code) => {
       if (trackDownload && activeDownload) activeDownload.child = undefined;
       if (trackDownload && isDownloadCancelled()) {
         reject(new DownloadCancelledError());
         return;
       }
       if (code === 0) resolve({ stdout, stderr });
-      else reject(new Error(stderr.trim() || stdout.trim() || `${command} exited with ${code}`));
+      else
+        reject(
+          new Error(
+            stderr.trim() || stdout.trim() || `${command} exited with ${code}`,
+          ),
+        );
     });
   });
 }
 
 function ytDlpBinaryName() {
-  return process.platform === 'win32' ? 'yt-dlp.exe' : 'yt-dlp';
+  return process.platform === "win32" ? "yt-dlp.exe" : "yt-dlp";
 }
 
 function ytDlpCandidatePaths() {
   const name = ytDlpBinaryName();
   const list = [];
   try {
-    const { app } = require('electron');
+    const { app } = require("electron");
     if (app?.isPackaged) {
-      list.push(path.join(process.resourcesPath, 'yt-dlp', name));
-    } else if (typeof app?.getAppPath === 'function') {
-      list.push(path.join(app.getAppPath(), 'vendor', 'yt-dlp', name));
+      list.push(path.join(process.resourcesPath, "yt-dlp", name));
+    } else if (typeof app?.getAppPath === "function") {
+      list.push(path.join(app.getAppPath(), "vendor", "yt-dlp", name));
     }
   } catch {
     /* non-electron / early boot */
   }
-  list.push(path.join(__dirname, '..', 'vendor', 'yt-dlp', name));
+  list.push(path.join(__dirname, "..", "vendor", "yt-dlp", name));
   list.push(name);
-  if (name === 'yt-dlp.exe') list.push('yt-dlp');
+  if (name === "yt-dlp.exe") list.push("yt-dlp");
   return list;
 }
 
@@ -356,7 +380,7 @@ async function findYtDlp() {
   for (const cmd of ytDlpCandidatePaths()) {
     try {
       if (path.isAbsolute(cmd) && !fs.existsSync(cmd)) continue;
-      await runCommand(cmd, ['--version']);
+      await runCommand(cmd, ["--version"]);
       return cmd;
     } catch {
       /* try next */
@@ -365,33 +389,92 @@ async function findYtDlp() {
   return null;
 }
 
+function nodeRuntimeCandidates() {
+  const list = [];
+  if (process.env.MYVIDEOPLAYER_NODE) list.push(process.env.MYVIDEOPLAYER_NODE);
+  // Prefer a real Node install — Electron's execPath needs ELECTRON_RUN_AS_NODE.
+  if (process.platform === "win32") {
+    list.push(
+      path.join(
+        process.env.ProgramFiles || "C:\\Program Files",
+        "nodejs",
+        "node.exe",
+      ),
+      path.join(
+        process.env["ProgramFiles(x86)"] || "C:\\Program Files (x86)",
+        "nodejs",
+        "node.exe",
+      ),
+      path.join(
+        process.env.LOCALAPPDATA || "",
+        "Programs",
+        "nodejs",
+        "node.exe",
+      ),
+    );
+  } else {
+    list.push("/usr/local/bin/node", "/usr/bin/node", "/opt/homebrew/bin/node");
+  }
+  list.push("node");
+  return list.filter(Boolean);
+}
+
+function resolveNodeRuntimePath() {
+  for (const candidate of nodeRuntimeCandidates()) {
+    try {
+      if (path.isAbsolute(candidate) && !fs.existsSync(candidate)) continue;
+      // Absolute paths are preferred; bare `node` relies on PATH at spawn time.
+      if (path.isAbsolute(candidate) || candidate === "node") return candidate;
+    } catch {
+      /* try next */
+    }
+  }
+  return null;
+}
+
+/** Args required for current YouTube nsig / signature challenges. */
+function ytDlpJsRuntimeArgs() {
+  const nodePath = resolveNodeRuntimePath();
+  if (!nodePath) return [];
+  return [
+    "--js-runtimes",
+    nodePath === "node" ? "node" : `node:${nodePath}`,
+    "--remote-components",
+    "ejs:github",
+  ];
+}
+
 async function getInfoWithYtDlp(bin, url) {
   const { stdout } = await runCommand(bin, [
     url,
-    '--dump-single-json',
-    '--no-playlist',
-    '--no-warnings',
-    '--skip-download'
+    "--dump-single-json",
+    "--no-playlist",
+    "--no-warnings",
+    "--skip-download",
+    ...ytDlpJsRuntimeArgs(),
   ]);
   const info = JSON.parse(stdout);
   return {
     id: info.id,
     title: info.title || info.id,
     duration: info.duration || 0,
-    uploader: info.uploader || info.channel || '',
-    thumbnail: info.thumbnail || '',
-    ext: 'mp4'
+    uploader: info.uploader || info.channel || "",
+    thumbnail: info.thumbnail || "",
+    ext: "mp4",
   };
 }
 
 function resolveYtDlpOutput(outputPath) {
-  if (fs.existsSync(outputPath) && fs.statSync(outputPath).size > 0) return outputPath;
+  if (fs.existsSync(outputPath) && fs.statSync(outputPath).size > 0)
+    return outputPath;
   const dir = path.dirname(outputPath);
   const base = path.basename(outputPath, path.extname(outputPath));
   try {
     const found = fs
       .readdirSync(dir)
-      .filter((f) => f === path.basename(outputPath) || f.startsWith(`${base}.`))
+      .filter(
+        (f) => f === path.basename(outputPath) || f.startsWith(`${base}.`),
+      )
       .map((f) => {
         const full = path.join(dir, f);
         try {
@@ -409,41 +492,48 @@ function resolveYtDlpOutput(outputPath) {
   return outputPath;
 }
 
-async function runYtDlpDownload(bin, url, outputPath, onProgress, {
-  extraArgs = [],
-  format =
-    'bestvideo[height<=720]+bestaudio/bestvideo[height<=1080]+bestaudio/bestvideo+bestaudio',
-  allowContinue = true
-} = {}) {
-  const outTemplate = outputPath.replace(/\.mp4$/i, '') + '.%(ext)s';
-  const { resolveFfmpegPath } = require('./media-compat');
+async function runYtDlpDownload(
+  bin,
+  url,
+  outputPath,
+  onProgress,
+  {
+    extraArgs = [],
+    format = "bestvideo[height<=720]+bestaudio/bestvideo[height<=1080]+bestaudio/bestvideo+bestaudio",
+    allowContinue = true,
+    allowFormat18 = false,
+    minBytes = 512 * 1024,
+  } = {},
+) {
+  const outTemplate = outputPath.replace(/\.mp4$/i, "") + ".%(ext)s";
+  const { resolveFfmpegPath } = require("./media-compat");
   const ffmpegPath = resolveFfmpegPath();
-  // Legacy muxed itag 18 is frequently truncated by YouTube ("0 bytes read, … more expected").
-  // Always request separate DASH video+audio — never progressive `18` / `b`.
+  // Prefer DASH video+audio. Format 18 is only used as an explicit last-resort fallback.
   const args = [
     url,
-    '--no-playlist',
-    '--no-warnings',
-    ...(allowContinue ? ['--continue'] : ['--no-continue', '--no-part']),
-    '--retries',
-    '8',
-    '--fragment-retries',
-    '8',
-    '--file-access-retries',
-    '3',
-    '--ffmpeg-location',
+    "--no-playlist",
+    "--no-warnings",
+    ...(allowContinue ? ["--continue"] : ["--no-continue", "--no-part"]),
+    "--retries",
+    "8",
+    "--fragment-retries",
+    "8",
+    "--file-access-retries",
+    "3",
+    "--ffmpeg-location",
     ffmpegPath,
-    '-f',
+    "-f",
     format,
-    '--merge-output-format',
-    'mp4',
-    '--print',
-    'before_dl:Downloading format %(format_id)s (%(resolution)s)',
-    '-o',
+    "--merge-output-format",
+    "mp4",
+    "--print",
+    "before_dl:Downloading format %(format_id)s (%(resolution)s)",
+    "-o",
     outTemplate,
-    '--newline',
-    '--progress',
-    ...extraArgs
+    "--newline",
+    "--progress",
+    ...ytDlpJsRuntimeArgs(),
+    ...extraArgs,
   ];
 
   // Track the highest percent so UI does not appear to "reset" on yt-dlp retries.
@@ -451,16 +541,23 @@ async function runYtDlpDownload(bin, url, outputPath, onProgress, {
   let refusedFormat18 = false;
   const emitProgress = (text) => {
     throwIfCancelled();
-    const lines = String(text || '').split(/\r?\n/);
+    const lines = String(text || "").split(/\r?\n/);
     for (const line of lines) {
       const trimmed = line.trim();
       if (!trimmed) continue;
       if (/Downloading format /i.test(trimmed)) {
-        onProgress?.({ percent: peakPercent > 0 ? peakPercent : null, message: trimmed });
+        onProgress?.({
+          percent: peakPercent > 0 ? peakPercent : null,
+          message: trimmed,
+        });
         continue;
       }
-      // Abort if a bad filter ever selects legacy progressive itag 18.
-      if (/\bformat\(s\):\s*18\b/i.test(trimmed) || /\bDownloading 1 format\(s\): 18\b/i.test(trimmed)) {
+      // Abort accidental progressive itag 18 unless this attempt allows it.
+      if (
+        !allowFormat18 &&
+        (/\bformat\(s\):\s*18\b/i.test(trimmed) ||
+          /\bDownloading 1 format\(s\): 18\b/i.test(trimmed))
+      ) {
         refusedFormat18 = true;
         if (activeDownload?.child) killChild(activeDownload.child);
         continue;
@@ -474,7 +571,10 @@ async function runYtDlpDownload(bin, url, outputPath, onProgress, {
           continue;
         }
       }
-      onProgress?.({ percent: peakPercent > 0 ? peakPercent : null, message: trimmed });
+      onProgress?.({
+        percent: peakPercent > 0 ? peakPercent : null,
+        message: trimmed,
+      });
     }
   };
 
@@ -482,75 +582,119 @@ async function runYtDlpDownload(bin, url, outputPath, onProgress, {
     await runCommand(bin, args, {
       trackDownload: true,
       onStdout: emitProgress,
-      onStderr: emitProgress
+      onStderr: emitProgress,
     });
   } catch (err) {
     if (refusedFormat18) {
       throw new Error(
-        'Refusing broken YouTube progressive format 18. Please retry (adaptive DASH is required).'
+        "Refusing broken YouTube progressive format 18. Please retry (adaptive DASH is required).",
       );
     }
     throw err;
   }
   if (refusedFormat18) {
     throw new Error(
-      'Refusing broken YouTube progressive format 18. Please retry (adaptive DASH is required).'
+      "Refusing broken YouTube progressive format 18. Please retry (adaptive DASH is required).",
     );
   }
   throwIfCancelled();
 
   const saved = resolveYtDlpOutput(outputPath);
   if (!fs.existsSync(saved) || fs.statSync(saved).size < 1024) {
-    throw new Error('yt-dlp finished without a usable file');
+    throw new Error("yt-dlp finished without a usable file");
   }
-  // Guard against truncated progressive leftovers.
-  if (fs.statSync(saved).size < 512 * 1024) {
-    throw new Error('Downloaded file is too small — YouTube stream was likely truncated. Please retry.');
+  // Guard against truncated progressive leftovers (relaxed for intentional 18 fallback).
+  if (fs.statSync(saved).size < minBytes) {
+    throw new Error(
+      "Downloaded file is too small — YouTube stream was likely truncated. Please retry.",
+    );
   }
   return saved;
 }
 
 function isTransientYtDlpError(err) {
-  const msg = String(err?.message || err || '');
-  return /403|Forbidden|0 bytes read|timed out|Temporary failure|Unable to download/i.test(msg);
+  const msg = String(err?.message || err || "");
+  return /403|Forbidden|0 bytes read|timed out|Temporary failure|Unable to download/i.test(
+    msg,
+  );
 }
 
 /**
  * Try several DASH format/client strategies. YouTube often returns intermittent 403
  * for a specific signed CDN URL; switching format/client and dropping .part files fixes it.
  */
-async function downloadWithYtDlp(bin, url, outputPath, onProgress, options = {}) {
+async function downloadWithYtDlp(
+  bin,
+  url,
+  outputPath,
+  onProgress,
+  options = {},
+) {
   const cookieFile =
-    options.cookiesPath && fs.existsSync(options.cookiesPath) ? options.cookiesPath : null;
-  const cookieArgs = cookieFile ? ['--cookies', cookieFile] : [];
+    options.cookiesPath && fs.existsSync(options.cookiesPath)
+      ? options.cookiesPath
+      : null;
+  const cookieArgs = cookieFile ? ["--cookies", cookieFile] : [];
+  if (!resolveNodeRuntimePath()) {
+    onProgress?.({
+      percent: null,
+      message:
+        "Node.js not found — YouTube downloads may fail. Install Node 22+ and retry.",
+    });
+  }
 
+  // android_vr frequently returns CDN URLs that 403 without PO tokens.
+  // Prefer web_embedded (works with EJS + Node), then other clients, then format-18 fallback.
   const attempts = [
     {
-      label: '720p',
-      format: 'bestvideo[height<=720]+bestaudio/bestvideo+bestaudio',
-      extra: [...cookieArgs]
-    },
-    {
-      label: '1080p',
+      label: "web_embedded",
       format:
-        'bestvideo[height<=1080][vcodec^=avc1]+bestaudio[acodec^=mp4a]/bestvideo[height<=1080]+bestaudio/bestvideo+bestaudio',
-      extra: [...cookieArgs]
-    },
-    {
-      label: 'android_vr',
-      format: 'bestvideo[height<=1080]+bestaudio/bestvideo+bestaudio',
+        "bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=1080]+bestaudio/best",
       extra: [
         ...cookieArgs,
-        '--extractor-args',
-        'youtube:player_client=android_vr,web,mweb'
-      ]
+        "--extractor-args",
+        "youtube:player_client=web_embedded",
+      ],
     },
     {
-      label: '720p-fresh',
-      format: 'bestvideo[height<=720]+bestaudio/bestvideo+bestaudio',
-      extra: [],
-      fresh: true
-    }
+      label: "720p-avc",
+      format:
+        "bestvideo[height<=720][vcodec^=avc1]+bestaudio[acodec^=mp4a]/bestvideo[height<=720]+bestaudio/best",
+      extra: [
+        ...cookieArgs,
+        "--extractor-args",
+        "youtube:player_client=web_embedded,web",
+      ],
+    },
+    {
+      label: "web_embedded-fresh",
+      format: "bestvideo[height<=720]+bestaudio/best",
+      extra: ["--extractor-args", "youtube:player_client=web_embedded"],
+      fresh: true,
+    },
+    {
+      label: "android-360p",
+      format: "18/best[height<=360]/best",
+      allowFormat18: true,
+      minBytes: 64 * 1024,
+      extra: [
+        ...cookieArgs,
+        "--extractor-args",
+        "youtube:player_client=android",
+      ],
+    },
+    {
+      label: "tv_simply-360p",
+      format: "18/best[height<=360]/best",
+      allowFormat18: true,
+      minBytes: 64 * 1024,
+      extra: [
+        ...cookieArgs,
+        "--extractor-args",
+        "youtube:player_client=tv_simply",
+      ],
+      fresh: true,
+    },
   ];
 
   let lastError = null;
@@ -567,13 +711,15 @@ async function downloadWithYtDlp(bin, url, outputPath, onProgress, options = {})
     }
     onProgress?.({
       percent: null,
-      message: `Downloading (${attempt.label})…`
+      message: `Downloading (${attempt.label})…`,
     });
     try {
       return await runYtDlpDownload(bin, url, outputPath, onProgress, {
         extraArgs: attempt.extra,
         format: attempt.format,
-        allowContinue: i === 0 && !attempt.fresh
+        allowContinue: i === 0 && !attempt.fresh,
+        allowFormat18: Boolean(attempt.allowFormat18),
+        minBytes: attempt.minBytes,
       });
     } catch (err) {
       if (err?.cancelled || err instanceof DownloadCancelledError) throw err;
@@ -582,13 +728,18 @@ async function downloadWithYtDlp(bin, url, outputPath, onProgress, options = {})
         percent: null,
         message: isTransientYtDlpError(err)
           ? `CDN blocked (${attempt.label}), trying next…`
-          : `Download failed (${attempt.label}), trying next…`
+          : `Download failed (${attempt.label}), trying next…`,
       });
     }
   }
 
-  const detail = lastError?.message || String(lastError || 'unknown error');
-  throw new Error(`YouTube download failed for this link.\n${detail}`);
+  const detail = lastError?.message || String(lastError || "unknown error");
+  const nodeHint = resolveNodeRuntimePath()
+    ? ""
+    : "\nTip: install Node.js 22+ so yt-dlp can solve YouTube signature challenges.";
+  throw new Error(
+    `YouTube download failed for this link.\n${detail}${nodeHint}`,
+  );
 }
 
 let innertubePromise = null;
@@ -598,12 +749,16 @@ function installYoutubeJsEvaluator(Platform) {
   // youtubei.js v17 ships a stub evaluator; decipher needs a real JS runtime.
   // Prefer env-based export call; fall back to Player-appended process()/return script.
   Platform.shim.eval = async (data, env = {}) => {
-    const output = String(data?.output || '');
+    const output = String(data?.output || "");
     const properties = [];
-    if (env?.n) properties.push(`n: exportedVars.nFunction(${JSON.stringify(env.n)})`);
-    if (env?.sig) properties.push(`sig: exportedVars.sigFunction(${JSON.stringify(env.sig)})`);
+    if (env?.n)
+      properties.push(`n: exportedVars.nFunction(${JSON.stringify(env.n)})`);
+    if (env?.sig)
+      properties.push(
+        `sig: exportedVars.sigFunction(${JSON.stringify(env.sig)})`,
+      );
     if (properties.length && !/return process\(/.test(output)) {
-      const code = `${output}\nreturn { ${properties.join(', ')} };`;
+      const code = `${output}\nreturn { ${properties.join(", ")} };`;
       return new Function(code)();
     }
     return new Function(output)();
@@ -613,11 +768,12 @@ function installYoutubeJsEvaluator(Platform) {
 async function getInnertube() {
   if (!innertubePromise) {
     innertubePromise = (async () => {
-      const { Innertube, UniversalCache, Platform } = await import('youtubei.js');
+      const { Innertube, UniversalCache, Platform } =
+        await import("youtubei.js");
       installYoutubeJsEvaluator(Platform);
       return Innertube.create({
         cache: new UniversalCache(false),
-        generate_session_locally: true
+        generate_session_locally: true,
       });
     })();
   }
@@ -626,7 +782,7 @@ async function getInnertube() {
 
 async function getInfoWithInnertube(url) {
   const id = extractVideoId(url);
-  if (!id) throw new Error('Invalid YouTube URL');
+  if (!id) throw new Error("Invalid YouTube URL");
   const yt = await getInnertube();
 
   let info = null;
@@ -651,19 +807,20 @@ async function getInfoWithInnertube(url) {
     id,
     title: info.basic_info?.title || id,
     duration: info.basic_info?.duration || 0,
-    uploader: info.basic_info?.author || '',
-    thumbnail: info.basic_info?.thumbnail?.[0]?.url || '',
-    ext: 'mp4'
+    uploader: info.basic_info?.author || "",
+    thumbnail: info.basic_info?.thumbnail?.[0]?.url || "",
+    ext: "mp4",
   };
 }
 
 function hasMuxedMp4(info) {
   const formats = [
     ...(info.streaming_data?.formats || []),
-    ...(info.streaming_data?.adaptive_formats || [])
+    ...(info.streaming_data?.adaptive_formats || []),
   ];
   return formats.some(
-    (f) => f.has_audio && f.has_video && String(f.mime_type || '').includes('mp4')
+    (f) =>
+      f.has_audio && f.has_video && String(f.mime_type || "").includes("mp4"),
   );
 }
 
@@ -677,7 +834,7 @@ async function downloadStreamToFile(stream, outputPath, onProgress) {
     activeDownload.outputPath = outputPath;
   }
   let downloaded = 0;
-  nodeStream.on('data', (chunk) => {
+  nodeStream.on("data", (chunk) => {
     if (isDownloadCancelled()) {
       nodeStream.destroy(new DownloadCancelledError());
       // Keep write stream open when stopping-to-save so bytes already buffered can flush.
@@ -688,14 +845,20 @@ async function downloadStreamToFile(stream, outputPath, onProgress) {
     onProgress?.({
       percent: null,
       bytes: downloaded,
-      message: `Downloaded ${Math.round((downloaded / 1024 / 1024) * 10) / 10} MB`
+      message: `Downloaded ${Math.round((downloaded / 1024 / 1024) * 10) / 10} MB`,
     });
   });
   try {
     await pipeline(nodeStream, writeStream);
   } catch (err) {
-    if (isDownloadCancelled() || err?.cancelled || err instanceof DownloadCancelledError) {
-      throw err instanceof DownloadCancelledError ? err : new DownloadCancelledError();
+    if (
+      isDownloadCancelled() ||
+      err?.cancelled ||
+      err instanceof DownloadCancelledError
+    ) {
+      throw err instanceof DownloadCancelledError
+        ? err
+        : new DownloadCancelledError();
     }
     throw err;
   } finally {
@@ -714,7 +877,7 @@ async function downloadStreamToFile(stream, outputPath, onProgress) {
  */
 async function downloadWithInnertube(url, outputPath, onProgress) {
   const id = extractVideoId(url);
-  if (!id) throw new Error('Invalid YouTube URL');
+  if (!id) throw new Error("Invalid YouTube URL");
   const yt = await getInnertube();
 
   const errors = [];
@@ -736,13 +899,15 @@ async function downloadWithInnertube(url, outputPath, onProgress) {
     // Prefer option sets that match available streams.
     const optionSets = hasMuxedMp4(info)
       ? DOWNLOAD_OPTION_SETS
-      : DOWNLOAD_OPTION_SETS.filter((o) => o.format === 'any').concat(DOWNLOAD_OPTION_SETS);
+      : DOWNLOAD_OPTION_SETS.filter((o) => o.format === "any").concat(
+          DOWNLOAD_OPTION_SETS,
+        );
 
     for (const opts of optionSets) {
       try {
         onProgress?.({
           percent: null,
-          message: `Downloading (${client}, ${opts.quality}/${opts.format})…`
+          message: `Downloading (${client}, ${opts.quality}/${opts.format})…`,
         });
         const stream = await info.download({ ...opts, client });
         await downloadStreamToFile(stream, outputPath, onProgress);
@@ -751,81 +916,104 @@ async function downloadWithInnertube(url, outputPath, onProgress) {
         }
         errors.push(`${client}/${opts.quality}: empty file`);
       } catch (err) {
-        if (err?.cancelled || err instanceof DownloadCancelledError || isDownloadCancelled()) {
-          throw err instanceof DownloadCancelledError ? err : new DownloadCancelledError();
+        if (
+          err?.cancelled ||
+          err instanceof DownloadCancelledError ||
+          isDownloadCancelled()
+        ) {
+          throw err instanceof DownloadCancelledError
+            ? err
+            : new DownloadCancelledError();
         }
-        errors.push(`${client}/${opts.quality}/${opts.format}: ${err.message || err}`);
+        errors.push(
+          `${client}/${opts.quality}/${opts.format}: ${err.message || err}`,
+        );
       }
     }
   }
 
   // Last resort: default client with loose options
   try {
-    onProgress?.({ percent: null, message: 'Retrying with default client…' });
+    onProgress?.({ percent: null, message: "Retrying with default client…" });
     const stream = await yt.download(id, {
-      type: 'video+audio',
-      quality: 'bestefficiency',
-      format: 'any'
+      type: "video+audio",
+      quality: "bestefficiency",
+      format: "any",
     });
     await downloadStreamToFile(stream, outputPath, onProgress);
     return outputPath;
   } catch (err) {
-    if (err?.cancelled || err instanceof DownloadCancelledError || isDownloadCancelled()) {
-      throw err instanceof DownloadCancelledError ? err : new DownloadCancelledError();
+    if (
+      err?.cancelled ||
+      err instanceof DownloadCancelledError ||
+      isDownloadCancelled()
+    ) {
+      throw err instanceof DownloadCancelledError
+        ? err
+        : new DownloadCancelledError();
     }
     errors.push(`default: ${err.message || err}`);
   }
 
   throw new Error(
-    'Could not download this YouTube video.\n'
-      + 'Tip: sign in to YouTube in Chrome or Edge, then try Save again '
-      + '(browser cookies are used automatically when needed).\n\n'
-      + errors.slice(0, 8).join('\n')
+    "Could not download this YouTube video.\n" +
+      "Tip: sign in to YouTube in Chrome or Edge, then try Save again " +
+      "(browser cookies are used automatically when needed).\n\n" +
+      errors.slice(0, 8).join("\n"),
   );
 }
 
 async function getYouTubeInfo(input) {
   const url = normalizeWatchUrl(input);
-  if (!url) throw new Error('유효한 YouTube 링크가 아닙니다.');
+  if (!url) throw new Error("유효한 YouTube 링크가 아닙니다.");
 
   const bin = await findYtDlp();
   if (bin) {
     try {
-      return { ...await getInfoWithYtDlp(bin, url), url, engine: 'yt-dlp' };
+      return { ...(await getInfoWithYtDlp(bin, url)), url, engine: "yt-dlp" };
     } catch {
       /* fallback */
     }
   }
-  return { ...await getInfoWithInnertube(url), url, engine: 'youtubei.js' };
+  return { ...(await getInfoWithInnertube(url)), url, engine: "youtubei.js" };
 }
 
 async function downloadYouTube(input, outputPath, onProgress, options = {}) {
   const url = normalizeWatchUrl(input);
-  if (!url) throw new Error('유효한 YouTube 링크가 아닙니다.');
+  if (!url) throw new Error("유효한 YouTube 링크가 아닙니다.");
 
   activeDownload = { cancelled: false, keepPartial: false, outputPath };
-  let engine = 'youtubei.js';
+  let engine = "youtubei.js";
   try {
     const bin = await findYtDlp();
     if (bin) {
       try {
         throwIfCancelled();
-        engine = 'yt-dlp';
-        const saved = await downloadWithYtDlp(bin, url, outputPath, onProgress, options);
+        engine = "yt-dlp";
+        const saved = await downloadWithYtDlp(
+          bin,
+          url,
+          outputPath,
+          onProgress,
+          options,
+        );
         throwIfCancelled();
         return { path: saved, engine };
       } catch (err) {
         if (err?.cancelled || err instanceof DownloadCancelledError) throw err;
         // Built-in youtubei.js rarely succeeds when yt-dlp DASH strategies already failed.
         if (options.skipInnertubeFallback !== false) throw err;
-        onProgress?.({ percent: null, message: `yt-dlp failed, trying built-in… (${err.message})` });
+        onProgress?.({
+          percent: null,
+          message: `yt-dlp failed, trying built-in… (${err.message})`,
+        });
       }
     } else if (options.skipInnertubeFallback !== false) {
-      throw new Error('yt-dlp is not available');
+      throw new Error("yt-dlp is not available");
     }
 
     throwIfCancelled();
-    engine = 'youtubei.js';
+    engine = "youtubei.js";
     const saved = await downloadWithInnertube(url, outputPath, onProgress);
     throwIfCancelled();
     return { path: saved, engine };
@@ -833,7 +1021,7 @@ async function downloadYouTube(input, outputPath, onProgress, options = {}) {
     if (err?.cancelled || err instanceof DownloadCancelledError) {
       const keepPartial = Boolean(activeDownload?.keepPartial);
       if (keepPartial) {
-        onProgress?.({ percent: null, message: 'Finalizing saved portion…' });
+        onProgress?.({ percent: null, message: "Finalizing saved portion…" });
         const finalized = await finalizeStoppedDownload(outputPath);
         if (finalized.ok) {
           return {
@@ -842,7 +1030,7 @@ async function downloadYouTube(input, outputPath, onProgress, options = {}) {
             stopped: true,
             partial: true,
             size: finalized.size,
-            name: finalized.name
+            name: finalized.name,
           };
         }
       }
@@ -862,5 +1050,5 @@ module.exports = {
   downloadYouTube,
   stopYouTubeDownload,
   cancelYouTubeDownload,
-  DownloadCancelledError
+  DownloadCancelledError,
 };

@@ -136,6 +136,12 @@ const els = {
   recentList: $("recentList"),
   btnClearRecent: $("btnClearRecent"),
   btnHistory: $("btnHistory"),
+  historyPanel: $("historyPanel"),
+  historyPanelList: $("historyPanelList"),
+  historyPanelEmpty: $("historyPanelEmpty"),
+  btnHistoryPanelClear: $("btnHistoryPanelClear"),
+  btnHistoryPanelClose: $("btnHistoryPanelClose"),
+  chrome: $("chrome"),
   btnLocale: $("btnLocale"),
   localeBtnLabel: $("localeBtnLabel"),
   btnTheme: $("btnTheme"),
@@ -335,24 +341,123 @@ function syncHistoryWindowItems() {
   postHistoryMessage({ type: "items", items: loadRecent() });
 }
 
+function setHistoryButtonActive(active) {
+  els.btnHistory?.setAttribute("aria-pressed", active ? "true" : "false");
+  els.btnHistory?.classList.toggle("is-active", Boolean(active));
+}
+
+function isHistoryPanelVisible() {
+  return Boolean(els.historyPanel && !els.historyPanel.hidden);
+}
+
+function renderHistoryPanel() {
+  const list = els.historyPanelList;
+  const panel = els.historyPanel;
+  if (!list || !panel) return;
+  const items = loadRecent();
+  list.innerHTML = "";
+  panel.classList.toggle("is-empty", items.length === 0);
+
+  for (const item of items) {
+    const li = document.createElement("li");
+    li.className = "recent-row";
+
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "recent-item";
+    btn.dataset.id = item.id;
+    btn.title =
+      item.type === "file" ? item.path || item.title : item.url || item.title;
+    const badgeClass =
+      item.type === "youtube"
+        ? "yt"
+        : item.type === "rtsp"
+          ? "rtsp"
+          : item.type === "remote"
+            ? "yt"
+            : "file";
+    const badgeLabel =
+      item.type === "youtube"
+        ? "YT"
+        : item.type === "rtsp"
+          ? "RTSP"
+          : item.type === "remote"
+            ? "URL"
+            : "FILE";
+    btn.innerHTML = `
+      <span class="recent-badge ${badgeClass}">${badgeLabel}</span>
+      <span class="recent-title"></span>
+      <span class="recent-meta"></span>
+    `;
+    btn.querySelector(".recent-title").textContent = item.title || item.name;
+    btn.querySelector(".recent-meta").textContent = formatRecentTime(
+      item.playedAt,
+    );
+    btn.addEventListener("click", () => {
+      void playRecentItem(item);
+    });
+
+    const del = document.createElement("button");
+    del.type = "button";
+    del.className = "recent-delete";
+    del.title = t("recentDelete");
+    del.setAttribute("aria-label", t("recentDelete"));
+    del.textContent = "✕";
+    del.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      removeRecent(item.id);
+      renderPlayHistory();
+      setStatus({ state: statusKey("statusRecentRemoved") });
+    });
+
+    li.appendChild(btn);
+    li.appendChild(del);
+    list.appendChild(li);
+  }
+}
+
+function openHistorySidePanel() {
+  if (!els.historyPanel) return false;
+  // Prefer the in-app panel; close the separate history window if it was open.
+  if (historyWindowOpen) {
+    void closeHistoryWindow();
+    markHistoryWindowClosed();
+    historyWindowOpen = false;
+  }
+  renderHistoryPanel();
+  els.historyPanel.hidden = false;
+  els.chrome?.classList.add("history-open");
+  setHistoryButtonActive(true);
+  return true;
+}
+
+function closeHistorySidePanel({ updateSetting = true } = {}) {
+  if (els.historyPanel) els.historyPanel.hidden = true;
+  els.chrome?.classList.remove("history-open");
+  if (!historyWindowOpen) setHistoryButtonActive(false);
+  if (updateSetting && settings.showHistoryPanel) {
+    settings.showHistoryPanel = false;
+    saveSettings(settings);
+  }
+}
+
 async function openHistoryPopup() {
   if (!isHistoryWindowSupported()) return false;
   const ok = await openHistoryWindow(getHistoryInitPayload());
   if (!ok) return false;
   historyWindowOpen = true;
-  els.btnHistory?.setAttribute("aria-pressed", "true");
-  els.btnHistory?.classList.add("is-active");
+  setHistoryButtonActive(true);
   postHistoryMessage({ type: "sync", ...getHistoryInitPayload() });
   return true;
 }
 
 async function closeHistoryPopup({ updateSetting = true } = {}) {
   historyWindowOpen = false;
-  els.btnHistory?.setAttribute("aria-pressed", "false");
-  els.btnHistory?.classList.remove("is-active");
+  if (!isHistoryPanelVisible()) setHistoryButtonActive(false);
   await closeHistoryWindow();
   markHistoryWindowClosed();
-  if (updateSetting && settings.showHistoryPanel) {
+  if (updateSetting && settings.showHistoryPanel && !isHistoryPanelVisible()) {
     settings.showHistoryPanel = false;
     saveSettings(settings);
   }
@@ -360,8 +465,16 @@ async function closeHistoryPopup({ updateSetting = true } = {}) {
 
 async function setHistoryWindowOpen(open, { persist = true } = {}) {
   const next = Boolean(open);
+  // Normal mode: docked right panel. Compact mode: no panel (toolbar button hidden).
+  const useSidePanel = !settings.compactMode && Boolean(els.historyPanel);
+
   if (next) {
-    const ok = await openHistoryPopup();
+    let ok = false;
+    if (useSidePanel) {
+      ok = openHistorySidePanel();
+    } else if (isHistoryWindowSupported()) {
+      ok = await openHistoryPopup();
+    }
     if (!ok) return false;
     if (persist && !settings.showHistoryPanel) {
       settings.showHistoryPanel = true;
@@ -369,16 +482,22 @@ async function setHistoryWindowOpen(open, { persist = true } = {}) {
     }
     return true;
   }
-  await closeHistoryPopup({ updateSetting: persist });
+
+  if (isHistoryPanelVisible()) {
+    closeHistorySidePanel({ updateSetting: persist });
+  }
+  if (historyWindowOpen) {
+    await closeHistoryPopup({ updateSetting: persist });
+  } else if (persist && settings.showHistoryPanel) {
+    settings.showHistoryPanel = false;
+    saveSettings(settings);
+  }
   return true;
 }
 
 function toggleHistoryWindow() {
-  if (historyWindowOpen) {
-    void setHistoryWindowOpen(false);
-  } else {
-    void setHistoryWindowOpen(true);
-  }
+  const open = isHistoryPanelVisible() || historyWindowOpen;
+  void setHistoryWindowOpen(!open);
 }
 
 function bindHistoryWindowBridge() {
@@ -387,11 +506,12 @@ function bindHistoryWindowBridge() {
     if (msg.type === "closed") {
       historyWindowOpen = false;
       markHistoryWindowClosed();
-      els.btnHistory?.setAttribute("aria-pressed", "false");
-      els.btnHistory?.classList.remove("is-active");
-      if (settings.showHistoryPanel) {
-        settings.showHistoryPanel = false;
-        saveSettings(settings);
+      if (!isHistoryPanelVisible()) {
+        setHistoryButtonActive(false);
+        if (settings.showHistoryPanel) {
+          settings.showHistoryPanel = false;
+          saveSettings(settings);
+        }
       }
       return;
     }
@@ -773,6 +893,7 @@ function rememberRecentRemote({ url, title, service }) {
 
 function renderPlayHistory() {
   renderRecentMenu();
+  renderHistoryPanel();
   syncHistoryWindowItems();
 }
 
@@ -953,7 +1074,19 @@ function openStageContextMenu(clientX, clientY) {
   );
   if (els.ctxSaveMedia) {
     els.ctxSaveMedia.disabled = !canSave;
-    if (els.ctxSaveMediaLabel) els.ctxSaveMediaLabel.textContent = t("save");
+    els.ctxSaveMedia.hidden = false;
+    els.ctxSaveMedia.parentElement?.removeAttribute("hidden");
+    if (els.ctxSaveMediaLabel) {
+      // Keep download wording visible while playing linked videos.
+      const labelKey = youtubeMode
+        ? "ctxDownloadYoutube"
+        : currentRemote?.url
+          ? "ctxDownloadRemote"
+          : currentRtspUrl || rtspRecording
+            ? "ctxRecordRtsp"
+            : "save";
+      els.ctxSaveMediaLabel.textContent = t(labelKey);
+    }
   }
   const playing = youtubeMode
     ? ytPlayer.isPlaying()
@@ -1544,9 +1677,17 @@ async function setCompactMode(next, { persist = true, announce = false } = {}) {
 
   if (on) {
     closeToolbarMenus();
+    // Side panel is normal-mode only; collapse it when entering compact.
+    if (isHistoryPanelVisible()) {
+      closeHistorySidePanel({ updateSetting: false });
+      els.chrome?.classList.remove("history-open");
+    }
     applyChromeAutoHideSetting();
   } else {
     applyChromeAutoHideSetting();
+    if (settings.showHistoryPanel && els.historyPanel) {
+      openHistorySidePanel();
+    }
   }
 
   updateCompactButton();
@@ -4555,6 +4696,14 @@ function bindToolbar() {
     e.stopPropagation();
     closeToolbarMenus();
     toggleHistoryWindow();
+  });
+  els.btnHistoryPanelClose?.addEventListener("click", () => {
+    void setHistoryWindowOpen(false);
+  });
+  els.btnHistoryPanelClear?.addEventListener("click", () => {
+    clearRecent();
+    renderPlayHistory();
+    setStatus({ state: statusKey("statusRecentCleared") });
   });
   els.btnLocale?.addEventListener("click", () => {
     toggleLocale();

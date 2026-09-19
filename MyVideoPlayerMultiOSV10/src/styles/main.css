@@ -43,12 +43,24 @@ select {
 
 .chrome {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr);
   grid-template-areas: "stage";
   position: relative;
   min-height: 0;
   min-width: 0;
   background: var(--bg-stage);
+}
+
+.chrome.history-open {
+  --history-panel-width: 280px;
+  grid-template-columns: minmax(0, 1fr) var(--history-panel-width);
+  grid-template-areas: "stage history";
+}
+
+.chrome.history-open .toolbar,
+.chrome.history-open .bottom-chrome {
+  right: var(--history-panel-width);
 }
 
 .chrome-rail {
@@ -60,6 +72,141 @@ select {
   min-height: 0;
   overflow: hidden;
   z-index: 0;
+}
+
+.history-panel {
+  grid-area: history;
+  display: none;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  z-index: 35;
+  border-left: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg-toolbar) 94%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: var(--text);
+}
+
+.chrome.history-open > .history-panel:not([hidden]) {
+  display: flex;
+}
+
+.app.is-compact .history-panel,
+.app.is-compact.chrome .history-panel {
+  display: none !important;
+}
+
+.app.is-compact .chrome.history-open {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "stage";
+}
+
+.history-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 10px 8px;
+  border-bottom: 1px solid var(--border);
+  flex: 0 0 auto;
+}
+
+.history-panel-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.history-panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.history-panel-clear,
+.history-panel-close {
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+  padding: 6px 8px;
+}
+
+.history-panel-clear:hover,
+.history-panel-close:hover {
+  background: var(--bg-hover, rgba(255, 255, 255, 0.08));
+  color: var(--text);
+}
+
+.history-panel-list {
+  list-style: none;
+  margin: 0;
+  padding: 6px;
+  overflow: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.history-panel-list .recent-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px;
+  align-items: center;
+  border-radius: 6px;
+}
+
+.history-panel-list .recent-row:hover {
+  background: var(--bg-hover, rgba(255, 255, 255, 0.08));
+}
+
+.history-panel-list .recent-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.history-panel-list .recent-title,
+.history-panel-list .recent-meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.history-panel-list .recent-meta {
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.history-panel-empty {
+  display: none;
+  padding: 24px 16px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.history-panel.is-empty .history-panel-list {
+  display: none;
+}
+
+.history-panel.is-empty .history-panel-empty {
+  display: block;
 }
 
 /* Auto-hide overlays: toolbar (top) + bottom chrome (controls + status) */
@@ -230,8 +377,8 @@ select {
 .app.is-compact
   .toolbar-right
   > *:not(#btnCompact):not(#toolbarOpacity):not(#toolbarFitWrap):not(
-      #toolbarRotateGroup
-    ),
+    #toolbarRotateGroup
+  ),
 .app.is-compact .statusbar,
 .app.is-compact .fit-wrap .tool-btn-label,
 .app.is-compact #btnRotateReset,
@@ -1223,6 +1370,8 @@ body.is-electron .toolbar-opacity {
   list-style: none;
   min-width: 160px;
   max-width: min(240px, calc(100vw - 16px));
+  max-height: min(70vh, calc(100vh - 16px));
+  overflow-y: auto;
   background: var(--menu-bg);
   color: var(--menu-fg);
   border: 1px solid var(--menu-border);
@@ -2610,8 +2759,13 @@ body.is-fullscreen .app {
 }
 
 body.is-fullscreen .chrome {
+  grid-template-columns: minmax(0, 1fr) !important;
   grid-template-rows: minmax(0, 1fr);
   grid-template-areas: "stage";
+}
+
+body.is-fullscreen .history-panel {
+  display: none !important;
 }
 
 @media (max-width: 900px) {
