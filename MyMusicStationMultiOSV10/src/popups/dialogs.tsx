@@ -253,15 +253,15 @@ export function SettingsDialog({ labels, data, send, onDragStart }: DialogProps<
       <div className="settings-body">
         <section className="settings-section">
           <h3>{labels.settingsWindow}</h3>
-          <label className="settings-toggle" title={labels.useSystemTrayHint}>
+          <label className="settings-toggle" title={labels.closeToTrayHint}>
             <input
               type="checkbox"
               checked={d.useSystemTray}
               onChange={(event) => send({ type: 'setUseSystemTray', enabled: event.target.checked })}
             />
             <span>
-              <strong>{labels.useSystemTray}</strong>
-              <small>{labels.useSystemTrayHint}</small>
+              <strong>{labels.closeToTray}</strong>
+              <small>{d.useSystemTray ? labels.closeToTrayHint : labels.closeQuitAppHint}</small>
             </span>
           </label>
           <label className="settings-toggle">
