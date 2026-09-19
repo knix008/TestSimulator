@@ -31,12 +31,15 @@
     renderToken: 0,
     loadToken: 0,
     histTimer: null,
+    calibration: null,   // [rowMm, colMm] per pixel — user scale; overrides DICOM PixelSpacing when set
   };
   const DEFAULTS = {
     theme: 'midnight', lang: 'ko', sidebar: true, sidebarWidth: 300, treeHeight: 50,
     interpolate: false, cornerInfo: true, markers: true, overlays: true, measurements: true, burnAnnotations: true, loop: true, invert: false,
-    ruler: false, grid: false, wheelMode: 'zoom', defaultFps: 10, overlayColor: '#00ff80', annotationColor: '#ffd400', rememberLastDir: true, startupDir: '', confirmDelete: true,
+    ruler: false, grid: false, measureUnit: 'cm', wheelMode: 'zoom', defaultFps: 10, overlayColor: '#00ff80', annotationColor: '#ffd400', rememberLastDir: true, startupDir: '', confirmDelete: true,
   };
+  const UNIT_FROM_MM = { mm: 1, cm: 0.1, in: 1 / 25.4 };
+  const UNIT_TO_MM = { mm: 1, cm: 10, m: 1000, in: 25.4, inch: 25.4, inches: 25.4 };
   const opt = (k) => (S.settings[k] === undefined ? DEFAULTS[k] : S.settings[k]);
   async function setOpt(patch) { Object.assign(S.settings, patch); await P.settings.set(patch); }
 
@@ -46,6 +49,7 @@
   async function init() {
     await P.init();
     S.settings = { ...(P.settings.cache || {}) };
+    if (S.settings.measureUnit === 'px' || S.settings.measureUnit === 'mm') S.settings.measureUnit = 'cm';
     document.body.classList.toggle('web', !P.isElectron);
     document.body.classList.toggle('electron', P.isElectron);
     window.I18n.setLang(opt('lang'));
@@ -62,6 +66,7 @@
     document.body.classList.toggle('ruler-on', !!opt('ruler'));
     viewer.showGrid = !!opt('grid');
     viewer.wheelMode = opt('wheelMode');
+    viewer.measureUnit = displayUnit();
     viewer.colors = { line: opt('annotationColor') };
     S.fps = opt('defaultFps') || 10;
     $('fpsInput').value = S.fps;
@@ -503,6 +508,8 @@
         case 'tool': setTool(ds.tool); break;
         case 'delete-last': viewer.deleteLast(); History.push(); break;
         case 'clear-measurements': viewer.clear(); History.push(); break;
+        case 'calibrate': await calibrateFromLength(); break;
+        case 'clear-calibration': clearCalibration(); break;
         case 'wl-step': {
           if (!img || !img.gray) break;
           const range = img.range ? img.range.max - img.range.min : 256;
@@ -647,6 +654,7 @@
   async function openDicom(path, name, bytes) {
     const image = await D.load(bytes);
     S.file = { path, name, size: bytes.length, kind: 'dicom', image, warning: image.warning };
+    if (!S.keepNext) S.calibration = null;
     S.frame = 0;
     S.fps = image.frameRate ? Math.round(image.frameRate) : 10;
     $('fpsInput').value = S.fps;
@@ -686,6 +694,7 @@
   async function openImage(path, name, bytes, ext) {
     const { canvas: c, pages } = await decodeImageCanvas(bytes, ext, 0);
     S.file = { path, name, size: bytes.length, kind: 'image', bitmapCanvas: c, ext, pages, bytes: pages > 1 ? bytes : null };
+    if (!S.keepNext) S.calibration = null;
     S.frame = 0;
     viewer.annotations = [];
     await renderImage(true);
@@ -718,9 +727,10 @@
       x.putImageData(id, 0, 0);
     }
     S.frameCanvas = c;
-    viewer.setSource({ canvas: c, width: c.width, height: c.height, spacing: null, aspect: 1 }, { keepView: !newFile });
+    viewer.setSource({ canvas: c, width: c.width, height: c.height, spacing: spacing(), aspect: 1 }, { keepView: !newFile });
     updateCorners();
     updateStatus();
+    relabelAnnotations();
   }
 
   function closeFile() {
@@ -730,7 +740,7 @@
   }
   function clearViewer() {
     stopCine();
-    S.file = null; S.frameCanvas = null; S.frame = 0; S.tabId = 0;
+    S.file = null; S.frameCanvas = null; S.frame = 0; S.tabId = 0; S.calibration = null;
     viewer.setSource(null);
     refreshPanels(); syncMenuState(); updateCorners(); updateStatus(); updateFrameBar();
     buildWindowMenus();
@@ -757,6 +767,7 @@
       annotations: JSON.parse(JSON.stringify(viewer.annotations)),
       win: History.snapshot().win, imageInvert: S.file.kind === 'image' ? !!opt('invert') : undefined,
       history: { stack: History.stack.slice(), index: History.index },
+      calibration: S.calibration ? S.calibration.slice() : null,
     };
   }
   async function restoreTabState(tab) {
@@ -776,6 +787,8 @@
       Object.assign(viewer.view, snap.view);
       viewer.redraw();
       if (snap.history) { History.stack = snap.history.stack.slice(); History.index = snap.history.index; }
+      S.calibration = snap.calibration ? snap.calibration.slice() : null;
+      applyViewerSpacing();
       relabelAnnotations(); updateCorners(); updateStatus(); updateFrameBar(); syncMenuState();
     } finally { History.restoring = false; History.sync(); }
   }
@@ -787,6 +800,7 @@
     stopCine();
     S.tabId = tab.id;
     tab.used = Date.now();
+    S.calibration = tab.snap && tab.snap.calibration ? tab.snap.calibration.slice() : null;
     if (tab.file) {
       S.file = tab.file;
       S.frame = tab.snap ? tab.snap.frame : 0;
@@ -870,8 +884,9 @@
     x.putImageData(id, 0, 0);
     S.frameCanvas = c;
     const fi = img.frameInfo(S.frame);
-    const sp = fi.pixelSpacing;
-    const aspect = sp ? sp[0] / sp[1] : (img.geometry.aspect || 1);
+    const fileSp = fi.pixelSpacing;
+    const sp = spacing();
+    const aspect = (fileSp || sp) ? (fileSp || sp)[0] / (fileSp || sp)[1] : (img.geometry.aspect || 1);
     viewer.setSource({ canvas: c, width: r.width, height: r.height, spacing: sp, aspect }, { keepView: !newFile });
     updatePresetSelect();
     updateCorners();
@@ -1137,11 +1152,35 @@
     }
   }
 
-  function spacing() {
+  function fileSpacing() {
     const img = S.file && S.file.kind === 'dicom' ? S.file.image : null;
     return img ? img.frameInfo(S.frame).pixelSpacing : null;
   }
-
+  function spacing() {
+    if (S.calibration && S.calibration[0] > 0 && S.calibration[1] > 0) return S.calibration;
+    return fileSpacing();
+  }
+  function realUnit() {
+    return opt('measureUnit') === 'in' ? 'in' : 'cm';
+  }
+  function displayUnit() {
+    return spacing() ? realUnit() : 'px';
+  }
+  function unitLabel(u) { return u === 'in' ? 'Inch' : u; }
+  function formatLength(mm, px) {
+    const u = displayUnit();
+    if (u === 'px' || mm == null) return `${fmt(px, 1)} px`;
+    const k = UNIT_FROM_MM[u] || 1;
+    const digits = u === 'in' ? 3 : 2;
+    return `${fmt(mm * k, digits)} ${unitLabel(u)}`;
+  }
+  function formatArea(mm2, px2) {
+    const u = displayUnit();
+    if (u === 'px' || mm2 == null) return `${fmt(px2, 0)} px²`;
+    const k = UNIT_FROM_MM[u] || 1;
+    const digits = u === 'in' ? 3 : 1;
+    return `${fmt(mm2 * k * k, digits)} ${unitLabel(u)}²`;
+  }
   function labelAnnotation(a) {
     const sp = spacing();
     const img = S.file && S.file.kind === 'dicom' ? S.file.image : null;
@@ -1149,7 +1188,8 @@
     if (a.type === 'length' && pts.length >= 2) {
       const dx = pts[1].x - pts[0].x, dy = pts[1].y - pts[0].y;
       const px = Math.hypot(dx, dy);
-      a.label = sp ? `${fmt(Math.hypot(dx * sp[1], dy * sp[0]), 2)} mm` : `${fmt(px, 1)} px`;
+      const mm = sp ? Math.hypot(dx * sp[1], dy * sp[0]) : null;
+      a.label = formatLength(mm, px);
     } else if (a.type === 'angle' && pts.length === 3) {
       const sx = sp ? sp[1] : 1, sy = sp ? sp[0] : 1;
       const v1 = [(pts[0].x - pts[1].x) * sx, (pts[0].y - pts[1].y) * sy], v2 = [(pts[2].x - pts[1].x) * sx, (pts[2].y - pts[1].y) * sy];
@@ -1159,12 +1199,64 @@
     } else if (a.type === 'rect' || a.type === 'ellipse') {
       const region = { x: Math.min(pts[0].x, pts[1].x), y: Math.min(pts[0].y, pts[1].y), w: Math.abs(pts[1].x - pts[0].x), h: Math.abs(pts[1].y - pts[0].y), shape: a.type };
       const st = img ? img.stats(region, S.frame) : null;
-      const area = st && st.areaMm2 != null ? `${fmt(st.areaMm2, 1)} mm²` : `${fmt(region.w * region.h * (a.type === 'ellipse' ? Math.PI / 4 : 1), 0)} px²`;
+      const px2 = region.w * region.h * (a.type === 'ellipse' ? Math.PI / 4 : 1);
+      const mm2 = sp ? px2 * sp[0] * sp[1] : (st && st.areaMm2 != null ? st.areaMm2 : null);
+      const area = formatArea(mm2, px2);
       if (st && st.n) a.label = `${t('roi.area', { a: area })}\n${t('roi.stats', { n: st.n, mean: fmt(st.mean, 1), sd: fmt(st.std, 1), min: fmt(st.min, 0), max: fmt(st.max, 0) })}${st.units ? ' ' + st.units : ''}`;
       else a.label = t('roi.area', { a: area });
     }
   }
-  function relabelAnnotations() { for (const a of viewer.annotations) labelAnnotation(a); viewer.redraw(); }
+
+  function applyViewerSpacing() {
+    if (!viewer.source) return;
+    viewer.setSpacing(spacing());
+    relabelAnnotations();
+    updateCorners();
+  }
+  function lastLengthAnnotation() {
+    const list = viewer.annotations || [];
+    for (let i = list.length - 1; i >= 0; i--) {
+      const a = list[i];
+      if (a && a.type === 'length' && a.points && a.points.length >= 2) return a;
+    }
+    return null;
+  }
+  function parseRealLength(text) {
+    const m = String(text || '').trim().match(/^([+-]?\d+(?:[.,]\d+)?)\s*(mm|cm|m|in|inch|inches)?$/i);
+    if (!m) return null;
+    const n = parseFloat(m[1].replace(',', '.'));
+    if (!Number.isFinite(n) || n <= 0) return null;
+    const raw = (m[2] || realUnit()).toLowerCase();
+    const k = UNIT_TO_MM[raw];
+    if (!k) return null;
+    return n * k;
+  }
+  async function calibrateFromLength() {
+    const a = lastLengthAnnotation();
+    if (!a) { toast(t('msg.calibrateNeedLine'), true); return; }
+    const dx = a.points[1].x - a.points[0].x, dy = a.points[1].y - a.points[0].y;
+    const px = Math.hypot(dx, dy);
+    if (px < 1) { toast(t('msg.calibrateNeedLine'), true); return; }
+    const text = await promptText(t('msg.calibratePrompt'), realUnit() === 'in' ? '1 in' : '1 cm');
+    if (!text) return;
+    const mm = parseRealLength(text);
+    if (mm == null) { toast(t('msg.calibrateInvalid'), true); return; }
+    const mmPerPx = mm / px;
+    S.calibration = [mmPerPx, mmPerPx];
+    applyViewerSpacing();
+    toast(t('msg.calibrated', { mm: fmt(mmPerPx, 4) }));
+  }
+  function clearCalibration() {
+    if (!S.calibration) { toast(t('msg.calibrateNone')); return; }
+    S.calibration = null;
+    applyViewerSpacing();
+    toast(t('msg.calibrateCleared'));
+  }
+  function relabelAnnotations() {
+    viewer.measureUnit = displayUnit();
+    for (const a of viewer.annotations) labelAnnotation(a);
+    viewer.redraw();
+  }
 
   function updateProbe() {
     const h = S.hover;
@@ -1209,7 +1301,7 @@
         `${t('status.zoom', { z: Math.round(v.scale * 100) })}${v.rotation ? ` · ${v.rotation}°` : ''}${v.flipH ? ' · ⇋' : ''}${v.flipV ? ' · ⇅' : ''}`,
       ]);
       $('cornerBR').innerHTML = lines([
-        `${img.width} × ${img.height}${fi.pixelSpacing ? ` · ${fmt(fi.pixelSpacing[1], 3)} × ${fmt(fi.pixelSpacing[0], 3)} mm` : ''}`,
+        `${img.width} × ${img.height}${spacing() ? ` · ${fmt(spacing()[1], 3)} × ${fmt(spacing()[0], 3)} mm${S.calibration ? ` (${t('meta.calibrated')})` : ''}` : ''}`,
         Number.isFinite(fi.sliceLocation) ? `SL ${fmt(fi.sliceLocation, 2)}${Number.isFinite(fi.sliceThickness) ? ` · T ${fmt(fi.sliceThickness, 2)} mm` : ''}` : '',
         m.instanceNumber ? `#${m.instanceNumber}${m.seriesNumber ? ` (S${m.seriesNumber})` : ''}` : '',
       ]) + '<div class="probe"></div>';
@@ -1217,7 +1309,10 @@
       $('cornerTL').innerHTML = lines([S.file.name]);
       $('cornerTR').innerHTML = '';
       $('cornerBL').innerHTML = lines([`${t('status.zoom', { z: Math.round(v.scale * 100) })}${v.rotation ? ` · ${v.rotation}°` : ''}`]);
-      $('cornerBR').innerHTML = lines([S.frameCanvas ? `${S.frameCanvas.width} × ${S.frameCanvas.height}` : '']) + '<div class="probe"></div>';
+      $('cornerBR').innerHTML = lines([
+        S.frameCanvas ? `${S.frameCanvas.width} × ${S.frameCanvas.height}` : '',
+        S.calibration ? `${fmt(S.calibration[1], 3)} × ${fmt(S.calibration[0], 3)} mm (${t('meta.calibrated')})` : '',
+      ]) + '<div class="probe"></div>';
     } else {
       for (const id of ['cornerTL', 'cornerTR', 'cornerBL', 'cornerBR']) $(id).innerHTML = '';
     }
@@ -1820,6 +1915,7 @@
     }
     await setOpt({ [key]: value });
     if (key === 'wheelMode') viewer.wheelMode = value;
+    if (key === 'measureUnit') { relabelAnnotations(); }
     if (key === 'annotationColor') viewer.colors = { line: value };
     if (key === 'defaultFps') { S.fps = value; $('fpsInput').value = value; if (S.cine) { stopCine(); startCine(); } }
     if (key === 'overlayColor' && img) await renderDicom({ overlayColor: hexToRgb(value) });
@@ -1835,7 +1931,8 @@
     document.body.classList.toggle('no-sidebar', !DEFAULTS.sidebar);
     $('sidebar').style.width = `${DEFAULTS.sidebarWidth}px`;
     $('treeSection').style.flexBasis = `${DEFAULTS.treeHeight}%`;
-    viewer.interpolate = DEFAULTS.interpolate; viewer.showAnnotations = DEFAULTS.measurements; viewer.wheelMode = DEFAULTS.wheelMode; viewer.colors = { line: DEFAULTS.annotationColor };
+    viewer.interpolate = DEFAULTS.interpolate; viewer.showAnnotations = DEFAULTS.measurements; viewer.wheelMode = DEFAULTS.wheelMode; viewer.measureUnit = displayUnit(); viewer.colors = { line: DEFAULTS.annotationColor };
+    relabelAnnotations();
     $('loopCheck').checked = DEFAULTS.loop; S.fps = DEFAULTS.defaultFps; $('fpsInput').value = S.fps;
     const img = S.file && S.file.kind === 'dicom' ? S.file.image : null;
     if (img) await renderDicom({ overlays: DEFAULTS.overlays, overlayColor: hexToRgb(DEFAULTS.overlayColor) });

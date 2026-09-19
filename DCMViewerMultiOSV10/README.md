@@ -12,7 +12,7 @@ C# WinForms 버전(`../DCMViewerV10`)의 기능을 모두 옮기고, DICOM 전�
 | 보기 | 확대/축소 버튼·배율 표시·휠 확대, 좌클릭 드래그 이동, 화면 맞춤/실제 크기, 회전, 좌우/상하 반전, 보간, x/y축 전체 **눈금자**(배율에 따라 mm 단위 자동 조정, 마우스 위치 표시)·**격자**(10 mm) 켜기/끄기, 모서리 정보(환자·검사·W/L·배율), 방향 표시(R/L/A/P/H/F), 픽셀 값 조사, 컨텍스트 메뉴, **실행 취소/다시 실행**(측정·회전·반전·윈도우·컬러맵) |
 | 윈도우 | 마우스 드래그 W/L, 메뉴 바의 W/L 입력창(−/+ 단계 버튼), 파일 윈도우, CT 프리셋(뇌/폐/뼈/…), VOI LUT, LINEAR/LINEAR_EXACT/SIGMOID, 반전, 컬러맵 8종, 히스토그램 |
 | 시네·스택 | 다중 프레임 슬라이더/재생(fps·반복), 폴더를 DICOM 시리즈로 정렬(SeriesInstanceUID·InstanceNumber·위치), 스택 스크롤(휠/키보드), 보기 상태 유지 |
-| 측정 | 길이(mm), 각도, 사각형/타원 ROI(면적·평균·표준편차·최소·최대, HU 단위), 텍스트 주석, 핸들 드래그 편집 |
+| 측정 | 길이(Pixel Spacing이 있으면 설정 단위 cm/Inch 자동 표시, 없으면 px), 각도, 사각형/타원 ROI(면적·평균·표준편차·최소·최대, HU 단위), 텍스트 주석, 핸들 드래그 편집 |
 | 고급 | **MPR / MIP / MinIP / 평균** 볼륨 보기(축상·관상·시상, 슬랩 두께, 십자선), **익명화 사본 저장**(PHI 태그·private 태그 덮어쓰기), **시네 동영상(WebM)** 내보내기 |
 | 내보내기 | PNG/JPEG/WebP/BMP/TIFF/GIF, 16-bit TIFF(원본 값), 모든 프레임 ZIP, 애니메이션 GIF, 태그 TXT/JSON/CSV, 클립보드 복사, **인쇄 미리보기**(용지·방향·머리글, 기본 프린터로 즉시 인쇄 또는 프린터 선택) |
 | 일괄 변환 | 폴더(하위 폴더 포함 옵션)의 DCM을 선택 형식으로 변환 → `converted_<형식>` 폴더(브라우저에서 읽기 전용이면 ZIP 다운로드) |
@@ -35,7 +35,7 @@ npm test               # 테스트 (파일별 ✔/✘ 목록 + 요약 표, test/
 
 ```bash
 npm run create-icons   # src/assets/icon.svg → icon.png / icon.ico, build/*.ico (sharp 필요)
-npm run build:win      # NSIS 설치판 + 포터블 exe  → dist/, 설치 파일은 프로젝트 루트에도 복사
+npm run build:win      # NSIS 설치판 + 포터블 exe → dist/, 설치판(DCMViewer-Setup-*.exe)만 프로젝트 루트에 복사
 npm run build:mac      # DMG (x64 / arm64)
 npm run build:linux    # AppImage + deb
 npm run build:web      # 정적 웹 배포용 dist-web/ (index.html + 코덱)

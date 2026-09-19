@@ -88,6 +88,7 @@ window.Dialogs = (function () {
     { section: 'viewer', key: 'markers', type: 'bool' },
     { section: 'viewer', key: 'overlays', type: 'bool' },
     { section: 'viewer', key: 'measurements', type: 'bool' },
+    { section: 'viewer', key: 'measureUnit', type: 'select', options: [['cm', 'settings.unitCm'], ['in', 'settings.unitIn']] },
     { section: 'viewer', key: 'burnAnnotations', type: 'bool' },
     { section: 'viewer', key: 'wheelMode', type: 'select', options: [['zoom', 'settings.wheelZoom'], ['stack', 'settings.wheelStack']] },
     { section: 'viewer', key: 'defaultFps', type: 'number', min: 1, max: 120 },

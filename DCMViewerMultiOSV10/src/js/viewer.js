@@ -35,7 +35,9 @@ window.Viewer = (function () {
     let vw = 0, vh = 0;
     let wheelMode = 'zoom';   // 'zoom' | 'stack' — what a plain wheel does (Ctrl inverts it)
     let showRuler = false, showGrid = false;
+    let measureUnit = 'cm';   // display unit for the ruler: cm | in | mm | px
     const COLORS = { ...DEFAULT_COLORS };
+    const UNIT_FROM_MM = { mm: 1, cm: 0.1, in: 1 / 25.4 };
 
     /* ── Geometry ── */
     function matrix() {
@@ -131,20 +133,21 @@ window.Viewer = (function () {
       c.restore();
     }
 
-    /* Rulers along the whole top (x) and left (y) edges of the viewport. Graduated in mm when the pixel
-     * spacing is known (px otherwise), measured from the image origin; the tick unit adapts to the zoom so
-     * that major ticks stay 60–150 screen px apart. The hovered position is marked on both rulers. */
+    /* Rulers along the whole top (x) and left (y) edges of the viewport. Graduated in the chosen real-world
+     * unit when the pixel spacing is known (px otherwise), measured from the image origin; the tick unit
+     * adapts to the zoom so that major ticks stay 60–150 screen px apart. The hovered position is marked. */
     const RULER_H = 22, RULER_W = 34;
     function drawRuler(c) {
       const sp = source.spacing;
-      const unit = sp ? 'mm' : 'px';
+      const unit = (sp && measureUnit !== 'px' && UNIT_FROM_MM[measureUnit]) ? measureUnit : 'px';
+      const scale = unit === 'px' ? 1 : UNIT_FROM_MM[unit];
       // which image axis runs along each screen axis, and the scale (screen px per unit) along it
       const o = clientToImage(0, 0), px = clientToImage(1, 0), py = clientToImage(0, 1);
       const axisOf = (dx, dy) => (Math.abs(dx) >= Math.abs(dy) ? 'x' : 'y');
       const ax = axisOf(px.x - o.x, px.y - o.y), ay = axisOf(py.x - o.x, py.y - o.y);
-      const unitPerImgPx = (axis) => (sp ? (axis === 'x' ? sp[1] : sp[0]) : 1);
+      const unitPerImgPx = (axis) => (unit === 'px' || !sp ? 1 : (axis === 'x' ? sp[1] : sp[0]) * scale);
       const valueAt = (axis, cx, cy) => { const p = clientToImage(cx, cy); return (axis === 'x' ? p.x : p.y) * unitPerImgPx(axis); };
-      const steps = sp ? [0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500, 1000] : [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000];
+      const steps = unit === 'px' ? [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000] : [0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500, 1000];
       const pick = (screenPerUnit) => { let s = steps[steps.length - 1]; for (const st of steps) { if (st * screenPerUnit >= 60) { s = st; break; } } return s; };
       const fmtV = (v) => (Math.abs(v - Math.round(v)) < 1e-6 ? String(Math.round(v)) : String(+v.toFixed(2)));
 
@@ -477,6 +480,9 @@ window.Viewer = (function () {
       set colors(v) { Object.assign(COLORS, v || {}); redraw(); }, get colors() { return { ...COLORS }; },
       set showRuler(v) { showRuler = !!v; drawOverlay(); }, get showRuler() { return showRuler; },
       set showGrid(v) { showGrid = !!v; drawOverlay(); }, get showGrid() { return showGrid; },
+      set measureUnit(v) { measureUnit = (v === 'in' || v === 'mm' || v === 'px') ? v : 'cm'; drawOverlay(); },
+      get measureUnit() { return measureUnit; },
+      setSpacing(sp) { if (source) { source.spacing = sp || null; drawOverlay(); } },
       setSource, setTool, fit, actual, zoomBy, rotate, flip, reset, redraw, resize, deleteLast, clear,
       imageToClient, clientToImage, exportCanvas, viewState,
       destroy() { ro.disconnect(); window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); },

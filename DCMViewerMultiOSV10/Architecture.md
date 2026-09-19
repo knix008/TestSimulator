@@ -67,8 +67,8 @@ ImageViewerMutlOSV20의 디코더를 가져와 확장했습니다(UMD: Node 테�
 - 뷰 행렬 = T(중심+이동) · R(회전) · S(반전) · S(배율, 배율×종횡비) · T(−w/2, −h/2). `DOMMatrix`로 화면↔이미지 좌표 변환
 - HiDPI 캔버스 2장(이미지 / 오버레이). 확대 시 nearest, 축소 시 smoothing
 - 도구: pan / wl / zoom / stack / probe / length / angle / rect / ellipse / text. 가운데 버튼=이동, 오른쪽 드래그=W/L(움직이지 않으면 컨텍스트 메뉴), 휠=확대(설정으로 프레임 이동과 교체)
-- 오버레이: 측정, 프로브 십자선, `showGrid`(이미지 좌표 10 mm/50 px 격자), `showRuler`(위·왼쪽 가장자리 전체 눈금자 — `clientToImage`로 화면 축을 이미지 축에 대응시켜 mm 값 계산, 주 눈금 간격 60–150 px가 되도록 단위 자동 선택, 마우스 위치 표시)
-- 측정은 이미지 좌표로 보관(`annotations`), 핸들 드래그, `exportCanvas(burn)`으로 회전/반전 적용본에 주석을 구워 냄
+- 오버레이: 측정, 프로브 십자선, `showGrid`(이미지 좌표 10 mm/50 px 격자), `showRuler`(위·왼쪽 가장자리 전체 눈금자 — `clientToImage`로 화면 축을 이미지 축에 대응시켜 선택한 단위(mm/cm/in/px)로 계산, 주 눈금 간격 60–150 px가 되도록 단위 자동 선택, 마우스 위치 표시)
+- 측정은 이미지 좌표로 보관(`annotations`). Pixel Spacing 또는 `S.calibration`이 있으면 설정의 `measureUnit`(cm/in)로 자동 표시, 없으면 px. 핸들 드래그, `exportCanvas(burn)`으로 회전/반전 적용본에 주석을 구워 냄
 - 이벤트: `view`, `wl{dx,dy}`, `stack{delta}`, `hover`, `measure`, `text`, `context`
 
 ### `src/js/app.js`
