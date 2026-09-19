@@ -839,7 +839,7 @@
   place-items: center;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: var(--control);
+  background: var(--control) url('../asset/track-icon.svg') center / cover no-repeat;
 }
 
 .album-art img {
@@ -2592,7 +2592,8 @@ button:hover:not(.skip-button):not(.stop-button):not(.primary),
   border: 1px solid var(--line);
   border-radius: 5px;
   overflow: hidden;
-  background: color-mix(in srgb, var(--panel) calc(var(--panel-opacity, 0.82) * 100%), transparent);
+  background: color-mix(in srgb, var(--panel) calc(var(--panel-opacity, 0.82) * 100%), transparent)
+    url('../asset/track-icon.svg') center / cover no-repeat;
 }
 
 .mini-track-icon img {

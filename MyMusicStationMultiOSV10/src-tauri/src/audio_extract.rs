@@ -1,6 +1,6 @@
 use serde::Serialize;
 use std::fs;
-use std::io::{BufRead, BufReader};
+use std::io::{BufRead, BufReader, Read};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::thread;
@@ -576,4 +576,67 @@ fn probe_url_media_info_blocking(app: AppHandle, url: String) -> Result<UrlMedia
     }
 
     Err("미디어 정보에서 제목·아티스트를 찾지 못했습니다.".to_string())
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UrlPrefixPayload {
+    pub bytes: Vec<u8>,
+    pub content_type: Option<String>,
+    pub content_disposition: Option<String>,
+}
+
+/// Fetch the start of a remote file (bypasses WebView CORS) so the UI can parse tags.
+#[tauri::command]
+pub async fn fetch_url_prefix(url: String, max_bytes: u32) -> Result<UrlPrefixPayload, String> {
+    tauri::async_runtime::spawn_blocking(move || fetch_url_prefix_blocking(url, max_bytes))
+        .await
+        .map_err(|error| format!("URL 미리보기 실패: {error}"))?
+}
+
+fn fetch_url_prefix_blocking(url: String, max_bytes: u32) -> Result<UrlPrefixPayload, String> {
+    let url = url.trim().to_string();
+    if url.is_empty() {
+        return Err("URL이 비어 있습니다.".to_string());
+    }
+
+    let max = (max_bytes.clamp(16_384, 2_000_000)) as usize;
+    let end = max.saturating_sub(1);
+    let response = ureq::get(&url)
+        .set("Range", &format!("bytes=0-{end}"))
+        .set(
+            "User-Agent",
+            "Mozilla/5.0 (compatible; MyMusicStation/1.0; +https://localhost)",
+        )
+        .set("Accept", "*/*")
+        .call()
+        .map_err(|error| format!("URL 요청 실패: {error}"))?;
+
+    let content_type = response.header("content-type").map(str::to_string);
+    let content_disposition = response.header("content-disposition").map(str::to_string);
+
+    let mut reader = response.into_reader();
+    let mut bytes = Vec::with_capacity(max.min(256_000));
+    let mut buffer = [0_u8; 8192];
+
+    while bytes.len() < max {
+        let read = reader
+            .read(&mut buffer)
+            .map_err(|error| format!("URL 읽기 실패: {error}"))?;
+        if read == 0 {
+            break;
+        }
+        let remaining = max - bytes.len();
+        bytes.extend_from_slice(&buffer[..read.min(remaining)]);
+    }
+
+    if bytes.is_empty() {
+        return Err("URL에서 오디오 데이터를 읽지 못했습니다.".to_string());
+    }
+
+    Ok(UrlPrefixPayload {
+        bytes,
+        content_type,
+        content_disposition,
+    })
 }

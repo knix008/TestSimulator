@@ -1,0 +1,64 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="body" x1="0.08" y1="0" x2="0.95" y2="1">
+      <stop offset="0" stop-color="#3A7CC8"/>
+      <stop offset="0.4" stop-color="#1A4F9E"/>
+      <stop offset="1" stop-color="#061530"/>
+    </linearGradient>
+    <radialGradient id="gloss" cx="0.28" cy="0.18" r="0.8">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.38"/>
+      <stop offset="0.4" stop-color="#ffffff" stop-opacity="0.08"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="shade" cx="0.86" cy="0.9" r="0.7">
+      <stop offset="0" stop-color="#010810" stop-opacity="0.75"/>
+      <stop offset="1" stop-color="#010810" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.7"/>
+      <stop offset="0.45" stop-color="#ffffff" stop-opacity="0.08"/>
+      <stop offset="1" stop-color="#01060F" stop-opacity="0.85"/>
+    </linearGradient>
+    <linearGradient id="note" x1="260" y1="180" x2="700" y2="860" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFE08A"/>
+      <stop offset="0.35" stop-color="#FFB020"/>
+      <stop offset="0.7" stop-color="#F07810"/>
+      <stop offset="1" stop-color="#C24A08"/>
+    </linearGradient>
+    <linearGradient id="noteShade" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.35"/>
+      <stop offset="0.45" stop-color="#ffffff" stop-opacity="0"/>
+      <stop offset="1" stop-color="#6A1E00" stop-opacity="0.4"/>
+    </linearGradient>
+    <filter id="noteShadow" x="-35%" y="-35%" width="170%" height="170%">
+      <feDropShadow dx="4" dy="18" stdDeviation="16" flood-color="#021433" flood-opacity="0.5"/>
+    </filter>
+    <clipPath id="iconClip">
+      <rect x="72" y="72" width="880" height="880" rx="200"/>
+    </clipPath>
+  </defs>
+
+  <rect x="72" y="72" width="880" height="880" rx="200" fill="url(#body)"/>
+  <rect x="72" y="72" width="880" height="880" rx="200" fill="url(#shade)"/>
+  <rect x="72" y="72" width="880" height="880" rx="200" fill="url(#gloss)"/>
+  <rect x="76" y="76" width="872" height="872" rx="196" fill="none" stroke="url(#rim)" stroke-width="9"/>
+
+  <g clip-path="url(#iconClip)">
+    <ellipse cx="512" cy="560" rx="300" ry="220" fill="#010B1C" opacity="0.35"/>
+
+    <g filter="url(#noteShadow)">
+      <g fill="url(#note)">
+        <path d="M600 220 C780 220 890 320 860 480 C846 552 800 608 740 640
+                 C800 555 790 470 740 415 C700 368 630 340 600 334 Z"/>
+        <rect x="600" y="220" width="72" height="430" rx="36"/>
+        <ellipse cx="455" cy="640" rx="160" ry="122" transform="rotate(-24 455 640)"/>
+      </g>
+      <g fill="url(#noteShade)">
+        <path d="M600 220 C780 220 890 320 860 480 C846 552 800 608 740 640
+                 C800 555 790 470 740 415 C700 368 630 340 600 334 Z"/>
+        <rect x="600" y="220" width="72" height="430" rx="36"/>
+        <ellipse cx="455" cy="640" rx="160" ry="122" transform="rotate(-24 455 640)"/>
+      </g>
+    </g>
+  </g>
+</svg>

@@ -1,57 +1,145 @@
 <svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <!-- Diagonal body gradient gives the base sense of light-from-top-left -->
-    <linearGradient id="body" x1="0.12" y1="0" x2="0.9" y2="1">
-      <stop offset="0" stop-color="#86DDFF"/>
-      <stop offset="0.5" stop-color="#3E92F0"/>
-      <stop offset="1" stop-color="#1A63CC"/>
+    <linearGradient id="body" x1="0.08" y1="0" x2="0.95" y2="1">
+      <stop offset="0" stop-color="#3A7CC8"/>
+      <stop offset="0.4" stop-color="#1A4F9E"/>
+      <stop offset="1" stop-color="#061530"/>
     </linearGradient>
-    <!-- Glossy specular highlight, top-left -->
-    <radialGradient id="gloss" cx="0.32" cy="0.22" r="0.72">
-      <stop offset="0" stop-color="#ffffff" stop-opacity="0.6"/>
-      <stop offset="0.5" stop-color="#ffffff" stop-opacity="0.12"/>
+    <radialGradient id="gloss" cx="0.28" cy="0.18" r="0.8">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.38"/>
+      <stop offset="0.4" stop-color="#ffffff" stop-opacity="0.08"/>
       <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
     </radialGradient>
-    <!-- Depth shading, bottom-right -->
-    <radialGradient id="shade" cx="0.82" cy="0.86" r="0.75">
-      <stop offset="0" stop-color="#0A2F6B" stop-opacity="0.5"/>
-      <stop offset="1" stop-color="#0A2F6B" stop-opacity="0"/>
+    <radialGradient id="shade" cx="0.86" cy="0.9" r="0.7">
+      <stop offset="0" stop-color="#010810" stop-opacity="0.75"/>
+      <stop offset="1" stop-color="#010810" stop-opacity="0"/>
     </radialGradient>
-    <!-- Beveled rim: bright on top edge, dark on the bottom edge -->
     <linearGradient id="rim" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#ffffff" stop-opacity="0.9"/>
-      <stop offset="0.5" stop-color="#ffffff" stop-opacity="0.08"/>
-      <stop offset="1" stop-color="#04244f" stop-opacity="0.55"/>
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.7"/>
+      <stop offset="0.45" stop-color="#ffffff" stop-opacity="0.08"/>
+      <stop offset="1" stop-color="#01060F" stop-opacity="0.85"/>
     </linearGradient>
-    <!-- Note body gradient for rounded, 3D volume. userSpaceOnUse so the shared
-         gradient spans the whole note and the overlapping parts light uniformly. -->
-    <linearGradient id="note" x1="300" y1="280" x2="560" y2="800" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#ffffff"/>
-      <stop offset="0.6" stop-color="#EFF6FF"/>
-      <stop offset="1" stop-color="#CFE4FF"/>
+
+    <!-- Plinth / deck -->
+    <linearGradient id="plinth" x1="140" y1="220" x2="900" y2="760" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#3A4554"/>
+      <stop offset="0.45" stop-color="#232B36"/>
+      <stop offset="1" stop-color="#10151C"/>
     </linearGradient>
-    <filter id="noteShadow" x="-30%" y="-30%" width="160%" height="160%">
-      <feDropShadow dx="0" dy="16" stdDeviation="18" flood-color="#082a63" flood-opacity="0.4"/>
+    <linearGradient id="plinthTop" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="plinthEdge" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#6A7688"/>
+      <stop offset="1" stop-color="#0A0E14"/>
+    </linearGradient>
+
+    <!-- Vinyl disc -->
+    <radialGradient id="vinyl" cx="0.42" cy="0.38" r="0.72">
+      <stop offset="0" stop-color="#3A3A42"/>
+      <stop offset="0.35" stop-color="#1A1A20"/>
+      <stop offset="0.72" stop-color="#0A0A0E"/>
+      <stop offset="1" stop-color="#050508"/>
+    </radialGradient>
+    <radialGradient id="vinylShine" cx="0.32" cy="0.28" r="0.55">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.28"/>
+      <stop offset="0.4" stop-color="#9ec5ff" stop-opacity="0.12"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="label" cx="0.4" cy="0.35" r="0.65">
+      <stop offset="0" stop-color="#FFE08A"/>
+      <stop offset="0.45" stop-color="#FFB020"/>
+      <stop offset="1" stop-color="#C24A08"/>
+    </radialGradient>
+
+    <filter id="deckShadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="6" dy="18" stdDeviation="16" flood-color="#010810" flood-opacity="0.55"/>
     </filter>
+    <filter id="discShadow" x="-25%" y="-25%" width="150%" height="150%">
+      <feDropShadow dx="4" dy="10" stdDeviation="10" flood-color="#000000" flood-opacity="0.55"/>
+    </filter>
+    <clipPath id="iconClip">
+      <rect x="72" y="72" width="880" height="880" rx="200"/>
+    </clipPath>
   </defs>
 
-  <!-- Body + lighting layers -->
+  <!-- 3D icon body -->
   <rect x="72" y="72" width="880" height="880" rx="200" fill="url(#body)"/>
   <rect x="72" y="72" width="880" height="880" rx="200" fill="url(#shade)"/>
   <rect x="72" y="72" width="880" height="880" rx="200" fill="url(#gloss)"/>
-  <!-- Beveled edge -->
-  <rect x="76" y="76" width="872" height="872" rx="196" fill="none" stroke="url(#rim)" stroke-width="7"/>
+  <rect x="76" y="76" width="872" height="872" rx="196" fill="none" stroke="url(#rim)" stroke-width="9"/>
 
-  <!-- One connected eighth note: stem overlaps both the head and the flag, all
-       filled with the same gradient so it reads as a single solid 3D shape.
-       Lifted off the body with a soft drop shadow. -->
-  <g filter="url(#noteShadow)" fill="url(#note)">
-    <!-- flag (curls off the top of the stem, overlaps the stem's left edge) -->
-    <path d="M560 300 C700 300 790 380 768 502 C759 556 730 596 690 620
-             C726 560 720 500 688 456 C662 420 612 398 560 392 Z"/>
-    <!-- stem (runs down into the head) -->
-    <rect x="560" y="300" width="54" height="392" rx="27"/>
-    <!-- note head (tilted, overlaps the bottom of the stem) -->
-    <ellipse cx="452" cy="676" rx="126" ry="98" transform="rotate(-20 452 676)"/>
+  <g clip-path="url(#iconClip)">
+    <ellipse cx="512" cy="520" rx="380" ry="260" fill="#010B1C" opacity="0.45"/>
+
+    <!-- Turntable deck -->
+    <g filter="url(#deckShadow)" transform="rotate(-6 512 460)">
+      <rect x="148" y="230" width="740" height="480" rx="36" fill="url(#plinth)"/>
+      <rect x="148" y="230" width="740" height="90" rx="36" fill="url(#plinthTop)"/>
+      <path d="M148 686 L176 720 L888 720 L888 686 Z" fill="url(#plinthEdge)"/>
+      <path d="M888 230 L916 262 L916 720 L888 686 Z" fill="#0C1118"/>
+
+      <!-- platter mat ring -->
+      <circle cx="430" cy="470" r="248" fill="#151A22"/>
+      <circle cx="430" cy="470" r="236" fill="#0D1118"/>
+
+      <!-- Vinyl LP -->
+      <g filter="url(#discShadow)">
+        <circle cx="430" cy="470" r="220" fill="url(#vinyl)"/>
+        <!-- groove rings -->
+        <circle cx="430" cy="470" r="200" fill="none" stroke="#2A2A32" stroke-width="3" opacity="0.9"/>
+        <circle cx="430" cy="470" r="178" fill="none" stroke="#22222A" stroke-width="2.5" opacity="0.85"/>
+        <circle cx="430" cy="470" r="156" fill="none" stroke="#2A2A32" stroke-width="2.5" opacity="0.8"/>
+        <circle cx="430" cy="470" r="134" fill="none" stroke="#1E1E26" stroke-width="2" opacity="0.85"/>
+        <circle cx="430" cy="470" r="112" fill="none" stroke="#2A2A32" stroke-width="2" opacity="0.75"/>
+        <circle cx="430" cy="470" r="92" fill="none" stroke="#1A1A22" stroke-width="2" opacity="0.8"/>
+        <circle cx="430" cy="470" r="220" fill="url(#vinylShine)"/>
+        <!-- center label -->
+        <circle cx="430" cy="470" r="68" fill="url(#label)"/>
+        <circle cx="430" cy="470" r="58" fill="none" stroke="#FFF0C0" stroke-width="3" opacity="0.45"/>
+        <circle cx="430" cy="470" r="14" fill="#1A1208"/>
+        <circle cx="430" cy="470" r="7" fill="#FFD070"/>
+      </g>
+
+      <!-- Tonearm -->
+      <g>
+        <!-- base pivot -->
+        <circle cx="760" cy="300" r="34" fill="#2A3340"/>
+        <circle cx="760" cy="300" r="22" fill="#C0CAD8"/>
+        <circle cx="760" cy="300" r="10" fill="#4A5566"/>
+        <!-- arm -->
+        <path d="M760 300
+                 C720 340 640 420 560 470
+                 C540 482 520 500 508 520"
+              fill="none" stroke="#D7DEE8" stroke-width="18" stroke-linecap="round"/>
+        <path d="M760 300
+                 C720 340 640 420 560 470
+                 C540 482 520 500 508 520"
+              fill="none" stroke="#8A95A6" stroke-width="6" stroke-linecap="round" opacity="0.55"/>
+        <!-- cartridge / headshell -->
+        <rect x="488" y="508" width="52" height="28" rx="6" transform="rotate(-28 514 522)" fill="#E8EEF6"/>
+        <rect x="496" y="516" width="28" height="12" rx="3" transform="rotate(-28 510 522)" fill="#FFB020"/>
+      </g>
+
+      <!-- Speed / cue knobs -->
+      <circle cx="780" cy="560" r="28" fill="#1A222C"/>
+      <circle cx="780" cy="560" r="18" fill="#FFB020"/>
+      <circle cx="780" cy="620" r="22" fill="#1A222C"/>
+      <circle cx="780" cy="620" r="12" fill="#C0CAD8"/>
+      <!-- Start lamp -->
+      <circle cx="720" cy="620" r="14" fill="#1A222C"/>
+      <circle cx="720" cy="620" r="8" fill="#4CFFB0"/>
+    </g>
+
+    <!-- Title -->
+    <text x="512" y="888" text-anchor="middle"
+          font-family="Segoe UI, Aptos, Arial Black, Arial, sans-serif"
+          font-size="88" font-weight="800" letter-spacing="1"
+          fill="#031022" opacity="0.45">MusicStation</text>
+    <text x="512" y="882" text-anchor="middle"
+          font-family="Segoe UI, Aptos, Arial Black, Arial, sans-serif"
+          font-size="88" font-weight="800" letter-spacing="1"
+          fill="#F4F8FF">MusicStation</text>
   </g>
 </svg>

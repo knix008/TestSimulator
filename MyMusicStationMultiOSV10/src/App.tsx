@@ -5,7 +5,7 @@ import { listen } from '@tauri-apps/api/event'
 import { appCacheDir, appConfigDir, join, tempDir } from '@tauri-apps/api/path'
 import { currentMonitor, getCurrentWindow, LogicalSize, PhysicalPosition } from '@tauri-apps/api/window'
 import { open, save } from '@tauri-apps/plugin-dialog'
-import { exists, mkdir, readDir, readFile, readTextFile, remove, writeFile, writeTextFile } from '@tauri-apps/plugin-fs'
+import { exists, mkdir, readDir, readFile, readTextFile, remove, rename, writeFile, writeTextFile } from '@tauri-apps/plugin-fs'
 import {
   ArrowLeftRight,
   AudioWaveform,
@@ -81,7 +81,7 @@ import type {
   ThemePickerPopupAction,
   ThemePickerPopupData,
 } from './popups/protocol'
-import appIconUrl from '../asset/app-icon.svg'
+import trackIconUrl from '../asset/track-icon.svg'
 import './App.css'
 
 type Track = {
@@ -2193,22 +2193,34 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
     duration?: number | null
   }
 
+  const enrichFromLocalAudioFile = async (track: Track): Promise<Track> => {
+    if (!track.filePath) {
+      return track
+    }
+
+    try {
+      const buffer = await readFile(track.filePath)
+      const mimeType = getAudioMimeType(track.filePath)
+      return applyMetadata(track, await parseTrackMetadata(buffer, track.filePath, mimeType))
+    } catch (error) {
+      console.warn('[save] local tag parse failed', track.filePath, error)
+      return track
+    }
+  }
+
   const probeStreamFileMetadata = async (url: string): Promise<ProbedUrlMediaInfo | null> => {
     try {
-      const response = await fetchWithTimeout(
-        url,
-        { headers: { Range: 'bytes=0-524287' } },
-        8000,
-      )
+      const payload = await invoke<{
+        bytes: number[] | Uint8Array
+        contentType?: string | null
+        contentDisposition?: string | null
+      }>('fetch_url_prefix', { url, maxBytes: 524288 })
 
-      if (!response.ok && response.status !== 206) {
-        return null
-      }
-
-      const dispositionName = fileNameFromContentDisposition(response.headers.get('content-disposition'))
-      const contentType = response.headers.get('content-type')
-      const mime = contentType?.split(';')[0]?.trim() || getAudioMimeType(dispositionName || url)
-      const bytes = new Uint8Array(await response.arrayBuffer())
+      const dispositionName = fileNameFromContentDisposition(payload.contentDisposition)
+      const mime =
+        payload.contentType?.split(';')[0]?.trim() ||
+        getAudioMimeType(dispositionName || url)
+      const bytes = payload.bytes instanceof Uint8Array ? payload.bytes : Uint8Array.from(payload.bytes)
 
       if (!bytes.length || looksLikeHtmlPayload(bytes)) {
         return dispositionName
@@ -2219,7 +2231,9 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
       try {
         const metadata = await parseTrackMetadata(bytes, dispositionName || url, mime)
         return {
-          title: metadata.common.title?.trim() || (dispositionName ? stripAudioExtension(fileNameFromPath(dispositionName)) : null),
+          title:
+            metadata.common.title?.trim() ||
+            (dispositionName ? stripAudioExtension(fileNameFromPath(dispositionName)) : null),
           artist: metadata.common.artist?.trim() || null,
           album: metadata.common.album?.trim() || null,
           duration: metadata.format.duration ?? null,
@@ -2241,25 +2255,26 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
     }
 
     let next = track
-    let found = !isUrlDerivedTrackTitle(track)
 
-    try {
-      const info = await invoke<ProbedUrlMediaInfo>('probe_url_media_info', { url: track.remoteUrl })
-      if (info.title || info.artist || info.album) {
-        next = mergeExtractedInfo(next, {
-          outputPath: next.filePath || '',
-          title: info.title || next.title,
-          artist: info.artist,
-          album: info.album,
-          duration: info.duration,
-        })
-        found = true
+    // Weak guesses first (yt-dlp / HTTP tags), then local file tags win.
+    if (isUrlDerivedTrackTitle(next)) {
+      try {
+        const info = await invoke<ProbedUrlMediaInfo>('probe_url_media_info', { url: track.remoteUrl })
+        if (info.title || info.artist || info.album) {
+          next = mergeExtractedInfo(next, {
+            outputPath: next.filePath || '',
+            title: info.title || next.title,
+            artist: info.artist,
+            album: info.album,
+            duration: info.duration,
+          })
+        }
+      } catch (error) {
+        console.warn('[save] yt-dlp media probe failed', track.remoteUrl, error)
       }
-    } catch (error) {
-      console.warn('[save] yt-dlp media probe failed', track.remoteUrl, error)
     }
 
-    if (!found || isUrlDerivedTrackTitle(next)) {
+    if (isUrlDerivedTrackTitle(next) || !next.artist?.trim()) {
       const streamInfo = await probeStreamFileMetadata(track.remoteUrl)
       if (streamInfo && (streamInfo.title || streamInfo.artist || streamInfo.album)) {
         next = mergeExtractedInfo(next, {
@@ -2272,6 +2287,8 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
       }
     }
 
+    // Embedded tags in a cached/downloaded file are the most reliable song info.
+    next = await enrichFromLocalAudioFile(next)
     return next
   }
 
@@ -2293,7 +2310,7 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
     setConvertMessage('')
     setShowConvertDialog(true)
 
-    if (!isUrlAddedTrack(track) || !isUrlDerivedTrackTitle(track)) {
+    if (!isUrlAddedTrack(track)) {
       setConvertFileNameReady(true)
       return
     }
@@ -2318,6 +2335,70 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
       if (convertProbeRequestRef.current === requestId) {
         setConvertFileNameReady(true)
       }
+    }
+  }
+
+  const resolveSavedOutputPath = async (
+    outputPath: string,
+    track: Track,
+    extracted?: Pick<ExtractedAudioResult, 'title' | 'artist' | 'album' | 'duration'> | null,
+  ) => {
+    let metaTrack: Track = {
+      ...track,
+      filePath: outputPath,
+      title: extracted?.title?.trim() || track.title,
+      artist: extracted?.artist?.trim() || track.artist,
+      album: extracted?.album?.trim() || track.album,
+      durationSeconds:
+        (extracted?.duration && extracted.duration > 0 ? extracted.duration : undefined) ?? track.durationSeconds,
+    }
+
+    if (extracted) {
+      metaTrack = mergeExtractedInfo(metaTrack, {
+        outputPath,
+        title: extracted.title || metaTrack.title,
+        artist: extracted.artist,
+        album: extracted.album,
+        duration: extracted.duration,
+      })
+    }
+
+    // File tags must win over yt-dlp URL/filename guesses.
+    metaTrack = await enrichFromLocalAudioFile(metaTrack)
+
+    const urlStem = track.remoteUrl
+      ? sanitizeFileStem(stripAudioExtension(remoteTitleFromUrl(track.remoteUrl)))
+      : ''
+    const currentStem = sanitizeFileStem(stripAudioExtension(fileNameFromPath(outputPath)))
+    const betterStem = suggestedSaveFileStem(metaTrack)
+    const savedAsLinkName = Boolean(urlStem) && currentStem === urlStem
+
+    // Keep a user-edited name unless the OS dialog still saved under the bare link stem.
+    if (convertFileNameTouchedRef.current && !savedAsLinkName) {
+      return { outputPath, metaTrack }
+    }
+
+    if (!betterStem || betterStem === currentStem) {
+      return { outputPath, metaTrack }
+    }
+
+    const extension = (fileNameFromPath(outputPath).match(/\.([^.]+)$/)?.[1] || convertFormat).toLowerCase()
+    const directory = outputPath.replace(/[\\/][^\\/]+$/, '')
+    const nextPath = directory ? await join(directory, `${betterStem}.${extension}`) : `${betterStem}.${extension}`
+
+    if (normalizePathKey(nextPath) === normalizePathKey(outputPath)) {
+      return { outputPath, metaTrack }
+    }
+
+    try {
+      if (await exists(nextPath)) {
+        await remove(nextPath)
+      }
+      await rename(outputPath, nextPath)
+      return { outputPath: nextPath, metaTrack: { ...metaTrack, filePath: nextPath } }
+    } catch (error) {
+      console.warn('[save] rename to metadata name failed', outputPath, nextPath, error)
+      return { outputPath, metaTrack }
     }
   }
 
@@ -2695,22 +2776,37 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
       return
     }
 
-    const stem = sanitizeFileStem(stripAudioExtension(convertFileName) || suggestedSaveFileStem(prepared))
+    if (remoteSave) {
+      try {
+        prepared = await enrichRemoteTrackMetadata(prepared)
+        applyEnrichedConvertTrack(prepared)
+      } catch (error) {
+        console.warn('[save] pre-save enrich failed', error)
+      }
+    }
+
+    const stem = sanitizeFileStem(
+      stripAudioExtension(convertFileNameTouchedRef.current ? convertFileName : '') ||
+        suggestedSaveFileStem(prepared) ||
+        stripAudioExtension(convertFileName),
+    )
     const defaultDirectory =
       (prepared.filePath && !prepared.filePath.toLowerCase().includes('mms-extract-')
         ? prepared.filePath.replace(/[\\/][^\\/]+$/, '')
         : '') || lastMusicFolder || undefined
     const defaultPath = defaultDirectory ? await join(defaultDirectory, `${stem}.${convertFormat}`) : `${stem}.${convertFormat}`
 
-    const outputPath = await save({
+    const outputPathPicked = await save({
       defaultPath,
       title: dialogTitle,
       filters: [{ name: convertFormat.toUpperCase(), extensions: [convertFormat] }],
     })
 
-    if (typeof outputPath !== 'string' || !outputPath) {
+    if (typeof outputPathPicked !== 'string' || !outputPathPicked) {
       return
     }
+
+    let outputPath = outputPathPicked
 
     setIsConverting(true)
     setConvertMessage(busyLabel)
@@ -2729,11 +2825,14 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
             quality,
           })
 
+          const finalized = await resolveSavedOutputPath(outputPath, prepared, result)
+          outputPath = finalized.outputPath
+
           await adoptSavedLocalTrack(prepared.id, outputPath, {
-            title: result.title || prepared.title,
-            artist: result.artist ?? prepared.artist,
-            album: result.album ?? prepared.album,
-            duration: result.duration ?? prepared.durationSeconds,
+            title: finalized.metaTrack.title || result.title || prepared.title,
+            artist: finalized.metaTrack.artist ?? result.artist ?? prepared.artist,
+            album: finalized.metaTrack.album ?? result.album ?? prepared.album,
+            duration: finalized.metaTrack.durationSeconds ?? result.duration ?? prepared.durationSeconds,
           })
           const saved = `${successLabel}: ${outputPath}`
           pushStatus(saved, 'success')
@@ -2779,7 +2878,19 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
       })
 
       if (remoteSave) {
-        await adoptSavedLocalTrack(prepared.id, outputPath, prepared.title)
+        const finalized = await resolveSavedOutputPath(outputPath, prepared, {
+          title: prepared.title,
+          artist: prepared.artist,
+          album: prepared.album,
+          duration: prepared.durationSeconds,
+        })
+        outputPath = finalized.outputPath
+        await adoptSavedLocalTrack(prepared.id, outputPath, {
+          title: finalized.metaTrack.title || prepared.title,
+          artist: finalized.metaTrack.artist ?? prepared.artist,
+          album: finalized.metaTrack.album ?? prepared.album,
+          duration: finalized.metaTrack.durationSeconds ?? prepared.durationSeconds,
+        })
       }
 
       const converted = `${successLabel}: ${outputPath}`
@@ -3534,7 +3645,7 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
           </div>
           <div className="mini-track-row">
             <span className="mini-track-icon" aria-hidden="true">
-              <img src={currentTrack?.artworkUrl ?? appIconUrl} alt="" />
+              <img src={currentTrack?.artworkUrl || trackIconUrl} alt="" />
             </span>
             <div className="mini-track-text">
               <strong title={currentTrack?.title ?? labels.noTrack}>{currentTrack?.title ?? labels.noTrack}</strong>
@@ -3714,7 +3825,7 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
         <section className="player-panel">
           <div className="now-playing">
             <div className="album-art" aria-label={currentTrack?.artworkUrl ? currentTrack.title : labels.noAlbumArt}>
-              <img src={currentTrack?.artworkUrl ?? appIconUrl} alt="" />
+              <img src={currentTrack?.artworkUrl || trackIconUrl} alt="" />
             </div>
             <div className="now-playing-meta">
               <span>{currentTrack ? (currentTrack.origin === 'local' ? labels.local : labels.remote) : '\u00a0'}</span>

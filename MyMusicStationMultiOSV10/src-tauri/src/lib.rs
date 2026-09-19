@@ -245,6 +245,7 @@ pub fn run() {
             audio_convert::convert_audio,
             audio_extract::extract_audio_from_url,
             audio_extract::probe_url_media_info,
+            audio_extract::fetch_url_prefix,
             wallpaper::load_wallpaper_image
         ])
         .setup(|app| {
