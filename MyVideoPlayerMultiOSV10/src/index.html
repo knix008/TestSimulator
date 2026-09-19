@@ -432,20 +432,32 @@
                 </svg>
                 <span class="tool-btn-label" id="localeBtnLabel">한글</span>
               </button>
-              <div class="popup-wrap theme-wrap">
+              <div class="popup-wrap theme-wrap tool-split" id="toolbarThemeWrap">
                 <button
                   type="button"
-                  class="tool-btn"
+                  class="tool-btn tool-split-main"
                   id="btnTheme"
                   data-i18n-tooltip="themeTip"
                   data-i18n-aria="theme"
-                  aria-haspopup="menu"
-                  aria-expanded="false"
                 >
                   <svg viewBox="0 0 24 24" aria-hidden="true">
                     <path
                       d="M12 3a9 9 0 0 0 0 18c.8 0 1.5-.7 1.5-1.5 0-.4-.15-.75-.4-1-.25-.25-.4-.6-.4-1 0-.8.7-1.5 1.5-1.5H15a5 5 0 0 0 0-10h-3Zm-5.5 9a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm3-4a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm2.5 4.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Z"
                     />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  class="tool-btn tool-split-caret"
+                  id="btnThemeMenu"
+                  data-i18n-tooltip="themeMenuTip"
+                  data-i18n-aria="themeMenu"
+                  aria-haspopup="menu"
+                  aria-expanded="false"
+                  aria-controls="themeMenu"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M7 10l5 5 5-5H7Z" />
                   </svg>
                 </button>
                 <div
@@ -1183,7 +1195,7 @@
 
     <!-- Settings modal -->
     <dialog class="modal" id="settingsModal">
-      <form method="dialog" class="modal-card settings-card" id="settingsForm">
+      <div class="modal-card settings-card">
         <header class="modal-header">
           <div class="dialog-title">
             <svg
@@ -1198,355 +1210,406 @@
             <h2 data-i18n="settingsTitle">Settings</h2>
           </div>
           <button
-            type="submit"
+            type="button"
             class="modal-close"
-            value="cancel"
+            id="btnCloseSettings"
             data-i18n-aria="close"
           >
             ✕
           </button>
         </header>
-        <div class="modal-body settings-body">
-          <section class="settings-section">
-            <h3 class="settings-section-title" data-i18n="settingsAppearance">
-              Appearance
-            </h3>
-            <div class="settings-grid">
-              <label class="field">
-                <span class="field-label">
-                  <svg
-                    class="field-icon"
-                    viewBox="0 0 24 24"
-                    aria-hidden="true"
-                  >
-                    <path
-                      d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm0 2c.7 0 2.1 1.7 2.8 5H9.2C9.9 5.7 11.3 4 12 4Zm-3.1 7a14.5 14.5 0 0 0 0 2h6.2a14.5 14.5 0 0 0 0-2H8.9Zm.3 4h5.6c-.7 3.3-2.1 5-2.8 5s-2.1-1.7-2.8-5Zm7.3-9.1A7.96 7.96 0 0 1 19.9 11h-3.05c-.15-1.5-.5-2.85-1-3.95l.65-.15ZM7.15 7.05c-.5 1.1-.85 2.45-1 3.95H3.1a7.96 7.96 0 0 1 3.4-5.05l.65.1ZM3.1 13h3.05c.15 1.5.5 2.85 1 3.95l-.65.15A7.96 7.96 0 0 1 3.1 13Zm13.75 4.1c.5-1.1.85-2.45 1-3.95H20.9a7.96 7.96 0 0 1-3.4 5.05l-.65-.1Z"
-                    />
-                  </svg>
-                  <span data-i18n="language">Language</span>
-                </span>
-                <select id="settingLocale" name="locale">
-                  <option value="en">English</option>
-                  <option value="ko">한국어</option>
-                </select>
-              </label>
-              <div class="field field-theme">
-                <span class="field-label">
-                  <svg
-                    class="field-icon"
-                    viewBox="0 0 24 24"
-                    aria-hidden="true"
-                  >
-                    <path
-                      d="M12 3a9 9 0 0 0 0 18c.8 0 1.5-.7 1.5-1.5 0-.4-.15-.75-.4-1-.25-.25-.4-.6-.4-1 0-.8.7-1.5 1.5-1.5H15a5 5 0 0 0 0-10h-3Zm-5.5 9a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm3-4a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm2.5 4.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Z"
-                    />
-                  </svg>
-                  <span data-i18n="theme">Theme</span>
-                </span>
-                <div class="theme-field-row">
-                  <select id="settingTheme" name="theme"></select>
-                  <div class="theme-actions">
-                    <button
-                      type="button"
-                      class="btn secondary"
-                      id="btnEditTheme"
-                      data-i18n="customize"
+        <div
+          class="settings-tabs"
+          role="tablist"
+          data-i18n-aria="settingsTitle"
+          aria-label="Settings"
+        >
+          <button
+            type="button"
+            class="settings-tab is-active"
+            id="settingsTabGeneral"
+            role="tab"
+            aria-selected="true"
+            aria-controls="settingsPanelGeneral"
+            data-settings-tab="general"
+            data-i18n="settingsTabGeneral"
+          >
+            General
+          </button>
+          <button
+            type="button"
+            class="settings-tab"
+            id="settingsTabTheme"
+            role="tab"
+            aria-selected="false"
+            aria-controls="settingsPanelTheme"
+            data-settings-tab="theme"
+            data-i18n="settingsTabTheme"
+          >
+            Theme
+          </button>
+        </div>
+        <form class="settings-form" id="settingsForm">
+          <div class="modal-body settings-body">
+            <div
+              class="settings-tabpanel is-active"
+              id="settingsPanelGeneral"
+              role="tabpanel"
+              aria-labelledby="settingsTabGeneral"
+              data-settings-panel="general"
+            >
+            <section class="settings-section">
+              <h3 class="settings-section-title" data-i18n="settingsAppearance">
+                Appearance
+              </h3>
+              <div class="settings-grid">
+                <label class="field">
+                  <span class="field-label">
+                    <svg
+                      class="field-icon"
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
                     >
-                      Customize…
-                    </button>
-                    <button
-                      type="button"
-                      class="btn secondary"
-                      id="btnDeleteTheme"
-                      hidden
-                      data-i18n="deleteCustom"
+                      <path
+                        d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm0 2c.7 0 2.1 1.7 2.8 5H9.2C9.9 5.7 11.3 4 12 4Zm-3.1 7a14.5 14.5 0 0 0 0 2h6.2a14.5 14.5 0 0 0 0-2H8.9Zm.3 4h5.6c-.7 3.3-2.1 5-2.8 5s-2.1-1.7-2.8-5Zm7.3-9.1A7.96 7.96 0 0 1 19.9 11h-3.05c-.15-1.5-.5-2.85-1-3.95l.65-.15ZM7.15 7.05c-.5 1.1-.85 2.45-1 3.95H3.1a7.96 7.96 0 0 1 3.4-5.05l.65.1ZM3.1 13h3.05c.15 1.5.5 2.85 1 3.95l-.65.15A7.96 7.96 0 0 1 3.1 13Zm13.75 4.1c.5-1.1.85-2.45 1-3.95H20.9a7.96 7.96 0 0 1-3.4 5.05l-.65-.1Z"
+                      />
+                    </svg>
+                    <span data-i18n="language">Language</span>
+                  </span>
+                  <select id="settingLocale" name="locale">
+                    <option value="en">English</option>
+                    <option value="ko">한국어</option>
+                  </select>
+                </label>
+              </div>
+            </section>
+
+            <section class="settings-section">
+              <h3 class="settings-section-title" data-i18n="settingsPlayback">
+                Playback
+              </h3>
+              <div class="settings-grid">
+                <label class="field">
+                  <span class="field-label">
+                    <svg
+                      class="field-icon"
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
                     >
-                      Delete custom
-                    </button>
+                      <path
+                        d="M12 4a8 8 0 1 0 8 8h-2a6 6 0 1 1-1.76-4.24L14 10h6V4l-2.24 2.24A7.96 7.96 0 0 0 12 4Zm-1 3h2v5.2l3.4 2-1 1.7-4.4-2.6V7Z"
+                      />
+                    </svg>
+                    <span data-i18n="playbackRate">Playback rate</span>
+                  </span>
+                  <select id="settingRate" name="rate">
+                    <option value="0.25">0.25×</option>
+                    <option value="0.5">0.5×</option>
+                    <option value="0.75">0.75×</option>
+                    <option value="1" selected>1×</option>
+                    <option value="1.25">1.25×</option>
+                    <option value="1.5">1.5×</option>
+                    <option value="1.75">1.75×</option>
+                    <option value="2">2×</option>
+                    <option value="2.5">2.5×</option>
+                    <option value="3">3×</option>
+                  </select>
+                </label>
+                <label class="field">
+                  <span class="field-label">
+                    <svg
+                      class="field-icon"
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                    >
+                      <path
+                        d="M11 12 18 7v10l-7-5Zm-1 5V7H8v10h2Zm10 0V7h-2v10h2Z"
+                      />
+                      <path d="M4 12h3v2H4v-2Z" opacity=".85" />
+                    </svg>
+                    <span data-i18n="seekStep">Seek step (seconds)</span>
+                  </span>
+                  <input
+                    type="number"
+                    id="settingSeekStep"
+                    name="seekStep"
+                    min="1"
+                    max="60"
+                    value="10"
+                  />
+                </label>
+                <div
+                  class="field field-range"
+                  role="group"
+                  aria-labelledby="settingStartVolumeLabel"
+                >
+                  <span class="field-label" id="settingStartVolumeLabel">
+                    <svg
+                      class="field-icon"
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                    >
+                      <path
+                        d="M4 10v4h3l4 3V7L7 10H4Zm11.5 2a3.5 3.5 0 0 0-1.8-3.05v6.1A3.5 3.5 0 0 0 15.5 12Zm0-7.7v2.06A6.5 6.5 0 0 1 19 12a6.5 6.5 0 0 1-3.5 5.64v2.06A8.5 8.5 0 0 0 21 12a8.5 8.5 0 0 0-5.5-7.7Z"
+                      />
+                    </svg>
+                    <span data-i18n="startVolume">Volume on start (%)</span>
+                  </span>
+                  <div class="settings-range-control">
+                    <input
+                      type="range"
+                      id="settingStartVolume"
+                      name="startVolume"
+                      min="0"
+                      max="100"
+                      step="1"
+                      value="80"
+                      aria-valuetext="80%"
+                    />
+                    <output
+                      class="settings-range-value"
+                      id="settingStartVolumeValue"
+                      for="settingStartVolume"
+                      >80%</output
+                    >
                   </div>
                 </div>
               </div>
-            </div>
-          </section>
-
-          <section class="settings-section">
-            <h3 class="settings-section-title" data-i18n="settingsPlayback">
-              Playback
-            </h3>
-            <div class="settings-grid">
-              <label class="field">
-                <span class="field-label">
-                  <svg
-                    class="field-icon"
-                    viewBox="0 0 24 24"
-                    aria-hidden="true"
-                  >
-                    <path
-                      d="M12 4a8 8 0 1 0 8 8h-2a6 6 0 1 1-1.76-4.24L14 10h6V4l-2.24 2.24A7.96 7.96 0 0 0 12 4Zm-1 3h2v5.2l3.4 2-1 1.7-4.4-2.6V7Z"
-                    />
-                  </svg>
-                  <span data-i18n="playbackRate">Playback rate</span>
-                </span>
-                <select id="settingRate" name="rate">
-                  <option value="0.25">0.25×</option>
-                  <option value="0.5">0.5×</option>
-                  <option value="0.75">0.75×</option>
-                  <option value="1" selected>1×</option>
-                  <option value="1.25">1.25×</option>
-                  <option value="1.5">1.5×</option>
-                  <option value="1.75">1.75×</option>
-                  <option value="2">2×</option>
-                  <option value="2.5">2.5×</option>
-                  <option value="3">3×</option>
-                </select>
-              </label>
-              <label class="field">
-                <span class="field-label">
-                  <svg
-                    class="field-icon"
-                    viewBox="0 0 24 24"
-                    aria-hidden="true"
-                  >
-                    <path
-                      d="M11 12 18 7v10l-7-5Zm-1 5V7H8v10h2Zm10 0V7h-2v10h2Z"
-                    />
-                    <path d="M4 12h3v2H4v-2Z" opacity=".85" />
-                  </svg>
-                  <span data-i18n="seekStep">Seek step (seconds)</span>
-                </span>
-                <input
-                  type="number"
-                  id="settingSeekStep"
-                  name="seekStep"
-                  min="1"
-                  max="60"
-                  value="10"
-                />
-              </label>
-              <div
-                class="field field-range"
-                role="group"
-                aria-labelledby="settingStartVolumeLabel"
-              >
-                <span class="field-label" id="settingStartVolumeLabel">
-                  <svg
-                    class="field-icon"
-                    viewBox="0 0 24 24"
-                    aria-hidden="true"
-                  >
-                    <path
-                      d="M4 10v4h3l4 3V7L7 10H4Zm11.5 2a3.5 3.5 0 0 0-1.8-3.05v6.1A3.5 3.5 0 0 0 15.5 12Zm0-7.7v2.06A6.5 6.5 0 0 1 19 12a6.5 6.5 0 0 1-3.5 5.64v2.06A8.5 8.5 0 0 0 21 12a8.5 8.5 0 0 0-5.5-7.7Z"
-                    />
-                  </svg>
-                  <span data-i18n="startVolume">Volume on start (%)</span>
-                </span>
-                <div class="settings-range-control">
+              <div class="settings-check-grid">
+                <label class="field checkbox">
                   <input
-                    type="range"
-                    id="settingStartVolume"
-                    name="startVolume"
-                    min="0"
-                    max="100"
-                    step="1"
-                    value="80"
-                    aria-valuetext="80%"
+                    type="checkbox"
+                    id="settingAutoplay"
+                    name="autoplay"
+                    checked
                   />
-                  <output
-                    class="settings-range-value"
-                    id="settingStartVolumeValue"
-                    for="settingStartVolume"
-                    >80%</output
-                  >
-                </div>
+                  <span class="field-label">
+                    <svg
+                      class="field-icon"
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                    >
+                      <path
+                        d="M12 2a10 10 0 1 0 .01 20.01A10 10 0 0 0 12 2Zm-1.5 5.5 7 4.5-7 4.5v-9Z"
+                      />
+                    </svg>
+                    <span data-i18n="autoplay">Autoplay after opening file</span>
+                  </span>
+                </label>
+                <label class="field checkbox">
+                  <input type="checkbox" id="settingLoop" name="loop" />
+                  <span class="field-label">
+                    <svg
+                      class="field-icon"
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                    >
+                      <path
+                        d="M7 7h8.5l-1.8-1.8L15 4l4.5 4.5L15 13l-1.3-1.2L15.5 10H7a3 3 0 0 0-3 3v1H2v-1a5 5 0 0 1 5-5Zm10 10H8.5l1.8 1.8L9 20l-4.5-4.5L9 11l1.3 1.2L8.5 14H17a3 3 0 0 0 3-3v-1h2v1a5 5 0 0 1-5 5Z"
+                      />
+                    </svg>
+                    <span data-i18n="loop">Loop playback</span>
+                  </span>
+                </label>
               </div>
-            </div>
-            <div class="settings-check-grid">
-              <label class="field checkbox">
-                <input
-                  type="checkbox"
-                  id="settingAutoplay"
-                  name="autoplay"
-                  checked
-                />
-                <span class="field-label">
-                  <svg
-                    class="field-icon"
-                    viewBox="0 0 24 24"
-                    aria-hidden="true"
-                  >
-                    <path
-                      d="M12 2a10 10 0 1 0 .01 20.01A10 10 0 0 0 12 2Zm-1.5 5.5 7 4.5-7 4.5v-9Z"
-                    />
-                  </svg>
-                  <span data-i18n="autoplay">Autoplay after opening file</span>
-                </span>
-              </label>
-              <label class="field checkbox">
-                <input type="checkbox" id="settingLoop" name="loop" />
-                <span class="field-label">
-                  <svg
-                    class="field-icon"
-                    viewBox="0 0 24 24"
-                    aria-hidden="true"
-                  >
-                    <path
-                      d="M7 7h8.5l-1.8-1.8L15 4l4.5 4.5L15 13l-1.3-1.2L15.5 10H7a3 3 0 0 0-3 3v1H2v-1a5 5 0 0 1 5-5Zm10 10H8.5l1.8 1.8L9 20l-4.5-4.5L9 11l1.3 1.2L8.5 14H17a3 3 0 0 0 3-3v-1h2v1a5 5 0 0 1-5 5Z"
-                    />
-                  </svg>
-                  <span data-i18n="loop">Loop playback</span>
-                </span>
-              </label>
-            </div>
-          </section>
+            </section>
 
-          <section class="settings-section">
-            <h3 class="settings-section-title" data-i18n="settingsDisplay">
-              Display
-            </h3>
-            <div class="settings-grid">
-              <div
-                class="field field-range"
-                role="group"
-                aria-labelledby="settingSubSizeLabel"
-              >
-                <span class="field-label" id="settingSubSizeLabel">
-                  <svg
-                    class="field-icon"
-                    viewBox="0 0 24 24"
-                    aria-hidden="true"
-                  >
-                    <path
-                      d="M4 6h16v2H4V6Zm2 4h5.2v10H9.5V12.5H6.7V10Zm7.3 0H20v1.8h-2.1V20h-1.7v-8.2H13.3V10Z"
+            <section class="settings-section">
+              <h3 class="settings-section-title" data-i18n="settingsDisplay">
+                Display
+              </h3>
+              <div class="settings-grid">
+                <div
+                  class="field field-range"
+                  role="group"
+                  aria-labelledby="settingSubSizeLabel"
+                >
+                  <span class="field-label" id="settingSubSizeLabel">
+                    <svg
+                      class="field-icon"
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                    >
+                      <path
+                        d="M4 6h16v2H4V6Zm2 4h5.2v10H9.5V12.5H6.7V10Zm7.3 0H20v1.8h-2.1V20h-1.7v-8.2H13.3V10Z"
+                      />
+                    </svg>
+                    <span data-i18n="subSize">Subtitle font size</span>
+                  </span>
+                  <div class="settings-range-control">
+                    <input
+                      type="range"
+                      id="settingSubSize"
+                      name="subSize"
+                      min="14"
+                      max="48"
+                      value="28"
+                      aria-valuetext="28px"
                     />
-                  </svg>
-                  <span data-i18n="subSize">Subtitle font size</span>
-                </span>
-                <div class="settings-range-control">
-                  <input
-                    type="range"
-                    id="settingSubSize"
-                    name="subSize"
-                    min="14"
-                    max="48"
-                    value="28"
-                    aria-valuetext="28px"
-                  />
-                  <output
-                    class="settings-range-value"
-                    id="settingSubSizeValue"
-                    for="settingSubSize"
-                    >28px</output
-                  >
+                    <output
+                      class="settings-range-value"
+                      id="settingSubSizeValue"
+                      for="settingSubSize"
+                      >28px</output
+                    >
+                  </div>
                 </div>
+                <label class="field">
+                  <span class="field-label">
+                    <svg
+                      class="field-icon"
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                    >
+                      <path
+                        d="M4 18h2V8H4v10Zm4 0h2V4H8v14Zm4 0h2v-7h-2v7Zm4 0h2V9h-2v9Zm4 0h2V6h-2v12Z"
+                      />
+                    </svg>
+                    <span data-i18n="spectrumStyle">Spectrum style</span>
+                  </span>
+                  <select
+                    id="settingSpectrumStyle"
+                    name="spectrumStyle"
+                  ></select>
+                </label>
+                <label class="field">
+                  <span class="field-label">
+                    <svg
+                      class="field-icon"
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                    >
+                      <path
+                        d="M15.55 5.55 11 1v3.07C7.06 4.56 4 7.92 4 12s3.05 7.44 7 7.93v-2.02c-2.84-.48-5-2.94-5-5.91s2.16-5.43 5-5.91V10l4.55-4.45zM19.93 11c-.17-1.39-.72-2.73-1.62-3.89l-1.42 1.42c.54.75.88 1.6 1.02 2.47h2.02zM13 17.9v2.02c1.39-.17 2.74-.71 3.9-1.61l-1.44-1.44c-.75.54-1.59.89-2.46 1.03zm3.89-2.42 1.42 1.41c.9-1.16 1.45-2.5 1.62-3.89h-2.02c-.14.87-.48 1.72-1.02 2.48z"
+                      />
+                    </svg>
+                    <span data-i18n="videoRotation">Rotation on open</span>
+                  </span>
+                  <select id="settingVideoRotation" name="videoRotation">
+                    <option value="0">0°</option>
+                    <option value="90">90°</option>
+                    <option value="180">180°</option>
+                    <option value="270">270°</option>
+                  </select>
+                </label>
               </div>
-              <label class="field">
-                <span class="field-label">
-                  <svg
-                    class="field-icon"
-                    viewBox="0 0 24 24"
-                    aria-hidden="true"
-                  >
-                    <path
-                      d="M4 18h2V8H4v10Zm4 0h2V4H8v14Zm4 0h2v-7h-2v7Zm4 0h2V9h-2v9Zm4 0h2V6h-2v12Z"
-                    />
-                  </svg>
-                  <span data-i18n="spectrumStyle">Spectrum style</span>
-                </span>
-                <select id="settingSpectrumStyle" name="spectrumStyle"></select>
-              </label>
-              <label class="field">
-                <span class="field-label">
-                  <svg
-                    class="field-icon"
-                    viewBox="0 0 24 24"
-                    aria-hidden="true"
-                  >
-                    <path
-                      d="M15.55 5.55 11 1v3.07C7.06 4.56 4 7.92 4 12s3.05 7.44 7 7.93v-2.02c-2.84-.48-5-2.94-5-5.91s2.16-5.43 5-5.91V10l4.55-4.45zM19.93 11c-.17-1.39-.72-2.73-1.62-3.89l-1.42 1.42c.54.75.88 1.6 1.02 2.47h2.02zM13 17.9v2.02c1.39-.17 2.74-.71 3.9-1.61l-1.44-1.44c-.75.54-1.59.89-2.46 1.03zm3.89-2.42 1.42 1.41c.9-1.16 1.45-2.5 1.62-3.89h-2.02c-.14.87-.48 1.72-1.02 2.48z"
-                    />
-                  </svg>
-                  <span data-i18n="videoRotation">Rotation on open</span>
-                </span>
-                <select id="settingVideoRotation" name="videoRotation">
-                  <option value="0">0°</option>
-                  <option value="90">90°</option>
-                  <option value="180">180°</option>
-                  <option value="270">270°</option>
-                </select>
-              </label>
-            </div>
-            <p class="field-hint" data-i18n="videoRotationHint">
-              Applied whenever a file opens. The toolbar buttons turn only the
-              video playing now.
-            </p>
-            <div class="settings-check-grid">
-              <label class="field checkbox">
-                <input
-                  type="checkbox"
-                  id="settingShowSubtitles"
-                  name="showSubtitles"
-                  checked
-                />
-                <span class="field-label">
-                  <svg
-                    class="field-icon"
-                    viewBox="0 0 24 24"
-                    aria-hidden="true"
-                  >
-                    <path
-                      d="M4 5h16a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Zm2 4v2h4V9H6Zm6 0v2h6V9h-6Zm-6 4v2h8v-2H6Zm10 0v2h2v-2h-2Z"
-                    />
-                  </svg>
-                  <span data-i18n="showSubtitles"
-                    >Show subtitles (auto-load SMI/SRT)</span
-                  >
-                </span>
-              </label>
-              <label class="field checkbox">
-                <input
-                  type="checkbox"
-                  id="settingShowSpectrum"
-                  name="showSpectrum"
-                  checked
-                />
-                <span class="field-label">
-                  <svg
-                    class="field-icon"
-                    viewBox="0 0 24 24"
-                    aria-hidden="true"
-                  >
-                    <path
-                      d="M4 18h2V8H4v10Zm4 0h2V4H8v14Zm4 0h2v-7h-2v7Zm4 0h2V9h-2v9Zm4 0h2V6h-2v12Z"
-                    />
-                  </svg>
-                  <span data-i18n="showSpectrum"
-                    >Show spectrum when audio is present</span
-                  >
-                </span>
-              </label>
-              <label class="field checkbox">
-                <input
-                  type="checkbox"
-                  id="settingAutoHideChrome"
-                  name="autoHideChrome"
-                  checked
-                />
-                <span class="field-label">
-                  <svg
-                    class="field-icon"
-                    viewBox="0 0 24 24"
-                    aria-hidden="true"
-                  >
-                    <path d="M4 6h16v2H4V6Zm0 5h16v2H4v-2Zm0 5h10v2H4v-2Z" />
-                    <path d="M18 14.5 22 18l-4 3.5v-7Z" />
-                  </svg>
-                  <span data-i18n="autoHideChrome"
-                    >Auto-hide toolbar, controls, and status bar</span
-                  >
-                </span>
-              </label>
-            </div>
-          </section>
+              <p class="field-hint" data-i18n="videoRotationHint">
+                Applied whenever a file opens. The toolbar buttons turn only the
+                video playing now.
+              </p>
+              <div class="settings-check-grid">
+                <label class="field checkbox">
+                  <input
+                    type="checkbox"
+                    id="settingShowSubtitles"
+                    name="showSubtitles"
+                    checked
+                  />
+                  <span class="field-label">
+                    <svg
+                      class="field-icon"
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                    >
+                      <path
+                        d="M4 5h16a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Zm2 4v2h4V9H6Zm6 0v2h6V9h-6Zm-6 4v2h8v-2H6Zm10 0v2h2v-2h-2Z"
+                      />
+                    </svg>
+                    <span data-i18n="showSubtitles"
+                      >Show subtitles (auto-load SMI/SRT)</span
+                    >
+                  </span>
+                </label>
+                <label class="field checkbox">
+                  <input
+                    type="checkbox"
+                    id="settingShowSpectrum"
+                    name="showSpectrum"
+                    checked
+                  />
+                  <span class="field-label">
+                    <svg
+                      class="field-icon"
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                    >
+                      <path
+                        d="M4 18h2V8H4v10Zm4 0h2V4H8v14Zm4 0h2v-7h-2v7Zm4 0h2V9h-2v9Zm4 0h2V6h-2v12Z"
+                      />
+                    </svg>
+                    <span data-i18n="showSpectrum"
+                      >Show spectrum when audio is present</span
+                    >
+                  </span>
+                </label>
+                <label class="field checkbox">
+                  <input
+                    type="checkbox"
+                    id="settingAutoHideChrome"
+                    name="autoHideChrome"
+                    checked
+                  />
+                  <span class="field-label">
+                    <svg
+                      class="field-icon"
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                    >
+                      <path d="M4 6h16v2H4V6Zm0 5h16v2H4v-2Zm0 5h10v2H4v-2Z" />
+                      <path d="M18 14.5 22 18l-4 3.5v-7Z" />
+                    </svg>
+                    <span data-i18n="autoHideChrome"
+                      >Auto-hide toolbar, controls, and status bar</span
+                    >
+                  </span>
+                </label>
+              </div>
+            </section>
+          </div>
+
+          <div
+            class="settings-tabpanel"
+            id="settingsPanelTheme"
+            role="tabpanel"
+            aria-labelledby="settingsTabTheme"
+            data-settings-panel="theme"
+            aria-hidden="true"
+          >
+            <section class="settings-section">
+              <h3 class="settings-section-title" data-i18n="theme">Theme</h3>
+              <input type="hidden" id="settingTheme" name="theme" value="dark" />
+              <div
+                class="theme-picker"
+                id="settingThemePicker"
+                role="radiogroup"
+                data-i18n-aria="theme"
+                aria-label="Theme"
+              ></div>
+              <div class="theme-actions">
+                <button
+                  type="button"
+                  class="btn secondary"
+                  id="btnEditTheme"
+                  data-i18n="customize"
+                >
+                  Customize…
+                </button>
+                <button
+                  type="button"
+                  class="btn secondary"
+                  id="btnDeleteTheme"
+                  hidden
+                  data-i18n="deleteCustom"
+                >
+                  Delete custom
+                </button>
+              </div>
+              <p class="field-hint" data-i18n="themeTabHint">
+                Play and Stop keep the same colors in every theme. Other
+                controls follow the selected theme.
+              </p>
+            </section>
+          </div>
         </div>
         <footer class="modal-footer">
           <button
@@ -1558,16 +1621,16 @@
             Reset defaults
           </button>
           <button
-            type="submit"
+            type="button"
             class="btn primary"
-            value="save"
             id="btnSaveSettings"
             data-i18n="save"
           >
             Save
           </button>
         </footer>
-      </form>
+        </form>
+      </div>
     </dialog>
 
     <!-- Custom theme editor -->
@@ -1791,24 +1854,87 @@
           </button>
         </header>
         <div class="modal-body about-body">
-          <div class="about-logo" aria-hidden="true">▶</div>
-          <h3 id="aboutName">MyVideoPlayer</h3>
-          <p id="aboutVersion">Version 1.0.0</p>
-          <p class="about-desc" data-i18n-html="aboutDesc">
-            Cross-platform media player for Web, Windows, macOS, and Linux.<br />Formats:
-            H.264, H.265*, MP4, WebM, MP3, AAC, YouTube links, and more.
-          </p>
-          <p class="about-author">
-            <span data-i18n="aboutAuthor">Author:</span> <strong>SHKWON</strong>
-          </p>
-          <p class="about-email">
-            <a href="mailto:knix008@naver.com" id="aboutEmail"
-              >knix008@naver.com</a
-            >
-          </p>
-          <p class="about-note" data-i18n="aboutNote">
-            * H.265/HEVC depends on OS/hardware codec support.
-          </p>
+          <div class="about-hero">
+            <img
+              class="about-logo"
+              src="favicon.png"
+              width="56"
+              height="56"
+              alt=""
+              draggable="false"
+            />
+            <div class="about-hero-text">
+              <h3 id="aboutName">MyVideoPlayer</h3>
+              <p class="about-desc" data-i18n="aboutDesc">
+                Cross-platform media player for Web, Windows, macOS, and Linux.
+              </p>
+            </div>
+          </div>
+
+          <dl class="about-meta">
+            <div class="about-meta-item">
+              <dt data-i18n="aboutVersionLabel">Version</dt>
+              <dd>
+                <span id="aboutVersion">1.0.0</span>
+                <span
+                  class="about-meta-desc"
+                  data-i18n="aboutVersionDesc"
+                  >Installed application version.</span
+                >
+              </dd>
+            </div>
+            <div class="about-meta-item">
+              <dt data-i18n="aboutAuthorLabel">Author</dt>
+              <dd>
+                <strong>SHKWON</strong>
+                <span class="about-meta-desc" data-i18n="aboutAuthorDesc"
+                  >Developer and maintainer of MyVideoPlayer.</span
+                >
+              </dd>
+            </div>
+            <div class="about-meta-item">
+              <dt data-i18n="aboutContactLabel">Contact</dt>
+              <dd>
+                <a href="mailto:knix008@naver.com" id="aboutEmail"
+                  >knix008@naver.com</a
+                >
+                <span class="about-meta-desc" data-i18n="aboutContactDesc"
+                  >Email for feedback, bug reports, and support.</span
+                >
+              </dd>
+            </div>
+            <div class="about-meta-item">
+              <dt data-i18n="aboutPlatformsLabel">Platforms</dt>
+              <dd>
+                <span data-i18n="aboutPlatformsValue"
+                  >Web, Windows, macOS, Linux</span
+                >
+                <span class="about-meta-desc" data-i18n="aboutPlatformsDesc"
+                  >Runs in the browser and as a desktop app via Electron.</span
+                >
+              </dd>
+            </div>
+            <div class="about-meta-item">
+              <dt data-i18n="aboutFormatsLabel">Formats</dt>
+              <dd>
+                <span data-i18n="aboutFormatsValue"
+                  >H.264, H.265*, MP4, WebM, MP3, AAC, YouTube, Instagram,
+                  TikTok, RTSP</span
+                >
+                <span class="about-meta-desc" data-i18n="aboutFormatsDesc"
+                  >Local files, online links, and live RTSP streams.</span
+                >
+              </dd>
+            </div>
+            <div class="about-meta-item">
+              <dt data-i18n="aboutNoteLabel">Note</dt>
+              <dd>
+                <span data-i18n="aboutNote"
+                  >* H.265/HEVC depends on OS/hardware codec support.</span
+                >
+              </dd>
+            </div>
+          </dl>
         </div>
         <footer class="modal-footer">
           <button type="submit" class="btn primary" value="ok" data-i18n="ok">

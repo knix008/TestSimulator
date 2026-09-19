@@ -52,6 +52,7 @@ import {
   applyThemeToDocument,
   syncThemeToOverlays,
   getThemeDefinition,
+  resolveThemeId,
   loadCustomThemes,
   upsertCustomTheme,
   deleteCustomTheme,
@@ -145,6 +146,7 @@ const els = {
   btnLocale: $("btnLocale"),
   localeBtnLabel: $("localeBtnLabel"),
   btnTheme: $("btnTheme"),
+  btnThemeMenu: $("btnThemeMenu"),
   themeMenu: $("themeMenu"),
   themeList: $("themeList"),
   btnToolbarEditTheme: $("btnToolbarEditTheme"),
@@ -1772,6 +1774,23 @@ function toggleLocale() {
   applyLocale(next);
 }
 
+function themeMenuPreview(themeIdOrDef) {
+  const def =
+    typeof themeIdOrDef === "string"
+      ? getThemeDefinition(themeIdOrDef)
+      : themeIdOrDef;
+  const vars = def?.vars || {};
+  const primary = vars["--bg-primary"] || "#3d8bfd";
+  return {
+    app: vars["--bg-app"] || "#121418",
+    primary,
+    seek: vars["--ctrl-seek"] || primary,
+    volume: vars["--ctrl-volume"] || primary,
+    rate: vars["--ctrl-rate"] || primary,
+    text: vars["--text"] || "#e8ecf3",
+  };
+}
+
 function renderThemeMenu() {
   const list = els.themeList;
   if (!list) return;
@@ -1785,18 +1804,32 @@ function renderThemeMenu() {
     list.appendChild(group);
   };
 
-  const addItem = (id, label) => {
+  const addItem = (id, label, def) => {
+    const colors = themeMenuPreview(def || id);
     const li = document.createElement("li");
     const btn = document.createElement("button");
     btn.type = "button";
-    btn.className = `popup-item${id === current ? " is-active" : ""}`;
+    btn.className = `popup-item theme-menu-item${id === current ? " is-active" : ""}`;
     btn.setAttribute("role", "menuitemradio");
     btn.setAttribute("aria-checked", String(id === current));
     btn.dataset.theme = id;
-    btn.innerHTML = `<span class="popup-item-label"></span><span class="popup-item-check" aria-hidden="true"></span>`;
-    btn.querySelector(".popup-item-label").textContent = label;
+    btn.style.setProperty("--theme-label", colors.primary);
+    btn.innerHTML = `
+      <span class="popup-item-content">
+        <span class="theme-swatch" aria-hidden="true" style="background:${colors.app};border-color:${colors.primary}">
+          <span class="theme-swatch-dot" style="background:${colors.seek}"></span>
+          <span class="theme-swatch-dot" style="background:${colors.volume}"></span>
+          <span class="theme-swatch-dot" style="background:${colors.rate}"></span>
+        </span>
+        <span class="popup-item-label theme-menu-label"></span>
+      </span>
+      <span class="popup-item-check" aria-hidden="true"></span>`;
+    const labelEl = btn.querySelector(".theme-menu-label");
+    labelEl.textContent = label;
+    labelEl.style.color = colors.primary;
     btn.querySelector(".popup-item-check").textContent =
       id === current ? "✓" : "";
+    btn.querySelector(".popup-item-check").style.color = colors.primary;
     btn.addEventListener("click", async () => {
       closeThemeMenu();
       await selectTheme(id);
@@ -1805,22 +1838,38 @@ function renderThemeMenu() {
     list.appendChild(li);
   };
 
-  addGroup(t("builtinGroup"));
-  for (const theme of BUILTIN_THEMES) {
-    addItem(theme.id, t(BUILTIN_THEME_NAME_KEYS[theme.id] || theme.name));
+  addGroup(t("themeDarkGroup"));
+  for (const theme of BUILTIN_THEMES.filter((x) => x.scheme === "dark")) {
+    addItem(
+      theme.id,
+      t(BUILTIN_THEME_NAME_KEYS[theme.id] || theme.name),
+      theme,
+    );
+  }
+  addGroup(t("themeLightGroup"));
+  for (const theme of BUILTIN_THEMES.filter((x) => x.scheme === "light")) {
+    addItem(
+      theme.id,
+      t(BUILTIN_THEME_NAME_KEYS[theme.id] || theme.name),
+      theme,
+    );
   }
 
   const customs = loadCustomThemes();
   if (customs.length) {
     addGroup(t("customGroup"));
     for (const theme of customs) {
-      addItem(`custom:${theme.id}`, theme.name);
+      addItem(`custom:${theme.id}`, theme.name, theme);
     }
   }
 
   els.btnTheme?.setAttribute(
     "data-tooltip",
     `${t("themeTip")}: ${themeDisplayName(current)}`,
+  );
+  els.btnThemeMenu?.setAttribute(
+    "data-tooltip",
+    `${t("themeMenuTip")}: ${themeDisplayName(current)}`,
   );
 }
 
@@ -1830,18 +1879,44 @@ function openThemeMenu() {
   // Apply scheme first so high-contrast menu colors resolve before paint.
   syncThemeToOverlays();
   els.themeMenu.hidden = false;
-  els.btnTheme?.setAttribute("aria-expanded", "true");
+  els.btnThemeMenu?.setAttribute("aria-expanded", "true");
 }
 
 function closeThemeMenu() {
   if (!els.themeMenu) return;
   els.themeMenu.hidden = true;
-  els.btnTheme?.setAttribute("aria-expanded", "false");
+  els.btnThemeMenu?.setAttribute("aria-expanded", "false");
 }
 
 function toggleThemeMenu() {
   if (els.themeMenu?.hidden) openThemeMenu();
   else closeThemeMenu();
+}
+
+function listSelectableThemeIds() {
+  const ids = BUILTIN_THEMES.map((theme) => theme.id);
+  for (const theme of loadCustomThemes()) {
+    ids.push(`custom:${theme.id}`);
+  }
+  return ids;
+}
+
+async function cycleTheme() {
+  closeThemeMenu();
+  const ids = listSelectableThemeIds();
+  if (!ids.length) return;
+  const current = settings.theme;
+  let idx = ids.indexOf(current);
+  if (idx < 0) {
+    const resolved = resolveThemeId(current);
+    idx = ids.indexOf(resolved);
+  }
+  const next = ids[(idx + 1 + ids.length) % ids.length];
+  await selectTheme(next);
+  setStatus({
+    themeSetting: next,
+    state: statusKey("statusTheme", { name: themeDisplayName(next) }),
+  });
 }
 
 async function selectTheme(themeId) {
@@ -1851,6 +1926,7 @@ async function selectTheme(themeId) {
   populateThemeSelect(themeId);
   await applyTheme(themeId);
   renderThemeMenu();
+  setStatus({ themeSetting: themeId });
 }
 
 async function playRecentItem(item) {
@@ -2012,7 +2088,7 @@ function setStatus(partial = {}) {
     statusSnapshot.themeSetting = String(partial.themeSetting);
   else if (partial.theme != null && typeof partial.theme === "string") {
     // Prefer theme ids (dark/light/custom:…); ignore already-translated names.
-    if (/^(dark|light|ocean|forest|custom:)/.test(partial.theme)) {
+    if (/^(dark|light|ocean|forest|dusk|ember|graphite|nebula|mocha|aurora|onyx|sky|mint|lavender|slate|sand|rose|citrus|frost|blossom|custom:)/.test(partial.theme)) {
       statusSnapshot.themeSetting = partial.theme;
     }
   }
@@ -2213,38 +2289,75 @@ function getLocaleSafe() {
 let themeDraft = { id: null, name: "", scheme: "dark", vars: {} };
 
 function populateThemeSelect(selected) {
-  const select = $("settingTheme");
-  if (!select) return;
+  const input = $("settingTheme");
+  const picker = $("settingThemePicker");
+  if (!input) return;
   const current = selected ?? settings.theme;
-  select.innerHTML = "";
+  const items = [];
 
-  const builtinGroup = document.createElement("optgroup");
-  builtinGroup.label = t("builtinGroup");
   for (const theme of BUILTIN_THEMES) {
-    const opt = document.createElement("option");
-    opt.value = theme.id;
-    opt.textContent = t(BUILTIN_THEME_NAME_KEYS[theme.id] || theme.name);
-    builtinGroup.appendChild(opt);
+    items.push({
+      id: theme.id,
+      label: t(BUILTIN_THEME_NAME_KEYS[theme.id] || theme.name),
+      def: theme,
+    });
   }
-  select.appendChild(builtinGroup);
+  for (const theme of loadCustomThemes()) {
+    items.push({
+      id: `custom:${theme.id}`,
+      label: theme.name,
+      def: theme,
+    });
+  }
 
-  const customs = loadCustomThemes();
-  if (customs.length) {
-    const customGroup = document.createElement("optgroup");
-    customGroup.label = t("customGroup");
-    for (const theme of customs) {
-      const opt = document.createElement("option");
-      opt.value = `custom:${theme.id}`;
-      opt.textContent = theme.name;
-      customGroup.appendChild(opt);
+  const validIds = items.map((item) => item.id);
+  const nextValue = validIds.includes(current) ? current : "dark";
+  input.value = nextValue;
+
+  if (picker) {
+    picker.innerHTML = "";
+    for (const item of items) {
+      const colors = themeMenuPreview(item.def);
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = `theme-picker-btn${item.id === nextValue ? " is-active" : ""}`;
+      btn.dataset.theme = item.id;
+      btn.setAttribute("role", "radio");
+      btn.setAttribute("aria-checked", String(item.id === nextValue));
+      btn.title = item.label;
+      btn.style.setProperty("--theme-btn-bg", colors.app);
+      btn.style.setProperty("--theme-btn-fg", colors.primary);
+      btn.innerHTML = `
+        <span class="theme-picker-swatch" aria-hidden="true">
+          <span class="theme-picker-dot" style="background:${colors.seek}"></span>
+          <span class="theme-picker-dot" style="background:${colors.volume}"></span>
+          <span class="theme-picker-dot" style="background:${colors.rate}"></span>
+        </span>
+        <span class="theme-picker-label"></span>`;
+      btn.querySelector(".theme-picker-label").textContent = item.label;
+      btn.querySelector(".theme-picker-label").style.color = colors.primary;
+      picker.appendChild(btn);
     }
-    select.appendChild(customGroup);
   }
 
-  const values = [...select.options].map((o) => o.value);
-  select.value = values.includes(current) ? current : "dark";
   updateThemeActionButtons();
   renderThemeMenu();
+}
+
+function setSettingsThemeValue(themeId, { apply = true } = {}) {
+  const input = $("settingTheme");
+  if (input) input.value = themeId;
+  const picker = $("settingThemePicker");
+  if (picker) {
+    for (const btn of picker.querySelectorAll(".theme-picker-btn")) {
+      const active = btn.dataset.theme === themeId;
+      btn.classList.toggle("is-active", active);
+      btn.setAttribute("aria-checked", String(active));
+    }
+  }
+  updateThemeActionButtons();
+  if (apply) return selectTheme(themeId);
+  return Promise.resolve();
 }
 
 function updateThemeActionButtons() {
@@ -2809,7 +2922,68 @@ async function updateSpectrumVisibility() {
   }
 }
 
-function fillSettingsForm() {
+function setSettingsTab(tabId = "general") {
+  const next = tabId === "theme" ? "theme" : "general";
+  const generalTab = $("settingsTabGeneral");
+  const themeTab = $("settingsTabTheme");
+  const generalPanel = $("settingsPanelGeneral");
+  const themePanel = $("settingsPanelTheme");
+
+  if (generalTab) {
+    const active = next === "general";
+    generalTab.classList.toggle("is-active", active);
+    generalTab.setAttribute("aria-selected", String(active));
+    generalTab.tabIndex = active ? 0 : -1;
+  }
+  if (themeTab) {
+    const active = next === "theme";
+    themeTab.classList.toggle("is-active", active);
+    themeTab.setAttribute("aria-selected", String(active));
+    themeTab.tabIndex = active ? 0 : -1;
+  }
+  if (generalPanel) {
+    const active = next === "general";
+    generalPanel.classList.toggle("is-active", active);
+    generalPanel.setAttribute("aria-hidden", String(!active));
+    generalPanel.removeAttribute("hidden");
+    generalPanel.inert = !active;
+  }
+  if (themePanel) {
+    const active = next === "theme";
+    themePanel.classList.toggle("is-active", active);
+    themePanel.setAttribute("aria-hidden", String(!active));
+    themePanel.removeAttribute("hidden");
+    themePanel.inert = !active;
+  }
+}
+
+function bindSettingsTabs() {
+  const modal = els.settingsModal;
+  if (!modal || modal.dataset.tabsBound === "1") return;
+  modal.dataset.tabsBound = "1";
+
+  modal.addEventListener(
+    "click",
+    (e) => {
+      const tab = e.target?.closest?.("[data-settings-tab]");
+      if (!tab || !modal.contains(tab)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      setSettingsTab(tab.getAttribute("data-settings-tab") || "general");
+    },
+    true,
+  );
+
+  // Keep method=dialog from closing the window on accidental submits.
+  $("settingsForm")?.addEventListener("submit", (e) => {
+    e.preventDefault();
+  });
+
+  setSettingsTab("general");
+}
+
+function fillSettingsForm({ tab = "general" } = {}) {
+  setSettingsTab(tab);
   fillLocaleSelect();
   populateThemeSelect(settings.theme);
   fillSpectrumStyleSelect();
@@ -4710,6 +4884,10 @@ function bindToolbar() {
   });
   els.btnTheme?.addEventListener("click", (e) => {
     e.stopPropagation();
+    void cycleTheme();
+  });
+  els.btnThemeMenu?.addEventListener("click", (e) => {
+    e.stopPropagation();
     toggleThemeMenu();
   });
   els.btnToolbarEditTheme?.addEventListener("click", (e) => {
@@ -4783,8 +4961,11 @@ function bindToolbar() {
     toggleCompactMode();
   });
   $("btnSettings").addEventListener("click", () => {
-    fillSettingsForm();
+    fillSettingsForm({ tab: "general" });
     openThemedDialog(els.settingsModal);
+  });
+  $("btnCloseSettings")?.addEventListener("click", () => {
+    els.settingsModal?.close();
   });
   $("btnAbout").addEventListener("click", () =>
     openThemedDialog(els.aboutModal),
@@ -4888,12 +5069,14 @@ function bindToolbar() {
   $("settingStartVolume")?.addEventListener("input", () => {
     updateStartVolumeValue($("settingStartVolume").value);
   });
-  $("settingTheme").addEventListener("change", async () => {
-    updateThemeActionButtons();
-    await selectTheme($("settingTheme").value);
+  $("settingThemePicker")?.addEventListener("click", async (e) => {
+    const btn = e.target?.closest?.(".theme-picker-btn");
+    if (!btn?.dataset?.theme) return;
+    e.preventDefault();
+    await setSettingsThemeValue(btn.dataset.theme);
   });
-  $("btnEditTheme").addEventListener("click", () => openThemeEditor());
-  $("btnDeleteTheme").addEventListener("click", () =>
+  $("btnEditTheme")?.addEventListener("click", () => openThemeEditor());
+  $("btnDeleteTheme")?.addEventListener("click", () =>
     deleteSelectedCustomTheme(),
   );
   $("btnCloseThemeEditor").addEventListener("click", () =>
@@ -5221,6 +5404,8 @@ async function init() {
 
   // One document-level tooltip host — nested roots were hiding tips via mouseleave races.
   initTooltips(document);
+
+  bindSettingsTabs();
 
   window.addEventListener("error", (event) => {
     showAppError({
