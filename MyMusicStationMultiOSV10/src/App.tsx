@@ -3456,17 +3456,6 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
           >
             <Info size={14} />
           </button>
-          <button
-            className={`tool-button icon-only${trackListCollapsed ? ' active-toggle' : ''}`}
-            type="button"
-            data-tooltip={trackListCollapsed ? labels.expandTrackList : labels.collapseTrackList}
-            aria-label={trackListCollapsed ? labels.expandTrackList : labels.collapseTrackList}
-            aria-pressed={trackListCollapsed}
-            onPointerDown={(event) => event.stopPropagation()}
-            onClick={() => setTrackListCollapsed((collapsed) => !collapsed)}
-          >
-            {trackListCollapsed ? <PanelRightOpen size={14} /> : <PanelRightClose size={14} />}
-          </button>
         </div>
 
         <div className="window-actions">
@@ -3522,7 +3511,19 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
                 {currentTechnicalDetails.length > 0 ? currentTechnicalDetails.join(' · ') : '\u00a0'}
               </div>
             </div>
-            <small>{labels.formats}</small>
+            <button
+              type="button"
+              className={`playlist-toggle${trackListCollapsed ? '' : ' is-open'}`}
+              data-tooltip={trackListCollapsed ? labels.expandTrackList : labels.collapseTrackList}
+              aria-label={trackListCollapsed ? labels.expandTrackList : labels.collapseTrackList}
+              aria-pressed={!trackListCollapsed}
+              onClick={() => setTrackListCollapsed((collapsed) => !collapsed)}
+            >
+              {trackListCollapsed ? <PanelRightOpen size={14} /> : <PanelRightClose size={14} />}
+            </button>
+            <div className="now-playing-aside">
+              <small>{labels.formats}</small>
+            </div>
           </div>
 
           <div
@@ -3610,19 +3611,10 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
           </div>
         </section>
 
-        {!trackListCollapsed ? (
+        {!trackListCollapsed && (
         <aside className="side-panel">
           <div className="side-panel-header">
             <h2>{labels.playlist}</h2>
-            <button
-              type="button"
-              className="side-panel-collapse"
-              data-tooltip={labels.collapseTrackList}
-              aria-label={labels.collapseTrackList}
-              onClick={() => setTrackListCollapsed(true)}
-            >
-              <PanelRightClose size={14} />
-            </button>
           </div>
 
           <form className="remote-form" onSubmit={(event) => void addRemoteTrack(event)}>
@@ -3681,16 +3673,6 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
             ))}
           </div>
         </aside>
-        ) : (
-          <button
-            type="button"
-            className="track-list-expand"
-            data-tooltip={labels.expandTrackList}
-            aria-label={labels.expandTrackList}
-            onClick={() => setTrackListCollapsed(false)}
-          >
-            <PanelRightOpen size={14} />
-          </button>
         )}
       </section>
 

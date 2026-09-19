@@ -725,9 +725,9 @@
   background: transparent;
 }
 
-/* Track list collapsed: the player panel expands; a slim expand control stays on the right. */
+/* Track list collapsed: the player panel uses the full width. */
 .content-grid.track-list-collapsed {
-  grid-template-columns: 1fr auto;
+  grid-template-columns: 1fr;
 }
 
 .player-panel,
@@ -763,6 +763,7 @@
 }
 
 .now-playing {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -770,6 +771,58 @@
   min-width: 0;
   height: 76px;
   overflow: hidden;
+}
+
+.now-playing-aside {
+  display: flex;
+  flex: 0 0 120px;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  align-self: stretch;
+  width: 120px;
+  max-width: 120px;
+  min-width: 0;
+  padding-top: 28px;
+  box-sizing: border-box;
+}
+
+.now-playing-aside small {
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+  line-height: 1.25;
+  text-align: right;
+}
+
+.playlist-toggle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 2;
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  color: var(--text);
+  background: var(--control);
+  cursor: pointer;
+}
+
+.playlist-toggle:hover {
+  border-color: var(--line-strong);
+  color: var(--text-strong);
+  background: var(--control-hover, var(--control));
+}
+
+.playlist-toggle.is-open {
+  border-color: color-mix(in srgb, var(--primary) 45%, var(--line));
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 14%, var(--control));
 }
 
 .album-art {
@@ -845,16 +898,6 @@
   font-size: 12px;
   line-height: 14px;
   min-height: 14px;
-}
-
-.now-playing small {
-  flex: 0 0 120px;
-  width: 120px;
-  max-width: 120px;
-  text-align: right;
-  align-self: center;
-  overflow: hidden;
-  line-height: 1.25;
 }
 
 .spectrum-stage {
@@ -1157,36 +1200,6 @@ input[type='range'] {
   letter-spacing: 0.02em;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.side-panel-collapse,
-.track-list-expand {
-  display: inline-grid;
-  flex: 0 0 auto;
-  place-items: center;
-  width: 24px;
-  height: 24px;
-  margin: 0;
-  padding: 0;
-  border: 1px solid var(--line);
-  border-radius: 5px;
-  color: var(--text);
-  background: var(--control);
-  cursor: pointer;
-}
-
-.side-panel-collapse:hover,
-.track-list-expand:hover {
-  border-color: var(--line-strong);
-  color: var(--text-strong);
-  background: var(--control-hover, var(--control));
-}
-
-.track-list-expand {
-  align-self: start;
-  width: 28px;
-  height: var(--player-panel-height);
-  border-radius: 7px;
 }
 
 select,
