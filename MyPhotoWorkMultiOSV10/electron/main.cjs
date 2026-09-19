@@ -30,6 +30,9 @@ if (!gotSingleInstanceLock) {
   app.quit()
 }
 
+// The built bundle's own scheme; it has to be declared before the app is ready.
+childWindows.registerBundleScheme()
+
 function createWindow() {
   const mainWindow = new BrowserWindow({
     width: currentWindowSize.width,
@@ -80,14 +83,13 @@ function createWindow() {
     }, 1200).unref?.()
   })
 
-  const bundle = path.join(__dirname, '..', 'dist', 'index.html')
   if (isDev) {
     // Prefer the dev server, but do not leave a blank window when it is not up.
     mainWindow.loadURL('http://127.0.0.1:5173').catch(() => {
-      if (!mainWindow.isDestroyed()) mainWindow.loadFile(bundle)
+      if (!mainWindow.isDestroyed()) mainWindow.loadURL(childWindows.bundleUrl())
     })
   } else {
-    mainWindow.loadFile(bundle)
+    mainWindow.loadURL(childWindows.bundleUrl())
   }
 }
 
@@ -438,11 +440,21 @@ if (gotSingleInstanceLock) {
 
   app.whenReady().then(() => {
     Menu.setApplicationMenu(null)
-    // Cross-origin isolation, so the renderer may use SharedArrayBuffer and
-    // ONNX Runtime can run a model on every core instead of one. The
-    // `credentialless` embedder policy keeps ordinary cross-origin images
-    // loadable.
+    // The packaged bundle is served on `app://` with the cross-origin
+    // isolation headers; the dev server's pages get the same headers here, so
+    // the renderer may use SharedArrayBuffer either way and ONNX Runtime can
+    // run a model on every core instead of one. The `credentialless` embedder
+    // policy keeps ordinary cross-origin images loadable.
+    childWindows.serveBundle()
     require('electron').session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+      // A response that already carries the policies (the bundle scheme's do)
+      // is left alone: a second copy makes the header value a list, which
+      // Chromium rejects, and the page would not be isolated after all.
+      const has = (name) => Object.keys(details.responseHeaders ?? {}).some((key) => key.toLowerCase() === name)
+      if (has('cross-origin-opener-policy') && has('cross-origin-embedder-policy')) {
+        callback({})
+        return
+      }
       callback({
         responseHeaders: {
           ...details.responseHeaders,

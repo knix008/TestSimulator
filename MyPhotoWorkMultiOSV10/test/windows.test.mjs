@@ -473,9 +473,16 @@ test('every popup host asks for the stylesheet itself', () => {
   }
 })
 
-test('the popup windows load by relative path, which is what file:// needs', () => {
+test('the bundle is served on its own scheme with the isolation headers, by relative path', () => {
   const config = read('vite.config.ts')
-  assert.match(config, /base: '\.\/'/, "an absolute base would make the split chunks unreachable from file://")
+  assert.match(config, /base: '\.\/'/, 'an absolute base would make the split chunks unreachable under app://')
+  assert.match(childWindows, /protocol\.registerSchemesAsPrivileged\(\[\s*\{ scheme: 'app', privileges: \{ standard: true, secure: true/, 'the app scheme is not registered as standard and secure')
+  assert.match(childWindows, /Cross-Origin-Embedder-Policy', 'credentialless'/, 'the bundle responses carry no embedder policy')
+  assert.match(childWindows, /return `app:\/\/\$\{BUNDLE_HOST\}\/index\.html/, 'the windows do not load from the app scheme')
+  const main = read('electron/main.cjs')
+  assert.match(main, /childWindows\.registerBundleScheme\(\)/, 'the scheme is not registered before the app is ready')
+  assert.match(main, /childWindows\.serveBundle\(\)/, 'the scheme is never served')
+  assert.ok(!/loadFile\(bundle\)/.test(main), 'the main window still loads the bundle from file://')
 })
 
 /* ------------------------------------------- long menus, print, zoom, out */

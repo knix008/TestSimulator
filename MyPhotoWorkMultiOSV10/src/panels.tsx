@@ -6,7 +6,8 @@ import { blendLabel, toolLabel } from './i18n'
 import { adjustmentFields, fieldToSlider, sliderToField } from './adjustmentFields'
 import { gradientCss, gradientPresets, type GradientDef } from './lib/gradients'
 import { hexToRgb, hsvToRgb, rgbToHex, rgbToHsv } from './lib/color'
-import { context2d } from './lib/canvas'
+import { compositeDocument, context2d } from './lib/canvas'
+import { paintStroke } from './lib/tools'
 import { measureInfo } from './lib/regions'
 import { lutChoices } from './lib/adjustExtra'
 import {
@@ -450,14 +451,12 @@ export function NavigatorPanel({ ctx }: { ctx: PanelContext }) {
     const context = context2d(target)
     context.clearRect(0, 0, width, height)
     // The composite is what the navigator shows, drawn small.
-    import('./lib/canvas').then(({ compositeDocument }) => {
-      const composite = compositeDocument(doc, canvasesRef.current)
-      context.drawImage(composite, 0, 0, width, height)
-      const scale = width / doc.width
-      context.strokeStyle = '#f43f5e'
-      context.lineWidth = 2
-      context.strokeRect(-pan.x * scale / settings.zoom, -pan.y * scale / settings.zoom, (stageSize.width * scale) / settings.zoom, (stageSize.height * scale) / settings.zoom)
-    })
+    const composite = compositeDocument(doc, canvasesRef.current)
+    context.drawImage(composite, 0, 0, width, height)
+    const scale = width / doc.width
+    context.strokeStyle = '#f43f5e'
+    context.lineWidth = 2
+    context.strokeRect(-pan.x * scale / settings.zoom, -pan.y * scale / settings.zoom, (stageSize.width * scale) / settings.zoom, (stageSize.height * scale) / settings.zoom)
   }, [doc, canvasesRef, frame, width, height, pan, settings.zoom, stageSize])
   const jump = (event: React.PointerEvent<HTMLCanvasElement>) => {
     const box = event.currentTarget.getBoundingClientRect()
@@ -641,12 +640,10 @@ export function BrushesPanel({ ctx }: { ctx: PanelContext }) {
     const context = context2d(target)
     context.clearRect(0, 0, target.width, target.height)
     // A sample stroke with the current tip, so its shape can be seen.
-    import('./lib/tools').then(({ paintStroke }) => {
-      const size = Math.min(settings.brushSize, 60)
-      paintStroke(target, { x: 20, y: target.height / 2 }, { x: target.width - 20, y: target.height / 2 }, {
-        size, hardness: settings.brushHardness, color: settings.foreground, opacity: settings.brushOpacity, selection: null,
-        shape: { spacing: settings.brushSpacing, angle: settings.brushAngle, roundness: settings.brushRoundness, scatter: settings.brushScatter },
-      })
+    const size = Math.min(settings.brushSize, 60)
+    paintStroke(target, { x: 20, y: target.height / 2 }, { x: target.width - 20, y: target.height / 2 }, {
+      size, hardness: settings.brushHardness, color: settings.foreground, opacity: settings.brushOpacity, selection: null,
+      shape: { spacing: settings.brushSpacing, angle: settings.brushAngle, roundness: settings.brushRoundness, scatter: settings.brushScatter },
     })
   }, [settings.brushSize, settings.brushHardness, settings.brushOpacity, settings.brushSpacing, settings.brushAngle, settings.brushRoundness, settings.brushScatter, settings.foreground])
   const patch = (next: Partial<AppSettings>) => ctx.setSettings((current) => ({ ...current, ...next }))

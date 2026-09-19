@@ -159,9 +159,23 @@ result, the explicit calls in the file paths, and an IPC channel that forwards
 failures out of the popup windows, which are separate renderers and would
 otherwise take their errors down with them.
 
-`copyText()` falls back to a hidden textarea and `execCommand`, because a
-packaged popup is loaded over `file://` — not a secure context — where
-`navigator.clipboard` does not exist.
+`copyText()` falls back to a hidden textarea and `execCommand`, from the days
+when a packaged popup was loaded over `file://` — not a secure context — where
+`navigator.clipboard` does not exist; the fallback is kept for the browser build
+served from an insecure origin.
+
+### The bundle scheme
+
+Packaged, the windows load `app://bundle/index.html` (with a hash route for a
+popup) rather than the `dist/index.html` file: `childwindows.cjs` registers the
+`app` scheme as standard and secure before the app is ready and serves `dist/`
+on it with `protocol.handle`, adding the `Cross-Origin-Opener-Policy` and
+`Cross-Origin-Embedder-Policy: credentialless` headers a file cannot carry.
+That makes the page cross-origin isolated, so `SharedArrayBuffer` exists and
+ONNX Runtime runs a model on every core. The dev server's pages get the same
+headers from a `webRequest` hook (which leaves a response alone when it already
+has them, since a doubled header is a list Chromium rejects). Vite's `base` stays
+`./`, so the split chunks resolve under either origin.
 
 ## Generated files
 

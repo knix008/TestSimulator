@@ -125,11 +125,52 @@ function isDev() {
   return !app.isPackaged
 }
 
+/**
+ * The built bundle is served on the app's own `app://` scheme rather than
+ * from `file://`, because a scheme handler can send response headers and a
+ * file cannot: the cross-origin isolation headers are what let the renderer
+ * use SharedArrayBuffer, which ONNX Runtime needs to run a model on more
+ * than one core. `registerBundleScheme` below serves `dist/` on it.
+ */
+const BUNDLE_HOST = 'bundle'
+const distDir = path.join(__dirname, '..', 'dist')
+
+function bundleUrl(hash = '') {
+  return `app://${BUNDLE_HOST}/index.html${hash ? `#${hash}` : ''}`
+}
+
+/** Called before the app is ready: makes `app://` behave like https. */
+function registerBundleScheme() {
+  const { protocol } = require('electron')
+  protocol.registerSchemesAsPrivileged([
+    { scheme: 'app', privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true, stream: true } },
+  ])
+}
+
+/** Called once the app is ready: `app://bundle/<path>` is `dist/<path>`, with the isolation headers. */
+function serveBundle() {
+  const { protocol, net } = require('electron')
+  const { pathToFileURL } = require('node:url')
+  protocol.handle('app', async (request) => {
+    const url = new URL(request.url)
+    let pathname = decodeURIComponent(url.pathname)
+    if (pathname === '/' || pathname === '') pathname = '/index.html'
+    const file = path.normalize(path.join(distDir, pathname))
+    if (url.host !== BUNDLE_HOST || !file.startsWith(distDir)) return new Response('not found', { status: 404 })
+    const response = await net.fetch(pathToFileURL(file).href)
+    const headers = new Headers(response.headers)
+    headers.set('Cross-Origin-Opener-Policy', 'same-origin')
+    headers.set('Cross-Origin-Embedder-Policy', 'credentialless')
+    if (file.endsWith('.wasm')) headers.set('Content-Type', 'application/wasm')
+    return new Response(response.body, { status: response.status, headers })
+  })
+}
+
 function routeTarget(hash) {
   if (isDev()) {
     return { url: `http://127.0.0.1:5173/#${hash}` }
   }
-  return { file: path.join(__dirname, '..', 'dist', 'index.html'), hash }
+  return { url: bundleUrl(hash) }
 }
 
 /**
@@ -139,14 +180,9 @@ function routeTarget(hash) {
  */
 function load(win, hash) {
   const target = routeTarget(hash)
-  const file = path.join(__dirname, '..', 'dist', 'index.html')
-  if (target.url) {
-    win.loadURL(target.url).catch(() => {
-      if (!win.isDestroyed()) win.loadFile(file, { hash }).catch(() => {})
-    })
-  } else {
-    win.loadFile(target.file, { hash: target.hash })
-  }
+  win.loadURL(target.url).catch(() => {
+    if (!win.isDestroyed() && target.url !== bundleUrl(hash)) win.loadURL(bundleUrl(hash)).catch(() => {})
+  })
 }
 
 function iconPath() {
@@ -603,6 +639,9 @@ function setMainWindow(win) {
 }
 
 module.exports = {
+  registerBundleScheme,
+  serveBundle,
+  bundleUrl,
   registerChildWindowHandlers,
   sizeDialogWindow,
   setMainWindow,
