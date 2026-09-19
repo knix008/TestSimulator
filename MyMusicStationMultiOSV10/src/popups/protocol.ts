@@ -4,7 +4,7 @@ import type { ThemeDefinition } from '../themes'
 // Each dialog runs in its own OS window (label `popup-<kind>`). The main window
 // owns all state and pushes a snapshot; the popup only renders it and sends
 // user intents back as actions.
-export const popupKinds = ['settings', 'convert', 'extract', 'appInfo', 'alert', 'error', 'folderProgress'] as const
+export const popupKinds = ['settings', 'convert', 'extract', 'appInfo', 'alert', 'error', 'folderProgress', 'downloadProgress', 'themePicker'] as const
 export type PopupKind = (typeof popupKinds)[number]
 
 export const isPopupKind = (value: string | null): value is PopupKind =>
@@ -79,6 +79,23 @@ export type FolderProgressPopupData = {
   total: number
 }
 
+export type DownloadProgressPopupData = {
+  phase: 'preparing' | 'downloading' | 'converting' | 'finishing'
+  percent: number | null
+  speed?: string | null
+  eta?: string | null
+  title?: string
+}
+
+export type ThemePickerPopupData = {
+  themeId: string
+  themes: ThemeDefinition[]
+  themeMessage: string
+  /** Logical screen coordinates for the top-left of the dropdown OS window. */
+  anchorX: number
+  anchorY: number
+}
+
 export type PopupData = {
   settings: SettingsPopupData
   convert: ConvertPopupData
@@ -87,6 +104,8 @@ export type PopupData = {
   alert: AlertPopupData
   error: ErrorPopupData
   folderProgress: FolderProgressPopupData
+  downloadProgress: DownloadProgressPopupData
+  themePicker: ThemePickerPopupData
 }
 
 export type SettingsPopupAction =
@@ -120,6 +139,14 @@ export type ExtractPopupAction =
   | { type: 'run' }
   | { type: 'close' }
 
+export type ThemePickerPopupAction =
+  | { type: 'selectTheme'; themeId: string }
+  | { type: 'addTheme'; name: string; accent: string }
+  | { type: 'deleteTheme' }
+  | { type: 'exportTheme' }
+  | { type: 'importTheme' }
+  | { type: 'close' }
+
 export type CloseOnlyAction = { type: 'close' }
 
 export type PopupAction = {
@@ -130,6 +157,8 @@ export type PopupAction = {
   alert: CloseOnlyAction
   error: CloseOnlyAction
   folderProgress: never
+  downloadProgress: never
+  themePicker: ThemePickerPopupAction
 }
 
 /** Everything a popup needs to look like the main window. */
@@ -156,4 +185,6 @@ export const popupWindowWidth: Record<PopupKind, number> = {
   alert: 340,
   error: 500,
   folderProgress: 360,
+  downloadProgress: 360,
+  themePicker: 300,
 }

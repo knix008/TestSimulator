@@ -12,6 +12,7 @@ import {
   Blend,
   ChartColumn,
   CloudDownload,
+  ChevronDown,
   Download,
   FileAudio,
   FolderOpen,
@@ -71,11 +72,14 @@ import { closeAllPopupWindows } from './popups/popupWindows'
 import type {
   ConvertPopupAction,
   ConvertPopupData,
+  DownloadProgressPopupData,
   ExtractPopupAction,
   ExtractPopupData,
   PopupChrome,
   SettingsPopupAction,
   SettingsPopupData,
+  ThemePickerPopupAction,
+  ThemePickerPopupData,
 } from './popups/protocol'
 import appIconUrl from '../asset/app-icon.svg'
 import './App.css'
@@ -432,7 +436,11 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
   const [extractMessage, setExtractMessage] = useState('')
   const [alertDialog, setAlertDialog] = useState<{ title: string; message: string } | null>(null)
   const [folderProgress, setFolderProgress] = useState<{ phase: 'scanning' | 'loading'; loaded: number; total: number } | null>(null)
+  const [downloadProgress, setDownloadProgress] = useState<DownloadProgressPopupData | null>(null)
   const [themeMessage, setThemeMessage] = useState('')
+  const [showThemePicker, setShowThemePicker] = useState(false)
+  const [themePickerAnchor, setThemePickerAnchor] = useState({ x: 0, y: 0 })
+  const themeMenuButtonRef = useRef<HTMLButtonElement | null>(null)
   const [useSystemTray, setUseSystemTray] = useState(initialSettings.useSystemTray)
   const [rememberVolume] = useState(initialSettings.rememberVolume)
   const [showSpectrum] = useState(initialSettings.showSpectrum)
@@ -581,6 +589,51 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
     void listen('open-settings', () => {
       setShowSettings(true)
       setShowAppInfo(false)
+    }).then((dispose) => {
+      if (cancelled) {
+        dispose()
+        return
+      }
+
+      unlisten = dispose
+    })
+
+    return () => {
+      cancelled = true
+      unlisten?.()
+    }
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    let unlisten: (() => void) | undefined
+
+    void listen<{
+      phase: string
+      percent: number | null
+      speed?: string | null
+      eta?: string | null
+    }>('url-download-progress', (event) => {
+      const { phase, percent, speed, eta } = event.payload
+
+      if (phase === 'error') {
+        setDownloadProgress(null)
+        return
+      }
+
+      if (
+        phase === 'preparing' ||
+        phase === 'downloading' ||
+        phase === 'converting' ||
+        phase === 'finishing'
+      ) {
+        setDownloadProgress({
+          phase,
+          percent: percent ?? null,
+          speed: speed ?? null,
+          eta: eta ?? null,
+        })
+      }
     }).then((dispose) => {
       if (cancelled) {
         dispose()
@@ -881,18 +934,58 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
   const applyMetadata = (track: Track, metadata: IAudioMetadata): Track => ({
     ...track,
     title: metadata.common.title?.trim() || track.title,
-    artist: metadata.common.artist,
-    album: metadata.common.album,
-    year: metadata.common.year,
-    genre: metadata.common.genre?.join(', '),
-    trackNumber: metadata.common.track.no ?? undefined,
-    durationSeconds: metadata.format.duration,
-    bitrate: metadata.format.bitrate,
-    sampleRate: metadata.format.sampleRate,
-    codec: metadata.format.codec,
-    container: metadata.format.container,
-    artworkUrl: createArtworkUrl(metadata),
+    artist: metadata.common.artist?.trim() || track.artist,
+    album: metadata.common.album?.trim() || track.album,
+    year: metadata.common.year ?? track.year,
+    genre: metadata.common.genre?.join(', ') || track.genre,
+    trackNumber: metadata.common.track.no ?? track.trackNumber,
+    durationSeconds: metadata.format.duration ?? track.durationSeconds,
+    bitrate: metadata.format.bitrate ?? track.bitrate,
+    sampleRate: metadata.format.sampleRate ?? track.sampleRate,
+    codec: metadata.format.codec || track.codec,
+    container: metadata.format.container || track.container,
+    artworkUrl: createArtworkUrl(metadata) ?? track.artworkUrl,
   })
+
+  type ExtractedAudioResult = {
+    outputPath: string
+    title: string
+    artist?: string | null
+    album?: string | null
+    duration?: number | null
+  }
+
+  // Fill gaps from yt-dlp fields when the audio file has weak/empty tags.
+  const mergeExtractedInfo = (track: Track, extracted: ExtractedAudioResult): Track => {
+    const title = extracted.title?.trim() || track.title
+    let artist = track.artist || extracted.artist?.trim() || undefined
+    let displayTitle = title
+
+    // Common "Artist - Title" pattern from YouTube when artist tag is empty.
+    if (!artist) {
+      const split = title.split(/\s[-–—]\s/)
+      if (split.length >= 2) {
+        artist = split[0]?.trim() || undefined
+        displayTitle = split.slice(1).join(' - ').trim() || title
+      }
+    }
+
+    return {
+      ...track,
+      title: displayTitle,
+      artist,
+      album: track.album || extracted.album?.trim() || undefined,
+      durationSeconds:
+        track.durationSeconds
+        ?? (extracted.duration && extracted.duration > 0 ? extracted.duration : undefined),
+    }
+  }
+
+  const parseTrackMetadata = async (bytes: Uint8Array, filePath: string, mimeType: string) => {
+    // Copy: Tauri's readFile buffer can be detached / non-standard for strtok3.
+    const data = Uint8Array.from(bytes)
+    return parseBuffer(data, { mimeType, path: filePath, size: data.byteLength }, { duration: true })
+  }
 
   const getSessionPlaylistPath = async () => {
     if (!sessionPlaylistPathRef.current) {
@@ -964,11 +1057,14 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
     }
   }
 
-  const createTrackFromPath = async (filePath: string, fileName: string) => {
+  const createTrackFromPath = async (filePath: string, preferredTitle?: string) => {
+    const fileName = fileNameFromPath(filePath)
     const mimeType = getAudioMimeType(fileName)
+    const fallbackTitle = fileName.replace(/\.[^/.]+$/, '') || fileName
     const track: Track = {
       id: `folder-${filePath}`,
-      title: fileName.replace(/\.[^/.]+$/, ''),
+      // Prefer a display title (e.g. yt-dlp), but always derive MIME from the real path.
+      title: preferredTitle?.trim() || fallbackTitle,
       source: '',
       origin: 'local' as const,
       filePath,
@@ -980,8 +1076,9 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
       const playableTrack = { ...track, source }
 
       try {
-        return applyMetadata(playableTrack, await parseBuffer(buffer, { mimeType, path: filePath }, { duration: true }))
-      } catch {
+        return applyMetadata(playableTrack, await parseTrackMetadata(buffer, filePath, mimeType))
+      } catch (error) {
+        console.warn('[track] metadata parse failed', filePath, error)
         return playableTrack
       }
     } catch (readError) {
@@ -1003,8 +1100,9 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
       const playableTrack = { ...track, source }
 
       try {
-        return applyMetadata(playableTrack, await parseBuffer(bytes, { mimeType, path: filePath }, { duration: true }))
-      } catch {
+        return applyMetadata(playableTrack, await parseTrackMetadata(bytes, filePath, mimeType))
+      } catch (error) {
+        console.warn('[track] metadata parse failed (asset)', filePath, error)
         return playableTrack
       }
     } catch (assetError) {
@@ -1282,6 +1380,15 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
     setIsPlaying(false)
     stopSpectrum()
     showTransportOverlay('pause')
+  }
+
+  const togglePlayPause = () => {
+    if (isPlaying) {
+      pause()
+      return
+    }
+
+    play()
   }
 
   const stop = () => {
@@ -1685,16 +1792,52 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
   }
 
   // Build a playable track from a previously extracted file for `url`.
-  const createExtractedRemoteTrack = async (url: string, filePath: string, title: string) => {
-    const localTrack = await createTrackFromPath(filePath, title || fileNameFromPath(filePath) || 'Remote audio')
+  const createExtractedRemoteTrack = async (
+    url: string,
+    filePath: string,
+    extracted: Pick<ExtractedAudioResult, 'title' | 'artist' | 'album' | 'duration'> | string,
+  ) => {
+    const info: ExtractedAudioResult =
+      typeof extracted === 'string'
+        ? { outputPath: filePath, title: extracted }
+        : { outputPath: filePath, ...extracted }
+    const localTrack = await createTrackFromPath(filePath, info.title || undefined)
 
     return {
-      ...localTrack,
-      // Keep the title we know (yt-dlp / playlist); the cache file stem is a hash.
-      title: title || localTrack.title,
+      ...mergeExtractedInfo(localTrack, info),
       origin: 'remote' as const,
       remoteUrl: url,
       mode: 'extracted' as const,
+    }
+  }
+
+  const yieldForPaint = () =>
+    new Promise<void>((resolve) => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => resolve())
+      })
+    })
+
+  const invokeExtractAudioFromUrl = (args: {
+    url: string
+    outputPath: string
+    format: string
+    quality: string
+  }) => invoke<ExtractedAudioResult>('extract_audio_from_url', args)
+
+  const extractAudioFromUrl = async (args: {
+    url: string
+    outputPath: string
+    format: string
+    quality: string
+  }) => {
+    setDownloadProgress({ phase: 'preparing', percent: 0, speed: null, eta: null })
+    await yieldForPaint()
+
+    try {
+      return await invokeExtractAudioFromUrl(args)
+    } finally {
+      setDownloadProgress(null)
     }
   }
 
@@ -1709,32 +1852,45 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
       return createExtractedRemoteTrack(url, cached, title)
     }
 
-    const stream = await probeAudioStreamUrl(url)
+    // Show progress immediately so the main window never looks frozen while probing / extracting.
+    setDownloadProgress({ phase: 'preparing', percent: 0, speed: null, eta: null })
+    await yieldForPaint()
 
-    if (stream) {
-      return {
-        id: `remote-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        title: title || stream.title,
-        source: url,
-        origin: 'remote' as const,
-        remoteUrl: url,
-        mode: 'stream' as const,
+    try {
+      const stream = await probeAudioStreamUrl(url)
+
+      if (stream) {
+        return {
+          id: `remote-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          title: title || stream.title,
+          source: url,
+          origin: 'remote' as const,
+          remoteUrl: url,
+          mode: 'stream' as const,
+        }
       }
+
+      if (!quiet) {
+        pushStatus(labels.addRemoteBusy, 'busy')
+      }
+
+      const outputPath = await getRemoteCachePath(url)
+      const result = await invokeExtractAudioFromUrl({
+        url,
+        outputPath,
+        format: remoteCacheFormat,
+        quality: 'high',
+      })
+
+      return createExtractedRemoteTrack(url, result.outputPath, {
+        title: title || result.title,
+        artist: result.artist,
+        album: result.album,
+        duration: result.duration,
+      })
+    } finally {
+      setDownloadProgress(null)
     }
-
-    if (!quiet) {
-      pushStatus(labels.addRemoteBusy, 'busy')
-    }
-
-    const outputPath = await getRemoteCachePath(url)
-    const result = await invoke<{ outputPath: string; title: string }>('extract_audio_from_url', {
-      url,
-      outputPath,
-      format: remoteCacheFormat,
-      quality: 'high',
-    })
-
-    return createExtractedRemoteTrack(url, result.outputPath, title || result.title)
   }
 
   const ensurePlayableTrack = async (track: Track): Promise<Track> => {
@@ -2099,6 +2255,33 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
     pushStatus(`${labels.theme}: ${nextTheme.name}`, 'success')
   }
 
+  const openThemePickerNear = async (anchorEl: HTMLElement | null) => {
+    if (showThemePicker) {
+      setShowThemePicker(false)
+      return
+    }
+
+    try {
+      const rect = (anchorEl ?? themeMenuButtonRef.current)?.getBoundingClientRect()
+      const main = getCurrentWindow()
+      const [position, scale] = await Promise.all([main.outerPosition(), main.scaleFactor()])
+      const left = rect?.left ?? 0
+      const bottom = rect?.bottom ?? 44
+      setThemePickerAnchor({
+        x: Math.round(position.x / scale + left),
+        y: Math.round(position.y / scale + bottom + 4),
+      })
+    } catch (error) {
+      console.warn('[theme] failed to resolve menu anchor', error)
+      setThemePickerAnchor({ x: 80, y: 80 })
+    }
+
+    setShowSettings(false)
+    setShowConvertDialog(false)
+    setShowAppInfo(false)
+    setShowThemePicker(true)
+  }
+
   const showThemedAlert = (title: string, messageText: string) => {
     setAlertDialog({ title, message: messageText })
   }
@@ -2213,7 +2396,7 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
     pushStatus(labels.extractBusy, 'busy')
 
     try {
-      const result = await invoke<{ outputPath: string; title: string }>('extract_audio_from_url', {
+      const result = await extractAudioFromUrl({
         url,
         outputPath,
         format: extractFormat,
@@ -2221,9 +2404,9 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
       })
 
       if (extractAddToPlaylist) {
-        const track = await createTrackFromPath(
-          result.outputPath,
-          result.title || fileNameFromPath(result.outputPath),
+        const track = mergeExtractedInfo(
+          await createTrackFromPath(result.outputPath, result.title || fileNameFromPath(result.outputPath)),
+          result,
         )
         addTracks([track])
       }
@@ -2243,8 +2426,19 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
     }
   }
 
-  const adoptSavedLocalTrack = async (trackId: string, outputPath: string, title: string) => {
-    const localTrack = await createTrackFromPath(outputPath, title || fileNameFromPath(outputPath))
+  const adoptSavedLocalTrack = async (
+    trackId: string,
+    outputPath: string,
+    extracted: Pick<ExtractedAudioResult, 'title' | 'artist' | 'album' | 'duration'> | string,
+  ) => {
+    const info: ExtractedAudioResult =
+      typeof extracted === 'string'
+        ? { outputPath, title: extracted }
+        : { outputPath, ...extracted }
+    const localTrack = mergeExtractedInfo(
+      await createTrackFromPath(outputPath, info.title || undefined),
+      info,
+    )
     const nextTrack: Track = {
       ...localTrack,
       id: trackId,
@@ -2327,14 +2521,19 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
       // URL-added tracks: prefer saving from the original link at the chosen quality.
       if (remoteSave && prepared.remoteUrl) {
         try {
-          await invoke('extract_audio_from_url', {
+          const result = await extractAudioFromUrl({
             url: prepared.remoteUrl,
             outputPath,
             format: convertFormat,
             quality,
           })
 
-          await adoptSavedLocalTrack(prepared.id, outputPath, prepared.title)
+          await adoptSavedLocalTrack(prepared.id, outputPath, {
+            title: result.title || prepared.title,
+            artist: result.artist ?? prepared.artist,
+            album: result.album ?? prepared.album,
+            duration: result.duration ?? prepared.durationSeconds,
+          })
           const saved = `${successLabel}: ${outputPath}`
           pushStatus(saved, 'success')
           setIsConverting(false)
@@ -2490,10 +2689,16 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
         currentTrack.genre,
       ].filter(Boolean)
     : []
+  const displayDurationSeconds =
+    currentTrack?.durationSeconds && currentTrack.durationSeconds > 0
+      ? currentTrack.durationSeconds
+      : duration > 0
+        ? duration
+        : undefined
   const currentTechnicalDetails = currentTrack
     ? [
         currentTrack.trackNumber ? `Track ${currentTrack.trackNumber}` : '',
-        currentTrack.durationSeconds ? formatTime(currentTrack.durationSeconds) : '',
+        displayDurationSeconds ? formatTime(displayDurationSeconds) : '',
         currentTrack.codec,
         currentTrack.container,
         formatBitrate(currentTrack.bitrate),
@@ -2548,6 +2753,7 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
     setShowAppInfo(false)
     setShowSettings(false)
     setShowConvertDialog(false)
+    setShowThemePicker(false)
     setMiniMode(true)
     await resizeWindowTo(miniWindowSize)
     await moveWindowBottomRight(miniWindowSize)
@@ -2768,6 +2974,38 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
     }
   }
 
+  const themePickerPopupData: ThemePickerPopupData = {
+    themeId,
+    themes: availableThemes,
+    themeMessage,
+    anchorX: themePickerAnchor.x,
+    anchorY: themePickerAnchor.y,
+  }
+
+  const onThemePickerPopupAction = (action: ThemePickerPopupAction) => {
+    switch (action.type) {
+      case 'selectTheme':
+        selectTheme(action.themeId)
+        setShowThemePicker(false)
+        break
+      case 'addTheme':
+        addTheme(action.name, action.accent)
+        break
+      case 'deleteTheme':
+        deleteTheme()
+        break
+      case 'exportTheme':
+        void exportThemeFile()
+        break
+      case 'importTheme':
+        void importThemeFile()
+        break
+      case 'close':
+        setShowThemePicker(false)
+        break
+    }
+  }
+
   const extractPopupData: ExtractPopupData = {
     url: extractUrl,
     format: extractFormat,
@@ -2835,7 +3073,27 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
       )}
       <audio
         ref={audioRef}
-        onDurationChange={(event) => setDuration(event.currentTarget.duration)}
+        onDurationChange={(event) => {
+          const nextDuration = event.currentTarget.duration
+          if (!Number.isFinite(nextDuration) || nextDuration <= 0) {
+            return
+          }
+
+          setDuration(nextDuration)
+
+          const trackId = audioRef.current?.dataset.trackId
+          if (!trackId) {
+            return
+          }
+
+          setTracks((previous) =>
+            previous.map((track) =>
+              track.id === trackId && !(track.durationSeconds && track.durationSeconds > 0)
+                ? { ...track, durationSeconds: nextDuration }
+                : track,
+            ),
+          )
+        }}
         onEnded={() => playRelativeTrack(1)}
         onError={(event) => {
           const mediaError = event.currentTarget.error
@@ -2936,9 +3194,24 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
             </button>
           </div>
         </div>
-        <div className="mini-spectrum-stage">
+        <div
+          className="mini-spectrum-stage"
+          role="button"
+          tabIndex={0}
+          data-tooltip={isPlaying ? labels.pause : labels.play}
+          aria-label={isPlaying ? labels.pause : labels.play}
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={togglePlayPause}
+          onContextMenu={(event) => event.preventDefault()}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault()
+              togglePlayPause()
+            }
+          }}
+        >
           {showSpectrum ? (
-            <canvas ref={canvasRef} className="mini-spectrum" width="320" height="76" aria-label="Spectrum" />
+            <canvas ref={canvasRef} className="mini-spectrum" width="320" height="76" aria-hidden="true" />
           ) : (
             <div className="mini-spectrum mini-spectrum-disabled" aria-hidden="true" />
           )}
@@ -2958,7 +3231,7 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
             <div className="mini-transport">
               <button
                 type="button"
-                className="mini-transport-button mini-skip-button"
+                className="mini-transport-button skip-button"
                 data-tooltip={labels.previous}
                 aria-label={labels.previous}
                 onPointerDown={(event) => event.stopPropagation()}
@@ -2988,7 +3261,7 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
               </button>
               <button
                 type="button"
-                className="mini-transport-button mini-skip-button"
+                className="mini-transport-button skip-button"
                 data-tooltip={labels.next}
                 aria-label={labels.next}
                 onPointerDown={(event) => event.stopPropagation()}
@@ -3137,19 +3410,37 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
           <button className="tool-button icon-only language-toggle" type="button" data-tooltip={labels.language} aria-label={labels.language} onPointerDown={(event) => event.stopPropagation()} onClick={toggleLanguage}>
             <Languages size={14} aria-hidden="true" />
           </button>
-          <button
-            className="tool-button icon-only"
-            type="button"
-            data-tooltip={`${labels.theme}: ${selectedTheme.name}`}
-            aria-label={labels.theme}
-            onPointerDown={(event) => event.stopPropagation()}
-            onClick={(event) => {
-              event.stopPropagation()
-              cycleTheme()
-            }}
-          >
-            <Palette size={14} />
-          </button>
+          <div className="theme-toolbar-group">
+            <button
+              className="tool-button icon-only"
+              type="button"
+              data-tooltip={`${labels.theme}: ${selectedTheme.name}`}
+              aria-label={labels.theme}
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={(event) => {
+                event.stopPropagation()
+                cycleTheme()
+              }}
+            >
+              <Palette size={14} />
+            </button>
+            <button
+              ref={themeMenuButtonRef}
+              className={`tool-button icon-only theme-menu-button${showThemePicker ? ' active-toggle' : ''}`}
+              type="button"
+              data-tooltip={labels.themeMenuOpen}
+              aria-label={labels.themeMenuOpen}
+              aria-haspopup="dialog"
+              aria-expanded={showThemePicker}
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={(event) => {
+                event.stopPropagation()
+                void openThemePickerNear(event.currentTarget)
+              }}
+            >
+              <ChevronDown size={14} />
+            </button>
+          </div>
           <button
             className="tool-button icon-only"
             type="button"
@@ -3234,9 +3525,23 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
             <small>{labels.formats}</small>
           </div>
 
-          <div className="spectrum-stage">
+          <div
+            className="spectrum-stage"
+            role="button"
+            tabIndex={0}
+            data-tooltip={isPlaying ? labels.pause : labels.play}
+            aria-label={isPlaying ? labels.pause : labels.play}
+            onClick={togglePlayPause}
+            onContextMenu={(event) => event.preventDefault()}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault()
+                togglePlayPause()
+              }
+            }}
+          >
             {showSpectrum ? (
-              <canvas ref={canvasRef} className="spectrum" width="500" height="236" aria-label="Spectrum" />
+              <canvas ref={canvasRef} className="spectrum" width="500" height="236" aria-hidden="true" />
             ) : (
               <div className="spectrum spectrum-disabled" aria-hidden="true" />
             )}
@@ -3253,7 +3558,7 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
           </div>
           <div className="transport-bar">
             <div className="transport">
-              <button type="button" data-tooltip={labels.previous} aria-label={labels.previous} onClick={() => playRelativeTrack(-1)}>
+              <button type="button" className="skip-button" data-tooltip={labels.previous} aria-label={labels.previous} onClick={() => playRelativeTrack(-1)}>
                 <SkipBack size={13} />
               </button>
               <button type="button" className="primary" data-tooltip={isPlaying ? labels.pause : labels.play} aria-label={isPlaying ? labels.pause : labels.play} onClick={isPlaying ? pause : play}>
@@ -3262,7 +3567,7 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
               <button type="button" className="stop-button" data-tooltip={labels.stop} aria-label={labels.stop} onClick={stop}>
                 <Square size={13} />
               </button>
-              <button type="button" data-tooltip={labels.next} aria-label={labels.next} onClick={() => playRelativeTrack(1)}>
+              <button type="button" className="skip-button" data-tooltip={labels.next} aria-label={labels.next} onClick={() => playRelativeTrack(1)}>
                 <SkipForward size={13} />
               </button>
             </div>
@@ -3305,8 +3610,21 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
           </div>
         </section>
 
-        {!trackListCollapsed && (
+        {!trackListCollapsed ? (
         <aside className="side-panel">
+          <div className="side-panel-header">
+            <h2>{labels.playlist}</h2>
+            <button
+              type="button"
+              className="side-panel-collapse"
+              data-tooltip={labels.collapseTrackList}
+              aria-label={labels.collapseTrackList}
+              onClick={() => setTrackListCollapsed(true)}
+            >
+              <PanelRightClose size={14} />
+            </button>
+          </div>
+
           <form className="remote-form" onSubmit={(event) => void addRemoteTrack(event)}>
             <Link size={14} />
             <input
@@ -3363,6 +3681,16 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
             ))}
           </div>
         </aside>
+        ) : (
+          <button
+            type="button"
+            className="track-list-expand"
+            data-tooltip={labels.expandTrackList}
+            aria-label={labels.expandTrackList}
+            onClick={() => setTrackListCollapsed(false)}
+          >
+            <PanelRightOpen size={14} />
+          </button>
         )}
       </section>
 
@@ -3479,6 +3807,14 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
         onClosed={() => setShowSettings(false)}
       />
       <PopupHost
+        kind="themePicker"
+        open={showThemePicker}
+        chrome={popupChrome}
+        data={themePickerPopupData}
+        onAction={onThemePickerPopupAction}
+        onClosed={() => setShowThemePicker(false)}
+      />
+      <PopupHost
         kind="appInfo"
         open={showAppInfo}
         chrome={popupChrome}
@@ -3507,6 +3843,14 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
         open={Boolean(folderProgress)}
         chrome={popupChrome}
         data={folderProgress}
+        onAction={() => {}}
+        onClosed={() => {}}
+      />
+      <PopupHost
+        kind="downloadProgress"
+        open={Boolean(downloadProgress)}
+        chrome={popupChrome}
+        data={downloadProgress}
         onAction={() => {}}
         onClosed={() => {}}
       />

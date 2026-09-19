@@ -1,8 +1,10 @@
 use serde::Serialize;
 use std::fs;
+use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
-use tauri::{AppHandle, Manager};
+use std::thread;
+use tauri::{AppHandle, Emitter, Manager};
 
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
@@ -12,6 +14,7 @@ const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
 const SUPPORTED_FORMATS: &[&str] = &["mp3", "m4a", "opus", "flac", "wav", "ogg", "aac"];
 const SUPPORTED_QUALITIES: &[&str] = &["high", "medium", "low"];
+const PROGRESS_EVENT: &str = "url-download-progress";
 
 fn configure_hidden(command: &mut Command) -> &mut Command {
     command.stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped());
@@ -118,8 +121,6 @@ fn ensure_parent_dir(path: &Path) -> Result<(), String> {
 }
 
 fn audio_quality_args(format: &str, quality: &str) -> Vec<&'static str> {
-    // yt-dlp --audio-quality: 0 = best, 10 = worst.
-    // Lossless targets always use best; lossy maps high/medium/low to 0/5/8.
     match (format, quality) {
         ("flac" | "wav", _) | (_, "high") => vec!["--audio-quality", "0"],
         (_, "medium") => vec!["--audio-quality", "5"],
@@ -127,20 +128,80 @@ fn audio_quality_args(format: &str, quality: &str) -> Vec<&'static str> {
     }
 }
 
-fn run_command(command: &mut Command, tool_label: &str) -> Result<std::process::Output, String> {
-    command
-        .spawn()
-        .and_then(|child| child.wait_with_output())
-        .map_err(|error| format!("{tool_label} 실행 실패: {error}"))
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct DownloadProgressPayload {
+    phase: String,
+    percent: Option<f64>,
+    speed: Option<String>,
+    eta: Option<String>,
 }
 
-fn command_error(output: &std::process::Output, fallback: &str) -> String {
-    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+fn emit_progress(
+    app: &AppHandle,
+    phase: &str,
+    percent: Option<f64>,
+    speed: Option<String>,
+    eta: Option<String>,
+) {
+    let _ = app.emit(
+        PROGRESS_EVENT,
+        DownloadProgressPayload {
+            phase: phase.to_string(),
+            percent,
+            speed,
+            eta,
+        },
+    );
+}
+
+fn parse_percent_token(token: &str) -> Option<f64> {
+    let trimmed = token.trim().trim_end_matches('%');
+    trimmed.parse::<f64>().ok().filter(|value| (0.0..=100.0).contains(value))
+}
+
+/// Parse yt-dlp progress lines such as:
+/// `[download]  45.2% of 3.45MiB at 1.23MiB/s ETA 00:02`
+fn parse_download_progress(line: &str) -> Option<(f64, Option<String>, Option<String>)> {
+    let marker = "[download]";
+    let idx = line.find(marker)?;
+    let rest = line[idx + marker.len()..].trim_start();
+    let percent_end = rest.find('%')?;
+    let percent = parse_percent_token(&rest[..=percent_end])?;
+
+    let mut speed = None;
+    let mut eta = None;
+
+    if let Some(at_idx) = rest.find(" at ") {
+        let after_at = &rest[at_idx + 4..];
+        if let Some(eta_idx) = after_at.find(" ETA ") {
+            speed = Some(after_at[..eta_idx].trim().to_string());
+            eta = Some(after_at[eta_idx + 5..].trim().to_string());
+        } else {
+            let end = after_at.find(' ').unwrap_or(after_at.len());
+            speed = Some(after_at[..end].trim().to_string());
+        }
+    } else if let Some(eta_idx) = rest.find(" ETA ") {
+        eta = Some(rest[eta_idx + 5..].trim().to_string());
+    }
+
+    Some((percent, speed, eta))
+}
+
+fn is_converting_line(line: &str) -> bool {
+    line.contains("[ExtractAudio]")
+        || line.contains("[ffmpeg]")
+        || line.contains("Destination:")
+        || line.contains("Deleting original file")
+}
+
+fn command_error_text(stderr: &str, stdout: &str, fallback: &str) -> String {
+    let stderr = stderr.trim();
+    let stdout = stdout.trim();
     if !stderr.is_empty() {
-        stderr
+        stderr.to_string()
     } else if !stdout.is_empty() {
-        stdout
+        stdout.to_string()
     } else {
         fallback.to_string()
     }
@@ -151,10 +212,30 @@ fn command_error(output: &std::process::Output, fallback: &str) -> String {
 pub struct ExtractedAudio {
     pub output_path: String,
     pub title: String,
+    pub artist: Option<String>,
+    pub album: Option<String>,
+    pub duration: Option<f64>,
 }
 
+/// Async wrapper so the webview can process `url-download-progress` events
+/// while yt-dlp runs (a sync command would hold the invoke until the end and
+/// React would batch-clear the popup before it ever painted).
 #[tauri::command]
-pub fn extract_audio_from_url(
+pub async fn extract_audio_from_url(
+    app: AppHandle,
+    url: String,
+    output_path: String,
+    format: String,
+    quality: String,
+) -> Result<ExtractedAudio, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        extract_audio_from_url_blocking(app, url, output_path, format, quality)
+    })
+    .await
+    .map_err(|error| format!("오디오 추출 작업 실패: {error}"))?
+}
+
+fn extract_audio_from_url_blocking(
     app: AppHandle,
     url: String,
     output_path: String,
@@ -172,27 +253,35 @@ pub fn extract_audio_from_url(
     let output = PathBuf::from(&output_path);
     ensure_parent_dir(&output)?;
 
-    // yt-dlp writes with extension; force exact output path stem + format ext.
     let output_template = {
         let stem = output.with_extension("");
         format!("{}.%(ext)s", stem.display())
     };
+
+    emit_progress(&app, "preparing", Some(0.0), None, None);
 
     let mut command = Command::new(&ytdlp);
     configure_hidden(
         command
             .arg("--no-playlist")
             .arg("--no-warnings")
+            .arg("--newline")
+            .arg("--progress")
             .arg("-x")
             .arg("--audio-format")
             .arg(&format)
             .args(audio_quality_args(&format, &quality))
             .arg("-o")
             .arg(&output_template)
+            .arg("--embed-metadata")
+            .arg("--embed-thumbnail")
+            .arg("--convert-thumbnails")
+            .arg("jpg")
+            // FILE: path after post-processing; META: JSON with display fields.
             .arg("--print")
-            .arg("after_move:filepath")
+            .arg("after_move:FILE:%(filepath)s")
             .arg("--print")
-            .arg("title"),
+            .arg("META:%(.{title,artist,uploader,creator,album,duration})j"),
     );
 
     if let Some(ffmpeg) = resolve_ffmpeg(&app) {
@@ -203,34 +292,135 @@ pub fn extract_audio_from_url(
 
     command.arg(&url);
 
-    let result = run_command(&mut command, "yt-dlp")?;
-    if !result.status.success() {
+    let mut child = command
+        .spawn()
+        .map_err(|error| format!("yt-dlp 실행 실패: {error}"))?;
+
+    let stderr = child
+        .stderr
+        .take()
+        .ok_or_else(|| "yt-dlp stderr를 열 수 없습니다.".to_string())?;
+    let stdout = child
+        .stdout
+        .take()
+        .ok_or_else(|| "yt-dlp stdout을 열 수 없습니다.".to_string())?;
+
+    let progress_app = app.clone();
+    let stderr_thread = thread::spawn(move || {
+        let mut stderr_buf = String::new();
+        let reader = BufReader::new(stderr);
+        let mut last_percent = -1.0_f64;
+
+        for line in reader.lines().flatten() {
+            stderr_buf.push_str(&line);
+            stderr_buf.push('\n');
+
+            if let Some((percent, speed, eta)) = parse_download_progress(&line) {
+                if (percent - last_percent).abs() >= 0.5 || percent >= 100.0 {
+                    last_percent = percent;
+                    emit_progress(&progress_app, "downloading", Some(percent), speed, eta);
+                }
+            } else if is_converting_line(&line) {
+                emit_progress(&progress_app, "converting", None, None, None);
+            }
+        }
+
+        stderr_buf
+    });
+
+    let stdout_thread = thread::spawn(move || {
+        let mut stdout_buf = String::new();
+        let reader = BufReader::new(stdout);
+        for line in reader.lines().flatten() {
+            stdout_buf.push_str(&line);
+            stdout_buf.push('\n');
+        }
+        stdout_buf
+    });
+
+    let status = child
+        .wait()
+        .map_err(|error| format!("yt-dlp 대기 실패: {error}"))?;
+    let stderr_text = stderr_thread
+        .join()
+        .unwrap_or_else(|_| String::new());
+    let stdout_text = stdout_thread
+        .join()
+        .unwrap_or_else(|_| String::new());
+
+    if !status.success() {
+        emit_progress(&app, "error", None, None, None);
         return Err(format!(
             "오디오 추출 실패: {}",
-            command_error(&result, &format!("exit {}", result.status))
+            command_error_text(&stderr_text, &stdout_text, &format!("exit {status}"))
         ));
     }
 
-    let stdout = String::from_utf8_lossy(&result.stdout);
-    let lines: Vec<&str> = stdout
+    emit_progress(&app, "finishing", Some(100.0), None, None);
+
+    let lines: Vec<&str> = stdout_text
         .lines()
         .map(str::trim)
         .filter(|line| !line.is_empty())
         .collect();
 
-    let mut filepath = lines
-        .iter()
-        .find(|line| {
-            let path = PathBuf::from(line);
-            path.is_file() || line.contains('\\') || line.contains('/')
-        })
-        .map(|line| (*line).to_string());
+    let mut filepath: Option<String> = None;
+    let mut meta_title: Option<String> = None;
+    let mut meta_artist: Option<String> = None;
+    let mut meta_album: Option<String> = None;
+    let mut meta_duration: Option<f64> = None;
 
-    let title = lines
-        .iter()
-        .rev()
-        .find(|line| filepath.as_deref() != Some(*line))
-        .map(|line| (*line).to_string());
+    for line in &lines {
+        if let Some(path) = line.strip_prefix("FILE:") {
+            let trimmed = path.trim();
+            if !trimmed.is_empty() {
+                filepath = Some(trimmed.to_string());
+            }
+            continue;
+        }
+
+        if let Some(json) = line.strip_prefix("META:") {
+            if let Ok(value) = serde_json::from_str::<serde_json::Value>(json) {
+                meta_title = value
+                    .get("title")
+                    .and_then(|v| v.as_str())
+                    .map(str::trim)
+                    .filter(|v| !v.is_empty())
+                    .map(str::to_string);
+                meta_artist = ["artist", "uploader", "creator"]
+                    .iter()
+                    .find_map(|key| {
+                        value
+                            .get(*key)
+                            .and_then(|v| v.as_str())
+                            .map(str::trim)
+                            .filter(|v| !v.is_empty())
+                            .map(str::to_string)
+                    });
+                meta_album = value
+                    .get("album")
+                    .and_then(|v| v.as_str())
+                    .map(str::trim)
+                    .filter(|v| !v.is_empty())
+                    .map(str::to_string);
+                meta_duration = value.get("duration").and_then(|v| {
+                    v.as_f64()
+                        .or_else(|| v.as_i64().map(|n| n as f64))
+                        .or_else(|| v.as_str().and_then(|s| s.parse().ok()))
+                })
+                .filter(|seconds| *seconds > 0.0);
+            }
+            continue;
+        }
+
+        // Fallback for older yt-dlp print lines without prefixes.
+        let path = PathBuf::from(line);
+        if filepath.is_none() && (path.is_file() || line.contains('\\') || line.contains('/')) {
+            filepath = Some((*line).to_string());
+        } else if meta_title.is_none() {
+            meta_title = Some((*line).to_string());
+        }
+    }
 
     if filepath.is_none() {
         for line in lines.iter().rev() {
@@ -251,21 +441,24 @@ pub fn extract_audio_from_url(
         })
         .ok_or_else(|| "추출된 오디오 파일을 찾을 수 없습니다.".to_string())?;
 
-    // Normalize to the user-chosen output path when extensions match / differ only by rename.
     if produced != output {
         if output.exists() {
             let _ = fs::remove_file(&output);
         }
-        fs::rename(&produced, &output).or_else(|_| {
-            fs::copy(&produced, &output).map(|_| ()).and_then(|_| fs::remove_file(&produced))
-        }).map_err(|error| format!("결과 파일 저장 실패: {error}"))?;
+        fs::rename(&produced, &output)
+            .or_else(|_| {
+                fs::copy(&produced, &output)
+                    .map(|_| ())
+                    .and_then(|_| fs::remove_file(&produced))
+            })
+            .map_err(|error| format!("결과 파일 저장 실패: {error}"))?;
     }
 
     if !output.is_file() {
         return Err("추출 결과 파일이 생성되지 않았습니다.".to_string());
     }
 
-    let title = title
+    let title = meta_title
         .filter(|value| !value.is_empty())
         .unwrap_or_else(|| {
             output
@@ -278,5 +471,8 @@ pub fn extract_audio_from_url(
     Ok(ExtractedAudio {
         output_path: output.display().to_string(),
         title,
+        artist: meta_artist,
+        album: meta_album,
+        duration: meta_duration,
     })
 }

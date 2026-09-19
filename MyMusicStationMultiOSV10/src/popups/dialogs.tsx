@@ -9,6 +9,7 @@ import {
   FolderOpen,
   ImagePlus,
   Info,
+  Palette,
   Plus,
   Save,
   Settings,
@@ -35,11 +36,13 @@ import type {
   ExtractFormat,
   ExtractPopupData,
   ExtractQuality,
+  DownloadProgressPopupData,
   FolderProgressPopupData,
   PopupAction,
   PopupData,
   PopupKind,
   SettingsPopupData,
+  ThemePickerPopupData,
 } from './protocol'
 
 type DragHandler = (event: ReactPointerEvent<HTMLElement>) => void
@@ -601,6 +604,151 @@ export function FolderProgressDialog({ labels, data, onDragStart }: DialogProps<
   )
 }
 
+export function DownloadProgressDialog({ labels, data, onDragStart }: DialogProps<'downloadProgress'>) {
+  const d: DownloadProgressPopupData = data
+  const phaseLabel =
+    d.phase === 'preparing'
+      ? labels.downloadPreparing
+      : d.phase === 'downloading'
+        ? labels.downloadDownloading
+        : d.phase === 'converting'
+          ? labels.downloadConverting
+          : labels.downloadFinishing
+  const percent = d.percent != null ? Math.max(0, Math.min(100, Math.round(d.percent))) : null
+  const determinate = percent != null && (d.phase === 'downloading' || d.phase === 'finishing')
+  const meta = [d.speed, d.eta ? `ETA ${d.eta}` : null].filter(Boolean).join(' · ')
+
+  return (
+    <section
+      className="folder-progress-dialog themed-dialog"
+      role="alertdialog"
+      aria-modal="true"
+      aria-busy="true"
+      aria-label={labels.downloadProgressTitle}
+    >
+      <header className="folder-progress-header dialog-drag-handle" onPointerDown={onDragStart}>
+        <CloudDownload size={18} />
+        <h2>{labels.downloadProgressTitle}</h2>
+      </header>
+      <p className="folder-progress-message">
+        {phaseLabel}
+        {percent != null ? ` · ${percent}%` : ''}
+        {meta ? ` · ${meta}` : ''}
+      </p>
+      <div
+        className={`folder-progress-bar${determinate ? '' : ' indeterminate'}`}
+        role="progressbar"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={determinate ? percent ?? undefined : undefined}
+      >
+        <span
+          className="folder-progress-fill"
+          style={determinate ? { width: `${percent}%` } : undefined}
+        />
+      </div>
+    </section>
+  )
+}
+
+export function ThemePickerDialog({ labels, data, send, onDragStart }: DialogProps<'themePicker'>) {
+  const d: ThemePickerPopupData = data
+  const selectedTheme = d.themes.find((theme) => theme.id === d.themeId)
+  const [themeName, setThemeName] = useState('Custom')
+  const [themeAccent, setThemeAccent] = useState('#4cc9a6')
+
+  return (
+    <section
+      className="theme-picker-dialog themed-dialog"
+      role="dialog"
+      aria-label={labels.themeMenu}
+      onClick={(event) => event.stopPropagation()}
+    >
+      <header className="theme-picker-header dialog-drag-handle" onPointerDown={onDragStart}>
+        <Palette size={14} />
+        <h2>{labels.themeMenu}</h2>
+        <DialogCloseButton label={labels.close} onClick={() => send({ type: 'close' })} />
+      </header>
+
+      <p className="theme-picker-hint">{labels.themePickerHint}</p>
+
+      <div className="theme-swatch-grid theme-picker-grid" role="listbox" aria-label={labels.theme}>
+        {d.themes.map((theme) => {
+          const swatch = themeSwatch(theme)
+          const active = theme.id === d.themeId
+
+          return (
+            <button
+              type="button"
+              key={theme.id}
+              className={`theme-swatch${active ? ' active' : ''}`}
+              role="option"
+              aria-selected={active}
+              aria-label={theme.name}
+              title={theme.name}
+              onClick={() => send({ type: 'selectTheme', themeId: theme.id })}
+            >
+              <span className="theme-swatch-preview" style={{ background: swatch.bg }}>
+                <span className="theme-swatch-panel" style={{ background: swatch.panel }}>
+                  <span className="theme-swatch-text" style={{ background: swatch.text }} />
+                  <span className="theme-swatch-control" style={{ background: swatch.control }} />
+                </span>
+                <span className="theme-swatch-primary" style={{ background: swatch.primary }} />
+                {active && (
+                  <span className="theme-swatch-check" style={{ background: swatch.primary, color: swatch.bg }}>
+                    <Check size={10} />
+                  </span>
+                )}
+              </span>
+              <span className="theme-swatch-name">{theme.name}</span>
+            </button>
+          )
+        })}
+      </div>
+
+      <div className="theme-editor compact">
+        <input
+          aria-label={labels.themeName}
+          value={themeName}
+          onChange={(event) => setThemeName(event.target.value)}
+          onPointerDown={(event) => event.stopPropagation()}
+        />
+        <input
+          aria-label={labels.accent}
+          type="color"
+          value={themeAccent}
+          onChange={(event) => setThemeAccent(event.target.value)}
+        />
+        <button
+          type="button"
+          data-tooltip={labels.addTheme}
+          aria-label={labels.addTheme}
+          onClick={() => send({ type: 'addTheme', name: themeName, accent: themeAccent })}
+        >
+          <Plus size={14} />
+        </button>
+        <button
+          type="button"
+          data-tooltip={labels.deleteTheme}
+          aria-label={labels.deleteTheme}
+          disabled={!selectedTheme || selectedTheme.builtIn}
+          onClick={() => send({ type: 'deleteTheme' })}
+        >
+          <Trash2 size={14} />
+        </button>
+        <button type="button" data-tooltip={labels.exportTheme} aria-label={labels.exportTheme} onClick={() => send({ type: 'exportTheme' })}>
+          <Save size={14} />
+        </button>
+        <button type="button" data-tooltip={labels.importTheme} aria-label={labels.importTheme} onClick={() => send({ type: 'importTheme' })}>
+          <Upload size={14} />
+        </button>
+      </div>
+
+      {d.themeMessage && <p className="theme-message">{d.themeMessage}</p>}
+    </section>
+  )
+}
+
 /** Picks the dialog component for a popup kind; the discriminant narrows the props. */
 export function PopupDialog(props: { kind: PopupKind } & DialogProps<PopupKind>) {
   const { kind, ...rest } = props
@@ -620,6 +768,10 @@ export function PopupDialog(props: { kind: PopupKind } & DialogProps<PopupKind>)
       return <ErrorDialog {...(rest as unknown as DialogProps<'error'>)} />
     case 'folderProgress':
       return <FolderProgressDialog {...(rest as unknown as DialogProps<'folderProgress'>)} />
+    case 'downloadProgress':
+      return <DownloadProgressDialog {...(rest as unknown as DialogProps<'downloadProgress'>)} />
+    case 'themePicker':
+      return <ThemePickerDialog {...(rest as unknown as DialogProps<'themePicker'>)} />
     default:
       return null
   }

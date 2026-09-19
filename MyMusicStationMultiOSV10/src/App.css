@@ -62,7 +62,7 @@
   background-color: var(--bg);
 }
 
-.station-shell > :not(.wallpaper-layer):not(.wallpaper-dim):not(audio):not(.modal-backdrop):not(.track-context-menu) {
+.station-shell > :not(.wallpaper-layer):not(.wallpaper-dim):not(audio):not(.modal-backdrop):not(.theme-picker-dismiss):not(.track-context-menu) {
   position: relative;
 }
 
@@ -304,6 +304,90 @@
   background: color-mix(in srgb, var(--primary) 28%, transparent) !important;
   border-color: var(--primary-soft) !important;
   color: var(--primary);
+}
+
+.theme-toolbar-group {
+  display: inline-flex;
+  align-items: stretch;
+  gap: 0;
+}
+
+.theme-toolbar-group .tool-button {
+  border-radius: 5px;
+}
+
+.theme-toolbar-group .tool-button:first-child {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.theme-toolbar-group .theme-menu-button {
+  width: 18px;
+  min-width: 18px;
+  padding-inline: 0;
+  border-left: none;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+.theme-picker-dismiss {
+  position: absolute;
+  inset: 0;
+  z-index: 1000;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: default;
+}
+
+.theme-picker-dialog {
+  display: grid;
+  gap: 10px;
+  width: min(300px, 100%);
+  padding: 10px 12px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  color: var(--text);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+
+.theme-picker-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+  color: var(--text-strong);
+}
+
+.theme-picker-header h2 {
+  flex: 1;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.theme-picker-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.theme-picker-grid {
+  max-height: min(420px, 70vh);
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.modal-backdrop.theme-picker-backdrop {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.modal-backdrop > .theme-picker-dialog {
+  width: min(300px, 100%);
 }
 
 .title-toolbar .window-actions .close-button:hover {
@@ -641,9 +725,9 @@
   background: transparent;
 }
 
-/* Track list collapsed: the player panel expands to the full width. */
+/* Track list collapsed: the player panel expands; a slim expand control stays on the right. */
 .content-grid.track-list-collapsed {
-  grid-template-columns: 1fr;
+  grid-template-columns: 1fr auto;
 }
 
 .player-panel,
@@ -779,6 +863,13 @@
   height: 236px;
   min-width: 0;
   overflow: hidden;
+  cursor: pointer;
+}
+
+.spectrum-stage:focus-visible {
+  outline: 2px solid var(--primary-soft);
+  outline-offset: 2px;
+  border-radius: 6px;
 }
 
 .spectrum {
@@ -998,6 +1089,18 @@
   background: var(--primary);
 }
 
+.transport .skip-button {
+  border-color: #4d8dff;
+  color: #fff;
+  background: #4d8dff;
+}
+
+.transport .skip-button:hover {
+  border-color: #6ba0ff;
+  color: #fff;
+  background: #6ba0ff;
+}
+
 .transport .stop-button {
   border-color: #ff5a4d;
   color: #fff;
@@ -1027,12 +1130,63 @@ input[type='range'] {
 
 .side-panel {
   display: grid;
-  grid-template-rows: auto 22px minmax(0, 1fr);
+  grid-template-rows: auto auto 22px minmax(0, 1fr);
   align-self: start;
   height: var(--player-panel-height);
   gap: 6px;
   padding: 8px;
   min-width: 0;
+}
+
+.side-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 22px;
+  padding: 0 2px;
+}
+
+.side-panel-header h2 {
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-strong);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.side-panel-collapse,
+.track-list-expand {
+  display: inline-grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  color: var(--text);
+  background: var(--control);
+  cursor: pointer;
+}
+
+.side-panel-collapse:hover,
+.track-list-expand:hover {
+  border-color: var(--line-strong);
+  color: var(--text-strong);
+  background: var(--control-hover, var(--control));
+}
+
+.track-list-expand {
+  align-self: start;
+  width: 28px;
+  height: var(--player-panel-height);
+  border-radius: 7px;
 }
 
 select,
@@ -1342,7 +1496,7 @@ select {
   white-space: nowrap;
 }
 
-button:hover,
+button:hover:not(.skip-button):not(.stop-button):not(.primary),
 .tool-button:hover,
 .track-row:hover {
   border-color: var(--primary-soft);
@@ -1393,6 +1547,10 @@ button:hover,
 .modal-backdrop > .settings-dialog,
 .modal-backdrop > .app-info-dialog {
   width: min(320px, 100%);
+}
+
+.modal-backdrop > .folder-progress-dialog {
+  width: min(360px, 100%);
 }
 
 .modal-backdrop > .error-dialog {
@@ -2239,6 +2397,13 @@ button:hover,
   position: relative;
   flex: 1 1 auto;
   min-height: 0;
+  cursor: pointer;
+}
+
+.mini-spectrum-stage:focus-visible {
+  outline: 2px solid var(--primary-soft);
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
 .mini-spectrum {
@@ -2406,7 +2571,7 @@ button:hover,
 }
 
 /* Same button colors as the normal-mode transport: primary = play/pause,
-   stop-button = stop. */
+   skip-button = prev/next, stop-button = stop. */
 .mini-transport-button {
   display: grid;
   place-items: center;
@@ -2433,6 +2598,23 @@ button:hover,
   background: var(--primary);
 }
 
+.mini-transport .mini-transport-button.skip-button {
+  border-color: #4d8dff;
+  color: #fff;
+  background: #4d8dff;
+}
+
+.mini-transport .mini-transport-button.skip-button:hover {
+  border-color: #6ba0ff;
+  color: #fff;
+  background: #6ba0ff;
+}
+
+.mini-transport .mini-transport-button.skip-button > svg {
+  color: #fff;
+  stroke: currentColor;
+}
+
 .mini-transport-button.stop-button {
   border-color: #ff5a4d;
   color: #fff;
@@ -2441,6 +2623,7 @@ button:hover,
 
 .mini-transport-button.stop-button:hover {
   border-color: #ff7469;
+  color: #fff;
   background: #ff7469;
 }
 

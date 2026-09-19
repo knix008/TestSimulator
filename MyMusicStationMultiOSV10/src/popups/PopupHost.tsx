@@ -1,5 +1,6 @@
 import { useEffect, useEffectEvent, useRef } from 'react'
 import { isTauri } from '@tauri-apps/api/core'
+import { LogicalPosition } from '@tauri-apps/api/dpi'
 import { emitTo, listen } from '@tauri-apps/api/event'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow'
@@ -64,6 +65,15 @@ export function PopupHost<K extends PopupKind>({ kind, open, chrome, data, onAct
   const stateRef = useRef(state)
   stateRef.current = state
   const stateJson = state ? JSON.stringify(state) : ''
+  // Progress dialogs must paint inside the main window. A separate OS window
+  // starts hidden and can leave only the dim shield visible — the UI looks frozen.
+  const inlineProgress = kind === 'downloadProgress' || kind === 'folderProgress'
+  // Theme menu is a separate OS window so it can extend past the main window bounds.
+  const isThemePicker = kind === 'themePicker'
+  const themeAnchor =
+    isThemePicker && data && 'anchorX' in data
+      ? { x: (data as PopupData['themePicker']).anchorX, y: (data as PopupData['themePicker']).anchorY }
+      : null
 
   const handleAction = useEffectEvent((action: PopupAction[K]) => onAction(action))
   const handleClosed = useEffectEvent(() => onClosed())
@@ -75,7 +85,7 @@ export function PopupHost<K extends PopupKind>({ kind, open, chrome, data, onAct
 
   // Relay channel with the popup window (ready / action / closed).
   useEffect(() => {
-    if (!isDesktop) {
+    if (!isDesktop || inlineProgress) {
       return
     }
 
@@ -111,11 +121,11 @@ export function PopupHost<K extends PopupKind>({ kind, open, chrome, data, onAct
       cancelled = true
       disposers.forEach((dispose) => dispose())
     }
-  }, [kind, label])
+  }, [kind, label, inlineProgress])
 
   // Window lifecycle follows `open`.
   useEffect(() => {
-    if (!isDesktop) {
+    if (!isDesktop || inlineProgress) {
       return
     }
 
@@ -130,13 +140,16 @@ export function PopupHost<K extends PopupKind>({ kind, open, chrome, data, onAct
       if (existing) {
         // Strict-mode re-run or a re-open while the old window is still up.
         pushState()
+        if (themeAnchor) {
+          void existing.setPosition(new LogicalPosition(themeAnchor.x, themeAnchor.y)).catch(() => {})
+        }
         void existing.setFocus().catch(() => {})
         return
       }
 
       const width = popupWindowWidth[kind]
-      const height = 240
-      const position = await initialPopupPosition(width, height)
+      const height = isThemePicker ? 360 : 240
+      const position = themeAnchor ?? (await initialPopupPosition(width, height))
       if (cancelled) {
         return
       }
@@ -173,20 +186,32 @@ export function PopupHost<K extends PopupKind>({ kind, open, chrome, data, onAct
     }
     // The title language is only read at creation time.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, kind, label])
+  }, [open, kind, label, inlineProgress, themeAnchor?.x, themeAnchor?.y])
 
   // Every state change is mirrored into the open window.
   useEffect(() => {
-    if (isDesktop && open) {
+    if (isDesktop && open && !inlineProgress) {
       pushState()
     }
-  }, [stateJson, open])
+  }, [stateJson, open, inlineProgress])
 
   if (!open || !state) {
     return null
   }
 
-  if (isDesktop) {
+  if (isDesktop && !inlineProgress) {
+    // Theme dropdown: light dismiss layer (no heavy dim) so the menu can sit
+    // outside the main window while a click on the app still closes it.
+    if (isThemePicker) {
+      return (
+        <div
+          className="theme-picker-dismiss"
+          role="presentation"
+          onClick={() => onAction({ type: 'close' } as PopupAction[K])}
+        />
+      )
+    }
+
     // Dim and block the main window while the dialog is up, like the old in-app modal.
     return (
       <div
@@ -206,12 +231,12 @@ export function PopupHost<K extends PopupKind>({ kind, open, chrome, data, onAct
     )
   }
 
-  const closable = kind !== 'folderProgress'
+  const closable = kind !== 'folderProgress' && kind !== 'downloadProgress'
   const send = (action: PopupAction[K]) => onAction(action)
 
   return (
     <div
-      className={`modal-backdrop${kind === 'alert' ? ' alert-backdrop' : kind === 'error' ? ' error-backdrop' : ''}`}
+      className={`modal-backdrop${kind === 'alert' ? ' alert-backdrop' : kind === 'error' ? ' error-backdrop' : ''}${kind === 'themePicker' ? ' theme-picker-backdrop' : ''}`}
       role="presentation"
       onClick={() => {
         if (closable) {

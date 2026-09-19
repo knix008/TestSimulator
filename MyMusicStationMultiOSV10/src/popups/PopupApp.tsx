@@ -35,6 +35,35 @@ const maxPopupHeight = async () => {
   return 1200
 }
 
+// Place a dropdown-style popup at its screen anchor (may extend past the main window).
+const placeAtAnchor = async (width: number, height: number, anchorX: number, anchorY: number) => {
+  const win = getCurrentWindow()
+
+  try {
+    const monitor = await currentMonitor()
+    const scale = monitor?.scaleFactor ?? (await win.scaleFactor())
+    const physicalWidth = Math.round(width * scale)
+    const physicalHeight = Math.round(height * scale)
+    let x = Math.round(anchorX * scale)
+    let y = Math.round(anchorY * scale)
+
+    if (monitor) {
+      const area = monitor.workArea
+      const minX = area.position.x
+      const minY = area.position.y
+      const maxX = area.position.x + area.size.width - physicalWidth
+      const maxY = area.position.y + area.size.height - physicalHeight
+      // Prefer keeping the menu on-screen; allow hanging below/ beside the main app.
+      x = Math.max(minX, Math.min(x, maxX))
+      y = Math.max(minY, Math.min(y, maxY))
+    }
+
+    await win.setPosition(new PhysicalPosition(x, y))
+  } catch (error) {
+    console.warn('[popup] failed to position anchored window', error)
+  }
+}
+
 // Centre the popup over the main window (clamped to the monitor) before it is shown.
 const placeOverMain = async (width: number, height: number) => {
   const win = getCurrentWindow()
@@ -160,13 +189,26 @@ export default function PopupApp({ kind }: { kind: PopupKind }) {
         return
       }
 
+      const anchor =
+        kind === 'themePicker' && state.data && 'anchorX' in state.data
+          ? { x: state.data.anchorX as number, y: state.data.anchorY as number }
+          : null
+
+      const place = async () => {
+        if (anchor) {
+          await placeAtAnchor(width, height, anchor.x, anchor.y)
+        } else {
+          await placeOverMain(width, height)
+        }
+      }
+
       const last = lastSizeRef.current
       if (last.width !== width || last.height !== height) {
         lastSizeRef.current = { width, height }
         await resizeToContent(width, height)
 
         if (!shownRef.current) {
-          await placeOverMain(width, height)
+          await place()
         }
       }
 
@@ -177,7 +219,7 @@ export default function PopupApp({ kind }: { kind: PopupKind }) {
           await win.show()
           // Re-apply after showing: a position set on a still-hidden window
           // can be dropped by the OS.
-          await placeOverMain(width, height)
+          await place()
           await win.setFocus()
         } catch (error) {
           console.warn('[popup] failed to show window', error)
@@ -201,7 +243,7 @@ export default function PopupApp({ kind }: { kind: PopupKind }) {
   }
 
   useEffect(() => {
-    if (kind === 'folderProgress') {
+    if (kind === 'folderProgress' || kind === 'downloadProgress') {
       return
     }
 
