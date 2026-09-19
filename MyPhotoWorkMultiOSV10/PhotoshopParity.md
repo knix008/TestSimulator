@@ -77,10 +77,22 @@
 
 OpenCV(`@techstark/opencv-js`, 13 MB)는 별도 청크로 첫 사용 시 로드되며, 로드 실패 시 이전의 통계 기반 구현으로 대체됩니다.
 
+### 4a. 로컬 신경망 (ONNX Runtime, `lib/neural.ts` · `lib/models.ts` · `lib/ort.ts`)
+
+편집 ▸ 뉴럴 모델… 창에서 내려받으면 해당 명령이 모델을 쓰고, 없으면 위 고전 구현으로 대체됩니다. 가중치는 공개 저장소에서 한 번 받아 이 컴퓨터에 저장되며 실행도 이 컴퓨터에서(CPU 전 코어, WebGPU는 선택) 이루어집니다.
+
+| 명령 | 모델 | 크기 | 라이선스 |
+|---|---|---|---|
+| Select Subject / Remove Background / Object Selection / Select and Mask 초기값 | U²-Net small · Silueta · ISNet (rembg 배포) | 5 / 44 / 179 MB | Apache-2.0 |
+| Select Sky / Sky Replacement | SegFormer-B0 ADE20K (양자화) | 4 MB | NVIDIA (비상업) |
+| Depth Blur | Depth Anything V2 small (양자화 27 MB · 전정밀도 99 MB, WebGPU용) | 27 / 99 MB | Apache-2.0 |
+| Generative Fill / Remove 도구 | LaMa | 208 MB | Apache-2.0 |
+| Super Zoom / Generative Upscale | Swin2SR ×2 (8비트 21 MB · 전정밀도 54 MB, WebGPU용) | 21 / 54 MB | Apache-2.0 — 트랜스포머라 느림(1 MP당 CPU 수 분, WebGPU 약 4분) |
+
 ## 5. 남은 🟡 (근사 구현)
 
-- **Sky / Focus Area**: 색 클러스터·라플라시안 에너지 기반.
-- **Generative Expand/Upscale, Neural Filters**: 리사이즈+샤픈·통계 매칭 등 알고리즘. 창과 사용 설명서에 명시.
+- **Focus Area**: 라플라시안 에너지 기반.
+- **Generative Expand, Neural Filters의 피부·색상화·복원**: 리사이즈+샤픈·통계 매칭 등 알고리즘. 창과 사용 설명서에 명시.
 - **Shake Reduction / Adaptive Wide Angle / Lens Blur**: 방향성 언샤프·렌즈 왜곡 보정+스큐·디스크 블러 근사.
 - **Filter Gallery 46종**: 각각 Photoshop 알고리즘의 근사(중앙값·포스터화·에지·노이즈 조합).
 - **Match Font**: 글꼴 인식 엔진 없음 → 문자 패널을 열어 직접 지정.
@@ -93,9 +105,9 @@ OpenCV(`@techstark/opencv-js`, 13 MB)는 별도 청크로 첫 사용 시 로드�
 - Libraries, Adobe Stock, Bridge, Share, Generate(이미지 에셋), Zoomify, Adobe Fonts — 클라우드/서비스 연동.
 - Video: 비디오 레이어 타임라인(프레임 애니메이션·프레임 가져오기/내보내기는 있음).
 - 3D Material Eyedropper / Material Drop 도구, Triangle 도구(사용자 정의 모양의 삼각형으로 대체).
-- 실제 신경망 모델 (§5).
+- 텍스트 프롬프트로 새 내용을 만드는 생성형 모델(Stable Diffusion 급) — Generative Fill/Expand는 인페인팅(LaMa)까지.
 
 ## 7. 참고
 
-- 새 모듈: `src/lib/brushes.ts`, `segment.ts`, `moreFilters.ts`, `adjustExtra.ts`, `gradients.ts`, `documentOps.ts`, `psd.ts`, `cv.ts`, `inpaint.ts`, `src/dialogsExtra.tsx`, `src/panels.tsx`, `src/MenuTree.tsx`, `src/usePreview.ts`, `src/adjustmentFields.ts`, `src/i18nExtra.ts`.
-- 새 테스트: `test/parity.test.mjs`, `test/psd.test.mjs`, `test/documentOps.test.mjs`, `test/cv.test.mjs`.
+- 새 모듈: `src/lib/brushes.ts`, `segment.ts`, `moreFilters.ts`, `adjustExtra.ts`, `gradients.ts`, `documentOps.ts`, `psd.ts`, `cv.ts`, `inpaint.ts`, `neural.ts`, `models.ts`, `ort.ts`, `src/dialogsExtra.tsx`, `src/panels.tsx`, `src/MenuTree.tsx`, `src/usePreview.ts`, `src/adjustmentFields.ts`, `src/i18nExtra.ts`.
+- 새 테스트: `test/parity.test.mjs`, `test/psd.test.mjs`, `test/documentOps.test.mjs`, `test/cv.test.mjs`, `test/neural.test.mjs`.

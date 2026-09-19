@@ -25,7 +25,7 @@ export type DialogName =
   | 'customFilter' | 'layerStyle' | 'gradientEditor' | 'neural' | 'note' | 'findReplace' | 'exportAs'
   | 'openRecent' | 'keyboardShortcuts' | 'contactSheet' | 'fitImage' | 'photomerge' | 'fade' | 'skyReplace'
   | 'perspectiveWarp' | 'duotone' | 'indexed' | 'checkSpelling' | 'vanishingPoint' | 'adaptiveWideAngle'
-  | 'statistics' | 'namePrompt' | 'imageProcessor' | 'transformSelection'
+  | 'statistics' | 'namePrompt' | 'imageProcessor' | 'transformSelection' | 'neuralModels'
 
 export type DialogResult = { action: string; [key: string]: unknown }
 
@@ -77,6 +77,8 @@ export type DialogPayload = {
   /** The built-in and loaded colour lookup tables. */
   luts?: { id: string; name: string }[]
   recentFiles?: string[]
+  /** The Neural Models window: which weights are on this machine, and the task a command was after. */
+  models?: { downloaded: string[]; needed?: string; webgpu: boolean; useWebgpu: boolean; threads: number }
   /** The tool letter keys, for the shortcuts window. */
   shortcuts?: { tool: string; key: string; label: string }[]
   /** The note being edited. */
@@ -153,6 +155,7 @@ const DIALOG_ICONS: Record<DialogName, ComponentType<{ size?: number }>> = {
   layerStyle: Sparkles,
   gradientEditor: Blend,
   neural: Sparkles,
+  neuralModels: Sparkles,
   note: StickyNote,
   findReplace: Search,
   exportAs: Download,
@@ -231,6 +234,7 @@ const DIALOG_TITLE_KEYS: Record<DialogName, string> = {
   layerStyle: 'layerStyle',
   gradientEditor: 'gradientEditor',
   neural: 'neuralFilters',
+  neuralModels: 'neuralModelsTitle',
   note: 'noteText',
   findReplace: 'findReplace',
   exportAs: 'exportAs',

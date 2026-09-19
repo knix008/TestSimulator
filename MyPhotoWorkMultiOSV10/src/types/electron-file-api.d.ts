@@ -30,6 +30,15 @@ interface Window {
     saveFile(options: { defaultDirectory?: string; fileName: string; filters?: ElectronSaveFilter[]; text?: string; dataUrl?: string }): Promise<ElectronSaveResult>
     writeFile(options: { filePath: string; text?: string; dataUrl?: string }): Promise<ElectronSaveResult>
   }
+  /** The neural network weights on this machine. */
+  electronModelApi?: {
+    list(): Promise<string[]>
+    read(id: string): Promise<ArrayBuffer>
+    download(id: string, url: string, bytes: number): Promise<{ ok: boolean; message?: string }>
+    cancel(id: string): Promise<void>
+    remove(id: string): Promise<void>
+    onProgress(listener: (progress: { id: string; received: number; total: number; done: boolean; error?: string }) => void): () => void
+  }
   /** One print window, so the job goes straight to the printer from there. */
   electronPrintApi?: {
     printers(): Promise<{ name: string; displayName: string; isDefault: boolean }[]>

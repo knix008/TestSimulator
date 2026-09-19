@@ -1,5 +1,7 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { useLivePreview } from './usePreview'
+import { formatBytes, modelStore, type ModelProgress } from './lib/models'
+import { modelSpec, modelSpecs, type ModelTask } from './lib/neural'
 import { Layers2, Plus, Sparkles, X } from 'lucide-react'
 import { t } from './i18n'
 import type { DialogName, DialogPayload, DialogResult } from './dialogMeta'
@@ -750,7 +752,87 @@ function NeuralDialog({ payload, onResult, onClose }: BodyProps) {
       <Slider label={tr('amountLabel')} value={amount} min={0} max={100} onChange={setAmount} />
       <p className="dialog-hint">{tr('neuralHint')}</p>
       <PreviewToggle tr={tr} value={preview} onChange={setPreview} />
-      <Actions tr={tr} onClose={onClose} onApply={() => onResult({ action: 'apply', ...values })} />
+      <Actions tr={tr} onClose={onClose} onApply={() => onResult({ action: 'apply', ...values })} extra={<button onClick={() => onResult({ action: 'models' })}>{tr('neuralModels')}</button>} />
+    </>
+  )
+}
+
+/**
+ * The Neural Models window: every model the app can use, its size, licence
+ * and whether it is on this machine, with a download (and its progress) or a
+ * delete button. The store itself lives in `lib/models.ts`; this window only
+ * asks it, so it works both in its own Electron window and in the page.
+ */
+function NeuralModelsDialog({ payload, onResult, onClose }: BodyProps) {
+  const tr = (key: string) => t(payload.language, key)
+  const [downloaded, setDownloaded] = useState<string[]>(payload.models?.downloaded ?? [])
+  const [progress, setProgress] = useState<Record<string, ModelProgress>>({})
+  const [errors, setErrors] = useState<Record<string, string>>({})
+  const [useWebgpu, setUseWebgpu] = useState(Boolean(payload.models?.useWebgpu))
+  useEffect(() => {
+    const store = modelStore()
+    let cancelled = false
+    void store.list().then((ids) => { if (!cancelled) setDownloaded(ids) })
+    const off = store.onProgress((next) => {
+      setProgress((current) => ({ ...current, [next.id]: next }))
+      if (next.done) {
+        if (next.error) setErrors((current) => ({ ...current, [next.id]: next.error ?? '' }))
+        void store.list().then((ids) => { if (!cancelled) setDownloaded(ids) })
+      }
+    })
+    return () => { cancelled = true; off() }
+  }, [])
+  const download = (id: string) => {
+    setErrors((current) => ({ ...current, [id]: '' }))
+    setProgress((current) => ({ ...current, [id]: { id, received: 0, total: modelSpec(id)?.bytes ?? 0, done: false } }))
+    void modelStore().download(id).catch((error: unknown) => setErrors((current) => ({ ...current, [id]: String(error instanceof Error ? error.message : error) })))
+  }
+  const remove = (id: string) => {
+    void modelStore().remove(id).then(() => modelStore().list()).then(setDownloaded)
+  }
+  const tasks: ModelTask[] = ['subject', 'sky', 'depth', 'inpaint', 'upscale']
+  const taskLabel: Record<ModelTask, string> = { subject: 'modelTaskSubject', sky: 'modelTaskSky', depth: 'modelTaskDepth', inpaint: 'modelTaskInpaint', upscale: 'modelTaskUpscale' }
+  return (
+    <>
+      <p className="dialog-hint">{tr('modelsIntro')} {tr('modelProvider')}{tr('modelThreads').replace('{n}', String(payload.models?.threads ?? 1))}{payload.models?.webgpu ? `, ${tr('modelWebgpu')}` : ''}</p>
+      {payload.models?.webgpu && (
+        <label className="check-row">
+          <input type="checkbox" checked={useWebgpu} onChange={(event) => { setUseWebgpu(event.target.checked); onResult({ action: 'settings', patch: { neuralWebgpu: event.target.checked } }) }} />
+          {tr('modelUseWebgpu')}
+        </label>
+      )}
+      {payload.models?.needed && <p className="dialog-hint model-needed">{tr('modelNeeded')}: {tr(taskLabel[payload.models.needed as ModelTask] ?? payload.models.needed)}</p>}
+      <div className="model-list">
+        {tasks.map((task) => (
+          <section key={task} className={payload.models?.needed === task ? 'model-task needed' : 'model-task'}>
+            <h3>{tr(taskLabel[task])}</h3>
+            {modelSpecs.filter((spec) => spec.task === task).map((spec) => {
+              const ready = downloaded.includes(spec.id)
+              const running = progress[spec.id] && !progress[spec.id].done
+              const fraction = running && progress[spec.id].total > 0 ? progress[spec.id].received / progress[spec.id].total : 0
+              return (
+                <div key={spec.id} className="model-row">
+                  <div className="model-text">
+                    <strong>{spec.name}</strong> <span className="model-size">{formatBytes(spec.bytes)}</span>
+                    <div className="model-note">{tr(spec.note)} · {tr('modelLicense')}: {spec.license}</div>
+                    {running && <progress max={1} value={fraction} />}
+                    {errors[spec.id] && <div className="model-error">{errors[spec.id]}</div>}
+                  </div>
+                  <div className="model-actions">
+                    <span className={ready ? 'model-status ready' : 'model-status'}>{running ? `${tr('modelDownloading')} ${Math.round(fraction * 100)}%` : ready ? tr('modelReady') : tr('modelMissing')}</span>
+                    {ready
+                      ? <button onClick={() => remove(spec.id)}>{tr('modelDelete')}</button>
+                      : <button className="primary" disabled={Boolean(running)} onClick={() => download(spec.id)}>{tr('modelDownload')}</button>}
+                  </div>
+                </div>
+              )
+            })}
+          </section>
+        ))}
+      </div>
+      <div className="dialog-actions">
+        <button className="primary" onClick={() => { onResult({ action: 'refresh', downloaded }); onClose() }}>{tr('ok')}</button>
+      </div>
     </>
   )
 }
@@ -1129,6 +1211,7 @@ export function ExtraDialogBody(props: BodyProps): ReactNode {
     case 'layerStyle': return <LayerStyleDialog {...props} />
     case 'gradientEditor': return <GradientEditorDialog {...props} />
     case 'neural': return <NeuralDialog {...props} />
+    case 'neuralModels': return <NeuralModelsDialog {...props} />
     case 'note': return <NoteDialog {...props} />
     case 'namePrompt': return <NamePromptDialog {...props} />
     case 'findReplace': return <FindReplaceDialog {...props} />

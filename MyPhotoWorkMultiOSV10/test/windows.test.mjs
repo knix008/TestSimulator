@@ -30,18 +30,22 @@ function dialogNames() {
 
 /* ------------------------------------------------------- window management */
 
-test('every dialog has a window size, and the settings window is wide and fixed', () => {
+test('every dialog has a window size, and the settings window is a preferences window', () => {
   const specs = require(fileURLToPath(new URL('electron/childwindows.cjs', root))).DIALOG_SPECS
   for (const name of dialogNames()) {
     assert.ok(specs[name], `no window size for the "${name}" dialog`)
     assert.ok(specs[name].width >= 320, `${name} is too narrow`)
     assert.ok(specs[name].height >= 180, `${name} is too short`)
   }
-  // The settings are on tabs now, so the window holds one page at a time: wide
-  // enough for a label and its control side by side, and no wider.
-  assert.ok(specs.settings.width >= 480, 'the settings window should be wide enough for label + control rows')
-  assert.ok(specs.settings.width <= 640, 'the settings window has grown back into a scroll of everything')
-  assert.equal(specs.settings.resizable, false, 'the settings window must be a fixed size')
+  // The settings are on tabs: a window of a set size whose page scrolls, wide
+  // enough for two controls side by side, and resizable for a long page.
+  assert.ok(specs.settings.width >= 560, 'the settings window should be wide enough for two controls side by side')
+  assert.ok(specs.settings.width <= 700, 'the settings window has grown back into a scroll of everything')
+  assert.ok(specs.settings.height >= 560, 'the settings window is too short for a page')
+  assert.equal(specs.settings.resizable, true, 'the settings window cannot be resized for a long page')
+  assert.match(cssSource, /\.dialog-window > \.dialog\.settings-dialog \{[^}]*height: 100vh/, 'the settings dialog does not fill its window, so the page cannot scroll')
+  assert.match(cssSource, /\.settings-page \{[^}]*overflow-y: auto/, 'the settings page does not scroll')
+  assert.match(cssSource, /\.dialog-window \.settings-dialog \.dialog-content \{[^}]*overflow: hidden/, 'the content would keep growing the window')
 })
 
 test('a dialog window is owned by the main window and is movable', () => {
@@ -397,7 +401,14 @@ test('a number in the settings window has a step button either side', () => {
 
   // Both settings numbers use it, and so do the size dialogs.
   const settings = dialogSource.slice(dialogSource.indexOf("case 'settings': {"), dialogSource.indexOf("case 'helpGuide':"))
-  assert.equal((settings.match(/<NumberStepper/g) ?? []).length, 3, 'a settings number is still a bare input')
+  assert.equal((settings.match(/<NumberStepper/g) ?? []).length, 5, 'a settings number is still a bare input')
+  // Every preference the editor keeps is on one of the pages, and there is a way back to the defaults.
+  for (const key of ['showRulers', 'showGrid', 'showGuides', 'showPixelGrid', 'smartGuides', 'showSlices', 'showNotes', 'extras', 'snapEnabled', 'snapToGuides', 'snapToGrid', 'lockGuides', 'proofColors', 'gamutWarning', 'rulerUnits', 'rightWidth', 'selectionMode', 'marqueeFeather', 'antiAlias', 'wandContiguous', 'sampleAllLayers', 'fillTolerance', 'eyedropperSample', 'cloneAligned', 'patternImpressionist', 'brushHardness', 'brushOpacity', 'historyStates', 'neuralWebgpu', 'exportFormat', 'exportTransparent', 'recentFiles']) {
+    assert.ok(settings.includes(`'${key}'`) || settings.includes(`${key}:`) || settings.includes(`settings.${key}`), `the ${key} preference has no control in the settings window`)
+  }
+  assert.match(settings, /const resetPreferences = /, 'there is no way back to the defaults')
+  assert.match(settings, /onClick=\{resetPreferences\}/, 'the reset is not wired to a button')
+  assert.ok(settings.includes("'brushes', 'gradients', 'swatches', 'customShapes', 'toolPresets', 'styles', 'workspaces', 'actions', 'recentFiles'"), 'a reset would throw away what the user made')
   assert.ok(!settings.includes('type="number"'), 'a settings number still uses the browser spinner')
 })
 

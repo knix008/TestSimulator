@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, dialog, ipcMain, nativeTheme, shell } = require('electron')
+const { app, BrowserWindow, Menu, dialog, ipcMain, nativeTheme, net, shell } = require('electron')
 const fs = require('node:fs/promises')
 const { spawn } = require('node:child_process')
 const path = require('node:path')
@@ -11,7 +11,7 @@ const currentWindowSize = { width: 1680, height: 940 }
 // The toolbar row holds every command, the contextual actions and the colour
 // controls on one line and never scrolls, so the window may not be made
 // narrower than that row needs (measured at 1277px) or buttons would vanish.
-const minimumWindowSize = { width: 1320, height: 720 }
+const minimumWindowSize = { width: 1280, height: 700 }
 
 if (process.platform === 'win32') {
   app.setAppUserModelId(appId)
@@ -157,6 +157,92 @@ ipcMain.handle('files:read', async (_event, options = {}) => {
   } catch (error) {
     return { canceled: true, files: [], message: String(error && error.message ? error.message : error) }
   }
+})
+
+/* --------------------------------------------------------------- models */
+// The neural network weights: fetched once, on request, into the user's data
+// folder, and read from there after. Progress goes to every window, since the
+// Neural Models dialog and the editor both show it.
+
+function modelsDir() {
+  return path.join(app.getPath('userData'), 'models')
+}
+
+function modelPath(id) {
+  if (!/^[a-zA-Z0-9_-]+$/.test(String(id))) throw new Error('bad model id')
+  return path.join(modelsDir(), `${id}.onnx`)
+}
+
+function broadcast(channel, message) {
+  for (const contents of require('electron').webContents.getAllWebContents()) {
+    if (!contents.isDestroyed()) contents.send(channel, message)
+  }
+}
+
+const activeDownloads = new Map()
+
+ipcMain.handle('models:list', async () => {
+  try {
+    const names = await fs.readdir(modelsDir())
+    return names.filter((name) => name.endsWith('.onnx') && !name.endsWith('.part.onnx')).map((name) => name.replace(/\.onnx$/, ''))
+  } catch {
+    return []
+  }
+})
+
+ipcMain.handle('models:read', async (_event, id) => {
+  const buffer = await fs.readFile(modelPath(id))
+  return buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength)
+})
+
+ipcMain.handle('models:remove', async (_event, id) => {
+  await fs.rm(modelPath(id), { force: true })
+})
+
+ipcMain.handle('models:download', async (_event, id, url, bytes) => {
+  const target = modelPath(id)
+  if (activeDownloads.has(id)) return { ok: false, message: 'already downloading' }
+  const partial = target.replace(/\.onnx$/, '.part.onnx')
+  const controller = new AbortController()
+  activeDownloads.set(id, controller)
+  try {
+    await fs.mkdir(modelsDir(), { recursive: true })
+    const response = await net.fetch(String(url), { signal: controller.signal })
+    if (!response.ok || !response.body) throw new Error(`${response.status} ${response.statusText}`)
+    const total = Number(response.headers.get('content-length')) || Number(bytes) || 0
+    const handle = await fs.open(partial, 'w')
+    let received = 0
+    let lastReport = 0
+    try {
+      const reader = response.body.getReader()
+      for (;;) {
+        const { done, value } = await reader.read()
+        if (done) break
+        await handle.write(value)
+        received += value.length
+        if (Date.now() - lastReport > 150) {
+          lastReport = Date.now()
+          broadcast('models:progress', { id, received, total, done: false })
+        }
+      }
+    } finally {
+      await handle.close()
+    }
+    await fs.rename(partial, target)
+    broadcast('models:progress', { id, received, total, done: true })
+    return { ok: true }
+  } catch (error) {
+    await fs.rm(partial, { force: true }).catch(() => {})
+    const message = String(error && error.message ? error.message : error)
+    broadcast('models:progress', { id, received: 0, total: 0, done: true, error: message })
+    return { ok: false, message }
+  } finally {
+    activeDownloads.delete(id)
+  }
+})
+
+ipcMain.handle('models:cancel', (_event, id) => {
+  activeDownloads.get(id)?.abort()
 })
 
 ipcMain.handle('files:save', async (_event, options = {}) => {
@@ -352,6 +438,19 @@ if (gotSingleInstanceLock) {
 
   app.whenReady().then(() => {
     Menu.setApplicationMenu(null)
+    // Cross-origin isolation, so the renderer may use SharedArrayBuffer and
+    // ONNX Runtime can run a model on every core instead of one. The
+    // `credentialless` embedder policy keeps ordinary cross-origin images
+    // loadable.
+    require('electron').session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+      callback({
+        responseHeaders: {
+          ...details.responseHeaders,
+          'Cross-Origin-Opener-Policy': ['same-origin'],
+          'Cross-Origin-Embedder-Policy': ['credentialless'],
+        },
+      })
+    })
     childWindows.registerChildWindowHandlers()
     createWindow()
 

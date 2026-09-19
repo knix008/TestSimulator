@@ -172,6 +172,7 @@ export const commands: AppCommand[] = [
   { id: 'edit.purge', menu: 'edit', icon: Trash, label: 'purge', separatorBefore: true },
   { id: 'edit.colorSettings', menu: 'edit', icon: Palette, label: 'colorSettings', accel: 'Ctrl+Shift+K' },
   { id: 'edit.keyboardShortcuts', menu: 'edit', icon: Keyboard, label: 'keyboardShortcuts', accel: 'Ctrl+Alt+Shift+K' },
+  { id: 'edit.neuralModels', menu: 'edit', icon: Sparkles, label: 'neuralModels' },
   { id: 'edit.preferences', menu: 'edit', icon: Settings2, label: 'preferences', accel: 'Ctrl+K' },
 
   /* ------------------------------------------------------------- image */

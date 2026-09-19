@@ -38,16 +38,19 @@ test('the toolbar is one line that never scrolls', () => {
   const layout = cssSource.slice(cssSource.indexOf('/* One line, never scrolled'))
   const block = layout.slice(0, layout.indexOf('}'))
   assert.match(block, /overflow: hidden/, 'the toolbar scrolls, which hides buttons')
+  assert.ok(!block.includes('flex-wrap'), 'the toolbar wraps onto a second line')
   assert.ok(!cssSource.includes('.tool-bar::-webkit-scrollbar'), 'the toolbar still has a scrollbar')
 })
 
 test('the window cannot be made narrower than the toolbar row needs', () => {
-  // Measured at 1277px with every command, task action and colour control.
-  assert.match(mainProcess, /const minimumWindowSize = \{ width: 1320, height: 720 \}/, 'no minimum is declared')
+  // Measured at 1257px with every command, task action and colour
+  // control at the tightened spacing; the minimum leaves a little room.
+  assert.match(mainProcess, /const minimumWindowSize = \{ width: 1280, height: 700 \}/, 'no minimum is declared')
   assert.match(mainProcess, /minWidth: minimumWindowSize\.width/, 'the minimum width is not applied')
   assert.match(mainProcess, /minHeight: minimumWindowSize\.height/, 'the minimum height is not applied')
   const minWidth = Number(mainProcess.match(/minimumWindowSize = \{ width: (\d+)/)[1])
-  assert.ok(minWidth >= 1290, `${minWidth} is narrower than the toolbar needs`)
+  assert.ok(minWidth >= 1257, `${minWidth} is narrower than the toolbar needs`)
+  assert.match(readFileSync(fileURLToPath(new URL('../src/index.css', import.meta.url)), 'utf8'), new RegExp(`min-width: ${minWidth}px`), 'the page minimum disagrees with the window minimum')
 })
 
 test('the task actions are icon-only but still named for the reader', () => {

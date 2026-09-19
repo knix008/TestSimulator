@@ -38,7 +38,7 @@ let openSequence = 0
 const DIALOG_SPECS = {
   // Wider than the old in-page panel so each row fits label + control on one
   // line, and fixed: the layout is designed for exactly this size.
-  settings: { width: 540, height: 512, resizable: false },
+  settings: { width: 600, height: 620, resizable: true, minWidth: 540 },
   about: { width: 560, height: 470, resizable: false },
   helpGuide: { width: 660, height: 620, resizable: false },
   error: { width: 620, height: 420, minWidth: 420 },
@@ -95,7 +95,8 @@ const DIALOG_SPECS = {
   customFilter: { width: 460, height: 420, resizable: false },
   layerStyle: { width: 760, height: 620, minWidth: 620 },
   gradientEditor: { width: 520, height: 640, minWidth: 420 },
-  neural: { width: 440, height: 300, resizable: false },
+  neural: { width: 440, height: 330, resizable: false },
+  neuralModels: { width: 640, height: 560, resizable: true },
   note: { width: 420, height: 240, resizable: false },
   findReplace: { width: 420, height: 270, resizable: false },
   exportAs: { width: 440, height: 330, resizable: false },

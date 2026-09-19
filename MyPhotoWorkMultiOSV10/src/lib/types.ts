@@ -653,6 +653,8 @@ export type AppSettings = {
   paintTarget: 'layer' | 'mask'
   /** The brush preset whose sampled tip the brush paints with; empty for a round tip. */
   brushTipId: string
+  /** Try the GPU for the neural networks (experimental); off runs them on the CPU threads. */
+  neuralWebgpu: boolean
 }
 
 export type ErrorDetails = { title: string; message: string; details: string }
@@ -872,6 +874,7 @@ export const defaultSettings: AppSettings = {
   patternPreview: false,
   paintTarget: 'layer',
   brushTipId: '',
+  neuralWebgpu: false,
 }
 
 export const documentPresets: { id: string; width: number; height: number }[] = [

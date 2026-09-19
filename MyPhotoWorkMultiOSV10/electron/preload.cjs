@@ -7,6 +7,20 @@ contextBridge.exposeInMainWorld('electronFileApi', {
   writeFile: (options) => ipcRenderer.invoke('files:write', options),
 })
 
+// The neural network weights: listed, fetched with progress, read and removed.
+contextBridge.exposeInMainWorld('electronModelApi', {
+  list: () => ipcRenderer.invoke('models:list'),
+  read: (id) => ipcRenderer.invoke('models:read', id),
+  download: (id, url, bytes) => ipcRenderer.invoke('models:download', id, url, bytes),
+  cancel: (id) => ipcRenderer.invoke('models:cancel', id),
+  remove: (id) => ipcRenderer.invoke('models:remove', id),
+  onProgress: (callback) => {
+    const listener = (_event, progress) => callback(progress)
+    ipcRenderer.on('models:progress', listener)
+    return () => ipcRenderer.removeListener('models:progress', listener)
+  },
+})
+
 // One print window: the preview and the settings, then straight to the printer.
 contextBridge.exposeInMainWorld('electronPrintApi', {
   printers: () => ipcRenderer.invoke('print:printers'),

@@ -640,8 +640,18 @@ only lists what behaves differently from the older release.
   clicks, press S for the Clone Stamp, Alt-click a source on the plane and
   paint: what you clone shrinks and leans with the plane. Apply still pastes the
   clipboard into the plane.
-- **Neural Filters and the other "AI" windows** remain algorithms and say so;
-  no model is downloaded.
+- **Neural models, if you want them.** Edit ▸ Neural Models… lists the
+  networks the app can use — subject cut-out (U²-Net, Silueta, ISNet), sky
+  (SegFormer), depth (Depth Anything V2), object removal (LaMa) and
+  super-resolution (Swin2SR) — with their sizes and licences. Download one and
+  Select Subject, Remove Background, Object Selection, Select Sky, Sky
+  Replacement, Depth Blur, Generative Fill, the Remove tool, Super Zoom and
+  Generative Upscale use it from then on; without it they use the classical
+  method described above. The weights are fetched once from their public
+  repositories, kept on this computer and run on it (all CPU cores; WebGPU is a
+  checkbox in the same window). Nothing you edit leaves the machine.
+- **Neural Filters' skin smoothing, colorize and restore** remain algorithms
+  and say so.
 
 ## Keyboard
 

@@ -1,6 +1,6 @@
 # Image verification run
 
-- Run: 2026-09-19T09:44:06.907Z (71.8s)
+- Run: 2026-09-19T13:25:39.107Z (69.5s)
 - Source images: 5, from `images/`
 - Files produced: 75
 - Result: **every assertion passed**

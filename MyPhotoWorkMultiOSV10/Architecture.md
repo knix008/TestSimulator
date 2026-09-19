@@ -132,6 +132,9 @@ so the tests can import it without a JSX transform.
 | `psd` | Photoshop's file format, read and written (layers, groups, masks, RLE, 8/16-bit, RGB/Gray/CMYK/Indexed/Lab) |
 | `cv` | the OpenCV-backed commands: ORB + RANSAC homographies for alignment and stitching, distance-transform blending, Mertens exposure fusion, GrabCut, Telea inpainting, the scanner-bed photo finder, a bilateral denoiser. OpenCV (`@techstark/opencv-js`, ~13MB of WebAssembly) is a separate chunk that loads on first use; every Mat is freed by the `scope` helper |
 | `inpaint` | pure TypeScript: PatchMatch hole filling (coarse to fine, nearest-neighbour field search alternating with patch voting) behind Content-Aware Fill, and the Poisson solver (multigrid-warmed Gauss-Seidel) behind Harmonize |
+| `neural` | the model registry (source URL, size, licence, input size and normalisation) and the pre/post-processing around each network — saliency map to selection, ADE20K logits to a sky mask, inverse depth to a depth map and the depth-driven blur, LaMa's 512px crop-and-paste, Swin2SR's overlapping tiles. Takes a `Runner`, so it is tested against stand-ins |
+| `models` | where the weights live: the main process's files under userData (streamed download with progress, `.part.onnx` until complete) or the browser's Cache API |
+| `ort` | ONNX Runtime itself, reached only by dynamic import: the plain WebAssembly build on all-but-one core (the shell sends COOP/COEP headers so the page is cross-origin isolated), or the WebGPU build when the setting asks for it, rebuilt on the CPU if a GPU run throws |
 | `view` | the tick spacing shared by the grid and the rulers |
 
 ## Errors

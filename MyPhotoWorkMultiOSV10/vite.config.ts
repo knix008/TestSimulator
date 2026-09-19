@@ -4,6 +4,10 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   base: './',
   plugins: [react()],
+  // ONNX Runtime ships its WebAssembly glue pre-built and self-referencing;
+  // Vite's dependency pre-bundling rewrites it into something that throws
+  // inside the wasm callbacks, so it is served as it is.
+  optimizeDeps: { exclude: ['onnxruntime-web'] },
   build: {
     /*
      * The HEIF decoder is a 2 MB WebAssembly build shipped as one file, and the

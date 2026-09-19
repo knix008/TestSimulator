@@ -48,6 +48,10 @@
 .options-bar {
   -webkit-app-region: no-drag;
   gap: 12px;
+  /* A tool with many controls scrolls sideways at the minimum width. */
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
 }
 
 .current-tool {
@@ -153,8 +157,12 @@
 
 /* The browser build's own dropdown, dealt into columns on the same rule as the
    popup window so a thirty-row menu does not run off the bottom of the page. */
-/* The in-page dropdown hands its inside over to the menu tree. */
+/* The in-page dropdown hands its inside over to the menu tree, whose columns
+   draw their own panels. */
 .menu-drop.menu-tree-drop {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
   display: block;
   padding: 0;
 }
@@ -662,7 +670,7 @@
 }
 
 .settings-dialog {
-  width: 520px;
+  width: 580px;
 }
 
 /* One page of settings at a time; the tabs sit above the page they switch. */
@@ -689,8 +697,70 @@
 
 /* Tall enough for the theme swatches, so switching tabs does not resize the
    window under the pointer. */
+/* The page scrolls inside a window of fixed height; the tabs above and the
+   buttons below never move. */
 .settings-page {
-  min-height: 300px;
+  display: grid;
+  flex: 1 1 auto;
+  gap: 14px;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 4px;
+  align-content: start;
+}
+
+.settings-section {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  padding: 10px 12px 12px;
+}
+
+.settings-section h3 {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.settings-dialog .dialog-grid.settings-checks {
+  gap: 4px 12px;
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.settings-dialog .settings-checks .check-row,
+.settings-dialog .settings-section .check-row {
+  margin-bottom: 0;
+  min-height: 26px;
+}
+
+.settings-dialog .settings-section > label,
+.settings-dialog .settings-section .dialog-grid > label {
+  margin-bottom: 0;
+}
+
+.settings-range {
+  align-items: center;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 96px 1fr 40px;
+}
+
+.settings-range .range-value {
+  text-align: right;
+}
+
+.settings-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.settings-actions {
+  justify-content: space-between;
 }
 
 .settings-theme-block {
@@ -1338,10 +1408,11 @@
 
 .tool-bar {
   /* One line, never scrolled: the window's minimum width is set to hold every
-     button, so nothing can end up out of reach. */
+     button, so nothing can end up out of reach. The buttons and dividers are
+     kept tight so that width stays modest. */
   gap: 0;
   overflow: hidden;
-  padding: 4px 10px;
+  padding: 4px 8px;
 }
 
 .tool-bar-group {
@@ -1355,7 +1426,7 @@
   background: var(--border);
   flex: 0 0 auto;
   height: 18px;
-  margin: 0 7px;
+  margin: 0 4px;
   width: 1px;
 }
 
@@ -1364,8 +1435,8 @@
   gap: 0;
   justify-content: center;
   min-height: 28px;
-  min-width: 30px;
-  padding: 4px;
+  min-width: 28px;
+  padding: 4px 3px;
 }
 
 /* The zoom percentage, between the zoom-out and zoom-in buttons. A fixed width
@@ -1559,10 +1630,6 @@
 /* The dropdown rendered in its own always-on-top window, which is what lets a
    long menu overhang the application window instead of being clipped by it. */
 .menu-window {
-  background: var(--panel-bg);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.42);
   display: inline-block;
   width: max-content;
 }
@@ -1570,13 +1637,19 @@
 /* ------------------------------------------------------------- menu tree */
 /* A short top level with a submenu beside the row that opened it, the way
    Photoshop's menus read. Both the popup window and the in-page dropdown
-   hold one of these. */
+   hold one of these. Each column is a panel of its own, so a submenu is a
+   small box level with its row rather than a strip as tall as the menu. */
 .menu-tree {
   align-items: flex-start;
   display: flex;
+  gap: 4px;
 }
 
 .menu-column {
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.42);
   display: grid;
   gap: 1px;
   min-width: 200px;
@@ -1585,7 +1658,6 @@
 }
 
 .menu-column.menu-sub {
-  border-left: 1px solid var(--border);
   min-width: 220px;
 }
 
@@ -1741,11 +1813,19 @@
   max-width: 220px;
 }
 
-/* Neither the settings nor the about window scrolls: each is sized to hold all
-   of its content, so a scrollbar would only ever mean something is cut off. */
-.dialog-window .settings-dialog .dialog-content,
+/* The about window is sized to hold all of its content, so it never scrolls.
+   The settings window is the other way round: a fixed, resizable window whose
+   page scrolls, so the dialog fills the window and the content never grows it. */
 .dialog-window .about-dialog .dialog-content {
   overflow-y: visible;
+}
+
+.dialog-window > .dialog.settings-dialog {
+  height: 100vh;
+}
+
+.dialog-window .settings-dialog .dialog-content {
+  overflow: hidden;
 }
 
 /* --------------------------------------- task buttons and colours, inline */
@@ -1774,47 +1854,35 @@
    without one drawn here. */
 .resize-grip {
   bottom: 0;
-  height: 16px;
+  height: 18px;
   /* The OS owns the corner; this only draws it. */
   pointer-events: none;
   position: fixed;
   right: 0;
-  width: 16px;
+  width: 18px;
   z-index: 80;
 }
 
+/* Three diagonal ridges in the text colour, the classic grip, cut to the
+   corner's triangle so they read as a handle and not as a box. */
 .resize-grip::after {
-  border-right: 2px solid var(--border);
-  border-bottom: 2px solid var(--border);
+  background: repeating-linear-gradient(135deg, transparent 0 3px, var(--text-muted) 3px 5px);
+  bottom: 2px;
+  clip-path: polygon(100% 0, 100% 100%, 0 100%);
   content: '';
-  height: 5px;
+  height: 14px;
+  opacity: 0.9;
   position: absolute;
-  right: 3px;
-  bottom: 3px;
-  width: 5px;
-}
-
-.resize-grip::before {
-  border-right: 2px solid var(--border);
-  border-bottom: 2px solid var(--border);
-  content: '';
-  height: 10px;
-  opacity: 0.55;
-  position: absolute;
-  right: 3px;
-  bottom: 3px;
-  width: 10px;
+  right: 2px;
+  width: 14px;
 }
 
 /* ------------------------------------------------- settings window layout */
 /* Roomier rows, and a two-column grid for the short controls so nothing has to
    be squeezed or cut off. */
 .settings-dialog .dialog-content {
-  gap: 14px;
-  /* The window is sized to the measured content, and a bottom margin does not
-     count towards that, so the Close button ended up flush against the window
-     edge. Padding does count, and buys the row the air it was missing. */
-  padding-bottom: 12px;
+  gap: 12px;
+  padding-bottom: 4px;
 }
 
 .settings-dialog > .dialog-content > label,
@@ -2211,6 +2279,80 @@
 
 .app-shell.screen-full .workspace {
   grid-template-columns: minmax(0, 1fr);
+}
+
+/* The Neural Models window: one section per task, one row per model. */
+.model-list {
+  display: grid;
+  gap: 10px;
+  max-height: 380px;
+  overflow: auto;
+}
+
+.model-task {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+.model-task.needed {
+  border-color: var(--accent);
+}
+
+.model-task h3 {
+  font-size: 13px;
+  margin: 0 0 6px;
+}
+
+.model-row {
+  align-items: center;
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 12px;
+  padding: 6px 0;
+}
+
+.model-row:first-of-type {
+  border-top: 0;
+}
+
+.model-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.model-text progress {
+  display: block;
+  margin-top: 4px;
+  width: 100%;
+}
+
+.model-size,
+.model-note {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.model-error {
+  color: #f87171;
+  font-size: 12px;
+}
+
+.model-actions {
+  align-items: flex-end;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.model-status {
+  color: var(--text-muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.model-status.ready {
+  color: var(--accent);
 }
 
 /* The Layer Style window: a list of effects on the left, one page on the right. */

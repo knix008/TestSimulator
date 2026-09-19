@@ -14,7 +14,7 @@ import { supportsTransparency } from './lib/imageIO'
 import { colorFamilies, defaultChannelMix, defaultInkShift, type ChannelMix, type ColorFamily, type InkShift } from './lib/colorTools'
 import { builtInProfiles } from './lib/colorModes'
 import { defaultThreeD } from './lib/three'
-import { defaultCurves, documentPresets, exportFormats, warpStyles, type AppSettings, type CurveChannel, type CurveData, type CurvePoint, type ExportFormat, type Language, type LevelsData, type PageOrientation, type TextWarpStyle, type ThreeDData } from './lib/types'
+import { defaultCurves, defaultSettings, documentPresets, exportFormats, warpStyles, type AppSettings, type CurveChannel, type CurveData, type CurvePoint, type ExportFormat, type Language, type LevelsData, type PageOrientation, type TextWarpStyle, type ThreeDData } from './lib/types'
 
 export type { DialogName, DialogPayload, DialogResult } from './dialogMeta'
 
@@ -302,7 +302,7 @@ export function DialogBody({
   const [warpBend, setWarpBend] = useState(40)
   const [profileId, setProfileId] = useState(payload.profile?.current ?? 'srgb')
   const [brushName, setBrushName] = useState('')
-  const [settingsTab, setSettingsTab] = useState<'general' | 'view' | 'export' | 'brush' | 'tools'>('general')
+  const [settingsTab, setSettingsTab] = useState<'general' | 'view' | 'tools' | 'brush' | 'export'>('general')
   const [solid, setSolid] = useState<ThreeDData>(() => payload.threeD ?? defaultThreeD())
   const [warpH, setWarpH] = useState(0)
   const [warpV, setWarpV] = useState(0)
@@ -1099,9 +1099,34 @@ export function DialogBody({
 
     case 'settings': {
       if (!settings) return null
-      // One page of settings at a time, so the window stays a window rather
-      // than a scroll of everything the editor can be told.
-      const tabs = ['general', 'view', 'export', 'brush', 'tools'] as const
+      // One page of settings at a time, the way a preferences window reads:
+      // the tabs pick a page, the page scrolls if it must, and the reset and
+      // close buttons stay put underneath.
+      const tabs = ['general', 'view', 'tools', 'brush', 'export'] as const
+      const check = (key: keyof AppSettings, label: string) => (
+        <label className="check-row" key={String(key)}>
+          <input type="checkbox" checked={Boolean(settings[key])} onChange={(event) => patchSettings({ [key]: event.target.checked } as Partial<AppSettings>)} />
+          {tr(label)}
+        </label>
+      )
+      const percent = (key: 'brushHardness' | 'brushOpacity' | 'brushSpacing' | 'brushRoundness' | 'brushScatter', label: string, min: number, max: number) => (
+        <label className="settings-range">
+          <span>{tr(label)}</span>
+          <input type="range" min={min} max={max} value={Math.round(settings[key] * 100)} onChange={(event) => patchSettings({ [key]: Number(event.target.value) / 100 } as Partial<AppSettings>)} />
+          <span className="range-value">{Math.round(settings[key] * 100)}</span>
+        </label>
+      )
+      const resetPreferences = () => {
+        // Everything the window shows goes back to its default; what the user
+        // has made (brushes, gradients, swatches, shapes, presets, styles,
+        // workspaces, actions) and the recent files list are kept.
+        const kept: (keyof AppSettings)[] = ['language', 'brushes', 'gradients', 'swatches', 'customShapes', 'toolPresets', 'styles', 'workspaces', 'actions', 'recentFiles', 'rightTab', 'zoom', 'foreground', 'background', 'paintTarget']
+        const patch: Partial<AppSettings> = {}
+        for (const key of Object.keys(defaultSettings) as (keyof AppSettings)[]) {
+          if (!kept.includes(key)) (patch as Record<string, unknown>)[key] = defaultSettings[key]
+        }
+        patchSettings(patch)
+      }
       return (
         <>
           <div className="settings-tabs">
@@ -1119,19 +1144,24 @@ export function DialogBody({
           <div className="settings-page">
             {settingsTab === 'general' && (
               <>
-                <label className="settings-field">
-                  <span className="settings-field-name">{tr('historyStates')}</span>
-                  <span className="settings-field-hint">{tr('snapshotHint')}</span>
-                  <NumberStepper language={settings.language} min={5} max={500} step={5} value={settings.historyStates} onChange={(historyStates) => patchSettings({ historyStates })} />
-                </label>
-                <label>{t(settings.language, 'language')}
-                  <select value={settings.language} onChange={(event) => patchSettings({ language: event.target.value as Language })}>
-                    <option value="ko">한국어</option>
-                    <option value="en">English</option>
-                  </select>
-                </label>
-                <div className="settings-theme-block">
-                  <span>{tr('theme')}</span>
+                <section className="settings-section">
+                  <h3>{tr('settingsSectionApp')}</h3>
+                  <div className="dialog-grid">
+                    <label>{t(settings.language, 'language')}
+                      <select value={settings.language} onChange={(event) => patchSettings({ language: event.target.value as Language })}>
+                        <option value="ko">한국어</option>
+                        <option value="en">English</option>
+                      </select>
+                    </label>
+                    <label className="settings-field">
+                      <span className="settings-field-name">{tr('historyStates')}</span>
+                      <NumberStepper language={settings.language} min={5} max={500} step={5} value={settings.historyStates} onChange={(historyStates) => patchSettings({ historyStates })} />
+                    </label>
+                  </div>
+                  <p className="settings-field-hint">{tr('snapshotHint')}</p>
+                </section>
+                <section className="settings-section">
+                  <h3>{tr('theme')}</h3>
                   <div className="settings-themes">
                     {themes.map((item) => (
                       <button
@@ -1145,168 +1175,214 @@ export function DialogBody({
                       </button>
                     ))}
                   </div>
-                </div>
+                </section>
+                <section className="settings-section">
+                  <h3>{tr('settingsSectionMore')}</h3>
+                  <div className="settings-buttons">
+                    <button onClick={() => onResult({ action: 'open', dialog: 'keyboardShortcuts' })}>{tr('keyboardShortcuts')}</button>
+                    <button onClick={() => onResult({ action: 'open', dialog: 'neuralModels' })}>{tr('neuralModels')}</button>
+                    <button disabled={settings.recentFiles.length === 0} onClick={() => patchSettings({ recentFiles: [] })}>{`${tr('clearRecent')} (${settings.recentFiles.length})`}</button>
+                  </div>
+                  {check('neuralWebgpu', 'modelUseWebgpu')}
+                </section>
               </>
             )}
 
             {settingsTab === 'view' && (
               <>
-                <div className="dialog-grid">
-                  <label className="check-row">
-                    <input type="checkbox" checked={settings.showGrid} onChange={(event) => patchSettings({ showGrid: event.target.checked })} />
-                    {tr('grid')}
-                  </label>
-                  <label className="check-row">
-                    <input type="checkbox" checked={settings.showRulers} onChange={(event) => patchSettings({ showRulers: event.target.checked })} />
-                    {tr('rulers')}
-                  </label>
-                  <label className="check-row">
-                    <input type="checkbox" checked={settings.showGuides} onChange={(event) => patchSettings({ showGuides: event.target.checked })} />
-                    {tr('showGuides')}
-                  </label>
-                  <label className="check-row">
-                    <input type="checkbox" checked={settings.snapEnabled} onChange={(event) => patchSettings({ snapEnabled: event.target.checked })} />
-                    {tr('snap')}
-                  </label>
-                  <label className="check-row">
-                    <input type="checkbox" checked={settings.showPixelGrid} onChange={(event) => patchSettings({ showPixelGrid: event.target.checked })} />
-                    {tr('pixelGrid')}
-                  </label>
-                  <label className="check-row">
-                    <input type="checkbox" checked={settings.smartGuides} onChange={(event) => patchSettings({ smartGuides: event.target.checked })} />
-                    {tr('smartGuides')}
-                  </label>
-                </div>
-                <label>{tr('rulerUnits')}
-                  <select value={settings.rulerUnits} onChange={(event) => patchSettings({ rulerUnits: event.target.value as AppSettings['rulerUnits'] })}>
-                    {(['px', 'in', 'cm', 'mm', 'pt'] as const).map((unit) => <option key={unit} value={unit}>{unit}</option>)}
-                  </select>
-                </label>
+                <section className="settings-section">
+                  <h3>{tr('settingsSectionShow')}</h3>
+                  <div className="dialog-grid settings-checks">
+                    {check('showRulers', 'rulers')}
+                    {check('showGrid', 'grid')}
+                    {check('showGuides', 'showGuides')}
+                    {check('showPixelGrid', 'pixelGrid')}
+                    {check('smartGuides', 'smartGuides')}
+                    {check('showSlices', 'showSlices')}
+                    {check('showNotes', 'showNotes')}
+                    {check('showPaths', 'showPaths')}
+                    {check('extras', 'extras')}
+                    {check('patternPreview', 'patternPreview')}
+                  </div>
+                </section>
+                <section className="settings-section">
+                  <h3>{tr('snap')}</h3>
+                  <div className="dialog-grid settings-checks">
+                    {check('snapEnabled', 'snap')}
+                    {check('snapToGuides', 'snapGuides')}
+                    {check('snapToGrid', 'snapGrid')}
+                    {check('lockGuides', 'lockGuides')}
+                  </div>
+                </section>
+                <section className="settings-section">
+                  <h3>{tr('settingsSectionColorUnits')}</h3>
+                  <div className="dialog-grid">
+                    <label>{tr('rulerUnits')}
+                      <select value={settings.rulerUnits} onChange={(event) => patchSettings({ rulerUnits: event.target.value as AppSettings['rulerUnits'] })}>
+                        {(['px', 'in', 'cm', 'mm', 'pt'] as const).map((unit) => <option key={unit} value={unit}>{unit}</option>)}
+                      </select>
+                    </label>
+                    <label className="settings-field">
+                      <span className="settings-field-name">{tr('panelWidth')}</span>
+                      <NumberStepper language={settings.language} min={260} max={560} step={10} value={settings.rightWidth} onChange={(rightWidth) => patchSettings({ rightWidth })} />
+                    </label>
+                  </div>
+                  <div className="dialog-grid settings-checks">
+                    {check('proofColors', 'proofColors')}
+                    {check('gamutWarning', 'gamutWarning')}
+                  </div>
+                </section>
               </>
             )}
 
-            {settingsTab === 'export' && (
+            {settingsTab === 'tools' && (
               <>
-                <label>{tr('exportFormat')}
-                  <select value={settings.exportFormat} onChange={(event) => patchSettings({ exportFormat: event.target.value as ExportFormat })}>
-                    {exportFormats.map((format) => <option key={format} value={format}>{format.toUpperCase()}</option>)}
-                  </select>
-                </label>
-                <label className="check-row">
-                  <input
-                    type="checkbox"
-                    checked={supportsTransparency(settings.exportFormat) && settings.exportTransparent}
-                    disabled={!supportsTransparency(settings.exportFormat)}
-                    onChange={(event) => patchSettings({ exportTransparent: event.target.checked })}
-                  />
-                  {tr('exportTransparent')}
-                </label>
+                <section className="settings-section">
+                  <h3>{tr('settingsSectionSelection')}</h3>
+                  <div className="dialog-grid">
+                    <label>{tr('selectionMode')}
+                      <select value={settings.selectionMode} onChange={(event) => patchSettings({ selectionMode: event.target.value as AppSettings['selectionMode'] })}>
+                        <option value="new">{tr('selNew')}</option>
+                        <option value="add">{tr('selAdd')}</option>
+                        <option value="subtract">{tr('selSubtract')}</option>
+                        <option value="intersect">{tr('selIntersect')}</option>
+                      </select>
+                    </label>
+                    <label className="settings-field">
+                      <span className="settings-field-name">{tr('featherOpt')}</span>
+                      <NumberStepper language={settings.language} min={0} max={100} value={settings.marqueeFeather} onChange={(marqueeFeather) => patchSettings({ marqueeFeather })} />
+                    </label>
+                  </div>
+                  <div className="dialog-grid settings-checks">
+                    {check('antiAlias', 'antiAliasOpt')}
+                    {check('wandContiguous', 'contiguous')}
+                    {check('sampleAllLayers', 'sampleAll')}
+                  </div>
+                </section>
+                <section className="settings-section">
+                  <h3>{tr('settingsSectionSampling')}</h3>
+                  <div className="dialog-grid">
+                    <label className="settings-field">
+                      <span className="settings-field-name">{tr('settingsTolerance')}</span>
+                      <NumberStepper language={settings.language} min={0} max={255} value={settings.fillTolerance} onChange={(fillTolerance) => patchSettings({ fillTolerance })} />
+                    </label>
+                    <label>{tr('sampleSize')}
+                      <select value={String(settings.eyedropperSample)} onChange={(event) => patchSettings({ eyedropperSample: Number(event.target.value) as AppSettings['eyedropperSample'] })}>
+                        <option value="1">{tr('sampleSize1')}</option>
+                        <option value="3">{tr('sampleSize3')}</option>
+                        <option value="5">{tr('sampleSize5')}</option>
+                      </select>
+                    </label>
+                  </div>
+                  <p className="settings-field-hint">{tr('settingsToleranceHint')}</p>
+                  <div className="dialog-grid settings-checks">
+                    {check('cloneAligned', 'aligned')}
+                    {check('patternImpressionist', 'impressionist')}
+                  </div>
+                </section>
               </>
             )}
 
             {settingsTab === 'brush' && (
               <>
-                <label className="settings-field">
-                  <span className="settings-field-name">{tr('settingsBrushSize')}</span>
-                  <span className="settings-field-hint">{tr('settingsBrushSizeHint')}</span>
-                  <NumberStepper language={settings.language} min={1} max={400} value={settings.brushSize} onChange={(brushSize) => patchSettings({ brushSize })} />
-                </label>
-                <label>{tr('brushSpacing')}
-                  <input
-                    type="range"
-                    min={2}
-                    max={200}
-                    value={Math.round(settings.brushSpacing * 100)}
-                    onChange={(event) => patchSettings({ brushSpacing: Number(event.target.value) / 100 })}
-                  />
-                  <span>{Math.round(settings.brushSpacing * 100)}</span>
-                </label>
-                <label>{tr('brushAngle')}
-                  <input type="range" min={-180} max={180} value={settings.brushAngle} onChange={(event) => patchSettings({ brushAngle: Number(event.target.value) })} />
-                  <span>{settings.brushAngle}</span>
-                </label>
-                <label>{tr('brushRoundness')}
-                  <input
-                    type="range"
-                    min={5}
-                    max={100}
-                    value={Math.round(settings.brushRoundness * 100)}
-                    onChange={(event) => patchSettings({ brushRoundness: Number(event.target.value) / 100 })}
-                  />
-                  <span>{Math.round(settings.brushRoundness * 100)}</span>
-                </label>
-                <label>{tr('brushScatter')}
-                  <input
-                    type="range"
-                    min={0}
-                    max={200}
-                    value={Math.round(settings.brushScatter * 100)}
-                    onChange={(event) => patchSettings({ brushScatter: Number(event.target.value) / 100 })}
-                  />
-                  <span>{Math.round(settings.brushScatter * 100)}</span>
-                </label>
-                <div className="channel-row">
-                  <input value={brushName} placeholder={tr('brushName')} onChange={(event) => setBrushName(event.target.value)} />
-                  <button
-                    data-tooltip={tr('saveBrush')}
-                    onClick={() => {
-                      const preset = {
-                        id: `brush-${Date.now().toString(36)}`,
-                        name: brushName.trim() || `${tr('brush')} ${settings.brushes.length + 1}`,
-                        size: settings.brushSize,
-                        hardness: settings.brushHardness,
-                        opacity: settings.brushOpacity,
-                        spacing: settings.brushSpacing,
-                        angle: settings.brushAngle,
-                        roundness: settings.brushRoundness,
-                        scatter: settings.brushScatter,
-                      }
-                      patchSettings({ brushes: [...settings.brushes, preset] })
-                      setBrushName('')
-                    }}
-                  >
-                    {tr('saveBrush')}
-                  </button>
-                </div>
-                {settings.brushes.length === 0
-                  ? <p className="dialog-hint">{tr('noBrushes')}</p>
-                  : settings.brushes.map((brush) => (
-                    <div className="channel-row" key={brush.id}>
-                      <button
-                        onClick={() => patchSettings({
-                          brushSize: brush.size,
-                          brushHardness: brush.hardness,
-                          brushOpacity: brush.opacity,
-                          brushSpacing: brush.spacing,
-                          brushAngle: brush.angle,
-                          brushRoundness: brush.roundness,
-                          brushScatter: brush.scatter,
-                        })}
-                      >
-                        {`${brush.name} · ${Math.round(brush.size)}px`}
-                      </button>
-                      <button
-                        data-tooltip={tr('deleteLayer')}
-                        aria-label={tr('deleteLayer')}
-                        onClick={() => patchSettings({ brushes: settings.brushes.filter((item) => item.id !== brush.id) })}
-                      >
-                        <X size={13} />
-                      </button>
-                    </div>
-                  ))}
+                <section className="settings-section">
+                  <h3>{tr('settingsSectionBrushDefaults')}</h3>
+                  <label className="settings-field">
+                    <span className="settings-field-name">{tr('settingsBrushSize')}</span>
+                    <span className="settings-field-hint">{tr('settingsBrushSizeHint')}</span>
+                    <NumberStepper language={settings.language} min={1} max={400} value={settings.brushSize} onChange={(brushSize) => patchSettings({ brushSize })} />
+                  </label>
+                  {percent('brushHardness', 'hardness', 0, 100)}
+                  {percent('brushOpacity', 'opacity', 1, 100)}
+                  {percent('brushSpacing', 'brushSpacing', 2, 200)}
+                  <label className="settings-range">
+                    <span>{tr('brushAngle')}</span>
+                    <input type="range" min={-180} max={180} value={settings.brushAngle} onChange={(event) => patchSettings({ brushAngle: Number(event.target.value) })} />
+                    <span className="range-value">{settings.brushAngle}</span>
+                  </label>
+                  {percent('brushRoundness', 'brushRoundness', 5, 100)}
+                  {percent('brushScatter', 'brushScatter', 0, 200)}
+                </section>
+                <section className="settings-section">
+                  <h3>{tr('savedBrushes')}</h3>
+                  <div className="channel-row">
+                    <input value={brushName} placeholder={tr('brushName')} onChange={(event) => setBrushName(event.target.value)} />
+                    <button
+                      data-tooltip={tr('saveBrush')}
+                      onClick={() => {
+                        const preset = {
+                          id: `brush-${Date.now().toString(36)}`,
+                          name: brushName.trim() || `${tr('brush')} ${settings.brushes.length + 1}`,
+                          size: settings.brushSize,
+                          hardness: settings.brushHardness,
+                          opacity: settings.brushOpacity,
+                          spacing: settings.brushSpacing,
+                          angle: settings.brushAngle,
+                          roundness: settings.brushRoundness,
+                          scatter: settings.brushScatter,
+                        }
+                        patchSettings({ brushes: [...settings.brushes, preset] })
+                        setBrushName('')
+                      }}
+                    >
+                      {tr('saveBrush')}
+                    </button>
+                  </div>
+                  {settings.brushes.length === 0
+                    ? <p className="dialog-hint">{tr('noBrushes')}</p>
+                    : settings.brushes.map((brush) => (
+                      <div className="channel-row" key={brush.id}>
+                        <button
+                          onClick={() => patchSettings({
+                            brushSize: brush.size,
+                            brushHardness: brush.hardness,
+                            brushOpacity: brush.opacity,
+                            brushSpacing: brush.spacing,
+                            brushAngle: brush.angle,
+                            brushRoundness: brush.roundness,
+                            brushScatter: brush.scatter,
+                          })}
+                        >
+                          {`${brush.name} · ${Math.round(brush.size)}px`}
+                        </button>
+                        <button
+                          data-tooltip={tr('deleteLayer')}
+                          aria-label={tr('deleteLayer')}
+                          onClick={() => patchSettings({ brushes: settings.brushes.filter((item) => item.id !== brush.id) })}
+                        >
+                          <X size={13} />
+                        </button>
+                      </div>
+                    ))}
+                </section>
               </>
             )}
 
-            {settingsTab === 'tools' && (
-              <label className="settings-field">
-                <span className="settings-field-name">{tr('settingsTolerance')}</span>
-                <span className="settings-field-hint">{tr('settingsToleranceHint')}</span>
-                <NumberStepper language={settings.language} min={0} max={255} value={settings.fillTolerance} onChange={(fillTolerance) => patchSettings({ fillTolerance })} />
-              </label>
+            {settingsTab === 'export' && (
+              <section className="settings-section">
+                <h3>{tr('settingsTabExport')}</h3>
+                <div className="dialog-grid">
+                  <label>{tr('exportFormat')}
+                    <select value={settings.exportFormat} onChange={(event) => patchSettings({ exportFormat: event.target.value as ExportFormat })}>
+                      {exportFormats.map((format) => <option key={format} value={format}>{format.toUpperCase()}</option>)}
+                    </select>
+                  </label>
+                  <label className="check-row">
+                    <input
+                      type="checkbox"
+                      checked={supportsTransparency(settings.exportFormat) && settings.exportTransparent}
+                      disabled={!supportsTransparency(settings.exportFormat)}
+                      onChange={(event) => patchSettings({ exportTransparent: event.target.checked })}
+                    />
+                    {tr('exportTransparent')}
+                  </label>
+                </div>
+              </section>
             )}
           </div>
 
-          <div className="dialog-actions">
+          <div className="dialog-actions settings-actions">
+            <button onClick={resetPreferences} data-tooltip={tr('resetSettingsHint')}>{tr('resetSettings')}</button>
             <button className="primary" onClick={onClose}>{tr('close')}</button>
           </div>
         </>

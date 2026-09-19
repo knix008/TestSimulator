@@ -13,6 +13,7 @@ export const koExtra: Record<string, string> = {
   mergeHdr: 'HDR Pro로 병합', photomerge: 'Photomerge', imageProcessor: '이미지 프로세서', loadStack: '파일을 스택으로 불러오기', statistics: '통계',
   fileInfo: '파일 정보', printOne: '한 부 인쇄', exit: '종료',
   sectionAutomate: '자동화', sectionScripts: '스크립트', sectionExport: '내보내기', sectionImport: '가져오기',
+  settingsSectionApp: '앱', settingsSectionMore: '더 보기', settingsSectionShow: '표시', settingsSectionColorUnits: '단위와 색상', settingsSectionSelection: '선택', settingsSectionSampling: '샘플링과 채우기', settingsSectionBrushDefaults: '브러시 기본값', savedBrushes: '저장된 브러시', panelWidth: '패널 너비(px)', resetSettings: '기본 설정으로 되돌리기', resetSettingsHint: '이 창의 모든 설정을 기본값으로 되돌립니다. 저장한 브러시·그레이디언트·견본·모양·스타일과 최근 파일은 남습니다.',
   /* edit */
   stepForward: '앞으로 한 단계', stepBackward: '뒤로 한 단계', fade: '페이드', pasteInPlace: '제자리에 붙여넣기', pasteOutside: '바깥에 붙여넣기',
   checkSpelling: '맞춤법 검사', findReplace: '텍스트 찾기 및 바꾸기', skyReplace: '하늘 대체', perspectiveWarp: '원근 뒤틀기',
@@ -96,7 +97,12 @@ export const koExtra: Record<string, string> = {
   hintSamplerReal: '클릭한 지점의 RGB 값이 정보 패널에 표시됩니다',
   /* keys the panels, tables and status bar reach for */
   align: '정렬', cloneNeedsSource: 'Alt+클릭으로 복제 원본을 먼저 지정하세요', color: '색상', crop: '자르기', fillColor: '채움색', fillSolid: '단색',
-  neuralHint: '이 기기에서 실행되는 알고리즘입니다: 피부 매끄럽게(표면 흐림), 색상화(밝기→색 램프), 슈퍼 줌(2배 확대+선명), 복원(얼룩 제거+선명+자동 톤), 깊이 흐림(기울기-이동)',
+  neuralHint: '이 기기에서 실행됩니다. 슈퍼 줌과 깊이 흐림은 신경망 모델(Swin2SR, Depth Anything)이 내려받아져 있으면 그것을 쓰고, 없으면 알고리즘(2배 확대+선명, 기울기-이동)으로 대체합니다. 피부·색상화·복원은 알고리즘입니다.',
+  neuralModels: '뉴럴 모델…', neuralModelsTitle: '뉴럴 모델', modelsIntro: '이 창에서 내려받은 모델은 이 컴퓨터에만 저장되고 이 컴퓨터에서 실행됩니다. 명령은 모델이 있으면 모델을, 없으면 고전 알고리즘을 씁니다.',
+  modelTaskSubject: '피사체 선택 · 배경 제거 · 개체 선택', modelTaskSky: '하늘 선택 · 하늘 대체', modelTaskDepth: '깊이 흐림', modelTaskInpaint: '생성형 채우기 · 제거 도구', modelTaskUpscale: '슈퍼 줌 · 생성형 업스케일',
+  modelDownload: '내려받기', modelDelete: '삭제', modelReady: '준비됨', modelMissing: '없음', modelDownloading: '내려받는 중', modelNeeded: '이 명령에는 아래 모델 중 하나가 필요합니다', modelProvider: '실행: ', modelThreads: 'CPU {n} 스레드', modelWebgpu: 'WebGPU 사용 가능', modelUseWebgpu: 'WebGPU로 실행 (실험적 — 실패하면 자동으로 CPU로 다시 실행)', modelWasm: 'WebAssembly(CPU)',
+  modelNeededNote: '뉴럴 모델이 없어 뉴럴 모델 창을 열었습니다. 내려받은 뒤 다시 실행하세요.', modelLicense: '라이선스',
+  modelNoteU2netp: '가볍고 빠른 피사체 분리(rembg u2netp)', modelNoteSilueta: '중간 크기의 피사체 분리, 가장자리가 더 정확', modelNoteIsnet: '가장 정확한 피사체 분리(1024px), 느림', modelNoteSegformer: 'ADE20K 150개 클래스 장면 분할 — 하늘 픽셀을 찾습니다(비상업 라이선스)', modelNoteDepth: '단안 깊이 추정 — 깊이 흐림·렌즈 흐림 깊이 맵', modelNoteLama: '대형 마스크 인페인팅 — 개체 제거의 표준', modelNoteSwin2sr: '2배 초해상도(트랜스포머), 4배는 두 번 실행 — CPU에서 빠른 8비트 가중치', modelNoteSwin2srFp32: '같은 모델의 전정밀도 가중치 — WebGPU에서 훨씬 빠름', modelNoteDepthFp32: '같은 모델의 전정밀도 가중치 — WebGPU용',
   noOptions: '이 조정에는 설정이 없습니다', perspectiveCrop: '원근 자르기', shape: '모양', strokeColor: '선 색', styleOff: '왼쪽의 체크 상자로 이 스타일을 켭니다',
   transforming: '변형 중: Enter로 적용, Esc로 취소', working: '작업 중…',
   fromLeft: '왼쪽에서', fromRight: '오른쪽에서', rectToPolar: '직교→극좌표', polarToRect: '극좌표→직교', rgbToHsb: 'RGB→HSB', hsbToRgb: 'HSB→RGB',
@@ -157,6 +163,7 @@ export const enExtra: Record<string, string> = {
   mergeHdr: 'Merge to HDR Pro', photomerge: 'Photomerge', imageProcessor: 'Image Processor', loadStack: 'Load Files into Stack', statistics: 'Statistics',
   fileInfo: 'File Info', printOne: 'Print One Copy', exit: 'Exit',
   sectionAutomate: 'Automate', sectionScripts: 'Scripts', sectionExport: 'Export', sectionImport: 'Import',
+  settingsSectionApp: 'Application', settingsSectionMore: 'More', settingsSectionShow: 'Show', settingsSectionColorUnits: 'Units and colour', settingsSectionSelection: 'Selection', settingsSectionSampling: 'Sampling and fill', settingsSectionBrushDefaults: 'Brush defaults', savedBrushes: 'Saved brushes', panelWidth: 'Panel width (px)', resetSettings: 'Reset to defaults', resetSettingsHint: 'Puts every setting in this window back to its default. Saved brushes, gradients, swatches, shapes, styles and the recent files list are kept.',
   /* edit */
   stepForward: 'Step Forward', stepBackward: 'Step Backward', fade: 'Fade', pasteInPlace: 'Paste in Place', pasteOutside: 'Paste Outside',
   checkSpelling: 'Check Spelling', findReplace: 'Find and Replace Text', skyReplace: 'Sky Replacement', perspectiveWarp: 'Perspective Warp',
@@ -240,7 +247,12 @@ export const enExtra: Record<string, string> = {
   hintSamplerReal: 'The RGB values at each click show in the Info panel',
   /* keys the panels, tables and status bar reach for */
   align: 'Align', cloneNeedsSource: 'Alt+click to set the clone source first', color: 'Color', crop: 'Crop', fillColor: 'Fill', fillSolid: 'Solid color',
-  neuralHint: 'These run on this machine as algorithms: skin smoothing (surface blur), colorize (a tone ramp), Super Zoom (2× upscale + sharpen), restoration (despeckle + sharpen + auto tone), depth blur (tilt-shift)',
+  neuralHint: 'These run on this machine. Super Zoom and Depth Blur use the neural models (Swin2SR, Depth Anything) when they are downloaded and fall back to algorithms (2× upscale + sharpen, tilt-shift) otherwise; skin, colorize and restore are algorithms.',
+  neuralModels: 'Neural Models…', neuralModelsTitle: 'Neural Models', modelsIntro: 'Models downloaded here are stored on this computer and run on it. A command uses the model when it is present and the classical algorithm when it is not.',
+  modelTaskSubject: 'Select Subject · Remove Background · Object Selection', modelTaskSky: 'Select Sky · Sky Replacement', modelTaskDepth: 'Depth Blur', modelTaskInpaint: 'Generative Fill · Remove tool', modelTaskUpscale: 'Super Zoom · Generative Upscale',
+  modelDownload: 'Download', modelDelete: 'Delete', modelReady: 'Ready', modelMissing: 'Not downloaded', modelDownloading: 'Downloading', modelNeeded: 'This command needs one of the models below', modelProvider: 'Runs on: ', modelThreads: '{n} CPU threads', modelWebgpu: 'WebGPU available', modelUseWebgpu: 'Run on WebGPU (experimental; falls back to the CPU when it fails)', modelWasm: 'WebAssembly (CPU)',
+  modelNeededNote: 'No neural model is downloaded, so the Neural Models window was opened. Download one and run the command again.', modelLicense: 'License',
+  modelNoteU2netp: 'Small and fast subject cut-out (rembg u2netp)', modelNoteSilueta: 'Mid-size subject cut-out with better edges', modelNoteIsnet: 'The most accurate subject cut-out (1024px); slow', modelNoteSegformer: 'ADE20K scene parsing with 150 classes — finds the sky pixels (non-commercial licence)', modelNoteDepth: 'Monocular depth — the depth map behind Depth Blur', modelNoteLama: 'Large-mask inpainting, the standard for object removal', modelNoteSwin2sr: '2× super-resolution (transformer); ×4 runs it twice — 8-bit weights, fast on the CPU', modelNoteSwin2srFp32: 'The same model at full precision — much faster on WebGPU', modelNoteDepthFp32: 'The same model at full precision — for WebGPU',
   noOptions: 'This adjustment has no settings', perspectiveCrop: 'Perspective crop', shape: 'Shape', strokeColor: 'Stroke', styleOff: 'Turn this style on with its checkbox on the left',
   transforming: 'Transforming: Enter applies, Esc cancels', working: 'Working…',
   fromLeft: 'From the left', fromRight: 'From the right', rectToPolar: 'Rectangular to polar', polarToRect: 'Polar to rectangular', rgbToHsb: 'RGB to HSB', hsbToRgb: 'HSB to RGB',

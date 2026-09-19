@@ -28,6 +28,8 @@ import { contentAwareFill, findDistractions, generativeExpand, generativeUpscale
 import { artHistoryDab, healingBrushDab, historyBrushDab, liquifyDab, loadMixer, mixerDab, patternStampDab, perspectiveCloneDab, quickSelectDab, type MixerReservoir } from './lib/brushes'
 import { alignChain, applyHomography, blendAligned, exposureFusion, findPhotosOnScan, grabCutSelection, inpaintCanvas, stitchCanvases, warpCanvas as warpByHomography } from './lib/cv'
 import { patchFill, poissonBlend } from './lib/inpaint'
+import { modelStore } from './lib/models'
+import { bestModelFor, depthBlur, runDepth, runInpaint, runSky, runSubject, runUpscale, type ModelSpec, type ModelTask, type Runner } from './lib/neural'
 import { decontaminateEdge, objectSelectRect, refineMask, selectFocusArea, selectSky, selectSubjectAuto } from './lib/segment'
 import { applyImage, applyLut, autoContrast, autoTone, calculations, desaturate, fadeTo, hdrToning, lutById, lutChoices, matchColor, parseCube, registerLut, rotateArbitrary, rotatedSize } from './lib/adjustExtra'
 import { gradientPresets, paintGradientDef, resolveGradient, type GradientDef } from './lib/gradients'
@@ -452,6 +454,8 @@ export default function App() {
   const [menu, setMenu] = useState<MenuId>(null)
   const [menuAnchor, setMenuAnchor] = useState<HTMLButtonElement | null>(null)
   const [status, setStatus] = useState('ready')
+  /** Progress of a long operation, shown after the status word. */
+  const [statusDetail, setStatusDetail] = useState('')
   const [savedNote, setSavedNote] = useState(false)
   const [pan, setPan] = useState({ x: 72, y: 56 })
   const [dialog, setDialog] = useState<Dialog>(null)
@@ -1846,6 +1850,62 @@ export default function App() {
     }
   }, [showError, tr, withLayer])
 
+  /* --------------------------------------------------------- neural models */
+
+  const modelsAvailable = useCallback(async () => {
+    try { return await modelStore().list() } catch { return [] as string[] }
+  }, [])
+
+  /** The Neural Models window, pointed at the task a command was after. */
+  const openModels = useCallback(async (needed?: ModelTask) => {
+    const downloaded = await modelsAvailable()
+    openDialog('neuralModels', { models: { downloaded, needed, webgpu: typeof navigator !== 'undefined' && 'gpu' in navigator, useWebgpu: settingsRef.current.neuralWebgpu, threads: typeof crossOriginIsolated !== 'undefined' && crossOriginIsolated ? Math.max(1, Math.min(8, (navigator.hardwareConcurrency || 2) - 1)) : 1 } })
+  }, [modelsAvailable, openDialog])
+
+  /**
+   * The best downloaded model for a task, loaded and ready to run, or null,
+   * in which case the caller uses the classical method. The Neural Models
+   * window (Edit menu, or the button in Neural Filters) is where models are
+   * fetched; a command never downloads on its own.
+   */
+  const neuralFor = useCallback(async (task: ModelTask): Promise<{ spec: ModelSpec; runner: Runner } | null> => {
+    const spec = bestModelFor(task, await modelsAvailable(), settingsRef.current.neuralWebgpu)
+    if (!spec) return null
+    const { runnerFor } = await import('./lib/ort')
+    return { spec, runner: await runnerFor(spec.id, settingsRef.current.neuralWebgpu) }
+  }, [modelsAvailable])
+
+  /**
+   * Generative Fill and the Remove tool: LaMa when it is downloaded, which
+   * removes an object outright; PatchMatch otherwise.
+   */
+  const fillGenerative = useCallback((selection: Selection | null) => computeOnLayer(tr('genFill'), async (copy) => {
+    const mask = selectionToMask(selection, copy.width, copy.height)
+    if (!mask) { note('needSelection'); return null }
+    const neural = await neuralFor('inpaint')
+    if (neural) {
+      await runInpaint(neural.runner, neural.spec, copy, mask)
+      return copy
+    }
+    let seed: HTMLCanvasElement | undefined
+    try {
+      seed = cloneCanvas(copy)
+      await inpaintCanvas(seed, mask, 6)
+    } catch {
+      seed = undefined
+    }
+    if (!seed) { contentAwareFill(copy, selection); return copy }
+    patchFill(copy, mask, { seed })
+    return copy
+  }), [computeOnLayer, neuralFor, note, tr])
+
+  /** Select Sky: the scene-parsing network when it is here, the colour heuristic otherwise. */
+  const skySelection = useCallback(async (canvas: HTMLCanvasElement): Promise<Selection> => {
+    const neural = await neuralFor('sky')
+    if (neural) return runSky(neural.runner, neural.spec, canvas)
+    return selectSky(canvas)
+  }, [neuralFor])
+
   /**
    * Content-Aware Fill: Telea inpainting makes the first guess and PatchMatch
    * rebuilds the hole from the texture around it. The old average-of-the-
@@ -1891,6 +1951,24 @@ export default function App() {
     setStatus('working')
     await paintFrame()
     try {
+      const neural = await neuralFor('subject')
+      if (neural) {
+        if (!box) return (await runSubject(neural.runner, neural.spec, source)).selection
+        // With a box the network sees only the box, and its answer is laid
+        // back into the full frame.
+        const x0 = Math.max(0, Math.floor(Math.min(box.x, box.x + box.width)))
+        const y0 = Math.max(0, Math.floor(Math.min(box.y, box.y + box.height)))
+        const x1 = Math.min(source.width, Math.ceil(Math.max(box.x, box.x + box.width)))
+        const y1 = Math.min(source.height, Math.ceil(Math.max(box.y, box.y + box.height)))
+        const crop = createCanvas(Math.max(1, x1 - x0), Math.max(1, y1 - y0))
+        context2d(crop).drawImage(source, x0, y0, crop.width, crop.height, 0, 0, crop.width, crop.height)
+        const { selection } = await runSubject(neural.runner, neural.spec, crop)
+        const mask = new Uint8Array(source.width * source.height)
+        for (let y = 0; y < crop.height; y += 1) {
+          for (let x = 0; x < crop.width; x += 1) mask[(y0 + y) * source.width + x0 + x] = selection.mask?.[y * crop.width + x] ?? 0
+        }
+        return { kind: 'mask', ...maskBounds(mask, source.width, source.height), mask }
+      }
       const inset = { x: source.width * 0.04, y: source.height * 0.04, width: source.width * 0.92, height: source.height * 0.92 }
       return await grabCutSelection(source, box ?? inset, 5)
     } catch {
@@ -1901,8 +1979,60 @@ export default function App() {
   }
 
   const removeBackground = () => computeOnLayer(tr('removeBg'), async (copy) => {
+    const neural = await neuralFor('subject')
+    if (neural) {
+      const { soft } = await runSubject(neural.runner, neural.spec, copy)
+      const ctx = context2d(copy)
+      const image = ctx.getImageData(0, 0, copy.width, copy.height)
+      for (let i = 0; i < soft.length; i += 1) image.data[i * 4 + 3] = Math.round((image.data[i * 4 + 3] * soft[i]) / 255)
+      ctx.putImageData(image, 0, 0)
+      return copy
+    }
     const subject = await grabCutSelection(copy, { x: copy.width * 0.04, y: copy.height * 0.04, width: copy.width * 0.92, height: copy.height * 0.92 }, 5).catch(() => selectSubjectAuto(copy))
     clearSelectionPixels(copy, invertSelection(subject, copy.width, copy.height))
+    return copy
+  })
+
+  /**
+   * Super Zoom / Generative Upscale: the super-resolution network doubles the
+   * active layer and the document with it (run twice for x4); without the
+   * model, the resampling-and-sharpening upscale.
+   */
+  const upscaleDocument = async (factor: 2 | 4) => {
+    const current = docRef.current
+    const layer = current.layers.find((item) => item.id === current.activeLayerId)
+    const source = layer ? canvasesRef.current.get(layer.id) : null
+    if (!layer || !source) { setStatus('noLayer'); return }
+    setStatus('working')
+    await paintFrame()
+    try {
+      const neural = await neuralFor('upscale')
+      let up: HTMLCanvasElement
+      if (neural) {
+        const progress = (pass: number) => (done: number, total: number) => setStatusDetail(`${Math.round(((pass + done / total) / (factor === 4 ? 2 : 1)) * 100)}%`)
+        up = await runUpscale(neural.runner, neural.spec, source, progress(0))
+        if (factor === 4) up = await runUpscale(neural.runner, neural.spec, up, progress(1))
+      } else {
+        up = generativeUpscale(source, factor)
+      }
+      snapshot(tr('genUpscale'))
+      canvasesRef.current.set(layer.id, up)
+      setDoc({ ...docRef.current, width: up.width, height: up.height })
+      markDirty()
+    } catch (cause) {
+      showError(tr('genUpscale'), tr('openFailed'), cause)
+    } finally {
+      setStatusDetail('')
+      setStatus('ready')
+    }
+  }
+
+  /** Depth Blur with the depth network: far pixels blur, the nearest stay sharp. */
+  const depthBlurLayer = (amount: number) => computeOnLayer(tr('neuralDepth'), async (copy) => {
+    const neural = await neuralFor('depth')
+    if (!neural) { neuralOperation('depthBlur', amount)(copy); return copy }
+    const depth = await runDepth(neural.runner, neural.spec, copy)
+    depthBlur(copy, depth, 2 + (amount / 100) * 14, 1, selectionRef.current)
     return copy
   })
 
@@ -2430,7 +2560,7 @@ export default function App() {
       return
     }
     if (currentTool === 'remove') {
-      void fillContentAware(selectionRef.current ?? brushArea(point, options.brushSize, null))
+      void fillGenerative(selectionRef.current ?? brushArea(point, options.brushSize, null))
       return
     }
     if (currentTool === 'liquify' && !liquifyRef.current) {
@@ -4450,8 +4580,9 @@ export default function App() {
       case 'edit.findReplace': openDialog('findReplace'); return
       case 'edit.fill': openDialog('fill'); return
       case 'edit.stroke': openDialog('stroke'); return
-      case 'edit.contentAware':
-      case 'edit.genFill': void fillContentAware(selectionRef.current); return
+      case 'edit.contentAware': void fillContentAware(selectionRef.current); return
+      case 'edit.genFill': void fillGenerative(selectionRef.current); return
+      case 'edit.neuralModels': void openModels(); return
       case 'edit.genExpand': {
         const layer = activeMeta
         const source = layer ? canvasesRef.current.get(layer.id) : null
@@ -4463,17 +4594,7 @@ export default function App() {
         markDirty()
         return
       }
-      case 'edit.genUpscale': {
-        const layer = activeMeta
-        const source = layer ? canvasesRef.current.get(layer.id) : null
-        if (!source) return
-        snapshot()
-        const up = generativeUpscale(source, 2)
-        canvasesRef.current.set(layer!.id, up)
-        setDoc({ ...current, width: up.width, height: up.height })
-        markDirty()
-        return
-      }
+      case 'edit.genUpscale': void upscaleDocument(2); return
       case 'edit.harmonize': void harmonizeLayer(); return
       case 'edit.skyReplace': openDialog('skyReplace'); return
       case 'edit.contentScale': openDialog('contentScale'); return
@@ -4672,7 +4793,7 @@ export default function App() {
       case 'select.colorRange': openDialog('colorRange'); return
       case 'select.focusArea': setSelection(selectFocusArea(sampleSource())); return
       case 'select.subject': void segmentInto(null).then((fresh) => setSelection(fresh)); return
-      case 'select.sky': setSelection(selectSky(compositeDocument(current, canvasesRef.current))); return
+      case 'select.sky': void skySelection(compositeDocument(current, canvasesRef.current)).then((sky) => setSelection(sky)); return
       case 'select.distractions': setSelection(findDistractions(sampleSource())); return
       case 'select.removeBg': void removeBackground(); return
       case 'select.selectAndMask':
@@ -4966,9 +5087,40 @@ export default function App() {
     return undefined
   }
 
+  /** Sky Replacement: a new layer of sky, masked to where the sky was. */
+  const applySkyReplace = (sky: Selection, result: DialogResult) => {
+    const current = docRef.current
+    if (!sky.mask) return
+    snapshot(tr('skyReplace'))
+    const layer = createLayerMeta(tr('selectSky'))
+    const canvas = createCanvas(current.width, current.height)
+    const ctx = context2d(canvas)
+    if (result.source === 'layer') {
+      const source = canvasesRef.current.get(String(result.layerId))
+      if (source) ctx.drawImage(source, 0, 0)
+    } else {
+      const gradient = ctx.createLinearGradient(0, 0, 0, current.height)
+      gradient.addColorStop(0, String(result.top))
+      gradient.addColorStop(1, String(result.bottom))
+      ctx.fillStyle = gradient
+      ctx.fillRect(0, 0, current.width, current.height)
+    }
+    const soft = featherSelection(sky, current.width, current.height, Number(result.fade))
+    canvasesRef.current.set(layer.id, canvas)
+    canvasesRef.current.set(`${layer.id}:mask`, maskCanvasFromSelection(soft, current.width, current.height))
+    layer.maskEnabled = true
+    updateDoc((document) => ({ ...document, layers: [...document.layers, layer], activeLayerId: layer.id }))
+  }
+
   const applyDialogResultUnguarded = (name: DialogName, result: DialogResult) => {
     if (result.action === 'settings') {
       setSettings((value) => ({ ...value, ...(result.patch as Partial<AppSettings>) }))
+      return
+    }
+    // The settings window's shortcuts to the other preference windows.
+    if (name === 'settings' && result.action === 'open') {
+      if (result.dialog === 'neuralModels') void openModels()
+      else openDialog(String(result.dialog) as DialogName)
       return
     }
     const current = docRef.current
@@ -5001,8 +5153,13 @@ export default function App() {
       }
       return
     }
+    if (name === 'neural' && result.action === 'models') { void openModels(); return }
     // Anything that is not a preview settles whatever preview was showing.
     if (name !== 'layerStyle') clearPreview()
+    if (name === 'neural' && result.action === 'apply') {
+      if (result.kind === 'superZoom') { void upscaleDocument(2); return }
+      if (result.kind === 'depthBlur') { void depthBlurLayer(Number(result.amount)); return }
+    }
 
     /* ---- the windows whose answer is a pixel operation ---- */
     const op = result.action === 'apply' ? pixelOperation(name, result) : null
@@ -5253,30 +5410,11 @@ export default function App() {
         return
       }
       case 'skyReplace': {
-        const composite = compositeDocument(current, canvasesRef.current)
-        const sky = selectSky(composite)
-        if (!sky.mask) return
-        snapshot(tr('skyReplace'))
-        const layer = createLayerMeta(tr('selectSky'))
-        const canvas = createCanvas(current.width, current.height)
-        const ctx = context2d(canvas)
-        if (result.source === 'layer') {
-          const source = canvasesRef.current.get(String(result.layerId))
-          if (source) ctx.drawImage(source, 0, 0)
-        } else {
-          const gradient = ctx.createLinearGradient(0, 0, 0, current.height)
-          gradient.addColorStop(0, String(result.top))
-          gradient.addColorStop(1, String(result.bottom))
-          ctx.fillStyle = gradient
-          ctx.fillRect(0, 0, current.width, current.height)
-        }
-        const soft = featherSelection(sky, current.width, current.height, Number(result.fade))
-        canvasesRef.current.set(layer.id, canvas)
-        canvasesRef.current.set(`${layer.id}:mask`, maskCanvasFromSelection(soft, current.width, current.height))
-        layer.maskEnabled = true
-        updateDoc((document) => ({ ...document, layers: [...document.layers, layer], activeLayerId: layer.id }))
+        void skySelection(compositeDocument(current, canvasesRef.current)).then((sky) => applySkyReplace(sky, result))
         return
       }
+      case 'neuralModels':
+        return
       case 'vanishingPoint':
         if (cropCornersRef.current.length === 4) applyPerspectiveCrop()
         else note('vanishingHint')
@@ -6490,7 +6628,7 @@ export default function App() {
         <span>{Math.round(settings.zoom * 100)}%</span>
         <span>{cloneSource ? 'Clone' : tr('selection')}: {selection ? `${Math.round(selection.width)}×${Math.round(selection.height)}` : tr('none')}</span>
         <span>{settings.proofColors ? tr('proofOn') : settings.gamutWarning ? tr('gamutOn') : ''}</span>
-        <span className={savedNote ? 'status-saved' : ''}>{savedNote ? tr('saved') : tr(status)}</span>
+        <span className={savedNote ? 'status-saved' : ''}>{savedNote ? tr('saved') : tr(status)}{status === 'working' && statusDetail ? ` ${statusDetail}` : ''}</span>
       </footer>
 
       {tooltip && createPortal(
