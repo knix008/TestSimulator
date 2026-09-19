@@ -16,6 +16,8 @@ window.I18n = (function () {
     lang = data[l] ? l : 'en';
     document.documentElement.lang = lang;
     apply();
+    // pages that build text outside [data-i18n] elements (e.g. the popup window title) re-render on this
+    document.dispatchEvent(new CustomEvent('langchange', { detail: lang }));
   }
 
   function apply(root = document) {

@@ -83,7 +83,7 @@ DCMViewerMultiOSV10/
 ├── scripts/                start-dev, create-icons, build-web, copy-dist
 ├── test/                   node --test: 디코더·인코더·이미지 포맷·합성 DICOM·UI 모듈(테마/i18n/아이콘/대화상자/플랫폼) + reporter.js (요약 표)
 ├── .gitignore              node_modules·dist·생성 아이콘·앱 출력물(converted_*, *_anon.dcm …)·테스트 임시 파일 제외
-└── samples/                테스트용 DICOM
+└── samples/                테스트용 DICOM (pydicom · pydicom-data · cornerstone · rubo 공개 샘플, samples/README.md 참고)
 ```
 
 ## 문서

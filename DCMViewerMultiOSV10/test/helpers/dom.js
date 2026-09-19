@@ -4,7 +4,7 @@ const path = require('path');
 
 function fakeWindow(extra = {}) {
   const win = {
-    document: { documentElement: { style: { setProperty() {} }, lang: '' }, body: { dataset: {} }, querySelectorAll: () => [], createElement: () => ({ style: {}, classList: { add() {}, toggle() {} }, setAttribute() {}, appendChild() {} }) },
+    document: { documentElement: { style: { setProperty() {} }, lang: '' }, body: { dataset: {} }, querySelectorAll: () => [], addEventListener() {}, dispatchEvent() {}, createElement: () => ({ style: {}, classList: { add() {}, toggle() {} }, setAttribute() {}, appendChild() {} }) },
     localStorage: { getItem: () => null, setItem() {} },
     navigator: { userAgent: 'node' },
     ...extra,

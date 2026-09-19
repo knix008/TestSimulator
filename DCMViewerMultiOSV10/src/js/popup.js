@@ -31,11 +31,19 @@
     api.popupResize({ width: w, height: Math.min(h, screen.availHeight - 60) });
   }
 
+  // window title: translated popup name, or the payload's title (error / prompt); re-done whenever the language changes
+  let payloadTitle = '';
+  function setTitle() {
+    const name = window.I18n.t(`popup.${kind}`) !== `popup.${kind}` ? window.I18n.t(`popup.${kind}`) : payloadTitle;
+    document.title = name ? `${name} — DCM Viewer` : 'DCM Viewer';
+  }
+  document.addEventListener('langchange', setTitle);
+
   api.onPopupInit(({ payload, theme, lang }) => {
     window.Themes.apply(theme || 'midnight');
+    payloadTitle = (payload && payload.title) || '';
     window.I18n.setLang(lang || 'ko');
-    const name = window.I18n.t(`popup.${kind}`) !== `popup.${kind}` ? window.I18n.t(`popup.${kind}`) : (payload && payload.title) || '';
-    document.title = name ? `${name} — DCM Viewer` : 'DCM Viewer';
+    setTitle();
     box.innerHTML = '';
     window.Dialogs.render(kind, box, payload, ctx);
     window.Icons.decorate(box);
