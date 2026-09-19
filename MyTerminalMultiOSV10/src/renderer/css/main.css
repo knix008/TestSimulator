@@ -86,7 +86,7 @@ body {
 .toolbar-actions {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 1px;
   flex: 0 0 auto;
   flex-shrink: 0;
   min-width: max-content;
@@ -118,9 +118,9 @@ body {
   border: 0;
   background: transparent;
   color: inherit;
-  width: 32px;
+  width: 28px;
   height: 28px;
-  min-width: 32px;
+  min-width: 28px;
   border-radius: 6px;
   display: inline-flex;
   align-items: center;
@@ -193,7 +193,7 @@ body {
 }
 
 .win-btn {
-  width: 42px;
+  width: 36px;
   height: 32px;
   border-radius: 0;
 }
@@ -515,9 +515,9 @@ body.has-bg-image .terminal-pane .xterm-viewport {
 .tb-opacity {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   height: 28px;
-  padding: 0 8px 0 6px;
+  padding: 0 6px 0 4px;
   margin-left: 2px;
   border-radius: 6px;
   flex: 0 0 auto;
@@ -540,9 +540,7 @@ body.has-bg-image .terminal-pane .xterm-viewport {
 }
 
 .tb-opacity-bound {
-  font-size: 10px;
-  opacity: 0.75;
-  white-space: nowrap;
+  display: none;
 }
 
 .tb-opacity-value {
@@ -555,7 +553,7 @@ body.has-bg-image .terminal-pane .xterm-viewport {
 }
 
 .tb-opacity-slider {
-  width: 90px;
+  width: 64px;
   height: 12px;
   margin: 0;
   cursor: pointer;
@@ -623,11 +621,11 @@ body.has-bg-image .terminal-pane .xterm-viewport {
 
 .tb-btn-prompt-pick,
 .tb-btn-theme-pick {
-  width: auto;
-  min-width: 92px;
-  max-width: 148px;
-  padding: 0 6px 0 8px;
-  gap: 4px;
+  width: 76px;
+  min-width: 76px;
+  max-width: 76px;
+  padding: 0 4px 0 6px;
+  gap: 3px;
   justify-content: space-between;
 }
 

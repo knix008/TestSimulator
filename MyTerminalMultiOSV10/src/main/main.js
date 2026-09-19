@@ -96,7 +96,7 @@ let windowFocusSeq = 0;
 let lastMergePreviewTargetId = null;
 
 /** Fallback until renderer measures the real toolbar content width. */
-const TOOLBAR_MIN_WIDTH = 920;
+const TOOLBAR_MIN_WIDTH = 720;
 const WINDOW_MIN_HEIGHT = 420;
 const TOOLBAR_MIN_WIDTH_CAP = 1800;
 

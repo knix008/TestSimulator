@@ -925,12 +925,11 @@ async function applyLanguage(lang) {
   updateThemePickUi();
   updateTextColorUi();
   updateMaxButton(await (api.isMaximized?.() ?? false));
-  // Do not sync min-size here: Korean/English labels differ in width and
-  // setMinimumSize would enlarge the window when the new floor is bigger.
+  // Language must not change the window size or min-size.
 }
 
 /** Fallback / floor until layout is measured (brand + actions + opacity + win btns). */
-const TOOLBAR_MIN_WIDTH_FLOOR = 1040;
+const TOOLBAR_MIN_WIDTH_FLOOR = 720;
 const TOOLBAR_MIN_WIDTH_CAP = 1800;
 
 /**
@@ -969,7 +968,7 @@ function measureToolbarMinWidth() {
   });
 
   // DPI / resize-border safety so the X button stays fully inside the client area.
-  const measured = Math.ceil(pad + contentWidth + 20);
+  const measured = Math.ceil(pad + contentWidth + 12);
   return Math.min(TOOLBAR_MIN_WIDTH_CAP, Math.max(TOOLBAR_MIN_WIDTH_FLOOR, measured));
 }
 
