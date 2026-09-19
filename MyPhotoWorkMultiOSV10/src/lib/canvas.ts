@@ -296,7 +296,7 @@ export function compositeDocument(document: PhotoDocument, canvases: Map<string,
     if (!source) {
       continue
     }
-    let painted = applyLayerEffects(source, layer.effects ?? defaultEffects())
+    let painted = applyLayerEffects(source, layer.effects ?? defaultEffects(), canvases)
     const mask = layer.maskEnabled ? canvases.get(`${layer.id}:mask`) : null
     const clip = layer.clipped ? clipBase : null
     if (mask || clip) {

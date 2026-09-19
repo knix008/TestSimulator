@@ -69,13 +69,32 @@ test('colour overlay opacity blends rather than replaces', () => {
   assert.ok(tinted[0] > 100 && tinted[0] < 180, `expected a half-strength tint, got [${tinted}]`)
 })
 
-test('a stroke draws a border around the layer bounds', () => {
+test('a stroke draws a border around the layer content, not the canvas', () => {
   const source = badge()
   const out = applyLayerEffects(source, {
-    ...defaultEffects(), stroke: true, strokeColor: '#ff0000', strokeWidth: 4,
+    ...defaultEffects(), stroke: true, strokeColor: '#ff0000', strokeWidth: 4, strokePosition: 'outside',
   })
-  assert.deepEqual(px(out, 1, 20).slice(0, 3), [255, 0, 0], 'the left border is drawn')
-  assert.deepEqual(px(out, 38, 20).slice(0, 3), [255, 0, 0], 'and the right one')
+  // The square runs 10..30; an outside stroke of 4 sits in 6..10 and 30..34.
+  assert.deepEqual(px(out, 8, 20).slice(0, 3), [255, 0, 0], 'the left border is drawn')
+  assert.deepEqual(px(out, 32, 20).slice(0, 3), [255, 0, 0], 'and the right one')
+  assert.equal(px(out, 1, 20)[3], 0, 'nothing is drawn at the canvas edge')
+  assert.deepEqual(px(out, 20, 20), [255, 255, 255, 255], 'the shape itself is untouched')
+
+  const inside = applyLayerEffects(source, {
+    ...defaultEffects(), stroke: true, strokeColor: '#ff0000', strokeWidth: 4, strokePosition: 'inside',
+  })
+  assert.deepEqual(px(inside, 11, 20).slice(0, 3), [255, 0, 0], 'an inside stroke eats into the shape')
+  assert.equal(px(inside, 8, 20)[3], 0, 'and adds nothing outside it')
+})
+
+test('the newer styles each change the picture and stay inside the canvas', () => {
+  const source = badge()
+  for (const key of ['innerShadow', 'satin', 'gradientOverlay', 'patternOverlay']) {
+    const out = applyLayerEffects(source, { ...defaultEffects(), [key]: true, patternId: undefined })
+    assert.equal(out.width, source.width, key)
+    if (key !== 'patternOverlay') assert.ok(meanDiff(out, source) > 0, `${key} had no visible effect`)
+    assert.equal(px(out, 2, 2)[3], 0, `${key} spilled outside the layer`)
+  }
 })
 
 test('a style never resizes the layer canvas', () => {
@@ -151,7 +170,7 @@ test('bold text covers more ink than regular text', () => {
 })
 
 test('every shape kind rasterises inside its box without throwing', () => {
-  const kinds = ['rect', 'roundRect', 'ellipse', 'polygon', 'line', 'star', 'heart', 'arrow']
+  const kinds = ['rect', 'roundRect', 'ellipse', 'polygon', 'line', 'star', 'heart', 'arrow', 'triangle']
   for (const kind of kinds) {
     const canvas = rasterizeShape(40, 40, { ...baseShape, kind })
     assert.ok(alphaCount(canvas) > 0, `${kind} drew nothing`)

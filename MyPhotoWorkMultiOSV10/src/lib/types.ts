@@ -28,7 +28,7 @@ export type AdjustmentType =
   | 'equalize'
 
 export type GradientKind = 'linear' | 'radial' | 'angle' | 'reflected' | 'diamond'
-export type ShapeKind = 'rect' | 'roundRect' | 'ellipse' | 'polygon' | 'line' | 'star' | 'heart' | 'arrow'
+export type ShapeKind = 'rect' | 'roundRect' | 'ellipse' | 'polygon' | 'line' | 'star' | 'heart' | 'arrow' | 'triangle' | 'custom'
 export type FillKind = 'solid' | 'gradient' | 'pattern'
 
 export type Tool =
@@ -97,6 +97,7 @@ export type Tool =
   | 'hand'
   | 'rotateView'
   | 'zoom'
+  | 'liquify'
 
 export type BlendMode =
   | 'source-over'
@@ -135,15 +136,54 @@ export type LayerEffects = {
   shadowBlur: number
   shadowX: number
   shadowY: number
+  shadowOpacity?: number
+  shadowSpread?: number
+  innerShadow?: boolean
+  innerShadowColor?: string
+  innerShadowOpacity?: number
+  innerShadowBlur?: number
+  innerShadowX?: number
+  innerShadowY?: number
   stroke: boolean
   strokeColor: string
   strokeWidth: number
+  strokePosition?: 'outside' | 'inside' | 'center'
+  strokeOpacity?: number
   colorOverlay: boolean
   overlayColor: string
   overlayOpacity: number
+  overlayBlend?: BlendMode
   innerGlow: boolean
+  innerGlowColor?: string
+  innerGlowSize?: number
+  innerGlowOpacity?: number
   outerGlow: boolean
+  glowColor?: string
+  glowSize?: number
+  glowOpacity?: number
   bevel: boolean
+  bevelStyle?: 'inner' | 'outer' | 'emboss' | 'pillow'
+  bevelDepth?: number
+  bevelSize?: number
+  bevelAngle?: number
+  bevelSoften?: number
+  bevelHighlight?: string
+  bevelShadow?: string
+  satin?: boolean
+  satinColor?: string
+  satinOpacity?: number
+  satinDistance?: number
+  satinSize?: number
+  gradientOverlay?: boolean
+  gradientFrom?: string
+  gradientTo?: string
+  gradientAngle?: number
+  gradientOpacity?: number
+  gradientStyle?: 'linear' | 'radial'
+  patternOverlay?: boolean
+  patternId?: string
+  patternOpacity?: number
+  patternScale?: number
 }
 
 export type Adjustment = {
@@ -229,6 +269,11 @@ export type TextData = {
   /** Set when the type runs along a path instead of a straight baseline. */
   pathId?: string
   pathOffset?: number
+  underline?: boolean
+  strike?: boolean
+  allCaps?: boolean
+  baselineShift?: number
+  antiAlias?: 'none' | 'sharp' | 'crisp' | 'strong' | 'smooth'
 }
 
 export type ShapeData = {
@@ -242,6 +287,9 @@ export type ShapeData = {
   strokeWidth: number
   sides: number
   radius: number
+  /** A defined custom shape: its outline as fractions of the box, 0..1. */
+  outline?: PathNode[]
+  outlineClosed?: boolean
 }
 
 export type FillData = {
@@ -267,6 +315,7 @@ export type SmartFilter = {
   enabled: boolean
   radius: number
   amount: number
+  extra?: number
 }
 
 /** What a smart object remembers so a resize can be undone without loss. */
@@ -307,6 +356,12 @@ export type LayerMeta = {
   smartTransform?: SmartTransform
   /** Set on a 3D layer; the mesh is built from the text or shape it carries. */
   threeD?: ThreeDData
+  /** Layers that move together; every member carries the same group id. */
+  linkId?: string
+  lockTransparent?: boolean
+  lockPosition?: boolean
+  /** A placed file's path, for Place Linked and Replace Contents. */
+  sourcePath?: string
 }
 
 /** A 3D layer: a flat outline given depth, lit and turned in space. */
@@ -399,6 +454,8 @@ export type CurveData = Record<CurveChannel, CurvePoint[]>
 export type LevelsData = { black: number; gamma: number; white: number; outBlack: number; outWhite: number }
 
 export type Guide = { id: string; axis: 'x' | 'y'; position: number }
+export type Artboard = { id: string; name: string; x: number; y: number; width: number; height: number }
+export type MeasurementEntry = { id: string; label: string; width: number; height: number; area: number; distance?: number; angle?: number; count?: number; at: string }
 export type NoteMarker = { id: string; x: number; y: number; text: string }
 export type Sampler = { id: string; x: number; y: number }
 export type CountMarker = { id: string; x: number; y: number; n: number }
@@ -434,6 +491,8 @@ export type PhotoDocument = {
   depth?: 8 | 16
   /** The working colour space, by name; see lib/colorModes.ts. */
   profile?: string
+  artboards?: Artboard[]
+  measurements?: MeasurementEntry[]
 }
 
 /**
@@ -474,6 +533,8 @@ export type ProjectFile = {
   patterns?: PatternDef[]
   depth?: 8 | 16
   profile?: string
+  artboards?: Artboard[]
+  measurements?: MeasurementEntry[]
 }
 
 export type Selection = {
@@ -484,6 +545,24 @@ export type Selection = {
   height: number
   mask?: Uint8Array
 }
+
+export type SelectionMode = 'new' | 'add' | 'subtract' | 'intersect'
+export type CropRatio = 'free' | '1:1' | '4:3' | '3:2' | '16:9' | 'original'
+export type ToneRange = 'shadows' | 'midtones' | 'highlights'
+export type PanelTab =
+  | 'layers' | 'adjust' | 'history' | 'channels' | 'actions' | 'timeline' | 'info'
+  | 'properties' | 'navigator' | 'color' | 'swatches' | 'gradients' | 'patterns' | 'styles' | 'shapes'
+  | 'brushes' | 'cloneSource' | 'toolPresets' | 'character' | 'paragraph' | 'glyphs' | 'comps' | 'measurementLog' | 'notes' | 'paths'
+
+export const panelTabs: PanelTab[] = [
+  'layers', 'properties', 'adjust', 'history', 'channels', 'paths', 'navigator', 'info', 'color', 'swatches', 'gradients', 'patterns', 'styles', 'shapes',
+  'brushes', 'cloneSource', 'toolPresets', 'character', 'paragraph', 'glyphs', 'actions', 'comps', 'timeline', 'measurementLog', 'notes',
+]
+
+export type ToolPreset = { id: string; name: string; tool: Tool; values: Record<string, unknown> }
+export type StylePreset = { id: string; name: string; effects: LayerEffects }
+export type CustomShapeDef = { id: string; name: string; outline: PathNode[]; closed: boolean }
+export type Workspace = { id: string; name: string; rightTab: PanelTab; rightWidth: number; showRulers: boolean; showGrid: boolean }
 
 export type AppSettings = {
   language: Language
@@ -502,7 +581,7 @@ export type AppSettings = {
   foreground: string
   background: string
   gradientKind: GradientKind
-  rightTab: 'layers' | 'adjust' | 'history' | 'channels' | 'actions' | 'timeline' | 'info'
+  rightTab: PanelTab
   /** Recorded command sequences, replayable and usable on a folder of files. */
   actions: ActionScript[]
   /** Saved brush tips, and the shape the brush is set to now. */
@@ -522,6 +601,51 @@ export type AppSettings = {
   magneticWidth: number
   /** Slice/frame tools draw guides only; this is the label prefix. */
   showPaths: boolean
+  /* ---- added for Photoshop parity ---- */
+  selectionMode: SelectionMode
+  marqueeFeather: number
+  antiAlias: boolean
+  cropRatio: CropRatio
+  mixerWet: number
+  mixerMix: number
+  mixerFlow: number
+  artHistoryStyle: 'dab' | 'tight' | 'loose'
+  liquifyMode: 'forward' | 'twirlCw' | 'twirlCcw' | 'pucker' | 'bloat' | 'reconstruct' | 'freeze' | 'thaw'
+  liquifyPressure: number
+  gradientId: string
+  gradientReverse: boolean
+  gradientDither: boolean
+  gradients: { id: string; name: string; stops: { position: number; color: string }[]; opacityStops: { position: number; opacity: number }[] }[]
+  swatches: string[]
+  customShapeKind: string
+  customShapes: CustomShapeDef[]
+  historyStates: number
+  recentFiles: string[]
+  showGuides: boolean
+  snapEnabled: boolean
+  snapToGuides: boolean
+  snapToGrid: boolean
+  smartGuides: boolean
+  lockGuides: boolean
+  showPixelGrid: boolean
+  showSlices: boolean
+  showNotes: boolean
+  extras: boolean
+  proofColors: boolean
+  gamutWarning: boolean
+  rulerUnits: 'px' | 'in' | 'cm' | 'mm' | 'pt'
+  toolPresets: ToolPreset[]
+  styles: StylePreset[]
+  wandContiguous: boolean
+  sampleAllLayers: boolean
+  toneRange: ToneRange
+  eyedropperSample: 1 | 3 | 5
+  cloneAligned: boolean
+  patternImpressionist: boolean
+  workspaces: Workspace[]
+  shortcuts: Record<string, string>
+  patternPreview: boolean
+  paintTarget: 'layer' | 'mask'
 }
 
 export type ErrorDetails = { title: string; message: string; details: string }
@@ -553,15 +677,54 @@ export const defaultEffects = (): LayerEffects => ({
   shadowBlur: 12,
   shadowX: 6,
   shadowY: 8,
+  shadowOpacity: 0.75,
+  shadowSpread: 0,
+  innerShadow: false,
+  innerShadowColor: '#000000',
+  innerShadowOpacity: 0.75,
+  innerShadowBlur: 8,
+  innerShadowX: 4,
+  innerShadowY: 4,
   stroke: false,
   strokeColor: '#ffffff',
   strokeWidth: 2,
+  strokePosition: 'outside',
+  strokeOpacity: 1,
   colorOverlay: false,
   overlayColor: '#ffffff',
   overlayOpacity: 0.35,
+  overlayBlend: 'source-over',
   innerGlow: false,
+  innerGlowColor: '#ffffbe',
+  innerGlowSize: 7,
+  innerGlowOpacity: 0.75,
   outerGlow: false,
+  glowColor: '#7dd3fc',
+  glowSize: 18,
+  glowOpacity: 0.9,
   bevel: false,
+  bevelStyle: 'inner',
+  bevelDepth: 100,
+  bevelSize: 6,
+  bevelAngle: 120,
+  bevelSoften: 0,
+  bevelHighlight: '#ffffff',
+  bevelShadow: '#000000',
+  satin: false,
+  satinColor: '#000000',
+  satinOpacity: 0.5,
+  satinDistance: 8,
+  satinSize: 12,
+  gradientOverlay: false,
+  gradientFrom: '#000000',
+  gradientTo: '#ffffff',
+  gradientAngle: 90,
+  gradientOpacity: 1,
+  gradientStyle: 'linear',
+  patternOverlay: false,
+  patternId: undefined,
+  patternOpacity: 1,
+  patternScale: 1,
 })
 
 export const defaultAdjustment = (type: AdjustmentType): Adjustment => ({
@@ -657,6 +820,50 @@ export const defaultSettings: AppSettings = {
   pathWidth: 2,
   magneticWidth: 12,
   showPaths: true,
+  selectionMode: 'new',
+  marqueeFeather: 0,
+  antiAlias: true,
+  cropRatio: 'free',
+  mixerWet: 0.5,
+  mixerMix: 0.6,
+  mixerFlow: 0.8,
+  artHistoryStyle: 'tight',
+  liquifyMode: 'forward',
+  liquifyPressure: 0.6,
+  gradientId: 'fgBg',
+  gradientReverse: false,
+  gradientDither: false,
+  gradients: [],
+  swatches: ['#000000', '#ffffff', '#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899', '#64748b', '#78350f'],
+  customShapeKind: 'star',
+  customShapes: [],
+  historyStates: 50,
+  recentFiles: [],
+  showGuides: true,
+  snapEnabled: true,
+  snapToGuides: true,
+  snapToGrid: false,
+  smartGuides: true,
+  lockGuides: false,
+  showPixelGrid: false,
+  showSlices: true,
+  showNotes: true,
+  extras: true,
+  proofColors: false,
+  gamutWarning: false,
+  rulerUnits: 'px',
+  toolPresets: [],
+  styles: [],
+  wandContiguous: true,
+  sampleAllLayers: false,
+  toneRange: 'midtones',
+  eyedropperSample: 1,
+  cloneAligned: true,
+  patternImpressionist: false,
+  workspaces: [],
+  shortcuts: {},
+  patternPreview: false,
+  paintTarget: 'layer',
 }
 
 export const documentPresets: { id: string; width: number; height: number }[] = [

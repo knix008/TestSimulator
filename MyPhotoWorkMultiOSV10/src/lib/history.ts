@@ -4,9 +4,25 @@ import type { PhotoDocument } from './types'
 export type HistorySnapshot = {
   document: PhotoDocument
   canvases: Map<string, HTMLCanvasElement>
+  /** What the state was left by: the command, tool or window that made it. */
+  label?: string
+  /** When the state was taken, for the History panel's list. */
+  at?: number
 }
 
-const historyLimit = 30
+/** A named snapshot: kept apart from the undo stack, so its cap never drops it. */
+export type NamedSnapshot = { id: string; name: string; snapshot: HistorySnapshot }
+
+let historyLimit = 30
+
+/** The undo depth; the Preferences window sets it. */
+export function setHistoryLimit(limit: number) {
+  historyLimit = Math.max(1, Math.round(limit))
+}
+
+export function getHistoryLimit() {
+  return historyLimit
+}
 
 export function cloneDocument(document: PhotoDocument): PhotoDocument {
   return {
@@ -22,6 +38,8 @@ export function cloneDocument(document: PhotoDocument): PhotoDocument {
       fill: layer.fill ? { ...layer.fill, start: { ...layer.fill.start }, end: { ...layer.fill.end } } : undefined,
       text: layer.text ? { ...layer.text } : undefined,
       shape: layer.shape ? { ...layer.shape } : undefined,
+      smartFilters: layer.smartFilters?.map((item) => ({ ...item })),
+      smartTransform: layer.smartTransform ? { ...layer.smartTransform } : undefined,
     })),
     guides: document.guides.map((item) => ({ ...item })),
     notes: document.notes.map((item) => ({ ...item })),
@@ -31,6 +49,8 @@ export function cloneDocument(document: PhotoDocument): PhotoDocument {
     slices: document.slices.map((item) => ({ ...item })),
     frames: document.frames.map((item) => ({ ...item })),
     measure: document.measure ? { ...document.measure } : null,
+    artboards: document.artboards?.map((item) => ({ ...item })),
+    measurements: document.measurements?.map((item) => ({ ...item })),
   }
 }
 
@@ -42,13 +62,13 @@ export function cloneCanvases(canvases: Map<string, HTMLCanvasElement>) {
   return next
 }
 
-export function takeSnapshot(document: PhotoDocument, canvases: Map<string, HTMLCanvasElement>): HistorySnapshot {
-  return { document: cloneDocument(document), canvases: cloneCanvases(canvases) }
+export function takeSnapshot(document: PhotoDocument, canvases: Map<string, HTMLCanvasElement>, label?: string): HistorySnapshot {
+  return { document: cloneDocument(document), canvases: cloneCanvases(canvases), label, at: Date.now() }
 }
 
 export function pushHistory(stack: HistorySnapshot[], snapshot: HistorySnapshot) {
   stack.push(snapshot)
-  if (stack.length > historyLimit) {
+  while (stack.length > historyLimit) {
     stack.shift()
   }
 }

@@ -53,7 +53,7 @@ test('every command label and menu name is translated in both languages', () => 
 
 test('Korean and English command labels are genuinely different', () => {
   // Proper nouns and initialisms are the same word in both languages.
-  const shared = ['cameraRaw', 'levels', 'threeD']
+  const shared = ['cameraRaw', 'levels', 'threeD', 'photomerge', 'hsbHsa', 'zoom200']
   const identical = commandLabelKeys()
     .filter((key) => !shared.includes(key))
     .filter((key) => t('ko', key) === t('en', key))
@@ -115,7 +115,7 @@ test('accelerator hints only appear on commands, and the menu renders them', () 
   const withAccel = commands.filter((command) => command.accel)
   assert.ok(withAccel.length > 5, 'no command advertises a shortcut')
   for (const command of withAccel) {
-    assert.match(command.accel, /^[\w+\-. ]+$/, `${command.id} has an odd accelerator "${command.accel}"`)
+    assert.match(command.accel, /^[\w+\-. \[\]';]+$/, `${command.id} has an odd accelerator "${command.accel}"`)
   }
   assert.ok(appSource.includes('accel={command.accel}'), 'the menu never renders the accelerator')
 })

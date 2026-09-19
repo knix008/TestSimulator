@@ -8,6 +8,7 @@ import {
   unsharpMask,
 } from './detail'
 import { skinSmooth } from './ai'
+import { extraFilters } from './moreFilters'
 import type { Selection } from './types'
 
 /**
@@ -23,6 +24,11 @@ export type FilterSettings = {
    *  last left them; each filter reads whichever of the two it needs. */
   radius: number
   amount: number
+  /** A third free parameter the newer filters read: an angle, a threshold, a choice. */
+  extra?: number
+  /** The sketch filters draw in the foreground and background colours. */
+  foreground?: string
+  background?: string
 }
 
 /** The filters that are not a pixel operation at all: they open something. */
@@ -60,7 +66,11 @@ export function applyGalleryFilter(canvas: HTMLCanvasElement, id: string, settin
     case 'wave': return wave(canvas, radius, canvas.height / 6, selection)
     case 'spherize': return spherize(canvas, amount, selection)
     case 'pinch': return pinch(canvas, amount, selection)
-    case 'skinSmooth': return skinSmooth(canvas, 2.4)
-    default: return undefined
+    case 'skinSmooth': return skinSmooth(canvas, Math.max(1, radius / 2))
+    default: {
+      const extra = extraFilters[id]
+      if (!extra) return undefined
+      return extra.run(canvas, { radius, amount, extra: settings.extra, foreground: settings.foreground, background: settings.background }, selection)
+    }
   }
 }

@@ -30,9 +30,11 @@ import {
   SunMedium,
   Type,
   WandSparkles,
+  WavesHorizontal,
   ZoomIn,
 } from 'lucide-react'
 import type { AdjustmentType, Tool } from './lib/types'
+import { extraFilterIds, extraFilters } from './lib/moreFilters'
 
 export type ToolGroup = { id: string; tools: { id: Tool; icon: ComponentType<SVGProps<SVGSVGElement> & { size?: number }>; key: string }[] }
 
@@ -58,7 +60,7 @@ export const toolGroups: ToolGroup[] = [
   { id: 'history', tools: [{ id: 'historyBrush', icon: Paintbrush, key: 'Y' }, { id: 'artHistory', icon: Paintbrush, key: 'Y' }] },
   { id: 'erase', tools: [{ id: 'eraser', icon: Eraser, key: 'E' }, { id: 'bgEraser', icon: Eraser, key: 'E' }, { id: 'magicEraser', icon: Eraser, key: 'E' }] },
   { id: 'fill', tools: [{ id: 'gradient', icon: Blend, key: 'G' }, { id: 'fill', icon: PaintBucket, key: 'G' }] },
-  { id: 'focus', tools: [{ id: 'blurTool', icon: Droplets, key: '' }, { id: 'sharpenTool', icon: Aperture, key: '' }, { id: 'smudge', icon: Hand, key: '' }] },
+  { id: 'focus', tools: [{ id: 'blurTool', icon: Droplets, key: '' }, { id: 'sharpenTool', icon: Aperture, key: '' }, { id: 'smudge', icon: Hand, key: '' }, { id: 'liquify', icon: WavesHorizontal, key: '' }] },
   { id: 'tone', tools: [{ id: 'dodge', icon: SunMedium, key: 'O' }, { id: 'burn', icon: SunMedium, key: 'O' }, { id: 'sponge', icon: Droplets, key: 'O' }] },
   { id: 'pen', tools: [{ id: 'pen', icon: PenTool, key: 'P' }, { id: 'freeformPen', icon: PenTool, key: 'P' }, { id: 'curvaturePen', icon: Spline, key: 'P' }] },
   { id: 'path', tools: [{ id: 'pathSelect', icon: MousePointer2, key: 'A' }, { id: 'directSelect', icon: MousePointer2, key: 'A' }] },
@@ -72,7 +74,9 @@ export const adjustmentTypes: AdjustmentType[] = [
   'channelMixer', 'selectiveColor', 'gradientMap', 'equalize',
 ]
 
-export const filterCatalog = [
+export type FilterCatalogEntry = { id: string; group: string }
+
+export const filterCatalog: FilterCatalogEntry[] = [
   { id: 'gaussian', group: 'blur' },
   { id: 'motion', group: 'blur' },
   { id: 'boxBlur', group: 'blur' },
@@ -104,4 +108,7 @@ export const filterCatalog = [
   { id: 'pinch', group: 'distort' },
   { id: 'cameraRaw', group: 'raw' },
   { id: 'skinSmooth', group: 'neural' },
-] as const
+  // Everything moreFilters.ts adds: the rest of the Filter menu and the
+  // Filter Gallery's artistic, brush-stroke, sketch and texture folders.
+  ...extraFilterIds.map((id) => ({ id, group: extraFilters[id].group })),
+]

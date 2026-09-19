@@ -1,4 +1,5 @@
 import type { BlendMode, Language, Tool } from './lib/types'
+import { enExtra, koExtra } from './i18nExtra'
 
 type Dictionary = Record<string, string>
 
@@ -1238,7 +1239,7 @@ const toolsKo: Record<Tool, string> = {
   dodge: '닷지', burn: '번', sponge: '스펀지', pen: '펜', freeformPen: '자유 형태 펜', curvaturePen: '곡률 펜',
   pathSelect: '경로 선택', directSelect: '직접 선택', text: '가로 문자', vtext: '세로 문자', textMask: '문자 마스크',
   rect: '사각형', roundRect: '둥근 사각형', ellipse: '타원', polygon: '다각형', line: '선', customShape: '사용자 도형',
-  hand: '손', rotateView: '보기 회전', zoom: '확대/축소',
+  hand: '손', rotateView: '보기 회전', zoom: '확대/축소', liquify: '리퀴파이',
 }
 
 const toolsEn: Record<Tool, string> = {
@@ -1253,7 +1254,7 @@ const toolsEn: Record<Tool, string> = {
   dodge: 'Dodge', burn: 'Burn', sponge: 'Sponge', pen: 'Pen', freeformPen: 'Freeform pen', curvaturePen: 'Curvature pen',
   pathSelect: 'Path selection', directSelect: 'Direct selection', text: 'Horizontal type', vtext: 'Vertical type', textMask: 'Type mask',
   rect: 'Rectangle', roundRect: 'Rounded rectangle', ellipse: 'Ellipse', polygon: 'Polygon', line: 'Line', customShape: 'Custom shape',
-  hand: 'Hand', rotateView: 'Rotate view', zoom: 'Zoom',
+  hand: 'Hand', rotateView: 'Rotate view', zoom: 'Zoom', liquify: 'Liquify',
 }
 
 const blendKo: Record<BlendMode, string> = {
@@ -1298,8 +1299,11 @@ const blendEn: Record<BlendMode, string> = {
   xor: 'XOR',
 }
 
+const koAll: Dictionary = { ...ko, ...koExtra }
+const enAll: Dictionary = { ...en, ...enExtra }
+
 export function t(language: Language, key: string) {
-  const table = language === 'ko' ? ko : en
+  const table = language === 'ko' ? koAll : enAll
   return table[key] ?? key
 }
 

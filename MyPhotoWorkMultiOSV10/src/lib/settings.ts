@@ -1,8 +1,33 @@
 import { clamp } from './color'
 import { isTheme } from '../themes'
-import { defaultSettings, exportFormats, rightPanelMaxWidth, rightPanelMinWidth, type ActionScript, type AppSettings, type BrushPreset } from './types'
+import { defaultSettings, exportFormats, panelTabs, rightPanelMaxWidth, rightPanelMinWidth, type ActionScript, type AppSettings, type BrushPreset } from './types'
 
 const settingsStorageKey = 'my-photo-work-v1-settings'
+
+/** The numeric settings and the range each is held to. */
+const ranges: Partial<Record<keyof AppSettings, [number, number]>> = {
+  zoom: [0.05, 8],
+  rightWidth: [rightPanelMinWidth, rightPanelMaxWidth],
+  brushSpacing: [0.02, 2],
+  brushAngle: [-180, 180],
+  brushRoundness: [0.05, 1],
+  brushScatter: [0, 3],
+  brushSize: [1, 400],
+  brushHardness: [0, 1],
+  brushOpacity: [0.05, 1],
+  fillTolerance: [0, 255],
+  shapeStroke: [0, 100],
+  shapeSides: [3, 32],
+  shapeCorner: [0, 400],
+  pathWidth: [1, 100],
+  magneticWidth: [1, 64],
+  marqueeFeather: [0, 250],
+  mixerWet: [0, 1],
+  mixerMix: [0, 1],
+  mixerFlow: [0.02, 1],
+  liquifyPressure: [0.05, 1],
+  historyStates: [5, 500],
+}
 
 export function loadSettings(): AppSettings {
   if (typeof window === 'undefined') {
@@ -14,45 +39,48 @@ export function loadSettings(): AppSettings {
       return defaultSettings
     }
     const parsed = JSON.parse(raw) as Partial<AppSettings>
-    return {
-      language: parsed.language === 'ko' || parsed.language === 'en' ? parsed.language : defaultSettings.language,
-      theme: isTheme(parsed.theme) ? parsed.theme : defaultSettings.theme,
-      zoom: clamp(typeof parsed.zoom === 'number' ? parsed.zoom : defaultSettings.zoom, 0.05, 8),
-      showGrid: typeof parsed.showGrid === 'boolean' ? parsed.showGrid : defaultSettings.showGrid,
-      showRulers: typeof parsed.showRulers === 'boolean' ? parsed.showRulers : defaultSettings.showRulers,
-      rightWidth: clamp(typeof parsed.rightWidth === 'number' ? parsed.rightWidth : defaultSettings.rightWidth, rightPanelMinWidth, rightPanelMaxWidth),
-      exportFormat: parsed.exportFormat && exportFormats.includes(parsed.exportFormat) ? parsed.exportFormat : defaultSettings.exportFormat,
-      exportTransparent: typeof parsed.exportTransparent === 'boolean' ? parsed.exportTransparent : defaultSettings.exportTransparent,
-      // Actions come back from storage, where anything could be; only entries
-      // that still look like an action are kept.
-      actions: Array.isArray(parsed.actions)
-        ? parsed.actions.filter((action): action is ActionScript => (
-          Boolean(action) && typeof action.id === 'string' && typeof action.name === 'string' && Array.isArray(action.steps)
-        ))
-        : [],
-      brushes: Array.isArray(parsed.brushes)
-        ? parsed.brushes.filter((brush): brush is BrushPreset => Boolean(brush) && typeof brush.id === 'string' && typeof brush.size === 'number')
-        : [],
-      brushSpacing: clamp(typeof parsed.brushSpacing === 'number' ? parsed.brushSpacing : defaultSettings.brushSpacing, 0.02, 2),
-      brushAngle: clamp(typeof parsed.brushAngle === 'number' ? parsed.brushAngle : defaultSettings.brushAngle, -180, 180),
-      brushRoundness: clamp(typeof parsed.brushRoundness === 'number' ? parsed.brushRoundness : defaultSettings.brushRoundness, 0.05, 1),
-      brushScatter: clamp(typeof parsed.brushScatter === 'number' ? parsed.brushScatter : defaultSettings.brushScatter, 0, 3),
-      brushSize: clamp(typeof parsed.brushSize === 'number' ? parsed.brushSize : defaultSettings.brushSize, 1, 400),
-      brushHardness: clamp(typeof parsed.brushHardness === 'number' ? parsed.brushHardness : defaultSettings.brushHardness, 0, 1),
-      brushOpacity: clamp(typeof parsed.brushOpacity === 'number' ? parsed.brushOpacity : defaultSettings.brushOpacity, 0.05, 1),
-      fillTolerance: clamp(typeof parsed.fillTolerance === 'number' ? parsed.fillTolerance : defaultSettings.fillTolerance, 0, 255),
-      foreground: typeof parsed.foreground === 'string' ? parsed.foreground : defaultSettings.foreground,
-      background: typeof parsed.background === 'string' ? parsed.background : defaultSettings.background,
-      gradientKind: parsed.gradientKind === 'radial' || parsed.gradientKind === 'angle' || parsed.gradientKind === 'reflected' || parsed.gradientKind === 'diamond' ? parsed.gradientKind : 'linear',
-      rightTab: parsed.rightTab === 'adjust' || parsed.rightTab === 'history' || parsed.rightTab === 'channels' || parsed.rightTab === 'info' ? parsed.rightTab : 'layers',
-      shapeStroke: clamp(typeof parsed.shapeStroke === 'number' ? parsed.shapeStroke : defaultSettings.shapeStroke, 0, 100),
-      shapeSides: clamp(typeof parsed.shapeSides === 'number' ? Math.round(parsed.shapeSides) : defaultSettings.shapeSides, 3, 32),
-      shapeCorner: clamp(typeof parsed.shapeCorner === 'number' ? parsed.shapeCorner : defaultSettings.shapeCorner, 0, 400),
-      shapeFilled: typeof parsed.shapeFilled === 'boolean' ? parsed.shapeFilled : defaultSettings.shapeFilled,
-      pathWidth: clamp(typeof parsed.pathWidth === 'number' ? parsed.pathWidth : defaultSettings.pathWidth, 1, 100),
-      magneticWidth: clamp(typeof parsed.magneticWidth === 'number' ? Math.round(parsed.magneticWidth) : defaultSettings.magneticWidth, 1, 64),
-      showPaths: typeof parsed.showPaths === 'boolean' ? parsed.showPaths : defaultSettings.showPaths,
+    // Anything stored under a key the defaults know, of the same shape, is
+    // taken; anything else — an old key, a corrupted value — falls back.
+    const next: Record<string, unknown> = { ...defaultSettings }
+    for (const key of Object.keys(defaultSettings) as (keyof AppSettings)[]) {
+      const fallback = defaultSettings[key]
+      const value = parsed[key]
+      if (value === undefined || value === null) continue
+      if (Array.isArray(fallback)) {
+        if (Array.isArray(value)) next[key] = value
+        continue
+      }
+      if (typeof value !== typeof fallback) continue
+      next[key] = value
     }
+    const settings = next as AppSettings
+    settings.language = parsed.language === 'ko' || parsed.language === 'en' ? parsed.language : defaultSettings.language
+    settings.theme = isTheme(parsed.theme) ? parsed.theme : defaultSettings.theme
+    settings.exportFormat = parsed.exportFormat && exportFormats.includes(parsed.exportFormat) ? parsed.exportFormat : defaultSettings.exportFormat
+    for (const [key, [low, high]] of Object.entries(ranges) as [keyof AppSettings, [number, number]][]) {
+      const value = settings[key]
+      if (typeof value === 'number') (settings as unknown as Record<string, number>)[key] = clamp(value, low, high)
+    }
+    settings.shapeSides = Math.round(settings.shapeSides)
+    settings.magneticWidth = Math.round(settings.magneticWidth)
+    // Actions and brushes come back from storage, where anything could be;
+    // only entries that still look like the real thing are kept.
+    settings.actions = Array.isArray(parsed.actions)
+      ? parsed.actions.filter((action): action is ActionScript => (
+        Boolean(action) && typeof action.id === 'string' && typeof action.name === 'string' && Array.isArray(action.steps)
+      ))
+      : []
+    settings.brushes = Array.isArray(parsed.brushes)
+      ? parsed.brushes.filter((brush): brush is BrushPreset => Boolean(brush) && typeof brush.id === 'string' && typeof brush.size === 'number')
+      : []
+    settings.gradientKind = ['linear', 'radial', 'angle', 'reflected', 'diamond'].includes(String(parsed.gradientKind)) ? parsed.gradientKind! : 'linear'
+    settings.rightTab = panelTabs.includes(parsed.rightTab as AppSettings['rightTab']) ? parsed.rightTab! : 'layers'
+    settings.selectionMode = ['new', 'add', 'subtract', 'intersect'].includes(String(parsed.selectionMode)) ? parsed.selectionMode! : 'new'
+    settings.swatches = settings.swatches.filter((item) => typeof item === 'string')
+    settings.recentFiles = settings.recentFiles.filter((item) => typeof item === 'string').slice(0, 20)
+    settings.shortcuts = typeof parsed.shortcuts === 'object' && parsed.shortcuts ? parsed.shortcuts : {}
+    settings.paintTarget = 'layer'
+    return settings
   } catch {
     return defaultSettings
   }
