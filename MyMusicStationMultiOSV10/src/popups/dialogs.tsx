@@ -86,12 +86,28 @@ export function ConvertDialog({ labels, data, send, onDragStart }: DialogProps<'
           <span>{labels.convertTrack}</span>
           <strong className="convert-track-name">{d.trackTitle ?? labels.noTrack}</strong>
         </label>
+        <label className="settings-row settings-row-stack">
+          <span>{labels.convertFileName}</span>
+          <div className="convert-filename-row">
+            <input
+              type="text"
+              spellCheck={false}
+              autoComplete="off"
+              value={d.fileName}
+              aria-label={labels.convertFileName}
+              disabled={d.isConverting || d.isProbing || !d.trackTitle}
+              onChange={(event) => send({ type: 'setFileName', fileName: event.target.value })}
+              onPointerDown={(event) => event.stopPropagation()}
+            />
+            <span className="convert-filename-ext">.{d.format}</span>
+          </div>
+        </label>
         <label className="settings-row">
           <span>{labels.convertFormat}</span>
           <select
             value={d.format}
             aria-label={labels.convertFormat}
-            disabled={d.isConverting || !d.trackTitle}
+            disabled={d.isConverting || d.isProbing || !d.trackTitle}
             onChange={(event) => send({ type: 'setFormat', format: event.target.value as ConvertFormat })}
           >
             {d.formats.map((format) => (
@@ -107,7 +123,7 @@ export function ConvertDialog({ labels, data, send, onDragStart }: DialogProps<'
             <select
               value={d.quality}
               aria-label={labels.extractQuality}
-              disabled={d.isConverting || !d.trackTitle}
+              disabled={d.isConverting || d.isProbing || !d.trackTitle}
               onChange={(event) => send({ type: 'setQuality', quality: event.target.value as ExtractQuality })}
             >
               <option value="high">{labels.extractQualityHigh}</option>
@@ -116,7 +132,7 @@ export function ConvertDialog({ labels, data, send, onDragStart }: DialogProps<'
             </select>
           </label>
         )}
-        {d.message && <p className={`convert-message${d.isConverting ? ' busy' : ''}`}>{d.message}</p>}
+        {d.message && <p className={`convert-message${d.isConverting || d.isProbing ? ' busy' : ''}`}>{d.message}</p>}
       </div>
 
       <div className="convert-actions">
@@ -126,11 +142,11 @@ export function ConvertDialog({ labels, data, send, onDragStart }: DialogProps<'
         <button
           type="button"
           className="primary-action"
-          aria-label={d.isConverting ? d.busyLabel : d.title}
-          disabled={d.isConverting || !d.trackTitle}
+          aria-label={d.isConverting ? d.busyLabel : d.isProbing ? labels.convertProbingInfo : d.title}
+          disabled={d.isConverting || d.isProbing || !d.trackTitle}
           onClick={() => send({ type: 'run' })}
         >
-          {d.isConverting ? d.busyLabel : d.title}
+          {d.isConverting ? d.busyLabel : d.isProbing ? labels.convertProbingInfo : d.title}
         </button>
       </div>
     </section>

@@ -244,6 +244,7 @@ pub fn run() {
             take_pending_open_files,
             audio_convert::convert_audio,
             audio_extract::extract_audio_from_url,
+            audio_extract::probe_url_media_info,
             wallpaper::load_wallpaper_image
         ])
         .setup(|app| {

@@ -261,6 +261,43 @@ const remoteTitleFromUrl = (url: string) => {
   }
 }
 
+const fileNameFromContentDisposition = (header: string | null | undefined) => {
+  if (!header) {
+    return null
+  }
+
+  const utf8 = /filename\*=(?:UTF-8''|utf-8'')([^;]+)/i.exec(header)
+  if (utf8?.[1]) {
+    try {
+      return decodeURIComponent(utf8[1].trim().replace(/^"|"$/g, ''))
+    } catch {
+      return utf8[1].trim().replace(/^"|"$/g, '')
+    }
+  }
+
+  const plain = /filename="([^"]+)"|filename=([^;]+)/i.exec(header)
+  const value = (plain?.[1] || plain?.[2] || '').trim()
+  return value || null
+}
+
+const isUrlDerivedTrackTitle = (track: Track) => {
+  if (!track.remoteUrl) {
+    return false
+  }
+
+  if (track.artist?.trim() || track.album?.trim()) {
+    return false
+  }
+
+  const title = track.title?.trim() || ''
+  if (!title) {
+    return true
+  }
+
+  const fromUrl = remoteTitleFromUrl(track.remoteUrl)
+  return title === fromUrl || title === track.remoteUrl || title === track.source
+}
+
 // Stable file stem for a remote URL (two independent 32-bit hashes -> 16 hex chars).
 const remoteCacheStem = (url: string) => {
   let djb = 5381
@@ -423,6 +460,10 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
   const [showConvertDialog, setShowConvertDialog] = useState(false)
   const [convertFormat, setConvertFormat] = useState<ConvertFormat>('mp3')
   const [convertQuality, setConvertQuality] = useState<ExtractQuality>('high')
+  const [convertFileName, setConvertFileName] = useState('')
+  const [convertFileNameReady, setConvertFileNameReady] = useState(true)
+  const convertFileNameTouchedRef = useRef(false)
+  const convertProbeRequestRef = useRef(0)
   const [isConverting, setIsConverting] = useState(false)
   const [convertMessage, setConvertMessage] = useState('')
   const [convertTargetTrackId, setConvertTargetTrackId] = useState<string | null>(null)
@@ -2120,6 +2161,166 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
       .trim()
       .slice(0, 120) || 'track'
 
+  const stripAudioExtension = (value: string) =>
+    value.replace(/\.(mp3|flac|wav|ogg|aac|m4a|webm|opus|wma|aiff|aif)$/i, '').trim()
+
+  const suggestedSaveFileStem = (track: Track) => {
+    const title = stripAudioExtension(track.title?.trim() || '')
+    const artist = track.artist?.trim() || ''
+    const album = track.album?.trim() || ''
+    let raw = ''
+
+    if (artist && title) {
+      const titleAlreadyPrefixed = title.toLowerCase().startsWith(`${artist.toLowerCase()} -`)
+      raw = titleAlreadyPrefixed ? title : `${artist} - ${title}`
+    } else if (title) {
+      raw = title
+    } else if (artist && album) {
+      raw = `${artist} - ${album}`
+    } else if (artist) {
+      raw = artist
+    } else if (track.remoteUrl) {
+      raw = stripAudioExtension(remoteTitleFromUrl(track.remoteUrl))
+    }
+
+    return sanitizeFileStem(raw || 'track')
+  }
+
+  type ProbedUrlMediaInfo = {
+    title?: string | null
+    artist?: string | null
+    album?: string | null
+    duration?: number | null
+  }
+
+  const probeStreamFileMetadata = async (url: string): Promise<ProbedUrlMediaInfo | null> => {
+    try {
+      const response = await fetchWithTimeout(
+        url,
+        { headers: { Range: 'bytes=0-524287' } },
+        8000,
+      )
+
+      if (!response.ok && response.status !== 206) {
+        return null
+      }
+
+      const dispositionName = fileNameFromContentDisposition(response.headers.get('content-disposition'))
+      const contentType = response.headers.get('content-type')
+      const mime = contentType?.split(';')[0]?.trim() || getAudioMimeType(dispositionName || url)
+      const bytes = new Uint8Array(await response.arrayBuffer())
+
+      if (!bytes.length || looksLikeHtmlPayload(bytes)) {
+        return dispositionName
+          ? { title: stripAudioExtension(fileNameFromPath(dispositionName)) }
+          : null
+      }
+
+      try {
+        const metadata = await parseTrackMetadata(bytes, dispositionName || url, mime)
+        return {
+          title: metadata.common.title?.trim() || (dispositionName ? stripAudioExtension(fileNameFromPath(dispositionName)) : null),
+          artist: metadata.common.artist?.trim() || null,
+          album: metadata.common.album?.trim() || null,
+          duration: metadata.format.duration ?? null,
+        }
+      } catch {
+        return dispositionName
+          ? { title: stripAudioExtension(fileNameFromPath(dispositionName)) }
+          : null
+      }
+    } catch (error) {
+      console.warn('[save] stream metadata probe failed', url, error)
+      return null
+    }
+  }
+
+  const enrichRemoteTrackMetadata = async (track: Track): Promise<Track> => {
+    if (!track.remoteUrl) {
+      return track
+    }
+
+    let next = track
+    let found = !isUrlDerivedTrackTitle(track)
+
+    try {
+      const info = await invoke<ProbedUrlMediaInfo>('probe_url_media_info', { url: track.remoteUrl })
+      if (info.title || info.artist || info.album) {
+        next = mergeExtractedInfo(next, {
+          outputPath: next.filePath || '',
+          title: info.title || next.title,
+          artist: info.artist,
+          album: info.album,
+          duration: info.duration,
+        })
+        found = true
+      }
+    } catch (error) {
+      console.warn('[save] yt-dlp media probe failed', track.remoteUrl, error)
+    }
+
+    if (!found || isUrlDerivedTrackTitle(next)) {
+      const streamInfo = await probeStreamFileMetadata(track.remoteUrl)
+      if (streamInfo && (streamInfo.title || streamInfo.artist || streamInfo.album)) {
+        next = mergeExtractedInfo(next, {
+          outputPath: next.filePath || '',
+          title: streamInfo.title || next.title,
+          artist: streamInfo.artist,
+          album: streamInfo.album,
+          duration: streamInfo.duration,
+        })
+      }
+    }
+
+    return next
+  }
+
+  const applyEnrichedConvertTrack = (track: Track) => {
+    setTracks((previous) => previous.map((item) => (item.id === track.id ? { ...item, ...track, id: item.id } : item)))
+    setConvertTargetTrackId(track.id)
+
+    if (!convertFileNameTouchedRef.current) {
+      setConvertFileName(suggestedSaveFileStem(track))
+    }
+  }
+
+  const prepareConvertDialogForTrack = async (track: Track) => {
+    const requestId = convertProbeRequestRef.current + 1
+    convertProbeRequestRef.current = requestId
+    convertFileNameTouchedRef.current = false
+    setConvertTargetTrackId(track.id)
+    setConvertFileName(suggestedSaveFileStem(track))
+    setConvertMessage('')
+    setShowConvertDialog(true)
+
+    if (!isUrlAddedTrack(track) || !isUrlDerivedTrackTitle(track)) {
+      setConvertFileNameReady(true)
+      return
+    }
+
+    setConvertFileNameReady(false)
+    setConvertMessage(labels.convertProbingInfo)
+
+    try {
+      const enriched = await enrichRemoteTrackMetadata(track)
+      if (convertProbeRequestRef.current !== requestId) {
+        return
+      }
+
+      applyEnrichedConvertTrack(enriched)
+      setConvertMessage('')
+    } catch (error) {
+      console.warn('[save] enrich metadata failed', error)
+      if (convertProbeRequestRef.current === requestId) {
+        setConvertMessage('')
+      }
+    } finally {
+      if (convertProbeRequestRef.current === requestId) {
+        setConvertFileNameReady(true)
+      }
+    }
+  }
+
   const persistCustomThemes = (customThemes: ThemeDefinition[], nextThemeId?: string) => {
     localStorage.setItem(customThemesKey, JSON.stringify(customThemes))
     setAvailableThemes([...builtInThemes, ...customThemes])
@@ -2296,17 +2497,18 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
       return
     }
 
+    convertProbeRequestRef.current += 1
     setShowConvertDialog(false)
     setConvertTargetTrackId(null)
+    setConvertFileName('')
+    setConvertFileNameReady(true)
     setConvertMessage('')
   }
 
   const openConvertDialogForTrack = (track: Track) => {
     setTrackContextMenu(null)
-    setConvertTargetTrackId(track.id)
     setConvertQuality('high')
-    setConvertMessage('')
-    setShowConvertDialog(true)
+    void prepareConvertDialogForTrack(track)
   }
 
   const openConvertDialog = () => {
@@ -2317,12 +2519,11 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
       return
     }
 
-    setConvertTargetTrackId(currentTrack.id)
     if (isUrlAddedTrack(currentTrack)) {
       setConvertQuality('high')
     }
-    setConvertMessage('')
-    setShowConvertDialog(true)
+
+    void prepareConvertDialogForTrack(currentTrack)
   }
 
   const openTrackContextMenu = (event: ReactMouseEvent, track: Track) => {
@@ -2494,7 +2695,7 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
       return
     }
 
-    const stem = sanitizeFileStem(prepared.title)
+    const stem = sanitizeFileStem(stripAudioExtension(convertFileName) || suggestedSaveFileStem(prepared))
     const defaultDirectory =
       (prepared.filePath && !prepared.filePath.toLowerCase().includes('mms-extract-')
         ? prepared.filePath.replace(/[\\/][^\\/]+$/, '')
@@ -2949,11 +3150,13 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
     title: convertDialogTitle,
     busyLabel: convertDialogBusy,
     trackTitle: convertTargetTrack?.title ?? null,
+    fileName: convertFileName,
     isRemoteSave: convertDialogIsRemoteSave,
     format: convertFormat,
     formats: convertFormats,
     quality: convertQuality,
     isConverting,
+    isProbing: !convertFileNameReady,
     message: convertMessage,
   }
 
@@ -2965,7 +3168,14 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
       case 'setQuality':
         setConvertQuality(action.quality)
         break
+      case 'setFileName':
+        convertFileNameTouchedRef.current = true
+        setConvertFileName(action.fileName)
+        break
       case 'run':
+        if (!convertFileNameReady || isConverting) {
+          break
+        }
         void runConvertSave()
         break
       case 'close':
@@ -3021,7 +3231,10 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
   const onConvertPopupClosed = () => {
     setShowConvertDialog(false)
     if (!isConverting) {
+      convertProbeRequestRef.current += 1
       setConvertTargetTrackId(null)
+      setConvertFileName('')
+      setConvertFileNameReady(true)
       setConvertMessage('')
     }
   }
@@ -3513,7 +3726,7 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
             </div>
             <button
               type="button"
-              className={`playlist-toggle${trackListCollapsed ? '' : ' is-open'}`}
+              className="tool-button icon-only playlist-toggle"
               data-tooltip={trackListCollapsed ? labels.expandTrackList : labels.collapseTrackList}
               aria-label={trackListCollapsed ? labels.expandTrackList : labels.collapseTrackList}
               aria-pressed={!trackListCollapsed}

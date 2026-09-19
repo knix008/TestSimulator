@@ -46,11 +46,13 @@ export type ConvertPopupData = {
   title: string
   busyLabel: string
   trackTitle: string | null
+  fileName: string
   isRemoteSave: boolean
   format: ConvertFormat
   formats: readonly ConvertFormat[]
   quality: ExtractQuality
   isConverting: boolean
+  isProbing: boolean
   message: string
 }
 
@@ -128,6 +130,7 @@ export type SettingsPopupAction =
 export type ConvertPopupAction =
   | { type: 'setFormat'; format: ConvertFormat }
   | { type: 'setQuality'; quality: ExtractQuality }
+  | { type: 'setFileName'; fileName: string }
   | { type: 'run' }
   | { type: 'close' }
 

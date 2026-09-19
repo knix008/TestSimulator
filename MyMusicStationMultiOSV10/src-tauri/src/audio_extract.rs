@@ -476,3 +476,104 @@ fn extract_audio_from_url_blocking(
         duration: meta_duration,
     })
 }
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UrlMediaInfo {
+    pub title: Option<String>,
+    pub artist: Option<String>,
+    pub album: Option<String>,
+    pub duration: Option<f64>,
+}
+
+fn parse_media_info_json(value: &serde_json::Value) -> UrlMediaInfo {
+    let title = value
+        .get("title")
+        .and_then(|v| v.as_str())
+        .map(str::trim)
+        .filter(|v| !v.is_empty())
+        .map(str::to_string);
+    let artist = ["artist", "uploader", "creator", "channel"]
+        .iter()
+        .find_map(|key| {
+            value
+                .get(*key)
+                .and_then(|v| v.as_str())
+                .map(str::trim)
+                .filter(|v| !v.is_empty())
+                .map(str::to_string)
+        });
+    let album = value
+        .get("album")
+        .and_then(|v| v.as_str())
+        .map(str::trim)
+        .filter(|v| !v.is_empty())
+        .map(str::to_string);
+    let duration = value
+        .get("duration")
+        .and_then(|v| {
+            v.as_f64()
+                .or_else(|| v.as_i64().map(|n| n as f64))
+                .or_else(|| v.as_str().and_then(|s| s.parse().ok()))
+        })
+        .filter(|seconds| *seconds > 0.0);
+
+    UrlMediaInfo {
+        title,
+        artist,
+        album,
+        duration,
+    }
+}
+
+/// Resolve display metadata for a URL without downloading the media body.
+#[tauri::command]
+pub async fn probe_url_media_info(app: AppHandle, url: String) -> Result<UrlMediaInfo, String> {
+    tauri::async_runtime::spawn_blocking(move || probe_url_media_info_blocking(app, url))
+        .await
+        .map_err(|error| format!("미디어 정보 조회 실패: {error}"))?
+}
+
+fn probe_url_media_info_blocking(app: AppHandle, url: String) -> Result<UrlMediaInfo, String> {
+    let url = url.trim().to_string();
+    if url.is_empty() {
+        return Err("URL이 비어 있습니다.".to_string());
+    }
+
+    let ytdlp = resolve_ytdlp(&app)?;
+    let mut command = Command::new(&ytdlp);
+    configure_hidden(
+        command
+            .arg("--skip-download")
+            .arg("--no-playlist")
+            .arg("--no-warnings")
+            .arg("--print")
+            .arg("%(.{title,artist,uploader,creator,channel,album,duration})j")
+            .arg(&url),
+    );
+
+    let output = command
+        .output()
+        .map_err(|error| format!("yt-dlp 실행 실패: {error}"))?;
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    if !output.status.success() {
+        return Err(format!(
+            "미디어 정보를 가져올 수 없습니다: {}",
+            command_error_text(&stderr, &stdout, &format!("exit {}", output.status))
+        ));
+    }
+
+    for line in stdout.lines().map(str::trim).filter(|line| !line.is_empty()) {
+        if let Ok(value) = serde_json::from_str::<serde_json::Value>(line) {
+            let info = parse_media_info_json(&value);
+            if info.title.is_some() || info.artist.is_some() || info.album.is_some() {
+                return Ok(info);
+            }
+        }
+    }
+
+    Err("미디어 정보에서 제목·아티스트를 찾지 못했습니다.".to_string())
+}
