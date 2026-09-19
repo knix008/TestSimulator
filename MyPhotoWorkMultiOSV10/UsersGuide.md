@@ -31,9 +31,14 @@ anywhere, a long menu can overhang the app, and they all close with it. Pressing
 a button that opens a dialog raises the one that is already open rather than
 making a second.
 
-A long menu is dealt into **columns** rather than running off the bottom of the
-screen: Image, Layer and Edit come up two or three columns wide, with the whole
-menu readable at a glance, while the short menus stay a single list.
+A menu shows its main commands in one list; a row ending in **▸** stands for a
+group — Filter's Blur, Artistic and Sketch, Layer's masks, Image's adjustments
+— and opens that group as a small **submenu** beside the row when you hover or
+click it, the way Photoshop's menus do. Nothing is dealt into columns any more.
+
+The window cannot be made narrower than **1280 px**, which is what the toolbar
+needs to stay on one line with every button showing. The resize handle is the
+ribbed corner at the bottom right.
 
 The zoom percentage sits in the toolbar between **축소 / Zoom out** and
 **확대 / Zoom in**, where it reads as the number those two buttons are changing.
@@ -374,7 +379,11 @@ what to run after erasing a background.
 
 Either can be applied to the layer or added as an adjustment layer.
 
-**필터 / Filter** holds the gallery, grouped the way the menu lists them:
+**필터 / Filter** holds the gallery. The **필터 갤러리 / Filter Gallery** window
+has one **tab per group**; the group's filters are a grid of buttons, the two
+sliders sit beside them, and the window is a fixed size that never scrolls, so
+취소 / Cancel and 적용 / Apply are always where they were. The groups, as the
+menu lists them:
 
 - **흐림 / Blur** — Gaussian, motion, box, and radial blur as a spin or a zoom
 - **선명 / Sharpen** — sharpen, **unsharp mask** (a threshold, so an edge is
@@ -562,9 +571,12 @@ reopen it after an edit to see the new numbers.
 
 ## Settings, the guide and About
 
-The right-hand panel has seven tabs: **레이어**, **조정**, **작업 내역**,
-**채널**, **액션**, **타임라인** and **정보**. The 창 / Window menu switches
-between them, and so does clicking a tab.
+The right-hand panel has twenty-five tabs — 레이어, 속성, 조정, 작업 내역, 채널,
+패스, 탐색기, 정보, 색상, 색상 견본, 그레이디언트, 패턴, 스타일, 모양, 브러시, 복제
+원본, 도구 사전 설정, 문자, 단락, 글리프, 액션, 레이어 컴프, 타임라인, 측정 로그
+and 메모 — laid out three to a row at the top of the panel, all of them
+visible; the panel scrolls as one. The 창 / Window menu switches between them,
+and so does clicking a tab.
 
 The theme control at the right-hand end of the menu bar is two buttons in one:
 clicking the wide half **steps to the next theme** — its tooltip names the one
@@ -574,13 +586,29 @@ The right-hand end of the menu bar holds the theme control, the language switch
 (Korean / English) and the Settings and About windows. The guide you are reading
 is on the 창 / Window menu, at the bottom.
 
-Settings is on five tabs — **일반 / General** (language and theme), **보기 /
-View** (grid and rulers), **내보내기 / Export** (format and the
-transparent-background setting), **브러시 / Brush** (size, spacing, angle,
-roundness, scatter and the saved tips) and **도구 / Tools** (the colour
-tolerance). One page at a time keeps the window small. Each number has a
-decrease and an increase button, and the ones that need it say what they
-control.
+Settings is a preferences window on five tabs, each split into titled
+sections, tall enough that no tab scrolls:
+
+- **일반 / General** — language and the number of history states; the theme,
+  four swatches to a row; shortcuts to the Keyboard Shortcuts and Neural Models
+  windows, a button that clears the recent files list, and the WebGPU switch
+  for the neural models.
+- **보기 / View** — what is shown (rulers, grid, guides, pixel grid, smart
+  guides, slices, notes, paths, extras, pattern preview), the snap settings
+  (snap, to guides, to grid, lock guides), the ruler units, the panel width,
+  proof colours and the gamut warning.
+- **도구 / Tools** — the selection defaults (mode, feather, anti-alias,
+  contiguous, sample all layers) and the sampling and fill settings (tolerance,
+  eyedropper sample size, aligned clone, impressionist pattern stamp).
+- **브러시 / Brush** — the tip defaults (size, hardness, opacity, spacing,
+  angle, roundness, scatter) and the saved brushes.
+- **내보내기 / Export** — the format and the transparent-background setting.
+
+Each number has a decrease and an increase button. **기본 설정으로 되돌리기 /
+Reset to defaults** (bottom left) puts every setting in the window back to its
+default; what you have made — brushes, gradients, swatches, shapes, tool
+presets, styles, workspaces, actions — and the recent files list are kept, and
+so is the language.
 
 About lists the version, build time, commit, author, licence, the Electron and
 Chromium versions and the platform — and copies all of it in one click, which is

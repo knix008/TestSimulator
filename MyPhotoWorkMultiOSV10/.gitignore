@@ -48,6 +48,12 @@ build/icons/
 # Scratch output from the packaging and screenshot helpers
 screenshots/
 *.tmp
+# Neural network weights are fetched into the user's data folder at run time
+# (Edit > Neural Models), never into the project; a stray copy must not be
+# committed, nor the scratch scripts the live checks are driven with.
+*.onnx
+*.part.onnx
+*.tmp.mjs
 
 # Editor directories and files
 .vscode/*

@@ -13,6 +13,8 @@ My Photo Work V1.0 is a cross-platform raster photo editor. The same React app r
 | TIFF codec | `utif`                                                 |
 | HEIC/HEIF codec | `libheif-js` (WASM, decode only, loaded on demand) |
 | DICOM reader | `dicom-parser` for the data set; the pixel pipeline is our own |
+| Computer vision | `@techstark/opencv-js` (OpenCV 5 as WebAssembly, ~13 MB, its own chunk loaded on first use) |
+| Neural inference | `onnxruntime-web` 1.30 (`/wasm` build on the CPU threads by default, `/webgpu` build when opted in); the weights are not in the repository |
 
 ## Process / module layout
 
@@ -88,6 +90,13 @@ scripts/create-icons.cjs        → public/app-icon.svg → every platform's ico
 scripts/generate-build-info.cjs → src/build-info.json for the About window
 scripts/electron-dev.mjs        → starts Vite, then Electron
 ```
+
+`src/MenuTree.tsx` is the one dropdown both hosts render: `menuEntries` in
+`commands.ts` folds every command that carries a `section` into a submenu row,
+the tree opens that group's column beside the row on hover, and each column
+draws its own panel, so a submenu is a small box level with its row. The popup
+window sizes itself to the tree (it widens when a submenu opens) and the
+browser build's in-page dropdown holds the same tree.
 
 `src/dialogsExtra.tsx` holds the windows added for Photoshop parity, one
 component per window, and `src/panels.tsx` the right-hand panels, which read the
