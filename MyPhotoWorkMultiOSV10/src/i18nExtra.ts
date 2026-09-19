@@ -13,7 +13,7 @@ export const koExtra: Record<string, string> = {
   mergeHdr: 'HDR Pro로 병합', photomerge: 'Photomerge', imageProcessor: '이미지 프로세서', loadStack: '파일을 스택으로 불러오기', statistics: '통계',
   fileInfo: '파일 정보', printOne: '한 부 인쇄', exit: '종료',
   sectionAutomate: '자동화', sectionScripts: '스크립트', sectionExport: '내보내기', sectionImport: '가져오기',
-  settingsSectionApp: '앱', settingsSectionMore: '더 보기', settingsSectionShow: '표시', settingsSectionColorUnits: '단위와 색상', settingsSectionSelection: '선택', settingsSectionSampling: '샘플링과 채우기', settingsSectionBrushDefaults: '브러시 기본값', savedBrushes: '저장된 브러시', panelWidth: '패널 너비(px)', resetSettings: '기본 설정으로 되돌리기', resetSettingsHint: '이 창의 모든 설정을 기본값으로 되돌립니다. 저장한 브러시·그레이디언트·견본·모양·스타일과 최근 파일은 남습니다.',
+  galleryPick: '왼쪽에서 필터를 고르면 미리보기가 시작됩니다', settingsSectionApp: '앱', settingsSectionMore: '더 보기', settingsSectionShow: '표시', settingsSectionColorUnits: '단위와 색상', settingsSectionSelection: '선택', settingsSectionSampling: '샘플링과 채우기', settingsSectionBrushDefaults: '브러시 기본값', savedBrushes: '저장된 브러시', panelWidth: '패널 너비(px)', resetSettings: '기본 설정으로 되돌리기', resetSettingsHint: '이 창의 모든 설정을 기본값으로 되돌립니다. 저장한 브러시·그레이디언트·견본·모양·스타일과 최근 파일은 남습니다.',
   /* edit */
   stepForward: '앞으로 한 단계', stepBackward: '뒤로 한 단계', fade: '페이드', pasteInPlace: '제자리에 붙여넣기', pasteOutside: '바깥에 붙여넣기',
   checkSpelling: '맞춤법 검사', findReplace: '텍스트 찾기 및 바꾸기', skyReplace: '하늘 대체', perspectiveWarp: '원근 뒤틀기',
@@ -163,7 +163,7 @@ export const enExtra: Record<string, string> = {
   mergeHdr: 'Merge to HDR Pro', photomerge: 'Photomerge', imageProcessor: 'Image Processor', loadStack: 'Load Files into Stack', statistics: 'Statistics',
   fileInfo: 'File Info', printOne: 'Print One Copy', exit: 'Exit',
   sectionAutomate: 'Automate', sectionScripts: 'Scripts', sectionExport: 'Export', sectionImport: 'Import',
-  settingsSectionApp: 'Application', settingsSectionMore: 'More', settingsSectionShow: 'Show', settingsSectionColorUnits: 'Units and colour', settingsSectionSelection: 'Selection', settingsSectionSampling: 'Sampling and fill', settingsSectionBrushDefaults: 'Brush defaults', savedBrushes: 'Saved brushes', panelWidth: 'Panel width (px)', resetSettings: 'Reset to defaults', resetSettingsHint: 'Puts every setting in this window back to its default. Saved brushes, gradients, swatches, shapes, styles and the recent files list are kept.',
+  galleryPick: 'Pick a filter on the left to start the preview', settingsSectionApp: 'Application', settingsSectionMore: 'More', settingsSectionShow: 'Show', settingsSectionColorUnits: 'Units and colour', settingsSectionSelection: 'Selection', settingsSectionSampling: 'Sampling and fill', settingsSectionBrushDefaults: 'Brush defaults', savedBrushes: 'Saved brushes', panelWidth: 'Panel width (px)', resetSettings: 'Reset to defaults', resetSettingsHint: 'Puts every setting in this window back to its default. Saved brushes, gradients, swatches, shapes, styles and the recent files list are kept.',
   /* edit */
   stepForward: 'Step Forward', stepBackward: 'Step Backward', fade: 'Fade', pasteInPlace: 'Paste in Place', pasteOutside: 'Paste Outside',
   checkSpelling: 'Check Spelling', findReplace: 'Find and Replace Text', skyReplace: 'Sky Replacement', perspectiveWarp: 'Perspective Warp',

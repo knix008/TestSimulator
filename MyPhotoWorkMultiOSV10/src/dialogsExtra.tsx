@@ -1156,31 +1156,40 @@ function StatisticsDialog({ payload, onResult, onClose }: BodyProps) {
 }
 
 /** The Filter Gallery: every filter grouped, applied with a live preview of the chosen one. */
+/**
+ * The Filter Gallery: one tab per filter group, the group's filters as a
+ * grid of buttons, and the two sliders beside them. Nothing in the window
+ * scrolls — the window is sized for the largest group — so the Cancel and
+ * Apply buttons are always where they were.
+ */
 export function FilterGalleryBody({ payload, onResult, onClose }: BodyProps) {
   const tr = (key: string) => t(payload.language, key)
+  const groups = [...new Set(filterCatalog.map((item) => item.group))]
+  const [group, setGroup] = useState(groups.includes('artistic') ? 'artistic' : groups[0])
   const [selected, setSelected] = useState<string | null>(null)
   const [radius, setRadius] = useState(payload.adjust?.radius ?? 4)
   const [amount, setAmount] = useState(payload.adjust?.amount ?? 60)
-  const groups = [...new Set(filterCatalog.map((item) => item.group))]
   const values = { id: selected ?? '', radius, amount, extra: 0 }
   useLivePreview(Boolean(selected), values, onResult)
+  const groupLabel = (id: string) => tr(`group${id.charAt(0).toUpperCase()}${id.slice(1)}`)
   return (
     <>
+      <div className="settings-tabs gallery-tabs">
+        {groups.map((id) => (
+          <button key={id} className={group === id ? 'active' : ''} onClick={() => setGroup(id)}>{groupLabel(id)}</button>
+        ))}
+      </div>
       <div className="gallery-layout">
-        <div className="filter-gallery-list gallery-groups">
-          {groups.map((group) => (
-            <details key={group} open={group === 'artistic'}>
-              <summary>{tr(`group${group.charAt(0).toUpperCase()}${group.slice(1)}`)}</summary>
-              {filterCatalog.filter((item) => item.group === group).map((item) => (
-                <button key={item.id} className={selected === item.id ? 'active' : ''} onClick={() => setSelected(item.id)}>{tr(item.id)}</button>
-              ))}
-            </details>
+        <div className="gallery-grid">
+          {filterCatalog.filter((item) => item.group === group).map((item) => (
+            <button key={item.id} className={selected === item.id ? 'active' : ''} onClick={() => setSelected(item.id)}>{tr(item.id)}</button>
           ))}
         </div>
         <div className="gallery-controls">
-          <h3>{selected ? tr(selected) : tr('filterGallery')}</h3>
+          <h3>{selected ? tr(selected) : groupLabel(group)}</h3>
           <Slider label={tr('radiusLabel')} value={radius} min={0.5} max={60} step={0.5} onChange={setRadius} />
           <Slider label={tr('amountLabel')} value={amount} min={0} max={200} onChange={setAmount} />
+          <p className="dialog-hint">{selected ? '' : tr('galleryPick')}</p>
         </div>
       </div>
       <Actions tr={tr} onClose={onClose} onApply={() => selected && onResult({ action: 'apply', ...values })} />

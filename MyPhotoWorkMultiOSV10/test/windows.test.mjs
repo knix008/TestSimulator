@@ -192,10 +192,10 @@ test('the close button turns red under the pointer', () => {
   assert.match(block, /color: #ffffff/, 'the red close button needs a light glyph')
 })
 
-test('the theme list wraps several swatches to a row', () => {
+test('the theme list shows four swatches to a row', () => {
   const block = cssSource.slice(cssSource.indexOf('.settings-themes {'))
   const rule = block.slice(0, block.indexOf('}'))
-  assert.match(rule, /grid-template-columns: repeat\(auto-fill/, 'the themes are not laid out in a wrapping grid')
+  assert.match(rule, /grid-template-columns: repeat\(4, minmax\(0, 1fr\)\)/, 'the themes are not four to a row')
 })
 
 test('every dialog is opened through openDialog, never by setting state directly', () => {

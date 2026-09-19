@@ -478,6 +478,13 @@
   text-align: right;
 }
 
+/* A range input has an intrinsic width of its own; in a narrow column it must
+   give way rather than push the value off the edge. */
+.dialog label:has(> input[type='range']) > input[type='range'] {
+  min-width: 0;
+  width: 100%;
+}
+
 .panel input,
 .panel select,
 .dialog input,
@@ -670,7 +677,7 @@
 }
 
 .settings-dialog {
-  width: 580px;
+  width: 600px;
 }
 
 /* One page of settings at a time; the tabs sit above the page they switch. */
@@ -782,20 +789,8 @@
   width: 72px;
 }
 
-.filter-gallery-dialog {
-  display: grid;
-  gap: 6px;
-  grid-template-columns: 1fr 1fr;
-  width: 560px;
-}
-
-.filter-gallery-dialog h2,
-.filter-gallery-dialog .dialog-actions {
-  grid-column: 1 / -1;
-}
-
-.filter-gallery-dialog > button {
-  justify-content: flex-start;
+.filterGallery-dialog {
+  width: 760px;
 }
 
 .error-dialog {
@@ -1607,17 +1602,20 @@
   overflow-y: auto;
 }
 
-/* Theme swatches wrap, several to a row, so the list stays short. */
+/* Theme swatches, four to a row, so the list stays short. */
 .settings-themes {
   display: grid;
   gap: 6px;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   margin-top: 6px;
 }
 
 .settings-themes button {
   justify-content: flex-start;
+  min-width: 0;
   overflow: hidden;
+  padding-left: 8px;
+  padding-right: 6px;
 }
 
 .settings-themes button span:last-child {
@@ -2014,10 +2012,11 @@
   color: var(--accent);
 }
 
+/* Every panel tab is shown: the panel itself scrolls, so the strip must not
+   scroll on its own inside it. */
 .panel-tabs {
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  max-height: 168px;
-  overflow-y: auto;
+  overflow: visible;
 }
 
 .panel-tabs button {
@@ -2400,30 +2399,82 @@
 /* The Filter Gallery: folders of effects beside the controls. */
 .gallery-layout {
   display: grid;
+  flex: 0 0 auto;
   gap: 12px;
-  grid-template-columns: minmax(0, 1fr) 200px;
+  grid-template-columns: minmax(0, 1fr) 230px;
+  min-height: 0;
 }
 
-.gallery-groups {
-  max-height: 360px;
-  overflow-y: auto;
+.gallery-controls .dialog-hint,
+.gallery-controls h3 {
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
-.gallery-groups details summary {
-  cursor: pointer;
-  font-weight: 600;
-  padding: 4px 0;
+/* The group tabs wrap to a second line: sixteen groups do not fit one. */
+.gallery-tabs {
+  flex-wrap: wrap;
+  row-gap: 2px;
 }
 
-.gallery-groups button.active {
+/* A group's filters, four to a row, all visible at once. */
+.gallery-grid {
+  align-content: start;
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.gallery-grid button {
+  justify-content: flex-start;
+  min-width: 0;
+  overflow: hidden;
+  padding: 6px 8px;
+}
+
+.gallery-grid button span,
+.gallery-grid button {
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gallery-grid button.active {
   border-color: var(--accent);
   color: var(--accent);
+}
+
+/* The gallery window is a set size; its content never scrolls or grows it. */
+.dialog-window > .dialog.filterGallery-dialog {
+  --dialog-pad: 12px;
+  height: 100vh;
+  width: 100vw;
+}
+
+/* The buttons sit right under the grid, with no more air than the gap. */
+.filterGallery-dialog .dialog-content {
+  gap: 8px;
+  padding-bottom: 0;
+}
+
+.filterGallery-dialog .dialog-content > .dialog-actions {
+  margin-top: 0;
+}
+
+.dialog-window .filterGallery-dialog .dialog-content {
+  overflow: hidden;
 }
 
 .gallery-controls {
   display: grid;
   gap: 6px;
   align-content: start;
+  /* One track that never grows past the column, whatever a slider's label wants. */
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+}
+
+.gallery-controls > * {
+  min-width: 0;
 }
 
 .kernel-grid {

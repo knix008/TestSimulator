@@ -1,10 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
   <defs>
     <linearGradient id="plate" x1="34" y1="28" x2="222" y2="230" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#cfeaff"/>
-      <stop offset="0.34" stop-color="#6fbcf5"/>
-      <stop offset="0.72" stop-color="#2b7fd4"/>
-      <stop offset="1" stop-color="#14559f"/>
+      <stop stop-color="#3b7ec4"/>
+      <stop offset="0.34" stop-color="#1f5ea8"/>
+      <stop offset="0.72" stop-color="#123f7c"/>
+      <stop offset="1" stop-color="#0a2649"/>
     </linearGradient>
     <linearGradient id="sky" x1="64" y1="70" x2="192" y2="186" gradientUnits="userSpaceOnUse">
       <stop stop-color="#b9e7ff"/>
@@ -25,19 +25,47 @@
       <stop offset="1" stop-color="#d8b483"/>
     </linearGradient>
     <linearGradient id="gloss" x1="46" y1="38" x2="150" y2="150" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#ffffff" stop-opacity="0.26"/>
+      <stop stop-color="#ffffff" stop-opacity="0.16"/>
       <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
     </linearGradient>
     <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="14" stdDeviation="12" flood-color="#061016" flood-opacity="0.32"/>
+      <feDropShadow dx="0" dy="14" stdDeviation="12" flood-color="#061016" flood-opacity="0.38"/>
     </filter>
+    <!-- The plate as a solid block: a lit top face, a darker extruded side, an
+         inner bevel and a soft sheen, so it reads as an object rather than a flat tile. -->
+    <linearGradient id="side" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#0b2d57"/>
+      <stop offset="1" stop-color="#03142b"/>
+    </linearGradient>
+    <radialGradient id="sheen" cx="0.28" cy="0.18" r="0.9">
+      <stop stop-color="#ffffff" stop-opacity="0.34"/>
+      <stop offset="0.45" stop-color="#ffffff" stop-opacity="0.06"/>
+      <stop offset="1" stop-color="#000000" stop-opacity="0.22"/>
+    </radialGradient>
+    <linearGradient id="bevelLight" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#ffffff" stop-opacity="0.55"/>
+      <stop offset="0.5" stop-color="#ffffff" stop-opacity="0.08"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="bevelDark" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#000000" stop-opacity="0"/>
+      <stop offset="0.5" stop-color="#000000" stop-opacity="0.12"/>
+      <stop offset="1" stop-color="#000000" stop-opacity="0.5"/>
+    </linearGradient>
     <filter id="penShadow" x="-40%" y="-40%" width="180%" height="180%">
       <feDropShadow dx="-3" dy="5" stdDeviation="4" flood-color="#04121f" flood-opacity="0.42"/>
     </filter>
   </defs>
 
-  <rect x="24" y="24" width="208" height="208" rx="44" fill="url(#plate)" filter="url(#shadow)"/>
+  <rect x="24" y="34" width="208" height="208" rx="44" fill="url(#side)" filter="url(#shadow)"/>
+  <rect x="24" y="24" width="208" height="204" rx="44" fill="url(#plate)"/>
+  <rect x="24" y="24" width="208" height="204" rx="44" fill="url(#sheen)"/>
+  <rect x="27" y="27" width="202" height="198" rx="41" fill="none" stroke="url(#bevelLight)" stroke-width="3"/>
+  <rect x="27" y="27" width="202" height="198" rx="41" fill="none" stroke="url(#bevelDark)" stroke-width="3"/>
 
+  <!-- The picture and the pencil, drawn a little smaller to leave the plate's
+       lower edge to the name. -->
+  <g transform="translate(128 102) scale(0.9) translate(-128 -122)">
   <rect x="58" y="64" width="140" height="116" rx="18" fill="url(#sky)"/>
   <circle cx="168" cy="92" r="16" fill="#ffe58a"/>
   <path d="M70 158l32-36 26 22 22-30 36 44H70z" fill="#1d5f3a"/>
@@ -52,5 +80,8 @@
     <rect x="-9" y="-106" width="5" height="62" rx="2.5" fill="#ffffff" opacity="0.22"/>
   </g>
 
+  </g>
+  <text x="128" y="203" text-anchor="middle" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="30" font-weight="700" letter-spacing="0.5" fill="#06182f" opacity="0.55">PhotoWorks</text>
+  <text x="128" y="201" text-anchor="middle" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="30" font-weight="700" letter-spacing="0.5" fill="#f2f8ff">PhotoWorks</text>
   <path d="M24 68a44 44 0 0 1 44-44h96L48 140V92z" fill="url(#gloss)"/>
 </svg>

@@ -38,7 +38,7 @@ let openSequence = 0
 const DIALOG_SPECS = {
   // Wider than the old in-page panel so each row fits label + control on one
   // line, and fixed: the layout is designed for exactly this size.
-  settings: { width: 600, height: 620, resizable: true, minWidth: 540 },
+  settings: { width: 620, height: 760, resizable: true, minWidth: 560 },
   about: { width: 560, height: 470, resizable: false },
   helpGuide: { width: 660, height: 620, resizable: false },
   error: { width: 620, height: 420, minWidth: 420 },
@@ -75,7 +75,7 @@ const DIALOG_SPECS = {
   sharpen: { width: 420, height: 200, resizable: false },
   feather: { width: 420, height: 200, resizable: false },
   cameraRaw: { width: 460, height: 300, resizable: false },
-  filterGallery: { width: 560, height: 520, minWidth: 420 },
+  filterGallery: { width: 780, height: 392, resizable: false, minWidth: 780 },
   curves: { width: 420, height: 560, minWidth: 360 },
   levels: { width: 460, height: 460, minWidth: 380 },
   // Added for Photoshop parity.
