@@ -97,10 +97,10 @@ export function setWindowSize(w, h) {
 // Keeps the window at least as wide as its toolbars: every bar that must stay
 // on one line (.toolbar.menubar, .icon-toolbar) is measured — the natural
 // width of its children, the spacer at its minimum — and the widest is sent
-// to the main process, which raises the window's minimum width to it. Called
-// after every render of those bars; the calls collapse into one measurement
-// per frame and only a larger value is sent. The bars themselves keep one
-// width whatever they show (labels as wide as their widest text, see
+// to the main process as the window's minimum width. Called after every
+// render of those bars; the calls collapse into one measurement per frame
+// and only a larger value is sent. The bars themselves keep one width
+// whatever they show (labels as wide as their widest text, see
 // components/Widest.jsx; fixed-width formatter label), so in practice the
 // value is set once. No-op in the browser.
 let minWidthRaf = 0, lastMinWidth = 0;

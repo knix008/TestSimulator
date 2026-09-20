@@ -117,7 +117,7 @@ export function AboutDialog({ info, onClose, embedded = false }) {
     <Dialog modal={false} embedded={embedded} title={t('about_title')} icon="info" kind="info" width={520} onClose={onClose} onEnter={onClose}
       footer={<button className="btn primary" onClick={onClose}>{t('ok')}</button>}>
       <div className="about">
-        <img src="./icon.svg" alt="" width={84} height={84} />
+        <img src="./icon.svg" alt="" width={72} height={72} />
         <div className="about-text selectable">
           <div className="about-name">{t('appName')}</div>
           <div>{t('about_desc')}</div>

@@ -165,7 +165,7 @@ function sendOpenFiles(list) {
 // Fixed sizes (not resizable): large enough for their content, so nothing scrolls.
 const POPUPS = {
   settings: { width: 1000, height: 1000 },
-  about: { width: 560, height: 420 },
+  about: { width: 560, height: 340 },   // title + info + 확인; the footer stays on screen
   shortcuts: { width: 1000, height: 780 },
   print: { width: 1100, height: 800, resizable: true },
 };
@@ -275,18 +275,23 @@ function printHtml(html, _title, _labels, opts) {
 }
 function closePopups() { for (const w of popups.values()) { if (!w.isDestroyed()) w.close(); } popups.clear(); }
 
+// Default first-launch size. The real minimum width is the toolbar / menu
+// bar (measured in the renderer); this floor is only a fallback before that.
+const WIN_DEFAULT_WIDTH = 1200;
+const WIN_DEFAULT_HEIGHT = 780;
+const WIN_MIN_WIDTH = 640;
+const WIN_MIN_HEIGHT = 600;
+
 function createWindow() {
   const session = api.session.get();
   const saved = session.windowBounds || null;
   const win = new BrowserWindow({
-    width: saved && saved.width ? Math.max(1200, saved.width) : 1200,
-    height: saved && saved.height ? saved.height : 780,
+    width: saved && saved.width ? Math.max(WIN_MIN_WIDTH, saved.width) : WIN_DEFAULT_WIDTH,
+    height: saved && saved.height ? saved.height : WIN_DEFAULT_HEIGHT,
     x: saved && Number.isFinite(saved.x) ? saved.x : undefined,
     y: saved && Number.isFinite(saved.y) ? saved.y : undefined,
-    // Every menu, toolbar button and status-bar field stays visible at the
-    // minimum size.
-    minWidth: 1200,   // the toolbar (with the theme / language / settings / info controls) must fit on one line
-    minHeight: 600,
+    minWidth: WIN_MIN_WIDTH,
+    minHeight: WIN_MIN_HEIGHT,
     backgroundColor: session.themeBg || '#12161c',
     // No native title bar: the menu bar carries the window buttons and is the
     // drag region (see src/components/MenuBar.jsx).

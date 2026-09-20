@@ -51,8 +51,8 @@ function registerIpc(api, getWindow, { dialogs, onRendererReady, openPopup, open
     win.setSize(Math.max(minW, Math.round(w)), Math.max(minH, Math.round(h)));
   });
   // The renderer measures what the menu bar / icon toolbar need to show every
-  // control on one line and the minimum width follows (never below the one
-  // the window was created with); a window narrower than that is widened.
+  // control on one line; that becomes the minimum width (never below the
+  // small fallback the window was created with). A narrower window is widened.
   ipcMain.on('win:setMinWidth', (_event, w) => {
     const win = getWindow();
     if (!win || win.isDestroyed() || !Number.isFinite(w)) return;

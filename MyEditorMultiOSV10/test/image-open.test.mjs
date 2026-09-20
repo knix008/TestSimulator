@@ -117,9 +117,8 @@ function createEditor() {
 
   function setSplit(mode) {
     const count = mode === 'grid' ? 4 : mode === 'cols' || mode === 'rows' || mode === 'multi' ? 2 : 1;
-    const shown = new Set(panes.map((p) => p.docId));
-    const free = docs.map((d) => d.id).filter((id) => !shown.has(id));
-    while (panes.length < count) panes.push({ key: panes.length + 1, docId: free.shift() ?? null });
+    const sourceId = panes[activePane] && panes[activePane].docId != null ? panes[activePane].docId : null;
+    while (panes.length < count) panes.push({ key: panes.length + 1, docId: sourceId });
     if (panes.length > count) panes = panes.slice(0, count);
     if (activePane >= panes.length) activePane = 0;
   }
@@ -305,12 +304,35 @@ test('split grid: four rasters each fill their pane independently', () => {
   assert.deepEqual(later.map((v) => v.hexaBeside), [true, false, true, false]);
 });
 
-test('opening a raster into an empty split pane does not steal the other pane\'s document', () => {
+test('split copies the last document of the existing pane into the new pane', () => {
+  const ed = createEditor();
+  const png = ed.open(path.join(fixtures, 'sample.png'));
+  ed.open(path.join(fixtures, 'sample.jpg'));
+  const last = ed.open(path.join(fixtures, 'sample.webp'));
+  ed.setSplit('cols');
+  assert.equal(ed.panes[0].docId, last.id);
+  assert.equal(ed.panes[1].docId, last.id, 'the new pane shows what the existing pane last opened');
+  assert.notEqual(ed.panes[1].docId, png.id);
+});
+
+test('split from an empty pane leaves the new pane empty', () => {
+  const ed = createEditor();
+  ed.open(path.join(fixtures, 'sample.png'));
+  ed.setSplit('cols');
+  ed.panes[1].docId = null;
+  ed.focusPane(1);
+  ed.setSplit('grid');
+  assert.equal(ed.panes[1].docId, null);
+  assert.equal(ed.panes[2].docId, null, 'no open pane → nothing to show');
+  assert.equal(ed.panes[3].docId, null);
+});
+
+test('opening a raster into a split pane does not steal the other pane\'s document', () => {
   const ed = createEditor();
   const png = ed.open(path.join(fixtures, 'sample.png'));
   ed.setSplit('cols');
   assert.equal(ed.panes[0].docId, png.id);
-  assert.equal(ed.panes[1].docId, null);
+  assert.equal(ed.panes[1].docId, png.id);
   ed.focusPane(1);
   ed.open(path.join(fixtures, 'sample.jpg'));
   assert.equal(ed.panes[0].docId, png.id);
@@ -318,6 +340,13 @@ test('opening a raster into an empty split pane does not steal the other pane\'s
   const views = ed.views();
   assert.equal(views[0].fillPicture, true);
   assert.equal(views[1].fillPicture, true);
+});
+
+test('App.jsx new split panes take the last document of the existing pane', () => {
+  const src = fs.readFileSync(path.join(root, 'src', 'App.jsx'), 'utf8');
+  assert.match(src, /sourceId/);
+  assert.match(src, /docId: sourceId/);
+  assert.match(src, /viewsOfDoc/);
 });
 
 test('App.jsx keeps picture + Hexa inside each pane, not beside the whole split', () => {

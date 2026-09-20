@@ -9,7 +9,7 @@
 // Switching tabs swaps the state in and out of the view, so every tab keeps
 // its own undo history, selection and folds.
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { EditorSelection } from '@codemirror/state';
+import { Annotation, EditorSelection } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 import { indentSelection } from '@codemirror/commands';
 import { t, setLanguage, getLanguage, useLanguage } from './lib/i18n';
@@ -88,9 +88,10 @@ export default function App() {
   const [view, setView] = useState(null);
   const statesRef = useRef(new Map());     // id → EditorState of docs not shown in a pane
   const hexRef = useRef(new Map());        // id → read(offset, length) of a binary document (kind 'hex'; its editor state stays empty)
-  // Split view: one or more panes (보기 › 편집 창 나누기), each showing one
-  // document; the active pane is the one the tab bar, find bar and preview
-  // follow, and viewRef is its view. A document is shown in at most one pane.
+  // Split view: one or more panes (보기 › 편집 창 나누기). A new pane shows
+  // the document last opened in the pane it was split from (the same file
+  // may appear in more than one pane). The active pane is the one the tab
+  // bar, find bar and preview follow, and viewRef is its view.
   const [panes, setPanes] = useState([{ key: 1, docId: null }]);
   const [paneMenu, setPaneMenu] = useState(null);   // { i, el, files: [{ name, path }] | null }
   // The pane's document picker: the open documents, then the files of the
@@ -124,7 +125,14 @@ export default function App() {
   const [activePane, setActivePaneState] = useState(0);
   const updatePanes = (fn) => { const next = fn(panesRef.current.map((p) => ({ ...p }))); panesRef.current = next; setPanes(next); return next; };
   const paneOfDoc = (id) => panesRef.current.findIndex((p) => p.docId === id);
-  const viewOfDoc = (id) => { const i = paneOfDoc(id); return i >= 0 ? paneViews.current.get(panesRef.current[i].key) || null : null; };
+  const viewsOfDoc = (id) => panesRef.current.filter((p) => p.docId === id).map((p) => paneViews.current.get(p.key)).filter(Boolean);
+  const viewOfDoc = (id) => {
+    const here = panesRef.current[activePaneRef.current];
+    if (here && here.docId === id) { const v = paneViews.current.get(here.key); if (v) return v; }
+    const i = paneOfDoc(id);
+    return i >= 0 ? paneViews.current.get(panesRef.current[i].key) || null : null;
+  };
+  const paneIdForView = (view) => { for (const p of panesRef.current) { if (paneViews.current.get(p.key) === view) return p.docId; } return null; };
   const savedRef = useRef(new Map());      // id → Text as loaded / last saved
   const checkedRef = useRef(new Map());    // id → last external-change check (ms)
   const untitledRef = useRef(1);
@@ -176,21 +184,32 @@ export default function App() {
   const showError = (title, message, error) => ask({ type: 'error', title, message, error });
   const confirm = (title, message, buttons, opts = {}) => ask({ type: 'confirm', title, message, buttons, ...opts });
 
-  // ── editor state access (active doc = the view, others = the map) ──
+  // ── editor state access (a live pane = its view, others = the map) ──
   const getState = (id) => { const v = viewOfDoc(id); return v ? v.state : statesRef.current.get(id); };
-  const putState = (id, state) => { const v = viewOfDoc(id); if (v) v.setState(state); else statesRef.current.set(id, state); };
-  // Applies a transaction spec to a document, wherever its state lives.
+  const putState = (id, state) => {
+    const views = viewsOfDoc(id);
+    if (views.length) for (const v of views) v.setState(state);
+    else statesRef.current.set(id, state);
+  };
+  // Applies a transaction spec to a document in every pane that shows it.
   const dispatchTo = (id, spec) => {
-    const v = viewOfDoc(id);
-    if (v) v.dispatch(spec);
+    const views = viewsOfDoc(id);
+    if (views.length) for (const v of views) v.dispatch(spec);
     else { const s = statesRef.current.get(id); if (s) statesRef.current.set(id, s.update(spec).state); }
   };
   const docText = (id) => { const s = getState(id); return s ? s.doc.toString() : ''; };
 
   const handlersRef = useRef({});
   const handlers = useMemo(() => ({ onChange: (u) => handlersRef.current.onChange && handlersRef.current.onChange(u), onUpdate: (u) => handlersRef.current.onUpdate && handlersRef.current.onUpdate(u) }), []);
+  const SYNC = Annotation.define();   // a change mirrored from another pane of the same document
   handlersRef.current.onChange = (u) => {
-    const id = activeIdRef.current;
+    const id = paneIdForView(u.view) ?? activeIdRef.current;
+    if (id != null && u.docChanged && !u.transactions.some((tr) => tr.annotation(SYNC))) {
+      for (const v of viewsOfDoc(id)) {
+        if (v === u.view) continue;
+        v.dispatch({ changes: u.changes, annotations: SYNC.of(true) });
+      }
+    }
     const doc = getDoc(id);
     if (!doc) return;
     const saved = savedRef.current.get(id);
@@ -592,9 +611,12 @@ img{max-width:100%;height:auto;page-break-inside:avoid}table{border-collapse:col
   }, []);
 
   const activate = useCallback((id) => {
-    // Shown in another pane: that pane becomes the active one.
-    const pi = paneOfDoc(id);
-    if (id != null && pi >= 0 && pi !== activePaneRef.current) { focusPane(pi); if (id != null) checkExternal(id); return; }
+    // Already in this pane: stay. Shown only in another pane: that pane becomes the active one.
+    const here = panesRef.current[activePaneRef.current];
+    if (!(here && here.docId === id)) {
+      const pi = paneOfDoc(id);
+      if (id != null && pi >= 0 && pi !== activePaneRef.current) { focusPane(pi); if (id != null) checkExternal(id); return; }
+    }
     const pane = panesRef.current[activePaneRef.current];
     const v = pane ? paneViews.current.get(pane.key) || null : null;
     const prev = pane ? pane.docId : activeIdRef.current;
@@ -624,17 +646,23 @@ img{max-width:100%;height:auto;page-break-inside:avoid}table{border-collapse:col
     activate(id);
   };
 
-  // The layout: 'none' (one pane) · 'cols' · 'rows' · 'grid' (2 × 2). New
-  // panes take documents not shown elsewhere; removed panes hand theirs back.
+  // The layout: 'none' (one pane) · 'cols' · 'rows' · 'grid' (2 × 2). A new
+  // pane shows the document last opened in the pane it was split from (the
+  // active pane); if that pane is empty, the new one stays empty. Removed
+  // panes hand theirs back.
   // mode: none · cols · rows · grid (the View menu) · multi (the toolbar button: n panes in a balanced grid, 2‥9)
   const setSplit = (mode, n) => {
     const count = mode === 'grid' ? 4 : mode === 'multi' ? Math.max(2, Math.min(9, n || 2)) : mode === 'cols' || mode === 'rows' ? 2 : 1;
     const cur = panesRef.current;
     if (count > cur.length) {
-      const shown = new Set(cur.map((p) => p.docId));
-      const free = docsRef.current.map((d) => d.id).filter((id) => !shown.has(id));
+      const src = cur[activePaneRef.current];
+      const sourceId = src && src.docId != null ? src.docId : null;
+      if (sourceId != null) {
+        const sv = paneViews.current.get(src.key);
+        if (sv) statesRef.current.set(sourceId, sv.state);
+      }
       const next = cur.map((p) => ({ ...p }));
-      while (next.length < count) { const id = free.shift(); next.push({ key: paneKeyRef.current++, docId: id == null ? null : id }); }
+      while (next.length < count) next.push({ key: paneKeyRef.current++, docId: sourceId });
       panesRef.current = next;
       setPanes(next);
     } else if (count < cur.length) {
@@ -652,12 +680,14 @@ img{max-width:100%;height:auto;page-break-inside:avoid}table{border-collapse:col
     if (mode === 'multi') { const g = multiGrid(count); changeSettings({ split: mode, paneCount: count, colFracs: Array(g.cols).fill(1 / g.cols), rowFracs: Array(g.rows).fill(1 / g.rows) }); }
     else changeSettings({ split: mode });
   };
-  // The × of a pane showing a document: the document is closed (asking about unsaved changes first) and the
-  // pane goes with it — the remaining panes are laid out afresh.
+  // The × of a pane showing a document: if another pane still shows it, only
+  // this pane goes; otherwise the document is closed (asking about unsaved
+  // changes first) and the pane goes with it.
   const closePaneAndDoc = async (i) => {
     const pane = panesRef.current[i];
     if (!pane) return;
-    if (pane.docId != null) { if (!(await closeDocs([pane.docId]))) return; }
+    const shared = pane.docId != null && panesRef.current.some((p, j) => j !== i && p.docId === pane.docId);
+    if (pane.docId != null && !shared) { if (!(await closeDocs([pane.docId]))) return; }
     const j = panesRef.current.findIndex((p) => p.key === pane.key);
     if (j >= 0 && panesRef.current.length > 1) closePane(j);
     collapseEmpty();   // a pane that showed the closed document (or was empty already) goes too
@@ -1131,12 +1161,9 @@ img{max-width:100%;height:auto;page-break-inside:avoid}table{border-collapse:col
       const mode = s.split || 'none';
       if (mode !== 'none' && Array.isArray(session.paneDocs)) {
         const count = mode === 'grid' ? 4 : mode === 'multi' ? Math.max(2, Math.min(9, s.paneCount || 2)) : 2;
-        const used = new Set([list[idx].id]);
         const next = [{ key: panesRef.current[0].key, docId: list[idx].id }];
         for (let i = 1; i < count; i++) {
-          let d = list[session.paneDocs[i]];
-          if (!d || used.has(d.id)) d = list.find((x) => !used.has(x.id));
-          if (d) used.add(d.id);
+          const d = list[session.paneDocs[i]];
           next.push({ key: paneKeyRef.current++, docId: d ? d.id : null });
         }
         panesRef.current = next;
@@ -1904,7 +1931,9 @@ img{max-width:100%;height:auto;page-break-inside:avoid}table{border-collapse:col
     }
     paneViews.current.set(key, v);
     if (pane && pane.docId != null) {
-      const s = statesRef.current.get(pane.docId);
+      const sib = panesRef.current.find((p) => p.key !== key && p.docId === pane.docId);
+      const sv = sib ? paneViews.current.get(sib.key) : null;
+      const s = sv ? sv.state : statesRef.current.get(pane.docId);
       loadViewState(v, s || v.state);
     }
     if (i === activePaneRef.current) { viewRef.current = v; setView(v); if (pane && pane.docId != null) { activeIdRef.current = pane.docId; const s = v.state; setCursor(cursorInfo(s)); } }
