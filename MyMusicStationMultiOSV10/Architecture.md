@@ -81,7 +81,7 @@ Right-click on a playlist row opens `.track-context-menu` (rendered as a direct 
 
 Windows NSIS hooks (`src-tauri/windows/nsis-hooks.nsh`):
 
-- **PREINSTALL**: stop process, uninstall previous NSIS/MSI, clean leftovers and association keys.
+- **PREINSTALL**: stop process; if a previous install is found, **ask** whether to remove it completely (settings/session included). Silent install defaults to Yes (full clean).
 - **POSTINSTALL**: register `.mplist`; register as media client + Open with for audio types; **ask** whether to set as default player (silent install defaults to Yes).
 - **PRE/POST UNINSTALL**: stop app and clean associations.
 

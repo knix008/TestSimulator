@@ -2,27 +2,28 @@
 
 ; ---------------------------------------------------------------------------
 ; Remove a previous NSIS/Tauri install recorded under ROOT_KEY (HKCU or HKLM).
+; PRODUCT_KEY is the Uninstall registry subkey / product folder name.
 ; ---------------------------------------------------------------------------
-!macro MMS_UNINSTALL_FROM_ROOT ROOT_KEY
+!macro MMS_UNINSTALL_FROM_ROOT ROOT_KEY PRODUCT_KEY
   Push $R0
   Push $R1
   Push $R2
   Push $R3
 
   SetRegView 64
-  ReadRegStr $R0 ${ROOT_KEY} "Software\Microsoft\Windows\CurrentVersion\Uninstall\My Music Station" "InstallLocation"
+  ReadRegStr $R0 ${ROOT_KEY} "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCT_KEY}" "InstallLocation"
   ${If} $R0 == ""
-    ReadRegStr $R0 ${ROOT_KEY} "Software\My Music Station" ""
+    ReadRegStr $R0 ${ROOT_KEY} "Software\${PRODUCT_KEY}" ""
   ${EndIf}
 
-  ReadRegStr $R1 ${ROOT_KEY} "Software\Microsoft\Windows\CurrentVersion\Uninstall\My Music Station" "QuietUninstallString"
-  ReadRegStr $R2 ${ROOT_KEY} "Software\Microsoft\Windows\CurrentVersion\Uninstall\My Music Station" "UninstallString"
+  ReadRegStr $R1 ${ROOT_KEY} "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCT_KEY}" "QuietUninstallString"
+  ReadRegStr $R2 ${ROOT_KEY} "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCT_KEY}" "UninstallString"
 
   ${If} $R1 != ""
-    DetailPrint "Quiet-uninstalling previous My Music Station (${ROOT_KEY})..."
+    DetailPrint "Quiet-uninstalling previous ${PRODUCT_KEY} (${ROOT_KEY})..."
     ExecWait '$R1' $R3
   ${ElseIf} $R2 != ""
-    DetailPrint "Uninstalling previous My Music Station (${ROOT_KEY})..."
+    DetailPrint "Uninstalling previous ${PRODUCT_KEY} (${ROOT_KEY})..."
     ${If} $R0 != ""
       ExecWait '$R2 /S _?=$R0' $R3
     ${Else}
@@ -42,12 +43,12 @@
     RMDir /r "$R0"
   ${EndIf}
 
-  DeleteRegKey ${ROOT_KEY} "Software\Microsoft\Windows\CurrentVersion\Uninstall\My Music Station"
-  DeleteRegKey ${ROOT_KEY} "Software\My Music Station"
+  DeleteRegKey ${ROOT_KEY} "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCT_KEY}"
+  DeleteRegKey ${ROOT_KEY} "Software\${PRODUCT_KEY}"
 
   SetRegView 32
-  DeleteRegKey ${ROOT_KEY} "Software\Microsoft\Windows\CurrentVersion\Uninstall\My Music Station"
-  DeleteRegKey ${ROOT_KEY} "Software\My Music Station"
+  DeleteRegKey ${ROOT_KEY} "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCT_KEY}"
+  DeleteRegKey ${ROOT_KEY} "Software\${PRODUCT_KEY}"
   SetRegView 64
 
   Pop $R3
@@ -75,8 +76,10 @@
     IntOp $R0 $R0 + 1
 
     ReadRegStr $R2 ${ROOT_KEY} "Software\Microsoft\Windows\CurrentVersion\Uninstall\$R1" "DisplayName"
-    StrCmp $R2 "My Music Station" 0 mms_msi_loop_${ROOT_KEY}
+    StrCmp $R2 "My Music Station" mms_msi_hit_${ROOT_KEY}
+    StrCmp $R2 "${PRODUCTNAME}" mms_msi_hit_${ROOT_KEY} mms_msi_loop_${ROOT_KEY}
 
+    mms_msi_hit_${ROOT_KEY}:
     ReadRegStr $R3 ${ROOT_KEY} "Software\Microsoft\Windows\CurrentVersion\Uninstall\$R1" "UninstallString"
     StrCmp $R3 "" mms_msi_loop_${ROOT_KEY}
 
@@ -148,11 +151,11 @@
 !macroend
 
 ; ---------------------------------------------------------------------------
-; Force the desktop / start-menu shortcuts to use the app icon.ico explicitly.
+; Force desktop / start-menu shortcuts to use the EXE-embedded app icon (index 0).
 ; ---------------------------------------------------------------------------
 !macro MMS_SET_SHORTCUT_ICON LNK_PATH
   ${If} ${FileExists} "${LNK_PATH}"
-    CreateShortcut "${LNK_PATH}" "$INSTDIR\${MAINBINARYNAME}.exe" "" "$INSTDIR\resources\icons\icon.ico" 0
+    CreateShortcut "${LNK_PATH}" "$INSTDIR\${MAINBINARYNAME}.exe" "" "$INSTDIR\${MAINBINARYNAME}.exe" 0
     !insertmacro SetLnkAppUserModelId "${LNK_PATH}"
   ${EndIf}
 !macroend
@@ -168,17 +171,122 @@
 !macroend
 
 !macro MMS_REMOVE_LEFTOVERS
+  ; Legacy product-name folders (pre V1.0.0 branding).
   RMDir /r "$LOCALAPPDATA\Programs\My Music Station"
   RMDir /r "$PROGRAMFILES\My Music Station"
   RMDir /r "$PROGRAMFILES64\My Music Station"
+  RMDir /r "$LOCALAPPDATA\My Music Station"
+  RMDir /r "$PROGRAMFILES\My Music Station V1.0.0"
+  RMDir /r "$PROGRAMFILES64\My Music Station V1.0.0"
+  RMDir /r "$LOCALAPPDATA\My Music Station V1.0.0"
+  ; Current product folder (when reinstalling after a full wipe).
+  RMDir /r "$PROGRAMFILES\${PRODUCTNAME}"
+  RMDir /r "$PROGRAMFILES64\${PRODUCTNAME}"
+  RMDir /r "$LOCALAPPDATA\${PRODUCTNAME}"
+  ; App settings / session data.
   RMDir /r "$APPDATA\com.mymusicstation.player"
   RMDir /r "$LOCALAPPDATA\com.mymusicstation.player"
 
   Delete "$DESKTOP\My Music Station.lnk"
+  Delete "$DESKTOP\${PRODUCTNAME}.lnk"
   Delete "$SMPROGRAMS\My Music Station.lnk"
+  Delete "$SMPROGRAMS\${PRODUCTNAME}.lnk"
   RMDir /r "$SMPROGRAMS\My Music Station"
+  RMDir /r "$SMPROGRAMS\${PRODUCTNAME}"
 
   System::Call 'shell32::SHChangeNotify(i 0x08000000, i 0, i 0, i 0)'
+!macroend
+
+; ---------------------------------------------------------------------------
+; Detect any previous My Music Station install (NSIS / MSI / leftover folders).
+; Sets $R7 to 1 when found, else 0.
+; ---------------------------------------------------------------------------
+!macro MMS_DETECT_EXISTING
+  StrCpy $R7 0
+  Push $R0
+
+  SetRegView 64
+  ReadRegStr $R0 HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCTNAME}" "UninstallString"
+  ${If} $R0 != ""
+    StrCpy $R7 1
+  ${EndIf}
+  ${If} $R7 == 0
+    ReadRegStr $R0 HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCTNAME}" "UninstallString"
+    ${If} $R0 != ""
+      StrCpy $R7 1
+    ${EndIf}
+  ${EndIf}
+  ${If} $R7 == 0
+    ReadRegStr $R0 HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\My Music Station" "UninstallString"
+    ${If} $R0 != ""
+      StrCpy $R7 1
+    ${EndIf}
+  ${EndIf}
+  ${If} $R7 == 0
+    ReadRegStr $R0 HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\My Music Station" "UninstallString"
+    ${If} $R0 != ""
+      StrCpy $R7 1
+    ${EndIf}
+  ${EndIf}
+  SetRegView 32
+  ${If} $R7 == 0
+    ReadRegStr $R0 HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCTNAME}" "UninstallString"
+    ${If} $R0 != ""
+      StrCpy $R7 1
+    ${EndIf}
+  ${EndIf}
+  ${If} $R7 == 0
+    ReadRegStr $R0 HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCTNAME}" "UninstallString"
+    ${If} $R0 != ""
+      StrCpy $R7 1
+    ${EndIf}
+  ${EndIf}
+  SetRegView 64
+
+  ${If} $R7 == 0
+  ${AndIf} ${FileExists} "$INSTDIR\${MAINBINARYNAME}.exe"
+    StrCpy $R7 1
+  ${EndIf}
+  ${If} $R7 == 0
+  ${AndIf} ${FileExists} "$LOCALAPPDATA\${PRODUCTNAME}\${MAINBINARYNAME}.exe"
+    StrCpy $R7 1
+  ${EndIf}
+  ${If} $R7 == 0
+  ${AndIf} ${FileExists} "$PROGRAMFILES64\${PRODUCTNAME}\${MAINBINARYNAME}.exe"
+    StrCpy $R7 1
+  ${EndIf}
+  ${If} $R7 == 0
+  ${AndIf} ${FileExists} "$PROGRAMFILES\${PRODUCTNAME}\${MAINBINARYNAME}.exe"
+    StrCpy $R7 1
+  ${EndIf}
+  ${If} $R7 == 0
+  ${AndIf} ${FileExists} "$LOCALAPPDATA\Programs\My Music Station"
+    StrCpy $R7 1
+  ${EndIf}
+  ${If} $R7 == 0
+  ${AndIf} ${FileExists} "$APPDATA\com.mymusicstation.player"
+    StrCpy $R7 1
+  ${EndIf}
+  ${If} $R7 == 0
+  ${AndIf} ${FileExists} "$LOCALAPPDATA\com.mymusicstation.player"
+    StrCpy $R7 1
+  ${EndIf}
+
+  Pop $R0
+!macroend
+
+!macro MMS_DO_FULL_CLEAN
+  DetailPrint "Completely removing previous My Music Station installation..."
+  !insertmacro MMS_UNINSTALL_FROM_ROOT HKCU "My Music Station"
+  !insertmacro MMS_UNINSTALL_FROM_ROOT HKLM "My Music Station"
+  !insertmacro MMS_UNINSTALL_FROM_ROOT HKCU "${PRODUCTNAME}"
+  !insertmacro MMS_UNINSTALL_FROM_ROOT HKLM "${PRODUCTNAME}"
+  !insertmacro MMS_UNINSTALL_MSI_MATCHING HKCU
+  !insertmacro MMS_UNINSTALL_MSI_MATCHING HKLM
+
+  !insertmacro MMS_CLEAN_ASSOCIATIONS HKCU
+  !insertmacro MMS_CLEAN_ASSOCIATIONS HKLM
+  !insertmacro MMS_REMOVE_LEFTOVERS
 !macroend
 
 !macro NSIS_HOOK_PREINSTALL
@@ -186,15 +294,27 @@
   ExecWait 'taskkill /F /IM ${MAINBINARYNAME}.exe /T' $R9
   Sleep 500
 
-  DetailPrint "Removing any previous My Music Station installation..."
-  !insertmacro MMS_UNINSTALL_FROM_ROOT HKCU
-  !insertmacro MMS_UNINSTALL_FROM_ROOT HKLM
-  !insertmacro MMS_UNINSTALL_MSI_MATCHING HKCU
-  !insertmacro MMS_UNINSTALL_MSI_MATCHING HKLM
+  !insertmacro MMS_DETECT_EXISTING
 
-  !insertmacro MMS_CLEAN_ASSOCIATIONS HKCU
-  !insertmacro MMS_CLEAN_ASSOCIATIONS HKLM
-  !insertmacro MMS_REMOVE_LEFTOVERS
+  ${If} $R7 == 1
+    ; $R8 = 1 → full clean. Silent installs keep previous behavior (clean).
+    StrCpy $R8 1
+    ${IfNot} ${Silent}
+      MessageBox MB_YESNO|MB_ICONQUESTION \
+        "이미 설치된 My Music Station이 있습니다.$\r$\n$\r$\n기존 프로그램을 완전히 삭제한 후 새로 설치할까요?$\r$\n$\r$\n예 = 프로그램·바로가기·설정/세션 데이터까지 모두 삭제$\r$\n아니오 = 기존 설정은 유지하고 덮어쓰기 설치" \
+        IDYES mms_full_clean_yes
+      StrCpy $R8 0
+      mms_full_clean_yes:
+    ${EndIf}
+
+    ${If} $R8 == 1
+      !insertmacro MMS_DO_FULL_CLEAN
+    ${Else}
+      DetailPrint "Keeping existing install data (upgrade / overwrite only)."
+    ${EndIf}
+  ${Else}
+    DetailPrint "No previous My Music Station installation detected."
+  ${EndIf}
 !macroend
 
 !macro NSIS_HOOK_PREUNINSTALL
@@ -208,7 +328,11 @@
   WriteRegStr SHCTX "Software\Classes\.mplist" "" "MyMusicStation.Playlist"
   WriteRegStr SHCTX "Software\Classes\.mplist" "Content Type" "application/vnd.mymusicstation.playlist+json"
   WriteRegStr SHCTX "Software\Classes\MyMusicStation.Playlist" "" "My Music Station Playlist"
-  WriteRegStr SHCTX "Software\Classes\MyMusicStation.Playlist\DefaultIcon" "" "$INSTDIR\resources\playlist-icons\icon.ico"
+  WriteRegStr SHCTX "Software\Classes\MyMusicStation.Playlist\DefaultIcon" "" "$INSTDIR\playlist-icons\icon.ico,0"
+  ; Fallback if resource layout differs on older installs.
+  ${Unless} ${FileExists} "$INSTDIR\playlist-icons\icon.ico"
+    WriteRegStr SHCTX "Software\Classes\MyMusicStation.Playlist\DefaultIcon" "" "$INSTDIR\${MAINBINARYNAME}.exe,0"
+  ${EndUnless}
   WriteRegStr SHCTX "Software\Classes\MyMusicStation.Playlist\shell\open\command" "" '"$INSTDIR\${MAINBINARYNAME}.exe" "%1"'
 
   ; ProgID used for all audio formats.
