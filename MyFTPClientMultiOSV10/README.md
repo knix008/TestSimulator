@@ -9,17 +9,19 @@ FTP · FTPS · SFTP 클라이언트 — **Windows / macOS / Linux 데스크톱 �
 
 - **FTP / FTPS(명시적 TLS) / SFTP** 연결 — 프로토콜 선택, 호스트·포트·사용자·비밀번호, 30초 연결 타임아웃
 - **서버 패널**: 현재 폴더의 평면 목록(`[..]` 로 상위 이동), 더블클릭으로 폴더 진입 / 파일 다운로드
-- **로컬 패널**: 드라이브(볼륨 이름 포함) → 폴더 → 파일 계층 트리, 지연 로딩, 더블클릭으로 파일 업로드
+- **로컬 패널**: 드라이브(볼륨 이름 포함) → 폴더 → 파일 계층 트리, 지연 로딩, 더블클릭으로 파일 업로드. 마지막에 연 폴더를 다음 실행 때 복원
 - **전송 버튼**(← 업로드 / → 다운로드) 이 있는 가운데 분할 바 — 드래그하면 패널 너비 조절
-- 파일·폴더(하위 트리 포함) 업로드/다운로드, **진행률·속도 표시**, **취소**, 다중 선택, 파일마다 로그 한 줄(크기·소요 시간·속도)
+- 파일·폴더(하위 트리 포함) 업로드/다운로드, **동시 전송(1–4)**, **크기·날짜가 같으면 건너뛰기**, **진행률·속도·취소**, 다중 선택, 파일마다 로그 한 줄
 - 대상에 같은 이름이 있으면 **충돌 질문**(덮어쓰기 / 건너뛰기 / 취소, "이후 항목에도 적용")
 - 서버·로컬 양쪽 **새 폴더 / 이름 바꾸기 / 삭제**, 탐색기(파인더)에서 열기, 경로 복사
 - **접속 프로파일**(툴바) 저장 / 선택 / 다중 삭제, 마지막 프로파일·로컬 폴더 복원; Host 칸에 `ftp://user:pw@host:port/…` URL 을 붙여 넣어도 자동 분해
 - **접속 히스토리**(🕘): 프로파일로 저장하지 않아도 연결에 성공한 서버는 최근 20개까지 기록(비밀번호 제외)
+- **로컬 터미널**(하단 독): 시스템에 설치된 셸(cmd, PowerShell, Git Bash, WSL 등)을 탭으로 여러 개 열기, 한글 입출력, 셸별 프롬프트·색상, **Tab 자동완성**
 - 타이틀바 없는 창: 툴바가 드래그 영역이며 최소화/최대화/닫기 버튼과 우측 하단 크기 조절 마커를 제공
 - 시각·색상 로그(시간 표시), 상태 표시줄, 성공/오류 알림음
 - 오류는 팝업 + 자세한 내용(코드·경로·스택) + **자세한 내용 복사** 버튼
-- 16가지 테마, 한국어/영어(국기 버튼으로 전환), 설정·정보 대화상자
+- 팝업은 메인 창에서 떼어 이동할 수 있고, **크기는 고정**(내용에 맞게 연 뒤 잠금), 스크롤바 없음
+- 16가지 테마(목록에 아이콘), 한국어/영어(국기 버튼으로 전환), **탭으로 나뉜 설정**·정보 대화상자
 
 ## 실행
 
@@ -35,7 +37,7 @@ npm run web          # 웹 버전: 빌드 후 http://127.0.0.1:5188 (브라우�
 ## 설치 파일 만들기
 
 ```bash
-npm run build:win     # Windows  → MyFTPClient Setup 1.0.0.exe (NSIS)
+npm run build:win     # Windows  → My FTP Client Setup 1.0.0.exe (NSIS)
 npm run build:mac     # macOS    → My FTP Client-1.0.0.dmg (x64 + arm64)  ※ macOS 에서 실행
 npm run build:linux   # Linux    → .AppImage + .deb                        ※ Linux 에서 실행
 ```
@@ -46,7 +48,7 @@ npm run build:linux   # Linux    → .AppImage + .deb                        ※
 ## 테스트
 
 ```bash
-npm test                          # 코어: 프로파일·세션·히스토리·로컬 FS + FTP·FTPS·SFTP 왕복 (내장 테스트 서버, 23개)
+npm test                          # 코어·UI·터미널·셸 (내장 테스트 서버, 파일별 summary)
 npm run build && npm run smoke    # 데스크톱 + 웹 스모크: 실제 창에서 접속·전송 후 .smoke/*.png 스크린샷
 npm run smoke -- --scenario all   # 모든 시나리오(충돌·오류·컨텍스트 메뉴·설정·테마…)
 ```
@@ -71,7 +73,8 @@ node test/ftp-server.mjs <폴더> 2121 --tls   # ftps:// (자체 서명 인증�
 ## 사용 라이브러리
 
 - [basic-ftp](https://github.com/patrickjuchli/basic-ftp) — FTP / FTPS
-- [ssh2](https://github.com/mscdex/ssh2) — SFTP
+- [ssh2](https://github.com/mscdex/ssh2) — SFTP · 원격 터미널(PTY)
+- [xterm.js](https://xtermjs.org/) — 하단 독의 터미널 화면
 - Electron 31, React 18, Vite 5, electron-builder
 
 자세한 내용은 [UsersGuide.md](UsersGuide.md) 와 [Architecture.md](Architecture.md) 를 보세요.

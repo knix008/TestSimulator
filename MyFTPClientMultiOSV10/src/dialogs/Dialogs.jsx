@@ -9,6 +9,7 @@ import { Icon } from '../components/Icons';
 import { writeClipboardText } from '../lib/backend';
 import { SettingsDialog } from './SettingsDialog';
 import { describeError, formatErrorCopy } from '../lib/errors';
+import { pickSettingsValues } from '../lib/settings';
 import { detachedDialogsEnabled, openDetachedDialog } from '../lib/dialogWindows';
 
 const StandaloneCtx = createContext(false);
@@ -19,7 +20,7 @@ export function useStandalone() { return useContext(StandaloneCtx); }
 
 // ── Frame ─────────────────────────────────────────────────
 
-export function DialogFrame({ title, children, footer, width = 440, onClose, className = '', icon }) {
+export function DialogFrame({ title, children, footer, width = 440, onClose, className = '', icon, fill = false }) {
   const standalone = useStandalone();
   const ref = useRef(null);
   useEffect(() => {
@@ -33,7 +34,14 @@ export function DialogFrame({ title, children, footer, width = 440, onClose, cla
     if (e.key === 'Escape' && onClose) { e.stopPropagation(); onClose(); }
   };
   const box = (
-    <div className={`dlg ${className}${standalone ? ' standalone' : ''}`} style={{ width }} ref={ref} role="dialog" aria-modal={!standalone} aria-label={title}>
+    <div
+      className={`dlg ${className}${standalone ? ' standalone' : ''}${fill ? ' fill' : ''}`}
+      style={fill && standalone ? { width: '100%', height: '100%' } : { width }}
+      ref={ref}
+      role="dialog"
+      aria-modal={!standalone}
+      aria-label={title}
+    >
       <div className="dlg-title">
         {icon && <Icon name={icon} />}
         <span>{title}</span>
@@ -43,7 +51,7 @@ export function DialogFrame({ title, children, footer, width = 440, onClose, cla
       {footer && <div className="dlg-footer">{footer}</div>}
     </div>
   );
-  if (standalone) return <div onKeyDown={onKey}>{box}</div>;
+  if (standalone) return <div className={fill ? 'dlg-standalone-fill' : undefined} onKeyDown={onKey}>{box}</div>;
   return (
     <div className="dlg-backdrop" onMouseDown={(e) => e.stopPropagation()} onKeyDown={onKey}>
       {box}
@@ -249,7 +257,10 @@ export function useDialogs() {
     resolvers.current.delete(id);
     if (r) r(value);
   };
-  const open = (name, spec) => (detachedDialogsEnabled() ? openDetachedDialog(name, spec) : push({ type: name, ...spec }));
+  const open = (name, spec) => {
+    if (!detachedDialogsEnabled()) return push({ type: name, ...spec });
+    return openDetachedDialog(name, spec).catch(() => push({ type: name, ...spec }));
+  };
 
   return {
     stack,
@@ -265,7 +276,12 @@ export function useDialogs() {
     },
     profileDelete: (profiles) => open('profileDelete', { profiles }),
     about: (info) => open('about', { info, title: t('about_title') }),
-    settings: (values, extra = {}) => open('settings', { values, localDir: extra.localDir, canPickFolder: extra.canPickFolder, title: t('settings_title') }),
+    settings: (values, extra = {}) => open('settings', {
+      values: pickSettingsValues(values, extra),
+      localDir: extra.localDir,
+      canPickFolder: extra.canPickFolder,
+      title: t('settings_title'),
+    }),
     get isOpen() { return stack.length > 0; },
   };
 }

@@ -32,10 +32,11 @@ function WindowButtons() {
   );
 }
 
-export function Toolbar({ onAction, theme, connection, profiles, profileName, onPickProfile, onSaveProfile, onDeleteProfile, busy, terminalView }) {
+export function Toolbar({ onAction, theme, connection, profiles, profileName, onPickProfile, onSaveProfile, onDeleteProfile, busy, terminalView, fontSize }) {
   useLanguage();
   const [themeMenu, setThemeMenu] = useState(null);
   const lang = getLanguage();
+  const size = Math.max(8, Math.min(32, Number(fontSize) || 13));
   const themeLabel = (id) => { const th = themeById(id); return lang === 'ko' ? th.label : th.labelEn; };
   const themeItems = THEMES.map((th) => ({
     id: `theme:${th.id}`,
@@ -69,6 +70,17 @@ export function Toolbar({ onAction, theme, connection, profiles, profileName, on
       <button className={`tb-btn${terminalView ? ' selected' : ''}`} title={t('tip_term_view')} onClick={() => onAction('terminal')} aria-pressed={!!terminalView}>
         <Icon name="terminal" /><span>{t('term_view')}</span>
       </button>
+      <span className="tb-font" title={t('tip_font_size', { n: size })}>
+        <button className="tb-btn tb-icon-only" title={t('tip_font_dec')} aria-label={t('tip_font_dec')}
+          disabled={size <= 8} onClick={() => onAction('fontDec')}>
+          <Icon name="fontDecrease" />
+        </button>
+        <span className="tb-font-size" aria-live="polite">{size}px</span>
+        <button className="tb-btn tb-icon-only" title={t('tip_font_inc')} aria-label={t('tip_font_inc')}
+          disabled={size >= 32} onClick={() => onAction('fontInc')}>
+          <Icon name="fontIncrease" />
+        </button>
+      </span>
       <span className="tb-split">
         <button className="tb-btn tb-split-main" title={t('tip_next_theme', { theme: themeLabel(nextThemeId(theme)) })} onClick={() => onAction('nextTheme')}>
           <Icon name="palette" /><span>{themeLabel(theme)}</span>

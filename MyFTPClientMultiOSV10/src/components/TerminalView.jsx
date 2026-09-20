@@ -5,6 +5,7 @@ import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
 import { call, onTerminalData, onTerminalExit, terminalsStream, writeClipboardText, readClipboardText } from '../lib/backend';
+import { terminalFontStack } from '../lib/settings';
 
 function cssVar(name, fallback) {
   const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
@@ -12,22 +13,29 @@ function cssVar(name, fallback) {
 }
 
 function readTheme() {
+  const fg = cssVar('--fg', '#e4e9f0');
+  const bg = cssVar('--bg', '#12161c');
+  const accent = cssVar('--accent', '#4cc9f0');
+  const ok = cssVar('--ok', '#4ade80');
+  const danger = cssVar('--danger', '#ff6b6b');
+  const folder = cssVar('--folder', '#f5c451');
+  const muted = cssVar('--fg-muted', '#97a3b4');
   return {
-    background: cssVar('--bg', '#12161c'),
-    foreground: cssVar('--fg', '#e4e9f0'),
-    cursor: cssVar('--accent', '#4cc9f0'),
-    cursorAccent: cssVar('--bg', '#12161c'),
+    background: bg,
+    foreground: fg,
+    cursor: accent,
+    cursorAccent: bg,
     selectionBackground: cssVar('--bg-sel', '#24485c'),
-    selectionForeground: cssVar('--fg', '#e4e9f0'),
+    selectionForeground: fg,
     black: '#1c1c1c',
-    red: '#ff6b6b',
-    green: '#4ade80',
-    yellow: '#f5c451',
+    red: danger,
+    green: ok,
+    yellow: folder,
     blue: '#58a6ff',
     magenta: '#c084fc',
-    cyan: '#4cc9f0',
-    white: '#e4e9f0',
-    brightBlack: '#6b7280',
+    cyan: accent,
+    white: fg,
+    brightBlack: muted,
     brightRed: '#ff8a8a',
     brightGreen: '#86efac',
     brightYellow: '#fde68a',
@@ -38,31 +46,34 @@ function readTheme() {
   };
 }
 
-export function TerminalView({ sessionId, active, theme, fontSize }) {
+export function TerminalView({ sessionId, active, theme, fontSize, fontFamily, scrollback, onExit }) {
   const hostRef = useRef(null);
   const termRef = useRef(null);
   const fitRef = useRef(null);
+  const lines = Math.max(500, Math.min(100000, Number(scrollback) || 10000));
+  const size = Math.max(8, Math.min(32, Number(fontSize) || parseInt(cssVar('--fs', '13'), 10) || 13));
+  const stack = terminalFontStack(fontFamily);
 
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return undefined;
-    const fs = Math.max(11, Number(fontSize) || parseInt(cssVar('--fs', '13'), 10) || 13);
-    const mono = cssVar('--mono', "'Cascadia Mono', Consolas, monospace");
+    const fs = size;
     const term = new Terminal({
       cursorBlink: true,
       convertEol: true,
-      // Monospace first. Proportional CJK fonts (Malgun Gothic) make every
-      // cell as wide as a Hangul character, so the prompt looks stretched.
-      fontFamily: `${mono}, 'D2Coding ligature', D2Coding, 'Noto Sans Mono CJK KR', monospace`,
+      fontFamily: stack,
       fontSize: fs,
       theme: readTheme(),
-      scrollback: 4000,
+      scrollback: lines,
       allowTransparency: false,
       rescaleOverlappingGlyphs: true,
     });
     const fit = new FitAddon();
     term.loadAddon(fit);
     term.open(host);
+    host.tabIndex = 0;
+    const focusTerm = () => { try { term.focus(); } catch { /* ignore */ } };
+    host.addEventListener('mousedown', focusTerm);
     termRef.current = term;
     fitRef.current = fit;
     try { fit.fit(); } catch { /* not visible yet */ }
@@ -88,6 +99,12 @@ export function TerminalView({ sessionId, active, theme, fontSize }) {
 
     let cursor = 0;
     let stopped = false;
+    let exited = false;
+    const fireExit = (code) => {
+      if (stopped || exited) return;
+      exited = true;
+      if (typeof onExit === 'function') onExit(sessionId, code);
+    };
     const apply = (chunks) => {
       for (const c of chunks || []) {
         if (!c || c.seq <= cursor) continue;
@@ -106,10 +123,11 @@ export function TerminalView({ sessionId, active, theme, fontSize }) {
     call('terminal.read', { id: sessionId, after: 0 }).then((r) => {
       if (stopped || !r) return;
       apply(r.chunks);
+      if (r.alive === false) fireExit(r.exitCode);
     }).catch(() => {});
     const offExit = onTerminalExit((msg) => {
       if (!msg || msg.id !== sessionId) return;
-      // The process ended; keep the view so the last lines stay readable.
+      fireExit(msg.code);
     });
 
     let poll = null;
@@ -120,6 +138,7 @@ export function TerminalView({ sessionId, active, theme, fontSize }) {
           const r = await call('terminal.read', { id: sessionId, after: cursor });
           if (stopped || !r) return;
           apply(r.chunks);
+          if (r.alive === false) fireExit(r.exitCode);
         } catch { /* closed */ }
       }, 80);
     }
@@ -129,6 +148,7 @@ export function TerminalView({ sessionId, active, theme, fontSize }) {
       if (poll) clearInterval(poll);
       offData();
       offExit();
+      host.removeEventListener('mousedown', focusTerm);
       try { term.dispose(); } catch { /* ignore */ }
       termRef.current = null;
       fitRef.current = null;
@@ -139,9 +159,14 @@ export function TerminalView({ sessionId, active, theme, fontSize }) {
     const term = termRef.current;
     if (!term) return;
     term.options.theme = readTheme();
-    const fs = Math.max(11, Number(fontSize) || 13);
+    const fs = Math.max(8, Math.min(32, Number(fontSize) || 13));
     if (term.options.fontSize !== fs) term.options.fontSize = fs;
-  }, [theme, fontSize]);
+    const nextFamily = terminalFontStack(fontFamily);
+    if (term.options.fontFamily !== nextFamily) term.options.fontFamily = nextFamily;
+    const lines = Math.max(500, Math.min(100000, Number(scrollback) || 10000));
+    if (term.options.scrollback !== lines) term.options.scrollback = lines;
+    try { if (fitRef.current) fitRef.current.fit(); } catch { /* ignore */ }
+  }, [theme, fontSize, fontFamily, scrollback]);
 
   useEffect(() => {
     if (!active) return undefined;

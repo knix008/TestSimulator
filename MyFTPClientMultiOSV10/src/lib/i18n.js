@@ -99,12 +99,24 @@ const ko = {
   // toolbar / settings / about
   theme: '테마', next_theme: '다음 테마', tip_theme: '테마 선택 (16가지)', tip_next_theme: '다음 테마로 전환: {theme}', tip_language: '한국어 / English',
   settings: '설정', tip_settings: '설정', settings_title: '설정', menu_info: '정보', tip_about: '프로그램 정보',
+  set_tab_general: '일반', set_tab_terminal: '터미널', set_tab_transfer: '전송',
+  set_term_prompt_shell: '셸',
   term_view: '터미널', tip_term_view: '터미널 보기',
+  tip_font_dec: '글꼴 작게', tip_font_inc: '글꼴 크게', tip_font_size: '글꼴 크기 {n}px',
   win_minimize: '최소화', win_maximize: '최대화', win_restore: '이전 크기로', win_close: '닫기', win_resize: '드래그하여 창 크기 조절',
   set_language: '언어', set_theme: '테마', set_font_size: '글꼴 크기',
   set_term_cwd: '터미널 시작 폴더', set_term_cwd_placeholder: '비워 두면 오른쪽 로컬 폴더',
   set_term_cwd_hint: '터미널을 열 때 사용할 폴더입니다. 비워 두면 오른쪽에 열려 있는 로컬 폴더를 사용합니다.',
   set_term_cwd_browse: '폴더 선택',
+  set_term_font: '터미널 글꼴',
+  set_term_font_hint: '터미널에 쓸 글꼴입니다. 이 컴퓨터에 설치된 모든 글꼴을 고를 수 있습니다.',
+  set_term_font_size: '터미널 글꼴 크기',
+  set_ps_prompt: 'PowerShell 프롬프트',
+  set_ps_prompt_hint: '{path}는 전체 경로, {folder}는 폴더 이름입니다. 예: PS {path}>  또는  PS {folder}>',
+  set_term_prompts: '터미널 프롬프트',
+  set_term_prompts_hint: '{path} 작업 폴더 · {folder} 폴더 이름 · {shell} 셸 이름. cmd는 D:\\path>, Git Bash는 MINGW64 /d/path$, WSL은 Ubuntu:/mnt/d/path$ 처럼 셸마다 기본값이 다릅니다.',
+  set_term_lines: '터미널 최대 줄 수',
+  set_term_lines_hint: '터미널 창에 보관할 최대 줄 수입니다. 기본 10000.',
   set_local_cwd: '로컬 폴더', set_local_cwd_placeholder: '마지막에 연 폴더',
   set_local_cwd_hint: '오른쪽에 열 로컬 폴더입니다. 기본은 마지막에 연 폴더입니다.',
   set_local_cwd_browse: '폴더 선택',
@@ -209,12 +221,24 @@ const en = {
 
   theme: 'Theme', next_theme: 'Next theme', tip_theme: 'Choose a theme (16 built in)', tip_next_theme: 'Switch to the next theme: {theme}', tip_language: '한국어 / English',
   settings: 'Settings', tip_settings: 'Settings', settings_title: 'Settings', menu_info: 'Info', tip_about: 'About My FTP Client',
+  set_tab_general: 'General', set_tab_terminal: 'Terminal', set_tab_transfer: 'Transfer',
+  set_term_prompt_shell: 'Shell',
   term_view: 'Terminal', tip_term_view: 'Show terminal',
+  tip_font_dec: 'Smaller font', tip_font_inc: 'Larger font', tip_font_size: 'Font size {n}px',
   win_minimize: 'Minimize', win_maximize: 'Maximize', win_restore: 'Restore', win_close: 'Close', win_resize: 'Drag to resize the window',
   set_language: 'Language', set_theme: 'Theme', set_font_size: 'Font size',
   set_term_cwd: 'Terminal start folder', set_term_cwd_placeholder: 'Empty = folder open on the right',
   set_term_cwd_hint: 'Folder used when a terminal opens. Leave empty to use the local folder open on the right.',
   set_term_cwd_browse: 'Choose folder',
+  set_term_font: 'Terminal font',
+  set_term_font_hint: 'Font used in the terminal. Every font installed on this computer is listed.',
+  set_term_font_size: 'Terminal font size',
+  set_ps_prompt: 'PowerShell prompt',
+  set_ps_prompt_hint: '{path} is the full path, {folder} is the folder name. Example: PS {path}>  or  PS {folder}>',
+  set_term_prompts: 'Terminal prompts',
+  set_term_prompts_hint: '{path} working folder · {folder} folder name · {shell} shell name. Defaults match each shell: cmd D:\\path>, Git Bash MINGW64 /d/path$, WSL Ubuntu:/mnt/d/path$.',
+  set_term_lines: 'Terminal max lines',
+  set_term_lines_hint: 'Maximum lines kept in the terminal. Default 10000.',
   set_local_cwd: 'Local folder', set_local_cwd_placeholder: 'Last opened folder',
   set_local_cwd_hint: 'Folder opened on the right. Defaults to the last folder you opened.',
   set_local_cwd_browse: 'Choose folder',
@@ -228,6 +252,7 @@ const en = {
 };
 
 const dicts = { ko, en };
+export const I18N = dicts;
 let current = 'ko';
 const listeners = new Set();
 

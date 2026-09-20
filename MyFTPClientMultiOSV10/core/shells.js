@@ -1,4 +1,5 @@
-// Discover interactive shells actually installed on this machine.
+// Discover shells installed on this machine, and how to run one command line
+// in them (MyTerminal style: cmd /c, powershell -Command, bash -c).
 // The renderer lists these; only an id comes back to `terminal.open`.
 'use strict';
 
@@ -47,25 +48,50 @@ function which(name) {
   return null;
 }
 
+function spawnKind(id, file) {
+  const base = path.basename(String(file || '')).toLowerCase();
+  if (id === 'cmd' || base === 'cmd.exe' || base === 'cmd') return 'cmd';
+  if (id === 'powershell' || id === 'pwsh' || base === 'powershell.exe' || base === 'pwsh.exe' || base === 'pwsh') return 'powershell';
+  if (String(id).startsWith('wsl:') || base === 'wsl.exe' || id === 'wsl') return 'wsl';
+  return 'posix';
+}
+
 function shell(id, label, labelKo, file, args, extra = {}) {
-  return { id, label, labelKo: labelKo || label, file, args: args || [], ...extra };
+  const kind = extra.kind || spawnKind(id, file);
+  return { id, label, labelKo: labelKo || label, file, args: args || [], kind, ...extra };
 }
 
-// UTF-16LE Base64 so `$false` / quotes survive Windows PowerShell's OEM parser.
-function encodedCommand(script) {
-  return Buffer.from(String(script), 'utf16le').toString('base64');
+// One command line — same shape as MyTerminal (not an interactive PTY).
+function buildShellSpawn(shell, line) {
+  const text = String(line ?? '');
+  const kind = shell.kind || spawnKind(shell.id, shell.file);
+  switch (kind) {
+    case 'cmd':
+      return {
+        file: shell.file,
+        args: ['/d', '/s', '/c', `"${text}"`],
+        options: { windowsVerbatimArguments: true, windowsHide: true },
+      };
+    case 'powershell':
+      return {
+        file: shell.file,
+        args: ['-NoLogo', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', text],
+        options: { windowsHide: true },
+      };
+    case 'wsl':
+      return {
+        file: shell.file,
+        args: [...(shell.args || []), '-e', 'sh', '-c', text],
+        options: { windowsHide: true },
+      };
+    default:
+      return {
+        file: shell.file,
+        args: ['-c', text],
+        options: { windowsHide: true },
+      };
+  }
 }
-
-// Piped PowerShell is a Default Host: PathInfo.ToString() becomes a provider
-// path and PSReadLine redraws over the prompt. Force a filesystem-path prompt.
-const PS_START = [
-  'Remove-Module PSReadLine -ErrorAction SilentlyContinue',
-  'try { [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding $false; [Console]::InputEncoding = [Console]::OutputEncoding; $OutputEncoding = [Console]::OutputEncoding } catch {}',
-  'if ($env:MFC_TERM_CWD) { Set-Location -LiteralPath $env:MFC_TERM_CWD }',
-  'function global:prompt { return ("PS {0}> " -f (Get-Location).Path) }',
-].join('; ');
-
-const PS_ARGS = ['-NoLogo', '-NoProfile', '-NoExit', '-EncodedCommand', encodedCommand(PS_START)];
 
 function listWindows() {
   const sys = process.env.SystemRoot || 'C:\\Windows';
@@ -77,13 +103,13 @@ function listWindows() {
   const out = [];
 
   const cmd = firstFile([process.env.ComSpec, process.env.COMSPEC, path.join(sys32, 'cmd.exe')]);
-  if (cmd) out.push(shell('cmd', 'Command Prompt', '명령 프롬프트', cmd, ['/d', '/k'], { preferred: true, codepage: 'cp949' }));
+  if (cmd) out.push(shell('cmd', 'Command Prompt', '명령 프롬프트', cmd, [], { preferred: true, kind: 'cmd' }));
 
   const powershell = firstFile([
     path.join(sys32, 'WindowsPowerShell', 'v1.0', 'powershell.exe'),
     which('powershell'),
   ]);
-  if (powershell) out.push(shell('powershell', 'Windows PowerShell', 'Windows PowerShell', powershell, PS_ARGS));
+  if (powershell) out.push(shell('powershell', 'Windows PowerShell', 'Windows PowerShell', powershell, [], { kind: 'powershell' }));
 
   const pwsh = firstFile([
     which('pwsh') && !/WindowsApps/i.test(which('pwsh')) ? which('pwsh') : null,
@@ -91,7 +117,7 @@ function listWindows() {
     path.join(pf, 'PowerShell', '7-preview', 'pwsh.exe'),
   ]);
   if (pwsh) {
-    out.push(shell('pwsh', 'PowerShell', 'PowerShell', pwsh, PS_ARGS));
+    out.push(shell('pwsh', 'PowerShell', 'PowerShell', pwsh, [], { kind: 'powershell' }));
     const cmd = out.find((s) => s.id === 'cmd');
     if (cmd) cmd.preferred = false;
     out[out.length - 1].preferred = true;
@@ -104,31 +130,31 @@ function listWindows() {
     path.join(local, 'Programs', 'Git', 'bin', 'bash.exe'),
     home && path.join(home, 'AppData', 'Local', 'Programs', 'Git', 'bin', 'bash.exe'),
   ]);
-  if (gitBash) out.push(shell('git-bash', 'Git Bash', 'Git Bash', gitBash, ['-l', '-i'], { env: { LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8' } }));
+  if (gitBash) out.push(shell('git-bash', 'Git Bash', 'Git Bash', gitBash, [], { kind: 'posix', env: { LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8' } }));
 
   const msys = firstFile([
     'C:\\msys64\\usr\\bin\\bash.exe',
     path.join(pf, 'msys64', 'usr', 'bin', 'bash.exe'),
   ]);
-  if (msys) out.push(shell('msys2', 'MSYS2', 'MSYS2', msys, ['-l', '-i'], { env: { LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8' } }));
+  if (msys) out.push(shell('msys2', 'MSYS2', 'MSYS2', msys, [], { kind: 'posix', env: { LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8' } }));
 
   const cygwin = firstFile([
     'C:\\cygwin64\\bin\\bash.exe',
     'C:\\cygwin\\bin\\bash.exe',
   ]);
-  if (cygwin) out.push(shell('cygwin', 'Cygwin', 'Cygwin', cygwin, ['-l', '-i'], { env: { LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8' } }));
+  if (cygwin) out.push(shell('cygwin', 'Cygwin', 'Cygwin', cygwin, [], { kind: 'posix', env: { LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8' } }));
 
   const nu = which('nu');
-  if (nu) out.push(shell('nu', 'Nushell', 'Nushell', nu, []));
+  if (nu) out.push(shell('nu', 'Nushell', 'Nushell', nu, [], { kind: 'posix' }));
 
   const fish = which('fish');
-  if (fish && !/msys|git|cygwin/i.test(fish)) out.push(shell('fish', 'Fish', 'Fish', fish, ['-i']));
+  if (fish && !/msys|git|cygwin/i.test(fish)) out.push(shell('fish', 'Fish', 'Fish', fish, [], { kind: 'posix' }));
 
   const wsl = firstFile([path.join(sys32, 'wsl.exe'), which('wsl')]);
   if (wsl) {
     for (const distro of listWslDistros(wsl)) {
       const id = `wsl:${distro}`;
-      out.push(shell(id, `${distro} (WSL)`, `${distro} (WSL)`, wsl, ['-d', distro]));
+      out.push(shell(id, `${distro} (WSL)`, `${distro} (WSL)`, wsl, ['-d', distro], { kind: 'wsl' }));
     }
   }
 
@@ -198,11 +224,9 @@ function listUnix() {
     : null;
   const out = [];
   for (const file of files) {
-    const base = path.basename(file);
     const [label, labelKo] = prettyUnixName(file);
     const id = file;
-    const args = base === 'sh' || base === 'dash' ? [] : ['-i'];
-    out.push(shell(id, label, labelKo, file, args, { preferred: preferredFile === file }));
+    out.push(shell(id, label, labelKo, file, [], { preferred: preferredFile === file, kind: 'posix' }));
   }
   if (out.length && !out.some((s) => s.preferred)) out[0].preferred = true;
   return dedupe(out);
@@ -211,10 +235,10 @@ function listUnix() {
 function fallback() {
   if (process.platform === 'win32') {
     const file = process.env.ComSpec || process.env.COMSPEC || 'cmd.exe';
-    return [shell('cmd', 'Command Prompt', '명령 프롬프트', file, ['/d', '/k'], { preferred: true, codepage: 'cp949' })];
+    return [shell('cmd', 'Command Prompt', '명령 프롬프트', file, [], { preferred: true, kind: 'cmd' })];
   }
   const file = process.env.SHELL || '/bin/sh';
-  return [shell(file, path.basename(file), path.basename(file), file, ['-i'], { preferred: true })];
+  return [shell(file, path.basename(file), path.basename(file), file, [], { preferred: true, kind: 'posix' })];
 }
 
 function dedupe(list) {
@@ -257,6 +281,7 @@ function listShells() {
     path: s.file,
     meta: s.meta || '',
     preferred: !!s.preferred,
+    kind: s.kind || spawnKind(s.id, s.file),
   }));
 }
 
@@ -274,4 +299,18 @@ function resolveShell(id) {
   return all.find((s) => s.preferred) || all[0] || fallback()[0];
 }
 
-module.exports = { listShells, resolveShell };
+function shortName(shell) {
+  const sh = shell || {};
+  if (String(sh.id).startsWith('wsl:')) return String(sh.id).slice(4) || 'WSL';
+  switch (sh.id) {
+    case 'cmd': return 'cmd';
+    case 'powershell': return 'PowerShell';
+    case 'pwsh': return 'pwsh';
+    case 'git-bash': return 'bash';
+    case 'msys2': return 'msys';
+    case 'cygwin': return 'cygwin';
+    default: return path.basename(String(sh.file || sh.path || sh.id || 'shell')).replace(/\.exe$/i, '') || 'shell';
+  }
+}
+
+module.exports = { listShells, resolveShell, buildShellSpawn, spawnKind, shortName };

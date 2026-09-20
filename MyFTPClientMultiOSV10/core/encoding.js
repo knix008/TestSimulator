@@ -81,4 +81,62 @@ function utf8LocaleEnv() {
   return env;
 }
 
-module.exports = { ConsoleDecoder, utf8LocaleEnv };
+function unescapeClixml(s) {
+  return String(s).replace(/_x([0-9A-Fa-f]{4})_/g, (_, h) => String.fromCharCode(parseInt(h, 16)));
+}
+
+function extractClixmlText(xml) {
+  const parts = [];
+  const re = /<S S="(Error|Warning)">(.*?)<\/S>/gs;
+  let m;
+  while ((m = re.exec(xml))) parts.push(unescapeClixml(m[2]));
+  return parts.join('');
+}
+
+// PowerShell writes "#< CLIXML" plus a serialized document to stderr whenever
+// stdin/stdout/stderr are pipes. Progress records are noise; keep Error/Warning.
+class ClixmlFilter {
+  constructor() {
+    this.pending = '';
+  }
+
+  push(text) {
+    if (!text) return '';
+    let s = this.pending + text;
+    this.pending = '';
+    let out = '';
+    for (;;) {
+      const i = s.search(/#<\s*CLIXML/i);
+      if (i < 0) {
+        out += s;
+        return out;
+      }
+      out += s.slice(0, i);
+      const rest = s.slice(i);
+      const nl = rest.search(/\r?\n/);
+      if (nl < 0) {
+        this.pending = rest;
+        return out;
+      }
+      const afterNl = rest[nl] === '\r' && rest[nl + 1] === '\n' ? 2 : 1;
+      const after = rest.slice(nl + afterNl);
+      if (!after) {
+        this.pending = rest;
+        return out;
+      }
+      if (!after.startsWith('<')) {
+        s = after;
+        continue;
+      }
+      const close = after.search(/<\/Objs>/i);
+      if (close < 0) {
+        this.pending = rest;
+        return out;
+      }
+      out += extractClixmlText(after.slice(0, close + 7));
+      s = after.slice(close + 7).replace(/^\r?\n/, '');
+    }
+  }
+}
+
+module.exports = { ConsoleDecoder, utf8LocaleEnv, ClixmlFilter };

@@ -118,6 +118,16 @@ export default function App() {
 
   useEffect(() => { document.title = t('appName'); }, [session && session.language]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  useEffect(() => {
+    const electron = window.myFtpClient;
+    if (!electron || !electron.onDialogAppearance) return undefined;
+    return electron.onDialogAppearance((appearance) => {
+      if (!appearance || !appearance.theme) return;
+      const theme = applyTheme(appearance.theme);
+      setSession((s) => (s ? { ...s, theme: theme.id, themeBg: theme.tokens['--bg'] } : s));
+    });
+  }, []);
+
   const saveSession = useCallback((patch) => {
     setSession((s) => (s ? { ...s, ...patch } : s));
     call('session.save', { patch }).catch(() => {});
@@ -558,8 +568,22 @@ export default function App() {
     if (id === 'nextTheme') setTheme(nextThemeId(session ? session.theme : DEFAULT_THEME));
     else if (id.startsWith('theme:')) setTheme(id.slice(6));
     else if (id === 'toggleLanguage') { const lang = getLanguage() === 'ko' ? 'en' : 'ko'; setLanguage(lang); saveSession({ language: lang }); setStatus(t('ready')); }
-    else if (id === 'settings') { const v = await dialogs.settings(session, { localDir, canPickFolder: !!(info.capabilities && info.capabilities.pickFolder) }); if (v) applySettings(v); }
+    else if (id === 'settings') {
+      const v = await dialogs.settings(session, {
+        localDir,
+        canPickFolder: !!(info.capabilities && info.capabilities.pickFolder),
+      });
+      if (v) applySettings(v);
+    }
     else if (id === 'about') dialogs.about(info);
+    else if (id === 'fontDec' || id === 'fontInc') {
+      const cur = Math.max(8, Math.min(32, Number(session && session.terminalFontSize) || 13));
+      const next = Math.max(8, Math.min(32, cur + (id === 'fontInc' ? 1 : -1)));
+      if (next !== cur) {
+        applyFontSize(Math.max(11, Math.min(18, next)));
+        saveSession({ terminalFontSize: next, fontSize: Math.max(11, Math.min(18, next)) });
+      }
+    }
     else if (id === 'terminal') {
       if (terminalView) { if (logPanelRef.current && logPanelRef.current.hideTerminal) logPanelRef.current.hideTerminal(); }
       else if (logPanelRef.current && logPanelRef.current.showTerminal) logPanelRef.current.showTerminal();
@@ -622,7 +646,7 @@ export default function App() {
     <div className="app">
       <Toolbar onAction={action} theme={session.theme} connection={conn} busy={connecting}
         profiles={profiles} profileName={profileName} onPickProfile={pickProfile} onSaveProfile={saveProfile} onDeleteProfile={deleteProfiles}
-        terminalView={terminalView} />
+        terminalView={terminalView} fontSize={session.terminalFontSize} />
       <ConnectionBar form={form} onChange={setForm} connected={!!conn} connecting={connecting} onConnect={connect} onDisconnect={disconnect}
         onHistory={(el) => setHistoryMenu(historyMenu ? null : el)} />
       {historyMenu && <ContextMenu anchorEl={historyMenu} x={0} y={0} className="history" items={historyItems()} onClose={() => setHistoryMenu(null)} onPick={(id) => { setHistoryMenu(null); pickHistory(id); }} />}
@@ -643,7 +667,7 @@ export default function App() {
         onClear={() => setLog([])}
         onCopy={() => { writeClipboardText(log.map((l) => `[${l.time}]  ${l.text}`).join('\n')); setStatus(t('log_copied')); }}
         localDir={localDir} terminalStartDir={session.terminalStartDir} connection={conn} remotePath={server.path}
-        theme={session.theme} fontSize={session.fontSize}
+        theme={session.theme} fontSize={session.terminalFontSize} fontFamily={session.terminalFont} scrollback={session.terminalMaxLines}
         lastShell={session.lastTerminalShell}
         onLastShell={(id) => saveSession({ lastTerminalShell: id })}
         onEnsureHeight={(h) => setLogHeight((cur) => Math.max(cur, h))}

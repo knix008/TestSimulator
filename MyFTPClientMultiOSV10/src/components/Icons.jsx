@@ -56,6 +56,8 @@ const paths = {
   link: <><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1" /><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" /></>,
   terminal: <><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M7 9l3 3-3 3M12 16h5" /></>,
   plus: <><path d="M12 5v14M5 12h14" /></>,
+  fontDecrease: <><path d="M4 17l3.2-8h1.2L11.6 17M5.2 14h5.2" /><path d="M15 12h6" /></>,
+  fontIncrease: <><path d="M3 19l4.6-12h1.6L14 19M4.6 15.2h7.6" /><path d="M18 9v8M14 13h8" /></>,
 };
 
 // The two fat arrows of the transfer bar (filled, like the original's GDI+

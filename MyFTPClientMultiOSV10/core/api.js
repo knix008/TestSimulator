@@ -21,6 +21,7 @@ const { Profiles, PROTOCOLS } = require('./profiles');
 const { History } = require('./history');
 const { posixJoin, posixParent } = require('./remote');
 const { TerminalRegistry, MAX_SESSIONS } = require('./terminal');
+const { listInstalledFonts, defaultTerminalFont } = require('./fonts');
 
 function createApi(host = {}) {
   const jobs = host.jobs || new JobRegistry();
@@ -58,6 +59,10 @@ function createApi(host = {}) {
         pickFolder: !!host.pickFolder,
       },
     }),
+    'app.fonts': async () => {
+      const fonts = listInstalledFonts();
+      return { fonts, defaultFamily: defaultTerminalFont(fonts) };
+    },
 
     // ── local file system ──
     'local.roots': async () => ({ roots: await local.listRoots() }),
@@ -168,8 +173,15 @@ function createApi(host = {}) {
 
     // ── terminals (local shell + SFTP SSH PTY) ──
     'terminal.shells': async () => ({ shells: terminals.shells() }),
-    'terminal.open': async ({ kind, cwd, connId, remotePath, cols, rows, shellId }) =>
-      terminals.open({ kind, cwd, connId, remotePath, cols, rows, shellId }),
+    'terminal.open': async ({ kind, cwd, connId, remotePath, cols, rows, shellId }) => {
+      const s = session.get();
+      return terminals.open({
+        kind, cwd, connId, remotePath, cols, rows, shellId,
+        prompt: s.powershellPrompt,
+        prompts: s.shellPrompts,
+        maxChunks: s.terminalMaxLines,
+      });
+    },
     'terminal.write': async ({ id, data }) => terminals.write(id, data),
     'terminal.resize': async ({ id, cols, rows }) => terminals.resize(id, cols, rows),
     'terminal.read': async ({ id, after }) => terminals.read(id, after),

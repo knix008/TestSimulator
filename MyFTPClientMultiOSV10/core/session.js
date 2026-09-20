@@ -17,6 +17,9 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
+const { DEFAULT_SHELL_PROMPTS, sanitizePromptMap } = require('./prompts');
+const { sanitizeFontName, clampFontSize } = require('./fonts');
+
 const DEFAULTS = {
   lastLocalPath: '',
   lastProfile: '',
@@ -24,6 +27,8 @@ const DEFAULTS = {
   theme: 'midnight',
   themeBg: '',
   fontSize: 13,
+  terminalFont: '',
+  terminalFontSize: 13,
   serverWidth: 0.5,
   logHeight: 170,
   confirmDelete: true,
@@ -35,6 +40,9 @@ const DEFAULTS = {
   skipUnchanged: true,
   lastTerminalShell: '',
   terminalStartDir: '',
+  powershellPrompt: DEFAULT_SHELL_PROMPTS.powershell,
+  shellPrompts: { ...DEFAULT_SHELL_PROMPTS },
+  terminalMaxLines: 10000,
   windowBounds: null,
 };
 
@@ -48,15 +56,15 @@ class Session {
   constructor(configDir) {
     this.configDir = configDir || defaultConfigDir();
     this.file = path.join(this.configDir, 'session.json');
-    this.data = { ...DEFAULTS };
+    this.data = { ...DEFAULTS, shellPrompts: { ...DEFAULT_SHELL_PROMPTS } };
   }
 
   load() {
     try {
       const raw = JSON.parse(fs.readFileSync(this.file, 'utf-8'));
-      this.data = { ...DEFAULTS, ...raw };
+      this.data = { ...DEFAULTS, ...raw, shellPrompts: { ...DEFAULT_SHELL_PROMPTS, ...(raw.shellPrompts || {}) } };
     } catch {
-      this.data = { ...DEFAULTS };
+      this.data = { ...DEFAULTS, shellPrompts: { ...DEFAULT_SHELL_PROMPTS } };
     }
     return this.get();
   }
@@ -66,6 +74,11 @@ class Session {
     // Only restore a folder that still exists — else the home folder.
     if (!d.lastLocalPath || !isDir(d.lastLocalPath)) d.lastLocalPath = os.homedir();
     if (d.terminalStartDir && !isDir(d.terminalStartDir)) d.terminalStartDir = '';
+    d.shellPrompts = sanitizePromptMap(d.shellPrompts, d.powershellPrompt);
+    d.powershellPrompt = d.shellPrompts.powershell || DEFAULT_SHELL_PROMPTS.powershell;
+    d.terminalMaxLines = clampLines(d.terminalMaxLines);
+    d.terminalFont = sanitizeFontName(d.terminalFont);
+    d.terminalFontSize = clampFontSize(d.terminalFontSize, 13);
     const n = Math.round(Number(d.transferConcurrency));
     d.transferConcurrency = Number.isFinite(n) ? Math.max(1, Math.min(4, n)) : 3;
     d.skipUnchanged = d.skipUnchanged !== false;
@@ -73,7 +86,18 @@ class Session {
   }
 
   save(patch) {
+    const prevPrompts = this.data.shellPrompts;
     this.data = { ...this.data, ...(patch || {}) };
+    if (patch && patch.shellPrompts && typeof patch.shellPrompts === 'object') {
+      this.data.shellPrompts = { ...DEFAULT_SHELL_PROMPTS, ...(prevPrompts || {}), ...patch.shellPrompts };
+    } else if (patch && patch.powershellPrompt != null) {
+      this.data.shellPrompts = {
+        ...DEFAULT_SHELL_PROMPTS,
+        ...(prevPrompts || {}),
+        powershell: patch.powershellPrompt,
+        pwsh: patch.powershellPrompt,
+      };
+    }
     try {
       fs.mkdirSync(this.configDir, { recursive: true });
       fs.writeFileSync(this.file, JSON.stringify(this.data, null, 2), 'utf-8');
@@ -86,4 +110,10 @@ function isDir(p) {
   try { return fs.statSync(p).isDirectory(); } catch { return false; }
 }
 
-module.exports = { Session, DEFAULTS, defaultConfigDir };
+function clampLines(n) {
+  const x = Math.round(Number(n));
+  if (!Number.isFinite(x)) return 10000;
+  return Math.max(500, Math.min(100000, x));
+}
+
+module.exports = { Session, DEFAULTS, defaultConfigDir, clampLines };

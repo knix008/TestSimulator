@@ -3,7 +3,7 @@
 // When the browse connection is SFTP, the same menu also offers a remote SSH shell.
 import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { t, useLanguage, getLanguage } from '../lib/i18n';
-import { call } from '../lib/backend';
+import { call, onTerminalExit } from '../lib/backend';
 import { Icon } from './Icons';
 import { ContextMenu } from './ContextMenu';
 import { TerminalView } from './TerminalView';
@@ -28,7 +28,7 @@ function uniqueTitle(tabs, base) {
 
 export const LogPanel = forwardRef(function LogPanel({
   lines, onClear, onCopy, height, onResizeStart, onEnsureHeight,
-  localDir, terminalStartDir, connection, remotePath, theme, fontSize, onError,
+  localDir, terminalStartDir, connection, remotePath, theme, fontSize, fontFamily, scrollback, onError,
   lastShell, onLastShell, onTerminalView,
 }, ref) {
   useLanguage();
@@ -125,7 +125,10 @@ export const LogPanel = forwardRef(function LogPanel({
   };
 
   const closeTab = (id, ev) => {
-    if (ev) { ev.stopPropagation(); ev.preventDefault(); }
+    if (ev && typeof ev.stopPropagation === 'function') {
+      ev.stopPropagation();
+      ev.preventDefault();
+    }
     call('terminal.close', { id }).catch(() => {});
     setTabs((cur) => {
       const next = cur.filter((tab) => tab.id !== id);
@@ -133,6 +136,13 @@ export const LogPanel = forwardRef(function LogPanel({
       return next;
     });
   };
+
+  useEffect(() => {
+    const off = onTerminalExit((msg) => {
+      if (msg && msg.id != null) closeTab(msg.id);
+    });
+    return off;
+  }, []);
 
   const pickItems = [
     ...shells.map((s) => ({
@@ -236,7 +246,7 @@ export const LogPanel = forwardRef(function LogPanel({
           </div>
           {tabs.map((tab) => (
             <div key={tab.id} className={`term-wrap${active === tab.id ? '' : ' hidden'}`}>
-              <TerminalView sessionId={tab.id} active={active === tab.id} theme={theme} fontSize={fontSize} />
+              <TerminalView sessionId={tab.id} active={active === tab.id} theme={theme} fontSize={fontSize} fontFamily={fontFamily} scrollback={scrollback} onExit={() => closeTab(tab.id)} />
             </div>
           ))}
         </div>

@@ -3,23 +3,56 @@
 // refreshes its payload) instead of creating a second copy.
 'use strict';
 
-const { BrowserWindow, ipcMain } = require('electron');
+const { BrowserWindow, ipcMain, screen } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
 /** @type {Map<string, {win: BrowserWindow, payload: any, openerId: number|null, submitted: boolean, reveal?: Function}>} */
 const dialogWindows = new Map();
 
+// Popups are never user-resizable. `fit: false` keeps a designed size (settings
+// tabs); the rest are sized once to their content, then locked.
 const DIALOG_SPECS = {
-  settings: { width: 520, height: 720, minWidth: 440, minHeight: 440 },
-  about: { width: 500, height: 320, minWidth: 420, minHeight: 240, resizable: false },
-  error: { width: 580, height: 400, minWidth: 420, minHeight: 240 },
-  message: { width: 520, height: 300, minWidth: 400, minHeight: 200, resizable: false },
-  confirm: { width: 500, height: 280, minWidth: 400, minHeight: 200, resizable: false },
-  prompt: { width: 460, height: 230, minWidth: 360, minHeight: 180, resizable: false },
-  conflict: { width: 540, height: 320, minWidth: 420, minHeight: 220, resizable: false },
-  profileDelete: { width: 420, height: 420, minWidth: 360, minHeight: 260 },
+  settings: { width: 540, height: 520, minWidth: 540, minHeight: 520, maxWidth: 540, maxHeight: 520, fit: false },
+  about: { width: 520, height: 360, minWidth: 420, minHeight: 240 },
+  error: { width: 580, height: 280, minWidth: 420, minHeight: 200 },
+  message: { width: 520, height: 240, minWidth: 400, minHeight: 180 },
+  confirm: { width: 500, height: 240, minWidth: 400, minHeight: 180 },
+  prompt: { width: 460, height: 220, minWidth: 360, minHeight: 180 },
+  conflict: { width: 540, height: 280, minWidth: 420, minHeight: 200 },
+  profileDelete: { width: 440, height: 280, minWidth: 360, minHeight: 200 },
 };
+
+function clampToWorkArea(win, width, height) {
+  const display = screen.getDisplayMatching(win.getBounds());
+  const wa = display.workAreaSize;
+  return {
+    width: Math.min(Math.max(200, Math.round(width)), wa.width),
+    height: Math.min(Math.max(120, Math.round(height)), wa.height),
+  };
+}
+
+function applyLockedDialogSize(win, width, height) {
+  if (!win || win.isDestroyed()) return false;
+  const size = clampToWorkArea(win, width, height);
+  const w = size.width;
+  const h = size.height;
+  try {
+    win.setResizable(true);
+    win.setMaximizable(true);
+    win.setMaximumSize(Math.max(w, 4000), Math.max(h, 4000));
+    win.setMinimumSize(1, 1);
+    win.setSize(w, h);
+    win.setMinimumSize(w, h);
+    win.setMaximumSize(w, h);
+  } finally {
+    if (!win.isDestroyed()) {
+      win.setResizable(false);
+      win.setMaximizable(false);
+    }
+  }
+  return true;
+}
 
 function iconPath() {
   const dir = path.join(__dirname, '..', 'build', 'icons');
@@ -73,14 +106,16 @@ function openDialogWindow(name, payload, opener, getApi, isDev) {
     width, height, x, y,
     minWidth: spec.minWidth || 320,
     minHeight: spec.minHeight || 160,
+    ...(spec.maxWidth ? { maxWidth: spec.maxWidth } : {}),
+    ...(spec.maxHeight ? { maxHeight: spec.maxHeight } : {}),
     // Child of the main window: destroyed with it, but not modal so the user
     // can drag it anywhere (including onto another monitor).
     parent: parentOk ? opener : undefined,
     modal: false,
-    resizable: spec.resizable !== false,
+    resizable: false,
     movable: true,
     minimizable: true,
-    maximizable: spec.resizable !== false,
+    maximizable: false,
     fullscreenable: false,
     show: false,
     frame: false,
@@ -181,8 +216,8 @@ function registerDialogHandlers(getMain, getApi, isDev) {
   });
 
   ipcMain.handle('dialog:broadcastAppearance', (_event, appearance) => {
-    for (const entry of dialogWindows.values()) {
-      if (!entry.win.isDestroyed()) entry.win.webContents.send('dialog:appearance', appearance);
+    for (const win of BrowserWindow.getAllWindows()) {
+      if (!win.isDestroyed()) win.webContents.send('dialog:appearance', appearance);
     }
     return true;
   });
@@ -190,9 +225,10 @@ function registerDialogHandlers(getMain, getApi, isDev) {
   ipcMain.handle('dialog:setSize', (event, { width, height }) => {
     const win = BrowserWindow.fromWebContents(event.sender);
     if (!win || win.isDestroyed() || win.isMaximized()) return false;
-    const [minW, minH] = win.getMinimumSize();
-    win.setSize(Math.max(minW, Math.round(width)), Math.max(minH, Math.round(height)));
-    return true;
+    const found = entryForSender(event.sender);
+    const spec = found ? DIALOG_SPECS[found.name] : null;
+    if (spec && spec.fit === false) return false;
+    return applyLockedDialogSize(win, width, height);
   });
 }
 
