@@ -115,6 +115,36 @@ test('terminal: UI closes the tab when the session exits', () => {
   assert.match(core, /this\.finish\(leaving\.code\)/);
 });
 
+test('installer: existing install asks to uninstall first', () => {
+  const src = fs.readFileSync(path.join(root, 'build', 'installer.nsh'), 'utf8');
+  assert.match(src, /이미 설치되어 있습니다/);
+  assert.match(src, /기존 설치를 삭제한 뒤 새로 설치할까요/);
+  assert.match(src, /MB_YESNO\|MB_ICONQUESTION/);
+  assert.match(src, /\/SD IDYES IDYES MfcRemovePrevious/);
+  assert.match(src, /^\s*Abort\s*$/m);
+  assert.match(src, /PrevUninstaller/);
+  assert.match(src, /--updated/);
+  assert.match(src, /UNINSTALL_FILENAME/);
+  assert.match(src, /taskkill \/F \/IM/);
+});
+
+test('main window minimum size keeps the window buttons visible', () => {
+  const main = fs.readFileSync(path.join(root, 'electron', 'main.js'), 'utf8');
+  assert.match(main, /MIN_WINDOW_WIDTH\s*=\s*1200/);
+  assert.match(main, /MIN_WINDOW_HEIGHT\s*=\s*720/);
+  assert.match(main, /minWidth:\s*MIN_WINDOW_WIDTH/);
+  assert.match(main, /minHeight:\s*MIN_WINDOW_HEIGHT/);
+  const tb = fs.readFileSync(path.join(root, 'src', 'components', 'Toolbar.jsx'), 'utf8');
+  assert.match(tb, /className="tb-main"/);
+  assert.match(tb, /WindowButtons/);
+  assert.match(tb, /tb-theme-label/);
+  const css = fs.readFileSync(path.join(root, 'src', 'styles.css'), 'utf8');
+  assert.match(css, /\.tb-main/);
+  assert.match(css, /1200/);
+  assert.match(css, /flex-wrap: nowrap/);
+  assert.match(css, /\.tb-theme-label/);
+});
+
 test('toolbar: font size cluster uses icon-only decrease / increase', () => {
   const src = fs.readFileSync(path.join(root, 'src', 'components', 'Toolbar.jsx'), 'utf8');
   assert.match(src, /fontDecrease/);

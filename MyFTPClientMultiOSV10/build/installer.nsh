@@ -1,9 +1,11 @@
 ; Custom NSIS script for My FTP Client
 ;
+;  • an existing installation is detected first; the user is asked whether
+;    to remove it and install fresh ([Yes]) or to cancel the setup ([No])
 ;  • a page letting the user choose Desktop / Start Menu shortcuts
 ;    (Korean when the installer runs in Korean, English otherwise)
-;  • a clean reinstall: electron-builder runs the previous version's
-;    uninstaller first, and this script sweeps whatever it left behind
+;  • a clean reinstall: the previous uninstaller is run when the user agrees,
+;    and this script sweeps whatever it left behind
 ;  • asks before deleting the data (session, settings) an earlier
 ;    installation left behind — silent installs keep it
 ;
@@ -18,20 +20,61 @@ Var StartMenuShortcutCheckbox
 Var DoCreateDesktopShortcut
 Var DoCreateStartMenuShortcut
 Var PrevInstallDir
+Var PrevUninstaller
 
 !macro customInit
   StrCpy $DoCreateDesktopShortcut "1"
   StrCpy $DoCreateStartMenuShortcut "1"
 
+  ; ── Is My FTP Client already installed? ─────────────────
   StrCpy $PrevInstallDir ""
+  StrCpy $PrevUninstaller ""
   ReadRegStr $0 HKCU "${UNINSTALL_REGISTRY_KEY}" "InstallLocation"
-  ${If} $0 != ""
-    StrCpy $PrevInstallDir $0
-  ${Else}
+  ReadRegStr $1 HKCU "${UNINSTALL_REGISTRY_KEY}" "UninstallString"
+  ${If} $1 == ""
     ReadRegStr $0 HKLM "${UNINSTALL_REGISTRY_KEY}" "InstallLocation"
-    ${If} $0 != ""
-      StrCpy $PrevInstallDir $0
+    ReadRegStr $1 HKLM "${UNINSTALL_REGISTRY_KEY}" "UninstallString"
+  ${EndIf}
+  ${If} $1 == ""
+  ${AndIf} $0 != ""
+  ${AndIf} ${FileExists} "$0\${APP_EXECUTABLE_FILENAME}"
+    StrCpy $1 "$0\${UNINSTALL_FILENAME}"
+  ${EndIf}
+  ${If} $1 != ""
+    StrCpy $PrevInstallDir $0
+    StrCpy $PrevUninstaller $1
+    ${If} $0 == ""
+      ${If} $LANGUAGE == 1042
+        StrCpy $0 "(알 수 없음)"
+      ${Else}
+        StrCpy $0 "(unknown)"
+      ${EndIf}
     ${EndIf}
+    ${If} $LANGUAGE == 1042
+      StrCpy $2 "${PRODUCT_NAME} 이(가) 이미 설치되어 있습니다.$\r$\n$\r$\n설치 위치: $0$\r$\n$\r$\n기존 설치를 삭제한 뒤 새로 설치할까요?$\r$\n[예] 기존 버전 삭제 후 설치     [아니요] 설치 취소"
+    ${Else}
+      StrCpy $2 "${PRODUCT_NAME} is already installed.$\r$\n$\r$\nLocation: $0$\r$\n$\r$\nRemove the existing installation and install this version?$\r$\n[Yes] remove and install     [No] cancel the setup"
+    ${EndIf}
+    MessageBox MB_YESNO|MB_ICONQUESTION "$2" /SD IDYES IDYES MfcRemovePrevious
+    Abort
+    MfcRemovePrevious:
+      ; Close a running instance so files can be removed.
+      nsExec::ExecToLog 'taskkill /F /IM "${APP_EXECUTABLE_FILENAME}" /T'
+      Sleep 800
+      ; --updated keeps session/settings; the later data prompt still asks.
+      ; _?= makes the NSIS uninstaller run in-place so ExecWait actually waits.
+      ${If} $PrevInstallDir != ""
+      ${AndIf} ${FileExists} "$PrevInstallDir\${UNINSTALL_FILENAME}"
+        ExecWait '"$PrevInstallDir\${UNINSTALL_FILENAME}" /S --updated _?=$PrevInstallDir'
+      ${ElseIf} $PrevUninstaller != ""
+        ExecWait '$PrevUninstaller /S --updated'
+      ${EndIf}
+      ${If} $PrevInstallDir != ""
+      ${AndIf} $PrevInstallDir != "(unknown)"
+        RMDir /r "$PrevInstallDir"
+      ${EndIf}
+      DeleteRegKey HKCU "${UNINSTALL_REGISTRY_KEY}"
+      DeleteRegKey HKLM "${UNINSTALL_REGISTRY_KEY}"
   ${EndIf}
 !macroend
 
@@ -54,7 +97,7 @@ Function ShortcutsPageCreate
     Pop $DesktopShortcutCheckbox
     ${NSD_CreateCheckbox} 0 52u 100% 12u "시작 메뉴에 바로가기 만들기"
     Pop $StartMenuShortcutCheckbox
-    ${NSD_CreateLabel} 0 76u 100% 40u "My FTP Client 는 FTP · FTPS · SFTP 서버에 접속해 파일을 올리고 내려받는 클라이언트입니다. 서버 목록과 로컬 폴더 트리, 전송 진행률, 접속 프로파일을 지원합니다.$\r$\n이미 설치된 My FTP Client 가 있으면 완전히 삭제한 뒤 다시 설치합니다."
+    ${NSD_CreateLabel} 0 76u 100% 40u "My FTP Client 는 FTP · FTPS · SFTP 서버에 접속해 파일을 올리고 내려받는 클라이언트입니다. 서버 목록과 로컬 폴더 트리, 전송 진행률, 접속 프로파일을 지원합니다."
     Pop $0
   ${Else}
     ${NSD_CreateLabel} 0 0u 100% 24u "Choose the shortcuts to create after installation."
@@ -63,7 +106,7 @@ Function ShortcutsPageCreate
     Pop $DesktopShortcutCheckbox
     ${NSD_CreateCheckbox} 0 52u 100% 12u "Create Start Menu shortcut"
     Pop $StartMenuShortcutCheckbox
-    ${NSD_CreateLabel} 0 76u 100% 40u "My FTP Client connects to FTP, FTPS and SFTP servers to upload and download files: server listing, local folder tree, transfer progress and connection profiles.$\r$\nAn existing installation is removed completely before the new one is installed."
+    ${NSD_CreateLabel} 0 76u 100% 40u "My FTP Client connects to FTP, FTPS and SFTP servers to upload and download files: server listing, local folder tree, transfer progress and connection profiles."
     Pop $0
   ${EndIf}
 

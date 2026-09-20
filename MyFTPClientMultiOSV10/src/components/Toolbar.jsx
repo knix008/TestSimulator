@@ -49,6 +49,7 @@ export function Toolbar({ onAction, theme, connection, profiles, profileName, on
   const onDouble = (e) => { if (isElectron && !e.target.closest('button, select, input, .tb-profile')) windowControl('maximize'); };
   return (
     <div className="toolbar" onDoubleClick={onDouble}>
+      <div className="tb-main">
       <img src="./icon.svg" alt="" width={20} height={20} className="tb-logo" />
       <span className="tb-title">{t('appName')}</span>
       {connection && (
@@ -83,7 +84,7 @@ export function Toolbar({ onAction, theme, connection, profiles, profileName, on
       </span>
       <span className="tb-split">
         <button className="tb-btn tb-split-main" title={t('tip_next_theme', { theme: themeLabel(nextThemeId(theme)) })} onClick={() => onAction('nextTheme')}>
-          <Icon name="palette" /><span>{themeLabel(theme)}</span>
+          <Icon name="palette" /><span className="tb-theme-label">{themeLabel(theme)}</span>
         </button>
         <button className="tb-btn tb-split-caret" title={t('tip_theme')} aria-label={t('tip_theme')} onClick={(e) => setThemeMenu(themeMenu ? null : e.currentTarget)}>
           <Icon name="chevronDown" size={14} />
@@ -99,6 +100,7 @@ export function Toolbar({ onAction, theme, connection, profiles, profileName, on
       <button className="tb-btn" title={t('tip_about')} onClick={() => onAction('about')}>
         <Icon name="info" /><span>{t('menu_info')}</span>
       </button>
+      </div>
       {isElectron && <><span className="tb-sep" /><WindowButtons /></>}
       {themeMenu && (
         <ContextMenu anchorEl={themeMenu} x={0} y={0} items={themeItems} onClose={() => setThemeMenu(null)}

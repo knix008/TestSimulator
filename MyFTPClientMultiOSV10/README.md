@@ -43,6 +43,7 @@ npm run build:linux   # Linux    → .AppImage + .deb                        ※
 ```
 
 아이콘(`build/icons/`)은 `assets/icon.svg` 에서 자동 생성되며, 결과물은 `release/` 와 프로젝트 루트에 복사됩니다.
+Windows 설치 파일은 이미 설치된 프로그램이 있으면 삭제 후 설치할지 묻습니다.
 `npm run clean` 으로 빌드 산출물을, `npm run clean:all` 로 `node_modules` 까지 지웁니다.
 
 ## 테스트

@@ -16,6 +16,11 @@ const { createApi } = require('../core/api');
 const isDev = !app.isPackaged && process.env.ELECTRON_DEV === '1';
 const DEV_URL = 'http://localhost:5187';
 const PRODUCT = 'My FTP Client';
+// Tight enough to shrink, wide enough that every toolbar / title-bar
+// control stays on one row (theme name may ellipsis; the connection
+// badge is the only item that shrinks).
+const MIN_WINDOW_WIDTH = 1200;
+const MIN_WINDOW_HEIGHT = 720;
 
 app.commandLine.appendSwitch('disable-features', 'Autofill');
 // A separate profile for tests / parallel runs (settings + instance lock).
@@ -49,14 +54,13 @@ function createWindow() {
   const session = api.session.get();
   const saved = session.windowBounds || null;
   const win = new BrowserWindow({
-    width: saved && saved.width ? saved.width : 1120,
-    height: saved && saved.height ? saved.height : 760,
+    width: Math.max(MIN_WINDOW_WIDTH, (saved && saved.width) || MIN_WINDOW_WIDTH),
+    height: Math.max(MIN_WINDOW_HEIGHT, (saved && saved.height) || MIN_WINDOW_HEIGHT),
     x: saved && Number.isFinite(saved.x) ? saved.x : undefined,
     y: saved && Number.isFinite(saved.y) ? saved.y : undefined,
-    // The default size is also the minimum: every toolbar item and button
-    // stays visible at any allowed size.
-    minWidth: 1120,
-    minHeight: 760,
+    // Every toolbar control (including min / max / close) stays visible.
+    minWidth: MIN_WINDOW_WIDTH,
+    minHeight: MIN_WINDOW_HEIGHT,
     backgroundColor: session.themeBg || '#12161c',
     // No native title bar: the toolbar carries the window buttons and is the
     // drag region (see src/components/Toolbar.jsx).

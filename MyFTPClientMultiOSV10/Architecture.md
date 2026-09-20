@@ -77,7 +77,7 @@ Electron 을 전혀 참조하지 않으므로 Electron 메인 프로세스와 �
 |------|------|
 | `App.jsx` | 상태·액션의 중심. 연결/해제, 전송, 프로파일, 설정/테마/언어, 터미널 글꼴 스테퍼. `window.__mfc` 자동화 훅 |
 | `DialogWindow.jsx` | `#dialog=<name>` 해시에서 같은 대화상자 컴포넌트를 분리 창에 그림. 설정은 창을 채우고, 나머지는 `dialogSetSize` 로 맞춤 |
-| `components/Toolbar.jsx` | 타이틀바 대체: 프로파일 · **터미널 보기** · **글꼴 − / Npx / +** · 테마 · 언어 · 설정 · 정보 · 창 버튼. 창 최소 크기 1120×760 |
+| `components/Toolbar.jsx` | 타이틀바 대체: 프로파일 · **터미널 보기** · **글꼴 − / Npx / +** · 테마 · 언어 · 설정 · 정보 · 창 버튼(`.tb-main` 밖에 고정). 창 최소 크기 1200×720 |
 | `components/ConnectionBar.jsx` | 접속 폼 + 🕘 히스토리. Host URL 은 `parseHostInput` 이 분해 |
 | `components/StatusBar.jsx` | 상태 + 진행률 + 취소 + SizeGrip |
 | `components/RemotePanel.jsx` | 서버 평면 목록 + `[..]`, 다중 선택, 키보드 탐색 |
@@ -144,7 +144,7 @@ UI download(items)
 
 ## 6. 빌드·패키징
 - `scripts/generate-icons.mjs`: `assets/icon.svg` → `build/icons/icon.{ico,icns,png}` + Linux PNG 세트 (sharp + 자체 ICO/ICNS 인코더).
-- electron-builder: NSIS(`build/installer.nsh` — 바로가기 선택 페이지, 이전 설치 정리, 이전 데이터 삭제 여부 질문), DMG(x64+arm64), AppImage + deb(`build/linux/after-*.sh`).
+- electron-builder: NSIS(`build/installer.nsh` — 기존 설치 감지·삭제 후 설치 확인, 바로가기 선택, 이전 데이터 삭제 여부), DMG(x64+arm64), AppImage + deb(`build/linux/after-*.sh`).
 - `ssh2` 의 선택 의존성 `cpu-features` 는 네이티브 모듈이지만 없어도 순수 JS 로 동작합니다(npm 12 는 install 스크립트를 차단하므로 `allowScripts` 에 electron/sharp/esbuild 만 허용).
 - `scripts/start-electron.mjs` 는 `ELECTRON_RUN_AS_NODE` 를 지운 환경으로 Electron 을 띄웁니다.
 
