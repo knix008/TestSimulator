@@ -81,10 +81,11 @@ export function clipCanvasToSelection(source: HTMLCanvasElement, selection: Sele
   const ctx = context2d(source)
   const image = ctx.getImageData(0, 0, source.width, source.height)
   const data = image.data
+  // A partly selected pixel (a feathered edge) keeps that share of its coverage.
   for (let i = 0; i < mask.length; i += 1) {
-    if (mask[i] === 0) {
-      data[i * 4 + 3] = 0
-    }
+    const value = mask[i]
+    if (value === 255) continue
+    data[i * 4 + 3] = value === 0 ? 0 : Math.round((data[i * 4 + 3] * value) / 255)
   }
   ctx.putImageData(image, 0, 0)
   return source
@@ -271,12 +272,23 @@ export function featherSelection(selection: Selection | null, width: number, hei
     image.data[i * 4 + 3] = mask[i]
   }
   ctx.putImageData(image, 0, 0)
-  ctx.filter = `blur(${radius}px)`
-  ctx.drawImage(canvas, 0, 0)
-  const out = ctx.getImageData(0, 0, width, height).data
+  // Blurred onto a clean canvas: drawn over itself, the hard mask would stay
+  // underneath and the edge would only ever grow outward, never soften.
+  const soft = document.createElement('canvas')
+  soft.width = width
+  soft.height = height
+  const softCtx = context2d(soft)
+  softCtx.filter = `blur(${radius}px)`
+  softCtx.drawImage(canvas, 0, 0)
+  const out = softCtx.getImageData(0, 0, width, height).data
+  // The blurred coverage is the selection: partly selected along the edge,
+  // which is what a feathered fill, paste or layer mask fades through. The
+  // faint tails at both ends are snapped, so the edge does not stretch on for
+  // ever and the middle of the selection stays wholly selected.
   const next = emptyMask(width, height)
   for (let i = 0; i < next.length; i += 1) {
-    next[i] = out[i * 4 + 3] > 16 ? 255 : 0
+    const value = out[i * 4 + 3]
+    next[i] = value > 239 ? 255 : value > 16 ? value : 0
   }
   return { kind: 'mask', x: 0, y: 0, width, height, mask: next }
 }

@@ -182,6 +182,14 @@ test('an adjustment layer mask limits the adjustment to the revealed area', () =
   const out = compositeDocument(document, canvases)
   assert.deepEqual(px(out, 1, 4), [0, 255, 255, 255], 'inverted where the mask is white')
   assert.deepEqual(px(out, 6, 4), [255, 0, 0, 255], 'untouched where the mask is black')
+  // The editor's own masks are white with the value in the alpha channel, and
+  // a half-covered pixel gets half the adjustment.
+  canvases.set(`${adjust.id}:mask`, canvasFrom(8, 8, (x) => [255, 255, 255, x < 4 ? 255 : x < 6 ? 128 : 0]))
+  const soft = compositeDocument(document, canvases)
+  assert.deepEqual(px(soft, 1, 4), [0, 255, 255, 255], 'inverted where the alpha mask is full')
+  assert.deepEqual(px(soft, 7, 4), [255, 0, 0, 255], 'untouched where it is clear')
+  const half = px(soft, 4, 4)
+  assert.ok(half[0] > 100 && half[0] < 160 && half[1] > 100 && half[1] < 160, `half way where the mask is half, got [${half}]`)
 })
 
 test('a solid fill layer paints its colour across the document', () => {

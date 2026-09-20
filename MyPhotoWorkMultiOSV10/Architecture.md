@@ -340,9 +340,17 @@ generated `build/icon.ico`.
 composite → export → transparency → 3D/warp/carve/GIF/16-bit/pattern → print
 pipeline, asserting as it goes, and leaves what it produced in `out/`:
 `index.html` as a gallery, `report.md` as the written record and
-`verify-images.log` as the transcript. The directory is rebuilt each run and is
-committed, because an assertion that passed is not the same as a result somebody
-has looked at — and looking at them is how the seam-carving bug below was found.
+`verify-images.log` as the transcript. `npm run verify:features` then runs the
+rest of the editor — every tool and pixel/document command in the catalog,
+through the engine functions the menus call — over working copies of the same
+photos (`--full` for full size), asserting that each one runs, keeps the
+picture's size, changes it when it should and stays inside a selection, and
+leaves a picture per result in `out/features/` with `features.html`,
+`features.md` (a coverage table over every command and tool) and
+`verify-features.log`. The directory is rebuilt each run and ignored by git;
+the pictures are there to be looked at, because an assertion that passed is not
+the same as a result somebody has looked at — the seam-carving bug below and
+the clone stamp's mirrored sample were both found that way.
 
 ### Content-Aware Scale
 

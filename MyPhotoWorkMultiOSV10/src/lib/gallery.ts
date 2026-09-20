@@ -66,7 +66,7 @@ export function applyGalleryFilter(canvas: HTMLCanvasElement, id: string, settin
     case 'wave': return wave(canvas, radius, canvas.height / 6, selection)
     case 'spherize': return spherize(canvas, amount, selection)
     case 'pinch': return pinch(canvas, amount, selection)
-    case 'skinSmooth': return skinSmooth(canvas, Math.max(1, radius / 2))
+    case 'skinSmooth': return skinSmooth(canvas, Math.max(1, radius / 2), selection)
     default: {
       const extra = extraFilters[id]
       if (!extra) return undefined

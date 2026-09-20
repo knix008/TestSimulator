@@ -164,12 +164,16 @@ test('invertSelection swaps inside and outside, and selects everything when noth
   assert.equal(countMask(twice.mask), 16, 'inverting twice restores the original area')
 })
 
-test('featherSelection grows a hard-edged mask outward', () => {
-  const feathered = featherSelection(rectSelection(8, 8, 8, 8), 32, 32, 4)
+test('featherSelection softens the edge: full in the middle, partial around it, spreading outward', () => {
+  const feathered = featherSelection(rectSelection(8, 8, 16, 16), 32, 32, 3)
   assert.equal(feathered.kind, 'mask')
   const area = countMask(feathered.mask)
-  assert.ok(area > 64, `feathering should spread past the original 64px (got ${area})`)
-  assert.equal(feathered.mask[11 * 32 + 11], 255, 'the core stays selected')
+  assert.ok(area > 256, `feathering should spread past the original 256px (got ${area})`)
+  assert.equal(feathered.mask[16 * 32 + 16], 255, 'the core stays fully selected')
+  const edge = feathered.mask[16 * 32 + 8]
+  assert.ok(edge > 0 && edge < 255, `the old edge is partly selected, got ${edge}`)
+  const outside = feathered.mask[16 * 32 + 6]
+  assert.ok(outside > 0 && outside < edge, `just outside is fainter still, got ${outside}`)
 })
 
 test('featherSelection on an empty selection returns the full-canvas rect', () => {

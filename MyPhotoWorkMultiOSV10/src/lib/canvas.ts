@@ -277,13 +277,16 @@ export function compositeDocument(document: PhotoDocument, canvases: Map<string,
       const mask = layer.maskEnabled ? canvases.get(`${layer.id}:mask`) : null
       const clip = layer.clipped ? clipBase : null
       if (mask || clip) {
-        // How much of the adjustment reaches each pixel: the mask's brightness
-        // and, for a clipped layer, the base layer's own coverage.
+        // How much of the adjustment reaches each pixel: the mask's coverage
+        // and, for a clipped layer, the base layer's own coverage. A mask made
+        // by the editor is white with its alpha as the value (the way raster
+        // layers are cut by it); one read from a file may be opaque grey. The
+        // product of the two reads either, and a soft edge stays soft.
         const maskData = mask ? context2d(mask).getImageData(0, 0, document.width, document.height).data : null
         const clipData = clip ? context2d(clip).getImageData(0, 0, document.width, document.height).data : null
         const current = ctx.getImageData(0, 0, document.width, document.height)
         for (let i = 0; i < image.data.length; i += 4) {
-          const m = (maskData ? maskData[i] / 255 : 1) * (clipData ? clipData[i + 3] / 255 : 1)
+          const m = (maskData ? (maskData[i] * maskData[i + 3]) / 65025 : 1) * (clipData ? clipData[i + 3] / 255 : 1)
           image.data[i] = current.data[i] * (1 - m) + image.data[i] * m
           image.data[i + 1] = current.data[i + 1] * (1 - m) + image.data[i + 1] * m
           image.data[i + 2] = current.data[i + 2] * (1 - m) + image.data[i + 2] * m

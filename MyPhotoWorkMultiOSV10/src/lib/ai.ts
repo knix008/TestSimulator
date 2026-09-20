@@ -184,6 +184,6 @@ export function liquify(canvas: HTMLCanvasElement, from: Point, to: Point, size:
   ctx.putImageData(out, 0, 0)
 }
 
-export function skinSmooth(canvas: HTMLCanvasElement, radius = 3) {
-  gaussianBlur(canvas, radius, null)
+export function skinSmooth(canvas: HTMLCanvasElement, radius = 3, selection: Selection | null = null) {
+  gaussianBlur(canvas, radius, selection)
 }

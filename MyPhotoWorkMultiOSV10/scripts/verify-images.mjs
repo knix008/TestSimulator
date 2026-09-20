@@ -31,15 +31,21 @@ import { encodeGif } from '../src/lib/gif.ts'
 import { makePatternTile, patternFill } from '../src/lib/patterns.ts'
 import { applyColorMode } from '../src/lib/colorModes.ts'
 import { rectSelection } from '../src/lib/selection.ts'
+import { hasPsdMagic, writePsd } from '../src/lib/psd.ts'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
 const imagesDir = path.join(root, 'images')
 // `out/` beside the project, not a temp folder: the point of these files is
 // that somebody can open them later and see for themselves.
 const outDir = process.argv[2] ?? path.join(root, 'out')
-// A stale result from an earlier run would be indistinguishable from this one.
-rmSync(outDir, { recursive: true, force: true })
+// A stale result from an earlier run would be indistinguishable from this one,
+// so this run's files are cleared first. The feature run (verify-features.mjs)
+// keeps its own results in out/features and its own gallery beside this one;
+// those are left alone.
 mkdirSync(outDir, { recursive: true })
+for (const name of readdirSync(outDir, { withFileTypes: true })) {
+  if (name.isFile() && !/^(features\.(html|md)|verify-features\.log)$/.test(name.name)) rmSync(path.join(outDir, name.name), { force: true })
+}
 
 /** Everything printed, kept so the run can be read back. */
 const transcript = []
@@ -67,6 +73,7 @@ const captions = {
   warp: 'bent with the arch warp',
   carved: 'content-aware scaled to 80% width',
   '16bit': 'exported at 16 bits a channel',
+  'psd-composite': 'the merged picture read back out of the PSD',
   pattern: 'a tile cut from the middle and laid back out',
   print: 'the page handed to the printer',
   preview: 'the preview sheet the print window shows',
@@ -78,6 +85,7 @@ function save(name, data) {
   const extension = path.extname(name).slice(1).toLowerCase()
   const caption = captions[suffix] ?? (extension === 'gif'
     ? 'a two-frame animation, colour and greyscale'
+    : extension === 'psd' ? 'a layered Photoshop document: photo, folder, masked Multiply overlay'
     : `exported as ${extension.toUpperCase()}`)
   produced.push({ source: currentSource, name, caption, bytes: data.length })
 }
@@ -225,6 +233,58 @@ for (const file of files) {
 
   say(`  3D, warp, carve ${carved.width}px, GIF ${(gif.length / 1024).toFixed(0)} kB, 16-bit ${(deepTiff.length / 1024).toFixed(0)} kB, pattern ${tile.width}x${tile.height}`)
 
+  // Photoshop's own format: the photo as a layered document — the picture, a
+  // greyscale copy at half opacity in Multiply with a mask over its left half,
+  // both inside a folder — written as PSD and opened again through the same
+  // decoder File ▸ Open uses. Pixels, names, order, opacity, blend mode, the
+  // mask and the folder must all come back as they went in.
+  const folder = createLayerMeta('Photo folder', 'group')
+  const tinted = createLayerMeta('Grey overlay')
+  tinted.parentId = folder.id
+  tinted.opacity = 0.5
+  tinted.blendMode = 'multiply'
+  tinted.maskEnabled = true
+  const mask = context2d(cloneCanvas(canvas))
+  mask.clearRect(0, 0, canvas.width, canvas.height)
+  mask.fillStyle = '#ffffff'
+  mask.fillRect(0, 0, Math.floor(canvas.width / 2), canvas.height)
+  const psdComposite = compositeDocument({ ...document, layers: [folder, tinted, layer] }, new Map([[layer.id, canvas], [tinted.id, dimmed]]))
+  const psdBytes = writePsd(document, [
+    { meta: layer, canvas, mask: null },
+    { meta: folder, canvas: null, mask: null },
+    { meta: tinted, canvas: dimmed, mask: mask.canvas },
+  ], psdComposite)
+  assert.ok(hasPsdMagic(psdBytes.buffer), `${file} PSD does not start with 8BPS`)
+  save(`${document.name}.psd`, Buffer.from(psdBytes))
+  const reopened = await decodeImageSource({
+    name: `${document.name}.psd`, mime: 'image/vnd.adobe.photoshop', size: psdBytes.length,
+    dataUrl: `data:image/vnd.adobe.photoshop;base64,${Buffer.from(psdBytes).toString('base64')}`,
+  })
+  assert.equal(reopened.kind, 'psd', `${file} PSD did not open as a Photoshop document`)
+  const psd = reopened.psd
+  assert.equal(psd.width, canvas.width, `${file} PSD lost width`)
+  assert.equal(psd.height, canvas.height, `${file} PSD lost height`)
+  assert.equal(psd.colorMode, 'rgb')
+  assert.equal(psd.depth, 8)
+  assert.deepEqual(psd.layers.map((item) => item.meta.name), [file, 'Photo folder', 'Grey overlay'], `${file} PSD layers came back in a different order`)
+  const [photoLayer, folderLayer, overlayLayer] = psd.layers
+  assert.equal(folderLayer.meta.kind, 'group')
+  assert.equal(overlayLayer.meta.parentId, folderLayer.meta.id, `${file} PSD overlay fell out of its folder`)
+  assert.equal(Math.round(overlayLayer.meta.opacity * 100), 50, `${file} PSD opacity came back as ${overlayLayer.meta.opacity}`)
+  assert.equal(overlayLayer.meta.blendMode, 'multiply', `${file} PSD blend mode came back as ${overlayLayer.meta.blendMode}`)
+  assert.equal(overlayLayer.meta.maskEnabled, true)
+  assert.ok(overlayLayer.mask, `${file} PSD dropped the mask`)
+  assert.equal(alphaAt(overlayLayer.mask, 2, Math.round(canvas.height / 2)), 255, `${file} PSD mask no longer shows the left`)
+  assert.equal(alphaAt(overlayLayer.mask, canvas.width - 2, Math.round(canvas.height / 2)), 0, `${file} PSD mask no longer hides the right`)
+  const photoDrift = meanDifference(photoLayer.canvas, canvas)
+  const overlayDrift = meanDifference(overlayLayer.canvas, dimmed)
+  const compositeDrift = meanDifference(psd.composite, psdComposite)
+  assert.equal(photoDrift, 0, `${file} PSD photo layer pixels drifted by ${photoDrift.toFixed(2)}`)
+  assert.equal(overlayDrift, 0, `${file} PSD overlay layer pixels drifted by ${overlayDrift.toFixed(2)}`)
+  assert.equal(compositeDrift, 0, `${file} PSD composite drifted by ${compositeDrift.toFixed(2)}`)
+  save(`${document.name}-psd-composite.png`, psd.composite.toBuffer('image/png'))
+  say(`  PSD ${(psdBytes.length / 1024).toFixed(0)} kB: ${psd.layers.length} layers back, ${psd.colorMode} ${psd.depth}-bit, pixel drift photo ${photoDrift} overlay ${overlayDrift} composite ${compositeDrift}`)
+
   // Print: the preview the dialog shows, then the page the printer is handed.
   const orientation = naturalOrientation(composite)
   const preview = previewSheet(composite)
@@ -262,7 +322,8 @@ writeFileSync(path.join(outDir, 'report.md'), [
   '',
   'Each source image is opened through the real decoder, composited, exported to',
   'every format both with and without a transparent background, then put through',
-  'the 3D, warp, content-aware scale, animation, 16-bit and pattern paths and',
+  'the 3D, warp, content-aware scale, animation, 16-bit, pattern and layered',
+  'PSD round-trip paths and',
   'finally the print preview and the printable page. The files below are what',
   'came out; `index.html` shows the pictures side by side.',
   '',

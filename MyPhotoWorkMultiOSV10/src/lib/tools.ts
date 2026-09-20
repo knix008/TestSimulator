@@ -164,6 +164,13 @@ export function rasterizeText(
   context2d(layer).drawImage(stroke, 0, 0)
 }
 
+/**
+ * One clone-stamp dab. `source` is the Alt-clicked sample point and `origin`
+ * where the stroke began, so the pixel under the brush at `to` is taken from
+ * `source + (to - origin)`: the sample keeps the same offset all along the
+ * stroke (aligned cloning); passing `to` as the origin samples from `source`
+ * itself on every dab.
+ */
 export function cloneStamp(
   layer: HTMLCanvasElement,
   from: Point,
@@ -177,13 +184,21 @@ export function cloneStamp(
   const offsetY = origin.y - source.y
   const stroke = createCanvas(layer.width, layer.height)
   const ctx = context2d(stroke)
-  const radius = size / 2
-  ctx.save()
+  // Drawing the layer shifted by the offset puts the pixel from `p - offset`
+  // under every point `p` of the brush.
+  ctx.drawImage(layer, offsetX, offsetY)
+  // The dab covers the whole segment from the last event, so a fast drag
+  // leaves a line rather than a row of dots: a round-capped stroke from one
+  // point to the other, which is a single disc when they coincide.
+  ctx.globalCompositeOperation = 'destination-in'
+  ctx.lineWidth = size
+  ctx.lineCap = 'round'
+  ctx.strokeStyle = '#ffffff'
   ctx.beginPath()
-  ctx.arc(to.x, to.y, radius, 0, Math.PI * 2)
-  ctx.clip()
-  ctx.drawImage(layer, -(to.x - from.x) - offsetX, -(to.y - from.y) - offsetY)
-  ctx.restore()
+  ctx.moveTo(from.x, from.y)
+  ctx.lineTo(to.x + (from.x === to.x && from.y === to.y ? 0.01 : 0), to.y)
+  ctx.stroke()
+  ctx.globalCompositeOperation = 'source-over'
   clipCanvasToSelection(stroke, selection)
   context2d(layer).drawImage(stroke, 0, 0)
 }

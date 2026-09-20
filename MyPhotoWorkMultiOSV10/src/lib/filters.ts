@@ -1,6 +1,6 @@
 import { clamp, hslToRgb, rgbToHsl } from './color'
 import { context2d, createCanvas } from './canvas'
-import { pointInSelection } from './selection'
+import { pointInSelection, selectionToMask } from './selection'
 import type { Selection } from './types'
 
 type PixelFn = (r: number, g: number, b: number, a: number, x: number, y: number) => [number, number, number, number]
@@ -335,7 +335,11 @@ export function highPass(canvas: HTMLCanvasElement, radius: number, selection: S
   const original = ctx.getImageData(0, 0, canvas.width, canvas.height)
   gaussianBlur(canvas, radius, selection)
   const blurred = ctx.getImageData(0, 0, canvas.width, canvas.height)
+  // Outside the selection the blur left the pixels alone, and the subtraction
+  // would turn every one of them flat grey; only the selected pixels change.
+  const mask = selectionToMask(selection, canvas.width, canvas.height)
   for (let i = 0; i < original.data.length; i += 4) {
+    if (mask && !mask[i >> 2]) continue
     original.data[i] = clamp(original.data[i] - blurred.data[i] + 128, 0, 255)
     original.data[i + 1] = clamp(original.data[i + 1] - blurred.data[i + 1] + 128, 0, 255)
     original.data[i + 2] = clamp(original.data[i + 2] - blurred.data[i + 2] + 128, 0, 255)

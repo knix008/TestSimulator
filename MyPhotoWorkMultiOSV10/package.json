@@ -27,7 +27,8 @@
     "test": "node --test --import ./test/helpers/setup.mjs test/*.test.mjs",
     "verify:images": "node --import ./test/helpers/setup.mjs scripts/verify-images.mjs",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "verify:features": "node --import ./test/helpers/setup.mjs scripts/verify-features.mjs"
   },
   "build": {
     "appId": "com.shkwon.myphotoworkmultios",

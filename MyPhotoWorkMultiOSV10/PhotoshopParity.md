@@ -1,8 +1,9 @@
 # Photoshop 기능 대비 상태
 
-- 대상: My Photo Work V1.0, 2026-09-19 기준 (구현 작업 후)
+- 대상: My Photo Work V1.0, 2026-09-20 기준 (실사진 검증 후)
 - 기준: Adobe Photoshop (2024/2025) 툴바 도구 전체 + File/Edit/Image/Layer/Type/Select/Filter/3D/View/Window 메뉴 명령
-- 검증: `npm test` 649개 통과, `npm run lint`·`tsc -b` 오류 없음, `npm run verify:images` 통과, Electron 앱을 CDP로 구동해 **모든 메뉴 명령(230여 개)과 36개 대화상자 응답을 실행 — 렌더러 오류·오류 창 0건**
+- 검증: `npm test` 657개 통과, `npm run lint`·`tsc -b` 오류 없음, `npm run verify:images` 통과, Electron 앱을 CDP로 구동해 **모든 메뉴 명령(230여 개)과 36개 대화상자 응답을 실행 — 렌더러 오류·오류 창 0건**
+- 실사진 검증: `npm run verify:features` — `images/` 의 사진 5장(JPEG 3, HEIC, DICOM)에 **기능 항목 288개 × 5장 = 1,440회** 실행, 전부 통과. 카탈로그의 도구 66개·메뉴 명령 410개 중 **429개를 픽셀 결과로 확인**, 47개는 창/보기 전용(§8), 미확인 0. 결과 그림은 `out/features/`, 갤러리 `out/features.html`, 항목별 커버리지 표 `out/features.md`.
 
 ## 판정 기호
 
@@ -107,7 +108,27 @@ OpenCV(`@techstark/opencv-js`, 13 MB)는 별도 청크로 첫 사용 시 로드�
 - 3D Material Eyedropper / Material Drop 도구, Triangle 도구(사용자 정의 모양의 삼각형으로 대체).
 - 텍스트 프롬프트로 새 내용을 만드는 생성형 모델(Stable Diffusion 급) — Generative Fill/Expand는 인페인팅(LaMa)까지.
 
-## 7. 참고
+## 7. 실사진 검증에서 찾아 고친 결함 (2026-09-20)
+
+단위 테스트는 합성 캔버스로 통과했지만, 실제 사진에 돌려 결과를 보니 드러난 것들입니다.
+
+| 기능 | 증상 | 원인 → 수정 |
+|---|---|---|
+| Clone Stamp | Alt 로 찍은 지점이 아니라 **거울상 지점**(2×클릭점 − 원본점)에서 복제, 첫 dab 는 화면 밖을 가리켜 아무것도 안 그려짐; 드래그 중 원본 오프셋이 이동량만큼 한 번 더 밀림 | `cloneStamp` 가 원본 오프셋을 반대 부호로, 여기에 획 이동량까지 더해 그림 → 오프셋 부호를 바로잡고 이동량 항 제거. 두 이벤트 사이 구간을 둥근 끝 선으로 덮어 빠른 드래그에도 점선이 아닌 선이 남음 |
+| Healing Brush | 같은 거울상 지점에서 질감을 가져옴 (색·밝기는 대상에서 가져오므로 겉보기엔 "뭔가 되는" 것처럼 보였음) | `healingBrushDab` 의 같은 부호 오류 수정 |
+| Filter › Other › High Pass | 선택 영역이 있으면 **바깥 전체가 회색(128)** 으로 바뀜 | 흐림은 선택 안에서만 했지만 뺄셈은 전체에 수행 → 선택 마스크 안에서만 씀 |
+| Neural Filters › 피부 매끄럽게 | 선택 영역 무시 | `skinSmooth` 에 선택 인자 추가, 갤러리·뉴럴 창 모두 전달 |
+| 조정 레이어 마스크 | 부드러운(페더·브러시) 마스크가 **딱딱하게** 적용됨 | 마스크는 흰색+알파로 저장되는데 합성기가 R 채널을 읽음 → 알파×밝기로 읽어 편집기 마스크와 파일에서 온 회색 마스크 모두 처리 |
+| Select › Modify › Feather | 가장자리가 부드러워지지 않고 **바깥으로 넓어지기만** 함 (하늘 대체의 "페이드", 페더 후 붙여넣기·채우기·마스크가 전부 딱딱했음) | 흐린 마스크를 원본 위에 덧그려 안쪽이 항상 255 였고, 결과를 다시 0/255 로 이진화 → 새 캔버스에 흐리고 값을 유지; `clipCanvasToSelection` 이 부분 선택 픽셀의 알파를 비례해 줄임 |
+
+이 밖에 실사진에서 확인된 한계(결함 아님): Grow 는 이웃 픽셀끼리 비교하며 번져 그라디언트를 타고 멀리 가고, Similar 는 32³ 색 버킷이라 두 결과가 서로를 포함하지 않음; 철자 검사는 반복 글자·모음 없음·과도한 길이만 잡는 휴리스틱; Object Selection 의 OpenCV 없는 대체(k-means)는 상자 테두리와 안쪽이 비슷하면(CT 슬라이스) 아무것도 고르지 못함.
+
+## 8. 픽셀로 판정할 수 없어 CDP 메뉴 실행으로만 확인한 명령 (47)
+
+File › Open Recent·Close·Close All·Print·Print One·Exit, Edit › Purge·Color Settings·Keyboard Shortcuts·Neural Models·Preferences, Type › Enter·Match Font, View › 확대/축소 7종·회전·초기화·격자·눈금자·안내선·스냅 등 15종(안내선은 프로젝트 파일에 저장되는 것까지 확인), Window › Color·Swatches·Comps·Measurement Log·Notes·Guide·작업 영역 저장/초기화, 도구 › Hand·Rotate View·Zoom. 목록과 이유는 `out/features.md` §3.
+
+## 9. 참고
 
 - 새 모듈: `src/lib/brushes.ts`, `segment.ts`, `moreFilters.ts`, `adjustExtra.ts`, `gradients.ts`, `documentOps.ts`, `psd.ts`, `cv.ts`, `inpaint.ts`, `neural.ts`, `models.ts`, `ort.ts`, `src/dialogsExtra.tsx`, `src/panels.tsx`, `src/MenuTree.tsx`, `src/usePreview.ts`, `src/adjustmentFields.ts`, `src/i18nExtra.ts`.
 - 새 테스트: `test/parity.test.mjs`, `test/psd.test.mjs`, `test/documentOps.test.mjs`, `test/cv.test.mjs`, `test/neural.test.mjs`.
+- 실사진 검증: `scripts/verify-features.mjs` (`npm run verify:features`, `--full` 로 원본 크기), 파이프라인 검증 `scripts/verify-images.mjs` 와 함께 `out/` 에 결과를 남김 (git 제외).

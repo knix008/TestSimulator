@@ -567,17 +567,22 @@ test('the zoom percentage sits between the two zoom buttons', () => {
 test('the real-image run leaves its results in out/', () => {
   const verify = read('scripts/verify-images.mjs')
   assert.match(verify, /path\.join\(root, 'out'\)/, 'the results are not written beside the project')
-  assert.match(verify, /rmSync\(outDir/, 'a stale result from an earlier run would be left behind')
+  assert.match(verify, /rmSync\(path\.join\(outDir, name\.name\)/, 'a stale result from an earlier run would be left behind')
+  assert.ok(!verify.includes('rmSync(outDir'), 'the pipeline run would wipe the feature run\'s results too')
   for (const artifact of ['index.html', 'report.md', 'verify-images.log']) {
     assert.ok(verify.includes(`'${artifact}'`), `the run leaves no ${artifact}`)
   }
   assert.match(verify, /function save\(name, data\)/, 'the artifacts are not recorded as they are written')
-  // The results are kept rather than ignored: an assertion that passed is not
-  // the same as a result somebody has looked at. The repository root ignores
-  // `[Oo]ut/` for everything under it, so both lines are needed — a directory
-  // that is excluded cannot have its contents re-included one at a time.
+  // The results are looked at locally and rebuilt on every run, so they stay
+  // out of the repository: the directory is ignored, and the feature run
+  // writes its own gallery beside the pipeline one.
   const ignore = read('.gitignore')
-  assert.ok(!/^out$/m.test(ignore), 'the run output is ignored again, so nobody can look at it')
-  assert.match(ignore, /^!out\/$/m, 'the out directory itself is still excluded by the repository root')
-  assert.match(ignore, /^!out\/\*\*$/m, 'the files inside out/ are still excluded')
+  assert.match(ignore, /^out\/$/m, 'the run output is no longer ignored')
+  assert.ok(!/^!out\//m.test(ignore), 'the run output is re-included')
+  const features = read('scripts/verify-features.mjs')
+  assert.match(features, /path\.join\(outDir, 'features'\)/, 'the feature run does not write into out/features')
+  for (const artifact of ['features.html', 'features.md', 'verify-features.log']) {
+    assert.ok(features.includes(`'${artifact}'`), `the feature run leaves no ${artifact}`)
+  }
+  assert.equal(JSON.parse(read('package.json')).scripts['verify:features'], 'node --import ./test/helpers/setup.mjs scripts/verify-features.mjs')
 })

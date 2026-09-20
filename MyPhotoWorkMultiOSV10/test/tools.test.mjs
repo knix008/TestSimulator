@@ -170,12 +170,21 @@ test('text is clipped to the selection', () => {
   assert.equal(outside, 0, 'no glyph pixels escaped the selection')
 })
 
-test('the clone stamp copies pixels from the sampled offset', () => {
-  // Left half red, right half blue; cloning from the red side onto the blue side.
+test('the clone stamp copies pixels from the Alt-clicked source, keeping the offset along the stroke', () => {
+  // Left half red, right half blue; Alt-clicked on the red side at (10, 20),
+  // then painting on the blue side starting at (30, 20).
   const layer = canvasFrom(40, 40, (x) => (x < 20 ? [255, 0, 0] : [0, 0, 255]))
-  cloneStamp(layer, { x: 30, y: 20 }, { x: 30, y: 20 }, { x: 30, y: 20 }, { x: 10, y: 20 }, 10, null)
+  cloneStamp(layer, { x: 30, y: 20 }, { x: 30, y: 20 }, { x: 10, y: 20 }, { x: 30, y: 20 }, 10, null)
   assert.deepEqual(px(layer, 30, 20), [255, 0, 0, 255], 'red was stamped onto the blue side')
   assert.deepEqual(px(layer, 38, 20), [0, 0, 255, 255], 'outside the brush the blue remains')
+  // Dragging on to (30, 30) keeps sampling 20px to the left: (10, 30), still red.
+  cloneStamp(layer, { x: 30, y: 20 }, { x: 30, y: 30 }, { x: 10, y: 20 }, { x: 30, y: 20 }, 10, null)
+  assert.deepEqual(px(layer, 30, 30), [255, 0, 0, 255], 'the offset is kept as the stroke moves')
+  assert.deepEqual(px(layer, 30, 25), [255, 0, 0, 255], 'the band between the two events is covered too')
+  // Sampling from the blue side onto the red side works the other way round.
+  const other = canvasFrom(40, 40, (x) => (x < 20 ? [255, 0, 0] : [0, 0, 255]))
+  cloneStamp(other, { x: 10, y: 20 }, { x: 10, y: 20 }, { x: 30, y: 20 }, { x: 10, y: 20 }, 10, null)
+  assert.deepEqual(px(other, 10, 20), [0, 0, 255, 255], 'blue was stamped onto the red side')
 })
 
 test('the healing brush softens the spot it is applied to', () => {

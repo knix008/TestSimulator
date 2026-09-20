@@ -4092,7 +4092,7 @@ export default function App() {
   const neuralOperation = (kind: string, amount: number) => (canvas: HTMLCanvasElement) => {
     const k = amount / 100
     const sel = selectionRef.current
-    if (kind === 'skin') { skinSmooth(canvas, 1 + k * 5); return }
+    if (kind === 'skin') { skinSmooth(canvas, 1 + k * 5, sel); return }
     if (kind === 'colorize') {
       // Greys are read into a natural ramp: cool shadows, warm lights.
       const def = resolveGradient({ id: 'colorize', name: '', stops: [{ position: 0, color: '#1f2a44' }, { position: 0.45, color: '#8a6a4f' }, { position: 0.8, color: '#e6c9a8' }, { position: 1, color: '#fff6e5' }], opacityStops: [{ position: 0, opacity: 1 }, { position: 1, opacity: 1 }] }, '#000000', '#ffffff')

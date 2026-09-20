@@ -241,9 +241,11 @@ export function healingBrushDab(
   const offsetX = origin.x - source.x
   const offsetY = origin.y - source.y
   const mask = strokeMask(width, height, from, to, options.size, options.hardness, options.shape)
-  // The clone as it would land, then split into detail and tone.
+  // The clone as it would land — the pixel from `p - offset` under every
+  // point `p` of the brush, as the clone stamp does — then split into detail
+  // and tone.
   const clone = createCanvas(width, height)
-  context2d(clone).drawImage(layer, -offsetX, -offsetY)
+  context2d(clone).drawImage(layer, offsetX, offsetY)
   const softRadius = Math.max(2, options.size / 4)
   const cloneLow = createCanvas(width, height)
   context2d(cloneLow).drawImage(clone, 0, 0)

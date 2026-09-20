@@ -81,10 +81,25 @@ everything it produced in **`out/`**: the composites, the exports in each
 format, a transparent/opaque pair, the 3D, warp, carve, animation, 16-bit and
 pattern results, and the print preview and page. `out/index.html` shows them
 side by side, `out/report.md` lists what each file is evidence of, and
-`out/verify-images.log` is the transcript. The directory is rebuilt on every run
-and is committed: an assertion that passed is not the same as a result somebody
-has looked at, and the seam-carving bug in Content-Aware Scale was found by
-looking rather than by asserting.
+`out/verify-images.log` is the transcript.
+
+```bash
+npm run verify:features            # working copies, longest side 512px
+npm run verify:features -- --full  # the photos at full size
+```
+
+Runs the rest of the editor over the same photos: every tool and every
+Image/Edit/Layer/Type/Select/Filter/3D command that changes pixels or the
+document, through the engine functions the menus call, on each photo. It
+asserts as it goes and keeps every result as `out/features/<photo>-<feature>.png`
+(selections tinted red, paths outlined); `out/features.html` is the gallery,
+`out/features.md` the record with a coverage table for every command and tool
+in the catalog, `out/verify-features.log` the transcript.
+
+`out/` is rebuilt on every run and is not committed; open the galleries
+locally. Looking at the pictures is the point — the seam-carving bug in
+Content-Aware Scale, and the clone stamp sampling from the mirrored point, were
+found by looking rather than by asserting.
 
 ## Build
 
@@ -145,8 +160,8 @@ macOS packages should be built on macOS, and Linux packages should be built on L
 | `electron/` | The desktop shell: the main window, native file dialogs and the popup windows |
 | `scripts/` | The launchers, the packaging wrapper, the icon and build-stamp generators and the image verification run |
 | `test/` | The `node --test` suite and its DOM/canvas harness |
-| `images/` | Sample photos, including a HEIC and a DICOM slice, used by `npm run verify:images` |
-| `out/` | What that run produced, kept to be looked at: a gallery, a report and every file it wrote |
+| `images/` | Sample photos, including a HEIC and a DICOM slice, used by `npm run verify:images` and `verify:features` |
+| `out/` | What those runs produced (ignored by git): the galleries, the reports and every file they wrote |
 
 ## Program Information
 
