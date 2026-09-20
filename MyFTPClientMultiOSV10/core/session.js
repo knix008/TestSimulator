@@ -30,6 +30,11 @@ const DEFAULTS = {
   restoreLocalPath: true,
   sounds: true,
   showConnectedDialog: true,
+  // How many files to transfer at once (extra logins). 1–4.
+  transferConcurrency: 3,
+  skipUnchanged: true,
+  lastTerminalShell: '',
+  terminalStartDir: '',
   windowBounds: null,
 };
 
@@ -60,6 +65,10 @@ class Session {
     const d = { ...this.data };
     // Only restore a folder that still exists — else the home folder.
     if (!d.lastLocalPath || !isDir(d.lastLocalPath)) d.lastLocalPath = os.homedir();
+    if (d.terminalStartDir && !isDir(d.terminalStartDir)) d.terminalStartDir = '';
+    const n = Math.round(Number(d.transferConcurrency));
+    d.transferConcurrency = Number.isFinite(n) ? Math.max(1, Math.min(4, n)) : 3;
+    d.skipUnchanged = d.skipUnchanged !== false;
     return d;
   }
 

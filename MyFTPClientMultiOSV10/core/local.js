@@ -129,9 +129,9 @@ async function statPath(p) {
 async function exists(p) {
   try {
     const st = await fsp.stat(p);
-    return { exists: true, isDir: st.isDirectory(), size: st.size };
+    return { exists: true, isDir: st.isDirectory(), size: st.size, mtime: Math.floor(st.mtimeMs) };
   } catch {
-    return { exists: false, isDir: false, size: 0 };
+    return { exists: false, isDir: false, size: 0, mtime: 0 };
   }
 }
 
@@ -181,7 +181,7 @@ async function walk(dir, relBase = '') {
       dirs.push(...sub.dirs);
       files.push(...sub.files);
     } else {
-      files.push({ path: e.path, rel, size: e.size });
+      files.push({ path: e.path, rel, size: e.size, mtime: e.mtime || 0 });
     }
   }
   return { files, dirs };

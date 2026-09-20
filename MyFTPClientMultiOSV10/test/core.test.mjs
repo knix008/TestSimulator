@@ -12,6 +12,7 @@ import { startFtpServer } from './ftp-server.mjs';
 const require = createRequire(import.meta.url);
 const { createApi } = require('../core/api');
 const { Profiles, hide, reveal } = require('../core/profiles');
+const { clampConcurrency, isUnchanged } = require('../core/transfer');
 const local = require('../core/local');
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'myftp-test-'));
@@ -75,12 +76,25 @@ test('session: defaults, save, missing folder falls back to home', async () => {
   const s = await api.call('session.load');
   assert.equal(s.language, 'ko');
   assert.equal(s.lastLocalPath, os.homedir());
+  assert.equal(s.transferConcurrency, 3);
+  assert.equal(s.skipUnchanged, true);
   await api.call('session.save', { patch: { lastLocalPath: localRoot, language: 'en' } });
   const s2 = await api.call('session.load');
   assert.equal(s2.lastLocalPath, localRoot);
   assert.equal(s2.language, 'en');
   await api.call('session.save', { patch: { lastLocalPath: path.join(tmp, 'gone') } });
   assert.equal((await api.call('session.load')).lastLocalPath, os.homedir());
+});
+
+test('transfer helpers: concurrency clamp and unchanged detection', () => {
+  assert.equal(clampConcurrency(3), 3);
+  assert.equal(clampConcurrency(99), 4);
+  assert.equal(clampConcurrency(0), 1);
+  assert.equal(clampConcurrency('2'), 2);
+  assert.equal(isUnchanged({ size: 10, mtime: 1000 }, { exists: true, isDir: false, size: 10, mtime: 2000 }), true);
+  assert.equal(isUnchanged({ size: 10, mtime: 5000 }, { exists: true, isDir: false, size: 10, mtime: 2000 }), false);
+  assert.equal(isUnchanged({ size: 10, mtime: 1000 }, { exists: true, isDir: false, size: 11, mtime: 2000 }), false);
+  assert.equal(isUnchanged({ size: 10, mtime: 0 }, { exists: true, isDir: false, size: 10, mtime: 2000 }), false);
 });
 
 test('local: roots, listing order, mkdir / rename / delete', async () => {
@@ -172,8 +186,46 @@ test('ftp: conflicts — skip, overwrite (apply to all), cancel', async () => {
   assert.equal(asked, 1, 'apply-to-all answers the rest');
   assert.equal(fs.readFileSync(path.join(dest, 'root.bin')).length, 1000);
 
+  fs.writeFileSync(path.join(localRoot, 'A.txt'), 'changed-for-conflict');
   const cancel = await waitJob(await api.call('transfer.upload', { id, items: [{ path: path.join(localRoot, 'A.txt'), isDir: false }], remoteDir: '/pub' }), () => ({ answer: 'cancel' }));
   assert.equal(cancel.status, 'cancelled');
+});
+
+test('ftp: parallel upload / download of many small files', async () => {
+  const id = globalThis.__id;
+  const src = path.join(localRoot, 'many');
+  fs.mkdirSync(src);
+  const names = [];
+  for (let i = 0; i < 12; i++) {
+    const name = `n${String(i).padStart(2, '0')}.txt`;
+    names.push(name);
+    fs.writeFileSync(path.join(src, name), `payload-${i}-${'x'.repeat(200)}`);
+  }
+  const up = await waitJob(await api.call('transfer.upload', { id, items: [{ path: src, isDir: true }], remoteDir: '/pub' }));
+  assert.equal(up.status, 'done', up.error);
+  assert.equal(up.result.done, 12);
+  for (const name of names) {
+    assert.equal(fs.readFileSync(path.join(serverRoot, 'pub', 'many', name), 'utf8'), fs.readFileSync(path.join(src, name), 'utf8'));
+  }
+  const dest = path.join(localRoot, 'many-dl');
+  fs.mkdirSync(dest);
+  const down = await waitJob(await api.call('transfer.download', { id, items: [{ path: '/pub/many', isDir: true }], localDir: dest }));
+  assert.equal(down.status, 'done', down.error);
+  assert.equal(down.result.done, 12);
+  for (const name of names) {
+    assert.equal(fs.readFileSync(path.join(dest, 'many', name), 'utf8'), fs.readFileSync(path.join(src, name), 'utf8'));
+  }
+});
+
+test('ftp: second pass skips unchanged files without asking', async () => {
+  const id = globalThis.__id;
+  const dest = path.join(localRoot, 'down');
+  let asked = 0;
+  const again = await waitJob(await api.call('transfer.download', { id, items: [{ path: '/pub/tree', isDir: true }], localDir: dest }), () => { asked++; return { answer: 'overwrite' }; });
+  assert.equal(again.status, 'done', again.error);
+  assert.equal(asked, 0, 'identical files are skipped, not asked');
+  assert.equal(again.result.skipped, 3);
+  assert.equal(again.result.done, 0);
 });
 
 test('ftp: mkdir / rename / delete on the server', async () => {
@@ -183,7 +235,7 @@ test('ftp: mkdir / rename / delete on the server', async () => {
   await assert.rejects(api.call('remote.mkdir', { id, dir: '/pub', name: 'x/y' }), /Invalid name/);
   await api.call('remote.rename', { id, path: '/pub/made', newName: 'moved' });
   assert.ok(fs.existsSync(path.join(serverRoot, 'pub', 'moved')));
-  const del = await waitJob(await api.call('remote.delete', { id, items: [{ path: '/pub/tree', isDir: true }, { path: '/pub/moved', isDir: true }, { path: '/pub/A.txt', isDir: false }] }));
+  const del = await waitJob(await api.call('remote.delete', { id, items: [{ path: '/pub/tree', isDir: true }, { path: '/pub/many', isDir: true }, { path: '/pub/moved', isDir: true }, { path: '/pub/A.txt', isDir: false }] }));
   assert.equal(del.status, 'done', del.error);
   assert.ok(!fs.existsSync(path.join(serverRoot, 'pub', 'tree')));
   assert.ok(!fs.existsSync(path.join(serverRoot, 'pub', 'A.txt')));

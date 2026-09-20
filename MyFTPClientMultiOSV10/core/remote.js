@@ -18,10 +18,39 @@ const { cancelledError } = require('./jobs');
 const CONNECT_TIMEOUT_MS = 20_000;
 const SOCKET_TIMEOUT_MS = 30_000;
 
-// SFTP pipelining: 32 requests of 64 KB in flight ≈ 2 MB window — the same
-// order of magnitude as the original's 1 MB SSH.NET buffer.
-const SFTP_CHUNK = 64 * 1024;
-const SFTP_CONCURRENCY = 32;
+// Match the WinForms original (FluentFTP LocalFileBufferSize / TransferChunkSize
+// and SSH.NET BufferSize): large stream buffers, Nagle off, keep-alive.
+const FTP_STREAM_BUF = 4 * 1024 * 1024;
+const FTP_SOCKET_BUF = 256 * 1024;
+
+// SFTP pipelining: 16 requests of 256 KB in flight ≈ 4 MB window.
+const SFTP_CHUNK = 256 * 1024;
+const SFTP_CONCURRENCY = 16;
+
+function tuneSocket(sock) {
+  if (!sock || typeof sock.setNoDelay !== 'function') return;
+  try { sock.setNoDelay(true); } catch { /* ignore */ }
+  try { sock.setKeepAlive(true, 15_000); } catch { /* ignore */ }
+  try { if (typeof sock.setRecvBufferSize === 'function') sock.setRecvBufferSize(FTP_SOCKET_BUF); } catch { /* ignore */ }
+  try { if (typeof sock.setSendBufferSize === 'function') sock.setSendBufferSize(FTP_SOCKET_BUF); } catch { /* ignore */ }
+}
+
+// basic-ftp builds a new data socket per RETR/STOR; catch each assignment so
+// the data connection gets the same TCP options as the control socket.
+function watchDataSockets(ftp) {
+  if (!ftp || ftp._mfcTuned) return;
+  ftp._mfcTuned = true;
+  tuneSocket(ftp.socket);
+  let data = ftp.dataSocket;
+  try {
+    Object.defineProperty(ftp, 'dataSocket', {
+      configurable: true,
+      enumerable: true,
+      get() { return data; },
+      set(v) { data = v; tuneSocket(v); },
+    });
+  } catch { /* ignore */ }
+}
 
 function posixJoin(dir, name) {
   if (!dir || dir === '/') return `/${name}`;
@@ -98,6 +127,7 @@ class FtpClient {
       throw err;
     }
     this.client = client;
+    watchDataSockets(client.ftp);
     try { this.features = await client.features(); } catch { this.features = new Map(); }
     return { welcome: '' };
   }
@@ -128,12 +158,9 @@ class FtpClient {
       const entries = [];
       for (const f of raw) {
         if (f.name === '.' || f.name === '..') continue;
-        let isDir = f.isDirectory;
-        if (f.isSymbolicLink) {
-          // Follow the link (a CWD that succeeds means it is a directory).
-          const target = posixJoin(dir, f.name);
-          try { await this._c().cd(target); isDir = true; await this._c().cd('/'); } catch { isDir = false; }
-        }
+        // Trust MLSD/LIST type. Probing every symlink with CWD doubled listing
+        // time and reset the working directory to '/'.
+        const isDir = !!f.isDirectory;
         entries.push({
           name: f.name,
           path: posixJoin(dir, f.name),
@@ -183,13 +210,16 @@ class FtpClient {
     return this._run(async () => {
       if (signal && signal.aborted) throw cancelledError();
       const client = this._c();
+      watchDataSockets(client.ftp);
       let last = 0;
       client.trackProgress((info) => { const d = info.bytes - last; last = info.bytes; if (d > 0) onBytes(d); });
       const onAbort = () => { try { client.close(); } catch { /* ignore */ } };
       if (signal) signal.addEventListener('abort', onAbort, { once: true });
+      const out = fs.createWriteStream(localPath, { highWaterMark: FTP_STREAM_BUF });
       try {
-        await client.downloadTo(localPath, remotePath);
+        await client.downloadTo(out, remotePath);
       } catch (err) {
+        try { out.destroy(); } catch { /* ignore */ }
         if (signal && signal.aborted) { await this._reconnect().catch(() => {}); throw cancelledError(); }
         throw err;
       } finally {
@@ -203,13 +233,16 @@ class FtpClient {
     return this._run(async () => {
       if (signal && signal.aborted) throw cancelledError();
       const client = this._c();
+      watchDataSockets(client.ftp);
       let last = 0;
       client.trackProgress((info) => { const d = info.bytes - last; last = info.bytes; if (d > 0) onBytes(d); });
       const onAbort = () => { try { client.close(); } catch { /* ignore */ } };
       if (signal) signal.addEventListener('abort', onAbort, { once: true });
+      const inp = fs.createReadStream(localPath, { highWaterMark: FTP_STREAM_BUF });
       try {
-        await client.uploadFrom(localPath, remotePath);
+        await client.uploadFrom(inp, remotePath);
       } catch (err) {
+        try { inp.destroy(); } catch { /* ignore */ }
         if (signal && signal.aborted) { await this._reconnect().catch(() => {}); throw cancelledError(); }
         throw err;
       } finally {
@@ -245,6 +278,7 @@ class SftpClient {
           settled = true;
           this.conn = conn;
           this.sftp = sftp;
+          try { tuneSocket(conn._sock); } catch { /* ignore */ }
           conn.on('close', () => { this.conn = null; this.sftp = null; });
           conn.on('error', () => { /* surfaced by the failing operation */ });
           resolve({ welcome: '' });
@@ -332,6 +366,14 @@ class SftpClient {
 
   removeEmptyDir(p) { return this._call('rmdir', p); }
 
+  _bufferPool() {
+    const free = [];
+    return {
+      alloc() { return free.pop() || Buffer.allocUnsafe(SFTP_CHUNK); },
+      recycle(buf) { if (buf && free.length < SFTP_CONCURRENCY) free.push(buf); },
+    };
+  }
+
   // Pipelined read: keep SFTP_CONCURRENCY READ requests in flight, write the
   // chunks to the local file at their own offsets. Stops at the first error
   // or on abort.
@@ -341,13 +383,18 @@ class SftpClient {
     const total = st.size || 0;
     const handle = await this._call('open', remotePath, 'r');
     const fh = await fsp.open(localPath, 'w');
+    const pool = this._bufferPool();
     try {
       await this._pump(total, signal, async (position, length) => {
-        const buf = Buffer.allocUnsafe(length);
-        const n = await new Promise((resolve, reject) => sftp.read(handle, buf, 0, length, position, (err, bytesRead) => (err ? reject(err) : resolve(bytesRead))));
-        if (n > 0) await fh.write(buf, 0, n, position);
-        onBytes(n);
-        return n;
+        const buf = pool.alloc();
+        try {
+          const n = await new Promise((resolve, reject) => sftp.read(handle, buf, 0, length, position, (err, bytesRead) => (err ? reject(err) : resolve(bytesRead))));
+          if (n > 0) await fh.write(buf, 0, n, position);
+          onBytes(n);
+          return n;
+        } finally {
+          pool.recycle(buf);
+        }
       });
     } finally {
       await fh.close().catch(() => {});
@@ -361,15 +408,20 @@ class SftpClient {
     const total = st.size;
     const fh = await fsp.open(localPath, 'r');
     const handle = await this._call('open', remotePath, 'w');
+    const pool = this._bufferPool();
     try {
       await this._pump(total, signal, async (position, length) => {
-        const buf = Buffer.allocUnsafe(length);
-        const { bytesRead } = await fh.read(buf, 0, length, position);
-        if (bytesRead > 0) {
-          await new Promise((resolve, reject) => sftp.write(handle, buf, 0, bytesRead, position, (err) => (err ? reject(err) : resolve())));
+        const buf = pool.alloc();
+        try {
+          const { bytesRead } = await fh.read(buf, 0, length, position);
+          if (bytesRead > 0) {
+            await new Promise((resolve, reject) => sftp.write(handle, buf, 0, bytesRead, position, (err) => (err ? reject(err) : resolve())));
+          }
+          onBytes(bytesRead);
+          return bytesRead;
+        } finally {
+          pool.recycle(buf);
         }
-        onBytes(bytesRead);
-        return bytesRead;
       });
     } finally {
       await fh.close().catch(() => {});
@@ -433,4 +485,4 @@ function createClient(opts) {
   return protocol === 'SFTP' ? new SftpClient(o) : new FtpClient(o);
 }
 
-module.exports = { createClient, normalizeHost, FtpClient, SftpClient, posixJoin, posixParent, posixBase, CONNECT_TIMEOUT_MS };
+module.exports = { createClient, normalizeHost, FtpClient, SftpClient, posixJoin, posixParent, posixBase, CONNECT_TIMEOUT_MS, SFTP_CHUNK, SFTP_CONCURRENCY };

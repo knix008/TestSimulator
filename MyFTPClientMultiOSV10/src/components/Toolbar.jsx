@@ -1,7 +1,7 @@
 // The top bar of the frameless window — it replaces the OS title bar:
 //   left   app icon + name, the connection badge, the profile combo with
 //          저장 / 삭제 (moved here from the connection bar)
-//   right  theme picker (split button: main part cycles, caret lists all 16),
+//   right  terminal view, theme picker (split: main cycles, caret lists all 16),
 //          language toggle (the flag of the language you switch TO), Settings,
 //          Info, and — in the desktop app — minimize / maximize / close.
 // The bar is the window's drag region; every control opts out of dragging.
@@ -32,7 +32,7 @@ function WindowButtons() {
   );
 }
 
-export function Toolbar({ onAction, theme, connection, profiles, profileName, onPickProfile, onSaveProfile, onDeleteProfile, busy }) {
+export function Toolbar({ onAction, theme, connection, profiles, profileName, onPickProfile, onSaveProfile, onDeleteProfile, busy, terminalView }) {
   useLanguage();
   const [themeMenu, setThemeMenu] = useState(null);
   const lang = getLanguage();
@@ -66,6 +66,9 @@ export function Toolbar({ onAction, theme, connection, profiles, profileName, on
         <button className="tb-btn" onClick={onDeleteProfile} title={t('tip_profile_delete')} disabled={busy}><Icon name="trash" /><span>{t('profile_delete')}</span></button>
       </span>
       <span className="tb-spacer" />
+      <button className={`tb-btn${terminalView ? ' selected' : ''}`} title={t('tip_term_view')} onClick={() => onAction('terminal')} aria-pressed={!!terminalView}>
+        <Icon name="terminal" /><span>{t('term_view')}</span>
+      </button>
       <span className="tb-split">
         <button className="tb-btn tb-split-main" title={t('tip_next_theme', { theme: themeLabel(nextThemeId(theme)) })} onClick={() => onAction('nextTheme')}>
           <Icon name="palette" /><span>{themeLabel(theme)}</span>

@@ -1,16 +1,26 @@
 // In-app modal dialogs. They are stacked (a conflict question appears on top
 // of whatever is open) and promise-based: App calls e.g.
 // `await dialogs.prompt({...})` and gets the user's answer back.
-import React, { useEffect, useRef, useState } from 'react';
+// On the desktop app the same components fill a detached OS window
+// (`DialogStandalone`); the frame then skips the dimmed backdrop.
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { t, useLanguage } from '../lib/i18n';
 import { Icon } from '../components/Icons';
 import { writeClipboardText } from '../lib/backend';
 import { SettingsDialog } from './SettingsDialog';
-import { describeError } from '../lib/errors';
+import { describeError, formatErrorCopy } from '../lib/errors';
+import { detachedDialogsEnabled, openDetachedDialog } from '../lib/dialogWindows';
+
+const StandaloneCtx = createContext(false);
+export function DialogStandalone({ children }) {
+  return <StandaloneCtx.Provider value={true}>{children}</StandaloneCtx.Provider>;
+}
+export function useStandalone() { return useContext(StandaloneCtx); }
 
 // ── Frame ─────────────────────────────────────────────────
 
 export function DialogFrame({ title, children, footer, width = 440, onClose, className = '', icon }) {
+  const standalone = useStandalone();
   const ref = useRef(null);
   useEffect(() => {
     const el = ref.current;
@@ -22,17 +32,21 @@ export function DialogFrame({ title, children, footer, width = 440, onClose, cla
   const onKey = (e) => {
     if (e.key === 'Escape' && onClose) { e.stopPropagation(); onClose(); }
   };
+  const box = (
+    <div className={`dlg ${className}${standalone ? ' standalone' : ''}`} style={{ width }} ref={ref} role="dialog" aria-modal={!standalone} aria-label={title}>
+      <div className="dlg-title">
+        {icon && <Icon name={icon} />}
+        <span>{title}</span>
+        {onClose && <button className="dlg-x" onClick={onClose} title={t('close')}><Icon name="close" /></button>}
+      </div>
+      <div className="dlg-body">{children}</div>
+      {footer && <div className="dlg-footer">{footer}</div>}
+    </div>
+  );
+  if (standalone) return <div onKeyDown={onKey}>{box}</div>;
   return (
     <div className="dlg-backdrop" onMouseDown={(e) => e.stopPropagation()} onKeyDown={onKey}>
-      <div className={`dlg ${className}`} style={{ width }} ref={ref} role="dialog" aria-modal="true" aria-label={title}>
-        <div className="dlg-title">
-          {icon && <Icon name={icon} />}
-          <span>{title}</span>
-          {onClose && <button className="dlg-x" onClick={onClose} title={t('close')}><Icon name="close" /></button>}
-        </div>
-        <div className="dlg-body">{children}</div>
-        {footer && <div className="dlg-footer">{footer}</div>}
-      </div>
+      {box}
     </div>
   );
 }
@@ -86,10 +100,10 @@ function ConfirmDialog({ spec, done }) {
 function MessageDialog({ spec, done }) {
   const [copied, setCopied] = useState(false);
   const isError = (spec.kind || 'error') === 'error';
+  const fields = spec.fields || [];
   const copy = async () => {
-    const text = [spec.title || t('dlg_error'), '', spec.message, spec.detail ? `\n${t('error_details')}:\n${spec.detail}` : ''].join('\n').trim();
     try {
-      await writeClipboardText(text);
+      await writeClipboardText(formatErrorCopy(spec));
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch { /* clipboard unavailable */ }
@@ -101,12 +115,24 @@ function MessageDialog({ spec, done }) {
         <span className="spacer" />
         <button className="btn primary" onClick={() => done()} autoFocus>{t('ok')}</button>
       </>}>
-      <p className="pre selectable">{spec.message}</p>
-      {spec.detail && <>
-        <div className="muted small">{t('error_details')}</div>
-        <pre className="detail">{spec.detail}</pre>
-      </>}
-      {isError && <div className="muted small" style={{ marginTop: 8 }}>{t('error_hint')}</div>}
+      <p className="pre selectable error-summary">{spec.message}</p>
+      {fields.length > 0 && (
+        <dl className="error-fields">
+          {fields.map((f) => (
+            <div key={f.key} className="error-field">
+              <dt>{f.label}</dt>
+              <dd className="selectable">{f.value}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+      {spec.detail && (
+        <details className="error-tech">
+          <summary>{t('error_tech')}</summary>
+          <pre className="detail">{spec.detail}</pre>
+        </details>
+      )}
+      {isError && spec.detail && <div className="muted small error-hint">{t('error_hint')}</div>}
     </DialogFrame>
   );
 }
@@ -181,10 +207,11 @@ function AboutDialog({ spec, done }) {
 
 // ── Host ──
 
-const RENDERERS = {
+export const RENDERERS = {
   prompt: PromptDialog,
   confirm: ConfirmDialog,
   message: MessageDialog,
+  error: MessageDialog,
   conflict: ConflictDialog,
   profileDelete: ProfileDeleteDialog,
   about: AboutDialog,
@@ -222,19 +249,23 @@ export function useDialogs() {
     resolvers.current.delete(id);
     if (r) r(value);
   };
+  const open = (name, spec) => (detachedDialogsEnabled() ? openDetachedDialog(name, spec) : push({ type: name, ...spec }));
 
   return {
     stack,
     resolve,
-    prompt: (spec) => push({ type: 'prompt', ...spec }),
-    confirm: (spec) => push({ type: 'confirm', ...spec }),
-    message: (spec) => push({ type: 'message', ...spec }),
+    prompt: (spec) => open('prompt', spec),
+    confirm: (spec) => open('confirm', spec),
+    message: (spec) => open('message', spec),
     // error(err | message, extraDetail?, title?) — an Error's code/path/stack become the details block.
-    error: (err, detail, title) => push({ type: 'message', kind: 'error', title, ...describeError(err, detail) }),
-    conflict: (info) => push({ type: 'conflict', info }),
-    profileDelete: (profiles) => push({ type: 'profileDelete', profiles }),
-    about: (info) => push({ type: 'about', info }),
-    settings: (values) => push({ type: 'settings', values }),
+    error: (err, detail, title) => open('error', { kind: 'error', title, ...describeError(err, detail) }),
+    conflict: async (info) => {
+      const r = await open('conflict', { info });
+      return r || { answer: 'cancel', applyAll: false };
+    },
+    profileDelete: (profiles) => open('profileDelete', { profiles }),
+    about: (info) => open('about', { info, title: t('about_title') }),
+    settings: (values, extra = {}) => open('settings', { values, localDir: extra.localDir, canPickFolder: extra.canPickFolder, title: t('settings_title') }),
     get isOpen() { return stack.length > 0; },
   };
 }

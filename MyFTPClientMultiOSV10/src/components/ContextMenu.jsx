@@ -1,6 +1,8 @@
 // Positioned popup menu used for the panel context menu and the menu-bar
 // dropdowns. Closes on outside click, Escape, or when an item is picked.
+// Rendered on document.body so a dialog's overflow:hidden cannot clip it.
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Icon } from './Icons';
 
 export function ContextMenu({ x, y, items, onPick, onClose, anchorEl, className = '' }) {
@@ -27,7 +29,7 @@ export function ContextMenu({ x, y, items, onPick, onClose, anchorEl, className 
       if (anchorEl && anchorEl.contains(e.target)) return;
       onClose();
     };
-    const key = (e) => { if (e.key === 'Escape') onClose(); };
+    const key = (e) => { if (e.key === 'Escape') { e.stopPropagation(); onClose(); } };
     document.addEventListener('mousedown', down, true);
     document.addEventListener('keydown', key, true);
     window.addEventListener('blur', onClose);
@@ -38,7 +40,7 @@ export function ContextMenu({ x, y, items, onPick, onClose, anchorEl, className 
     };
   }, [onClose, anchorEl]);
 
-  return (
+  const menu = (
     <div className={`ctx-menu ${className}`} ref={ref} style={pos} role="menu" onContextMenu={(e) => e.preventDefault()}>
       {items.map((it, i) => it.sep
         ? <div className="ctx-sep" key={`sep${i}`} />
@@ -54,6 +56,7 @@ export function ContextMenu({ x, y, items, onPick, onClose, anchorEl, className 
         ))}
     </div>
   );
+  return createPortal(menu, document.body);
 }
 
 export default ContextMenu;

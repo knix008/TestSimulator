@@ -117,6 +117,25 @@ export async function writeClipboardText(text) {
   try { await navigator.clipboard.writeText(text); } catch { /* denied */ }
 }
 
+export async function readClipboardText() {
+  if (isElectron) {
+    try { const r = await call('clipboard.read'); return (r && r.text) || ''; } catch { return ''; }
+  }
+  try { return await navigator.clipboard.readText(); } catch { return ''; }
+}
+
+export const terminalsStream = !!(isElectron && electron.onTerminalData);
+
+export function onTerminalData(cb) {
+  if (!terminalsStream) return () => {};
+  return electron.onTerminalData(cb);
+}
+
+export function onTerminalExit(cb) {
+  if (!isElectron || !electron.onTerminalExit) return () => {};
+  return electron.onTerminalExit(cb);
+}
+
 // ── Window controls (desktop only; the browser has its own chrome) ──
 
 export function windowControl(action) {

@@ -20,6 +20,7 @@ const { Session } = require('./session');
 const { Profiles, PROTOCOLS } = require('./profiles');
 const { History } = require('./history');
 const { posixJoin, posixParent } = require('./remote');
+const { TerminalRegistry, MAX_SESSIONS } = require('./terminal');
 
 function createApi(host = {}) {
   const jobs = host.jobs || new JobRegistry();
@@ -30,6 +31,7 @@ function createApi(host = {}) {
   const history = new History(session.configDir);
   history.load();
   const connections = new Connections();
+  const terminals = new TerminalRegistry({ connections });
 
   function checkRemoteName(name) {
     if (!name || name.includes('/') || name === '.' || name === '..') {
@@ -51,6 +53,9 @@ function createApi(host = {}) {
         reveal: !!host.revealPath,     // "탐색기에서 열기"
         open: !!host.openPath,
         clipboard: !!host.clipboard,
+        detachedDialogs: !!host.detachedDialogs,
+        terminals: true,
+        pickFolder: !!host.pickFolder,
       },
     }),
 
@@ -73,6 +78,11 @@ function createApi(host = {}) {
       if (result) throw new Error(result);
       return { ok: true };
     },
+    'local.pickFolder': async ({ start } = {}) => {
+      if (!host.pickFolder) throw Object.assign(new Error('Not available in the web version'), { code: 'UNSUPPORTED' });
+      const picked = await host.pickFolder(start || '');
+      return { path: picked || '' };
+    },
 
     // ── remote (server) ──
     'remote.connect': async ({ protocol, host: h, port, user, password }) => {
@@ -83,7 +93,10 @@ function createApi(host = {}) {
         return info;
       }).snapshot();
     },
-    'remote.disconnect': async ({ id }) => ({ ok: await connections.disconnect(id) }),
+    'remote.disconnect': async ({ id }) => {
+      terminals.closeRemote(id);
+      return { ok: await connections.disconnect(id) };
+    },
     'remote.info': async ({ id }) => connections.info(id),
     'remote.list': async ({ id, path: p }) => {
       const dir = p || '/';
@@ -110,11 +123,23 @@ function createApi(host = {}) {
     'transfer.download': async ({ id, items, localDir }) => {
       const client = connections.get(id);
       if (!(await local.isDirectory(localDir))) throw Object.assign(new Error(`Local folder not found: ${localDir}`), { code: 'ENOENT', path: localDir });
-      return jobs.run('download', { count: (items || []).length, localDir }, (job) => transfer.download(client, items || [], localDir, job)).snapshot();
+      const s = session.get();
+      const opts = {
+        concurrency: s.transferConcurrency,
+        skipUnchanged: s.skipUnchanged,
+        acquirePool: (n, signal) => connections.acquireTransferPool(id, n, signal),
+      };
+      return jobs.run('download', { count: (items || []).length, localDir }, (job) => transfer.download(client, items || [], localDir, job, opts)).snapshot();
     },
     'transfer.upload': async ({ id, items, remoteDir }) => {
       const client = connections.get(id);
-      return jobs.run('upload', { count: (items || []).length, remoteDir }, (job) => transfer.upload(client, items || [], remoteDir || '/', job)).snapshot();
+      const s = session.get();
+      const opts = {
+        concurrency: s.transferConcurrency,
+        skipUnchanged: s.skipUnchanged,
+        acquirePool: (n, signal) => connections.acquireTransferPool(id, n, signal),
+      };
+      return jobs.run('upload', { count: (items || []).length, remoteDir }, (job) => transfer.upload(client, items || [], remoteDir || '/', job, opts)).snapshot();
     },
 
     // ── profiles ──
@@ -139,6 +164,21 @@ function createApi(host = {}) {
 
     // ── clipboard (host-provided; the browser uses navigator.clipboard) ──
     'clipboard.write': async ({ text }) => { if (host.clipboard) host.clipboard.writeText(text || ''); return { ok: true }; },
+    'clipboard.read': async () => ({ text: host.clipboard && host.clipboard.readText ? (host.clipboard.readText() || '') : '' }),
+
+    // ── terminals (local shell + SFTP SSH PTY) ──
+    'terminal.shells': async () => ({ shells: terminals.shells() }),
+    'terminal.open': async ({ kind, cwd, connId, remotePath, cols, rows, shellId }) =>
+      terminals.open({ kind, cwd, connId, remotePath, cols, rows, shellId }),
+    'terminal.write': async ({ id, data }) => terminals.write(id, data),
+    'terminal.resize': async ({ id, cols, rows }) => terminals.resize(id, cols, rows),
+    'terminal.read': async ({ id, after }) => terminals.read(id, after),
+    'terminal.close': async ({ id }) => {
+      const r = terminals.close(id);
+      if (r && r.stopping) await r.stopping;
+      return { ok: !!r.ok };
+    },
+    'terminal.list': async () => ({ sessions: terminals.list(), max: MAX_SESSIONS }),
   };
 
   async function call(name, args) {
@@ -149,10 +189,11 @@ function createApi(host = {}) {
 
   async function shutdown() {
     jobs.cancelAll();
+    await terminals.closeAll();
     await connections.closeAll();
   }
 
-  return { call, jobs, session, profiles, history, connections, shutdown, methods: Object.keys(methods) };
+  return { call, jobs, session, profiles, history, connections, terminals, shutdown, methods: Object.keys(methods) };
 }
 
 // Turns an Error into the { code, message } shape the UI shows.

@@ -56,9 +56,12 @@ export default function App() {
   const [active, setActive] = useState('local');
   const [serverWidth, setServerWidth] = useState(0.5);
   const [logHeight, setLogHeight] = useState(170);
+  const [terminalView, setTerminalView] = useState(false);
+  const [bootError, setBootError] = useState('');
   const [ctxMenu, setCtxMenu] = useState(null);
   const localTree = useRef(null);
   const filesRef = useRef(null);
+  const logPanelRef = useRef(null);
   const jobRef = useRef(null);                     // the running job id (for Cancel)
   const connRef = useRef(null);
   connRef.current = conn;
@@ -84,6 +87,7 @@ export default function App() {
       const i = await call('app.info');
       setSeparator(i.sep);
       setInfo(i);
+      window.__mfcDetachedDialogs = !!(i.capabilities && i.capabilities.detachedDialogs);
       const s = { ...SETTINGS_DEFAULTS, ...(await call('session.load')) };
       setLanguage(s.language || 'ko');
       applyFontSize(s.fontSize);
@@ -105,7 +109,11 @@ export default function App() {
       appendLog(t('ready_log'));
       // The tree is mounted by now; open the remembered folder.
       setTimeout(() => localTree.current && localTree.current.expandTo(start), 0);
-    })().catch((err) => { setStatus(errMsg(err)); appendLog(errMsg(err), 'error'); });
+    })().catch((err) => {
+      setBootError(errMsg(err));
+      setStatus(errMsg(err));
+      appendLog(errMsg(err), 'error');
+    });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { document.title = t('appName'); }, [session && session.language]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -113,7 +121,17 @@ export default function App() {
   const saveSession = useCallback((patch) => {
     setSession((s) => (s ? { ...s, ...patch } : s));
     call('session.save', { patch }).catch(() => {});
-  }, []);
+    const electron = window.myFtpClient;
+    if (electron && electron.broadcastAppearance) {
+      const next = { ...(session || {}), ...patch };
+      electron.broadcastAppearance({
+        theme: next.theme,
+        language: next.language,
+        fontSize: next.fontSize,
+        bg: next.themeBg,
+      }).catch(() => {});
+    }
+  }, [session]);
 
   // ── Profiles ──
   const loadProfile = (p, announce = true) => {
@@ -228,7 +246,7 @@ export default function App() {
     } else if (/timed out|ETIMEDOUT|Timeout/i.test(snap.error || '')) {
       setStatus(t('status_timeout'));
       appendLog(t('log_timeout'), 'error');
-      showError(t('dlg_timeout'), `${t('timeout_msg')}\n\n${snap.error}`, snap.errorDetail);
+      showError(t('dlg_timeout'), snap.error, snap.errorDetail);
     } else {
       setStatus(t('status_connect_failed'));
       appendLog(t('log_connect_failed', { msg: snap.error }), 'error');
@@ -328,7 +346,7 @@ export default function App() {
     appendLog(t('log_download_start', { src: items.map((i) => i.path).join(', '), dest: localDir }));
     let snap;
     try {
-      snap = await runTransfer('transfer.download', { id: c.id, items: items.map((i) => ({ path: i.path, isDir: i.isDir, size: i.size })), localDir }, t('verb_download'));
+      snap = await runTransfer('transfer.download', { id: c.id, items: items.map((i) => ({ path: i.path, isDir: i.isDir, size: i.size, mtime: i.mtime })), localDir }, t('verb_download'));
     } catch (err) { snap = { status: 'error', error: errMsg(err), errorDetail: err.stack || '' }; }
     if (snap.status === 'done') {
       playSuccess();
@@ -526,7 +544,13 @@ export default function App() {
     applyFontSize(v.fontSize);
     setSoundsEnabled(v.sounds !== false);
     const theme = applyTheme(v.theme);
-    saveSession({ ...v, theme: theme.id, themeBg: theme.tokens['--bg'] });
+    const localPath = String(v.lastLocalPath || '').trim();
+    saveSession({ ...v, theme: theme.id, themeBg: theme.tokens['--bg'], lastLocalPath: localPath || undefined });
+    if (localPath && localTree.current) {
+      setLocalHeadPath(localPath);
+      setLocalDir(localPath);
+      localTree.current.expandTo(localPath);
+    }
     setStatus(t('ready'));
   };
 
@@ -534,8 +558,12 @@ export default function App() {
     if (id === 'nextTheme') setTheme(nextThemeId(session ? session.theme : DEFAULT_THEME));
     else if (id.startsWith('theme:')) setTheme(id.slice(6));
     else if (id === 'toggleLanguage') { const lang = getLanguage() === 'ko' ? 'en' : 'ko'; setLanguage(lang); saveSession({ language: lang }); setStatus(t('ready')); }
-    else if (id === 'settings') { const v = await dialogs.settings(session); if (v) applySettings(v); }
+    else if (id === 'settings') { const v = await dialogs.settings(session, { localDir, canPickFolder: !!(info.capabilities && info.capabilities.pickFolder) }); if (v) applySettings(v); }
     else if (id === 'about') dialogs.about(info);
+    else if (id === 'terminal') {
+      if (terminalView) { if (logPanelRef.current && logPanelRef.current.hideTerminal) logPanelRef.current.hideTerminal(); }
+      else if (logPanelRef.current && logPanelRef.current.showTerminal) logPanelRef.current.showTerminal();
+    }
     else if (id === 'connect') connect();
     else if (id === 'disconnect') disconnect();
     else if (id === 'download') downloadSelected();
@@ -585,7 +613,7 @@ export default function App() {
     };
   });
 
-  if (!session || !info) return <div className="boot">{t('loading')}</div>;
+  if (!session || !info) return <div className="boot">{bootError || t('loading')}</div>;
 
   const canDownload = !!conn && serverSel.size > 0 && !progress;
   const canUpload = !!conn && localSelEntries.length > 0 && !progress;
@@ -593,7 +621,8 @@ export default function App() {
   return (
     <div className="app">
       <Toolbar onAction={action} theme={session.theme} connection={conn} busy={connecting}
-        profiles={profiles} profileName={profileName} onPickProfile={pickProfile} onSaveProfile={saveProfile} onDeleteProfile={deleteProfiles} />
+        profiles={profiles} profileName={profileName} onPickProfile={pickProfile} onSaveProfile={saveProfile} onDeleteProfile={deleteProfiles}
+        terminalView={terminalView} />
       <ConnectionBar form={form} onChange={setForm} connected={!!conn} connecting={connecting} onConnect={connect} onDisconnect={disconnect}
         onHistory={(el) => setHistoryMenu(historyMenu ? null : el)} />
       {historyMenu && <ContextMenu anchorEl={historyMenu} x={0} y={0} className="history" items={historyItems()} onClose={() => setHistoryMenu(null)} onPick={(id) => { setHistoryMenu(null); pickHistory(id); }} />}
@@ -610,9 +639,16 @@ export default function App() {
             active={active === 'local'} onActivate={() => setActive('local')} />
         </div>
       </div>
-      <LogPanel lines={log} height={logHeight} onResizeStart={startHSplit}
+      <LogPanel ref={logPanelRef} lines={log} height={logHeight} onResizeStart={startHSplit}
         onClear={() => setLog([])}
-        onCopy={() => { writeClipboardText(log.map((l) => `[${l.time}]  ${l.text}`).join('\n')); setStatus(t('log_copied')); }} />
+        onCopy={() => { writeClipboardText(log.map((l) => `[${l.time}]  ${l.text}`).join('\n')); setStatus(t('log_copied')); }}
+        localDir={localDir} terminalStartDir={session.terminalStartDir} connection={conn} remotePath={server.path}
+        theme={session.theme} fontSize={session.fontSize}
+        lastShell={session.lastTerminalShell}
+        onLastShell={(id) => saveSession({ lastTerminalShell: id })}
+        onEnsureHeight={(h) => setLogHeight((cur) => Math.max(cur, h))}
+        onTerminalView={setTerminalView}
+        onError={(err) => showError(t('term_failed'), err)} />
       <StatusBar status={status} progress={progress} onCancel={progress && progress.jobId ? cancelCurrent : null} />
       {ctxMenu && <ContextMenu x={ctxMenu.x} y={ctxMenu.y} items={ctxMenu.items} onClose={() => setCtxMenu(null)} onPick={(id) => { setCtxMenu(null); ctxMenu.onPick(id); }} />}
       <DialogHost stack={dialogs.stack} resolve={dialogs.resolve} />

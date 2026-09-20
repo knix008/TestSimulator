@@ -87,6 +87,13 @@ test('sftp: pipelined download and upload of large + empty files, folder trees',
   assert.equal(up.current, 3);
   assert.ok(fs.readFileSync(path.join(serverRoot, 'copy', 'big.bin')).equals(big), 'uploaded bytes identical');
   assert.equal(fs.statSync(path.join(serverRoot, 'copy', 'sub', 'empty.txt')).size, 0);
+
+  let asked = 0;
+  const again = await waitJob(await api.call('transfer.download', { id, items: [{ path: '/copy', isDir: true }], localDir: localRoot }), () => { asked++; return { answer: 'overwrite' }; });
+  assert.equal(again.status, 'done', again.error);
+  assert.equal(asked, 0, 'identical files are skipped, not asked');
+  assert.equal(again.result.skipped, 3);
+  assert.equal(again.result.done, 0);
 });
 
 test('sftp: conflict skip / overwrite, cancel mid-transfer keeps the session', async () => {

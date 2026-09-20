@@ -119,6 +119,11 @@ export const THEMES = [
 
 export const DEFAULT_THEME = 'midnight';
 
+export function themeSwatchStyle(th) {
+  const t = (th && th.tokens) || {};
+  return { background: `linear-gradient(135deg, ${t['--bg'] || '#888'} 50%, ${t['--accent'] || '#888'} 50%)` };
+}
+
 export function themeById(id) {
   return THEMES.find((th) => th.id === id) || THEMES[0];
 }

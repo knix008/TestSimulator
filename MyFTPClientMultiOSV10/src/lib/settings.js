@@ -7,4 +7,7 @@ export const SETTINGS_DEFAULTS = {
   restoreLocalPath: true,
   sounds: true,
   showConnectedDialog: true,
+  transferConcurrency: 3,
+  skipUnchanged: true,
+  terminalStartDir: '',
 };

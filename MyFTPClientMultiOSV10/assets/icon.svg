@@ -1,43 +1,164 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#1e3a8a"/>
-      <stop offset="1" stop-color="#0ea5e9"/>
+    <!-- Tile: light from upper-left, depth to lower-right -->
+    <radialGradient id="tileLit" cx="0.22" cy="0.16" r="1.05">
+      <stop offset="0" stop-color="#9be4ff"/>
+      <stop offset="0.22" stop-color="#38bdf8"/>
+      <stop offset="0.52" stop-color="#0369a1"/>
+      <stop offset="1" stop-color="#082f49"/>
+    </radialGradient>
+    <linearGradient id="tileBevel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.55"/>
+      <stop offset="0.18" stop-color="#ffffff" stop-opacity="0.18"/>
+      <stop offset="0.55" stop-color="#000000" stop-opacity="0"/>
+      <stop offset="1" stop-color="#000000" stop-opacity="0.42"/>
     </linearGradient>
-    <linearGradient id="up" x1="0" y1="1" x2="0" y2="0">
-      <stop offset="0" stop-color="#4ade80"/>
-      <stop offset="1" stop-color="#bbf7d0"/>
+    <linearGradient id="gloss" x1="0.15" y1="0" x2="0.55" y2="0.7">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.72"/>
+      <stop offset="0.28" stop-color="#ffffff" stop-opacity="0.28"/>
+      <stop offset="0.55" stop-color="#ffffff" stop-opacity="0.05"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
     </linearGradient>
-    <linearGradient id="down" x1="0" y1="0" x2="0" y2="1">
+    <linearGradient id="spec" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.95"/>
+      <stop offset="0.45" stop-color="#ffffff" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="serverFront" x1="0.2" y1="0" x2="0.9" y2="1">
+      <stop offset="0" stop-color="#334155"/>
+      <stop offset="0.4" stop-color="#1e293b"/>
+      <stop offset="1" stop-color="#0b1220"/>
+    </linearGradient>
+    <linearGradient id="serverTop" x1="0" y1="1" x2="0.3" y2="0">
+      <stop offset="0" stop-color="#475569"/>
+      <stop offset="1" stop-color="#94a3b8"/>
+    </linearGradient>
+    <linearGradient id="serverSide" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1e293b"/>
+      <stop offset="1" stop-color="#020617"/>
+    </linearGradient>
+    <linearGradient id="bay" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#64748b"/>
+      <stop offset="0.18" stop-color="#e2e8f0"/>
+      <stop offset="0.85" stop-color="#cbd5e1"/>
+      <stop offset="1" stop-color="#64748b"/>
+    </linearGradient>
+    <linearGradient id="upFace" x1="0" y1="1" x2="0.2" y2="0">
+      <stop offset="0" stop-color="#16a34a"/>
+      <stop offset="0.45" stop-color="#4ade80"/>
+      <stop offset="1" stop-color="#dcfce7"/>
+    </linearGradient>
+    <linearGradient id="downFace" x1="0" y1="0" x2="0.15" y2="1">
       <stop offset="0" stop-color="#fde68a"/>
-      <stop offset="1" stop-color="#f59e0b"/>
+      <stop offset="0.4" stop-color="#f59e0b"/>
+      <stop offset="1" stop-color="#b45309"/>
     </linearGradient>
-    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#000" flood-opacity="0.35"/>
+    <linearGradient id="ftpFace" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.35" stop-color="#f0f9ff"/>
+      <stop offset="1" stop-color="#7dd3fc"/>
+    </linearGradient>
+    <linearGradient id="ftpSide" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0369a1"/>
+      <stop offset="1" stop-color="#082f49"/>
+    </linearGradient>
+    <clipPath id="tileClip">
+      <rect x="20" y="20" width="472" height="472" rx="108"/>
+    </clipPath>
+    <filter id="float" x="-18%" y="-12%" width="136%" height="140%">
+      <feDropShadow dx="0" dy="14" stdDeviation="12" flood-color="#021018" flood-opacity="0.45"/>
+    </filter>
+    <filter id="lift" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="2" dy="6" stdDeviation="5" flood-color="#000" flood-opacity="0.4"/>
+    </filter>
+    <filter id="led" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="2.2" result="b"/>
+      <feMerge>
+        <feMergeNode in="b"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
     </filter>
   </defs>
-  <rect x="16" y="16" width="480" height="480" rx="104" fill="url(#bg)"/>
-  <rect x="16" y="16" width="480" height="480" rx="104" fill="none" stroke="#ffffff" stroke-opacity="0.18" stroke-width="6"/>
 
-  <!-- server rack (left) -->
-  <g filter="url(#shadow)">
-    <rect x="64" y="120" width="150" height="272" rx="22" fill="#0f172a" fill-opacity="0.85"/>
-    <rect x="84" y="146" width="110" height="60" rx="10" fill="#e2e8f0"/>
-    <rect x="84" y="226" width="110" height="60" rx="10" fill="#e2e8f0"/>
-    <rect x="84" y="306" width="110" height="60" rx="10" fill="#e2e8f0"/>
-    <circle cx="106" cy="176" r="9" fill="#22c55e"/>
-    <circle cx="106" cy="256" r="9" fill="#22c55e"/>
-    <circle cx="106" cy="336" r="9" fill="#f59e0b"/>
-    <rect x="126" y="170" width="52" height="12" rx="6" fill="#94a3b8"/>
-    <rect x="126" y="250" width="52" height="12" rx="6" fill="#94a3b8"/>
-    <rect x="126" y="330" width="52" height="12" rx="6" fill="#94a3b8"/>
+  <g filter="url(#float)">
+    <rect x="20" y="20" width="472" height="472" rx="108" fill="url(#tileLit)"/>
   </g>
 
-  <!-- transfer arrows (right) -->
-  <g filter="url(#shadow)">
-    <!-- upload: left → right (local to server) drawn as an up arrow -->
-    <path d="M330 118 L412 200 L366 200 L366 262 L294 262 L294 200 L248 200 Z" fill="url(#up)"/>
-    <!-- download: down arrow -->
-    <path d="M330 394 L248 312 L294 312 L294 250 L366 250 L366 312 L412 312 Z" fill="url(#down)" transform="translate(0 30)"/>
+  <g clip-path="url(#tileClip)">
+    <!-- Bevel + ambient depth -->
+    <rect x="20" y="20" width="472" height="472" rx="108" fill="url(#tileBevel)"/>
+
+    <!-- Glass sheen from the upper-left -->
+    <ellipse cx="150" cy="70" rx="300" ry="170" fill="url(#gloss)"/>
+
+    <!-- Specular catch-light along the top-left corner -->
+    <path d="M52 148 C48 86 86 42 156 36 C118 40 64 78 52 148 Z" fill="url(#spec)"/>
+    <path d="M44 118 C50 58 108 28 178 24" fill="none" stroke="#ffffff" stroke-width="10" stroke-linecap="round" stroke-opacity="0.55"/>
+    <ellipse cx="78" cy="72" rx="22" ry="10" fill="#ffffff" fill-opacity="0.7" transform="rotate(-32 78 72)"/>
+
+    <g transform="translate(0 -24)">
+    <!-- 3D server rack -->
+    <g filter="url(#lift)" transform="translate(8 4)">
+      <polygon points="218,132 240,112 240,338 218,358" fill="url(#serverSide)"/>
+      <polygon points="70,132 92,112 240,112 218,132" fill="url(#serverTop)"/>
+      <rect x="70" y="132" width="148" height="226" rx="10" fill="url(#serverFront)"/>
+      <path d="M80 132 H208" stroke="#cbd5e1" stroke-opacity="0.35" stroke-width="3"/>
+
+      <rect x="88" y="154" width="112" height="48" rx="8" fill="url(#bay)"/>
+      <rect x="88" y="220" width="112" height="48" rx="8" fill="url(#bay)"/>
+      <rect x="88" y="286" width="112" height="48" rx="8" fill="url(#bay)"/>
+      <rect x="88" y="154" width="112" height="8" rx="4" fill="#ffffff" fill-opacity="0.28"/>
+      <rect x="88" y="220" width="112" height="8" rx="4" fill="#ffffff" fill-opacity="0.28"/>
+      <rect x="88" y="286" width="112" height="8" rx="4" fill="#ffffff" fill-opacity="0.28"/>
+
+      <g filter="url(#led)">
+        <circle cx="108" cy="178" r="8" fill="#4ade80"/>
+        <circle cx="108" cy="244" r="8" fill="#4ade80"/>
+        <circle cx="108" cy="310" r="8" fill="#fbbf24"/>
+      </g>
+      <rect x="128" y="172" width="56" height="12" rx="6" fill="#475569"/>
+      <rect x="128" y="238" width="56" height="12" rx="6" fill="#475569"/>
+      <rect x="128" y="304" width="56" height="12" rx="6" fill="#475569"/>
+      <rect x="128" y="172" width="56" height="4" rx="2" fill="#94a3b8"/>
+      <rect x="128" y="238" width="56" height="4" rx="2" fill="#94a3b8"/>
+      <rect x="128" y="304" width="56" height="4" rx="2" fill="#94a3b8"/>
+    </g>
+
+    <!-- 3D transfer arrows -->
+    <g filter="url(#lift)" transform="translate(0 -28)">
+      <path transform="translate(10 6)" d="M330 118 L412 200 L366 200 L366 262 L294 262 L294 200 L248 200 Z" fill="#166534"/>
+      <path d="M330 118 L412 200 L366 200 L366 262 L294 262 L294 200 L248 200 Z" fill="url(#upFace)"/>
+      <path d="M330 118 L412 200 L366 200" fill="#ffffff" fill-opacity="0.22"/>
+
+      <path transform="translate(10 7)" d="M330 424 L248 342 L294 342 L294 280 L366 280 L366 342 L412 342 Z" fill="#9a3412"/>
+      <path d="M330 424 L248 342 L294 342 L294 280 L366 280 L366 342 L412 342 Z" fill="url(#downFace)"/>
+      <path d="M248 342 L330 424 L412 342" fill="#78350f" fill-opacity="0.18"/>
+    </g>
+
+    <!-- 3D FTP lettering -->
+    <g transform="translate(179 424) scale(0.66)">
+      <!-- extrusion (solid silhouettes) -->
+      <g transform="translate(5 8)" fill="url(#ftpSide)">
+        <path d="M0 0 H62 V16 H20 V30 H54 V46 H20 V76 H0 Z"/>
+        <path d="M78 0 H146 V16 H122 V76 H102 V16 H78 Z"/>
+        <path d="M162 0 H208 A26 26 0 0 1 208 52 H182 V76 H162 Z"/>
+      </g>
+      <!-- faces -->
+      <g fill="url(#ftpFace)">
+        <path d="M0 0 H62 V16 H20 V30 H54 V46 H20 V76 H0 Z"/>
+        <path d="M78 0 H146 V16 H122 V76 H102 V16 H78 Z"/>
+        <path fill-rule="evenodd" d="M162 0 H208 A26 26 0 0 1 208 52 H182 V76 H162 Z M182 16 H208 A10 10 0 0 1 208 36 H182 Z"/>
+      </g>
+      <g fill="#ffffff" fill-opacity="0.55">
+        <rect x="0" y="0" width="62" height="7" rx="2"/>
+        <rect x="78" y="0" width="68" height="7" rx="2"/>
+        <rect x="162" y="0" width="46" height="7" rx="2"/>
+      </g>
+    </g>
+    </g>
   </g>
+
+  <!-- Inner rim: bright top-left, darker bottom-right -->
+  <rect x="20" y="20" width="472" height="472" rx="108" fill="none" stroke="#ffffff" stroke-opacity="0.42" stroke-width="5"/>
+  <rect x="26" y="26" width="460" height="460" rx="102" fill="none" stroke="#082f49" stroke-opacity="0.28" stroke-width="3"/>
 </svg>

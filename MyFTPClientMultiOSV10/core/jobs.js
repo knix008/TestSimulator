@@ -36,6 +36,7 @@ class Job extends EventEmitter {
     this._cancelled = false;
     this._conflictResolver = null;
     this._applyAll = null;     // 'overwrite' | 'skip' once "apply to all" was ticked
+    this._conflictQueue = Promise.resolve();
     this._emitTimer = null;
     this._cancelHooks = new Set();
     this._speedSamples = [];   // [time, bytes] over the last ~3 s
@@ -92,13 +93,18 @@ class Job extends EventEmitter {
   // 'overwrite' | 'skip' | 'cancel'. Remembers the answer when the user
   // ticked "apply to all".
   askConflict(info) {
-    if (this._applyAll) return Promise.resolve(this._applyAll);
-    if (this._cancelled) return Promise.resolve('cancel');
-    return new Promise((resolve) => {
-      this.conflict = info;
-      this._conflictResolver = resolve;
-      this._emit(true);
-    });
+    const run = () => {
+      if (this._applyAll) return Promise.resolve(this._applyAll);
+      if (this._cancelled) return Promise.resolve('cancel');
+      return new Promise((resolve) => {
+        this.conflict = info;
+        this._conflictResolver = resolve;
+        this._emit(true);
+      });
+    };
+    const next = this._conflictQueue.then(run, run);
+    this._conflictQueue = next.catch(() => {});
+    return next;
   }
 
   resolveConflict(answer, applyAll) {

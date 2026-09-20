@@ -6,6 +6,7 @@
 'use strict';
 
 const { createClient } = require('./remote');
+const { cancelledError } = require('./jobs');
 
 let nextId = 1;
 
@@ -24,8 +25,46 @@ class Connections {
     await client.connect(ac.signal);
     const id = nextId++;
     const info = { id, protocol: client.protocol, host: client.opts.host, port: client.opts.port, user: client.opts.user || '', connectedAt: Date.now() };
-    this.map.set(id, { client, info });
+    this.map.set(id, { client, info, opts: { ...client.opts } });
     return info;
+  }
+
+  // Extra logins used as transfer workers (FTP cannot multiplex on one
+  // control connection). Failures are ignored so a server that rejects a
+  // second session still transfers on the browse connection.
+  async acquireTransferPool(id, count, signal) {
+    const entry = this.map.get(Number(id));
+    if (!entry || !entry.client.connected) {
+      const e = new Error('Not connected'); e.code = 'NOT_CONNECTED'; throw e;
+    }
+    const n = Math.max(1, Math.min(4, Math.round(Number(count) || 1)));
+    const extras = [];
+    if (n > 1) {
+      const pending = [];
+      for (let i = 1; i < n; i++) {
+        pending.push((async () => {
+          const extra = createClient(entry.opts);
+          try {
+            await extra.connect(signal);
+            extras.push(extra);
+          } catch {
+            try { await extra.close(); } catch { /* ignore */ }
+          }
+        })());
+      }
+      await Promise.all(pending);
+      if (signal && signal.aborted) {
+        for (const c of extras) { try { await c.close(); } catch { /* ignore */ } }
+        extras.length = 0;
+        throw cancelledError();
+      }
+    }
+    return {
+      clients: [entry.client, ...extras],
+      async release() {
+        for (const c of extras) { try { await c.close(); } catch { /* ignore */ } }
+      },
+    };
   }
 
   get(id) {
@@ -40,6 +79,16 @@ class Connections {
   info(id) {
     const c = this.map.get(Number(id));
     return c ? { ...c.info, connected: c.client.connected } : null;
+  }
+
+  // Credentials + protocol for a second channel (SSH shell, extra transfers).
+  getOpts(id) {
+    const c = this.map.get(Number(id));
+    if (!c || !c.client.connected) {
+      if (c) this.map.delete(Number(id));
+      const e = new Error('Not connected'); e.code = 'NOT_CONNECTED'; throw e;
+    }
+    return { ...c.opts, protocol: c.info.protocol, id: c.info.id };
   }
 
   async disconnect(id) {

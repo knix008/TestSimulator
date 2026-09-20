@@ -1,6 +1,6 @@
 // IPC bridge: exposes core/api.js to the renderer and pushes job updates
 // (connect progress, transfer progress, conflict questions) to it.
-const { ipcMain } = require('electron');
+const { ipcMain, BrowserWindow } = require('electron');
 const { serializeError } = require('../core/api');
 
 function registerIpc(api, getWindow) {
@@ -18,10 +18,14 @@ function registerIpc(api, getWindow) {
   });
 
   api.jobs.on('update', (snap) => send('job:update', snap));
+  if (api.terminals) {
+    api.terminals.on('data', (id, data, seq) => send('terminal:data', { id, data, seq }));
+    api.terminals.on('exit', (id, code) => send('terminal:exit', { id, code }));
+  }
 
   // Window buttons of the frameless window (toolbar).
-  ipcMain.on('win:control', (_event, action) => {
-    const win = getWindow();
+  ipcMain.on('win:control', (event, action) => {
+    const win = BrowserWindow.fromWebContents(event.sender) || getWindow();
     if (!win || win.isDestroyed()) return;
     if (action === 'minimize') win.minimize();
     else if (action === 'maximize') { if (win.isMaximized()) win.unmaximize(); else win.maximize(); }

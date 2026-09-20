@@ -43,6 +43,7 @@ const paths = {
   check: <><path d="M5 12l5 5L20 7" /></>,
   close: <><path d="M6 6l12 12M18 6L6 18" /></>,
   chevronRight: <><path d="M9 6l6 6-6 6" /></>,
+  chevronLeft: <><path d="M15 6l-6 6 6 6" /></>,
   chevronDown: <><path d="M6 9l6 6 6-6" /></>,
   up: <><path d="M12 19V5M5 12l7-7 7 7" /></>,
   clock: <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>,
@@ -53,6 +54,8 @@ const paths = {
   copy: <><rect x="9" y="9" width="12" height="12" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></>,
   eraser: <><path d="M20 20H8L3 15a2 2 0 0 1 0-3l8-8a2 2 0 0 1 3 0l7 7a2 2 0 0 1 0 3l-6 6" /><path d="M6 12l7 7" /></>,
   link: <><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1" /><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" /></>,
+  terminal: <><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M7 9l3 3-3 3M12 16h5" /></>,
+  plus: <><path d="M12 5v14M5 12h14" /></>,
 };
 
 // The two fat arrows of the transfer bar (filled, like the original's GDI+

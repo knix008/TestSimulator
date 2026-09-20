@@ -5,11 +5,12 @@
 //   • native bits the core cannot do on its own: reveal a file in the OS file
 //     manager ("탐색기에서 열기"), open with the default app, the clipboard
 //   • smoke-test hook: --smoke-shot=<png> screenshots the window and quits
-const { app, BrowserWindow, Menu, shell, clipboard, nativeImage } = require('electron');
+const { app, BrowserWindow, Menu, shell, clipboard, nativeImage, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
 const { registerIpc } = require('./ipc');
+const { registerDialogHandlers, closeAllDialogWindows } = require('./dialogs');
 const { createApi } = require('../core/api');
 
 const isDev = !app.isPackaged && process.env.ELECTRON_DEV === '1';
@@ -99,7 +100,7 @@ function createWindow() {
     const b = win.isMaximized() ? win.getNormalBounds() : win.getBounds();
     api.session.save({ windowBounds: { ...b, maximized: win.isMaximized() } });
   };
-  win.on('close', saveBounds);
+  win.on('close', () => { saveBounds(); closeAllDialogWindows(); });
   win.on('closed', () => { mainWin = null; });
 
   if (argValue('smoke-url')) win.loadURL(argValue('smoke-url'));
@@ -161,11 +162,13 @@ if (!gotLock) {
   });
 
   app.whenReady().then(() => {
+    const smokeMode = !!(argValue('smoke-shot') || argValue('smoke-url'));
     api = createApi({
       name: 'electron',
       version: app.getVersion(),
       buildInfo: readBuildInfo(),
       configDir: app.getPath('userData'),
+      detachedDialogs: !smokeMode,
       openPath: (p) => shell.openPath(p),
       // A folder opens in the file manager; a file is shown selected in its folder.
       revealPath: async (p) => {
@@ -174,12 +177,25 @@ if (!gotLock) {
         if (isDir) { const r = await shell.openPath(p); if (r) throw new Error(r); } else shell.showItemInFolder(p);
       },
       clipboard: { readText: () => clipboard.readText(), writeText: (t) => clipboard.writeText(t) },
+      pickFolder: async (start) => {
+        const win = BrowserWindow.getFocusedWindow() || mainWin;
+        const opts = {
+          properties: ['openDirectory', 'createDirectory'],
+          defaultPath: (start && fs.existsSync(start)) ? start : app.getPath('home'),
+        };
+        const r = win && !win.isDestroyed()
+          ? await dialog.showOpenDialog(win, opts)
+          : await dialog.showOpenDialog(opts);
+        if (r.canceled || !r.filePaths || !r.filePaths[0]) return '';
+        return r.filePaths[0];
+      },
     });
     if (process.platform === 'darwin' && fs.existsSync(path.join(__dirname, '..', 'build', 'icons', 'icon.png'))) {
       app.dock.setIcon(nativeImage.createFromPath(path.join(__dirname, '..', 'build', 'icons', 'icon.png')));
     }
     buildMenu();
     registerIpc(api, () => mainWin);
+    registerDialogHandlers(() => mainWin, () => api, isDev);
     createWindow();
 
     app.on('activate', () => {
