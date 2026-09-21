@@ -34,9 +34,9 @@ function serializeError(err) {
 function createApi({ name = 'web', version = '', buildInfo = null, configDir, openPath, revealPath, clipboard, writeImage } = {}) {
   const session = createSession(configDir);
   const terminals = createTerminals();
-  const linter = createLinter();
-  const search = createSearch();
   const toolsDir = path.join(session.dir, 'tools');
+  const linter = createLinter({ toolsDir });
+  const search = createSearch();
   const formatter = createFormatter({ toolsDir });
   const installer = createInstaller({ toolsDir });
 
@@ -111,7 +111,7 @@ function createApi({ name = 'web', version = '', buildInfo = null, configDir, op
     'git.status': async ({ cwd, cmd }) => terminals.git({ cwd, cmd }),
     // ── Linting (the language's checker, run as a separate process) ──
     'lint.run': async ({ id, path: p, name, language, text, tool }) => linter.run({ id, path: p, name, language, text, tool }),
-    'lint.tools': async ({ dir }) => linter.tools({ dir }),
+    'lint.tools': async ({ dir, refresh }) => linter.tools({ dir, refresh: !!refresh }),
     'lint.cancel': async ({ id }) => linter.cancel({ id }),
     'lint.languages': async () => linter.languages(),
     // ── Code formatting ──

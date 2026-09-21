@@ -110,13 +110,20 @@ export function SettingsDialog({ settings, encodings, shells = [], formatDir = '
     if (tab !== 'terminal') return undefined;
     call('term.shells', { refresh: true }).then((x) => { if (Array.isArray(x)) setLiveShells(x); }).catch(() => {});
   }, [tab]);
-  useEffect(() => { if (tab === 'lint' && !linters) call('lint.tools', { dir: formatDir }).then(setLinters).catch(() => setLinters({})); }, [tab, linters, formatDir]);
-  const setLinter = (lang, id) => onChange({ linters: { ...(settings.linters || {}), [lang]: id } });
+  const [lintRefresh, setLintRefresh] = useState(false);   // look again after installing a checker
+  useEffect(() => {
+    if (tab !== 'lint' || linters) return undefined;
+    const again = lintRefresh;
+    setLintRefresh(false);
+    call('lint.tools', { dir: formatDir, refresh: again }).then(setLinters).catch(() => setLinters({}));
+    return undefined;
+  }, [tab, linters, formatDir]);   // eslint-disable-line react-hooks/exhaustive-deps
   const [rescan, setRescan] = useState(false);   // the next listing looks again instead of using the cached lookups (다시 찾기, after an install)
   useEffect(() => { if (knownTools && !tools && !rescan) setTools(knownTools); }, [knownTools]);   // eslint-disable-line react-hooks/exhaustive-deps
   const [job, setJob] = useState(null);        // { tool, id } while a tool is being (re)installed from here
   const [installMsg, setInstallMsg] = useState(null);
   const [askReinstall, setAskReinstall] = useState(null);   // { lang, tool } — the tool is installed already: the user decides
+  const [askLintInstall, setAskLintInstall] = useState(null);   // { lang, tool } — a missing checker: ask before installing
   const [askReset, setAskReset] = useState(false);          // 기본값으로 되돌리기 asked
   // (Re)installs the tool chosen for a language. An installed one is only
   // replaced when the user chooses so (remove + fresh install).
@@ -134,6 +141,24 @@ export function SettingsDialog({ settings, encodings, shells = [], formatDir = '
     if (st.manual) { setInstallMsg(st.manual); return; }
     if (st.missing) { setInstallMsg(t('inst_missing_pm', { pm: st.missing, tool: tool.id })); return; }
     setJob({ tool: tool.id, id: st.id });
+  };
+  const startLintInstall = async (tool) => {
+    if (!tool.installable) { setInstallMsg(tool.hint || t('inst_no_recipe', { tool: tool.id })); return; }
+    setInstallMsg(null);
+    let st;
+    try { st = await call('install.start', { tool: tool.id }); } catch (e) { st = { error: e.message }; }
+    if (st.error) { setInstallMsg(st.error); return; }
+    if (st.manual) { setInstallMsg(st.manual); return; }
+    if (st.missing) { setInstallMsg(t('inst_missing_pm', { pm: st.missing, tool: tool.id })); return; }
+    setJob({ tool: tool.id, id: st.id });
+  };
+  const setLinter = (lang, id) => {
+    onChange({ linters: { ...(settings.linters || {}), [lang]: id } });
+    if (id === 'auto' || id === 'none') return;
+    const tool = ((linters || {})[lang] || []).find((x) => x.id === id);
+    if (!tool || tool.available) return;
+    if (!tool.installable) { setInstallMsg(tool.hint || t('inst_no_recipe', { tool: tool.id })); return; }
+    setAskLintInstall({ lang, tool });
   };
   // onTools lets the app refresh its own copy (the toolbar label) after a rescan or install.
   useEffect(() => { if (tab === 'format' && !tools) { const again = rescan; setRescan(false); call('format.tools', { dir: formatDir, refresh: again }).then((r) => { setTools(r); if (onTools) onTools(r); }).catch(() => setTools({})); } }, [tab, tools, formatDir]);   // eslint-disable-line react-hooks/exhaustive-deps
@@ -372,17 +397,23 @@ export function SettingsDialog({ settings, encodings, shells = [], formatDir = '
           buttons={[{ id: 'reinstall', label: t('inst_already_reinstall'), kind: 'primary' }, { id: 'keep', label: t('inst_already_keep') }, { id: 'cancel', label: t('cancel') }]}
           onResult={(r) => { const a = askReinstall; setAskReinstall(null); if (r === 'reinstall' || r === 'keep') installTool(a.lang, r); }} />
       )}
+      {askLintInstall && (
+        <ConfirmDialog title={t('inst_ask_title', { tool: askLintInstall.tool.id })} message={t('inst_ask_lint_msg', { tool: askLintInstall.tool.id, lang: askLintInstall.lang })} icon="download" kind="info"
+          buttons={[{ id: 'yes', label: t('inst_ask_yes'), kind: 'primary' }, { id: 'cancel', label: t('cancel') }]}
+          onResult={(r) => { const a = askLintInstall; setAskLintInstall(null); if (r === 'yes') startLintInstall(a.tool); }} />
+      )}
       {askReset && (
         <ConfirmDialog title={t('set_reset_title')} message={t('set_reset_msg')} icon="refresh" kind="info"
           buttons={[{ id: 'yes', label: t('set_reset_yes'), kind: 'primary' }, { id: 'cancel', label: t('cancel') }]}
           onResult={(r) => { setAskReset(false); if (r === 'yes') onChange(resetPatch()); }} />
       )}
-      {job && <InstallDialog tool={job.tool} jobId={job.id} onResult={() => { setJob(null); setRescan(true); setTools(null); }} />}
+      {job && <InstallDialog tool={job.tool} jobId={job.id} onResult={(ok) => { setJob(null); setRescan(true); setTools(null); setLintRefresh(true); setLinters(null); if (ok) onChange({ linters: { ...(settings.linters || {}) } }); }} />}
       {tab === 'lint' && (
         <div className="settings-format">
           <label className="check settings-check"><input type="checkbox" checked={!!settings.lint} onChange={(e) => onChange({ lint: e.target.checked })} /><span>{t('set_lint')}</span></label>
           {/* the code checkers (lint): one dropdown per language — auto (the first installed), a tool, or off */}
-          <p className="muted small">{t('set_linters_hint')} <button className="btn small" onClick={() => setLinters(null)}>{t('fmt_rescan')}</button></p>
+          <p className="muted small">{t('set_linters_hint')} <button className="btn small" onClick={() => { setLintRefresh(true); setLinters(null); }}>{t('fmt_rescan')}</button></p>
+          {installMsg && <div className="danger small">{installMsg}</div>}
           <div className="format-grid">
             {!linters && <span className="muted small">…</span>}
             {linters && Object.entries(linters).map(([lang, list]) => (
@@ -391,7 +422,7 @@ export function SettingsDialog({ settings, encodings, shells = [], formatDir = '
                 <span className="row fmt-row">
                   <select value={(settings.linters || {})[lang] || 'auto'} onChange={(e) => setLinter(lang, e.target.value)}>
                     <option value="auto">{t('fmt_auto', { tool: list.some((x) => x.available) ? list.find((x) => x.available).label : t('lint_none_installed') })}</option>
-                    {list.map((x) => <option key={x.id} value={x.id}>{x.label}{x.available ? '' : ` — ${t('fmt_not_installed')}`}</option>)}
+                    {list.map((x) => <option key={x.id} value={x.id}>{x.label}{x.available ? '' : ` — ${x.installable ? t('lint_not_installed_auto') : t('fmt_not_installed_manual')}`}</option>)}
                     <option value="none">{t('fmt_none_opt')}</option>
                   </select>
                 </span>

@@ -381,8 +381,8 @@ async function lintWith(language, ctx, choice = 'auto') {
   const list = choice && choice !== 'auto' ? tools.filter((t) => t.id === choice) : tools;
   if (choice && choice !== 'auto' && !list.length) return { tool: null, error: `unknown tool: ${choice}` };
   for (const t of list) {
-    const exe = t.find(ctx);
-    if (!exe) { if (choice !== 'auto') return { tool: t.id, error: `${t.label}: not installed` }; continue; }
+    const exe = resolveLintExe(t, ctx);
+    if (!exe) { if (choice !== 'auto') return { tool: t.id, error: `${t.label}: not installed`, notInstalled: true, installable: installInfo(t.id).installable, hint: installInfo(t.id).hint }; continue; }
     const r = await t.run(ctx, exe);
     if (r) return r;
     if (choice !== 'auto') return { tool: t.id, error: `${t.label}: not usable` };
@@ -390,19 +390,67 @@ async function lintWith(language, ctx, choice = 'auto') {
   return { tool: null };
 }
 // For the settings: every language, its tools and whether each is installed (looked up from `dir`).
-function lintTools(dir) {
-  const ctx = { dir: dir || os.homedir() };
+function recipeOf(id) {
+  const rec = require('./install').RECIPES[id];
+  return rec || null;
+}
+function appNpmBin(name, toolsDir) {
+  if (!toolsDir || !name) return null;
+  const bin = path.join(toolsDir, 'node', 'node_modules', '.bin', process.platform === 'win32' ? `${name}.cmd` : name);
+  return fs.existsSync(bin) ? bin : null;
+}
+function inUserBins(name) {
+  const dirs = [path.join(os.homedir(), '.local', 'bin'), path.join(os.homedir(), '.cargo', 'bin'), path.join(os.homedir(), 'go', 'bin')];
+  if (process.platform === 'win32') {
+    const roaming = process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming');
+    const local = process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local');
+    for (const root of [path.join(roaming, 'Python'), path.join(local, 'Programs', 'Python')]) {
+      try { for (const n of fs.readdirSync(root)) dirs.push(path.join(root, n, 'Scripts')); } catch { /* not there */ }
+    }
+  }
+  const exts = process.platform === 'win32' ? ['.exe', '.cmd', '.bat', ''] : [''];
+  for (const d of dirs) for (const e of exts) { const p = path.join(d, name + e); if (fs.existsSync(p)) return p; }
+  return null;
+}
+function locateByRecipe(id, toolsDir, ctx) {
+  const rec = recipeOf(id);
+  if (!rec || rec.kind === 'manual') return null;
+  const bin = rec.bin || (rec.kind === 'npm' ? rec.pkg : rec.module || rec.crate || id);
+  if (rec.kind === 'npm') return appNpmBin(bin, toolsDir) || npmTool(bin, ctx && ctx.dir);
+  if (rec.kind === 'psmodule') return null;
+  return onPath(bin) || inUserBins(bin);
+}
+function resolveLintExe(t, ctx) {
+  const hit = t.find(ctx);
+  if (hit) return hit;
+  return locateByRecipe(t.id, ctx && ctx.toolsDir, ctx);
+}
+function installInfo(id) {
+  const rec = recipeOf(id);
+  return { installable: !!(rec && rec.kind !== 'manual'), hint: rec && rec.hint ? rec.hint : null };
+}
+
+function lintTools(dir, toolsDir) {
+  const ctx = { dir: dir || os.homedir(), toolsDir };
   const out = {};
-  for (const [lang, tools] of Object.entries(LINTERS)) out[lang] = tools.map((t) => ({ id: t.id, label: t.label, available: !!t.find(ctx) }));
+  for (const [lang, tools] of Object.entries(LINTERS)) {
+    out[lang] = tools.map((t) => {
+      const info = installInfo(t.id);
+      return { id: t.id, label: t.label, available: !!resolveLintExe(t, ctx), installable: info.installable, hint: info.hint };
+    });
+  }
   return out;
 }
 
-function createLinter() {
+function createLinter({ toolsDir } = {}) {
   const running = new Map();   // doc id → { kill }
   return {
     languages: () => Object.keys(LINTERS),
-    // { dir } → { language: [{ id, label, available }] } — the settings' dropdowns
-    tools: ({ dir } = {}) => lintTools(dir),
+    // { dir, refresh } → { language: [{ id, label, available, installable }] } — the settings' dropdowns
+    tools: ({ dir, refresh: again = false } = {}) => {
+      if (again) { exeCache.clear(); resetPathIndex(); }
+      return lintTools(dir, toolsDir);
+    },
     // { id, path, name, language, text, tool } → { tool, diagnostics, error }; `tool` is the settings' choice for the language
     async run({ id, path: file, name, language, text, tool: choice }) {
       if (!LINTERS[language]) return { tool: null, diagnostics: [], supported: false };
@@ -412,7 +460,7 @@ function createLinter() {
       const signal = {};
       running.set(id, signal);
       try {
-        const r = await lintWith(language, { text, file: file || '', name: name || (file ? path.basename(file) : ''), dir: file ? path.dirname(file) : os.homedir(), signal }, choice || 'auto');
+        const r = await lintWith(language, { text, file: file || '', name: name || (file ? path.basename(file) : ''), dir: file ? path.dirname(file) : os.homedir(), signal, toolsDir }, choice || 'auto');
         if (running.get(id) !== signal) return { tool: r.tool || null, diagnostics: [], cancelled: true };
         return { tool: r.tool || null, diagnostics: (r.diagnostics || []).filter((d) => d.message).slice(0, 500), error: r.error || null, off: !!r.off };
       } catch (e) {
@@ -424,4 +472,4 @@ function createLinter() {
   };
 }
 
-module.exports = { createLinter, LINTERS, lintWith, lintTools, onPath, npmTool, resetPathIndex, exec, withTempFile };
+module.exports = { createLinter, LINTERS, lintWith, lintTools, resolveLintExe, onPath, npmTool, resetPathIndex, exec, withTempFile };
