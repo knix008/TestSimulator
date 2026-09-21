@@ -102,6 +102,9 @@ function nodeCands(toolsDir) {
   if (process.platform === 'win32') {
     out.push(path.join(process.env.ProgramFiles || 'C:\\Program Files', 'nodejs', 'node.exe'));
     out.push(path.join(local, 'Programs', 'nodejs', 'node.exe'));
+    out.push(path.join(os.homedir(), 'scoop', 'apps', 'nodejs', 'current', 'node.exe'));
+    out.push(path.join(os.homedir(), '.volta', 'bin', 'node.exe'));
+    if (process.env.NVM_SYMLINK) out.push(path.join(process.env.NVM_SYMLINK, 'node.exe'));
   } else {
     out.push('/usr/local/bin/node', '/usr/bin/node');
   }

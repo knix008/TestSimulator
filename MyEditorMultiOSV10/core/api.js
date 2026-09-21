@@ -35,6 +35,7 @@ function createApi({ name = 'web', version = '', buildInfo = null, configDir, op
   const session = createSession(configDir);
   const terminals = createTerminals();
   const toolsDir = path.join(session.dir, 'tools');
+  try { require('./pathenv').applyToolPath(toolsDir); } catch { /* optional */ }
   const linter = createLinter({ toolsDir });
   const search = createSearch();
   const formatter = createFormatter({ toolsDir });

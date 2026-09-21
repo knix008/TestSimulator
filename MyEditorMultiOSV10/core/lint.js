@@ -120,7 +120,7 @@ function unwrapNpmShim(cmd) {
   if (!m) return null;
   const script = path.normalize(path.join(path.dirname(cmd), m[1]));
   if (!fs.existsSync(script)) return null;
-  const node = (() => { try { return require('./runtime').findNode(binsToolsDir) || onPath('node'); } catch { return onPath('node'); } })();
+  const node = nodeExe(binsToolsDir);
   if (!node) return null;
   return { cmd: node, pre: [script] };
 }
@@ -132,14 +132,22 @@ function exec(cmd, args, opts = {}) {
   return execRaw(cmd, args, opts);
 }
 
+function isElectronBin(cmd) {
+  if (!cmd) return false;
+  if (process.versions && process.versions.electron && cmd === process.execPath) return true;
+  return /^(electron|my editor|myeditor)(\.exe)?$/i.test(path.basename(String(cmd)));
+}
+
 function execRaw(cmd, args, { cwd, input, timeout = TIMEOUT, signal, env } = {}) {
   return new Promise((resolve) => {
     let proc;
+    const runEnv = { ...(env || process.env) };
+    if (isElectronBin(cmd)) runEnv.ELECTRON_RUN_AS_NODE = '1';
     const shell = process.platform === 'win32' && /\.(cmd|bat)$/i.test(cmd);
     try {
       proc = shell
-        ? spawn(cmd, args, { cwd: cwd || undefined, stdio: 'pipe', windowsHide: true, shell: true, env: env || process.env })
-        : spawn(cmd, args, { cwd: cwd || undefined, stdio: 'pipe', windowsHide: true, env: env || process.env });
+        ? spawn(cmd, args, { cwd: cwd || undefined, stdio: 'pipe', windowsHide: true, shell: true, env: runEnv })
+        : spawn(cmd, args, { cwd: cwd || undefined, stdio: 'pipe', windowsHide: true, env: runEnv });
     } catch (err) { resolve({ code: -1, stdout: '', stderr: String(err.message), error: err.message }); return; }
     let stdout = '', stderr = '';
     let done = false;
@@ -206,7 +214,33 @@ function jsonErrorOffset(text) {
 // the settings' choice for the language (settings › 정렬·검사): 'auto' takes the first one installed,
 // a tool id insists on that tool (a missing one is reported), 'none' switches checking off.
 const T = (id, label, find, run) => ({ id, label, find, run });
-const nodeExe = () => (process.execPath && /node/i.test(path.basename(process.execPath)) ? process.execPath : onPath('node'));
+// Packaged "My Editor.exe" is not named node, but ELECTRON_RUN_AS_NODE makes
+// it a Node. Prefer a real node (PATH / tools/runtime), then Electron.
+function electronAsNode() {
+  return (process.versions && process.versions.electron && process.execPath) ? process.execPath : null;
+}
+function nodeExe(toolsDir) {
+  try { const n = require('./runtime').findNode(toolsDir || binsToolsDir); if (n) return n; } catch { /* circular load */ }
+  return onPath('node') || electronAsNode();
+}
+
+// External eslint/stylelint cannot read files inside app.asar. Prefer the
+// unpacked sibling, otherwise copy to %TEMP%.
+function configForChild(src) {
+  if (!src) return src;
+  const asarSep = `${path.sep}app.asar${path.sep}`;
+  if (!src.includes(asarSep)) return src;
+  const unpacked = src.replace(asarSep, `${path.sep}app.asar.unpacked${path.sep}`);
+  try { if (fs.existsSync(unpacked)) return unpacked; } catch { /* copy instead */ }
+  const dest = path.join(os.tmpdir(), `med-${path.basename(src)}`);
+  try {
+    const buf = fs.readFileSync(src);
+    let same = false;
+    try { same = fs.existsSync(dest) && fs.readFileSync(dest).equals(buf); } catch { same = false; }
+    if (!same) fs.writeFileSync(dest, buf);
+    return dest;
+  } catch { return src; }
+}
 
 const ESLINT = T('eslint', 'ESLint', ({ dir }) => npmTool('eslint', dir), eslint);
 const NODE_CHECK = T('node', 'node --check (문법만)', () => nodeExe(), async (ctx, node) => {
@@ -443,14 +477,17 @@ async function eslint({ text, file, dir, name, signal }, es, again = false) {
   const n = (file && path.basename(file)) || name || '';
   const filename = /\.(cjs|mjs|js|jsx|ts|tsx)$/i.test(n) ? n : 'stdin.js';
   const args = ['--format', 'json', '--stdin', '--stdin-filename', filename, '--no-error-on-unmatched-pattern'];
-  if (again) args.push('--no-config-lookup', '--config', ESLINT_FALLBACK);
+  if (again) args.push('--no-config-lookup', '--config', configForChild(ESLINT_FALLBACK));
   const r = await exec(es, args, { cwd: dir, input: text, signal });
   if (r.error) return { tool: 'eslint', error: r.error };
   let list;
   try { list = JSON.parse(r.stdout); } catch {
     const raw = (r.stderr || r.stdout).trim();
-    if (!again && (ESLINT_NO_CONFIG.test(raw) || !raw)) return eslint({ text, file, dir, name, signal }, es, true);
-    return { tool: 'eslint', error: raw.split('\n')[0] || 'unreadable output' };
+    if (!again && (ESLINT_NO_CONFIG.test(raw) || /Oops! Something went wrong/i.test(raw) || !raw)) {
+      return eslint({ text, file, dir, name, signal }, es, true);
+    }
+    const detail = raw.split(/\r?\n/).map((s) => s.trim()).filter((s) => s && !/^Oops!/i.test(s) && !/^-+$/.test(s))[0];
+    return { tool: 'eslint', error: detail || raw.split('\n')[0] || 'unreadable output' };
   }
   const msgs = ((list[0] && list[0].messages) || []).filter((m) => !ESLINT_IGNORED.test(m.message || ''));
   if (!again && !msgs.length && ((list[0] && list[0].messages) || []).some((m) => ESLINT_IGNORED.test(m.message || ''))) {
@@ -467,7 +504,7 @@ async function stylelintRun({ text, file, name, dir, language, signal }, sl, aga
   const ext = language === 'SCSS' ? '.scss' : language === 'LESS' ? '.less' : '.css';
   const filename = /\.(css|scss|less|sass)$/i.test(n) ? n : `stdin${ext}`;
   const args = ['--stdin', '--stdin-filename', filename, '--formatter', 'json'];
-  if (again) args.push('--config', STYLELINT_FALLBACK);
+  if (again) args.push('--config', configForChild(STYLELINT_FALLBACK));
   const r = await exec(sl, args, { cwd: dir, input: text, signal });
   if (r.error) return { tool: 'stylelint', error: r.error };
   let list;
@@ -588,17 +625,20 @@ function lintTools(dir, toolsDir) {
 function createLinter({ toolsDir } = {}) {
   const running = new Map();   // doc id → { kill }
   binsToolsDir = toolsDir || binsToolsDir;
+  try { require('./pathenv').applyToolPath(binsToolsDir); } catch { /* optional */ }
   return {
     languages: () => Object.keys(LINTERS),
     // { dir, refresh } → { language: [{ id, label, available, installable }] } — the settings' dropdowns
     tools: ({ dir, refresh: again = false } = {}) => {
       binsToolsDir = toolsDir || binsToolsDir;
+      try { require('./pathenv').applyToolPath(binsToolsDir); } catch { /* optional */ }
       if (again) forgetBins();
       return lintTools(dir, toolsDir);
     },
     // { id, path, name, language, text, tool } → { tool, diagnostics, error }; `tool` is the settings' choice for the language
     async run({ id, path: file, name, language, text, tool: choice }) {
       binsToolsDir = toolsDir || binsToolsDir;
+      try { require('./pathenv').applyToolPath(binsToolsDir); } catch { /* optional */ }
       if (!LINTERS[language]) return { tool: null, diagnostics: [], supported: false };
       if (typeof text !== 'string' || text.length > MAX_TEXT) return { tool: null, diagnostics: [], skipped: 'too large' };
       forgetBins();
@@ -619,4 +659,4 @@ function createLinter({ toolsDir } = {}) {
   };
 }
 
-module.exports = { createLinter, LINTERS, lintWith, lintTools, resolveLintExe, locateByRecipe, onPath, npmTool, resetPathIndex, forgetBins, unwrapNpmShim, exec, withTempFile };
+module.exports = { createLinter, LINTERS, lintWith, lintTools, resolveLintExe, locateByRecipe, onPath, npmTool, resetPathIndex, forgetBins, unwrapNpmShim, exec, withTempFile, nodeExe, electronAsNode, isElectronBin, configForChild };
