@@ -77,11 +77,11 @@ export function Dialog({ title, icon, kind = '', width, onClose, children, foote
 }
 
 // buttons: [{ id, label, kind: 'primary' | 'danger' | '' }] → resolve(id); close = 'cancel'
-export function ConfirmDialog({ title, message, icon = 'warning', kind = 'danger', buttons, detail, onResult }) {
+export function ConfirmDialog({ title, message, icon = 'warning', kind = 'danger', buttons, detail, width = 460, onResult }) {
   useLanguage();
   const primary = buttons.find((b) => b.kind === 'primary') || buttons[0];
   return (
-    <Dialog title={title} icon={icon} kind={kind} width={460} onClose={() => onResult('cancel')} onEnter={() => onResult(primary.id)}>
+    <Dialog title={title} icon={icon} kind={kind} width={width} onClose={() => onResult('cancel')} onEnter={() => onResult(primary.id)}>
       <p className="pre">{message}</p>
       {detail && <pre className="detail">{detail}</pre>}
       <div className="dlg-footer inner">

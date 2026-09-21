@@ -1,17 +1,27 @@
-// Installing a formatter (install.start / install.status): shows the command,
-// an activity bar while the package manager runs and its output as it
-// arrives (long poll), then the result. Cancel kills the installer.
+// Installing a formatter or checker (install.start / install.status): a
+// four-step checklist (ready → download → install → ready to use), the
+// command, then the package-manager log folded away until asked for.
 import React, { useEffect, useRef, useState } from 'react';
 import { t, useLanguage } from '../lib/i18n';
 import { call } from '../lib/backend';
 import { Icon } from '../components/Icons';
 import { Dialog } from './Dialogs';
+import { INSTALL_KIND_LABEL, installProgress } from '../lib/install-progress';
+
+function StepMark({ status }) {
+  if (status === 'done') return <Icon name="check" size={14} />;
+  if (status === 'run') return <span className="inst-spinner" />;
+  if (status === 'failed') return <Icon name="warning" size={14} />;
+  return <span className="inst-dot" />;
+}
 
 export function InstallDialog({ tool, jobId, onResult, doneLabel }) {
   useLanguage();
   const [state, setState] = useState('running');
   const [command, setCommand] = useState('');
+  const [kind, setKind] = useState('');
   const [log, setLog] = useState('');
+  const [showLog, setShowLog] = useState(false);
   const logRef = useRef(null);
 
   useEffect(() => {
@@ -26,16 +36,20 @@ export function InstallDialog({ tool, jobId, onResult, doneLabel }) {
         if (st.log.length) setLog((prev) => prev + st.log.join(''));
         since = st.seq;
         setCommand(st.command || '');
+        setKind(st.kind || '');
         setState(st.state);
+        if (st.state === 'failed' || st.state === 'cancelled') setShowLog(true);
         if (st.state !== 'running') return;
       }
     })();
     return () => { stop = true; };
   }, [jobId]);
-  useEffect(() => { const el = logRef.current; if (el) el.scrollTop = el.scrollHeight; }, [log]);
+  useEffect(() => { const el = logRef.current; if (el) el.scrollTop = el.scrollHeight; }, [log, showLog]);
 
   const running = state === 'running';
   const title = t(running ? 'inst_title' : state === 'done' ? 'inst_done' : state === 'cancelled' ? 'inst_cancelled' : 'inst_failed', { tool });
+  const steps = installProgress(state, log);
+  const kindLabel = kind && INSTALL_KIND_LABEL[kind] ? t(INSTALL_KIND_LABEL[kind]) : '';
   return (
     <Dialog title={title} icon={state === 'done' ? 'check' : state === 'failed' ? 'warning' : 'download'} kind={state === 'failed' ? 'danger' : 'info'} width={640} onClose={() => { if (running) call('install.cancel', { id: jobId }).catch(() => {}); onResult(state === 'done'); }}
       footer={running
@@ -46,9 +60,22 @@ export function InstallDialog({ tool, jobId, onResult, doneLabel }) {
           {running ? <span className="inst-spinner" /> : <Icon name={state === 'done' ? 'check' : 'warning'} size={16} />}
           <span>{running ? t('inst_running', { tool }) : title}</span>
         </div>
+        {kindLabel ? <div className="muted small">{t('inst_via', { pm: kindLabel })}</div> : null}
         {running && <div className="inst-bar"><span /></div>}
+        <ol className="inst-steps">
+          {steps.map((s, i) => (
+            <li key={s.id} className={`inst-step ${s.status}`}>
+              <StepMark status={s.status} />
+              <span className="inst-step-n">{i + 1}</span>
+              <span>{t(s.label)}</span>
+            </li>
+          ))}
+        </ol>
         {command && <div className="mono small muted inst-cmd">{command}</div>}
-        <pre className="inst-log mono selectable" ref={logRef}>{log || '…'}</pre>
+        <button type="button" className="btn small inst-log-toggle" onClick={() => setShowLog((v) => !v)}>
+          {t(showLog ? 'inst_log_hide' : 'inst_log_show')}
+        </button>
+        {showLog && <pre className="inst-log mono selectable" ref={logRef}>{log || '…'}</pre>}
       </div>
     </Dialog>
   );

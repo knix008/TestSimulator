@@ -170,7 +170,7 @@ const RUFF = T('ruff', 'ruff', () => onPath('ruff'), async ({ text, file, dir, s
   try { list = JSON.parse(r.stdout || '[]'); } catch { return { tool: 'ruff', error: r.stderr.trim() || 'unreadable output' }; }
   return { tool: 'ruff', diagnostics: list.map((d) => D(d.location && d.location.row, d.location && d.location.column, `${d.message}${d.code ? ` (${d.code})` : ''}`, /^E9|^F(63|7|82)/.test(d.code || '') ? 'error' : 'warning', { endLine: d.end_location && d.end_location.row, endCol: d.end_location && d.end_location.column, source: d.code })) };
 });
-const PYFLAKES = T('pyflakes', 'pyflakes', () => onPath('pyflakes') || onPath('python') || onPath('python3') || onPath('py'), async ({ text, dir, signal }, exe) => {
+const PYFLAKES = T('pyflakes', 'pyflakes', () => onPath('pyflakes'), async ({ text, dir, signal }, exe) => {
   // pyflakes reads stdin when given no file; through python when only the module is installed.
   const direct = /pyflakes/i.test(path.basename(exe));
   const r = direct ? await exec(exe, [], { cwd: dir, input: text, signal }) : await exec(exe, ['-m', 'pyflakes'], { cwd: dir, input: text, signal });
@@ -251,10 +251,14 @@ const KUBECONFORM = T('kubeconform', 'kubeconform', () => onPath('kubeconform'),
   let j; try { j = JSON.parse(r.stdout || '{}'); } catch { return { tool: 'kubeconform', error: (r.stderr || r.stdout).trim().split('\n')[0] || 'unreadable output' }; }
   return { tool: 'kubeconform', diagnostics: (j.resources || []).filter((x) => x.status === 'statusInvalid' || x.status === 'statusError').map((x) => D(1, 1, `${x.kind || ''} ${x.name || ''}: ${x.msg || x.status}`.trim())) };
 });
+const KUBECTL_ENV = /failed to download openapi|couldn't get current server|cannot parse invalid wire-format|invalid character '<' looking for beginning/i;
 const KUBECTL = T('kubectl', 'kubectl apply --dry-run=client', () => onPath('kubectl'), async ({ text, dir, signal }, kubectl) => {
-  const r = await exec(kubectl, ['apply', '--dry-run=client', '--validate=true', '-f', '-'], { cwd: dir, input: text, signal, timeout: 60000 });
+  // --validate=true downloads the cluster OpenAPI; a broken kubeconfig (Docker
+  // Desktop HTML login, bad proto) then paints every file as invalid.
+  const r = await exec(kubectl, ['apply', '--dry-run=client', '--validate=false', '-f', '-'], { cwd: dir, input: text, signal, timeout: 60000 });
   const err = (r.stderr || '').trim();
   if (!err) return { tool: 'kubectl', diagnostics: [] };
+  if (KUBECTL_ENV.test(err)) return { tool: 'kubectl', error: 'kubectl has no usable cluster (discovery / OpenAPI failed)' };
   const diags = [];
   for (const l of err.split('\n')) { const m = /line (\d+)/.exec(l); if (/^error|^The .* is invalid|^Error/i.test(l) || m) diags.push(D(m ? m[1] : 1, 1, l.replace(/^error(?: validating .*?)?:\s*/i, ''))); }
   return { tool: 'kubectl', diagnostics: diags.length ? diags : [D(1, 1, err.split('\n')[0])] };
@@ -265,13 +269,27 @@ const YAMLLINT = T('yamllint', 'yamllint', () => onPath('yamllint'), async ({ te
   return { tool: 'yamllint', diagnostics: parseColon(r.stdout, { severityOf: (l) => (/\[error\]/.test(l) ? 'error' : 'warning') }).map((d) => ({ ...d, message: d.message.replace(/^\[(error|warning)\]\s*/, '') })) };
 });
 const SHELLCHECK = T('shellcheck', 'shellcheck', () => onPath('shellcheck'), async ({ text, file, dir, signal }, sc) => {
-  const r = await exec(sc, ['-f', 'json', ...(file && /\.(bash|zsh|ksh)$/.test(file) ? ['-s', path.extname(file).slice(1)] : []), '-'], { cwd: dir, input: text, signal });
+  // Without -s, a buffer with no shebang is SC2148 (error) on every line.
+  const ext = file && path.extname(file).replace(/^\./, '').toLowerCase();
+  const dialect = ext === 'bash' || ext === 'zsh' || ext === 'ksh' || ext === 'sh' ? ext : 'bash';
+  const r = await exec(sc, ['-f', 'json', '-s', dialect, '-'], { cwd: dir, input: text, signal });
   if (r.error) return { tool: 'shellcheck', error: r.error };
   let list = [];
   try { list = JSON.parse(r.stdout || '[]'); } catch { return { tool: 'shellcheck', error: r.stderr.trim() || 'unreadable output' }; }
   return { tool: 'shellcheck', diagnostics: list.map((d) => D(d.line, d.column, `${d.message} (SC${d.code})`, d.level === 'error' ? 'error' : d.level === 'warning' ? 'warning' : 'info', { endLine: d.endLine, endCol: d.endColumn, source: `SC${d.code}` })) };
 });
-const PSSA = T('pssa', 'PSScriptAnalyzer', () => onPath('pwsh') || onPath('powershell'), async ({ text, dir, signal }, ps) => {
+function pssaModuleDir() {
+  const roots = [];
+  if (process.env.PSMODULEPATH) roots.push(...process.env.PSMODULEPATH.split(path.delimiter));
+  roots.push(
+    path.join(os.homedir(), 'Documents', 'PowerShell', 'Modules'),
+    path.join(os.homedir(), 'Documents', 'WindowsPowerShell', 'Modules'),
+    path.join(process.env.ProgramFiles || 'C:\\Program Files', 'PowerShell', 'Modules'),
+    path.join(process.env.ProgramFiles || 'C:\\Program Files', 'WindowsPowerShell', 'Modules'),
+  );
+  return roots.some((d) => { try { return fs.existsSync(path.join(d, 'PSScriptAnalyzer')); } catch { return false; } });
+}
+const PSSA = T('pssa', 'PSScriptAnalyzer', () => pssaModuleDir() && (onPath('pwsh') || onPath('powershell')), async ({ text, dir, signal }, ps) => {
   const script = '$s=[Console]::In.ReadToEnd(); if (-not (Get-Module -ListAvailable PSScriptAnalyzer)) { Write-Output "__NO_PSSA__"; exit 0 }; $r = Invoke-ScriptAnalyzer -ScriptDefinition $s; $r | Select-Object Line,Column,Severity,Message,RuleName | ConvertTo-Json -Compress';
   const r = await exec(ps, ['-NoProfile', '-NonInteractive', '-Command', script], { cwd: dir, input: text, signal, timeout: 60000 });
   if (r.error) return { tool: 'PSScriptAnalyzer', error: r.error };
@@ -363,12 +381,25 @@ const LINTERS = {
   Java: [JAVAC],
 };
 
-async function eslint({ text, file, dir, signal }, es) {
-  const r = await exec(es, ['--format', 'json', '--stdin', ...(file ? ['--stdin-filename', file] : []), '--no-error-on-unmatched-pattern'], { cwd: dir, input: text, signal });
+const ESLINT_FALLBACK = path.join(__dirname, 'eslint-fallback.config.cjs');
+const ESLINT_IGNORED = /File ignored because no matching configuration/i;
+const ESLINT_NO_CONFIG = /couldn't find (a )?configuration|ESLint couldn't find/i;
+
+async function eslint({ text, file, dir, signal }, es, again = false) {
+  const args = ['--format', 'json', '--stdin', ...(file ? ['--stdin-filename', file] : []), '--no-error-on-unmatched-pattern'];
+  if (again) args.push('--no-config-lookup', '--config', ESLINT_FALLBACK);
+  const r = await exec(es, args, { cwd: dir, input: text, signal });
   if (r.error) return { tool: 'eslint', error: r.error };
   let list;
-  try { list = JSON.parse(r.stdout); } catch { return { tool: 'eslint', error: (r.stderr || r.stdout).trim().split('\n')[0] || 'unreadable output' }; }
-  const msgs = (list[0] && list[0].messages) || [];
+  try { list = JSON.parse(r.stdout); } catch {
+    const raw = (r.stderr || r.stdout).trim();
+    if (!again && ESLINT_NO_CONFIG.test(raw)) return eslint({ text, file, dir, signal }, es, true);
+    return { tool: 'eslint', error: raw.split('\n')[0] || 'unreadable output' };
+  }
+  const msgs = ((list[0] && list[0].messages) || []).filter((m) => !ESLINT_IGNORED.test(m.message || ''));
+  if (!again && !msgs.length && ((list[0] && list[0].messages) || []).some((m) => ESLINT_IGNORED.test(m.message || ''))) {
+    return eslint({ text, file, dir, signal }, es, true);
+  }
   return { tool: 'eslint', diagnostics: msgs.map((m) => D(m.line, m.column, `${m.message}${m.ruleId ? ` (${m.ruleId})` : ''}`, m.fatal || m.severity === 2 ? 'error' : 'warning', { endLine: m.endLine, endCol: m.endColumn, source: m.ruleId || undefined })) };
 }
 

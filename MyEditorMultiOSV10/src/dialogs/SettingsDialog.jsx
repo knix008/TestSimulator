@@ -398,7 +398,7 @@ export function SettingsDialog({ settings, encodings, shells = [], formatDir = '
           onResult={(r) => { const a = askReinstall; setAskReinstall(null); if (r === 'reinstall' || r === 'keep') installTool(a.lang, r); }} />
       )}
       {askLintInstall && (
-        <ConfirmDialog title={t('inst_ask_title', { tool: askLintInstall.tool.id })} message={t('inst_ask_lint_msg', { tool: askLintInstall.tool.id, lang: askLintInstall.lang })} icon="download" kind="info"
+        <ConfirmDialog title={t('inst_ask_title', { tool: askLintInstall.tool.id })} message={t('inst_ask_lint_msg', { tool: askLintInstall.tool.id, lang: askLintInstall.lang })} icon="download" kind="info" width={520}
           buttons={[{ id: 'yes', label: t('inst_ask_yes'), kind: 'primary' }, { id: 'cancel', label: t('cancel') }]}
           onResult={(r) => { const a = askLintInstall; setAskLintInstall(null); if (r === 'yes') startLintInstall(a.tool); }} />
       )}
@@ -425,6 +425,7 @@ export function SettingsDialog({ settings, encodings, shells = [], formatDir = '
                     {list.map((x) => <option key={x.id} value={x.id}>{x.label}{x.available ? '' : ` — ${x.installable ? t('lint_not_installed_auto') : t('fmt_not_installed_manual')}`}</option>)}
                     <option value="none">{t('fmt_none_opt')}</option>
                   </select>
+                  {(() => { const id = (settings.linters || {})[lang]; const x = list.find((y) => y.id === id); return x && x.installable && !x.available ? <button className="icon-btn" title={t('inst_install', { tool: x.id })} onClick={() => setAskLintInstall({ lang, tool: x })}><Icon name="download" size={14} /></button> : null; })()}
                 </span>
               </React.Fragment>
             ))}

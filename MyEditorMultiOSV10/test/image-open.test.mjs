@@ -367,7 +367,7 @@ test('a binary hex dump has no text view', () => {
   assert.match(app, /A binary file stays in this view/);
   const hex = fs.readFileSync(path.join(root, 'src', 'components', 'HexView.jsx'), 'utf8');
   assert.doesNotMatch(hex, /onOpenAsText|hex_as_text/);
-  assert.match(hex, /there is no\n\/\/ text view|there is no text view/);
+  assert.match(hex, /there is no\r?\n\/\/ text view|there is no text view/);
   const i18n = fs.readFileSync(path.join(root, 'src', 'lib', 'i18n.js'), 'utf8');
   assert.doesNotMatch(i18n, /hex_as_text/);
 });

@@ -50,3 +50,20 @@ test('settings starts the install progress when a missing checker is chosen', ()
   assert.match(i18n, /lint_not_installed_auto: '설치 안 됨 · 선택하면 설치 여부 확인'/);
   assert.match(i18n, /lint_not_installed_auto: 'not installed · asked when selected'/);
 });
+
+test('install dialog shows numbered steps and hides the raw log', () => {
+  const dlg = fs.readFileSync(path.join(root, 'src', 'dialogs', 'InstallDialog.jsx'), 'utf8');
+  assert.match(dlg, /inst-steps/);
+  assert.match(dlg, /inst_log_show/);
+  assert.match(dlg, /installProgress/);
+  const steps = fs.readFileSync(path.join(root, 'src', 'lib', 'install-progress.js'), 'utf8');
+  assert.match(steps, /inst_step_ready/);
+  assert.match(steps, /inst_step_fetch/);
+  assert.match(steps, /inst_step_apply/);
+  assert.match(steps, /inst_step_finish/);
+  const i18n = fs.readFileSync(path.join(root, 'src', 'lib', 'i18n.js'), 'utf8');
+  assert.match(i18n, /1\. 패키지 관리자 확인/);
+  assert.match(i18n, /1\. Check the package manager/);
+  assert.match(i18n, /inst_step_fetch: '패키지 내려받기'/);
+  assert.match(i18n, /inst_log_show: '설치 로그 보기'/);
+});
